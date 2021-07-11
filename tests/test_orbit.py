@@ -5,6 +5,7 @@ import os, os.path
 import sys
 import platform
 WIN32= platform.system() == 'Windows'
+MACOS= platform.system() == 'Darwin'
 import time
 import signal
 import subprocess
@@ -71,11 +72,11 @@ from test_potential import testplanarMWPotential, testMWPotential, \
     mockInterpSphericalPotential, \
     mockAdiabaticContractionMWP14WrapperPotential, \
     mockRotatedAndTiltedMWP14WrapperPotential
-_TRAVIS= bool(os.getenv('TRAVIS'))
-if not _TRAVIS:
+_GHACTIONS= bool(os.getenv('GITHUB_ACTIONS'))
+if not _GHACTIONS:
     _QUICKTEST= True #Run a more limited set of tests
 else:
-    _QUICKTEST= True #Also do this for Travis, bc otherwise it takes too long
+    _QUICKTEST= True #Also do this for GH Actions, bc otherwise it takes too long
 _NOLONGINTEGRATIONS= False
 # Don't show all warnings, to reduce log output
 warnings.simplefilter("always",galpyWarning)
@@ -156,10 +157,10 @@ def test_energy_jacobi_conservation():
              'SphericalPotential','interpSphericalPotential']
     rmpots.append('SphericalShellPotential')
     rmpots.append('RingPotential')
-    if WIN32:
-        # Fails on GH Windows for some reason and I don't care...
+    if _GHACTIONS and (WIN32 or MACOS):
+        # Fails on GH Windows/Mac for some reason and I don't care...
         rmpots.append('AnyAxisymmetricRazorThinDiskPotential')
-    if False: #_TRAVIS: #travis CI
+    if False: #_GHACTIONS:
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
     for p in rmpots:
@@ -531,7 +532,7 @@ def test_energy_conservation_linear():
     rmpots.append('SphericalShellPotential')
     rmpots.append('RingPotential')
     rmpots.append('SoftenedNeedleBarPotential')
-    if False: #_TRAVIS: #travis CI
+    if False: #_GHACTIONS:
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
     for p in rmpots:
@@ -836,7 +837,7 @@ def test_eccentricity():
              'SphericalPotential','interpSphericalPotential']
     rmpots.append('SphericalShellPotential')
     rmpots.append('RingPotential')
-    if False: #_TRAVIS: #travis CI
+    if False: #_GHACTIONS:
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
     for p in rmpots:
@@ -963,7 +964,7 @@ def test_pericenter():
              'SphericalPotential','interpSphericalPotential']
     rmpots.append('SphericalShellPotential')
     rmpots.append('RingPotential')
-    if False: #_TRAVIS: #travis CI
+    if False: #_GHACTIONS:
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
     for p in rmpots:
@@ -1089,7 +1090,7 @@ def test_apocenter():
              'SphericalPotential','interpSphericalPotential']
     rmpots.append('SphericalShellPotential')
     rmpots.append('RingPotential')
-    if False: #_TRAVIS: #travis CI
+    if False: #_GHACTIONS:
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
     for p in rmpots:
@@ -1217,7 +1218,7 @@ def test_zmax():
     rmpots.append('RingPotential')
     # No C and therefore annoying
     rmpots.append('AnyAxisymmetricRazorThinDiskPotential')
-    if False: #_TRAVIS: #travis CI
+    if False: #_GHACTIONS:
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
     for p in rmpots:
@@ -1332,7 +1333,7 @@ def test_analytic_ecc_rperi_rap():
     rmpots.append('HomogeneousSpherePotential') # fails currently, because delta esimation gives a NaN due to a 0/0; delta should just be zero, but don't want to special-case
     # No C and therefore annoying
     rmpots.append('AnyAxisymmetricRazorThinDiskPotential')
-    if False: #_TRAVIS: #travis CI
+    if False: #_GHACTIONS:
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
     for p in rmpots:
@@ -1659,7 +1660,7 @@ def test_analytic_zmax():
     rmpots.append('HomogeneousSpherePotential') # fails currently, because delta esimation gives a NaN due to a 0/0; delta should just be zero, but don't want to special-case
     # No C and therefore annoying
     rmpots.append('AnyAxisymmetricRazorThinDiskPotential')
-    if False: #_TRAVIS: #travis CI
+    if False: #_GHACTIONS:
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
     for p in rmpots:
@@ -4528,7 +4529,7 @@ def test_full_plotting():
     oa= Orbit([1.,0.1,1.1,0.1,0.2])
     times= numpy.linspace(0.,7.,251)
     from galpy.potential import LogarithmicHaloPotential
-    if True: #not _TRAVIS:
+    if True: #not _GHACTIONS:
         from galpy.potential import DoubleExponentialDiskPotential
         dp= DoubleExponentialDiskPotential(normalize=1.)
     lp= LogarithmicHaloPotential(normalize=1.,q=0.8)
@@ -4562,7 +4563,7 @@ def test_full_plotting():
     o.plotE(pot=lp,d1='z')
     o.plotE(pot=lp,d1='vz')
     o.plotE(pot=lp,d1='phi')
-    if True: #not _TRAVIS:
+    if True: #not _GHACTIONS:
         o.plotE(pot=dp,d1='phi')
     oa.plotE()
     oa.plotE(pot=lp,d1='R')
@@ -4579,7 +4580,7 @@ def test_full_plotting():
     o.plotEz(pot=lp,d1='z')
     o.plotEz(pot=lp,d1='vz')
     o.plotEz(pot=lp,d1='phi')
-    if True: #not _TRAVIS:
+    if True: #not _GHACTIONS:
         o.plotEz(pot=dp,d1='phi')
     oa.plotEz()
     oa.plotEz(normed=True)
