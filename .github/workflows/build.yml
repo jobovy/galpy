@@ -211,8 +211,14 @@ jobs:
          curl -O https://github.s3.amazonaws.com/downloads/jobovy/galpy/galpy-dfcorrections.tar.gz
          tar xvzf galpy-dfcorrections.tar.gz -C ./galpy/df/data/
     - name: Install package
+      if: matrix.os == 'ubuntu-latest'
       run: |
         python setup.py build_ext --no-openmp --coverage --single_ext --inplace
+        python setup.py develop --single_ext
+    - name: Install package
+      if: matrix.os == 'macos-latest'
+      run: |
+        python setup.py build_ext --no-openmp --single_ext --inplace
         python setup.py develop --single_ext
     - name: Special config
       env:
