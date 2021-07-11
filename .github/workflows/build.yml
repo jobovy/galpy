@@ -173,7 +173,7 @@ jobs:
     - name: Install the GSL
       if: matrix.os == 'macos-latest'
       run: |
-         brew install gsl --universal
+         brew install gsl
     - uses: actions/cache@v2
       with:
         path: ~/.cache/pip
