@@ -232,9 +232,9 @@ class BuildExt(build_ext):
     def build_extensions(self):
         ct= self.compiler.compiler_type
         if ct == 'unix':
-            # only add flags which pass the flag_filter
-            extra_compile_args= []
             for ext in self.extensions:
+                # only add flags which pass the flag_filter
+                extra_compile_args= []
                 for flag in ext.extra_compile_args:
                     if compiler_has_flag(self.compiler,flag):
                         extra_compile_args.append(flag)
