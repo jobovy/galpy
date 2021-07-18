@@ -100,7 +100,7 @@ class _constantbetadf(anisotropicsphericaldf):
             special.gamma(0.5*(m+n-2.*self._beta+3.))
 
 class constantbetadf(_constantbetadf):
-    """Class that implements DFs of the form f(E,L) = L^{-2\beta} f(E) with constant beta anisotropy parameter for a given density profile"""
+    """Class that implements DFs of the form :math:`f(E,L) = L^{-2\\beta} f_1(E)` with constant :math:`\\beta` anisotropy parameter for a given density profile"""
     def __init__(self,pot=None,denspot=None,beta=0.,twobeta=None,
                  rmax=None,scale=None,ro=None,vo=None):
         """
