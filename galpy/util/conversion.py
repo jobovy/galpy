@@ -5,11 +5,11 @@
 #
 ###############################################################################
 from functools import wraps
-import warnings
 import copy
 import math as m
 from ..util.config import __config__
 _APY_UNITS= __config__.getboolean('astropy','astropy-units')
+_APY_STRICT= __config__.getboolean('astropy','astropy-strict')
 _APY_LOADED= True
 try:
     from astropy import units, constants
@@ -525,37 +525,52 @@ def physical_compatible(obj,other_obj):
     return out
 
 # Parsers of different inputs with units
+def check_apy_strict(x,input_type):
+    if __config__.getboolean('astropy','astropy-strict') \
+       and not isinstance(x,units.Quantity):
+        raise ValueError("""astropy-strict config mode set that requires all"""
+                         """ non-dimensionless inputs to be specified as """
+                         """Quantities, but """
+                         """input {} with units of {} is not a Quantity"""\
+                         .format(x,input_type))
 def parse_length(x,ro=None,vo=None):
+    check_apy_strict(x,'length')
     return x.to(units.kpc).value/ro \
         if _APY_LOADED and isinstance(x,units.Quantity) \
         else x
 
 def parse_length_kpc(x):
+    check_apy_strict(x,'length')
     return x.to(units.kpc).value \
         if _APY_LOADED and isinstance(x,units.Quantity) \
         else x
 
 def parse_velocity(x,ro=None,vo=None):
+    check_apy_strict(x,'velocity')
     return x.to(units.km/units.s).value/vo \
         if _APY_LOADED and isinstance(x,units.Quantity) \
         else x
 
 def parse_velocity_kms(x):
+    check_apy_strict(x,'velocity')
     return x.to(units.km/units.s).value \
         if _APY_LOADED and isinstance(x,units.Quantity) \
         else x
 
 def parse_angle(x):
+    check_apy_strict(x,'angle')
     return x.to(units.rad).value \
         if _APY_LOADED and isinstance(x,units.Quantity) \
         else x
 
 def parse_time(x,ro=None,vo=None):
+    check_apy_strict(x,'time')
     return x.to(units.Gyr).value/time_in_Gyr(vo,ro) \
         if _APY_LOADED and isinstance(x,units.Quantity) \
         else x
 
 def parse_mass(x,ro=None,vo=None):
+    check_apy_strict(x,'mass')
     try:
         return x.to(units.pc*units.km**2/units.s**2).value\
             /mass_in_msol(vo,ro)/_G \
@@ -567,22 +582,26 @@ def parse_mass(x,ro=None,vo=None):
            else x
 
 def parse_energy(x,ro=None,vo=None):
+    check_apy_strict(x,'energy')
     return x.to(units.km**2/units.s**2).value/vo**2. \
         if _APY_LOADED and isinstance(x,units.Quantity) \
         else x
 
 def parse_angmom(x,ro=None,vo=None):
+    check_apy_strict(x,'angular momentum')
     return x.to(units.kpc*units.km/units.s).value/ro/vo \
         if _APY_LOADED and isinstance(x,units.Quantity) \
         else x
 
 def parse_frequency(x,ro=None,vo=None):
+    check_apy_strict(x,'frequency')
     return x.to(units.km/units.s/units.kpc).value/\
         freq_in_kmskpc(vo,ro) \
         if _APY_LOADED and isinstance(x,units.Quantity) \
         else x
 
 def parse_force(x,ro=None,vo=None):
+    check_apy_strict(x,'acceleration')
     try:
         return x.to(units.pc/units.Myr**2).value\
             /force_in_pcMyr2(vo,ro) \
@@ -595,6 +614,7 @@ def parse_force(x,ro=None,vo=None):
         else x
 
 def parse_dens(x,ro=None,vo=None):
+    check_apy_strict(x,'density')
     try:
         return x.to(units.Msun/units.pc**3).value\
             /dens_in_msolpc3(vo,ro) \
@@ -608,6 +628,7 @@ def parse_dens(x,ro=None,vo=None):
         else x
    
 def parse_surfdens(x,ro=None,vo=None):
+    check_apy_strict(x,'surface density')
     try:
         return x.to(units.Msun/units.pc**2).value\
             /surfdens_in_msolpc2(vo,ro) \
@@ -621,6 +642,7 @@ def parse_surfdens(x,ro=None,vo=None):
         else x
    
 def parse_numdens(x,ro=None,vo=None):
+    check_apy_strict(x,'number density')
     return x.to(1/units.kpc**3).value*ro**3 \
         if _APY_LOADED and isinstance(x,units.Quantity) \
         else x

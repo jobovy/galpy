@@ -12,7 +12,8 @@ except ImportError:
 default_configuration= {'normalization': {'ro':'8.',
                                          'vo':'220.'},
                         'astropy': {'astropy-units':'False',
-                                    'astropy-coords':'True'},
+                                    'astropy-coords':'True',
+                                    'astropy-strict':'False'},
                         'plot': {'seaborn-bovy-defaults':'False'},
                         'warnings': {'verbose':'False'}}
 default_filename= os.path.join(os.path.expanduser('~'),'.galpyrc')
@@ -89,3 +90,12 @@ def set_vo(vo):
     if _APY_LOADED and isinstance(vo,units.Quantity):
         vo= vo.to(units.km/units.s).value
     __config__.set('normalization','vo',str(vo))
+
+class ignore_astropy_strict(object):
+    """Context manager to turn off astropy-strict temporarily"""
+    def __init__(self):
+        self._initial_value= __config__.get('astropy','astropy-strict')
+    def __enter__(self):
+        __config__.set('astropy','astropy-strict','False')
+    def __exit__(self,exc_type, exc_value, exc_traceback):
+        __config__.set('astropy','astropy-strict',self._initial_value)
