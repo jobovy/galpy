@@ -2791,7 +2791,8 @@ def test_potential_ampunits_altunits():
         sigma=2.,ro=ro,vo=vo,
         b=1.3,c=0.4)
     # Check potential
-    assert numpy.fabs(pot(4.,0.,phi=1.,use_physical=False)-pot_nounits(4.,0.,phi=1.,use_physical=False)) < 10.**-8., "TriaxialGaussianPotential w/ amp w/ units does not behave as expected"   
+    assert numpy.fabs(pot(4.,0.,phi=1.,use_physical=False)-pot_nounits(4.,0.,phi=1.,use_physical=False)) < 10.**-8., "TriaxialGaussianPotential w/ amp w/ units does not behave as expected"
+    # If you add a potential here, also add a test in test_astropy_strict
     return None
 
 def test_potential_ampunits_wrongunits():
