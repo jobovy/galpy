@@ -48,7 +48,7 @@ jobs:
             REQUIRES_JAX: false
           - os: windows-latest
             python-version: 3.9
-            TEST_FILES: tests/test_quantity.py tests/test_coords.py
+            TEST_FILES: tests/test_quantity.py tests/test_coords.py tests/test_astropy_strict.py
             REQUIRES_PYNBODY: false
             # needs to be separate for different config
             REQUIRES_ASTROPY: true
