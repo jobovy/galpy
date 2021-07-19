@@ -2,7 +2,8 @@
 # to be given as quantities and all outputs to have units turned on
 import pytest
 from galpy.util import config
-config.__config__.set('astropy','astropy-strict','True')
+# Don't set astropy_strict here, because then it affects all test files run
+# through pytest at the same time
 import numpy
 from astropy import units, constants
 
@@ -16,10 +17,10 @@ def check_apy_strict_inputs_error_msg(excinfo,input_value,input_type):
         """astropy_strict error message incorrect"""
 
 def test_potential_ampunits():
+    config.__config__.set('astropy','astropy-strict','True')
     # Test that input units for potential amplitudes behave as expected
     # ~clone of the same test_quantity function
     from galpy import potential
-    from galpy.util import conversion
     ro, vo= 9.*units.kpc, 210.*units.km/units.s
     # Burkert
     with pytest.raises(ValueError) as excinfo:
