@@ -9,6 +9,7 @@
 import numpy
 from scipy import special
 from ..util import conversion
+from ..util.config import ignore_astropy_strict
 from .Potential import Potential
 class PowerSphericalPotential(Potential):
     """Class that implements spherical potentials that are derived from power-law density models
@@ -326,8 +327,10 @@ class KeplerPotential(PowerSphericalPotential):
            2010-07-10 - Written - Bovy (NYU)
 
         """
-        PowerSphericalPotential.__init__(self,amp=amp,normalize=normalize,
-                                         alpha=3.,ro=ro,vo=vo)
+        conversion.check_apy_strict(amp,'mass')
+        with ignore_astropy_strict():
+            PowerSphericalPotential.__init__(self,amp=amp,normalize=normalize,
+                                             alpha=3.,ro=ro,vo=vo)
 
     def _mass(self,R,z=None,t=0.):
         """

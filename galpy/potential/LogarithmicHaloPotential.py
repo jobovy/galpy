@@ -6,6 +6,7 @@ import warnings
 import numpy
 from .Potential import Potential, kms_to_kpcGyrDecorator
 from ..util import galpyWarning, conversion
+from ..util.config import __config__
 _CORE=10**-8
 class LogarithmicHaloPotential(Potential):
     """Class that implements the logarithmic potential
@@ -58,7 +59,10 @@ class LogarithmicHaloPotential(Potential):
 
         """
         Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='velocity2')
-        core= conversion.parse_length(core,ro=self._ro)
+        if __config__.getboolean('astropy','astropy-strict') and core == _CORE:
+            pass # Written in this way to make it clear what's happening
+        else:
+            core= conversion.parse_length(core,ro=self._ro)
         self.hasC= True
         self.hasC_dxdv= True
         self.hasC_dens= True

@@ -7,6 +7,7 @@
 import warnings
 import numpy
 from ..util import galpyWarning, conversion
+from ..util.config import ignore_astropy_strict
 from .Potential import Potential, kms_to_kpcGyrDecorator
 from .MiyamotoNagaiPotential import MiyamotoNagaiPotential
 class MN3ExponentialDiskPotential(Potential):
@@ -85,26 +86,27 @@ class MN3ExponentialDiskPotential(Potential):
                           galpyWarning)
         self._b= self._brd*self._hr
         # Now setup the various MN disks
-        if posdens:
-            self._mn3= [MiyamotoNagaiPotential(amp=_mass1_tab2(self._brd),
-                                               a=_a1_tab2(self._brd)*self._hr,
-                                               b=self._b),
-                        MiyamotoNagaiPotential(amp=_mass2_tab2(self._brd),
-                                               a=_a2_tab2(self._brd)*self._hr,
-                                               b=self._b),
-                        MiyamotoNagaiPotential(amp=_mass3_tab2(self._brd),
-                                               a=_a3_tab2(self._brd)*self._hr,
-                                               b=self._b)]
-        else:
-            self._mn3= [MiyamotoNagaiPotential(amp=_mass1_tab1(self._brd),
-                                               a=_a1_tab1(self._brd)*self._hr,
-                                               b=self._b),
-                        MiyamotoNagaiPotential(amp=_mass2_tab1(self._brd),
-                                               a=_a2_tab1(self._brd)*self._hr,
-                                               b=self._b),
-                        MiyamotoNagaiPotential(amp=_mass3_tab1(self._brd),
-                                               a=_a3_tab1(self._brd)*self._hr,
-                                               b=self._b)]
+        with ignore_astropy_strict():
+            if posdens:
+                self._mn3= [MiyamotoNagaiPotential(\
+                                amp=_mass1_tab2(self._brd),
+                                a=_a1_tab2(self._brd)*self._hr,b=self._b),
+                            MiyamotoNagaiPotential(\
+                                amp=_mass2_tab2(self._brd),
+                                a=_a2_tab2(self._brd)*self._hr,b=self._b),
+                            MiyamotoNagaiPotential(\
+                                amp=_mass3_tab2(self._brd),
+                                a=_a3_tab2(self._brd)*self._hr,b=self._b)]
+            else:
+                self._mn3= [MiyamotoNagaiPotential(\
+                                amp=_mass1_tab1(self._brd),
+                                a=_a1_tab1(self._brd)*self._hr,b=self._b),
+                            MiyamotoNagaiPotential(\
+                                amp=_mass2_tab1(self._brd),
+                                a=_a2_tab1(self._brd)*self._hr,b=self._b),
+                            MiyamotoNagaiPotential(\
+                                amp=_mass3_tab1(self._brd),
+                                a=_a3_tab1(self._brd)*self._hr,b=self._b)]
         if normalize or \
                 (isinstance(normalize,(int,float)) \
                      and not isinstance(normalize,bool)):
