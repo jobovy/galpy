@@ -44,8 +44,8 @@ class AnySphericalPotential(SphericalPotential):
         """
         SphericalPotential.__init__(self,amp=amp,ro=ro,vo=vo)
         # Parse density: does it have units? does it expect them?
+        _dens_unit_input= False
         if _APY_LOADED:
-            _dens_unit_input= False
             try:
                 dens(1)
             except (units.UnitConversionError,units.UnitTypeError):

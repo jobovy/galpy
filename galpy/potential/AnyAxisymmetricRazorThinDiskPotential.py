@@ -11,7 +11,7 @@ from ..util import conversion
 if _APY_LOADED:
     from astropy import units
 class AnyAxisymmetricRazorThinDiskPotential(Potential):
-    """Class that implements the potential of an arbitrary axisymmetric, razor-thin disk with surface density :math:`\Sigma(R)`"""
+    """Class that implements the potential of an arbitrary axisymmetric, razor-thin disk with surface density :math:`\\Sigma(R)`"""
     def __init__(self,surfdens=lambda R: 1.5*numpy.exp(-R/0.5),amp=1.,
                  normalize=False,ro=None,vo=None):
         """
@@ -44,8 +44,8 @@ class AnyAxisymmetricRazorThinDiskPotential(Potential):
         """
         Potential.__init__(self,amp=amp,ro=ro,vo=vo)
         # Parse surface density: does it have units? does it expect them?
+        _sdens_unit_input= False
         if _APY_LOADED:
-            _sdens_unit_input= False
             try:
                 surfdens(1)
             except (units.UnitConversionError,units.UnitTypeError):
