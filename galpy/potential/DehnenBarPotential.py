@@ -3,6 +3,7 @@
 ###############################################################################
 import numpy
 from ..util import conversion
+from ..util.config import ignore_astropy_strict
 from .Potential import Potential
 _degtorad= numpy.pi/180.
 class DehnenBarPotential(Potential):
@@ -59,8 +60,8 @@ class DehnenBarPotential(Potential):
 
         INPUT:
 
-           amp - amplitude to be applied to the potential (default:
-           1., see alpha or Ab below)
+           amp - dimensionless amplitude to be applied to the potential (default:
+           1., see alpha or Af below)
 
            barphi - angle between sun-GC line and the bar's major axis
            (in rad; default=25 degree; or can be Quantity))
@@ -98,17 +99,15 @@ class DehnenBarPotential(Potential):
            2017-06-23 - Converted to 3D following Monari et al. (2016) - Bovy (UofT/CCA)
 
         """
-        Potential.__init__(self,amp=amp,ro=ro,vo=vo)
+        with ignore_astropy_strict():
+            Potential.__init__(self,amp=amp,ro=ro,vo=vo)
         barphi= conversion.parse_angle(barphi)
-        rolr= conversion.parse_length(rolr,ro=self._ro)
-        rb= conversion.parse_length(rb,ro=self._ro)
-        omegab= conversion.parse_frequency(omegab,ro=self._ro,vo=self._vo)
-        Af= conversion.parse_energy(Af,vo=self._vo)
         self.hasC= True
         self.hasC_dxdv= True
         self.isNonAxi= True
         self._barphi= barphi
         if omegab is None:
+            rolr= conversion.parse_length(rolr,ro=self._ro)
             self._rolr= rolr
             self._chi= chi
             self._beta= beta
@@ -118,6 +117,9 @@ class DehnenBarPotential(Potential):
             self._alpha= alpha
             self._af= self._alpha/3./self._rb**3.
         else:
+            rb= conversion.parse_length(rb,ro=self._ro)
+            omegab= conversion.parse_frequency(omegab,ro=self._ro,vo=self._vo)
+            Af= conversion.parse_energy(Af,vo=self._vo)
             self._omegab= omegab
             self._rb= rb
             self._af= Af

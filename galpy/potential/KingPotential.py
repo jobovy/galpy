@@ -3,6 +3,7 @@
 ###############################################################################
 import numpy
 from ..util import conversion
+from ..util.config import ignore_astropy_strict
 from .Force import Force
 from .interpSphericalPotential import interpSphericalPotential
 class KingPotential(interpSphericalPotential):
@@ -50,7 +51,8 @@ class KingPotential(interpSphericalPotential):
         Force.__init__(self,ro=ro,vo=vo)
         newM= conversion.parse_mass(M,ro=self._ro,vo=self._vo)
         if newM != M:
-            self.turn_physical_on(ro=self._ro,vo=self._vo)
+            with ignore_astropy_strict():
+                self.turn_physical_on(ro=self._ro,vo=self._vo)
         M= newM
         rt= conversion.parse_length(rt,ro=self._ro)
         # Set up King DF

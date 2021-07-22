@@ -71,6 +71,9 @@ class AnyAxisymmetricRazorThinDiskPotential(Potential):
                 self._sdens= lambda R: conversion.parse_surfdens(surfdens(R),
                                                                  ro=self._ro,
                                                                  vo=self._vo)
+        conversion.check_apy_strict(surfdens(1.*units.kpc)
+                                    if _sdens_unit_input else surfdens(1.),
+                                    'surfacedensity')
         if not hasattr(self,'_sdens'): # unitless
             self._sdens= surfdens
         # The potential at zero, in case it's asked for

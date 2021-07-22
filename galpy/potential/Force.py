@@ -53,7 +53,8 @@ class Force(object):
             self._vo= conversion.parse_velocity_kms(vo)
             self._voSet= True
         # Parse amp if it has units
-        conversion.check_apy_strict(self._amp,amp_units)
+        if not amp_units is None:
+            conversion.check_apy_strict(self._amp,amp_units)
         if _APY_LOADED and isinstance(self._amp,units.Quantity):
             # Try a bunch of possible units
             unitFound= False

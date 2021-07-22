@@ -71,6 +71,9 @@ class AnySphericalPotential(SphericalPotential):
                 self._rawdens= lambda R: conversion.parse_dens(dens(R),
                                                                ro=self._ro,
                                                                vo=self._vo)
+        conversion.check_apy_strict(dens(1.*units.kpc)
+                                    if _dens_unit_input else dens(1.),
+                                    'density')
         if not hasattr(self,'_rawdens'): # unitless
             self._rawdens= dens
         self._rawmass= lambda r: 4.*numpy.pi\

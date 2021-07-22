@@ -36,7 +36,7 @@ class SpiralArmsPotential(Potential):
 
     """
     normalize= property() # turn off normalize
-    def __init__(self, amp=1, ro=None, vo=None, amp_units='density',
+    def __init__(self, amp=1, ro=None, vo=None, 
                  N=2, alpha=0.2, r_ref=1, phi_ref=0, Rs=0.3, H=0.125, omega=0, Cs=[1]):
 
         """
@@ -64,8 +64,7 @@ class SpiralArmsPotential(Potential):
 
             Completed - 2017-07-04 Jack Hong (UBC)
         """
-
-        Potential.__init__(self, amp=amp, ro=ro, vo=vo, amp_units=amp_units)
+        Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='density')
         alpha= conversion.parse_angle(alpha)
         r_ref= conversion.parse_length(r_ref,ro=self._ro)
         phi_ref= conversion.parse_angle(phi_ref)

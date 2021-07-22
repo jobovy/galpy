@@ -9,6 +9,7 @@
 import numpy
 from scipy import special, optimize
 from ..util import conversion
+from ..util.config import ignore_astropy_strict
 from .Potential import Potential, kms_to_kpcGyrDecorator, _APY_LOADED
 if _APY_LOADED:
     from astropy import units
@@ -1302,8 +1303,14 @@ class NFWPotential(TwoPowerSphericalPotential):
            2020-04-29 - Initialization w/ rmax and vmax - Bovy (UofT)
            
         """
-        Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='mass')
-        a= conversion.parse_length(a,ro=self._ro)
+        # Only check astropy-strict mode on amp/a when not using mass/conc
+        # or rmax/vmax initialization
+        if rmax is None and conc is None:
+            conversion.check_apy_strict(amp,'mass')
+            conversion.check_apy_strict(a,'length')
+        with ignore_astropy_strict():
+            Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='mass')
+            a= conversion.parse_length(a,ro=self._ro)
         if conc is None and rmax is None:
             self.a= a
             self.alpha= 1
@@ -1313,12 +1320,10 @@ class NFWPotential(TwoPowerSphericalPotential):
                          and not isinstance(normalize,bool)):
                 self.normalize(normalize)
         elif not rmax is None:
-            if _APY_LOADED and isinstance(rmax,units.Quantity):
-                rmax= conversion.parse_length(rmax,ro=self._ro)
-                self._roSet= True
-            if _APY_LOADED and isinstance(vmax,units.Quantity):
-                vmax= conversion.parse_velocity(vmax,vo=self._vo)
-                self._voSet= True
+            self._roSet= _APY_LOADED and isinstance(rmax,units.Quantity)
+            self._voSet= _APY_LOADED and isinstance(vmax,units.Quantity)
+            rmax= conversion.parse_length(rmax,ro=self._ro)
+            vmax= conversion.parse_velocity(vmax,vo=self._vo)
             self.a= rmax/2.1625815870646098349
             self._amp= vmax**2.*self.a/0.21621659550187311005
         else:

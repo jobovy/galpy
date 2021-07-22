@@ -67,8 +67,9 @@ The second option allows one to specify the inclination and sky position angle (
         """
         WrapperPotential.__init__(self,amp=amp,pot=pot,ro=ro,vo=vo,
                                   _init=True)
-        inclination= conversion.parse_angle(inclination)
-        sky_pa= conversion.parse_angle(sky_pa)
+        if not inclination is None:
+            inclination= conversion.parse_angle(inclination)
+            sky_pa= conversion.parse_angle(sky_pa)
         galaxy_pa= conversion.parse_angle(galaxy_pa)
         zvec, galaxy_pa= self._parse_inclination(inclination,sky_pa,
                                                  zvec,galaxy_pa)
