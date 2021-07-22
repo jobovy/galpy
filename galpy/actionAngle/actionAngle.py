@@ -140,13 +140,13 @@ class actionAngle(with_metaclass(MetaActionAngle,object)):
         HISTORY:
            2010-07-11 - Written - Bovy (NYU)
         """
-        if len(args) == 3: #R,vR.vT
+        if len(args) == 3: #R, vR, vT
             R,vR,vT= args
             self._eval_R= R
             self._eval_vR= vR
             self._eval_vT= vT
-            self._eval_z= 0.
-            self._eval_vz= 0.
+            self._eval_z= numpy.zeros_like(R)
+            self._eval_vz= numpy.zeros_like(R)
         elif len(args) == 5: #R,vR.vT, z, vz
             R,vR,vT, z, vz= args
             self._eval_R= R

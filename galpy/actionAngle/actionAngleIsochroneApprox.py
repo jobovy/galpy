@@ -572,7 +572,7 @@ class actionAngleIsochroneApprox(actionAngle):
                 R,vR,vT, z, vz, phi= args
             else:
                 R,vR,vT, phi= args
-                z, vz= 0., 0.
+                z, vz= numpy.zeros_like(R), numpy.zeros_like(R)
             if isinstance(R,float):
                 os= [Orbit([R,vR,vT,z,vz,phi])]
                 RasOrbit= True
