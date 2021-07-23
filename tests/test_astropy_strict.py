@@ -865,4 +865,309 @@ def test_potential_paramunits():
     check_apy_strict_inputs_error_msg(excinfo,-45.,'angle')
     return None
 
+def test_potential_paramunits_2d():
+    config.__config__.set('astropy','astropy-strict','True')
+    # Test that input units for potential parameters other than the amplitude
+    # behave as expected
+    from galpy import potential
+    from galpy.util import conversion
+    ro, vo= 11.*units.kpc, 180.*units.km/units.s
+    # CosmphiDiskPotential
+    with pytest.raises(ValueError) as excinfo:
+        pot= potential.CosmphiDiskPotential(amp=1.,
+                                            m=3,
+                                            phib=20.,
+                                            phio=1290.*units.km**2/units.s**2,
+                                            r1=8.*units.kpc,
+                                            rb=7.*units.kpc,
+                                            ro=ro,vo=vo)
+    check_apy_strict_inputs_error_msg(excinfo,20.,'angle')   
+    with pytest.raises(ValueError) as excinfo:
+        pot= potential.CosmphiDiskPotential(amp=1.,
+                                            m=3,
+                                            phib=20.*units.deg,
+                                            phio=1290.,
+                                            r1=8.*units.kpc,
+                                            rb=7.*units.kpc,
+                                            ro=ro,vo=vo)
+    check_apy_strict_inputs_error_msg(excinfo,1290.,'energy')   
+    with pytest.raises(ValueError) as excinfo:
+        pot= potential.CosmphiDiskPotential(amp=1.,
+                                            m=3,
+                                            phib=20.*units.deg,
+                                            phio=1290.*units.km**2/units.s**2,
+                                            r1=8.,
+                                            rb=7.*units.kpc,
+                                            ro=ro,vo=vo)
+    check_apy_strict_inputs_error_msg(excinfo,8.,'length')   
+    with pytest.raises(ValueError) as excinfo:
+        pot= potential.CosmphiDiskPotential(amp=1.,
+                                            m=3,
+                                            phib=20.*units.deg,
+                                            phio=1290.*units.km**2/units.s**2,
+                                            r1=8.*units.kpc,
+                                            rb=7.,
+                                            ro=ro,vo=vo)
+    check_apy_strict_inputs_error_msg(excinfo,7.,'length')   
+    # CosmphiDiskPotential, alternative setup
+    with pytest.raises(ValueError) as excinfo:
+        pot= potential.CosmphiDiskPotential(amp=1.,
+                                            m=3,
+                                            cp=1000.,
+                                            sp=300.*units.km**2/units.s**2.,
+                                            r1=8.*units.kpc,
+                                            ro=ro,vo=vo)
+    check_apy_strict_inputs_error_msg(excinfo,1000.,'energy')   
+    with pytest.raises(ValueError) as excinfo:
+        pot= potential.CosmphiDiskPotential(amp=1.,
+                                            m=3,
+                                            cp=1000.*units.km**2/units.s**2.,
+                                            sp=300.,
+                                            r1=8.*units.kpc,
+                                            ro=ro,vo=vo)
+    # EllipticalDiskPotential
+    with pytest.raises(ValueError) as excinfo:
+        pot= potential.EllipticalDiskPotential(amp=1.,
+                                               tform=1.,
+                                               tsteady=3.*units.Gyr,
+                                               phib=20.*units.deg,
+                                               twophio=1290.*units.km**2/units.s**2,
+                                               r1=8.*units.kpc,
+                                               ro=ro,vo=vo)
+    check_apy_strict_inputs_error_msg(excinfo,1.,'time')   
+    with pytest.raises(ValueError) as excinfo:
+        pot= potential.EllipticalDiskPotential(amp=1.,
+                                               tform=1.*units.Gyr,
+                                               tsteady=3.,
+                                               phib=20.*units.deg,
+                                               twophio=1290.*units.km**2/units.s**2,
+                                               r1=8.*units.kpc,
+                                               ro=ro,vo=vo)
+    check_apy_strict_inputs_error_msg(excinfo,3.,'time')   
+    with pytest.raises(ValueError) as excinfo:
+        pot= potential.EllipticalDiskPotential(amp=1.,
+                                               tform=1.*units.Gyr,
+                                               tsteady=3.*units.Gyr,
+                                               phib=20.,
+                                               twophio=1290.*units.km**2/units.s**2,
+                                               r1=8.*units.kpc,
+                                               ro=ro,vo=vo)
+    check_apy_strict_inputs_error_msg(excinfo,20.,'angle')   
+    with pytest.raises(ValueError) as excinfo:
+        pot= potential.EllipticalDiskPotential(amp=1.,
+                                               tform=1.*units.Gyr,
+                                               tsteady=3.*units.Gyr,
+                                               phib=20.*units.deg,
+                                               twophio=1290.,
+                                               r1=8.*units.kpc,
+                                               ro=ro,vo=vo)
+    check_apy_strict_inputs_error_msg(excinfo,1290.,'energy')   
+    with pytest.raises(ValueError) as excinfo:
+        pot= potential.EllipticalDiskPotential(amp=1.,
+                                               tform=1.*units.Gyr,
+                                               tsteady=3.*units.Gyr,
+                                               phib=20.*units.deg,
+                                               twophio=1290.*units.km**2/units.s**2,
+                                               r1=8.,
+                                               ro=ro,vo=vo)
+    check_apy_strict_inputs_error_msg(excinfo,8.,'length')   
+    # EllipticalDiskPotential, alternative setup
+    with pytest.raises(ValueError) as excinfo:
+        pot= potential.EllipticalDiskPotential(amp=1.,
+                                               tform=1.*units.Gyr,
+                                               tsteady=3.*units.Gyr,
+                                               cp=1000.,
+                                               sp=300.*units.km**2/units.s**2.,
+                                               r1=8.*units.kpc,
+                                               ro=ro,vo=vo)
+    check_apy_strict_inputs_error_msg(excinfo,1000.,'energy')   
+    with pytest.raises(ValueError) as excinfo:
+        pot= potential.EllipticalDiskPotential(amp=1.,
+                                               tform=1.*units.Gyr,
+                                               tsteady=3.*units.Gyr,
+                                               cp=1000.*units.km**2/units.s**2.,
+                                               sp=300.,
+                                               r1=8.*units.kpc,
+                                               ro=ro,vo=vo)
+    check_apy_strict_inputs_error_msg(excinfo,300.,'energy')   
+    # LopsidedDiskPotential
+    with pytest.raises(ValueError) as excinfo:
+        pot= potential.LopsidedDiskPotential(amp=1.,
+                                             phib=20.,
+                                             phio=1290.*units.km**2/units.s**2,
+                                             r1=8.*units.kpc,
+                                             ro=ro,vo=vo)
+    check_apy_strict_inputs_error_msg(excinfo,20.,'angle')   
+    with pytest.raises(ValueError) as excinfo:
+        pot= potential.LopsidedDiskPotential(amp=1.,
+                                             phib=20.*units.deg,
+                                             phio=1290.,
+                                             r1=8.*units.kpc,
+                                             ro=ro,vo=vo)
+    check_apy_strict_inputs_error_msg(excinfo,1290.,'energy')   
+    with pytest.raises(ValueError) as excinfo:
+        pot= potential.LopsidedDiskPotential(amp=1.,
+                                             phib=20.*units.deg,
+                                             phio=1290.*units.km**2/units.s**2,
+                                             r1=8.,
+                                             ro=ro,vo=vo)
+    check_apy_strict_inputs_error_msg(excinfo,8.,'length')   
+    # LopsidedDiskPotential, alternative setup
+    with pytest.raises(ValueError) as excinfo:
+        pot= potential.LopsidedDiskPotential(amp=1.,
+                                             cp=1000.,
+                                             sp=300.*units.km**2/units.s**2.,
+                                             r1=8.*units.kpc,
+                                             ro=ro,vo=vo)
+    check_apy_strict_inputs_error_msg(excinfo,1000.,'energy')   
+    with pytest.raises(ValueError) as excinfo:
+        pot= potential.LopsidedDiskPotential(amp=1.,
+                                             cp=1000.*units.km**2/units.s**2.,
+                                             sp=300.,
+                                             r1=8.*units.kpc,
+                                             ro=ro,vo=vo)
+    check_apy_strict_inputs_error_msg(excinfo,300.,'energy')   
+    # SteadyLogSpiralPotential
+    with pytest.raises(ValueError) as excinfo:
+        pot= potential.SteadyLogSpiralPotential(amp=1.,
+                                                m=4,
+                                                omegas=50.,
+                                                A=1700.*units.km**2/units.s**2,
+                                                gamma=21.*units.deg,
+                                                alpha=-9.,
+                                                ro=ro,vo=vo)
+    check_apy_strict_inputs_error_msg(excinfo,50.,'frequency')   
+    with pytest.raises(ValueError) as excinfo:
+        pot= potential.SteadyLogSpiralPotential(amp=1.,
+                                                m=4,
+                                                omegas=50.*units.km/units.s/units.kpc,
+                                                A=1700.,
+                                                gamma=21.*units.deg,
+                                                alpha=-9.,
+                                                ro=ro,vo=vo)
+    check_apy_strict_inputs_error_msg(excinfo,1700.,'energy')   
+    with pytest.raises(ValueError) as excinfo:
+        pot= potential.SteadyLogSpiralPotential(amp=1.,
+                                                m=4,
+                                                omegas=50.*units.km/units.s/units.kpc,
+                                                A=1700.*units.km**2/units.s**2,
+                                                gamma=21.,
+                                                alpha=-9.,
+                                                ro=ro,vo=vo)
+    check_apy_strict_inputs_error_msg(excinfo,21.,'angle')   
+    # SteadyLogSpiralPotential, alternative setup
+    with pytest.raises(ValueError) as excinfo:
+        pot= potential.SteadyLogSpiralPotential(amp=1.,
+                                                m=4,
+                                                omegas=50.*units.km/units.s/units.kpc,
+                                                A=1700.*units.km**2/units.s**2,
+                                                gamma=21.*units.deg,
+                                                p=10.,
+                                                ro=ro,vo=vo)
+    check_apy_strict_inputs_error_msg(excinfo,10.,'angle')   
+    # TransientLogSpiralPotential
+    with pytest.raises(ValueError) as excinfo:
+        pot= potential.TransientLogSpiralPotential(amp=1.,
+                                                   m=4,
+                                                   omegas=50.,
+                                                   A=1700.*units.km**2/units.s**2,
+                                                   gamma=21.*units.deg,
+                                                   alpha=-9.,
+                                                   to=2.*units.Gyr,
+                                                   sigma=1.*units.Gyr,
+                                                   ro=ro,vo=vo)
+    check_apy_strict_inputs_error_msg(excinfo,50.,'frequency')
+    with pytest.raises(ValueError) as excinfo:
+        pot= potential.TransientLogSpiralPotential(amp=1.,
+                                                   m=4,
+                                                   omegas=50.*units.km/units.s/units.kpc,
+                                                   A=1700.,
+                                                   gamma=21.*units.deg,
+                                                   alpha=-9.,
+                                                   to=2.*units.Gyr,
+                                                   sigma=1.*units.Gyr,
+                                                   ro=ro,vo=vo)
+    check_apy_strict_inputs_error_msg(excinfo,1700.,'energy')
+    with pytest.raises(ValueError) as excinfo:
+        pot= potential.TransientLogSpiralPotential(amp=1.,
+                                                   m=4,
+                                                   omegas=50.*units.km/units.s/units.kpc,
+                                                   A=1700.*units.km**2/units.s**2,
+                                                   gamma=21.,
+                                                   alpha=-9.,
+                                                   to=2.*units.Gyr,
+                                                   sigma=1.*units.Gyr,
+                                                   ro=ro,vo=vo)
+    check_apy_strict_inputs_error_msg(excinfo,21.,'angle')
+    with pytest.raises(ValueError) as excinfo:
+        pot= potential.TransientLogSpiralPotential(amp=1.,
+                                                   m=4,
+                                                   omegas=50.*units.km/units.s/units.kpc,
+                                                   A=1700.*units.km**2/units.s**2,
+                                                   gamma=21.*units.deg,
+                                                   alpha=-9.,
+                                                   to=2.,
+                                                   sigma=1.*units.Gyr,
+                                                   ro=ro,vo=vo)
+    check_apy_strict_inputs_error_msg(excinfo,2.,'time')
+    with pytest.raises(ValueError) as excinfo:
+        pot= potential.TransientLogSpiralPotential(amp=1.,
+                                                   m=4,
+                                                   omegas=50.*units.km/units.s/units.kpc,
+                                                   A=1700.*units.km**2/units.s**2,
+                                                   gamma=21.*units.deg,
+                                                   alpha=-9.,
+                                                   to=2.*units.Gyr,
+                                                   sigma=1.,
+                                                   ro=ro,vo=vo)
+    check_apy_strict_inputs_error_msg(excinfo,1.,'time')    
+    # TransientLogSpiralPotential, alternative setup
+    with pytest.raises(ValueError) as excinfo:
+        pot= potential.TransientLogSpiralPotential(amp=1.,
+                                                   m=4,
+                                                   omegas=50.*units.km/units.s/units.kpc,
+                                                   A=1700.*units.km**2/units.s**2,
+                                                   gamma=21.*units.deg,
+                                                   p=10.,
+                                                   to=2.*units.Gyr,
+                                                   sigma=1.*units.Gyr,
+                                                   ro=ro,vo=vo)
+    check_apy_strict_inputs_error_msg(excinfo,10.,'angle')    
+    return None
+
+def test_potential_paramunits_1d():
+    config.__config__.set('astropy','astropy-strict','True')
+    # Test that input units for potential parameters other than the amplitude
+    # behave as expected
+    from galpy import potential
+    from galpy.util import conversion
+    ro, vo= 10.5*units.kpc, 195.*units.km/units.s
+    # KGPotential
+    with pytest.raises(ValueError) as excinfo:
+        pot= potential.KGPotential(amp=1.,
+                                   K=40.,
+                                   F=0.02*units.Msun/units.pc**3,
+                                   D=200*units.pc,ro=ro,vo=vo)
+    check_apy_strict_inputs_error_msg(excinfo,40.,'acceleration')    
+    with pytest.raises(ValueError) as excinfo:
+        pot= potential.KGPotential(amp=1.,
+                                   K=40.*units.Msun/units.pc**2,
+                                   F=0.02,
+                                   D=200*units.pc,ro=ro,vo=vo)
+    check_apy_strict_inputs_error_msg(excinfo,0.02,'density')    
+    with pytest.raises(ValueError) as excinfo:
+        pot= potential.KGPotential(amp=1.,
+                                   K=40.*units.Msun/units.pc**2,
+                                   F=0.02*units.Msun/units.pc**3,
+                                   D=200.,ro=ro,vo=vo)
+    check_apy_strict_inputs_error_msg(excinfo,200.,'length')    
+    # IsothermalDiskPotential
+    with pytest.raises(ValueError) as excinfo:
+        pot= potential.IsothermalDiskPotential(amp=1.2,
+                                               sigma=30.,
+                                               ro=ro,vo=vo)
+    check_apy_strict_inputs_error_msg(excinfo,30.,'velocity')    
+    return None
+
+
 

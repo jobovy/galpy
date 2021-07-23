@@ -62,7 +62,6 @@ class SteadyLogSpiralPotential(planarPotential):
         """
         planarPotential.__init__(self,amp=amp,ro=ro,vo=vo)
         gamma= conversion.parse_angle(gamma)
-        p= conversion.parse_angle(p)
         A= conversion.parse_energy(A,vo=self._vo)
         omegas= conversion.parse_frequency(omegas,ro=self._ro,vo=self._vo)
         self._omegas= omegas
@@ -70,6 +69,7 @@ class SteadyLogSpiralPotential(planarPotential):
         self._m= m
         self._gamma= gamma
         if not p is None:
+            p= conversion.parse_angle(p)
             self._alpha= self._m/numpy.tan(p)
         else:
             self._alpha= alpha

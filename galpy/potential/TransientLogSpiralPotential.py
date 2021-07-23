@@ -66,7 +66,6 @@ class TransientLogSpiralPotential(planarPotential):
         """
         planarPotential.__init__(self,amp=amp,ro=ro,vo=vo)
         gamma= conversion.parse_angle(gamma)
-        p= conversion.parse_angle(p)
         A= conversion.parse_energy(A,vo=self._vo)
         omegas= conversion.parse_frequency(omegas,ro=self._ro,vo=self._vo)
         to= conversion.parse_time(to,ro=self._ro,vo=self._vo)
@@ -78,6 +77,7 @@ class TransientLogSpiralPotential(planarPotential):
         self._to= to
         self._sigma2= sigma**2.
         if not p is None:
+            p= conversion.parse_angle(p)
             self._alpha= self._m/numpy.tan(p)
         else:
             self._alpha= alpha

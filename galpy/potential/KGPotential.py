@@ -44,6 +44,7 @@ class KGPotential(linearPotential):
         linearPotential.__init__(self,amp=amp,ro=ro,vo=vo)
         D= conversion.parse_length(D,ro=self._ro)
         K= conversion.parse_force(K,ro=self._ro,vo=self._vo)
+        conversion.check_apy_strict(F,'density')
         if _APY_LOADED and isinstance(F,units.Quantity):
             try:
                 F= F.to(units.Msun/units.pc**3).value\

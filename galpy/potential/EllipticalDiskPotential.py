@@ -62,21 +62,21 @@ class EllipticalDiskPotential(planarPotential):
 
         """
         planarPotential.__init__(self,amp=amp,ro=ro,vo=vo)
-        phib= conversion.parse_angle(phib)
         r1= conversion.parse_length(r1,ro=self._ro)
         tform= conversion.parse_time(tform,ro=self._ro,vo=self._vo)
         tsteady= conversion.parse_time(tsteady,ro=self._ro,vo=self._vo)
-        twophio= conversion.parse_energy(twophio,vo=self._vo)
-        cp= conversion.parse_energy(cp,vo=self._vo)
-        sp= conversion.parse_energy(sp,vo=self._vo)
         # Back to old definition
         self._amp/= r1**p
         self.hasC= True
         self.hasC_dxdv= True
         if cp is None or sp is None:
+            phib= conversion.parse_angle(phib)
+            twophio= conversion.parse_energy(twophio,vo=self._vo)
             self._phib= phib
             self._twophio= twophio
         else:
+            cp= conversion.parse_energy(cp,vo=self._vo)
+            sp= conversion.parse_energy(sp,vo=self._vo)
             self._twophio= numpy.sqrt(cp*cp+sp*sp)
             self._phib= numpy.arctan2(sp,cp)/2.
         self._p= p

@@ -65,21 +65,20 @@ class CosmphiDiskPotential(planarPotential):
 
         """
         planarPotential.__init__(self,amp=amp,ro=ro,vo=vo)
-        phib= conversion.parse_angle(phib)
         r1= conversion.parse_length(r1,ro=self._ro)
-        rb= conversion.parse_length(rb,ro=self._ro)
-        phio= conversion.parse_energy(phio,vo=self._vo)
-        cp= conversion.parse_energy(cp,vo=self._vo)
-        sp= conversion.parse_energy(sp,vo=self._vo)       
         # Back to old definition
         self._r1p= r1**p
         self._amp/= self._r1p
         self.hasC= False
         self._m= int(m) # make sure this is an int
         if cp is None or sp is None:
+            phib= conversion.parse_angle(phib)
+            phio= conversion.parse_energy(phio,vo=self._vo)
             self._phib= phib
             self._mphio= phio*self._m
         else:
+            cp= conversion.parse_energy(cp,vo=self._vo)
+            sp= conversion.parse_energy(sp,vo=self._vo)       
             self._mphio= numpy.sqrt(cp*cp+sp*sp)
             self._phib= numpy.arctan(sp/cp)/self._m
             if m < 2. and cp < 0.:
@@ -90,6 +89,7 @@ class CosmphiDiskPotential(planarPotential):
             self._rbp= 1. # never used, but for p < 0 general expr fails
             self._rb2p= 1.
         else:
+            rb= conversion.parse_length(rb,ro=self._ro)
             self._rb= rb
             self._rbp= self._rb**self._p
             self._rb2p= self._rbp**2.
@@ -201,7 +201,7 @@ class LopsidedDiskPotential(CosmphiDiskPotential):
         CosmphiDiskPotential.__init__(self,
                                       amp=amp,
                                       phib=phib,
-                                      p=p,phio=phio,m=1.,
+                                      p=p,phio=phio,m=1.,r1=r1,
                                       cp=cp,sp=sp,ro=ro,vo=vo)
         self.hasC= True
         self.hasC_dxdv= True
