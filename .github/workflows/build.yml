@@ -242,7 +242,7 @@ jobs:
       env:
           TEST_FILES: ${{ matrix.TEST_FILES }}
       run: |
-        pip install 'coverage==4.1' --force-reinstall # necessary bc of backward incompatible change in 4.2 about combining reports
+        pip install coverage
         pip install pytest-cov
         # eval necessary for -k 'not ...' in TEST_FILES
         eval "pytest -v $TEST_FILES --cov galpy --cov-config .coveragerc_travis --disable-pytest-warnings --durations=0"
