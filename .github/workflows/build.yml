@@ -198,7 +198,7 @@ jobs:
     - name: Install pynbody
       if: ${{ matrix.REQUIRES_PYNBODY }}
       run: |
-         pip install --upgrade --upgrade-strategy eager git+git://github.com/h5py/h5py.git@https://github.com/h5py/h5py/commit/d4e4418a3dcfea5c978fe7fcdff0e80570bb7565#egg=h5py pandas pytz
+         pip install --upgrade --upgrade-strategy eager git+git://github.com/h5py/h5py.git@d4e4418a3dcfea5c978fe7fcdff0e80570bb7565#egg=h5py pandas pytz
          pip install --upgrade --upgrade-strategy eager wheel
          pip install git+git://github.com/pynbody/pynbody.git@cfbefac64bfad3b8d042e669ff2b36bad25813ce#egg=pynbody
     - name: Install astropy
