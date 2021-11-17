@@ -159,7 +159,9 @@ jobs:
          pip install git+git://github.com/pynbody/pynbody.git@cfbefac64bfad3b8d042e669ff2b36bad25813ce#egg=pynbody
     - name: Install astropy
       if: ${{ matrix.REQUIRES_ASTROPY }}
-      run: pip install astropy pyerfa
+      run: |
+         pip install pyerfa
+         pip install astropy==5.1.dev153 --extra-index-url https://pkgs.dev.azure.com/astropy-project/astropy/_packaging/nightly/pypi/simple/
     - name: Install astroquery
       if: ${{ matrix.REQUIRES_ASTROQUERY }}
       run: pip install astroquery
