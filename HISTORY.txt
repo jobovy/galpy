@@ -1,6 +1,11 @@
 v1.8 (XXXX-XX-XX)
 =================
 
+v1.7.1 (2021-11-17)
+===================
+
+- Main reason for this minor version is	to add a Python	3.10 wheel
+
 v1.7 (2021-07-04)
 =================
 
