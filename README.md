@@ -44,13 +44,13 @@ PYTHON VERSIONS AND DEPENDENCIES
 ================================
 
 `galpy` supports Python 3. Specifically, galpy supports Python 3.7,
-3.8, and 3.9. It should also work on earlier Python 3.\* versions, but
-this is not extensively tested on an ongoing basis and because
+3.8, 3.9, 3.10. It should also work on earlier Python 3.\* versions,
+but this is not extensively tested on an ongoing basis and because
 libraries that `galpy` depends on are dropping earlier Python 3.\*
 versions, `galpy` itself likely doesn't fully work on them.  GitHub
 Actions CI builds regularly check support for Python 3.9 (and of 3.7,
-and 3.8 using a more limited, core set of tests) on Linux and Windows;
-Appveyor builds regularly check support for Python 3.9 on
+3.8, and 3.10 using a more limited, core set of tests) on Linux and
+Windows; Appveyor builds regularly check support for Python 3.9 on
 Windows. While most of `galpy` likely works in Python 2.7, this is no
 longer tested and Python 2.7 is no longer officially supported.
 
