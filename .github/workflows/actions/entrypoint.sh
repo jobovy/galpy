@@ -2,7 +2,7 @@
 
 yum -y install gsl-devel
 
-PYTHON_VERSIONS=("cp35-cp35m" "cp36-cp36m" "cp37-cp37m" "cp38-cp38" "cp39-cp39")
+PYTHON_VERSIONS=("cp35-cp35m" "cp36-cp36m" "cp37-cp37m" "cp38-cp38" "cp39-cp39" "cp310-cp310")
 
 for PYTHON_VERSION in ${PYTHON_VERSIONS[@]}; do
     /opt/python/${PYTHON_VERSION}/bin/pip install --upgrade pip
