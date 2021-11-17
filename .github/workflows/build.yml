@@ -196,13 +196,13 @@ jobs:
       run: |
          pip install --upgrade --upgrade-strategy eager numpy scipy matplotlib numexpr setuptools cython pytest
     - name: Install pynbody
-      if: ${{ matrix.REQUIRES_PYNBODY && matrix.python-version != "3.10"}}}
+      if: ${{ matrix.REQUIRES_PYNBODY && matrix.python-version != 3.10 }}
       run: |
          pip install --upgrade --upgrade-strategy eager h5py pandas pytz         
          pip install --upgrade --upgrade-strategy eager wheel
          pip install git+git://github.com/pynbody/pynbody.git@cfbefac64bfad3b8d042e669ff2b36bad25813ce#egg=pynbody
     - name: Install pynbody (Python 3.10)
-      if: ${{ matrix.REQUIRES_PYNBODY && matrix.python-version == "3.10" }}
+      if: ${{ matrix.REQUIRES_PYNBODY && matrix.python-version == 3.10 }}
       run: |
          sudo apt-get install libhdf5-dev
          pip install --upgrade --upgrade-strategy eager --no-binary=h5py git+git://github.com/h5py/h5py.git@d4e4418a3dcfea5c978fe7fcdff0e80570bb7565#egg=h5py
