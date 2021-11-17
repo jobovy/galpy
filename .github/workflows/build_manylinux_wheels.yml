@@ -5,6 +5,7 @@ on:
   push:
     branches:    
       - master
+      - py310
     paths-ignore:
       - 'doc/**'
   pull_request:
