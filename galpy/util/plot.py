@@ -409,7 +409,7 @@ def plot3d(*args,**kwargs):
     """
     overplot= kwargs.pop('overplot',False)
     if not overplot: pyplot.figure()
-    ax=pyplot.gca(projection='3d')
+    ax= pyplot.gcf().add_subplot(projection='3d')
     ax.set_autoscale_on(False)
     xlabel= kwargs.pop('xlabel',None)
     ylabel= kwargs.pop('ylabel',None)
