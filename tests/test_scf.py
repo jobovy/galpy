@@ -495,7 +495,22 @@ def test_phiforceMatches_nfw():
     scf = SCFPotential(amp=1, Acos=Acos, Asin=Asin)
     assertmsg = "Comparing the azimuth force of NFW Potential with SCF fails at R={0}, Z={1}, phi={2}"
     compareFunctions(nfw.phiforce,scf.phiforce, assertmsg)
- 
+
+# Test that "FutureWarning: Using a non-tuple sequence for multidimensional indexing is deprecated ..." warning doesn't happen (#461)
+def test_FutureWarning_multid_indexing():
+    scf = SCFPotential()
+    array = numpy.linspace(0, 3, 100)
+    #Turn warnings into errors to test for them
+    import warnings
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always",FutureWarning)
+        ArrayTest(scf,[array,1.,0])  
+        raisedWarning= False
+        for wa in w:
+            raisedWarning= ('Using a non-tuple sequence for multidimensional indexing is deprecated' in str(wa.message))
+            if raisedWarning: break
+        assert not raisedWarning, "SCFPotential should not raise 'FutureWarning: Using a non-tuple sequence for multidimensional indexing is deprecated ...', but did"
+    return None
 
 ##############GENERIC FUNCTIONS BELOW###############
 

@@ -288,7 +288,7 @@ class SCFPotential(Potential,NumericalPotentialDerivativesMixin):
         
         li = _cartesian(shape)
         for i in range(li.shape[0]):
-            j = numpy.split(li[i], li.shape[1])
+            j= tuple(numpy.split(li[i], li.shape[1]))
             func[j] = numpy.sum(self._compute(funcTilde, R[j][0],z[j][0],phi[j][0]))
         return func
         
