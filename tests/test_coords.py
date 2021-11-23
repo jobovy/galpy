@@ -508,7 +508,7 @@ def test_lbd_to_galcencyl_galpyvsastropy():
     gc_frame= Galactocentric(galcen_distance=numpy.sqrt(8.**2.+Zsun**2.)*u.kpc,
                              z_sun=Zsun*u.kpc)
     c= c.transform_to(gc_frame)
-    c.representation= 'cylindrical'
+    c.representation_type= 'cylindrical'
     # galpy is left-handed, astropy right-handed
     assert numpy.fabs(gcRpZ[0]-c.rho.to(u.kpc).value) < 10.**-10., "lbd to galcencyl conversion using galpy's methods does not agree with astropy"
     assert numpy.fabs(gcRpZ[1]-numpy.pi+c.phi.to(u.rad).value) < 10.**-10., "lbd to galcencyl conversion using galpy's methods does not agree with astropy"
@@ -524,7 +524,7 @@ def test_lbd_to_galcencyl_galpyvsastropy():
     gc_frame= Galactocentric(galcen_distance=numpy.sqrt(8.**2.+Zsun**2.)*u.kpc,
                              z_sun=Zsun*u.kpc)
     c= c.transform_to(gc_frame)
-    c.representation= 'cylindrical'
+    c.representation_type= 'cylindrical'
     # galpy is now right-handed, astropy right-handed
     assert numpy.fabs(gcRpZ[0]-c.rho.to(u.kpc).value) < 10.**-10., "lbd to galcencyl conversion using galpy's methods does not agree with astropy"
     assert numpy.fabs(gcRpZ[1]-c.phi.to(u.rad).value) < 10.**-10., "lbd to galcencyl conversion using galpy's methods does not agree with astropy"
@@ -691,7 +691,7 @@ def test_vrpmllpmbb_to_galcenrect_galpyvsastropy():
         galcen_distance=numpy.sqrt(Rsun**2.+Zsun**2.)*u.kpc,z_sun=Zsun*u.kpc,
         galcen_v_sun=CartesianDifferential(numpy.array([-vsun[0],vsun[1],vsun[2]])*u.km/u.s))
     c= c.transform_to(gc_frame)
-    c.representation= 'cartesian'
+    c.representation_type= 'cartesian'
     # galpy is left-handed, astropy right-handed
     assert numpy.fabs(vXYZg[0]+c.v_x.to(u.km/u.s).value) < 10.**-8., "vrpmllpmbblbd to galcenrect conversion using galpy's methods does not agree with astropy"
     assert numpy.fabs(vXYZg[1]-c.v_y.to(u.km/u.s).value) < 10.**-8., "vrpmllpmbb to galcenrect conversion using galpy's methods does not agree with astropy"
@@ -713,7 +713,7 @@ def test_vrpmllpmbb_to_galcenrect_galpyvsastropy():
         galcen_distance=numpy.sqrt(Rsun**2.+Zsun**2.)*u.kpc,z_sun=Zsun*u.kpc,
         galcen_v_sun=CartesianDifferential(numpy.array([vsun[0],vsun[1],vsun[2]])*u.km/u.s))
     c= c.transform_to(gc_frame)
-    c.representation= 'cartesian'
+    c.representation_type= 'cartesian'
     # galpy is now right-handed, astropy right-handed
     assert numpy.fabs(vXYZg[0]-c.v_x.to(u.km/u.s).value) < 10.**-8., "vrpmllpmbblbd to galcenrect conversion using galpy's methods does not agree with astropy"
     assert numpy.fabs(vXYZg[1]-c.v_y.to(u.km/u.s).value) < 10.**-8., "vrpmllpmbb to galcenrect conversion using galpy's methods does not agree with astropy"
@@ -763,7 +763,7 @@ def test_vrpmllpmbb_to_galcencyl_galpyvsastropy():
         galcen_distance=numpy.sqrt(Rsun**2.+Zsun**2.)*u.kpc,z_sun=Zsun*u.kpc,
         galcen_v_sun=CartesianDifferential(numpy.array([-vsun[0],vsun[1],vsun[2]])*u.km/u.s))
     c= c.transform_to(gc_frame)
-    c.representation= 'cylindrical'
+    c.representation_type= 'cylindrical'
     # galpy is left-handed, astropy right-handed
     assert numpy.fabs(vRTZg[0]-c.d_rho.to(u.km/u.s).value) < 10.**-8., "vrpmllpmbblbd to galcencyl conversion using galpy's methods does not agree with astropy"
     assert numpy.fabs(vRTZg[1]+(c.d_phi*c.rho).to(u.km/u.s,
@@ -788,7 +788,7 @@ def test_vrpmllpmbb_to_galcencyl_galpyvsastropy():
         galcen_distance=numpy.sqrt(Rsun**2.+Zsun**2.)*u.kpc,z_sun=Zsun*u.kpc,
         galcen_v_sun=CartesianDifferential(numpy.array([vsun[0],vsun[1],vsun[2]])*u.km/u.s))
     c= c.transform_to(gc_frame)
-    c.representation= 'cylindrical'
+    c.representation_type= 'cylindrical'
     # galpy is left-handed, astropy right-handed
     assert numpy.fabs(vRTZg[0]-c.d_rho.to(u.km/u.s).value) < 10.**-8., "vrpmllpmbblbd to galcencyl conversion using galpy's methods does not agree with astropy"
     assert numpy.fabs(vRTZg[1]-(c.d_phi*c.rho).to(u.km/u.s,
