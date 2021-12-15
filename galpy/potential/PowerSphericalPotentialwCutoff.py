@@ -194,6 +194,62 @@ class PowerSphericalPotentialwCutoff(Potential):
         return R*z*(4.*numpy.pi*r**(-2.-self.alpha)*numpy.exp(-(r/self.rc)**2.)
                     -3.*self._mass(r)/r**5.)
 
+    def _ddensdr():
+        """
+        NAME:
+           _ddensdr
+        PURPOSE:
+            evaluate the radial density derivative for this potential
+        INPUT:
+           r - spherical radius
+           t= time
+        OUTPUT:
+           the density derivative
+        HISTORY:
+           2021-12-15 - Written - Lane (UofT)
+        """
+        return -self._amp*r**(-1.-self.alpha)*numpy.exp(-(r/self.rc)**2.)\
+            *(2.*r**2./self.rc**2.+self.alpha)
+
+    def _d2densdr2(self,r,t=0.):
+        """
+        NAME:
+           _d2densdr2
+        PURPOSE:
+           evaluate the second radial density derivative for this potential
+        INPUT:
+           r - spherical radius
+           t= time
+        OUTPUT:
+           the 2nd density derivative
+        HISTORY:
+           2021-12-15 - Written - Lane (UofT)
+        """
+        return self._amp*r**(-2.-self.alpha)*numpy.exp(-(r/self.rc)**2)\
+            *(self.alpha**2.+self.alpha+4*self.alpha*r**2./self.rc**2.\
+            -2.*r**2./self.rc**2.+4.*r**4./self.rc**4.)
+
+    def _ddenstwobetadr(self,r,beta=0):
+        """
+        NAME:
+           _ddenstwobetadr
+        PURPOSE:
+           evaluate the radial density derivative x r^(2beta) for this potential
+        INPUT:
+           r - spherical radius
+           beta= (0)
+        OUTPUT:
+           d (rho x r^{2beta} ) / d r
+        HISTORY:
+           2021-03-15 - Written - Lane (UofT)
+        """
+        try:
+            import jax.numpy as jnp
+        except ImportError: # pragma: no cover
+            raise ImportError("Making use of _rforce_jax function requires the google/jax library")
+        return -self._amp*jnp.exp(-(r/self.rc)**2.)/r**(self.alpha-2.*beta)\
+                         *((self.alpha-2.*beta)/r+2.*r/self.rc**2.)
+
     def _dens(self,R,z,phi=0.,t=0.):
         """
         NAME:
