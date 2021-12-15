@@ -115,6 +115,22 @@ class PlummerPotential(Potential):
         dPhidrr= -(R**2.+z**2.+self._b2)**-1.5
         return dPhidrr*z
 
+    def _rforce_jax(self,r):
+        """
+        NAME:
+           _rforce_jax
+        PURPOSE:
+           evaluate the spherical radial force for this potential using JAX
+        INPUT:
+           r - Galactocentric spherical radius
+        OUTPUT:
+           the radial force
+        HISTORY:
+           2021-12-14 - Written - Lane (UofT)
+        """
+        # No need for actual JAX!
+        return -self.amp*r*(r**2.+self._b2)**-1.5
+
     def _dens(self,R,z,phi=0.,t=0.):
         """
         NAME:
