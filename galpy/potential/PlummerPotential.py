@@ -269,10 +269,6 @@ class PlummerPotential(Potential):
         HISTORY:
            2021-03-15 - Written - Lane (UofT)
         """
-        try:
-            import jax.numpy as jnp
-        except ImportError: # pragma: no cover
-            raise ImportError("Making use of _rforce_jax function requires the google/jax library")
         return self._amp*3./4./numpy.pi*self._b2*r**(2.*beta-1.)\
             *(2.*beta*(r**2.+self._b2)**-2.5-5.*r**2.*(r**2.+self._b2)**-3.5)
 
