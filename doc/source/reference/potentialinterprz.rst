@@ -15,7 +15,7 @@ set up with ``enable_c=True``. Initialize as
 >>> ip= potential.interpRZPotential(potential.MWPotential,interpPot=True)
 
 which sets up an interpolation of the potential itself only. The
-potential and all different forces and functions (``dens``,``vcirc``,
+potential and all different forces and functions (``dens``, ``vcirc``,
 ``epifreq``, ``verticalfreq``, ``dvcircdR``) are interpolated
 separately and one needs to specify that these need to be interpolated
 separately (so, for example, one needs to set ``interpRforce=True`` to
