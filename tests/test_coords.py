@@ -1,5 +1,8 @@
-from __future__ import print_function, division
+from pkg_resources import parse_version
 import numpy
+_NUMPY_VERSION= parse_version(numpy.__version__)
+_NUMPY_1_22= (_NUMPY_VERSION > parse_version('1.21'))\
+    *(_NUMPY_VERSION < parse_version('1.23'))
 from galpy.util import coords
 import pytest
 import astropy
@@ -11,7 +14,7 @@ def test_radec_to_lb_ngp():
     ra, dec= 192.25, 27.4
     lb= coords.radec_to_lb(ra,dec,degree=True,epoch=1950.)
     assert not coords._APY_LOADED, "_APY_LOADED should be False, but isn't"
-    assert numpy.fabs(lb[1]-90.) < 10.**-6., 'Galactic latitude of the NGP given in ra,dec is not 90'
+    assert numpy.fabs(lb[1]-90.) < _NUMPY_1_22 * 1e-5 + (1-_NUMPY_1_22) * 1e-6, 'Galactic latitude of the NGP given in ra,dec is not 90'
     # Also test this for degree=False
     lb= coords.radec_to_lb(ra/180.*numpy.pi,dec/180.*numpy.pi,
                                 degree=False,epoch=1950.)
@@ -104,7 +107,7 @@ def test_radec_to_lb_sgp():
     ra, dec= 12.25, -27.4
     assert not coords._APY_LOADED, "_APY_LOADED should be False, but isn't"
     lb= coords.radec_to_lb(ra,dec,degree=True,epoch=1950.)
-    assert numpy.fabs(lb[1]+90.) < 10.**-6., 'Galactic latitude of the SGP given in ra,dec is not 90'
+    assert numpy.fabs(lb[1]+90.) < _NUMPY_1_22 * 1e-5 + (1-_NUMPY_1_22) * 1e-6, 'Galactic latitude of the SGP given in ra,dec is not 90'
     # Also test this for degree=False
     lb= coords.radec_to_lb(ra/180.*numpy.pi,dec/180.*numpy.pi,
                                 degree=False,epoch=1950.)

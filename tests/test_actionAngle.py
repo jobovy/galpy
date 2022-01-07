@@ -2379,9 +2379,9 @@ def test_actionAngleIsochroneApprox_diffsetups():
     acfsmany= numpy.array(list(aAImany.actionsFreqsAngles(obs()))).flatten()
     acfsfirstFlip= numpy.array(list(aAI.actionsFreqsAngles(obs(),_firstFlip=True))).flatten()
     #Check that they are the same
-    assert numpy.amax(numpy.fabs((acfs-acfsip)/acfs)) < 10.**-16., \
+    assert numpy.amax(numpy.fabs((acfs-acfsip)/acfs)) < 10.**-15., \
         'actionAngleIsochroneApprox calculated w/ b= and ip= set to the equivalent IsochronePotential do not agree'
-    assert numpy.amax(numpy.fabs((acfs-acfsaAIip)/acfs)) < 10.**-16., \
+    assert numpy.amax(numpy.fabs((acfs-acfsaAIip)/acfs)) < 10.**-15., \
         'actionAngleIsochroneApprox calculated w/ b= and aAI= set to the equivalent IsochronePotential do not agree'
     assert numpy.amax(numpy.fabs((acfs-acfsrk6)/acfs)) < 10.**-8., \
         'actionAngleIsochroneApprox calculated w/ integrate_method=dopr54_c and rk6_c do not agree at %g%%' %(100.*numpy.amax(numpy.fabs((acfs-acfsrk6)/acfs)))

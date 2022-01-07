@@ -3702,16 +3702,16 @@ def test_ttensor():
     return None
 
 def test_ttensor_trace():
-    # Test that the trace of the tidal tensor == 4piG density for a bunch of
+    # Test that the trace of the tidal tensor == -4piG density for a bunch of
     # potentials
     pots= [potential.KeplerPotential(normalize=1.),
            potential.LogarithmicHaloPotential(normalize=3.,q=0.8),
            potential.MiyamotoNagaiPotential(normalize=0.5,a=3.,b=0.5)]
     R,z,phi= 1.3,-0.2,2.
     for pot in pots:
-        assert numpy.fabs(numpy.trace(pot.ttensor(R,z,phi=phi))-4.*numpy.pi*pot.dens(R,z,phi=phi)), 'Trace of the tidal tensor not equal 4piG density'
+        assert numpy.fabs(numpy.trace(pot.ttensor(R,z,phi=phi))+4.*numpy.pi*pot.dens(R,z,phi=phi)) < 1e-10, 'Trace of the tidal tensor not equal 4piG density'
     # Also test a list
-    assert numpy.fabs(numpy.trace(potential.ttensor(potential.MWPotential2014,R,z,phi=phi))-4.*numpy.pi*potential.evaluateDensities(potential.MWPotential2014,R,z,phi=phi)), 'Trace of the tidal tensor not equal 4piG density'
+    assert numpy.fabs(numpy.trace(potential.ttensor(potential.MWPotential2014,R,z,phi=phi))+4.*numpy.pi*potential.evaluateDensities(potential.MWPotential2014,R,z,phi=phi)) < 1e-10, 'Trace of the tidal tensor not equal 4piG density'
     return None
 
 def test_ttensor_nonaxi():

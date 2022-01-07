@@ -584,13 +584,10 @@ def XYZ_to_lbd(X,Y,Z,degree=False):
     """
     #Whether to use degrees and scalar input is handled by decorators
     d= numpy.sqrt(X**2.+Y**2.+Z**2.)
-    b=numpy.arcsin(Z/d)
-    cosl= X/d/numpy.cos(b)
-    sinl= Y/d/numpy.cos(b)
-    l= numpy.arcsin(sinl)
-    l[cosl < 0.]= numpy.pi-l[cosl < 0.]
-    l[(cosl >= 0.)*(sinl < 0.)]+= 2.*numpy.pi
-    out= numpy.empty((len(l),3))
+    b= numpy.arcsin(Z/d)
+    l= numpy.arctan2(Y,X)
+    l[l<0.]+= 2.*numpy.pi
+    out= numpy.empty((len(d),3))
     out[:,0]= l
     out[:,1]= b
     out[:,2]= d
