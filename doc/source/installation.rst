@@ -71,11 +71,11 @@ Latest version
 
 The latest updates in galpy can be installed using::
     
-    pip install -U --no-deps git+git://github.com/jobovy/galpy.git#egg=galpy
+    pip install -U --no-deps git+https://github.com/jobovy/galpy.git#egg=galpy
 
 or::
 
-    pip install -U --no-deps --install-option="--prefix=~/local" git+git://github.com/jobovy/galpy.git#egg=galpy
+    pip install -U --no-deps --install-option="--prefix=~/local" git+https://github.com/jobovy/galpy.git#egg=galpy
 
 for a local installation. The latest updates can also be installed from the source code downloaded from github using the standard python ``setup.py`` installation::
 
@@ -87,7 +87,7 @@ or::
 
 for a local installation.
 
-Note that these latest-version commands all install directly fromm the
+Note that these latest-version commands all install directly from the
 source code and thus require you to have the GSL and a C compiler
 installed to build the C extension(s). If you are having issues with
 this, you can also download a binary wheel for the latest ``master``
@@ -106,7 +106,7 @@ Installing from a branch
 
 If you want to use a feature that is currently only available in a branch, do::
 
-   pip install -U --no-deps git+git://github.com/jobovy/galpy.git@dev#egg=galpy
+   pip install -U --no-deps git+https://github.com/jobovy/galpy.git@dev#egg=galpy
 
 to, for example, install the ``dev`` branch. 
 
@@ -341,11 +341,11 @@ setup.py`` commands above::
 
 or when using pip as follows::
 
-    pip install -U --no-deps --install-option="--no-openmp" git+git://github.com/jobovy/galpy.git#egg=galpy 
+    pip install -U --no-deps --install-option="--no-openmp" git+https://github.com/jobovy/galpy.git#egg=galpy 
 
 or::
 
-    pip install -U --no-deps --install-option="--prefix=~/local" --install-option="--no-openmp" git+git://github.com/jobovy/galpy.git#egg=galpy 
+    pip install -U --no-deps --install-option="--prefix=~/local" --install-option="--no-openmp" git+https://github.com/jobovy/galpy.git#egg=galpy 
 
 for a local installation. This might be useful if one is using the
 ``clang`` compiler, which is the new default on macs with OS X (>=
