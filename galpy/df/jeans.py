@@ -4,8 +4,7 @@ from scipy import integrate
 from ..potential.Potential import evaluateDensities, \
     evaluaterforces, evaluateSurfaceDensities
 from ..potential.Potential import flatten as flatten_pot
-from ..util.bovy_conversion import physical_conversion, \
-    potential_physical_input
+from ..util.conversion import physical_conversion, potential_physical_input
 _INVSQRTTWO= 1./numpy.sqrt(2.)
 @potential_physical_input
 @physical_conversion('velocity',pop=True)

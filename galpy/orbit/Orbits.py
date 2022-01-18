@@ -22,11 +22,11 @@ elif _SCIPY_VERSION < parse_version('0.19'): #pragma: no cover
 else:
     from scipy.special import logsumexp
 from ..util import galpyWarning, galpyWarningVerbose
-from ..util.bovy_conversion import physical_conversion, physical_compatible
-from ..util.bovy_coords import _K
-from ..util import bovy_coords as coords
-from ..util import bovy_plot as plot
-from ..util import bovy_conversion
+from ..util.conversion import physical_conversion, physical_compatible
+from ..util.coords import _K
+from ..util import coords
+from ..util import plot
+from ..util import conversion
 from ..potential import toPlanarPotential, PotentialError, evaluatePotentials,\
     evaluateplanarPotentials, evaluatelinearPotentials
 from ..potential import flatten as flatten_potential
@@ -229,7 +229,7 @@ class Orbit(object):
         if vxvv is None: # Assume one wants the Sun
             vxvv= numpy.array([0.,0.,0.,0.,0.,0.])
             radec= True
-        elif isinstance(vxvv,list):
+        elif isinstance(vxvv,(list, tuple)):
             if None in vxvv:
                 vxvv= [[0.,0.,0.,0.,0.,0.] 
                        if tvxvv is None else tvxvv
@@ -246,7 +246,7 @@ class Orbit(object):
             input_shape= vxvv.shape[:-1]
             vxvv= numpy.atleast_2d(vxvv)
             vxvv= vxvv.reshape((numpy.prod(vxvv.shape[:-1]),vxvv.shape[-1]))
-        elif isinstance(vxvv,list):
+        elif isinstance(vxvv,(list, tuple)):
             if isinstance(vxvv[0],Orbit):
                 vxvv= self._setup_parse_listofOrbits(vxvv,ro,vo,zo,solarmotion)
                 input_shape= (len(vxvv),)
@@ -300,12 +300,9 @@ class Orbit(object):
     def _setup_parse_coordtransform(self,vxvv,ro,vo,zo,solarmotion,
                                     radec,lb):
         # Parse coordinate-transformation inputs with units
-        if _APY_LOADED and isinstance(ro,units.Quantity):
-            ro= ro.to(units.kpc).value
-        if _APY_LOADED and isinstance(zo,units.Quantity):
-            zo= zo.to(units.kpc).value
-        if _APY_LOADED and isinstance(vo,units.Quantity):
-            vo= vo.to(units.km/units.s).value
+        ro= conversion.parse_length_kpc(ro)
+        zo= conversion.parse_length_kpc(zo)
+        vo= conversion.parse_velocity_kms(vo)
         # if vxvv is SkyCoord, preferentially use its ro and zo
         if _APY_LOADED and isinstance(vxvv,SkyCoord):
             if not _APY3: # pragma: no cover
@@ -348,10 +345,8 @@ class Orbit(object):
         elif isinstance(solarmotion,str) \
                 and solarmotion.lower() == 'schoenrich':
             vsolar= numpy.array([-11.1,12.24,7.25])
-        elif _APY_LOADED and isinstance(solarmotion,units.Quantity):
-            vsolar= solarmotion.to(units.km/units.s).value
         else:
-            vsolar= numpy.array(solarmotion)
+            vsolar= numpy.array(conversion.parse_velocity_kms(solarmotion))
         # If both vxvv SkyCoord with vsun and solarmotion set, check the same
         if _APY_LOADED and isinstance(vxvv,SkyCoord) \
                 and not vxvv.galcen_v_sun is None:
@@ -452,7 +447,7 @@ class Orbit(object):
             # Make sure radec and lb are False (issue #402)
             radec= False
             lb= False
-        elif not isinstance(vxvv,list):
+        elif not isinstance(vxvv,(list, tuple)):
             vxvv= vxvv.T # (norb,phasedim) --> (phasedim,norb) easier later
         if not (_APY_LOADED and isinstance(vxvv,SkyCoord)) and (radec or lb):
             if radec:
@@ -479,15 +474,9 @@ class Orbit(object):
                                              degree=True).T
                 else:
                     X,Y,Z= coords.lbd_to_XYZ(l,b,vxvv[2],degree=True).T
-                vx= vxvv[3]
-                vy= vxvv[4]
-                vz= vxvv[5]
-                if _APY_LOADED and isinstance(vx,units.Quantity):
-                    vx= vx.to(units.km/units.s).value
-                if _APY_LOADED and isinstance(vy,units.Quantity):
-                    vy= vy.to(units.km/units.s).value
-                if _APY_LOADED and isinstance(vz,units.Quantity):
-                    vz= vz.to(units.km/units.s).value
+                vx= conversion.parse_velocity_kms(vxvv[3])
+                vy= conversion.parse_velocity_kms(vxvv[4])
+                vz= conversion.parse_velocity_kms(vxvv[5])
             else:
                 if radec:
                     if _APY_LOADED and isinstance(vxvv[3],units.Quantity):
@@ -505,10 +494,8 @@ class Orbit(object):
                 else:
                     pmll, pmbb= vxvv[3], vxvv[4]
                     d, vlos= vxvv[2], vxvv[5]
-                if _APY_LOADED and isinstance(d,units.Quantity):
-                    d= d.to(units.kpc).value
-                if _APY_LOADED and isinstance(vlos,units.Quantity):
-                    vlos= vlos.to(units.km/units.s).value
+                d= conversion.parse_length_kpc(d)
+                vlos= conversion.parse_velocity_kms(vlos)
                 if _APY_LOADED and isinstance(pmll,units.Quantity):
                     pmll= pmll.to(units.mas/units.yr).value
                 if _APY_LOADED and isinstance(pmbb,units.Quantity):
@@ -853,7 +840,7 @@ class Orbit(object):
 
            use_physical= use to override Object-wide default for using a physical scale for output
 
-           matplotlib.plot inputs+bovy_plot.plot inputs
+           matplotlib.plot inputs+galpy.util.plot.plot inputs
 
         OUTPUT:
 
@@ -1028,13 +1015,9 @@ class Orbit(object):
         if not ro is False: self._roSet= True
         if not vo is False: self._voSet= True
         if not ro is None and ro:
-            if _APY_LOADED and isinstance(ro,units.Quantity):
-                ro= ro.to(units.kpc).value
-            self._ro= ro
+            self._ro= conversion.parse_length_kpc(ro)
         if not vo is None and vo:
-            if _APY_LOADED and isinstance(vo,units.Quantity):
-                vo= vo.to(units.km/units.s).value
-            self._vo= vo
+            self._vo= conversion.parse_velocity_kms(vo)
         return None
 
     def integrate(self,t,pot,method='symplec4_c',dt=None,numcores=_NUMCORES,
@@ -1062,7 +1045,8 @@ class Orbit(object):
                      'rk4_c' for a 4th-order Runge-Kutta integrator in C
                      'rk6_c' for a 6-th order Runge-Kutta integrator in C
                      'dopr54_c' for a 5-4 Dormand-Prince integrator in C
-                     'dopr853_c' for a 8-5-3 Dormand-Prince integrator in C
+                     'dop853' for a 8-5-3 Dormand-Prince integrator in Python
+                     'dop853_c' for a 8-5-3 Dormand-Prince integrator in C
 
             dt - if set, force the integrator to use this basic stepsize; must be an integer divisor of output stepsize (only works for the C integrators that use a fixed stepsize) (can be Quantity)
 
@@ -1091,12 +1075,10 @@ class Orbit(object):
         # Parse t
         if _APY_LOADED and isinstance(t,units.Quantity):
             self._integrate_t_asQuantity= True
-            t= t.to(units.Gyr).value\
-                /bovy_conversion.time_in_Gyr(self._vo,self._ro)
+            t= conversion.parse_time(t,ro=self._ro,vo=self._vo)
         else: self._integrate_t_asQuantity= False
         if _APY_LOADED and not dt is None and isinstance(dt,units.Quantity):
-            dt= dt.to(units.Gyr).value\
-                /bovy_conversion.time_in_Gyr(self._vo,self._ro)
+            dt= conversion.parse_time(dt,ro=self._ro,vo=self._vo)
         from ..potential import MWPotential
         if pot == MWPotential:
             warnings.warn("Use of MWPotential as a Milky-Way-like potential is deprecated; galpy.potential.MWPotential2014, a potential fit to a large variety of dynamical constraints (see Bovy 2015), is the preferred Milky-Way-like potential in galpy",
@@ -1170,8 +1152,11 @@ class Orbit(object):
                     out= out[:,:,:-1]
         # Store orbit internally
         self.orbit= out
-        # Check whether r ever < minr if dynamical friction is included and warn if so
-        from ..potential import ChandrasekharDynamicalFrictionForce
+        # Check whether r ever < minr if dynamical friction is included
+        # and warn if so
+        # or if using interpSphericalPotential and r < rmin or r > rmax
+        from ..potential import ChandrasekharDynamicalFrictionForce, \
+            interpSphericalPotential
         if numpy.any([isinstance(p,ChandrasekharDynamicalFrictionForce)
                       for p in flatten_potential([pot])]): # make sure pot=list
             lpot= flatten_potential([pot])
@@ -1191,6 +1176,24 @@ class Orbit(object):
                               """close to the center for an object that """
                               """sinks all the way to r=0, to avoid """
                               """numerical instabilities)""",
+                          galpyWarning)
+        elif numpy.any([isinstance(p,interpSphericalPotential)
+                      for p in flatten_potential([pot])]): # make sure pot=list
+            lpot= flatten_potential([pot])
+            isp_indx= numpy.arange(len(lpot))[\
+                numpy.array([isinstance(p,interpSphericalPotential)
+                             for p in lpot],dtype='bool')][0]
+            if numpy.any(self.r(self.t,use_physical=False) \
+                             < lpot[isp_indx]._rmin) \
+                             or numpy.any(self.r(self.t,use_physical=False) \
+                                          > lpot[isp_indx]._rmax):
+                warnings.warn("""Orbit integration with """
+                              """interpSphericalPotential visited radii """
+                              """outside of the interpolation range; """
+                              """initialize interpSphericalPotential """
+                              """with a wider radial range to avoid this """
+                              """if you wish (min/max r = {:.3f},{:.3f}"""\
+                              .format(self.rperi(),self.rap()),
                           galpyWarning)
         return None
 
@@ -1257,12 +1260,10 @@ class Orbit(object):
         # Parse t
         if _APY_LOADED and isinstance(t,units.Quantity):
             self._integrate_t_asQuantity= True
-            t= t.to(units.Gyr).value\
-                /bovy_conversion.time_in_Gyr(self._vo,self._ro)
+            t= conversion.parse_time(t,ro=self._ro,vo=self._vo)
         else: self._integrate_t_asQuantity= False
-        if _APY_LOADED and not dt is None and isinstance(dt,units.Quantity):
-            dt= dt.to(units.Gyr).value\
-                /bovy_conversion.time_in_Gyr(self._vo,self._ro)
+        if not dt is None:
+            dt= conversion.parse_time(dt,ro=self._ro,vo=self._vo)
         # Parse dxdv
         dxdv= numpy.array(dxdv)
         if dxdv.ndim > 1:
@@ -1392,7 +1393,7 @@ class Orbit(object):
            2019-03-02 - Written - Bovy (UofT)
 
         """
-        return self.orbit
+        return self.orbit.copy()
 
     @shapeDecorator
     def getOrbit_dxdv(self):
@@ -1419,7 +1420,7 @@ class Orbit(object):
            2019-05-21 - Written - Bovy (UofT)
 
         """
-        return self.orbit_dxdv[...,4:]
+        return self.orbit_dxdv[...,4:].copy()
 
     @physical_conversion('energy')
     @shapeDecorator
@@ -1802,10 +1803,7 @@ class Orbit(object):
             kwargs.pop('OmegaP',None)
         else:
             OmegaP= kwargs.pop('OmegaP')
-        if _APY_LOADED:
-            if isinstance(OmegaP,units.Quantity):
-                OmegaP = OmegaP.to(units.km/units.s/units.kpc).value \
-                    /bovy_conversion.freq_in_kmskpc(self._vo,self._ro)
+        OmegaP= conversion.parse_frequency(OmegaP,ro=self._ro,vo=self._vo)
         #Make sure you are not using physical coordinates
         old_physical= kwargs.get('use_physical',None)
         kwargs['use_physical']= False
@@ -1854,13 +1852,11 @@ class Orbit(object):
         elif self.dim() == 1:
             raise RuntimeError("Orbit action-angle methods are not supported for 1D orbits")
         delta= kwargs.pop('delta',None)
-        if _APY_LOADED and not delta is None \
-                and isinstance(delta,units.Quantity):
-            delta= delta.to(units.kpc).value/self._ro
+        if not delta is None:
+            delta= conversion.parse_length(delta,ro=self._ro)
         b= kwargs.pop('b',None)
-        if _APY_LOADED and not b is None \
-                and isinstance(b,units.Quantity):
-            b= b.to(units.kpc).value/self._ro
+        if not b is None:
+            b= conversion.parse_length(b,ro=self._ro)
         if pot is None:
             try:
                 pot= self._pot
@@ -2844,15 +2840,12 @@ class Orbit(object):
         """
         if len(args) == 0:
             try:
-                return self.t
+                return self.t.copy()
             except AttributeError:
                 return 0.
         else:
             out= args[0]
-            if _APY_LOADED and isinstance(out,units.Quantity):
-                out= out.to(units.Gyr).value\
-                    /bovy_conversion.time_in_Gyr(self._vo,self._ro)
-            return out
+            return conversion.parse_time(out,ro=self._ro,vo=self._vo)
 
     @physical_conversion('position')
     @shapeDecorator
@@ -3223,7 +3216,7 @@ class Orbit(object):
             return (thiso[2]*numpy.cos(thiso[-1])
                     +thiso[1]*numpy.sin(thiso[-1])).T
 
-    @physical_conversion('velocity')
+    @physical_conversion('frequency-kmskpc')
     @shapeDecorator
     def vphi(self,*args,**kwargs):
         """
@@ -3254,7 +3247,111 @@ class Orbit(object):
         """
         thiso= self._call_internal(*args,**kwargs)
         return (thiso[2]/thiso[0]).T
+    
+    @physical_conversion('velocity')
+    @shapeDecorator
+    def vr(self,*args,**kwargs):
+        """
+        NAME:
 
+           vr
+
+        PURPOSE:
+
+           return spherical radial velocity. For < 3 dimensions returns vR
+
+        INPUT:
+
+           t - (optional) time at which to get the radial velocity
+
+           vo= (Object-wide default) physical scale for velocities to use to convert
+
+           use_physical= use to override Object-wide default for using a physical scale for output
+
+        OUTPUT:
+
+           vr(t) [*input_shape,nt]
+
+        HISTORY:
+
+           2020-07-01 - Written - James Lane (UofT)
+
+        """
+        thiso = self._call_internal(*args,**kwargs)
+        if self.dim() == 3:
+            r = numpy.sqrt(thiso[0]**2.+thiso[3]**2.)
+            return ((thiso[0]*thiso[1]+thiso[3]*thiso[4])/r).T
+        else:
+            return thiso[1].T
+    
+    @physical_conversion('velocity')
+    @shapeDecorator
+    def vtheta(self,*args,**kwargs):
+        """
+        NAME:
+
+           vtheta
+           
+        PURPOSE:
+
+           return spherical polar velocity
+
+        INPUT:
+
+           t - (optional) time at which to get the theta velocity
+
+           vo= (Object-wide default) physical scale for velocities to use to convert
+
+           use_physical= use to override Object-wide default for using a physical scale for output
+
+        OUTPUT:
+
+           vtheta(t) [*input_shape,nt]
+
+        HISTORY:
+
+           2020-07-01 - Written - James Lane (UofT)
+
+        """
+        thiso = self._call_internal(*args,**kwargs)
+        if not self.dim() == 3:
+            raise AttributeError("Orbit must be 3D to use vtheta()")
+        else:
+            r = numpy.sqrt( thiso[0]**2.+thiso[3]**2.)
+            return ((thiso[1]*thiso[3]-thiso[0]*thiso[4])/r).T
+            
+    @physical_conversion('angle')
+    @shapeDecorator
+    def theta(self,*args,**kwargs):
+        """
+        NAME:
+
+           theta
+           
+        PURPOSE:
+
+           return spherical polar angle
+
+        INPUT:
+
+           t - (optional) time at which to get the angle
+
+        OUTPUT:
+
+           theta(t) [*input_shape,nt]
+
+        HISTORY:
+
+           2020-07-01 - Written - James Lane (UofT)
+
+        """
+        thiso = self._call_internal(*args,**kwargs)
+        if self.dim() != 3:
+            raise AttributeError("Orbit must be 3D to use theta()")
+        else:
+            return numpy.arctan2(thiso[0],thiso[3])
+    
+    
     @physical_conversion('angle_deg')
     @shapeDecorator
     def ra(self,*args,**kwargs):
@@ -4253,8 +4350,7 @@ class Orbit(object):
             and (len(t) == len(self.t)) \
             and numpy.all(t == self.t)
         if _APY_LOADED and isinstance(t,units.Quantity):
-            t= t.to(units.Gyr).value\
-                /bovy_conversion.time_in_Gyr(self._vo,self._ro)
+            t= conversion.parse_time(t,ro=self._ro,vo=self._vo)
             # Need to re-evaluate now that t has changed...
             t_exact_integration_times= hasattr(t,'__len__') \
                 and (len(t) == len(self.t)) \
@@ -4265,7 +4361,7 @@ class Orbit(object):
             # Not doing hasattr in above elif, bc currently slow due to overwrite of __getattribute__
             warnings.warn("You specified integration times as a Quantity, but are evaluating at times not specified as a Quantity; assuming that time given is in natural (internal) units (multiply time by unit to get output at physical time)",galpyWarning)
         if t_exact_integration_times: # Common case where one wants all integrated times
-            return self.orbit.T
+            return self.orbit.T.copy()
         elif isinstance(t,(int,float,numpy.number)) and hasattr(self,'t') \
                 and t in list(self.t):
             return numpy.array(self.orbit[:,list(self.t).index(t),:]).T
@@ -4498,7 +4594,7 @@ class Orbit(object):
 
            use_physical= use to override Object-wide default for using a physical scale for output
 
-           matplotlib.plot inputs+bovy_plot.plot inputs
+           matplotlib.plot inputs+galpy.util.plot.plot inputs
 
         OUTPUT:
 
@@ -4614,7 +4710,7 @@ class Orbit(object):
             kwargs['ylabel']= labeldict.get(d2,r'${}$'.format(d2))
         for ii,(tx,ty) in enumerate(zip(x,y)):
             kwargs['label']= labels[ii]
-            line2d= plot.bovy_plot(tx,ty,*args,**kwargs)[0]
+            line2d= plot.plot(tx,ty,*args,**kwargs)[0]
             kwargs['overplot']= True
         if auto_scale: line2d.axes.autoscale(enable=True)
         plot._add_ticks()
@@ -4644,7 +4740,7 @@ class Orbit(object):
 
            use_physical= use to override Object-wide default for using a physical scale for output
 
-           bovy_plot3d args and kwargs
+           galpy.util.plot.plot3d args and kwargs
 
         OUTPUT:
 
@@ -4749,7 +4845,7 @@ class Orbit(object):
         if not 'zlabel' in kwargs:
             kwargs['zlabel']= labeldict.get(d3,r'${}$'.format(d3))
         for tx,ty,tz in zip(x,y,z):
-            line3d= plot.bovy_plot3d(tx,ty,tz,*args,**kwargs)[0]
+            line3d= plot.plot3d(tx,ty,tz,*args,**kwargs)[0]
             kwargs['overplot']= True
         if auto_scale: line3d.axes.autoscale(enable=True)
         plot._add_ticks()
@@ -5732,9 +5828,9 @@ def _parse_radec_kwargs(orb,kwargs,vel=False,dontpop=False):
             for ii in range(len(obs)):
                 if _APY_LOADED and isinstance(obs[ii],units.Quantity):
                     if ii < 3:
-                        obs[ii]= obs[ii].to(units.kpc).value
+                        obs[ii]= conversion.parse_length_kpc(obs[ii])
                     else:
-                        obs[ii]= obs[ii].to(units.km/units.s).value
+                        obs[ii]= conversion.parse_velocity_kms(obs[ii])
     else:
         if vel:
             obs= [orb._ro,0.,orb._zo,
@@ -5743,17 +5839,13 @@ def _parse_radec_kwargs(orb,kwargs,vel=False,dontpop=False):
         else:
             obs= [orb._ro,0.,orb._zo]
     if 'ro' in kwargs:
-        ro= kwargs['ro']
-        if _APY_LOADED and isinstance(ro,units.Quantity):
-            ro= ro.to(units.kpc).value
+        ro= conversion.parse_length_kpc(kwargs['ro'])
         if not dontpop:
             kwargs.pop('ro')
     else:
         ro= orb._ro
     if 'vo' in kwargs:
-        vo= kwargs['vo']
-        if _APY_LOADED and isinstance(vo,units.Quantity):
-            vo= vo.to(units.km/units.s).value
+        vo= conversion.parse_velocity_kms(kwargs['vo'])
         if not dontpop:
             kwargs.pop('vo')
     else:
@@ -5761,7 +5853,7 @@ def _parse_radec_kwargs(orb,kwargs,vel=False,dontpop=False):
     return (obs,ro,vo)
 
 def _check_integrate_dt(t,dt):
-    """Check that the stepszie in t is an integer x dt"""
+    """Check that the stepsize in t is an integer x dt"""
     if dt is None:
         return True
     mult= round((t[1]-t[0])/dt)
@@ -5774,6 +5866,7 @@ def _check_potential_dim(orb,pot):
     from ..potential import _dim
     # Don't deal with pot=None here, just dimensionality
     assert pot is None or orb.dim() <= _dim(pot), 'Orbit dimensionality is %i, but potential dimensionality is %i < %i; orbit needs to be of equal or lower dimensionality as the potential; you can reduce the dimensionality---if appropriate---of your orbit with orbit.toPlanar or orbit.toVertical' % (orb.dim(),_dim(pot),orb.dim())
+    assert pot is None or not (orb.dim() == 1 and _dim(pot) != 1), 'Orbit dimensionality is 1, but potential dimensionality is %i != 1; 1D orbits can only be integrated in 1D potentials; you convert your potential to a 1D potential---if appropriate---using potential.toVerticalPotential' % (_dim(pot))
 
 def _check_consistent_units(orb,pot):
     if pot is None: return None

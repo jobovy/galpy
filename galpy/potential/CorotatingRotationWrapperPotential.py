@@ -4,10 +4,7 @@
 #                                          around the z axis
 ###############################################################################
 from .WrapperPotential import parentWrapperPotential
-from .Potential import _APY_LOADED
-from ..util import bovy_conversion
-if _APY_LOADED:
-    from astropy import units
+from ..util import conversion
 class CorotatingRotationWrapperPotential(parentWrapperPotential):
     """Potential wrapper class that implements rotation with fixed R x pattern-speed around the z-axis. Can be used to make spiral structure that is everywhere co-rotating. The potential is rotated by replacing 
 
@@ -56,13 +53,9 @@ class CorotatingRotationWrapperPotential(parentWrapperPotential):
            2018-02-21 - Started - Bovy (UofT)
 
         """
-        if _APY_LOADED and isinstance(vpo,units.Quantity):
-            vpo= vpo.to(units.km/units.s).value/self._vo
-        if _APY_LOADED and isinstance(to,units.Quantity):
-            to= to.to(units.Gyr).value\
-                /bovy_conversion.time_in_Gyr(self._vo,self._ro)
-        if _APY_LOADED and isinstance(pa,units.Quantity):
-            pa= pa.to(units.rad).value
+        vpo= conversion.parse_velocity(vpo,vo=self._vo)
+        to= conversion.parse_time(to,ro=self._ro,vo=self._vo)
+        pa= conversion.parse_angle(pa)
         self._vpo= vpo
         self._beta= beta
         self._pa= pa

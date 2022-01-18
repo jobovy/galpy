@@ -14,7 +14,7 @@ from galpy.potential import LogarithmicHaloPotential
 from galpy.potential import evaluatePotentials as evalPot
 from galpy.orbit import Orbit
 from galpy.actionAngle import estimateDeltaStaeckel, actionAngleStaeckel, UnboundError
-from galpy.util import bovy_coords
+from galpy.util import coords
 import matplotlib.pyplot as plt
 import numpy
 

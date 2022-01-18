@@ -44,6 +44,7 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
 			int ** pot_type,
 			double ** pot_args){
   int ii,jj;
+  int nr;
   init_potentialArgs(npot,potentialArgs);
   for (ii=0; ii < npot; ii++){
     switch ( *(*pot_type)++ ) {
@@ -143,7 +144,7 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
       potentialArgs->planarphi2deriv= &ZeroPlanarForce;
       potentialArgs->planarRphideriv= &ZeroPlanarForce;
       //Look at pot_args to figure out the number of arguments
-      potentialArgs->nargs= (int) (8 + 2 * *(*pot_args+5) + 4 * ( *(*pot_args+4) + 1 ));
+      potentialArgs->nargs= (int) (5 + 4 * *(*pot_args+4) );
       break;
     case 12: //FlattenedPowerPotential, 4 arguments
       potentialArgs->potentialEval= &FlattenedPowerPotentialEval;
@@ -227,9 +228,9 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
       potentialArgs->psi= &TriaxialHernquistPotentialpsi;
       potentialArgs->mdens= &TriaxialHernquistPotentialmdens;
       potentialArgs->mdensDeriv= &TriaxialHernquistPotentialmdensDeriv;
-      potentialArgs->nargs = (int) (21 + *(*pot_args+7) + 2 * *(*pot_args 
+      potentialArgs->nargs = (int) (21 + *(*pot_args+7) + 2 * *(*pot_args
 					    + (int) (*(*pot_args+7) + 20)));
-      break;    
+      break;
     case 22: // TriaxialNFWPotential, lots of arguments
       potentialArgs->planarRforce = &EllipsoidalPotentialPlanarRforce;
       potentialArgs->planarphiforce = &EllipsoidalPotentialPlanarphiforce;
@@ -240,9 +241,9 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
       potentialArgs->psi= &TriaxialNFWPotentialpsi;
       potentialArgs->mdens= &TriaxialNFWPotentialmdens;
       potentialArgs->mdensDeriv= &TriaxialNFWPotentialmdensDeriv;
-      potentialArgs->nargs = (int) (21 + *(*pot_args+7) + 2 * *(*pot_args 
+      potentialArgs->nargs = (int) (21 + *(*pot_args+7) + 2 * *(*pot_args
 					    + (int) (*(*pot_args+7) + 20)));
-      break;    
+      break;
     case 23: // TriaxialJaffePotential, lots of arguments
       potentialArgs->planarRforce = &EllipsoidalPotentialPlanarRforce;
       potentialArgs->planarphiforce = &EllipsoidalPotentialPlanarphiforce;
@@ -253,9 +254,9 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
       potentialArgs->psi= &TriaxialJaffePotentialpsi;
       potentialArgs->mdens= &TriaxialJaffePotentialmdens;
       potentialArgs->mdensDeriv= &TriaxialJaffePotentialmdensDeriv;
-      potentialArgs->nargs = (int) (21 + *(*pot_args+7) + 2 * *(*pot_args 
+      potentialArgs->nargs = (int) (21 + *(*pot_args+7) + 2 * *(*pot_args
 					    + (int) (*(*pot_args+7) + 20)));
-      break;    
+      break;
     case 24: //SCFPotential, many arguments
       potentialArgs->potentialEval= &SCFPotentialEval;
       potentialArgs->planarRforce= &SCFPotentialPlanarRforce;
@@ -270,7 +271,7 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
       potentialArgs->planarRforce= &SoftenedNeedleBarPotentialPlanarRforce;
       potentialArgs->planarphiforce= &SoftenedNeedleBarPotentialPlanarphiforce;
       potentialArgs->nargs= (int) 13;
-      break;    
+      break;
     case 26: //DiskSCFPotential, nsigma+3 arguments
       potentialArgs->potentialEval= &DiskSCFPotentialEval;
       potentialArgs->planarRforce= &DiskSCFPotentialPlanarRforce;
@@ -311,7 +312,7 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
       potentialArgs->psi= &PerfectEllipsoidPotentialpsi;
       potentialArgs->mdens= &PerfectEllipsoidPotentialmdens;
       potentialArgs->mdensDeriv= &PerfectEllipsoidPotentialmdensDeriv;
-      potentialArgs->nargs = (int) (21 + *(*pot_args+7) + 2 * *(*pot_args 
+      potentialArgs->nargs = (int) (21 + *(*pot_args+7) + 2 * *(*pot_args
 					    + (int) (*(*pot_args+7) + 20)));
       break;
     // 31: KGPotential
@@ -342,6 +343,60 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
       potentialArgs->planarphi2deriv= &ZeroPlanarForce;
       potentialArgs->planarRphideriv= &ZeroPlanarForce;
       potentialArgs->nargs= 3;
+      break;
+    case 36: //interpSphericalPotential, XX arguments
+      // Set up 1 spline in potentialArgs
+      potentialArgs->nspline1d= 1;
+      potentialArgs->spline1d= (gsl_spline **)			\
+	malloc ( potentialArgs->nspline1d*sizeof ( gsl_spline *) );
+      potentialArgs->acc1d= (gsl_interp_accel **)			\
+	malloc ( potentialArgs->nspline1d * sizeof ( gsl_interp_accel * ) );
+      // allocate accelerator
+      *potentialArgs->acc1d= gsl_interp_accel_alloc();
+      // Set up interpolater
+      nr= (int) **pot_args;
+      *potentialArgs->spline1d= gsl_spline_alloc(gsl_interp_cspline,nr);
+      gsl_spline_init(*potentialArgs->spline1d,*pot_args+1,*pot_args+1+nr,nr);
+      *pot_args+= 2*nr+1;
+      // Bind forces
+      potentialArgs->potentialEval= &SphericalPotentialEval;
+      potentialArgs->planarRforce = &SphericalPotentialPlanarRforce;
+      potentialArgs->planarphiforce= &ZeroPlanarForce;
+      potentialArgs->planarR2deriv= &SphericalPotentialPlanarR2deriv;
+      potentialArgs->planarphi2deriv= &ZeroPlanarForce;
+      potentialArgs->planarRphideriv= &ZeroPlanarForce;
+      // Also assign functions specific to SphericalPotential
+      potentialArgs->revaluate= &interpSphericalPotentialrevaluate;
+      potentialArgs->rforce= &interpSphericalPotentialrforce;
+      potentialArgs->r2deriv= &interpSphericalPotentialr2deriv;
+      potentialArgs->nargs = (int) 6;
+      potentialArgs->requiresVelocity= false;
+      break;
+    case 37: // TriaxialGaussianPotential, lots of arguments
+      potentialArgs->planarRforce = &EllipsoidalPotentialPlanarRforce;
+      potentialArgs->planarphiforce = &EllipsoidalPotentialPlanarphiforce;
+      //potentialArgs->planarR2deriv = &EllipsoidalPotentialPlanarR2deriv;
+      //potentialArgs->planarphi2deriv = &EllipsoidalPotentialPlanarphi2deriv;
+      //potentialArgs->planarRphideriv = &EllipsoidalPotentialPlanarRphideriv;
+      // Also assign functions specific to EllipsoidalPotential
+      potentialArgs->psi= &TriaxialGaussianPotentialpsi;
+      potentialArgs->mdens= &TriaxialGaussianPotentialmdens;
+      potentialArgs->mdensDeriv= &TriaxialGaussianPotentialmdensDeriv;
+      potentialArgs->nargs = (int) (21 + *(*pot_args+7) + 2 * *(*pot_args
+					    + (int) (*(*pot_args+7) + 20)));
+      break;
+    case 38: // PowerTriaxialPotential, lots of arguments
+      potentialArgs->planarRforce = &EllipsoidalPotentialPlanarRforce;
+      potentialArgs->planarphiforce = &EllipsoidalPotentialPlanarphiforce;
+      //potentialArgs->planarR2deriv = &EllipsoidalPotentialPlanarR2deriv;
+      //potentialArgs->planarphi2deriv = &EllipsoidalPotentialPlanarphi2deriv;
+      //potentialArgs->planarRphideriv = &EllipsoidalPotentialPlanarRphideriv;
+      // Also assign functions specific to EllipsoidalPotential
+      potentialArgs->psi= &PowerTriaxialPotentialpsi;
+      potentialArgs->mdens= &PowerTriaxialPotentialmdens;
+      potentialArgs->mdensDeriv= &PowerTriaxialPotentialmdensDeriv;
+      potentialArgs->nargs = (int) (21 + *(*pot_args+7) + 2 * *(*pot_args
+					    + (int) (*(*pot_args+7) + 20)));
       break;
 //////////////////////////////// WRAPPERS /////////////////////////////////////
     case -1: //DehnenSmoothWrapperPotential
@@ -382,6 +437,7 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
       potentialArgs->planarphiforce= &MovingObjectPotentialPlanarphiforce;
       potentialArgs->nargs= (int) 3;
       break;
+    //RotateAndTiltWrapperPotential omitted, bc no planar version
     }
     int setupSplines = *(*pot_type-1) == -6 ? 1 : 0;
     if ( *(*pot_type-1) < 0) { // Parse wrapped potential for wrappers
@@ -406,7 +462,7 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
 }
 EXPORT void integratePlanarOrbit(int nobj,
 				 double *yo,
-				 int nt, 
+				 int nt,
 				 double *t,
 				 int npot,
 				 int * pot_type,
@@ -426,7 +482,7 @@ EXPORT void integratePlanarOrbit(int nobj,
   max_threads= ( nobj < omp_get_max_threads() ) ? nobj : omp_get_max_threads();
   // Because potentialArgs may cache, safest to have one / thread
   struct potentialArg * potentialArgs= (struct potentialArg *) malloc ( max_threads * npot * sizeof (struct potentialArg) );
-#pragma omp parallel for schedule(static,1) private(ii,thread_pot_type,thread_pot_args) num_threads(max_threads) 
+#pragma omp parallel for schedule(static,1) private(ii,thread_pot_type,thread_pot_args) num_threads(max_threads)
   for (ii=0; ii < max_threads; ii++) {
     thread_pot_type= pot_type; // need to make thread-private pointers, bc
     thread_pot_args= pot_args; // these pointers are changed in parse_...
@@ -499,7 +555,7 @@ EXPORT void integratePlanarOrbit(int nobj,
 }
 
 EXPORT void integratePlanarOrbit_dxdv(double *yo,
-				      int nt, 
+				      int nt,
 				      double *t,
 				      int npot,
 				      int * pot_type,

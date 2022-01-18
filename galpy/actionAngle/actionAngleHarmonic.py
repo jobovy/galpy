@@ -13,12 +13,7 @@
 ###############################################################################
 import numpy
 from .actionAngle import actionAngle
-from galpy.util import bovy_conversion
-_APY_LOADED= True
-try:
-    from astropy import units
-except ImportError:
-    _APY_LOADED= False
+from ..util import conversion
 class actionAngleHarmonic(actionAngle):
     """Action-angle formalism for the one-dimensional harmonic oscillator"""
     def __init__(self,*args,**kwargs):
@@ -52,11 +47,8 @@ class actionAngleHarmonic(actionAngle):
                              ro=kwargs.get('ro',None),vo=kwargs.get('vo',None))
         if not 'omega' in kwargs: #pragma: no cover
             raise IOError("Must specify omega= for actionAngleHarmonic")
-        omega= kwargs.get('omega')
-        if _APY_LOADED and isinstance(omega,units.Quantity):
-            omega= omega.to(units.km/units.s/units.kpc).value \
-                /bovy_conversion.freq_in_kmskpc(self._vo,self._ro)
-        self._omega= omega
+        self._omega= conversion.parse_frequency(kwargs.get('omega'),
+                                                ro=self._ro,vo=self._vo)
         return None
     
     def _evaluate(self,*args,**kwargs):

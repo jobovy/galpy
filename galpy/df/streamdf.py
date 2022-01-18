@@ -14,10 +14,10 @@ elif _SCIPY_VERSION < parse_version('0.19'): #pragma: no cover
 else:
     from scipy.special import logsumexp
 from ..orbit import Orbit
-from .df import df, _APY_LOADED
-from ..util import bovy_coords, fast_cholesky_invert, \
-    bovy_conversion, multi, bovy_plot, stable_cho_factor, bovy_ars
-from ..util.bovy_conversion import physical_conversion, _APY_UNITS
+from .df import df
+from ..util import coords, fast_cholesky_invert, \
+    conversion, multi, plot, stable_cho_factor, ars
+from ..util.conversion import physical_conversion, _APY_UNITS, _APY_LOADED
 from ..actionAngle.actionAngleIsochroneApprox import dePeriod
 from ..potential import flatten as flatten_potential
 from ..util import galpyWarning
@@ -152,16 +152,12 @@ class streamdf(df):
             warnings.warn("WARNING: Vnorm keyword input to streamdf is deprecated in favor of the standard vo keyword", galpyWarning)
             vo= Vnorm
         df.__init__(self,ro=ro,vo=vo)
-        if _APY_LOADED and isinstance(sigv,units.Quantity):
-            sigv= sigv.to(units.km/units.s).value/self._vo
+        sigv= conversion.parse_velocity(sigv,vo=self._vo)
         self._sigv= sigv
         if tdisrupt is None:
-            self._tdisrupt= 5./bovy_conversion.time_in_Gyr(self._vo,self._ro)
+            self._tdisrupt= 5./conversion.time_in_Gyr(self._vo,self._ro)
         else:
-            if _APY_LOADED and isinstance(tdisrupt,units.Quantity):
-                tdisrupt= tdisrupt.to(units.Gyr).value\
-                    /bovy_conversion.time_in_Gyr(self._vo,self._ro)
-            self._tdisrupt= tdisrupt
+            self._tdisrupt= conversion.parse_time(tdisrupt,ro=self._ro,vo=self._vo)
         self._sigMeanOffset= sigMeanOffset
         if pot is None: #pragma: no cover
             raise IOError("pot= must be set")
@@ -183,26 +179,18 @@ class streamdf(df):
         else:
             self._multi= multi
         self._progenitor_setup(progenitor,leading,useTMHessian)
-        if not sigangle is None and \
-                _APY_LOADED and isinstance(sigangle,units.Quantity):
-            sigangle= sigangle.to(units.rad).value
-        if not deltaAngleTrack is None and \
-                _APY_LOADED and isinstance(deltaAngleTrack,units.Quantity):
-            deltaAngleTrack= deltaAngleTrack.to(units.rad).value
+        sigangle= conversion.parse_angle(sigangle)
+        deltaAngleTrack= conversion.parse_angle(deltaAngleTrack)
         self._offset_setup(sigangle,leading,deltaAngleTrack)
         # if progIsTrack, calculate the progenitor that gives a track that is approximately the given orbit
         if progIsTrack:
             self._setup_progIsTrack()
-        if _APY_LOADED and isinstance(R0,units.Quantity):
-            R0= R0.to(units.kpc).value
-        if _APY_LOADED and isinstance(Zsun,units.Quantity):
-            Zsun= Zsun.to(units.kpc).value
-        if _APY_LOADED and isinstance(vsun,units.Quantity):
-            vsun= vsun.to(units.km/units.s).value
-        elif _APY_LOADED and isinstance(vsun[0],units.Quantity):
-            vsun[0]= vsun[0].to(units.km/units.s).value
-            vsun[1]= vsun[1].to(units.km/units.s).value
-            vsun[2]= vsun[2].to(units.km/units.s).value
+        R0= conversion.parse_length_kpc(R0)
+        Zsun= conversion.parse_length_kpc(Zsun)
+        vsun= conversion.parse_velocity_kms(vsun)
+        vsun[0]= conversion.parse_velocity_kms(vsun[0])
+        vsun[1]= conversion.parse_velocity_kms(vsun[1])
+        vsun[2]= conversion.parse_velocity_kms(vsun[2])
         self._setup_coord_transform(R0,Zsun,vsun,progenitor,custom_transform)
         #Determine the stream track
         if not nosetup:
@@ -498,14 +486,10 @@ class streamdf(df):
            2016-01-19 - Written - Bovy (UofT)
 
         """
-        if _APY_LOADED and isinstance(venc,units.Quantity):
-            venc= venc.to(units.km/units.s).value/self._vo
-        if _APY_LOADED and isinstance(sigma,units.Quantity):
-            sigma= sigma.to(units.km/units.s).value/self._vo
-        if _APY_LOADED and isinstance(nsubhalo,units.Quantity):
-            nsubhalo= nsubhalo.to(1/units.kpc**3).value*self._ro**3.
-        if _APY_LOADED and isinstance(bmax,units.Quantity):
-            bmax= bmax.to(units.kpc).value/self._ro
+        venc= conversion.parse_velocity(venc,vo=self._vo)
+        sigma= conversion.parse_velocity(sigma,vo=self._vo)
+        nsubhalo= conversion.parse_numdens(nsubhalo,ro=self._ro)
+        bmax= conversion.parse_length(bmax,ro=self._ro)
         Ravg= numpy.mean(numpy.sqrt(self._progenitor.orbit[0,:,0]**2.
                                     +self._progenitor.orbit[0,:,3]**2.))
         if numpy.isinf(venc):
@@ -553,7 +537,7 @@ class streamdf(df):
 
            simple= (False), if True, use a simple estimate for the spread in perpendicular angle
 
-           bovy_plot.bovy_plot args and kwargs
+           galpy.util.plot.plotplot args and kwargs
 
         OUTPUT:
 
@@ -575,7 +559,7 @@ class streamdf(df):
         phys= kwargs.pop('scaleToPhysical',False)
         tx= self._parse_track_dim(d1,interp=interp,phys=phys)
         ty= self._parse_track_dim(d2,interp=interp,phys=phys)
-        bovy_plot.bovy_plot(tx,ty,*args,
+        plot.plot(tx,ty,*args,
                             xlabel=_labelDict[d1.lower()],
                             ylabel=_labelDict[d2.lower()],
                             **kwargs)
@@ -593,14 +577,14 @@ class streamdf(df):
             spreadmarker= kwargs.pop('marker',None)
             spreadcolor= kwargs.pop('color',None)
             spreadlw= kwargs.pop('lw',1.)
-            bovy_plot.bovy_plot(tx+spread*addx,ty+spread*addy,ls=spreadls,
-                                marker=spreadmarker,color=spreadcolor,
-                                lw=spreadlw,
-                                overplot=True)
-            bovy_plot.bovy_plot(tx-spread*addx,ty-spread*addy,ls=spreadls,
-                                marker=spreadmarker,color=spreadcolor,
-                                lw=spreadlw,
-                                overplot=True)            
+            plot.plot(tx+spread*addx,ty+spread*addy,ls=spreadls,
+                      marker=spreadmarker,color=spreadcolor,
+                      lw=spreadlw,
+                      overplot=True)
+            plot.plot(tx-spread*addx,ty-spread*addy,ls=spreadls,
+                      marker=spreadmarker,color=spreadcolor,
+                      lw=spreadlw,
+                      overplot=True)            
         return None
 
     def plotProgenitor(self,d1='x',d2='z',*args,**kwargs):
@@ -621,7 +605,7 @@ class streamdf(df):
 
            scaleToPhysical= (False), if True, plot positions in kpc and velocities in km/s
 
-           bovy_plot.bovy_plot args and kwargs
+           galpy.util.plot.plot args and kwargs
 
         OUTPUT:
 
@@ -641,10 +625,10 @@ class streamdf(df):
                                        obs=obs,phys=phys)
         ty= self._parse_progenitor_dim(d2,tts,ro=self._ro,vo=self._vo,
                                        obs=obs,phys=phys)
-        bovy_plot.bovy_plot(tx,ty,*args,
-                            xlabel=_labelDict[d1.lower()],
-                            ylabel=_labelDict[d2.lower()],
-                            **kwargs)
+        plot.plot(tx,ty,*args,
+                  xlabel=_labelDict[d1.lower()],
+                  ylabel=_labelDict[d2.lower()],
+                  **kwargs)
         return None
 
     def _parse_track_dim(self,d1,interp=True,phys=False):
@@ -867,7 +851,7 @@ class streamdf(df):
 
         INPUT:
 
-           bovy_plot.bovy_plot kwargs
+           galpy.util.plot.plot kwargs
 
         OUTPUT:
 
@@ -908,10 +892,10 @@ class streamdf(df):
                            [0.,numpy.amax(numpy.hstack((model_operp,track_operp)))*1.1])
         xlabel= kwargs.pop('xlabel',r'$\Delta \theta_R$')
         ylabel= kwargs.pop('ylabel',r'$\Delta \Omega_\parallel$')
-        bovy_plot.bovy_plot(model_adiff,model_operp,'k-',overplot=overplot,
-                            xlabel=xlabel,ylabel=ylabel,yrange=yrange,**kwargs)
-        bovy_plot.bovy_plot(track_adiff,track_operp,'ko',overplot=True,
-                            **kwargs)
+        plot.plot(model_adiff,model_operp,'k-',overplot=overplot,
+                  xlabel=xlabel,ylabel=ylabel,yrange=yrange,**kwargs)
+        plot.plot(track_adiff,track_operp,'ko',overplot=True,
+                  **kwargs)
         return None
 
     def _determine_nTrackIterations(self,nTrackIterations):
@@ -1074,10 +1058,10 @@ class streamdf(df):
         TrackY= self._ObsTrack[:,0]*numpy.sin(self._ObsTrack[:,5])
         TrackZ= self._ObsTrack[:,3]
         TrackvX, TrackvY, TrackvZ=\
-            bovy_coords.cyl_to_rect_vec(self._ObsTrack[:,1],
-                                        self._ObsTrack[:,2],
-                                        self._ObsTrack[:,4],
-                                        self._ObsTrack[:,5])
+            coords.cyl_to_rect_vec(self._ObsTrack[:,1],
+                                   self._ObsTrack[:,2],
+                                   self._ObsTrack[:,4],
+                                   self._ObsTrack[:,5])
         self._ObsTrackXY[:,0]= TrackX
         self._ObsTrackXY[:,1]= TrackY
         self._ObsTrackXY[:,2]= TrackZ
@@ -1208,7 +1192,7 @@ class streamdf(df):
         allErrCovsEigvecXY= numpy.empty_like(self._allErrCovs)
         eigDir= numpy.array([numpy.array([1.,0.,0.,0.,0.,0.]) for ii in range(6)])
         for ii in range(self._nTrackChunks):
-            tjac= bovy_coords.cyl_to_rect_jac(*self._ObsTrack[ii])
+            tjac= coords.cyl_to_rect_jac(*self._ObsTrack[ii])
             allErrCovsXY[ii]=\
                 numpy.dot(tjac,numpy.dot(self._allErrCovs[ii],tjac.T))
             #Eigen decomposition for interpolation
@@ -1293,9 +1277,9 @@ class streamdf(df):
         allErrCovsEigvecLB= numpy.empty_like(self._allErrCovs)
         eigDir= numpy.array([numpy.array([1.,0.,0.,0.,0.,0.]) for ii in range(6)])
         for ii in range(self._nTrackChunks):
-            tjacXY= bovy_coords.galcenrect_to_XYZ_jac(*self._ObsTrackXY[ii])
-            tjacLB= bovy_coords.lbd_to_XYZ_jac(*self._ObsTrackLB[ii],
-                                               degree=True)
+            tjacXY= coords.galcenrect_to_XYZ_jac(*self._ObsTrackXY[ii])
+            tjacLB= coords.lbd_to_XYZ_jac(*self._ObsTrackLB[ii],
+                                          degree=True)
             tjacLB[:3,:]/= ro
             tjacLB[3:,:]/= vo
             for jj in range(6):
@@ -1351,14 +1335,14 @@ class streamdf(df):
         interpolatedTrackLogDetJacLB=\
             numpy.empty_like(self._interpolatedThetasTrack)
         for ii in range(self._nTrackChunks):
-            tjacLB= bovy_coords.lbd_to_XYZ_jac(*self._ObsTrackLB[ii],
-                                                degree=True)
+            tjacLB= coords.lbd_to_XYZ_jac(*self._ObsTrackLB[ii],
+                                          degree=True)
             trackLogDetJacLB[ii]= numpy.log(numpy.linalg.det(tjacLB))
         self._trackLogDetJacLB= trackLogDetJacLB
         for ii in range(len(self._interpolatedThetasTrack)):
             tjacLB=\
-                bovy_coords.lbd_to_XYZ_jac(*self._interpolatedObsTrackLB[ii],
-                                            degree=True)
+                coords.lbd_to_XYZ_jac(*self._interpolatedObsTrackLB[ii],
+                                      degree=True)
             interpolatedTrackLogDetJacLB[ii]=\
                 numpy.log(numpy.linalg.det(tjacLB))
         self._interpolatedTrackLogDetJacLB= interpolatedTrackLogDetJacLB
@@ -1372,8 +1356,8 @@ class streamdf(df):
         TrackY= self._ObsTrack[:,0]*numpy.sin(self._ObsTrack[:,5])
         TrackZ= self._ObsTrack[:,3]
         TrackvX, TrackvY, TrackvZ=\
-            bovy_coords.cyl_to_rect_vec(self._ObsTrack[:,1],
-                                        self._ObsTrack[:,2],
+            coords.cyl_to_rect_vec(self._ObsTrack[:,1],
+                                   self._ObsTrack[:,2],
                                         self._ObsTrack[:,4],
                                         self._ObsTrack[:,5])
         #Interpolate
@@ -1415,14 +1399,14 @@ class streamdf(df):
         #Also in cylindrical coordinates
         self._interpolatedObsTrack= \
             numpy.empty((len(self._interpolatedThetasTrack),6))
-        tR,tphi,tZ= bovy_coords.rect_to_cyl(self._interpolatedObsTrackXY[:,0],
-                                            self._interpolatedObsTrackXY[:,1],
-                                            self._interpolatedObsTrackXY[:,2])
+        tR,tphi,tZ= coords.rect_to_cyl(self._interpolatedObsTrackXY[:,0],
+                                       self._interpolatedObsTrackXY[:,1],
+                                       self._interpolatedObsTrackXY[:,2])
         tvR,tvT,tvZ=\
-            bovy_coords.rect_to_cyl_vec(self._interpolatedObsTrackXY[:,3],
-                                        self._interpolatedObsTrackXY[:,4],
-                                        self._interpolatedObsTrackXY[:,5],
-                                        tR,tphi,tZ,cyl=True)
+            coords.rect_to_cyl_vec(self._interpolatedObsTrackXY[:,3],
+                                   self._interpolatedObsTrackXY[:,4],
+                                   self._interpolatedObsTrackXY[:,5],
+                                   tR,tphi,tZ,cyl=True)
         self._interpolatedObsTrack[:,0]= tR
         self._interpolatedObsTrack[:,1]= tvR
         self._interpolatedObsTrack[:,2]= tvT
@@ -1504,20 +1488,20 @@ class streamdf(df):
         if vsun is None:
             vsun= self._vsun
         self._ObsTrackLB= numpy.empty_like(self._ObsTrack)
-        XYZ= bovy_coords.galcencyl_to_XYZ(self._ObsTrack[:,0]*ro,
-                                          self._ObsTrack[:,5],
-                                          self._ObsTrack[:,3]*ro,
-                                          Xsun=R0,Zsun=Zsun).T
-        vXYZ= bovy_coords.galcencyl_to_vxvyvz(self._ObsTrack[:,1]*vo,
-                                              self._ObsTrack[:,2]*vo,
-                                              self._ObsTrack[:,4]*vo,
-                                              self._ObsTrack[:,5],
-                                              vsun=vsun,Xsun=R0,Zsun=Zsun).T
-        slbd=bovy_coords.XYZ_to_lbd(XYZ[0],XYZ[1],XYZ[2],
-                                    degree=True)
-        svlbd= bovy_coords.vxvyvz_to_vrpmllpmbb(vXYZ[0],vXYZ[1],vXYZ[2],
-                                                slbd[:,0],slbd[:,1],slbd[:,2],
-                                                degree=True)
+        XYZ= coords.galcencyl_to_XYZ(self._ObsTrack[:,0]*ro,
+                                     self._ObsTrack[:,5],
+                                     self._ObsTrack[:,3]*ro,
+                                     Xsun=R0,Zsun=Zsun).T
+        vXYZ= coords.galcencyl_to_vxvyvz(self._ObsTrack[:,1]*vo,
+                                         self._ObsTrack[:,2]*vo,
+                                         self._ObsTrack[:,4]*vo,
+                                         self._ObsTrack[:,5],
+                                         vsun=vsun,Xsun=R0,Zsun=Zsun).T
+        slbd=coords.XYZ_to_lbd(XYZ[0],XYZ[1],XYZ[2],
+                               degree=True)
+        svlbd= coords.vxvyvz_to_vrpmllpmbb(vXYZ[0],vXYZ[1],vXYZ[2],
+                                           slbd[:,0],slbd[:,1],slbd[:,2],
+                                           degree=True)
         self._ObsTrackLB[:,0]= slbd[:,0]
         self._ObsTrackLB[:,1]= slbd[:,1]
         self._ObsTrackLB[:,2]= slbd[:,2]
@@ -1529,23 +1513,23 @@ class streamdf(df):
             self._interpolatedObsTrackLB=\
                 numpy.empty_like(self._interpolatedObsTrackXY)
             XYZ=\
-                bovy_coords.galcenrect_to_XYZ(\
+                coords.galcenrect_to_XYZ(\
                 self._interpolatedObsTrackXY[:,0]*ro,
                 self._interpolatedObsTrackXY[:,1]*ro,
                 self._interpolatedObsTrackXY[:,2]*ro,
                 Xsun=R0,Zsun=Zsun).T
             vXYZ=\
-                bovy_coords.galcenrect_to_vxvyvz(\
+                coords.galcenrect_to_vxvyvz(\
                 self._interpolatedObsTrackXY[:,3]*vo,
                 self._interpolatedObsTrackXY[:,4]*vo,
                 self._interpolatedObsTrackXY[:,5]*vo,
                 vsun=vsun,Xsun=R0,Zsun=Zsun).T
-            slbd=bovy_coords.XYZ_to_lbd(XYZ[0],XYZ[1],XYZ[2],
-                                        degree=True)
-            svlbd= bovy_coords.vxvyvz_to_vrpmllpmbb(vXYZ[0],vXYZ[1],vXYZ[2],
-                                                    slbd[:,0],slbd[:,1],
-                                                    slbd[:,2],
-                                                    degree=True)
+            slbd=coords.XYZ_to_lbd(XYZ[0],XYZ[1],XYZ[2],
+                                   degree=True)
+            svlbd= coords.vxvyvz_to_vrpmllpmbb(vXYZ[0],vXYZ[1],vXYZ[2],
+                                               slbd[:,0],slbd[:,1],
+                                               slbd[:,2],
+                                               degree=True)
             self._interpolatedObsTrackLB[:,0]= slbd[:,0]
             self._interpolatedObsTrackLB[:,1]= slbd[:,1]
             self._interpolatedObsTrackLB[:,2]= slbd[:,2]
@@ -1718,18 +1702,18 @@ class streamdf(df):
             else:
                 trackPmbb= self._ObsTrackLB[:,5]
         #Calculate rectangular coordinates
-        XYZ= bovy_coords.lbd_to_XYZ(l,b,D,degree=True)
-        trackXYZ= bovy_coords.lbd_to_XYZ(trackL,trackB,trackD,degree=True)
+        XYZ= coords.lbd_to_XYZ(l,b,D,degree=True)
+        trackXYZ= coords.lbd_to_XYZ(trackL,trackB,trackD,degree=True)
         if usev:
-            vxvyvz= bovy_coords.vrpmllpmbb_to_vxvyvz(vlos,pmll,pmbb,
-                                                     XYZ[0],XYZ[1],XYZ[2],
+            vxvyvz= coords.vrpmllpmbb_to_vxvyvz(vlos,pmll,pmbb,
+                                                XYZ[0],XYZ[1],XYZ[2],
+                                                XYZ=True)
+            trackvxvyvz= coords.vrpmllpmbb_to_vxvyvz(trackVlos,trackPmll,
+                                                     trackPmbb,
+                                                     trackXYZ[:,0],
+                                                     trackXYZ[:,1],
+                                                     trackXYZ[:,2],
                                                      XYZ=True)
-            trackvxvyvz= bovy_coords.vrpmllpmbb_to_vxvyvz(trackVlos,trackPmll,
-                                                          trackPmbb,
-                                                          trackXYZ[:,0],
-                                                          trackXYZ[:,1],
-                                                          trackXYZ[:,2],
-                                                          XYZ=True)
         #Calculate distance
         dist2= (XYZ[0]-trackXYZ[:,0])**2.\
             +(XYZ[1]-trackXYZ[:,1])**2.\
@@ -1799,11 +1783,8 @@ class streamdf(df):
            2015-12-07 - Written - Bovy (UofT)
 
         """
-        if _APY_LOADED and isinstance(Opar,units.Quantity):
-            Opar= Opar.to(1/units.Gyr).value\
-                /bovy_conversion.freq_in_Gyr(self._vo,self._ro)
-        if _APY_LOADED and isinstance(apar,units.Quantity):
-            apar= apar.to(units.rad).value
+        Opar= conversion.parse_frequency(Opar,ro=self._ro,vo=self._vo)
+        apar= conversion.parse_angle(apar)
         if tdisrupt is None: tdisrupt= self._tdisrupt
         if isinstance(Opar,(int,float,numpy.float32,numpy.float64)):
             Opar= numpy.array([Opar])
@@ -1849,47 +1830,47 @@ class streamdf(df):
             ddangle= dangle+10.**-7.
             ddangle-= dangle
             if coord.lower() == 'phi':
-                phi_h= bovy_coords.rect_to_cyl(\
+                phi_h= coords.rect_to_cyl(\
                     self._interpTrackX(dangle+ddangle),
                     self._interpTrackY(dangle+ddangle),
                     self._interpTrackZ(dangle+ddangle))
-                phi= bovy_coords.rect_to_cyl(\
+                phi= coords.rect_to_cyl(\
                     self._interpTrackX(dangle),
                     self._interpTrackY(dangle),
                     self._interpTrackZ(dangle))
                 jac= numpy.fabs(phi_h[1]-phi[1])/ddangle
             elif coord.lower() == 'll' or coord.lower() == 'ra' \
                     or coord.lower() == 'customra':
-                XYZ_h= bovy_coords.galcenrect_to_XYZ(\
+                XYZ_h= coords.galcenrect_to_XYZ(\
                     self._interpTrackX(dangle+ddangle)*self._ro,
                     self._interpTrackY(dangle+ddangle)*self._ro,
                     self._interpTrackZ(dangle+ddangle)*self._ro,
                     Xsun=self._R0,Zsun=self._Zsun)
-                lbd_h= bovy_coords.XYZ_to_lbd(XYZ_h[0],XYZ_h[1],XYZ_h[2],
-                                              degree=True)
-                XYZ= bovy_coords.galcenrect_to_XYZ(\
+                lbd_h= coords.XYZ_to_lbd(XYZ_h[0],XYZ_h[1],XYZ_h[2],
+                                         degree=True)
+                XYZ= coords.galcenrect_to_XYZ(\
                     self._interpTrackX(dangle)*self._ro,
                     self._interpTrackY(dangle)*self._ro,
                     self._interpTrackZ(dangle)*self._ro,
                     Xsun=self._R0,Zsun=self._Zsun)
-                lbd= bovy_coords.XYZ_to_lbd(XYZ[0],XYZ[1],XYZ[2],
-                                            degree=True)
+                lbd= coords.XYZ_to_lbd(XYZ[0],XYZ[1],XYZ[2],
+                                       degree=True)
                 if coord.lower() == 'll':
                     jac= numpy.fabs(lbd_h[0]-lbd[0])/ddangle
                 else:
-                    radec_h= bovy_coords.lb_to_radec(lbd_h[0],
-                                                     lbd_h[1],
-                                                     degree=True)
-                    radec= bovy_coords.lb_to_radec(lbd[0],
-                                                   lbd[1],
-                                                   degree=True)
+                    radec_h= coords.lb_to_radec(lbd_h[0],
+                                                lbd_h[1],
+                                                degree=True)
+                    radec= coords.lb_to_radec(lbd[0],
+                                              lbd[1],
+                                              degree=True)
                     if coord.lower() == 'ra':
                         jac= numpy.fabs(radec_h[0]-radec[0])/ddangle
                     else:
-                        xieta_h= bovy_coords.radec_to_custom(\
+                        xieta_h= coords.radec_to_custom(\
                             radec_h[0],radec_h[1],T=self._custom_transform,
                             degree=True)
-                        xieta= bovy_coords.radec_to_custom(\
+                        xieta= coords.radec_to_custom(\
                             radec[0],radec[1],T=self._custom_transform,
                             degree=True)
                         jac= numpy.fabs(xieta_h[0]-xieta[0])/ddangle
@@ -2756,24 +2737,24 @@ class streamdf(df):
             R0= kwargs.get('R0',self._R0)
             Zsun= kwargs.get('Zsun',self._Zsun)
             vsun= kwargs.get('vsun',self._vsun)
-            tXYZ= bovy_coords.lbd_to_XYZ(iX.flatten(),iY.flatten(),
-                                         iZ.flatten(),
-                                         degree=True)
-            iR,iphi,iZ= bovy_coords.XYZ_to_galcencyl(tXYZ[:,0],tXYZ[:,1],
-                                                     tXYZ[:,2],
-                                                     Xsun=R0,Zsun=Zsun).T
-            tvxvyvz= bovy_coords.vrpmllpmbb_to_vxvyvz(ivX.flatten(),
-                                                      ivY.flatten(),
-                                                      ivZ.flatten(),
-                                                      tXYZ[:,0],tXYZ[:,1],
-                                                      tXYZ[:,2],XYZ=True)
-            ivR,ivT,ivZ= bovy_coords.vxvyvz_to_galcencyl(tvxvyvz[:,0],
-                                                         tvxvyvz[:,1],
-                                                         tvxvyvz[:,2],
-                                                         iR,iphi,iZ,
-                                                         galcen=True,
-                                                         vsun=vsun,
-                                                         Xsun=R0,Zsun=Zsun).T
+            tXYZ= coords.lbd_to_XYZ(iX.flatten(),iY.flatten(),
+                                    iZ.flatten(),
+                                    degree=True)
+            iR,iphi,iZ= coords.XYZ_to_galcencyl(tXYZ[:,0],tXYZ[:,1],
+                                                tXYZ[:,2],
+                                                Xsun=R0,Zsun=Zsun).T
+            tvxvyvz= coords.vrpmllpmbb_to_vxvyvz(ivX.flatten(),
+                                                 ivY.flatten(),
+                                                 ivZ.flatten(),
+                                                 tXYZ[:,0],tXYZ[:,1],
+                                                 tXYZ[:,2],XYZ=True)
+            ivR,ivT,ivZ= coords.vxvyvz_to_galcencyl(tvxvyvz[:,0],
+                                                    tvxvyvz[:,1],
+                                                    tvxvyvz[:,2],
+                                                    iR,iphi,iZ,
+                                                    galcen=True,
+                                                    vsun=vsun,
+                                                    Xsun=R0,Zsun=Zsun).T
             iR/= ro
             iZ/= ro
             ivR/= vo
@@ -2782,11 +2763,11 @@ class streamdf(df):
         else:
             #Convert to cylindrical coordinates
             iR,iphi,iZ=\
-                bovy_coords.rect_to_cyl(iX.flatten(),iY.flatten(),iZ.flatten())
+                coords.rect_to_cyl(iX.flatten(),iY.flatten(),iZ.flatten())
             ivR,ivT,ivZ=\
-                bovy_coords.rect_to_cyl_vec(ivX.flatten(),ivY.flatten(),
-                                            ivZ.flatten(),
-                                            iR,iphi,iZ,cyl=True)
+                coords.rect_to_cyl_vec(ivX.flatten(),ivY.flatten(),
+                                       ivZ.flatten(),
+                                       iR,iphi,iZ,cyl=True)
         #Add the additional Jacobian dXdY/dldb... if necessary
         if kwargs.get('lb',False):
             #Find the nearest track point
@@ -2936,11 +2917,11 @@ class streamdf(df):
             if _APY_UNITS and self._voSet and self._roSet:
                 Om=\
                     units.Quantity(\
-                    Om*bovy_conversion.freq_in_Gyr(self._vo,self._ro),
+                    Om*conversion.freq_in_Gyr(self._vo,self._ro),
                     unit=1/units.Gyr)
                 angle= units.Quantity(angle,unit=units.rad)
                 dt= units.Quantity(\
-                    dt*bovy_conversion.time_in_Gyr(self._vo,self._ro),
+                    dt*conversion.time_in_Gyr(self._vo,self._ro),
                     unit=units.Gyr)
             return (Om,angle,dt)
         if interp is None:
@@ -2958,7 +2939,7 @@ class streamdf(df):
                         units.Quantity(RvR[4]*self._vo,unit=units.km/units.s),
                         units.Quantity(RvR[5],unit=units.rad),
                         units.Quantity(\
-                        dt*bovy_conversion.time_in_Gyr(self._vo,self._ro),
+                        dt*conversion.time_in_Gyr(self._vo,self._ro),
                         unit=units.Gyr))
             return (RvR[0],RvR[1],RvR[2],RvR[3],RvR[4],RvR[5],dt)
         elif not xy and not lb:
@@ -2975,10 +2956,7 @@ class streamdf(df):
             sY= RvR[0]*numpy.sin(RvR[5])
             sZ= RvR[3]
             svX, svY, svZ=\
-                bovy_coords.cyl_to_rect_vec(RvR[1],
-                                            RvR[2],
-                                            RvR[4],
-                                            RvR[5])            
+                coords.cyl_to_rect_vec(RvR[1],RvR[2],RvR[4],RvR[5])            
             out= numpy.empty((6,n))
             out[0]= sX
             out[1]= sY
@@ -2995,7 +2973,7 @@ class streamdf(df):
                             units.Quantity(out[4]*self._vo,unit=units.km/units.s),
                             units.Quantity(out[5]*self._vo,unit=units.km/units.s),
                             units.Quantity(\
-                            dt*bovy_conversion.time_in_Gyr(self._vo,self._ro),
+                            dt*conversion.time_in_Gyr(self._vo,self._ro),
                             unit=units.Gyr))
                 return (out[0],out[1],out[2],out[3],out[4],out[5],dt)
             else:
@@ -3013,21 +2991,17 @@ class streamdf(df):
             R0= self._R0
             Zsun= self._Zsun
             vsun= self._vsun
-            XYZ= bovy_coords.galcencyl_to_XYZ(RvR[0]*ro,
-                                              RvR[5],
-                                              RvR[3]*ro,
-                                              Xsun=R0,Zsun=Zsun).T
-            vXYZ= bovy_coords.galcencyl_to_vxvyvz(RvR[1]*vo,
-                                                  RvR[2]*vo,
-                                                  RvR[4]*vo,
-                                                  RvR[5],
-                                                  vsun=vsun,Xsun=R0,Zsun=Zsun).T
-            slbd=bovy_coords.XYZ_to_lbd(XYZ[0],XYZ[1],XYZ[2],
-                                        degree=True)
-            svlbd= bovy_coords.vxvyvz_to_vrpmllpmbb(vXYZ[0],vXYZ[1],vXYZ[2],
-                                                    slbd[:,0],slbd[:,1],
-                                                    slbd[:,2],
-                                                    degree=True)
+            XYZ= coords.galcencyl_to_XYZ(RvR[0]*ro,RvR[5],RvR[3]*ro,
+                                         Xsun=R0,Zsun=Zsun).T
+            vXYZ= coords.galcencyl_to_vxvyvz(RvR[1]*vo,RvR[2]*vo,RvR[4]*vo,
+                                             RvR[5],
+                                             vsun=vsun,Xsun=R0,Zsun=Zsun).T
+            slbd=coords.XYZ_to_lbd(XYZ[0],XYZ[1],XYZ[2],
+                                   degree=True)
+            svlbd= coords.vxvyvz_to_vrpmllpmbb(vXYZ[0],vXYZ[1],vXYZ[2],
+                                               slbd[:,0],slbd[:,1],
+                                               slbd[:,2],
+                                               degree=True)
             out= numpy.empty((6,n))
             out[0]= slbd[:,0]
             out[1]= slbd[:,1]
@@ -3044,7 +3018,7 @@ class streamdf(df):
                             units.Quantity(out[4],unit=units.mas/units.yr),
                             units.Quantity(out[5],unit=units.mas/units.yr),
                             units.Quantity(\
-                            dt*bovy_conversion.time_in_Gyr(self._vo,self._ro),
+                            dt*conversion.time_in_Gyr(self._vo,self._ro),
                             unit=units.Gyr))
                 return (out[0],out[1],out[2],out[3],out[4],out[5],dt)
             else:
@@ -3061,12 +3035,12 @@ class streamdf(df):
         """Sampling frequencies, angles, and times part of sampling"""
         #Sample frequency along largest eigenvalue using ARS
         dO1s=\
-            bovy_ars.bovy_ars([0.,0.],[True,False],
-                              [self._meandO-numpy.sqrt(self._sortedSigOEig[2]),
-                               self._meandO+numpy.sqrt(self._sortedSigOEig[2])],
-                              _h_ars,_hp_ars,nsamples=n,
-                              hxparams=(self._meandO,self._sortedSigOEig[2]),
-                              maxn=100)
+            ars.ars([0.,0.],[True,False],
+                    [self._meandO-numpy.sqrt(self._sortedSigOEig[2]),
+                     self._meandO+numpy.sqrt(self._sortedSigOEig[2])],
+                    _h_ars,_hp_ars,nsamples=n,
+                    hxparams=(self._meandO,self._sortedSigOEig[2]),
+                    maxn=100)
         dO1s= numpy.array(dO1s)*self._sigMeanSign
         dO2s= numpy.random.normal(size=n)*numpy.sqrt(self._sortedSigOEig[1])
         dO3s= numpy.random.normal(size=n)*numpy.sqrt(self._sortedSigOEig[0])
@@ -3414,13 +3388,13 @@ def calcaAJac(xv,aA,dxv=None,freqs=False,dOdJ=False,actionsFreqsAngles=False,
 
 def lbCoordFunc(xv,vo,ro,R0,Zsun,vsun):
     #Input is (l,b,D,vlos,pmll,pmbb) in (deg,deg,kpc,km/s,mas/yr,mas/yr)
-    X,Y,Z= bovy_coords.lbd_to_XYZ(xv[0],xv[1],xv[2],degree=True)
-    R,phi,Z= bovy_coords.XYZ_to_galcencyl(X,Y,Z,
-                                          Xsun=R0,Zsun=Zsun)
-    vx,vy,vz= bovy_coords.vrpmllpmbb_to_vxvyvz(xv[3],xv[4],xv[5],
-                                               X,Y,Z,XYZ=True)
-    vR,vT,vZ= bovy_coords.vxvyvz_to_galcencyl(vx,vy,vz,R,phi,Z,galcen=True,
-                                              vsun=vsun,Xsun=R0,Zsun=Zsun)
+    X,Y,Z= coords.lbd_to_XYZ(xv[0],xv[1],xv[2],degree=True)
+    R,phi,Z= coords.XYZ_to_galcencyl(X,Y,Z,
+                                     Xsun=R0,Zsun=Zsun)
+    vx,vy,vz= coords.vrpmllpmbb_to_vxvyvz(xv[3],xv[4],xv[5],
+                                          X,Y,Z,XYZ=True)
+    vR,vT,vZ= coords.vxvyvz_to_galcencyl(vx,vy,vz,R,phi,Z,galcen=True,
+                                         vsun=vsun,Xsun=R0,Zsun=Zsun)
     R/= ro
     Z/= ro
     vR/= vo

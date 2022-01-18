@@ -2,9 +2,9 @@
 # actionAngleInverse.py: top-level class with common routines for inverse
 #                        actionAngle methods
 ###############################################################################
-from ..util.bovy_conversion import actionAngleInverse_physical_input, \
-    physical_conversion_actionAngleInverse
 from .actionAngle import actionAngle
+from ..util.conversion import actionAngleInverse_physical_input, \
+    physical_conversion_actionAngleInverse
 class actionAngleInverse(actionAngle):
     """actionAngleInverse; top-level class with common routines for inverse actionAngle methods"""
     def __init__(self,*args,**kwargs):

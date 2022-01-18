@@ -8,9 +8,8 @@
 ###############################################################################
 import numpy
 from scipy import special
-from .Potential import Potential, _APY_LOADED
-if _APY_LOADED:
-    from astropy import units
+from ..util import conversion
+from .Potential import Potential
 class PowerSphericalPotential(Potential):
     """Class that implements spherical potentials that are derived from power-law density models
 
@@ -34,7 +33,7 @@ class PowerSphericalPotential(Potential):
 
            amp - amplitude to be applied to the potential (default: 1); can be a Quantity with units of mass or Gxmass
 
-           alpha - inner power
+           alpha - power-law exponent
 
            r1= (1.) reference radius for amplitude (can be Quantity)
 
@@ -52,8 +51,7 @@ class PowerSphericalPotential(Potential):
 
         """
         Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='mass')
-        if _APY_LOADED and isinstance(r1,units.Quantity):
-            r1= r1.to(units.kpc).value/self._ro
+        r1= conversion.parse_length(r1,ro=self._ro)
         self.alpha= alpha
         # Back to old definition
         if self.alpha != 3.:
@@ -82,10 +80,16 @@ class PowerSphericalPotential(Potential):
         HISTORY:
            2010-07-10 - Started - Bovy (NYU)
         """
+        r2= R**2.+z**2.
         if self.alpha == 2.:
-            return numpy.log(R**2.+z**2.)/2. 
+            return numpy.log(r2)/2. 
+        elif isinstance(r2,(float,int)) and r2 == 0 and self.alpha > 2:
+            return -numpy.inf
         else:
-            return -(R**2.+z**2.)**(1.-self.alpha/2.)/(self.alpha-2.)
+            out= -r2**(1.-self.alpha/2.)/(self.alpha-2.)
+            if isinstance(r2,numpy.ndarray) and self.alpha > 2:
+                out[r2 == 0]= -numpy.inf
+            return out                
 
     def _Rforce(self,R,z,phi=0.,t=0.):
         """
@@ -122,6 +126,22 @@ class PowerSphericalPotential(Potential):
            2010-07-10 - Written - Bovy (NYU)
         """
         return -z/(R**2.+z**2.)**(self.alpha/2.)
+
+    def _rforce_jax(self,r):
+        """
+        NAME:
+           _rforce_jax
+        PURPOSE:
+           evaluate the spherical radial force for this potential using JAX
+        INPUT:
+           r - Galactocentric spherical radius
+        OUTPUT:
+           the radial force
+        HISTORY:
+           2021-02-14 - Written - Bovy (UofT)
+        """
+        # No need for actual JAX!
+        return -self._amp/r**(self.alpha-1.)
 
     def _R2deriv(self,R,z,phi=0.,t=0.):
         """
@@ -197,6 +217,57 @@ class PowerSphericalPotential(Potential):
         r= numpy.sqrt(R**2.+z**2.)
         return (3.-self.alpha)/4./numpy.pi/r**self.alpha
 
+    def _ddensdr(self,r,t=0.):
+        """
+        NAME:
+           _ddensdr
+        PURPOSE:
+           evaluate the radial density derivative for this potential
+        INPUT:
+           r - spherical radius
+           t= time
+        OUTPUT:
+           the density derivative
+        HISTORY:
+           2021-02-25 - Written - Bovy (UofT)
+        """
+        return -self._amp\
+            *self.alpha*(3.-self.alpha)/4./numpy.pi/r**(self.alpha+1.)
+
+    def _d2densdr2(self,r,t=0.):
+        """
+        NAME:
+           _d2densdr2
+        PURPOSE:
+           evaluate the second radial density derivative for this potential
+        INPUT:
+           r - spherical radius
+           t= time
+        OUTPUT:
+           the 2nd density derivative
+        HISTORY:
+           2021-02-25 - Written - Bovy (UofT)
+        """
+        return self._amp*(self.alpha+1.)*self.alpha\
+            *(3.-self.alpha)/4./numpy.pi/r**(self.alpha+2.)
+
+    def _ddenstwobetadr(self,r,beta=0):
+        """
+        NAME:
+           _ddenstwobetadr
+        PURPOSE:
+           evaluate the radial density derivative x r^(2beta) for this potential
+        INPUT:
+           r - spherical radius
+           beta= (0)
+        OUTPUT:
+           d (rho x r^{2beta} ) / d r
+        HISTORY:
+           2021-02-14 - Written - Bovy (UofT)
+        """
+        return -self._amp*(self.alpha-2.*beta)\
+            *(3.-self.alpha)/4./numpy.pi/r**(self.alpha+1.-2.*beta)
+    
     def _surfdens(self,R,z,phi=0.,t=0.):
         """
         NAME:
@@ -258,7 +329,7 @@ class KeplerPotential(PowerSphericalPotential):
         PowerSphericalPotential.__init__(self,amp=amp,normalize=normalize,
                                          alpha=3.,ro=ro,vo=vo)
 
-    def _mass(self,R,z=0.,t=0.):
+    def _mass(self,R,z=None,t=0.):
         """
         NAME:
            _mass

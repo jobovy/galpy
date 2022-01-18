@@ -41,6 +41,7 @@ from . import DehnenSmoothWrapperPotential
 from . import SolidBodyRotationWrapperPotential
 from . import CorotatingRotationWrapperPotential
 from . import GaussianAmplitudeWrapperPotential
+from . import RotateAndTiltWrapperPotential
 from . import ChandrasekharDynamicalFrictionForce
 from . import SphericalShellPotential
 from . import RingPotential
@@ -48,12 +49,20 @@ from . import PerfectEllipsoidPotential
 from . import IsothermalDiskPotential
 from . import NumericalPotentialDerivativesMixin
 from . import HomogeneousSpherePotential
+from . import interpSphericalPotential
+from . import TriaxialGaussianPotential
+from . import KingPotential
+from . import AnyAxisymmetricRazorThinDiskPotential
+from . import AnySphericalPotential
+from . import AdiabaticContractionWrapperPotential
+from . import PowerTriaxialPotential
 #
 # Functions
 #
 evaluatePotentials= Potential.evaluatePotentials
 evaluateDensities= Potential.evaluateDensities
 evaluateSurfaceDensities= Potential.evaluateSurfaceDensities
+mass= Potential.mass
 evaluateRforces= Potential.evaluateRforces
 evaluatephiforces= Potential.evaluatephiforces
 evaluatezforces= Potential.evaluatezforces
@@ -63,6 +72,7 @@ evaluatez2derivs= Potential.evaluatez2derivs
 evaluateRzderivs= Potential.evaluateRzderivs
 evaluatephi2derivs= Potential.evaluatephi2derivs
 evaluateRphiderivs= Potential.evaluateRphiderivs
+evaluatephizderivs= Potential.evaluatephizderivs
 evaluater2derivs= Potential.evaluater2derivs
 RZToplanarPotential= planarPotential.RZToplanarPotential
 toPlanarPotential= planarPotential.toPlanarPotential
@@ -70,6 +80,7 @@ RZToverticalPotential= verticalPotential.RZToverticalPotential
 toVerticalPotential= verticalPotential.toVerticalPotential
 plotPotentials= Potential.plotPotentials
 plotDensities= Potential.plotDensities
+plotSurfaceDensities= Potential.plotSurfaceDensities
 plotplanarPotentials= planarPotential.plotplanarPotentials
 plotlinearPotentials= linearPotential.plotlinearPotentials
 calcRotcurve= plotRotcurve.calcRotcurve
@@ -100,6 +111,9 @@ turn_physical_off= Potential.turn_physical_off
 turn_physical_on= Potential.turn_physical_on
 _dim= Potential._dim
 _isNonAxi= Potential._isNonAxi
+scf_compute_coeffs_spherical_nbody = SCFPotential.scf_compute_coeffs_spherical_nbody
+scf_compute_coeffs_axi_nbody = SCFPotential.scf_compute_coeffs_axi_nbody
+scf_compute_coeffs_nbody = SCFPotential.scf_compute_coeffs_nbody
 scf_compute_coeffs_spherical = SCFPotential.scf_compute_coeffs_spherical
 scf_compute_coeffs_axi = SCFPotential.scf_compute_coeffs_axi
 scf_compute_coeffs = SCFPotential.scf_compute_coeffs
@@ -107,6 +121,10 @@ rtide= Potential.rtide
 ttensor= Potential.ttensor
 flatten= Potential.flatten
 to_amuse= Potential.to_amuse
+zvc= Potential.zvc
+zvc_range= Potential.zvc_range
+rhalf= Potential.rhalf
+tdyn= Potential.tdyn
 #
 # Classes
 #
@@ -164,11 +182,19 @@ PerfectEllipsoidPotential= PerfectEllipsoidPotential.PerfectEllipsoidPotential
 IsothermalDiskPotential= IsothermalDiskPotential.IsothermalDiskPotential
 NumericalPotentialDerivativesMixin= NumericalPotentialDerivativesMixin.NumericalPotentialDerivativesMixin
 HomogeneousSpherePotential= HomogeneousSpherePotential.HomogeneousSpherePotential
+interpSphericalPotential= interpSphericalPotential.interpSphericalPotential
+TriaxialGaussianPotential= TriaxialGaussianPotential.TriaxialGaussianPotential
+KingPotential= KingPotential.KingPotential
+AnyAxisymmetricRazorThinDiskPotential= AnyAxisymmetricRazorThinDiskPotential.AnyAxisymmetricRazorThinDiskPotential
+AnySphericalPotential= AnySphericalPotential.AnySphericalPotential
 #Wrappers
 DehnenSmoothWrapperPotential= DehnenSmoothWrapperPotential.DehnenSmoothWrapperPotential
 SolidBodyRotationWrapperPotential= SolidBodyRotationWrapperPotential.SolidBodyRotationWrapperPotential
 CorotatingRotationWrapperPotential= CorotatingRotationWrapperPotential.CorotatingRotationWrapperPotential
 GaussianAmplitudeWrapperPotential= GaussianAmplitudeWrapperPotential.GaussianAmplitudeWrapperPotential
+RotateAndTiltWrapperPotential = RotateAndTiltWrapperPotential.RotateAndTiltWrapperPotential
+AdiabaticContractionWrapperPotential= AdiabaticContractionWrapperPotential.AdiabaticContractionWrapperPotential
+PowerTriaxialPotential= PowerTriaxialPotential.PowerTriaxialPotential
 
 # MW potential models, now in galpy.potential.mwpotentials, but keep these two
 # for tests, backwards compatibility, and convenience

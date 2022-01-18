@@ -6,11 +6,8 @@
 ###############################################################################
 import numpy
 from scipy import special
-from .Potential import Potential, _APY_LOADED
-if _APY_LOADED:
-    from astropy import units
-_TOL= 1.4899999999999999e-15
-_MAXITER= 20
+from ..util import conversion
+from .Potential import Potential
 class RazorThinExponentialDiskPotential(Potential):
     """Class that implements the razor-thin exponential disk potential
 
@@ -19,8 +16,7 @@ class RazorThinExponentialDiskPotential(Potential):
         \\rho(R,z) = \\mathrm{amp}\\,\\exp\\left(-R/h_R\\right)\\,\\delta(z)
 
     """
-    def __init__(self,amp=1.,hr=1./3.,
-                 maxiter=_MAXITER,tol=0.001,normalize=False,
+    def __init__(self,amp=1.,hr=1./3.,normalize=False,
                  ro=None,vo=None,
                  new=True,glorder=100):
         """
@@ -38,10 +34,6 @@ class RazorThinExponentialDiskPotential(Potential):
 
            hr - disk scale-length (can be Quantity)
 
-           tol - relative accuracy of potential-evaluations
-
-           maxiter - scipy.integrate keyword
-
            normalize - if True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
 
            ro=, vo= distance and velocity scales for translation into internal units (default from configuration file)
@@ -56,22 +48,17 @@ class RazorThinExponentialDiskPotential(Potential):
 
         """
         Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='surfacedensity')
-        if _APY_LOADED and isinstance(hr,units.Quantity):
-            hr= hr.to(units.kpc).value/self._ro
+        hr= conversion.parse_length(hr,ro=self._ro)
         self._new= new
         self._glorder= glorder
         self._hr= hr
         self._scale= self._hr
         self._alpha= 1./self._hr
-        self._maxiter= maxiter
-        self._tol= tol
         self._glx, self._glw= numpy.polynomial.legendre.leggauss(self._glorder)
         if normalize or \
                 (isinstance(normalize,(int,float)) \
                      and not isinstance(normalize,bool)): #pragma: no cover
             self.normalize(normalize)
-        #Load Kepler potential for large R
-        #self._kp= KeplerPotential(normalize=4.*numpy.pi/self._alpha**2./self._beta)
 
     def _evaluate(self,R,z,phi=0.,t=0.):
         """
@@ -90,7 +77,6 @@ class RazorThinExponentialDiskPotential(Potential):
            2012-12-26 - Written - Bovy (IAS)
         """
         if self._new:
-            #if R > 6.: return self._kp(R,z)
             if numpy.fabs(z) < 10.**-6.:
                 y= 0.5*self._alpha*R
                 return -numpy.pi*R*(special.i0(y)*special.k1(y)-special.i1(y)*special.k0(y))
@@ -241,3 +227,22 @@ class RazorThinExponentialDiskPotential(Potential):
            2018-08-19 - Written - Bovy (UofT)
         """
         return numpy.exp(-self._alpha*R)
+
+    def _mass(self,R,z=None,t=0.):
+        """
+        NAME:
+           _mass
+        PURPOSE:
+           evaluate the mass within R (and z) for this potential; if z=None, integrate to z=inf
+        INPUT:
+           R - Galactocentric cylindrical radius
+           z - vertical height
+           t - time
+        OUTPUT:
+           the mass enclosed
+        HISTORY:
+           2021-03-04 - Written - Bovy (UofT)
+        """
+        return 2.*numpy.pi*(1.-numpy.exp(-self._alpha*R)*(1.+self._alpha*R))\
+            /self._alpha**2.
+    

@@ -1,7 +1,7 @@
 $(document).ready(function() {
   // Create the list of image divs with papers using galpy
-  //https://d2g2jw00kypyq.cloudfront.net = https://www.galpy.org (but latter doesn't work)
-  $.getJSON("https://d2g2jw00kypyq.cloudfront.net/data/papers-using-galpy.json")
+    //https://d2g2jw00kypyq.cloudfront.net = https://www.galpy.org (but latter doesn't work); ?+new Date etc. to make sure file isn't cached
+    $.getJSON("https://d2g2jw00kypyq.cloudfront.net/data/papers-using-galpy.json?"+new Date().getTime())
     .done(function(data) {
     // First update the number of papers using galpy listed on the page
     let paperSpan= document.getElementById("span-number-of-papers-using-galpy");
@@ -28,11 +28,25 @@ $(document).ready(function() {
 		.attr("alt",`Figure from ${bibentry.title}, ${bibentry.author} (${bibentry.year}), ${bibentry.journal} ${bibentry.volume}, ${bibentry.pages}`)
 		.attr("title",`Figure from ${bibentry.title}, ${bibentry.author} (${bibentry.year}), ${bibentry.journal} ${bibentry.volume}, ${bibentry.pages}`).appendTo(`#${key}-div2`);
 	    $("<div>").attr("id",key).addClass("papers-gallery-item").appendTo(`#${key}-link`);
-	    $("<img>").attr("src","http://www.galpy.org.s3-website.us-east-2.amazonaws.com/data/paper-figs/"+bibentry.img).appendTo(`#${key}`);
+	    $("<img>").attr("data-src","https://d2g2jw00kypyq.cloudfront.net/data/paper-figs/"+bibentry.img).attr("loading","lazy").addClass("lazyload").appendTo(`#${key}`);
 	    $("<div>"+`<font size="-3"><i>${bibentry.title}</i>, ${bibentry.author} (${bibentry.year}), ${bibentry.journal} ${bibentry.volume}, ${bibentry.pages}</font>`+"</div>").addClass("desc").appendTo(`#${key}-div2`);
 	}
 	  });
-      })
+      // Lazy loading of images...
+      if ('loading' in HTMLImageElement.prototype) {
+	  const images = document.querySelectorAll("img.lazyload");
+	  images.forEach(img => {
+		  img.src = img.dataset.src;
+	      });
+      } else {
+	  // Dynamically import the LazySizes library
+	  let script = document.createElement("script");
+	  script.async = true;
+	  script.src =
+	      "https://cdnjs.cloudflare.com/ajax/libs/lazysizes/4.1.8/lazysizes.min.js";
+	  document.body.appendChild(script);
+      }
+	})
       .fail(function(jqxhr, textStatus, error ) {
         console.log( "Failed to load JSON gallery file");
 	// Add div with warning that the gallery failed to load

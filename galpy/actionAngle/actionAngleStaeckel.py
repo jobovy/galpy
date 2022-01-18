@@ -19,19 +19,14 @@ from ..potential import evaluateR2derivs, evaluatez2derivs, \
 from ..potential.Potential import _evaluatePotentials, \
     _evaluateRforces, _evaluatezforces
 from ..potential.Potential import flatten as flatten_potential
-from ..util import bovy_coords #for prolate confocal transforms
-from ..util import galpyWarning
-from ..util.bovy_conversion import physical_conversion, \
+from ..util import coords #for prolate confocal transforms
+from ..util import galpyWarning, conversion
+from ..util.conversion import physical_conversion, \
     potential_physical_input
 from .actionAngle import actionAngle, UnboundError
 from . import actionAngleStaeckel_c
 from .actionAngleStaeckel_c import _ext_loaded as ext_loaded
 from ..potential.Potential import _check_c
-_APY_LOADED= True
-try:
-    from astropy import units
-except ImportError:
-    _APY_LOADED= False
 class actionAngleStaeckel(actionAngle):
     """Action-angle formalism for axisymmetric potentials using Binney (2012)'s Staeckel approximation"""
     def __init__(self,*args,**kwargs):
@@ -84,8 +79,7 @@ class actionAngleStaeckel(actionAngle):
         self._useu0= kwargs.get('useu0',False)
         self._delta= kwargs['delta']
         self._order= kwargs.get('order',10)
-        if _APY_LOADED and isinstance(self._delta,units.Quantity):
-            self._delta= self._delta.to(units.kpc).value/self._ro
+        self._delta= conversion.parse_length(self._delta,ro=self._ro)
         # Check the units
         self._check_consistent_units()
         return None
@@ -361,8 +355,8 @@ class actionAngleStaeckel(actionAngle):
         """
         delta= kwargs.get('delta',self._delta)
         umin, umax, vmin= self._uminumaxvmin(*args,**kwargs)
-        rperi= bovy_coords.uv_to_Rz(umin,numpy.pi/2.,delta=delta)[0]
-        rap_tmp, zmax= bovy_coords.uv_to_Rz(umax,vmin,delta=delta)
+        rperi= coords.uv_to_Rz(umin,numpy.pi/2.,delta=delta)[0]
+        rap_tmp, zmax= coords.uv_to_Rz(umax,vmin,delta=delta)
         rap= numpy.sqrt(rap_tmp**2.+zmax**2.)
         e= (rap-rperi)/(rap+rperi)
         return (e,zmax,rperi,rap)
@@ -487,8 +481,8 @@ class actionAngleStaeckelSingle(actionAngle):
             raise IOError("Must specify delta= for actionAngleStaeckel")
         self._delta= kwargs['delta']
         #Pre-calculate everything
-        self._ux, self._vx= bovy_coords.Rz_to_uv(self._R,self._z,
-                                                 delta=self._delta)
+        self._ux, self._vx= coords.Rz_to_uv(self._R,self._z,
+                                            delta=self._delta)
         self._sinvx= numpy.sin(self._vx)
         self._cosvx= numpy.cos(self._vx)
         self._coshux= numpy.cosh(self._ux)
@@ -716,7 +710,15 @@ class actionAngleStaeckelSingle(actionAngle):
         if hasattr(self,'_uminumax'): #pragma: no cover
             return self._uminumax
         E, L= self._E, self._Lz
-        if numpy.fabs(self._pux) < 10.**-7.: #We are at umin or umax
+        # Calculate value of the integrand at current point, to check whether
+        # we are at a turning point
+        current_val= _JRStaeckelIntegrandSquared(self._ux,
+                                             E,L,self._I3U,self._delta,
+                                             self._u0,self._sinhu0**2.,
+                                             self._vx,self._sinvx**2.,
+                                             self._potu0v0,self._pot)
+        if numpy.fabs(self._pux) < 1e-7 \
+           or numpy.fabs(current_val) < 1e-10: #We are at umin or umax
             eps= 10.**-8.
             peps= _JRStaeckelIntegrandSquared(self._ux+eps,
                                            E,L,self._I3U,self._delta,
@@ -906,7 +908,7 @@ def potentialStaeckel(u,v,pot,delta):
     HISTORY:
        2012-11-29 - Written - Bovy (IAS)
     """
-    R,z= bovy_coords.uv_to_Rz(u,v,delta=delta)
+    R,z= coords.uv_to_Rz(u,v,delta=delta)
     return _evaluatePotentials(pot,R,z)
 
 def FRStaeckel(u,v,pot,delta): #pragma: no cover because unused
@@ -925,7 +927,7 @@ def FRStaeckel(u,v,pot,delta): #pragma: no cover because unused
     HISTORY:
        2012-11-30 - Written - Bovy (IAS)
     """
-    R,z= bovy_coords.uv_to_Rz(u,v,delta=delta)
+    R,z= coords.uv_to_Rz(u,v,delta=delta)
     return _evaluateRforces(pot,R,z)
 
 def FZStaeckel(u,v,pot,delta): #pragma: no cover because unused
@@ -944,7 +946,7 @@ def FZStaeckel(u,v,pot,delta): #pragma: no cover because unused
     HISTORY:
        2012-11-30 - Written - Bovy (IAS)
     """
-    R,z= bovy_coords.uv_to_Rz(u,v,delta=delta)
+    R,z= coords.uv_to_Rz(u,v,delta=delta)
     return _evaluatezforces(pot,R,z)
 
 def _JRStaeckelIntegrand(u,E,Lz,I3U,delta,u0,sinh2u0,v0,sin2v0,

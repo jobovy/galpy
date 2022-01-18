@@ -1,0 +1,24 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite the Bovy (2015) The Astrophysical Journal Supplement Series paper as given below."
+authors:
+- family-names: "Bovy"
+  given-names: "Jo"
+  orcid: "https://orcid.org/0000-0001-6855-442X"
+title: "galpy"
+version: 1.8.0.dev0
+url: "https://github.com/jobovy/galpy"
+preferred-citation:
+  type: article
+  authors:
+  - family-names: "Bovy"
+    given-names: "Jo"
+    orcid: "https://orcid.org/0000-0001-6855-442X"
+  doi: "10.1088/0067-0049/216/2/29"
+  journal: "The Astrophysical Journal Supplement Series"
+  month: 2
+  start: 29
+  title: "galpy: A python Library for Galactic Dynamics"
+  issue: 2
+  volume: 216
+  year: 2015
+  

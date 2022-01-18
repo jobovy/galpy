@@ -11,7 +11,7 @@ from ..potential.planarPotential import _evaluateplanarRforces,\
 from ..potential.WrapperPotential import parentWrapperPotential
 from ..util.multi import parallel_map
 from ..util.leung_dop853 import dop853
-from ..util import bovy_symplecticode as symplecticode
+from ..util import symplecticode
 from ..util import _load_extension_libs
 
 _lib, _ext_loaded= _load_extension_libs.load_libgalpy()
@@ -37,7 +37,7 @@ def _parse_pot(pot):
                     _parse_pot(potential.toPlanarPotential(p._Pot._pot))
             else:
                 wrap_npot, wrap_pot_type, wrap_pot_args= _parse_pot(p._pot)
-        if (isinstance(p,planarPotentialFromRZPotential) 
+        if (isinstance(p,planarPotentialFromRZPotential)
             or isinstance(p,planarPotentialFromFullPotential) ) \
                  and isinstance(p._Pot,potential.LogarithmicHaloPotential):
             pot_type.append(0)
@@ -99,16 +99,13 @@ def _parse_pot(pot):
         elif isinstance(p,planarPotentialFromRZPotential) \
                 and isinstance(p._Pot,potential.DoubleExponentialDiskPotential):
             pot_type.append(11)
-            pot_args.extend([p._Pot._amp,p._Pot._alpha,
-                             p._Pot._beta,p._Pot._kmaxFac,
-                             p._Pot._nzeros,p._Pot._glorder])
-            pot_args.extend([p._Pot._glx[ii] for ii in range(p._Pot._glorder)])
-            pot_args.extend([p._Pot._glw[ii] for ii in range(p._Pot._glorder)])
-            pot_args.extend([p._Pot._j0zeros[ii] for ii in range(p._Pot._nzeros+1)])
-            pot_args.extend([p._Pot._dj0zeros[ii] for ii in range(p._Pot._nzeros+1)])
-            pot_args.extend([p._Pot._j1zeros[ii] for ii in range(p._Pot._nzeros+1)])
-            pot_args.extend([p._Pot._dj1zeros[ii] for ii in range(p._Pot._nzeros+1)])
-            pot_args.extend([p._Pot._kp._amp,p._Pot._kp.alpha])
+            pot_args.extend([p._Pot._amp,
+                             -4.*numpy.pi*p._Pot._alpha*p._Pot._amp,
+                             p._Pot._alpha,p._Pot._beta,len(p._Pot._de_j1_xs)])
+            pot_args.extend(p._Pot._de_j0_xs)
+            pot_args.extend(p._Pot._de_j1_xs)
+            pot_args.extend(p._Pot._de_j0_weights)
+            pot_args.extend(p._Pot._de_j1_weights)
         elif isinstance(p,planarPotentialFromRZPotential) \
                 and isinstance(p._Pot,potential.FlattenedPowerPotential):
             pot_type.append(12)
@@ -168,6 +165,12 @@ def _parse_pot(pot):
             elif isinstance(p._Pot,potential.PerfectEllipsoidPotential):
                 pot_type.append(30)
                 pot_args.extend([1,p._Pot.a2]) # for psi, mdens, mdens_deriv
+            elif isinstance(p._Pot,potential.TriaxialGaussianPotential):
+                pot_type.append(37)
+                pot_args.extend([1,-p._Pot._twosigma2]) # for psi, mdens, mdens_deriv
+            elif isinstance(p._Pot,potential.PowerTriaxialPotential):
+                pot_type.append(38)
+                pot_args.extend([1,p._Pot.alpha]) # for psi, mdens, mdens_deriv
             pot_args.extend([p._Pot._b2,p._Pot._c2,
                              int(p._Pot._aligned)]) # Reg. Ellipsoidal
             if not p._Pot._aligned:
@@ -246,9 +249,20 @@ def _parse_pot(pot):
             pot_args.extend([p._Pot._amp,p._Pot.a,p._Pot.alpha])
         # 35: HomogeneousSpherePotential
         elif isinstance(p,planarPotentialFromRZPotential) \
-                 and isinstance(p._Pot,potential.HomogeneousSpherePotential):
+             and isinstance(p._Pot,potential.HomogeneousSpherePotential):
             pot_type.append(35)
             pot_args.extend([p._Pot._amp,p._Pot._R2,p._Pot._R3])
+        # 36: interpSphericalPotential
+        elif isinstance(p,planarPotentialFromRZPotential) \
+             and isinstance(p._Pot,potential.interpSphericalPotential):
+            pot_type.append(36)
+            pot_args.append(len(p._Pot._rgrid))
+            pot_args.extend(p._Pot._rgrid)
+            pot_args.extend(p._Pot._rforce_grid)
+            pot_args.extend([p._Pot._amp,p._Pot._rmin,p._Pot._rmax,
+                             p._Pot._total_mass,p._Pot._Phi0,p._Pot._Phimax])
+        # 37: TriaxialGaussianPotential, done with other EllipsoidalPotentials above
+        # 38: PowerTriaxialPotential, done with other EllipsoidalPotentials above
         ############################## WRAPPERS ###############################
         elif ((isinstance(p,planarPotentialFromFullPotential) or isinstance(p,planarPotentialFromRZPotential)) \
               and isinstance(p._Pot,potential.DehnenSmoothWrapperPotential)) \
@@ -311,6 +325,11 @@ def _parse_pot(pot):
             pot_args.extend(p._orb.y(p._orb.t,use_physical=False))
             pot_args.extend([p._amp])
             pot_args.extend([p._orb.t[0],p._orb.t[-1]]) #t_0, t_f
+        elif ((isinstance(p,planarPotentialFromFullPotential) or isinstance(p,planarPotentialFromRZPotential)) \
+              and isinstance(p._Pot,potential.RotateAndTiltWrapperPotential)) \
+              or isinstance(p,potential.RotateAndTiltWrapperPotential): # pragma: no cover
+            raise NotImplementedError('Planar orbit integration in C for RotateAndTiltWrapperPotential not implemented; please integrate an orbit with (z,vz) = (0,0) instead')
+            # Note that potential.RotateAndTiltWrapperPotential would be -8
     pot_type= numpy.array(pot_type,dtype=numpy.int32,order='C')
     pot_args= numpy.array(pot_args,dtype=numpy.float64,order='C')
     return (npot,pot_type,pot_args)
@@ -333,7 +352,7 @@ def _parse_integrator(int_method):
     else:
         int_method_c= 0
     return int_method_c
-            
+
 def _parse_tol(rtol,atol):
     """Parse the tolerance keywords"""
     #Process atol and rtol
@@ -359,7 +378,7 @@ def integratePlanarOrbit_c(pot,yo,t,int_method,rtol=None,atol=None,
        yo - initial condition [q,p], can be [N,4] or [4]
        t - set of times at which one wants the result
        int_method= 'leapfrog_c', 'rk4_c', 'rk6_c', 'symplec4_c', ...
-       rtol, atol 
+       rtol, atol
        dt= (None) force integrator to use this stepsize (default is to automatically determine one)
    OUTPUT:
        (y,err)
@@ -378,7 +397,7 @@ def integratePlanarOrbit_c(pot,yo,t,int_method,rtol=None,atol=None,
     rtol, atol= _parse_tol(rtol,atol)
     npot, pot_type, pot_args= _parse_pot(pot)
     int_method_c= _parse_integrator(int_method)
-    if dt is None: 
+    if dt is None:
         dt= -9999.99
 
     #Set up result array
@@ -390,7 +409,7 @@ def integratePlanarOrbit_c(pot,yo,t,int_method,rtol=None,atol=None,
     integrationFunc= _lib.integratePlanarOrbit
     integrationFunc.argtypes= [ctypes.c_int,
                                ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
-                               ctypes.c_int,                             
+                               ctypes.c_int,
                                ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
                                ctypes.c_int,
                                ndpointer(dtype=numpy.int32,flags=ndarrayFlags),
@@ -418,7 +437,7 @@ def integratePlanarOrbit_c(pot,yo,t,int_method,rtol=None,atol=None,
                     ctypes.c_int(npot),
                     pot_type,
                     pot_args,
-                    ctypes.c_double(dt),                    
+                    ctypes.c_double(dt),
                     ctypes.c_double(rtol),
                     ctypes.c_double(atol),
                     result,
@@ -462,7 +481,7 @@ def integratePlanarOrbit_dxdv_c(pot,yo,dyo,t,int_method,rtol=None,atol=None,
     rtol, atol= _parse_tol(rtol,atol)
     npot, pot_type, pot_args= _parse_pot(pot)
     int_method_c= _parse_integrator(int_method)
-    if dt is None: 
+    if dt is None:
         dt= -9999.99
     yo= numpy.concatenate((yo,dyo))
 
@@ -474,7 +493,7 @@ def integratePlanarOrbit_dxdv_c(pot,yo,dyo,t,int_method,rtol=None,atol=None,
     ndarrayFlags= ('C_CONTIGUOUS','WRITEABLE')
     integrationFunc= _lib.integratePlanarOrbit_dxdv
     integrationFunc.argtypes= [ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
-                               ctypes.c_int,                             
+                               ctypes.c_int,
                                ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
                                ctypes.c_int,
                                ndpointer(dtype=numpy.int32,flags=ndarrayFlags),
@@ -500,7 +519,7 @@ def integratePlanarOrbit_dxdv_c(pot,yo,dyo,t,int_method,rtol=None,atol=None,
                     ctypes.c_int(npot),
                     pot_type,
                     pot_args,
-                    ctypes.c_double(dt),                    
+                    ctypes.c_double(dt),
                     ctypes.c_double(rtol),ctypes.c_double(atol),
                     result,
                     ctypes.byref(err),
@@ -727,8 +746,8 @@ def _planarREOM(y,t,pot,l2):
     NAME:
        _planarREOM
     PURPOSE:
-       implements the EOM, i.e., the right-hand side of the differential 
-       equation, for integrating a planar Orbit assuming angular momentum 
+       implements the EOM, i.e., the right-hand side of the differential
+       equation, for integrating a planar Orbit assuming angular momentum
        conservation
     INPUT:
        y - current phase-space position
@@ -748,7 +767,7 @@ def _planarEOM(y,t,pot):
     NAME:
        _planarEOM
     PURPOSE:
-       implements the EOM, i.e., the right-hand side of the differential 
+       implements the EOM, i.e., the right-hand side of the differential
        equation, for integrating a general planar Orbit
     INPUT:
        y - current phase-space position
@@ -771,7 +790,7 @@ def _planarEOM_dxdv(x,t,pot):
     NAME:
        _planarEOM_dxdv
     PURPOSE:
-       implements the EOM, i.e., the right-hand side of the differential 
+       implements the EOM, i.e., the right-hand side of the differential
        equation, for integrating phase space differences, rectangular
     INPUT:
        x - current phase-space position
@@ -848,4 +867,3 @@ def _planarRectForce(x,pot,t=0.):
     phiforce= _evaluateplanarphiforces(pot,R,phi=phi,t=t)
     return numpy.array([cosphi*Rforce-1./R*sinphi*phiforce,
                      sinphi*Rforce+1./R*cosphi*phiforce])
-

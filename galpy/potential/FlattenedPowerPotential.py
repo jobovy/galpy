@@ -7,9 +7,8 @@
 #                                   m^\alpha
 ###############################################################################
 import numpy
-from .Potential import Potential, _APY_LOADED
-if _APY_LOADED:
-    from astropy import units
+from ..util import conversion
+from .Potential import Potential
 _CORE=10**-8
 class FlattenedPowerPotential(Potential):
     """Class that implements a power-law potential that is flattened in the potential (NOT the density)
@@ -60,10 +59,8 @@ class FlattenedPowerPotential(Potential):
 
         """
         Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='velocity2')
-        if _APY_LOADED and isinstance(core,units.Quantity):
-            core= core.to(units.kpc).value/self._ro
-        if _APY_LOADED and isinstance(r1,units.Quantity):
-            r1= r1.to(units.kpc).value/self._ro
+        core= conversion.parse_length(core,ro=self._ro)
+        r1= conversion.parse_length(r1,ro=self._ro)
         self.alpha= alpha
         self.q2= q**2.
         self.core2= core**2.

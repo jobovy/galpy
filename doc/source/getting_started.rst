@@ -87,7 +87,7 @@ kpc, all of the velocities should be scaled as v= V/[220 km/s] and all
 of the positions should be scaled as x = X/[8 kpc] when using galpy's
 natural units.
 
-For convenience, a utility module ``bovy_conversion`` is included in
+For convenience, a utility module ``conversion`` is included in
 galpy that helps in converting between physical units and natural
 units for various quantities. Alternatively, you can use the
 ``astropy`` `units <http://docs.astropy.org/en/stable/units/>`__
@@ -96,8 +96,8 @@ module to specify inputs in physical units and get outputs with units
 natural units the orbital time of a circular orbit at R=1 is
 :math:`2\pi`; in physical units this corresponds to
 
->>> from galpy.util import bovy_conversion
->>> print(2.*numpy.pi*bovy_conversion.time_in_Gyr(220.,8.))
+>>> from galpy.util import conversion
+>>> print(2.*numpy.pi*conversion.time_in_Gyr(220.,8.))
 # 0.223405444283
 
 or about 223 Myr. We can also express forces in various physical
@@ -105,13 +105,13 @@ units. For example, for the Milky-Way-like potential defined in galpy,
 we have that the vertical force at 1.1 kpc is
 
 >>> from galpy.potential import MWPotential2014, evaluatezforces
->>> -evaluatezforces(MWPotential2014, 1.,1.1/8.)*bovy_conversion.force_in_pcMyr2(220.,8.)
+>>> -evaluatezforces(MWPotential2014, 1.,1.1/8.)*conversion.force_in_pcMyr2(220.,8.)
 # 2.0259181908629933
 
 which we can also express as an equivalent surface-density by dividing
 by :math:`2\pi G`
 
->>> -evaluatezforces(MWPotential2014, 1.,1.1/8.)*bovy_conversion.force_in_2piGmsolpc2(220.,8.)
+>>> -evaluatezforces(MWPotential2014, 1.,1.1/8.)*conversion.force_in_2piGmsolpc2(220.,8.)
 # 71.658016957792356
 
 Because the vertical force at the solar circle in the Milky Way at 1.1
@@ -121,18 +121,18 @@ M_\odot\,\mathrm{pc}^{-2})` (e.g., `2013arXiv1309.0809B
 that our Milky-Way-like potential has a realistic disk (at least in
 this respect).
 
-``bovy_conversion`` further has functions to convert densities,
+``conversion`` further has functions to convert densities,
 masses, surface densities, and frequencies to physical units (actions
 are considered to be too obvious to be included); see :ref:`here
 <bovyconversion>` for a full list. As a final example, the local dark
 matter density in the Milky-Way-like potential is given by
 
->>> MWPotential2014[2].dens(1.,0.)*bovy_conversion.dens_in_msolpc3(220.,8.)
+>>> MWPotential2014[2].dens(1.,0.)*conversion.dens_in_msolpc3(220.,8.)
 # 0.0075419566970079373
 
 or
 
->>> MWPotential2014[2].dens(1.,0.)*bovy_conversion.dens_in_gevcc(220.,8.)
+>>> MWPotential2014[2].dens(1.,0.)*conversion.dens_in_gevcc(220.,8.)
 # 0.28643101789044584
 
 or about :math:`0.0075\,M_\odot\,\mathrm{pc}^{-3} \approx
@@ -156,6 +156,7 @@ Quantity            Default unit
 =================== =================
 position            kpc
 velocity            km/s
+angular velocity    km/s/kpc
 energy              (km/s)^2
 Jacobi integral     (km/s)^2
 angular momentum    km/s x kpc

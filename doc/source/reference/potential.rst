@@ -26,20 +26,24 @@ Use as ``Potential-instance.method(...)``
    nemo_accpars <potentialnemoaccpars.rst>
    omegac <potentialomegac.rst>
    phiforce <potentialphiforce.rst>
+   phizderiv <potentialphizderiv.rst>
    phi2deriv <potentialphi2deriv.rst>
    plot <potentialplot.rst>
    plotDensity <potentialplotdensity.rst>
    plotEscapecurve <potentialplotescapecurve.rst>
    plotRotcurve <potentialplotrotcurve.rst>
+   plotSurfaceDensity <potentialplotsurfacedensity.rst>
    Rphideriv <potentialrphideriv.rst>
    R2deriv <potentialr2deriv.rst>
    r2deriv <potentialsphr2deriv.rst>
    Rzderiv <potentialrzderiv.rst>
    Rforce <potentialrforce.rst>
    rforce <potentialsphrforce.rst>
+   rhalf <potentialrhalf.rst>
    rl <potentialrl.rst>
    rtide <potentialrtide.rst>
    surfdens <potentialsurfdens.rst>
+   tdyn <potentialtdyn.rst>
    toPlanar <potentialtoplanar.rst>
    toVertical <potentialtovertical.rst>
    ttensor <potentialttensor.rst>
@@ -51,6 +55,8 @@ Use as ``Potential-instance.method(...)``
    vterm <potentialvterm.rst>
    z2deriv <potentialz2deriv.rst>
    zforce <potentialzforce.rst>
+   zvc <potentialzvc.rst>
+   zvc_range <potentialzvcrange.rst>
 
 In addition to these, the ``NFWPotential`` also has methods to calculate virial quantities
 
@@ -76,6 +82,7 @@ Use as ``method(...)``
    evaluateDensities <potentialdensities.rst>
    evaluatephiforces <potentialphiforces.rst>
    evaluatePotentials <potentialevaluate.rst>
+   evaluatephizderivs <potentialphizderivs.rst>
    evaluatephi2derivs <potentialphi2derivs.rst>
    evaluateRphiderivs <potentialrphiderivs.rst>
    evaluateR2derivs <potentialr2derivs.rst>
@@ -89,6 +96,7 @@ Use as ``method(...)``
    flatten <potentialflatten.rst>
    flattening <potentialflattenings.rst>
    lindbladR <potentiallindbladRs.rst>
+   mass <potentialmasses.rst>
    nemo_accname <potentialnemoaccnames.rst>
    nemo_accpars <potentialnemoaccparss.rst>
    omegac <potentialomegacs.rst>
@@ -96,8 +104,11 @@ Use as ``method(...)``
    plotEscapecurve <potentialplotescapecurves.rst>
    plotPotentials <potentialplots.rst>
    plotRotcurve <potentialplotrotcurves.rst>
+   plotSurfaceDensities <potentialplotsurfacedensities.rst>
+   rhalf <potentialrhalfs.rst>
    rl <potentialrls.rst>
    rtide <potentialrtides.rst>
+   tdyn <potentialtdyns.rst>
    to_amuse <potentialtoamuses.rst>
    ttensor <potentialttensors.rst>
    turn_physical_off <potentialturnphysicaloffs.rst>
@@ -106,6 +117,8 @@ Use as ``method(...)``
    verticalfreq <potentialverticalfreqs.rst>
    vesc <potentialvescs.rst>
    vterm <potentialvterms.rst>
+   zvc <potentialzvcs.rst>
+   zvc_range <potentialzvcranges.rst>
 
 In addition to these, the following methods are available to compute expansion coefficients for the ``SCFPotential`` class for a given density
 
@@ -114,7 +127,10 @@ In addition to these, the following methods are available to compute expansion c
 
    scf_compute_coeffs <potentialscfcompute.rst>
    scf_compute_coeffs_axi <potentialscfcomputeaxi.rst>
+   scf_compute_coeffs_axi_nbody <potentialscfcomputeaxinbody.rst>
+   scf_compute_coeffs_nbody <potentialscfcomputenbody.rst>
    scf_compute_coeffs_spherical <potentialscfcomputesphere.rst>
+   scf_compute_coeffs_spherical_nbody <potentialscfcomputespherenbody.rst>
 
 Specific potentials
 +++++++++++++++++++
@@ -124,15 +140,36 @@ All of the following potentials can also be modified by the specific ``WrapperPo
 Spherical potentials
 ********************
 
+Spherical potentials in ``galpy`` can be implemented in two ways: a)
+directly by inheriting from ``Potential`` and implementing the usual
+methods (``_evaluate``, ``_Rforce``, etc.) or b) by inheriting from
+the general :ref:`SphericalPotential <sphericalpot>` class and
+implementing the functions ``_revaluate(self,r,t=0.)``,
+``_rforce(self,r,t=0.)``, ``_r2deriv(self,r,t=0.)``, and
+``_rdens(self,r,t=0.)`` that evaluate the potential, radial force,
+(minus the) radial force derivative, and density as a function of the
+(here natural) spherical radius. For adding a C implementation when
+using method b), follow similar steps in C (use
+``interpSphericalPotential`` as an example to follow). For historical
+reasons, most spherical potentials in ``galpy`` are directly
+implemented (option a above), but for new spherical potentials it is
+typically easier to follow option b).
+
+Additional spherical potentials can be obtained by setting the axis
+ratios equal for the triaxial potentials listed in the section on
+ellipsoidal triaxial potentials below.
+
 .. toctree::
    :maxdepth: 2
 
+   potentialanyspherical.rst
    potentialburkert.rst
    potentialdoublepowerspher.rst
    potentialcoredehnen.rst
    potentialdehnen.rst
    potentialhernquist.rst
    potentialhomogsphere.rst
+   potentialinterpsphere.rst
    potentialisochrone.rst
    potentialjaffe.rst
    potentialkepler.rst
@@ -146,9 +183,14 @@ Spherical potentials
 Axisymmetric potentials
 ***********************
 
+Additional axisymmetric potentials can be obtained by setting the x/y
+axis ratio equal to 1 for the triaxial potentials listed in the
+section on ellipsoidal triaxial potentials below.
+
 .. toctree::
    :maxdepth: 2
 
+   potentialanyaxirazorthin.rst
    potentialdoubleexp.rst
    potentialflattenedpower.rst
    potentialinterprz.rst
@@ -162,8 +204,8 @@ Axisymmetric potentials
    potentialring.rst
    potentialsnapshotrzpotential.rst
 
-Ellipsoidal triaxial  potentials
-********************************
+Ellipsoidal triaxial potentials
+*******************************
 
 ``galpy`` has very general support for implementing triaxial (or the
 oblate and prolate special cases) of ellipsoidal potentials through
@@ -180,15 +222,22 @@ respectively. For adding a C implementation, follow similar steps (use
 .. toctree::
    :maxdepth: 2
 
-   potentialperfectellipsoid.rst
    potentialdoublepowertriaxial.rst
+   potentialperfectellipsoid.rst
+   potentialpowertriax.rst
+   potentialtriaxialgaussian.rst
    potentialtriaxialjaffe.rst
    potentialtriaxialhernquist.rst
    potentialtriaxialnfw.rst
 
 Note that the Ferrers potential listed below is a potential of this
 type, but it is currently not implemented using the
-``EllipsoidalPotential`` class.
+``EllipsoidalPotential`` class. Further note that these potentials can
+all be rotated in 3D using the ``zvec`` and ``pa`` keywords; however,
+more general support for the same behavior is available through the
+``RotateAndTiltWrapperPotential`` discussed below and the internal
+``zvec``/``pa`` keywords will likely be deprecated in a future
+version.
 
 Spiral, bar, other triaxial, and miscellaneous potentials
 **********************************************************
@@ -264,8 +313,8 @@ If one wants to add the supermassive black hole at the Galactic
 center, this can be done by
 
 >>> from galpy.potential import KeplerPotential
->>> from galpy.util import bovy_conversion
->>> MWPotential2014wBH= MWPotential2014+KeplerPotential(amp=4*10**6./bovy_conversion.mass_in_msol(220.,8.))
+>>> from galpy.util import conversion
+>>> MWPotential2014wBH= MWPotential2014+KeplerPotential(amp=4*10**6./conversion.mass_in_msol(220.,8.))
 
 for a black hole with a mass of :math:`4\times10^6\,M_{\odot}`. If you
 want to take into account dynamical friction for, say, an object of
@@ -281,7 +330,7 @@ do
 
 where we have specified the parameters of the dynamical friction with units; alternatively, convert them directly to ``galpy`` natural units  as
 
->>> cdf= ChandrasekharDynamicalFrictionForce(GMs=5.*10.**10./bovy_conversion.mass_in_msol(220.,8.),
+>>> cdf= ChandrasekharDynamicalFrictionForce(GMs=5.*10.**10./conversion.mass_in_msol(220.,8.),
 					     rhm=5./8.,
 					     dens=MWPotential2014)
 >>> MWPotential2014wDF= MWPotential2014+cdf
@@ -299,16 +348,17 @@ from the literature in the ``galpy.potential.mwpotentials`` module
 * ``McMillan17``: the potential model from `McMillan (2017) <https://ui.adsabs.harvard.edu/abs/2017MNRAS.465...76M>`_
 * ``Irrgang13I``: model I from `Irrgang et al. (2013) <https://ui.adsabs.harvard.edu/abs/2013A%26A...549A.137I>`_, which is an updated version of the classic `Allen & Santillan (1991) <https://ui.adsabs.harvard.edu/abs/1991RMxAA..22..255A>`_
 * ``Irrgang13II`` and ``Irrgang13III``: model II and III from `Irrgang et al. (2013) <https://ui.adsabs.harvard.edu/abs/2013A%26A...549A.137I>`_
+* ``Cautun20``: the potential model from `Cautun et al. (2020) <https://ui.adsabs.harvard.edu/abs/2020MNRAS.494.4291C>`_
 * ``DehnenBinney98I``, ``DehnenBinney98II``, ``DehnenBinney98III``, and ``DehnenBinney98IV`` for models 1 through 4 from `Dehnen & Binney (1998) <https://ui.adsabs.harvard.edu/abs/1998MNRAS.294..429D/abstract>`__.
 
 Unlike ``MWPotential2014``, these potentials have physical units
 turned on, using as the unit scaling parameters ``ro`` and ``vo`` the
 distance to the Galactic center and the circular velocity at the Sun's
 radius of each potential. These can be obtained using the
-``galpy.util.bovy_conversion.get_physical`` function, e.g.,
+``galpy.util.conversion.get_physical`` function, e.g.,
 
 >>> from galpy.potential.mwpotentials import McMillan17
->>> from galpy.util.bovy_conversion import get_physical
+>>> from galpy.util.conversion import get_physical
 >>> get_physical(McMillan17)
 # {'ro': 8.21, 'vo': 233.1}
 
@@ -328,7 +378,7 @@ As an example, we integrate the Sun's orbit for 10 Gyr in
 
 >>> from galpy.potential.mwpotentials import MWPotential2014, McMillan17, Irrgang13I
 >>> from galpy.orbit import Orbit
->>> from galpy.util.bovy_conversion import get_physical
+>>> from galpy.util.conversion import get_physical
 >>> from astropy import units
 >>> times= numpy.linspace(0.,10.,3001)*units.Gyr
 >>> o_mwp14= Orbit(ro=8.,vo=220.) # Need to set these by hand
@@ -528,8 +578,9 @@ Specific wrappers
 .. toctree::
    :maxdepth: 2
 
+   potentialadiabaticcontractwrapper.rst
    potentialcorotwrapper.rst
    potentialdehnensmoothwrapper.rst
    potentialgaussampwrapper.rst
    potentialsolidbodyrotationwrapper.rst
-
+   potentialrotateandtiltwrapper.rst

@@ -8,7 +8,7 @@
 ###############################################################################
 import numpy
 from scipy import special, optimize
-from ..util import bovy_conversion
+from ..util import conversion
 from .Potential import Potential, kms_to_kpcGyrDecorator, _APY_LOADED
 if _APY_LOADED:
     from astropy import units
@@ -72,8 +72,7 @@ class TwoPowerSphericalPotential(Potential):
             elif int(alpha) == 1 and int(beta) == 3:
                 self._specialSelf= NFWPotential(amp=1.,a=a,normalize=False)
         # correcting quantities
-        if _APY_LOADED and isinstance(a,units.Quantity):
-            a= a.to_value(units.kpc)/self._ro
+        a= conversion.parse_length(a,ro=self._ro)
         # setting properties
         self.a= a
         self._scale= self.a
@@ -192,6 +191,128 @@ class TwoPowerSphericalPotential(Potential):
         r= numpy.sqrt(R**2.+z**2.)
         return (self.a/r)**self.alpha/(1.+r/self.a)**(self.beta-self.alpha)/4./numpy.pi/self.a**3.
 
+    def _ddensdr(self,r,t=0.):
+        """
+        NAME:
+           _ddensdr
+        PURPOSE:
+s           evaluate the radial density derivative for this potential
+        INPUT:
+           r - spherical radius
+           t= time
+        OUTPUT:
+           the density derivative
+        HISTORY:
+           2021-02-05 - Written - Bovy (UofT)
+        """
+        return -self._amp*(self.a/r)**(self.alpha-1.)\
+            *(1.+r/self.a)**(self.alpha-self.beta-1.)\
+            *(self.a*self.alpha+r*self.beta)/r**2/4./numpy.pi/self.a**3.
+
+    def _d2densdr2(self,r,t=0.):
+        """
+        NAME:
+           _d2densdr2
+        PURPOSE:
+           evaluate the second radial density derivative for this potential
+        INPUT:
+           r - spherical radius
+           t= time
+        OUTPUT:
+           the 2nd density derivative
+        HISTORY:
+           2021-02-05 - Written - Bovy (UofT)
+        """
+        return self._amp*(self.a/r)**(self.alpha-2.)\
+            *(1.+r/self.a)**(self.alpha-self.beta-2.)\
+            *(self.alpha*(self.alpha+1.)*self.a**2+
+              2.*self.alpha*self.a*(self.beta+1.)*r
+              +self.beta*(self.beta+1.)*r**2)/r**4/4./numpy.pi/self.a**3.
+
+    def _ddenstwobetadr(self,r,beta=0):
+        """
+        NAME:
+           _ddenstwobetadr
+        PURPOSE:
+           evaluate the radial density derivative x r^(2beta) for this potential
+        INPUT:
+           r - spherical radius
+           beta= (0)
+        OUTPUT:
+           d (rho x r^{2beta} ) / d r
+        HISTORY:
+           2021-02-14 - Written - Bovy (UofT)
+        """
+        return self._amp/4./numpy.pi/self.a**3.\
+            *r**(2.*beta-2.)*(self.a/r)**(self.alpha-1.)\
+            *(1.+r/self.a)**(self.alpha-self.beta-1.)\
+            *(self.a*(2.*beta-self.alpha)+r*(2.*beta-self.beta))
+    
+    def _R2deriv(self,R,z,phi=0.,t=0.):
+        """
+        NAME:
+           _R2deriv
+        PURPOSE:
+           evaluate the second cylindrically radial derivative for this potential
+        INPUT:
+           R - Galactocentric cylindrical radius
+           z - vertical height
+           phi - azimuth
+           t- time
+        OUTPUT:
+           the second cylindrically radial derivative
+        HISTORY:
+           2020-11-23 - Written - Beane (CfA)
+        """
+        r = numpy.sqrt(R**2.+z**2.)
+        A = self.a**(self.alpha-3.)/(3.-self.alpha)
+        hyper = special.hyp2f1(3.-self.alpha,
+                                self.beta-self.alpha,
+                                4.-self.alpha,
+                                -r/self.a)
+        hyper_deriv = (3.-self.alpha) * (self.beta - self.alpha) / (4.-self.alpha) \
+               * special.hyp2f1(4.-self.alpha,
+                                1.+self.beta-self.alpha,
+                                5.-self.alpha,
+                                -r/self.a)
+        
+        term1 = A * r**(-self.alpha) * hyper
+        term2 = -self.alpha * A * R**2. * r**(-self.alpha-2.) * hyper
+        term3 = -A * R**2 * r**(-self.alpha-1.) / self.a * hyper_deriv
+        return term1 + term2 + term3
+
+    def _Rzderiv(self,R,z,phi=0.,t=0.):
+        """
+        NAME:
+           _R2deriv
+        PURPOSE:
+           evaluate the mixed radial/vertical derivative for this potential
+        INPUT:
+           R - Galactocentric cylindrical radius
+           z - vertical height
+           phi - azimuth
+           t- time
+        OUTPUT:
+           the mixed radial/vertical derivative
+        HISTORY:
+           2020-11-28 - Written - Beane (CfA)
+        """
+        r = numpy.sqrt(R**2.+z**2.)
+        A = self.a**(self.alpha-3.)/(3.-self.alpha)
+        hyper = special.hyp2f1(3.-self.alpha,
+                                self.beta-self.alpha,
+                                4.-self.alpha,
+                                -r/self.a)
+        hyper_deriv = (3.-self.alpha) * (self.beta - self.alpha) / (4.-self.alpha) \
+               * special.hyp2f1(4.-self.alpha,
+                                1.+self.beta-self.alpha,
+                                5.-self.alpha,
+                                -r/self.a)
+        
+        term1 = -self.alpha * A * R * r**(-self.alpha-2.) * z * hyper
+        term2 = -A * R * r**(-self.alpha-1.) * z / self.a * hyper_deriv
+        return term1 + term2
+
     def _z2deriv(self,R,z,phi=0.,t=0.):
         """
         NAME:
@@ -210,7 +331,7 @@ class TwoPowerSphericalPotential(Potential):
         """
         return self._R2deriv(numpy.fabs(z),R) #Spherical potential
 
-    def _mass(self,R,z=0.,t=0.):
+    def _mass(self,R,z=None,t=0.):
         """
         NAME:
            _mass
@@ -225,8 +346,10 @@ class TwoPowerSphericalPotential(Potential):
         HISTORY:
            2014-04-01 - Written - Erkal (IoA)
         """
-        r= R if z is None else numpy.sqrt(R**2.+z**2.)
-        return (r/self.a)**(3.-self.alpha)/(3.-self.alpha)*special.hyp2f1(3.-self.alpha,-self.alpha+self.beta,4.-self.alpha,-r/self.a)
+        if z is not None: raise AttributeError # use general implementation
+        return (R/self.a)**(3.-self.alpha)/(3.-self.alpha)\
+            *special.hyp2f1(3.-self.alpha,-self.alpha+self.beta,
+                            4.-self.alpha,-R/self.a)
 
 class DehnenSphericalPotential(TwoPowerSphericalPotential):
     """Class that implements the Dehnen Spherical Potential from `Dehnen (1993) <https://ui.adsabs.harvard.edu/abs/1993MNRAS.265..250D>`_
@@ -312,8 +435,8 @@ class DehnenSphericalPotential(TwoPowerSphericalPotential):
           return self._specialSelf._evaluate(R,z,phi=phi,t=t)
       else:  # valid for alpha != 2, 3
         r= numpy.sqrt(R**2.+z**2.)
-        return -((1.-(r/(r+self.a))**(2.-self.alpha))/
-                 (self.a * (2.-self.alpha) * (3.-self.alpha)))
+        return -(1.-1./(1.+self.a/r)**(2.-self.alpha))/\
+                 (self.a * (2.-self.alpha) * (3.-self.alpha))
 
     def _Rforce(self,R,z,phi=0.,t=0.):
         """
@@ -444,7 +567,7 @@ class DehnenSphericalPotential(TwoPowerSphericalPotential):
         r= numpy.sqrt(R**2.+z**2.)
         return (self.a/r)**self.alpha/(1.+r/self.a)**(4.-self.alpha)/4./numpy.pi/self.a**3.
 
-    def _mass(self,R,z=0.,t=0.):
+    def _mass(self,R,z=None,t=0.):
         """
         NAME:
            _mass
@@ -459,8 +582,8 @@ class DehnenSphericalPotential(TwoPowerSphericalPotential):
         HISTORY:
            2019-11-20 - Written - Starkman (UofT)
         """
-        r= R if z is None else numpy.sqrt(R**2.+z**2.)
-        return (r/(r+self.a))**(3.-self.alpha)/(3.-self.alpha)
+        if z is not None: raise AttributeError # use general implementation
+        return 1./(1.+self.a/R)**(3.-self.alpha)/(3.-self.alpha) # written so it works for r=numpy.inf 
 
 class DehnenCoreSphericalPotential(DehnenSphericalPotential):
     """Class that implements the Dehnen Spherical Potential from `Dehnen (1993) <https://ui.adsabs.harvard.edu/abs/1993MNRAS.265..250D>`_ with alpha=0 (corresponding to an inner core)
@@ -527,7 +650,7 @@ class DehnenCoreSphericalPotential(DehnenSphericalPotential):
          2019-11-20 - Written - Starkman (UofT)
       """
       r= numpy.sqrt(R**2.+z**2.)
-      return -((1.-numpy.square(r/(r+self.a)))/(6.*self.a))
+      return -(1.-1./(1.+self.a/r)**2.)/(6.*self.a)
 
     def _Rforce(self,R,z,phi=0.,t=0.):
         """
@@ -546,6 +669,22 @@ class DehnenCoreSphericalPotential(DehnenSphericalPotential):
            2019-11-20 - Written - Starkman (UofT)
         """
         return -R/numpy.power(numpy.sqrt(R**2.+z**2.)+self.a,3.)/3.
+
+    def _rforce_jax(self,r):
+        """
+        NAME:
+           _rforce_jax
+        PURPOSE:
+           evaluate the spherical radial force for this potential using JAX
+        INPUT:
+           r - Galactocentric spherical radius
+        OUTPUT:
+           the radial force
+        HISTORY:
+           2021-02-25 - Written - Bovy (UofT)
+        """
+        # No need for actual JAX!
+        return -self._amp*r/(r+self.a)**3./3.
 
     def _R2deriv(self,R,z,phi=0.,t=0.):
         """
@@ -642,7 +781,7 @@ class DehnenCoreSphericalPotential(DehnenSphericalPotential):
         r= numpy.sqrt(R**2.+z**2.)
         return 1./(1.+r/self.a)**4./4./numpy.pi/self.a**3.
 
-    def _mass(self,R,z=0.,t=0.):
+    def _mass(self,R,z=None,t=0.):
         """
         NAME:
            _mass
@@ -657,8 +796,8 @@ class DehnenCoreSphericalPotential(DehnenSphericalPotential):
         HISTORY:
            2019-11-20 - Written - Starkman (UofT)
         """
-        r= R if z is None else numpy.sqrt(R**2.+z**2.)
-        return (r/(r+self.a))**3./3.
+        if z is not None: raise AttributeError # use general implementation
+        return 1./(1.+self.a/R)**3./3. # written so it works for r=numpy.inf 
 
 class HernquistPotential(DehnenSphericalPotential):
     """Class that implements the Hernquist potential
@@ -763,6 +902,22 @@ class HernquistPotential(DehnenSphericalPotential):
         sqrtRz= numpy.sqrt(R**2.+z**2.)
         return -z/self.a/sqrtRz/(1.+sqrtRz/self.a)**2./2./self.a
 
+    def _rforce_jax(self,r):
+        """
+        NAME:
+           _rforce_jax
+        PURPOSE:
+           evaluate the spherical radial force for this potential using JAX
+        INPUT:
+           r - Galactocentric spherical radius
+        OUTPUT:
+           the radial force
+        HISTORY:
+           2021-02-14 - Written - Bovy (UofT)
+        """
+        # No need for actual JAX!
+        return -self._amp/2./(r+self.a)**2.
+
     def _R2deriv(self,R,z,phi=0.,t=0.):
         """
         NAME:
@@ -834,7 +989,7 @@ class HernquistPotential(DehnenSphericalPotential):
                            /(self.a**2.-R**2.)**2.
                            /(r**2-self.a**2.)**2.).real/4./numpy.pi
 
-    def _mass(self,R,z=0.,t=0.):
+    def _mass(self,R,z=None,t=0.):
         """
         NAME:
            _mass
@@ -848,8 +1003,8 @@ class HernquistPotential(DehnenSphericalPotential):
         HISTORY:
            2014-01-29 - Written - Bovy (IAS)
         """
-        r= R if z is None else numpy.sqrt(R**2.+z**2.)
-        return (r/self.a)**2./2./(1.+r/self.a)**2.
+        if z is not None: raise AttributeError # use general implementation
+        return 1./(1.+self.a/R)**2./2. # written so it works for r=numpy.inf
 
     @kms_to_kpcGyrDecorator
     def _nemo_accpars(self,vo,ro):
@@ -919,8 +1074,7 @@ class JaffePotential(DehnenSphericalPotential):
 
         """
         Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='mass')
-        if _APY_LOADED and isinstance(a,units.Quantity):
-            a= a.to(units.kpc).value/self._ro
+        a= conversion.parse_length(a,ro=self._ro)
         self.a= a
         self._scale= self.a
         self.alpha= 2
@@ -1061,7 +1215,7 @@ class JaffePotential(DehnenSphericalPotential):
                     -self.a*z/(R**2-self.a**2)/(r+self.a)).real\
                     /self.a/2./numpy.pi
 
-    def _mass(self,R,z=0.,t=0.):
+    def _mass(self,R,z=None,t=0.):
         """
         NAME:
            _mass
@@ -1075,8 +1229,8 @@ class JaffePotential(DehnenSphericalPotential):
         HISTORY:
            2014-01-29 - Written - Bovy (IAS)
         """
-        r= R if z is None else numpy.sqrt(R**2.+z**2.)
-        return r/self.a/(1.+r/self.a)
+        if z is not None: raise AttributeError # use general implementation
+        return 1./(1.+self.a/R) # written so it works for r=numpy.inf 
 
 class NFWPotential(TwoPowerSphericalPotential):
     """Class that implements the NFW potential
@@ -1149,8 +1303,7 @@ class NFWPotential(TwoPowerSphericalPotential):
            
         """
         Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='mass')
-        if _APY_LOADED and isinstance(a,units.Quantity):
-            a= a.to(units.kpc).value/self._ro
+        a= conversion.parse_length(a,ro=self._ro)
         if conc is None and rmax is None:
             self.a= a
             self.alpha= 1
@@ -1161,22 +1314,22 @@ class NFWPotential(TwoPowerSphericalPotential):
                 self.normalize(normalize)
         elif not rmax is None:
             if _APY_LOADED and isinstance(rmax,units.Quantity):
-                rmax= rmax.to(units.kpc).value/self._ro
+                rmax= conversion.parse_length(rmax,ro=self._ro)
                 self._roSet= True
             if _APY_LOADED and isinstance(vmax,units.Quantity):
-                vmax= vmax.to(units.km/units.s).value/self._vo
+                vmax= conversion.parse_velocity(vmax,vo=self._vo)
                 self._voSet= True
             self.a= rmax/2.1625815870646098349
             self._amp= vmax**2.*self.a/0.21621659550187311005
         else:
             if wrtcrit:
-                od= overdens/bovy_conversion.dens_in_criticaldens(self._vo,
+                od= overdens/conversion.dens_in_criticaldens(self._vo,
                                                                   self._ro,H=H)
             else:
-                od= overdens/bovy_conversion.dens_in_meanmatterdens(self._vo,
+                od= overdens/conversion.dens_in_meanmatterdens(self._vo,
                                                                     self._ro,
                                                                     H=H,Om=Om)
-            mvirNatural= mvir*100./bovy_conversion.mass_in_1010msol(self._vo,
+            mvirNatural= mvir*100./conversion.mass_in_1010msol(self._vo,
                                                                     self._ro)
             rvir= (3.*mvirNatural/od/4./numpy.pi)**(1./3.)
             self.a= rvir/conc
@@ -1205,7 +1358,14 @@ class NFWPotential(TwoPowerSphericalPotential):
            2010-07-09 - Started - Bovy (NYU)
         """
         r= numpy.sqrt(R**2.+z**2.)
-        return -numpy.log(1.+r/self.a)/r
+        if isinstance(r,(float,int)) and r == 0:
+            return -1./self.a
+        elif isinstance(r,(float,int)):
+            return -special.xlogy(1./r,1.+r/self.a) # stable as r -> infty
+        else:
+            out= -special.xlogy(1./r,1.+r/self.a) # stable as r -> infty
+            out[r == 0]= -1./self.a
+            return out
 
     def _Rforce(self,R,z,phi=0.,t=0.):
         """
@@ -1246,6 +1406,25 @@ class NFWPotential(TwoPowerSphericalPotential):
         Rz= R**2.+z**2.
         sqrtRz= numpy.sqrt(Rz)
         return z*(1./Rz/(self.a+sqrtRz)-numpy.log(1.+sqrtRz/self.a)/sqrtRz/Rz)
+
+    def _rforce_jax(self,r):
+        """
+        NAME:
+           _rforce_jax
+        PURPOSE:
+           evaluate the spherical radial force for this potential using JAX
+        INPUT:
+           r - Galactocentric spherical radius
+        OUTPUT:
+           the radial force
+        HISTORY:
+           2021-02-14 - Written - Bovy (UofT)
+        """
+        try:
+            import jax.numpy as jnp
+        except ImportError: # pragma: no cover
+            raise ImportError("Making use of _rforce_jax function requires the google/jax library")
+        return self._amp*(1./r/(self.a+r)-jnp.log(1.+r/self.a)/r**2.)
 
     def _R2deriv(self,R,z,phi=0.,t=0.):
         """
@@ -1317,7 +1496,7 @@ class NFWPotential(TwoPowerSphericalPotential):
                         *(numpy.arctan(self.a*z/r/Rma)-numpy.arctan(z/Rma))
                     +z/(r+self.a)/(R**2.-self.a**2.)).real/2./numpy.pi
 
-    def _mass(self,R,z=0.,t=0.):
+    def _mass(self,R,z=None,t=0.):
         """
         NAME:
            _mass
@@ -1331,10 +1510,10 @@ class NFWPotential(TwoPowerSphericalPotential):
         HISTORY:
            2014-01-29 - Written - Bovy (IAS)
         """
-        r= R if z is None else numpy.sqrt(R**2.+z**2.)
-        return numpy.log(1+r/self.a)-r/self.a/(1.+r/self.a)
+        if z is not None: raise AttributeError # use general implementation
+        return numpy.log(1+R/self.a)-R/self.a/(1.+R/self.a)
 
-    @bovy_conversion.physical_conversion('position',pop=False)
+    @conversion.physical_conversion('position',pop=False)
     def rvir(self,H=70.,Om=0.3,t=0.,overdens=200.,wrtcrit=False,ro=None,vo=None,
              use_physical=False): # use_physical necessary bc of pop=False, does nothing inside
         """
@@ -1372,16 +1551,16 @@ class NFWPotential(TwoPowerSphericalPotential):
         if ro is None: ro= self._ro
         if vo is None: vo= self._vo
         if wrtcrit:
-            od= overdens/bovy_conversion.dens_in_criticaldens(vo,ro,H=H)
+            od= overdens/conversion.dens_in_criticaldens(vo,ro,H=H)
         else:
-            od= overdens/bovy_conversion.dens_in_meanmatterdens(vo,ro,
+            od= overdens/conversion.dens_in_meanmatterdens(vo,ro,
                                                                 H=H,Om=Om)
         dc= 12.*self.dens(self.a,0.,t=t,use_physical=False)/od
         x= optimize.brentq(lambda y: (numpy.log(1.+y)-y/(1.+y))/y**3.-1./dc,
                            0.01,100.)
         return x*self.a
 
-    @bovy_conversion.physical_conversion('position',pop=True)
+    @conversion.physical_conversion('position',pop=True)
     def rmax(self):
         """
         NAME:
@@ -1408,7 +1587,7 @@ class NFWPotential(TwoPowerSphericalPotential):
         # Magical number, solve(derivative (ln(1+x)-x/(1+x))/x wrt x=0,x)
         return 2.1625815870646098349*self.a
 
-    @bovy_conversion.physical_conversion('velocity',pop=True)
+    @conversion.physical_conversion('velocity',pop=True)
     def vmax(self):
         """
         NAME:

@@ -3,9 +3,8 @@
 #                                 halo potential
 ###############################################################################
 import numpy
-from .Potential import Potential, _APY_LOADED
-if _APY_LOADED:
-    from astropy import units
+from ..util import conversion
+from .Potential import Potential
 class PseudoIsothermalPotential(Potential):
     """Class that implements the pseudo-isothermal potential
 
@@ -45,8 +44,7 @@ class PseudoIsothermalPotential(Potential):
 
         """
         Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='mass')
-        if _APY_LOADED and isinstance(a,units.Quantity):
-            a= a.to(units.kpc).value/self._ro
+        a= conversion.parse_length(a,ro=self._ro)
         self.hasC= True
         self.hasC_dxdv= True
         self.hasC_dens= True
@@ -77,8 +75,16 @@ class PseudoIsothermalPotential(Potential):
         """
         r2= R**2.+z**2.
         r= numpy.sqrt(r2)
-        return (0.5*numpy.log(1+r2/self._a2)\
-                    +self._a/r*numpy.arctan(r/self._a))/self._a
+        out= (0.5*numpy.log(1+r2/self._a2)
+              +self._a/r*numpy.arctan(r/self._a))/self._a
+        if isinstance(r,(float,int)):
+            if r == 0:
+                return 1./self._a
+            else:
+                return out
+        else:
+            out[r==0]= 1./self._a
+            return out
 
     def _Rforce(self,R,z,phi=0.,t=0.):
         """

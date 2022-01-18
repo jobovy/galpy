@@ -9,14 +9,13 @@ Dependencies
 galpy requires the ``numpy``, ``scipy``, and ``matplotlib`` packages;
 these must be installed or the code will not be able to be imported.
 
-Optional dependencies are: ``astropy`` for `Quantity
-<http://docs.astropy.org/en/stable/api/astropy.units.Quantity.html>`__
-support (used throughout galpy when installed), ``astroquery`` for the
-``Orbit.from_name`` initialization method (to initialize using a
-celestial object's name), ``numexpr`` for plotting arbitrary
-expressions of ``Orbit`` quantities, and `pynbody
-<https://github.com/pynbody/pynbody>`__ for use of
-``SnapshotRZPotential`` and ``InterpSnapshotRZPotential``.
+Optional dependencies are:
+
+  * ``astropy`` for `Quantity <http://docs.astropy.org/en/stable/api/astropy.units.Quantity.html>`__ support (used throughout galpy when installed),
+  * ``astroquery`` for the ``Orbit.from_name`` initialization method (to initialize using a celestial object's name),
+  * ``numexpr`` for plotting arbitrary expressions of ``Orbit`` quantities,
+  * ``JAX`` for use of constant-anisotropy DFs in ``galpy.df.constantbetadf``, and
+  * `pynbody <https://github.com/pynbody/pynbody>`__ for use of ``SnapshotRZPotential`` and ``InterpSnapshotRZPotential``.
 
 To be able to use the fast C extensions for orbit integration and
 action-angle calculations, the GNU Scientific Library (GSL) needs to
@@ -62,18 +61,21 @@ or to upgrade without upgrading the dependencies::
 
 Installing with pip will automatically install the required
 dependencies (``numpy``, ``scipy``, and ``matplotlib``), but not the
-optional dependencies.
+optional dependencies. On a Mac/UNIX system, you can make sure to include 
+the necessary GSL environment variables by doing (see :ref:`below <gsl_cflags>`)::
+
+  export CFLAGS="$CFLAGS -I`gsl-config --prefix`/include" && export LDFLAGS="$LDFLAGS -L`gsl-config --prefix`/lib" && pip install galpy
 
 Latest version
 --------------
 
 The latest updates in galpy can be installed using::
     
-    pip install -U --no-deps git+git://github.com/jobovy/galpy.git#egg=galpy
+    pip install -U --no-deps git+https://github.com/jobovy/galpy.git#egg=galpy
 
 or::
 
-    pip install -U --no-deps --install-option="--prefix=~/local" git+git://github.com/jobovy/galpy.git#egg=galpy
+    pip install -U --no-deps --install-option="--prefix=~/local" git+https://github.com/jobovy/galpy.git#egg=galpy
 
 for a local installation. The latest updates can also be installed from the source code downloaded from github using the standard python ``setup.py`` installation::
 
@@ -85,7 +87,7 @@ or::
 
 for a local installation.
 
-Note that these latest-version commands all install directly fromm the
+Note that these latest-version commands all install directly from the
 source code and thus require you to have the GSL and a C compiler
 installed to build the C extension(s). If you are having issues with
 this, you can also download a binary wheel for the latest ``master``
@@ -104,7 +106,7 @@ Installing from a branch
 
 If you want to use a feature that is currently only available in a branch, do::
 
-   pip install -U --no-deps git+git://github.com/jobovy/galpy.git@dev#egg=galpy
+   pip install -U --no-deps git+https://github.com/jobovy/galpy.git@dev#egg=galpy
 
 to, for example, install the ``dev`` branch. 
 
@@ -310,9 +312,17 @@ to add the ``'-I/usr/include'`` and ``'-L/usr/lib'`` to them.
 If you are on a Mac or UNIX system (e.g., Linux), you can find the correct ``CFLAGS`` and ``LDFLAGS``/``LD_LIBRARY_path`` entries by doing::
 
    gsl-config --cflags
-   gsl-config --libs
+   gsl-config --prefix
 
-(don't include the ``-lgsl lgslcblas`` portion of the latter output.)
+where you should add ``/lib`` to the output of the latter. In a bash shell, you could also simply do::
+
+   export CFLAGS="$CFLAGS -I`gsl-config --prefix`/include" && export LDFLAGS="$LDFLAGS -L`gsl-config --prefix`/lib" && pip install galpy
+   
+or::
+
+   export CFLAGS="$CFLAGS -I`gsl-config --prefix`/include" && export LDFLAGS="$LDFLAGS -L`gsl-config --prefix`/lib" && python setup.py install
+
+depending on whether you are installing using ``pip`` or from source.
 
 I have defined ``CFLAGS``, ``LDFLAGS``, and ``LD_LIBRARY_PATH``, but the compiler does not seem to include these and still returns with errors
 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -331,11 +341,11 @@ setup.py`` commands above::
 
 or when using pip as follows::
 
-    pip install -U --no-deps --install-option="--no-openmp" git+git://github.com/jobovy/galpy.git#egg=galpy 
+    pip install -U --no-deps --install-option="--no-openmp" git+https://github.com/jobovy/galpy.git#egg=galpy 
 
 or::
 
-    pip install -U --no-deps --install-option="--prefix=~/local" --install-option="--no-openmp" git+git://github.com/jobovy/galpy.git#egg=galpy 
+    pip install -U --no-deps --install-option="--prefix=~/local" --install-option="--no-openmp" git+https://github.com/jobovy/galpy.git#egg=galpy 
 
 for a local installation. This might be useful if one is using the
 ``clang`` compiler, which is the new default on macs with OS X (>=
@@ -366,7 +376,7 @@ currently used:
 
 	  * to set a default set of distance and velocity scales (``ro`` and ``vo`` throughout galpy) for conversion between physical and internal galpy unit
 
-    	  * to decide whether to use seaborn plotting with galpy's defaults (which affects *all* plotting after importing ``galpy.util.bovy_plot``), 
+    	  * to decide whether to use seaborn plotting with galpy's defaults (which affects *all* plotting after importing ``galpy.util.plot``), 
 
 	  * to specify whether output from functions or methods should be given as an `astropy Quantity <http://docs.astropy.org/en/stable/api/astropy.units.Quantity.html>`__ with units as much as possible or not, and whether or not to use astropy's `coordinate transformations <http://docs.astropy.org/en/stable/coordinates/index.html>`__ (these are typically somewhat slower than galpy's own coordinate transformations, but they are more accurate and more general)
 

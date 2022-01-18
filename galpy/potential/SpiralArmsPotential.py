@@ -7,13 +7,11 @@
 #  Phi(r, phi, z) = -4*pi*G*H*rho0*exp(-(r-r0)/Rs)*sum(Cn/(Kn*Dn)*cos(n*gamma)*sech(Kn*z/Bn)^Bn)
 ###############################################################################
 from __future__ import division
-from .Potential import Potential, _APY_LOADED
-from ..util import bovy_conversion
+from .Potential import Potential
+from ..util import conversion
 import numpy
-if _APY_LOADED:
-    from astropy import units
 class SpiralArmsPotential(Potential):
-    """Class that implements the spiral arms potential from (`Cox and Gomez 2002 <https://arxiv.org/abs/astro-ph/0207635>`__). Should be used to modulate an existing potential (density is positive in the arms, negative outside).
+    """Class that implements the spiral arms potential from (`Cox and Gomez 2002 <https://arxiv.org/abs/astro-ph/0207635>`__). Should be used to modulate an existing potential (density is positive in the arms, negative outside; note that because of this, a contour plot of this potential will appear to have twice as many arms, where half are the underdense regions).
     
     .. math::
     
@@ -68,21 +66,12 @@ class SpiralArmsPotential(Potential):
         """
 
         Potential.__init__(self, amp=amp, ro=ro, vo=vo, amp_units=amp_units)
-        if _APY_LOADED:
-            if isinstance(alpha, units.Quantity):
-                alpha = alpha.to(units.rad).value
-            if isinstance(r_ref, units.Quantity):
-                r_ref = r_ref.to(units.kpc).value / self._ro
-            if isinstance(phi_ref, units.Quantity):
-                phi_ref = phi_ref.to(units.rad).value
-            if isinstance(Rs, units.Quantity):
-                Rs = Rs.to(units.kpc).value / self._ro
-            if isinstance(H, units.Quantity):
-                H = H.to(units.kpc).value / self._ro
-            if isinstance(omega, units.Quantity):
-                omega = omega.to(units.km / units.s / units.kpc).value \
-                        / bovy_conversion.freq_in_kmskpc(self._vo, self._ro)
-
+        alpha= conversion.parse_angle(alpha)
+        r_ref= conversion.parse_length(r_ref,ro=self._ro)
+        phi_ref= conversion.parse_angle(phi_ref)
+        Rs= conversion.parse_length(Rs,ro=self._ro)
+        H= conversion.parse_length(H,ro=self._ro)
+        omega= conversion.parse_frequency(omega,ro=self._ro,vo=self._vo)
         self._N = -N  # trick to flip to left handed coordinate system; flips sign for phi and phi_ref, but also alpha.
         self._alpha = -alpha  # we don't want sign for alpha to change, so flip alpha. (see eqn. 3 in the paper)
         self._sin_alpha = numpy.sin(-alpha)
@@ -224,7 +213,6 @@ class SpiralArmsPotential(Potential):
                * numpy.sum(self._Cs / Ds * numpy.cos(self._ns * self._gamma(R, phi - self._omega * t))
                         * numpy.tanh(zK_B) / numpy.cosh(zK_B)**Bs,axis=0)
 
-    
     def _phiforce(self, R, z, phi=0, t=0):
         """
         NAME:
@@ -549,6 +537,41 @@ class SpiralArmsPotential(Potential):
                                                     + 1 / self._Rs))),axis=0)
 
     
+    def _phizderiv(self, R, z, phi=0, t=0):
+        """
+        NAME:
+            _phizderiv
+        PURPOSE:
+            Evaluate the mixed azimuthal, vertical derivative for this potential at the given coordinates. (-dPhi/dz)
+        INPUT:
+            :param R: galactocentric cylindrical radius
+            :param z: vertical height
+            :param phi: azimuth
+            :param t: time
+        OUTPUT:
+            :return: mixed azimuthal, vertical derivative
+        HISTORY:
+            2021-04-30 - Jo Bovy (UofT) 
+        """
+        if isinstance(R,numpy.ndarray) or isinstance(z,numpy.ndarray):
+            nR= len(R) if isinstance(R,numpy.ndarray) else len(z)
+            self._Cs=numpy.transpose(numpy.array([self._Cs0,]*nR))
+            self._ns=numpy.transpose(numpy.array([self._ns0,]*nR))
+            self._HNn=numpy.transpose(numpy.array([self._HNn0,]*nR))
+        else:
+            self._Cs=self._Cs0
+            self._ns=self._ns0
+            self._HNn=self._HNn0
+
+        Ks = self._K(R)
+        Bs = self._B(R)
+        Ds = self._D(R)
+        zK_B = z * Ks / Bs
+
+        return -self._H * numpy.exp(-(R-self._r_ref) / self._Rs) \
+               * numpy.sum(self._Cs / Ds * self._ns * self._N * numpy.sin(self._ns * self._gamma(R, phi - self._omega * t))
+                        * numpy.tanh(zK_B) / numpy.cosh(zK_B)**Bs,axis=0)
+
     def _dens(self, R, z, phi=0, t=0):
         """
         NAME:

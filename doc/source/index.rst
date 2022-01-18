@@ -10,10 +10,10 @@
 Welcome to galpy's documentation
 =================================
 
-`galpy <http://www.galpy.org>`__ is a Python 2 and 3 package for
-galactic dynamics. It supports orbit integration in a variety of
-potentials, evaluating and sampling various distribution functions,
-and the calculation of action-angle coordinates for all static
+`galpy <http://www.galpy.org>`__ is a Python package for galactic
+dynamics. It supports orbit integration in a variety of potentials,
+evaluating and sampling various distribution functions, and the
+calculation of action-angle coordinates for all static
 potentials. galpy is an `astropy <http://www.astropy.org/>`_
 `affiliated package <http://www.astropy.org/affiliated/>`_ and
 provides full support for astropy's `Quantity
@@ -21,7 +21,7 @@ provides full support for astropy's `Quantity
 framework for variables with units.
 
 galpy is developed on GitHub. If you are looking to `report an issue
-<https://github.com/jobovy/galpy/issues>`_ or for information on how
+<https://github.com/jobovy/galpy/issues>`_, `join <https://join.slack.com/t/galpy/shared_invite/zt-p6upr4si-mX7u8MRdtm~3bW7o8NA_Ww>`_ the `galpy slack <https://galpy.slack.com/>`_ community, or for information on how
 to `contribute to the code
 <https://github.com/jobovy/galpy/wiki/Guide-for-new-contributors>`_,
 please head over to `galpy's GitHub page

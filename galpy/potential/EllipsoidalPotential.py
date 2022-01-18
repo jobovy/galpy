@@ -11,12 +11,9 @@
 import hashlib
 import numpy
 from scipy import integrate
-from ..util import bovy_coords
+from ..util import coords, conversion
 from ..util import _rotate_to_arbitrary_vector
-from .Potential import Potential, _APY_LOADED, \
-    check_potential_inputs_not_arrays
-if _APY_LOADED:
-    from astropy import units
+from .Potential import Potential, check_potential_inputs_not_arrays
 class EllipsoidalPotential(Potential):
     """Base class for potentials corresponding to density profiles that are stratified on ellipsoids:
 
@@ -61,7 +58,7 @@ class EllipsoidalPotential(Potential):
 
            glorder= (50) if set, compute the relevant force and potential integrals with Gaussian quadrature of this order
 
-           amp_units - ('mass', 'velocity2', 'density') type of units that amp should have if it has units (passed to Potential.__init__
+           amp_units - ('mass', 'velocity2', 'density') type of units that amp should have if it has units (passed to Potential.__init__)
 
            ro=, vo= distance and velocity scales for translation into internal units (default from configuration file)
 
@@ -91,8 +88,7 @@ class EllipsoidalPotential(Potential):
 
     def _setup_zvec_pa(self,zvec,pa):
         if not pa is None:
-            if _APY_LOADED and isinstance(pa,units.Quantity):
-                pa= pa.to(units.rad).value
+            pa= conversion.parse_angle(pa)
         if zvec is None and (pa is None or numpy.fabs(pa) < 10.**-10.):
             self._aligned= True
         else:
@@ -145,7 +141,8 @@ class EllipsoidalPotential(Potential):
         """
         if not self.isNonAxi:
             phi= 0.
-        x,y,z= bovy_coords.cyl_to_rect(R,phi,z)
+        x,y,z= coords.cyl_to_rect(R,phi,z)
+        if numpy.isinf(R): y= 0.
         if self._aligned:
             return self._evaluate_xyz(x,y,z)
         else:
@@ -178,7 +175,7 @@ class EllipsoidalPotential(Potential):
         """
         if not self.isNonAxi:
             phi= 0.
-        x,y,z= bovy_coords.cyl_to_rect(R,phi,z)
+        x,y,z= coords.cyl_to_rect(R,phi,z)
         # Compute all rectangular forces
         new_hash= hashlib.md5(numpy.array([x,y,z])).hexdigest()
         if new_hash == self._force_hash:
@@ -222,7 +219,7 @@ class EllipsoidalPotential(Potential):
         """
         if not self.isNonAxi:
             phi= 0.
-        x,y,z= bovy_coords.cyl_to_rect(R,phi,z)
+        x,y,z= coords.cyl_to_rect(R,phi,z)
         # Compute all rectangular forces
         new_hash= hashlib.md5(numpy.array([x,y,z])).hexdigest()
         if new_hash == self._force_hash:
@@ -266,7 +263,7 @@ class EllipsoidalPotential(Potential):
         """
         if not self.isNonAxi:
             phi= 0.
-        x,y,z= bovy_coords.cyl_to_rect(R,phi,z)
+        x,y,z= coords.cyl_to_rect(R,phi,z)
         # Compute all rectangular forces
         new_hash= hashlib.md5(numpy.array([x,y,z])).hexdigest()
         if new_hash == self._force_hash:
@@ -317,9 +314,9 @@ class EllipsoidalPotential(Potential):
         """
         if not self.isNonAxi:
             phi= 0.
-        x,y,z= bovy_coords.cyl_to_rect(R,phi,z)
+        x,y,z= coords.cyl_to_rect(R,phi,z)
         if not self._aligned:
-            raise NotImplementedError("2nd potential derivatives of TwoPowerTriaxialPotential not implemented for rotated coordinated frames (non-trivial zvec and pa)")
+            raise NotImplementedError("2nd potential derivatives of TwoPowerTriaxialPotential not implemented for rotated coordinated frames (non-trivial zvec and pa); use RotateAndTiltWrapperPotential for this functionality instead")
         phixx= self._2ndderiv_xyz(x,y,z,0,0)
         phixy= self._2ndderiv_xyz(x,y,z,0,1)
         phiyy= self._2ndderiv_xyz(x,y,z,1,1)
@@ -345,9 +342,9 @@ class EllipsoidalPotential(Potential):
         """
         if not self.isNonAxi:
             phi= 0.
-        x,y,z= bovy_coords.cyl_to_rect(R,phi,z)
+        x,y,z= coords.cyl_to_rect(R,phi,z)
         if not self._aligned:
-            raise NotImplementedError("2nd potential derivatives of TwoPowerTriaxialPotential not implemented for rotated coordinated frames (non-trivial zvec and pa)")
+            raise NotImplementedError("2nd potential derivatives of TwoPowerTriaxialPotential not implemented for rotated coordinated frames (non-trivial zvec and pa; use RotateAndTiltWrapperPotential for this functionality instead)")
         phixz= self._2ndderiv_xyz(x,y,z,0,2)
         phiyz= self._2ndderiv_xyz(x,y,z,1,2)
         return numpy.cos(phi)*phixz+numpy.sin(phi)*phiyz
@@ -371,9 +368,9 @@ class EllipsoidalPotential(Potential):
         """
         if not self.isNonAxi:
             phi= 0.
-        x,y,z= bovy_coords.cyl_to_rect(R,phi,z)
+        x,y,z= coords.cyl_to_rect(R,phi,z)
         if not self._aligned:
-            raise NotImplementedError("2nd potential derivatives of TwoPowerTriaxialPotential not implemented for rotated coordinated frames (non-trivial zvec and pa)")
+            raise NotImplementedError("2nd potential derivatives of TwoPowerTriaxialPotential not implemented for rotated coordinated frames (non-trivial zvec and pa; use RotateAndTiltWrapperPotential for this functionality instead)")
         return self._2ndderiv_xyz(x,y,z,2,2)
 
     @check_potential_inputs_not_arrays
@@ -395,9 +392,9 @@ class EllipsoidalPotential(Potential):
         """
         if not self.isNonAxi:
             phi= 0.
-        x,y,z= bovy_coords.cyl_to_rect(R,phi,z)
+        x,y,z= coords.cyl_to_rect(R,phi,z)
         if not self._aligned:
-            raise NotImplementedError("2nd potential derivatives of TwoPowerTriaxialPotential not implemented for rotated coordinated frames (non-trivial zvec and pa)")
+            raise NotImplementedError("2nd potential derivatives of TwoPowerTriaxialPotential not implemented for rotated coordinated frames (non-trivial zvec and pa; use RotateAndTiltWrapperPotential for this functionality instead)")
         Fx= self._force_xyz(x,y,z,0)
         Fy= self._force_xyz(x,y,z,1)
         phixx= self._2ndderiv_xyz(x,y,z,0,0)
@@ -426,9 +423,9 @@ class EllipsoidalPotential(Potential):
         """
         if not self.isNonAxi:
             phi= 0.
-        x,y,z= bovy_coords.cyl_to_rect(R,phi,z)
+        x,y,z= coords.cyl_to_rect(R,phi,z)
         if not self._aligned:
-            raise NotImplementedError("2nd potential derivatives of TwoPowerTriaxialPotential not implemented for rotated coordinated frames (non-trivial zvec and pa)")
+            raise NotImplementedError("2nd potential derivatives of TwoPowerTriaxialPotential not implemented for rotated coordinated frames (non-trivial zvec and pa; use RotateAndTiltWrapperPotential for this functionality instead)")
         Fx= self._force_xyz(x,y,z,0)
         Fy= self._force_xyz(x,y,z,1)
         phixx= self._2ndderiv_xyz(x,y,z,0,0)
@@ -437,6 +434,32 @@ class EllipsoidalPotential(Potential):
         return R*numpy.cos(phi)*numpy.sin(phi)*\
             (phiyy-phixx)+R*numpy.cos(2.*phi)*phixy\
             +numpy.sin(phi)*Fx-numpy.cos(phi)*Fy
+
+    @check_potential_inputs_not_arrays
+    def _phizderiv(self,R,z,phi=0.,t=0.):
+        """
+        NAME:
+           _phizderiv
+        PURPOSE:
+           evaluate the mixed azimuthal, vertical derivative for this potential
+        INPUT:
+           R - Galactocentric cylindrical radius
+           z - vertical height
+           phi - azimuth
+           t - time
+        OUTPUT:
+           the mixed radial, azimuthal derivative
+        HISTORY:
+           2021-04-30 - Written - Bovy (UofT)
+        """
+        if not self.isNonAxi:
+            phi= 0.
+        x,y,z= coords.cyl_to_rect(R,phi,z)
+        if not self._aligned:
+            raise NotImplementedError("2nd potential derivatives of TwoPowerTriaxialPotential not implemented for rotated coordinated frames (non-trivial zvec and pa; use RotateAndTiltWrapperPotential for this functionality instead)")
+        phixz= self._2ndderiv_xyz(x,y,z,0,2)
+        phiyz= self._2ndderiv_xyz(x,y,z,1,2)
+        return R*(numpy.cos(phi)*phiyz-numpy.sin(phi)*phixz)
 
     def _2ndderiv_xyz(self,x,y,z,i,j):
         """General 2nd derivative of the potential as a function of (x,y,z)
@@ -464,7 +487,7 @@ class EllipsoidalPotential(Potential):
         HISTORY:
            2018-08-06 - Written - Bovy (UofT)
         """
-        x,y,z= bovy_coords.cyl_to_rect(R,phi,z)
+        x,y,z= coords.cyl_to_rect(R,phi,z)
         if self._aligned:
             xp, yp, zp= x, y, z
         else:
@@ -473,6 +496,25 @@ class EllipsoidalPotential(Potential):
         m= numpy.sqrt(xp**2.+yp**2./self._b2+zp**2./self._c2)
         return self._mdens(m)
         
+    def _mass(self,R,z=None,t=0.):
+        """
+        NAME:
+           _mass
+        PURPOSE:
+           evaluate the mass within R (and z) for this potential; if z=None, integrate to z=inf
+        INPUT:
+           R - Galactocentric cylindrical radius
+           z - vertical height
+           t - time
+        OUTPUT:
+           the mass enclosed
+        HISTORY:
+           2021-03-08 - Written - Bovy (UofT)
+        """
+        if not z is None: raise AttributeError # Hack to fall back to general
+        return 4.*numpy.pi*self._b*self._c\
+            *integrate.quad(lambda m: m**2.*self._mdens(m),0,R)[0]
+
     def OmegaP(self):
         """
         NAME:

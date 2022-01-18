@@ -21,9 +21,8 @@ from functools import wraps
 import warnings
 import numpy
 from scipy import optimize, integrate
-from ..util import bovy_plot as plot
-from ..util import bovy_coords
-from ..util.bovy_conversion import velocity_in_kpcGyr, \
+from ..util import plot, coords, conversion
+from ..util.conversion import velocity_in_kpcGyr, \
     physical_conversion, potential_physical_input, freq_in_Gyr, \
     get_physical
 from ..util import galpyWarning
@@ -328,6 +327,8 @@ class Potential(Force):
 
            2018-08-19 - Written - Bovy (UofT)
 
+           2021-04-19 - Adjusted for non-z-symmetric densities - Bovy (UofT)
+
         """
         try:
             if forcepoisson: raise AttributeError #Hack!
@@ -335,11 +336,12 @@ class Potential(Force):
         except AttributeError:
             #Use the Poisson equation to get the surface density
             return (-self.zforce(R,numpy.fabs(z),phi=phi,t=t,use_physical=False)
+                    +self.zforce(R,-numpy.fabs(z),phi=phi,t=t,use_physical=False)
                     +integrate.quad(\
                 lambda x: -self.Rforce(R,x,phi=phi,t=t,use_physical=False)/R
                 +self.R2deriv(R,x,phi=phi,t=t,use_physical=False)
                 +self.phi2deriv(R,x,phi=phi,t=t,use_physical=False)/R**2.,
-                0.,numpy.fabs(z))[0])/2./numpy.pi
+                -numpy.fabs(z),numpy.fabs(z))[0])/4./numpy.pi
 
     def _surfdens(self,R,z,phi=0.,t=0.):
         """
@@ -356,8 +358,10 @@ class Potential(Force):
            the surface density
         HISTORY:
            2018-08-19 - Written - Bovy (UofT)
+           2021-04-19 - Adjusted for non-z-symmetric densities - Bovy (UofT)
         """
-        return 2.*integrate.quad(lambda x: self._dens(R,x,phi=phi,t=t),0,z)[0]
+        return integrate.quad(lambda x: self._dens(R,x,phi=phi,t=t),
+                              -numpy.fabs(z),numpy.fabs(z))[0]
 
     @potential_physical_input
     @physical_conversion('mass',pop=True)
@@ -375,19 +379,15 @@ class Potential(Force):
 
            R - Cylindrical Galactocentric radius (can be Quantity)
 
-           z= (None) vertical height (can be Quantity)
+           z= (None) vertical height up to which to integrate (can be Quantity)
 
            t - time (optional; can be Quantity)
-
-        KEYWORDS:
 
            forceint= if True, calculate the mass through integration of the density, even if an explicit expression for the mass exists
 
         OUTPUT:
 
-           1) for spherical potentials: M(<R) [or if z is None], when the mass is implemented explicitly, the mass enclosed within  r = sqrt(R^2+z^2) is returned when not z is None; forceint will integrate between -z and z, so the two are inconsistent (If you care to have this changed, raise an issue on github)
-
-           2) for axisymmetric potentials: M(<R,<fabs(Z))
+           Mass enclosed within the spherical shell with radius R if z is None else mass in the slab <R and between -z and z; except: potentials inheriting from EllipsoidalPotential, which if z is None return the mass within the ellipsoidal shell with semi-major axis R
 
         HISTORY:
 
@@ -395,29 +395,91 @@ class Potential(Force):
 
            2019-08-15 - Added spherical warning - Bovy (UofT)
 
+           2021-03-15 - Changed to integrate to spherical shell for z is None slab otherwise - Bovy (UofT)
+
+           2021-03-18 - Switched to using Gauss' theorem - Bovy (UofT)
+
         """
-        if self.isNonAxi:
-            raise NotImplementedError('mass for non-axisymmetric potentials is not currently supported')
+        from .EllipsoidalPotential import EllipsoidalPotential
+        if self.isNonAxi and not isinstance(self,EllipsoidalPotential):
+            raise NotImplementedError('mass for non-axisymmetric potentials that are not EllipsoidalPotentials is not currently supported')
         try:
             if forceint: raise AttributeError #Hack!
             return self._amp*self._mass(R,z=z,t=t)
         except AttributeError:
-            #Use numerical integration to get the mass
-            if z is None:
-                warnings.warn("Vertical height z not specified for mass "
-                              "calculation...assuming spherical potential"
-                              " (for the mass of axisymmetric potentials"
-                              ", specify z)",galpyWarning)
-                return 4.*numpy.pi\
-                    *integrate.quad(lambda x: x**2.\
-                                        *self.dens(x,0.,t=t,
-                                                  use_physical=False),
-                                    0.,R)[0]
-            else:
-                return 4.*numpy.pi\
-                    *integrate.dblquad(lambda y,x: x\
-                                           *self.dens(x,y,t=t,use_physical=False),
-                                       0.,R,lambda x: 0., lambda x: z)[0]
+            #Use numerical integration to get the mass, using Gauss' theorem
+            if z is None: # Within spherical shell
+                def _integrand(theta):
+                    tz= R*numpy.cos(theta)
+                    tR= R*numpy.sin(theta)
+                    return self.rforce(tR,tz,t=t,use_physical=False)\
+                        *numpy.sin(theta)
+                return -R**2.*integrate.quad(_integrand,0.,numpy.pi)[0]/2.
+            else: # Within disk at <R, -z --> z
+                return -R*integrate.quad(lambda x: self.Rforce(R,x,t=t,
+                                                        use_physical=False),
+                                         -z,z)[0]/2.\
+                        -integrate.quad(lambda x: x*self.zforce(x,z,t=t,
+                                                        use_physical=False),
+                                        0.,R)[0]
+
+    @physical_conversion('position',pop=True)
+    def rhalf(self,t=0.,INF=numpy.inf):
+        """
+            
+        NAME:
+            
+            rhalf
+            
+        PURPOSE:
+
+            calculate the half-mass radius, the radius of the spherical shell that contains half the total mass
+
+        INPUT:
+
+            t= (0.) time (optional; can be Quantity)
+
+            INF= (numpy.inf) radius at which the total mass is calculated (internal units, just set this to something very large)
+
+        OUTPUT:
+
+            half-mass radius
+
+        HISTORY:
+
+            2021-03-18 - Written - Bovy (UofT)
+
+        """
+        return rhalf(self,t=t,INF=INF,use_physical=False)
+
+    @potential_physical_input
+    @physical_conversion('time',pop=True)
+    def tdyn(self,R,t=0.):
+        """
+        NAME:
+        
+           tdyn
+
+        PURPOSE:
+
+           calculate the dynamical time from tdyn^2 = 3pi/[G<rho>]
+
+        INPUT:
+
+           R - Galactocentric radius (can be Quantity)
+
+           t= (0.) time (optional; can be Quantity)
+        
+        OUTPUT:
+
+           Dynamical time
+
+        HISTORY:
+
+           2021-03-18 - Written - Bovy (UofT)
+
+        """
+        return 2.*numpy.pi*R*numpy.sqrt(R/self.mass(R,use_physical=False))
 
     @physical_conversion('mass',pop=False)
     def mvir(self,H=70.,Om=0.3,t=0.,overdens=200.,wrtcrit=False,
@@ -605,7 +667,7 @@ class Potential(Force):
         self._amp*= norm/numpy.fabs(self.Rforce(1.,0.,use_physical=False))
 
     @potential_physical_input
-    @physical_conversion('force',pop=True)
+    @physical_conversion('energy',pop=True)
     def phiforce(self,R,z,phi=0.,t=0.):
         """
         NAME:
@@ -614,7 +676,7 @@ class Potential(Force):
 
         PURPOSE:
 
-           evaluate the azimuthal force F_phi  (R,z,phi,t)
+           evaluate the azimuthal force F_phi = -d Phi / d phi (R,z,phi,t) [note that this is a torque, not a force!)
 
         INPUT:
 
@@ -647,7 +709,7 @@ class Potential(Force):
             return 0.
 
     @potential_physical_input
-    @physical_conversion('forcederivative',pop=True)
+    @physical_conversion('energy',pop=True)
     def phi2deriv(self,R,Z,phi=0.,t=0.):
         """
         NAME:
@@ -685,7 +747,7 @@ class Potential(Force):
             return 0.
 
     @potential_physical_input
-    @physical_conversion('forcederivative',pop=True)
+    @physical_conversion('force',pop=True)
     def Rphideriv(self,R,Z,phi=0.,t=0.):
         """
         NAME:
@@ -720,6 +782,44 @@ class Potential(Force):
         except AttributeError: #pragma: no cover
             if self.isNonAxi:
                 raise PotentialError("'_Rphideriv' function not implemented for this non-axisymmetric potential")
+            return 0.
+
+    @potential_physical_input
+    @physical_conversion('force',pop=True)
+    def phizderiv(self,R,Z,phi=0.,t=0.):
+        """
+        NAME:
+
+           phizderiv
+
+        PURPOSE:
+
+           evaluate the mixed azimuthal,vertical derivative
+
+        INPUT:
+
+           R - Galactocentric radius (can be Quantity)
+
+           Z - vertical height (can be Quantity)
+
+           phi - Galactocentric azimuth (can be Quantity)
+
+           t - time (can be Quantity)
+
+        OUTPUT:
+
+           d2Phi/dphidz
+
+        HISTORY:
+
+           2021-04-30 - Written - Bovy (UofT)
+
+        """
+        try:
+            return self._amp*self._phizderiv(R,Z,phi=phi,t=t)
+        except AttributeError: #pragma: no cover
+            if self.isNonAxi:
+                raise PotentialError("'_phizderiv' function not implemented for this non-axisymmetric potential")
             return 0.
 
     def toPlanar(self):
@@ -839,15 +939,10 @@ class Potential(Force):
            2014-04-08 - Added effective= - Bovy (IAS)
 
         """
-        if _APY_LOADED:
-            if isinstance(rmin,units.Quantity):
-                rmin= rmin.to(units.kpc).value/self._ro
-            if isinstance(rmax,units.Quantity):
-                rmax= rmax.to(units.kpc).value/self._ro
-            if isinstance(zmin,units.Quantity):
-                zmin= zmin.to(units.kpc).value/self._ro
-            if isinstance(zmax,units.Quantity):
-                zmax= zmax.to(units.kpc).value/self._ro
+        rmin= conversion.parse_length(rmin,ro=self._ro)
+        rmax= conversion.parse_length(rmax,ro=self._ro)
+        zmin= conversion.parse_length(zmin,ro=self._ro)
+        zmax= conversion.parse_length(zmax,ro=self._ro)
         if xrange is None: xrange= [rmin,rmax]
         if yrange is None: yrange= [zmin,zmax]
         if not savefilename is None and os.path.exists(savefilename):
@@ -866,7 +961,7 @@ class Potential(Force):
             for ii in range(nrs):
                 for jj in range(nzs):
                     if xy:
-                        R,phi,z= bovy_coords.rect_to_cyl(Rs[ii],zs[jj],0.)
+                        R,phi,z= coords.rect_to_cyl(Rs[ii],zs[jj],0.)
                     else:
                         R,z= Rs[ii], zs[jj]
                     potRz[ii,jj]= evaluatePotentials(self,
@@ -896,20 +991,20 @@ class Potential(Force):
             levels= numpy.linspace(numpy.nanmin(potRz),numpy.nanmax(potRz),ncontours)
         if cntrcolors is None:
             cntrcolors= 'k'
-        return plot.bovy_dens2d(potRz.T,origin='lower',cmap='gist_gray',contours=True,
-                                xlabel=xlabel,ylabel=ylabel,
-                                xrange=xrange,
-                                yrange=yrange,
-                                aspect=.75*(rmax-rmin)/(zmax-zmin),
-                                cntrls='-',
-                                justcontours=justcontours,
-                                levels=levels,cntrcolors=cntrcolors)
+        return plot.dens2d(potRz.T,origin='lower',cmap='gist_gray',contours=True,
+                           xlabel=xlabel,ylabel=ylabel,
+                           xrange=xrange,
+                           yrange=yrange,
+                           aspect=.75*(rmax-rmin)/(zmax-zmin),
+                           cntrls='-',
+                           justcontours=justcontours,
+                           levels=levels,cntrcolors=cntrcolors)
 
     def plotDensity(self,t=0.,
                     rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
                     phi=None,xy=False,
                     ncontours=21,savefilename=None,aspect=None,log=False,
-                    justcontours=False):
+                    justcontours=False,**kwargs):
         """
         NAME:
 
@@ -960,8 +1055,63 @@ class Potential(Force):
                              zmin=zmin,zmax=zmax,nzs=nzs,phi=phi,xy=xy,t=t,
                              ncontours=ncontours,savefilename=savefilename,
                              justcontours=justcontours,
-                             aspect=aspect,log=log)
+                             aspect=aspect,log=log,**kwargs)
 
+    def plotSurfaceDensity(self,t=0.,z=numpy.inf,
+                           xmin=0.,xmax=1.5,nxs=21,ymin=-0.5,ymax=0.5,nys=21,
+                           ncontours=21,savefilename=None,aspect=None,
+                           log=False,justcontours=False,**kwargs):
+        """
+        NAME:
+
+           plotSurfaceDensity
+
+        PURPOSE:
+
+           plot the surface density of this potential
+
+        INPUT:
+
+           t= time to plot potential at
+
+           z= (inf) height between which to integrate the density (from -z to z; can be a Quantity) 
+
+           xmin= minimum x (can be Quantity)
+
+           xmax= maximum x (can be Quantity)
+
+           nxs= grid in x
+
+           ymin= minimum y (can be Quantity)
+
+           ymax= maximum y (can be Quantity)
+
+           nys= grid in y
+
+           ncontours= number of contours
+
+           justcontours= (False) if True, just plot contours
+
+           savefilename= save to or restore from this savefile (pickle)
+
+           log= if True, plot the log density
+
+        OUTPUT:
+
+           plot to output device
+
+        HISTORY:
+
+           2020-08-19 - Written - Bovy (UofT)
+
+        """
+        return plotSurfaceDensities(self,xmin=xmin,xmax=xmax,nxs=nxs,
+                                    ymin=ymin,ymax=ymax,nys=nys,t=t,z=z,
+                                    ncontours=ncontours,
+                                    savefilename=savefilename,
+                                    justcontours=justcontours,
+                                    aspect=aspect,log=log,**kwargs)
+    
     @potential_physical_input
     @physical_conversion('velocity',pop=True)
     def vcirc(self,R,phi=None,t=0.):
@@ -991,7 +1141,7 @@ class Potential(Force):
         
             2011-10-09 - Written - Bovy (IAS)
         
-       2016-06-15 - Added phi= keyword for non-axisymmetric potential - Bovy (UofT)
+            2016-06-15 - Added phi= keyword for non-axisymmetric potential - Bovy (UofT)
 
         """  
         return numpy.sqrt(R*-self.Rforce(R,0.,phi=phi,t=t,use_physical=False))
@@ -1155,8 +1305,7 @@ class Potential(Force):
            2011-10-09 - Written - Bovy (IAS)
         
         """
-        if _APY_LOADED and isinstance(OmegaP,units.Quantity):
-            OmegaP= OmegaP.to(1/units.Gyr).value/freq_in_Gyr(self._vo,self._ro)
+        OmegaP= conversion.parse_frequency(OmegaP,ro=self._ro,vo=self._vo)
         return lindbladR(self,OmegaP,m=m,t=t,use_physical=False,**kwargs)
 
     @potential_physical_input
@@ -1222,8 +1371,7 @@ class Potential(Force):
             ~0.75 ms for a MWPotential
         
         """
-        if _APY_LOADED and isinstance(lz,units.Quantity):
-            lz= lz.to(units.km/units.s*units.kpc).value/self._vo/self._ro
+        lz= conversion.parse_angmom(lz,ro=self._ro,vo=self._vo)
         return rl(self,lz,t=t,use_physical=False)
 
     @potential_physical_input
@@ -1289,7 +1437,7 @@ class Potential(Force):
         
         """
         if _APY_LOADED and isinstance(l,units.Quantity):
-            l= l.to(units.rad).value
+            l= conversion.parse_angle(l)
             deg= False
         if deg:
             sinl= numpy.sin(l/180.*numpy.pi)
@@ -1317,7 +1465,7 @@ class Potential(Force):
 
            savefilename=- save to or restore from this savefile (pickle)
 
-           +bovy_plot(*args,**kwargs)
+           +galpy.util.plot.plot(*args,**kwargs)
 
         OUTPUT:
 
@@ -1349,7 +1497,7 @@ class Potential(Force):
 
            savefilename= save to or restore from this savefile (pickle)
 
-           +bovy_plot(*args,**kwargs)
+           +galpy.util.plot.plot(*args,**kwargs)
 
         OUTPUT:
 
@@ -1584,6 +1732,72 @@ class Potential(Force):
         else:
             return tij
 
+    @physical_conversion('position',pop=True)
+    def zvc(self,R,E,Lz,phi=0.,t=0.):
+        """
+        
+        NAME:
+        
+           zvc
+            
+        PURPOSE:
+        
+           Calculate the zero-velocity curve: z such that Phi(R,z) + Lz/[2R^2] = E (assumes that F_z(R,z) = negative at positive z such that there is a single solution)
+            
+        INPUT:
+        
+           R - Galactocentric radius (can be Quantity)
+            
+           E - Energy (can be Quantity)
+
+           Lz - Angular momentum (can be Quantity)
+            
+           phi - azimuth (optional; can be Quantity)
+            
+           t - time (optional; can be Quantity)
+            
+        OUTPUT:
+        
+           z such that Phi(R,z) + Lz/[2R^2] = E
+        
+        HISTORY:
+        
+           2020-08-20 - Written - Bovy (UofT)
+        """
+        return zvc(self,R,E,Lz,phi=phi,t=t,use_physical=False)
+    
+    @physical_conversion('position',pop=True)
+    def zvc_range(self,E,Lz,phi=0.,t=0.):
+        """
+            
+        NAME:
+        
+           zvc_range
+            
+        PURPOSE:
+        
+          Calculate the minimum and maximum radius for which the zero-velocity curve exists for this energy and angular momentum (R such that Phi(R,0) + Lz/[2R^2] = E)
+            
+        INPUT:
+        
+           E - Energy (can be Quantity)
+
+           Lz - Angular momentum (can be Quantity)
+            
+           phi - azimuth (optional; can be Quantity)
+            
+           t - time (optional; can be Quantity)
+            
+        OUTPUT:
+        
+           Solutions R such that Phi(R,0) + Lz/[2R^2] = E
+        
+        HISTORY:
+        
+           2020-08-20 - Written - Bovy (UofT)
+        """
+        return zvc_range(self,E,Lz,phi=phi,t=t,use_physical=False)
+    
 class PotentialError(Exception): #pragma: no cover
     def __init__(self, value):
         self.value = value
@@ -1634,11 +1848,11 @@ def _evaluatePotentials(Pot,R,z,phi=None,t=0.,dR=0,dphi=0):
         raise PotentialError("The (list of) Potential instances is non-axisymmetric, but you did not provide phi")
     isList= isinstance(Pot,list)
     if isList:
-        sum= 0.
+        out= 0.
         for pot in Pot:
             if not isinstance(pot,DissipativeForce):
-                sum+= pot._call_nodecorator(R,z,phi=phi,t=t,dR=dR,dphi=dphi)
-        return sum
+                out+= pot._call_nodecorator(R,z,phi=phi,t=t,dR=dR,dphi=dphi)
+        return out
     elif isinstance(Pot,Potential):
         return Pot._call_nodecorator(R,z,phi=phi,t=t,dR=dR,dphi=dphi)
     else: #pragma: no cover 
@@ -1686,12 +1900,12 @@ def evaluateDensities(Pot,R,z,phi=None,t=0.,forcepoisson=False):
     if nonAxi and phi is None:
         raise PotentialError("The (list of) Potential instances is non-axisymmetric, but you did not provide phi")
     if isList:
-        sum= 0.
+        out= 0.
         for pot in Pot:
             if not isinstance(pot,DissipativeForce):
-                sum+= pot.dens(R,z,phi=phi,t=t,forcepoisson=forcepoisson,
+                out+= pot.dens(R,z,phi=phi,t=t,forcepoisson=forcepoisson,
                                use_physical=False)
-        return sum
+        return out
     elif isinstance(Pot,Potential):
         return Pot.dens(R,z,phi=phi,t=t,forcepoisson=forcepoisson,
                         use_physical=False)
@@ -1738,17 +1952,69 @@ def evaluateSurfaceDensities(Pot,R,z,phi=None,t=0.,forcepoisson=False):
     if nonAxi and phi is None:
         raise PotentialError("The (list of) Potential instances is non-axisymmetric, but you did not provide phi")
     if isList:
-        sum= 0.
+        out= 0.
         for pot in Pot:
             if not isinstance(pot,DissipativeForce):
-                sum+= pot.surfdens(R,z,phi=phi,t=t,forcepoisson=forcepoisson,
+                out+= pot.surfdens(R,z,phi=phi,t=t,forcepoisson=forcepoisson,
                                    use_physical=False)
-        return sum
+        return out
     elif isinstance(Pot,Potential):
         return Pot.surfdens(R,z,phi=phi,t=t,forcepoisson=forcepoisson,
                             use_physical=False)
     else: #pragma: no cover 
         raise PotentialError("Input to 'evaluateSurfaceDensities' is neither a Potential-instance or a list of such instances")
+
+@potential_physical_input
+@physical_conversion('mass',pop=True)
+def mass(Pot,R,z=None,t=0.,forceint=False):
+    """
+    NAME:
+
+       mass
+
+    PURPOSE:
+
+       convenience function to evaluate a possible sum of masses
+
+    INPUT:
+
+       Pot - potential or list of potentials (dissipative forces in such a list are ignored)
+
+       R - cylindrical Galactocentric distance (can be Quantity)
+
+       z= (None) vertical height up to which to integrate (can be Quantity) 
+
+       t - time (can be Quantity)
+
+       forceint= if True, calculate the mass through integration of the density, even if an explicit expression for the mass exists
+
+
+    OUTPUT:
+
+       Mass enclosed within the spherical shell with radius R if z is None else mass in the slab <R and between -z and z
+
+    HISTORY:
+
+       2021-02-07 - Written - Bovy (UofT)
+
+       2021-03-15 - Changed to integrate to spherical shell for z is None slab otherwise - Bovy (UofT)
+
+    """
+    Pot= flatten(Pot)
+    isList= isinstance(Pot,list)
+    nonAxi= _isNonAxi(Pot)
+    if nonAxi:
+        raise NotImplementedError('mass for non-axisymmetric potentials is not currently supported')
+    if isList:
+        out= 0.
+        for pot in Pot:
+            if not isinstance(pot,DissipativeForce):
+                out+= pot.mass(R,z=z,t=t,forceint=forceint,use_physical=False)
+        return out
+    elif isinstance(Pot,Potential):
+        return Pot.mass(R,z=z,t=t,forceint=forceint,use_physical=False)
+    else: #pragma: no cover 
+        raise PotentialError("Input to 'mass' is neither a Potential-instance or a list of such instances")
 
 @potential_physical_input
 @physical_conversion('force',pop=True)
@@ -1799,13 +2065,13 @@ def _evaluateRforces(Pot,R,z,phi=None,t=0.,v=None):
     if dissipative and v is None:
         raise PotentialError("The (list of) Potential instances includes dissipative, but you did not provide the 3D velocity (required for dissipative forces")
     if isList:
-        sum= 0.
+        out= 0.
         for pot in Pot:
             if isinstance(pot,DissipativeForce):
-                sum+= pot._Rforce_nodecorator(R,z,phi=phi,t=t,v=v)
+                out+= pot._Rforce_nodecorator(R,z,phi=phi,t=t,v=v)
             else:
-                sum+= pot._Rforce_nodecorator(R,z,phi=phi,t=t)
-        return sum
+                out+= pot._Rforce_nodecorator(R,z,phi=phi,t=t)
+        return out
     elif isinstance(Pot,Potential):
         return Pot._Rforce_nodecorator(R,z,phi=phi,t=t)
     elif isinstance(Pot,DissipativeForce):
@@ -1814,7 +2080,7 @@ def _evaluateRforces(Pot,R,z,phi=None,t=0.,v=None):
         raise PotentialError("Input to 'evaluateRforces' is neither a Potential-instance, DissipativeForce-instance or a list of such instances")
 
 @potential_physical_input
-@physical_conversion('force',pop=True)
+@physical_conversion('energy',pop=True)
 def evaluatephiforces(Pot,R,z,phi=None,t=0.,v=None):
     """
     NAME:
@@ -1861,13 +2127,13 @@ def _evaluatephiforces(Pot,R,z,phi=None,t=0.,v=None):
     if dissipative and v is None:
         raise PotentialError("The (list of) Potential instances includes dissipative, but you did not provide the 3D velocity (required for dissipative forces")
     if isList:
-        sum= 0.
+        out= 0.
         for pot in Pot:
             if isinstance(pot,DissipativeForce):
-                sum+= pot._phiforce_nodecorator(R,z,phi=phi,t=t,v=v)
+                out+= pot._phiforce_nodecorator(R,z,phi=phi,t=t,v=v)
             else:
-                sum+= pot._phiforce_nodecorator(R,z,phi=phi,t=t)
-        return sum
+                out+= pot._phiforce_nodecorator(R,z,phi=phi,t=t)
+        return out
     elif isinstance(Pot,Potential):
         return Pot._phiforce_nodecorator(R,z,phi=phi,t=t)
     elif isinstance(Pot,DissipativeForce):
@@ -1924,13 +2190,13 @@ def _evaluatezforces(Pot,R,z,phi=None,t=0.,v=None):
     if dissipative and v is None:
         raise PotentialError("The (list of) Potential instances includes dissipative, but you did not provide the 3D velocity (required for dissipative forces")
     if isList:
-        sum= 0.
+        out= 0.
         for pot in Pot:
             if isinstance(pot,DissipativeForce):
-                sum+= pot._zforce_nodecorator(R,z,phi=phi,t=t,v=v)
+                out+= pot._zforce_nodecorator(R,z,phi=phi,t=t,v=v)
             else:
-                sum+= pot._zforce_nodecorator(R,z,phi=phi,t=t)
-        return sum
+                out+= pot._zforce_nodecorator(R,z,phi=phi,t=t)
+        return out
     elif isinstance(Pot,Potential):
         return Pot._zforce_nodecorator(R,z,phi=phi,t=t)
     elif isinstance(Pot,DissipativeForce):
@@ -1981,13 +2247,13 @@ def evaluaterforces(Pot,R,z,phi=None,t=0.,v=None):
     if dissipative and v is None:
         raise PotentialError("The (list of) Potential instances includes dissipative, but you did not provide the 3D velocity (required for dissipative forces")
     if isList:
-        sum= 0.
+        out= 0.
         for pot in Pot:
             if isinstance(pot,DissipativeForce):
-                sum+= pot.rforce(R,z,phi=phi,t=t,v=v,use_physical=False)
+                out+= pot.rforce(R,z,phi=phi,t=t,v=v,use_physical=False)
             else:
-                sum+= pot.rforce(R,z,phi=phi,t=t,use_physical=False)
-        return sum
+                out+= pot.rforce(R,z,phi=phi,t=t,use_physical=False)
+        return out
     elif isinstance(Pot,Potential):
         return Pot.rforce(R,z,phi=phi,t=t,use_physical=False)
     elif isinstance(Pot,DissipativeForce):
@@ -2033,11 +2299,11 @@ def evaluateR2derivs(Pot,R,z,phi=None,t=0.):
     if nonAxi and phi is None:
         raise PotentialError("The (list of) Potential instances is non-axisymmetric, but you did not provide phi")
     if isList:
-        sum= 0.
+        out= 0.
         for pot in Pot:
             if not isinstance(pot,DissipativeForce):
-                sum+= pot.R2deriv(R,z,phi=phi,t=t,use_physical=False)
-        return sum
+                out+= pot.R2deriv(R,z,phi=phi,t=t,use_physical=False)
+        return out
     elif isinstance(Pot,Potential):
         return Pot.R2deriv(R,z,phi=phi,t=t,use_physical=False)
     else: #pragma: no cover 
@@ -2081,11 +2347,11 @@ def evaluatez2derivs(Pot,R,z,phi=None,t=0.):
     if nonAxi and phi is None:
         raise PotentialError("The (list of) Potential instances is non-axisymmetric, but you did not provide phi")
     if isList:
-        sum= 0.
+        out= 0.
         for pot in Pot:
             if not isinstance(pot,DissipativeForce):
-                sum+= pot.z2deriv(R,z,phi=phi,t=t,use_physical=False)
-        return sum
+                out+= pot.z2deriv(R,z,phi=phi,t=t,use_physical=False)
+        return out
     elif isinstance(Pot,Potential):
         return Pot.z2deriv(R,z,phi=phi,t=t,use_physical=False)
     else: #pragma: no cover 
@@ -2129,18 +2395,18 @@ def evaluateRzderivs(Pot,R,z,phi=None,t=0.):
     if nonAxi and phi is None:
         raise PotentialError("The (list of) Potential instances is non-axisymmetric, but you did not provide phi")
     if isList:
-        sum= 0.
+        out= 0.
         for pot in Pot:
             if not isinstance(pot,DissipativeForce):
-                sum+= pot.Rzderiv(R,z,phi=phi,t=t,use_physical=False)
-        return sum
+                out+= pot.Rzderiv(R,z,phi=phi,t=t,use_physical=False)
+        return out
     elif isinstance(Pot,Potential):
         return Pot.Rzderiv(R,z,phi=phi,t=t,use_physical=False)
     else: #pragma: no cover 
         raise PotentialError("Input to 'evaluateRzderivs' is neither a Potential-instance or a list of such instances")
 
 @potential_physical_input
-@physical_conversion('forcederivative',pop=True)
+@physical_conversion('energy',pop=True)
 def evaluatephi2derivs(Pot,R,z,phi=None,t=0.):
     """
     NAME:
@@ -2177,18 +2443,18 @@ def evaluatephi2derivs(Pot,R,z,phi=None,t=0.):
     if nonAxi and phi is None:
         raise PotentialError("The (list of) Potential instances is non-axisymmetric, but you did not provide phi")
     if isList:
-        sum= 0.
+        out= 0.
         for pot in Pot:
             if not isinstance(pot,DissipativeForce):
-                sum+= pot.phi2deriv(R,z,phi=phi,t=t,use_physical=False)
-        return sum
+                out+= pot.phi2deriv(R,z,phi=phi,t=t,use_physical=False)
+        return out
     elif isinstance(Pot,Potential):
         return Pot.phi2deriv(R,z,phi=phi,t=t,use_physical=False)
     else: #pragma: no cover 
         raise PotentialError("Input to 'evaluatephi2derivs' is neither a Potential-instance or a list of such instances")
 
 @potential_physical_input
-@physical_conversion('forcederivative',pop=True)
+@physical_conversion('force',pop=True)
 def evaluateRphiderivs(Pot,R,z,phi=None,t=0.):
     """
     NAME:
@@ -2213,11 +2479,11 @@ def evaluateRphiderivs(Pot,R,z,phi=None,t=0.):
 
     OUTPUT:
 
-       d2Phi/d2R(R,z,phi,t)
+       d2Phi/dRdphi(R,z,phi,t)
 
     HISTORY:
 
-       2012-07-25 - Written - Bovy (IAS)
+       2014-06-30 - Written - Bovy (IAS)
 
     """
     isList= isinstance(Pot,list)
@@ -2225,15 +2491,63 @@ def evaluateRphiderivs(Pot,R,z,phi=None,t=0.):
     if nonAxi and phi is None:
         raise PotentialError("The (list of) Potential instances is non-axisymmetric, but you did not provide phi")
     if isList:
-        sum= 0.
+        out= 0.
         for pot in Pot:
             if not isinstance(pot,DissipativeForce):
-                sum+= pot.Rphideriv(R,z,phi=phi,t=t,use_physical=False)
-        return sum
+                out+= pot.Rphideriv(R,z,phi=phi,t=t,use_physical=False)
+        return out
     elif isinstance(Pot,Potential):
         return Pot.Rphideriv(R,z,phi=phi,t=t,use_physical=False)
     else: #pragma: no cover 
         raise PotentialError("Input to 'evaluateRphiderivs' is neither a Potential-instance or a list of such instances")
+
+@potential_physical_input
+@physical_conversion('force',pop=True)
+def evaluatephizderivs(Pot,R,z,phi=None,t=0.):
+    """
+    NAME:
+
+       evaluatephizderivs
+
+    PURPOSE:
+
+       convenience function to evaluate a possible sum of potentials
+
+    INPUT:
+
+       Pot - a potential or list of potentials
+
+       R - cylindrical Galactocentric distance (can be Quantity)
+
+       z - distance above the plane (can be Quantity)
+
+       phi - azimuth (optional; can be Quantity)
+
+       t - time (optional; can be Quantity)
+
+    OUTPUT:
+
+       d2Phi/dphi/dz(R,z,phi,t)
+
+    HISTORY:
+
+       2021-04-30 - Written - Bovy (UofT)
+
+    """
+    isList= isinstance(Pot,list)
+    nonAxi= _isNonAxi(Pot)
+    if nonAxi and phi is None:
+        raise PotentialError("The (list of) Potential instances is non-axisymmetric, but you did not provide phi")
+    if isList:
+        out= 0.
+        for pot in Pot:
+            if not isinstance(pot,DissipativeForce):
+                out+= pot.phizderiv(R,z,phi=phi,t=t,use_physical=False)
+        return out
+    elif isinstance(Pot,Potential):
+        return Pot.phizderiv(R,z,phi=phi,t=t,use_physical=False)
+    else: #pragma: no cover 
+        raise PotentialError("Input to 'evaluatephizderivs' is neither a Potential-instance or a list of such instances")
 
 @potential_physical_input
 @physical_conversion('forcederivative',pop=True)
@@ -2273,11 +2587,11 @@ def evaluater2derivs(Pot,R,z,phi=None,t=0.):
     if nonAxi and phi is None:
         raise PotentialError("The (list of) Potential instances is non-axisymmetric, but you did not provide phi")
     if isList:
-        sum= 0.
+        out= 0.
         for pot in Pot:
             if not isinstance(pot,DissipativeForce):
-                sum+= pot.r2deriv(R,z,phi=phi,t=t,use_physical=False)
-        return sum
+                out+= pot.r2deriv(R,z,phi=phi,t=t,use_physical=False)
+        return out
     elif isinstance(Pot,Potential):
         return Pot.r2deriv(R,z,phi=phi,t=t,use_physical=False)
     else: #pragma: no cover 
@@ -2342,19 +2656,10 @@ def plotPotentials(Pot,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
 
         """
         Pot= flatten(Pot)
-        if _APY_LOADED:
-            if hasattr(Pot,'_ro'):
-                tro= Pot._ro
-            else:
-                tro= Pot[0]._ro
-            if isinstance(rmin,units.Quantity):
-                rmin= rmin.to(units.kpc).value/tro
-            if isinstance(rmax,units.Quantity):
-                rmax= rmax.to(units.kpc).value/tro
-            if isinstance(zmin,units.Quantity):
-                zmin= zmin.to(units.kpc).value/tro
-            if isinstance(zmax,units.Quantity):
-                zmax= zmax.to(units.kpc).value/tro
+        rmin= conversion.parse_length(rmin,**get_physical(Pot))
+        rmax= conversion.parse_length(rmax,**get_physical(Pot))
+        zmin= conversion.parse_length(zmin,**get_physical(Pot))
+        zmax= conversion.parse_length(zmax,**get_physical(Pot))
         if not savefilename == None and os.path.exists(savefilename):
             print("Restoring savefile "+savefilename+" ...")
             savefile= open(savefilename,'rb')
@@ -2371,7 +2676,7 @@ def plotPotentials(Pot,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
             for ii in range(nrs):
                 for jj in range(nzs):
                     if xy:
-                        R,phi,z= bovy_coords.rect_to_cyl(Rs[ii],zs[jj],0.)
+                        R,phi,z= coords.rect_to_cyl(Rs[ii],zs[jj],0.)
                     else:
                         R,z= Rs[ii], zs[jj]
                     potRz[ii,jj]= evaluatePotentials(Pot,numpy.fabs(R),
@@ -2398,19 +2703,19 @@ def plotPotentials(Pot,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
             levels= numpy.linspace(numpy.nanmin(potRz),numpy.nanmax(potRz),ncontours)
         if cntrcolors is None:
             cntrcolors= 'k'
-        return plot.bovy_dens2d(potRz.T,origin='lower',cmap='gist_gray',contours=True,
-                                xlabel=xlabel,ylabel=ylabel,
-                                aspect=aspect,
-                                xrange=[rmin,rmax],
-                                yrange=[zmin,zmax],
-                                cntrls='-',
-                                justcontours=justcontours,
-                                levels=levels,cntrcolors=cntrcolors)
+        return plot.dens2d(potRz.T,origin='lower',cmap='gist_gray',contours=True,
+                           xlabel=xlabel,ylabel=ylabel,
+                           aspect=aspect,
+                           xrange=[rmin,rmax],
+                           yrange=[zmin,zmax],
+                           cntrls='-',
+                           justcontours=justcontours,
+                           levels=levels,cntrcolors=cntrcolors)
 
 def plotDensities(Pot,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
                   phi=None,xy=False,t=0.,
                   ncontours=21,savefilename=None,aspect=None,log=False,
-                  justcontours=False):
+                  justcontours=False,**kwargs):
         """
         NAME:
 
@@ -2460,19 +2765,10 @@ def plotDensities(Pot,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
 
         """
         Pot= flatten(Pot)
-        if _APY_LOADED:
-            if hasattr(Pot,'_ro'):
-                tro= Pot._ro
-            else:
-                tro= Pot[0]._ro
-            if isinstance(rmin,units.Quantity):
-                rmin= rmin.to(units.kpc).value/tro
-            if isinstance(rmax,units.Quantity):
-                rmax= rmax.to(units.kpc).value/tro
-            if isinstance(zmin,units.Quantity):
-                zmin= zmin.to(units.kpc).value/tro
-            if isinstance(zmax,units.Quantity):
-                zmax= zmax.to(units.kpc).value/tro
+        rmin= conversion.parse_length(rmin,**get_physical(Pot))
+        rmax= conversion.parse_length(rmax,**get_physical(Pot))
+        zmin= conversion.parse_length(zmin,**get_physical(Pot))
+        zmax= conversion.parse_length(zmax,**get_physical(Pot))
         if not savefilename == None and os.path.exists(savefilename):
             print("Restoring savefile "+savefilename+" ...")
             savefile= open(savefilename,'rb')
@@ -2487,7 +2783,7 @@ def plotDensities(Pot,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
             for ii in range(nrs):
                 for jj in range(nzs):
                     if xy:
-                        R,phi,z= bovy_coords.rect_to_cyl(Rs[ii],zs[jj],0.)
+                        R,phi,z= coords.rect_to_cyl(Rs[ii],zs[jj],0.)
                     else:
                         R,z= Rs[ii], zs[jj]
                     potRz[ii,jj]= evaluateDensities(Pot,numpy.fabs(R),z,phi=phi,
@@ -2510,17 +2806,119 @@ def plotDensities(Pot,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
         else:
             xlabel=r"$R/R_0$"
             ylabel=r"$z/R_0$"
-        return plot.bovy_dens2d(potRz.T,origin='lower',
-                                cmap='gist_yarg',contours=True,
-                                xlabel=xlabel,ylabel=ylabel,
-                                aspect=aspect,
-                                xrange=[rmin,rmax],
-                                yrange=[zmin,zmax],
-                                cntrls='-',
-                                justcontours=justcontours,
-                                levels=numpy.linspace(numpy.nanmin(potRz),numpy.nanmax(potRz),
-                                                   ncontours))
+        return plot.dens2d(potRz.T,origin='lower',
+                           cmap='gist_yarg',contours=True,
+                           xlabel=xlabel,ylabel=ylabel,
+                           aspect=aspect,
+                           xrange=[rmin,rmax],
+                           yrange=[zmin,zmax],
+                           cntrls=kwargs.pop('cntrls','-'),
+                           justcontours=justcontours,
+                           levels=numpy.linspace(numpy.nanmin(potRz),numpy.nanmax(potRz),
+                                                 ncontours),
+                           **kwargs)
 
+def plotSurfaceDensities(Pot,
+                         xmin=-1.5,xmax=1.5,nxs=21,ymin=-1.5,ymax=1.5,nys=21,
+                         z=numpy.inf,t=0.,
+                         ncontours=21,savefilename=None,aspect=None,
+                         log=False,justcontours=False,**kwargs):
+        """
+        NAME:
+
+           plotSurfaceDensities
+
+        PURPOSE:
+
+           plot the surface density a set of potentials
+
+        INPUT:
+
+           Pot - Potential or list of Potential instances
+
+           xmin= minimum x (can be Quantity)
+
+           xmax= maximum x (can be Quantity)
+
+           nxs= grid in x
+
+           ymin= minimum y (can be Quantity)
+
+           ymax= maximum y (can be Quantity)
+
+           nys= grid in y
+
+           z= (inf) height between which to integrate the density (from -z to z; can be a Quantity)
+
+           t= (0.) time to use to evaluate potential
+
+           ncontours= number of contours
+
+           justcontours= (False) if True, just plot contours
+
+           savefilename= save to or restore from this savefile (pickle)
+
+           log= if True, plot the log density
+
+        OUTPUT:
+
+           plot to output device
+
+        HISTORY:
+
+           2020-08-19 - Written - Bovy (UofT)
+
+        """
+        Pot= flatten(Pot)
+        xmin= conversion.parse_length(xmin,**get_physical(Pot))
+        xmax= conversion.parse_length(xmax,**get_physical(Pot))
+        ymin= conversion.parse_length(ymin,**get_physical(Pot))
+        ymax= conversion.parse_length(ymax,**get_physical(Pot))
+        if not savefilename == None and os.path.exists(savefilename):
+            print("Restoring savefile "+savefilename+" ...")
+            savefile= open(savefilename,'rb')
+            surfxy= pickle.load(savefile)
+            xs= pickle.load(savefile)
+            ys= pickle.load(savefile)
+            savefile.close()
+        else:
+            xs= numpy.linspace(xmin,xmax,nxs)
+            ys= numpy.linspace(ymin,ymax,nys)
+            surfxy= numpy.zeros((nxs,nys))
+            for ii in range(nxs):
+                for jj in range(nys):
+                    R,phi,_= coords.rect_to_cyl(xs[ii],ys[jj],0.)
+                    surfxy[ii,jj]= evaluateSurfaceDensities(Pot,
+                                                            numpy.fabs(R),z,
+                                                            phi=phi,
+                                                            t=t,
+                                                            use_physical=False)
+            if not savefilename == None:
+                print("Writing savefile "+savefilename+" ...")
+                savefile= open(savefilename,'wb')
+                pickle.dump(surfxy,savefile)
+                pickle.dump(xs,savefile)
+                pickle.dump(ys,savefile)
+                savefile.close()
+        if aspect is None:
+            aspect= 1.
+        if log:
+            surfxy= numpy.log(surfxy)
+        xlabel= r'$x/R_0$'
+        ylabel= r'$y/R_0$'
+        return plot.dens2d(surfxy.T,origin='lower',
+                           cmap='gist_yarg',contours=True,
+                           xlabel=xlabel,ylabel=ylabel,
+                           aspect=aspect,
+                           xrange=[xmin,xmax],
+                           yrange=[ymin,ymax],
+                           cntrls=kwargs.pop('cntrls','-'),
+                           justcontours=justcontours,
+                           levels=numpy.linspace(numpy.nanmin(surfxy),
+                                                 numpy.nanmax(surfxy),
+                                                 ncontours),
+                           **kwargs)
+    
 @potential_physical_input
 @physical_conversion('frequency',pop=True)
 def epifreq(Pot,R,t=0.):
@@ -2668,7 +3066,7 @@ def vterm(Pot,l,t=0.,deg=True):
     """
     Pot= flatten(Pot)
     if _APY_LOADED and isinstance(l,units.Quantity):
-        l= l.to(units.rad).value
+        l= conversion.parse_angle(l)
         deg= False
     if deg:
         sinl= numpy.sin(l/180.*numpy.pi)
@@ -2711,11 +3109,7 @@ def rl(Pot,lz,t=0.):
 
     """
     Pot= flatten(Pot)
-    if _APY_LOADED and isinstance(lz,units.Quantity):
-        if hasattr(Pot,'_ro'):
-            lz= lz.to(units.km/units.s*units.kpc).value/Pot._vo/Pot._ro
-        elif hasattr(Pot[0],'_ro'):
-            lz= lz.to(units.km/units.s*units.kpc).value/Pot[0]._vo/Pot[0]._ro
+    lz= conversion.parse_angmom(lz,**conversion.get_physical(Pot))
     #Find interval
     rstart= _rlFindStart(numpy.fabs(lz),#assumes vo=1.
                          numpy.fabs(lz),
@@ -2783,12 +3177,7 @@ def lindbladR(Pot,OmegaP,m=2,t=0.,**kwargs):
 
     """
     Pot= flatten(Pot)
-    if _APY_LOADED and isinstance(OmegaP,units.Quantity):
-        if hasattr(Pot,'_ro'):
-            OmegaP= OmegaP.to(1/units.Gyr).value/freq_in_Gyr(Pot._vo,Pot._ro)
-        elif hasattr(Pot[0],'_ro'):
-            OmegaP= OmegaP.to(1/units.Gyr).value\
-                /freq_in_Gyr(Pot[0]._vo,Pot[0]._ro)
+    OmegaP= conversion.parse_frequency(OmegaP,**conversion.get_physical(Pot))
     if isinstance(m,str):
         if 'corot' in m.lower():
             corotation= True
@@ -2801,7 +3190,12 @@ def lindbladR(Pot,OmegaP,m=2,t=0.,**kwargs):
             out= optimize.brentq(_corotationR_eq,0.0000001,1000.,
                                  args=(Pot,OmegaP,t),**kwargs)
         except ValueError:
-            return None
+            try:
+                # Sometimes 0.0000001 is numerically too small to start...
+                out= optimize.brentq(_corotationR_eq,0.01,1000.,
+                                     args=(Pot,OmegaP,t),**kwargs)
+            except ValueError:
+                return None
         except RuntimeError: #pragma: no cover 
             raise
         return out
@@ -3071,7 +3465,9 @@ def flatten(Pot):
         2018-03-14 - Written - Bovy (UofT)
     
     """
-    if isinstance(Pot,list):
+    if isinstance(Pot, Potential):
+        return Pot
+    elif isinstance(Pot, list):
         return list(_flatten_list(Pot))
     else:
         return Pot
@@ -3310,3 +3706,202 @@ def ttensor(Pot,R,z,phi=0.,t=0.,eigenval=False):
        return numpy.linalg.eigvals(tij)
     else:
        return tij
+
+@physical_conversion('position',pop=True)
+def zvc(Pot,R,E,Lz,phi=0.,t=0.):
+    """
+            
+    NAME:
+        
+        zvc
+            
+    PURPOSE:
+        
+        Calculate the zero-velocity curve: z such that Phi(R,z) + Lz/[2R^2] = E (assumes that F_z(R,z) = negative at positive z such that there is a single solution)
+            
+    INPUT:
+        
+        Pot - Potential instance or list of such instances
+
+        R - Galactocentric radius (can be Quantity)
+            
+        E - Energy (can be Quantity)
+
+        Lz - Angular momentum (can be Quantity)
+            
+        phi - azimuth (optional; can be Quantity)
+            
+        t - time (optional; can be Quantity)
+            
+    OUTPUT:
+        
+        z such that Phi(R,z) + Lz/[2R^2] = E
+        
+    HISTORY:
+        
+        2020-08-20 - Written - Bovy (UofT)
+    """
+    Pot= flatten(Pot)
+    R= conversion.parse_length(R,**get_physical(Pot))
+    E= conversion.parse_energy(E,**get_physical(Pot))
+    Lz= conversion.parse_angmom(Lz,**get_physical(Pot))
+    Lz2over2R2= Lz**2./2./R**2.
+    # Check z=0 and whether a solution exists
+    if numpy.fabs(_evaluatePotentials(Pot,R,0.,phi=phi,t=t)+Lz2over2R2-E) < 1e-8:
+        return 0.
+    elif _evaluatePotentials(Pot,R,0.,phi=phi,t=t)+Lz2over2R2 > E:
+        return numpy.nan # s.t. this does not get plotted
+    # Find starting value
+    zstart= 1.
+    zmax= 1000.
+    while E-_evaluatePotentials(Pot,R,zstart,phi=phi,t=t)-Lz2over2R2 > 0. \
+          and zstart < zmax:
+        zstart*= 2.
+    try:
+        out= optimize.brentq(\
+                lambda z: _evaluatePotentials(Pot,R,z,phi=phi,t=t)+Lz2over2R2-E,
+                0.,zstart)
+    except ValueError:
+        raise ValueError('No solution for the zero-velocity curve found for this combination of parameters')
+    return out
+    
+@physical_conversion('position',pop=True)
+def zvc_range(Pot,E,Lz,phi=0.,t=0.):
+    """
+            
+    NAME:
+        
+        zvc_range
+            
+    PURPOSE:
+        
+        Calculate the minimum and maximum radius for which the zero-velocity curve exists for this energy and angular momentum (R such that Phi(R,0) + Lz/[2R^2] = E)
+            
+    INPUT:
+        
+        Pot - Potential instance or list of such instances
+
+        E - Energy (can be Quantity)
+
+        Lz - Angular momentum (can be Quantity)
+            
+        phi - azimuth (optional; can be Quantity)
+            
+        t - time (optional; can be Quantity)
+            
+    OUTPUT:
+        
+        Solutions R such that Phi(R,0) + Lz/[2R^2] = E
+        
+    HISTORY:
+        
+        2020-08-20 - Written - Bovy (UofT)
+    """
+    Pot= flatten(Pot)
+    E= conversion.parse_energy(E,**get_physical(Pot))
+    Lz= conversion.parse_angmom(Lz,**get_physical(Pot))
+    Lz2over2= Lz**2./2.
+    # Check whether a solution exists
+    RLz= rl(Pot,Lz,t=t,use_physical=False)
+    Rstart= RLz
+    if _evaluatePotentials(Pot,Rstart,0.,phi=phi,t=t)+Lz2over2/Rstart**2. > E:
+        return numpy.array([numpy.nan,numpy.nan])
+    # Find starting value for Rmin
+    Rstartmin= 1e-8
+    while _evaluatePotentials(Pot,Rstart,0,phi=phi,t=t)\
+          +Lz2over2/Rstart**2. < E and Rstart > Rstartmin:
+        Rstart/= 2.
+    Rmin= optimize.brentq(\
+                          lambda R: _evaluatePotentials(Pot,R,0,phi=phi,t=t)
+                          +Lz2over2/R**2.-E,Rstart,RLz)
+    # Find starting value for Rmax
+    Rstart= RLz
+    Rstartmax= 1000.
+    while _evaluatePotentials(Pot,Rstart,0,phi=phi,t=t)\
+          +Lz2over2/Rstart**2. < E and Rstart < Rstartmax:
+        Rstart*= 2.
+    Rmax= optimize.brentq(\
+                          lambda R: _evaluatePotentials(Pot,R,0,phi=phi,t=t)
+                          +Lz2over2/R**2.-E,RLz,Rstart)
+    return numpy.array([Rmin,Rmax])
+    
+@physical_conversion('position',pop=True)
+def rhalf(Pot,t=0.,INF=numpy.inf):
+    """
+    NAME:
+
+       rhalf
+
+    PURPOSE:
+
+       calculate the half-mass radius, the radius of the spherical shell that contains half the total mass
+
+    INPUT:
+
+       Pot - Potential instance or list thereof
+
+       t= (0.) time (optional; can be Quantity)
+
+       INF= (numpy.inf) radius at which the total mass is calculated (internal units, just set this to something very large)
+
+    OUTPUT:
+
+       half-mass radius
+
+    HISTORY:
+
+       2021-03-18 - Written - Bovy (UofT)
+
+    """
+    Pot= flatten(Pot)
+    tot_mass= mass(Pot,INF,t=t)
+    #Find interval
+    rhi= _rhalfFindStart(1.,Pot,tot_mass,t=t)
+    rlo= _rhalfFindStart(1.,Pot,tot_mass,t=t,lower=True)
+    return optimize.brentq(_rhalffunc,rlo,rhi,
+                           args=(Pot,tot_mass,t),
+                           maxiter=200,disp=False)
+
+def _rhalffunc(rh,pot,tot_mass,t=0.):
+    return mass(pot,rh,t=t)/tot_mass-0.5
+
+def _rhalfFindStart(rh,pot,tot_mass,t=0.,lower=False):
+    """find a starting interval for rhalf"""
+    rtry= 2.*rh
+    while (2.*lower-1.)*_rhalffunc(rtry,pot,tot_mass,t=t) > 0.:
+        if lower:
+            rtry/= 2.
+        else:
+            rtry*= 2.
+    return rtry
+
+@potential_physical_input
+@physical_conversion('time',pop=True)
+def tdyn(Pot,R,t=0.):
+    """
+    NAME:
+
+       tdyn
+
+    PURPOSE:
+
+       calculate the dynamical time from tdyn^2 = 3pi/[G<rho>]
+
+    INPUT:
+
+       Pot - Potential instance or list thereof
+
+       R - Galactocentric radius (can be Quantity)
+
+       t= (0.) time (optional; can be Quantity)
+
+    OUTPUT:
+
+       Dynamical time
+
+    HISTORY:
+
+       2021-03-18 - Written - Bovy (UofT)
+
+    """
+    return 2.*numpy.pi*R*numpy.sqrt(R/mass(Pot,R,use_physical=False))

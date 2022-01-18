@@ -4,10 +4,8 @@
 ###############################################################################
 import warnings
 import numpy
-from .Potential import Potential, kms_to_kpcGyrDecorator, _APY_LOADED
-if _APY_LOADED:
-    from astropy import units
-from ..util import galpyWarning
+from .Potential import Potential, kms_to_kpcGyrDecorator
+from ..util import galpyWarning, conversion
 _CORE=10**-8
 class LogarithmicHaloPotential(Potential):
     """Class that implements the logarithmic potential
@@ -60,8 +58,7 @@ class LogarithmicHaloPotential(Potential):
 
         """
         Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='velocity2')
-        if _APY_LOADED and isinstance(core,units.Quantity):
-            core= core.to(units.kpc).value/self._ro
+        core= conversion.parse_length(core,ro=self._ro)
         self.hasC= True
         self.hasC_dxdv= True
         self.hasC_dens= True
@@ -312,6 +309,30 @@ class LogarithmicHaloPotential(Potential):
             Rt2= R**2.*(1.-self._1m1overb2*numpy.sin(phi)**2.)
             denom= 1./(Rt2+(z/self._q)**2.+self._core2)
             return -(denom-Rt2*denom**2.)*R*numpy.sin(2.*phi)*self._1m1overb2 
+        else:
+            return 0.
+
+    def _phizderiv(self,R,z,phi=0.,t=0.):
+        """
+        NAME:
+           _phizderiv
+        PURPOSE:
+           evaluate the mixed phi,z derivative for this potential
+        INPUT:
+           R - Galactocentric cylindrical radius
+           z - vertical height
+           phi - azimuth
+           t - time
+        OUTPUT:
+           d2Phi/dz/dphi
+        HISTORY:
+           2021-04-30 - Written - Bovy (UofT)
+        """
+        if self.isNonAxi:
+            Rt2= R**2.*(1.-self._1m1overb2*numpy.sin(phi)**2.)
+            denom= 1./(Rt2+(z/self._q)**2.+self._core2)
+            return 2*R**2*z*numpy.sin(phi)*numpy.cos(phi)*self._1m1overb2\
+                *denom**2/self._q**2
         else:
             return 0.
 

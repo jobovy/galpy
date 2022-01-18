@@ -9,13 +9,9 @@
 ###############################################################################
 import numpy
 from scipy import optimize
+from ..util import conversion
 from ..potential import IsochronePotential
 from .actionAngleInverse import actionAngleInverse
-_APY_LOADED= True
-try:
-    from astropy import units
-except ImportError:
-    _APY_LOADED= False
 class actionAngleIsochroneInverse(actionAngleInverse):
     """Inverse action-angle formalism for the isochrone potential, on the Jphi, Jtheta system of Binney & Tremaine (2008); following McGill & Binney (1990) for transformations"""
     def __init__(self,*args,**kwargs):
@@ -62,9 +58,7 @@ class actionAngleIsochroneInverse(actionAngleInverse):
             self.b= ip.b
             self.amp= ip._amp
         else:
-            self.b= kwargs['b']
-            if _APY_LOADED and isinstance(self.b,units.Quantity):
-                self.b= self.b.to(units.kpc).value/self._ro
+            self.b= conversion.parse_length(kwargs['b'],ro=self._ro)
             rb= numpy.sqrt(self.b**2.+1.)
             self.amp= (self.b+rb)**2.*rb
         # In case we ever decide to implement this in C...

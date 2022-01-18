@@ -157,11 +157,14 @@ def parallel_map(function, sequence, numcores=None):
   if platform.system() == 'Windows': # JB: don't think this works on Win
     return list(map(function,sequence))
 
+  # Use fork-based parallelism (because spawn fails with pickling issues, #457)
+  ctx= multiprocessing.get_context('fork')
+  
   # Returns a started SyncManager object which can be used for sharing 
   # objects between processes. The returned manager object corresponds
   # to a spawned child process and has methods which will create shared
   # objects and return corresponding proxies.
-  manager = multiprocessing.Manager()
+  manager = ctx.Manager()
 
   # Create FIFO queue and lock shared objects and return proxies to them.
   # The managers handles a server process that manages shared objects that
@@ -178,7 +181,7 @@ def parallel_map(function, sequence, numcores=None):
   # group sequence into numcores-worth of chunks
   sequence = numpy.array_split(sequence, numcores)
 
-  procs = [multiprocessing.Process(target=worker,
+  procs = [ctx.Process(target=worker,
            args=(function, ii, chunk, out_q, err_q, lock))
          for ii, chunk in enumerate(sequence)]
 

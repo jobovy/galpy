@@ -1,4 +1,4 @@
-galpy.util.bovy_conversion.freq_in_kmskpc
-============================================
+galpy.util.conversion.freq_in_kmskpc
+====================================
 
-.. autofunction:: galpy.util.bovy_conversion.freq_in_kmskpc
+.. autofunction:: galpy.util.conversion.freq_in_kmskpc

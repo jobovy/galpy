@@ -7,10 +7,8 @@
 ###############################################################################
 import numpy
 from scipy import special
-from .Potential import Potential, kms_to_kpcGyrDecorator, \
-    _APY_LOADED
-if _APY_LOADED:
-    from astropy import units
+from ..util import conversion
+from .Potential import Potential, kms_to_kpcGyrDecorator
 class PowerSphericalPotentialwCutoff(Potential):
     """Class that implements spherical potentials that are derived from 
     power-law density models
@@ -55,10 +53,8 @@ class PowerSphericalPotentialwCutoff(Potential):
 
         """
         Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='density')
-        if _APY_LOADED and isinstance(r1,units.Quantity):
-            r1= r1.to(units.kpc).value/self._ro
-        if _APY_LOADED and isinstance(rc,units.Quantity):
-            rc= rc.to(units.kpc).value/self._ro
+        r1= conversion.parse_length(r1,ro=self._ro)
+        rc= conversion.parse_length(rc,ro=self._ro)
         self.alpha= alpha
         # Back to old definition
         self._amp*= r1**self.alpha
@@ -90,7 +86,15 @@ class PowerSphericalPotentialwCutoff(Potential):
            2013-06-28 - Started - Bovy (IAS)
         """
         r= numpy.sqrt(R**2.+z**2.)
-        return 2.*numpy.pi*self.rc**(3.-self.alpha)/r*(r/self.rc*special.gamma(1.-self.alpha/2.)*special.gammainc(1.-self.alpha/2.,(r/self.rc)**2.)-special.gamma(1.5-self.alpha/2.)*special.gammainc(1.5-self.alpha/2.,(r/self.rc)**2.))
+        out= 2.*numpy.pi*self.rc**(3.-self.alpha)*(1/self.rc*special.gamma(1.-self.alpha/2.)*special.gammainc(1.-self.alpha/2.,(r/self.rc)**2.)-special.gamma(1.5-self.alpha/2.)*special.gammainc(1.5-self.alpha/2.,(r/self.rc)**2.)/r)
+        if isinstance(r,(float,int)):
+            if r == 0:
+                return 0.
+            else:
+                return out
+        else:
+            out[r==0]= 0.
+            return out
 
     def _Rforce(self,R,z,phi=0.,t=0.):
         """
@@ -209,7 +213,7 @@ class PowerSphericalPotentialwCutoff(Potential):
         r= numpy.sqrt(R**2.+z**2.)
         return 1./r**self.alpha*numpy.exp(-(r/self.rc)**2.)
 
-    def _mass(self,R,z=0.,t=0.):
+    def _mass(self,R,z=None,t=0.):
         """
         NAME:
            _mass
@@ -223,10 +227,12 @@ class PowerSphericalPotentialwCutoff(Potential):
            the mass enclosed
         HISTORY:
            2013-XX-XX - Written - Bovy (IAS)
+           2021-04-07 - Switched to hypergeometric function equivalent to incomplete gamma function for better behavior at alpha < -3 - Bovy (UofT)
         """
-        if z is None: r= R
-        else: r= numpy.sqrt(R**2.+z**2.)
-        return 2.*numpy.pi*self.rc**(3.-self.alpha)*special.gammainc(1.5-self.alpha/2.,(r/self.rc)**2.)*special.gamma(1.5-self.alpha/2.)
+        if z is not None: raise AttributeError # use general implementation
+        return 2.*numpy.pi*R**(3.-self.alpha)/(1.5-self.alpha/2.)\
+            *special.hyp1f1(1.5-self.alpha/2.,2.5-self.alpha/2.,
+                            -(R/self.rc)**2.)
 
     @kms_to_kpcGyrDecorator
     def _nemo_accpars(self,vo,ro):

@@ -10,7 +10,7 @@ from .Potential import _evaluatePotentials, \
 from .planarPotential import _evaluateplanarPotentials, \
     _evaluateplanarRforces, _evaluateplanarphiforces, \
     evaluateplanarR2derivs
-from ..util.bovy_conversion import physical_compatible, get_physical
+from ..util.conversion import physical_compatible, get_physical
 def _new_obj(cls, kwargs, args):
     """Maps kwargs to cls.__new__"""
     return cls.__new__(cls, *args, **kwargs)
@@ -58,7 +58,7 @@ class WrapperPotential(Potential):
 
            amp - amplitude to be applied to the potential (default: 1.)
 
-           pot - Potential instance or list thereof; the amplitude of this will be grown by this wrapper
+           pot - Potential instance or list thereof
 
         OUTPUT:
 

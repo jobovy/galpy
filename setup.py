@@ -1,5 +1,6 @@
 from setuptools import setup
 from distutils.core import Extension
+from distutils.command.build_ext import build_ext as build_ext
 import sys
 import distutils.sysconfig as sysconfig
 import distutils.ccompiler
@@ -109,6 +110,8 @@ extra_compile_args.append("-D GSL_MAJOR_VERSION=%s" % (gsl_version[0]))
 #gsl_version= ['0','0']
 
 # MSVC: inline does not exist (not C99!); default = not necessarily actual, but will have to do for now...
+# Note for the futureL could now get the actual compiler in the BuildExt class
+# below
 if distutils.ccompiler.get_default_compiler().lower() == 'msvc':
     extra_compile_args.append("-Dinline=__inline")
     # only msvc compiler can be tested with initialize(), msvc is a default on windows
@@ -208,9 +211,39 @@ if float(gsl_version[0]) >= 1. \
     ext_modules.append(actionAngleTorus_c)
 else:
     actionAngleTorus_c_incl= False
+
+
+# Test whether compiler allows for the -fopenmp flag and all other flags
+# to guard against compilation errors
+# (https://stackoverflow.com/a/54518348)
+def compiler_has_flag(compiler,flagname):
+    """Test whether a given compiler supports a given option"""
+    import tempfile
+    from distutils.errors import CompileError
+    with tempfile.NamedTemporaryFile('w', suffix='.cpp') as f:
+        f.write('int main (int argc, char **argv) { return 0; }')
+        try:
+            compiler.compile([f.name], extra_postargs=[flagname])
+        except CompileError:
+            return False
+    return True
+# Now need to subclass BuildExt to access the compiler used and check flags
+class BuildExt(build_ext):
+    def build_extensions(self):
+        ct= self.compiler.compiler_type
+        if ct == 'unix':
+            for ext in self.extensions:
+                # only add flags which pass the flag_filter
+                extra_compile_args= []
+                for flag in ext.extra_compile_args:
+                    if compiler_has_flag(self.compiler,flag):
+                        extra_compile_args.append(flag)
+                ext.extra_compile_args= extra_compile_args
+        build_ext.build_extensions(self)
     
-setup(name='galpy',
-      version='1.7.0.dev0',
+setup(cmdclass=dict(build_ext=BuildExt), # this to allow compiler check above
+      name='galpy',
+      version='1.8.0.dev0',
       description='Galactic Dynamics in python',
       author='Jo Bovy',
       author_email='bovy@astro.utoronto.ca',
@@ -235,12 +268,10 @@ setup(name='galpy',
         "License :: OSI Approved :: BSD License",
         "Operating System :: OS Independent",
         "Programming Language :: C",
-        "Programming Language :: Python :: 2.7",
-        "Programming Language :: Python :: 3.3",
-        "Programming Language :: Python :: 3.4",
-        "Programming Language :: Python :: 3.5",
-        "Programming Language :: Python :: 3.6",
         "Programming Language :: Python :: 3.7",
+        "Programming Language :: Python :: 3.8",
+        "Programming Language :: Python :: 3.9",
+        "Programming Language :: Python :: 3.10",
         "Topic :: Scientific/Engineering :: Astronomy",
         "Topic :: Scientific/Engineering :: Physics"]
       )

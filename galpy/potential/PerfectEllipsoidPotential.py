@@ -8,10 +8,8 @@
 #
 ###############################################################################
 import numpy
-from .Potential import _APY_LOADED
+from ..util import conversion
 from .EllipsoidalPotential import EllipsoidalPotential
-if _APY_LOADED:
-    from astropy import units
 class PerfectEllipsoidPotential(EllipsoidalPotential):
     """Potential of the perfect ellipsoid (de Zeeuw 1985):
 
@@ -35,7 +33,7 @@ class PerfectEllipsoidPotential(EllipsoidalPotential):
 
         INPUT:
 
-           amp - amplitude to be applied to the potential (default: 1); can be a Quantity with units that depend on the specific spheroidal potential
+           amp - amplitude to be applied to the potential (default: 1); can be a Quantity with units of mass or G x mass
 
            a - scale radius (can be Quantity)
 
@@ -63,8 +61,7 @@ class PerfectEllipsoidPotential(EllipsoidalPotential):
         EllipsoidalPotential.__init__(self,amp=amp,b=b,c=c,
                                       zvec=zvec,pa=pa,glorder=glorder,
                                       ro=ro,vo=vo,amp_units='mass')
-        if _APY_LOADED and isinstance(a,units.Quantity):
-            a= a.to(units.kpc).value/self._ro
+        a= conversion.parse_length(a,ro=self._ro)
         self.a= a
         self.a2= self.a**2
         self._scale= self.a
@@ -90,3 +87,24 @@ class PerfectEllipsoidPotential(EllipsoidalPotential):
     def _mdens_deriv(self,m):
         """Derivative of the density as a function of m"""
         return -4.*m*(self.a2+m**2)**-3
+
+    def _mass(self,R,z=None,t=0.):
+        """
+        NAME:
+           _mass
+        PURPOSE:
+           evaluate the mass within R (and z) for this potential; if z=None, integrate to ellipsoidal boundary
+        INPUT:
+           R - Galactocentric cylindrical radius
+           z - vertical height
+           t - time
+        OUTPUT:
+           the mass enclosed
+        HISTORY:
+           2021-03-08 - Written - Bovy (UofT)
+        """
+        if not z is None: raise AttributeError # Hack to fall back to general
+        return 2.*numpy.pi*self._b*self._c/self.a\
+            *(numpy.arctan(R/self.a)-R*self.a/(1.+R**2.))
+
+    

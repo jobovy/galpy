@@ -5,9 +5,8 @@
 #                                                    \sqrt(R^2+z^2+b^2)
 ###############################################################################
 import numpy
-from .Potential import Potential, kms_to_kpcGyrDecorator, _APY_LOADED
-if _APY_LOADED:
-    from astropy import units
+from ..util import conversion
+from .Potential import Potential, kms_to_kpcGyrDecorator
 class PlummerPotential(Potential):
     """Class that implements the Plummer potential
 
@@ -48,9 +47,7 @@ class PlummerPotential(Potential):
 
         """
         Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='mass')
-        if _APY_LOADED and isinstance(b,units.Quantity):
-            b= b.to(units.kpc).value/self._ro
-        self._b= b
+        self._b= conversion.parse_length(b,ro=self._ro)
         self._scale= self._b
         self._b2= self._b**2.
         if normalize or \
@@ -208,6 +205,25 @@ class PlummerPotential(Potential):
            2015-06-15 - Written - Bovy (IAS)
         """
         return -3.*R*z*(R**2.+z**2.+self._b2)**-2.5
+
+    def _mass(self,R,z=None,t=0.):
+        """
+        NAME:
+           _mass
+        PURPOSE:
+           evaluate the mass within R for this potential
+        INPUT:
+           R - Galactocentric cylindrical radius
+           z - vertical height
+           t - time
+        OUTPUT:
+           the mass enclosed
+        HISTORY:
+           2020-10-02 - Written - Bovy (UofT)
+        """
+        if z is not None: raise AttributeError # use general implementation
+        r2= R**2.
+        return (1.+self._b2/r2)**-1.5 # written so it works for r=numpy.inf
 
     @kms_to_kpcGyrDecorator
     def _nemo_accpars(self,vo,ro):

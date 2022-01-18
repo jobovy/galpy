@@ -1,4 +1,4 @@
-galpy.util.bovy_coords.pupv_to_vRvz
-===========================================
+galpy.util.coords.pupv_to_vRvz
+==============================
 
-.. autofunction:: galpy.util.bovy_coords.pupv_to_vRvz
+.. autofunction:: galpy.util.coords.pupv_to_vRvz

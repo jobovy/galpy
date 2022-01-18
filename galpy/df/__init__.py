@@ -5,6 +5,17 @@ from . import quasiisothermaldf
 from . import streamdf
 from . import streamgapdf
 from . import jeans
+from . import sphericaldf
+from . import eddingtondf
+from . import isotropicHernquistdf
+from . import constantbetaHernquistdf
+from . import osipkovmerrittHernquistdf
+from . import kingdf
+from . import isotropicPlummerdf
+from . import isotropicNFWdf
+from . import osipkovmerrittdf
+from . import osipkovmerrittNFWdf
+from . import constantbetadf
 #
 # Functions
 #
@@ -32,3 +43,14 @@ surfaceSigmaProfile= surfaceSigmaProfile.surfaceSigmaProfile
 quasiisothermaldf= quasiisothermaldf.quasiisothermaldf
 streamdf= streamdf.streamdf
 streamgapdf= streamgapdf.streamgapdf
+sphericaldf= sphericaldf.sphericaldf
+eddingtondf= eddingtondf.eddingtondf
+isotropicHernquistdf= isotropicHernquistdf.isotropicHernquistdf
+constantbetaHernquistdf= constantbetaHernquistdf.constantbetaHernquistdf
+osipkovmerrittHernquistdf= osipkovmerrittHernquistdf.osipkovmerrittHernquistdf
+kingdf= kingdf.kingdf
+isotropicPlummerdf= isotropicPlummerdf.isotropicPlummerdf
+isotropicNFWdf= isotropicNFWdf.isotropicNFWdf
+osipkovmerrittdf= osipkovmerrittdf.osipkovmerrittdf
+osipkovmerrittNFWdf= osipkovmerrittNFWdf.osipkovmerrittNFWdf
+constantbetadf= constantbetadf.constantbetadf

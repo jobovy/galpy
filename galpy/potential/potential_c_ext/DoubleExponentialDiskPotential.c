@@ -1,188 +1,132 @@
 #include <math.h>
-#include <gsl/gsl_sf_bessel.h>
 #include <galpy_potentials.h>
-#ifndef M_PI
-#define M_PI 3.14159265358979323846
-#endif
 //Double exponential disk potential
 double DoubleExponentialDiskPotentialEval(double R,double z, double phi,
 					  double t,
 					  struct potentialArg * potentialArgs){
+  double x;
   double * args= potentialArgs->args;
-  double amp, alpha;
-  int nzeros, glorder;
-  if ( R > 6. ) { //Approximate as Keplerian
-    nzeros= (int) *(args+4);
-    glorder= (int) *(args+5);
-    amp= *(args + 6 + 2 * glorder + 4 * (nzeros + 1));
-    alpha= *(args + 7 + 2 * glorder + 4 * (nzeros + 1));
-    return - *args * amp * pow(R*R+z*z,1.-0.5*alpha) / (alpha - 2.);
-  }
   //Get args
-  amp= *args++;
-  alpha= *args++;
-  double beta= *args++;
-  double kmaxFac= *args++;
-  double kmax= kmaxFac * beta;
-  nzeros= (int) *args++;
-  glorder= (int) *args++;
-  double * glx= args;
-  double * glw= args + glorder;
-  double * j0zeros= args + 2 * glorder;
-  double * dj0zeros= args + 2 * glorder + nzeros + 1;
-  //Calculate potential
-  double out= 0.;
-  double k;
-  int ii, jj;
-  if ( R < 1. ) kmax= kmax/R;
-  for (ii=0; ii < ( nzeros + 1 ); ii++) {
-    for (jj=0; jj < glorder; jj++) {
-      k= 0.5 * ( *(glx+jj) + 1. ) * *(dj0zeros+ii+1) + *(j0zeros+ii);
-      out+= *(glw+jj) * *(dj0zeros+ii+1) * gsl_sf_bessel_J0(k*R) 
-	* pow(alpha * alpha + k * k,-1.5) 
-	* (beta * exp(-k * fabs(z) ) - k * exp(-beta * fabs(z) ))
-	/ (beta * beta - k * k);
-    }
-    if ( k > kmax ) break;
+  double amp= *(args+1);
+  double alpha= *(args+2);
+  double beta= *(args+3);
+  int de_n= (int) *(args+4);
+  double * de_j0_xs= args + 5;
+  double * de_j0_ws= args + 5 + 2 * de_n;
+  double alpha2= alpha * alpha;
+  double beta2= beta * beta;
+  double fz= fabs(z);
+  double ebetafz= exp( - beta * fz );
+  double out= 0;
+  double prev_term= 1;
+  int ii= 0;
+  while ( fabs(prev_term) > 1e-15 && ii < de_n ) {
+    x= *(de_j0_xs+ii) / R;
+    prev_term= *(de_j0_ws+ii) * pow( alpha2 + x * x , -1.5 )	\
+      * ( beta * exp( -x * fz ) - x * ebetafz ) \
+      / ( beta2 - x * x );
+    out+= prev_term;
+    prev_term/= out;
+    ii+= 1;
   }
-  return - amp * 2 * M_PI * alpha * out;
+  return amp * out / R;
 }
 double DoubleExponentialDiskPotentialRforce(double R,double z, double phi,
 					    double t,
 					    struct potentialArg * potentialArgs){
+  double x;
   double * args= potentialArgs->args;
-  double amp, alpha;
-  int nzeros,glorder;
-  if ( R > 6. ) { //Approximate as Keplerian
-    nzeros= (int) *(args+4);
-    glorder= (int) *(args+5);
-    amp= *(args + 6 + 2 * glorder + 4 * (nzeros + 1));
-    alpha= *(args + 7 + 2 * glorder + 4 * (nzeros + 1));
-    return - *args * amp * R * pow(R*R+z*z,-0.5*alpha);
-  }
   //Get args
-  amp= *args++;
-  alpha= *args++;
-  double beta= *args++;
-  double kmaxFac= *args++;
-  double kmax= 2. * kmaxFac * beta;
-  nzeros= (int) *args++;
-  glorder= (int) *args++;
-  double * glx= args;
-  double * glw= args + glorder;
-  double * j1zeros= args + 2 * glorder + 2 * (nzeros + 1);
-  double * dj1zeros= args + 2 * glorder + 3 * (nzeros + 1);
-  //Calculate potential
-  double out= 0.;
-  double k;
-  int ii, jj;
-  if ( R < 1. ) kmax= kmax/R;
-  for (ii=0; ii < ( nzeros + 1 ); ii++) {
-    for (jj=0; jj < glorder; jj++) {
-      k= 0.5 * ( *(glx+jj) + 1. ) * *(dj1zeros+ii+1) + *(j1zeros+ii);
-      out+= *(glw+jj) * *(dj1zeros+ii+1) * k * gsl_sf_bessel_J1(k*R) 
-	* pow(alpha * alpha + k * k,-1.5) 
-	* (beta * exp(-k * fabs(z) ) - k * exp(-beta * fabs(z) ))
-	/ (beta * beta - k * k);
-    }
-    if ( k > kmax ) break;
+  double amp= *(args+1);
+  double alpha= *(args+2);
+  double beta= *(args+3);
+  int de_n= (int) *(args+4);
+  double * de_j1_xs= args + 5 +     de_n;
+  double * de_j1_ws= args + 5 + 3 * de_n;
+  double alpha2= alpha * alpha;
+  double beta2= beta * beta;
+  double fz= fabs(z);
+  double ebetafz= exp( - beta * fz );
+  double out= 0;
+  double prev_term= 1;
+  int ii= 0;
+  while ( fabs(prev_term) > 1e-15 && ii < de_n ) {
+    x= *(de_j1_xs+ii) / R;
+    prev_term= *(de_j1_ws+ii) * x * pow( alpha2 + x * x , -1.5) \
+      * ( beta * exp(-x * fz )-x * ebetafz )\
+      / ( beta2 - x * x);
+    out+= prev_term;
+    prev_term/= out;
+    ii+= 1;
   }
-  return - amp * 2 * M_PI * alpha * out;
+  return amp * out / R;
 }
 double DoubleExponentialDiskPotentialPlanarRforce(double R,double phi,
 						  double t,
 						  struct potentialArg * potentialArgs){
+  double x;
   double * args= potentialArgs->args;
-  double amp, alpha;
-  int nzeros, glorder;
-  if ( R > 6. ) { //Approximate as Keplerian
-    nzeros= (int) *(args+4);
-    glorder= (int) *(args+5);
-    amp= *(args + 6 + 2 * glorder + 4 * (nzeros + 1));
-    alpha= *(args + 7 + 2 * glorder + 4 * (nzeros + 1));
-    return - *args * amp * pow(R,-alpha + 1.);
-  }
   //Get args
-  amp= *args++;
-  alpha= *args++;
-  double beta= *args++;
-  double kmaxFac= *args++;
-  double kmax= 2. * kmaxFac * beta;
-  nzeros= (int) *args++;
-  glorder= (int) *args++;
-  double * glx= args;
-  double * glw= args + glorder;
-  double * j1zeros= args + 2 * glorder + 2 * (nzeros + 1);
-  double * dj1zeros= args + 2 * glorder + 3 * (nzeros + 1);
-  //Calculate potential
-  double out= 0.;
-  double k;
-  int ii, jj;
-  if ( R < 1. ) kmax= kmax/R;
-  for (ii=0; ii < ( nzeros + 1 ); ii++) {
-    for (jj=0; jj < glorder; jj++) {
-      k= 0.5 * ( *(glx+jj) + 1. ) * *(dj1zeros+ii+1) + *(j1zeros+ii);
-      out+= *(glw+jj) * *(dj1zeros+ii+1) * k * gsl_sf_bessel_J1(k*R) 
-	* pow(alpha * alpha + k * k,-1.5) 
-	/ (beta + k);
-    }
-    if ( k > kmax ) break;
+  double amp= *(args+1);
+  double alpha= *(args+2);
+  double beta= *(args+3);
+  int de_n= (int) *(args+4);
+  double * de_j1_xs= args + 5 +     de_n;
+  double * de_j1_ws= args + 5 + 3 * de_n;
+  double alpha2= alpha * alpha;
+  double out= 0;
+  double prev_term= 1;
+  int ii= 0;
+  while ( fabs(prev_term) > 1e-15 && ii < de_n ) {
+    x= *(de_j1_xs+ii) / R;
+    prev_term= *(de_j1_ws+ii) * x * pow( alpha2 + x * x , -1.5) / ( beta + x );
+    out+= prev_term;
+    prev_term/= out;
+    ii+= 1;
   }
-  return - amp * 2 * M_PI * alpha * out;
+  return amp * out / R;
 }
 double DoubleExponentialDiskPotentialzforce(double R,double z,double phi,
 					    double t,
 					    struct potentialArg * potentialArgs){
+  double x;
   double * args= potentialArgs->args;
-  double amp, alpha;
-  int nzeros, glorder;
-  if ( R > 6. ) { //Approximate as Keplerian
-    nzeros= (int) *(args+4);
-    glorder= (int) *(args+5);
-    amp= *(args + 6 + 2 * glorder + 4 * (nzeros + 1));
-    alpha= *(args + 7 + 2 * glorder + 4 * (nzeros + 1));
-    return - *args * amp * z * pow(R*R+z*z,-0.5*alpha);
-  }
   //Get args
-  amp= *args++;
-  alpha= *args++;
-  double beta= *args++;
-  double kmaxFac= *args++;
-  double kmax= kmaxFac * beta;
-  nzeros= (int) *args++;
-  glorder= (int) *args++;
-  double * glx= args;
-  double * glw= args + glorder;
-  double * j0zeros= args + 2 * glorder;
-  double * dj0zeros= args + 2 * glorder + nzeros + 1;
-  //Calculate potential
-  double out= 0.;
-  double k;
-  int ii, jj;
-  if ( R < 1. ) kmax= kmax/R;
-  for (ii=0; ii < ( nzeros + 1 ); ii++) {
-    for (jj=0; jj < glorder; jj++) {
-      k= 0.5 * ( *(glx+jj) + 1. ) * *(dj0zeros+ii+1) + *(j0zeros+ii);
-      out+= *(glw+jj) * *(dj0zeros+ii+1) * k * gsl_sf_bessel_J0(k*R) 
-	* pow(alpha * alpha + k * k,-1.5) 
-	* (exp(-k * fabs(z) ) - exp(-beta * fabs(z) ))
-	/ (beta * beta - k * k);
-    }
-    if ( k > kmax ) break;
+  double amp= *(args+1);
+  double alpha= *(args+2);
+  double beta= *(args+3);
+  int de_n= (int) *(args+4);
+  double * de_j0_xs= args + 5;
+  double * de_j0_ws= args + 5 + 2 * de_n;
+  double alpha2= alpha * alpha;
+  double beta2= beta * beta;
+  double fz= fabs(z);
+  double ebetafz= exp(-beta * fabs(z) );
+  double out= 0;
+  double prev_term= 1;
+  int ii= 0;
+  while ( fabs(prev_term) > 1e-15 && ii < de_n ) {
+    x= *(de_j0_xs+ii) / R;
+    prev_term= *(de_j0_ws+ii) * pow( alpha2 + x * x , -1.5) \
+      * x * ( exp(-x * fz ) - ebetafz )\
+      /( beta2 - x * x );
+    out+= prev_term;
+    prev_term/= out;
+    ii+= 1;
   }
   if ( z > 0. )
-    return - amp * 2 * M_PI * alpha * beta * out;
+    return amp * out * beta / R;
   else
-    return amp * 2 * M_PI * alpha * beta * out;
+    return -amp * out * beta / R;
 }
 double DoubleExponentialDiskPotentialDens(double R,double z, double phi,
 					  double t,
 					  struct potentialArg * potentialArgs){
   double * args= potentialArgs->args;
   //Get args
-  double amp= *args++;
-  double alpha= *args++;
-  double beta= *args;
+  double amp= *args;
+  double alpha= *(args+2);
+  double beta= *(args+3);
   // calculate density
   return amp * exp ( - alpha * R - beta * fabs ( z ) );
 }

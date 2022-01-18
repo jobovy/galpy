@@ -6,9 +6,8 @@
 #                            \sqrt{R^2 + (a + |z|)^2} 
 ###############################################################################
 import numpy
-from .Potential import Potential, _APY_LOADED
-if _APY_LOADED:
-    from astropy import units
+from ..util import conversion
+from .Potential import Potential
 class KuzminDiskPotential(Potential):
     """Class that implements the Kuzmin Disk potential
 
@@ -48,8 +47,7 @@ class KuzminDiskPotential(Potential):
 
         """
         Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='mass')
-        if _APY_LOADED and isinstance(a,units.Quantity): 
-            a= a.to(units.kpc).value/self._ro 
+        a= conversion.parse_length(a,ro=self._ro)
         self._a = a ## a must be greater or equal to 0. 
         if normalize or \
                 (isinstance(normalize,(int,float)) \
@@ -185,6 +183,23 @@ class KuzminDiskPotential(Potential):
            2018-08-19 - Written - Bovy (UofT)
         """
         return self._a*(R**2+self._a**2)**-1.5/2./numpy.pi
+
+    def _mass(self,R,z=None,t=0.):
+        """
+        NAME:
+           _mass
+        PURPOSE:
+           evaluate the mass within R (and z) for this potential; if z=None, integrate to z=inf
+        INPUT:
+           R - Galactocentric cylindrical radius
+           z - vertical height
+           t - time
+        OUTPUT:
+           the mass enclosed
+        HISTORY:
+           2021-03-04 - Written - Bovy (UofT)
+        """
+        return 1.-self._a/numpy.sqrt(R**2.+self._a**2.)
 
     def _denom(self, R, z):
         """

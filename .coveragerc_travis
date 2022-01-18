@@ -15,9 +15,12 @@ exclude_lines =
 omit = 
     galpy/snapshot/*
     galpy/potential/amuse.py
-    galpy/util/bovy_plot.py
-    galpy/util/bovy_ars.py
+    galpy/util/plot.py
+    galpy/util/ars.py
     galpy/util/multi.py
+    galpy/util/bovy_plot.py
+    galpy/util/bovy_coords.py
+    galpy/util/bovy_conversion.py
 
 ignore_errors = True
 

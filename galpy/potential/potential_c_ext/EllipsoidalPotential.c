@@ -109,11 +109,11 @@ double EllipsoidalPotentialRforce(double R,double z, double phi,
   double Fx, Fy, Fz;
   cyl_to_rect(R,phi,&x,&y);
   if ( x == cached_x && y == cached_y && z == cached_z ){
-    //LCOV_EXCL_START
+    // LCOV_EXCL_START
     Fx= *(args + 4);
     Fy= *(args + 5);
     Fz= *(args + 6);
-    //LCOV_EXCL_STOP
+    // LCOV_EXCL_STOP
   }
   else 
     EllipsoidalPotentialxyzforces_xyz(potentialArgs->mdens,
@@ -139,10 +139,10 @@ double EllipsoidalPotentialphiforce(double R,double z, double phi,
     Fz= *(args + 6);
   }
   else 
-    //LCOV_EXCL_START
+    // LCOV_EXCL_START
     EllipsoidalPotentialxyzforces_xyz(potentialArgs->mdens,
 				      x,y,z,&Fx,&Fy,&Fz,args);
-    //LCOV_EXCL_STOP
+    // LCOV_EXCL_STOP
   return amp * R * ( -sin ( phi ) * Fx + cos( phi ) * Fy );
 }
 double EllipsoidalPotentialzforce(double R,double z, double phi,
@@ -164,10 +164,10 @@ double EllipsoidalPotentialzforce(double R,double z, double phi,
     Fz= *(args + + 6);
   }
   else 
-    //LCOV_EXCL_START
+    // LCOV_EXCL_START
     EllipsoidalPotentialxyzforces_xyz(potentialArgs->mdens,
 				      x,y,z,&Fx,&Fy,&Fz,args);
-    //LCOV_EXCL_STOP
+    // LCOV_EXCL_STOP
   return amp * Fz;
 }
 

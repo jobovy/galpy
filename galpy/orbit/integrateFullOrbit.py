@@ -11,7 +11,7 @@ from ..potential.Potential import _evaluateRforces, _evaluatezforces,\
 from .integratePlanarOrbit import _parse_integrator, _parse_tol
 from ..util.multi import parallel_map
 from ..util.leung_dop853 import dop853
-from ..util import bovy_symplecticode as symplecticode
+from ..util import symplecticode
 from ..util import _load_extension_libs
 
 _lib, _ext_loaded= _load_extension_libs.load_libgalpy()
@@ -53,15 +53,12 @@ def _parse_pot(pot,potforactions=False,potfortorus=False):
             pot_args.extend([p._amp,p.a])
         elif isinstance(p,potential.DoubleExponentialDiskPotential):
             pot_type.append(11)
-            pot_args.extend([p._amp,p._alpha,p._beta,p._kmaxFac,
-                             p._nzeros,p._glorder])
-            pot_args.extend([p._glx[ii] for ii in range(p._glorder)])
-            pot_args.extend([p._glw[ii] for ii in range(p._glorder)])
-            pot_args.extend([p._j0zeros[ii] for ii in range(p._nzeros+1)])
-            pot_args.extend([p._dj0zeros[ii] for ii in range(p._nzeros+1)])
-            pot_args.extend([p._j1zeros[ii] for ii in range(p._nzeros+1)])
-            pot_args.extend([p._dj1zeros[ii] for ii in range(p._nzeros+1)])
-            pot_args.extend([p._kp._amp,p._kp.alpha])
+            pot_args.extend([p._amp,-4.*numpy.pi*p._alpha*p._amp,
+                             p._alpha,p._beta,len(p._de_j1_xs)])
+            pot_args.extend(p._de_j0_xs)
+            pot_args.extend(p._de_j1_xs)
+            pot_args.extend(p._de_j0_weights)
+            pot_args.extend(p._de_j1_weights)
         elif isinstance(p,potential.FlattenedPowerPotential):
             pot_type.append(12)
             pot_args.extend([p._amp,p.alpha,p.q2,p.core2])
@@ -139,6 +136,12 @@ def _parse_pot(pot,potforactions=False,potfortorus=False):
             elif isinstance(p,potential.PerfectEllipsoidPotential):
                 pot_type.append(30)
                 pot_args.extend([1,p.a2]) # for psi, mdens, mdens_deriv
+            elif isinstance(p,potential.TriaxialGaussianPotential):
+                pot_type.append(37)
+                pot_args.extend([1,-p._twosigma2]) # for psi, mdens, mdens_deriv
+            elif isinstance(p,potential.PowerTriaxialPotential):
+                pot_type.append(38)
+                pot_args.extend([1,p.alpha]) # for psi, mdens, mdens_deriv
             pot_args.extend([p._b2,p._c2,int(p._aligned)]) # Reg. Ellipsoidal
             if not p._aligned:
                 pot_args.extend(list(p._rot.flatten()))
@@ -204,6 +207,15 @@ def _parse_pot(pot,potforactions=False,potfortorus=False):
         elif isinstance(p,potential.HomogeneousSpherePotential):
             pot_type.append(35)
             pot_args.extend([p._amp,p._R2,p._R3])
+        elif isinstance(p,potential.interpSphericalPotential):
+            pot_type.append(36)
+            pot_args.append(len(p._rgrid))
+            pot_args.extend(p._rgrid)
+            pot_args.extend(p._rforce_grid)
+            pot_args.extend([p._amp,p._rmin,p._rmax,p._total_mass,
+                             p._Phi0,p._Phimax])
+        # 37: TriaxialGaussianPotential, done with others above
+        # 38: PowerTriaxialPotential, done with others above
         ############################## WRAPPERS ###############################
         elif isinstance(p,potential.DehnenSmoothWrapperPotential):
             pot_type.append(-1)
@@ -276,6 +288,18 @@ def _parse_pot(pot,potforactions=False,potfortorus=False):
                              p._minr**2.])
             pot_args.extend([p._sigmar_rs_4interp[0],
                              p._sigmar_rs_4interp[-1]]) #r_0, r_f
+        elif isinstance(p,potential.RotateAndTiltWrapperPotential):
+            pot_type.append(-8)
+            # Not sure how to easily avoid this duplication
+            wrap_npot, wrap_pot_type, wrap_pot_args= \
+                _parse_pot(p._pot,
+                           potforactions=potforactions,potfortorus=potfortorus)
+            pot_args.append(wrap_npot)
+            pot_type.extend(wrap_pot_type)
+            pot_args.extend(wrap_pot_args)
+            pot_args.extend([p._amp])
+            pot_args.extend([0.,0.,0.,0.,0.,0.]) # for caching
+            pot_args.extend(list(p._rot.flatten()))
     pot_type= numpy.array(pot_type,dtype=numpy.int32,order='C')
     pot_args= numpy.array(pot_args,dtype=numpy.float64,order='C')
     return (npot,pot_type,pot_args)
@@ -287,8 +311,8 @@ def _parse_scf_pot(p,extra_amp=1.):
     pot_args.extend(p._Acos.shape)
     pot_args.extend(extra_amp*p._amp*p._Acos.flatten(order='C'))
     if isNonAxi:
-        pot_args.extend(extra_amp*p._amp*p._Asin.flatten(order='C'))   
-    pot_args.extend([-1.,0,0,0,0,0,0])    
+        pot_args.extend(extra_amp*p._amp*p._Asin.flatten(order='C'))
+    pot_args.extend([-1.,0,0,0,0,0,0])
     return (24,pot_args)
 
 def integrateFullOrbit_c(pot,yo,t,int_method,rtol=None,atol=None,dt=None):
@@ -321,7 +345,7 @@ def integrateFullOrbit_c(pot,yo,t,int_method,rtol=None,atol=None,dt=None):
     rtol, atol= _parse_tol(rtol,atol)
     npot, pot_type, pot_args= _parse_pot(pot)
     int_method_c= _parse_integrator(int_method)
-    if dt is None: 
+    if dt is None:
         dt= -9999.99
 
     #Set up result array
@@ -333,7 +357,7 @@ def integrateFullOrbit_c(pot,yo,t,int_method,rtol=None,atol=None,dt=None):
     integrationFunc= _lib.integrateFullOrbit
     integrationFunc.argtypes= [ctypes.c_int,
                                ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
-                               ctypes.c_int,                             
+                               ctypes.c_int,
                                ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
                                ctypes.c_int,
                                ndpointer(dtype=numpy.int32,flags=ndarrayFlags),
@@ -367,7 +391,7 @@ def integrateFullOrbit_c(pot,yo,t,int_method,rtol=None,atol=None,dt=None):
                     result,
                     err,
                     ctypes.c_int(int_method_c))
-    
+
     if numpy.any(err == -10): #pragma: no cover
         raise KeyboardInterrupt("Orbit integration interrupted by CTRL-C (SIGINT)")
 
@@ -413,7 +437,7 @@ def integrateFullOrbit_dxdv_c(pot,yo,dyo,t,int_method,rtol=None,atol=None): #pra
     ndarrayFlags= ('C_CONTIGUOUS','WRITEABLE')
     integrationFunc= _lib.integrateFullOrbit_dxdv
     integrationFunc.argtypes= [ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
-                               ctypes.c_int,                             
+                               ctypes.c_int,
                                ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
                                ctypes.c_int,
                                ndpointer(dtype=numpy.int32,flags=ndarrayFlags),
@@ -570,7 +594,7 @@ def _RZEOM(y,t,pot,l2):
     NAME:
        _RZEOM
     PURPOSE:
-       implements the EOM, i.e., the right-hand side of the differential 
+       implements the EOM, i.e., the right-hand side of the differential
        equation, for a 3D orbit assuming conservation of angular momentum
     INPUT:
        y - current phase-space position
@@ -592,7 +616,7 @@ def _EOM(y,t,pot):
     NAME:
        _EOM
     PURPOSE:
-       implements the EOM, i.e., the right-hand side of the differential 
+       implements the EOM, i.e., the right-hand side of the differential
        equation, for a 3D orbit
     INPUT:
        y - current phase-space position
@@ -642,4 +666,3 @@ def _rectForce(x,pot,t=0.):
     return numpy.array([cosphi*Rforce-1./R*sinphi*phiforce,
                      sinphi*Rforce+1./R*cosphi*phiforce,
                      _evaluatezforces(pot,R,x[2],phi=phi,t=t)])
-
