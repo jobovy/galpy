@@ -485,7 +485,23 @@ class _actionAngleIsochroneHelper(object):
     def Or(self,E):
         return (-2.*E)**1.5/self.amp
         
-    def drdEL_constant_angler(self,r,vr2,E,L,dEdr,vrneg=False):
+    def rperirap(self,E,L2):
+        if self.b == 0:
+            a= -self.amp/2./E
+            me2= L2/self.amp/a
+            e= numpy.sqrt(1.-me2)
+            rperi= a*(1.-e)
+            rap= a*(1.+e)
+        else:
+            smin= 0.5*((2.*E-self.amp/self.b)\
+                           +numpy.sqrt((2.*E-self.amp/self.b)**2.
+                                       +2.*E*(4.*self.amp/self.b+L2/self.b**2.)))/E
+            smax= 2.-self.amp/E/self.b-smin
+            rperi= smin*numpy.sqrt(1.-2./smin)*self.b
+            rap= smax*numpy.sqrt(1.-2./smax)*self.b
+        return (rperi,rap)
+
+    def drdEL_constant_angler(self,r,vr2,E,L,dEdr,dEdL,vrneg=False):
         """Function used in actionAngleSphericalInverse to determine dEA/dE and dEA/dL: derivative of the radius r wrt E and L necessary to have constant angler"""
         L2= L**2.
         c= -self.amp/2./E-self.b
@@ -512,11 +528,15 @@ class _actionAngleIsochroneHelper(object):
         bcmecce= (self.b+c-e*c*coseta)
         c2e2ob= c**2.*sineta**2./self.b
         dcdLfac= (1.-e*coseta)/self.b+e2*c2e2ob/bcmecce*(1./c-1./(self.b+c))
-        dcdLoverdrdL= self.amp/2./E**2.*dEdr
+        dcdLoverdEdL= self.amp/2./E**2.
+        dcdLoverdrdL= dcdLoverdEdL*dEdr
         dedLfac= -c*coseta/e/self.b+c2e2ob/bcmecce
+        L2o2GMc2etc= L2/2./self.amp/c**2.*(1.+2.*self.b/c)
         numfordrdE= dcdLfac*self.amp/2./E**2.+dedLfac*L2/4./c**2./E**2*(1.+2.*self.b/c)
         return (numfordrdE/(r/self.b**2./(s-1.)-numfordrdE*dEdr),
-                -dedLfac*L/self.amp/c*(1.+self.b/c)\
+                (-dedLfac*(L/self.amp/c*(1.+self.b/c)
+                           -L2o2GMc2etc*dcdLoverdEdL*dEdL)
+                  +dcdLfac*dcdLoverdEdL*dEdL)\
                     /(r/self.b**2./(s-1.)-dcdLfac*dcdLoverdrdL
-                      -dedLfac*L2/2./self.amp/c**2.*(1.+2.*self.b/c)*dcdLoverdrdL))
-        
+                      -dedLfac*L2o2GMc2etc*dcdLoverdrdL))
+       

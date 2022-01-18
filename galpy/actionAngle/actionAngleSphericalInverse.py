@@ -179,10 +179,19 @@ class actionAngleSphericalInverse(actionAngleInverse):
         self._isoaa= actionAngleIsochrone(ip=self._ip)
         self._isoaainv= actionAngleIsochroneInverse(ip=self._ip)
         if use_pointtransform and pt_deg > 1:
-            self._setup_pointtransform(pt_deg-(1-pt_deg%2),pt_nxa) # make odd
-        else:
+            self._setup_pointtransform(pt_deg,pt_nra)
+        elif False:
             # Setup identity point transformation
-
+            self._pt_deg= 1
+            self._pt_nra= pt_nra
+            self._pt_rperi= self._rperi
+            self._pt_rap= self._rap
+            self._pt_coeffs= numpy.zeros((len(self._internal_Es),2))
+            self._pt_coeffs[:,1]= 1.
+            self._pt_deriv_coeffs= numpy.ones((len(self._internal_Es),1))
+            self._pt_deriv2_coeffs= numpy.zeros((len(self._internal_Es),1))
+        else:
+            print("WARNING: FIXING POINT TRANSFORM TO WEIRD ONE")
             # TEST FOR NOW
             self._pt_deg= 3
             self._pt_nra= pt_nra
@@ -191,8 +200,11 @@ class actionAngleSphericalInverse(actionAngleInverse):
             self._pt_coeffs= numpy.zeros((len(self._internal_Es),4))
             self._pt_coeffs[:,1]= 1.+0.3
             self._pt_coeffs[:,3]= 1.-self._pt_coeffs[:,1]
-            self._pt_deriv_coeffs= numpy.ones((len(self._internal_Es),1))
-            self._pt_deriv2_coeffs= numpy.zeros((len(self._internal_Es),1))
+            self._pt_deriv_coeffs= numpy.zeros((len(self._internal_Es),3))
+            self._pt_deriv_coeffs[:,0]= self._pt_coeffs[:,1]
+            self._pt_deriv_coeffs[:,2]= 3.*self._pt_coeffs[:,3]
+            self._pt_deriv2_coeffs= numpy.zeros((len(self._internal_Es),2))
+            self._pt_deriv2_coeffs[:,1]= 6.*self._pt_coeffs[:,3]
         # Now map all tori
         self._nta= nta
         self._thetaa= numpy.linspace(0.,2.*numpy.pi*(1.-1./nta),nta)
@@ -204,30 +216,19 @@ class actionAngleSphericalInverse(actionAngleInverse):
         # Compute mapping coefficients
         isoaa_helper= _actionAngleIsochroneHelper(\
             ip=IsochronePotential(amp=self._ampgrid,b=self._bgrid))
-        tE= self._Egrid+isoaa_helper._ip(self._rgrid,
-                                         numpy.zeros_like(self._rgrid))\
-            -evaluatePotentials(self._pot,self._rgrid,
-                                numpy.zeros_like(self._rgrid))
-        self._jra= isoaa_helper.Jr(tE,self._Lgrid)
-        self._ora= isoaa_helper.Or(tE)
-        # Compute dEA/dE and dEA/dL for dJr^A/d(Jr,L)
-        dEAdr= evaluateRforces(self._pot,
-                               self._rgrid,numpy.zeros_like(self._rgrid))\
-            -evaluateRforces(isoaa_helper._ip,
-                             self._rgrid,numpy.zeros_like(self._rgrid))
-        drdE,drdL= isoaa_helper.drdEL_constant_angler(\
-            self._rgrid,
-            2.*(self._Egrid
-                -evaluatePotentials(self._pot,
-                                    self._rgrid,
-                                    numpy.zeros_like(self._rgrid)))\
-                -self._Lgrid**2/self._rgrid**2.,
-            tE,self._Lgrid,dEAdr)
-        self._dEdE= drdE*dEAdr+1.
-        self._dEdL= drdL*dEAdr/self._ora
-        self._djradjr= numpy.tile(self._Omegar,(self._nta,1)).T\
-            /self._ora*self._dEdE
-        self._djradLish= self._dEdL
+        self._jra,self._ora, self._Ea= \
+            _jraora(self._rgrid,self._Egrid,self._Lgrid,self._Lgrid**2.,
+                    self._pot,isoaa_helper,
+                    self._ptcoeffsgrid,self._ptderivcoeffsgrid,
+                    self._rperigrid,self._rapgrid,
+                    self._ptrperigrid,self._ptrapgrid)
+        self._djradjr,self._djradLish,self._dEadE,self._dEadL= \
+            _djradjrLish(self._rgrid,self._Egrid,self._Lgrid,self._Lgrid**2.,
+                         self._Omegargrid,self._pot,isoaa_helper,
+                         self._ptcoeffsgrid,self._ptderivcoeffsgrid,
+                         self._ptderiv2coeffsgrid,
+                         self._rperigrid,self._rapgrid,
+                         self._ptrperigrid,self._ptrapgrid)
         # Store mean(jra) as probably a better approx. of jr
         self._jr_orig= copy.copy(self._jr)
         self._jr= numpy.mean(self._jra,axis=1)
@@ -245,6 +246,15 @@ class actionAngleSphericalInverse(actionAngleInverse):
                           /self._jra.shape[1]
         self._dSndLish= numpy.real(numpy.fft.rfft(self._djradLish,axis=1))[:,1:]\
                           /self._jra.shape[1]
+        self._dSndJr= numpy.real(numpy.fft.rfft(self._djradjr\
+                      /numpy.atleast_2d(numpy.nanmean(self._djradjr,axis=1)).T
+                                                -1.,axis=1))[:,1:]\
+                          /self._jra.shape[1]
+        self._dSndLish= numpy.real(numpy.fft.rfft(self._djradLish\
+                   -numpy.atleast_2d(numpy.nanmean(self._djradLish,axis=1)).T
+                                                  ,axis=1))[:,1:]\
+                          /self._jra.shape[1]
+
         # Interpolation of small, noisy coeffs doesn't work, so set to zero
         if setup_interp:
             self._nSn[numpy.fabs(self._nSn) < 1e-16]= 0.
@@ -263,6 +273,133 @@ class actionAngleSphericalInverse(actionAngleInverse):
         #self._check_consistent_units()
         return None
            
+    def _setup_pointtransform(self,pt_deg,pt_nra):
+        # Setup a point transformation for each torus
+        self._pt_deg= pt_deg
+        self._pt_nra= pt_nra
+        ramesh= numpy.linspace(0.,1.,pt_nra)
+        self._pt_coeffs= numpy.empty((self._nE,pt_deg+1))
+        self._pt_deriv_coeffs= numpy.empty((self._nE,pt_deg))
+        self._pt_deriv2_coeffs= numpy.empty((self._nE,pt_deg-1))       
+
+        Etilde= self._L2/2./self._rperi**2.\
+            +self._ip(self._rperi,numpy.zeros_like(self._rperi))
+        #Etilde+= 0.5
+
+        Etilde2= -2.*self._amp**2.\
+            /(2.*self._jr+self._internal_Ls
+              +numpy.sqrt(self._L2+4.*self._amp*self._b))**2.
+
+        isoaa_helper= _actionAngleIsochroneHelper(ip=self._ip)
+        self._pt_rperi,self._pt_rap= isoaa_helper.rperirap(Etilde,self._L2)
+
+        print(isoaa_helper.Jr(Etilde,self._internal_Ls),self._jr)
+
+
+        for ii in range(self._nE):
+            if self._jr[ii] < 1e-10: # Just use identity for small J
+                self._pt_coeffs[ii]= 0.
+                self._pt_coeffs[ii,1]= 1.
+                self._pt_deriv_coeffs[ii]= 1.
+                self._pt_deriv2_coeffs[ii]= 0.
+                self._pt_rperi[ii]= self._rperi[ii]
+                self._pt_rap[ii]= self._rap[ii]
+                coeffs= self._pt_coeffs[ii] # to start next fit
+                continue
+            Ea= Etilde[ii]
+            ip= IsochronePotential(amp=self._amp[ii],b=self._b[ii])
+            # Function to optimize with least squares: p-p
+            def opt_func(coeffs):
+                # constraints: map [0,1] --> [0,1]
+
+                # 1 + x + x2 + x3 + ...
+                # 1 + 2x + 3x2 + ...
+                # first 0 to map 0 --> 0
+                # second 1 to have d = 1 at 0
+                # sum rest = 0 to map 1 --> 1
+                # sum n * rest = 0 to have d = 1 at 1
+
+                # a + b + c + ... = 0 ==> a = -b -c - ...
+                # 2a + 3b + 4c + ... = 0 ==> -2b -2c -... + 3b + 4c ... = b + 2c + 3d + ... = 0 ==> b = -2c -3d ...
+
+                ccoeffs= numpy.zeros(pt_deg+1)
+                ccoeffs[1]= 1.
+                ccoeffs[3]= -numpy.sum(polynomial.polyder(numpy.hstack(([0.,0.,],coeffs)))[1:])
+                ccoeffs[2]= -numpy.sum(coeffs)-ccoeffs[3]
+                ccoeffs[4::]= coeffs
+                #ccoeffs/= chebyshev.chebval(1,ccoeffs)
+                #pt= chebyshev.Chebyshev(ccoeffs)
+
+                pt= polynomial.Polynomial(ccoeffs)
+
+                rmesh= (self._rap[ii]-self._rperi[ii])*pt(ramesh)\
+                    +self._rperi[ii]
+                # Compute v from (E,L2,rmesh)
+                vr2mesh= 2.*(self._internal_Es[ii]\
+                                 -evaluatePotentials(self._pot,rmesh,
+                                                     numpy.zeros_like(rmesh)))\
+                         -self._L2[ii]/rmesh**2.
+                vr2mesh[vr2mesh < 0.]= 0.
+                vrmesh= numpy.sqrt(vr2mesh)
+                # Compute v from vra^2 = 2(Ea-isopot)-L2/ra^2 and transform
+                real_ramesh= (self._pt_rap[ii]-self._pt_rperi[ii])*ramesh\
+                    +self._pt_rperi[ii]
+                vra2mesh= 2.*(Ea-ip(real_ramesh,numpy.zeros_like(real_ramesh)))\
+                    -self._L2[ii]/real_ramesh**2.
+                vra2mesh[vra2mesh < 0.]= 0.
+                vramesh= numpy.sqrt(vra2mesh)
+                piprime= pt.deriv()(ramesh)*(self._rap[ii]-self._rperi[ii])\
+                    /(self._pt_rap[ii]-self._pt_rperi[ii])
+                vrtildemesh= (vramesh-numpy.sqrt(vr2mesh)*(1./piprime-piprime))/piprime
+                return vrmesh-vrtildemesh
+            if ii == 0:
+                # Start from identity mapping
+                start_coeffs= [0.]
+                start_coeffs.extend([0. for jj in range(pt_deg-4)])
+            else:
+                # Start from previous best fit
+                start_coeffs= coeffs[2::]/coeffs[1]
+            coeffs= optimize.leastsq(opt_func,start_coeffs)[0]
+            # Extract full Chebyshev parameters from constrained optimization
+
+            ccoeffs= numpy.zeros(pt_deg+1)
+            ccoeffs[1]= 1.
+            #ccoeffs[3]= -numpy.sum(polynomial.polyder(numpy.hstack(([0.,0.,],coeffs)))[1:])
+            #ccoeffs[2]= -numpy.sum(coeffs)-ccoeffs[3]
+            #ccoeffs[4::]= coeffs
+            """
+            ccoeffs= numpy.zeros(pt_deg+1)
+            ccoeffs[1]= 1.
+            ccoeffs[2::]= coeffs
+            ccoeffs/= chebyshev.chebval(1,ccoeffs)# map exact [0,1] --> [0,1]
+            """
+
+            print("WARNING: FIXING PT TO LINEAR")
+
+            coeffs= ccoeffs
+
+            pt= polynomial.Polynomial(coeffs)
+            
+
+            # Store point transformation as simple polynomial
+            """
+            self._pt_coeffs[ii]= chebyshev.cheb2poly(coeffs)
+            self._pt_coeffs[ii]-= self._pt_coeffs[ii][0]
+            self._pt_coeffs[ii]/= numpy.sum(self._pt_coeffs[ii])
+            self._pt_deriv_coeffs[ii]= polynomial.polyder(self._pt_coeffs[ii],
+                                                          m=1)
+            self._pt_deriv2_coeffs[ii]= polynomial.polyder(self._pt_coeffs[ii],
+                                                           m=2)
+            """
+
+            self._pt_coeffs[ii]= coeffs
+            self._pt_deriv_coeffs[ii]= polynomial.polyder(self._pt_coeffs[ii],
+                                                          m=1)
+            self._pt_deriv2_coeffs[ii]= polynomial.polyder(self._pt_coeffs[ii],
+                                                           m=2)
+            
+        return None
+
     def _create_rgrid(self):
         # Find r grid for regular grid in auxiliary angle (thetara)
         # in practice only need to map 0 < thetara < pi  to r with +v bc symm
@@ -302,8 +439,8 @@ class actionAngleSphericalInverse(actionAngleInverse):
         Lgrid= numpy.tile(self._internal_Ls,(self._nta,1)).T
         L2grid= Lgrid**2
         # Force rperi and rap to be thetar=0 and pi and don't optimize later
-        rgrid[:,0]= self._rperi
-        rgrid[:,self._nta//2]= self._rap
+        rgrid[:,0]= self._pt_rperi
+        rgrid[:,self._nta//2]= self._pt_rap
         # Need to adjust parameters of helpers
         ampgrid= numpy.tile(self._amp,(self._nta,1)).T
         bgrid= numpy.tile(self._b,(self._nta,1)).T
@@ -438,11 +575,17 @@ class actionAngleSphericalInverse(actionAngleInverse):
         # Store these, they are useful (obv. arbitrary to return rgrid 
         # and not just store it...)
         self._Egrid= Egrid
+        self._Omegargrid= numpy.tile(self._Omegar,(self._nta,1)).T 
         self._Lgrid= Lgrid
         self._ampgrid= ampgrid
         self._bgrid= bgrid
+        self._ptcoeffsgrid= ptcoeffsgrid
+        self._ptderivcoeffsgrid= ptderivcoeffsgrid
+        self._ptderiv2coeffsgrid= ptderiv2coeffsgrid
         self._rperigrid= rperigrid
         self._rapgrid= rapgrid
+        self._ptrperigrid= ptrperigrid
+        self._ptrapgrid= ptrapgrid
         return rgrid
 
     def plot_convergence(self,E,L,overplot=False,return_gridspec=False,
@@ -542,7 +685,7 @@ class actionAngleSphericalInverse(actionAngleInverse):
                                                    *self._dSndJr[indx]\
                                                    *numpy.cos(self._nforSn*x)) 
                                          for x in self._thetaa])\
-                                    -self._djradjr[indx],
+                     -self._djradjr[indx]/numpy.nanmean(self._djradjr[indx]),
                                 color='k',
                                 xlabel=r'$\theta_r^A$',
                                 ylabel=r'$\delta \partial J_r^A/\partial J_r(\theta_r^A)$',
@@ -564,7 +707,8 @@ class actionAngleSphericalInverse(actionAngleInverse):
                                                    *self._dSndLish[indx]\
                                                    *numpy.cos(self._nforSn*x)) 
                                          for x in self._thetaa])\
-                                    -self._djradLish[indx],
+                                    -self._djradLish[indx]
+                                +numpy.nanmean(self._djradLish[indx]),
                                 color='k',
                                 xlabel=r'$\theta_r^A$',
                                 ylabel=r'$\delta \partial J_r^A/\partial L(\theta_r^A)$',
@@ -694,7 +838,12 @@ class actionAngleSphericalInverse(actionAngleInverse):
         if return_gridspec: return gs
         else: return None
 
-    def plot_orbit(self,E,L):
+    def plot_orbit(self,E,L,point=True,ls='-',xrange=None,yrange=None,
+                   include_isochrone_tori=False,orbit_only=False):
+        """point=False: plot v_r^A vs. r^A, don't plot energy,
+        include_isochrone_tori=True: include contours of constant action 
+                                     and angle for the auxiliary isochrone 
+                                     torus"""
         tar= numpy.linspace(0.,2.*numpy.pi,1001)
         if not self._interp:
             # First find the torus for this energy and angular momentum
@@ -706,13 +855,37 @@ class actionAngleSphericalInverse(actionAngleInverse):
             tJr= self._jr[indx]
         else:
             tJr= self.Jr(E)
-        r,vr,_,_,_,_= self(tJr,L,0.,tar,numpy.zeros_like(tar),numpy.zeros_like(tar))
+        r,vr,_,_,_,_= self(tJr,L,0.,tar,
+                           numpy.zeros_like(tar),numpy.zeros_like(tar),
+                           point=point)
         # First plot orbit in r,vr
-        pyplot.subplot(1,2,1)
-        bovy_plot.bovy_plot(r,vr,xlabel=r'$r$',ylabel=r'$v_r$',gcf=True,
-                            color='k',
-                            xrange=[0.9*numpy.amin(r),1.1*numpy.amax(r)],
-                            yrange=[1.1*numpy.amin(vr),1.1*numpy.amax(vr)])
+        pyplot.subplot(1,2-orbit_only,1)
+        line2d= bovy_plot.bovy_plot(r,vr,xlabel=r'$r$',ylabel=r'$v_r$',
+                                    gcf=True,ls=ls,lw=3.)[0]
+        if xrange is None:
+            line2d.axes.autoscale(enable=True)
+        else:
+            pyplot.gca().set_xlim(xrange[0],xrange[1])
+            pyplot.gca().set_ylim(yrange[0],yrange[1])
+        if include_isochrone_tori:
+            rmin,rmax  = pyplot.gca().get_xlim()
+            vrmin,vrmax= pyplot.gca().get_ylim()
+            rr,vrr= numpy.meshgrid(numpy.linspace(rmin,rmax,300),
+                                   numpy.linspace(vrmin,vrmax,300))
+            aAI= actionAngleIsochrone(\
+                ip=IsochronePotential(amp=self._amp[indx],b=self._b[indx]))
+            jri,_,_,_,_,_,ari,_,_= aAI.actionsFreqsAngles(\
+                rr,vrr,self._internal_Ls[indx]/rr,numpy.zeros_like(rr),
+                numpy.zeros_like(rr),numpy.zeros_like(rr))
+            pyplot.contour(rr[0],vrr[:,0],jri,
+                           colors='0.75',linewidths=0.9,
+                           levels=10.**numpy.linspace(numpy.log10(tJr)-1.,
+                                                      numpy.log10(tJr)+1.,
+                                                      11))
+            pyplot.contour(rr[0],vrr[:,0],ari,colors='0.75',#linestyles='dotted',
+                           linewidths=0.9,#cmap='viridis',
+                           levels=numpy.linspace(numpy.pi/6.,2.*numpy.pi-numpy.pi/6.,11))
+        if not point or orbit_only: return None
         # Then plot energy
         pyplot.subplot(1,2,2)
         Eorbit= (vr**2./2.+L**2./2./r**2.
@@ -794,7 +967,7 @@ class actionAngleSphericalInverse(actionAngleInverse):
         """
         return self._xvFreqs(jr,jphi,jz,angler,anglephi,anglez,**kwargs)[:6]
         
-    def _xvFreqs(self,jr,jphi,jz,angler,anglephi,anglez,**kwargs):
+    def _xvFreqs(self,jr,jphi,jz,angler,anglephi,anglez,point=True,**kwargs):
         """
         NAME:
 
@@ -818,6 +991,7 @@ class actionAngleSphericalInverse(actionAngleInverse):
 
            anglez - vertical angle (array [N])
 
+           point= (True) if False, don't apply the point transformation, i.e., return (x^A,v^A)
 
         OUTPUT:
 
@@ -827,6 +1001,8 @@ class actionAngleSphericalInverse(actionAngleInverse):
 
            2018-11-17 - Written - Bovy (UofT)
 
+           2020-05-22 - Started updating for point transformation - Bovy (UofT)
+
         """
         # Find torus
         if not self._interp:
@@ -835,6 +1011,7 @@ class actionAngleSphericalInverse(actionAngleInverse):
                     or numpy.fabs(jz+numpy.fabs(jphi)
                                   -self._internal_Ls[indx]) > 1e-10:
                 raise ValueError('Given actions not found, to use interpolation, initialize with setup_interp=True')
+            tE= self._internal_Es[indx]
             tnSn= self._nSn[indx]
             tdSndJr= self._dSndJr[indx]
             tdSndLish= self._dSndLish[indx]
@@ -843,6 +1020,12 @@ class actionAngleSphericalInverse(actionAngleInverse):
             tOmegaz= self._Omegaz[indx]
             isoaainv= actionAngleIsochroneInverse(\
                 ip=IsochronePotential(amp=self._amp[indx],b=self._b[indx]))
+            tptcoeffs= self._pt_coeffs[indx]
+            tptderivcoeffs= self._pt_deriv_coeffs[indx]
+            trperi= self._rperi[indx]
+            trap= self._rap[indx]
+            tptrperi= self._pt_rperi[indx]
+            tptrap= self._pt_rap[indx]
         else:
             pass
         # First we need to solve for anglera
@@ -920,8 +1103,35 @@ class actionAngleSphericalInverse(actionAngleInverse):
                               *numpy.sin(self._nforSn*numpy.atleast_2d(anglera).T),
                           axis=1)
         anglephia= anglephi+numpy.sign(jphi)*(angleza-anglez)
-        return tuple(isoaainv(jra,jphi,jz,anglera,anglephia,angleza)\
-                         +(tOmegar,numpy.sign(jphi)*tOmegaz,tOmegaz,))
+        Ra,vRa,vTa,za,vza,phia= isoaainv(jra,jphi,jz,
+                                         anglera,anglephia,angleza)
+        if not point:
+            return (Ra,vRa,vTa,za,vza,phia,
+                    tOmegar,numpy.sign(jphi)*tOmegaz,tOmegaz)
+        # Need to go back to orbital plane first...
+        L= jz+numpy.fabs(jphi) # total angular momentum
+        lowerl= numpy.sqrt(1.-jphi**2./L**2.)
+        ra= numpy.sqrt(Ra**2.+za**2.)
+        sintheta= Ra/ra
+        costheta= za/ra
+        vra= sintheta*vRa+costheta*vza
+        vta= costheta*vRa-sintheta*vza
+        # Now convert orbital-plane^A --> orbital-plane        
+        r= (trap-trperi)*polynomial.polyval(((ra-tptrperi)/(tptrap-tptrperi)).T,
+                                            tptcoeffs.T,tensor=False).T+trperi
+        piprime= (trap-trperi)/(tptrap-tptrperi)\
+            *polynomial.polyval(((ra-tptrperi)/(tptrap-tptrperi)).T,
+                                tptderivcoeffs.T,tensor=False).T
+        vr= vra*piprime
+        # and back from orbital-plane --> (x,v) in cyl coordinates
+        vt= vta*ra/r # conservation of angular momentum
+        R= sintheta*r
+        z= costheta*r
+        vR= vr*sintheta+vt*costheta
+        vz= vr*costheta-vt*sintheta
+        vT= jphi/R
+        phi= phia
+        return (R,vR,vT,z,vz,phi,tOmegar,numpy.sign(jphi)*tOmegaz,tOmegaz)
 
     def _Freqs(self,jr,jphi,jz,**kwargs):
         """
@@ -1231,11 +1441,98 @@ def _danglera(ra,E,L,L2,pot,isoaa_helper,ptcoeffs,ptderivcoeffs,ptderiv2coeffs,
     piprime2= (rap-rperi)/(ptrap-ptrperi)**2.\
         *polynomial.polyval(((ra-ptrperi)/(ptrap-ptrperi)).T,
                             ptderiv2coeffs.T,tensor=False).T
-    dEadra= -piprime2*piprime**-3.*vr2/2.\
-        +piprime**-2.*(L2*r**-3.+
-                       piprime*evaluateRforces(pot,ra,numpy.zeros_like(ra)))\
+    dEadra= -piprime2*piprime**-3.*vr2\
+        +(L2*r**-3.+evaluateRforces(pot,r,numpy.zeros_like(r)))/piprime\
         -L2*ra**-3.\
         -evaluateRforces(isoaa_helper._ip,ra,numpy.zeros_like(ra))
     return isoaa_helper.danglerdr_constant_L(ra,vr2*piprime**-2.,L,dEadra,
                                              vrneg=vrneg)
 
+def _jraora(ra,E,L,L2,pot,isoaa_helper,ptcoeffs,ptderivcoeffs,
+             rperi,rap,ptrperi,ptrap):
+    """
+    NAME:
+       _jraora
+    PURPOSE:
+       Compute the auxiliary radial action and frequency in the isochrone potential for a grid in r and E, including the point transformation
+    INPUT:
+       ra - radial position
+       E - energy
+       L - angular momentum 
+       L2 - angular momentum squared
+       pot - the potential
+       isoaa_helepr - _actionAngleIsochroneHelper instance for isochrone action-angle calculations
+       ptcoeffs - coefficients of the polynomial point transformation
+       ptderivcoeffs - coefficients of the derivative of the polynomial point transformation
+       rperi, rap - peri- and apocenter of the true torus
+       ptrperi, ptrap - peri- and apocenter of the point-transformed torus
+    OUTPUT:
+       auxiliary radial actions, auxiliary radial frequencies
+    HISTORY:
+       2020-05-23 - Written based on earlier code - Bovy (UofT)
+    """
+    # Compute vr
+    r= (rap-rperi)*polynomial.polyval(((ra-ptrperi)/(ptrap-ptrperi)).T,
+                                      ptcoeffs.T,tensor=False).T+rperi
+    vr2= 2.*(E-evaluatePotentials(pot,r,numpy.zeros_like(r)))-L2/r**2.
+    vr2[vr2 < 0.]= 0.
+    piprime= (rap-rperi)/(ptrap-ptrperi)\
+        *polynomial.polyval(((ra-ptrperi)/(ptrap-ptrperi)).T,
+                            ptderivcoeffs.T,tensor=False).T
+    Ea= 0.5*(vr2*piprime**-2.+L2*ra**-2.)\
+        +isoaa_helper._ip(ra,numpy.zeros_like(ra))
+    return isoaa_helper.Jr(Ea,L),isoaa_helper.Or(Ea), Ea
+
+def _djradjrLish(ra,E,L,L2,Omegar,pot,isoaa_helper,
+                 ptcoeffs,ptderivcoeffs,ptderiv2coeffs,
+                 rperi,rap,ptrperi,ptrap):
+    """
+    NAME:
+       _djradjrLish
+    PURPOSE:
+       Compute the derivative of the auxiliary radial action with respect to radial action and anguluar momentum-ish for a grid
+    INPUT:
+       ra - radial position
+       E - energy
+       L - angular momentum 
+       L2 - angular momentum squared
+       Omegar - radial frequency
+       pot - the potential
+       isoaa_helepr - _actionAngleIsochroneHelper instance for isochrone action-angle calculations
+       ptcoeffs - coefficients of the polynomial point transformation
+       ptderivcoeffs - coefficients of the derivative of the polynomial point transformation
+       ptderiv2coeffs - coefficients of the second derivative of the polynomial point transformation
+       rperi, rap - peri- and apocenter of the true torus
+       ptrperi, ptrap - peri- and apocenter of the point-transformed torus
+    OUTPUT:
+       derivative of the auxiliary radial actions wrt radial action and angular momentum
+    HISTORY:
+       2020-05-23 - Written based on earlier code - Bovy (UofT)
+    """
+    # Compute vr
+    r= (rap-rperi)*polynomial.polyval(((ra-ptrperi)/(ptrap-ptrperi)).T,
+                                      ptcoeffs.T,tensor=False).T+rperi
+    vr2= 2.*(E-evaluatePotentials(pot,r,numpy.zeros_like(r)))-L2/r**2.
+    vr2[vr2 < 0.]= 0.
+    piprime= (rap-rperi)/(ptrap-ptrperi)\
+        *polynomial.polyval(((ra-ptrperi)/(ptrap-ptrperi)).T,
+                            ptderivcoeffs.T,tensor=False).T
+    piprime2= (rap-rperi)/(ptrap-ptrperi)**2.\
+        *polynomial.polyval(((ra-ptrperi)/(ptrap-ptrperi)).T,
+                            ptderiv2coeffs.T,tensor=False).T
+    Ea= 0.5*(vr2*piprime**-2.+L2*ra**-2.)\
+        +isoaa_helper._ip(ra,numpy.zeros_like(ra))
+    dEadra= -piprime2*piprime**-3.*vr2\
+        +(L2*r**-3.+evaluateRforces(pot,r,numpy.zeros_like(r)))/piprime\
+        -L2*ra**-3.\
+        -evaluateRforces(isoaa_helper._ip,ra,numpy.zeros_like(ra))
+    pardEapardL= L*(ra**-2.-r**-2.)
+    Ora= isoaa_helper.Or(Ea)
+    # Compute dEA/dE and dEA/dL for dJr^A/d(Jr,L)
+    dradE,dradL= isoaa_helper.drdEL_constant_angler(\
+        ra,vr2*piprime**-2.,Ea,L,dEadra,pardEapardL)
+    dEadE= dradE*dEadra+1.
+    dEadL= dradL*dEadra+pardEapardL
+    djradjr= Omegar/Ora*dEadE
+    djradLish= dEadL/Ora
+    return djradjr,djradLish,dEadE,dEadL
