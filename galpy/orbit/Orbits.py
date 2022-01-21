@@ -3371,8 +3371,9 @@ class Orbit(object):
            obs=[X,Y,Z] - (optional) position of observer (in kpc) 
                          (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
-                         of the observer
-                         Y is ignored and always assumed to be zero
+                         of the observer;
+                         Note that when Y is non-zero, the coordinate system is 
+                         rotated around z such that Y'=0
 
            ro= distance in kpc corresponding to R=1. (default=Object-wide default)
 
@@ -3411,8 +3412,9 @@ class Orbit(object):
            obs=[X,Y,Z] - (optional) position of observer (in kpc) 
                          (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
-                         of the observer
-                         Y is ignored and always assumed to be zero
+                         of the observer;
+                         Note that when Y is non-zero, the coordinate system is 
+                         rotated around z such that Y'=0
 
            ro= distance in kpc corresponding to R=1. (default=Object-wide default)
 
@@ -3451,8 +3453,9 @@ class Orbit(object):
            obs=[X,Y,Z] - (optional) position of observer (in kpc) 
                          (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
-                         of the observer
-                         Y is ignored and always assumed to be zero
+                         of the observer;
+                         Note that when Y is non-zero, the coordinate system is 
+                         rotated around z such that Y'=0
 
            ro= distance in kpc corresponding to R=1. (default=Object-wide default)         
 
@@ -3490,8 +3493,9 @@ class Orbit(object):
            obs=[X,Y,Z] - (optional) position of observer (in kpc) 
                          (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
-                         of the observer
-                         Y is ignored and always assumed to be zero
+                         of the observer;
+                         Note that when Y is non-zero, the coordinate system is 
+                         rotated around z such that Y'=0
 
            ro= distance in kpc corresponding to R=1. (default=Object-wide default)         
 
@@ -3529,8 +3533,9 @@ class Orbit(object):
            obs=[X,Y,Z] - (optional) position of observer (in kpc) 
                          (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
-                         of the observer
-                         Y is ignored and always assumed to be zero
+                         of the observer;
+                         Note that when Y is non-zero, the coordinate system is 
+                         rotated around z such that Y'=0
 
            ro= distance in kpc corresponding to R=1. (default=Object-wide default)         
 
@@ -3568,8 +3573,9 @@ class Orbit(object):
            obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
                          (in kpc and km/s) (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
-                         of the observer
-                         Y is ignored and always assumed to be zero
+                         of the observer;
+                         Note that when Y is non-zero, the coordinate system is 
+                         rotated around z such that Y'=0
 
            ro= distance in kpc corresponding to R=1. (default=Object-wide default)    
 
@@ -3611,8 +3617,9 @@ class Orbit(object):
            obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
                          (in kpc and km/s) (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
-                         of the observer
-                         Y is ignored and always assumed to be zero
+                         of the observer;
+                         Note that when Y is non-zero, the coordinate system is 
+                         rotated around z such that Y'=0
 
            ro= distance in kpc corresponding to R=1. (default=Object-wide default)         
 
@@ -3654,8 +3661,9 @@ class Orbit(object):
            obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
                          (in kpc and km/s) (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
-                         of the observer
-                         Y is ignored and always assumed to be zero
+                         of the observer;
+                         Note that when Y is non-zero, the coordinate system is 
+                         rotated around z such that Y'=0
 
            ro= distance in kpc corresponding to R=1. (default=Object-wide default)         
 
@@ -3697,8 +3705,9 @@ class Orbit(object):
            obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
                          (in kpc and km/s) (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
-                         of the observer
-                         Y is ignored and always assumed to be zero
+                         of the observer;
+                         Note that when Y is non-zero, the coordinate system is 
+                         rotated around z such that Y'=0
 
            ro= distance in kpc corresponding to R=1. (default=Object-wide default)         
 
@@ -3740,8 +3749,9 @@ class Orbit(object):
            obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
                          (in kpc and km/s) (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
-                         of the observer
-                         Y is ignored and always assumed to be zero
+                         of the observer;
+                         Note that when Y is non-zero, the coordinate system is 
+                         rotated around z such that Y'=0
 
            ro= distance in kpc corresponding to R=1. (default=Object-wide default)         
 
@@ -3783,8 +3793,9 @@ class Orbit(object):
                          in the Galactocentric frame
                          (in kpc and km/s) (default=[8.0,0.,0.,0.,220.,0.]; entries can be Quantity)
                          OR Orbit object that corresponds to the orbit
-                         of the observer
-                         Y is ignored and always assumed to be zero
+                         of the observer;
+                         Note that when Y is non-zero, the coordinate system is 
+                         rotated around z such that Y'=0
 
            ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
 
@@ -3832,8 +3843,9 @@ class Orbit(object):
                          in the Galactocentric frame
                          (in kpc and km/s) (default=[8.0,0.,0.,0.,220.,0.]; entries can be Quantity)
                          OR Orbit object that corresponds to the orbit
-                         of the observer
-                         Y is ignored and always assumed to be zero
+                         of the observer;
+                         Note that when Y is non-zero, the coordinate system is 
+                         rotated around z such that Y'=0
 
            ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
 
@@ -3881,8 +3893,9 @@ class Orbit(object):
                          in the Galactocentric frame
                          (in kpc and km/s) (default=[8.0,0.,0.,0.,220.,0.]; entries can be Quantity)
                          OR Orbit object that corresponds to the orbit
-                         of the observer
-                         Y is ignored and always assumed to be zero
+                         of the observer;
+                         Note that when Y is non-zero, the coordinate system is 
+                         rotated around z such that Y'=0
 
            ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
 
@@ -3930,8 +3943,9 @@ class Orbit(object):
                          in the Galactocentric frame
                          (in kpc and km/s) (default=[8.0,0.,0.,0.,220.,0.]; entries can be Quantity)
                          OR Orbit object that corresponds to the orbit
-                         of the observer
-                         Y is ignored and always assumed to be zero
+                         of the observer;
+                         Note that when Y is non-zero, the coordinate system is 
+                         rotated around z such that Y'=0
 
            ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
 
@@ -3979,8 +3993,9 @@ class Orbit(object):
            obs=[X,Y,Z] - (optional) position and velocity of observer 
                          (in kpc and km/s) (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
-                         of the observer
-                         Y is ignored and always assumed to be zero
+                         of the observer;
+                         Note that when Y is non-zero, the coordinate system is 
+                         rotated around z such that Y'=0
 
            ro= distance in kpc corresponding to R=1. (default=Object-wide default)         
 
@@ -4019,8 +4034,9 @@ class Orbit(object):
            obs=[X,Y,Z] - (optional) position and velocity of observer 
                          (in kpc and km/s) (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
-                         of the observer
-                         Y is ignored and always assumed to be zero
+                         of the observer;
+                         Note that when Y is non-zero, the coordinate system is 
+                         rotated around z such that Y'=0
 
            ro= distance in kpc corresponding to R=1. (default=Object-wide default)         
 
@@ -4059,8 +4075,9 @@ class Orbit(object):
            obs=[X,Y,Z] - (optional) position and velocity of observer 
                          (in kpc and km/s) (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
-                         of the observer
-                         Y is ignored and always assumed to be zero
+                         of the observer;
+                         Note that when Y is non-zero, the coordinate system is 
+                         rotated around z such that Y'=0
 
            ro= distance in kpc corresponding to R=1. (default=Object-wide default)         
 
@@ -4099,8 +4116,9 @@ class Orbit(object):
            obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
                          (in kpc and km/s) (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
-                         of the observer
-                         Y is ignored and always assumed to be zero
+                         of the observer;
+                         Note that when Y is non-zero, the coordinate system is 
+                         rotated around z such that Y'=0
 
            ro= distance in kpc corresponding to R=1. (default=Object-wide default)         
 
@@ -4142,8 +4160,9 @@ class Orbit(object):
            obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
                          (in kpc and km/s) (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
-                         of the observer
-                         Y is ignored and always assumed to be zero
+                         of the observer;
+                         Note that when Y is non-zero, the coordinate system is 
+                         rotated around z such that Y'=0
 
            ro= distance in kpc corresponding to R=1. (default=Object-wide default)         
 
@@ -4185,8 +4204,9 @@ class Orbit(object):
            obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
                          (in kpc and km/s) (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
-                         of the observer
-                         Y is ignored and always assumed to be zero
+                         of the observer;
+                         Note that when Y is non-zero, the coordinate system is 
+                         rotated around z such that Y'=0
 
            ro= distance in kpc corresponding to R=1. (default=Object-wide default)         
 
@@ -4227,8 +4247,9 @@ class Orbit(object):
            obs=[X,Y,Z] - (optional) position of observer (in kpc) 
                          (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
-                         of the observer
-                         Y is ignored and always assumed to be zero
+                         of the observer;
+                         Note that when Y is non-zero, the coordinate system is 
+                         rotated around z such that Y'=0
 
            ro= distance in kpc corresponding to R=1. (default=Object-wide default)
 
