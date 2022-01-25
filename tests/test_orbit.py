@@ -4790,7 +4790,7 @@ def test_from_name_values():
         "RA of Lacaille 8760 does not match SIMBAD value"
     assert numpy.isclose(o.dec(), -38.86736390), \
         "DEC of Lacaille 8760 does not match SIMBAD value"
-    assert numpy.isclose(o.dist(), 1/251.8295), \
+    assert numpy.isclose(o.dist(), 1/251.91239999999618), \
         "Parallax of Lacaille 8760 does not match SIMBAD value"
     assert numpy.isclose(o.pmra(), -3258.553), \
         "PMRA of Lacaille 8760 does not match SIMBAD value"
