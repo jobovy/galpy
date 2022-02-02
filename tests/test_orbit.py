@@ -4823,9 +4823,9 @@ def test_from_name_values():
         "DEC of [BGK2006] HV 5 does not match SIMBAD value"
     assert numpy.isclose(o.dist(), 55.), \
         "Parallax of [BGK2006] HV 5 does not match SIMBAD value"
-    assert numpy.isclose(o.pmra(), -0.023), \
+    assert numpy.isclose(o.pmra(), 0.001), \
         "PMRA of [BGK2006] HV 5 does not match SIMBAD value"
-    assert numpy.isclose(o.pmdec(), -1.179), \
+    assert numpy.isclose(o.pmdec(), -0.989), \
         "PMDec of [BGK2006] HV 5 does not match SIMBAD value"
     assert numpy.isclose(o.vlos(), 553.), \
         "radial velocity of [BGK2006] HV 5 does not match SIMBAD value"
