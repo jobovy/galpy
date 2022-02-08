@@ -87,6 +87,15 @@ else:
     del sys.argv[single_ext_pos]
     single_ext= True
 
+#Option to not compile any extension
+try:
+    no_ext_pos = sys.argv.index('--no_ext')
+except ValueError:
+    no_ext= False
+else:
+    del sys.argv[no_ext_pos]
+    no_ext= True
+
 #code to check the GSL version; list cmd w/ shell=True only works on Windows 
 # (https://docs.python.org/3/library/subprocess.html#converting-argument-sequence)
 cmd= ['gsl-config','--version']
@@ -261,7 +270,7 @@ setup(cmdclass=dict(build_ext=BuildExt), # this to allow compiler check above
       include_package_data=True,
       install_requires=['numpy>=1.7','scipy','matplotlib','pytest','six',
                         'future','setuptools'],
-      ext_modules=ext_modules if not no_compiler else None,
+      ext_modules=ext_modules if not no_compiler and not no_ext else None,
       classifiers=[
         "Development Status :: 6 - Mature",
         "Intended Audience :: Science/Research",
