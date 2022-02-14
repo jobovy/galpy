@@ -1334,6 +1334,9 @@ class NFWPotential(TwoPowerSphericalPotential):
             rvir= (3.*mvirNatural/od/4./numpy.pi)**(1./3.)
             self.a= rvir/conc
             self._amp= mvirNatural/(numpy.log(1.+conc)-conc/(1.+conc))
+            # Turn on physical output, because mass is given in 1e12 Msun (see #465)
+            self._roSet= True
+            self._voSet= True
         self._scale= self.a
         self.hasC= True
         self.hasC_dxdv= True
