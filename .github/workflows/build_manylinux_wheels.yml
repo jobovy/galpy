@@ -1,15 +1,15 @@
 name: Build manylinux wheels, upload to PyPI upon release
 
-# Update on every push or PR to master (except when only docs) and upon releases
+# Update on every push or PR to main (except when only docs) and upon releases
 on:
   push:
     branches:    
-      - master
+      - main
     paths-ignore:
       - 'doc/**'
   pull_request:
     branches:
-      - master
+      - main
     paths-ignore:
       - 'doc/**'
   release:

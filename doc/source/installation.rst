@@ -90,11 +90,11 @@ for a local installation.
 Note that these latest-version commands all install directly from the
 source code and thus require you to have the GSL and a C compiler
 installed to build the C extension(s). If you are having issues with
-this, you can also download a binary wheel for the latest ``master``
+this, you can also download a binary wheel for the latest ``main``
 version, which are available `here
-<https://github.com/jobovy/galpy/actions?query=workflow%3A%22Build+Mac+OS+X+%26+Windows+wheels+and+upload+to+PyPI+upon+release%22+branch%3Amaster>`__
+<https://github.com/jobovy/galpy/actions?query=workflow%3A%22Build+Mac+OS+X+%26+Windows+wheels+and+upload+to+PyPI+upon+release%22+branch%3Amain>`__
 for Mac/Windows wheels and `here
-<https://github.com/jobovy/galpy/actions?query=workflow%3A%22Build+manylinux+wheels%2C+upload+to+PyPI+upon+release%22+branch%3Amaster>`__
+<https://github.com/jobovy/galpy/actions?query=workflow%3A%22Build+manylinux+wheels%2C+upload+to+PyPI+upon+release%22+branch%3Amain>`__
 for Linux wheels (note that you need to be logged into GitHub to access the artifacts, which otherwise just show up as a gray non-link). To install these wheels, click on the latest run, download the "artifact" for the platform/Python version that you are using, unzip the file, and install the wheel with::
 
     pip install WHEEL_FILE.whl
@@ -111,7 +111,7 @@ If you want to use a feature that is currently only available in a branch, do::
 to, for example, install the ``dev`` branch. 
 
 Note that we currently do not build binary wheels for branches other
-than ``master``. If you *really* wanted this, you could fork galpy,
+than ``main``. If you *really* wanted this, you could fork galpy,
 edit the GitHub Actions workflow file that generates the wheel to
 include the branch that you want to build (in the ``on:`` section),
 and push to GitHub; then the binary wheel will be built as part of
@@ -123,7 +123,7 @@ Installing from source on Windows
 ---------------------------------
 
 .. TIP::
-   You can install a pre-compiled Windows "wheel" of the latest ``master`` version that is automatically built on ``AppVeyor`` for all recent Python versions. Navigate to `the latest master build <http://ci.appveyor.com/project/jobovy/galpy?branch=master>`__, click on the first job and then on "Artifacts", download the wheel for your version of Python, and install with ``pip install WHEEL_FILE.whl``. Similar wheels are also available `here <https://github.com/jobovy/galpy/actions?query=workflow%3A%22Build+Mac+OS+X+%26+Windows+wheels+and+upload+to+PyPI+upon+release%22+branch%3Amaster>`__ (see above), but require you to be logged into GitHub.
+   You can install a pre-compiled Windows "wheel" of the latest ``main`` version that is automatically built on ``AppVeyor`` for all recent Python versions. Navigate to `the latest main build <http://ci.appveyor.com/project/jobovy/galpy?branch=main>`__, click on the first job and then on "Artifacts", download the wheel for your version of Python, and install with ``pip install WHEEL_FILE.whl``. Similar wheels are also available `here <https://github.com/jobovy/galpy/actions?query=workflow%3A%22Build+Mac+OS+X+%26+Windows+wheels+and+upload+to+PyPI+upon+release%22+branch%3Amain>`__ (see above), but require you to be logged into GitHub.
 
 Versions >1.3 should be able to be compiled on Windows systems using the Microsoft Visual Studio C compiler (>= 2015). For this you need to first install the GNU Scientific Library (GSL), for example using Anaconda (:ref:`see below <gsl_install>`). Similar to on a UNIX system, you need to set paths to the header and library files where the GSL is located. On Windows, using the CDM commandline, this is done as::
 

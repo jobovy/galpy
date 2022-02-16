@@ -1,15 +1,15 @@
 name: Build Mac OS X & Windows wheels and upload to PyPI upon release
 
-# Update on every push and PR to master, and upon release creation
+# Update on every push and PR to main, and upon release creation
 on:
   push:
     branches:    
-      - master
+      - main
     paths-ignore:
       - 'doc/**'
   pull_request:
     branches:
-      - master
+      - main
     paths-ignore:
       - 'doc/**'
   release:

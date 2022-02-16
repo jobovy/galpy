@@ -20,7 +20,7 @@ previous_line= ''
 with open('README.md') as dfile:
     for line in dfile:
         if not 'image' in line and not 'target' in line \
-                and not 'DETAILED' in line and not '**master**' in line \
+                and not 'DETAILED' in line and not '**main**' in line \
                 and not '**development' in line \
                 and not 'DETAILED' in  previous_line:
             long_description+= line
