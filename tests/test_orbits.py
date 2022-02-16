@@ -3051,11 +3051,11 @@ def test_from_name_values():
         "RA of Vega/Lacaille 8760  does not match SIMBAD value"
     assert numpy.allclose(o.dec(), [38.78368896,-38.86736390]), \
         "DEC of Vega/Lacaille 8760  does not match SIMBAD value"
-    assert numpy.allclose(o.dist(), [1/130.23,1/251.8295]), \
+    assert numpy.allclose(o.dist(), [1/130.23,1/251.9124]), \
         "Parallax of Vega/Lacaille 8760  does not match SIMBAD value"
-    assert numpy.allclose(o.pmra(), [200.94,-3258.553]), \
+    assert numpy.allclose(o.pmra(), [200.94,-3258.996]), \
         "PMRA of Vega/Lacaille 8760  does not match SIMBAD value"
-    assert numpy.allclose(o.pmdec(), [286.23,-1145.396]), \
+    assert numpy.allclose(o.pmdec(), [286.23,-1145.862]), \
         "PMDec of Vega/Lacaille 8760  does not match SIMBAD value"
     assert numpy.allclose(o.vlos(), [-20.60,20.56]), \
         "radial velocity of Vega/Lacaille 8760  does not match SIMBAD value"
@@ -3065,11 +3065,11 @@ def test_from_name_values():
         "RA of Vega/Lacaille 8760  does not match SIMBAD value"
     assert numpy.allclose(o.dec(), [38.78368896,-38.86736390]), \
         "DEC of Vega/Lacaille 8760  does not match SIMBAD value"
-    assert numpy.allclose(o.dist(), [1/130.23,1/251.8295]), \
+    assert numpy.allclose(o.dist(), [1/130.23,1/251.9124]), \
         "Parallax of Vega/Lacaille 8760  does not match SIMBAD value"
-    assert numpy.allclose(o.pmra(), [200.94,-3258.553]), \
+    assert numpy.allclose(o.pmra(), [200.94,-3258.996]), \
         "PMRA of Vega/Lacaille 8760  does not match SIMBAD value"
-    assert numpy.allclose(o.pmdec(), [286.23,-1145.396]), \
+    assert numpy.allclose(o.pmdec(), [286.23,-1145.862]), \
         "PMDec of Vega/Lacaille 8760  does not match SIMBAD value"
     assert numpy.allclose(o.vlos(), [-20.60,20.56]), \
         "radial velocity of Vega/Lacaille 8760  does not match SIMBAD value"

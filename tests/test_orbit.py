@@ -4790,11 +4790,11 @@ def test_from_name_values():
         "RA of Lacaille 8760 does not match SIMBAD value"
     assert numpy.isclose(o.dec(), -38.86736390), \
         "DEC of Lacaille 8760 does not match SIMBAD value"
-    assert numpy.isclose(o.dist(), 1/251.91239999999618), \
+    assert numpy.isclose(o.dist(), 1/251.9124), \
         "Parallax of Lacaille 8760 does not match SIMBAD value"
-    assert numpy.isclose(o.pmra(), -3258.553), \
+    assert numpy.isclose(o.pmra(), -3258.996), \
         "PMRA of Lacaille 8760 does not match SIMBAD value"
-    assert numpy.isclose(o.pmdec(), -1145.396), \
+    assert numpy.isclose(o.pmdec(), -1145.862), \
         "PMDec of Lacaille 8760 does not match SIMBAD value"
     assert numpy.isclose(o.vlos(), 20.56), \
         "radial velocity of Lacaille 8760 does not match SIMBAD value"
@@ -4823,9 +4823,9 @@ def test_from_name_values():
         "DEC of [BGK2006] HV 5 does not match SIMBAD value"
     assert numpy.isclose(o.dist(), 55.), \
         "Parallax of [BGK2006] HV 5 does not match SIMBAD value"
-    assert numpy.isclose(o.pmra(), -0.023), \
+    assert numpy.isclose(o.pmra(), 0.001), \
         "PMRA of [BGK2006] HV 5 does not match SIMBAD value"
-    assert numpy.isclose(o.pmdec(), -1.179), \
+    assert numpy.isclose(o.pmdec(), -0.989), \
         "PMDec of [BGK2006] HV 5 does not match SIMBAD value"
     assert numpy.isclose(o.vlos(), 553.), \
         "radial velocity of [BGK2006] HV 5 does not match SIMBAD value"

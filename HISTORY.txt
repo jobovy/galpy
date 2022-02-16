@@ -1,6 +1,9 @@
 v1.8 (XXXX-XX-XX)
 =================
 
+- Turn on NFWPotential physical output when initializing using the 
+  virial mass mvir (see #465)
+
 v1.7.1 (2021-11-17)
 ===================
 
