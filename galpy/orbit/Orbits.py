@@ -1969,13 +1969,38 @@ class Orbit(object):
         self._aA_jr, self._aA_jp, self._aA_jz, \
             self._aA_Or, self._aA_Op, self._aA_Oz, \
             self._aA_wr, self._aA_wp, self._aA_wz= \
-               self._aA.actionsFreqsAngles(\
-                  self.R(use_physical=False,dontreshape=True),
-                  self.vR(use_physical=False,dontreshape=True),
-                  self.vT(use_physical=False,dontreshape=True),
-                  tz,tvz,
-                  self.phi(use_physical=False,dontreshape=True),
-                  use_physical=False)
+            self._aA.actionsFreqsAngles(\
+                self.R(use_physical=False,dontreshape=True),
+                self.vR(use_physical=False,dontreshape=True),
+                self.vT(use_physical=False,dontreshape=True),
+                tz,tvz,
+                self.phi(use_physical=False,dontreshape=True),
+                use_physical=False)
+        return None
+
+    def _setup_actions(self,pot=None,**kwargs):
+        """Internal function to compute the actions and cache them for re-use (used for methods that don't support frequencies and angles)"""
+        self._setupaA(pot=pot,**kwargs)
+        if hasattr(self,'_aA_jr'): return None
+        if self.dim() == 3:
+            # try to make sure this is not 0
+            tz= self.z(use_physical=False,dontreshape=True)\
+                +(numpy.fabs(self.z(use_physical=False,
+                                    dontreshape=True)) < 1e-8) \
+                * (2.*(self.z(use_physical=False,
+                              dontreshape=True) >= 0)-1.)*1e-10
+            tvz= self.vz(use_physical=False,dontreshape=True)
+        elif self.dim() == 2:
+            tz= numpy.zeros(self.size)
+            tvz= numpy.zeros(self.size)
+        # self.dim() == 1 error caught by _setupaA
+        self._aA_jr, self._aA_jp, self._aA_jz= self._aA(\
+                    self.R(use_physical=False,dontreshape=True),
+                    self.vR(use_physical=False,dontreshape=True),
+                    self.vT(use_physical=False,dontreshape=True),
+                    tz,tvz,
+                    self.phi(use_physical=False,dontreshape=True),
+                    use_physical=False)
         return None
 
     @shapeDecorator
@@ -2278,7 +2303,10 @@ class Orbit(object):
            2019-02-27 - Written - Bovy (UofT)
 
         """
-        self._setup_actionsFreqsAngles(pot=pot,**kwargs)
+        try:
+            self._setup_actionsFreqsAngles(pot=pot,**kwargs)
+        except NotImplementedError:
+            self._setup_actions(pot=pot,**kwargs)
         return self._aA_jr
 
     @physical_conversion('action')
@@ -2324,7 +2352,10 @@ class Orbit(object):
            2019-02-26 - Written - Bovy (UofT)
 
         """
-        self._setup_actionsFreqsAngles(pot=pot,**kwargs)
+        try:
+            self._setup_actionsFreqsAngles(pot=pot,**kwargs)
+        except NotImplementedError: # pragma: no cover
+            self._setup_actions(pot=pot,**kwargs)
         return self._aA_jp
 
     @physical_conversion('action')
@@ -2370,7 +2401,10 @@ class Orbit(object):
            2019-02-27 - Written - Bovy (UofT)
 
         """
-        self._setup_actionsFreqsAngles(pot=pot,**kwargs)
+        try:
+            self._setup_actionsFreqsAngles(pot=pot,**kwargs)
+        except NotImplementedError: # pragma: no cover
+            self._setup_actions(pot=pot,**kwargs)
         return self._aA_jz
 
     @physical_conversion('angle')

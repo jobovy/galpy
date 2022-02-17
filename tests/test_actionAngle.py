@@ -2702,13 +2702,27 @@ def test_orbits_interface_staeckel_PotentialErrors():
     return None
 
 # Test the Orbit interface for actionAngleAdiabatic
-# currently fails bc actionAngleAdiabatic doesn't have actionsFreqsAngles
-@pytest.mark.xfail(raises=NotImplementedError,strict=True)
 def test_orbit_interface_adiabatic():
     from galpy.potential import MWPotential
     from galpy.orbit import Orbit
     from galpy.actionAngle import actionAngleAdiabatic
     obs= Orbit([1.05, 0.02, 1.05, 0.03,0.,2.])
+    aAS= actionAngleAdiabatic(pot=MWPotential)
+    acfs= numpy.array(list(aAS(obs))).reshape(3)
+    type= 'adiabatic'
+    acfso= numpy.array([obs.jr(pot=MWPotential,type=type),
+                        obs.jp(pot=MWPotential,type=type),
+                        obs.jz(pot=MWPotential,type=type)])
+    maxdev= numpy.amax(numpy.abs(acfs-acfso))
+    assert maxdev < 10.**-16., 'Orbit interface for actionAngleAdiabatic does not return the same as actionAngle interface'
+    return None
+
+def test_orbit_interface_adiabatic_2d():
+    # Test with 2D orbit
+    from galpy.potential import MWPotential
+    from galpy.orbit import Orbit
+    from galpy.actionAngle import actionAngleAdiabatic
+    obs= Orbit([1.05, 0.02, 1.05,2.])
     aAS= actionAngleAdiabatic(pot=MWPotential)
     acfs= numpy.array(list(aAS(obs))).reshape(3)
     type= 'adiabatic'
