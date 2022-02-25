@@ -67,7 +67,7 @@ jobs:
       - name: Rename wheel to 'latest' version (Windows)
         if: ( github.event_name != 'release' || github.event.action != 'created' ) && matrix.os == 'windows-latest'
         run: |
-          GALPY_VERSION="$(awk '/^current_version/{print $NF}' .bumpversion.cfg)"
+          $GALPY_VERSION = Select-String -Path .bumpversion.cfg -Pattern "current_version =(\d+)" | % {$_.Matches.Groups[1].Value}
           Get-ChildItem wheelhouse/*$GALPY_VERSION* | Rename-Item -NewName {$_.Name -replace "$GALPY_VERSION", "latest"}
       # Upload wheel as artifact
       - uses: actions/upload-artifact@v2-preview

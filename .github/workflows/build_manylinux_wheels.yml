@@ -43,8 +43,8 @@ jobs:
       - name: Create pure Python wheel
         if: github.event_name != 'release' || github.event.action != 'created'
         run: |
-          python setup.py bdist_wheel --no_ext
-          mv dist/*.whl wheelhouse
+          sudo python setup.py bdist_wheel --no_ext
+          sudo mv dist/*.whl wheelhouse
       # Upload to AWS S3
       - name: Upload to AWS S3
         if: github.event_name != 'release' || github.event.action != 'created'
