@@ -27,7 +27,7 @@ jobs:
         if: github.event_name != 'release' || github.event.action != 'created'
         run: |
           GALPY_VERSION="$(awk '/^current_version/{print $NF}' .bumpversion.cfg)"
-          for f in wheelhouse/*$GALPY_VERSION*; do mv -i -- "$f" "${f//$GALPY_VERSION/latest}"; done
+          for f in wheelhouse/*$GALPY_VERSION*; do sudo mv -i -- "$f" "${f//$GALPY_VERSION/latest}"; done
       - uses: actions/upload-artifact@v2-preview
         with:
           name: galpy-wheels-manylinux
@@ -39,3 +39,16 @@ jobs:
         with:
           password: ${{ secrets.pypi_token }}
           packages_dir: wheelhouse/
+      # Upload to AWS S3
+      - name: Upload to AWS S3
+        if: github.event_name != 'release' || github.event.action != 'created'
+        uses: jakejarvis/s3-sync-action@v0.5.1
+        with:
+          args: --acl public-read --follow-symlinks --delete
+        env:
+          AWS_S3_BUCKET: ${{ secrets.AWS_S3_BUCKET }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: 'us-east-2'
+          SOURCE_DIR: wheelhouse
+          DEST_DIR: wheelhouse
