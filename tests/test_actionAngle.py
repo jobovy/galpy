@@ -2752,14 +2752,14 @@ def test_orbit_interface_actionAngleIsochroneApprox():
                         obs.wp(pot=MWPotential,type=type,b=0.8),
                         obs.wz(pot=MWPotential,type=type,b=0.8)])
     maxdev= numpy.amax(numpy.abs(acfs-acfso))
-    assert maxdev < 10.**-16., 'Orbit interface for actionAngleIsochroneApprox does not return the same as actionAngle interface'
-    assert numpy.abs(obs.Tr(pot=MWPotential,type=type,b=0.8)-2.*numpy.pi/acfso[3]) < 10.**-16., \
+    assert maxdev < 10.**-13., 'Orbit interface for actionAngleIsochroneApprox does not return the same as actionAngle interface'
+    assert numpy.abs(obs.Tr(pot=MWPotential,type=type,b=0.8)-2.*numpy.pi/acfso[3]) < 10.**-13., \
         'Orbit.Tr does not agree with actionAngleIsochroneApprox frequency'
-    assert numpy.abs(obs.Tp(pot=MWPotential,type=type,b=0.8)-2.*numpy.pi/acfso[4]) < 10.**-16., \
+    assert numpy.abs(obs.Tp(pot=MWPotential,type=type,b=0.8)-2.*numpy.pi/acfso[4]) < 10.**-13., \
         'Orbit.Tp does not agree with actionAngleIsochroneApprox frequency'
-    assert numpy.abs(obs.Tz(pot=MWPotential,type=type,b=0.8)-2.*numpy.pi/acfso[5]) < 10.**-16., \
+    assert numpy.abs(obs.Tz(pot=MWPotential,type=type,b=0.8)-2.*numpy.pi/acfso[5]) < 10.**-13., \
         'Orbit.Tz does not agree with actionAngleIsochroneApprox frequency'
-    assert numpy.abs(obs.TrTp(pot=MWPotential,type=type,b=0.8)-acfso[4]/acfso[3]*numpy.pi) < 10.**-16., \
+    assert numpy.abs(obs.TrTp(pot=MWPotential,type=type,b=0.8)-acfso[4]/acfso[3]*numpy.pi) < 10.**-13., \
         'Orbit.TrTp does not agree with actionAngleIsochroneApprox frequency'
     return None
 
