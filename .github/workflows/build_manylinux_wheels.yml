@@ -26,8 +26,7 @@ jobs:
       - name: Rename wheels to 'latest' version
         if: github.event_name != 'release' || github.event.action != 'created'
         run: |
-          python setup.py develop
-          GALPY_VERSION="$(python -c 'import galpy; print(galpy.__version__)')"
+          GALPY_VERSION="$(awk '/^current_version/{print $NF}' .bumpversion.cfg)"
           for f in wheelhouse/*$GALPY_VERSION*; do mv -i -- "$f" "${f//$GALPY_VERSION/latest}"; done
       - uses: actions/upload-artifact@v2-preview
         with:
