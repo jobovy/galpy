@@ -39,6 +39,12 @@ jobs:
         with:
           password: ${{ secrets.pypi_token }}
           packages_dir: wheelhouse/
+      # Also create a pure Python wheel for the AWS S3 wheelhouse
+      - name: Create pure Python wheel
+        if: github.event_name != 'release' || github.event.action != 'created'
+        run: |
+          python setup.py bdist_wheel --no_ext
+          mv dist/*.whl wheelhouse
       # Upload to AWS S3
       - name: Upload to AWS S3
         if: github.event_name != 'release' || github.event.action != 'created'

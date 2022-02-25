@@ -59,11 +59,16 @@ jobs:
       - name: Build wheel
         shell: bash -l {0}
         run: python setup.py bdist_wheel -d wheelhouse
-      - name: Rename wheel to 'latest' version
-        if: github.event_name != 'release' || github.event.action != 'created'
+      - name: Rename wheel to 'latest' version (Mac OS)
+        if: ( github.event_name != 'release' || github.event.action != 'created' ) && matrix.os == 'macos-latest'
         run: |
           GALPY_VERSION="$(awk '/^current_version/{print $NF}' .bumpversion.cfg)"
           for f in wheelhouse/*$GALPY_VERSION*; do mv -i -- "$f" "${f//$GALPY_VERSION/latest}"; done
+      - name: Rename wheel to 'latest' version (Windows)
+        if: ( github.event_name != 'release' || github.event.action != 'created' ) && matrix.os == 'windows-latest'
+        run: |
+          GALPY_VERSION="$(awk '/^current_version/{print $NF}' .bumpversion.cfg)"
+          Get-ChildItem wheelhouse/*$GALPY_VERSION* | Rename-Item -NewName {$_.Name -replace "$GALPY_VERSION", "latest"}
       # Upload wheel as artifact
       - uses: actions/upload-artifact@v2-preview
         with:
