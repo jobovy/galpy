@@ -27,6 +27,7 @@ from ..util.coords import _K
 from ..util import coords
 from ..util import plot
 from ..util import conversion
+from ..util.conversion import _APY_LOADED
 from ..potential import toPlanarPotential, PotentialError, evaluatePotentials,\
     evaluateplanarPotentials, evaluatelinearPotentials
 from ..potential import flatten as flatten_potential
@@ -39,14 +40,17 @@ from .integratePlanarOrbit import integratePlanarOrbit_c, \
     integratePlanarOrbit, integratePlanarOrbit_dxdv
 from .integrateFullOrbit import integrateFullOrbit_c, integrateFullOrbit
 ext_loaded= _ext_loaded
-_APY_LOADED= True
+_APY_COORD_LOADED= True
 try:
     from astropy.coordinates import SkyCoord
 except ImportError:
     SkyCoord = None
-    _APY_LOADED= False
+    _APY_COORD_LOADED= False
 if _APY_LOADED:
-    from astropy import units, coordinates
+    from astropy import units
+# Separate like this, because coordinates don't work in Pyodide astropy (2/25/22)
+if _APY_COORD_LOADED:
+    from astropy import coordinates
     import astropy
     _APY3= parse_version(astropy.__version__) > parse_version('3')
     _APY_GE_31= parse_version(astropy.__version__) > parse_version('3.0.5')
@@ -239,7 +243,7 @@ class Orbit(object):
         self._setup_parse_coordtransform(vxvv,ro,vo,zo,solarmotion,
                                          radec,lb)
         # Determine and record input shape and flatten for further processing
-        if _APY_LOADED and isinstance(vxvv,SkyCoord):
+        if _APY_COORD_LOADED and isinstance(vxvv,SkyCoord):
             input_shape= vxvv.shape
             vxvv=vxvv.flatten()
         elif isinstance(vxvv,numpy.ndarray):
@@ -304,7 +308,7 @@ class Orbit(object):
         zo= conversion.parse_length_kpc(zo)
         vo= conversion.parse_velocity_kms(vo)
         # if vxvv is SkyCoord, preferentially use its ro and zo
-        if _APY_LOADED and isinstance(vxvv,SkyCoord):
+        if _APY_COORD_LOADED and isinstance(vxvv,SkyCoord):
             if not _APY3: # pragma: no cover
                 raise ImportError('Orbit initialization using an astropy SkyCoord requires astropy >3.0')
             if zo is None and not vxvv.z_sun is None:
@@ -321,7 +325,7 @@ class Orbit(object):
                     numpy.fabs(ro**2.+zo**2.-vxvv.galcen_distance.to(units.kpc).value**2.) > 1e-10:
                 warnings.warn("Orbit's initialization normalization ro and zo are incompatible with SkyCoord's galcen_distance (should have galcen_distance^2 = ro^2 + zo^2)",galpyWarning)
         # If at this point ro/vo not set, use default from config
-        if (_APY_LOADED and isinstance(vxvv,SkyCoord)) or radec or lb:
+        if (_APY_COORD_LOADED and isinstance(vxvv,SkyCoord)) or radec or lb:
             if ro is None:
                 ro= config.__config__.getfloat('normalization','ro')
             if vo is None:
@@ -329,7 +333,7 @@ class Orbit(object):
         # If at this point zo not set, use default
         if zo is None: zo= 0.0208
         # if vxvv is SkyCoord, preferentially use its solarmotion
-        if _APY_LOADED and isinstance(vxvv,SkyCoord) \
+        if _APY_COORD_LOADED and isinstance(vxvv,SkyCoord) \
                 and not vxvv.galcen_v_sun is None:
             sc_solarmotion= vxvv.galcen_v_sun.d_xyz.to(units.km/units.s).value
             sc_solarmotion[0]= -sc_solarmotion[0] # right->left
@@ -348,7 +352,7 @@ class Orbit(object):
         else:
             vsolar= numpy.array(conversion.parse_velocity_kms(solarmotion))
         # If both vxvv SkyCoord with vsun and solarmotion set, check the same
-        if _APY_LOADED and isinstance(vxvv,SkyCoord) \
+        if _APY_COORD_LOADED and isinstance(vxvv,SkyCoord) \
                 and not vxvv.galcen_v_sun is None:
             if numpy.any(numpy.fabs(sc_solarmotion-vsolar) > 1e-8):
                 raise ValueError("Orbit initialization's solarmotion parameter not compatible with SkyCoord's galcen_v_sun; these should be the same for consistency (this may be because you did not set vo; galcen_v_sun = solarmotion+vo for consistency)")
@@ -418,7 +422,7 @@ class Orbit(object):
         return [list(o.vxvv[0]) for o in vxvv]
                 
     def _setup_parse_vxvv(self,vxvv,radec,lb,uvw):
-        if _APY_LOADED and isinstance(vxvv,SkyCoord):
+        if _APY_COORD_LOADED and isinstance(vxvv,SkyCoord):
             galcen_v_sun= coordinates.CartesianDifferential(\
                 numpy.array([-self._solarmotion[0],
                               self._solarmotion[1]+self._vo,
@@ -449,7 +453,7 @@ class Orbit(object):
             lb= False
         elif not isinstance(vxvv,(list, tuple)):
             vxvv= vxvv.T # (norb,phasedim) --> (phasedim,norb) easier later
-        if not (_APY_LOADED and isinstance(vxvv,SkyCoord)) and (radec or lb):
+        if not (_APY_COORD_LOADED and isinstance(vxvv,SkyCoord)) and (radec or lb):
             if radec:
                 if _APY_LOADED and isinstance(vxvv[0],units.Quantity):
                     ra, dec= vxvv[0].to(units.deg).value, \
