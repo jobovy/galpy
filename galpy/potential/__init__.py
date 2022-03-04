@@ -56,6 +56,7 @@ from . import AnyAxisymmetricRazorThinDiskPotential
 from . import AnySphericalPotential
 from . import AdiabaticContractionWrapperPotential
 from . import PowerTriaxialPotential
+from . import NonInertialFrameForce
 #
 # Functions
 #
@@ -195,6 +196,7 @@ GaussianAmplitudeWrapperPotential= GaussianAmplitudeWrapperPotential.GaussianAmp
 RotateAndTiltWrapperPotential = RotateAndTiltWrapperPotential.RotateAndTiltWrapperPotential
 AdiabaticContractionWrapperPotential= AdiabaticContractionWrapperPotential.AdiabaticContractionWrapperPotential
 PowerTriaxialPotential= PowerTriaxialPotential.PowerTriaxialPotential
+NonInertialFrameForce= NonInertialFrameForce.NonInertialFrameForce
 
 # MW potential models, now in galpy.potential.mwpotentials, but keep these two
 # for tests, backwards compatibility, and convenience
