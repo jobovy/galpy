@@ -20,14 +20,14 @@ class NonInertialFrameForce(DissipativeForce):
         
     where :math:`\mathbf{R}` is a rotation matrix and :math:`\mathbf{x}_{\mathrm{CM}}`
     is the motion of the origin. The rotation matrix has angular frequencies
-    :math:`\boldsymbol{\Omega}` with time derivative :math:`\dot{\boldsymbol{\Omega}}`;
+    :math:`\\boldsymbol{\Omega}` with time derivative :math:`\dot{\\boldsymbol{\Omega}}`;
     the latter is assumed to be constant. The motion of the origin can be any function
     of time.    
     This leads to the fictitious force
     
     .. math::
     
-        \mathbf{F} = -\mathbf{R}^T\,\mathbf{a}_0 - \boldsymbol{\Omega} \times ( \boldsymbol{\Omega} \times \mathbf{r}) - \dot{\boldsymbol{\Omega}} \times \mathbf{r} -2\boldsymbol{\Omega}\times \dot{\mathbf{r}}
+        \mathbf{F} = -\mathbf{R}^T\,\mathbf{a}_0 - \\boldsymbol{\Omega} \\times ( \\boldsymbol{\Omega} \\times \mathbf{r}) - \dot{\\boldsymbol{\Omega}} \\times \mathbf{r} -2\\boldsymbol{\Omega}\\times \dot{\mathbf{r}}
         
     where :math:`\mathbf{a}_0` is the acceleration of the origin. To avoid having 
     to specify the rotation matrix, we use :math:`\mathbf{R}^T\,\mathbf{a}_0` as the 
