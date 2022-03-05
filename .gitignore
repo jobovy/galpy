@@ -50,3 +50,9 @@ galpy/df/data/dfcorrection*.sav
 build/
 dist/
 galpy.egg-info/
+
+# Virtual environments / Codespaces #
+#####################################
+.venv
+devcontainer.json
+Dockerfile
