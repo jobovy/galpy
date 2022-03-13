@@ -33,7 +33,7 @@ class NonInertialFrameForce(DissipativeForce):
     to specify the rotation matrix, we use :math:`\mathbf{R}^T\,\mathbf{a}_0` as the 
     acceleration input.
     """
-    def __init__(self,amp=1.,Omega=1.,Omegadot=None,RTacm=None,
+    def __init__(self,amp=1.,Omega=None,Omegadot=None,RTacm=None,
                  ro=None,vo=None):
         """
         NAME:
@@ -52,7 +52,7 @@ class NonInertialFrameForce(DissipativeForce):
            
            Omegadot= (None) Time derivative of the angular frequency of the non-intertial frame's rotation. Vector or scalar should match Omega input
            
-           RTacm= (None) Acceleration vector a_cm (cartesian) of the center of mass of the non-intertial frame, transformed to the rotating frame as R^T a_cm where R^T is the inverse rotation matrix; constant or a function
+           RTacm= (None) Acceleration vector a_cm (cartesian) of the center of mass of the non-intertial frame, transformed to the rotating frame as R^T a_cm where R^T is the inverse rotation matrix; constant or a list of functions [R^T a_cmx,R^T a_cmy,R^T a_cmz]
 
         OUTPUT:
 
@@ -64,17 +64,24 @@ class NonInertialFrameForce(DissipativeForce):
 
         """
         DissipativeForce.__init__(self,amp=amp,ro=ro,vo=vo)
+        self._rot_acc= not Omega is None
         self._Omega= conversion.parse_frequency(Omega,ro=self._ro,vo=self._vo)
         self._omegaz_only= len(numpy.atleast_1d(self._Omega)) == 1
         self._const_freq= Omegadot is None
         self._Omegadot= conversion.parse_frequency(Omegadot,ro=self._ro,vo=self._vo)
         self._lin_acc= not (RTacm is None)
-        if not callable(RTacm):
-            self._RTacm= lambda t, copy=RTacm: copy
-        else: 
-            self._RTacm= RTacm
+        if self._lin_acc:
+         if not callable(RTacm[0]):
+               self._RTacm= [lambda t, copy=RTacm[0]: copy,
+                           lambda t, copy=RTacm[1]: copy,
+                           lambda t, copy=RTacm[2]: copy,]
+         else: 
+               self._RTacm= RTacm
+         self._RTacm_py= lambda t: [self._RTacm[0](t),
+                                    self._RTacm[1](t),
+                                    self._RTacm[2](t)]
         # Useful derived quantities
-        self._Omega2= numpy.linalg.norm(self._Omega)**2.
+        self._Omega2= numpy.linalg.norm(self._Omega)**2. if self._rot_acc else 0.
         if not self._omegaz_only:
             self._Omega_for_cross= numpy.array([[0.,-self._Omega[2],self._Omega[1]],
                                                 [self._Omega[2],0.,-self._Omega[0]],
@@ -85,7 +92,7 @@ class NonInertialFrameForce(DissipativeForce):
                                 [self._Omegadot[2],0.,-self._Omegadot[0]],
                                 [-self._Omegadot[1],self._Omegadot[0],0.]])
         self._force_hash= None            
-        self.hasC= False
+        self.hasC= True
         return None
 
     def _force(self,R,z,phi,t,v):
@@ -96,27 +103,31 @@ class NonInertialFrameForce(DissipativeForce):
             return self._cached_force
         x,y,z= coords.cyl_to_rect(R,phi,z)
         vx,vy,vz= coords.cyl_to_rect_vec(v[0],v[1],v[2],phi)
-        if self._const_freq:
-            tOmega= self._Omega
-            tOmega2= self._Omega2
-        else:
-            tOmega= self._Omega+self._Omegadot*t
-            tOmega2= numpy.linalg.norm(tOmega)**2.            
-        if self._omegaz_only:
-            force= -2.*tOmega*numpy.array([-vy,vx,0.])\
-                +tOmega2*numpy.array([x,y,0.])
-        else:
-            force= -2.*numpy.dot(self._Omega_for_cross,numpy.array([vx,vy,vz]))\
-                +tOmega2*numpy.array([x,y,z])\
-                -tOmega*numpy.dot(tOmega,numpy.array([x,y,z]))
-            if not self._const_freq:
-                force-= 2.*t*numpy.dot(self._Omegadot_for_cross,numpy.array([vx,vy,vz]))
-        if not self._const_freq:
-            force-= numpy.dot(self._Omegadot_for_cross,numpy.array([x,y,z]))           
+        force= numpy.zeros(3)
+        if self._rot_acc:
+            if self._const_freq:
+                tOmega= self._Omega
+                tOmega2= self._Omega2
+            else:
+                tOmega= self._Omega+self._Omegadot*t
+                tOmega2= numpy.linalg.norm(tOmega)**2.            
+            if self._omegaz_only:
+                force+= -2.*tOmega*numpy.array([-vy,vx,0.])\
+                    +tOmega2*numpy.array([x,y,0.])
+                if not self._const_freq:
+                    force-= self._Omegadot*numpy.array([-y,x,0.])
+            else:
+                force+= -2.*numpy.dot(self._Omega_for_cross,numpy.array([vx,vy,vz]))\
+                    +tOmega2*numpy.array([x,y,z])\
+                    -tOmega*numpy.dot(tOmega,numpy.array([x,y,z]))
+                if not self._const_freq:
+                    force-= 2.*t*numpy.dot(self._Omegadot_for_cross,numpy.array([vx,vy,vz]))\
+                        +numpy.dot(self._Omegadot_for_cross,numpy.array([x,y,z]))           
         if self._lin_acc:
-            force-= self._RTacm(t)
+            force-= self._RTacm_py(t)
         self._force_hash= new_hash
         self._cached_force= force
+        
         return force       
 
     def _Rforce(self,R,z,phi=0.,t=0.,v=None):

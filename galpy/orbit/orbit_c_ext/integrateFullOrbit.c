@@ -509,6 +509,14 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
       break;
+    case 39: //NonInertialFrameForce, 22 arguments (10 caching ones)
+      potentialArgs->RforceVelocity= &NonInertialFrameForceRforce;
+      potentialArgs->zforceVelocity= &NonInertialFrameForcezforce;
+      potentialArgs->phiforceVelocity= &NonInertialFrameForcephiforce;
+      potentialArgs->nargs= 22;
+      potentialArgs->ntfuncs= 3;
+      potentialArgs->requiresVelocity= true;
+      break;
 //////////////////////////////// WRAPPERS /////////////////////////////////////
     case -1: //DehnenSmoothWrapperPotential
       potentialArgs->potentialEval= &DehnenSmoothWrapperPotentialEval;

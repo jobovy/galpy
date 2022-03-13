@@ -219,6 +219,24 @@ def _parse_pot(pot,potforactions=False,potfortorus=False):
                              p._Phi0,p._Phimax])
         # 37: TriaxialGaussianPotential, done with others above
         # 38: PowerTriaxialPotential, done with others above
+        elif isinstance(p,potential.NonInertialFrameForce):
+            pot_type.append(39)
+            pot_args.append(p._amp)
+            pot_args.extend([0.,0.,0.,0.,0.,0.,0.,0.,0.,0.]) # for caching
+            pot_args.extend([p._rot_acc,p._lin_acc,p._omegaz_only,p._const_freq])
+            if p._omegaz_only:
+                pot_args.extend([0.,0.,p._Omega])
+            else:
+                pot_args.extend(p._Omega)
+            pot_args.append(p._Omega2)
+            if not p._const_freq and p._omegaz_only:
+                pot_args.extend([0.,0.,p._Omegadot])
+            elif not p._const_freq:
+                pot_args.extend(p._Omegadot)
+            else:
+                pot_args.extend([0.,0.,0.])
+            if p._lin_acc:
+                pot_tfuncs.extend([p._RTacm[0],p._RTacm[1],p._RTacm[2]])
         ############################## WRAPPERS ###############################
         elif isinstance(p,potential.DehnenSmoothWrapperPotential):
             pot_type.append(-1)

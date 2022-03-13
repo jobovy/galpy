@@ -607,6 +607,16 @@ double TriaxialGaussianPotentialmdensDeriv(double,double *);
 double PowerTriaxialPotentialpsi(double,double *);
 double PowerTriaxialPotentialmdens(double,double *);
 double PowerTriaxialPotentialmdensDeriv(double,double *);
+//NonInertialFrameForce, takes vR,vT,vZ
+double NonInertialFrameForceRforce(double,double,double,double,
+						 		   struct potentialArg *,
+						 		   double,double,double);
+double NonInertialFrameForcephiforce(double,double,double,double,
+						   			 struct potentialArg *,
+						   			 double,double,double);
+double NonInertialFrameForcezforce(double,double,double,double,
+						 		   struct potentialArg *,
+						 		   double,double,double);
 
 //////////////////////////////// WRAPPERS /////////////////////////////////////
 //DehnenSmoothWrapperPotential
