@@ -115,7 +115,7 @@ void actionAngleAdiabatic_RperiRapZmax(int ndata,
   int ii;
   //Set up the potentials
   struct potentialArg * actionAngleArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );
-  parse_leapFuncArgs_Full(npot,actionAngleArgs,&pot_type,&pot_args);
+  parse_leapFuncArgs_Full(npot,actionAngleArgs,&pot_type,&pot_args,NULL);
   //ER, Ez, Lz
   double *ER= (double *) malloc ( ndata * sizeof(double) );
   double *Ez= (double *) malloc ( ndata * sizeof(double) );
@@ -157,7 +157,7 @@ void actionAngleAdiabatic_actions(int ndata,
   int ii;
   //Set up the potentials
   struct potentialArg * actionAngleArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );
-  parse_leapFuncArgs_Full(npot,actionAngleArgs,&pot_type,&pot_args);
+  parse_leapFuncArgs_Full(npot,actionAngleArgs,&pot_type,&pot_args,NULL);
   //ER, Ez, Lz
   double *ER= (double *) malloc ( ndata * sizeof(double) );
   double *Ez= (double *) malloc ( ndata * sizeof(double) );

@@ -96,7 +96,7 @@ void parse_leapFuncArgs_Linear(int npot,struct potentialArg * potentialArgs,
       *(pot_type)-= 1; // Do FullOrbit processing for same potential
       parse_leapFuncArgs_Full(potentialArgs->nwrapped,
 			      potentialArgs->wrappedPotentialArg,
-			      pot_type,pot_args);
+			      pot_type,pot_args,NULL);
       potentialArgs->nargs= 2; // R, phi
     }
     potentialArgs->args= (double *) malloc( potentialArgs->nargs * sizeof(double));

@@ -12,6 +12,7 @@ extern "C" {
 #ifndef M_1_PI
 #define M_1_PI 0.31830988618379069122
 #endif
+typedef double (**tfuncs_type_arr)(double t); // array of functions of time
 struct potentialArg{
   double (*potentialEval)(double R, double Z, double phi, double t,
 			  struct potentialArg *);
@@ -65,7 +66,11 @@ struct potentialArg{
   interp_2d * i2dzforce;
   gsl_interp_accel * accxzforce;
   gsl_interp_accel * accyzforce;
-  int nwrapped; // For wrappers
+  // To allow an arbitrary number of functions of time
+  int ntfuncs;
+  tfuncs_type_arr tfuncs; // see typedef above
+  // Wrappers
+  int nwrapped;
   struct potentialArg * wrappedPotentialArg;
   // For EllipsoidalPotentials
   double (*psi)(double m,double * args);

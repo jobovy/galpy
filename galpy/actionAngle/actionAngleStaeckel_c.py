@@ -30,7 +30,7 @@ def actionAngleStaeckel_c(pot,delta,R,vR,vT,z,vz,u0=None,order=10):
         u0, dummy= coords.Rz_to_uv(R,z,delta=numpy.atleast_1d(delta))
     #Parse the potential
     from ..orbit.integrateFullOrbit import _parse_pot
-    npot, pot_type, pot_args= _parse_pot(pot,potforactions=True)
+    npot, pot_type, pot_args, _= _parse_pot(pot,potforactions=True) # NULL
 
     #Parse delta
     delta= numpy.atleast_1d(delta)
@@ -127,7 +127,7 @@ def actionAngleStaeckel_calcu0(E,Lz,pot,delta):
     """
     #Parse the potential
     from ..orbit.integrateFullOrbit import _parse_pot
-    npot, pot_type, pot_args= _parse_pot(pot,potforactions=True)
+    npot, pot_type, pot_args, _= _parse_pot(pot,potforactions=True) # NULL
 
     #Set up result arrays
     u0= numpy.empty(len(E))
@@ -203,7 +203,7 @@ def actionAngleFreqStaeckel_c(pot,delta,R,vR,vT,z,vz,u0=None,order=10):
         u0, dummy= coords.Rz_to_uv(R,z,delta=numpy.atleast_1d(delta))
     #Parse the potential
     from ..orbit.integrateFullOrbit import _parse_pot
-    npot, pot_type, pot_args= _parse_pot(pot,potforactions=True)
+    npot, pot_type, pot_args, _= _parse_pot(pot,potforactions=True) # NULL
 
     #Parse delta
     delta= numpy.atleast_1d(delta)
@@ -319,7 +319,7 @@ def actionAngleFreqAngleStaeckel_c(pot,delta,R,vR,vT,z,vz,phi,
         u0, dummy= coords.Rz_to_uv(R,z,delta=numpy.atleast_1d(delta))
     #Parse the potential
     from ..orbit.integrateFullOrbit import _parse_pot
-    npot, pot_type, pot_args= _parse_pot(pot,potforactions=True)
+    npot, pot_type, pot_args, _= _parse_pot(pot,potforactions=True) # NULL
 
     #Parse delta
     delta= numpy.atleast_1d(delta)
@@ -449,7 +449,7 @@ def actionAngleUminUmaxVminStaeckel_c(pot,delta,R,vR,vT,z,vz,u0=None):
         u0, dummy= coords.Rz_to_uv(R,z,delta=numpy.atleast_1d(delta))
     #Parse the potential
     from ..orbit.integrateFullOrbit import _parse_pot
-    npot, pot_type, pot_args= _parse_pot(pot,potforactions=True)
+    npot, pot_type, pot_args, _= _parse_pot(pot,potforactions=True) # NULL
 
     #Parse delta
     delta= numpy.atleast_1d(delta)

@@ -48,7 +48,7 @@ EXPORT void calc_potential(int nR,
   double * row= (double *) malloc ( nthreads * nz * ( sizeof ( double ) ) );
   //Set up the potentials
   struct potentialArg * potentialArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );
-  parse_leapFuncArgs_Full(npot,potentialArgs,&pot_type,&pot_args);
+  parse_leapFuncArgs_Full(npot,potentialArgs,&pot_type,&pot_args,NULL);
   //Run through the grid and calculate
   UNUSED int chunk= CHUNKSIZE;
 #pragma omp parallel for schedule(static,chunk) private(ii,tid,jj)	\
@@ -86,7 +86,7 @@ EXPORT void calc_rforce(int nR,
   double * row= (double *) malloc ( nthreads * nz * ( sizeof ( double ) ) );
   //Set up the potentials
   struct potentialArg * potentialArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );
-  parse_leapFuncArgs_Full(npot,potentialArgs,&pot_type,&pot_args);
+  parse_leapFuncArgs_Full(npot,potentialArgs,&pot_type,&pot_args,NULL);
   //Run through the grid and calculate
   UNUSED int chunk= CHUNKSIZE;
 #pragma omp parallel for schedule(static,chunk) private(ii,tid,jj)	\
@@ -124,7 +124,7 @@ EXPORT void calc_zforce(int nR,
   double * row= (double *) malloc ( nthreads * nz * ( sizeof ( double ) ) );
   //Set up the potentials
   struct potentialArg * potentialArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );
-  parse_leapFuncArgs_Full(npot,potentialArgs,&pot_type,&pot_args);
+  parse_leapFuncArgs_Full(npot,potentialArgs,&pot_type,&pot_args,NULL);
   //Run through the grid and calculate
   UNUSED int chunk= CHUNKSIZE;
 #pragma omp parallel for schedule(static,chunk) private(ii,tid,jj)	\
@@ -155,7 +155,7 @@ EXPORT void eval_potential(int nR,
   int ii;
   //Set up the potentials
   struct potentialArg * potentialArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );
-  parse_leapFuncArgs_Full(npot,potentialArgs,&pot_type,&pot_args);
+  parse_leapFuncArgs_Full(npot,potentialArgs,&pot_type,&pot_args,NULL);
   //Run through and evaluate
   for (ii=0; ii < nR; ii++){
     *(out+ii)= evaluatePotentials(*(R+ii),*(z+ii),npot,potentialArgs);
@@ -174,7 +174,7 @@ EXPORT void eval_rforce(int nR,
   int ii;
   //Set up the potentials
   struct potentialArg * potentialArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );
-  parse_leapFuncArgs_Full(npot,potentialArgs,&pot_type,&pot_args);
+  parse_leapFuncArgs_Full(npot,potentialArgs,&pot_type,&pot_args,NULL);
   //Run through and evaluate
   for (ii=0; ii < nR; ii++){
     *(out+ii)= calcRforce(*(R+ii),*(z+ii),0.,0.,npot,potentialArgs);
@@ -193,7 +193,7 @@ EXPORT void eval_zforce(int nR,
   int ii;
   //Set up the potentials
   struct potentialArg * potentialArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );
-  parse_leapFuncArgs_Full(npot,potentialArgs,&pot_type,&pot_args);
+  parse_leapFuncArgs_Full(npot,potentialArgs,&pot_type,&pot_args,NULL);
   //Run through and evaluate
   for (ii=0; ii < nR; ii++){
     *(out+ii)= calczforce(*(R+ii),*(z+ii),0.,0.,npot,potentialArgs);

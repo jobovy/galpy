@@ -59,12 +59,14 @@ void initChandrasekharDynamicalFrictionSplines(struct potentialArg *, double ** 
 void parse_leapFuncArgs_Full(int npot,
 			     struct potentialArg * potentialArgs,
 			     int ** pot_type,
-			     double ** pot_args){
+			     double ** pot_args,
+           tfuncs_type_arr * pot_tfuncs){
   int ii,jj,kk;
   int nR, nz, nr;
   double * Rgrid, * zgrid, * potGrid_splinecoeffs;
   init_potentialArgs(npot,potentialArgs);
   for (ii=0; ii < npot; ii++){
+    potentialArgs->ntfuncs= 0;
     switch ( *(*pot_type)++ ) {
     case 0: //LogarithmicHaloPotential, 4 arguments
       potentialArgs->potentialEval= &LogarithmicHaloPotentialEval;
@@ -539,18 +541,22 @@ void parse_leapFuncArgs_Full(int npot,
 					 * sizeof (struct potentialArg) );
       parse_leapFuncArgs_Full(potentialArgs->nwrapped,
 			      potentialArgs->wrappedPotentialArg,
-			      pot_type,pot_args);
+			      pot_type,pot_args,pot_tfuncs);
     }
     if (setupMovingObjectSplines)
       initMovingObjectSplines(potentialArgs, pot_args);
     if (setupChandrasekharDynamicalFrictionSplines)
       initChandrasekharDynamicalFrictionSplines(potentialArgs,pot_args);
+    // Now load each potential's parameters
     potentialArgs->args= (double *) malloc( potentialArgs->nargs * sizeof(double));
     for (jj=0; jj < potentialArgs->nargs; jj++){
       *(potentialArgs->args)= *(*pot_args)++;
       potentialArgs->args++;
     }
     potentialArgs->args-= potentialArgs->nargs;
+    /// and load each potential's time functions
+    potentialArgs->tfuncs= (*pot_tfuncs);
+    (*pot_tfuncs)+= potentialArgs->ntfuncs;
     potentialArgs++;
   }
   potentialArgs-= npot;
@@ -562,6 +568,7 @@ EXPORT void integrateFullOrbit(int nobj,
 			       int npot,
 			       int * pot_type,
 			       double * pot_args,
+             tfuncs_type_arr pot_tfuncs,
 			       double dt,
 			       double rtol,
 			       double atol,
@@ -574,6 +581,7 @@ EXPORT void integrateFullOrbit(int nobj,
   int max_threads;
   int * thread_pot_type;
   double * thread_pot_args;
+  tfuncs_type_arr thread_pot_tfuncs;
   max_threads= ( nobj < omp_get_max_threads() ) ? nobj : omp_get_max_threads();
   // Because potentialArgs may cache, safest to have one / thread
   struct potentialArg * potentialArgs= (struct potentialArg *) malloc ( max_threads * npot * sizeof (struct potentialArg) );
@@ -581,8 +589,9 @@ EXPORT void integrateFullOrbit(int nobj,
   for (ii=0; ii < max_threads; ii++) {
     thread_pot_type= pot_type; // need to make thread-private pointers, bc
     thread_pot_args= pot_args; // these pointers are changed in parse_...
+    thread_pot_tfuncs= pot_tfuncs; // ...
     parse_leapFuncArgs_Full(npot,potentialArgs+ii*npot,
-			    &thread_pot_type,&thread_pot_args);
+			    &thread_pot_type,&thread_pot_args,&thread_pot_tfuncs);
   }
   //Integrate
   void (*odeint_func)(void (*func)(double, double *, double *,
@@ -663,7 +672,7 @@ void integrateOrbit_dxdv(double *yo,
   //Set up the forces, first count
   int dim;
   struct potentialArg * potentialArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );
-  parse_leapFuncArgs_Full(npot,potentialArgs,&pot_type,&pot_args);
+  parse_leapFuncArgs_Full(npot,potentialArgs,&pot_type,&pot_args,NULL);
   //Integrate
   void (*odeint_func)(void (*func)(double, double *, double *,
 			   int, struct potentialArg *),

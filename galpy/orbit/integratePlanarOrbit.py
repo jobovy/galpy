@@ -186,7 +186,7 @@ def _parse_pot(pot):
                              for ii in range(p._Pot._glorder)])
         elif (isinstance(p,planarPotentialFromFullPotential) or isinstance(p,planarPotentialFromRZPotential)) \
                  and isinstance(p._Pot,potential.SCFPotential):
-            pt,pa= _parse_scf_pot(p._Pot)
+            pt,pa,_= _parse_scf_pot(p._Pot) # NULL
             pot_type.append(pt)
             pot_args.extend(pa)
         elif isinstance(p,planarPotentialFromFullPotential) \
@@ -200,7 +200,7 @@ def _parse_pot(pot):
             # Need to pull this apart into: (a) SCF part, (b) constituent
             # [Sigma_i,h_i] parts
             # (a) SCF, multiply in any add'l amp
-            pt,pa= _parse_scf_pot(p._Pot._scf,extra_amp=p._Pot._amp)
+            pt,pa,_= _parse_scf_pot(p._Pot._scf,extra_amp=p._Pot._amp) # NULL
             pot_type.append(pt)
             pot_args.extend(pa)
             # (b) constituent [Sigma_i,h_i] parts

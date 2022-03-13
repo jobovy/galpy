@@ -48,7 +48,7 @@ def _parse_pot(pot):
             # Need to pull this apart into: (a) SCF part, (b) constituent
             # [Sigma_i,h_i] parts
             # (a) SCF, multiply in any add'l amp
-            pt,pa= _parse_scf_pot(p._Pot._scf,extra_amp=p._Pot._amp)
+            pt,pa,_= _parse_scf_pot(p._Pot._scf,extra_amp=p._Pot._amp) # NULL
             pot_type.append(pt)
             pot_args.extend(pa)
             pot_args.extend([p._R,p._phi])
@@ -81,7 +81,7 @@ def _parse_pot(pot):
             pot_args.extend([p._amp*p._sigma2/p._H,2.*p._H]) 
         # All other potentials can be handled in the same way as follows:
         elif isinstance(p,verticalPotential):
-            _,pt,pa= _parse_pot_full(p._Pot)
+            _,pt,pa,_= _parse_pot_full(p._Pot) # NULL
             pot_type.extend(pt)
             pot_args.extend(pa)
             pot_args.append(p._R)

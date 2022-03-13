@@ -241,7 +241,7 @@ void calcu0(int ndata,
   int ii;
   //Set up the potentials
   struct potentialArg * actionAngleArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );
-  parse_leapFuncArgs_Full(npot,actionAngleArgs,&pot_type,&pot_args);
+  parse_leapFuncArgs_Full(npot,actionAngleArgs,&pot_type,&pot_args,NULL);
   //setup the function to be minimized
   gsl_function u0Eq;
   struct u0EqArg * params= (struct u0EqArg *) malloc ( sizeof (struct u0EqArg) );
@@ -318,7 +318,7 @@ void actionAngleStaeckel_uminUmaxVmin(int ndata,
   double tdelta;
   //Set up the potentials
   struct potentialArg * actionAngleArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );
-  parse_leapFuncArgs_Full(npot,actionAngleArgs,&pot_type,&pot_args);
+  parse_leapFuncArgs_Full(npot,actionAngleArgs,&pot_type,&pot_args,NULL);
   //E,Lz
   double *E= (double *) malloc ( ndata * sizeof(double) );
   double *Lz= (double *) malloc ( ndata * sizeof(double) );
@@ -424,7 +424,7 @@ void actionAngleStaeckel_actions(int ndata,
   double tdelta;
   //Set up the potentials
   struct potentialArg * actionAngleArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );
-  parse_leapFuncArgs_Full(npot,actionAngleArgs,&pot_type,&pot_args);
+  parse_leapFuncArgs_Full(npot,actionAngleArgs,&pot_type,&pot_args,NULL);
   //E,Lz
   double *E= (double *) malloc ( ndata * sizeof(double) );
   double *Lz= (double *) malloc ( ndata * sizeof(double) );
@@ -681,7 +681,7 @@ void actionAngleStaeckel_actionsFreqs(int ndata,
   double tdelta;
   //Set up the potentials
   struct potentialArg * actionAngleArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );
-  parse_leapFuncArgs_Full(npot,actionAngleArgs,&pot_type,&pot_args);
+  parse_leapFuncArgs_Full(npot,actionAngleArgs,&pot_type,&pot_args,NULL);
   //E,Lz
   double *E= (double *) malloc ( ndata * sizeof(double) );
   double *Lz= (double *) malloc ( ndata * sizeof(double) );
@@ -828,7 +828,7 @@ void actionAngleStaeckel_actionsFreqsAngles(int ndata,
   double tdelta;
   //Set up the potentials
   struct potentialArg * actionAngleArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );
-  parse_leapFuncArgs_Full(npot,actionAngleArgs,&pot_type,&pot_args);
+  parse_leapFuncArgs_Full(npot,actionAngleArgs,&pot_type,&pot_args,NULL);
   //E,Lz
   double *E= (double *) malloc ( ndata * sizeof(double) );
   double *Lz= (double *) malloc ( ndata * sizeof(double) );

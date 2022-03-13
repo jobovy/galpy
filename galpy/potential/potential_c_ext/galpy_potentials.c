@@ -14,6 +14,7 @@ void init_potentialArgs(int npot, struct potentialArg * potentialArgs){
     (potentialArgs+ii)->wrappedPotentialArg= NULL;
     (potentialArgs+ii)->spline1d= NULL;
     (potentialArgs+ii)->acc1d= NULL;
+    (potentialArgs+ii)->tfuncs= NULL;
   }
 }
 void free_potentialArgs(int npot, struct potentialArg * potentialArgs){
