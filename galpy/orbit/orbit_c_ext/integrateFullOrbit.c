@@ -600,8 +600,10 @@ void parse_leapFuncArgs_Full(int npot,
     }
     potentialArgs->args-= potentialArgs->nargs;
     /// and load each potential's time functions
-    potentialArgs->tfuncs= (*pot_tfuncs);
-    (*pot_tfuncs)+= potentialArgs->ntfuncs;
+    if ( potentialArgs->ntfuncs > 0 ) {
+      potentialArgs->tfuncs= (*pot_tfuncs);
+      (*pot_tfuncs)+= potentialArgs->ntfuncs;
+    }
     potentialArgs++;
   }
   potentialArgs-= npot;
