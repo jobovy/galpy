@@ -141,6 +141,8 @@ double calcPlanarRphideriv(double, double, double,
 			   int, struct potentialArg *);
 double calcLinearForce(double, double, int, struct potentialArg *);
 double calcDensity(double, double, double,double, int, struct potentialArg *);
+void rotate(double *, double *, double *, double *);
+void rotate_force(double *, double *, double *,double *);
 //ZeroForce
 double ZeroPlanarForce(double,double,double,
 		       struct potentialArg *);
