@@ -507,7 +507,28 @@ double SpiralArmsPotentialPlanarphi2deriv(double, double, double,
                             struct potentialArg*);
 double SpiralArmsPotentialPlanarRphideriv(double, double, double,
                             struct potentialArg*);
-
+//CosmphiDiskPotential
+double CosmphiDiskPotentialRforce(double,double,double,
+					   struct potentialArg *);
+double CosmphiDiskPotentialphiforce(double,double,double,
+					   struct potentialArg *);
+double CosmphiDiskPotentialR2deriv(double,double,double,
+					   struct potentialArg *);
+double CosmphiDiskPotentialphi2deriv(double,double,double,
+					   struct potentialArg *);
+double CosmphiDiskPotentialRphideriv(double,double,double,
+					   struct potentialArg *);
+//HenonHeilesPotential
+double HenonHeilesPotentialRforce(double,double,double,
+				  struct potentialArg *);
+double HenonHeilesPotentialphiforce(double,double,double,
+				    struct potentialArg *);
+double HenonHeilesPotentialR2deriv(double,double,double,
+				   struct potentialArg *);
+double HenonHeilesPotentialphi2deriv(double,double,double,
+				     struct potentialArg *);
+double HenonHeilesPotentialRphideriv(double,double,double,
+				     struct potentialArg *);
 //PerfectEllipsoid: uses EllipsoidalPotential, only need psi, dens, densDeriv
 double PerfectEllipsoidPotentialpsi(double,double *);
 double PerfectEllipsoidPotentialmdens(double,double *);
@@ -624,28 +645,6 @@ double SolidBodyRotationWrapperPotentialPlanarphi2deriv(double,double,double,
 						   struct potentialArg *);
 double SolidBodyRotationWrapperPotentialPlanarRphideriv(double,double,double,
 						   struct potentialArg *);
-//CosmphiDiskPotential
-double CosmphiDiskPotentialRforce(double,double,double,
-					   struct potentialArg *);
-double CosmphiDiskPotentialphiforce(double,double,double,
-					   struct potentialArg *);
-double CosmphiDiskPotentialR2deriv(double,double,double,
-					   struct potentialArg *);
-double CosmphiDiskPotentialphi2deriv(double,double,double,
-					   struct potentialArg *);
-double CosmphiDiskPotentialRphideriv(double,double,double,
-					   struct potentialArg *);
-//HenonHeilesPotential
-double HenonHeilesPotentialRforce(double,double,double,
-				  struct potentialArg *);
-double HenonHeilesPotentialphiforce(double,double,double,
-				    struct potentialArg *);
-double HenonHeilesPotentialR2deriv(double,double,double,
-				   struct potentialArg *);
-double HenonHeilesPotentialphi2deriv(double,double,double,
-				     struct potentialArg *);
-double HenonHeilesPotentialRphideriv(double,double,double,
-				     struct potentialArg *);
 //CorotatingRotationWrapperPotential
 double CorotatingRotationWrapperPotentialRforce(double,double,double,double,
 					struct potentialArg *);
