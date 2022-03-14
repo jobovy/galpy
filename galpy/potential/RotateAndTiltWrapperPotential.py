@@ -22,9 +22,10 @@ specified using:
 
 * A rotation around the original z-axis (`galaxy_pa`), the `inclination`, and a rotation around the new z axis (`sky_pa`).
 
-The second option allows one to specify the inclination and sky position angle (measured from North) in the usual manner in extragalactic observations."""
+The second option allows one to specify the inclination and sky position angle (measured from North) in the usual manner in extragalactic observations.
+A final `offset` option allows one to apply a static offset in Cartesian coordinate space to be applied to the potential following the rotation and tilt."""
     def __init__(self,amp=1.,inclination=None,galaxy_pa=None,sky_pa=None,
-                 zvec=None,pot=None,
+                 zvec=None,offset=None,pot=None,
                  ro=None,vo=None):
         """
         NAME:
@@ -54,6 +55,8 @@ The second option allows one to specify the inclination and sky position angle (
 
                  sky_pa= rotation angle around the inclined z axis (usual sky position angle measured from North)
 
+            offset= optional static offset in Cartesian coordinates
+
         OUTPUT:
 
            (none)
@@ -64,6 +67,8 @@ The second option allows one to specify the inclination and sky position angle (
 
            2021-04-18 - Added inclination, sky_pa, galaxy_pa setup - Bovy (UofT)
 
+           2022-03-14 - added offset kwarg - Mackereth (UofT)
+
         """
         WrapperPotential.__init__(self,amp=amp,pot=pot,ro=ro,vo=vo,
                                   _init=True)
@@ -72,6 +77,7 @@ The second option allows one to specify the inclination and sky position angle (
         galaxy_pa= conversion.parse_angle(galaxy_pa)
         zvec, galaxy_pa= self._parse_inclination(inclination,sky_pa,
                                                  zvec,galaxy_pa)
+        self._offset= offset
         self._setup_zvec_pa(zvec,galaxy_pa)
         self.hasC= True
         self.hasC_dxdv= True
@@ -138,6 +144,8 @@ The second option allows one to specify the inclination and sky position angle (
         x,y,z= coords.cyl_to_rect(R,phi,z)
         if numpy.isinf(R): y= 0.
         xyzp= numpy.dot(self._rot,numpy.array([x,y,z]))
+        if self._offset:
+            xyzp += self._offset
         Rp,phip,zp = coords.rect_to_cyl(xyzp[0],xyzp[1],xyzp[2])
         return _evaluatePotentials(self._pot,Rp,zp,phi=phip,t=t)
 
@@ -204,6 +212,8 @@ The second option allows one to specify the inclination and sky position angle (
         """Get the rectangular forces in the transformed frame"""
         x,y,z= coords.cyl_to_rect(R,phi,z)
         xyzp= numpy.dot(self._rot,numpy.array([x,y,z]))
+        if self._offset:
+           xyzp += self._offset
         Rp,phip,zp =coords.rect_to_cyl(xyzp[0],xyzp[1],xyzp[2])
         Rforcep= _evaluateRforces(self._pot,Rp,zp,phi=phip,t=t)
         phiforcep= _evaluatephiforces(self._pot,Rp,zp,phi=phip,t=t)
@@ -344,6 +354,8 @@ The second option allows one to specify the inclination and sky position angle (
         """Get the rectangular forces in the transformed frame"""
         x,y,z= coords.cyl_to_rect(R,phi,z)
         xyzp= numpy.dot(self._rot,numpy.array([x,y,z]))
+        if self._offset:
+           xyzp += self._offset
         Rp,phip,zp =coords.rect_to_cyl(xyzp[0],xyzp[1],xyzp[2])
         Rforcep= _evaluateRforces(self._pot,Rp,zp,phi=phip,t=t)
         phiforcep= _evaluatephiforces(self._pot,Rp,zp,phi=phip,t=t)
@@ -396,6 +408,8 @@ The second option allows one to specify the inclination and sky position angle (
         x,y,z= coords.cyl_to_rect(R,phi,z)
         if numpy.isinf(R): y= 0.
         xyzp= numpy.dot(self._rot,numpy.array([x,y,z]))
+        if self._offset:
+           xyzp += self._offset
         Rp,phip,zp = coords.rect_to_cyl(xyzp[0],xyzp[1],xyzp[2])
         return evaluateDensities(self._pot,Rp,zp,phi=phip,t=t,
                                  use_physical=False)
