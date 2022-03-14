@@ -77,7 +77,7 @@ A final `offset` option allows one to apply a static offset in Cartesian coordin
         galaxy_pa= conversion.parse_angle(galaxy_pa)
         zvec, galaxy_pa= self._parse_inclination(inclination,sky_pa,
                                                  zvec,galaxy_pa)
-        self._offset= offset
+        self._offset= self._setup_offset(offset)
         self._setup_zvec_pa(zvec,galaxy_pa)
         self.hasC= True
         self.hasC_dxdv= True
@@ -119,6 +119,12 @@ A final `offset` option allows one to apply a static offset in Cartesian coordin
         self._rot = numpy.dot(pa_rot,zvec_rot)
         self._inv_rot = numpy.linalg.inv(self._rot)
         return None
+    
+    def _setup_offset(self, offset):
+        if not offset:
+            return numpy.array([0.,0.,0.])
+        else:
+            return numpy.array(offset)
 
     def __getattr__(self,attribute):
         return super(RotateAndTiltWrapperPotential,self)\
@@ -143,9 +149,7 @@ A final `offset` option allows one to apply a static offset in Cartesian coordin
         """
         x,y,z= coords.cyl_to_rect(R,phi,z)
         if numpy.isinf(R): y= 0.
-        xyzp= numpy.dot(self._rot,numpy.array([x,y,z]))
-        if self._offset:
-            xyzp += self._offset
+        xyzp= numpy.dot(self._rot,numpy.array([x,y,z])) + self._offset
         Rp,phip,zp = coords.rect_to_cyl(xyzp[0],xyzp[1],xyzp[2])
         return _evaluatePotentials(self._pot,Rp,zp,phi=phip,t=t)
 
@@ -211,9 +215,7 @@ A final `offset` option allows one to apply a static offset in Cartesian coordin
     def _force_xyz(self,R,z,phi=0.,t=0.):
         """Get the rectangular forces in the transformed frame"""
         x,y,z= coords.cyl_to_rect(R,phi,z)
-        xyzp= numpy.dot(self._rot,numpy.array([x,y,z]))
-        if self._offset:
-           xyzp += self._offset
+        xyzp= numpy.dot(self._rot,numpy.array([x,y,z])) + self._offset
         Rp,phip,zp =coords.rect_to_cyl(xyzp[0],xyzp[1],xyzp[2])
         Rforcep= _evaluateRforces(self._pot,Rp,zp,phi=phip,t=t)
         phiforcep= _evaluatephiforces(self._pot,Rp,zp,phi=phip,t=t)
@@ -353,9 +355,7 @@ A final `offset` option allows one to apply a static offset in Cartesian coordin
     def _2ndderiv_xyz(self,R,z,phi=0.,t=0.):
         """Get the rectangular forces in the transformed frame"""
         x,y,z= coords.cyl_to_rect(R,phi,z)
-        xyzp= numpy.dot(self._rot,numpy.array([x,y,z]))
-        if self._offset:
-           xyzp += self._offset
+        xyzp= numpy.dot(self._rot,numpy.array([x,y,z])) + self._offset
         Rp,phip,zp =coords.rect_to_cyl(xyzp[0],xyzp[1],xyzp[2])
         Rforcep= _evaluateRforces(self._pot,Rp,zp,phi=phip,t=t)
         phiforcep= _evaluatephiforces(self._pot,Rp,zp,phi=phip,t=t)
@@ -407,9 +407,7 @@ A final `offset` option allows one to apply a static offset in Cartesian coordin
         """
         x,y,z= coords.cyl_to_rect(R,phi,z)
         if numpy.isinf(R): y= 0.
-        xyzp= numpy.dot(self._rot,numpy.array([x,y,z]))
-        if self._offset:
-           xyzp += self._offset
+        xyzp= numpy.dot(self._rot,numpy.array([x,y,z])) + self._offset
         Rp,phip,zp = coords.rect_to_cyl(xyzp[0],xyzp[1],xyzp[2])
         return evaluateDensities(self._pot,Rp,zp,phi=phip,t=t,
                                  use_physical=False)
