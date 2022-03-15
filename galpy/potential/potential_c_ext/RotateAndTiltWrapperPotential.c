@@ -27,7 +27,8 @@ void RotateAndTiltWrapperPotentialxyzforces(double R, double z, double phi,
                  struct potentialArg * potentialArgs){
     double * args= potentialArgs->args;
     double * rot= args+7;
-    double * offset= args+16;
+    bool offsetSet= (bool) *(args+16);
+    double * offset= args+17;
     double x, y;
     double Rforce, phiforce;
     cyl_to_rect(R, phi, &x, &y);
