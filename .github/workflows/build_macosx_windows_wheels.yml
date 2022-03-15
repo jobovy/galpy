@@ -91,13 +91,13 @@ jobs:
           password: ${{ secrets.pypi_token }}
           packages_dir: wheelhouse/
       - name: Rename wheel to 'latest' version for AWS S3
-        if: ( github.event_name != 'release' || github.event.action != 'created' )
+        if: github.event_name != 'release' && github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         run: |
           GALPY_VERSION="$(awk '/^current_version/{print $NF}' .bumpversion.cfg)"
           for f in wheelhouse/*$GALPY_VERSION*; do mv -i -- "$f" "${f//$GALPY_VERSION/latest}"; done
       # Upload to AWS S3
       - name: Upload to AWS S3
-        if: github.event_name != 'release' || github.event.action != 'created'
+        if: github.event_name != 'release' && github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         uses: jakejarvis/s3-sync-action@v0.5.1
         with:
           args: --acl public-read --follow-symlinks --delete --exclude "*manylinux*" --exclude "*none-any*"
