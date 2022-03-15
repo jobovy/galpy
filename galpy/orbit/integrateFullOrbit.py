@@ -311,6 +311,7 @@ def _parse_pot(pot,potforactions=False,potfortorus=False):
             pot_args.extend([p._amp])
             pot_args.extend([0.,0.,0.,0.,0.,0.]) # for caching
             pot_args.extend(list(p._rot.flatten()))
+            pot_args.append(not p._offset is None)
             pot_args.extend(list(p._offset))
     pot_type= numpy.array(pot_type,dtype=numpy.int32,order='C')
     pot_args= numpy.array(pot_args,dtype=numpy.float64,order='C')
