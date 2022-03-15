@@ -3640,6 +3640,11 @@ def test_RotateAndTiltWrapper():
     NFW_wrapped= potential.RotateAndTiltWrapperPotential(galaxy_pa=galaxy_pa, pot=potential.TriaxialNFWPotential(amp=1.,b=0.7,c=0.5))
     NFW_rot= potential.TriaxialNFWPotential(amp=1., zvec=[0.,0.,1.],pa=galaxy_pa,b=0.7,c=0.5)
     assert (evaluatePotentials(NFW_wrapped, Rphiz_test[0], Rphiz_test[2], phi=Rphiz_test[1])-evaluatePotentials(NFW_rot, Rphiz_test[0], Rphiz_test[2], phi=Rphiz_test[1])) < 1e-6, 'Wrapped and Internally rotated NFW potentials do not match when evaluated at the same point'
+    #make sure the offset works as intended
+    # triaxial NFW at x,y,z = [20.,0.,3.]
+    NFW_wrapped= potential.RotateAndTiltWrapperPotential(zvec=zvec, galaxy_pa=galaxy_pa, offset=[20.,0.,3.], pot=potential.TriaxialNFWPotential(amp=1.,b=0.7,c=0.5))
+    NFW_rot= potential.TriaxialNFWPotential(amp=1., zvec=zvec, pa=galaxy_pa,b=0.7,c=0.5)
+    assert (evaluatePotentials(NFW_wrapped, 0., 0., phi=0.)-evaluatePotentials(NFW_rot, 20., - 3., phi=numpy.pi)) < 1e-6, 'Wrapped + Offset and Internally rotated NFW potentials do not match when evaluated at the same point'
     return None
 
 def test_vtermnegl_issue314():
