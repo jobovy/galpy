@@ -27,13 +27,14 @@ void RotateAndTiltWrapperPotentialxyzforces(double R, double z, double phi,
                  struct potentialArg * potentialArgs){
     double * args= potentialArgs->args;
     double * rot= args+7;
+    double * offset= args+16;
     double x, y;
     double Rforce, phiforce;
     cyl_to_rect(R, phi, &x, &y);
     //caching
-    *(args + 1)= x;
-    *(args + 2)= y;
-    *(args + 3)= z;
+    *(args + 1)= x + *(offset);
+    *(args + 2)= y + *(offset+1);
+    *(args + 3)= z + *(offset+2);
     //now get the forces in R, phi, z in the aligned frame
     rotate(&x,&y,&z,rot);
     rect_to_cyl(x,y,&R,&phi);
