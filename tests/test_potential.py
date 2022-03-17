@@ -12,6 +12,7 @@ try:
 except ImportError:
     _PYNBODY_LOADED= False
 from galpy import potential
+from galpy import orbit
 from galpy.util import coords
 from galpy.util import _rotate_to_arbitrary_vector
 _TRAVIS= bool(os.getenv('TRAVIS'))
@@ -3645,6 +3646,62 @@ def test_RotateAndTiltWrapper():
     NFW_wrapped= potential.RotateAndTiltWrapperPotential(zvec=zvec, galaxy_pa=galaxy_pa, offset=[20.,0.,3.], pot=potential.TriaxialNFWPotential(amp=1.,b=0.7,c=0.5))
     NFW_rot= potential.TriaxialNFWPotential(amp=1., zvec=zvec, pa=galaxy_pa,b=0.7,c=0.5)
     assert (evaluatePotentials(NFW_wrapped, 0., 0., phi=0.)-evaluatePotentials(NFW_rot, 20., - 3., phi=numpy.pi)) < 1e-6, 'Wrapped + Offset and Internally rotated NFW potentials do not match when evaluated at the same point'
+    #test a quick orbit integration to hit the C code (also test pure python)
+    #two potentials, one offset
+    offset = [3.,2.,1.]
+    mwpot = potential.MWPotential2014
+    mwpot_wrapped = potential.RotateAndTiltWrapperPotential(pot=potential.MWPotential2014, offset=offset)
+    #initialise orbit
+    ro = 8.
+    orb = orbit.Orbit(ro=ro)
+    #another, offset by the same as the potential
+    init = orb.vxvv[0]
+    R, vR, vT, z, vz, phi = init
+    x, y, z = coords.cyl_to_rect(R, phi, z)
+    vx, vy, vz = coords.cyl_to_rect_vec(vR, vT, vz, phi)
+    tx, ty, tz = x-offset[0], y-offset[1], z-offset[2]
+    tR, tphi, tz = coords.rect_to_cyl(tx, ty, tz)
+    tvR, tvT, tvz = coords.rect_to_cyl_vec(vx, vy, vz, tR, tphi, tz, cyl=True)
+    orb_t = orbit.Orbit([tR, tvR, tvT, tz, tvz, tphi], ro=ro)
+    #integrate
+    ts = numpy.linspace(0.,1.,1000)
+    orb.integrate(ts, pot=mwpot, method='dop853')
+    orb_t.integrate(ts, pot=mwpot_wrapped, method='dop853')
+    #translate other orbit to match first one:
+    orb_vxvv = orb_t.getOrbit()
+    R, vR, vT, z, vz, phi = orb_vxvv[:,0], orb_vxvv[:,1], orb_vxvv[:,2], orb_vxvv[:,3], orb_vxvv[:,4], orb_vxvv[:,5]
+    x, y, z = coords.cyl_to_rect(R, phi, z)
+    vx, vy, vz = coords.cyl_to_rect_vec(vR, vT, vz, phi)
+    tx, ty, tz = x+offset[0], y+offset[1], z+offset[2]
+    tR, tphi, tz = coords.rect_to_cyl(tx, ty, tz)
+    #check equal
+    Rphi = numpy.dstack([orb.R(ts), orb.z(ts)])[0]
+    Rphi_t = numpy.dstack([tR*ro,tz*ro])[0]
+    assert numpy.all(numpy.fabs(Rphi-Rphi_t) < 10.**-10), 'Pure python orbit integration in an offset potential does not work as expected'
+    #reinitialise orbits, just to be sure
+    orb = orbit.Orbit(ro=ro)
+    init = orb.vxvv[0]
+    R, vR, vT, z, vz, phi = init
+    offset = [3.,2.,1.]
+    x, y, z = coords.cyl_to_rect(R, phi, z)
+    vx, vy, vz = coords.cyl_to_rect_vec(vR, vT, vz, phi)
+    tx, ty, tz = x-offset[0], y-offset[1], z-offset[2]
+    tR, tphi, tz = coords.rect_to_cyl(tx, ty, tz)
+    tvR, tvT, tvz = coords.rect_to_cyl_vec(vx, vy, vz, tR, tphi, tz, cyl=True)
+    orb_t = orbit.Orbit([tR, tvR, tvT, tz, tvz, tphi], ro=ro)
+    #integrate, use C
+    orb.integrate(ts, pot=mwpot, method='dop853_c')
+    orb_t.integrate(ts, pot=mwpot_wrapped, method='dop853_c')
+    orb_vxvv = orb_t.getOrbit()
+    R, vR, vT, z, vz, phi = orb_vxvv[:,0], orb_vxvv[:,1], orb_vxvv[:,2], orb_vxvv[:,3], orb_vxvv[:,4], orb_vxvv[:,5]
+    x, y, z = coords.cyl_to_rect(R, phi, z)
+    vx, vy, vz = coords.cyl_to_rect_vec(vR, vT, vz, phi)
+    tx, ty, tz = x+offset[0], y+offset[1], z+offset[2]
+    tR, tphi, tz = coords.rect_to_cyl(tx, ty, tz)
+    #check equal
+    Rphi = numpy.dstack([orb.R(ts), orb.z(ts)])[0]
+    Rphi_t = numpy.dstack([tR*ro,tz*ro])[0]
+    assert numpy.all(numpy.fabs(Rphi-Rphi_t) < 10.**-10), 'C orbit integration in an offset potential does not work as expected'
     return None
 
 def test_vtermnegl_issue314():
