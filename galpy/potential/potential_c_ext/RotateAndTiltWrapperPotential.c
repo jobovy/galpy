@@ -2,7 +2,7 @@
 #include <math.h>
 #include <bovy_coords.h>
 #include <galpy_potentials.h>
-#include <stdio.h>
+
 //RotateAndTiltWrapperPotential
 static inline void rotate(double *x, double *y, double *z, double *rot){
   double xp,yp,zp;
