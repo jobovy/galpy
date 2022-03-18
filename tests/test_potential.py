@@ -3646,7 +3646,10 @@ def test_RotateAndTiltWrapper():
     NFW_wrapped= potential.RotateAndTiltWrapperPotential(zvec=zvec, galaxy_pa=galaxy_pa, offset=[20.,0.,3.], pot=potential.TriaxialNFWPotential(amp=1.,b=0.7,c=0.5))
     NFW_rot= potential.TriaxialNFWPotential(amp=1., zvec=zvec, pa=galaxy_pa,b=0.7,c=0.5)
     assert (evaluatePotentials(NFW_wrapped, 0., 0., phi=0.)-evaluatePotentials(NFW_rot, 20., - 3., phi=numpy.pi)) < 1e-6, 'Wrapped + Offset and Internally rotated NFW potentials do not match when evaluated at the same point'
-    #test a quick orbit integration to hit the C code (also test pure python)
+    
+
+def test_integration_RotateAndTiltWrapper():
+    ## test a quick orbit integration to hit the C code (also test pure python)
     #two potentials, one offset
     offset = [3.,2.,1.]
     mwpot = potential.MWPotential2014
@@ -3703,6 +3706,7 @@ def test_RotateAndTiltWrapper():
     Rphi_t = numpy.dstack([tR*ro,tz*ro])[0]
     assert numpy.all(numpy.fabs(Rphi-Rphi_t) < 10.**-10), 'C orbit integration in an offset potential does not work as expected'
     return None
+
 
 def test_vtermnegl_issue314():
     # Test related to issue 314: vterm for negative l
