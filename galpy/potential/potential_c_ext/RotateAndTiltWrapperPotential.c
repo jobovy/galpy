@@ -2,6 +2,7 @@
 #include <math.h>
 #include <bovy_coords.h>
 #include <galpy_potentials.h>
+#include <stdio.h>
 //RotateAndTiltWrapperPotential
 static inline void rotate(double *x, double *y, double *z, double *rot){
   double xp,yp,zp;
@@ -22,6 +23,16 @@ static inline void rotate_force(double *Fx, double *Fy, double *Fz,
   *Fy= Fyp;
   *Fz= Fzp;
 }
+static inline void apply_offset(double *x, double *y, double *z, bool offsetSet, double *offset){
+  double xp,yp,zp;
+   xp = *x + *(offset);
+   yp = *y + *(offset+1);
+   zp = *z + *(offset+2);
+   *x = xp;
+   *y = yp;
+   *z = zp;
+  
+}
 void RotateAndTiltWrapperPotentialxyzforces(double R, double z, double phi,
                  double t, double * Fx, double * Fy, double * Fz,
                  struct potentialArg * potentialArgs){
@@ -33,11 +44,12 @@ void RotateAndTiltWrapperPotentialxyzforces(double R, double z, double phi,
     double Rforce, phiforce;
     cyl_to_rect(R, phi, &x, &y);
     //caching
-    *(args + 1)= x + *(offset);
-    *(args + 2)= y + *(offset+1);
-    *(args + 3)= z + *(offset+2);
+    *(args + 1)= x;
+    *(args + 2)= y;
+    *(args + 3)= z;
     //now get the forces in R, phi, z in the aligned frame
     rotate(&x,&y,&z,rot);
+    apply_offset(&x,&y,&z,offsetSet,offset);
     rect_to_cyl(x,y,&R,&phi);
     Rforce= calcRforce(R, z, phi, t, potentialArgs->nwrapped,
 		       potentialArgs->wrappedPotentialArg);
