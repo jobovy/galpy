@@ -71,7 +71,8 @@ from test_potential import testplanarMWPotential, testMWPotential, \
     nestedListPotential, \
     mockInterpSphericalPotential, \
     mockAdiabaticContractionMWP14WrapperPotential, \
-    mockRotatedAndTiltedMWP14WrapperPotential
+    mockRotatedAndTiltedMWP14WrapperPotential, \
+    testNullPotential
 _GHACTIONS= bool(os.getenv('GITHUB_ACTIONS'))
 if not _GHACTIONS:
     _QUICKTEST= True #Run a more limited set of tests
@@ -148,6 +149,7 @@ def test_energy_jacobi_conservation():
     pots.append('mockInterpSphericalPotential')
     pots.append('mockAdiabaticContractionMWP14WrapperPotential')
     pots.append('mockRotatedAndTiltedMWP14WrapperPotential')
+    pots.append('testNullPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -522,6 +524,7 @@ def test_energy_conservation_linear():
     pots.append('mockInterpSphericalPotential')
     pots.append('mockAdiabaticContractionMWP14WrapperPotential')
     pots.append('mockRotatedAndTiltedMWP14WrapperPotential')
+    pots.append('testNullPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -690,6 +693,7 @@ def test_liouville_planar():
     pots.append('nestedListPotential')
     pots.append('mockInterpSphericalPotential')
     pots.append('mockAdiabaticContractionMWP14WrapperPotential')
+    pots.append('testNullPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',

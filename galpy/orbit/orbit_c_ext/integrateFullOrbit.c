@@ -477,6 +477,14 @@ void parse_leapFuncArgs_Full(int npot,
 					    + (int) (*(*pot_args+7) + 20)));
       potentialArgs->requiresVelocity= false;
       break;
+    case 40: //NullPotential, no arguments (only supported for orbit int)
+      potentialArgs->Rforce= &ZeroForce;
+      potentialArgs->zforce= &ZeroForce;
+      potentialArgs->phiforce= &ZeroForce;
+      potentialArgs->dens= &ZeroForce;
+      potentialArgs->nargs= 0;
+      potentialArgs->requiresVelocity= false;
+      break;
 //////////////////////////////// WRAPPERS /////////////////////////////////////
     case -1: //DehnenSmoothWrapperPotential
       potentialArgs->potentialEval= &DehnenSmoothWrapperPotentialEval;

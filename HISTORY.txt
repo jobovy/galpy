@@ -4,6 +4,8 @@ v1.8 (XXXX-XX-XX)
 - Turn on NFWPotential physical output when initializing using the 
   virial mass mvir (see #465)
 
+- Added NullPotential, a potential with a constant value.
+
 - Allow actions to be computed for Orbit instances with actionAngle
   methods that don't compute frequencies.
 
