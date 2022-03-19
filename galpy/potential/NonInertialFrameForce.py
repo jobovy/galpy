@@ -127,7 +127,6 @@ class NonInertialFrameForce(DissipativeForce):
             force-= self._RTacm_py(t)
         self._force_hash= new_hash
         self._cached_force= force
-        
         return force       
 
     def _Rforce(self,R,z,phi=0.,t=0.,v=None):
@@ -165,7 +164,7 @@ class NonInertialFrameForce(DissipativeForce):
         OUTPUT:
            the azimuthal force
         HISTORY:
-           2016-06-09 - Written - Bovy (UofT)
+           2022-03-02 - Written - Bovy (UofT)
         """
         force= self._force(R,z,phi,t,v)
         return R*(-numpy.sin(phi)*force[0]+numpy.cos(phi)*force[1])
@@ -185,6 +184,6 @@ class NonInertialFrameForce(DissipativeForce):
         OUTPUT:
            the vertical force
         HISTORY:
-           2016-06-09 - Written - Bovy (UofT)
+           2022-03-02 - Written - Bovy (UofT)
         """
         return self._force(R,z,phi,t,v)[2]
