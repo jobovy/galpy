@@ -3224,6 +3224,17 @@ def test_physical_actionAngleIsochroneInverse():
         assert numpy.fabs(aAII.Freqs(0.1,1.1,0.1)[ii]-aAIInu.Freqs(0.1,1.1,0.1)[ii]*conversion.freq_in_Gyr(vo,ro)) < 10.**-8., 'actionAngleInverse function Freqs does not return Quantity with the right value'
     return None
 
+# Test that computing actionAngle coordinates in C for a NullPotential leads to an error
+def test_nullpotential_error():
+    from galpy.potential import NullPotential
+    from galpy.actionAngle import actionAngleStaeckel
+    np= NullPotential()
+    aAS= actionAngleStaeckel(pot=np,delta=1.)
+    with pytest.raises(NotImplementedError) as excinfo:
+        aAS(1.,0.,1.,0.1,0.)
+        pytest.fail('Calculating actionAngle coordinates in C for a NullPotential should have given a NotImplementedError, but did not')
+    return None
+
 def check_actionAngleIsochroneInverse_wrtIsochrone(pot,aAI,aAII,obs,
                                                    tol,ntimes=1001):
     times= numpy.linspace(0.,30.,ntimes)

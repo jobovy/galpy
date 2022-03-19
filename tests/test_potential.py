@@ -4425,7 +4425,7 @@ from galpy.potential import TwoPowerSphericalPotential, \
     TriaxialHernquistPotential, TriaxialNFWPotential, TriaxialJaffePotential, \
     TwoPowerTriaxialPotential, BurkertPotential, SoftenedNeedleBarPotential, \
     FerrersPotential, DiskSCFPotential, SpiralArmsPotential, \
-    LogarithmicHaloPotential
+    LogarithmicHaloPotential, NullPotential
 class mockSphericalSoftenedNeedleBarPotential(SoftenedNeedleBarPotential):
     def __init__(self):
         SoftenedNeedleBarPotential.__init__(self,amp=1.,a=0.000001,b=0.,
@@ -4581,6 +4581,9 @@ class JaffeTwoPowerTriaxialPotential(TwoPowerTriaxialPotential):
         TwoPowerTriaxialPotential.__init__(self,amp=1.,a=5.,alpha=2.,beta=4.,
                                            b=1.3,c=1.8)
         return None
+class testNullPotential(NullPotential):
+    def normalize(self,norm):
+        pass
 # Other DiskSCFPotentials
 class sech2DiskSCFPotential(DiskSCFPotential):
     def __init__(self):
