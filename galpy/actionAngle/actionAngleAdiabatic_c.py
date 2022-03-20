@@ -25,7 +25,7 @@ def actionAngleAdiabatic_c(pot,gamma,R,vR,vT,z,vz):
     """
     #Parse the potential
     from ..orbit.integrateFullOrbit import _parse_pot
-    npot, pot_type, pot_args= _parse_pot(pot,potforactions=True)
+    npot, pot_type, pot_args, _= _parse_pot(pot,potforactions=True) # NULL
 
     #Set up result arrays
     jr= numpy.empty(len(R))
@@ -106,7 +106,7 @@ def actionAngleRperiRapZmaxAdiabatic_c(pot,gamma,R,vR,vT,z,vz):
     """
     #Parse the potential
     from ..orbit.integrateFullOrbit import _parse_pot
-    npot, pot_type, pot_args= _parse_pot(pot,potforactions=True)
+    npot, pot_type, pot_args, _= _parse_pot(pot,potforactions=True) # NULL
 
     #Set up result arrays
     rperi= numpy.empty(len(R))

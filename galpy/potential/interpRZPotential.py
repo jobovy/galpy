@@ -493,7 +493,7 @@ def calc_potential_c(pot,R,z,rforce=False,zforce=False):
     """
     from ..orbit.integrateFullOrbit import _parse_pot #here bc otherwise there is an infinite loop
     #Parse the potential
-    npot, pot_type, pot_args= _parse_pot(pot)
+    npot, pot_type, pot_args, _= _parse_pot(pot) # NULL
 
     #Set up result arrays
     out= numpy.empty((len(R),len(z)))
@@ -587,7 +587,7 @@ def eval_potential_c(pot,R,z):
     """
     from ..orbit.integrateFullOrbit import _parse_pot #here bc otherwise there is an infinite loop
     #Parse the potential
-    npot, pot_type, pot_args= _parse_pot(pot,potforactions=True)
+    npot, pot_type, pot_args, _= _parse_pot(pot,potforactions=True) # NULL
 
     #Set up result arrays
     out= numpy.empty((len(R)))
@@ -646,7 +646,7 @@ def eval_force_c(pot,R,z,zforce=False):
     """
     from ..orbit.integrateFullOrbit import _parse_pot #here bc otherwise there is an infinite loop
     #Parse the potential
-    npot, pot_type, pot_args= _parse_pot(pot)
+    npot, pot_type, pot_args, _= _parse_pot(pot) # NULL
 
     #Set up result arrays
     out= numpy.empty((len(R)))
