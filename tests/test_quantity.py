@@ -2603,6 +2603,12 @@ def test_potential_ampunits():
         b=1.3,c=0.4)
     # Check potential
     assert numpy.fabs(pot(4.,0.,phi=1.,use_physical=False)-pot_nounits(4.,0.,phi=1.,use_physical=False)) < 10.**-8., "TriaxialGaussianPotential w/ amp w/ units does not behave as expected"
+    # NullPotential
+    pot= potential.NullPotential(amp=(200.*units.km/units.s)**2,ro=ro,vo=vo)
+    pot_nounits= potential.NullPotential(\
+        amp=(200/vo)**2.,ro=ro,vo=vo)
+    # Check potential
+    assert numpy.fabs(pot(4.,0.,phi=1.,use_physical=False)-pot_nounits(4.,0.,phi=1.,use_physical=False)) < 10.**-8., "NullPotential w/ amp w/ units does not behave as expected"    
     return None
 
 def test_potential_ampunits_altunits():
@@ -2932,6 +2938,9 @@ def test_potential_ampunits_wrongunits():
         potential.TriaxialGaussianPotential(amp=40.*units.Msun/units.pc**2,
                                             sigma=2.,ro=ro,vo=vo,
                                             b=1.3,c=0.4)
+    # NullPotential
+    with pytest.raises(units.UnitConversionError) as excinfo:
+        potential.NullPotential(amp=40.*units.Msun,ro=ro,vo=vo)
     return None
 
 def test_potential_paramunits():
