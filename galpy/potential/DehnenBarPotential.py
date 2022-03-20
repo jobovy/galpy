@@ -129,7 +129,7 @@ class DehnenBarPotential(Potential):
             self._tsteady= self._tform+tsteady*self._tb
 
     def _smooth(self,t):
-        if isinstance(t,numpy.ndarray):
+        if isinstance(t,numpy.ndarray) and not numpy.ndim(t) == 0:
             smooth=numpy.ones(len(t))
             indx=(t < self._tform)
             smooth[indx]=0.
@@ -147,7 +147,6 @@ class DehnenBarPotential(Potential):
                 smooth= (3./16.*xi**5.-5./8*xi**3.+15./16.*xi+.5)
             else: #bar is fully on
                 smooth= 1.
-
         return smooth
 
     def _evaluate(self,R,z,phi=0.,t=0.):
