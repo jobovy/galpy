@@ -16,9 +16,9 @@ class NonInertialFrameForce(DissipativeForce):
     
     .. math::
     
-        \mathbf{x} = \mathbf{R}\,\mathbf{r} + \mathbf{x}_0
+        \mathbf{x} = \mathbf{R}\,\left(\mathbf{r} + \mathbf{x}_0\\right)
         
-    where :math:`\mathbf{R}` is a rotation matrix and :math:`\mathbf{x}_{\mathrm{CM}}`
+    where :math:`\mathbf{R}` is a rotation matrix and :math:`\mathbf{x}_0`
     is the motion of the origin. The rotation matrix has angular frequencies
     :math:`\\boldsymbol{\Omega}` with time derivative :math:`\dot{\\boldsymbol{\Omega}}`;
     the latter is assumed to be constant. The motion of the origin can be any function
@@ -27,11 +27,12 @@ class NonInertialFrameForce(DissipativeForce):
     
     .. math::
     
-        \mathbf{F} = -\mathbf{R}^T\,\mathbf{a}_0 - \\boldsymbol{\Omega} \\times ( \\boldsymbol{\Omega} \\times \mathbf{r}) - \dot{\\boldsymbol{\Omega}} \\times \mathbf{r} -2\\boldsymbol{\Omega}\\times \dot{\mathbf{r}}
+        \mathbf{F} = -\mathbf{a}_0 - \\boldsymbol{\Omega} \\times ( \\boldsymbol{\Omega} \\times \left[\mathbf{r} + \mathbf{x}_0\\right]) - \dot{\\boldsymbol{\Omega}} \\times \left[\mathbf{r}+\mathbf{x}_0\\right] -2\\boldsymbol{\Omega}\\times \left[\dot{\mathbf{r}}+\dot{\mathbf{x}}_0\\right]
         
-    where :math:`\mathbf{a}_0` is the acceleration of the origin. To avoid having 
-    to specify the rotation matrix, we use :math:`\mathbf{R}^T\,\mathbf{a}_0` as the 
-    acceleration input.
+    where :math:`\mathbf{a}_0`, :math:`\mathbf{v}_0`, and :math:`\mathbf{x}_0` are 
+    the acceleration, velocity, and position of the origin of the non-inertial frame, 
+    respectively, as a function of time. Note that if the non-inertial frame is not 
+    rotating, it is not necessary to specify :math:`\mathbf{v}_0` and :math:`\mathbf{x}_0`.
     """
     def __init__(self,amp=1.,Omega=None,Omegadot=None,RTacm=None,
                  ro=None,vo=None):
