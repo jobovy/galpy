@@ -40,7 +40,7 @@ class NonInertialFrameForce(DissipativeForce):
         \mathbf{F} = -\mathbf{a}_0\quad (\\boldsymbol{\Omega} = 0)
         
     If the non-inertial frame only rotates without any motion of the origin, the 
-    the fictitious force is the familiar combination of the centrifugal force
+    fictitious force is the familiar combination of the centrifugal force
     and the Coriolis force (plus an additional term if :math:`\dot{\\boldsymbol{\Omega}}`
     is not constant)
     
@@ -70,9 +70,9 @@ class NonInertialFrameForce(DissipativeForce):
            
            Omegadot= (None) Time derivative of the angular frequency of the non-intertial frame's rotation. Vector or scalar should match Omega input
            
-           x0= (None) Position vector x_0 (cartesian) of the center of mass of the non-intertial frame (see definition in the class documentation); constant or a list of functions [x_0x,x_0y,x_0z]; only necessary when considering both rotation and center-of-mass acceleration of the inertial frame
+           x0= (None) Position vector x_0 (cartesian) of the center of mass of the non-intertial frame (see definition in the class documentation); list of functions [x_0x,x_0y,x_0z]; only necessary when considering both rotation and center-of-mass acceleration of the inertial frame
            
-           v0= (None) Velocity vector v_0 (cartesian) of the center of mass of the non-intertial frame (see definition in the class documentation); constant or a list of functions [v_0x,v_0y,v_0z]; only necessary when considering both rotation and center-of-mass acceleration of the inertial frame
+           v0= (None) Velocity vector v_0 (cartesian) of the center of mass of the non-intertial frame (see definition in the class documentation); list of functions [v_0x,v_0y,v_0z]; only necessary when considering both rotation and center-of-mass acceleration of the inertial frame
            
            a0= (None) Acceleration vector a_0 (cartesian) of the center of mass of the non-intertial frame (see definition in the class documentation); constant or a list of functions [a_0x,a_0y, a_0z]
 
@@ -103,18 +103,8 @@ class NonInertialFrameForce(DissipativeForce):
                                     self._a0[1](t),
                                     self._a0[2](t)]
         if self._lin_acc and self._rot_acc:
-            if not callable(x0[0]):
-                self._x0= [lambda t, copy=x0[0]: copy,
-                           lambda t, copy=x0[1]: copy,
-                           lambda t, copy=x0[2]: copy]
-            else:
-                self._x0= x0
-            if not callable(v0[0]):
-                self._v0= [lambda t, copy=v0[0]: copy,
-                           lambda t, copy=v0[1]: copy,
-                           lambda t, copy=v0[2]: copy]
-            else: 
-                self._v0= v0
+            self._x0= x0
+            self._v0= v0
             self._x0_py= lambda t: numpy.array(\
                             [self._x0[0](t),
                              self._x0[1](t),
