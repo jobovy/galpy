@@ -126,7 +126,7 @@ double NonInertialFrameForceRforce(double R,double z,double phi,double t,
   //Calculate potential
   double Fx, Fy, Fz;
   if ( R != cached_R || phi != cached_phi || z != cached_z || t != cached_t \
-       || vR != cached_vR || vT != cached_vT || vz != cached_vz )
+       || vR != cached_vR || vT != cached_vT || vz != cached_vz ) // LCOV_EXCL_LINE
     NonInertialFrameForcexyzforces_xyz(R,z,phi,t,vR,vT,vz,
                                        &Fx,&Fy,&Fz,potentialArgs);
   else {
