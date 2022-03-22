@@ -27,7 +27,7 @@ class NonInertialFrameForce(DissipativeForce):
     
     .. math::
     
-        \mathbf{F} = -\mathbf{a}_0 - \\boldsymbol{\Omega} \\times ( \\boldsymbol{\Omega} \\times \left[\mathbf{r} + \mathbf{x}_0\\right]) - \dot{\\boldsymbol{\Omega}} \\times \left[\mathbf{r}+\mathbf{x}_0\\right] -2\\boldsymbol{\Omega}\\times \left[\dot{\mathbf{r}}+\dot{\mathbf{x}}_0\\right]
+        \mathbf{F} = -\mathbf{a}_0 - \\boldsymbol{\Omega} \\times ( \\boldsymbol{\Omega} \\times \left[\mathbf{r} + \mathbf{x}_0\\right]) - \dot{\\boldsymbol{\Omega}} \\times \left[\mathbf{r}+\mathbf{x}_0\\right] -2\\boldsymbol{\Omega}\\times \left[\dot{\mathbf{r}}+\mathbf{v}_0\\right]
         
     where :math:`\mathbf{a}_0`, :math:`\mathbf{v}_0`, and :math:`\mathbf{x}_0` are 
     the acceleration, velocity, and position of the origin of the non-inertial frame, 
