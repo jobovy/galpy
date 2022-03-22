@@ -533,7 +533,7 @@ class Potential(Force):
 
     @potential_physical_input
     @physical_conversion('forcederivative',pop=True)
-    def R2deriv(self,R,Z,phi=0.,t=0.):
+    def R2deriv(self,R,z,phi=0.,t=0.):
         """
         NAME:
 
@@ -547,7 +547,7 @@ class Potential(Force):
 
            R - Galactocentric radius (can be Quantity)
 
-           Z - vertical height (can be Quantity)
+           z - vertical height (can be Quantity)
 
            phi - Galactocentric azimuth (can be Quantity)
 
@@ -563,13 +563,13 @@ class Potential(Force):
 
         """
         try:
-            return self._amp*self._R2deriv(R,Z,phi=phi,t=t)
+            return self._amp*self._R2deriv(R,z,phi=phi,t=t)
         except AttributeError: #pragma: no cover
             raise PotentialError("'_R2deriv' function not implemented for this potential")      
 
     @potential_physical_input
     @physical_conversion('forcederivative',pop=True)
-    def z2deriv(self,R,Z,phi=0.,t=0.):
+    def z2deriv(self,R,z,phi=0.,t=0.):
         """
         NAME:
 
@@ -583,7 +583,7 @@ class Potential(Force):
 
            R - Galactocentric radius (can be Quantity)
 
-           Z - vertical height (can be Quantity)
+           z - vertical height (can be Quantity)
 
            phi - Galactocentric azimuth (can be Quantity)
 
@@ -599,13 +599,13 @@ class Potential(Force):
 
         """
         try:
-            return self._amp*self._z2deriv(R,Z,phi=phi,t=t)
+            return self._amp*self._z2deriv(R,z,phi=phi,t=t)
         except AttributeError: #pragma: no cover
             raise PotentialError("'_z2deriv' function not implemented for this potential")      
 
     @potential_physical_input
     @physical_conversion('forcederivative',pop=True)
-    def Rzderiv(self,R,Z,phi=0.,t=0.):
+    def Rzderiv(self,R,z,phi=0.,t=0.):
         """
         NAME:
 
@@ -635,7 +635,7 @@ class Potential(Force):
 
         """
         try:
-            return self._amp*self._Rzderiv(R,Z,phi=phi,t=t)
+            return self._amp*self._Rzderiv(R,z,phi=phi,t=t)
         except AttributeError: #pragma: no cover
             raise PotentialError("'_Rzderiv' function not implemented for this potential")      
 
@@ -710,7 +710,7 @@ class Potential(Force):
 
     @potential_physical_input
     @physical_conversion('energy',pop=True)
-    def phi2deriv(self,R,Z,phi=0.,t=0.):
+    def phi2deriv(self,R,z,phi=0.,t=0.):
         """
         NAME:
 
@@ -740,7 +740,7 @@ class Potential(Force):
 
         """
         try:
-            return self._amp*self._phi2deriv(R,Z,phi=phi,t=t)
+            return self._amp*self._phi2deriv(R,z,phi=phi,t=t)
         except AttributeError: #pragma: no cover
             if self.isNonAxi:
                 raise PotentialError("'_phi2deriv' function not implemented for this non-axisymmetric potential")
@@ -748,7 +748,7 @@ class Potential(Force):
 
     @potential_physical_input
     @physical_conversion('force',pop=True)
-    def Rphideriv(self,R,Z,phi=0.,t=0.):
+    def Rphideriv(self,R,z,phi=0.,t=0.):
         """
         NAME:
 
@@ -778,7 +778,7 @@ class Potential(Force):
 
         """
         try:
-            return self._amp*self._Rphideriv(R,Z,phi=phi,t=t)
+            return self._amp*self._Rphideriv(R,z,phi=phi,t=t)
         except AttributeError: #pragma: no cover
             if self.isNonAxi:
                 raise PotentialError("'_Rphideriv' function not implemented for this non-axisymmetric potential")
@@ -786,7 +786,7 @@ class Potential(Force):
 
     @potential_physical_input
     @physical_conversion('force',pop=True)
-    def phizderiv(self,R,Z,phi=0.,t=0.):
+    def phizderiv(self,R,z,phi=0.,t=0.):
         """
         NAME:
 
@@ -816,7 +816,7 @@ class Potential(Force):
 
         """
         try:
-            return self._amp*self._phizderiv(R,Z,phi=phi,t=t)
+            return self._amp*self._phizderiv(R,z,phi=phi,t=t)
         except AttributeError: #pragma: no cover
             if self.isNonAxi:
                 raise PotentialError("'_phizderiv' function not implemented for this non-axisymmetric potential")

@@ -246,7 +246,7 @@ class Force(object):
 
     @potential_physical_input
     @physical_conversion('force',pop=True)
-    def rforce(self,*args,**kwargs):
+    def rforce(self,R,z,**kwargs):
         """
         NAME:
 
@@ -277,7 +277,6 @@ class Force(object):
            2016-06-20 - Written - Bovy (UofT)
 
         """
-        R,z= args
         r= numpy.sqrt(R**2.+z**2.)
         kwargs['use_physical']= False
-        return self.Rforce(*args,**kwargs)*R/r+self.zforce(*args,**kwargs)*z/r
+        return self.Rforce(R,z,**kwargs)*R/r+self.zforce(R,z,**kwargs)*z/r
