@@ -9,6 +9,9 @@ v1.8 (XXXX-XX-XX)
 - Allow actions to be computed for Orbit instances with actionAngle
   methods that don't compute frequencies.
 
+- Correctly parse potential method/function R/z/x inputs if they
+  are given as keyword arguments.
+
 v1.7.1 (2021-11-17)
 ===================
 
