@@ -236,7 +236,10 @@ def _parse_pot(pot,potforactions=False,potfortorus=False):
             else:
                 pot_args.extend([0.,0.,0.])
             if p._lin_acc:
-                pot_tfuncs.extend([p._RTacm[0],p._RTacm[1],p._RTacm[2]])
+                pot_tfuncs.extend([p._a0[0],p._a0[1],p._a0[2]])
+                if p._rot_acc:
+                    pot_tfuncs.extend([p._x0[0],p._x0[1],p._x0[2]])
+                    pot_tfuncs.extend([p._v0[0],p._v0[1],p._v0[2]])
         ############################## WRAPPERS ###############################
         elif isinstance(p,potential.DehnenSmoothWrapperPotential):
             pot_type.append(-1)

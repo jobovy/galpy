@@ -33,8 +33,25 @@ class NonInertialFrameForce(DissipativeForce):
     the acceleration, velocity, and position of the origin of the non-inertial frame, 
     respectively, as a function of time. Note that if the non-inertial frame is not 
     rotating, it is not necessary to specify :math:`\mathbf{v}_0` and :math:`\mathbf{x}_0`.
+    In that case, the fictitious force is simply
+    
+    .. math::
+    
+        \mathbf{F} = -\mathbf{a}_0\quad (\\boldsymbol{\Omega} = 0)
+        
+    If the non-inertial frame only rotates without any motion of the origin, the 
+    the fictitious force is the familiar combination of the centrifugal force
+    and the Coriolis force (plus an additional term if :math:`\dot{\\boldsymbol{\Omega}}`
+    is not constant)
+    
+    .. math::
+    
+        \mathbf{F} = - \\boldsymbol{\Omega} \\times ( \\boldsymbol{\Omega} \\times \mathbf{r}) - \dot{\\boldsymbol{\Omega}} \\times \mathbf{r} -2\\boldsymbol{\Omega}\\times \dot{\mathbf{r}}\quad (\mathbf{a}_0=\mathbf{v}_0=\mathbf{x}_0=0)
+        
+    wher
     """
-    def __init__(self,amp=1.,Omega=None,Omegadot=None,RTacm=None,
+    def __init__(self,amp=1.,Omega=None,Omegadot=None,
+                 x0=None,v0=None,a0=None,
                  ro=None,vo=None):
         """
         NAME:
@@ -53,7 +70,11 @@ class NonInertialFrameForce(DissipativeForce):
            
            Omegadot= (None) Time derivative of the angular frequency of the non-intertial frame's rotation. Vector or scalar should match Omega input
            
-           RTacm= (None) Acceleration vector a_cm (cartesian) of the center of mass of the non-intertial frame, transformed to the rotating frame as R^T a_cm where R^T is the inverse rotation matrix; constant or a list of functions [R^T a_cmx,R^T a_cmy,R^T a_cmz]
+           x0= (None) Position vector x_0 (cartesian) of the center of mass of the non-intertial frame (see definition in the class documentation); constant or a list of functions [x_0x,x_0y,x_0z]; only necessary when considering both rotation and center-of-mass acceleration of the inertial frame
+           
+           v0= (None) Velocity vector v_0 (cartesian) of the center of mass of the non-intertial frame (see definition in the class documentation); constant or a list of functions [v_0x,v_0y,v_0z]; only necessary when considering both rotation and center-of-mass acceleration of the inertial frame
+           
+           a0= (None) Acceleration vector a_0 (cartesian) of the center of mass of the non-intertial frame (see definition in the class documentation); constant or a list of functions [a_0x,a_0y, a_0z]
 
         OUTPUT:
 
@@ -70,17 +91,38 @@ class NonInertialFrameForce(DissipativeForce):
         self._omegaz_only= len(numpy.atleast_1d(self._Omega)) == 1
         self._const_freq= Omegadot is None
         self._Omegadot= conversion.parse_frequency(Omegadot,ro=self._ro,vo=self._vo)
-        self._lin_acc= not (RTacm is None)
+        self._lin_acc= not (a0 is None)
         if self._lin_acc:
-         if not callable(RTacm[0]):
-               self._RTacm= [lambda t, copy=RTacm[0]: copy,
-                           lambda t, copy=RTacm[1]: copy,
-                           lambda t, copy=RTacm[2]: copy,]
-         else: 
-               self._RTacm= RTacm
-         self._RTacm_py= lambda t: [self._RTacm[0](t),
-                                    self._RTacm[1](t),
-                                    self._RTacm[2](t)]
+            if not callable(a0[0]):
+                self._a0= [lambda t, copy=a0[0]: copy,
+                           lambda t, copy=a0[1]: copy,
+                           lambda t, copy=a0[2]: copy]
+            else: 
+                self._a0= a0        
+            self._a0_py= lambda t: [self._a0[0](t),
+                                    self._a0[1](t),
+                                    self._a0[2](t)]
+        if self._lin_acc and self._rot_acc:
+            if not callable(x0[0]):
+                self._x0= [lambda t, copy=x0[0]: copy,
+                           lambda t, copy=x0[1]: copy,
+                           lambda t, copy=x0[2]: copy]
+            else:
+                self._x0= x0
+            if not callable(v0[0]):
+                self._v0= [lambda t, copy=v0[0]: copy,
+                           lambda t, copy=v0[1]: copy,
+                           lambda t, copy=v0[2]: copy]
+            else: 
+                self._v0= v0
+            self._x0_py= lambda t: numpy.array(\
+                            [self._x0[0](t),
+                             self._x0[1](t),
+                             self._x0[2](t)])
+            self._v0_py= lambda t: numpy.array(\
+                            [self._v0[0](t),
+                             self._v0[1](t),
+                             self._v0[2](t)])
         # Useful derived quantities
         self._Omega2= numpy.linalg.norm(self._Omega)**2. if self._rot_acc else 0.
         if not self._omegaz_only:
@@ -115,17 +157,30 @@ class NonInertialFrameForce(DissipativeForce):
             if self._omegaz_only:
                 force+= -2.*tOmega*numpy.array([-vy,vx,0.])\
                     +tOmega2*numpy.array([x,y,0.])
+                if self._lin_acc:
+                    force+= -2.*tOmega*numpy.array([-self._v0[1](t),self._v0[0](t),0.])\
+                        +tOmega2*numpy.array([self._x0[0](t),self._x0[1](t),0.])
                 if not self._const_freq:
                     force-= self._Omegadot*numpy.array([-y,x,0.])
+                    if self._lin_acc:
+                        force-= self._Omegadot\
+                            *numpy.array([-self._x0[1](t),self._x0[0](t),0.])
             else:
                 force+= -2.*numpy.dot(self._Omega_for_cross,numpy.array([vx,vy,vz]))\
                     +tOmega2*numpy.array([x,y,z])\
                     -tOmega*numpy.dot(tOmega,numpy.array([x,y,z]))
+                if self._lin_acc:
+                    force+= -2.*numpy.dot(self._Omega_for_cross,self._v0_py(t))\
+                    +tOmega2*self._x0_py(t)\
+                    -tOmega*numpy.dot(tOmega,self._x0_py(t))
                 if not self._const_freq:
                     force-= 2.*t*numpy.dot(self._Omegadot_for_cross,numpy.array([vx,vy,vz]))\
-                        +numpy.dot(self._Omegadot_for_cross,numpy.array([x,y,z]))           
+                        +numpy.dot(self._Omegadot_for_cross,numpy.array([x,y,z]))
+                    if self._lin_acc:
+                        force-= 2.*t*numpy.dot(self._Omegadot_for_cross,self._v0_py(t))\
+                        +numpy.dot(self._Omegadot_for_cross,self._x0_py(t))
         if self._lin_acc:
-            force-= self._RTacm_py(t)
+            force-= self._a0_py(t)
         self._force_hash= new_hash
         self._cached_force= force
         return force       

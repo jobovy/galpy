@@ -514,7 +514,7 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->zforceVelocity= &NonInertialFrameForcezforce;
       potentialArgs->phiforceVelocity= &NonInertialFrameForcephiforce;
       potentialArgs->nargs= 22;
-      potentialArgs->ntfuncs= 3;
+      potentialArgs->ntfuncs= (int) ( 3 * *(*pot_args + 12) * ( 1 + 2 * *(*pot_args + 11) ) );
       potentialArgs->requiresVelocity= true;
       break;
 //////////////////////////////// WRAPPERS /////////////////////////////////////

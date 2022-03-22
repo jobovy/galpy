@@ -11,6 +11,7 @@ void NonInertialFrameForcexyzforces_xyz(double R,double z,double phi,double t,
   bool rot_acc, lin_acc, omegaz_only, const_freq;
   double Omegax, Omegay, Omegaz;
   double Omega2, Omegatimesvecx;
+  double x0x, x0y, x0z, v0x, v0y, v0z;
   cyl_to_rect(R,phi,&x,&y);
   cyl_to_rect_vec(vR,vT,phi,&vx,&vy);
   //Setup caching
@@ -27,6 +28,7 @@ void NonInertialFrameForcexyzforces_xyz(double R,double z,double phi,double t,
   *Fz= 0.;
   // Rotational acceleration part
   rot_acc= (bool) *(args + 11);
+  lin_acc= (bool) *(args + 12);
   if ( rot_acc ) {
     omegaz_only= (bool) *(args + 13);
     const_freq= (bool) *(args + 14);
@@ -43,6 +45,18 @@ void NonInertialFrameForcexyzforces_xyz(double R,double z,double phi,double t,
       if ( !const_freq ) {
         *Fx+= *(args + 21) * y;
         *Fy-= *(args + 21) * x;
+      }
+      if ( lin_acc ) {
+        x0x= (*(*(potentialArgs->tfuncs+3)))(t);
+        x0y= (*(*(potentialArgs->tfuncs+4)))(t);
+        v0x= (*(*(potentialArgs->tfuncs+6)))(t);
+        v0y= (*(*(potentialArgs->tfuncs+7)))(t);
+        *Fx+=  2. * Omegaz * v0y + Omega2 * x0x;
+        *Fy+= -2. * Omegaz * v0x + Omega2 * x0y;
+        if ( !const_freq ) {
+         *Fx+= *(args + 21) * x0y;
+          *Fy-= *(args + 21) * x0x;
+        }
       }
     } else {
       Omegax= *(args + 15);
@@ -65,10 +79,27 @@ void NonInertialFrameForcexyzforces_xyz(double R,double z,double phi,double t,
         *Fy-=  *(args + 21) * x - *(args + 19) * z;
         *Fz-= -*(args + 20) * x + *(args + 19) * y;
       }
+      if ( lin_acc ) {
+        x0x= (*(*(potentialArgs->tfuncs+3)))(t);
+        x0y= (*(*(potentialArgs->tfuncs+4)))(t);
+        x0z= (*(*(potentialArgs->tfuncs+5)))(t);
+        v0x= (*(*(potentialArgs->tfuncs+6)))(t);
+        v0y= (*(*(potentialArgs->tfuncs+7)))(t);
+        v0z= (*(*(potentialArgs->tfuncs+8)))(t);
+        // Re-use variable
+        Omegatimesvecx= Omegax * x0x + Omegay * x0y + Omegaz * x0z;
+        *Fx+=  2. * ( Omegaz * v0y - Omegay * v0z ) + Omega2 * x0x - Omegax * Omegatimesvecx;
+        *Fy+= -2. * ( Omegaz * v0x - Omegax * v0z ) + Omega2 * x0y - Omegay * Omegatimesvecx;
+        *Fz+=  2. * ( Omegay * v0x - Omegax * v0y ) + Omega2 * x0z - Omegaz * Omegatimesvecx;
+        if ( !const_freq ) {
+          *Fx-= -*(args + 21) * x0y + *(args + 20) * x0z;
+          *Fy-=  *(args + 21) * x0x - *(args + 19) * x0z;
+          *Fz-= -*(args + 20) * x0x + *(args + 19) * x0y;
+        }
+      }
     }
   }
   // Linear acceleration part
-  lin_acc= (bool) *(args + 12);
   if ( lin_acc ) {
     *Fx-= (*(*(potentialArgs->tfuncs  )))(t);
     *Fy-= (*(*(potentialArgs->tfuncs+1)))(t);

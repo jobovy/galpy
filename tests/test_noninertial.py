@@ -386,11 +386,11 @@ def test_linacc_constantacc_z():
     diskpot= lp+dp
     az= 0.02
     intaz= lambda t: 0.02*t**2./2.
-    framepot= potential.NonInertialFrameForce(RTacm=[0.,0.,az])
+    framepot= potential.NonInertialFrameForce(a0=[0.,0.,az])
     diskframepot= AcceleratingPotentialWrapperPotential(pot=diskpot,
-                                                        a=[lambda t: 0.,
-                                                           lambda t: 0.,
-                                                           intaz])\
+                                                        x0=[lambda t: 0.,
+                                                            lambda t: 0.,
+                                                            intaz])\
                     +framepot
     def check_orbit(method='odeint',tol=1e-9):
         o= Orbit()
@@ -424,8 +424,8 @@ def test_linacc_constantacc_xyz():
     diskpot= lp+dp
     ax,ay,az= -0.03,0.04,0.02
     inta= [lambda t: -0.03*t**2./2.,lambda t: 0.04*t**2./2.,lambda t: 0.02*t**2./2.]
-    framepot= potential.NonInertialFrameForce(RTacm=[ax,ay,az])
-    diskframepot= AcceleratingPotentialWrapperPotential(pot=diskpot,a=inta)\
+    framepot= potential.NonInertialFrameForce(a0=[ax,ay,az])
+    diskframepot= AcceleratingPotentialWrapperPotential(pot=diskpot,x0=inta)\
                     +framepot
     def check_orbit(method='odeint',tol=1e-9):
         o= Orbit()
@@ -459,11 +459,11 @@ def test_linacc_changingacc_z():
     diskpot= lp+dp
     az= lambda t: 0.02+0.03*t/20.
     intaz= lambda t: 0.02*t**2./2.+0.03*t**3./6./20.
-    framepot= potential.NonInertialFrameForce(RTacm=[lambda t: 0.,lambda t: 0.,az])
+    framepot= potential.NonInertialFrameForce(a0=[lambda t: 0.,lambda t: 0.,az])
     diskframepot= AcceleratingPotentialWrapperPotential(pot=diskpot,
-                                                        a=[lambda t: 0.,
-                                                           lambda t: 0.,
-                                                           intaz])\
+                                                        x0=[lambda t: 0.,
+                                                            lambda t: 0.,
+                                                            intaz])\
                     +framepot
     def check_orbit(method='odeint',tol=1e-9):
         o= Orbit()
@@ -501,9 +501,9 @@ def test_linacc_changingacc_xyz():
     inta= [lambda t: -0.03*t**2./2.-0.03*t**3./6./20.,
            lambda t: 0.04*t**2./2.+0.08*t**3./6./20.,
            lambda t: 0.02*t**2./2.+0.03*t**3./6./20.]
-    framepot= potential.NonInertialFrameForce(RTacm=[ax,ay,az])
+    framepot= potential.NonInertialFrameForce(a0=[ax,ay,az])
     diskframepot= AcceleratingPotentialWrapperPotential(pot=diskpot,
-                                                        a=inta)\
+                                                        x0=inta)\
                     +framepot
     def check_orbit(method='odeint',tol=1e-9):
         o= Orbit()
@@ -524,6 +524,136 @@ def test_linacc_changingacc_xyz():
         assert numpy.amax(numpy.fabs(o_xs-op_xs)) < tol, 'Integrating an orbit in a linearly-accelerating frame with constant acceleration does not agree with the equivalent orbit in the intertial frame for method {}'.format(method)
         assert numpy.amax(numpy.fabs(o_ys-op_ys)) < tol, 'Integrating an orbit in a linearly-accelerating frame with constant acceleration does not agree with the equivalent orbit in the intertial frame for method {}'.format(method)
         assert numpy.amax(numpy.fabs(o_zs-op_zs)) < tol, 'Integrating an orbit in a linearly-accelerating frame with constant acceleration does not agree with the equivalent orbit in the intertial frame for method {}'.format(method)
+    check_orbit(method='odeint',tol=1e-5)
+    check_orbit(method='dop853',tol=1e-9)
+    check_orbit(method='dop853_c',tol=1e-5) # Lower tol, because diff integrators for inertial and non-inertial, bc wrapper not implemented in C
+    return None
+
+def test_linacc_changingacc_xyz_accellsrframe_scalaromegaz():
+    # Test that a linearly-accelerating frame along the z direction works
+    # with a changing acceleration, also combining it with changing 
+    # rotation around the z axis
+    lp= potential.MiyamotoNagaiPotential(normalize=1.,a=1.,b=0.2)
+    dp= potential.DehnenBarPotential(omegab=1.8,rb=0.5,Af=0.03)
+    diskpot= lp+dp
+    x0= [lambda t: -0.03*t**2./2.-0.03*t**3./6./20.,
+         lambda t: 0.04*t**2./2.+0.08*t**3./6./20.,
+         lambda t: 0.02*t**2./2.+0.03*t**3./6./20.]
+    v0= [lambda t: -0.03*t-0.03*t**2./2./20.,
+         lambda t: 0.04*t+0.08*t**2./2./20.,
+         lambda t: 0.02*t+0.03*t**2./2./20.]
+    a0= [lambda t: -0.03-0.03*t/20., \
+         lambda t: 0.04+0.08*t/20., \
+         lambda t: 0.02+0.03*t/20.]
+    omega= lp.omegac(1.)
+    omegadot= 0.02
+    framepot= potential.NonInertialFrameForce(x0=x0,v0=v0,a0=a0,
+                                              Omega=omega,
+                                              Omegadot=omegadot)
+    diskframepot= AcceleratingPotentialWrapperPotential(pot=diskpot,
+                                                        x0=x0,
+                                                        omegaz=omega,omegazdot=omegadot)\
+                    +framepot
+    def check_orbit(method='odeint',tol=1e-9):
+        o= Orbit()
+        o.turn_physical_off()
+        # Inertial frame
+        ts= numpy.linspace(0.,20.,1001)
+        o.integrate(ts,diskpot,method=method)
+        # Non-inertial frame
+        op= Orbit([o.R(),o.vR(),o.vT()-omega*o.R(),o.z(),o.vz(),o.phi()])
+        op.integrate(ts,diskframepot,method=method)
+        # Compare
+        o_xs= o.x(ts)
+        o_ys= o.y(ts)
+        o_zs= o.z(ts)
+        o_vxs= o.vx(ts)
+        o_vys= o.vy(ts)
+        o_vzs= o.vz(ts)
+        op_xs= op.x(ts)+x0[0](ts)
+        op_ys= op.y(ts)+x0[1](ts)
+        op_zs= op.z(ts)+x0[2](ts)
+        Rp,phip,_= coords.rect_to_cyl(op_xs,op_ys,op_zs)
+        phip+= omega*ts+omegadot*ts**2./2.
+        op_xs, op_ys,_= coords.cyl_to_rect(Rp,phip,op_zs)
+        op_vxs= op.vx(ts)+v0[0](ts)
+        op_vys= op.vy(ts)+v0[1](ts)
+        op_vzs= op.vz(ts)+v0[2](ts)
+        vRp,vTp,_= coords.rect_to_cyl_vec(op_vxs,op_vys,op_vzs,
+                                          op.x(ts)+x0[0](ts),op.y(ts)+x0[1](ts),op.z(ts)+x0[2](ts))
+        vTp+= omega*Rp+omegadot*ts*Rp
+        op_vxs, op_vys,_= coords.cyl_to_rect_vec(vRp,vTp,op_vzs,phi=phip)
+        assert numpy.amax(numpy.fabs(o_xs-op_xs)) < tol, 'Integrating an orbit in a linearly-accelerating, acceleratingly-rotating frame with constant acceleration does not agree with the equivalent orbit in the intertial frame for method {}'.format(method)
+        assert numpy.amax(numpy.fabs(o_ys-op_ys)) < tol, 'Integrating an orbit in a linearly-accelerating, acceleratingly-rotating frame with constant acceleration does not agree with the equivalent orbit in the intertial frame for method {}'.format(method)
+        assert numpy.amax(numpy.fabs(o_zs-op_zs)) < tol, 'Integrating an orbit in a linearly-accelerating, acceleratingly-rotating frame with constant acceleration does not agree with the equivalent orbit in the intertial frame for method {}'.format(method)
+        assert numpy.amax(numpy.fabs(o_vxs-op_vxs)) < tol, 'Integrating an orbit in a linearly-accelerating, acceleratingly-rotating frame with constant acceleration does not agree with the equivalent orbit in the intertial frame for method {}'.format(method)
+        assert numpy.amax(numpy.fabs(o_vys-op_vys)) < tol, 'Integrating an orbit in a linearly-accelerating, acceleratingly-rotating frame with constant acceleration does not agree with the equivalent orbit in the intertial frame for method {}'.format(method)
+        assert numpy.amax(numpy.fabs(o_vzs-op_vzs)) < tol, 'Integrating an orbit in a linearly-accelerating, acceleratingly-rotating frame with constant acceleration does not agree with the equivalent orbit in the intertial frame for method {}'.format(method)
+    check_orbit(method='odeint',tol=1e-5)
+    check_orbit(method='dop853',tol=1e-9)
+    check_orbit(method='dop853_c',tol=1e-5) # Lower tol, because diff integrators for inertial and non-inertial, bc wrapper not implemented in C
+    return None
+
+def test_linacc_changingacc_xyz_accellsrframe_vecomegaz():
+    # Test that a linearly-accelerating frame along the z direction works
+    # with a changing acceleration, also combining it with changing 
+    # rotation around the z axis
+    lp= potential.MiyamotoNagaiPotential(normalize=1.,a=1.,b=0.2)
+    dp= potential.DehnenBarPotential(omegab=1.8,rb=0.5,Af=0.03)
+    diskpot= lp+dp
+    x0= [lambda t: -0.03*t**2./2.-0.03*t**3./6./20.,
+         lambda t: 0.04*t**2./2.+0.08*t**3./6./20.,
+         lambda t: 0.02*t**2./2.+0.03*t**3./6./20.]
+    v0= [lambda t: -0.03*t-0.03*t**2./2./20.,
+         lambda t: 0.04*t+0.08*t**2./2./20.,
+         lambda t: 0.02*t+0.03*t**2./2./20.]
+    a0= [lambda t: -0.03-0.03*t/20., \
+         lambda t: 0.04+0.08*t/20., \
+         lambda t: 0.02+0.03*t/20.]
+    omega= lp.omegac(1.)
+    omegadot= 0.02
+    framepot= potential.NonInertialFrameForce(x0=x0,v0=v0,a0=a0,
+                                              Omega=numpy.array([0.,0.,omega]),
+                                              Omegadot=numpy.array([0.,0.,omegadot]))
+    diskframepot= AcceleratingPotentialWrapperPotential(pot=diskpot,
+                                                        x0=x0,
+                                                        omegaz=omega,omegazdot=omegadot)\
+                    +framepot
+    def check_orbit(method='odeint',tol=1e-9):
+        o= Orbit()
+        o.turn_physical_off()
+        # Inertial frame
+        ts= numpy.linspace(0.,20.,1001)
+        o.integrate(ts,diskpot,method=method)
+        # Non-inertial frame
+        op= Orbit([o.R(),o.vR(),o.vT()-omega*o.R(),o.z(),o.vz(),o.phi()])
+        op.integrate(ts,diskframepot,method=method)
+        # Compare
+        o_xs= o.x(ts)
+        o_ys= o.y(ts)
+        o_zs= o.z(ts)
+        o_vxs= o.vx(ts)
+        o_vys= o.vy(ts)
+        o_vzs= o.vz(ts)
+        op_xs= op.x(ts)+x0[0](ts)
+        op_ys= op.y(ts)+x0[1](ts)
+        op_zs= op.z(ts)+x0[2](ts)
+        Rp,phip,_= coords.rect_to_cyl(op_xs,op_ys,op_zs)
+        phip+= omega*ts+omegadot*ts**2./2.
+        op_xs, op_ys,_= coords.cyl_to_rect(Rp,phip,op_zs)
+        op_vxs= op.vx(ts)+v0[0](ts)
+        op_vys= op.vy(ts)+v0[1](ts)
+        op_vzs= op.vz(ts)+v0[2](ts)
+        vRp,vTp,_= coords.rect_to_cyl_vec(op_vxs,op_vys,op_vzs,
+                                          op.x(ts)+x0[0](ts),op.y(ts)+x0[1](ts),op.z(ts)+x0[2](ts))
+        vTp+= omega*Rp+omegadot*ts*Rp
+        op_vxs, op_vys,_= coords.cyl_to_rect_vec(vRp,vTp,op_vzs,phi=phip)
+        assert numpy.amax(numpy.fabs(o_xs-op_xs)) < tol, 'Integrating an orbit in a linearly-accelerating, acceleratingly-rotating frame with constant acceleration does not agree with the equivalent orbit in the intertial frame for method {}'.format(method)
+        assert numpy.amax(numpy.fabs(o_ys-op_ys)) < tol, 'Integrating an orbit in a linearly-accelerating, acceleratingly-rotating frame with constant acceleration does not agree with the equivalent orbit in the intertial frame for method {}'.format(method)
+        assert numpy.amax(numpy.fabs(o_zs-op_zs)) < tol, 'Integrating an orbit in a linearly-accelerating, acceleratingly-rotating frame with constant acceleration does not agree with the equivalent orbit in the intertial frame for method {}'.format(method)
+        assert numpy.amax(numpy.fabs(o_vxs-op_vxs)) < tol, 'Integrating an orbit in a linearly-accelerating, acceleratingly-rotating frame with constant acceleration does not agree with the equivalent orbit in the intertial frame for method {}'.format(method)
+        assert numpy.amax(numpy.fabs(o_vys-op_vys)) < tol, 'Integrating an orbit in a linearly-accelerating, acceleratingly-rotating frame with constant acceleration does not agree with the equivalent orbit in the intertial frame for method {}'.format(method)
+        assert numpy.amax(numpy.fabs(o_vzs-op_vzs)) < tol, 'Integrating an orbit in a linearly-accelerating, acceleratingly-rotating frame with constant acceleration does not agree with the equivalent orbit in the intertial frame for method {}'.format(method)
     check_orbit(method='odeint',tol=1e-5)
     check_orbit(method='dop853',tol=1e-9)
     check_orbit(method='dop853_c',tol=1e-5) # Lower tol, because diff integrators for inertial and non-inertial, bc wrapper not implemented in C
@@ -612,7 +742,7 @@ def test_python_vs_c_linacc_changingacc_xyz():
     inta= [lambda t: -0.03*t**2./2.-0.03*t**3./6./20.,
            lambda t: 0.04*t**2./2.+0.08*t**3./6./20.,
            lambda t: 0.02*t**2./2.+0.03*t**3./6./20.]
-    framepot= potential.NonInertialFrameForce(RTacm=[ax,ay,az])
+    framepot= potential.NonInertialFrameForce(a0=[ax,ay,az])
     def check_orbit(py_method='dop853',c_method='dop853_c',tol=1e-9):
         o= Orbit()
         o.turn_physical_off()
@@ -633,18 +763,98 @@ def test_python_vs_c_linacc_changingacc_xyz():
     check_orbit(tol=1e-10)
     return None
 
+def test_python_vs_c_linacc_changingacc_xyz_accellsrframe_scalaromegaz():
+    # Integrate an orbit in both Python and C to check that they match
+    # We don't need to known the true answer here
+    lp= potential.MiyamotoNagaiPotential(normalize=1.,a=1.,b=0.2)
+    dp= potential.DehnenBarPotential(omegab=1.8,rb=0.5,Af=0.03)
+    diskpot= lp+dp
+    x0= [lambda t: -0.03*t**2./2.-0.03*t**3./6./20.,
+         lambda t: 0.04*t**2./2.+0.08*t**3./6./20.,
+         lambda t: 0.02*t**2./2.+0.03*t**3./6./20.]
+    v0= [lambda t: -0.03*t-0.03*t**2./2./20.,
+         lambda t: 0.04*t+0.08*t**2./2./20.,
+         lambda t: 0.02*t+0.03*t**2./2./20.]
+    a0= [lambda t: -0.03-0.03*t/20., \
+         lambda t: 0.04+0.08*t/20., \
+         lambda t: 0.02+0.03*t/20.]
+    omega= lp.omegac(1.)
+    omegadot= 0.02
+    framepot= potential.NonInertialFrameForce(x0=x0,v0=v0,a0=a0,
+                                              Omega=omega,Omegadot=omegadot)
+    def check_orbit(py_method='dop853',c_method='dop853_c',tol=1e-9):
+        # Now integrate an orbit in the rotating frame in Python
+        o= Orbit()
+        o.turn_physical_off()
+        # Rotating frame in Python
+        ts= numpy.linspace(0.,20.,1001)
+        o.integrate(ts,diskpot+framepot,method=py_method)
+        # In C
+        op= o()
+        op.integrate(ts,diskpot+framepot,method=c_method)
+        assert numpy.amax(numpy.fabs(o.x(ts)-op.x(ts))) <tol, 'Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {} and {}'.format(py_method,c_method)
+        assert numpy.amax(numpy.fabs(o.y(ts)-op.y(ts))) <tol, 'Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {} and {}'.format(py_method,c_method)
+        assert numpy.amax(numpy.fabs(o.z(ts)-op.z(ts))) <tol, 'Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {} and {}'.format(py_method,c_method)
+        assert numpy.amax(numpy.fabs(o.vx(ts)-op.vx(ts))) <tol, 'Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {} and {}'.format(py_method,c_method)
+        assert numpy.amax(numpy.fabs(o.vy(ts)-op.vy(ts))) <tol, 'Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {} and {}'.format(py_method,c_method)
+        assert numpy.amax(numpy.fabs(o.vz(ts)-op.vz(ts))) <tol, 'Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {} and {}'.format(py_method,c_method)
+        return None
+    check_orbit()
+    return None
+
+def test_python_vs_c_linacc_changingacc_xyz_accellsrframe_vecomegaz():
+    # Integrate an orbit in both Python and C to check that they match
+    # We don't need to known the true answer here
+    lp= potential.MiyamotoNagaiPotential(normalize=1.,a=1.,b=0.2)
+    dp= potential.DehnenBarPotential(omegab=1.8,rb=0.5,Af=0.03)
+    diskpot= lp+dp
+    x0= [lambda t: -0.03*t**2./2.-0.03*t**3./6./20.,
+         lambda t: 0.04*t**2./2.+0.08*t**3./6./20.,
+         lambda t: 0.02*t**2./2.+0.03*t**3./6./20.]
+    v0= [lambda t: -0.03*t-0.03*t**2./2./20.,
+         lambda t: 0.04*t+0.08*t**2./2./20.,
+         lambda t: 0.02*t+0.03*t**2./2./20.]
+    a0= [lambda t: -0.03-0.03*t/20., \
+         lambda t: 0.04+0.08*t/20., \
+         lambda t: 0.02+0.03*t/20.]
+    omega= lp.omegac(1.)
+    omegadot= 0.02
+    framepot= potential.NonInertialFrameForce(x0=x0,v0=v0,a0=a0,
+                                              Omega=numpy.array([0.,0.,omega]),
+                                              Omegadot=numpy.array([0.,0.,omegadot]))
+    def check_orbit(py_method='dop853',c_method='dop853_c',tol=1e-9):
+        # Now integrate an orbit in the rotating frame in Python
+        o= Orbit()
+        o.turn_physical_off()
+        # Rotating frame in Python
+        ts= numpy.linspace(0.,20.,1001)
+        o.integrate(ts,diskpot+framepot,method=py_method)
+        # In C
+        op= o()
+        op.integrate(ts,diskpot+framepot,method=c_method)
+        assert numpy.amax(numpy.fabs(o.x(ts)-op.x(ts))) <tol, 'Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {} and {}'.format(py_method,c_method)
+        assert numpy.amax(numpy.fabs(o.y(ts)-op.y(ts))) <tol, 'Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {} and {}'.format(py_method,c_method)
+        assert numpy.amax(numpy.fabs(o.z(ts)-op.z(ts))) <tol, 'Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {} and {}'.format(py_method,c_method)
+        assert numpy.amax(numpy.fabs(o.vx(ts)-op.vx(ts))) <tol, 'Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {} and {}'.format(py_method,c_method)
+        assert numpy.amax(numpy.fabs(o.vy(ts)-op.vy(ts))) <tol, 'Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {} and {}'.format(py_method,c_method)
+        assert numpy.amax(numpy.fabs(o.vz(ts)-op.vz(ts))) <tol, 'Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {} and {}'.format(py_method,c_method)
+        return None
+    check_orbit()
+    return None
+
 # Utility wrappers and other functions
 from galpy.potential.WrapperPotential import parentWrapperPotential
 from galpy.potential.Potential import _evaluateRforces, _evaluatephiforces, _evaluatezforces
 class AcceleratingPotentialWrapperPotential(parentWrapperPotential):
     def __init__(self,amp=1.,pot=None,
-                 a=[lambda t: 0., lambda t: 0., lambda t: 0.],
+                 x0=[lambda t: 0., lambda t: 0., lambda t: 0.],
+                 omegaz=None,omegazdot=None,
                  ro=None,vo=None):
-        # a = accelerated x
-        # that is
-        # x -> x + a(t)
-        # so a isn't really a...
-        self._a= a
+        # x0 = accelerated origin
+        self._x0= x0
+        # we also allow for rotation around the z axis
+        self._omegaz= omegaz
+        self._omegazdot= omegazdot
         
     def _Rforce(self,R,z,phi=0.,t=0.):
          Fxyz= self._force_xyz(R,z,phi=phi,t=t)
@@ -660,16 +870,29 @@ class AcceleratingPotentialWrapperPotential(parentWrapperPotential):
     def _force_xyz(self,R,z,phi=0.,t=0.):
         """Get the rectangular forces in the transformed frame"""
         x,y,_= coords.cyl_to_rect(R,phi,z)
-        xp= x+self._a[0](t)
-        yp= y+self._a[1](t)
-        zp= z+self._a[2](t)
+        xp= x+self._x0[0](t)
+        yp= y+self._x0[1](t)
+        zp= z+self._x0[2](t)
         Rp,phip,zp= coords.rect_to_cyl(xp,yp,zp)
+        if not self._omegaz is None:
+            phip+= self._omegaz*t
+            if not self._omegazdot is None:
+                phip+= self._omegazdot*t**2./2.
         Rforcep= _evaluateRforces(self._pot,Rp,zp,phi=phip,t=t)
         phiforcep= _evaluatephiforces(self._pot,Rp,zp,phi=phip,t=t)
         zforcep= _evaluatezforces(self._pot,Rp,zp,phi=phip,t=t)
         xforcep= numpy.cos(phip)*Rforcep-numpy.sin(phip)*phiforcep/Rp
         yforcep= numpy.sin(phip)*Rforcep+numpy.cos(phip)*phiforcep/Rp
-        return numpy.array([xforcep,yforcep,zforcep])
+        if not self._omegaz is None:
+            rotphi= self._omegaz*t
+            if not self._omegazdot is None:
+                rotphi+= self._omegazdot*t**2./2.
+            return numpy.dot(numpy.array([[ numpy.cos(rotphi),numpy.sin(rotphi),0.],
+                                          [-numpy.sin(rotphi),numpy.cos(rotphi),0.],
+                                          [0.,0.,1.]]),
+                         numpy.array([xforcep,yforcep,zforcep]))
+        else:
+            return numpy.array([xforcep,yforcep,zforcep])
 
 # Functions and wrappers for rotation around an arbitrary axis
 # Rotation happens around an axis that is rotated by rot
