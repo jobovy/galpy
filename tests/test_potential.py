@@ -173,6 +173,7 @@ def test_forceAsDeriv_potential():
     pots.append('mockRotatedAndTiltedMWP14WrapperPotentialwInclination')
     pots.append('mockRotatedAndTiltedTriaxialLogHaloPotentialwInclination')
     pots.append('mockRotatedTiltedOffsetMWP14WrapperPotential')
+    pots.append('mockOffsetMWP14WrapperPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -350,6 +351,7 @@ def test_2ndDeriv_potential():
     pots.append('mockRotatedAndTiltedMWP14WrapperPotentialwInclination')
     pots.append('mockRotatedAndTiltedTriaxialLogHaloPotentialwInclination')
     pots.append('mockRotatedTiltedOffsetMWP14WrapperPotential')
+    pots.append('mockOffsetMWP14WrapperPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -601,6 +603,7 @@ def test_poisson_potential():
     pots.append('mockRotatedAndTiltedMWP14WrapperPotentialwInclination')
     pots.append('mockRotatedAndTiltedTriaxialLogHaloPotentialwInclination')
     pots.append('mockRotatedTiltedOffsetMWP14WrapperPotential')
+    pots.append('mockOffsetMWP14WrapperPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -714,6 +717,7 @@ def test_poisson_surfdens_potential():
     pots.append('mockRotatedAndTiltedMWP14WrapperPotentialwInclination')
     pots.append('mockRotatedAndTiltedTriaxialLogHaloPotentialwInclination')
     pots.append('mockRotatedTiltedOffsetMWP14WrapperPotential')
+    pots.append('mockOffsetMWP14WrapperPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -848,6 +852,7 @@ def test_evaluateAndDerivs_potential():
     pots.append('mockRotatedAndTiltedMWP14WrapperPotentialwInclination')
     pots.append('mockRotatedAndTiltedTriaxialLogHaloPotentialwInclination')
     pots.append('mockRotatedTiltedOffsetMWP14WrapperPotential')
+    pots.append('mockOffsetMWP14WrapperPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -1064,6 +1069,7 @@ def test_amp_mult_divide():
     pots.append('mockRotatedAndTiltedMWP14WrapperPotentialwInclination')
     pots.append('mockRotatedAndTiltedTriaxialLogHaloPotentialwInclination')
     pots.append('mockRotatedTiltedOffsetMWP14WrapperPotential')
+    pots.append('mockOffsetMWP14WrapperPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -1341,6 +1347,7 @@ def test_potential_at_zero():
     pots.append('mockRotatedAndTiltedMWP14WrapperPotentialwInclination')
     pots.append('mockRotatedAndTiltedTriaxialLogHaloPotentialwInclination')
     pots.append('mockRotatedTiltedOffsetMWP14WrapperPotential')
+    pots.append('mockOffsetMWP14WrapperPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -1390,6 +1397,7 @@ def test_potential_at_zero():
            or p == 'mockRotatedAndTiltedMWP14WrapperPotentialwInclination' \
            or p == 'mockRotatedAndTiltedTriaxialLogHaloPotentialwInclination' \
            or p == 'mockRotatedTiltedOffsetMWP14WrapperPotential' \
+           or p == 'mockOffsetMWP14WrapperPotential' \
            or 'riaxial' in p \
            or 'oblate' in p \
            or 'prolate' in p:
@@ -1457,6 +1465,7 @@ def test_potential_at_infinity():
     pots.append('mockRotatedAndTiltedMWP14WrapperPotentialwInclination')
     pots.append('mockRotatedAndTiltedTriaxialLogHaloPotentialwInclination')
     pots.append('mockRotatedTiltedOffsetMWP14WrapperPotential')
+    pots.append('mockOffsetMWP14WrapperPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -1503,6 +1512,7 @@ def test_potential_at_infinity():
            or p == 'mockRotatedAndTiltedMWP14WrapperPotentialwInclination' \
            or p == 'mockRotatedAndTiltedTriaxialLogHaloPotentialwInclination' \
            or p == 'mockRotatedTiltedOffsetMWP14WrapperPotential' \
+           or p == 'mockOffsetMWP14WrapperPotential' \
           or 'riaxial' in p \
            or 'oblate' in p \
            or 'prolate' in p:
@@ -5340,6 +5350,15 @@ class mockRotatedTiltedOffsetMWP14WrapperPotential(testMWPotential):
                                                     numpy.sqrt(1/3.),
                                                     numpy.sqrt(1/3.)],
                                               galaxy_pa=0.4,
+                                              offset=[1.,1.,1.]),])
+    def OmegaP(self):
+        return 0.
+class mockOffsetMWP14WrapperPotential(testMWPotential):
+    def __init__(self):
+        testMWPotential.__init__(self,potlist=[\
+                RotateAndTiltWrapperPotential(pot=potential.MWPotential2014,
+                                              zvec=None,
+                                              galaxy_pa=None,
                                               offset=[1.,1.,1.]),])
     def OmegaP(self):
         return 0.
