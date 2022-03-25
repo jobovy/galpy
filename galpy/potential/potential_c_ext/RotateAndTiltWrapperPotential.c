@@ -4,8 +4,7 @@
 #include <galpy_potentials.h>
 
 //RotateAndTiltWrapperPotential
-static inline void rotate(double *x, double *y, double *z, bool rotSet, double *rot){
-  if (rotSet) {
+static inline void rotate(double *x, double *y, double *z, double *rot){
   double xp,yp,zp;
   xp= *(rot)   * *x + *(rot+1) * *y + *(rot+2) * *z;
   yp= *(rot+3) * *x + *(rot+4) * *y + *(rot+5) * *z;
@@ -13,11 +12,8 @@ static inline void rotate(double *x, double *y, double *z, bool rotSet, double *
   *x= xp;
   *y= yp;
   *z= zp;
-  }
 }
-static inline void rotate_force(double *Fx, double *Fy, double *Fz,
-				bool rotSet, double *rot){
-  if (rotSet) {
+static inline void rotate_force(double *Fx, double *Fy, double *Fz, double *rot){
   double Fxp,Fyp,Fzp;
   Fxp= *(rot)   * *Fx + *(rot+3) * *Fy + *(rot+6) * *Fz;
   Fyp= *(rot+1) * *Fx + *(rot+4) * *Fy + *(rot+7) * *Fz;
@@ -25,19 +21,8 @@ static inline void rotate_force(double *Fx, double *Fy, double *Fz,
   *Fx= Fxp;
   *Fy= Fyp;
   *Fz= Fzp;
-  }
 }
-static inline void apply_offset(double *x, double *y, double *z, bool offsetSet, double *offset){
-  if (offsetSet) {
-    double xp,yp,zp;
-    xp = *x + *(offset);
-    yp = *y + *(offset+1);
-    zp = *z + *(offset+2);
-    *x = xp;
-    *y = yp;
-    *z = zp;
-  }
-}
+
 void RotateAndTiltWrapperPotentialxyzforces(double R, double z, double phi,
                  double t, double * Fx, double * Fy, double * Fz,
                  struct potentialArg * potentialArgs){
@@ -54,8 +39,14 @@ void RotateAndTiltWrapperPotentialxyzforces(double R, double z, double phi,
     *(args + 2)= y;
     *(args + 3)= z;
     //now get the forces in R, phi, z in the aligned frame
-    rotate(&x,&y,&z,rotSet,rot);
-    apply_offset(&x,&y,&z,offsetSet,offset);
+    if (rotSet) {
+      rotate(&x,&y,&z,rot);
+    }
+    if (offsetSet) {
+      x += *(offset);
+      y += *(offset+1);
+      z += *(offset+2);
+    }
     rect_to_cyl(x,y,&R,&phi);
     Rforce= calcRforce(R, z, phi, t, potentialArgs->nwrapped,
 		       potentialArgs->wrappedPotentialArg);
@@ -67,7 +58,9 @@ void RotateAndTiltWrapperPotentialxyzforces(double R, double z, double phi,
     *Fx= cos( phi )*Rforce - sin( phi )*phiforce / R;
     *Fy= sin( phi )*Rforce + cos( phi )*phiforce / R;
     //rotate back
-    rotate_force(Fx,Fy,Fz,rotSet,rot);
+    if (rotSet) {
+      rotate_force(Fx,Fy,Fz,rot);
+    }
     //cache
     *(args + 4)= *Fx;
     *(args + 5)= *Fy;
