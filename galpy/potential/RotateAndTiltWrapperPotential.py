@@ -79,6 +79,9 @@ A final `offset` option allows one to apply a static offset in Cartesian coordin
                                                  zvec,galaxy_pa)
         self._offset= conversion.parse_length(offset,ro=self._ro)
         self._setup_zvec_pa(zvec,galaxy_pa)
+        self._norot = False
+        if (self._rot == numpy.eye(3)).all():
+            self._norot = True
         self.hasC= True
         self.hasC_dxdv= True
         self.isNonAxi= True
@@ -143,7 +146,10 @@ A final `offset` option allows one to apply a static offset in Cartesian coordin
         """
         x,y,z= coords.cyl_to_rect(R,phi,z)
         if numpy.isinf(R): y= 0.
-        xyzp= numpy.dot(self._rot,numpy.array([x,y,z]))
+        if self._norot:
+           xyzp = numpy.array([x,y,z])
+        else:
+           xyzp = numpy.dot(self._rot,numpy.array([x,y,z]))
         if self._offset:
             xyzp+= self._offset
         Rp,phip,zp = coords.rect_to_cyl(xyzp[0],xyzp[1],xyzp[2])
@@ -211,7 +217,10 @@ A final `offset` option allows one to apply a static offset in Cartesian coordin
     def _force_xyz(self,R,z,phi=0.,t=0.):
         """Get the rectangular forces in the transformed frame"""
         x,y,z= coords.cyl_to_rect(R,phi,z)
-        xyzp= numpy.dot(self._rot,numpy.array([x,y,z]))
+        if self._norot:
+           xyzp = numpy.array([x,y,z])
+        else:
+           xyzp = numpy.dot(self._rot,numpy.array([x,y,z]))
         if self._offset:
             xyzp+= self._offset
         Rp,phip,zp =coords.rect_to_cyl(xyzp[0],xyzp[1],xyzp[2])
@@ -353,7 +362,10 @@ A final `offset` option allows one to apply a static offset in Cartesian coordin
     def _2ndderiv_xyz(self,R,z,phi=0.,t=0.):
         """Get the rectangular forces in the transformed frame"""
         x,y,z= coords.cyl_to_rect(R,phi,z)
-        xyzp= numpy.dot(self._rot,numpy.array([x,y,z]))
+        if self._norot:
+           xyzp = numpy.array([x,y,z])
+        else:
+           xyzp = numpy.dot(self._rot,numpy.array([x,y,z]))
         if self._offset:
             xyzp+= self._offset
         Rp,phip,zp =coords.rect_to_cyl(xyzp[0],xyzp[1],xyzp[2])
@@ -407,7 +419,10 @@ A final `offset` option allows one to apply a static offset in Cartesian coordin
         """
         x,y,z= coords.cyl_to_rect(R,phi,z)
         if numpy.isinf(R): y= 0.
-        xyzp= numpy.dot(self._rot,numpy.array([x,y,z]))
+        if self._norot:
+           xyzp = numpy.array([x,y,z])
+        else:
+           xyzp = numpy.dot(self._rot,numpy.array([x,y,z]))
         if self._offset:
             xyzp+= self._offset
         Rp,phip,zp = coords.rect_to_cyl(xyzp[0],xyzp[1],xyzp[2])
