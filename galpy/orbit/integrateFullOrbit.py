@@ -223,23 +223,33 @@ def _parse_pot(pot,potforactions=False,potfortorus=False):
             pot_type.append(39)
             pot_args.append(p._amp)
             pot_args.extend([0.,0.,0.,0.,0.,0.,0.,0.,0.,0.]) # for caching
-            pot_args.extend([p._rot_acc,p._lin_acc,p._omegaz_only,p._const_freq])
-            if p._omegaz_only:
-                pot_args.extend([0.,0.,p._Omega])
+            pot_args.extend([p._rot_acc,p._lin_acc,p._omegaz_only,
+                             p._const_freq,p._Omega_as_func])
+            if p._Omega_as_func:
+                pot_args.extend([0.,0.,0.,0.,0.,0.,0.])
             else:
-                pot_args.extend(p._Omega)
-            pot_args.append(p._Omega2)
-            if not p._const_freq and p._omegaz_only:
-                pot_args.extend([0.,0.,p._Omegadot])
-            elif not p._const_freq:
-                pot_args.extend(p._Omegadot)
-            else:
-                pot_args.extend([0.,0.,0.])
+                if p._omegaz_only:
+                    pot_args.extend([0.,0.,p._Omega])
+                else:
+                    pot_args.extend(p._Omega)
+                pot_args.append(p._Omega2)
+                if not p._const_freq and p._omegaz_only:
+                    pot_args.extend([0.,0.,p._Omegadot])
+                elif not p._const_freq:
+                    pot_args.extend(p._Omegadot)
+                else:
+                    pot_args.extend([0.,0.,0.])
             if p._lin_acc:
                 pot_tfuncs.extend([p._a0[0],p._a0[1],p._a0[2]])
                 if p._rot_acc:
                     pot_tfuncs.extend([p._x0[0],p._x0[1],p._x0[2]])
                     pot_tfuncs.extend([p._v0[0],p._v0[1],p._v0[2]])
+            if p._Omega_as_func:
+                if p._omegaz_only:
+                    pot_tfuncs.extend([p._Omega,p._Omegadot])
+                else:
+                    pot_tfuncs.extend([p._Omega[0],p._Omega[1],p._Omega[2],
+                                       p._Omegadot[0],p._Omegadot[1],p._Omegadot[2]])
         ############################## WRAPPERS ###############################
         elif isinstance(p,potential.DehnenSmoothWrapperPotential):
             pot_type.append(-1)

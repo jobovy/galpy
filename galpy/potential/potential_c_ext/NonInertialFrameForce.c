@@ -8,9 +8,10 @@ void NonInertialFrameForcexyzforces_xyz(double R,double z,double phi,double t,
                                         struct potentialArg * potentialArgs){
   double * args= potentialArgs->args;
   double x, y, vx, vy;
-  bool rot_acc, lin_acc, omegaz_only, const_freq;
+  bool rot_acc, lin_acc, omegaz_only, const_freq, Omega_as_func;
   double Omegax, Omegay, Omegaz;
   double Omega2, Omegatimesvecx;
+  double Omegadotx, Omegadoty, Omegadotz;
   double x0x, x0y, x0z, v0x, v0y, v0z;
   cyl_to_rect(R,phi,&x,&y);
   cyl_to_rect_vec(vR,vT,phi,&vx,&vy);
@@ -29,22 +30,33 @@ void NonInertialFrameForcexyzforces_xyz(double R,double z,double phi,double t,
   // Rotational acceleration part
   rot_acc= (bool) *(args + 11);
   lin_acc= (bool) *(args + 12);
+  Omega_as_func= (bool) *(args + 15);
   if ( rot_acc ) {
     omegaz_only= (bool) *(args + 13);
     const_freq= (bool) *(args + 14);
     if ( omegaz_only ) {
-      Omegaz= *(args + 17);
-      if ( !const_freq ) {
-        Omegaz+= *(args + 21) * t;
+      if ( Omega_as_func ) {
+        Omegaz= (*(*(potentialArgs->tfuncs+9*lin_acc)))(t);
         Omega2= Omegaz * Omegaz;
       } else {
-        Omega2= *(args + 18);
+        Omegaz= *(args + 18);
+        if ( !const_freq ) {
+          Omegaz+= *(args + 22) * t;
+          Omega2= Omegaz * Omegaz;
+        } else {
+          Omega2= *(args + 19);
+        }
       }
       *Fx+=  2. * Omegaz * vy + Omega2 * x;
       *Fy+= -2. * Omegaz * vx + Omega2 * y;
       if ( !const_freq ) {
-        *Fx+= *(args + 21) * y;
-        *Fy-= *(args + 21) * x;
+        if ( Omega_as_func ) {
+          Omegadotz= (*(*(potentialArgs->tfuncs+9*lin_acc+1)))(t);
+        } else {
+          Omegadotz= *(args + 22);
+        }
+        *Fx+= Omegadotz * y;
+        *Fy-= Omegadotz * x;
       }
       if ( lin_acc ) {
         x0x= (*(*(potentialArgs->tfuncs+3)))(t);
@@ -54,30 +66,46 @@ void NonInertialFrameForcexyzforces_xyz(double R,double z,double phi,double t,
         *Fx+=  2. * Omegaz * v0y + Omega2 * x0x;
         *Fy+= -2. * Omegaz * v0x + Omega2 * x0y;
         if ( !const_freq ) {
-         *Fx+= *(args + 21) * x0y;
-          *Fy-= *(args + 21) * x0x;
+          *Fx+= Omegadotz * x0y;
+          *Fy-= Omegadotz * x0x;
         }
       }
     } else {
-      Omegax= *(args + 15);
-      Omegay= *(args + 16);
-      Omegaz= *(args + 17);
-      if ( !const_freq ) {
-        Omegax+= *(args + 19) * t;
-        Omegay+= *(args + 20) * t;
-        Omegaz+= *(args + 21) * t;
+      if ( Omega_as_func ) {
+        Omegax= (*(*(potentialArgs->tfuncs+9*lin_acc  )))(t);
+        Omegay= (*(*(potentialArgs->tfuncs+9*lin_acc+1)))(t);
+        Omegaz= (*(*(potentialArgs->tfuncs+9*lin_acc+2)))(t);
         Omega2= Omegax * Omegax + Omegay * Omegay + Omegaz * Omegaz;
       } else {
-        Omega2= *(args + 18);
+        Omegax= *(args + 16);
+        Omegay= *(args + 17);
+        Omegaz= *(args + 18);
+        if ( !const_freq ) {
+          Omegax+= *(args + 20) * t;
+          Omegay+= *(args + 21) * t;
+          Omegaz+= *(args + 22) * t;
+          Omega2= Omegax * Omegax + Omegay * Omegay + Omegaz * Omegaz;
+        } else {
+          Omega2= *(args + 19);
+        }
       }
       Omegatimesvecx= Omegax * x + Omegay * y + Omegaz * z;
       *Fx+=  2. * ( Omegaz * vy - Omegay * vz ) + Omega2 * x - Omegax * Omegatimesvecx;
       *Fy+= -2. * ( Omegaz * vx - Omegax * vz ) + Omega2 * y - Omegay * Omegatimesvecx;
       *Fz+=  2. * ( Omegay * vx - Omegax * vy ) + Omega2 * z - Omegaz * Omegatimesvecx;
       if ( !const_freq ) {
-        *Fx-= -*(args + 21) * y + *(args + 20) * z;
-        *Fy-=  *(args + 21) * x - *(args + 19) * z;
-        *Fz-= -*(args + 20) * x + *(args + 19) * y;
+        if ( Omega_as_func ) {
+          Omegadotx= (*(*(potentialArgs->tfuncs+9*lin_acc+3)))(t);
+          Omegadoty= (*(*(potentialArgs->tfuncs+9*lin_acc+4)))(t);
+          Omegadotz= (*(*(potentialArgs->tfuncs+9*lin_acc+5)))(t);
+        } else {
+          Omegadotx= *(args + 20);
+          Omegadoty= *(args + 21);
+          Omegadotz= *(args + 22);
+        }
+        *Fx-= -Omegadotz * y + Omegadoty * z;
+        *Fy-=  Omegadotz * x - Omegadotx * z;
+        *Fz-= -Omegadoty * x + Omegadotx * y;
       }
       if ( lin_acc ) {
         x0x= (*(*(potentialArgs->tfuncs+3)))(t);
@@ -92,9 +120,9 @@ void NonInertialFrameForcexyzforces_xyz(double R,double z,double phi,double t,
         *Fy+= -2. * ( Omegaz * v0x - Omegax * v0z ) + Omega2 * x0y - Omegay * Omegatimesvecx;
         *Fz+=  2. * ( Omegay * v0x - Omegax * v0y ) + Omega2 * x0z - Omegaz * Omegatimesvecx;
         if ( !const_freq ) {
-          *Fx-= -*(args + 21) * x0y + *(args + 20) * x0z;
-          *Fy-=  *(args + 21) * x0x - *(args + 19) * x0z;
-          *Fz-= -*(args + 20) * x0x + *(args + 19) * x0y;
+          *Fx-= -Omegadotz * x0y + Omegadoty * x0z;
+          *Fy-=  Omegadotz * x0x - Omegadotx * x0z;
+          *Fz-= -Omegadoty * x0x + Omegadotx * x0y;
         }
       }
     }

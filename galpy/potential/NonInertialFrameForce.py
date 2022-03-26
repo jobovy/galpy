@@ -21,8 +21,8 @@ class NonInertialFrameForce(DissipativeForce):
     where :math:`\mathbf{R}` is a rotation matrix and :math:`\mathbf{x}_0`
     is the motion of the origin. The rotation matrix has angular frequencies
     :math:`\\boldsymbol{\Omega}` with time derivative :math:`\dot{\\boldsymbol{\Omega}}`;
-    the latter is assumed to be constant. The motion of the origin can be any function
-    of time.    
+    :math:`\\boldsymbol{\Omega}` can be any function of time. The motion of the 
+    origin can also be any function of time.    
     This leads to the fictitious force
     
     .. math::
@@ -66,9 +66,9 @@ class NonInertialFrameForce(DissipativeForce):
 
            amp= (1.) amplitude to be applied to the potential (default: 1)
 
-           Omega= (1.) Angular frequency of the rotation of the non-inertial frame in an inertial one; can be a vector (numpy array) [Omega_x,Omega_y,Omega_z] or a single value Omega_z (can be a Quantity)
+           Omega= (1.) Angular frequency of the rotation of the non-inertial frame in an inertial one; can either be a function of time or a number (when the frequency is assumed to be Omega + Omegadot x t) and in each case can be a list [Omega_x,Omega_y,Omega_z] or a single value Omega_z (when not a function, can be a Quantity)
            
-           Omegadot= (None) Time derivative of the angular frequency of the non-intertial frame's rotation. Vector or scalar should match Omega input
+           Omegadot= (None) Time derivative of the angular frequency of the non-intertial frame's rotation. format should match Omega input ([list of] function[s] when Omega is one, number/list if Omega is a number/list)
            
            x0= (None) Position vector x_0 (cartesian) of the center of mass of the non-intertial frame (see definition in the class documentation); list of functions [x_0x,x_0y,x_0z]; only necessary when considering both rotation and center-of-mass acceleration of the inertial frame
            
@@ -83,14 +83,36 @@ class NonInertialFrameForce(DissipativeForce):
         HISTORY:
 
            2022-03-02 - Started - Bovy (UofT)
+           
+           2022-03-26 - Generalized Omega to any function of time - Bovy (UofT)
 
         """
         DissipativeForce.__init__(self,amp=amp,ro=ro,vo=vo)
         self._rot_acc= not Omega is None
-        self._Omega= conversion.parse_frequency(Omega,ro=self._ro,vo=self._vo)
-        self._omegaz_only= len(numpy.atleast_1d(self._Omega)) == 1
+        self._omegaz_only= len(numpy.atleast_1d(Omega)) == 1
         self._const_freq= Omegadot is None
-        self._Omegadot= conversion.parse_frequency(Omegadot,ro=self._ro,vo=self._vo)
+        if (self._omegaz_only and callable(Omega)) \
+            or (not self._omegaz_only and callable(Omega[0])):
+            self._Omega_as_func= True
+            self._Omega= Omega
+            self._Omegadot= Omegadot
+            # Convenient access in Python
+            if not self._omegaz_only:
+                self._Omega_py= lambda t: numpy.array(\
+                        [self._Omega[0](t),
+                         self._Omega[1](t),
+                         self._Omega[2](t)])
+                self._Omegadot_py= lambda t: numpy.array(\
+                        [self._Omegadot[0](t),
+                         self._Omegadot[1](t),
+                         self._Omegadot[2](t)])
+            else:
+                self._Omega_py= self._Omega
+                self._Omegadot_py= self._Omegadot
+        else:
+            self._Omega_as_func= False
+            self._Omega= conversion.parse_frequency(Omega,ro=self._ro,vo=self._vo)
+            self._Omegadot= conversion.parse_frequency(Omegadot,ro=self._ro,vo=self._vo)
         self._lin_acc= not (a0 is None)
         if self._lin_acc:
             if not callable(a0[0]):
@@ -98,13 +120,15 @@ class NonInertialFrameForce(DissipativeForce):
                            lambda t, copy=a0[1]: copy,
                            lambda t, copy=a0[2]: copy]
             else: 
-                self._a0= a0        
+                self._a0= a0
+            # Convenient access in Python
             self._a0_py= lambda t: [self._a0[0](t),
                                     self._a0[1](t),
                                     self._a0[2](t)]
         if self._lin_acc and self._rot_acc:
             self._x0= x0
             self._v0= v0
+            # Convenient access in Python
             self._x0_py= lambda t: numpy.array(\
                             [self._x0[0](t),
                              self._x0[1](t),
@@ -114,8 +138,10 @@ class NonInertialFrameForce(DissipativeForce):
                              self._v0[1](t),
                              self._v0[2](t)])
         # Useful derived quantities
-        self._Omega2= numpy.linalg.norm(self._Omega)**2. if self._rot_acc else 0.
-        if not self._omegaz_only:
+        self._Omega2= numpy.linalg.norm(self._Omega)**2. \
+            if self._rot_acc and not self._Omega_as_func\
+            else 0.
+        if not self._omegaz_only and not self._Omega_as_func:
             self._Omega_for_cross= numpy.array([[0.,-self._Omega[2],self._Omega[1]],
                                                 [self._Omega[2],0.,-self._Omega[0]],
                                                 [-self._Omega[1],self._Omega[0],0.]])
@@ -141,6 +167,9 @@ class NonInertialFrameForce(DissipativeForce):
             if self._const_freq:
                 tOmega= self._Omega
                 tOmega2= self._Omega2
+            elif self._Omega_as_func:
+                tOmega= self._Omega_py(t)
+                tOmega2= numpy.linalg.norm(tOmega)**2.            
             else:
                 tOmega= self._Omega+self._Omegadot*t
                 tOmega2= numpy.linalg.norm(tOmega)**2.            
@@ -151,11 +180,27 @@ class NonInertialFrameForce(DissipativeForce):
                     force+= -2.*tOmega*numpy.array([-self._v0[1](t),self._v0[0](t),0.])\
                         +tOmega2*numpy.array([self._x0[0](t),self._x0[1](t),0.])
                 if not self._const_freq:
-                    force-= self._Omegadot*numpy.array([-y,x,0.])
-                    if self._lin_acc:
-                        force-= self._Omegadot\
-                            *numpy.array([-self._x0[1](t),self._x0[0](t),0.])
+                    if self._Omega_as_func:
+                        force-= self._Omegadot_py(t)*numpy.array([-y,x,0.])
+                        if self._lin_acc:
+                            force-= self._Omegadot_py(t)\
+                                *numpy.array([-self._x0[1](t),self._x0[0](t),0.])
+                    else:
+                        force-= self._Omegadot*numpy.array([-y,x,0.])
+                        if self._lin_acc:
+                            force-= self._Omegadot\
+                                *numpy.array([-self._x0[1](t),self._x0[0](t),0.])
             else:
+                if self._Omega_as_func:
+                    self._Omega_for_cross= \
+                        numpy.array([[0.,-self._Omega[2](t),self._Omega[1](t)],
+                                     [self._Omega[2](t),0.,-self._Omega[0](t)],
+                                     [-self._Omega[1](t),self._Omega[0](t),0.]])
+                    if not self._const_freq:
+                        self._Omegadot_for_cross= \
+                            numpy.array([[0.,-self._Omegadot[2](t),self._Omegadot[1](t)],
+                                        [self._Omegadot[2](t),0.,-self._Omegadot[0](t)],
+                                        [-self._Omegadot[1](t),self._Omegadot[0](t),0.]])
                 force+= -2.*numpy.dot(self._Omega_for_cross,numpy.array([vx,vy,vz]))\
                     +tOmega2*numpy.array([x,y,z])\
                     -tOmega*numpy.dot(tOmega,numpy.array([x,y,z]))
@@ -164,11 +209,13 @@ class NonInertialFrameForce(DissipativeForce):
                     +tOmega2*self._x0_py(t)\
                     -tOmega*numpy.dot(tOmega,self._x0_py(t))
                 if not self._const_freq:
-                    force-= 2.*t*numpy.dot(self._Omegadot_for_cross,numpy.array([vx,vy,vz]))\
-                        +numpy.dot(self._Omegadot_for_cross,numpy.array([x,y,z]))
+                    if not self._Omega_as_func: # Already included above when Omega=func
+                        force-= 2.*t*numpy.dot(self._Omegadot_for_cross,numpy.array([vx,vy,vz]))
+                    force-= numpy.dot(self._Omegadot_for_cross,numpy.array([x,y,z]))
                     if self._lin_acc:
-                        force-= 2.*t*numpy.dot(self._Omegadot_for_cross,self._v0_py(t))\
-                        +numpy.dot(self._Omegadot_for_cross,self._x0_py(t))
+                        if not self._Omega_as_func:
+                            force-= 2.*t*numpy.dot(self._Omegadot_for_cross,self._v0_py(t))
+                        force-= numpy.dot(self._Omegadot_for_cross,self._x0_py(t))
         if self._lin_acc:
             force-= self._a0_py(t)
         self._force_hash= new_hash
