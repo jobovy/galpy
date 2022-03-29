@@ -21,6 +21,14 @@ def _parse_pot(pot,potforactions=False,potfortorus=False):
     #Figure out what's in pot
     if not isinstance(pot,list):
         pot= [pot]
+    if (potforactions or potfortorus) \
+        and ( (len(pot) == 1 and isinstance(pot[0],potential.NullPotential)) 
+             or numpy.all([isinstance(p,potential.NullPotential) for p in pot]) ):
+        raise NotImplementedError("Evaluating actions using the C backend is not supported for NullPotential instances")
+    # Remove NullPotentials from list of Potentials containing other potentials
+    purged_pot= [p for p in pot if not isinstance(p,potential.NullPotential)]
+    if len(purged_pot) > 0:
+        pot= purged_pot
     #Initialize everything
     pot_type= []
     pot_args= []
@@ -250,6 +258,9 @@ def _parse_pot(pot,potforactions=False,potfortorus=False):
                 else:
                     pot_tfuncs.extend([p._Omega[0],p._Omega[1],p._Omega[2],
                                        p._Omegadot[0],p._Omegadot[1],p._Omegadot[2]])
+        elif isinstance(p,potential.NullPotential):
+            pot_type.append(40)
+            # No arguments, zero forces
         ############################## WRAPPERS ###############################
         elif isinstance(p,potential.DehnenSmoothWrapperPotential):
             pot_type.append(-1)
@@ -341,6 +352,9 @@ def _parse_pot(pot,potforactions=False,potfortorus=False):
             pot_args.extend([p._amp])
             pot_args.extend([0.,0.,0.,0.,0.,0.]) # for caching
             pot_args.extend(list(p._rot.flatten()))
+            pot_args.append(not p._norot)
+            pot_args.append(not p._offset is None)
+            pot_args.extend(list(p._offset) if not p._offset is None else [0.,0.,0.])
     pot_type= numpy.array(pot_type,dtype=numpy.int32,order='C')
     pot_args= numpy.array(pot_args,dtype=numpy.float64,order='C')
     return (npot,pot_type,pot_args,pot_tfuncs)

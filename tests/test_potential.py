@@ -12,6 +12,7 @@ try:
 except ImportError:
     _PYNBODY_LOADED= False
 from galpy import potential
+from galpy import orbit
 from galpy.util import coords
 from galpy.util import _rotate_to_arbitrary_vector
 _TRAVIS= bool(os.getenv('TRAVIS'))
@@ -171,6 +172,8 @@ def test_forceAsDeriv_potential():
     pots.append('mockRotatedAndTiltedMWP14WrapperPotential')
     pots.append('mockRotatedAndTiltedMWP14WrapperPotentialwInclination')
     pots.append('mockRotatedAndTiltedTriaxialLogHaloPotentialwInclination')
+    pots.append('mockRotatedTiltedOffsetMWP14WrapperPotential')
+    pots.append('mockOffsetMWP14WrapperPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -347,6 +350,8 @@ def test_2ndDeriv_potential():
     pots.append('mockRotatedAndTiltedMWP14WrapperPotential')
     pots.append('mockRotatedAndTiltedMWP14WrapperPotentialwInclination')
     pots.append('mockRotatedAndTiltedTriaxialLogHaloPotentialwInclination')
+    pots.append('mockRotatedTiltedOffsetMWP14WrapperPotential')
+    pots.append('mockOffsetMWP14WrapperPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -597,6 +602,8 @@ def test_poisson_potential():
     pots.append('mockRotatedAndTiltedMWP14WrapperPotential')
     pots.append('mockRotatedAndTiltedMWP14WrapperPotentialwInclination')
     pots.append('mockRotatedAndTiltedTriaxialLogHaloPotentialwInclination')
+    pots.append('mockRotatedTiltedOffsetMWP14WrapperPotential')
+    pots.append('mockOffsetMWP14WrapperPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -709,6 +716,8 @@ def test_poisson_surfdens_potential():
     pots.append('mockRotatedAndTiltedMWP14WrapperPotential')
     pots.append('mockRotatedAndTiltedMWP14WrapperPotentialwInclination')
     pots.append('mockRotatedAndTiltedTriaxialLogHaloPotentialwInclination')
+    pots.append('mockRotatedTiltedOffsetMWP14WrapperPotential')
+    pots.append('mockOffsetMWP14WrapperPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -842,6 +851,8 @@ def test_evaluateAndDerivs_potential():
     pots.append('mockRotatedAndTiltedMWP14WrapperPotential')
     pots.append('mockRotatedAndTiltedMWP14WrapperPotentialwInclination')
     pots.append('mockRotatedAndTiltedTriaxialLogHaloPotentialwInclination')
+    pots.append('mockRotatedTiltedOffsetMWP14WrapperPotential')
+    pots.append('mockOffsetMWP14WrapperPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -1057,6 +1068,8 @@ def test_amp_mult_divide():
     pots.append('mockRotatedAndTiltedMWP14WrapperPotential')
     pots.append('mockRotatedAndTiltedMWP14WrapperPotentialwInclination')
     pots.append('mockRotatedAndTiltedTriaxialLogHaloPotentialwInclination')
+    pots.append('mockRotatedTiltedOffsetMWP14WrapperPotential')
+    pots.append('mockOffsetMWP14WrapperPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -1333,6 +1346,8 @@ def test_potential_at_zero():
     pots.append('mockRotatedAndTiltedMWP14WrapperPotential')
     pots.append('mockRotatedAndTiltedMWP14WrapperPotentialwInclination')
     pots.append('mockRotatedAndTiltedTriaxialLogHaloPotentialwInclination')
+    pots.append('mockRotatedTiltedOffsetMWP14WrapperPotential')
+    pots.append('mockOffsetMWP14WrapperPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -1381,6 +1396,8 @@ def test_potential_at_zero():
            or p == 'mockRotatedAndTiltedMWP14WrapperPotential' \
            or p == 'mockRotatedAndTiltedMWP14WrapperPotentialwInclination' \
            or p == 'mockRotatedAndTiltedTriaxialLogHaloPotentialwInclination' \
+           or p == 'mockRotatedTiltedOffsetMWP14WrapperPotential' \
+           or p == 'mockOffsetMWP14WrapperPotential' \
            or 'riaxial' in p \
            or 'oblate' in p \
            or 'prolate' in p:
@@ -1447,6 +1464,8 @@ def test_potential_at_infinity():
     pots.append('mockRotatedAndTiltedMWP14WrapperPotential')
     pots.append('mockRotatedAndTiltedMWP14WrapperPotentialwInclination')
     pots.append('mockRotatedAndTiltedTriaxialLogHaloPotentialwInclination')
+    pots.append('mockRotatedTiltedOffsetMWP14WrapperPotential')
+    pots.append('mockOffsetMWP14WrapperPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -1492,6 +1511,8 @@ def test_potential_at_infinity():
            or p == 'mockRotatedAndTiltedMWP14WrapperPotential' \
            or p == 'mockRotatedAndTiltedMWP14WrapperPotentialwInclination' \
            or p == 'mockRotatedAndTiltedTriaxialLogHaloPotentialwInclination' \
+           or p == 'mockRotatedTiltedOffsetMWP14WrapperPotential' \
+           or p == 'mockOffsetMWP14WrapperPotential' \
           or 'riaxial' in p \
            or 'oblate' in p \
            or 'prolate' in p:
@@ -3640,7 +3661,72 @@ def test_RotateAndTiltWrapper():
     NFW_wrapped= potential.RotateAndTiltWrapperPotential(galaxy_pa=galaxy_pa, pot=potential.TriaxialNFWPotential(amp=1.,b=0.7,c=0.5))
     NFW_rot= potential.TriaxialNFWPotential(amp=1., zvec=[0.,0.,1.],pa=galaxy_pa,b=0.7,c=0.5)
     assert (evaluatePotentials(NFW_wrapped, Rphiz_test[0], Rphiz_test[2], phi=Rphiz_test[1])-evaluatePotentials(NFW_rot, Rphiz_test[0], Rphiz_test[2], phi=Rphiz_test[1])) < 1e-6, 'Wrapped and Internally rotated NFW potentials do not match when evaluated at the same point'
+    #make sure the offset works as intended
+    # triaxial NFW at x,y,z = [20.,0.,3.]
+    NFW_wrapped= potential.RotateAndTiltWrapperPotential(zvec=zvec, galaxy_pa=galaxy_pa, offset=[20.,0.,3.], pot=potential.TriaxialNFWPotential(amp=1.,b=0.7,c=0.5))
+    NFW_rot= potential.TriaxialNFWPotential(amp=1., zvec=zvec, pa=galaxy_pa,b=0.7,c=0.5)
+    assert (evaluatePotentials(NFW_wrapped, 0., 0., phi=0.)-evaluatePotentials(NFW_rot, 20., - 3., phi=numpy.pi)) < 1e-6, 'Wrapped + Offset and Internally rotated NFW potentials do not match when evaluated at the same point'
+    
+
+def test_integration_RotateAndTiltWrapper():
+    ## test a quick orbit integration to hit the C code (also test pure python)
+    #two potentials, one offset
+    offset = [3.,2.,1.]
+    mwpot = potential.MWPotential2014
+    mwpot_wrapped = potential.RotateAndTiltWrapperPotential(pot=potential.MWPotential2014, offset=offset)
+    #initialise orbit
+    ro = 8.
+    orb = orbit.Orbit(ro=ro)
+    #another, offset by the same as the potential
+    init = orb.vxvv[0]
+    R, vR, vT, z, vz, phi = init
+    x, y, z = coords.cyl_to_rect(R, phi, z)
+    vx, vy, vz = coords.cyl_to_rect_vec(vR, vT, vz, phi)
+    tx, ty, tz = x-offset[0], y-offset[1], z-offset[2]
+    tR, tphi, tz = coords.rect_to_cyl(tx, ty, tz)
+    tvR, tvT, tvz = coords.rect_to_cyl_vec(vx, vy, vz, tR, tphi, tz, cyl=True)
+    orb_t = orbit.Orbit([tR, tvR, tvT, tz, tvz, tphi], ro=ro)
+    #integrate
+    ts = numpy.linspace(0.,1.,1000)
+    orb.integrate(ts, pot=mwpot, method='dop853')
+    orb_t.integrate(ts, pot=mwpot_wrapped, method='dop853')
+    #translate other orbit to match first one:
+    orb_vxvv = orb_t.getOrbit()
+    R, vR, vT, z, vz, phi = orb_vxvv[:,0], orb_vxvv[:,1], orb_vxvv[:,2], orb_vxvv[:,3], orb_vxvv[:,4], orb_vxvv[:,5]
+    x, y, z = coords.cyl_to_rect(R, phi, z)
+    vx, vy, vz = coords.cyl_to_rect_vec(vR, vT, vz, phi)
+    tx, ty, tz = x+offset[0], y+offset[1], z+offset[2]
+    tR, tphi, tz = coords.rect_to_cyl(tx, ty, tz)
+    #check equal
+    Rphi = numpy.dstack([orb.R(ts), orb.z(ts)])[0]
+    Rphi_t = numpy.dstack([tR*ro,tz*ro])[0]
+    assert numpy.all(numpy.fabs(Rphi-Rphi_t) < 10.**-10), 'Pure python orbit integration in an offset potential does not work as expected'
+    #reinitialise orbits, just to be sure
+    orb = orbit.Orbit(ro=ro)
+    init = orb.vxvv[0]
+    R, vR, vT, z, vz, phi = init
+    offset = [3.,2.,1.]
+    x, y, z = coords.cyl_to_rect(R, phi, z)
+    vx, vy, vz = coords.cyl_to_rect_vec(vR, vT, vz, phi)
+    tx, ty, tz = x-offset[0], y-offset[1], z-offset[2]
+    tR, tphi, tz = coords.rect_to_cyl(tx, ty, tz)
+    tvR, tvT, tvz = coords.rect_to_cyl_vec(vx, vy, vz, tR, tphi, tz, cyl=True)
+    orb_t = orbit.Orbit([tR, tvR, tvT, tz, tvz, tphi], ro=ro)
+    #integrate, use C
+    orb.integrate(ts, pot=mwpot, method='dop853_c')
+    orb_t.integrate(ts, pot=mwpot_wrapped, method='dop853_c')
+    orb_vxvv = orb_t.getOrbit()
+    R, vR, vT, z, vz, phi = orb_vxvv[:,0], orb_vxvv[:,1], orb_vxvv[:,2], orb_vxvv[:,3], orb_vxvv[:,4], orb_vxvv[:,5]
+    x, y, z = coords.cyl_to_rect(R, phi, z)
+    vx, vy, vz = coords.cyl_to_rect_vec(vR, vT, vz, phi)
+    tx, ty, tz = x+offset[0], y+offset[1], z+offset[2]
+    tR, tphi, tz = coords.rect_to_cyl(tx, ty, tz)
+    #check equal
+    Rphi = numpy.dstack([orb.R(ts), orb.z(ts)])[0]
+    Rphi_t = numpy.dstack([tR*ro,tz*ro])[0]
+    assert numpy.all(numpy.fabs(Rphi-Rphi_t) < 10.**-10), 'C orbit integration in an offset potential does not work as expected'
     return None
+
 
 def test_vtermnegl_issue314():
     # Test related to issue 314: vterm for negative l
@@ -4359,7 +4445,7 @@ from galpy.potential import TwoPowerSphericalPotential, \
     TriaxialHernquistPotential, TriaxialNFWPotential, TriaxialJaffePotential, \
     TwoPowerTriaxialPotential, BurkertPotential, SoftenedNeedleBarPotential, \
     FerrersPotential, DiskSCFPotential, SpiralArmsPotential, \
-    LogarithmicHaloPotential
+    LogarithmicHaloPotential, NullPotential
 class mockSphericalSoftenedNeedleBarPotential(SoftenedNeedleBarPotential):
     def __init__(self):
         SoftenedNeedleBarPotential.__init__(self,amp=1.,a=0.000001,b=0.,
@@ -4515,6 +4601,9 @@ class JaffeTwoPowerTriaxialPotential(TwoPowerTriaxialPotential):
         TwoPowerTriaxialPotential.__init__(self,amp=1.,a=5.,alpha=2.,beta=4.,
                                            b=1.3,c=1.8)
         return None
+class testNullPotential(NullPotential):
+    def normalize(self,norm):
+        pass
 # Other DiskSCFPotentials
 class sech2DiskSCFPotential(DiskSCFPotential):
     def __init__(self):
@@ -5251,5 +5340,25 @@ class mockRotatedAndTiltedTriaxialLogHaloPotentialwInclination(testMWPotential):
                                               inclination=2.,
                                               galaxy_pa=0.3,
                                               sky_pa=None)])
+    def OmegaP(self):
+        return 0.
+class mockRotatedTiltedOffsetMWP14WrapperPotential(testMWPotential):
+    def __init__(self):
+        testMWPotential.__init__(self,potlist=[\
+                RotateAndTiltWrapperPotential(pot=potential.MWPotential2014,
+                                              zvec=[numpy.sqrt(1/3.),
+                                                    numpy.sqrt(1/3.),
+                                                    numpy.sqrt(1/3.)],
+                                              galaxy_pa=0.4,
+                                              offset=[1.,1.,1.]),])
+    def OmegaP(self):
+        return 0.
+class mockOffsetMWP14WrapperPotential(testMWPotential):
+    def __init__(self):
+        testMWPotential.__init__(self,potlist=[\
+                RotateAndTiltWrapperPotential(pot=potential.MWPotential2014,
+                                              zvec=None,
+                                              galaxy_pa=None,
+                                              offset=[1.,1.,1.]),])
     def OmegaP(self):
         return 0.

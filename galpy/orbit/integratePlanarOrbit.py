@@ -22,6 +22,10 @@ def _parse_pot(pot):
     #Figure out what's in pot
     if not isinstance(pot,list):
         pot= [pot]
+    # Remove NullPotentials from list of Potentials containing other potentials
+    purged_pot= [p for p in pot if not isinstance(p,potential.NullPotential)]
+    if len(purged_pot) > 0:
+        pot= purged_pot
     #Initialize everything
     pot_type= []
     pot_args= []
@@ -263,6 +267,9 @@ def _parse_pot(pot):
                              p._Pot._total_mass,p._Pot._Phi0,p._Pot._Phimax])
         # 37: TriaxialGaussianPotential, done with other EllipsoidalPotentials above
         # 38: PowerTriaxialPotential, done with other EllipsoidalPotentials above
+        elif isinstance(p,planarPotentialFromRZPotential) \
+             and isinstance(p._Pot,potential.NullPotential):
+            pot_type.append(40)
         ############################## WRAPPERS ###############################
         elif ((isinstance(p,planarPotentialFromFullPotential) or isinstance(p,planarPotentialFromRZPotential)) \
               and isinstance(p._Pot,potential.DehnenSmoothWrapperPotential)) \

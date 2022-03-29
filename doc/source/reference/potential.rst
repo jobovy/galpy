@@ -249,6 +249,7 @@ Spiral, bar, other triaxial, and miscellaneous potentials
    potentialferrers.rst
    potentialloghalo.rst
    potentialmovingobj.rst
+   potentialnull.rst
    potentialsoftenedneedle.rst
    potentialspiralarms.rst
 

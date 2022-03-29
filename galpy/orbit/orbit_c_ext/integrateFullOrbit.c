@@ -60,7 +60,7 @@ void parse_leapFuncArgs_Full(int npot,
 			     struct potentialArg * potentialArgs,
 			     int ** pot_type,
 			     double ** pot_args,
-           tfuncs_type_arr * pot_tfuncs){
+                 tfuncs_type_arr * pot_tfuncs){
   int ii,jj,kk;
   int nR, nz, nr;
   double * Rgrid, * zgrid, * potGrid_splinecoeffs;
@@ -518,6 +518,15 @@ void parse_leapFuncArgs_Full(int npot,
                                 + ( 6 - 4 * ( *(*pot_args + 13) ) ) * *(*pot_args + 15) );
       potentialArgs->requiresVelocity= true;
       break;
+    case 40: //NullPotential, no arguments (only supported for orbit int)
+      potentialArgs->Rforce= &ZeroForce;
+      potentialArgs->zforce= &ZeroForce;
+      potentialArgs->phiforce= &ZeroForce;
+      potentialArgs->dens= &ZeroForce;
+      potentialArgs->nargs= 0;
+      potentialArgs->ntfuncs= 0;
+      potentialArgs->requiresVelocity= false;
+      break;
 //////////////////////////////// WRAPPERS /////////////////////////////////////
     case -1: //DehnenSmoothWrapperPotential
       potentialArgs->potentialEval= &DehnenSmoothWrapperPotentialEval;
@@ -573,7 +582,7 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->Rforce= &RotateAndTiltWrapperPotentialRforce;
       potentialArgs->zforce= &RotateAndTiltWrapperPotentialzforce;
       potentialArgs->phiforce= &RotateAndTiltWrapperPotentialphiforce;
-      potentialArgs->nargs= 16;
+      potentialArgs->nargs= 21;
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
       break;
