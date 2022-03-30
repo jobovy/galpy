@@ -30,7 +30,9 @@ def actionAngleTorus_xvFreqs_c(pot,jr,jphi,jz,
     """
     #Parse the potential
     from ..orbit.integrateFullOrbit import _parse_pot
-    npot, pot_type, pot_args, _= _parse_pot(pot,potfortorus=True) # NULL
+    from ..orbit.integratePlanarOrbit import _prep_tfuncs
+    npot, pot_type, pot_args, pot_tfuncs= _parse_pot(pot,potfortorus=True)
+    pot_tfuncs= _prep_tfuncs(pot_tfuncs)
 
     #Set up result arrays
     R= numpy.empty(len(angler))
@@ -130,7 +132,9 @@ def actionAngleTorus_Freqs_c(pot,jr,jphi,jz,
     """
     #Parse the potential
     from ..orbit.integrateFullOrbit import _parse_pot
-    npot, pot_type, pot_args, _= _parse_pot(pot,potfortorus=True) # NULL
+    from ..orbit.integratePlanarOrbit import _prep_tfuncs
+    npot, pot_type, pot_args, pot_tfuncs= _parse_pot(pot,potfortorus=True)
+    pot_tfuncs= _prep_tfuncs(pot_tfuncs)
 
     #Set up result
     Omegar= numpy.empty(1)
@@ -194,7 +198,9 @@ def actionAngleTorus_hessian_c(pot,jr,jphi,jz,
     """
     #Parse the potential
     from ..orbit.integrateFullOrbit import _parse_pot
-    npot, pot_type, pot_args, _= _parse_pot(pot,potfortorus=True) # NULL
+    from ..orbit.integratePlanarOrbit import _prep_tfuncs
+    npot, pot_type, pot_args, pot_tfuncs= _parse_pot(pot,potfortorus=True)
+    pot_tfuncs= _prep_tfuncs(pot_tfuncs)
 
     #Set up result
     dOdJT= numpy.empty(9)
@@ -269,7 +275,9 @@ def actionAngleTorus_jacobian_c(pot,jr,jphi,jz,angler,anglephi,anglez,
     """
     #Parse the potential
     from ..orbit.integrateFullOrbit import _parse_pot
-    npot, pot_type, pot_args, _= _parse_pot(pot,potfortorus=True) # NULL
+    from ..orbit.integratePlanarOrbit import _prep_tfuncs
+    npot, pot_type, pot_args, pot_tfuncs= _parse_pot(pot,potfortorus=True)
+    pot_tfuncs= _prep_tfuncs(pot_tfuncs)
 
     #Set up result
     R= numpy.empty(len(angler))

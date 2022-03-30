@@ -1706,7 +1706,8 @@ def test_actionAngleStaeckel_wSpherical_conserved_actions_c():
     from test_potential import mockSCFZeeuwPotential, \
         mockSphericalSoftenedNeedleBarPotential, \
         mockSmoothedLogarithmicHaloPotential, \
-        mockGaussianAmplitudeSmoothedLogarithmicHaloPotential
+        mockGaussianAmplitudeSmoothedLogarithmicHaloPotential, \
+        mockSmoothedLogarithmicHaloPotentialwTimeDependentAmplitudeWrapperPotential
     lp= potential.LogarithmicHaloPotential(normalize=1.,q=1.)
     lpb= potential.LogarithmicHaloPotential(normalize=1.,q=1.,b=1.) # same |^
     hp= potential.HernquistPotential(normalize=1.)
@@ -1730,8 +1731,9 @@ def test_actionAngleStaeckel_wSpherical_conserved_actions_c():
     ihomp= potential.interpSphericalPotential(\
             rforce=potential.HomogeneousSpherePotential(normalize=1.,R=1.1),
             rgrid=numpy.linspace(0.,1.1,201))
+    msmlpwtdp= mockSmoothedLogarithmicHaloPotentialwTimeDependentAmplitudeWrapperPotential()
     pots= [lp,lpb,hp,jp,np,ip,pp,lp2,ppc,plp,psp,bp,scfp,scfzp,
-           msoftneedlep,msmlp,mgasmlp,dp,dcp,homp,ihomp]
+           msoftneedlep,msmlp,mgasmlp,dp,dcp,homp,ihomp,msmlpwtdp]
     for pot in pots:
         aAS= actionAngleStaeckel(pot=pot,c=True,delta=0.01)
         obs= Orbit([1.1, 0.3, 1.2, 0.2,0.5,2.])
