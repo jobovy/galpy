@@ -493,7 +493,8 @@ def integrateFullOrbit_dxdv_c(pot,yo,dyo,t,int_method,rtol=None,atol=None): #pra
        2011-11-13 - Written - Bovy (IAS)
     """
     rtol, atol= _parse_tol(rtol,atol)
-    npot, pot_type, pot_args= _parse_pot(pot)
+    npot, pot_type, pot_args, pot_tfuncs= _parse_pot(pot)
+    pot_tfuncs= _prep_tfuncs(pot_tfuncs)
     int_method_c= _parse_integrator(int_method)
     yo= numpy.concatenate((yo,dyo))
 
@@ -510,6 +511,7 @@ def integrateFullOrbit_dxdv_c(pot,yo,dyo,t,int_method,rtol=None,atol=None): #pra
                                ctypes.c_int,
                                ndpointer(dtype=numpy.int32,flags=ndarrayFlags),
                                ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
+                               ctypes.c_void_p,
                                ctypes.c_double,
                                ctypes.c_double,
                                ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
@@ -530,6 +532,7 @@ def integrateFullOrbit_dxdv_c(pot,yo,dyo,t,int_method,rtol=None,atol=None): #pra
                     ctypes.c_int(npot),
                     pot_type,
                     pot_args,
+                    pot_tfuncs,
                     ctypes.c_double(rtol),ctypes.c_double(atol),
                     result,
                     ctypes.byref(err),

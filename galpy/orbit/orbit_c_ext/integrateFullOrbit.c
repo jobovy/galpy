@@ -60,7 +60,7 @@ void parse_leapFuncArgs_Full(int npot,
 			     struct potentialArg * potentialArgs,
 			     int ** pot_type,
 			     double ** pot_args,
-                 tfuncs_type_arr * pot_tfuncs){
+           tfuncs_type_arr * pot_tfuncs){
   int ii,jj,kk;
   int nR, nz, nr;
   double * Rgrid, * zgrid, * potGrid_splinecoeffs;
@@ -609,7 +609,7 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->args++;
     }
     potentialArgs->args-= potentialArgs->nargs;
-    /// and load each potential's time functions
+    // and load each potential's time functions
     if ( potentialArgs->ntfuncs > 0 ) {
       potentialArgs->tfuncs= (*pot_tfuncs);
       (*pot_tfuncs)+= potentialArgs->ntfuncs;
@@ -721,6 +721,7 @@ void integrateOrbit_dxdv(double *yo,
 			 int npot,
 			 int * pot_type,
 			 double * pot_args,
+       tfuncs_type_arr pot_tfuncs,
 			 double rtol,
 			 double atol,
 			 double *result,
@@ -729,7 +730,7 @@ void integrateOrbit_dxdv(double *yo,
   //Set up the forces, first count
   int dim;
   struct potentialArg * potentialArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );
-  parse_leapFuncArgs_Full(npot,potentialArgs,&pot_type,&pot_args,NULL);
+  parse_leapFuncArgs_Full(npot,potentialArgs,&pot_type,&pot_args,&pot_tfuncs);
   //Integrate
   void (*odeint_func)(void (*func)(double, double *, double *,
 			   int, struct potentialArg *),
