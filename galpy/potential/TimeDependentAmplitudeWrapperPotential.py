@@ -14,9 +14,10 @@ class TimeDependentAmplitudeWrapperPotential(parentWrapperPotential):
     
     .. math::
 
-        amp \\rightarrow amp \times A(t)
+        \mathrm{amp} \\rightarrow \mathrm{amp} \\times A(t)
         
-    where :math:`A(t)` is an arbitrary function of time.
+    where :math:`A(t)` is an arbitrary function of time. 
+    Note that `amp` itself can already be a function of time.
     """
     def __init__(self,amp=1.,A=None,pot=None,ro=None,vo=None):
         """
