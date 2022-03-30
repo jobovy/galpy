@@ -4284,7 +4284,7 @@ def test_TimeDependentAmplitudeWrapperPotential_against_DehnenSmooth_2d_dxdv():
     ts= numpy.linspace(0.,-20.,1001)
     o.integrate_dxdv([1.,0.,0.,0.],ts,lp+dp,rectIn=True,rectOut=True)
     ot= o()
-    ot.integrate_dxdv([1.,0.,0.,0.],ts,lp+dp,rectIn=True,rectOut=True)
+    ot.integrate_dxdv([1.,0.,0.,0.],ts,lp+tp,rectIn=True,rectOut=True)
     tol= 1e-10
     assert numpy.amax(numpy.fabs(o.getOrbit_dxdv()-ot.getOrbit_dxdv())) <tol, 'Integrating an orbit with dxdv in a growing DehnenSmoothWrapper does not agree between DehnenSmooth and TimeDependentWrapper'
     return None
@@ -5462,4 +5462,13 @@ class mockTimeDependentAmplitudeWrapperPotential(TimeDependentAmplitudeWrapperPo
                                tform=-4.*2.*numpy.pi/dpn.OmegaP())
         return DehnenSmoothWrapperPotential.__new__(cls,amp=1.,pot=dpn,\
                                A=dps._smooth)
-
+# A TimeDependentAmplitudeWrapperPotential version of LogarithmicHaloPotential for simple aAtest
+class mockSmoothedLogarithmicHaloPotentialwTimeDependentAmplitudeWrapperPotential(TimeDependentAmplitudeWrapperPotential):
+    def __new__(cls,*args,**kwargs):
+        if kwargs.get('_init',False):
+            return parentWrapperPotential.__new__(cls,*args,**kwargs)
+        dps= DehnenSmoothWrapperPotential(pot=potential.LogarithmicHaloPotential(normalize=1.),
+            tform=-1.,tsteady=0.5)
+        return TimeDependentAmplitudeWrapperPotential.__new__(cls,amp=1.,
+            pot=potential.LogarithmicHaloPotential(normalize=1.),
+            A=dps._smooth)
