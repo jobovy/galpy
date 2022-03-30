@@ -8,7 +8,8 @@ from .. import potential
 from ..util import galpyWarning
 from ..potential.Potential import _evaluateRforces, _evaluatezforces,\
     _evaluatephiforces
-from .integratePlanarOrbit import _parse_integrator, _parse_tol
+from .integratePlanarOrbit import (_parse_integrator, _parse_tol,
+                                   _parse_scf_pot, _prep_tfuncs)
 from ..util.multi import parallel_map
 from ..util.leung_dop853 import dop853
 from ..util import symplecticode
@@ -354,31 +355,22 @@ def _parse_pot(pot,potforactions=False,potfortorus=False):
             pot_args.extend(list(p._rot.flatten()))
             pot_args.append(not p._norot)
             pot_args.append(not p._offset is None)
-            pot_args.extend(list(p._offset) if not p._offset is None else [0.,0.,0.])
+            pot_args.extend(list(p._offset) if not p._offset is None else [0.,0.,0.])  
+        elif isinstance(p,potential.TimeDependentAmplitudeWrapperPotential):
+            pot_type.append(-9)
+            # Not sure how to easily avoid this duplication
+            wrap_npot, wrap_pot_type, wrap_pot_args, wrap_pot_tfuncs= \
+                _parse_pot(p._pot,
+                           potforactions=potforactions,potfortorus=potfortorus)
+            pot_args.append(wrap_npot)
+            pot_type.extend(wrap_pot_type)
+            pot_args.extend(wrap_pot_args)
+            pot_tfuncs.extend(wrap_pot_tfuncs)
+            pot_args.append(p._amp)
+            pot_tfuncs.append(p._A)
     pot_type= numpy.array(pot_type,dtype=numpy.int32,order='C')
     pot_args= numpy.array(pot_args,dtype=numpy.float64,order='C')
     return (npot,pot_type,pot_args,pot_tfuncs)
-
-def _parse_scf_pot(p,extra_amp=1.):
-    # Stand-alone parser for SCF, bc re-used
-    isNonAxi= p.isNonAxi
-    pot_args= [p._a, isNonAxi]
-    pot_args.extend(p._Acos.shape)
-    pot_args.extend(extra_amp*p._amp*p._Acos.flatten(order='C'))
-    if isNonAxi:
-        pot_args.extend(extra_amp*p._amp*p._Asin.flatten(order='C'))
-    pot_args.extend([-1.,0,0,0,0,0,0])
-    return (24,pot_args,[]) # latter is pot_tfuncs
-
-def _prep_tfuncs(pot_tfuncs):
-    if len(pot_tfuncs) == 0:
-        pot_tfuncs= None # NULL
-    else:
-        func_ctype= ctypes.CFUNCTYPE(ctypes.c_double, # Return type
-                                     ctypes.c_double) # time
-        func_pyarr= [func_ctype(a) for a in pot_tfuncs]
-        pot_tfuncs= (func_ctype * len(func_pyarr))(*func_pyarr)
-    return pot_tfuncs
 
 def integrateFullOrbit_c(pot,yo,t,int_method,rtol=None,atol=None,dt=None):
     """

@@ -5,7 +5,8 @@ import numpy
 from scipy import integrate
 from .. import potential
 from ..util.multi import parallel_map
-from .integratePlanarOrbit import _parse_integrator, _parse_tol
+from .integratePlanarOrbit import (_parse_integrator, _parse_tol,
+                                   _prep_tfuncs)
 from .integrateFullOrbit import _parse_pot as _parse_pot_full
 from ..potential.linearPotential import _evaluatelinearForces
 from ..potential.verticalPotential import verticalPotential
@@ -24,6 +25,7 @@ def _parse_pot(pot):
     #Initialize everything
     pot_type= []
     pot_args= []
+    pot_tfuncs= []
     npot= len(pot)
     for p in pot:
         # Prepare for wrappers NOT CURRENTLY SUPPORTED, SEE PLANAR OR FULL
@@ -48,9 +50,10 @@ def _parse_pot(pot):
             # Need to pull this apart into: (a) SCF part, (b) constituent
             # [Sigma_i,h_i] parts
             # (a) SCF, multiply in any add'l amp
-            pt,pa,_= _parse_scf_pot(p._Pot._scf,extra_amp=p._Pot._amp) # NULL
+            pt,pa,ptf= _parse_scf_pot(p._Pot._scf,extra_amp=p._Pot._amp)
             pot_type.append(pt)
             pot_args.extend(pa)
+            pot_tfuncs.extend(ptf)
             pot_args.extend([p._R,p._phi])
             # (b) constituent [Sigma_i,h_i] parts
             for Sigma,hz in zip(p._Pot._Sigma_dict,p._Pot._hz_dict):
@@ -88,7 +91,7 @@ def _parse_pot(pot):
             pot_args.append(p._phi)
     pot_type= numpy.array(pot_type,dtype=numpy.int32,order='C')
     pot_args= numpy.array(pot_args,dtype=numpy.float64,order='C')
-    return (npot,pot_type,pot_args)
+    return (npot,pot_type,pot_args,pot_tfuncs)
 
 def integrateLinearOrbit_c(pot,yo,t,int_method,rtol=None,atol=None,dt=None):
     """
@@ -118,7 +121,8 @@ def integrateLinearOrbit_c(pot,yo,t,int_method,rtol=None,atol=None,dt=None):
     yo= numpy.atleast_2d(yo)
     nobj= len(yo)
     rtol, atol= _parse_tol(rtol,atol)
-    npot, pot_type, pot_args= _parse_pot(pot)
+    npot, pot_type, pot_args, pot_tfuncs= _parse_pot(pot)
+    pot_tfuncs= _prep_tfuncs(pot_tfuncs)
     int_method_c= _parse_integrator(int_method)
     if dt is None: 
         dt= -9999.99
@@ -137,6 +141,7 @@ def integrateLinearOrbit_c(pot,yo,t,int_method,rtol=None,atol=None,dt=None):
                                ctypes.c_int,
                                ndpointer(dtype=numpy.int32,flags=ndarrayFlags),
                                ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
+                               ctypes.c_void_p,
                                ctypes.c_double,
                                ctypes.c_double,
                                ctypes.c_double,
@@ -160,6 +165,7 @@ def integrateLinearOrbit_c(pot,yo,t,int_method,rtol=None,atol=None,dt=None):
                     ctypes.c_int(npot),
                     pot_type,
                     pot_args,
+                    pot_tfuncs,
                     ctypes.c_double(dt),
                     ctypes.c_double(rtol),ctypes.c_double(atol),
                     result,

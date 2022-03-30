@@ -18,7 +18,6 @@ _lib, _ext_loaded= _load_extension_libs.load_libgalpy()
 
 def _parse_pot(pot):
     """Parse the potential so it can be fed to C"""
-    from .integrateFullOrbit import _parse_scf_pot
     #Figure out what's in pot
     if not isinstance(pot,list):
         pot= [pot]
@@ -29,6 +28,7 @@ def _parse_pot(pot):
     #Initialize everything
     pot_type= []
     pot_args= []
+    pot_tfuncs= []
     npot= len(pot)
     for p in pot:
         # Prepare for wrappers
@@ -37,7 +37,7 @@ def _parse_pot(pot):
           and isinstance(p._Pot,parentWrapperPotential)) \
         or isinstance(p,parentWrapperPotential):
             if not isinstance(p,parentWrapperPotential):
-                wrap_npot, wrap_pot_type, wrap_pot_args= \
+                wrap_npot, wrap_pot_type, wrap_pot_args, wrap_pot_tfuncs= \
                     _parse_pot(potential.toPlanarPotential(p._Pot._pot))
             else:
                 wrap_npot, wrap_pot_type, wrap_pot_args= _parse_pot(p._pot)
@@ -190,9 +190,10 @@ def _parse_pot(pot):
                              for ii in range(p._Pot._glorder)])
         elif (isinstance(p,planarPotentialFromFullPotential) or isinstance(p,planarPotentialFromRZPotential)) \
                  and isinstance(p._Pot,potential.SCFPotential):
-            pt,pa,_= _parse_scf_pot(p._Pot) # NULL
+            pt,pa,ptf= _parse_scf_pot(p._Pot)
             pot_type.append(pt)
             pot_args.extend(pa)
+            pot_tfuncs.extend(ptf)
         elif isinstance(p,planarPotentialFromFullPotential) \
                  and isinstance(p._Pot,potential.SoftenedNeedleBarPotential):
             pot_type.append(25)
@@ -204,9 +205,10 @@ def _parse_pot(pot):
             # Need to pull this apart into: (a) SCF part, (b) constituent
             # [Sigma_i,h_i] parts
             # (a) SCF, multiply in any add'l amp
-            pt,pa,_= _parse_scf_pot(p._Pot._scf,extra_amp=p._Pot._amp) # NULL
+            pt,pa,ptf= _parse_scf_pot(p._Pot._scf,extra_amp=p._Pot._amp)
             pot_type.append(pt)
             pot_args.extend(pa)
+            pot_tfuncs.extend(ptf)
             # (b) constituent [Sigma_i,h_i] parts
             for Sigma,hz in zip(p._Pot._Sigma_dict,p._Pot._hz_dict):
                 npot+= 1
@@ -281,6 +283,7 @@ def _parse_pot(pot):
             pot_args.append(wrap_npot)
             pot_type.extend(wrap_pot_type)
             pot_args.extend(wrap_pot_args)
+            pot_tfuncs.extend(wrap_pot_tfuncs)
             pot_args.extend([p._amp,p._tform,p._tsteady,int(p._grow)])
         elif ((isinstance(p,planarPotentialFromFullPotential) or isinstance(p,planarPotentialFromRZPotential)) \
           and isinstance(p._Pot,potential.SolidBodyRotationWrapperPotential)) \
@@ -292,6 +295,7 @@ def _parse_pot(pot):
             pot_args.append(wrap_npot)
             pot_type.extend(wrap_pot_type)
             pot_args.extend(wrap_pot_args)
+            pot_tfuncs.extend(wrap_pot_tfuncs)
             pot_args.extend([p._amp,p._omega,p._pa])
         elif ((isinstance(p,planarPotentialFromFullPotential) or isinstance(p,planarPotentialFromRZPotential)) \
           and isinstance(p._Pot,potential.CorotatingRotationWrapperPotential)) \
@@ -303,6 +307,7 @@ def _parse_pot(pot):
             pot_args.append(wrap_npot)
             pot_type.extend(wrap_pot_type)
             pot_args.extend(wrap_pot_args)
+            pot_tfuncs.extend(wrap_pot_tfuncs)
             pot_args.extend([p._amp,p._vpo,p._beta,p._pa,p._to])
         elif ((isinstance(p,planarPotentialFromFullPotential) or isinstance(p,planarPotentialFromRZPotential)) \
               and isinstance(p._Pot,potential.GaussianAmplitudeWrapperPotential)) \
@@ -314,6 +319,7 @@ def _parse_pot(pot):
             pot_args.append(wrap_npot)
             pot_type.extend(wrap_pot_type)
             pot_args.extend(wrap_pot_args)
+            pot_tfuncs.extend(wrap_pot_tfuncs)
             pot_args.extend([p._amp,p._to,p._sigma2])
         elif ((isinstance(p,planarPotentialFromFullPotential) or isinstance(p,planarPotentialFromRZPotential)) \
               and isinstance(p._Pot,potential.MovingObjectPotential)) \
@@ -326,6 +332,7 @@ def _parse_pot(pot):
             pot_args.append(wrap_npot)
             pot_type.extend(wrap_pot_type)
             pot_args.extend(wrap_pot_args)
+            pot_tfuncs.extend(wrap_pot_tfuncs)
             pot_args.extend([len(p._orb.t)])
             pot_args.extend(p._orb.t)
             pot_args.extend(p._orb.x(p._orb.t,use_physical=False))
@@ -339,7 +346,7 @@ def _parse_pot(pot):
             # Note that potential.RotateAndTiltWrapperPotential would be -8
     pot_type= numpy.array(pot_type,dtype=numpy.int32,order='C')
     pot_args= numpy.array(pot_args,dtype=numpy.float64,order='C')
-    return (npot,pot_type,pot_args)
+    return (npot,pot_type,pot_args,pot_tfuncs)
 
 def _parse_integrator(int_method):
     """parse the integrator method to pass to C"""
@@ -373,6 +380,27 @@ def _parse_tol(rtol,atol):
         atol= numpy.log(atol)
     return (rtol,atol)
 
+def _parse_scf_pot(p,extra_amp=1.):
+    # Stand-alone parser for SCF, bc re-used
+    isNonAxi= p.isNonAxi
+    pot_args= [p._a, isNonAxi]
+    pot_args.extend(p._Acos.shape)
+    pot_args.extend(extra_amp*p._amp*p._Acos.flatten(order='C'))
+    if isNonAxi:
+        pot_args.extend(extra_amp*p._amp*p._Asin.flatten(order='C'))
+    pot_args.extend([-1.,0,0,0,0,0,0])
+    return (24,pot_args,[]) # latter is pot_tfuncs
+
+def _prep_tfuncs(pot_tfuncs):
+    if len(pot_tfuncs) == 0:
+        pot_tfuncs= None # NULL
+    else:
+        func_ctype= ctypes.CFUNCTYPE(ctypes.c_double, # Return type
+                                     ctypes.c_double) # time
+        func_pyarr= [func_ctype(a) for a in pot_tfuncs]
+        pot_tfuncs= (func_ctype * len(func_pyarr))(*func_pyarr)
+    return pot_tfuncs
+
 def integratePlanarOrbit_c(pot,yo,t,int_method,rtol=None,atol=None,
                            dt=None):
     """
@@ -402,7 +430,8 @@ def integratePlanarOrbit_c(pot,yo,t,int_method,rtol=None,atol=None,
     yo= numpy.atleast_2d(yo)
     nobj= len(yo)
     rtol, atol= _parse_tol(rtol,atol)
-    npot, pot_type, pot_args= _parse_pot(pot)
+    npot, pot_type, pot_args, pot_tfuncs= _parse_pot(pot)
+    pot_tfuncs= _prep_tfuncs(pot_tfuncs)
     int_method_c= _parse_integrator(int_method)
     if dt is None:
         dt= -9999.99
@@ -421,6 +450,7 @@ def integratePlanarOrbit_c(pot,yo,t,int_method,rtol=None,atol=None,
                                ctypes.c_int,
                                ndpointer(dtype=numpy.int32,flags=ndarrayFlags),
                                ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
+                               ctypes.c_void_p,
                                ctypes.c_double,
                                ctypes.c_double,
                                ctypes.c_double,
@@ -444,6 +474,7 @@ def integratePlanarOrbit_c(pot,yo,t,int_method,rtol=None,atol=None,
                     ctypes.c_int(npot),
                     pot_type,
                     pot_args,
+                    pot_tfuncs,
                     ctypes.c_double(dt),
                     ctypes.c_double(rtol),
                     ctypes.c_double(atol),
@@ -486,7 +517,8 @@ def integratePlanarOrbit_dxdv_c(pot,yo,dyo,t,int_method,rtol=None,atol=None,
        2011-10-19 - Written - Bovy (IAS)
     """
     rtol, atol= _parse_tol(rtol,atol)
-    npot, pot_type, pot_args= _parse_pot(pot)
+    npot, pot_type, pot_args, pot_tfuncs= _parse_pot(pot)
+    pot_tfuncs= _prep_tfuncs(pot_tfuncs)
     int_method_c= _parse_integrator(int_method)
     if dt is None:
         dt= -9999.99
@@ -505,6 +537,7 @@ def integratePlanarOrbit_dxdv_c(pot,yo,dyo,t,int_method,rtol=None,atol=None,
                                ctypes.c_int,
                                ndpointer(dtype=numpy.int32,flags=ndarrayFlags),
                                ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
+                               ctypes.c_void_p,
                                ctypes.c_double,
                                ctypes.c_double,
                                ctypes.c_double,
@@ -526,6 +559,7 @@ def integratePlanarOrbit_dxdv_c(pot,yo,dyo,t,int_method,rtol=None,atol=None,
                     ctypes.c_int(npot),
                     pot_type,
                     pot_args,
+                    pot_tfuncs,
                     ctypes.c_double(dt),
                     ctypes.c_double(rtol),ctypes.c_double(atol),
                     result,
