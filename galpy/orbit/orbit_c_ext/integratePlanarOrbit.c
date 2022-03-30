@@ -491,6 +491,16 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
       break;
     //ChandrasekharDynamicalFrictionForce omitted, bc no planar version
     //RotateAndTiltWrapperPotential omitted, bc no planar version
+    case -9: //TimeDependentAmplitudeWrapperPotential
+      potentialArgs->potentialEval= &TimeDependentAmplitudeWrapperPotentialEval;
+      potentialArgs->planarRforce= &TimeDependentAmplitudeWrapperPotentialPlanarRforce;
+      potentialArgs->planarphiforce= &TimeDependentAmplitudeWrapperPotentialPlanarphiforce;
+      potentialArgs->planarR2deriv= &TimeDependentAmplitudeWrapperPotentialPlanarR2deriv;
+      potentialArgs->planarphi2deriv= &TimeDependentAmplitudeWrapperPotentialPlanarphi2deriv;
+      potentialArgs->planarRphideriv= &TimeDependentAmplitudeWrapperPotentialPlanarRphideriv;
+      potentialArgs->nargs= 4;
+      potentialArgs->ntfuncs= 1;
+      break;
     }
     int setupSplines = *(*pot_type-1) == -6 ? 1 : 0;
     if ( *(*pot_type-1) < 0) { // Parse wrapped potential for wrappers

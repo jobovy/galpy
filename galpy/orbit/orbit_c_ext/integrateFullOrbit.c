@@ -586,6 +586,15 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
       break;
+    case -9: //TimeDependentAmplitudeWrapperPotential
+      potentialArgs->potentialEval= &TimeDependentAmplitudeWrapperPotentialEval;
+      potentialArgs->Rforce= &TimeDependentAmplitudeWrapperPotentialRforce;
+      potentialArgs->zforce= &TimeDependentAmplitudeWrapperPotentialzforce;
+      potentialArgs->phiforce= &TimeDependentAmplitudeWrapperPotentialphiforce;
+      potentialArgs->nargs= 1;
+      potentialArgs->ntfuncs= 1;
+      potentialArgs->requiresVelocity= false;
+      break;  
     }
     int setupMovingObjectSplines = *(*pot_type-1) == -6 ? 1 : 0;
     int setupChandrasekharDynamicalFrictionSplines = *(*pot_type-1) == -7 ? 1 : 0;

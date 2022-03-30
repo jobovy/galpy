@@ -719,6 +719,25 @@ double ChandrasekharDynamicalFrictionForcephiforce(double,double,double,double,
 double ChandrasekharDynamicalFrictionForcezforce(double,double,double,double,
 						 struct potentialArg *,
 						 double,double,double);
+//TimeDependentAmplitudeWrapperPotential
+double TimeDependentAmplitudeWrapperPotentialEval(double,double,double,double,
+				      struct potentialArg *);
+double TimeDependentAmplitudeWrapperPotentialRforce(double,double,double,double,
+					struct potentialArg *);
+double TimeDependentAmplitudeWrapperPotentialphiforce(double,double,double,double,
+					    struct potentialArg *);
+double TimeDependentAmplitudeWrapperPotentialzforce(double,double,double,double,
+				        struct potentialArg *);
+double TimeDependentAmplitudeWrapperPotentialPlanarRforce(double,double,double,
+						struct potentialArg *);
+double TimeDependentAmplitudeWrapperPotentialPlanarphiforce(double,double,double,
+						  struct potentialArg *);
+double TimeDependentAmplitudeWrapperPotentialPlanarR2deriv(double,double,double,
+						 struct potentialArg *);
+double TimeDependentAmplitudeWrapperPotentialPlanarphi2deriv(double,double,double,
+						   struct potentialArg *);
+double TimeDependentAmplitudeWrapperPotentialPlanarRphideriv(double,double,double,
+						   struct potentialArg *);
 #ifdef __cplusplus
 }
 #endif

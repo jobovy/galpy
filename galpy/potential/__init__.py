@@ -58,6 +58,7 @@ from . import AdiabaticContractionWrapperPotential
 from . import PowerTriaxialPotential
 from . import NonInertialFrameForce
 from . import NullPotential
+from . import TimeDependentAmplitudeWrapperPotential
 #
 # Functions
 #
@@ -199,6 +200,7 @@ AdiabaticContractionWrapperPotential= AdiabaticContractionWrapperPotential.Adiab
 PowerTriaxialPotential= PowerTriaxialPotential.PowerTriaxialPotential
 NonInertialFrameForce= NonInertialFrameForce.NonInertialFrameForce
 NullPotential= NullPotential.NullPotential
+TimeDependentAmplitudeWrapperPotential= TimeDependentAmplitudeWrapperPotential.TimeDependentAmplitudeWrapperPotential
 
 # MW potential models, now in galpy.potential.mwpotentials, but keep these two
 # for tests, backwards compatibility, and convenience

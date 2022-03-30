@@ -588,6 +588,7 @@ Specific wrappers
    :maxdepth: 2
 
    potentialadiabaticcontractwrapper.rst
+   potentialtimedependentamplitude.rst
    potentialcorotwrapper.rst
    potentialdehnensmoothwrapper.rst
    potentialgaussampwrapper.rst

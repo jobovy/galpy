@@ -4,6 +4,9 @@ v1.8 (XXXX-XX-XX)
 - Turn on NFWPotential physical output when initializing using the 
   virial mass mvir (see #465)
 
+- Added TimeDependentAmplitudeWrapperPotential, a wrapper allowing
+  for arbitrary time dependence of the amplitude of any potential.
+
 - Added NullPotential, a potential with a constant value.
 
 - Allow actions to be computed for Orbit instances with actionAngle
