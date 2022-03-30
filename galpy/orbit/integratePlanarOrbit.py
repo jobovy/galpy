@@ -40,7 +40,8 @@ def _parse_pot(pot):
                 wrap_npot, wrap_pot_type, wrap_pot_args, wrap_pot_tfuncs= \
                     _parse_pot(potential.toPlanarPotential(p._Pot._pot))
             else:
-                wrap_npot, wrap_pot_type, wrap_pot_args= _parse_pot(p._pot)
+                wrap_npot, wrap_pot_type, wrap_pot_args, wrap_pot_tfuncs= \
+                    _parse_pot(p._pot)
         if (isinstance(p,planarPotentialFromRZPotential)
             or isinstance(p,planarPotentialFromFullPotential) ) \
                  and isinstance(p._Pot,potential.LogarithmicHaloPotential):
@@ -327,7 +328,7 @@ def _parse_pot(pot):
             if not isinstance(p,potential.MovingObjectPotential):
                 p= p._Pot
             pot_type.append(-6)
-            wrap_npot, wrap_pot_type, wrap_pot_args= \
+            wrap_npot, wrap_pot_type, wrap_pot_args, wrap_pot_tfuncs= \
                     _parse_pot(potential.toPlanarPotential(p._pot))
             pot_args.append(wrap_npot)
             pot_type.extend(wrap_pot_type)
