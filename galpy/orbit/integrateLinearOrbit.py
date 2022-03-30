@@ -84,9 +84,10 @@ def _parse_pot(pot):
             pot_args.extend([p._amp*p._sigma2/p._H,2.*p._H]) 
         # All other potentials can be handled in the same way as follows:
         elif isinstance(p,verticalPotential):
-            _,pt,pa,_= _parse_pot_full(p._Pot) # NULL
+            _,pt,pa,ptf= _parse_pot_full(p._Pot) # NULL
             pot_type.extend(pt)
             pot_args.extend(pa)
+            pot_tfuncs.extend(ptf)
             pot_args.append(p._R)
             pot_args.append(p._phi)
     pot_type= numpy.array(pot_type,dtype=numpy.int32,order='C')
