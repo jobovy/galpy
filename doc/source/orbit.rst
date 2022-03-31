@@ -580,8 +580,8 @@ For the example above, this would amount to setting
 
 >>> nip= NonInertialFrameForce(Omega=lambda t: 1.,Omegadot=lambda t: 0.)
 
-Note that when we supply `Omega` as a function, it is necessary to specify 
-its time derivative as well as `Omegadot` (all again in internal units).
+Note that when we supply ``Omega`` as a function, it is necessary to specify 
+its time derivative as well as ``Omegadot`` (all again in internal units).
 
 We give an example of having the origin of the non-inertial frame accelerate 
 in the :ref:`orbit-example-barycentric-acceleration-LMC` section below.
