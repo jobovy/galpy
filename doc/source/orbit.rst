@@ -1349,7 +1349,7 @@ Directly using these accelerations in the ``NonInertialFrameForce`` is very
 slow (because they have to be evaluated *a lot* during orbit integration), 
 so we build interpolated versions to speed things up:
 
->>> t_intunits= o.time(use_physical=False)
+>>> t_intunits= o.time(use_physical=False)[::-1] # need to reverse the order for interp
 >>> ax4int= [ax(t) for t in t_intunits]
 >>> ax_int= lambda t: numpy.interp(t,t_intunits,ax4int)
 >>> ay4int= [ay(t) for t in t_intunits]
@@ -1380,7 +1380,7 @@ This gives
 .. image:: images/mwp14-lmcacc-sun.png
    :scale: 60 %
 
-We see that there is no perceptible difference. This is because the 
+We see that there is only a small difference. This is because the 
 acceleration of the origin due to the LMC is much smaller than the 
 acceleration felt by the Sun during its orbit from the Milky Way. 
 However, if we look at a dwarf galaxy orbiting far in the halo, we 
@@ -1404,4 +1404,70 @@ This gives
 
 Now we see that there are significant differences in the past orbit 
 when we take the acceleration of the Galactocentric reference frame 
-into account.
+into account. The reason that the orbit changes abruptly at :math:`-8\,\mathrm{Gyr}` 
+is because the LMC has a previous pericenter passage then in the orbit that 
+we calculated for it, leading to a significant fictitious acceleration force 
+at that time. Whether this is correct is of course highly uncertain.
+
+To check whether the acceleration of the Milky Way's origin that we 
+obtained using the simple approximation above is realistic, we can, 
+for example, compare to the results shown in Figure 10 of 
+`Vasiliev et al. (2021) <https://ui.adsabs.harvard.edu/abs/2021MNRAS.501.2279V/abstract>`__. 
+This figure displays the displacement of the Milky Way's origin and 
+its velocity as a function of time, and also the fictitious force 
+induced by the acceleration of the origin (this is minus the acceleration). 
+To compute these quantities for the model above, we simply integrate the 
+acceleration (starting 3 Gyr ago like Vasiliev et al.):
+
+>>> from scipy import integrate
+>>> from galpy.util import conversion
+>>> vo, ro= 220., 8.
+>>> int_ts_phys= numpy.linspace(-3.,0.,101)
+>>> int_ts= int_ts_phys/conversion.time_in_Gyr(vo,ro)
+>>> ax4plot= ax_int(int_ts)
+>>> ay4plot= ay_int(int_ts)
+>>> az4plot= az_int(int_ts)
+>>> vx4plot= integrate.cumulative_trapezoid(ax4plot,x=int_ts,initial=0.)
+>>> vy4plot= integrate.cumulative_trapezoid(ay4plot,x=int_ts,initial=0.)
+>>> vz4plot= integrate.cumulative_trapezoid(az4plot,x=int_ts,initial=0.)
+>>> xx4plot= integrate.cumulative_trapezoid(vx4plot,x=int_ts,initial=0.)
+>>> xy4plot= integrate.cumulative_trapezoid(vy4plot,x=int_ts,initial=0.)
+>>> xz4plot= integrate.cumulative_trapezoid(vz4plot,x=int_ts,initial=0.)
+>>> plt.figure(figsize=(11,3.5))
+>>> plt.subplot(1,3,1)
+>>> plt.plot(int_ts_phys,xx4plot*ro,color=(0.5,0.5,247./256.),lw=2.,
+             label=r'$x$')
+>>> plt.plot(int_ts_phys,xy4plot*ro,color=(111./256,180./256,109./256),lw=2.,
+             label=r'$y$')
+>>> plt.plot(int_ts_phys,xz4plot*ro,color=(239./256,135./256,132./256),lw=2.,
+             label=r'$z$')
+>>> plt.xlabel(r'$\mathrm{time}\,(\mathrm{Gyr})$')
+>>> plt.ylabel(r'$\mathrm{displacement}\,(\mathrm{kpc})$')
+>>> plt.legend(frameon=False,fontsize=18.)
+>>> plt.subplot(1,3,2)
+>>> plt.plot(int_ts_phys,vx4plot*vo,color=(0.5,0.5,247./256.),lw=2.)
+>>> plt.plot(int_ts_phys,vy4plot*vo,color=(111./256,180./256,109./256),lw=2.)
+>>> plt.plot(int_ts_phys,vz4plot*vo,color=(239./256,135./256,132./256),lw=2.)
+>>> plt.xlabel(r'$\mathrm{time}\,(\mathrm{Gyr})$')
+>>> plt.ylabel(r'$\mathrm{velocity}\,(\mathrm{km\,s}^{-1})$')
+>>> plt.subplot(1,3,3)
+>>> plt.plot(int_ts_phys,-ax4plot*conversion.force_in_kmsMyr(vo,ro)*1000.,
+             color=(0.5,0.5,247./256.),lw=2.)
+>>> plt.plot(int_ts_phys,-ay4plot*conversion.force_in_kmsMyr(vo,ro)*1000.,
+             color=(111./256,180./256,109./256),lw=2.)
+>>> plt.plot(int_ts_phys,-az4plot*conversion.force_in_kmsMyr(vo,ro)*1000.,
+             color=(239./256,135./256,132./256),lw=2.)
+>>> plt.xlabel(r'$\mathrm{time}\,(\mathrm{Gyr})$')
+>>> plt.ylabel(r'$\mathrm{acceleration}\,(\mathrm{km\,s}^{-1}\,\mathrm{Gyr}^{-1})$')
+>>> plt.tight_layout()
+
+and we obtain
+
+.. image:: images/mwp14-lmcacc-displacement-etc.png
+   :scale: 60 %
+
+The main trends and magnitudes in this figure are the same as those 
+in figure 10 of Vasiliev et al., so the acceleration of the origin that 
+we computed here is reasonable. Note that Vasiliev et al. use a different 
+LMC mass and that other aspects of their modeling differ (like the Milky Way's 
+potential), so we don't expect an exact match.
