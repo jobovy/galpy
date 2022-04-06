@@ -173,11 +173,11 @@ jobs:
          pip install --upgrade --upgrade-strategy eager wheel
          pip install git+https://github.com/pynbody/pynbody.git@cfbefac64bfad3b8d042e669ff2b36bad25813ce#egg=pynbody
     - name: Install astropy
-      if: ${{ matrix.REQUIRES_ASTROPY && matrix.python-version != 3.10 }}
+      if: ${{ matrix.REQUIRES_ASTROPY && matrix.python-version != 4.0 }}
       run: |
          pip install astropy pyerfa
-    - name: Install astropy (Python 3.10)
-      if: ${{ matrix.REQUIRES_ASTROPY && matrix.python-version == 3.10 }}
+    - name: Install astropy (Python 4.0; doesn't exist of course, placeholder for new python v)
+      if: ${{ matrix.REQUIRES_ASTROPY && matrix.python-version == 4.0 }}
       run: |
          pip install pyerfa
          pip install --extra-index-url=https://pkgs.dev.azure.com/astropy-project/astropy/_packaging/nightly/pypi/simple/ --pre astropy
