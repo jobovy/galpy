@@ -174,6 +174,7 @@ def test_forceAsDeriv_potential():
     pots.append('mockRotatedAndTiltedTriaxialLogHaloPotentialwInclination')
     pots.append('mockRotatedTiltedOffsetMWP14WrapperPotential')
     pots.append('mockOffsetMWP14WrapperPotential')
+    pots.append('mockTimeDependentAmplitudeWrapperPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -352,6 +353,7 @@ def test_2ndDeriv_potential():
     pots.append('mockRotatedAndTiltedTriaxialLogHaloPotentialwInclination')
     pots.append('mockRotatedTiltedOffsetMWP14WrapperPotential')
     pots.append('mockOffsetMWP14WrapperPotential')
+    pots.append('mockTimeDependentAmplitudeWrapperPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -604,6 +606,7 @@ def test_poisson_potential():
     pots.append('mockRotatedAndTiltedTriaxialLogHaloPotentialwInclination')
     pots.append('mockRotatedTiltedOffsetMWP14WrapperPotential')
     pots.append('mockOffsetMWP14WrapperPotential')
+    pots.append('mockTimeDependentAmplitudeWrapperPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -853,6 +856,7 @@ def test_evaluateAndDerivs_potential():
     pots.append('mockRotatedAndTiltedTriaxialLogHaloPotentialwInclination')
     pots.append('mockRotatedTiltedOffsetMWP14WrapperPotential')
     pots.append('mockOffsetMWP14WrapperPotential')
+    pots.append('mockTimeDependentAmplitudeWrapperPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -4220,6 +4224,91 @@ def test_isodisk_amplitude_issue400():
     assert numpy.fabs(dens_at_0-0.1) < 1e-7, 'Density at z=0 for IsothermalDiskPotential is not correct'
     return None
 
+def test_TimeDependentAmplitudeWrapperPotential_against_DehnenSmooth():
+    # Test that TimeDependentAmplitudeWrapperPotential acts the same as DehnenSmooth
+    # Test = LogPot + DehnenBar grown smoothly
+    # Both using the DehnenSmoothWrapper and the new TimeDependentAmplitudeWrapperPotential
+    from galpy.orbit import Orbit
+    lp= potential.LogarithmicHaloPotential()
+    dbp= potential.DehnenBarPotential(tform=-100000.,tsteady=1.)
+    dp= potential.DehnenSmoothWrapperPotential(pot=dbp)
+    tp= potential.TimeDependentAmplitudeWrapperPotential(pot=dbp,A=dp._smooth)
+    # Orbit of the Sun
+    o= Orbit()
+    ts= numpy.linspace(0.,-20.,1001)
+    o.integrate(ts,lp+dp)
+    ot= o()
+    ot.integrate(ts,lp+tp)
+    tol= 1e-10
+    assert numpy.amax(numpy.fabs(o.x(ts)-ot.x(ts))) <tol, 'Integrating an orbit in a growing DehnenSmoothWrapper does not agree between DehnenSmooth and TimeDependentWrapper'
+    assert numpy.amax(numpy.fabs(o.y(ts)-ot.y(ts))) <tol, 'Integrating an orbit in a growing DehnenSmoothWrapper does not agree between DehnenSmooth and TimeDependentWrapper'
+    assert numpy.amax(numpy.fabs(o.z(ts)-ot.z(ts))) <tol, 'Integrating an orbit in a growing DehnenSmoothWrapper does not agree between DehnenSmooth and TimeDependentWrapper'
+    assert numpy.amax(numpy.fabs(o.vx(ts)-ot.vx(ts))) <tol, 'Integrating an orbit in a growing DehnenSmoothWrapper does not agree between DehnenSmooth and TimeDependentWrapper'
+    assert numpy.amax(numpy.fabs(o.vy(ts)-ot.vy(ts))) <tol, 'Integrating an orbit in a growing DehnenSmoothWrapper does not agree between DehnenSmooth and TimeDependentWrapper'
+    assert numpy.amax(numpy.fabs(o.vz(ts)-ot.vz(ts))) <tol, 'Integrating an orbit in a growing DehnenSmoothWrapper does not agree between DehnenSmooth and TimeDependentWrapper'
+    return None
+
+def test_TimeDependentAmplitudeWrapperPotential_against_DehnenSmooth_2d():
+    # Test that TimeDependentAmplitudeWrapperPotential acts the same as DehnenSmooth
+    # Test = LogPot + DehnenBar grown smoothly
+    # Both using the DehnenSmoothWrapper and the new TimeDependentAmplitudeWrapperPotential
+    from galpy.orbit import Orbit
+    lp= potential.LogarithmicHaloPotential()
+    dbp= potential.DehnenBarPotential(tform=-100000.,tsteady=1.)
+    dp= potential.DehnenSmoothWrapperPotential(pot=dbp)
+    tp= potential.TimeDependentAmplitudeWrapperPotential(pot=dbp,A=dp._smooth)
+    # Orbit of the Sun
+    o= Orbit().toPlanar()
+    ts= numpy.linspace(0.,-20.,1001)
+    o.integrate(ts,lp+dp)
+    ot= o()
+    ot.integrate(ts,lp+tp)
+    tol= 1e-10
+    assert numpy.amax(numpy.fabs(o.x(ts)-ot.x(ts))) <tol, 'Integrating an orbit in a growing DehnenSmoothWrapper does not agree between DehnenSmooth and TimeDependentWrapper'
+    assert numpy.amax(numpy.fabs(o.y(ts)-ot.y(ts))) <tol, 'Integrating an orbit in a growing DehnenSmoothWrapper does not agree between DehnenSmooth and TimeDependentWrapper'
+    assert numpy.amax(numpy.fabs(o.vx(ts)-ot.vx(ts))) <tol, 'Integrating an orbit in a growing DehnenSmoothWrapper does not agree between DehnenSmooth and TimeDependentWrapper'
+    assert numpy.amax(numpy.fabs(o.vy(ts)-ot.vy(ts))) <tol, 'Integrating an orbit in a growing DehnenSmoothWrapper does not agree between DehnenSmooth and TimeDependentWrapper'
+    return None
+
+def test_TimeDependentAmplitudeWrapperPotential_against_DehnenSmooth_2d_dxdv():
+    # Test that TimeDependentAmplitudeWrapperPotential acts the same as DehnenSmooth
+    # Test = LogPot + DehnenBar grown smoothly
+    # Both using the DehnenSmoothWrapper and the new TimeDependentAmplitudeWrapperPotential
+    from galpy.orbit import Orbit
+    lp= potential.LogarithmicHaloPotential()
+    dbp= potential.DehnenBarPotential(tform=-100000.,tsteady=1.)
+    dp= potential.DehnenSmoothWrapperPotential(pot=dbp)
+    tp= potential.TimeDependentAmplitudeWrapperPotential(pot=dbp,A=dp._smooth)
+    # Orbit of the Sun
+    o= Orbit().toPlanar()
+    ts= numpy.linspace(0.,-20.,1001)
+    o.integrate_dxdv([1.,0.,0.,0.],ts,lp+dp,rectIn=True,rectOut=True)
+    ot= o()
+    ot.integrate_dxdv([1.,0.,0.,0.],ts,lp+tp,rectIn=True,rectOut=True)
+    tol= 1e-10
+    assert numpy.amax(numpy.fabs(o.getOrbit_dxdv()-ot.getOrbit_dxdv())) <tol, 'Integrating an orbit with dxdv in a growing DehnenSmoothWrapper does not agree between DehnenSmooth and TimeDependentWrapper'
+    return None
+
+def test_TimeDependentAmplitudeWrapperPotential_inputerrors():
+    # TypeError when A not supplied
+    lp= potential.LogarithmicHaloPotential()
+    with pytest.raises(TypeError,match="A= input to TimeDependentAmplitudeWrapperPotential should be a function"):
+        tp= TimeDependentAmplitudeWrapperPotential(pot=lp)
+    # TypeError when suppplying a function with no argument
+    with pytest.raises(TypeError,match="A= input to TimeDependentAmplitudeWrapperPotential should be a function that can be called with a single parameter"):
+        tp= TimeDependentAmplitudeWrapperPotential(pot=lp,A=lambda: 1.)
+    # TypeError when suppplying a function with more than 1 argument
+    with pytest.raises(TypeError,match="A= input to TimeDependentAmplitudeWrapperPotential should be a function that can be called with a single parameter"):
+        tp= TimeDependentAmplitudeWrapperPotential(pot=lp,A=lambda x,y: x+y)
+    # But having additional arguments have defaults should be allowed
+    tp= TimeDependentAmplitudeWrapperPotential(pot=lp,A=lambda x,y=1.: x+y)
+    # Return value should be a number
+    with pytest.raises(TypeError,match="A= function needs to return a number \(specifically, a numbers.Number\)"):
+        tp= TimeDependentAmplitudeWrapperPotential(pot=lp,A=lambda t: (t,t+1))
+    with pytest.raises(TypeError,match="A= function needs to return a number \(specifically, a numbers.Number\)"):
+        tp= TimeDependentAmplitudeWrapperPotential(pot=lp,A=lambda t: numpy.array([t]))        
+    return None
+
 def test_plotting():
     import tempfile
     #Some tests of the plotting routines, to make sure they don't fail
@@ -5087,7 +5176,7 @@ class mockMovingObjectLongIntPotential(mockMovingObjectPotential):
 from galpy.potential import DehnenSmoothWrapperPotential, \
     SolidBodyRotationWrapperPotential, CorotatingRotationWrapperPotential, \
     GaussianAmplitudeWrapperPotential, AdiabaticContractionWrapperPotential, \
-    RotateAndTiltWrapperPotential
+    RotateAndTiltWrapperPotential, TimeDependentAmplitudeWrapperPotential
 from galpy.potential.WrapperPotential import parentWrapperPotential
 class DehnenSmoothDehnenBarPotential(DehnenSmoothWrapperPotential):
     # This wrapped potential should be the same as the default DehnenBar
@@ -5362,3 +5451,24 @@ class mockOffsetMWP14WrapperPotential(testMWPotential):
                                               offset=[1.,1.,1.]),])
     def OmegaP(self):
         return 0.
+#TimeDependentAmplitudeWrapperPotential
+class mockTimeDependentAmplitudeWrapperPotential(TimeDependentAmplitudeWrapperPotential):
+    # Need to use __new__ because new Wrappers are created using __new__
+    def __new__(cls,*args,**kwargs):
+        if kwargs.get('_init',False):
+            return parentWrapperPotential.__new__(cls,*args,**kwargs)
+        dpn= DehnenBarPotential(tform=-100.,tsteady=1.) #on after t=-99
+        dps= DehnenSmoothWrapperPotential(pot=dpn,\
+                               tform=-4.*2.*numpy.pi/dpn.OmegaP())
+        return DehnenSmoothWrapperPotential.__new__(cls,amp=1.,pot=dpn,\
+                               A=dps._smooth)
+# A TimeDependentAmplitudeWrapperPotential version of LogarithmicHaloPotential for simple aAtest
+class mockSmoothedLogarithmicHaloPotentialwTimeDependentAmplitudeWrapperPotential(TimeDependentAmplitudeWrapperPotential):
+    def __new__(cls,*args,**kwargs):
+        if kwargs.get('_init',False):
+            return parentWrapperPotential.__new__(cls,*args,**kwargs)
+        dps= DehnenSmoothWrapperPotential(pot=potential.LogarithmicHaloPotential(normalize=1.),
+            tform=-1.,tsteady=0.5)
+        return TimeDependentAmplitudeWrapperPotential.__new__(cls,amp=1.,
+            pot=potential.LogarithmicHaloPotential(normalize=1.),
+            A=dps._smooth)

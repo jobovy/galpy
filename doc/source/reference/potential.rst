@@ -272,6 +272,14 @@ Dissipative forces
 
    potentialchandrasekhardynfric.rst
 
+Fictitious forces in non-inertial frames
+****************************************
+
+.. toctree::
+   :maxdepth: 2
+
+   potentialnoninertialframe.rst
+
 Helper classes
 **************
 
@@ -580,6 +588,7 @@ Specific wrappers
    :maxdepth: 2
 
    potentialadiabaticcontractwrapper.rst
+   potentialtimedependentamplitude.rst
    potentialcorotwrapper.rst
    potentialdehnensmoothwrapper.rst
    potentialgaussampwrapper.rst

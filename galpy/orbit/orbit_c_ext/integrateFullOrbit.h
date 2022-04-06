@@ -7,7 +7,7 @@ extern "C" {
 #include <Python.h>
 #endif
 #include <galpy_potentials.h>
-void parse_leapFuncArgs_Full(int, struct potentialArg *,int **,double **);
+void parse_leapFuncArgs_Full(int, struct potentialArg *,int **,double **,tfuncs_type_arr *);
 #ifdef _WIN32
 // On Windows, *need* to define this function to allow the package to be imported
 #if PY_MAJOR_VERSION >= 3

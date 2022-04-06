@@ -201,7 +201,6 @@ def test_energy_jacobi_conservation():
             ptp= tp.toPlanar()
         else:
             ptp= None
-        print(p)
         for integrator in integrators:
             if integrator == 'dopr54_c' \
                     and ('Spiral' in p or 'Lopsided' in p \

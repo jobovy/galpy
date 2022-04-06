@@ -24,6 +24,7 @@ jobs:
             REQUIRES_PYNBODY: false
             REQUIRES_ASTROPY: false
             REQUIRES_ASTROQUERY: false
+            REQUIRES_NUMBA: false
             REQUIRES_JAX: false
           - os: windows-latest
             python-version: 3.9
@@ -31,6 +32,7 @@ jobs:
             REQUIRES_PYNBODY: false
             REQUIRES_ASTROPY: false
             REQUIRES_ASTROQUERY: false
+            REQUIRES_NUMBA: false
             REQUIRES_JAX: false
           - os: windows-latest
             python-version: 3.9
@@ -38,6 +40,7 @@ jobs:
             REQUIRES_PYNBODY: false
             REQUIRES_ASTROPY: false
             REQUIRES_ASTROQUERY: false
+            REQUIRES_NUMBA: false
             REQUIRES_JAX: false
           - os: windows-latest
             python-version: 3.9
@@ -45,6 +48,7 @@ jobs:
             REQUIRES_PYNBODY: false
             REQUIRES_ASTROPY: false
             REQUIRES_ASTROQUERY: false
+            REQUIRES_NUMBA: false
             REQUIRES_JAX: false
           - os: windows-latest
             python-version: 3.9
@@ -53,6 +57,7 @@ jobs:
             # needs to be separate for different config
             REQUIRES_ASTROPY: true
             REQUIRES_ASTROQUERY: false
+            REQUIRES_NUMBA: false
             REQUIRES_JAX: false
           - os: windows-latest
             python-version: 3.9
@@ -60,6 +65,7 @@ jobs:
             REQUIRES_PYNBODY: false
             REQUIRES_ASTROPY: true
             REQUIRES_ASTROQUERY: true
+            REQUIRES_NUMBA: false
             REQUIRES_JAX: false
           - os: windows-latest
             python-version: 3.9
@@ -67,6 +73,7 @@ jobs:
             REQUIRES_PYNBODY: false
             REQUIRES_ASTROPY: true
             REQUIRES_ASTROQUERY: true
+            REQUIRES_NUMBA: false
             REQUIRES_JAX: false
           - os: windows-latest
             python-version: 3.9
@@ -74,6 +81,7 @@ jobs:
             REQUIRES_PYNBODY: false
             REQUIRES_ASTROPY: false
             REQUIRES_ASTROQUERY: false
+            REQUIRES_NUMBA: false
             REQUIRES_JAX: false
           - os: windows-latest
             python-version: 3.9
@@ -81,13 +89,15 @@ jobs:
             REQUIRES_PYNBODY: false
             REQUIRES_ASTROPY: false
             REQUIRES_ASTROQUERY: false
+            REQUIRES_NUMBA: false
             REQUIRES_JAX: false
           - os: windows-latest
             python-version: 3.9
-            TEST_FILES: tests/test_qdf.py tests/test_pv2qdf.py tests/test_streamgapdf_impulse.py
+            TEST_FILES: tests/test_qdf.py tests/test_pv2qdf.py tests/test_streamgapdf_impulse.py tests/test_noninertial.py
             REQUIRES_PYNBODY: false
             REQUIRES_ASTROPY: false
             REQUIRES_ASTROQUERY: false
+            REQUIRES_NUMBA: false
             REQUIRES_JAX: false
           - os: windows-latest
             python-version: 3.9
@@ -95,6 +105,7 @@ jobs:
             REQUIRES_PYNBODY: false
             REQUIRES_ASTROPY: false
             REQUIRES_ASTROQUERY: false
+            REQUIRES_NUMBA: false
             REQUIRES_JAX: false
           - os: windows-latest
             python-version: 3.9
@@ -102,6 +113,7 @@ jobs:
             REQUIRES_PYNBODY: false
             REQUIRES_ASTROPY: false
             REQUIRES_ASTROQUERY: false
+            REQUIRES_NUMBA: false
             REQUIRES_JAX: false
           - os: windows-latest
             python-version: 3.9
@@ -109,6 +121,7 @@ jobs:
             REQUIRES_PYNBODY: false
             REQUIRES_ASTROPY: false
             REQUIRES_ASTROQUERY: false
+            REQUIRES_NUMBA: false
             REQUIRES_JAX: false    
           - os: windows-latest
             python-version: "3.10"
@@ -116,6 +129,7 @@ jobs:
             REQUIRES_PYNBODY: false
             REQUIRES_ASTROPY: true
             REQUIRES_ASTROQUERY: true
+            REQUIRES_NUMBA: false
             REQUIRES_JAX: false
           - os: windows-latest
             python-version: "3.10"
@@ -123,6 +137,7 @@ jobs:
             REQUIRES_PYNBODY: false
             REQUIRES_ASTROPY: true
             REQUIRES_ASTROQUERY: true
+            REQUIRES_NUMBA: false
             REQUIRES_JAX: false            
     steps:
     - uses: actions/checkout@v2
@@ -131,11 +146,11 @@ jobs:
     - uses: actions/cache@v2
       with:
         path: ~/conda_pkgs_dir
-        key: ${{ runner.os }}-pip-${{ matrix.python-version }}-${{ hashFiles('.github/workflows/build_windows.yml') }}-${{ hashFiles('.github/conda-build-environment-windows-latest.yml') }}-${{ matrix.REQUIRES_PYNBODY }}-${{ matrix.REQUIRES_ASTROPY }}-${{ matrix.REQUIRES_ASTROQUERY }}-${{ matrix.REQUIRES_JAX }}
+        key: ${{ runner.os }}-pip-${{ matrix.python-version }}-${{ hashFiles('.github/workflows/build_windows.yml') }}-${{ hashFiles('.github/conda-build-environment-windows-latest.yml') }}-${{ matrix.REQUIRES_PYNBODY }}-${{ matrix.REQUIRES_ASTROPY }}-${{ matrix.REQUIRES_ASTROQUERY }}-${{ matrix.REQUIRES_NUMBA }}-${{ matrix.REQUIRES_JAX }}
     - uses: actions/cache@v2
       with:
         path: ~\AppData\Local\pip\Cache
-        key: ${{ runner.os }}-pip-${{ matrix.python-version }}-${{ hashFiles('.github/workflows/build_windows.yml') }}-${{ matrix.REQUIRES_PYNBODY }}-${{ matrix.REQUIRES_ASTROPY }}-${{ matrix.REQUIRES_ASTROQUERY }}-${{ matrix.REQUIRES_JAX }}
+        key: ${{ runner.os }}-pip-${{ matrix.python-version }}-${{ hashFiles('.github/workflows/build_windows.yml') }}-${{ matrix.REQUIRES_PYNBODY }}-${{ matrix.REQUIRES_ASTROPY }}-${{ matrix.REQUIRES_ASTROQUERY }}-${{ matrix.REQUIRES_NUMBA }}-${{ matrix.REQUIRES_JAX }}
     - uses: conda-incubator/setup-miniconda@v2
       with:
          activate-environment: galpywheels
@@ -169,6 +184,9 @@ jobs:
     - name: Install astroquery
       if: ${{ matrix.REQUIRES_ASTROQUERY }}
       run: pip install astroquery
+    - name: Install numba
+      if: ${{ matrix.REQUIRES_NUMBA }}
+      run: pip install numba
     - name: Install JAX
       if: ${{ matrix.REQUIRES_JAX }}
       run: pip install jax jaxlib

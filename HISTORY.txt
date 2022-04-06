@@ -1,8 +1,15 @@
 v1.8 (XXXX-XX-XX)
 =================
 
+- Added NonInertialFrameForce, which provides the fictitious forces 
+  when integrating orbits in non-inertial frames. Arbitrary rotations 
+  and origin accelerations are supported (#471).
+
 - Turn on NFWPotential physical output when initializing using the 
   virial mass mvir (see #465)
+
+- Added TimeDependentAmplitudeWrapperPotential, a wrapper allowing
+  for arbitrary time dependence of the amplitude of any potential.
 
 - Added NullPotential, a potential with a constant value.
 
