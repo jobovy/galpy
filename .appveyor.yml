@@ -55,7 +55,7 @@ after_test:
   - conda deactivate
   - conda remove --name test-environment --all
   # Python 3.10
-  - conda create -n py310 python="3.10"" numpy scipy matplotlib setuptools pip pytest gsl
+  - conda create -n py310 python="3.10" numpy scipy matplotlib setuptools pip pytest gsl
   - conda activate py310
   - pip install wheel
   - set INCLUDE=%CONDA_PREFIX%\Library\include;%INCLUDE%
