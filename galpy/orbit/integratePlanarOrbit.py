@@ -3,6 +3,11 @@ import ctypes.util
 from numpy.ctypeslib import ndpointer
 import numpy
 from scipy import integrate
+_NUMBA_LOADED= True
+try:
+    from numba import types, cfunc
+except ImportError:
+    _NUMBA_LOADED= False
 from .. import potential
 from ..potential.planarPotential import planarPotentialFromFullPotential, \
     planarPotentialFromRZPotential
@@ -411,7 +416,13 @@ def _prep_tfuncs(pot_tfuncs):
     else:
         func_ctype= ctypes.CFUNCTYPE(ctypes.c_double, # Return type
                                      ctypes.c_double) # time
-        func_pyarr= [func_ctype(a) for a in pot_tfuncs]
+        try: # using numba
+            if not _NUMBA_LOADED: raise
+            nb_c_sig= types.double(types.double)
+            func_pyarr= [cfunc(nb_c_sig,nopython=True)(a).ctypes
+                         for a in pot_tfuncs]
+        except: # Any Exception, switch to regular ctypes wrapping
+            func_pyarr= [func_ctype(a) for a in pot_tfuncs]
         pot_tfuncs= (func_ctype * len(func_pyarr))(*func_pyarr)
     return pot_tfuncs
 
