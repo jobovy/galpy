@@ -599,7 +599,11 @@ def test_linacc_constantacc_z():
     dp= potential.DehnenBarPotential(omegab=1.8,rb=0.5,Af=0.03)
     diskpot= lp+dp
     az= 0.02
-    intaz= lambda t: 0.02*t**2./2.
+    # Trick to use a non-numba version, by causing numba compilation
+    # to fail. Fails because scipy special is not supported in base
+    # numba
+    from scipy import special
+    intaz= lambda t: 0.02*t**2./2.*(special.erf(t)+2.)/(special.erf(t)+2.)
     framepot= potential.NonInertialFrameForce(a0=[0.,0.,az])
     diskframepot= AcceleratingPotentialWrapperPotential(pot=diskpot,
                                                         x0=[lambda t: 0.,

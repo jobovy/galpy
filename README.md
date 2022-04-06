@@ -65,6 +65,7 @@ requiring version 1.14 or higher. Other optional dependencies include:
 [`astropy`](http://www.astropy.org/).
 * Querying SIMBAD for the coordinates of an object in the `Orbit.from_name` initialization method requires [`astroquery`](https://astroquery.readthedocs.io/en/latest/).
 * Plotting arbitrary functions of Orbit attributes requires [`numexpr`](https://github.com/pydata/numexpr).
+* Speeding up the evaluation of certain functions in the C code requires [`numba`](https://numba.pydata.org/).
 * Constant-anisotropy DFs in `galpy.df.constantbetadf` require [`JAX`](https://github.com/google/jax).
 * Use of `SnapshotRZPotential` and `InterpSnapshotRZPotential` requires [`pynbody`](https://github.com/pynbody/pynbody). 
 

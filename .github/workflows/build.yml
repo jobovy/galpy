@@ -24,6 +24,7 @@ jobs:
             REQUIRES_PYNBODY: false
             REQUIRES_ASTROPY: false
             REQUIRES_ASTROQUERY: false
+            REQUIRES_NUMBA: false
             REQUIRES_JAX: false
           - os: ubuntu-latest
             python-version: 3.9
@@ -31,6 +32,7 @@ jobs:
             REQUIRES_PYNBODY: false
             REQUIRES_ASTROPY: false
             REQUIRES_ASTROQUERY: false
+            REQUIRES_NUMBA: false
             REQUIRES_JAX: true
           - os: ubuntu-latest
             python-version: 3.9
@@ -38,6 +40,7 @@ jobs:
             REQUIRES_PYNBODY: false
             REQUIRES_ASTROPY: false
             REQUIRES_ASTROQUERY: false
+            REQUIRES_NUMBA: false
             REQUIRES_JAX: false
           - os: ubuntu-latest
             python-version: 3.9
@@ -45,6 +48,7 @@ jobs:
             REQUIRES_PYNBODY: true
             REQUIRES_ASTROPY: false
             REQUIRES_ASTROQUERY: false
+            REQUIRES_NUMBA: false
             REQUIRES_JAX: false
           - os: ubuntu-latest
             python-version: 3.9
@@ -53,6 +57,7 @@ jobs:
             # needs to be separate for different config
             REQUIRES_ASTROPY: true
             REQUIRES_ASTROQUERY: false
+            REQUIRES_NUMBA: false
             REQUIRES_JAX: false
           - os: ubuntu-latest
             python-version: 3.9
@@ -60,6 +65,7 @@ jobs:
             REQUIRES_PYNBODY: true
             REQUIRES_ASTROPY: true
             REQUIRES_ASTROQUERY: true
+            REQUIRES_NUMBA: false
             REQUIRES_JAX: false
           - os: ubuntu-latest
             python-version: 3.9
@@ -67,6 +73,7 @@ jobs:
             REQUIRES_PYNBODY: true
             REQUIRES_ASTROPY: true
             REQUIRES_ASTROQUERY: true
+            REQUIRES_NUMBA: false
             REQUIRES_JAX: false
           - os: ubuntu-latest
             python-version: 3.9
@@ -74,6 +81,7 @@ jobs:
             REQUIRES_PYNBODY: false
             REQUIRES_ASTROPY: false
             REQUIRES_ASTROQUERY: false
+            REQUIRES_NUMBA: false
             REQUIRES_JAX: false
           - os: ubuntu-latest
             python-version: 3.9
@@ -81,6 +89,7 @@ jobs:
             REQUIRES_PYNBODY: false
             REQUIRES_ASTROPY: false
             REQUIRES_ASTROQUERY: false
+            REQUIRES_NUMBA: false
             REQUIRES_JAX: false
           - os: ubuntu-latest
             python-version: 3.9
@@ -88,6 +97,7 @@ jobs:
             REQUIRES_PYNBODY: false
             REQUIRES_ASTROPY: false
             REQUIRES_ASTROQUERY: false
+            REQUIRES_NUMBA: true
             REQUIRES_JAX: false
           - os: ubuntu-latest
             python-version: 3.9
@@ -95,6 +105,7 @@ jobs:
             REQUIRES_PYNBODY: false
             REQUIRES_ASTROPY: false
             REQUIRES_ASTROQUERY: false
+            REQUIRES_NUMBA: false
             REQUIRES_JAX: false
           - os: ubuntu-latest
             python-version: 3.9
@@ -102,6 +113,7 @@ jobs:
             REQUIRES_PYNBODY: false
             REQUIRES_ASTROPY: false
             REQUIRES_ASTROQUERY: false
+            REQUIRES_NUMBA: false
             REQUIRES_JAX: false
           - os: ubuntu-latest
             python-version: 3.9
@@ -109,6 +121,7 @@ jobs:
             REQUIRES_PYNBODY: false
             REQUIRES_ASTROPY: false
             REQUIRES_ASTROQUERY: false
+            REQUIRES_NUMBA: false
             REQUIRES_JAX: false
           - os: ubuntu-latest
             python-version: 3.8
@@ -116,6 +129,7 @@ jobs:
             REQUIRES_PYNBODY: true
             REQUIRES_ASTROPY: true
             REQUIRES_ASTROQUERY: true
+            REQUIRES_NUMBA: false
             REQUIRES_JAX: false
           - os: ubuntu-latest
             python-version: 3.8
@@ -123,6 +137,7 @@ jobs:
             REQUIRES_PYNBODY: true
             REQUIRES_ASTROPY: true
             REQUIRES_ASTROQUERY: true
+            REQUIRES_NUMBA: false
             REQUIRES_JAX: false
           - os: ubuntu-latest
             python-version: 3.7
@@ -130,6 +145,7 @@ jobs:
             REQUIRES_PYNBODY: true
             REQUIRES_ASTROPY: true
             REQUIRES_ASTROQUERY: true
+            REQUIRES_NUMBA: false
             REQUIRES_JAX: false
           - os: ubuntu-latest
             python-version: 3.7
@@ -137,6 +153,7 @@ jobs:
             REQUIRES_PYNBODY: true
             REQUIRES_ASTROPY: true
             REQUIRES_ASTROQUERY: true
+            REQUIRES_NUMBA: false
             REQUIRES_JAX: false
           - os: ubuntu-latest
             python-version: "3.10"
@@ -144,6 +161,7 @@ jobs:
             REQUIRES_PYNBODY: true
             REQUIRES_ASTROPY: true
             REQUIRES_ASTROQUERY: true
+            REQUIRES_NUMBA: false
             REQUIRES_JAX: false
           - os: ubuntu-latest
             python-version: "3.10"
@@ -151,6 +169,7 @@ jobs:
             REQUIRES_PYNBODY: true
             REQUIRES_ASTROPY: true
             REQUIRES_ASTROQUERY: true
+            REQUIRES_NUMBA: false
             REQUIRES_JAX: false
           - os: macos-latest
             python-version: 3.9
@@ -158,6 +177,7 @@ jobs:
             REQUIRES_PYNBODY: true
             REQUIRES_ASTROPY: true
             REQUIRES_ASTROQUERY: true
+            REQUIRES_NUMBA: false
             REQUIRES_JAX: false
           - os: macos-latest
             python-version: 3.9
@@ -165,6 +185,7 @@ jobs:
             REQUIRES_PYNBODY: true
             REQUIRES_ASTROPY: true
             REQUIRES_ASTROQUERY: true
+            REQUIRES_NUMBA: false
             REQUIRES_JAX: false
     env:
       PYTHON_COVREPORTS_VERSION: 3.9      
@@ -215,6 +236,9 @@ jobs:
     - name: Install astroquery
       if: ${{ matrix.REQUIRES_ASTROQUERY }}
       run: pip install astroquery
+    - name: Install numba
+      if: ${{ matrix.REQUIRES_NUMBA }}
+      run: pip install numba
     - name: Install JAX
       if: ${{ matrix.REQUIRES_JAX }}
       run: pip install jax jaxlib
