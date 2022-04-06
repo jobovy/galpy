@@ -48,7 +48,11 @@ class NonInertialFrameForce(DissipativeForce):
     
         \mathbf{F} = - \\boldsymbol{\Omega} \\times ( \\boldsymbol{\Omega} \\times \mathbf{r}) - \dot{\\boldsymbol{\Omega}} \\times \mathbf{r} -2\\boldsymbol{\Omega}\\times \dot{\mathbf{r}}\quad (\mathbf{a}_0=\mathbf{v}_0=\mathbf{x}_0=0)
         
-    wher
+    The functions of time are passed to the C code for fast orbit integration 
+    by attempting to build fast ``numba`` versions of them. Significant 
+    speed-ups can therefore be obtained by making sure that the provided 
+    functions can be turned into ``nopython=True`` ``numba`` functions (try 
+    running ``numba.njit`` on them and then evaluate them to check).
     """
     def __init__(self,amp=1.,Omega=None,Omegadot=None,
                  x0=None,v0=None,a0=None,
