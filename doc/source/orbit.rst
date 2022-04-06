@@ -1357,8 +1357,15 @@ so we build interpolated versions to speed things up:
 >>> az4int= [az(t) for t in t_intunits]
 >>> az_int= lambda t: numpy.interp(t,t_intunits,az4int)
    
-Then we can set up the ``NonInertialFrameForce`` with this acceleration of 
-the origin
+Note that we use ``numpy.interp`` here as the interpolation function, 
+because if `numba <https://numba.pydata.org/>`__ is installed, ``galpy`` 
+will automatically use it to try to build fast, C versions of the functions 
+of time in ``NonInertialFrameForce``. For this, ``numba`` must be able to 
+compile the function and it can do this for ``numpy.interp`` (but not for 
+``scipy`` interpolation functions).
+
+With these functions defined, we can then set up the ``NonInertialFrameForce`` 
+with this acceleration of the origin
 
 >>> nip= NonInertialFrameForce(a0=[ax_int,ay_int,az_int])
 
