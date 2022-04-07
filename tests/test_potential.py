@@ -2176,12 +2176,12 @@ def test_rE_MWPotential2014():
     # No closed-form true answer, so just check that the expected relation holds
     def Ec(r):
         return potential.vcirc(potential.MWPotential2014,r)**2./2.\
-            +potential.evaluatePotentials(MWPotential2014,r,0.)
+            +potential.evaluatePotentials(potential.MWPotential2014,r,0.)
     rmin, rmax= 1e-8,1e5
     Emin= Ec(rmin)
     Emax= Ec(rmax)
     Es= numpy.linspace(Emin,Emax,101)
-    rEs= numpy.array([potential.rE(MWPotential2014,E) for E in Es])
+    rEs= numpy.array([potential.rE(potential.MWPotential2014,E) for E in Es])
     Ecs= numpy.array([Ec(rE) for rE in rEs])
     assert numpy.amax(numpy.fabs(Ecs-Es)) < 1e-8, 'rE method does not give the expected result for MWPotential2014'  
     return None
