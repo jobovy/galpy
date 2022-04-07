@@ -1352,7 +1352,6 @@ class Potential(Force):
         
         INPUT:
         
-        
             lz - Angular momentum (can be Quantity)
 
             t - time (optional; can be Quantity)
@@ -1367,12 +1366,46 @@ class Potential(Force):
         
         NOTE:
         
-            seems to take about ~0.5 ms for a Miyamoto-Nagai potential; 
-            ~0.75 ms for a MWPotential
+            An efficient way to call this function on many objects is
+            provided as the Orbit method rguiding
         
         """
         lz= conversion.parse_angmom(lz,ro=self._ro,vo=self._vo)
         return rl(self,lz,t=t,use_physical=False)
+
+    @physical_conversion('position',pop=True)
+    def rE(self,E,t=0.):
+        """
+        NAME:
+        
+            rE
+        
+        PURPOSE:
+        
+            calculate the radius of a circular orbit with energy E
+        
+        INPUT:
+        
+            E - Energy (can be Quantity)
+
+            t - time (optional; can be Quantity)
+        
+        OUTPUT:
+        
+            radius
+        
+        HISTORY:
+        
+            2022-04-06 - Written - Bovy (UofT)
+            
+        NOTE:
+
+            An efficient way to call this function on many objects is
+            provided as the Orbit method rE
+            
+        """
+        E= conversion.parse_energy(E,ro=self._ro,vo=self._vo)
+        return rE(self,E,t=t,use_physical=False)
 
     @potential_physical_input
     @physical_conversion('dimensionless',pop=True)
@@ -3104,8 +3137,8 @@ def rl(Pot,lz,t=0.):
 
     NOTE:
 
-       seems to take about ~0.5 ms for a Miyamoto-Nagai potential; 
-       ~0.75 ms for a MWPotential
+       An efficient way to call this function on many objects is
+       provided as the Orbit method rguiding
 
     """
     Pot= flatten(Pot)
@@ -3138,6 +3171,67 @@ def _rlFindStart(rl,lz,pot,t=0.,lower=False):
     """find a starting interval for rl"""
     rtry= 2.*rl
     while (2.*lower-1.)*_rlfunc(rtry,lz,pot,t=t) > 0.:
+        if lower:
+            rtry/= 2.
+        else:
+            rtry*= 2.
+    return rtry
+
+@physical_conversion('position',pop=True)
+def rE(Pot,E,t=0.):
+    """
+    NAME:
+
+       rE
+
+    PURPOSE:
+
+       calculate the radius of a circular orbit with energy E
+
+    INPUT:
+
+       Pot - Potential instance or list thereof
+
+       E - Energy (can be Quantity)
+
+       t - time (optional; can be Quantity)
+
+    OUTPUT:
+
+       radius
+
+    HISTORY:
+
+       2022-04-06 - Written - Bovy (UofT)
+       
+    NOTE:
+
+       An efficient way to call this function on many objects is
+       provided as the Orbit method rE     
+
+    """
+    Pot= flatten(Pot)
+    E= conversion.parse_energy(E,**conversion.get_physical(Pot))
+    #Find interval
+    rstart= _rEFindStart(1.,E,Pot,t=t)
+    try:
+        return optimize.brentq(_rEfunc,10.**-5.,rstart,
+                               args=(E,Pot,t),
+                               maxiter=200,disp=False)
+    except ValueError: #Probably E small and starting rE to great
+        rlower= _rEFindStart(10.**-5.,E,Pot,t=t,lower=True)
+        return optimize.brentq(_rEfunc,rlower,rstart,
+                               args=(E,Pot,t))
+        
+def _rEfunc(rE,E,pot,t=0.):
+    """Function that gives vc^2/2+Pot(rc)-E"""
+    thisvcirc= vcirc(pot,rE,t=t,use_physical=False)
+    return thisvcirc**2./2.+_evaluatePotentials(pot,rE,0.,t=t)-E
+
+def _rEFindStart(rE,E,pot,t=0.,lower=False):
+    """find a starting interval for rE"""
+    rtry= 2.*rE
+    while (2.*lower-1.)*_rEfunc(rtry,E,pot,t=t) > 0.:
         if lower:
             rtry/= 2.
         else:
