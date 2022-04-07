@@ -1407,6 +1407,35 @@ class Potential(Force):
         E= conversion.parse_energy(E,ro=self._ro,vo=self._vo)
         return rE(self,E,t=t,use_physical=False)
 
+    @physical_conversion('action',pop=True)
+    def JcE(self,E,t=0.):
+        """
+        NAME:
+        
+            JcE
+        
+        PURPOSE:
+        
+            calculate the angular momentum of a circular orbit with energy E
+        
+        INPUT:
+        
+            E - Energy (can be Quantity)
+
+            t - time (optional; can be Quantity)
+        
+        OUTPUT:
+        
+            Jc(E)
+        
+        HISTORY:
+        
+            2022-04-06 - Written - Bovy (UofT)
+               
+        """
+        E= conversion.parse_energy(E,ro=self._ro,vo=self._vo)
+        return JcE(self,E,t=t,use_physical=False)
+
     @potential_physical_input
     @physical_conversion('dimensionless',pop=True)
     def flattening(self,R,z,t=0.):
@@ -3238,6 +3267,37 @@ def _rEFindStart(rE,E,pot,t=0.,lower=False):
             rtry*= 2.
     return rtry
 
+@physical_conversion('action',pop=True)
+def JcE(Pot,E,t=0.):
+    """
+    NAME:
+
+       JcE
+
+    PURPOSE:
+
+       calculate the angular momentum of a circular orbit with energy E
+
+    INPUT:
+
+       Pot - Potential instance or list thereof
+
+       E - Energy (can be Quantity)
+
+       t - time (optional; can be Quantity)
+
+    OUTPUT:
+
+       Jc(E)
+
+    HISTORY:
+
+       2022-04-06 - Written - Bovy (UofT)
+
+    """
+    thisrE= rE(Pot,E,t=t,use_physical=False)
+    return thisrE*vcirc(Pot,thisrE,use_physical=False)
+        
 @physical_conversion('position',pop=True)
 def lindbladR(Pot,OmegaP,m=2,t=0.,**kwargs):
     """

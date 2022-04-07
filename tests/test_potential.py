@@ -2186,6 +2186,41 @@ def test_rE_MWPotential2014():
     assert numpy.amax(numpy.fabs(Ecs-Es)) < 1e-8, 'rE method does not give the expected result for MWPotential2014'  
     return None
 
+def test_JcE_flatvc():
+    # Test the JcE function for the case of a flat rotation curve
+    # Expected JcE when vc(1)=1 is exp(E-1/2) (e.g., Dehnen 1999 epicycle)
+    lp= potential.LogarithmicHaloPotential(normalize=1.)
+    def expected_JcE(E):
+        return numpy.exp(E-0.5)
+    Es= numpy.linspace(-10.,20.,101)
+    JcEs= numpy.array([lp.JcE(E) for E in Es])
+    assert numpy.amax(numpy.fabs(JcEs-expected_JcE(Es))) < 1e-6, 'JcE method does not give the expected result for a flat rotation curve'
+    # Also as function
+    JcEs= numpy.array([potential.JcE(lp,E) for E in Es])
+    assert numpy.amax(numpy.fabs(JcEs-expected_JcE(Es))) < 1e-6, 'JcE method does not give the expected result for a flat rotation curve'   
+    return None
+
+def test_JcE_powervc():
+    # Test the JcE function for the case of a power-law rotation curve: v = r^beta
+    # Expected JcE when vc(1)=1 is (2 beta E / [1+beta])**([1.+beta]/[2beta]) 
+    # (e.g., Dehnen 1999 epicycle)
+    betas= [-0.45,-0.2,0.6,0.9]
+    def expected_JcE(E,beta):
+        return (2.*beta*E/(1.+beta))**((1.+beta)/2./beta)
+    for beta in betas:
+        pp= PowerSphericalPotential(alpha=2.-2.*beta,normalize=1.)
+        rmin, rmax= 1e-8,1e5
+        Emin= pp.vcirc(rmin)**2./2.+pp(rmin,0.)
+        Emax= pp.vcirc(rmax)**2./2.+pp(rmax,0.)
+        Es= numpy.linspace(Emin,Emax,101)
+        # Test both method and function
+        if beta < 0.:
+            JcEs= numpy.array([pp.JcE(E) for E in Es])
+        else:
+            JcEs= numpy.array([potential.JcE(pp,E) for E in Es])
+        assert numpy.amax(numpy.fabs(JcEs-expected_JcE(Es,beta))) < 1e-5, 'JcE method does not give the expected result for a power-law rotation curve'
+    return None
+
 def test_vterm():
     lp= potential.LogarithmicHaloPotential(normalize=1.)
     assert numpy.fabs(lp.vterm(30.,deg=True)-0.5*(lp.omegac(0.5)-1.)) < 10.**-10., 'vterm for LogarithmicHaloPotential at l=30 is incorrect'
