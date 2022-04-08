@@ -205,7 +205,7 @@ objects. Many of the most computationally-intense methods have been
 parallelized (orbit integration; analytic eccentricity, zmax,
 etc. calculation; action-angle calculations) and some other methods
 switch to more efficient algorithms for larger numbers of objects
-(e.g., ``rguiding``). 
+(e.g., ``rguiding``, ``rE``, ``JcE``). 
 
 All of the methods for initializing ``Orbit`` instances above work for
 multiple objects. Specifically, the initial conditions can be:
@@ -779,6 +779,14 @@ that the orbit was integrated in, or in another potential:
 
 where ``mp`` is the Miyamoto-Nagai potential of :ref:`Introduction:
 Rotation curves <rotcurves>`.
+
+Many other quantities characterizing the orbit can be calculated as well, 
+for example, orbital actions, frequencies, and angles (see 
+:ref:`this section <aaorbit>`), the guiding-center radius ``rguiding``, 
+and the radius ``rE`` and angular momentum ``JcE`` of the circular orbit 
+with the same energy as the Orbit instance. See the 
+:ref:`Orbit API page <orbit-api>` for a full list of quantities that can 
+accessed for any ``Orbit`` instance.
 
 For the Orbit ``op`` that was initialized above with a distance scale
 ``ro=`` and a velocity scale ``vo=``, these outputs are all in

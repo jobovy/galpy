@@ -1,3 +1,5 @@
+.. _orbit-api:
+
 Orbit (``galpy.orbit``)
 ========================
 
