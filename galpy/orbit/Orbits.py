@@ -32,7 +32,7 @@ from ..potential import toPlanarPotential, PotentialError, evaluatePotentials,\
     evaluateplanarPotentials, evaluatelinearPotentials
 from ..potential import flatten as flatten_potential
 from ..potential.Potential import _check_c
-from ..potential import rl, _isNonAxi
+from ..potential import rl, rE, vcirc, _isNonAxi
 from ..potential.DissipativeForce import _isDissipative
 from .integrateLinearOrbit import integrateLinearOrbit_c, _ext_loaded, \
     integrateLinearOrbit
@@ -2211,6 +2211,98 @@ class Orbit(object):
         else:
             return numpy.array([rl(pot,lz,use_physical=False)
                                 for lz in Lz]).reshape(Lz_shape)
+
+    @physical_conversion('position')
+    @shapeDecorator
+    def rE(self,*args,**kwargs):
+        """
+        NAME:
+
+           rE
+
+        PURPOSE:
+
+           calculate the radius of a circular orbit with the same energy
+
+        INPUT:
+
+           pot= potential instance or list of such instances
+
+           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
+
+           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
+
+           use_physical= use to override Object-wide default for using a physical scale for output
+
+        OUTPUT:
+
+           r_E [*input_shape,nt]
+
+        HISTORY:
+
+           2022-04-07 - Written as thin wrapper around Potential.rE - Bovy (UofT)
+
+        """
+        pot= kwargs.get('pot',self.__dict__.get('_pot',None))
+        if pot is None:
+            raise RuntimeError("You need to specify the potential as pot= to compute rE")
+        flatten_potential(pot)
+        if _isNonAxi(pot):
+            raise RuntimeError('Potential given to rE is non-axisymmetric, but rE requires an axisymmetric potential')
+        _check_consistent_units(self,pot)
+        E= numpy.atleast_1d(self.E(*args,pot=pot,use_physical=False,dontreshape=True))
+        E_shape= E.shape
+        E= E.flatten()
+        if len(E) > 500:
+            # Build interpolation grid
+            precomputerEEgrid= numpy.linspace(numpy.nanmin(E),
+                                              numpy.nanmax(E),
+                                              500)
+            rEs= numpy.array([rE(pot,tE,use_physical=False)
+                              for tE in precomputerEEgrid])
+            #Spline interpolate
+            return interpolate.InterpolatedUnivariateSpline(\
+                precomputerEEgrid,rEs,k=3)(E).reshape(E_shape)
+        else:
+            return numpy.array([rE(pot,tE,use_physical=False)
+                                for tE in E]).reshape(E_shape)
+
+    @physical_conversion('action')
+    @shapeDecorator
+    def JcE(self,*args,**kwargs):
+        """
+        NAME:
+
+           JcE
+
+        PURPOSE:
+
+           calculate the angular momentum of a circular orbit with the same energy
+
+        INPUT:
+
+           pot= potential instance or list of such instances
+
+           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
+
+           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
+
+           use_physical= use to override Object-wide default for using a physical scale for output
+
+        OUTPUT:
+
+           J_c(E) [*input_shape,nt]
+
+        HISTORY:
+
+           2022-04-07 - Written - Bovy (UofT)
+
+        """
+        pot= kwargs.pop('pot',self.__dict__.get('_pot',None))
+        if pot is None:
+            raise RuntimeError("You need to specify the potential as pot= to compute JcE")
+        thisrE= self.rE(*args,pot=pot,use_physical=False,dontreshape=True,**kwargs)
+        return thisrE*vcirc(pot,thisrE,use_physical=False)
 
     @physical_conversion('position')
     @shapeDecorator

@@ -1634,6 +1634,104 @@ def test_orbit_rguiding_planar():
     assert numpy.amax(numpy.fabs(o.rguiding(ts,pot=npaxi)-numpy.array([rl(npaxi,o.Lz(t)) for t in ts]))) < 1e-10, 'Guiding center radius returned by Orbit interface rguiding is different from that returned by potential interface rl for integrated orbit'
     return None
 
+def test_orbit_rE():
+    from galpy.potential import LogarithmicHaloPotential, MWPotential2014, \
+        DehnenBarPotential, rE
+    from galpy.orbit import Orbit
+    # For a single potential
+    lp= LogarithmicHaloPotential(normalize=1.)
+    R,Lz= 1.,1.4
+    o= Orbit([R,0.4,Lz/R,0.,0.1,0.])
+    E= o.E(pot=lp)
+    assert numpy.fabs(o.rE(pot=lp)-rE(lp,E)) < 1e-10, 'rE returned by Orbit interface rE is different from that returned by potential interface rE'
+    # For a list of potentials
+    R,Lz= 1.4,0.9
+    o= Orbit([R,0.4,Lz/R,0.,0.1,0.])
+    E= o.E(pot=MWPotential2014)
+    assert numpy.fabs(o.rE(pot=MWPotential2014)-rE(MWPotential2014,E)) < 1e-10, 'rE returned by Orbit interface rE is different from that returned by potential interface rE'
+    # For an orbit integrated in a time-dependent potential, such that E varies
+    dp= DehnenBarPotential()
+    R,Lz= 0.9,1
+    o= Orbit([R,0.,Lz/R,0.,0.1,0.])
+    E= o.E(pot=lp)
+    ts= numpy.linspace(0.,10.,101)
+    o.integrate(ts,lp+dp)
+    assert numpy.amax(numpy.fabs(o.rE(ts,pot=lp)-numpy.array([rE(lp,o.E(t,pot=lp)) for t in ts]))) < 1e-10, 'rE returned by Orbit interface rE is different from that returned by potential interface rE for integrated orbit'
+    return None
+
+def test_orbit_rE_planar():
+    from galpy.potential import LogarithmicHaloPotential, MWPotential2014, \
+        DehnenBarPotential, rE
+    from galpy.orbit import Orbit
+    # For a single potential
+    lp= LogarithmicHaloPotential(normalize=1.)
+    R,Lz= 1.,1.4
+    o= Orbit([R,0.4,Lz/R,0.])
+    E= o.E(pot=lp)
+    assert numpy.fabs(o.rE(pot=lp)-rE(lp,E)) < 1e-10, 'rE returned by Orbit interface rE is different from that returned by potential interface rE'
+    # For a list of potentials
+    R,Lz= 1.4,0.9
+    o= Orbit([R,0.4,Lz/R,0.])
+    E= o.E(pot=MWPotential2014)
+    assert numpy.fabs(o.rE(pot=MWPotential2014)-rE(MWPotential2014,E)) < 1e-10, 'rE returned by Orbit interface rE is different from that returned by potential interface rE'
+    # For an orbit integrated in a time-dependent potential, such that E varies
+    dp= DehnenBarPotential()
+    R,Lz= 0.9,1
+    o= Orbit([R,0.,Lz/R,0.,])
+    ts= numpy.linspace(0.,10.,101)
+    o.integrate(ts,lp+dp)
+    assert numpy.amax(numpy.fabs(o.rE(ts,pot=lp)-numpy.array([rE(lp,o.E(t,pot=lp)) for t in ts]))) < 1e-10, 'rE returned by Orbit interface rE is different from that returned by potential interface rE for integrated orbit'
+    return None
+
+def test_orbit_JcE():
+    from galpy.potential import LogarithmicHaloPotential, MWPotential2014, \
+        DehnenBarPotential, JcE
+    from galpy.orbit import Orbit
+    # For a single potential
+    lp= LogarithmicHaloPotential(normalize=1.)
+    R,Lz= 1.,1.4
+    o= Orbit([R,0.4,Lz/R,0.,0.1,0.])
+    E= o.E(pot=lp)
+    assert numpy.fabs(o.JcE(pot=lp)-JcE(lp,E)) < 1e-10, 'JcE returned by Orbit interface JcE is different from that returned by potential interface JcE'
+    # For a list of potentials
+    R,Lz= 1.4,0.9
+    o= Orbit([R,0.4,Lz/R,0.,0.1,0.])
+    E= o.E(pot=MWPotential2014)
+    assert numpy.fabs(o.JcE(pot=MWPotential2014)-JcE(MWPotential2014,E)) < 1e-10, 'JcE returned by Orbit interface JcE is different from that returned by potential interface JcE'
+    # For an orbit integrated in a time-dependent potential, such that E varies
+    dp= DehnenBarPotential()
+    R,Lz= 0.9,1
+    o= Orbit([R,0.,Lz/R,0.,0.1,0.])
+    E= o.E(pot=lp)
+    ts= numpy.linspace(0.,10.,101)
+    o.integrate(ts,lp+dp)
+    assert numpy.amax(numpy.fabs(o.JcE(ts,pot=lp)-numpy.array([JcE(lp,o.E(t,pot=lp)) for t in ts]))) < 1e-10, 'JcE returned by Orbit interface JcE is different from that returned by potential interface JcE for integrated orbit'
+    return None
+
+def test_orbit_JcE_planar():
+    from galpy.potential import LogarithmicHaloPotential, MWPotential2014, \
+        DehnenBarPotential, JcE
+    from galpy.orbit import Orbit
+    # For a single potential
+    lp= LogarithmicHaloPotential(normalize=1.)
+    R,Lz= 1.,1.4
+    o= Orbit([R,0.4,Lz/R,0.])
+    E= o.E(pot=lp)
+    assert numpy.fabs(o.JcE(pot=lp)-JcE(lp,E)) < 1e-10, 'JcE returned by Orbit interface JcE is different from that returned by potential interface JcE'
+    # For a list of potentials
+    R,Lz= 1.4,0.9
+    o= Orbit([R,0.4,Lz/R,0.])
+    E= o.E(pot=MWPotential2014)
+    assert numpy.fabs(o.JcE(pot=MWPotential2014)-JcE(MWPotential2014,E)) < 1e-10, 'JcE returned by Orbit interface JcE is different from that returned by potential interface JcE'
+    # For an orbit integrated in a time-dependent potential, such that E varies
+    dp= DehnenBarPotential()
+    R,Lz= 0.9,1
+    o= Orbit([R,0.,Lz/R,0.,])
+    ts= numpy.linspace(0.,10.,101)
+    o.integrate(ts,lp+dp)
+    assert numpy.amax(numpy.fabs(o.JcE(ts,pot=lp)-numpy.array([JcE(lp,o.E(t,pot=lp)) for t in ts]))) < 1e-10, 'JcE returned by Orbit interface JcE is different from that returned by potential interface JcE for integrated orbit'
+    return None
+
 # Check that zmax calculated analytically agrees with numerical calculation
 def test_analytic_zmax():
     #Basic parameters for the test
@@ -4949,6 +5047,20 @@ def test_rguiding_errors():
     np= TriaxialNFWPotential(amp=20.,c=0.8,b=0.7)
     with pytest.raises(RuntimeError) as excinfo:
         o.rguiding(pot=np)
+    return None
+
+def test_rE_errors():
+    from galpy.potential import TriaxialNFWPotential
+    from galpy.orbit import Orbit
+    R,Lz= 1.,1.4
+    o= Orbit([R,0.4,Lz/R,0.])
+    # No potential raises error
+    with pytest.raises(RuntimeError) as excinfo:
+        o.rE()
+    # non-axi potential raises error
+    np= TriaxialNFWPotential(amp=20.,c=0.8,b=0.7)
+    with pytest.raises(RuntimeError) as excinfo:
+        o.rE(pot=np)
     return None
 
 def test_phi_range():

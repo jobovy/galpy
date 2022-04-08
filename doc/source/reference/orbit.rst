@@ -66,6 +66,7 @@ Methods
    helioY <orbithelioy.rst>
    helioZ <orbithelioz.rst>
    Jacobi <orbitJacobi.rst>
+   JcE <orbitjce.rst>
    jp <orbitjp.rst>
    jr <orbitjr.rst>
    jz <orbitjz.rst>
@@ -85,6 +86,7 @@ Methods
    R <orbitr.rst>
    ra <orbitra.rst>
    rap <orbitrap.rst>
+   rE <orbitre.rst>
    reshape <orbitreshape.rst>
    rguiding <orbitrguiding.rst>
    rperi <orbitrperi.rst>

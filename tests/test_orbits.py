@@ -2530,6 +2530,84 @@ def test_rguiding():
         os.rguiding(pot=MWPotential2014+potential.DehnenBarPotential())
     return None
 
+def test_rE():
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential2014
+    numpy.random.seed(1)
+    nrand= 10
+    Rs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)+1.
+    vRs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)
+    vTs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)+1.
+    zs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)
+    vzs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)
+    phis= 2.*numpy.pi*(2.*numpy.random.uniform(size=nrand)-1.)
+    os= Orbit(list(zip(Rs,vRs,vTs,zs,vzs,phis)))
+    list_os= [Orbit([R,vR,vT,z,vz,phi])
+              for R,vR,vT,z,vz,phi in zip(Rs,vRs,vTs,zs,vzs,phis)]
+    # First test that if potential is not given, error is raised
+    with pytest.raises(RuntimeError):
+        os.rE()
+    # With small number, calculation is direct
+    for ii in range(nrand):
+        assert numpy.all(numpy.fabs(os.rE(pot=MWPotential2014)[ii]/list_os[ii].rE(pot=MWPotential2014)-1.) < 10.**-10.), 'Evaluating Orbits rE analytically does not agree with Orbit'
+    # With large number, calculation is interpolated
+    nrand= 1002
+    Rs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)+1.
+    vRs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)
+    vTs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)+1.
+    zs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)
+    vzs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)
+    phis= 2.*numpy.pi*(2.*numpy.random.uniform(size=nrand)-1.)
+    os= Orbit(list(zip(Rs,vRs,vTs,zs,vzs,phis)))
+    list_os= [Orbit([R,vR,vT,z,vz,phi])
+              for R,vR,vT,z,vz,phi in zip(Rs,vRs,vTs,zs,vzs,phis)]
+    rgs= os.rE(pot=MWPotential2014)
+    for ii in range(nrand):
+        assert numpy.all(numpy.fabs(rgs[ii]/list_os[ii].rE(pot=MWPotential2014)-1.) < 10.**-10.), 'Evaluating Orbits rE analytically does not agree with Orbit'
+    # rE for non-axi potential fails
+    with pytest.raises(RuntimeError,match="Potential given to rE is non-axisymmetric, but rE requires an axisymmetric potential") as exc_info:
+        os.rE(pot=MWPotential2014+potential.DehnenBarPotential())
+    return None
+
+def test_JcE():
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential2014
+    numpy.random.seed(1)
+    nrand= 10
+    Rs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)+1.
+    vRs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)
+    vTs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)+1.
+    zs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)
+    vzs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)
+    phis= 2.*numpy.pi*(2.*numpy.random.uniform(size=nrand)-1.)
+    os= Orbit(list(zip(Rs,vRs,vTs,zs,vzs,phis)))
+    list_os= [Orbit([R,vR,vT,z,vz,phi])
+              for R,vR,vT,z,vz,phi in zip(Rs,vRs,vTs,zs,vzs,phis)]
+    # First test that if potential is not given, error is raised
+    with pytest.raises(RuntimeError):
+        os.JcE()
+    # With small number, calculation is direct
+    for ii in range(nrand):
+        assert numpy.all(numpy.fabs(os.JcE(pot=MWPotential2014)[ii]/list_os[ii].JcE(pot=MWPotential2014)-1.) < 10.**-10.), 'Evaluating Orbits JcE analytically does not agree with Orbit'
+    # With large number, calculation is interpolated
+    nrand= 1002
+    Rs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)+1.
+    vRs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)
+    vTs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)+1.
+    zs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)
+    vzs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)
+    phis= 2.*numpy.pi*(2.*numpy.random.uniform(size=nrand)-1.)
+    os= Orbit(list(zip(Rs,vRs,vTs,zs,vzs,phis)))
+    list_os= [Orbit([R,vR,vT,z,vz,phi])
+              for R,vR,vT,z,vz,phi in zip(Rs,vRs,vTs,zs,vzs,phis)]
+    rgs= os.JcE(pot=MWPotential2014)
+    for ii in range(nrand):
+        assert numpy.all(numpy.fabs(rgs[ii]/list_os[ii].JcE(pot=MWPotential2014)-1.) < 10.**-10.), 'Evaluating Orbits JcE analytically does not agree with Orbit'
+    # JcE for non-axi potential fails
+    with pytest.raises(RuntimeError,match="Potential given to rE is non-axisymmetric, but rE requires an axisymmetric potential") as exc_info:
+        os.JcE(pot=MWPotential2014+potential.DehnenBarPotential())
+    return None
+
 # Test that the actions, frequencies/periods, and angles calculated 
 # analytically by Orbits agrees with that calculated analytically using Orbit
 def test_actionsFreqsAngles_againstorbit_3d():
