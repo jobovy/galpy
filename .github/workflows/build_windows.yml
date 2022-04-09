@@ -157,9 +157,6 @@ jobs:
          environment-file: .github/conda-build-environment-${{ matrix.os }}.yml
          python-version: ${{ matrix.python-version }}
          use-only-tar-bz2: true # IMPORTANT: This needs to be set for caching to work properly!
-         mamba-version: "*"
-         channels: conda-forge,defaults
-         channel-priority: true
     - name: Set environment variables on Windows
       shell: bash -l {0}
       run: |

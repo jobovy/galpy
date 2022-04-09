@@ -32,9 +32,6 @@ jobs:
            activate-environment: galpywheels
            environment-file: .github/conda-build-environment-${{ matrix.os }}.yml
            python-version: ${{ matrix.python-version }}
-           mamba-version: "*"
-           channels: conda-forge,defaults
-           channel-priority: true
       - name: Install pip dependencies
         shell: bash -l {0}
         run: |
