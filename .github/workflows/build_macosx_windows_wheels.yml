@@ -36,7 +36,7 @@ jobs:
         shell: bash -l {0}
         run: |
           python -m pip install --upgrade pip
-          pip install wheel
+          pip install build
       - name: Set environment variables on Mac OS
         if: matrix.os == 'macos-latest'
         shell: bash -l {0}
@@ -51,14 +51,11 @@ jobs:
           echo "INCLUDE=$CONDA_PREFIX\\Library\\include" >> $GITHUB_ENV
           echo "LIB=$CONDA_PREFIX\\Library\\lib" >> $GITHUB_ENV
           echo "LIBPATH=$CONDA_PREFIX\\Library\\lib" >> $GITHUB_ENV
-      - name: Build extension
+      - name: Build wheel
         shell: bash -l {0}
         run: |
           mkdir wheelhouse
-          python setup.py build_ext
-      - name: Build wheel
-        shell: bash -l {0}
-        run: python setup.py bdist_wheel -d wheelhouse
+          python -m build --wheel --outdir wheelhouse
       # Upload wheel as artifact
       - uses: actions/upload-artifact@v2-preview
         with:

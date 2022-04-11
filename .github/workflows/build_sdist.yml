@@ -22,7 +22,9 @@ jobs:
         run: sudo apt-get install -y libgsl0-dev
       - name: Build sdist
         shell: bash -l {0}
-        run: python setup.py sdist
+        run: |
+          pip install build
+          python -m build --sdist
       # Upload to PyPI if this is a release
       - name: Publish distribution to PyPI
         uses: pypa/gh-action-pypi-publish@master
