@@ -3268,7 +3268,7 @@ def _rEFindStart(rE,E,pot,t=0.,lower=False):
     return rtry
 
 @physical_conversion('action',pop=True)
-def L(Pot,E,t=0.):
+def LcE(Pot,E,t=0.):
     """
     NAME:
 
