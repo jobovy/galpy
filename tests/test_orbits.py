@@ -2569,7 +2569,7 @@ def test_rE():
         os.rE(pot=MWPotential2014+potential.DehnenBarPotential())
     return None
 
-def test_JcE():
+def test_LcE():
     from galpy.orbit import Orbit
     from galpy.potential import MWPotential2014
     numpy.random.seed(1)
@@ -2585,10 +2585,10 @@ def test_JcE():
               for R,vR,vT,z,vz,phi in zip(Rs,vRs,vTs,zs,vzs,phis)]
     # First test that if potential is not given, error is raised
     with pytest.raises(RuntimeError):
-        os.JcE()
+        os.LcE()
     # With small number, calculation is direct
     for ii in range(nrand):
-        assert numpy.all(numpy.fabs(os.JcE(pot=MWPotential2014)[ii]/list_os[ii].JcE(pot=MWPotential2014)-1.) < 10.**-10.), 'Evaluating Orbits JcE analytically does not agree with Orbit'
+        assert numpy.all(numpy.fabs(os.LcE(pot=MWPotential2014)[ii]/list_os[ii].LcE(pot=MWPotential2014)-1.) < 10.**-10.), 'Evaluating Orbits LcE analytically does not agree with Orbit'
     # With large number, calculation is interpolated
     nrand= 1002
     Rs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)+1.
@@ -2600,12 +2600,12 @@ def test_JcE():
     os= Orbit(list(zip(Rs,vRs,vTs,zs,vzs,phis)))
     list_os= [Orbit([R,vR,vT,z,vz,phi])
               for R,vR,vT,z,vz,phi in zip(Rs,vRs,vTs,zs,vzs,phis)]
-    rgs= os.JcE(pot=MWPotential2014)
+    rgs= os.LcE(pot=MWPotential2014)
     for ii in range(nrand):
-        assert numpy.all(numpy.fabs(rgs[ii]/list_os[ii].JcE(pot=MWPotential2014)-1.) < 10.**-10.), 'Evaluating Orbits JcE analytically does not agree with Orbit'
-    # JcE for non-axi potential fails
+        assert numpy.all(numpy.fabs(rgs[ii]/list_os[ii].LcE(pot=MWPotential2014)-1.) < 10.**-10.), 'Evaluating Orbits LcE analytically does not agree with Orbit'
+    # LcE for non-axi potential fails
     with pytest.raises(RuntimeError,match="Potential given to rE is non-axisymmetric, but rE requires an axisymmetric potential") as exc_info:
-        os.JcE(pot=MWPotential2014+potential.DehnenBarPotential())
+        os.LcE(pot=MWPotential2014+potential.DehnenBarPotential())
     return None
 
 # Test that the actions, frequencies/periods, and angles calculated 

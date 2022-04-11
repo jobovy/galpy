@@ -1683,21 +1683,21 @@ def test_orbit_rE_planar():
     assert numpy.amax(numpy.fabs(o.rE(ts,pot=lp)-numpy.array([rE(lp,o.E(t,pot=lp)) for t in ts]))) < 1e-10, 'rE returned by Orbit interface rE is different from that returned by potential interface rE for integrated orbit'
     return None
 
-def test_orbit_JcE():
+def test_orbit_LcE():
     from galpy.potential import LogarithmicHaloPotential, MWPotential2014, \
-        DehnenBarPotential, JcE
+        DehnenBarPotential, LcE
     from galpy.orbit import Orbit
     # For a single potential
     lp= LogarithmicHaloPotential(normalize=1.)
     R,Lz= 1.,1.4
     o= Orbit([R,0.4,Lz/R,0.,0.1,0.])
     E= o.E(pot=lp)
-    assert numpy.fabs(o.JcE(pot=lp)-JcE(lp,E)) < 1e-10, 'JcE returned by Orbit interface JcE is different from that returned by potential interface JcE'
+    assert numpy.fabs(o.LcE(pot=lp)-LcE(lp,E)) < 1e-10, 'LcE returned by Orbit interface LcE is different from that returned by potential interface LcE'
     # For a list of potentials
     R,Lz= 1.4,0.9
     o= Orbit([R,0.4,Lz/R,0.,0.1,0.])
     E= o.E(pot=MWPotential2014)
-    assert numpy.fabs(o.JcE(pot=MWPotential2014)-JcE(MWPotential2014,E)) < 1e-10, 'JcE returned by Orbit interface JcE is different from that returned by potential interface JcE'
+    assert numpy.fabs(o.LcE(pot=MWPotential2014)-LcE(MWPotential2014,E)) < 1e-10, 'LcE returned by Orbit interface LcE is different from that returned by potential interface LcE'
     # For an orbit integrated in a time-dependent potential, such that E varies
     dp= DehnenBarPotential()
     R,Lz= 0.9,1
@@ -1705,31 +1705,31 @@ def test_orbit_JcE():
     E= o.E(pot=lp)
     ts= numpy.linspace(0.,10.,101)
     o.integrate(ts,lp+dp)
-    assert numpy.amax(numpy.fabs(o.JcE(ts,pot=lp)-numpy.array([JcE(lp,o.E(t,pot=lp)) for t in ts]))) < 1e-10, 'JcE returned by Orbit interface JcE is different from that returned by potential interface JcE for integrated orbit'
+    assert numpy.amax(numpy.fabs(o.LcE(ts,pot=lp)-numpy.array([LcE(lp,o.E(t,pot=lp)) for t in ts]))) < 1e-10, 'LcE returned by Orbit interface LcE is different from that returned by potential interface LcE for integrated orbit'
     return None
 
-def test_orbit_JcE_planar():
+def test_orbit_LcE_planar():
     from galpy.potential import LogarithmicHaloPotential, MWPotential2014, \
-        DehnenBarPotential, JcE
+        DehnenBarPotential, LcE
     from galpy.orbit import Orbit
     # For a single potential
     lp= LogarithmicHaloPotential(normalize=1.)
     R,Lz= 1.,1.4
     o= Orbit([R,0.4,Lz/R,0.])
     E= o.E(pot=lp)
-    assert numpy.fabs(o.JcE(pot=lp)-JcE(lp,E)) < 1e-10, 'JcE returned by Orbit interface JcE is different from that returned by potential interface JcE'
+    assert numpy.fabs(o.LcE(pot=lp)-LcE(lp,E)) < 1e-10, 'LcE returned by Orbit interface LcE is different from that returned by potential interface LcE'
     # For a list of potentials
     R,Lz= 1.4,0.9
     o= Orbit([R,0.4,Lz/R,0.])
     E= o.E(pot=MWPotential2014)
-    assert numpy.fabs(o.JcE(pot=MWPotential2014)-JcE(MWPotential2014,E)) < 1e-10, 'JcE returned by Orbit interface JcE is different from that returned by potential interface JcE'
+    assert numpy.fabs(o.LcE(pot=MWPotential2014)-LcE(MWPotential2014,E)) < 1e-10, 'LcE returned by Orbit interface LcE is different from that returned by potential interface LcE'
     # For an orbit integrated in a time-dependent potential, such that E varies
     dp= DehnenBarPotential()
     R,Lz= 0.9,1
     o= Orbit([R,0.,Lz/R,0.,])
     ts= numpy.linspace(0.,10.,101)
     o.integrate(ts,lp+dp)
-    assert numpy.amax(numpy.fabs(o.JcE(ts,pot=lp)-numpy.array([JcE(lp,o.E(t,pot=lp)) for t in ts]))) < 1e-10, 'JcE returned by Orbit interface JcE is different from that returned by potential interface JcE for integrated orbit'
+    assert numpy.amax(numpy.fabs(o.LcE(ts,pot=lp)-numpy.array([LcE(lp,o.E(t,pot=lp)) for t in ts]))) < 1e-10, 'LcE returned by Orbit interface LcE is different from that returned by potential interface LcE for integrated orbit'
     return None
 
 # Check that zmax calculated analytically agrees with numerical calculation

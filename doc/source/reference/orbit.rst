@@ -68,12 +68,12 @@ Methods
    helioY <orbithelioy.rst>
    helioZ <orbithelioz.rst>
    Jacobi <orbitJacobi.rst>
-   JcE <orbitjce.rst>
    jp <orbitjp.rst>
    jr <orbitjr.rst>
    jz <orbitjz.rst>
    ll <orbitll.rst>
    L <orbitl.rst>
+   LcE <orbitlce.rst>
    Lz <orbitlz.rst>
    Op <orbitop.rst>
    Or <orbitor.rst>

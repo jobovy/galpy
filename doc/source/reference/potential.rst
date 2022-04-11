@@ -20,7 +20,7 @@ Use as ``Potential-instance.method(...)``
    dvcircdR <potentialdvcircdr.rst>
    epifreq <potentialepifreq.rst>
    flattening <potentialflattening.rst>
-   JcE <potentialjce.rst>
+   LcE <potentiallce.rst>
    lindbladR <potentiallindbladR.rst>
    mass <potentialmass.rst>
    nemo_accname <potentialnemoaccname.rst>
@@ -97,7 +97,7 @@ Use as ``method(...)``
    evaluatezforces <potentialzforces.rst>
    flatten <potentialflatten.rst>
    flattening <potentialflattenings.rst>
-   JcE <potentialjces.rst>
+   LcE <potentiallces.rst>
    lindbladR <potentiallindbladRs.rst>
    mass <potentialmasses.rst>
    nemo_accname <potentialnemoaccnames.rst>

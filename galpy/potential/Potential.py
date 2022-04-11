@@ -1408,11 +1408,11 @@ class Potential(Force):
         return rE(self,E,t=t,use_physical=False)
 
     @physical_conversion('action',pop=True)
-    def JcE(self,E,t=0.):
+    def LcE(self,E,t=0.):
         """
         NAME:
         
-            JcE
+            LcE
         
         PURPOSE:
         
@@ -1426,7 +1426,7 @@ class Potential(Force):
         
         OUTPUT:
         
-            Jc(E)
+            Lc(E)
         
         HISTORY:
         
@@ -1434,7 +1434,7 @@ class Potential(Force):
                
         """
         E= conversion.parse_energy(E,ro=self._ro,vo=self._vo)
-        return JcE(self,E,t=t,use_physical=False)
+        return LcE(self,E,t=t,use_physical=False)
 
     @potential_physical_input
     @physical_conversion('dimensionless',pop=True)
@@ -3268,11 +3268,11 @@ def _rEFindStart(rE,E,pot,t=0.,lower=False):
     return rtry
 
 @physical_conversion('action',pop=True)
-def JcE(Pot,E,t=0.):
+def L(Pot,E,t=0.):
     """
     NAME:
 
-       JcE
+       LcE
 
     PURPOSE:
 
@@ -3288,7 +3288,7 @@ def JcE(Pot,E,t=0.):
 
     OUTPUT:
 
-       Jc(E)
+       Lc(E)
 
     HISTORY:
 

@@ -2269,11 +2269,11 @@ class Orbit(object):
 
     @physical_conversion('action')
     @shapeDecorator
-    def JcE(self,*args,**kwargs):
+    def LcE(self,*args,**kwargs):
         """
         NAME:
 
-           JcE
+           LcE
 
         PURPOSE:
 
@@ -2291,7 +2291,7 @@ class Orbit(object):
 
         OUTPUT:
 
-           J_c(E) [*input_shape,nt]
+           L_c(E) [*input_shape,nt]
 
         HISTORY:
 
@@ -2300,7 +2300,7 @@ class Orbit(object):
         """
         pot= kwargs.pop('pot',self.__dict__.get('_pot',None))
         if pot is None:
-            raise RuntimeError("You need to specify the potential as pot= to compute JcE")
+            raise RuntimeError("You need to specify the potential as pot= to compute LcE")
         thisrE= self.rE(*args,pot=pot,use_physical=False,dontreshape=True,**kwargs)
         return thisrE*vcirc(pot,thisrE,use_physical=False)
 

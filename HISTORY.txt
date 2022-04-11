@@ -13,7 +13,7 @@ v1.8 (XXXX-XX-XX)
 
 - Added NullPotential, a potential with a constant value.
 
-- Added Potential methods/functions rE and JcE to compute the radius
+- Added Potential methods/functions rE and LcE to compute the radius
   and angular momentum of an orbit with energy E. Also added these 
   as Orbit methods for efficient calculation for collections of 
   orbits.

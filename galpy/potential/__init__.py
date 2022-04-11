@@ -129,7 +129,7 @@ zvc_range= Potential.zvc_range
 rhalf= Potential.rhalf
 tdyn= Potential.tdyn
 rE= Potential.rE
-JcE= Potential.JcE
+LcE= Potential.LcE
 #
 # Classes
 #

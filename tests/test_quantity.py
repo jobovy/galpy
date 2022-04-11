@@ -250,7 +250,7 @@ def test_orbit_method_returntype_scalar():
     assert isinstance(o.rperi(pot=MWPotential2014,analytic=True),units.Quantity), 'Orbit method rperi does not return Quantity when it should'
     assert isinstance(o.rguiding(pot=MWPotential2014),units.Quantity), 'Orbit method rguiding does not return Quantity when it should'
     assert isinstance(o.rE(pot=MWPotential2014),units.Quantity), 'Orbit method rE does not return Quantity when it should'
-    assert isinstance(o.JcE(pot=MWPotential2014),units.Quantity), 'Orbit method JcE does not return Quantity when it should'
+    assert isinstance(o.LcE(pot=MWPotential2014),units.Quantity), 'Orbit method LcE does not return Quantity when it should'
     assert isinstance(o.zmax(pot=MWPotential2014,analytic=True),units.Quantity), 'Orbit method zmax does not return Quantity when it should'
     assert isinstance(o.jr(pot=MWPotential2014,type='staeckel',delta=0.5),units.Quantity), 'Orbit method jr does not return Quantity when it should'
     assert isinstance(o.jp(pot=MWPotential2014,type='staeckel',delta=0.5),units.Quantity), 'Orbit method jp does not return Quantity when it should'
@@ -393,9 +393,9 @@ def test_orbit_method_returnunit():
     except units.UnitConversionError:
         raise AssertionError('Orbit method rE does not return Quantity with the right units')
     try:
-        o.JcE(pot=MWPotential2014).to(units.kpc*units.km/units.s)
+        o.LcE(pot=MWPotential2014).to(units.kpc*units.km/units.s)
     except units.UnitConversionError:
-        raise AssertionError('Orbit method JcE does not return Quantity with the right units')
+        raise AssertionError('Orbit method LcE does not return Quantity with the right units')
     try:
         o.zmax(pot=MWPotential2014,analytic=True).to(units.kpc)
     except units.UnitConversionError:
@@ -600,7 +600,7 @@ def test_orbit_method_value():
     assert numpy.fabs(o.rperi(pot=MWPotential2014,analytic=True).to(units.kpc).value-oc.rperi(pot=MWPotential2014,analytic=True)*o._ro) < 10.**-8., 'Orbit method rperi does not return the correct value as Quantity'
     assert numpy.fabs(o.rguiding(pot=MWPotential2014).to(units.kpc).value-oc.rguiding(pot=MWPotential2014)*o._ro) < 10.**-8., 'Orbit method rguiding does not return the correct value as Quantity'
     assert numpy.fabs(o.rE(pot=MWPotential2014).to(units.kpc).value-oc.rE(pot=MWPotential2014)*o._ro) < 10.**-8., 'Orbit method rE does not return the correct value as Quantity'
-    assert numpy.fabs(o.JcE(pot=MWPotential2014).to(units.kpc*units.km/units.s).value-oc.JcE(pot=MWPotential2014)*o._ro*o._vo) < 10.**-8., 'Orbit method JcE does not return the correct value as Quantity'
+    assert numpy.fabs(o.LcE(pot=MWPotential2014).to(units.kpc*units.km/units.s).value-oc.LcE(pot=MWPotential2014)*o._ro*o._vo) < 10.**-8., 'Orbit method LcE does not return the correct value as Quantity'
     assert numpy.fabs(o.zmax(pot=MWPotential2014,analytic=True).to(units.kpc).value-oc.zmax(pot=MWPotential2014,analytic=True)*o._ro) < 10.**-8., 'Orbit method zmax does not return the correct value as Quantity'
     assert numpy.fabs(o.jr(pot=MWPotential2014,type='staeckel',delta=0.5).to(units.km/units.s*units.kpc).value-oc.jr(pot=MWPotential2014,type='staeckel',delta=0.5)*o._ro*o._vo) < 10.**-8., 'Orbit method jr does not return the correct value as Quantity'
     assert numpy.fabs(o.jp(pot=MWPotential2014,type='staeckel',delta=4.*units.kpc).to(units.km/units.s*units.kpc).value-oc.jp(pot=MWPotential2014,type='staeckel',delta=0.5)*o._ro*o._vo) < 10.**-8., 'Orbit method jp does not return the correct value as Quantity'
@@ -667,7 +667,7 @@ def test_orbit_method_value_turnquantityoff():
     assert numpy.fabs(o.rperi(pot=MWPotential2014,analytic=True,quantity=False)-oc.rperi(pot=MWPotential2014,analytic=True)*o._ro) < 10.**-8., 'Orbit method rperi does not return the correct value when Quantity turned off'
     assert numpy.fabs(o.rguiding(pot=MWPotential2014,quantity=False)-oc.rguiding(pot=MWPotential2014)*o._ro) < 10.**-8., 'Orbit method rguiding does not return the correct value when Quantity turned off'
     assert numpy.fabs(o.rE(pot=MWPotential2014,quantity=False)-oc.rE(pot=MWPotential2014)*o._ro) < 10.**-8., 'Orbit method rE does not return the correct value when Quantity turned off'
-    assert numpy.fabs(o.JcE(pot=MWPotential2014,quantity=False)-oc.JcE(pot=MWPotential2014)*o._ro*o._vo) < 10.**-8., 'Orbit method JcE does not return the correct value when Quantity turned off'
+    assert numpy.fabs(o.LcE(pot=MWPotential2014,quantity=False)-oc.LcE(pot=MWPotential2014)*o._ro*o._vo) < 10.**-8., 'Orbit method LcE does not return the correct value when Quantity turned off'
     assert numpy.fabs(o.zmax(pot=MWPotential2014,analytic=True,quantity=False)-oc.zmax(pot=MWPotential2014,analytic=True)*o._ro) < 10.**-8., 'Orbit method zmax does not return the correct value when Quantity turned off'
     assert numpy.fabs(o.jr(pot=MWPotential2014,type='staeckel',delta=0.5,quantity=False)-oc.jr(pot=MWPotential2014,type='staeckel',delta=0.5)*o._ro*o._vo) < 10.**-8., 'Orbit method jr does not return the correct value when Quantity turned off'
     assert numpy.fabs(o.jp(pot=MWPotential2014,type='staeckel',delta=4.*units.kpc,quantity=False)-oc.jp(pot=MWPotential2014,type='staeckel',delta=0.5)*o._ro*o._vo) < 10.**-8., 'Orbit method jp does not return the correct value when Quantity turned off'
@@ -899,7 +899,7 @@ def test_orbits_method_returntype_scalar():
     assert isinstance(o.rperi(pot=MWPotential2014,analytic=True),units.Quantity), 'Orbit method rperi does not return Quantity when it should'
     assert isinstance(o.rguiding(pot=MWPotential2014),units.Quantity), 'Orbit method rguiding does not return Quantity when it should'
     assert isinstance(o.rE(pot=MWPotential2014),units.Quantity), 'Orbit method rE does not return Quantity when it should'
-    assert isinstance(o.JcE(pot=MWPotential2014),units.Quantity), 'Orbit method JcE does not return Quantity when it should'
+    assert isinstance(o.LcE(pot=MWPotential2014),units.Quantity), 'Orbit method LcE does not return Quantity when it should'
     assert isinstance(o.zmax(pot=MWPotential2014,analytic=True),units.Quantity), 'Orbit method zmax does not return Quantity when it should'
     assert isinstance(o.jr(pot=MWPotential2014,type='staeckel',delta=0.5),units.Quantity), 'Orbit method jr does not return Quantity when it should'
     assert isinstance(o.jp(pot=MWPotential2014,type='staeckel',delta=0.5),units.Quantity), 'Orbit method jp does not return Quantity when it should'
@@ -1046,9 +1046,9 @@ def test_orbits_method_returnunit():
     except units.UnitConversionError:
         raise AssertionError('Orbit method rE does not return Quantity with the right units')
     try:
-        o.JcE(pot=MWPotential2014).to(units.kpc*units.km/units.s)
+        o.LcE(pot=MWPotential2014).to(units.kpc*units.km/units.s)
     except units.UnitConversionError:
-        raise AssertionError('Orbit method JcE does not return Quantity with the right units')
+        raise AssertionError('Orbit method LcE does not return Quantity with the right units')
     try:
         o.zmax(pot=MWPotential2014,analytic=True).to(units.kpc)
     except units.UnitConversionError:
@@ -1255,7 +1255,7 @@ def test_orbits_method_value():
     assert numpy.all(numpy.fabs(o.rperi(pot=MWPotential2014,analytic=True).to(units.kpc).value-oc.rperi(pot=MWPotential2014,analytic=True)*o._ro) < 10.**-8.), 'Orbit method rperi does not return the correct value as Quantity'
     assert numpy.all(numpy.fabs(o.rguiding(pot=MWPotential2014).to(units.kpc).value-oc.rguiding(pot=MWPotential2014)*o._ro) < 10.**-8.), 'Orbit method rguiding does not return the correct value as Quantity'
     assert numpy.all(numpy.fabs(o.rE(pot=MWPotential2014).to(units.kpc).value-oc.rE(pot=MWPotential2014)*o._ro) < 10.**-8.), 'Orbit method rE does not return the correct value as Quantity'
-    assert numpy.all(numpy.fabs(o.JcE(pot=MWPotential2014).to(units.kpc*units.km/units.s).value-oc.JcE(pot=MWPotential2014)*o._ro*o._vo) < 10.**-8.), 'Orbit method JcE does not return the correct value as Quantity'
+    assert numpy.all(numpy.fabs(o.LcE(pot=MWPotential2014).to(units.kpc*units.km/units.s).value-oc.LcE(pot=MWPotential2014)*o._ro*o._vo) < 10.**-8.), 'Orbit method LcE does not return the correct value as Quantity'
     assert numpy.all(numpy.fabs(o.zmax(pot=MWPotential2014,analytic=True).to(units.kpc).value-oc.zmax(pot=MWPotential2014,analytic=True)*o._ro) < 10.**-8.), 'Orbit method zmax does not return the correct value as Quantity'
     assert numpy.all(numpy.fabs(o.jr(pot=MWPotential2014,type='staeckel',delta=0.5).to(units.km/units.s*units.kpc).value-oc.jr(pot=MWPotential2014,type='staeckel',delta=0.5)*o._ro*o._vo) < 10.**-8.), 'Orbit method jr does not return the correct value as Quantity'
     assert numpy.all(numpy.fabs(o.jp(pot=MWPotential2014,type='staeckel',delta=4.*units.kpc).to(units.km/units.s*units.kpc).value-oc.jp(pot=MWPotential2014,type='staeckel',delta=0.5)*o._ro*o._vo) < 10.**-8.), 'Orbit method jp does not return the correct value as Quantity'
@@ -1324,7 +1324,7 @@ def test_orbits_method_value_turnquantityoff():
     assert numpy.all(numpy.fabs(o.rperi(pot=MWPotential2014,analytic=True,quantity=False)-oc.rperi(pot=MWPotential2014,analytic=True)*o._ro) < 10.**-8.), 'Orbit method rperi does not return the correct value when Quantity turned off'
     assert numpy.all(numpy.fabs(o.rguiding(pot=MWPotential2014,quantity=False)-oc.rguiding(pot=MWPotential2014)*o._ro) < 10.**-8.), 'Orbit method rguiding does not return the correct value when Quantity turned off'
     assert numpy.all(numpy.fabs(o.rE(pot=MWPotential2014,quantity=False)-oc.rE(pot=MWPotential2014)*o._ro) < 10.**-8.), 'Orbit method rE does not return the correct value when Quantity turned off'
-    assert numpy.all(numpy.fabs(o.JcE(pot=MWPotential2014,quantity=False)-oc.JcE(pot=MWPotential2014)*o._ro*o._vo) < 10.**-8.), 'Orbit method JcE does not return the correct value when Quantity turned off'
+    assert numpy.all(numpy.fabs(o.LcE(pot=MWPotential2014,quantity=False)-oc.LcE(pot=MWPotential2014)*o._ro*o._vo) < 10.**-8.), 'Orbit method LcE does not return the correct value when Quantity turned off'
     assert numpy.all(numpy.fabs(o.zmax(pot=MWPotential2014,analytic=True,quantity=False)-oc.zmax(pot=MWPotential2014,analytic=True)*o._ro) < 10.**-8.), 'Orbit method zmax does not return the correct value when Quantity turned off'
     assert numpy.all(numpy.fabs(o.jr(pot=MWPotential2014,type='staeckel',delta=0.5,quantity=False)-oc.jr(pot=MWPotential2014,type='staeckel',delta=0.5)*o._ro*o._vo) < 10.**-8.), 'Orbit method jr does not return the correct value when Quantity turned off'
     assert numpy.all(numpy.fabs(o.jp(pot=MWPotential2014,type='staeckel',delta=4.*units.kpc,quantity=False)-oc.jp(pot=MWPotential2014,type='staeckel',delta=0.5)*o._ro*o._vo) < 10.**-8.), 'Orbit method jp does not return the correct value when Quantity turned off'
@@ -1584,7 +1584,7 @@ def test_potential_method_returntype():
     assert isinstance(pot.vesc(1.3),units.Quantity), 'Potential method vesc does not return Quantity when it should'
     assert isinstance(pot.rl(1.3),units.Quantity), 'Potential method rl does not return Quantity when it should'
     assert isinstance(pot.rE(-1.14),units.Quantity), 'Potential method rE does not return Quantity when it should'
-    assert isinstance(pot.JcE(-1.14),units.Quantity), 'Potential method JcE does not return Quantity when it should'
+    assert isinstance(pot.LcE(-1.14),units.Quantity), 'Potential method LcE does not return Quantity when it should'
     assert isinstance(pot.vterm(45.),units.Quantity), 'Potential method vterm does not return Quantity when it should'
     assert isinstance(pot.rtide(1.,0.,M=1.),units.Quantity), 'Potential method rtide does not return Quantity when it should'
     assert isinstance(pot.ttensor(1.,0.),units.Quantity), 'Potential method ttensor does not return Quantity when it should'
@@ -1728,9 +1728,9 @@ def test_potential_method_returnunit():
     except units.UnitConversionError:
         raise AssertionError('Potential method rE does not return Quantity with the right units')
     try:
-        pot.JcE(-1.14).to(units.km/units.s*units.kpc)
+        pot.LcE(-1.14).to(units.km/units.s*units.kpc)
     except units.UnitConversionError:
-        raise AssertionError('Potential method JcE does not return Quantity with the right units')
+        raise AssertionError('Potential method LcE does not return Quantity with the right units')
     try:
         pot.vterm(45.).to(units.km/units.s)
     except units.UnitConversionError:
@@ -1857,7 +1857,7 @@ def test_potential_method_value():
     assert numpy.fabs(pot.vesc(1.1).to(units.km/units.s).value-potu.vesc(1.1)*vo) < 10.**-8., 'Potential method vesc does not return the correct value as Quantity'
     assert numpy.fabs(pot.rl(1.1).to(units.kpc).value-potu.rl(1.1)*ro) < 10.**-8., 'Potential method rl does not return the correct value as Quantity'
     assert numpy.fabs(pot.rE(-1.14).to(units.kpc).value-potu.rE(-1.14)*ro) < 10.**-8., 'Potential method rE does not return the correct value as Quantity'
-    assert numpy.fabs(pot.JcE(-1.14).to(units.kpc*units.km/units.s).value-potu.JcE(-1.14)*ro*vo) < 10.**-8., 'Potential method JcE does not return the correct value as Quantity'
+    assert numpy.fabs(pot.LcE(-1.14).to(units.kpc*units.km/units.s).value-potu.LcE(-1.14)*ro*vo) < 10.**-8., 'Potential method LcE does not return the correct value as Quantity'
     assert numpy.fabs(pot.vterm(45.).to(units.km/units.s).value-potu.vterm(45.)*vo) < 10.**-8., 'Potential method vterm does not return the correct value as Quantity'
     assert numpy.fabs(pot.rtide(1.,0.,M=1.).to(units.kpc).value-potu.rtide(1.,0.,M=1.)*ro) < 10.**-8., 'Potential method rtide does not return the correct value as Quantity'
     assert numpy.all(numpy.fabs(pot.ttensor(1.,0.).to(units.km**2/units.s**2./units.kpc**2).value-potu.ttensor(1.,0.)*vo**2./ro**2.) < 10.**-8.), 'Potential method ttensor does not return the correct value as Quantity'
@@ -1921,7 +1921,7 @@ def test_potential_function_returntype():
     assert isinstance(potential.vesc(pot,1.3),units.Quantity), 'Potential function vesc does not return Quantity when it should'
     assert isinstance(potential.rl(pot,1.3),units.Quantity), 'Potential function rl does not return Quantity when it should'
     assert isinstance(potential.rE(pot,-1.14),units.Quantity), 'Potential function rE does not return Quantity when it should'
-    assert isinstance(potential.JcE(pot,-1.14),units.Quantity), 'Potential function JcE does not return Quantity when it should'
+    assert isinstance(potential.LcE(pot,-1.14),units.Quantity), 'Potential function LcE does not return Quantity when it should'
     assert isinstance(potential.vterm(pot,45.),units.Quantity), 'Potential function vterm does not return Quantity when it should'
     assert isinstance(potential.rtide(pot,1.,0.,M=1.),units.Quantity), 'Potential function rtide does not return Quantity when it should'
     assert isinstance(potential.ttensor(pot,1.,0.),units.Quantity), 'Potential function ttensor does not return Quantity when it should'
@@ -2041,9 +2041,9 @@ def test_potential_function_returnunit():
     except units.UnitConversionError:
         raise AssertionError('Potential function rE does not return Quantity with the right units')
     try:
-        potential.JcE(pot,-1.14).to(units.km/units.s*units.kpc)
+        potential.LcE(pot,-1.14).to(units.km/units.s*units.kpc)
     except units.UnitConversionError:
-        raise AssertionError('Potential function JcE does not return Quantity with the right units')
+        raise AssertionError('Potential function LcE does not return Quantity with the right units')
     try:
         potential.vterm(pot,45.).to(units.km/units.s)
     except units.UnitConversionError:
@@ -2163,7 +2163,7 @@ def test_potential_function_value():
     assert numpy.fabs(potential.vesc(pot,1.1).to(units.km/units.s).value-potential.vesc(potu,1.1)*vo) < 10.**-8., 'Potential function vesc does not return the correct value as Quantity'
     assert numpy.fabs(potential.rl(pot,1.1).to(units.kpc).value-potential.rl(potu,1.1)*ro) < 10.**-8., 'Potential function rl does not return the correct value as Quantity'
     assert numpy.fabs(potential.rE(pot,-1.14).to(units.kpc).value-potential.rE(potu,-1.14)*ro) < 10.**-8., 'Potential function rE does not return the correct value as Quantity'
-    assert numpy.fabs(potential.JcE(pot,-1.14).to(units.kpc*units.km/units.s).value-potential.JcE(potu,-1.14)*ro*vo) < 10.**-8., 'Potential function JcE does not return the correct value as Quantity'
+    assert numpy.fabs(potential.LcE(pot,-1.14).to(units.kpc*units.km/units.s).value-potential.LcE(potu,-1.14)*ro*vo) < 10.**-8., 'Potential function LcE does not return the correct value as Quantity'
     assert numpy.fabs(potential.vterm(pot,45.).to(units.km/units.s).value-potential.vterm(potu,45.)*vo) < 10.**-8., 'Potential function vterm does not return the correct value as Quantity'
     assert numpy.fabs(potential.rtide(pot,1.,0.,M=1.).to(units.kpc).value-potential.rtide(potu,1.,0.,M=1.)*ro) < 10.**-8., 'Potential function rtide does not return the correct value as Quantity'
     assert numpy.all(numpy.fabs(potential.ttensor(pot,1.,0.).to(units.km**2/units.s**2/units.kpc**2).value-potential.ttensor(potu,1.,0.)*vo**2/ro**2) < 10.**-8.), 'Potential function ttensor does not return the correct value as Quantity'
@@ -2235,7 +2235,7 @@ def test_potential_method_inputAsQuantity():
     assert numpy.fabs(pot.lindbladR(0.9*conversion.freq_in_Gyr(vo,ro.value)/units.Gyr,m='corot',use_physical=False)-potu.lindbladR(0.9,m='corot')) < 10.**-8., 'Potential method lindbladR does not return the correct value when input is Quantity'
     assert numpy.fabs(pot.rl(1.1*vo*ro*units.km/units.s,use_physical=False)-potu.rl(1.1)) < 10.**-8., 'Potential method rl does not return the correct value when input is Quantity'
     assert numpy.fabs(pot.rE(-1.14*vo**2*units.km**2/units.s**2,use_physical=False)-potu.rE(-1.14)) < 10.**-8., 'Potential method rE does not return the correct value when input is Quantity'
-    assert numpy.fabs(pot.JcE(-1.14*vo**2*units.km**2/units.s**2,use_physical=False)-potu.JcE(-1.14)) < 10.**-8., 'Potential method JcE does not return the correct value when input is Quantity'
+    assert numpy.fabs(pot.LcE(-1.14*vo**2*units.km**2/units.s**2,use_physical=False)-potu.LcE(-1.14)) < 10.**-8., 'Potential method LcE does not return the correct value when input is Quantity'
     assert numpy.fabs(pot.vterm(45.*units.deg,use_physical=False)-potu.vterm(45.)) < 10.**-8., 'Potential method vterm does not return the correct value when input is Quantity'
     assert numpy.fabs(pot.rtide(1.1*ro,0.1*ro,M=10.**9.*units.Msun,use_physical=False)-potu.rtide(1.1,0.1,M=10.**9./conversion.mass_in_msol(vo,ro.value))) < 10.**-8., 'Potential method rtide does not return the correct value when input is Quantity'
     assert numpy.all(numpy.fabs(pot.ttensor(1.1*ro,0.1*ro,use_physical=False)-potu.ttensor(1.1,0.1)) < 10.**-8.), 'Potential method ttensor does not return the correct value when input is Quantity'
@@ -2437,8 +2437,8 @@ def test_potential_function_inputAsQuantity():
     assert numpy.fabs(potential.rl(pot[0],1.1*vo*ro*units.km/units.s,use_physical=False)-potential.rl(potu,1.1)) < 10.**-8., 'Potential function rl does not return the correct value when input is Quantity'
     assert numpy.fabs(potential.rE(pot,-1.14*vo**2*units.km**2/units.s**2,use_physical=False)-potential.rE(potu,-1.14)) < 10.**-8., 'Potential function rE does not return the correct value when input is Quantity'
     assert numpy.fabs(potential.rE(pot[0],-1.14*vo**2*units.km**2/units.s**2,use_physical=False)-potential.rE(potu,-1.14)) < 10.**-8., 'Potential function rE does not return the correct value when input is Quantity'
-    assert numpy.fabs(potential.JcE(pot,-1.14*vo**2*units.km**2/units.s**2,use_physical=False)-potential.JcE(potu,-1.14)) < 10.**-8., 'Potential function JcE does not return the correct value when input is Quantity'
-    assert numpy.fabs(potential.JcE(pot[0],-1.14*vo**2*units.km**2/units.s**2,use_physical=False)-potential.JcE(potu,-1.14)) < 10.**-8., 'Potential function JcE does not return the correct value when input is Quantity'
+    assert numpy.fabs(potential.LcE(pot,-1.14*vo**2*units.km**2/units.s**2,use_physical=False)-potential.LcE(potu,-1.14)) < 10.**-8., 'Potential function LcE does not return the correct value when input is Quantity'
+    assert numpy.fabs(potential.LcE(pot[0],-1.14*vo**2*units.km**2/units.s**2,use_physical=False)-potential.LcE(potu,-1.14)) < 10.**-8., 'Potential function LcE does not return the correct value when input is Quantity'
     assert numpy.fabs(potential.vterm(pot,45.*units.deg,use_physical=False)-potential.vterm(potu,45.)) < 10.**-8., 'Potential function vterm does not return the correct value when input is Quantity'
     assert numpy.fabs(potential.rtide(pot,1.1*ro,0.1*ro,M=10.**9.*units.Msun,use_physical=False)-potential.rtide(potu,1.1,0.1,M=10.**9./conversion.mass_in_msol(vo,ro.value))) < 10.**-8., 'Potential function rtide does not return the correct value when input is Quantity'
     # Test non-list for M as well, bc units done in rtide special, and do GM
