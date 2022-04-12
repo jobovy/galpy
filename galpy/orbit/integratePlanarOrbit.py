@@ -601,7 +601,7 @@ def integratePlanarOrbit_dxdv_c(pot,yo,dyo,t,int_method,rtol=None,atol=None,
     return (result,err.value)
 
 def integratePlanarOrbit(pot,yo,t,int_method,rtol=None,atol=None,numcores=1,
-                         dt=None):
+                         progressbar=True,dt=None):
     """
     NAME:
        integratePlanarOrbit
@@ -614,6 +614,7 @@ def integratePlanarOrbit(pot,yo,t,int_method,rtol=None,atol=None,numcores=1,
        int_method= 'leapfrog', 'odeint', or 'dop853'
        rtol, atol= tolerances (not always used...)
        numcores= (1) number of cores to use for multi-processing
+       progressbar= (True) if True, display a tqdm progress bar when integrating multiple orbits (requires tqdm to be installed!)
        dt= (None) force integrator to use this stepsize (default is to automatically determine one; only for C-based integrators!)
     OUTPUT:
        (y,err)
@@ -702,7 +703,8 @@ def integratePlanarOrbit(pot,yo,t,int_method,rtol=None,atol=None,numcores=1,
     if len(yo) == 1: # Can't map a single value...
         out= numpy.atleast_3d(integrate_for_map(yo[0]).T).T
     else:
-        out= numpy.array((parallel_map(integrate_for_map,yo,numcores=numcores)))
+        out= numpy.array((parallel_map(integrate_for_map,yo,numcores=numcores,
+                                       progressbar=progressbar)))
     if nophi:
         out= out[:,:,:3]
     return out, numpy.zeros(len(yo))

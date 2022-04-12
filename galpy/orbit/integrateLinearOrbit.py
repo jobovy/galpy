@@ -185,7 +185,7 @@ def integrateLinearOrbit_c(pot,yo,t,int_method,rtol=None,atol=None,dt=None):
 
 # Python integration functions
 def integrateLinearOrbit(pot,yo,t,int_method,rtol=None,atol=None,numcores=1,
-                         dt=None):
+                         progressbar=True,dt=None):
     """
     NAME:
        integrateLinearOrbit
@@ -198,6 +198,7 @@ def integrateLinearOrbit(pot,yo,t,int_method,rtol=None,atol=None,numcores=1,
        int_method= 'leapfrog', 'odeint', or 'dop853'
        rtol, atol= tolerances (not always used...)
        numcores= (1) number of cores to use for multi-processing
+       progressbar= (True) if True, display a tqdm progress bar when integrating multiple orbits (requires tqdm to be installed!)
        dt= (None) force integrator to use this stepsize (default is to automatically determine one; only for C-based integrators)
     OUTPUT:
        (y,err)
@@ -231,7 +232,8 @@ def integrateLinearOrbit(pot,yo,t,int_method,rtol=None,atol=None,numcores=1,
     if len(yo) == 1: # Can't map a single value...
         return numpy.atleast_3d(integrate_for_map(yo[0]).T).T, 0
     else:
-        return (numpy.array((parallel_map(integrate_for_map,yo,numcores=numcores))),
+        return (numpy.array((parallel_map(integrate_for_map,yo,numcores=numcores,
+                                          progressbar=progressbar))),
                 numpy.zeros(len(yo)))
 
 def _linearEOM(y,t,pot):
