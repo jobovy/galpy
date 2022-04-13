@@ -564,6 +564,7 @@ def integrateFullOrbit(pot,yo,t,int_method,rtol=None,atol=None,
     HISTORY:
        2010-08-01 - Written - Bovy (NYU)
        2019-04-09 - Adapted to allow multiple objects and parallel mapping - Bovy (UofT)
+       2022-04-12 - Add progressbar - Bovy (UofT)
     """
     nophi= False
     if not int_method.lower() == 'dop853' and not int_method == 'odeint':

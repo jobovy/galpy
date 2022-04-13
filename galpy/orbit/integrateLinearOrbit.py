@@ -209,6 +209,7 @@ def integrateLinearOrbit(pot,yo,t,int_method,rtol=None,atol=None,numcores=1,
     HISTORY:
        2010-07-13- Written - Bovy (NYU)
        2019-04-08 - Adapted to allow multiple orbits to be integrated at once and moved to integrateLinearOrbit.py - Bovy (UofT)
+       2022-04-12 - Add progressbar - Bovy (UofT)
     """
     if int_method.lower() == 'leapfrog':
         if rtol is None: rtol= 1e-8

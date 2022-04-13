@@ -625,6 +625,7 @@ def integratePlanarOrbit(pot,yo,t,int_method,rtol=None,atol=None,numcores=1,
     HISTORY:
        2010-07-20 - Written - Bovy (NYU)
        2019-04-09 - Adapted to allow multiple objects and parallel mapping - Bovy (UofT)
+       2022-04-12 - Add progressbar - Bovy (UofT)
     """
     nophi= False
     if not int_method.lower() == 'dop853' and not int_method == 'odeint':
@@ -712,7 +713,7 @@ def integratePlanarOrbit(pot,yo,t,int_method,rtol=None,atol=None,numcores=1,
 def integratePlanarOrbit_dxdv(pot,yo,dyo,t,int_method,
                               rectIn,rectOut,
                               rtol=None,atol=None,
-                              dt=None,numcores=1):
+                              progressbar=True,dt=None,numcores=1):
     """
     NAME:
        integratePlanarOrbit_dxdv
@@ -728,6 +729,7 @@ def integratePlanarOrbit_dxdv(pot,yo,dyo,t,int_method,
        rectOut= (False) if True, output dyo is in rectangular coordinates
        rtol, atol= tolerances (not always used...)
        numcores= (1) number of cores to use for multi-processing
+       progressbar= (True) if True, display a tqdm progress bar when integrating multiple orbits (requires tqdm to be installed!)
        dt= (None) force integrator to use this stepsize (default is to automatically determine one; only for C-based integrators)
     OUTPUT:
        (y,err)
@@ -738,6 +740,7 @@ def integratePlanarOrbit_dxdv(pot,yo,dyo,t,int_method,
     HISTORY:
        2011-10-17 - Written - Bovy (IAS)
        2019-05-21 - Adapted to allow multiple objects and parallel mapping - Bovy (UofT)
+       2022-04-12 - Add progressbar - Bovy (UofT)
     """
     #go to the rectangular frame
     this_yo= numpy.array([yo[:,0]*numpy.cos(yo[:,3]),
@@ -783,7 +786,8 @@ def integratePlanarOrbit_dxdv(pot,yo,dyo,t,int_method,
         out= numpy.atleast_3d(integrate_for_map(this_yo[0]).T).T
     else:
         out= numpy.array((parallel_map(integrate_for_map,this_yo,
-                                    numcores=numcores)))
+                                       progressbar=progressbar,
+                                       numcores=numcores)))
     #go back to the cylindrical frame
     R= numpy.sqrt(out[...,0]**2.+out[...,1]**2.)
     phi= numpy.arccos(out[...,0]/R)
