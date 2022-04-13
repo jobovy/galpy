@@ -1141,7 +1141,9 @@ class Orbit(object):
             if self.dim() == 1:
                 out, msg= integrateLinearOrbit_c(self._pot,
                                                  numpy.copy(self.vxvv),
-                                                 t,method,dt=dt)
+                                                 t,method,
+                                                 progressbar=progressbar,
+                                                 dt=dt)
             else:
                 if self.phasedim() == 3 \
                    or self.phasedim() == 5:
@@ -1152,10 +1154,14 @@ class Orbit(object):
                     vxvvs= numpy.copy(self.vxvv)
                 if self.dim() == 2:
                     out, msg= integratePlanarOrbit_c(self._pot,vxvvs,
-                                                     t,method,dt=dt)
+                                                     t,method,
+                                                     progressbar=progressbar,
+                                                     dt=dt)
                 else:
                     out, msg= integrateFullOrbit_c(self._pot,vxvvs,
-                                                   t,method,dt=dt)
+                                                   t,method,
+                                                   progressbar=progressbar,
+                                                   dt=dt)
 
                 if self.phasedim() == 3 \
                    or self.phasedim() == 5:

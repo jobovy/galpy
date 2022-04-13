@@ -640,7 +640,8 @@ EXPORT void integrateFullOrbit(int nobj,
 			       double atol,
 			       double *result,
 			       int * err,
-			       int odeint_type){
+			       int odeint_type,
+             orbint_callback_type cb){
   //Set up the forces, first count
   int ii,jj;
   int dim;
@@ -715,6 +716,8 @@ EXPORT void integrateFullOrbit(int nobj,
 		result+6*nt*ii,err+ii);
     for (jj=0; jj < nt; jj++)
       rect_to_cyl_galpy(result+6*jj+6*nt*ii);
+    if ( cb ) // Callback if not void
+      cb();
   }
   //Free allocated memory
 #pragma omp parallel for schedule(static,1) private(ii) num_threads(max_threads)

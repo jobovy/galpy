@@ -3,6 +3,11 @@ import ctypes.util
 from numpy.ctypeslib import ndpointer
 import numpy
 from scipy import integrate
+_TQDM_LOADED= True
+try:
+    import tqdm
+except ImportError: #pragma: no cover
+    _TQDM_LOADED= False
 _NUMBA_LOADED= True
 try:
     from numba import types, cfunc
@@ -427,7 +432,7 @@ def _prep_tfuncs(pot_tfuncs):
     return pot_tfuncs
 
 def integratePlanarOrbit_c(pot,yo,t,int_method,rtol=None,atol=None,
-                           dt=None):
+                           progressbar=True,dt=None):
     """
     NAME:
        integratePlanarOrbit_c
@@ -439,6 +444,7 @@ def integratePlanarOrbit_c(pot,yo,t,int_method,rtol=None,atol=None,
        t - set of times at which one wants the result
        int_method= 'leapfrog_c', 'rk4_c', 'rk6_c', 'symplec4_c', ...
        rtol, atol
+       progressbar= (True) if True, display a tqdm progress bar when integrating multiple orbits (requires tqdm to be installed!)
        dt= (None) force integrator to use this stepsize (default is to automatically determine one)
    OUTPUT:
        (y,err)
@@ -449,6 +455,7 @@ def integratePlanarOrbit_c(pot,yo,t,int_method,rtol=None,atol=None,
     HISTORY:
        2011-10-03 - Written - Bovy (IAS)
        2018-12-20 - Adapted to allow multiple objects - Bovy (UofT)
+       2022-04-12 - Add progressbar - Bovy (UofT)
     """
     if len(yo.shape) == 1: single_obj= True
     else: single_obj= False
@@ -464,6 +471,15 @@ def integratePlanarOrbit_c(pot,yo,t,int_method,rtol=None,atol=None,
     #Set up result array
     result= numpy.empty((nobj,len(t),4))
     err= numpy.zeros(nobj,dtype=numpy.int32)
+    
+    #Set up progressbar
+    progressbar*= _TQDM_LOADED
+    if nobj > 1 and progressbar:
+        pbar= tqdm.tqdm(total=nobj,leave=False)
+        pbar_func_ctype= ctypes.CFUNCTYPE(None)
+        pbar_c= pbar_func_ctype(pbar.update)
+    else: # pragma: no cover
+        pbar_c= None
 
     #Set up the C code
     ndarrayFlags= ('C_CONTIGUOUS','WRITEABLE')
@@ -481,7 +497,8 @@ def integratePlanarOrbit_c(pot,yo,t,int_method,rtol=None,atol=None,
                                ctypes.c_double,
                                ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
                                ndpointer(dtype=numpy.int32,flags=ndarrayFlags),
-                               ctypes.c_int]
+                               ctypes.c_int,
+                               ctypes.c_void_p]
 
     #Array requirements, first store old order
     f_cont= [yo.flags['F_CONTIGUOUS'],
@@ -505,7 +522,8 @@ def integratePlanarOrbit_c(pot,yo,t,int_method,rtol=None,atol=None,
                     ctypes.c_double(atol),
                     result,
                     err,
-                    ctypes.c_int(int_method_c))
+                    ctypes.c_int(int_method_c),
+                    pbar_c)
 
     if numpy.any(err == -10): #pragma: no cover
         raise KeyboardInterrupt("Orbit integration interrupted by CTRL-C (SIGINT)")
