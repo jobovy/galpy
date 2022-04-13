@@ -15,6 +15,7 @@ Optional dependencies are:
 
   * ``astropy`` for `Quantity <http://docs.astropy.org/en/stable/api/astropy.units.Quantity.html>`__ support (used throughout galpy when installed),
   * ``astroquery`` for the ``Orbit.from_name`` initialization method (to initialize using a celestial object's name),
+  * ``tqdm`` for displaying a progress bar for certain operations (e.g., orbit integration of multiple objects at once)
   * ``numexpr`` for plotting arbitrary expressions of ``Orbit`` quantities,
   * ``numba`` for speeding up the evaluation of certain functions when using C orbit integration,
   * ``JAX`` for use of constant-anisotropy DFs in ``galpy.df.constantbetadf``, and
