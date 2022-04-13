@@ -6432,7 +6432,7 @@ def test_streamdf_method_value():
     assert numpy.fabs(sdf_bovy14.estimateTdisrupt(0.1).to(units.Gyr).value-sdf_bovy14_nou.estimateTdisrupt(0.1)*conversion.time_in_Gyr(vo,ro)) < _NUMPY_1_22 * 1e-7 + (1-_NUMPY_1_22) * 1e-8, 'streamdf method estimateTdisrupt does not return correct Quantity'
     assert numpy.all(numpy.fabs(sdf_bovy14.meanOmega(0.1).to(1/units.Gyr).value-sdf_bovy14_nou.meanOmega(0.1)*conversion.freq_in_Gyr(vo,ro)) < 10.**-8.), 'streamdf method meanOmega does not return correct Quantity'
     assert numpy.fabs(sdf_bovy14.sigOmega(0.1).to(1/units.Gyr).value-sdf_bovy14_nou.sigOmega(0.1)*conversion.freq_in_Gyr(vo,ro)) < 10.**-8., 'streamdf method sigOmega does not return correct Quantity'
-    assert numpy.fabs(sdf_bovy14.meantdAngle(0.1).to(units.Gyr).value-sdf_bovy14_nou.meantdAngle(0.1)*conversion.time_in_Gyr(vo,ro)) < 10.**-8., 'streamdf method meantdAngle does not return correct Quantity'
+    assert numpy.fabs(sdf_bovy14.meantdAngle(0.1).to(units.Gyr).value-sdf_bovy14_nou.meantdAngle(0.1)*conversion.time_in_Gyr(vo,ro)) < 10.**-7., 'streamdf method meantdAngle does not return correct Quantity'
     assert numpy.fabs(sdf_bovy14.sigtdAngle(0.1).to(units.Gyr).value-sdf_bovy14_nou.sigtdAngle(0.1)*conversion.time_in_Gyr(vo,ro)) < 10.**-8., 'streamdf method sigtdAngle does not return correct Quantity'
     assert numpy.fabs(sdf_bovy14.meanangledAngle(0.1).to(units.rad).value-sdf_bovy14_nou.meanangledAngle(0.1)) < 10.**-8., 'streamdf method meanangledAngle does not return correct Quantity'
     assert numpy.fabs(sdf_bovy14.sigangledAngle(0.1).to(units.rad).value-sdf_bovy14_nou.sigangledAngle(0.1)) < 10.**-8., 'streamdf method sigangledAngle does not return correct Quantity'

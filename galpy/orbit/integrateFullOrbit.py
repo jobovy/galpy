@@ -9,11 +9,15 @@ from ..util import galpyWarning
 from ..potential.Potential import _evaluateRforces, _evaluatezforces,\
     _evaluatephiforces
 from .integratePlanarOrbit import (_parse_integrator, _parse_tol,
-                                   _parse_scf_pot, _prep_tfuncs)
+                                   _parse_scf_pot, _prep_tfuncs,
+                                   _TQDM_LOADED)
 from ..util.multi import parallel_map
 from ..util.leung_dop853 import dop853
 from ..util import symplecticode
 from ..util import _load_extension_libs
+
+if _TQDM_LOADED:
+    import tqdm
 
 _lib, _ext_loaded= _load_extension_libs.load_libgalpy()
 
@@ -372,7 +376,8 @@ def _parse_pot(pot,potforactions=False,potfortorus=False):
     pot_args= numpy.array(pot_args,dtype=numpy.float64,order='C')
     return (npot,pot_type,pot_args,pot_tfuncs)
 
-def integrateFullOrbit_c(pot,yo,t,int_method,rtol=None,atol=None,dt=None):
+def integrateFullOrbit_c(pot,yo,t,int_method,rtol=None,atol=None,
+                         progressbar=True,dt=None):
     """
     NAME:
        integrateFullOrbit_c
@@ -384,6 +389,7 @@ def integrateFullOrbit_c(pot,yo,t,int_method,rtol=None,atol=None,dt=None):
        t - set of times at which one wants the result
        int_method= 'leapfrog_c', 'rk4_c', 'rk6_c', 'symplec4_c'
        rtol, atol
+       progressbar= (True) if True, display a tqdm progress bar when integrating multiple orbits (requires tqdm to be installed!)
        dt= (None) force integrator to use this stepsize (default is to automatically determine one; only for C-based integrators)
     OUTPUT:
        (y,err)
@@ -394,6 +400,7 @@ def integrateFullOrbit_c(pot,yo,t,int_method,rtol=None,atol=None,dt=None):
     HISTORY:
        2011-11-13 - Written - Bovy (IAS)
        2018-12-21 - Adapted to allow multiple objects - Bovy (UofT)
+       2022-04-12 - Add progressbar - Bovy (UofT)
     """
     if len(yo.shape) == 1: single_obj= True
     else: single_obj= False
@@ -409,6 +416,15 @@ def integrateFullOrbit_c(pot,yo,t,int_method,rtol=None,atol=None,dt=None):
     #Set up result array
     result= numpy.empty((nobj,len(t),6))
     err= numpy.zeros(nobj,dtype=numpy.int32)
+    
+    #Set up progressbar
+    progressbar*= _TQDM_LOADED
+    if nobj > 1 and progressbar:
+        pbar= tqdm.tqdm(total=nobj,leave=False)
+        pbar_func_ctype= ctypes.CFUNCTYPE(None)
+        pbar_c= pbar_func_ctype(pbar.update)
+    else: # pragma: no cover
+        pbar_c= None
 
     #Set up the C code
     ndarrayFlags= ('C_CONTIGUOUS','WRITEABLE')
@@ -426,7 +442,8 @@ def integrateFullOrbit_c(pot,yo,t,int_method,rtol=None,atol=None,dt=None):
                                ctypes.c_double,
                                ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
                                ndpointer(dtype=numpy.int32,flags=ndarrayFlags),
-                               ctypes.c_int]
+                               ctypes.c_int,
+                               ctypes.c_void_p]
 
     #Array requirements, first store old order
     f_cont= [yo.flags['F_CONTIGUOUS'],
@@ -450,7 +467,11 @@ def integrateFullOrbit_c(pot,yo,t,int_method,rtol=None,atol=None,dt=None):
                     ctypes.c_double(atol),
                     result,
                     err,
-                    ctypes.c_int(int_method_c))
+                    ctypes.c_int(int_method_c),
+                    pbar_c)
+    
+    if nobj > 1 and progressbar:
+        pbar.close()
 
     if numpy.any(err == -10): #pragma: no cover
         raise KeyboardInterrupt("Orbit integration interrupted by CTRL-C (SIGINT)")
@@ -539,8 +560,8 @@ def integrateFullOrbit_dxdv_c(pot,yo,dyo,t,int_method,rtol=None,atol=None): #pra
 
     return (result,err.value)
 
-def integrateFullOrbit(pot,yo,t,int_method,rtol=None,atol=None,numcores=1,
-                       dt=None):
+def integrateFullOrbit(pot,yo,t,int_method,rtol=None,atol=None,
+                       numcores=1,progressbar=True,dt=None):
     """
     NAME:
        integrateFullOrbit
@@ -553,6 +574,7 @@ def integrateFullOrbit(pot,yo,t,int_method,rtol=None,atol=None,numcores=1,
        int_method= 'leapfrog', 'odeint', or 'dop853'
        rtol, atol= tolerances (not always used...)
        numcores= (1) number of cores to use for multi-processing
+       progressbar= (True) if True, display a tqdm progress bar when integrating multiple orbits (requires tqdm to be installed!)
        dt= (None) force integrator to use this stepsize (default is to automatically determine one; only for C-based integrators)
     OUTPUT:
        (y,err)
@@ -563,6 +585,7 @@ def integrateFullOrbit(pot,yo,t,int_method,rtol=None,atol=None,numcores=1,
     HISTORY:
        2010-08-01 - Written - Bovy (NYU)
        2019-04-09 - Adapted to allow multiple objects and parallel mapping - Bovy (UofT)
+       2022-04-12 - Add progressbar - Bovy (UofT)
     """
     nophi= False
     if not int_method.lower() == 'dop853' and not int_method == 'odeint':
@@ -647,7 +670,8 @@ def integrateFullOrbit(pot,yo,t,int_method,rtol=None,atol=None,numcores=1,
     if len(yo) == 1: # Can't map a single value...
         out= numpy.atleast_3d(integrate_for_map(yo[0]).T).T
     else:
-        out= numpy.array((parallel_map(integrate_for_map,yo,numcores=numcores)))
+        out= numpy.array((parallel_map(integrate_for_map,yo,numcores=numcores,
+                                       progressbar=progressbar)))
     if nophi:
         out= out[:,:,:5]
     return out, numpy.zeros(len(yo))

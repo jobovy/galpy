@@ -65,6 +65,7 @@ requiring version 1.14 or higher. Other optional dependencies include:
 * Support for providing inputs and getting outputs as Quantities with units is provided through
 [`astropy`](http://www.astropy.org/).
 * Querying SIMBAD for the coordinates of an object in the `Orbit.from_name` initialization method requires [`astroquery`](https://astroquery.readthedocs.io/en/latest/).
+* Displaying a progress bar for certain operations (e.g., orbit integration of multiple objects at once) requires [`tqdm`](https://github.com/tqdm/tqdm).
 * Plotting arbitrary functions of Orbit attributes requires [`numexpr`](https://github.com/pydata/numexpr).
 * Speeding up the evaluation of certain functions in the C code requires [`numba`](https://numba.pydata.org/).
 * Constant-anisotropy DFs in `galpy.df.constantbetadf` require [`JAX`](https://github.com/google/jax).

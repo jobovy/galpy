@@ -542,7 +542,8 @@ EXPORT void integratePlanarOrbit(int nobj,
 				 double atol,
 				 double *result,
 				 int * err,
-				 int odeint_type){
+				 int odeint_type,
+         orbint_callback_type cb){
   //Set up the forces, first count
   int ii,jj;
   int dim;
@@ -617,6 +618,8 @@ EXPORT void integratePlanarOrbit(int nobj,
 		result+4*nt*ii,err+ii);
     for (jj= 0; jj < nt; jj++)
       rect_to_polar_galpy(result+4*jj+4*nt*ii);
+    if ( cb ) // Callback if not void
+      cb();
   }
   //Free allocated memory
 #pragma omp parallel for schedule(static,1) private(ii) num_threads(max_threads)
@@ -638,7 +641,8 @@ EXPORT void integratePlanarOrbit_dxdv(double *yo,
 				      double atol,
 				      double *result,
 				      int * err,
-				      int odeint_type){
+				      int odeint_type,
+              orbint_callback_type cb){
   //Set up the forces, first count
   int dim;
   struct potentialArg * potentialArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );

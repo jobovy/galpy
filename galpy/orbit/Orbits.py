@@ -1024,7 +1024,8 @@ class Orbit(object):
             self._vo= conversion.parse_velocity_kms(vo)
         return None
 
-    def integrate(self,t,pot,method='symplec4_c',dt=None,numcores=_NUMCORES,
+    def integrate(self,t,pot,method='symplec4_c',progressbar=True,
+                  dt=None,numcores=_NUMCORES,
                   force_map=False):
         """
         NAME:
@@ -1051,6 +1052,8 @@ class Orbit(object):
                      'dopr54_c' for a 5-4 Dormand-Prince integrator in C
                      'dop853' for a 8-5-3 Dormand-Prince integrator in Python
                      'dop853_c' for a 8-5-3 Dormand-Prince integrator in C
+                     
+            progressbar= (True) if True, display a tqdm progress bar when integrating multiple orbits (requires tqdm to be installed!)
 
             dt - if set, force the integrator to use this basic stepsize; must be an integer divisor of output stepsize (only works for the C integrators that use a fixed stepsize) (can be Quantity)
 
@@ -1121,21 +1124,26 @@ class Orbit(object):
         # Implementation with parallel_map in Python
         if not '_c' in method or not ext_loaded or force_map:
             if self.dim() == 1:
-                out, msg= integrateLinearOrbit(self._pot,self.vxvv,t,
-                                               method,numcores=numcores,dt=dt)
+                out, msg= integrateLinearOrbit(self._pot,self.vxvv,t,method,
+                                               progressbar=progressbar,
+                                               numcores=numcores,dt=dt)
             elif self.dim() == 2:
-                out, msg= integratePlanarOrbit(self._pot,self.vxvv,t,
-                                               method,numcores=numcores,dt=dt)
+                out, msg= integratePlanarOrbit(self._pot,self.vxvv,t,method,
+                                               progressbar=progressbar,
+                                               numcores=numcores,dt=dt)
             else:
-                out, msg= integrateFullOrbit(self._pot,self.vxvv,t,
-                                             method,numcores=numcores,dt=dt)
+                out, msg= integrateFullOrbit(self._pot,self.vxvv,t,method,
+                                             progressbar=progressbar,
+                                             numcores=numcores,dt=dt)
         else:
             warnings.warn("Using C implementation to integrate orbits",
                           galpyWarningVerbose)
             if self.dim() == 1:
                 out, msg= integrateLinearOrbit_c(self._pot,
                                                  numpy.copy(self.vxvv),
-                                                 t,method,dt=dt)
+                                                 t,method,
+                                                 progressbar=progressbar,
+                                                 dt=dt)
             else:
                 if self.phasedim() == 3 \
                    or self.phasedim() == 5:
@@ -1146,10 +1154,14 @@ class Orbit(object):
                     vxvvs= numpy.copy(self.vxvv)
                 if self.dim() == 2:
                     out, msg= integratePlanarOrbit_c(self._pot,vxvvs,
-                                                     t,method,dt=dt)
+                                                     t,method,
+                                                     progressbar=progressbar,
+                                                     dt=dt)
                 else:
                     out, msg= integrateFullOrbit_c(self._pot,vxvvs,
-                                                   t,method,dt=dt)
+                                                   t,method,
+                                                   progressbar=progressbar,
+                                                   dt=dt)
 
                 if self.phasedim() == 3 \
                    or self.phasedim() == 5:
@@ -1201,7 +1213,8 @@ class Orbit(object):
                           galpyWarning)
         return None
 
-    def integrate_dxdv(self,dxdv,t,pot,method='dopr54_c',dt=None,
+    def integrate_dxdv(self,dxdv,t,pot,method='dopr54_c',
+                       progressbar=True,dt=None,
                        numcores=_NUMCORES,force_map=False,
                        rectIn=False,rectOut=False):
         """
@@ -1220,6 +1233,8 @@ class Orbit(object):
            t - list of times at which to output (0 has to be in this!) (can be Quantity)
 
            pot - potential instance or list of instances
+           
+           progressbar= (True) if True, display a tqdm progress bar when integrating multiple orbits (requires tqdm to be installed!)
 
            dt - if set, force the integrator to use this basic stepsize; must be an integer divisor of output stepsize (only works for the C integrators that use a fixed stepsize) (can be Quantity)
 
@@ -1297,6 +1312,7 @@ class Orbit(object):
             if self.dim() == 2:
                 out, msg= integratePlanarOrbit_dxdv(self._pot,self.vxvv,dxdv,
                                                     t,method,rectIn,rectOut,
+                                                    progressbar=progressbar,
                                                     numcores=numcores,dt=dt)
         # Store orbit internally
         self.orbit_dxdv= out
