@@ -190,6 +190,9 @@ def integrateLinearOrbit_c(pot,yo,t,int_method,rtol=None,atol=None,
                     ctypes.c_int(int_method_c),
                     pbar_c)
     
+    if nobj > 1 and progressbar:
+        pbar.close()
+    
     if numpy.any(err == -10): #pragma: no cover
         raise KeyboardInterrupt("Orbit integration interrupted by CTRL-C (SIGINT)")
 
