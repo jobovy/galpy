@@ -1213,7 +1213,8 @@ class Orbit(object):
                           galpyWarning)
         return None
 
-    def integrate_dxdv(self,dxdv,t,pot,method='dopr54_c',dt=None,
+    def integrate_dxdv(self,dxdv,t,pot,method='dopr54_c',
+                       progressbar=True,dt=None,
                        numcores=_NUMCORES,force_map=False,
                        rectIn=False,rectOut=False):
         """
@@ -1232,6 +1233,8 @@ class Orbit(object):
            t - list of times at which to output (0 has to be in this!) (can be Quantity)
 
            pot - potential instance or list of instances
+           
+           progressbar= (True) if True, display a tqdm progress bar when integrating multiple orbits (requires tqdm to be installed!)
 
            dt - if set, force the integrator to use this basic stepsize; must be an integer divisor of output stepsize (only works for the C integrators that use a fixed stepsize) (can be Quantity)
 
@@ -1309,6 +1312,7 @@ class Orbit(object):
             if self.dim() == 2:
                 out, msg= integratePlanarOrbit_dxdv(self._pot,self.vxvv,dxdv,
                                                     t,method,rectIn,rectOut,
+                                                    progressbar=progressbar,
                                                     numcores=numcores,dt=dt)
         # Store orbit internally
         self.orbit_dxdv= out

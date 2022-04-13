@@ -6,7 +6,7 @@ v1.8 (XXXX-XX-XX)
   and origin accelerations are supported (#471).
 
 - Added a progress bar when integrating multiple objects in a single 
-  orbit instance (requires tqdm). 
+  orbit instance (requires tqdm) (see #476). 
 
 - Turn on NFWPotential physical output when initializing using the 
   virial mass mvir (see #465)
