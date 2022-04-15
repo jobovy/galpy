@@ -32,7 +32,7 @@ from ..potential import toPlanarPotential, PotentialError, evaluatePotentials,\
     evaluateplanarPotentials, evaluatelinearPotentials
 from ..potential import flatten as flatten_potential
 from ..potential.Potential import _check_c
-from ..potential import rl, rE, vcirc, _isNonAxi
+from ..potential import rl, rE, LcE, _isNonAxi
 from ..potential.DissipativeForce import _isDissipative
 from .integrateLinearOrbit import integrateLinearOrbit_c, _ext_loaded, \
     integrateLinearOrbit
@@ -2317,8 +2317,26 @@ class Orbit(object):
         pot= kwargs.pop('pot',self.__dict__.get('_pot',None))
         if pot is None:
             raise RuntimeError("You need to specify the potential as pot= to compute LcE")
-        thisrE= self.rE(*args,pot=pot,use_physical=False,dontreshape=True,**kwargs)
-        return thisrE*vcirc(pot,thisrE,use_physical=False)
+        flatten_potential(pot)
+        if _isNonAxi(pot):
+            raise RuntimeError('Potential given to LcE is non-axisymmetric, but LcE requires an axisymmetric potential')
+        _check_consistent_units(self,pot)
+        E= numpy.atleast_1d(self.E(*args,pot=pot,use_physical=False,dontreshape=True))
+        E_shape= E.shape
+        E= E.flatten()
+        if len(E) > 500:
+            # Build interpolation grid
+            precomputeLcEEgrid= numpy.linspace(numpy.nanmin(E),
+                                              numpy.nanmax(E),
+                                              500)
+            LcEs= numpy.array([LcE(pot,tE,use_physical=False)
+                              for tE in precomputeLcEEgrid])
+            #Spline interpolate
+            return interpolate.InterpolatedUnivariateSpline(\
+                precomputeLcEEgrid,LcEs,k=3)(E).reshape(E_shape)
+        else:            
+            return numpy.array([LcE(pot,tE,use_physical=False)
+                                for tE in E]).reshape(E_shape)
 
     @physical_conversion('position')
     @shapeDecorator

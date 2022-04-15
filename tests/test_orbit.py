@@ -5063,6 +5063,20 @@ def test_rE_errors():
         o.rE(pot=np)
     return None
 
+def test_LcE_errors():
+    from galpy.potential import TriaxialNFWPotential
+    from galpy.orbit import Orbit
+    R,Lz= 1.,1.4
+    o= Orbit([R,0.4,Lz/R,0.])
+    # No potential raises error
+    with pytest.raises(RuntimeError) as excinfo:
+        o.LcE()
+    # non-axi potential raises error
+    np= TriaxialNFWPotential(amp=20.,c=0.8,b=0.7)
+    with pytest.raises(RuntimeError) as excinfo:
+        o.LcE(pot=np)
+    return None
+
 def test_phi_range():
     # Test that the range returned by Orbit.phi is [-pi,pi],
     # example from Jeremy Webb

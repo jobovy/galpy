@@ -2604,7 +2604,7 @@ def test_LcE():
     for ii in range(nrand):
         assert numpy.all(numpy.fabs(rgs[ii]/list_os[ii].LcE(pot=MWPotential2014)-1.) < 10.**-10.), 'Evaluating Orbits LcE analytically does not agree with Orbit'
     # LcE for non-axi potential fails
-    with pytest.raises(RuntimeError,match="Potential given to rE is non-axisymmetric, but rE requires an axisymmetric potential") as exc_info:
+    with pytest.raises(RuntimeError,match="Potential given to LcE is non-axisymmetric, but LcE requires an axisymmetric potential") as exc_info:
         os.LcE(pot=MWPotential2014+potential.DehnenBarPotential())
     return None
 
