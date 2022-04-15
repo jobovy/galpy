@@ -1,5 +1,5 @@
-v1.8 (XXXX-XX-XX)
-=================
+v1.7.2 (2022-04-15)
+===================
 
 - Added NonInertialFrameForce, which provides the fictitious forces 
   when integrating orbits in non-inertial frames. Arbitrary rotations 
