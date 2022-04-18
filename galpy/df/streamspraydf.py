@@ -1,16 +1,10 @@
-from pkg_resources import parse_version
 import numpy
-import galpy
-from galpy.orbit import Orbit
-from galpy.df.df import df
-from galpy.potential import flatten as flatten_potential
-from galpy.potential import rtide, evaluateRforces
-from galpy.util import _rotate_to_arbitrary_vector
-if parse_version(galpy.__version__) < parse_version('1.7'):
-    import galpy.util.bovy_coords as coords
-    import galpy.util.bovy_conversion as conversion
-else:
-    from galpy.util import coords, conversion
+from ..orbit import Orbit
+from ..df.df import df
+from ..potential import flatten as flatten_potential
+from ..potential import rtide, evaluateRforces
+from ..util import _rotate_to_arbitrary_vector
+from ..util import coords, conversion
 _APY_LOADED= conversion._APY_LOADED
 if _APY_LOADED:
     from astropy import units
@@ -94,7 +88,6 @@ class streamspraydf(df):
             self._center.integrate(self._progenitor_times,self._centerpot)
         else:
             self._center= None
-            
         if leading: self._meankvec*= -1.
         return None
     
