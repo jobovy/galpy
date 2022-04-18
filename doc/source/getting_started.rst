@@ -161,7 +161,7 @@ energy              (km/s)^2
 Jacobi integral     (km/s)^2
 angular momentum    km/s x kpc
 actions             km/s x kpc
-frequencies         1/Gyr
+frequencies         rad/Gyr
 time                Gyr
 period              Gyr
 potential           (km/s)^2
@@ -175,6 +175,10 @@ angle               rad
 proper motion       mas/yr
 phase-space density 1/(kpc x km/s)^3
 =================== =================
+
+.. WARNING::
+   When returned as a ``Quantity``, frequencies get units of 1/Gyr, although in detail this means rad/Gyr (not cycles/Gyr).
+
 
 .. _physunits:
 
