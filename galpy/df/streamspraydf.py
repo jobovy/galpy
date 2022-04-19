@@ -41,7 +41,7 @@ class streamspraydf(df):
 
            pot = (None) potential for integrating orbits
            
-           rtpot = (pot) potential for calculating tidal radius and circular velocity
+           rtpot = (pot) potential for calculating tidal radius and circular velocity (should generally be the same as pot, but sometimes you need to drop parts of the potential that don't allow the tidal radius / circular velocity to be computed, such as velocity-dependent forces)
            
            center = (None) Orbit instance that represents the center around which the progenitor is orbiting for the purpose of stream formation; allows for a stream to be generated from a progenitor orbiting a moving object, like a satellite galaxy. Integrated internally using centerpot.
 
@@ -59,23 +59,18 @@ class streamspraydf(df):
 
         """
         df.__init__(self,ro=ro,vo=vo)
-        if _APY_LOADED and isinstance(progenitor_mass,units.Quantity):
-            progenitor_mass= progenitor_mass.to(units.Msun).value\
-                            /conversion.mass_in_msol(self._vo,self._ro)
-        self._progenitor_mass= progenitor_mass
-        if tdisrupt is None:
-            self._tdisrupt= 5./conversion.time_in_Gyr(self._vo,self._ro)
-        else:
-            if _APY_LOADED and isinstance(tdisrupt,units.Quantity):
-                tdisrupt= tdisrupt.to(units.Gyr).value\
-                    /conversion.time_in_Gyr(self._vo,self._ro)
-            self._tdisrupt= tdisrupt
+        self._progenitor_mass= conversion.parse_mass(progenitor_mass,
+                                                     ro=self._ro,vo=self._vo)
+        self._tdisrupt= 5./conversion.time_in_Gyr(self._vo,self._ro) \
+            if tdisrupt is None \
+            else conversion.parse_time(tdisrupt,ro=self._ro,vo=self._vo)
         if pot is None: #pragma: no cover
             raise IOError("pot= must be set")
         self._pot= flatten_potential(pot)
         self._rtpot=self._pot if rtpot is None else flatten_potential(rtpot)
         # Set up progenitor orbit
         self._progenitor= progenitor()
+        self._progenitor.turn_physical_off()
         self._progenitor_times= numpy.linspace(0.,-self._tdisrupt,10001)
         self._progenitor.integrate(self._progenitor_times,self._pot)
         self._meankvec= numpy.array(meankvec)
@@ -85,6 +80,7 @@ class streamspraydf(df):
             self._centerpot=self._pot if centerpot is None \
                 else flatten_potential(centerpot)
             self._center= center()
+            self._center.turn_physical_off()
             self._center.integrate(self._progenitor_times,self._centerpot)
         else:
             self._center= None
