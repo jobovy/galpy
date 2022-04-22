@@ -1,10 +1,16 @@
-import numpy
+import copy
 import pytest
+import numpy
 from galpy.df import streamdf, streamspraydf
 from galpy.orbit import Orbit
-from galpy.potential import LogarithmicHaloPotential
+from galpy.potential import (LogarithmicHaloPotential,
+                             MWPotential2014,
+                             MovingObjectPotential, 
+                             ChandrasekharDynamicalFrictionForce,
+                             HernquistPotential)
 from galpy.actionAngle import actionAngleIsochroneApprox
 from galpy.util import conversion #for unit conversions
+from galpy.util import coords
 
 ################################ Tests against streamdf ######################
 
@@ -106,3 +112,58 @@ def test_integrate(setup_testStreamsprayAgainstStreamdf):
     assert numpy.amax(numpy.fabs(dt-dt_noint)) < 1e-10, 'Times not the same when sampling with and without integrating'
     assert numpy.amax(numpy.fabs(RvR-RvR_noint)) < 1e-7, 'Phase-space points not the same when sampling with and without integrating'
     return None
+
+def test_center():
+    # Test that a stream around a different center is generated
+    # when using center
+    # In this example, we'll generate a stream in the LMC orbiting the MW
+    # LMC and its orbit
+    ro, vo= 8., 220.
+    o= Orbit.from_name('LMC')
+    tMWPotential2014= copy.deepcopy(MWPotential2014)
+    tMWPotential2014[2]*= 1.5
+    cdf= ChandrasekharDynamicalFrictionForce(GMs=10/conversion.mass_in_1010msol(vo,ro),
+                                             rhm=5./ro,
+                                             dens=tMWPotential2014)
+    ts= numpy.linspace(0.,-10.,1001)/conversion.time_in_Gyr(vo,ro)
+    o.integrate(ts,tMWPotential2014+cdf)
+    lmcpot= HernquistPotential(amp=2*10/conversion.mass_in_1010msol(vo,ro),
+                               a=5./ro/(1.+numpy.sqrt(2.))) #rhm = (1+sqrt(2)) a
+    moving_lmcpot= MovingObjectPotential(o,pot=lmcpot)
+    # Now generate a stream within the LMC, progenitor at 8x kpc on circular orbit
+    of= o(ts[-1]) # LMC at final point, earliest time, for convenience
+    # Following pos in kpc, vel in km/s
+    R_in_lmc= 1.
+    prog_phasespace= of.x(use_physical=False)+R_in_lmc, of.y(use_physical=False), \
+        of.z(use_physical=False), of.vx(use_physical=False), \
+            of.vy(use_physical=False)+lmcpot.vcirc(R_in_lmc,use_physical=False), \
+                of.vz(use_physical=False)
+    prog_pos= coords.rect_to_cyl(prog_phasespace[0],
+                                prog_phasespace[1],
+                                prog_phasespace[2])
+    prog_vel= coords.rect_to_cyl_vec(prog_phasespace[3],
+                                    prog_phasespace[4],
+                                    prog_phasespace[5],
+                                    None,prog_pos[1],None,cyl=True)
+    prog= Orbit([prog_pos[0],prog_vel[0],prog_vel[1],prog_pos[2],
+                prog_vel[2],prog_pos[1]],ro=8.,vo=220.)
+    # Integrate prog forward
+    prog.integrate(ts[::-1],tMWPotential2014+moving_lmcpot)
+    # Then set up streamspraydf
+    spdf= streamspraydf(2e4/conversion.mass_in_msol(vo,ro),
+                        progenitor=prog(0.),
+                        pot=tMWPotential2014+moving_lmcpot,
+                        rtpot=lmcpot,
+                        tdisrupt=10./conversion.time_in_Gyr(vo,ro),
+                        center=o,centerpot=tMWPotential2014+cdf)
+    # Generate stream
+    numpy.random.seed(1)
+    stream_RvR= spdf.sample(n=300,integrate=True)
+    stream_pos= coords.cyl_to_rect(stream_RvR[0],stream_RvR[5],stream_RvR[3])
+    # Stream should lie on a circle with radius R_in_lmc
+    stream_R_wrt_LMC= numpy.sqrt((stream_pos[0]-o.x(use_physical=False))**2.
+                                 +(stream_pos[1]-o.y(use_physical=False))**2.)
+    assert numpy.fabs(numpy.mean(stream_R_wrt_LMC)-R_in_lmc) < 0.05, 'Stream generated in the LMC does not appear to be on a circle within the LMC'
+    assert numpy.fabs(numpy.std(stream_R_wrt_LMC)) < 0.15, 'Stream generated in the LMC does not appear to be on a circle within the LMC'
+    return None
+        
