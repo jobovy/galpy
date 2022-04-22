@@ -119,7 +119,8 @@ def test_center():
     # In this example, we'll generate a stream in the LMC orbiting the MW
     # LMC and its orbit
     ro, vo= 8., 220.
-    o= Orbit.from_name('LMC')
+    o= Orbit([ 5.13200034,  1.08033051,  0.2332339 , -3.48068653,  0.94950884,
+               -1.54626091]) # Result from from_name('LMC')
     tMWPotential2014= copy.deepcopy(MWPotential2014)
     tMWPotential2014[2]*= 1.5
     cdf= ChandrasekharDynamicalFrictionForce(GMs=10/conversion.mass_in_1010msol(vo,ro),
