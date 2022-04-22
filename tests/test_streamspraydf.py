@@ -7,7 +7,8 @@ from galpy.potential import (LogarithmicHaloPotential,
                              MWPotential2014,
                              MovingObjectPotential, 
                              ChandrasekharDynamicalFrictionForce,
-                             HernquistPotential)
+                             HernquistPotential,
+                             TriaxialNFWPotential)
 from galpy.actionAngle import actionAngleIsochroneApprox
 from galpy.util import conversion #for unit conversions
 from galpy.util import coords
@@ -96,6 +97,35 @@ def test_integrate(setup_testStreamsprayAgainstStreamdf):
     # Test that sampling at stripping + integrate == sampling at the end
     # Load objects that were setup above
     _, spdf_bovy14= setup_testStreamsprayAgainstStreamdf
+    # Sample at at stripping
+    numpy.random.seed(4)
+    RvR_noint,dt_noint= spdf_bovy14.sample(n=100,returndt=True,integrate=False)
+    # and integrate
+    for ii in range(len(dt_noint)):
+        to= Orbit(RvR_noint[:,ii])
+        to.integrate(numpy.linspace(-dt_noint[ii],0.,1001),spdf_bovy14._pot)
+        RvR_noint[:,ii]= [to.R(0.),to.vR(0.),to.vT(0.),
+                          to.z(0.),to.vz(0.),to.phi(0.)]
+    # Sample today
+    numpy.random.seed(4)
+    RvR,dt= spdf_bovy14.sample(n=100,returndt=True,integrate=True)
+    # Should agree
+    assert numpy.amax(numpy.fabs(dt-dt_noint)) < 1e-10, 'Times not the same when sampling with and without integrating'
+    assert numpy.amax(numpy.fabs(RvR-RvR_noint)) < 1e-7, 'Phase-space points not the same when sampling with and without integrating'
+    return None
+
+def test_integrate_rtnonarray():
+    # Test that sampling at stripping + integrate == sampling at the end
+    # For a potential that doesn't support array inputs
+    nfp= TriaxialNFWPotential(normalize=1.,b=0.9,c=0.8)
+    obs= Orbit([1.56148083,0.35081535,-1.15481504,
+                0.88719443,-0.47713334,0.12019596])
+    ro, vo= 8., 220.
+    # Set up streamspraydf
+    spdf_bovy14= streamspraydf(2*10.**4./conversion.mass_in_msol(vo,ro),
+                               progenitor=obs,
+                               pot=nfp,
+                               tdisrupt=4.5/conversion.time_in_Gyr(vo,ro))
     # Sample at at stripping
     numpy.random.seed(4)
     RvR_noint,dt_noint= spdf_bovy14.sample(n=100,returndt=True,integrate=False)
