@@ -1375,6 +1375,7 @@ compile the function and it can do this for ``numpy.interp`` (but not for
 With these functions defined, we can then set up the ``NonInertialFrameForce`` 
 with this acceleration of the origin
 
+>>> from galpy.potential import NonInertialFrameForce
 >>> nip= NonInertialFrameForce(a0=[ax_int,ay_int,az_int])
 
 As an example, let's compute the past orbit of the Sun with and without taking 
