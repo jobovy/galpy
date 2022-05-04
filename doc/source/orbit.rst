@@ -1358,11 +1358,11 @@ slow (because they have to be evaluated *a lot* during orbit integration),
 so we build interpolated versions to speed things up:
 
 >>> t_intunits= o.time(use_physical=False)[::-1] # need to reverse the order for interp
->>> ax4int= [ax(t) for t in t_intunits]
+>>> ax4int= numpy.array([ax(t) for t in t_intunits])
 >>> ax_int= lambda t: numpy.interp(t,t_intunits,ax4int)
->>> ay4int= [ay(t) for t in t_intunits]
+>>> ay4int= numpy.array([ay(t) for t in t_intunits])
 >>> ay_int= lambda t: numpy.interp(t,t_intunits,ay4int)
->>> az4int= [az(t) for t in t_intunits]
+>>> az4int= numpy.array([az(t) for t in t_intunits])
 >>> az_int= lambda t: numpy.interp(t,t_intunits,az4int)
    
 Note that we use ``numpy.interp`` here as the interpolation function, 
