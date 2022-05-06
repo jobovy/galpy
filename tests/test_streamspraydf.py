@@ -41,7 +41,7 @@ def test_sample_bovy14(setup_testStreamsprayAgainstStreamdf):
     sdf_bovy14, spdf_bovy14= setup_testStreamsprayAgainstStreamdf
     numpy.random.seed(1)
     RvR_sdf = sdf_bovy14.sample(n=1000)
-    RvR_spdf= spdf_bovy14.sample(n=1000,integrate=True)
+    RvR_spdf= spdf_bovy14.sample(n=1000,integrate=True,return_orbit=False)
     #Sanity checks
     # Range in Z
     indx= (RvR_sdf[3] > 4./8.)*(RvR_sdf[3] < 5./8.)
@@ -61,36 +61,19 @@ def test_sample_bovy14(setup_testStreamsprayAgainstStreamdf):
     assert numpy.fabs(numpy.mean(RvR_sdf[5][indx])-numpy.mean(RvR_spdf[5][indx])) < 1e-1, 'streamdf and streamspraydf do not generate similar samples for the Bovy (2014) stream (mean)'
     return None
 
-@pytest.mark.xfail
-def test_bovy14_sampleXY(setup_testStreamsprayAgainstStreamdf):
+def test_bovy14_sampleorbit(setup_testStreamsprayAgainstStreamdf):
     # Load objects that were setup above
     sdf_bovy14, spdf_bovy14= setup_testStreamsprayAgainstStreamdf
     numpy.random.seed(1)
     XvX_sdf = sdf_bovy14.sample(n=1000,xy=True)
-    XvX_spdf= spdf_bovy14.sample(n=1000,xy=True)
+    XvX_spdf= spdf_bovy14.sample(n=1000) # returns Orbit, from which we can get anything we want
     #Sanity checks
     # Range in Z
     indx= (XvX_sdf[2] > 4./8.)*(XvX_sdf[2] < 5./8.)
     #mean
-    assert numpy.fabs(numpy.mean(XvX_sdf[0][indx])-numpy.mean(XvX_spdf[0][indx])) < 3e-2, 'streamdf and streamspraydf do not generate similar samples for the Bovy (2014) stream (mean, xy)'
-    assert numpy.fabs(numpy.mean(XvX_sdf[1][indx])-numpy.mean(XvX_spdf[1][indx])) < 3e-2, 'streamdf and streamspraydf do not generate similar samples for the Bovy (2014) stream (mean, xy)'
-    assert numpy.fabs(numpy.mean(XvX_sdf[4][indx])-numpy.mean(XvX_spdf[4][indx])) < 3e-2, 'streamdf and streamspraydf do not generate similar samples for the Bovy (2014) stream (mean, xy)'
-    return None
-
-@pytest.mark.xfail
-def test_bovy14_sampleLB(setup_testStreamsprayAgainstStreamdf):
-    # Load objects that were setup above
-    sdf_bovy14, spdf_bovy14= setup_testStreamsprayAgainstStreamdf
-    numpy.random.seed(1)
-    LB_sdf = sdf_bovy14.sample(n=1000,lb=True)
-    LB_spdf = spdf_bovy14.sample(n=1000,lb=True)
-    #Sanity checks
-    # Range in l
-    indx= (LB_sdf[0] > 212.5)*(LB_sdf[0] < 217.5)
-    #mean
-    assert numpy.fabs(numpy.mean(LB_spdf[0][indx])/numpy.mean(LB_sdf[0][indx])-1.) < 3e-2, 'streamdf and streamspraydf do not generate similar samples for the Bovy (2014) stream (mean, lb)'
-    assert numpy.fabs(numpy.mean(LB_spdf[1][indx])/numpy.mean(LB_sdf[1][indx])-1.) < 3e-2, 'streamdf and streamspraydf do not generate similar samples for the Bovy (2014) stream (mean, lb)'
-    assert numpy.fabs(numpy.mean(LB_spdf[2][indx])/numpy.mean(LB_sdf[2][indx])-1.) < 3e-2, 'streamdf and streamspraydf do not generate similar samples for the Bovy (2014) stream (mean, lb)'
+    assert numpy.fabs(numpy.mean(XvX_sdf[0][indx])-numpy.mean(XvX_spdf.x()[indx])) < 4e-2, 'streamdf and streamspraydf do not generate similar samples for the Bovy (2014) stream (mean, xy)'
+    assert numpy.fabs(numpy.mean(XvX_sdf[1][indx])-numpy.mean(XvX_spdf.y()[indx])) < 4e-2, 'streamdf and streamspraydf do not generate similar samples for the Bovy (2014) stream (mean, xy)'
+    assert numpy.fabs(numpy.mean(XvX_sdf[4][indx])-numpy.mean(XvX_spdf.vy()[indx])) < 3e-2, 'streamdf and streamspraydf do not generate similar samples for the Bovy (2014) stream (mean, xy)'
     return None
 
 def test_integrate(setup_testStreamsprayAgainstStreamdf):
@@ -99,7 +82,8 @@ def test_integrate(setup_testStreamsprayAgainstStreamdf):
     _, spdf_bovy14= setup_testStreamsprayAgainstStreamdf
     # Sample at at stripping
     numpy.random.seed(4)
-    RvR_noint,dt_noint= spdf_bovy14.sample(n=100,returndt=True,integrate=False)
+    RvR_noint,dt_noint= spdf_bovy14.sample(n=100,return_orbit=False,
+                                           returndt=True,integrate=False)
     # and integrate
     for ii in range(len(dt_noint)):
         to= Orbit(RvR_noint[:,ii])
@@ -108,7 +92,8 @@ def test_integrate(setup_testStreamsprayAgainstStreamdf):
                           to.z(0.),to.vz(0.),to.phi(0.)]
     # Sample today
     numpy.random.seed(4)
-    RvR,dt= spdf_bovy14.sample(n=100,returndt=True,integrate=True)
+    RvR,dt= spdf_bovy14.sample(n=100,return_orbit=False,returndt=True,
+                               integrate=True)
     # Should agree
     assert numpy.amax(numpy.fabs(dt-dt_noint)) < 1e-10, 'Times not the same when sampling with and without integrating'
     assert numpy.amax(numpy.fabs(RvR-RvR_noint)) < 1e-7, 'Phase-space points not the same when sampling with and without integrating'
@@ -128,7 +113,8 @@ def test_integrate_rtnonarray():
                                tdisrupt=4.5/conversion.time_in_Gyr(vo,ro))
     # Sample at at stripping
     numpy.random.seed(4)
-    RvR_noint,dt_noint= spdf_bovy14.sample(n=100,returndt=True,integrate=False)
+    RvR_noint,dt_noint= spdf_bovy14.sample(n=100,return_orbit=False,
+                                           returndt=True,integrate=False)
     # and integrate
     for ii in range(len(dt_noint)):
         to= Orbit(RvR_noint[:,ii])
@@ -137,7 +123,8 @@ def test_integrate_rtnonarray():
                           to.z(0.),to.vz(0.),to.phi(0.)]
     # Sample today
     numpy.random.seed(4)
-    RvR,dt= spdf_bovy14.sample(n=100,returndt=True,integrate=True)
+    RvR,dt= spdf_bovy14.sample(n=100,return_orbit=False,
+                               returndt=True,integrate=True)
     # Should agree
     assert numpy.amax(numpy.fabs(dt-dt_noint)) < 1e-10, 'Times not the same when sampling with and without integrating'
     assert numpy.amax(numpy.fabs(RvR-RvR_noint)) < 1e-7, 'Phase-space points not the same when sampling with and without integrating'
@@ -189,7 +176,7 @@ def test_center():
                         center=o,centerpot=tMWPotential2014+cdf)
     # Generate stream
     numpy.random.seed(1)
-    stream_RvR= spdf.sample(n=300,integrate=True)
+    stream_RvR= spdf.sample(n=300,return_orbit=False,integrate=True)
     stream_pos= coords.cyl_to_rect(stream_RvR[0],stream_RvR[5],stream_RvR[3])
     # Stream should lie on a circle with radius R_in_lmc
     stream_R_wrt_LMC= numpy.sqrt((stream_pos[0]-o.x(use_physical=False))**2.

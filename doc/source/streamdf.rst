@@ -541,10 +541,11 @@ the stream:
 
 To sample a set of 300 stars in both arms, we do
 
->>> RvR,dt= spdf.sample(n=300,returndt=True,integrate=True)
->>> RvRt,dt= spdft.sample(n=300,returndt=True,integrate=True)
+>>> orbs,dt= spdf.sample(n=300,returndt=True,integrate=True)
+>>> orbts,dt= spdft.sample(n=300,returndt=True,integrate=True)
 
-We can plot these in :math:`Z` versus :math:`X` and compare to Fig. 1 in 
+which returns a ``galpy.orbit.Orbit`` instance with all 300 stars. We can plot 
+these in :math:`Z` versus :math:`X` and compare to Fig. 1 in 
 Bovy (2014). First, we also integrate the orbit of the progenitor forward 
 and backward in time for a brief period to show its location in the area 
 of the stream:
@@ -558,8 +559,8 @@ Then we plot
 
 >>> o.plot(d1='x',d2='z',color='k',xrange=[0.,2.],yrange=[-0.1,1.45])
 >>> of.plot(d1='x',d2='z',overplot=True,color='k')
->>> plot(RvR[0]*numpy.cos(RvR[5]),RvR[3],'r.')
->>> plot(RvRt[0]*numpy.cos(RvRt[5]),RvRt[3],'b.')
+>>> plot(orbs.x(),orbs.z(),'r.')
+>>> plot(orbts.x(),orbts.z(),'b.')
 
 which gives
 
@@ -585,8 +586,8 @@ Then, we can overplot the track predicted by ``streamdf``:
 
 >>> o.plot(d1='x',d2='z',color='k',xrange=[0.,2.],yrange=[-0.1,1.45])
 >>> of.plot(d1='x',d2='z',overplot=True,color='k')
->>> plot(RvR[0]*numpy.cos(RvR[5]),RvR[3],'r.',alpha=0.1)
->>> plot(RvRt[0]*numpy.cos(RvRt[5]),RvRt[3],'b.',alpha=0.1)
+>>> plot(orbs.x(),orbs.z(),'r.',alpha=0.1)
+>>> plot(orbts.x(),orbts.z(),'b.',alpha=0.1)
 >>> sdf.plotTrack(d1='x',d2='z',interp=True,color='r',overplot=True,lw=1.)
 >>> sdft.plotTrack(d1='x',d2='z',interp=True,color='b',overplot=True,lw=1.)
 

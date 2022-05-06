@@ -87,7 +87,7 @@ class streamspraydf(df):
         if leading: self._meankvec*= -1.
         return None
     
-    def sample(self,n,returndt=False,integrate=True,xy=False,lb=False):
+    def sample(self,n,return_orbit=True,returndt=False,integrate=True):
         """
         NAME:
 
@@ -100,6 +100,8 @@ class streamspraydf(df):
         INPUT:
 
             n - number of points to return
+            
+            return_orbit= (True) If True, the output phase-space positions is an orbit.Orbit object, if False, the output is (R,vR,vT,z,vz,phi)
 
             returndt= (False) if True, also return the time since the star was stripped
             
@@ -118,8 +120,6 @@ class streamspraydf(df):
             2018-07-31 - Written - Bovy (UofT)
 
         """
-        if xy or lb:
-            raise NotImplementedError("xy=True and lb=True options currently not implemented")
         # First sample times
         dt= numpy.random.uniform(size=n)*self._tdisrupt
         # Build all rotation matrices
@@ -205,6 +205,11 @@ class streamspraydf(df):
             out[3]= Zs
             out[4]= vZs
             out[5]= phis
+        if return_orbit:
+            o= Orbit(vxvv=out.T)
+            if self._roSet and self._voSet:
+                o.turn_physical_on(ro=self._ro,vo=self._vo)
+            out= o
         if returndt:
             return (out,dt)
         else:
