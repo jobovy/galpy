@@ -652,7 +652,7 @@ EXPORT void integrateFullOrbit(int nobj,
   max_threads= ( nobj < omp_get_max_threads() ) ? nobj : omp_get_max_threads();
   // Because potentialArgs may cache, safest to have one / thread
   struct potentialArg * potentialArgs= (struct potentialArg *) malloc ( max_threads * npot * sizeof (struct potentialArg) );
-#pragma omp parallel for schedule(static,1) private(ii,thread_pot_type,thread_pot_args) num_threads(max_threads)
+#pragma omp parallel for schedule(static,1) private(ii,thread_pot_type,thread_pot_args,thread_pot_tfuncs) num_threads(max_threads)
   for (ii=0; ii < max_threads; ii++) {
     thread_pot_type= pot_type; // need to make thread-private pointers, bc
     thread_pot_args= pot_args; // these pointers are changed in parse_...
