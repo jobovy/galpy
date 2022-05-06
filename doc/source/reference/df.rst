@@ -254,8 +254,8 @@ Specific distribution functions
    quasiisothermal DF <dfquasiisothermal.rst>
 
 
-The distribution function of a tidal stream
----------------------------------------------
+The distribution function of a tidal stream in action-angle coordinates
+------------------------------------------------------------------------
 
 From `Bovy 2014 <http://arxiv.org/abs/1401.2985>`_;
 see :ref:`stream-tutorial`.
@@ -324,3 +324,21 @@ Helper routines to compute kicks
    impulse_deltav_general_curvedstream <impulse_deltav_general_curvedstream.rst>
    impulse_deltav_general_orbitintegration <impulse_deltav_general_orbitintegration.rst>
    impulse_deltav_general_fullplummerintegration <impulse_deltav_general_fullplummerintegration.rst>
+
+The distribution function of a tidal stream using a particle-spray technique
+----------------------------------------------------------------------------
+
+Model from `Fardal et al. (2015) 
+<https://ui.adsabs.harvard.edu/abs/2015MNRAS.452..301F/abstract>`__ with full 
+details of the ``galpy`` implementation given in `Qian et al. (2022) 
+<https://ui.adsabs.harvard.edu/abs/2022MNRAS.511.2339Q/abstract>`__;
+see :ref:`streamspray-tutorial`.
+
+General instance routines
++++++++++++++++++++++++++
+
+.. toctree::
+   :maxdepth: 2
+
+   __init__ <streamspraydf.rst>
+   sample <streamspraydfsample.rst>
