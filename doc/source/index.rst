@@ -91,6 +91,7 @@ functionality is introduced in separate papers:
 * ``galpy.actionAngle.actionAngleIsochroneApprox``: please cite `Bovy (2014) <http://adsabs.harvard.edu/abs/2014ApJ...795...95B>`__.
 * ``galpy.df.streamdf``: please cite `Bovy (2014) <http://adsabs.harvard.edu/abs/2014ApJ...795...95B>`__.
 * ``galpy.df.streamgapdf``: please cite `Sanders, Bovy, & Erkal (2016) <http://adsabs.harvard.edu/abs/2016MNRAS.457.3817S>`__.
+* ``galpy.df.streamspraydf``: please cite `Fardal et al. (2015) <https://ui.adsabs.harvard.edu/abs/2015MNRAS.452..301F/abstract>`__ for the method and `Qian et al. (2022) <https://ui.adsabs.harvard.edu/abs/2022MNRAS.511.2339Q/abstract>`__ for the ``galpy`` implementation
 * ``galpy.potential.ttensor`` and ``galpy.potential.rtide``: please cite `Webb et al. (2019a) <https://ui.adsabs.harvard.edu/abs/2019MNRAS.488.5748W/abstract>`__.
 
 * ``galpy.potential.to_amuse``: please cite `Webb et al. (2019b) <http://arxiv.org/abs/1910.01646>`_.
