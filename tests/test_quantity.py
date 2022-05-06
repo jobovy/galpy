@@ -6312,7 +6312,6 @@ def test_sphericaldf_sample():
     numpy.random.seed(10)
     sam_nou= dfh.sample(n=2,rmin=1.1/ro)
     assert numpy.all(numpy.fabs(sam.r(use_physical=False)-sam_nou.r(use_physical=False)) < 1e-8), 'Sample returned by sphericaldf.sample with input rmin with units does not agree with that returned by sampline with input rmin without units'
-    
     return None
 
 def test_kingdf_setup_wunits():
@@ -6881,6 +6880,64 @@ def test_streamgapdf_sample():
     assert numpy.fabs(lbdt[6].to(units.Gyr).value/conversion.time_in_Gyr(sdf_sanders15._vo,sdf_sanders15._ro)-lbdtnou[6]) < _NUMPY_1_22 * 1e-6 + (1-_NUMPY_1_22) * 1e-8, 'streamgapdf sample lbdt does not return a correct Quantity'
     return None
 
+def test_streamspraydf_setup_paramsAsQuantity():
+    #Imports
+    from galpy.df import streamspraydf
+    from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential
+    from galpy.util import conversion #for unit conversions
+    ro, vo= 8., 220.
+    lp= LogarithmicHaloPotential(normalize=1.,q=0.9)
+    obs= Orbit([1.56148083,0.35081535,-1.15481504,
+                0.88719443,-0.47713334,0.12019596])
+    Mass= 2*10.**4.*units.Msun
+    tdisrupt= 4.5*units.Gyr
+    # Object with physical inputs off
+    spdf_bovy14_nou= streamspraydf(Mass.to_value(units.Msun)/conversion.mass_in_msol(vo,ro),
+                                   progenitor=obs,
+                                   pot=lp,
+                                   tdisrupt=tdisrupt.to_value(units.Gyr)/conversion.time_in_Gyr(vo,ro))
+    # Object with physical on
+    spdf_bovy14= streamspraydf(Mass,
+                              progenitor=obs,
+                              pot=lp,
+                              tdisrupt=tdisrupt,
+                              ro=ro,vo=vo)
+    numpy.random.seed(10)
+    sam= spdf_bovy14.sample(n=2)
+    numpy.random.seed(10)
+    sam_nou= spdf_bovy14_nou.sample(n=2)
+    assert numpy.all(numpy.fabs(sam.r(use_physical=False)-sam_nou.r(use_physical=False)) < 1e-8), 'Sample returned by streamspraydf.sample with with unit output is inconsistenty with the same sample sampled without unit output'
+    assert numpy.all(numpy.fabs(sam.vr(use_physical=False)-sam_nou.vr(use_physical=False)) < 1e-8), 'Sample returned by streamspraydf.sample with with unit output is inconsistenty with the same sample sampled without unit output'
+    return None
+
+def test_streamspraydf_sample():
+    from galpy import potential
+    from galpy.df import streamspraydf
+    from galpy.orbit import Orbit
+    from galpy.util import conversion
+    ro,vo= 8., 220.
+    lp= potential.LogarithmicHaloPotential(normalize=1.,q=0.9)
+    obs= Orbit([1.56148083,0.35081535,-1.15481504,
+                0.88719443,-0.47713334,0.12019596])
+    # Object with physical off
+    spdf_bovy14_nou= streamspraydf(2*10.**4./conversion.mass_in_msol(vo,ro),
+                                   progenitor=obs,
+                                   pot=lp,
+                                   tdisrupt=4.5/conversion.time_in_Gyr(vo,ro))
+    # Object with physical on
+    spdf_bovy14= streamspraydf(2*10.**4./conversion.mass_in_msol(vo,ro),
+                              progenitor=obs,
+                              pot=lp,
+                              tdisrupt=4.5/conversion.time_in_Gyr(vo,ro),
+                              ro=ro,vo=vo)
+    numpy.random.seed(10)
+    sam= spdf_bovy14.sample(n=2)
+    numpy.random.seed(10)
+    sam_nou= spdf_bovy14_nou.sample(n=2)
+    assert numpy.all(numpy.fabs(sam.r(use_physical=False)-sam_nou.r(use_physical=False)) < 1e-8), 'Sample returned by streamspraydf.sample with with unit output is inconsistenty with the same sample sampled without unit output'
+    assert numpy.all(numpy.fabs(sam.vr(use_physical=False)-sam_nou.vr(use_physical=False)) < 1e-8), 'Sample returned by streamspraydf.sample with with unit output is inconsistenty with the same sample sampled without unit output'
+    return None
 
 def test_df_inconsistentPotentialUnits_error():
     from galpy.df import quasiisothermaldf, streamdf
