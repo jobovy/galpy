@@ -8,6 +8,7 @@ from ..util import coords, conversion
 _APY_LOADED= conversion._APY_LOADED
 if _APY_LOADED:
     from astropy import units
+_APY_UNITS= conversion._APY_UNITS
 class streamspraydf(df):
     def __init__(self,progenitor_mass,progenitor=None,
                  pot=None,rtpot=None,
@@ -113,7 +114,7 @@ class streamspraydf(df):
 
         OUTPUT:
 
-            (R,vR,vT,z,vz,phi) of points on the stream in 6,N array
+            Orbit instance or (R,vR,vT,z,vz,phi) of points on the stream in 6,N array (set of 6 Quantities when physical output is on); optionally the time is included as well. 
 
         HISTORY:
 
@@ -210,6 +211,14 @@ class streamspraydf(df):
             if self._roSet and self._voSet:
                 o.turn_physical_on(ro=self._ro,vo=self._vo)
             out= o
+        elif _APY_UNITS and self._voSet and self._roSet:
+            out= (out[0]*self._ro*units.kpc,
+                  out[1]*self._vo*units.km/units.s,
+                  out[2]*self._vo*units.km/units.s,
+                  out[3]*self._ro*units.kpc,
+                  out[4]*self._vo*units.km/units.s,
+                  out[5]*units.rad)
+            dt= dt*conversion.time_in_Gyr(self._vo,self._ro)*units.Gyr
         if returndt:
             return (out,dt)
         else:
