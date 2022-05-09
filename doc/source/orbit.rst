@@ -1314,6 +1314,7 @@ previous example in section :ref:`orbit-example-LMC-dynfric`. We repeat the
 code here for convenience (we choose again to increase the halo mass in 
 ``MWPotential2014`` by 50% and we choose the heaviest LMC for this example)
 
+>>> import numpy
 >>> from astropy import units
 >>> from galpy.potential import MWPotential2014, ChandrasekharDynamicalFrictionForce
 >>> from galpy.orbit import Orbit
@@ -1380,14 +1381,17 @@ with this acceleration of the origin
 
 As an example, let's compute the past orbit of the Sun with and without taking 
 the acceration of the origin into account. We'll look at how the x position 
-changes in time
+changes in time. When taking the acceleration of the origin into account, 
+it is important to also include the acceleration due to LMC itself. Without it, 
+the potential is inconsistent, e.g., the origin itself would move in the frame 
+in which it is supposed to be at rest!
 
 >>> sunts= numpy.linspace(0.,-3.,301)*units.Gyr
 >>> osun_inertial= Orbit()
 >>> osun_inertial.integrate(sunts,MWPotential2014)
 >>> osun_inertial.plotx(label=r'$\mathrm{Inertial}$')
 >>> osun_noninertial= Orbit()
->>> osun_noninertial.integrate(sunts,MWPotential2014+nip)
+>>> osun_noninertial.integrate(sunts,MWPotential2014+nip+moving_lmcpot)
 >>> osun_noninertial.plotx(overplot=True,label=r'$\mathrm{Non-inertial}$')
 >>> plt.legend(fontsize=18.,loc='upper left',framealpha=0.8)
 
@@ -1396,19 +1400,21 @@ This gives
 .. image:: images/mwp14-lmcacc-sun.png
    :scale: 60 %
 
-We see that there is only a small difference. This is because the 
+We see that there is essentially no difference. This is because the 
 acceleration of the origin due to the LMC is much smaller than the 
-acceleration felt by the Sun during its orbit from the Milky Way. 
-However, if we look at a dwarf galaxy orbiting far in the halo, we 
-do notice small differences. For example, let's look at the orbit 
-of Fornax over the past 10 Gyr
+acceleration felt by the Sun during its orbit from the Milky Way *and* the Sun 
+is so close to the Galactic center relative to the LMC that much of the 
+acceleration of the origin is cancelled by the attraction to the LMC (which 
+at the center are equal in magnitude and opposite in sign). However, if we look 
+at a dwarf galaxy orbiting far in the halo, we do notice small differences. For 
+example, let's look at the orbit of Fornax over the past 10 Gyr
 
 >>> fornaxts= numpy.linspace(0.,-10.,101)*units.Gyr
 >>> ofornax_inertial= Orbit.from_name('Fornax')
 >>> ofornax_inertial.integrate(fornaxts,MWPotential2014)
 >>> ofornax_inertial.plotr(label=r'$\mathrm{Inertial}$')
 >>> ofornax_noninertial= Orbit.from_name('Fornax')
->>> ofornax_noninertial.integrate(fornaxts,MWPotential2014+nip)
+>>> ofornax_noninertial.integrate(fornaxts,MWPotential2014+nip+moving_lmcpot)
 >>> ofornax_noninertial.plotr(overplot=True,label=r'$\mathrm{Non-inertial}$')
 >>> plt.autoscale()
 >>> plt.legend(fontsize=18.,loc='lower right',framealpha=0.8)
