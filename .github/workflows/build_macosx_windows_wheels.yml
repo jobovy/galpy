@@ -5,6 +5,7 @@ on:
   push:
     branches:    
       - main
+      - delocate-macos-wheels
     paths-ignore:
       - 'doc/**'
   pull_request:
@@ -56,6 +57,12 @@ jobs:
         run: |
           mkdir wheelhouse
           python -m build --wheel --outdir wheelhouse
+      - name: Repair wheel (add external libs)
+        if: matrix.os == 'macos-latest'
+        shell: bash -l {0}
+        run: |
+          python -m pip install delocate wheelhouse/
+          delocate-wheel -v wheelhouse/*
       # Upload wheel as artifact
       - uses: actions/upload-artifact@v2-preview
         with:
