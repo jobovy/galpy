@@ -55,10 +55,10 @@ if not cfilename:
     cfilename= __config__.read(default_filename)
     if not cfilename:
         write_config(default_filename)
-        __config__.read(default_filename)
+        cfilename= __config__.read(default_filename)
 if not check_config(__config__):
     write_config(cfilename[-1],__config__)
-    __config__.read(cfilename[-1])
+    cfilename= __config__.read(cfilename[-1])
 # Store a version of the config in case we need to re-write parts of it,
 # but don't want to apply changes that we don't want to re-write
 configfilename= cfilename[-1]
