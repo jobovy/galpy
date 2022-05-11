@@ -129,7 +129,7 @@ class PlummerPotential(Potential):
            2021-12-14 - Written - Lane (UofT)
         """
         # No need for actual JAX!
-        return -self.amp*r*(r**2.+self._b2)**-1.5
+        return -self._amp*r*(r**2.+self._b2)**-1.5
 
     def _dens(self,R,z,phi=0.,t=0.):
         """
@@ -222,7 +222,7 @@ class PlummerPotential(Potential):
         """
         return -3.*R*z*(R**2.+z**2.+self._b2)**-2.5
 
-    def _ddensdr():
+    def _ddensdr(self,r,t=0.):
         """
         NAME:
            _ddensdr
