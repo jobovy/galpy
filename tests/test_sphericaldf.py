@@ -1033,7 +1033,7 @@ def test_eddington_differentpotentials_dens_directint():
     pots= [potential.PowerSphericalPotential(amp=1.3,alpha=1.9),
            potential.PlummerPotential(amp=2.3,b=1.3),
            potential.PowerSphericalPotentialwCutoff(amp=1.3,alpha=1.9,rc=1.2)]
-    tols= [1e-3]
+    tols= [1e-3 for pot in pots]
     for pot,tol in zip(pots,tols):
         dfh= eddingtondf(pot=pot)
         check_dens_directint(dfh,pot,tol,
@@ -1703,8 +1703,8 @@ def test_constantbeta_differentpotentials_dens_directint():
            potential.PowerSphericalPotential(amp=1.3,alpha=1.9),
            potential.PlummerPotential(amp=2.3,b=1.3),
            potential.PowerSphericalPotentialwCutoff(amp=1.3,alpha=1.9,rc=1.2)]
-    twobetas= [-1,-1]
-    tols= [1e-3,1e-3]
+    twobetas= [-1 for pot in pots]
+    tols= [1e-3 for pot in pots]
     for pot,twobeta,tol in zip(pots,twobetas,tols):
         dfh= constantbetadf(pot=pot,twobeta=twobeta)
         check_dens_directint(dfh,pot,tol,
