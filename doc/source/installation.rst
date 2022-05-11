@@ -391,6 +391,8 @@ currently used:
 
           * to set the level of verbosity of galpy's warning system (the default ``verbose=False`` turns off non-crucial warnings). 
 
+          * To set options related to whether or not to check for new versions of galpy (``do-check= False`` turns all such checks off; ``check-non-interactive`` sets whether or not to do the version check in non-interactive (script) sessions; ``check-non-interactive`` sets the cadence of how often to check for version updates in non-interactive sessions [in days; interactive sessions always check]; ``last-non-interactive-check`` is an internal variable to store when the last check occurred)
+
 The current configuration file therefore looks like this::
 
 	  [normalization]
@@ -406,6 +408,12 @@ The current configuration file therefore looks like this::
 
 	  [warnings]
 	  verbose = False
+
+	  [version-check]
+	  do-check = True
+	  check-non-interactive = True
+	  check-non-interactive-every = 1
+	  last-non-interactive-check = 2000-01-01
 
 where ``ro`` is the distance scale specified in kpc, ``vo`` the
 velocity scale in km/s, and the setting is to *not* return output as a
