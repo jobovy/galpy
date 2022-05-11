@@ -3,6 +3,7 @@ from __future__ import division, print_function
 import os
 import copy
 import pickle
+import warnings
 import numpy
 from scipy import integrate
 from ..util import plot, config, conversion
@@ -268,6 +269,10 @@ class planarPotential(object):
         except AttributeError: #pragma: no cover
             raise PotentialError("'_Rforce' function not implemented for this potential")
 
+    def phiforce(self,R,phi=0.,t=0.):
+       warnings.warn('phiforce has been renamed phitorque, because it has always really been a torque (per unit mass); please switch to the new method name, because the old name will be removed in v1.9 and may be re-used for the actual phi force component',FutureWarning)
+       return self.phitorque(R,phi=phi,t=t)
+    
     @potential_physical_input
     @physical_conversion('energy',pop=True)
     def phitorque(self,R,phi=0.,t=0.):
@@ -1123,6 +1128,10 @@ def _evaluateplanarRforces(Pot,R,phi=None,t=0.):
             return Pot._Rforce_nodecorator(R,t=t)
     else: #pragma: no cover 
         raise PotentialError("Input to 'evaluatePotentials' is neither a Potential-instance or a list of such instances")
+
+def evaluateplanarphiforces(Pot,R,phi=None,t=0.):
+   warnings.warn('evaluateplanarphiforces has been renamed evaluateplanarphitorques, because it has always really been a torque (per unit mass); please switch to the new method name, because the old name will be removed in v1.9 and may be re-used for the actual phi force component',FutureWarning)
+   return evaluateplanarphitorques(Pot,R,phi=phi,t=t)
 
 @potential_physical_input
 @physical_conversion('energy',pop=True)

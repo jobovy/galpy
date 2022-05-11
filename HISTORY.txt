@@ -7,6 +7,12 @@ v1.7.3 (XXXX-XX-XX)
 - Added necessary derivatives to allow spherical DFs to be constructed using 
   PowerSphericalPotentialwCutoff and PlummerPotential.
 
+- Renamed phiforce --> phitorque everywhere (including
+  potential.evaluatephiforces and potential.evaluateplanarphiforces), such 
+  the method's name actually reflect what it returns (a torque, not a force). 
+  phiforce will be fully removed in version 1.9 and may later be re-used 
+  for the actual phi component of the force, so switch to the new name now.
+
 v1.7.2 (2022-04-15)
 ===================
 
