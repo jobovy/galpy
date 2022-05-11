@@ -4,6 +4,9 @@ v1.7.3 (XXXX-XX-XX)
 - Added the particle-spray model galpy.df.streamspraydf that was 
   previously part of the jobovy/streamtools package (#479).
 
+- Added necessary derivatives to allow spherical DFs to be constructed using 
+  PowerSphericalPotentialwCutoff and PlummerPotential.
+
 v1.7.2 (2022-04-15)
 ===================
 
