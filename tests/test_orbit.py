@@ -71,7 +71,8 @@ from test_potential import testplanarMWPotential, testMWPotential, \
     nestedListPotential, \
     mockInterpSphericalPotential, \
     mockAdiabaticContractionMWP14WrapperPotential, \
-    mockRotatedAndTiltedMWP14WrapperPotential
+    mockRotatedAndTiltedMWP14WrapperPotential, \
+    testNullPotential
 _GHACTIONS= bool(os.getenv('GITHUB_ACTIONS'))
 if not _GHACTIONS:
     _QUICKTEST= True #Run a more limited set of tests
@@ -148,6 +149,7 @@ def test_energy_jacobi_conservation():
     pots.append('mockInterpSphericalPotential')
     pots.append('mockAdiabaticContractionMWP14WrapperPotential')
     pots.append('mockRotatedAndTiltedMWP14WrapperPotential')
+    pots.append('testNullPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -199,7 +201,6 @@ def test_energy_jacobi_conservation():
             ptp= tp.toPlanar()
         else:
             ptp= None
-        print(p)
         for integrator in integrators:
             if integrator == 'dopr54_c' \
                     and ('Spiral' in p or 'Lopsided' in p \
@@ -522,6 +523,7 @@ def test_energy_conservation_linear():
     pots.append('mockInterpSphericalPotential')
     pots.append('mockAdiabaticContractionMWP14WrapperPotential')
     pots.append('mockRotatedAndTiltedMWP14WrapperPotential')
+    pots.append('testNullPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -690,6 +692,7 @@ def test_liouville_planar():
     pots.append('nestedListPotential')
     pots.append('mockInterpSphericalPotential')
     pots.append('mockAdiabaticContractionMWP14WrapperPotential')
+    pots.append('testNullPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -1629,6 +1632,104 @@ def test_orbit_rguiding_planar():
     ts= numpy.linspace(0.,10.,101)
     o.integrate(ts,np)
     assert numpy.amax(numpy.fabs(o.rguiding(ts,pot=npaxi)-numpy.array([rl(npaxi,o.Lz(t)) for t in ts]))) < 1e-10, 'Guiding center radius returned by Orbit interface rguiding is different from that returned by potential interface rl for integrated orbit'
+    return None
+
+def test_orbit_rE():
+    from galpy.potential import LogarithmicHaloPotential, MWPotential2014, \
+        DehnenBarPotential, rE
+    from galpy.orbit import Orbit
+    # For a single potential
+    lp= LogarithmicHaloPotential(normalize=1.)
+    R,Lz= 1.,1.4
+    o= Orbit([R,0.4,Lz/R,0.,0.1,0.])
+    E= o.E(pot=lp)
+    assert numpy.fabs(o.rE(pot=lp)-rE(lp,E)) < 1e-10, 'rE returned by Orbit interface rE is different from that returned by potential interface rE'
+    # For a list of potentials
+    R,Lz= 1.4,0.9
+    o= Orbit([R,0.4,Lz/R,0.,0.1,0.])
+    E= o.E(pot=MWPotential2014)
+    assert numpy.fabs(o.rE(pot=MWPotential2014)-rE(MWPotential2014,E)) < 1e-10, 'rE returned by Orbit interface rE is different from that returned by potential interface rE'
+    # For an orbit integrated in a time-dependent potential, such that E varies
+    dp= DehnenBarPotential()
+    R,Lz= 0.9,1
+    o= Orbit([R,0.,Lz/R,0.,0.1,0.])
+    E= o.E(pot=lp)
+    ts= numpy.linspace(0.,10.,101)
+    o.integrate(ts,lp+dp)
+    assert numpy.amax(numpy.fabs(o.rE(ts,pot=lp)-numpy.array([rE(lp,o.E(t,pot=lp)) for t in ts]))) < 1e-10, 'rE returned by Orbit interface rE is different from that returned by potential interface rE for integrated orbit'
+    return None
+
+def test_orbit_rE_planar():
+    from galpy.potential import LogarithmicHaloPotential, MWPotential2014, \
+        DehnenBarPotential, rE
+    from galpy.orbit import Orbit
+    # For a single potential
+    lp= LogarithmicHaloPotential(normalize=1.)
+    R,Lz= 1.,1.4
+    o= Orbit([R,0.4,Lz/R,0.])
+    E= o.E(pot=lp)
+    assert numpy.fabs(o.rE(pot=lp)-rE(lp,E)) < 1e-10, 'rE returned by Orbit interface rE is different from that returned by potential interface rE'
+    # For a list of potentials
+    R,Lz= 1.4,0.9
+    o= Orbit([R,0.4,Lz/R,0.])
+    E= o.E(pot=MWPotential2014)
+    assert numpy.fabs(o.rE(pot=MWPotential2014)-rE(MWPotential2014,E)) < 1e-10, 'rE returned by Orbit interface rE is different from that returned by potential interface rE'
+    # For an orbit integrated in a time-dependent potential, such that E varies
+    dp= DehnenBarPotential()
+    R,Lz= 0.9,1
+    o= Orbit([R,0.,Lz/R,0.,])
+    ts= numpy.linspace(0.,10.,101)
+    o.integrate(ts,lp+dp)
+    assert numpy.amax(numpy.fabs(o.rE(ts,pot=lp)-numpy.array([rE(lp,o.E(t,pot=lp)) for t in ts]))) < 1e-10, 'rE returned by Orbit interface rE is different from that returned by potential interface rE for integrated orbit'
+    return None
+
+def test_orbit_LcE():
+    from galpy.potential import LogarithmicHaloPotential, MWPotential2014, \
+        DehnenBarPotential, LcE
+    from galpy.orbit import Orbit
+    # For a single potential
+    lp= LogarithmicHaloPotential(normalize=1.)
+    R,Lz= 1.,1.4
+    o= Orbit([R,0.4,Lz/R,0.,0.1,0.])
+    E= o.E(pot=lp)
+    assert numpy.fabs(o.LcE(pot=lp)-LcE(lp,E)) < 1e-10, 'LcE returned by Orbit interface LcE is different from that returned by potential interface LcE'
+    # For a list of potentials
+    R,Lz= 1.4,0.9
+    o= Orbit([R,0.4,Lz/R,0.,0.1,0.])
+    E= o.E(pot=MWPotential2014)
+    assert numpy.fabs(o.LcE(pot=MWPotential2014)-LcE(MWPotential2014,E)) < 1e-10, 'LcE returned by Orbit interface LcE is different from that returned by potential interface LcE'
+    # For an orbit integrated in a time-dependent potential, such that E varies
+    dp= DehnenBarPotential()
+    R,Lz= 0.9,1
+    o= Orbit([R,0.,Lz/R,0.,0.1,0.])
+    E= o.E(pot=lp)
+    ts= numpy.linspace(0.,10.,101)
+    o.integrate(ts,lp+dp)
+    assert numpy.amax(numpy.fabs(o.LcE(ts,pot=lp)-numpy.array([LcE(lp,o.E(t,pot=lp)) for t in ts]))) < 1e-10, 'LcE returned by Orbit interface LcE is different from that returned by potential interface LcE for integrated orbit'
+    return None
+
+def test_orbit_LcE_planar():
+    from galpy.potential import LogarithmicHaloPotential, MWPotential2014, \
+        DehnenBarPotential, LcE
+    from galpy.orbit import Orbit
+    # For a single potential
+    lp= LogarithmicHaloPotential(normalize=1.)
+    R,Lz= 1.,1.4
+    o= Orbit([R,0.4,Lz/R,0.])
+    E= o.E(pot=lp)
+    assert numpy.fabs(o.LcE(pot=lp)-LcE(lp,E)) < 1e-10, 'LcE returned by Orbit interface LcE is different from that returned by potential interface LcE'
+    # For a list of potentials
+    R,Lz= 1.4,0.9
+    o= Orbit([R,0.4,Lz/R,0.])
+    E= o.E(pot=MWPotential2014)
+    assert numpy.fabs(o.LcE(pot=MWPotential2014)-LcE(MWPotential2014,E)) < 1e-10, 'LcE returned by Orbit interface LcE is different from that returned by potential interface LcE'
+    # For an orbit integrated in a time-dependent potential, such that E varies
+    dp= DehnenBarPotential()
+    R,Lz= 0.9,1
+    o= Orbit([R,0.,Lz/R,0.,])
+    ts= numpy.linspace(0.,10.,101)
+    o.integrate(ts,lp+dp)
+    assert numpy.amax(numpy.fabs(o.LcE(ts,pot=lp)-numpy.array([LcE(lp,o.E(t,pot=lp)) for t in ts]))) < 1e-10, 'LcE returned by Orbit interface LcE is different from that returned by potential interface LcE for integrated orbit'
     return None
 
 # Check that zmax calculated analytically agrees with numerical calculation
@@ -4790,11 +4891,11 @@ def test_from_name_values():
         "RA of Lacaille 8760 does not match SIMBAD value"
     assert numpy.isclose(o.dec(), -38.86736390), \
         "DEC of Lacaille 8760 does not match SIMBAD value"
-    assert numpy.isclose(o.dist(), 1/251.8295), \
+    assert numpy.isclose(o.dist(), 1/251.9124), \
         "Parallax of Lacaille 8760 does not match SIMBAD value"
-    assert numpy.isclose(o.pmra(), -3258.553), \
+    assert numpy.isclose(o.pmra(), -3258.996), \
         "PMRA of Lacaille 8760 does not match SIMBAD value"
-    assert numpy.isclose(o.pmdec(), -1145.396), \
+    assert numpy.isclose(o.pmdec(), -1145.862), \
         "PMDec of Lacaille 8760 does not match SIMBAD value"
     assert numpy.isclose(o.vlos(), 20.56), \
         "radial velocity of Lacaille 8760 does not match SIMBAD value"
@@ -4823,9 +4924,9 @@ def test_from_name_values():
         "DEC of [BGK2006] HV 5 does not match SIMBAD value"
     assert numpy.isclose(o.dist(), 55.), \
         "Parallax of [BGK2006] HV 5 does not match SIMBAD value"
-    assert numpy.isclose(o.pmra(), -0.023), \
+    assert numpy.isclose(o.pmra(), 0.001), \
         "PMRA of [BGK2006] HV 5 does not match SIMBAD value"
-    assert numpy.isclose(o.pmdec(), -1.179), \
+    assert numpy.isclose(o.pmdec(), -0.989), \
         "PMDec of [BGK2006] HV 5 does not match SIMBAD value"
     assert numpy.isclose(o.vlos(), 553.), \
         "radial velocity of [BGK2006] HV 5 does not match SIMBAD value"
@@ -4946,6 +5047,34 @@ def test_rguiding_errors():
     np= TriaxialNFWPotential(amp=20.,c=0.8,b=0.7)
     with pytest.raises(RuntimeError) as excinfo:
         o.rguiding(pot=np)
+    return None
+
+def test_rE_errors():
+    from galpy.potential import TriaxialNFWPotential
+    from galpy.orbit import Orbit
+    R,Lz= 1.,1.4
+    o= Orbit([R,0.4,Lz/R,0.])
+    # No potential raises error
+    with pytest.raises(RuntimeError) as excinfo:
+        o.rE()
+    # non-axi potential raises error
+    np= TriaxialNFWPotential(amp=20.,c=0.8,b=0.7)
+    with pytest.raises(RuntimeError) as excinfo:
+        o.rE(pot=np)
+    return None
+
+def test_LcE_errors():
+    from galpy.potential import TriaxialNFWPotential
+    from galpy.orbit import Orbit
+    R,Lz= 1.,1.4
+    o= Orbit([R,0.4,Lz/R,0.])
+    # No potential raises error
+    with pytest.raises(RuntimeError) as excinfo:
+        o.LcE()
+    # non-axi potential raises error
+    np= TriaxialNFWPotential(amp=20.,c=0.8,b=0.7)
+    with pytest.raises(RuntimeError) as excinfo:
+        o.LcE(pot=np)
     return None
 
 def test_phi_range():

@@ -46,11 +46,17 @@ try:
 except:
   pass
 
+try:
+    import tqdm
+    _TQDM_LOADED= True
+except ImportError: #pragma: no cover
+    _TQDM_LOADED= False
 
 __all__ = ('parallel_map',)
 
 
-def worker(f, ii, chunk, out_q, err_q, lock):
+def worker(f, ii, chunk, out_q, err_q, lock,
+           progressbar, iter_elapsed, tot_iter, pbar_proc):
   """
   A worker function that maps an input function over a
   slice of the input iterable.
@@ -62,8 +68,16 @@ def worker(f, ii, chunk, out_q, err_q, lock):
   :param err_q: thread-safe queue to populate on exception
   :param lock : thread-safe lock to protect a resource
          ( useful in extending parallel_map() )
+  :param progressbar: if True, display a progress bar
+  :param iter_elapsed: shared-memory Value to track progress
+  :param tot_iter: total number of iterations (for progressbar)
+  :param pbar_proc: process to use to display the progressbar
   """
   vals = []
+  
+  progressbar*= _TQDM_LOADED  
+  if progressbar and ii == pbar_proc: 
+    pbar= tqdm.tqdm(total=tot_iter,leave=False)
 
   # iterate over slice 
   for val in chunk:
@@ -72,9 +86,19 @@ def worker(f, ii, chunk, out_q, err_q, lock):
     except Exception as e:
       err_q.put(e)
       return
+    # Update progress bar; only update in first process, accumulate in others
+    if progressbar:
+      if ii == pbar_proc:
+        pbar.update(iter_elapsed.value+1)
+        iter_elapsed.value= 0
+      else:
+        iter_elapsed.value+= 1
 
     vals.append(result)
 
+  if progressbar and ii == pbar_proc:
+    pbar.close()
+    
   # output the result and task ID to output queue
   out_q.put( (ii, vals) )
 
@@ -126,7 +150,7 @@ def run_tasks(procs, err_q, out_q, num):
   return list(numpy.concatenate(results))
 
 
-def parallel_map(function, sequence, numcores=None):
+def parallel_map(function, sequence, numcores=None, progressbar=False):
   """
   A parallelized version of the native Python map function that
   utilizes the Python multiprocessing module to divide and 
@@ -137,6 +161,7 @@ def parallel_map(function, sequence, numcores=None):
   :param function: callable function that accepts argument from iterable
   :param sequence: iterable sequence 
   :param numcores: number of cores to use
+  :param progressbar: if True, display a progressbar using tqdm
   """
   if not callable(function):
     raise TypeError("input function '%s' is not callable" %
@@ -181,8 +206,13 @@ def parallel_map(function, sequence, numcores=None):
   # group sequence into numcores-worth of chunks
   sequence = numpy.array_split(sequence, numcores)
 
+  # For progressbar: shared-memory variable to track iterations elapsed
+  # in non-displaying processes
+  iter_elapsed= multiprocessing.Value('i',0)
+
   procs = [ctx.Process(target=worker,
-           args=(function, ii, chunk, out_q, err_q, lock))
+           args=(function, ii, chunk, out_q, err_q, lock,
+                 progressbar,iter_elapsed,size,numcores-1))
          for ii, chunk in enumerate(sequence)]
 
   return run_tasks(procs, err_q, out_q, numcores)

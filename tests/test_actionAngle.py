@@ -1706,7 +1706,8 @@ def test_actionAngleStaeckel_wSpherical_conserved_actions_c():
     from test_potential import mockSCFZeeuwPotential, \
         mockSphericalSoftenedNeedleBarPotential, \
         mockSmoothedLogarithmicHaloPotential, \
-        mockGaussianAmplitudeSmoothedLogarithmicHaloPotential
+        mockGaussianAmplitudeSmoothedLogarithmicHaloPotential, \
+        mockSmoothedLogarithmicHaloPotentialwTimeDependentAmplitudeWrapperPotential
     lp= potential.LogarithmicHaloPotential(normalize=1.,q=1.)
     lpb= potential.LogarithmicHaloPotential(normalize=1.,q=1.,b=1.) # same |^
     hp= potential.HernquistPotential(normalize=1.)
@@ -1730,8 +1731,9 @@ def test_actionAngleStaeckel_wSpherical_conserved_actions_c():
     ihomp= potential.interpSphericalPotential(\
             rforce=potential.HomogeneousSpherePotential(normalize=1.,R=1.1),
             rgrid=numpy.linspace(0.,1.1,201))
+    msmlpwtdp= mockSmoothedLogarithmicHaloPotentialwTimeDependentAmplitudeWrapperPotential()
     pots= [lp,lpb,hp,jp,np,ip,pp,lp2,ppc,plp,psp,bp,scfp,scfzp,
-           msoftneedlep,msmlp,mgasmlp,dp,dcp,homp,ihomp]
+           msoftneedlep,msmlp,mgasmlp,dp,dcp,homp,ihomp,msmlpwtdp]
     for pot in pots:
         aAS= actionAngleStaeckel(pot=pot,c=True,delta=0.01)
         obs= Orbit([1.1, 0.3, 1.2, 0.2,0.5,2.])
@@ -2379,9 +2381,9 @@ def test_actionAngleIsochroneApprox_diffsetups():
     acfsmany= numpy.array(list(aAImany.actionsFreqsAngles(obs()))).flatten()
     acfsfirstFlip= numpy.array(list(aAI.actionsFreqsAngles(obs(),_firstFlip=True))).flatten()
     #Check that they are the same
-    assert numpy.amax(numpy.fabs((acfs-acfsip)/acfs)) < 10.**-16., \
+    assert numpy.amax(numpy.fabs((acfs-acfsip)/acfs)) < 10.**-15., \
         'actionAngleIsochroneApprox calculated w/ b= and ip= set to the equivalent IsochronePotential do not agree'
-    assert numpy.amax(numpy.fabs((acfs-acfsaAIip)/acfs)) < 10.**-16., \
+    assert numpy.amax(numpy.fabs((acfs-acfsaAIip)/acfs)) < 10.**-15., \
         'actionAngleIsochroneApprox calculated w/ b= and aAI= set to the equivalent IsochronePotential do not agree'
     assert numpy.amax(numpy.fabs((acfs-acfsrk6)/acfs)) < 10.**-8., \
         'actionAngleIsochroneApprox calculated w/ integrate_method=dopr54_c and rk6_c do not agree at %g%%' %(100.*numpy.amax(numpy.fabs((acfs-acfsrk6)/acfs)))
@@ -2702,13 +2704,27 @@ def test_orbits_interface_staeckel_PotentialErrors():
     return None
 
 # Test the Orbit interface for actionAngleAdiabatic
-# currently fails bc actionAngleAdiabatic doesn't have actionsFreqsAngles
-@pytest.mark.xfail(raises=NotImplementedError,strict=True)
 def test_orbit_interface_adiabatic():
     from galpy.potential import MWPotential
     from galpy.orbit import Orbit
     from galpy.actionAngle import actionAngleAdiabatic
     obs= Orbit([1.05, 0.02, 1.05, 0.03,0.,2.])
+    aAS= actionAngleAdiabatic(pot=MWPotential)
+    acfs= numpy.array(list(aAS(obs))).reshape(3)
+    type= 'adiabatic'
+    acfso= numpy.array([obs.jr(pot=MWPotential,type=type),
+                        obs.jp(pot=MWPotential,type=type),
+                        obs.jz(pot=MWPotential,type=type)])
+    maxdev= numpy.amax(numpy.abs(acfs-acfso))
+    assert maxdev < 10.**-16., 'Orbit interface for actionAngleAdiabatic does not return the same as actionAngle interface'
+    return None
+
+def test_orbit_interface_adiabatic_2d():
+    # Test with 2D orbit
+    from galpy.potential import MWPotential
+    from galpy.orbit import Orbit
+    from galpy.actionAngle import actionAngleAdiabatic
+    obs= Orbit([1.05, 0.02, 1.05,2.])
     aAS= actionAngleAdiabatic(pot=MWPotential)
     acfs= numpy.array(list(aAS(obs))).reshape(3)
     type= 'adiabatic'
@@ -2738,14 +2754,14 @@ def test_orbit_interface_actionAngleIsochroneApprox():
                         obs.wp(pot=MWPotential,type=type,b=0.8),
                         obs.wz(pot=MWPotential,type=type,b=0.8)])
     maxdev= numpy.amax(numpy.abs(acfs-acfso))
-    assert maxdev < 10.**-16., 'Orbit interface for actionAngleIsochroneApprox does not return the same as actionAngle interface'
-    assert numpy.abs(obs.Tr(pot=MWPotential,type=type,b=0.8)-2.*numpy.pi/acfso[3]) < 10.**-16., \
+    assert maxdev < 10.**-13., 'Orbit interface for actionAngleIsochroneApprox does not return the same as actionAngle interface'
+    assert numpy.abs(obs.Tr(pot=MWPotential,type=type,b=0.8)-2.*numpy.pi/acfso[3]) < 10.**-13., \
         'Orbit.Tr does not agree with actionAngleIsochroneApprox frequency'
-    assert numpy.abs(obs.Tp(pot=MWPotential,type=type,b=0.8)-2.*numpy.pi/acfso[4]) < 10.**-16., \
+    assert numpy.abs(obs.Tp(pot=MWPotential,type=type,b=0.8)-2.*numpy.pi/acfso[4]) < 10.**-13., \
         'Orbit.Tp does not agree with actionAngleIsochroneApprox frequency'
-    assert numpy.abs(obs.Tz(pot=MWPotential,type=type,b=0.8)-2.*numpy.pi/acfso[5]) < 10.**-16., \
+    assert numpy.abs(obs.Tz(pot=MWPotential,type=type,b=0.8)-2.*numpy.pi/acfso[5]) < 10.**-13., \
         'Orbit.Tz does not agree with actionAngleIsochroneApprox frequency'
-    assert numpy.abs(obs.TrTp(pot=MWPotential,type=type,b=0.8)-acfso[4]/acfso[3]*numpy.pi) < 10.**-16., \
+    assert numpy.abs(obs.TrTp(pot=MWPotential,type=type,b=0.8)-acfso[4]/acfso[3]*numpy.pi) < 10.**-13., \
         'Orbit.TrTp does not agree with actionAngleIsochroneApprox frequency'
     return None
 
@@ -3208,6 +3224,17 @@ def test_physical_actionAngleIsochroneInverse():
         assert numpy.fabs(aAII.xvFreqs(0.1,1.1,0.1,0.1,0.2,0.)[ii]-aAIInu.xvFreqs(0.1,1.1,0.1,0.1,0.2,0.)[ii]*correct_fac[ii]) < 10.**-8., 'actionAngleInverse function xvFreqs does not return Quantity with the right value'
     for ii in range(3):
         assert numpy.fabs(aAII.Freqs(0.1,1.1,0.1)[ii]-aAIInu.Freqs(0.1,1.1,0.1)[ii]*conversion.freq_in_Gyr(vo,ro)) < 10.**-8., 'actionAngleInverse function Freqs does not return Quantity with the right value'
+    return None
+
+# Test that computing actionAngle coordinates in C for a NullPotential leads to an error
+def test_nullpotential_error():
+    from galpy.potential import NullPotential
+    from galpy.actionAngle import actionAngleStaeckel
+    np= NullPotential()
+    aAS= actionAngleStaeckel(pot=np,delta=1.)
+    with pytest.raises(NotImplementedError) as excinfo:
+        aAS(1.,0.,1.,0.1,0.)
+        pytest.fail('Calculating actionAngle coordinates in C for a NullPotential should have given a NotImplementedError, but did not')
     return None
 
 def check_actionAngleIsochroneInverse_wrtIsochrone(pot,aAI,aAII,obs,

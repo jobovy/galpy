@@ -1,3 +1,5 @@
+.. _orbit-api:
+
 Orbit (``galpy.orbit``)
 ========================
 
@@ -71,6 +73,7 @@ Methods
    jz <orbitjz.rst>
    ll <orbitll.rst>
    L <orbitl.rst>
+   LcE <orbitlce.rst>
    Lz <orbitlz.rst>
    Op <orbitop.rst>
    Or <orbitor.rst>
@@ -85,6 +88,7 @@ Methods
    R <orbitr.rst>
    ra <orbitra.rst>
    rap <orbitrap.rst>
+   rE <orbitre.rst>
    reshape <orbitreshape.rst>
    rguiding <orbitrguiding.rst>
    rperi <orbitrperi.rst>

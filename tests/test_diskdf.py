@@ -1665,7 +1665,7 @@ def test_shudf_flat_DFcorrection_surfacemass():
     assert diff_corr < diff_uncorr, 'surfacemass w/ corrected shuDF is does not agree better with target than with uncorrected shuDF'
     return None
 
-def test_shudf_sample_flat_returnROrbit():
+def test_shudf_sample_flat_returnROrbit_wcorrections():
     beta= 0.
     dfc= sdf_correct_flat
     numpy.random.seed(1)

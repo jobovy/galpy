@@ -177,9 +177,9 @@ This version mainly consists of changes to the internal functioning of
     shared-object library ``libgalpy``.
 
   * Binary wheels are now automatically built for Windows, Mac, and
-    most major Linux distributions upon every push to the ``master``
-    branch and these are automatically uploaded to PyPI upon
-    release. See the :ref:`Installation Instructions <installation>`
+    most major Linux distributions upon every push to the ``master`` 
+    (now ``main``) branch and these are automatically uploaded to PyPI 
+    upon release. See the :ref:`Installation Instructions <installation>`
     for more info. Binary wheels on Windows are also built for every
     push on AppVeyor, see the :ref:`Windows installation instructions
     <install_win>`.

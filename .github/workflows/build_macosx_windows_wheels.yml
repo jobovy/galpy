@@ -1,15 +1,15 @@
 name: Build Mac OS X & Windows wheels and upload to PyPI upon release
 
-# Update on every push and PR to master, and upon release creation
+# Update on every push and PR to main, and upon release creation
 on:
   push:
     branches:    
-      - master
+      - main
     paths-ignore:
       - 'doc/**'
   pull_request:
     branches:
-      - master
+      - main
     paths-ignore:
       - 'doc/**'
   release:
@@ -36,7 +36,7 @@ jobs:
         shell: bash -l {0}
         run: |
           python -m pip install --upgrade pip
-          pip install wheel
+          pip install build
       - name: Set environment variables on Mac OS
         if: matrix.os == 'macos-latest'
         shell: bash -l {0}
@@ -51,14 +51,11 @@ jobs:
           echo "INCLUDE=$CONDA_PREFIX\\Library\\include" >> $GITHUB_ENV
           echo "LIB=$CONDA_PREFIX\\Library\\lib" >> $GITHUB_ENV
           echo "LIBPATH=$CONDA_PREFIX\\Library\\lib" >> $GITHUB_ENV
-      - name: Build extension
+      - name: Build wheel
         shell: bash -l {0}
         run: |
           mkdir wheelhouse
-          python setup.py build_ext
-      - name: Build wheel
-        shell: bash -l {0}
-        run: python setup.py bdist_wheel -d wheelhouse
+          python -m build --wheel --outdir wheelhouse
       # Upload wheel as artifact
       - uses: actions/upload-artifact@v2-preview
         with:
@@ -71,6 +68,7 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v2      
       - run: |
           mkdir tmp_wheelhouse
           mkdir wheelhouse
@@ -89,3 +87,21 @@ jobs:
         with:
           password: ${{ secrets.pypi_token }}
           packages_dir: wheelhouse/
+      - name: Rename wheel to 'latest' version for AWS S3
+        if: github.event_name != 'release' && github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        run: |
+          GALPY_VERSION="$(awk '/^current_version/{print $NF}' .bumpversion.cfg)"
+          for f in wheelhouse/*$GALPY_VERSION*; do mv -i -- "$f" "${f//$GALPY_VERSION/latest}"; done
+      # Upload to AWS S3
+      - name: Upload to AWS S3
+        if: github.event_name != 'release' && github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        uses: jakejarvis/s3-sync-action@v0.5.1
+        with:
+          args: --acl public-read --follow-symlinks --delete --exclude "*manylinux*" --exclude "*none-any*"
+        env:
+          AWS_S3_BUCKET: ${{ secrets.AWS_S3_BUCKET }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: 'us-east-2'
+          SOURCE_DIR: wheelhouse
+          DEST_DIR: wheelhouse

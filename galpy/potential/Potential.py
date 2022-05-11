@@ -533,7 +533,7 @@ class Potential(Force):
 
     @potential_physical_input
     @physical_conversion('forcederivative',pop=True)
-    def R2deriv(self,R,Z,phi=0.,t=0.):
+    def R2deriv(self,R,z,phi=0.,t=0.):
         """
         NAME:
 
@@ -547,7 +547,7 @@ class Potential(Force):
 
            R - Galactocentric radius (can be Quantity)
 
-           Z - vertical height (can be Quantity)
+           z - vertical height (can be Quantity)
 
            phi - Galactocentric azimuth (can be Quantity)
 
@@ -563,13 +563,13 @@ class Potential(Force):
 
         """
         try:
-            return self._amp*self._R2deriv(R,Z,phi=phi,t=t)
+            return self._amp*self._R2deriv(R,z,phi=phi,t=t)
         except AttributeError: #pragma: no cover
             raise PotentialError("'_R2deriv' function not implemented for this potential")      
 
     @potential_physical_input
     @physical_conversion('forcederivative',pop=True)
-    def z2deriv(self,R,Z,phi=0.,t=0.):
+    def z2deriv(self,R,z,phi=0.,t=0.):
         """
         NAME:
 
@@ -583,7 +583,7 @@ class Potential(Force):
 
            R - Galactocentric radius (can be Quantity)
 
-           Z - vertical height (can be Quantity)
+           z - vertical height (can be Quantity)
 
            phi - Galactocentric azimuth (can be Quantity)
 
@@ -599,13 +599,13 @@ class Potential(Force):
 
         """
         try:
-            return self._amp*self._z2deriv(R,Z,phi=phi,t=t)
+            return self._amp*self._z2deriv(R,z,phi=phi,t=t)
         except AttributeError: #pragma: no cover
             raise PotentialError("'_z2deriv' function not implemented for this potential")      
 
     @potential_physical_input
     @physical_conversion('forcederivative',pop=True)
-    def Rzderiv(self,R,Z,phi=0.,t=0.):
+    def Rzderiv(self,R,z,phi=0.,t=0.):
         """
         NAME:
 
@@ -635,7 +635,7 @@ class Potential(Force):
 
         """
         try:
-            return self._amp*self._Rzderiv(R,Z,phi=phi,t=t)
+            return self._amp*self._Rzderiv(R,z,phi=phi,t=t)
         except AttributeError: #pragma: no cover
             raise PotentialError("'_Rzderiv' function not implemented for this potential")      
 
@@ -710,7 +710,7 @@ class Potential(Force):
 
     @potential_physical_input
     @physical_conversion('energy',pop=True)
-    def phi2deriv(self,R,Z,phi=0.,t=0.):
+    def phi2deriv(self,R,z,phi=0.,t=0.):
         """
         NAME:
 
@@ -740,7 +740,7 @@ class Potential(Force):
 
         """
         try:
-            return self._amp*self._phi2deriv(R,Z,phi=phi,t=t)
+            return self._amp*self._phi2deriv(R,z,phi=phi,t=t)
         except AttributeError: #pragma: no cover
             if self.isNonAxi:
                 raise PotentialError("'_phi2deriv' function not implemented for this non-axisymmetric potential")
@@ -748,7 +748,7 @@ class Potential(Force):
 
     @potential_physical_input
     @physical_conversion('force',pop=True)
-    def Rphideriv(self,R,Z,phi=0.,t=0.):
+    def Rphideriv(self,R,z,phi=0.,t=0.):
         """
         NAME:
 
@@ -778,7 +778,7 @@ class Potential(Force):
 
         """
         try:
-            return self._amp*self._Rphideriv(R,Z,phi=phi,t=t)
+            return self._amp*self._Rphideriv(R,z,phi=phi,t=t)
         except AttributeError: #pragma: no cover
             if self.isNonAxi:
                 raise PotentialError("'_Rphideriv' function not implemented for this non-axisymmetric potential")
@@ -786,7 +786,7 @@ class Potential(Force):
 
     @potential_physical_input
     @physical_conversion('force',pop=True)
-    def phizderiv(self,R,Z,phi=0.,t=0.):
+    def phizderiv(self,R,z,phi=0.,t=0.):
         """
         NAME:
 
@@ -816,7 +816,7 @@ class Potential(Force):
 
         """
         try:
-            return self._amp*self._phizderiv(R,Z,phi=phi,t=t)
+            return self._amp*self._phizderiv(R,z,phi=phi,t=t)
         except AttributeError: #pragma: no cover
             if self.isNonAxi:
                 raise PotentialError("'_phizderiv' function not implemented for this non-axisymmetric potential")
@@ -1352,7 +1352,6 @@ class Potential(Force):
         
         INPUT:
         
-        
             lz - Angular momentum (can be Quantity)
 
             t - time (optional; can be Quantity)
@@ -1367,12 +1366,75 @@ class Potential(Force):
         
         NOTE:
         
-            seems to take about ~0.5 ms for a Miyamoto-Nagai potential; 
-            ~0.75 ms for a MWPotential
+            An efficient way to call this function on many objects is
+            provided as the Orbit method rguiding
         
         """
         lz= conversion.parse_angmom(lz,ro=self._ro,vo=self._vo)
         return rl(self,lz,t=t,use_physical=False)
+
+    @physical_conversion('position',pop=True)
+    def rE(self,E,t=0.):
+        """
+        NAME:
+        
+            rE
+        
+        PURPOSE:
+        
+            calculate the radius of a circular orbit with energy E
+        
+        INPUT:
+        
+            E - Energy (can be Quantity)
+
+            t - time (optional; can be Quantity)
+        
+        OUTPUT:
+        
+            radius
+        
+        HISTORY:
+        
+            2022-04-06 - Written - Bovy (UofT)
+            
+        NOTE:
+
+            An efficient way to call this function on many objects is
+            provided as the Orbit method rE
+            
+        """
+        E= conversion.parse_energy(E,ro=self._ro,vo=self._vo)
+        return rE(self,E,t=t,use_physical=False)
+
+    @physical_conversion('action',pop=True)
+    def LcE(self,E,t=0.):
+        """
+        NAME:
+        
+            LcE
+        
+        PURPOSE:
+        
+            calculate the angular momentum of a circular orbit with energy E
+        
+        INPUT:
+        
+            E - Energy (can be Quantity)
+
+            t - time (optional; can be Quantity)
+        
+        OUTPUT:
+        
+            Lc(E)
+        
+        HISTORY:
+        
+            2022-04-06 - Written - Bovy (UofT)
+               
+        """
+        E= conversion.parse_energy(E,ro=self._ro,vo=self._vo)
+        return LcE(self,E,t=t,use_physical=False)
 
     @potential_physical_input
     @physical_conversion('dimensionless',pop=True)
@@ -3104,8 +3166,8 @@ def rl(Pot,lz,t=0.):
 
     NOTE:
 
-       seems to take about ~0.5 ms for a Miyamoto-Nagai potential; 
-       ~0.75 ms for a MWPotential
+       An efficient way to call this function on many objects is
+       provided as the Orbit method rguiding
 
     """
     Pot= flatten(Pot)
@@ -3144,6 +3206,98 @@ def _rlFindStart(rl,lz,pot,t=0.,lower=False):
             rtry*= 2.
     return rtry
 
+@physical_conversion('position',pop=True)
+def rE(Pot,E,t=0.):
+    """
+    NAME:
+
+       rE
+
+    PURPOSE:
+
+       calculate the radius of a circular orbit with energy E
+
+    INPUT:
+
+       Pot - Potential instance or list thereof
+
+       E - Energy (can be Quantity)
+
+       t - time (optional; can be Quantity)
+
+    OUTPUT:
+
+       radius
+
+    HISTORY:
+
+       2022-04-06 - Written - Bovy (UofT)
+       
+    NOTE:
+
+       An efficient way to call this function on many objects is
+       provided as the Orbit method rE     
+
+    """
+    Pot= flatten(Pot)
+    E= conversion.parse_energy(E,**conversion.get_physical(Pot))
+    #Find interval
+    rstart= _rEFindStart(1.,E,Pot,t=t)
+    try:
+        return optimize.brentq(_rEfunc,10.**-5.,rstart,
+                               args=(E,Pot,t),
+                               maxiter=200,disp=False)
+    except ValueError: #Probably E small and starting rE to great
+        rlower= _rEFindStart(10.**-5.,E,Pot,t=t,lower=True)
+        return optimize.brentq(_rEfunc,rlower,rstart,
+                               args=(E,Pot,t))
+        
+def _rEfunc(rE,E,pot,t=0.):
+    """Function that gives vc^2/2+Pot(rc)-E"""
+    thisvcirc= vcirc(pot,rE,t=t,use_physical=False)
+    return thisvcirc**2./2.+_evaluatePotentials(pot,rE,0.,t=t)-E
+
+def _rEFindStart(rE,E,pot,t=0.,lower=False):
+    """find a starting interval for rE"""
+    rtry= 2.*rE
+    while (2.*lower-1.)*_rEfunc(rtry,E,pot,t=t) > 0.:
+        if lower:
+            rtry/= 2.
+        else:
+            rtry*= 2.
+    return rtry
+
+@physical_conversion('action',pop=True)
+def LcE(Pot,E,t=0.):
+    """
+    NAME:
+
+       LcE
+
+    PURPOSE:
+
+       calculate the angular momentum of a circular orbit with energy E
+
+    INPUT:
+
+       Pot - Potential instance or list thereof
+
+       E - Energy (can be Quantity)
+
+       t - time (optional; can be Quantity)
+
+    OUTPUT:
+
+       Lc(E)
+
+    HISTORY:
+
+       2022-04-06 - Written - Bovy (UofT)
+
+    """
+    thisrE= rE(Pot,E,t=t,use_physical=False)
+    return thisrE*vcirc(Pot,thisrE,use_physical=False)
+        
 @physical_conversion('position',pop=True)
 def lindbladR(Pot,OmegaP,m=2,t=0.,**kwargs):
     """

@@ -7,13 +7,17 @@ Dependencies
 ------------
 
 galpy requires the ``numpy``, ``scipy``, and ``matplotlib`` packages;
-these must be installed or the code will not be able to be imported.
+these must be installed or the code will not be able to be imported. 
+The installation methods described below will all automatically install
+these required dependencies.
 
 Optional dependencies are:
 
   * ``astropy`` for `Quantity <http://docs.astropy.org/en/stable/api/astropy.units.Quantity.html>`__ support (used throughout galpy when installed),
   * ``astroquery`` for the ``Orbit.from_name`` initialization method (to initialize using a celestial object's name),
+  * ``tqdm`` for displaying a progress bar for certain operations (e.g., orbit integration of multiple objects at once)
   * ``numexpr`` for plotting arbitrary expressions of ``Orbit`` quantities,
+  * ``numba`` for speeding up the evaluation of certain functions when using C orbit integration,
   * ``JAX`` for use of constant-anisotropy DFs in ``galpy.df.constantbetadf``, and
   * `pynbody <https://github.com/pynbody/pynbody>`__ for use of ``SnapshotRZPotential`` and ``InterpSnapshotRZPotential``.
 
@@ -71,11 +75,11 @@ Latest version
 
 The latest updates in galpy can be installed using::
     
-    pip install -U --no-deps git+git://github.com/jobovy/galpy.git#egg=galpy
+    pip install -U --no-deps git+https://github.com/jobovy/galpy.git#egg=galpy
 
 or::
 
-    pip install -U --no-deps --install-option="--prefix=~/local" git+git://github.com/jobovy/galpy.git#egg=galpy
+    pip install -U --no-deps --install-option="--prefix=~/local" git+https://github.com/jobovy/galpy.git#egg=galpy
 
 for a local installation. The latest updates can also be installed from the source code downloaded from github using the standard python ``setup.py`` installation::
 
@@ -87,35 +91,36 @@ or::
 
 for a local installation.
 
-Note that these latest-version commands all install directly fromm the
+Note that these latest-version commands all install directly from the
 source code and thus require you to have the GSL and a C compiler
 installed to build the C extension(s). If you are having issues with
-this, you can also download a binary wheel for the latest ``master``
-version, which are available `here
-<https://github.com/jobovy/galpy/actions?query=workflow%3A%22Build+Mac+OS+X+%26+Windows+wheels+and+upload+to+PyPI+upon+release%22+branch%3Amaster>`__
-for Mac/Windows wheels and `here
-<https://github.com/jobovy/galpy/actions?query=workflow%3A%22Build+manylinux+wheels%2C+upload+to+PyPI+upon+release%22+branch%3Amaster>`__
-for Linux wheels (note that you need to be logged into GitHub to access the artifacts, which otherwise just show up as a gray non-link). To install these wheels, click on the latest run, download the "artifact" for the platform/Python version that you are using, unzip the file, and install the wheel with::
+this, you can also download a binary wheel for the latest ``main``
+version, which are available `here <http://www.galpy.org.s3-website.us-east-2.amazonaws.com/list.html>`__.
+To install these wheels, download the relevant version for your operating
+system and Python version and do::
 
     pip install WHEEL_FILE.whl
 
-
+Note that there is also a Pure Python wheel available there, but use of this is not recommended.
+These wheels have stable `...latest...` names, so you can embed them in workflows that should always
+be using the latest version of `galpy` (e.g., to test your code against the latest development version).
 
 Installing from a branch
 ------------------------
 
 If you want to use a feature that is currently only available in a branch, do::
 
-   pip install -U --no-deps git+git://github.com/jobovy/galpy.git@dev#egg=galpy
+   pip install -U --no-deps git+https://github.com/jobovy/galpy.git@dev#egg=galpy
 
 to, for example, install the ``dev`` branch. 
 
 Note that we currently do not build binary wheels for branches other
-than ``master``. If you *really* wanted this, you could fork galpy,
+than ``main``. If you *really* wanted this, you could fork galpy,
 edit the GitHub Actions workflow file that generates the wheel to
 include the branch that you want to build (in the ``on:`` section),
 and push to GitHub; then the binary wheel will be built as part of
-your fork.
+your fork. Alternatively, you could do a pull request, which would also
+trigger the building of the wheels.
 
 .. _install_win:
 
@@ -123,7 +128,11 @@ Installing from source on Windows
 ---------------------------------
 
 .. TIP::
-   You can install a pre-compiled Windows "wheel" of the latest ``master`` version that is automatically built on ``AppVeyor`` for all recent Python versions. Navigate to `the latest master build <http://ci.appveyor.com/project/jobovy/galpy?branch=master>`__, click on the first job and then on "Artifacts", download the wheel for your version of Python, and install with ``pip install WHEEL_FILE.whl``. Similar wheels are also available `here <https://github.com/jobovy/galpy/actions?query=workflow%3A%22Build+Mac+OS+X+%26+Windows+wheels+and+upload+to+PyPI+upon+release%22+branch%3Amaster>`__ (see above), but require you to be logged into GitHub.
+   You can install a pre-compiled Windows "wheel" of the latest ``main`` version that is 
+   automatically built using ``GitHub Actions`` for all recent Python versions 
+   `here <http://www.galpy.org.s3-website.us-east-2.amazonaws.com/list.html>`__. 
+   Download the wheel for your version of Python, and install with ``pip install WHEEL_FILE.whl`` 
+   (see above).
 
 Versions >1.3 should be able to be compiled on Windows systems using the Microsoft Visual Studio C compiler (>= 2015). For this you need to first install the GNU Scientific Library (GSL), for example using Anaconda (:ref:`see below <gsl_install>`). Similar to on a UNIX system, you need to set paths to the header and library files where the GSL is located. On Windows, using the CDM commandline, this is done as::
 
@@ -341,11 +350,11 @@ setup.py`` commands above::
 
 or when using pip as follows::
 
-    pip install -U --no-deps --install-option="--no-openmp" git+git://github.com/jobovy/galpy.git#egg=galpy 
+    pip install -U --no-deps --install-option="--no-openmp" git+https://github.com/jobovy/galpy.git#egg=galpy 
 
 or::
 
-    pip install -U --no-deps --install-option="--prefix=~/local" --install-option="--no-openmp" git+git://github.com/jobovy/galpy.git#egg=galpy 
+    pip install -U --no-deps --install-option="--prefix=~/local" --install-option="--no-openmp" git+https://github.com/jobovy/galpy.git#egg=galpy 
 
 for a local installation. This might be useful if one is using the
 ``clang`` compiler, which is the new default on macs with OS X (>=

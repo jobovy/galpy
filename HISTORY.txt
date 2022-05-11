@@ -1,5 +1,37 @@
-v1.8 (XXXX-XX-XX)
-=================
+v1.7.3 (XXXX-XX-XX)
+===================
+
+- Added the particle-spray model galpy.df.streamspraydf that was 
+  previously part of the jobovy/streamtools package (#479).
+
+v1.7.2 (2022-04-15)
+===================
+
+- Added NonInertialFrameForce, which provides the fictitious forces 
+  when integrating orbits in non-inertial frames. Arbitrary rotations 
+  and origin accelerations are supported (#471).
+
+- Added a progress bar when integrating multiple objects in a single 
+  orbit instance (requires tqdm) (see #476). 
+
+- Turn on NFWPotential physical output when initializing using the 
+  virial mass mvir (see #465)
+
+- Added TimeDependentAmplitudeWrapperPotential, a wrapper allowing
+  for arbitrary time dependence of the amplitude of any potential.
+
+- Added NullPotential, a potential with a constant value.
+
+- Added Potential methods/functions rE and LcE to compute the radius
+  and angular momentum of an orbit with energy E. Also added these 
+  as Orbit methods for efficient calculation for collections of 
+  orbits.
+
+- Allow actions to be computed for Orbit instances with actionAngle
+  methods that don't compute frequencies.
+
+- Correctly parse potential method/function R/z/x inputs if they
+  are given as keyword arguments.
 
 v1.7.1 (2021-11-17)
 ===================

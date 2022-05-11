@@ -253,7 +253,7 @@ class actionAngleStaeckel(actionAngle):
         else:
             if 'c' in kwargs and kwargs['c'] and not self._c: #pragma: no cover
                 warnings.warn("C module not used because potential does not have a C implementation",galpyWarning)
-            raise NotImplementedError("actionsFreqs with c=False not implemented")
+            raise NotImplementedError("actionsFreqs with c=False not implemented; maybe you meant to install the C extension?")
 
     def _actionsFreqsAngles(self,*args,**kwargs):
         """
@@ -331,7 +331,7 @@ class actionAngleStaeckel(actionAngle):
         else: #pragma: no cover
             if 'c' in kwargs and kwargs['c'] and not self._c: #pragma: no cover
                 warnings.warn("C module not used because potential does not have a C implementation",galpyWarning)
-            raise NotImplementedError("actionsFreqs with c=False not implemented")
+            raise NotImplementedError("actionsFreqs with c=False not implemented; maybe you meant to install the C extension?")
 
     def _EccZmaxRperiRap(self,*args,**kwargs):
         """

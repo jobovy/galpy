@@ -12,6 +12,7 @@ try:
 except ImportError:
     _PYNBODY_LOADED= False
 from galpy import potential
+from galpy import orbit
 from galpy.util import coords
 from galpy.util import _rotate_to_arbitrary_vector
 _TRAVIS= bool(os.getenv('TRAVIS'))
@@ -171,6 +172,9 @@ def test_forceAsDeriv_potential():
     pots.append('mockRotatedAndTiltedMWP14WrapperPotential')
     pots.append('mockRotatedAndTiltedMWP14WrapperPotentialwInclination')
     pots.append('mockRotatedAndTiltedTriaxialLogHaloPotentialwInclination')
+    pots.append('mockRotatedTiltedOffsetMWP14WrapperPotential')
+    pots.append('mockOffsetMWP14WrapperPotential')
+    pots.append('mockTimeDependentAmplitudeWrapperPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -347,6 +351,9 @@ def test_2ndDeriv_potential():
     pots.append('mockRotatedAndTiltedMWP14WrapperPotential')
     pots.append('mockRotatedAndTiltedMWP14WrapperPotentialwInclination')
     pots.append('mockRotatedAndTiltedTriaxialLogHaloPotentialwInclination')
+    pots.append('mockRotatedTiltedOffsetMWP14WrapperPotential')
+    pots.append('mockOffsetMWP14WrapperPotential')
+    pots.append('mockTimeDependentAmplitudeWrapperPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -597,6 +604,9 @@ def test_poisson_potential():
     pots.append('mockRotatedAndTiltedMWP14WrapperPotential')
     pots.append('mockRotatedAndTiltedMWP14WrapperPotentialwInclination')
     pots.append('mockRotatedAndTiltedTriaxialLogHaloPotentialwInclination')
+    pots.append('mockRotatedTiltedOffsetMWP14WrapperPotential')
+    pots.append('mockOffsetMWP14WrapperPotential')
+    pots.append('mockTimeDependentAmplitudeWrapperPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -709,6 +719,8 @@ def test_poisson_surfdens_potential():
     pots.append('mockRotatedAndTiltedMWP14WrapperPotential')
     pots.append('mockRotatedAndTiltedMWP14WrapperPotentialwInclination')
     pots.append('mockRotatedAndTiltedTriaxialLogHaloPotentialwInclination')
+    pots.append('mockRotatedTiltedOffsetMWP14WrapperPotential')
+    pots.append('mockOffsetMWP14WrapperPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -842,6 +854,9 @@ def test_evaluateAndDerivs_potential():
     pots.append('mockRotatedAndTiltedMWP14WrapperPotential')
     pots.append('mockRotatedAndTiltedMWP14WrapperPotentialwInclination')
     pots.append('mockRotatedAndTiltedTriaxialLogHaloPotentialwInclination')
+    pots.append('mockRotatedTiltedOffsetMWP14WrapperPotential')
+    pots.append('mockOffsetMWP14WrapperPotential')
+    pots.append('mockTimeDependentAmplitudeWrapperPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -1057,6 +1072,8 @@ def test_amp_mult_divide():
     pots.append('mockRotatedAndTiltedMWP14WrapperPotential')
     pots.append('mockRotatedAndTiltedMWP14WrapperPotentialwInclination')
     pots.append('mockRotatedAndTiltedTriaxialLogHaloPotentialwInclination')
+    pots.append('mockRotatedTiltedOffsetMWP14WrapperPotential')
+    pots.append('mockOffsetMWP14WrapperPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -1333,6 +1350,8 @@ def test_potential_at_zero():
     pots.append('mockRotatedAndTiltedMWP14WrapperPotential')
     pots.append('mockRotatedAndTiltedMWP14WrapperPotentialwInclination')
     pots.append('mockRotatedAndTiltedTriaxialLogHaloPotentialwInclination')
+    pots.append('mockRotatedTiltedOffsetMWP14WrapperPotential')
+    pots.append('mockOffsetMWP14WrapperPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -1381,6 +1400,8 @@ def test_potential_at_zero():
            or p == 'mockRotatedAndTiltedMWP14WrapperPotential' \
            or p == 'mockRotatedAndTiltedMWP14WrapperPotentialwInclination' \
            or p == 'mockRotatedAndTiltedTriaxialLogHaloPotentialwInclination' \
+           or p == 'mockRotatedTiltedOffsetMWP14WrapperPotential' \
+           or p == 'mockOffsetMWP14WrapperPotential' \
            or 'riaxial' in p \
            or 'oblate' in p \
            or 'prolate' in p:
@@ -1447,6 +1468,8 @@ def test_potential_at_infinity():
     pots.append('mockRotatedAndTiltedMWP14WrapperPotential')
     pots.append('mockRotatedAndTiltedMWP14WrapperPotentialwInclination')
     pots.append('mockRotatedAndTiltedTriaxialLogHaloPotentialwInclination')
+    pots.append('mockRotatedTiltedOffsetMWP14WrapperPotential')
+    pots.append('mockOffsetMWP14WrapperPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -1492,6 +1515,8 @@ def test_potential_at_infinity():
            or p == 'mockRotatedAndTiltedMWP14WrapperPotential' \
            or p == 'mockRotatedAndTiltedMWP14WrapperPotentialwInclination' \
            or p == 'mockRotatedAndTiltedTriaxialLogHaloPotentialwInclination' \
+           or p == 'mockRotatedTiltedOffsetMWP14WrapperPotential' \
+           or p == 'mockOffsetMWP14WrapperPotential' \
           or 'riaxial' in p \
            or 'oblate' in p \
            or 'prolate' in p:
@@ -2109,6 +2134,91 @@ def test_lindbladR():
         pass
     else:
         raise AssertionError("lindbladR w/ wrong m input should have raised IOError, but didn't")
+    return None
+
+def test_rE_flatvc():
+    # Test the rE function for the case of a flat rotation curve
+    # Expected rE when vc(1)=1 is exp(E-1/2) (e.g., Dehnen 1999 epicycle)
+    lp= potential.LogarithmicHaloPotential(normalize=1.)
+    def expected_rE(E):
+        return numpy.exp(E-0.5)
+    Es= numpy.linspace(-10.,20.,101)
+    rEs= numpy.array([lp.rE(E) for E in Es])
+    assert numpy.amax(numpy.fabs(rEs-expected_rE(Es))) < 1e-6, 'rE method does not give the expected result for a flat rotation curve'
+    # Also as function
+    rEs= numpy.array([potential.rE(lp,E) for E in Es])
+    assert numpy.amax(numpy.fabs(rEs-expected_rE(Es))) < 1e-6, 'rE method does not give the expected result for a flat rotation curve'   
+    return None
+
+def test_rE_powervc():
+    # Test the rE function for the case of a power-law rotation curve: v = r^beta
+    # Expected rE when vc(1)=1 is (2 beta E / [1+beta])**(1./[2beta]) 
+    # (e.g., Dehnen 1999 epicycle)
+    betas= [-0.45,-0.2,0.6,0.9]
+    def expected_rE(E,beta):
+        return (2.*beta*E/(1.+beta))**(1./2./beta)
+    for beta in betas:
+        pp= PowerSphericalPotential(alpha=2.-2.*beta,normalize=1.)
+        rmin, rmax= 1e-8,1e5
+        Emin= pp.vcirc(rmin)**2./2.+pp(rmin,0.)
+        Emax= pp.vcirc(rmax)**2./2.+pp(rmax,0.)
+        Es= numpy.linspace(Emin,Emax,101)
+        # Test both method and function
+        if beta < 0.:
+            rEs= numpy.array([pp.rE(E) for E in Es])
+        else:
+            rEs= numpy.array([potential.rE(pp,E) for E in Es])
+        assert numpy.amax(numpy.fabs(rEs-expected_rE(Es,beta))) < 1e-8, 'rE method does not give the expected result for a power-law rotation curve'
+    return None
+
+def test_rE_MWPotential2014():
+    # Test the rE function for MWPotential2014
+    # No closed-form true answer, so just check that the expected relation holds
+    def Ec(r):
+        return potential.vcirc(potential.MWPotential2014,r)**2./2.\
+            +potential.evaluatePotentials(potential.MWPotential2014,r,0.)
+    rmin, rmax= 1e-8,1e5
+    Emin= Ec(rmin)
+    Emax= Ec(rmax)
+    Es= numpy.linspace(Emin,Emax,101)
+    rEs= numpy.array([potential.rE(potential.MWPotential2014,E) for E in Es])
+    Ecs= numpy.array([Ec(rE) for rE in rEs])
+    assert numpy.amax(numpy.fabs(Ecs-Es)) < 1e-8, 'rE method does not give the expected result for MWPotential2014'  
+    return None
+
+def test_LcE_flatvc():
+    # Test the LcE function for the case of a flat rotation curve
+    # Expected LcE when vc(1)=1 is exp(E-1/2) (e.g., Dehnen 1999 epicycle)
+    lp= potential.LogarithmicHaloPotential(normalize=1.)
+    def expected_LcE(E):
+        return numpy.exp(E-0.5)
+    Es= numpy.linspace(-10.,20.,101)
+    LcEs= numpy.array([lp.LcE(E) for E in Es])
+    assert numpy.amax(numpy.fabs(LcEs-expected_LcE(Es))) < 1e-6, 'LcE method does not give the expected result for a flat rotation curve'
+    # Also as function
+    LcEs= numpy.array([potential.LcE(lp,E) for E in Es])
+    assert numpy.amax(numpy.fabs(LcEs-expected_LcE(Es))) < 1e-6, 'LcE method does not give the expected result for a flat rotation curve'   
+    return None
+
+def test_LcE_powervc():
+    # Test the LcE function for the case of a power-law rotation curve: v = r^beta
+    # Expected LcE when vc(1)=1 is (2 beta E / [1+beta])**([1.+beta]/[2beta]) 
+    # (e.g., Dehnen 1999 epicycle)
+    betas= [-0.45,-0.2,0.6,0.9]
+    def expected_LcE(E,beta):
+        return (2.*beta*E/(1.+beta))**((1.+beta)/2./beta)
+    for beta in betas:
+        pp= PowerSphericalPotential(alpha=2.-2.*beta,normalize=1.)
+        rmin, rmax= 1e-8,1e5
+        Emin= pp.vcirc(rmin)**2./2.+pp(rmin,0.)
+        Emax= pp.vcirc(rmax)**2./2.+pp(rmax,0.)
+        Es= numpy.linspace(Emin,Emax,101)
+        # Test both method and function
+        if beta < 0.:
+            LcEs= numpy.array([pp.LcE(E) for E in Es])
+        else:
+            LcEs= numpy.array([potential.LcE(pp,E) for E in Es])
+        assert numpy.amax(numpy.fabs(LcEs-expected_LcE(Es,beta))) < 1e-5, 'LcE method does not give the expected result for a power-law rotation curve'
     return None
 
 def test_vterm():
@@ -3640,7 +3750,72 @@ def test_RotateAndTiltWrapper():
     NFW_wrapped= potential.RotateAndTiltWrapperPotential(galaxy_pa=galaxy_pa, pot=potential.TriaxialNFWPotential(amp=1.,b=0.7,c=0.5))
     NFW_rot= potential.TriaxialNFWPotential(amp=1., zvec=[0.,0.,1.],pa=galaxy_pa,b=0.7,c=0.5)
     assert (evaluatePotentials(NFW_wrapped, Rphiz_test[0], Rphiz_test[2], phi=Rphiz_test[1])-evaluatePotentials(NFW_rot, Rphiz_test[0], Rphiz_test[2], phi=Rphiz_test[1])) < 1e-6, 'Wrapped and Internally rotated NFW potentials do not match when evaluated at the same point'
+    #make sure the offset works as intended
+    # triaxial NFW at x,y,z = [20.,0.,3.]
+    NFW_wrapped= potential.RotateAndTiltWrapperPotential(zvec=zvec, galaxy_pa=galaxy_pa, offset=[20.,0.,3.], pot=potential.TriaxialNFWPotential(amp=1.,b=0.7,c=0.5))
+    NFW_rot= potential.TriaxialNFWPotential(amp=1., zvec=zvec, pa=galaxy_pa,b=0.7,c=0.5)
+    assert (evaluatePotentials(NFW_wrapped, 0., 0., phi=0.)-evaluatePotentials(NFW_rot, 20., - 3., phi=numpy.pi)) < 1e-6, 'Wrapped + Offset and Internally rotated NFW potentials do not match when evaluated at the same point'
+    
+
+def test_integration_RotateAndTiltWrapper():
+    ## test a quick orbit integration to hit the C code (also test pure python)
+    #two potentials, one offset
+    offset = [3.,2.,1.]
+    mwpot = potential.MWPotential2014
+    mwpot_wrapped = potential.RotateAndTiltWrapperPotential(pot=potential.MWPotential2014, offset=offset)
+    #initialise orbit
+    ro = 8.
+    orb = orbit.Orbit(ro=ro)
+    #another, offset by the same as the potential
+    init = orb.vxvv[0]
+    R, vR, vT, z, vz, phi = init
+    x, y, z = coords.cyl_to_rect(R, phi, z)
+    vx, vy, vz = coords.cyl_to_rect_vec(vR, vT, vz, phi)
+    tx, ty, tz = x-offset[0], y-offset[1], z-offset[2]
+    tR, tphi, tz = coords.rect_to_cyl(tx, ty, tz)
+    tvR, tvT, tvz = coords.rect_to_cyl_vec(vx, vy, vz, tR, tphi, tz, cyl=True)
+    orb_t = orbit.Orbit([tR, tvR, tvT, tz, tvz, tphi], ro=ro)
+    #integrate
+    ts = numpy.linspace(0.,1.,1000)
+    orb.integrate(ts, pot=mwpot, method='dop853')
+    orb_t.integrate(ts, pot=mwpot_wrapped, method='dop853')
+    #translate other orbit to match first one:
+    orb_vxvv = orb_t.getOrbit()
+    R, vR, vT, z, vz, phi = orb_vxvv[:,0], orb_vxvv[:,1], orb_vxvv[:,2], orb_vxvv[:,3], orb_vxvv[:,4], orb_vxvv[:,5]
+    x, y, z = coords.cyl_to_rect(R, phi, z)
+    vx, vy, vz = coords.cyl_to_rect_vec(vR, vT, vz, phi)
+    tx, ty, tz = x+offset[0], y+offset[1], z+offset[2]
+    tR, tphi, tz = coords.rect_to_cyl(tx, ty, tz)
+    #check equal
+    Rphi = numpy.dstack([orb.R(ts), orb.z(ts)])[0]
+    Rphi_t = numpy.dstack([tR*ro,tz*ro])[0]
+    assert numpy.all(numpy.fabs(Rphi-Rphi_t) < 10.**-10), 'Pure python orbit integration in an offset potential does not work as expected'
+    #reinitialise orbits, just to be sure
+    orb = orbit.Orbit(ro=ro)
+    init = orb.vxvv[0]
+    R, vR, vT, z, vz, phi = init
+    offset = [3.,2.,1.]
+    x, y, z = coords.cyl_to_rect(R, phi, z)
+    vx, vy, vz = coords.cyl_to_rect_vec(vR, vT, vz, phi)
+    tx, ty, tz = x-offset[0], y-offset[1], z-offset[2]
+    tR, tphi, tz = coords.rect_to_cyl(tx, ty, tz)
+    tvR, tvT, tvz = coords.rect_to_cyl_vec(vx, vy, vz, tR, tphi, tz, cyl=True)
+    orb_t = orbit.Orbit([tR, tvR, tvT, tz, tvz, tphi], ro=ro)
+    #integrate, use C
+    orb.integrate(ts, pot=mwpot, method='dop853_c')
+    orb_t.integrate(ts, pot=mwpot_wrapped, method='dop853_c')
+    orb_vxvv = orb_t.getOrbit()
+    R, vR, vT, z, vz, phi = orb_vxvv[:,0], orb_vxvv[:,1], orb_vxvv[:,2], orb_vxvv[:,3], orb_vxvv[:,4], orb_vxvv[:,5]
+    x, y, z = coords.cyl_to_rect(R, phi, z)
+    vx, vy, vz = coords.cyl_to_rect_vec(vR, vT, vz, phi)
+    tx, ty, tz = x+offset[0], y+offset[1], z+offset[2]
+    tR, tphi, tz = coords.rect_to_cyl(tx, ty, tz)
+    #check equal
+    Rphi = numpy.dstack([orb.R(ts), orb.z(ts)])[0]
+    Rphi_t = numpy.dstack([tR*ro,tz*ro])[0]
+    assert numpy.all(numpy.fabs(Rphi-Rphi_t) < 10.**-10), 'C orbit integration in an offset potential does not work as expected'
     return None
+
 
 def test_vtermnegl_issue314():
     # Test related to issue 314: vterm for negative l
@@ -3702,16 +3877,16 @@ def test_ttensor():
     return None
 
 def test_ttensor_trace():
-    # Test that the trace of the tidal tensor == 4piG density for a bunch of
+    # Test that the trace of the tidal tensor == -4piG density for a bunch of
     # potentials
     pots= [potential.KeplerPotential(normalize=1.),
            potential.LogarithmicHaloPotential(normalize=3.,q=0.8),
            potential.MiyamotoNagaiPotential(normalize=0.5,a=3.,b=0.5)]
     R,z,phi= 1.3,-0.2,2.
     for pot in pots:
-        assert numpy.fabs(numpy.trace(pot.ttensor(R,z,phi=phi))-4.*numpy.pi*pot.dens(R,z,phi=phi)), 'Trace of the tidal tensor not equal 4piG density'
+        assert numpy.fabs(numpy.trace(pot.ttensor(R,z,phi=phi))+4.*numpy.pi*pot.dens(R,z,phi=phi)) < 1e-10, 'Trace of the tidal tensor not equal 4piG density'
     # Also test a list
-    assert numpy.fabs(numpy.trace(potential.ttensor(potential.MWPotential2014,R,z,phi=phi))-4.*numpy.pi*potential.evaluateDensities(potential.MWPotential2014,R,z,phi=phi)), 'Trace of the tidal tensor not equal 4piG density'
+    assert numpy.fabs(numpy.trace(potential.ttensor(potential.MWPotential2014,R,z,phi=phi))+4.*numpy.pi*potential.evaluateDensities(potential.MWPotential2014,R,z,phi=phi)) < 1e-10, 'Trace of the tidal tensor not equal 4piG density'
     return None
 
 def test_ttensor_nonaxi():
@@ -4134,6 +4309,91 @@ def test_isodisk_amplitude_issue400():
     assert numpy.fabs(dens_at_0-0.1) < 1e-7, 'Density at z=0 for IsothermalDiskPotential is not correct'
     return None
 
+def test_TimeDependentAmplitudeWrapperPotential_against_DehnenSmooth():
+    # Test that TimeDependentAmplitudeWrapperPotential acts the same as DehnenSmooth
+    # Test = LogPot + DehnenBar grown smoothly
+    # Both using the DehnenSmoothWrapper and the new TimeDependentAmplitudeWrapperPotential
+    from galpy.orbit import Orbit
+    lp= potential.LogarithmicHaloPotential()
+    dbp= potential.DehnenBarPotential(tform=-100000.,tsteady=1.)
+    dp= potential.DehnenSmoothWrapperPotential(pot=dbp)
+    tp= potential.TimeDependentAmplitudeWrapperPotential(pot=dbp,A=dp._smooth)
+    # Orbit of the Sun
+    o= Orbit()
+    ts= numpy.linspace(0.,-20.,1001)
+    o.integrate(ts,lp+dp)
+    ot= o()
+    ot.integrate(ts,lp+tp)
+    tol= 1e-10
+    assert numpy.amax(numpy.fabs(o.x(ts)-ot.x(ts))) <tol, 'Integrating an orbit in a growing DehnenSmoothWrapper does not agree between DehnenSmooth and TimeDependentWrapper'
+    assert numpy.amax(numpy.fabs(o.y(ts)-ot.y(ts))) <tol, 'Integrating an orbit in a growing DehnenSmoothWrapper does not agree between DehnenSmooth and TimeDependentWrapper'
+    assert numpy.amax(numpy.fabs(o.z(ts)-ot.z(ts))) <tol, 'Integrating an orbit in a growing DehnenSmoothWrapper does not agree between DehnenSmooth and TimeDependentWrapper'
+    assert numpy.amax(numpy.fabs(o.vx(ts)-ot.vx(ts))) <tol, 'Integrating an orbit in a growing DehnenSmoothWrapper does not agree between DehnenSmooth and TimeDependentWrapper'
+    assert numpy.amax(numpy.fabs(o.vy(ts)-ot.vy(ts))) <tol, 'Integrating an orbit in a growing DehnenSmoothWrapper does not agree between DehnenSmooth and TimeDependentWrapper'
+    assert numpy.amax(numpy.fabs(o.vz(ts)-ot.vz(ts))) <tol, 'Integrating an orbit in a growing DehnenSmoothWrapper does not agree between DehnenSmooth and TimeDependentWrapper'
+    return None
+
+def test_TimeDependentAmplitudeWrapperPotential_against_DehnenSmooth_2d():
+    # Test that TimeDependentAmplitudeWrapperPotential acts the same as DehnenSmooth
+    # Test = LogPot + DehnenBar grown smoothly
+    # Both using the DehnenSmoothWrapper and the new TimeDependentAmplitudeWrapperPotential
+    from galpy.orbit import Orbit
+    lp= potential.LogarithmicHaloPotential()
+    dbp= potential.DehnenBarPotential(tform=-100000.,tsteady=1.)
+    dp= potential.DehnenSmoothWrapperPotential(pot=dbp)
+    tp= potential.TimeDependentAmplitudeWrapperPotential(pot=dbp,A=dp._smooth)
+    # Orbit of the Sun
+    o= Orbit().toPlanar()
+    ts= numpy.linspace(0.,-20.,1001)
+    o.integrate(ts,lp+dp)
+    ot= o()
+    ot.integrate(ts,lp+tp)
+    tol= 1e-10
+    assert numpy.amax(numpy.fabs(o.x(ts)-ot.x(ts))) <tol, 'Integrating an orbit in a growing DehnenSmoothWrapper does not agree between DehnenSmooth and TimeDependentWrapper'
+    assert numpy.amax(numpy.fabs(o.y(ts)-ot.y(ts))) <tol, 'Integrating an orbit in a growing DehnenSmoothWrapper does not agree between DehnenSmooth and TimeDependentWrapper'
+    assert numpy.amax(numpy.fabs(o.vx(ts)-ot.vx(ts))) <tol, 'Integrating an orbit in a growing DehnenSmoothWrapper does not agree between DehnenSmooth and TimeDependentWrapper'
+    assert numpy.amax(numpy.fabs(o.vy(ts)-ot.vy(ts))) <tol, 'Integrating an orbit in a growing DehnenSmoothWrapper does not agree between DehnenSmooth and TimeDependentWrapper'
+    return None
+
+def test_TimeDependentAmplitudeWrapperPotential_against_DehnenSmooth_2d_dxdv():
+    # Test that TimeDependentAmplitudeWrapperPotential acts the same as DehnenSmooth
+    # Test = LogPot + DehnenBar grown smoothly
+    # Both using the DehnenSmoothWrapper and the new TimeDependentAmplitudeWrapperPotential
+    from galpy.orbit import Orbit
+    lp= potential.LogarithmicHaloPotential()
+    dbp= potential.DehnenBarPotential(tform=-100000.,tsteady=1.)
+    dp= potential.DehnenSmoothWrapperPotential(pot=dbp)
+    tp= potential.TimeDependentAmplitudeWrapperPotential(pot=dbp,A=dp._smooth)
+    # Orbit of the Sun
+    o= Orbit().toPlanar()
+    ts= numpy.linspace(0.,-20.,1001)
+    o.integrate_dxdv([1.,0.,0.,0.],ts,lp+dp,rectIn=True,rectOut=True)
+    ot= o()
+    ot.integrate_dxdv([1.,0.,0.,0.],ts,lp+tp,rectIn=True,rectOut=True)
+    tol= 1e-10
+    assert numpy.amax(numpy.fabs(o.getOrbit_dxdv()-ot.getOrbit_dxdv())) <tol, 'Integrating an orbit with dxdv in a growing DehnenSmoothWrapper does not agree between DehnenSmooth and TimeDependentWrapper'
+    return None
+
+def test_TimeDependentAmplitudeWrapperPotential_inputerrors():
+    # TypeError when A not supplied
+    lp= potential.LogarithmicHaloPotential()
+    with pytest.raises(TypeError,match="A= input to TimeDependentAmplitudeWrapperPotential should be a function"):
+        tp= TimeDependentAmplitudeWrapperPotential(pot=lp)
+    # TypeError when suppplying a function with no argument
+    with pytest.raises(TypeError,match="A= input to TimeDependentAmplitudeWrapperPotential should be a function that can be called with a single parameter"):
+        tp= TimeDependentAmplitudeWrapperPotential(pot=lp,A=lambda: 1.)
+    # TypeError when suppplying a function with more than 1 argument
+    with pytest.raises(TypeError,match="A= input to TimeDependentAmplitudeWrapperPotential should be a function that can be called with a single parameter"):
+        tp= TimeDependentAmplitudeWrapperPotential(pot=lp,A=lambda x,y: x+y)
+    # But having additional arguments have defaults should be allowed
+    tp= TimeDependentAmplitudeWrapperPotential(pot=lp,A=lambda x,y=1.: x+y)
+    # Return value should be a number
+    with pytest.raises(TypeError,match="A= function needs to return a number \(specifically, a numbers.Number\)"):
+        tp= TimeDependentAmplitudeWrapperPotential(pot=lp,A=lambda t: (t,t+1))
+    with pytest.raises(TypeError,match="A= function needs to return a number \(specifically, a numbers.Number\)"):
+        tp= TimeDependentAmplitudeWrapperPotential(pot=lp,A=lambda t: numpy.array([t]))        
+    return None
+
 def test_plotting():
     import tempfile
     #Some tests of the plotting routines, to make sure they don't fail
@@ -4359,7 +4619,7 @@ from galpy.potential import TwoPowerSphericalPotential, \
     TriaxialHernquistPotential, TriaxialNFWPotential, TriaxialJaffePotential, \
     TwoPowerTriaxialPotential, BurkertPotential, SoftenedNeedleBarPotential, \
     FerrersPotential, DiskSCFPotential, SpiralArmsPotential, \
-    LogarithmicHaloPotential
+    LogarithmicHaloPotential, NullPotential
 class mockSphericalSoftenedNeedleBarPotential(SoftenedNeedleBarPotential):
     def __init__(self):
         SoftenedNeedleBarPotential.__init__(self,amp=1.,a=0.000001,b=0.,
@@ -4515,6 +4775,9 @@ class JaffeTwoPowerTriaxialPotential(TwoPowerTriaxialPotential):
         TwoPowerTriaxialPotential.__init__(self,amp=1.,a=5.,alpha=2.,beta=4.,
                                            b=1.3,c=1.8)
         return None
+class testNullPotential(NullPotential):
+    def normalize(self,norm):
+        pass
 # Other DiskSCFPotentials
 class sech2DiskSCFPotential(DiskSCFPotential):
     def __init__(self):
@@ -4998,7 +5261,7 @@ class mockMovingObjectLongIntPotential(mockMovingObjectPotential):
 from galpy.potential import DehnenSmoothWrapperPotential, \
     SolidBodyRotationWrapperPotential, CorotatingRotationWrapperPotential, \
     GaussianAmplitudeWrapperPotential, AdiabaticContractionWrapperPotential, \
-    RotateAndTiltWrapperPotential
+    RotateAndTiltWrapperPotential, TimeDependentAmplitudeWrapperPotential
 from galpy.potential.WrapperPotential import parentWrapperPotential
 class DehnenSmoothDehnenBarPotential(DehnenSmoothWrapperPotential):
     # This wrapped potential should be the same as the default DehnenBar
@@ -5253,3 +5516,44 @@ class mockRotatedAndTiltedTriaxialLogHaloPotentialwInclination(testMWPotential):
                                               sky_pa=None)])
     def OmegaP(self):
         return 0.
+class mockRotatedTiltedOffsetMWP14WrapperPotential(testMWPotential):
+    def __init__(self):
+        testMWPotential.__init__(self,potlist=[\
+                RotateAndTiltWrapperPotential(pot=potential.MWPotential2014,
+                                              zvec=[numpy.sqrt(1/3.),
+                                                    numpy.sqrt(1/3.),
+                                                    numpy.sqrt(1/3.)],
+                                              galaxy_pa=0.4,
+                                              offset=[1.,1.,1.]),])
+    def OmegaP(self):
+        return 0.
+class mockOffsetMWP14WrapperPotential(testMWPotential):
+    def __init__(self):
+        testMWPotential.__init__(self,potlist=[\
+                RotateAndTiltWrapperPotential(pot=potential.MWPotential2014,
+                                              zvec=None,
+                                              galaxy_pa=None,
+                                              offset=[1.,1.,1.]),])
+    def OmegaP(self):
+        return 0.
+#TimeDependentAmplitudeWrapperPotential
+class mockTimeDependentAmplitudeWrapperPotential(TimeDependentAmplitudeWrapperPotential):
+    # Need to use __new__ because new Wrappers are created using __new__
+    def __new__(cls,*args,**kwargs):
+        if kwargs.get('_init',False):
+            return parentWrapperPotential.__new__(cls,*args,**kwargs)
+        dpn= DehnenBarPotential(tform=-100.,tsteady=1.) #on after t=-99
+        dps= DehnenSmoothWrapperPotential(pot=dpn,\
+                               tform=-4.*2.*numpy.pi/dpn.OmegaP())
+        return DehnenSmoothWrapperPotential.__new__(cls,amp=1.,pot=dpn,\
+                               A=dps._smooth)
+# A TimeDependentAmplitudeWrapperPotential version of LogarithmicHaloPotential for simple aAtest
+class mockSmoothedLogarithmicHaloPotentialwTimeDependentAmplitudeWrapperPotential(TimeDependentAmplitudeWrapperPotential):
+    def __new__(cls,*args,**kwargs):
+        if kwargs.get('_init',False):
+            return parentWrapperPotential.__new__(cls,*args,**kwargs)
+        dps= DehnenSmoothWrapperPotential(pot=potential.LogarithmicHaloPotential(normalize=1.),
+            tform=-1.,tsteady=0.5)
+        return TimeDependentAmplitudeWrapperPotential.__new__(cls,amp=1.,
+            pot=potential.LogarithmicHaloPotential(normalize=1.),
+            A=dps._smooth)

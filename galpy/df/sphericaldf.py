@@ -312,7 +312,7 @@ class sphericaldf(df):
 
         OPTIONAL INPUT:
 
-            return_orbit= (True) If True output is orbit.Orbit object, if False output is (R,vR,vT,z,vz,phi)
+            return_orbit= (True) If True output is an orbit.Orbit object, if False output is (R,vR,vT,z,vz,phi)
 
         OUTPUT:
 

@@ -27,11 +27,12 @@ from ..util.coords import _K
 from ..util import coords
 from ..util import plot
 from ..util import conversion
+from ..util.conversion import _APY_LOADED
 from ..potential import toPlanarPotential, PotentialError, evaluatePotentials,\
     evaluateplanarPotentials, evaluatelinearPotentials
 from ..potential import flatten as flatten_potential
 from ..potential.Potential import _check_c
-from ..potential import rl, _isNonAxi
+from ..potential import rl, rE, LcE, _isNonAxi
 from ..potential.DissipativeForce import _isDissipative
 from .integrateLinearOrbit import integrateLinearOrbit_c, _ext_loaded, \
     integrateLinearOrbit
@@ -39,14 +40,17 @@ from .integratePlanarOrbit import integratePlanarOrbit_c, \
     integratePlanarOrbit, integratePlanarOrbit_dxdv
 from .integrateFullOrbit import integrateFullOrbit_c, integrateFullOrbit
 ext_loaded= _ext_loaded
-_APY_LOADED= True
+_APY_COORD_LOADED= True
 try:
     from astropy.coordinates import SkyCoord
 except ImportError:
     SkyCoord = None
-    _APY_LOADED= False
+    _APY_COORD_LOADED= False
 if _APY_LOADED:
-    from astropy import units, coordinates
+    from astropy import units
+# Separate like this, because coordinates don't work in Pyodide astropy (2/25/22)
+if _APY_COORD_LOADED:
+    from astropy import coordinates
     import astropy
     _APY3= parse_version(astropy.__version__) > parse_version('3')
     _APY_GE_31= parse_version(astropy.__version__) > parse_version('3.0.5')
@@ -239,7 +243,7 @@ class Orbit(object):
         self._setup_parse_coordtransform(vxvv,ro,vo,zo,solarmotion,
                                          radec,lb)
         # Determine and record input shape and flatten for further processing
-        if _APY_LOADED and isinstance(vxvv,SkyCoord):
+        if _APY_COORD_LOADED and isinstance(vxvv,SkyCoord):
             input_shape= vxvv.shape
             vxvv=vxvv.flatten()
         elif isinstance(vxvv,numpy.ndarray):
@@ -304,7 +308,7 @@ class Orbit(object):
         zo= conversion.parse_length_kpc(zo)
         vo= conversion.parse_velocity_kms(vo)
         # if vxvv is SkyCoord, preferentially use its ro and zo
-        if _APY_LOADED and isinstance(vxvv,SkyCoord):
+        if _APY_COORD_LOADED and isinstance(vxvv,SkyCoord):
             if not _APY3: # pragma: no cover
                 raise ImportError('Orbit initialization using an astropy SkyCoord requires astropy >3.0')
             if zo is None and not vxvv.z_sun is None:
@@ -321,7 +325,7 @@ class Orbit(object):
                     numpy.fabs(ro**2.+zo**2.-vxvv.galcen_distance.to(units.kpc).value**2.) > 1e-10:
                 warnings.warn("Orbit's initialization normalization ro and zo are incompatible with SkyCoord's galcen_distance (should have galcen_distance^2 = ro^2 + zo^2)",galpyWarning)
         # If at this point ro/vo not set, use default from config
-        if (_APY_LOADED and isinstance(vxvv,SkyCoord)) or radec or lb:
+        if (_APY_COORD_LOADED and isinstance(vxvv,SkyCoord)) or radec or lb:
             if ro is None:
                 ro= config.__config__.getfloat('normalization','ro')
             if vo is None:
@@ -329,7 +333,7 @@ class Orbit(object):
         # If at this point zo not set, use default
         if zo is None: zo= 0.0208
         # if vxvv is SkyCoord, preferentially use its solarmotion
-        if _APY_LOADED and isinstance(vxvv,SkyCoord) \
+        if _APY_COORD_LOADED and isinstance(vxvv,SkyCoord) \
                 and not vxvv.galcen_v_sun is None:
             sc_solarmotion= vxvv.galcen_v_sun.d_xyz.to(units.km/units.s).value
             sc_solarmotion[0]= -sc_solarmotion[0] # right->left
@@ -348,7 +352,7 @@ class Orbit(object):
         else:
             vsolar= numpy.array(conversion.parse_velocity_kms(solarmotion))
         # If both vxvv SkyCoord with vsun and solarmotion set, check the same
-        if _APY_LOADED and isinstance(vxvv,SkyCoord) \
+        if _APY_COORD_LOADED and isinstance(vxvv,SkyCoord) \
                 and not vxvv.galcen_v_sun is None:
             if numpy.any(numpy.fabs(sc_solarmotion-vsolar) > 1e-8):
                 raise ValueError("Orbit initialization's solarmotion parameter not compatible with SkyCoord's galcen_v_sun; these should be the same for consistency (this may be because you did not set vo; galcen_v_sun = solarmotion+vo for consistency)")
@@ -418,7 +422,7 @@ class Orbit(object):
         return [list(o.vxvv[0]) for o in vxvv]
                 
     def _setup_parse_vxvv(self,vxvv,radec,lb,uvw):
-        if _APY_LOADED and isinstance(vxvv,SkyCoord):
+        if _APY_COORD_LOADED and isinstance(vxvv,SkyCoord):
             galcen_v_sun= coordinates.CartesianDifferential(\
                 numpy.array([-self._solarmotion[0],
                               self._solarmotion[1]+self._vo,
@@ -449,7 +453,7 @@ class Orbit(object):
             lb= False
         elif not isinstance(vxvv,(list, tuple)):
             vxvv= vxvv.T # (norb,phasedim) --> (phasedim,norb) easier later
-        if not (_APY_LOADED and isinstance(vxvv,SkyCoord)) and (radec or lb):
+        if not (_APY_COORD_LOADED and isinstance(vxvv,SkyCoord)) and (radec or lb):
             if radec:
                 if _APY_LOADED and isinstance(vxvv[0],units.Quantity):
                     ra, dec= vxvv[0].to(units.deg).value, \
@@ -1020,7 +1024,8 @@ class Orbit(object):
             self._vo= conversion.parse_velocity_kms(vo)
         return None
 
-    def integrate(self,t,pot,method='symplec4_c',dt=None,numcores=_NUMCORES,
+    def integrate(self,t,pot,method='symplec4_c',progressbar=True,
+                  dt=None,numcores=_NUMCORES,
                   force_map=False):
         """
         NAME:
@@ -1047,6 +1052,8 @@ class Orbit(object):
                      'dopr54_c' for a 5-4 Dormand-Prince integrator in C
                      'dop853' for a 8-5-3 Dormand-Prince integrator in Python
                      'dop853_c' for a 8-5-3 Dormand-Prince integrator in C
+                     
+            progressbar= (True) if True, display a tqdm progress bar when integrating multiple orbits (requires tqdm to be installed!)
 
             dt - if set, force the integrator to use this basic stepsize; must be an integer divisor of output stepsize (only works for the C integrators that use a fixed stepsize) (can be Quantity)
 
@@ -1117,21 +1124,26 @@ class Orbit(object):
         # Implementation with parallel_map in Python
         if not '_c' in method or not ext_loaded or force_map:
             if self.dim() == 1:
-                out, msg= integrateLinearOrbit(self._pot,self.vxvv,t,
-                                               method,numcores=numcores,dt=dt)
+                out, msg= integrateLinearOrbit(self._pot,self.vxvv,t,method,
+                                               progressbar=progressbar,
+                                               numcores=numcores,dt=dt)
             elif self.dim() == 2:
-                out, msg= integratePlanarOrbit(self._pot,self.vxvv,t,
-                                               method,numcores=numcores,dt=dt)
+                out, msg= integratePlanarOrbit(self._pot,self.vxvv,t,method,
+                                               progressbar=progressbar,
+                                               numcores=numcores,dt=dt)
             else:
-                out, msg= integrateFullOrbit(self._pot,self.vxvv,t,
-                                             method,numcores=numcores,dt=dt)
+                out, msg= integrateFullOrbit(self._pot,self.vxvv,t,method,
+                                             progressbar=progressbar,
+                                             numcores=numcores,dt=dt)
         else:
             warnings.warn("Using C implementation to integrate orbits",
                           galpyWarningVerbose)
             if self.dim() == 1:
                 out, msg= integrateLinearOrbit_c(self._pot,
                                                  numpy.copy(self.vxvv),
-                                                 t,method,dt=dt)
+                                                 t,method,
+                                                 progressbar=progressbar,
+                                                 dt=dt)
             else:
                 if self.phasedim() == 3 \
                    or self.phasedim() == 5:
@@ -1142,10 +1154,14 @@ class Orbit(object):
                     vxvvs= numpy.copy(self.vxvv)
                 if self.dim() == 2:
                     out, msg= integratePlanarOrbit_c(self._pot,vxvvs,
-                                                     t,method,dt=dt)
+                                                     t,method,
+                                                     progressbar=progressbar,
+                                                     dt=dt)
                 else:
                     out, msg= integrateFullOrbit_c(self._pot,vxvvs,
-                                                   t,method,dt=dt)
+                                                   t,method,
+                                                   progressbar=progressbar,
+                                                   dt=dt)
 
                 if self.phasedim() == 3 \
                    or self.phasedim() == 5:
@@ -1197,7 +1213,8 @@ class Orbit(object):
                           galpyWarning)
         return None
 
-    def integrate_dxdv(self,dxdv,t,pot,method='dopr54_c',dt=None,
+    def integrate_dxdv(self,dxdv,t,pot,method='dopr54_c',
+                       progressbar=True,dt=None,
                        numcores=_NUMCORES,force_map=False,
                        rectIn=False,rectOut=False):
         """
@@ -1216,6 +1233,8 @@ class Orbit(object):
            t - list of times at which to output (0 has to be in this!) (can be Quantity)
 
            pot - potential instance or list of instances
+           
+           progressbar= (True) if True, display a tqdm progress bar when integrating multiple orbits (requires tqdm to be installed!)
 
            dt - if set, force the integrator to use this basic stepsize; must be an integer divisor of output stepsize (only works for the C integrators that use a fixed stepsize) (can be Quantity)
 
@@ -1293,6 +1312,7 @@ class Orbit(object):
             if self.dim() == 2:
                 out, msg= integratePlanarOrbit_dxdv(self._pot,self.vxvv,dxdv,
                                                     t,method,rectIn,rectOut,
+                                                    progressbar=progressbar,
                                                     numcores=numcores,dt=dt)
         # Store orbit internally
         self.orbit_dxdv= out
@@ -1969,13 +1989,38 @@ class Orbit(object):
         self._aA_jr, self._aA_jp, self._aA_jz, \
             self._aA_Or, self._aA_Op, self._aA_Oz, \
             self._aA_wr, self._aA_wp, self._aA_wz= \
-               self._aA.actionsFreqsAngles(\
-                  self.R(use_physical=False,dontreshape=True),
-                  self.vR(use_physical=False,dontreshape=True),
-                  self.vT(use_physical=False,dontreshape=True),
-                  tz,tvz,
-                  self.phi(use_physical=False,dontreshape=True),
-                  use_physical=False)
+            self._aA.actionsFreqsAngles(\
+                self.R(use_physical=False,dontreshape=True),
+                self.vR(use_physical=False,dontreshape=True),
+                self.vT(use_physical=False,dontreshape=True),
+                tz,tvz,
+                self.phi(use_physical=False,dontreshape=True),
+                use_physical=False)
+        return None
+
+    def _setup_actions(self,pot=None,**kwargs):
+        """Internal function to compute the actions and cache them for re-use (used for methods that don't support frequencies and angles)"""
+        self._setupaA(pot=pot,**kwargs)
+        if hasattr(self,'_aA_jr'): return None
+        if self.dim() == 3:
+            # try to make sure this is not 0
+            tz= self.z(use_physical=False,dontreshape=True)\
+                +(numpy.fabs(self.z(use_physical=False,
+                                    dontreshape=True)) < 1e-8) \
+                * (2.*(self.z(use_physical=False,
+                              dontreshape=True) >= 0)-1.)*1e-10
+            tvz= self.vz(use_physical=False,dontreshape=True)
+        elif self.dim() == 2:
+            tz= numpy.zeros(self.size)
+            tvz= numpy.zeros(self.size)
+        # self.dim() == 1 error caught by _setupaA
+        self._aA_jr, self._aA_jp, self._aA_jz= self._aA(\
+                    self.R(use_physical=False,dontreshape=True),
+                    self.vR(use_physical=False,dontreshape=True),
+                    self.vT(use_physical=False,dontreshape=True),
+                    tz,tvz,
+                    self.phi(use_physical=False,dontreshape=True),
+                    use_physical=False)
         return None
 
     @shapeDecorator
@@ -2185,6 +2230,116 @@ class Orbit(object):
 
     @physical_conversion('position')
     @shapeDecorator
+    def rE(self,*args,**kwargs):
+        """
+        NAME:
+
+           rE
+
+        PURPOSE:
+
+           calculate the radius of a circular orbit with the same energy
+
+        INPUT:
+
+           pot= potential instance or list of such instances
+
+           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
+
+           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
+
+           use_physical= use to override Object-wide default for using a physical scale for output
+
+        OUTPUT:
+
+           r_E [*input_shape,nt]
+
+        HISTORY:
+
+           2022-04-07 - Written as thin wrapper around Potential.rE - Bovy (UofT)
+
+        """
+        pot= kwargs.get('pot',self.__dict__.get('_pot',None))
+        if pot is None:
+            raise RuntimeError("You need to specify the potential as pot= to compute rE")
+        flatten_potential(pot)
+        if _isNonAxi(pot):
+            raise RuntimeError('Potential given to rE is non-axisymmetric, but rE requires an axisymmetric potential')
+        _check_consistent_units(self,pot)
+        E= numpy.atleast_1d(self.E(*args,pot=pot,use_physical=False,dontreshape=True))
+        E_shape= E.shape
+        E= E.flatten()
+        if len(E) > 500:
+            # Build interpolation grid
+            precomputerEEgrid= numpy.linspace(numpy.nanmin(E),
+                                              numpy.nanmax(E),
+                                              500)
+            rEs= numpy.array([rE(pot,tE,use_physical=False)
+                              for tE in precomputerEEgrid])
+            #Spline interpolate
+            return interpolate.InterpolatedUnivariateSpline(\
+                precomputerEEgrid,rEs,k=3)(E).reshape(E_shape)
+        else:
+            return numpy.array([rE(pot,tE,use_physical=False)
+                                for tE in E]).reshape(E_shape)
+
+    @physical_conversion('action')
+    @shapeDecorator
+    def LcE(self,*args,**kwargs):
+        """
+        NAME:
+
+           LcE
+
+        PURPOSE:
+
+           calculate the angular momentum of a circular orbit with the same energy
+
+        INPUT:
+
+           pot= potential instance or list of such instances
+
+           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
+
+           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
+
+           use_physical= use to override Object-wide default for using a physical scale for output
+
+        OUTPUT:
+
+           L_c(E) [*input_shape,nt]
+
+        HISTORY:
+
+           2022-04-07 - Written - Bovy (UofT)
+
+        """
+        pot= kwargs.pop('pot',self.__dict__.get('_pot',None))
+        if pot is None:
+            raise RuntimeError("You need to specify the potential as pot= to compute LcE")
+        flatten_potential(pot)
+        if _isNonAxi(pot):
+            raise RuntimeError('Potential given to LcE is non-axisymmetric, but LcE requires an axisymmetric potential')
+        _check_consistent_units(self,pot)
+        E= numpy.atleast_1d(self.E(*args,pot=pot,use_physical=False,dontreshape=True))
+        E_shape= E.shape
+        E= E.flatten()
+        if len(E) > 500:
+            # Build interpolation grid
+            precomputeLcEEgrid= numpy.linspace(numpy.nanmin(E),
+                                              numpy.nanmax(E),
+                                              500)
+            LcEs= numpy.array([LcE(pot,tE,use_physical=False)
+                              for tE in precomputeLcEEgrid])
+            #Spline interpolate
+            return interpolate.InterpolatedUnivariateSpline(\
+                precomputeLcEEgrid,LcEs,k=3)(E).reshape(E_shape)
+        else:            
+            return numpy.array([LcE(pot,tE,use_physical=False)
+                                for tE in E]).reshape(E_shape)
+
+    @physical_conversion('position')
+    @shapeDecorator
     def zmax(self,analytic=False,pot=None,**kwargs):
         """
         NAME:
@@ -2278,7 +2433,10 @@ class Orbit(object):
            2019-02-27 - Written - Bovy (UofT)
 
         """
-        self._setup_actionsFreqsAngles(pot=pot,**kwargs)
+        try:
+            self._setup_actionsFreqsAngles(pot=pot,**kwargs)
+        except NotImplementedError:
+            self._setup_actions(pot=pot,**kwargs)
         return self._aA_jr
 
     @physical_conversion('action')
@@ -2324,7 +2482,10 @@ class Orbit(object):
            2019-02-26 - Written - Bovy (UofT)
 
         """
-        self._setup_actionsFreqsAngles(pot=pot,**kwargs)
+        try:
+            self._setup_actionsFreqsAngles(pot=pot,**kwargs)
+        except NotImplementedError: # pragma: no cover
+            self._setup_actions(pot=pot,**kwargs)
         return self._aA_jp
 
     @physical_conversion('action')
@@ -2370,7 +2531,10 @@ class Orbit(object):
            2019-02-27 - Written - Bovy (UofT)
 
         """
-        self._setup_actionsFreqsAngles(pot=pot,**kwargs)
+        try:
+            self._setup_actionsFreqsAngles(pot=pot,**kwargs)
+        except NotImplementedError: # pragma: no cover
+            self._setup_actions(pot=pot,**kwargs)
         return self._aA_jz
 
     @physical_conversion('angle')
@@ -3371,8 +3535,9 @@ class Orbit(object):
            obs=[X,Y,Z] - (optional) position of observer (in kpc) 
                          (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
-                         of the observer
-                         Y is ignored and always assumed to be zero
+                         of the observer;
+                         Note that when Y is non-zero, the coordinate system is 
+                         rotated around z such that Y'=0
 
            ro= distance in kpc corresponding to R=1. (default=Object-wide default)
 
@@ -3411,8 +3576,9 @@ class Orbit(object):
            obs=[X,Y,Z] - (optional) position of observer (in kpc) 
                          (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
-                         of the observer
-                         Y is ignored and always assumed to be zero
+                         of the observer;
+                         Note that when Y is non-zero, the coordinate system is 
+                         rotated around z such that Y'=0
 
            ro= distance in kpc corresponding to R=1. (default=Object-wide default)
 
@@ -3451,8 +3617,9 @@ class Orbit(object):
            obs=[X,Y,Z] - (optional) position of observer (in kpc) 
                          (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
-                         of the observer
-                         Y is ignored and always assumed to be zero
+                         of the observer;
+                         Note that when Y is non-zero, the coordinate system is 
+                         rotated around z such that Y'=0
 
            ro= distance in kpc corresponding to R=1. (default=Object-wide default)         
 
@@ -3490,8 +3657,9 @@ class Orbit(object):
            obs=[X,Y,Z] - (optional) position of observer (in kpc) 
                          (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
-                         of the observer
-                         Y is ignored and always assumed to be zero
+                         of the observer;
+                         Note that when Y is non-zero, the coordinate system is 
+                         rotated around z such that Y'=0
 
            ro= distance in kpc corresponding to R=1. (default=Object-wide default)         
 
@@ -3529,8 +3697,9 @@ class Orbit(object):
            obs=[X,Y,Z] - (optional) position of observer (in kpc) 
                          (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
-                         of the observer
-                         Y is ignored and always assumed to be zero
+                         of the observer;
+                         Note that when Y is non-zero, the coordinate system is 
+                         rotated around z such that Y'=0
 
            ro= distance in kpc corresponding to R=1. (default=Object-wide default)         
 
@@ -3568,8 +3737,9 @@ class Orbit(object):
            obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
                          (in kpc and km/s) (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
-                         of the observer
-                         Y is ignored and always assumed to be zero
+                         of the observer;
+                         Note that when Y is non-zero, the coordinate system is 
+                         rotated around z such that Y'=0
 
            ro= distance in kpc corresponding to R=1. (default=Object-wide default)    
 
@@ -3611,8 +3781,9 @@ class Orbit(object):
            obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
                          (in kpc and km/s) (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
-                         of the observer
-                         Y is ignored and always assumed to be zero
+                         of the observer;
+                         Note that when Y is non-zero, the coordinate system is 
+                         rotated around z such that Y'=0
 
            ro= distance in kpc corresponding to R=1. (default=Object-wide default)         
 
@@ -3654,8 +3825,9 @@ class Orbit(object):
            obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
                          (in kpc and km/s) (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
-                         of the observer
-                         Y is ignored and always assumed to be zero
+                         of the observer;
+                         Note that when Y is non-zero, the coordinate system is 
+                         rotated around z such that Y'=0
 
            ro= distance in kpc corresponding to R=1. (default=Object-wide default)         
 
@@ -3697,8 +3869,9 @@ class Orbit(object):
            obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
                          (in kpc and km/s) (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
-                         of the observer
-                         Y is ignored and always assumed to be zero
+                         of the observer;
+                         Note that when Y is non-zero, the coordinate system is 
+                         rotated around z such that Y'=0
 
            ro= distance in kpc corresponding to R=1. (default=Object-wide default)         
 
@@ -3740,8 +3913,9 @@ class Orbit(object):
            obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
                          (in kpc and km/s) (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
-                         of the observer
-                         Y is ignored and always assumed to be zero
+                         of the observer;
+                         Note that when Y is non-zero, the coordinate system is 
+                         rotated around z such that Y'=0
 
            ro= distance in kpc corresponding to R=1. (default=Object-wide default)         
 
@@ -3783,8 +3957,9 @@ class Orbit(object):
                          in the Galactocentric frame
                          (in kpc and km/s) (default=[8.0,0.,0.,0.,220.,0.]; entries can be Quantity)
                          OR Orbit object that corresponds to the orbit
-                         of the observer
-                         Y is ignored and always assumed to be zero
+                         of the observer;
+                         Note that when Y is non-zero, the coordinate system is 
+                         rotated around z such that Y'=0
 
            ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
 
@@ -3832,8 +4007,9 @@ class Orbit(object):
                          in the Galactocentric frame
                          (in kpc and km/s) (default=[8.0,0.,0.,0.,220.,0.]; entries can be Quantity)
                          OR Orbit object that corresponds to the orbit
-                         of the observer
-                         Y is ignored and always assumed to be zero
+                         of the observer;
+                         Note that when Y is non-zero, the coordinate system is 
+                         rotated around z such that Y'=0
 
            ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
 
@@ -3881,8 +4057,9 @@ class Orbit(object):
                          in the Galactocentric frame
                          (in kpc and km/s) (default=[8.0,0.,0.,0.,220.,0.]; entries can be Quantity)
                          OR Orbit object that corresponds to the orbit
-                         of the observer
-                         Y is ignored and always assumed to be zero
+                         of the observer;
+                         Note that when Y is non-zero, the coordinate system is 
+                         rotated around z such that Y'=0
 
            ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
 
@@ -3930,8 +4107,9 @@ class Orbit(object):
                          in the Galactocentric frame
                          (in kpc and km/s) (default=[8.0,0.,0.,0.,220.,0.]; entries can be Quantity)
                          OR Orbit object that corresponds to the orbit
-                         of the observer
-                         Y is ignored and always assumed to be zero
+                         of the observer;
+                         Note that when Y is non-zero, the coordinate system is 
+                         rotated around z such that Y'=0
 
            ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
 
@@ -3979,8 +4157,9 @@ class Orbit(object):
            obs=[X,Y,Z] - (optional) position and velocity of observer 
                          (in kpc and km/s) (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
-                         of the observer
-                         Y is ignored and always assumed to be zero
+                         of the observer;
+                         Note that when Y is non-zero, the coordinate system is 
+                         rotated around z such that Y'=0
 
            ro= distance in kpc corresponding to R=1. (default=Object-wide default)         
 
@@ -4019,8 +4198,9 @@ class Orbit(object):
            obs=[X,Y,Z] - (optional) position and velocity of observer 
                          (in kpc and km/s) (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
-                         of the observer
-                         Y is ignored and always assumed to be zero
+                         of the observer;
+                         Note that when Y is non-zero, the coordinate system is 
+                         rotated around z such that Y'=0
 
            ro= distance in kpc corresponding to R=1. (default=Object-wide default)         
 
@@ -4059,8 +4239,9 @@ class Orbit(object):
            obs=[X,Y,Z] - (optional) position and velocity of observer 
                          (in kpc and km/s) (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
-                         of the observer
-                         Y is ignored and always assumed to be zero
+                         of the observer;
+                         Note that when Y is non-zero, the coordinate system is 
+                         rotated around z such that Y'=0
 
            ro= distance in kpc corresponding to R=1. (default=Object-wide default)         
 
@@ -4099,8 +4280,9 @@ class Orbit(object):
            obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
                          (in kpc and km/s) (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
-                         of the observer
-                         Y is ignored and always assumed to be zero
+                         of the observer;
+                         Note that when Y is non-zero, the coordinate system is 
+                         rotated around z such that Y'=0
 
            ro= distance in kpc corresponding to R=1. (default=Object-wide default)         
 
@@ -4142,8 +4324,9 @@ class Orbit(object):
            obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
                          (in kpc and km/s) (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
-                         of the observer
-                         Y is ignored and always assumed to be zero
+                         of the observer;
+                         Note that when Y is non-zero, the coordinate system is 
+                         rotated around z such that Y'=0
 
            ro= distance in kpc corresponding to R=1. (default=Object-wide default)         
 
@@ -4185,8 +4368,9 @@ class Orbit(object):
            obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
                          (in kpc and km/s) (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
-                         of the observer
-                         Y is ignored and always assumed to be zero
+                         of the observer;
+                         Note that when Y is non-zero, the coordinate system is 
+                         rotated around z such that Y'=0
 
            ro= distance in kpc corresponding to R=1. (default=Object-wide default)         
 
@@ -4227,8 +4411,9 @@ class Orbit(object):
            obs=[X,Y,Z] - (optional) position of observer (in kpc) 
                          (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
-                         of the observer
-                         Y is ignored and always assumed to be zero
+                         of the observer;
+                         Note that when Y is non-zero, the coordinate system is 
+                         rotated around z such that Y'=0
 
            ro= distance in kpc corresponding to R=1. (default=Object-wide default)
 

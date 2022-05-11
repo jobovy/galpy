@@ -19,110 +19,125 @@ jobs:
       matrix:
         include:
           - os: windows-latest
-            python-version: 3.9
+            python-version: "3.10"
             TEST_FILES: tests/test_actionAngle.py
             REQUIRES_PYNBODY: false
             REQUIRES_ASTROPY: false
             REQUIRES_ASTROQUERY: false
+            REQUIRES_NUMBA: false
             REQUIRES_JAX: false
           - os: windows-latest
-            python-version: 3.9
+            python-version: "3.10"
             TEST_FILES: tests/test_sphericaldf.py
             REQUIRES_PYNBODY: false
             REQUIRES_ASTROPY: false
             REQUIRES_ASTROQUERY: false
+            REQUIRES_NUMBA: false
             REQUIRES_JAX: false
           - os: windows-latest
-            python-version: 3.9
+            python-version: "3.10"
             TEST_FILES: tests/test_conversion.py tests/test_galpypaper.py tests/test_import.py tests/test_interp_potential.py tests/test_kuzminkutuzov.py  tests/test_util.py
             REQUIRES_PYNBODY: false
             REQUIRES_ASTROPY: false
             REQUIRES_ASTROQUERY: false
+            REQUIRES_NUMBA: false
             REQUIRES_JAX: false
           - os: windows-latest
-            python-version: 3.9
+            python-version: "3.10"
             TEST_FILES: tests/test_SpiralArmsPotential.py tests/test_potential.py tests/test_scf.py
             REQUIRES_PYNBODY: false
             REQUIRES_ASTROPY: false
             REQUIRES_ASTROQUERY: false
+            REQUIRES_NUMBA: false
             REQUIRES_JAX: false
           - os: windows-latest
-            python-version: 3.9
+            python-version: "3.10"
             TEST_FILES: tests/test_quantity.py tests/test_coords.py
             REQUIRES_PYNBODY: false
             # needs to be separate for different config
             REQUIRES_ASTROPY: true
             REQUIRES_ASTROQUERY: false
+            REQUIRES_NUMBA: false
             REQUIRES_JAX: false
           - os: windows-latest
-            python-version: 3.9
+            python-version: "3.10"
             TEST_FILES: tests/test_orbit.py -k test_energy_jacobi_conservation
             REQUIRES_PYNBODY: false
             REQUIRES_ASTROPY: true
             REQUIRES_ASTROQUERY: true
+            REQUIRES_NUMBA: false
             REQUIRES_JAX: false
           - os: windows-latest
-            python-version: 3.9
+            python-version: "3.10"
             TEST_FILES: tests/test_orbit.py tests/test_orbits.py -k 'not test_energy_jacobi_conservation'
             REQUIRES_PYNBODY: false
             REQUIRES_ASTROPY: true
             REQUIRES_ASTROQUERY: true
+            REQUIRES_NUMBA: false
             REQUIRES_JAX: false
           - os: windows-latest
-            python-version: 3.9
+            python-version: "3.10"
             TEST_FILES: tests/test_evolveddiskdf.py
             REQUIRES_PYNBODY: false
             REQUIRES_ASTROPY: false
             REQUIRES_ASTROQUERY: false
+            REQUIRES_NUMBA: false
             REQUIRES_JAX: false
           - os: windows-latest
-            python-version: 3.9
+            python-version: "3.10"
             TEST_FILES: tests/test_jeans.py tests/test_dynamfric.py
             REQUIRES_PYNBODY: false
             REQUIRES_ASTROPY: false
             REQUIRES_ASTROQUERY: false
+            REQUIRES_NUMBA: false
             REQUIRES_JAX: false
           - os: windows-latest
-            python-version: 3.9
-            TEST_FILES: tests/test_qdf.py tests/test_pv2qdf.py tests/test_streamgapdf_impulse.py
+            python-version: "3.10"
+            TEST_FILES: tests/test_qdf.py tests/test_pv2qdf.py tests/test_streamgapdf_impulse.py tests/test_noninertial.py
             REQUIRES_PYNBODY: false
             REQUIRES_ASTROPY: false
             REQUIRES_ASTROQUERY: false
+            REQUIRES_NUMBA: false
             REQUIRES_JAX: false
           - os: windows-latest
-            python-version: 3.9
+            python-version: "3.10"
             TEST_FILES: tests/test_streamgapdf.py
             REQUIRES_PYNBODY: false
             REQUIRES_ASTROPY: false
             REQUIRES_ASTROQUERY: false
+            REQUIRES_NUMBA: false
             REQUIRES_JAX: false
           - os: windows-latest
-            python-version: 3.9
+            python-version: "3.10"
             TEST_FILES: tests/test_diskdf.py
             REQUIRES_PYNBODY: false
             REQUIRES_ASTROPY: false
             REQUIRES_ASTROQUERY: false
+            REQUIRES_NUMBA: false
             REQUIRES_JAX: false
           - os: windows-latest
-            python-version: 3.9
-            TEST_FILES: tests/test_streamdf.py
+            python-version: "3.10"
+            TEST_FILES: tests/test_streamdf.py tests/test_streamspraydf.py
             REQUIRES_PYNBODY: false
             REQUIRES_ASTROPY: false
             REQUIRES_ASTROQUERY: false
+            REQUIRES_NUMBA: false
             REQUIRES_JAX: false    
           - os: windows-latest
-            python-version: "3.10"
+            python-version: 3.9
             TEST_FILES: tests/test_orbit.py -k test_energy_jacobi_conservation
             REQUIRES_PYNBODY: false
             REQUIRES_ASTROPY: true
             REQUIRES_ASTROQUERY: true
+            REQUIRES_NUMBA: false
             REQUIRES_JAX: false
           - os: windows-latest
-            python-version: "3.10"
+            python-version: 3.9
             TEST_FILES: tests/test_orbit.py tests/test_orbits.py -k 'not test_energy_jacobi_conservation'
             REQUIRES_PYNBODY: false
             REQUIRES_ASTROPY: true
             REQUIRES_ASTROQUERY: true
+            REQUIRES_NUMBA: false
             REQUIRES_JAX: false            
     steps:
     - uses: actions/checkout@v2
@@ -131,11 +146,11 @@ jobs:
     - uses: actions/cache@v2
       with:
         path: ~/conda_pkgs_dir
-        key: ${{ runner.os }}-pip-${{ matrix.python-version }}-${{ hashFiles('.github/workflows/build_windows.yml') }}-${{ hashFiles('.github/conda-build-environment-windows-latest.yml') }}-${{ matrix.REQUIRES_PYNBODY }}-${{ matrix.REQUIRES_ASTROPY }}-${{ matrix.REQUIRES_ASTROQUERY }}-${{ matrix.REQUIRES_JAX }}
+        key: ${{ runner.os }}-pip-${{ matrix.python-version }}-${{ hashFiles('.github/workflows/build_windows.yml') }}-${{ hashFiles('.github/conda-build-environment-windows-latest.yml') }}-${{ matrix.REQUIRES_PYNBODY }}-${{ matrix.REQUIRES_ASTROPY }}-${{ matrix.REQUIRES_ASTROQUERY }}-${{ matrix.REQUIRES_NUMBA }}-${{ matrix.REQUIRES_JAX }}
     - uses: actions/cache@v2
       with:
         path: ~\AppData\Local\pip\Cache
-        key: ${{ runner.os }}-pip-${{ matrix.python-version }}-${{ hashFiles('.github/workflows/build_windows.yml') }}-${{ matrix.REQUIRES_PYNBODY }}-${{ matrix.REQUIRES_ASTROPY }}-${{ matrix.REQUIRES_ASTROQUERY }}-${{ matrix.REQUIRES_JAX }}
+        key: ${{ runner.os }}-pip-${{ matrix.python-version }}-${{ hashFiles('.github/workflows/build_windows.yml') }}-${{ matrix.REQUIRES_PYNBODY }}-${{ matrix.REQUIRES_ASTROPY }}-${{ matrix.REQUIRES_ASTROQUERY }}-${{ matrix.REQUIRES_NUMBA }}-${{ matrix.REQUIRES_JAX }}
     - uses: conda-incubator/setup-miniconda@v2
       with:
          activate-environment: galpywheels
@@ -150,25 +165,28 @@ jobs:
         echo "LIBPATH=$CONDA_PREFIX\\Library\\lib" >> $GITHUB_ENV
     - name: Install Python dependencies
       run: |
-         pip install --upgrade --upgrade-strategy eager numpy scipy matplotlib numexpr setuptools cython pytest
+         pip install --upgrade --upgrade-strategy eager numpy scipy matplotlib numexpr setuptools cython pytest tqdm
     - name: Install pynbody
       if: ${{ matrix.REQUIRES_PYNBODY }}
       run: |
          pip install --upgrade --upgrade-strategy eager h5py pandas pytz
          pip install --upgrade --upgrade-strategy eager wheel
-         pip install git+git://github.com/pynbody/pynbody.git@cfbefac64bfad3b8d042e669ff2b36bad25813ce#egg=pynbody
+         pip install git+https://github.com/pynbody/pynbody.git@cfbefac64bfad3b8d042e669ff2b36bad25813ce#egg=pynbody
     - name: Install astropy
-      if: ${{ matrix.REQUIRES_ASTROPY && matrix.python-version != 3.10 }}
+      if: ${{ matrix.REQUIRES_ASTROPY && matrix.python-version != 4.0 }}
       run: |
          pip install astropy pyerfa
-    - name: Install astropy (Python 3.10)
-      if: ${{ matrix.REQUIRES_ASTROPY && matrix.python-version == 3.10 }}
+    - name: Install astropy (Python 4.0; doesn't exist of course, placeholder for new python v)
+      if: ${{ matrix.REQUIRES_ASTROPY && matrix.python-version == 4.0 }}
       run: |
          pip install pyerfa
          pip install --extra-index-url=https://pkgs.dev.azure.com/astropy-project/astropy/_packaging/nightly/pypi/simple/ --pre astropy
     - name: Install astroquery
       if: ${{ matrix.REQUIRES_ASTROQUERY }}
       run: pip install astroquery
+    - name: Install numba
+      if: ${{ matrix.REQUIRES_NUMBA }}
+      run: pip install numba
     - name: Install JAX
       if: ${{ matrix.REQUIRES_JAX }}
       run: pip install jax jaxlib

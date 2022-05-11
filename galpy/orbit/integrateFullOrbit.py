@@ -8,11 +8,16 @@ from .. import potential
 from ..util import galpyWarning
 from ..potential.Potential import _evaluateRforces, _evaluatezforces,\
     _evaluatephiforces
-from .integratePlanarOrbit import _parse_integrator, _parse_tol
+from .integratePlanarOrbit import (_parse_integrator, _parse_tol,
+                                   _parse_scf_pot, _prep_tfuncs,
+                                   _TQDM_LOADED)
 from ..util.multi import parallel_map
 from ..util.leung_dop853 import dop853
 from ..util import symplecticode
 from ..util import _load_extension_libs
+
+if _TQDM_LOADED:
+    import tqdm
 
 _lib, _ext_loaded= _load_extension_libs.load_libgalpy()
 
@@ -21,9 +26,18 @@ def _parse_pot(pot,potforactions=False,potfortorus=False):
     #Figure out what's in pot
     if not isinstance(pot,list):
         pot= [pot]
+    if (potforactions or potfortorus) \
+        and ( (len(pot) == 1 and isinstance(pot[0],potential.NullPotential)) 
+             or numpy.all([isinstance(p,potential.NullPotential) for p in pot]) ):
+        raise NotImplementedError("Evaluating actions using the C backend is not supported for NullPotential instances")
+    # Remove NullPotentials from list of Potentials containing other potentials
+    purged_pot= [p for p in pot if not isinstance(p,potential.NullPotential)]
+    if len(purged_pot) > 0:
+        pot= purged_pot
     #Initialize everything
     pot_type= []
     pot_args= []
+    pot_tfuncs= []
     npot= len(pot)
     for p in pot:
         if isinstance(p,potential.LogarithmicHaloPotential):
@@ -156,9 +170,10 @@ def _parse_pot(pot,potforactions=False,potfortorus=False):
                              for ii in range(p._glorder)])
         elif isinstance(p,potential.SCFPotential):
             # Type 24, see stand-alone parser below
-            pt,pa= _parse_scf_pot(p)
+            pt,pa,ptf= _parse_scf_pot(p)
             pot_type.append(pt)
             pot_args.extend(pa)
+            pot_tfuncs.extend(ptf)
         elif isinstance(p,potential.SoftenedNeedleBarPotential):
             pot_type.append(25)
             pot_args.extend([p._amp,p._a,p._b,p._c2,p._pa,p._omegab])
@@ -167,9 +182,10 @@ def _parse_pot(pot,potforactions=False,potfortorus=False):
             # Need to pull this apart into: (a) SCF part, (b) constituent
             # [Sigma_i,h_i] parts
             # (a) SCF, multiply in any add'l amp
-            pt,pa= _parse_scf_pot(p._scf,extra_amp=p._amp)
+            pt,pa,ptf= _parse_scf_pot(p._scf,extra_amp=p._amp)
             pot_type.append(pt)
             pot_args.extend(pa)
+            pot_tfuncs.extend(ptf)
             # (b) constituent [Sigma_i,h_i] parts
             for Sigma,hz in zip(p._Sigma_dict,p._hz_dict):
                 npot+= 1
@@ -216,53 +232,92 @@ def _parse_pot(pot,potforactions=False,potfortorus=False):
                              p._Phi0,p._Phimax])
         # 37: TriaxialGaussianPotential, done with others above
         # 38: PowerTriaxialPotential, done with others above
+        elif isinstance(p,potential.NonInertialFrameForce):
+            pot_type.append(39)
+            pot_args.append(p._amp)
+            pot_args.extend([0.,0.,0.,0.,0.,0.,0.,0.,0.,0.]) # for caching
+            pot_args.extend([p._rot_acc,p._lin_acc,p._omegaz_only,
+                             p._const_freq,p._Omega_as_func])
+            if p._Omega_as_func:
+                pot_args.extend([0.,0.,0.,0.,0.,0.,0.])
+            else:
+                if p._omegaz_only:
+                    pot_args.extend([0.,0.,p._Omega])
+                else:
+                    pot_args.extend(p._Omega)
+                pot_args.append(p._Omega2)
+                if not p._const_freq and p._omegaz_only:
+                    pot_args.extend([0.,0.,p._Omegadot])
+                elif not p._const_freq:
+                    pot_args.extend(p._Omegadot)
+                else:
+                    pot_args.extend([0.,0.,0.])
+            if p._lin_acc:
+                pot_tfuncs.extend([p._a0[0],p._a0[1],p._a0[2]])
+                if p._rot_acc:
+                    pot_tfuncs.extend([p._x0[0],p._x0[1],p._x0[2]])
+                    pot_tfuncs.extend([p._v0[0],p._v0[1],p._v0[2]])
+            if p._Omega_as_func:
+                if p._omegaz_only:
+                    pot_tfuncs.extend([p._Omega,p._Omegadot])
+                else:
+                    pot_tfuncs.extend([p._Omega[0],p._Omega[1],p._Omega[2],
+                                       p._Omegadot[0],p._Omegadot[1],p._Omegadot[2]])
+        elif isinstance(p,potential.NullPotential):
+            pot_type.append(40)
+            # No arguments, zero forces
         ############################## WRAPPERS ###############################
         elif isinstance(p,potential.DehnenSmoothWrapperPotential):
             pot_type.append(-1)
-            wrap_npot, wrap_pot_type, wrap_pot_args= \
+            wrap_npot, wrap_pot_type, wrap_pot_args, wrap_pot_tfuncs= \
                 _parse_pot(p._pot,
                            potforactions=potforactions,potfortorus=potfortorus)
             pot_args.append(wrap_npot)
             pot_type.extend(wrap_pot_type)
             pot_args.extend(wrap_pot_args)
+            pot_tfuncs.extend(wrap_pot_tfuncs)
             pot_args.extend([p._amp,p._tform,p._tsteady,int(p._grow)])
         elif isinstance(p,potential.SolidBodyRotationWrapperPotential):
             pot_type.append(-2)
             # Not sure how to easily avoid this duplication
-            wrap_npot, wrap_pot_type, wrap_pot_args= \
+            wrap_npot, wrap_pot_type, wrap_pot_args, wrap_pot_tfuncs= \
                 _parse_pot(p._pot,
                            potforactions=potforactions,potfortorus=potfortorus)
             pot_args.append(wrap_npot)
             pot_type.extend(wrap_pot_type)
             pot_args.extend(wrap_pot_args)
+            pot_tfuncs.extend(wrap_pot_tfuncs)
             pot_args.extend([p._amp,p._omega,p._pa])
         elif isinstance(p,potential.CorotatingRotationWrapperPotential):
             pot_type.append(-4)
             # Not sure how to easily avoid this duplication
-            wrap_npot, wrap_pot_type, wrap_pot_args= \
+            wrap_npot, wrap_pot_type, wrap_pot_args, wrap_pot_tfuncs= \
                 _parse_pot(p._pot,
                            potforactions=potforactions,potfortorus=potfortorus)
             pot_args.append(wrap_npot)
             pot_type.extend(wrap_pot_type)
             pot_args.extend(wrap_pot_args)
+            pot_tfuncs.extend(wrap_pot_tfuncs)
             pot_args.extend([p._amp,p._vpo,p._beta,p._pa,p._to])
         elif isinstance(p,potential.GaussianAmplitudeWrapperPotential):
             pot_type.append(-5)
-            wrap_npot, wrap_pot_type, wrap_pot_args= \
+            wrap_npot, wrap_pot_type, wrap_pot_args, wrap_pot_tfuncs= \
                 _parse_pot(p._pot,
                            potforactions=potforactions,potfortorus=potfortorus)
             pot_args.append(wrap_npot)
             pot_type.extend(wrap_pot_type)
             pot_args.extend(wrap_pot_args)
+            pot_tfuncs.extend(wrap_pot_tfuncs)
             pot_args.extend([p._amp,p._to,p._sigma2])
         elif isinstance(p,potential.MovingObjectPotential):
             pot_type.append(-6)
-            wrap_npot, wrap_pot_type, wrap_pot_args= \
+            wrap_npot, wrap_pot_type, wrap_pot_args, wrap_pot_tfuncs= \
                 _parse_pot(p._pot,
                            potforactions=potforactions,potfortorus=potfortorus)
             pot_args.append(wrap_npot)
             pot_type.extend(wrap_pot_type)
             pot_args.extend(wrap_pot_args)
+            pot_tfuncs.extend(wrap_pot_tfuncs)
             pot_args.extend([len(p._orb.t)])
             pot_args.extend(p._orb.t)
             pot_args.extend(p._orb.x(p._orb.t,use_physical=False))
@@ -272,12 +327,13 @@ def _parse_pot(pot,potforactions=False,potfortorus=False):
             pot_args.extend([p._orb.t[0],p._orb.t[-1]]) #t_0, t_f
         elif isinstance(p,potential.ChandrasekharDynamicalFrictionForce):
             pot_type.append(-7)
-            wrap_npot, wrap_pot_type, wrap_pot_args= \
+            wrap_npot, wrap_pot_type, wrap_pot_args, wrap_pot_tfuncs= \
                 _parse_pot(p._dens_pot,
                            potforactions=potforactions,potfortorus=potfortorus)
             pot_args.append(wrap_npot)
             pot_type.extend(wrap_pot_type)
             pot_args.extend(wrap_pot_args)
+            pot_tfuncs.extend(wrap_pot_tfuncs)
             pot_args.extend([len(p._sigmar_rs_4interp)])
             pot_args.extend(p._sigmar_rs_4interp)
             pot_args.extend(p._sigmars_4interp)
@@ -291,31 +347,37 @@ def _parse_pot(pot,potforactions=False,potfortorus=False):
         elif isinstance(p,potential.RotateAndTiltWrapperPotential):
             pot_type.append(-8)
             # Not sure how to easily avoid this duplication
-            wrap_npot, wrap_pot_type, wrap_pot_args= \
+            wrap_npot, wrap_pot_type, wrap_pot_args, wrap_pot_tfuncs= \
                 _parse_pot(p._pot,
                            potforactions=potforactions,potfortorus=potfortorus)
             pot_args.append(wrap_npot)
             pot_type.extend(wrap_pot_type)
             pot_args.extend(wrap_pot_args)
+            pot_tfuncs.extend(wrap_pot_tfuncs)
             pot_args.extend([p._amp])
             pot_args.extend([0.,0.,0.,0.,0.,0.]) # for caching
             pot_args.extend(list(p._rot.flatten()))
+            pot_args.append(not p._norot)
+            pot_args.append(not p._offset is None)
+            pot_args.extend(list(p._offset) if not p._offset is None else [0.,0.,0.])  
+        elif isinstance(p,potential.TimeDependentAmplitudeWrapperPotential):
+            pot_type.append(-9)
+            # Not sure how to easily avoid this duplication
+            wrap_npot, wrap_pot_type, wrap_pot_args, wrap_pot_tfuncs= \
+                _parse_pot(p._pot,
+                           potforactions=potforactions,potfortorus=potfortorus)
+            pot_args.append(wrap_npot)
+            pot_type.extend(wrap_pot_type)
+            pot_args.extend(wrap_pot_args)
+            pot_tfuncs.extend(wrap_pot_tfuncs)
+            pot_args.append(p._amp)
+            pot_tfuncs.append(p._A)
     pot_type= numpy.array(pot_type,dtype=numpy.int32,order='C')
     pot_args= numpy.array(pot_args,dtype=numpy.float64,order='C')
-    return (npot,pot_type,pot_args)
+    return (npot,pot_type,pot_args,pot_tfuncs)
 
-def _parse_scf_pot(p,extra_amp=1.):
-    # Stand-alone parser for SCF, bc re-used
-    isNonAxi= p.isNonAxi
-    pot_args= [p._a, isNonAxi]
-    pot_args.extend(p._Acos.shape)
-    pot_args.extend(extra_amp*p._amp*p._Acos.flatten(order='C'))
-    if isNonAxi:
-        pot_args.extend(extra_amp*p._amp*p._Asin.flatten(order='C'))
-    pot_args.extend([-1.,0,0,0,0,0,0])
-    return (24,pot_args)
-
-def integrateFullOrbit_c(pot,yo,t,int_method,rtol=None,atol=None,dt=None):
+def integrateFullOrbit_c(pot,yo,t,int_method,rtol=None,atol=None,
+                         progressbar=True,dt=None):
     """
     NAME:
        integrateFullOrbit_c
@@ -327,6 +389,7 @@ def integrateFullOrbit_c(pot,yo,t,int_method,rtol=None,atol=None,dt=None):
        t - set of times at which one wants the result
        int_method= 'leapfrog_c', 'rk4_c', 'rk6_c', 'symplec4_c'
        rtol, atol
+       progressbar= (True) if True, display a tqdm progress bar when integrating multiple orbits (requires tqdm to be installed!)
        dt= (None) force integrator to use this stepsize (default is to automatically determine one; only for C-based integrators)
     OUTPUT:
        (y,err)
@@ -337,13 +400,15 @@ def integrateFullOrbit_c(pot,yo,t,int_method,rtol=None,atol=None,dt=None):
     HISTORY:
        2011-11-13 - Written - Bovy (IAS)
        2018-12-21 - Adapted to allow multiple objects - Bovy (UofT)
+       2022-04-12 - Add progressbar - Bovy (UofT)
     """
     if len(yo.shape) == 1: single_obj= True
     else: single_obj= False
     yo= numpy.atleast_2d(yo)
     nobj= len(yo)
     rtol, atol= _parse_tol(rtol,atol)
-    npot, pot_type, pot_args= _parse_pot(pot)
+    npot, pot_type, pot_args, pot_tfuncs= _parse_pot(pot)
+    pot_tfuncs= _prep_tfuncs(pot_tfuncs)
     int_method_c= _parse_integrator(int_method)
     if dt is None:
         dt= -9999.99
@@ -351,6 +416,15 @@ def integrateFullOrbit_c(pot,yo,t,int_method,rtol=None,atol=None,dt=None):
     #Set up result array
     result= numpy.empty((nobj,len(t),6))
     err= numpy.zeros(nobj,dtype=numpy.int32)
+    
+    #Set up progressbar
+    progressbar*= _TQDM_LOADED
+    if nobj > 1 and progressbar:
+        pbar= tqdm.tqdm(total=nobj,leave=False)
+        pbar_func_ctype= ctypes.CFUNCTYPE(None)
+        pbar_c= pbar_func_ctype(pbar.update)
+    else: # pragma: no cover
+        pbar_c= None
 
     #Set up the C code
     ndarrayFlags= ('C_CONTIGUOUS','WRITEABLE')
@@ -362,12 +436,14 @@ def integrateFullOrbit_c(pot,yo,t,int_method,rtol=None,atol=None,dt=None):
                                ctypes.c_int,
                                ndpointer(dtype=numpy.int32,flags=ndarrayFlags),
                                ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
+                               ctypes.c_void_p,
                                ctypes.c_double,
                                ctypes.c_double,
                                ctypes.c_double,
                                ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
                                ndpointer(dtype=numpy.int32,flags=ndarrayFlags),
-                               ctypes.c_int]
+                               ctypes.c_int,
+                               ctypes.c_void_p]
 
     #Array requirements, first store old order
     f_cont= [yo.flags['F_CONTIGUOUS'],
@@ -385,12 +461,17 @@ def integrateFullOrbit_c(pot,yo,t,int_method,rtol=None,atol=None,dt=None):
                     ctypes.c_int(npot),
                     pot_type,
                     pot_args,
+                    pot_tfuncs,
                     ctypes.c_double(dt),
                     ctypes.c_double(rtol),
                     ctypes.c_double(atol),
                     result,
                     err,
-                    ctypes.c_int(int_method_c))
+                    ctypes.c_int(int_method_c),
+                    pbar_c)
+    
+    if nobj > 1 and progressbar:
+        pbar.close()
 
     if numpy.any(err == -10): #pragma: no cover
         raise KeyboardInterrupt("Orbit integration interrupted by CTRL-C (SIGINT)")
@@ -425,7 +506,8 @@ def integrateFullOrbit_dxdv_c(pot,yo,dyo,t,int_method,rtol=None,atol=None): #pra
        2011-11-13 - Written - Bovy (IAS)
     """
     rtol, atol= _parse_tol(rtol,atol)
-    npot, pot_type, pot_args= _parse_pot(pot)
+    npot, pot_type, pot_args, pot_tfuncs= _parse_pot(pot)
+    pot_tfuncs= _prep_tfuncs(pot_tfuncs)
     int_method_c= _parse_integrator(int_method)
     yo= numpy.concatenate((yo,dyo))
 
@@ -442,6 +524,7 @@ def integrateFullOrbit_dxdv_c(pot,yo,dyo,t,int_method,rtol=None,atol=None): #pra
                                ctypes.c_int,
                                ndpointer(dtype=numpy.int32,flags=ndarrayFlags),
                                ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
+                               ctypes.c_void_p,
                                ctypes.c_double,
                                ctypes.c_double,
                                ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
@@ -462,6 +545,7 @@ def integrateFullOrbit_dxdv_c(pot,yo,dyo,t,int_method,rtol=None,atol=None): #pra
                     ctypes.c_int(npot),
                     pot_type,
                     pot_args,
+                    pot_tfuncs,
                     ctypes.c_double(rtol),ctypes.c_double(atol),
                     result,
                     ctypes.byref(err),
@@ -476,8 +560,8 @@ def integrateFullOrbit_dxdv_c(pot,yo,dyo,t,int_method,rtol=None,atol=None): #pra
 
     return (result,err.value)
 
-def integrateFullOrbit(pot,yo,t,int_method,rtol=None,atol=None,numcores=1,
-                       dt=None):
+def integrateFullOrbit(pot,yo,t,int_method,rtol=None,atol=None,
+                       numcores=1,progressbar=True,dt=None):
     """
     NAME:
        integrateFullOrbit
@@ -490,6 +574,7 @@ def integrateFullOrbit(pot,yo,t,int_method,rtol=None,atol=None,numcores=1,
        int_method= 'leapfrog', 'odeint', or 'dop853'
        rtol, atol= tolerances (not always used...)
        numcores= (1) number of cores to use for multi-processing
+       progressbar= (True) if True, display a tqdm progress bar when integrating multiple orbits (requires tqdm to be installed!)
        dt= (None) force integrator to use this stepsize (default is to automatically determine one; only for C-based integrators)
     OUTPUT:
        (y,err)
@@ -500,6 +585,7 @@ def integrateFullOrbit(pot,yo,t,int_method,rtol=None,atol=None,numcores=1,
     HISTORY:
        2010-08-01 - Written - Bovy (NYU)
        2019-04-09 - Adapted to allow multiple objects and parallel mapping - Bovy (UofT)
+       2022-04-12 - Add progressbar - Bovy (UofT)
     """
     nophi= False
     if not int_method.lower() == 'dop853' and not int_method == 'odeint':
@@ -584,7 +670,8 @@ def integrateFullOrbit(pot,yo,t,int_method,rtol=None,atol=None,numcores=1,
     if len(yo) == 1: # Can't map a single value...
         out= numpy.atleast_3d(integrate_for_map(yo[0]).T).T
     else:
-        out= numpy.array((parallel_map(integrate_for_map,yo,numcores=numcores)))
+        out= numpy.array((parallel_map(integrate_for_map,yo,numcores=numcores,
+                                       progressbar=progressbar)))
     if nophi:
         out= out[:,:,:5]
     return out, numpy.zeros(len(yo))

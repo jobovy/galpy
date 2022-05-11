@@ -866,7 +866,7 @@ def potential_physical_input(method):
             else:
                 newargs= newargs+(args[ii],)
         args= newargs
-        # phi and t kwargs
+        # phi and t kwargs, also do R, z, and x in case these are given as kwargs
         if 'phi' in kwargs and _APY_LOADED \
                 and isinstance(kwargs['phi'],units.Quantity):
             kwargs['phi']= kwargs['phi'].to(units.rad).value
@@ -874,6 +874,15 @@ def potential_physical_input(method):
                 and isinstance(kwargs['t'],units.Quantity):
             kwargs['t']= kwargs['t'].to(units.Gyr).value\
                 /time_in_Gyr(vo,ro)
+        if 'R' in kwargs and _APY_LOADED \
+                and isinstance(kwargs['R'],units.Quantity):
+            kwargs['R']= kwargs['R'].to(units.kpc).value/ro
+        if 'z' in kwargs and _APY_LOADED \
+                and isinstance(kwargs['z'],units.Quantity):
+            kwargs['z']= kwargs['z'].to(units.kpc).value/ro
+        if 'x' in kwargs and _APY_LOADED \
+                and isinstance(kwargs['x'],units.Quantity):
+            kwargs['x']= kwargs['x'].to(units.kpc).value/ro
         # v kwarg for dissipative forces
         if 'v' in kwargs and _APY_LOADED \
                 and isinstance(kwargs['v'],units.Quantity):
@@ -888,9 +897,7 @@ def potential_physical_input(method):
                 kwargs['M']= kwargs['M'].to(units.pc*units.km**2/units.s**2)\
                     .value/mass_in_msol(vo,ro)/_G
         # kwargs that come up in quasiisothermaldf    
-        if 'z' in kwargs and _APY_LOADED \
-                and isinstance(kwargs['z'],units.Quantity):
-            kwargs['z']= kwargs['z'].to(units.kpc).value/ro
+        # z done above
         if 'dz' in kwargs and _APY_LOADED \
                 and isinstance(kwargs['dz'],units.Quantity):
             kwargs['dz']= kwargs['dz'].to(units.kpc).value/ro

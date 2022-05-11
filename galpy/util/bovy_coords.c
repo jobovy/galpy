@@ -29,6 +29,23 @@ void rect_to_cyl(double x, double y,double *R, double *phi){
   *phi = atan2 ( y , x );
 }
 /*
+NAME: cyl_to_rect_vec
+PURPOSE: convert 2D (vR,vT) to (vx,vy) [mainly used in the context of cylindrical coordinates, hence the name)
+INPUT:
+   double vR - cylindrical radial velocity
+   double vT - cylindrical rotational velocity
+   double phi - azimuth (rad)
+OUTPUT (as arguments):
+   double *vx - vx
+   double *vy - vy
+ */
+void cyl_to_rect_vec(double vR, double vT, double phi,double * vx, double * vy){
+  double cp= cos(phi);
+  double sp= sin(phi);
+  *vx= vR * cp - vT * sp;
+  *vy= vR * sp + vT * cp;
+}
+/*
 NAME: polar_to_rect_galpy
 PURPOSE: convert (R,vR,vT,phi) to (x,y,vx,vy)
 INPUT:

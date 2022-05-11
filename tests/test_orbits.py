@@ -2530,6 +2530,84 @@ def test_rguiding():
         os.rguiding(pot=MWPotential2014+potential.DehnenBarPotential())
     return None
 
+def test_rE():
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential2014
+    numpy.random.seed(1)
+    nrand= 10
+    Rs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)+1.
+    vRs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)
+    vTs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)+1.
+    zs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)
+    vzs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)
+    phis= 2.*numpy.pi*(2.*numpy.random.uniform(size=nrand)-1.)
+    os= Orbit(list(zip(Rs,vRs,vTs,zs,vzs,phis)))
+    list_os= [Orbit([R,vR,vT,z,vz,phi])
+              for R,vR,vT,z,vz,phi in zip(Rs,vRs,vTs,zs,vzs,phis)]
+    # First test that if potential is not given, error is raised
+    with pytest.raises(RuntimeError):
+        os.rE()
+    # With small number, calculation is direct
+    for ii in range(nrand):
+        assert numpy.all(numpy.fabs(os.rE(pot=MWPotential2014)[ii]/list_os[ii].rE(pot=MWPotential2014)-1.) < 10.**-10.), 'Evaluating Orbits rE analytically does not agree with Orbit'
+    # With large number, calculation is interpolated
+    nrand= 1002
+    Rs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)+1.
+    vRs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)
+    vTs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)+1.
+    zs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)
+    vzs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)
+    phis= 2.*numpy.pi*(2.*numpy.random.uniform(size=nrand)-1.)
+    os= Orbit(list(zip(Rs,vRs,vTs,zs,vzs,phis)))
+    list_os= [Orbit([R,vR,vT,z,vz,phi])
+              for R,vR,vT,z,vz,phi in zip(Rs,vRs,vTs,zs,vzs,phis)]
+    rgs= os.rE(pot=MWPotential2014)
+    for ii in range(nrand):
+        assert numpy.all(numpy.fabs(rgs[ii]/list_os[ii].rE(pot=MWPotential2014)-1.) < 10.**-10.), 'Evaluating Orbits rE analytically does not agree with Orbit'
+    # rE for non-axi potential fails
+    with pytest.raises(RuntimeError,match="Potential given to rE is non-axisymmetric, but rE requires an axisymmetric potential") as exc_info:
+        os.rE(pot=MWPotential2014+potential.DehnenBarPotential())
+    return None
+
+def test_LcE():
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential2014
+    numpy.random.seed(1)
+    nrand= 10
+    Rs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)+1.
+    vRs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)
+    vTs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)+1.
+    zs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)
+    vzs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)
+    phis= 2.*numpy.pi*(2.*numpy.random.uniform(size=nrand)-1.)
+    os= Orbit(list(zip(Rs,vRs,vTs,zs,vzs,phis)))
+    list_os= [Orbit([R,vR,vT,z,vz,phi])
+              for R,vR,vT,z,vz,phi in zip(Rs,vRs,vTs,zs,vzs,phis)]
+    # First test that if potential is not given, error is raised
+    with pytest.raises(RuntimeError):
+        os.LcE()
+    # With small number, calculation is direct
+    for ii in range(nrand):
+        assert numpy.all(numpy.fabs(os.LcE(pot=MWPotential2014)[ii]/list_os[ii].LcE(pot=MWPotential2014)-1.) < 10.**-10.), 'Evaluating Orbits LcE analytically does not agree with Orbit'
+    # With large number, calculation is interpolated
+    nrand= 1002
+    Rs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)+1.
+    vRs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)
+    vTs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)+1.
+    zs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)
+    vzs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)
+    phis= 2.*numpy.pi*(2.*numpy.random.uniform(size=nrand)-1.)
+    os= Orbit(list(zip(Rs,vRs,vTs,zs,vzs,phis)))
+    list_os= [Orbit([R,vR,vT,z,vz,phi])
+              for R,vR,vT,z,vz,phi in zip(Rs,vRs,vTs,zs,vzs,phis)]
+    rgs= os.LcE(pot=MWPotential2014)
+    for ii in range(nrand):
+        assert numpy.all(numpy.fabs(rgs[ii]/list_os[ii].LcE(pot=MWPotential2014)-1.) < 10.**-10.), 'Evaluating Orbits LcE analytically does not agree with Orbit'
+    # LcE for non-axi potential fails
+    with pytest.raises(RuntimeError,match="Potential given to LcE is non-axisymmetric, but LcE requires an axisymmetric potential") as exc_info:
+        os.LcE(pot=MWPotential2014+potential.DehnenBarPotential())
+    return None
+
 # Test that the actions, frequencies/periods, and angles calculated 
 # analytically by Orbits agrees with that calculated analytically using Orbit
 def test_actionsFreqsAngles_againstorbit_3d():
@@ -3051,11 +3129,11 @@ def test_from_name_values():
         "RA of Vega/Lacaille 8760  does not match SIMBAD value"
     assert numpy.allclose(o.dec(), [38.78368896,-38.86736390]), \
         "DEC of Vega/Lacaille 8760  does not match SIMBAD value"
-    assert numpy.allclose(o.dist(), [1/130.23,1/251.8295]), \
+    assert numpy.allclose(o.dist(), [1/130.23,1/251.9124]), \
         "Parallax of Vega/Lacaille 8760  does not match SIMBAD value"
-    assert numpy.allclose(o.pmra(), [200.94,-3258.553]), \
+    assert numpy.allclose(o.pmra(), [200.94,-3258.996]), \
         "PMRA of Vega/Lacaille 8760  does not match SIMBAD value"
-    assert numpy.allclose(o.pmdec(), [286.23,-1145.396]), \
+    assert numpy.allclose(o.pmdec(), [286.23,-1145.862]), \
         "PMDec of Vega/Lacaille 8760  does not match SIMBAD value"
     assert numpy.allclose(o.vlos(), [-20.60,20.56]), \
         "radial velocity of Vega/Lacaille 8760  does not match SIMBAD value"
@@ -3065,11 +3143,11 @@ def test_from_name_values():
         "RA of Vega/Lacaille 8760  does not match SIMBAD value"
     assert numpy.allclose(o.dec(), [38.78368896,-38.86736390]), \
         "DEC of Vega/Lacaille 8760  does not match SIMBAD value"
-    assert numpy.allclose(o.dist(), [1/130.23,1/251.8295]), \
+    assert numpy.allclose(o.dist(), [1/130.23,1/251.9124]), \
         "Parallax of Vega/Lacaille 8760  does not match SIMBAD value"
-    assert numpy.allclose(o.pmra(), [200.94,-3258.553]), \
+    assert numpy.allclose(o.pmra(), [200.94,-3258.996]), \
         "PMRA of Vega/Lacaille 8760  does not match SIMBAD value"
-    assert numpy.allclose(o.pmdec(), [286.23,-1145.396]), \
+    assert numpy.allclose(o.pmdec(), [286.23,-1145.862]), \
         "PMDec of Vega/Lacaille 8760  does not match SIMBAD value"
     assert numpy.allclose(o.vlos(), [-20.60,20.56]), \
         "radial velocity of Vega/Lacaille 8760  does not match SIMBAD value"
