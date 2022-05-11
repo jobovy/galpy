@@ -5,7 +5,6 @@ on:
   push:
     branches:    
       - main
-      - delocate-macos-wheels
     paths-ignore:
       - 'doc/**'
   pull_request:
