@@ -1352,7 +1352,7 @@ class AcceleratingPotentialWrapperPotential(parentWrapperPotential):
          Fxyz= self._force_xyz(R,z,phi=phi,t=t)
          return numpy.cos(phi)*Fxyz[0]+numpy.sin(phi)*Fxyz[1]
 
-    def _phiforce(self,R,z,phi=0.,t=0.):
+    def _phitorque(self,R,z,phi=0.,t=0.):
         Fxyz= self._force_xyz(R,z,phi=phi,t=t)
         return R*(-numpy.sin(phi)*Fxyz[0] + numpy.cos(phi)*Fxyz[1])
 
@@ -1487,7 +1487,7 @@ class RotatingPotentialWrapperPotential(parentWrapperPotential):
          Fxyz= self._force_xyz(R,z,phi=phi,t=t)
          return numpy.cos(phi)*Fxyz[0]+numpy.sin(phi)*Fxyz[1]
 
-    def _phiforce(self,R,z,phi=0.,t=0.):
+    def _phitorque(self,R,z,phi=0.,t=0.):
         Fxyz= self._force_xyz(R,z,phi=phi,t=t)
         return R*(-numpy.sin(phi)*Fxyz[0] + numpy.cos(phi)*Fxyz[1])
 

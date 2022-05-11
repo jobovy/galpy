@@ -141,10 +141,10 @@ class CosmphiDiskPotential(planarPotential):
             return -self._p*self._mphio/self._m*R**(self._p-1.)\
                 *numpy.cos(self._m*phi-self._mphib)
         
-    def _phiforce(self,R,phi=0.,t=0.):
+    def _phitorque(self,R,phi=0.,t=0.):
         """
         NAME:
-           _phiforce
+           _phitorque
         PURPOSE:
            evaluate the azimuthal force for this potential
         INPUT:

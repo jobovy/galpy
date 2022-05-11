@@ -120,10 +120,10 @@ class SoftenedNeedleBarPotential(Potential):
         self._compute_xyzforces(R,z,phi,t)
         return numpy.cos(phi)*self._cached_Fx+numpy.sin(phi)*self._cached_Fy
 
-    def _phiforce(self,R,z,phi=0.,t=0.):
+    def _phitorque(self,R,z,phi=0.,t=0.):
         """
         NAME:
-           _phiforce
+           _phitorque
         PURPOSE:
            evaluate the azimuthal force for this potential
         INPUT:

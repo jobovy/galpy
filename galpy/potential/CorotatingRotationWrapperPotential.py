@@ -76,7 +76,7 @@ class CorotatingRotationWrapperPotential(parentWrapperPotential):
             -self._vpo*args[0]**(self._beta-1.)*(kwargs.get('t',0.)-self._to)\
             -self._pa
         return self._wrap_pot_func('_Rforce')(self._pot,*args,**kwargs)\
-            -self._wrap_pot_func('_phiforce')(self._pot,*args,**kwargs)\
+            -self._wrap_pot_func('_phitorque')(self._pot,*args,**kwargs)\
             *(self._vpo*(self._beta-1.)*args[0]**(self._beta-2.)
               *(kwargs.get('t',0.)-self._to))
 
@@ -91,7 +91,7 @@ class CorotatingRotationWrapperPotential(parentWrapperPotential):
             *phiRderiv\
             +self._wrap_pot_func('_phi2deriv')(self._pot,*args,**kwargs)\
             *phiRderiv**2.\
-            +self._wrap_pot_func('_phiforce')(self._pot,*args,**kwargs)\
+            +self._wrap_pot_func('_phitorque')(self._pot,*args,**kwargs)\
             *(self._vpo*(self._beta-1.)*(self._beta-2.)
               *args[0]**(self._beta-3.)*(kwargs.get('t',0.)-self._to))
             

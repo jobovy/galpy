@@ -336,10 +336,10 @@ This technique was introduced by `Kuijken & Dubinski (1995) <http://adsabs.harva
             out-= 4.*numpy.pi*a*(ds(r)*H(z)*z/r+s(r)*dH(z))
         return out
         
-    def _phiforce(self,R,z,phi=0.,t=0.):
+    def _phitorque(self,R,z,phi=0.,t=0.):
         """
         NAME:
-           _phiforce
+           _phitorque
         PURPOSE:
            evaluate the azimuthal force for this potential
         INPUT:

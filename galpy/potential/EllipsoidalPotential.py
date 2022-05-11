@@ -201,10 +201,10 @@ class EllipsoidalPotential(Potential):
         return numpy.cos(phi)*Fx+numpy.sin(phi)*Fy
 
     @check_potential_inputs_not_arrays
-    def _phiforce(self,R,z,phi=0.,t=0.):
+    def _phitorque(self,R,z,phi=0.,t=0.):
         """
         NAME:
-           _phiforce
+           _phitorque
         PURPOSE:
            evaluate the azimuthal force for this potential
         INPUT:

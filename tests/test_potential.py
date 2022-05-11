@@ -5035,7 +5035,7 @@ class testMWPotential(Potential):
                                   dR=dR,dphi=dphi)
     def _Rforce(self,R,z,phi=0.,t=0.):
         return evaluateRforces(self._potlist,R,z,phi=phi,t=t)
-    def _phiforce(self,R,z,phi=0.,t=0.):
+    def _phitorque(self,R,z,phi=0.,t=0.):
         return evaluatephiforces(self._potlist,R,z,phi=phi,t=t)
     def _zforce(self,R,z,phi=0.,t=0.):
         return evaluatezforces(self._potlist,R,z,phi=phi,t=t)
@@ -5077,7 +5077,7 @@ class testplanarMWPotential(planarPotential):
         return evaluateplanarPotentials(self._potlist,R,phi=phi,t=t)
     def _Rforce(self,R,phi=0.,t=0.):
         return evaluateplanarRforces(self._potlist,R,phi=phi,t=t)
-    def _phiforce(self,R,phi=0.,t=0.):
+    def _phitorque(self,R,phi=0.,t=0.):
         return evaluateplanarphiforces(self._potlist,R,phi=phi,t=t)
     def _R2deriv(self,R,phi=0.,t=0.):
         return evaluateplanarR2derivs(self._potlist,R,phi=phi,t=t)

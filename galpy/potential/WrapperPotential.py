@@ -93,7 +93,7 @@ class WrapperPotential(Potential):
     def __getattr__(self,attribute):
         if attribute == '_evaluate' \
                 or attribute == '_Rforce' or attribute == '_zforce' \
-                or attribute == '_phiforce' \
+                or attribute == '_phitorque' \
                 or attribute == '_R2deriv' or attribute == '_z2deriv' \
                 or attribute == '_Rzderiv' or attribute == '_phi2deriv' \
                 or attribute == '_Rphideriv' or attribute == '_dens':
@@ -115,7 +115,7 @@ class WrapperPotential(Potential):
         elif attribute == '_zforce':
             return lambda p,R,Z,phi=0.,t=0.: \
                 _evaluatezforces(p,R,Z,phi=phi,t=t)
-        elif attribute == '_phiforce':
+        elif attribute == '_phitorque':
             return lambda p,R,Z,phi=0.,t=0.: \
                 _evaluatephiforces(p,R,Z,phi=phi,t=t)
         elif attribute == '_R2deriv':
@@ -186,7 +186,7 @@ class planarWrapperPotential(planarPotential):
     def __getattr__(self,attribute):
         if attribute == '_evaluate' \
                 or attribute == '_Rforce' \
-                or attribute == '_phiforce' \
+                or attribute == '_phitorque' \
                 or attribute == '_R2deriv' \
                 or attribute == '_phi2deriv' \
                 or attribute == '_Rphideriv':
@@ -202,7 +202,7 @@ class planarWrapperPotential(planarPotential):
         elif attribute == '_Rforce':
             return lambda p,R,phi=0.,t=0.: \
                 _evaluateplanarRforces(p,R,phi=phi,t=t)
-        elif attribute == '_phiforce':
+        elif attribute == '_phitorque':
             return lambda p,R,phi=0.,t=0.: \
                 _evaluateplanarphiforces(p,R,phi=phi,t=t)
         elif attribute == '_R2deriv':

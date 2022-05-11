@@ -150,10 +150,10 @@ class EllipticalDiskPotential(planarPotential):
         return -smooth*self._p*self._twophio/2.*R**(self._p-1.)\
             *numpy.cos(2.*(phi-self._phib))
         
-    def _phiforce(self,R,phi=0.,t=0.):
+    def _phitorque(self,R,phi=0.,t=0.):
         """
         NAME:
-           _phiforce
+           _phitorque
         PURPOSE:
            evaluate the azimuthal force for this potential
         INPUT:

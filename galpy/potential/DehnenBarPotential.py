@@ -238,10 +238,10 @@ class DehnenBarPotential(Potential):
                                                       self._barphi))\
                         *(self._rb/r)**3.*R/r**4.*(3.*R**2.-2.*z**2.)
 
-    def _phiforce(self,R,z,phi=0.,t=0.):
+    def _phitorque(self,R,z,phi=0.,t=0.):
         """
         NAME:
-           _phiforce
+           _phitorque
         PURPOSE:
            evaluate the azimuthal force for this potential
         INPUT:

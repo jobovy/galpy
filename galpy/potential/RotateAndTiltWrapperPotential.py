@@ -176,10 +176,10 @@ A final `offset` option allows one to apply a static offset in Cartesian coordin
         return numpy.cos(phi)*Fxyz[0]+numpy.sin(phi)*Fxyz[1]
 
     @check_potential_inputs_not_arrays
-    def _phiforce(self,R,z,phi=0.,t=0.):
+    def _phitorque(self,R,z,phi=0.,t=0.):
         """
         NAME:
-           _phiforce
+           _phitorque
         PURPOSE:
            evaluate the azimuthal force (torque) for this potential
         INPUT:

@@ -697,15 +697,15 @@ class Potential(Force):
            2010-07-10 - Written - Bovy (NYU)
 
         """
-        return self._phiforce_nodecorator(R,z,phi=phi,t=t)
+        return self._phitorque_nodecorator(R,z,phi=phi,t=t)
 
-    def _phiforce_nodecorator(self,R,z,phi=0.,t=0.):
+    def _phitorque_nodecorator(self,R,z,phi=0.,t=0.):
         # Separate, so it can be used during orbit integration
         try:
-            return self._amp*self._phiforce(R,z,phi=phi,t=t)
+            return self._amp*self._phitorque(R,z,phi=phi,t=t)
         except AttributeError: #pragma: no cover
             if self.isNonAxi:
-                raise PotentialError("'_phiforce' function not implemented for this non-axisymmetric potential")
+                raise PotentialError("'_phitorque' function not implemented for this non-axisymmetric potential")
             return 0.
 
     @potential_physical_input
@@ -2192,14 +2192,14 @@ def _evaluatephiforces(Pot,R,z,phi=None,t=0.,v=None):
         out= 0.
         for pot in Pot:
             if isinstance(pot,DissipativeForce):
-                out+= pot._phiforce_nodecorator(R,z,phi=phi,t=t,v=v)
+                out+= pot._phitorque_nodecorator(R,z,phi=phi,t=t,v=v)
             else:
-                out+= pot._phiforce_nodecorator(R,z,phi=phi,t=t)
+                out+= pot._phitorque_nodecorator(R,z,phi=phi,t=t)
         return out
     elif isinstance(Pot,Potential):
-        return Pot._phiforce_nodecorator(R,z,phi=phi,t=t)
+        return Pot._phitorque_nodecorator(R,z,phi=phi,t=t)
     elif isinstance(Pot,DissipativeForce):
-        return Pot._phiforce_nodecorator(R,z,phi=phi,t=t,v=v)
+        return Pot._phitorque_nodecorator(R,z,phi=phi,t=t,v=v)
     else: #pragma: no cover 
         raise PotentialError("Input to 'evaluatephiforces' is neither a Potential-instance, DissipativeForce-instance or a list of such instances")
 

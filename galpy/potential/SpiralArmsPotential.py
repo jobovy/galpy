@@ -213,10 +213,10 @@ class SpiralArmsPotential(Potential):
                * numpy.sum(self._Cs / Ds * numpy.cos(self._ns * self._gamma(R, phi - self._omega * t))
                         * numpy.tanh(zK_B) / numpy.cosh(zK_B)**Bs,axis=0)
 
-    def _phiforce(self, R, z, phi=0, t=0):
+    def _phitorque(self, R, z, phi=0, t=0):
         """
         NAME:
-            _phiforce
+            _phitorque
         PURPOSE:
             Evaluate the azimuthal force in cylindrical coordinates. (-dPhi/dphi)
         INPUT:

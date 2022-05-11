@@ -297,14 +297,14 @@ class planarPotential(object):
            2010-07-13 - Written - Bovy (NYU)
 
         """
-        return self._phiforce_nodecorator(R,phi=phi,t=t)
+        return self._phitorque_nodecorator(R,phi=phi,t=t)
        
-    def _phiforce_nodecorator(self,R,phi=0.,t=0.):
+    def _phitorque_nodecorator(self,R,phi=0.,t=0.):
         # Separate, so it can be used during orbit integration
         try:
-            return self._amp*self._phiforce(R,phi=phi,t=t)
+            return self._amp*self._phitorque(R,phi=phi,t=t)
         except AttributeError: #pragma: no cover
-            raise PotentialError("'_phiforce' function not implemented for this potential")
+            raise PotentialError("'_phitorque' function not implemented for this potential")
 
     @potential_physical_input
     @physical_conversion('forcederivative',pop=True)
@@ -433,7 +433,7 @@ class planarAxiPotential(planarPotential):
         self.isNonAxi= False
         return None
     
-    def _phiforce(self,R,phi=0.,t=0.):
+    def _phitorque(self,R,phi=0.,t=0.):
         return 0.
 
     def _phi2deriv(self,R,phi=0.,t=0.): #pragma: no cover
@@ -880,10 +880,10 @@ class planarPotentialFromFullPotential(planarPotential):
         """
         return self._Pot.Rforce(R,0.,phi=phi,t=t,use_physical=False)
 
-    def _phiforce(self,R,phi=0.,t=0.):
+    def _phitorque(self,R,phi=0.,t=0.):
         """
         NAME:
-           _phiforce
+           _phitorque
         PURPOSE:
            evaluate the azimuthal force
         INPUT:
@@ -1168,15 +1168,15 @@ def _evaluateplanarphiforces(Pot,R,phi=None,t=0.):
         sum= 0.
         for pot in Pot:
             if nonAxi:
-                sum+= pot._phiforce_nodecorator(R,phi=phi,t=t)
+                sum+= pot._phitorque_nodecorator(R,phi=phi,t=t)
             else:
-                sum+= pot._phiforce_nodecorator(R,t=t)
+                sum+= pot._phitorque_nodecorator(R,t=t)
         return sum
     elif isinstance(Pot,planarPotential):
         if nonAxi:
-            return Pot._phiforce_nodecorator(R,phi=phi,t=t)
+            return Pot._phitorque_nodecorator(R,phi=phi,t=t)
         else:
-            return Pot._phiforce_nodecorator(R,t=t)
+            return Pot._phitorque_nodecorator(R,t=t)
     else: #pragma: no cover 
         raise PotentialError("Input to 'evaluatePotentials' is neither a Potential-instance or a list of such instances")
 

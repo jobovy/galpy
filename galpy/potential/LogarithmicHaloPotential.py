@@ -140,10 +140,10 @@ class LogarithmicHaloPotential(Potential):
         else:
             return -z/self._q**2./(R**2.+(z/self._q)**2.+self._core2)
 
-    def _phiforce(self,R,z,phi=0.,t=0.):
+    def _phitorque(self,R,z,phi=0.,t=0.):
         """
         NAME:
-           _phiforce
+           _phitorque
         PURPOSE:
            evaluate the azimuthal force for this potential
         INPUT:

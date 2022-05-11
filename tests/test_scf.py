@@ -464,7 +464,7 @@ def test_zforceMatches_hernquist():
     
     
 ## Tests whether scf phiforce matches with Hernquist phiforce
-def test_phiforceMatches_hernquist():
+def test_phitorqueMatches_hernquist():
     h = potential.HernquistPotential()
     Acos, Asin = potential.scf_compute_coeffs_spherical(sphericalHernquistDensity,1)
     scf = SCFPotential(amp=1, Acos=Acos, Asin=Asin)
@@ -489,7 +489,7 @@ def test_zforceMatches_nfw():
     compareFunctions(nfw.zforce,scf.zforce, assertmsg, eps=1e-3)
     
 ## Tests whether scf phiforce matches with NFW Rforce
-def test_phiforceMatches_nfw():
+def test_phitorqueMatches_nfw():
     nfw = potential.NFWPotential()
     Acos, Asin = potential.scf_compute_coeffs_spherical(rho_NFW,10)
     scf = SCFPotential(amp=1, Acos=Acos, Asin=Asin)

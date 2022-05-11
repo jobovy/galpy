@@ -246,10 +246,10 @@ class NonInertialFrameForce(DissipativeForce):
         force= self._force(R,z,phi,t,v)
         return numpy.cos(phi)*force[0]+numpy.sin(phi)*force[1]
 
-    def _phiforce(self,R,z,phi=0.,t=0.,v=None):
+    def _phitorque(self,R,z,phi=0.,t=0.,v=None):
         """
         NAME:
-           _phiforce
+           _phitorque
         PURPOSE:
            evaluate the azimuthal force for this Force
         INPUT:

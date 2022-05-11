@@ -184,7 +184,7 @@ class TestSpiralArmsPotential(unittest.TestCase):
         assert_allclose(pot.zforce(R, z, pi),     -deriv(lambda x: pot(R, x, pi),     z, dx=dx), rtol=rtol)
         assert_allclose(pot.zforce(R, z, 3*pi/2), -deriv(lambda x: pot(R, x, 3*pi/2), z, dx=dx), rtol=rtol)
 
-    def test_phiforce(self):
+    def test_phitorque(self):
         """Test phiforce against a numerical derivative -d(Potential) / d(phi)."""
         dx = 1e-8
         rtol = 1e-5  # relative tolerance

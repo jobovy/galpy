@@ -140,10 +140,10 @@ class MovingObjectPotential(Potential):
         #Evaluate and return z force
         return -evaluatezforces(self._pot,Rdist,zd,t=t,use_physical=False)
 
-    def _phiforce(self,R,z,phi=0.,t=0.):
+    def _phitorque(self,R,z,phi=0.,t=0.):
         """
         NAME:
-           _phiforce
+           _phitorque
         PURPOSE:
            evaluate the azimuthal force for this potential
         INPUT:
