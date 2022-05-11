@@ -169,7 +169,7 @@ double SpiralArmsPotentialzforce(double R, double z, double phi, double t,
     return -amp * H * exp(-(R - r_ref) / Rs) * sum;
 }
 
-double SpiralArmsPotentialphiforce(double R, double z, double phi, double t,
+double SpiralArmsPotentialphitorque(double R, double z, double phi, double t,
                                    struct potentialArg *potentialArgs) {
 
     // Get args
@@ -188,7 +188,7 @@ double SpiralArmsPotentialphiforce(double R, double z, double phi, double t,
 
     double g = gam(R, phi-omega*t, N, phi_ref, r_ref, tan_alpha);
 
-    // Return the phiforce (-dPhi / dphi)
+    // Return the phitorque (-dPhi / dphi)
     double sum = 0;
     int n;
 
@@ -643,7 +643,7 @@ double SpiralArmsPotentialPlanarRforce(double R, double phi, double t,
     return -amp * H * exp(-(R - r_ref) / Rs) * sum;
 }
 
-double SpiralArmsPotentialPlanarphiforce(double R, double phi, double t,
+double SpiralArmsPotentialPlanarphitorque(double R, double phi, double t,
                                          struct potentialArg *potentialArgs) {
 
     // Get args
@@ -662,7 +662,7 @@ double SpiralArmsPotentialPlanarphiforce(double R, double phi, double t,
 
     double g = gam(R, phi-omega*t, N, phi_ref, r_ref, tan_alpha);
 
-    // Return the planar phiforce (-dPhi / dphi)
+    // Return the planar phitorque (-dPhi / dphi)
     double sum = 0;
     int n;
 

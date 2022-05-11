@@ -111,7 +111,7 @@ def testAxi_phiIsNone():
     assert scf.dens(R,z,None) == scf.dens(R,z,phi), "The axisymmetric density does not work at phi=None"
     assert scf.Rforce(R,z,None) == scf.Rforce(R,z,phi), "The axisymmetric Rforce does not work at phi=None"
     assert scf.zforce(R,z,None) == scf.zforce(R,z,phi), "The axisymmetric zforce does not work at phi=None"
-    assert scf.phiforce(R,z,None) == scf.phiforce(R,z,phi), "The axisymmetric phiforce does not work at phi=None"
+    assert scf.phitorque(R,z,None) == scf.phitorque(R,z,phi), "The axisymmetric phitorque does not work at phi=None"
          
         
         
@@ -463,13 +463,13 @@ def test_zforceMatches_hernquist():
     compareFunctions(h.zforce,scf.zforce, assertmsg)
     
     
-## Tests whether scf phiforce matches with Hernquist phiforce
+## Tests whether scf phitorque matches with Hernquist phitorque
 def test_phitorqueMatches_hernquist():
     h = potential.HernquistPotential()
     Acos, Asin = potential.scf_compute_coeffs_spherical(sphericalHernquistDensity,1)
     scf = SCFPotential(amp=1, Acos=Acos, Asin=Asin)
     assertmsg = "Comparing the azimuth force of Hernquist Potential with SCF fails at R={0}, Z={1}, phi={2}"
-    compareFunctions(h.phiforce,scf.phiforce, assertmsg)
+    compareFunctions(h.phitorque,scf.phitorque, assertmsg)
     
     
 ## Tests whether scf Rforce matches with NFW Rforce
@@ -488,13 +488,13 @@ def test_zforceMatches_nfw():
     assertmsg = "Comparing the vertical force of NFW Potential with SCF fails at R={0}, Z={1}, phi={2}"
     compareFunctions(nfw.zforce,scf.zforce, assertmsg, eps=1e-3)
     
-## Tests whether scf phiforce matches with NFW Rforce
+## Tests whether scf phitorque matches with NFW Rforce
 def test_phitorqueMatches_nfw():
     nfw = potential.NFWPotential()
     Acos, Asin = potential.scf_compute_coeffs_spherical(rho_NFW,10)
     scf = SCFPotential(amp=1, Acos=Acos, Asin=Asin)
     assertmsg = "Comparing the azimuth force of NFW Potential with SCF fails at R={0}, Z={1}, phi={2}"
-    compareFunctions(nfw.phiforce,scf.phiforce, assertmsg)
+    compareFunctions(nfw.phitorque,scf.phitorque, assertmsg)
 
 # Test that "FutureWarning: Using a non-tuple sequence for multidimensional indexing is deprecated ..." warning doesn't happen (#461)
 def test_FutureWarning_multid_indexing():
@@ -527,7 +527,7 @@ def ArrayTest(scf, params):
     density = scf.dens(*params).flatten()
     Rforce = scf.Rforce(*params).flatten()
     zforce = scf.zforce(*params).flatten()
-    phiforce = scf.phiforce(*params).flatten()
+    phitorque = scf.phitorque(*params).flatten()
     
     R, z, phi = params
     shape = numpy.array(R*z*phi).shape
@@ -542,8 +542,8 @@ def ArrayTest(scf, params):
     message.format("Rforce", R[i], z[i], phi[i], Rforce[i], scf.Rforce(R[i], z[i], phi[i]))
         assert compareFunctions(scf.zforce, zforce, i), \
     message.format("zforce", R[i], z[i], phi[i], zforce[i], scf.zforce(R[i], z[i], phi[i]))
-        assert compareFunctions(scf.phiforce, phiforce, i), \
-    message.format("phiforce", R[i], z[i], phi[i], phiforce[i], scf.phiforce(R[i], z[i], phi[i]))
+        assert compareFunctions(scf.phitorque, phitorque, i), \
+    message.format("phitorque", R[i], z[i], phi[i], phitorque[i], scf.phitorque(R[i], z[i], phi[i]))
         
 
 

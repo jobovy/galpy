@@ -145,14 +145,14 @@ class MovingObjectPotential(Potential):
         NAME:
            _phitorque
         PURPOSE:
-           evaluate the azimuthal force for this potential
+           evaluate the azimuthal torque for this potential
         INPUT:
            R - Galactocentric cylindrical radius
            z - vertical height
            phi - azimuth
            t - time
         OUTPUT:
-           the azimuthal force
+           the azimuthal torque
         HISTORY:
            2011-04-10 - Written - Bovy (NYU)
            2018-10-18 - Updated for general object potential - James Lane (UofT)

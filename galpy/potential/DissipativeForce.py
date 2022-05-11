@@ -114,15 +114,15 @@ class DissipativeForce(Force):
 
     @potential_physical_input
     @physical_conversion('force',pop=True)
-    def phiforce(self,R,z,phi=0.,t=0.,v=None):
+    def phitorque(self,R,z,phi=0.,t=0.,v=None):
         """
         NAME:
 
-           phiforce
+           phitorque
 
         PURPOSE:
 
-           evaluate the azimuthal force F_phi  (R,z,phi,t,v)
+           evaluate the azimuthal torque F_phi  (R,z,phi,t,v)
 
         INPUT:
 

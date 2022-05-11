@@ -341,18 +341,18 @@ This technique was introduced by `Kuijken & Dubinski (1995) <http://adsabs.harva
         NAME:
            _phitorque
         PURPOSE:
-           evaluate the azimuthal force for this potential
+           evaluate the azimuthal torque for this potential
         INPUT:
            R - Galactocentric cylindrical radius
            z - vertical height
            phi - azimuth
            t - time
         OUTPUT:
-           the azimuthal force
+           the azimuthal torque
         HISTORY:
            2016-12-26 - Written - Bovy (UofT)
         """
-        return self._scf.phiforce(R,z,phi=phi,use_physical=False)
+        return self._scf.phitorque(R,z,phi=phi,use_physical=False)
 
     def _R2deriv(self,R,z,phi=0.,t=0.):
         """

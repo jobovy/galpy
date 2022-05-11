@@ -13,7 +13,7 @@ void RotateAndTiltWrapperPotentialxyzforces(double R, double z, double phi,
     bool offsetSet= (bool) *(args+17);
     double * offset= args+18;
     double x, y;
-    double Rforce, phiforce;
+    double Rforce, phitorque;
     cyl_to_rect(R, phi, &x, &y);
     //caching
     *(args + 1)= x;
@@ -31,13 +31,13 @@ void RotateAndTiltWrapperPotentialxyzforces(double R, double z, double phi,
     rect_to_cyl(x,y,&R,&phi);
     Rforce= calcRforce(R, z, phi, t, potentialArgs->nwrapped,
 		       potentialArgs->wrappedPotentialArg);
-    phiforce= calcPhiforce(R, z, phi, t, potentialArgs->nwrapped,
+    phitorque= calcphitorque(R, z, phi, t, potentialArgs->nwrapped,
 			   potentialArgs->wrappedPotentialArg);
     *Fz= calczforce(R, z, phi, t, potentialArgs->nwrapped,
 		    potentialArgs->wrappedPotentialArg);
     //back to rectangular
-    *Fx= cos( phi )*Rforce - sin( phi )*phiforce / R;
-    *Fy= sin( phi )*Rforce + cos( phi )*phiforce / R;
+    *Fx= cos( phi )*Rforce - sin( phi )*phitorque / R;
+    *Fy= sin( phi )*Rforce + cos( phi )*phitorque / R;
     //rotate back
     if (rotSet) {
       rotate_force(Fx,Fy,Fz,rot);
@@ -69,7 +69,7 @@ double RotateAndTiltWrapperPotentialRforce(double R, double z, double phi,
                                            potentialArgs);
    return *args * ( cos ( phi ) * Fx + sin ( phi ) * Fy );
 }
-double RotateAndTiltWrapperPotentialphiforce(double R, double z, double phi,
+double RotateAndTiltWrapperPotentialphitorque(double R, double z, double phi,
         double t,
         struct potentialArg * potentialArgs){
     double * args = potentialArgs->args;

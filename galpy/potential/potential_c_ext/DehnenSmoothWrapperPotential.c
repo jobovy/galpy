@@ -35,13 +35,13 @@ double DehnenSmoothWrapperPotentialRforce(double R,double z,double phi,
     * calcRforce(R,z,phi,t,
 		 potentialArgs->nwrapped,potentialArgs->wrappedPotentialArg);
 }
-double DehnenSmoothWrapperPotentialphiforce(double R,double z,double phi,
+double DehnenSmoothWrapperPotentialphitorque(double R,double z,double phi,
 					    double t,
 					    struct potentialArg * potentialArgs){
   double * args= potentialArgs->args;
-  //Calculate phiforce
+  //Calculate phitorque
   return *args * dehnenSmooth(t,*(args+1),*(args+2),(bool) *(args+3))	\
-    * calcPhiforce(R,z,phi,t,
+    * calcphitorque(R,z,phi,t,
 		   potentialArgs->nwrapped,potentialArgs->wrappedPotentialArg);
 }
 double DehnenSmoothWrapperPotentialzforce(double R,double z,double phi,
@@ -62,12 +62,12 @@ double DehnenSmoothWrapperPotentialPlanarRforce(double R,double phi,double t,
 		       potentialArgs->nwrapped,
 		       potentialArgs->wrappedPotentialArg);
 }
-double DehnenSmoothWrapperPotentialPlanarphiforce(double R,double phi,double t,
+double DehnenSmoothWrapperPotentialPlanarphitorque(double R,double phi,double t,
 						  struct potentialArg * potentialArgs){
   double * args= potentialArgs->args;
-  //Calculate phiforce
+  //Calculate phitorque
   return *args * dehnenSmooth(t,*(args+1),*(args+2),(bool) *(args+3))	\
-    * calcPlanarphiforce(R,phi,t,
+    * calcPlanarphitorque(R,phi,t,
 			 potentialArgs->nwrapped,
 			 potentialArgs->wrappedPotentialArg);
 }

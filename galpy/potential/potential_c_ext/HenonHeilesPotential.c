@@ -6,10 +6,10 @@ double HenonHeilesPotentialRforce(double R,double phi,double t,
   double * args= potentialArgs->args;
   return - *args * R * (1. + R * sin( 3. * phi ) );
 }
-double HenonHeilesPotentialphiforce(double R,double phi,double t,
+double HenonHeilesPotentialphitorque(double R,double phi,double t,
 				    struct potentialArg * potentialArgs){
   double * args= potentialArgs->args;
-  //Calculate phiforce
+  //Calculate phitorque
   return - *args * pow(R,3.) * cos( 3. * phi );
 }
 double HenonHeilesPotentialR2deriv(double R,double phi,double t,

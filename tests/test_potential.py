@@ -236,7 +236,7 @@ def test_forceAsDeriv_potential():
                 else:
                     assert (tRforce-mpotderivR)**2./tRforce**2. < 10.**ttol, \
                         "Calculation of the Radial force as the Radial derivative of the %s potential fails at (R,Z) = (%.3f,%.3f); diff = %e, rel. diff = %e" % (p,Rs[ii],Zs[jj],numpy.fabs(tRforce-mpotderivR), numpy.fabs((tRforce-mpotderivR)/tRforce))
-        #Azimuthal force, if it exists
+        #azimuthal torque, if it exists
         if isinstance(tp,potential.linearPotential): continue
         for ii in range(len(Rs)):
             for jj in range(len(phis)):
@@ -245,22 +245,22 @@ def test_forceAsDeriv_potential():
                 dphi= newphi-phis[jj] #Representable number
                 if isinstance(tp,potential.planarPotential):
                     mpotderivphi= (tp(Rs[ii],phi=phis[jj])-tp(Rs[ii],phi=phis[jj]+dphi))/dphi
-                    tphiforce= potential.evaluateplanarphiforces(tp,Rs[ii],
+                    tphitorque= potential.evaluateplanarphitorques(tp,Rs[ii],
                                                                  phi=phis[jj])
                 else:
                     mpotderivphi= (tp(Rs[ii],0.05,phi=phis[jj])-tp(Rs[ii],0.05,phi=phis[jj]+dphi))/dphi
-                    tphiforce= potential.evaluatephiforces(tp,Rs[ii],0.05,
+                    tphitorque= potential.evaluatephitorques(tp,Rs[ii],0.05,
                                                            phi=phis[jj])
                 try:
-                    if tphiforce**2. < 10.**ttol:
+                    if tphitorque**2. < 10.**ttol:
                         assert(mpotderivphi**2. < 10.**ttol)
                     else:
-                        assert((tphiforce-mpotderivphi)**2./tphiforce**2. < 10.**ttol)
+                        assert((tphitorque-mpotderivphi)**2./tphitorque**2. < 10.**ttol)
                 except AssertionError:
                     if isinstance(tp,potential.planarPotential):
-                        raise AssertionError("Calculation of the azimuthal force as the azimuthal derivative of the %s potential fails at (R,phi) = (%.3f,%.3f); diff = %e, rel. diff = %e" % (p,Rs[ii],phis[jj],numpy.fabs(tphiforce-mpotderivphi),numpy.fabs((tphiforce-mpotderivphi)/tphiforce)))
+                        raise AssertionError("Calculation of the azimuthal torque as the azimuthal derivative of the %s potential fails at (R,phi) = (%.3f,%.3f); diff = %e, rel. diff = %e" % (p,Rs[ii],phis[jj],numpy.fabs(tphitorque-mpotderivphi),numpy.fabs((tphitorque-mpotderivphi)/tphitorque)))
                     else:
-                        raise AssertionError("Calculation of the azimuthal force as the azimuthal derivative of the %s potential fails at (R,Z,phi) = (%.3f,0.05,%.3f); diff = %e, rel. diff = %e" % (p,Rs[ii],phis[jj],numpy.fabs(tphiforce-mpotderivphi),numpy.fabs((tphiforce-mpotderivphi)/tphiforce)))
+                        raise AssertionError("Calculation of the azimuthal torque as the azimuthal derivative of the %s potential fails at (R,Z,phi) = (%.3f,0.05,%.3f); diff = %e, rel. diff = %e" % (p,Rs[ii],phis[jj],numpy.fabs(tphitorque-mpotderivphi),numpy.fabs((tphitorque-mpotderivphi)/tphitorque)))
         #Vertical force, if it exists
         if isinstance(tp,potential.planarPotential) \
                 or isinstance(tp,potential.linearPotential): continue
@@ -424,21 +424,21 @@ def test_2ndDeriv_potential():
                     newphi= phis[jj]+dphi
                     dphi= newphi-phis[jj] #Representable number
                     if isinstance(tp,potential.planarPotential):
-                        mphiforcederivphi= (tp.phiforce(Rs[ii],phi=phis[jj])-tp.phiforce(Rs[ii],phi=phis[jj]+dphi))/dphi
+                        mphitorquederivphi= (tp.phitorque(Rs[ii],phi=phis[jj])-tp.phitorque(Rs[ii],phi=phis[jj]+dphi))/dphi
                         tphi2deriv= tp.phi2deriv(Rs[ii],phi=phis[jj])
                     else:
-                        mphiforcederivphi= (tp.phiforce(Rs[ii],0.05,phi=phis[jj])-tp.phiforce(Rs[ii],0.05,phi=phis[jj]+dphi))/dphi
+                        mphitorquederivphi= (tp.phitorque(Rs[ii],0.05,phi=phis[jj])-tp.phitorque(Rs[ii],0.05,phi=phis[jj]+dphi))/dphi
                         tphi2deriv= potential.evaluatephi2derivs(tp,Rs[ii],0.05,phi=phis[jj])
                     try:
                         if tphi2deriv**2. < 10.**ttol:
-                            assert(mphiforcederivphi**2. < 10.**ttol)
+                            assert(mphitorquederivphi**2. < 10.**ttol)
                         else:
-                            assert((tphi2deriv-mphiforcederivphi)**2./tphi2deriv**2. < 10.**ttol)
+                            assert((tphi2deriv-mphitorquederivphi)**2./tphi2deriv**2. < 10.**ttol)
                     except AssertionError:
                         if isinstance(tp,potential.planarPotential):
-                            raise AssertionError("Calculation of the second azimuthal derivative of the potential as the azimuthal derivative of the %s azimuthal force fails at (R,phi) = (%.3f,%.3f); diff = %e, rel. diff = %e" % (p,Rs[ii],phis[jj],numpy.fabs(tphi2deriv-mphiforcederivphi), numpy.fabs((tphi2deriv-mphiforcederivphi)/tphi2deriv)))
+                            raise AssertionError("Calculation of the second azimuthal derivative of the potential as the azimuthal derivative of the %s azimuthal torque fails at (R,phi) = (%.3f,%.3f); diff = %e, rel. diff = %e" % (p,Rs[ii],phis[jj],numpy.fabs(tphi2deriv-mphitorquederivphi), numpy.fabs((tphi2deriv-mphitorquederivphi)/tphi2deriv)))
                         else:
-                            raise AssertionError("Calculation of the second azimuthal derivative of the potential as the azimuthal derivative of the %s azimuthal force fails at (R,Z,phi) = (%.3f,0.05,%.3f); diff = %e, rel. diff = %e" % (p,Rs[ii],phis[jj],numpy.fabs(tphi2deriv-mphiforcederivphi), numpy.fabs((tphi2deriv-mphiforcederivphi)/tphi2deriv)))
+                            raise AssertionError("Calculation of the second azimuthal derivative of the potential as the azimuthal derivative of the %s azimuthal torque fails at (R,Z,phi) = (%.3f,0.05,%.3f); diff = %e, rel. diff = %e" % (p,Rs[ii],phis[jj],numpy.fabs(tphi2deriv-mphitorquederivphi), numpy.fabs((tphi2deriv-mphitorquederivphi)/tphi2deriv)))
         #mixed radial azimuthal: Isn't this the same as what's below??
         if not isinstance(tp,potential.linearPotential) \
                 and hasattr(tp,'_Rphideriv'):
@@ -462,7 +462,7 @@ def test_2ndDeriv_potential():
                         if isinstance(tp,potential.planarPotential):
                             raise AssertionError("Calculation of the mixed radial, azimuthal derivative of the potential as the azimuthal derivative of the %s Radial force fails at (R,phi) = (%.3f,%.3f); diff = %e, rel. diff = %e" % (p,Rs[ii],phis[jj],numpy.fabs(tRphideriv-mRforcederivphi), numpy.fabs((tRphideriv-mRforcederivphi)/tRphideriv)))
                         else:
-                            raise AssertionError("Calculation of the mixed radial, azimuthal derivative of the potential as the azimuthal derivative of the %s azimuthal force fails at (R,Z,phi) = (%.3f,0.05,%.3f); diff = %e, rel. diff = %e" % (p,Rs[ii],phis[jj],numpy.fabs(tRphideriv-mRforcederivphi), numpy.fabs((tRphideriv-mRforcederivphi)/tRphideriv)))
+                            raise AssertionError("Calculation of the mixed radial, azimuthal derivative of the potential as the azimuthal derivative of the %s azimuthal torque fails at (R,Z,phi) = (%.3f,0.05,%.3f); diff = %e, rel. diff = %e" % (p,Rs[ii],phis[jj],numpy.fabs(tRphideriv-mRforcederivphi), numpy.fabs((tRphideriv-mRforcederivphi)/tRphideriv)))
         #2nd vertical
         if not isinstance(tp,potential.planarPotential) \
                 and not isinstance(tp,potential.linearPotential) \
@@ -931,17 +931,17 @@ def test_evaluateAndDerivs_potential():
         #1st phi
         if isinstance(tp,potential.planarPotential):
             tevaldphi= tp(1.2,phi=0.1,dphi=1)
-            tphiforce= tp.phiforce(1.2,phi=0.1)
+            tphitorque= tp.phitorque(1.2,phi=0.1)
         else:
             tevaldphi= tp(1.2,0.1,phi=0.1,dphi=1)
-            tphiforce= tp.phiforce(1.2,0.1,phi=0.1)
+            tphitorque= tp.phitorque(1.2,0.1,phi=0.1)
         if not tevaldphi is None:
             if tevaldphi**2. < 10.**ttol:
-                assert tphiforce**2. < 10.**ttol, \
-                    "Calculation of azimuthal derivative through _evaluate and phiforce inconsistent for the %s potential" % p
+                assert tphitorque**2. < 10.**ttol, \
+                    "Calculation of azimuthal derivative through _evaluate and phitorque inconsistent for the %s potential" % p
             else:
-                assert (tevaldphi+tphiforce)**2./tevaldphi**2. < 10.**ttol, \
-                    "Calculation of azimuthal derivative through _evaluate and phiforce inconsistent for the %s potential" % p
+                assert (tevaldphi+tphitorque)**2./tevaldphi**2. < 10.**ttol, \
+                    "Calculation of azimuthal derivative through _evaluate and phitorque inconsistent for the %s potential" % p
         #2nd phi
         hasphi2= True
         try:
@@ -1184,9 +1184,9 @@ def test_potential_array_input():
         tpevals= numpy.array([tp.zforce(r,z,phi=phi,t=t) for (r,z,phi,t) in zip(rs,zs,phis,ts)])
         assert numpy.all(numpy.fabs(tp.zforce(rs,zs,phi=phis,t=ts)-tpevals) < 10.**-10.), \
         '{} zforce evaluation does not work as expected for array inputs'.format(p)
-        #phiforce
-        tpevals= numpy.array([tp.phiforce(r,z,phi=phi,t=t) for (r,z,phi,t) in zip(rs,zs,phis,ts)])
-        assert numpy.all(numpy.fabs(tp.phiforce(rs,zs,phi=phis,t=ts)-tpevals) < 10.**-10.), \
+        #phitorque
+        tpevals= numpy.array([tp.phitorque(r,z,phi=phi,t=t) for (r,z,phi,t) in zip(rs,zs,phis,ts)])
+        assert numpy.all(numpy.fabs(tp.phitorque(rs,zs,phi=phis,t=ts)-tpevals) < 10.**-10.), \
             '{} zforce evaluation does not work as expected for array inputs'.format(p)
         #R2deriv
         if hasattr(tp,'_R2deriv'):
@@ -2306,11 +2306,11 @@ def test_planar_nonaxi():
     else:
         raise AssertionError('evaluateplanarRforces for non-axisymmetric potential w/o specifying phi did not raise PotentialError')
     try:
-        potential.evaluateplanarphiforces(dp,1.)
+        potential.evaluateplanarphitorques(dp,1.)
     except potential.PotentialError:
         pass
     else:
-        raise AssertionError('evaluateplanarphiforces for non-axisymmetric potential w/o specifying phi did not raise PotentialError')
+        raise AssertionError('evaluateplanarphitorques for non-axisymmetric potential w/o specifying phi did not raise PotentialError')
     try:
         potential.evaluateplanarR2derivs(dp,1.)
     except potential.PotentialError:
@@ -2402,18 +2402,18 @@ def test_DehnenBar_special():
     dpevals= numpy.array([dp.zforce(rs[0],z,phi) for (z,phi) in zip(zs,phis)])
     assert numpy.all(numpy.fabs(dp.zforce(rs[0],zs,phis)-dpevals) < 10.**-10.), \
         'DehnenBarPotential zforce does not work as expected for array inputs'
-    #phiforce
-    dpevals= numpy.array([dp.phiforce(r,z,phi) for (r,z,phi) in zip(rs,zs,phis)])
-    assert numpy.all(numpy.fabs(dp.phiforce(rs,zs,phis)-dpevals) < 10.**-10.), \
+    #phitorque
+    dpevals= numpy.array([dp.phitorque(r,z,phi) for (r,z,phi) in zip(rs,zs,phis)])
+    assert numpy.all(numpy.fabs(dp.phitorque(rs,zs,phis)-dpevals) < 10.**-10.), \
         'DehnenBarPotential zforce evaluation does not work as expected for array inputs'
     # R array, z not an array
-    dpevals= numpy.array([dp.phiforce(r,zs[0],phi) for (r,phi) in zip(rs,phis)])
-    assert numpy.all(numpy.fabs(dp.phiforce(rs,zs[0],phis)-dpevals) < 10.**-10.), \
-        'DehnenBarPotential phiforce does not work as expected for array inputs'
+    dpevals= numpy.array([dp.phitorque(r,zs[0],phi) for (r,phi) in zip(rs,phis)])
+    assert numpy.all(numpy.fabs(dp.phitorque(rs,zs[0],phis)-dpevals) < 10.**-10.), \
+        'DehnenBarPotential phitorque does not work as expected for array inputs'
     # z array, R not an array
-    dpevals= numpy.array([dp.phiforce(rs[0],z,phi) for (z,phi) in zip(zs,phis)])
-    assert numpy.all(numpy.fabs(dp.phiforce(rs[0],zs,phis)-dpevals) < 10.**-10.), \
-        'DehnenBarPotential phiforce does not work as expected for array inputs'
+    dpevals= numpy.array([dp.phitorque(rs[0],z,phi) for (z,phi) in zip(zs,phis)])
+    assert numpy.all(numpy.fabs(dp.phitorque(rs[0],zs,phis)-dpevals) < 10.**-10.), \
+        'DehnenBarPotential phitorque does not work as expected for array inputs'
     #R2deriv
     dpevals= numpy.array([dp.R2deriv(r,z,phi) for (r,z,phi) in zip(rs,zs,phis)])
     assert numpy.all(numpy.fabs(dp.R2deriv(rs,zs,phis)-dpevals) < 10.**-10.), \
@@ -2508,9 +2508,9 @@ def test_SpiralArm_special():
     dpevals= numpy.array([dp.zforce(r,z,phi) for (r,z,phi) in zip(rs,zs,phis)])
     assert numpy.all(numpy.fabs(dp.zforce(rs,zs,phis)-dpevals) < 10.**-10.), \
         'SpiralArmsPotential zforce evaluation does not work as expected for array inputs'
-    #phiforce
-    dpevals= numpy.array([dp.phiforce(r,z,phi) for (r,z,phi) in zip(rs,zs,phis)])
-    assert numpy.all(numpy.fabs(dp.phiforce(rs,zs,phis)-dpevals) < 10.**-10.), \
+    #phitorque
+    dpevals= numpy.array([dp.phitorque(r,z,phi) for (r,z,phi) in zip(rs,zs,phis)])
+    assert numpy.all(numpy.fabs(dp.phitorque(rs,zs,phis)-dpevals) < 10.**-10.), \
         'SpiralArmsPotential zforce evaluation does not work as expected for array inputs'
     #R2deriv
     dpevals= numpy.array([dp.R2deriv(r,z,phi) for (r,z,phi) in zip(rs,zs,phis)])
@@ -3351,7 +3351,7 @@ def test_nonaxierror_function():
     with pytest.raises(potential.PotentialError) as excinfo:
         potential.evaluatezforces(tnp,1.,0.)
     with pytest.raises(potential.PotentialError) as excinfo:
-        potential.evaluatephiforces(tnp,1.,0.)
+        potential.evaluatephitorques(tnp,1.,0.)
     with pytest.raises(potential.PotentialError) as excinfo:
         potential.evaluateR2derivs(tnp,1.,0.)
     with pytest.raises(potential.PotentialError) as excinfo:
@@ -3647,7 +3647,7 @@ def test_dissipative_noVelocityError():
     with pytest.raises(potential.PotentialError) as excinfo:
         dummy= potential.evaluateRforces([lp,cdfc],R,z,phi=phi)
     with pytest.raises(potential.PotentialError) as excinfo:
-        dummy= potential.evaluatephiforces([lp,cdfc],R,z,phi=phi)
+        dummy= potential.evaluatephitorques([lp,cdfc],R,z,phi=phi)
     with pytest.raises(potential.PotentialError) as excinfo:
         dummy= potential.evaluatezforces([lp,cdfc],R,z,phi=phi)
     with pytest.raises(potential.PotentialError) as excinfo:
@@ -4078,8 +4078,8 @@ def test_NumericalPotentialDerivativesMixin():
                               -NumPot.Rforce(Rs[ii],Zs[jj],phi=phis[kk]))/Pot.Rforce(Rs[ii],Zs[jj],phi=phis[kk])) < tol, 'NumericalPotentialDerivativesMixin applied to {} Potential does not give the correct Rforce'.format(Pot.__class__.__name__)
                     assert numpy.fabs((Pot.zforce(Rs[ii],Zs[jj],phi=phis[kk])
                               -NumPot.zforce(Rs[ii],Zs[jj],phi=phis[kk]))/Pot.zforce(Rs[ii],Zs[jj],phi=phis[kk])**(Zs[jj] > 0.)) < tol, 'NumericalPotentialDerivativesMixin applied to {} Potential does not give the correct zforce'.format(Pot.__class__.__name__)
-                    assert numpy.fabs((Pot.phiforce(Rs[ii],Zs[jj],phi=phis[kk])
-                              -NumPot.phiforce(Rs[ii],Zs[jj],phi=phis[kk]))/Pot.phiforce(Rs[ii],Zs[jj],phi=phis[kk])**Pot.isNonAxi) < tol, 'NumericalPotentialDerivativesMixin applied to {} Potential does not give the correct phiforce'.format(Pot.__class__.__name__)
+                    assert numpy.fabs((Pot.phitorque(Rs[ii],Zs[jj],phi=phis[kk])
+                              -NumPot.phitorque(Rs[ii],Zs[jj],phi=phis[kk]))/Pot.phitorque(Rs[ii],Zs[jj],phi=phis[kk])**Pot.isNonAxi) < tol, 'NumericalPotentialDerivativesMixin applied to {} Potential does not give the correct phitorque'.format(Pot.__class__.__name__)
                     # Second derivatives
                     assert numpy.fabs((Pot.R2deriv(Rs[ii],Zs[jj],phi=phis[kk])
                               -NumPot.R2deriv(Rs[ii],Zs[jj],phi=phis[kk]))/Pot.R2deriv(Rs[ii],Zs[jj],phi=phis[kk])) < tol2, 'NumericalPotentialDerivativesMixin applied to {} Potential does not give the correct R2deriv'.format(Pot.__class__.__name__)
@@ -5016,12 +5016,12 @@ class mockInterpSphericalPotentialwForce(potential.interpSphericalPotential):
                                                     rgrid=numpy.linspace(0.,1.1,201))
 #Class to test potentials given as lists, st we can use their methods as class.
 from galpy.potential import Potential, \
-    evaluatePotentials, evaluateRforces, evaluatezforces, evaluatephiforces, \
+    evaluatePotentials, evaluateRforces, evaluatezforces, evaluatephitorques, \
     evaluateR2derivs, evaluatez2derivs, evaluateRzderivs, \
     evaluateDensities, _isNonAxi, evaluateSurfaceDensities, \
     evaluatephizderivs
 from galpy.potential import planarPotential, \
-    evaluateplanarPotentials, evaluateplanarRforces, evaluateplanarphiforces, \
+    evaluateplanarPotentials, evaluateplanarRforces, evaluateplanarphitorques, \
     evaluateplanarR2derivs
 class testMWPotential(Potential):
     """Initialize with potential in natural units"""
@@ -5036,7 +5036,7 @@ class testMWPotential(Potential):
     def _Rforce(self,R,z,phi=0.,t=0.):
         return evaluateRforces(self._potlist,R,z,phi=phi,t=t)
     def _phitorque(self,R,z,phi=0.,t=0.):
-        return evaluatephiforces(self._potlist,R,z,phi=phi,t=t)
+        return evaluatephitorques(self._potlist,R,z,phi=phi,t=t)
     def _zforce(self,R,z,phi=0.,t=0.):
         return evaluatezforces(self._potlist,R,z,phi=phi,t=t)
     def _R2deriv(self,R,z,phi=0.,t=0.):
@@ -5078,7 +5078,7 @@ class testplanarMWPotential(planarPotential):
     def _Rforce(self,R,phi=0.,t=0.):
         return evaluateplanarRforces(self._potlist,R,phi=phi,t=t)
     def _phitorque(self,R,phi=0.,t=0.):
-        return evaluateplanarphiforces(self._potlist,R,phi=phi,t=t)
+        return evaluateplanarphitorques(self._potlist,R,phi=phi,t=t)
     def _R2deriv(self,R,phi=0.,t=0.):
         return evaluateplanarR2derivs(self._potlist,R,phi=phi,t=t)
     def _phi2deriv(self,R,phi=0.,t=0.):

@@ -166,7 +166,7 @@ double NonInertialFrameForceRforce(double R,double z,double phi,double t,
   }
   return amp * ( cos ( phi ) * Fx + sin( phi ) * Fy );
 }
-double NonInertialFrameForcephiforce(double R,double z,double phi,double t,
+double NonInertialFrameForcephitorque(double R,double z,double phi,double t,
 				                             struct potentialArg * potentialArgs,
                                      double vR,double vT,double vz){
   double * args= potentialArgs->args;

@@ -24,13 +24,13 @@ double GaussianAmplitudeWrapperPotentialRforce(double R,double z,double phi,
     * calcRforce(R,z,phi,t,
 		 potentialArgs->nwrapped,potentialArgs->wrappedPotentialArg);
 }
-double GaussianAmplitudeWrapperPotentialphiforce(double R,double z,double phi,
+double GaussianAmplitudeWrapperPotentialphitorque(double R,double z,double phi,
 					    double t,
 					    struct potentialArg * potentialArgs){
   double * args= potentialArgs->args;
-  //Calculate phiforce
+  //Calculate phitorque
   return *args * gaussSmooth(t,*(args+1),*(args+2))	\
-    * calcPhiforce(R,z,phi,t,
+    * calcphitorque(R,z,phi,t,
 		   potentialArgs->nwrapped,potentialArgs->wrappedPotentialArg);
 }
 double GaussianAmplitudeWrapperPotentialzforce(double R,double z,double phi,
@@ -51,12 +51,12 @@ double GaussianAmplitudeWrapperPotentialPlanarRforce(double R,double phi,double 
 		       potentialArgs->nwrapped,
 		       potentialArgs->wrappedPotentialArg);
 }
-double GaussianAmplitudeWrapperPotentialPlanarphiforce(double R,double phi,double t,
+double GaussianAmplitudeWrapperPotentialPlanarphitorque(double R,double phi,double t,
 						  struct potentialArg * potentialArgs){
   double * args= potentialArgs->args;
-  //Calculate phiforce
+  //Calculate phitorque
   return *args * gaussSmooth(t,*(args+1),*(args+2))	\
-    * calcPlanarphiforce(R,phi,t,
+    * calcPlanarphitorque(R,phi,t,
 			 potentialArgs->nwrapped,
 			 potentialArgs->wrappedPotentialArg);
 }

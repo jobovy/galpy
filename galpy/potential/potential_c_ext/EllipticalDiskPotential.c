@@ -36,7 +36,7 @@ double EllipticalDiskPotentialRforce(double R,double phi,double t,
   return -amp * smooth * p * twophio / 2. * pow(R,p-1.) 
     * cos( 2. * (phi - phib));
 }
-double EllipticalDiskPotentialphiforce(double R,double phi,double t,
+double EllipticalDiskPotentialphitorque(double R,double phi,double t,
 				       struct potentialArg * potentialArgs){
   double * args= potentialArgs->args;
   //declare
@@ -48,7 +48,7 @@ double EllipticalDiskPotentialphiforce(double R,double phi,double t,
   double twophio= *args++;
   double p= *args++;
   double phib= *args;
-  //Calculate phiforce
+  //Calculate phitorque
   smooth= EllipticalDiskSmooth(t,tform,tsteady);
   return amp * smooth * twophio * pow(R,p) 
     * sin( 2. * (phi-phib));

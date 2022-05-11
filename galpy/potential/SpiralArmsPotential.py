@@ -218,14 +218,14 @@ class SpiralArmsPotential(Potential):
         NAME:
             _phitorque
         PURPOSE:
-            Evaluate the azimuthal force in cylindrical coordinates. (-dPhi/dphi)
+            Evaluate the azimuthal torque in cylindrical coordinates. (-dPhi/dphi)
         INPUT:
             :param R: galactocentric cylindrical radius
             :param z: vertical height
             :param phi: azimuth
             :param t: time
         OUTPUT:
-            :return: the azimuthal force
+            :return: the azimuthal torque
         HISTORY:
             2017-05-25  Jack Hong (UBC)
         """

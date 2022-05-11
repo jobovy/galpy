@@ -113,7 +113,7 @@ double ChandrasekharDynamicalFrictionForcezforce(double R,double z, double phi,
     forceAmplitude= *(args + 8);
   return forceAmplitude * vz;
 }
-double ChandrasekharDynamicalFrictionForcephiforce(double R,double z,
+double ChandrasekharDynamicalFrictionForcephitorque(double R,double z,
 						   double phi,double t,
 						   struct potentialArg * potentialArgs,
 						   double vR,double vT,

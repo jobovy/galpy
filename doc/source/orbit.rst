@@ -1344,12 +1344,12 @@ So we will put the origin at a small offset to avoid the numerical issues at the
 origin and define the rectangular forces ourselves. By placing the origin at 
 :math:`\phi=0`, the rectangular forces are simple:
 
->>> from galpy.potential import (evaluateRforces, evaluatephiforces, 
+>>> from galpy.potential import (evaluateRforces, evaluatephitorques, 
                                  evaluatezforces)
 >>> loc_origin= 1e-4 # Small offset in R to avoid numerical issues
 >>> ax= lambda t: evaluateRforces(moving_lmcpot,loc_origin,0.,phi=0.,t=t,
                                   use_physical=False)
->>> ay= lambda t: evaluatephiforces(moving_lmcpot,loc_origin,0.,phi=0.,t=t,
+>>> ay= lambda t: evaluatephitorques(moving_lmcpot,loc_origin,0.,phi=0.,t=t,
                                     use_physical=False)/loc_origin
 >>> az= lambda t: evaluatezforces(moving_lmcpot,loc_origin,0.,phi=0.,t=t,
                                   use_physical=False)

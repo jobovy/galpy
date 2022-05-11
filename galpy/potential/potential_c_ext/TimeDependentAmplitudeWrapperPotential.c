@@ -18,13 +18,13 @@ double TimeDependentAmplitudeWrapperPotentialRforce(double R,double z,double phi
     * calcRforce(R,z,phi,t,potentialArgs->nwrapped,
                  potentialArgs->wrappedPotentialArg);
 }
-double TimeDependentAmplitudeWrapperPotentialphiforce(double R,double z,double phi,
+double TimeDependentAmplitudeWrapperPotentialphitorque(double R,double z,double phi,
 					    double t,
 					    struct potentialArg * potentialArgs){
   double * args= potentialArgs->args;
-  //Calculate phiforce
+  //Calculate phitorque
   return *args * (*(*(potentialArgs->tfuncs)))(t)	\
-    * calcPhiforce(R,z,phi,t,potentialArgs->nwrapped,
+    * calcphitorque(R,z,phi,t,potentialArgs->nwrapped,
                    potentialArgs->wrappedPotentialArg);
 }
 double TimeDependentAmplitudeWrapperPotentialzforce(double R,double z,double phi,
@@ -44,12 +44,12 @@ double TimeDependentAmplitudeWrapperPotentialPlanarRforce(double R,double phi,do
     * calcPlanarRforce(R,phi,t,potentialArgs->nwrapped,
 		                   potentialArgs->wrappedPotentialArg);
 }
-double TimeDependentAmplitudeWrapperPotentialPlanarphiforce(double R,double phi,double t,
+double TimeDependentAmplitudeWrapperPotentialPlanarphitorque(double R,double phi,double t,
 						  struct potentialArg * potentialArgs){
   double * args= potentialArgs->args;
-  //Calculate phiforce
+  //Calculate phitorque
   return *args * (*(*(potentialArgs->tfuncs)))(t)	\
-    * calcPlanarphiforce(R,phi,t,potentialArgs->nwrapped,
+    * calcPlanarphitorque(R,phi,t,potentialArgs->nwrapped,
 			                   potentialArgs->wrappedPotentialArg);
 }
 double TimeDependentAmplitudeWrapperPotentialPlanarR2deriv(double R,double phi,double t,

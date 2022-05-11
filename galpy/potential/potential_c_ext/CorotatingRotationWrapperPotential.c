@@ -11,16 +11,16 @@ double CorotatingRotationWrapperPotentialRforce(double R,double z,double phi,
     - *(args+3);
   return *args * ( calcRforce(R,z,phi_new,t,potentialArgs->nwrapped,
 			      potentialArgs->wrappedPotentialArg)	\
-		   - calcPhiforce(R,z,phi_new,t,
+		   - calcphitorque(R,z,phi_new,t,
 		 potentialArgs->nwrapped,potentialArgs->wrappedPotentialArg)\
 		   * *(args+1) * ( *(args+2) - 1 ) * pow(R,*(args+2)-2) * (t-*(args+4)));
 }
-double CorotatingRotationWrapperPotentialphiforce(double R,double z,double phi,
+double CorotatingRotationWrapperPotentialphitorque(double R,double z,double phi,
 					    double t,
 					    struct potentialArg * potentialArgs){
   double * args= potentialArgs->args;
-  //Calculate phiforce
-  return *args * calcPhiforce(R,z,
+  //Calculate phitorque
+  return *args * calcphitorque(R,z,
 			      phi-*(args+1) * pow(R,*(args+2)-1) * (t-*(args+4)) \
 			      - *(args+3),t,
 		   potentialArgs->nwrapped,potentialArgs->wrappedPotentialArg);
@@ -43,15 +43,15 @@ double CorotatingRotationWrapperPotentialPlanarRforce(double R,double phi,double
     - *(args+3);
   return *args * ( calcPlanarRforce(R,phi_new,t,potentialArgs->nwrapped,
 				    potentialArgs->wrappedPotentialArg)	\
-		   - calcPlanarphiforce(R,phi_new,t,potentialArgs->nwrapped,
+		   - calcPlanarphitorque(R,phi_new,t,potentialArgs->nwrapped,
 				      potentialArgs->wrappedPotentialArg) \
 		   * *(args+1) * ( *(args+2) - 1 ) * pow(R,*(args+2)-2) * (t-*(args+4)));
 }
-double CorotatingRotationWrapperPotentialPlanarphiforce(double R,double phi,double t,
+double CorotatingRotationWrapperPotentialPlanarphitorque(double R,double phi,double t,
 						  struct potentialArg * potentialArgs){
   double * args= potentialArgs->args;
-  //Calculate phiforce
-  return *args * calcPlanarphiforce(R,
+  //Calculate phitorque
+  return *args * calcPlanarphitorque(R,
 				    phi-*(args+1) * pow(R,*(args+2)-1) * (t-*(args+4)) \
 				    - *(args+3),t,
 				    potentialArgs->nwrapped,
@@ -74,7 +74,7 @@ double CorotatingRotationWrapperPotentialPlanarR2deriv(double R,double phi,doubl
 		  + phiRderiv * phiRderiv * calcPlanarphi2deriv(R,phi_new,t,
 				    potentialArgs->nwrapped,
 				    potentialArgs->wrappedPotentialArg)
-		  + calcPlanarphiforce(R,phi_new,t,
+		  + calcPlanarphitorque(R,phi_new,t,
 				    potentialArgs->nwrapped,
 				    potentialArgs->wrappedPotentialArg)
 		  * *(args+1) * (*(args+2)-1) * (*(args+2)-2) 

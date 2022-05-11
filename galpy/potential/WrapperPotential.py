@@ -4,11 +4,11 @@
 from .Potential import Potential, _isNonAxi, _dim
 from .planarPotential import planarPotential
 from .Potential import _evaluatePotentials, \
-    _evaluateRforces, _evaluatephiforces, _evaluatezforces, \
+    _evaluateRforces, _evaluatephitorques, _evaluatezforces, \
     evaluateR2derivs, evaluatez2derivs, \
     evaluateRzderivs, evaluateDensities
 from .planarPotential import _evaluateplanarPotentials, \
-    _evaluateplanarRforces, _evaluateplanarphiforces, \
+    _evaluateplanarRforces, _evaluateplanarphitorques, \
     evaluateplanarR2derivs
 from ..util.conversion import physical_compatible, get_physical
 def _new_obj(cls, kwargs, args):
@@ -117,7 +117,7 @@ class WrapperPotential(Potential):
                 _evaluatezforces(p,R,Z,phi=phi,t=t)
         elif attribute == '_phitorque':
             return lambda p,R,Z,phi=0.,t=0.: \
-                _evaluatephiforces(p,R,Z,phi=phi,t=t)
+                _evaluatephitorques(p,R,Z,phi=phi,t=t)
         elif attribute == '_R2deriv':
             return lambda p,R,Z,phi=0.,t=0.: \
                 evaluateR2derivs(p,R,Z,phi=phi,t=t,use_physical=False)
@@ -204,7 +204,7 @@ class planarWrapperPotential(planarPotential):
                 _evaluateplanarRforces(p,R,phi=phi,t=t)
         elif attribute == '_phitorque':
             return lambda p,R,phi=0.,t=0.: \
-                _evaluateplanarphiforces(p,R,phi=phi,t=t)
+                _evaluateplanarphitorques(p,R,phi=phi,t=t)
         elif attribute == '_R2deriv':
             return lambda p,R,phi=0.,t=0.: \
                 evaluateplanarR2derivs(p,R,phi=phi,t=t,use_physical=False)

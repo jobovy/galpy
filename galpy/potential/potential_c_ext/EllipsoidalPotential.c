@@ -101,7 +101,7 @@ double EllipsoidalPotentialRforce(double R,double z, double phi,
 				      x,y,z,&Fx,&Fy,&Fz,args);
   return amp * ( cos ( phi ) * Fx + sin( phi ) * Fy );
 }
-double EllipsoidalPotentialphiforce(double R,double z, double phi,
+double EllipsoidalPotentialphitorque(double R,double z, double phi,
 				    double t,
 				    struct potentialArg * potentialArgs){
   double * args= potentialArgs->args;
@@ -156,9 +156,9 @@ double EllipsoidalPotentialPlanarRforce(double R,double phi,double t,
 					struct potentialArg * potentialArgs){
   return EllipsoidalPotentialRforce(R,0.,phi,t,potentialArgs);
 }
-double EllipsoidalPotentialPlanarphiforce(double R,double phi,double t,
+double EllipsoidalPotentialPlanarphitorque(double R,double phi,double t,
 					  struct potentialArg * potentialArgs){
-  return EllipsoidalPotentialphiforce(R,0.,phi,t,potentialArgs);
+  return EllipsoidalPotentialphitorque(R,0.,phi,t,potentialArgs);
 }
 double EllipsoidalPotentialDens(double R,double z, double phi,
 				double t,

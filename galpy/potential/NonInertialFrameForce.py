@@ -251,7 +251,7 @@ class NonInertialFrameForce(DissipativeForce):
         NAME:
            _phitorque
         PURPOSE:
-           evaluate the azimuthal force for this Force
+           evaluate the azimuthal torque for this Force
         INPUT:
            R - Galactocentric cylindrical radius
            z - vertical height
@@ -259,7 +259,7 @@ class NonInertialFrameForce(DissipativeForce):
            t - time
            v= current velocity in cylindrical coordinates
         OUTPUT:
-           the azimuthal force
+           the azimuthal torque
         HISTORY:
            2022-03-02 - Written - Bovy (UofT)
         """

@@ -17,7 +17,7 @@ from .. import potential
 from ..potential.planarPotential import planarPotentialFromFullPotential, \
     planarPotentialFromRZPotential
 from ..potential.planarPotential import _evaluateplanarRforces,\
-    _evaluateplanarphiforces, _evaluateplanarPotentials
+    _evaluateplanarphitorques, _evaluateplanarPotentials
 from ..potential.WrapperPotential import parentWrapperPotential
 from ..util.multi import parallel_map
 from ..util.leung_dop853 import dop853
@@ -875,7 +875,7 @@ def _planarEOM(y,t,pot):
     return [y[1],
             l2/y[0]**3.+_evaluateplanarRforces(pot,y[0],phi=y[2],t=t),
             y[3],
-            1./y[0]**2.*(_evaluateplanarphiforces(pot,y[0],phi=y[2],t=t)-
+            1./y[0]**2.*(_evaluateplanarphitorques(pot,y[0],phi=y[2],t=t)-
                          2.*y[0]*y[1]*y[3])]
 
 def _planarEOM_dxdv(x,t,pot):
@@ -902,34 +902,34 @@ def _planarEOM_dxdv(x,t,pot):
     if x[1] < 0.: phi= 2.*numpy.pi-phi
     #calculate forces
     Rforce= _evaluateplanarRforces(pot,R,phi=phi,t=t)
-    phiforce= _evaluateplanarphiforces(pot,R,phi=phi,t=t)
+    phitorque= _evaluateplanarphitorques(pot,R,phi=phi,t=t)
     R2deriv= _evaluateplanarPotentials(pot,R,phi=phi,t=t,dR=2)
     phi2deriv= _evaluateplanarPotentials(pot,R,phi=phi,t=t,dphi=2)
     Rphideriv= _evaluateplanarPotentials(pot,R,phi=phi,t=t,dR=1,dphi=1)
     #Calculate derivatives and derivatives+time derivatives
     dFxdx= -cosphi**2.*R2deriv\
-           +2.*cosphi*sinphi/R**2.*phiforce\
+           +2.*cosphi*sinphi/R**2.*phitorque\
            +sinphi**2./R*Rforce\
            +2.*sinphi*cosphi/R*Rphideriv\
            -sinphi**2./R**2.*phi2deriv
     dFxdy= -sinphi*cosphi*R2deriv\
-           +(sinphi**2.-cosphi**2.)/R**2.*phiforce\
+           +(sinphi**2.-cosphi**2.)/R**2.*phitorque\
            -cosphi*sinphi/R*Rforce\
            -(cosphi**2.-sinphi**2.)/R*Rphideriv\
            +cosphi*sinphi/R**2.*phi2deriv
     dFydx= -cosphi*sinphi*R2deriv\
-           +(sinphi**2.-cosphi**2.)/R**2.*phiforce\
+           +(sinphi**2.-cosphi**2.)/R**2.*phitorque\
            +(sinphi**2.-cosphi**2.)/R*Rphideriv\
            -sinphi*cosphi/R*Rforce\
            +sinphi*cosphi/R**2.*phi2deriv
     dFydy= -sinphi**2.*R2deriv\
-           -2.*sinphi*cosphi/R**2.*phiforce\
+           -2.*sinphi*cosphi/R**2.*phitorque\
            -2.*sinphi*cosphi/R*Rphideriv\
            +cosphi**2./R*Rforce\
            -cosphi**2./R**2.*phi2deriv
     return numpy.array([x[2],x[3],
-                     cosphi*Rforce-1./R*sinphi*phiforce,
-                     sinphi*Rforce+1./R*cosphi*phiforce,
+                     cosphi*Rforce-1./R*sinphi*phitorque,
+                     sinphi*Rforce+1./R*cosphi*phitorque,
                      x[6],x[7],
                      dFxdx*x[4]+dFxdy*x[5],
                      dFydx*x[4]+dFydy*x[5]])
@@ -957,6 +957,6 @@ def _planarRectForce(x,pot,t=0.):
     if x[1] < 0.: phi= 2.*numpy.pi-phi
     #calculate forces
     Rforce= _evaluateplanarRforces(pot,R,phi=phi,t=t)
-    phiforce= _evaluateplanarphiforces(pot,R,phi=phi,t=t)
-    return numpy.array([cosphi*Rforce-1./R*sinphi*phiforce,
-                     sinphi*Rforce+1./R*cosphi*phiforce])
+    phitorque= _evaluateplanarphitorques(pot,R,phi=phi,t=t)
+    return numpy.array([cosphi*Rforce-1./R*sinphi*phitorque,
+                     sinphi*Rforce+1./R*cosphi*phitorque])

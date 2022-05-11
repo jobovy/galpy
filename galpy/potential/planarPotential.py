@@ -220,7 +220,7 @@ class planarPotential(object):
         elif dR == 1 and dphi == 0:
             return -self.Rforce(R,phi=phi,t=t,use_physical=False)
         elif dR == 0 and dphi == 1:
-            return -self.phiforce(R,phi=phi,t=t,use_physical=False)
+            return -self.phitorque(R,phi=phi,t=t,use_physical=False)
         elif dR == 2 and dphi == 0:
             return self.R2deriv(R,phi=phi,t=t,use_physical=False)
         elif dR == 0 and dphi == 2:
@@ -270,15 +270,15 @@ class planarPotential(object):
 
     @potential_physical_input
     @physical_conversion('energy',pop=True)
-    def phiforce(self,R,phi=0.,t=0.):
+    def phitorque(self,R,phi=0.,t=0.):
         """
         NAME:
 
-           phiforce
+           phitorque
 
         PURPOSE:
 
-           evaluate the phi force = - d Phi / d phi (note that this is a torque, not a force!)
+           evaluate the azimuthal torque = - d Phi / d phi
 
         INPUT:
 
@@ -290,7 +290,7 @@ class planarPotential(object):
 
         OUTPUT:
 
-           F_phi(R,(phi,t)))
+           tau_phi(R,(phi,t)))
 
         HISTORY:
 
@@ -885,17 +885,17 @@ class planarPotentialFromFullPotential(planarPotential):
         NAME:
            _phitorque
         PURPOSE:
-           evaluate the azimuthal force
+           evaluate the azimuthal torque
         INPUT:
            R
            phi
            t
         OUTPUT:
-          F_phi(R(,\phi,t))
+          tau_phi(R(,\phi,t))
         HISTORY:
            2016-06-02 - Written - Bovy (UofT)
         """
-        return self._Pot.phiforce(R,0.,phi=phi,t=t,use_physical=False)
+        return self._Pot.phitorque(R,0.,phi=phi,t=t,use_physical=False)
 
     def _R2deriv(self,R,phi=0.,t=0.):
         """
@@ -1126,15 +1126,15 @@ def _evaluateplanarRforces(Pot,R,phi=None,t=0.):
 
 @potential_physical_input
 @physical_conversion('energy',pop=True)
-def evaluateplanarphiforces(Pot,R,phi=None,t=0.):
+def evaluateplanarphitorques(Pot,R,phi=None,t=0.):
     """
     NAME:
 
-       evaluateplanarphiforces
+       evaluateplanarphitorques
 
     PURPOSE:
 
-       evaluate the phiforce of a (list of) planarPotential instance(s)
+       evaluate the phitorque of a (list of) planarPotential instance(s)
 
     INPUT:
 
@@ -1148,16 +1148,16 @@ def evaluateplanarphiforces(Pot,R,phi=None,t=0.):
 
     OUTPUT:
 
-       F_phi(R(,phi,t))
+       tau_phi(R(,phi,t))
 
     HISTORY:
 
        2010-07-13 - Written - Bovy (NYU)
 
     """
-    return _evaluateplanarphiforces(Pot,R,phi=phi,t=t)
+    return _evaluateplanarphitorques(Pot,R,phi=phi,t=t)
 
-def _evaluateplanarphiforces(Pot,R,phi=None,t=0.):
+def _evaluateplanarphitorques(Pot,R,phi=None,t=0.):
     from .Potential import _isNonAxi
     isList= isinstance(Pot,list)
     nonAxi= _isNonAxi(Pot)

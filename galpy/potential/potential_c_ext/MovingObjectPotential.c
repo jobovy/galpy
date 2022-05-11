@@ -60,7 +60,7 @@ double MovingObjectPotentialzforce(double R,double z,double phi,
 			   potentialArgs->wrappedPotentialArg);
 }
 
-double MovingObjectPotentialphiforce(double R,double z,double phi,
+double MovingObjectPotentialphitorque(double R,double z,double phi,
 					double t,
 					struct potentialArg * potentialArgs){
   double amp,t0,tf,d_ind,x,y,obj_x,obj_y,obj_z, Rdist,RF;
@@ -80,7 +80,7 @@ double MovingObjectPotentialphiforce(double R,double z,double phi,
   obj_z= gsl_spline_eval(*(potentialArgs->spline1d+2),d_ind,
 			 *(potentialArgs->acc1d+2));
   Rdist= pow(pow(x-obj_x, 2)+pow(y-obj_y, 2), 0.5);
-  // Calculate phiforce
+  // Calculate phitorque
   RF= calcRforce(Rdist,(obj_z-z),phi,t,potentialArgs->nwrapped,
 		 potentialArgs->wrappedPotentialArg);
   return -amp*RF*R*(cos(phi)*(obj_y-y)-sin(phi)*(obj_x-x))/Rdist;
@@ -110,7 +110,7 @@ double MovingObjectPotentialPlanarRforce(double R, double phi,
   return -amp*RF*(cos(phi)*(obj_x-x)+sin(phi)*(obj_y-y))/Rdist;
 }
 
-double MovingObjectPotentialPlanarphiforce(double R, double phi,
+double MovingObjectPotentialPlanarphitorque(double R, double phi,
 					double t,
 					struct potentialArg * potentialArgs){
   double amp,t0,tf,d_ind,x,y,obj_x,obj_y,Rdist,RF;
@@ -128,7 +128,7 @@ double MovingObjectPotentialPlanarphiforce(double R, double phi,
   obj_y= gsl_spline_eval(*(potentialArgs->spline1d+1),d_ind,
 			 *(potentialArgs->acc1d+1));
   Rdist= pow(pow(x-obj_x, 2)+pow(y-obj_y, 2), 0.5);
-  // Calculate phiforce
+  // Calculate phitorque
   RF= calcPlanarRforce(Rdist, phi, t, potentialArgs->nwrapped,
 		       potentialArgs->wrappedPotentialArg);
   return -amp*RF*R*(cos(phi)*(obj_y-y)-sin(phi)*(obj_x-x))/Rdist;

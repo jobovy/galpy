@@ -7,7 +7,7 @@ from scipy import integrate
 from .. import potential
 from ..util import galpyWarning
 from ..potential.Potential import _evaluateRforces, _evaluatezforces,\
-    _evaluatephiforces
+    _evaluatephitorques
 from .integratePlanarOrbit import (_parse_integrator, _parse_tol,
                                    _parse_scf_pot, _prep_tfuncs,
                                    _TQDM_LOADED)
@@ -719,7 +719,7 @@ def _EOM(y,t,pot):
             l2/y[0]**3.+_evaluateRforces(pot,y[0],y[4],phi=y[2],t=t,
                                          v=[y[1],y[0]*y[3],y[5]]),
             y[3],
-            1./y[0]**2.*(_evaluatephiforces(pot,y[0],y[4],phi=y[2],t=t,
+            1./y[0]**2.*(_evaluatephitorques(pot,y[0],y[4],phi=y[2],t=t,
                                             v=[y[1],y[0]*y[3],y[5]])
                          -2.*y[0]*y[1]*y[3]),
             y[5],
@@ -749,7 +749,7 @@ def _rectForce(x,pot,t=0.):
     if x[1] < 0.: phi= 2.*numpy.pi-phi
     #calculate forces
     Rforce= _evaluateRforces(pot,R,x[2],phi=phi,t=t)
-    phiforce= _evaluatephiforces(pot,R,x[2],phi=phi,t=t)
-    return numpy.array([cosphi*Rforce-1./R*sinphi*phiforce,
-                     sinphi*Rforce+1./R*cosphi*phiforce,
+    phitorque= _evaluatephitorques(pot,R,x[2],phi=phi,t=t)
+    return numpy.array([cosphi*Rforce-1./R*sinphi*phitorque,
+                     sinphi*Rforce+1./R*cosphi*phitorque,
                      _evaluatezforces(pot,R,x[2],phi=phi,t=t)])

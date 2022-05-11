@@ -86,7 +86,7 @@ double SoftenedNeedleBarPotentialPlanarRforce(double R,double phi,double t,
 					      struct potentialArg * potentialArgs){
   return SoftenedNeedleBarPotentialRforce(R,0.,phi,t,potentialArgs);
 }
-double SoftenedNeedleBarPotentialphiforce(double R,double z, double phi,
+double SoftenedNeedleBarPotentialphitorque(double R,double z, double phi,
 					 double t,
 					 struct potentialArg * potentialArgs){
   double * args= potentialArgs->args;
@@ -107,9 +107,9 @@ double SoftenedNeedleBarPotentialphiforce(double R,double z, double phi,
 					  cached_phi,cached_t);
   return amp * R * ( -sin ( phi ) * *(args + 4) + cos( phi ) * *(args + 5) );
 }
-double SoftenedNeedleBarPotentialPlanarphiforce(double R, double phi,double t,
+double SoftenedNeedleBarPotentialPlanarphitorque(double R, double phi,double t,
 					  struct potentialArg * potentialArgs){
-  return SoftenedNeedleBarPotentialphiforce(R,0.,phi,t,potentialArgs);
+  return SoftenedNeedleBarPotentialphitorque(R,0.,phi,t,potentialArgs);
 }
 double SoftenedNeedleBarPotentialzforce(double R,double z, double phi,
 				       double t,

@@ -101,21 +101,21 @@ double (calczforce)(double R, double Z, double phi, double t,
   potentialArgs-= nargs;
   return zforce;
 }
-double (calcPhiforce)(double R, double Z, double phi, double t, 
+double (calcphitorque)(double R, double Z, double phi, double t, 
 		      int nargs, struct potentialArg * potentialArgs,
 		      double vR, double vT, double vZ){
   int ii;
-  double phiforce= 0.;
+  double phitorque= 0.;
   for (ii=0; ii < nargs; ii++){
     if ( potentialArgs->requiresVelocity ) 
-      phiforce+= potentialArgs->phiforceVelocity(R,Z,phi,t,potentialArgs,
+      phitorque+= potentialArgs->phitorqueVelocity(R,Z,phi,t,potentialArgs,
 						 vR,vT,vZ);
     else
-      phiforce+= potentialArgs->phiforce(R,Z,phi,t,potentialArgs);
+      phitorque+= potentialArgs->phitorque(R,Z,phi,t,potentialArgs);
     potentialArgs++;
   }
   potentialArgs-= nargs;
-  return phiforce;
+  return phitorque;
 }
 double calcPlanarRforce(double R, double phi, double t, 
 			int nargs, struct potentialArg * potentialArgs){
@@ -129,17 +129,17 @@ double calcPlanarRforce(double R, double phi, double t,
   potentialArgs-= nargs;
   return Rforce;
 }
-double calcPlanarphiforce(double R, double phi, double t, 
+double calcPlanarphitorque(double R, double phi, double t, 
 			  int nargs, struct potentialArg * potentialArgs){
   int ii;
-  double phiforce= 0.;
+  double phitorque= 0.;
   for (ii=0; ii < nargs; ii++){
-    phiforce+= potentialArgs->planarphiforce(R,phi,t,
+    phitorque+= potentialArgs->planarphitorque(R,phi,t,
 					     potentialArgs);
     potentialArgs++;
   }
   potentialArgs-= nargs;
-  return phiforce;
+  return phitorque;
 }
 
 // LCOV_EXCL_START

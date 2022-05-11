@@ -57,7 +57,7 @@ double DehnenBarPotentialPlanarRforce(double R,double phi,double t,
   else
     return -3.*amp*smooth*cos(2.*(phi-omegab*t-barphi))*pow(rb/R,3.)/R;   
 }
-double DehnenBarPotentialphiforce(double R,double z,double phi,double t,
+double DehnenBarPotentialphitorque(double R,double z,double phi,double t,
 				  struct potentialArg * potentialArgs){
   double * args= potentialArgs->args;
   //declare
@@ -70,7 +70,7 @@ double DehnenBarPotentialphiforce(double R,double z,double phi,double t,
   double rb= *args++;
   double omegab= *args++;
   double barphi= *args++;
-  //Calculate phiforce
+  //Calculate phitorque
   smooth= dehnenBarSmooth(t,tform,tsteady);
   r2= R * R + z * z;
   r= sqrt( r2 );
@@ -80,7 +80,7 @@ double DehnenBarPotentialphiforce(double R,double z,double phi,double t,
   else
     return -2.*amp*smooth*sin(2.*(phi-omegab*t-barphi))*pow(rb/r,3.)*R*R/r2;
 }
-double DehnenBarPotentialPlanarphiforce(double R,double phi,double t,
+double DehnenBarPotentialPlanarphitorque(double R,double phi,double t,
 					struct potentialArg * potentialArgs){
   double * args= potentialArgs->args;
   //declare
@@ -92,7 +92,7 @@ double DehnenBarPotentialPlanarphiforce(double R,double phi,double t,
   double rb= *args++;
   double omegab= *args++;
   double barphi= *args++;
-  //Calculate phiforce
+  //Calculate phitorque
   smooth= dehnenBarSmooth(t,tform,tsteady);
   if ( R <= rb )
     return 2.*amp*smooth*sin(2.*(phi-omegab*t-barphi))*(pow(R/rb,3.)-2.);

@@ -1334,7 +1334,7 @@ def test_python_vs_c_linacc_changingacc_xyz_accellsrframe_vecomegaz():
 
 # Utility wrappers and other functions
 from galpy.potential.WrapperPotential import parentWrapperPotential
-from galpy.potential.Potential import _evaluateRforces, _evaluatephiforces, _evaluatezforces
+from galpy.potential.Potential import _evaluateRforces, _evaluatephitorques, _evaluatezforces
 class AcceleratingPotentialWrapperPotential(parentWrapperPotential):
     def __init__(self,amp=1.,pot=None,
                  x0=[lambda t: 0., lambda t: 0., lambda t: 0.],
@@ -1373,10 +1373,10 @@ class AcceleratingPotentialWrapperPotential(parentWrapperPotential):
             if not self._omegazdotdot is None:
                 phip+= self._omegazdotdot*t**3./6.
         Rforcep= _evaluateRforces(self._pot,Rp,zp,phi=phip,t=t)
-        phiforcep= _evaluatephiforces(self._pot,Rp,zp,phi=phip,t=t)
+        phitorquep= _evaluatephitorques(self._pot,Rp,zp,phi=phip,t=t)
         zforcep= _evaluatezforces(self._pot,Rp,zp,phi=phip,t=t)
-        xforcep= numpy.cos(phip)*Rforcep-numpy.sin(phip)*phiforcep/Rp
-        yforcep= numpy.sin(phip)*Rforcep+numpy.cos(phip)*phiforcep/Rp
+        xforcep= numpy.cos(phip)*Rforcep-numpy.sin(phip)*phitorquep/Rp
+        yforcep= numpy.sin(phip)*Rforcep+numpy.cos(phip)*phitorquep/Rp
         if not self._omegaz is None:
             rotphi= self._omegaz*t
             if not self._omegazdot is None:
@@ -1501,10 +1501,10 @@ class RotatingPotentialWrapperPotential(parentWrapperPotential):
                                        omegadot=self._omegadot,
                                        omegadotdot=self._omegadotdot)
         Rforcep= _evaluateRforces(self._pot,Rp,zp,phi=phip,t=t)
-        phiforcep= _evaluatephiforces(self._pot,Rp,zp,phi=phip,t=t)
+        phitorquep= _evaluatephitorques(self._pot,Rp,zp,phi=phip,t=t)
         zforcep= _evaluatezforces(self._pot,Rp,zp,phi=phip,t=t)
-        xforcep= numpy.cos(phip)*Rforcep-numpy.sin(phip)*phiforcep/Rp
-        yforcep= numpy.sin(phip)*Rforcep+numpy.cos(phip)*phiforcep/Rp
+        xforcep= numpy.cos(phip)*Rforcep-numpy.sin(phip)*phitorquep/Rp
+        yforcep= numpy.sin(phip)*Rforcep+numpy.cos(phip)*phitorquep/Rp
         # Now figure out the inverse rotation matrix to rotate the forces
         # The way this is written, we effectively compute the transpose of the
         # rotation matrix, which is its inverse

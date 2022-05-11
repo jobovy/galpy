@@ -224,7 +224,7 @@ class ChandrasekharDynamicalFrictionForce(DissipativeForce):
         NAME:
            _phitorque
         PURPOSE:
-           evaluate the azimuthal force for this potential
+           evaluate the azimuthal torque for this potential
         INPUT:
            R - Galactocentric cylindrical radius
            z - vertical height
@@ -232,7 +232,7 @@ class ChandrasekharDynamicalFrictionForce(DissipativeForce):
            t - time
            v= current velocity in cylindrical coordinates
         OUTPUT:
-           the azimuthal force
+           the azimuthal torque
         HISTORY:
            2018-03-18 - Started - Bovy (UofT)
         """

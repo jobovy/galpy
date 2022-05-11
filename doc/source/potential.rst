@@ -1072,7 +1072,7 @@ also see :ref:`the next section <addwrappot>`):
     the mass is computed by integrating the density (if it is
     implemented or can be calculated from the Poisson equation).
 
-  * ``_phiforce(self,R,z,phi=0.,t=0.)``: the azimuthal force in
+  * ``_phitorque(self,R,z,phi=0.,t=0.)``: the azimuthal torque in
     cylindrical coordinates (assumed zero if not implemented).
 
   * ``_phi2deriv(self,R,z,phi=0.,t=0.)``: the second azimuthal
@@ -1280,7 +1280,7 @@ C implementations of potential wrappers can also be added in a similar
 way as C implementations of regular potentials (all of the steps
 listed in the :ref:`previous section <addpypot>` for adding a
 potential to C need to be followed). All of the necessary functions
-(``...Rforce``, ``...zforce``, ``..phiforce``, etc.) need to be
+(``...Rforce``, ``...zforce``, ``..phitorque``, etc.) need to be
 implemented separately, but by including ``galpy_potentials.h``
 calling the relevant functions of the wrapped potentials is easy. Look
 at ``DehnenSmoothWrapperPotential.c`` for an example that can be
@@ -1320,7 +1320,7 @@ in general depend on the current velocity). Thus, the steps are:
   * ``_Rforce(self,R,z,phi=0.,t=0.,v=None)`` which evaluates the
     radial force in cylindrical coordinates
 
-  * ``_phiforce(self,R,z,phi=0.,t=0.,v=None)`` which evaluates the
+  * ``_phitorque(self,R,z,phi=0.,t=0.,v=None)`` which evaluates the
     azimuthal force in cylindrical coordinates
 
   * ``_zforce(self,R,z,phi=0.,t=0.,v=None)`` which evaluates the

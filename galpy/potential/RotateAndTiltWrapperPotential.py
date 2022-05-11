@@ -5,7 +5,7 @@
 import numpy
 from .Potential import check_potential_inputs_not_arrays, \
     _evaluatePotentials, _evaluateRforces, _evaluatezforces, \
-    _evaluatephiforces, evaluateDensities, evaluateR2derivs, \
+    _evaluatephitorques, evaluateDensities, evaluateR2derivs, \
     evaluatez2derivs, evaluatephi2derivs, evaluateRzderivs, \
     evaluateRphiderivs, evaluatephizderivs
 from .WrapperPotential import WrapperPotential
@@ -181,14 +181,14 @@ A final `offset` option allows one to apply a static offset in Cartesian coordin
         NAME:
            _phitorque
         PURPOSE:
-           evaluate the azimuthal force (torque) for this potential
+           evaluate the azimuthal torque (torque) for this potential
         INPUT:
            R - Galactocentric cylindrical radius
            z - vertical height
            phi - azimuth
            t - time
         OUTPUT:
-           the azimuthal force (torque)
+           the azimuthal torque (torque)
         HISTORY:
            2021-04-18 - Written - Bovy (UofT)
         """
@@ -225,10 +225,10 @@ A final `offset` option allows one to apply a static offset in Cartesian coordin
             xyzp+= self._offset
         Rp,phip,zp =coords.rect_to_cyl(xyzp[0],xyzp[1],xyzp[2])
         Rforcep= _evaluateRforces(self._pot,Rp,zp,phi=phip,t=t)
-        phiforcep= _evaluatephiforces(self._pot,Rp,zp,phi=phip,t=t)
+        phitorquep= _evaluatephitorques(self._pot,Rp,zp,phi=phip,t=t)
         zforcep= _evaluatezforces(self._pot,Rp,zp,phi=phip,t=t)
-        xforcep= numpy.cos(phip)*Rforcep-numpy.sin(phip)*phiforcep/Rp
-        yforcep= numpy.sin(phip)*Rforcep+numpy.cos(phip)*phiforcep/Rp
+        xforcep= numpy.cos(phip)*Rforcep-numpy.sin(phip)*phitorquep/Rp
+        yforcep= numpy.sin(phip)*Rforcep+numpy.cos(phip)*phitorquep/Rp
         return numpy.dot(self._inv_rot,
                          numpy.array([xforcep,yforcep,zforcep]))   
 
@@ -370,7 +370,7 @@ A final `offset` option allows one to apply a static offset in Cartesian coordin
             xyzp+= self._offset
         Rp,phip,zp =coords.rect_to_cyl(xyzp[0],xyzp[1],xyzp[2])
         Rforcep= _evaluateRforces(self._pot,Rp,zp,phi=phip,t=t)
-        phiforcep= _evaluatephiforces(self._pot,Rp,zp,phi=phip,t=t)
+        phitorquep= _evaluatephitorques(self._pot,Rp,zp,phi=phip,t=t)
         R2derivp= evaluateR2derivs(self._pot,Rp,zp,phi=phip,t=t,
                                    use_physical=False)
         phi2derivp= evaluatephi2derivs(self._pot,Rp,zp,phi=phip,t=t,
@@ -387,11 +387,11 @@ A final `offset` option allows one to apply a static offset in Cartesian coordin
         cp2, sp2, cpsp= cp**2., sp**2., cp*sp
         Rp2= Rp*Rp
         x2derivp= R2derivp*cp2-2.*Rphiderivp*cpsp/Rp+phi2derivp*sp2/Rp2\
-            -Rforcep*sp2/Rp-2.*phiforcep*cpsp/Rp2
+            -Rforcep*sp2/Rp-2.*phitorquep*cpsp/Rp2
         y2derivp= R2derivp*sp2+2.*Rphiderivp*cpsp/Rp+phi2derivp*cp2/Rp2\
-            -Rforcep*cp2/Rp+2.*phiforcep*cpsp/Rp2
+            -Rforcep*cp2/Rp+2.*phitorquep*cpsp/Rp2
         xyderivp= R2derivp*cpsp+Rphiderivp*(cp2-sp2)/Rp-phi2derivp*cpsp/Rp2\
-            +Rforcep*cpsp/Rp+phiforcep*(cp2-sp2)/Rp2
+            +Rforcep*cpsp/Rp+phitorquep*(cp2-sp2)/Rp2
         xzderivp= Rzderivp*cp-phizderivp*sp/Rp
         yzderivp= Rzderivp*sp+phizderivp*cp/Rp
         return numpy.dot(self._inv_rot,numpy.dot(\

@@ -77,13 +77,13 @@ class HenonHeilesPotential(planarPotential):
         NAME:
            _phitorque
         PURPOSE:
-           evaluate the azimuthal force for this potential
+           evaluate the azimuthal torque for this potential
         INPUT:
            R - Galactocentric cylindrical radius
            phi - azimuth
            t - time
         OUTPUT:
-           the azimuthal force
+           the azimuthal torque
         HISTORY:
            2017-10-16 - Written - Bovy (UofT)
         """

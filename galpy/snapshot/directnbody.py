@@ -4,9 +4,9 @@ import numpy as nu
 from numpy import linalg
 from galpy.util import symplecticode
 from galpy.potential.Potential import evaluateRforces, evaluatezforces,\
-    evaluatephiforces
+    evaluatephitorques
 from galpy.potential.planarPotential import evaluateplanarRforces,\
-    evaluateplanarphiforces
+    evaluateplanarphitorques
 from galpy.potential.linearPotential import evaluatelinearForces
 def direct_nbody(q,p,m,t,pot=None,softening_model='plummer',
                  softening_length=None,
@@ -110,9 +110,9 @@ def _external_force(x,t,pot):
         if x[1] < 0.: phi= 2.*nu.pi-phi
         #calculate forces
         Rforce= evaluateRforces(R,x[2],pot,phi=phi,t=t)
-        phiforce= evaluatephiforces(R,x[2],pot,phi=phi,t=t)
-        return nu.array([cosphi*Rforce-1./R*sinphi*phiforce,
-                     sinphi*Rforce+1./R*cosphi*phiforce,
+        phitorque= evaluatephitorques(R,x[2],pot,phi=phi,t=t)
+        return nu.array([cosphi*Rforce-1./R*sinphi*phitorque,
+                     sinphi*Rforce+1./R*cosphi*phitorque,
                      evaluatezforces(R,x[2],pot,phi=phi,t=t)])
     elif dim == 2:
         #x is rectangular so calculate R and phi
@@ -123,9 +123,9 @@ def _external_force(x,t,pot):
         if x[1] < 0.: phi= 2.*nu.pi-phi
         #calculate forces
         Rforce= evaluateplanarRforces(R,pot,phi=phi,t=t)
-        phiforce= evaluateplanarphiforces(R,pot,phi=phi,t=t)
-        return nu.array([cosphi*Rforce-1./R*sinphi*phiforce,
-                         sinphi*Rforce+1./R*cosphi*phiforce])
+        phitorque= evaluateplanarphitorques(R,pot,phi=phi,t=t)
+        return nu.array([cosphi*Rforce-1./R*sinphi*phitorque,
+                         sinphi*Rforce+1./R*cosphi*phitorque])
     elif dim == 1:
         return evaluatelinearForces(x,pot,t=t)
 

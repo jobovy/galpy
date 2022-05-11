@@ -120,7 +120,7 @@ class Potential(Force):
         elif dR == 1 and dphi == 0:
             return -self.Rforce(R,z,phi=phi,t=t,use_physical=False)
         elif dR == 0 and dphi == 1:
-            return -self.phiforce(R,z,phi=phi,t=t,use_physical=False)
+            return -self.phitorque(R,z,phi=phi,t=t,use_physical=False)
         elif dR == 2 and dphi == 0:
             return self.R2deriv(R,z,phi=phi,t=t,use_physical=False)
         elif dR == 0 and dphi == 2:
@@ -668,15 +668,15 @@ class Potential(Force):
 
     @potential_physical_input
     @physical_conversion('energy',pop=True)
-    def phiforce(self,R,z,phi=0.,t=0.):
+    def phitorque(self,R,z,phi=0.,t=0.):
         """
         NAME:
 
-           phiforce
+           phitorque
 
         PURPOSE:
 
-           evaluate the azimuthal force F_phi = -d Phi / d phi (R,z,phi,t) [note that this is a torque, not a force!)
+           evaluate the azimuthal torque tau_phi = -d Phi / d phi (R,z,phi,t)
 
         INPUT:
 
@@ -690,7 +690,7 @@ class Potential(Force):
 
         OUTPUT:
 
-           F_phi (R,z,phi,t)
+           tau_phi (R,z,phi,t)
 
         HISTORY:
 
@@ -1760,7 +1760,7 @@ class Potential(Force):
             raise PotentialError("Tidal tensor calculation is currently only implemented for axisymmetric potentials")
         #Evaluate forces, angles and derivatives
         Rderiv= -self.Rforce(R,z,phi=phi,t=t,use_physical=False)       
-        phideriv= -self.phiforce(R,z,phi=phi,t=t,use_physical=False)
+        phideriv= -self.phitorque(R,z,phi=phi,t=t,use_physical=False)
         R2deriv= self.R2deriv(R,z,phi=phi,t=t,use_physical=False)
         z2deriv= self.z2deriv(R,z,phi=phi,t=t,use_physical=False)
         phi2deriv= self.phi2deriv(R,z,phi=phi,t=t,use_physical=False)
@@ -2143,11 +2143,11 @@ def _evaluateRforces(Pot,R,z,phi=None,t=0.,v=None):
 
 @potential_physical_input
 @physical_conversion('energy',pop=True)
-def evaluatephiforces(Pot,R,z,phi=None,t=0.,v=None):
+def evaluatephitorques(Pot,R,z,phi=None,t=0.,v=None):
     """
     NAME:
 
-       evaluatephiforces
+       evaluatephitorques
 
     PURPOSE:
 
@@ -2168,7 +2168,7 @@ def evaluatephiforces(Pot,R,z,phi=None,t=0.,v=None):
 
     OUTPUT:
 
-       F_phi(R,z,phi,t)
+       tau_phi(R,z,phi,t)
 
     HISTORY:
 
@@ -2177,9 +2177,9 @@ def evaluatephiforces(Pot,R,z,phi=None,t=0.,v=None):
        2018-03-16 - Added velocity input for dissipative forces - Bovy (UofT)
 
     """
-    return _evaluatephiforces(Pot,R,z,phi=phi,t=t,v=v)
+    return _evaluatephitorques(Pot,R,z,phi=phi,t=t,v=v)
 
-def _evaluatephiforces(Pot,R,z,phi=None,t=0.,v=None):
+def _evaluatephitorques(Pot,R,z,phi=None,t=0.,v=None):
     """Raw, undecorated function for internal use"""
     isList= isinstance(Pot,list)
     nonAxi= _isNonAxi(Pot)
@@ -2201,7 +2201,7 @@ def _evaluatephiforces(Pot,R,z,phi=None,t=0.,v=None):
     elif isinstance(Pot,DissipativeForce):
         return Pot._phitorque_nodecorator(R,z,phi=phi,t=t,v=v)
     else: #pragma: no cover 
-        raise PotentialError("Input to 'evaluatephiforces' is neither a Potential-instance, DissipativeForce-instance or a list of such instances")
+        raise PotentialError("Input to 'evaluatephitorques' is neither a Potential-instance, DissipativeForce-instance or a list of such instances")
 
 @potential_physical_input
 @physical_conversion('force',pop=True)
@@ -3828,7 +3828,7 @@ def ttensor(Pot,R,z,phi=0.,t=0.,eigenval=False):
         raise PotentialError("Tidal tensor calculation is currently only implemented for axisymmetric potentials")
     #Evaluate forces, angles and derivatives
     Rderiv= -evaluateRforces(Pot,R,z,phi=phi,t=t,use_physical=False)
-    phideriv= -evaluatephiforces(Pot,R,z,phi=phi,t=t,use_physical=False)
+    phideriv= -evaluatephitorques(Pot,R,z,phi=phi,t=t,use_physical=False)
     R2deriv= evaluateR2derivs(Pot,R,z,phi=phi,t=t,use_physical=False)
     z2deriv= evaluatez2derivs(Pot,R,z,phi=phi,t=t,use_physical=False)
     phi2deriv= evaluatephi2derivs(Pot,R,z,phi=phi,t=t,use_physical=False)

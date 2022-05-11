@@ -130,7 +130,7 @@ class galpy_profile(LiteratureReferencesMixIn):
         Rforce= potential.evaluateRforces(self.pot,R/self.ro,zed/self.ro,
                                           phi=phi,t=self.tgalpy,
                                           use_physical=False)
-        phiforce= potential.evaluatephiforces(self.pot,R/self.ro,zed/self.ro,
+        phitorque= potential.evaluatephitorques(self.pot,R/self.ro,zed/self.ro,
                                               phi=phi,t=self.tgalpy,
                                               use_physical=False)\
                                               /(R/self.ro)
@@ -139,10 +139,10 @@ class galpy_profile(LiteratureReferencesMixIn):
                                          use_physical=False)
         # Convert cylindrical force --> rectangular
         cp, sp= numpy.cos(phi), numpy.sin(phi)
-        ax= (Rforce*cp - phiforce*sp)\
+        ax= (Rforce*cp - phitorque*sp)\
             *conversion.force_in_kmsMyr(ro=self.ro,vo=self.vo) \
             | units.kms / units.Myr
-        ay= (Rforce*sp + phiforce*cp)\
+        ay= (Rforce*sp + phitorque*cp)\
             *conversion.force_in_kmsMyr(ro=self.ro,vo=self.vo) \
             | units.kms / units.Myr
         az= zforce\

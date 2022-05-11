@@ -26,7 +26,7 @@ Use as ``Potential-instance.method(...)``
    nemo_accname <potentialnemoaccname.rst>
    nemo_accpars <potentialnemoaccpars.rst>
    omegac <potentialomegac.rst>
-   phiforce <potentialphiforce.rst>
+   phitorque <potentialphitorque.rst>
    phizderiv <potentialphizderiv.rst>
    phi2deriv <potentialphi2deriv.rst>
    plot <potentialplot.rst>
@@ -82,7 +82,7 @@ Use as ``method(...)``
    dvcircdR <potentialdvcircdrs.rst>
    epifreq <potentialepifreqs.rst>
    evaluateDensities <potentialdensities.rst>
-   evaluatephiforces <potentialphiforces.rst>
+   evaluatephitorques <potentialphitorques.rst>
    evaluatePotentials <potentialevaluate.rst>
    evaluatephizderivs <potentialphizderivs.rst>
    evaluatephi2derivs <potentialphi2derivs.rst>
@@ -457,7 +457,7 @@ Use as ``Potential-instance.method(...)``
    __add__ <potential2dadd.rst>
    __mul__ <potential2dmul.rst>
    __call__ <potential2dcall.rst>
-   phiforce <potential2dphiforce.rst>
+   phitorque <potential2dphitorque.rst>
    Rforce <potential2drforce.rst>
    turn_physical_off <potential2dturnphysicaloff.rst>
    turn_physical_on <potential2dturnphysicalon.rst>
@@ -488,7 +488,7 @@ Use as ``method(...)``
 .. toctree::
    :maxdepth: 2
 
-   evaluateplanarphiforces <potential2dphiforces.rst>
+   evaluateplanarphitorques <potential2dphitorques.rst>
    evaluateplanarPotentials <potential2devaluate.rst>
    evaluateplanarRforces <potential2drforces.rst>
    evaluateplanarR2derivs <potential2dr2derivs.rst>
