@@ -194,7 +194,28 @@ class PowerSphericalPotentialwCutoff(Potential):
         return R*z*(4.*numpy.pi*r**(-2.-self.alpha)*numpy.exp(-(r/self.rc)**2.)
                     -3.*self._mass(r)/r**5.)
 
-    def _ddensdr():
+    def _rforce_jax(self,r):
+        """
+        NAME:
+           _rforce_jax
+        PURPOSE:
+           evaluate the spherical radial force for this potential using JAX; use incomplete gamma implementation rather than hypergeometric, because JAX doesn't have the hypergeometric functions currently
+        INPUT:
+           r - Galactocentric spherical radius
+        OUTPUT:
+           the radial force
+        HISTORY:
+           2022-05-10 - Written - Bovy (UofT)
+        """
+        try:
+            from jax.scipy import special
+        except ImportError: # pragma: no cover
+            raise ImportError("Making use of the _rforce_jax function requires the google/jax library")       
+        return -self._amp*2.*numpy.pi*self.rc**(3.-self.alpha)\
+            *special.gammainc(1.5-0.5*self.alpha,(r/self.rc)**2.)\
+            *numpy.exp(special.gammaln(1.5-0.5*self.alpha))/r**2
+     
+    def _ddensdr(self,r,t=0.):
         """
         NAME:
            _ddensdr
