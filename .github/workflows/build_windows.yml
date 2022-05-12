@@ -141,22 +141,20 @@ jobs:
             REQUIRES_JAX: false            
     steps:
     - uses: actions/checkout@v2
-    # Windows installation: Install Miniconda, as specificed by this repository's environment.yml for Windows
-    # Cache both conda and pip
-    - uses: actions/cache@v2
-      with:
-        path: ~/conda_pkgs_dir
-        key: ${{ runner.os }}-pip-${{ matrix.python-version }}-${{ hashFiles('.github/workflows/build_windows.yml') }}-${{ hashFiles('.github/conda-build-environment-windows-latest.yml') }}-${{ matrix.REQUIRES_PYNBODY }}-${{ matrix.REQUIRES_ASTROPY }}-${{ matrix.REQUIRES_ASTROQUERY }}-${{ matrix.REQUIRES_NUMBA }}-${{ matrix.REQUIRES_JAX }}
+    # Windows installation: Install Micromamba, as specificed by this repository's environment.yml for Windows
+    # Cache both conda and pip, conda done by provision-with-micromamba
     - uses: actions/cache@v2
       with:
         path: ~\AppData\Local\pip\Cache
         key: ${{ runner.os }}-pip-${{ matrix.python-version }}-${{ hashFiles('.github/workflows/build_windows.yml') }}-${{ matrix.REQUIRES_PYNBODY }}-${{ matrix.REQUIRES_ASTROPY }}-${{ matrix.REQUIRES_ASTROQUERY }}-${{ matrix.REQUIRES_NUMBA }}-${{ matrix.REQUIRES_JAX }}
-    - uses: conda-incubator/setup-miniconda@v2
+    - uses: mamba-org/provision-with-micromamba@main
       with:
-         activate-environment: galpywheels
+         environment-name: galpywheels
          environment-file: .github/conda-build-environment-${{ matrix.os }}.yml
-         python-version: ${{ matrix.python-version }}
-         use-only-tar-bz2: true # IMPORTANT: This needs to be set for caching to work properly!
+         extra-specs: python=${{ matrix.python-version }}
+         cache-downloads: true
+         cache-env: true
+         cache-env-key: ${{ runner.os }}-${{ matrix.python-version }}-${{ hashFiles('.github/workflows/build_windows.yml') }}-${{ hashFiles('.github/conda-build-environment-windows-latest.yml') }}-${{ matrix.REQUIRES_PYNBODY }}-${{ matrix.REQUIRES_ASTROPY }}-${{ matrix.REQUIRES_ASTROQUERY }}-${{ matrix.REQUIRES_NUMBA }}-${{ matrix.REQUIRES_JAX }}
     - name: Set environment variables on Windows
       shell: bash -l {0}
       run: |
@@ -164,37 +162,46 @@ jobs:
         echo "LIB=$CONDA_PREFIX\\Library\\lib" >> $GITHUB_ENV
         echo "LIBPATH=$CONDA_PREFIX\\Library\\lib" >> $GITHUB_ENV
     - name: Install Python dependencies
+      shell: bash -l {0}
       run: |
          pip install --upgrade --upgrade-strategy eager numpy scipy matplotlib numexpr setuptools cython pytest tqdm
     - name: Install pynbody
       if: ${{ matrix.REQUIRES_PYNBODY }}
+      shell: bash -l {0}
       run: |
          pip install --upgrade --upgrade-strategy eager h5py pandas pytz
          pip install --upgrade --upgrade-strategy eager wheel
          pip install git+https://github.com/pynbody/pynbody.git@cfbefac64bfad3b8d042e669ff2b36bad25813ce#egg=pynbody
     - name: Install astropy
       if: ${{ matrix.REQUIRES_ASTROPY && matrix.python-version != 4.0 }}
+      shell: bash -l {0}
       run: |
          pip install astropy pyerfa
     - name: Install astropy (Python 4.0; doesn't exist of course, placeholder for new python v)
       if: ${{ matrix.REQUIRES_ASTROPY && matrix.python-version == 4.0 }}
+      shell: bash -l {0}
       run: |
          pip install pyerfa
          pip install --extra-index-url=https://pkgs.dev.azure.com/astropy-project/astropy/_packaging/nightly/pypi/simple/ --pre astropy
     - name: Install astroquery
       if: ${{ matrix.REQUIRES_ASTROQUERY }}
+      shell: bash -l {0}
       run: pip install astroquery
     - name: Install numba
       if: ${{ matrix.REQUIRES_NUMBA }}
+      shell: bash -l {0}
       run: pip install numba
     - name: Install JAX
       if: ${{ matrix.REQUIRES_JAX }}
+      shell: bash -l {0}
       run: pip install jax jaxlib
     - name: Download dfcorrections
+      shell: bash -l {0}
       run: |
          curl -O https://github.s3.amazonaws.com/downloads/jobovy/galpy/galpy-dfcorrections.tar.gz
          tar xvzf galpy-dfcorrections.tar.gz -C ./galpy/df/data/
     - name: Install package
+      shell: bash -l {0}
       run: |
         python setup.py build_ext --no-openmp --single_ext --inplace
         python setup.py develop --single_ext
