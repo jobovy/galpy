@@ -23,6 +23,10 @@ for PYTHON_VERSION in "${PYTHON_VERSIONS[@]}"; do
     LDFLAGS="$LDFLAGS -L$CONDA_PREFIX/lib"
     LD_LIBRARY_PATH="$LD_LIBRARY_PATH -L$CONDA_PREFIX/lib"
     python -m build --wheel --outdir wheelhouse
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        python -m pip install delocate
+        delocate-wheel -v wheelhouse/*
+    fi
     mv wheelhouse/* ../galpy-wheels-output
     conda activate base
     conda remove -y --name galpywheels"$PYTHON_VERSION" --all
