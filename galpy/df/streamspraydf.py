@@ -69,7 +69,11 @@ class streamspraydf(df):
             raise IOError("pot= must be set")
         self._pot= flatten_potential(pot)
         self._rtpot=self._pot if rtpot is None else flatten_potential(rtpot)
+        assert conversion.physical_compatible(self,self._pot), 'Physical conversion for the potential is not consistent with that of the streamspraydf object being initialized'
+        assert conversion.physical_compatible(self,self._rtpot), 'Physical conversion for the rt potential is not consistent with that of the streamspraydf object being initialized'
         # Set up progenitor orbit
+        assert conversion.physical_compatible(self,progenitor), 'Physical conversion for the progenitor Orbit object is not consistent with that of the streamspraydf object being initialized'
+        self._orig_progenitor= progenitor # Store so we can use its ro/vo/etc.
         self._progenitor= progenitor()
         self._progenitor.turn_physical_off()
         self._progenitor_times= numpy.linspace(0.,-self._tdisrupt,10001)
@@ -80,6 +84,7 @@ class streamspraydf(df):
         if not center is None:
             self._centerpot=self._pot if centerpot is None \
                 else flatten_potential(centerpot)
+            assert conversion.physical_compatible(self,self._centerpot), 'Physical conversion for the center potential is not consistent with that of the streamspraydf object being initialized'
             self._center= center()
             self._center.turn_physical_off()
             self._center.integrate(self._progenitor_times,self._centerpot)
@@ -114,11 +119,13 @@ class streamspraydf(df):
 
         OUTPUT:
 
-            Orbit instance or (R,vR,vT,z,vz,phi) of points on the stream in 6,N array (set of 6 Quantities when physical output is on); optionally the time is included as well. 
+            Orbit instance or (R,vR,vT,z,vz,phi) of points on the stream in 6,N array (set of 6 Quantities when physical output is on); optionally the time is included as well. The ro/vo unit-conversion parameters and the zo/solarmotion parameters as well as whether physical outputs are on match the settings of the progenitor Orbit given to the class initialization
 
         HISTORY:
 
             2018-07-31 - Written - Bovy (UofT)
+            
+            2022-05-18 - Made output Orbit ro/vo/zo/solarmotion/roSet/voSet match that of the progenitor orbit - Bovy (UofT)
 
         """
         # First sample times
@@ -207,9 +214,16 @@ class streamspraydf(df):
             out[4]= vZs
             out[5]= phis
         if return_orbit:
-            o= Orbit(vxvv=out.T)
-            if self._roSet and self._voSet:
-                o.turn_physical_on(ro=self._ro,vo=self._vo)
+            # Output Orbit ro/vo/zo/solarmotion/roSet/voSet match progenitor
+            o= Orbit(vxvv=out.T,
+                     ro=self._orig_progenitor._ro,
+                     vo=self._orig_progenitor._vo,
+                     zo=self._orig_progenitor._zo,
+                     solarmotion= self._orig_progenitor._solarmotion)
+            if not self._orig_progenitor._roSet:
+                o._roSet= False
+            if not self._orig_progenitor._voSet:
+                o._voSet= False
             out= o
         elif _APY_UNITS and self._voSet and self._roSet:
             out= (out[0]*self._ro*units.kpc,

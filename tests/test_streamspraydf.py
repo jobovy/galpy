@@ -185,3 +185,65 @@ def test_center():
     assert numpy.fabs(numpy.std(stream_R_wrt_LMC)) < 0.15, 'Stream generated in the LMC does not appear to be on a circle within the LMC'
     return None
         
+def test_sample_orbit_rovoetc():
+    # Test that the sample orbit output has the same ro/vo/etc. as the 
+    # input progenitor
+    lp= LogarithmicHaloPotential(normalize=1.,q=0.9)
+    ro, vo= 9., 230.
+    zo, solarmotion= 0.03, [-20.,30.,40.]
+    obs= Orbit([1.56148083,0.35081535,-1.15481504,
+                0.88719443,-0.47713334,0.12019596],
+               ro=ro,vo=vo,zo=zo,solarmotion=solarmotion)
+    # Set up streamspraydf
+    spdf_bovy14= streamspraydf(2*10.**4./conversion.mass_in_msol(vo,ro),
+                               progenitor=obs,
+                               pot=lp,
+                               tdisrupt=4.5/conversion.time_in_Gyr(vo,ro))
+    sam= spdf_bovy14.sample(n=10)
+    assert obs._roSet is sam._roSet, 'Sampled streamspraydf orbits do not have the same roSet as the progenitor orbit'
+    assert obs._voSet is sam._voSet, 'Sampled streamspraydf orbits do not have the same voSet as the progenitor orbit'
+    assert numpy.fabs(obs._ro-sam._ro) < 1e-10, 'Sampled streamspraydf orbits do not have the same ro as the progenitor orbit'
+    assert numpy.fabs(obs._vo-sam._vo) < 1e-10, 'Sampled streamspraydf orbits do not have the same vo as the progenitor orbit'
+    assert numpy.fabs(obs._zo-sam._zo) < 1e-10, 'Sampled streamspraydf orbits do not have the same zo as the progenitor orbit'
+    assert numpy.all(numpy.fabs(obs._solarmotion-sam._solarmotion) < 1e-10), 'Sampled streamspraydf orbits do not have the same solarmotion as the progenitor orbit'
+    # Another one
+    ro= 9.
+    zo, solarmotion= 0.03, [-20.,30.,40.]
+    obs= Orbit([1.56148083,0.35081535,-1.15481504,
+                0.88719443,-0.47713334,0.12019596],
+               ro=ro,zo=zo,solarmotion=solarmotion)
+    # Set up streamspraydf
+    spdf_bovy14= streamspraydf(2*10.**4./conversion.mass_in_msol(vo,ro),
+                               progenitor=obs,
+                               pot=lp,
+                               tdisrupt=4.5/conversion.time_in_Gyr(vo,ro))
+    sam= spdf_bovy14.sample(n=10)
+    assert obs._roSet, 'Test requires that ro be set for the progenitor orbit, but it appears not to have been set'
+    assert not obs._voSet, 'Test requires that vo not be set for the progenitor orbit, but it appears to have been set'
+    assert obs._roSet is sam._roSet, 'Sampled streamspraydf orbits do not have the same roSet as the progenitor orbit'
+    assert obs._voSet is sam._voSet, 'Sampled streamspraydf orbits do not have the same voSet as the progenitor orbit'
+    assert numpy.fabs(obs._ro-sam._ro) < 1e-10, 'Sampled streamspraydf orbits do not have the same ro as the progenitor orbit'
+    assert numpy.fabs(obs._vo-sam._vo) < 1e-10, 'Sampled streamspraydf orbits do not have the same vo as the progenitor orbit'
+    assert numpy.fabs(obs._zo-sam._zo) < 1e-10, 'Sampled streamspraydf orbits do not have the same zo as the progenitor orbit'
+    assert numpy.all(numpy.fabs(obs._solarmotion-sam._solarmotion) < 1e-10), 'Sampled streamspraydf orbits do not have the same solarmotion as the progenitor orbit'
+    # And another one
+    vo= 230.
+    zo, solarmotion= 0.03, [-20.,30.,40.]
+    obs= Orbit([1.56148083,0.35081535,-1.15481504,
+                0.88719443,-0.47713334,0.12019596],
+               vo=vo,zo=zo,solarmotion=solarmotion)
+    # Set up streamspraydf
+    spdf_bovy14= streamspraydf(2*10.**4./conversion.mass_in_msol(vo,ro),
+                               progenitor=obs,
+                               pot=lp,
+                               tdisrupt=4.5/conversion.time_in_Gyr(vo,ro))
+    sam= spdf_bovy14.sample(n=10)
+    assert obs._voSet, 'Test requires that vo be set for the progenitor orbit, but it appears not to have been set'
+    assert not obs._roSet, 'Test requires that ro not be set for the progenitor orbit, but it appears to have been set'
+    assert obs._roSet is sam._roSet, 'Sampled streamspraydf orbits do not have the same roSet as the progenitor orbit'
+    assert obs._voSet is sam._voSet, 'Sampled streamspraydf orbits do not have the same voSet as the progenitor orbit'
+    assert numpy.fabs(obs._ro-sam._ro) < 1e-10, 'Sampled streamspraydf orbits do not have the same ro as the progenitor orbit'
+    assert numpy.fabs(obs._vo-sam._vo) < 1e-10, 'Sampled streamspraydf orbits do not have the same vo as the progenitor orbit'
+    assert numpy.fabs(obs._zo-sam._zo) < 1e-10, 'Sampled streamspraydf orbits do not have the same zo as the progenitor orbit'
+    assert numpy.all(numpy.fabs(obs._solarmotion-sam._solarmotion) < 1e-10), 'Sampled streamspraydf orbits do not have the same solarmotion as the progenitor orbit'
+    return None    
