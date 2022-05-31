@@ -3,6 +3,7 @@ __version__ = "1.7.3.dev0"
 import sys
 import datetime
 import subprocess
+import platform
 import http.client
 from pkg_resources import parse_version
 from .util.config import (__config__, __orig__config__, write_config, 
@@ -42,7 +43,8 @@ def check_pypi_version(name):
         return False   
 def print_version_warning(): # pragma: no cover
     print("\033[91mA new version of galpy ({}) is available, please upgrade using pip/conda/... to get the latest features and bug fixes!\033[0m".format(latest_pypi_version("galpy")))
-_CHECK_VERSION_UPGRADE= __config__.getboolean('version-check','do-check')
+_CHECK_VERSION_UPGRADE= __config__.getboolean('version-check','do-check') \
+    and not platform.system() == 'Emscripten':
 if _CHECK_VERSION_UPGRADE and hasattr(sys,'ps1'): # pragma: no cover
     # Interactive session, https://stackoverflow.com/a/64523765
     if check_pypi_version("galpy"):
