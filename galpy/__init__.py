@@ -12,8 +12,8 @@ def latest_pypi_version(name):
     # First check whether there's internet, code below this works w/o
     # but is very slow without internet, so this is a quick check
     def online():
-        conn= http.client.HTTPSConnection("8.8.8.8",timeout=5)
         try:
+            conn= http.client.HTTPSConnection("8.8.8.8",timeout=5)
             conn.request("HEAD","/")
             return True
         except Exception: # pragma: no cover
