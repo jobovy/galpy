@@ -3152,3 +3152,15 @@ def test_from_name_values():
     assert numpy.allclose(o.vlos(), [-20.60,20.56]), \
         "radial velocity of Vega/Lacaille 8760  does not match SIMBAD value"
     return None
+
+def test_from_name_name():
+    # Test that o.name gives the expected output
+    from galpy.orbit import Orbit
+    assert Orbit.from_name('LMC').name == 'LMC', 'Orbit.from_name does not appear to set the name attribute correctly'
+    assert numpy.char.equal(Orbit.from_name(['LMC']).name,numpy.char.array('LMC')), 'Orbit.from_name does not appear to set the name attribute correctly'
+    assert numpy.all(numpy.char.equal(Orbit.from_name(['LMC','SMC']).name,numpy.char.array(['LMC','SMC']))), 'Orbit.from_name does not appear to set the name attribute correctly'
+    # Also slice
+    assert Orbit.from_name(['LMC','SMC','Fornax'])[-1].name == 'Fornax', 'Orbit.from_name does not appear to set the name attribute correctly'
+    assert numpy.all(numpy.char.equal(Orbit.from_name(['LMC','SMC','Fornax'])[:2].name,numpy.char.array(['LMC','SMC']))), 'Orbit.from_name does not appear to set the name attribute correctly'
+    return None
+    

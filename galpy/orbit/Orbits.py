@@ -615,9 +615,14 @@ class Orbit(object):
                 all_vxvv.append(_from_name_oneobject(tname,obs))
             out= cls(vxvv=all_vxvv,radec=True,
                      ro=obs[0],vo=obs[1],zo=obs[2],solarmotion=obs[3])
-        out.name= name
+        out._name= numpy.char.array(name)
         return out
 
+    @property
+    @shapeDecorator
+    def name(self):
+        return self._name
+    
     @classmethod
     def from_fit(cls,init_vxvv,vxvv,vxvv_err=None,pot=None,
                  radec=False,lb=False,
@@ -909,12 +914,17 @@ class Orbit(object):
                 copy.deepcopy(self.orbit[flat_indx_array])
             integrate_kwargs['_pot']= self._pot
         else: integrate_kwargs= None
+        # Other things to transfer
+        misc_kwargs= {}
+        if hasattr(self,'_name'):
+            misc_kwargs['_name']= self._name[flat_indx_array]
         return self._from_slice(orbits_list,integrate_kwargs,
-                                shape_kwargs,physical_kwargs)
+                                shape_kwargs,physical_kwargs,
+                                misc_kwargs)
 
     @classmethod
     def _from_slice(cls,orbits_list,integrate_kwargs,shape_kwargs,
-                    physical_kwargs):
+                    physical_kwargs,misc_kwargs):
         out= cls(vxvv=orbits_list)
         # Set shape
         out.shape= shape_kwargs['shape']
@@ -925,6 +935,9 @@ class Orbit(object):
         if not integrate_kwargs is None:
             for kw in integrate_kwargs:
                 out.__dict__[kw]= integrate_kwargs[kw]
+        # Transfer miscellaneous attributes
+        for kw in misc_kwargs:
+            out.__dict__[kw]= misc_kwargs[kw]
         return out
 
     def reshape(self,newshape):
