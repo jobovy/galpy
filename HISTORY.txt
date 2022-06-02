@@ -7,6 +7,9 @@ v1.7.3 (XXXX-XX-XX)
 - Added necessary derivatives to allow spherical DFs to be constructed using 
   PowerSphericalPotentialwCutoff and PlummerPotential.
 
+- Updated existing and added new phase-space positions for MW satellite 
+  galaxies from Pace et al. (2022; 2205.05699) (#484 by Anya Dovgal). 
+
 - Renamed phiforce --> phitorque everywhere (including
   potential.evaluatephiforces and potential.evaluateplanarphiforces), such 
   the method's name actually reflect what it returns (a torque, not a force). 
