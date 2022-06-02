@@ -158,15 +158,11 @@
       "BootesI",
       "BootesII",
       "BootesIII",
-      "BootesIV",
       "CanesVenaticiI",
       "CanesVenaticiII",
       "Carina",
       "CarinaII",
       "CarinaIII",
-      "CentaurusI",
-      "CetusII",
-      "CetusIII",
       "ColumbaI",
       "ComaBerenices",
       "CraterII",
@@ -178,7 +174,6 @@
       "GrusII",
       "Hercules",
       "HorologiumI",
-      "HorologiumII",
       "HydraII",
       "HydrusI",
       "LMC",
@@ -189,8 +184,6 @@
       "PegasusIII",
       "PhoenixI",
       "PhoenixII",
-      "PictorI",
-      "PictorII",
       "PiscesII",
       "ReticulumII",
       "ReticulumIII",
@@ -209,7 +202,6 @@
       "UrsaMajorI",
       "UrsaMajorII",
       "UrsaMinor",
-      "VirgoI",
       "Willman1"
     ],
     "solarsystem": [
@@ -365,13 +357,13 @@
     "vlos": 197.5,
     "source": "arXiv:2205.05699"
   },
-  "BootesIV": {
+  "BootesIV-missingvlos": {
     "ra": 233.689,
     "dec": 43.726,
     "distance": 209.0,
     "pmra": 0.469013969031395,
     "pmdec": 0.4894436168586725,
-    "vlos": 0.0,
+    "vlos": NaN,
     "source": "arXiv:2205.05699"
   },
   "CanesVenaticiI": {
@@ -464,31 +456,31 @@
       "source": "arXiv:1805.00908"
     }
   },
-  "CentaurusI": {
+  "CentaurusI-missingvlos": {
     "ra": 189.585,
     "dec": -40.902,
     "distance": 116.3,
     "pmra": -0.0744723019505324,
     "pmdec": -0.1993701407138002,
-    "vlos": 0.0,
+    "vlos": NaN,
     "source": "arXiv:2205.05699"
   },
-  "CetusII": {
+  "CetusII-missingvlos": {
     "ra": 19.47,
     "dec": -17.42,
     "distance": 30.0,
     "pmra": 2.84424,
     "pmdec": 0.4736214040129863,
-    "vlos": 0.0,
+    "vlos": NaN,
     "source": "arXiv:2205.05699"
   },
-  "CetusIII": {
+  "CetusIII-missingvlos": {
     "ra": 31.331,
     "dec": -4.27,
     "distance": 251.0,
     "pmra": 0.4767878711637915,
     "pmdec": -0.501269156723,
-    "vlos": 0.0,
+    "vlos": NaN,
     "source": "arXiv:2205.05699"
   },
   "ColumbaI": {
@@ -671,13 +663,13 @@
       "source": "arXiv:1805.00908"
     }
   },
-  "HorologiumII": {
+  "HorologiumII-missingvlos": {
     "ra": 49.1077,
     "dec": -50.0486,
     "distance": 78.0,
     "pmra": 0.9674514230795114,
     "pmdec": -0.7712314075203168,
-    "vlos": 0.0,
+    "vlos": NaN,
     "source": "arXiv:2205.05699"
   },
   "HydraII": {
@@ -824,22 +816,22 @@
     "vlos": 32.4,
     "source": "arXiv:2205.05699"
   },
-  "PictorI": {
+  "PictorI-missingvlos": {
     "ra": 70.9475,
     "dec": -50.28305556,
     "distance": 125.9,
     "pmra": 0.1529285888833958,
     "pmdec": 0.0955046531774119,
-    "vlos": 0.0,
+    "vlos": NaN,
     "source": "arXiv:2205.05699"
   },
-  "PictorII": {
+  "PictorII-missingvlos": {
     "ra": 101.18,
     "dec": -59.897,
     "distance": 45.0,
     "pmra": 1.09069,
     "pmdec": 1.1787952857264017,
-    "vlos": 0.0,
+    "vlos": NaN,
     "source": "arXiv:2205.05699"
   },
   "PiscesII": {
@@ -1112,13 +1104,13 @@
       "source": "arXiv:1805.00908"
     }
   },
-  "VirgoI": {
+  "VirgoI-missingvlos": {
     "ra": 180.038,
     "dec": -0.681,
     "distance": 91.0,
     "pmra": -0.1669269582743862,
     "pmdec": -0.0080203907748424,
-    "vlos": 0.0,
+    "vlos": NaN,
     "source": "arXiv:2205.05699"
   },
   "Willman1": {
