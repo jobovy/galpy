@@ -1,4 +1,3 @@
-from six import raise_from
 import os
 import sys
 _PY3= sys.version > '3'
@@ -967,7 +966,6 @@ class Orbit:
         try:
             dummy= dummy.reshape(newshape)
         except ValueError:
-            # Eventually should just be raise ValueError from None (Python 3)
             raise (ValueError('cannot reshape Orbit of shape %s into shape %s'
                                   % (self.shape,newshape))) from None
         self.shape= dummy.shape

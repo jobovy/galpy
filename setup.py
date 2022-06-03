@@ -268,7 +268,7 @@ setup(cmdclass=dict(build_ext=BuildExt), # this to allow compiler check above
                     'galpy/df':['data/*.sav'],
                     "": ["README.md","README.dev","LICENSE","AUTHORS.rst"]},
       include_package_data=True,
-      install_requires=['numpy>=1.7','scipy','matplotlib','pytest','six'],
+      install_requires=['numpy>=1.7','scipy','matplotlib'],
       ext_modules=ext_modules if not no_compiler and not no_ext else None,
       classifiers=[
         "Development Status :: 6 - Mature",

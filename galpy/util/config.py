@@ -1,9 +1,6 @@
 import os, os.path
 import copy
-try:
-    import configparser
-except: # pragma: no cover
-    from six.moves import configparser
+import configparser
 _APY_LOADED= True
 try:
     from astropy import units

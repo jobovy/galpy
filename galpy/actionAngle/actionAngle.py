@@ -1,4 +1,3 @@
-from six import with_metaclass
 import types
 import copy
 import numpy
