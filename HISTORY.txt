@@ -16,8 +16,10 @@ v1.7.3 (XXXX-XX-XX)
   phiforce will be fully removed in version 1.9 and may later be re-used 
   for the actual phi component of the force, so switch to the new name now.
 
-- Added code to check whether a newer version of galpy is available and, if so, 
+- Added code to check whether a newer version of galpy is available and, if so
   encourage users to upgrade (to try to have people use more recent versions).
+
+- Fully drop Python 2 support (removed all Python 2 compatibility code).
 
 v1.7.2 (2022-04-15)
 ===================
