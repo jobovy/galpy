@@ -1,5 +1,4 @@
 from six import raise_from
-from past.builtins import basestring
 import os
 import sys
 _PY3= sys.version > '3'
@@ -606,7 +605,7 @@ class Orbit:
                 name= _known_objects['_collections'][this_name]
             else:
                 name= args[0]
-        if isinstance(name,(basestring)):
+        if isinstance(name,str):
             out= cls(vxvv=_from_name_oneobject(name,obs),radec=True,
                      ro=obs[0],vo=obs[1],zo=obs[2],solarmotion=obs[3])
         else: # assume list
