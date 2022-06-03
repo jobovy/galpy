@@ -1,5 +1,3 @@
-from __future__ import division, print_function
-
 import os
 import copy
 import pickle
@@ -13,8 +11,8 @@ from .Potential import Potential, PotentialError, lindbladR, flatten
 from .DissipativeForce import _isDissipative
 from .plotRotcurve import plotRotcurve
 from .plotEscapecurve import _INF, plotEscapecurve
-class planarPotential(object):
-    """Class representing 2D (R,\phi) potentials"""
+class planarPotential:
+    r"""Class representing 2D (R,\phi) potentials"""
     def __init__(self,amp=1.,ro=None,vo=None):
         self._amp= amp
         self.dim= 2
@@ -234,7 +232,7 @@ class planarPotential(object):
     @potential_physical_input
     @physical_conversion('force',pop=True)
     def Rforce(self,R,phi=0.,t=0.):
-        """
+        r"""
         NAME:
 
            Rforce
@@ -732,7 +730,7 @@ class planarPotentialFromRZPotential(planarAxiPotential):
         return None
 
     def _evaluate(self,R,phi=0.,t=0.):
-        """
+        r"""
         NAME:
            _evaluate
         PURPOSE:
@@ -749,7 +747,7 @@ class planarPotentialFromRZPotential(planarAxiPotential):
         return self._Pot(R,0.,t=t,use_physical=False)
             
     def _Rforce(self,R,phi=0.,t=0.):
-        """
+        r"""
         NAME:
            _Rforce
         PURPOSE:
@@ -852,7 +850,7 @@ class planarPotentialFromFullPotential(planarPotential):
         return None
 
     def _evaluate(self,R,phi=0.,t=0.):
-        """
+        r"""
         NAME:
            _evaluate
         PURPOSE:
@@ -869,7 +867,7 @@ class planarPotentialFromFullPotential(planarPotential):
         return self._Pot(R,0.,phi=phi,t=t,use_physical=False)
             
     def _Rforce(self,R,phi=0.,t=0.):
-        """
+        r"""
         NAME:
            _Rforce
         PURPOSE:
@@ -886,7 +884,7 @@ class planarPotentialFromFullPotential(planarPotential):
         return self._Pot.Rforce(R,0.,phi=phi,t=t,use_physical=False)
 
     def _phitorque(self,R,phi=0.,t=0.):
-        """
+        r"""
         NAME:
            _phitorque
         PURPOSE:
@@ -1283,7 +1281,7 @@ def LinShuReductionFactor(axiPot,R,sigmar,nonaxiPot=None,
     axiPot= flatten(axiPot)
     from ..potential import omegac, epifreq
     if nonaxiPot is None and (OmegaP is None or k is None or m is None):
-        raise IOError("Need to specify either nonaxiPot= or m=, k=, OmegaP= for LinShuReductionFactor")
+        raise OSError("Need to specify either nonaxiPot= or m=, k=, OmegaP= for LinShuReductionFactor")
     elif not nonaxiPot is None:
         OmegaP= nonaxiPot.OmegaP()
         k= nonaxiPot.wavenumber(R)

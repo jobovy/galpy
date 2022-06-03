@@ -15,7 +15,7 @@ def _new_obj(cls, kwargs, args):
     """Maps kwargs to cls.__new__"""
     return cls.__new__(cls, *args, **kwargs)
 
-class parentWrapperPotential(object):
+class parentWrapperPotential:
     """'Dummy' class only used to delegate wrappers to either 2D planarWrapperPotential or 3D WrapperPotential based on pot's dimensionality, using a little python object creation magic..."""
     def __new__(cls,*args,**kwargs):
         if kwargs.pop('_init',False):
@@ -100,7 +100,7 @@ class WrapperPotential(Potential):
             return lambda R,Z,phi=0.,t=0.: \
                 self._wrap(attribute,R,Z,phi=phi,t=t)
         else:
-            return super(WrapperPotential,self).__getattr__(attribute)
+            return super().__getattr__(attribute)
 
     def _wrap_pot_func(self,attribute):
         if attribute == '_evaluate':
@@ -193,7 +193,7 @@ class planarWrapperPotential(planarPotential):
             return lambda R,phi=0.,t=0.: \
                 self._wrap(attribute,R,phi=phi,t=t)
         else:
-            return super(planarWrapperPotential,self).__getattr__(attribute)
+            return super().__getattr__(attribute)
 
     def _wrap_pot_func(self,attribute):
         if attribute == '_evaluate':

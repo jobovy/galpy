@@ -93,7 +93,7 @@ class kingdf(isotropicsphericaldf):
                 *(2.*numpy.pi*self._sigma2)**-1.5*self.rho1
         return out# mass density, not /self.M as for number density
        
-class _scalefreekingdf(object):
+class _scalefreekingdf:
     """Internal helper class to solve the scale-free King DF model, that is, the one that only depends on W = Psi/sigma^2"""
     def __init__(self,W0):
         self.W0= W0

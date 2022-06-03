@@ -160,18 +160,18 @@ class streamdf(df):
             self._tdisrupt= conversion.parse_time(tdisrupt,ro=self._ro,vo=self._vo)
         self._sigMeanOffset= sigMeanOffset
         if pot is None: #pragma: no cover
-            raise IOError("pot= must be set")
+            raise OSError("pot= must be set")
         self._pot= flatten_potential(pot)
         self._aA= aA
         if not self._aA._pot == self._pot:
-            raise IOError("Potential in aA does not appear to be the same as given potential pot")
+            raise OSError("Potential in aA does not appear to be the same as given potential pot")
         self._check_consistent_units()
         if useTM:
             self._useTM= True
             self._aAT= useTM # confusing, no?
             self._approxConstTrackFreq= approxConstTrackFreq
             if not self._aAT._pot == self._pot:
-                raise IOError("Potential in useTM=actionAngleTorus instance does not appear to be the same as given potential pot")
+                raise OSError("Potential in useTM=actionAngleTorus instance does not appear to be the same as given potential pot")
         else:
             self._useTM= False
         if (multi is True):   #if set to boolean, enable cpu_count processes
@@ -960,7 +960,7 @@ class streamdf(df):
                                     self._nTrackChunks)
         ObsTrack= numpy.empty((self._nTrackChunks,6))
         ObsTrackAA= numpy.empty((self._nTrackChunks,6))
-        detdOdJps= numpy.empty((self._nTrackChunks))
+        detdOdJps= numpy.empty(self._nTrackChunks)
         if self._multi is None:
             for ii in range(self._nTrackChunks):
                 multiOut= _determine_stream_track_single(self._aA,
@@ -1100,7 +1100,7 @@ class streamdf(df):
         allinvjacsTrack= numpy.empty((self._nTrackChunks,6,6))
         ObsTrack= numpy.empty((self._nTrackChunks,6))
         ObsTrackAA= numpy.empty((self._nTrackChunks,6))
-        detdOdJps= numpy.empty((self._nTrackChunks))
+        detdOdJps= numpy.empty(self._nTrackChunks)
         if self._multi is None:
             for ii in range(self._nTrackChunks):
                 multiOut= _determine_stream_track_TM_single(\
@@ -2591,7 +2591,7 @@ class streamdf(df):
         return [6,nobj] array of frequencies (:3) and angles (3:)"""
         interp= kwargs.get('interp',self._useInterp)
         if len(args) == 5:
-            raise IOError("Must specify phi for streamdf")
+            raise OSError("Must specify phi for streamdf")
         elif len(args) == 6:
             if kwargs.get('aAInput',False):
                 if isinstance(args[0],(int,float,numpy.float32,numpy.float64)):
@@ -3083,11 +3083,11 @@ def _determine_stream_track_single(aA,progenitorTrack,trackt,
                                    dsigomeanProgDirection,meanOmega,
                                    thetasTrack):
     #Setup output
-    allAcfsTrack= numpy.empty((9))
+    allAcfsTrack= numpy.empty(9)
     alljacsTrack= numpy.empty((6,6))
     allinvjacsTrack= numpy.empty((6,6))
-    ObsTrack= numpy.empty((6))
-    ObsTrackAA= numpy.empty((6))
+    ObsTrack= numpy.empty(6)
+    ObsTrackAA= numpy.empty(6)
     detdOdJ= numpy.empty(6)
     #Calculate
     tacfs= aA.actionsFreqsAngles(progenitorTrack(trackt))
@@ -3205,7 +3205,7 @@ def _determine_stream_track_TM_approxConstantTrackFreq(aAT,
     ObsTrack= xvJacHess[0]
     alljacsTrack= numpy.empty((len(thetasTrack),6,6))
     allinvjacsTrack= numpy.empty((len(thetasTrack),6,6))
-    detdOdJ= numpy.empty((len(thetasTrack)))
+    detdOdJ= numpy.empty(len(thetasTrack))
     for ii in range(len(thetasTrack)):
         alljacsTrackTemp= numpy.linalg.inv(xvJacHess[1][ii])
         alljacsTrack[ii]= copy.copy(alljacsTrackTemp)

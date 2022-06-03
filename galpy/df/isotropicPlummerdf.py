@@ -11,7 +11,7 @@ class isotropicPlummerdf(isotropicsphericaldf):
     
         f(E) = {24\\sqrt{2} \\over 7\\pi^3}\\,{b^2\\over (GM)^5}\\,(-E)^{7/2}
 
-    for :math:`-GM/b \leq E \leq 0` and zero otherwise. The parameter :math:`GM` is the total mass and :math:`b` the Plummer profile's scale parameter.
+    for :math:`-GM/b \\leq E \\leq 0` and zero otherwise. The parameter :math:`GM` is the total mass and :math:`b` the Plummer profile's scale parameter.
     """
     def __init__(self,pot=None,ro=None,vo=None):
         """

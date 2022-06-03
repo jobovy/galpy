@@ -67,8 +67,8 @@ if __config__.getboolean('plot','seaborn-bovy-defaults'):
     except: pass
     else:
         sns.set_style('ticks',
-                      {'xtick.direction': u'in',
-                       'ytick.direction': u'in',
+                      {'xtick.direction': 'in',
+                       'ytick.direction': 'in',
                        'axes.labelsize': 18.0,
                        'axes.titlesize': 18.0,
                        'figure.figsize': numpy.array([ 6.64,  4.  ]),

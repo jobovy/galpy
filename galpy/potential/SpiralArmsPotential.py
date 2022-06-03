@@ -6,7 +6,6 @@
 #
 #  Phi(r, phi, z) = -4*pi*G*H*rho0*exp(-(r-r0)/Rs)*sum(Cn/(Kn*Dn)*cos(n*gamma)*sech(Kn*z/Bn)^Bn)
 ###############################################################################
-from __future__ import division
 from .Potential import Potential
 from ..util import conversion
 import numpy
@@ -15,12 +14,12 @@ class SpiralArmsPotential(Potential):
     
     .. math::
     
-        \\Phi(R, \\phi, z) = -4 \\pi GH \\,\\rho_0 exp \\left( -\\frac{R-r_{ref}}{R_s} \\right) \\sum{\\frac{C_n}{K_n D_n} \\,\cos(n \\gamma) \\,\\mathrm{sech}^{B_n} \\left( \\frac{K_n z}{B_n} \\right)}
+        \\Phi(R, \\phi, z) = -4 \\pi GH \\,\\rho_0 exp \\left( -\\frac{R-r_{ref}}{R_s} \\right) \\sum{\\frac{C_n}{K_n D_n} \\,\\cos(n \\gamma) \\,\\mathrm{sech}^{B_n} \\left( \\frac{K_n z}{B_n} \\right)}
 
     where
 
     .. math::
-        K_n &= \\frac{n N}{R \sin(\\alpha)} \\\\
+        K_n &= \\frac{n N}{R \\sin(\\alpha)} \\\\
         B_n &= K_n H (1 + 0.4 K_n H) \\\\
         D_n &= \\frac{1 + K_n H + 0.3 (K_n H)^2}{1 + 0.3 K_n H} \\\\
 
@@ -32,7 +31,7 @@ class SpiralArmsPotential(Potential):
     The default of :math:`C_n=[1]` gives a sinusoidal profile for the potential. An alternative from `Cox and Gomez (2002) <https://arxiv.org/abs/astro-ph/0207635>`__  creates a density that behaves approximately as a cosine squared in the arms but is separated by a flat interarm region by setting 
 
      .. math::
-        C_n = \\left[\\frac{8}{3 \\pi}\,,\\frac{1}{2} \\,, \\frac{8}{15 \\pi}\\right]
+        C_n = \\left[\\frac{8}{3 \\pi}\\,,\\frac{1}{2} \\,, \\frac{8}{15 \\pi}\\right]
 
     """
     normalize= property() # turn off normalize
@@ -55,7 +54,7 @@ class SpiralArmsPotential(Potential):
             :phi_ref: reference angle (:math:`\\phi_p(r_0)` in the paper by Cox and Gomez) (can be Quantity)
             :Rs: radial scale length of the drop-off in density amplitude of the arms (can be Quantity)
             :H: scale height of the stellar arm perturbation (can be Quantity)
-            :Cs: list of constants multiplying the :math:`\cos(n \\gamma)` terms
+            :Cs: list of constants multiplying the :math:`\\cos(n \\gamma)` terms
             :omega: rotational pattern speed of the spiral arms (can be Quantity)
         OUTPUT:
             (none)

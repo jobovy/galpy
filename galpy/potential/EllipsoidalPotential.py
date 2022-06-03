@@ -27,7 +27,7 @@ class EllipsoidalPotential(Potential):
 
     .. math::
 
-        \psi(m) = -\\int_{m^2}^\\infty d m^2 \\rho(m^2)
+        \\psi(m) = -\\int_{m^2}^\\infty d m^2 \\rho(m^2)
 
     See PerfectEllipsoidPotential for an example and `Merritt & Fridman (1996) <http://adsabs.harvard.edu/abs/1996ApJ...460..136M>`_ for the formalism.
     """
@@ -531,7 +531,7 @@ class EllipsoidalPotential(Potential):
         return 0.
 
 def _potInt(x,y,z,psi,b2,c2,glx=None,glw=None):
-    """int_0^\infty [psi(m)-psi(\infy)]/sqrt([1+tau]x[b^2+tau]x[c^2+tau])dtau"""
+    r"""int_0^\infty [psi(m)-psi(\infy)]/sqrt([1+tau]x[b^2+tau]x[c^2+tau])dtau"""
     def integrand(s):
         t= 1/s**2.-1.
         return psi(numpy.sqrt(x**2./(1.+t)+y**2./(b2+t)+z**2./(c2+t)))\
@@ -561,7 +561,7 @@ def _2ndDerivInt(x,y,z,dens,densDeriv,b2,c2,i,j,glx=None,glw=None):
         return (densDeriv(m)
                 *(x/(1.+t)*(i==0)+y/(b2+t)*(i==1)+z/(c2+t)*(i==2))
                 *(x/(1.+t)*(j==0)+y/(b2+t)*(j==1)+z/(c2+t)*(j==2))/m\
-                    +dens(m)*(i==j)*((1./(1.+t)*(i==0)+1./(b2+t)*(i==1)+1./(c2+t)*(i==2))))\
+                    +dens(m)*(i==j)*(1./(1.+t)*(i==0)+1./(b2+t)*(i==1)+1./(c2+t)*(i==2)))\
                     /numpy.sqrt((1.+(b2-1.)*s**2.)*(1.+(c2-1.)*s**2.))
     if glx is None:
         return integrate.quad(integrand,0.,1.)[0]

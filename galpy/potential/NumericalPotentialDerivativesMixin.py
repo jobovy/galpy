@@ -1,7 +1,7 @@
 ###############################################################################
 #   NumericalPotentialDerivativesMixin: helper class to add numerical derivs
 ###############################################################################
-class NumericalPotentialDerivativesMixin(object):
+class NumericalPotentialDerivativesMixin:
     """Mixin to add numerical derivatives to a Potential class, use as, e.g.,
 
     .. highlight:: python

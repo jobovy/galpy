@@ -15,7 +15,7 @@ class PowerSphericalPotentialwCutoff(Potential):
 
     .. math::
 
-        \\rho(r) = \\mathrm{amp}\,\\left(\\frac{r_1}{r}\\right)^\\alpha\\,\\exp\\left(-(r/rc)^2\\right)
+        \\rho(r) = \\mathrm{amp}\\,\\left(\\frac{r_1}{r}\\right)^\\alpha\\,\\exp\\left(-(r/rc)^2\\right)
 
     """
     def __init__(self,amp=1.,alpha=1.,rc=1.,normalize=False,r1=1.,
@@ -338,4 +338,4 @@ class PowerSphericalPotentialwCutoff(Potential):
 
         """
         ampl= self._amp*vo**2.*ro**(self.alpha-2.)
-        return "0,%s,%s,%s" % (ampl,self.alpha,self.rc*ro)
+        return "0,{},{},{}".format(ampl,self.alpha,self.rc*ro)

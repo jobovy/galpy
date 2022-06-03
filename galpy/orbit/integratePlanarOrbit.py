@@ -725,8 +725,8 @@ def integratePlanarOrbit(pot,yo,t,int_method,rtol=None,atol=None,numcores=1,
     if len(yo) == 1: # Can't map a single value...
         out= numpy.atleast_3d(integrate_for_map(yo[0]).T).T
     else:
-        out= numpy.array((parallel_map(integrate_for_map,yo,numcores=numcores,
-                                       progressbar=progressbar)))
+        out= numpy.array(parallel_map(integrate_for_map,yo,numcores=numcores,
+                                       progressbar=progressbar))
     if nophi:
         out= out[:,:,:3]
     return out, numpy.zeros(len(yo))
@@ -806,9 +806,9 @@ def integratePlanarOrbit_dxdv(pot,yo,dyo,t,int_method,
     if len(this_yo) == 1: # Can't map a single value...
         out= numpy.atleast_3d(integrate_for_map(this_yo[0]).T).T
     else:
-        out= numpy.array((parallel_map(integrate_for_map,this_yo,
+        out= numpy.array(parallel_map(integrate_for_map,this_yo,
                                        progressbar=progressbar,
-                                       numcores=numcores)))
+                                       numcores=numcores))
     #go back to the cylindrical frame
     R= numpy.sqrt(out[...,0]**2.+out[...,1]**2.)
     phi= numpy.arccos(out[...,0]/R)

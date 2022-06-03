@@ -77,7 +77,7 @@ class MN3ExponentialDiskPotential(Potential):
         else:
             self._brd= _b_exphz(self._hz/self._hr)
         if self._brd < 0.:
-            raise IOError("MN3ExponentialDiskPotential's b/Rd is negative for the given hz")
+            raise OSError("MN3ExponentialDiskPotential's b/Rd is negative for the given hz")
         # Check range
         if (not posdens and self._brd > 3.) \
                 or (posdens and self._brd > 1.35):
@@ -285,7 +285,7 @@ class MN3ExponentialDiskPotential(Potential):
         for ii in range(3):
             if ii > 0: out+= '#'
             ampl= self._amp*self._mn3[ii]._amp*vo**2.*ro
-            out+= "0,%s,%s,%s" % (ampl,self._mn3[ii]._a*ro,self._mn3[ii]._b*ro)
+            out+= "0,{},{},{}".format(ampl,self._mn3[ii]._a*ro,self._mn3[ii]._b*ro)
         return out
 
 # Equations from Table 1

@@ -2568,7 +2568,7 @@ def get_epoch_angles(epoch=2000.0):
         dec_ngp= c.dec.to(units.rad).value
         ra_ngp= c.ra.to(units.rad).value
     else:
-        raise IOError("Only epochs 1950 and 2000 are supported if you don't have astropy")
+        raise OSError("Only epochs 1950 and 2000 are supported if you don't have astropy")
     return (theta,dec_ngp,ra_ngp)
 
 # Get ICRS angles once when astropy is installed

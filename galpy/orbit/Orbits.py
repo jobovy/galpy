@@ -94,7 +94,7 @@ def _load_named_objects():
     global _known_objects_synonyms_original_keys
     if not _known_objects:
         with open(os.path.join(os.path.dirname(os.path.realpath(__file__)),
-                               'named_objects.json'),'r') as jsonfile:
+                               'named_objects.json')) as jsonfile:
             _known_objects= json.load(jsonfile)
         # Save original keys for auto-completion
         _known_objects_original_keys= copy.copy(list(_known_objects.keys()))
@@ -155,7 +155,7 @@ def shapeDecorator(func):
         else:
             return numpy.reshape(result,args[0].shape+result.shape[1:])
     return shape_wrapper
-class Orbit(object):
+class Orbit:
     """
     Class representing single and multiple orbits.
     """
@@ -715,7 +715,7 @@ class Orbit(object):
             obs, ro, vo= None, None, None
         if customsky \
                 and (lb_to_customsky is None or pmllpmbb_to_customsky is None):
-            raise IOError('if customsky=True, the functions lb_to_customsky and pmllpmbb_to_customsky need to be given')
+            raise OSError('if customsky=True, the functions lb_to_customsky and pmllpmbb_to_customsky need to be given')
         new_vxvv, maxLogL= _fit_orbit(init_orbit,vxvv,vxvv_err,pot,
                                       radec=radec,lb=lb,
                                       customsky=customsky,
@@ -969,8 +969,8 @@ class Orbit(object):
             dummy= dummy.reshape(newshape)
         except ValueError:
             # Eventually should just be raise ValueError from None (Python 3)
-            raise_from(ValueError('cannot reshape Orbit of shape %s into shape %s'
-                                  % (self.shape,newshape)),None)
+            raise (ValueError('cannot reshape Orbit of shape %s into shape %s'
+                                  % (self.shape,newshape))) from None
         self.shape= dummy.shape
         return None
 
@@ -5196,11 +5196,11 @@ class Orbit(object):
             xs.append(x)
             ys.append(y)
             if xlabel is None:
-                xlabels.append(labeldict.get(d1,'\mathrm{No\ xlabel\ specified}'))
+                xlabels.append(labeldict.get(d1,r'\mathrm{No\ xlabel\ specified}'))
             else:
                 xlabels.append(xlabel)
             if ylabel is None:
-                ylabels.append(labeldict.get(d2,'\mathrm{No\ ylabel\ specified}'))
+                ylabels.append(labeldict.get(d2,r'\mathrm{No\ ylabel\ specified}'))
             else:
                 ylabels.append(ylabel)
         kwargs.pop('ro',None)
@@ -5629,7 +5629,7 @@ require(['Plotly'], function (Plotly) {{
                     setup_trace1=setup_trace1,setup_trace2=setup_trace2,
                     setup_trace3=setup_trace3, trace_num_list= [ii for ii in range(self.size * len(d1s))]))
 
-class _1DInterp(object): 
+class _1DInterp: 
     """Class to simulate 2D interpolation when using a single orbit"""
     def __init__(self,t,y,k=3):
         self._ip= interpolate.InterpolatedUnivariateSpline(t,y,k=k)
@@ -5826,13 +5826,13 @@ def _fit_orbit_mlogl(new_vxvv,vxvv,vxvv_err,pot,radec,lb,
 def _check_roSet(orb,kwargs,funcName):
     """Function to check whether ro is set, because it's required for funcName"""
     if not orb._roSet and kwargs.get('ro',None) is None:
-        warnings.warn("Method %s(.) requires ro to be given at Orbit initialization or at method evaluation; using default ro which is %f kpc" % (funcName,orb._ro),
+        warnings.warn("Method {}(.) requires ro to be given at Orbit initialization or at method evaluation; using default ro which is {:f} kpc".format(funcName,orb._ro),
                       galpyWarning)
 
 def _check_voSet(orb,kwargs,funcName):
     """Function to check whether vo is set, because it's required for funcName"""
     if not orb._voSet and kwargs.get('vo',None) is None:
-        warnings.warn("Method %s(.) requires vo to be given at Orbit initialization or at method evaluation; using default vo which is %f km/s" % (funcName,orb._vo),
+        warnings.warn("Method {}(.) requires vo to be given at Orbit initialization or at method evaluation; using default vo which is {:f} km/s".format(funcName,orb._vo),
                       galpyWarning)
 
 def _helioXYZ(orb,thiso,*args,**kwargs):

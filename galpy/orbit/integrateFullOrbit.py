@@ -670,8 +670,8 @@ def integrateFullOrbit(pot,yo,t,int_method,rtol=None,atol=None,
     if len(yo) == 1: # Can't map a single value...
         out= numpy.atleast_3d(integrate_for_map(yo[0]).T).T
     else:
-        out= numpy.array((parallel_map(integrate_for_map,yo,numcores=numcores,
-                                       progressbar=progressbar)))
+        out= numpy.array(parallel_map(integrate_for_map,yo,numcores=numcores,
+                                       progressbar=progressbar))
     if nophi:
         out= out[:,:,:5]
     return out, numpy.zeros(len(yo))

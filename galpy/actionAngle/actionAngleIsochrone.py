@@ -46,11 +46,11 @@ class actionAngleIsochrone(actionAngle):
         actionAngle.__init__(self,
                              ro=kwargs.get('ro',None),vo=kwargs.get('vo',None))
         if not 'b' in kwargs and not 'ip' in kwargs: #pragma: no cover
-            raise IOError("Must specify b= for actionAngleIsochrone")
+            raise OSError("Must specify b= for actionAngleIsochrone")
         if 'ip' in kwargs:
             ip= kwargs['ip']
             if not isinstance(ip,IsochronePotential): #pragma: no cover
-                raise IOError("'Provided ip= does not appear to be an instance of an IsochronePotential")
+                raise OSError("'Provided ip= does not appear to be an instance of an IsochronePotential")
             # Check the units
             self._pot= ip
             self._check_consistent_units()
@@ -122,7 +122,7 @@ class actionAngleIsochrone(actionAngle):
             Jphi= Lz
             Jz= L-numpy.fabs(Lz)
             Jr= self.amp/numpy.sqrt(-2.*E)\
-                -0.5*(L+numpy.sqrt((L2+4.*self.amp*self.b)))
+                -0.5*(L+numpy.sqrt(L2+4.*self.amp*self.b))
             return (Jr,Jphi,Jz)
 
     def _actionsFreqs(self,*args,**kwargs):
@@ -172,7 +172,7 @@ class actionAngleIsochrone(actionAngle):
             Jphi= Lz
             Jz= L-numpy.fabs(Lz)
             Jr= self.amp/numpy.sqrt(-2.*E)\
-                -0.5*(L+numpy.sqrt((L2+4.*self.amp*self.b)))
+                -0.5*(L+numpy.sqrt(L2+4.*self.amp*self.b))
             #Frequencies
             Omegar= (-2.*E)**1.5/self.amp
             Omegaz= 0.5*(1.+L/numpy.sqrt(L2+4.*self.amp*self.b))*Omegar
@@ -199,7 +199,7 @@ class actionAngleIsochrone(actionAngle):
            2013-09-08 - Written - Bovy (IAS)
         """
         if len(args) == 5: #R,vR.vT, z, vz pragma: no cover
-            raise IOError("You need to provide phi when calculating angles")
+            raise OSError("You need to provide phi when calculating angles")
         elif len(args) == 6: #R,vR.vT, z, vz, phi
             R,vR,vT, z, vz, phi= args
         else:
@@ -230,7 +230,7 @@ class actionAngleIsochrone(actionAngle):
             Jphi= Lz
             Jz= L-numpy.fabs(Lz)
             Jr= self.amp/numpy.sqrt(-2.*E)\
-                -0.5*(L+numpy.sqrt((L2+4.*self.amp*self.b)))
+                -0.5*(L+numpy.sqrt(L2+4.*self.amp*self.b))
             #Frequencies
             Omegar= (-2.*E)**1.5/self.amp
             Omegaz= 0.5*(1.+L/numpy.sqrt(L2+4.*self.amp*self.b))*Omegar

@@ -11,7 +11,7 @@ from ..util.conversion import physical_conversion, \
     potential_physical_input, physical_compatible, _APY_LOADED
 if _APY_LOADED:
     from astropy import units
-class Force(object):
+class Force:
     """Top-level class for any force, conservative or dissipative"""
     def __init__(self,amp=1.,ro=None,vo=None,amp_units=None):
         """
@@ -63,7 +63,7 @@ class Force(object):
             else:
                 unitFound= True
                 if not amp_units == 'velocity2':
-                    raise units.UnitConversionError('amp= parameter of %s should have units of %s, but has units of velocity2 instead' % (type(self).__name__,amp_units))
+                    raise units.UnitConversionError('amp= parameter of {} should have units of {}, but has units of velocity2 instead'.format(type(self).__name__,amp_units))
             if not unitFound:
                 # mass
                 try:
@@ -72,7 +72,7 @@ class Force(object):
                 else:
                     unitFound= True
                     if not amp_units == 'mass':
-                        raise units.UnitConversionError('amp= parameter of %s should have units of %s, but has units of mass instead' % (type(self).__name__,amp_units))
+                        raise units.UnitConversionError('amp= parameter of {} should have units of {}, but has units of mass instead'.format(type(self).__name__,amp_units))
             if not unitFound:
                 # density
                 try:
@@ -81,7 +81,7 @@ class Force(object):
                 else:
                     unitFound= True
                     if not amp_units == 'density':
-                        raise units.UnitConversionError('amp= parameter of %s should have units of %s, but has units of density instead' % (type(self).__name__,amp_units))
+                        raise units.UnitConversionError('amp= parameter of {} should have units of {}, but has units of density instead'.format(type(self).__name__,amp_units))
             if not unitFound:
                 # surface density
                 try:
@@ -90,9 +90,9 @@ class Force(object):
                 else:
                     unitFound= True
                     if not amp_units == 'surfacedensity':
-                        raise units.UnitConversionError('amp= parameter of %s should have units of %s, but has units of surface density instead' % (type(self).__name__,amp_units))
+                        raise units.UnitConversionError('amp= parameter of {} should have units of {}, but has units of surface density instead'.format(type(self).__name__,amp_units))
             if not unitFound:
-                raise units.UnitConversionError('amp= parameter of %s should have units of %s; given units are not understood' % (type(self).__name__,amp_units))    
+                raise units.UnitConversionError('amp= parameter of {} should have units of {}; given units are not understood'.format(type(self).__name__,amp_units))    
             else:
                 # When amplitude is given with units, turn on physical output
                 self._roSet= True

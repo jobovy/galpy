@@ -74,7 +74,7 @@ class sphericaldf(df):
         if phys['roSet'] and phys['voSet']:
             self.turn_physical_on(ro=phys['ro'],vo=phys['vo'])
         if pot is None: # pragma: no cover
-            raise IOError("pot= must be set")
+            raise OSError("pot= must be set")
         self._pot= pot
         self._denspot= self._pot if denspot is None else denspot
         if not conversion.physical_compatible(self._pot,self._denspot):

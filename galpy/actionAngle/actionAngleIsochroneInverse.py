@@ -47,11 +47,11 @@ class actionAngleIsochroneInverse(actionAngleInverse):
         """
         actionAngleInverse.__init__(self,*args,**kwargs)
         if not 'b' in kwargs and not 'ip' in kwargs: #pragma: no cover
-            raise IOError("Must specify b= for actionAngleIsochrone")
+            raise OSError("Must specify b= for actionAngleIsochrone")
         if 'ip' in kwargs:
             ip= kwargs['ip']
             if not isinstance(ip,IsochronePotential): #pragma: no cover
-                raise IOError("'Provided ip= does not appear to be an instance of an IsochronePotential")
+                raise OSError("'Provided ip= does not appear to be an instance of an IsochronePotential")
             # Check the units
             self._pot= ip
             self._check_consistent_units()

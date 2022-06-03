@@ -1,5 +1,3 @@
-from __future__ import division, print_function
-
 import os, os.path
 import copy
 import pickle
@@ -8,7 +6,7 @@ from ..util import plot, conversion, config
 from .Potential import PotentialError, flatten
 from ..util.conversion import physical_conversion,\
     potential_physical_input, physical_compatible
-class linearPotential(object):
+class linearPotential:
     """Class representing 1D potentials"""
     def __init__(self,amp=1.,ro=None,vo=None):
         self._amp= amp

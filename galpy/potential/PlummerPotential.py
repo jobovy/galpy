@@ -318,4 +318,4 @@ class PlummerPotential(Potential):
 
         """
         ampl= self._amp*vo**2.*ro
-        return "0,%s,%s" % (ampl,self._b*ro)
+        return "0,{},{}".format(ampl,self._b*ro)

@@ -66,7 +66,7 @@ class streamspraydf(df):
             if tdisrupt is None \
             else conversion.parse_time(tdisrupt,ro=self._ro,vo=self._vo)
         if pot is None: #pragma: no cover
-            raise IOError("pot= must be set")
+            raise OSError("pot= must be set")
         self._pot= flatten_potential(pot)
         self._rtpot=self._pot if rtpot is None else flatten_potential(rtpot)
         assert conversion.physical_compatible(self,self._pot), 'Physical conversion for the potential is not consistent with that of the streamspraydf object being initialized'

@@ -1,5 +1,4 @@
 #Direct force summation N-body code
-from __future__ import print_function
 import numpy as nu
 from numpy import linalg
 from galpy.util import symplecticode

@@ -8,7 +8,7 @@ class HenonHeilesPotential(planarPotential):
     
     .. math::
 
-        \\Phi(R,\\phi) = \\frac{\\mathrm{amp}}{2}\\,\\left[R^2 + \\frac{2\\,R^3}{3}\\,\\sin\\left(3\,\phi\\right)\\right]
+        \\Phi(R,\\phi) = \\frac{\\mathrm{amp}}{2}\\,\\left[R^2 + \\frac{2\\,R^3}{3}\\,\\sin\\left(3\\,\\phi\\right)\\right]
 
     """
     def __init__(self,amp=1.,ro=None,vo=None):

@@ -14,7 +14,7 @@ class TimeDependentAmplitudeWrapperPotential(parentWrapperPotential):
     
     .. math::
 
-        \mathrm{amp} \\rightarrow \mathrm{amp} \\times A(t)
+        \\mathrm{amp} \\rightarrow \\mathrm{amp} \\times A(t)
         
     where :math:`A(t)` is an arbitrary function of time. 
     Note that `amp` itself can already be a function of time.

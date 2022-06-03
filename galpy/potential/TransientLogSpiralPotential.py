@@ -10,7 +10,7 @@ class TransientLogSpiralPotential(planarPotential):
     
     .. math::
 
-        \\Phi(R,\\phi) = \\frac{\\mathrm{amp}(t)}{\\alpha}\\,\\cos\\left(\\alpha\,\ln R - m\\,(\\phi-\\Omega_s\\,t-\\gamma)\\right)
+        \\Phi(R,\\phi) = \\frac{\\mathrm{amp}(t)}{\\alpha}\\,\\cos\\left(\\alpha\\,\\ln R - m\\,(\\phi-\\Omega_s\\,t-\\gamma)\\right)
 
     where
 

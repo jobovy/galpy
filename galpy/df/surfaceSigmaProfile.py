@@ -10,7 +10,7 @@
 #                               profile
 ###############################################################################
 import numpy
-class surfaceSigmaProfile(object):
+class surfaceSigmaProfile:
     """Class that contains the surface density and sigma_R^2 profile"""
     def __init__(self):
         """Place holder for implementations of this class"""

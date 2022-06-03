@@ -7,7 +7,7 @@ from ..util import _load_extension_libs
 _lib, _ext_loaded= _load_extension_libs.load_libgalpy()
 
 def actionAngleAdiabatic_c(pot,gamma,R,vR,vT,z,vz):
-    """
+    r"""
     NAME:
        actionAngleAdiabatic_c
     PURPOSE:
@@ -92,7 +92,7 @@ def actionAngleAdiabatic_c(pot,gamma,R,vR,vT,z,vz):
     return (jr,jz,err.value)
 
 def actionAngleRperiRapZmaxAdiabatic_c(pot,gamma,R,vR,vT,z,vz):
-    """
+    r"""
     NAME:
        actionAngleRperiRapZmaxAdiabatic_c
     PURPOSE:

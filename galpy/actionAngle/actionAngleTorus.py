@@ -19,7 +19,7 @@ _autofit_errvals[-1]= 'something wrong with input, usually bad starting values f
 _autofit_errvals[-2]= 'Fit failed the goal by a factor <= 2'
 _autofit_errvals[-3]= 'Fit failed the goal by more than 2'
 _autofit_errvals[-4]= 'Fit aborted: serious problems occured'
-class actionAngleTorus(object):
+class actionAngleTorus:
     """Action-angle formalism using the Torus machinery"""
     def __init__(self,*args,**kwargs):
         """
@@ -49,7 +49,7 @@ class actionAngleTorus(object):
 
         """
         if not 'pot' in kwargs: #pragma: no cover
-            raise IOError("Must specify pot= for actionAngleTorus")
+            raise OSError("Must specify pot= for actionAngleTorus")
         self._pot= flatten_potential(kwargs['pot'])
         if _isNonAxi(self._pot):
             raise RuntimeError("actionAngleTorus for non-axisymmetric potentials is not supported")

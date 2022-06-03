@@ -20,7 +20,7 @@ class LogarithmicHaloPotential(Potential):
 
         \\Phi(x,y,z) = \\frac{\\mathrm{amp}}{2}\\,\\ln\\left[x^2+\\left(\\frac{y}{b}\\right)^2+\\left(\\frac{z}{q}\\right)^2+\\mathrm{core}^2\\right]
 
-    With these definitions, :math:`\\sqrt{\mathrm{amp}}` is the circular velocity at :math:`r \gg \mathrm{core}` at :math:`(y,z) = (0,0)`.
+    With these definitions, :math:`\\sqrt{\\mathrm{amp}}` is the circular velocity at :math:`r \\gg \\mathrm{core}` at :math:`(y,z) = (0,0)`.
 
     """
     def __init__(self,amp=1.,core=_CORE,q=1.,b=None,normalize=False,
@@ -364,6 +364,6 @@ class LogarithmicHaloPotential(Potential):
         """
         warnings.warn("NEMO's LogPot does not allow flattening in z (for some reason); therefore, flip y and z in NEMO wrt galpy; also does not allow the triaxial b parameter",galpyWarning)
         ampl= self._amp*vo**2.
-        return "0,%s,%s,1.0,%s" % (ampl,
+        return "0,{},{},1.0,{}".format(ampl,
                                   self._core2*ro**2.*self._q**(2./3.), #somewhat weird gyrfalcon implementation
                                   self._q)

@@ -10,7 +10,6 @@
 #             __call__: returns (jr,lz,jz)
 #
 ###############################################################################
-from __future__ import print_function
 import numpy
 from scipy import interpolate
 from .actionAngleAdiabatic import actionAngleAdiabatic
@@ -64,7 +63,7 @@ class actionAngleAdiabaticGrid(actionAngle):
         actionAngle.__init__(self,
                              ro=kwargs.get('ro',None),vo=kwargs.get('vo',None))
         if pot is None: #pragma: no cover
-            raise IOError("Must specify pot= for actionAngleAxi")
+            raise OSError("Must specify pot= for actionAngleAxi")
         self._c= kwargs.pop('c',False)
         self._gamma= gamma
         self._pot= flatten_potential(pot)

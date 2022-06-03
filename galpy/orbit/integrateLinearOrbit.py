@@ -253,8 +253,8 @@ def integrateLinearOrbit(pot,yo,t,int_method,rtol=None,atol=None,numcores=1,
     if len(yo) == 1: # Can't map a single value...
         return numpy.atleast_3d(integrate_for_map(yo[0]).T).T, 0
     else:
-        return (numpy.array((parallel_map(integrate_for_map,yo,numcores=numcores,
-                                          progressbar=progressbar))),
+        return (numpy.array(parallel_map(integrate_for_map,yo,numcores=numcores,
+                                          progressbar=progressbar)),
                 numpy.zeros(len(yo)))
 
 def _linearEOM(y,t,pot):

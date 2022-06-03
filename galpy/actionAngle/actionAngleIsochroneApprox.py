@@ -72,22 +72,22 @@ class actionAngleIsochroneApprox(actionAngle):
         actionAngle.__init__(self,
                              ro=kwargs.get('ro',None),vo=kwargs.get('vo',None))
         if not 'pot' in kwargs: #pragma: no cover
-            raise IOError("Must specify pot= for actionAngleIsochroneApprox")
+            raise OSError("Must specify pot= for actionAngleIsochroneApprox")
         self._pot= flatten_potential(kwargs['pot'])
         if self._pot == MWPotential:
             warnings.warn("Use of MWPotential as a Milky-Way-like potential is deprecated; galpy.potential.MWPotential2014, a potential fit to a large variety of dynamical constraints (see Bovy 2015), is the preferred Milky-Way-like potential in galpy",
                           galpyWarning)
         if not 'b' in kwargs and not 'ip' in kwargs \
                 and not 'aAI' in kwargs: #pragma: no cover
-            raise IOError("Must specify b=, ip=, or aAI= for actionAngleIsochroneApprox")
+            raise OSError("Must specify b=, ip=, or aAI= for actionAngleIsochroneApprox")
         if 'aAI' in kwargs:
             if not isinstance(kwargs['aAI'],actionAngleIsochrone): #pragma: no cover
-                raise IOError("'Provided aAI= does not appear to be an instance of an actionAngleIsochrone")
+                raise OSError("'Provided aAI= does not appear to be an instance of an actionAngleIsochrone")
             self._aAI= kwargs['aAI']
         elif 'ip' in kwargs:
             ip= kwargs['ip']
             if not isinstance(ip,IsochronePotential): #pragma: no cover
-                raise IOError("'Provided ip= does not appear to be an instance of an IsochronePotential")
+                raise OSError("'Provided ip= does not appear to be an instance of an IsochronePotential")
             self._aAI= actionAngleIsochrone(ip=ip)
         else:
             b= conversion.parse_length(kwargs['b'],ro=self._ro)
@@ -566,7 +566,7 @@ class actionAngleIsochroneApprox(actionAngle):
         RasOrbit= False
         integrated= True #whether the orbit was already integrated when given
         if len(args) == 5 or len(args) == 3: #pragma: no cover
-            raise IOError("Must specify phi for actionAngleIsochroneApprox")
+            raise OSError("Must specify phi for actionAngleIsochroneApprox")
         if len(args) == 6 or len(args) == 4:
             if len(args) == 6:
                 R,vR,vT, z, vz, phi= args
@@ -589,11 +589,11 @@ class actionAngleIsochroneApprox(actionAngle):
             elif not isinstance(args[0],list):
                 os= [args[0]]
                 if os[0].phasedim() == 3 or os[0].phasedim() == 5: #pragma: no cover
-                    raise IOError("Must specify phi for actionAngleIsochroneApprox")
+                    raise OSError("Must specify phi for actionAngleIsochroneApprox")
             else:
                 os= args[0]
                 if os[0].phasedim() == 3 or os[0].phasedim() == 5: #pragma: no cover
-                    raise IOError("Must specify phi for actionAngleIsochroneApprox")
+                    raise OSError("Must specify phi for actionAngleIsochroneApprox")
             self._check_consistent_units_orbitInput(os[0])
             if not hasattr(os[0],'orbit'): #not integrated yet
                 if _firstFlip:
@@ -724,7 +724,7 @@ def estimateBIsochrone(pot,R,z,phi=None):
 
     """
     if pot is None: #pragma: no cover
-        raise IOError("pot= needs to be set to a Potential instance or list thereof")
+        raise OSError("pot= needs to be set to a Potential instance or list thereof")
     if isinstance(R,numpy.ndarray):
         if phi is None: phi= [None for r in R]
         bs= numpy.array([estimateBIsochrone(pot,R[ii],z[ii],phi=phi[ii],

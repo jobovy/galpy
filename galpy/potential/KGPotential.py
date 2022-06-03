@@ -9,7 +9,7 @@ class KGPotential(linearPotential):
 
     .. math::
 
-        \Phi(x) = \\mathrm{amp}\\,\\left(K\\,\\left(\\sqrt{x^2+D^2}-D\\right)+F\\,x^2\\right)
+        \\Phi(x) = \\mathrm{amp}\\,\\left(K\\,\\left(\\sqrt{x^2+D^2}-D\\right)+F\\,x^2\\right)
 
     """
     def __init__(self,K=1.15,F=0.03,D=1.8,amp=1.,ro=None,vo=None):

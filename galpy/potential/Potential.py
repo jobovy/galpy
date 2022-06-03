@@ -13,7 +13,6 @@
 #    for epicycle frequency
 #      function _R2deriv(self,R,z,phi) return d2 Phi dR2
 ###############################################################################
-from __future__  import division, print_function
 
 import os, os.path
 import pickle
@@ -1695,7 +1694,7 @@ class Potential(Force):
 
                r_t^3 = \\frac{GM_s}{\\Omega^2-\\mathrm{d}^2\\Phi/\\mathrm{d}r^2}
 
-            where :math:`M_s` is the cluster mass, :math:`\\Omega` is the circular frequency, and :math:`\Phi` is the gravitational potential. For non-spherical potentials, we evaluate :math:`\\Omega^2 = (1/r)(\\mathrm{d}\\Phi/\\mathrm{d}r)` and evaluate the derivatives at the given position of the cluster.
+            where :math:`M_s` is the cluster mass, :math:`\\Omega` is the circular frequency, and :math:`\\Phi` is the gravitational potential. For non-spherical potentials, we evaluate :math:`\\Omega^2 = (1/r)(\\mathrm{d}\\Phi/\\mathrm{d}r)` and evaluate the derivatives at the given position of the cluster.
 
         INPUT:
         
@@ -3344,7 +3343,7 @@ def lindbladR(Pot,OmegaP,m=2,t=0.,**kwargs):
         if 'corot' in m.lower():
             corotation= True
         else:
-            raise IOError("'m' input not recognized, should be an integer or 'corotation'")
+            raise OSError("'m' input not recognized, should be an integer or 'corotation'")
     else:
         corotation= False
     if corotation:
@@ -3600,7 +3599,7 @@ def turn_physical_on(Pot,ro=None,vo=None):
 def _flatten_list(L):
     for item in L:
         try:
-            for i in _flatten_list(item): yield i
+            yield from _flatten_list(item)
         except TypeError:
             yield item
 
@@ -3762,7 +3761,7 @@ def rtide(Pot,R,z,phi=0.,t=0.,M=None):
 
            r_t^3 = \\frac{GM_s}{\\Omega^2-\\mathrm{d}^2\\Phi/\\mathrm{d}r^2}
 
-        where :math:`M_s` is the cluster mass, :math:`\\Omega` is the circular frequency, and :math:`\Phi` is the gravitational potential. For non-spherical potentials, we evaluate :math:`\\Omega^2 = (1/r)(\\mathrm{d}\\Phi/\\mathrm{d}r)` and evaluate the derivatives at the given position of the cluster.
+        where :math:`M_s` is the cluster mass, :math:`\\Omega` is the circular frequency, and :math:`\\Phi` is the gravitational potential. For non-spherical potentials, we evaluate :math:`\\Omega^2 = (1/r)(\\mathrm{d}\\Phi/\\mathrm{d}r)` and evaluate the derivatives at the given position of the cluster.
 
     INPUT:
         

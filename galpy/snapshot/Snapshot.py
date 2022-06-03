@@ -3,7 +3,7 @@ from galpy.orbit import Orbit
 from galpy.potential.planarPotential import RZToplanarPotential
 from galpy.util import plot
 from directnbody import direct_nbody
-class Snapshot(object):
+class Snapshot:
     """General snapshot = collection of particles class"""
     def __init__(self,*args,**kwargs):
         """

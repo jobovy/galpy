@@ -10,7 +10,6 @@
 #      DFcorrection - class that represents corrections to the input Sigma(R)
 #                     and sigma_R(R) to get closer to the targets
 ###############################################################################
-from __future__ import print_function
 _EPSREL=10.**-14.
 _NSIGMA= 4.
 _INTERPDEGREE= 3
@@ -1483,7 +1482,7 @@ class diskdf(df):
 
     def sample(self,n=1,rrange=None,returnROrbit=True,returnOrbit=False,
                nphi=1.,los=None,losdeg=True,nsigma=None,maxd=None,target=True):
-        """
+        r"""
         NAME:
 
            sample
@@ -1714,7 +1713,7 @@ class dehnendf(diskdf):
                nphi=1.,los=None,losdeg=True,nsigma=None,targetSurfmass=True,
                targetSigma2=True,
                maxd=None,**kwargs):
-        """
+        r"""
         NAME:
            sample
         PURPOSE:
@@ -2002,7 +2001,7 @@ class shudf(diskdf):
     def sample(self,n=1,rrange=None,returnROrbit=True,returnOrbit=False,
                nphi=1.,los=None,losdeg=True,nsigma=None,maxd=None,
                targetSurfmass=True,targetSigma2=True,**kwargs):
-        """
+        r"""
         NAME:
            sample
         PURPOSE:
@@ -2275,7 +2274,7 @@ def bovy_dblquad(func, a, b, gfun, hfun, args=(), tol=1.48e-08):
     return integrate.romberg(_oned_intFunc,a,b,args=(func,gfun,hfun,tol,args),tol=tol)
 
 
-class DFcorrection(object):
+class DFcorrection:
     """Class that contains the corrections necessary to reach
     exponential profiles"""
     def __init__(self,**kwargs):

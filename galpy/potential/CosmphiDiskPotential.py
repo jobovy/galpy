@@ -15,7 +15,7 @@ class CosmphiDiskPotential(planarPotential):
         \\left[2-\\left(\\frac{R_b}{R}\\right)^p\\right]\\times\\left(\\frac{R_b}{R_1}\\right)^p\\,, & \\text{for}\\ R\\leq R_b.
         \\end{cases}
 
-    This potential can be grown between  :math:`t_{\mathrm{form}}` and  :math:`t_{\mathrm{form}}+T_{\mathrm{steady}}` in a similar way as DehnenBarPotential by wrapping it with a DehnenSmoothWrapperPotential
+    This potential can be grown between  :math:`t_{\\mathrm{form}}` and  :math:`t_{\\mathrm{form}}+T_{\\mathrm{steady}}` in a similar way as DehnenBarPotential by wrapping it with a DehnenSmoothWrapperPotential
 
    """
     def __init__(self,amp=1.,phib=25.*_degtorad,

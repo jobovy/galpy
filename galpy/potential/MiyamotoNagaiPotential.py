@@ -249,4 +249,4 @@ class MiyamotoNagaiPotential(Potential):
 
         """
         ampl= self._amp*vo**2.*ro
-        return "0,%s,%s,%s" % (ampl,self._a*ro,self._b*ro)
+        return "0,{},{},{}".format(ampl,self._a*ro,self._b*ro)

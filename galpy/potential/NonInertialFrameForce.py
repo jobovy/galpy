@@ -11,42 +11,42 @@ from .DissipativeForce import DissipativeForce
 class NonInertialFrameForce(DissipativeForce):
     """Class that implements the fictitious forces present when integrating 
     orbits in a non-intertial frame. Coordinates in the inertial frame 
-    :math:`\mathbf{x}` and in the non-inertial frame :math:`\mathbf{r}` are
+    :math:`\\mathbf{x}` and in the non-inertial frame :math:`\\mathbf{r}` are
     related through rotation and linear motion as
     
     .. math::
     
-        \mathbf{x} = \mathbf{R}\,\left(\mathbf{r} + \mathbf{x}_0\\right)
+        \\mathbf{x} = \\mathbf{R}\\,\\left(\\mathbf{r} + \\mathbf{x}_0\\right)
         
-    where :math:`\mathbf{R}` is a rotation matrix and :math:`\mathbf{x}_0`
+    where :math:`\\mathbf{R}` is a rotation matrix and :math:`\\mathbf{x}_0`
     is the motion of the origin. The rotation matrix has angular frequencies
-    :math:`\\boldsymbol{\Omega}` with time derivative :math:`\dot{\\boldsymbol{\Omega}}`;
-    :math:`\\boldsymbol{\Omega}` can be any function of time. The motion of the 
+    :math:`\\boldsymbol{\\Omega}` with time derivative :math:`\\dot{\\boldsymbol{\\Omega}}`;
+    :math:`\\boldsymbol{\\Omega}` can be any function of time. The motion of the 
     origin can also be any function of time.    
     This leads to the fictitious force
     
     .. math::
     
-        \mathbf{F} = -\mathbf{a}_0 - \\boldsymbol{\Omega} \\times ( \\boldsymbol{\Omega} \\times \left[\mathbf{r} + \mathbf{x}_0\\right]) - \dot{\\boldsymbol{\Omega}} \\times \left[\mathbf{r}+\mathbf{x}_0\\right] -2\\boldsymbol{\Omega}\\times \left[\dot{\mathbf{r}}+\mathbf{v}_0\\right]
+        \\mathbf{F} = -\\mathbf{a}_0 - \\boldsymbol{\\Omega} \\times ( \\boldsymbol{\\Omega} \\times \\left[\\mathbf{r} + \\mathbf{x}_0\\right]) - \\dot{\\boldsymbol{\\Omega}} \\times \\left[\\mathbf{r}+\\mathbf{x}_0\\right] -2\\boldsymbol{\\Omega}\\times \\left[\\dot{\\mathbf{r}}+\\mathbf{v}_0\\right]
         
-    where :math:`\mathbf{a}_0`, :math:`\mathbf{v}_0`, and :math:`\mathbf{x}_0` are 
+    where :math:`\\mathbf{a}_0`, :math:`\\mathbf{v}_0`, and :math:`\\mathbf{x}_0` are 
     the acceleration, velocity, and position of the origin of the non-inertial frame, 
     respectively, as a function of time. Note that if the non-inertial frame is not 
-    rotating, it is not necessary to specify :math:`\mathbf{v}_0` and :math:`\mathbf{x}_0`.
+    rotating, it is not necessary to specify :math:`\\mathbf{v}_0` and :math:`\\mathbf{x}_0`.
     In that case, the fictitious force is simply
     
     .. math::
     
-        \mathbf{F} = -\mathbf{a}_0\quad (\\boldsymbol{\Omega} = 0)
+        \\mathbf{F} = -\\mathbf{a}_0\\quad (\\boldsymbol{\\Omega} = 0)
         
     If the non-inertial frame only rotates without any motion of the origin, the 
     fictitious force is the familiar combination of the centrifugal force
-    and the Coriolis force (plus an additional term if :math:`\dot{\\boldsymbol{\Omega}}`
+    and the Coriolis force (plus an additional term if :math:`\\dot{\\boldsymbol{\\Omega}}`
     is not constant)
     
     .. math::
     
-        \mathbf{F} = - \\boldsymbol{\Omega} \\times ( \\boldsymbol{\Omega} \\times \mathbf{r}) - \dot{\\boldsymbol{\Omega}} \\times \mathbf{r} -2\\boldsymbol{\Omega}\\times \dot{\mathbf{r}}\quad (\mathbf{a}_0=\mathbf{v}_0=\mathbf{x}_0=0)
+        \\mathbf{F} = - \\boldsymbol{\\Omega} \\times ( \\boldsymbol{\\Omega} \\times \\mathbf{r}) - \\dot{\\boldsymbol{\\Omega}} \\times \\mathbf{r} -2\\boldsymbol{\\Omega}\\times \\dot{\\mathbf{r}}\\quad (\\mathbf{a}_0=\\mathbf{v}_0=\\mathbf{x}_0=0)
         
     The functions of time are passed to the C code for fast orbit integration 
     by attempting to build fast ``numba`` versions of them. Significant 

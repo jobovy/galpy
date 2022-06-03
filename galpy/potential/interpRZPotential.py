@@ -596,7 +596,7 @@ def eval_potential_c(pot,R,z):
     pot_tfuncs= _prep_tfuncs(pot_tfuncs)
 
     #Set up result arrays
-    out= numpy.empty((len(R)))
+    out= numpy.empty(len(R))
     err= ctypes.c_int(0)
 
     #Set up the C code
@@ -659,7 +659,7 @@ def eval_force_c(pot,R,z,zforce=False):
     pot_tfuncs= _prep_tfuncs(pot_tfuncs)
 
     #Set up result arrays
-    out= numpy.empty((len(R)))
+    out= numpy.empty(len(R))
     err= ctypes.c_int(0)
 
     #Set up the C code

@@ -11,7 +11,7 @@ from ..util import conversion
 if _APY_LOADED:
     from astropy import units
 class AnyAxisymmetricRazorThinDiskPotential(Potential):
-    """Class that implements the potential of an arbitrary axisymmetric, razor-thin disk with surface density :math:`\Sigma(R)`"""
+    r"""Class that implements the potential of an arbitrary axisymmetric, razor-thin disk with surface density :math:`\Sigma(R)`"""
     def __init__(self,surfdens=lambda R: 1.5*numpy.exp(-R/0.5),amp=1.,
                  normalize=False,ro=None,vo=None):
         """

@@ -124,7 +124,7 @@ A final `offset` option allows one to apply a static offset in Cartesian coordin
         return None
 
     def __getattr__(self,attribute):
-        return super(RotateAndTiltWrapperPotential,self)\
+        return super()\
             .__getattr__(attribute)
 
     @check_potential_inputs_not_arrays

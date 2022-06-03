@@ -10,10 +10,10 @@ class KingPotential(interpSphericalPotential):
 
     .. math::
 
-      f(\\mathcal{E}) = \begin{cases} \\rho_1\\,(2\\pi\\sigma^2)^{-3/2}\\,\\left(e^{\\mathcal{E}/\\sigma^2}-1\\right), & \mathcal{E} > 0\\
-0, & \mathcal{E} \leq 0\end{cases}
+      f(\\mathcal{E}) = \begin{cases} \\rho_1\\,(2\\pi\\sigma^2)^{-3/2}\\,\\left(e^{\\mathcal{E}/\\sigma^2}-1\\right), & \\mathcal{E} > 0\\
+0, & \\mathcal{E} \\leq 0\\end{cases}
 
-    where :math:`\mathcal{E}` is the binding energy.
+    where :math:`\\mathcal{E}` is the binding energy.
     """
     def __init__(self,W0=2.,M=3.,rt=1.5,npt=1001,_sfkdf=None,ro=None,vo=None):
         """

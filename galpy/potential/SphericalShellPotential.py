@@ -10,7 +10,7 @@ class SphericalShellPotential(SphericalPotential):
 
     .. math::
 
-        \\rho(r) = \\frac{\\mathrm{amp}}{4\pi\,a^2}\\,\\delta(r-a)
+        \\rho(r) = \\frac{\\mathrm{amp}}{4\\pi\\,a^2}\\,\\delta(r-a)
 
     with :math:`\\mathrm{amp} = GM` the mass of the shell.
     """

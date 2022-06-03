@@ -16,7 +16,7 @@ class CorotatingRotationWrapperPotential(parentWrapperPotential):
 
     .. math::
 
-       V_p(R) = V_{p,0}\,\\left(\\frac{R}{R_0}\\right)^\\beta\,.
+       V_p(R) = V_{p,0}\\,\\left(\\frac{R}{R_0}\\right)^\\beta\\,.
 
     """
     def __init__(self,amp=1.,pot=None,vpo=1.,beta=0.,to=0.,pa=0.,

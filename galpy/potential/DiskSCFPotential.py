@@ -18,22 +18,22 @@ from .Potential import Potential
 from .SCFPotential import SCFPotential, \
     scf_compute_coeffs_axi, scf_compute_coeffs
 class DiskSCFPotential(Potential):
-    """Class that implements a basis-function-expansion technique for solving the Poisson equation for disk (+halo) systems. We solve the Poisson equation for a given density :math:`\\rho(R,\phi,z)` by introducing *K* helper function pairs :math:`[\\Sigma_i(R),h_i(z)]`, with :math:`h_i(z) = \mathrm{d}^2 H(z) / \mathrm{d} z^2` and search for solutions of the form
+    """Class that implements a basis-function-expansion technique for solving the Poisson equation for disk (+halo) systems. We solve the Poisson equation for a given density :math:`\\rho(R,\\phi,z)` by introducing *K* helper function pairs :math:`[\\Sigma_i(R),h_i(z)]`, with :math:`h_i(z) = \\mathrm{d}^2 H(z) / \\mathrm{d} z^2` and search for solutions of the form
 
     .. math::
 
-       \Phi(R,\phi,z = \Phi_{\mathrm{ME}}(R,\phi,z) + 4\pi G\sum_i \\Sigma_i(r)\,H_i(z)\,,
+       \\Phi(R,\\phi,z = \\Phi_{\\mathrm{ME}}(R,\\phi,z) + 4\\pi G\\sum_i \\Sigma_i(r)\\,H_i(z)\\,,
 
-where :math:`r` is the spherical radius :math:`r^2 = R^2+z^2`. We can solve for :math:`\Phi_{\mathrm{ME}}(R,\phi,z)` by solving
+where :math:`r` is the spherical radius :math:`r^2 = R^2+z^2`. We can solve for :math:`\\Phi_{\\mathrm{ME}}(R,\\phi,z)` by solving
 
     .. math::
 
-       \\frac{\\Delta \Phi_{\mathrm{ME}}(R,\phi,z)}{4\pi G} = \\rho(R,\phi,z) - \sum_i\left\{ \Sigma_i(r)\,h_i(z) + \\frac{\mathrm{d}^2 \Sigma_i(r)}{\mathrm{d} r^2}\,H_i(z)+\\frac{2}{r}\,\\frac{\mathrm{d} \Sigma_i(r)}{\mathrm{d} r}\left[H_i(z)+z\,\\frac{\mathrm{d}H_i(z)}{\mathrm{d} z}\\right]\\right\}\,.
+       \\frac{\\Delta \\Phi_{\\mathrm{ME}}(R,\\phi,z)}{4\\pi G} = \\rho(R,\\phi,z) - \\sum_i\\left\\{ \\Sigma_i(r)\\,h_i(z) + \\frac{\\mathrm{d}^2 \\Sigma_i(r)}{\\mathrm{d} r^2}\\,H_i(z)+\\frac{2}{r}\\,\\frac{\\mathrm{d} \\Sigma_i(r)}{\\mathrm{d} r}\\left[H_i(z)+z\\,\\frac{\\mathrm{d}H_i(z)}{\\mathrm{d} z}\\right]\\right\\}\\,.
 
-We solve this equation by using the :ref:`SCFPotential <scf_potential>` class and methods (:ref:`scf_compute_coeffs_axi <scf_compute_coeffs_axi>` or :ref:`scf_compute_coeffs <scf_compute_coeffs>` depending on whether :math:`\\rho(R,\phi,z)` is axisymmetric or not). This technique works very well if the disk portion of the potential can be exactly written as :math:`\\rho_{\mathrm{disk}} = \sum_i \Sigma_i(R)\,h_i(z)`, because the effective density on the right-hand side of this new Poisson equation is then not 'disky' and can be well represented using spherical harmonics. But the technique is general and can be used to compute the potential of any disk+halo potential; the closer the disk is to :math:`\\rho_{\mathrm{disk}} \\approx \sum_i \Sigma_i(R)\,h_i(z)`, the better the technique works.
+We solve this equation by using the :ref:`SCFPotential <scf_potential>` class and methods (:ref:`scf_compute_coeffs_axi <scf_compute_coeffs_axi>` or :ref:`scf_compute_coeffs <scf_compute_coeffs>` depending on whether :math:`\\rho(R,\\phi,z)` is axisymmetric or not). This technique works very well if the disk portion of the potential can be exactly written as :math:`\\rho_{\\mathrm{disk}} = \\sum_i \\Sigma_i(R)\\,h_i(z)`, because the effective density on the right-hand side of this new Poisson equation is then not 'disky' and can be well represented using spherical harmonics. But the technique is general and can be used to compute the potential of any disk+halo potential; the closer the disk is to :math:`\\rho_{\\mathrm{disk}} \\approx \\sum_i \\Sigma_i(R)\\,h_i(z)`, the better the technique works.
 
 This technique was introduced by `Kuijken & Dubinski (1995) <http://adsabs.harvard.edu/abs/1995MNRAS.277.1341K>`__ and was popularized by `Dehnen & Binney (1998) <http://adsabs.harvard.edu/abs/1998MNRAS.294..429D>`__. The current implementation is a slight generalization of the technique in those papers and uses the SCF approach of `Hernquist & Ostriker (1992)
-<http://adsabs.harvard.edu/abs/1992ApJ...386..375H>`__ to solve the Poisson equation for :math:`\Phi_{\mathrm{ME}}(R,\phi,z)` rather than solving it on a grid using spherical harmonics and interpolating the solution (as done in `Dehnen & Binney 1998 <http://adsabs.harvard.edu/abs/1998MNRAS.294..429D>`__).
+<http://adsabs.harvard.edu/abs/1992ApJ...386..375H>`__ to solve the Poisson equation for :math:`\\Phi_{\\mathrm{ME}}(R,\\phi,z)` rather than solving it on a grid using spherical harmonics and interpolating the solution (as done in `Dehnen & Binney 1998 <http://adsabs.harvard.edu/abs/1998MNRAS.294..429D>`__).
 
     """
     def __init__(self,amp=1.,normalize=False,
@@ -65,7 +65,7 @@ This technique was introduced by `Kuijken & Dubinski (1995) <http://adsabs.harva
 
            dens= function of R,z[,phi optional] that gives the density [in natural units, cannot return a Quantity currently]
 
-           N=, L=, a=, radial_order=, costheta_order=, phi_order= keywords setting parameters for SCF solution for Phi_ME (see :ref:`scf_compute_coeffs_axi <scf_compute_coeffs_axi>` or :ref:`scf_compute_coeffs <scf_compute_coeffs>` depending on whether :math:`\\rho(R,\phi,z)` is axisymmetric or not)
+           N=, L=, a=, radial_order=, costheta_order=, phi_order= keywords setting parameters for SCF solution for Phi_ME (see :ref:`scf_compute_coeffs_axi <scf_compute_coeffs_axi>` or :ref:`scf_compute_coeffs <scf_compute_coeffs>` depending on whether :math:`\\rho(R,\\phi,z)` is axisymmetric or not)
 
            Either:
 

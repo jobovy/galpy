@@ -46,7 +46,7 @@ class actionAngleAxi(actionAngleVertical):
         self._vR= self._eval_vR
         self._vT= self._eval_vT
         if not 'pot' in kwargs: #pragma: no cover
-            raise IOError("Must specify pot= for actionAngleAxi")
+            raise OSError("Must specify pot= for actionAngleAxi")
         self._pot= kwargs['pot']
         if 'verticalPot' in kwargs:
             kwargs.pop('pot')

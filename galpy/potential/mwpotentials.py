@@ -27,7 +27,7 @@ def _setup_globals(): # this func necessary to transfer *all* globals in Py2
     out= copy.copy(globals())
     out['__path__']= [os.path.dirname(__file__)]
     return out
-class _ExpensivePotentials(object):
+class _ExpensivePotentials:
     def __init__(self):
         # Initialize all expensive potentials as None, filled in when loaded
         self._mcmillan17= None

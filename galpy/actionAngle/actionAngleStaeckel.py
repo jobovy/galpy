@@ -62,13 +62,13 @@ class actionAngleStaeckel(actionAngle):
         actionAngle.__init__(self,
                              ro=kwargs.get('ro',None),vo=kwargs.get('vo',None))
         if not 'pot' in kwargs: #pragma: no cover
-            raise IOError("Must specify pot= for actionAngleStaeckel")
+            raise OSError("Must specify pot= for actionAngleStaeckel")
         self._pot= flatten_potential(kwargs['pot'])
         if self._pot == MWPotential:
             warnings.warn("Use of MWPotential as a Milky-Way-like potential is deprecated; galpy.potential.MWPotential2014, a potential fit to a large variety of dynamical constraints (see Bovy 2015), is the preferred Milky-Way-like potential in galpy",
                           galpyWarning)
         if not 'delta' in kwargs: #pragma: no cover
-            raise IOError("Must specify delta= for actionAngleStaeckel")
+            raise OSError("Must specify delta= for actionAngleStaeckel")
         if ext_loaded and (('c' in kwargs and kwargs['c'])
                            or not 'c' in kwargs):           
             self._c= _check_c(self._pot)
@@ -129,7 +129,7 @@ class actionAngleStaeckel(actionAngle):
             z= numpy.array([z])
             vz= numpy.array([vz])
         if ((self._c and not ('c' in kwargs and not kwargs['c']))\
-                or (ext_loaded and (('c' in kwargs and kwargs['c'])))) \
+                or (ext_loaded and ('c' in kwargs and kwargs['c']))) \
                 and _check_c(self._pot):
             Lz= R*vT
             if self._useu0:
@@ -155,9 +155,9 @@ class actionAngleStaeckel(actionAngle):
                 warnings.warn("C module not used because potential does not have a C implementation",galpyWarning)
             kwargs.pop('c',None)
             if len(R) > 1:
-                ojr= numpy.zeros((len(R)))
-                olz= numpy.zeros((len(R)))
-                ojz= numpy.zeros((len(R)))
+                ojr= numpy.zeros(len(R))
+                olz= numpy.zeros(len(R))
+                ojz= numpy.zeros(len(R))
                 for ii in range(len(R)):
                     targs= (R[ii],vR[ii],vT[ii],z[ii],vz[ii])
                     tkwargs= copy.copy(kwargs)
@@ -206,7 +206,7 @@ class actionAngleStaeckel(actionAngle):
         delta= kwargs.pop('delta',self._delta)
         order= kwargs.get('order',self._order)
         if ((self._c and not ('c' in kwargs and not kwargs['c']))\
-                or (ext_loaded and (('c' in kwargs and kwargs['c'])))) \
+                or (ext_loaded and ('c' in kwargs and kwargs['c']))) \
                 and _check_c(self._pot):
             if len(args) == 5: #R,vR.vT, z, vz
                 R,vR,vT, z, vz= args
@@ -282,10 +282,10 @@ class actionAngleStaeckel(actionAngle):
         delta= kwargs.pop('delta',self._delta)
         order= kwargs.get('order',self._order)
         if ((self._c and not ('c' in kwargs and not kwargs['c']))\
-                or (ext_loaded and (('c' in kwargs and kwargs['c'])))) \
+                or (ext_loaded and ('c' in kwargs and kwargs['c']))) \
                 and _check_c(self._pot):
             if len(args) == 5: #R,vR.vT, z, vz pragma: no cover
-                raise IOError("Must specify phi")
+                raise OSError("Must specify phi")
             elif len(args) == 6: #R,vR.vT, z, vz, phi
                 R,vR,vT, z, vz, phi= args
             else:
@@ -397,7 +397,7 @@ class actionAngleStaeckel(actionAngle):
             z= numpy.array([z])
             vz= numpy.array([vz])
         if ((self._c and not ('c' in kwargs and not kwargs['c']))\
-                or (ext_loaded and (('c' in kwargs and kwargs['c'])))) \
+                or (ext_loaded and ('c' in kwargs and kwargs['c']))) \
                 and _check_c(self._pot):
             Lz= R*vT
             if self._useu0:
@@ -424,9 +424,9 @@ class actionAngleStaeckel(actionAngle):
                 warnings.warn("C module not used because potential does not have a C implementation",galpyWarning)
             kwargs.pop('c',None)
             if len(R) > 1:
-                oumin= numpy.zeros((len(R)))
-                oumax= numpy.zeros((len(R)))
-                ovmin= numpy.zeros((len(R)))
+                oumin= numpy.zeros(len(R))
+                oumax= numpy.zeros(len(R))
+                ovmin= numpy.zeros(len(R))
                 for ii in range(len(R)):
                     targs= (R[ii],vR[ii],vT[ii],z[ii],vz[ii])
                     tkwargs= copy.copy(kwargs)
@@ -475,10 +475,10 @@ class actionAngleStaeckelSingle(actionAngle):
         self._z= self._eval_z
         self._vz= self._eval_vz
         if not 'pot' in kwargs: #pragma: no cover
-            raise IOError("Must specify pot= for actionAngleStaeckelSingle")
+            raise OSError("Must specify pot= for actionAngleStaeckelSingle")
         self._pot= kwargs['pot']
         if not 'delta' in kwargs: #pragma: no cover
-            raise IOError("Must specify delta= for actionAngleStaeckel")
+            raise OSError("Must specify delta= for actionAngleStaeckel")
         self._delta= kwargs['delta']
         #Pre-calculate everything
         self._ux, self._vx= coords.Rz_to_uv(self._R,self._z,

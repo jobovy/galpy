@@ -10,7 +10,7 @@ class RingPotential(Potential):
 
     .. math::
 
-        \\rho(R,z) = \\frac{\\mathrm{amp}}{2\pi\,R_0}\\,\\delta(R-R_0)\\,\\delta(z)
+        \\rho(R,z) = \\frac{\\mathrm{amp}}{2\\pi\\,R_0}\\,\\delta(R-R_0)\\,\\delta(z)
 
     with :math:`\\mathrm{amp} = GM` the mass of the ring.
     """

@@ -19,28 +19,28 @@ class DehnenBarPotential(Potential):
 
     .. math::
 
-        A_b(t) = A_f\\,\\left(\\frac{3}{16}\\xi^5-\\frac{5}{8}\\xi^3+\\frac{15}{16}\\xi+\\frac{1}{2}\\right)\\,, \\xi = 2\\frac{t/T_b-t_\\mathrm{form}}{T_\mathrm{steady}}-1\\,,\ \mathrm{if}\ t_\\mathrm{form} \\leq \\frac{t}{T_b} \\leq t_\\mathrm{form}+T_\\mathrm{steady}
+        A_b(t) = A_f\\,\\left(\\frac{3}{16}\\xi^5-\\frac{5}{8}\\xi^3+\\frac{15}{16}\\xi+\\frac{1}{2}\\right)\\,, \\xi = 2\\frac{t/T_b-t_\\mathrm{form}}{T_\\mathrm{steady}}-1\\,,\\ \\mathrm{if}\\ t_\\mathrm{form} \\leq \\frac{t}{T_b} \\leq t_\\mathrm{form}+T_\\mathrm{steady}
 
     and 
 
     .. math::
 
         A_b(t) = \\begin{cases}
-        0\\,, & \\frac{t}{T_b} < t_\mathrm{form}\\\\
-        A_f\\,, & \\frac{t}{T_b} > t_\mathrm{form}+T_\mathrm{steady}
+        0\\,, & \\frac{t}{T_b} < t_\\mathrm{form}\\\\
+        A_f\\,, & \\frac{t}{T_b} > t_\\mathrm{form}+T_\\mathrm{steady}
         \\end{cases}
 
     where
 
     .. math::
 
-       T_b = \\frac{2\pi}{\\Omega_b}
+       T_b = \\frac{2\\pi}{\\Omega_b}
 
     is the bar period and the strength can also be specified using :math:`\\alpha`
 
     .. math::
 
-       \\alpha = 3\\,\\frac{A_f}{v_0^2}\\,\\left(\\frac{R_b}{r_0}\\right)^3\,.
+       \\alpha = 3\\,\\frac{A_f}{v_0^2}\\,\\left(\\frac{R_b}{r_0}\\right)^3\\,.
 
     """
     normalize= property() # turn off normalize

@@ -6,7 +6,6 @@
 #
 #      evolveddiskdf - top-level class that represents a distribution function
 ###############################################################################
-from __future__ import print_function
 _NSIGMA= 4.
 _NTS= 1000
 _PROFILE= False
@@ -126,7 +125,7 @@ class evolveddiskdf(df):
             else:
                 t= args[1]
         else:
-            raise IOError("Input to __call__ not understood; this has to be an Orbit instance with optional time")
+            raise OSError("Input to __call__ not understood; this has to be an Orbit instance with optional time")
         if isinstance(t,list):
             t= numpy.array(t)
             tlist= True
@@ -136,13 +135,13 @@ class evolveddiskdf(df):
         else: tlist= False
         t= parse_time(t,ro=self._ro,vo=self._vo)
         if kwargs.pop('marginalizeVperp',False):
-            if tlist: raise IOError("Input times to __call__ is a list; this is not supported in conjunction with marginalizeVperp")
+            if tlist: raise OSError("Input times to __call__ is a list; this is not supported in conjunction with marginalizeVperp")
             if kwargs.pop('log',False):
                 return numpy.log(self._call_marginalizevperp(args[0],integrate_method=integrate_method,**kwargs))
             else:
                 return self._call_marginalizevperp(args[0],integrate_method=integrate_method,**kwargs)
         elif kwargs.pop('marginalizeVlos',False):
-            if tlist: raise IOError("Input times to __call__ is a list; this is not supported in conjunction with marginalizeVlos")
+            if tlist: raise OSError("Input times to __call__ is a list; this is not supported in conjunction with marginalizeVlos")
             if kwargs.pop('log',False):
                 return numpy.log(self._call_marginalizevlos(args[0],integrate_method=integrate_method,**kwargs))
             else:
@@ -465,7 +464,7 @@ class evolveddiskdf(df):
         if initvmoment == 0.: initvmoment= 1.
         norm= sigmaR1**(n+1)*sigmaT1**(m+1)*initvmoment
         if isinstance(t,(list,numpy.ndarray)):
-            raise IOError("list of times is only supported with grid-based calculation")            
+            raise OSError("list of times is only supported with grid-based calculation")            
         return dblquad(_vmomentsurfaceIntegrand,
                                  meanvT/sigmaT1-nsigma,
                                  meanvT/sigmaT1+nsigma,
@@ -1879,7 +1878,7 @@ class evolveddiskdf(df):
 
     def _create_ts_tlist(self,t,integrate_method):
         #Check input
-        if not all(t == sorted(t,reverse=True)): raise IOError("List of times has to be sorted in descending order")
+        if not all(t == sorted(t,reverse=True)): raise OSError("List of times has to be sorted in descending order")
         #Initialize
         if integrate_method == 'odeint':
             _NTS= 1000
@@ -1996,7 +1995,7 @@ class evolveddiskdf(df):
         rather unnecessary""" 
         return grid(n,m)       
         
-class evolveddiskdfGrid(object):
+class evolveddiskdfGrid:
     """(not quite) Empty class since it is only used to store some stuff"""
     def __init__(self):
         return None
@@ -2028,7 +2027,7 @@ class evolveddiskdfGrid(object):
                     xlabel=r'$v_R / v_0$',
                     ylabel=r'$v_T / v_0$')
 
-class evolveddiskdfHierarchicalGrid(object):
+class evolveddiskdfHierarchicalGrid:
     """Class that holds a hierarchical velocity grid"""
     def __init__(self,edf,R,phi,nsigma,t,sigmaR1,sigmaT1,meanvR,meanvT,
                  gridpoints,nlevels,deriv,upperdxdy=None,print_progress=False,
