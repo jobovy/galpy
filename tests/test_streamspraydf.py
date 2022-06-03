@@ -246,4 +246,4 @@ def test_sample_orbit_rovoetc():
     assert numpy.fabs(obs._vo-sam._vo) < 1e-10, 'Sampled streamspraydf orbits do not have the same vo as the progenitor orbit'
     assert numpy.fabs(obs._zo-sam._zo) < 1e-10, 'Sampled streamspraydf orbits do not have the same zo as the progenitor orbit'
     assert numpy.all(numpy.fabs(obs._solarmotion-sam._solarmotion) < 1e-10), 'Sampled streamspraydf orbits do not have the same solarmotion as the progenitor orbit'
-    return None    
+    return None

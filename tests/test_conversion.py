@@ -1,4 +1,3 @@
-from __future__ import print_function, division
 import numpy
 from galpy.util import conversion
 

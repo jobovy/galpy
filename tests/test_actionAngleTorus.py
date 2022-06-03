@@ -1,4 +1,3 @@
-from __future__ import print_function, division
 import os
 import sys
 import pytest
@@ -222,12 +221,12 @@ def test_actionAngleTorus_Isochrone_freqsAngles():
     RvRom= aAT.xvFreqs(jr,jphi,jz,angler,anglephi,anglez)
     # Calculate actions, frequencies, and angles from aAI
     ws= aAI.actionsFreqsAngles(*RvRom[0].T)
-    dOr= numpy.fabs((ws[3]-RvRom[1]))
-    dOp= numpy.fabs((ws[4]-RvRom[2]))
-    dOz= numpy.fabs((ws[5]-RvRom[3]))
-    dar= numpy.fabs((ws[6]-angler))
-    dap= numpy.fabs((ws[7]-anglephi))
-    daz= numpy.fabs((ws[8]-anglez))
+    dOr= numpy.fabs(ws[3]-RvRom[1])
+    dOp= numpy.fabs(ws[4]-RvRom[2])
+    dOz= numpy.fabs(ws[5]-RvRom[3])
+    dar= numpy.fabs(ws[6]-angler)
+    dap= numpy.fabs(ws[7]-anglephi)
+    daz= numpy.fabs(ws[8]-anglez)
     dar[dar > numpy.pi]-= 2.*numpy.pi
     dar[dar < -numpy.pi]+= 2.*numpy.pi
     dap[dap > numpy.pi]-= 2.*numpy.pi
@@ -289,12 +288,12 @@ def test_actionAngleTorus_Staeckel_freqsAngles():
     RvRom= aAT.xvFreqs(jr,jphi,jz,angler,anglephi,anglez)
     # Calculate actions, frequencies, and angles from aAI
     ws= aAS.actionsFreqsAngles(*RvRom[0].T)
-    dOr= numpy.fabs((ws[3]-RvRom[1]))
-    dOp= numpy.fabs((ws[4]-RvRom[2]))
-    dOz= numpy.fabs((ws[5]-RvRom[3]))
-    dar= numpy.fabs((ws[6]-angler))
-    dap= numpy.fabs((ws[7]-anglephi))
-    daz= numpy.fabs((ws[8]-anglez))
+    dOr= numpy.fabs(ws[3]-RvRom[1])
+    dOp= numpy.fabs(ws[4]-RvRom[2])
+    dOz= numpy.fabs(ws[5]-RvRom[3])
+    dar= numpy.fabs(ws[6]-angler)
+    dap= numpy.fabs(ws[7]-anglephi)
+    daz= numpy.fabs(ws[8]-anglez)
     dar[dar > numpy.pi]-= 2.*numpy.pi
     dar[dar < -numpy.pi]+= 2.*numpy.pi
     dap[dap > numpy.pi]-= 2.*numpy.pi
@@ -352,12 +351,12 @@ def test_actionAngleTorus_isochroneApprox_freqsAngles():
     RvRom= aAT.xvFreqs(jr,jphi,jz,angler,anglephi,anglez)
     # Calculate actions, frequencies, and angles from aAI
     ws= aAIA.actionsFreqsAngles(*RvRom[0].T)
-    dOr= numpy.fabs((ws[3]-RvRom[1]))
-    dOp= numpy.fabs((ws[4]-RvRom[2]))
-    dOz= numpy.fabs((ws[5]-RvRom[3]))
-    dar= numpy.fabs((ws[6]-angler))
-    dap= numpy.fabs((ws[7]-anglephi))
-    daz= numpy.fabs((ws[8]-anglez))
+    dOr= numpy.fabs(ws[3]-RvRom[1])
+    dOp= numpy.fabs(ws[4]-RvRom[2])
+    dOz= numpy.fabs(ws[5]-RvRom[3])
+    dar= numpy.fabs(ws[6]-angler)
+    dap= numpy.fabs(ws[7]-anglephi)
+    daz= numpy.fabs(ws[8]-anglez)
     dar[dar > numpy.pi]-= 2.*numpy.pi
     dar[dar < -numpy.pi]+= 2.*numpy.pi
     dap[dap > numpy.pi]-= 2.*numpy.pi

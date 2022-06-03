@@ -5316,11 +5316,11 @@ def test_diskdf_method_returnunit():
     except units.UnitConversionError:
         raise AssertionError('diskdf method sigmaR2 does not return Quantity with the right units')
     try:
-        df.meanvR(1.2).to((units.km/units.s))
+        df.meanvR(1.2).to(units.km/units.s)
     except units.UnitConversionError:
         raise AssertionError('diskdf method meanvR does not return Quantity with the right units')
     try:
-        df.meanvT(1.2).to((units.km/units.s))
+        df.meanvT(1.2).to(units.km/units.s)
     except units.UnitConversionError:
         raise AssertionError('diskdf method meanvT does not return Quantity with the right units')
     try:
@@ -5571,11 +5571,11 @@ def test_evolveddiskdf_method_returnunit():
     except units.UnitConversionError:
         raise AssertionError('evolveddiskdf method vertexdev does not return Quantity with the right units')
     try:
-        edfwarm.meanvR(1.2,grid=True,returnGrid=False,gridpoints=3).to((units.km/units.s))
+        edfwarm.meanvR(1.2,grid=True,returnGrid=False,gridpoints=3).to(units.km/units.s)
     except units.UnitConversionError:
         raise AssertionError('evolveddiskdf method meanvR does not return Quantity with the right units')
     try:
-        edfwarm.meanvT(1.2,grid=True,returnGrid=False,gridpoints=3).to((units.km/units.s))
+        edfwarm.meanvT(1.2,grid=True,returnGrid=False,gridpoints=3).to(units.km/units.s)
     except units.UnitConversionError:
         raise AssertionError('evolveddiskdf method meanvT does not return Quantity with the right units')
     return None
@@ -5841,15 +5841,15 @@ def test_quasiisothermaldf_method_returnunit():
     except units.UnitConversionError:
         raise AssertionError('quasiisothermaldf method tilt does not return Quantity with the right units')
     try:
-        qdf.meanvR(1.1,0.1).to((units.km/units.s))
+        qdf.meanvR(1.1,0.1).to(units.km/units.s)
     except units.UnitConversionError:
         raise AssertionError('quasiisothermaldf method meanvR does not return Quantity with the right units')
     try:
-        qdf.meanvT(1.1,0.1).to((units.km/units.s))
+        qdf.meanvT(1.1,0.1).to(units.km/units.s)
     except units.UnitConversionError:
         raise AssertionError('quasiisothermaldf method meanvT does not return Quantity with the right units')
     try:
-        qdf.meanvz(1.1,0.1).to((units.km/units.s))
+        qdf.meanvz(1.1,0.1).to(units.km/units.s)
     except units.UnitConversionError:
         raise AssertionError('quasiisothermaldf method meanvz does not return Quantity with the right units')
     try:
@@ -5865,11 +5865,11 @@ def test_quasiisothermaldf_method_returnunit():
     except units.UnitConversionError:
         raise AssertionError('quasiisothermaldf method meanjz does not return Quantity with the right units')
     try:
-        qdf.sampleV(1.1,0.1).to((units.km/units.s))
+        qdf.sampleV(1.1,0.1).to(units.km/units.s)
     except units.UnitConversionError:
         raise AssertionError('quasiisothermaldf method sampleV does not return Quantity with the right units')
     try:
-        qdf.sampleV_interpolate(R,z,0.1,0.1).to((units.km/units.s))
+        qdf.sampleV_interpolate(R,z,0.1,0.1).to(units.km/units.s)
     except units.UnitConversionError:
         raise AssertionError('quasiisothermaldf method sampleV_interpolate does not return Quantity with the right units')
     try:

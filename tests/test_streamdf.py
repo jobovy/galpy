@@ -1,4 +1,3 @@
-from __future__ import print_function, division
 import platform
 WIN32= platform.system() == 'Windows'
 import pytest
@@ -921,7 +920,7 @@ def test_callArgs():
     #RvR w/o phi should raise error
     try:
         sdf_bovy14(RvR[0],RvR[1],RvR[2],RvR[3],RvR[4])
-    except IOError: pass
+    except OSError: pass
     else: raise AssertionError('__call__ w/o phi does not raise IOError')
     return None
 
@@ -1112,7 +1111,7 @@ def test_bovy14_oppositetrailing_setup():
     try:
         sdft_bovy14= streamdf(sigv/220.,progenitor=obs,pot=lp_false,aA=aAI,
                               leading=False) #expl set iterations
-    except IOError: pass
+    except OSError: pass
     else: raise AssertionError('streamdf setup w/ potential neq actionAngle-potential did not raise IOError')
     #Warning when deltaAngleTrack is too large (turn warning into error for testing; not using catch_warnings, bc we need this to actually fail [setup doesn't work for such a large deltaAngleTrack])
     import warnings
@@ -1500,14 +1499,14 @@ def check_track_prog_diff(sdf,d1,d2,tol,phys=False):
     #Interpolate progenitor, st we can put it on the same grid as the stream
     interpProgZ= interpolate.InterpolatedUnivariateSpline(progR,progZ,k=3)
     maxdevZ= numpy.amax(numpy.fabs(interpProgZ(trackR)-trackZ))
-    assert maxdevZ < tol, "Stream track deviates more from progenitor track in %s vs. %s than expected; max. deviation = %f" % (d2,d1,maxdevZ)
+    assert maxdevZ < tol, "Stream track deviates more from progenitor track in {} vs. {} than expected; max. deviation = {:f}".format(d2,d1,maxdevZ)
     return None
 
 def check_track_spread(sdf,d1,d2,tol1,tol2,phys=False,interp=True):
     #Check that the spread around the track is small
     addx, addy= sdf._parse_track_spread(d1,d2,interp=interp,phys=phys) 
-    assert numpy.amax(addx) < tol1, "Stream track spread is larger in %s than expected; max. deviation = %f" % (d1,numpy.amax(addx))
-    assert numpy.amax(addy) < tol2, "Stream track spread is larger in %s than expected; max. deviation = %f" % (d2,numpy.amax(addy))
+    assert numpy.amax(addx) < tol1, "Stream track spread is larger in {} than expected; max. deviation = {:f}".format(d1,numpy.amax(addx))
+    assert numpy.amax(addy) < tol2, "Stream track spread is larger in {} than expected; max. deviation = {:f}".format(d2,numpy.amax(addy))
     return None
 
 def check_track_plotting(sdf,d1,d2,phys=False,interp=True,spread=2,ls='-'):

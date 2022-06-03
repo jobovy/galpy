@@ -174,7 +174,7 @@ def test_radec_to_lb_otherepochs():
     try:
         lb= coords.radec_to_lb(ra/180.*numpy.pi,dec/180.*numpy.pi,
                                     degree=False,epoch=1975.)
-    except IOError:
+    except OSError:
         pass
     else:
         raise AssertionError('radec functions with epoch not equal to 1950 or 2000 did not raise IOError')
@@ -188,7 +188,7 @@ def test_radec_to_lb_otherepochs_apy():
     try:
         lb= coords.radec_to_lb(ra/180.*numpy.pi,dec/180.*numpy.pi,
                                     degree=False,epoch='J2015')
-    except IOError:
+    except OSError:
         raise AssertionError('radec functions with epoch not equal to 1950 or 2000 did not raise IOError')
     else:
         pass

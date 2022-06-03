@@ -1,4 +1,3 @@
-from __future__ import print_function, division
 import os
 import sys
 import pytest
@@ -25,7 +24,7 @@ def test_actionAngleHarmonic_conserved_actions():
     times= numpy.linspace(0.,20.,ntimes)
     obs.integrate(times,ipz)
     js= aAH(obs.x(times),obs.vx(times))
-    maxdj= numpy.amax(numpy.fabs((js-numpy.tile(numpy.mean(js),(len(times),1)).T)))/numpy.mean(js)
+    maxdj= numpy.amax(numpy.fabs(js-numpy.tile(numpy.mean(js),(len(times),1)).T))/numpy.mean(js)
     assert maxdj < 10.**-4., 'Action conservation fails at %g%%' % (100.*maxdj)
     return None
 
@@ -2042,11 +2041,11 @@ def test_actionAngleStaeckelGrid_setuperrs():
     from galpy.actionAngle import actionAngleStaeckelGrid
     try:
         aAA= actionAngleStaeckelGrid()
-    except IOError: pass
+    except OSError: pass
     else: raise AssertionError('actionAngleStaeckelGrid w/o pot does not give IOError')
     try:
         aAA= actionAngleStaeckelGrid(pot=MWPotential)
-    except IOError: pass
+    except OSError: pass
     else: raise AssertionError('actionAngleStaeckelGrid w/o delta does not give IOError')
     return None
 
@@ -2439,7 +2438,7 @@ def test_actionAngleIsochroneApprox_bovy14():
     obs.integrate(times,lp,method='dopr54_c')
     js= aAI(obs.R(times),obs.vR(times),obs.vT(times),obs.z(times),
             obs.vz(times),obs.phi(times))
-    maxdj= numpy.amax(numpy.fabs((js-numpy.tile(numpy.mean(js,axis=1),(len(times),1)).T)),axis=1)/numpy.mean(js,axis=1)
+    maxdj= numpy.amax(numpy.fabs(js-numpy.tile(numpy.mean(js,axis=1),(len(times),1)).T),axis=1)/numpy.mean(js,axis=1)
     assert maxdj[0] < 3.*10.**-2., 'Jr conservation for the GD-1 like orbit of Bovy (2014) fails at %f%%' % (100.*maxdj[0])
     assert maxdj[1] < 10.**-2., 'Lz conservation for the GD-1 like orbit of Bovy (2014) fails at %f%%' % (100.*maxdj[1])
     assert maxdj[2] < 2.*10.**-2., 'Jz conservation for the GD-1 like orbit of Bovy (2014) fails at %f%%' % (100.*maxdj[2])
@@ -3272,7 +3271,7 @@ def check_actionAngle_conserved_actions(aA,obs,pot,toljr,toljp,toljz,
     else:
         # Test Orbit with multiple objects case, but calling
         js= aA(obs(times))
-    maxdj= numpy.amax(numpy.fabs((js-numpy.tile(numpy.mean(js,axis=1),(len(times),1)).T)),axis=1)/numpy.mean(js,axis=1)
+    maxdj= numpy.amax(numpy.fabs(js-numpy.tile(numpy.mean(js,axis=1),(len(times),1)).T),axis=1)/numpy.mean(js,axis=1)
     assert maxdj[0] < 10.**toljr, 'Jr conservation fails at %g%%' % (100.*maxdj[0])
     assert maxdj[1] < 10.**toljp, 'Lz conservation fails at %g%%' % (100.*maxdj[1])
     assert maxdj[2] < 10.**toljz, 'Jz conservation fails at %g%%' % (100.*maxdj[2])

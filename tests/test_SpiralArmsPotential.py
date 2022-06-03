@@ -1,4 +1,3 @@
-from __future__ import division
 from galpy.potential import SpiralArmsPotential as spiral
 import numpy as np
 from numpy import pi

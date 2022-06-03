@@ -163,13 +163,13 @@ def test_interpsnapshotKeplerPotential_eval():
     zs= numpy.linspace(-0.2,0.2,41)
     for r in rs:
         for z in zs:
-            assert numpy.fabs((sp(r,z)-kp(r,z))/kp(r,z)) < 10.**-10., 'RZPot interpolation w/ InterpSnapShotPotential of KeplerPotential fails at (R,z) = (%g,%g)' % (r,z)
+            assert numpy.fabs((sp(r,z)-kp(r,z))/kp(r,z)) < 10.**-10., 'RZPot interpolation w/ InterpSnapShotPotential of KeplerPotential fails at (R,z) = ({:g},{:g})'.format(r,z)
     #This tests within the grid
     rs= numpy.linspace(0.01,2.,10)
     zs= numpy.linspace(-0.2,0.2,20)
     for r in rs:
         for z in zs:
-            assert numpy.fabs((sp(r,z)-kp(r,z))/kp(r,z)) < 10.**-5., 'RZPot interpolation w/ InterpSnapShotPotential of KeplerPotential fails at (R,z) = (%g,%g) by %g' % (r,z,numpy.fabs((sp(r,z)-kp(r,z))/kp(r,z)))           
+            assert numpy.fabs((sp(r,z)-kp(r,z))/kp(r,z)) < 10.**-5., 'RZPot interpolation w/ InterpSnapShotPotential of KeplerPotential fails at (R,z) = ({:g},{:g}) by {:g}'.format(r,z,numpy.fabs((sp(r,z)-kp(r,z))/kp(r,z)))           
     #Test all at the same time to use vector evaluation
     mr,mz= numpy.meshgrid(rs,zs)
     mr= mr.flatten()
@@ -195,7 +195,7 @@ def test_interpsnapshotKeplerPotential_logR_eval():
     mr,mz= numpy.meshgrid(rs,zs)
     mr= mr.flatten()
     mz= mz.flatten()
-    assert numpy.all(numpy.fabs((sp(mr,mz)-kp(mr,mz))/kp(mr,mz)) < 10.**-5.), 'RZPot interpolation w/ interpRZPotential fails for vector input, w/ logR at (R,z) = (%f,%f) by %g' % (mr[numpy.argmax(numpy.fabs((sp(mr,mz)-kp(mr,mz))/kp(mr,mz)))],mz[numpy.argmax(numpy.fabs((sp(mr,mz)-kp(mr,mz))/kp(mr,mz)))],numpy.amax(numpy.fabs((sp(mr,mz)-kp(mr,mz))/kp(mr,mz))))
+    assert numpy.all(numpy.fabs((sp(mr,mz)-kp(mr,mz))/kp(mr,mz)) < 10.**-5.), 'RZPot interpolation w/ interpRZPotential fails for vector input, w/ logR at (R,z) = ({:f},{:f}) by {:g}'.format(mr[numpy.argmax(numpy.fabs((sp(mr,mz)-kp(mr,mz))/kp(mr,mz)))],mz[numpy.argmax(numpy.fabs((sp(mr,mz)-kp(mr,mz))/kp(mr,mz)))],numpy.amax(numpy.fabs((sp(mr,mz)-kp(mr,mz))/kp(mr,mz))))
     return None
 
 def test_interpsnapshotKeplerPotential_noc_eval():
@@ -245,7 +245,7 @@ def test_interpsnapshotKeplerPotential_eval_naz():
     zs= numpy.linspace(-0.2,0.2,41)
     for r in rs:
         for z in zs:
-            assert numpy.fabs((sp(r,z)-spaz(r,z))/sp(r,z)) < 10.**-10., 'RZPot interpolation w/ InterpSnapShotPotential of KeplerPotential with different nazimuths fails at (R,z) = (%g,%g)' % (r,z)
+            assert numpy.fabs((sp(r,z)-spaz(r,z))/sp(r,z)) < 10.**-10., 'RZPot interpolation w/ InterpSnapShotPotential of KeplerPotential with different nazimuths fails at (R,z) = ({:g},{:g})'.format(r,z)
     #This tests within the grid, with vector evaluation
     rs= numpy.linspace(0.01,2.,10)
     zs= numpy.linspace(-0.2,0.2,20)
@@ -374,11 +374,11 @@ def test_interpsnapshotKeplerPotential_epifreq():
     #This just tests on the grid
     rs= numpy.linspace(0.01,2.,21)[1:]
     for r in rs:
-        assert numpy.fabs((sp.epifreq(r)-kp.epifreq(r))/kp.epifreq(r)) < 10.**-4., 'RZPot interpolation of epifreq w/ InterpSnapShotPotential of KeplerPotential fails at R = %g by %g' % (r,numpy.fabs((sp.epifreq(r)-kp.epifreq(r))/kp.epifreq(r)))
+        assert numpy.fabs((sp.epifreq(r)-kp.epifreq(r))/kp.epifreq(r)) < 10.**-4., 'RZPot interpolation of epifreq w/ InterpSnapShotPotential of KeplerPotential fails at R = {:g} by {:g}'.format(r,numpy.fabs((sp.epifreq(r)-kp.epifreq(r))/kp.epifreq(r)))
     #This tests within the grid
     rs= numpy.linspace(0.01,2.,10)[1:]
     for r in rs:
-        assert numpy.fabs((sp.epifreq(r)-kp.epifreq(r))/kp.epifreq(r)) < 10.**-4., 'RZPot interpolation of epifreq w/ InterpSnapShotPotential of KeplerPotential fails at R = %g by %g' % (r,numpy.fabs((sp.epifreq(r)-kp.epifreq(r))/kp.epifreq(r)))
+        assert numpy.fabs((sp.epifreq(r)-kp.epifreq(r))/kp.epifreq(r)) < 10.**-4., 'RZPot interpolation of epifreq w/ InterpSnapShotPotential of KeplerPotential fails at R = {:g} by {:g}'.format(r,numpy.fabs((sp.epifreq(r)-kp.epifreq(r))/kp.epifreq(r)))
     return None
 
 def test_interpsnapshotKeplerPotential_verticalfreq():
@@ -397,11 +397,11 @@ def test_interpsnapshotKeplerPotential_verticalfreq():
     #This just tests on the grid
     rs= numpy.linspace(0.01,2.,21)[1:]
     for r in rs:
-        assert numpy.fabs((sp.verticalfreq(r)-kp.verticalfreq(r))/kp.verticalfreq(r)) < 10.**-4., 'RZPot interpolation of verticalfreq w/ InterpSnapShotPotential of KeplerPotential fails at R = %g by %g' % (r,numpy.fabs((sp.verticalfreq(r)-kp.verticalfreq(r))/kp.verticalfreq(r)))
+        assert numpy.fabs((sp.verticalfreq(r)-kp.verticalfreq(r))/kp.verticalfreq(r)) < 10.**-4., 'RZPot interpolation of verticalfreq w/ InterpSnapShotPotential of KeplerPotential fails at R = {:g} by {:g}'.format(r,numpy.fabs((sp.verticalfreq(r)-kp.verticalfreq(r))/kp.verticalfreq(r)))
     #This tests within the grid
     rs= numpy.linspace(0.01,2.,10)[1:]
     for r in rs:
-        assert numpy.fabs((sp.verticalfreq(r)-kp.verticalfreq(r))/kp.verticalfreq(r)) < 10.**-4., 'RZPot interpolation of verticalfreq w/ InterpSnapShotPotential of KeplerPotential fails at R = %g by %g' % (r,numpy.fabs((sp.verticalfreq(r)-kp.verticalfreq(r))/kp.verticalfreq(r)))
+        assert numpy.fabs((sp.verticalfreq(r)-kp.verticalfreq(r))/kp.verticalfreq(r)) < 10.**-4., 'RZPot interpolation of verticalfreq w/ InterpSnapShotPotential of KeplerPotential fails at R = {:g} by {:g}'.format(r,numpy.fabs((sp.verticalfreq(r)-kp.verticalfreq(r))/kp.verticalfreq(r)))
     return None
 
 def test_interpsnapshotKeplerPotential_R2deriv():
@@ -422,13 +422,13 @@ def test_interpsnapshotKeplerPotential_R2deriv():
     zs= numpy.linspace(-0.2,0.2,41)
     for r in rs:
         for z in zs:
-            assert numpy.fabs((sp.R2deriv(r,z)-kp.R2deriv(r,z))/kp.R2deriv(r,z)) < 10.**-4., 'RZPot interpolation of R2deriv w/ InterpSnapShotPotential of KeplerPotential fails at (R,z) = (%g,%g) by %g' % (r,z,numpy.fabs((sp.R2deriv(r,z)-kp.R2deriv(r,z))/kp.R2deriv(r,z)))
+            assert numpy.fabs((sp.R2deriv(r,z)-kp.R2deriv(r,z))/kp.R2deriv(r,z)) < 10.**-4., 'RZPot interpolation of R2deriv w/ InterpSnapShotPotential of KeplerPotential fails at (R,z) = ({:g},{:g}) by {:g}'.format(r,z,numpy.fabs((sp.R2deriv(r,z)-kp.R2deriv(r,z))/kp.R2deriv(r,z)))
     #This tests within the grid
     rs= numpy.linspace(0.01,2.,10)[1:]
     zs= numpy.linspace(-0.2,0.2,20)
     for r in rs:
         for z in zs:
-            assert numpy.fabs((sp.R2deriv(r,z)-kp.R2deriv(r,z))/kp.R2deriv(r,z)) < 10.**-4., 'RZPot interpolation of R2deriv w/ InterpSnapShotPotential of KeplerPotential fails at (R,z) = (%g,%g) by %g' % (r,z,numpy.fabs((sp.R2deriv(r,z)-kp.R2deriv(r,z))/kp.R2deriv(r,z)))
+            assert numpy.fabs((sp.R2deriv(r,z)-kp.R2deriv(r,z))/kp.R2deriv(r,z)) < 10.**-4., 'RZPot interpolation of R2deriv w/ InterpSnapShotPotential of KeplerPotential fails at (R,z) = ({:g},{:g}) by {:g}'.format(r,z,numpy.fabs((sp.R2deriv(r,z)-kp.R2deriv(r,z))/kp.R2deriv(r,z)))
     return None
 
 def test_interpsnapshotKeplerPotential_z2deriv():
@@ -449,13 +449,13 @@ def test_interpsnapshotKeplerPotential_z2deriv():
     zs= numpy.linspace(-0.2,0.2,41)
     for r in rs:
         for z in zs:
-            assert numpy.fabs((sp.z2deriv(r,z)-kp.z2deriv(r,z))/kp.z2deriv(r,z)) < 10.**-4., 'RZPot interpolation of z2deriv w/ InterpSnapShotPotential of KeplerPotential fails at (R,z) = (%g,%g) by %g' % (r,z,numpy.fabs((sp.z2deriv(r,z)-kp.z2deriv(r,z))/kp.z2deriv(r,z)))
+            assert numpy.fabs((sp.z2deriv(r,z)-kp.z2deriv(r,z))/kp.z2deriv(r,z)) < 10.**-4., 'RZPot interpolation of z2deriv w/ InterpSnapShotPotential of KeplerPotential fails at (R,z) = ({:g},{:g}) by {:g}'.format(r,z,numpy.fabs((sp.z2deriv(r,z)-kp.z2deriv(r,z))/kp.z2deriv(r,z)))
     #This tests within the grid
     rs= numpy.linspace(0.01,2.,10)[1:]
     zs= numpy.linspace(-0.2,0.2,20)
     for r in rs:
         for z in zs:
-            assert numpy.fabs((sp.z2deriv(r,z)-kp.z2deriv(r,z))/kp.z2deriv(r,z)) < 2.*10.**-4., 'RZPot interpolation of z2deriv w/ InterpSnapShotPotential of KeplerPotential fails at (R,z) = (%g,%g) by %g' % (r,z,numpy.fabs((sp.z2deriv(r,z)-kp.z2deriv(r,z))/kp.z2deriv(r,z)))
+            assert numpy.fabs((sp.z2deriv(r,z)-kp.z2deriv(r,z))/kp.z2deriv(r,z)) < 2.*10.**-4., 'RZPot interpolation of z2deriv w/ InterpSnapShotPotential of KeplerPotential fails at (R,z) = ({:g},{:g}) by {:g}'.format(r,z,numpy.fabs((sp.z2deriv(r,z)-kp.z2deriv(r,z))/kp.z2deriv(r,z)))
     return None
 
 def test_interpsnapshotKeplerpotential_Rzderiv():
@@ -479,11 +479,11 @@ def test_interpsnapshotKeplerpotential_Rzderiv():
     # Test, but give small |z| a less constraining 
     for r in rs:
         for z in zs:
-            assert numpy.fabs((sp.Rzderiv(r,z)-kp.Rzderiv(r,z))/kp.Rzderiv(r,z)) < 10.**-4.*(1.+19.*(numpy.fabs(z) < 0.05)), 'RZPot interpolation of Rzderiv w/ InterpSnapShotPotential of KeplerPotential fails at (R,z) = (%g,%g) by %g; value is %g' % (r,z,numpy.fabs((sp.Rzderiv(r,z)-kp.Rzderiv(r,z))/kp.Rzderiv(r,z)),kp.Rzderiv(r,z))
+            assert numpy.fabs((sp.Rzderiv(r,z)-kp.Rzderiv(r,z))/kp.Rzderiv(r,z)) < 10.**-4.*(1.+19.*(numpy.fabs(z) < 0.05)), 'RZPot interpolation of Rzderiv w/ InterpSnapShotPotential of KeplerPotential fails at (R,z) = ({:g},{:g}) by {:g}; value is {:g}'.format(r,z,numpy.fabs((sp.Rzderiv(r,z)-kp.Rzderiv(r,z))/kp.Rzderiv(r,z)),kp.Rzderiv(r,z))
     #This tests within the grid
     rs= numpy.linspace(0.01,2.,10)[1:]
     zs= numpy.linspace(-0.2,0.2,20)
     for r in rs:
         for z in zs:
-            assert numpy.fabs((sp.Rzderiv(r,z)-kp.Rzderiv(r,z))/kp.Rzderiv(r,z)) < 10.**-4.*(1.+19.*(numpy.fabs(z) < 0.05)), 'RZPot interpolation of Rzderiv w/ InterpSnapShotPotential of KeplerPotential fails at (R,z) = (%g,%g) by %g' % (r,z,numpy.fabs((sp.Rzderiv(r,z)-kp.Rzderiv(r,z))/kp.Rzderiv(r,z)))
+            assert numpy.fabs((sp.Rzderiv(r,z)-kp.Rzderiv(r,z))/kp.Rzderiv(r,z)) < 10.**-4.*(1.+19.*(numpy.fabs(z) < 0.05)), 'RZPot interpolation of Rzderiv w/ InterpSnapShotPotential of KeplerPotential fails at (R,z) = ({:g},{:g}) by {:g}'.format(r,z,numpy.fabs((sp.Rzderiv(r,z)-kp.Rzderiv(r,z))/kp.Rzderiv(r,z)))
     return None

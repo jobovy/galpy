@@ -1,5 +1,4 @@
 # Tests of the evolveddiskdf module
-from __future__ import print_function, division
 import numpy
 from galpy.df import evolveddiskdf, dehnendf
 from galpy.potential import LogarithmicHaloPotential, \
@@ -400,7 +399,7 @@ def test_mildnonaxi_meanvt_direct_tlist():
     try:
         edf.meanvT(0.9,t=[0.,-2.5,-5.,-7.5,-10.],
                    phi=0.2,integrate_method='rk6_c',grid=False)
-    except IOError: pass
+    except OSError: pass
     else: raise AssertionError('direct evolveddiskdf calculation of meanvT w/ list of times did not raise IOError')
     return None
          
@@ -541,7 +540,7 @@ def test_call_special():
     assert numpy.fabs(numpy.log(edf(o,0.))-numpy.log(edf(o))) < 10.**-10., 'edf.__call__ w/ explicit t=0. and w/o t do not give the same answer'
     #call must get Orbit, otherwise error
     try: edf(0.9,0.1,1.1,2.)
-    except IOError: pass
+    except OSError: pass
     else: raise AssertionError('edf.__call__ w/o Orbit input did not raise IOError')
     #Call w/ list, but just to
     assert numpy.fabs(numpy.log(edf(o,[-10.]))-numpy.log(idf(o))) < 10.**-10., 'edf.__call__ w/ tlist set to [to] did not return initial DF'

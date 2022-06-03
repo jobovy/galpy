@@ -1,5 +1,4 @@
 #Test the functions in galpy/util/__init__.py
-from __future__ import print_function, division
 import numpy
 
 def test_save_pickles():

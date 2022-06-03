@@ -1,5 +1,4 @@
 # Tests of the diskdf module: distribution functions from Dehnen (1999)
-from __future__ import print_function, division
 import os
 import numpy
 from scipy import stats

@@ -1,5 +1,4 @@
 # Test that all of the examples in the galpy paper run
-from __future__ import print_function, division
 import os
 import numpy
 import pytest
