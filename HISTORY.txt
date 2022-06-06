@@ -44,6 +44,10 @@ v1.7.2 (2022-04-15)
   as Orbit methods for efficient calculation for collections of 
   orbits.
 
+- Added the offset= keyword to RotateAndTiltWrapperPotential, which allows 
+  a Potential/Force instance to also be offset from (0,0,0) in addition to 
+  being rotated or tilted.  
+
 - Allow actions to be computed for Orbit instances with actionAngle
   methods that don't compute frequencies.
 
