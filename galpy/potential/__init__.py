@@ -56,6 +56,9 @@ from . import AnyAxisymmetricRazorThinDiskPotential
 from . import AnySphericalPotential
 from . import AdiabaticContractionWrapperPotential
 from . import PowerTriaxialPotential
+from . import NonInertialFrameForce
+from . import NullPotential
+from . import TimeDependentAmplitudeWrapperPotential
 #
 # Functions
 #
@@ -64,6 +67,7 @@ evaluateDensities= Potential.evaluateDensities
 evaluateSurfaceDensities= Potential.evaluateSurfaceDensities
 mass= Potential.mass
 evaluateRforces= Potential.evaluateRforces
+evaluatephitorques= Potential.evaluatephitorques
 evaluatephiforces= Potential.evaluatephiforces
 evaluatezforces= Potential.evaluatezforces
 evaluaterforces= Potential.evaluaterforces
@@ -100,6 +104,7 @@ plotEscapecurve= plotEscapecurve.plotEscapecurve
 evaluateplanarPotentials= planarPotential.evaluateplanarPotentials
 evaluateplanarRforces= planarPotential.evaluateplanarRforces
 evaluateplanarR2derivs= planarPotential.evaluateplanarR2derivs
+evaluateplanarphitorques= planarPotential.evaluateplanarphitorques
 evaluateplanarphiforces= planarPotential.evaluateplanarphiforces
 evaluatelinearPotentials= linearPotential.evaluatelinearPotentials
 evaluatelinearForces= linearPotential.evaluatelinearForces
@@ -125,6 +130,8 @@ zvc= Potential.zvc
 zvc_range= Potential.zvc_range
 rhalf= Potential.rhalf
 tdyn= Potential.tdyn
+rE= Potential.rE
+LcE= Potential.LcE
 #
 # Classes
 #
@@ -195,6 +202,9 @@ GaussianAmplitudeWrapperPotential= GaussianAmplitudeWrapperPotential.GaussianAmp
 RotateAndTiltWrapperPotential = RotateAndTiltWrapperPotential.RotateAndTiltWrapperPotential
 AdiabaticContractionWrapperPotential= AdiabaticContractionWrapperPotential.AdiabaticContractionWrapperPotential
 PowerTriaxialPotential= PowerTriaxialPotential.PowerTriaxialPotential
+NonInertialFrameForce= NonInertialFrameForce.NonInertialFrameForce
+NullPotential= NullPotential.NullPotential
+TimeDependentAmplitudeWrapperPotential= TimeDependentAmplitudeWrapperPotential.TimeDependentAmplitudeWrapperPotential
 
 # MW potential models, now in galpy.potential.mwpotentials, but keep these two
 # for tests, backwards compatibility, and convenience

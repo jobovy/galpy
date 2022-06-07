@@ -46,9 +46,9 @@ class actionAngleVertical(actionAngle):
         actionAngle.__init__(self,
                              ro=kwargs.get('ro',None),vo=kwargs.get('vo',None))
         if not 'pot' in kwargs: #pragma: no cover
-            raise IOError("Must specify pot= for actionAngleVertical")
+            raise OSError("Must specify pot= for actionAngleVertical")
         if not 'pot' in kwargs: #pragma: no cover
-            raise IOError("Must specify pot= for actionAngleVertical")
+            raise OSError("Must specify pot= for actionAngleVertical")
         self._pot= kwargs['pot']
         return None
         """

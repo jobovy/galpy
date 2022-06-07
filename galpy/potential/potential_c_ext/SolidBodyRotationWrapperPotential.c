@@ -10,12 +10,12 @@ double SolidBodyRotationWrapperPotentialRforce(double R,double z,double phi,
   return *args * calcRforce(R,z,phi - *(args+1) * t - *(args+2),t,
 		 potentialArgs->nwrapped,potentialArgs->wrappedPotentialArg);
 }
-double SolidBodyRotationWrapperPotentialphiforce(double R,double z,double phi,
+double SolidBodyRotationWrapperPotentialphitorque(double R,double z,double phi,
 					    double t,
 					    struct potentialArg * potentialArgs){
   double * args= potentialArgs->args;
-  //Calculate phiforce
-  return *args * calcPhiforce(R,z,phi - *(args+1) * t - *(args+2),t,
+  //Calculate phitorque
+  return *args * calcphitorque(R,z,phi - *(args+1) * t - *(args+2),t,
 		   potentialArgs->nwrapped,potentialArgs->wrappedPotentialArg);
 }
 double SolidBodyRotationWrapperPotentialzforce(double R,double z,double phi,
@@ -34,11 +34,11 @@ double SolidBodyRotationWrapperPotentialPlanarRforce(double R,double phi,double 
 		       potentialArgs->nwrapped,
 		       potentialArgs->wrappedPotentialArg);
 }
-double SolidBodyRotationWrapperPotentialPlanarphiforce(double R,double phi,double t,
+double SolidBodyRotationWrapperPotentialPlanarphitorque(double R,double phi,double t,
 						  struct potentialArg * potentialArgs){
   double * args= potentialArgs->args;
-  //Calculate phiforce
-  return *args * calcPlanarphiforce(R,phi - *(args+1) * t - *(args+2),t,
+  //Calculate phitorque
+  return *args * calcPlanarphitorque(R,phi - *(args+1) * t - *(args+2),t,
 			 potentialArgs->nwrapped,
 			 potentialArgs->wrappedPotentialArg);
 }

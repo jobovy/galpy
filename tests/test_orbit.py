@@ -1,5 +1,4 @@
 ##############################TESTS ON ORBITS##################################
-from __future__ import print_function, division
 import warnings
 import os, os.path
 import sys
@@ -71,7 +70,8 @@ from test_potential import testplanarMWPotential, testMWPotential, \
     nestedListPotential, \
     mockInterpSphericalPotential, \
     mockAdiabaticContractionMWP14WrapperPotential, \
-    mockRotatedAndTiltedMWP14WrapperPotential
+    mockRotatedAndTiltedMWP14WrapperPotential, \
+    testNullPotential
 _GHACTIONS= bool(os.getenv('GITHUB_ACTIONS'))
 if not _GHACTIONS:
     _QUICKTEST= True #Run a more limited set of tests
@@ -148,6 +148,7 @@ def test_energy_jacobi_conservation():
     pots.append('mockInterpSphericalPotential')
     pots.append('mockAdiabaticContractionMWP14WrapperPotential')
     pots.append('mockRotatedAndTiltedMWP14WrapperPotential')
+    pots.append('testNullPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -199,7 +200,6 @@ def test_energy_jacobi_conservation():
             ptp= tp.toPlanar()
         else:
             ptp= None
-        print(p)
         for integrator in integrators:
             if integrator == 'dopr54_c' \
                     and ('Spiral' in p or 'Lopsided' in p \
@@ -522,6 +522,7 @@ def test_energy_conservation_linear():
     pots.append('mockInterpSphericalPotential')
     pots.append('mockAdiabaticContractionMWP14WrapperPotential')
     pots.append('mockRotatedAndTiltedMWP14WrapperPotential')
+    pots.append('testNullPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -690,6 +691,7 @@ def test_liouville_planar():
     pots.append('nestedListPotential')
     pots.append('mockInterpSphericalPotential')
     pots.append('mockAdiabaticContractionMWP14WrapperPotential')
+    pots.append('testNullPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -793,7 +795,7 @@ def test_liouville_planar():
                 dvy= o.getOrbit_dxdv()[-1,:]
             tjac= numpy.linalg.det(numpy.array([dx,dy,dvx,dvy]))
             #print(p, integrator, numpy.fabs(tjac-1.),ttol)
-            assert numpy.fabs(tjac-1.) < 10.**ttol, 'Liouville theorem jacobian differs from one by %g for %s and integrator %s' % (numpy.fabs(tjac-1.),p,integrator)
+            assert numpy.fabs(tjac-1.) < 10.**ttol, 'Liouville theorem jacobian differs from one by {:g} for {} and integrator {}'.format(numpy.fabs(tjac-1.),p,integrator)
             if firstTest or ('Burkert' in p and not ptp.hasC):
                 #Some one time tests
                 #Test non-rectangular in- and output
@@ -1629,6 +1631,104 @@ def test_orbit_rguiding_planar():
     ts= numpy.linspace(0.,10.,101)
     o.integrate(ts,np)
     assert numpy.amax(numpy.fabs(o.rguiding(ts,pot=npaxi)-numpy.array([rl(npaxi,o.Lz(t)) for t in ts]))) < 1e-10, 'Guiding center radius returned by Orbit interface rguiding is different from that returned by potential interface rl for integrated orbit'
+    return None
+
+def test_orbit_rE():
+    from galpy.potential import LogarithmicHaloPotential, MWPotential2014, \
+        DehnenBarPotential, rE
+    from galpy.orbit import Orbit
+    # For a single potential
+    lp= LogarithmicHaloPotential(normalize=1.)
+    R,Lz= 1.,1.4
+    o= Orbit([R,0.4,Lz/R,0.,0.1,0.])
+    E= o.E(pot=lp)
+    assert numpy.fabs(o.rE(pot=lp)-rE(lp,E)) < 1e-10, 'rE returned by Orbit interface rE is different from that returned by potential interface rE'
+    # For a list of potentials
+    R,Lz= 1.4,0.9
+    o= Orbit([R,0.4,Lz/R,0.,0.1,0.])
+    E= o.E(pot=MWPotential2014)
+    assert numpy.fabs(o.rE(pot=MWPotential2014)-rE(MWPotential2014,E)) < 1e-10, 'rE returned by Orbit interface rE is different from that returned by potential interface rE'
+    # For an orbit integrated in a time-dependent potential, such that E varies
+    dp= DehnenBarPotential()
+    R,Lz= 0.9,1
+    o= Orbit([R,0.,Lz/R,0.,0.1,0.])
+    E= o.E(pot=lp)
+    ts= numpy.linspace(0.,10.,101)
+    o.integrate(ts,lp+dp)
+    assert numpy.amax(numpy.fabs(o.rE(ts,pot=lp)-numpy.array([rE(lp,o.E(t,pot=lp)) for t in ts]))) < 1e-10, 'rE returned by Orbit interface rE is different from that returned by potential interface rE for integrated orbit'
+    return None
+
+def test_orbit_rE_planar():
+    from galpy.potential import LogarithmicHaloPotential, MWPotential2014, \
+        DehnenBarPotential, rE
+    from galpy.orbit import Orbit
+    # For a single potential
+    lp= LogarithmicHaloPotential(normalize=1.)
+    R,Lz= 1.,1.4
+    o= Orbit([R,0.4,Lz/R,0.])
+    E= o.E(pot=lp)
+    assert numpy.fabs(o.rE(pot=lp)-rE(lp,E)) < 1e-10, 'rE returned by Orbit interface rE is different from that returned by potential interface rE'
+    # For a list of potentials
+    R,Lz= 1.4,0.9
+    o= Orbit([R,0.4,Lz/R,0.])
+    E= o.E(pot=MWPotential2014)
+    assert numpy.fabs(o.rE(pot=MWPotential2014)-rE(MWPotential2014,E)) < 1e-10, 'rE returned by Orbit interface rE is different from that returned by potential interface rE'
+    # For an orbit integrated in a time-dependent potential, such that E varies
+    dp= DehnenBarPotential()
+    R,Lz= 0.9,1
+    o= Orbit([R,0.,Lz/R,0.,])
+    ts= numpy.linspace(0.,10.,101)
+    o.integrate(ts,lp+dp)
+    assert numpy.amax(numpy.fabs(o.rE(ts,pot=lp)-numpy.array([rE(lp,o.E(t,pot=lp)) for t in ts]))) < 1e-10, 'rE returned by Orbit interface rE is different from that returned by potential interface rE for integrated orbit'
+    return None
+
+def test_orbit_LcE():
+    from galpy.potential import LogarithmicHaloPotential, MWPotential2014, \
+        DehnenBarPotential, LcE
+    from galpy.orbit import Orbit
+    # For a single potential
+    lp= LogarithmicHaloPotential(normalize=1.)
+    R,Lz= 1.,1.4
+    o= Orbit([R,0.4,Lz/R,0.,0.1,0.])
+    E= o.E(pot=lp)
+    assert numpy.fabs(o.LcE(pot=lp)-LcE(lp,E)) < 1e-10, 'LcE returned by Orbit interface LcE is different from that returned by potential interface LcE'
+    # For a list of potentials
+    R,Lz= 1.4,0.9
+    o= Orbit([R,0.4,Lz/R,0.,0.1,0.])
+    E= o.E(pot=MWPotential2014)
+    assert numpy.fabs(o.LcE(pot=MWPotential2014)-LcE(MWPotential2014,E)) < 1e-10, 'LcE returned by Orbit interface LcE is different from that returned by potential interface LcE'
+    # For an orbit integrated in a time-dependent potential, such that E varies
+    dp= DehnenBarPotential()
+    R,Lz= 0.9,1
+    o= Orbit([R,0.,Lz/R,0.,0.1,0.])
+    E= o.E(pot=lp)
+    ts= numpy.linspace(0.,10.,101)
+    o.integrate(ts,lp+dp)
+    assert numpy.amax(numpy.fabs(o.LcE(ts,pot=lp)-numpy.array([LcE(lp,o.E(t,pot=lp)) for t in ts]))) < 1e-10, 'LcE returned by Orbit interface LcE is different from that returned by potential interface LcE for integrated orbit'
+    return None
+
+def test_orbit_LcE_planar():
+    from galpy.potential import LogarithmicHaloPotential, MWPotential2014, \
+        DehnenBarPotential, LcE
+    from galpy.orbit import Orbit
+    # For a single potential
+    lp= LogarithmicHaloPotential(normalize=1.)
+    R,Lz= 1.,1.4
+    o= Orbit([R,0.4,Lz/R,0.])
+    E= o.E(pot=lp)
+    assert numpy.fabs(o.LcE(pot=lp)-LcE(lp,E)) < 1e-10, 'LcE returned by Orbit interface LcE is different from that returned by potential interface LcE'
+    # For a list of potentials
+    R,Lz= 1.4,0.9
+    o= Orbit([R,0.4,Lz/R,0.])
+    E= o.E(pot=MWPotential2014)
+    assert numpy.fabs(o.LcE(pot=MWPotential2014)-LcE(MWPotential2014,E)) < 1e-10, 'LcE returned by Orbit interface LcE is different from that returned by potential interface LcE'
+    # For an orbit integrated in a time-dependent potential, such that E varies
+    dp= DehnenBarPotential()
+    R,Lz= 0.9,1
+    o= Orbit([R,0.,Lz/R,0.,])
+    ts= numpy.linspace(0.,10.,101)
+    o.integrate(ts,lp+dp)
+    assert numpy.amax(numpy.fabs(o.LcE(ts,pot=lp)-numpy.array([LcE(lp,o.E(t,pot=lp)) for t in ts]))) < 1e-10, 'LcE returned by Orbit interface LcE is different from that returned by potential interface LcE for integrated orbit'
     return None
 
 # Check that zmax calculated analytically agrees with numerical calculation
@@ -2941,9 +3041,9 @@ def test_physical_output():
             assert numpy.fabs(o.Op(pot=lp,type='staeckel',delta=0.5)/conversion.freq_in_Gyr(vo,ro)-o.Op(pot=lp,type='staeckel',delta=0.5,use_physical=False)) < 10.**-10., 'o.Op() output for Orbit setup with ro=,vo= does not work as expected'
             assert numpy.fabs(o.Oz(pot=lp,type='staeckel',delta=0.5)/conversion.freq_in_Gyr(vo,ro)-o.Oz(pot=lp,type='staeckel',delta=0.5,use_physical=False)) < 10.**-10., 'o.Oz() output for Orbit setup with ro=,vo= does not work as expected'
     #Also test the times
-    assert numpy.fabs((o.time(1.)-ro/vo/1.0227121655399913)) < 10.**-10., 'o.time() in physical coordinates does not work as expected'
-    assert numpy.fabs((o.time(1.,ro=ro,vo=vo)-ro/vo/1.0227121655399913)) < 10.**-10., 'o.time() in physical coordinates does not work as expected'
-    assert numpy.fabs((o.time(1.,use_physical=False)-1.)) < 10.**-10., 'o.time() in physical coordinates does not work as expected'
+    assert numpy.fabs(o.time(1.)-ro/vo/1.0227121655399913) < 10.**-10., 'o.time() in physical coordinates does not work as expected'
+    assert numpy.fabs(o.time(1.,ro=ro,vo=vo)-ro/vo/1.0227121655399913) < 10.**-10., 'o.time() in physical coordinates does not work as expected'
+    assert numpy.fabs(o.time(1.,use_physical=False)-1.) < 10.**-10., 'o.time() in physical coordinates does not work as expected'
     return None
 
 # Check that the routines that should return physical coordinates are turned off by turn_physical_off
@@ -3001,8 +3101,8 @@ def test_physical_output_off():
             assert numpy.fabs(o.Op(pot=lp,type='staeckel',delta=0.5)-o.Op(pot=lp,type='staeckel',delta=0.5,use_physical=False)) < 10.**-10., 'o.Op() output for Orbit setup with ro=,vo= does not work as expected'
             assert numpy.fabs(o.Oz(pot=lp,type='staeckel',delta=0.5)-o.Oz(pot=lp,type='staeckel',delta=0.5,use_physical=False)) < 10.**-10., 'o.Oz() output for Orbit setup with ro=,vo= does not work as expected'
     #Also test the times
-    assert numpy.fabs((o.time(1.)-1.)) < 10.**-10., 'o.time() in physical coordinates does not work as expected when turned off'
-    assert numpy.fabs((o.time(1.,ro=ro,vo=vo)-ro/vo/1.0227121655399913)) < 10.**-10., 'o.time() in physical coordinates does not work as expected when turned off'
+    assert numpy.fabs(o.time(1.)-1.) < 10.**-10., 'o.time() in physical coordinates does not work as expected when turned off'
+    assert numpy.fabs(o.time(1.,ro=ro,vo=vo)-ro/vo/1.0227121655399913) < 10.**-10., 'o.time() in physical coordinates does not work as expected when turned off'
     return None
 
 # Check that the routines that should return physical coordinates are turned
@@ -3068,7 +3168,7 @@ def test_physical_output_on():
             assert numpy.fabs(o.Op(pot=lp,type='staeckel',delta=0.5)-o_orig.Op(pot=lp,type='staeckel',delta=0.5,use_physical=True)) < 10.**-10., 'o.Op() output for Orbit setup with ro=,vo= does not work as expected'
             assert numpy.fabs(o.Oz(pot=lp,type='staeckel',delta=0.5)-o_orig.Oz(pot=lp,type='staeckel',delta=0.5,use_physical=True)) < 10.**-10., 'o.Oz() output for Orbit setup with ro=,vo= does not work as expected'
     #Also test the times
-    assert numpy.fabs((o.time(1.)-o_orig.time(1.,use_physical=True))) < 10.**-10., 'o_orig.time() in physical coordinates does not work as expected when turned back on'
+    assert numpy.fabs(o.time(1.)-o_orig.time(1.,use_physical=True)) < 10.**-10., 'o_orig.time() in physical coordinates does not work as expected when turned back on'
     return None
 
 # Test that physical scales are propagated correctly when a new orbit is formed by calling an old orbit
@@ -3119,8 +3219,8 @@ def test_interpolation_issue187():
     postWrapInterpolate=\
         interpolate.InterpolatedUnivariateSpline(ts[phaseWrapIndx:phaseWrapIndx+10],
                                                  orbpts[phaseWrapIndx:phaseWrapIndx+10,5])
-    assert numpy.all(numpy.fabs((((preWrapInterpolate(tsPreWrap)+numpy.pi) % (2.*numpy.pi) - numpy.pi))-orb.phi(tsPreWrap)) < 10.**-5.), 'phase interpolation near a phase-wrap does not work'
-    assert numpy.all(numpy.fabs((((postWrapInterpolate(tsPostWrap)+numpy.pi) % (2.*numpy.pi) - numpy.pi))-orb.phi(tsPostWrap)) < 10.**-5.), 'phase interpolation near a phase-wrap does not work'
+    assert numpy.all(numpy.fabs(((preWrapInterpolate(tsPreWrap)+numpy.pi) % (2.*numpy.pi) - numpy.pi)-orb.phi(tsPreWrap)) < 10.**-5.), 'phase interpolation near a phase-wrap does not work'
+    assert numpy.all(numpy.fabs(((postWrapInterpolate(tsPostWrap)+numpy.pi) % (2.*numpy.pi) - numpy.pi)-orb.phi(tsPostWrap)) < 10.**-5.), 'phase interpolation near a phase-wrap does not work'
     return None
 
 # Test that fitting an orbit works
@@ -3222,7 +3322,7 @@ def test_orbitfit_custom():
         Orbit.from_fit([o.ra(),o.dec(),o.dist(),o.pmra(),o.pmdec(),o.vlos()],
                        vxvv,pot=lp,tintJ=1.5,customsky=True,
                        ro=ro,vo=vo)
-    except IOError: pass
+    except OSError: pass
     else: raise AssertionError('Orbit fit with custom sky coordinates but without the necessary coordinate-transformation functions did not raise an exception')
     of= Orbit.from_fit([o.ra(),o.dec(),o.dist(),o.pmra(),o.pmdec(),o.vlos()],
                        vxvv,pot=lp,tintJ=1.5,customsky=True,
@@ -4863,14 +4963,16 @@ def test_from_name_named():
     import json
     named_objects_file= os.path.join(os.path.dirname(os.path.realpath(\
                 galpy.orbit.__file__)),'named_objects.json')
-    with open(named_objects_file,'r') as json_file:
+    with open(named_objects_file) as json_file:
         named_data= json.load(json_file)
     del named_data['_collections']
     del named_data['_synonyms']
     for obj in named_data:
         o= Orbit.from_name(obj)
         for attr in named_data[obj]:
-            if 'source' in attr: continue
+            if 'source' in attr or 'dr2' in attr: continue
+            # Skip entries with missing vlos for now
+            if numpy.isnan(named_data[obj]['vlos']): continue
             if attr == 'ro' or attr == 'vo' or attr == 'zo' \
                     or attr == 'solarmotion':
                 assert numpy.all(numpy.isclose(getattr(o,'_{:s}'.format(attr)),
@@ -4893,13 +4995,13 @@ def test_from_name_collections():
     import json
     named_objects_file= os.path.join(os.path.dirname(os.path.realpath(\
                 galpy.orbit.__file__)),'named_objects.json')
-    with open(named_objects_file,'r') as json_file:
+    with open(named_objects_file) as json_file:
         named_data= json.load(json_file)
     for obj in _known_objects_collections_original_keys:
         o= Orbit.from_name(obj)
         for ii,individual_obj in enumerate(named_data['_collections'][obj]):
             for attr in named_data[individual_obj]:
-                if 'source' in attr: continue
+                if 'source' in attr or 'dr2 in attr': continue
                 if attr == 'ro' or attr == 'vo' or attr == 'zo' \
                         or attr == 'solarmotion':
                     continue # don't test these here
@@ -4948,6 +5050,34 @@ def test_rguiding_errors():
         o.rguiding(pot=np)
     return None
 
+def test_rE_errors():
+    from galpy.potential import TriaxialNFWPotential
+    from galpy.orbit import Orbit
+    R,Lz= 1.,1.4
+    o= Orbit([R,0.4,Lz/R,0.])
+    # No potential raises error
+    with pytest.raises(RuntimeError) as excinfo:
+        o.rE()
+    # non-axi potential raises error
+    np= TriaxialNFWPotential(amp=20.,c=0.8,b=0.7)
+    with pytest.raises(RuntimeError) as excinfo:
+        o.rE(pot=np)
+    return None
+
+def test_LcE_errors():
+    from galpy.potential import TriaxialNFWPotential
+    from galpy.orbit import Orbit
+    R,Lz= 1.,1.4
+    o= Orbit([R,0.4,Lz/R,0.])
+    # No potential raises error
+    with pytest.raises(RuntimeError) as excinfo:
+        o.LcE()
+    # non-axi potential raises error
+    np= TriaxialNFWPotential(amp=20.,c=0.8,b=0.7)
+    with pytest.raises(RuntimeError) as excinfo:
+        o.LcE(pot=np)
+    return None
+
 def test_phi_range():
     # Test that the range returned by Orbit.phi is [-pi,pi],
     # example from Jeremy Webb
@@ -4982,12 +5112,12 @@ def test_orbit_time():
     assert numpy.all(numpy.fabs((ts-o.time(ts,quantity=True))/ts[-1]).value < 1e-10), 'Orbit.time does not return the correct times'
     assert numpy.fabs((ts[-1]-o.time(ts[-1],quantity=True))/ts[-1]).value < 1e-10, 'Orbit.time does not return the correct times'
     # with argument without units --> units
-    assert numpy.all(numpy.fabs((ts-o.time(ts.to(u.Gyr).value/conversion.time_in_Gyr(MWPotential2014[0]._vo,MWPotential2014[0]._ro),quantity=True))).value < 1e-10), 'Orbit.time does not return the correct times'
-    assert numpy.fabs((ts[-1]-o.time(ts[-1].to(u.Gyr).value/conversion.time_in_Gyr(MWPotential2014[0]._vo,MWPotential2014[0]._ro),quantity=True))).value < 1e-10, 'Orbit.time does not return the correct times'
+    assert numpy.all(numpy.fabs(ts-o.time(ts.to(u.Gyr).value/conversion.time_in_Gyr(MWPotential2014[0]._vo,MWPotential2014[0]._ro),quantity=True)).value < 1e-10), 'Orbit.time does not return the correct times'
+    assert numpy.fabs(ts[-1]-o.time(ts[-1].to(u.Gyr).value/conversion.time_in_Gyr(MWPotential2014[0]._vo,MWPotential2014[0]._ro),quantity=True)).value < 1e-10, 'Orbit.time does not return the correct times'
     # Now should get without units
     o.turn_physical_off()
-    assert numpy.all(numpy.fabs((ts.to(u.Gyr).value/conversion.time_in_Gyr(MWPotential2014[0]._vo,MWPotential2014[0]._ro)-o.time(ts.to(u.Gyr).value/conversion.time_in_Gyr(MWPotential2014[0]._vo,MWPotential2014[0]._ro)))) < 1e-10), 'Orbit.time does not return the correct times'
-    assert numpy.fabs((ts[-1].to(u.Gyr).value/conversion.time_in_Gyr(MWPotential2014[0]._vo,MWPotential2014[0]._ro)-o.time(ts[-1].to(u.Gyr).value/conversion.time_in_Gyr(MWPotential2014[0]._vo,MWPotential2014[0]._ro)))) < 1e-10, 'Orbit.time does not return the correct times'
+    assert numpy.all(numpy.fabs(ts.to(u.Gyr).value/conversion.time_in_Gyr(MWPotential2014[0]._vo,MWPotential2014[0]._ro)-o.time(ts.to(u.Gyr).value/conversion.time_in_Gyr(MWPotential2014[0]._vo,MWPotential2014[0]._ro))) < 1e-10), 'Orbit.time does not return the correct times'
+    assert numpy.fabs(ts[-1].to(u.Gyr).value/conversion.time_in_Gyr(MWPotential2014[0]._vo,MWPotential2014[0]._ro)-o.time(ts[-1].to(u.Gyr).value/conversion.time_in_Gyr(MWPotential2014[0]._vo,MWPotential2014[0]._ro))) < 1e-10, 'Orbit.time does not return the correct times'
     return None
 
 def test_noDeprecationWarning_timeInCall():
@@ -5276,7 +5406,7 @@ def check_radecetc_roWarning(o,funcName):
     raisedWarning= False
     for rec in record:
         # check that the message matches
-        raisedWarning+= (str(rec.message.args[0]) == "Method %s(.) requires ro to be given at Orbit initialization or at method evaluation; using default ro which is %f kpc" % (funcName,8.))
+        raisedWarning+= (str(rec.message.args[0]) == "Method {}(.) requires ro to be given at Orbit initialization or at method evaluation; using default ro which is {:f} kpc".format(funcName,8.))
     assert raisedWarning, "Orbit method %s without ro specified should have thrown a warning, but didn't" % funcName
     return None
 
@@ -5290,7 +5420,7 @@ def check_radecetc_voWarning(o,funcName):
     raisedWarning= False
     for rec in record:
         # check that the message matches
-        raisedWarning+= (str(rec.message.args[0]) == "Method %s(.) requires vo to be given at Orbit initialization or at method evaluation; using default vo which is %f km/s" % (funcName,220.))
+        raisedWarning+= (str(rec.message.args[0]) == "Method {}(.) requires vo to be given at Orbit initialization or at method evaluation; using default vo which is {:f} km/s".format(funcName,220.))
     assert raisedWarning, "Orbit method %s without vo specified should have thrown a warning, but didn't" % funcName
     return None
 

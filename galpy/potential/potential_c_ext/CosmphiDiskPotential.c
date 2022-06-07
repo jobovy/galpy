@@ -17,7 +17,7 @@ double CosmphiDiskPotentialRforce(double R,double phi,double t,
   else
     return -amp * p * mphio / m * pow(R,p-1.) * cos( m * phi - mphib);
 }
-double CosmphiDiskPotentialphiforce(double R,double phi,double t,
+double CosmphiDiskPotentialphitorque(double R,double phi,double t,
 				     struct potentialArg * potentialArgs){
   double * args= potentialArgs->args;
   //Get args

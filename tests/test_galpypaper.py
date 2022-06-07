@@ -1,5 +1,4 @@
 # Test that all of the examples in the galpy paper run
-from __future__ import print_function, division
 import os
 import numpy
 import pytest
@@ -161,8 +160,6 @@ def test_orbitint():
     o2.plot(xrange=[0.3,1.],yrange=[-0.2,0.2],color='k')
     return None
 
-# Currently fails because o.jr(type='adiabatic') doesn't yet work for new Orbits
-@pytest.mark.xfail(raises=NotImplementedError,strict=True)
 def test_orbmethods():
     from galpy.orbit import Orbit
     from galpy.potential import MWPotential2014

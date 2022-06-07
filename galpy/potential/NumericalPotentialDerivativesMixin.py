@@ -1,7 +1,7 @@
 ###############################################################################
 #   NumericalPotentialDerivativesMixin: helper class to add numerical derivs
 ###############################################################################
-class NumericalPotentialDerivativesMixin(object):
+class NumericalPotentialDerivativesMixin:
     """Mixin to add numerical derivatives to a Potential class, use as, e.g.,
 
     .. highlight:: python
@@ -48,7 +48,7 @@ class NumericalPotentialDerivativesMixin(object):
         return (self._evaluate(R,zminusdz,phi=phi,t=t)
                    -self._evaluate(R,zplusdz,phi=phi,t=t))/dz
 
-    def _phiforce(self,R,z,phi=0.,t=0.):
+    def _phitorque(self,R,z,phi=0.,t=0.):
         if not self.isNonAxi: return 0.
         # Central difference
         phiplusdphi= phi+self._dphi

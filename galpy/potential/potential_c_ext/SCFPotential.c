@@ -766,7 +766,7 @@ double SCFPotentialzforce(double R,double Z, double phi,
 }
 
 //Compute the force in the phi direction
-double SCFPotentialphiforce(double R,double Z, double phi,
+double SCFPotentialphitorque(double R,double Z, double phi,
                             double t,
                             struct potentialArg * potentialArgs)
 {
@@ -795,11 +795,11 @@ double SCFPotentialPlanarRforce(double R,double phi,
 }
 
 //Compute the planar force in the phi direction
-double SCFPotentialPlanarphiforce(double R,double phi,
+double SCFPotentialPlanarphitorque(double R,double phi,
                                   double t,
                                   struct potentialArg * potentialArgs)
 {
-    return SCFPotentialphiforce(R,0., phi,t,potentialArgs);
+    return SCFPotentialphitorque(R,0., phi,t,potentialArgs);
 }
 
 

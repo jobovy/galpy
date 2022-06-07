@@ -4,6 +4,7 @@
 # not possible with CIs currently
 source ~/.bash_profile
 PYTHON_VERSIONS=("3.8" "3.9" "3.10")
+GALPY_VERSION=1.7.2
 
 rm -rf galpy-wheels-output 
 mkdir galpy-wheels-output
@@ -11,21 +12,24 @@ mkdir galpy-wheels-output
 for PYTHON_VERSION in "${PYTHON_VERSIONS[@]}"; do
     git clone https://github.com/jobovy/galpy.git galpy-wheels
     cd galpy-wheels
-    git checkout v1.7.1
+    git checkout v$GALPY_VERSION
     mkdir wheelhouse
-    conda activate base;
-    conda create -y --name galpywheels"$PYTHON_VERSION" python="$PYTHON_VERSION";
-    conda env update --name galpywheels"$PYTHON_VERSION" --file .github/conda-build-environment-macos-latest.yml --prune;
-    conda activate galpywheels"$PYTHON_VERSION";
-    pip install wheel;
-    CFLAGS="$CFLAGS -I$CONDA_PREFIX/include";
-    LDFLAGS="$LDFLAGS -L$CONDA_PREFIX/lib";
-    LD_LIBRARY_PATH="$LD_LIBRARY_PATH -L$CONDA_PREFIX/lib";
-    python setup.py build_ext;
-    python setup.py bdist_wheel -d wheelhouse;
-    mv wheelhouse/* ../galpy-wheels-output;
-    conda activate base;
-    conda remove -y --name galpywheels"$PYTHON_VERSION" --all;
-    cd ../;
-    rm -rf galpy-wheels;
+    conda activate base
+    conda create -y --name galpywheels"$PYTHON_VERSION" python="$PYTHON_VERSION"
+    conda env update --name galpywheels"$PYTHON_VERSION" --file .github/conda-build-environment-macos-latest.yml --prune
+    conda activate galpywheels"$PYTHON_VERSION"
+    pip install build
+    CFLAGS="$CFLAGS -I$CONDA_PREFIX/include"
+    LDFLAGS="$LDFLAGS -L$CONDA_PREFIX/lib"
+    LD_LIBRARY_PATH="$LD_LIBRARY_PATH -L$CONDA_PREFIX/lib"
+    python -m build --wheel --outdir wheelhouse
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        python -m pip install delocate
+        delocate-wheel -v wheelhouse/*
+    fi
+    mv wheelhouse/* ../galpy-wheels-output
+    conda activate base
+    conda remove -y --name galpywheels"$PYTHON_VERSION" --all
+    cd ../
+    rm -rf galpy-wheels
 done

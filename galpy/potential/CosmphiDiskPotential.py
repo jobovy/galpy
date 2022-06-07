@@ -15,7 +15,7 @@ class CosmphiDiskPotential(planarPotential):
         \\left[2-\\left(\\frac{R_b}{R}\\right)^p\\right]\\times\\left(\\frac{R_b}{R_1}\\right)^p\\,, & \\text{for}\\ R\\leq R_b.
         \\end{cases}
 
-    This potential can be grown between  :math:`t_{\mathrm{form}}` and  :math:`t_{\mathrm{form}}+T_{\mathrm{steady}}` in a similar way as DehnenBarPotential by wrapping it with a DehnenSmoothWrapperPotential
+    This potential can be grown between  :math:`t_{\\mathrm{form}}` and  :math:`t_{\\mathrm{form}}+T_{\\mathrm{steady}}` in a similar way as DehnenBarPotential by wrapping it with a DehnenSmoothWrapperPotential
 
    """
     def __init__(self,amp=1.,phib=25.*_degtorad,
@@ -141,18 +141,18 @@ class CosmphiDiskPotential(planarPotential):
             return -self._p*self._mphio/self._m*R**(self._p-1.)\
                 *numpy.cos(self._m*phi-self._mphib)
         
-    def _phiforce(self,R,phi=0.,t=0.):
+    def _phitorque(self,R,phi=0.,t=0.):
         """
         NAME:
-           _phiforce
+           _phitorque
         PURPOSE:
-           evaluate the azimuthal force for this potential
+           evaluate the azimuthal torque for this potential
         INPUT:
            R - Galactocentric cylindrical radius
            phi - azimuth
            t - time
         OUTPUT:
-           the azimuthal force
+           the azimuthal torque
         HISTORY:
            2011-10-19 - Written - Bovy (IAS)
         """

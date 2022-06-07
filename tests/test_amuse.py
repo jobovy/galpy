@@ -1,5 +1,4 @@
 # Test consistency between galpy and amuse
-from __future__ import print_function, division
 import numpy
 from galpy.orbit import Orbit
 from galpy import potential
@@ -245,7 +244,7 @@ def integrate_amuse(orb,pot,tmax,vo,ro):
     return orbit.x[0].value_in(units.kpc),orbit.y[0].value_in(units.kpc),orbit.z[0].value_in(units.kpc),orbit.vx[0].value_in(units.kms),orbit.vy[0].value_in(units.kms),orbit.vz[0].value_in(units.kms)
 
 
-class drift_without_gravity(object):
+class drift_without_gravity:
     def __init__(self, convert_nbody, time= 0 |units.Myr):
         self.model_time= time
         self.particles=Particles()

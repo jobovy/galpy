@@ -20,12 +20,13 @@ Use as ``Potential-instance.method(...)``
    dvcircdR <potentialdvcircdr.rst>
    epifreq <potentialepifreq.rst>
    flattening <potentialflattening.rst>
+   LcE <potentiallce.rst>
    lindbladR <potentiallindbladR.rst>
    mass <potentialmass.rst>
    nemo_accname <potentialnemoaccname.rst>
    nemo_accpars <potentialnemoaccpars.rst>
    omegac <potentialomegac.rst>
-   phiforce <potentialphiforce.rst>
+   phitorque <potentialphitorque.rst>
    phizderiv <potentialphizderiv.rst>
    phi2deriv <potentialphi2deriv.rst>
    plot <potentialplot.rst>
@@ -33,14 +34,15 @@ Use as ``Potential-instance.method(...)``
    plotEscapecurve <potentialplotescapecurve.rst>
    plotRotcurve <potentialplotrotcurve.rst>
    plotSurfaceDensity <potentialplotsurfacedensity.rst>
-   Rphideriv <potentialrphideriv.rst>
    R2deriv <potentialr2deriv.rst>
    r2deriv <potentialsphr2deriv.rst>
+   rE <potentialre.rst>
    Rzderiv <potentialrzderiv.rst>
    Rforce <potentialrforce.rst>
    rforce <potentialsphrforce.rst>
    rhalf <potentialrhalf.rst>
    rl <potentialrl.rst>
+   Rphideriv <potentialrphideriv.rst>
    rtide <potentialrtide.rst>
    surfdens <potentialsurfdens.rst>
    tdyn <potentialtdyn.rst>
@@ -80,7 +82,7 @@ Use as ``method(...)``
    dvcircdR <potentialdvcircdrs.rst>
    epifreq <potentialepifreqs.rst>
    evaluateDensities <potentialdensities.rst>
-   evaluatephiforces <potentialphiforces.rst>
+   evaluatephitorques <potentialphitorques.rst>
    evaluatePotentials <potentialevaluate.rst>
    evaluatephizderivs <potentialphizderivs.rst>
    evaluatephi2derivs <potentialphi2derivs.rst>
@@ -95,6 +97,7 @@ Use as ``method(...)``
    evaluatezforces <potentialzforces.rst>
    flatten <potentialflatten.rst>
    flattening <potentialflattenings.rst>
+   LcE <potentiallces.rst>
    lindbladR <potentiallindbladRs.rst>
    mass <potentialmasses.rst>
    nemo_accname <potentialnemoaccnames.rst>
@@ -105,6 +108,7 @@ Use as ``method(...)``
    plotPotentials <potentialplots.rst>
    plotRotcurve <potentialplotrotcurves.rst>
    plotSurfaceDensities <potentialplotsurfacedensities.rst>
+   rE <potentialres.rst>
    rhalf <potentialrhalfs.rst>
    rl <potentialrls.rst>
    rtide <potentialrtides.rst>
@@ -249,6 +253,7 @@ Spiral, bar, other triaxial, and miscellaneous potentials
    potentialferrers.rst
    potentialloghalo.rst
    potentialmovingobj.rst
+   potentialnull.rst
    potentialsoftenedneedle.rst
    potentialspiralarms.rst
 
@@ -270,6 +275,14 @@ Dissipative forces
    :maxdepth: 2
 
    potentialchandrasekhardynfric.rst
+
+Fictitious forces in non-inertial frames
+****************************************
+
+.. toctree::
+   :maxdepth: 2
+
+   potentialnoninertialframe.rst
 
 Helper classes
 **************
@@ -444,7 +457,7 @@ Use as ``Potential-instance.method(...)``
    __add__ <potential2dadd.rst>
    __mul__ <potential2dmul.rst>
    __call__ <potential2dcall.rst>
-   phiforce <potential2dphiforce.rst>
+   phitorque <potential2dphitorque.rst>
    Rforce <potential2drforce.rst>
    turn_physical_off <potential2dturnphysicaloff.rst>
    turn_physical_on <potential2dturnphysicalon.rst>
@@ -475,7 +488,7 @@ Use as ``method(...)``
 .. toctree::
    :maxdepth: 2
 
-   evaluateplanarphiforces <potential2dphiforces.rst>
+   evaluateplanarphitorques <potential2dphitorques.rst>
    evaluateplanarPotentials <potential2devaluate.rst>
    evaluateplanarRforces <potential2drforces.rst>
    evaluateplanarR2derivs <potential2dr2derivs.rst>
@@ -579,6 +592,7 @@ Specific wrappers
    :maxdepth: 2
 
    potentialadiabaticcontractwrapper.rst
+   potentialtimedependentamplitude.rst
    potentialcorotwrapper.rst
    potentialdehnensmoothwrapper.rst
    potentialgaussampwrapper.rst

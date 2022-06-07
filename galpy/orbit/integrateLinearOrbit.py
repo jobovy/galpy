@@ -5,13 +5,17 @@ import numpy
 from scipy import integrate
 from .. import potential
 from ..util.multi import parallel_map
-from .integratePlanarOrbit import _parse_integrator, _parse_tol
+from .integratePlanarOrbit import (_parse_integrator, _parse_tol,
+                                   _prep_tfuncs, _TQDM_LOADED)
 from .integrateFullOrbit import _parse_pot as _parse_pot_full
 from ..potential.linearPotential import _evaluatelinearForces
 from ..potential.verticalPotential import verticalPotential
 from ..util.leung_dop853 import dop853
 from ..util import symplecticode
 from ..util import _load_extension_libs
+
+if _TQDM_LOADED:
+    import tqdm
 
 _lib, _ext_loaded= _load_extension_libs.load_libgalpy()
 
@@ -24,6 +28,7 @@ def _parse_pot(pot):
     #Initialize everything
     pot_type= []
     pot_args= []
+    pot_tfuncs= []
     npot= len(pot)
     for p in pot:
         # Prepare for wrappers NOT CURRENTLY SUPPORTED, SEE PLANAR OR FULL
@@ -48,9 +53,10 @@ def _parse_pot(pot):
             # Need to pull this apart into: (a) SCF part, (b) constituent
             # [Sigma_i,h_i] parts
             # (a) SCF, multiply in any add'l amp
-            pt,pa= _parse_scf_pot(p._Pot._scf,extra_amp=p._Pot._amp)
+            pt,pa,ptf= _parse_scf_pot(p._Pot._scf,extra_amp=p._Pot._amp)
             pot_type.append(pt)
             pot_args.extend(pa)
+            pot_tfuncs.extend(ptf)
             pot_args.extend([p._R,p._phi])
             # (b) constituent [Sigma_i,h_i] parts
             for Sigma,hz in zip(p._Pot._Sigma_dict,p._Pot._hz_dict):
@@ -81,16 +87,18 @@ def _parse_pot(pot):
             pot_args.extend([p._amp*p._sigma2/p._H,2.*p._H]) 
         # All other potentials can be handled in the same way as follows:
         elif isinstance(p,verticalPotential):
-            _,pt,pa= _parse_pot_full(p._Pot)
+            _,pt,pa,ptf= _parse_pot_full(p._Pot)
             pot_type.extend(pt)
             pot_args.extend(pa)
+            pot_tfuncs.extend(ptf)
             pot_args.append(p._R)
             pot_args.append(p._phi)
     pot_type= numpy.array(pot_type,dtype=numpy.int32,order='C')
     pot_args= numpy.array(pot_args,dtype=numpy.float64,order='C')
-    return (npot,pot_type,pot_args)
+    return (npot,pot_type,pot_args,pot_tfuncs)
 
-def integrateLinearOrbit_c(pot,yo,t,int_method,rtol=None,atol=None,dt=None):
+def integrateLinearOrbit_c(pot,yo,t,int_method,rtol=None,atol=None,
+                           progressbar=True,dt=None):
     """
     NAME:
        integrateLinearOrbit_c
@@ -102,6 +110,7 @@ def integrateLinearOrbit_c(pot,yo,t,int_method,rtol=None,atol=None,dt=None):
        t - set of times at which one wants the result
        int_method= 'leapfrog_c', 'rk4_c', 'rk6_c', 'symplec4_c'
        rtol, atol
+       progressbar= (True) if True, display a tqdm progress bar when integrating multiple orbits (requires tqdm to be installed!)
        dt= (None) force integrator to use this stepsize (default is to automatically determine one; only for C-based integrators)
     OUTPUT:
        (y,err)
@@ -112,13 +121,15 @@ def integrateLinearOrbit_c(pot,yo,t,int_method,rtol=None,atol=None,dt=None):
     HISTORY:
        2018-10-06 - Written - Bovy (UofT)
        2018-10-14 - Adapted to allow multiple orbits to be integrated at once - Bovy (UofT)
+       2022-04-12 - Add progressbar - Bovy (UofT)
     """
     if len(yo.shape) == 1: single_obj= True
     else: single_obj= False
     yo= numpy.atleast_2d(yo)
     nobj= len(yo)
     rtol, atol= _parse_tol(rtol,atol)
-    npot, pot_type, pot_args= _parse_pot(pot)
+    npot, pot_type, pot_args, pot_tfuncs= _parse_pot(pot)
+    pot_tfuncs= _prep_tfuncs(pot_tfuncs)
     int_method_c= _parse_integrator(int_method)
     if dt is None: 
         dt= -9999.99
@@ -126,6 +137,15 @@ def integrateLinearOrbit_c(pot,yo,t,int_method,rtol=None,atol=None,dt=None):
     #Set up result array
     result= numpy.empty((nobj,len(t),2))
     err= numpy.zeros(nobj,dtype=numpy.int32)
+    
+    #Set up progressbar
+    progressbar*= _TQDM_LOADED
+    if nobj > 1 and progressbar:
+        pbar= tqdm.tqdm(total=nobj,leave=False)
+        pbar_func_ctype= ctypes.CFUNCTYPE(None)
+        pbar_c= pbar_func_ctype(pbar.update)
+    else: # pragma: no cover
+        pbar_c= None
 
     #Set up the C code
     ndarrayFlags= ('C_CONTIGUOUS','WRITEABLE')
@@ -137,12 +157,14 @@ def integrateLinearOrbit_c(pot,yo,t,int_method,rtol=None,atol=None,dt=None):
                                ctypes.c_int,
                                ndpointer(dtype=numpy.int32,flags=ndarrayFlags),
                                ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
+                               ctypes.c_void_p,
                                ctypes.c_double,
                                ctypes.c_double,
                                ctypes.c_double,
                                ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
                                ndpointer(dtype=numpy.int32,flags=ndarrayFlags),
-                               ctypes.c_int]
+                               ctypes.c_int,
+                               ctypes.c_void_p]
 
     #Array requirements, first store old order
     f_cont= [yo.flags['F_CONTIGUOUS'],
@@ -160,11 +182,16 @@ def integrateLinearOrbit_c(pot,yo,t,int_method,rtol=None,atol=None,dt=None):
                     ctypes.c_int(npot),
                     pot_type,
                     pot_args,
+                    pot_tfuncs,
                     ctypes.c_double(dt),
                     ctypes.c_double(rtol),ctypes.c_double(atol),
                     result,
                     err,
-                    ctypes.c_int(int_method_c))
+                    ctypes.c_int(int_method_c),
+                    pbar_c)
+    
+    if nobj > 1 and progressbar:
+        pbar.close()
     
     if numpy.any(err == -10): #pragma: no cover
         raise KeyboardInterrupt("Orbit integration interrupted by CTRL-C (SIGINT)")
@@ -178,7 +205,7 @@ def integrateLinearOrbit_c(pot,yo,t,int_method,rtol=None,atol=None,dt=None):
 
 # Python integration functions
 def integrateLinearOrbit(pot,yo,t,int_method,rtol=None,atol=None,numcores=1,
-                         dt=None):
+                         progressbar=True,dt=None):
     """
     NAME:
        integrateLinearOrbit
@@ -191,6 +218,7 @@ def integrateLinearOrbit(pot,yo,t,int_method,rtol=None,atol=None,numcores=1,
        int_method= 'leapfrog', 'odeint', or 'dop853'
        rtol, atol= tolerances (not always used...)
        numcores= (1) number of cores to use for multi-processing
+       progressbar= (True) if True, display a tqdm progress bar when integrating multiple orbits (requires tqdm to be installed!)
        dt= (None) force integrator to use this stepsize (default is to automatically determine one; only for C-based integrators)
     OUTPUT:
        (y,err)
@@ -201,6 +229,7 @@ def integrateLinearOrbit(pot,yo,t,int_method,rtol=None,atol=None,numcores=1,
     HISTORY:
        2010-07-13- Written - Bovy (NYU)
        2019-04-08 - Adapted to allow multiple orbits to be integrated at once and moved to integrateLinearOrbit.py - Bovy (UofT)
+       2022-04-12 - Add progressbar - Bovy (UofT)
     """
     if int_method.lower() == 'leapfrog':
         if rtol is None: rtol= 1e-8
@@ -224,7 +253,8 @@ def integrateLinearOrbit(pot,yo,t,int_method,rtol=None,atol=None,numcores=1,
     if len(yo) == 1: # Can't map a single value...
         return numpy.atleast_3d(integrate_for_map(yo[0]).T).T, 0
     else:
-        return (numpy.array((parallel_map(integrate_for_map,yo,numcores=numcores))),
+        return (numpy.array(parallel_map(integrate_for_map,yo,numcores=numcores,
+                                          progressbar=progressbar)),
                 numpy.zeros(len(yo)))
 
 def _linearEOM(y,t,pot):

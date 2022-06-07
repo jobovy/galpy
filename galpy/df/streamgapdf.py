@@ -118,11 +118,11 @@ class streamgapdf(streamdf.streamdf):
         # Analytical Plummer or general potential?
         self._general_kick= GM is None or rs is None
         if self._general_kick and subhalopot is None:
-            raise IOError("One of (GM=, rs=) or subhalopot= needs to be set to specify the subhalo's structure")
+            raise OSError("One of (GM=, rs=) or subhalopot= needs to be set to specify the subhalo's structure")
         # Now run the regular streamdf setup, but without calculating the
         # stream track (nosetup=True)
         kwargs['nosetup']= True
-        super(streamgapdf,self).__init__(*args,**kwargs)
+        super().__init__(*args,**kwargs)
         # Setup the machinery to go between (x,v) and (Omega,theta)
         # near the impact
         self._determine_nTrackIterations(kwargs.get('nTrackIterations',None))
@@ -145,12 +145,12 @@ class streamgapdf(streamdf.streamdf):
         # Then pass everything to the normal streamdf setup
         self.nInterpolatedTrackChunks= 201 #more expensive now
         self._higherorderTrack= higherorderTrack
-        super(streamgapdf,self)._determine_stream_track(nTrackChunks)
+        super()._determine_stream_track(nTrackChunks)
         self._useInterp= useInterp
         if interpTrack or self._useInterp:
-            super(streamgapdf,self)._interpolate_stream_track()
-            super(streamgapdf,self)._interpolate_stream_track_aA()
-        super(streamgapdf,self).calc_stream_lb()
+            super()._interpolate_stream_track()
+            super()._interpolate_stream_track_aA()
+        super().calc_stream_lb()
         return None
 
     def pOparapar(self,Opar,apar):
@@ -192,10 +192,10 @@ class streamgapdf(streamdf.streamdf):
         # stripped before or after impact
         afterIndx= (ts < self._timpact)*(ts >= 0.)
         out[afterIndx]=\
-            super(streamgapdf,self).pOparapar(Opar[afterIndx],
+            super().pOparapar(Opar[afterIndx],
                                               apar)
         out[True^afterIndx]=\
-            super(streamgapdf,self).pOparapar(Opar_b4impact[True^afterIndx],
+            super().pOparapar(Opar_b4impact[True^afterIndx],
                                               apar_impact[True^afterIndx],
                                               tdisrupt=
                                               self._tdisrupt-self._timpact)
@@ -836,7 +836,7 @@ class streamgapdf(streamdf.streamdf):
                                     self._nTrackChunksImpact)
         ObsTrack= numpy.empty((self._nTrackChunksImpact,6))
         ObsTrackAA= numpy.empty((self._nTrackChunksImpact,6))
-        detdOdJps= numpy.empty((self._nTrackChunksImpact))
+        detdOdJps= numpy.empty(self._nTrackChunksImpact)
         if self._multi is None:
             for ii in range(self._nTrackChunksImpact):
                 multiOut= _determine_stream_track_single(self._aA,
@@ -958,7 +958,7 @@ class streamgapdf(streamdf.streamdf):
         """Sampling frequencies, angles, and times part of sampling, for stream with gap"""
         # Use streamdf's _sample_aAt to generate unperturbed frequencies,
         # angles
-        Om,angle,dt= super(streamgapdf,self)._sample_aAt(n)
+        Om,angle,dt= super()._sample_aAt(n)
         # Now rewind angles by timpact, apply the kicks, and run forward again
         dangle_at_impact= angle-numpy.tile(self._progenitor_angle.T,(n,1)).T\
             -(Om-numpy.tile(self._progenitor_Omega.T,(n,1)).T)*self._timpact

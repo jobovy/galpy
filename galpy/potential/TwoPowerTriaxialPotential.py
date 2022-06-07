@@ -86,7 +86,7 @@ class TwoPowerTriaxialPotential(EllipsoidalPotential):
         self.a= a
         self._scale= self.a
         if beta <= 2. or alpha >= 3.:
-            raise IOError('TwoPowerTriaxialPotential requires 0 <= alpha < 3 and beta > 2')
+            raise OSError('TwoPowerTriaxialPotential requires 0 <= alpha < 3 and beta > 2')
         self.alpha= alpha
         self.beta= beta
         self.betaminusalpha= self.beta-self.alpha
@@ -105,7 +105,7 @@ class TwoPowerTriaxialPotential(EllipsoidalPotential):
         return None
 
     def _psi(self,m):
-        """\psi(m) = -\int_m^\infty d m^2 \rho(m^2)"""
+        """\\psi(m) = -\\int_m^\\infty d m^2 \rho(m^2)"""
         if self.twominusalpha == 0.:
             return -2.*self.a**2*(self.a/m)**self.betaminusalpha\
                       /self.betaminusalpha\
@@ -228,7 +228,7 @@ class TriaxialHernquistPotential(EllipsoidalPotential):
         return None
 
     def _psi(self,m):
-        """\psi(m) = -\int_m^\infty d m^2 \rho(m^2)"""
+        """\\psi(m) = -\\int_m^\\infty d m^2 \rho(m^2)"""
         return -self.a4/(m+self.a)**2.
 
     def _mdens(self,m):
@@ -334,7 +334,7 @@ class TriaxialJaffePotential(EllipsoidalPotential):
         return None
 
     def _psi(self,m):
-        """\psi(m) = -\int_m^\infty d m^2 \rho(m^2)"""
+        """\\psi(m) = -\\int_m^\\infty d m^2 \rho(m^2)"""
         return 2.*self.a2*(1./(1.+m/self.a)+numpy.log(1./(1.+self.a/m)))
 
     def _mdens(self,m):
@@ -467,7 +467,7 @@ class TriaxialNFWPotential(EllipsoidalPotential):
         return None
 
     def _psi(self,m):
-        """\psi(m) = -\int_m^\infty d m^2 \rho(m^2)"""
+        """\\psi(m) = -\\int_m^\\infty d m^2 \rho(m^2)"""
         return -2.*self.a3/(self.a+m)
 
     def _mdens(self,m):

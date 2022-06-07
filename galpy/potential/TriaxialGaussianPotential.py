@@ -16,7 +16,7 @@ class TriaxialGaussianPotential(EllipsoidalPotential):
 
     .. math::
 
-        \\rho(x,y,z) = \\frac{\\mathrm{amp}}{(2\\pi\\,\\sigma)^{3/2}\\,b\\,c}\,e^{-\\frac{m^2}{2\\sigma^2}}
+        \\rho(x,y,z) = \\frac{\\mathrm{amp}}{(2\\pi\\,\\sigma)^{3/2}\\,b\\,c}\\,e^{-\\frac{m^2}{2\\sigma^2}}
 
     where :math:`\\mathrm{amp} = GM` is the total mass and :math:`m^2 = x^2+y^2/b^2+z^2/c^2`.
     """
@@ -78,7 +78,7 @@ class TriaxialGaussianPotential(EllipsoidalPotential):
         return None
 
     def _psi(self,m):
-        """\psi(m) = -\int_m^\infty d m^2 \rho(m^2)"""
+        """\\psi(m) = -\\int_m^\\infty d m^2 \rho(m^2)"""
         return -self._twosigma2*numpy.exp(-m**2./self._twosigma2)
 
     def _mdens(self,m):

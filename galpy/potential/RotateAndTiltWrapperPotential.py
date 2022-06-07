@@ -5,7 +5,7 @@
 import numpy
 from .Potential import check_potential_inputs_not_arrays, \
     _evaluatePotentials, _evaluateRforces, _evaluatezforces, \
-    _evaluatephiforces, evaluateDensities, evaluateR2derivs, \
+    _evaluatephitorques, evaluateDensities, evaluateR2derivs, \
     evaluatez2derivs, evaluatephi2derivs, evaluateRzderivs, \
     evaluateRphiderivs, evaluatephizderivs
 from .WrapperPotential import WrapperPotential
@@ -22,9 +22,10 @@ specified using:
 
 * A rotation around the original z-axis (`galaxy_pa`), the `inclination`, and a rotation around the new z axis (`sky_pa`).
 
-The second option allows one to specify the inclination and sky position angle (measured from North) in the usual manner in extragalactic observations."""
+The second option allows one to specify the inclination and sky position angle (measured from North) in the usual manner in extragalactic observations.
+A final `offset` option allows one to apply a static offset in Cartesian coordinate space to be applied to the potential following the rotation and tilt."""
     def __init__(self,amp=1.,inclination=None,galaxy_pa=None,sky_pa=None,
-                 zvec=None,pot=None,
+                 zvec=None,offset=None,pot=None,
                  ro=None,vo=None):
         """
         NAME:
@@ -54,6 +55,8 @@ The second option allows one to specify the inclination and sky position angle (
 
                  sky_pa= rotation angle around the inclined z axis (usual sky position angle measured from North)
 
+            offset= optional static offset in Cartesian coordinates (can be a Quantity)
+
         OUTPUT:
 
            (none)
@@ -64,6 +67,8 @@ The second option allows one to specify the inclination and sky position angle (
 
            2021-04-18 - Added inclination, sky_pa, galaxy_pa setup - Bovy (UofT)
 
+           2022-03-14 - added offset kwarg - Mackereth (UofT)
+
         """
         WrapperPotential.__init__(self,amp=amp,pot=pot,ro=ro,vo=vo,
                                   _init=True)
@@ -72,7 +77,11 @@ The second option allows one to specify the inclination and sky position angle (
         galaxy_pa= conversion.parse_angle(galaxy_pa)
         zvec, galaxy_pa= self._parse_inclination(inclination,sky_pa,
                                                  zvec,galaxy_pa)
+        self._offset= conversion.parse_length(offset,ro=self._ro)
         self._setup_zvec_pa(zvec,galaxy_pa)
+        self._norot = False
+        if (self._rot == numpy.eye(3)).all():
+            self._norot = True
         self.hasC= True
         self.hasC_dxdv= True
         self.isNonAxi= True
@@ -115,7 +124,7 @@ The second option allows one to specify the inclination and sky position angle (
         return None
 
     def __getattr__(self,attribute):
-        return super(RotateAndTiltWrapperPotential,self)\
+        return super()\
             .__getattr__(attribute)
 
     @check_potential_inputs_not_arrays
@@ -137,7 +146,12 @@ The second option allows one to specify the inclination and sky position angle (
         """
         x,y,z= coords.cyl_to_rect(R,phi,z)
         if numpy.isinf(R): y= 0.
-        xyzp= numpy.dot(self._rot,numpy.array([x,y,z]))
+        if self._norot:
+           xyzp = numpy.array([x,y,z])
+        else:
+           xyzp = numpy.dot(self._rot,numpy.array([x,y,z]))
+        if self._offset:
+            xyzp+= self._offset
         Rp,phip,zp = coords.rect_to_cyl(xyzp[0],xyzp[1],xyzp[2])
         return _evaluatePotentials(self._pot,Rp,zp,phi=phip,t=t)
 
@@ -162,19 +176,19 @@ The second option allows one to specify the inclination and sky position angle (
         return numpy.cos(phi)*Fxyz[0]+numpy.sin(phi)*Fxyz[1]
 
     @check_potential_inputs_not_arrays
-    def _phiforce(self,R,z,phi=0.,t=0.):
+    def _phitorque(self,R,z,phi=0.,t=0.):
         """
         NAME:
-           _phiforce
+           _phitorque
         PURPOSE:
-           evaluate the azimuthal force (torque) for this potential
+           evaluate the azimuthal torque (torque) for this potential
         INPUT:
            R - Galactocentric cylindrical radius
            z - vertical height
            phi - azimuth
            t - time
         OUTPUT:
-           the azimuthal force (torque)
+           the azimuthal torque (torque)
         HISTORY:
            2021-04-18 - Written - Bovy (UofT)
         """
@@ -203,13 +217,18 @@ The second option allows one to specify the inclination and sky position angle (
     def _force_xyz(self,R,z,phi=0.,t=0.):
         """Get the rectangular forces in the transformed frame"""
         x,y,z= coords.cyl_to_rect(R,phi,z)
-        xyzp= numpy.dot(self._rot,numpy.array([x,y,z]))
+        if self._norot:
+           xyzp = numpy.array([x,y,z])
+        else:
+           xyzp = numpy.dot(self._rot,numpy.array([x,y,z]))
+        if self._offset:
+            xyzp+= self._offset
         Rp,phip,zp =coords.rect_to_cyl(xyzp[0],xyzp[1],xyzp[2])
         Rforcep= _evaluateRforces(self._pot,Rp,zp,phi=phip,t=t)
-        phiforcep= _evaluatephiforces(self._pot,Rp,zp,phi=phip,t=t)
+        phitorquep= _evaluatephitorques(self._pot,Rp,zp,phi=phip,t=t)
         zforcep= _evaluatezforces(self._pot,Rp,zp,phi=phip,t=t)
-        xforcep= numpy.cos(phip)*Rforcep-numpy.sin(phip)*phiforcep/Rp
-        yforcep= numpy.sin(phip)*Rforcep+numpy.cos(phip)*phiforcep/Rp
+        xforcep= numpy.cos(phip)*Rforcep-numpy.sin(phip)*phitorquep/Rp
+        yforcep= numpy.sin(phip)*Rforcep+numpy.cos(phip)*phitorquep/Rp
         return numpy.dot(self._inv_rot,
                          numpy.array([xforcep,yforcep,zforcep]))   
 
@@ -343,10 +362,15 @@ The second option allows one to specify the inclination and sky position angle (
     def _2ndderiv_xyz(self,R,z,phi=0.,t=0.):
         """Get the rectangular forces in the transformed frame"""
         x,y,z= coords.cyl_to_rect(R,phi,z)
-        xyzp= numpy.dot(self._rot,numpy.array([x,y,z]))
+        if self._norot:
+           xyzp = numpy.array([x,y,z])
+        else:
+           xyzp = numpy.dot(self._rot,numpy.array([x,y,z]))
+        if self._offset:
+            xyzp+= self._offset
         Rp,phip,zp =coords.rect_to_cyl(xyzp[0],xyzp[1],xyzp[2])
         Rforcep= _evaluateRforces(self._pot,Rp,zp,phi=phip,t=t)
-        phiforcep= _evaluatephiforces(self._pot,Rp,zp,phi=phip,t=t)
+        phitorquep= _evaluatephitorques(self._pot,Rp,zp,phi=phip,t=t)
         R2derivp= evaluateR2derivs(self._pot,Rp,zp,phi=phip,t=t,
                                    use_physical=False)
         phi2derivp= evaluatephi2derivs(self._pot,Rp,zp,phi=phip,t=t,
@@ -363,11 +387,11 @@ The second option allows one to specify the inclination and sky position angle (
         cp2, sp2, cpsp= cp**2., sp**2., cp*sp
         Rp2= Rp*Rp
         x2derivp= R2derivp*cp2-2.*Rphiderivp*cpsp/Rp+phi2derivp*sp2/Rp2\
-            -Rforcep*sp2/Rp-2.*phiforcep*cpsp/Rp2
+            -Rforcep*sp2/Rp-2.*phitorquep*cpsp/Rp2
         y2derivp= R2derivp*sp2+2.*Rphiderivp*cpsp/Rp+phi2derivp*cp2/Rp2\
-            -Rforcep*cp2/Rp+2.*phiforcep*cpsp/Rp2
+            -Rforcep*cp2/Rp+2.*phitorquep*cpsp/Rp2
         xyderivp= R2derivp*cpsp+Rphiderivp*(cp2-sp2)/Rp-phi2derivp*cpsp/Rp2\
-            +Rforcep*cpsp/Rp+phiforcep*(cp2-sp2)/Rp2
+            +Rforcep*cpsp/Rp+phitorquep*(cp2-sp2)/Rp2
         xzderivp= Rzderivp*cp-phizderivp*sp/Rp
         yzderivp= Rzderivp*sp+phizderivp*cp/Rp
         return numpy.dot(self._inv_rot,numpy.dot(\
@@ -395,7 +419,12 @@ The second option allows one to specify the inclination and sky position angle (
         """
         x,y,z= coords.cyl_to_rect(R,phi,z)
         if numpy.isinf(R): y= 0.
-        xyzp= numpy.dot(self._rot,numpy.array([x,y,z]))
+        if self._norot:
+           xyzp = numpy.array([x,y,z])
+        else:
+           xyzp = numpy.dot(self._rot,numpy.array([x,y,z]))
+        if self._offset:
+            xyzp+= self._offset
         Rp,phip,zp = coords.rect_to_cyl(xyzp[0],xyzp[1],xyzp[2])
         return evaluateDensities(self._pot,Rp,zp,phi=phip,t=t,
                                  use_physical=False)

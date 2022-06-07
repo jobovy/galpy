@@ -1,5 +1,4 @@
 ############################TESTS ON POTENTIALS################################
-from __future__ import print_function, division
 import os
 import sys
 import numpy
@@ -111,7 +110,7 @@ def testAxi_phiIsNone():
     assert scf.dens(R,z,None) == scf.dens(R,z,phi), "The axisymmetric density does not work at phi=None"
     assert scf.Rforce(R,z,None) == scf.Rforce(R,z,phi), "The axisymmetric Rforce does not work at phi=None"
     assert scf.zforce(R,z,None) == scf.zforce(R,z,phi), "The axisymmetric zforce does not work at phi=None"
-    assert scf.phiforce(R,z,None) == scf.phiforce(R,z,phi), "The axisymmetric phiforce does not work at phi=None"
+    assert scf.phitorque(R,z,None) == scf.phitorque(R,z,phi), "The axisymmetric phitorque does not work at phi=None"
          
         
         
@@ -147,15 +146,15 @@ def testArrayBroadcasting():
 def test_scf_compute_spherical_hernquist():
     Acos, Asin = potential.scf_compute_coeffs_spherical(sphericalHernquistDensity, 10)
     spherical_coeffsTest(Acos, Asin)
-    assert numpy.fabs(Acos[0,0,0] - 1.) < EPS, "Acos(n=0,l=0,m=0) = 1 fails. Found to be Acos(n=0,l=0,m=0) = {0}".format(Acos[0,0,0])
+    assert numpy.fabs(Acos[0,0,0] - 1.) < EPS, "Acos(n=0,l=0,m=0) = 1 fails. Found to be Acos(n=0,l=0,m=0) = {}".format(Acos[0,0,0])
     assert numpy.all(numpy.fabs(Acos[1:,0,0]) < EPS), "Acos(n>0,l=0,m=0) = 0 fails."
     
 ## tests whether scf_compute_spherical computes the correct coefficients for Zeeuw's Potential
 def test_scf_compute_spherical_zeeuw():
     Acos, Asin = potential.scf_compute_coeffs_spherical(rho_Zeeuw, 10)
     spherical_coeffsTest(Acos, Asin)
-    assert numpy.fabs(Acos[0,0,0] - 2*3./4) < EPS, "Acos(n=0,l=0,m=0) = 3/2 fails. Found to be Acos(n=0,l=0,m=0) = {0}".format(Acos[0,0,0])
-    assert numpy.fabs(Acos[1,0,0] - 2*1./12) < EPS, "Acos(n=1,l=0,m=0) = 1/6 fails. Found to be Acos(n=0,l=0,m=0) = {0}".format(Acos[0,0,0])
+    assert numpy.fabs(Acos[0,0,0] - 2*3./4) < EPS, "Acos(n=0,l=0,m=0) = 3/2 fails. Found to be Acos(n=0,l=0,m=0) = {}".format(Acos[0,0,0])
+    assert numpy.fabs(Acos[1,0,0] - 2*1./12) < EPS, "Acos(n=1,l=0,m=0) = 1/6 fails. Found to be Acos(n=0,l=0,m=0) = {}".format(Acos[0,0,0])
     assert numpy.all(numpy.fabs(Acos[2:,0,0]) < EPS), "Acos(n>1,l=0,m=0) = 0 fails."
     
 ##Tests that the numerically calculated results from axi_density1 matches with the analytic results
@@ -170,7 +169,7 @@ def test_scf_compute_axi_density1():
     for n in range(shape[0]):
         for l in range(shape[1]):
             assert numpy.fabs(numerically_calculated[n,l] - analytically_calculated[n,l]) < EPS, \
-        "Acos(n={0},l={1},0) = {2}, whereas it was analytically calculated to be {3}".format(n,l, numerically_calculated[n,l], analytically_calculated[n,l])  
+        "Acos(n={},l={},0) = {}, whereas it was analytically calculated to be {}".format(n,l, numerically_calculated[n,l], analytically_calculated[n,l])  
     #Checks that A at l != 0,1,2 are always zero    
     assert numpy.all(numpy.fabs(A[0][:,3:,0]) < 1e-10), "Acos(n,l>2,m=0) = 0 fails."
     
@@ -195,7 +194,7 @@ def test_scf_compute_axi_density2():
         if n ==1: continue 
         for l in range(shape[1]):
             assert numpy.fabs(numerically_calculated[n,l] - analytically_calculated[n,l]) < EPS, \
-        "Acos(n={0},l={1},0) = {2}, whereas it was analytically calculated to be {3}".format(n,l, numerically_calculated[n,l], analytically_calculated[n,l])
+        "Acos(n={},l={},0) = {}, whereas it was analytically calculated to be {}".format(n,l, numerically_calculated[n,l], analytically_calculated[n,l])
     
     #Checks that A at l != 0,1,2 are always zero    
     assert numpy.all(numpy.fabs(A[0][:,3:,0]) < 1e-10), "Acos(n,l>2,m=0) = 0 fails."
@@ -463,13 +462,13 @@ def test_zforceMatches_hernquist():
     compareFunctions(h.zforce,scf.zforce, assertmsg)
     
     
-## Tests whether scf phiforce matches with Hernquist phiforce
-def test_phiforceMatches_hernquist():
+## Tests whether scf phitorque matches with Hernquist phitorque
+def test_phitorqueMatches_hernquist():
     h = potential.HernquistPotential()
     Acos, Asin = potential.scf_compute_coeffs_spherical(sphericalHernquistDensity,1)
     scf = SCFPotential(amp=1, Acos=Acos, Asin=Asin)
     assertmsg = "Comparing the azimuth force of Hernquist Potential with SCF fails at R={0}, Z={1}, phi={2}"
-    compareFunctions(h.phiforce,scf.phiforce, assertmsg)
+    compareFunctions(h.phitorque,scf.phitorque, assertmsg)
     
     
 ## Tests whether scf Rforce matches with NFW Rforce
@@ -488,13 +487,13 @@ def test_zforceMatches_nfw():
     assertmsg = "Comparing the vertical force of NFW Potential with SCF fails at R={0}, Z={1}, phi={2}"
     compareFunctions(nfw.zforce,scf.zforce, assertmsg, eps=1e-3)
     
-## Tests whether scf phiforce matches with NFW Rforce
-def test_phiforceMatches_nfw():
+## Tests whether scf phitorque matches with NFW Rforce
+def test_phitorqueMatches_nfw():
     nfw = potential.NFWPotential()
     Acos, Asin = potential.scf_compute_coeffs_spherical(rho_NFW,10)
     scf = SCFPotential(amp=1, Acos=Acos, Asin=Asin)
     assertmsg = "Comparing the azimuth force of NFW Potential with SCF fails at R={0}, Z={1}, phi={2}"
-    compareFunctions(nfw.phiforce,scf.phiforce, assertmsg)
+    compareFunctions(nfw.phitorque,scf.phitorque, assertmsg)
 
 # Test that "FutureWarning: Using a non-tuple sequence for multidimensional indexing is deprecated ..." warning doesn't happen (#461)
 def test_FutureWarning_multid_indexing():
@@ -527,7 +526,7 @@ def ArrayTest(scf, params):
     density = scf.dens(*params).flatten()
     Rforce = scf.Rforce(*params).flatten()
     zforce = scf.zforce(*params).flatten()
-    phiforce = scf.phiforce(*params).flatten()
+    phitorque = scf.phitorque(*params).flatten()
     
     R, z, phi = params
     shape = numpy.array(R*z*phi).shape
@@ -542,8 +541,8 @@ def ArrayTest(scf, params):
     message.format("Rforce", R[i], z[i], phi[i], Rforce[i], scf.Rforce(R[i], z[i], phi[i]))
         assert compareFunctions(scf.zforce, zforce, i), \
     message.format("zforce", R[i], z[i], phi[i], zforce[i], scf.zforce(R[i], z[i], phi[i]))
-        assert compareFunctions(scf.phiforce, phiforce, i), \
-    message.format("phiforce", R[i], z[i], phi[i], phiforce[i], scf.phiforce(R[i], z[i], phi[i]))
+        assert compareFunctions(scf.phitorque, phitorque, i), \
+    message.format("phitorque", R[i], z[i], phi[i], phitorque[i], scf.phitorque(R[i], z[i], phi[i]))
         
 
 
@@ -583,7 +582,7 @@ def axi_reducesto_spherical(Aspherical,Aaxi,potentialName):
     spherical_coeffsTest(Acos_a, Asin_a, eps=1e-10) 
     n = min(Acos_s.shape[0], Acos_a.shape[0])
     assert numpy.all(numpy.fabs(Acos_s[:n,0,0] - Acos_a[:n,0,0]) < EPS), \
-    "The axi symmetric Acos(n,l=0,m=0) does not reduce to the spherical Acos(n,l=0,m=0) for {0}".format(potentialName)
+    "The axi symmetric Acos(n,l=0,m=0) does not reduce to the spherical Acos(n,l=0,m=0) for {}".format(potentialName)
     
     
 ## Tests whether the coefficients of a spherical density computed using the scf_compute_coeffs reduces to 
@@ -595,7 +594,7 @@ def reducesto_spherical(Aspherical,A,potentialName):
     spherical_coeffsTest(Acos, Asin, eps=1e-10) 
     n = min(Acos_s.shape[0], Acos.shape[0])
     assert numpy.all(numpy.fabs(Acos_s[:n,0,0] - Acos[:n,0,0]) < EPS), \
-    "Acos(n,l=0,m=0) as generated by scf_compute_coeffs does not reduce to the spherical Acos(n,l=0,m=0) for {0}".format(potentialName)
+    "Acos(n,l=0,m=0) as generated by scf_compute_coeffs does not reduce to the spherical Acos(n,l=0,m=0) for {}".format(potentialName)
     
 ## Hernquist potential as a function of r
 def sphericalHernquistDensity(R, z=0, phi=0):

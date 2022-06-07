@@ -492,8 +492,10 @@ def calc_potential_c(pot,R,z,rforce=False,zforce=False):
        2013-01-29 - Added forces - Bovy (IAS)
     """
     from ..orbit.integrateFullOrbit import _parse_pot #here bc otherwise there is an infinite loop
+    from ..orbit.integratePlanarOrbit import _prep_tfuncs
     #Parse the potential
-    npot, pot_type, pot_args= _parse_pot(pot)
+    npot, pot_type, pot_args, pot_tfuncs= _parse_pot(pot)
+    pot_tfuncs= _prep_tfuncs(pot_tfuncs)
 
     #Set up result arrays
     out= numpy.empty((len(R),len(z)))
@@ -514,6 +516,7 @@ def calc_potential_c(pot,R,z,rforce=False,zforce=False):
                                                   ctypes.c_int,
                                                   ndpointer(dtype=numpy.int32,flags=ndarrayFlags),
                                                   ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
+                                                  ctypes.c_void_p,
                                                   ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
                                                   ctypes.POINTER(ctypes.c_int)]
 
@@ -532,6 +535,7 @@ def calc_potential_c(pot,R,z,rforce=False,zforce=False):
                                        ctypes.c_int(npot),
                                        pot_type,
                                        pot_args,
+                                       pot_tfuncs,
                                        out,
                                        ctypes.byref(err))
     
@@ -586,11 +590,13 @@ def eval_potential_c(pot,R,z):
        2013-01-24 - Written - Bovy (IAS)
     """
     from ..orbit.integrateFullOrbit import _parse_pot #here bc otherwise there is an infinite loop
+    from ..orbit.integratePlanarOrbit import _prep_tfuncs
     #Parse the potential
-    npot, pot_type, pot_args= _parse_pot(pot,potforactions=True)
+    npot, pot_type, pot_args, pot_tfuncs= _parse_pot(pot,potforactions=True)
+    pot_tfuncs= _prep_tfuncs(pot_tfuncs)
 
     #Set up result arrays
-    out= numpy.empty((len(R)))
+    out= numpy.empty(len(R))
     err= ctypes.c_int(0)
 
     #Set up the C code
@@ -602,6 +608,7 @@ def eval_potential_c(pot,R,z):
                                                   ctypes.c_int,
                                                   ndpointer(dtype=numpy.int32,flags=ndarrayFlags),
                                                   ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
+                                                  ctypes.c_void_p,
                                                   ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
                                                   ctypes.POINTER(ctypes.c_int)]
 
@@ -619,6 +626,7 @@ def eval_potential_c(pot,R,z):
                                        ctypes.c_int(npot),
                                        pot_type,
                                        pot_args,
+                                       pot_tfuncs,
                                        out,
                                        ctypes.byref(err))
 
@@ -645,11 +653,13 @@ def eval_force_c(pot,R,z,zforce=False):
        2013-01-29 - Written - Bovy (IAS)
     """
     from ..orbit.integrateFullOrbit import _parse_pot #here bc otherwise there is an infinite loop
+    from ..orbit.integratePlanarOrbit import _prep_tfuncs
     #Parse the potential
-    npot, pot_type, pot_args= _parse_pot(pot)
+    npot, pot_type, pot_args, pot_tfuncs= _parse_pot(pot)
+    pot_tfuncs= _prep_tfuncs(pot_tfuncs)
 
     #Set up result arrays
-    out= numpy.empty((len(R)))
+    out= numpy.empty(len(R))
     err= ctypes.c_int(0)
 
     #Set up the C code
@@ -664,6 +674,7 @@ def eval_force_c(pot,R,z,zforce=False):
                                                   ctypes.c_int,
                                                   ndpointer(dtype=numpy.int32,flags=ndarrayFlags),
                                                   ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
+                                                  ctypes.c_void_p,
                                                   ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
                                                   ctypes.POINTER(ctypes.c_int)]
 
@@ -681,6 +692,7 @@ def eval_force_c(pot,R,z,zforce=False):
                                    ctypes.c_int(npot),
                                    pot_type,
                                    pot_args,
+                                   pot_tfuncs,
                                    out,
                                    ctypes.byref(err))
     

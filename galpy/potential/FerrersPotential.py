@@ -141,19 +141,19 @@ class FerrersPotential(Potential):
         self._compute_xyzforces(R,z,phi,t)
         return numpy.cos(phi)*self._cached_Fx+numpy.sin(phi)*self._cached_Fy
 
-    def _phiforce(self,R,z,phi=0.,t=0.):
+    def _phitorque(self,R,z,phi=0.,t=0.):
         """
         NAME:
-           _phiforce
+           _phitorque
         PURPOSE:
-           evaluate the azimuthal force for this potential
+           evaluate the azimuthal torque for this potential
         INPUT:
            R - Galactocentric cylindrical radius
            z - vertical height
            phi - azimuth
            t - time
         OUTPUT:
-           the azimuthal force
+           the azimuthal torque
         """
         if not self.isNonAxi:
             phi= 0.
@@ -384,7 +384,7 @@ class FerrersPotential(Potential):
         return R*(numpy.cos(phi)*phiyz-numpy.sin(phi)*phixz)
 
     def _2ndderiv_xyz(self,x,y,z,i,j):
-        """General 2nd derivative of the potential as a function of (x,y,z)
+        r"""General 2nd derivative of the potential as a function of (x,y,z)
         in the aligned coordinate frame, d^2\Phi/dx_i/dx_j"""
         return -numpy.pi*self._rhoc_M*self.a**3*self._b*self._c *\
             _2ndDerivInt(x,y,z,self._a2,self._b2*self._a2,self._c2*self._a2,self.n,i,j)
@@ -459,7 +459,7 @@ def _forceInt(x,y,z,a2,b2,c2,n,i):
     return integrate.quad(integrand, lowerlim(x**2, y**2, z**2, a2, b2, c2), numpy.inf, epsabs=1e-12)[0]
 
 def _2ndDerivInt(x,y,z,a2,b2,c2,n,i,j):
-    """Integral involved in second derivatives d^\Phi/(dx_i dx_j)
+    r"""Integral involved in second derivatives d^\Phi/(dx_i dx_j)
     integrate
         1/A B^(n-1) (-2 x_i/(tau+a_i)) (-2 x_j/(tau+a_j))
     when i /= j or

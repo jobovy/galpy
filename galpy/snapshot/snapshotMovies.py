@@ -1,5 +1,4 @@
 #Functions to turn snapshots into movies
-from __future__ import print_function
 import re
 import os, os.path
 import tempfile

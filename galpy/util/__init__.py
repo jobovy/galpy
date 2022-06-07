@@ -1,4 +1,3 @@
-from __future__ import print_function
 import os
 import shutil
 import warnings
@@ -125,7 +124,7 @@ def fast_cholesky_invert(A,logdet=False,tiny=_TINY):
         return linalg.cho_solve(L,numpy.eye(A.shape[0]))
 
 def _rotate_to_arbitrary_vector(v,a,inv=False,_dontcutsmall=False):
-    """ Return a rotation matrix that rotates v to align with unit vector a
+    r""" Return a rotation matrix that rotates v to align with unit vector a
         i.e. R . v = |v|\hat{a} """
     normv= v/numpy.tile(numpy.sqrt(numpy.sum(v**2.,axis=1)),(3,1)).T
     rotaxis= numpy.cross(normv,a)

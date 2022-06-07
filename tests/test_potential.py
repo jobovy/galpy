@@ -1,5 +1,4 @@
 ############################TESTS ON POTENTIALS################################
-from __future__ import print_function, division
 import os
 import sys
 PY3= sys.version > '3'
@@ -12,6 +11,7 @@ try:
 except ImportError:
     _PYNBODY_LOADED= False
 from galpy import potential
+from galpy import orbit
 from galpy.util import coords
 from galpy.util import _rotate_to_arbitrary_vector
 _TRAVIS= bool(os.getenv('TRAVIS'))
@@ -171,6 +171,9 @@ def test_forceAsDeriv_potential():
     pots.append('mockRotatedAndTiltedMWP14WrapperPotential')
     pots.append('mockRotatedAndTiltedMWP14WrapperPotentialwInclination')
     pots.append('mockRotatedAndTiltedTriaxialLogHaloPotentialwInclination')
+    pots.append('mockRotatedTiltedOffsetMWP14WrapperPotential')
+    pots.append('mockOffsetMWP14WrapperPotential')
+    pots.append('mockTimeDependentAmplitudeWrapperPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -228,11 +231,11 @@ def test_forceAsDeriv_potential():
                     tRforce= potential.evaluateRforces(tp,Rs[ii],Zs[jj],phi=1.)
                 if tRforce**2. < 10.**ttol:
                     assert mpotderivR**2. < 10.**ttol, \
-                        "Calculation of the Radial force as the Radial derivative of the %s potential fails at (R,Z) = (%.3f,%.3f); diff = %e, rel. diff = %e" % (p,Rs[ii],Zs[jj],numpy.fabs(tRforce-mpotderivR), numpy.fabs((tRforce-mpotderivR)/tRforce))
+                        "Calculation of the Radial force as the Radial derivative of the {} potential fails at (R,Z) = ({:.3f},{:.3f}); diff = {:e}, rel. diff = {:e}".format(p,Rs[ii],Zs[jj],numpy.fabs(tRforce-mpotderivR), numpy.fabs((tRforce-mpotderivR)/tRforce))
                 else:
                     assert (tRforce-mpotderivR)**2./tRforce**2. < 10.**ttol, \
-                        "Calculation of the Radial force as the Radial derivative of the %s potential fails at (R,Z) = (%.3f,%.3f); diff = %e, rel. diff = %e" % (p,Rs[ii],Zs[jj],numpy.fabs(tRforce-mpotderivR), numpy.fabs((tRforce-mpotderivR)/tRforce))
-        #Azimuthal force, if it exists
+                        "Calculation of the Radial force as the Radial derivative of the {} potential fails at (R,Z) = ({:.3f},{:.3f}); diff = {:e}, rel. diff = {:e}".format(p,Rs[ii],Zs[jj],numpy.fabs(tRforce-mpotderivR), numpy.fabs((tRforce-mpotderivR)/tRforce))
+        #azimuthal torque, if it exists
         if isinstance(tp,potential.linearPotential): continue
         for ii in range(len(Rs)):
             for jj in range(len(phis)):
@@ -241,22 +244,22 @@ def test_forceAsDeriv_potential():
                 dphi= newphi-phis[jj] #Representable number
                 if isinstance(tp,potential.planarPotential):
                     mpotderivphi= (tp(Rs[ii],phi=phis[jj])-tp(Rs[ii],phi=phis[jj]+dphi))/dphi
-                    tphiforce= potential.evaluateplanarphiforces(tp,Rs[ii],
+                    tphitorque= potential.evaluateplanarphitorques(tp,Rs[ii],
                                                                  phi=phis[jj])
                 else:
                     mpotderivphi= (tp(Rs[ii],0.05,phi=phis[jj])-tp(Rs[ii],0.05,phi=phis[jj]+dphi))/dphi
-                    tphiforce= potential.evaluatephiforces(tp,Rs[ii],0.05,
+                    tphitorque= potential.evaluatephitorques(tp,Rs[ii],0.05,
                                                            phi=phis[jj])
                 try:
-                    if tphiforce**2. < 10.**ttol:
+                    if tphitorque**2. < 10.**ttol:
                         assert(mpotderivphi**2. < 10.**ttol)
                     else:
-                        assert((tphiforce-mpotderivphi)**2./tphiforce**2. < 10.**ttol)
+                        assert((tphitorque-mpotderivphi)**2./tphitorque**2. < 10.**ttol)
                 except AssertionError:
                     if isinstance(tp,potential.planarPotential):
-                        raise AssertionError("Calculation of the azimuthal force as the azimuthal derivative of the %s potential fails at (R,phi) = (%.3f,%.3f); diff = %e, rel. diff = %e" % (p,Rs[ii],phis[jj],numpy.fabs(tphiforce-mpotderivphi),numpy.fabs((tphiforce-mpotderivphi)/tphiforce)))
+                        raise AssertionError("Calculation of the azimuthal torque as the azimuthal derivative of the {} potential fails at (R,phi) = ({:.3f},{:.3f}); diff = {:e}, rel. diff = {:e}".format(p,Rs[ii],phis[jj],numpy.fabs(tphitorque-mpotderivphi),numpy.fabs((tphitorque-mpotderivphi)/tphitorque)))
                     else:
-                        raise AssertionError("Calculation of the azimuthal force as the azimuthal derivative of the %s potential fails at (R,Z,phi) = (%.3f,0.05,%.3f); diff = %e, rel. diff = %e" % (p,Rs[ii],phis[jj],numpy.fabs(tphiforce-mpotderivphi),numpy.fabs((tphiforce-mpotderivphi)/tphiforce)))
+                        raise AssertionError("Calculation of the azimuthal torque as the azimuthal derivative of the {} potential fails at (R,Z,phi) = ({:.3f},0.05,{:.3f}); diff = {:e}, rel. diff = {:e}".format(p,Rs[ii],phis[jj],numpy.fabs(tphitorque-mpotderivphi),numpy.fabs((tphitorque-mpotderivphi)/tphitorque)))
         #Vertical force, if it exists
         if isinstance(tp,potential.planarPotential) \
                 or isinstance(tp,potential.linearPotential): continue
@@ -273,10 +276,10 @@ def test_forceAsDeriv_potential():
                 tzforce= potential.evaluatezforces(tp,Rs[ii],Zs[jj],phi=1.)
                 if tzforce**2. < 10.**ttol:
                     assert mpotderivz**2. < 10.**ttol, \
-                        "Calculation of the vertical force as the vertical derivative of the %s potential fails at (R,Z) = (%.3f,%.3f); diff = %e, rel. diff = %e" % (p,Rs[ii],Zs[jj],numpy.fabs(mpotderivz),numpy.fabs((tzforce-mpotderivz)/tzforce))
+                        "Calculation of the vertical force as the vertical derivative of the {} potential fails at (R,Z) = ({:.3f},{:.3f}); diff = {:e}, rel. diff = {:e}".format(p,Rs[ii],Zs[jj],numpy.fabs(mpotderivz),numpy.fabs((tzforce-mpotderivz)/tzforce))
                 else:
                     assert (tzforce-mpotderivz)**2./tzforce**2. < 10.**ttol, \
-"Calculation of the vertical force as the vertical derivative of the %s potential fails at (R,Z) = (%.3f,%.3f); diff = %e, rel. diff = %e" % (p,Rs[ii],Zs[jj],numpy.fabs(mpotderivz),numpy.fabs((tzforce-mpotderivz)/tzforce))
+"Calculation of the vertical force as the vertical derivative of the {} potential fails at (R,Z) = ({:.3f},{:.3f}); diff = {:e}, rel. diff = {:e}".format(p,Rs[ii],Zs[jj],numpy.fabs(mpotderivz),numpy.fabs((tzforce-mpotderivz)/tzforce))
 
 #Test whether the second derivative of the potential is minus the derivative of the force
 def test_2ndDeriv_potential():
@@ -347,6 +350,9 @@ def test_2ndDeriv_potential():
     pots.append('mockRotatedAndTiltedMWP14WrapperPotential')
     pots.append('mockRotatedAndTiltedMWP14WrapperPotentialwInclination')
     pots.append('mockRotatedAndTiltedTriaxialLogHaloPotentialwInclination')
+    pots.append('mockRotatedTiltedOffsetMWP14WrapperPotential')
+    pots.append('mockOffsetMWP14WrapperPotential')
+    pots.append('mockTimeDependentAmplitudeWrapperPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -404,10 +410,10 @@ def test_2ndDeriv_potential():
                         tR2deriv= potential.evaluateR2derivs(tp,Rs[ii],Zs[jj],phi=1.)
                     if tR2deriv**2. < 10.**ttol:
                         assert mRforcederivR**2. < 10.**ttol, \
-                            "Calculation of the second Radial derivative of the potential as the Radial derivative of the %s Radial force fails at (R,Z) = (%.3f,%.3f); diff = %e, rel. diff = %e" % (p,Rs[ii],Zs[jj],numpy.fabs(tR2deriv-mRforcederivR), numpy.fabs((tR2deriv-mRforcederivR)/tR2deriv))
+                            "Calculation of the second Radial derivative of the potential as the Radial derivative of the {} Radial force fails at (R,Z) = ({:.3f},{:.3f}); diff = {:e}, rel. diff = {:e}".format(p,Rs[ii],Zs[jj],numpy.fabs(tR2deriv-mRforcederivR), numpy.fabs((tR2deriv-mRforcederivR)/tR2deriv))
                     else:
                         assert (tR2deriv-mRforcederivR)**2./tR2deriv**2. < 10.**ttol, \
-                            "Calculation of the second Radial derivative of the potential as the Radial derivative of the %s Radial force fails at (R,Z) = (%.3f,%.3f); diff = %e, rel. diff = %e" % (p,Rs[ii],Zs[jj],numpy.fabs(tR2deriv-mRforcederivR), numpy.fabs((tR2deriv-mRforcederivR)/tR2deriv))
+                            "Calculation of the second Radial derivative of the potential as the Radial derivative of the {} Radial force fails at (R,Z) = ({:.3f},{:.3f}); diff = {:e}, rel. diff = {:e}".format(p,Rs[ii],Zs[jj],numpy.fabs(tR2deriv-mRforcederivR), numpy.fabs((tR2deriv-mRforcederivR)/tR2deriv))
         #2nd azimuthal
         if not isinstance(tp,potential.linearPotential) \
                 and hasattr(tp,'_phi2deriv'):
@@ -417,21 +423,21 @@ def test_2ndDeriv_potential():
                     newphi= phis[jj]+dphi
                     dphi= newphi-phis[jj] #Representable number
                     if isinstance(tp,potential.planarPotential):
-                        mphiforcederivphi= (tp.phiforce(Rs[ii],phi=phis[jj])-tp.phiforce(Rs[ii],phi=phis[jj]+dphi))/dphi
+                        mphitorquederivphi= (tp.phitorque(Rs[ii],phi=phis[jj])-tp.phitorque(Rs[ii],phi=phis[jj]+dphi))/dphi
                         tphi2deriv= tp.phi2deriv(Rs[ii],phi=phis[jj])
                     else:
-                        mphiforcederivphi= (tp.phiforce(Rs[ii],0.05,phi=phis[jj])-tp.phiforce(Rs[ii],0.05,phi=phis[jj]+dphi))/dphi
+                        mphitorquederivphi= (tp.phitorque(Rs[ii],0.05,phi=phis[jj])-tp.phitorque(Rs[ii],0.05,phi=phis[jj]+dphi))/dphi
                         tphi2deriv= potential.evaluatephi2derivs(tp,Rs[ii],0.05,phi=phis[jj])
                     try:
                         if tphi2deriv**2. < 10.**ttol:
-                            assert(mphiforcederivphi**2. < 10.**ttol)
+                            assert(mphitorquederivphi**2. < 10.**ttol)
                         else:
-                            assert((tphi2deriv-mphiforcederivphi)**2./tphi2deriv**2. < 10.**ttol)
+                            assert((tphi2deriv-mphitorquederivphi)**2./tphi2deriv**2. < 10.**ttol)
                     except AssertionError:
                         if isinstance(tp,potential.planarPotential):
-                            raise AssertionError("Calculation of the second azimuthal derivative of the potential as the azimuthal derivative of the %s azimuthal force fails at (R,phi) = (%.3f,%.3f); diff = %e, rel. diff = %e" % (p,Rs[ii],phis[jj],numpy.fabs(tphi2deriv-mphiforcederivphi), numpy.fabs((tphi2deriv-mphiforcederivphi)/tphi2deriv)))
+                            raise AssertionError("Calculation of the second azimuthal derivative of the potential as the azimuthal derivative of the {} azimuthal torque fails at (R,phi) = ({:.3f},{:.3f}); diff = {:e}, rel. diff = {:e}".format(p,Rs[ii],phis[jj],numpy.fabs(tphi2deriv-mphitorquederivphi), numpy.fabs((tphi2deriv-mphitorquederivphi)/tphi2deriv)))
                         else:
-                            raise AssertionError("Calculation of the second azimuthal derivative of the potential as the azimuthal derivative of the %s azimuthal force fails at (R,Z,phi) = (%.3f,0.05,%.3f); diff = %e, rel. diff = %e" % (p,Rs[ii],phis[jj],numpy.fabs(tphi2deriv-mphiforcederivphi), numpy.fabs((tphi2deriv-mphiforcederivphi)/tphi2deriv)))
+                            raise AssertionError("Calculation of the second azimuthal derivative of the potential as the azimuthal derivative of the {} azimuthal torque fails at (R,Z,phi) = ({:.3f},0.05,{:.3f}); diff = {:e}, rel. diff = {:e}".format(p,Rs[ii],phis[jj],numpy.fabs(tphi2deriv-mphitorquederivphi), numpy.fabs((tphi2deriv-mphitorquederivphi)/tphi2deriv)))
         #mixed radial azimuthal: Isn't this the same as what's below??
         if not isinstance(tp,potential.linearPotential) \
                 and hasattr(tp,'_Rphideriv'):
@@ -453,9 +459,9 @@ def test_2ndDeriv_potential():
                             assert((tRphideriv-mRforcederivphi)**2./tRphideriv**2. < 10.**ttol)
                     except AssertionError:
                         if isinstance(tp,potential.planarPotential):
-                            raise AssertionError("Calculation of the mixed radial, azimuthal derivative of the potential as the azimuthal derivative of the %s Radial force fails at (R,phi) = (%.3f,%.3f); diff = %e, rel. diff = %e" % (p,Rs[ii],phis[jj],numpy.fabs(tRphideriv-mRforcederivphi), numpy.fabs((tRphideriv-mRforcederivphi)/tRphideriv)))
+                            raise AssertionError("Calculation of the mixed radial, azimuthal derivative of the potential as the azimuthal derivative of the {} Radial force fails at (R,phi) = ({:.3f},{:.3f}); diff = {:e}, rel. diff = {:e}".format(p,Rs[ii],phis[jj],numpy.fabs(tRphideriv-mRforcederivphi), numpy.fabs((tRphideriv-mRforcederivphi)/tRphideriv)))
                         else:
-                            raise AssertionError("Calculation of the mixed radial, azimuthal derivative of the potential as the azimuthal derivative of the %s azimuthal force fails at (R,Z,phi) = (%.3f,0.05,%.3f); diff = %e, rel. diff = %e" % (p,Rs[ii],phis[jj],numpy.fabs(tRphideriv-mRforcederivphi), numpy.fabs((tRphideriv-mRforcederivphi)/tRphideriv)))
+                            raise AssertionError("Calculation of the mixed radial, azimuthal derivative of the potential as the azimuthal derivative of the {} azimuthal torque fails at (R,Z,phi) = ({:.3f},0.05,{:.3f}); diff = {:e}, rel. diff = {:e}".format(p,Rs[ii],phis[jj],numpy.fabs(tRphideriv-mRforcederivphi), numpy.fabs((tRphideriv-mRforcederivphi)/tRphideriv)))
         #2nd vertical
         if not isinstance(tp,potential.planarPotential) \
                 and not isinstance(tp,potential.linearPotential) \
@@ -479,10 +485,10 @@ def test_2ndDeriv_potential():
                     tz2deriv= potential.evaluatez2derivs(tp,Rs[ii],Zs[jj],phi=1.)
                     if tz2deriv**2. < 10.**ttol:
                         assert mzforcederivz**2. < 10.**ttol, \
-                            "Calculation of the second vertical derivative of the potential as the vertical derivative of the %s vertical force fails at (R,Z) = (%.3f,%.3f); diff = %e, rel. diff = %e" % (p,Rs[ii],Zs[jj],numpy.fabs(tz2deriv-mzforcederivz), numpy.fabs((tz2deriv-mzforcederivz)/tz2deriv))
+                            "Calculation of the second vertical derivative of the potential as the vertical derivative of the {} vertical force fails at (R,Z) = ({:.3f},{:.3f}); diff = {:e}, rel. diff = {:e}".format(p,Rs[ii],Zs[jj],numpy.fabs(tz2deriv-mzforcederivz), numpy.fabs((tz2deriv-mzforcederivz)/tz2deriv))
                     else:
                         assert (tz2deriv-mzforcederivz)**2./tz2deriv**2. < 10.**ttol, \
-                            "Calculation of the second vertical derivative of the potential as the vertical derivative of the %s vertical force fails at (R,Z) = (%.3f,%.3f); diff = %e, rel. diff = %e" % (p,Rs[ii],Zs[jj],numpy.fabs(tz2deriv-mzforcederivz), numpy.fabs((tz2deriv-mzforcederivz)/tz2deriv))
+                            "Calculation of the second vertical derivative of the potential as the vertical derivative of the {} vertical force fails at (R,Z) = ({:.3f},{:.3f}); diff = {:e}, rel. diff = {:e}".format(p,Rs[ii],Zs[jj],numpy.fabs(tz2deriv-mzforcederivz), numpy.fabs((tz2deriv-mzforcederivz)/tz2deriv))
         #mixed radial vertical
         if not isinstance(tp,potential.planarPotential) \
                 and not isinstance(tp,potential.linearPotential) \
@@ -499,10 +505,10 @@ def test_2ndDeriv_potential():
                     tRzderiv= potential.evaluateRzderivs(tp,Rs[ii],Zs[jj],phi=1.)
                     if tRzderiv**2. < 10.**ttol:
                         assert mRforcederivz**2. < 10.**ttol, \
-                            "Calculation of the mixed radial vertical derivative of the potential as the vertical derivative of the %s radial force fails at (R,Z) = (%.3f,%.3f); diff = %e, rel. diff = %e" % (p,Rs[ii],Zs[jj],numpy.fabs(tRzderiv-mRforcederivz), numpy.fabs((tRzderiv-mRforcederivz)/tRzderiv))
+                            "Calculation of the mixed radial vertical derivative of the potential as the vertical derivative of the {} radial force fails at (R,Z) = ({:.3f},{:.3f}); diff = {:e}, rel. diff = {:e}".format(p,Rs[ii],Zs[jj],numpy.fabs(tRzderiv-mRforcederivz), numpy.fabs((tRzderiv-mRforcederivz)/tRzderiv))
                     else:
                         assert (tRzderiv-mRforcederivz)**2./tRzderiv**2. < 10.**ttol, \
-"Calculation of the mixed radial vertical derivative of the potential as the vertical derivative of the %s radial force fails at (R,Z) = (%.3f,%.3f); diff = %e, rel. diff = %e" % (p,Rs[ii],Zs[jj],numpy.fabs(tRzderiv-mRforcederivz), numpy.fabs((tRzderiv-mRforcederivz)/tRzderiv))
+"Calculation of the mixed radial vertical derivative of the potential as the vertical derivative of the {} radial force fails at (R,Z) = ({:.3f},{:.3f}); diff = {:e}, rel. diff = {:e}".format(p,Rs[ii],Zs[jj],numpy.fabs(tRzderiv-mRforcederivz), numpy.fabs((tRzderiv-mRforcederivz)/tRzderiv))
         #mixed radial, azimuthal
         if not isinstance(tp,potential.linearPotential) \
                 and hasattr(tp,'_Rphideriv'):
@@ -524,10 +530,10 @@ def test_2ndDeriv_potential():
                                                                  phi=phis[jj],dR=1,dphi=1)
                     if tRphideriv**2. < 10.**ttol:
                         assert mRforcederivphi**2. < 10.**ttol, \
-                            "Calculation of the mixed radial azimuthal derivative of the potential as the azimuthal derivative of the %s radial force fails at (R,phi) = (%.3f,%.3f); diff = %e, rel. diff = %e" % (p,Rs[ii],phis[jj],numpy.fabs(tRphideriv-mRforcederivphi), numpy.fabs((tRphideriv-mRforcederivphi)/tRphideriv))
+                            "Calculation of the mixed radial azimuthal derivative of the potential as the azimuthal derivative of the {} radial force fails at (R,phi) = ({:.3f},{:.3f}); diff = {:e}, rel. diff = {:e}".format(p,Rs[ii],phis[jj],numpy.fabs(tRphideriv-mRforcederivphi), numpy.fabs((tRphideriv-mRforcederivphi)/tRphideriv))
                     else:
                         assert (tRphideriv-mRforcederivphi)**2./tRphideriv**2. < 10.**ttol, \
-"Calculation of the mixed radial azimuthal derivative of the potential as the azimuthal derivative of the %s radial force fails at (R,phi) = (%.3f,%.3f); diff = %e, rel. diff = %e" % (p,Rs[ii],phis[jj],numpy.fabs(tRphideriv-mRforcederivphi), numpy.fabs((tRphideriv-mRforcederivphi)/tRphideriv))
+"Calculation of the mixed radial azimuthal derivative of the potential as the azimuthal derivative of the {} radial force fails at (R,phi) = ({:.3f},{:.3f}); diff = {:e}, rel. diff = {:e}".format(p,Rs[ii],phis[jj],numpy.fabs(tRphideriv-mRforcederivphi), numpy.fabs((tRphideriv-mRforcederivphi)/tRphideriv))
         #mixed azimuthal, vertical
         if not isinstance(tp,potential.planarPotential) \
                 and not isinstance(tp,potential.linearPotential) \
@@ -543,10 +549,10 @@ def test_2ndDeriv_potential():
                     tphizderiv= potential.evaluatephizderivs(tp,Rs[ii],0.1,phi=phis[jj]) 
                     if tphizderiv**2. < 10.**ttol:
                         assert mzforcederivphi**2. < 10.**ttol, \
-                            "Calculation of the mixed azimuthal vertical derivative of the potential as the azimuthal derivative of the %s vertical force fails at (R,phi) = (%.3f,%.3f); diff = %e, rel. diff = %e" % (p,Rs[ii],phis[jj],numpy.fabs(tphizderiv-mzforcederivphi), numpy.fabs((tphizderiv-mzforcederivphi)/tphizderiv))
+                            "Calculation of the mixed azimuthal vertical derivative of the potential as the azimuthal derivative of the {} vertical force fails at (R,phi) = ({:.3f},{:.3f}); diff = {:e}, rel. diff = {:e}".format(p,Rs[ii],phis[jj],numpy.fabs(tphizderiv-mzforcederivphi), numpy.fabs((tphizderiv-mzforcederivphi)/tphizderiv))
                     else:
                         assert (tphizderiv-mzforcederivphi)**2./tphizderiv**2. < 10.**ttol, \
-"Calculation of the mixed azimuthal vertical derivative of the potential as the azimuthal derivative of the %s vertical force fails at (R,phi) = (%.3f,%.3f); diff = %e, rel. diff = %e" % (p,Rs[ii],phis[jj],numpy.fabs(tphizderiv-mzforcederivphi), numpy.fabs((tphizderiv-mzforcederivphi)/tphizderiv))
+"Calculation of the mixed azimuthal vertical derivative of the potential as the azimuthal derivative of the {} vertical force fails at (R,phi) = ({:.3f},{:.3f}); diff = {:e}, rel. diff = {:e}".format(p,Rs[ii],phis[jj],numpy.fabs(tphizderiv-mzforcederivphi), numpy.fabs((tphizderiv-mzforcederivphi)/tphizderiv))
 
 #Test whether the Poisson equation is satisfied if _dens and the relevant second derivatives are implemented
 def test_poisson_potential():
@@ -597,6 +603,9 @@ def test_poisson_potential():
     pots.append('mockRotatedAndTiltedMWP14WrapperPotential')
     pots.append('mockRotatedAndTiltedMWP14WrapperPotentialwInclination')
     pots.append('mockRotatedAndTiltedTriaxialLogHaloPotentialwInclination')
+    pots.append('mockRotatedTiltedOffsetMWP14WrapperPotential')
+    pots.append('mockOffsetMWP14WrapperPotential')
+    pots.append('mockTimeDependentAmplitudeWrapperPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -652,10 +661,10 @@ def test_poisson_potential():
                                                        forcepoisson=False)
                     if tdens**2. < 10.**ttol:
                         assert tpoissondens**2. < 10.**ttol, \
-                            "Poisson equation relation between the derivatives of the potential and the implemented density is not satisfied for the %s potential at (R,Z,phi) = (%.3f,%.3f,%.3f); diff = %e, rel. diff = %e" % (p,Rs[ii],Zs[jj],phis[kk],numpy.fabs(tdens-tpoissondens), numpy.fabs((tdens-tpoissondens)/tdens))
+                            "Poisson equation relation between the derivatives of the potential and the implemented density is not satisfied for the {} potential at (R,Z,phi) = ({:.3f},{:.3f},{:.3f}); diff = {:e}, rel. diff = {:e}".format(p,Rs[ii],Zs[jj],phis[kk],numpy.fabs(tdens-tpoissondens), numpy.fabs((tdens-tpoissondens)/tdens))
                     else:
                         assert (tpoissondens-tdens)**2./tdens**2. < 10.**ttol, \
-                            "Poisson equation relation between the derivatives of the potential and the implemented density is not satisfied for the %s potential at (R,Z,phi) = (%.3f,%.3f,%.3f); diff = %e, rel. diff = %e" % (p,Rs[ii],Zs[jj],phis[kk],numpy.fabs(tdens-tpoissondens), numpy.fabs((tdens-tpoissondens)/tdens))
+                            "Poisson equation relation between the derivatives of the potential and the implemented density is not satisfied for the {} potential at (R,Z,phi) = ({:.3f},{:.3f},{:.3f}); diff = {:e}, rel. diff = {:e}".format(p,Rs[ii],Zs[jj],phis[kk],numpy.fabs(tdens-tpoissondens), numpy.fabs((tdens-tpoissondens)/tdens))
     return None
 
 #Test whether the (integrated) Poisson equation is satisfied if _surfdens and the relevant second derivatives are implemented
@@ -709,6 +718,8 @@ def test_poisson_surfdens_potential():
     pots.append('mockRotatedAndTiltedMWP14WrapperPotential')
     pots.append('mockRotatedAndTiltedMWP14WrapperPotentialwInclination')
     pots.append('mockRotatedAndTiltedTriaxialLogHaloPotentialwInclination')
+    pots.append('mockRotatedTiltedOffsetMWP14WrapperPotential')
+    pots.append('mockOffsetMWP14WrapperPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -767,10 +778,10 @@ def test_poisson_surfdens_potential():
                                                               forcepoisson=False)
                     if tdens**2. < 10.**ttol:
                         assert tpoissondens**2. < 10.**ttol, \
-                            "Poisson equation relation between the derivatives of the potential and the implemented surface density is not satisfied for the %s potential at (R,Z,phi) = (%.3f,%.3f,%.3f); diff = %e, rel. diff = %e" % (p,Rs[ii],Zs[jj],phis[kk],numpy.fabs(tdens-tpoissondens), numpy.fabs((tdens-tpoissondens)/tdens))
+                            "Poisson equation relation between the derivatives of the potential and the implemented surface density is not satisfied for the {} potential at (R,Z,phi) = ({:.3f},{:.3f},{:.3f}); diff = {:e}, rel. diff = {:e}".format(p,Rs[ii],Zs[jj],phis[kk],numpy.fabs(tdens-tpoissondens), numpy.fabs((tdens-tpoissondens)/tdens))
                     else:
                         assert (tpoissondens-tdens)**2./tdens**2. < 10.**ttol, \
-                            "Poisson equation relation between the derivatives of the potential and the implemented surface density is not satisfied for the %s potential at (R,Z,phi) = (%.3f,%.3f,%.3f); diff = %e, rel. diff = %e" % (p,Rs[ii],Zs[jj],phis[kk],numpy.fabs(tdens-tpoissondens), numpy.fabs((tdens-tpoissondens)/tdens))
+                            "Poisson equation relation between the derivatives of the potential and the implemented surface density is not satisfied for the {} potential at (R,Z,phi) = ({:.3f},{:.3f},{:.3f}); diff = {:e}, rel. diff = {:e}".format(p,Rs[ii],Zs[jj],phis[kk],numpy.fabs(tdens-tpoissondens), numpy.fabs((tdens-tpoissondens)/tdens))
                 if p == 'mockRotatedAndTiltedTriaxialLogHaloPotentialwInclination': continue # takes a long time otherwise... skip after all z at one (R,phi)
     return None
 
@@ -842,6 +853,9 @@ def test_evaluateAndDerivs_potential():
     pots.append('mockRotatedAndTiltedMWP14WrapperPotential')
     pots.append('mockRotatedAndTiltedMWP14WrapperPotentialwInclination')
     pots.append('mockRotatedAndTiltedTriaxialLogHaloPotentialwInclination')
+    pots.append('mockRotatedTiltedOffsetMWP14WrapperPotential')
+    pots.append('mockOffsetMWP14WrapperPotential')
+    pots.append('mockTimeDependentAmplitudeWrapperPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -916,17 +930,17 @@ def test_evaluateAndDerivs_potential():
         #1st phi
         if isinstance(tp,potential.planarPotential):
             tevaldphi= tp(1.2,phi=0.1,dphi=1)
-            tphiforce= tp.phiforce(1.2,phi=0.1)
+            tphitorque= tp.phitorque(1.2,phi=0.1)
         else:
             tevaldphi= tp(1.2,0.1,phi=0.1,dphi=1)
-            tphiforce= tp.phiforce(1.2,0.1,phi=0.1)
+            tphitorque= tp.phitorque(1.2,0.1,phi=0.1)
         if not tevaldphi is None:
             if tevaldphi**2. < 10.**ttol:
-                assert tphiforce**2. < 10.**ttol, \
-                    "Calculation of azimuthal derivative through _evaluate and phiforce inconsistent for the %s potential" % p
+                assert tphitorque**2. < 10.**ttol, \
+                    "Calculation of azimuthal derivative through _evaluate and phitorque inconsistent for the %s potential" % p
             else:
-                assert (tevaldphi+tphiforce)**2./tevaldphi**2. < 10.**ttol, \
-                    "Calculation of azimuthal derivative through _evaluate and phiforce inconsistent for the %s potential" % p
+                assert (tevaldphi+tphitorque)**2./tevaldphi**2. < 10.**ttol, \
+                    "Calculation of azimuthal derivative through _evaluate and phitorque inconsistent for the %s potential" % p
         #2nd phi
         hasphi2= True
         try:
@@ -1057,6 +1071,8 @@ def test_amp_mult_divide():
     pots.append('mockRotatedAndTiltedMWP14WrapperPotential')
     pots.append('mockRotatedAndTiltedMWP14WrapperPotentialwInclination')
     pots.append('mockRotatedAndTiltedTriaxialLogHaloPotentialwInclination')
+    pots.append('mockRotatedTiltedOffsetMWP14WrapperPotential')
+    pots.append('mockOffsetMWP14WrapperPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -1167,9 +1183,9 @@ def test_potential_array_input():
         tpevals= numpy.array([tp.zforce(r,z,phi=phi,t=t) for (r,z,phi,t) in zip(rs,zs,phis,ts)])
         assert numpy.all(numpy.fabs(tp.zforce(rs,zs,phi=phis,t=ts)-tpevals) < 10.**-10.), \
         '{} zforce evaluation does not work as expected for array inputs'.format(p)
-        #phiforce
-        tpevals= numpy.array([tp.phiforce(r,z,phi=phi,t=t) for (r,z,phi,t) in zip(rs,zs,phis,ts)])
-        assert numpy.all(numpy.fabs(tp.phiforce(rs,zs,phi=phis,t=ts)-tpevals) < 10.**-10.), \
+        #phitorque
+        tpevals= numpy.array([tp.phitorque(r,z,phi=phi,t=t) for (r,z,phi,t) in zip(rs,zs,phis,ts)])
+        assert numpy.all(numpy.fabs(tp.phitorque(rs,zs,phi=phis,t=ts)-tpevals) < 10.**-10.), \
             '{} zforce evaluation does not work as expected for array inputs'.format(p)
         #R2deriv
         if hasattr(tp,'_R2deriv'):
@@ -1333,6 +1349,8 @@ def test_potential_at_zero():
     pots.append('mockRotatedAndTiltedMWP14WrapperPotential')
     pots.append('mockRotatedAndTiltedMWP14WrapperPotentialwInclination')
     pots.append('mockRotatedAndTiltedTriaxialLogHaloPotentialwInclination')
+    pots.append('mockRotatedTiltedOffsetMWP14WrapperPotential')
+    pots.append('mockOffsetMWP14WrapperPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -1381,6 +1399,8 @@ def test_potential_at_zero():
            or p == 'mockRotatedAndTiltedMWP14WrapperPotential' \
            or p == 'mockRotatedAndTiltedMWP14WrapperPotentialwInclination' \
            or p == 'mockRotatedAndTiltedTriaxialLogHaloPotentialwInclination' \
+           or p == 'mockRotatedTiltedOffsetMWP14WrapperPotential' \
+           or p == 'mockOffsetMWP14WrapperPotential' \
            or 'riaxial' in p \
            or 'oblate' in p \
            or 'prolate' in p:
@@ -1447,6 +1467,8 @@ def test_potential_at_infinity():
     pots.append('mockRotatedAndTiltedMWP14WrapperPotential')
     pots.append('mockRotatedAndTiltedMWP14WrapperPotentialwInclination')
     pots.append('mockRotatedAndTiltedTriaxialLogHaloPotentialwInclination')
+    pots.append('mockRotatedTiltedOffsetMWP14WrapperPotential')
+    pots.append('mockOffsetMWP14WrapperPotential')
     rmpots= ['Potential','MWPotential','MWPotential2014',
              'MovingObjectPotential',
              'interpRZPotential', 'linearPotential', 'planarAxiPotential',
@@ -1492,6 +1514,8 @@ def test_potential_at_infinity():
            or p == 'mockRotatedAndTiltedMWP14WrapperPotential' \
            or p == 'mockRotatedAndTiltedMWP14WrapperPotentialwInclination' \
            or p == 'mockRotatedAndTiltedTriaxialLogHaloPotentialwInclination' \
+           or p == 'mockRotatedTiltedOffsetMWP14WrapperPotential' \
+           or p == 'mockOffsetMWP14WrapperPotential' \
           or 'riaxial' in p \
            or 'oblate' in p \
            or 'prolate' in p:
@@ -1584,7 +1608,7 @@ def test_mass_spher():
     #PowerPotential close to Kepler should be very steep
     pp= potential.PowerSphericalPotential(amp=2.,alpha=2.999)
     kp= potential.KeplerPotential(amp=2.)
-    assert numpy.fabs((((3.-2.999)/(4.*numpy.pi)*pp.mass(10.)-kp.mass(10.)))/kp.mass(10.)) < 10.**-2., "Mass for PowerSphericalPotential close to KeplerPotential is not close to KeplerPotential's mass"
+    assert numpy.fabs(((3.-2.999)/(4.*numpy.pi)*pp.mass(10.)-kp.mass(10.))/kp.mass(10.)) < 10.**-2., "Mass for PowerSphericalPotential close to KeplerPotential is not close to KeplerPotential's mass"
     pp= potential.PowerSphericalPotential(amp=2.)
     #mass = amp x r^(3-alpha)
     tR= 1.
@@ -1662,11 +1686,11 @@ def test_mass_axi():
     def dblexpmass(r,z,dp):
         return 4.*numpy.pi*dp._amp*dp._hr**2.*dp._hz*(1.-(1.+r/dp._hr)*numpy.exp(-r/dp._hr))*(1.-numpy.exp(-z/dp._hz))
     tR,tz= 0.01,0.01
-    assert numpy.fabs((dp.mass(tR,tz,forceint=True)-dblexpmass(tR,tz,dp))) < 5e-8, 'Mass for DoubleExponentialDiskPotential incorrect'
+    assert numpy.fabs(dp.mass(tR,tz,forceint=True)-dblexpmass(tR,tz,dp)) < 5e-8, 'Mass for DoubleExponentialDiskPotential incorrect'
     tR,tz= 0.1,0.05
-    assert numpy.fabs((dp.mass(tR,tz,forceint=True)-dblexpmass(tR,tz,dp))) < 3e-7, 'Mass for DoubleExponentialDiskPotential incorrect'
+    assert numpy.fabs(dp.mass(tR,tz,forceint=True)-dblexpmass(tR,tz,dp)) < 3e-7, 'Mass for DoubleExponentialDiskPotential incorrect'
     tR,tz= 1.,0.1
-    assert numpy.fabs((dp.mass(tR,tz,forceint=True)-dblexpmass(tR,tz,dp))) < 1e-6, 'Mass for DoubleExponentialDiskPotential incorrect'
+    assert numpy.fabs(dp.mass(tR,tz,forceint=True)-dblexpmass(tR,tz,dp)) < 1e-6, 'Mass for DoubleExponentialDiskPotential incorrect'
     tR,tz= 5.,0.1
     assert numpy.fabs((dp.mass(tR,tz,forceint=True)-dblexpmass(tR,tz,dp))/dblexpmass(tR,tz,dp)) < 10.**-5., 'Mass for DoubleExponentialDiskPotential incorrect'
     tR,tz= 5.,1.
@@ -2105,10 +2129,95 @@ def test_lindbladR():
     #Test error
     try:
         lp.lindbladR(0.5,'wrong resonance')
-    except IOError:
+    except OSError:
         pass
     else:
         raise AssertionError("lindbladR w/ wrong m input should have raised IOError, but didn't")
+    return None
+
+def test_rE_flatvc():
+    # Test the rE function for the case of a flat rotation curve
+    # Expected rE when vc(1)=1 is exp(E-1/2) (e.g., Dehnen 1999 epicycle)
+    lp= potential.LogarithmicHaloPotential(normalize=1.)
+    def expected_rE(E):
+        return numpy.exp(E-0.5)
+    Es= numpy.linspace(-10.,20.,101)
+    rEs= numpy.array([lp.rE(E) for E in Es])
+    assert numpy.amax(numpy.fabs(rEs-expected_rE(Es))) < 1e-6, 'rE method does not give the expected result for a flat rotation curve'
+    # Also as function
+    rEs= numpy.array([potential.rE(lp,E) for E in Es])
+    assert numpy.amax(numpy.fabs(rEs-expected_rE(Es))) < 1e-6, 'rE method does not give the expected result for a flat rotation curve'   
+    return None
+
+def test_rE_powervc():
+    # Test the rE function for the case of a power-law rotation curve: v = r^beta
+    # Expected rE when vc(1)=1 is (2 beta E / [1+beta])**(1./[2beta]) 
+    # (e.g., Dehnen 1999 epicycle)
+    betas= [-0.45,-0.2,0.6,0.9]
+    def expected_rE(E,beta):
+        return (2.*beta*E/(1.+beta))**(1./2./beta)
+    for beta in betas:
+        pp= PowerSphericalPotential(alpha=2.-2.*beta,normalize=1.)
+        rmin, rmax= 1e-8,1e5
+        Emin= pp.vcirc(rmin)**2./2.+pp(rmin,0.)
+        Emax= pp.vcirc(rmax)**2./2.+pp(rmax,0.)
+        Es= numpy.linspace(Emin,Emax,101)
+        # Test both method and function
+        if beta < 0.:
+            rEs= numpy.array([pp.rE(E) for E in Es])
+        else:
+            rEs= numpy.array([potential.rE(pp,E) for E in Es])
+        assert numpy.amax(numpy.fabs(rEs-expected_rE(Es,beta))) < 1e-8, 'rE method does not give the expected result for a power-law rotation curve'
+    return None
+
+def test_rE_MWPotential2014():
+    # Test the rE function for MWPotential2014
+    # No closed-form true answer, so just check that the expected relation holds
+    def Ec(r):
+        return potential.vcirc(potential.MWPotential2014,r)**2./2.\
+            +potential.evaluatePotentials(potential.MWPotential2014,r,0.)
+    rmin, rmax= 1e-8,1e5
+    Emin= Ec(rmin)
+    Emax= Ec(rmax)
+    Es= numpy.linspace(Emin,Emax,101)
+    rEs= numpy.array([potential.rE(potential.MWPotential2014,E) for E in Es])
+    Ecs= numpy.array([Ec(rE) for rE in rEs])
+    assert numpy.amax(numpy.fabs(Ecs-Es)) < 1e-8, 'rE method does not give the expected result for MWPotential2014'  
+    return None
+
+def test_LcE_flatvc():
+    # Test the LcE function for the case of a flat rotation curve
+    # Expected LcE when vc(1)=1 is exp(E-1/2) (e.g., Dehnen 1999 epicycle)
+    lp= potential.LogarithmicHaloPotential(normalize=1.)
+    def expected_LcE(E):
+        return numpy.exp(E-0.5)
+    Es= numpy.linspace(-10.,20.,101)
+    LcEs= numpy.array([lp.LcE(E) for E in Es])
+    assert numpy.amax(numpy.fabs(LcEs-expected_LcE(Es))) < 1e-6, 'LcE method does not give the expected result for a flat rotation curve'
+    # Also as function
+    LcEs= numpy.array([potential.LcE(lp,E) for E in Es])
+    assert numpy.amax(numpy.fabs(LcEs-expected_LcE(Es))) < 1e-6, 'LcE method does not give the expected result for a flat rotation curve'   
+    return None
+
+def test_LcE_powervc():
+    # Test the LcE function for the case of a power-law rotation curve: v = r^beta
+    # Expected LcE when vc(1)=1 is (2 beta E / [1+beta])**([1.+beta]/[2beta]) 
+    # (e.g., Dehnen 1999 epicycle)
+    betas= [-0.45,-0.2,0.6,0.9]
+    def expected_LcE(E,beta):
+        return (2.*beta*E/(1.+beta))**((1.+beta)/2./beta)
+    for beta in betas:
+        pp= PowerSphericalPotential(alpha=2.-2.*beta,normalize=1.)
+        rmin, rmax= 1e-8,1e5
+        Emin= pp.vcirc(rmin)**2./2.+pp(rmin,0.)
+        Emax= pp.vcirc(rmax)**2./2.+pp(rmax,0.)
+        Es= numpy.linspace(Emin,Emax,101)
+        # Test both method and function
+        if beta < 0.:
+            LcEs= numpy.array([pp.LcE(E) for E in Es])
+        else:
+            LcEs= numpy.array([potential.LcE(pp,E) for E in Es])
+        assert numpy.amax(numpy.fabs(LcEs-expected_LcE(Es,beta))) < 1e-5, 'LcE method does not give the expected result for a power-law rotation curve'
     return None
 
 def test_vterm():
@@ -2196,11 +2305,11 @@ def test_planar_nonaxi():
     else:
         raise AssertionError('evaluateplanarRforces for non-axisymmetric potential w/o specifying phi did not raise PotentialError')
     try:
-        potential.evaluateplanarphiforces(dp,1.)
+        potential.evaluateplanarphitorques(dp,1.)
     except potential.PotentialError:
         pass
     else:
-        raise AssertionError('evaluateplanarphiforces for non-axisymmetric potential w/o specifying phi did not raise PotentialError')
+        raise AssertionError('evaluateplanarphitorques for non-axisymmetric potential w/o specifying phi did not raise PotentialError')
     try:
         potential.evaluateplanarR2derivs(dp,1.)
     except potential.PotentialError:
@@ -2292,18 +2401,18 @@ def test_DehnenBar_special():
     dpevals= numpy.array([dp.zforce(rs[0],z,phi) for (z,phi) in zip(zs,phis)])
     assert numpy.all(numpy.fabs(dp.zforce(rs[0],zs,phis)-dpevals) < 10.**-10.), \
         'DehnenBarPotential zforce does not work as expected for array inputs'
-    #phiforce
-    dpevals= numpy.array([dp.phiforce(r,z,phi) for (r,z,phi) in zip(rs,zs,phis)])
-    assert numpy.all(numpy.fabs(dp.phiforce(rs,zs,phis)-dpevals) < 10.**-10.), \
+    #phitorque
+    dpevals= numpy.array([dp.phitorque(r,z,phi) for (r,z,phi) in zip(rs,zs,phis)])
+    assert numpy.all(numpy.fabs(dp.phitorque(rs,zs,phis)-dpevals) < 10.**-10.), \
         'DehnenBarPotential zforce evaluation does not work as expected for array inputs'
     # R array, z not an array
-    dpevals= numpy.array([dp.phiforce(r,zs[0],phi) for (r,phi) in zip(rs,phis)])
-    assert numpy.all(numpy.fabs(dp.phiforce(rs,zs[0],phis)-dpevals) < 10.**-10.), \
-        'DehnenBarPotential phiforce does not work as expected for array inputs'
+    dpevals= numpy.array([dp.phitorque(r,zs[0],phi) for (r,phi) in zip(rs,phis)])
+    assert numpy.all(numpy.fabs(dp.phitorque(rs,zs[0],phis)-dpevals) < 10.**-10.), \
+        'DehnenBarPotential phitorque does not work as expected for array inputs'
     # z array, R not an array
-    dpevals= numpy.array([dp.phiforce(rs[0],z,phi) for (z,phi) in zip(zs,phis)])
-    assert numpy.all(numpy.fabs(dp.phiforce(rs[0],zs,phis)-dpevals) < 10.**-10.), \
-        'DehnenBarPotential phiforce does not work as expected for array inputs'
+    dpevals= numpy.array([dp.phitorque(rs[0],z,phi) for (z,phi) in zip(zs,phis)])
+    assert numpy.all(numpy.fabs(dp.phitorque(rs[0],zs,phis)-dpevals) < 10.**-10.), \
+        'DehnenBarPotential phitorque does not work as expected for array inputs'
     #R2deriv
     dpevals= numpy.array([dp.R2deriv(r,z,phi) for (r,z,phi) in zip(rs,zs,phis)])
     assert numpy.all(numpy.fabs(dp.R2deriv(rs,zs,phis)-dpevals) < 10.**-10.), \
@@ -2398,9 +2507,9 @@ def test_SpiralArm_special():
     dpevals= numpy.array([dp.zforce(r,z,phi) for (r,z,phi) in zip(rs,zs,phis)])
     assert numpy.all(numpy.fabs(dp.zforce(rs,zs,phis)-dpevals) < 10.**-10.), \
         'SpiralArmsPotential zforce evaluation does not work as expected for array inputs'
-    #phiforce
-    dpevals= numpy.array([dp.phiforce(r,z,phi) for (r,z,phi) in zip(rs,zs,phis)])
-    assert numpy.all(numpy.fabs(dp.phiforce(rs,zs,phis)-dpevals) < 10.**-10.), \
+    #phitorque
+    dpevals= numpy.array([dp.phitorque(r,z,phi) for (r,z,phi) in zip(rs,zs,phis)])
+    assert numpy.all(numpy.fabs(dp.phitorque(rs,zs,phis)-dpevals) < 10.**-10.), \
         'SpiralArmsPotential zforce evaluation does not work as expected for array inputs'
     #R2deriv
     dpevals= numpy.array([dp.R2deriv(r,z,phi) for (r,z,phi) in zip(rs,zs,phis)])
@@ -2817,7 +2926,7 @@ def test_LinShuReductionFactor():
     #Test exception
     try:
         LinShuReductionFactor(lp,R,sr)
-    except IOError: pass
+    except OSError: pass
     else: raise AssertionError("LinShuReductionFactor w/o nonaxiPot set or k=,m=,OmegaP= set did not raise IOError")
     return None
 
@@ -2977,7 +3086,7 @@ def test_MN3ExponentialDiskPotential_inputs():
     # IOError for hz so large that b is negative
     try:
         mn= potential.MN3ExponentialDiskPotential(amp=1.,hz=50.)
-    except IOError: pass
+    except OSError: pass
     else:
         raise AssertionError("MN3ExponentialDiskPotential with ridiculous hz should have given IOError, but didn't")
     # Warning when b/Rd > 3 or (b/Rd > 1.35 and posdens)
@@ -3241,7 +3350,7 @@ def test_nonaxierror_function():
     with pytest.raises(potential.PotentialError) as excinfo:
         potential.evaluatezforces(tnp,1.,0.)
     with pytest.raises(potential.PotentialError) as excinfo:
-        potential.evaluatephiforces(tnp,1.,0.)
+        potential.evaluatephitorques(tnp,1.,0.)
     with pytest.raises(potential.PotentialError) as excinfo:
         potential.evaluateR2derivs(tnp,1.,0.)
     with pytest.raises(potential.PotentialError) as excinfo:
@@ -3537,7 +3646,7 @@ def test_dissipative_noVelocityError():
     with pytest.raises(potential.PotentialError) as excinfo:
         dummy= potential.evaluateRforces([lp,cdfc],R,z,phi=phi)
     with pytest.raises(potential.PotentialError) as excinfo:
-        dummy= potential.evaluatephiforces([lp,cdfc],R,z,phi=phi)
+        dummy= potential.evaluatephitorques([lp,cdfc],R,z,phi=phi)
     with pytest.raises(potential.PotentialError) as excinfo:
         dummy= potential.evaluatezforces([lp,cdfc],R,z,phi=phi)
     with pytest.raises(potential.PotentialError) as excinfo:
@@ -3640,7 +3749,72 @@ def test_RotateAndTiltWrapper():
     NFW_wrapped= potential.RotateAndTiltWrapperPotential(galaxy_pa=galaxy_pa, pot=potential.TriaxialNFWPotential(amp=1.,b=0.7,c=0.5))
     NFW_rot= potential.TriaxialNFWPotential(amp=1., zvec=[0.,0.,1.],pa=galaxy_pa,b=0.7,c=0.5)
     assert (evaluatePotentials(NFW_wrapped, Rphiz_test[0], Rphiz_test[2], phi=Rphiz_test[1])-evaluatePotentials(NFW_rot, Rphiz_test[0], Rphiz_test[2], phi=Rphiz_test[1])) < 1e-6, 'Wrapped and Internally rotated NFW potentials do not match when evaluated at the same point'
+    #make sure the offset works as intended
+    # triaxial NFW at x,y,z = [20.,0.,3.]
+    NFW_wrapped= potential.RotateAndTiltWrapperPotential(zvec=zvec, galaxy_pa=galaxy_pa, offset=[20.,0.,3.], pot=potential.TriaxialNFWPotential(amp=1.,b=0.7,c=0.5))
+    NFW_rot= potential.TriaxialNFWPotential(amp=1., zvec=zvec, pa=galaxy_pa,b=0.7,c=0.5)
+    assert (evaluatePotentials(NFW_wrapped, 0., 0., phi=0.)-evaluatePotentials(NFW_rot, 20., - 3., phi=numpy.pi)) < 1e-6, 'Wrapped + Offset and Internally rotated NFW potentials do not match when evaluated at the same point'
+    
+
+def test_integration_RotateAndTiltWrapper():
+    ## test a quick orbit integration to hit the C code (also test pure python)
+    #two potentials, one offset
+    offset = [3.,2.,1.]
+    mwpot = potential.MWPotential2014
+    mwpot_wrapped = potential.RotateAndTiltWrapperPotential(pot=potential.MWPotential2014, offset=offset)
+    #initialise orbit
+    ro = 8.
+    orb = orbit.Orbit(ro=ro)
+    #another, offset by the same as the potential
+    init = orb.vxvv[0]
+    R, vR, vT, z, vz, phi = init
+    x, y, z = coords.cyl_to_rect(R, phi, z)
+    vx, vy, vz = coords.cyl_to_rect_vec(vR, vT, vz, phi)
+    tx, ty, tz = x-offset[0], y-offset[1], z-offset[2]
+    tR, tphi, tz = coords.rect_to_cyl(tx, ty, tz)
+    tvR, tvT, tvz = coords.rect_to_cyl_vec(vx, vy, vz, tR, tphi, tz, cyl=True)
+    orb_t = orbit.Orbit([tR, tvR, tvT, tz, tvz, tphi], ro=ro)
+    #integrate
+    ts = numpy.linspace(0.,1.,1000)
+    orb.integrate(ts, pot=mwpot, method='dop853')
+    orb_t.integrate(ts, pot=mwpot_wrapped, method='dop853')
+    #translate other orbit to match first one:
+    orb_vxvv = orb_t.getOrbit()
+    R, vR, vT, z, vz, phi = orb_vxvv[:,0], orb_vxvv[:,1], orb_vxvv[:,2], orb_vxvv[:,3], orb_vxvv[:,4], orb_vxvv[:,5]
+    x, y, z = coords.cyl_to_rect(R, phi, z)
+    vx, vy, vz = coords.cyl_to_rect_vec(vR, vT, vz, phi)
+    tx, ty, tz = x+offset[0], y+offset[1], z+offset[2]
+    tR, tphi, tz = coords.rect_to_cyl(tx, ty, tz)
+    #check equal
+    Rphi = numpy.dstack([orb.R(ts), orb.z(ts)])[0]
+    Rphi_t = numpy.dstack([tR*ro,tz*ro])[0]
+    assert numpy.all(numpy.fabs(Rphi-Rphi_t) < 10.**-10), 'Pure python orbit integration in an offset potential does not work as expected'
+    #reinitialise orbits, just to be sure
+    orb = orbit.Orbit(ro=ro)
+    init = orb.vxvv[0]
+    R, vR, vT, z, vz, phi = init
+    offset = [3.,2.,1.]
+    x, y, z = coords.cyl_to_rect(R, phi, z)
+    vx, vy, vz = coords.cyl_to_rect_vec(vR, vT, vz, phi)
+    tx, ty, tz = x-offset[0], y-offset[1], z-offset[2]
+    tR, tphi, tz = coords.rect_to_cyl(tx, ty, tz)
+    tvR, tvT, tvz = coords.rect_to_cyl_vec(vx, vy, vz, tR, tphi, tz, cyl=True)
+    orb_t = orbit.Orbit([tR, tvR, tvT, tz, tvz, tphi], ro=ro)
+    #integrate, use C
+    orb.integrate(ts, pot=mwpot, method='dop853_c')
+    orb_t.integrate(ts, pot=mwpot_wrapped, method='dop853_c')
+    orb_vxvv = orb_t.getOrbit()
+    R, vR, vT, z, vz, phi = orb_vxvv[:,0], orb_vxvv[:,1], orb_vxvv[:,2], orb_vxvv[:,3], orb_vxvv[:,4], orb_vxvv[:,5]
+    x, y, z = coords.cyl_to_rect(R, phi, z)
+    vx, vy, vz = coords.cyl_to_rect_vec(vR, vT, vz, phi)
+    tx, ty, tz = x+offset[0], y+offset[1], z+offset[2]
+    tR, tphi, tz = coords.rect_to_cyl(tx, ty, tz)
+    #check equal
+    Rphi = numpy.dstack([orb.R(ts), orb.z(ts)])[0]
+    Rphi_t = numpy.dstack([tR*ro,tz*ro])[0]
+    assert numpy.all(numpy.fabs(Rphi-Rphi_t) < 10.**-10), 'C orbit integration in an offset potential does not work as expected'
     return None
+
 
 def test_vtermnegl_issue314():
     # Test related to issue 314: vterm for negative l
@@ -3903,8 +4077,8 @@ def test_NumericalPotentialDerivativesMixin():
                               -NumPot.Rforce(Rs[ii],Zs[jj],phi=phis[kk]))/Pot.Rforce(Rs[ii],Zs[jj],phi=phis[kk])) < tol, 'NumericalPotentialDerivativesMixin applied to {} Potential does not give the correct Rforce'.format(Pot.__class__.__name__)
                     assert numpy.fabs((Pot.zforce(Rs[ii],Zs[jj],phi=phis[kk])
                               -NumPot.zforce(Rs[ii],Zs[jj],phi=phis[kk]))/Pot.zforce(Rs[ii],Zs[jj],phi=phis[kk])**(Zs[jj] > 0.)) < tol, 'NumericalPotentialDerivativesMixin applied to {} Potential does not give the correct zforce'.format(Pot.__class__.__name__)
-                    assert numpy.fabs((Pot.phiforce(Rs[ii],Zs[jj],phi=phis[kk])
-                              -NumPot.phiforce(Rs[ii],Zs[jj],phi=phis[kk]))/Pot.phiforce(Rs[ii],Zs[jj],phi=phis[kk])**Pot.isNonAxi) < tol, 'NumericalPotentialDerivativesMixin applied to {} Potential does not give the correct phiforce'.format(Pot.__class__.__name__)
+                    assert numpy.fabs((Pot.phitorque(Rs[ii],Zs[jj],phi=phis[kk])
+                              -NumPot.phitorque(Rs[ii],Zs[jj],phi=phis[kk]))/Pot.phitorque(Rs[ii],Zs[jj],phi=phis[kk])**Pot.isNonAxi) < tol, 'NumericalPotentialDerivativesMixin applied to {} Potential does not give the correct phitorque'.format(Pot.__class__.__name__)
                     # Second derivatives
                     assert numpy.fabs((Pot.R2deriv(Rs[ii],Zs[jj],phi=phis[kk])
                               -NumPot.R2deriv(Rs[ii],Zs[jj],phi=phis[kk]))/Pot.R2deriv(Rs[ii],Zs[jj],phi=phis[kk])) < tol2, 'NumericalPotentialDerivativesMixin applied to {} Potential does not give the correct R2deriv'.format(Pot.__class__.__name__)
@@ -4134,6 +4308,179 @@ def test_isodisk_amplitude_issue400():
     assert numpy.fabs(dens_at_0-0.1) < 1e-7, 'Density at z=0 for IsothermalDiskPotential is not correct'
     return None
 
+def test_TimeDependentAmplitudeWrapperPotential_against_DehnenSmooth():
+    # Test that TimeDependentAmplitudeWrapperPotential acts the same as DehnenSmooth
+    # Test = LogPot + DehnenBar grown smoothly
+    # Both using the DehnenSmoothWrapper and the new TimeDependentAmplitudeWrapperPotential
+    from galpy.orbit import Orbit
+    lp= potential.LogarithmicHaloPotential()
+    dbp= potential.DehnenBarPotential(tform=-100000.,tsteady=1.)
+    dp= potential.DehnenSmoothWrapperPotential(pot=dbp)
+    tp= potential.TimeDependentAmplitudeWrapperPotential(pot=dbp,A=dp._smooth)
+    # Orbit of the Sun
+    o= Orbit()
+    ts= numpy.linspace(0.,-20.,1001)
+    o.integrate(ts,lp+dp)
+    ot= o()
+    ot.integrate(ts,lp+tp)
+    tol= 1e-10
+    assert numpy.amax(numpy.fabs(o.x(ts)-ot.x(ts))) <tol, 'Integrating an orbit in a growing DehnenSmoothWrapper does not agree between DehnenSmooth and TimeDependentWrapper'
+    assert numpy.amax(numpy.fabs(o.y(ts)-ot.y(ts))) <tol, 'Integrating an orbit in a growing DehnenSmoothWrapper does not agree between DehnenSmooth and TimeDependentWrapper'
+    assert numpy.amax(numpy.fabs(o.z(ts)-ot.z(ts))) <tol, 'Integrating an orbit in a growing DehnenSmoothWrapper does not agree between DehnenSmooth and TimeDependentWrapper'
+    assert numpy.amax(numpy.fabs(o.vx(ts)-ot.vx(ts))) <tol, 'Integrating an orbit in a growing DehnenSmoothWrapper does not agree between DehnenSmooth and TimeDependentWrapper'
+    assert numpy.amax(numpy.fabs(o.vy(ts)-ot.vy(ts))) <tol, 'Integrating an orbit in a growing DehnenSmoothWrapper does not agree between DehnenSmooth and TimeDependentWrapper'
+    assert numpy.amax(numpy.fabs(o.vz(ts)-ot.vz(ts))) <tol, 'Integrating an orbit in a growing DehnenSmoothWrapper does not agree between DehnenSmooth and TimeDependentWrapper'
+    return None
+
+def test_TimeDependentAmplitudeWrapperPotential_against_DehnenSmooth_2d():
+    # Test that TimeDependentAmplitudeWrapperPotential acts the same as DehnenSmooth
+    # Test = LogPot + DehnenBar grown smoothly
+    # Both using the DehnenSmoothWrapper and the new TimeDependentAmplitudeWrapperPotential
+    from galpy.orbit import Orbit
+    lp= potential.LogarithmicHaloPotential()
+    dbp= potential.DehnenBarPotential(tform=-100000.,tsteady=1.)
+    dp= potential.DehnenSmoothWrapperPotential(pot=dbp)
+    tp= potential.TimeDependentAmplitudeWrapperPotential(pot=dbp,A=dp._smooth)
+    # Orbit of the Sun
+    o= Orbit().toPlanar()
+    ts= numpy.linspace(0.,-20.,1001)
+    o.integrate(ts,lp+dp)
+    ot= o()
+    ot.integrate(ts,lp+tp)
+    tol= 1e-10
+    assert numpy.amax(numpy.fabs(o.x(ts)-ot.x(ts))) <tol, 'Integrating an orbit in a growing DehnenSmoothWrapper does not agree between DehnenSmooth and TimeDependentWrapper'
+    assert numpy.amax(numpy.fabs(o.y(ts)-ot.y(ts))) <tol, 'Integrating an orbit in a growing DehnenSmoothWrapper does not agree between DehnenSmooth and TimeDependentWrapper'
+    assert numpy.amax(numpy.fabs(o.vx(ts)-ot.vx(ts))) <tol, 'Integrating an orbit in a growing DehnenSmoothWrapper does not agree between DehnenSmooth and TimeDependentWrapper'
+    assert numpy.amax(numpy.fabs(o.vy(ts)-ot.vy(ts))) <tol, 'Integrating an orbit in a growing DehnenSmoothWrapper does not agree between DehnenSmooth and TimeDependentWrapper'
+    return None
+
+def test_TimeDependentAmplitudeWrapperPotential_against_DehnenSmooth_2d_dxdv():
+    # Test that TimeDependentAmplitudeWrapperPotential acts the same as DehnenSmooth
+    # Test = LogPot + DehnenBar grown smoothly
+    # Both using the DehnenSmoothWrapper and the new TimeDependentAmplitudeWrapperPotential
+    from galpy.orbit import Orbit
+    lp= potential.LogarithmicHaloPotential()
+    dbp= potential.DehnenBarPotential(tform=-100000.,tsteady=1.)
+    dp= potential.DehnenSmoothWrapperPotential(pot=dbp)
+    tp= potential.TimeDependentAmplitudeWrapperPotential(pot=dbp,A=dp._smooth)
+    # Orbit of the Sun
+    o= Orbit().toPlanar()
+    ts= numpy.linspace(0.,-20.,1001)
+    o.integrate_dxdv([1.,0.,0.,0.],ts,lp+dp,rectIn=True,rectOut=True)
+    ot= o()
+    ot.integrate_dxdv([1.,0.,0.,0.],ts,lp+tp,rectIn=True,rectOut=True)
+    tol= 1e-10
+    assert numpy.amax(numpy.fabs(o.getOrbit_dxdv()-ot.getOrbit_dxdv())) <tol, 'Integrating an orbit with dxdv in a growing DehnenSmoothWrapper does not agree between DehnenSmooth and TimeDependentWrapper'
+    return None
+
+def test_TimeDependentAmplitudeWrapperPotential_inputerrors():
+    # TypeError when A not supplied
+    lp= potential.LogarithmicHaloPotential()
+    with pytest.raises(TypeError,match="A= input to TimeDependentAmplitudeWrapperPotential should be a function"):
+        tp= TimeDependentAmplitudeWrapperPotential(pot=lp)
+    # TypeError when suppplying a function with no argument
+    with pytest.raises(TypeError,match="A= input to TimeDependentAmplitudeWrapperPotential should be a function that can be called with a single parameter"):
+        tp= TimeDependentAmplitudeWrapperPotential(pot=lp,A=lambda: 1.)
+    # TypeError when suppplying a function with more than 1 argument
+    with pytest.raises(TypeError,match="A= input to TimeDependentAmplitudeWrapperPotential should be a function that can be called with a single parameter"):
+        tp= TimeDependentAmplitudeWrapperPotential(pot=lp,A=lambda x,y: x+y)
+    # But having additional arguments have defaults should be allowed
+    tp= TimeDependentAmplitudeWrapperPotential(pot=lp,A=lambda x,y=1.: x+y)
+    # Return value should be a number
+    with pytest.raises(TypeError,match=r"A= function needs to return a number \(specifically, a numbers.Number\)"):
+        tp= TimeDependentAmplitudeWrapperPotential(pot=lp,A=lambda t: (t,t+1))
+    with pytest.raises(TypeError,match=r"A= function needs to return a number \(specifically, a numbers.Number\)"):
+        tp= TimeDependentAmplitudeWrapperPotential(pot=lp,A=lambda t: numpy.array([t]))        
+    return None
+
+def test_phiforce_deprecation():
+    # Test that phiforce is being deprecated correctly for phitorque
+    import warnings
+    # Check that we've removed phiforce in the correct version
+    from pkg_resources import parse_version
+    deprecation_version= parse_version('1.9')
+    from galpy import __version__ as galpy_version
+    galpy_version= parse_version(galpy_version)
+    should_be_removed= galpy_version >= deprecation_version
+    # Now test
+    lp= potential.LogarithmicHaloPotential()   
+    # Method
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always",FutureWarning)
+        try:
+            lp.phiforce(1.,0.1)
+        except AttributeError:
+            if not should_be_removed:
+                raise AssertionError('phiforce stopped working before it is supposed to have been removed')
+        else:
+            if should_be_removed:
+                raise AssertionError('phiforce not removed when it was supposed to be removed')
+        raisedWarning= False
+        for wa in w:
+            raisedWarning= (str(wa.message) == 'phiforce has been renamed phitorque, because it has always really been a torque (per unit mass); please switch to the new method name, because the old name will be removed in v1.9 and may be re-used for the actual phi force component')
+            if raisedWarning: break
+        assert raisedWarning, "phiforce deprecation did not raise the expected warning"
+    # Function
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always",FutureWarning)
+        try:
+            potential.evaluatephiforces(lp,1.,0.1)
+        except AttributeError:
+            if not should_be_removed:
+                raise AssertionError('phiforce stopped working before it is supposed to have been removed')
+        else:
+            if should_be_removed:
+                raise AssertionError('phiforce not removed when it was supposed to be removed')
+        raisedWarning= False
+        for wa in w:
+            raisedWarning= (str(wa.message) == 'evaluatephiforces has been renamed evaluatephitorques, because it has always really been a torque (per unit mass); please switch to the new method name, because the old name will be removed in v1.9 and may be re-used for the actual phi force component')
+            if raisedWarning: break
+        assert raisedWarning, "phiforce deprecation did not raise the expected warning"
+
+def test_phiforce_deprecation_2d():
+    # Test that phiforce is being deprecated correctly for phitorque
+    import warnings
+    # Check that we've removed phiforce in the correct version
+    from pkg_resources import parse_version
+    deprecation_version= parse_version('1.9')
+    from galpy import __version__ as galpy_version
+    galpy_version= parse_version(galpy_version)
+    should_be_removed= galpy_version >= deprecation_version
+    # Now test
+    lp= potential.LogarithmicHaloPotential().toPlanar()  
+    # Method
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always",FutureWarning)
+        try:
+            lp.phiforce(1.,0.1)
+        except AttributeError:
+            if not should_be_removed:
+                raise AssertionError('phiforce stopped working before it is supposed to have been removed')
+        else:
+            if should_be_removed:
+                raise AssertionError('phiforce not removed when it was supposed to be removed')
+        raisedWarning= False
+        for wa in w:
+            raisedWarning= (str(wa.message) == 'phiforce has been renamed phitorque, because it has always really been a torque (per unit mass); please switch to the new method name, because the old name will be removed in v1.9 and may be re-used for the actual phi force component')
+            if raisedWarning: break
+        assert raisedWarning, "phiforce deprecation did not raise the expected warning"
+    # Function
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always",FutureWarning)
+        try:
+            potential.evaluateplanarphiforces(lp,1.,0.1)
+        except AttributeError:
+            if not should_be_removed:
+                raise AssertionError('phiforce stopped working before it is supposed to have been removed')
+        else:
+            if should_be_removed:
+                raise AssertionError('phiforce not removed when it was supposed to be removed')
+        raisedWarning= False
+        for wa in w:
+            raisedWarning= (str(wa.message) == 'evaluateplanarphiforces has been renamed evaluateplanarphitorques, because it has always really been a torque (per unit mass); please switch to the new method name, because the old name will be removed in v1.9 and may be re-used for the actual phi force component')
+            if raisedWarning: break
+        assert raisedWarning, "phiforce deprecation did not raise the expected warning"
+
 def test_plotting():
     import tempfile
     #Some tests of the plotting routines, to make sure they don't fail
@@ -4359,7 +4706,7 @@ from galpy.potential import TwoPowerSphericalPotential, \
     TriaxialHernquistPotential, TriaxialNFWPotential, TriaxialJaffePotential, \
     TwoPowerTriaxialPotential, BurkertPotential, SoftenedNeedleBarPotential, \
     FerrersPotential, DiskSCFPotential, SpiralArmsPotential, \
-    LogarithmicHaloPotential
+    LogarithmicHaloPotential, NullPotential
 class mockSphericalSoftenedNeedleBarPotential(SoftenedNeedleBarPotential):
     def __init__(self):
         SoftenedNeedleBarPotential.__init__(self,amp=1.,a=0.000001,b=0.,
@@ -4515,6 +4862,9 @@ class JaffeTwoPowerTriaxialPotential(TwoPowerTriaxialPotential):
         TwoPowerTriaxialPotential.__init__(self,amp=1.,a=5.,alpha=2.,beta=4.,
                                            b=1.3,c=1.8)
         return None
+class testNullPotential(NullPotential):
+    def normalize(self,norm):
+        pass
 # Other DiskSCFPotentials
 class sech2DiskSCFPotential(DiskSCFPotential):
     def __init__(self):
@@ -4753,12 +5103,12 @@ class mockInterpSphericalPotentialwForce(potential.interpSphericalPotential):
                                                     rgrid=numpy.linspace(0.,1.1,201))
 #Class to test potentials given as lists, st we can use their methods as class.
 from galpy.potential import Potential, \
-    evaluatePotentials, evaluateRforces, evaluatezforces, evaluatephiforces, \
+    evaluatePotentials, evaluateRforces, evaluatezforces, evaluatephitorques, \
     evaluateR2derivs, evaluatez2derivs, evaluateRzderivs, \
     evaluateDensities, _isNonAxi, evaluateSurfaceDensities, \
     evaluatephizderivs
 from galpy.potential import planarPotential, \
-    evaluateplanarPotentials, evaluateplanarRforces, evaluateplanarphiforces, \
+    evaluateplanarPotentials, evaluateplanarRforces, evaluateplanarphitorques, \
     evaluateplanarR2derivs
 class testMWPotential(Potential):
     """Initialize with potential in natural units"""
@@ -4772,8 +5122,8 @@ class testMWPotential(Potential):
                                   dR=dR,dphi=dphi)
     def _Rforce(self,R,z,phi=0.,t=0.):
         return evaluateRforces(self._potlist,R,z,phi=phi,t=t)
-    def _phiforce(self,R,z,phi=0.,t=0.):
-        return evaluatephiforces(self._potlist,R,z,phi=phi,t=t)
+    def _phitorque(self,R,z,phi=0.,t=0.):
+        return evaluatephitorques(self._potlist,R,z,phi=phi,t=t)
     def _zforce(self,R,z,phi=0.,t=0.):
         return evaluatezforces(self._potlist,R,z,phi=phi,t=t)
     def _R2deriv(self,R,z,phi=0.,t=0.):
@@ -4814,8 +5164,8 @@ class testplanarMWPotential(planarPotential):
         return evaluateplanarPotentials(self._potlist,R,phi=phi,t=t)
     def _Rforce(self,R,phi=0.,t=0.):
         return evaluateplanarRforces(self._potlist,R,phi=phi,t=t)
-    def _phiforce(self,R,phi=0.,t=0.):
-        return evaluateplanarphiforces(self._potlist,R,phi=phi,t=t)
+    def _phitorque(self,R,phi=0.,t=0.):
+        return evaluateplanarphitorques(self._potlist,R,phi=phi,t=t)
     def _R2deriv(self,R,phi=0.,t=0.):
         return evaluateplanarR2derivs(self._potlist,R,phi=phi,t=t)
     def _phi2deriv(self,R,phi=0.,t=0.):
@@ -4998,7 +5348,7 @@ class mockMovingObjectLongIntPotential(mockMovingObjectPotential):
 from galpy.potential import DehnenSmoothWrapperPotential, \
     SolidBodyRotationWrapperPotential, CorotatingRotationWrapperPotential, \
     GaussianAmplitudeWrapperPotential, AdiabaticContractionWrapperPotential, \
-    RotateAndTiltWrapperPotential
+    RotateAndTiltWrapperPotential, TimeDependentAmplitudeWrapperPotential
 from galpy.potential.WrapperPotential import parentWrapperPotential
 class DehnenSmoothDehnenBarPotential(DehnenSmoothWrapperPotential):
     # This wrapped potential should be the same as the default DehnenBar
@@ -5253,3 +5603,44 @@ class mockRotatedAndTiltedTriaxialLogHaloPotentialwInclination(testMWPotential):
                                               sky_pa=None)])
     def OmegaP(self):
         return 0.
+class mockRotatedTiltedOffsetMWP14WrapperPotential(testMWPotential):
+    def __init__(self):
+        testMWPotential.__init__(self,potlist=[\
+                RotateAndTiltWrapperPotential(pot=potential.MWPotential2014,
+                                              zvec=[numpy.sqrt(1/3.),
+                                                    numpy.sqrt(1/3.),
+                                                    numpy.sqrt(1/3.)],
+                                              galaxy_pa=0.4,
+                                              offset=[1.,1.,1.]),])
+    def OmegaP(self):
+        return 0.
+class mockOffsetMWP14WrapperPotential(testMWPotential):
+    def __init__(self):
+        testMWPotential.__init__(self,potlist=[\
+                RotateAndTiltWrapperPotential(pot=potential.MWPotential2014,
+                                              zvec=None,
+                                              galaxy_pa=None,
+                                              offset=[1.,1.,1.]),])
+    def OmegaP(self):
+        return 0.
+#TimeDependentAmplitudeWrapperPotential
+class mockTimeDependentAmplitudeWrapperPotential(TimeDependentAmplitudeWrapperPotential):
+    # Need to use __new__ because new Wrappers are created using __new__
+    def __new__(cls,*args,**kwargs):
+        if kwargs.get('_init',False):
+            return parentWrapperPotential.__new__(cls,*args,**kwargs)
+        dpn= DehnenBarPotential(tform=-100.,tsteady=1.) #on after t=-99
+        dps= DehnenSmoothWrapperPotential(pot=dpn,\
+                               tform=-4.*2.*numpy.pi/dpn.OmegaP())
+        return DehnenSmoothWrapperPotential.__new__(cls,amp=1.,pot=dpn,\
+                               A=dps._smooth)
+# A TimeDependentAmplitudeWrapperPotential version of LogarithmicHaloPotential for simple aAtest
+class mockSmoothedLogarithmicHaloPotentialwTimeDependentAmplitudeWrapperPotential(TimeDependentAmplitudeWrapperPotential):
+    def __new__(cls,*args,**kwargs):
+        if kwargs.get('_init',False):
+            return parentWrapperPotential.__new__(cls,*args,**kwargs)
+        dps= DehnenSmoothWrapperPotential(pot=potential.LogarithmicHaloPotential(normalize=1.),
+            tform=-1.,tsteady=0.5)
+        return TimeDependentAmplitudeWrapperPotential.__new__(cls,amp=1.,
+            pot=potential.LogarithmicHaloPotential(normalize=1.),
+            A=dps._smooth)

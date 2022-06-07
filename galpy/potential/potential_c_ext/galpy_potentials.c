@@ -14,6 +14,7 @@ void init_potentialArgs(int npot, struct potentialArg * potentialArgs){
     (potentialArgs+ii)->wrappedPotentialArg= NULL;
     (potentialArgs+ii)->spline1d= NULL;
     (potentialArgs+ii)->acc1d= NULL;
+    (potentialArgs+ii)->tfuncs= NULL;
   }
 }
 void free_potentialArgs(int npot, struct potentialArg * potentialArgs){
@@ -100,21 +101,21 @@ double (calczforce)(double R, double Z, double phi, double t,
   potentialArgs-= nargs;
   return zforce;
 }
-double (calcPhiforce)(double R, double Z, double phi, double t, 
+double (calcphitorque)(double R, double Z, double phi, double t, 
 		      int nargs, struct potentialArg * potentialArgs,
 		      double vR, double vT, double vZ){
   int ii;
-  double phiforce= 0.;
+  double phitorque= 0.;
   for (ii=0; ii < nargs; ii++){
     if ( potentialArgs->requiresVelocity ) 
-      phiforce+= potentialArgs->phiforceVelocity(R,Z,phi,t,potentialArgs,
+      phitorque+= potentialArgs->phitorqueVelocity(R,Z,phi,t,potentialArgs,
 						 vR,vT,vZ);
     else
-      phiforce+= potentialArgs->phiforce(R,Z,phi,t,potentialArgs);
+      phitorque+= potentialArgs->phitorque(R,Z,phi,t,potentialArgs);
     potentialArgs++;
   }
   potentialArgs-= nargs;
-  return phiforce;
+  return phitorque;
 }
 double calcPlanarRforce(double R, double phi, double t, 
 			int nargs, struct potentialArg * potentialArgs){
@@ -128,17 +129,17 @@ double calcPlanarRforce(double R, double phi, double t,
   potentialArgs-= nargs;
   return Rforce;
 }
-double calcPlanarphiforce(double R, double phi, double t, 
+double calcPlanarphitorque(double R, double phi, double t, 
 			  int nargs, struct potentialArg * potentialArgs){
   int ii;
-  double phiforce= 0.;
+  double phitorque= 0.;
   for (ii=0; ii < nargs; ii++){
-    phiforce+= potentialArgs->planarphiforce(R,phi,t,
+    phitorque+= potentialArgs->planarphitorque(R,phi,t,
 					     potentialArgs);
     potentialArgs++;
   }
   potentialArgs-= nargs;
-  return phiforce;
+  return phitorque;
 }
 
 // LCOV_EXCL_START
@@ -238,4 +239,23 @@ double calcDensity(double R, double Z, double phi, double t,
   }
   potentialArgs-= nargs;
   return dens;
+}
+void rotate(double *x, double *y, double *z, double *rot){
+  double xp,yp,zp;
+  xp= *(rot)   * *x + *(rot+1) * *y + *(rot+2) * *z;
+  yp= *(rot+3) * *x + *(rot+4) * *y + *(rot+5) * *z;
+  zp= *(rot+6) * *x + *(rot+7) * *y + *(rot+8) * *z;
+  *x= xp;
+  *y= yp;
+  *z= zp;
+}
+void rotate_force(double *Fx, double *Fy, double *Fz,
+				double *rot){
+  double Fxp,Fyp,Fzp;
+  Fxp= *(rot)   * *Fx + *(rot+3) * *Fy + *(rot+6) * *Fz;
+  Fyp= *(rot+1) * *Fx + *(rot+4) * *Fy + *(rot+7) * *Fz;
+  Fzp= *(rot+2) * *Fx + *(rot+5) * *Fy + *(rot+8) * *Fz;
+  *Fx= Fxp;
+  *Fy= Fyp;
+  *Fz= Fzp;
 }

@@ -1030,8 +1030,10 @@ def test_isotropic_eddington_dehnencore_in_nfw_energyoutofbounds():
 # add your potential to the tests here
 def test_eddington_differentpotentials_dens_directint():
     # Combinations of potentials and betas
-    pots= [potential.PowerSphericalPotential(amp=1.3,alpha=1.9)]
-    tols= [1e-3]
+    pots= [potential.PowerSphericalPotential(amp=1.3,alpha=1.9),
+           potential.PlummerPotential(amp=2.3,b=1.3),
+           potential.PowerSphericalPotentialwCutoff(amp=1.3,alpha=1.9,rc=1.2)]
+    tols= [1e-3 for pot in pots]
     for pot,tol in zip(pots,tols):
         dfh= eddingtondf(pot=pot)
         check_dens_directint(dfh,pot,tol,
@@ -1698,9 +1700,11 @@ def test_constantbeta_differentpotentials_dens_directint():
     if WIN32: return None # skip on appveyor, because no JAX
     # Combinations of potentials and betas
     pots= [potential.HernquistPotential(amp=2.3,a=1.3),
-           potential.PowerSphericalPotential(amp=1.3,alpha=1.9)]
-    twobetas= [-1,-1]
-    tols= [1e-3,1e-3]
+           potential.PowerSphericalPotential(amp=1.3,alpha=1.9),
+           potential.PlummerPotential(amp=2.3,b=1.3),
+           potential.PowerSphericalPotentialwCutoff(amp=1.3,alpha=1.9,rc=1.2)]
+    twobetas= [-1 for pot in pots]
+    tols= [1e-3 for pot in pots]
     for pot,twobeta,tol in zip(pots,twobetas,tols):
         dfh= constantbetadf(pot=pot,twobeta=twobeta)
         check_dens_directint(dfh,pot,tol,

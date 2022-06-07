@@ -1,6 +1,6 @@
 from ..util.conversion import physical_compatible
 from ..util import config, conversion
-class df(object):
+class df:
     """Top-level class for DF classes"""
     def __init__(self,ro=None,vo=None):
         """

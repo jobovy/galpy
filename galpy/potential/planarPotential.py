@@ -1,8 +1,7 @@
-from __future__ import division, print_function
-
 import os
 import copy
 import pickle
+import warnings
 import numpy
 from scipy import integrate
 from ..util import plot, config, conversion
@@ -12,8 +11,8 @@ from .Potential import Potential, PotentialError, lindbladR, flatten
 from .DissipativeForce import _isDissipative
 from .plotRotcurve import plotRotcurve
 from .plotEscapecurve import _INF, plotEscapecurve
-class planarPotential(object):
-    """Class representing 2D (R,\phi) potentials"""
+class planarPotential:
+    r"""Class representing 2D (R,\phi) potentials"""
     def __init__(self,amp=1.,ro=None,vo=None):
         self._amp= amp
         self.dim= 2
@@ -220,7 +219,7 @@ class planarPotential(object):
         elif dR == 1 and dphi == 0:
             return -self.Rforce(R,phi=phi,t=t,use_physical=False)
         elif dR == 0 and dphi == 1:
-            return -self.phiforce(R,phi=phi,t=t,use_physical=False)
+            return -self.phitorque(R,phi=phi,t=t,use_physical=False)
         elif dR == 2 and dphi == 0:
             return self.R2deriv(R,phi=phi,t=t,use_physical=False)
         elif dR == 0 and dphi == 2:
@@ -233,7 +232,7 @@ class planarPotential(object):
     @potential_physical_input
     @physical_conversion('force',pop=True)
     def Rforce(self,R,phi=0.,t=0.):
-        """
+        r"""
         NAME:
 
            Rforce
@@ -268,17 +267,21 @@ class planarPotential(object):
         except AttributeError: #pragma: no cover
             raise PotentialError("'_Rforce' function not implemented for this potential")
 
+    def phiforce(self,R,phi=0.,t=0.):
+       warnings.warn('phiforce has been renamed phitorque, because it has always really been a torque (per unit mass); please switch to the new method name, because the old name will be removed in v1.9 and may be re-used for the actual phi force component',FutureWarning)
+       return self.phitorque(R,phi=phi,t=t)
+    
     @potential_physical_input
     @physical_conversion('energy',pop=True)
-    def phiforce(self,R,phi=0.,t=0.):
+    def phitorque(self,R,phi=0.,t=0.):
         """
         NAME:
 
-           phiforce
+           phitorque
 
         PURPOSE:
 
-           evaluate the phi force = - d Phi / d phi (note that this is a torque, not a force!)
+           evaluate the azimuthal torque = - d Phi / d phi
 
         INPUT:
 
@@ -290,21 +293,21 @@ class planarPotential(object):
 
         OUTPUT:
 
-           F_phi(R,(phi,t)))
+           tau_phi(R,(phi,t)))
 
         HISTORY:
 
            2010-07-13 - Written - Bovy (NYU)
 
         """
-        return self._phiforce_nodecorator(R,phi=phi,t=t)
+        return self._phitorque_nodecorator(R,phi=phi,t=t)
        
-    def _phiforce_nodecorator(self,R,phi=0.,t=0.):
+    def _phitorque_nodecorator(self,R,phi=0.,t=0.):
         # Separate, so it can be used during orbit integration
         try:
-            return self._amp*self._phiforce(R,phi=phi,t=t)
+            return self._amp*self._phitorque(R,phi=phi,t=t)
         except AttributeError: #pragma: no cover
-            raise PotentialError("'_phiforce' function not implemented for this potential")
+            raise PotentialError("'_phitorque' function not implemented for this potential")
 
     @potential_physical_input
     @physical_conversion('forcederivative',pop=True)
@@ -433,7 +436,7 @@ class planarAxiPotential(planarPotential):
         self.isNonAxi= False
         return None
     
-    def _phiforce(self,R,phi=0.,t=0.):
+    def _phitorque(self,R,phi=0.,t=0.):
         return 0.
 
     def _phi2deriv(self,R,phi=0.,t=0.): #pragma: no cover
@@ -727,7 +730,7 @@ class planarPotentialFromRZPotential(planarAxiPotential):
         return None
 
     def _evaluate(self,R,phi=0.,t=0.):
-        """
+        r"""
         NAME:
            _evaluate
         PURPOSE:
@@ -744,7 +747,7 @@ class planarPotentialFromRZPotential(planarAxiPotential):
         return self._Pot(R,0.,t=t,use_physical=False)
             
     def _Rforce(self,R,phi=0.,t=0.):
-        """
+        r"""
         NAME:
            _Rforce
         PURPOSE:
@@ -847,7 +850,7 @@ class planarPotentialFromFullPotential(planarPotential):
         return None
 
     def _evaluate(self,R,phi=0.,t=0.):
-        """
+        r"""
         NAME:
            _evaluate
         PURPOSE:
@@ -864,7 +867,7 @@ class planarPotentialFromFullPotential(planarPotential):
         return self._Pot(R,0.,phi=phi,t=t,use_physical=False)
             
     def _Rforce(self,R,phi=0.,t=0.):
-        """
+        r"""
         NAME:
            _Rforce
         PURPOSE:
@@ -880,22 +883,22 @@ class planarPotentialFromFullPotential(planarPotential):
         """
         return self._Pot.Rforce(R,0.,phi=phi,t=t,use_physical=False)
 
-    def _phiforce(self,R,phi=0.,t=0.):
-        """
+    def _phitorque(self,R,phi=0.,t=0.):
+        r"""
         NAME:
-           _phiforce
+           _phitorque
         PURPOSE:
-           evaluate the azimuthal force
+           evaluate the azimuthal torque
         INPUT:
            R
            phi
            t
         OUTPUT:
-          F_phi(R(,\phi,t))
+          tau_phi(R(,\phi,t))
         HISTORY:
            2016-06-02 - Written - Bovy (UofT)
         """
-        return self._Pot.phiforce(R,0.,phi=phi,t=t,use_physical=False)
+        return self._Pot.phitorque(R,0.,phi=phi,t=t,use_physical=False)
 
     def _R2deriv(self,R,phi=0.,t=0.):
         """
@@ -1124,17 +1127,21 @@ def _evaluateplanarRforces(Pot,R,phi=None,t=0.):
     else: #pragma: no cover 
         raise PotentialError("Input to 'evaluatePotentials' is neither a Potential-instance or a list of such instances")
 
+def evaluateplanarphiforces(Pot,R,phi=None,t=0.):
+   warnings.warn('evaluateplanarphiforces has been renamed evaluateplanarphitorques, because it has always really been a torque (per unit mass); please switch to the new method name, because the old name will be removed in v1.9 and may be re-used for the actual phi force component',FutureWarning)
+   return evaluateplanarphitorques(Pot,R,phi=phi,t=t)
+
 @potential_physical_input
 @physical_conversion('energy',pop=True)
-def evaluateplanarphiforces(Pot,R,phi=None,t=0.):
+def evaluateplanarphitorques(Pot,R,phi=None,t=0.):
     """
     NAME:
 
-       evaluateplanarphiforces
+       evaluateplanarphitorques
 
     PURPOSE:
 
-       evaluate the phiforce of a (list of) planarPotential instance(s)
+       evaluate the phitorque of a (list of) planarPotential instance(s)
 
     INPUT:
 
@@ -1148,16 +1155,16 @@ def evaluateplanarphiforces(Pot,R,phi=None,t=0.):
 
     OUTPUT:
 
-       F_phi(R(,phi,t))
+       tau_phi(R(,phi,t))
 
     HISTORY:
 
        2010-07-13 - Written - Bovy (NYU)
 
     """
-    return _evaluateplanarphiforces(Pot,R,phi=phi,t=t)
+    return _evaluateplanarphitorques(Pot,R,phi=phi,t=t)
 
-def _evaluateplanarphiforces(Pot,R,phi=None,t=0.):
+def _evaluateplanarphitorques(Pot,R,phi=None,t=0.):
     from .Potential import _isNonAxi
     isList= isinstance(Pot,list)
     nonAxi= _isNonAxi(Pot)
@@ -1168,15 +1175,15 @@ def _evaluateplanarphiforces(Pot,R,phi=None,t=0.):
         sum= 0.
         for pot in Pot:
             if nonAxi:
-                sum+= pot._phiforce_nodecorator(R,phi=phi,t=t)
+                sum+= pot._phitorque_nodecorator(R,phi=phi,t=t)
             else:
-                sum+= pot._phiforce_nodecorator(R,t=t)
+                sum+= pot._phitorque_nodecorator(R,t=t)
         return sum
     elif isinstance(Pot,planarPotential):
         if nonAxi:
-            return Pot._phiforce_nodecorator(R,phi=phi,t=t)
+            return Pot._phitorque_nodecorator(R,phi=phi,t=t)
         else:
-            return Pot._phiforce_nodecorator(R,t=t)
+            return Pot._phitorque_nodecorator(R,t=t)
     else: #pragma: no cover 
         raise PotentialError("Input to 'evaluatePotentials' is neither a Potential-instance or a list of such instances")
 
@@ -1274,7 +1281,7 @@ def LinShuReductionFactor(axiPot,R,sigmar,nonaxiPot=None,
     axiPot= flatten(axiPot)
     from ..potential import omegac, epifreq
     if nonaxiPot is None and (OmegaP is None or k is None or m is None):
-        raise IOError("Need to specify either nonaxiPot= or m=, k=, OmegaP= for LinShuReductionFactor")
+        raise OSError("Need to specify either nonaxiPot= or m=, k=, OmegaP= for LinShuReductionFactor")
     elif not nonaxiPot is None:
         OmegaP= nonaxiPot.OmegaP()
         k= nonaxiPot.wavenumber(R)

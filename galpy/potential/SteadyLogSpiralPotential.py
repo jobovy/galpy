@@ -10,10 +10,10 @@ class SteadyLogSpiralPotential(planarPotential):
     
     .. math::
 
-        \\Phi(R,\\phi) = \\frac{\\mathrm{amp}\\times A}{\\alpha}\\,\\cos\\left(\\alpha\,\ln R - m\\,(\\phi-\\Omega_s\\,t-\\gamma)\\right)
+        \\Phi(R,\\phi) = \\frac{\\mathrm{amp}\\times A}{\\alpha}\\,\\cos\\left(\\alpha\\,\\ln R - m\\,(\\phi-\\Omega_s\\,t-\\gamma)\\right)
 
 
-    Can be grown in a similar way as the DehnenBarPotential, but using :math:`T_s = 2\pi/\Omega_s` to normalize :math:`t_{\mathrm{form}}` and :math:`T_{\mathrm{steady}}`.
+    Can be grown in a similar way as the DehnenBarPotential, but using :math:`T_s = 2\\pi/\\Omega_s` to normalize :math:`t_{\\mathrm{form}}` and :math:`T_{\\mathrm{steady}}`.
 
     """
     def __init__(self,amp=1.,omegas=0.65,A=-0.035,
@@ -145,18 +145,18 @@ class SteadyLogSpiralPotential(planarPotential):
                                          -self._m*(phi-self._omegas*t
                                                    -self._gamma))
        
-    def _phiforce(self,R,phi=0.,t=0.):
+    def _phitorque(self,R,phi=0.,t=0.):
         """
         NAME:
-           _phiforce
+           _phitorque
         PURPOSE:
-           evaluate the azimuthal force for this potential
+           evaluate the azimuthal torque for this potential
         INPUT:
            R - Galactocentric cylindrical radius
            phi - azimuth
            t - time
         OUTPUT:
-           the azimuthal force
+           the azimuthal torque
         HISTORY:
            2010-11-24 - Written - Bovy (NYU)
         """

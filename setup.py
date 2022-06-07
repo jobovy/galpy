@@ -20,7 +20,7 @@ previous_line= ''
 with open('README.md') as dfile:
     for line in dfile:
         if not 'image' in line and not 'target' in line \
-                and not 'DETAILED' in line and not '**master**' in line \
+                and not 'DETAILED' in line and not '**main**' in line \
                 and not '**development' in line \
                 and not 'DETAILED' in  previous_line:
             long_description+= line
@@ -252,7 +252,7 @@ class BuildExt(build_ext):
     
 setup(cmdclass=dict(build_ext=BuildExt), # this to allow compiler check above
       name='galpy',
-      version='1.8.0.dev0',
+      version='1.7.3.dev0',
       description='Galactic Dynamics in python',
       author='Jo Bovy',
       author_email='bovy@astro.utoronto.ca',
@@ -268,8 +268,7 @@ setup(cmdclass=dict(build_ext=BuildExt), # this to allow compiler check above
                     'galpy/df':['data/*.sav'],
                     "": ["README.md","README.dev","LICENSE","AUTHORS.rst"]},
       include_package_data=True,
-      install_requires=['numpy>=1.7','scipy','matplotlib','pytest','six',
-                        'future','setuptools'],
+      install_requires=['numpy>=1.7','scipy','matplotlib'],
       ext_modules=ext_modules if not no_compiler and not no_ext else None,
       classifiers=[
         "Development Status :: 6 - Mature",

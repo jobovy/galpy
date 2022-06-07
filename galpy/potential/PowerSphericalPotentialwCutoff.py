@@ -15,7 +15,7 @@ class PowerSphericalPotentialwCutoff(Potential):
 
     .. math::
 
-        \\rho(r) = \\mathrm{amp}\,\\left(\\frac{r_1}{r}\\right)^\\alpha\\,\\exp\\left(-(r/rc)^2\\right)
+        \\rho(r) = \\mathrm{amp}\\,\\left(\\frac{r_1}{r}\\right)^\\alpha\\,\\exp\\left(-(r/rc)^2\\right)
 
     """
     def __init__(self,amp=1.,alpha=1.,rc=1.,normalize=False,r1=1.,
@@ -194,6 +194,83 @@ class PowerSphericalPotentialwCutoff(Potential):
         return R*z*(4.*numpy.pi*r**(-2.-self.alpha)*numpy.exp(-(r/self.rc)**2.)
                     -3.*self._mass(r)/r**5.)
 
+    def _rforce_jax(self,r):
+        """
+        NAME:
+           _rforce_jax
+        PURPOSE:
+           evaluate the spherical radial force for this potential using JAX; use incomplete gamma implementation rather than hypergeometric, because JAX doesn't have the hypergeometric functions currently
+        INPUT:
+           r - Galactocentric spherical radius
+        OUTPUT:
+           the radial force
+        HISTORY:
+           2022-05-10 - Written - Bovy (UofT)
+        """
+        try:
+            from jax.scipy import special
+        except ImportError: # pragma: no cover
+            raise ImportError("Making use of the _rforce_jax function requires the google/jax library")       
+        return -self._amp*2.*numpy.pi*self.rc**(3.-self.alpha)\
+            *special.gammainc(1.5-0.5*self.alpha,(r/self.rc)**2.)\
+            *numpy.exp(special.gammaln(1.5-0.5*self.alpha))/r**2
+     
+    def _ddensdr(self,r,t=0.):
+        """
+        NAME:
+           _ddensdr
+        PURPOSE:
+            evaluate the radial density derivative for this potential
+        INPUT:
+           r - spherical radius
+           t= time
+        OUTPUT:
+           the density derivative
+        HISTORY:
+           2021-12-15 - Written - Lane (UofT)
+        """
+        return -self._amp*r**(-1.-self.alpha)*numpy.exp(-(r/self.rc)**2.)\
+            *(2.*r**2./self.rc**2.+self.alpha)
+
+    def _d2densdr2(self,r,t=0.):
+        """
+        NAME:
+           _d2densdr2
+        PURPOSE:
+           evaluate the second radial density derivative for this potential
+        INPUT:
+           r - spherical radius
+           t= time
+        OUTPUT:
+           the 2nd density derivative
+        HISTORY:
+           2021-12-15 - Written - Lane (UofT)
+        """
+        return self._amp*r**(-2.-self.alpha)*numpy.exp(-(r/self.rc)**2)\
+            *(self.alpha**2.+self.alpha+4*self.alpha*r**2./self.rc**2.\
+            -2.*r**2./self.rc**2.+4.*r**4./self.rc**4.)
+
+    def _ddenstwobetadr(self,r,beta=0):
+        """
+        NAME:
+           _ddenstwobetadr
+        PURPOSE:
+           evaluate the radial density derivative x r^(2beta) for this potential
+        INPUT:
+           r - spherical radius
+           beta= (0)
+        OUTPUT:
+           d (rho x r^{2beta} ) / d r
+        HISTORY:
+           2021-03-15 - Written - Lane (UofT)
+        """
+        try:
+            import jax.numpy as jnp
+        except ImportError: # pragma: no cover
+            raise ImportError("Making use of _rforce_jax function requires the google/jax library")
+        return -self._amp*jnp.exp(-(r/self.rc)**2.)/r**(self.alpha-2.*beta)\
+                         *((self.alpha-2.*beta)/r+2.*r/self.rc**2.)
+
     def _dens(self,R,z,phi=0.,t=0.):
         """
         NAME:
@@ -261,4 +338,4 @@ class PowerSphericalPotentialwCutoff(Potential):
 
         """
         ampl= self._amp*vo**2.*ro**(self.alpha-2.)
-        return "0,%s,%s,%s" % (ampl,self.alpha,self.rc*ro)
+        return "0,{},{},{}".format(ampl,self.alpha,self.rc*ro)

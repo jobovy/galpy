@@ -93,18 +93,18 @@ class quasiisothermaldf(df):
         self._maxVT_hash= None
         self._maxVT_ip= None
         if pot is None:
-            raise IOError("pot= must be set")
+            raise OSError("pot= must be set")
         self._pot= flatten_potential(pot)
         if aA is None:
-            raise IOError("aA= must be set")
+            raise OSError("aA= must be set")
         self._aA= aA
         if not self._aA._pot == self._pot:
             if not isinstance(self._aA,actionAngleIsochrone):
-                raise IOError("Potential in aA does not appear to be the same as given potential pot")
+                raise OSError("Potential in aA does not appear to be the same as given potential pot")
             elif isinstance(self._pot,IsochronePotential) and \
                     not self._aA.b == self._pot.b and \
                     not self._aA.amp == self._pot._amp:
-                raise IOError("Potential in aA does not appear to be the same as given potential pot")
+                raise OSError("Potential in aA does not appear to be the same as given potential pot")
         self._check_consistent_units()
         self._cutcounter= cutcounter
         if _precomputerg:
@@ -443,7 +443,7 @@ class quasiisothermaldf(df):
     @physical_conversion('numbersurfacedensity',pop=True)
     def surfacemass_z(self,R,nz=7,zmax=1.,fixed_quad=True,fixed_order=8,
                       **kwargs):
-        """
+        r"""
         NAME:
 
            surfacemass_z

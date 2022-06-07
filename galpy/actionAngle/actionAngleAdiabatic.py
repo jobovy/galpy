@@ -55,7 +55,7 @@ class actionAngleAdiabatic(actionAngle):
         actionAngle.__init__(self,
                              ro=kwargs.get('ro',None),vo=kwargs.get('vo',None))
         if not 'pot' in kwargs: #pragma: no cover
-            raise IOError("Must specify pot= for actionAngleAdiabatic")
+            raise OSError("Must specify pot= for actionAngleAdiabatic")
         self._pot= flatten_potential(kwargs['pot'])
         if self._pot == MWPotential:
             warnings.warn("Use of MWPotential as a Milky-Way-like potential is deprecated; galpy.potential.MWPotential2014, a potential fit to a large variety of dynamical constraints (see Bovy 2015), is the preferred Milky-Way-like potential in galpy",
@@ -117,7 +117,7 @@ class actionAngleAdiabatic(actionAngle):
             z= numpy.array([z])
             vz= numpy.array([vz])
         if ((self._c and not ('c' in kwargs and not kwargs['c']))\
-                or (ext_loaded and (('c' in kwargs and kwargs['c'])))) \
+                or (ext_loaded and ('c' in kwargs and kwargs['c']))) \
                 and _check_c(self._pot):
             Lz= R*vT
             jr, jz, err= actionAngleAdiabatic_c.actionAngleAdiabatic_c(\
@@ -131,9 +131,9 @@ class actionAngleAdiabatic(actionAngle):
                 warnings.warn("C module not used because potential does not have a C implementation",galpyWarning) #pragma: no cover
             kwargs.pop('c',None)
             if len(R) > 1:
-                ojr= numpy.zeros((len(R)))
-                olz= numpy.zeros((len(R)))
-                ojz= numpy.zeros((len(R)))
+                ojr= numpy.zeros(len(R))
+                olz= numpy.zeros(len(R))
+                ojz= numpy.zeros(len(R))
                 for ii in range(len(R)):
                     targs= (R[ii],vR[ii],vT[ii],z[ii],vz[ii])
                     tjr,tlz,tjz= self(*targs,**copy.copy(kwargs))
@@ -198,7 +198,7 @@ class actionAngleAdiabatic(actionAngle):
             z= numpy.array([z])
             vz= numpy.array([vz])
         if ((self._c and not ('c' in kwargs and not kwargs['c']))\
-                or (ext_loaded and (('c' in kwargs and kwargs['c'])))) \
+                or (ext_loaded and ('c' in kwargs and kwargs['c']))) \
                 and _check_c(self._pot):
             rperi,Rap,zmax, err= actionAngleAdiabatic_c.actionAngleRperiRapZmaxAdiabatic_c(\
                 self._pot,self._gamma,R,vR,vT,z,vz)
@@ -213,10 +213,10 @@ class actionAngleAdiabatic(actionAngle):
                 warnings.warn("C module not used because potential does not have a C implementation",galpyWarning) #pragma: no cover
             kwargs.pop('c',None)
             if len(R) > 1:
-                oecc= numpy.zeros((len(R)))
-                orperi= numpy.zeros((len(R)))
-                orap= numpy.zeros((len(R)))
-                ozmax= numpy.zeros((len(R)))
+                oecc= numpy.zeros(len(R))
+                orperi= numpy.zeros(len(R))
+                orap= numpy.zeros(len(R))
+                ozmax= numpy.zeros(len(R))
                 for ii in range(len(R)):
                     targs= (R[ii],vR[ii],vT[ii],z[ii],vz[ii])
                     tecc, tzmax, trperi,trap= self._EccZmaxRperiRap(\

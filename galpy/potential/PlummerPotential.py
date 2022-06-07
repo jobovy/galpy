@@ -115,6 +115,22 @@ class PlummerPotential(Potential):
         dPhidrr= -(R**2.+z**2.+self._b2)**-1.5
         return dPhidrr*z
 
+    def _rforce_jax(self,r):
+        """
+        NAME:
+           _rforce_jax
+        PURPOSE:
+           evaluate the spherical radial force for this potential using JAX
+        INPUT:
+           r - Galactocentric spherical radius
+        OUTPUT:
+           the radial force
+        HISTORY:
+           2021-12-14 - Written - Lane (UofT)
+        """
+        # No need for actual JAX!
+        return -self._amp*r*(r**2.+self._b2)**-1.5
+
     def _dens(self,R,z,phi=0.,t=0.):
         """
         NAME:
@@ -206,6 +222,56 @@ class PlummerPotential(Potential):
         """
         return -3.*R*z*(R**2.+z**2.+self._b2)**-2.5
 
+    def _ddensdr(self,r,t=0.):
+        """
+        NAME:
+           _ddensdr
+        PURPOSE:
+            evaluate the radial density derivative for this potential
+        INPUT:
+           r - spherical radius
+           t= time
+        OUTPUT:
+           the density derivative
+        HISTORY:
+           2021-12-15 - Written - Lane (UofT)
+        """
+        return self._amp*(-15.)/4./numpy.pi*self._b2*r*(r**2+self._b2)**-3.5
+
+    def _d2densdr2(self,r,t=0.):
+        """
+        NAME:
+           _d2densdr2
+        PURPOSE:
+           evaluate the second radial density derivative for this potential
+        INPUT:
+           r - spherical radius
+           t= time
+        OUTPUT:
+           the 2nd density derivative
+        HISTORY:
+           2021-12-15 - Written - Lane (UofT)
+        """
+        return self._amp*(-15.)/4./numpy.pi*self._b2*((r**2.+self._b2)**-3.5\
+            -7.*r**2.*(r**2+self._b2)**-4.5)
+
+    def _ddenstwobetadr(self,r,beta=0):
+        """
+        NAME:
+           _ddenstwobetadr
+        PURPOSE:
+           evaluate the radial density derivative x r^(2beta) for this potential
+        INPUT:
+           r - spherical radius
+           beta= (0)
+        OUTPUT:
+           d (rho x r^{2beta} ) / d r
+        HISTORY:
+           2021-03-15 - Written - Lane (UofT)
+        """
+        return self._amp*3./4./numpy.pi*self._b2*r**(2.*beta-1.)\
+            *(2.*beta*(r**2.+self._b2)**-2.5-5.*r**2.*(r**2.+self._b2)**-3.5)
+
     def _mass(self,R,z=None,t=0.):
         """
         NAME:
@@ -252,4 +318,4 @@ class PlummerPotential(Potential):
 
         """
         ampl= self._amp*vo**2.*ro
-        return "0,%s,%s" % (ampl,self._b*ro)
+        return "0,{},{}".format(ampl,self._b*ro)

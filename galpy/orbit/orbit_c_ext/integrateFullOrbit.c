@@ -59,7 +59,8 @@ void initChandrasekharDynamicalFrictionSplines(struct potentialArg *, double ** 
 void parse_leapFuncArgs_Full(int npot,
 			     struct potentialArg * potentialArgs,
 			     int ** pot_type,
-			     double ** pot_args){
+			     double ** pot_args,
+           tfuncs_type_arr * pot_tfuncs){
   int ii,jj,kk;
   int nR, nz, nr;
   double * Rgrid, * zgrid, * potGrid_splinecoeffs;
@@ -70,98 +71,107 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->potentialEval= &LogarithmicHaloPotentialEval;
       potentialArgs->Rforce= &LogarithmicHaloPotentialRforce;
       potentialArgs->zforce= &LogarithmicHaloPotentialzforce;
-      potentialArgs->phiforce= &LogarithmicHaloPotentialphiforce;
+      potentialArgs->phitorque= &LogarithmicHaloPotentialphitorque;
       potentialArgs->dens= &LogarithmicHaloPotentialDens;
       //potentialArgs->R2deriv= &LogarithmicHaloPotentialR2deriv;
       //potentialArgs->planarphi2deriv= &ZeroForce;
       //potentialArgs->planarRphideriv= &ZeroForce;
       potentialArgs->nargs= 4;
+      potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
       break;
     case 1: //DehnenBarPotential, 6 arguments
       potentialArgs->Rforce= &DehnenBarPotentialRforce;
-      potentialArgs->phiforce= &DehnenBarPotentialphiforce;
+      potentialArgs->phitorque= &DehnenBarPotentialphitorque;
       potentialArgs->zforce= &DehnenBarPotentialzforce;
       potentialArgs->nargs= 6;
+      potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
       break;
     case 5: //MiyamotoNagaiPotential, 3 arguments
       potentialArgs->potentialEval= &MiyamotoNagaiPotentialEval;
       potentialArgs->Rforce= &MiyamotoNagaiPotentialRforce;
       potentialArgs->zforce= &MiyamotoNagaiPotentialzforce;
-      potentialArgs->phiforce= &ZeroForce;
+      potentialArgs->phitorque= &ZeroForce;
       potentialArgs->dens= &MiyamotoNagaiPotentialDens;
       //potentialArgs->R2deriv= &MiyamotoNagaiPotentialR2deriv;
       //potentialArgs->planarphi2deriv= &ZeroForce;
       //potentialArgs->planarRphideriv= &ZeroForce;
       potentialArgs->nargs= 3;
+      potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
       break;
     case 7: //PowerSphericalPotential, 2 arguments
       potentialArgs->potentialEval= &PowerSphericalPotentialEval;
       potentialArgs->Rforce= &PowerSphericalPotentialRforce;
       potentialArgs->zforce= &PowerSphericalPotentialzforce;
-      potentialArgs->phiforce= &ZeroForce;
+      potentialArgs->phitorque= &ZeroForce;
       potentialArgs->dens= &PowerSphericalPotentialDens;
       //potentialArgs->R2deriv= &PowerSphericalPotentialR2deriv;
       //potentialArgs->planarphi2deriv= &ZeroForce;
       //potentialArgs->planarRphideriv= &ZeroForce;
       potentialArgs->nargs= 2;
+      potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
       break;
     case 8: //HernquistPotential, 2 arguments
       potentialArgs->potentialEval= &HernquistPotentialEval;
       potentialArgs->Rforce= &HernquistPotentialRforce;
       potentialArgs->zforce= &HernquistPotentialzforce;
-      potentialArgs->phiforce= &ZeroForce;
+      potentialArgs->phitorque= &ZeroForce;
       potentialArgs->dens= &HernquistPotentialDens;
       //potentialArgs->R2deriv= &HernquistPotentialR2deriv;
       //potentialArgs->planarphi2deriv= &ZeroForce;
       //potentialArgs->planarRphideriv= &ZeroForce;
       potentialArgs->nargs= 2;
+      potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
       break;
     case 9: //NFWPotential, 2 arguments
       potentialArgs->potentialEval= &NFWPotentialEval;
       potentialArgs->Rforce= &NFWPotentialRforce;
       potentialArgs->zforce= &NFWPotentialzforce;
-      potentialArgs->phiforce= &ZeroForce;
+      potentialArgs->phitorque= &ZeroForce;
       potentialArgs->dens= &NFWPotentialDens;
       //potentialArgs->R2deriv= &NFWPotentialR2deriv;
       //potentialArgs->planarphi2deriv= &ZeroForce;
       //potentialArgs->planarRphideriv= &ZeroForce;
       potentialArgs->nargs= 2;
+      potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
       break;
     case 10: //JaffePotential, 2 arguments
       potentialArgs->potentialEval= &JaffePotentialEval;
       potentialArgs->Rforce= &JaffePotentialRforce;
       potentialArgs->zforce= &JaffePotentialzforce;
-      potentialArgs->phiforce= &ZeroForce;
+      potentialArgs->phitorque= &ZeroForce;
       potentialArgs->dens= &JaffePotentialDens;
       //potentialArgs->R2deriv= &JaffePotentialR2deriv;
       //potentialArgs->planarphi2deriv= &ZeroForce;
       //potentialArgs->planarRphideriv= &ZeroForce;
       potentialArgs->nargs= 2;
+      potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
       break;
     case 11: //DoubleExponentialDiskPotential, XX arguments
       potentialArgs->potentialEval= &DoubleExponentialDiskPotentialEval;
       potentialArgs->Rforce= &DoubleExponentialDiskPotentialRforce;
       potentialArgs->zforce= &DoubleExponentialDiskPotentialzforce;
-      potentialArgs->phiforce= &ZeroForce;
+      potentialArgs->phitorque= &ZeroForce;
       potentialArgs->dens= &DoubleExponentialDiskPotentialDens;
       //Look at pot_args to figure out the number of arguments
       potentialArgs->nargs= (int) (5 + 4 * *(*pot_args+4) );
+      potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
       break;
     case 12: //FlattenedPowerPotential, 4 arguments
       potentialArgs->potentialEval= &FlattenedPowerPotentialEval;
       potentialArgs->Rforce= &FlattenedPowerPotentialRforce;
       potentialArgs->zforce= &FlattenedPowerPotentialzforce;
-      potentialArgs->phiforce= &ZeroForce;
+      potentialArgs->phitorque= &ZeroForce;
       potentialArgs->dens= &FlattenedPowerPotentialDens;
       potentialArgs->nargs= 4;
+      potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
       break;
     case 13: //interpRZPotential, XX arguments
@@ -202,8 +212,9 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->potentialEval= &interpRZPotentialEval;
       potentialArgs->Rforce= &interpRZPotentialRforce;
       potentialArgs->zforce= &interpRZPotentialzforce;
-      potentialArgs->phiforce= &ZeroForce;
+      potentialArgs->phitorque= &ZeroForce;
       potentialArgs->nargs= 2;
+      potentialArgs->ntfuncs= 0;
       //clean up
       free(Rgrid);
       free(zgrid);
@@ -214,58 +225,64 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->potentialEval= &IsochronePotentialEval;
       potentialArgs->Rforce= &IsochronePotentialRforce;
       potentialArgs->zforce= &IsochronePotentialzforce;
-      potentialArgs->phiforce= &ZeroForce;
+      potentialArgs->phitorque= &ZeroForce;
       potentialArgs->dens= &IsochronePotentialDens;
       potentialArgs->nargs= 2;
+      potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
       break;
     case 15: //PowerSphericalwCutoffPotential, 3 arguments
       potentialArgs->potentialEval= &PowerSphericalPotentialwCutoffEval;
       potentialArgs->Rforce= &PowerSphericalPotentialwCutoffRforce;
       potentialArgs->zforce= &PowerSphericalPotentialwCutoffzforce;
-      potentialArgs->phiforce= &ZeroForce;
+      potentialArgs->phitorque= &ZeroForce;
       potentialArgs->dens= &PowerSphericalPotentialwCutoffDens;
       //potentialArgs->R2deriv= &PowerSphericalPotentialR2deriv;
       //potentialArgs->planarphi2deriv= &ZeroForce;
       //potentialArgs->planarRphideriv= &ZeroForce;
       potentialArgs->nargs= 3;
+      potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
       break;
     case 16: //KuzminKutuzovStaeckelPotential, 3 arguments
       potentialArgs->potentialEval= &KuzminKutuzovStaeckelPotentialEval;
       potentialArgs->Rforce= &KuzminKutuzovStaeckelPotentialRforce;
       potentialArgs->zforce= &KuzminKutuzovStaeckelPotentialzforce;
-      potentialArgs->phiforce= &ZeroForce;
+      potentialArgs->phitorque= &ZeroForce;
       //potentialArgs->R2deriv= &KuzminKutuzovStaeckelPotentialR2deriv;
       potentialArgs->nargs= 3;
+      potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
       break;
     case 17: //PlummerPotential, 2 arguments
       potentialArgs->potentialEval= &PlummerPotentialEval;
       potentialArgs->Rforce= &PlummerPotentialRforce;
       potentialArgs->zforce= &PlummerPotentialzforce;
-      potentialArgs->phiforce= &ZeroForce;
+      potentialArgs->phitorque= &ZeroForce;
       potentialArgs->dens= &PlummerPotentialDens;
       //potentialArgs->R2deriv= &PlummerPotentialR2deriv;
       potentialArgs->nargs= 2;
+      potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
       break;
     case 18: //PseudoIsothermalPotential, 2 arguments
       potentialArgs->potentialEval= &PseudoIsothermalPotentialEval;
       potentialArgs->Rforce= &PseudoIsothermalPotentialRforce;
       potentialArgs->zforce= &PseudoIsothermalPotentialzforce;
-      potentialArgs->phiforce= &ZeroForce;
+      potentialArgs->phitorque= &ZeroForce;
       potentialArgs->dens= &PseudoIsothermalPotentialDens;
       //potentialArgs->R2deriv= &PseudoIsothermalPotentialR2deriv;
       potentialArgs->nargs= 2;
+      potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
       break;
     case 19: //KuzminDiskPotential, 2 arguments
       potentialArgs->potentialEval= &KuzminDiskPotentialEval;
       potentialArgs->Rforce= &KuzminDiskPotentialRforce;
       potentialArgs->zforce= &KuzminDiskPotentialzforce;
-      potentialArgs->phiforce= &ZeroForce;
+      potentialArgs->phitorque= &ZeroForce;
       potentialArgs->nargs= 2;
+      potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
       break;
     case 20: //BurkertPotential, 2 arguments
@@ -273,15 +290,16 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->Rforce= &BurkertPotentialRforce;
       potentialArgs->zforce= &BurkertPotentialzforce;
       potentialArgs->dens= &BurkertPotentialDens;
-      potentialArgs->phiforce= &ZeroForce;
+      potentialArgs->phitorque= &ZeroForce;
       potentialArgs->nargs= 2;
+      potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
       break;
     case 21: //TriaxialHernquistPotential, lots of arguments
       potentialArgs->potentialEval= &EllipsoidalPotentialEval;
       potentialArgs->Rforce = &EllipsoidalPotentialRforce;
       potentialArgs->zforce = &EllipsoidalPotentialzforce;
-      potentialArgs->phiforce = &EllipsoidalPotentialphiforce;
+      potentialArgs->phitorque = &EllipsoidalPotentialphitorque;
       potentialArgs->dens= &EllipsoidalPotentialDens;
       // Also assign functions specific to EllipsoidalPotential
       potentialArgs->psi= &TriaxialHernquistPotentialpsi;
@@ -289,13 +307,14 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->mdensDeriv= &TriaxialHernquistPotentialmdensDeriv;
       potentialArgs->nargs = (int) (21 + *(*pot_args+7) + 2 * *(*pot_args
 					    + (int) (*(*pot_args+7) + 20)));
+      potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
       break;
     case 22: //TriaxialNFWPotential, lots of arguments
       potentialArgs->potentialEval= &EllipsoidalPotentialEval;
       potentialArgs->Rforce = &EllipsoidalPotentialRforce;
       potentialArgs->zforce = &EllipsoidalPotentialzforce;
-      potentialArgs->phiforce = &EllipsoidalPotentialphiforce;
+      potentialArgs->phitorque = &EllipsoidalPotentialphitorque;
       potentialArgs->dens= &EllipsoidalPotentialDens;
       // Also assign functions specific to EllipsoidalPotential
       potentialArgs->psi= &TriaxialNFWPotentialpsi;
@@ -303,13 +322,14 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->mdensDeriv= &TriaxialNFWPotentialmdensDeriv;
       potentialArgs->nargs = (int) (21 + *(*pot_args+7) + 2 * *(*pot_args
 					    + (int) (*(*pot_args+7) + 20)));
+      potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
       break;
     case 23: //TriaxialJaffePotential, lots of arguments
       potentialArgs->potentialEval= &EllipsoidalPotentialEval;
       potentialArgs->Rforce = &EllipsoidalPotentialRforce;
       potentialArgs->zforce = &EllipsoidalPotentialzforce;
-      potentialArgs->phiforce = &EllipsoidalPotentialphiforce;
+      potentialArgs->phitorque = &EllipsoidalPotentialphitorque;
       potentialArgs->dens= &EllipsoidalPotentialDens;
       // Also assign functions specific to EllipsoidalPotential
       potentialArgs->psi= &TriaxialJaffePotentialpsi;
@@ -317,23 +337,26 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->mdensDeriv= &TriaxialJaffePotentialmdensDeriv;
       potentialArgs->nargs = (int) (21 + *(*pot_args+7) + 2 * *(*pot_args
 					    + (int) (*(*pot_args+7) + 20)));
+      potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
       break;
     case 24: //SCFPotential, many arguments
       potentialArgs->potentialEval= &SCFPotentialEval;
       potentialArgs->Rforce= &SCFPotentialRforce;
       potentialArgs->zforce= &SCFPotentialzforce;
-      potentialArgs->phiforce= &SCFPotentialphiforce;
+      potentialArgs->phitorque= &SCFPotentialphitorque;
       potentialArgs->dens= &SCFPotentialDens;
       potentialArgs->nargs= (int) (5 + (1 + *(*pot_args + 1)) * *(*pot_args+2) * *(*pot_args+3)* *(*pot_args+4) + 7);
+      potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
       break;
     case 25: //SoftenedNeedleBarPotential, 13 arguments
       potentialArgs->potentialEval= &SoftenedNeedleBarPotentialEval;
       potentialArgs->Rforce= &SoftenedNeedleBarPotentialRforce;
       potentialArgs->zforce= &SoftenedNeedleBarPotentialzforce;
-      potentialArgs->phiforce= &SoftenedNeedleBarPotentialphiforce;
-      potentialArgs->nargs= (int) 13;
+      potentialArgs->phitorque= &SoftenedNeedleBarPotentialphitorque;
+      potentialArgs->nargs= 13;
+      potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
       break;
     case 26: //DiskSCFPotential, nsigma+3 arguments
@@ -341,27 +364,29 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->Rforce= &DiskSCFPotentialRforce;
       potentialArgs->zforce= &DiskSCFPotentialzforce;
       potentialArgs->dens= &DiskSCFPotentialDens;
-      potentialArgs->phiforce= &ZeroForce;
+      potentialArgs->phitorque= &ZeroForce;
       potentialArgs->nargs= (int) **pot_args + 3;
+      potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
       break;
     case 27: // SpiralArmsPotential, 10 arguments + array of Cs
       potentialArgs->Rforce = &SpiralArmsPotentialRforce;
       potentialArgs->zforce = &SpiralArmsPotentialzforce;
-      potentialArgs->phiforce = &SpiralArmsPotentialphiforce;
+      potentialArgs->phitorque = &SpiralArmsPotentialphitorque;
       //potentialArgs->R2deriv = &SpiralArmsPotentialR2deriv;
       //potentialArgs->z2deriv = &SpiralArmsPotentialz2deriv;
       potentialArgs->phi2deriv = &SpiralArmsPotentialphi2deriv;
       //potentialArgs->Rzderiv = &SpiralArmsPotentialRzderiv;
       potentialArgs->Rphideriv = &SpiralArmsPotentialRphideriv;
       potentialArgs->nargs = (int) 10 + **pot_args;
+      potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
       break;
     case 30: // PerfectEllipsoidPotential, lots of arguments
       potentialArgs->potentialEval= &EllipsoidalPotentialEval;
       potentialArgs->Rforce = &EllipsoidalPotentialRforce;
       potentialArgs->zforce = &EllipsoidalPotentialzforce;
-      potentialArgs->phiforce = &EllipsoidalPotentialphiforce;
+      potentialArgs->phitorque = &EllipsoidalPotentialphitorque;
       potentialArgs->dens= &EllipsoidalPotentialDens;
       //potentialArgs->R2deriv = &EllipsoidalPotentialR2deriv;
       //potentialArgs->z2deriv = &EllipsoidalPotentialz2deriv;
@@ -374,6 +399,7 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->mdensDeriv= &PerfectEllipsoidPotentialmdensDeriv;
       potentialArgs->nargs = (int) (21 + *(*pot_args+7) + 2 * *(*pot_args
 					    + (int) (*(*pot_args+7) + 20)));
+      potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
       break;
     // 31: KGPotential
@@ -382,33 +408,36 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->potentialEval= &DehnenCoreSphericalPotentialEval;
       potentialArgs->Rforce= &DehnenCoreSphericalPotentialRforce;
       potentialArgs->zforce= &DehnenCoreSphericalPotentialzforce;
-      potentialArgs->phiforce= &ZeroForce;
+      potentialArgs->phitorque= &ZeroForce;
       potentialArgs->dens= &DehnenCoreSphericalPotentialDens;
       //potentialArgs->R2deriv= &DehnenCoreSphericalPotentialR2deriv;
       //potentialArgs->planarphi2deriv= &ZeroForce;
       //potentialArgs->planarRphideriv= &ZeroForce;
       potentialArgs->nargs= 2;
+      potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
       break;
     case 34: //DehnenSphericalPotential, 3 arguments
       potentialArgs->potentialEval= &DehnenSphericalPotentialEval;
       potentialArgs->Rforce= &DehnenSphericalPotentialRforce;
       potentialArgs->zforce= &DehnenSphericalPotentialzforce;
-      potentialArgs->phiforce= &ZeroForce;
+      potentialArgs->phitorque= &ZeroForce;
       potentialArgs->dens= &DehnenSphericalPotentialDens;
       //potentialArgs->R2deriv= &DehnenSphericalPotentialR2deriv;
       //potentialArgs->planarphi2deriv= &ZeroForce;
       //potentialArgs->planarRphideriv= &ZeroForce;
       potentialArgs->nargs= 3;
+      potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
       break;
     case 35: //HomogeneousSpherePotential, 3 arguments
       potentialArgs->potentialEval= &HomogeneousSpherePotentialEval;
       potentialArgs->Rforce= &HomogeneousSpherePotentialRforce;
       potentialArgs->zforce= &HomogeneousSpherePotentialzforce;
-      potentialArgs->phiforce= &ZeroForce;
+      potentialArgs->phitorque= &ZeroForce;
       potentialArgs->dens= &HomogeneousSpherePotentialDens;
       potentialArgs->nargs= 3;
+      potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
       break;
     case 36: //interpSphericalPotential, XX arguments
@@ -429,21 +458,22 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->potentialEval= &SphericalPotentialEval;
       potentialArgs->Rforce = &SphericalPotentialRforce;
       potentialArgs->zforce = &SphericalPotentialzforce;
-      potentialArgs->phiforce= &ZeroForce;
+      potentialArgs->phitorque= &ZeroForce;
       potentialArgs->dens= &SphericalPotentialDens;
       // Also assign functions specific to SphericalPotential
       potentialArgs->revaluate= &interpSphericalPotentialrevaluate;
       potentialArgs->rforce= &interpSphericalPotentialrforce;
       potentialArgs->r2deriv= &interpSphericalPotentialr2deriv;
       potentialArgs->rdens= &interpSphericalPotentialrdens;
-      potentialArgs->nargs = (int) 6;
+      potentialArgs->nargs = 6;
+      potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
       break;
     case 37: // TriaxialGaussianPotential, lots of arguments
       potentialArgs->potentialEval= &EllipsoidalPotentialEval;
       potentialArgs->Rforce = &EllipsoidalPotentialRforce;
       potentialArgs->zforce = &EllipsoidalPotentialzforce;
-      potentialArgs->phiforce = &EllipsoidalPotentialphiforce;
+      potentialArgs->phitorque = &EllipsoidalPotentialphitorque;
       potentialArgs->dens= &EllipsoidalPotentialDens;
       //potentialArgs->R2deriv = &EllipsoidalPotentialR2deriv;
       //potentialArgs->z2deriv = &EllipsoidalPotentialz2deriv;
@@ -456,13 +486,14 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->mdensDeriv= &TriaxialGaussianPotentialmdensDeriv;
       potentialArgs->nargs = (int) (21 + *(*pot_args+7) + 2 * *(*pot_args
 					    + (int) (*(*pot_args+7) + 20)));
+      potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
       break;
     case 38: // PowerTriaxialPotential, lots of arguments
       potentialArgs->potentialEval= &EllipsoidalPotentialEval;
       potentialArgs->Rforce = &EllipsoidalPotentialRforce;
       potentialArgs->zforce = &EllipsoidalPotentialzforce;
-      potentialArgs->phiforce = &EllipsoidalPotentialphiforce;
+      potentialArgs->phitorque = &EllipsoidalPotentialphitorque;
       potentialArgs->dens= &EllipsoidalPotentialDens;
       //potentialArgs->R2deriv = &EllipsoidalPotentialR2deriv;
       //potentialArgs->z2deriv = &EllipsoidalPotentialz2deriv;
@@ -475,6 +506,25 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->mdensDeriv= &PowerTriaxialPotentialmdensDeriv;
       potentialArgs->nargs = (int) (21 + *(*pot_args+7) + 2 * *(*pot_args
 					    + (int) (*(*pot_args+7) + 20)));
+      potentialArgs->ntfuncs= 0;
+      potentialArgs->requiresVelocity= false;
+      break;
+    case 39: //NonInertialFrameForce, 22 arguments (10 caching ones)
+      potentialArgs->RforceVelocity= &NonInertialFrameForceRforce;
+      potentialArgs->zforceVelocity= &NonInertialFrameForcezforce;
+      potentialArgs->phitorqueVelocity= &NonInertialFrameForcephitorque;
+      potentialArgs->nargs= 23;
+      potentialArgs->ntfuncs= (int) ( 3 * *(*pot_args + 12) * ( 1 + 2 * *(*pot_args + 11) ) \
+                                + ( 6 - 4 * ( *(*pot_args + 13) ) ) * *(*pot_args + 15) );
+      potentialArgs->requiresVelocity= true;
+      break;
+    case 40: //NullPotential, no arguments (only supported for orbit int)
+      potentialArgs->Rforce= &ZeroForce;
+      potentialArgs->zforce= &ZeroForce;
+      potentialArgs->phitorque= &ZeroForce;
+      potentialArgs->dens= &ZeroForce;
+      potentialArgs->nargs= 0;
+      potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
       break;
 //////////////////////////////// WRAPPERS /////////////////////////////////////
@@ -482,53 +532,69 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->potentialEval= &DehnenSmoothWrapperPotentialEval;
       potentialArgs->Rforce= &DehnenSmoothWrapperPotentialRforce;
       potentialArgs->zforce= &DehnenSmoothWrapperPotentialzforce;
-      potentialArgs->phiforce= &DehnenSmoothWrapperPotentialphiforce;
-      potentialArgs->nargs= (int) 4;
+      potentialArgs->phitorque= &DehnenSmoothWrapperPotentialphitorque;
+      potentialArgs->nargs= 4;
+      potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
       break;
     case -2: //SolidBodyRotationWrapperPotential
       potentialArgs->Rforce= &SolidBodyRotationWrapperPotentialRforce;
       potentialArgs->zforce= &SolidBodyRotationWrapperPotentialzforce;
-      potentialArgs->phiforce= &SolidBodyRotationWrapperPotentialphiforce;
-      potentialArgs->nargs= (int) 3;
+      potentialArgs->phitorque= &SolidBodyRotationWrapperPotentialphitorque;
+      potentialArgs->nargs= 3;
+      potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
       break;
     case -4: //CorotatingRotationWrapperPotential
       potentialArgs->Rforce= &CorotatingRotationWrapperPotentialRforce;
       potentialArgs->zforce= &CorotatingRotationWrapperPotentialzforce;
-      potentialArgs->phiforce= &CorotatingRotationWrapperPotentialphiforce;
-      potentialArgs->nargs= (int) 5;
+      potentialArgs->phitorque= &CorotatingRotationWrapperPotentialphitorque;
+      potentialArgs->nargs= 5;
+      potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
       break;
     case -5: //GaussianAmplitudeWrapperPotential
       potentialArgs->potentialEval= &GaussianAmplitudeWrapperPotentialEval;
       potentialArgs->Rforce= &GaussianAmplitudeWrapperPotentialRforce;
       potentialArgs->zforce= &GaussianAmplitudeWrapperPotentialzforce;
-      potentialArgs->phiforce= &GaussianAmplitudeWrapperPotentialphiforce;
-      potentialArgs->nargs= (int) 3;
+      potentialArgs->phitorque= &GaussianAmplitudeWrapperPotentialphitorque;
+      potentialArgs->nargs= 3;
+      potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
       break;
     case -6: //MovingObjectPotential
       potentialArgs->Rforce= &MovingObjectPotentialRforce;
       potentialArgs->zforce= &MovingObjectPotentialzforce;
-      potentialArgs->phiforce= &MovingObjectPotentialphiforce;
-      potentialArgs->nargs= (int) 3;
+      potentialArgs->phitorque= &MovingObjectPotentialphitorque;
+      potentialArgs->nargs= 3;
+      potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
       break;
     case -7: //ChandrasekharDynamicalFrictionForce
       potentialArgs->RforceVelocity= &ChandrasekharDynamicalFrictionForceRforce;
       potentialArgs->zforceVelocity= &ChandrasekharDynamicalFrictionForcezforce;
-      potentialArgs->phiforceVelocity= &ChandrasekharDynamicalFrictionForcephiforce;
-      potentialArgs->nargs= (int) 16;
+      potentialArgs->phitorqueVelocity= &ChandrasekharDynamicalFrictionForcephitorque;
+      potentialArgs->nargs= 16;
+      potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= true;
       break;
     case -8: //RotateAndTiltWrapperPotential
       potentialArgs->Rforce= &RotateAndTiltWrapperPotentialRforce;
       potentialArgs->zforce= &RotateAndTiltWrapperPotentialzforce;
-      potentialArgs->phiforce= &RotateAndTiltWrapperPotentialphiforce;
-      potentialArgs->nargs= (int) 16;
+      potentialArgs->phitorque= &RotateAndTiltWrapperPotentialphitorque;
+      potentialArgs->nargs= 21;
+      potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
       break;
+    case -9: //TimeDependentAmplitudeWrapperPotential
+      potentialArgs->potentialEval= &TimeDependentAmplitudeWrapperPotentialEval;
+      potentialArgs->Rforce= &TimeDependentAmplitudeWrapperPotentialRforce;
+      potentialArgs->zforce= &TimeDependentAmplitudeWrapperPotentialzforce;
+      potentialArgs->phitorque= &TimeDependentAmplitudeWrapperPotentialphitorque;
+      potentialArgs->nargs= 1;
+      potentialArgs->ntfuncs= 1;
+      potentialArgs->requiresVelocity= false;
+      break;  
     }
     int setupMovingObjectSplines = *(*pot_type-1) == -6 ? 1 : 0;
     int setupChandrasekharDynamicalFrictionSplines = *(*pot_type-1) == -7 ? 1 : 0;
@@ -539,18 +605,24 @@ void parse_leapFuncArgs_Full(int npot,
 					 * sizeof (struct potentialArg) );
       parse_leapFuncArgs_Full(potentialArgs->nwrapped,
 			      potentialArgs->wrappedPotentialArg,
-			      pot_type,pot_args);
+			      pot_type,pot_args,pot_tfuncs);
     }
     if (setupMovingObjectSplines)
       initMovingObjectSplines(potentialArgs, pot_args);
     if (setupChandrasekharDynamicalFrictionSplines)
       initChandrasekharDynamicalFrictionSplines(potentialArgs,pot_args);
+    // Now load each potential's parameters
     potentialArgs->args= (double *) malloc( potentialArgs->nargs * sizeof(double));
     for (jj=0; jj < potentialArgs->nargs; jj++){
       *(potentialArgs->args)= *(*pot_args)++;
       potentialArgs->args++;
     }
     potentialArgs->args-= potentialArgs->nargs;
+    // and load each potential's time functions
+    if ( potentialArgs->ntfuncs > 0 ) {
+      potentialArgs->tfuncs= (*pot_tfuncs);
+      (*pot_tfuncs)+= potentialArgs->ntfuncs;
+    }
     potentialArgs++;
   }
   potentialArgs-= npot;
@@ -562,27 +634,31 @@ EXPORT void integrateFullOrbit(int nobj,
 			       int npot,
 			       int * pot_type,
 			       double * pot_args,
+             tfuncs_type_arr pot_tfuncs,
 			       double dt,
 			       double rtol,
 			       double atol,
 			       double *result,
 			       int * err,
-			       int odeint_type){
+			       int odeint_type,
+             orbint_callback_type cb){
   //Set up the forces, first count
   int ii,jj;
   int dim;
   int max_threads;
   int * thread_pot_type;
   double * thread_pot_args;
+  tfuncs_type_arr thread_pot_tfuncs;
   max_threads= ( nobj < omp_get_max_threads() ) ? nobj : omp_get_max_threads();
   // Because potentialArgs may cache, safest to have one / thread
   struct potentialArg * potentialArgs= (struct potentialArg *) malloc ( max_threads * npot * sizeof (struct potentialArg) );
-#pragma omp parallel for schedule(static,1) private(ii,thread_pot_type,thread_pot_args) num_threads(max_threads)
+#pragma omp parallel for schedule(static,1) private(ii,thread_pot_type,thread_pot_args,thread_pot_tfuncs) num_threads(max_threads)
   for (ii=0; ii < max_threads; ii++) {
     thread_pot_type= pot_type; // need to make thread-private pointers, bc
     thread_pot_args= pot_args; // these pointers are changed in parse_...
+    thread_pot_tfuncs= pot_tfuncs; // ...
     parse_leapFuncArgs_Full(npot,potentialArgs+ii*npot,
-			    &thread_pot_type,&thread_pot_args);
+			    &thread_pot_type,&thread_pot_args,&thread_pot_tfuncs);
   }
   //Integrate
   void (*odeint_func)(void (*func)(double, double *, double *,
@@ -640,6 +716,8 @@ EXPORT void integrateFullOrbit(int nobj,
 		result+6*nt*ii,err+ii);
     for (jj=0; jj < nt; jj++)
       rect_to_cyl_galpy(result+6*jj+6*nt*ii);
+    if ( cb ) // Callback if not void
+      cb();
   }
   //Free allocated memory
 #pragma omp parallel for schedule(static,1) private(ii) num_threads(max_threads)
@@ -655,6 +733,7 @@ void integrateOrbit_dxdv(double *yo,
 			 int npot,
 			 int * pot_type,
 			 double * pot_args,
+       tfuncs_type_arr pot_tfuncs,
 			 double rtol,
 			 double atol,
 			 double *result,
@@ -663,7 +742,7 @@ void integrateOrbit_dxdv(double *yo,
   //Set up the forces, first count
   int dim;
   struct potentialArg * potentialArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );
-  parse_leapFuncArgs_Full(npot,potentialArgs,&pot_type,&pot_args);
+  parse_leapFuncArgs_Full(npot,potentialArgs,&pot_type,&pot_args,&pot_tfuncs);
   //Integrate
   void (*odeint_func)(void (*func)(double, double *, double *,
 			   int, struct potentialArg *),
@@ -722,7 +801,7 @@ void integrateOrbit_dxdv(double *yo,
 // LCOV_EXCL_STOP
 void evalRectForce(double t, double *q, double *a,
 		   int nargs, struct potentialArg * potentialArgs){
-  double sinphi, cosphi, x, y, phi,R,Rforce,phiforce, z, zforce;
+  double sinphi, cosphi, x, y, phi,R,Rforce,phitorque, z, zforce;
   //q is rectangular so calculate R and phi
   x= *q;
   y= *(q+1);
@@ -735,14 +814,14 @@ void evalRectForce(double t, double *q, double *a,
   //Calculate the forces
   Rforce= calcRforce(R,z,phi,t,nargs,potentialArgs);
   zforce= calczforce(R,z,phi,t,nargs,potentialArgs);
-  phiforce= calcPhiforce(R,z,phi,t,nargs,potentialArgs);
-  *a++= cosphi*Rforce-1./R*sinphi*phiforce;
-  *a++= sinphi*Rforce+1./R*cosphi*phiforce;
+  phitorque= calcphitorque(R,z,phi,t,nargs,potentialArgs);
+  *a++= cosphi*Rforce-1./R*sinphi*phitorque;
+  *a++= sinphi*Rforce+1./R*cosphi*phitorque;
   *a= zforce;
 }
 void evalRectDeriv(double t, double *q, double *a,
 		   int nargs, struct potentialArg * potentialArgs){
-  double sinphi, cosphi, x, y, phi,R,Rforce,phiforce,z,zforce,vR,vT;
+  double sinphi, cosphi, x, y, phi,R,Rforce,phitorque,z,zforce,vR,vT;
   //first three derivatives are just the velocities
   *a++= *(q+3);
   *a++= *(q+4);
@@ -762,9 +841,9 @@ void evalRectDeriv(double t, double *q, double *a,
   //Calculate the forces
   Rforce= calcRforce(R,z,phi,t,nargs,potentialArgs,vR,vT,*(q+5));
   zforce= calczforce(R,z,phi,t,nargs,potentialArgs,vR,vT,*(q+5));
-  phiforce= calcPhiforce(R,z,phi,t,nargs,potentialArgs,vR,vT,*(q+5));
-  *a++= cosphi*Rforce-1./R*sinphi*phiforce;
-  *a++= sinphi*Rforce+1./R*cosphi*phiforce;
+  phitorque= calcphitorque(R,z,phi,t,nargs,potentialArgs,vR,vT,*(q+5));
+  *a++= cosphi*Rforce-1./R*sinphi*phitorque;
+  *a++= sinphi*Rforce+1./R*cosphi*phitorque;
   *a= zforce;
 }
 
@@ -846,7 +925,7 @@ void initChandrasekharDynamicalFrictionSplines(struct potentialArg * potentialAr
 // LCOV_EXCL_START
 void evalRectDeriv_dxdv(double t, double *q, double *a,
 			int nargs, struct potentialArg * potentialArgs){
-  double sinphi, cosphi, x, y, phi,R,Rforce,phiforce,z,zforce;
+  double sinphi, cosphi, x, y, phi,R,Rforce,phitorque,z,zforce;
   double R2deriv, phi2deriv, Rphideriv, dFxdx, dFxdy, dFydx, dFydy;
   //first three derivatives are just the velocities
   *a++= *(q+3);
@@ -865,9 +944,9 @@ void evalRectDeriv_dxdv(double t, double *q, double *a,
   //Calculate the forces
   Rforce= calcRforce(R,z,phi,t,nargs,potentialArgs);
   zforce= calczforce(R,z,phi,t,nargs,potentialArgs);
-  phiforce= calcPhiforce(R,z,phi,t,nargs,potentialArgs);
-  *a++= cosphi*Rforce-1./R*sinphi*phiforce;
-  *a++= sinphi*Rforce+1./R*cosphi*phiforce;
+  phitorque= calcphitorque(R,z,phi,t,nargs,potentialArgs);
+  *a++= cosphi*Rforce-1./R*sinphi*phitorque;
+  *a++= sinphi*Rforce+1./R*cosphi*phitorque;
   *a++= zforce;
   //dx derivatives are just dv
   *a++= *(q+9);
@@ -879,22 +958,22 @@ void evalRectDeriv_dxdv(double t, double *q, double *a,
   Rphideriv= calcRphideriv(R,z,phi,t,nargs,potentialArgs);
   //..and dFxdx, dFxdy, dFydx, dFydy
   dFxdx= -cosphi*cosphi*R2deriv
-    +2.*cosphi*sinphi/R/R*phiforce
+    +2.*cosphi*sinphi/R/R*phitorque
     +sinphi*sinphi/R*Rforce
     +2.*sinphi*cosphi/R*Rphideriv
     -sinphi*sinphi/R/R*phi2deriv;
   dFxdy= -sinphi*cosphi*R2deriv
-    +(sinphi*sinphi-cosphi*cosphi)/R/R*phiforce
+    +(sinphi*sinphi-cosphi*cosphi)/R/R*phitorque
     -cosphi*sinphi/R*Rforce
     -(cosphi*cosphi-sinphi*sinphi)/R*Rphideriv
     +cosphi*sinphi/R/R*phi2deriv;
   dFydx= -cosphi*sinphi*R2deriv
-    +(sinphi*sinphi-cosphi*cosphi)/R/R*phiforce
+    +(sinphi*sinphi-cosphi*cosphi)/R/R*phitorque
     +(sinphi*sinphi-cosphi*cosphi)/R*Rphideriv
     -sinphi*cosphi/R*Rforce
     +sinphi*cosphi/R/R*phi2deriv;
   dFydy= -sinphi*sinphi*R2deriv
-    -2.*sinphi*cosphi/R/R*phiforce
+    -2.*sinphi*cosphi/R/R*phitorque
     -2.*sinphi*cosphi/R*Rphideriv
     +cosphi*cosphi/R*Rforce
     -cosphi*cosphi/R/R*phi2deriv;

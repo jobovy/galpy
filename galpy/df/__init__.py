@@ -16,6 +16,7 @@ from . import isotropicNFWdf
 from . import osipkovmerrittdf
 from . import osipkovmerrittNFWdf
 from . import constantbetadf
+from . import streamspraydf
 #
 # Functions
 #
@@ -54,3 +55,4 @@ isotropicNFWdf= isotropicNFWdf.isotropicNFWdf
 osipkovmerrittdf= osipkovmerrittdf.osipkovmerrittdf
 osipkovmerrittNFWdf= osipkovmerrittNFWdf.osipkovmerrittNFWdf
 constantbetadf= constantbetadf.constantbetadf
+streamspraydf= streamspraydf.streamspraydf

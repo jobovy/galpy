@@ -120,19 +120,19 @@ class SoftenedNeedleBarPotential(Potential):
         self._compute_xyzforces(R,z,phi,t)
         return numpy.cos(phi)*self._cached_Fx+numpy.sin(phi)*self._cached_Fy
 
-    def _phiforce(self,R,z,phi=0.,t=0.):
+    def _phitorque(self,R,z,phi=0.,t=0.):
         """
         NAME:
-           _phiforce
+           _phitorque
         PURPOSE:
-           evaluate the azimuthal force for this potential
+           evaluate the azimuthal torque for this potential
         INPUT:
            R - Galactocentric cylindrical radius
            z - vertical height
            phi - azimuth
            t - time
         OUTPUT:
-           the azimuthal force
+           the azimuthal torque
         HISTORY:
            2016-11-02 - Written - Bovy (UofT)
         """

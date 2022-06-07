@@ -70,7 +70,7 @@ double LogarithmicHaloPotentialzforce(double R,double z,double phi,
   } else
     return -amp * zq/q/(R*R+zq*zq+c);
 }
-double LogarithmicHaloPotentialphiforce(double R,double z,double phi,
+double LogarithmicHaloPotentialphitorque(double R,double z,double phi,
 					double t,
 					struct potentialArg * potentialArgs){
   double * args= potentialArgs->args;
@@ -79,7 +79,7 @@ double LogarithmicHaloPotentialphiforce(double R,double z,double phi,
   double q= *(args+1);
   double c= *(args+2);
   double onem1overb2= *(args+3);
-  //Calculate phiforce
+  //Calculate phitorque
   double zq;
   double Rt2;
   if ( onem1overb2 < 1 ) {
@@ -89,7 +89,7 @@ double LogarithmicHaloPotentialphiforce(double R,double z,double phi,
   } else
     return 0.;
 }
-double LogarithmicHaloPotentialPlanarphiforce(double R,double phi,
+double LogarithmicHaloPotentialPlanarphitorque(double R,double phi,
 					      double t,
 					      struct potentialArg * potentialArgs){
   double * args= potentialArgs->args;
@@ -97,7 +97,7 @@ double LogarithmicHaloPotentialPlanarphiforce(double R,double phi,
   double amp= *args;
   double c= *(args+2); // skip q
   double onem1overb2= *(args+3);
-  //Calculate phiforce
+  //Calculate phitorque
   double Rt2;
   if ( onem1overb2 < 1 ) {
     Rt2= R*R * (1. - onem1overb2 * pow(sin(phi),2));

@@ -369,7 +369,7 @@ def test_impulse_deltav_general_fullintegration_fastencounter():
     # Kick should be in the X direction
     assert numpy.fabs((orbit_kick-full_kick)/full_kick)[0,0] < 10.**tol, \
         'Acceleration kick does not agree with full-orbit-integration kick for fast encounter'
-    assert numpy.all(numpy.fabs((orbit_kick-full_kick))[0,1:] < 10.**tol), \
+    assert numpy.all(numpy.fabs(orbit_kick-full_kick)[0,1:] < 10.**tol), \
         'Acceleration kick does not agree with full-orbit-integration kick for fast encounter'
     return None
 
@@ -405,7 +405,7 @@ def test_impulse_deltav_plummerstream():
         impulse_deltav_plummerstream(\
         v_gc,x_gc,-b,w,lambda t: GM/dt,rs,-dt/2.,dt/2.)
     assert numpy.all((numpy.fabs((kick-stream_kick)/kick) < 10.**tol)*(numpy.fabs(kick) >= 10**-4.)\
-                         +(numpy.fabs((kick-stream_kick)) < 10**tol)*(numpy.fabs(kick) < 10**-4.)), 'Short stream impulse kick calculation does not agree with Plummer calculation by rel: %g, abs: %g' % (numpy.amax(numpy.fabs((kick-stream_kick)/kick)[numpy.fabs(kick) >= 10**-4.]),numpy.amax(numpy.fabs((kick-stream_kick))[numpy.fabs(kick) < 10**-3.]))
+                         +(numpy.fabs(kick-stream_kick) < 10**tol)*(numpy.fabs(kick) < 10**-4.)), 'Short stream impulse kick calculation does not agree with Plummer calculation by rel: {:g}, abs: {:g}'.format(numpy.amax(numpy.fabs((kick-stream_kick)/kick)[numpy.fabs(kick) >= 10**-4.]),numpy.amax(numpy.fabs(kick-stream_kick)[numpy.fabs(kick) < 10**-3.]))
 
 def test_impulse_deltav_plummerstream_tmaxerror():
     from galpy.df import impulse_deltav_plummer, impulse_deltav_plummerstream

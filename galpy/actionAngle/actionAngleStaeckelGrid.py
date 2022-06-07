@@ -63,10 +63,10 @@ class actionAngleStaeckelGrid(actionAngle):
         actionAngle.__init__(self,
                              ro=kwargs.get('ro',None),vo=kwargs.get('vo',None))
         if pot is None:
-            raise IOError("Must specify pot= for actionAngleStaeckelGrid")
+            raise OSError("Must specify pot= for actionAngleStaeckelGrid")
         self._pot= flatten_potential(pot)
         if delta is None:
-            raise IOError("Must specify delta= for actionAngleStaeckelGrid")
+            raise OSError("Must specify delta= for actionAngleStaeckelGrid")
         if ext_loaded and 'c' in kwargs and kwargs['c']:
             self._c= True
         else:
@@ -107,8 +107,8 @@ class actionAngleStaeckelGrid(actionAngle):
         jr= numpy.zeros((nLz,nE,npsi))
         jz= numpy.zeros((nLz,nE,npsi))
         u0= numpy.zeros((nLz,nE))
-        jrLzE= numpy.zeros((nLz))
-        jzLzE= numpy.zeros((nLz))
+        jrLzE= numpy.zeros(nLz)
+        jzLzE= numpy.zeros(nLz)
         #First calculate u0
         thisLzs= (numpy.tile(self._Lzs,(nE,1)).T).flatten()
         thisERL= (numpy.tile(self._ERL,(nE,1)).T).flatten()
@@ -184,9 +184,9 @@ class actionAngleStaeckelGrid(actionAngle):
             zmax= numpy.reshape(mzmax,(nLz,nE,npsi))
             rperi= numpy.reshape(mrperi,(nLz,nE,npsi))
             rap= numpy.reshape(mrap,(nLz,nE,npsi))
-            zmaxLzE= numpy.zeros((nLz))
-            rperiLzE= numpy.zeros((nLz))
-            rapLzE= numpy.zeros((nLz))
+            zmaxLzE= numpy.zeros(nLz)
+            rperiLzE= numpy.zeros(nLz)
+            rapLzE= numpy.zeros(nLz)
         for ii in range(nLz):
             jrLzE[ii]= numpy.nanmax(jr[ii,(jr[ii,:,:] != 9999.99)])#:,:])
             jzLzE[ii]= numpy.nanmax(jz[ii,(jz[ii,:,:] != 9999.99)])#:,:])
@@ -670,7 +670,7 @@ def _u0Eq(logu,delta,pot,E,Lz22):
 def _Efunc(E,*args):
     """Function to apply to the energy in building the grid (e.g., if this is a log, then the grid will be logarithmic"""
 #    return ((E-args[0]))**0.5
-    return numpy.log((E-args[0]+10.**-10.))
+    return numpy.log(E-args[0]+10.**-10.)
 def _invEfunc(Ef,*args):
     """Inverse of Efunc"""
 #    return Ef**2.+args[0]

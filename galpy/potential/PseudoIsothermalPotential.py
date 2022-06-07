@@ -10,7 +10,7 @@ class PseudoIsothermalPotential(Potential):
 
     .. math::
 
-        \\rho(r) = \\frac{\\mathrm{amp}}{4\\,\pi\\, a^3}\\,\\frac{1}{1+(r/a)^2}
+        \\rho(r) = \\frac{\\mathrm{amp}}{4\\,\\pi\\, a^3}\\,\\frac{1}{1+(r/a)^2}
 
     """
     def __init__(self,amp=1.,a=1.,normalize=False,

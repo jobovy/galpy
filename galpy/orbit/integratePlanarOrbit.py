@@ -3,11 +3,21 @@ import ctypes.util
 from numpy.ctypeslib import ndpointer
 import numpy
 from scipy import integrate
+_TQDM_LOADED= True
+try:
+    import tqdm
+except ImportError: #pragma: no cover
+    _TQDM_LOADED= False
+_NUMBA_LOADED= True
+try:
+    from numba import types, cfunc
+except ImportError:
+    _NUMBA_LOADED= False
 from .. import potential
 from ..potential.planarPotential import planarPotentialFromFullPotential, \
     planarPotentialFromRZPotential
 from ..potential.planarPotential import _evaluateplanarRforces,\
-    _evaluateplanarphiforces, _evaluateplanarPotentials
+    _evaluateplanarphitorques, _evaluateplanarPotentials
 from ..potential.WrapperPotential import parentWrapperPotential
 from ..util.multi import parallel_map
 from ..util.leung_dop853 import dop853
@@ -18,13 +28,17 @@ _lib, _ext_loaded= _load_extension_libs.load_libgalpy()
 
 def _parse_pot(pot):
     """Parse the potential so it can be fed to C"""
-    from .integrateFullOrbit import _parse_scf_pot
     #Figure out what's in pot
     if not isinstance(pot,list):
         pot= [pot]
+    # Remove NullPotentials from list of Potentials containing other potentials
+    purged_pot= [p for p in pot if not isinstance(p,potential.NullPotential)]
+    if len(purged_pot) > 0:
+        pot= purged_pot
     #Initialize everything
     pot_type= []
     pot_args= []
+    pot_tfuncs= []
     npot= len(pot)
     for p in pot:
         # Prepare for wrappers
@@ -33,10 +47,11 @@ def _parse_pot(pot):
           and isinstance(p._Pot,parentWrapperPotential)) \
         or isinstance(p,parentWrapperPotential):
             if not isinstance(p,parentWrapperPotential):
-                wrap_npot, wrap_pot_type, wrap_pot_args= \
+                wrap_npot, wrap_pot_type, wrap_pot_args, wrap_pot_tfuncs= \
                     _parse_pot(potential.toPlanarPotential(p._Pot._pot))
             else:
-                wrap_npot, wrap_pot_type, wrap_pot_args= _parse_pot(p._pot)
+                wrap_npot, wrap_pot_type, wrap_pot_args, wrap_pot_tfuncs= \
+                    _parse_pot(p._pot)
         if (isinstance(p,planarPotentialFromRZPotential)
             or isinstance(p,planarPotentialFromFullPotential) ) \
                  and isinstance(p._Pot,potential.LogarithmicHaloPotential):
@@ -186,9 +201,10 @@ def _parse_pot(pot):
                              for ii in range(p._Pot._glorder)])
         elif (isinstance(p,planarPotentialFromFullPotential) or isinstance(p,planarPotentialFromRZPotential)) \
                  and isinstance(p._Pot,potential.SCFPotential):
-            pt,pa= _parse_scf_pot(p._Pot)
+            pt,pa,ptf= _parse_scf_pot(p._Pot)
             pot_type.append(pt)
             pot_args.extend(pa)
+            pot_tfuncs.extend(ptf)
         elif isinstance(p,planarPotentialFromFullPotential) \
                  and isinstance(p._Pot,potential.SoftenedNeedleBarPotential):
             pot_type.append(25)
@@ -200,9 +216,10 @@ def _parse_pot(pot):
             # Need to pull this apart into: (a) SCF part, (b) constituent
             # [Sigma_i,h_i] parts
             # (a) SCF, multiply in any add'l amp
-            pt,pa= _parse_scf_pot(p._Pot._scf,extra_amp=p._Pot._amp)
+            pt,pa,ptf= _parse_scf_pot(p._Pot._scf,extra_amp=p._Pot._amp)
             pot_type.append(pt)
             pot_args.extend(pa)
+            pot_tfuncs.extend(ptf)
             # (b) constituent [Sigma_i,h_i] parts
             for Sigma,hz in zip(p._Pot._Sigma_dict,p._Pot._hz_dict):
                 npot+= 1
@@ -263,6 +280,9 @@ def _parse_pot(pot):
                              p._Pot._total_mass,p._Pot._Phi0,p._Pot._Phimax])
         # 37: TriaxialGaussianPotential, done with other EllipsoidalPotentials above
         # 38: PowerTriaxialPotential, done with other EllipsoidalPotentials above
+        elif isinstance(p,planarPotentialFromRZPotential) \
+             and isinstance(p._Pot,potential.NullPotential):
+            pot_type.append(40)
         ############################## WRAPPERS ###############################
         elif ((isinstance(p,planarPotentialFromFullPotential) or isinstance(p,planarPotentialFromRZPotential)) \
               and isinstance(p._Pot,potential.DehnenSmoothWrapperPotential)) \
@@ -274,6 +294,7 @@ def _parse_pot(pot):
             pot_args.append(wrap_npot)
             pot_type.extend(wrap_pot_type)
             pot_args.extend(wrap_pot_args)
+            pot_tfuncs.extend(wrap_pot_tfuncs)
             pot_args.extend([p._amp,p._tform,p._tsteady,int(p._grow)])
         elif ((isinstance(p,planarPotentialFromFullPotential) or isinstance(p,planarPotentialFromRZPotential)) \
           and isinstance(p._Pot,potential.SolidBodyRotationWrapperPotential)) \
@@ -285,6 +306,7 @@ def _parse_pot(pot):
             pot_args.append(wrap_npot)
             pot_type.extend(wrap_pot_type)
             pot_args.extend(wrap_pot_args)
+            pot_tfuncs.extend(wrap_pot_tfuncs)
             pot_args.extend([p._amp,p._omega,p._pa])
         elif ((isinstance(p,planarPotentialFromFullPotential) or isinstance(p,planarPotentialFromRZPotential)) \
           and isinstance(p._Pot,potential.CorotatingRotationWrapperPotential)) \
@@ -296,6 +318,7 @@ def _parse_pot(pot):
             pot_args.append(wrap_npot)
             pot_type.extend(wrap_pot_type)
             pot_args.extend(wrap_pot_args)
+            pot_tfuncs.extend(wrap_pot_tfuncs)
             pot_args.extend([p._amp,p._vpo,p._beta,p._pa,p._to])
         elif ((isinstance(p,planarPotentialFromFullPotential) or isinstance(p,planarPotentialFromRZPotential)) \
               and isinstance(p._Pot,potential.GaussianAmplitudeWrapperPotential)) \
@@ -307,6 +330,7 @@ def _parse_pot(pot):
             pot_args.append(wrap_npot)
             pot_type.extend(wrap_pot_type)
             pot_args.extend(wrap_pot_args)
+            pot_tfuncs.extend(wrap_pot_tfuncs)
             pot_args.extend([p._amp,p._to,p._sigma2])
         elif ((isinstance(p,planarPotentialFromFullPotential) or isinstance(p,planarPotentialFromRZPotential)) \
               and isinstance(p._Pot,potential.MovingObjectPotential)) \
@@ -314,11 +338,12 @@ def _parse_pot(pot):
             if not isinstance(p,potential.MovingObjectPotential):
                 p= p._Pot
             pot_type.append(-6)
-            wrap_npot, wrap_pot_type, wrap_pot_args= \
+            wrap_npot, wrap_pot_type, wrap_pot_args, wrap_pot_tfuncs= \
                     _parse_pot(potential.toPlanarPotential(p._pot))
             pot_args.append(wrap_npot)
             pot_type.extend(wrap_pot_type)
             pot_args.extend(wrap_pot_args)
+            pot_tfuncs.extend(wrap_pot_tfuncs)
             pot_args.extend([len(p._orb.t)])
             pot_args.extend(p._orb.t)
             pot_args.extend(p._orb.x(p._orb.t,use_physical=False))
@@ -330,9 +355,22 @@ def _parse_pot(pot):
               or isinstance(p,potential.RotateAndTiltWrapperPotential): # pragma: no cover
             raise NotImplementedError('Planar orbit integration in C for RotateAndTiltWrapperPotential not implemented; please integrate an orbit with (z,vz) = (0,0) instead')
             # Note that potential.RotateAndTiltWrapperPotential would be -8
+        elif ((isinstance(p,planarPotentialFromFullPotential) or isinstance(p,planarPotentialFromRZPotential)) \
+              and isinstance(p._Pot,potential.TimeDependentAmplitudeWrapperPotential)) \
+              or isinstance(p,potential.TimeDependentAmplitudeWrapperPotential):
+            if not isinstance(p,potential.TimeDependentAmplitudeWrapperPotential):
+                p= p._Pot
+            pot_type.append(-9)
+            # wrap_pot_type, args, and npot obtained before this horrible if
+            pot_args.append(wrap_npot)
+            pot_type.extend(wrap_pot_type)
+            pot_args.extend(wrap_pot_args)
+            pot_tfuncs.extend(wrap_pot_tfuncs)
+            pot_args.append(p._amp)
+            pot_tfuncs.append(p._A)
     pot_type= numpy.array(pot_type,dtype=numpy.int32,order='C')
     pot_args= numpy.array(pot_args,dtype=numpy.float64,order='C')
-    return (npot,pot_type,pot_args)
+    return (npot,pot_type,pot_args,pot_tfuncs)
 
 def _parse_integrator(int_method):
     """parse the integrator method to pass to C"""
@@ -366,8 +404,35 @@ def _parse_tol(rtol,atol):
         atol= numpy.log(atol)
     return (rtol,atol)
 
+def _parse_scf_pot(p,extra_amp=1.):
+    # Stand-alone parser for SCF, bc re-used
+    isNonAxi= p.isNonAxi
+    pot_args= [p._a, isNonAxi]
+    pot_args.extend(p._Acos.shape)
+    pot_args.extend(extra_amp*p._amp*p._Acos.flatten(order='C'))
+    if isNonAxi:
+        pot_args.extend(extra_amp*p._amp*p._Asin.flatten(order='C'))
+    pot_args.extend([-1.,0,0,0,0,0,0])
+    return (24,pot_args,[]) # latter is pot_tfuncs
+
+def _prep_tfuncs(pot_tfuncs):
+    if len(pot_tfuncs) == 0:
+        pot_tfuncs= None # NULL
+    else:
+        func_ctype= ctypes.CFUNCTYPE(ctypes.c_double, # Return type
+                                     ctypes.c_double) # time
+        try: # using numba
+            if not _NUMBA_LOADED: raise
+            nb_c_sig= types.double(types.double)
+            func_pyarr= [cfunc(nb_c_sig,nopython=True)(a).ctypes
+                         for a in pot_tfuncs]
+        except: # Any Exception, switch to regular ctypes wrapping
+            func_pyarr= [func_ctype(a) for a in pot_tfuncs]
+        pot_tfuncs= (func_ctype * len(func_pyarr))(*func_pyarr)
+    return pot_tfuncs
+
 def integratePlanarOrbit_c(pot,yo,t,int_method,rtol=None,atol=None,
-                           dt=None):
+                           progressbar=True,dt=None):
     """
     NAME:
        integratePlanarOrbit_c
@@ -379,6 +444,7 @@ def integratePlanarOrbit_c(pot,yo,t,int_method,rtol=None,atol=None,
        t - set of times at which one wants the result
        int_method= 'leapfrog_c', 'rk4_c', 'rk6_c', 'symplec4_c', ...
        rtol, atol
+       progressbar= (True) if True, display a tqdm progress bar when integrating multiple orbits (requires tqdm to be installed!)
        dt= (None) force integrator to use this stepsize (default is to automatically determine one)
    OUTPUT:
        (y,err)
@@ -389,13 +455,15 @@ def integratePlanarOrbit_c(pot,yo,t,int_method,rtol=None,atol=None,
     HISTORY:
        2011-10-03 - Written - Bovy (IAS)
        2018-12-20 - Adapted to allow multiple objects - Bovy (UofT)
+       2022-04-12 - Add progressbar - Bovy (UofT)
     """
     if len(yo.shape) == 1: single_obj= True
     else: single_obj= False
     yo= numpy.atleast_2d(yo)
     nobj= len(yo)
     rtol, atol= _parse_tol(rtol,atol)
-    npot, pot_type, pot_args= _parse_pot(pot)
+    npot, pot_type, pot_args, pot_tfuncs= _parse_pot(pot)
+    pot_tfuncs= _prep_tfuncs(pot_tfuncs)
     int_method_c= _parse_integrator(int_method)
     if dt is None:
         dt= -9999.99
@@ -403,6 +471,15 @@ def integratePlanarOrbit_c(pot,yo,t,int_method,rtol=None,atol=None,
     #Set up result array
     result= numpy.empty((nobj,len(t),4))
     err= numpy.zeros(nobj,dtype=numpy.int32)
+    
+    #Set up progressbar
+    progressbar*= _TQDM_LOADED
+    if nobj > 1 and progressbar:
+        pbar= tqdm.tqdm(total=nobj,leave=False)
+        pbar_func_ctype= ctypes.CFUNCTYPE(None)
+        pbar_c= pbar_func_ctype(pbar.update)
+    else: # pragma: no cover
+        pbar_c= None
 
     #Set up the C code
     ndarrayFlags= ('C_CONTIGUOUS','WRITEABLE')
@@ -414,12 +491,14 @@ def integratePlanarOrbit_c(pot,yo,t,int_method,rtol=None,atol=None,
                                ctypes.c_int,
                                ndpointer(dtype=numpy.int32,flags=ndarrayFlags),
                                ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
+                               ctypes.c_void_p,
                                ctypes.c_double,
                                ctypes.c_double,
                                ctypes.c_double,
                                ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
                                ndpointer(dtype=numpy.int32,flags=ndarrayFlags),
-                               ctypes.c_int]
+                               ctypes.c_int,
+                               ctypes.c_void_p]
 
     #Array requirements, first store old order
     f_cont= [yo.flags['F_CONTIGUOUS'],
@@ -437,12 +516,17 @@ def integratePlanarOrbit_c(pot,yo,t,int_method,rtol=None,atol=None,
                     ctypes.c_int(npot),
                     pot_type,
                     pot_args,
+                    pot_tfuncs,
                     ctypes.c_double(dt),
                     ctypes.c_double(rtol),
                     ctypes.c_double(atol),
                     result,
                     err,
-                    ctypes.c_int(int_method_c))
+                    ctypes.c_int(int_method_c),
+                    pbar_c)
+
+    if nobj > 1 and progressbar:
+        pbar.close()
 
     if numpy.any(err == -10): #pragma: no cover
         raise KeyboardInterrupt("Orbit integration interrupted by CTRL-C (SIGINT)")
@@ -479,7 +563,8 @@ def integratePlanarOrbit_dxdv_c(pot,yo,dyo,t,int_method,rtol=None,atol=None,
        2011-10-19 - Written - Bovy (IAS)
     """
     rtol, atol= _parse_tol(rtol,atol)
-    npot, pot_type, pot_args= _parse_pot(pot)
+    npot, pot_type, pot_args, pot_tfuncs= _parse_pot(pot)
+    pot_tfuncs= _prep_tfuncs(pot_tfuncs)
     int_method_c= _parse_integrator(int_method)
     if dt is None:
         dt= -9999.99
@@ -498,6 +583,7 @@ def integratePlanarOrbit_dxdv_c(pot,yo,dyo,t,int_method,rtol=None,atol=None,
                                ctypes.c_int,
                                ndpointer(dtype=numpy.int32,flags=ndarrayFlags),
                                ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
+                               ctypes.c_void_p,
                                ctypes.c_double,
                                ctypes.c_double,
                                ctypes.c_double,
@@ -519,6 +605,7 @@ def integratePlanarOrbit_dxdv_c(pot,yo,dyo,t,int_method,rtol=None,atol=None,
                     ctypes.c_int(npot),
                     pot_type,
                     pot_args,
+                    pot_tfuncs,
                     ctypes.c_double(dt),
                     ctypes.c_double(rtol),ctypes.c_double(atol),
                     result,
@@ -535,7 +622,7 @@ def integratePlanarOrbit_dxdv_c(pot,yo,dyo,t,int_method,rtol=None,atol=None,
     return (result,err.value)
 
 def integratePlanarOrbit(pot,yo,t,int_method,rtol=None,atol=None,numcores=1,
-                         dt=None):
+                         progressbar=True,dt=None):
     """
     NAME:
        integratePlanarOrbit
@@ -548,6 +635,7 @@ def integratePlanarOrbit(pot,yo,t,int_method,rtol=None,atol=None,numcores=1,
        int_method= 'leapfrog', 'odeint', or 'dop853'
        rtol, atol= tolerances (not always used...)
        numcores= (1) number of cores to use for multi-processing
+       progressbar= (True) if True, display a tqdm progress bar when integrating multiple orbits (requires tqdm to be installed!)
        dt= (None) force integrator to use this stepsize (default is to automatically determine one; only for C-based integrators!)
     OUTPUT:
        (y,err)
@@ -558,6 +646,7 @@ def integratePlanarOrbit(pot,yo,t,int_method,rtol=None,atol=None,numcores=1,
     HISTORY:
        2010-07-20 - Written - Bovy (NYU)
        2019-04-09 - Adapted to allow multiple objects and parallel mapping - Bovy (UofT)
+       2022-04-12 - Add progressbar - Bovy (UofT)
     """
     nophi= False
     if not int_method.lower() == 'dop853' and not int_method == 'odeint':
@@ -636,7 +725,8 @@ def integratePlanarOrbit(pot,yo,t,int_method,rtol=None,atol=None,numcores=1,
     if len(yo) == 1: # Can't map a single value...
         out= numpy.atleast_3d(integrate_for_map(yo[0]).T).T
     else:
-        out= numpy.array((parallel_map(integrate_for_map,yo,numcores=numcores)))
+        out= numpy.array(parallel_map(integrate_for_map,yo,numcores=numcores,
+                                       progressbar=progressbar))
     if nophi:
         out= out[:,:,:3]
     return out, numpy.zeros(len(yo))
@@ -644,7 +734,7 @@ def integratePlanarOrbit(pot,yo,t,int_method,rtol=None,atol=None,numcores=1,
 def integratePlanarOrbit_dxdv(pot,yo,dyo,t,int_method,
                               rectIn,rectOut,
                               rtol=None,atol=None,
-                              dt=None,numcores=1):
+                              progressbar=True,dt=None,numcores=1):
     """
     NAME:
        integratePlanarOrbit_dxdv
@@ -660,6 +750,7 @@ def integratePlanarOrbit_dxdv(pot,yo,dyo,t,int_method,
        rectOut= (False) if True, output dyo is in rectangular coordinates
        rtol, atol= tolerances (not always used...)
        numcores= (1) number of cores to use for multi-processing
+       progressbar= (True) if True, display a tqdm progress bar when integrating multiple orbits (requires tqdm to be installed!)
        dt= (None) force integrator to use this stepsize (default is to automatically determine one; only for C-based integrators)
     OUTPUT:
        (y,err)
@@ -670,6 +761,7 @@ def integratePlanarOrbit_dxdv(pot,yo,dyo,t,int_method,
     HISTORY:
        2011-10-17 - Written - Bovy (IAS)
        2019-05-21 - Adapted to allow multiple objects and parallel mapping - Bovy (UofT)
+       2022-04-12 - Add progressbar - Bovy (UofT)
     """
     #go to the rectangular frame
     this_yo= numpy.array([yo[:,0]*numpy.cos(yo[:,3]),
@@ -714,8 +806,9 @@ def integratePlanarOrbit_dxdv(pot,yo,dyo,t,int_method,
     if len(this_yo) == 1: # Can't map a single value...
         out= numpy.atleast_3d(integrate_for_map(this_yo[0]).T).T
     else:
-        out= numpy.array((parallel_map(integrate_for_map,this_yo,
-                                    numcores=numcores)))
+        out= numpy.array(parallel_map(integrate_for_map,this_yo,
+                                       progressbar=progressbar,
+                                       numcores=numcores))
     #go back to the cylindrical frame
     R= numpy.sqrt(out[...,0]**2.+out[...,1]**2.)
     phi= numpy.arccos(out[...,0]/R)
@@ -782,7 +875,7 @@ def _planarEOM(y,t,pot):
     return [y[1],
             l2/y[0]**3.+_evaluateplanarRforces(pot,y[0],phi=y[2],t=t),
             y[3],
-            1./y[0]**2.*(_evaluateplanarphiforces(pot,y[0],phi=y[2],t=t)-
+            1./y[0]**2.*(_evaluateplanarphitorques(pot,y[0],phi=y[2],t=t)-
                          2.*y[0]*y[1]*y[3])]
 
 def _planarEOM_dxdv(x,t,pot):
@@ -809,34 +902,34 @@ def _planarEOM_dxdv(x,t,pot):
     if x[1] < 0.: phi= 2.*numpy.pi-phi
     #calculate forces
     Rforce= _evaluateplanarRforces(pot,R,phi=phi,t=t)
-    phiforce= _evaluateplanarphiforces(pot,R,phi=phi,t=t)
+    phitorque= _evaluateplanarphitorques(pot,R,phi=phi,t=t)
     R2deriv= _evaluateplanarPotentials(pot,R,phi=phi,t=t,dR=2)
     phi2deriv= _evaluateplanarPotentials(pot,R,phi=phi,t=t,dphi=2)
     Rphideriv= _evaluateplanarPotentials(pot,R,phi=phi,t=t,dR=1,dphi=1)
     #Calculate derivatives and derivatives+time derivatives
     dFxdx= -cosphi**2.*R2deriv\
-           +2.*cosphi*sinphi/R**2.*phiforce\
+           +2.*cosphi*sinphi/R**2.*phitorque\
            +sinphi**2./R*Rforce\
            +2.*sinphi*cosphi/R*Rphideriv\
            -sinphi**2./R**2.*phi2deriv
     dFxdy= -sinphi*cosphi*R2deriv\
-           +(sinphi**2.-cosphi**2.)/R**2.*phiforce\
+           +(sinphi**2.-cosphi**2.)/R**2.*phitorque\
            -cosphi*sinphi/R*Rforce\
            -(cosphi**2.-sinphi**2.)/R*Rphideriv\
            +cosphi*sinphi/R**2.*phi2deriv
     dFydx= -cosphi*sinphi*R2deriv\
-           +(sinphi**2.-cosphi**2.)/R**2.*phiforce\
+           +(sinphi**2.-cosphi**2.)/R**2.*phitorque\
            +(sinphi**2.-cosphi**2.)/R*Rphideriv\
            -sinphi*cosphi/R*Rforce\
            +sinphi*cosphi/R**2.*phi2deriv
     dFydy= -sinphi**2.*R2deriv\
-           -2.*sinphi*cosphi/R**2.*phiforce\
+           -2.*sinphi*cosphi/R**2.*phitorque\
            -2.*sinphi*cosphi/R*Rphideriv\
            +cosphi**2./R*Rforce\
            -cosphi**2./R**2.*phi2deriv
     return numpy.array([x[2],x[3],
-                     cosphi*Rforce-1./R*sinphi*phiforce,
-                     sinphi*Rforce+1./R*cosphi*phiforce,
+                     cosphi*Rforce-1./R*sinphi*phitorque,
+                     sinphi*Rforce+1./R*cosphi*phitorque,
                      x[6],x[7],
                      dFxdx*x[4]+dFxdy*x[5],
                      dFydx*x[4]+dFydy*x[5]])
@@ -864,6 +957,6 @@ def _planarRectForce(x,pot,t=0.):
     if x[1] < 0.: phi= 2.*numpy.pi-phi
     #calculate forces
     Rforce= _evaluateplanarRforces(pot,R,phi=phi,t=t)
-    phiforce= _evaluateplanarphiforces(pot,R,phi=phi,t=t)
-    return numpy.array([cosphi*Rforce-1./R*sinphi*phiforce,
-                     sinphi*Rforce+1./R*cosphi*phiforce])
+    phitorque= _evaluateplanarphitorques(pot,R,phi=phi,t=t)
+    return numpy.array([cosphi*Rforce-1./R*sinphi*phitorque,
+                     sinphi*Rforce+1./R*cosphi*phitorque])

@@ -56,7 +56,7 @@ function
    Lists of Potential instances can be nested, allowing you to easily add components to existing gravitational-potential models. For example, to add a ``DehnenBarPotential`` to ``MWPotential2014``, you can do: ``pot= [MWPotential2014,DehnenBarPotential()]`` and then use this ``pot`` everywhere where you can use a list of Potential instances. You can also add potential simply as ``pot= MWPotential2014+DehnenBarPotential()``.
 
 .. WARNING::
-   ``galpy`` potentials do *not* necessarily approach zero at infinity. To compute, for example, the escape velocity or whether or not an orbit is unbound, you need to take into account the value of the potential at infinity. E.g., :math:`v_{\mathrm{esc}}(r) = \sqrt{2[\Phi(\infty)-\Phi(r)]}`.
+   ``galpy`` potentials do *not* necessarily approach zero at infinity. To compute, for example, the escape velocity or whether or not an orbit is unbound, you need to take into account the value of the potential at infinity. E.g., :math:`v_{\mathrm{esc}}(r) = \sqrt{2[\Phi(\infty)-\Phi(r)]}`. If you want to create a potential that does go to zero at infinity, you can add a :ref:`NullPotential <null_potential>` with value equal to minus the original potential evaluated at infinity.
 
 .. TIP::
    As discussed in the section on :ref:`physical units <physunits>`, potentials can be initialized and evaluated with arguments specified as a astropy Quantity with units. Use the configuration parameter ``apy-units = True`` to get output values as a Quantity. See also the subsection on :ref:`Initializing potentials with parameters with units <physunits_pot>` below.
@@ -133,6 +133,9 @@ a list of such instances
 >>> from galpy.potential import flattening
 >>> flattening(MWPotential2014,1.,0.125)
 # 0.61231675305658628
+
+.. WARNING::
+   While we call them 'forces' in ``galpy``, the forces are really gravitational fields (forces per unit mass) or accelerations (through Newton's second law).
 
 Densities
 ---------
@@ -241,6 +244,15 @@ for ``DehnenBarPotential``. Thus we can compare the two
 >>> print(dp.Rforce(0.9,0.3,phi=3.,t=-2.)-dswp.Rforce(0.9,0.3,phi=3.,t=-2.))
 # 0.0
 
+Other wrappers to modify the amplitude of a potential include 
+``GaussianAmplitudeWrapperPotential``, for modulating the amplitude using 
+a Gaussian, and the fully general ``TimeDependentAmplitudeWrapperPotential``, 
+which can modulate the amplitude of any potential with an arbitrary function 
+of time.
+
+.. TIP::
+   To simply adjust the amplitude of a Potential instance, you can multiply the instance with a number or divide it by a number. For example, ``pot= 2.*LogarithmicHaloPotential(amp=1.)`` is equivalent to ``pot= LogarithmicHaloPotential(amp=2.)``. This is useful if you want to, for instance, quickly adjust the mass of a potential.
+
 The wrapper ``SolidBodyRotationWrapperPotential`` allows one to make any potential rotate around the z axis. This can be used, for example, to make general bar-shaped potentials, which one could construct from a basis-function expansion with ``SCFPotential``, rotate without having to implement the rotation directly. As an example consider this ``SoftenedNeedleBarPotential`` (which has a potential-specific implementation of rotation)
 
 >>> sp= SoftenedNeedleBarPotential(normalize=1.,omegab=1.8,pa=0.)
@@ -257,21 +269,24 @@ Compare for example
 >>> print(sp.Rforce(0.8,0.2,phi=0.2,t=3.)-swp.Rforce(0.8,0.2,phi=0.2,t=3.))
 # 8.881784197e-16
 
+``RotateAndTiltWrapperPotential`` is a wrapper that allows you to rotate, 
+tilt, or offset a potential. This can be useful if you are trying to 
+see a potential they way an external galaxy is tilted, or, in combination
+with ``SolidBodyRotationWrapperPotential``, to make a potential rotate around
+an arbitrary axis (you can tilt, solid-body rotate, and tilt back to do this).
+
 Wrapper potentials can be used anywhere in galpy where general
 potentials can be used. They can be part of lists of Potential
-instances. They can also be used in C for orbit integration provided
-that both the wrapper and the potentials that it wraps are implemented
-in C. For example, a static ``LogarithmicHaloPotential`` with a bar
-potential grown as above would be
+instances. Wrappers can be wrapped again. They can also be used in C for 
+orbit integration provided that both the wrapper and the potentials that 
+it wraps are implemented in C. For example, a static ``LogarithmicHaloPotential`` 
+with a bar potential grown as above would be
 
 >>> from galpy.potential import LogarithmicHaloPotential, evaluateRforces
 >>> lp= LogarithmicHaloPotential(normalize=1.)
 >>> pot= lp+dswp
 >>> print(evaluateRforces(pot,0.9,0.3,phi=3.,t=-2.))
 # -1.00965326579
-
-.. TIP::
-   To simply adjust the amplitude of a Potential instance, you can multiply the instance with a number or divide it by a number. For example, ``pot= 2.*LogarithmicHaloPotential(amp=1.)`` is equivalent to ``pot= LogarithmicHaloPotential(amp=2.)``. This is useful if you want to, for instance, quickly adjust the mass of a potential.
 
 .. WARNING::
    When wrapping a potential that has :ref:`physical outputs turned on <physunits>`, the wrapper object inherits the units of the wrapped potential and automatically turns them on, even when you do not explictly set ``ro=`` and ``vo=``.
@@ -988,14 +1003,18 @@ argument to the force in addition to the standard
 instances, ``DissipativeForce`` instances, or lists of combinations of
 these two.
 
-Currently, the only dissipative force implemented in ``galpy`` is
+Currently, the dissipative forces implemented in ``galpy`` include
 :ref:`ChandrasekharDynamicalFrictionForce <dynamfric_potential>`, an
 implementation of the classic Chandrasekhar dynamical-friction
 formula, with recent tweaks to better represent the results from
-*N*-body simulations.
+*N*-body simulations, and :ref:`NonInertialFrameForce <noninertialframe_potential>`, 
+the fictitious forces of a non-inertial reference frame.
 
 .. WARNING::
    Dissipative forces can currently only be used for 3D orbits in ``galpy``. The code should throw an error when they are used for 2D orbits.
+
+.. WARNING::
+   While we call them 'dissipative', what is really meant is that the force depends on the velocity, whether the force is really dissipative or not.
 
 Adding potentials to the galpy framework
 -----------------------------------------
@@ -1053,7 +1072,7 @@ also see :ref:`the next section <addwrappot>`):
     the mass is computed by integrating the density (if it is
     implemented or can be calculated from the Poisson equation).
 
-  * ``_phiforce(self,R,z,phi=0.,t=0.)``: the azimuthal force in
+  * ``_phitorque(self,R,z,phi=0.,t=0.)``: the azimuthal torque in
     cylindrical coordinates (assumed zero if not implemented).
 
   * ``_phi2deriv(self,R,z,phi=0.,t=0.)``: the second azimuthal
@@ -1261,7 +1280,7 @@ C implementations of potential wrappers can also be added in a similar
 way as C implementations of regular potentials (all of the steps
 listed in the :ref:`previous section <addpypot>` for adding a
 potential to C need to be followed). All of the necessary functions
-(``...Rforce``, ``...zforce``, ``..phiforce``, etc.) need to be
+(``...Rforce``, ``...zforce``, ``..phitorque``, etc.) need to be
 implemented separately, but by including ``galpy_potentials.h``
 calling the relevant functions of the wrapped potentials is easy. Look
 at ``DehnenSmoothWrapperPotential.c`` for an example that can be
@@ -1301,7 +1320,7 @@ in general depend on the current velocity). Thus, the steps are:
   * ``_Rforce(self,R,z,phi=0.,t=0.,v=None)`` which evaluates the
     radial force in cylindrical coordinates
 
-  * ``_phiforce(self,R,z,phi=0.,t=0.,v=None)`` which evaluates the
+  * ``_phitorque(self,R,z,phi=0.,t=0.,v=None)`` which evaluates the
     azimuthal force in cylindrical coordinates
 
   * ``_zforce(self,R,z,phi=0.,t=0.,v=None)`` which evaluates the

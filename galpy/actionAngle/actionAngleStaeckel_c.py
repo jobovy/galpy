@@ -30,7 +30,9 @@ def actionAngleStaeckel_c(pot,delta,R,vR,vT,z,vz,u0=None,order=10):
         u0, dummy= coords.Rz_to_uv(R,z,delta=numpy.atleast_1d(delta))
     #Parse the potential
     from ..orbit.integrateFullOrbit import _parse_pot
-    npot, pot_type, pot_args= _parse_pot(pot,potforactions=True)
+    from ..orbit.integratePlanarOrbit import _prep_tfuncs
+    npot, pot_type, pot_args, pot_tfuncs= _parse_pot(pot,potforactions=True)
+    pot_tfuncs= _prep_tfuncs(pot_tfuncs)
 
     #Parse delta
     delta= numpy.atleast_1d(delta)
@@ -54,6 +56,7 @@ def actionAngleStaeckel_c(pot,delta,R,vR,vT,z,vz,u0=None,order=10):
                                ctypes.c_int,
                                ndpointer(dtype=numpy.int32,flags=ndarrayFlags),
                                ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
+                               ctypes.c_void_p,
                                ctypes.c_int,
                                ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
                                ctypes.c_int,
@@ -90,6 +93,7 @@ def actionAngleStaeckel_c(pot,delta,R,vR,vT,z,vz,u0=None,order=10):
                                     ctypes.c_int(npot),
                                     pot_type,
                                     pot_args,
+                                    pot_tfuncs,
                                     ctypes.c_int(ndelta),
                                     delta,
                                     ctypes.c_int(order),
@@ -127,7 +131,9 @@ def actionAngleStaeckel_calcu0(E,Lz,pot,delta):
     """
     #Parse the potential
     from ..orbit.integrateFullOrbit import _parse_pot
-    npot, pot_type, pot_args= _parse_pot(pot,potforactions=True)
+    from ..orbit.integratePlanarOrbit import _prep_tfuncs
+    npot, pot_type, pot_args, pot_tfuncs= _parse_pot(pot,potforactions=True)
+    pot_tfuncs= _prep_tfuncs(pot_tfuncs)
 
     #Set up result arrays
     u0= numpy.empty(len(E))
@@ -146,6 +152,7 @@ def actionAngleStaeckel_calcu0(E,Lz,pot,delta):
                                ctypes.c_int,
                                ndpointer(dtype=numpy.int32,flags=ndarrayFlags),
                                ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
+                               ctypes.c_void_p,
                                ctypes.c_int,
                                ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
                                ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
@@ -167,6 +174,7 @@ def actionAngleStaeckel_calcu0(E,Lz,pot,delta):
                                     ctypes.c_int(npot),
                                     pot_type,
                                     pot_args,
+                                    pot_tfuncs,
                                     ctypes.c_int(ndelta),
                                     delta,
                                     u0,
@@ -203,7 +211,9 @@ def actionAngleFreqStaeckel_c(pot,delta,R,vR,vT,z,vz,u0=None,order=10):
         u0, dummy= coords.Rz_to_uv(R,z,delta=numpy.atleast_1d(delta))
     #Parse the potential
     from ..orbit.integrateFullOrbit import _parse_pot
-    npot, pot_type, pot_args= _parse_pot(pot,potforactions=True)
+    from ..orbit.integratePlanarOrbit import _prep_tfuncs
+    npot, pot_type, pot_args, pot_tfuncs= _parse_pot(pot,potforactions=True)
+    pot_tfuncs= _prep_tfuncs(pot_tfuncs)
 
     #Parse delta
     delta= numpy.atleast_1d(delta)
@@ -230,6 +240,7 @@ def actionAngleFreqStaeckel_c(pot,delta,R,vR,vT,z,vz,u0=None,order=10):
                                ctypes.c_int,
                                ndpointer(dtype=numpy.int32,flags=ndarrayFlags),
                                ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
+                               ctypes.c_void_p,
                                ctypes.c_int,
                                ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
                                ctypes.c_int,
@@ -273,6 +284,7 @@ def actionAngleFreqStaeckel_c(pot,delta,R,vR,vT,z,vz,u0=None,order=10):
                                     ctypes.c_int(npot),
                                     pot_type,
                                     pot_args,
+                                    pot_tfuncs,
                                     ctypes.c_int(ndelta),
                                     delta,
                                     ctypes.c_int(order),
@@ -319,7 +331,9 @@ def actionAngleFreqAngleStaeckel_c(pot,delta,R,vR,vT,z,vz,phi,
         u0, dummy= coords.Rz_to_uv(R,z,delta=numpy.atleast_1d(delta))
     #Parse the potential
     from ..orbit.integrateFullOrbit import _parse_pot
-    npot, pot_type, pot_args= _parse_pot(pot,potforactions=True)
+    from ..orbit.integratePlanarOrbit import _prep_tfuncs
+    npot, pot_type, pot_args, pot_tfuncs= _parse_pot(pot,potforactions=True)
+    pot_tfuncs= _prep_tfuncs(pot_tfuncs)
 
     #Parse delta
     delta= numpy.atleast_1d(delta)
@@ -349,6 +363,7 @@ def actionAngleFreqAngleStaeckel_c(pot,delta,R,vR,vT,z,vz,phi,
                                ctypes.c_int,
                                ndpointer(dtype=numpy.int32,flags=ndarrayFlags),
                                ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
+                               ctypes.c_void_p,
                                ctypes.c_int,
                                ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
                                ctypes.c_int,
@@ -399,6 +414,7 @@ def actionAngleFreqAngleStaeckel_c(pot,delta,R,vR,vT,z,vz,phi,
                                     ctypes.c_int(npot),
                                     pot_type,
                                     pot_args,
+                                    pot_tfuncs,
                                     ctypes.c_int(ndelta),
                                     delta,
                                     ctypes.c_int(order),
@@ -449,7 +465,9 @@ def actionAngleUminUmaxVminStaeckel_c(pot,delta,R,vR,vT,z,vz,u0=None):
         u0, dummy= coords.Rz_to_uv(R,z,delta=numpy.atleast_1d(delta))
     #Parse the potential
     from ..orbit.integrateFullOrbit import _parse_pot
-    npot, pot_type, pot_args= _parse_pot(pot,potforactions=True)
+    from ..orbit.integratePlanarOrbit import _prep_tfuncs
+    npot, pot_type, pot_args, pot_tfuncs= _parse_pot(pot,potforactions=True)
+    pot_tfuncs= _prep_tfuncs(pot_tfuncs)
 
     #Parse delta
     delta= numpy.atleast_1d(delta)
@@ -474,6 +492,7 @@ def actionAngleUminUmaxVminStaeckel_c(pot,delta,R,vR,vT,z,vz,u0=None):
                                ctypes.c_int,
                                ndpointer(dtype=numpy.int32,flags=ndarrayFlags),
                                ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
+                               ctypes.c_void_p,
                                ctypes.c_int,
                                ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
                                ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
@@ -511,6 +530,7 @@ def actionAngleUminUmaxVminStaeckel_c(pot,delta,R,vR,vT,z,vz,u0=None):
                                     ctypes.c_int(npot),
                                     pot_type,
                                     pot_args,
+                                    pot_tfuncs,
                                     ctypes.c_int(ndelta),
                                     delta,
                                     umin,

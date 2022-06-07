@@ -4,18 +4,18 @@
 from .Potential import Potential, _isNonAxi, _dim
 from .planarPotential import planarPotential
 from .Potential import _evaluatePotentials, \
-    _evaluateRforces, _evaluatephiforces, _evaluatezforces, \
+    _evaluateRforces, _evaluatephitorques, _evaluatezforces, \
     evaluateR2derivs, evaluatez2derivs, \
     evaluateRzderivs, evaluateDensities
 from .planarPotential import _evaluateplanarPotentials, \
-    _evaluateplanarRforces, _evaluateplanarphiforces, \
+    _evaluateplanarRforces, _evaluateplanarphitorques, \
     evaluateplanarR2derivs
 from ..util.conversion import physical_compatible, get_physical
 def _new_obj(cls, kwargs, args):
     """Maps kwargs to cls.__new__"""
     return cls.__new__(cls, *args, **kwargs)
 
-class parentWrapperPotential(object):
+class parentWrapperPotential:
     """'Dummy' class only used to delegate wrappers to either 2D planarWrapperPotential or 3D WrapperPotential based on pot's dimensionality, using a little python object creation magic..."""
     def __new__(cls,*args,**kwargs):
         if kwargs.pop('_init',False):
@@ -93,14 +93,14 @@ class WrapperPotential(Potential):
     def __getattr__(self,attribute):
         if attribute == '_evaluate' \
                 or attribute == '_Rforce' or attribute == '_zforce' \
-                or attribute == '_phiforce' \
+                or attribute == '_phitorque' \
                 or attribute == '_R2deriv' or attribute == '_z2deriv' \
                 or attribute == '_Rzderiv' or attribute == '_phi2deriv' \
                 or attribute == '_Rphideriv' or attribute == '_dens':
             return lambda R,Z,phi=0.,t=0.: \
                 self._wrap(attribute,R,Z,phi=phi,t=t)
         else:
-            return super(WrapperPotential,self).__getattr__(attribute)
+            return super().__getattr__(attribute)
 
     def _wrap_pot_func(self,attribute):
         if attribute == '_evaluate':
@@ -115,9 +115,9 @@ class WrapperPotential(Potential):
         elif attribute == '_zforce':
             return lambda p,R,Z,phi=0.,t=0.: \
                 _evaluatezforces(p,R,Z,phi=phi,t=t)
-        elif attribute == '_phiforce':
+        elif attribute == '_phitorque':
             return lambda p,R,Z,phi=0.,t=0.: \
-                _evaluatephiforces(p,R,Z,phi=phi,t=t)
+                _evaluatephitorques(p,R,Z,phi=phi,t=t)
         elif attribute == '_R2deriv':
             return lambda p,R,Z,phi=0.,t=0.: \
                 evaluateR2derivs(p,R,Z,phi=phi,t=t,use_physical=False)
@@ -186,14 +186,14 @@ class planarWrapperPotential(planarPotential):
     def __getattr__(self,attribute):
         if attribute == '_evaluate' \
                 or attribute == '_Rforce' \
-                or attribute == '_phiforce' \
+                or attribute == '_phitorque' \
                 or attribute == '_R2deriv' \
                 or attribute == '_phi2deriv' \
                 or attribute == '_Rphideriv':
             return lambda R,phi=0.,t=0.: \
                 self._wrap(attribute,R,phi=phi,t=t)
         else:
-            return super(planarWrapperPotential,self).__getattr__(attribute)
+            return super().__getattr__(attribute)
 
     def _wrap_pot_func(self,attribute):
         if attribute == '_evaluate':
@@ -202,9 +202,9 @@ class planarWrapperPotential(planarPotential):
         elif attribute == '_Rforce':
             return lambda p,R,phi=0.,t=0.: \
                 _evaluateplanarRforces(p,R,phi=phi,t=t)
-        elif attribute == '_phiforce':
+        elif attribute == '_phitorque':
             return lambda p,R,phi=0.,t=0.: \
-                _evaluateplanarphiforces(p,R,phi=phi,t=t)
+                _evaluateplanarphitorques(p,R,phi=phi,t=t)
         elif attribute == '_R2deriv':
             return lambda p,R,phi=0.,t=0.: \
                 evaluateplanarR2derivs(p,R,phi=phi,t=t,use_physical=False)

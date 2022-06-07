@@ -391,7 +391,7 @@ class DehnenSphericalPotential(TwoPowerSphericalPotential):
 
         """
         if (alpha < 0.) or (alpha >= 3.):
-            raise IOError('DehnenSphericalPotential requires 0 <= alpha < 3')
+            raise OSError('DehnenSphericalPotential requires 0 <= alpha < 3')
         # instantiate
         TwoPowerSphericalPotential.__init__(
             self,amp=amp,a=a,alpha=alpha,beta=4,
@@ -1033,7 +1033,7 @@ class HernquistPotential(DehnenSphericalPotential):
 
         """
         GM= self._amp*vo**2.*ro/2.
-        return "0,1,%s,%s,0" % (GM,self.a*ro)
+        return "0,1,{},{},0".format(GM,self.a*ro)
 
 class JaffePotential(DehnenSphericalPotential):
     """Class that implements the Jaffe potential
@@ -1645,4 +1645,4 @@ class NFWPotential(TwoPowerSphericalPotential):
         """
         ampl= self._amp*vo**2.*ro
         vmax= numpy.sqrt(ampl/self.a/ro*0.2162165954) #Take that factor directly from gyrfalcon
-        return "0,%s,%s" % (self.a*ro,vmax)
+        return "0,{},{}".format(self.a*ro,vmax)

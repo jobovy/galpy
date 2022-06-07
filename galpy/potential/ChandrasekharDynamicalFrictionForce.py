@@ -219,12 +219,12 @@ class ChandrasekharDynamicalFrictionForce(DissipativeForce):
             self._calc_force(R,phi,z,v,t)
         return self._cached_force*v[0]
 
-    def _phiforce(self,R,z,phi=0.,t=0.,v=None):
+    def _phitorque(self,R,z,phi=0.,t=0.,v=None):
         """
         NAME:
-           _phiforce
+           _phitorque
         PURPOSE:
-           evaluate the azimuthal force for this potential
+           evaluate the azimuthal torque for this potential
         INPUT:
            R - Galactocentric cylindrical radius
            z - vertical height
@@ -232,7 +232,7 @@ class ChandrasekharDynamicalFrictionForce(DissipativeForce):
            t - time
            v= current velocity in cylindrical coordinates
         OUTPUT:
-           the azimuthal force
+           the azimuthal torque
         HISTORY:
            2018-03-18 - Started - Bovy (UofT)
         """

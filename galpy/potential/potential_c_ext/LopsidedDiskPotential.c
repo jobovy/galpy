@@ -12,7 +12,7 @@ double LopsidedDiskPotentialRforce(double R,double phi,double t,
   //Calculate Rforce
   return -amp * p * phio * pow(R,p-1.) * cos( phi - phib);
 }
-double LopsidedDiskPotentialphiforce(double R,double phi,double t,
+double LopsidedDiskPotentialphitorque(double R,double phi,double t,
 				     struct potentialArg * potentialArgs){
   double * args= potentialArgs->args;
   //Get args
@@ -20,7 +20,7 @@ double LopsidedDiskPotentialphiforce(double R,double phi,double t,
   double phio= *args++;
   double p= *args++;
   double phib= *args;
-  //Calculate phiforce
+  //Calculate phitorque
   return amp * phio * pow(R,p) * sin( phi-phib);
 }
 double LopsidedDiskPotentialR2deriv(double R,double phi,double t,

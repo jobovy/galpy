@@ -37,7 +37,7 @@ double SteadyLogSpiralPotentialRforce(double R,double phi,double t,
   smooth= dehnenSpiralSmooth(t,tform,tsteady);
   return amp * smooth * A / R * sin(alpha * log(R) - m * (phi-omegas*t-gamma));
 }
-double SteadyLogSpiralPotentialphiforce(double R,double phi,double t,
+double SteadyLogSpiralPotentialphitorque(double R,double phi,double t,
 					struct potentialArg * potentialArgs){
   double * args= potentialArgs->args;
   //declare

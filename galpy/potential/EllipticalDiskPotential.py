@@ -13,7 +13,7 @@ class EllipticalDiskPotential(planarPotential):
 
         \\Phi(R,\\phi) = \\mathrm{amp}\\,\\phi_0\\,\\left(\\frac{R}{R_1}\\right)^p\\,\\cos\\left(2\\,(\\phi-\\phi_b)\\right)
 
-    This potential can be grown between  :math:`t_{\mathrm{form}}` and  :math:`t_{\mathrm{form}}+T_{\mathrm{steady}}` in a similar way as DehnenBarPotential, but times are given directly in galpy time units
+    This potential can be grown between  :math:`t_{\\mathrm{form}}` and  :math:`t_{\\mathrm{form}}+T_{\\mathrm{steady}}` in a similar way as DehnenBarPotential, but times are given directly in galpy time units
 
    """
     def __init__(self,amp=1.,phib=25.*_degtorad,
@@ -150,18 +150,18 @@ class EllipticalDiskPotential(planarPotential):
         return -smooth*self._p*self._twophio/2.*R**(self._p-1.)\
             *numpy.cos(2.*(phi-self._phib))
         
-    def _phiforce(self,R,phi=0.,t=0.):
+    def _phitorque(self,R,phi=0.,t=0.):
         """
         NAME:
-           _phiforce
+           _phitorque
         PURPOSE:
-           evaluate the azimuthal force for this potential
+           evaluate the azimuthal torque for this potential
         INPUT:
            R - Galactocentric cylindrical radius
            phi - azimuth
            t - time
         OUTPUT:
-           the azimuthal force
+           the azimuthal torque
         HISTORY:
            2011-10-19 - Written - Bovy (IAS)
         """

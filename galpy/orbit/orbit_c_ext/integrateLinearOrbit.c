@@ -38,7 +38,8 @@ void evalLinearDeriv(double, double *, double *,
 */
 void parse_leapFuncArgs_Linear(int npot,struct potentialArg * potentialArgs,
 			       int ** pot_type,
-			       double ** pot_args){
+			       double ** pot_args,
+             tfuncs_type_arr * pot_tfuncs){
   int ii,jj;
   init_potentialArgs(npot,potentialArgs);
   for (ii=0; ii < npot; ii++){
@@ -49,10 +50,12 @@ void parse_leapFuncArgs_Linear(int npot,struct potentialArg * potentialArgs,
     case 31: // KGPotential
       potentialArgs->linearForce= &KGPotentialLinearForce;
       potentialArgs->nargs= 4;
+      potentialArgs->ntfuncs= 0;
       break; 
     case 32: // IsothermalDiskPotential
       potentialArgs->linearForce= &IsothermalDiskPotentialLinearForce;
       potentialArgs->nargs= 2;
+      potentialArgs->ntfuncs= 0;
       break; 
 //////////////////////////////// WRAPPERS /////////////////////////////////////
       // NOT CURRENTLY SUPPORTED
@@ -96,7 +99,7 @@ void parse_leapFuncArgs_Linear(int npot,struct potentialArg * potentialArgs,
       *(pot_type)-= 1; // Do FullOrbit processing for same potential
       parse_leapFuncArgs_Full(potentialArgs->nwrapped,
 			      potentialArgs->wrappedPotentialArg,
-			      pot_type,pot_args);
+			      pot_type,pot_args,pot_tfuncs);
       potentialArgs->nargs= 2; // R, phi
     }
     potentialArgs->args= (double *) malloc( potentialArgs->nargs * sizeof(double));
@@ -116,27 +119,31 @@ EXPORT void integrateLinearOrbit(int nobj,
 				 int npot,
 				 int * pot_type,
 				 double * pot_args,
+         tfuncs_type_arr pot_tfuncs,
 				 double dt,
 				 double rtol,
 				 double atol,
 				 double *result,
 				 int * err,
-				 int odeint_type){
+				 int odeint_type,
+         orbint_callback_type cb){
   //Set up the forces, first count
   int dim;
   int ii;
   int max_threads;
   int * thread_pot_type;
   double * thread_pot_args;
+  tfuncs_type_arr thread_pot_tfuncs;
   max_threads= ( nobj < omp_get_max_threads() ) ? nobj : omp_get_max_threads();
   // Because potentialArgs may cache, safest to have one / thread
   struct potentialArg * potentialArgs= (struct potentialArg *) malloc ( max_threads * npot * sizeof (struct potentialArg) );
-#pragma omp parallel for schedule(static,1) private(ii,thread_pot_type,thread_pot_args) num_threads(max_threads) 
+#pragma omp parallel for schedule(static,1) private(ii,thread_pot_type,thread_pot_args,thread_pot_tfuncs) num_threads(max_threads) 
   for (ii=0; ii < max_threads; ii++) {
     thread_pot_type= pot_type; // need to make thread-private pointers, bc
     thread_pot_args= pot_args; // these pointers are changed in parse_...
+    thread_pot_tfuncs= pot_tfuncs; // ...
     parse_leapFuncArgs_Linear(npot,potentialArgs+ii*npot,
-			      &thread_pot_type,&thread_pot_args);
+			      &thread_pot_type,&thread_pot_args,&thread_pot_tfuncs);
   }
   //Integrate
   void (*odeint_func)(void (*func)(double, double *, double *,
@@ -187,10 +194,13 @@ EXPORT void integrateLinearOrbit(int nobj,
     break;
   }
 #pragma omp parallel for schedule(dynamic,ORBITS_CHUNKSIZE) private(ii) num_threads(max_threads)
-  for (ii=0; ii < nobj; ii++) 
+  for (ii=0; ii < nobj; ii++) {
     odeint_func(odeint_deriv_func,dim,yo+2*ii,nt,dt,t,
 		npot,potentialArgs+omp_get_thread_num()*npot,rtol,atol,
 		result+2*nt*ii,err+ii);
+    if ( cb ) // Callback if not void
+      cb();
+  }
   //Free allocated memory
 #pragma omp parallel for schedule(static,1) private(ii) num_threads(max_threads)
   for (ii=0; ii < max_threads; ii++)

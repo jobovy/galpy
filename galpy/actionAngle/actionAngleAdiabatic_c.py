@@ -7,7 +7,7 @@ from ..util import _load_extension_libs
 _lib, _ext_loaded= _load_extension_libs.load_libgalpy()
 
 def actionAngleAdiabatic_c(pot,gamma,R,vR,vT,z,vz):
-    """
+    r"""
     NAME:
        actionAngleAdiabatic_c
     PURPOSE:
@@ -25,7 +25,9 @@ def actionAngleAdiabatic_c(pot,gamma,R,vR,vT,z,vz):
     """
     #Parse the potential
     from ..orbit.integrateFullOrbit import _parse_pot
-    npot, pot_type, pot_args= _parse_pot(pot,potforactions=True)
+    from ..orbit.integratePlanarOrbit import _prep_tfuncs
+    npot, pot_type, pot_args, pot_tfuncs= _parse_pot(pot,potforactions=True)
+    pot_tfuncs= _prep_tfuncs(pot_tfuncs)
 
     #Set up result arrays
     jr= numpy.empty(len(R))
@@ -44,6 +46,7 @@ def actionAngleAdiabatic_c(pot,gamma,R,vR,vT,z,vz):
                                                 ctypes.c_int,
                                                 ndpointer(dtype=numpy.int32,flags=ndarrayFlags),
                                                 ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
+                                                ctypes.c_void_p,
                                                 ctypes.c_double,
                                                 ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
                                                 ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
@@ -73,6 +76,7 @@ def actionAngleAdiabatic_c(pot,gamma,R,vR,vT,z,vz):
                                      ctypes.c_int(npot),
                                      pot_type,
                                      pot_args,
+                                     pot_tfuncs,
                                      ctypes.c_double(gamma),
                                      jr,
                                      jz,
@@ -88,7 +92,7 @@ def actionAngleAdiabatic_c(pot,gamma,R,vR,vT,z,vz):
     return (jr,jz,err.value)
 
 def actionAngleRperiRapZmaxAdiabatic_c(pot,gamma,R,vR,vT,z,vz):
-    """
+    r"""
     NAME:
        actionAngleRperiRapZmaxAdiabatic_c
     PURPOSE:
@@ -106,7 +110,9 @@ def actionAngleRperiRapZmaxAdiabatic_c(pot,gamma,R,vR,vT,z,vz):
     """
     #Parse the potential
     from ..orbit.integrateFullOrbit import _parse_pot
-    npot, pot_type, pot_args= _parse_pot(pot,potforactions=True)
+    from ..orbit.integratePlanarOrbit import _prep_tfuncs
+    npot, pot_type, pot_args, pot_tfuncs= _parse_pot(pot,potforactions=True)
+    pot_tfuncs= _prep_tfuncs(pot_tfuncs)
 
     #Set up result arrays
     rperi= numpy.empty(len(R))
@@ -126,6 +132,7 @@ def actionAngleRperiRapZmaxAdiabatic_c(pot,gamma,R,vR,vT,z,vz):
                                                 ctypes.c_int,
                                                 ndpointer(dtype=numpy.int32,flags=ndarrayFlags),
                                                 ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
+                                                ctypes.c_void_p,
                                                 ctypes.c_double,
                                                 ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
                                                 ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
@@ -157,6 +164,7 @@ def actionAngleRperiRapZmaxAdiabatic_c(pot,gamma,R,vR,vT,z,vz):
                                      ctypes.c_int(npot),
                                      pot_type,
                                      pot_args,
+                                     pot_tfuncs,
                                      ctypes.c_double(gamma),
                                      rperi,
                                      rap,

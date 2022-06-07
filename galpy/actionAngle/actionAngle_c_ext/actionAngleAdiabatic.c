@@ -49,10 +49,10 @@ struct JzAdiabaticArg{
   Function Declarations
 */
 EXPORT void actionAngleAdiabatic_RperiRapZmax(int,double *,double *,double *,double *,
-				       double *,int,int *,double *,double,
+				       double *,int,int *,double *,tfuncs_type_arr,double,
 				       double *,double *,double *,int *);
 EXPORT void actionAngleAdiabatic_actions(int,double *,double *,double *,double *,
-				 double *,int,int *,double *,double,
+				 double *,int,int *,double *,tfuncs_type_arr,double,
 				 double *,double *,int *);
 void calcJRAdiabatic(int,double *,double *,double *,double *,double *,
 		     int,struct potentialArg *,int);
@@ -107,6 +107,7 @@ void actionAngleAdiabatic_RperiRapZmax(int ndata,
 				       int npot,
 				       int * pot_type,
 				       double * pot_args,
+               tfuncs_type_arr pot_tfuncs,
 				       double gamma,
 				       double *rperi,
 				       double *rap,
@@ -115,7 +116,7 @@ void actionAngleAdiabatic_RperiRapZmax(int ndata,
   int ii;
   //Set up the potentials
   struct potentialArg * actionAngleArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );
-  parse_leapFuncArgs_Full(npot,actionAngleArgs,&pot_type,&pot_args);
+  parse_leapFuncArgs_Full(npot,actionAngleArgs,&pot_type,&pot_args,&pot_tfuncs);
   //ER, Ez, Lz
   double *ER= (double *) malloc ( ndata * sizeof(double) );
   double *Ez= (double *) malloc ( ndata * sizeof(double) );
@@ -150,6 +151,7 @@ void actionAngleAdiabatic_actions(int ndata,
 				  int npot,
 				  int * pot_type,
 				  double * pot_args,
+          tfuncs_type_arr pot_tfuncs,
 				  double gamma,
 				  double *jr,
 				  double *jz,
@@ -157,7 +159,7 @@ void actionAngleAdiabatic_actions(int ndata,
   int ii;
   //Set up the potentials
   struct potentialArg * actionAngleArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );
-  parse_leapFuncArgs_Full(npot,actionAngleArgs,&pot_type,&pot_args);
+  parse_leapFuncArgs_Full(npot,actionAngleArgs,&pot_type,&pot_args,&pot_tfuncs);
   //ER, Ez, Lz
   double *ER= (double *) malloc ( ndata * sizeof(double) );
   double *Ez= (double *) malloc ( ndata * sizeof(double) );

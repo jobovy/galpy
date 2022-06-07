@@ -2530,6 +2530,84 @@ def test_rguiding():
         os.rguiding(pot=MWPotential2014+potential.DehnenBarPotential())
     return None
 
+def test_rE():
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential2014
+    numpy.random.seed(1)
+    nrand= 10
+    Rs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)+1.
+    vRs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)
+    vTs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)+1.
+    zs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)
+    vzs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)
+    phis= 2.*numpy.pi*(2.*numpy.random.uniform(size=nrand)-1.)
+    os= Orbit(list(zip(Rs,vRs,vTs,zs,vzs,phis)))
+    list_os= [Orbit([R,vR,vT,z,vz,phi])
+              for R,vR,vT,z,vz,phi in zip(Rs,vRs,vTs,zs,vzs,phis)]
+    # First test that if potential is not given, error is raised
+    with pytest.raises(RuntimeError):
+        os.rE()
+    # With small number, calculation is direct
+    for ii in range(nrand):
+        assert numpy.all(numpy.fabs(os.rE(pot=MWPotential2014)[ii]/list_os[ii].rE(pot=MWPotential2014)-1.) < 10.**-10.), 'Evaluating Orbits rE analytically does not agree with Orbit'
+    # With large number, calculation is interpolated
+    nrand= 1002
+    Rs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)+1.
+    vRs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)
+    vTs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)+1.
+    zs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)
+    vzs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)
+    phis= 2.*numpy.pi*(2.*numpy.random.uniform(size=nrand)-1.)
+    os= Orbit(list(zip(Rs,vRs,vTs,zs,vzs,phis)))
+    list_os= [Orbit([R,vR,vT,z,vz,phi])
+              for R,vR,vT,z,vz,phi in zip(Rs,vRs,vTs,zs,vzs,phis)]
+    rgs= os.rE(pot=MWPotential2014)
+    for ii in range(nrand):
+        assert numpy.all(numpy.fabs(rgs[ii]/list_os[ii].rE(pot=MWPotential2014)-1.) < 10.**-10.), 'Evaluating Orbits rE analytically does not agree with Orbit'
+    # rE for non-axi potential fails
+    with pytest.raises(RuntimeError,match="Potential given to rE is non-axisymmetric, but rE requires an axisymmetric potential") as exc_info:
+        os.rE(pot=MWPotential2014+potential.DehnenBarPotential())
+    return None
+
+def test_LcE():
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential2014
+    numpy.random.seed(1)
+    nrand= 10
+    Rs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)+1.
+    vRs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)
+    vTs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)+1.
+    zs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)
+    vzs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)
+    phis= 2.*numpy.pi*(2.*numpy.random.uniform(size=nrand)-1.)
+    os= Orbit(list(zip(Rs,vRs,vTs,zs,vzs,phis)))
+    list_os= [Orbit([R,vR,vT,z,vz,phi])
+              for R,vR,vT,z,vz,phi in zip(Rs,vRs,vTs,zs,vzs,phis)]
+    # First test that if potential is not given, error is raised
+    with pytest.raises(RuntimeError):
+        os.LcE()
+    # With small number, calculation is direct
+    for ii in range(nrand):
+        assert numpy.all(numpy.fabs(os.LcE(pot=MWPotential2014)[ii]/list_os[ii].LcE(pot=MWPotential2014)-1.) < 10.**-10.), 'Evaluating Orbits LcE analytically does not agree with Orbit'
+    # With large number, calculation is interpolated
+    nrand= 1002
+    Rs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)+1.
+    vRs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)
+    vTs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)+1.
+    zs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)
+    vzs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)
+    phis= 2.*numpy.pi*(2.*numpy.random.uniform(size=nrand)-1.)
+    os= Orbit(list(zip(Rs,vRs,vTs,zs,vzs,phis)))
+    list_os= [Orbit([R,vR,vT,z,vz,phi])
+              for R,vR,vT,z,vz,phi in zip(Rs,vRs,vTs,zs,vzs,phis)]
+    rgs= os.LcE(pot=MWPotential2014)
+    for ii in range(nrand):
+        assert numpy.all(numpy.fabs(rgs[ii]/list_os[ii].LcE(pot=MWPotential2014)-1.) < 10.**-10.), 'Evaluating Orbits LcE analytically does not agree with Orbit'
+    # LcE for non-axi potential fails
+    with pytest.raises(RuntimeError,match="Potential given to LcE is non-axisymmetric, but LcE requires an axisymmetric potential") as exc_info:
+        os.LcE(pot=MWPotential2014+potential.DehnenBarPotential())
+    return None
+
 # Test that the actions, frequencies/periods, and angles calculated 
 # analytically by Orbits agrees with that calculated analytically using Orbit
 def test_actionsFreqsAngles_againstorbit_3d():
@@ -2960,8 +3038,8 @@ def test_physical_output_off():
     assert numpy.fabs(o.Op(pot=lp,type='staeckel',delta=0.5)-o.Op(pot=lp,type='staeckel',delta=0.5,use_physical=False)) < 10.**-10., 'o.Op() output for Orbit setup with ro=,vo= does not work as expected'
     assert numpy.fabs(o.Oz(pot=lp,type='staeckel',delta=0.5)-o.Oz(pot=lp,type='staeckel',delta=0.5,use_physical=False)) < 10.**-10., 'o.Oz() output for Orbit setup with ro=,vo= does not work as expected'
     #Also test the times
-    assert numpy.fabs((o.time(1.)-1.)) < 10.**-10., 'o.time() in physical coordinates does not work as expected when turned off'
-    assert numpy.fabs((o.time(1.,ro=ro,vo=vo)-ro/vo/1.0227121655399913)) < 10.**-10., 'o.time() in physical coordinates does not work as expected when turned off'
+    assert numpy.fabs(o.time(1.)-1.) < 10.**-10., 'o.time() in physical coordinates does not work as expected when turned off'
+    assert numpy.fabs(o.time(1.,ro=ro,vo=vo)-ro/vo/1.0227121655399913) < 10.**-10., 'o.time() in physical coordinates does not work as expected when turned off'
     return None
 
 # Check that the routines that should return physical coordinates are turned
@@ -3014,7 +3092,7 @@ def test_physical_output_on():
         assert numpy.fabs(o.Op(pot=lp,type='staeckel',delta=0.5)-o_orig.Op(pot=lp,type='staeckel',delta=0.5,use_physical=True)) < 10.**-10., 'o.Op() output for Orbit setup with ro=,vo= does not work as expected'
         assert numpy.fabs(o.Oz(pot=lp,type='staeckel',delta=0.5)-o_orig.Oz(pot=lp,type='staeckel',delta=0.5,use_physical=True)) < 10.**-10., 'o.Oz() output for Orbit setup with ro=,vo= does not work as expected'
     #Also test the times
-    assert numpy.fabs((o.time(1.)-o_orig.time(1.,use_physical=True))) < 10.**-10., 'o_orig.time() in physical coordinates does not work as expected when turned back on'
+    assert numpy.fabs(o.time(1.)-o_orig.time(1.,use_physical=True)) < 10.**-10., 'o_orig.time() in physical coordinates does not work as expected when turned back on'
     return None
 
 # Test that Orbits can be pickled
@@ -3073,4 +3151,15 @@ def test_from_name_values():
         "PMDec of Vega/Lacaille 8760  does not match SIMBAD value"
     assert numpy.allclose(o.vlos(), [-20.60,20.56]), \
         "radial velocity of Vega/Lacaille 8760  does not match SIMBAD value"
+    return None
+
+def test_from_name_name():
+    # Test that o.name gives the expected output
+    from galpy.orbit import Orbit
+    assert Orbit.from_name('LMC').name == 'LMC', 'Orbit.from_name does not appear to set the name attribute correctly'
+    assert numpy.char.equal(Orbit.from_name(['LMC']).name,numpy.char.array('LMC')), 'Orbit.from_name does not appear to set the name attribute correctly'
+    assert numpy.all(numpy.char.equal(Orbit.from_name(['LMC','SMC']).name,numpy.char.array(['LMC','SMC']))), 'Orbit.from_name does not appear to set the name attribute correctly'
+    # Also slice
+    assert Orbit.from_name(['LMC','SMC','Fornax'])[-1].name == 'Fornax', 'Orbit.from_name does not appear to set the name attribute correctly'
+    assert numpy.all(numpy.char.equal(Orbit.from_name(['LMC','SMC','Fornax'])[:2].name,numpy.char.array(['LMC','SMC']))), 'Orbit.from_name does not appear to set the name attribute correctly'
     return None

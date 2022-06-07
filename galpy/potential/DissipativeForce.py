@@ -114,15 +114,15 @@ class DissipativeForce(Force):
 
     @potential_physical_input
     @physical_conversion('force',pop=True)
-    def phiforce(self,R,z,phi=0.,t=0.,v=None):
+    def phitorque(self,R,z,phi=0.,t=0.,v=None):
         """
         NAME:
 
-           phiforce
+           phitorque
 
         PURPOSE:
 
-           evaluate the azimuthal force F_phi  (R,z,phi,t,v)
+           evaluate the azimuthal torque F_phi  (R,z,phi,t,v)
 
         INPUT:
 
@@ -145,16 +145,16 @@ class DissipativeForce(Force):
            2018-03-16 - Written - Bovy (UofT)
 
         """
-        return self._phiforce_nodecorator(R,z,phi=phi,t=t,v=v)
+        return self._phitorque_nodecorator(R,z,phi=phi,t=t,v=v)
 
-    def _phiforce_nodecorator(self,R,z,phi=0.,t=0.,v=None):
+    def _phitorque_nodecorator(self,R,z,phi=0.,t=0.,v=None):
         # Separate, so it can be used during orbit integration
         try:
-            return self._amp*self._phiforce(R,z,phi=phi,t=t,v=v)
+            return self._amp*self._phitorque(R,z,phi=phi,t=t,v=v)
         except AttributeError: #pragma: no cover
             if self.isNonAxi:
                 from .Potential import PotentialError
-                raise PotentialError("'_phiforce' function not implemented for this DissipativeForce")
+                raise PotentialError("'_phitorque' function not implemented for this DissipativeForce")
             return 0.
 
 def _isDissipative(obj):

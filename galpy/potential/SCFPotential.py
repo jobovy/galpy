@@ -508,10 +508,10 @@ class SCFPotential(Potential,NumericalPotentialDerivativesMixin):
         dr_dz = numpy.divide(z,r); dtheta_dz = numpy.divide(-R,r**2); dphi_dz = 0
         return self._computeforceArray(dr_dz, dtheta_dz, dphi_dz, R,z,phi)
         
-    def _phiforce(self, R,z,phi=0,t=0):
+    def _phitorque(self, R,z,phi=0,t=0):
         """
         NAME:
-           _phiforce
+           _phitorque
         PURPOSE:
            evaluate the azimuth force at (R,z, phi)
         INPUT:

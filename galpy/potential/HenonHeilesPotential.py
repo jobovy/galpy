@@ -8,7 +8,7 @@ class HenonHeilesPotential(planarPotential):
     
     .. math::
 
-        \\Phi(R,\\phi) = \\frac{\\mathrm{amp}}{2}\\,\\left[R^2 + \\frac{2\\,R^3}{3}\\,\\sin\\left(3\,\phi\\right)\\right]
+        \\Phi(R,\\phi) = \\frac{\\mathrm{amp}}{2}\\,\\left[R^2 + \\frac{2\\,R^3}{3}\\,\\sin\\left(3\\,\\phi\\right)\\right]
 
     """
     def __init__(self,amp=1.,ro=None,vo=None):
@@ -72,18 +72,18 @@ class HenonHeilesPotential(planarPotential):
         """
         return -R*(1.+R*numpy.sin(3.*phi))
        
-    def _phiforce(self,R,phi=0.,t=0.):
+    def _phitorque(self,R,phi=0.,t=0.):
         """
         NAME:
-           _phiforce
+           _phitorque
         PURPOSE:
-           evaluate the azimuthal force for this potential
+           evaluate the azimuthal torque for this potential
         INPUT:
            R - Galactocentric cylindrical radius
            phi - azimuth
            t - time
         OUTPUT:
-           the azimuthal force
+           the azimuthal torque
         HISTORY:
            2017-10-16 - Written - Bovy (UofT)
         """

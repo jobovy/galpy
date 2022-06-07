@@ -1,4 +1,3 @@
-from six import with_metaclass
 import types
 import copy
 import numpy
@@ -29,7 +28,7 @@ class MetaActionAngle(type):
         return type.__new__(meta,name,bases,attrs)
 
 # Python 2 & 3 compatible way to have a metaclass
-class actionAngle(with_metaclass(MetaActionAngle,object)):
+class actionAngle(metaclass=MetaActionAngle):
     """Top-level class for actionAngle classes"""
     def __init__(self,ro=None,vo=None):
         """

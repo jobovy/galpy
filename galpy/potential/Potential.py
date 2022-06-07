@@ -13,7 +13,6 @@
 #    for epicycle frequency
 #      function _R2deriv(self,R,z,phi) return d2 Phi dR2
 ###############################################################################
-from __future__  import division, print_function
 
 import os, os.path
 import pickle
@@ -120,7 +119,7 @@ class Potential(Force):
         elif dR == 1 and dphi == 0:
             return -self.Rforce(R,z,phi=phi,t=t,use_physical=False)
         elif dR == 0 and dphi == 1:
-            return -self.phiforce(R,z,phi=phi,t=t,use_physical=False)
+            return -self.phitorque(R,z,phi=phi,t=t,use_physical=False)
         elif dR == 2 and dphi == 0:
             return self.R2deriv(R,z,phi=phi,t=t,use_physical=False)
         elif dR == 0 and dphi == 2:
@@ -533,7 +532,7 @@ class Potential(Force):
 
     @potential_physical_input
     @physical_conversion('forcederivative',pop=True)
-    def R2deriv(self,R,Z,phi=0.,t=0.):
+    def R2deriv(self,R,z,phi=0.,t=0.):
         """
         NAME:
 
@@ -547,7 +546,7 @@ class Potential(Force):
 
            R - Galactocentric radius (can be Quantity)
 
-           Z - vertical height (can be Quantity)
+           z - vertical height (can be Quantity)
 
            phi - Galactocentric azimuth (can be Quantity)
 
@@ -563,13 +562,13 @@ class Potential(Force):
 
         """
         try:
-            return self._amp*self._R2deriv(R,Z,phi=phi,t=t)
+            return self._amp*self._R2deriv(R,z,phi=phi,t=t)
         except AttributeError: #pragma: no cover
             raise PotentialError("'_R2deriv' function not implemented for this potential")      
 
     @potential_physical_input
     @physical_conversion('forcederivative',pop=True)
-    def z2deriv(self,R,Z,phi=0.,t=0.):
+    def z2deriv(self,R,z,phi=0.,t=0.):
         """
         NAME:
 
@@ -583,7 +582,7 @@ class Potential(Force):
 
            R - Galactocentric radius (can be Quantity)
 
-           Z - vertical height (can be Quantity)
+           z - vertical height (can be Quantity)
 
            phi - Galactocentric azimuth (can be Quantity)
 
@@ -599,13 +598,13 @@ class Potential(Force):
 
         """
         try:
-            return self._amp*self._z2deriv(R,Z,phi=phi,t=t)
+            return self._amp*self._z2deriv(R,z,phi=phi,t=t)
         except AttributeError: #pragma: no cover
             raise PotentialError("'_z2deriv' function not implemented for this potential")      
 
     @potential_physical_input
     @physical_conversion('forcederivative',pop=True)
-    def Rzderiv(self,R,Z,phi=0.,t=0.):
+    def Rzderiv(self,R,z,phi=0.,t=0.):
         """
         NAME:
 
@@ -635,7 +634,7 @@ class Potential(Force):
 
         """
         try:
-            return self._amp*self._Rzderiv(R,Z,phi=phi,t=t)
+            return self._amp*self._Rzderiv(R,z,phi=phi,t=t)
         except AttributeError: #pragma: no cover
             raise PotentialError("'_Rzderiv' function not implemented for this potential")      
 
@@ -666,17 +665,21 @@ class Potential(Force):
         """
         self._amp*= norm/numpy.fabs(self.Rforce(1.,0.,use_physical=False))
 
+    def phiforce(self,R,z,phi=0.,t=0.):
+        warnings.warn('phiforce has been renamed phitorque, because it has always really been a torque (per unit mass); please switch to the new method name, because the old name will be removed in v1.9 and may be re-used for the actual phi force component',FutureWarning)
+        return self.phitorque(R,z,phi=phi,t=t)
+
     @potential_physical_input
     @physical_conversion('energy',pop=True)
-    def phiforce(self,R,z,phi=0.,t=0.):
+    def phitorque(self,R,z,phi=0.,t=0.):
         """
         NAME:
 
-           phiforce
+           phitorque
 
         PURPOSE:
 
-           evaluate the azimuthal force F_phi = -d Phi / d phi (R,z,phi,t) [note that this is a torque, not a force!)
+           evaluate the azimuthal torque tau_phi = -d Phi / d phi (R,z,phi,t)
 
         INPUT:
 
@@ -690,27 +693,27 @@ class Potential(Force):
 
         OUTPUT:
 
-           F_phi (R,z,phi,t)
+           tau_phi (R,z,phi,t)
 
         HISTORY:
 
            2010-07-10 - Written - Bovy (NYU)
 
         """
-        return self._phiforce_nodecorator(R,z,phi=phi,t=t)
+        return self._phitorque_nodecorator(R,z,phi=phi,t=t)
 
-    def _phiforce_nodecorator(self,R,z,phi=0.,t=0.):
+    def _phitorque_nodecorator(self,R,z,phi=0.,t=0.):
         # Separate, so it can be used during orbit integration
         try:
-            return self._amp*self._phiforce(R,z,phi=phi,t=t)
+            return self._amp*self._phitorque(R,z,phi=phi,t=t)
         except AttributeError: #pragma: no cover
             if self.isNonAxi:
-                raise PotentialError("'_phiforce' function not implemented for this non-axisymmetric potential")
+                raise PotentialError("'_phitorque' function not implemented for this non-axisymmetric potential")
             return 0.
 
     @potential_physical_input
     @physical_conversion('energy',pop=True)
-    def phi2deriv(self,R,Z,phi=0.,t=0.):
+    def phi2deriv(self,R,z,phi=0.,t=0.):
         """
         NAME:
 
@@ -740,7 +743,7 @@ class Potential(Force):
 
         """
         try:
-            return self._amp*self._phi2deriv(R,Z,phi=phi,t=t)
+            return self._amp*self._phi2deriv(R,z,phi=phi,t=t)
         except AttributeError: #pragma: no cover
             if self.isNonAxi:
                 raise PotentialError("'_phi2deriv' function not implemented for this non-axisymmetric potential")
@@ -748,7 +751,7 @@ class Potential(Force):
 
     @potential_physical_input
     @physical_conversion('force',pop=True)
-    def Rphideriv(self,R,Z,phi=0.,t=0.):
+    def Rphideriv(self,R,z,phi=0.,t=0.):
         """
         NAME:
 
@@ -778,7 +781,7 @@ class Potential(Force):
 
         """
         try:
-            return self._amp*self._Rphideriv(R,Z,phi=phi,t=t)
+            return self._amp*self._Rphideriv(R,z,phi=phi,t=t)
         except AttributeError: #pragma: no cover
             if self.isNonAxi:
                 raise PotentialError("'_Rphideriv' function not implemented for this non-axisymmetric potential")
@@ -786,7 +789,7 @@ class Potential(Force):
 
     @potential_physical_input
     @physical_conversion('force',pop=True)
-    def phizderiv(self,R,Z,phi=0.,t=0.):
+    def phizderiv(self,R,z,phi=0.,t=0.):
         """
         NAME:
 
@@ -816,7 +819,7 @@ class Potential(Force):
 
         """
         try:
-            return self._amp*self._phizderiv(R,Z,phi=phi,t=t)
+            return self._amp*self._phizderiv(R,z,phi=phi,t=t)
         except AttributeError: #pragma: no cover
             if self.isNonAxi:
                 raise PotentialError("'_phizderiv' function not implemented for this non-axisymmetric potential")
@@ -1352,7 +1355,6 @@ class Potential(Force):
         
         INPUT:
         
-        
             lz - Angular momentum (can be Quantity)
 
             t - time (optional; can be Quantity)
@@ -1367,12 +1369,75 @@ class Potential(Force):
         
         NOTE:
         
-            seems to take about ~0.5 ms for a Miyamoto-Nagai potential; 
-            ~0.75 ms for a MWPotential
+            An efficient way to call this function on many objects is
+            provided as the Orbit method rguiding
         
         """
         lz= conversion.parse_angmom(lz,ro=self._ro,vo=self._vo)
         return rl(self,lz,t=t,use_physical=False)
+
+    @physical_conversion('position',pop=True)
+    def rE(self,E,t=0.):
+        """
+        NAME:
+        
+            rE
+        
+        PURPOSE:
+        
+            calculate the radius of a circular orbit with energy E
+        
+        INPUT:
+        
+            E - Energy (can be Quantity)
+
+            t - time (optional; can be Quantity)
+        
+        OUTPUT:
+        
+            radius
+        
+        HISTORY:
+        
+            2022-04-06 - Written - Bovy (UofT)
+            
+        NOTE:
+
+            An efficient way to call this function on many objects is
+            provided as the Orbit method rE
+            
+        """
+        E= conversion.parse_energy(E,ro=self._ro,vo=self._vo)
+        return rE(self,E,t=t,use_physical=False)
+
+    @physical_conversion('action',pop=True)
+    def LcE(self,E,t=0.):
+        """
+        NAME:
+        
+            LcE
+        
+        PURPOSE:
+        
+            calculate the angular momentum of a circular orbit with energy E
+        
+        INPUT:
+        
+            E - Energy (can be Quantity)
+
+            t - time (optional; can be Quantity)
+        
+        OUTPUT:
+        
+            Lc(E)
+        
+        HISTORY:
+        
+            2022-04-06 - Written - Bovy (UofT)
+               
+        """
+        E= conversion.parse_energy(E,ro=self._ro,vo=self._vo)
+        return LcE(self,E,t=t,use_physical=False)
 
     @potential_physical_input
     @physical_conversion('dimensionless',pop=True)
@@ -1629,7 +1694,7 @@ class Potential(Force):
 
                r_t^3 = \\frac{GM_s}{\\Omega^2-\\mathrm{d}^2\\Phi/\\mathrm{d}r^2}
 
-            where :math:`M_s` is the cluster mass, :math:`\\Omega` is the circular frequency, and :math:`\Phi` is the gravitational potential. For non-spherical potentials, we evaluate :math:`\\Omega^2 = (1/r)(\\mathrm{d}\\Phi/\\mathrm{d}r)` and evaluate the derivatives at the given position of the cluster.
+            where :math:`M_s` is the cluster mass, :math:`\\Omega` is the circular frequency, and :math:`\\Phi` is the gravitational potential. For non-spherical potentials, we evaluate :math:`\\Omega^2 = (1/r)(\\mathrm{d}\\Phi/\\mathrm{d}r)` and evaluate the derivatives at the given position of the cluster.
 
         INPUT:
         
@@ -1698,7 +1763,7 @@ class Potential(Force):
             raise PotentialError("Tidal tensor calculation is currently only implemented for axisymmetric potentials")
         #Evaluate forces, angles and derivatives
         Rderiv= -self.Rforce(R,z,phi=phi,t=t,use_physical=False)       
-        phideriv= -self.phiforce(R,z,phi=phi,t=t,use_physical=False)
+        phideriv= -self.phitorque(R,z,phi=phi,t=t,use_physical=False)
         R2deriv= self.R2deriv(R,z,phi=phi,t=t,use_physical=False)
         z2deriv= self.z2deriv(R,z,phi=phi,t=t,use_physical=False)
         phi2deriv= self.phi2deriv(R,z,phi=phi,t=t,use_physical=False)
@@ -2079,13 +2144,17 @@ def _evaluateRforces(Pot,R,z,phi=None,t=0.,v=None):
     else: #pragma: no cover 
         raise PotentialError("Input to 'evaluateRforces' is neither a Potential-instance, DissipativeForce-instance or a list of such instances")
 
+def evaluatephiforces(Pot,R,z,phi=None,t=0.,v=None):
+    warnings.warn('evaluatephiforces has been renamed evaluatephitorques, because it has always really been a torque (per unit mass); please switch to the new method name, because the old name will be removed in v1.9 and may be re-used for the actual phi force component',FutureWarning)
+    return evaluatephitorques(Pot,R,z,phi=phi,t=t,v=v)
+
 @potential_physical_input
 @physical_conversion('energy',pop=True)
-def evaluatephiforces(Pot,R,z,phi=None,t=0.,v=None):
+def evaluatephitorques(Pot,R,z,phi=None,t=0.,v=None):
     """
     NAME:
 
-       evaluatephiforces
+       evaluatephitorques
 
     PURPOSE:
 
@@ -2106,7 +2175,7 @@ def evaluatephiforces(Pot,R,z,phi=None,t=0.,v=None):
 
     OUTPUT:
 
-       F_phi(R,z,phi,t)
+       tau_phi(R,z,phi,t)
 
     HISTORY:
 
@@ -2115,9 +2184,9 @@ def evaluatephiforces(Pot,R,z,phi=None,t=0.,v=None):
        2018-03-16 - Added velocity input for dissipative forces - Bovy (UofT)
 
     """
-    return _evaluatephiforces(Pot,R,z,phi=phi,t=t,v=v)
+    return _evaluatephitorques(Pot,R,z,phi=phi,t=t,v=v)
 
-def _evaluatephiforces(Pot,R,z,phi=None,t=0.,v=None):
+def _evaluatephitorques(Pot,R,z,phi=None,t=0.,v=None):
     """Raw, undecorated function for internal use"""
     isList= isinstance(Pot,list)
     nonAxi= _isNonAxi(Pot)
@@ -2130,16 +2199,16 @@ def _evaluatephiforces(Pot,R,z,phi=None,t=0.,v=None):
         out= 0.
         for pot in Pot:
             if isinstance(pot,DissipativeForce):
-                out+= pot._phiforce_nodecorator(R,z,phi=phi,t=t,v=v)
+                out+= pot._phitorque_nodecorator(R,z,phi=phi,t=t,v=v)
             else:
-                out+= pot._phiforce_nodecorator(R,z,phi=phi,t=t)
+                out+= pot._phitorque_nodecorator(R,z,phi=phi,t=t)
         return out
     elif isinstance(Pot,Potential):
-        return Pot._phiforce_nodecorator(R,z,phi=phi,t=t)
+        return Pot._phitorque_nodecorator(R,z,phi=phi,t=t)
     elif isinstance(Pot,DissipativeForce):
-        return Pot._phiforce_nodecorator(R,z,phi=phi,t=t,v=v)
+        return Pot._phitorque_nodecorator(R,z,phi=phi,t=t,v=v)
     else: #pragma: no cover 
-        raise PotentialError("Input to 'evaluatephiforces' is neither a Potential-instance, DissipativeForce-instance or a list of such instances")
+        raise PotentialError("Input to 'evaluatephitorques' is neither a Potential-instance, DissipativeForce-instance or a list of such instances")
 
 @potential_physical_input
 @physical_conversion('force',pop=True)
@@ -3104,8 +3173,8 @@ def rl(Pot,lz,t=0.):
 
     NOTE:
 
-       seems to take about ~0.5 ms for a Miyamoto-Nagai potential; 
-       ~0.75 ms for a MWPotential
+       An efficient way to call this function on many objects is
+       provided as the Orbit method rguiding
 
     """
     Pot= flatten(Pot)
@@ -3145,6 +3214,98 @@ def _rlFindStart(rl,lz,pot,t=0.,lower=False):
     return rtry
 
 @physical_conversion('position',pop=True)
+def rE(Pot,E,t=0.):
+    """
+    NAME:
+
+       rE
+
+    PURPOSE:
+
+       calculate the radius of a circular orbit with energy E
+
+    INPUT:
+
+       Pot - Potential instance or list thereof
+
+       E - Energy (can be Quantity)
+
+       t - time (optional; can be Quantity)
+
+    OUTPUT:
+
+       radius
+
+    HISTORY:
+
+       2022-04-06 - Written - Bovy (UofT)
+       
+    NOTE:
+
+       An efficient way to call this function on many objects is
+       provided as the Orbit method rE     
+
+    """
+    Pot= flatten(Pot)
+    E= conversion.parse_energy(E,**conversion.get_physical(Pot))
+    #Find interval
+    rstart= _rEFindStart(1.,E,Pot,t=t)
+    try:
+        return optimize.brentq(_rEfunc,10.**-5.,rstart,
+                               args=(E,Pot,t),
+                               maxiter=200,disp=False)
+    except ValueError: #Probably E small and starting rE to great
+        rlower= _rEFindStart(10.**-5.,E,Pot,t=t,lower=True)
+        return optimize.brentq(_rEfunc,rlower,rstart,
+                               args=(E,Pot,t))
+        
+def _rEfunc(rE,E,pot,t=0.):
+    """Function that gives vc^2/2+Pot(rc)-E"""
+    thisvcirc= vcirc(pot,rE,t=t,use_physical=False)
+    return thisvcirc**2./2.+_evaluatePotentials(pot,rE,0.,t=t)-E
+
+def _rEFindStart(rE,E,pot,t=0.,lower=False):
+    """find a starting interval for rE"""
+    rtry= 2.*rE
+    while (2.*lower-1.)*_rEfunc(rtry,E,pot,t=t) > 0.:
+        if lower:
+            rtry/= 2.
+        else:
+            rtry*= 2.
+    return rtry
+
+@physical_conversion('action',pop=True)
+def LcE(Pot,E,t=0.):
+    """
+    NAME:
+
+       LcE
+
+    PURPOSE:
+
+       calculate the angular momentum of a circular orbit with energy E
+
+    INPUT:
+
+       Pot - Potential instance or list thereof
+
+       E - Energy (can be Quantity)
+
+       t - time (optional; can be Quantity)
+
+    OUTPUT:
+
+       Lc(E)
+
+    HISTORY:
+
+       2022-04-06 - Written - Bovy (UofT)
+
+    """
+    thisrE= rE(Pot,E,t=t,use_physical=False)
+    return thisrE*vcirc(Pot,thisrE,use_physical=False)
+        
+@physical_conversion('position',pop=True)
 def lindbladR(Pot,OmegaP,m=2,t=0.,**kwargs):
     """
     NAME:
@@ -3182,7 +3343,7 @@ def lindbladR(Pot,OmegaP,m=2,t=0.,**kwargs):
         if 'corot' in m.lower():
             corotation= True
         else:
-            raise IOError("'m' input not recognized, should be an integer or 'corotation'")
+            raise OSError("'m' input not recognized, should be an integer or 'corotation'")
     else:
         corotation= False
     if corotation:
@@ -3438,7 +3599,7 @@ def turn_physical_on(Pot,ro=None,vo=None):
 def _flatten_list(L):
     for item in L:
         try:
-            for i in _flatten_list(item): yield i
+            yield from _flatten_list(item)
         except TypeError:
             yield item
 
@@ -3600,7 +3761,7 @@ def rtide(Pot,R,z,phi=0.,t=0.,M=None):
 
            r_t^3 = \\frac{GM_s}{\\Omega^2-\\mathrm{d}^2\\Phi/\\mathrm{d}r^2}
 
-        where :math:`M_s` is the cluster mass, :math:`\\Omega` is the circular frequency, and :math:`\Phi` is the gravitational potential. For non-spherical potentials, we evaluate :math:`\\Omega^2 = (1/r)(\\mathrm{d}\\Phi/\\mathrm{d}r)` and evaluate the derivatives at the given position of the cluster.
+        where :math:`M_s` is the cluster mass, :math:`\\Omega` is the circular frequency, and :math:`\\Phi` is the gravitational potential. For non-spherical potentials, we evaluate :math:`\\Omega^2 = (1/r)(\\mathrm{d}\\Phi/\\mathrm{d}r)` and evaluate the derivatives at the given position of the cluster.
 
     INPUT:
         
@@ -3674,7 +3835,7 @@ def ttensor(Pot,R,z,phi=0.,t=0.,eigenval=False):
         raise PotentialError("Tidal tensor calculation is currently only implemented for axisymmetric potentials")
     #Evaluate forces, angles and derivatives
     Rderiv= -evaluateRforces(Pot,R,z,phi=phi,t=t,use_physical=False)
-    phideriv= -evaluatephiforces(Pot,R,z,phi=phi,t=t,use_physical=False)
+    phideriv= -evaluatephitorques(Pot,R,z,phi=phi,t=t,use_physical=False)
     R2deriv= evaluateR2derivs(Pot,R,z,phi=phi,t=t,use_physical=False)
     z2deriv= evaluatez2derivs(Pot,R,z,phi=phi,t=t,use_physical=False)
     phi2deriv= evaluatephi2derivs(Pot,R,z,phi=phi,t=t,use_physical=False)

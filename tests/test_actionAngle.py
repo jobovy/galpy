@@ -1,4 +1,3 @@
-from __future__ import print_function, division
 import os
 import sys
 import pytest
@@ -25,7 +24,7 @@ def test_actionAngleHarmonic_conserved_actions():
     times= numpy.linspace(0.,20.,ntimes)
     obs.integrate(times,ipz)
     js= aAH(obs.x(times),obs.vx(times))
-    maxdj= numpy.amax(numpy.fabs((js-numpy.tile(numpy.mean(js),(len(times),1)).T)))/numpy.mean(js)
+    maxdj= numpy.amax(numpy.fabs(js-numpy.tile(numpy.mean(js),(len(times),1)).T))/numpy.mean(js)
     assert maxdj < 10.**-4., 'Action conservation fails at %g%%' % (100.*maxdj)
     return None
 
@@ -1883,7 +1882,8 @@ def test_actionAngleStaeckel_wSpherical_conserved_actions_c():
     from test_potential import mockSCFZeeuwPotential, \
         mockSphericalSoftenedNeedleBarPotential, \
         mockSmoothedLogarithmicHaloPotential, \
-        mockGaussianAmplitudeSmoothedLogarithmicHaloPotential
+        mockGaussianAmplitudeSmoothedLogarithmicHaloPotential, \
+        mockSmoothedLogarithmicHaloPotentialwTimeDependentAmplitudeWrapperPotential
     lp= potential.LogarithmicHaloPotential(normalize=1.,q=1.)
     lpb= potential.LogarithmicHaloPotential(normalize=1.,q=1.,b=1.) # same |^
     hp= potential.HernquistPotential(normalize=1.)
@@ -1907,8 +1907,9 @@ def test_actionAngleStaeckel_wSpherical_conserved_actions_c():
     ihomp= potential.interpSphericalPotential(\
             rforce=potential.HomogeneousSpherePotential(normalize=1.,R=1.1),
             rgrid=numpy.linspace(0.,1.1,201))
+    msmlpwtdp= mockSmoothedLogarithmicHaloPotentialwTimeDependentAmplitudeWrapperPotential()
     pots= [lp,lpb,hp,jp,np,ip,pp,lp2,ppc,plp,psp,bp,scfp,scfzp,
-           msoftneedlep,msmlp,mgasmlp,dp,dcp,homp,ihomp]
+           msoftneedlep,msmlp,mgasmlp,dp,dcp,homp,ihomp,msmlpwtdp]
     for pot in pots:
         aAS= actionAngleStaeckel(pot=pot,c=True,delta=0.01)
         obs= Orbit([1.1, 0.3, 1.2, 0.2,0.5,2.])
@@ -2217,11 +2218,11 @@ def test_actionAngleStaeckelGrid_setuperrs():
     from galpy.actionAngle import actionAngleStaeckelGrid
     try:
         aAA= actionAngleStaeckelGrid()
-    except IOError: pass
+    except OSError: pass
     else: raise AssertionError('actionAngleStaeckelGrid w/o pot does not give IOError')
     try:
         aAA= actionAngleStaeckelGrid(pot=MWPotential)
-    except IOError: pass
+    except OSError: pass
     else: raise AssertionError('actionAngleStaeckelGrid w/o delta does not give IOError')
     return None
 
@@ -2614,7 +2615,7 @@ def test_actionAngleIsochroneApprox_bovy14():
     obs.integrate(times,lp,method='dopr54_c')
     js= aAI(obs.R(times),obs.vR(times),obs.vT(times),obs.z(times),
             obs.vz(times),obs.phi(times))
-    maxdj= numpy.amax(numpy.fabs((js-numpy.tile(numpy.mean(js,axis=1),(len(times),1)).T)),axis=1)/numpy.mean(js,axis=1)
+    maxdj= numpy.amax(numpy.fabs(js-numpy.tile(numpy.mean(js,axis=1),(len(times),1)).T),axis=1)/numpy.mean(js,axis=1)
     assert maxdj[0] < 3.*10.**-2., 'Jr conservation for the GD-1 like orbit of Bovy (2014) fails at %f%%' % (100.*maxdj[0])
     assert maxdj[1] < 10.**-2., 'Lz conservation for the GD-1 like orbit of Bovy (2014) fails at %f%%' % (100.*maxdj[1])
     assert maxdj[2] < 2.*10.**-2., 'Jz conservation for the GD-1 like orbit of Bovy (2014) fails at %f%%' % (100.*maxdj[2])
@@ -2879,13 +2880,27 @@ def test_orbits_interface_staeckel_PotentialErrors():
     return None
 
 # Test the Orbit interface for actionAngleAdiabatic
-# currently fails bc actionAngleAdiabatic doesn't have actionsFreqsAngles
-@pytest.mark.xfail(raises=NotImplementedError,strict=True)
 def test_orbit_interface_adiabatic():
     from galpy.potential import MWPotential
     from galpy.orbit import Orbit
     from galpy.actionAngle import actionAngleAdiabatic
     obs= Orbit([1.05, 0.02, 1.05, 0.03,0.,2.])
+    aAS= actionAngleAdiabatic(pot=MWPotential)
+    acfs= numpy.array(list(aAS(obs))).reshape(3)
+    type= 'adiabatic'
+    acfso= numpy.array([obs.jr(pot=MWPotential,type=type),
+                        obs.jp(pot=MWPotential,type=type),
+                        obs.jz(pot=MWPotential,type=type)])
+    maxdev= numpy.amax(numpy.abs(acfs-acfso))
+    assert maxdev < 10.**-16., 'Orbit interface for actionAngleAdiabatic does not return the same as actionAngle interface'
+    return None
+
+def test_orbit_interface_adiabatic_2d():
+    # Test with 2D orbit
+    from galpy.potential import MWPotential
+    from galpy.orbit import Orbit
+    from galpy.actionAngle import actionAngleAdiabatic
+    obs= Orbit([1.05, 0.02, 1.05,2.])
     aAS= actionAngleAdiabatic(pot=MWPotential)
     acfs= numpy.array(list(aAS(obs))).reshape(3)
     type= 'adiabatic'
@@ -2915,14 +2930,14 @@ def test_orbit_interface_actionAngleIsochroneApprox():
                         obs.wp(pot=MWPotential,type=type,b=0.8),
                         obs.wz(pot=MWPotential,type=type,b=0.8)])
     maxdev= numpy.amax(numpy.abs(acfs-acfso))
-    assert maxdev < 10.**-16., 'Orbit interface for actionAngleIsochroneApprox does not return the same as actionAngle interface'
-    assert numpy.abs(obs.Tr(pot=MWPotential,type=type,b=0.8)-2.*numpy.pi/acfso[3]) < 10.**-16., \
+    assert maxdev < 10.**-13., 'Orbit interface for actionAngleIsochroneApprox does not return the same as actionAngle interface'
+    assert numpy.abs(obs.Tr(pot=MWPotential,type=type,b=0.8)-2.*numpy.pi/acfso[3]) < 10.**-13., \
         'Orbit.Tr does not agree with actionAngleIsochroneApprox frequency'
-    assert numpy.abs(obs.Tp(pot=MWPotential,type=type,b=0.8)-2.*numpy.pi/acfso[4]) < 10.**-16., \
+    assert numpy.abs(obs.Tp(pot=MWPotential,type=type,b=0.8)-2.*numpy.pi/acfso[4]) < 10.**-13., \
         'Orbit.Tp does not agree with actionAngleIsochroneApprox frequency'
-    assert numpy.abs(obs.Tz(pot=MWPotential,type=type,b=0.8)-2.*numpy.pi/acfso[5]) < 10.**-16., \
+    assert numpy.abs(obs.Tz(pot=MWPotential,type=type,b=0.8)-2.*numpy.pi/acfso[5]) < 10.**-13., \
         'Orbit.Tz does not agree with actionAngleIsochroneApprox frequency'
-    assert numpy.abs(obs.TrTp(pot=MWPotential,type=type,b=0.8)-acfso[4]/acfso[3]*numpy.pi) < 10.**-16., \
+    assert numpy.abs(obs.TrTp(pot=MWPotential,type=type,b=0.8)-acfso[4]/acfso[3]*numpy.pi) < 10.**-13., \
         'Orbit.TrTp does not agree with actionAngleIsochroneApprox frequency'
     return None
 
@@ -3387,6 +3402,17 @@ def test_physical_actionAngleIsochroneInverse():
         assert numpy.fabs(aAII.Freqs(0.1,1.1,0.1)[ii]-aAIInu.Freqs(0.1,1.1,0.1)[ii]*conversion.freq_in_Gyr(vo,ro)) < 10.**-8., 'actionAngleInverse function Freqs does not return Quantity with the right value'
     return None
 
+# Test that computing actionAngle coordinates in C for a NullPotential leads to an error
+def test_nullpotential_error():
+    from galpy.potential import NullPotential
+    from galpy.actionAngle import actionAngleStaeckel
+    np= NullPotential()
+    aAS= actionAngleStaeckel(pot=np,delta=1.)
+    with pytest.raises(NotImplementedError) as excinfo:
+        aAS(1.,0.,1.,0.1,0.)
+        pytest.fail('Calculating actionAngle coordinates in C for a NullPotential should have given a NotImplementedError, but did not')
+    return None
+
 def check_actionAngleIsochroneInverse_wrtIsochrone(pot,aAI,aAII,obs,
                                                    tol,ntimes=1001):
     times= numpy.linspace(0.,30.,ntimes)
@@ -3422,7 +3448,7 @@ def check_actionAngle_conserved_actions(aA,obs,pot,toljr,toljp,toljz,
     else:
         # Test Orbit with multiple objects case, but calling
         js= aA(obs(times))
-    maxdj= numpy.amax(numpy.fabs((js-numpy.tile(numpy.mean(js,axis=1),(len(times),1)).T)),axis=1)/numpy.mean(js,axis=1)
+    maxdj= numpy.amax(numpy.fabs(js-numpy.tile(numpy.mean(js,axis=1),(len(times),1)).T),axis=1)/numpy.mean(js,axis=1)
     assert maxdj[0] < 10.**toljr, 'Jr conservation fails at %g%%' % (100.*maxdj[0])
     assert maxdj[1] < 10.**toljp, 'Lz conservation fails at %g%%' % (100.*maxdj[1])
     assert maxdj[2] < 10.**toljz, 'Jz conservation fails at %g%%' % (100.*maxdj[2])

@@ -32,6 +32,7 @@ extern "C"
 			      int npot,
 			      int * pot_type,
 			      double * pot_args,
+            tfuncs_type_arr pot_tfuncs,
 			      double tol,
 			      double * Omegar,double * Omegaphi,double * Omegaz,
 			      int * flag)
@@ -44,7 +45,7 @@ extern "C"
     Potential *Phi;
     //Phi = new(std::nothrow) LogPotential(1.,0.8,0.,0.);
     struct potentialArg * actionAngleArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );
-    parse_leapFuncArgs_Full(npot,actionAngleArgs,&pot_type,&pot_args);
+    parse_leapFuncArgs_Full(npot,actionAngleArgs,&pot_type,&pot_args,&pot_tfuncs);
     Phi = new(std::nothrow) galpyPotential(npot,actionAngleArgs);
 
     // Load actions and fit Torus
@@ -72,6 +73,7 @@ extern "C"
 				int npot,
 				int * pot_type,
 				double * pot_args,
+        tfuncs_type_arr pot_tfuncs,
 				double tol,
 				double * R, double * vR, double * vT, 
 				double * z, double * vz, double * phi,
@@ -86,7 +88,7 @@ extern "C"
     Potential *Phi;
     //Phi = new(std::nothrow) LogPotential(1.,0.8,0.,0.);
     struct potentialArg * actionAngleArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );
-    parse_leapFuncArgs_Full(npot,actionAngleArgs,&pot_type,&pot_args);
+    parse_leapFuncArgs_Full(npot,actionAngleArgs,&pot_type,&pot_args,&pot_tfuncs);
     Phi = new(std::nothrow) galpyPotential(npot,actionAngleArgs);
 
     // Load actions and fit Torus
@@ -131,6 +133,7 @@ extern "C"
 				     int npot,
 				     int * pot_type,
 				     double * pot_args,
+             tfuncs_type_arr pot_tfuncs,
 				     double tol,
 				     double indJ,
 				     double * dOdJT,
@@ -149,7 +152,7 @@ extern "C"
     Potential *Phi;
     //Phi = new(std::nothrow) LogPotential(1.,0.8,0.,0.);
     struct potentialArg * actionAngleArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );
-    parse_leapFuncArgs_Full(npot,actionAngleArgs,&pot_type,&pot_args);
+    parse_leapFuncArgs_Full(npot,actionAngleArgs,&pot_type,&pot_args,&pot_tfuncs);
     Phi = new(std::nothrow) galpyPotential(npot,actionAngleArgs);
 
     // Load actions and fit Torus
@@ -190,6 +193,7 @@ extern "C"
 				      int npot,
 				      int * pot_type,
 				      double * pot_args,
+              tfuncs_type_arr pot_tfuncs,
 				      double tol,
 				      double indJ,
 				      double * R, double * vR, double * vT, 
@@ -210,7 +214,7 @@ extern "C"
     // set up potential
     Potential *Phi;
     struct potentialArg * actionAngleArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );
-    parse_leapFuncArgs_Full(npot,actionAngleArgs,&pot_type,&pot_args);
+    parse_leapFuncArgs_Full(npot,actionAngleArgs,&pot_type,&pot_args,&pot_tfuncs);
     Phi = new(std::nothrow) galpyPotential(npot,actionAngleArgs);
 
     // Load actions and fit Torus

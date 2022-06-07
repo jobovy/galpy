@@ -81,7 +81,7 @@ class PowerTriaxialPotential(EllipsoidalPotential):
         return None
 
     def _psi(self,m):
-        """\psi(m) = -\int_m^\infty d m^2 \rho(m^2)"""
+        """\\psi(m) = -\\int_m^\\infty d m^2 \rho(m^2)"""
         return 2./(2.-self.alpha)*m**(2.-self.alpha)
 
     def _mdens(self,m):

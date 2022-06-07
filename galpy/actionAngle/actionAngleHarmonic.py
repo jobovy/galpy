@@ -46,7 +46,7 @@ class actionAngleHarmonic(actionAngle):
         actionAngle.__init__(self,
                              ro=kwargs.get('ro',None),vo=kwargs.get('vo',None))
         if not 'omega' in kwargs: #pragma: no cover
-            raise IOError("Must specify omega= for actionAngleHarmonic")
+            raise OSError("Must specify omega= for actionAngleHarmonic")
         self._omega= conversion.parse_frequency(kwargs.get('omega'),
                                                 ro=self._ro,vo=self._vo)
         return None

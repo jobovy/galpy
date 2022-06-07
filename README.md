@@ -5,7 +5,9 @@
 
 [galpy](http://www.galpy.org) is a Python package for galactic dynamics. It supports orbit integration in a variety of potentials, evaluating and sampling various distribution functions, and the calculation of action-angle coordinates for all static potentials. `galpy` is an [astropy](http://www.astropy.org/) [affiliated package](http://www.astropy.org/affiliated/) and provides full support for astropy’s [Quantity](http://docs.astropy.org/en/stable/api/astropy.units.Quantity.html) framework for variables with units.
 
-[![image](https://github.com/jobovy/galpy/actions/workflows/build.yml/badge.svg?branch=master)](https://github.com/jobovy/galpy/actions/workflows/build.yml) [![image](https://github.com/jobovy/galpy/actions/workflows/build_windows.yml/badge.svg?branch=master)](https://github.com/jobovy/galpy/actions/workflows/build_windows.yml) [![image](https://ci.appveyor.com/api/projects/status/wmgs1sq3i7tbtap2/branch/master?svg=true)](https://ci.appveyor.com/project/jobovy/galpy) [![image](http://codecov.io/github/jobovy/galpy/coverage.svg?branch=master)](http://codecov.io/github/jobovy/galpy?branch=master) [![image](https://readthedocs.org/projects/galpy/badge/?version=latest)](http://docs.galpy.org/en/latest/) [![image](http://img.shields.io/pypi/v/galpy.svg)](https://pypi.python.org/pypi/galpy/) [![image](https://anaconda.org/conda-forge/galpy/badges/installer/conda.svg)](https://anaconda.org/conda-forge/galpy) [![image](http://img.shields.io/badge/license-New%20BSD-brightgreen.svg)](https://github.com/jobovy/galpy/blob/master/LICENSE) [![image](http://img.shields.io/badge/DOI-10.1088/0067%2D%2D0049/216/2/29-blue.svg)](http://dx.doi.org/10.1088/0067-0049/216/2/29) [![image](http://img.shields.io/badge/powered%20by-AstroPy-orange.svg?style=flat)](http://www.astropy.org/) [![image](https://img.shields.io/badge/join-slack-E01563.svg?style=flat&logo=slack&logoWidth=10)](https://join.slack.com/t/galpy/shared_invite/zt-p6upr4si-mX7u8MRdtm~3bW7o8NA_Ww)
+[![image](https://github.com/jobovy/galpy/actions/workflows/build.yml/badge.svg?branch=main)](https://github.com/jobovy/galpy/actions/workflows/build.yml) [![image](https://github.com/jobovy/galpy/actions/workflows/build_windows.yml/badge.svg?branch=main)](https://github.com/jobovy/galpy/actions/workflows/build_windows.yml) [![image](https://ci.appveyor.com/api/projects/status/wmgs1sq3i7tbtap2/branch/main?svg=true)](https://ci.appveyor.com/project/jobovy/galpy) [![image](http://codecov.io/github/jobovy/galpy/coverage.svg?branch=main)](http://codecov.io/github/jobovy/galpy?branch=main) [![image](https://readthedocs.org/projects/galpy/badge/?version=latest)](http://docs.galpy.org/en/latest/)  
+[![image](http://img.shields.io/pypi/v/galpy.svg)](https://pypi.python.org/pypi/galpy/) [![image](https://img.shields.io/pypi/pyversions/galpy?logo=python&logoColor=white)](https://pypi.python.org/pypi/galpy/) [![image](https://anaconda.org/conda-forge/galpy/badges/installer/conda.svg)](https://anaconda.org/conda-forge/galpy) [![image](https://img.shields.io/github/commits-since/jobovy/galpy/latest)](https://github.com/jobovy/galpy/commits/main)  
+[![image](http://img.shields.io/badge/license-New%20BSD-brightgreen.svg)](https://github.com/jobovy/galpy/blob/main/LICENSE) [![image](http://img.shields.io/badge/DOI-10.1088/0067%2D%2D0049/216/2/29-blue.svg)](http://dx.doi.org/10.1088/0067-0049/216/2/29) [![image](http://img.shields.io/badge/powered%20by-AstroPy-orange.svg?style=flat)](http://www.astropy.org/) [![image](https://img.shields.io/badge/join-slack-E01563.svg?style=flat&logo=slack&logoWidth=10)](https://join.slack.com/t/galpy/shared_invite/zt-p6upr4si-mX7u8MRdtm~3bW7o8NA_Ww)
 
 AUTHOR
 ======
@@ -13,7 +15,7 @@ AUTHOR
 Jo Bovy - bovy at astro dot utoronto dot ca
 
 See
-[AUTHORS.txt](https://github.com/jobovy/galpy/blob/master/AUTHORS.txt)
+[AUTHORS.txt](https://github.com/jobovy/galpy/blob/main/AUTHORS.txt)
 for a full list of contributors.
 
 If you find this code useful in your research, please let me know. **If
@@ -48,11 +50,10 @@ PYTHON VERSIONS AND DEPENDENCIES
 but this is not extensively tested on an ongoing basis and because
 libraries that `galpy` depends on are dropping earlier Python 3.\*
 versions, `galpy` itself likely doesn't fully work on them.  GitHub
-Actions CI builds regularly check support for Python 3.9 (and of 3.7,
-3.8, and 3.10 using a more limited, core set of tests) on Linux and
-Windows; Appveyor builds regularly check support for Python 3.9 on
-Windows. While most of `galpy` likely works in Python 2.7, this is no
-longer tested and Python 2.7 is no longer officially supported.
+Actions CI builds regularly check support for Python 3.10 (and of 3.7,
+3.8, and 3.9 using a more limited, core set of tests) on Linux and
+Windows (and 3.10 on Mac OS); Appveyor builds regularly check support
+for Python 3.10 on Windows. Python 2.7 is no longer supported.
 
 This package requires [Numpy](https://numpy.org/),
 [Scipy](http://www.scipy.org/), and
@@ -64,7 +65,9 @@ requiring version 1.14 or higher. Other optional dependencies include:
 * Support for providing inputs and getting outputs as Quantities with units is provided through
 [`astropy`](http://www.astropy.org/).
 * Querying SIMBAD for the coordinates of an object in the `Orbit.from_name` initialization method requires [`astroquery`](https://astroquery.readthedocs.io/en/latest/).
+* Displaying a progress bar for certain operations (e.g., orbit integration of multiple objects at once) requires [`tqdm`](https://github.com/tqdm/tqdm).
 * Plotting arbitrary functions of Orbit attributes requires [`numexpr`](https://github.com/pydata/numexpr).
+* Speeding up the evaluation of certain functions in the C code requires [`numba`](https://numba.pydata.org/).
 * Constant-anisotropy DFs in `galpy.df.constantbetadf` require [`JAX`](https://github.com/google/jax).
 * Use of `SnapshotRZPotential` and `InterpSnapshotRZPotential` requires [`pynbody`](https://github.com/pynbody/pynbody). 
 

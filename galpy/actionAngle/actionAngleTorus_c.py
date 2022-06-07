@@ -30,7 +30,9 @@ def actionAngleTorus_xvFreqs_c(pot,jr,jphi,jz,
     """
     #Parse the potential
     from ..orbit.integrateFullOrbit import _parse_pot
-    npot, pot_type, pot_args= _parse_pot(pot,potfortorus=True)
+    from ..orbit.integratePlanarOrbit import _prep_tfuncs
+    npot, pot_type, pot_args, pot_tfuncs= _parse_pot(pot,potfortorus=True)
+    pot_tfuncs= _prep_tfuncs(pot_tfuncs)
 
     #Set up result arrays
     R= numpy.empty(len(angler))
@@ -58,6 +60,7 @@ def actionAngleTorus_xvFreqs_c(pot,jr,jphi,jz,
          ctypes.c_int,
          ndpointer(dtype=numpy.int32,flags=ndarrayFlags),
          ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
+         ctypes.c_void_p,
          ctypes.c_double,
          ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
          ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
@@ -98,6 +101,7 @@ def actionAngleTorus_xvFreqs_c(pot,jr,jphi,jz,
                                  ctypes.c_int(npot),
                                  pot_type,
                                  pot_args,
+                                 pot_tfuncs,
                                  ctypes.c_double(tol),
                                  R,vR,vT,z,vz,phi,
                                  Omegar,Omegaphi,Omegaz,
@@ -130,7 +134,9 @@ def actionAngleTorus_Freqs_c(pot,jr,jphi,jz,
     """
     #Parse the potential
     from ..orbit.integrateFullOrbit import _parse_pot
-    npot, pot_type, pot_args= _parse_pot(pot,potfortorus=True)
+    from ..orbit.integratePlanarOrbit import _prep_tfuncs
+    npot, pot_type, pot_args, pot_tfuncs= _parse_pot(pot,potfortorus=True)
+    pot_tfuncs= _prep_tfuncs(pot_tfuncs)
 
     #Set up result
     Omegar= numpy.empty(1)
@@ -148,6 +154,7 @@ def actionAngleTorus_Freqs_c(pot,jr,jphi,jz,
          ctypes.c_int,
          ndpointer(dtype=numpy.int32,flags=ndarrayFlags),
          ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
+         ctypes.c_void_p,
          ctypes.c_double,
          ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
          ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
@@ -166,6 +173,7 @@ def actionAngleTorus_Freqs_c(pot,jr,jphi,jz,
                                ctypes.c_int(npot),
                                pot_type,
                                pot_args,
+                               pot_tfuncs,
                                ctypes.c_double(tol),
                                Omegar,Omegaphi,Omegaz,
                                ctypes.byref(flag))
@@ -194,7 +202,9 @@ def actionAngleTorus_hessian_c(pot,jr,jphi,jz,
     """
     #Parse the potential
     from ..orbit.integrateFullOrbit import _parse_pot
-    npot, pot_type, pot_args= _parse_pot(pot,potfortorus=True)
+    from ..orbit.integratePlanarOrbit import _prep_tfuncs
+    npot, pot_type, pot_args, pot_tfuncs= _parse_pot(pot,potfortorus=True)
+    pot_tfuncs= _prep_tfuncs(pot_tfuncs)
 
     #Set up result
     dOdJT= numpy.empty(9)
@@ -213,6 +223,7 @@ def actionAngleTorus_hessian_c(pot,jr,jphi,jz,
          ctypes.c_int,
          ndpointer(dtype=numpy.int32,flags=ndarrayFlags),
          ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
+         ctypes.c_void_p,
          ctypes.c_double,
          ctypes.c_double,
          ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
@@ -234,6 +245,7 @@ def actionAngleTorus_hessian_c(pot,jr,jphi,jz,
                               ctypes.c_int(npot),
                               pot_type,
                               pot_args,
+                              pot_tfuncs,
                               ctypes.c_double(tol),
                               ctypes.c_double(dJ),
                               dOdJT,
@@ -269,7 +281,9 @@ def actionAngleTorus_jacobian_c(pot,jr,jphi,jz,angler,anglephi,anglez,
     """
     #Parse the potential
     from ..orbit.integrateFullOrbit import _parse_pot
-    npot, pot_type, pot_args= _parse_pot(pot,potfortorus=True)
+    from ..orbit.integratePlanarOrbit import _prep_tfuncs
+    npot, pot_type, pot_args, pot_tfuncs= _parse_pot(pot,potfortorus=True)
+    pot_tfuncs= _prep_tfuncs(pot_tfuncs)
 
     #Set up result
     R= numpy.empty(len(angler))
@@ -299,6 +313,7 @@ def actionAngleTorus_jacobian_c(pot,jr,jphi,jz,angler,anglephi,anglez,
          ctypes.c_int,
          ndpointer(dtype=numpy.int32,flags=ndarrayFlags),
          ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
+         ctypes.c_void_p,
          ctypes.c_double,
          ctypes.c_double,
          ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
@@ -345,6 +360,7 @@ def actionAngleTorus_jacobian_c(pot,jr,jphi,jz,angler,anglephi,anglez,
                              ctypes.c_int(npot),
                              pot_type,
                              pot_args,
+                             pot_tfuncs,
                              ctypes.c_double(tol),
                              ctypes.c_double(dJ),
                              R,vR,vT,z,vz,phi,

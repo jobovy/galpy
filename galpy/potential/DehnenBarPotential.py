@@ -19,28 +19,28 @@ class DehnenBarPotential(Potential):
 
     .. math::
 
-        A_b(t) = A_f\\,\\left(\\frac{3}{16}\\xi^5-\\frac{5}{8}\\xi^3+\\frac{15}{16}\\xi+\\frac{1}{2}\\right)\\,, \\xi = 2\\frac{t/T_b-t_\\mathrm{form}}{T_\mathrm{steady}}-1\\,,\ \mathrm{if}\ t_\\mathrm{form} \\leq \\frac{t}{T_b} \\leq t_\\mathrm{form}+T_\\mathrm{steady}
+        A_b(t) = A_f\\,\\left(\\frac{3}{16}\\xi^5-\\frac{5}{8}\\xi^3+\\frac{15}{16}\\xi+\\frac{1}{2}\\right)\\,, \\xi = 2\\frac{t/T_b-t_\\mathrm{form}}{T_\\mathrm{steady}}-1\\,,\\ \\mathrm{if}\\ t_\\mathrm{form} \\leq \\frac{t}{T_b} \\leq t_\\mathrm{form}+T_\\mathrm{steady}
 
     and 
 
     .. math::
 
         A_b(t) = \\begin{cases}
-        0\\,, & \\frac{t}{T_b} < t_\mathrm{form}\\\\
-        A_f\\,, & \\frac{t}{T_b} > t_\mathrm{form}+T_\mathrm{steady}
+        0\\,, & \\frac{t}{T_b} < t_\\mathrm{form}\\\\
+        A_f\\,, & \\frac{t}{T_b} > t_\\mathrm{form}+T_\\mathrm{steady}
         \\end{cases}
 
     where
 
     .. math::
 
-       T_b = \\frac{2\pi}{\\Omega_b}
+       T_b = \\frac{2\\pi}{\\Omega_b}
 
     is the bar period and the strength can also be specified using :math:`\\alpha`
 
     .. math::
 
-       \\alpha = 3\\,\\frac{A_f}{v_0^2}\\,\\left(\\frac{R_b}{r_0}\\right)^3\,.
+       \\alpha = 3\\,\\frac{A_f}{v_0^2}\\,\\left(\\frac{R_b}{r_0}\\right)^3\\,.
 
     """
     normalize= property() # turn off normalize
@@ -129,7 +129,7 @@ class DehnenBarPotential(Potential):
             self._tsteady= self._tform+tsteady*self._tb
 
     def _smooth(self,t):
-        if isinstance(t,numpy.ndarray):
+        if isinstance(t,numpy.ndarray) and not numpy.ndim(t) == 0:
             smooth=numpy.ones(len(t))
             indx=(t < self._tform)
             smooth[indx]=0.
@@ -147,7 +147,6 @@ class DehnenBarPotential(Potential):
                 smooth= (3./16.*xi**5.-5./8*xi**3.+15./16.*xi+.5)
             else: #bar is fully on
                 smooth= 1.
-
         return smooth
 
     def _evaluate(self,R,z,phi=0.,t=0.):
@@ -239,19 +238,19 @@ class DehnenBarPotential(Potential):
                                                       self._barphi))\
                         *(self._rb/r)**3.*R/r**4.*(3.*R**2.-2.*z**2.)
 
-    def _phiforce(self,R,z,phi=0.,t=0.):
+    def _phitorque(self,R,z,phi=0.,t=0.):
         """
         NAME:
-           _phiforce
+           _phitorque
         PURPOSE:
-           evaluate the azimuthal force for this potential
+           evaluate the azimuthal torque for this potential
         INPUT:
            R - Galactocentric cylindrical radius
            z - vertical height
            phi - azimuth
            t - time
         OUTPUT:
-           the azimuthal force
+           the azimuthal torque
         HISTORY:
            2010-11-24 - Written - Bovy (NYU)
         """

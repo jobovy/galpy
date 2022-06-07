@@ -52,7 +52,7 @@ class actionAngleSpherical(actionAngle):
         actionAngle.__init__(self,
                              ro=kwargs.get('ro',None),vo=kwargs.get('vo',None))
         if not 'pot' in kwargs: #pragma: no cover
-            raise IOError("Must specify pot= for actionAngleSpherical")
+            raise OSError("Must specify pot= for actionAngleSpherical")
         self._pot= flatten_potential(kwargs['pot'])
         #Also store a 'planar' (2D) version of the potential, only potential
         # used in this class
@@ -241,7 +241,7 @@ class actionAngleSpherical(actionAngle):
         """
         fixed_quad= kwargs.pop('fixed_quad',False)
         if len(args) == 5: #R,vR.vT, z, vz pragma: no cover
-            raise IOError("You need to provide phi when calculating angles")
+            raise OSError("You need to provide phi when calculating angles")
         elif len(args) == 6: #R,vR.vT, z, vz, phi
             R,vR,vT, z, vz, phi= args
         else:

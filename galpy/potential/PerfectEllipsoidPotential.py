@@ -15,7 +15,7 @@ class PerfectEllipsoidPotential(EllipsoidalPotential):
 
     .. math::
 
-        \\rho(x,y,z) = \\frac{\\mathrm{amp\,a}}{\\pi^2\\,bc}\\,\\frac{1}{(m^2+a^2)^2}
+        \\rho(x,y,z) = \\frac{\\mathrm{amp\\,a}}{\\pi^2\\,bc}\\,\\frac{1}{(m^2+a^2)^2}
 
     where :math:`\\mathrm{amp} = GM` is the total mass and :math:`m^2 = x^2+y^2/b^2+z^2/c^2`.
     """
@@ -77,7 +77,7 @@ class PerfectEllipsoidPotential(EllipsoidalPotential):
         return None
 
     def _psi(self,m):
-        """\psi(m) = -\int_m^\infty d m^2 \rho(m^2)"""
+        """\\psi(m) = -\\int_m^\\infty d m^2 \rho(m^2)"""
         return -1./(self.a2+m**2)
 
     def _mdens(self,m):

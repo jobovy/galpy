@@ -106,7 +106,7 @@ class _osipkovmerrittdf(anisotropicsphericaldf):
     def _sample_v(self,r,eta,n=1):
         """Generate velocity samples"""
         # Use super-class method to obtain v*[1+r^2/ra^2*sin^2eta]
-        out= super(_osipkovmerrittdf,self)._sample_v(r,eta,n=n)
+        out= super()._sample_v(r,eta,n=n)
         # Transform to v
         return out/numpy.sqrt(1.+r**2./self._ra2*numpy.sin(eta)**2.)
 

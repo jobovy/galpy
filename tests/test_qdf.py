@@ -1,5 +1,4 @@
 # Tests of the quasiisothermaldf module
-from __future__ import print_function, division
 import numpy
 #fiducial setup uses these
 from galpy.potential import MWPotential, vcirc, omegac, epifreq, verticalfreq
@@ -658,19 +657,19 @@ def test_setup_diffsetups():
     try:
         qdf= quasiisothermaldf(1./4.,0.2,0.1,1.,1.,
                                aA=aAS,cutcounter=True)
-    except IOError: pass
+    except OSError: pass
     else: raise AssertionError("qdf setup w/o pot set did not raise exception")
     try:
         qdf= quasiisothermaldf(1./4.,0.2,0.1,1.,1.,
                                pot=MWPotential,cutcounter=True)
-    except IOError: pass
+    except OSError: pass
     else: raise AssertionError("qdf setup w/o aA set did not raise exception")
     from galpy.potential import LogarithmicHaloPotential
     try:
         qdf= quasiisothermaldf(1./4.,0.2,0.1,1.,1.,
                                pot=LogarithmicHaloPotential(),
                                aA=aAS,cutcounter=True)
-    except IOError: pass
+    except OSError: pass
     else: raise AssertionError("qdf setup w/ aA potential different from pot= did not raise exception")
     #qdf setup with an actionAngleIsochrone instance (issue #190)
     from galpy.potential import IsochronePotential
@@ -690,7 +689,7 @@ def test_setup_diffsetups():
                                pot=ip,
                                aA=actionAngleIsochrone(ip=IsochronePotential(normalize=1.,b=2.5)),
                                cutcounter=True)
-    except IOError: pass
+    except OSError: pass
     else: raise AssertionError("qdf setup w/ aA potential different from pot= did not raise exception")
     #precompute
     qdf= quasiisothermaldf(1./4.,0.2,0.1,1.,1.,
