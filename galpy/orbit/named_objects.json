@@ -151,17 +151,14 @@
       "NGC6453",
       "NGC6864",
       "Eridanus",
-      "AM1",
       "ESO93-8",
       "BH140",
       "AM4",
       "Munoz1",
-      "ESO452-SC11",
       "FSR1758",
       "Liller1",
       "UKS1",
       "VVVCL001",
-      "ESO280SC06",
       "Mercer5",
       "Laevens3",
       "Segue3"
@@ -1516,13 +1513,27 @@
     }
   },
   "E1": {
-    "ra": 58.76,
+	"ra": 58.76,
     "dec": -49.615,
-    "distance": 123.3,
-    "pmra": 0.357,
-    "pmdec": -0.424,
+    "distance": 118.91,
+    "pmra": 0.2912,
+    "pmdec": -0.1772,
     "vlos": 118.0,
-    "source": "arXiv:1807.09775"
+    "distance_e": 3.4,
+    "vlos_e": 14.14,
+    "pmra_e": 0.1071,
+    "pmdec_e": 0.0859,
+    "pmcorr": -0.223,
+    "source": "arXiv:1811.01507, arXiv:2102.09568, arXiv:2105.09526",	  
+	"dr2": {
+	  "ra": 58.76,
+      "dec": -49.615,
+      "distance": 123.3,
+      "pmra": 0.357,
+      "pmdec": -0.424,
+      "vlos": 118.0,
+      "source": "arXiv:1807.09775"
+	}
   },
   "Eridanus": {
     "ra": 66.185,
@@ -2560,13 +2571,27 @@
     }
   },
   "ESO45211": {
-    "ra": 249.856,
+    "ra": 249.854,
     "dec": -28.399,
-    "distance": 8.3,
-    "pmra": -1.54,
-    "pmdec": -6.418,
-    "vlos": 16.27,
-    "source": "arXiv:1807.09775"
+    "distance": 7.39,
+    "pmra": -1.4234,
+    "pmdec": -6.472,
+    "vlos": 16.37,
+    "distance_e": 0.2,
+    "vlos_e": 0.44,
+    "pmra_e": 0.0314,
+    "pmdec_e": 0.0303,
+    "pmcorr": -0.0562,
+    "source": "arXiv:1811.01507, arXiv:2102.09568, arXiv:2105.09526",
+	"dr2": {
+      "ra": 249.856,
+      "dec": -28.399,
+      "distance": 8.3,
+      "pmra": -1.54,
+      "pmdec": -6.418,
+      "vlos": 16.27,
+      "source": "arXiv:1807.09775"
+	}
   },
   "NGC6205": {
     "ra": 250.422,
@@ -3836,11 +3861,25 @@
   "ESO28006": {
     "ra": 272.275,
     "dec": -46.423,
-    "distance": 21.4,
-    "pmra": -0.552,
-    "pmdec": -2.724,
+    "distance": 20.95,
+    "pmra": -0.6878,
+    "pmdec": -2.7775,
     "vlos": 93.2,
-    "source": "arXiv:1807.09775"
+    "distance_e": 0.65,
+    "vlos_e": 0.34,
+    "pmra_e": 0.0392,
+    "pmdec_e": 0.0332,
+    "pmcorr": 0.0916,
+    "source": "arXiv:1811.01507, arXiv:2102.09568, arXiv:2105.09526",
+	"dr2": {
+      "ra": 272.275,
+      "dec": -46.423,
+      "distance": 21.4,
+      "pmra": -0.552,
+      "pmdec": -2.724,
+      "vlos": 93.2,
+      "source": "arXiv:1807.09775"
+	}
   },
   "NGC6553": {
     "ra": 272.323,
@@ -4785,20 +4824,6 @@
       "source": "arXiv:1807.09775"
     }
   },
-  "AM1": {
-    "ra": 58.76,
-    "dec": -49.615,
-    "distance": 118.91,
-    "pmra": 0.2912,
-    "pmdec": -0.1772,
-    "vlos": 118.0,
-    "distance_e": 3.4,
-    "vlos_e": 14.14,
-    "pmra_e": 0.1071,
-    "pmdec_e": 0.0859,
-    "pmcorr": -0.223,
-    "source": "arXiv:1811.01507, arXiv:2102.09568, arXiv:2105.09526"
-  },
   "Ko2-missingvlos": {
     "ra": 119.571,
     "dec": 26.255,
@@ -4925,20 +4950,6 @@
     "pmcorr": 0.0104,
     "source": "arXiv:1811.01507, arXiv:2102.09568, arXiv:2105.09526"
   },
-  "ESO452-SC11": {
-    "ra": 249.854,
-    "dec": -28.399,
-    "distance": 7.39,
-    "pmra": -1.4234,
-    "pmdec": -6.472,
-    "vlos": 16.37,
-    "distance_e": 0.2,
-    "vlos_e": 0.44,
-    "pmra_e": 0.0314,
-    "pmdec_e": 0.0303,
-    "pmcorr": -0.0562,
-    "source": "arXiv:1811.01507, arXiv:2102.09568, arXiv:2105.09526"
-  },
   "FSR1758": {
     "ra": 262.8,
     "dec": -39.808,
@@ -5035,20 +5046,6 @@
     "pmra_e": 0.034,
     "pmdec_e": 0.0313,
     "pmcorr": 0.0889,
-    "source": "arXiv:1811.01507, arXiv:2102.09568, arXiv:2105.09526"
-  },
-  "ESO280SC06": {
-    "ra": 272.275,
-    "dec": -46.423,
-    "distance": 20.95,
-    "pmra": -0.6878,
-    "pmdec": -2.7775,
-    "vlos": 93.2,
-    "distance_e": 0.65,
-    "vlos_e": 0.34,
-    "pmra_e": 0.0392,
-    "pmdec_e": 0.0332,
-    "pmcorr": 0.0916,
     "source": "arXiv:1811.01507, arXiv:2102.09568, arXiv:2105.09526"
   },
   "Mercer5": {
