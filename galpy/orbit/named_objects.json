@@ -278,8 +278,8 @@
     "M15": "NGC7078",
     "M2": "NGC7089",
     "M30": "NGC7099",
-    "Ryu059": "RLGC1",
-    "Ryu879": "RLGC2"
+    "Ryu059": "RLGC1-missingvlos",
+    "Ryu879": "RLGC2-missingvlos"
   },
   "GD-1": {
     "ra": 148.9363998668805,
