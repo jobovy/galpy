@@ -61,7 +61,11 @@ if use_intel_compiler: # OpenMP by default included for Intel, see #416
 try:
     openmp_pos = sys.argv.index('--no-openmp')
 except ValueError:
-    extra_compile_args = ["-fopenmp" if not WIN32 else "/openmp"]
+    if "PYODIDE" in os.environ:
+        extra_compile_args= ["-DNO_OMP"]
+        galpy_c_libraries.remove('gomp')
+    else:
+        extra_compile_args = ["-fopenmp" if not WIN32 else "/openmp"]
 else:
     del sys.argv[openmp_pos]
     extra_compile_args= ["-DNO_OMP"]
