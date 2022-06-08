@@ -4973,6 +4973,8 @@ def test_from_name_named():
             if 'source' in attr or 'dr2' in attr: continue
             # Skip entries with missing vlos for now
             if numpy.isnan(named_data[obj]['vlos']): continue
+            # Skip errors until we use them
+            if attr == 'pmcorr' or '_e' in attr: continue
             if attr == 'ro' or attr == 'vo' or attr == 'zo' \
                     or attr == 'solarmotion':
                 assert numpy.all(numpy.isclose(getattr(o,'_{:s}'.format(attr)),
