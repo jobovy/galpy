@@ -583,9 +583,6 @@ class Orbit:
         if not _APY_LOADED: # pragma: no cover
             raise ImportError('astropy needs to be installed to use '
                               'Orbit.from_name')
-        if not _ASTROQUERY_LOADED: # pragma: no cover
-            raise ImportError('astroquery needs to be installed to use '
-                              'Orbit.from_name')
         _load_named_objects()
         _update_keys_named_objects()
         # Stack coordinate-transform parameters, so they can be changed...
@@ -5674,6 +5671,10 @@ def _from_name_oneobject(name,obs):
                 'solarmotion' in _known_objects[this_name].keys():
             obs[3]= _known_objects[this_name]['solarmotion']
         return vxvv
+    if not _ASTROQUERY_LOADED: # pragma: no cover
+        raise ImportError('astroquery needs to be installed to use '
+                          'Orbit.from_name when not using a known '
+                          'object (i.e., when querying Simbad)')
     # setup a SIMBAD query with the appropriate fields
     simbad= Simbad()
     simbad.add_votable_fields('ra(d)', 'dec(d)', 'pmra', 'pmdec',
