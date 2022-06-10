@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - uses: jobovy/pyodide-buildpackage-action@main
+      - uses: jobovy/pyodide-buildpackage-action@add-docs
         with:
           pyodide-tag: main
           meta-yaml-path: .github/pyodide_meta.yaml
