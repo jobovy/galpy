@@ -55,7 +55,7 @@ jobs:
         if: github.event_name != 'release' && github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         uses: jakejarvis/s3-sync-action@v0.5.1
         with:
-          args: --acl public-read --follow-symlinks --delete --exclude "*macos*" --exclude "*win*"
+          args: --acl public-read --follow-symlinks --delete --exclude "*macos*" --exclude "*win*" --exclude "*emscripten*"
         env:
           AWS_S3_BUCKET: ${{ secrets.AWS_S3_BUCKET }}
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
