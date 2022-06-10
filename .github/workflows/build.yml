@@ -2,8 +2,10 @@ name: Linux/Mac build
 
 on:
   push:
-    paths-ignore:
-      - 'doc/**'
+    paths:
+      - '!doc/**'
+      - '!.github/**'
+      - '.github/workflows/build.yml'
   pull_request:
     paths-ignore:
       - 'doc/**'

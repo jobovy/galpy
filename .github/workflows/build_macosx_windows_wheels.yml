@@ -5,8 +5,12 @@ on:
   push:
     branches:    
       - main
-    paths-ignore:
-      - 'doc/**'
+    paths:
+      - '!doc/**'
+      - '!.github/**'
+      - '.github/conda-build-environment-macos-latest.yml'
+      - '.github/conda-build-environment-windows-latest.yml'
+      - '.github/workflows/build_macosx_windows_wheels.yml'
   pull_request:
     branches:
       - main

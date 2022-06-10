@@ -5,8 +5,11 @@ on:
   push:
     branches:    
       - main
-    paths-ignore:
-      - 'doc/**'
+    paths:
+      - '!doc/**'
+      - '!.github/**'
+      - '.github/workflows/build_manylinux_wheels.yml'
+      - '.github/workflows/actions/**'
   pull_request:
     branches:
       - main
