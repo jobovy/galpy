@@ -8,13 +8,19 @@ source:
     - patches/0001-Force-GSL-version-to-2.7-for-pyodide-build.patch
     - patches/0002-Don-t-use-OpenMP-for-pyodide-build.patch
 build:
-  script:
-    export LIBGSL_INCLUDE_PATH=$(pkg-config --cflags-only-I --dont-define-prefix gsl)
-    export LIBGSL_LIBRARY_PATH=$(pkg-config --libs-only-L --dont-define-prefix gsl)
+# Temporary way because building with old pyodide for now, can switch to script... when upgrading to > 0.20.0
   cflags: |
-    $(LIBGSL_INCLUDE_PATH)
+    -I$(PYODIDE_ROOT)/packages/libgsl/build/libgsl-2.7
   ldflags: |
-    $(LIBGSL_LIBRARY_PATH)
+    -L$(PYODIDE_ROOT)/packages/libgsl/build/libgsl-2.7/.libs
+    -L$(PYODIDE_ROOT)/packages/libgsl/build/libgsl-2.7/cblas/.libs
+#  script:
+#    export LIBGSL_INCLUDE_PATH=$(pkg-config --cflags-only-I --dont-define-prefix gsl)
+#    export LIBGSL_LIBRARY_PATH=$(pkg-config --libs-only-L --dont-define-prefix gsl)
+#  cflags: |
+#    $(LIBGSL_INCLUDE_PATH)
+#  ldflags: |
+#    $(LIBGSL_LIBRARY_PATH)
 requirements:
   run:
     - numpy
