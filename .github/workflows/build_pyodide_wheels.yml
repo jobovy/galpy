@@ -14,10 +14,45 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - uses: jobovy/pyodide-buildpackage-action@main
+      - uses: actions/cache@v3
+        id: cache-pyodide
+        if: ${{ inputs.cache == 'True' || inputs.cache == 'true' }}
         with:
-          pyodide-tag: main
+          path: pyodide/**
+          key: pyodide-cache-${{ inputs.pyodide-tag }}
+      - name: Build pyodide
+        uses: jobovy/pyodide-buildpackage-action/actions/build-pyodide@main
+        with:
+          pyodide-tag: 0.20.0
+          pyodide-cache-hit: ${{ steps.cache-pyodide.outputs.cache-hit }}
+      - name: Build galpy meta.yaml
+        uses: jobovy/pyodide-buildpackage-action/actions/build-meta@main
+        with: 
           meta-yaml-path: .github/pyodide_meta.yaml
+      # Because the GSL isn't in pyodide 0.20.0 and we need that for 
+      # jupyterlite, we need to also add the GSL here
+      # Once we can switch to a version of pyodide that has the GSL
+      # we can go back to just using the jobovy/pyodide-buildpackage-action
+      # rather than the individual steps
+      - name: Build gsl meta.yaml
+        uses: jobovy/pyodide-buildpackage-action/actions/build-meta@main
+        with: 
+          meta-yaml-path: .github/pyodide_gsl_meta.yaml
+          package-name: libgsl
+          build-url: https://ftp.gnu.org/gnu/gsl/gsl-2.7.tar.gz
+      - name: Build package
+        uses: jobovy/pyodide-buildpackage-action/actions/build-package@main
+      # Just make everything executable, because a bunch of stuff needs to be
+      # and it isn't alltogether obvious which (not just .sh)
+      - name: Change permissions of pyodide directory
+        shell: bash 
+        run: |
+          sudo find pyodide -type d -exec chmod 755 {} \; 
+          sudo find pyodide -type f -exec chmod 755 {} \;
+#      - uses: jobovy/pyodide-buildpackage-action@main
+#        with:
+#          pyodide-tag: main
+#          meta-yaml-path: .github/pyodide_meta.yaml
       - name: Rename wheels to 'latest' version
         run: |
           GALPY_VERSION="$(awk '/^current_version/{print $NF}' .bumpversion.cfg)"
