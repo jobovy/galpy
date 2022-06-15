@@ -48,7 +48,7 @@ jobs:
         with: 
           meta-yaml-path: .github/pyodide_meta.yaml
       - name: Build package
-        uses: jobovy/pyodide-buildpackage-action/actions/build-package@main
+        uses: jobovy/pyodide-buildpackage-action/actions/build-package@split-action-issues
       # Just make everything executable, because a bunch of stuff needs to be
       # and it isn't alltogether obvious which (not just .sh)
       - name: Change permissions of pyodide directory
