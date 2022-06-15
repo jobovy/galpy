@@ -26,7 +26,7 @@ jobs:
           pyodide-tag: 0.20.0
           pyodide-cache-hit: ${{ steps.cache-pyodide.outputs.cache-hit }}
       - name: Build galpy meta.yaml
-        uses: jobovy/pyodide-buildpackage-action/actions/build-meta@main
+        uses: jobovy/pyodide-buildpackage-action/actions/build-metasplit-action-issues
         with: 
           meta-yaml-path: .github/pyodide_meta.yaml
       # Because the GSL isn't in pyodide 0.20.0 and we need that for 
@@ -35,7 +35,7 @@ jobs:
       # we can go back to just using the jobovy/pyodide-buildpackage-action
       # rather than the individual steps
       - name: Build gsl meta.yaml
-        uses: jobovy/pyodide-buildpackage-action/actions/build-meta@main
+        uses: jobovy/pyodide-buildpackage-action/actions/build-meta@split-action-issues
         with: 
           meta-yaml-path: .github/pyodide_gsl_meta.yaml
           package-name: libgsl
