@@ -20,7 +20,7 @@ jobs:
           path: pyodide/**
           key: pyodide-cache-${{ inputs.pyodide-tag }}
       - name: Build pyodide
-        uses: jobovy/pyodide-buildpackage-action/actions/build-pyodide@main
+        uses: jobovy/pyodide-buildpackage-action/actions/build-pyodide@v1
         with:
           pyodide-tag: 0.20.0
           pyodide-cache-hit: ${{ steps.cache-pyodide.outputs.cache-hit }}
@@ -30,7 +30,7 @@ jobs:
       # we can go back to just using the jobovy/pyodide-buildpackage-action
       # rather than the individual steps
       - name: Build gsl meta.yaml
-        uses: jobovy/pyodide-buildpackage-action/actions/build-meta@split-action-issues
+        uses: jobovy/pyodide-buildpackage-action/actions/build-meta@v1
         with: 
           meta-yaml-path: .github/pyodide_gsl_meta.yaml
           package-name: libgsl
@@ -43,11 +43,11 @@ jobs:
            sudo wget https://raw.githubusercontent.com/pyodide/pyodide/b880ec239593c0e9f5433e6590e488350d4e7a07/packages/galpy/patches/0001-Force-GSL-version-to-2.7-for-pyodide-build.patch -P pyodide/packages/galpy/patches
            sudo wget https://raw.githubusercontent.com/pyodide/pyodide/b880ec239593c0e9f5433e6590e488350d4e7a07/packages/galpy/patches/0002-Don-t-use-OpenMP-for-pyodide-build.patch -P pyodide/packages/galpy/patches
       - name: Build galpy meta.yaml
-        uses: jobovy/pyodide-buildpackage-action/actions/build-meta@split-action-issues
+        uses: jobovy/pyodide-buildpackage-action/actions/build-meta@v1
         with: 
           meta-yaml-path: .github/pyodide_meta.yaml
       - name: Build package
-        uses: jobovy/pyodide-buildpackage-action/actions/build-package@split-action-issues
+        uses: jobovy/pyodide-buildpackage-action/actions/build-package@v1
       # Just make everything executable, because a bunch of stuff needs to be
       # and it isn't alltogether obvious which (not just .sh)
       - name: Change permissions of pyodide directory
