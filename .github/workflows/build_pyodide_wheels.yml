@@ -71,7 +71,7 @@ jobs:
       - name: Upload to AWS S3
         uses: jakejarvis/s3-sync-action@v0.5.1
         with:
-          args: --acl public-read --follow-symlinks --delete --exclude "*macos*" --exclude "*win*" --exclude "*manylinux*" --exclude "*none-any*"
+          args: --acl public-read --follow-symlinks --delete --exclude "*macos*" --exclude "*win*" --exclude "*manylinux*" --exclude "*none-any*" --exclude "*emscripten*"
         env:
           AWS_S3_BUCKET: ${{ secrets.AWS_S3_BUCKET }}
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
