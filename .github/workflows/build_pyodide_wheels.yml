@@ -36,6 +36,13 @@ jobs:
           meta-yaml-path: .github/pyodide_gsl_meta.yaml
           package-name: libgsl
           build-url: https://ftp.gnu.org/gnu/gsl/gsl-2.7.tar.gz
+      # This following step also not necessary anynmore once we can switch to
+      # a version of pyodide that has galpy
+      - name: manually add galpy patches
+        run: |
+           mkdir -p pyodide/packages/galpy/patches
+           wget https://raw.githubusercontent.com/pyodide/pyodide/b880ec239593c0e9f5433e6590e488350d4e7a07/packages/galpy/patches/0001-Force-GSL-version-to-2.7-for-pyodide-build.patch -P pyodide/packages/galpy/patches
+           wget https://raw.githubusercontent.com/pyodide/pyodide/b880ec239593c0e9f5433e6590e488350d4e7a07/packages/galpy/patches/0002-Don-t-use-OpenMP-for-pyodide-build.patch -P pyodide/packages/galpy/patches
       - name: Build galpy meta.yaml
         uses: jobovy/pyodide-buildpackage-action/actions/build-meta@split-action-issues
         with: 
