@@ -5,8 +5,12 @@ on:
     branches:
       - main
       - add-pyodide-wheels
-    paths-ignore:
-      - 'doc/**'
+    paths:
+      - '!doc/**'
+      - '!.github/**'
+      - '.github/pyodide_meta.yaml'
+      - '.github/pyodide_gsl_meta.yaml'
+      - '.github/workflows/build_pyodide_wheels.yml'
 
 jobs:
   build:
