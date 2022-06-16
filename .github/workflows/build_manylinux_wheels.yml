@@ -44,14 +44,6 @@ jobs:
         with:
           password: ${{ secrets.pypi_token }}
           packages_dir: wheelhouse/
-      # Also create a pure Python wheel for the AWS S3 wheelhouse
-      - name: Create pure Python wheel
-        if: github.event_name != 'release' && github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
-        run: |
-          sudo python setup.py bdist_wheel --no_ext
-          sudo mv dist/*.whl wheelhouse
-          GALPY_VERSION="$(awk '/^current_version/{print $NF}' .bumpversion.cfg)"
-          for f in wheelhouse/*$GALPY_VERSION*; do sudo mv -i -- "$f" "${f//$GALPY_VERSION/latest}"; done
       # Upload to AWS S3
       - name: Upload to AWS S3
         if: github.event_name != 'release' && github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
