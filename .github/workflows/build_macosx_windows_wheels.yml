@@ -5,8 +5,14 @@ on:
   push:
     branches:    
       - main
-    paths-ignore:
-      - 'doc/**'
+    paths:
+      - '**'
+      - '!tests/**'
+      - '!doc/**'
+      - '!.github/**'
+      - '.github/conda-build-environment-macos-latest.yml'
+      - '.github/conda-build-environment-windows-latest.yml'
+      - '.github/workflows/build_macosx_windows_wheels.yml'
   pull_request:
     branches:
       - main
@@ -104,7 +110,7 @@ jobs:
         if: github.event_name != 'release' && github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         uses: jakejarvis/s3-sync-action@v0.5.1
         with:
-          args: --acl public-read --follow-symlinks --delete --exclude "*manylinux*" --exclude "*none-any*"
+          args: --acl public-read --follow-symlinks --delete --exclude "*manylinux*" --exclude "*none-any*" --exclude "*emscripten*"
         env:
           AWS_S3_BUCKET: ${{ secrets.AWS_S3_BUCKET }}
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}

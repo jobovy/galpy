@@ -26,6 +26,9 @@ v1.7.3 (XXXX-XX-XX)
 - Added code to check whether a newer version of galpy is available and, if so
   encourage users to upgrade (to try to have people use more recent versions).
 
+- Add support to build pyodide/emscripten/wasm wheels for using galpy in the 
+  browser at C-ish speeds.
+
 - Fully drop Python 2 support (removed all Python 2 compatibility code).
 
 v1.7.2 (2022-04-15)

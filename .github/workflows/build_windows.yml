@@ -2,8 +2,11 @@ name: Windows build
 
 on:
   push:
-    paths-ignore:
-      - 'doc/**'
+    paths:
+      - '**'
+      - '!doc/**'
+      - '!.github/**'
+      - '.github/workflows/build_windows.yml'
   pull_request:
     paths-ignore:
       - 'doc/**'
