@@ -3,6 +3,7 @@ name: Linux/Mac build
 on:
   push:
     paths:
+      - '**'
       - '!doc/**'
       - '!.github/**'
       - '.github/workflows/build.yml'

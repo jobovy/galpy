@@ -6,6 +6,8 @@ on:
       - main
       - add-pyodide-wheels
     paths:
+      - '**'
+      - '!tests/**'
       - '!doc/**'
       - '!.github/**'
       - '.github/pyodide_meta.yaml'

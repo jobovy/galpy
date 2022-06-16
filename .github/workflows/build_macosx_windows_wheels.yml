@@ -6,6 +6,8 @@ on:
     branches:    
       - main
     paths:
+      - '**'
+      - '!tests/**'
       - '!doc/**'
       - '!.github/**'
       - '.github/conda-build-environment-macos-latest.yml'

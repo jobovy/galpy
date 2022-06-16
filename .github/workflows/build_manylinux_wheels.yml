@@ -6,6 +6,8 @@ on:
     branches:    
       - main
     paths:
+      - '**'
+      - '!tests/**'
       - '!doc/**'
       - '!.github/**'
       - '.github/workflows/build_manylinux_wheels.yml'
