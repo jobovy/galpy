@@ -12,6 +12,10 @@ on:
       - '.github/pyodide_gsl_meta.yaml'
       - '.github/workflows/build_pyodide_wheels.yml'
 
+concurrency: 
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     name: Build pyodide/wasm wheels
