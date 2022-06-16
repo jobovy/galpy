@@ -232,3 +232,23 @@ p {
     -ms-transform: translateX(-50%);
     transform: translateX(-50%)
 }
+
+/* Create two equal columns that floats next to each other */
+.column {
+    float: left;
+    width: 47%;
+    padding: 10px;
+    height: 525;
+  }
+  
+  /* Clear floats after the columns */
+  .row:after {
+    content: "";
+    display: table;
+    clear: both;
+  }
+
+/* Let try-galpy fill the entire space */
+div.body {
+    max-width: 95%;
+}
