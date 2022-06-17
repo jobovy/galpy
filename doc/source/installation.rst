@@ -319,18 +319,19 @@ may or may not be necessary depending on your system)::
 
        export CFLAGS=-I/usr/include
        export LDFLAGS=-L/usr/lib
-       export LD_LIBRARY_PATH=-L/usr/lib
+       export LD_LIBRARY_PATH=/usr/lib
 
 or::
 
 	setenv CFLAGS -I/usr/include
 	setenv LDFLAGS -L/usr/lib
-	setenv LD_LIBRARY_PATH -L/usr/lib
+	setenv LD_LIBRARY_PATH /usr/lib
 
 depending on your shell type (change the actual path to the include
 and lib directories that have the gsl directory). If you already have
 ``CFLAGS``, ``LDFLAGS``, and ``LD_LIBRARY_PATH`` defined you just have
-to add the ``'-I/usr/include'`` and ``'-L/usr/lib'`` to them.
+to add the ``'-I/usr/include'``, ``'-L/usr/lib'``, and ``'/usr/lib'`` to 
+them.
 
 If you are on a Mac or UNIX system (e.g., Linux), you can find the correct ``CFLAGS`` and ``LDFLAGS``/``LD_LIBRARY_path`` entries by doing::
 

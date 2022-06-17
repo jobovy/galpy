@@ -214,6 +214,7 @@ jobs:
          brew install gsl
          echo "CFLAGS=-I$(brew --prefix)/include" >> $GITHUB_ENV
          echo "LDFLAGS=-L$(brew --prefix)/lib" >> $GITHUB_ENV
+         echo "LD_LIBRARY_PATH=$(brew --prefix)/lib" >> $GITHUB_ENV
     - uses: actions/cache@v3
       with:
         path: ~/.cache/pip
