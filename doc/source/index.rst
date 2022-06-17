@@ -27,6 +27,8 @@ to `contribute to the code
 please head over to `galpy's GitHub page
 <https://github.com/jobovy/galpy>`_ for more information.
 
+.. _try_galpy:
+
 Try ``galpy``
 -------------
 
@@ -62,7 +64,7 @@ Give ``galpy`` a try in the interactive ``IPython``-like shell below!
    <span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">o</span><span class="o">.</span><span class="n">jr</span><span class="p">(</span><span class="n">pot</span><span class="o">=</span><span class="n">mwp14</span><span class="p">),</span><span class="n">o</span><span class="o">.</span><span class="n">Lz</span><span class="p">(),</span><span class="n">o</span><span class="o">.</span><span class="n">jz</span><span class="p">(</span><span class="n">pot</span><span class="o">=</span><span class="n">mwp14</span><span class="p">))</span>
    <span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">o</span><span class="o">.</span><span class="n">Or</span><span class="p">(</span><span class="n">pot</span><span class="o">=</span><span class="n">mwp14</span><span class="p">),</span><span class="n">o</span><span class="o">.</span><span class="n">Op</span><span class="p">(</span><span class="n">pot</span><span class="o">=</span><span class="n">mwp14</span><span class="p">),</span><span class="n">o</span><span class="o">.</span><span class="n">Oz</span><span class="p">(</span><span class="n">pot</span><span class="o">=</span><span class="n">mwp14</span><span class="p">))</span>
    <span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">o</span><span class="o">.</span><span class="n">wr</span><span class="p">(</span><span class="n">pot</span><span class="o">=</span><span class="n">mwp14</span><span class="p">),</span><span class="n">o</span><span class="o">.</span><span class="n">wp</span><span class="p">(</span><span class="n">pot</span><span class="o">=</span><span class="n">mwp14</span><span class="p">),</span><span class="n">o</span><span class="o">.</span><span class="n">wz</span><span class="p">(</span><span class="n">pot</span><span class="o">=</span><span class="n">mwp14</span><span class="p">))</span></pre></div></div>
-           <h3>and much more...</h4>
+           <h3>and much more... Start your journey below</h4>
       </div>
       <div class="column" style="padding-top: 40px;">
          <div id="activate-try-galpy">
@@ -71,7 +73,7 @@ Give ``galpy`` a try in the interactive ``IPython``-like shell below!
         <!-- REPL iframe inserted by try-galpy.js -->
       <br/>
       <p style="font-size: small;">(This interactive shell runs using the <a href="https://pyodide.org/en/stable/" target="_blank"><span class="courier-code">pyodide</span></a>
-         Python kernel, a version of Python that runs in your browser. <span class="courier-code">galpy</span> runs in your browser at compiled-C-like speed!)</p>
+         Python kernel, a version of Python that runs in your browser. <span class="courier-code">galpy</span> runs in your browser at compiled-C-like speed! Please open an <a href="https://github.com/jobovy/galpy/issues" target="_blank">Issue</a> for any problems that you find with the interactive session.)</p>
       </div>
     </div>
 
