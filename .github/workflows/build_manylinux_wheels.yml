@@ -25,7 +25,7 @@ jobs:
     name: Build manylinux wheels, upload to PyPI upon release
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Build manylinux2014_x86_64 wheels
         uses: ./.github/workflows/actions/manylinux2014_x86_64/
       - name: Rename wheels to 'latest' version
