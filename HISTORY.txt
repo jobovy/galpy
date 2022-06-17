@@ -26,6 +26,9 @@ v1.7.3 (XXXX-XX-XX)
 - Added code to check whether a newer version of galpy is available and, if so
   encourage users to upgrade (to try to have people use more recent versions).
 
+- Added a 'Try galpy' interactive session on the documentation's home page 
+  powered by the new pyodide/emscripten/wasm wheels for galpy.
+
 - Add support to build pyodide/emscripten/wasm wheels for using galpy in the 
   browser at C-ish speeds.
 
