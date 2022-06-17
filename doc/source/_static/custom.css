@@ -248,7 +248,13 @@ p {
     clear: both;
   }
 
-/* Let try-galpy fill the entire space */
-div.body {
+/* Let try-galpy fill the entire space. First Need to correct everything else 
+to usual 800 px */
+p, div.warning, div[class^="toctree-"], 
+section:not(#welcome-to-galpy-s-documentation) {
+max-width: 800px;
+}
+/* Then let the try-galpy section extend fully */
+div.body,  section#try-galpy {
     max-width: 95%;
 }
