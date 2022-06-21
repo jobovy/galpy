@@ -232,7 +232,7 @@ class actionAngleVertical(actionAngle):
             xstart= x
             try:
                 if x == 0.: xend= 0.00001
-                else: xend= 2.*nu.fabs(x)
+                else: xend= 2.*numpy.fabs(x)
                 while (E-evaluatelinearPotentials(self._pot,xend,
                                                   use_physical=False)) > 0.:
                     xend*= 2.

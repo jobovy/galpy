@@ -12,16 +12,15 @@ import numpy
 import warnings
 from numpy.polynomial import polynomial, chebyshev
 from scipy import interpolate,ndimage, optimize
-from galpy.potential import evaluatelinearPotentials, \
+from ..potential import evaluatelinearPotentials, \
     evaluatelinearForces
-from galpy.util import bovy_plot, galpyWarning
+from ..util import bovy_plot, galpyWarning
 from matplotlib import pyplot, gridspec, cm
 from matplotlib.ticker import NullFormatter
-from galpy.actionAngle_src.actionAngleHarmonic import actionAngleHarmonic
-from galpy.actionAngle_src.actionAngleHarmonicInverse import \
-    actionAngleHarmonicInverse
-from galpy.actionAngle_src.actionAngleVertical import actionAngleVertical
-from galpy.actionAngle_src.actionAngleInverse import actionAngleInverse
+from .actionAngleHarmonic import actionAngleHarmonic
+from .actionAngleHarmonicInverse import actionAngleHarmonicInverse
+from .actionAngleVertical import actionAngleVertical
+from .actionAngleInverse import actionAngleInverse
 class actionAngleVerticalInverse(actionAngleInverse):
     """Inverse action-angle formalism for one dimensional systems"""
     def __init__(self,pot=None,Es=[0.1,0.3],nta=128,setup_interp=False,

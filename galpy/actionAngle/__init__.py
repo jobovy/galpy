@@ -1,6 +1,5 @@
 from . import actionAngle
 from . import actionAngleInverse
-from . import actionAngleAxi
 from . import actionAngleAdiabatic
 from . import actionAngleAdiabaticGrid
 from . import actionAngleStaeckel

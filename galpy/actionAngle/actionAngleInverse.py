@@ -2,7 +2,7 @@
 # actionAngleInverse.py: top-level class with common routines for inverse
 #                        actionAngle methods
 ###############################################################################
-from galpy.util.conversion import actionAngleInverse_physical_input, \
+from ..util.conversion import actionAngleInverse_physical_input, \
     physical_conversion_actionAngleInverse
 from .actionAngle import actionAngle
 class actionAngleInverse(actionAngle):

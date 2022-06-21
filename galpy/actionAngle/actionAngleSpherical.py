@@ -17,6 +17,7 @@ from ..potential.Potential import _evaluatePotentials
 from ..potential.Potential import flatten as flatten_potential
 from ..potential.planarPotential import _evaluateplanarPotentials
 from .actionAngle import actionAngle
+_EPS= 10.**-15.
 class actionAngleSpherical(actionAngle):
     """Action-angle formalism for spherical potentials"""
     def __init__(self,*args,**kwargs):
@@ -119,7 +120,7 @@ class actionAngleSpherical(actionAngle):
         if self._c: #pragma: no cover
             pass
         else:
-            r= nu.sqrt(R**2.+z**2.)
+            r= numpy.sqrt(R**2.+z**2.)
             vr= (R*vR+z*vz)/r
             Lz= R*vT
             Lx= -z*vT
@@ -142,7 +143,7 @@ class actionAngleSpherical(actionAngle):
                                                 E[ii],L[ii])
                 Jr.append(self._calc_jr(rperi,rap,E[ii],L[ii],
                                         fixed_quad,**kwargs))
-            return (nu.array(Jr),Jphi,Jz)
+            return (numpy.array(Jr),Jphi,Jz)
 
     def _actionsFreqs(self,*args,**kwargs):
         """
@@ -184,7 +185,7 @@ class actionAngleSpherical(actionAngle):
         if self._c: #pragma: no cover
             pass
         else:
-            r= nu.sqrt(R**2.+z**2.)
+            r= numpy.sqrt(R**2.+z**2.)
             vr= (R*vR+z*vz)/r
             Lz= R*vT
             Lx= -z*vT
@@ -264,7 +265,7 @@ class actionAngleSpherical(actionAngle):
         if self._c: #pragma: no cover
             pass
         else:
-            r= nu.sqrt(R**2.+z**2.)
+            r= numpy.sqrt(R**2.+z**2.)
             vr= (R*vR+z*vz)/r
             vtheta= (z*vR-R*vz)/r
             Lz= R*vT
@@ -564,7 +565,7 @@ class actionAngleSpherical(actionAngle):
             elif sinpsi < -1.:
                 sinpsi= -1.
             psi= numpy.arcsin(sinpsi)
-            if axivz > 0.: psi= numpy.pi-psi
+            if vtheta > 0.: psi= numpy.pi-psi
         else:
             psi= phi
         psi= psi % (2.*numpy.pi)
