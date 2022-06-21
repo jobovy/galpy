@@ -1,8 +1,6 @@
 import os, os.path
-try:
-    import configparser
-except:
-    from six.moves import configparser
+import copy
+import configparser
 _APY_LOADED= True
 try:
     from astropy import units
@@ -13,7 +11,12 @@ default_configuration= {'normalization': {'ro':'8.',
                                          'vo':'220.'},
                         'astropy': {'astropy-units':'False',
                                     'astropy-coords':'True'},
-                        'plot': {'seaborn-bovy-defaults':'False'}}
+                        'plot': {'seaborn-bovy-defaults':'False'},
+                        'warnings': {'verbose':'False'},
+                        'version-check': {'do-check':'True',
+                                          'check-non-interactive':'True',
+                                          'check-non-interactive-every':'1',
+                                          'last-non-interactive-check':'2000-01-01'}}
 default_filename= os.path.join(os.path.expanduser('~'),'.galpyrc')
 def check_config(configuration):
     # Check that the configuration is a valid galpy configuration
@@ -49,10 +52,14 @@ if not cfilename:
     cfilename= __config__.read(default_filename)
     if not cfilename:
         write_config(default_filename)
-        __config__.read(default_filename)
+        cfilename= __config__.read(default_filename)
 if not check_config(__config__):
     write_config(cfilename[-1],__config__)
-    __config__.read(cfilename[-1])
+    cfilename= __config__.read(cfilename[-1])
+# Store a version of the config in case we need to re-write parts of it,
+# but don't want to apply changes that we don't want to re-write
+configfilename= cfilename[-1]
+__orig__config__= copy.deepcopy(__config__)
 
 # Set configuration variables on the fly
 def set_ro(ro):

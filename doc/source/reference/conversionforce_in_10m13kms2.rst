@@ -1,4 +1,4 @@
-galpy.util.bovy_conversion.force_in_10m13kms2
-==============================================
+galpy.util.conversion.force_in_10m13kms2
+========================================
 
-.. autofunction:: galpy.util.bovy_conversion.force_in_10m13kms2
+.. autofunction:: galpy.util.conversion.force_in_10m13kms2

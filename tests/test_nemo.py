@@ -1,11 +1,10 @@
 # Test consistency between galpy and NEMO
-from __future__ import print_function, division
 import os
 import numpy
 import subprocess
 from galpy.orbit import Orbit
 from galpy import potential
-from galpy.util import bovy_conversion
+from galpy.util import conversion
 def test_nemo_MN3ExponentialDiskPotential():
     mn= potential.MN3ExponentialDiskPotential(normalize=1.,hr=0.5,hz=0.1)
     tmax= 3.
@@ -28,6 +27,14 @@ def test_nemo_NFWPotential():
     vo,ro= 200., 7.
     o= Orbit([1.,0.5,1.3,0.3,0.1,0.4],ro=ro,vo=vo)
     run_orbitIntegration_comparison(o,np,tmax,vo,ro)
+    return None
+
+def test_nemo_HernquistPotential():
+    hp= potential.HernquistPotential(normalize=1.,a=3.)
+    tmax= 3.
+    vo,ro= 210., 7.5
+    o= Orbit([1.,0.25,1.4,0.3,-0.1,0.4],ro=ro,vo=vo)
+    run_orbitIntegration_comparison(o,hp,tmax,vo,ro)
     return None
 
 def test_nemo_PowerSphericalPotentialwCutoffPotential():
@@ -56,7 +63,7 @@ def test_nemo_PlummerPotential():
 
 def test_nemo_MWPotential2014():
     mp= potential.MWPotential2014
-    tmax= 4.
+    tmax= 3.5
     vo,ro= 220., 8.
     o= Orbit([1.,0.1,1.1,0.2,0.1,1.4],ro=ro,vo=vo)
     run_orbitIntegration_comparison(o,mp,tmax,vo,ro,isList=True)
@@ -65,17 +72,17 @@ def test_nemo_MWPotential2014():
 def run_orbitIntegration_comparison(orb,pot,tmax,vo,ro,isList=False,
                                     tol=0.01):
     # Integrate in galpy
-    ts= numpy.linspace(0.,tmax/bovy_conversion.time_in_Gyr(vo,ro),1001)
+    ts= numpy.linspace(0.,tmax/conversion.time_in_Gyr(vo,ro),1001)
     orb.integrate(ts,pot)
     # Now setup a NEMO snapshot in the correct units ([x] = kpc, [v] = kpc/Gyr)
     numpy.savetxt('orb.dat',
                   numpy.array([[10.**-6.,orb.x(),orb.y(),orb.z(),
                                 orb.vx(use_physical=False)\
-                                    *bovy_conversion.velocity_in_kpcGyr(vo,ro),
+                                    *conversion.velocity_in_kpcGyr(vo,ro),
                                 orb.vy(use_physical=False)\
-                                    *bovy_conversion.velocity_in_kpcGyr(vo,ro),
+                                    *conversion.velocity_in_kpcGyr(vo,ro),
                                 orb.vz(use_physical=False)\
-                                    *bovy_conversion.velocity_in_kpcGyr(vo,ro)]]))
+                                    *conversion.velocity_in_kpcGyr(vo,ro)]]))
     # Now convert to NEMO format
     try:
         convert_to_nemo('orb.dat','orb.nemo')
@@ -104,9 +111,9 @@ def run_orbitIntegration_comparison(orb,pot,tmax,vo,ro,isList=False,
         xdiff= numpy.fabs((nemodata[-1,1]-orb.x(ts[-1]))/nemodata[-1,1])
         ydiff= numpy.fabs((nemodata[-1,2]-orb.y(ts[-1]))/nemodata[-1,2])
         zdiff= numpy.fabs((nemodata[-1,3]-orb.z(ts[-1]))/nemodata[-1,3])
-        vxdiff= numpy.fabs((nemodata[-1,4]-orb.vx(ts[-1],use_physical=False)*bovy_conversion.velocity_in_kpcGyr(vo,ro))/nemodata[-1,4])
-        vydiff= numpy.fabs((nemodata[-1,5]-orb.vy(ts[-1],use_physical=False)*bovy_conversion.velocity_in_kpcGyr(vo,ro))/nemodata[-1,5])
-        vzdiff= numpy.fabs((nemodata[-1,6]-orb.vz(ts[-1],use_physical=False)*bovy_conversion.velocity_in_kpcGyr(vo,ro))/nemodata[-1,6])
+        vxdiff= numpy.fabs((nemodata[-1,4]-orb.vx(ts[-1],use_physical=False)*conversion.velocity_in_kpcGyr(vo,ro))/nemodata[-1,4])
+        vydiff= numpy.fabs((nemodata[-1,5]-orb.vy(ts[-1],use_physical=False)*conversion.velocity_in_kpcGyr(vo,ro))/nemodata[-1,5])
+        vzdiff= numpy.fabs((nemodata[-1,6]-orb.vz(ts[-1],use_physical=False)*conversion.velocity_in_kpcGyr(vo,ro))/nemodata[-1,6])
         assert xdiff < tol, 'galpy and NEMO gyrfalcON orbit integration inconsistent for x by %g' % xdiff
         assert ydiff < tol, 'galpy and NEMO gyrfalcON orbit integration inconsistent for y by %g' % ydiff
         assert zdiff < tol, 'galpy and NEMO gyrfalcON orbit integration inconsistent for z by %g' % zdiff

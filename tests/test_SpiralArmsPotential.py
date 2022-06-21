@@ -1,4 +1,3 @@
-from __future__ import division
 from galpy.potential import SpiralArmsPotential as spiral
 import numpy as np
 from numpy import pi
@@ -184,78 +183,78 @@ class TestSpiralArmsPotential(unittest.TestCase):
         assert_allclose(pot.zforce(R, z, pi),     -deriv(lambda x: pot(R, x, pi),     z, dx=dx), rtol=rtol)
         assert_allclose(pot.zforce(R, z, 3*pi/2), -deriv(lambda x: pot(R, x, 3*pi/2), z, dx=dx), rtol=rtol)
 
-    def test_phiforce(self):
-        """Test phiforce against a numerical derivative -d(Potential) / d(phi)."""
+    def test_phitorque(self):
+        """Test phitorque against a numerical derivative -d(Potential) / d(phi)."""
         dx = 1e-8
         rtol = 1e-5  # relative tolerance
 
         pot = spiral()
         R, z = .3, 0
-        assert_allclose(pot.phiforce(R, z, 0),      -deriv(lambda x: pot(R, z, x),      0, dx=dx), rtol=rtol)
-        assert_allclose(pot.phiforce(R, z, pi/2),   -deriv(lambda x: pot(R, z, x),   pi/2, dx=dx), rtol=rtol)
-        assert_allclose(pot.phiforce(R, z, pi),     -deriv(lambda x: pot(R, z, x),     pi, dx=dx), rtol=rtol)
-        assert_allclose(pot.phiforce(R, z, 3*pi/2), -deriv(lambda x: pot(R, z, x), 3*pi/2, dx=dx), rtol=rtol)
+        assert_allclose(pot.phitorque(R, z, 0),      -deriv(lambda x: pot(R, z, x),      0, dx=dx), rtol=rtol)
+        assert_allclose(pot.phitorque(R, z, pi/2),   -deriv(lambda x: pot(R, z, x),   pi/2, dx=dx), rtol=rtol)
+        assert_allclose(pot.phitorque(R, z, pi),     -deriv(lambda x: pot(R, z, x),     pi, dx=dx), rtol=rtol)
+        assert_allclose(pot.phitorque(R, z, 3*pi/2), -deriv(lambda x: pot(R, z, x), 3*pi/2, dx=dx), rtol=rtol)
         R, z = .1, -.3
-        assert_allclose(pot.phiforce(R, z, 0),      -deriv(lambda x: pot(R, z, x),      0, dx=dx), rtol=rtol)
-        assert_allclose(pot.phiforce(R, z, pi/2),   -deriv(lambda x: pot(R, z, x),   pi/2, dx=dx), rtol=rtol)
-        assert_allclose(pot.phiforce(R, z, pi),     -deriv(lambda x: pot(R, z, x),     pi, dx=dx), rtol=rtol)
-        assert_allclose(pot.phiforce(R, z, 3*pi/2), -deriv(lambda x: pot(R, z, x), 3*pi/2, dx=dx), rtol=rtol)
+        assert_allclose(pot.phitorque(R, z, 0),      -deriv(lambda x: pot(R, z, x),      0, dx=dx), rtol=rtol)
+        assert_allclose(pot.phitorque(R, z, pi/2),   -deriv(lambda x: pot(R, z, x),   pi/2, dx=dx), rtol=rtol)
+        assert_allclose(pot.phitorque(R, z, pi),     -deriv(lambda x: pot(R, z, x),     pi, dx=dx), rtol=rtol)
+        assert_allclose(pot.phitorque(R, z, 3*pi/2), -deriv(lambda x: pot(R, z, x), 3*pi/2, dx=dx), rtol=rtol)
         R, z = 3, 7
-        assert_allclose(pot.phiforce(R, z, 0),      -deriv(lambda x: pot(R, z, x),      0,   dx=dx), rtol=rtol)
-        assert_allclose(pot.phiforce(R, z, pi/2.1), -deriv(lambda x: pot(R, z, x),   pi/2.1, dx=dx), rtol=rtol)
-        assert_allclose(pot.phiforce(R, z, pi),     -deriv(lambda x: pot(R, z, x),     pi,   dx=dx), rtol=rtol)
-        assert_allclose(pot.phiforce(R, z, 3*pi/2), -deriv(lambda x: pot(R, z, x), 3*pi/2,   dx=dx), rtol=rtol)
+        assert_allclose(pot.phitorque(R, z, 0),      -deriv(lambda x: pot(R, z, x),      0,   dx=dx), rtol=rtol)
+        assert_allclose(pot.phitorque(R, z, pi/2.1), -deriv(lambda x: pot(R, z, x),   pi/2.1, dx=dx), rtol=rtol)
+        assert_allclose(pot.phitorque(R, z, pi),     -deriv(lambda x: pot(R, z, x),     pi,   dx=dx), rtol=rtol)
+        assert_allclose(pot.phitorque(R, z, 3*pi/2), -deriv(lambda x: pot(R, z, x), 3*pi/2,   dx=dx), rtol=rtol)
 
         pot = spiral(N=7, alpha=-0.3, r_ref=0.5, phi_ref=0.3, Rs=0.7, H=0.7, Cs=[1, 1, 1], omega=2*pi)
         R, z, t = .3, 0, 1.2
-        assert_allclose(pot.phiforce(R, z, 0, 0),      -deriv(lambda x: pot(R, z, x, 0),      0, dx=dx), rtol=rtol)
-        assert_allclose(pot.phiforce(R, z, pi/2, t),   -deriv(lambda x: pot(R, z, x, t),   pi/2, dx=dx), rtol=rtol)
-        assert_allclose(pot.phiforce(R, z, pi, t),     -deriv(lambda x: pot(R, z, x, t),     pi, dx=dx), rtol=rtol)
-        assert_allclose(pot.phiforce(R, z, 3*pi/2, t), -deriv(lambda x: pot(R, z, x, t), 3*pi/2, dx=dx), rtol=rtol)
+        assert_allclose(pot.phitorque(R, z, 0, 0),      -deriv(lambda x: pot(R, z, x, 0),      0, dx=dx), rtol=rtol)
+        assert_allclose(pot.phitorque(R, z, pi/2, t),   -deriv(lambda x: pot(R, z, x, t),   pi/2, dx=dx), rtol=rtol)
+        assert_allclose(pot.phitorque(R, z, pi, t),     -deriv(lambda x: pot(R, z, x, t),     pi, dx=dx), rtol=rtol)
+        assert_allclose(pot.phitorque(R, z, 3*pi/2, t), -deriv(lambda x: pot(R, z, x, t), 3*pi/2, dx=dx), rtol=rtol)
         R, z = 1, -.7
-        assert_allclose(pot.phiforce(R, z, 0),      -deriv(lambda x: pot(R, z, x),      0, dx=dx), rtol=rtol)
-        assert_allclose(pot.phiforce(R, z, pi/2),   -deriv(lambda x: pot(R, z, x),   pi/2, dx=dx), rtol=rtol)
-        assert_allclose(pot.phiforce(R, z, pi),     -deriv(lambda x: pot(R, z, x),     pi, dx=dx), rtol=rtol)
-        assert_allclose(pot.phiforce(R, z, 3*pi/2), -deriv(lambda x: pot(R, z, x), 3*pi/2, dx=dx), rtol=rtol)
+        assert_allclose(pot.phitorque(R, z, 0),      -deriv(lambda x: pot(R, z, x),      0, dx=dx), rtol=rtol)
+        assert_allclose(pot.phitorque(R, z, pi/2),   -deriv(lambda x: pot(R, z, x),   pi/2, dx=dx), rtol=rtol)
+        assert_allclose(pot.phitorque(R, z, pi),     -deriv(lambda x: pot(R, z, x),     pi, dx=dx), rtol=rtol)
+        assert_allclose(pot.phitorque(R, z, 3*pi/2), -deriv(lambda x: pot(R, z, x), 3*pi/2, dx=dx), rtol=rtol)
         R, z, t = 3.7, .7, -5.1
-        assert_allclose(pot.phiforce(R, z, 0, t),      -deriv(lambda x: pot(R, z, x, t),      0, dx=dx), rtol=rtol)
-        assert_allclose(pot.phiforce(R, z, pi/2, t),   -deriv(lambda x: pot(R, z, x, t),   pi/2, dx=dx), rtol=rtol)
-        assert_allclose(pot.phiforce(R, z, pi, t),     -deriv(lambda x: pot(R, z, x, t),     pi, dx=dx), rtol=rtol)
-        assert_allclose(pot.phiforce(R, z, 3.2*pi/2, t), -deriv(lambda x: pot(R, z, x, t), 3.2*pi/2, dx=dx), rtol=rtol)
+        assert_allclose(pot.phitorque(R, z, 0, t),      -deriv(lambda x: pot(R, z, x, t),      0, dx=dx), rtol=rtol)
+        assert_allclose(pot.phitorque(R, z, pi/2, t),   -deriv(lambda x: pot(R, z, x, t),   pi/2, dx=dx), rtol=rtol)
+        assert_allclose(pot.phitorque(R, z, pi, t),     -deriv(lambda x: pot(R, z, x, t),     pi, dx=dx), rtol=rtol)
+        assert_allclose(pot.phitorque(R, z, 3.2*pi/2, t), -deriv(lambda x: pot(R, z, x, t), 3.2*pi/2, dx=dx), rtol=rtol)
 
         pot = spiral(N=1, alpha=0.1, phi_ref=0, Cs=[1, 1.5], omega=-.333)
         R, z = .3, 0
-        assert_allclose(pot.phiforce(R, z, 0),        -deriv(lambda x: pot(R, z, x),      0,   dx=dx), rtol=rtol)
-        assert_allclose(pot.phiforce(R, z, pi/2),     -deriv(lambda x: pot(R, z, x),   pi/2,   dx=dx), rtol=rtol)
-        assert_allclose(pot.phiforce(R, z, pi),       -deriv(lambda x: pot(R, z, x),     pi,   dx=dx), rtol=rtol)
-        assert_allclose(pot.phiforce(R, z, 3.2*pi/2), -deriv(lambda x: pot(R, z, x), 3.2*pi/2, dx=dx), rtol=rtol)
+        assert_allclose(pot.phitorque(R, z, 0),        -deriv(lambda x: pot(R, z, x),      0,   dx=dx), rtol=rtol)
+        assert_allclose(pot.phitorque(R, z, pi/2),     -deriv(lambda x: pot(R, z, x),   pi/2,   dx=dx), rtol=rtol)
+        assert_allclose(pot.phitorque(R, z, pi),       -deriv(lambda x: pot(R, z, x),     pi,   dx=dx), rtol=rtol)
+        assert_allclose(pot.phitorque(R, z, 3.2*pi/2), -deriv(lambda x: pot(R, z, x), 3.2*pi/2, dx=dx), rtol=rtol)
         R, z, t = 1, -.7, 123
-        assert_allclose(pot.phiforce(R, z, 0, t),      -deriv(lambda x: pot(R, z, x, t),      0, dx=dx), rtol=rtol)
-        assert_allclose(pot.phiforce(R, z, pi/2, t),   -deriv(lambda x: pot(R, z, x, t),   pi/2, dx=dx), rtol=rtol)
-        assert_allclose(pot.phiforce(R, z, pi, t),     -deriv(lambda x: pot(R, z, x, t),     pi, dx=dx), rtol=rtol)
-        assert_allclose(pot.phiforce(R, z, 3*pi/2, t), -deriv(lambda x: pot(R, z, x, t), 3*pi/2, dx=dx), rtol=rtol)
+        assert_allclose(pot.phitorque(R, z, 0, t),      -deriv(lambda x: pot(R, z, x, t),      0, dx=dx), rtol=rtol)
+        assert_allclose(pot.phitorque(R, z, pi/2, t),   -deriv(lambda x: pot(R, z, x, t),   pi/2, dx=dx), rtol=rtol)
+        assert_allclose(pot.phitorque(R, z, pi, t),     -deriv(lambda x: pot(R, z, x, t),     pi, dx=dx), rtol=rtol)
+        assert_allclose(pot.phitorque(R, z, 3*pi/2, t), -deriv(lambda x: pot(R, z, x, t), 3*pi/2, dx=dx), rtol=rtol)
         R, z, t = 3, 4, 5
-        assert_allclose(pot.phiforce(R, z, 0, t),      -deriv(lambda x: pot(R, z, x, t),      0, dx=dx), rtol=rtol)
-        assert_allclose(pot.phiforce(R, z, pi/2, t),   -deriv(lambda x: pot(R, z, x, t),   pi/2, dx=dx), rtol=rtol)
-        assert_allclose(pot.phiforce(R, z, pi, t),     -deriv(lambda x: pot(R, z, x, t),     pi, dx=dx), rtol=rtol)
-        assert_allclose(pot.phiforce(R, z, 3*pi/2, t), -deriv(lambda x: pot(R, z, x, t), 3*pi/2, dx=dx), rtol=rtol)
+        assert_allclose(pot.phitorque(R, z, 0, t),      -deriv(lambda x: pot(R, z, x, t),      0, dx=dx), rtol=rtol)
+        assert_allclose(pot.phitorque(R, z, pi/2, t),   -deriv(lambda x: pot(R, z, x, t),   pi/2, dx=dx), rtol=rtol)
+        assert_allclose(pot.phitorque(R, z, pi, t),     -deriv(lambda x: pot(R, z, x, t),     pi, dx=dx), rtol=rtol)
+        assert_allclose(pot.phitorque(R, z, 3*pi/2, t), -deriv(lambda x: pot(R, z, x, t), 3*pi/2, dx=dx), rtol=rtol)
 
         pot = spiral(N=4, r_ref=1.5, phi_ref=5, Cs=[8./(3.*pi), 0.5, 8./(15.*pi)])
         R, z = .3, 0
-        assert_allclose(pot.phiforce(R, z, 0),      -deriv(lambda x: pot(R, z, x),      0, dx=dx), rtol=rtol)
-        assert_allclose(pot.phiforce(R, z, pi/2),   -deriv(lambda x: pot(R, z, x),   pi/2, dx=dx), rtol=rtol)
-        assert_allclose(pot.phiforce(R, z, pi),     -deriv(lambda x: pot(R, z, x),     pi, dx=dx), rtol=rtol)
-        assert_allclose(pot.phiforce(R, z, 3*pi/2), -deriv(lambda x: pot(R, z, x), 3*pi/2, dx=dx), rtol=rtol)
+        assert_allclose(pot.phitorque(R, z, 0),      -deriv(lambda x: pot(R, z, x),      0, dx=dx), rtol=rtol)
+        assert_allclose(pot.phitorque(R, z, pi/2),   -deriv(lambda x: pot(R, z, x),   pi/2, dx=dx), rtol=rtol)
+        assert_allclose(pot.phitorque(R, z, pi),     -deriv(lambda x: pot(R, z, x),     pi, dx=dx), rtol=rtol)
+        assert_allclose(pot.phitorque(R, z, 3*pi/2), -deriv(lambda x: pot(R, z, x), 3*pi/2, dx=dx), rtol=rtol)
         R, z = 1, -.7
-        assert_allclose(pot.phiforce(R, z, 0),      -deriv(lambda x: pot(R, z, x),      0, dx=dx), rtol=rtol)
-        assert_allclose(pot.phiforce(R, z, pi/2),   -deriv(lambda x: pot(R, z, x),   pi/2, dx=dx), rtol=rtol)
-        assert_allclose(pot.phiforce(R, z, pi),     -deriv(lambda x: pot(R, z, x),     pi, dx=dx), rtol=rtol)
-        assert_allclose(pot.phiforce(R, z, 3*pi/2), -deriv(lambda x: pot(R, z, x), 3*pi/2, dx=dx), rtol=rtol)
+        assert_allclose(pot.phitorque(R, z, 0),      -deriv(lambda x: pot(R, z, x),      0, dx=dx), rtol=rtol)
+        assert_allclose(pot.phitorque(R, z, pi/2),   -deriv(lambda x: pot(R, z, x),   pi/2, dx=dx), rtol=rtol)
+        assert_allclose(pot.phitorque(R, z, pi),     -deriv(lambda x: pot(R, z, x),     pi, dx=dx), rtol=rtol)
+        assert_allclose(pot.phitorque(R, z, 3*pi/2), -deriv(lambda x: pot(R, z, x), 3*pi/2, dx=dx), rtol=rtol)
         R, z = 2.1, .12345
-        assert_allclose(pot.phiforce(R, z, 0),      -deriv(lambda x: pot(R, z, x),      0, dx=dx), rtol=rtol)
-        assert_allclose(pot.phiforce(R, z, pi/2),   -deriv(lambda x: pot(R, z, x),   pi/2, dx=dx), rtol=rtol)
-        assert_allclose(pot.phiforce(R, z, pi),     -deriv(lambda x: pot(R, z, x),     pi, dx=dx), rtol=rtol)
-        assert_allclose(pot.phiforce(R, z, 2*pi), -deriv(lambda x: pot(R, z, x), 2*pi, dx=dx), rtol=rtol)
+        assert_allclose(pot.phitorque(R, z, 0),      -deriv(lambda x: pot(R, z, x),      0, dx=dx), rtol=rtol)
+        assert_allclose(pot.phitorque(R, z, pi/2),   -deriv(lambda x: pot(R, z, x),   pi/2, dx=dx), rtol=rtol)
+        assert_allclose(pot.phitorque(R, z, pi),     -deriv(lambda x: pot(R, z, x),     pi, dx=dx), rtol=rtol)
+        assert_allclose(pot.phitorque(R, z, 2*pi), -deriv(lambda x: pot(R, z, x), 2*pi, dx=dx), rtol=rtol)
 
     def test_R2deriv(self):
         """Test R2deriv against a numerical derivative -d(Rforce) / dR."""
@@ -377,10 +376,10 @@ class TestSpiralArmsPotential(unittest.TestCase):
         assert_allclose(pot.z2deriv(R, z, pi),     -deriv(lambda x: pot.zforce(R, x, pi),     z, dx=dx), rtol=rtol)
         assert_allclose(pot.z2deriv(R, z, 3*pi/2), -deriv(lambda x: pot.zforce(R, x, 3*pi/2), z, dx=dx), rtol=rtol)
         R, z = 1, -.3
-        assert_allclose(pot.z2deriv(R, z, 0),      -deriv(lambda x: pot.zforce(R, x, 0),      z, dx=dx), rtol=rtol)
+        assert_allclose(pot.z2deriv(R, z, 0),      -deriv(lambda x: pot.zforce(R, x, 0),      z, dx=dx), rtol=2*rtol)
         assert_allclose(pot.z2deriv(R, z, pi/2),   -deriv(lambda x: pot.zforce(R, x, pi/2),   z, dx=dx), rtol=rtol)
         assert_allclose(pot.z2deriv(R, z, pi),     -deriv(lambda x: pot.zforce(R, x, pi),     z, dx=dx), rtol=rtol)
-        assert_allclose(pot.z2deriv(R, z, 3*pi/2), -deriv(lambda x: pot.zforce(R, x, 3*pi/2), z, dx=dx), rtol=rtol)
+        assert_allclose(pot.z2deriv(R, z, 3*pi/2), -deriv(lambda x: pot.zforce(R, x, 3*pi/2), z, dx=dx), rtol=2*rtol)
         R, z = 3.3, .7
         assert_allclose(pot.z2deriv(R, z, 0),      -deriv(lambda x: pot.zforce(R, x, 0),      z, dx=dx), rtol=rtol)
         assert_allclose(pot.z2deriv(R, z, pi/2),   -deriv(lambda x: pot.zforce(R, x, pi/2),   z, dx=dx), rtol=rtol)
@@ -397,7 +396,7 @@ class TestSpiralArmsPotential(unittest.TestCase):
         assert_allclose(pot.z2deriv(R, z, 0),      -deriv(lambda x: pot.zforce(R, x, 0),      z, dx=dx), rtol=rtol)
         assert_allclose(pot.z2deriv(R, z, pi/2),   -deriv(lambda x: pot.zforce(R, x, pi/2),   z, dx=dx), rtol=rtol)
         assert_allclose(pot.z2deriv(R, z, pi),     -deriv(lambda x: pot.zforce(R, x, pi),     z, dx=dx), rtol=rtol)
-        assert_allclose(pot.z2deriv(R, z, 3*pi/2), -deriv(lambda x: pot.zforce(R, x, 3*pi/2), z, dx=dx), rtol=rtol)
+        assert_allclose(pot.z2deriv(R, z, 3*pi/2), -deriv(lambda x: pot.zforce(R, x, 3*pi/2), z, dx=dx), rtol=2*rtol)
         R, z = 2.1, .99
         assert_allclose(pot.z2deriv(R, z, 0),      -deriv(lambda x: pot.zforce(R, x, 0),      z, dx=dx), rtol=rtol)
         assert_allclose(pot.z2deriv(R, z, pi/2),   -deriv(lambda x: pot.zforce(R, x, pi/2),   z, dx=dx), rtol=rtol)
@@ -405,77 +404,77 @@ class TestSpiralArmsPotential(unittest.TestCase):
         assert_allclose(pot.z2deriv(R, z, 3*pi/2), -deriv(lambda x: pot.zforce(R, x, 3*pi/2), z, dx=dx), rtol=rtol)
 
     def test_phi2deriv(self):
-        """Test phi2deriv against a numerical derivative -d(phiforce) / d(phi)."""
+        """Test phi2deriv against a numerical derivative -d(phitorque) / d(phi)."""
         dx = 1e-8
         rtol = 1e-7  # relative tolerance
 
         pot = spiral()
         R, z = .3, 0
-        assert_allclose(pot.phi2deriv(R, z, 0),      -deriv(lambda x: pot.phiforce(R, z, x),      0, dx=dx), rtol=rtol)
-        assert_allclose(pot.phi2deriv(R, z, pi/2.1),   -deriv(lambda x: pot.phiforce(R, z, x),   pi/2.1, dx=dx), rtol=rtol)
-        assert_allclose(pot.phi2deriv(R, z, pi),     -deriv(lambda x: pot.phiforce(R, z, x),     pi, dx=dx), rtol=rtol)
-        assert_allclose(pot.phi2deriv(R, z, 3*pi/2.5), -deriv(lambda x: pot.phiforce(R, z, x), 3*pi/2.5, dx=dx), rtol=rtol)
+        assert_allclose(pot.phi2deriv(R, z, 0),      -deriv(lambda x: pot.phitorque(R, z, x),      0, dx=dx), rtol=rtol)
+        assert_allclose(pot.phi2deriv(R, z, pi/2.1),   -deriv(lambda x: pot.phitorque(R, z, x),   pi/2.1, dx=dx), rtol=rtol)
+        assert_allclose(pot.phi2deriv(R, z, pi),     -deriv(lambda x: pot.phitorque(R, z, x),     pi, dx=dx), rtol=rtol)
+        assert_allclose(pot.phi2deriv(R, z, 3*pi/2.5), -deriv(lambda x: pot.phitorque(R, z, x), 3*pi/2.5, dx=dx), rtol=rtol)
         R, z = 1, -.3
-        assert_allclose(pot.phi2deriv(R, z, 0),      -deriv(lambda x: pot.phiforce(R, z, x),      0, dx=dx), rtol=rtol)
-        assert_allclose(pot.phi2deriv(R, z, pi/2),   -deriv(lambda x: pot.phiforce(R, z, x),   pi/2, dx=dx), rtol=rtol)
-        assert_allclose(pot.phi2deriv(R, z, pi),     -deriv(lambda x: pot.phiforce(R, z, x),     pi, dx=dx), rtol=rtol)
-        assert_allclose(pot.phi2deriv(R, z, 3*pi/2), -deriv(lambda x: pot.phiforce(R, z, x), 3*pi/2, dx=dx), rtol=rtol)
+        assert_allclose(pot.phi2deriv(R, z, 0),      -deriv(lambda x: pot.phitorque(R, z, x),      0, dx=dx), rtol=rtol)
+        assert_allclose(pot.phi2deriv(R, z, pi/2),   -deriv(lambda x: pot.phitorque(R, z, x),   pi/2, dx=dx), rtol=rtol)
+        assert_allclose(pot.phi2deriv(R, z, pi),     -deriv(lambda x: pot.phitorque(R, z, x),     pi, dx=dx), rtol=rtol)
+        assert_allclose(pot.phi2deriv(R, z, 3*pi/2), -deriv(lambda x: pot.phitorque(R, z, x), 3*pi/2, dx=dx), rtol=rtol)
         R, z = 3.3, .7
-        assert_allclose(pot.phi2deriv(R, z, 0),      -deriv(lambda x: pot.phiforce(R, z, x),      0,   dx=dx), rtol=rtol)
-        assert_allclose(pot.phi2deriv(R, z, pi/2.1), -deriv(lambda x: pot.phiforce(R, z, x),   pi/2.1, dx=dx), rtol=rtol)
-        assert_allclose(pot.phi2deriv(R, z, pi),     -deriv(lambda x: pot.phiforce(R, z, x),     pi,   dx=dx), rtol=rtol)
-        assert_allclose(pot.phi2deriv(R, z, 3*pi/2), -deriv(lambda x: pot.phiforce(R, z, x), 3*pi/2,   dx=dx), rtol=rtol)
+        assert_allclose(pot.phi2deriv(R, z, 0),      -deriv(lambda x: pot.phitorque(R, z, x),      0,   dx=dx), rtol=rtol)
+        assert_allclose(pot.phi2deriv(R, z, pi/2.1), -deriv(lambda x: pot.phitorque(R, z, x),   pi/2.1, dx=dx), rtol=rtol)
+        assert_allclose(pot.phi2deriv(R, z, pi),     -deriv(lambda x: pot.phitorque(R, z, x),     pi,   dx=dx), rtol=rtol)
+        assert_allclose(pot.phi2deriv(R, z, 3*pi/2), -deriv(lambda x: pot.phitorque(R, z, x), 3*pi/2,   dx=dx), rtol=rtol)
 
         pot = spiral(amp=13, N=1, alpha=-.3, r_ref=0.5, phi_ref=0.1, Rs=0.7, H=0.7, Cs=[1, 2, 3], omega=3)
         R, z = .3, 0
-        assert_allclose(pot.phi2deriv(R, z, 0),      -deriv(lambda x: pot.phiforce(R, z, x),      0, dx=dx), rtol=rtol)
-        assert_allclose(pot.phi2deriv(R, z, pi/2),   -deriv(lambda x: pot.phiforce(R, z, x),   pi/2, dx=dx), rtol=rtol)
-        assert_allclose(pot.phi2deriv(R, z, pi),     -deriv(lambda x: pot.phiforce(R, z, x),     pi, dx=dx), rtol=rtol)
-        assert_allclose(pot.phi2deriv(R, z, 3.3*pi/2), -deriv(lambda x: pot.phiforce(R, z, x), 3.3*pi/2, dx=dx), rtol=rtol)
+        assert_allclose(pot.phi2deriv(R, z, 0),      -deriv(lambda x: pot.phitorque(R, z, x),      0, dx=dx), rtol=rtol)
+        assert_allclose(pot.phi2deriv(R, z, pi/2),   -deriv(lambda x: pot.phitorque(R, z, x),   pi/2, dx=dx), rtol=rtol)
+        assert_allclose(pot.phi2deriv(R, z, pi),     -deriv(lambda x: pot.phitorque(R, z, x),     pi, dx=dx), rtol=rtol)
+        assert_allclose(pot.phi2deriv(R, z, 3.3*pi/2), -deriv(lambda x: pot.phitorque(R, z, x), 3.3*pi/2, dx=dx), rtol=rtol)
         R, z = 1, -.3
-        assert_allclose(pot.phi2deriv(R, z, 0),      -deriv(lambda x: pot.phiforce(R, z, x),      0, dx=dx), rtol=rtol)
-        assert_allclose(pot.phi2deriv(R, z, pi/2),   -deriv(lambda x: pot.phiforce(R, z, x),   pi/2, dx=dx), rtol=rtol)
-        assert_allclose(pot.phi2deriv(R, z, pi),     -deriv(lambda x: pot.phiforce(R, z, x),     pi, dx=dx), rtol=rtol)
-        assert_allclose(pot.phi2deriv(R, z, 3*pi/2), -deriv(lambda x: pot.phiforce(R, z, x), 3*pi/2, dx=dx), rtol=rtol)
+        assert_allclose(pot.phi2deriv(R, z, 0),      -deriv(lambda x: pot.phitorque(R, z, x),      0, dx=dx), rtol=rtol)
+        assert_allclose(pot.phi2deriv(R, z, pi/2),   -deriv(lambda x: pot.phitorque(R, z, x),   pi/2, dx=dx), rtol=rtol)
+        assert_allclose(pot.phi2deriv(R, z, pi),     -deriv(lambda x: pot.phitorque(R, z, x),     pi, dx=dx), rtol=rtol)
+        assert_allclose(pot.phi2deriv(R, z, 3*pi/2), -deriv(lambda x: pot.phitorque(R, z, x), 3*pi/2, dx=dx), rtol=rtol)
         R, z = 3.3, .7
-        assert_allclose(pot.phi2deriv(R, z, 0),      -deriv(lambda x: pot.phiforce(R, z, x),      0,   dx=dx), rtol=rtol)
-        assert_allclose(pot.phi2deriv(R, z, pi/2.1), -deriv(lambda x: pot.phiforce(R, z, x),   pi/2.1, dx=dx), rtol=rtol)
-        assert_allclose(pot.phi2deriv(R, z, pi),     -deriv(lambda x: pot.phiforce(R, z, x),     pi,   dx=dx), rtol=rtol)
-        assert_allclose(pot.phi2deriv(R, z, 3*pi/2), -deriv(lambda x: pot.phiforce(R, z, x), 3*pi/2,   dx=dx), rtol=rtol)
+        assert_allclose(pot.phi2deriv(R, z, 0),      -deriv(lambda x: pot.phitorque(R, z, x),      0,   dx=dx), rtol=rtol)
+        assert_allclose(pot.phi2deriv(R, z, pi/2.1), -deriv(lambda x: pot.phitorque(R, z, x),   pi/2.1, dx=dx), rtol=rtol)
+        assert_allclose(pot.phi2deriv(R, z, pi),     -deriv(lambda x: pot.phitorque(R, z, x),     pi,   dx=dx), rtol=rtol)
+        assert_allclose(pot.phi2deriv(R, z, 3*pi/2), -deriv(lambda x: pot.phitorque(R, z, x), 3*pi/2,   dx=dx), rtol=rtol)
 
         pot = spiral(amp=13, N=5, alpha=0.1, r_ref=.3, phi_ref=.1, Rs=0.77, H=0.747, Cs=[3, 2], omega=-3)
         R, z = .3, 0
-        assert_allclose(pot.phi2deriv(R, z, 0),      -deriv(lambda x: pot.phiforce(R, z, x),      0, dx=dx), rtol=rtol)
-        assert_allclose(pot.phi2deriv(R, z, pi/2),   -deriv(lambda x: pot.phiforce(R, z, x),   pi/2, dx=dx), rtol=rtol)
-        assert_allclose(pot.phi2deriv(R, z, pi),     -deriv(lambda x: pot.phiforce(R, z, x),     pi, dx=dx), rtol=rtol)
-        assert_allclose(pot.phi2deriv(R, z, 3*pi/2), -deriv(lambda x: pot.phiforce(R, z, x), 3*pi/2, dx=dx), rtol=rtol)
+        assert_allclose(pot.phi2deriv(R, z, 0),      -deriv(lambda x: pot.phitorque(R, z, x),      0, dx=dx), rtol=rtol)
+        assert_allclose(pot.phi2deriv(R, z, pi/2),   -deriv(lambda x: pot.phitorque(R, z, x),   pi/2, dx=dx), rtol=rtol)
+        assert_allclose(pot.phi2deriv(R, z, pi),     -deriv(lambda x: pot.phitorque(R, z, x),     pi, dx=dx), rtol=rtol)
+        assert_allclose(pot.phi2deriv(R, z, 3*pi/2), -deriv(lambda x: pot.phitorque(R, z, x), 3*pi/2, dx=dx), rtol=rtol)
         R, z = 1, -.3
-        assert_allclose(pot.phi2deriv(R, z, 0),      -deriv(lambda x: pot.phiforce(R, z, x),      0, dx=dx), rtol=rtol)
-        assert_allclose(pot.phi2deriv(R, z, pi/2),   -deriv(lambda x: pot.phiforce(R, z, x),   pi/2, dx=dx), rtol=rtol)
-        assert_allclose(pot.phi2deriv(R, z, pi),     -deriv(lambda x: pot.phiforce(R, z, x),     pi, dx=dx), rtol=rtol)
-        assert_allclose(pot.phi2deriv(R, z, 3*pi/2), -deriv(lambda x: pot.phiforce(R, z, x), 3*pi/2, dx=dx), rtol=rtol)
+        assert_allclose(pot.phi2deriv(R, z, 0),      -deriv(lambda x: pot.phitorque(R, z, x),      0, dx=dx), rtol=rtol)
+        assert_allclose(pot.phi2deriv(R, z, pi/2),   -deriv(lambda x: pot.phitorque(R, z, x),   pi/2, dx=dx), rtol=rtol)
+        assert_allclose(pot.phi2deriv(R, z, pi),     -deriv(lambda x: pot.phitorque(R, z, x),     pi, dx=dx), rtol=rtol)
+        assert_allclose(pot.phi2deriv(R, z, 3*pi/2), -deriv(lambda x: pot.phitorque(R, z, x), 3*pi/2, dx=dx), rtol=rtol)
         R, z = 3.3, .7
-        assert_allclose(pot.phi2deriv(R, z, 0),      -deriv(lambda x: pot.phiforce(R, z, x),      0,   dx=dx), rtol=rtol)
-        assert_allclose(pot.phi2deriv(R, z, pi/2.1), -deriv(lambda x: pot.phiforce(R, z, x),   pi/2.1, dx=dx), rtol=rtol)
-        assert_allclose(pot.phi2deriv(R, z, pi),     -deriv(lambda x: pot.phiforce(R, z, x),     pi,   dx=dx), rtol=rtol)
-        assert_allclose(pot.phi2deriv(R, z, 3*pi/2), -deriv(lambda x: pot.phiforce(R, z, x), 3*pi/2,   dx=dx), rtol=rtol)
+        assert_allclose(pot.phi2deriv(R, z, 0),      -deriv(lambda x: pot.phitorque(R, z, x),      0,   dx=dx), rtol=rtol)
+        assert_allclose(pot.phi2deriv(R, z, pi/2.1), -deriv(lambda x: pot.phitorque(R, z, x),   pi/2.1, dx=dx), rtol=rtol)
+        assert_allclose(pot.phi2deriv(R, z, pi),     -deriv(lambda x: pot.phitorque(R, z, x),     pi,   dx=dx), rtol=rtol)
+        assert_allclose(pot.phi2deriv(R, z, 3*pi/2), -deriv(lambda x: pot.phitorque(R, z, x), 3*pi/2,   dx=dx), rtol=rtol)
 
         pot = spiral(amp=11, N=7, alpha=.777, r_ref=7, phi_ref=.7, Cs=[8./(3.*pi), 0.5, 8./(15.*pi)])
         R, z = .7, 0
-        assert_allclose(pot.phi2deriv(R, z, 0),      -deriv(lambda x: pot.phiforce(R, z, x),      0, dx=dx), rtol=rtol)
-        assert_allclose(pot.phi2deriv(R, z, pi/2),   -deriv(lambda x: pot.phiforce(R, z, x),   pi/2, dx=dx), rtol=rtol)
-        assert_allclose(pot.phi2deriv(R, z, pi),     -deriv(lambda x: pot.phiforce(R, z, x),     pi, dx=dx), rtol=rtol)
-        assert_allclose(pot.phi2deriv(R, z, 3*pi/2), -deriv(lambda x: pot.phiforce(R, z, x), 3*pi/2, dx=dx), rtol=rtol)
+        assert_allclose(pot.phi2deriv(R, z, 0),      -deriv(lambda x: pot.phitorque(R, z, x),      0, dx=dx), rtol=rtol)
+        assert_allclose(pot.phi2deriv(R, z, pi/2),   -deriv(lambda x: pot.phitorque(R, z, x),   pi/2, dx=dx), rtol=rtol)
+        assert_allclose(pot.phi2deriv(R, z, pi),     -deriv(lambda x: pot.phitorque(R, z, x),     pi, dx=dx), rtol=rtol)
+        assert_allclose(pot.phi2deriv(R, z, 3*pi/2), -deriv(lambda x: pot.phitorque(R, z, x), 3*pi/2, dx=dx), rtol=rtol)
         R, z = 1, -.33
-        assert_allclose(pot.phi2deriv(R, z, 0),      -deriv(lambda x: pot.phiforce(R, z, x),      0, dx=dx), rtol=rtol)
-        assert_allclose(pot.phi2deriv(R, z, pi/2.2),   -deriv(lambda x: pot.phiforce(R, z, x),   pi/2.2, dx=dx), rtol=rtol)
-        assert_allclose(pot.phi2deriv(R, z, pi),     -deriv(lambda x: pot.phiforce(R, z, x),     pi, dx=dx), rtol=rtol)
-        assert_allclose(pot.phi2deriv(R, z, 3*pi/2), -deriv(lambda x: pot.phiforce(R, z, x), 3*pi/2, dx=dx), rtol=rtol)
+        assert_allclose(pot.phi2deriv(R, z, 0),      -deriv(lambda x: pot.phitorque(R, z, x),      0, dx=dx), rtol=rtol)
+        assert_allclose(pot.phi2deriv(R, z, pi/2.2),   -deriv(lambda x: pot.phitorque(R, z, x),   pi/2.2, dx=dx), rtol=rtol)
+        assert_allclose(pot.phi2deriv(R, z, pi),     -deriv(lambda x: pot.phitorque(R, z, x),     pi, dx=dx), rtol=rtol)
+        assert_allclose(pot.phi2deriv(R, z, 3*pi/2), -deriv(lambda x: pot.phitorque(R, z, x), 3*pi/2, dx=dx), rtol=rtol)
         R, z = 1.123, .123
-        assert_allclose(pot.phi2deriv(R, z, 0),      -deriv(lambda x: pot.phiforce(R, z, x),      0,   dx=dx), rtol=rtol)
-        assert_allclose(pot.phi2deriv(R, z, pi/2.1), -deriv(lambda x: pot.phiforce(R, z, x),   pi/2.1, dx=dx), rtol=rtol)
-        assert_allclose(pot.phi2deriv(R, z, pi),     -deriv(lambda x: pot.phiforce(R, z, x),     pi,   dx=dx), rtol=rtol)
-        assert_allclose(pot.phi2deriv(R, z, 3*pi/2), -deriv(lambda x: pot.phiforce(R, z, x), 3*pi/2,   dx=dx), rtol=rtol)
+        assert_allclose(pot.phi2deriv(R, z, 0),      -deriv(lambda x: pot.phitorque(R, z, x),      0,   dx=dx), rtol=rtol)
+        assert_allclose(pot.phi2deriv(R, z, pi/2.1), -deriv(lambda x: pot.phitorque(R, z, x),   pi/2.1, dx=dx), rtol=rtol)
+        assert_allclose(pot.phi2deriv(R, z, pi),     -deriv(lambda x: pot.phitorque(R, z, x),     pi,   dx=dx), rtol=rtol)
+        assert_allclose(pot.phi2deriv(R, z, 3*pi/2), -deriv(lambda x: pot.phitorque(R, z, x), 3*pi/2,   dx=dx), rtol=rtol)
 
     def test_dens(self):
         """Test dens against density obtained using Poisson's equation."""
@@ -548,7 +547,7 @@ class TestSpiralArmsPotential(unittest.TestCase):
         R, z, phi, t = 1.1, -0.3, pi/4.2, 3
         assert_allclose(pot.Rzderiv(R, z, phi, t), -deriv(lambda x: pot.Rforce(R, x, phi, t), z, dx=dx), rtol=rtol)
         R, z, phi, t = .777, .747, .343, 2.5
-        assert_allclose(pot.Rzderiv(R, z, phi, t), -deriv(lambda x: pot.Rforce(R, x, phi, t), z, dx=dx), rtol=rtol)
+        assert_allclose(pot.Rzderiv(R, z, phi, t), -deriv(lambda x: pot.Rforce(R, x, phi, t), z, dx=dx), rtol=3*rtol)
         R, z, phi, t = 12, 1, 2, 3
         assert_allclose(pot.Rzderiv(R, z, phi, t), -deriv(lambda x: pot.Rforce(R, x, phi, t), z, dx=dx), rtol=rtol)
         R, z, phi, t = 3, 4, 5, 6
@@ -760,98 +759,6 @@ class TestSpiralArmsPotential(unittest.TestCase):
         assert_allclose(pot._dgamma_dR(3.), deriv(lambda x: pot._gamma(x, 1), 3., dx=dx))
         assert_allclose(pot._dgamma_dR(3), deriv(lambda x: pot._gamma(x, 1), 3, dx=dx))
         assert_allclose(pot._dgamma_dR(0.01), deriv(lambda x: pot._gamma(x, 1), 0.01, dx=dx))
-
-    def test_array_inputs_in_evaluate_raises_TypeError(self):
-        """Test that TypeError is raised if an array is inputted for R, phi, z, or t"""
-        sp = spiral()
-        array = np.linspace(0, 1, 10)
-        self.assertRaises(TypeError, sp, array, array, array, array)
-        self.assertRaises(TypeError, sp, array, 1, 2, 3)
-        self.assertRaises(TypeError, sp, 1, array, 2, 3)
-        self.assertRaises(TypeError, sp, 1, 2, array, 3)
-        self.assertRaises(TypeError, sp, 1, 2, 3, array)
-
-    def test_array_inputs_in_Rforce_raises_TypeError(self):
-        """Test that TypeError is raised if an array is inputted for R, phi, z, or t"""
-        sp = spiral()
-        array = np.arange(0, 10, 1)
-
-        self.assertRaises(TypeError, sp.Rforce, array, array, array, array)
-        self.assertRaises(TypeError, sp.Rforce, array, 1, 2, 3)
-        self.assertRaises(TypeError, sp.Rforce, 1, array, 2, 3)
-        self.assertRaises(TypeError, sp.Rforce, 1, 2, array, 3)
-        self.assertRaises(TypeError, sp.Rforce, 1, 2, 3, array)
-
-    def test_array_inputs_in_phiforce_raises_TypeError(self):
-        """Test that TypeError is raised if an array is inputted for R, phi, z, or t"""
-        sp = spiral(Cs=[1, 2, 3])
-        array = range(0, 10, 1)
-
-        self.assertRaises(TypeError, sp.phiforce, array, array, array, array)
-        self.assertRaises(TypeError, sp.phiforce, array, 1, 2, 3)
-        self.assertRaises(TypeError, sp.phiforce, 1, array, 2, 3)
-        self.assertRaises(TypeError, sp.phiforce, 1, 2, array, 3)
-        self.assertRaises(TypeError, sp.phiforce, 1, 2, 3, array)
-
-    def test_array_inputs_in_zforce_raises_TypeError(self):
-        """Test that TypeError is raised if an array is inputted for R, phi, z, or t"""
-        sp = spiral(N=3, Cs=[3, 4, 5])
-        array = [1, 2, 3]
-        self.assertRaises(TypeError, sp.zforce, array, array, array, array)
-        self.assertRaises(TypeError, sp.zforce, array, 1, 2, 3)
-        self.assertRaises(TypeError, sp.zforce, 1, array, 2, 3)
-        self.assertRaises(TypeError, sp.zforce, 1, 2, array, 3)
-        self.assertRaises(TypeError, sp.zforce, 1, 2, 3, array)
-
-    def test_array_inputs_in_R2deriv_raises_TypeError(self):
-        """Test that TypeError is raised if an array is inputted for R, phi, z, or t"""
-        sp = spiral(N=3, Cs=[3, 4, 5])
-        array = np.array([1, 2, 3])
-        self.assertRaises(TypeError, sp.R2deriv, array, array, array, array)
-        self.assertRaises(TypeError, sp.R2deriv, array, 1, 2, 3)
-        self.assertRaises(TypeError, sp.R2deriv, 1, array, 2, 3)
-        self.assertRaises(TypeError, sp.R2deriv, 1, 2, array, 3)
-        self.assertRaises(TypeError, sp.R2deriv, 1, 2, 3, array)
-
-    def test_array_inputs_in_z2deriv_raises_TypeError(self):
-        """Test that TypeError is raised if an array is inputted for R, phi, z, or t"""
-        sp = spiral(N=3, Cs=[3, 4, 5])
-        array = np.zeros(5)
-        self.assertRaises(TypeError, sp.z2deriv, array, array, array, array)
-        self.assertRaises(TypeError, sp.z2deriv, array, 1, 2, 3)
-        self.assertRaises(TypeError, sp.z2deriv, 1, array, 2, 3)
-        self.assertRaises(TypeError, sp.z2deriv, 1, 2, array, 3)
-        self.assertRaises(TypeError, sp.z2deriv, 1, 2, 3, array)
-
-    def test_array_inputs_in_phi2deriv_raises_TypeError(self):
-        """Test that TypeError is raised if an array is inputted for R, phi, z, or t"""
-        sp = spiral(N=3, Cs=[3, 4, 5])
-        array = np.ones(10)
-        self.assertRaises(TypeError, sp.phi2deriv, array, array, array, array)
-        self.assertRaises(TypeError, sp.phi2deriv, array, 1, 2, 3)
-        self.assertRaises(TypeError, sp.phi2deriv, 1, array, 2, 3)
-        self.assertRaises(TypeError, sp.phi2deriv, 1, 2, array, 3)
-        self.assertRaises(TypeError, sp.phi2deriv, 1, 2, 3, array)
-
-    def test_array_inputs_in_Rzderiv_raises_TypeError(self):
-        """Test that TypeError is raised if an array is inputted for R, phi, z, or t"""
-        sp = spiral(N=3, amp=13, phi_ref=0.3)
-        array = np.ones(10)
-        self.assertRaises(TypeError, sp.Rzderiv, array, array, array, array)
-        self.assertRaises(TypeError, sp.Rzderiv, array, 1, 2, 3)
-        self.assertRaises(TypeError, sp.Rzderiv, 1, array, 2, 3)
-        self.assertRaises(TypeError, sp.Rzderiv, 1, 2, array, 3)
-        self.assertRaises(TypeError, sp.Rzderiv, 1, 2, 3, array)
-
-    def test_array_inputs_in_Rphideriv_raises_TypeError(self):
-        """Test that TypeError is raised if an array is inputted for R, phi, z, or t"""
-        sp = spiral(N=7, amp=7, phi_ref=0.7, alpha=-.7)
-        array = [7, 7, 7]
-        self.assertRaises(TypeError, sp.Rphideriv, array, array, array, array)
-        self.assertRaises(TypeError, sp.Rphideriv, array, 1, 2, 3)
-        self.assertRaises(TypeError, sp.Rphideriv, 1, array, 2, 3)
-        self.assertRaises(TypeError, sp.Rphideriv, 1, 2, array, 3)
-        self.assertRaises(TypeError, sp.Rphideriv, 1, 2, 3, array)
 
 
 if __name__ == '__main__':

@@ -1,5 +1,4 @@
 # Tests of the quasiisothermaldf module
-from __future__ import print_function, division
 import numpy
 #fiducial setup uses these
 from galpy.potential import MWPotential, vcirc, omegac, epifreq, verticalfreq
@@ -261,7 +260,7 @@ def test_pvRvz_staeckel_arrayin():
     qdf= quasiisothermaldf(1./4.,0.2,0.1,1.,1.,
                            pot=MWPotential,aA=aAS,cutcounter=True)
     R,z= 0.8, 0.1
-    pvRvz= qdf.pvRvz(0.1,0.05,R*numpy.ones(2),z*numpy.ones(2))
-    assert numpy.all(numpy.log(pvRvz)-numpy.log(qdf.pvRvz(0.1,0.05,R,z))) < 10.**-10., 'pvRvz calculated with R and z array input does not equal to calculated with scalar input'
+    pvRvz= qdf.pvRvz(0.1*numpy.ones(2),0.05*numpy.ones(2),R*numpy.ones(2),z*numpy.ones(2))
+    assert numpy.all(numpy.fabs(numpy.log(pvRvz)-numpy.log(qdf.pvRvz(0.1,0.05,R,z))) < 10.**-10.), 'pvRvz calculated with R and z array input does not equal to calculated with scalar input'
     return None
 

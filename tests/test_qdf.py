@@ -1,5 +1,4 @@
 # Tests of the quasiisothermaldf module
-from __future__ import print_function, division
 import numpy
 #fiducial setup uses these
 from galpy.potential import MWPotential, vcirc, omegac, epifreq, verticalfreq
@@ -20,8 +19,10 @@ def test_meanvR_adiabatic_gl():
 
 def test_meanvR_adiabatic_mc():
     numpy.random.seed(1)
+    # test nested list of potentials
     qdf= quasiisothermaldf(1./4.,0.2,0.1,1.,1.,
-                           pot=MWPotential,aA=aAA,cutcounter=True)
+                           pot=[MWPotential[0],MWPotential[1:]],
+                           aA=aAA,cutcounter=True)
     #In the mid-plane
     assert numpy.fabs(qdf.meanvR(0.9,0.,mc=True)) < 0.01, "qdf's meanvr is not equal to zero for adiabatic approx."
     #higher up
@@ -401,6 +402,88 @@ def test_sampleV():
     assert numpy.fabs(numpy.log(numpy.std(samples[:,2]))-0.5*numpy.log(qdf.sigmaz2(0.8,0.1))) < 0.05, 'sampleV vz stddev is not equal to sigmaz'
     return None
 
+def test_sampleV_physical():
+    # Test physical output of sampleV
+    qdf= quasiisothermaldf(1./4.,0.2,0.1,1.,1.,
+                           pot=MWPotential,aA=aAS,cutcounter=True)
+    numpy.random.seed(1)
+    vo= 225.
+    samples= qdf.sampleV(0.8,0.1,n=1000,vo=vo)
+    #test vR
+    assert numpy.fabs(numpy.mean(samples[:,0])) < 0.02*vo, 'sampleV vR mean is not zero'
+    assert numpy.fabs(numpy.log(numpy.std(samples[:,0]))-0.5*numpy.log(qdf.sigmaR2(0.8,0.1,vo=vo))) < 0.05, 'sampleV vR stddev is not equal to sigmaR'
+    #test vT
+    assert numpy.fabs(numpy.mean(samples[:,1]-qdf.meanvT(0.8,0.1,vo=vo))) < 0.015*vo, 'sampleV vT mean is not equal to meanvT'
+    assert numpy.fabs(numpy.log(numpy.std(samples[:,1]))-0.5*numpy.log(qdf.sigmaT2(0.8,0.1,vo=vo))) < 0.05, 'sampleV vT stddev is not equal to sigmaT'
+    #test vz
+    assert numpy.fabs(numpy.mean(samples[:,2])) < 0.01*vo, 'sampleV vz mean is not zero'
+    assert numpy.fabs(numpy.log(numpy.std(samples[:,2]))-0.5*numpy.log(qdf.sigmaz2(0.8,0.1,vo=vo))) < 0.05, 'sampleV vz stddev is not equal to sigmaz'
+    return None
+
+def test_sampleV_interpolate():
+    qdf= quasiisothermaldf(1./4.,0.2,0.1,1.,1.,
+                       pot=MWPotential,aA=aAS,cutcounter=True)
+    vo= 225.
+    numpy.random.seed(3)
+    def Rz_array(R_array,z_array,num_std=3,R_min=None,R_max=None,z_max=None):
+        R= numpy.hstack([i*numpy.ones(1000) for i in R_array])
+        z= numpy.hstack([i*numpy.ones(1000) for i in z_array])
+        #add outlier
+        R= numpy.append(R,8.0)
+        z= numpy.append(z,5.0)
+        # apply sample V interpolate
+        samples = qdf.sampleV_interpolate(
+                R=R,z=z,R_pixel=0.07,z_pixel=0.07,num_std=num_std,R_min=R_min,
+                R_max=R_max,z_max=z_max)
+        samples = samples[1000:2000,:]
+        #test vR
+        assert numpy.fabs(numpy.mean(samples[:,0])) < 0.02, 'sampleV interpolate vR mean is not zero'
+        assert numpy.fabs(numpy.log(numpy.std(samples[:,0]))-0.5*numpy.log(qdf.sigmaR2(0.8,0.1))) < 0.05, 'sampleV interpolate vR stddev is not equal to sigmaR'
+        #test vT
+        assert numpy.fabs(numpy.mean(samples[:,1]-qdf.meanvT(0.8,0.1))) < 0.015, 'sampleV interpolate vT mean is not equal to meanvT'
+        assert numpy.fabs(numpy.log(numpy.std(samples[:,1]))-0.5*numpy.log(qdf.sigmaT2(0.8,0.1))) < 0.05, 'sampleV interpolate vT stddev is not equal to sigmaT'
+        #test vz
+        assert numpy.fabs(numpy.mean(samples[:,2])) < 0.01, 'sampleV interpolate vz mean is not zero'
+        assert numpy.fabs(numpy.log(numpy.std(samples[:,2]))-0.5*numpy.log(qdf.sigmaz2(0.8,0.1))) < 0.05, 'sampleV vz interpolate stddev is not equal to sigmaz'
+        return None
+    #test the sampling at (0.8,0.1) with different order of interpolation
+    #which is determined by R_number and z_number
+    Rz_array([0.7,0.8,0.9],[0.,0.1,0.2]) #R_number=2, z_number=2
+    Rz_array([0.7,0.8,0.9,1.0],[0.,0.1,0.2,0.3]) #R_number=4, z_number=4
+    Rz_array([0.8,0.8,0.9,1.0],[0.,0.1,0.2,0.3]) #R_number=2, z_number=4
+    Rz_array([0.7,0.8,0.9,1.0],[0.,0.1,0.2,0.2]) #R_number=4, z_number=2
+    #test saved hash and interpolation object
+    Rz_array([0.7,0.8,0.9,1.0],[-0.3,0.1,0.2,0.3])
+    hash1= qdf._maxVT_hash
+    ip1= qdf._maxVT_ip
+    Rz_array([0.7,0.8,0.9,1.0],[-0.3,0.1,0.2,0.3])
+    hash2= qdf._maxVT_hash
+    ip2= qdf._maxVT_ip
+    Rz_array([0.6,0.8,0.9,1.0],[-0.3,0.1,0.2,0.3])
+    hash3= qdf._maxVT_hash
+    ip3= qdf._maxVT_ip
+    assert hash1 == hash2, 'sampleV interpolate hash is changed unexpectedly'
+    assert ip1 == ip2, 'sampleV interpolate interpolation object is changed unexpectedly'
+    assert hash3 != hash2, 'sampleV interpolate hash did not changed as expected'
+    assert ip3 != ip2, 'sampleV interpolate interpolation object did not changed as expected'
+    #test user-specified grid edges
+    #since num_std is set so high, the extra outlier of (8,5) is not covered
+    #by it. So in order for this function to run in a reasonable time, it must
+    #be that the user-specified grid edges are doing their job
+    Rz_array([0.7,0.8,0.9,1.0],[0.,0.1,0.2,0.3],num_std=10,
+             R_min=0.7,R_max=1.0,z_max=0.3)
+    #test absolute value, also test non-astropy unit-support
+    numpy.random.seed(1)
+    pos= qdf.sampleV_interpolate(numpy.array([0.7,0.8,0.9,1.0]),
+                                 numpy.array([0.1,0.2,0.3,0.4]), R_pixel=0.07,
+                                 z_pixel=0.07,vo=vo)
+    numpy.random.seed(1)
+    neg= qdf.sampleV_interpolate(numpy.array([0.7,0.8,0.9,1.0]),
+                                 numpy.array([-0.1,-0.2,0.3,-0.4]), R_pixel=0.07,
+                                 z_pixel=0.07,vo=vo)
+    assert numpy.all(numpy.fabs(pos-neg)/vo< 10.**-8.), 'sampleV interpolate absolute value of z is incorrect'
+    return None
+
 def test_pvR_adiabatic():
     # Test pvR by calculating its mean and stddev by Riemann sum
     qdf= quasiisothermaldf(1./4.,0.2,0.1,1.,1.,
@@ -564,8 +647,8 @@ def test_pvz_staeckel_arrayin():
     qdf= quasiisothermaldf(1./4.,0.2,0.1,1.,1.,
                            pot=MWPotential,aA=aAS,cutcounter=True)
     R,z= 0.8, 0.1
-    pvz= qdf.pvz(0.05,R*numpy.ones(2),z*numpy.ones(2))
-    assert numpy.all(numpy.log(pvz)-numpy.log(qdf.pvz(0.05,R,z))) < 10.**-10., 'pvz calculated with R and z array input does not equal to calculated with scalar input'
+    pvz= qdf.pvz(0.05*numpy.ones(2),R*numpy.ones(2),z*numpy.ones(2))
+    assert numpy.all(numpy.fabs(numpy.log(pvz)-numpy.log(qdf.pvz(0.05,R,z))) < 10.**-10.), 'pvz calculated with R and z array input does not equal to calculated with scalar input'
     return None
 
 def test_setup_diffsetups():
@@ -574,19 +657,19 @@ def test_setup_diffsetups():
     try:
         qdf= quasiisothermaldf(1./4.,0.2,0.1,1.,1.,
                                aA=aAS,cutcounter=True)
-    except IOError: pass
+    except OSError: pass
     else: raise AssertionError("qdf setup w/o pot set did not raise exception")
     try:
         qdf= quasiisothermaldf(1./4.,0.2,0.1,1.,1.,
                                pot=MWPotential,cutcounter=True)
-    except IOError: pass
+    except OSError: pass
     else: raise AssertionError("qdf setup w/o aA set did not raise exception")
     from galpy.potential import LogarithmicHaloPotential
     try:
         qdf= quasiisothermaldf(1./4.,0.2,0.1,1.,1.,
                                pot=LogarithmicHaloPotential(),
                                aA=aAS,cutcounter=True)
-    except IOError: pass
+    except OSError: pass
     else: raise AssertionError("qdf setup w/ aA potential different from pot= did not raise exception")
     #qdf setup with an actionAngleIsochrone instance (issue #190)
     from galpy.potential import IsochronePotential
@@ -606,7 +689,7 @@ def test_setup_diffsetups():
                                pot=ip,
                                aA=actionAngleIsochrone(ip=IsochronePotential(normalize=1.,b=2.5)),
                                cutcounter=True)
-    except IOError: pass
+    except OSError: pass
     else: raise AssertionError("qdf setup w/ aA potential different from pot= did not raise exception")
     #precompute
     qdf= quasiisothermaldf(1./4.,0.2,0.1,1.,1.,

@@ -1,4 +1,4 @@
-galpy.util.bovy_coords.vxvyvz_to_galcencyl
-==========================================
+galpy.util.coords.vxvyvz_to_galcencyl
+=====================================
 
-.. autofunction:: galpy.util.bovy_coords.vxvyvz_to_galcencyl
+.. autofunction:: galpy.util.coords.vxvyvz_to_galcencyl

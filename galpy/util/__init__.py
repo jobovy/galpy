@@ -1,4 +1,3 @@
-from __future__ import print_function
 import os
 import shutil
 import warnings
@@ -6,7 +5,12 @@ import tempfile
 import pickle
 import numpy
 import scipy.linalg as linalg
+from ..util.config import __config__
+_SHOW_WARNINGS= __config__.getboolean('warnings','verbose')
 class galpyWarning(Warning):
+    pass
+# galpy warnings only shown if verbose = True in the configuration
+class galpyWarningVerbose(galpyWarning):
     pass
 def _warning(
     message,
@@ -16,7 +20,8 @@ def _warning(
     file=None,
     line=None):
     if issubclass(category,galpyWarning):
-        print("galpyWarning: "+str(message))
+        if not issubclass(category,galpyWarningVerbose) or _SHOW_WARNINGS:
+            print("galpyWarning: "+str(message))
     else:
         print(warnings.formatwarning(message,category,filename,lineno))
 warnings.showwarning = _warning
@@ -118,8 +123,8 @@ def fast_cholesky_invert(A,logdet=False,tiny=_TINY):
     else:
         return linalg.cho_solve(L,numpy.eye(A.shape[0]))
 
-def _rotate_to_arbitrary_vector(v,a,inv=False):
-    """ Return a rotation matrix that rotates v to align with unit vector a
+def _rotate_to_arbitrary_vector(v,a,inv=False,_dontcutsmall=False):
+    r""" Return a rotation matrix that rotates v to align with unit vector a
         i.e. R . v = |v|\hat{a} """
     normv= v/numpy.tile(numpy.sqrt(numpy.sum(v**2.,axis=1)),(3,1)).T
     rotaxis= numpy.cross(normv,a)
@@ -136,6 +141,7 @@ def _rotate_to_arbitrary_vector(v,a,inv=False):
         +sgn*numpy.tile(sintheta,(3,3,1)).T*crossmatrix\
         +numpy.tile(1.-costheta,(3,3,1)).T\
         *(rotaxis[:,:,numpy.newaxis]*rotaxis[:,numpy.newaxis,:])
-    out[numpy.fabs(costheta-1.) < 10.**-10.]= numpy.eye(3)
-    out[numpy.fabs(costheta+1.) < 10.**-10.]= -numpy.eye(3)
+    if not _dontcutsmall:
+        out[numpy.fabs(costheta-1.) < 10.**-10.]= numpy.eye(3)
+        out[numpy.fabs(costheta+1.) < 10.**-10.]= -numpy.eye(3)
     return out

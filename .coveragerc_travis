@@ -13,11 +13,14 @@ exclude_lines =
     if __name__ == .__main__.:
 
 omit = 
-    galpy/snapshot_src*
-    galpy/snapshot.py
-    galpy/util/bovy_plot.py
-    galpy/util/bovy_ars.py
+    galpy/snapshot/*
+    galpy/potential/amuse.py
+    galpy/util/plot.py
+    galpy/util/ars.py
     galpy/util/multi.py
+    galpy/util/bovy_plot.py
+    galpy/util/bovy_coords.py
+    galpy/util/bovy_conversion.py
 
 ignore_errors = True
 

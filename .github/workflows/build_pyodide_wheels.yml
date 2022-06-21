@@ -1,0 +1,90 @@
+name: Build pyodide/wasm wheels
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '**'
+      - '!tests/**'
+      - '!doc/**'
+      - '!.github/**'
+      - '.github/pyodide_meta.yaml'
+      - '.github/pyodide_gsl_meta.yaml'
+      - '.github/workflows/build_pyodide_wheels.yml'
+
+concurrency: 
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build pyodide/wasm wheels
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/cache@v3
+        id: cache-pyodide
+        with:
+          path: pyodide/**
+          key: pyodide-cache-0.20.0
+      - name: Build pyodide
+        uses: jobovy/pyodide-buildpackage-action/actions/build-pyodide@v1
+        with:
+          pyodide-tag: 0.20.0
+          pyodide-cache-hit: ${{ steps.cache-pyodide.outputs.cache-hit }}
+      # Because the GSL isn't in pyodide 0.20.0 and we need that for 
+      # jupyterlite, we need to also add the GSL here
+      # Once we can switch to a version of pyodide that has the GSL
+      # we can go back to just using the jobovy/pyodide-buildpackage-action
+      # rather than the individual steps
+      - name: Build gsl meta.yaml
+        uses: jobovy/pyodide-buildpackage-action/actions/build-meta@v1
+        with: 
+          meta-yaml-path: .github/pyodide_gsl_meta.yaml
+          package-name: libgsl
+          build-url: https://ftp.gnu.org/gnu/gsl/gsl-2.7.tar.gz
+      # This following step also not necessary anynmore once we can switch to
+      # a version of pyodide that has galpy
+      - name: manually add galpy patches
+        run: |
+           sudo mkdir -p pyodide/packages/galpy/patches
+           sudo wget https://raw.githubusercontent.com/pyodide/pyodide/b880ec239593c0e9f5433e6590e488350d4e7a07/packages/galpy/patches/0001-Force-GSL-version-to-2.7-for-pyodide-build.patch -P pyodide/packages/galpy/patches
+           sudo wget https://raw.githubusercontent.com/pyodide/pyodide/b880ec239593c0e9f5433e6590e488350d4e7a07/packages/galpy/patches/0002-Don-t-use-OpenMP-for-pyodide-build.patch -P pyodide/packages/galpy/patches
+      - name: Build galpy meta.yaml
+        uses: jobovy/pyodide-buildpackage-action/actions/build-meta@v1
+        with: 
+          meta-yaml-path: .github/pyodide_meta.yaml
+      - name: Build package
+        uses: jobovy/pyodide-buildpackage-action/actions/build-package@v1
+      # Just make everything executable, because a bunch of stuff needs to be
+      # and it isn't alltogether obvious which (not just .sh)
+      - name: Change permissions of pyodide directory
+        shell: bash 
+        run: |
+          sudo find pyodide -type d -exec chmod 755 {} \; 
+          sudo find pyodide -type f -exec chmod 755 {} \;
+#      - uses: jobovy/pyodide-buildpackage-action@main
+#        with:
+#          pyodide-tag: main
+#          meta-yaml-path: .github/pyodide_meta.yaml
+      - name: Rename wheels to 'latest' version
+        run: |
+          GALPY_VERSION="$(awk '/^current_version/{print $NF}' .bumpversion.cfg)"
+          for f in wheelhouse/*$GALPY_VERSION*; do sudo mv -i -- "$f" "${f//$GALPY_VERSION/latest}"; done
+      - uses: actions/upload-artifact@v2-preview
+        with:
+          name: galpy-wheel-pyodide
+          path: wheelhouse/*.whl
+      # Upload to AWS S3
+      - name: Upload to AWS S3
+        uses: jakejarvis/s3-sync-action@v0.5.1
+        with:
+          args: --acl public-read --follow-symlinks
+        env:
+          AWS_S3_BUCKET: ${{ secrets.AWS_S3_BUCKET }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: 'us-east-2'
+          SOURCE_DIR: wheelhouse
+          DEST_DIR: wheelhouse

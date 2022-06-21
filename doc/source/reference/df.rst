@@ -1,8 +1,23 @@
 DF (``galpy.df``)
 ==================
 
+``galpy.df`` contains tools for dealing with distribution functions of
+stars in galaxies. It mainly contains a number of classes that define
+different types of distribution function, but ``galpy.df.jeans`` also
+has some tools for solving the Jeans equations for equilibrium
+systems.
+
+Jeans modeling tools (``galpy.df.jeans``)
+-----------------------------------------
+
+.. toctree::
+   :maxdepth: 2
+
+   sigmar <dfjeanssigmar.rst>
+   sigmalos <dfjeanssigmalos.rst>
+
 General instance routines for all df classes
-----------------------------------------------------------
+--------------------------------------------
 
 
 .. toctree::
@@ -10,6 +25,91 @@ General instance routines for all df classes
 
    turn_physical_off <dfturnphysicaloff.rst>
    turn_physical_on <dfturnphysicalon.rst>
+
+.. _api_sphericaldfs:
+
+**NEW in v1.7** Spherical distribution functions
+------------------------------------------------
+
+Isotropic and anisotropic distribution functions for spherical
+systems. Documentation of these is limited at this point, but
+generally, one can use them as::
+
+  from galpy import potential
+  from galpy.df import isotropicNFWdf
+  np= potential.NFWPotential(amp=1.2,a=2.3)
+  ndf= isotropicNFWdf(pot=np)
+  # sample
+  sam= ndf.sample(n=int(1e6))
+  print(numpy.std(sam[numpy.fabs(sam.r()-1.2) < 0.1].vr()))
+  # 0.2156787374302913
+  # Compute vel. dispersion
+  print(ndf.sigmar(1.2))
+  # 0.21985277878647172
+
+or::
+
+  from galpy.df import kingdf
+  kdf= kingdf(M=2.3,rt=1.4,W0=3.)
+  sam= kdf.sample(n=int(1e6))
+  print(numpy.amax(sam.r()))
+  # 1.3883460662897116
+  print(numpy.std(sam[numpy.fabs(sam.r()-0.2) < 0.01].vr()))
+  # 1.081298923132113
+  print(kdf.sigmar(0.2))
+  # 1.0939934290993467
+
+Various spherical DFs are explicitly implemented (e.g., Hernquist, NFW
+using a new approximation, King, Plummer) in isotropic and various
+anisotropic forms. General methods for computing isotropic,
+constant-beta anisotropic, and Osipkov-Merritt anisotropic for any
+potential/density pair are also included.
+
+General instance routines
++++++++++++++++++++++++++
+
+
+.. toctree::
+   :maxdepth: 2
+
+   __call__ <sphericaldfcall.rst>
+   beta <sphericaldfbeta.rst>
+   sigmar <sphericaldfsigmar.rst>
+   sigmar <sphericaldfsigmat.rst>
+   vmomentdensity <sphericaldfvmomentdensity.rst>
+   
+Sampling routines
+^^^^^^^^^^^^^^^^^^^
+
+.. toctree::
+   :maxdepth: 2
+
+   sample <sphericaldfsample.rst>
+
+Specific distribution functions
++++++++++++++++++++++++++++++++
+
+The following are isotropic distribution functions
+
+.. toctree::
+   :maxdepth: 2
+
+   Arbitrary Eddington-inversion DF <dfeddington.rst>
+   Hernquist DF <dfhernquist.rst>
+   King DF <dfking.rst>
+   NFW DF <dfnfw.rst>
+   Plummer DF <dfplummer.rst>
+
+Anisotropic versions also exist:
+
+.. toctree::
+   :maxdepth: 2
+
+   Arbitrary constant-anisotropy DF <dfconstantbeta.rst>
+   Arbitrary Osipkov-Merritt DF <dfosipkovmerritt.rst>
+   Hernquist DF with constant anisotropy beta <dfhernquistconstantbeta.rst>
+   Hernquist DF with Osipkov-Merritt anisotropy <dfhernquistosipkov.rst>
+   NFW DF with Osipkov-Merritt anisotropy <dfnfwosipkov.rst>
 
 Two-dimensional, axisymmetric disk distribution functions
 ----------------------------------------------------------
@@ -135,6 +235,7 @@ General instance routines
    pvTvz <quasidfpvtvz.rst>
    pvz <quasidfpvz.rst>
    sampleV <quasidfsamplev.rst>
+   sampleV_interpolate <quasidfsamplevinterpolate.rst>
    sigmaR2 <quasidfsigmar2.rst>
    sigmaRz <quasidfsigmarz.rst>
    sigmaT2 <quasidfsigmat2.rst>
@@ -153,8 +254,8 @@ Specific distribution functions
    quasiisothermal DF <dfquasiisothermal.rst>
 
 
-The distribution function of a tidal stream
----------------------------------------------
+The distribution function of a tidal stream in action-angle coordinates
+------------------------------------------------------------------------
 
 From `Bovy 2014 <http://arxiv.org/abs/1401.2985>`_;
 see :ref:`stream-tutorial`.
@@ -223,3 +324,21 @@ Helper routines to compute kicks
    impulse_deltav_general_curvedstream <impulse_deltav_general_curvedstream.rst>
    impulse_deltav_general_orbitintegration <impulse_deltav_general_orbitintegration.rst>
    impulse_deltav_general_fullplummerintegration <impulse_deltav_general_fullplummerintegration.rst>
+
+The distribution function of a tidal stream using a particle-spray technique
+----------------------------------------------------------------------------
+
+Model from `Fardal et al. (2015) 
+<https://ui.adsabs.harvard.edu/abs/2015MNRAS.452..301F/abstract>`__ with full 
+details of the ``galpy`` implementation given in `Qian et al. (2022) 
+<https://ui.adsabs.harvard.edu/abs/2022MNRAS.511.2339Q/abstract>`__;
+see :ref:`streamspray-tutorial`.
+
+General instance routines
++++++++++++++++++++++++++
+
+.. toctree::
+   :maxdepth: 2
+
+   __init__ <streamspraydf.rst>
+   sample <streamspraydfsample.rst>

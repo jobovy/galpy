@@ -1,5 +1,4 @@
 # Test that all of the examples in the galpy paper run
-from __future__ import print_function, division
 import os
 import numpy
 import pytest
@@ -31,7 +30,8 @@ def test_import():
     return None
 
 def test_units():
-    import galpy.util.bovy_conversion as conversion
+    # Import changed because of bovy_conversion --> conversion name change
+    from galpy.util import conversion
     print(conversion.force_in_pcMyr2(220.,8.))#pc/Myr^2
     assert numpy.fabs(conversion.force_in_pcMyr2(220.,8.)-6.32793804994) < 10.**-4., 'unit conversion has changed'
     print(conversion.dens_in_msolpc3(220.,8.))#Msolar/pc^3
@@ -58,9 +58,11 @@ def test_potmethods():
     dp.zforce(1.,0.1) # The vertical force
     assert numpy.fabs(dp.zforce(1.,0.1)+0.50056789703079607) < 10.**-4., 'potmethods has changed'
     dp.R2deriv(1.,0.1) # The second radial derivative
-    assert numpy.fabs(dp.R2deriv(1.,0.1)+1.0189440730205248) < 10.**-4., 'potmethods has changed'
+    # Loosened tolerance, because new (more precise) calculation differs by 3e-4
+    assert numpy.fabs(dp.R2deriv(1.,0.1)+1.0189440730205248) < 3 * 10.**-4., 'potmethods has changed'
     dp.z2deriv(1.,0.1) # The second vertical derivative
-    assert numpy.fabs(dp.z2deriv(1.,0.1)-1.0648350937842703) < 10.**-4., 'potmethods has changed'
+    # Loosened tolerance, because new (more precise) calculation differs by 4e-4
+    assert numpy.fabs(dp.z2deriv(1.,0.1)-1.0648350937842703) < 4 * 10.**-4., 'potmethods has changed'
     dp.Rzderiv(1.,0.1) # The mixed radial,vertical derivative
     assert numpy.fabs(dp.Rzderiv(1.,0.1)+1.1872449759212851) < 10.**-4., 'potmethods has changed'
     dp.dens(1.,0.1) # The density
@@ -74,9 +76,11 @@ def test_potmethods():
     dp.omegac(1.) # The rotational frequency
     assert numpy.fabs(dp.omegac(1.)-1.0) < 10.**-4., 'potmethods has changed' # Also because of normalize=1.
     dp.epifreq(1.) # The epicycle frequency
-    assert numpy.fabs(dp.epifreq(1.)-1.3301123099210266) < 10.**-4., 'potmethods has changed'
+    # Loosened tolerance, because new (more precise) calculation differs by 1e-3
+    assert numpy.fabs(dp.epifreq(1.)-1.3301123099210266) < 2 * 10.**-3., 'potmethods has changed'
     dp.verticalfreq(1.) # The vertical frequency
-    assert numpy.fabs(dp.verticalfreq(1.)-3.7510872575640293) < 10.**-4., 'potmethods has changed'
+    # Loosened tolerance, because new (more precise) calculation differs by 1e-3
+    assert numpy.fabs(dp.verticalfreq(1.)-3.7510872575640293) < 10.**-3., 'potmethods has changed'
     dp.flattening(1.,0.1) #The flattening (see caption)
     assert numpy.fabs(dp.flattening(1.,0.1)-0.42748757564198159) < 10.**-4., 'potmethods has changed'
     dp.lindbladR(1.75,m='corotation') # co-rotation resonance
@@ -159,7 +163,9 @@ def test_orbitint():
 def test_orbmethods():
     from galpy.orbit import Orbit
     from galpy.potential import MWPotential2014
-    o= Orbit([0.8,0.3,0.75,0.,0.2,0.]) # setup R,vR,vT,z,vz,phi
+    # 8/17/2019: added explicit z=0.025, because that was the default at the 
+    # time of the galpy paper, but the default has been changed
+    o= Orbit([0.8,0.3,0.75,0.,0.2,0.],zo=0.025) # setup R,vR,vT,z,vz,phi
     times= numpy.linspace(0.,10.,1001) # Output times
     o.integrate(times,MWPotential2014) # Integrate
     o.E() # Energy
@@ -373,7 +379,10 @@ def test_qdf():
     assert numpy.fabs(df(Orbit([0.9,0.1,0.8,0.05,0.02]),log=True)-numpy.array([ 4.81682066])) < 10.**-4., 'qdf does not behave as expected'
     # Evaluate DF marginalized over vz
     df.pvRvT(0.1,0.9,0.9,0.05)
-    assert numpy.fabs(df.pvRvT(0.1,0.9,0.9,0.05)-23.273310451852243) < 10.**-4., 'qdf does not behave as expected'
+    assert numpy.fabs(df.pvRvT(0.1,0.9,0.9,0.05)-2.*23.273310451852243) < 10.**-4., 'qdf does not behave as expected'
+    #NOTE: The pvRvT() function has changed with respect to the version used in Bovy (2015).
+    #      As of January 2018, a prefactor of 2 has been added (=nsigma/2 with default nsigma=4),
+    #      to account for the correct Gauss-Legendre integration normalization.
     # Evaluate DF marginalized over vR,vT
     df.pvz(0.02,0.9,0.05)
     assert numpy.fabs(df.pvz(0.02,0.9,0.05)-50.949586235238172) < 10.**-4., 'qdf does not behave as expected'
@@ -416,18 +425,18 @@ def test_qdf():
     return None
 
 def test_coords():
-    from galpy.util import bovy_coords
+    from galpy.util import coords
     ra, dec, dist= 161., 50., 8.5
     pmra, pmdec, vlos= -6.8, -10., -115.
   # Convert to Galactic and then to rect. Galactic
-    ll, bb= bovy_coords.radec_to_lb(ra,dec,degree=True)
-    pmll, pmbb= bovy_coords.pmrapmdec_to_pmllpmbb(pmra,pmdec,ra,dec,degree=True)
-    X,Y,Z= bovy_coords.lbd_to_XYZ(ll,bb,dist,degree=True)
-    vX,vY,vZ= bovy_coords.vrpmllpmbb_to_vxvyvz(vlos,pmll,pmbb,X,Y,Z,XYZ=True)
+    ll, bb= coords.radec_to_lb(ra,dec,degree=True)
+    pmll, pmbb= coords.pmrapmdec_to_pmllpmbb(pmra,pmdec,ra,dec,degree=True)
+    X,Y,Z= coords.lbd_to_XYZ(ll,bb,dist,degree=True)
+    vX,vY,vZ= coords.vrpmllpmbb_to_vxvyvz(vlos,pmll,pmbb,X,Y,Z,XYZ=True)
     # Convert to cylindrical Galactocentric
     # Assuming Sun's distance to GC is (8,0.025) in (R,z)
-    R,phi,z= bovy_coords.XYZ_to_galcencyl(X,Y,Z,Xsun=8.,Zsun=0.025)
-    vR,vT,vz= bovy_coords.vxvyvz_to_galcencyl(vX,vY,vZ,R,phi,Z,vsun=[-10.1,244.,6.7],galcen=True)
+    R,phi,z= coords.XYZ_to_galcencyl(X,Y,Z,Xsun=8.,Zsun=0.025)
+    vR,vT,vz= coords.vxvyvz_to_galcencyl(vX,vY,vZ,R,phi,Z,vsun=[-10.1,244.,6.7],galcen=True)
     # 5/12/2016: test weakened, because improved galcen<->heliocen 
     #            transformation has changed these, but still close
     print(R,phi,z,vR,vT,vz)

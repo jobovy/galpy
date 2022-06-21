@@ -1,10 +1,22 @@
-.. _stream-tutorial:
-
 Dynamical modeling of tidal streams
 ++++++++++++++++++++++++++++++++++++
 
 galpy contains tools to model the dynamics of tidal streams, making
-extensive use of action-angle variables. As an example, we can model
+extensive use of action-angle variables and also containing a simple 
+particle-spray method. Both of these are introduced in the following 
+sections.
+
+.. _stream-tutorial:
+
+Modeling streams in action-angle coordinates with ``streamdf``
+----------------------------------------------------------------
+
+Action-angle coordinates are ideal for modeling tidal streams 
+in potentials that allow for the calculation of action-angle 
+coordinates (any static potential in the absence of chaos, 
+which describes at least regions such as the inner Milky-Way 
+halo well). As an example of modeling streams in action-angle 
+coordinates, we can investigate 
 the dynamics of the following tidal stream (that of Bovy 2014;
 `2014ApJ...795...95B
 <http://adsabs.harvard.edu/abs/2014ApJ...795...95B>`_). This movie
@@ -82,11 +94,11 @@ in the typical orbit in the stream, and the stream is on average *not*
 on a single orbit.
 
 
-Modeling streams in galpy
--------------------------
+Action-angle modeling with ``streamdf`` in ``galpy``
+*******************************************************
 
-In galpy we can model streams using the tools in
-``galpy.df.streamdf``. We setup a streamdf instance by specifying the
+In galpy we can model streams using action-angle coordinateu with the tools in
+``galpy.df.streamdf``. We setup a ``streamdf`` instance by specifying the
 host gravitational potential ``pot=``, an actionAngle method
 (typically ``galpy.actionAngle.actionAngleIsochroneApprox``), a
 ``galpy.orbit.Orbit`` instance with the position of the progenitor, a
@@ -98,7 +110,7 @@ modules
 >>> from galpy.orbit import Orbit
 >>> from galpy.potential import LogarithmicHaloPotential
 >>> from galpy.actionAngle import actionAngleIsochroneApprox
->>> from galpy.util import bovy_conversion #for unit conversions
+>>> from galpy.util import conversion #for unit conversions
 
 setup the potential and actionAngle instances
 
@@ -112,12 +124,14 @@ define a progenitor Orbit instance
 and instantiate the streamdf model
 
 >>> sigv= 0.365 #km/s
->>> sdf= streamdf(sigv/220.,progenitor=obs,pot=lp,aA=aAI,leading=True,nTrackChunks=11,tdisrupt=4.5/bovy_conversion.time_in_Gyr(220.,8.))
+>>> sdf= streamdf(sigv/220.,progenitor=obs,pot=lp,aA=aAI,leading=True,nTrackChunks=11,tdisrupt=4.5/conversion.time_in_Gyr(220.,8.))
 
 for a leading stream. This runs in about half a minute on a 2011
 Macbook Air. 
 
-Bovy (2014) discusses how the calculation of the track needs to be
+`Bovy (2014)
+<http://adsabs.harvard.edu/abs/2014ApJ...795...95B>`_ 
+discusses how the calculation of the track needs to be
 iterated for potentials where there is a large offset between the
 track and a single orbit. One can increase the default number of
 iterations by specifying ``nTrackIterations=`` in the streamdf
@@ -176,7 +190,7 @@ assumed that the disrupted materials action distribution were
 isotropic).
 
 Calculating the average stream location (track)
------------------------------------------------
+*************************************************
 
 We can display the stream track in various coordinate systems as
 follows
@@ -236,7 +250,7 @@ parameters set when initializing the ``sdf`` instance. See the help
 for ``?streamdf`` for a complete list of initialization parameters.
 
 Mock stream data generation
-----------------------------
+****************************
 
 We can also easily generate mock data from the stream model. This uses
 ``streamdf.sample``. For example,
@@ -292,7 +306,7 @@ stripping time
 
 
 Evaluating and marginalizing the full PDF
------------------------------------------
+******************************************
 
 We can also evaluate the stream PDF, the probability of a
 :math:`(\mathbf{x},\mathbf{v})` phase-space position in the stream. We
@@ -301,7 +315,7 @@ can evaluate the PDF, for example, at the location of the progenitor
 >>> sdf(obs.R(),obs.vR(),obs.vT(),obs.z(),obs.vz(),obs.phi())
 # array([-33.16985861])
 
-which returns the natural log of the PDF. If we go to slightly higher in
+which returns the natural log of the PDF. If we go slightly higher in
 *Z* and slightly smaller in *R*, the PDF becomes zero
 
 >>> sdf(obs.R()-0.1,obs.vR(),obs.vT(),obs.z()+0.1,obs.vz(),obs.phi())
@@ -396,8 +410,8 @@ PDF will not be quite correct.
 
 .. _streamgap-tutorial:
 
-**NEW in v1.2**: Modeling gaps in streams
--------------------------------------------
+Modeling gaps in streams using action-angle coordinates
+*********************************************************
 
 ``galpy`` also contains tools to model the effect of impacts due to
 dark-matter subhalos on streams (see `Sanders, Bovy, & Erkal 2015
@@ -416,7 +430,7 @@ modifications in Sec. 6.1) is as follows. Imports:
 >>> from galpy.orbit import Orbit
 >>> from galpy.potential import LogarithmicHaloPotential
 >>> from galpy.actionAngle import actionAngleIsochroneApprox
->>> from galpy.util import bovy_conversion
+>>> from galpy.util import conversion
 
 Parameters for the smooth stream and the potential:
 
@@ -430,15 +444,15 @@ Parameters for the smooth stream and the potential:
                           0.24218273922966019])
 >>> V0, R0= 220., 8.
 >>> sigv= 0.365*(10./2.)**(1./3.) # km/s
->>> tdisrupt= 10.88/bovy_conversion.time_in_Gyr(V0,R0)
+>>> tdisrupt= 10.88/conversion.time_in_Gyr(V0,R0)
 
 and the parameters of the impact
 
->>> GM= 10.**-2./bovy_conversion.mass_in_1010msol(V0,R0)
+>>> GM= 10.**-2./conversion.mass_in_1010msol(V0,R0)
 >>> rs= 0.625/R0
 >>> impactb= 0.
 >>> subhalovel= numpy.array([6.82200571,132.7700529,149.4174464])/V0
->>> timpact= 0.88/bovy_conversion.time_in_Gyr(V0,R0)
+>>> timpact= 0.88/conversion.time_in_Gyr(V0,R0)
 >>> impact_angle= -2.34
 
 The setup is then
@@ -492,3 +506,116 @@ or
 for the difference in :math:`v_Y` as a function of unperturbed :math:`X`:
 
 .. image:: images/sdfg_dvyx.png
+
+.. _streamspray-tutorial:
+
+Particle-spray modeling of streams with ``streamspraydf``
+---------------------------------------------------------
+
+``galpy`` also contains an implementation of the particle-spray method 
+for generating tidal streams, roughly following the parametrization of 
+`Fardal et al. (2015) 
+<https://ui.adsabs.harvard.edu/abs/2015MNRAS.452..301F/abstract>`__. Full 
+details on the ``galpy`` implementation are given in `Qian et al. (2022) 
+<https://ui.adsabs.harvard.edu/abs/2022MNRAS.511.2339Q/abstract>`__. Here, 
+we give a simple example of the method.
+
+Like in the ``streamdf`` example above, we use the same orbit, potential, and 
+cluster mass as in 
+`Bovy (2014) <http://adsabs.harvard.edu/abs/2014ApJ...795...95B>`__. We setup 
+the orbit of the progenitor and the gravitational potential (modeled 
+as a simple ``LogarithmicHaloPotential``):
+
+>>> from galpy.potential import LogarithmicHaloPotential
+>>> from galpy.orbit import Orbit
+>>> o= Orbit([1.56148083,0.35081535,-1.15481504,0.88719443,-0.47713334,0.12019596])
+>>> lp= LogarithmicHaloPotential(normalize=1.,q=0.9)
+
+Then, we setup ``streamspraydf`` models for the leading and trailing arm of 
+the stream:
+
+>>> from astropy import units
+>>> from galpy.df import streamspraydf
+>>> spdf= streamspraydf(2*10.**4.*units.Msun,progenitor=o,pot=lp,tdisrupt=4.5*units.Gyr)
+>>> spdft= streamspraydf(2*10.**4.*units.Msun,progenitor=o,pot=lp,leading=False,tdisrupt=4.5*units.Gyr)
+
+To sample a set of 300 stars in both arms, we do
+
+>>> orbs,dt= spdf.sample(n=300,returndt=True,integrate=True)
+>>> orbts,dt= spdft.sample(n=300,returndt=True,integrate=True)
+
+which returns a ``galpy.orbit.Orbit`` instance with all 300 stars. We can plot 
+these in :math:`Z` versus :math:`X` and compare to Fig. 1 in 
+Bovy (2014). First, we also integrate the orbit of the progenitor forward 
+and backward in time for a brief period to show its location in the area 
+of the stream:
+
+>>> ts= numpy.linspace(0.,3.,301)
+>>> o.integrate(ts,lp)
+>>> of= o()
+>>> of.integrate(-ts,lp)
+
+Then we plot
+
+>>> o.plot(d1='x',d2='z',color='k',xrange=[0.,2.],yrange=[-0.1,1.45])
+>>> of.plot(d1='x',d2='z',overplot=True,color='k')
+>>> plot(orbs.x(),orbs.z(),'r.')
+>>> plot(orbts.x(),orbts.z(),'b.')
+
+which gives
+
+.. image:: images/streamspraydf-b14-xz.png
+  :width: 600
+
+We can also compare to the track for this stream as predicted by ``streamdf``. 
+For this, we first setup a similar ``streamdf`` model (they are not exactly 
+the same, as ``streamdf`` uses a velocity dispersion to set the progenitor's 
+mass, while ``streamspraydf`` uses the mass directly); see the ``streamdf`` 
+documentation for a full explanation of this code:
+
+>>> from galpy.actionAngle import actionAngleIsochroneApprox
+>>> from galpy.df import streamdf
+>>> aAIA= actionAngleIsochroneApprox(b=0.8,pot=lp)
+>>> sigv= 0.365 #km/s
+>>> sdf= streamdf(sigv/220.,progenitor=o(),pot=lp,aA=aAIA,leading=True,
+                  nTrackChunks=11,tdisrupt=4.5*units.Gyr)
+>>> sdft= streamdf(sigv/220.,progenitor=o(),pot=lp,aA=aAIA,leading=False,
+                   nTrackChunks=11,tdisrupt=4.5*units.Gyr)
+
+Then, we can overplot the track predicted by ``streamdf``:
+
+>>> o.plot(d1='x',d2='z',color='k',xrange=[0.,2.],yrange=[-0.1,1.45])
+>>> of.plot(d1='x',d2='z',overplot=True,color='k')
+>>> plot(orbs.x(),orbs.z(),'r.',alpha=0.1)
+>>> plot(orbts.x(),orbts.z(),'b.',alpha=0.1)
+>>> sdf.plotTrack(d1='x',d2='z',interp=True,color='r',overplot=True,lw=1.)
+>>> sdft.plotTrack(d1='x',d2='z',interp=True,color='b',overplot=True,lw=1.)
+
+This gives then
+
+.. image:: images/streamspraydf-b14-xz-wstreamdf.png
+  :width: 600
+
+We see that the track from ``streamdf`` agrees very well with the location 
+of the points sampled from ``streamspraydf``.
+
+The ``streamspraydf`` ``sample`` function can also return the points at 
+the time of stripping, that is, not integrated to the present time 
+(when using ``integrate=False``); this can be useful for visualizing where 
+stars get stripped from the progenitor. When initializing ``streamspraydf``, 
+you can also specify a different potential for computing the tidal radius 
+and velocity distribution of the tidal debris, which can be useful when the 
+overall potential contains pieces that are irrelevant for computing the tidal 
+radius and that don't allow the tidal radius to be computed (using the 
+``rtpot=`` option). If you want to generate a stream around a moving object, 
+for example, a stream created within a satellite galaxy of the Milky Way, you 
+can specify an orbit for the center of the 
+satellite (``center=``) and the stream will be generated around this center 
+rather than around the center of the total potential (this was used in 
+`Qian et al. 2022 
+<https://ui.adsabs.harvard.edu/abs/2022MNRAS.511.2339Q/abstract>`__); the 
+center orbit is integrated in ``centerpot``, which can also differ from the 
+potential that stream stars are integrated in (e.g., the stream stars may feel 
+the potential from the satellite itself and/or the satellite could be 
+experiencing dynamical friction which the stream stars do not feel).
+
