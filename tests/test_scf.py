@@ -572,15 +572,10 @@ def test_from_density_axi():
 
 # Test that from_density acts as expected
 def test_from_density():
-    a= 50./8.
-    yfactor=1.5
-    zfactor=2.5
-    tptp= potential.TwoPowerTriaxialPotential(a=a,alpha=1.,beta=4.,
-                                              b=yfactor,c=zfactor)
-    tptp.turn_physical_off()
-    Acos, Asin= potential.scf_compute_coeffs(tptp.dens,10,3,a=a)
+    a= 1.
+    Acos, Asin= potential.scf_compute_coeffs(rho_Zeeuw,10,3,a=a)
     sp_direct= potential.SCFPotential(Acos=Acos,Asin=Asin,a=a)
-    sp_from= potential.SCFPotential.from_density(tptp.dens,10,L=3,
+    sp_from= potential.SCFPotential.from_density(rho_Zeeuw,10,L=3,
                                                  a=a,symmetry=None)
     rs= numpy.geomspace(0.1,10.,101)
     assert numpy.all(numpy.fabs(1.-sp_direct.dens(rs,rs,phi=rs,use_physical=False)/sp_from.dens(rs,rs,phi=rs,use_physical=False)) < 1e-10), 'SCF density does not agree between direct init and from_density init'
