@@ -17,6 +17,10 @@ v1.7.3 (XXXX-XX-XX)
   Baumgardt & Vasiliev (2021; 2105.09526). Also add uncertainties
   (#485 by Anya Dovgal). 
 
+- Added SCFPotential.from_density to directly initialize an SCFPotential based
+  on a density function. Allows for full correct and consistent handling of 
+  Quantity inputs and outputs.
+
 - Renamed phiforce --> phitorque everywhere (including
   potential.evaluatephiforces and potential.evaluateplanarphiforces), such 
   the method's name actually reflect what it returns (a torque, not a force). 

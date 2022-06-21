@@ -5,7 +5,10 @@ from scipy import integrate
 from scipy.special import lpmn
 from scipy.special import gammaln, gamma
 from ..util import coords, conversion
+from ..util.conversion import _APY_LOADED
 from .Potential import Potential
+if _APY_LOADED:
+    from astropy import units
 
 from .NumericalPotentialDerivativesMixin import \
     NumericalPotentialDerivativesMixin
@@ -51,13 +54,13 @@ class SCFPotential(Potential,NumericalPotentialDerivativesMixin):
 
         PURPOSE:
 
-            initialize a SCF Potential
+            initialize a SCF Potential from a set of expansion coefficients (use SCFPotential.from_density to directly initialize from a density)
 
         INPUT:
 
            amp - amplitude to be applied to the potential (default: 1); can be a Quantity with units of mass or Gxmass
 
-           Acos - The real part of the expansion coefficent  (NxLxL matrix, or optionally NxLx1 if Asin=None)
+           Acos - The real part of the expansion coefficient  (NxLxL matrix, or optionally NxLx1 if Asin=None)
             
            Asin - The imaginary part of the expansion coefficient (NxLxL matrix or None)
             
@@ -75,7 +78,7 @@ class SCFPotential(Potential,NumericalPotentialDerivativesMixin):
 
            2016-05-13 - Written - Aladdin Seaifan (UofT)
 
-        """        
+        """
         NumericalPotentialDerivativesMixin.__init__(self,{}) # just use default dR etc.
         Potential.__init__(self,amp=amp/2.,ro=ro,vo=vo,amp_units='mass')
         a= conversion.parse_length(a,ro=self._ro)
@@ -111,11 +114,9 @@ class SCFPotential(Potential,NumericalPotentialDerivativesMixin):
         if Asin is None or shape[1] == 1 or (numpy.all(Acos[:,:,1:] == 0) and numpy.all(Asin[:,:,:]==0)):
             self.isNonAxi = False        
         
-        
         self._a = a
 
         NN = self._Nroot(Acos.shape[1], Acos.shape[2])
-        
         
         self._Acos= Acos*NN[numpy.newaxis,:,:]
         if Asin is not None:
@@ -126,12 +127,96 @@ class SCFPotential(Potential,NumericalPotentialDerivativesMixin):
         self.hasC= True
         self.hasC_dxdv=True
         self.hasC_dens=True
-        
         if normalize or \
                 (isinstance(normalize,(int,float)) \
                      and not isinstance(normalize,bool)): 
             self.normalize(normalize)
         return None
+    
+    @classmethod
+    def from_density(cls,dens,N,L=None,a=1.,symmetry=None,
+                     radial_order=None,costheta_order=None,phi_order=None,
+                     ro=None,vo=None):
+        """
+        NAME:
+
+            from_density
+
+        PURPOSE:
+
+            initialize an SCF Potential from from a given density
+
+        INPUT:
+
+           dens - density function that takes parameters R, z and phi; z and phi are optional for spherical profiles, phi is optional for axisymmetric profiles. The density function must take input positions in internal units (R/ro, z/ro), but can return densities in physical units. You can use the member dens of Potential instances or the density from evaluateDensities
+           
+           N - Number of radial basis functions
+            
+           L - Number of costheta basis functions; for non-axisymmetric profiles also sets the number of azimuthal (phi) basis functions to M = 2L+1)
+           
+           a - expansion scale length (can be Quantity)
+            
+           symmetry= (None) symmetry of the profile to assume: 'spherical', 'axisymmetry', or None (for the general, non-axisymmetric case)
+
+           radial_order - Number of sample points for the radial integral. If None, radial_order=max(20, N + 3/2L + 1)
+
+           costheta_order - Number of sample points of the costheta integral. If None, If costheta_order=max(20, L + 1)
+
+           phi_order - Number of sample points of the phi integral. If None, If costheta_order=max(20, L + 1)
+
+           ro=, vo= distance and velocity scales for translation into internal units (default from configuration file)
+
+        OUTPUT:
+
+           SCFPotential object
+
+        HISTORY:
+
+           2022-06-20 - Written - Jo Bovy (UofT)
+
+        """
+        # Dummy object for ro/vo handling, to ensure consistency
+        dumm= cls(ro=ro,vo=vo)
+        internal_ro= dumm._ro
+        internal_vo= dumm._vo
+        a= conversion.parse_length(a,ro=internal_ro)
+        if not symmetry is None and symmetry.startswith('spher'):
+            Acos, Asin= scf_compute_coeffs_spherical(dens,N,a=a,
+                                                     radial_order=radial_order)
+        elif not symmetry is None and symmetry.startswith('axi'):
+            Acos, Asin= scf_compute_coeffs_axi(dens,N,L,a=a,
+                                               radial_order=radial_order,
+                                               costheta_order=costheta_order)
+        else:
+            Acos, Asin= scf_compute_coeffs(dens,N,L,a=a,
+                                           radial_order=radial_order,
+                                           costheta_order=costheta_order,
+                                           phi_order=phi_order)
+        # Turn on physical outputs if input density was physical
+        if _APY_LOADED:
+            # First need to determine number of parameters, like in 
+            # scf_compute_coeffs_spherical/axi
+            numOfParam = 0
+            try:
+                dens(0)
+                numOfParam=1
+            except:
+                try:
+                    dens(0,0)
+                    numOfParam=2
+                except:
+                    numOfParam=3
+            param= [1]*numOfParam
+            try:
+                dens(*param).to(units.kg/units.m**3)
+            except (AttributeError,units.UnitConversionError):
+                # We'll just assume that unit conversion means density 
+                # is scalar Quantity
+                pass
+            else:
+                ro= internal_ro
+                vo= internal_vo
+        return cls(Acos=Acos,Asin=Asin,a=a,ro=ro,vo=vo)
 
     def _Nroot(self, L, M=None):
         """
