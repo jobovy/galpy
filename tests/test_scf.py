@@ -544,6 +544,48 @@ def test_physical_dens():
     assert numpy.all(numpy.fabs(1.-sp.dens(rs,0.,use_physical=False)/hp.dens(rs,0.,use_physical=False)) < 1e-10), 'SCF density does not agree with input density when calculated with physical density'
     return None
 
+# Test that from_density acts as expected
+def test_from_density_hernquist():
+    a= 1.3
+    hp= potential.HernquistPotential(a=a)
+    Acos, Asin= potential.scf_compute_coeffs_spherical(hp.dens,10,a=a)
+    sp_direct= potential.SCFPotential(Acos=Acos,Asin=Asin,a=a)
+    sp_from= potential.SCFPotential.from_density(hp.dens,10,a=a,symmetry='spherical')
+    rs= numpy.geomspace(0.1,10.,101)
+    assert numpy.all(numpy.fabs(1.-sp_direct.dens(rs,0.,use_physical=False)/sp_from.dens(rs,0.,use_physical=False)) < 1e-10), 'SCF density does not agree between direct init and from_density init'
+    return None
+
+# Test that from_density acts as expected
+def test_from_density_axi():
+    a= 1.
+    Acos, Asin= potential.scf_compute_coeffs_axi(axi_density2,10,10,
+                                                 a=a,
+                                                 radial_order=30,
+                                                 costheta_order=12)
+    sp_direct= potential.SCFPotential(Acos=Acos,Asin=Asin,a=a)
+    sp_from= potential.SCFPotential.from_density(axi_density2,10,L=10,
+                                                 a=a,symmetry='axi',
+                                                 radial_order=30,costheta_order=12)
+    rs= numpy.geomspace(0.1,10.,101)
+    assert numpy.all(numpy.fabs(1.-sp_direct.dens(rs,rs,use_physical=False)/sp_from.dens(rs,rs,use_physical=False)) < 1e-10), 'SCF density does not agree between direct init and from_density init'
+    return None
+
+# Test that from_density acts as expected
+def test_from_density():
+    a= 50./8.
+    yfactor=1.5
+    zfactor=2.5
+    tptp= potential.TwoPowerTriaxialPotential(a=a,alpha=1.,beta=4.,
+                                              b=yfactor,c=zfactor)
+    tptp.turn_physical_off()
+    Acos, Asin= potential.scf_compute_coeffs(tptp.dens,10,3,a=a)
+    sp_direct= potential.SCFPotential(Acos=Acos,Asin=Asin,a=a)
+    sp_from= potential.SCFPotential.from_density(tptp.dens,10,L=3,
+                                                 a=a,symmetry=None)
+    rs= numpy.geomspace(0.1,10.,101)
+    assert numpy.all(numpy.fabs(1.-sp_direct.dens(rs,rs,phi=rs,use_physical=False)/sp_from.dens(rs,rs,phi=rs,use_physical=False)) < 1e-10), 'SCF density does not agree between direct init and from_density init'
+    return None
+
 ##############GENERIC FUNCTIONS BELOW###############
 
 ##This is used to test whether input as arrays works

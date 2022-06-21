@@ -4084,6 +4084,33 @@ def test_interpRZPotential_vo():
     assert not ip._voSet, 'voSet not correctly propagated to interpRZPotential'
     return None
 
+def test_SCFPotential_from_density():
+    from galpy import potential
+    a= 5.*units.kpc
+    hp= potential.HernquistPotential(amp=2*1e11*units.Msun,a=a)
+    # Spherical
+    sp= potential.SCFPotential.from_density(hp.dens,10,a=a,symmetry='spherical')
+    rs= numpy.geomspace(1.,100.,101)*units.kpc
+    assert numpy.all(numpy.fabs(1.-sp.dens(rs,rs,use_physical=False)/hp.dens(rs,rs,use_physical=False)) < 1e-10), 'SCF density does not agree when initialized with density with units'
+    assert numpy.all(numpy.fabs(1.-sp.dens(rs,rs)/hp.dens(rs,rs)) < 1e-10), 'SCF density does not agree when initialized with density with units'
+    # Output density should have units of density, can just test for Quantity, other tests ensure that this is a density
+    assert isinstance(sp.dens(1.,0.1),units.Quantity), 'SCF density does not return Quantity when initialized with density with units'
+    # Axisymmetry
+    sp= potential.SCFPotential.from_density(hp.dens,10,L=3,a=a,symmetry='axisym')
+    rs= numpy.geomspace(1.,100.,101)*units.kpc
+    assert numpy.all(numpy.fabs(1.-sp.dens(rs,rs,use_physical=False)/hp.dens(rs,rs,use_physical=False)) < 1e-10), 'SCF density does not agree when initialized with density with units'
+    assert numpy.all(numpy.fabs(1.-sp.dens(rs,rs)/hp.dens(rs,rs)) < 1e-10), 'SCF density does not agree when initialized with density with units'
+    # Output density should have units of density, can just test for Quantity, other tests ensure that this is a density
+    assert isinstance(sp.dens(1.,0.1),units.Quantity), 'SCF density does not return Quantity when initialized with density with units'
+    # General
+    sp= potential.SCFPotential.from_density(hp.dens,10,L=3,a=a)
+    rs= numpy.geomspace(1.,100.,101)*units.kpc
+    assert numpy.all(numpy.fabs(1.-sp.dens(rs,rs,use_physical=False)/hp.dens(rs,rs,use_physical=False)) < 1e-10), 'SCF density does not agree when initialized with density with units'
+    assert numpy.all(numpy.fabs(1.-sp.dens(rs,rs)/hp.dens(rs,rs)) < 1e-10), 'SCF density does not agree when initialized with density with units'
+    # Output density should have units of density, can just test for Quantity, other tests ensure that this is a density
+    assert isinstance(sp.dens(1.,0.1),units.Quantity), 'SCF density does not return Quantity when initialized with density with units'
+    return None
+
 def test_actionAngle_method_returntype():
     from galpy.actionAngle import actionAngleIsochrone, actionAngleSpherical, \
         actionAngleAdiabatic, actionAngleStaeckel, actionAngleIsochroneApprox,\
