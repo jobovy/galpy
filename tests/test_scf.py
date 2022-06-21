@@ -511,6 +511,39 @@ def test_FutureWarning_multid_indexing():
         assert not raisedWarning, "SCFPotential should not raise 'FutureWarning: Using a non-tuple sequence for multidimensional indexing is deprecated ...', but did"
     return None
 
+# Test that running with a density in physical units works as expected
+def test_physical_dens_spherical():
+    a= 1.3
+    ro, vo= 7., 230.
+    hp= potential.HernquistPotential(a=a,ro=ro,vo=vo)
+    Acos, Asin= potential.scf_compute_coeffs_spherical(hp.dens,10,a=a)
+    sp= potential.SCFPotential(Acos=Acos,Asin=Asin,a=a)
+    rs= numpy.geomspace(0.1,10.,101)
+    assert numpy.all(numpy.fabs(1.-sp.dens(rs,0.,use_physical=False)/hp.dens(rs,0.,use_physical=False)) < 1e-10), 'SCF density does not agree with input density when calculated with physical density'
+    return None
+
+# Test that running with a density in physical units works as expected
+def test_physical_dens_axi():
+    a= 1.3
+    ro, vo= 7., 230.
+    hp= potential.HernquistPotential(a=a,ro=ro,vo=vo)
+    Acos, Asin= potential.scf_compute_coeffs_axi(hp.dens,10,2,a=a)
+    sp= potential.SCFPotential(Acos=Acos,Asin=Asin,a=a)
+    rs= numpy.geomspace(0.1,10.,101)
+    assert numpy.all(numpy.fabs(1.-sp.dens(rs,0.,use_physical=False)/hp.dens(rs,0.,use_physical=False)) < 1e-10), 'SCF density does not agree with input density when calculated with physical density'
+    return None
+
+# Test that running with a density in physical units works as expected
+def test_physical_dens():
+    a= 1.3
+    ro, vo= 7., 230.
+    hp= potential.HernquistPotential(a=a,ro=ro,vo=vo)
+    Acos, Asin= potential.scf_compute_coeffs(hp.dens,10,2,a=a)
+    sp= potential.SCFPotential(Acos=Acos,Asin=Asin,a=a)
+    rs= numpy.geomspace(0.1,10.,101)
+    assert numpy.all(numpy.fabs(1.-sp.dens(rs,0.,use_physical=False)/hp.dens(rs,0.,use_physical=False)) < 1e-10), 'SCF density does not agree with input density when calculated with physical density'
+    return None
+
 ##############GENERIC FUNCTIONS BELOW###############
 
 ##This is used to test whether input as arrays works
