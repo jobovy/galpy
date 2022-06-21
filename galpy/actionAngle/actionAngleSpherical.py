@@ -16,7 +16,7 @@ from ..potential import vcirc, epifreq, omegac, _dim
 from ..potential.Potential import _evaluatePotentials
 from ..potential.Potential import flatten as flatten_potential
 from ..potential.planarPotential import _evaluateplanarPotentials
-from .actionAngle import actionAngle
+from .actionAngle import actionAngle, UnboundError
 _EPS= 10.**-15.
 class actionAngleSpherical(actionAngle):
     """Action-angle formalism for spherical potentials"""
@@ -61,10 +61,7 @@ class actionAngleSpherical(actionAngle):
         elif isinstance(self._pot,list):
             self._2dpot= [p.toPlanar() for p in self._pot]
         else:
-            if isinstance(self._pot,list):
-                self._2dpot= [p.toPlanar() for p in self._pot]
-            else:
-                self._2dpot= self._pot.toPlanar()
+            self._2dpot= self._pot.toPlanar()
         #The following for if we ever implement this code in C
         self._c= False
         ext_loaded= False

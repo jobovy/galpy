@@ -3,11 +3,9 @@
 #
 #      class: actionAngleAdiabatic
 #
-#             wrapper around actionAngleAxi (adiabatic approximation) to do
-#             this for any (x,v)
-#
 #      methods:
 #             __call__: returns (jr,lz,jz)
+#             _EccZmaxRperiRap: return (e,zmax,rperi,rap)
 #
 ###############################################################################
 import copy
@@ -37,7 +35,7 @@ class actionAngleAdiabatic(actionAngle):
 
         INPUT:
 
-           pot= potential or list of potentials (planarPotentials)
+           pot= potential or list of potentials
 
            gamma= (default=1.) replace Lz by Lz+gamma Jz in effective potential
 
@@ -57,7 +55,7 @@ class actionAngleAdiabatic(actionAngle):
         actionAngle.__init__(self,
                              ro=kwargs.get('ro',None),vo=kwargs.get('vo',None))
         if not 'pot' in kwargs: #pragma: no cover
-            raise OSError("Must specify pot= for actionAngleAxi")
+            raise OSError("Must specify pot= for actionAngleAdiabatic")
         self._pot= flatten_potential(kwargs['pot'])
         if self._pot == MWPotential:
             warnings.warn("Use of MWPotential as a Milky-Way-like potential is deprecated; galpy.potential.MWPotential2014, a potential fit to a large variety of dynamical constraints (see Bovy 2015), is the preferred Milky-Way-like potential in galpy",

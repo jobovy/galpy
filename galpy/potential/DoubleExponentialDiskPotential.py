@@ -127,8 +127,8 @@ class DoubleExponentialDiskPotential(Potential):
         """
         if isinstance(R,(float,int)):
             floatIn= True
-            R= numpy.array([R])
-            z= numpy.array([z])
+            R= numpy.atleast_1d(R)
+            z= numpy.atleast_1d(z)
         else:
             if isinstance(z,float):
                 z= z*numpy.ones_like(R)

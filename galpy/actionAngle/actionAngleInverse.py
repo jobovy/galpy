@@ -38,6 +38,10 @@ class actionAngleInverse(actionAngle):
               actionAngleTorus:
 
                   tol= (object-wide value) goal for |dJ|/|J| along the torus
+              
+              actionAngleSphericalInverse (eventually), actionAngleVerticalInverse:
+              
+                  point= (True) if True, don't apply the point transformation, i.e., return (x^A,v^A)
 
         OUTPUT:
 

@@ -40,12 +40,9 @@ class actionAngleVertical(actionAngle):
         HISTORY:
 
            2012-06-01 - Written - Bovy (IAS)
+
            2018-05-19 - Conformed to the general actionAngle framework - Bovy (UofT)
 
-           Either:
-              a) z,vz
-              b) Orbit instance: initial condition used if that's it, orbit(t)
-                 if there is a time given as well
         """
         actionAngle.__init__(self,
                              ro=kwargs.get('ro',None),vo=kwargs.get('vo',None))
@@ -148,7 +145,7 @@ class actionAngleVertical(actionAngle):
                         0,numpy.sqrt(xmax))[0]
             return (J,Omega)
         else: # pragma: no cover
-            raise ValueError('actionAngleVertical __call__ input not understood')
+            raise ValueError('actionAngleVertical actionsFreqs input not understood')
 
     def _actionsFreqsAngles(self,*args,**kwargs):
         """
@@ -206,7 +203,7 @@ class actionAngleVertical(actionAngle):
             angle[(x < 0.)*(vx > 0.)]= 2.*numpy.pi-angle[(x < 0.)*(vx > 0.)]
             return (J,Omega,angle % (2.*numpy.pi))
         else: # pragma: no cover
-            raise ValueError('actionAngleVertical __call__ input not understood')
+            raise ValueError('actionAngleVertical actionsFreqsAngles input not understood')
 
     def calcxmax(self,x,vx,E=None):
         """
