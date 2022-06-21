@@ -5,7 +5,7 @@
 #
 #      methods:
 #             __call__: returns (jr,lz,jz)
-#            _EccZmaxRperiRap: return (e,zmax,rperi,rap)
+#             _EccZmaxRperiRap: return (e,zmax,rperi,rap)
 #
 ###############################################################################
 import copy

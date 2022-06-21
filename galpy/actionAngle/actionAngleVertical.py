@@ -40,6 +40,7 @@ class actionAngleVertical(actionAngle):
         HISTORY:
 
            2012-06-01 - Written - Bovy (IAS)
+           
            2018-05-19 - Conformed to the general actionAngle framework - Bovy (UofT)
 
         """

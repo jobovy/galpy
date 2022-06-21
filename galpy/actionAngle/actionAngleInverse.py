@@ -2,9 +2,9 @@
 # actionAngleInverse.py: top-level class with common routines for inverse
 #                        actionAngle methods
 ###############################################################################
-from .actionAngle import actionAngle
 from ..util.conversion import actionAngleInverse_physical_input, \
     physical_conversion_actionAngleInverse
+from .actionAngle import actionAngle
 class actionAngleInverse(actionAngle):
     """actionAngleInverse; top-level class with common routines for inverse actionAngle methods"""
     def __init__(self,*args,**kwargs):
@@ -38,9 +38,9 @@ class actionAngleInverse(actionAngle):
               actionAngleTorus:
 
                   tol= (object-wide value) goal for |dJ|/|J| along the torus
-
-              actionAngleSphericalInverse, actionAngleVerticalInverse:
-
+              
+              actionAngleSphericalInverse (eventually), actionAngleVerticalInverse:
+              
                   point= (True) if True, don't apply the point transformation, i.e., return (x^A,v^A)
 
         OUTPUT:
