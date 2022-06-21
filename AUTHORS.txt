@@ -28,6 +28,7 @@ Henry Leung (addition of Python and C implementation of Dormand-Prince 8(5,3) in
 Nathaniel Starkman (custom coordinates in bovy_coords, DehnenSphericalPotential, time dependences in potential, amuse-astropy Potential compatibility)
 Morgan Bennett (scf_compute_.._nbody functions for computing SCF expansions for N-body sims)
 Marius Cautun (Cautun20 potential and help with implementing the AdiabaticContractionWrapperPotential)
+Anya Dovgal (Gaia EDR3 parameters for MW satellites and globular clusters)
 
 General help:
 ==============

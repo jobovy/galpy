@@ -232,3 +232,75 @@ p {
     -ms-transform: translateX(-50%);
     transform: translateX(-50%)
 }
+
+/* Create two equal columns that floats next to each other */
+.column {
+    float: left;
+    width: 47%;
+    padding: 10px;
+    height: 525;
+  }
+  
+  /* Clear floats after the columns */
+  .row:after {
+    content: "";
+    display: table;
+    clear: both;
+  }
+
+/* Let try-galpy fill the entire space. First Need to correct everything else 
+to usual 800 px */
+p, div.warning, div[class^="toctree-"], 
+section:not(#welcome-to-galpy-s-documentation), 
+div.section:not(#welcome-to-galpy-s-documentation) {
+max-width: 800px;
+}
+/* Then let the try-galpy section extend fully */
+div.body,  section#try-galpy, div.section#try-galpy {
+    max-width: 95%;
+}
+
+/* Activate try-galpy block */
+div#activate-try-galpy {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%; 
+    height: 525px;
+    /* Permalink - use to edit and share this gradient: http://colorzilla.com/gradient-editor/#f3f3f4+0,d5d6d7+100 */
+    background: rgb(243,243,244); /* Old browsers */
+    background: -moz-linear-gradient(top,  rgba(243,243,244,1) 0%, rgba(213,214,215,1) 100%); /* FF3.6+ */
+    background: -webkit-gradient(linear, left top, left bottom, color-stop(0%,rgba(243,243,244,1)), color-stop(100%,rgba(213,214,215,1))); /* Chrome,Safari4+ */
+    background: -webkit-linear-gradient(top,  rgba(243,243,244,1) 0%,rgba(213,214,215,1) 100%); /* Chrome10+,Safari5.1+ */
+    background: -o-linear-gradient(top,  rgba(243,243,244,1) 0%,rgba(213,214,215,1) 100%); /* Opera 11.10+ */
+    background: -ms-linear-gradient(top,  rgba(243,243,244,1) 0%,rgba(213,214,215,1) 100%); /* IE10+ */
+    background: linear-gradient(to bottom,  rgba(243,243,244,1) 0%,rgba(213,214,215,1) 100%); /* W3C */
+    filter: progid:DXImageTransform.Microsoft.gradient( startColorstr='#f3f3f4', endColorstr='#d5d6d7',GradientType=0 ); /* IE6-9 */
+}
+
+/* Styling of the activate try galpy button */
+.activatetrygalpybutton {
+    background-color:#ffffff;
+    -moz-border-radius:16px;
+    -webkit-border-radius:16px;
+    border-radius:16px;
+    border:1px solid #7d7878;
+    display:inline-block;
+    cursor:pointer;
+    color:#7d7878;
+    font-family:Courier;
+    font-size:17px;
+    padding:8px 10px;
+    text-decoration:none;
+    text-shadow:0px 1px 0px #2f6627;
+}
+.activatetrygalpybutton:hover {
+    background-color:#ffffff;
+}
+.activatetrygalpybutton:active {
+    position:relative;
+    top:1px;
+}
+.activatetrygalpybutton:focus{
+    outline:0;
+}

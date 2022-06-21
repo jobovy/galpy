@@ -5,8 +5,13 @@ on:
   push:
     branches:    
       - main
-    paths-ignore:
-      - 'doc/**'
+    paths:
+      - '**'
+      - '!tests/**'
+      - '!doc/**'
+      - '!.github/**'
+      - '.github/workflows/build_manylinux_wheels.yml'
+      - '.github/workflows/actions/**'
   pull_request:
     branches:
       - main
@@ -20,7 +25,7 @@ jobs:
     name: Build manylinux wheels, upload to PyPI upon release
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Build manylinux2014_x86_64 wheels
         uses: ./.github/workflows/actions/manylinux2014_x86_64/
       - name: Rename wheels to 'latest' version
@@ -39,20 +44,12 @@ jobs:
         with:
           password: ${{ secrets.pypi_token }}
           packages_dir: wheelhouse/
-      # Also create a pure Python wheel for the AWS S3 wheelhouse
-      - name: Create pure Python wheel
-        if: github.event_name != 'release' && github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
-        run: |
-          sudo python setup.py bdist_wheel --no_ext
-          sudo mv dist/*.whl wheelhouse
-          GALPY_VERSION="$(awk '/^current_version/{print $NF}' .bumpversion.cfg)"
-          for f in wheelhouse/*$GALPY_VERSION*; do sudo mv -i -- "$f" "${f//$GALPY_VERSION/latest}"; done
       # Upload to AWS S3
       - name: Upload to AWS S3
         if: github.event_name != 'release' && github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         uses: jakejarvis/s3-sync-action@v0.5.1
         with:
-          args: --acl public-read --follow-symlinks --delete --exclude "*macos*" --exclude "*win*"
+          args: --acl public-read --follow-symlinks --delete --exclude "*macos*" --exclude "*win*" --exclude "*emscripten*"
         env:
           AWS_S3_BUCKET: ${{ secrets.AWS_S3_BUCKET }}
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}

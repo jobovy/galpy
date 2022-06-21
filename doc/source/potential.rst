@@ -449,16 +449,66 @@ potentials.
 
 The basis-function approach in the SCF method is implemented in the
 :ref:`SCFPotential <scf_potential>` class, which is also implemented
-in C for fast orbit integration. The coefficients of the
-basis-function expansion can be computed using the
-:ref:`scf_compute_coeffs_spherical <scf_compute_coeffs_sphere>` (for
+in C for fast orbit integration. The easiest way to initialize an 
+``SCFPotential`` using a target density profile is using the 
+``SCFPotential.from_density`` method. As an example, we consider a 
+prolate NFW potential
+
+>>> from galpy.potential import TriaxialNFWPotential
+>>> np= TriaxialNFWPotential(normalize=1.,c=1.4,a=1.)
+
+To create an ``SCFPotential`` version of this, we need to chose a value of 
+a scale parameter ``a`` that is used in the definition of the basis functions 
+(this often needs to be tweaked to create the best-possible match with as 
+few basis functions as possible). Once we choose a value for ``a``, we can 
+initialize the ``SCFPotential`` as follows
+
+>>> a_SCF= 50. # much larger a than true scale radius works well for NFW
+>>> from galpy.potential import SCFPotential
+>>> sp= SCFPotential.from_density(np.dens,80,L=40,a=a_SCF,symmetry='axisymmetry')
+
+Here ``symmetry='axisymmetry'`` indicates that we are assuming axisymmetry in the 
+basis-function expansion; other valid values are ``symmetry='spherical'`` when 
+assuming spherical symmetry or ``symmetry=None`` for the general, non-axisymmetric 
+computation. If we compare the densities along the ``R=Z`` line as
+
+>>> xs= numpy.linspace(0.,3.,1001)
+>>> loglog(xs,[np.dens(x,x) for x in xs])
+>>> loglog(xs,sp.dens(xs,xs))
+
+we get
+
+.. image:: images/scf-flnfw-dens.png
+   :scale: 50 %
+
+If we then integrate an orbit, we also get good agreement
+
+>>> from galpy.orbit import Orbit
+>>> o= Orbit([1.,0.1,1.1,0.1,0.3,0.])
+>>> ts= numpy.linspace(0.,100.,10001)
+>>> o.integrate(ts,np)
+>>> o.plot()
+>>> o.integrate(ts,sp)
+>>> o.plot(overplot=True)
+
+which gives
+
+.. image:: images/scf-flnfw-orbit.png
+   :scale: 50 %
+
+Near the end of the orbit integration, the slight differences between
+the original potential and the basis-expansion version cause the two
+orbits to deviate from each other.
+
+If you want to know the basis-function coefficients, you can compute them 
+using the :ref:`scf_compute_coeffs_spherical <scf_compute_coeffs_sphere>` (for
 spherically-symmetric density distribution),
 :ref:`scf_compute_coeffs_axi <scf_compute_coeffs_axi>` (for
 axisymmetric densities), and :ref:`scf_compute_coeffs
 <scf_compute_coeffs>` (for the general case). The coefficients
 obtained from these functions can be directly fed into the
 :ref:`SCFPotential <scf_potential>` initialization. The basis-function
-expansion has a free scale parameter ``a``, which can be specified for
+expansion scale parameter ``a`` needs to be passed to both 
 the ``scf_compute_coeffs_XX`` functions and for the ``SCFPotential``
 itself. Make sure that you use the same ``a``! Note that the general
 functions are quite slow. Equivalent functions for computing the
@@ -466,9 +516,9 @@ coefficients based on an N-body snapshot are also available:
 :ref:`scf_compute_coeffs_spherical_nbody
 <scf_compute_coeffs_sphere_nbody>`, :ref:`scf_compute_coeffs_axi_nbody
 <scf_compute_coeffs_axi_nbody>`, and :ref:`scf_compute_coeffs_nbody
-<scf_compute_coeffs_nbody>`.
-
-The simplest example is that of the Hernquist potential, which is the
+<scf_compute_coeffs_nbody>`. Note that all of these functions expect ``a`` to 
+be in internal units. The simplest example of computing coefficients 
+is that of the Hernquist potential, which is the
 lowest-order basis function. When we compute the first ten radial
 coefficients for this density we obtain that only the lowest-order
 coefficient is non-zero
@@ -489,48 +539,9 @@ coefficient is non-zero
 #         [[ -2.24030288e-18]],
 #         [[ -5.24936820e-19]]])
 
+To then initialize an ``SCFPotential`` from these coefficients, do
 
-As a more complicated example, consider a prolate NFW potential
-
->>> from galpy.potential import TriaxialNFWPotential
->>> np= TriaxialNFWPotential(normalize=1.,c=1.4,a=1.)
-
-and we compute the coefficients using the axisymmetric
-``scf_compute_coeffs_axi``
-
->>> a_SCF= 50. # much larger a than true scale radius works well for NFW
->>> Acos, Asin= scf_compute_coeffs_axi(np.dens,80,40,a=a_SCF)
->>> sp= SCFPotential(Acos=Acos,Asin=Asin,a=a_SCF)
-
-If we compare the densities along the ``R=Z`` line as
-
->>> xs= numpy.linspace(0.,3.,1001)
->>> loglog(xs,np.dens(xs,xs))
->>> loglog(xs,sp.dens(xs,xs))
-
-we get
-
-.. image:: images/scf-flnfw-dens.png
-   :scale: 50 %
-
-If we then integrate an orbit, we also get good agreement
-
->>> from galpy.orbit import Orbit
->>> o= Orbit([1.,0.1,1.1,0.1,0.3,0.])
->>> ts= numpy.linspace(0.,100.,10001)
->>> o.integrate(ts,hp)
->>> o.plot()
->>> o.integrate(ts,sp)
->>> o.plot(overplot=True)
-
-which gives
-
-.. image:: images/scf-flnfw-orbit.png
-   :scale: 50 %
-
-Near the end of the orbit integration, the slight differences between
-the original potential and the basis-expansion version cause the two
-orbits to deviate from each other.
+>>> sp= SCFPotential(Acos=Acos,Asin=Asin,a=2.)
 
 To use the SCF method for disky potentials, we use the trick from
 `Kuijken & Dubinski (1995)
@@ -595,10 +606,15 @@ approximation, the potential can be gotten closer to the target
 density. Note that orbit integration in the ``DiskSCFPotential`` is
 much faster than that of the ``DoubleExponentialDisk`` potential
 
->>> timeit(o.integrate(ts,dp))
-# 1 loops, best of 3: 5.83 s per loop
->>> timeit(o.integrate(ts,dscfp))
-# 1 loops, best of 3: 286 ms per loop
+>>> %%timeit
+>>> o.integrate(ts,dp)
+# 4.53 s ± 25.4 ms per loop (mean ± std. dev. of 7 runs, 1 loop each)
+
+and
+
+>>> %%timeit
+o.integrate(ts,dscfp)
+# 57.2 ms ± 99.6 µs per loop (mean ± std. dev. of 7 runs, 10 loops each)
 
 The :ref:`SCFPotential <scf_potential>` and :ref:`DiskSCFPotential
 <disk_scf_potential>` can be used wherever general potentials can be

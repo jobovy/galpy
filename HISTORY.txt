@@ -8,7 +8,18 @@ v1.7.3 (XXXX-XX-XX)
   PowerSphericalPotentialwCutoff and PlummerPotential.
 
 - Updated existing and added new phase-space positions for MW satellite 
-  galaxies from Pace et al. (2022; 2205.05699) (#484 by Anya Dovgal). 
+  galaxies from Pace et al. (2022; 2205.05699). Also add uncertainties
+  (#484 by Anya Dovgal). 
+
+- Updated existing and added new phase-space positions for MW globular clusters 
+  from Baumgardt et al. (2019; 1811.01507), 
+  Vasiliev & Baumgardt (2021; 2102.09568), and 
+  Baumgardt & Vasiliev (2021; 2105.09526). Also add uncertainties
+  (#485 by Anya Dovgal). 
+
+- Added SCFPotential.from_density to directly initialize an SCFPotential based
+  on a density function. Allows for full correct and consistent handling of 
+  Quantity inputs and outputs.
 
 - Renamed phiforce --> phitorque everywhere (including
   potential.evaluatephiforces and potential.evaluateplanarphiforces), such 
@@ -18,6 +29,12 @@ v1.7.3 (XXXX-XX-XX)
 
 - Added code to check whether a newer version of galpy is available and, if so
   encourage users to upgrade (to try to have people use more recent versions).
+
+- Added a 'Try galpy' interactive session on the documentation's home page 
+  powered by the new pyodide/emscripten/wasm wheels for galpy.
+
+- Add support to build pyodide/emscripten/wasm wheels for using galpy in the 
+  browser at C-ish speeds.
 
 - Fully drop Python 2 support (removed all Python 2 compatibility code).
 

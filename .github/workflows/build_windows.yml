@@ -2,8 +2,11 @@ name: Windows build
 
 on:
   push:
-    paths-ignore:
-      - 'doc/**'
+    paths:
+      - '**'
+      - '!doc/**'
+      - '!.github/**'
+      - '.github/workflows/build_windows.yml'
   pull_request:
     paths-ignore:
       - 'doc/**'
@@ -140,7 +143,7 @@ jobs:
             REQUIRES_NUMBA: false
             REQUIRES_JAX: false            
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
     # Windows installation: Install Micromamba, as specificed by this repository's environment.yml for Windows
     # Cache both conda and pip, conda done by provision-with-micromamba
     - uses: actions/cache@v2

@@ -27,12 +27,55 @@ to `contribute to the code
 please head over to `galpy's GitHub page
 <https://github.com/jobovy/galpy>`_ for more information.
 
-As a preview of the kinds of things you can do with galpy, here's a
-video introducing some of the new features in galpy v1.5:
+.. _try_galpy:
+
+Try ``galpy``
+-------------
+
+Give ``galpy`` a try in the interactive ``IPython``-like shell below!
 
 .. raw:: html
 
-   <blockquote class="twitter-tweet"><p lang="en" dir="ltr">Excited to announce the new version (v1.5) of galpy!<a href="https://t.co/sVlP7utkc6">https://t.co/sVlP7utkc6</a><br>Many new features, see them all here:<a href="https://t.co/KZ6ZaQCNvv">https://t.co/KZ6ZaQCNvv</a><br>Watch the video below for a quick intro to some of the most exciting new capabilities: <a href="https://t.co/HqUgAeVz24">pic.twitter.com/HqUgAeVz24</a></p>&mdash; Jo Bovy (@jobovy) <a href="https://twitter.com/jobovy/status/1173590198225125376?ref_src=twsrc%5Etfw">September 16, 2019</a></blockquote> <script async src="https://platform.twitter.com/widgets.js" charset="utf-8"></script>
+   <div class="row">
+      <div class="column">
+        <h3>Plot the rotation curve of the Milky Way</h4>
+        <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span> <span class="nn">galpy.potential</span> <span class="kn">import</span> <span class="p">(</span><span class="n">plotRotcurve</span><span class="p">,</span>
+   <span class="go">        MWPotential2014 as mwp14)</span>
+   <span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
+   <span class="gp">&gt;&gt;&gt; </span><span class="n">plotRotcurve</span><span class="p">(</span><span class="n">mwp14</span><span class="p">)</span>
+   <span class="gp">&gt;&gt;&gt; </span><span class="n">plotRotcurve</span><span class="p">(</span><span class="n">mwp14</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span><span class="n">label</span><span class="o">=</span><span class="s1">&#39;Bulge&#39;</span><span class="p">,</span><span class="n">overplot</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+   <span class="gp">&gt;&gt;&gt; </span><span class="n">plotRotcurve</span><span class="p">(</span><span class="n">mwp14</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span><span class="n">label</span><span class="o">=</span><span class="s1">&#39;Disk&#39;</span><span class="p">,</span><span class="n">overplot</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+   <span class="gp">&gt;&gt;&gt; </span><span class="n">plotRotcurve</span><span class="p">(</span><span class="n">mwp14</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span><span class="n">label</span><span class="o">=</span><span class="s1">&#39;Halo&#39;</span><span class="p">,</span><span class="n">overplot</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+   <span class="gp">&gt;&gt;&gt; </span><span class="n">plt</span><span class="o">.</span><span class="n">legend</span><span class="p">()</span></pre></div></div>
+        <h3>or integrate the orbit of MW satellites</h4>
+        <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span> <span class="nn">galpy.orbit</span> <span class="kn">import</span> <span class="n">Orbit</span>
+   <span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span> <span class="nn">galpy.potential</span> <span class="kn">import</span> <span class="n">MWPotential2014</span>
+   <span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span> <span class="nn">numpy</span>
+   <span class="gp">&gt;&gt;&gt; </span><span class="n">ts</span><span class="o">=</span> <span class="n">numpy</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mf">0.</span><span class="p">,</span><span class="mf">5.</span><span class="p">,</span><span class="mi">2001</span><span class="p">)</span><span class="o">*</span><span class="n">u</span><span class="o">.</span><span class="n">Gyr</span>
+   <span class="gp">&gt;&gt;&gt; </span><span class="n">o</span><span class="o">=</span> <span class="n">Orbit</span><span class="o">.</span><span class="n">from_name</span><span class="p">(</span><span class="s1">&#39;MW satellite galaxies&#39;</span><span class="p">)</span>
+   <span class="gp">&gt;&gt;&gt; </span><span class="n">o</span><span class="o">.</span><span class="n">integrate</span><span class="p">(</span><span class="n">ts</span><span class="p">,</span><span class="n">MWPotential2014</span><span class="p">)</span>
+   <span class="gp">&gt;&gt;&gt; </span><span class="n">o</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">xrange</span><span class="o">=</span><span class="p">[</span><span class="mf">0.</span><span class="p">,</span><span class="mf">100.</span><span class="p">],</span><span class="n">yrange</span><span class="o">=</span><span class="p">[</span><span class="o">-</span><span class="mf">100.</span><span class="p">,</span><span class="mf">100.</span><span class="p">])</span>
+   <span></span><span class="gp">&gt;&gt;&gt; </span><span class="n">o</span><span class="p">[</span><span class="n">o</span><span class="o">.</span><span class="n">name</span><span class="o">==</span><span class="s1">&#39;LMC&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">c</span><span class="o">=</span><span class="s1">&#39;r&#39;</span><span class="p">,</span><span class="n">lw</span><span class="o">=</span><span class="mf">5.</span><span class="p">,</span><span class="n">overplot</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span></pre></div></div>
+    <h4>or calculate the Sun's orbital actions, frequencies, and angles</h4>
+    <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span> <span class="nn">galpy.orbit</span> <span class="kn">import</span> <span class="n">Orbit</span>
+   <span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span> <span class="nn">galpy.potential</span> <span class="kn">import</span> <span class="p">(</span>
+   <span class="go">        MWPotential2014 as mwp14)</span>
+   <span class="gp">&gt;&gt;&gt; </span><span class="n">o</span><span class="o">=</span> <span class="n">Orbit</span><span class="p">()</span>
+   <span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">o</span><span class="o">.</span><span class="n">jr</span><span class="p">(</span><span class="n">pot</span><span class="o">=</span><span class="n">mwp14</span><span class="p">),</span><span class="n">o</span><span class="o">.</span><span class="n">Lz</span><span class="p">(),</span><span class="n">o</span><span class="o">.</span><span class="n">jz</span><span class="p">(</span><span class="n">pot</span><span class="o">=</span><span class="n">mwp14</span><span class="p">))</span>
+   <span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">o</span><span class="o">.</span><span class="n">Or</span><span class="p">(</span><span class="n">pot</span><span class="o">=</span><span class="n">mwp14</span><span class="p">),</span><span class="n">o</span><span class="o">.</span><span class="n">Op</span><span class="p">(</span><span class="n">pot</span><span class="o">=</span><span class="n">mwp14</span><span class="p">),</span><span class="n">o</span><span class="o">.</span><span class="n">Oz</span><span class="p">(</span><span class="n">pot</span><span class="o">=</span><span class="n">mwp14</span><span class="p">))</span>
+   <span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">o</span><span class="o">.</span><span class="n">wr</span><span class="p">(</span><span class="n">pot</span><span class="o">=</span><span class="n">mwp14</span><span class="p">),</span><span class="n">o</span><span class="o">.</span><span class="n">wp</span><span class="p">(</span><span class="n">pot</span><span class="o">=</span><span class="n">mwp14</span><span class="p">),</span><span class="n">o</span><span class="o">.</span><span class="n">wz</span><span class="p">(</span><span class="n">pot</span><span class="o">=</span><span class="n">mwp14</span><span class="p">))</span></pre></div></div>
+           <h3>and much more... Start your journey below</h4>
+      </div>
+      <div class="column" style="padding-top: 40px;">
+         <div id="activate-try-galpy">
+            <input class='activatetrygalpybutton' id='activate-try-galpy-button' type="button" value="Activate interactive session">
+         </div>
+        <!-- REPL iframe inserted by try-galpy.js -->
+      <br/>
+      <p style="font-size: small;">(This interactive shell runs using the <a href="https://pyodide.org/en/stable/" target="_blank"><span class="courier-code">pyodide</span></a>
+         Python kernel, a version of Python that runs in your browser. <span class="courier-code">galpy</span> runs in your browser at compiled-C-like speed! Please open an <a href="https://github.com/jobovy/galpy/issues" target="_blank">Issue</a> for any problems that you find with the interactive session.)</p>
+      </div>
+    </div>
 
 Quick-start guide
 -----------------
