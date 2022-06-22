@@ -829,6 +829,8 @@ def physical_conversion(quantity,pop=False):
                 else:
                     return out*fac
             else:
+                if use_physical:
+                    warnings.warn("Returning output(s) in internal units even though use_physical=True, because ro and/or vo not set")
                 return method(*args,**kwargs)
         return wrapped
     return wrapper
