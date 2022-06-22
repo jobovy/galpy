@@ -24,6 +24,20 @@ def test_parsers():
     assert numpy.fabs(conversion.parse_angmom(2200.*units.kpc*units.km/units.s,ro=ro,vo=vo)-(2200./ro/vo)) < 1e-10, 'parse_angmom does parse Quantity angular momentum correctly'
     return None
 
+def test_warn_internal_when_use_physical():
+    import warnings
+    from galpy.util import galpyWarning
+    from galpy import potential
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always",galpyWarning)
+        potential.evaluateRforces(potential.MWPotential2014,1.,0.,use_physical=True)
+        raisedWarning= False
+        for wa in w:
+            raisedWarning= (str(wa.message) == "Returning output(s) in internal units even though use_physical=True, because ro and/or vo not set")
+            if raisedWarning: break
+        assert raisedWarning, 'No warning raised when returning internal-units with use_physical=True'
+    return None
+
 def test_orbit_setup_radec_basic():
     from galpy.orbit import Orbit
     o= Orbit([10.*units.deg,-20.*units.deg,3.*units.kpc,
