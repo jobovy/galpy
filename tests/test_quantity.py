@@ -6354,6 +6354,27 @@ def test_sphericaldf_sample():
     assert numpy.all(numpy.fabs(sam.r(use_physical=False)-sam_nou.r(use_physical=False)) < 1e-8), 'Sample returned by sphericaldf.sample with input rmin with units does not agree with that returned by sampline with input rmin without units'
     return None
 
+def test_sphericaldf_sample_outputunits():
+    from galpy import potential
+    from galpy.df import isotropicHernquistdf
+    ro,vo= 8., 220.
+    pot= potential.HernquistPotential(amp=2.,a=1.3)
+    dfh= isotropicHernquistdf(pot=pot,ro=ro,vo=vo)
+    dfh_nou= isotropicHernquistdf(pot=pot)
+    numpy.random.seed(10)
+    sam= dfh.sample(R=1.*units.kpc,z=0.*units.kpc,phi=10.*units.deg,n=2,
+                    return_orbit=False)
+    numpy.random.seed(10)
+    sam_nou= dfh_nou.sample(R=1./ro,z=0./ro,phi=10./180.*numpy.pi,n=2,
+                            return_orbit=False)
+    assert numpy.all(numpy.fabs(sam[0].to_value(units.kpc)/ro-sam_nou[0]) < 1e-8), 'Sample returned by sphericaldf.sample with with unit output is inconsistenty with the same sample sampled without unit output'
+    assert numpy.all(numpy.fabs(sam[1].to_value(units.km/units.s)/vo-sam_nou[1]) < 1e-8), 'Sample returned by streamspraydf.sample with with unit output is inconsistenty with the same sample sampled without unit output'
+    assert numpy.all(numpy.fabs(sam[2].to_value(units.km/units.s)/vo-sam_nou[2]) < 1e-8), 'Sample returned by sphericaldf.sample with with unit output is inconsistenty with the same sample sampled without unit output'
+    assert numpy.all(numpy.fabs(sam[3].to_value(units.kpc)/ro-sam_nou[3]) < 1e-8), 'Sample returned by sphericaldf.sample with with unit output is inconsistenty with the same sample sampled without unit output'
+    assert numpy.all(numpy.fabs(sam[4].to_value(units.km/units.s)/vo-sam_nou[4]) < 1e-8), 'Sample returned by sphericaldf.sample with with unit output is inconsistenty with the same sample sampled without unit output'
+    assert numpy.all(numpy.fabs(sam[5].to_value(units.rad)-sam_nou[5]) < 1e-8), 'Sample returned by sphericaldf.sample with with unit output is inconsistenty with the same sample sampled without unit output'
+    return None
+
 def test_kingdf_setup_wunits():
     from galpy.util import conversion
     from galpy.df import kingdf

@@ -316,7 +316,7 @@ class sphericaldf(df):
 
         OUTPUT:
 
-            List of samples. Either vector (R,vR,vT,z,vz,phi) or orbit.Orbit
+            List of samples. Either vector (R,vR,vT,z,vz,phi) or orbit.Orbit; the (R,vR,vT,z,vz,phi) is either in internal units or is a set of Quantities
 
         NOTES:
 
@@ -375,6 +375,13 @@ class sphericaldf(df):
                 o.turn_physical_on(ro=self._ro,vo=self._vo)
             return o
         else:
+            if conversion._APY_UNITS and self._voSet and self._roSet:
+                R= units.Quantity(R)*self._ro*units.kpc
+                vR= units.Quantity(vR)*self._vo*units.km/units.s
+                vT= units.Quantity(vT)*self._vo*units.km/units.s
+                z= units.Quantity(z)*self._ro*units.kpc
+                vz= units.Quantity(vz)*self._vo*units.km/units.s
+                phi= units.Quantity(phi)*units.rad
             return (R,vR,vT,z,vz,phi)
 
     def _sample_r(self,n=1):
