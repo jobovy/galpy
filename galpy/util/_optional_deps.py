@@ -5,6 +5,8 @@ from pkg_resources import parse_version
 from ..util.config import __config__
 _APY_UNITS= __config__.getboolean('astropy','astropy-units')
 _APY_LOADED= True
+_APY3= None
+_APY_GE_31= None
 try:
     from astropy import units, constants
 except ImportError:
