@@ -1,6 +1,6 @@
 import numpy
 from ..util import conversion
-from ..util.conversion import _APY_LOADED
+from ..util._optional_deps import _APY_LOADED
 from .linearPotential import linearPotential
 if _APY_LOADED:
     from astropy import units

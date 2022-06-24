@@ -5,14 +5,11 @@ from scipy import interpolate
 from .Potential import Potential
 from .interpRZPotential import scalarVectorDecorator, \
     zsymDecorator, calc_2dsplinecoeffs_c, interpRZPotential
-try: 
+from ..util._optional_deps import _PYNBODY_LOADED
+if _PYNBODY_LOADED:
     import pynbody
     from pynbody import gravity
     from pynbody.units import NoUnit
-except ImportError: #pragma: no cover
-    _PYNBODY_LOADED= False
-else:
-    _PYNBODY_LOADED= True    
 class SnapshotRZPotential(Potential):
     """Class that implements an axisymmetrized version of the potential of an N-body snapshot (requires `pynbody <http://pynbody.github.io>`__)
 

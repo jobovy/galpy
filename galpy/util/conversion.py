@@ -9,13 +9,8 @@ import warnings
 import copy
 import math as m
 from ..util.config import __config__
-_APY_UNITS= __config__.getboolean('astropy','astropy-units')
-_APY_LOADED= True
-try:
-    from astropy import units, constants
-except ImportError:
-    _APY_UNITS= False
-    _APY_LOADED= False
+from ..util._optional_deps import _APY_LOADED, _APY_UNITS
+if not _APY_LOADED:
     _G= 4.302*10.**-3. #pc / Msolar (km/s)^2
     _kmsInPcMyr= 1.0227121655399913
     _PCIN10p18CM= 3.08567758 #10^18 cm
@@ -23,6 +18,7 @@ except ImportError:
     _MSOLAR10p30KG= 1.9891 #10^30 kg
     _EVIN10m19J= 1.60217657 #10^-19 J
 else:
+    from astropy import units, constants
     _G= constants.G.to(units.pc/units.Msun*units.km**2/units.s**2).value
     _kmsInPcMyr= (units.km/units.s).to(units.pc/units.Myr)
     _PCIN10p18CM= units.pc.to(units.cm)/10.**18. #10^18 cm

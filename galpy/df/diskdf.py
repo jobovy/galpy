@@ -28,7 +28,8 @@ from ..orbit import Orbit
 from ..util.ars import ars
 from ..util import save_pickles, conversion
 from ..util.conversion import physical_conversion, \
-    potential_physical_input, _APY_UNITS, _APY_LOADED, surfdens_in_msolpc2
+    potential_physical_input, surfdens_in_msolpc2
+from ..util._optional_deps import _APY_LOADED, _APY_UNITS
 from ..potential import PowerSphericalPotential
 from ..actionAngle import actionAngleAdiabatic, actionAngleAxi
 from .df import df

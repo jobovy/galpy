@@ -5,7 +5,7 @@ from scipy import integrate
 from scipy.special import lpmn
 from scipy.special import gammaln, gamma
 from ..util import coords, conversion
-from ..util.conversion import _APY_LOADED
+from ..util._optional_deps import _APY_LOADED
 from .Potential import Potential
 if _APY_LOADED:
     from astropy import units

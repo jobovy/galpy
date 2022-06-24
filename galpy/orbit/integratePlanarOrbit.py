@@ -3,16 +3,6 @@ import ctypes.util
 from numpy.ctypeslib import ndpointer
 import numpy
 from scipy import integrate
-_TQDM_LOADED= True
-try:
-    import tqdm
-except ImportError: #pragma: no cover
-    _TQDM_LOADED= False
-_NUMBA_LOADED= True
-try:
-    from numba import types, cfunc
-except ImportError:
-    _NUMBA_LOADED= False
 from .. import potential
 from ..potential.planarPotential import planarPotentialFromFullPotential, \
     planarPotentialFromRZPotential
@@ -23,6 +13,11 @@ from ..util.multi import parallel_map
 from ..util.leung_dop853 import dop853
 from ..util import symplecticode
 from ..util import _load_extension_libs
+from ..util._optional_deps import _TQDM_LOADED, _NUMBA_LOADED
+if _TQDM_LOADED:
+    import tqdm
+if _NUMBA_LOADED:
+    from numba import types, cfunc
 
 _lib, _ext_loaded= _load_extension_libs.load_libgalpy()
 

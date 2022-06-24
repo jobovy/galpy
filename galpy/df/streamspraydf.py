@@ -5,10 +5,9 @@ from ..potential import flatten as flatten_potential
 from ..potential import rtide, evaluateRforces
 from ..util import _rotate_to_arbitrary_vector
 from ..util import coords, conversion
-_APY_LOADED= conversion._APY_LOADED
+from ..util._optional_deps import _APY_LOADED, _APY_UNITS
 if _APY_LOADED:
     from astropy import units
-_APY_UNITS= conversion._APY_UNITS
 class streamspraydf(df):
     def __init__(self,progenitor_mass,progenitor=None,
                  pot=None,rtpot=None,

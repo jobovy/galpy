@@ -8,7 +8,8 @@ import numpy
 from ..util import config
 from ..util import conversion
 from ..util.conversion import physical_conversion, \
-    potential_physical_input, physical_compatible, _APY_LOADED
+    potential_physical_input, physical_compatible
+from ..util._optional_deps import _APY_LOADED
 if _APY_LOADED:
     from astropy import units
 class Force:

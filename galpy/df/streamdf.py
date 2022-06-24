@@ -17,10 +17,11 @@ from ..orbit import Orbit
 from .df import df
 from ..util import coords, fast_cholesky_invert, \
     conversion, multi, plot, stable_cho_factor, ars
-from ..util.conversion import physical_conversion, _APY_UNITS, _APY_LOADED
+from ..util.conversion import physical_conversion
 from ..actionAngle.actionAngleIsochroneApprox import dePeriod
 from ..potential import flatten as flatten_potential
 from ..util import galpyWarning
+from ..util._optional_deps import _APY_LOADED, _APY_UNITS
 if _APY_LOADED:
     from astropy import units
 _INTERPDURINGSETUP= True

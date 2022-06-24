@@ -9,9 +9,12 @@
 import numpy
 from scipy import special, optimize
 from ..util import conversion
-from .Potential import Potential, kms_to_kpcGyrDecorator, _APY_LOADED
+from .Potential import Potential, kms_to_kpcGyrDecorator
+from ..util._optional_deps import _APY_LOADED, _JAX_LOADED
 if _APY_LOADED:
     from astropy import units
+if _JAX_LOADED:
+   import jax.numpy as jnp
 class TwoPowerSphericalPotential(Potential):
     """Class that implements spherical potentials that are derived from 
     two-power density models
@@ -1423,9 +1426,7 @@ class NFWPotential(TwoPowerSphericalPotential):
         HISTORY:
            2021-02-14 - Written - Bovy (UofT)
         """
-        try:
-            import jax.numpy as jnp
-        except ImportError: # pragma: no cover
+        if not _JAX_LOADED: # pragma: no cover
             raise ImportError("Making use of _rforce_jax function requires the google/jax library")
         return self._amp*(1./r/(self.a+r)-jnp.log(1.+r/self.a)/r**2.)
 
