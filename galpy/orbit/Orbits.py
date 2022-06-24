@@ -25,7 +25,9 @@ from ..util.coords import _K
 from ..util import coords
 from ..util import plot
 from ..util import conversion
-from ..util.conversion import _APY_LOADED
+from ..util._optional_deps import (_APY_LOADED, _APY_UNITS, _APY_COORD_LOADED, 
+                                   _ASTROQUERY_LOADED, _APY3, _APY_GE_31,
+                                   _NUMEXPR_LOADED)
 from ..potential import toPlanarPotential, PotentialError, evaluatePotentials,\
     evaluateplanarPotentials, evaluatelinearPotentials
 from ..potential import flatten as flatten_potential
@@ -38,32 +40,18 @@ from .integratePlanarOrbit import integratePlanarOrbit_c, \
     integratePlanarOrbit, integratePlanarOrbit_dxdv
 from .integrateFullOrbit import integrateFullOrbit_c, integrateFullOrbit
 ext_loaded= _ext_loaded
-_APY_COORD_LOADED= True
-try:
-    from astropy.coordinates import SkyCoord
-except ImportError:
-    SkyCoord = None
-    _APY_COORD_LOADED= False
 if _APY_LOADED:
     from astropy import units
 # Separate like this, because coordinates don't work in Pyodide astropy (2/25/22)
 if _APY_COORD_LOADED:
     from astropy import coordinates
-    import astropy
-    _APY3= parse_version(astropy.__version__) > parse_version('3')
-    _APY_GE_31= parse_version(astropy.__version__) > parse_version('3.0.5')
-_ASTROQUERY_LOADED= True
-try:
+    from astropy.coordinates import SkyCoord
+if _ASTROQUERY_LOADED:
     from astroquery.simbad import Simbad
-except ImportError:
-    _ASTROQUERY_LOADED= False
 from ..util import config
-_APY_UNITS= config.__config__.getboolean('astropy','astropy-units')
 if _APY_LOADED:
     vxvv_units= [units.kpc,units.km/units.s,units.km/units.s,
                  units.kpc,units.km/units.s,units.rad]
-else:
-    _APY_UNITS= False
 # Set default numcores for integrate w/ parallel map using OMP_NUM_THREADS
 try:
     _NUMCORES= int(os.environ['OMP_NUM_THREADS'])
@@ -3985,7 +3973,7 @@ class Orbit:
         _check_voSet(self,kwargs,'vra')
         kwargs['dontreshape']= True
         dist= self.dist(*args,**kwargs)
-        if _APY_UNITS and isinstance(dist,units.Quantity):
+        if conversion._APY_UNITS and isinstance(dist,units.Quantity):
             result= units.Quantity(dist.to(units.kpc).value*_K*
                                    self.pmra(*args,**kwargs)\
                                        .to(units.mas/units.yr).value,
@@ -4035,7 +4023,7 @@ class Orbit:
         _check_voSet(self,kwargs,'vdec')
         kwargs['dontreshape']= True
         dist= self.dist(*args,**kwargs)
-        if _APY_UNITS and isinstance(dist,units.Quantity):
+        if conversion._APY_UNITS and isinstance(dist,units.Quantity):
             result= units.Quantity(dist.to(units.kpc).value*_K*
                                    self.pmdec(*args,**kwargs)\
                                        .to(units.mas/units.yr).value,
@@ -4085,7 +4073,7 @@ class Orbit:
         _check_voSet(self,kwargs,'vll')
         kwargs['dontreshape']= True
         dist= self.dist(*args,**kwargs)
-        if _APY_UNITS and isinstance(dist,units.Quantity):
+        if conversion._APY_UNITS and isinstance(dist,units.Quantity):
             result= units.Quantity(dist.to(units.kpc).value*_K*
                                    self.pmll(*args,**kwargs)\
                                        .to(units.mas/units.yr).value,
@@ -4135,7 +4123,7 @@ class Orbit:
         _check_voSet(self,kwargs,'vbb')
         kwargs['dontreshape']= True
         dist= self.dist(*args,**kwargs)
-        if _APY_UNITS and isinstance(dist,units.Quantity):
+        if conversion._APY_UNITS and isinstance(dist,units.Quantity):
             result= units.Quantity(dist.to(units.kpc).value*_K*
                                    self.pmbb(*args,**kwargs)\
                                        .to(units.mas/units.yr).value,
@@ -4749,9 +4737,9 @@ class Orbit:
         try:
             return _eval(quant)
         except AttributeError: pass
-        try:
+        if _NUMEXPR_LOADED:
             import numexpr
-        except ImportError: #pragma: no cover
+        else: #pragma: no cover
             raise ImportError('Parsing the quantity to be plotted failed; if you are trying to plot an expression, please make sure to install numexpr first')
         # Figure out the variables in the expression to be computed to plot
         try:

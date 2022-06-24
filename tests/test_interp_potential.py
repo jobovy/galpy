@@ -462,10 +462,10 @@ def test_interpolation_potential_force_use_c():
                                        interpRforce=True,interpzforce=True,
                                        zsym=True,
                                        use_c=True)
-    assert numpy.all(numpy.fabs(rzpot._rforceGrid-rzpot_c._rforceGrid) < 10.**-14.), \
-        'Potential interpolation grid of Rforce  calculated with use_c does not agree with that calculated in python'
-    assert numpy.all(numpy.fabs(rzpot._zforceGrid-rzpot_c._zforceGrid) < 10.**-14.), \
-        'Potential interpolation grid of zforce  calculated with use_c does not agree with that calculated in python'
+    assert numpy.all(numpy.fabs(rzpot._rforceGrid-rzpot_c._rforceGrid) < 10.**-13.), \
+        'Potential interpolation grid of Rforce  calculated with use_c does not agree with that calculated in python, max diff = {}'.format(numpy.amax(numpy.fabs(rzpot._rforceGrid-rzpot_c._rforceGrid)))
+    assert numpy.all(numpy.fabs(rzpot._zforceGrid-rzpot_c._zforceGrid) < 10.**-13.), \
+        'Potential interpolation grid of zforce  calculated with use_c does not agree with that calculated in python, max diff = {}'.format(numpy.amax(numpy.fabs(rzpot._zforceGrid-rzpot_c._zforceGrid)))
     return None
 
 # Test evaluation outside the grid

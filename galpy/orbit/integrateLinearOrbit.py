@@ -6,14 +6,14 @@ from scipy import integrate
 from .. import potential
 from ..util.multi import parallel_map
 from .integratePlanarOrbit import (_parse_integrator, _parse_tol,
-                                   _prep_tfuncs, _TQDM_LOADED)
+                                   _prep_tfuncs)
 from .integrateFullOrbit import _parse_pot as _parse_pot_full
 from ..potential.linearPotential import _evaluatelinearForces
 from ..potential.verticalPotential import verticalPotential
 from ..util.leung_dop853 import dop853
 from ..util import symplecticode
 from ..util import _load_extension_libs
-
+from ..util._optional_deps import _TQDM_LOADED
 if _TQDM_LOADED:
     import tqdm
 

@@ -10,11 +10,12 @@ from ..potential import IsochronePotential
 from ..potential import flatten as flatten_potential
 from ..orbit import Orbit
 from .df import df
-from ..util import galpyWarning
+from ..util import galpyWarning, conversion
 from ..util.conversion import physical_conversion, \
-    potential_physical_input, actionAngle_physical_input, _APY_UNITS, \
+    potential_physical_input, actionAngle_physical_input, \
     physical_compatible, parse_length, parse_velocity, parse_angmom, \
-    parse_length_kpc, parse_velocity_kms, _APY_LOADED
+    parse_length_kpc, parse_velocity_kms
+from ..util._optional_deps import _APY_LOADED, _APY_UNITS    
 if _APY_LOADED:
     from astropy import units
 _NSIGMA=4

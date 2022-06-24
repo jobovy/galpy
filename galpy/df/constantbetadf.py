@@ -3,8 +3,11 @@
 import numpy
 from scipy import interpolate, integrate, special
 from ..util import conversion
+from ..util._optional_deps import _JAX_LOADED
 from ..potential.Potential import _evaluatePotentials
 from .sphericaldf import anisotropicsphericaldf, sphericaldf
+if _JAX_LOADED:
+    from jax import grad, vmap    
 
 # This is the general constantbeta superclass, implementation of general
 # formula can be found following this class
@@ -137,9 +140,7 @@ class constantbetadf(_constantbetadf):
            2021-02-14 - Written - Bovy (UofT)
 
         """
-        try:
-            from jax import grad, vmap
-        except ImportError: # pragma: no cover
+        if not _JAX_LOADED: # pragma: no cover
             raise ImportError("galpy.df.constantbetadf requires the google/jax library")
         # Parse twobeta
         if not twobeta is None:

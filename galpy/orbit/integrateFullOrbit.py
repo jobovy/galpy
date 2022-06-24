@@ -9,13 +9,12 @@ from ..util import galpyWarning
 from ..potential.Potential import _evaluateRforces, _evaluatezforces,\
     _evaluatephitorques
 from .integratePlanarOrbit import (_parse_integrator, _parse_tol,
-                                   _parse_scf_pot, _prep_tfuncs,
-                                   _TQDM_LOADED)
+                                   _parse_scf_pot, _prep_tfuncs)
 from ..util.multi import parallel_map
 from ..util.leung_dop853 import dop853
 from ..util import symplecticode
 from ..util import _load_extension_libs
-
+from ..util._optional_deps import _TQDM_LOADED
 if _TQDM_LOADED:
     import tqdm
 

@@ -1,11 +1,6 @@
 import os, os.path
 import copy
 import configparser
-_APY_LOADED= True
-try:
-    from astropy import units
-except ImportError:
-    _APY_LOADED= False
 # The default configuration
 default_configuration= {'normalization': {'ro':'8.',
                                          'vo':'220.'},
@@ -75,6 +70,9 @@ def set_ro(ro):
     HISTORY:
        2016-01-05 - Written - Bovy (UofT)
     """
+    from ..util._optional_deps import _APY_LOADED
+    if _APY_LOADED:
+        from astropy import units
     if _APY_LOADED and isinstance(ro,units.Quantity):
         ro= ro.to(units.kpc).value
     __config__.set('normalization','ro',str(ro))
@@ -92,6 +90,9 @@ def set_vo(vo):
     HISTORY:
        2016-01-05 - Written - Bovy (UofT)
     """
+    from ..util._optional_deps import _APY_LOADED
+    if _APY_LOADED:
+        from astropy import units
     if _APY_LOADED and isinstance(vo,units.Quantity):
         vo= vo.to(units.km/units.s).value
     __config__.set('normalization','vo',str(vo))

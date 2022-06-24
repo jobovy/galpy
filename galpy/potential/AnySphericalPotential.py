@@ -4,7 +4,7 @@
 import numpy
 from scipy import integrate
 from .SphericalPotential import SphericalPotential
-from .Force import _APY_LOADED
+from ..util._optional_deps import _APY_LOADED
 from ..util import conversion
 if _APY_LOADED:
     from astropy import units

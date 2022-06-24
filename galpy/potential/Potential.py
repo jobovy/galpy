@@ -13,7 +13,6 @@
 #    for epicycle frequency
 #      function _R2deriv(self,R,z,phi) return d2 Phi dR2
 ###############################################################################
-
 import os, os.path
 import pickle
 from functools import wraps
@@ -25,10 +24,11 @@ from ..util.conversion import velocity_in_kpcGyr, \
     physical_conversion, potential_physical_input, freq_in_Gyr, \
     get_physical
 from ..util import galpyWarning
+from ..util._optional_deps import _APY_LOADED
 from .plotRotcurve import plotRotcurve, vcirc
 from .plotEscapecurve import _INF, plotEscapecurve
 from .DissipativeForce import DissipativeForce, _isDissipative
-from .Force import Force, _APY_LOADED
+from .Force import Force
 if _APY_LOADED:
     from astropy import units
 def check_potential_inputs_not_arrays(func):
