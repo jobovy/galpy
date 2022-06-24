@@ -410,7 +410,7 @@ class TestSpiralArmsPotential(unittest.TestCase):
     def test_phi2deriv(self):
         """Test phi2deriv against a numerical derivative -d(phitorque) / d(phi)."""
         dx = 1e-8
-        rtol = rtol = _NUMPY_1_22 * 3e-7 + (1-_NUMPY_1_22) * 1e-7
+        rtol = rtol = _NUMPY_1_23 * 3e-7 + (1-_NUMPY_1_23) * 1e-7
 
         pot = spiral()
         R, z = .3, 0
@@ -515,7 +515,7 @@ class TestSpiralArmsPotential(unittest.TestCase):
     def test_Rzderiv(self):
         """Test Rzderiv against a numerical derivative."""
         dx = 1e-8
-        rtol = _NUMPY_1_22 * 3e-6 + (1-_NUMPY_1_22) * 1e-6
+        rtol = _NUMPY_1_23 * 3e-6 + (1-_NUMPY_1_23) * 1e-6
 
         pot = spiral()
         R, z, phi, t = 1, 0, 0, 0
