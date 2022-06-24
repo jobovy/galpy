@@ -455,9 +455,9 @@ class TestSpiralArmsPotential(unittest.TestCase):
         assert_allclose(pot.phi2deriv(R, z, 3*pi/2), -deriv(lambda x: pot.phitorque(R, z, x), 3*pi/2, dx=dx), rtol=rtol)
         R, z = 3.3, .7
         assert_allclose(pot.phi2deriv(R, z, 0),      -deriv(lambda x: pot.phitorque(R, z, x),      0,   dx=dx), rtol=rtol)
-        assert_allclose(pot.phi2deriv(R, z, pi/2.1), -deriv(lambda x: pot.phitorque(R, z, x),   pi/2.1, dx=dx), rtol=rtol)
+        assert_allclose(pot.phi2deriv(R, z, pi/2.1), -deriv(lambda x: pot.phitorque(R, z, x),   pi/2.1, dx=dx), rtol=rtol*3)
         assert_allclose(pot.phi2deriv(R, z, pi),     -deriv(lambda x: pot.phitorque(R, z, x),     pi,   dx=dx), rtol=rtol)
-        assert_allclose(pot.phi2deriv(R, z, 3*pi/2), -deriv(lambda x: pot.phitorque(R, z, x), 3*pi/2,   dx=dx), rtol=rtol)
+        assert_allclose(pot.phi2deriv(R, z, 3*pi/2), -deriv(lambda x: pot.phitorque(R, z, x), 3*pi/2,   dx=dx), rtol=rtol*3)
 
         pot = spiral(amp=11, N=7, alpha=.777, r_ref=7, phi_ref=.7, Cs=[8./(3.*pi), 0.5, 8./(15.*pi)])
         R, z = .7, 0
