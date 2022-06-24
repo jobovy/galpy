@@ -3973,7 +3973,7 @@ class Orbit:
         _check_voSet(self,kwargs,'vra')
         kwargs['dontreshape']= True
         dist= self.dist(*args,**kwargs)
-        if conversion._APY_UNITS and isinstance(dist,units.Quantity):
+        if _APY_UNITS and isinstance(dist,units.Quantity):
             result= units.Quantity(dist.to(units.kpc).value*_K*
                                    self.pmra(*args,**kwargs)\
                                        .to(units.mas/units.yr).value,
@@ -4023,7 +4023,7 @@ class Orbit:
         _check_voSet(self,kwargs,'vdec')
         kwargs['dontreshape']= True
         dist= self.dist(*args,**kwargs)
-        if conversion._APY_UNITS and isinstance(dist,units.Quantity):
+        if _APY_UNITS and isinstance(dist,units.Quantity):
             result= units.Quantity(dist.to(units.kpc).value*_K*
                                    self.pmdec(*args,**kwargs)\
                                        .to(units.mas/units.yr).value,
@@ -4073,7 +4073,7 @@ class Orbit:
         _check_voSet(self,kwargs,'vll')
         kwargs['dontreshape']= True
         dist= self.dist(*args,**kwargs)
-        if conversion._APY_UNITS and isinstance(dist,units.Quantity):
+        if _APY_UNITS and isinstance(dist,units.Quantity):
             result= units.Quantity(dist.to(units.kpc).value*_K*
                                    self.pmll(*args,**kwargs)\
                                        .to(units.mas/units.yr).value,
@@ -4123,7 +4123,7 @@ class Orbit:
         _check_voSet(self,kwargs,'vbb')
         kwargs['dontreshape']= True
         dist= self.dist(*args,**kwargs)
-        if conversion._APY_UNITS and isinstance(dist,units.Quantity):
+        if _APY_UNITS and isinstance(dist,units.Quantity):
             result= units.Quantity(dist.to(units.kpc).value*_K*
                                    self.pmbb(*args,**kwargs)\
                                        .to(units.mas/units.yr).value,

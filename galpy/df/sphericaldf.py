@@ -28,7 +28,8 @@ from ..potential.SCFPotential import _xiToR, _RToxi
 from ..orbit import Orbit
 from ..util import conversion, galpyWarning
 from ..util.conversion import physical_conversion
-if conversion._APY_LOADED:
+from ..util._optional_deps import _APY_LOADED, _APY_UNITS
+if _APY_LOADED:
     from astropy import units
 
 class sphericaldf(df):
@@ -189,10 +190,10 @@ class sphericaldf(df):
         vo= conversion.parse_velocity_kms(vo)
         if use_physical and not vo is None and not ro is None:
             fac= vo**(n+m)/ro**3
-            if conversion._APY_UNITS:
+            if _APY_UNITS:
                 u= 1/units.kpc**3*(units.km/units.s)**(n+m)
             out= self._vmomentdensity(r,n,m)
-            if conversion._APY_UNITS:
+            if _APY_UNITS:
                 return units.Quantity(out*fac,unit=u)
             else:
                 return out*fac
@@ -375,7 +376,7 @@ class sphericaldf(df):
                 o.turn_physical_on(ro=self._ro,vo=self._vo)
             return o
         else:
-            if conversion._APY_UNITS and self._voSet and self._roSet:
+            if _APY_UNITS and self._voSet and self._roSet:
                 R= units.Quantity(R)*self._ro*units.kpc
                 vR= units.Quantity(vR)*self._vo*units.km/units.s
                 vT= units.Quantity(vT)*self._vo*units.km/units.s
