@@ -11,8 +11,11 @@
 # All configuration values have a default; values that are commented out
 # serve to show the default.
 
-import sys, os
+import sys, os, re
+import importlib
 import datetime
+import inspect
+import subprocess
 
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
@@ -24,7 +27,46 @@ import datetime
 # Add any Sphinx extension module names here, as strings. They can be extensions
 # coming with Sphinx (named 'sphinx.ext.*') or your custom ones.
 extensions = ['sphinx.ext.autodoc', 'sphinx.ext.mathjax','sphinx.ext.ifconfig',
-              'sphinx.ext.viewcode']
+              'sphinx.ext.linkcode']
+
+# from disnake via:
+# https://twitter.com/readthedocs/status/1541830907082022913?s=20&t=eJ293FfjILT7sIxEyz834w
+_galpy_module_path = os.path.dirname(importlib.util.find_spec("galpy").origin)
+github_repo = "https://github.com/jobovy/galpy"
+# Current git reference. Uses branch/tag name if found, otherwise uses commit hash
+def git(*args):
+    return subprocess.check_output(["git", *args]).strip().decode()
+git_ref= None
+try:
+    git_ref= git("name-rev", "--name-only", "--no-undefined", "HEAD")
+    git_ref= re.sub(r"^(remotes/[^/]+|tags)/", "", git_ref)
+except Exception:
+    pass
+# (if no name found or relative ref, use commit hash instead)
+if not git_ref or re.search(r"[\^~]", git_ref):
+    try:
+        git_ref = git("rev-parse", "HEAD")
+    except Exception:
+        git_ref = "main"
+def linkcode_resolve(domain, info):
+    if domain != "py":
+        return None
+    try:
+        obj= sys.modules[info["module"]]
+        for part in info["fullname"].split("."):
+            obj= getattr(obj, part)
+        obj= inspect.unwrap(obj)
+
+        if isinstance(obj, property):
+            obj= inspect.unwrap(obj.fget)
+
+        path= os.path.relpath(inspect.getsourcefile(obj),start=_galpy_module_path)
+        src, lineno = inspect.getsourcelines(obj)
+    except Exception:
+        return None
+
+    path = f"{path}#L{lineno}-L{lineno + len(src) - 1}"
+    return f"{github_repo}/blob/{git_ref}/galpy/{path}"
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
