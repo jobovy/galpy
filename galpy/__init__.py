@@ -1,4 +1,4 @@
-__version__ = "1.7.3.dev0"
+__version__ = "1.8.0"
 # Check whether a new version is available
 import sys
 import datetime
