@@ -1,4 +1,4 @@
-v1.7.3 (XXXX-XX-XX)
+v1.8.0 (2022-07-04)
 ===================
 
 - Added the particle-spray model galpy.df.streamspraydf that was 
@@ -22,7 +22,7 @@ v1.7.3 (XXXX-XX-XX)
   Quantity inputs and outputs.
 
 - Renamed phiforce --> phitorque everywhere (including
-  potential.evaluatephiforces and potential.evaluateplanarphiforces), such 
+  potential.evaluatephiforces and potential.evaluateplanarphiforces), such that
   the method's name actually reflect what it returns (a torque, not a force). 
   phiforce will be fully removed in version 1.9 and may later be re-used 
   for the actual phi component of the force, so switch to the new name now.
