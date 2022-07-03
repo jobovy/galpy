@@ -295,8 +295,8 @@ an array with shape ``(6,5,ntimes)`` here.
 
 .. _orbfromname:
 
-Initialization from an object's name
-****************************************
+**UPDATED IN v1.8** Initialization from an object's name
+*********************************************************
 
 A convenience method, ``Orbit.from_name``, is also available to initialize
 orbits from the name of an object. For example, for the star `Lacaille 8760 <https://en.wikipedia.org/wiki/Lacaille_8760>`__:
@@ -354,17 +354,15 @@ The ``Orbit.from_name`` method also allows you to load some
 collections of objects in a simple manner. Currently, three
 collections are supported: 'MW globular clusters', 'MW satellite
 galaxies', and 'solar system'. Specifying 'MW globular clusters' loads
-all of the Milky-Way globular clusters with data from Gaia DR2 (using the
-`Vasiliev 2019
-<https://ui.adsabs.harvard.edu/abs/2019MNRAS.484.2832V>`__ catalog):
+all of the Milky-Way globular clusters with data from Gaia EDR3:
 
 >>> o= Orbit.from_name('MW globular clusters')
 >>> print(len(o))
-# 150
+# 161
 >>> print(o.name)
-# ['NGC5286', 'Terzan12', 'Arp2', 'NGC5024', ... ]
+# ['NGC5286' 'Terzan12' 'Arp2', ... ]
 >>> print(o.r())
-# [  8.86999028   3.33270877  21.42173795  18.41411889, ...]
+# [  8.4418065    2.99042499  21.55042257 ...]
 
 It is then easy to, for example, integrate the orbits of all Milky-Way globular clusters in ``MWPotential2014`` and plot them in 3D:
 
@@ -378,27 +376,31 @@ It is then easy to, for example, integrate the orbits of all Milky-Way globular 
 .. image:: images/orbit-fromname-mwglobsorbits.png
    :scale: 65 %
 
-Similarly, 'MW satellite galaxies' loads all of the Milky-Way satellite galaxies from `Fritz et al. (2018) <https://ui.adsabs.harvard.edu/abs/2018A%26A...619A.103F>`__:
+Similarly, 'MW satellite galaxies' loads all of the Milky-Way satellite galaxies from `Pace et al. (2022) <https://ui.adsabs.harvard.edu/abs/2022arXiv220505699P/abstract>`__:
 
 >>> o= Orbit.from_name('MW satellite galaxies')
 >>> print(len(o))
-# 40
+# 50
 >>> print(o.name)
-# ['AquariusII', 'BootesI', 'BootesII', 'CanesVenaticiI', 'CanesVenaticiII', 'Carina',
-   'CarinaII', 'CarinaIII', 'ComaBerenices', 'CraterII', 'Draco', 'DracoII', 'EridanusII', 
-   'Fornax', 'GrusI', 'Hercules', 'HorologiumI', 'HydraII', 'HydrusI', 'LeoI', 'LeoII', 
-   'LeoIV', 'LeoV', 'LMC', 'PhoenixI', 'PiscesII', 'ReticulumII', 'Sgr', 'Sculptor',
-   'Segue1', 'Segue2', 'SMC', 'Sextans', 'TriangulumII', 'TucanaII', 'TucanaIII',
-   'UrsaMajorI', 'UrsaMajorII', 'UrsaMinor', 'Willman1']
+# ['AntliaII' 'AquariusII' 'BootesI' 'BootesII' 'BootesIII' 'CanesVenaticiI'
+ 'CanesVenaticiII' 'Carina' 'CarinaII' 'CarinaIII' 'ColumbaI'
+ 'ComaBerenices' 'CraterII' 'Draco' 'DracoII' 'EridanusII' 'Fornax'
+ 'GrusI' 'GrusII' 'Hercules' 'HorologiumI' 'HydraII' 'HydrusI' 'LMC'
+ 'LeoI' 'LeoII' 'LeoIV' 'LeoV' 'PegasusIII' 'PhoenixI' 'PhoenixII'
+ 'PiscesII' 'ReticulumII' 'ReticulumIII' 'SMC' 'SagittariusII' 'Sculptor'
+ 'Segue1' 'Segue2' 'Sextans' 'Sgr' 'TriangulumII' 'TucanaII' 'TucanaIII'
+ 'TucanaIV' 'TucanaV' 'UrsaMajorI' 'UrsaMajorII' 'UrsaMinor' 'Willman1']
 >>> print(o.r())
-# [105.11517882  64.02897066  39.72074174 210.66938806 160.60529059
- 105.36807259  37.01725917  28.92738515  43.43084545 111.15279646
-  79.06498854  23.70062857 364.87901007 141.29780146 116.28700298
- 128.81345239  83.47228672 147.90512269  25.68800918 272.93146472
- 227.39435987 154.7574384  173.77516411  49.60813235 418.76813979
- 181.9540996   32.92030664  19.06561359  84.81046251  27.67609888
-  42.13122436  60.28760354  88.86197382  34.58139798  53.79147743
-  21.05413655 101.85224099  40.70060809  77.72601419  42.65853777] kpc
+# [132.93721433 105.41442453  63.66115037  39.83901891  45.52928256
+ 209.7700823  160.60534628 107.16399152  38.24845108  28.9274277
+ 187.46809402  43.16546984 116.44003784  75.80593376  23.71949352
+ 367.79884477 149.18728196 123.27421442  50.52704455 125.11664692
+  79.292941   148.20468685  25.74545627  49.60813235 261.93577755
+ 235.49080095 151.95997497 169.77910104 213.08771512 418.76813979
+  81.18196715 182.15380106  32.72475876  91.96956471  60.28760354
+  63.35088903  83.99141137  27.77404178  42.42833236  95.44075955
+  19.06561359  34.54212398  54.28214129  21.05199179  44.4906331
+  51.92586773 101.87656784  40.73034335  78.06428801  42.6385771 ] kpc
 
 and we can integrate and plot them in 3D as above:
 
@@ -507,8 +509,8 @@ this can be overwritten). A simple example is
 
 .. _orbintegration-noninertial:
 
-Orbit integration in non-inertial frames
------------------------------------------
+**NEW in v1.8** Orbit integration in non-inertial frames
+---------------------------------------------------------
 
 The default assumption in ``galpy`` is that the frame that an orbit is 
 integrated in is an inertial one. However, ``galpy`` also supports 
@@ -1286,7 +1288,7 @@ the Milky Way.
 
 .. _orbit-example-barycentric-acceleration-LMC:
 
-Example: Including the Milky Way center's barycentric acceleration due to the Large Magellanic Cloud in orbit integrations
+**NEW in v1.8** Example: Including the Milky Way center's barycentric acceleration due to the Large Magellanic Cloud in orbit integrations
 ---------------------------------------------------------------------------------------------------------------------------
 
 Observations over the last few decades have revealed that the Large Magellanic 

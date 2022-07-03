@@ -28,8 +28,8 @@ General instance routines for all df classes
 
 .. _api_sphericaldfs:
 
-**NEW in v1.7** Spherical distribution functions
-------------------------------------------------
+Spherical distribution functions
+---------------------------------
 
 Isotropic and anisotropic distribution functions for spherical
 systems. Documentation of these is limited at this point, but

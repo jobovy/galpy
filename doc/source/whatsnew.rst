@@ -5,6 +5,102 @@ This page gives some of the key improvements in each galpy
 version. See the ``HISTORY.txt`` file in the galpy source for full
 details on what is new and different in each version.
 
+v1.8
++++++
+
+Version 1.8 contains two big new features and a variety of smaller 
+improvements described below. In addition to this, version 1.8 is also the 
+first version to fully drop Python 2.7 support (and, thus, all Python 2 
+support; note that Python 2 was already almost not supported before). Version 
+1.8 also represents the start of a new release cycle, in which we will attempt 
+to release a new major version 1.x every year around July 1 and have two minor 
+version releases at roughly four-month intervals in between (so around 
+November 1 and March 1). Major releases will include this overview of what's 
+new since the last major version release.
+
+Major new features:
+
+* ``galpy`` now allows for a very general set of fictitious forces that arise 
+  when working in a non-inertial reference frame through the new potential class 
+  :ref:`NonInertialFrameForce <noninertialframe_potential>`. The main driver for 
+  this new addition is to include the effect of the Milky Way's barycenter 
+  acceleration due to the effect of the Large Magellanic Cloud on the orbits of 
+  stars, satellite galaxies, and star clusters in the Milky Way. How this can be 
+  done exactly is explained in the 
+  :ref:`orbit-example-barycentric-acceleration-LMC` section. But a much more 
+  general set of non-inertial reference frames are supported: any combination of 
+  barycenter acceleration and arbitrary rotations. See 
+  :ref:`orbintegration-noninertial` for some more info.
+
+* A particle-spray technique for generating mock stellar streams has been added 
+  as :ref:`galpy.df.streamspraydf <api_streamspraydf>`. This roughly follows the 
+  `Fardal et al. (2015) <https://ui.adsabs.harvard.edu/abs/2015MNRAS.452..301F/abstract>`__ 
+  implementation, with some notable additions (e.g., the ability to generate a 
+  stream around the center of an orbiting satellite). The full ``galpy`` 
+  implementation is described in 
+  `Qian et al. (2022) <https://ui.adsabs.harvard.edu/abs/2022MNRAS.511.2339Q/abstract>`__.
+
+Other user-facing improvements and additions are
+
+* Potential classes, methods, and functions:
+
+  *  Renamed ``phiforce`` --> ``phitorque`` everywhere (including
+     ``potential.evaluatephiforces`` and ``potential.evaluateplanarphiforces``), such 
+     that the method's name actually reflect what it returns (a torque, not a force). 
+     ``phiforce`` will be fully removed in version 1.9 and may later be re-used 
+     for the actual phi component of the force, so switch to the new name now.
+  
+  * Added ``SCFPotential.from_density`` to directly initialize an ``SCFPotential`` 
+    based on a density function. Allows for full correct and consistent handling 
+    of Quantity inputs and outputs.
+  
+  * Added ``TimeDependentAmplitudeWrapperPotential`` for adding arbitrary 
+    time-dependence to the amplitude of any Potential/Force.
+
+  * Added ``NullPotential``, a Potential with a constant value (useful, e.g.. 
+    to adjust the zero point of a potential, or for testing code in the absence 
+    of forces).
+
+  * Added Potential methods/functions ``rE`` and ``LcE`` to compute the radius
+    and angular momentum of an orbit with energy E. Also added these 
+    as Orbit methods for efficient calculation for collections of 
+    orbits.
+
+  * Added the ``offset=`` keyword to ``RotateAndTiltWrapperPotential``, which 
+    allows a Potential/Force instance to also be offset from (0,0,0) in 
+    addition to being rotated or tilted.  
+
+* New and improved ``Orbit`` methods:
+
+  * Added a progress bar when integrating multiple objects in a single 
+    orbit instance (requires ``tqdm``).
+  
+  * Added ``rE`` and ``LcE`` for the efficient computation of the radius
+    and angular momentum of an orbit with energy E (this is efficient for 
+    many orbits in a single ``Orbit`` instance; see above).
+
+  * Updated existing and added new phase-space positions for MW satellite 
+    galaxies from `Pace et al. (2022) <https://ui.adsabs.harvard.edu/abs/2022arXiv220505699P/abstract>`__.
+
+  * Updated existing and added new phase-space positions for MW globular 
+    clusters from `Baumgardt et al. (2019) <https://ui.adsabs.harvard.edu/abs/2019MNRAS.482.5138B/abstract>`__, 
+    `Vasiliev & Baumgardt (2021) <https://ui.adsabs.harvard.edu/abs/2021MNRAS.505.5978V/abstract>`__, and 
+    `Baumgardt & Vasiliev (2021) <https://ui.adsabs.harvard.edu/abs/2021MNRAS.505.5957B/abstract>`__.
+
+  * Allow actions to be computed for Orbit instances with actionAngle
+    methods that don't compute frequencies.
+
+* Updated spherical distribution functions:
+
+  * Added necessary derivatives to allow spherical DFs to be constructed using 
+    PowerSphericalPotentialwCutoff and PlummerPotential.
+
+Finally, ``galpy`` can now also be compiled to WebAssembly using the 
+``emscripten`` compiler, as part of the ``pyodide`` project. This allows for 
+``galpy`` use in the browser without installation at near-C speeds. See 
+:ref:`install_pyodide` for more info. This, for example, powers the new "Try 
+``galpy``" interactive session on this documentation's home page.
+
 v1.7
 +++++
 
@@ -243,8 +339,11 @@ This version will be the last to support Python 2.7 as this version of Python is
 
   * Add Python and C implementation of Dormand-Prince 8(5,3) integrator.
 
-v1.4
+Pre-v1.5
 +++++
+
+v1.4
+----
 
 * Added dynamical friction as the `ChandrasekharDynamicalFrictionForce
   <reference/potentialchandrasekhardynfric.html>`__ class, an
@@ -299,7 +398,7 @@ v1.4
 * Support for compilation on Windows with MSVC.
 
 v1.3
-+++++
+----
 
 * A fast and precise method for approximating an orbit's eccentricity,
   peri- and apocenter radii, and maximum height above the midplane
@@ -348,7 +447,7 @@ v1.3
 
 
 v1.2
-+++++
+----
 
 * Full support for providing inputs to all initializations, methods,
   and functions as `astropy Quantity
@@ -404,7 +503,7 @@ v1.2
   general epochs.
 
 v1.1
-+++++
+----
 
 * Full support for Python 3.
 

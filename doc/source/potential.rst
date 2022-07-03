@@ -378,8 +378,8 @@ The ``None`` here means that there is no inner Lindblad resonance, the
 the :ref:`Hercules stream <hercules>` in this documentation).
 
 
-**UPDATED IN v1.7** Using interpolations of potentials
-------------------------------------------------------
+Using interpolations of potentials
+-----------------------------------
 
 ``galpy`` contains various ways to set up interpolated versions of
 potentials that can be used to generate interpolations of potentials
@@ -430,7 +430,7 @@ you find any problems with this.
 
 .. _scf_potential_docs:
 
-**UPDATED IN v1.7** General density/potential pairs with basis-function expansions
+**UPDATED IN v1.8** General density/potential pairs with basis-function expansions
 ------------------------------------------------------------------------------------
 
 ``galpy`` allows for the potential and forces of general,

@@ -1,3 +1,5 @@
+.. _api_streamspraydf:
+
 The particle-spray stream DF
 ============================
 
