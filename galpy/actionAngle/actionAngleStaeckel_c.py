@@ -1,9 +1,10 @@
 import ctypes
 import ctypes.util
+
 import numpy
 from numpy.ctypeslib import ndpointer
-from ..util import coords
-from ..util import _load_extension_libs
+
+from ..util import _load_extension_libs, coords
 
 _lib, _ext_loaded= _load_extension_libs.load_libgalpy()
 
@@ -192,7 +193,7 @@ def actionAngleFreqStaeckel_c(pot,delta,R,vR,vT,z,vz,u0=None,order=10):
     NAME:
        actionAngleFreqStaeckel_c
     PURPOSE:
-       Use C to calculate actions and frequencies 
+       Use C to calculate actions and frequencies
        using the Staeckel approximation
     INPUT:
        pot - Potential or list of such instances
@@ -436,7 +437,7 @@ def actionAngleFreqAngleStaeckel_c(pot,delta,R,vR,vT,z,vz,phi,
     if f_cont[4]: vz= numpy.asfortranarray(vz)
     if f_cont[5]: u0= numpy.asfortranarray(u0)
     if f_cont[6]: delta= numpy.asfortranarray(delta)
-    
+
     badAngle = Anglephi != 9999.99
     Anglephi[badAngle]= (Anglephi[badAngle] + phi[badAngle] % (2.*numpy.pi)) % (2.*numpy.pi)
     Anglephi[Anglephi < 0.]+= 2.*numpy.pi
@@ -548,4 +549,3 @@ def actionAngleUminUmaxVminStaeckel_c(pot,delta,R,vR,vT,z,vz,u0=None):
     if f_cont[6]: delta= numpy.asfortranarray(delta)
 
     return (umin,umax,vmin,err.value)
-

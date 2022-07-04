@@ -63,7 +63,7 @@ EXPORT void calc_potential(int nR,
     for (jj=0; jj < nz; jj++){
       *(row+jj+tid*nz)= evaluatePotentials(*(R+ii),*(z+jj),npot,potentialArgs);
     }
-    put_row(out,ii,row+tid*nz,nz); 
+    put_row(out,ii,row+tid*nz,nz);
   }
   free_potentialArgs(npot,potentialArgs);
   free(potentialArgs);
@@ -102,7 +102,7 @@ EXPORT void calc_rforce(int nR,
     for (jj=0; jj < nz; jj++){
       *(row+jj+tid*nz)= calcRforce(*(R+ii),*(z+jj),0.,0.,npot,potentialArgs);
     }
-    put_row(out,ii,row+tid*nz,nz); 
+    put_row(out,ii,row+tid*nz,nz);
   }
   free_potentialArgs(npot,potentialArgs);
   free(potentialArgs);
@@ -141,7 +141,7 @@ EXPORT void calc_zforce(int nR,
     for (jj=0; jj < nz; jj++){
       *(row+jj+tid*nz)= calczforce(*(R+ii),*(z+jj),0.,0.,npot,potentialArgs);
     }
-    put_row(out,ii,row+tid*nz,nz); 
+    put_row(out,ii,row+tid*nz,nz);
   }
   free_potentialArgs(npot,potentialArgs);
   free(potentialArgs);

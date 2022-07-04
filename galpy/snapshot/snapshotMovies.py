@@ -1,12 +1,17 @@
 #Functions to turn snapshots into movies
+import math as m
+import os
+import os.path
 import re
-import os, os.path
-import tempfile
 import shutil
 import subprocess
-import math as m
-import galpy.util.plot as galpy_plot
+import tempfile
+
 from Snapshot import *
+
+import galpy.util.plot as galpy_plot
+
+
 def snapshotToMovie(snap,filename,*args,**kwargs):
     """
     NAME:
@@ -26,15 +31,15 @@ def snapshotToMovie(snap,filename,*args,**kwargs):
        framerate= in fps
 
        bitrate= ?
-       
+
        thumbnail=False : create thumbnail image (filename-extension+.jpg)
 
        thumbsize= size of thumbnail
-       
+
        +Snapshot.plot args and kwargs
 
     OUTPUT:
-    
+
        movie is saved to file
 
     DEPENDENCIES:
@@ -42,14 +47,14 @@ def snapshotToMovie(snap,filename,*args,**kwargs):
        this procedure uses ffmpeg and convert
 
     BUGS:
-    
-       matplotlib's 'Agg' backend has a memory leak that prevents it from 
+
+       matplotlib's 'Agg' backend has a memory leak that prevents it from
        creating hundred's of figures. It is recommended to call
-       
+
        import matplotlib
        matplotlib.use('PDF')
 
-       at the beginning of the movie creating script as the PDF backend does 
+       at the beginning of the movie creating script as the PDF backend does
        not have the same memory leak.
 
     HISTORY:
@@ -93,7 +98,7 @@ def snapshotToMovie(snap,filename,*args,**kwargs):
     if not kwargs.has_key('xrange'):
         pass
     if not kwargs.has_key('yrange'):
-        pass    
+        pass
     for ii in range(nsnap):
         tmpfiles.append(os.path.join(tempdir,
                                      str(ii).zfill(file_length)))

@@ -9,8 +9,11 @@
 ###############################################################################
 import numpy
 from scipy import special
+
 from ..util import conversion
 from .EllipsoidalPotential import EllipsoidalPotential
+
+
 class TriaxialGaussianPotential(EllipsoidalPotential):
     """Potential of a triaxial Gaussian (`Emsellem et al. 1994 <https://ui.adsabs.harvard.edu/abs/1994A%26A...285..723E/abstract>`__):
 

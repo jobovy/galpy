@@ -1,7 +1,9 @@
 import ctypes
 import ctypes.util
+
 import numpy
 from numpy.ctypeslib import ndpointer
+
 from ..util import _load_extension_libs
 
 _lib, _ext_loaded= _load_extension_libs.load_libgalpy()

@@ -5,15 +5,15 @@ C implementations of Dormand-Prince 8(5,3)
 Copyright (c) 2018, Henry Leung
 All rights reserved.
 
-Redistribution and use in source and binary forms, with or without 
+Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:
 
-   Redistributions of source code must retain the above copyright notice, 
+   Redistributions of source code must retain the above copyright notice,
       this list of conditions and the following disclaimer.
-   Redistributions in binary form must reproduce the above copyright notice, 
-      this list of conditions and the following disclaimer in the 
+   Redistributions in binary form must reproduce the above copyright notice,
+      this list of conditions and the following disclaimer in the
       documentation and/or other materials provided with the distribution.
-   The name of the author may not be used to endorse or promote products 
+   The name of the author may not be used to endorse or promote products
       derived from this software without specific prior written permission.
 
 THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
@@ -54,7 +54,7 @@ double c13 = 1;
 double c14 = 0.1;
 double c15 = 0.2;
 double c16 = 0.777777777777777777777777777778;
- 
+
 /* slope calculation coefficients */
 double a21 = 5.26001519587677318785587544488e-2;
 double a31 = 1.97250569845378994544595329183e-2;
@@ -130,7 +130,7 @@ double a169 = 3.56727187455281109270669543021e-1;
 double a1613 = -1.39902416515901462129418009734e-3;
 double a1614 = 2.9475147891527723389556272149e0;
 double a1615 = -9.15095847217987001081870187138e0;
- 
+
 /*Final assembly coefficients */
 double b1 = 5.42937341165687622380535766363e-2;
 double b6 = 4.45031289275240888144113950566;
@@ -143,7 +143,7 @@ double b12 = 4.47106157277725905176885569043e-2;
 double bhh1 = 0.244094488188976377952755905512;
 double bhh2 = 0.733846688281611857341361741547;
 double bhh3 = 0.220588235294117647058823529412e-1;
- 
+
 /* Dense output coefficients */
 double d41 = -0.84289382761090128651353491142e+1;
 double d46 = 0.56671495351937776962531783590;
@@ -193,7 +193,7 @@ double d713 = -0.43533456590011143754432175058e+2;
 double d714 = 0.96324553959188282948394950600e+2;
 double d715 = -0.39177261675615439165231486172e+2;
 double d716 = -0.14972683625798562581422125276e+3;
- 
+
 /* Error calculation coefficients */
 double er1 = 0.1312004499419488073250102996e-1;
 double er6 = -0.1225156446376204440720569753e+1;
@@ -231,14 +231,14 @@ Usage:
 void dop853(void(*func)(double t, double *q, double *a, int nargs, struct potentialArg * potentialArgs),
 	int dim,
 	double * y0,
-	int nt, 
-	double dt, 
+	int nt,
+	double dt,
 	double *t,
-	int nargs, 
+	int nargs,
 	struct potentialArg * potentialArgs,
-	double rtol, 
+	double rtol,
 	double atol,
-	double *result, 
+	double *result,
 	int *err_)
 {
 	rtol = exp(rtol);
@@ -318,7 +318,7 @@ void dop853(void(*func)(double t, double *q, double *a, int nargs, struct potent
 		sk = atol + rtol * fabs(y0[i]);
 		sqr = (k2[i] - k1[i]) / sk;
 		der2 += sqr * sqr;
-	}  
+	}
 	der2 = sqrt(der2) / h;
 	der12 = max(fabs(der2), sqrt(dnf));
 	h1 = pow(0.01 / der12, 1.0 / 8.0);
@@ -432,7 +432,7 @@ void dop853(void(*func)(double t, double *q, double *a, int nargs, struct potent
 				ydiff = k5[i] - y0[i];
 				rcont2[i] = ydiff;
 				bspl = h * k1[i] - ydiff;
-				rcont3[i] = bspl; 
+				rcont3[i] = bspl;
 				rcont4[i] = ydiff - h * k4[i] - bspl;
 				rcont5[i] = d41 * k1[i] + d46 * k6[i] + d47 * k7[i] + d48 * k8[i] + d49 * k9[i] + d410 * k10[i] + d411 * k2[i] + d412 * k3[i];
 				rcont6[i] = d51 * k1[i] + d56 * k6[i] + d57 * k7[i] + d58 * k8[i] + d59 * k9[i] + d510 * k10[i] + d511 * k2[i] + d512 * k3[i];

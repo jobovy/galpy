@@ -3,10 +3,12 @@
 #                                         with a fixed pattern speed, around
 #                                         the z axis
 ###############################################################################
-from .WrapperPotential import parentWrapperPotential
 from ..util import conversion
+from .WrapperPotential import parentWrapperPotential
+
+
 class SolidBodyRotationWrapperPotential(parentWrapperPotential):
-    """Potential wrapper class that implements solid-body rotation around the z-axis. Can be used to make a bar or other perturbation rotate. The potential is rotated by replacing 
+    """Potential wrapper class that implements solid-body rotation around the z-axis. Can be used to make a bar or other perturbation rotate. The potential is rotated by replacing
 
     .. math::
 

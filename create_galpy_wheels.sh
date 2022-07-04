@@ -6,7 +6,7 @@ source ~/.bash_profile
 PYTHON_VERSIONS=("3.8" "3.9" "3.10")
 GALPY_VERSION=1.8.0
 
-rm -rf galpy-wheels-output 
+rm -rf galpy-wheels-output
 mkdir galpy-wheels-output
 # Loop over the entire thing to make sure nothing gets re-used
 for PYTHON_VERSION in "${PYTHON_VERSIONS[@]}"; do

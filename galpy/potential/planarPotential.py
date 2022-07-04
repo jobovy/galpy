@@ -1,16 +1,20 @@
-import os
 import copy
+import os
 import pickle
 import warnings
+
 import numpy
 from scipy import integrate
-from ..util import plot, config, conversion
-from ..util.conversion import physical_conversion,\
-    potential_physical_input, physical_compatible
-from .Potential import Potential, PotentialError, lindbladR, flatten
+
+from ..util import config, conversion, plot
+from ..util.conversion import (physical_compatible, physical_conversion,
+                               potential_physical_input)
 from .DissipativeForce import _isDissipative
-from .plotRotcurve import plotRotcurve
 from .plotEscapecurve import _INF, plotEscapecurve
+from .plotRotcurve import plotRotcurve
+from .Potential import Potential, PotentialError, flatten, lindbladR
+
+
 class planarPotential:
     r"""Class representing 2D (R,\phi) potentials"""
     def __init__(self,amp=1.,ro=None,vo=None):
@@ -190,7 +194,7 @@ class planarPotential:
 
            evaluate the potential
 
-        INPUT: 
+        INPUT:
 
            R - Cylindrica radius (can be Quantity)
 
@@ -270,7 +274,7 @@ class planarPotential:
     def phiforce(self,R,phi=0.,t=0.):
        warnings.warn('phiforce has been renamed phitorque, because it has always really been a torque (per unit mass); please switch to the new method name, because the old name will be removed in v1.9 and may be re-used for the actual phi force component',FutureWarning)
        return self.phitorque(R,phi=phi,t=t)
-    
+
     @potential_physical_input
     @physical_conversion('energy',pop=True)
     def phitorque(self,R,phi=0.,t=0.):
@@ -301,7 +305,7 @@ class planarPotential:
 
         """
         return self._phitorque_nodecorator(R,phi=phi,t=t)
-       
+
     def _phitorque_nodecorator(self,R,phi=0.,t=0.):
         # Separate, so it can be used during orbit integration
         try:
@@ -341,7 +345,7 @@ class planarPotential:
         try:
             return self._amp*self._R2deriv(R,phi=phi,t=t)
         except AttributeError: #pragma: no cover
-            raise PotentialError("'_R2deriv' function not implemented for this potential")      
+            raise PotentialError("'_R2deriv' function not implemented for this potential")
 
     @potential_physical_input
     @physical_conversion('energy',pop=True)
@@ -375,7 +379,7 @@ class planarPotential:
         try:
             return self._amp*self._phi2deriv(R,phi=phi,t=t)
         except AttributeError: #pragma: no cover
-            raise PotentialError("'_phi2deriv' function not implemented for this potential")      
+            raise PotentialError("'_phi2deriv' function not implemented for this potential")
 
     @potential_physical_input
     @physical_conversion('force',pop=True)
@@ -409,7 +413,7 @@ class planarPotential:
         try:
             return self._amp*self._Rphideriv(R,phi=phi,t=t)
         except AttributeError: #pragma: no cover
-            raise PotentialError("'_Rphideriv' function not implemented for this potential")      
+            raise PotentialError("'_Rphideriv' function not implemented for this potential")
 
     def plot(self,*args,**kwargs):
         """
@@ -435,7 +439,7 @@ class planarAxiPotential(planarPotential):
         planarPotential.__init__(self,amp=amp,ro=ro,vo=vo)
         self.isNonAxi= False
         return None
-    
+
     def _phitorque(self,R,phi=0.,t=0.):
         return 0.
 
@@ -479,33 +483,33 @@ class planarAxiPotential(planarPotential):
     @physical_conversion('velocity',pop=True)
     def vcirc(self,R,phi=None,t=0.):
         """
-        
+
         NAME:
-        
+
             vcirc
-        
+
         PURPOSE:
-        
+
             calculate the circular velocity at R in potential Pot
 
         INPUT:
-        
+
             Pot - Potential instance or list of such instances
-        
+
             R - Galactocentric radius (can be Quantity)
-        
+
             phi= (None) azimuth to use for non-axisymmetric potentials
 
             t - time (optional; can be Quantity)
 
         OUTPUT:
-        
+
             circular rotation velocity
-        
+
         HISTORY:
-        
+
             2011-10-09 - Written - Bovy (IAS)
-        
+
             2016-06-15 - Added phi= keyword for non-axisymmetric potential - Bovy (UofT)
 
         """
@@ -515,61 +519,61 @@ class planarAxiPotential(planarPotential):
     @physical_conversion('frequency',pop=True)
     def omegac(self,R,t=0.):
         """
-        
+
         NAME:
-        
+
             omegac
-        
+
         PURPOSE:
-        
+
             calculate the circular angular speed at R in potential Pot
 
         INPUT:
-        
+
             Pot - Potential instance or list of such instances
-        
+
             R - Galactocentric radius (can be Quantity)
 
             t - time (optional; can be Quantity)
-        
+
         OUTPUT:
-        
+
             circular angular speed
-        
+
         HISTORY:
-        
+
             2011-10-09 - Written - Bovy (IAS)
-        
+
         """
-        return numpy.sqrt(-self.Rforce(R,t=t,use_physical=False)/R)       
+        return numpy.sqrt(-self.Rforce(R,t=t,use_physical=False)/R)
 
     @potential_physical_input
     @physical_conversion('frequency',pop=True)
     def epifreq(self,R,t=0.):
         """
-        
+
         NAME:
-        
+
            epifreq
-        
+
         PURPOSE:
-        
+
            calculate the epicycle frequency at R in this potential
-        
+
         INPUT:
-        
+
            R - Galactocentric radius (can be Quantity)
 
            t - time (optional; can be Quantity)
-        
+
         OUTPUT:
-        
+
            epicycle frequency
-        
+
         HISTORY:
-        
+
            2011-10-09 - Written - Bovy (IAS)
-        
+
         """
         return numpy.sqrt(self.R2deriv(R,t=t,use_physical=False)
                        -3./R*self.Rforce(R,t=t,use_physical=False))
@@ -577,17 +581,17 @@ class planarAxiPotential(planarPotential):
     @physical_conversion('position',pop=True)
     def lindbladR(self,OmegaP,m=2,t=0.,**kwargs):
         """
-        
+
         NAME:
-        
+
            lindbladR
-        
+
         PURPOSE:
-        
+
             calculate the radius of a Lindblad resonance
-        
+
         INPUT:
-        
+
            OmegaP - pattern speed (can be Quantity)
 
            m= order of the resonance (as in m(O-Op)=kappa (negative m for outer)
@@ -595,15 +599,15 @@ class planarAxiPotential(planarPotential):
               +scipy.optimize.brentq xtol,rtol,maxiter kwargs
 
            t - time (optional; can be Quantity)
-        
+
         OUTPUT:
-        
+
            radius of Linblad resonance, None if there is no resonance
-        
+
         HISTORY:
-        
+
            2011-10-09 - Written - Bovy (IAS)
-        
+
         """
         OmegaP= conversion.parse_frequency(OmegaP,ro=self._ro,vo=self._vo)
         return lindbladR(self,OmegaP,m=m,t=t,use_physical=False,**kwargs)
@@ -640,7 +644,7 @@ class planarAxiPotential(planarPotential):
         """
         return numpy.sqrt(2.*(self(_INF,t=t,use_physical=False)
                            -self(R,t=t,use_physical=False)))
-        
+
     def plotRotcurve(self,*args,**kwargs):
         """
         NAME:
@@ -704,7 +708,7 @@ class planarAxiPotential(planarPotential):
         return plotEscapecurve(self,*args,**kwargs)
 
 class planarPotentialFromRZPotential(planarAxiPotential):
-    """Class that represents an axisymmetic planar potential derived from a 
+    """Class that represents an axisymmetic planar potential derived from a
     RZPotential"""
     def __init__(self,RZPot):
         """
@@ -745,7 +749,7 @@ class planarPotentialFromRZPotential(planarAxiPotential):
            2010-07-13 - Written - Bovy (NYU)
         """
         return self._Pot(R,0.,t=t,use_physical=False)
-            
+
     def _Rforce(self,R,phi=0.,t=0.):
         r"""
         NAME:
@@ -779,7 +783,7 @@ class planarPotentialFromRZPotential(planarAxiPotential):
            2011-10-09 - Written - Bovy (IAS)
         """
         return self._Pot.R2deriv(R,0.,t=t,use_physical=False)
-            
+
 def RZToplanarPotential(RZPot):
     """
     NAME:
@@ -865,7 +869,7 @@ class planarPotentialFromFullPotential(planarPotential):
            2016-06-02 - Written - Bovy (UofT)
         """
         return self._Pot(R,0.,phi=phi,t=t,use_physical=False)
-            
+
     def _Rforce(self,R,phi=0.,t=0.):
         r"""
         NAME:
@@ -916,7 +920,7 @@ class planarPotentialFromFullPotential(planarPotential):
            2016-06-02 - Written - Bovy (UofT)
         """
         return self._Pot.R2deriv(R,0.,phi=phi,t=t,use_physical=False)
-            
+
     def _phi2deriv(self,R,phi=0.,t=0.):
         """
         NAME:
@@ -933,7 +937,7 @@ class planarPotentialFromFullPotential(planarPotential):
            2016-06-02 - Written - Bovy (UofT)
         """
         return self._Pot.phi2deriv(R,0.,phi=phi,t=t,use_physical=False)
-            
+
     def _Rphideriv(self,R,phi=0.,t=0.):
         """
         NAME:
@@ -950,7 +954,7 @@ class planarPotentialFromFullPotential(planarPotential):
            2016-06-02 - Written - Bovy (UofT)
         """
         return self._Pot.Rphideriv(R,0.,phi=phi,t=t,use_physical=False)
-            
+
     def OmegaP(self):
         """
         NAME:
@@ -965,7 +969,7 @@ class planarPotentialFromFullPotential(planarPotential):
            2016-05-31 - Written - Bovy (UofT)
         """
         return self._Pot.OmegaP()
-            
+
 def toPlanarPotential(Pot):
     """
     NAME:
@@ -1067,7 +1071,7 @@ def _evaluateplanarPotentials(Pot,R,phi=None,t=0.,dR=0,dphi=0):
             return Pot._call_nodecorator(R,phi=phi,t=t,dR=dR,dphi=dphi)
         else:
             return Pot._call_nodecorator(R,t=t,dR=dR,dphi=dphi)
-    else: #pragma: no cover 
+    else: #pragma: no cover
         raise PotentialError("Input to 'evaluatePotentials' is neither a Potential-instance or a list of such instances")
 
 @potential_physical_input
@@ -1124,7 +1128,7 @@ def _evaluateplanarRforces(Pot,R,phi=None,t=0.):
             return Pot._Rforce_nodecorator(R,phi=phi,t=t)
         else:
             return Pot._Rforce_nodecorator(R,t=t)
-    else: #pragma: no cover 
+    else: #pragma: no cover
         raise PotentialError("Input to 'evaluatePotentials' is neither a Potential-instance or a list of such instances")
 
 def evaluateplanarphiforces(Pot,R,phi=None,t=0.):
@@ -1184,7 +1188,7 @@ def _evaluateplanarphitorques(Pot,R,phi=None,t=0.):
             return Pot._phitorque_nodecorator(R,phi=phi,t=t)
         else:
             return Pot._phitorque_nodecorator(R,t=t)
-    else: #pragma: no cover 
+    else: #pragma: no cover
         raise PotentialError("Input to 'evaluatePotentials' is neither a Potential-instance or a list of such instances")
 
 @potential_physical_input
@@ -1237,7 +1241,7 @@ def evaluateplanarR2derivs(Pot,R,phi=None,t=0.):
             return Pot.R2deriv(R,phi=phi,t=t,use_physical=False)
         else:
             return Pot.R2deriv(R,t=t,use_physical=False)
-    else: #pragma: no cover 
+    else: #pragma: no cover
         raise PotentialError("Input to 'evaluatePotentials' is neither a Potential-instance or a list of such instances")
 
 def LinShuReductionFactor(axiPot,R,sigmar,nonaxiPot=None,
@@ -1256,7 +1260,7 @@ def LinShuReductionFactor(axiPot,R,sigmar,nonaxiPot=None,
        axiPot - The background, axisymmetric potential
 
        R - Cylindrical radius (can be Quantity)
-       
+
        sigmar - radial velocity dispersion of the population (can be Quantity)
 
        Then either provide:
@@ -1279,7 +1283,7 @@ def LinShuReductionFactor(axiPot,R,sigmar,nonaxiPot=None,
 
     """
     axiPot= flatten(axiPot)
-    from ..potential import omegac, epifreq
+    from ..potential import epifreq, omegac
     if nonaxiPot is None and (OmegaP is None or k is None or m is None):
         raise OSError("Need to specify either nonaxiPot= or m=, k=, OmegaP= for LinShuReductionFactor")
     elif not nonaxiPot is None:
@@ -1414,5 +1418,3 @@ def plotplanarPotentials(Pot,*args,**kwargs):
         kwargs['ylabel']=r"$\Phi(R)$"
         kwargs['xrange']=Rrange
         return plot.plot(Rs,potR,*args,**kwargs)
-                              
-    

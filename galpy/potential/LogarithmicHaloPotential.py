@@ -1,11 +1,14 @@
 ###############################################################################
-#   LogarithmicHaloPotential.py: class that implements the logarithmic 
+#   LogarithmicHaloPotential.py: class that implements the logarithmic
 #                            potential Phi(r) = vc**2 ln(r)
 ###############################################################################
 import warnings
+
 import numpy
+
+from ..util import conversion, galpyWarning
 from .Potential import Potential, kms_to_kpcGyrDecorator
-from ..util import galpyWarning, conversion
+
 _CORE=10**-8
 class LogarithmicHaloPotential(Potential):
     """Class that implements the logarithmic potential
@@ -41,7 +44,7 @@ class LogarithmicHaloPotential(Potential):
            core - core radius at which the logarithm is cut (can be Quantity)
 
            q - potential flattening (z/q)**2.
-           
+
            b= (None) if set, shape parameter in y-direction (y --> y/b; see definition)
 
            normalize - if True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
@@ -70,7 +73,7 @@ class LogarithmicHaloPotential(Potential):
             self._1m1overb2= 1.-1./self._b**2.
         if normalize or \
                 (isinstance(normalize,(int,float)) \
-                     and not isinstance(normalize,bool)): #pragma: no cover 
+                     and not isinstance(normalize,bool)): #pragma: no cover
             self.normalize(normalize)
         self._nemo_accname= 'LogPot'
         return None
@@ -308,7 +311,7 @@ class LogarithmicHaloPotential(Potential):
         if self.isNonAxi:
             Rt2= R**2.*(1.-self._1m1overb2*numpy.sin(phi)**2.)
             denom= 1./(Rt2+(z/self._q)**2.+self._core2)
-            return -(denom-Rt2*denom**2.)*R*numpy.sin(2.*phi)*self._1m1overb2 
+            return -(denom-Rt2*denom**2.)*R*numpy.sin(2.*phi)*self._1m1overb2
         else:
             return 0.
 

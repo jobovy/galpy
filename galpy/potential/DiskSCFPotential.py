@@ -1,10 +1,12 @@
 ###############################################################################
 #   DiskSCFPotential.py: Potential expansion for disk+halo potentials
 ###############################################################################
-from pkg_resources import parse_version
 import copy
+
 import numpy
 import scipy
+from pkg_resources import parse_version
+
 _SCIPY_VERSION= parse_version(scipy.__version__)
 if _SCIPY_VERSION < parse_version('0.10'): #pragma: no cover
     from scipy.maxentropy import logsumexp
@@ -12,11 +14,15 @@ elif _SCIPY_VERSION < parse_version('0.19'): #pragma: no cover
     from scipy.misc import logsumexp
 else:
     from scipy.special import logsumexp
+
 from scipy import integrate
+
 from ..util import conversion
 from .Potential import Potential
-from .SCFPotential import SCFPotential, \
-    scf_compute_coeffs_axi, scf_compute_coeffs
+from .SCFPotential import (SCFPotential, scf_compute_coeffs,
+                           scf_compute_coeffs_axi)
+
+
 class DiskSCFPotential(Potential):
     """Class that implements a basis-function-expansion technique for solving the Poisson equation for disk (+halo) systems. We solve the Poisson equation for a given density :math:`\\rho(R,\\phi,z)` by introducing *K* helper function pairs :math:`[\\Sigma_i(R),h_i(z)]`, with :math:`h_i(z) = \\mathrm{d}^2 H(z) / \\mathrm{d} z^2` and search for solutions of the form
 
@@ -74,7 +80,7 @@ This technique was introduced by `Kuijken & Dubinski (1995) <http://adsabs.harva
                   hz= Dictionary of vertical profile, either 'exp' or 'sech2' (example {'type':'exp','h':1./27.} for exp(-|z|/h)/[2h], sech2 is sech^2(z/[2h])/[4h])
 
               (b) Sigma= function of R that gives the surface density
-              
+
                   dSigmadR= function that gives d Sigma / d R
 
                   d2SigmadR2= function that gives d^2 Sigma / d R^2
@@ -96,7 +102,7 @@ This technique was introduced by `Kuijken & Dubinski (1995) <http://adsabs.harva
         HISTORY:
 
            2016-12-26 - Written - Bovy (UofT)
-        """        
+        """
         Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units=None)
         a= conversion.parse_length(a,ro=self._ro)
         # Parse and store given functions
@@ -134,7 +140,7 @@ This technique was introduced by `Kuijken & Dubinski (1995) <http://adsabs.harva
             self.hasC_dens= True
         if normalize or \
                 (isinstance(normalize,(int,float)) \
-                     and not isinstance(normalize,bool)): 
+                     and not isinstance(normalize,bool)):
             self.normalize(normalize)
         return None
 
@@ -168,7 +174,7 @@ This technique was introduced by `Kuijken & Dubinski (1995) <http://adsabs.harva
         else:
             self._Sigma_dict= None
         return None
-    
+
     def _parse_Sigma_dict(self):
         Sigma_amp, Sigma, dSigmadR, d2SigmadR2= [], [], [], []
         for ii in range(self._nsigma):
@@ -201,7 +207,7 @@ This technique was introduced by `Kuijken & Dubinski (1995) <http://adsabs.harva
             td2s= lambda R, trd=rd,trm=rm: \
                 ((trm/R**2.-1./trd)**2.-2.*trm/R**3.)*numpy.exp(-trm/R-R/trd)
         return (ta,ts,tds,td2s)
-    
+
     def _parse_hz(self,hz,Hz,dHzdz):
         """
         NAME:
@@ -229,7 +235,7 @@ This technique was introduced by `Kuijken & Dubinski (1995) <http://adsabs.harva
                 dHzdz= [dHzdz[0] for ii in range(self._nsigma)]
         self._Hz= Hz
         self._hz= hz
-        self._dHzdz= dHzdz       
+        self._dHzdz= dHzdz
         self._nhz= len(self._hz)
         if isinstance(hz[0],dict):
             self._hz_dict= copy.copy(hz)
@@ -268,7 +274,7 @@ This technique was introduced by `Kuijken & Dubinski (1995) <http://adsabs.harva
                          -numpy.log(2.))
             tdH= lambda z, tzd= zd: numpy.tanh(z/2./tzd)/2.
         return (th,tH,tdH)
-    
+
     def _evaluate(self,R,z,phi=0.,t=0.):
         """
         NAME:
@@ -335,7 +341,7 @@ This technique was introduced by `Kuijken & Dubinski (1995) <http://adsabs.harva
                              self._Hz,self._dHzdz):
             out-= 4.*numpy.pi*a*(ds(r)*H(z)*z/r+s(r)*dH(z))
         return out
-        
+
     def _phitorque(self,R,z,phi=0.,t=0.):
         """
         NAME:
@@ -376,7 +382,7 @@ This technique was introduced by `Kuijken & Dubinski (1995) <http://adsabs.harva
                               self._Hz):
             out+= 4.*numpy.pi*a*H(z)/r**2.*(d2s(r)*R**2.+z**2./r*ds(r))
         return out
-        
+
     def _z2deriv(self,R,z,phi=0.,t=0.):
         """
         NAME:
@@ -425,7 +431,7 @@ This technique was introduced by `Kuijken & Dubinski (1995) <http://adsabs.harva
             out+= 4.*numpy.pi*a*(H(z)*R*z/r**2.*(d2s(r)-ds(r)/r)
                                  +ds(r)*dH(z)*R/r)
         return out
-        
+
     def _phi2deriv(self,R,z,phi=0.,t=0.):
         """
         NAME:
@@ -497,7 +503,7 @@ This technique was introduced by `Kuijken & Dubinski (1995) <http://adsabs.harva
                 out+= a*(ds(r)*H(tz)*tz/r+s(r)*dH(tz))*tz*r
             return out*numpy.sin(theta)
         return out+2.*numpy.pi*integrate.quad(_integrand,0.,numpy.pi)[0]
-    
+
 def phiME_dens(R,z,phi,dens,Sigma,dSigmadR,d2SigmadR2,hz,Hz,dHzdz,Sigma_amp):
     """The density corresponding to phi_ME"""
     r= numpy.sqrt(R**2.+z**2.)

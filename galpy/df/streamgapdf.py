@@ -1,20 +1,24 @@
 # The DF of a gap in a tidal stream
-from functools import wraps
 import copy
-import warnings
 import multiprocessing
+import warnings
+from functools import wraps
+
 import numpy
 from scipy import integrate, interpolate, special
-from ..util import galpyWarning, coords, multi, conversion
-from ..util import _rotate_to_arbitrary_vector
+
 from ..orbit import Orbit
-from ..potential import evaluateRforces, MovingObjectPotential, \
-    PlummerPotential
-from .df import df
+from ..potential import (MovingObjectPotential, PlummerPotential,
+                         evaluateRforces)
+from ..potential import flatten as flatten_potential
+from ..util import (_rotate_to_arbitrary_vector, conversion, coords,
+                    galpyWarning, multi)
 from ..util.conversion import physical_conversion
 from . import streamdf
+from .df import df
 from .streamdf import _determine_stream_track_single
-from ..potential import flatten as flatten_potential
+
+
 def impact_check_range(func):
     """Decorator to check the range of interpolated kicks"""
     @wraps(func)
@@ -221,7 +225,7 @@ class streamgapdf(streamdf.streamdf):
 
     def _density_par_approx(self,dangle,tdisrupt,_return_array=False,
                             higherorder=False):
-        """Compute the density as a function of parallel angle using the 
+        """Compute the density as a function of parallel angle using the
         spline representation + approximations"""
         # First construct the breakpoints for this dangle
         Oparb= (dangle-self._kick_interpdOpar_poly.x)/self._timpact
@@ -286,7 +290,7 @@ class streamgapdf(streamdf.streamdf):
             return numpy.sum(gaussxpolyInt[:,:lowbindx+1])
 
     def _densMoments_approx_higherorder_gaussxpolyInts(self,ll,ul,maxj):
-        """Calculate all of the polynomial x Gaussian integrals occuring 
+        """Calculate all of the polynomial x Gaussian integrals occuring
         in the higher-order terms, recursively"""
         gaussxpolyInt= numpy.zeros((maxj,len(ul)))
         gaussxpolyInt[-1]= 1./numpy.sqrt(numpy.pi)\
@@ -604,7 +608,7 @@ class streamgapdf(streamdf.streamdf):
             k=spline_order)
         # Also construct derivative of dOpar
         self._kick_interpdOpar_dapar= self._kick_interpdOpar_raw.derivative(1)
-        # Also construct piecewise-polynomial representation of dOpar, 
+        # Also construct piecewise-polynomial representation of dOpar,
         # removing intervals at the start and end with zero range
         ppoly= interpolate.PPoly.from_spline(\
             self._kick_interpdOpar_raw._eval_args)
@@ -1526,7 +1530,7 @@ def impulse_deltav_plummerstream(v,y,b,w,GSigma,rs,tmin=None,tmax=None):
        2015-11-14 - Written - Bovy (UofT)
 
     """
-    if len(v.shape) == 1: 
+    if len(v.shape) == 1:
         v= numpy.reshape(v,(1,3))
         y= numpy.reshape(y,(1,1))
     if tmax is None or tmax is None:

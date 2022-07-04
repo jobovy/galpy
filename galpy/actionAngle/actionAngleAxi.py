@@ -14,12 +14,14 @@
 #              calcEL
 ###############################################################################
 import numpy
-from scipy import optimize, integrate
-from .actionAngle import UnboundError
-from .actionAngleVertical import actionAngleVertical
+from scipy import integrate, optimize
+
+from ..potential import vcirc
 from ..potential.planarPotential import _evaluateplanarPotentials
 from ..potential.Potential import epifreq
-from ..potential import vcirc
+from .actionAngle import UnboundError
+from .actionAngleVertical import actionAngleVertical
+
 _EPS= 10.**-15.
 class actionAngleAxi(actionAngleVertical):
     """Action-angle formalism for axisymmetric potentials"""
@@ -56,7 +58,7 @@ class actionAngleAxi(actionAngleVertical):
         else:
             self._gamma= 0.
         return None
-    
+
     def angleR(self,**kwargs): #pragma: no cover
         """
         NAME:
@@ -66,7 +68,7 @@ class actionAngleAxi(actionAngleVertical):
         INPUT:
            scipy.integrate.quadrature keywords
         OUTPUT:
-           w_R(R,vT,vT) in radians + 
+           w_R(R,vT,vT) in radians +
            estimate of the error (does not include TR error)
         HISTORY:
            2010-12-01 - Written - Bovy (NYU)
@@ -251,7 +253,7 @@ class actionAngleAxi(actionAngleVertical):
            (E,L)
         HISTORY:
            2012-07-26 - Written - Bovy (IAS)
-        """                           
+        """
         E,L= calcELAxi(self._R,self._vR,self._vT,self._pot)
         if self._gamma != 0.:
             #Adjust E
@@ -312,7 +314,7 @@ class actionAngleAxi(actionAngleVertical):
             rstart= _rapRperiAxiFindStart(self._R,E,L,self._pot,
                                           startsign=startsign)
             if rstart == 0.: rperi= 0.
-            else: 
+            else:
                 try:
                     rperi= optimize.brentq(_rapRperiAxiEq,rstart,self._R,
                                            (E,L,self._pot),
@@ -342,7 +344,7 @@ def calcELAxi(R,vR,vT,pot,vc=1.,ro=1.):
        (E,L)
     HISTORY:
        2010-11-30 - Written - Bovy (NYU)
-    """                           
+    """
     return (potentialAxi(R,pot)+vR**2./2.+vT**2./2.,R*vT)
 
 def potentialAxi(R,pot,vc=1.,ro=1.):
@@ -419,4 +421,3 @@ def _rapRperiAxiFindStart(R,E,L,pot,rap=False,startsign=1.):
             rtry/= 2.
     if rtry < 0.000000001: return 0.
     return rtry
-

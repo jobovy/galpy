@@ -1,5 +1,7 @@
 import numpy
+
 from galpy.util import conversion
+
 
 def test_dens_in_criticaldens():
     #Test the scaling, as a 2nd derivative of the potential / G, should scale as velocity^2/position^2
@@ -7,14 +9,14 @@ def test_dens_in_criticaldens():
     assert numpy.fabs(4.*conversion.dens_in_criticaldens(vofid,rofid)/conversion.dens_in_criticaldens(2.*vofid,rofid)-1.) < 10.**-10., 'dens_in_criticaldens did not work as expected'
     assert numpy.fabs(.25*conversion.dens_in_criticaldens(vofid,rofid)/conversion.dens_in_criticaldens(vofid,2*rofid)-1.) < 10.**-10., 'dens_in_critical did not work as expected'
     return None
-    
+
 def test_dens_in_meanmatterdens():
     #Test the scaling, as a 2nd derivative of the potential / G, should scale as velocity^2/position^2
     vofid, rofid= 200., 8.
     assert numpy.fabs(4.*conversion.dens_in_meanmatterdens(vofid,rofid)/conversion.dens_in_meanmatterdens(2.*vofid,rofid)-1.) < 10.**-10., 'dens_in_meanmatterdens did not work as expected'
     assert numpy.fabs(.25*conversion.dens_in_meanmatterdens(vofid,rofid)/conversion.dens_in_meanmatterdens(vofid,2*rofid)-1.) < 10.**-10., 'dens_in_meanmatter did not work as expected'
     return None
-    
+
 def test_dens_in_gevcc():
     #Test the scaling, as a 2nd derivative of the potential / G, should scale as velocity^2/position^2
     vofid, rofid= 200., 8.
@@ -98,19 +100,19 @@ def test_time_in_Gyr():
     assert numpy.fabs(0.5*conversion.time_in_Gyr(vofid,rofid)/conversion.time_in_Gyr(2.*vofid,rofid)-1.) < 10.**-10., 'time_in_Gyr did not work as expected'
     assert numpy.fabs(2.*conversion.time_in_Gyr(vofid,rofid)/conversion.time_in_Gyr(vofid,2*rofid)-1.) < 10.**-10., 'time_in_Gyr did not work as expected'
     return None
-    
+
 def test_velocity_in_kpcGyr():
     #Test the scaling, should scale as velocity
     vofid, rofid= 200., 8.
     assert numpy.fabs(2.*conversion.velocity_in_kpcGyr(vofid,rofid)/conversion.velocity_in_kpcGyr(2.*vofid,rofid)-1.) < 10.**-10., 'velocity_in_kpcGyr did not work as expected'
     assert numpy.fabs(conversion.velocity_in_kpcGyr(vofid,rofid)/conversion.velocity_in_kpcGyr(vofid,2*rofid)-1.) < 10.**-10., 'velocity_in_kpcGyr did not work as expected'
     return None
-    
+
 def test_get_physical():
     #Test that the get_physical function returns the right scaling parameters
-    from galpy.util.conversion import get_physical
     # Potential and variations thereof
-    from galpy.potential import MWPotential2014, DehnenBarPotential
+    from galpy.potential import DehnenBarPotential, MWPotential2014
+    from galpy.util.conversion import get_physical
     dp= DehnenBarPotential
     assert numpy.fabs(get_physical(MWPotential2014[0]).get('ro')-8.) < 1e-10, 'get_physical does not return the correct unit conversion parameter for a Potential'
     assert numpy.fabs(get_physical(MWPotential2014[0]).get('vo')-220.) < 1e-10, 'get_physical does not return the correct unit conversion parameter for a Potential'
@@ -162,8 +164,9 @@ def test_get_physical():
 
 def test_physical_compatible_potential():
     # Test that physical_compatible acts as expected
-    from galpy.util.conversion import physical_compatible
     from galpy.potential import HernquistPotential
+    from galpy.util.conversion import physical_compatible
+
     # Set up potentials for all possible cases
     pot_default_phys= HernquistPotential(amp=0.55,a=2.,ro=8.,vo=220.)
     pot_nonstandardro= HernquistPotential(amp=0.55,a=2.,ro=9.,vo=220.)
@@ -264,16 +267,17 @@ def test_physical_compatible_potential():
                                    [pot_nonstandardvo_noro,pot_nophys]), \
         "pot_default_phys does not behave as expected"
     return None
-    
+
 #ADD OTHER COMBINATIONS, e.g., potential and orbit
 def test_physical_compatible_combos():
-    # Test that physical_compatible acts as expected for combinations of 
+    # Test that physical_compatible acts as expected for combinations of
     # different types of objects
-    from galpy.util.conversion import physical_compatible
-    from galpy.potential import HernquistPotential
-    from galpy.orbit import Orbit
     from galpy.actionAngle import actionAngleSpherical
     from galpy.df import quasiisothermaldf
+    from galpy.orbit import Orbit
+    from galpy.potential import HernquistPotential
+    from galpy.util.conversion import physical_compatible
+
     # Set up different objects for possible cases
     # Potentials
     pot_default_phys= HernquistPotential(amp=0.55,a=2.,ro=8.,vo=220.)
@@ -374,13 +378,13 @@ def test_physical_compatible_combos():
     assert physical_compatible(pot_nophys,qdf_nophys), \
         "pot_default_phys does not behave as expected for combinations of different objects"
     assert physical_compatible(pot_default_noro,qdf_nonstandardro), \
-        "pot_default_phys does not behave as expected for combinations of different objects"   
+        "pot_default_phys does not behave as expected for combinations of different objects"
     assert physical_compatible(pot_nonstandardro_novo,orb_default_noro), \
-        "pot_default_phys does not behave as expected for combinations of different objects"   
+        "pot_default_phys does not behave as expected for combinations of different objects"
     assert physical_compatible(aA_nonstandardvo_noro,orb_nonstandardvo_noro), \
-        "pot_default_phys does not behave as expected for combinations of different objects"   
+        "pot_default_phys does not behave as expected for combinations of different objects"
     assert not physical_compatible(aA_default_novo,qdf_nonstandardrovo), \
-        "pot_default_phys does not behave as expected for combinations of different objects"   
+        "pot_default_phys does not behave as expected for combinations of different objects"
     # Also test agained None!
     assert physical_compatible(None,pot_default_phys), \
         "pot_default_phys does not behave as expected for combinations of different objects"
@@ -399,4 +403,3 @@ def test_physical_compatible_combos():
     assert physical_compatible(qdf_default_phys,None), \
         "pot_default_phys does not behave as expected for combinations of different objects"
     return None
-

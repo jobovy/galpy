@@ -3,7 +3,7 @@ name: Build Mac OS X & Windows wheels and upload to PyPI upon release
 # Update on every push and PR to main, and upon release creation
 on:
   push:
-    branches:    
+    branches:
       - main
     paths:
       - '**'

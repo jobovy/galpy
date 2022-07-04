@@ -6,7 +6,7 @@
 #
 #Redistribution and use in source and binary forms, with or without
 #modification, are permitted provided that the following conditions are
-#met: 
+#met:
 #
 #1. Redistributions of source code must retain the above copyright
 #notice, this list of conditions and the following disclaimer.
@@ -31,7 +31,9 @@
 #(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 #OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 import platform
+
 import numpy
+
 _multi=False
 _ncpus=1
 
@@ -73,12 +75,12 @@ def worker(f, ii, chunk, out_q, err_q, lock,
   :param pbar_proc: process to use to display the progressbar
   """
   vals = []
-  
-  progressbar*= _TQDM_LOADED  
-  if progressbar and ii == pbar_proc: 
+
+  progressbar*= _TQDM_LOADED
+  if progressbar and ii == pbar_proc:
     pbar= tqdm.tqdm(total=tot_iter,leave=False)
 
-  # iterate over slice 
+  # iterate over slice
   for val in chunk:
     try:
       result = f(val)
@@ -97,7 +99,7 @@ def worker(f, ii, chunk, out_q, err_q, lock,
 
   if progressbar and ii == pbar_proc:
     pbar.close()
-    
+
   # output the result and task ID to output queue
   out_q.put( (ii, vals) )
 
@@ -152,13 +154,13 @@ def run_tasks(procs, err_q, out_q, num):
 def parallel_map(function, sequence, numcores=None, progressbar=False):
   """
   A parallelized version of the native Python map function that
-  utilizes the Python multiprocessing module to divide and 
+  utilizes the Python multiprocessing module to divide and
   conquer sequence.
 
   parallel_map does not yet support multiple argument sequences.
 
   :param function: callable function that accepts argument from iterable
-  :param sequence: iterable sequence 
+  :param sequence: iterable sequence
   :param numcores: number of cores to use
   :param progressbar: if True, display a progressbar using tqdm
   """
@@ -183,8 +185,8 @@ def parallel_map(function, sequence, numcores=None, progressbar=False):
 
   # Use fork-based parallelism (because spawn fails with pickling issues, #457)
   ctx= multiprocessing.get_context('fork')
-  
-  # Returns a started SyncManager object which can be used for sharing 
+
+  # Returns a started SyncManager object which can be used for sharing
   # objects between processes. The returned manager object corresponds
   # to a spawned child process and has methods which will create shared
   # objects and return corresponding proxies.
@@ -197,10 +199,10 @@ def parallel_map(function, sequence, numcores=None, progressbar=False):
   err_q = manager.Queue()
   lock = manager.Lock()
 
-  # if sequence is less than numcores, only use len sequence number of 
+  # if sequence is less than numcores, only use len sequence number of
   # processes
   if size < numcores:
-    numcores = size 
+    numcores = size
 
   # group sequence into numcores-worth of chunks
   sequence = numpy.array_split(sequence, numcores)
@@ -249,5 +251,3 @@ if __name__ == "__main__":
   print('serial map in %g secs' % (time.time()-tt))
 
   assert (numpy.asarray(result) == numpy.asarray(presult)).all()
-
-

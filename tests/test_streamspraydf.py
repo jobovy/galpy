@@ -1,21 +1,21 @@
 import copy
-import pytest
+
 import numpy
+import pytest
+
+from galpy.actionAngle import actionAngleIsochroneApprox
 from galpy.df import streamdf, streamspraydf
 from galpy.orbit import Orbit
-from galpy.potential import (LogarithmicHaloPotential,
-                             MWPotential2014,
-                             MovingObjectPotential, 
-                             ChandrasekharDynamicalFrictionForce,
-                             HernquistPotential,
+from galpy.potential import (ChandrasekharDynamicalFrictionForce,
+                             HernquistPotential, LogarithmicHaloPotential,
+                             MovingObjectPotential, MWPotential2014,
                              TriaxialNFWPotential)
-from galpy.actionAngle import actionAngleIsochroneApprox
-from galpy.util import conversion #for unit conversions
+from galpy.util import conversion  # for unit conversions
 from galpy.util import coords
 
 ################################ Tests against streamdf ######################
 
-# Setup both DFs    
+# Setup both DFs
 @pytest.fixture(scope='module')
 def setup_testStreamsprayAgainstStreamdf():
     lp= LogarithmicHaloPotential(normalize=1.,q=0.9)
@@ -35,7 +35,7 @@ def setup_testStreamsprayAgainstStreamdf():
                                pot=lp,
                                tdisrupt=4.5/conversion.time_in_Gyr(vo,ro))
     return sdf_bovy14, spdf_bovy14
-    
+
 def test_sample_bovy14(setup_testStreamsprayAgainstStreamdf):
     # Load objects that were setup above
     sdf_bovy14, spdf_bovy14= setup_testStreamsprayAgainstStreamdf
@@ -184,9 +184,9 @@ def test_center():
     assert numpy.fabs(numpy.mean(stream_R_wrt_LMC)-R_in_lmc) < 0.05, 'Stream generated in the LMC does not appear to be on a circle within the LMC'
     assert numpy.fabs(numpy.std(stream_R_wrt_LMC)) < 0.15, 'Stream generated in the LMC does not appear to be on a circle within the LMC'
     return None
-        
+
 def test_sample_orbit_rovoetc():
-    # Test that the sample orbit output has the same ro/vo/etc. as the 
+    # Test that the sample orbit output has the same ro/vo/etc. as the
     # input progenitor
     lp= LogarithmicHaloPotential(normalize=1.,q=0.9)
     ro, vo= 9., 230.

@@ -6,15 +6,15 @@
 #Copyright (c) 2011, Jo Bovy
 #All rights reserved.
 #
-#Redistribution and use in source and binary forms, with or without 
+#Redistribution and use in source and binary forms, with or without
 #modification, are permitted provided that the following conditions are met:
 #
-#   Redistributions of source code must retain the above copyright notice, 
+#   Redistributions of source code must retain the above copyright notice,
 #      this list of conditions and the following disclaimer.
-#   Redistributions in binary form must reproduce the above copyright notice, 
-#      this list of conditions and the following disclaimer in the 
+#   Redistributions in binary form must reproduce the above copyright notice,
+#      this list of conditions and the following disclaimer in the
 #      documentation and/or other materials provided with the distribution.
-#   The name of the author may not be used to endorse or promote products 
+#   The name of the author may not be used to endorse or promote products
 #      derived from this software without specific prior written permission.
 #
 #THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
@@ -31,6 +31,7 @@
 #POSSIBILITY OF SUCH DAMAGE.
 #############################################################################
 import numpy
+
 _MAX_DT_REDUCE= 10000.
 def leapfrog(func,yo,t,args=(),rtol=1.49012e-12,atol=1.49012e-12):
     """
@@ -111,4 +112,3 @@ def _leapfrog_estimate_step(func,qo,po,dt,to,args,rtol,atol):
         err= numpy.sqrt(numpy.mean((delta/scale)**2.))
         dt/= 2.
     return dt
-

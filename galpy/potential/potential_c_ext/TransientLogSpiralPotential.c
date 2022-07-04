@@ -15,7 +15,7 @@ double TransientLogSpiralPotentialRforce(double R,double phi,double t,
   double omegas= *args++;
   double gamma= *args++;
   //Calculate Rforce
-  return amp * A * exp(-pow(t-to,2.)/2./sigma2) / R 
+  return amp * A * exp(-pow(t-to,2.)/2./sigma2) / R
     * sin(alpha*log(R)-m*(phi-omegas*t-gamma));
 }
 double TransientLogSpiralPotentialphitorque(double R,double phi,double t,
@@ -31,6 +31,6 @@ double TransientLogSpiralPotentialphitorque(double R,double phi,double t,
   double omegas= *args++;
   double gamma= *args++;
   //Calculate phitorque
-  return -amp * A * exp(-pow(t-to,2.)/2./sigma2) / alpha * m 
+  return -amp * A * exp(-pow(t-to,2.)/2./sigma2) / alpha * m
     * sin(alpha*log(R)-m*(phi-omegas*t-gamma));
 }

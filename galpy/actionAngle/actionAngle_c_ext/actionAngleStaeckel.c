@@ -352,9 +352,9 @@ void actionAngleStaeckel_uminUmaxVmin(int ndata,
     *(sinhux+ii)= sinh(*(ux+ii));
     *(cosvx+ii)= cos(*(vx+ii));
     *(sinvx+ii)= sin(*(vx+ii));
-    *(pux+ii)= tdelta * (*(vR+ii) * *(coshux+ii) * *(sinvx+ii) 
+    *(pux+ii)= tdelta * (*(vR+ii) * *(coshux+ii) * *(sinvx+ii)
 			+ *(vz+ii) * *(sinhux+ii) * *(cosvx+ii));
-    *(pvx+ii)= tdelta * (*(vR+ii) * *(sinhux+ii) * *(cosvx+ii) 
+    *(pvx+ii)= tdelta * (*(vR+ii) * *(sinhux+ii) * *(cosvx+ii)
 			- *(vz+ii) * *(coshux+ii) * *(sinvx+ii));
     *(sinh2u0+ii)= sinh(*(u0+ii)) * sinh(*(u0+ii));
     *(cosh2u0+ii)= cosh(*(u0+ii)) * cosh(*(u0+ii));
@@ -364,7 +364,7 @@ void actionAngleStaeckel_uminUmaxVmin(int ndata,
 					npot,actionAngleArgs);
     *(I3U+ii)= *(E+ii) * *(sinhux+ii) * *(sinhux+ii)
       - 0.5 * *(pux+ii) * *(pux+ii) / tdelta / tdelta
-      - 0.5 * *(Lz+ii) * *(Lz+ii) / tdelta / tdelta / *(sinhux+ii) / *(sinhux+ii) 
+      - 0.5 * *(Lz+ii) * *(Lz+ii) / tdelta / tdelta / *(sinhux+ii) / *(sinhux+ii)
       - ( *(sinhux+ii) * *(sinhux+ii) + *(sin2v0+ii))
       *evaluatePotentialsUV(*(ux+ii),*(v0+ii),tdelta,
 			    npot,actionAngleArgs)
@@ -459,9 +459,9 @@ void actionAngleStaeckel_actions(int ndata,
     *(sinhux+ii)= sinh(*(ux+ii));
     *(cosvx+ii)= cos(*(vx+ii));
     *(sinvx+ii)= sin(*(vx+ii));
-    *(pux+ii)= tdelta * (*(vR+ii) * *(coshux+ii) * *(sinvx+ii) 
+    *(pux+ii)= tdelta * (*(vR+ii) * *(coshux+ii) * *(sinvx+ii)
 			+ *(vz+ii) * *(sinhux+ii) * *(cosvx+ii));
-    *(pvx+ii)= tdelta * (*(vR+ii) * *(sinhux+ii) * *(cosvx+ii) 
+    *(pvx+ii)= tdelta * (*(vR+ii) * *(sinhux+ii) * *(cosvx+ii)
 			- *(vz+ii) * *(coshux+ii) * *(sinvx+ii));
     *(sinh2u0+ii)= sinh(*(u0+ii)) * sinh(*(u0+ii));
     *(cosh2u0+ii)= cosh(*(u0+ii)) * cosh(*(u0+ii));
@@ -471,7 +471,7 @@ void actionAngleStaeckel_actions(int ndata,
 					npot,actionAngleArgs);
     *(I3U+ii)= *(E+ii) * *(sinhux+ii) * *(sinhux+ii)
       - 0.5 * *(pux+ii) * *(pux+ii) / tdelta / tdelta
-      - 0.5 * *(Lz+ii) * *(Lz+ii) / tdelta / tdelta / *(sinhux+ii) / *(sinhux+ii) 
+      - 0.5 * *(Lz+ii) * *(Lz+ii) / tdelta / tdelta / *(sinhux+ii) / *(sinhux+ii)
       - ( *(sinhux+ii) * *(sinhux+ii) + *(sin2v0+ii))
       *evaluatePotentialsUV(*(ux+ii),*(v0+ii),tdelta,
 			    npot,actionAngleArgs)
@@ -717,9 +717,9 @@ void actionAngleStaeckel_actionsFreqs(int ndata,
     *(sinhux+ii)= sinh(*(ux+ii));
     *(cosvx+ii)= cos(*(vx+ii));
     *(sinvx+ii)= sin(*(vx+ii));
-    *(pux+ii)= tdelta * (*(vR+ii) * *(coshux+ii) * *(sinvx+ii) 
+    *(pux+ii)= tdelta * (*(vR+ii) * *(coshux+ii) * *(sinvx+ii)
 			+ *(vz+ii) * *(sinhux+ii) * *(cosvx+ii));
-    *(pvx+ii)= tdelta * (*(vR+ii) * *(sinhux+ii) * *(cosvx+ii) 
+    *(pvx+ii)= tdelta * (*(vR+ii) * *(sinhux+ii) * *(cosvx+ii)
 			- *(vz+ii) * *(coshux+ii) * *(sinvx+ii));
     *(sinh2u0+ii)= sinh(*(u0+ii)) * sinh(*(u0+ii));
     *(cosh2u0+ii)= cosh(*(u0+ii)) * cosh(*(u0+ii));
@@ -729,7 +729,7 @@ void actionAngleStaeckel_actionsFreqs(int ndata,
 					npot,actionAngleArgs);
     *(I3U+ii)= *(E+ii) * *(sinhux+ii) * *(sinhux+ii)
       - 0.5 * *(pux+ii) * *(pux+ii) / tdelta / tdelta
-      - 0.5 * *(Lz+ii) * *(Lz+ii) / tdelta / tdelta / *(sinhux+ii) / *(sinhux+ii) 
+      - 0.5 * *(Lz+ii) * *(Lz+ii) / tdelta / tdelta / *(sinhux+ii) / *(sinhux+ii)
       - ( *(sinhux+ii) * *(sinhux+ii) + *(sin2v0+ii))
       *evaluatePotentialsUV(*(ux+ii),*(v0+ii),tdelta,
 			    npot,actionAngleArgs)
@@ -773,7 +773,7 @@ void actionAngleStaeckel_actionsFreqs(int ndata,
 		  potupi2,npot,actionAngleArgs,order);
   calcFreqsFromDerivsStaeckel(ndata,Omegar,Omegaphi,Omegaz,detA,
 			      dJRdE,dJRdLz,dJRdI3,
-			      dJzdE,dJzdLz,dJzdI3);		      
+			      dJzdE,dJzdLz,dJzdI3);
   //Free
   free_potentialArgs(npot,actionAngleArgs);
   free(actionAngleArgs);
@@ -865,9 +865,9 @@ void actionAngleStaeckel_actionsFreqsAngles(int ndata,
     *(sinhux+ii)= sinh(*(ux+ii));
     *(cosvx+ii)= cos(*(vx+ii));
     *(sinvx+ii)= sin(*(vx+ii));
-    *(pux+ii)= tdelta * (*(vR+ii) * *(coshux+ii) * *(sinvx+ii) 
+    *(pux+ii)= tdelta * (*(vR+ii) * *(coshux+ii) * *(sinvx+ii)
 			+ *(vz+ii) * *(sinhux+ii) * *(cosvx+ii));
-    *(pvx+ii)= tdelta * (*(vR+ii) * *(sinhux+ii) * *(cosvx+ii) 
+    *(pvx+ii)= tdelta * (*(vR+ii) * *(sinhux+ii) * *(cosvx+ii)
 			- *(vz+ii) * *(coshux+ii) * *(sinvx+ii));
     *(sinh2u0+ii)= sinh(*(u0+ii)) * sinh(*(u0+ii));
     *(cosh2u0+ii)= cosh(*(u0+ii)) * cosh(*(u0+ii));
@@ -877,7 +877,7 @@ void actionAngleStaeckel_actionsFreqsAngles(int ndata,
 					npot,actionAngleArgs);
     *(I3U+ii)= *(E+ii) * *(sinhux+ii) * *(sinhux+ii)
       - 0.5 * *(pux+ii) * *(pux+ii) / tdelta / tdelta
-      - 0.5 * *(Lz+ii) * *(Lz+ii) / tdelta / tdelta / *(sinhux+ii) / *(sinhux+ii) 
+      - 0.5 * *(Lz+ii) * *(Lz+ii) / tdelta / tdelta / *(sinhux+ii) / *(sinhux+ii)
       - ( *(sinhux+ii) * *(sinhux+ii) + *(sin2v0+ii))
       *evaluatePotentialsUV(*(ux+ii),*(v0+ii),tdelta,
 			    npot,actionAngleArgs)
@@ -921,7 +921,7 @@ void actionAngleStaeckel_actionsFreqsAngles(int ndata,
 		  potupi2,npot,actionAngleArgs,order);
   calcFreqsFromDerivsStaeckel(ndata,Omegar,Omegaphi,Omegaz,detA,
 			      dJRdE,dJRdLz,dJRdI3,
-			      dJzdE,dJzdLz,dJzdI3);		      
+			      dJzdE,dJzdLz,dJzdI3);
   double *dI3dJR= (double *) malloc ( ndata * sizeof(double) );
   double *dI3dJz= (double *) malloc ( ndata * sizeof(double) );
   double *dI3dLz= (double *) malloc ( ndata * sizeof(double) );
@@ -1001,7 +1001,7 @@ void calcFreqsFromDerivsStaeckel(int ndata,
       *(Omegaphi+ii)= ( *(djrdI3+ii) * *(djzdLz+ii) - *(djzdI3+ii) * *(djrdLz+ii)) / *(detA+ii);
     }
   }
-}		 
+}
 void calcdI3dJFromDerivsStaeckel(int ndata,
 				 double * dI3dJR,
 				 double * dI3dJz,
@@ -1021,7 +1021,7 @@ void calcdI3dJFromDerivsStaeckel(int ndata,
     *(dI3dJz+ii)= *(djrdE+ii) / *(detA+ii);
     *(dI3dLz+ii)= -( *(djrdE+ii) * *(djzdLz+ii) - *(djzdE+ii) * *(djrdLz+ii) ) / *(detA+ii);
   }
-}		 
+}
 void calcdJRStaeckel(int ndata,
 		     double * djrdE,
 		     double * djrdLz,
@@ -1331,7 +1331,7 @@ void calcAnglesStaeckel(int ndata,
 	Or1*= *(delta+ii*delta_stride) / sqrt(2.);
 	I3r1*= *(delta+ii*delta_stride) / sqrt(2.);
       }
-    } 
+    }
     else {
       if ( *(ux+ii) > midpoint ) {
 	mid= sqrt( ( *(umax+ii) - *(ux+ii) ) );
@@ -1412,7 +1412,7 @@ void calcAnglesStaeckel(int ndata,
 	  phitmp= 0.5 * M_PI * *(dJzdLz+ii) - phitmp;
 	}
       }
-    } 
+    }
     else {
       if ( *(vx+ii) < midpoint || *(vx+ii) > (M_PI - midpoint)) {
 	mid = ( *(vx+ii) > 0.5 * M_PI ) ? sqrt( (M_PI - *(vx+ii) - *(vmin+ii))): sqrt( *(vx+ii) - *(vmin+ii));
@@ -1459,14 +1459,14 @@ void calcAnglesStaeckel(int ndata,
 	}
       }
     }
-    *(Angler+ii)= *(Omegar+ii) * ( Or1 + Or2 ) 
+    *(Angler+ii)= *(Omegar+ii) * ( Or1 + Or2 )
       + *(dI3dJR+ii) * ( I3r1 + I3r2 );
-    // In Binney (2012) Anglez starts at zmax/vmin and v_z < 0 / v_v > 0; 
+    // In Binney (2012) Anglez starts at zmax/vmin and v_z < 0 / v_v > 0;
     // Put this on the same system as Isochrone and Spherical angles +pi/2
-    *(Anglez+ii)= *(Omegaz+ii) * ( Or1 + Or2 ) 
+    *(Anglez+ii)= *(Omegaz+ii) * ( Or1 + Or2 )
       + *(dI3dJz+ii) * ( I3r1 + I3r2 ) + 0.5 * M_PI;
     *(Anglephi+ii)+= phitmp;
-    *(Anglephi+ii)+= *(Omegaphi+ii) * ( Or1 + Or2 ) 
+    *(Anglephi+ii)+= *(Omegaphi+ii) * ( Or1 + Or2 )
       + *(dI3dLz+ii) * ( I3r1 + I3r2 );
     *(Angler+ii)= fmod(*(Angler+ii),2. * M_PI);
     *(Anglez+ii)= fmod(*(Anglez+ii),2. * M_PI);
@@ -1841,7 +1841,7 @@ double JRStaeckelIntegrandSquared4dJR(double u,
     - (params->sinh2u0+params->sin2v0)*params->potu0v0;
   return params->E * sinh2u - params->I3U - dU  - params->Lz22delta / sinh2u;
 }
-  
+
 double JzStaeckelIntegrand(double v,
 			   void * p){
   double out= JzStaeckelIntegrandSquared(v,p);
@@ -1981,9 +1981,9 @@ double u0Equation(double u, void * p){
   double dU= cosh2u * evaluatePotentialsUV(u,0.5*M_PI,params->delta,
 				    params->nargs,params->actionAngleArgs);
   return -(params->E*sinh2u-dU-params->Lz22delta/sinh2u);
-}  
+}
 double evaluatePotentialsUV(double u, double v, double delta,
-			    int nargs, 
+			    int nargs,
 			    struct potentialArg * actionAngleArgs){
   double R,z;
   uv_to_Rz(u,v,&R,&z,delta);

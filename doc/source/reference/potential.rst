@@ -504,7 +504,7 @@ Specific potentials
 +++++++++++++++++++
 
 All of the 3D potentials above can be used as two-dimensional
-potentials in the mid-plane. 
+potentials in the mid-plane.
 
 .. toctree::
    :maxdepth: 2

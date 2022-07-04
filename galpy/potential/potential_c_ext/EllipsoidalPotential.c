@@ -24,11 +24,11 @@ double EllipsoidalPotentialEval(double R,double z, double phi,
   double x, y;
   double out= 0.;
   cyl_to_rect(R,phi,&x,&y);
-  if ( !aligned ) 
+  if ( !aligned )
     rotate(&x,&y,&z,rot);
   for (ii=0; ii < glorder; ii++) {
     s= 1. / *(glx+ii) / *(glx+ii) - 1.;
-    out+= *(glw+ii) * potentialArgs->psi ( sqrt (  x * x / ( 1. + s ) 
+    out+= *(glw+ii) * potentialArgs->psi ( sqrt (  x * x / ( 1. + s )
 	 					 + y * y / ( b2 + s )
 		 				 + z * z / ( c2 + s ) ),
 					   args+8);
@@ -38,7 +38,7 @@ double EllipsoidalPotentialEval(double R,double z, double phi,
 void EllipsoidalPotentialxyzforces_xyz(double (*dens)(double m,
 						      double * args),
 				       double x,double y, double z,
-				       double * Fx, double * Fy, 
+				       double * Fx, double * Fy,
 				       double * Fz,double * args){
   int ii;
   double t;
@@ -57,7 +57,7 @@ void EllipsoidalPotentialxyzforces_xyz(double (*dens)(double m,
   *(args + 1)= x;
   *(args + 2)= y;
   *(args + 3)= z;
-  if ( !aligned ) 
+  if ( !aligned )
     rotate(&x,&y,&z,rot);
   *Fx= 0.;
   *Fy= 0.;
@@ -96,7 +96,7 @@ double EllipsoidalPotentialRforce(double R,double z, double phi,
     Fz= *(args + 6);
     // LCOV_EXCL_STOP
   }
-  else 
+  else
     EllipsoidalPotentialxyzforces_xyz(potentialArgs->mdens,
 				      x,y,z,&Fx,&Fy,&Fz,args);
   return amp * ( cos ( phi ) * Fx + sin( phi ) * Fy );
@@ -119,7 +119,7 @@ double EllipsoidalPotentialphitorque(double R,double z, double phi,
     Fy= *(args + 5);
     Fz= *(args + 6);
   }
-  else 
+  else
     // LCOV_EXCL_START
     EllipsoidalPotentialxyzforces_xyz(potentialArgs->mdens,
 				      x,y,z,&Fx,&Fy,&Fz,args);
@@ -144,7 +144,7 @@ double EllipsoidalPotentialzforce(double R,double z, double phi,
     Fy= *(args + + 5);
     Fz= *(args + + 6);
   }
-  else 
+  else
     // LCOV_EXCL_START
     EllipsoidalPotentialxyzforces_xyz(potentialArgs->mdens,
 				      x,y,z,&Fx,&Fy,&Fz,args);
@@ -175,7 +175,7 @@ double EllipsoidalPotentialDens(double R,double z, double phi,
   //Calculate density
   double x, y;
   cyl_to_rect(R,phi,&x,&y);
-  if ( !aligned ) 
+  if ( !aligned )
     rotate(&x,&y,&z,rot);
   return amp * potentialArgs->mdens ( sqrt (x * x + y * y / b2 + z * z / c2 ),
 				     args+8);
@@ -230,7 +230,7 @@ double TriaxialHernquistPotentialEval(double R,double z, double phi,
   double x, y;
   double out= 0.;
   cyl_to_rect(R,phi,&x,&y);
-  if ( !aligned ) 
+  if ( !aligned )
     rotate(&x,&y,&z,rot);
   for (ii=0; ii < glorder; ii++)
     out+= *(glw+ii) * a * a						\
@@ -271,7 +271,7 @@ double TriaxialJaffePotentialEval(double R,double z, double phi,
   double x, y;
   double out= 0.;
   cyl_to_rect(R,phi,&x,&y);
-  if ( !aligned ) 
+  if ( !aligned )
     rotate(&x,&y,&z,rot);
   for (ii=0; ii < glorder; ii++)
     out+= *(glw+ii) * a * a						\

@@ -1,10 +1,13 @@
 ###############################################################################
-#   SphericalPotential.py: base class for potentials corresponding to 
+#   SphericalPotential.py: base class for potentials corresponding to
 #                          spherical density profiles
 ###############################################################################
 import numpy
 from scipy import integrate
+
 from .Potential import Potential
+
+
 class SphericalPotential(Potential):
     """Base class for spherical potentials.
 
@@ -51,7 +54,7 @@ Implement a specific spherical density distribution with this form by inheriting
     def _rdens(self,r,t=0.):
         """Implement using the Poisson equation in case this isn't implemented"""
         return (self._r2deriv(r,t=t)-2.*self._rforce(r,t=t)/r)/4./numpy.pi
-    
+
     def _evaluate(self,R,z,phi=0.,t=0.):
         """
         NAME:

@@ -11,9 +11,12 @@
 #              calcEz
 ###############################################################################
 import numpy
-from scipy import optimize, integrate
-from .actionAngle import actionAngle
+from scipy import integrate, optimize
+
 from ..potential.linearPotential import evaluatelinearPotentials
+from .actionAngle import actionAngle
+
+
 class actionAngleVertical(actionAngle):
     """Action-angle formalism for vertical integral using the adiabatic approximation"""
     def __init__(self,*args,**kwargs):
@@ -39,7 +42,7 @@ class actionAngleVertical(actionAngle):
             raise OSError("Must specify pot= for actionAngleVertical")
         self._verticalpot= kwargs['pot']
         return None
-    
+
     def Jz(self,**kwargs):
         """
         NAME:
@@ -163,7 +166,7 @@ def calcEz(z,vz,pot):
        Ez
     HISTORY:
        2012-06-01 - Written - Bovy (IAS)
-    """                           
+    """
     return potentialVertical(z,pot)+vz**2./2.
 
 def potentialVertical(z,pot):
@@ -212,4 +215,3 @@ def _zmaxFindStart(z,Ez,pot):
         if ztry > 100.: #pragma: no cover
             raise OverflowError
     return ztry
-

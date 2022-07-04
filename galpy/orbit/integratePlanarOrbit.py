@@ -1,23 +1,26 @@
 import ctypes
 import ctypes.util
-from numpy.ctypeslib import ndpointer
+
 import numpy
+from numpy.ctypeslib import ndpointer
 from scipy import integrate
+
 from .. import potential
-from ..potential.planarPotential import planarPotentialFromFullPotential, \
-    planarPotentialFromRZPotential
-from ..potential.planarPotential import _evaluateplanarRforces,\
-    _evaluateplanarphitorques, _evaluateplanarPotentials
+from ..potential.planarPotential import (_evaluateplanarphitorques,
+                                         _evaluateplanarPotentials,
+                                         _evaluateplanarRforces,
+                                         planarPotentialFromFullPotential,
+                                         planarPotentialFromRZPotential)
 from ..potential.WrapperPotential import parentWrapperPotential
-from ..util.multi import parallel_map
+from ..util import _load_extension_libs, symplecticode
+from ..util._optional_deps import _NUMBA_LOADED, _TQDM_LOADED
 from ..util.leung_dop853 import dop853
-from ..util import symplecticode
-from ..util import _load_extension_libs
-from ..util._optional_deps import _TQDM_LOADED, _NUMBA_LOADED
+from ..util.multi import parallel_map
+
 if _TQDM_LOADED:
     import tqdm
 if _NUMBA_LOADED:
-    from numba import types, cfunc
+    from numba import cfunc, types
 
 _lib, _ext_loaded= _load_extension_libs.load_libgalpy()
 
@@ -466,7 +469,7 @@ def integratePlanarOrbit_c(pot,yo,t,int_method,rtol=None,atol=None,
     #Set up result array
     result= numpy.empty((nobj,len(t),4))
     err= numpy.zeros(nobj,dtype=numpy.int32)
-    
+
     #Set up progressbar
     progressbar*= _TQDM_LOADED
     if nobj > 1 and progressbar:

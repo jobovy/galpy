@@ -1,22 +1,10 @@
-from . import diskdf
-from . import surfaceSigmaProfile
-from . import evolveddiskdf
-from . import quasiisothermaldf
-from . import streamdf
-from . import streamgapdf
-from . import jeans
-from . import sphericaldf
-from . import eddingtondf
-from . import isotropicHernquistdf
-from . import constantbetaHernquistdf
-from . import osipkovmerrittHernquistdf
-from . import kingdf
-from . import isotropicPlummerdf
-from . import isotropicNFWdf
-from . import osipkovmerrittdf
-from . import osipkovmerrittNFWdf
-from . import constantbetadf
-from . import streamspraydf
+from . import (constantbetadf, constantbetaHernquistdf, diskdf, eddingtondf,
+               evolveddiskdf, isotropicHernquistdf, isotropicNFWdf,
+               isotropicPlummerdf, jeans, kingdf, osipkovmerrittdf,
+               osipkovmerrittHernquistdf, osipkovmerrittNFWdf,
+               quasiisothermaldf, sphericaldf, streamdf, streamgapdf,
+               streamspraydf, surfaceSigmaProfile)
+
 #
 # Functions
 #

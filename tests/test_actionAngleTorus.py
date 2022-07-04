@@ -1,10 +1,13 @@
 import os
 import sys
-import pytest
 import warnings
+
 import numpy
-from galpy.util import galpyWarning
+import pytest
 from test_actionAngle import reset_warning_registry
+
+from galpy.util import galpyWarning
+
 _TRAVIS= bool(os.getenv('TRAVIS'))
 PY2= sys.version < '3'
 # Print all galpyWarnings always for tests of warnings
@@ -13,8 +16,8 @@ warnings.simplefilter("always",galpyWarning)
 #Basic sanity checking: circular orbit should have constant R, zero vR, vT=vc
 def test_actionAngleTorus_basic():
     from galpy.actionAngle import actionAngleTorus
-    from galpy.potential import MWPotential, rl, vcirc, \
-        FlattenedPowerPotential, PlummerPotential
+    from galpy.potential import (FlattenedPowerPotential, MWPotential,
+                                 PlummerPotential, rl, vcirc)
     tol= -4.
     jr= 10.**-10.
     jz= 10.**-10.
@@ -72,8 +75,9 @@ def test_actionAngleTorus_basic():
 #Basic sanity checking: close-to-circular orbit should have freq. = epicycle freq.
 def test_actionAngleTorus_basic_freqs():
     from galpy.actionAngle import actionAngleTorus
-    from galpy.potential import epifreq, omegac, verticalfreq, rl, \
-        JaffePotential, PowerSphericalPotential, HernquistPotential
+    from galpy.potential import (HernquistPotential, JaffePotential,
+                                 PowerSphericalPotential, epifreq, omegac, rl,
+                                 verticalfreq)
     tol= -3.
     jr= 10.**-6.
     jz= 10.**-6.
@@ -116,8 +120,9 @@ def test_actionAngleTorus_basic_freqs():
 #Test that orbit from actionAngleTorus is the same as an integrated orbit
 def test_actionAngleTorus_orbit():
     from galpy.actionAngle import actionAngleTorus
-    from galpy.potential import MWPotential2014
     from galpy.orbit import Orbit
+    from galpy.potential import MWPotential2014
+
     # Set up instance
     aAT= actionAngleTorus(pot=MWPotential2014,tol=10.**-5.)
     jr,jphi,jz= 0.05,1.1,0.025
@@ -178,9 +183,8 @@ def test_actionAngleTorus_interppot_freqs():
 
 #Test the actionAngleTorus against an isochrone potential: actions
 def test_actionAngleTorus_Isochrone_actions():
+    from galpy.actionAngle import actionAngleIsochrone, actionAngleTorus
     from galpy.potential import IsochronePotential
-    from galpy.actionAngle import actionAngleTorus, \
-        actionAngleIsochrone
     ip= IsochronePotential(normalize=1.,b=1.2)
     aAI= actionAngleIsochrone(ip=ip)
     tol= -6.
@@ -197,15 +201,14 @@ def test_actionAngleTorus_Isochrone_actions():
     dlz= numpy.fabs((ji[1]-jphi)/jphi)
     djz= numpy.fabs((ji[2]-jz)/jz)
     assert djr < 10.**tol, 'actionAngleTorus and actionAngleIsochrone applied to isochrone potential disagree for Jr at %f%%' % (djr*100.)
-    assert dlz < 10.**tol, 'actionAngleTorus and actionAngleIsochrone applied to isochrone potential disagree for Jr at %f%%' % (dlz*100.) 
+    assert dlz < 10.**tol, 'actionAngleTorus and actionAngleIsochrone applied to isochrone potential disagree for Jr at %f%%' % (dlz*100.)
     assert djz < 10.**tol, 'actionAngleTorus and actionAngleIsochrone applied to isochrone potential disagree for Jr at %f%%' % (djz*100.)
     return None
 
 #Test the actionAngleTorus against an isochrone potential: frequencies and angles
 def test_actionAngleTorus_Isochrone_freqsAngles():
+    from galpy.actionAngle import actionAngleIsochrone, actionAngleTorus
     from galpy.potential import IsochronePotential
-    from galpy.actionAngle import actionAngleTorus, \
-        actionAngleIsochrone
     ip= IsochronePotential(normalize=1.,b=1.2)
     aAI= actionAngleIsochrone(ip=ip)
     tol= -6.
@@ -234,7 +237,7 @@ def test_actionAngleTorus_Isochrone_freqsAngles():
     daz[daz > numpy.pi]-= 2.*numpy.pi
     daz[daz < -numpy.pi]+= 2.*numpy.pi
     assert numpy.all(dOr < 10.**tol), 'actionAngleTorus and actionAngleIsochrone applied to isochrone potential disagree for Or at %f%%' % (numpy.nanmax(dOr)*100.)
-    assert numpy.all(dOp < 10.**tol), 'actionAngleTorus and actionAngleIsochrone applied to isochrone potential disagree for Ophi at %f%%' % (numpy.nanmax(dOp)*100.) 
+    assert numpy.all(dOp < 10.**tol), 'actionAngleTorus and actionAngleIsochrone applied to isochrone potential disagree for Ophi at %f%%' % (numpy.nanmax(dOp)*100.)
     assert numpy.all(dOz < 10.**tol), 'actionAngleTorus and actionAngleIsochrone applied to isochrone potential disagree for Oz at %f%%' % (numpy.nanmax(dOz)*100.)
     assert numpy.all(dar < 10.**tol), 'actionAngleTorus and actionAngleIsochrone applied to isochrone potential disagree for ar at %f' % (numpy.nanmax(dar))
     assert numpy.all(dap < 10.**tol), 'actionAngleTorus and actionAngleIsochrone applied to isochrone potential disagree for aphi at %f' % (numpy.nanmax(dap))
@@ -243,9 +246,8 @@ def test_actionAngleTorus_Isochrone_freqsAngles():
 
 #Test the actionAngleTorus against a Staeckel potential: actions
 def test_actionAngleTorus_Staeckel_actions():
+    from galpy.actionAngle import actionAngleStaeckel, actionAngleTorus
     from galpy.potential import KuzminKutuzovStaeckelPotential
-    from galpy.actionAngle import actionAngleTorus, \
-        actionAngleStaeckel
     delta= 1.2
     kp= KuzminKutuzovStaeckelPotential(normalize=1.,Delta=delta)
     aAS= actionAngleStaeckel(pot=kp,delta=delta,c=True)
@@ -263,15 +265,14 @@ def test_actionAngleTorus_Staeckel_actions():
     dlz= numpy.fabs((ji[1]-jphi)/jphi)
     djz= numpy.fabs((ji[2]-jz)/jz)
     assert djr < 10.**tol, 'actionAngleTorus and actionAngleStaeckel applied to Staeckel potential disagree for Jr at %f%%' % (djr*100.)
-    assert dlz < 10.**tol, 'actionAngleTorus and actionAngleStaeckel applied to Staeckel potential disagree for Jr at %f%%' % (dlz*100.) 
+    assert dlz < 10.**tol, 'actionAngleTorus and actionAngleStaeckel applied to Staeckel potential disagree for Jr at %f%%' % (dlz*100.)
     assert djz < 10.**tol, 'actionAngleTorus and actionAngleStaeckel applied to Staeckel potential disagree for Jr at %f%%' % (djz*100.)
     return None
 
 #Test the actionAngleTorus against an isochrone potential: frequencies and angles
 def test_actionAngleTorus_Staeckel_freqsAngles():
+    from galpy.actionAngle import actionAngleStaeckel, actionAngleTorus
     from galpy.potential import KuzminKutuzovStaeckelPotential
-    from galpy.actionAngle import actionAngleTorus, \
-        actionAngleStaeckel
     delta= 1.2
     kp= KuzminKutuzovStaeckelPotential(normalize=1.,Delta=delta)
     aAS= actionAngleStaeckel(pot=kp,delta=delta,c=True)
@@ -301,7 +302,7 @@ def test_actionAngleTorus_Staeckel_freqsAngles():
     daz[daz > numpy.pi]-= 2.*numpy.pi
     daz[daz < -numpy.pi]+= 2.*numpy.pi
     assert numpy.all(dOr < 10.**tol), 'actionAngleTorus and actionAngleStaeckel applied to Staeckel potential disagree for Or at %f%%' % (numpy.nanmax(dOr)*100.)
-    assert numpy.all(dOp < 10.**tol), 'actionAngleTorus and actionAngleStaeckel applied to Staeckel potential disagree for Ophi at %f%%' % (numpy.nanmax(dOp)*100.) 
+    assert numpy.all(dOp < 10.**tol), 'actionAngleTorus and actionAngleStaeckel applied to Staeckel potential disagree for Ophi at %f%%' % (numpy.nanmax(dOp)*100.)
     assert numpy.all(dOz < 10.**tol), 'actionAngleTorus and actionAngleStaeckel applied to Staeckel potential disagree for Oz at %f%%' % (numpy.nanmax(dOz)*100.)
     assert numpy.all(dar < 10.**tol), 'actionAngleTorus and actionAngleStaeckel applied to Staeckel potential disagree for ar at %f' % (numpy.nanmax(dar))
     assert numpy.all(dap < 10.**tol), 'actionAngleTorus and actionAngleStaeckel applied to Staeckel potential disagree for aphi at %f' % (numpy.nanmax(dap))
@@ -310,9 +311,8 @@ def test_actionAngleTorus_Staeckel_freqsAngles():
 
 #Test the actionAngleTorus against a general potential w/ actionAngleIsochroneApprox: actions
 def test_actionAngleTorus_isochroneApprox_actions():
+    from galpy.actionAngle import actionAngleIsochroneApprox, actionAngleTorus
     from galpy.potential import MWPotential2014
-    from galpy.actionAngle import actionAngleTorus, \
-        actionAngleIsochroneApprox
     aAIA= actionAngleIsochroneApprox(pot=MWPotential2014,b=0.8)
     tol= -2.5
     aAT= actionAngleTorus(pot=MWPotential2014,tol=tol)
@@ -328,15 +328,14 @@ def test_actionAngleTorus_isochroneApprox_actions():
     dlz= numpy.fabs((ji[1]-jphi)/jphi)
     djz= numpy.fabs((ji[2]-jz)/jz)
     assert djr < 10.**tol, 'actionAngleTorus and actionAngleIsochroneApprox applied to MWPotential2014 potential disagree for Jr at %f%%' % (djr*100.)
-    assert dlz < 10.**tol, 'actionAngleTorus and actionAngleIsochroneApprox applied to MWPotential2014 potential disagree for Jr at %f%%' % (dlz*100.) 
+    assert dlz < 10.**tol, 'actionAngleTorus and actionAngleIsochroneApprox applied to MWPotential2014 potential disagree for Jr at %f%%' % (dlz*100.)
     assert djz < 10.**tol, 'actionAngleTorus and actionAngleMWPotential2014 applied to MWPotential2014 potential disagree for Jr at %f%%' % (djz*100.)
     return None
 
 #Test the actionAngleTorus against a general potential w/ actionAngleIsochrone: frequencies and angles
 def test_actionAngleTorus_isochroneApprox_freqsAngles():
+    from galpy.actionAngle import actionAngleIsochroneApprox, actionAngleTorus
     from galpy.potential import MWPotential2014
-    from galpy.actionAngle import actionAngleTorus, \
-        actionAngleIsochroneApprox
     aAIA= actionAngleIsochroneApprox(pot=MWPotential2014,b=0.8)
     tol= -3.5
     aAT= actionAngleTorus(pot=MWPotential2014,tol=tol)
@@ -364,7 +363,7 @@ def test_actionAngleTorus_isochroneApprox_freqsAngles():
     daz[daz > numpy.pi]-= 2.*numpy.pi
     daz[daz < -numpy.pi]+= 2.*numpy.pi
     assert numpy.all(dOr < 10.**tol), 'actionAngleTorus and actionAngleIsochroneApprox applied to MWPotential2014 potential disagree for Or at %f%%' % (numpy.nanmax(dOr)*100.)
-    assert numpy.all(dOp < 10.**tol), 'actionAngleTorus and actionAngleIsochroneApprox applied to MWPotential2014 potential disagree for Ophi at %f%%' % (numpy.nanmax(dOp)*100.) 
+    assert numpy.all(dOp < 10.**tol), 'actionAngleTorus and actionAngleIsochroneApprox applied to MWPotential2014 potential disagree for Ophi at %f%%' % (numpy.nanmax(dOp)*100.)
     assert numpy.all(dOz < 10.**tol), 'actionAngleTorus and actionAngleIsochroneApprox applied to MWPotential2014 potential disagree for Oz at %f%%' % (numpy.nanmax(dOz)*100.)
     assert numpy.all(dar < 10.**tol), 'actionAngleTorus and actionAngleIsochroneApprox applied to MWPotential2014 potential disagree for ar at %f' % (numpy.nanmax(dar))
     assert numpy.all(dap < 10.**tol), 'actionAngleTorus and actionAngleIsochroneApprox applied to MWPotential2014 potential disagree for aphi at %f' % (numpy.nanmax(dap))
@@ -373,8 +372,8 @@ def test_actionAngleTorus_isochroneApprox_freqsAngles():
 
 # Test that the frequencies returned by hessianFreqs are the same as those returned by Freqs
 def test_actionAngleTorus_hessian_freqs():
-    from galpy.potential import MWPotential2014
     from galpy.actionAngle import actionAngleTorus
+    from galpy.potential import MWPotential2014
     aAT= actionAngleTorus(pot=MWPotential2014)
     jr,jphi,jz= 0.075,1.1,0.05
     fO= aAT.Freqs(jr,jphi,jz)[:3]
@@ -384,8 +383,8 @@ def test_actionAngleTorus_hessian_freqs():
 
 # Test that the Hessian is approximately symmetric
 def test_actionAngleTorus_hessian_symm():
-    from galpy.potential import MWPotential2014
     from galpy.actionAngle import actionAngleTorus
+    from galpy.potential import MWPotential2014
     aAT= actionAngleTorus(pot=MWPotential2014)
     jr,jphi,jz= 0.075,1.1,0.05
     h= aAT.hessianFreqs(jr,jphi,jz,tol=0.0001,nosym=True)[0]
@@ -394,8 +393,8 @@ def test_actionAngleTorus_hessian_symm():
 
 # Test that the Hessian is approximately correct
 def test_actionAngleTorus_hessian_linear():
-    from galpy.potential import MWPotential2014
     from galpy.actionAngle import actionAngleTorus
+    from galpy.potential import MWPotential2014
     aAT= actionAngleTorus(pot=MWPotential2014)
     jr,jphi,jz= 0.075,1.1,0.05
     h= aAT.hessianFreqs(jr,jphi,jz,tol=0.0001,nosym=True)[0]
@@ -408,8 +407,8 @@ def test_actionAngleTorus_hessian_linear():
 
 # Test that the frequencies returned by xvJacobianFreqs are the same as those returned by Freqs
 def test_actionAngleTorus_jacobian_freqs():
-    from galpy.potential import MWPotential2014
     from galpy.actionAngle import actionAngleTorus
+    from galpy.potential import MWPotential2014
     aAT= actionAngleTorus(pot=MWPotential2014)
     jr,jphi,jz= 0.075,1.1,0.05
     fO= aAT.Freqs(jr,jphi,jz)[:3]
@@ -421,8 +420,8 @@ def test_actionAngleTorus_jacobian_freqs():
 
 # Test that the Hessian returned by xvJacobianFreqs are the same as those returned by hessianFreqs
 def test_actionAngleTorus_jacobian_hessian():
-    from galpy.potential import MWPotential2014
     from galpy.actionAngle import actionAngleTorus
+    from galpy.potential import MWPotential2014
     aAT= actionAngleTorus(pot=MWPotential2014)
     jr,jphi,jz= 0.075,1.1,0.05
     fO= aAT.hessianFreqs(jr,jphi,jz)[0]
@@ -434,8 +433,8 @@ def test_actionAngleTorus_jacobian_hessian():
 
 # Test that the xv returned by xvJacobianFreqs are the same as those returned by __call__
 def test_actionAngleTorus_jacobian_xv():
-    from galpy.potential import MWPotential2014
     from galpy.actionAngle import actionAngleTorus
+    from galpy.potential import MWPotential2014
     aAT= actionAngleTorus(pot=MWPotential2014)
     jr,jphi,jz= 0.075,1.1,0.05
     angler= numpy.array([0.,1.])
@@ -448,8 +447,8 @@ def test_actionAngleTorus_jacobian_xv():
 
 # Test that the determinant of the Jacobian returned by xvJacobianFreqs is close to 1/R (should be 1 for rectangular coordinates, 1/R for cylindrical
 def test_actionAngleTorus_jacobian_detone():
-    from galpy.potential import MWPotential2014
     from galpy.actionAngle import actionAngleTorus
+    from galpy.potential import MWPotential2014
     aAT= actionAngleTorus(pot=MWPotential2014,dJ=0.0001)
     jr,jphi,jz= 0.075,1.1,0.05
     angler= numpy.array([0.,1.])
@@ -462,8 +461,8 @@ def test_actionAngleTorus_jacobian_detone():
 
 # Test that Jacobian returned by xvJacobianFreqs is approximately correct
 def test_actionAngleTorus_jacobian_linear():
-    from galpy.potential import MWPotential2014
     from galpy.actionAngle import actionAngleTorus
+    from galpy.potential import MWPotential2014
     aAT= actionAngleTorus(pot=MWPotential2014)
     jr,jphi,jz= 0.075,1.1,0.05
     angler= numpy.array([0.5])
@@ -480,8 +479,9 @@ def test_actionAngleTorus_jacobian_linear():
 
 #Test error when potential is not implemented in C
 def test_actionAngleTorus_nocerr():
-    from galpy.actionAngle import actionAngleTorus
     from test_potential import BurkertPotentialNoC
+
+    from galpy.actionAngle import actionAngleTorus
     bp= BurkertPotentialNoC()
     try:
         aAT= actionAngleTorus(pot=bp)
@@ -504,8 +504,8 @@ def test_actionAngleTorus_nonaxierr():
 
 # Test the Autofit torus warnings
 def test_actionAngleTorus_AutoFitWarning():
-    from galpy.potential import LogarithmicHaloPotential
     from galpy.actionAngle import actionAngleTorus
+    from galpy.potential import LogarithmicHaloPotential
     lp= LogarithmicHaloPotential(normalize=1.,q=0.9)
     aAT= actionAngleTorus(pot=lp,tol=10.**-8.)
     # These should give warnings

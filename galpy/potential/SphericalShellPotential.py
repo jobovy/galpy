@@ -1,10 +1,13 @@
 ###############################################################################
-#   SphericalShellPotential.py: The gravitational potential of a thin, 
+#   SphericalShellPotential.py: The gravitational potential of a thin,
 #                               spherical shell
 ###############################################################################
 import numpy
+
 from ..util import conversion
 from .SphericalPotential import SphericalPotential
+
+
 class SphericalShellPotential(SphericalPotential):
     """Class that implements the potential of an infinitesimally-thin, spherical shell
 

@@ -2,10 +2,12 @@
 import copy
 import multiprocessing
 import warnings
-from pkg_resources import parse_version
+
 import numpy
 import scipy
-from scipy import special, interpolate, integrate, optimize
+from pkg_resources import parse_version
+from scipy import integrate, interpolate, optimize, special
+
 _SCIPY_VERSION= parse_version(scipy.__version__)
 if _SCIPY_VERSION < parse_version('0.10'): #pragma: no cover
     from scipy.maxentropy import logsumexp
@@ -13,15 +15,16 @@ elif _SCIPY_VERSION < parse_version('0.19'): #pragma: no cover
     from scipy.misc import logsumexp
 else:
     from scipy.special import logsumexp
-from ..orbit import Orbit
-from .df import df
-from ..util import coords, fast_cholesky_invert, \
-    conversion, multi, plot, stable_cho_factor, ars
-from ..util.conversion import physical_conversion
+
 from ..actionAngle.actionAngleIsochroneApprox import dePeriod
+from ..orbit import Orbit
 from ..potential import flatten as flatten_potential
-from ..util import galpyWarning
+from ..util import (ars, conversion, coords, fast_cholesky_invert,
+                    galpyWarning, multi, plot, stable_cho_factor)
 from ..util._optional_deps import _APY_LOADED, _APY_UNITS
+from ..util.conversion import physical_conversion
+from .df import df
+
 if _APY_LOADED:
     from astropy import units
 _INTERPDURINGSETUP= True
@@ -88,8 +91,8 @@ class streamdf(df):
            useTM= (False) if set to an actionAngleTorus instance, use this to speed up calculations
 
            sigMeanOffset= (6.) offset between the mean of the frequencies
-                          and the progenitor, in units of the largest 
-                          eigenvalue of the frequency covariance matrix 
+                          and the progenitor, in units of the largest
+                          eigenvalue of the frequency covariance matrix
                           (along the largest eigenvector), should be positive;
                           to model the trailing part, set leading=False
 
@@ -102,12 +105,12 @@ class streamdf(df):
 
            nTrackIterations= Number of iterations to perform when establishing the track; each iteration starts from a previous approximation to the track in (x,v) and calculates a new track based on the deviation between the previous track and the desired track in action-angle coordinates; if not set, an appropriate value is determined based on the magnitude of the misalignment between stream and orbit, with larger numbers of iterations for larger misalignments
 
-           interpTrack= (might change), interpolate the stream track while 
-                        setting up the instance (can be done by hand by 
-                        calling self._interpolate_stream_track() and 
+           interpTrack= (might change), interpolate the stream track while
+                        setting up the instance (can be done by hand by
+                        calling self._interpolate_stream_track() and
                         self._interpolate_stream_track_aA())
 
-           useInterp= (might change), use interpolation by default when 
+           useInterp= (might change), use interpolation by default when
                       calculating approximated frequencies and angles
 
            nosetup= (False) if True, don't setup the stream track and anything
@@ -279,7 +282,7 @@ class streamdf(df):
             self._sigMeanSign= -1.
         elif not self._leading and self._progenitor_Omega_along_dOmega > 0.:
             self._sigMeanSign= -1.
-        self._progenitor_Omega_along_dOmega*= self._sigMeanSign 
+        self._progenitor_Omega_along_dOmega*= self._sigMeanSign
         self._sigomean= self._progenitor_Omega\
             +self._sigMeanOffset*self._sigMeanSign\
             *numpy.sqrt(numpy.amax(self._sigomatrixEig[0]))\
@@ -298,7 +301,7 @@ class streamdf(df):
         self._sigomatrixinv/= self._sigomatrixNorm
         deltaAngleTrackLim = (self._sigMeanOffset+4.) * numpy.sqrt(
             self._sortedSigOEig[2]) * self._tdisrupt
-        if (deltaAngleTrack is None):  
+        if (deltaAngleTrack is None):
             deltaAngleTrack = deltaAngleTrackLim
         else:
             if (deltaAngleTrack > deltaAngleTrackLim):
@@ -329,7 +332,7 @@ class streamdf(df):
         return None
 
     def _setup_progIsTrack(self):
-        """If progIsTrack, the progenitor orbit that was passed to the 
+        """If progIsTrack, the progenitor orbit that was passed to the
         streamdf initialization is the track at zero angle separation;
         this routine computes an actual progenitor position that gives
         the desired track given the parameters of the streamdf"""
@@ -401,7 +404,7 @@ class streamdf(df):
         PURPOSE:
 
            calculate the ratio between the largest and 2nd-to-largest (in abs)
-           eigenvalue of sqrt(dO/dJ^T V_J dO/dJ) 
+           eigenvalue of sqrt(dO/dJ^T V_J dO/dJ)
            (if this is big, a 1D stream will form)
 
         INPUT:
@@ -546,11 +549,11 @@ class streamdf(df):
 
         """
         if not hasattr(self,'_ObsTrackLB') and \
-                (d1.lower() == 'll' or d1.lower() == 'bb' 
-                 or d1.lower() == 'dist' or d1.lower() == 'pmll' 
+                (d1.lower() == 'll' or d1.lower() == 'bb'
+                 or d1.lower() == 'dist' or d1.lower() == 'pmll'
                  or d1.lower() == 'pmbb' or d1.lower() == 'vlos'
-                 or d2.lower() == 'll' or d2.lower() == 'bb' 
-                 or d2.lower() == 'dist' or d2.lower() == 'pmll' 
+                 or d2.lower() == 'll' or d2.lower() == 'bb'
+                 or d2.lower() == 'dist' or d2.lower() == 'pmll'
                  or d2.lower() == 'pmbb' or d2.lower() == 'vlos'):
             self.calc_stream_lb()
         phys= kwargs.pop('scaleToPhysical',False)
@@ -581,7 +584,7 @@ class streamdf(df):
             plot.plot(tx-spread*addx,ty-spread*addy,ls=spreadls,
                       marker=spreadmarker,color=spreadcolor,
                       lw=spreadlw,
-                      overplot=True)            
+                      overplot=True)
         return None
 
     def plotProgenitor(self,d1='x',d2='z',*args,**kwargs):
@@ -642,7 +645,7 @@ class streamdf(df):
             tx= self.__dict__['_%sObsTrack' % interpStr][:,0]
         elif d1.lower() == 'phi':
             tx= self.__dict__['_%sObsTrack' % interpStr][:,5]
-        elif d1.lower() == 'vx': 
+        elif d1.lower() == 'vx':
             tx= self.__dict__['_%sObsTrackXY' % interpStr][:,3]
         elif d1.lower() == 'vy':
             tx= self.__dict__['_%sObsTrackXY' % interpStr][:,4]
@@ -673,7 +676,7 @@ class streamdf(df):
                          or d1.lower() == 'vt'):
             tx= copy.copy(tx)
             tx*= self._vo
-        return tx        
+        return tx
 
     def _parse_progenitor_dim(self,d1,ts,ro=None,vo=None,obs=None,
                               phys=False):
@@ -688,7 +691,7 @@ class streamdf(df):
             tx= self._progenitor.R(ts,ro=ro,vo=vo,obs=obs,use_physical=False)
         elif d1.lower() == 'phi':
             tx= self._progenitor.phi(ts,ro=ro,vo=vo,obs=obs)
-        elif d1.lower() == 'vx': 
+        elif d1.lower() == 'vx':
             tx= self._progenitor.vx(ts,ro=ro,vo=vo,obs=obs,use_physical=False)
         elif d1.lower() == 'vy':
             tx= self._progenitor.vy(ts,ro=ro,vo=vo,obs=obs,use_physical=False)
@@ -719,7 +722,7 @@ class streamdf(df):
                          or d1.lower() == 'vt'):
             tx= copy.copy(tx)
             tx*= self._vo
-        return tx        
+        return tx
 
     def _parse_track_spread(self,d1,d2,interp=True,phys=False,
                             simple=_USESIMPLE):
@@ -1034,7 +1037,7 @@ class streamdf(df):
                     allinvjacsTrack[ii,:,:]= multiOut[ii][2]
                     ObsTrack[ii,:]= multiOut[ii][3]
                     ObsTrackAA[ii,:]= multiOut[ii][4]
-                    detdOdJps[ii]= multiOut[ii][5]           
+                    detdOdJps[ii]= multiOut[ii][5]
         #Store the track
         self._thetasTrack= thetasTrack
         self._ObsTrack= ObsTrack
@@ -1144,7 +1147,7 @@ class streamdf(df):
                 allinvjacsTrack[ii,:,:]= multiOut[ii][1]
                 ObsTrack[ii,:]= multiOut[ii][2]
                 ObsTrackAA[ii,:]= multiOut[ii][3]
-                detdOdJps[ii]= multiOut[ii][4]        
+                detdOdJps[ii]= multiOut[ii][4]
         #Store the track, didn't compute _allAcfsTrack
         self._thetasTrack= thetasTrack
         self._ObsTrack= ObsTrack
@@ -1419,7 +1422,7 @@ class streamdf(df):
         #Calculate 1D meanOmega on a fine grid in angle and interpolate
         if not hasattr(self,'_interpolatedThetasTrack'):
             self._interpolate_stream_track()
-        dmOs= numpy.array([self.meanOmega(da,oned=True,use_physical=False) 
+        dmOs= numpy.array([self.meanOmega(da,oned=True,use_physical=False)
                           for da in self._interpolatedThetasTrack])
         self._interpTrackAAdmeanOmegaOneD=\
             interpolate.InterpolatedUnivariateSpline(\
@@ -1430,7 +1433,7 @@ class streamdf(df):
         for ii in range(len(self._interpolatedThetasTrack)):
             self._interpolatedObsTrackAA[ii,:3]=\
                 self._progenitor_Omega+dmOs[ii]*self._dsigomeanProgDirection\
-                *self._sigMeanSign   
+                *self._sigMeanSign
             self._interpolatedObsTrackAA[ii,3:]=\
                 self._progenitor_angle+self._interpolatedThetasTrack[ii]\
                 *self._dsigomeanProgDirection*self._sigMeanSign
@@ -1645,7 +1648,7 @@ class streamdf(df):
         OUTPUT:
 
            index of closest track point on the interpolated or not-interpolated track
-           
+
         HISTORY:
 
            2013-12-17- Written - Bovy (IAS)
@@ -1719,7 +1722,7 @@ class streamdf(df):
             dist2+= (vxvyvz[0]-trackvxvyvz[:,0])**2.\
                 +(vxvyvz[1]-trackvxvyvz[:,1])**2.\
                 +(vxvyvz[2]-trackvxvyvz[:,2])**2.
-        return numpy.argmin(dist2)            
+        return numpy.argmin(dist2)
 
     def _find_closest_trackpointaA(self,Or,Op,Oz,ar,ap,az,interp=True):
         """
@@ -1737,7 +1740,7 @@ class streamdf(df):
            2013-12-22 - Written - Bovy (IAS)
         """
         #Calculate angle offset along the stream parallel to the stream track,
-        # finding first the angle among a few wraps where the point is 
+        # finding first the angle among a few wraps where the point is
         # closest to the parallel track and then the closest trackpoint to that
         # point
         da= numpy.stack(\
@@ -1747,7 +1750,7 @@ class streamdf(df):
                            indexing='xy')).T.reshape((len(_TWOPIWRAPS)**3,3))
         dapar= self._sigMeanSign*numpy.dot(da[numpy.argmin(numpy.linalg.norm(\
                         numpy.cross(da,self._dsigomeanProgDirection),axis=1))],
-                                           self._dsigomeanProgDirection)       
+                                           self._dsigomeanProgDirection)
         if interp:
             dist= numpy.fabs(dapar-self._interpolatedThetasTrack)
         else:
@@ -1885,7 +1888,7 @@ class streamdf(df):
         return 0.5\
             *(1.+special.erf((self._meandO-dOmin)\
                                  /numpy.sqrt(2.*self._sortedSigOEig[2])))
-                                 
+
     def length(self,threshold=0.2,phys=False,ang=False,tdisrupt=None,
                **kwargs):
         """
@@ -1937,7 +1940,7 @@ class streamdf(df):
             result= integrate.quad(lambda da: numpy.sqrt(dXda(da)**2.\
                                                              +dYda(da)**2.\
                                                              +dZda(da)**2.),
-                                   0.,result)[0]*self._ro          
+                                   0.,result)[0]*self._ro
         elif ang:
             # Need to now integrate length
             if numpy.median(numpy.roll(self._interpolatedObsTrackLB[:,0],-1)
@@ -2270,7 +2273,7 @@ class streamdf(df):
     def _pangledAnglet(self,t,angleperp,dangle,smallest):
         """p(angle_perp|angle_par,time)"""
         if smallest: eigIndx= 0
-        else: eigIndx= 1      
+        else: eigIndx= 1
         if isinstance(angleperp,(int,float,numpy.float32,numpy.float64)):
             angleperp= numpy.array([angleperp])
             t= numpy.array([t])
@@ -2289,12 +2292,12 @@ class streamdf(df):
         NAME:
            _approxaA
         PURPOSE:
-           return action-angle coordinates for a point based on the linear 
+           return action-angle coordinates for a point based on the linear
            approximation around the stream track
         INPUT:
            R,vR,vT,z,vz,phi - phase-space coordinates of the given point
            interp= (True), if True, use the interpolated track
-           cindx= index of the closest point on the (interpolated) stream track if not given, determined from the dimensions given          
+           cindx= index of the closest point on the (interpolated) stream track if not given, determined from the dimensions given
         OUTPUT:
            (Or,Op,Oz,ar,ap,az)
         HISTORY:
@@ -2315,7 +2318,7 @@ class streamdf(df):
             closestIndx= [self._find_closest_trackpoint(X[ii],Y[ii],Z[ii],
                                                         z[ii],vz[ii],phi[ii],
                                                         interp=interp,
-                                                        xy=True,usev=False) 
+                                                        xy=True,usev=False)
                           for ii in range(len(R))]
         else:
             closestIndx= cindx
@@ -2383,17 +2386,17 @@ class streamdf(df):
                 out[:,ii]+= self._interpolatedObsTrackAA[closestIndx[ii]]
             else:
                 out[:,ii]+= self._ObsTrackAA[closestIndx[ii]]
-        return out            
+        return out
 
     def _approxaAInv(self,Or,Op,Oz,ar,ap,az,interp=True):
         """
         NAME:
            _approxaAInv
         PURPOSE:
-           return R,vR,... coordinates for a point based on the linear 
+           return R,vR,... coordinates for a point based on the linear
            approximation around the stream track
         INPUT:
-           Or,Op,Oz,ar,ap,az - phase space coordinates in frequency-angle 
+           Or,Op,Oz,ar,ap,az - phase space coordinates in frequency-angle
                                space
            interp= (True), if True, use the interpolated track
         OUTPUT:
@@ -2445,7 +2448,7 @@ class streamdf(df):
                 *numpy.dot(da[numpy.argmin(numpy.linalg.norm(\
                             numpy.cross(da,self._dsigomeanProgDirection),
                             axis=1))],
-                           self._dsigomeanProgDirection)       
+                           self._dsigomeanProgDirection)
             dmJacIndx= numpy.fabs(dapar-self._thetasTrack[jacIndx])
             if jacIndx == 0:
                 jacIndx2= jacIndx+1
@@ -2484,7 +2487,7 @@ class streamdf(df):
                 out[:,ii]+= self._interpolatedObsTrack[closestIndx[ii]]
             else:
                 out[:,ii]+= self._ObsTrack[closestIndx[ii]]
-        return out            
+        return out
 
 ################################EVALUATE THE DF################################
     def __call__(self,*args,**kwargs):
@@ -2575,7 +2578,7 @@ class streamdf(df):
         HISTORY:
            2013-12-04 - Written - Bovy (IAS)
         """
-        #First calculate the actionAngle coordinates if they're not given 
+        #First calculate the actionAngle coordinates if they're not given
         #as such
         freqsAngles= self._parse_call_args(*args,**kwargs)
         dOmega= freqsAngles[:3,:]\
@@ -2640,13 +2643,13 @@ class streamdf(df):
 
            interp= (object-wide interp default) if True, use the interpolated stream track
 
-           cindx= index of the closest point on the (interpolated) stream track if not given, determined from the dimensions given          
+           cindx= index of the closest point on the (interpolated) stream track if not given, determined from the dimensions given
 
            nsigma= (3) number of sigma to marginalize the DF over (approximate sigma)
 
            ngl= (5) order of Gauss-Legendre integration
 
-           lb= (False) if True, xy contains [l,b,D,vlos,pmll,pmbb] in [deg,deg,kpc,km/s,mas/yr,mas/yr] and the marginalized PDF in these coordinates is returned          
+           lb= (False) if True, xy contains [l,b,D,vlos,pmll,pmbb] in [deg,deg,kpc,km/s,mas/yr,mas/yr] and the marginalized PDF in these coordinates is returned
 
            vo= (220) circular velocity to normalize with when lb=True
 
@@ -2697,7 +2700,7 @@ class streamdf(df):
                 coordEval.append(xy[ii]*numpy.ones(1))
                 weightEval.append(numpy.ones(1))
         mgrid= numpy.meshgrid(*coordEval,indexing='ij')
-        mgridNotGiven= numpy.array([mgrid[ii].flatten() for ii in range(6) 
+        mgridNotGiven= numpy.array([mgrid[ii].flatten() for ii in range(6)
                                     if not coordGiven[ii]])
         mgridNotGiven= numpy.dot(cholvar,mgridNotGiven)
         jj= 0
@@ -2953,7 +2956,7 @@ class streamdf(df):
             sY= RvR[0]*numpy.sin(RvR[5])
             sZ= RvR[3]
             svX, svY, svZ=\
-                coords.cyl_to_rect_vec(RvR[1],RvR[2],RvR[4],RvR[5])            
+                coords.cyl_to_rect_vec(RvR[1],RvR[2],RvR[4],RvR[5])
             out= numpy.empty((6,n))
             out[0]= sX
             out[1]= sY
@@ -3054,7 +3057,7 @@ class streamdf(df):
         da+= dO*numpy.tile(dt,(3,1))
         angle= da+numpy.tile(self._progenitor_angle.T,(n,1)).T
         return (Om,angle,dt)
-    
+
     def sample_t(self,n):
         """
         NAME:
@@ -3295,7 +3298,7 @@ def calcaAJac(xv,aA,dxv=None,freqs=False,dOdJ=False,actionsFreqsAngles=False,
     OUTPUT:
        Jacobian matrix
     HISTORY:
-       2013-11-25 - Written - Bovy (IAS) 
+       2013-11-25 - Written - Bovy (IAS)
     """
     if lb:
         coordFunc= lambda x: lbCoordFunc(xv,vo,ro,R0,Zsun,vsun)
@@ -3343,13 +3346,13 @@ def calcaAJac(xv,aA,dxv=None,freqs=False,dOdJ=False,actionsFreqsAngles=False,
             jac[2,ii]= (tjz-jz)/dxv[ii]
             jac[3,ii]= (tOr-Or)/dxv[ii]
             jac[4,ii]= (tOphi-Ophi)/dxv[ii]
-            jac[5,ii]= (tOz-Oz)/dxv[ii]           
+            jac[5,ii]= (tOz-Oz)/dxv[ii]
             angleIndx= 6
         elif freqs:
             jac[0,ii]= (tOr-Or)/dxv[ii]
             jac[1,ii]= (tOphi-Ophi)/dxv[ii]
             jac[2,ii]= (tOz-Oz)/dxv[ii]
-        else:        
+        else:
             jac[0,ii]= (tjr-jr)/dxv[ii]
             jac[1,ii]= (tlz-lz)/dxv[ii]
             jac[2,ii]= (tjz-jz)/dxv[ii]

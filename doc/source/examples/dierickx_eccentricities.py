@@ -1,22 +1,26 @@
-import os, os.path
+import os
+import os.path
+import pickle
+import shutil
 import subprocess
-from astropy.io import fits, ascii
-from astropy import units
-import numpy as np
-from optparse import OptionParser
 import sys
 import tempfile
 from ftplib import FTP
-import shutil
-import pickle
-from tqdm import tqdm
-from galpy.potential import LogarithmicHaloPotential
-from galpy.potential import evaluatePotentials as evalPot
-from galpy.orbit import Orbit
-from galpy.actionAngle import estimateDeltaStaeckel, actionAngleStaeckel, UnboundError
-from galpy.util import coords
+from optparse import OptionParser
+
 import matplotlib.pyplot as plt
 import numpy
+import numpy as np
+from astropy import units
+from astropy.io import ascii, fits
+from tqdm import tqdm
+
+from galpy.actionAngle import (UnboundError, actionAngleStaeckel,
+                               estimateDeltaStaeckel)
+from galpy.orbit import Orbit
+from galpy.potential import LogarithmicHaloPotential
+from galpy.potential import evaluatePotentials as evalPot
+from galpy.util import coords
 
 _ERASESTR= "                                                                                "
 
@@ -70,7 +74,7 @@ def calc_eccentricity(args, options):
     with open(os.path.join(args[0],'eccentricities.dat'), 'w') as file:
         pickle.dump(arr, file)
         file.close()
-    
+
 def get_table(args,options):
     cat = 'J/ApJ/725/L186/'
     tab2name = 'table2.dat.gz'
@@ -79,7 +83,7 @@ def get_table(args,options):
     ensure_dir(os.path.join(out,tab2name))
     vizier(cat, os.path.join(out,tab2name), os.path.join(out,tab2readme), catalogname=tab2name, readmename=tab2readme)
     subprocess.call(['gunzip', os.path.join(out,tab2name)])
-    
+
 def vizier(cat,filePath,ReadMePath,
            catalogname='catalog.dat',readmename='ReadMe'):
     """
@@ -112,7 +116,7 @@ def _download_file_vizier(cat,filePath,catalogname='catalog.dat'):
     sys.stdout.flush()
     try:
         # make all intermediate directories
-        os.makedirs(os.path.dirname(filePath)) 
+        os.makedirs(os.path.dirname(filePath))
     except OSError: pass
     # Safe way of downloading
     downloading= True
@@ -136,21 +140,21 @@ def _download_file_vizier(cat,filePath,catalogname='catalog.dat'):
             if not downloading: #Assume KeyboardInterrupt
                 raise
             elif ntries > _MAX_NTRIES:
-                raise IOError('File %s does not appear to exist on the server ...' % (os.path.basename(filePath)))
+                raise OSError('File %s does not appear to exist on the server ...' % (os.path.basename(filePath)))
         finally:
             if os.path.exists(tmp_savefilename):
                 os.remove(tmp_savefilename)
         ntries+= 1
     sys.stdout.write('\r'+_ERASESTR+'\r')
-    sys.stdout.flush()        
+    sys.stdout.flush()
     return None
-    
+
 def ensure_dir(f):
     """ Ensure a a file exists and if not make the relevant path """
     d = os.path.dirname(f)
     if not os.path.exists(d):
         os.makedirs(d)
-        
+
 def get_options():
     #no options yet - probably none needed?
     usage = "usage: %prog [options] <outpath>"

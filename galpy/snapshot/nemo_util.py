@@ -2,9 +2,12 @@
 # nemo_util.py: some utilities for handling NEMO snapshots
 ###############################################################################
 import os
-import numpy
-import tempfile
 import subprocess
+import tempfile
+
+import numpy
+
+
 def read(filename,ext=None,swapyz=False):
     """
     NAME:

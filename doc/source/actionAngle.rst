@@ -648,7 +648,7 @@ vertical angle in the auxiliary potential
 
 which gives
 
-.. image:: images/aAIA-b1.5-araz.png 
+.. image:: images/aAIA-b1.5-araz.png
 
 and this clearly shows that the angles increase *very* non-linearly,
 because the auxiliary isochrone potential used is too far from the
@@ -688,7 +688,7 @@ gives
 
 .. image:: images/aAIA-b0.8-jr.png
 
-and 
+and
 
 >>> aAIA.plot(*obs,type='araz')
 
@@ -980,19 +980,19 @@ the instantiation of the ``InterpSnapshotRZPotential`` object
 >>> spi= InterpSnapshotRZPotential(h1,rgrid=(numpy.log(0.01),numpy.log(20.),101),logR=True,zgrid=(0.,10.,101),interpPot=True,zsym=True,enable_c=True)
 >>> spi.normalize(R0=10.)
 
-where we again normalize the potential to use galpy's `natural units`.
+where we again normalize the potential to use galpy's *natural units*.
 
 We first load a pristine copy of the simulation (because the normalization above leads to some inconsistent behavior in pynbody)
 
 >>> sc = pynbody.load('Repos/pynbody-testdata/g15784.lr.01024.gz'); hc = sc.halos(); hc1= hc[1]; pynbody.analysis.halo.center(hc1,mode='hyb'); pynbody.analysis.angmom.faceon(hc1, cen=(0,0,0),mode='ssc'); sc.physical_units()
 
-and then select particles near `R=8` kpc by doing
+and then select particles near ``R=8`` kpc by doing
 
 >>> sn= pynbody.filt.BandPass('rxy','7 kpc','9 kpc')
 >>> R,vR,vT,z,vz = [numpy.ascontiguousarray(hc1.s[sn][x]) for x in ('rxy','vr','vt','z','vz')]
 
 These have physical units, so we normalize them (the velocity
-normalization is the circular velocity at `R=10` kpc, see
+normalization is the circular velocity at ``R=10`` kpc, see
 :ref:`here <potnbody>`).
 
 >>> ro, vo= 10., 294.62723076942245
@@ -1024,8 +1024,8 @@ We can now calculate the actions by doing
 >>> aAS= actionAngleStaeckel(pot=spi,delta=0.45,c=True)
 >>> jr,lz,jz= aAS(R,vR,vT,z,vz)
 
-These actions are also in `natural units`; you can obtain physical
-units by multiplying with `ro*vo`. We can now plot these actions
+These actions are also in *natural units*; you can obtain physical
+units by multiplying with ``ro*vo``. We can now plot these actions
 
 >>> from galpy.util import plot as galpy_plot
 >>> galpy_plot.scatterplot(lz,jr,'k.',xlabel=r'$J_\phi$',ylabel=r'$J_R$',xrange=[0.,1.3],yrange=[0.,.6])

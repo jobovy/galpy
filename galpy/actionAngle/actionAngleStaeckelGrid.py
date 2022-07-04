@@ -3,7 +3,7 @@
 #
 #      class: actionAngleStaeckelGrid
 #
-#             build grid in integrals of motion to quickly evaluate 
+#             build grid in integrals of motion to quickly evaluate
 #             actionAngleStaeckel
 #
 #      methods:
@@ -11,15 +11,16 @@
 #
 ###############################################################################
 import numpy
-from scipy import interpolate, optimize, ndimage
-from . import actionAngleStaeckel
-from .actionAngle import actionAngle
-from . import actionAngleStaeckel_c
-from .actionAngleStaeckel_c import _ext_loaded as ext_loaded
+from scipy import interpolate, ndimage, optimize
+
 from .. import potential
 from ..potential.Potential import _evaluatePotentials
 from ..potential.Potential import flatten as flatten_potential
-from ..util import multi, coords, conversion
+from ..util import conversion, coords, multi
+from . import actionAngleStaeckel, actionAngleStaeckel_c
+from .actionAngle import actionAngle
+from .actionAngleStaeckel_c import _ext_loaded as ext_loaded
+
 _PRINTOUTSIDEGRID= False
 class actionAngleStaeckelGrid(actionAngle):
     """Action-angle formalism for axisymmetric potentials using Binney (2012)'s Staeckel approximation, grid-based interpolation"""
@@ -50,7 +51,7 @@ class actionAngleStaeckelGrid(actionAngle):
            vo= circular velocity at ro (km/s; can be Quantity)
 
         OUTPUT:
-         
+
            instance
 
         HISTORY:
@@ -150,7 +151,7 @@ class actionAngleStaeckelGrid(actionAngle):
                                 thisLzs/thisR, #vT
                                 numpy.zeros(len(thisR)), #z
                                 thisv*numpy.sin(thispsi), #vz
-                                fixed_quad=True) 
+                                fixed_quad=True)
         if interpecc:
             mecc, mzmax, mrperi, mrap=\
                 self._aA.EccZmaxRperiRap(thisR, #R
@@ -578,7 +579,7 @@ class actionAngleStaeckelGrid(actionAngle):
            velocity
         HISTORY:
            2012-11-29 - Written - Bovy (IAS)
-        """                        
+        """
         v2= (2.*(E-actionAngleStaeckel.potentialStaeckel(u0,numpy.pi/2.,
                                                          self._pot,
                                                          self._delta))
@@ -586,7 +587,7 @@ class actionAngleStaeckelGrid(actionAngle):
         if retv2: return v2
         v2[(v2 < 0.)*(v2 > -10.**-7.)]= 0.
         return numpy.sqrt(v2)
-    
+
     def calcu0(self,E,Lz):
         """
         NAME:
@@ -600,7 +601,7 @@ class actionAngleStaeckelGrid(actionAngle):
            u0
         HISTORY:
            2012-11-29 - Written - Bovy (IAS)
-        """                           
+        """
         logu0= optimize.brent(_u0Eq,
                               args=(self._delta,self._pot,
                                     E,Lz**2./2.))
@@ -621,7 +622,7 @@ class actionAngleStaeckelGrid(actionAngle):
            Er
         HISTORY:
            2012-11-29 - Written - Bovy (IAS)
-        """                           
+        """
         u,v= coords.Rz_to_uv(R,z,self._delta)
         pu= (vR*numpy.cosh(u)*numpy.sin(v)
              +vz*numpy.sinh(u)*numpy.cos(v)) #no delta, bc we will divide it out
@@ -648,7 +649,7 @@ class actionAngleStaeckelGrid(actionAngle):
            Ez
         HISTORY:
            2012-12-23 - Written - Bovy (IAS)
-        """                           
+        """
         u,v= coords.Rz_to_uv(R,z,self._delta)
         pv= (vR*numpy.sinh(u)*numpy.cos(v)
              -vz*numpy.cosh(u)*numpy.sin(v)) #no delta, bc we will divide it out

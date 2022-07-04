@@ -1,9 +1,12 @@
 # Tests of the diskdf module: distribution functions from Dehnen (1999)
 import os
+
 import numpy
-from scipy import stats
-from galpy.df import dehnendf, shudf, schwarzschilddf
 import pytest
+from scipy import stats
+
+from galpy.df import dehnendf, schwarzschilddf, shudf
+
 _FEWERLONGINTEGRALS= True
 #So we can reuse the following
 ddf_correct_flat= None
@@ -13,35 +16,35 @@ sdf_correct_flat= None
 
 # First some tests of surfaceSigmaProfile and expSurfaceSigmaProfile
 def test_expSurfaceSigmaProfile_surfacemass():
-    from galpy.df import expSurfaceSigmaProfile 
+    from galpy.df import expSurfaceSigmaProfile
     essp= expSurfaceSigmaProfile(params=(0.25,0.75,0.1))
     assert numpy.fabs(essp.surfacemass(0.5)-numpy.exp(-0.5/0.25)) < 10.**-8., "expSurfaceSigmaProfile's surfacemass does not work as expected"
     assert numpy.fabs(essp.surfacemass(1.5,log=True)+1.5/0.25) < 10.**-8., "expSurfaceSigmaProfile's surfacemass does not work as expected"
     return None
 
 def test_expSurfaceSigmaProfile_surfacemassDerivative():
-    from galpy.df import expSurfaceSigmaProfile 
+    from galpy.df import expSurfaceSigmaProfile
     essp= expSurfaceSigmaProfile(params=(0.25,0.75,0.1))
     assert numpy.fabs(essp.surfacemassDerivative(0.5)+numpy.exp(-0.5/0.25)/0.25) < 10.**-8., "expSurfaceSigmaProfile's surfacemassDerivative does not work as expected"
     assert numpy.fabs(essp.surfacemassDerivative(1.5,log=True)+1./0.25) < 10.**-8., "expSurfaceSigmaProfile's surfacemassDerivative does not work as expected"
     return None
 
 def test_expSurfaceSigmaProfile_sigma2():
-    from galpy.df import expSurfaceSigmaProfile 
+    from galpy.df import expSurfaceSigmaProfile
     essp= expSurfaceSigmaProfile(params=(0.25,0.75,0.1))
     assert numpy.fabs(essp.sigma2(0.5)-0.1**2.*numpy.exp(-(0.5-1.)/0.75*2.)) < 10.**-8., "expSurfaceSigmaProfile's sigma2 does not work as expected"
     assert numpy.fabs(essp.sigma2(1.5,log=True)-2.*numpy.log(0.1)+(1.5-1.)/0.75*2.) < 10.**-8., "expSurfaceSigmaProfile's sigma2 does not work as expected"
     return None
 
 def test_expSurfaceSigmaProfile_sigma2Derivative():
-    from galpy.df import expSurfaceSigmaProfile 
+    from galpy.df import expSurfaceSigmaProfile
     essp= expSurfaceSigmaProfile(params=(0.25,0.75,0.1))
     assert numpy.fabs(essp.sigma2Derivative(0.5)+2.*0.1**2./0.75*numpy.exp(-(0.5-1.)/0.75*2.)) < 10.**-8., "expSurfaceSigmaProfile's sigma2Derivative does not work as expected"
     assert numpy.fabs(essp.sigma2Derivative(1.5,log=True)+2./0.75) < 10.**-8., "expSurfaceSigmaProfile's sigma2 does not work as expected"
     return None
 
 def test_surfaceSigmaProfile_outputParams():
-    from galpy.df import expSurfaceSigmaProfile 
+    from galpy.df import expSurfaceSigmaProfile
     essp= expSurfaceSigmaProfile(params=(0.25,0.75,0.1))
     assert numpy.fabs(essp.outputParams()[0]-0.25) < 10.**-8., "surfaceSigmaProfile's outputParams does not behave as expected"
     assert numpy.fabs(essp.outputParams()[1]-0.75) < 10.**-8., "surfaceSigmaProfile's outputParams does not behave as expected"
@@ -49,7 +52,7 @@ def test_surfaceSigmaProfile_outputParams():
     return None
 
 def test_surfaceSigmaProfile_formatStringParams():
-    from galpy.df import expSurfaceSigmaProfile 
+    from galpy.df import expSurfaceSigmaProfile
     essp= expSurfaceSigmaProfile(params=(0.25,0.75,0.1))
     assert essp.formatStringParams()[0] == r'%6.4f', "surfaceSigmaProfile's formatStringParams does not behave as expected"
     assert essp.formatStringParams()[1] == r'%6.4f', "surfaceSigmaProfile's formatStringParams does not behave as expected"
@@ -59,7 +62,7 @@ def test_surfaceSigmaProfile_formatStringParams():
 def test_dfsetup_surfaceSigmaProfile():
     df= dehnendf(profileParams=(0.25,0.75,0.1),
                  beta=0.,correct=False)
-    from galpy.df import expSurfaceSigmaProfile 
+    from galpy.df import expSurfaceSigmaProfile
     essp= expSurfaceSigmaProfile(params=(0.25,0.75,0.1))
     df_alt= dehnendf(surfaceSigma=essp,
                      beta=0.,correct=False)
@@ -276,7 +279,7 @@ def test_dehnendf_cold_flat_oortA():
     assert numpy.fabs(df.oortA(2.,romberg=True)-0.5*1./2.) < 10.**-3., 'Oort A of cold dehnendf in a flat rotation curve is not close to expected at R=2'
     return None
 
-# Tests for cold population, power-law rotation curve: A 
+# Tests for cold population, power-law rotation curve: A
 def test_dehnendf_cold_powerrise_oortA():
     # Rising rotation curve
     beta= 0.2
@@ -311,7 +314,7 @@ def test_dehnendf_cold_flat_oortB():
     assert numpy.fabs(df.oortB(2.)+0.5*1./2.) < 10.**-3., 'Oort B of cold dehnendf in a flat rotation curve is not close to expected at R=2'
     return None
 
-# Tests for cold population, power-law rotation curve: B 
+# Tests for cold population, power-law rotation curve: B
 def test_dehnendf_cold_powerrise_oortB():
     # Rising rotation curve
     beta= 0.2
@@ -462,7 +465,7 @@ def test_targetSurfacemassLOS():
     assert numpy.fabs(df.targetSurfacemassLOS(0.2,l=numpy.pi,deg=False)-0.2*numpy.exp(-1.2/0.3333333333333333)) < 10.**-8., 'targetSigma2 for dehnendf does not agree with input'
     assert numpy.fabs(df.targetSurfacemassLOS(0.2,l=numpy.pi/2.,log=True,deg=False)-numpy.log(0.2)+numpy.sqrt(1.+0.2**2.-2.*0.2*numpy.cos(numpy.pi/2.))/0.3333333333333333) < 10.**-8., 'targetSigma2 for dehnendf does not agree with input'
     return None
-    
+
 def test_cold_surfacemass():
     dfc= dehnendf(profileParams=(0.3333333333333333,1.0, 0.01),
                  beta=0.,correct=False)
@@ -730,26 +733,26 @@ def test_dehnendf_dlnfdRe_flat():
     Rn= R+dR
     dR= Rn-R #representable number
     dlnfdR= (numpy.log(dfc(numpy.array([R+dR,vR,vT])))-numpy.log(dfc(numpy.array([R,vR,vT]))))/dR
-    E= vR**2./2.+vT**2./2.+numpy.log(R) 
-    RE= numpy.exp(E-.5) 
-    dE= vR**2./2.+vT**2./2.+numpy.log(R+dR) 
-    dRE= numpy.exp(dE-.5) 
+    E= vR**2./2.+vT**2./2.+numpy.log(R)
+    RE= numpy.exp(E-.5)
+    dE= vR**2./2.+vT**2./2.+numpy.log(R+dR)
+    dRE= numpy.exp(dE-.5)
     dRedR= (dRE-RE)/dR
     #dvR
     dvR= 10**-6.
     vRn= vR+dvR
     dvR= vRn-vR #representable number
     dlnfdvR= (numpy.log(dfc(numpy.array([R,vR+dvR,vT])))-numpy.log(dfc(numpy.array([R,vR,vT]))))/dvR
-    dE= (vR+dvR)**2./2.+vT**2./2.+numpy.log(R) 
-    dRE= numpy.exp(dE-.5) 
+    dE= (vR+dvR)**2./2.+vT**2./2.+numpy.log(R)
+    dRE= numpy.exp(dE-.5)
     dRedvR= (dRE-RE)/dvR
     #dvT
     dvT= 10**-6.
     vTn= vT+dvT
     dvT= vTn-vT #representable number
     dlnfdvT= (numpy.log(dfc(numpy.array([R,vR,vT+dvT])))-numpy.log(dfc(numpy.array([R,vR,vT]))))/dvT
-    dE= vR**2./2.+(vT+dvT)**2./2.+numpy.log(R) 
-    dRE= numpy.exp(dE-.5) 
+    dE= vR**2./2.+(vT+dvT)**2./2.+numpy.log(R)
+    dRE= numpy.exp(dE-.5)
     dRedvT= (dRE-RE)/dvT
     #Calculate dR/dRe etc. from matrix inversion
     dRvRvTdRe= numpy.linalg.inv(numpy.array([[dRedR,dRedvR,dRedvT],[vT,0.,R],[0.,1.,0.]]))
@@ -840,26 +843,26 @@ def test_dehnendf_dlnfdl_flat():
     Rn= R+dR
     dR= Rn-R #representable number
     dlnfdR= (numpy.log(dfc(numpy.array([R+dR,vR,vT])))-numpy.log(dfc(numpy.array([R,vR,vT]))))/dR
-    E= vR**2./2.+vT**2./2.+numpy.log(R) 
-    RE= numpy.exp(E-.5) 
-    dE= vR**2./2.+vT**2./2.+numpy.log(R+dR) 
-    dRE= numpy.exp(dE-.5) 
+    E= vR**2./2.+vT**2./2.+numpy.log(R)
+    RE= numpy.exp(E-.5)
+    dE= vR**2./2.+vT**2./2.+numpy.log(R+dR)
+    dRE= numpy.exp(dE-.5)
     dRedR= (dRE-RE)/dR
     #dvR
     dvR= 10**-6.
     vRn= vR+dvR
     dvR= vRn-vR #representable number
     dlnfdvR= (numpy.log(dfc(numpy.array([R,vR+dvR,vT])))-numpy.log(dfc(numpy.array([R,vR,vT]))))/dvR
-    dE= (vR+dvR)**2./2.+vT**2./2.+numpy.log(R) 
-    dRE= numpy.exp(dE-.5) 
+    dE= (vR+dvR)**2./2.+vT**2./2.+numpy.log(R)
+    dRE= numpy.exp(dE-.5)
     dRedvR= (dRE-RE)/dvR
     #dvT
     dvT= 10**-6.
     vTn= vT+dvT
     dvT= vTn-vT #representable number
     dlnfdvT= (numpy.log(dfc(numpy.array([R,vR,vT+dvT])))-numpy.log(dfc(numpy.array([R,vR,vT]))))/dvT
-    dE= vR**2./2.+(vT+dvT)**2./2.+numpy.log(R) 
-    dRE= numpy.exp(dE-.5) 
+    dE= vR**2./2.+(vT+dvT)**2./2.+numpy.log(R)
+    dRE= numpy.exp(dE-.5)
     dRedvT= (dRE-RE)/dvT
     #Calculate dR/dl etc. from matrix inversion
     dRvRvTdl= numpy.linalg.inv(numpy.array([[dRedR,dRedvR,dRedvT],[vT,0.,R],[0.,1.,0.]]))
@@ -1612,6 +1615,7 @@ def test_DFcorrection_setup():
     #Also explicily setup a DFcorrection, to test for other stuff
     from galpy.df import DFcorrection
     from galpy.df.diskdf import DFcorrectionError
+
     #Should raise DFcorrectionError bc surfaceSigmaProfile is not set
     try:
         dfc= DFcorrection(npoints=2,niter=2,rmax=4.,
@@ -1619,7 +1623,7 @@ def test_DFcorrection_setup():
     except DFcorrectionError as e: print(e)
     else: raise AssertionError('DFcorrection setup with no surfaceSigmaProfile set did not raise DFcorrectionError')
     #Now w/ surfaceSigmaProfile to test default dftype
-    from galpy.df import expSurfaceSigmaProfile 
+    from galpy.df import expSurfaceSigmaProfile
     essp= expSurfaceSigmaProfile(params=(0.25,0.75,0.1))
     dfc= DFcorrection(npoints=5,niter=1,rmax=4.,surfaceSigmaProfile=essp,
                       interp_k=3)
@@ -1694,7 +1698,7 @@ def test_shudf_flat_DFcorrection_cleanup():
     return None
 
 def test_axipotential():
-    from galpy.df.diskdf import axipotential, _RMIN
+    from galpy.df.diskdf import _RMIN, axipotential
     assert numpy.fabs(axipotential(numpy.array([0.5]),beta=0.)-numpy.log(0.5)) < 10.**-8, 'axipotential w/ beta=0.0 does not work as expected'
     assert numpy.fabs(axipotential(numpy.array([0.5]),beta=0.2)-1./0.4*0.5**0.4) < 10.**-8, 'axipotential w/ beta=0.2 does not work as expected'
     assert numpy.fabs(axipotential(numpy.array([0.5]),beta=-0.2)+1./0.4*0.5**-0.4) < 10.**-8, 'axipotential w/ beta=0.2 does not work as expected'
@@ -1721,4 +1725,3 @@ def skew_pdist(s,ps):
     m2= numpy.sum((s-m1)**2.*ps)/norm
     m3= numpy.sum((s-m1)**3.*ps)/norm
     return m3/m2**1.5
-

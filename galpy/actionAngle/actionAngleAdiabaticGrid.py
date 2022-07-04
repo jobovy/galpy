@@ -3,7 +3,7 @@
 #
 #      class: actionAngleAdiabaticGrid
 #
-#             build grid in integrals of motion to quickly evaluate 
+#             build grid in integrals of motion to quickly evaluate
 #             actionAngleAdiabatic
 #
 #      methods:
@@ -12,12 +12,14 @@
 ###############################################################################
 import numpy
 from scipy import interpolate
-from .actionAngleAdiabatic import actionAngleAdiabatic
-from .actionAngle import actionAngle, UnboundError
+
 from .. import potential
 from ..potential.Potential import _evaluatePotentials
 from ..potential.Potential import flatten as flatten_potential
 from ..util import multi
+from .actionAngle import UnboundError, actionAngle
+from .actionAngleAdiabatic import actionAngleAdiabatic
+
 _PRINTOUTSIDEGRID= False
 class actionAngleAdiabaticGrid(actionAngle):
     """Action-angle formalism for axisymmetric potentials using the adiabatic approximation, grid-based interpolation"""
@@ -110,7 +112,7 @@ class actionAngleAdiabaticGrid(actionAngle):
                         jz[ii,jj]= self._aA(self._Rs[ii],0.,1.,#these two r dummies
                                             0.,numpy.sqrt(2.*y[jj]*self._EzZmaxs[ii]),
                                             _justjz=True,**kwargs)[2]
-                        if jj == nEz-1: 
+                        if jj == nEz-1:
                             jzEzzmax[ii]= jz[ii,jj]
         for ii in range(nR): jz[ii,:]/= jzEzzmax[ii]
         #First interpolate Ez=Ezmax
@@ -181,7 +183,7 @@ class actionAngleAdiabaticGrid(actionAngle):
                                                    **kwargs)[0]
                         except UnboundError: #pragma: no cover
                             raise
-                        if jj == 0: 
+                        if jj == 0:
                             jrERRa[ii]= jr[ii,jj]
         for ii in range(nLz): jr[ii,:]/= jrERRa[ii]
         #First interpolate Ez=Ezmax
@@ -295,7 +297,7 @@ class actionAngleAdiabaticGrid(actionAngle):
                                    numpy.zeros(len(thisRL)),
                                    numpy.zeros(len(thisRL)),
                                    _justjr=True,
-                                   **kwargs)[0]                
+                                   **kwargs)[0]
         else:
             if (ER-thisERRa)/(thisERRL-thisERRa) > 1. \
                     and ((ER-thisERRa)/(thisERRL-thisERRa)-1.) < 10.**-2.:

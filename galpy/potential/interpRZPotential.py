@@ -2,13 +2,15 @@ import copy
 import ctypes
 import ctypes.util
 from functools import wraps
+
 import numpy
 from numpy.ctypeslib import ndpointer
 from scipy import interpolate
-from ..util import multi
-from .Potential import Potential
+
+from ..util import _load_extension_libs, multi
 from ..util.conversion import physical_conversion
-from ..util import _load_extension_libs
+from .Potential import Potential
+
 _DEBUG= False
 
 _lib, ext_loaded= _load_extension_libs.load_libgalpy()
@@ -302,7 +304,7 @@ class interpRZPotential(Potential):
             else:
                 self._verticalfreqInterp= interpolate.InterpolatedUnivariateSpline(self._rgrid,self._verticalfreqGrid,k=3)
         return None
-                                                 
+
     @scalarVectorDecorator
     @zsymDecorator(False)
     def _evaluate(self,R,z,phi=0.,t=0.):
@@ -376,11 +378,11 @@ class interpRZPotential(Potential):
             return out
         else:
             return evaluatezforces(self._origPot,R,z)
-    
+
     def _Rzderiv(self,R,z,phi=0.,t=0.):
         from ..potential import evaluateRzderivs
         return evaluateRzderivs(self._origPot,R,z)
-    
+
     @scalarVectorDecorator
     @zsymDecorator(False)
     def _dens(self,R,z,phi=0.,t=0.):
@@ -473,7 +475,7 @@ class interpRZPotential(Potential):
             return out
         else:
             return verticalfreq(self._origPot,R)
-    
+
 def calc_potential_c(pot,R,z,rforce=False,zforce=False):
     """
     NAME:
@@ -491,8 +493,10 @@ def calc_potential_c(pot,R,z,rforce=False,zforce=False):
        2013-01-24 - Written - Bovy (IAS)
        2013-01-29 - Added forces - Bovy (IAS)
     """
-    from ..orbit.integrateFullOrbit import _parse_pot #here bc otherwise there is an infinite loop
+    from ..orbit.integrateFullOrbit import \
+        _parse_pot  # here bc otherwise there is an infinite loop
     from ..orbit.integratePlanarOrbit import _prep_tfuncs
+
     #Parse the potential
     npot, pot_type, pot_args, pot_tfuncs= _parse_pot(pot)
     pot_tfuncs= _prep_tfuncs(pot_tfuncs)
@@ -538,7 +542,7 @@ def calc_potential_c(pot,R,z,rforce=False,zforce=False):
                                        pot_tfuncs,
                                        out,
                                        ctypes.byref(err))
-    
+
     #Reset input arrays
     if f_cont[0]: R= numpy.asfortranarray(R)
     if f_cont[1]: z= numpy.asfortranarray(z)
@@ -589,8 +593,10 @@ def eval_potential_c(pot,R,z):
     HISTORY:
        2013-01-24 - Written - Bovy (IAS)
     """
-    from ..orbit.integrateFullOrbit import _parse_pot #here bc otherwise there is an infinite loop
+    from ..orbit.integrateFullOrbit import \
+        _parse_pot  # here bc otherwise there is an infinite loop
     from ..orbit.integratePlanarOrbit import _prep_tfuncs
+
     #Parse the potential
     npot, pot_type, pot_args, pot_tfuncs= _parse_pot(pot,potforactions=True)
     pot_tfuncs= _prep_tfuncs(pot_tfuncs)
@@ -652,8 +658,10 @@ def eval_force_c(pot,R,z,zforce=False):
     HISTORY:
        2013-01-29 - Written - Bovy (IAS)
     """
-    from ..orbit.integrateFullOrbit import _parse_pot #here bc otherwise there is an infinite loop
+    from ..orbit.integrateFullOrbit import \
+        _parse_pot  # here bc otherwise there is an infinite loop
     from ..orbit.integratePlanarOrbit import _prep_tfuncs
+
     #Parse the potential
     npot, pot_type, pot_args, pot_tfuncs= _parse_pot(pot)
     pot_tfuncs= _prep_tfuncs(pot_tfuncs)
@@ -695,7 +703,7 @@ def eval_force_c(pot,R,z,zforce=False):
                                    pot_tfuncs,
                                    out,
                                    ctypes.byref(err))
-    
+
     #Reset input arrays
     if f_cont[0]: R= numpy.asfortranarray(R)
     if f_cont[1]: z= numpy.asfortranarray(z)

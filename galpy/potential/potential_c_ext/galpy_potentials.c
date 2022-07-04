@@ -56,7 +56,7 @@ void free_potentialArgs(int npot, struct potentialArg * potentialArgs){
     free((potentialArgs+ii)->args);
   }
 }
-double evaluatePotentials(double R, double Z, 
+double evaluatePotentials(double R, double Z,
 			  int nargs, struct potentialArg * potentialArgs){
   int ii;
   double pot= 0.;
@@ -70,13 +70,13 @@ double evaluatePotentials(double R, double Z,
 }
 // function name in parentheses, because actual function defined by macro
 // in galpy_potentials.h and parentheses are necessary to avoid macro expansion
-double (calcRforce)(double R, double Z, double phi, double t, 
+double (calcRforce)(double R, double Z, double phi, double t,
 		    int nargs, struct potentialArg * potentialArgs,
 		    double vR, double vT, double vZ){
   int ii;
   double Rforce= 0.;
   for (ii=0; ii < nargs; ii++){
-    if ( potentialArgs->requiresVelocity ) 
+    if ( potentialArgs->requiresVelocity )
       Rforce+= potentialArgs->RforceVelocity(R,Z,phi,t,potentialArgs,vR,vT,vZ);
     else
       Rforce+= potentialArgs->Rforce(R,Z,phi,t,
@@ -86,13 +86,13 @@ double (calcRforce)(double R, double Z, double phi, double t,
   potentialArgs-= nargs;
   return Rforce;
 }
-double (calczforce)(double R, double Z, double phi, double t, 
+double (calczforce)(double R, double Z, double phi, double t,
 		    int nargs, struct potentialArg * potentialArgs,
 		    double vR, double vT, double vZ){
   int ii;
   double zforce= 0.;
   for (ii=0; ii < nargs; ii++){
-    if ( potentialArgs->requiresVelocity ) 
+    if ( potentialArgs->requiresVelocity )
       zforce+= potentialArgs->zforceVelocity(R,Z,phi,t,potentialArgs,vR,vT,vZ);
     else
       zforce+= potentialArgs->zforce(R,Z,phi,t,potentialArgs);
@@ -101,13 +101,13 @@ double (calczforce)(double R, double Z, double phi, double t,
   potentialArgs-= nargs;
   return zforce;
 }
-double (calcphitorque)(double R, double Z, double phi, double t, 
+double (calcphitorque)(double R, double Z, double phi, double t,
 		      int nargs, struct potentialArg * potentialArgs,
 		      double vR, double vT, double vZ){
   int ii;
   double phitorque= 0.;
   for (ii=0; ii < nargs; ii++){
-    if ( potentialArgs->requiresVelocity ) 
+    if ( potentialArgs->requiresVelocity )
       phitorque+= potentialArgs->phitorqueVelocity(R,Z,phi,t,potentialArgs,
 						 vR,vT,vZ);
     else
@@ -117,7 +117,7 @@ double (calcphitorque)(double R, double Z, double phi, double t,
   potentialArgs-= nargs;
   return phitorque;
 }
-double calcPlanarRforce(double R, double phi, double t, 
+double calcPlanarRforce(double R, double phi, double t,
 			int nargs, struct potentialArg * potentialArgs){
   int ii;
   double Rforce= 0.;
@@ -129,7 +129,7 @@ double calcPlanarRforce(double R, double phi, double t,
   potentialArgs-= nargs;
   return Rforce;
 }
-double calcPlanarphitorque(double R, double phi, double t, 
+double calcPlanarphitorque(double R, double phi, double t,
 			  int nargs, struct potentialArg * potentialArgs){
   int ii;
   double phitorque= 0.;
@@ -143,7 +143,7 @@ double calcPlanarphitorque(double R, double phi, double t,
 }
 
 // LCOV_EXCL_START
-double calcR2deriv(double R, double Z, double phi, double t, 
+double calcR2deriv(double R, double Z, double phi, double t,
 		   int nargs, struct potentialArg * potentialArgs){
   int ii;
   double R2deriv= 0.;
@@ -156,7 +156,7 @@ double calcR2deriv(double R, double Z, double phi, double t,
   return R2deriv;
 }
 
-double calcphi2deriv(double R, double Z, double phi, double t, 
+double calcphi2deriv(double R, double Z, double phi, double t,
 			 int nargs, struct potentialArg * potentialArgs){
   int ii;
   double phi2deriv= 0.;
@@ -168,7 +168,7 @@ double calcphi2deriv(double R, double Z, double phi, double t,
   potentialArgs-= nargs;
   return phi2deriv;
 }
-double calcRphideriv(double R, double Z, double phi, double t, 
+double calcRphideriv(double R, double Z, double phi, double t,
 			   int nargs, struct potentialArg * potentialArgs){
   int ii;
   double Rphideriv= 0.;
@@ -181,7 +181,7 @@ double calcRphideriv(double R, double Z, double phi, double t,
   return Rphideriv;
 }
 // LCOV_EXCL_STOP
-double calcPlanarR2deriv(double R, double phi, double t, 
+double calcPlanarR2deriv(double R, double phi, double t,
 			 int nargs, struct potentialArg * potentialArgs){
   int ii;
   double R2deriv= 0.;
@@ -194,7 +194,7 @@ double calcPlanarR2deriv(double R, double phi, double t,
   return R2deriv;
 }
 
-double calcPlanarphi2deriv(double R, double phi, double t, 
+double calcPlanarphi2deriv(double R, double phi, double t,
 			 int nargs, struct potentialArg * potentialArgs){
   int ii;
   double phi2deriv= 0.;
@@ -206,7 +206,7 @@ double calcPlanarphi2deriv(double R, double phi, double t,
   potentialArgs-= nargs;
   return phi2deriv;
 }
-double calcPlanarRphideriv(double R, double phi, double t, 
+double calcPlanarRphideriv(double R, double phi, double t,
 			 int nargs, struct potentialArg * potentialArgs){
   int ii;
   double Rphideriv= 0.;
@@ -218,7 +218,7 @@ double calcPlanarRphideriv(double R, double phi, double t,
   potentialArgs-= nargs;
   return Rphideriv;
 }
-double calcLinearForce(double x, double t, 
+double calcLinearForce(double x, double t,
 		       int nargs, struct potentialArg * potentialArgs){
   int ii;
   double force= 0.;
@@ -229,7 +229,7 @@ double calcLinearForce(double x, double t,
   potentialArgs-= nargs;
   return force;
 }
-double calcDensity(double R, double Z, double phi, double t, 
+double calcDensity(double R, double Z, double phi, double t,
 		   int nargs, struct potentialArg * potentialArgs){
   int ii;
   double dens= 0.;

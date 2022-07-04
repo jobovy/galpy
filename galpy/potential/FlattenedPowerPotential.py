@@ -1,5 +1,5 @@
 ###############################################################################
-#   FlattenedPowerPotential.py: Power-law potential that is flattened in the 
+#   FlattenedPowerPotential.py: Power-law potential that is flattened in the
 #                               potential (NOT the density)
 #
 #                                     amp
@@ -7,8 +7,10 @@
 #                                   m^\alpha
 ###############################################################################
 import numpy
+
 from ..util import conversion
 from .Potential import Potential
+
 _CORE=10**-8
 class FlattenedPowerPotential(Potential):
     """Class that implements a power-law potential that is flattened in the potential (NOT the density)

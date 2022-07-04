@@ -54,7 +54,7 @@ double DehnenCoreSphericalPotentialPlanarR2deriv(double R,double phi,
   //Get args
   double amp= *args++;
   double a= *args++;
-  // return 
+  // return
   return -amp * (pow(a+R, -4.) * (2.*R - a)) / 3.;
 }
 double DehnenCoreSphericalPotentialDens(double R,double Z, double phi,

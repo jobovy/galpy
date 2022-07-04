@@ -3,8 +3,11 @@
 ###############################################################################
 import numpy
 from scipy import special
-from .SphericalPotential import SphericalPotential
+
 from ..util import conversion
+from .SphericalPotential import SphericalPotential
+
+
 class BurkertPotential(SphericalPotential):
     """BurkertPotential.py: Potential with a Burkert density
 
@@ -30,8 +33,8 @@ class BurkertPotential(SphericalPotential):
 
            a = scale radius (can be Quantity)
 
-           normalize - if True, normalize such that vc(1.,0.)=1., or, if 
-                       given as a number, such that the force is this fraction 
+           normalize - if True, normalize such that vc(1.,0.)=1., or, if
+                       given as a number, such that the force is this fraction
                        of the force necessary to make vc(1.,0.)=1.
 
            ro=, vo= distance and velocity scales for translation into internal units (default from configuration file)
@@ -54,7 +57,7 @@ class BurkertPotential(SphericalPotential):
         self._scale= self.a
         if normalize or \
                 (isinstance(normalize,(int,float)) \
-                     and not isinstance(normalize,bool)): #pragma: no cover 
+                     and not isinstance(normalize,bool)): #pragma: no cover
             self.normalize(normalize)
         self.hasC= True
         self.hasC_dxdv= True
@@ -76,7 +79,7 @@ class BurkertPotential(SphericalPotential):
         x= r/self.a
         return self.a*numpy.pi/x**2.*(numpy.pi-2.*numpy.arctan(1./x)
                                       -2.*numpy.log(1.+x)-numpy.log(1.+x**2.))
-    
+
     def _r2deriv(self,r,t=0.):
         x= r/self.a
         return 4.*numpy.pi/(1.+x**2.)/(1.+x)+2.*self._rforce(r)/x/self.a

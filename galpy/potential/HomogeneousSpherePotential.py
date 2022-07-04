@@ -2,8 +2,11 @@
 #   HomogeneousSpherePotential.py: The potential of a homogeneous sphere
 ###############################################################################
 import numpy
+
 from ..util import conversion
 from .Potential import Potential
+
+
 class HomogeneousSpherePotential(Potential):
     """Class that implements the homogeneous sphere potential for :math:`\\rho(r) = \\rho_0 = \\mathrm{constant}` for all :math:`r < R` and zero otherwise. The potential is given by
 

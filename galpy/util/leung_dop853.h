@@ -5,15 +5,15 @@ C implementations of Dormand-Prince 8(5,3)
 Copyright (c) 2018, Henry Leung
 All rights reserved.
 
-Redistribution and use in source and binary forms, with or without 
+Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:
 
-   Redistributions of source code must retain the above copyright notice, 
+   Redistributions of source code must retain the above copyright notice,
       this list of conditions and the following disclaimer.
-   Redistributions in binary form must reproduce the above copyright notice, 
-      this list of conditions and the following disclaimer in the 
+   Redistributions in binary form must reproduce the above copyright notice,
+      this list of conditions and the following disclaimer in the
       documentation and/or other materials provided with the distribution.
-   The name of the author may not be used to endorse or promote products 
+   The name of the author may not be used to endorse or promote products
       derived from this software without specific prior written permission.
 
 THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
@@ -56,16 +56,16 @@ BOOL WINAPI CtrlHandler(DWORD fdwCtrlType);
 
 /* Function declarations */
 static inline void save_dop853(
-	int dim, 
-	double *y0, 
-	double *result) 
+	int dim,
+	double *y0,
+	double *result)
 {
 	int ii;
 	for (ii = 0; ii < dim; ii++) *result++ = *y0++;
 }
 
 static inline double custom_sign(
-	double x, 
+	double x,
 	double y)
 {
 	return (y > 0.0) ? fabs(x) : -fabs(x);
@@ -76,14 +76,14 @@ void dop853 (
 	void(*func)(double, double *, double *, int, struct potentialArg *),
 	int,
 	double *,
-	int, 
-	double, 
-	double *,
-	int, 
-	struct potentialArg *,
-	double, 
+	int,
 	double,
-	double *, 
+	double *,
+	int,
+	struct potentialArg *,
+	double,
+	double,
+	double *,
 	int *
 );
 #ifdef __cplusplus

@@ -1,7 +1,9 @@
 import sys
+
 import numpy
+
 from galpy.orbit import Orbit
-from galpy.potential import  MiyamotoNagaiPotential
+from galpy.potential import MiyamotoNagaiPotential
 
 if __name__ == '__main__':
     # python orbitint4sigint.py symplec4_c full

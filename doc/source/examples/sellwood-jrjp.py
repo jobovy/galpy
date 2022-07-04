@@ -1,12 +1,16 @@
+import csv
+import os
+import os.path
 import re
 import sys
-import os, os.path
-import numpy as nu
-import csv
+
 import cPickle as pickle
-from galpy.util import plot
-from galpy.potential import LogarithmicHaloPotential, PowerSphericalPotential
+import numpy as nu
+
 from galpy.orbit import Orbit
+from galpy.potential import LogarithmicHaloPotential, PowerSphericalPotential
+from galpy.util import plot
+
 _degtorad= nu.pi/180.
 def hms_to_rad(ra):
     spl= re.split(r' ',ra)
@@ -103,7 +107,7 @@ def calcj(rotcurve):
                   ylabel=r'$\mathrm{galpy}\ e$')
         plot.plot(e,mye,'k,',overplot=True)
         plot.end_print('myee.png')
-        
+
         plot.print()
         plot.plot(nu.array([0.,2.5]),
                   nu.array([0.,2.5]),'k-',

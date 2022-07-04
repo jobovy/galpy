@@ -39,7 +39,7 @@ class GadgetSnapshot:
         PURPOSE:
            plot the snapshot
         INPUT:
-        
+
         OUTPUT:
         HISTORY:
            2011-08-15 - Started - Bovy (NYU)
@@ -75,4 +75,3 @@ class GadgetSnapshot:
             kwargs.pop('d1')
             d2= kwargs['d2']
             kwargs.pop('d2')
-

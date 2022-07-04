@@ -1,11 +1,16 @@
-import os, os.path
 import copy
+import os
+import os.path
 import pickle
+
 import numpy
-from ..util import plot, conversion, config
+
+from ..util import config, conversion, plot
+from ..util.conversion import (physical_compatible, physical_conversion,
+                               potential_physical_input)
 from .Potential import PotentialError, flatten
-from ..util.conversion import physical_conversion,\
-    potential_physical_input, physical_compatible
+
+
 class linearPotential:
     """Class representing 1D potentials"""
     def __init__(self,amp=1.,ro=None,vo=None):
@@ -435,4 +440,3 @@ def plotlinearPotentials(Pot,t=0.,min=-15.,max=15,ns=21,savefilename=None):
     return plot.plot(xs,potx,
                      xlabel=r"$x/x_0$",ylabel=r"$\Phi(x)$",
                      xrange=[min,max])
-

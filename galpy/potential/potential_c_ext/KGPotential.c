@@ -1,7 +1,7 @@
 #include <math.h>
 #include <galpy_potentials.h>
 //KGPotential: 4 parameters: amp, K, D^2, 2F
-//Routines to evaluate forces etc. for a verticalPotential, i.e., a 1D 
+//Routines to evaluate forces etc. for a verticalPotential, i.e., a 1D
 //potential derived from a 3D potential as the z potential at a given (R,phi)
 double KGPotentialLinearForce(double x, double t,
 			      struct potentialArg * potentialArgs){

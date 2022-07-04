@@ -1,7 +1,9 @@
 import ctypes
 import ctypes.util
+
 import numpy
 from numpy.ctypeslib import ndpointer
+
 from ..util import _load_extension_libs
 
 _lib, _ext_loaded= _load_extension_libs.load_libgalpy_actionAngleTorus()
@@ -89,7 +91,7 @@ def actionAngleTorus_xvFreqs_c(pot,jr,jphi,jz,
     Omegar= numpy.require(Omegar,dtype=numpy.float64,requirements=['C','W'])
     Omegaphi= numpy.require(Omegaphi,dtype=numpy.float64,requirements=['C','W'])
     Omegaz= numpy.require(Omegaz,dtype=numpy.float64,requirements=['C','W'])
-    
+
     #Run the C code
     actionAngleTorus_xvFreqsFunc(ctypes.c_double(jr),
                                  ctypes.c_double(jphi),
@@ -165,7 +167,7 @@ def actionAngleTorus_Freqs_c(pot,jr,jphi,jz,
     Omegar= numpy.require(Omegar,dtype=numpy.float64,requirements=['C','W'])
     Omegaphi= numpy.require(Omegaphi,dtype=numpy.float64,requirements=['C','W'])
     Omegaz= numpy.require(Omegaz,dtype=numpy.float64,requirements=['C','W'])
-    
+
     #Run the C code
     actionAngleTorus_FreqsFunc(ctypes.c_double(jr),
                                ctypes.c_double(jphi),
@@ -237,7 +239,7 @@ def actionAngleTorus_hessian_c(pot,jr,jphi,jz,
     Omegar= numpy.require(Omegar,dtype=numpy.float64,requirements=['C','W'])
     Omegaphi= numpy.require(Omegaphi,dtype=numpy.float64,requirements=['C','W'])
     Omegaz= numpy.require(Omegaz,dtype=numpy.float64,requirements=['C','W'])
-    
+
     #Run the C code
     actionAngleTorus_HessFunc(ctypes.c_double(jr),
                               ctypes.c_double(jphi),
@@ -348,7 +350,7 @@ def actionAngleTorus_jacobian_c(pot,jr,jphi,jz,angler,anglephi,anglez,
     Omegar= numpy.require(Omegar,dtype=numpy.float64,requirements=['C','W'])
     Omegaphi= numpy.require(Omegaphi,dtype=numpy.float64,requirements=['C','W'])
     Omegaz= numpy.require(Omegaz,dtype=numpy.float64,requirements=['C','W'])
-    
+
     #Run the C code
     actionAngleTorus_JacFunc(ctypes.c_double(jr),
                              ctypes.c_double(jphi),

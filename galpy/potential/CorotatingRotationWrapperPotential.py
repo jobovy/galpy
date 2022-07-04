@@ -1,12 +1,14 @@
 ###############################################################################
 #   CorotatingRotationWrapperPotential.py: Wrapper to make a potential rotate
-#                                          with a fixed R x pattern speed, 
+#                                          with a fixed R x pattern speed,
 #                                          around the z axis
 ###############################################################################
-from .WrapperPotential import parentWrapperPotential
 from ..util import conversion
+from .WrapperPotential import parentWrapperPotential
+
+
 class CorotatingRotationWrapperPotential(parentWrapperPotential):
-    """Potential wrapper class that implements rotation with fixed R x pattern-speed around the z-axis. Can be used to make spiral structure that is everywhere co-rotating. The potential is rotated by replacing 
+    """Potential wrapper class that implements rotation with fixed R x pattern-speed around the z-axis. Can be used to make spiral structure that is everywhere co-rotating. The potential is rotated by replacing
 
     .. math::
 
@@ -94,7 +96,7 @@ class CorotatingRotationWrapperPotential(parentWrapperPotential):
             +self._wrap_pot_func('_phitorque')(self._pot,*args,**kwargs)\
             *(self._vpo*(self._beta-1.)*(self._beta-2.)
               *args[0]**(self._beta-3.)*(kwargs.get('t',0.)-self._to))
-            
+
     def _Rphideriv(self,*args,**kwargs):
         kwargs['phi']= kwargs.get('phi',0.)\
             -self._vpo*args[0]**(self._beta-1.)*(kwargs.get('t',0.)-self._to)\

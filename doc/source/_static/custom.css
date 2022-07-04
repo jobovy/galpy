@@ -240,7 +240,7 @@ p {
     padding: 10px;
     height: 525;
   }
-  
+
   /* Clear floats after the columns */
   .row:after {
     content: "";
@@ -248,10 +248,10 @@ p {
     clear: both;
   }
 
-/* Let try-galpy fill the entire space. First Need to correct everything else 
+/* Let try-galpy fill the entire space. First Need to correct everything else
 to usual 800 px */
-p, div.warning, div[class^="toctree-"], 
-section:not(#welcome-to-galpy-s-documentation), 
+p, div.warning, div[class^="toctree-"],
+section:not(#welcome-to-galpy-s-documentation),
 div.section:not(#welcome-to-galpy-s-documentation) {
 max-width: 800px;
 }
@@ -265,7 +265,7 @@ div#activate-try-galpy {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 100%; 
+    width: 100%;
     height: 525px;
     /* Permalink - use to edit and share this gradient: http://colorzilla.com/gradient-editor/#f3f3f4+0,d5d6d7+100 */
     background: rgb(243,243,244); /* Old browsers */

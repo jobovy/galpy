@@ -1,7 +1,5 @@
 .. galpy documentation master file, created by
    sphinx-quickstart on Sun Jul 11 15:58:27 2010.
-   You can adapt this file completely to your liking, but it should at least
-   contain the root `toctree` directive.
 
 .. ifconfig:: not_on_rtd
 
@@ -161,4 +159,3 @@ Indices and tables
 * :ref:`genindex`
 * :ref:`modindex`
 * :ref:`search`
-

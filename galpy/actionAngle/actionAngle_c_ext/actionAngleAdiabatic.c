@@ -90,7 +90,7 @@ static inline void calcEREzL(int ndata,
       + 0.5 * *(vR+ii) * *(vR+ii)
       + 0.5 * *(vT+ii) * *(vT+ii);
     *(Ez+ii)= evaluateVerticalPotentials(*(R+ii),*(z+ii),
-					 nargs,actionAngleArgs)     
+					 nargs,actionAngleArgs)
       + 0.5 * *(vz+ii) * *(vz+ii);
     *(Lz+ii)= *(R+ii) * *(vT+ii);
   }
@@ -131,7 +131,7 @@ void actionAngleAdiabatic_RperiRapZmax(int ndata,
 #pragma omp parallel for schedule(static,chunk) private(ii)
   for (ii=0; ii < ndata; ii++){
     *(Lz+ii)= fabs( *(Lz+ii) ) + gamma * *(jz+ii);
-    *(ER+ii)+= 0.5 * *(Lz+ii) * *(Lz+ii) / *(R+ii) / *(R+ii) 
+    *(ER+ii)+= 0.5 * *(Lz+ii) * *(Lz+ii) / *(R+ii) / *(R+ii)
       - 0.5 * *(vT+ii) * *(vT+ii);
   }
   calcRapRperi(ndata,rperi,rap,R,ER,Lz,npot,actionAngleArgs);
@@ -176,7 +176,7 @@ void actionAngleAdiabatic_actions(int ndata,
 #pragma omp parallel for schedule(static,chunk) private(ii)
   for (ii=0; ii < ndata; ii++){
     *(Lz+ii)= fabs( *(Lz+ii) ) + gamma * *(jz+ii);
-    *(ER+ii)+= 0.5 * *(Lz+ii) * *(Lz+ii) / *(R+ii) / *(R+ii) 
+    *(ER+ii)+= 0.5 * *(Lz+ii) * *(Lz+ii) / *(R+ii) / *(R+ii)
       - 0.5 * *(vT+ii) * *(vT+ii);
   }
   calcRapRperi(ndata,rperi,rap,R,ER,Lz,npot,actionAngleArgs);
@@ -409,7 +409,7 @@ void calcRapRperi(int ndata,
 	  }
 	while (status == GSL_CONTINUE && iter < max_iter);
 	// LCOV_EXCL_START
-	if (status == GSL_EINVAL) {//Shouldn't ever get here 
+	if (status == GSL_EINVAL) {//Shouldn't ever get here
 	  *(rperi+ii) = -9999.99;
 	  *(rap+ii) = -9999.99;
 	  continue;
@@ -484,7 +484,7 @@ void calcRapRperi(int ndata,
 	}
       while (status == GSL_CONTINUE && iter < max_iter);
       // LCOV_EXCL_START
-      if (status == GSL_EINVAL) {//Shouldn't ever get here 
+      if (status == GSL_EINVAL) {//Shouldn't ever get here
 	*(rperi+ii) = -9999.99;
 	*(rap+ii) = -9999.99;
 	continue;
@@ -609,7 +609,7 @@ double JzAdiabaticIntegrandSquared(double z,
 						 params->actionAngleArgs);
 }
 double evaluateVerticalPotentials(double R, double z,
-				  int nargs, 
+				  int nargs,
 				  struct potentialArg * actionAngleArgs){
   return evaluatePotentials(R,z,nargs,actionAngleArgs)
     -evaluatePotentials(R,0.,nargs,actionAngleArgs);

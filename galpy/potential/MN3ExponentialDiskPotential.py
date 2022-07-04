@@ -1,14 +1,18 @@
 ###############################################################################
 #   MN3ExponentialDiskPotential.py: class that implements the three Miyamoto-
-#                                   Nagai approximation to a radially 
+#                                   Nagai approximation to a radially
 #                                   exponential disk potential of Smith et al.
 #                                   2015
 ###############################################################################
 import warnings
+
 import numpy
-from ..util import galpyWarning, conversion
-from .Potential import Potential, kms_to_kpcGyrDecorator
+
+from ..util import conversion, galpyWarning
 from .MiyamotoNagaiPotential import MiyamotoNagaiPotential
+from .Potential import Potential, kms_to_kpcGyrDecorator
+
+
 class MN3ExponentialDiskPotential(Potential):
     """class that implements the three Miyamoto-Nagai approximation to a radially-exponential disk potential of `Smith et al. 2015 <http://adsabs.harvard.edu/abs/2015arXiv150200627S>`_
 
@@ -16,7 +20,7 @@ class MN3ExponentialDiskPotential(Potential):
 
         \\rho(R,z) = \\mathrm{amp}\\,\\exp\\left(-R/h_R-|z|/h_z\\right)
 
-    or 
+    or
 
     .. math::
 
@@ -285,7 +289,7 @@ class MN3ExponentialDiskPotential(Potential):
         for ii in range(3):
             if ii > 0: out+= '#'
             ampl= self._amp*self._mn3[ii]._amp*vo**2.*ro
-            out+= "0,{},{},{}".format(ampl,self._mn3[ii]._a*ro,self._mn3[ii]._b*ro)
+            out+= f"0,{ampl},{self._mn3[ii]._a*ro},{self._mn3[ii]._b*ro}"
         return out
 
 # Equations from Table 1

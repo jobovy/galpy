@@ -1,11 +1,14 @@
-from pkg_resources import parse_version
 import numpy
+from pkg_resources import parse_version
+
 _NUMPY_VERSION= parse_version(numpy.__version__)
 _NUMPY_GE_1_22= (_NUMPY_VERSION > parse_version('1.21'))\
     *(_NUMPY_VERSION < parse_version('1.24'))
-from galpy.util import coords
-import pytest
 import astropy
+import pytest
+
+from galpy.util import coords
+
 _APY3= astropy.__version__ > '3'
 
 def test_radec_to_lb_ngp():
@@ -289,8 +292,8 @@ def test_lb_to_radec_apy_icrs():
 
 def test_radec_to_lb_galpyvsastropy():
     # Test that galpy's radec_to_lb agrees with astropy's
-    from astropy.coordinates import SkyCoord
     import astropy.units as u
+    from astropy.coordinates import SkyCoord
     _turn_off_apy(keep_loaded=True)
     ra, dec= 33., -20.
     # using galpy
@@ -306,8 +309,8 @@ def test_radec_to_lb_galpyvsastropy():
 
 def test_radec_to_lb__1950_galpyvsastropy():
     # Test that galpy's radec_to_lb agrees with astropy's
-    from astropy.coordinates import SkyCoord
     import astropy.units as u
+    from astropy.coordinates import SkyCoord
     _turn_off_apy(keep_loaded=True)
     ra, dec= 33., -20.
     # using galpy
@@ -461,8 +464,8 @@ def test_XYZ_to_galcenrect_negXsun():
 
 def test_lbd_to_galcenrect_galpyvsastropy():
     # Test that galpy's transformations agree with astropy's
-    from astropy.coordinates import SkyCoord, Galactocentric
     import astropy.units as u
+    from astropy.coordinates import Galactocentric, SkyCoord
     _turn_off_apy()
     l,b,d= 32., -12., 3.
     Zsun= 0.025
@@ -498,8 +501,8 @@ def test_lbd_to_galcenrect_galpyvsastropy():
 
 def test_lbd_to_galcencyl_galpyvsastropy():
     # Test that galpy's transformations agree with astropy's
-    from astropy.coordinates import SkyCoord, Galactocentric
     import astropy.units as u
+    from astropy.coordinates import Galactocentric, SkyCoord
     _turn_off_apy()
     l,b,d= 32., -12., 3.
     Zsun= 0.025
@@ -673,9 +676,9 @@ def test_vrpmllpmbb_to_galcenrect_galpyvsastropy():
     # Only run this for astropy>3
     if not _APY3: return None
     # Test that galpy's transformations agree with astropy's
-    from astropy.coordinates import SkyCoord, Galactocentric, \
-        CartesianDifferential
     import astropy.units as u
+    from astropy.coordinates import (CartesianDifferential, Galactocentric,
+                                     SkyCoord)
     _turn_off_apy()
     l,b,d= 32., -12., 3.
     vr,pmll,pmbb= -112., -13.,5.
@@ -743,9 +746,9 @@ def test_vrpmllpmbb_to_galcencyl_galpyvsastropy():
     # Only run this for astropy>3
     if not _APY3: return None
     # Test that galpy's transformations agree with astropy's
-    from astropy.coordinates import SkyCoord, Galactocentric, \
-        CartesianDifferential
     import astropy.units as u
+    from astropy.coordinates import (CartesianDifferential, Galactocentric,
+                                     SkyCoord)
     _turn_off_apy()
     l,b,d= 32., -12., 3.
     vr,pmll,pmbb= -112., -13.,5.

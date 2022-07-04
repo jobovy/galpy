@@ -13,22 +13,24 @@
 #    for epicycle frequency
 #      function _R2deriv(self,R,z,phi) return d2 Phi dR2
 ###############################################################################
-import os, os.path
+import os
+import os.path
 import pickle
-from functools import wraps
 import warnings
+from functools import wraps
+
 import numpy
-from scipy import optimize, integrate
-from ..util import plot, coords, conversion
-from ..util.conversion import velocity_in_kpcGyr, \
-    physical_conversion, potential_physical_input, freq_in_Gyr, \
-    get_physical
-from ..util import galpyWarning
+from scipy import integrate, optimize
+
+from ..util import conversion, coords, galpyWarning, plot
 from ..util._optional_deps import _APY_LOADED
-from .plotRotcurve import plotRotcurve, vcirc
-from .plotEscapecurve import _INF, plotEscapecurve
+from ..util.conversion import (freq_in_Gyr, get_physical, physical_conversion,
+                               potential_physical_input, velocity_in_kpcGyr)
 from .DissipativeForce import DissipativeForce, _isDissipative
 from .Force import Force
+from .plotEscapecurve import _INF, plotEscapecurve
+from .plotRotcurve import plotRotcurve, vcirc
+
 if _APY_LOADED:
     from astropy import units
 def check_potential_inputs_not_arrays(func):
@@ -40,7 +42,7 @@ def check_potential_inputs_not_arrays(func):
     HISTORY:
        2017-summer - Written for SpiralArmsPotential - Jack Hong (UBC)
        2019-05-23 - Moved to Potential for more general use - Bovy (UofT)
-       
+
     """
     @wraps(func)
     def func_wrapper(self,R,z,phi,t):
@@ -48,7 +50,7 @@ def check_potential_inputs_not_arrays(func):
                 or (hasattr(z,'shape') and z.shape != () and len(z) > 1) \
                 or (hasattr(phi,'shape') and phi.shape != () and len(phi) > 1) \
                 or (hasattr(t,'shape') and t.shape != () and len(t) > 1):
-            raise TypeError('Methods in {} do not accept array inputs. Please input scalars'.format(self.__class__.__name__))
+            raise TypeError(f'Methods in {self.__class__.__name__} do not accept array inputs. Please input scalars')
         return func(self,R,z,phi,t)
     return func_wrapper
 
@@ -128,7 +130,7 @@ class Potential(Force):
             return self.Rphideriv(R,z,phi=phi,t=t,use_physical=False)
         elif dR != 0 or dphi != 0:
             raise NotImplementedError('Higher-order derivatives not implemented for this potential')
-        
+
     @potential_physical_input
     @physical_conversion('force',pop=True)
     def Rforce(self,R,z,phi=0.,t=0.):
@@ -168,7 +170,7 @@ class Potential(Force):
             return self._amp*self._Rforce(R,z,phi=phi,t=t)
         except AttributeError: #pragma: no cover
             raise PotentialError("'_Rforce' function not implemented for this potential")
-        
+
     @potential_physical_input
     @physical_conversion('force',pop=True)
     def zforce(self,R,z,phi=0.,t=0.):
@@ -240,8 +242,8 @@ class Potential(Force):
            2018-03-21 - Written - Webb (UofT)
 
         """
-       
-        r= numpy.sqrt(R**2.+z**2.)       
+
+        r= numpy.sqrt(R**2.+z**2.)
         return (self.R2deriv(R,z,phi=phi,t=t,use_physical=False)*R/r\
             +self.Rzderiv(R,z,phi=phi,t=t,use_physical=False)*z/r)*R/r\
             +(self.Rzderiv(R,z,phi=phi,t=t,use_physical=False)*R/r\
@@ -425,11 +427,11 @@ class Potential(Force):
     @physical_conversion('position',pop=True)
     def rhalf(self,t=0.,INF=numpy.inf):
         """
-            
+
         NAME:
-            
+
             rhalf
-            
+
         PURPOSE:
 
             calculate the half-mass radius, the radius of the spherical shell that contains half the total mass
@@ -456,7 +458,7 @@ class Potential(Force):
     def tdyn(self,R,t=0.):
         """
         NAME:
-        
+
            tdyn
 
         PURPOSE:
@@ -468,7 +470,7 @@ class Potential(Force):
            R - Galactocentric radius (can be Quantity)
 
            t= (0.) time (optional; can be Quantity)
-        
+
         OUTPUT:
 
            Dynamical time
@@ -496,13 +498,13 @@ class Potential(Force):
         INPUT:
 
            H= (default: 70) Hubble constant in km/s/Mpc
-           
+
            Om= (default: 0.3) Omega matter
-       
+
            overdens= (200) overdensity which defines the virial radius
 
            wrtcrit= (False) if True, the overdensity is wrt the critical density rather than the mean matter density
-           
+
            ro= distance scale in kpc or as Quantity (default: object-wide, which if not set is 8 kpc))
 
            vo= velocity scale in km/s or as Quantity (default: object-wide, which if not set is 220 km/s))
@@ -564,7 +566,7 @@ class Potential(Force):
         try:
             return self._amp*self._R2deriv(R,z,phi=phi,t=t)
         except AttributeError: #pragma: no cover
-            raise PotentialError("'_R2deriv' function not implemented for this potential")      
+            raise PotentialError("'_R2deriv' function not implemented for this potential")
 
     @potential_physical_input
     @physical_conversion('forcederivative',pop=True)
@@ -600,7 +602,7 @@ class Potential(Force):
         try:
             return self._amp*self._z2deriv(R,z,phi=phi,t=t)
         except AttributeError: #pragma: no cover
-            raise PotentialError("'_z2deriv' function not implemented for this potential")      
+            raise PotentialError("'_z2deriv' function not implemented for this potential")
 
     @potential_physical_input
     @physical_conversion('forcederivative',pop=True)
@@ -636,7 +638,7 @@ class Potential(Force):
         try:
             return self._amp*self._Rzderiv(R,z,phi=phi,t=t)
         except AttributeError: #pragma: no cover
-            raise PotentialError("'_Rzderiv' function not implemented for this potential")      
+            raise PotentialError("'_Rzderiv' function not implemented for this potential")
 
     def normalize(self,norm):
         """
@@ -646,7 +648,7 @@ class Potential(Force):
 
         PURPOSE:
 
-           normalize a potential in such a way that vc(R=1,z=0)=1., or a 
+           normalize a potential in such a way that vc(R=1,z=0)=1., or a
            fraction of this
 
         INPUT:
@@ -654,7 +656,7 @@ class Potential(Force):
            norm - normalize such that Rforce(R=1,z=0) is such that it is 'norm' of the force necessary to make vc(R=1,z=0)=1 (if True, norm=1)
 
         OUTPUT:
-           
+
            (none)
 
         HISTORY:
@@ -1077,7 +1079,7 @@ class Potential(Force):
 
            t= time to plot potential at
 
-           z= (inf) height between which to integrate the density (from -z to z; can be a Quantity) 
+           z= (inf) height between which to integrate the density (from -z to z; can be a Quantity)
 
            xmin= minimum x (can be Quantity)
 
@@ -1114,71 +1116,71 @@ class Potential(Force):
                                     savefilename=savefilename,
                                     justcontours=justcontours,
                                     aspect=aspect,log=log,**kwargs)
-    
+
     @potential_physical_input
     @physical_conversion('velocity',pop=True)
     def vcirc(self,R,phi=None,t=0.):
         """
-        
+
         NAME:
-        
+
             vcirc
-        
+
         PURPOSE:
-        
+
             calculate the circular velocity at R in this potential
 
         INPUT:
-        
+
             R - Galactocentric radius (can be Quantity)
-        
+
             phi= (None) azimuth to use for non-axisymmetric potentials
 
             t - time (optional; can be Quantity)
 
         OUTPUT:
-        
+
             circular rotation velocity
-        
+
         HISTORY:
-        
+
             2011-10-09 - Written - Bovy (IAS)
-        
+
             2016-06-15 - Added phi= keyword for non-axisymmetric potential - Bovy (UofT)
 
-        """  
+        """
         return numpy.sqrt(R*-self.Rforce(R,0.,phi=phi,t=t,use_physical=False))
 
     @potential_physical_input
     @physical_conversion('frequency',pop=True)
     def dvcircdR(self,R,phi=None,t=0.):
         """
-        
+
         NAME:
-        
+
             dvcircdR
-        
+
         PURPOSE:
-        
+
             calculate the derivative of the circular velocity at R wrt R
             in this potential
 
         INPUT:
-        
+
             R - Galactocentric radius (can be Quantity)
-        
+
             phi= (None) azimuth to use for non-axisymmetric potentials
 
             t - time (optional; can be Quantity)
 
         OUTPUT:
-        
+
             derivative of the circular rotation velocity wrt R
-        
+
         HISTORY:
-        
+
             2013-01-08 - Written - Bovy (IAS)
-        
+
             2016-06-28 - Added phi= keyword for non-axisymmetric potential - Bovy (UofT)
 
         """
@@ -1190,29 +1192,29 @@ class Potential(Force):
     @physical_conversion('frequency',pop=True)
     def omegac(self,R,t=0.):
         """
-        
+
         NAME:
-        
+
             omegac
-        
+
         PURPOSE:
-        
+
             calculate the circular angular speed at R in this potential
 
         INPUT:
-        
+
             R - Galactocentric radius (can be Quantity)
 
             t - time (optional; can be Quantity)
-        
+
         OUTPUT:
-        
+
             circular angular speed
-        
+
         HISTORY:
-        
+
             2011-10-09 - Written - Bovy (IAS)
-        
+
         """
         return numpy.sqrt(-self.Rforce(R,0.,t=t,use_physical=False)/R)
 
@@ -1220,29 +1222,29 @@ class Potential(Force):
     @physical_conversion('frequency',pop=True)
     def epifreq(self,R,t=0.):
         """
-        
+
         NAME:
-        
+
            epifreq
-        
+
         PURPOSE:
-        
+
            calculate the epicycle frequency at R in this potential
-        
+
         INPUT:
-        
+
            R - Galactocentric radius (can be Quantity)
 
            t - time (optional; can be Quantity)
-        
+
         OUTPUT:
-        
+
            epicycle frequency
-        
+
         HISTORY:
-        
+
            2011-10-09 - Written - Bovy (IAS)
-        
+
         """
         return numpy.sqrt(self.R2deriv(R,0.,t=t,use_physical=False)\
                            -3./R*self.Rforce(R,0.,t=t,use_physical=False))
@@ -1251,46 +1253,46 @@ class Potential(Force):
     @physical_conversion('frequency',pop=True)
     def verticalfreq(self,R,t=0.):
         """
-        
+
         NAME:
-        
+
            verticalfreq
-        
+
         PURPOSE:
-        
+
            calculate the vertical frequency at R in this potential
-        
+
         INPUT:
-        
+
            R - Galactocentric radius (can be Quantity)
 
            t - time (optional; can be Quantity)
-        
+
         OUTPUT:
-        
+
            vertical frequency
-        
+
         HISTORY:
-        
+
            2012-07-25 - Written - Bovy (IAS@MPIA)
-        
+
         """
         return numpy.sqrt(self.z2deriv(R,0.,t=t,use_physical=False))
 
     @physical_conversion('position',pop=True)
     def lindbladR(self,OmegaP,m=2,t=0.,**kwargs):
         """
-        
+
         NAME:
-        
+
            lindbladR
-        
+
         PURPOSE:
-        
+
             calculate the radius of a Lindblad resonance
-        
+
         INPUT:
-        
+
            OmegaP - pattern speed (can be Quantity)
 
            m= order of the resonance (as in m(O-Op)=kappa (negative m for outer)
@@ -1298,15 +1300,15 @@ class Potential(Force):
               +scipy.optimize.brentq xtol,rtol,maxiter kwargs
 
            t - time (optional; can be Quantity)
-        
+
         OUTPUT:
-        
+
            radius of Linblad resonance, None if there is no resonance
-        
+
         HISTORY:
-        
+
            2011-10-09 - Written - Bovy (IAS)
-        
+
         """
         OmegaP= conversion.parse_frequency(OmegaP,ro=self._ro,vo=self._vo)
         return lindbladR(self,OmegaP,m=m,t=t,use_physical=False,**kwargs)
@@ -1341,37 +1343,37 @@ class Potential(Force):
         """
         return numpy.sqrt(2.*(self(_INF,0.,t=t,use_physical=False)\
                                -self(R,0.,t=t,use_physical=False)))
-        
+
     @physical_conversion('position',pop=True)
     def rl(self,lz,t=0.):
         """
         NAME:
-        
+
             rl
-        
+
         PURPOSE:
-        
+
             calculate the radius of a circular orbit of Lz
-        
+
         INPUT:
-        
+
             lz - Angular momentum (can be Quantity)
 
             t - time (optional; can be Quantity)
-        
+
         OUTPUT:
-        
+
             radius
-        
+
         HISTORY:
-        
+
             2012-07-30 - Written - Bovy (IAS@MPIA)
-        
+
         NOTE:
-        
+
             An efficient way to call this function on many objects is
             provided as the Orbit method rguiding
-        
+
         """
         lz= conversion.parse_angmom(lz,ro=self._ro,vo=self._vo)
         return rl(self,lz,t=t,use_physical=False)
@@ -1380,32 +1382,32 @@ class Potential(Force):
     def rE(self,E,t=0.):
         """
         NAME:
-        
+
             rE
-        
+
         PURPOSE:
-        
+
             calculate the radius of a circular orbit with energy E
-        
+
         INPUT:
-        
+
             E - Energy (can be Quantity)
 
             t - time (optional; can be Quantity)
-        
+
         OUTPUT:
-        
+
             radius
-        
+
         HISTORY:
-        
+
             2022-04-06 - Written - Bovy (UofT)
-            
+
         NOTE:
 
             An efficient way to call this function on many objects is
             provided as the Orbit method rE
-            
+
         """
         E= conversion.parse_energy(E,ro=self._ro,vo=self._vo)
         return rE(self,E,t=t,use_physical=False)
@@ -1414,27 +1416,27 @@ class Potential(Force):
     def LcE(self,E,t=0.):
         """
         NAME:
-        
+
             LcE
-        
+
         PURPOSE:
-        
+
             calculate the angular momentum of a circular orbit with energy E
-        
+
         INPUT:
-        
+
             E - Energy (can be Quantity)
 
             t - time (optional; can be Quantity)
-        
+
         OUTPUT:
-        
+
             Lc(E)
-        
+
         HISTORY:
-        
+
             2022-04-06 - Written - Bovy (UofT)
-               
+
         """
         E= conversion.parse_energy(E,ro=self._ro,vo=self._vo)
         return LcE(self,E,t=t,use_physical=False)
@@ -1443,31 +1445,31 @@ class Potential(Force):
     @physical_conversion('dimensionless',pop=True)
     def flattening(self,R,z,t=0.):
         """
-        
+
         NAME:
-        
+
            flattening
-        
+
         PURPOSE:
-        
+
            calculate the potential flattening, defined as sqrt(fabs(z/R F_R/F_z))
-        
+
         INPUT:
-        
+
            R - Galactocentric radius (can be Quantity)
 
            z - height (can be Quantity)
 
            t - time (optional; can be Quantity)
-        
+
         OUTPUT:
-        
+
            flattening
-        
+
         HISTORY:
-        
+
            2012-09-13 - Written - Bovy (IAS)
-        
+
         """
         return numpy.sqrt(numpy.fabs(z/R*self.Rforce(R,z,t=t,use_physical=False)\
                                    /self.zforce(R,z,t=t,use_physical=False)))
@@ -1475,31 +1477,31 @@ class Potential(Force):
     @physical_conversion('velocity',pop=True)
     def vterm(self,l,t=0.,deg=True):
         """
-        
+
         NAME:
-        
+
             vterm
-        
+
         PURPOSE:
-        
+
             calculate the terminal velocity at l in this potential
 
         INPUT:
-        
+
             l - Galactic longitude [deg/rad; can be Quantity)
 
             t - time (optional; can be Quantity)
 
             deg= if True (default), l in deg
-        
+
         OUTPUT:
-        
+
             terminal velocity
-        
+
         HISTORY:
-        
+
             2013-05-31 - Written - Bovy (IAS)
-        
+
         """
         if _APY_LOADED and isinstance(l,units.Quantity):
             l= conversion.parse_angle(l)
@@ -1551,7 +1553,7 @@ class Potential(Force):
 
         PURPOSE:
 
-           plot the escape velocity  curve for this potential 
+           plot the escape velocity  curve for this potential
            (in the z=0 plane for non-spherical potentials)
 
         INPUT:
@@ -1589,15 +1591,15 @@ class Potential(Force):
         INPUT:
 
            H= (default: 70) Hubble constant in km/s/Mpc
-           
+
            Om= (default: 0.3) Omega matter
 
            t - time (optional; can be Quantity)
-       
+
            overdens= (200) overdensity which defines the virial radius
 
            wrtcrit= (False) if True, the overdensity is wrt the critical density rather than the mean matter density
-           
+
            ro= distance scale in kpc or as Quantity (default: object-wide, which if not set is 8 kpc))
 
            vo= velocity scale in km/s or as Quantity (default: object-wide, which if not set is 220 km/s))
@@ -1681,13 +1683,13 @@ class Potential(Force):
     @physical_conversion('position',pop=True)
     def rtide(self,R,z,phi=0.,t=0.,M=None):
         """
-            
+
         NAME:
-            
+
             rtide
-            
+
         PURPOSE:
-            
+
             Calculate the tidal radius for object of mass M assuming a circular orbit as
 
             .. math::
@@ -1697,25 +1699,25 @@ class Potential(Force):
             where :math:`M_s` is the cluster mass, :math:`\\Omega` is the circular frequency, and :math:`\\Phi` is the gravitational potential. For non-spherical potentials, we evaluate :math:`\\Omega^2 = (1/r)(\\mathrm{d}\\Phi/\\mathrm{d}r)` and evaluate the derivatives at the given position of the cluster.
 
         INPUT:
-        
+
             R - Galactocentric radius (can be Quantity)
-            
+
             z - height (can be Quantity)
-            
+
             phi - azimuth (optional; can be Quantity)
-            
+
             t - time (optional; can be Quantity)
-            
+
             M - (default = None) Mass of object (can be Quantity)
-            
+
         OUTPUT:
-            
+
             Tidal Radius
-        
+
         HISTORY:
-            
+
             2018-03-21 - Written - Webb (UofT)
-            
+
         """
         if M is None:
             #Make sure an object mass is given
@@ -1729,40 +1731,40 @@ class Potential(Force):
     @physical_conversion('forcederivative',pop=True)
     def ttensor(self,R,z,phi=0.,t=0.,eigenval=False):
         """
-            
+
         NAME:
-        
+
             ttensor
-            
+
         PURPOSE:
-        
+
             Calculate the tidal tensor Tij=-d(Psi)(dxidxj)
-            
+
         INPUT:
-        
+
             R - Galactocentric radius (can be Quantity)
-            
+
             z - height (can be Quantity)
-            
+
             phi - azimuth (optional; can be Quantity)
-            
+
             t - time (optional; can be Quantity)
-            
+
             eigenval - return eigenvalues if true (optional; boolean)
-            
+
         OUTPUT:
-        
+
             Tidal Tensor
-        
+
         HISTORY:
-        
+
             2018-03-21 - Written - Webb (UofT)
 
         """
         if self.isNonAxi:
             raise PotentialError("Tidal tensor calculation is currently only implemented for axisymmetric potentials")
         #Evaluate forces, angles and derivatives
-        Rderiv= -self.Rforce(R,z,phi=phi,t=t,use_physical=False)       
+        Rderiv= -self.Rforce(R,z,phi=phi,t=t,use_physical=False)
         phideriv= -self.phitorque(R,z,phi=phi,t=t,use_physical=False)
         R2deriv= self.R2deriv(R,z,phi=phi,t=t,use_physical=False)
         z2deriv= self.z2deriv(R,z,phi=phi,t=t,use_physical=False)
@@ -1782,7 +1784,7 @@ class Potential(Force):
             +phi2deriv*sin2phi/R2+phideriv*2.*cosphi*sinphi/R2
         tyx= R2deriv*sinphi*cosphi+Rphideriv*(cos2phi-sin2phi)/R\
             -Rderiv*sinphi*cosphi/R-phi2deriv*sinphi*cosphi/R2\
-            +phideriv*(sin2phi-cos2phi)/R2      
+            +phideriv*(sin2phi-cos2phi)/R2
         tzx=Rzderiv*cosphi-zphideriv*sinphi/R
         tyy=R2deriv*sin2phi+Rphideriv*2.*cosphi*sinphi/R+Rderiv*cos2phi/R\
             +phi2deriv*cos2phi/R2-phideriv*2.*sinphi*cosphi/R2
@@ -1800,69 +1802,69 @@ class Potential(Force):
     @physical_conversion('position',pop=True)
     def zvc(self,R,E,Lz,phi=0.,t=0.):
         """
-        
+
         NAME:
-        
+
            zvc
-            
+
         PURPOSE:
-        
+
            Calculate the zero-velocity curve: z such that Phi(R,z) + Lz/[2R^2] = E (assumes that F_z(R,z) = negative at positive z such that there is a single solution)
-            
+
         INPUT:
-        
+
            R - Galactocentric radius (can be Quantity)
-            
+
            E - Energy (can be Quantity)
 
            Lz - Angular momentum (can be Quantity)
-            
+
            phi - azimuth (optional; can be Quantity)
-            
+
            t - time (optional; can be Quantity)
-            
+
         OUTPUT:
-        
+
            z such that Phi(R,z) + Lz/[2R^2] = E
-        
+
         HISTORY:
-        
+
            2020-08-20 - Written - Bovy (UofT)
         """
         return zvc(self,R,E,Lz,phi=phi,t=t,use_physical=False)
-    
+
     @physical_conversion('position',pop=True)
     def zvc_range(self,E,Lz,phi=0.,t=0.):
         """
-            
+
         NAME:
-        
+
            zvc_range
-            
+
         PURPOSE:
-        
+
           Calculate the minimum and maximum radius for which the zero-velocity curve exists for this energy and angular momentum (R such that Phi(R,0) + Lz/[2R^2] = E)
-            
+
         INPUT:
-        
+
            E - Energy (can be Quantity)
 
            Lz - Angular momentum (can be Quantity)
-            
+
            phi - azimuth (optional; can be Quantity)
-            
+
            t - time (optional; can be Quantity)
-            
+
         OUTPUT:
-        
+
            Solutions R such that Phi(R,0) + Lz/[2R^2] = E
-        
+
         HISTORY:
-        
+
            2020-08-20 - Written - Bovy (UofT)
         """
         return zvc_range(self,E,Lz,phi=phi,t=t,use_physical=False)
-    
+
 class PotentialError(Exception): #pragma: no cover
     def __init__(self, value):
         self.value = value
@@ -1920,7 +1922,7 @@ def _evaluatePotentials(Pot,R,z,phi=None,t=0.,dR=0,dphi=0):
         return out
     elif isinstance(Pot,Potential):
         return Pot._call_nodecorator(R,z,phi=phi,t=t,dR=dR,dphi=dphi)
-    else: #pragma: no cover 
+    else: #pragma: no cover
         raise PotentialError("Input to 'evaluatePotentials' is neither a Potential-instance or a list of such instances")
 
 @potential_physical_input
@@ -1974,7 +1976,7 @@ def evaluateDensities(Pot,R,z,phi=None,t=0.,forcepoisson=False):
     elif isinstance(Pot,Potential):
         return Pot.dens(R,z,phi=phi,t=t,forcepoisson=forcepoisson,
                         use_physical=False)
-    else: #pragma: no cover 
+    else: #pragma: no cover
         raise PotentialError("Input to 'evaluateDensities' is neither a Potential-instance or a list of such instances")
 
 @potential_physical_input
@@ -2026,7 +2028,7 @@ def evaluateSurfaceDensities(Pot,R,z,phi=None,t=0.,forcepoisson=False):
     elif isinstance(Pot,Potential):
         return Pot.surfdens(R,z,phi=phi,t=t,forcepoisson=forcepoisson,
                             use_physical=False)
-    else: #pragma: no cover 
+    else: #pragma: no cover
         raise PotentialError("Input to 'evaluateSurfaceDensities' is neither a Potential-instance or a list of such instances")
 
 @potential_physical_input
@@ -2047,7 +2049,7 @@ def mass(Pot,R,z=None,t=0.,forceint=False):
 
        R - cylindrical Galactocentric distance (can be Quantity)
 
-       z= (None) vertical height up to which to integrate (can be Quantity) 
+       z= (None) vertical height up to which to integrate (can be Quantity)
 
        t - time (can be Quantity)
 
@@ -2078,7 +2080,7 @@ def mass(Pot,R,z=None,t=0.,forceint=False):
         return out
     elif isinstance(Pot,Potential):
         return Pot.mass(R,z=z,t=t,forceint=forceint,use_physical=False)
-    else: #pragma: no cover 
+    else: #pragma: no cover
         raise PotentialError("Input to 'mass' is neither a Potential-instance or a list of such instances")
 
 @potential_physical_input
@@ -2141,7 +2143,7 @@ def _evaluateRforces(Pot,R,z,phi=None,t=0.,v=None):
         return Pot._Rforce_nodecorator(R,z,phi=phi,t=t)
     elif isinstance(Pot,DissipativeForce):
         return Pot._Rforce_nodecorator(R,z,phi=phi,t=t,v=v)
-    else: #pragma: no cover 
+    else: #pragma: no cover
         raise PotentialError("Input to 'evaluateRforces' is neither a Potential-instance, DissipativeForce-instance or a list of such instances")
 
 def evaluatephiforces(Pot,R,z,phi=None,t=0.,v=None):
@@ -2207,7 +2209,7 @@ def _evaluatephitorques(Pot,R,z,phi=None,t=0.,v=None):
         return Pot._phitorque_nodecorator(R,z,phi=phi,t=t)
     elif isinstance(Pot,DissipativeForce):
         return Pot._phitorque_nodecorator(R,z,phi=phi,t=t,v=v)
-    else: #pragma: no cover 
+    else: #pragma: no cover
         raise PotentialError("Input to 'evaluatephitorques' is neither a Potential-instance, DissipativeForce-instance or a list of such instances")
 
 @potential_physical_input
@@ -2270,7 +2272,7 @@ def _evaluatezforces(Pot,R,z,phi=None,t=0.,v=None):
         return Pot._zforce_nodecorator(R,z,phi=phi,t=t)
     elif isinstance(Pot,DissipativeForce):
         return Pot._zforce_nodecorator(R,z,phi=phi,t=t,v=v)
-    else: #pragma: no cover 
+    else: #pragma: no cover
         raise PotentialError("Input to 'evaluatezforces' is neither a Potential-instance, DissipativeForce-instance or a list of such instances")
 
 @potential_physical_input
@@ -2327,7 +2329,7 @@ def evaluaterforces(Pot,R,z,phi=None,t=0.,v=None):
         return Pot.rforce(R,z,phi=phi,t=t,use_physical=False)
     elif isinstance(Pot,DissipativeForce):
         return Pot.rforce(R,z,phi=phi,t=t,v=v,use_physical=False)
-    else: #pragma: no cover 
+    else: #pragma: no cover
         raise PotentialError("Input to 'evaluaterforces' is neither a Potential-instance or a list of such instances")
 
 @potential_physical_input
@@ -2375,7 +2377,7 @@ def evaluateR2derivs(Pot,R,z,phi=None,t=0.):
         return out
     elif isinstance(Pot,Potential):
         return Pot.R2deriv(R,z,phi=phi,t=t,use_physical=False)
-    else: #pragma: no cover 
+    else: #pragma: no cover
         raise PotentialError("Input to 'evaluateR2derivs' is neither a Potential-instance or a list of such instances")
 
 @potential_physical_input
@@ -2423,7 +2425,7 @@ def evaluatez2derivs(Pot,R,z,phi=None,t=0.):
         return out
     elif isinstance(Pot,Potential):
         return Pot.z2deriv(R,z,phi=phi,t=t,use_physical=False)
-    else: #pragma: no cover 
+    else: #pragma: no cover
         raise PotentialError("Input to 'evaluatez2derivs' is neither a Potential-instance or a list of such instances")
 
 @potential_physical_input
@@ -2471,7 +2473,7 @@ def evaluateRzderivs(Pot,R,z,phi=None,t=0.):
         return out
     elif isinstance(Pot,Potential):
         return Pot.Rzderiv(R,z,phi=phi,t=t,use_physical=False)
-    else: #pragma: no cover 
+    else: #pragma: no cover
         raise PotentialError("Input to 'evaluateRzderivs' is neither a Potential-instance or a list of such instances")
 
 @potential_physical_input
@@ -2519,7 +2521,7 @@ def evaluatephi2derivs(Pot,R,z,phi=None,t=0.):
         return out
     elif isinstance(Pot,Potential):
         return Pot.phi2deriv(R,z,phi=phi,t=t,use_physical=False)
-    else: #pragma: no cover 
+    else: #pragma: no cover
         raise PotentialError("Input to 'evaluatephi2derivs' is neither a Potential-instance or a list of such instances")
 
 @potential_physical_input
@@ -2567,7 +2569,7 @@ def evaluateRphiderivs(Pot,R,z,phi=None,t=0.):
         return out
     elif isinstance(Pot,Potential):
         return Pot.Rphideriv(R,z,phi=phi,t=t,use_physical=False)
-    else: #pragma: no cover 
+    else: #pragma: no cover
         raise PotentialError("Input to 'evaluateRphiderivs' is neither a Potential-instance or a list of such instances")
 
 @potential_physical_input
@@ -2615,7 +2617,7 @@ def evaluatephizderivs(Pot,R,z,phi=None,t=0.):
         return out
     elif isinstance(Pot,Potential):
         return Pot.phizderiv(R,z,phi=phi,t=t,use_physical=False)
-    else: #pragma: no cover 
+    else: #pragma: no cover
         raise PotentialError("Input to 'evaluatephizderivs' is neither a Potential-instance or a list of such instances")
 
 @potential_physical_input
@@ -2663,7 +2665,7 @@ def evaluater2derivs(Pot,R,z,phi=None,t=0.):
         return out
     elif isinstance(Pot,Potential):
         return Pot.r2deriv(R,z,phi=phi,t=t,use_physical=False)
-    else: #pragma: no cover 
+    else: #pragma: no cover
         raise PotentialError("Input to 'evaluater2derivs' is neither a Potential-instance or a list of such instances")
 
 def plotPotentials(Pot,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
@@ -2987,42 +2989,42 @@ def plotSurfaceDensities(Pot,
                                                  numpy.nanmax(surfxy),
                                                  ncontours),
                            **kwargs)
-    
+
 @potential_physical_input
 @physical_conversion('frequency',pop=True)
 def epifreq(Pot,R,t=0.):
     """
-    
+
     NAME:
-    
+
         epifreq
-    
+
     PURPOSE:
-    
+
         calculate the epicycle frequency at R in the potential Pot
-    
+
     INPUT:
 
         Pot - Potential instance or list thereof
-    
+
         R - Galactocentric radius (can be Quantity)
 
         t - time (optional; can be Quantity)
-    
+
     OUTPUT:
-    
+
         epicycle frequency
-    
+
     HISTORY:
-    
+
         2012-07-25 - Written - Bovy (IAS)
-    
+
     """
     from .planarPotential import planarPotential
     if isinstance(Pot,(Potential,planarPotential)):
         return Pot.epifreq(R,t=t,use_physical=False)
-    from ..potential import evaluateplanarRforces, evaluateplanarR2derivs
-    from ..potential import PotentialError
+    from ..potential import (PotentialError, evaluateplanarR2derivs,
+                             evaluateplanarRforces)
     try:
         return numpy.sqrt(evaluateplanarR2derivs(Pot,R,t=t,use_physical=False)
                        -3./R*evaluateplanarRforces(Pot,R,t=t,use_physical=False))
@@ -3036,31 +3038,31 @@ def epifreq(Pot,R,t=0.):
 @physical_conversion('frequency',pop=True)
 def verticalfreq(Pot,R,t=0.):
     """
-    
+
     NAME:
-    
+
        verticalfreq
-        
+
     PURPOSE:
-    
+
         calculate the vertical frequency at R in the potential Pot
-    
+
     INPUT:
 
        Pot - Potential instance or list thereof
-    
+
        R - Galactocentric radius (can be Quantity)
 
        t - time (optional; can be Quantity)
-    
+
     OUTPUT:
-    
+
         vertical frequency
-    
+
     HISTORY:
-    
+
         2012-07-25 - Written - Bovy (IAS@MPIA)
-    
+
     """
     from .planarPotential import planarPotential
     if isinstance(Pot,(Potential,planarPotential)):
@@ -3071,33 +3073,33 @@ def verticalfreq(Pot,R,t=0.):
 @physical_conversion('dimensionless',pop=True)
 def flattening(Pot,R,z,t=0.):
     """
-    
+
     NAME:
-    
+
         flattening
-    
+
     PURPOSE:
-    
+
        calculate the potential flattening, defined as sqrt(fabs(z/R F_R/F_z))
-    
+
     INPUT:
 
         Pot - Potential instance or list thereof
-    
+
         R - Galactocentric radius (can be Quantity)
-        
+
         z - height (can be Quantity)
 
         t - time (optional; can be Quantity)
-    
+
     OUTPUT:
-    
+
         flattening
-    
+
     HISTORY:
-    
+
         2012-09-13 - Written - Bovy (IAS)
-    
+
     """
     return numpy.sqrt(numpy.fabs(z/R*evaluateRforces(Pot,R,z,t=t,use_physical=False)\
                                /evaluatezforces(Pot,R,z,t=t,use_physical=False)))
@@ -3105,33 +3107,33 @@ def flattening(Pot,R,z,t=0.):
 @physical_conversion('velocity',pop=True)
 def vterm(Pot,l,t=0.,deg=True):
     """
-    
+
     NAME:
-    
+
         vterm
-        
+
     PURPOSE:
-    
+
         calculate the terminal velocity at l in this potential
 
     INPUT:
-    
+
         Pot - Potential instance
-    
+
         l - Galactic longitude [deg/rad; can be Quantity)
 
         t - time (optional; can be Quantity)
-        
+
         deg= if True (default), l in deg
-        
+
     OUTPUT:
-        
+
         terminal velocity
-        
+
     HISTORY:
-        
+
         2013-05-31 - Written - Bovy (IAS)
-        
+
     """
     Pot= flatten(Pot)
     if _APY_LOADED and isinstance(l,units.Quantity):
@@ -3196,7 +3198,7 @@ def rl(Pot,lz,t=0.):
         return optimize.brentq(_rlfunc,rlower,rstart,
                                args=(numpy.fabs(lz),
                                      Pot,t))
-        
+
 
 def _rlfunc(rl,lz,pot,t=0.):
     """Function that gives rvc-lz"""
@@ -3239,11 +3241,11 @@ def rE(Pot,E,t=0.):
     HISTORY:
 
        2022-04-06 - Written - Bovy (UofT)
-       
+
     NOTE:
 
        An efficient way to call this function on many objects is
-       provided as the Orbit method rE     
+       provided as the Orbit method rE
 
     """
     Pot= flatten(Pot)
@@ -3258,7 +3260,7 @@ def rE(Pot,E,t=0.):
         rlower= _rEFindStart(10.**-5.,E,Pot,t=t,lower=True)
         return optimize.brentq(_rEfunc,rlower,rstart,
                                args=(E,Pot,t))
-        
+
 def _rEfunc(rE,E,pot,t=0.):
     """Function that gives vc^2/2+Pot(rc)-E"""
     thisvcirc= vcirc(pot,rE,t=t,use_physical=False)
@@ -3304,7 +3306,7 @@ def LcE(Pot,E,t=0.):
     """
     thisrE= rE(Pot,E,t=t,use_physical=False)
     return thisrE*vcirc(Pot,thisrE,use_physical=False)
-        
+
 @physical_conversion('position',pop=True)
 def lindbladR(Pot,OmegaP,m=2,t=0.,**kwargs):
     """
@@ -3357,7 +3359,7 @@ def lindbladR(Pot,OmegaP,m=2,t=0.,**kwargs):
                                      args=(Pot,OmegaP,t),**kwargs)
             except ValueError:
                 return None
-        except RuntimeError: #pragma: no cover 
+        except RuntimeError: #pragma: no cover
             raise
         return out
     else:
@@ -3366,7 +3368,7 @@ def lindbladR(Pot,OmegaP,m=2,t=0.,**kwargs):
                                  args=(Pot,OmegaP,m,t),**kwargs)
         except ValueError:
             return None
-        except RuntimeError: #pragma: no cover 
+        except RuntimeError: #pragma: no cover
             raise
         return out
 
@@ -3417,25 +3419,25 @@ def omegac(Pot,R,t=0.):
 def nemo_accname(Pot):
     """
     NAME:
-    
+
        nemo_accname
-    
+
     PURPOSE:
-    
+
        return the accname potential name for use of this potential or list of potentials with NEMO
-    
+
     INPUT:
-    
+
        Pot - Potential instance or list of such instances
-       
+
     OUTPUT:
-    
+
        Acceleration name in the correct format to give to accname=
-    
+
     HISTORY:
-    
+
        2014-12-18 - Written - Bovy (IAS)
-    
+
     """
     Pot= flatten(Pot)
     if isinstance(Pot,list):
@@ -3446,35 +3448,35 @@ def nemo_accname(Pot):
         return out
     elif isinstance(Pot,Potential):
         return Pot.nemo_accname()
-    else: #pragma: no cover 
+    else: #pragma: no cover
         raise PotentialError("Input to 'nemo_accname' is neither a Potential-instance or a list of such instances")
-    
+
 def nemo_accpars(Pot,vo,ro):
     """
     NAME:
-    
+
        nemo_accpars
-    
+
     PURPOSE:
-    
+
        return the accpars potential parameters for use of this potential or list of potentials with NEMO
-    
+
     INPUT:
-    
+
        Pot - Potential instance or list of such instances
 
        vo - velocity unit in km/s
-    
+
        ro - length unit in kpc
-    
+
     OUTPUT:
-    
+
        accpars string in the corrct format to give to accpars
-    
+
     HISTORY:
-    
+
        2014-12-18 - Written - Bovy (IAS)
-    
+
     """
     Pot= flatten(Pot)
     if isinstance(Pot,list):
@@ -3485,13 +3487,13 @@ def nemo_accpars(Pot,vo,ro):
         return out
     elif isinstance(Pot,Potential):
         return Pot.nemo_accpars(vo,ro)
-    else: #pragma: no cover 
+    else: #pragma: no cover
         raise PotentialError("Input to 'nemo_accpars' is neither a Potential-instance or a list of such instances")
-    
+
 def to_amuse(Pot,t=0.,tgalpy=0.,reverse=False,ro=None,vo=None): # pragma: no cover
     """
     NAME:
-    
+
        to_amuse
 
     PURPOSE:
@@ -3510,7 +3512,7 @@ def to_amuse(Pot,t=0.,tgalpy=0.,reverse=False,ro=None,vo=None): # pragma: no cov
 
        ro= (default taken from Pot) length unit in kpc
 
-       vo= (default taken from Pot) velocity unit in km/s       
+       vo= (default taken from Pot) velocity unit in km/s
 
     OUTPUT:
 
@@ -3537,7 +3539,7 @@ def to_amuse(Pot,t=0.,tgalpy=0.,reverse=False,ro=None,vo=None): # pragma: no cov
 def turn_physical_off(Pot):
     """
     NAME:
-    
+
        turn_physical_off
 
     PURPOSE:
@@ -3567,27 +3569,27 @@ def turn_physical_off(Pot):
 def turn_physical_on(Pot,ro=None,vo=None):
     """
     NAME:
-       
+
        turn_physical_on
 
     PURPOSE:
-    
+
        turn on automatic returning of outputs in physical units
-    
+
     INPUT:
-    
+
        ro= reference distance (kpc; can be Quantity)
-       
+
        vo= reference velocity (km/s; can be Quantity)
 
     OUTPUT:
-    
+
         (none)
-    
+
     HISTORY:
-    
+
         2016-01-30 - Written - Bovy (UofT)
-    
+
     """
     if isinstance(Pot,list):
         for pot in Pot:
@@ -3606,25 +3608,25 @@ def _flatten_list(L):
 def flatten(Pot):
     """
     NAME:
-       
+
        flatten
 
     PURPOSE:
-    
+
        flatten a possibly nested list of Potential instances into a flat list
-    
+
     INPUT:
-    
+
        Pot - list (possibly nested) of Potential instances
 
     OUTPUT:
-    
-       Flattened list of Potential instances 
-    
+
+       Flattened list of Potential instances
+
     HISTORY:
-    
+
         2018-03-14 - Written - Bovy (UofT)
-    
+
     """
     if isinstance(Pot, Potential):
         return Pot
@@ -3664,7 +3666,7 @@ def _check_c(Pot,dxdv=False,dens=False):
 
     """
     Pot= flatten(Pot)
-    from ..potential import planarPotential, linearPotential
+    from ..potential import linearPotential, planarPotential
     if dxdv: hasC_attr= 'hasC_dxdv'
     elif dens: hasC_attr= 'hasC_dens'
     else: hasC_attr= 'hasC'
@@ -3681,8 +3683,8 @@ def _check_c(Pot,dxdv=False,dens=False):
 
 def _dim(Pot):
     """
-    NAME:                                                                       
-       _dim                                                                                
+    NAME:
+       _dim
     PURPOSE:
 
        Determine the dimensionality of this potential
@@ -3699,7 +3701,7 @@ def _dim(Pot):
 
        2016-04-19 - Written - Bovy (UofT)
     """
-    from ..potential import planarPotential, linearPotential
+    from ..potential import linearPotential, planarPotential
     if isinstance(Pot,list):
         return numpy.amin(numpy.array([_dim(p) for p in Pot],dtype='int'))
     elif isinstance(Pot,(Potential,planarPotential,linearPotential,
@@ -3748,13 +3750,13 @@ def kms_to_kpcGyrDecorator(func):
 @physical_conversion('position',pop=True)
 def rtide(Pot,R,z,phi=0.,t=0.,M=None):
     """
-            
+
     NAME:
-        
+
         rtide
-            
+
     PURPOSE:
-        
+
         Calculate the tidal radius for object of mass M assuming a circular orbit as
 
         .. math::
@@ -3764,27 +3766,27 @@ def rtide(Pot,R,z,phi=0.,t=0.,M=None):
         where :math:`M_s` is the cluster mass, :math:`\\Omega` is the circular frequency, and :math:`\\Phi` is the gravitational potential. For non-spherical potentials, we evaluate :math:`\\Omega^2 = (1/r)(\\mathrm{d}\\Phi/\\mathrm{d}r)` and evaluate the derivatives at the given position of the cluster.
 
     INPUT:
-        
+
         Pot - Potential instance or list of such instances
 
         R - Galactocentric radius (can be Quantity)
-            
+
         z - height (can be Quantity)
-            
+
         phi - azimuth (optional; can be Quantity)
-            
+
         t - time (optional; can be Quantity)
-        
+
         M - (default = None) Mass of object (can be Quantity)
-            
+
     OUTPUT:
-        
+
         Tidal Radius
-        
+
     HISTORY:
-        
+
         2018-03-21 - Written - Webb (UofT)
-            
+
     """
     Pot= flatten(Pot)
     if M is None:
@@ -3799,35 +3801,35 @@ def rtide(Pot,R,z,phi=0.,t=0.,M=None):
 @physical_conversion('forcederivative',pop=True)
 def ttensor(Pot,R,z,phi=0.,t=0.,eigenval=False):
     """
-            
+
     NAME:
-        
+
         ttensor
-            
+
     PURPOSE:
-        
+
         Calculate the tidal tensor Tij=-d(Psi)(dxidxj)
-            
+
     INPUT:
-        
+
         Pot - Potential instance or list of such instances
 
         R - Galactocentric radius (can be Quantity)
-            
+
         z - height (can be Quantity)
-            
+
         phi - azimuth (optional; can be Quantity)
-            
+
         t - time (optional; can be Quantity)
-            
+
         eigenval - return eigenvalues if true (optional; boolean)
-            
+
     OUTPUT:
-        
+
         Tidal Tensor
-        
+
     HISTORY:
-        
+
         2018-03-21 - Written - Webb (UofT)
     """
     Pot= flatten(Pot)
@@ -3871,35 +3873,35 @@ def ttensor(Pot,R,z,phi=0.,t=0.,eigenval=False):
 @physical_conversion('position',pop=True)
 def zvc(Pot,R,E,Lz,phi=0.,t=0.):
     """
-            
+
     NAME:
-        
+
         zvc
-            
+
     PURPOSE:
-        
+
         Calculate the zero-velocity curve: z such that Phi(R,z) + Lz/[2R^2] = E (assumes that F_z(R,z) = negative at positive z such that there is a single solution)
-            
+
     INPUT:
-        
+
         Pot - Potential instance or list of such instances
 
         R - Galactocentric radius (can be Quantity)
-            
+
         E - Energy (can be Quantity)
 
         Lz - Angular momentum (can be Quantity)
-            
+
         phi - azimuth (optional; can be Quantity)
-            
+
         t - time (optional; can be Quantity)
-            
+
     OUTPUT:
-        
+
         z such that Phi(R,z) + Lz/[2R^2] = E
-        
+
     HISTORY:
-        
+
         2020-08-20 - Written - Bovy (UofT)
     """
     Pot= flatten(Pot)
@@ -3925,37 +3927,37 @@ def zvc(Pot,R,E,Lz,phi=0.,t=0.):
     except ValueError:
         raise ValueError('No solution for the zero-velocity curve found for this combination of parameters')
     return out
-    
+
 @physical_conversion('position',pop=True)
 def zvc_range(Pot,E,Lz,phi=0.,t=0.):
     """
-            
+
     NAME:
-        
+
         zvc_range
-            
+
     PURPOSE:
-        
+
         Calculate the minimum and maximum radius for which the zero-velocity curve exists for this energy and angular momentum (R such that Phi(R,0) + Lz/[2R^2] = E)
-            
+
     INPUT:
-        
+
         Pot - Potential instance or list of such instances
 
         E - Energy (can be Quantity)
 
         Lz - Angular momentum (can be Quantity)
-            
+
         phi - azimuth (optional; can be Quantity)
-            
+
         t - time (optional; can be Quantity)
-            
+
     OUTPUT:
-        
+
         Solutions R such that Phi(R,0) + Lz/[2R^2] = E
-        
+
     HISTORY:
-        
+
         2020-08-20 - Written - Bovy (UofT)
     """
     Pot= flatten(Pot)
@@ -3985,7 +3987,7 @@ def zvc_range(Pot,E,Lz,phi=0.,t=0.):
                           lambda R: _evaluatePotentials(Pot,R,0,phi=phi,t=t)
                           +Lz2over2/R**2.-E,RLz,Rstart)
     return numpy.array([Rmin,Rmax])
-    
+
 @physical_conversion('position',pop=True)
 def rhalf(Pot,t=0.,INF=numpy.inf):
     """

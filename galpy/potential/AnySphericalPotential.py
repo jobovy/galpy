@@ -3,9 +3,11 @@
 ###############################################################################
 import numpy
 from scipy import integrate
-from .SphericalPotential import SphericalPotential
-from ..util._optional_deps import _APY_LOADED
+
 from ..util import conversion
+from ..util._optional_deps import _APY_LOADED
+from .SphericalPotential import SphericalPotential
+
 if _APY_LOADED:
     from astropy import units
 class AnySphericalPotential(SphericalPotential):
@@ -27,8 +29,8 @@ class AnySphericalPotential(SphericalPotential):
 
            amp= (1.) amplitude to be applied to the potential
 
-           normalize - if True, normalize such that vc(1.,0.)=1., or, if 
-                       given as a number, such that the force is this fraction 
+           normalize - if True, normalize such that vc(1.,0.)=1., or, if
+                       given as a number, such that the force is this fraction
                        of the force necessary to make vc(1.,0.)=1.
 
            ro=, vo= distance and velocity scales for translation into internal units (default from configuration file)
@@ -90,7 +92,7 @@ class AnySphericalPotential(SphericalPotential):
         # Normalize?
         if normalize or \
                 (isinstance(normalize,(int,float)) \
-                     and not isinstance(normalize,bool)): #pragma: no cover 
+                     and not isinstance(normalize,bool)): #pragma: no cover
             self.normalize(normalize)
         return None
 
@@ -107,7 +109,7 @@ class AnySphericalPotential(SphericalPotential):
 
     def _rforce(self,r,t=0.):
         return -self._rawmass(r)/r**2
-    
+
     def _r2deriv(self,r,t=0.):
         return -2*self._rawmass(r)/r**3.+4.*numpy.pi*self._rawdens(r)
 

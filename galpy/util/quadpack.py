@@ -2,6 +2,8 @@
 #   galpy.util.quadpack: some variations on scipy's quadpack
 ###############################################################################
 from scipy.integrate import quad
+
+
 def _infunc(x,func,gfun,hfun,more_args,epsrel,epsabs):
     a = gfun(x)
     b = hfun(x)

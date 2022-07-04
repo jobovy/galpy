@@ -3,15 +3,18 @@
 #
 #      class: actionAngleIsochroneInverse
 #
-#             Calculate (x,v) coordinates for the Isochrone potential from 
+#             Calculate (x,v) coordinates for the Isochrone potential from
 #             given actions-angle coordinates
 #
 ###############################################################################
 import numpy
 from scipy import optimize
-from ..util import conversion
+
 from ..potential import IsochronePotential
+from ..util import conversion
 from .actionAngleInverse import actionAngleInverse
+
+
 class actionAngleIsochroneInverse(actionAngleInverse):
     """Inverse action-angle formalism for the isochrone potential, on the Jphi, Jtheta system of Binney & Tremaine (2008); following McGill & Binney (1990) for transformations"""
     def __init__(self,*args,**kwargs):
@@ -37,7 +40,7 @@ class actionAngleIsochroneInverse(actionAngleInverse):
            vo= circular velocity at ro (km/s; can be Quantity)
 
         OUTPUT:
-        
+
            instance
 
         HISTORY:
@@ -76,7 +79,7 @@ class actionAngleIsochroneInverse(actionAngleInverse):
         # Check the units
         self._check_consistent_units()
         return None
-    
+
     def _evaluate(self,jr,jphi,jz,angler,anglephi,anglez,**kwargs):
         """
         NAME:
@@ -113,7 +116,7 @@ class actionAngleIsochroneInverse(actionAngleInverse):
 
         """
         return self._xvFreqs(jr,jphi,jz,angler,anglephi,anglez,**kwargs)[:6]
-        
+
     def _xvFreqs(self,jr,jphi,jz,angler,anglephi,anglez,**kwargs):
         """
         NAME:
@@ -170,7 +173,7 @@ class actionAngleIsochroneInverse(actionAngleInverse):
                                          0.,
                                          lambda x: 1-a*e/ab*numpy.cos(x))
             except RuntimeError:
-                # Newton-Raphson did not converge, this has to work, 
+                # Newton-Raphson did not converge, this has to work,
                 # bc 0 <= ra < 2pi the following start x have different signs
                 eta[ii]= optimize.brentq(lambda x: x-a*e/ab*numpy.sin(x)-ar,
                                          0.,2.*numpy.pi)
@@ -203,7 +206,7 @@ class actionAngleIsochroneInverse(actionAngleInverse):
         phi[phi < 0.]+= 2.*numpy.pi
         return (R,vR,jphi/R,z,vz,phi,
                 omegar,numpy.sign(jphi)*omegaz,omegaz)
-        
+
     def _Freqs(self,jr,jphi,jz,**kwargs):
         """
         NAME:
@@ -238,4 +241,3 @@ class actionAngleIsochroneInverse(actionAngleInverse):
         omegar= (-2.*H)**1.5/self.amp
         omegaz= (1.+L/sqrtfourbkL2)/2.*omegar
         return (omegar,numpy.sign(jphi)*omegaz,omegaz)
-

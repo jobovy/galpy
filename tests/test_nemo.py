@@ -1,10 +1,14 @@
 # Test consistency between galpy and NEMO
 import os
-import numpy
 import subprocess
-from galpy.orbit import Orbit
+
+import numpy
+
 from galpy import potential
+from galpy.orbit import Orbit
 from galpy.util import conversion
+
+
 def test_nemo_MN3ExponentialDiskPotential():
     mn= potential.MN3ExponentialDiskPotential(normalize=1.,hr=0.5,hz=0.1)
     tmax= 3.
@@ -127,10 +131,10 @@ def run_orbitIntegration_comparison(orb,pot,tmax,vo,ro,isList=False,
 def convert_to_nemo(infile,outfile):
     subprocess.check_call(['a2s','in=%s'% infile,'out=%s' % outfile,'N=1',
                            'read=mxv'])
-    
+
 def convert_from_nemo(infile,outfile):
     subprocess.check_call(['s2a','in=%s' % infile,'out=%s' % outfile])
-    
+
 def integrate_gyrfalcon(infile,outfile,tmax,nemo_accname,nemo_accpars):
     """Integrate a snapshot in infile until tmax in Gyr, save to outfile"""
     with open('gyrfalcON.log','w') as f:

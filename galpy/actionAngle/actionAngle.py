@@ -1,10 +1,14 @@
-import types
 import copy
+import types
+
 import numpy
+
 from ..util import config, conversion
-from ..util.conversion import physical_conversion_actionAngle, \
-    actionAngle_physical_input, physical_compatible
-# Metaclass for copying docstrings from subclass methods, first func 
+from ..util.conversion import (actionAngle_physical_input, physical_compatible,
+                               physical_conversion_actionAngle)
+
+
+# Metaclass for copying docstrings from subclass methods, first func
 # to copy func
 def copyfunc(func):
     return types.FunctionType(func.__code__,func.__globals__,
@@ -61,11 +65,11 @@ class actionAngle(metaclass=MetaActionAngle):
     def _check_consistent_units(self):
         """Internal function to check that the set of units for this object is consistent with that for the potential"""
         assert physical_compatible(self,self._pot),  'Physical conversion for the actionAngle object is not consistent with that of the Potential given to it'
-            
+
     def _check_consistent_units_orbitInput(self,orb):
         """Internal function to check that the set of units for this object is consistent with that for an input orbit"""
         assert physical_compatible(self,orb),  'Physical conversion for the actionAngle object is not consistent with that of the Orbit given to it'
-     
+
     def turn_physical_off(self):
         """
         NAME:
@@ -126,7 +130,7 @@ class actionAngle(metaclass=MetaActionAngle):
             self._ro= conversion.parse_length_kpc(ro)
         if not vo is None and vo:
             self._vo= conversion.parse_velocity_kms(vo)
-        return None  
+        return None
 
     def _parse_eval_args(self,*args,**kwargs):
         """
@@ -210,7 +214,7 @@ class actionAngle(metaclass=MetaActionAngle):
                  2) numpy.ndarray: [N] phase-space values for N objects (each can be a Quantity)
 
               b) Orbit instance: initial condition used if that's it, orbit(t) if there is a time given as well as the second argument
-                 
+
         OUTPUT:
 
            (jr,lz,jz)
@@ -248,7 +252,7 @@ class actionAngle(metaclass=MetaActionAngle):
                  2) numpy.ndarray: [N] phase-space values for N objects (each can be a Quantity)
 
               b) Orbit instance: initial condition used if that's it, orbit(t) if there is a time given as well as the second argument
-                 
+
         OUTPUT:
 
             (jr,lz,jz,Omegar,Omegaphi,Omegaz)
@@ -286,7 +290,7 @@ class actionAngle(metaclass=MetaActionAngle):
                  2) numpy.ndarray: [N] phase-space values for N objects (each can be a Quantity)
 
               b) Orbit instance: initial condition used if that's it, orbit(t) if there is a time given as well as the second argument
-                 
+
         OUTPUT:
 
             (jr,lz,jz,Omegar,Omegaphi,Omegaz,angler,anglephi,anglez)
@@ -324,7 +328,7 @@ class actionAngle(metaclass=MetaActionAngle):
                  2) numpy.ndarray: [N] phase-space values for N objects (each can be a Quantity)
 
               b) Orbit instance: initial condition used if that's it, orbit(t) if there is a time given as well as the second argument
-                 
+
         OUTPUT:
 
            (e,zmax,rperi,rap)

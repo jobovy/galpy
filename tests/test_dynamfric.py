@@ -1,19 +1,23 @@
 # Tests of dynamical friction implementation
-import pytest
 import sys
+
+import pytest
+
 PY3= sys.version > '3'
 import numpy
+
 from galpy import potential
+
 
 def test_ChandrasekharDynamicalFrictionForce_constLambda():
     # Test that the ChandrasekharDynamicalFrictionForce with constant Lambda
     # agrees with analytical solutions for circular orbits:
-    # assuming that a mass remains on a circular orbit in an isothermal halo 
+    # assuming that a mass remains on a circular orbit in an isothermal halo
     # with velocity dispersion sigma and for constant Lambda:
-    # r_final^2 - r_initial^2 = -0.604 ln(Lambda) GM/sigma t 
+    # r_final^2 - r_initial^2 = -0.604 ln(Lambda) GM/sigma t
     # (e.g., B&T08, p. 648)
-    from galpy.util import conversion
     from galpy.orbit import Orbit
+    from galpy.util import conversion
     ro,vo= 8.,220.
     # Parameters
     GMs= 10.**9./conversion.mass_in_msol(vo,ro)
@@ -33,13 +37,13 @@ def test_ChandrasekharDynamicalFrictionForce_constLambda():
     return None
 
 def test_ChandrasekharDynamicalFrictionForce_varLambda():
-    # Test that dynamical friction with variable Lambda for small r ranges 
+    # Test that dynamical friction with variable Lambda for small r ranges
     # gives ~ the same result as using a constant Lambda that is the mean of
     # the variable lambda
-    # Also tests that giving an axisymmetric list of potentials for the 
+    # Also tests that giving an axisymmetric list of potentials for the
     # density works
-    from galpy.util import conversion
     from galpy.orbit import Orbit
+    from galpy.util import conversion
     ro,vo= 8.,220.
     # Parameters
     GMs= 10.**9./conversion.mass_in_msol(vo,ro)
@@ -91,9 +95,10 @@ def test_ChandrasekharDynamicalFrictionForce_evaloutsideminrmaxr():
     return None
 
 def test_ChandrasekharDynamicalFrictionForce_pickling():
-    # Test that ChandrasekharDynamicalFrictionForce objects can/cannot be 
+    # Test that ChandrasekharDynamicalFrictionForce objects can/cannot be
     # pickled as expected
     import pickle
+
     from galpy.util import conversion
     ro,vo= 8.,220.
     # Parameters
@@ -137,13 +142,15 @@ def test_ChandrasekharDynamicalFrictionForce_pickling():
             pickled= pickle.dumps(cdf)
     return None
 
-# Test whether dynamical friction in C works (compare to Python, which is 
+# Test whether dynamical friction in C works (compare to Python, which is
 # tested below; put here because a test of many potentials)
 def test_dynamfric_c():
     import copy
+
     from galpy.orbit import Orbit
-    from galpy.potential.Potential import _check_c
     from galpy.potential.mwpotentials import McMillan17
+    from galpy.potential.Potential import _check_c
+
     #Basic parameters for the test
     times= numpy.linspace(0.,-100.,1001) #~3 Gyr at the Solar circle
     integrator= 'dop853_c'
@@ -238,7 +245,7 @@ def test_dynamfric_c():
         op.integrate(ttimes,p+cdf,method=py_integrator)
         # Compare r (most important)
         assert numpy.amax(numpy.fabs(o.r(ttimes)-op.r(ttimes))) < 10**ttol, \
-            'Dynamical friction in C does not agree with dynamical friction in Python for potential {}'.format(pname)
+            f'Dynamical friction in C does not agree with dynamical friction in Python for potential {pname}'
     return None
 
 # Test that r < minr in ChandrasekharDynamFric works properly
@@ -283,4 +290,3 @@ def test_dynamfric_c_minr_warning():
         raisedWarning+= (str(rec.message.args[0]) == "Orbit integration with ChandrasekharDynamicalFrictionForce entered domain where r < minr and ChandrasekharDynamicalFrictionForce is turned off; initialize ChandrasekharDynamicalFrictionForce with a smaller minr to avoid this if you wish (but note that you want to turn it off close to the center for an object that sinks all the way to r=0, to avoid numerical instabilities)")
     assert raisedWarning, "Integrating an orbit that goes to r < minr with dynamical friction should have raised a warning, but didn't"
     return None
-

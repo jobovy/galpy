@@ -1,11 +1,14 @@
-from pkg_resources import parse_version
 import numpy
+from pkg_resources import parse_version
+
 _NUMPY_VERSION= parse_version(numpy.__version__)
 _NUMPY_1_23= (_NUMPY_VERSION > parse_version('1.22'))\
     *(_NUMPY_VERSION < parse_version('1.24')) # For testing 1.23 precision issues
+import unittest
+
 from numpy.testing import assert_allclose
 from scipy.misc import derivative as deriv
-import unittest
+
 from galpy.potential import SpiralArmsPotential as spiral
 
 

@@ -7,15 +7,17 @@
 ###############################################################################
 import numpy
 from scipy import special
+
 from ..util import conversion
 from ..util._optional_deps import _JAX_LOADED
 from .Potential import Potential, kms_to_kpcGyrDecorator
+
 if _JAX_LOADED:
    import jax.numpy as jnp
    import jax.scipy.special as jspecial
-   
+
 class PowerSphericalPotentialwCutoff(Potential):
-    """Class that implements spherical potentials that are derived from 
+    """Class that implements spherical potentials that are derived from
     power-law density models
 
     .. math::
@@ -213,11 +215,11 @@ class PowerSphericalPotentialwCutoff(Potential):
            2022-05-10 - Written - Bovy (UofT)
         """
         if not _JAX_LOADED: # pragma: no cover
-            raise ImportError("Making use of the _rforce_jax function requires the google/jax library")       
+            raise ImportError("Making use of the _rforce_jax function requires the google/jax library")
         return -self._amp*2.*numpy.pi*self.rc**(3.-self.alpha)\
             *jspecial.gammainc(1.5-0.5*self.alpha,(r/self.rc)**2.)\
             *numpy.exp(jspecial.gammaln(1.5-0.5*self.alpha))/r**2
-     
+
     def _ddensdr(self,r,t=0.):
         """
         NAME:
@@ -339,4 +341,4 @@ class PowerSphericalPotentialwCutoff(Potential):
 
         """
         ampl= self._amp*vo**2.*ro**(self.alpha-2.)
-        return "0,{},{},{}".format(ampl,self.alpha,self.rc*ro)
+        return f"0,{ampl},{self.alpha},{self.rc*ro}"

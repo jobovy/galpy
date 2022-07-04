@@ -7,7 +7,7 @@ Dependencies
 ------------
 
 galpy requires the ``numpy``, ``scipy``, and ``matplotlib`` packages;
-these must be installed or the code will not be able to be imported. 
+these must be installed or the code will not be able to be imported.
 The installation methods described below will all automatically install
 these required dependencies.
 
@@ -65,7 +65,7 @@ or to upgrade without upgrading the dependencies::
 
 Installing with pip will automatically install the required
 dependencies (``numpy``, ``scipy``, and ``matplotlib``), but not the
-optional dependencies. On a Mac/UNIX system, you can make sure to include 
+optional dependencies. On a Mac/UNIX system, you can make sure to include
 the necessary GSL environment variables by doing (see :ref:`below <gsl_cflags>`)::
 
   export CFLAGS="$CFLAGS -I`gsl-config --prefix`/include" && export LDFLAGS="$LDFLAGS -L`gsl-config --prefix`/lib" && pip install galpy
@@ -74,7 +74,7 @@ Latest version
 --------------
 
 The latest updates in galpy can be installed using::
-    
+
     pip install -U --no-deps git+https://github.com/jobovy/galpy.git#egg=galpy
 
 or::
@@ -102,8 +102,8 @@ system and Python version and do::
     pip install WHEEL_FILE.whl
 
 Note that there is also a Pure Python wheel available there, but use of this is not recommended.
-These wheels have stable `...latest...` names, so you can embed them in workflows that should always
-be using the latest version of `galpy` (e.g., to test your code against the latest development version).
+These wheels have stable ``...latest...`` names, so you can embed them in workflows that should always
+be using the latest version of ``galpy`` (e.g., to test your code against the latest development version).
 
 Installing from a branch
 ------------------------
@@ -112,7 +112,7 @@ If you want to use a feature that is currently only available in a branch, do::
 
    pip install -U --no-deps git+https://github.com/jobovy/galpy.git@dev#egg=galpy
 
-to, for example, install the ``dev`` branch. 
+to, for example, install the ``dev`` branch.
 
 Note that we currently do not build binary wheels for branches other
 than ``main``. If you *really* wanted this, you could fork galpy,
@@ -128,10 +128,10 @@ Installing from source on Windows
 ---------------------------------
 
 .. TIP::
-   You can install a pre-compiled Windows "wheel" of the latest ``main`` version that is 
-   automatically built using ``GitHub Actions`` for all recent Python versions 
-   `here <http://www.galpy.org.s3-website.us-east-2.amazonaws.com/list.html>`__. 
-   Download the wheel for your version of Python, and install with ``pip install WHEEL_FILE.whl`` 
+   You can install a pre-compiled Windows "wheel" of the latest ``main`` version that is
+   automatically built using ``GitHub Actions`` for all recent Python versions
+   `here <http://www.galpy.org.s3-website.us-east-2.amazonaws.com/list.html>`__.
+   Download the wheel for your version of Python, and install with ``pip install WHEEL_FILE.whl``
    (see above).
 
 Versions >1.3 should be able to be compiled on Windows systems using the Microsoft Visual Studio C compiler (>= 2015). For this you need to first install the GNU Scientific Library (GSL), for example using Anaconda (:ref:`see below <gsl_install>`). Similar to on a UNIX system, you need to set paths to the header and library files where the GSL is located. On Windows, using the CDM commandline, this is done as::
@@ -223,7 +223,7 @@ technique or its variants as usual.
 **NEW IN v1.8** Using ``galpy`` in web applications
 ----------------------------------------------------
 
-``galpy`` can be compiled to `WebAssembly <https://webassembly.org/>`__ using the `emscripten <https://emscripten.org/>`__ compiler. In particular, ``galpy`` is part of the `pyodide <https://pyodide.org/en/stable/>`__ Python distribution for the browser, meaning that `galpy` can be used on websites without user installation and it still runs at the speed of a compiled language. This powers, for example, the :ref:`Try galpy <try_galpy>` interactive session on this documentation's home page. Thus, it is easy to, e.g., build web-based, interactive galactic-dynamics examples or tutorials without requiring users to install the scientific Python stack and ``galpy`` itself.
+``galpy`` can be compiled to `WebAssembly <https://webassembly.org/>`__ using the `emscripten <https://emscripten.org/>`__ compiler. In particular, ``galpy`` is part of the `pyodide <https://pyodide.org/en/stable/>`__ Python distribution for the browser, meaning that ``galpy`` can be used on websites without user installation and it still runs at the speed of a compiled language. This powers, for example, the :ref:`Try galpy <try_galpy>` interactive session on this documentation's home page. Thus, it is easy to, e.g., build web-based, interactive galactic-dynamics examples or tutorials without requiring users to install the scientific Python stack and ``galpy`` itself.
 
 ``galpy`` will be included in versions >0.20 of ``pyodide``, so ``galpy`` can be imported in any web context that uses ``pyodide`` (e.g., `jupyterlite <https://jupyterlite.readthedocs.io/en/latest/>`__ or `pyscript <https://pyscript.net/>`__). Python packages used in ``pyodide`` are compiled to the usual wheels, but for the ``emscripten`` compiler. Such a wheel for the latest development version of ``galpy`` is always available at `galpy-latest-cp310-cp310-emscripten_wasm32.whl <https://www.galpy.org/wheelhouse/galpy-latest-cp310-cp310-emscripten_wasm32.whl>`__ (note that this URL will change for future ``pyodide`` versions, which include ``emscripten`` version numbers in the wheel name). It can be used in ``pyodide`` for example as
 
@@ -332,7 +332,7 @@ or::
 depending on your shell type (change the actual path to the include
 and lib directories that have the gsl directory). If you already have
 ``CFLAGS``, ``LDFLAGS``, and ``LD_LIBRARY_PATH`` defined you just have
-to add the ``'-I/usr/include'``, ``'-L/usr/lib'``, and ``'/usr/lib'`` to 
+to add the ``'-I/usr/include'``, ``'-L/usr/lib'``, and ``'/usr/lib'`` to
 them.
 
 If you are on a Mac or UNIX system (e.g., Linux), you can find the correct ``CFLAGS`` and ``LDFLAGS``/``LD_LIBRARY_path`` entries by doing::
@@ -343,7 +343,7 @@ If you are on a Mac or UNIX system (e.g., Linux), you can find the correct ``CFL
 where you should add ``/lib`` to the output of the latter. In a bash shell, you could also simply do::
 
    export CFLAGS="$CFLAGS -I`gsl-config --prefix`/include" && export LDFLAGS="$LDFLAGS -L`gsl-config --prefix`/lib" && pip install galpy
-   
+
 or::
 
    export CFLAGS="$CFLAGS -I`gsl-config --prefix`/include" && export LDFLAGS="$LDFLAGS -L`gsl-config --prefix`/lib" && python setup.py install
@@ -367,11 +367,11 @@ setup.py`` commands above::
 
 or when using pip as follows::
 
-    pip install -U --no-deps --install-option="--no-openmp" git+https://github.com/jobovy/galpy.git#egg=galpy 
+    pip install -U --no-deps --install-option="--no-openmp" git+https://github.com/jobovy/galpy.git#egg=galpy
 
 or::
 
-    pip install -U --no-deps --install-option="--prefix=~/local" --install-option="--no-openmp" git+https://github.com/jobovy/galpy.git#egg=galpy 
+    pip install -U --no-deps --install-option="--prefix=~/local" --install-option="--no-openmp" git+https://github.com/jobovy/galpy.git#egg=galpy
 
 for a local installation. This might be useful if one is using the
 ``clang`` compiler, which is the new default on macs with OS X (>=
@@ -402,11 +402,11 @@ currently used:
 
 	  * to set a default set of distance and velocity scales (``ro`` and ``vo`` throughout galpy) for conversion between physical and internal galpy unit
 
-    	  * to decide whether to use seaborn plotting with galpy's defaults (which affects *all* plotting after importing ``galpy.util.plot``), 
+    	  * to decide whether to use seaborn plotting with galpy's defaults (which affects *all* plotting after importing ``galpy.util.plot``),
 
 	  * to specify whether output from functions or methods should be given as an `astropy Quantity <http://docs.astropy.org/en/stable/api/astropy.units.Quantity.html>`__ with units as much as possible or not, and whether or not to use astropy's `coordinate transformations <http://docs.astropy.org/en/stable/coordinates/index.html>`__ (these are typically somewhat slower than galpy's own coordinate transformations, but they are more accurate and more general)
 
-          * to set the level of verbosity of galpy's warning system (the default ``verbose=False`` turns off non-crucial warnings). 
+          * to set the level of verbosity of galpy's warning system (the default ``verbose=False`` turns off non-crucial warnings).
 
           * To set options related to whether or not to check for new versions of galpy (``do-check= False`` turns all such checks off; ``check-non-interactive`` sets whether or not to do the version check in non-interactive (script) sessions; ``check-non-interactive`` sets the cadence of how often to check for version updates in non-interactive sessions [in days; interactive sessions always check]; ``last-non-interactive-check`` is an internal variable to store when the last check occurred)
 
@@ -447,4 +447,3 @@ at ``$HOME/.galpyrc``. If you want to change any of the settings (for
 example, you want Quantity output), you can edit this file. The
 default configuration file can also be found :download:`here
 <examples/galpyrc>`.
-

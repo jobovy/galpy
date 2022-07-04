@@ -2,10 +2,13 @@
 #   HenonHeilesPotential: the Henon-Heiles (1964) potential
 ###############################################################################
 import numpy
+
 from .planarPotential import planarPotential
+
+
 class HenonHeilesPotential(planarPotential):
     """Class that implements a the `Henon & Heiles (1964) <http://adsabs.harvard.edu/abs/1964AJ.....69...73H>`__ potential
-    
+
     .. math::
 
         \\Phi(R,\\phi) = \\frac{\\mathrm{amp}}{2}\\,\\left[R^2 + \\frac{2\\,R^3}{3}\\,\\sin\\left(3\\,\\phi\\right)\\right]
@@ -71,7 +74,7 @@ class HenonHeilesPotential(planarPotential):
            2017-10-16 - Written - Bovy (UofT)
         """
         return -R*(1.+R*numpy.sin(3.*phi))
-       
+
     def _phitorque(self,R,phi=0.,t=0.):
         """
         NAME:
@@ -105,7 +108,7 @@ class HenonHeilesPotential(planarPotential):
            2017-10-16 - Written - Bovy (UofT)
         """
         return 1.+2.*R*numpy.sin(3.*phi)
-       
+
     def _phi2deriv(self,R,phi=0.,t=0.):
         """
         NAME:
@@ -139,4 +142,3 @@ class HenonHeilesPotential(planarPotential):
            2017-10-16 - Written - Bovy (UofT)
         """
         return 3.*R**2.*numpy.cos(3.*phi)
-

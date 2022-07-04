@@ -1,13 +1,15 @@
 # Class that implements the anisotropic spherical Hernquist DF with radially
 # varying anisotropy of the Osipkov-Merritt type
 import numpy
+
+from ..potential import HernquistPotential, evaluatePotentials
 from ..util import conversion
-from ..potential import evaluatePotentials, HernquistPotential
 from .osipkovmerrittdf import _osipkovmerrittdf
+
 
 class osipkovmerrittHernquistdf(_osipkovmerrittdf):
     """Class that implements the anisotropic spherical Hernquist DF with radially varying anisotropy of the Osipkov-Merritt type
-    
+
     .. math::
 
         \\beta(r) = \\frac{1}{1+r_a^2/r^2}
@@ -50,7 +52,7 @@ class osipkovmerrittHernquistdf(_osipkovmerrittdf):
         # First factor is the mass to make the DF that of the mass density
         self._fQnorm= self._psi0*self._pot.a\
             /numpy.sqrt(2.)/(2*numpy.pi)**3/self._GMa**1.5
-  
+
     def fQ(self,Q):
         """
         NAME:
@@ -91,8 +93,8 @@ class osipkovmerrittHernquistdf(_osipkovmerrittdf):
         if len(Qtilde_out) > 0:
             fQ[Qtilde_out]= 0.
         return self._fQnorm*fQ
-       
+
     def _icmf(self,ms):
-        '''Analytic expression for the normalized inverse cumulative mass 
+        '''Analytic expression for the normalized inverse cumulative mass
         function. The argument ms is normalized mass fraction [0,1]'''
         return self._pot.a*numpy.sqrt(ms)/(1-numpy.sqrt(ms))

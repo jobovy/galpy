@@ -73,10 +73,13 @@
 #POSSIBILITY OF SUCH DAMAGE.
 #############################################################################
 from functools import wraps
+
 import numpy
+
 from ..util import _rotate_to_arbitrary_vector
-from ..util.config import __config__
 from ..util._optional_deps import _APY_LOADED
+from ..util.config import __config__
+
 _APY_COORDS= __config__.getboolean('astropy','astropy-coords')
 _APY_COORDS*= _APY_LOADED
 _DEGTORAD= numpy.pi/180.

@@ -1,22 +1,26 @@
 ###############################################################################
 #   TimeDependentAmplitudeWrapperPotential.py: Wrapper to change the amplitude
-#                                              of any potential with an 
+#                                              of any potential with an
 #                                              arbitrary function of time
 ###############################################################################
 from inspect import signature
 from numbers import Number
+
 from numpy import empty
+
 from .WrapperPotential import parentWrapperPotential
+
+
 class TimeDependentAmplitudeWrapperPotential(parentWrapperPotential):
-    """Potential wrapper class that allows the amplitude of any potential to 
-    be any function of time. That is, the amplitude of a potential gets 
+    """Potential wrapper class that allows the amplitude of any potential to
+    be any function of time. That is, the amplitude of a potential gets
     modulated to
-    
+
     .. math::
 
         \\mathrm{amp} \\rightarrow \\mathrm{amp} \\times A(t)
-        
-    where :math:`A(t)` is an arbitrary function of time. 
+
+    where :math:`A(t)` is an arbitrary function of time.
     Note that `amp` itself can already be a function of time.
     """
     def __init__(self,amp=1.,A=None,pot=None,ro=None,vo=None):
@@ -32,7 +36,7 @@ class TimeDependentAmplitudeWrapperPotential(parentWrapperPotential):
         INPUT:
 
            amp - amplitude to be applied to the potential (default: 1.)
-           
+
            A - function of time giving the time-dependence of the amplitude; should be able to be called with a single time and return a numbers.Number (that is, a number); input time is in internal units (see galpy.util.conversion.time_in_Gyr to convert) and output is a dimensionless amplitude modulation
 
            pot - Potential instance or list thereof; the amplitude of this will modified by this wrapper

@@ -11,24 +11,24 @@
 #                         scatterplot (like hogg_scatterplot)
 #                         text
 #
-#                         this module also defines a custom matplotlib 
+#                         this module also defines a custom matplotlib
 #                         projection in which the polar azimuth increases
 #                         clockwise (as in, the Galaxy viewed from the NGP)
-#                         
+#
 #############################################################################
 #############################################################################
 #Copyright (c) 2010 - 2020, Jo Bovy
 #All rights reserved.
 #
-#Redistribution and use in source and binary forms, with or without 
+#Redistribution and use in source and binary forms, with or without
 #modification, are permitted provided that the following conditions are met:
 #
-#   Redistributions of source code must retain the above copyright notice, 
+#   Redistributions of source code must retain the above copyright notice,
 #      this list of conditions and the following disclaimer.
-#   Redistributions in binary form must reproduce the above copyright notice, 
-#      this list of conditions and the following disclaimer in the 
+#   Redistributions in binary form must reproduce the above copyright notice,
+#      this list of conditions and the following disclaimer in the
 #      documentation and/or other materials provided with the distribution.
-#   The name of the author may not be used to endorse or promote products 
+#   The name of the author may not be used to endorse or promote products
 #      derived from this software without specific prior written permission.
 #
 #THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
@@ -45,22 +45,24 @@
 #POSSIBILITY OF SUCH DAMAGE.
 #############################################################################
 import re
-from pkg_resources import parse_version
-import numpy
-from scipy import special
-from scipy import interpolate
-from scipy import ndimage
+
+import matplotlib
+import matplotlib.cm as cm
 import matplotlib.pyplot as pyplot
 import matplotlib.ticker as ticker
-import matplotlib.cm as cm
-import matplotlib
+import numpy
 from matplotlib import rc
-from matplotlib.ticker import NullFormatter
 from matplotlib.projections import PolarAxes, register_projection
+from matplotlib.ticker import NullFormatter
 from matplotlib.transforms import Affine2D, Bbox, IdentityTransform
-from mpl_toolkits.mplot3d import Axes3D # Necessary for 3D plotting (projection = '3d')
+from mpl_toolkits.mplot3d import \
+    Axes3D  # Necessary for 3D plotting (projection = '3d')
+from pkg_resources import parse_version
+from scipy import interpolate, ndimage, special
+
 _MPL_VERSION= parse_version(matplotlib.__version__)
 from ..util.config import __config__
+
 if __config__.getboolean('plot','seaborn-bovy-defaults'):
     try:
         import seaborn as sns
@@ -222,7 +224,7 @@ def plot(*args,**kwargs):
        onedhistcolor, onedhistfc, onedhistec
 
        onedhistxnormed, onedhistynormed - normed keyword for one-d histograms
-       
+
        onedhistxweights, onedhistyweights - weights keyword for one-d histograms
 
        bins= number of bins for onedhists
@@ -499,7 +501,7 @@ def dens2d(X,**kwargs):
        gcf=True does not start a new figure (does change the ranges and labels)
 
        Contours:
-       
+
        justcontours - if True, only draw contours
 
        contours - if True, draw contours (10 by default)
@@ -865,7 +867,7 @@ def scatterplot(x,y,*args,**kwargs):
        onedhistcolor, onedhistfc, onedhistec
 
        onedhistxnormed, onedhistynormed - normed keyword for one-d histograms
-       
+
        onedhistxweights, onedhistyweights - weights keyword for one-d histograms
 
        cmap= cmap for density plot
@@ -1084,7 +1086,7 @@ def _add_axislabels(xlabel,ylabel):
         else:
             thisylabel=ylabel
         pyplot.ylabel(thisylabel)
-        
+
 def _add_ticks(xticks=True,yticks=True):
     """
     NAME:
@@ -1156,8 +1158,8 @@ class GalPolarAxes(PolarAxes):
         PolarAxes._set_lim_and_transforms(self)
         self.transProjection = self.GalPolarTransform()
         self.transData = (
-            self.transScale + 
-            self.transProjection + 
+            self.transScale +
+            self.transProjection +
             (self.transProjectionAffine + self.transAxes))
         self._xaxis_transform = (
             self.transProjection +
@@ -1174,4 +1176,4 @@ class GalPolarAxes(PolarAxes):
             Affine2D().scale(1.0 / 360.0, 1.0) +
             self._yaxis_transform)
 
-register_projection(GalPolarAxes)    
+register_projection(GalPolarAxes)
