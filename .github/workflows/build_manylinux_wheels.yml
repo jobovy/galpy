@@ -3,7 +3,7 @@ name: Build manylinux wheels, upload to PyPI upon release
 # Update on every push or PR to main (except when only docs) and upon releases
 on:
   push:
-    branches:    
+    branches:
       - main
     paths:
       - '**'

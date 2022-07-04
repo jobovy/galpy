@@ -1,11 +1,11 @@
 # Milky-Way mass models from Irrgang et al. (2013)
 import numpy
-from ..potential import PlummerPotential
-from ..potential import MiyamotoNagaiPotential
-from ..potential import SCFPotential
-from ..potential import NFWPotential
-from ..potential import scf_compute_coeffs_spherical
+
+from ..potential import (MiyamotoNagaiPotential, NFWPotential,
+                         PlummerPotential, SCFPotential,
+                         scf_compute_coeffs_spherical)
 from ..util import conversion
+
 # Their mass unit
 mgal_in_msun= 1e5/conversion._G
 # Model I: updated version of Allen & Santillan
@@ -17,9 +17,9 @@ Irrgang13I_bulge= PlummerPotential(\
 Irrgang13I_disk= MiyamotoNagaiPotential(\
     amp=2856.*mgal_in_msun/conversion.mass_in_msol(vo,ro),
     a=4.22/ro,b=0.292/ro,ro=ro,vo=vo)
-# The halo is a little more difficult, because the Irrgang13I halo model is 
-# not in galpy, so we use SCF to represent it (because we're lazy...). The 
-# sharp cut-off in the Irrgang13I halo model makes SCF difficult, so we 
+# The halo is a little more difficult, because the Irrgang13I halo model is
+# not in galpy, so we use SCF to represent it (because we're lazy...). The
+# sharp cut-off in the Irrgang13I halo model makes SCF difficult, so we
 # replace it with a smooth cut-off; this only affects the very outer halo
 def Irrgang13I_halo_dens(\
     r,amp=1018*mgal_in_msun/conversion.mass_in_msol(vo,ro),
@@ -45,7 +45,7 @@ Irrgang13II_bulge= PlummerPotential(\
 Irrgang13II_disk= MiyamotoNagaiPotential(\
     amp=2829.*mgal_in_msun/conversion.mass_in_msol(vo,ro),
     a=4.85/ro,b=0.305/ro,ro=ro,vo=vo)
-# Again use SCF because the Irrgang13II halo model is not in galpy; because 
+# Again use SCF because the Irrgang13II halo model is not in galpy; because
 # the halo model is quite different from Hernquist both in the inner and outer
 # part, need quite a few basis functions...
 def Irrgang13II_halo_dens(\
@@ -74,4 +74,3 @@ Irrgang13III_halo= NFWPotential(\
     a=45.02/ro,ro=ro,vo=vo)
 # Final model III
 Irrgang13III= Irrgang13III_bulge+Irrgang13III_disk+Irrgang13III_halo
-

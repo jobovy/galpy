@@ -1,5 +1,5 @@
 ###############################################################################
-#   PerfectEllipsoidPotential.py: Potential of the perfect ellipsoid 
+#   PerfectEllipsoidPotential.py: Potential of the perfect ellipsoid
 #                                 (de Zeeuw 1985):
 #
 #                                 \rho(x,y,z) ~ 1/(1+m^2)^2
@@ -8,8 +8,11 @@
 #
 ###############################################################################
 import numpy
+
 from ..util import conversion
 from .EllipsoidalPotential import EllipsoidalPotential
+
+
 class PerfectEllipsoidPotential(EllipsoidalPotential):
     """Potential of the perfect ellipsoid (de Zeeuw 1985):
 
@@ -106,5 +109,3 @@ class PerfectEllipsoidPotential(EllipsoidalPotential):
         if not z is None: raise AttributeError # Hack to fall back to general
         return 2.*numpy.pi*self._b*self._c/self.a\
             *(numpy.arctan(R/self.a)-R*self.a/(1.+R**2.))
-
-    

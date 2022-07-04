@@ -36,7 +36,7 @@ double DehnenBarPotentialRforce(double R,double z,double phi,double t,
       (pow(r/rb,3.)*R*(3.*R*R+2.*z*z)-4.*R*z*z)/pow(r,4.);
   else
     return -amp*smooth*cos(2.*(phi-omegab*t-barphi))\
-      *pow(rb/r,3.)*R/pow(r,4)*(3.*R*R-2.*z*z);   
+      *pow(rb/r,3.)*R/pow(r,4)*(3.*R*R-2.*z*z);
 }
 double DehnenBarPotentialPlanarRforce(double R,double phi,double t,
 				      struct potentialArg * potentialArgs){
@@ -55,7 +55,7 @@ double DehnenBarPotentialPlanarRforce(double R,double phi,double t,
   if (R <= rb )
     return -3.*amp*smooth*cos(2.*(phi-omegab*t-barphi))*pow(R/rb,3.)/R;
   else
-    return -3.*amp*smooth*cos(2.*(phi-omegab*t-barphi))*pow(rb/R,3.)/R;   
+    return -3.*amp*smooth*cos(2.*(phi-omegab*t-barphi))*pow(rb/R,3.)/R;
 }
 double DehnenBarPotentialphitorque(double R,double z,double phi,double t,
 				  struct potentialArg * potentialArgs){

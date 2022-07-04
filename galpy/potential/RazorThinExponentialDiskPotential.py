@@ -6,8 +6,11 @@
 ###############################################################################
 import numpy
 from scipy import special
+
 from ..util import conversion
 from .Potential import Potential
+
+
 class RazorThinExponentialDiskPotential(Potential):
     """Class that implements the razor-thin exponential disk potential
 
@@ -245,4 +248,3 @@ class RazorThinExponentialDiskPotential(Potential):
         """
         return 2.*numpy.pi*(1.-numpy.exp(-self._alpha*R)*(1.+self._alpha*R))\
             /self._alpha**2.
-    

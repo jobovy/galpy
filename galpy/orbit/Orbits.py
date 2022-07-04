@@ -1,17 +1,20 @@
 import os
 import sys
+
 _PY3= sys.version > '3'
-import json
 import copy
+import json
 import string
+import warnings
 from functools import wraps
 from random import choice
 from string import ascii_lowercase
-from pkg_resources import parse_version
-import warnings
+
 import numpy
-from scipy import interpolate, optimize
 import scipy
+from pkg_resources import parse_version
+from scipy import interpolate, optimize
+
 _SCIPY_VERSION= parse_version(scipy.__version__)
 if _SCIPY_VERSION < parse_version('0.10'): #pragma: no cover
     from scipy.maxentropy import logsumexp
@@ -19,26 +22,27 @@ elif _SCIPY_VERSION < parse_version('0.19'): #pragma: no cover
     from scipy.misc import logsumexp
 else:
     from scipy.special import logsumexp
-from ..util import galpyWarning, galpyWarningVerbose
-from ..util.conversion import physical_conversion, physical_compatible
-from ..util.coords import _K
-from ..util import coords
-from ..util import plot
-from ..util import conversion
-from ..util._optional_deps import (_APY_LOADED, _APY_UNITS, _APY_COORD_LOADED, 
-                                   _ASTROQUERY_LOADED, _APY3, _APY_GE_31,
-                                   _NUMEXPR_LOADED)
-from ..potential import toPlanarPotential, PotentialError, evaluatePotentials,\
-    evaluateplanarPotentials, evaluatelinearPotentials
+
+from ..potential import (LcE, PotentialError, _isNonAxi,
+                         evaluatelinearPotentials, evaluateplanarPotentials,
+                         evaluatePotentials)
 from ..potential import flatten as flatten_potential
-from ..potential.Potential import _check_c
-from ..potential import rl, rE, LcE, _isNonAxi
+from ..potential import rE, rl, toPlanarPotential
 from ..potential.DissipativeForce import _isDissipative
-from .integrateLinearOrbit import integrateLinearOrbit_c, _ext_loaded, \
-    integrateLinearOrbit
-from .integratePlanarOrbit import integratePlanarOrbit_c, \
-    integratePlanarOrbit, integratePlanarOrbit_dxdv
-from .integrateFullOrbit import integrateFullOrbit_c, integrateFullOrbit
+from ..potential.Potential import _check_c
+from ..util import conversion, coords, galpyWarning, galpyWarningVerbose, plot
+from ..util._optional_deps import (_APY3, _APY_COORD_LOADED, _APY_GE_31,
+                                   _APY_LOADED, _APY_UNITS, _ASTROQUERY_LOADED,
+                                   _NUMEXPR_LOADED)
+from ..util.conversion import physical_compatible, physical_conversion
+from ..util.coords import _K
+from .integrateFullOrbit import integrateFullOrbit, integrateFullOrbit_c
+from .integrateLinearOrbit import (_ext_loaded, integrateLinearOrbit,
+                                   integrateLinearOrbit_c)
+from .integratePlanarOrbit import (integratePlanarOrbit,
+                                   integratePlanarOrbit_c,
+                                   integratePlanarOrbit_dxdv)
+
 ext_loaded= _ext_loaded
 if _APY_LOADED:
     from astropy import units
@@ -48,7 +52,9 @@ if _APY_COORD_LOADED:
     from astropy.coordinates import SkyCoord
 if _ASTROQUERY_LOADED:
     from astroquery.simbad import Simbad
+
 from ..util import config
+
 if _APY_LOADED:
     vxvv_units= [units.kpc,units.km/units.s,units.km/units.s,
                  units.kpc,units.km/units.s,units.rad]
@@ -67,7 +73,7 @@ def _named_objects_key_formatting(name):
     else: #pragma: no cover
         out_name= str(name).translate(None,string.punctuation)\
             .replace(' ', '').lower()
-    return out_name   
+    return out_name
 _known_objects= None
 _known_objects_original_keys= None # these are use for auto-completion
 _known_objects_collections_original_keys= None
@@ -221,7 +227,7 @@ class Orbit:
             radec= True
         elif isinstance(vxvv,(list, tuple)):
             if None in vxvv:
-                vxvv= [[0.,0.,0.,0.,0.,0.] 
+                vxvv= [[0.,0.,0.,0.,0.,0.]
                        if tvxvv is None else tvxvv
                        for tvxvv in vxvv]
                 radec= True
@@ -273,13 +279,13 @@ class Orbit:
         #: Tuple of Orbit dimensions
         self.shape= input_shape
         self._setup_parse_vxvv(vxvv,radec,lb,uvw)
-        # Check that we have a valid phase-space dim (often messed up by not 
+        # Check that we have a valid phase-space dim (often messed up by not
         # transposing the input array to the correct shape)
         if self.phasedim() < 2 or self.phasedim() > 6:
             if len(self.vxvv) > 1 and len(self.vxvv) < 7:
-                raise RuntimeError("Invalid phase-space dimension {:d} for {:d} objects; perhaps you meant to transpose the input?".format(self.phasedim(),len(self.vxvv)))
+                raise RuntimeError(f"Invalid phase-space dimension {self.phasedim():d} for {len(self.vxvv):d} objects; perhaps you meant to transpose the input?")
             else:
-                raise RuntimeError("Invalid phase-space dimension: phasedim = {:d}, but should be between 2 and 6".format(self.phasedim()))
+                raise RuntimeError(f"Invalid phase-space dimension: phasedim = {self.phasedim():d}, but should be between 2 and 6")
         #: Total number of elements in the Orbit instance
         self.size= 1 if self.shape == () else len(self.vxvv)
         if self.dim() == 1:
@@ -365,7 +371,7 @@ class Orbit:
         # Only implement lists of scalar Orbit for now
         if not numpy.all([o.shape == () for o in vxvv]):
             raise RuntimeError("Initializing an Orbit instance with a list of Orbit instances only supports lists of single Orbit instances")
-        # Need to check that coordinate-transformation parameters are 
+        # Need to check that coordinate-transformation parameters are
         # consistent between given orbits and between this instance's
         # initialization and the given orbits; if not explicitly given
         # for this instance, fall back onto list's parameters
@@ -378,7 +384,7 @@ class Orbit:
         if numpy.any(numpy.fabs(vos-vos[0]) > 1e-10):
             raise RuntimeError("All individual orbits given to an Orbit class must have the same vo unit-conversion parameter")
         if not zos[0] is None and numpy.any(numpy.fabs(zos-zos[0]) > 1e-10):
-            raise RuntimeError("All individual orbits given to an Orbit class must have the same zo solar offset")               
+            raise RuntimeError("All individual orbits given to an Orbit class must have the same zo solar offset")
         if not solarmotions[0] is None and \
                 numpy.any(numpy.fabs(solarmotions-solarmotions[0]) > 1e-10):
             raise RuntimeError("All individual orbits given to an Orbit class must have the same solar motion")
@@ -406,7 +412,7 @@ class Orbit:
             self._solarmotion= vxvv[0]._solarmotion
         # shape of o.vxvv is (1,phasedim) due to internal storage
         return [list(o.vxvv[0]) for o in vxvv]
-                
+
     def _setup_parse_vxvv(self,vxvv,radec,lb,uvw):
         if _APY_COORD_LOADED and isinstance(vxvv,SkyCoord):
             galcen_v_sun= coordinates.CartesianDifferential(\
@@ -605,7 +611,7 @@ class Orbit:
     @shapeDecorator
     def name(self):
         return self._name
-    
+
     @classmethod
     def from_fit(cls,init_vxvv,vxvv,vxvv_err=None,pot=None,
                  radec=False,lb=False,
@@ -639,9 +645,9 @@ class Orbit:
 
                lb= if True, input vxvv and vxvv are [long,lat,d,mu_ll, mu_bb,vlos] in [deg,deg,kpc,mas/yr,mas/yr,km/s] (mu_ll = mu_ll * cos lat); the attributes of the current Orbit are used to convert between these coordinates and Galactocentric coordinates
 
-               customsky= if True, input vxvv and vxvv_err are [custom long,custom lat,d,mu_customll, mu_custombb,vlos] in [deg,deg,kpc,mas/yr,mas/yr,km/s] (mu_ll = mu_ll * cos lat) where custom longitude and custom latitude are a custom set of sky coordinates (e.g., ecliptic) and the proper motions are also expressed in these coordinats; you need to provide the functions lb_to_customsky and pmllpmbb_to_customsky to convert to the custom sky coordinates (these should have the same inputs and outputs as lb_to_radec and pmllpmbb_to_pmrapmdec); the attributes of the current Orbit are used to convert between these coordinates and Galactocentric coordinates
+               customsky= if True, input vxvv and vxvv_err are [custom long,custom lat,d,mu_customll, mu_custombb,vlos] in [deg,deg,kpc,mas/yr,mas/yr,km/s] (mu_ll = mu_ll * cos lat) where custom longitude and custom latitude are a custom set of sky coordinates (e.g., ecliptic) and the proper motions are also expressed in these coordinates; you need to provide the functions lb_to_customsky and pmllpmbb_to_customsky to convert to the custom sky coordinates (these should have the same inputs and outputs as lb_to_radec and pmllpmbb_to_pmrapmdec); the attributes of the current Orbit are used to convert between these coordinates and Galactocentric coordinates
 
-               obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
+               obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
                                       (in kpc and km/s; entries can be Quantity) (default=Object-wide default)
                                       Cannot be an Orbit instance with the orbit of the reference point, as w/ the ra etc. functions
                                       Y is ignored and always assumed to be zero
@@ -682,7 +688,7 @@ class Orbit:
 
         """
         pot= flatten_potential(pot)
-        # Setup Orbit instance for initialization to, among other things, 
+        # Setup Orbit instance for initialization to, among other things,
         # parse the coordinate-transformation keywords
         init_orbit= cls(init_vxvv,radec=radec or customsky,
                         lb=lb,ro=ro,vo=vo,zo=zo,
@@ -926,7 +932,7 @@ class Orbit:
     def reshape(self,newshape):
         """
         NAME:
-        
+
            reshape
 
         PURPOSE:
@@ -1047,7 +1053,7 @@ class Orbit:
                      'dopr54_c' for a 5-4 Dormand-Prince integrator in C
                      'dop853' for a 8-5-3 Dormand-Prince integrator in Python
                      'dop853_c' for a 8-5-3 Dormand-Prince integrator in C
-                     
+
             progressbar= (True) if True, display a tqdm progress bar when integrating multiple orbits (requires tqdm to be installed!)
 
             dt - if set, force the integrator to use this basic stepsize; must be an integer divisor of output stepsize (only works for the C integrators that use a fixed stepsize) (can be Quantity)
@@ -1070,7 +1076,7 @@ class Orbit:
         if method.lower() not in ['odeint', 'leapfrog', 'dop853', 'leapfrog_c',
                 'symplec4_c', 'symplec6_c', 'rk4_c', 'rk6_c',
                 'dopr54_c', 'dop853_c']:
-            raise ValueError('{:s} is not a valid `method`'.format(method))
+            raise ValueError(f'{method:s} is not a valid `method`')
         pot= flatten_potential(pot)
         _check_potential_dim(self,pot)
         _check_consistent_units(self,pot)
@@ -1109,7 +1115,7 @@ class Orbit:
                     warnings.warn("Cannot use C integration because some of the potentials are not implemented in C (using %s instead)" % (method), galpyWarning)
         # Now check that we aren't trying to integrate a dissipative force
         # with a symplectic integrator
-        if _isDissipative(self._pot) and ('leapfrog' in method 
+        if _isDissipative(self._pot) and ('leapfrog' in method
                                     or 'symplec' in method):
             if '_c' in method:
                 method= 'dopr54_c'
@@ -1166,8 +1172,8 @@ class Orbit:
         # Check whether r ever < minr if dynamical friction is included
         # and warn if so
         # or if using interpSphericalPotential and r < rmin or r > rmax
-        from ..potential import ChandrasekharDynamicalFrictionForce, \
-            interpSphericalPotential
+        from ..potential import (ChandrasekharDynamicalFrictionForce,
+                                 interpSphericalPotential)
         if numpy.any([isinstance(p,ChandrasekharDynamicalFrictionForce)
                       for p in flatten_potential([pot])]): # make sure pot=list
             lpot= flatten_potential([pot])
@@ -1228,7 +1234,7 @@ class Orbit:
            t - list of times at which to output (0 has to be in this!) (can be Quantity)
 
            pot - potential instance or list of instances
-           
+
            progressbar= (True) if True, display a tqdm progress bar when integrating multiple orbits (requires tqdm to be installed!)
 
            dt - if set, force the integrator to use this basic stepsize; must be an integer divisor of output stepsize (only works for the C integrators that use a fixed stepsize) (can be Quantity)
@@ -1265,9 +1271,9 @@ class Orbit:
         if method.lower() not in ['odeint', 'dop853', 'rk4_c', 'rk6_c',
                                   'dopr54_c', 'dop853_c']:
             if 'leapfrog' in method.lower() or 'symplec' in method.lower():
-                raise ValueError('{:s} is not a valid `method for integrate_dxdv, because symplectic integrators cannot be used`'.format(method))
+                raise ValueError(f'{method:s} is not a valid `method for integrate_dxdv, because symplectic integrators cannot be used`')
             else:
-                raise ValueError('{:s} is not a valid `method for integrate_dxdv`'.format(method))
+                raise ValueError(f'{method:s} is not a valid `method for integrate_dxdv`')
         pot= flatten_potential(pot)
         _check_potential_dim(self,pot)
         _check_consistent_units(self,pot)
@@ -1281,7 +1287,7 @@ class Orbit:
         # Parse dxdv
         dxdv= numpy.array(dxdv)
         if dxdv.ndim > 1:
-            dxdv= dxdv.reshape((numpy.prod(dxdv.shape[:-1]),dxdv.shape[-1])) 
+            dxdv= dxdv.reshape((numpy.prod(dxdv.shape[:-1]),dxdv.shape[-1]))
         else:
             dxdv= numpy.atleast_2d(dxdv)
         # Delete attributes for interpolation and rperi etc. determination
@@ -1382,7 +1388,7 @@ class Orbit:
         # Make sure the output has the same shape as the original Orbit
         out.reshape(self.shape)
         return out
-        
+
     @shapeDecorator
     def getOrbit(self):
         """
@@ -1476,7 +1482,7 @@ class Orbit:
             except AttributeError:
                 raise AttributeError("Integrate orbits or specify pot=")
             if 'pot' in kwargs and kwargs['pot'] is None:
-                kwargs.pop('pot')          
+                kwargs.pop('pot')
         else:
             pot= kwargs.pop('pot')
         if self.dim() == 2:
@@ -1635,7 +1641,7 @@ class Orbit:
                 kwargs.pop('use_physical')
             kwargs.pop('dontreshape')
             return out
-        
+
     @physical_conversion('action')
     @shapeDecorator
     def Lz(self,*args,**kwargs):
@@ -1780,7 +1786,7 @@ class Orbit:
            t - (optional) time at which to get the Jacobi integral (can be Quantity)
 
            OmegaP= pattern speed (can be Quantity)
-           
+
            pot= potential instance or list of such instances
 
            vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
@@ -1880,14 +1886,14 @@ class Orbit:
         if hasattr(self,'_aA'):
             if (not pot is None and pot != self._aAPot) \
                     or (not type is None and type != self._aAType) \
-                    or (not delta is None and hasattr(self._aA,'_delta') 
+                    or (not delta is None and hasattr(self._aA,'_delta')
                         and numpy.any(delta != self._aA._delta)) \
                     or (delta is None
                         and hasattr(self,'_aA_delta_automagic')
                         and not self._aA_delta_automagic) \
-                    or (not b is None and hasattr(self._aA,'_aAI') 
+                    or (not b is None and hasattr(self._aA,'_aAI')
                         and numpy.any(b != self._aA._aAI.b)) \
-                    or ('ip' in kwargs and hasattr(self._aA,'_aAI') 
+                    or ('ip' in kwargs and hasattr(self._aA,'_aAI')
                         and (numpy.any(kwargs['ip'].b != self._aA._aAI.b) \
                         or numpy.any(kwargs['ip']._amp != self._aA._aAI.amp))):
                 for attr in list(self.__dict__):
@@ -1963,7 +1969,7 @@ class Orbit:
                                              dontreshape=True),
                                      tz,tvz,
                                      use_physical=False)
-        return None        
+        return None
 
     def _setup_actionsFreqsAngles(self,pot=None,**kwargs):
         """Internal function to compute the actions, frequencies, and angles and cache them for re-use"""
@@ -2038,13 +2044,13 @@ class Orbit:
            For 3D orbits different approximations for analytic=True are available (see the EccZmaxRperiRap method of actionAngle modules):
 
               type= ('staeckel') type of actionAngle module to use
-              
+
                  1) 'adiabatic': assuming motion splits into R and z
 
                  2) 'staeckel': assuming motion splits into u and v of prolate spheroidal coordinate system, exact for Staeckel potentials (incl. all spherical potentials)
 
                  3) 'spherical': for spherical potentials, exact
-              
+
               +actionAngle module setup kwargs for the corresponding actionAngle modules (actionAngleAdiabatic, actionAngleStaeckel, and actionAngleSpherical)
 
         OUTPUT:
@@ -2086,13 +2092,13 @@ class Orbit:
            For 3D orbits different approximations for analytic=True are available (see the EccZmaxRperiRap method of actionAngle modules):
 
               type= ('staeckel') type of actionAngle module to use
-              
+
                  1) 'adiabatic': assuming motion splits into R and z
 
                  2) 'staeckel': assuming motion splits into u and v of prolate spheroidal coordinate system, exact for Staeckel potentials (incl. all spherical potentials)
 
                  3) 'spherical': for spherical potentials, exact
-              
+
               +actionAngle module setup kwargs for the corresponding actionAngle modules (actionAngleAdiabatic, actionAngleStaeckel, and actionAngleSpherical)
 
            ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
@@ -2137,13 +2143,13 @@ class Orbit:
            For 3D orbits different approximations for analytic=True are available (see the EccZmaxRperiRap method of actionAngle modules):
 
               type= ('staeckel') type of actionAngle module to use
-              
+
                  1) 'adiabatic': assuming motion splits into R and z
 
                  2) 'staeckel': assuming motion splits into u and v of prolate spheroidal coordinate system, exact for Staeckel potentials (incl. all spherical potentials)
 
                  3) 'spherical': for spherical potentials, exact
-              
+
               +actionAngle module setup kwargs for the corresponding actionAngle modules (actionAngleAdiabatic, actionAngleStaeckel, and actionAngleSpherical)
 
            ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
@@ -2329,7 +2335,7 @@ class Orbit:
             #Spline interpolate
             return interpolate.InterpolatedUnivariateSpline(\
                 precomputeLcEEgrid,LcEs,k=3)(E).reshape(E_shape)
-        else:            
+        else:
             return numpy.array([LcE(pot,tE,use_physical=False)
                                 for tE in E]).reshape(E_shape)
 
@@ -2354,13 +2360,13 @@ class Orbit:
            For 3D orbits different approximations for analytic=True are available (see the EccZmaxRperiRap method of actionAngle modules):
 
               type= ('staeckel') type of actionAngle module to use
-              
+
                  1) 'adiabatic': assuming motion splits into R and z
 
                  2) 'staeckel': assuming motion splits into u and v of prolate spheroidal coordinate system, exact for Staeckel potentials (incl. all spherical potentials)
 
                  3) 'spherical': for spherical potentials, exact
-              
+
               +actionAngle module setup kwargs for the corresponding actionAngle modules (actionAngleAdiabatic, actionAngleStaeckel, and actionAngleSpherical)
 
            ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
@@ -2410,7 +2416,7 @@ class Orbit:
               3) 'isochroneApprox'
 
               4) 'spherical'
-              
+
            +actionAngle module setup kwargs
 
            ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
@@ -2459,7 +2465,7 @@ class Orbit:
               3) 'isochroneApprox'
 
               4) 'spherical'
-              
+
            +actionAngle module setup kwargs
 
            ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
@@ -2508,7 +2514,7 @@ class Orbit:
               3) 'isochroneApprox'
 
               4) 'spherical'
-              
+
            +actionAngle module setup kwargs
 
            ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
@@ -2557,7 +2563,7 @@ class Orbit:
               3) 'isochroneApprox'
 
               4) 'spherical'
-              
+
            +actionAngle module setup kwargs
 
         OUTPUT:
@@ -2597,7 +2603,7 @@ class Orbit:
               3) 'isochroneApprox'
 
               4) 'spherical'
-              
+
            +actionAngle module setup kwargs
 
         OUTPUT:
@@ -2637,7 +2643,7 @@ class Orbit:
               3) 'isochroneApprox'
 
               4) 'spherical'
-              
+
            +actionAngle module setup kwargs
 
         OUTPUT:
@@ -2677,7 +2683,7 @@ class Orbit:
               3) 'isochroneApprox'
 
               4) 'spherical'
-              
+
            +actionAngle module setup kwargs
 
            ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
@@ -2723,7 +2729,7 @@ class Orbit:
               3) 'isochroneApprox'
 
               4) 'spherical'
-              
+
            +actionAngle module setup kwargs
 
            ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
@@ -2768,7 +2774,7 @@ class Orbit:
               3) 'isochroneApprox'
 
               4) 'spherical'
-              
+
            +actionAngle module setup kwargs
 
         OUTPUT:
@@ -2782,7 +2788,7 @@ class Orbit:
         """
         self._setup_actionsFreqsAngles(pot=pot,**kwargs)
         return self._aA_Op/self._aA_Or*numpy.pi
- 
+
     @physical_conversion('time')
     @shapeDecorator
     def Tz(self,pot=None,**kwargs):
@@ -2808,7 +2814,7 @@ class Orbit:
               3) 'isochroneApprox'
 
               4) 'spherical'
-              
+
            +actionAngle module setup kwargs
 
            ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
@@ -2854,7 +2860,7 @@ class Orbit:
               3) 'isochroneApprox'
 
               4) 'spherical'
-              
+
            +actionAngle module setup kwargs
 
            ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
@@ -2900,7 +2906,7 @@ class Orbit:
               3) 'isochroneApprox'
 
               4) 'spherical'
-              
+
            +actionAngle module setup kwargs
 
            ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
@@ -2946,7 +2952,7 @@ class Orbit:
               3) 'isochroneApprox'
 
               4) 'spherical'
-              
+
            +actionAngle module setup kwargs
 
            ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
@@ -3199,7 +3205,7 @@ class Orbit:
         if self.dim() < 3:
             raise AttributeError("linear and planar orbits do not have vz()")
         return self._call_internal(*args,**kwargs)[4].T
-        
+
     @physical_conversion('angle')
     @shapeDecorator
     def phi(self,*args,**kwargs):
@@ -3406,7 +3412,7 @@ class Orbit:
         """
         thiso= self._call_internal(*args,**kwargs)
         return (thiso[2]/thiso[0]).T
-    
+
     @physical_conversion('velocity')
     @shapeDecorator
     def vr(self,*args,**kwargs):
@@ -3442,7 +3448,7 @@ class Orbit:
             return ((thiso[0]*thiso[1]+thiso[3]*thiso[4])/r).T
         else:
             return thiso[1].T
-    
+
     @physical_conversion('velocity')
     @shapeDecorator
     def vtheta(self,*args,**kwargs):
@@ -3450,7 +3456,7 @@ class Orbit:
         NAME:
 
            vtheta
-           
+
         PURPOSE:
 
            return spherical polar velocity
@@ -3478,7 +3484,7 @@ class Orbit:
         else:
             r = numpy.sqrt( thiso[0]**2.+thiso[3]**2.)
             return ((thiso[1]*thiso[3]-thiso[0]*thiso[4])/r).T
-            
+
     @physical_conversion('angle')
     @shapeDecorator
     def theta(self,*args,**kwargs):
@@ -3486,7 +3492,7 @@ class Orbit:
         NAME:
 
            theta
-           
+
         PURPOSE:
 
            return spherical polar angle
@@ -3509,8 +3515,8 @@ class Orbit:
             raise AttributeError("Orbit must be 3D to use theta()")
         else:
             return numpy.arctan2(thiso[0],thiso[3])
-    
-    
+
+
     @physical_conversion('angle_deg')
     @shapeDecorator
     def ra(self,*args,**kwargs):
@@ -3527,18 +3533,18 @@ class Orbit:
 
            t - (optional) time at which to get ra
 
-           obs=[X,Y,Z] - (optional) position of observer (in kpc) 
+           obs=[X,Y,Z] - (optional) position of observer (in kpc)
                          (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer;
-                         Note that when Y is non-zero, the coordinate system is 
+                         Note that when Y is non-zero, the coordinate system is
                          rotated around z such that Y'=0
 
            ro= distance in kpc corresponding to R=1. (default=Object-wide default)
 
         OUTPUT:
 
-           ra(t) [*input_shape,nt] 
+           ra(t) [*input_shape,nt]
 
         HISTORY:
 
@@ -3568,18 +3574,18 @@ class Orbit:
 
            t - (optional) time at which to get dec
 
-           obs=[X,Y,Z] - (optional) position of observer (in kpc) 
+           obs=[X,Y,Z] - (optional) position of observer (in kpc)
                          (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer;
-                         Note that when Y is non-zero, the coordinate system is 
+                         Note that when Y is non-zero, the coordinate system is
                          rotated around z such that Y'=0
 
            ro= distance in kpc corresponding to R=1. (default=Object-wide default)
 
         OUTPUT:
 
-           dec(t) [*input_shape,nt] 
+           dec(t) [*input_shape,nt]
 
         HISTORY:
 
@@ -3609,18 +3615,18 @@ class Orbit:
 
            t - (optional) time at which to get ll
 
-           obs=[X,Y,Z] - (optional) position of observer (in kpc) 
+           obs=[X,Y,Z] - (optional) position of observer (in kpc)
                          (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer;
-                         Note that when Y is non-zero, the coordinate system is 
+                         Note that when Y is non-zero, the coordinate system is
                          rotated around z such that Y'=0
 
-           ro= distance in kpc corresponding to R=1. (default=Object-wide default)         
+           ro= distance in kpc corresponding to R=1. (default=Object-wide default)
 
         OUTPUT:
 
-           l(t) [*input_shape,nt] 
+           l(t) [*input_shape,nt]
 
         HISTORY:
 
@@ -3649,14 +3655,14 @@ class Orbit:
 
            t - (optional) time at which to get bb
 
-           obs=[X,Y,Z] - (optional) position of observer (in kpc) 
+           obs=[X,Y,Z] - (optional) position of observer (in kpc)
                          (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer;
-                         Note that when Y is non-zero, the coordinate system is 
+                         Note that when Y is non-zero, the coordinate system is
                          rotated around z such that Y'=0
 
-           ro= distance in kpc corresponding to R=1. (default=Object-wide default)         
+           ro= distance in kpc corresponding to R=1. (default=Object-wide default)
 
         OUTPUT:
 
@@ -3689,14 +3695,14 @@ class Orbit:
 
            t - (optional) time at which to get dist
 
-           obs=[X,Y,Z] - (optional) position of observer (in kpc) 
+           obs=[X,Y,Z] - (optional) position of observer (in kpc)
                          (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer;
-                         Note that when Y is non-zero, the coordinate system is 
+                         Note that when Y is non-zero, the coordinate system is
                          rotated around z such that Y'=0
 
-           ro= distance in kpc corresponding to R=1. (default=Object-wide default)         
+           ro= distance in kpc corresponding to R=1. (default=Object-wide default)
 
         OUTPUT:
 
@@ -3729,14 +3735,14 @@ class Orbit:
 
            t - (optional) time at which to get pmra
 
-           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
+           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
                          (in kpc and km/s) (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer;
-                         Note that when Y is non-zero, the coordinate system is 
+                         Note that when Y is non-zero, the coordinate system is
                          rotated around z such that Y'=0
 
-           ro= distance in kpc corresponding to R=1. (default=Object-wide default)    
+           ro= distance in kpc corresponding to R=1. (default=Object-wide default)
 
            vo= velocity in km/s corresponding to v=1. (default=Object-wide default)
 
@@ -3773,14 +3779,14 @@ class Orbit:
 
            t - (optional) time at which to get pmdec
 
-           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
+           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
                          (in kpc and km/s) (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer;
-                         Note that when Y is non-zero, the coordinate system is 
+                         Note that when Y is non-zero, the coordinate system is
                          rotated around z such that Y'=0
 
-           ro= distance in kpc corresponding to R=1. (default=Object-wide default)         
+           ro= distance in kpc corresponding to R=1. (default=Object-wide default)
 
            vo= velocity in km/s corresponding to v=1. (default=Object-wide default)
 
@@ -3817,14 +3823,14 @@ class Orbit:
 
            t - (optional) time at which to get pmll
 
-           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
+           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
                          (in kpc and km/s) (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer;
-                         Note that when Y is non-zero, the coordinate system is 
+                         Note that when Y is non-zero, the coordinate system is
                          rotated around z such that Y'=0
 
-           ro= distance in kpc corresponding to R=1. (default=Object-wide default)         
+           ro= distance in kpc corresponding to R=1. (default=Object-wide default)
 
            vo= velocity in km/s corresponding to v=1. (default=Object-wide default)
 
@@ -3861,14 +3867,14 @@ class Orbit:
 
            t - (optional) time at which to get pmbb
 
-           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
+           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
                          (in kpc and km/s) (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer;
-                         Note that when Y is non-zero, the coordinate system is 
+                         Note that when Y is non-zero, the coordinate system is
                          rotated around z such that Y'=0
 
-           ro= distance in kpc corresponding to R=1. (default=Object-wide default)         
+           ro= distance in kpc corresponding to R=1. (default=Object-wide default)
 
            vo= velocity in km/s corresponding to v=1. (default=Object-wide default)
 
@@ -3905,14 +3911,14 @@ class Orbit:
 
            t - (optional) time at which to get vlos
 
-           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
+           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
                          (in kpc and km/s) (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer;
-                         Note that when Y is non-zero, the coordinate system is 
+                         Note that when Y is non-zero, the coordinate system is
                          rotated around z such that Y'=0
 
-           ro= distance in kpc corresponding to R=1. (default=Object-wide default)         
+           ro= distance in kpc corresponding to R=1. (default=Object-wide default)
 
            vo= velocity in km/s corresponding to v=1. (default=Object-wide default)
 
@@ -3948,12 +3954,12 @@ class Orbit:
 
            t - (optional) time at which to get vra (can be Quantity)
 
-           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
+           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
                          in the Galactocentric frame
                          (in kpc and km/s) (default=[8.0,0.,0.,0.,220.,0.]; entries can be Quantity)
                          OR Orbit object that corresponds to the orbit
                          of the observer;
-                         Note that when Y is non-zero, the coordinate system is 
+                         Note that when Y is non-zero, the coordinate system is
                          rotated around z such that Y'=0
 
            ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
@@ -3998,12 +4004,12 @@ class Orbit:
 
            t - (optional) time at which to get vdec (can be Quantity)
 
-           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
+           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
                          in the Galactocentric frame
                          (in kpc and km/s) (default=[8.0,0.,0.,0.,220.,0.]; entries can be Quantity)
                          OR Orbit object that corresponds to the orbit
                          of the observer;
-                         Note that when Y is non-zero, the coordinate system is 
+                         Note that when Y is non-zero, the coordinate system is
                          rotated around z such that Y'=0
 
            ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
@@ -4048,12 +4054,12 @@ class Orbit:
 
            t - (optional) time at which to get vll (can be Quantity)
 
-           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
+           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
                          in the Galactocentric frame
                          (in kpc and km/s) (default=[8.0,0.,0.,0.,220.,0.]; entries can be Quantity)
                          OR Orbit object that corresponds to the orbit
                          of the observer;
-                         Note that when Y is non-zero, the coordinate system is 
+                         Note that when Y is non-zero, the coordinate system is
                          rotated around z such that Y'=0
 
            ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
@@ -4082,7 +4088,7 @@ class Orbit:
             result= dist*_K*self.pmll(*args,**kwargs)
         kwargs.pop('dontreshape')
         return result
-        
+
     @shapeDecorator
     def vbb(self,*args,**kwargs):
         """
@@ -4098,12 +4104,12 @@ class Orbit:
 
            t - (optional) time at which to get vbb (can be Quantity)
 
-           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
+           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
                          in the Galactocentric frame
                          (in kpc and km/s) (default=[8.0,0.,0.,0.,220.,0.]; entries can be Quantity)
                          OR Orbit object that corresponds to the orbit
                          of the observer;
-                         Note that when Y is non-zero, the coordinate system is 
+                         Note that when Y is non-zero, the coordinate system is
                          rotated around z such that Y'=0
 
            ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
@@ -4149,14 +4155,14 @@ class Orbit:
 
            t - (optional) time at which to get X
 
-           obs=[X,Y,Z] - (optional) position and velocity of observer 
+           obs=[X,Y,Z] - (optional) position and velocity of observer
                          (in kpc and km/s) (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer;
-                         Note that when Y is non-zero, the coordinate system is 
+                         Note that when Y is non-zero, the coordinate system is
                          rotated around z such that Y'=0
 
-           ro= distance in kpc corresponding to R=1. (default=Object-wide default)         
+           ro= distance in kpc corresponding to R=1. (default=Object-wide default)
 
         OUTPUT:
 
@@ -4190,14 +4196,14 @@ class Orbit:
 
            t - (optional) time at which to get Y
 
-           obs=[X,Y,Z] - (optional) position and velocity of observer 
+           obs=[X,Y,Z] - (optional) position and velocity of observer
                          (in kpc and km/s) (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer;
-                         Note that when Y is non-zero, the coordinate system is 
+                         Note that when Y is non-zero, the coordinate system is
                          rotated around z such that Y'=0
 
-           ro= distance in kpc corresponding to R=1. (default=Object-wide default)         
+           ro= distance in kpc corresponding to R=1. (default=Object-wide default)
 
         OUTPUT:
 
@@ -4231,14 +4237,14 @@ class Orbit:
 
            t - (optional) time at which to get Z
 
-           obs=[X,Y,Z] - (optional) position and velocity of observer 
+           obs=[X,Y,Z] - (optional) position and velocity of observer
                          (in kpc and km/s) (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer;
-                         Note that when Y is non-zero, the coordinate system is 
+                         Note that when Y is non-zero, the coordinate system is
                          rotated around z such that Y'=0
 
-           ro= distance in kpc corresponding to R=1. (default=Object-wide default)         
+           ro= distance in kpc corresponding to R=1. (default=Object-wide default)
 
         OUTPUT:
 
@@ -4272,14 +4278,14 @@ class Orbit:
 
            t - (optional) time at which to get U
 
-           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
+           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
                          (in kpc and km/s) (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer;
-                         Note that when Y is non-zero, the coordinate system is 
+                         Note that when Y is non-zero, the coordinate system is
                          rotated around z such that Y'=0
 
-           ro= distance in kpc corresponding to R=1. (default=Object-wide default)         
+           ro= distance in kpc corresponding to R=1. (default=Object-wide default)
 
            vo= velocity in km/s corresponding to v=1. (default=Object-wide default)
 
@@ -4316,14 +4322,14 @@ class Orbit:
 
            t - (optional) time at which to get U
 
-           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
+           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
                          (in kpc and km/s) (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer;
-                         Note that when Y is non-zero, the coordinate system is 
+                         Note that when Y is non-zero, the coordinate system is
                          rotated around z such that Y'=0
 
-           ro= distance in kpc corresponding to R=1. (default=Object-wide default)         
+           ro= distance in kpc corresponding to R=1. (default=Object-wide default)
 
            vo= velocity in km/s corresponding to v=1. (default=Object-wide default)
 
@@ -4360,14 +4366,14 @@ class Orbit:
 
            t - (optional) time at which to get W
 
-           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer 
+           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
                          (in kpc and km/s) (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer;
-                         Note that when Y is non-zero, the coordinate system is 
+                         Note that when Y is non-zero, the coordinate system is
                          rotated around z such that Y'=0
 
-           ro= distance in kpc corresponding to R=1. (default=Object-wide default)         
+           ro= distance in kpc corresponding to R=1. (default=Object-wide default)
 
            vo= velocity in km/s corresponding to v=1. (default=Object-wide default)
 
@@ -4403,11 +4409,11 @@ class Orbit:
 
            t - (optional) time at which to get the position
 
-           obs=[X,Y,Z] - (optional) position of observer (in kpc) 
+           obs=[X,Y,Z] - (optional) position of observer (in kpc)
                          (default=Object-wide default)
                          OR Orbit object that corresponds to the orbit
                          of the observer;
-                         Note that when Y is non-zero, the coordinate system is 
+                         Note that when Y is non-zero, the coordinate system is
                          rotated around z such that Y'=0
 
            ro= distance in kpc corresponding to R=1. (default=Object-wide default)
@@ -4416,7 +4422,7 @@ class Orbit:
 
         OUTPUT:
 
-           SkyCoord(t) [*input_shape,nt] 
+           SkyCoord(t) [*input_shape,nt]
 
         HISTORY:
 
@@ -4466,7 +4472,7 @@ class Orbit:
     def __call__(self,*args,**kwargs):
         """
         NAME:
- 
+
           __call__
 
         PURPOSE:
@@ -4479,7 +4485,7 @@ class Orbit:
 
         OUTPUT:
 
-           an Orbit instance with initial conditions set to the 
+           an Orbit instance with initial conditions set to the
            phase-space at time t; shape of new Orbit is (shape_old,nt)
 
         HISTORY:
@@ -4520,12 +4526,12 @@ class Orbit:
             raise ValueError("Integrate instance before evaluating it at a specific time")
         else:
             t= args[0]
-        # Parse t, first check whether we are dealing with the common case 
+        # Parse t, first check whether we are dealing with the common case
         # where one wants all integrated times
-        # 2nd line: scalar Quantities have __len__, but raise TypeError 
+        # 2nd line: scalar Quantities have __len__, but raise TypeError
         # for scalars
         t_exact_integration_times= hasattr(t,'__len__') \
-            and not (_APY_LOADED and isinstance(t,units.Quantity) 
+            and not (_APY_LOADED and isinstance(t,units.Quantity)
                      and t.isscalar) \
             and (len(t) == len(self.t)) \
             and numpy.all(t == self.t)
@@ -4546,10 +4552,10 @@ class Orbit:
                 and t in list(self.t):
             return numpy.array(self.orbit[:,list(self.t).index(t),:]).T
         else:
-            if isinstance(t,(int,float,numpy.number)): 
+            if isinstance(t,(int,float,numpy.number)):
                 nt= 1
                 t= numpy.atleast_1d(t)
-            else: 
+            else:
                 nt= len(t)
             if numpy.any(t > numpy.nanmax(self.t)) \
                     or numpy.any(t < numpy.nanmin(self.t)):
@@ -4745,7 +4751,7 @@ class Orbit:
         try:
             vars= numexpr.NumExpr(quant).input_names
         except TypeError as err:
-            raise TypeError('Parsing the expression {} failed, with error message:\n"{}"'.format(quant,err))
+            raise TypeError(f'Parsing the expression {quant} failed, with error message:\n"{err}"')
         # Construct dictionary of necessary parameters
         vars_dict= {}
         for var in vars:
@@ -4880,14 +4886,14 @@ class Orbit:
         kwargs.pop('quantity',None)
         auto_scale= not 'xrange' in kwargs and not 'yrange' in kwargs \
             and not kwargs.get('overplot',False)
-        labels= kwargs.pop('label',['Orbit {}'.format(ii+1) 
+        labels= kwargs.pop('label',[f'Orbit {ii+1}'
                                     for ii in range(self.size)])
         if self.size == 1 and isinstance(labels,str): labels= [labels]
         #Plot
         if not 'xlabel' in kwargs:
-            kwargs['xlabel']= labeldict.get(d1,r'${}$'.format(d1))
+            kwargs['xlabel']= labeldict.get(d1,fr'${d1}$')
         if not 'ylabel' in kwargs:
-            kwargs['ylabel']= labeldict.get(d2,r'${}$'.format(d2))
+            kwargs['ylabel']= labeldict.get(d2,fr'${d2}$')
         for ii,(tx,ty) in enumerate(zip(x,y)):
             kwargs['label']= labels[ii]
             line2d= plot.plot(tx,ty,*args,**kwargs)[0]
@@ -4940,7 +4946,7 @@ class Orbit:
 
            2017-11-28 - Allow arbitrary functions of time to be plotted - Bovy (UofT)
 
-           2019-04-13 - Adapated for multiple orbits - Bovy (UofT)
+           2019-04-13 - Adapted for multiple orbits - Bovy (UofT)
 
         """
         if (kwargs.get('use_physical',False) \
@@ -5019,11 +5025,11 @@ class Orbit:
             and not 'zrange' in kwargs and not kwargs.get('overplot',False)
         #Plot
         if not 'xlabel' in kwargs:
-            kwargs['xlabel']= labeldict.get(d1,r'${}$'.format(d1))
+            kwargs['xlabel']= labeldict.get(d1,fr'${d1}$')
         if not 'ylabel' in kwargs:
-            kwargs['ylabel']= labeldict.get(d2,r'${}$'.format(d2))
+            kwargs['ylabel']= labeldict.get(d2,fr'${d2}$')
         if not 'zlabel' in kwargs:
-            kwargs['zlabel']= labeldict.get(d3,r'${}$'.format(d3))
+            kwargs['zlabel']= labeldict.get(d3,fr'${d3}$')
         for tx,ty,tz in zip(x,y,z):
             line3d= plot.plot3d(tx,ty,tz,*args,**kwargs)[0]
             kwargs['overplot']= True
@@ -5212,12 +5218,12 @@ class Orbit:
         json_filename= kwargs.pop('json_filename',None)
         if json_filename is None:
             jd= json.dumps(jsonDict)
-            json_code= """  let data= JSON.parse('{jd}');""".format(jd=jd)
+            json_code= f"""  let data= JSON.parse('{jd}');"""
             close_json_code= ""
         else:
             with open(json_filename,'w') as jfile:
                 json.dump(jsonDict,jfile)
-            json_code= """Plotly.d3.json('{jfilename}',function(data){{""".format(jfilename=json_filename)
+            json_code= f"""Plotly.d3.json('{json_filename}',function(data){{"""
             close_json_code= "});"
         self.divid= 'galpy-'\
             +''.join(choice(ascii_lowercase) for i in range(24))
@@ -5280,7 +5286,7 @@ class Orbit:
         # First plot
         setup_trace1= """
     let trace1= {{
-      x: data.x1_0.slice(0,numPerFrame), 
+      x: data.x1_0.slice(0,numPerFrame),
       y: data.y1_0.slice(0,numPerFrame),
       mode: 'lines',
       line: {{
@@ -5291,7 +5297,7 @@ class Orbit:
     }};
 
     let trace2= {{
-      x: data.x1_0.slice(0,numPerFrame), 
+      x: data.x1_0.slice(0,numPerFrame),
       y: data.y1_0.slice(0,numPerFrame),
       mode: 'lines',
       line: {{
@@ -5303,9 +5309,9 @@ class Orbit:
 """.format(line_color=line_colors[0])
         traces_cumul= """trace1,trace2"""
         for ii in range(1,self.size):
-            setup_trace1+= """            
+            setup_trace1+= """
     let trace{trace_num_1}= {{
-      x: data.x1_{trace_indx}.slice(0,numPerFrame), 
+      x: data.x1_{trace_indx}.slice(0,numPerFrame),
       y: data.y1_{trace_indx}.slice(0,numPerFrame),
       mode: 'lines',
       line: {{
@@ -5316,7 +5322,7 @@ class Orbit:
     }};
 
     let trace{trace_num_2}= {{
-      x: data.x1_{trace_indx}.slice(0,numPerFrame), 
+      x: data.x1_{trace_indx}.slice(0,numPerFrame),
       y: data.y1_{trace_indx}.slice(0,numPerFrame),
       mode: 'lines',
       line: {{
@@ -5327,7 +5333,7 @@ class Orbit:
     }};
 """.format(trace_indx=str(ii),trace_num_1=str(2*ii+1),trace_num_2=str(2*ii+2),
            line_color=line_colors[ii])
-            traces_cumul+= """,trace{trace_num_1},trace{trace_num_2}""".format(trace_num_1=str(2*ii+1),trace_num_2=str(2*ii+2))
+            traces_cumul+= f""",trace{str(2*ii+1)},trace{str(2*ii+2)}"""
         x_data_list = """"""
         y_data_list = """"""
         trace_num_10_list = """"""
@@ -5338,8 +5344,8 @@ class Orbit:
                     divid=self.divid, trace_indx=str(ii))
                 y_data_list += """data.y{jj}_{trace_indx}.slice(trace_slice_begin,trace_slice_end), """.format(jj=jj+1,
                     divid=self.divid, trace_indx=str(ii))
-                trace_num_10_list += """{trace_num_10}, """.format(trace_num_10=str(2*jj*self.size + 2 * ii + 1 - 1))
-                trace_num_20_list += """{trace_num_20}, """.format(trace_num_20=str(2*jj*self.size + 2 * ii + 2 - 1))
+                trace_num_10_list += f"""{str(2*jj*self.size + 2 * ii + 1 - 1)}, """
+                trace_num_20_list += f"""{str(2*jj*self.size + 2 * ii + 2 - 1)}, """
         # Additional traces for additional plots
         if len(d1s) > 1:
             setup_trace2= """
@@ -5357,7 +5363,7 @@ class Orbit:
     }};
 
     let trace{trace_num_2}= {{
-      x: data.x2_0.slice(0,numPerFrame), 
+      x: data.x2_0.slice(0,numPerFrame),
       y: data.y2_0.slice(0,numPerFrame),
       xaxis: 'x2',
       yaxis: 'y2',
@@ -5370,7 +5376,7 @@ class Orbit:
     }};
 """.format(line_color=line_colors[0],trace_num_1=str(2*self.size+1),
            trace_num_2=str(2*self.size+2))
-            traces_cumul+= """,trace{trace_num_1},trace{trace_num_2}""".format(trace_num_1=str(2*self.size+1),trace_num_2=str(2*self.size+2))
+            traces_cumul+= f""",trace{str(2*self.size+1)},trace{str(2*self.size+2)}"""
             for ii in range(1,self.size):
                 setup_trace2+= """
     let trace{trace_num_1}= {{
@@ -5387,7 +5393,7 @@ class Orbit:
     }};
 
     let trace{trace_num_2}= {{
-      x: data.x2_{trace_indx}.slice(0,numPerFrame), 
+      x: data.x2_{trace_indx}.slice(0,numPerFrame),
       y: data.y2_{trace_indx}.slice(0,numPerFrame),
       xaxis: 'x2',
       yaxis: 'y2',
@@ -5401,7 +5407,7 @@ class Orbit:
 """.format(line_color=line_colors[ii],trace_indx=str(ii),
            trace_num_1=str(2*self.size+2*ii+1),
            trace_num_2=str(2*self.size+2*ii+2))
-                traces_cumul+= """,trace{trace_num_1},trace{trace_num_2}""".format(trace_num_1=str(2*self.size+2*ii+1),trace_num_2=str(2*self.size+2*ii+2))
+                traces_cumul+= f""",trace{str(2*self.size+2*ii+1)},trace{str(2*self.size+2*ii+2)}"""
         else: # else for "if there is a 2nd panel"
             setup_trace2= """
     let traces= [{traces_cumul}];
@@ -5422,7 +5428,7 @@ class Orbit:
     }};
 
     let trace{trace_num_2}= {{
-      x: data.x3_0.slice(0,numPerFrame), 
+      x: data.x3_0.slice(0,numPerFrame),
       y: data.y3_0.slice(0,numPerFrame),
       xaxis: 'x3',
       yaxis: 'y3',
@@ -5435,7 +5441,7 @@ class Orbit:
     }};
 """.format(line_color=line_colors[0],trace_num_1=str(4*self.size+1),
            trace_num_2=str(4*self.size+2))
-            traces_cumul+= """,trace{trace_num_1},trace{trace_num_2}""".format(trace_num_1=str(4*self.size+1),trace_num_2=str(4*self.size+2))
+            traces_cumul+= f""",trace{str(4*self.size+1)},trace{str(4*self.size+2)}"""
             for ii in range(1,self.size):
                 setup_trace3+= """
     let trace{trace_num_1}= {{
@@ -5452,7 +5458,7 @@ class Orbit:
     }};
 
     let trace{trace_num_2}= {{
-      x: data.x3_{trace_indx}.slice(0,numPerFrame), 
+      x: data.x3_{trace_indx}.slice(0,numPerFrame),
       y: data.y3_{trace_indx}.slice(0,numPerFrame),
       xaxis: 'x3',
       yaxis: 'y3',
@@ -5468,7 +5474,7 @@ class Orbit:
            trace_num_2=str(4*self.size+2*ii+2),
            trace_num_10=str(4*self.size+2*ii+1-1),
            trace_num_20=str(4*self.size+2*ii+2-1))
-                traces_cumul+= """,trace{trace_num_1},trace{trace_num_2}""".format(trace_num_1=str(4*self.size+2*ii+1),trace_num_2=str(4*self.size+2*ii+2))
+                traces_cumul+= f""",trace{str(4*self.size+2*ii+1)},trace{str(4*self.size+2*ii+2)}"""
             setup_trace3 += """
             let traces= [{traces_cumul}];
             """.format(traces_cumul=traces_cumul)
@@ -5532,7 +5538,7 @@ require.config({{
 require(['Plotly'], function (Plotly) {{
 {json_code}
   let layout = {layout};
-  let numPerFrame= 5;    
+  let numPerFrame= 5;
   let cnt= 1;
   let interval;
   let trace_slice_len;
@@ -5540,7 +5546,7 @@ require(['Plotly'], function (Plotly) {{
   let trace_slice_end;
 
   setup_trace();
-  
+
   $('.controlbutton button').click(function() {{
     let button_type= this.parentNode.id;
     if ( button_type === '{divid}-play' ) {{
@@ -5570,7 +5576,7 @@ require(['Plotly'], function (Plotly) {{
       interval= animate_trace();
     }}
   }});
-    
+
   function setup_trace() {{
     {setup_trace1}
 
@@ -5583,7 +5589,7 @@ require(['Plotly'], function (Plotly) {{
 
   function animate_trace() {{
     return setInterval(function() {{
-      // Make sure narrow and thick trace end in the same 
+      // Make sure narrow and thick trace end in the same
       // and the highlighted length has constant length
       trace_slice_len= Math.floor(numPerFrame);
       if ( trace_slice_len < 1) trace_slice_len= 1;
@@ -5611,7 +5617,7 @@ require(['Plotly'], function (Plotly) {{
                     setup_trace1=setup_trace1,setup_trace2=setup_trace2,
                     setup_trace3=setup_trace3, trace_num_list= [ii for ii in range(self.size * len(d1s))]))
 
-class _1DInterp: 
+class _1DInterp:
     """Class to simulate 2D interpolation when using a single orbit"""
     def __init__(self,t,y,k=3):
         self._ip= interpolate.InterpolatedUnivariateSpline(t,y,k=k)
@@ -5674,7 +5680,7 @@ def _from_name_oneobject(name,obs):
     except OSError: # pragma: no cover
         raise OSError('failed to connect to SIMBAD')
     if not simbad_table:
-        raise ValueError('failed to find {} in SIMBAD'.format(name))
+        raise ValueError(f'failed to find {name} in SIMBAD')
     # check that the necessary coordinates have been found
     missing= simbad_table.mask
     if (any(missing['RA_d', 'DEC_d', 'PMRA', 'PMDEC', 'RV_VALUE'][0]) or
@@ -5702,7 +5708,8 @@ def _fit_orbit(orb,vxvv,vxvv_err,pot,radec=False,lb=False,
     coords._APY_COORDS_ORIG= coords._APY_COORDS
     coords._APY_COORDS= False
     #Import here, because otherwise there is an infinite loop of imports
-    from ..actionAngle import actionAngleIsochroneApprox, actionAngle
+    from ..actionAngle import actionAngle, actionAngleIsochroneApprox
+
     #Mock this up, bc we want to use its orbit-integration routines
     class mockActionAngleIsochroneApprox(actionAngleIsochroneApprox):
         def __init__(self,tintJ,ntintJ,pot,integrate_method='dopr54_c'):
@@ -5797,7 +5804,7 @@ def _fit_orbit_mlogl(new_vxvv,vxvv,vxvv_err,pot,radec,lb,
     else:
         #shape=(2tintJ-1,6)
         orb_vxvv= numpy.array([iR.flatten(),ivR.flatten(),ivT.flatten(),
-                            iz.flatten(),ivz.flatten(),iphi.flatten()]).T 
+                            iz.flatten(),ivz.flatten(),iphi.flatten()]).T
     out= 0.
     for ii in range(vxvv.shape[0]):
         sub_vxvv= (orb_vxvv-vxvv[ii,:].flatten())**2.
@@ -5812,13 +5819,13 @@ def _fit_orbit_mlogl(new_vxvv,vxvv,vxvv_err,pot,radec,lb,
 def _check_roSet(orb,kwargs,funcName):
     """Function to check whether ro is set, because it's required for funcName"""
     if not orb._roSet and kwargs.get('ro',None) is None:
-        warnings.warn("Method {}(.) requires ro to be given at Orbit initialization or at method evaluation; using default ro which is {:f} kpc".format(funcName,orb._ro),
+        warnings.warn(f"Method {funcName}(.) requires ro to be given at Orbit initialization or at method evaluation; using default ro which is {orb._ro:f} kpc",
                       galpyWarning)
 
 def _check_voSet(orb,kwargs,funcName):
     """Function to check whether vo is set, because it's required for funcName"""
     if not orb._voSet and kwargs.get('vo',None) is None:
-        warnings.warn("Method {}(.) requires vo to be given at Orbit initialization or at method evaluation; using default vo which is {:f} km/s".format(funcName,orb._vo),
+        warnings.warn(f"Method {funcName}(.) requires vo to be given at Orbit initialization or at method evaluation; using default vo which is {orb._vo:f} km/s",
                       galpyWarning)
 
 def _helioXYZ(orb,thiso,*args,**kwargs):
@@ -6048,6 +6055,7 @@ def _check_integrate_dt(t,dt):
 
 def _check_potential_dim(orb,pot):
     from ..potential import _dim
+
     # Don't deal with pot=None here, just dimensionality
     assert pot is None or orb.dim() <= _dim(pot), 'Orbit dimensionality is %i, but potential dimensionality is %i < %i; orbit needs to be of equal or lower dimensionality as the potential; you can reduce the dimensionality---if appropriate---of your orbit with orbit.toPlanar or orbit.toVertical' % (orb.dim(),_dim(pot),orb.dim())
     assert pot is None or not (orb.dim() == 1 and _dim(pot) != 1), 'Orbit dimensionality is 1, but potential dimensionality is %i != 1; 1D orbits can only be integrated in 1D potentials; you convert your potential to a 1D potential---if appropriate---using potential.toVerticalPotential' % (_dim(pot))

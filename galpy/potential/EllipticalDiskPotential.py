@@ -1,13 +1,15 @@
 ###############################################################################
-#   EllipticalDiskPotential: Kuijken & Tremaine (1994)'s elliptical disk 
+#   EllipticalDiskPotential: Kuijken & Tremaine (1994)'s elliptical disk
 #   potential
 ###############################################################################
 import numpy
+
 from ..util import conversion
 from .planarPotential import planarPotential
+
 _degtorad= numpy.pi/180.
 class EllipticalDiskPotential(planarPotential):
-    """Class that implements the Elliptical disk potential of Kuijken & Tremaine (1994) 
+    """Class that implements the Elliptical disk potential of Kuijken & Tremaine (1994)
 
     .. math::
 
@@ -45,11 +47,11 @@ class EllipticalDiskPotential(planarPotential):
            r1= (1.) normalization radius for the amplitude (can be Quantity)
 
            Either:
-           
+
               a) phib= angle (in rad; default=25 degree; or can be Quantity)
 
                  twophio= potential perturbation (in terms of 2phio/vo^2 if vo=1 at Ro=1; can be Quantity with units of velocity-squared)
-                 
+
               b) cp, sp= twophio * cos(2phib), twophio * sin(2phib) (can be Quantity with units of velocity-squared)
 
         OUTPUT:
@@ -119,7 +121,7 @@ class EllipticalDiskPotential(planarPotential):
             smooth= 1.
         return smooth*self._twophio/2.*R**self._p\
             *numpy.cos(2.*(phi-self._phib))
-        
+
     def _Rforce(self,R,phi=0.,t=0.):
         """
         NAME:
@@ -149,7 +151,7 @@ class EllipticalDiskPotential(planarPotential):
             smooth= 1.
         return -smooth*self._p*self._twophio/2.*R**(self._p-1.)\
             *numpy.cos(2.*(phi-self._phib))
-        
+
     def _phitorque(self,R,phi=0.,t=0.):
         """
         NAME:
@@ -194,7 +196,7 @@ class EllipticalDiskPotential(planarPotential):
             smooth= 1.
         return smooth*self._p*(self._p-1.)/2.*self._twophio*R**(self._p-2.)\
             *numpy.cos(2.*(phi-self._phib))
-        
+
     def _phi2deriv(self,R,phi=0.,t=0.):
         #Calculate relevant time
         if not self._tform is None:

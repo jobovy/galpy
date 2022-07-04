@@ -1,9 +1,11 @@
 # Class that implements isotropic spherical Hernquist DF
 # computed using the Eddington formula
 import numpy
+
+from ..potential import HernquistPotential, evaluatePotentials
 from ..util import conversion
-from ..potential import evaluatePotentials,HernquistPotential
 from .sphericaldf import isotropicsphericaldf
+
 
 class isotropicHernquistdf(isotropicsphericaldf):
     """Class that implements isotropic spherical Hernquist DF computed using the Eddington formula"""
@@ -25,7 +27,7 @@ class isotropicHernquistdf(isotropicsphericaldf):
            ro=, vo= galpy unit parameters
 
         OUTPUT:
-        
+
             None
 
         HISTORY:
@@ -80,6 +82,6 @@ class isotropicHernquistdf(isotropicsphericaldf):
         return fE
 
     def _icmf(self,ms):
-        '''Analytic expression for the normalized inverse cumulative mass 
+        '''Analytic expression for the normalized inverse cumulative mass
         function. The argument ms is normalized mass fraction [0,1]'''
         return self._pot.a*numpy.sqrt(ms)/(1-numpy.sqrt(ms))

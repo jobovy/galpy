@@ -125,7 +125,7 @@ jobs:
             REQUIRES_ASTROPY: false
             REQUIRES_ASTROQUERY: false
             REQUIRES_NUMBA: false
-            REQUIRES_JAX: false    
+            REQUIRES_JAX: false
           - os: windows-latest
             python-version: 3.9
             TEST_FILES: tests/test_orbit.py -k test_energy_jacobi_conservation
@@ -141,10 +141,10 @@ jobs:
             REQUIRES_ASTROPY: true
             REQUIRES_ASTROQUERY: true
             REQUIRES_NUMBA: false
-            REQUIRES_JAX: false            
+            REQUIRES_JAX: false
     steps:
     - uses: actions/checkout@v3
-    # Windows installation: Install Micromamba, as specificed by this repository's environment.yml for Windows
+    # Windows installation: Install Micromamba, as specified by this repository's environment.yml for Windows
     # Cache both conda and pip, conda done by provision-with-micromamba
     - uses: actions/cache@v3
       with:

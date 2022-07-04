@@ -2,9 +2,12 @@
 #   KingPotential.py: Potential of a King profile
 ###############################################################################
 import numpy
+
 from ..util import conversion
 from .Force import Force
 from .interpSphericalPotential import interpSphericalPotential
+
+
 class KingPotential(interpSphericalPotential):
     """KingPotential.py: Potential of a King profile, defined from the distribution function
 

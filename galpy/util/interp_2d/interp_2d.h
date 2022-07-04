@@ -26,7 +26,7 @@ typedef struct
     double * xa;
     double * ya;
     double * za;
-    int type;        
+    int type;
 }interp_2d;
 
 interp_2d * interp_2d_alloc(int size1, int size2);
@@ -42,4 +42,3 @@ double interp_2d_eval_cubic_bspline(interp_2d * i2d, double x, double y, gsl_int
 }
 #endif
 #endif
-

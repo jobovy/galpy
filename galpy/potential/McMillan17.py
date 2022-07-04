@@ -1,12 +1,11 @@
 # McMillan (2017) potential as first implemented in the galpy framework by
 # Mackereth & Bovy (2018)
 import numpy
-from ..potential import NFWPotential
-from ..potential import DiskSCFPotential
-from ..potential import SCFPotential
-from ..potential import scf_compute_coeffs_axi
-from ..potential import mwpot_helpers
+
+from ..potential import (DiskSCFPotential, NFWPotential, SCFPotential,
+                         mwpot_helpers, scf_compute_coeffs_axi)
 from ..util import conversion
+
 # Suppress the numpy floating-point warnings that this code generates...
 old_error_settings= numpy.seterr(all='ignore')
 # Unit normalizations
@@ -52,7 +51,7 @@ def bulge_dens(R,z):
     return mwpot_helpers.core_pow_dens_with_cut(R,z,1.8,r0_bulge,rcut,
                                                 rho0_bulge,0.5)
 
-#dicts used in DiskSCFPotential 
+#dicts used in DiskSCFPotential
 sigmadict = [{'type':'exp','h':Rd_HI,'amp':Sigma0_HI, 'Rhole':Rm_HI},
              {'type':'exp','h':Rd_H2,'amp':Sigma0_H2, 'Rhole':Rm_H2},
              {'type':'exp','h':Rd_thin,'amp':Sigma0_thin},

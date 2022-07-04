@@ -262,9 +262,9 @@ void compute_P(double x, int L, int M, double * P_array)
             }
         #endif
     }
-    
-      
-    
+
+
+
 }
 
 //Computes the associated Legendre polynomials and its derivative
@@ -275,7 +275,7 @@ void compute_P_dP(double x, int L, int M, double * P_array, double *dP_array)
     } else {
         #if GSL_MAJOR_VERSION == 2
             gsl_sf_legendre_deriv_array_e(GSL_SF_LEGENDRE_NONE, L - 1, x, -1,P_array, dP_array);
-        
+
         #else
             int m;
             for (m = 0; m < M; m++)
@@ -379,7 +379,7 @@ void computeNonAxi(double a, int N, int L, int M,
             #else
                 Pindex = v1counter + l;
             #endif
-            
+
             double mCos = cos(m*phi);
             double mSin = sin(m*phi);
             for (n = 0; n < N; n++)
@@ -396,17 +396,17 @@ void computeNonAxi(double a, int N, int L, int M,
 
 
             }
-            
-           
-            
-                v2counter++; 
-                v1counter+=M-m - 1;  
-                
+
+
+
+                v2counter++;
+                v1counter+=M-m - 1;
+
         }
-        
-        
-            
-        
+
+
+
+
     }
     //Multiply F by constants
     for (i = 0; i < eq_size; i++)
@@ -477,15 +477,15 @@ void computeForce(double R,double Z, double phi,
 //Compute Associated Legendre Polynomials
     int M_eff = M;
     int size = 0;
-    
+
     if (isNonAxi==0)
     {
     M_eff = 1;
-    size = L;    
+    size = L;
     } else{
     size = L*L - L*(L-1)/2;
     }
-    
+
     double *P= (double *) malloc ( size * sizeof(double) );
     double *dP= (double *) malloc ( size * sizeof(double) );
     compute_P_dP(cos(theta), L, M_eff, P, dP);
@@ -594,11 +594,11 @@ void computeDeriv(double R,double Z, double phi,
 //Compute Associated Legendre Polynomials
     int M_eff = M;
     int size = 0;
-    
+
     if (isNonAxi==0)
     {
     M_eff = 1;
-    size = L;    
+    size = L;
     } else{
     size = L*L - L*(L-1)/2;
     }
@@ -683,15 +683,15 @@ double SCFPotentialEval(double R,double Z, double phi,
 
     int M_eff = M;
     int size = 0;
-    
+
     if (isNonAxi==0)
     {
     M_eff = 1;
-    size = L;    
+    size = L;
     } else{ // LCOV_EXCL_START
     size = L*L - L*(L-1)/2;
     } // LCOV_EXCL_STOP
-    
+
     double *P= (double *) malloc ( size * sizeof(double) );
 
     compute_P(cos(theta), L,M_eff, P);
@@ -868,13 +868,13 @@ double SCFPotentialDens(double R,double Z, double phi,
     //Compute Associated Legendre Polynomials
     int M_eff = M;
     int size = 0;
-    
+
     if (isNonAxi==0) {
       M_eff = 1;
       size = L;
     } else
       size = L*L - L*(L-1)/2;
-    
+
     double *P= (double *) malloc ( size * sizeof(double) );
 
     compute_P(cos(theta), L,M_eff, P);
@@ -907,4 +907,3 @@ double SCFPotentialDens(double R,double Z, double phi,
     return density / 2. / M_PI;
 
 }
-

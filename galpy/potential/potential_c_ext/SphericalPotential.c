@@ -51,10 +51,10 @@ double SphericalPotentialDens(double R,double z,double phi,double t,
   double amp= *args;
   //Calculate density through the Poisson equation
   double r= sqrt(R*R+z*z);
-  /* 
+  /*
      Uncomment next few commented-out lines if you ever want to automatically
      use the Poisson equation to calculate the density rather than
-     implement rdens 
+     implement rdens
   */
   //  if ( potentialArgs->rdens )
   return amp * potentialArgs->rdens(r,t,potentialArgs);

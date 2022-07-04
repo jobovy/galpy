@@ -83,4 +83,3 @@ double MiyamotoNagaiPotentialDens(double R,double z, double phi,
       * ( a * R * R + ( a + 3. * sqrtbz ) * asqrtbz )	\
       * pow ( R * R + asqrtbz,-2.5 ) * pow ( sqrtbz,-3.);
 }
-

@@ -1,13 +1,16 @@
 ###############################################################################
-#   MiyamotoNagaiPotential.py: class that implements the Miyamoto-Nagai 
+#   MiyamotoNagaiPotential.py: class that implements the Miyamoto-Nagai
 #                              potential
 #                                                           GM
 #                              phi(R,z) = -  ---------------------------------
 #                                             \sqrt(R^2+(a+\sqrt(z^2+b^2))^2)
 ###############################################################################
 import numpy
+
 from ..util import conversion
 from .Potential import Potential, kms_to_kpcGyrDecorator
+
+
 class MiyamotoNagaiPotential(Potential):
     """Class that implements the Miyamoto-Nagai potential
 
@@ -191,7 +194,7 @@ class MiyamotoNagaiPotential(Potential):
         if isinstance(R,float) and sqrtbz == asqrtbz:
             return (self._b2+R**2.-2.*z**2.)*(self._b2+R**2.+z**2.)**-2.5
         else:
-            return ((self._a**3.*self._b2 + 
+            return ((self._a**3.*self._b2 +
                      self._a**2.*(3.*self._b2 - 2.* z**2.)
                      *numpy.sqrt(self._b2 + z**2.)
                      + (self._b2 + R**2. - 2.*z**2.)*(self._b2 + z**2.)**1.5
@@ -249,4 +252,4 @@ class MiyamotoNagaiPotential(Potential):
 
         """
         ampl= self._amp*vo**2.*ro
-        return "0,{},{},{}".format(ampl,self._a*ro,self._b*ro)
+        return f"0,{ampl},{self._a*ro},{self._b*ro}"

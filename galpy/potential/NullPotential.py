@@ -2,6 +2,8 @@
 #   NullPotential.py: class that implements a constant potential
 ###############################################################################
 from .Potential import Potential
+
+
 class NullPotential(Potential):
     """Class that implements a constant potential with, thus, zero forces. Can be used, for example, for integrating orbits in the absence of forces or for adjusting the value of the total gravitational potential, say, at infinity"""
     normalize= property() # turn off normalize
@@ -53,7 +55,7 @@ class NullPotential(Potential):
            2022-03-18 - Written - Bovy (UofT)
         """
         return 1.
-     
+
     def _Rforce(self,R,z,phi=0.,t=0.):
         """
         NAME:
@@ -107,7 +109,7 @@ class NullPotential(Potential):
            2022-03-18 - Written - Bovy (UofT)
         """
         return 0.
-     
+
     def _R2deriv(self,R,z,phi=0.,t=0.):
         """
         NAME:

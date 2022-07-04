@@ -9,8 +9,11 @@
 #
 ###############################################################################
 import numpy
+
 from ..util import conversion
 from .EllipsoidalPotential import EllipsoidalPotential
+
+
 class PowerTriaxialPotential(EllipsoidalPotential):
     """Class that implements triaxial potentials that are derived from power-law density models (including an elliptical power law)
 

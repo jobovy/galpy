@@ -29,7 +29,7 @@ Plotting
 In addition to these methods, any calculable attribute listed below
 can be plotted versus other attributes using ``plotATTR``, where
 ``ATTR`` is an attribute like ``R``, ``ll``, etc. In this case, the y
-axis will have ``ATTR`` and the overrideable x axis default is
+axis will have ``ATTR`` and the overridable x axis default is
 time. For example, ``o.plotR()`` will plot the orbit's R vs time.
 
 

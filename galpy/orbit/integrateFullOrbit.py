@@ -1,20 +1,21 @@
-import warnings
 import ctypes
 import ctypes.util
-from numpy.ctypeslib import ndpointer
+import warnings
+
 import numpy
+from numpy.ctypeslib import ndpointer
 from scipy import integrate
+
 from .. import potential
-from ..util import galpyWarning
-from ..potential.Potential import _evaluateRforces, _evaluatezforces,\
-    _evaluatephitorques
-from .integratePlanarOrbit import (_parse_integrator, _parse_tol,
-                                   _parse_scf_pot, _prep_tfuncs)
-from ..util.multi import parallel_map
-from ..util.leung_dop853 import dop853
-from ..util import symplecticode
-from ..util import _load_extension_libs
+from ..potential.Potential import (_evaluatephitorques, _evaluateRforces,
+                                   _evaluatezforces)
+from ..util import _load_extension_libs, galpyWarning, symplecticode
 from ..util._optional_deps import _TQDM_LOADED
+from ..util.leung_dop853 import dop853
+from ..util.multi import parallel_map
+from .integratePlanarOrbit import (_parse_integrator, _parse_scf_pot,
+                                   _parse_tol, _prep_tfuncs)
+
 if _TQDM_LOADED:
     import tqdm
 
@@ -26,7 +27,7 @@ def _parse_pot(pot,potforactions=False,potfortorus=False):
     if not isinstance(pot,list):
         pot= [pot]
     if (potforactions or potfortorus) \
-        and ( (len(pot) == 1 and isinstance(pot[0],potential.NullPotential)) 
+        and ( (len(pot) == 1 and isinstance(pot[0],potential.NullPotential))
              or numpy.all([isinstance(p,potential.NullPotential) for p in pot]) ):
         raise NotImplementedError("Evaluating actions using the C backend is not supported for NullPotential instances")
     # Remove NullPotentials from list of Potentials containing other potentials
@@ -358,7 +359,7 @@ def _parse_pot(pot,potforactions=False,potfortorus=False):
             pot_args.extend(list(p._rot.flatten()))
             pot_args.append(not p._norot)
             pot_args.append(not p._offset is None)
-            pot_args.extend(list(p._offset) if not p._offset is None else [0.,0.,0.])  
+            pot_args.extend(list(p._offset) if not p._offset is None else [0.,0.,0.])
         elif isinstance(p,potential.TimeDependentAmplitudeWrapperPotential):
             pot_type.append(-9)
             # Not sure how to easily avoid this duplication
@@ -415,7 +416,7 @@ def integrateFullOrbit_c(pot,yo,t,int_method,rtol=None,atol=None,
     #Set up result array
     result= numpy.empty((nobj,len(t),6))
     err= numpy.zeros(nobj,dtype=numpy.int32)
-    
+
     #Set up progressbar
     progressbar*= _TQDM_LOADED
     if nobj > 1 and progressbar:
@@ -468,7 +469,7 @@ def integrateFullOrbit_c(pot,yo,t,int_method,rtol=None,atol=None,
                     err,
                     ctypes.c_int(int_method_c),
                     pbar_c)
-    
+
     if nobj > 1 and progressbar:
         pbar.close()
 

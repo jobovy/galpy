@@ -10,13 +10,17 @@
 #
 ###############################################################################
 import copy
+
 import numpy
 from scipy import integrate
-from ..potential import epifreq, omegac, _dim
+
+from ..potential import _dim, epifreq, omegac
 from ..potential.Potential import _evaluatePotentials
 from ..potential.Potential import flatten as flatten_potential
 from .actionAngle import actionAngle
 from .actionAngleAxi import actionAngleAxi, potentialAxi
+
+
 class actionAngleSpherical(actionAngle):
     """Action-angle formalism for spherical potentials"""
     def __init__(self,*args,**kwargs):
@@ -211,7 +215,7 @@ class actionAngleSpherical(actionAngle):
             Oz= copy.copy(Op)
             Op[vT < 0.]*= -1.
             return (numpy.array(Jr),Jphi,Jz,numpy.array(Or),Op,Oz)
-    
+
     def _actionsFreqsAngles(self,*args,**kwargs):
         """
         NAME:
@@ -313,7 +317,7 @@ class actionAngleSpherical(actionAngle):
             az= az % (2.*numpy.pi)
             return (numpy.array(Jr),Jphi,Jz,numpy.array(Or),Op,Oz,
                     ar,ap,az)
-    
+
     def _EccZmaxRperiRap(self,*args,**kwargs):
         """
         NAME:
@@ -447,14 +451,14 @@ class actionAngleSpherical(actionAngle):
         pindx= (sinu > 1.)*numpy.isfinite(sinu)
         sinu[pindx]= 1.
         pindx= (sinu < -1.)*numpy.isfinite(sinu)
-        sinu[pindx]= -1.           
+        sinu[pindx]= -1.
         u= numpy.arcsin(sinu)
         vzindx= axivz > 0.
         u[vzindx]= numpy.pi-u[vzindx]
         # For non-inclined orbits, we set Omega=0 by convention
-        u[True^numpy.isfinite(u)]= phi[True^numpy.isfinite(u)]        
+        u[True^numpy.isfinite(u)]= phi[True^numpy.isfinite(u)]
         return phi-u
-    
+
     def _calc_angler(self,Or,r,Rmean,rperi,rap,E,L,vr,fixed_quad,**kwargs):
         if r < Rmean:
             if r > rperi and not fixed_quad:
@@ -488,7 +492,7 @@ class actionAngleSpherical(actionAngle):
             else:
                 wr= numpy.pi-wr
         return wr
-        
+
     def _calc_anglez(self,Or,Op,ar,z,r,Rmean,rperi,rap,E,L,Lz,vr,axivz,phi,
                      fixed_quad,**kwargs):
         #First calculate psi

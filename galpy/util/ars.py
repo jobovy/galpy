@@ -2,15 +2,15 @@
 #Copyright (c) 2011, Jo Bovy
 #All rights reserved.
 #
-#Redistribution and use in source and binary forms, with or without 
+#Redistribution and use in source and binary forms, with or without
 #modification, are permitted provided that the following conditions are met:
 #
-#   Redistributions of source code must retain the above copyright notice, 
+#   Redistributions of source code must retain the above copyright notice,
 #      this list of conditions and the following disclaimer.
-#   Redistributions in binary form must reproduce the above copyright notice, 
-#      this list of conditions and the following disclaimer in the 
+#   Redistributions in binary form must reproduce the above copyright notice,
+#      this list of conditions and the following disclaimer in the
 #      documentation and/or other materials provided with the distribution.
-#   The name of the author may not be used to endorse or promote products 
+#   The name of the author may not be used to endorse or promote products
 #      derived from this software without specific prior written permission.
 #
 #THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
@@ -57,7 +57,7 @@ def ars(domain,isDomainFinite,abcissae,hx,hpx,nsamples=1,
        hxparams        - (optional) a tuple of parameters for h(x) and h'(x)
 
        maxn            - (optional) maximum number of updates to the hull (default=100)
-                         
+
     Output:
 
        list with nsamples of samples from exp(h(x))
@@ -169,7 +169,7 @@ def sampleone(hull,hx,hpx,domain,isDomainFinite,maxn,nupdates,hxparams):
        domain          - [.,.] upper and lower limit to the domain
        isDomainFinite  - [.,.] is there a lower/upper limit to the domain?
        maxn            - maximum number of updates to the hull
-       nupdates        - number of updates to the hull that have occured
+       nupdates        - number of updates to the hull that have occurred
        hxparams        - tuple of parameters for h(x) and h'(x)
 
     Output:
@@ -289,7 +289,7 @@ def evaluate_hull(x,hull):
         else:
             hlx= ((hull[1][indx+2]-x)*hull[2][indx+1]+(x-hull[1][indx+1])*hull[2][indx+2])/(hull[1][indx+2]-hull[1][indx+1])
     return hux, hlx
-    
+
 def update_hull(hull,newx,newhx,newhpx,domain,isDomainFinite):
     """update_hull: update the hull with a new function evaluation
 
@@ -374,4 +374,3 @@ def update_hull(hull,newx,newhx,newhpx,domain,isDomainFinite):
     newhull.append(newscum)
     newhull.append(newhus)
     return newhull
-

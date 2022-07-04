@@ -1,14 +1,16 @@
 # Class that implements isotropic spherical Plummer DF
 import numpy
-from ..util import conversion
+
 from ..potential import PlummerPotential
+from ..util import conversion
 from .sphericaldf import isotropicsphericaldf
+
 
 class isotropicPlummerdf(isotropicsphericaldf):
     """Class that implements isotropic spherical Plummer DF:
 
     .. math::
-    
+
         f(E) = {24\\sqrt{2} \\over 7\\pi^3}\\,{b^2\\over (GM)^5}\\,(-E)^{7/2}
 
     for :math:`-GM/b \\leq E \\leq 0` and zero otherwise. The parameter :math:`GM` is the total mass and :math:`b` the Plummer profile's scale parameter.
@@ -30,7 +32,7 @@ class isotropicPlummerdf(isotropicsphericaldf):
            ro=, vo= galpy unit parameters
 
         OUTPUT:
-        
+
             None
 
         HISTORY:
@@ -73,6 +75,6 @@ class isotropicPlummerdf(isotropicsphericaldf):
         return out
 
     def _icmf(self,ms):
-        '''Analytic expression for the normalized inverse cumulative mass 
+        '''Analytic expression for the normalized inverse cumulative mass
         function. The argument ms is normalized mass fraction [0,1]'''
         return self._pot._b/numpy.sqrt(ms**(-2./3.)-1.)

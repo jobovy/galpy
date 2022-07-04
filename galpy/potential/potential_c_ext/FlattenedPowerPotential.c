@@ -13,7 +13,7 @@ double FlattenedPowerPotentialEval(double R,double Z, double phi,
   double core2= *(args+3);
   double m2;
   //Calculate potential
-  if ( alpha == 0. ) 
+  if ( alpha == 0. )
     return 0.5 * amp * log(R*R+Z*Z/q2+core2);
   else {
     m2= core2+R*R+Z*Z/q2;
@@ -31,7 +31,7 @@ double FlattenedPowerPotentialRforce(double R,double Z, double phi,
   double core2= *(args+3);
   double m2;
   //Calculate potential
-  if ( alpha == 0. ) 
+  if ( alpha == 0. )
     return - amp * R/(R*R+Z*Z/q2+core2);
   else {
     m2= core2+R*R+Z*Z/q2;
@@ -48,7 +48,7 @@ double FlattenedPowerPotentialPlanarRforce(double R,double phi,
   double core2= *(args+2);
   double m2;
   //Calculate potential
-  if ( alpha == 0. ) 
+  if ( alpha == 0. )
     return - amp * R/(R*R+core2);
   else {
     m2= core2+R*R;
@@ -66,7 +66,7 @@ double FlattenedPowerPotentialzforce(double R,double Z, double phi,
   double core2= *(args+3);
   double m2;
   //Calculate potential
-  if ( alpha == 0. ) 
+  if ( alpha == 0. )
     return -amp * Z/q2/(R*R+Z*Z/q2+core2);
   else {
     m2= core2+R*R+Z*Z/q2;
@@ -83,7 +83,7 @@ double FlattenedPowerPotentialPlanarR2deriv(double R,double phi,
   double core2= *(args+2);
   double m2;
   //Calculate potential
-  if ( alpha == 0. ) 
+  if ( alpha == 0. )
     return amp * (1.- 2.*R*R/(R*R+core2))/(R*R+core2);
   else {
     m2= core2+R*R;
@@ -100,7 +100,7 @@ double FlattenedPowerPotentialDens(double R,double Z, double phi,
   double q2= *(args+2);
   double core2= *(args+3);
   //Calculate density
-  if ( alpha == 0. ) 
+  if ( alpha == 0. )
     return amp * M_1_PI / 4. / q2 * ( ( 2. * q2 + 1. ) * core2 + R * R 	\
 				      + ( 2. - 1. / q2 ) * Z *  Z )	\
       * pow ( R *  R + Z * Z / q2 + core2 ,-2.);

@@ -72,4 +72,3 @@ the following methods:
 
    hessianFreqs <aathessianfreqs.rst>
    xvJacobianFreqs <aatxvjacobianfreqs.rst>
-

@@ -1,11 +1,13 @@
 # Class that implements isotropic spherical DFs computed using the Eddington
 # formula
 import numpy
-from scipy import interpolate, integrate
-from ..util import conversion
+from scipy import integrate, interpolate
+
 from ..potential import evaluateR2derivs
 from ..potential.Potential import _evaluatePotentials, _evaluateRforces
+from ..util import conversion
 from .sphericaldf import isotropicsphericaldf, sphericaldf
+
 
 class eddingtondf(isotropicsphericaldf):
     """Class that implements isotropic spherical DFs computed using the Eddington formula
@@ -39,7 +41,7 @@ class eddingtondf(isotropicsphericaldf):
            ro=, vo= galpy unit parameters
 
         OUTPUT:
-        
+
             None
 
         HISTORY:
@@ -64,7 +66,7 @@ class eddingtondf(isotropicsphericaldf):
         self._rphi= interpolate.InterpolatedUnivariateSpline(\
                         [_evaluatePotentials(self._pot,r*self._scale,0)
                          for r in r_a_values],r_a_values*self._scale,k=3)
-        
+
     def sample(self,R=None,z=None,phi=None,n=1,return_orbit=True,rmin=0.):
         # Slight over-write of superclass method to first build f(E) interp
         # No docstring so superclass' is used
@@ -119,7 +121,7 @@ class eddingtondf(isotropicsphericaldf):
                                           self._dnudr,self._d2nudr2),
             0.,0.5/self._rphi(tE))[0] for tE in Eint[indx]])
         return -out/(numpy.sqrt(8.)*numpy.pi**2.)
-  
+
 def _fEintegrand_raw(r,pot,E,dnudr,d2nudr2):
     # The 'raw', i.e., direct integrand in the Eddington inversion
     Fr= _evaluateRforces(pot,r,0)
@@ -135,4 +137,3 @@ def _fEintegrand_smallr(t,pot,E,dnudr,d2nudr2,rmin):
 def _fEintegrand_larger(t,pot,E,dnudr,d2nudr2):
     # The integrand at large r, using transformation to deal with infinity
     return 1./t**2*_fEintegrand_raw(1./t,pot,E,dnudr,d2nudr2)
-

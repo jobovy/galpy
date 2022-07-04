@@ -3,15 +3,17 @@
 #   of a potential
 ###############################################################################
 import numpy
-from .Potential import check_potential_inputs_not_arrays, \
-    _evaluatePotentials, _evaluateRforces, _evaluatezforces, \
-    _evaluatephitorques, evaluateDensities, evaluateR2derivs, \
-    evaluatez2derivs, evaluatephi2derivs, evaluateRzderivs, \
-    evaluateRphiderivs, evaluatephizderivs
+
+from ..util import _rotate_to_arbitrary_vector, conversion, coords
+from .Potential import (_evaluatephitorques, _evaluatePotentials,
+                        _evaluateRforces, _evaluatezforces,
+                        check_potential_inputs_not_arrays, evaluateDensities,
+                        evaluatephi2derivs, evaluatephizderivs,
+                        evaluateR2derivs, evaluateRphiderivs, evaluateRzderivs,
+                        evaluatez2derivs)
 from .WrapperPotential import WrapperPotential
-from ..util import conversion
-from ..util import _rotate_to_arbitrary_vector
-from ..util import coords
+
+
 # Only implement 3D wrapper
 class RotateAndTiltWrapperPotential(WrapperPotential):
     """Potential wrapper that allows a potential to be rotated in 3D
@@ -43,7 +45,7 @@ A final `offset` option allows one to apply a static offset in Cartesian coordin
            pot= Potential instance or list thereof for the potential to rotate and tilt
 
            Orientation angles as
-        
+
               galaxy_pa= rotation angle of the original potential around the original z axis (can be a Quantity)
 
            and either
@@ -103,7 +105,7 @@ A final `offset` option allows one to apply a static offset in Cartesian coordin
                                              zvec,inv=False)[0]
         pa= numpy.dot(int_rot,numpy.dot(zvec_rot,[1.,0.,0.]))
         return (zvec,galaxy_pa+numpy.arctan2(pa[1],pa[0]))
-        
+
     def _setup_zvec_pa(self,zvec,pa):
         if not pa is None:
             pa_rot= numpy.array([[numpy.cos(pa),numpy.sin(pa),0.],
@@ -230,7 +232,7 @@ A final `offset` option allows one to apply a static offset in Cartesian coordin
         xforcep= numpy.cos(phip)*Rforcep-numpy.sin(phip)*phitorquep/Rp
         yforcep= numpy.sin(phip)*Rforcep+numpy.cos(phip)*phitorquep/Rp
         return numpy.dot(self._inv_rot,
-                         numpy.array([xforcep,yforcep,zforcep]))   
+                         numpy.array([xforcep,yforcep,zforcep]))
 
     @check_potential_inputs_not_arrays
     def _R2deriv(self,R,z,phi=0.,t=0.):
@@ -428,5 +430,3 @@ A final `offset` option allows one to apply a static offset in Cartesian coordin
         Rp,phip,zp = coords.rect_to_cyl(xyzp[0],xyzp[1],xyzp[2])
         return evaluateDensities(self._pot,Rp,zp,phi=phip,t=t,
                                  use_physical=False)
-
-   

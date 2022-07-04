@@ -12,8 +12,11 @@
 #
 ###############################################################################
 import numpy
-from .actionAngle import actionAngle
+
 from ..util import conversion
+from .actionAngle import actionAngle
+
+
 class actionAngleHarmonic(actionAngle):
     """Action-angle formalism for the one-dimensional harmonic oscillator"""
     def __init__(self,*args,**kwargs):
@@ -35,7 +38,7 @@ class actionAngleHarmonic(actionAngle):
            vo= circular velocity at ro (km/s; can be Quantity)
 
         OUTPUT:
-        
+
            instance
 
         HISTORY:
@@ -50,7 +53,7 @@ class actionAngleHarmonic(actionAngle):
         self._omega= conversion.parse_frequency(kwargs.get('omega'),
                                                 ro=self._ro,vo=self._vo)
         return None
-    
+
     def _evaluate(self,*args,**kwargs):
         """
         NAME:

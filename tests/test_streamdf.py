@@ -1,19 +1,22 @@
 import platform
+
 WIN32= platform.system() == 'Windows'
-import pytest
 import numpy
-from scipy import interpolate, integrate
+import pytest
+from scipy import integrate, interpolate
+
 from galpy.util import coords
+
 sdf_bovy14= None #so we can set this up and then use in other tests
 sdft_bovy14= None #so we can set this up and then use in other tests, trailing
 
 def test_progenitor_coordtransformparams():
     #Test related to #189: test that the streamdf setup throws a warning when the given coordinate transformation parameters differ from those of the given progenitor orbit
+    from galpy.actionAngle import actionAngleIsochroneApprox
     from galpy.df import streamdf
     from galpy.orbit import Orbit
     from galpy.potential import LogarithmicHaloPotential
-    from galpy.actionAngle import actionAngleIsochroneApprox
-    from galpy.util import conversion #for unit conversions
+    from galpy.util import conversion  # for unit conversions
     from galpy.util import galpyWarning
     lp= LogarithmicHaloPotential(normalize=1.,q=0.9)
     #odeint to make sure that the C integration warning isn't thrown
@@ -106,11 +109,11 @@ def test_progenitor_coordtransformparams():
 # sanity checked
 def test_bovy14_setup():
     #Imports
+    from galpy.actionAngle import actionAngleIsochroneApprox
     from galpy.df import streamdf
     from galpy.orbit import Orbit
     from galpy.potential import LogarithmicHaloPotential
-    from galpy.actionAngle import actionAngleIsochroneApprox
-    from galpy.util import conversion #for unit conversions
+    from galpy.util import conversion  # for unit conversions
     lp= LogarithmicHaloPotential(normalize=1.,q=0.9)
     aAI= actionAngleIsochroneApprox(pot=lp,b=0.8)
     obs= Orbit([1.56148083,0.35081535,-1.15481504,
@@ -214,7 +217,7 @@ def test_closest_trackpointLB():
     check_closest_trackpointLB(sdf_bovy14,-2,interp=False,usev=True)
     check_closest_trackpointLB(sdf_bovy14,-3,interp=False,usev=True)
     return None
-    
+
 def test_closest_trackpointaA():
     #Check that we can find the closest trackpoint properly in AA
     check_closest_trackpointaA(sdf_bovy14,50)
@@ -347,7 +350,7 @@ def test_density_ra():
     return None
 
 def test_density_ll_wsampling():
-    # Test that the density computed using density_par is correct using a 
+    # Test that the density computed using density_par is correct using a
     # random sample
     numpy.random.seed(1)
     def ll(apar):
@@ -359,7 +362,7 @@ def test_density_ll_wsampling():
                                              Xsun=sdf_bovy14._R0,
                                              Zsun=sdf_bovy14._Zsun)
         l,b,d= coords.XYZ_to_lbd(X,Y,Z,degree=True)
-        return l   
+        return l
     LB= sdf_bovy14.sample(n=10000,lb=True)
     apar1, apar2= 0.1, 0.6
     dens1= float(numpy.sum((LB[0] > ll(apar1))*(LB[0] < ll(apar1)+2.)))
@@ -564,7 +567,7 @@ def test_pangledAngle():
     assert sdf_bovy14.pangledAngle(0.,da,smallest=True) > \
         sdf_bovy14.pangledAngle(-0.1,da,smallest=False), 'pangledAngle does not peak near zero'
     dangles= numpy.linspace(-0.01,0.01,201)
-    pdangles= (numpy.array([sdf_bovy14.pangledAngle(pda,da,smallest=False) for pda in dangles])).flatten()               
+    pdangles= (numpy.array([sdf_bovy14.pangledAngle(pda,da,smallest=False) for pda in dangles])).flatten()
     assert numpy.fabs(numpy.sum(dangles*pdangles)/numpy.sum(pdangles)) < 10.**-2., 'mean calculated using Riemann sum of pangledAngle does not agree with actual mean'
     acsig= sdf_bovy14.sigangledAngle(da,assumeZeroMean=True,smallest=False,simple=False)
     assert numpy.fabs((numpy.sqrt(numpy.sum(dangles**2.*pdangles)/numpy.sum(pdangles))-acsig)/acsig) < 10.**-2., 'sigma calculated using Riemann sum of pangledAngle does not agree with actual sigma'
@@ -833,7 +836,7 @@ def test_bovy14_callMargXZ():
     meanp, varp= sdf_bovy14.gaussApprox([None,None,2./8.,None,None,None])
     xs= numpy.linspace(-3.*numpy.sqrt(varp[0,0]),3.*numpy.sqrt(varp[0,0]),
                         11)+meanp[0]
-    logps= numpy.array([sdf_bovy14.callMarg([x,None,2./8.,None,None,None]) 
+    logps= numpy.array([sdf_bovy14.callMarg([x,None,2./8.,None,None,None])
                         for x in xs])
     ps= numpy.exp(logps)
     ps/= numpy.sum(ps)*(xs[1]-xs[0])*8.
@@ -842,7 +845,7 @@ def test_bovy14_callMargXZ():
     assert numpy.fabs(numpy.sqrt(numpy.sum(xs**2.*ps)/numpy.sum(ps)-(numpy.sum(xs*ps)/numpy.sum(ps))**2.)-numpy.sqrt(varp[0,0])) < 10.**-2., 'sigma of full PDF calculation does not agree with Gaussian approximation to the level at which this is expected for p(X|Z)'
     #Test that the mean is close to the approximation, when explicitly setting sigma and ngl
     logps= numpy.array([sdf_bovy14.callMarg([x,None,2./8.,None,None,None],
-                                            ngl=6,nsigma=3.1) 
+                                            ngl=6,nsigma=3.1)
                         for x in xs])
     ps= numpy.exp(logps)
     ps/= numpy.sum(ps)*(xs[1]-xs[0])*8.
@@ -856,7 +859,7 @@ def test_bovy14_callMargDPMLL():
     xs= numpy.linspace(-3.*numpy.sqrt(varp[1,1]),3.*numpy.sqrt(varp[1,1]),
                         11)+meanp[1]
     logps= numpy.array([sdf_bovy14.callMarg([None,x,None,None,8.,None],
-                                            lb=True) 
+                                            lb=True)
                         for x in xs])
     ps= numpy.exp(logps)
     ps/= numpy.sum(ps)*(xs[1]-xs[0])
@@ -894,6 +897,7 @@ def test_bovy14_callMargDPMLL():
 def test_callArgs():
     #Tests of _parse_call_args
     from galpy.orbit import Orbit
+
     #Just checking that different types of inputs give the same result
     trackp= 191
     RvR= sdf_bovy14._interpolatedObsTrack[trackp,:].flatten()
@@ -1094,11 +1098,11 @@ def test_subhalo_encounters_venc_yoon():
 
 def test_bovy14_oppositetrailing_setup():
     #Imports
+    from galpy.actionAngle import actionAngleIsochroneApprox
     from galpy.df import streamdf
     from galpy.orbit import Orbit
     from galpy.potential import LogarithmicHaloPotential
-    from galpy.actionAngle import actionAngleIsochroneApprox
-    from galpy.util import conversion #for unit conversions
+    from galpy.util import conversion  # for unit conversions
     lp= LogarithmicHaloPotential(normalize=1.,q=0.9)
     lp_false= LogarithmicHaloPotential(normalize=1.,q=0.8)
     aAI= actionAngleIsochroneApprox(pot=lp,b=0.8)
@@ -1133,9 +1137,9 @@ def test_bovy14_oppositetrailing_setup():
     return None
 
 def test_calcaAJac():
+    from galpy.actionAngle import actionAngleIsochroneApprox
     from galpy.df.streamdf import calcaAJac
     from galpy.potential import LogarithmicHaloPotential
-    from galpy.actionAngle import actionAngleIsochroneApprox
     lp= LogarithmicHaloPotential(normalize=1.,q=0.9)
     aAI= actionAngleIsochroneApprox(pot=lp,b=0.8)
     R,vR,vT,z,vz,phi= 1.56148083,0.35081535,-1.15481504,\
@@ -1159,9 +1163,9 @@ def test_calcaAJac():
     return None
 
 def test_calcaAJacLB():
+    from galpy.actionAngle import actionAngleIsochroneApprox
     from galpy.df.streamdf import calcaAJac
     from galpy.potential import LogarithmicHaloPotential
-    from galpy.actionAngle import actionAngleIsochroneApprox
     lp= LogarithmicHaloPotential(normalize=1.,q=0.9)
     aAI= actionAngleIsochroneApprox(pot=lp,b=0.8)
     R,vR,vT,z,vz,phi= 1.56148083,0.35081535,-1.15481504,\
@@ -1218,11 +1222,11 @@ def test_plotting():
 
 def test_2ndsetup():
     # Test related to #195: when we re-do the setup with the same progenitor, we should get the same
+    from galpy.actionAngle import actionAngleIsochroneApprox
     from galpy.df import streamdf
     from galpy.orbit import Orbit
     from galpy.potential import LogarithmicHaloPotential
-    from galpy.actionAngle import actionAngleIsochroneApprox
-    from galpy.util import conversion #for unit conversions
+    from galpy.util import conversion  # for unit conversions
     lp= LogarithmicHaloPotential(normalize=1.,q=0.9)
     aAI= actionAngleIsochroneApprox(pot=lp,b=0.8)
     obs= Orbit([1.56148083,0.35081535,-1.15481504,
@@ -1257,11 +1261,12 @@ def test_bovy14_trackaa():
 def test_fardalpot_trackaa():
     #Test that the explicitly-calculated frequencies along the track are close to those that the track is based on (Fardal test, #194); used to fail for the potential suggested by Fardal
     #First setup this specific streamdf instance
+    from galpy.actionAngle import actionAngleIsochroneApprox
     from galpy.df import streamdf
     from galpy.orbit import Orbit
-    from galpy.potential import IsochronePotential, FlattenedPowerPotential
-    from galpy.actionAngle import actionAngleIsochroneApprox
-    from galpy.util import conversion #for unit conversions
+    from galpy.potential import FlattenedPowerPotential, IsochronePotential
+    from galpy.util import conversion  # for unit conversions
+
     # test nested list of potentials
     pot= [IsochronePotential(b=0.8,normalize=0.8),
           [FlattenedPowerPotential(alpha=-0.7,q=0.6,normalize=0.2)]]
@@ -1289,11 +1294,11 @@ def test_fardalpot_trackaa():
 def test_fardalwmwpot_trackaa():
     #Test that the explicitly-calculated frequencies along the track are close to those that the track is based on (Fardal test, #194)
     #First setup this specific streamdf instance
+    from galpy.actionAngle import actionAngleIsochroneApprox
     from galpy.df import streamdf
     from galpy.orbit import Orbit
     from galpy.potential import MWPotential2014
-    from galpy.actionAngle import actionAngleIsochroneApprox
-    from galpy.util import conversion #for unit conversions
+    from galpy.util import conversion  # for unit conversions
     aAI= actionAngleIsochroneApprox(pot=MWPotential2014,b=0.6)
     obs= Orbit([1.10, 0.32, -1.15, 1.10, 0.31, 3.0])
     sigv= 1.3 #km/s
@@ -1318,11 +1323,11 @@ def test_fardalwmwpot_trackaa():
 def test_setup_progIsTrack():
     #Test that setting up with progIsTrack=True gives a track that is very close to the given progenitor, such that it works as it should
     #Imports
+    from galpy.actionAngle import actionAngleIsochroneApprox
     from galpy.df import streamdf
     from galpy.orbit import Orbit
     from galpy.potential import LogarithmicHaloPotential
-    from galpy.actionAngle import actionAngleIsochroneApprox
-    from galpy.util import conversion #for unit conversions
+    from galpy.util import conversion  # for unit conversions
     lp= LogarithmicHaloPotential(normalize=1.,q=0.9)
     aAI= actionAngleIsochroneApprox(pot=lp,b=0.8)
     obs= Orbit([1.56148083,0.35081535,-1.15481504,
@@ -1340,19 +1345,18 @@ def test_setup_progIsTrack():
     indx= numpy.argmin(numpy.fabs(sdfp._interpolatedObsTrack[:,0]-1.75))
     oindx= numpy.argmin(numpy.fabs(obs.orbit[0,:,0]-1.75))
     assert numpy.all(numpy.fabs(sdfp._interpolatedObsTrack[indx,:5]-obs.orbit[0,oindx,:5]) < 10.**-2.), 'streamdf setup with progIsTrack does not return a track that is close to the given orbit somewhat further from the start'
-    return None  
+    return None
 
 def test_bovy14_useTM_poterror():
     if WIN32: return None # skip on appveyor, because no TM
-    # Test that setting up the stream model with useTM, but a different 
+    # Test that setting up the stream model with useTM, but a different
     # actionAngleTorus potential raises a IOError
     #Imports
+    from galpy.actionAngle import actionAngleIsochroneApprox, actionAngleTorus
     from galpy.df import streamdf
     from galpy.orbit import Orbit
     from galpy.potential import LogarithmicHaloPotential
-    from galpy.actionAngle import actionAngleIsochroneApprox, \
-        actionAngleTorus
-    from galpy.util import conversion #for unit conversions
+    from galpy.util import conversion  # for unit conversions
     lp= LogarithmicHaloPotential(normalize=1.,q=0.9)
     aAI= actionAngleIsochroneApprox(pot=lp,b=0.8)
     elp= LogarithmicHaloPotential(normalize=1.,q=0.8)
@@ -1372,12 +1376,12 @@ def test_bovy14_useTM():
     #Test that setting up with useTM is very close to the Bovy (2014) setup
     #Imports
     from scipy import interpolate
+
+    from galpy.actionAngle import actionAngleIsochroneApprox, actionAngleTorus
     from galpy.df import streamdf
     from galpy.orbit import Orbit
     from galpy.potential import LogarithmicHaloPotential
-    from galpy.actionAngle import actionAngleIsochroneApprox, \
-        actionAngleTorus
-    from galpy.util import conversion #for unit conversions
+    from galpy.util import conversion  # for unit conversions
     lp= LogarithmicHaloPotential(normalize=1.,q=0.9)
     aAI= actionAngleIsochroneApprox(pot=lp,b=0.8)
     aAT= actionAngleTorus(pot=lp,tol=0.001)
@@ -1401,19 +1405,19 @@ def test_bovy14_useTM():
         sdftm._interpolatedObsTrackLB[sindx,0],
         sdftm._interpolatedObsTrackLB[sindx,3],k=3)
     assert numpy.all(numpy.fabs(interpV(sdf_bovy14._interpolatedObsTrackLB[:,0])-sdf_bovy14._interpolatedObsTrackLB[:,3]) < 0.6), 'stream track computed with useTM not close to that without in line-of-sight velocity'
-    return None  
+    return None
 
 def test_bovy14_useTM_useTMHessian():
     if WIN32: return None # skip on appveyor, because no TM
     #Test that setting up with useTM is very close to the Bovy (2014) setup
     #Imports
     from scipy import interpolate
+
+    from galpy.actionAngle import actionAngleIsochroneApprox, actionAngleTorus
     from galpy.df import streamdf
     from galpy.orbit import Orbit
     from galpy.potential import LogarithmicHaloPotential
-    from galpy.actionAngle import actionAngleIsochroneApprox, \
-        actionAngleTorus
-    from galpy.util import conversion #for unit conversions
+    from galpy.util import conversion  # for unit conversions
     lp= LogarithmicHaloPotential(normalize=1.,q=0.9)
     aAI= actionAngleIsochroneApprox(pot=lp,b=0.8)
     aAT= actionAngleTorus(pot=lp,tol=0.001)
@@ -1440,19 +1444,19 @@ def test_bovy14_useTM_useTMHessian():
         sdftm._interpolatedObsTrackLB[sindx,0],
         sdftm._interpolatedObsTrackLB[sindx,3],k=3)
     assert numpy.all(numpy.fabs(interpV(sdf_bovy14._interpolatedObsTrackLB[cindx,0])-sdf_bovy14._interpolatedObsTrackLB[cindx,3]) < 4.), 'stream track computed with useTM and useTMHessian not close to that without in line-of-sight velocity'
-    return None  
+    return None
 
 def test_bovy14_useTM_approxConstTrackFreq():
     if WIN32: return None # skip on appveyor, because no TM
     #Test that setting up with useTM is very close to the Bovy (2014) setup
     #Imports
     from scipy import interpolate
+
+    from galpy.actionAngle import actionAngleIsochroneApprox, actionAngleTorus
     from galpy.df import streamdf
     from galpy.orbit import Orbit
     from galpy.potential import LogarithmicHaloPotential
-    from galpy.actionAngle import actionAngleIsochroneApprox, \
-        actionAngleTorus
-    from galpy.util import conversion #for unit conversions
+    from galpy.util import conversion  # for unit conversions
     lp= LogarithmicHaloPotential(normalize=1.,q=0.9)
     aAI= actionAngleIsochroneApprox(pot=lp,b=0.8)
     aAT= actionAngleTorus(pot=lp,tol=0.001)
@@ -1479,7 +1483,7 @@ def test_bovy14_useTM_approxConstTrackFreq():
         sdftm._interpolatedObsTrackLB[sindx,0],
         sdftm._interpolatedObsTrackLB[sindx,3],k=3)
     assert numpy.all(numpy.fabs(interpV(sdf_bovy14._interpolatedObsTrackLB[cindx,0])-sdf_bovy14._interpolatedObsTrackLB[cindx,3]) < 0.6), 'stream track computed with useTM and approxConstTrackFreq not close to that without in line-of-sight velocity'
-    return None  
+    return None
 
 def check_track_prog_diff(sdf,d1,d2,tol,phys=False):
     observe= [sdf._R0,0.,sdf._Zsun]
@@ -1499,14 +1503,14 @@ def check_track_prog_diff(sdf,d1,d2,tol,phys=False):
     #Interpolate progenitor, st we can put it on the same grid as the stream
     interpProgZ= interpolate.InterpolatedUnivariateSpline(progR,progZ,k=3)
     maxdevZ= numpy.amax(numpy.fabs(interpProgZ(trackR)-trackZ))
-    assert maxdevZ < tol, "Stream track deviates more from progenitor track in {} vs. {} than expected; max. deviation = {:f}".format(d2,d1,maxdevZ)
+    assert maxdevZ < tol, f"Stream track deviates more from progenitor track in {d2} vs. {d1} than expected; max. deviation = {maxdevZ:f}"
     return None
 
 def check_track_spread(sdf,d1,d2,tol1,tol2,phys=False,interp=True):
     #Check that the spread around the track is small
-    addx, addy= sdf._parse_track_spread(d1,d2,interp=interp,phys=phys) 
-    assert numpy.amax(addx) < tol1, "Stream track spread is larger in {} than expected; max. deviation = {:f}".format(d1,numpy.amax(addx))
-    assert numpy.amax(addy) < tol2, "Stream track spread is larger in {} than expected; max. deviation = {:f}".format(d2,numpy.amax(addy))
+    addx, addy= sdf._parse_track_spread(d1,d2,interp=interp,phys=phys)
+    assert numpy.amax(addx) < tol1, f"Stream track spread is larger in {d1} than expected; max. deviation = {numpy.amax(addx):f}"
+    assert numpy.amax(addy) < tol2, f"Stream track spread is larger in {d2} than expected; max. deviation = {numpy.amax(addy):f}"
     return None
 
 def check_track_plotting(sdf,d1,d2,phys=False,interp=True,spread=2,ls='-'):
@@ -1657,4 +1661,3 @@ def check_approxaA_inv(sdf,tol,R,vR,vT,z,vz,phi,interp=True):
     assert numpy.fabs((RvR[4]-vz)/vz) < 10.**tol, 'vz after _approxaA and _approxaAInv does not agree with initial vz'
     assert numpy.fabs((RvR[5]-phi)/numpy.pi) < 10.**tol, 'phi after _approxaA and _approxaAInv does not agree with initial phi; relative difference = %g' % (numpy.fabs((RvR[5]-phi)/phi))
     return None
-

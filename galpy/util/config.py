@@ -1,6 +1,8 @@
-import os, os.path
-import copy
 import configparser
+import copy
+import os
+import os.path
+
 # The default configuration
 default_configuration= {'normalization': {'ro':'8.',
                                          'vo':'220.'},

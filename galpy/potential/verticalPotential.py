@@ -1,9 +1,12 @@
 import numpy
+
+from ..util import conversion
+from .DissipativeForce import _isDissipative
 from .linearPotential import linearPotential
 from .planarPotential import planarPotential
-from .Potential import PotentialError, Potential, flatten
-from .DissipativeForce import _isDissipative
-from ..util import conversion
+from .Potential import Potential, PotentialError, flatten
+
+
 class verticalPotential(linearPotential):
     """Class that represents a vertical potential derived from a 3D Potential:
     phi(z,t;R,phi)= phi(R,z,phi,t)-phi(R,0.,phi,t0)"""
@@ -16,7 +19,7 @@ class verticalPotential(linearPotential):
         INPUT:
            Pot - Potential instance
            R  - Galactocentric radius at which to create the vertical potential
-           phi= (None) Galactocentric azimuth at which to create the vertical potential (rad); necessary for 
+           phi= (None) Galactocentric azimuth at which to create the vertical potential (rad); necessary for
            t0= (0.) time at which to create the vertical potential
         OUTPUT:
            verticalPotential instance
@@ -60,7 +63,7 @@ class verticalPotential(linearPotential):
         tphi= self._phi if not hasattr(z,'__len__') else self._phi*numpy.ones_like(z)
         return self._Pot(tR,z,phi=tphi,t=t,use_physical=False)\
             -self._midplanePot
-            
+
     def _force(self,z,t=0.):
         """
         NAME:
@@ -198,4 +201,3 @@ def toVerticalPotential(Pot,R,phi=None,t0=0.):
         # All other cases should have been caught by the
         # conversion.get_physical test above
         raise PotentialError("Input to 'toVerticalPotential' is neither an Potential-instance or a list of such instances")
-

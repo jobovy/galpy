@@ -3,12 +3,11 @@
 # Please notice it only supports Visual Studio 2015 or later
 #############################################################################
 import platform
-
 from distutils import ccompiler
 from distutils.ccompiler import *
+
 if platform.system() == 'Windows':  # to prevent linux import error
-    from distutils._msvccompiler import _find_exe
-    from distutils._msvccompiler import MSVCCompiler
+    from distutils._msvccompiler import MSVCCompiler, _find_exe
 else:
     raise OSError("You are not using Windows, so you should not import this file")
 

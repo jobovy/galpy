@@ -1,5 +1,4 @@
-from . import Snapshot
-from . import snapshotMovies
+from . import Snapshot, snapshotMovies
 
 #
 # Functions

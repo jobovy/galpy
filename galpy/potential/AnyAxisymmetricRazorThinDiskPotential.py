@@ -5,9 +5,11 @@
 ###############################################################################
 import numpy
 from scipy import integrate, special
-from .Potential import Potential, check_potential_inputs_not_arrays
-from ..util._optional_deps import _APY_LOADED
+
 from ..util import conversion
+from ..util._optional_deps import _APY_LOADED
+from .Potential import Potential, check_potential_inputs_not_arrays
+
 if _APY_LOADED:
     from astropy import units
 class AnyAxisymmetricRazorThinDiskPotential(Potential):
@@ -106,7 +108,7 @@ class AnyAxisymmetricRazorThinDiskPotential(Potential):
            /numpy.sqrt((R+a)**2.+z**2.)*special.ellipk(4*R*a/((R+a)**2.+z**2.))
         return -4*(integrate.quad(potint,0,2*R,points=[R])[0]
                    +integrate.quad(potint,2*R,numpy.inf)[0])
-    
+
     @check_potential_inputs_not_arrays
     def _Rforce(self,R,z,phi=0.,t=0.):
         """
@@ -164,7 +166,7 @@ class AnyAxisymmetricRazorThinDiskPotential(Potential):
                 *special.ellipe(faRoveraRz)/((a-R)**2+z2)/numpy.sqrt(aRz)
         return -4*z*(integrate.quad(zforceint,0,2*R,points=[R])[0]
                      +integrate.quad(zforceint,2*R,numpy.inf)[0])
-    
+
     @check_potential_inputs_not_arrays
     def _R2deriv(self,R,z,phi=0.,t=0.):
         """
@@ -275,4 +277,3 @@ class AnyAxisymmetricRazorThinDiskPotential(Potential):
            2021-01-04 - Written - Bovy (UofT)
         """
         return self._sdens(R)
-

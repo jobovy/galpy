@@ -8,9 +8,12 @@ import numpy
 from scipy import integrate
 from scipy.interpolate import interp1d
 from scipy.optimize import fixed_point
+
+from ..util import conversion
 from .Force import Force
 from .interpSphericalPotential import interpSphericalPotential
-from ..util import conversion
+
+
 # Note: not actually implemented as a WrapperPotential!
 class AdiabaticContractionWrapperPotential(interpSphericalPotential):
     """AdiabaticContractionWrapperPotential: Wrapper to adiabatically contract a DM halo in response to the growth of a baryonic component. Use for example as::
@@ -40,13 +43,13 @@ to contract the dark-matter halo in MWPotential2014 according to the baryon dist
 
            baryonpot - Potential instance or list thereof representing the density of baryons whose growth causes the contraction
 
-           method= ('cautun') Type of adiabatic-contraction formula: 
+           method= ('cautun') Type of adiabatic-contraction formula:
 
-                 * 'cautun' for that from Cautun et al. 2020 (`2020MNRAS.494.4291C <https://ui.adsabs.harvard.edu/abs/2020MNRAS.494.4291C>`__), 
+                 * 'cautun' for that from Cautun et al. 2020 (`2020MNRAS.494.4291C <https://ui.adsabs.harvard.edu/abs/2020MNRAS.494.4291C>`__),
                  * 'blumenthal' for that from Blumenthal et al. 1986 (`1986ApJ...301...27B 1986ApJ...301...27B <https://ui.adsabs.harvard.edu/abs/1986ApJ...301...27B>`__)
                  * 'gnedin' for that from Gnedin et al. 2004 (`2004ApJ...616...16G <https://ui.adsabs.harvard.edu/abs/2004ApJ...616...16G>`__)
 
-           f_bar= (0.157) universal baryon fraction; if None, calculated from pot and baryonpot assuming that at rmax the halo contains the universal baryon fraction; leave this at the default value unless you know what you are doing  
+           f_bar= (0.157) universal baryon fraction; if None, calculated from pot and baryonpot assuming that at rmax the halo contains the universal baryon fraction; leave this at the default value unless you know what you are doing
 
            rmin= (None) minimum radius to consider (default: rmax/2500; don't set this to zero)
 
@@ -91,7 +94,7 @@ to contract the dark-matter halo in MWPotential2014 according to the baryon dist
             new_rforce= _contraction_Blumenthal1986(rgrid,dm_mass,
                                                     baryon_mass,f_bar)
         else: # pragma: no cover
-            raise ValueError("Adiabatic contraction method '{}' not recognized".format(method))
+            raise ValueError(f"Adiabatic contraction method '{method}' not recognized")
         # Add central point
         rgrid= numpy.concatenate(([0.],rgrid))
         new_rforce= numpy.concatenate(([0.],new_rforce))
@@ -105,21 +108,21 @@ to contract the dark-matter halo in MWPotential2014 according to the baryon dist
                                           rgrid=rgrid,
                                           Phi0=Phi0,
                                           ro=ro,vo=vo)
-        
 
-        
+
+
 def _contraction_Cautun2020(r,M_DMO,Mbar,fbar):
     # solve for the contracted enclosed DM mass
     func_M_DM_contract= lambda M: M_DMO*1.023*(M_DMO/(1.-fbar)/(M+Mbar))**-0.54
     M_DM= fixed_point(func_M_DM_contract,M_DMO)
-    return M_DM/M_DMO*M_DMO/r**2. 
+    return M_DM/M_DMO*M_DMO/r**2.
 
 def _contraction_Blumenthal1986(r,M_DMO,Mbar,fbar):
     # solve for the contracted radius 'rf' containing the same DM mass
-    # as enclosed for r 
+    # as enclosed for r
     func_M_bar= interp1d(r,Mbar,bounds_error=False,
                          fill_value=(Mbar[0],Mbar[-1]) )
-    func_r_contract= lambda rf: r*(M_DMO/(1.-fbar))/(M_DMO+func_M_bar(rf)) 
+    func_r_contract= lambda rf: r*(M_DMO/(1.-fbar))/(M_DMO+func_M_bar(rf))
     rf= fixed_point(func_r_contract,r)
     # now find how much the enclosed mass increased at r
     func_M_DM= interp1d(rf,M_DMO,bounds_error=False,
@@ -128,7 +131,7 @@ def _contraction_Blumenthal1986(r,M_DMO,Mbar,fbar):
 
 def _contraction_Gnedin2004(r,M_DMO,M_bar,Rvir,fbar):
     # solve for the contracted radius 'rf' containing the same DM mass
-    # as enclosed for r 
+    # as enclosed for r
     func_M_bar= interp1d(r,M_bar,bounds_error=False,
                          fill_value=(M_bar[0],M_bar[-1]))
     func_M_DMO= interp1d(r,M_DMO,bounds_error=False,

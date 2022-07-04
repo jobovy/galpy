@@ -1,5 +1,7 @@
-from ..util.conversion import physical_compatible
 from ..util import config, conversion
+from ..util.conversion import physical_compatible
+
+
 class df:
     """Top-level class for DF classes"""
     def __init__(self,ro=None,vo=None):
@@ -33,7 +35,7 @@ class df:
     def _check_consistent_units(self):
         """Internal function to check that the set of units for this object is consistent with that for the potential"""
         assert physical_compatible(self,self._pot),  'Physical conversion for the DF object is not consistent with that of the Potential given to it'
-            
+
     def turn_physical_off(self):
         """
         NAME:
@@ -94,4 +96,4 @@ class df:
             self._ro= conversion.parse_length_kpc(ro)
         if not vo is None and vo:
             self._vo= conversion.parse_velocity_kms(vo)
-        return None  
+        return None

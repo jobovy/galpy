@@ -1,7 +1,7 @@
 ###############################################################################
-#   EllipsoidalPotential.py: base class for potentials corresponding to 
+#   EllipsoidalPotential.py: base class for potentials corresponding to
 #                            density profiles that are stratified on
-#                            ellipsoids: 
+#                            ellipsoids:
 #
 #                            \rho(x,y,z) ~ \rho(m)
 #
@@ -9,11 +9,14 @@
 #
 ###############################################################################
 import hashlib
+
 import numpy
 from scipy import integrate
-from ..util import coords, conversion
-from ..util import _rotate_to_arbitrary_vector
+
+from ..util import _rotate_to_arbitrary_vector, conversion, coords
 from .Potential import Potential, check_potential_inputs_not_arrays
+
+
 class EllipsoidalPotential(Potential):
     """Base class for potentials corresponding to density profiles that are stratified on ellipsoids:
 
@@ -150,7 +153,7 @@ class EllipsoidalPotential(Potential):
             return self._evaluate_xyz(xyzp[0],xyzp[1],xyzp[2])
 
     def _evaluate_xyz(self,x,y,z):
-        """Evaluation of the potential as a function of (x,y,z) in the 
+        """Evaluation of the potential as a function of (x,y,z) in the
         aligned coordinate frame"""
         return 2.*numpy.pi*self._b*self._c\
             *_potInt(x,y,z,self._psi,
@@ -294,7 +297,7 @@ class EllipsoidalPotential(Potential):
             *_forceInt(x,y,z,
                        lambda m: self._mdens(m),
                        self._b2,self._c2,i,glx=self._glx,glw=self._glw)
-        
+
     @check_potential_inputs_not_arrays
     def _R2deriv(self,R,z,phi=0.,t=0.):
         """
@@ -469,7 +472,7 @@ class EllipsoidalPotential(Potential):
                           lambda m: self._mdens(m),
                           lambda m: self._mdens_deriv(m),
                           self._b2,self._c2,i,j,glx=self._glx,glw=self._glw)
-                 
+
     @check_potential_inputs_not_arrays
     def _dens(self,R,z,phi=0.,t=0.):
         """
@@ -495,7 +498,7 @@ class EllipsoidalPotential(Potential):
             xp, yp, zp= xyzp[0], xyzp[1], xyzp[2]
         m= numpy.sqrt(xp**2.+yp**2./self._b2+zp**2./self._c2)
         return self._mdens(m)
-        
+
     def _mass(self,R,z=None,t=0.):
         """
         NAME:
@@ -537,7 +540,7 @@ def _potInt(x,y,z,psi,b2,c2,glx=None,glw=None):
         return psi(numpy.sqrt(x**2./(1.+t)+y**2./(b2+t)+z**2./(c2+t)))\
             /numpy.sqrt((1.+(b2-1.)*s**2.)*(1.+(c2-1.)*s**2.))
     if glx is None:
-        return integrate.quad(integrand,0.,1.)[0]                              
+        return integrate.quad(integrand,0.,1.)[0]
     else:
         return numpy.sum(glw*integrand(glx))
 
@@ -549,7 +552,7 @@ def _forceInt(x,y,z,dens,b2,c2,i,glx=None,glw=None):
             *(x/(1.+t)*(i==0)+y/(b2+t)*(i==1)+z/(c2+t)*(i==2))\
             /numpy.sqrt((1.+(b2-1.)*s**2.)*(1.+(c2-1.)*s**2.))
     if glx is None:
-        return integrate.quad(integrand,0.,1.)[0]                              
+        return integrate.quad(integrand,0.,1.)[0]
     else:
         return numpy.sum(glw*integrand(glx))
 
@@ -567,4 +570,3 @@ def _2ndDerivInt(x,y,z,dens,densDeriv,b2,c2,i,j,glx=None,glw=None):
         return integrate.quad(integrand,0.,1.)[0]
     else:
         return numpy.sum(glw*integrand(glx))
-

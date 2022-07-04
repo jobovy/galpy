@@ -76,7 +76,7 @@ a given radius and height as follows
 # 0.021389597757156088
 
 Near the mid-plane this vertical scale height becomes very large
-because the vertical profile flattens, e.g., 
+because the vertical profile flattens, e.g.,
 
 >>> qdf.estimate_hz(1.,0.125/100.)
 # 1.006386030587223
@@ -112,7 +112,7 @@ position. Near the plane, this is the same as that calculated for a similar two-
 
 However, this value decreases as one moves further from the plane. The
 ``quasiisothermaldf`` allows us to calculate the average rotational
-velocity as a function of height above the plane. For example, 
+velocity as a function of height above the plane. For example,
 
 >>> zs= numpy.linspace(0.,0.25,21)
 >>> mvts= numpy.array([qdf.meanvT(1.,z) for z in zs])

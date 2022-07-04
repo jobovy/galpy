@@ -13,7 +13,7 @@ on:
       - '.github/pyodide_gsl_meta.yaml'
       - '.github/workflows/build_pyodide_wheels.yml'
 
-concurrency: 
+concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
@@ -33,29 +33,29 @@ jobs:
         with:
           pyodide-tag: 0.20.0
           pyodide-cache-hit: ${{ steps.cache-pyodide.outputs.cache-hit }}
-      # Because the GSL isn't in pyodide 0.20.0 and we need that for 
+      # Because the GSL isn't in pyodide 0.20.0 and we need that for
       # jupyterlite, we need to also add the GSL here
       # Once we can switch to a version of pyodide that has the GSL
       # we can go back to just using the jobovy/pyodide-buildpackage-action
       # rather than the individual steps
       - name: Build gsl meta.yaml
         uses: jobovy/pyodide-buildpackage-action/actions/build-meta@v1
-        with: 
+        with:
           meta-yaml-path: .github/pyodide_gsl_meta.yaml
           package-name: libgsl
           build-url: https://ftp.gnu.org/gnu/gsl/gsl-2.7.tar.gz
       - name: Build galpy meta.yaml
         uses: jobovy/pyodide-buildpackage-action/actions/build-meta@v1
-        with: 
+        with:
           meta-yaml-path: .github/pyodide_meta.yaml
       - name: Build package
         uses: jobovy/pyodide-buildpackage-action/actions/build-package@v1
       # Just make everything executable, because a bunch of stuff needs to be
-      # and it isn't alltogether obvious which (not just .sh)
+      # and it isn't altogether obvious which (not just .sh)
       - name: Change permissions of pyodide directory
-        shell: bash 
+        shell: bash
         run: |
-          sudo find pyodide -type d -exec chmod 755 {} \; 
+          sudo find pyodide -type d -exec chmod 755 {} \;
           sudo find pyodide -type f -exec chmod 755 {} \;
 #      - uses: jobovy/pyodide-buildpackage-action@main
 #        with:

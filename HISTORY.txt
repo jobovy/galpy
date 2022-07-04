@@ -1,43 +1,44 @@
 v1.8.1 (XXXX-XX-XX)
 ===================
 
+- Added pre-commit hooks.
 
 v1.8.0 (2022-07-04)
 ===================
 
-- Added the particle-spray model galpy.df.streamspraydf that was 
+- Added the particle-spray model galpy.df.streamspraydf that was
   previously part of the jobovy/streamtools package (#479).
 
-- Added necessary derivatives to allow spherical DFs to be constructed using 
+- Added necessary derivatives to allow spherical DFs to be constructed using
   PowerSphericalPotentialwCutoff and PlummerPotential.
 
-- Updated existing and added new phase-space positions for MW satellite 
+- Updated existing and added new phase-space positions for MW satellite
   galaxies from Pace et al. (2022; 2205.05699). Also add uncertainties
-  (#484 by Anya Dovgal). 
+  (#484 by Anya Dovgal).
 
-- Updated existing and added new phase-space positions for MW globular clusters 
-  from Baumgardt et al. (2019; 1811.01507), 
-  Vasiliev & Baumgardt (2021; 2102.09568), and 
+- Updated existing and added new phase-space positions for MW globular clusters
+  from Baumgardt et al. (2019; 1811.01507),
+  Vasiliev & Baumgardt (2021; 2102.09568), and
   Baumgardt & Vasiliev (2021; 2105.09526). Also add uncertainties
-  (#485 by Anya Dovgal). 
+  (#485 by Anya Dovgal).
 
 - Added SCFPotential.from_density to directly initialize an SCFPotential based
-  on a density function. Allows for full correct and consistent handling of 
+  on a density function. Allows for full correct and consistent handling of
   Quantity inputs and outputs.
 
 - Renamed phiforce --> phitorque everywhere (including
   potential.evaluatephiforces and potential.evaluateplanarphiforces), such that
-  the method's name actually reflect what it returns (a torque, not a force). 
-  phiforce will be fully removed in version 1.9 and may later be re-used 
+  the method's name actually reflect what it returns (a torque, not a force).
+  phiforce will be fully removed in version 1.9 and may later be re-used
   for the actual phi component of the force, so switch to the new name now.
 
 - Added code to check whether a newer version of galpy is available and, if so
   encourage users to upgrade (to try to have people use more recent versions).
 
-- Added a 'Try galpy' interactive session on the documentation's home page 
+- Added a 'Try galpy' interactive session on the documentation's home page
   powered by the new pyodide/emscripten/wasm wheels for galpy.
 
-- Add support to build pyodide/emscripten/wasm wheels for using galpy in the 
+- Add support to build pyodide/emscripten/wasm wheels for using galpy in the
   browser at C-ish speeds.
 
 - Fully drop Python 2 support (removed all Python 2 compatibility code).
@@ -45,14 +46,14 @@ v1.8.0 (2022-07-04)
 v1.7.2 (2022-04-15)
 ===================
 
-- Added NonInertialFrameForce, which provides the fictitious forces 
-  when integrating orbits in non-inertial frames. Arbitrary rotations 
+- Added NonInertialFrameForce, which provides the fictitious forces
+  when integrating orbits in non-inertial frames. Arbitrary rotations
   and origin accelerations are supported (#471).
 
-- Added a progress bar when integrating multiple objects in a single 
-  orbit instance (requires tqdm) (see #476). 
+- Added a progress bar when integrating multiple objects in a single
+  orbit instance (requires tqdm) (see #476).
 
-- Turn on NFWPotential physical output when initializing using the 
+- Turn on NFWPotential physical output when initializing using the
   virial mass mvir (see #465)
 
 - Added TimeDependentAmplitudeWrapperPotential, a wrapper allowing
@@ -61,13 +62,13 @@ v1.7.2 (2022-04-15)
 - Added NullPotential, a potential with a constant value.
 
 - Added Potential methods/functions rE and LcE to compute the radius
-  and angular momentum of an orbit with energy E. Also added these 
-  as Orbit methods for efficient calculation for collections of 
+  and angular momentum of an orbit with energy E. Also added these
+  as Orbit methods for efficient calculation for collections of
   orbits.
 
-- Added the offset= keyword to RotateAndTiltWrapperPotential, which allows 
-  a Potential/Force instance to also be offset from (0,0,0) in addition to 
-  being rotated or tilted.  
+- Added the offset= keyword to RotateAndTiltWrapperPotential, which allows
+  a Potential/Force instance to also be offset from (0,0,0) in addition to
+  being rotated or tilted.
 
 - Allow actions to be computed for Orbit instances with actionAngle
   methods that don't compute frequencies.
@@ -107,7 +108,7 @@ v1.7 (2021-07-04)
   (#444).
 
 - Added NFWPotential initialization method using rmax and vmax, the
-  radius and alue at which the rotation curve peaks; also added rmax
+  radius and value at which the rotation curve peaks; also added rmax
   and vmax methods to NFWPotential to compute these quantities for any
   NFWPotential.
 
@@ -293,7 +294,7 @@ v1.5 (2019-09-12)
 
 - Added support to adjust the amplitude of a Potential instance
   through multiplication of the instance by a number or through
-  division by a numer. E.g., pot= 2.*pot1 returns a Potential instance
+  division by a number. E.g., pot= 2.*pot1 returns a Potential instance
   that is the same as pot1, except that the amplitude is twice
   larger. Similarly, pot= pot1/2. decreases the amplitude by a factor
   of two. This is useful, for example, to quickly change the mass of a
@@ -301,7 +302,7 @@ v1.5 (2019-09-12)
   Potential instances (#369).
 
 - Added support to plot arbitrary combinations of the basic Orbit
-  attributes by giving them as an expresion (e.g.,
+  attributes by giving them as an expression (e.g.,
   orb.plot(d2='vR*R/r+vz*z/r')); requires the numexpr package.
 
 - Switched default Sun's vertical height zo parameter for Orbit
@@ -313,7 +314,7 @@ v1.5 (2019-09-12)
 
 - Added NumericalPotentialDerivativesMixin, a Mixin class to add
   numerically-computed forces and second derivatives to any Potential
-  class, allowing new potentials to be implmented quickly by only
+  class, allowing new potentials to be implemented quickly by only
   implementing the potential itself and obtaining all forces and
   second derivatives numerically.
 
@@ -325,11 +326,11 @@ v1.5 (2019-09-12)
 
 - DehnenBarPotential and SpiralArmsPotential method now work for array
   inputs (PR #388, by @webbjj).
-  
+
 - Allow transformations of custom coordinate systems (positions
   and proper motions) to ICRS (ra,dec) and (pmra,pmdec).
 
-- Allow orbit integrations to be KeyboardInterrupted on Windows as well 
+- Allow orbit integrations to be KeyboardInterrupted on Windows as well
   (#362 by Henry Leung)
 
 - Add Python and C implementation of Dormand-Prince 8(5,3) integrator
@@ -401,8 +402,8 @@ v1.4 (2018-09-09)
   an Orbit representing the Sun's as o= Orbit().
 
 - Allow Orbit instances to be initialized using a SkyCoord with
-  position and velocity data, with optional Galactocentric frame 
-  specification as part of the SkyCoord that is correctly propagated 
+  position and velocity data, with optional Galactocentric frame
+  specification as part of the SkyCoord that is correctly propagated
   to the Orbit instance. Requires astropy>3
 
 - Added rtide and ttensor methods/functions for Potentials: tidal
@@ -519,7 +520,7 @@ v1.3 (2018-02-06)
 - Changed default method for computing actions, frequencies, and
   angles for Orbit instances to be the Staeckel approximation with an
   automatically-estimated delta parameter.
-  
+
 - Added an option to the estimateDeltaStaeckel function to facilitate the
   return of an estimated delta parameter at every phase space point passed,
   rather than returning a median of the estimate at each point.
@@ -536,7 +537,7 @@ v1.3 (2018-02-06)
 - Allow plotting of the spherical radius in Orbit.plot
 
 - Allow plotting of arbitrary user-supplied functions of time in
-  Orbit.plot, Orbit.plot3d, and Orbit.animate. 
+  Orbit.plot, Orbit.plot3d, and Orbit.animate.
 
 - Added conversion to and from oblate spheroidal coordinates. Also
   added conversion of velocities to the momenta in oblate or prolate
@@ -571,9 +572,9 @@ v1.3 (2018-02-06)
 - evolveddiskdf.vertexdev return unit switched from deg to rad.
 
 - In quasiisothermaldf.py, the following prefactors were added
-  to the following functions: [nsigma^2/2] --> pvT(), 
-  [nsigma/2] --> pvRvT(), [nsigma/2] --> pvTvz(), 
-  [vTmax/2] --> pvRvz(). This change was required to correctly 
+  to the following functions: [nsigma^2/2] --> pvT(),
+  [nsigma/2] --> pvRvT(), [nsigma/2] --> pvTvz(),
+  [vTmax/2] --> pvRvz(). This change was required to correctly
   account for the Gauss-Legendre integration limits.
 
 v1.2 (2016-09-06)

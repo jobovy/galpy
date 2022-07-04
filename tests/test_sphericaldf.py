@@ -1,17 +1,20 @@
 # Tests of spherical distribution functions
 import platform
+
 WIN32= platform.system() == 'Windows'
 if not WIN32: # Enable 64bit for JAX
     from jax.config import config
     config.update("jax_enable_x64", True)
-import pytest
 import numpy
+import pytest
 from scipy import special
+
 from galpy import potential
-from galpy.df import isotropicHernquistdf, constantbetaHernquistdf, kingdf, \
-    isotropicPlummerdf, osipkovmerrittHernquistdf, isotropicNFWdf, \
-    eddingtondf, osipkovmerrittdf, osipkovmerrittNFWdf, constantbetadf
-from galpy.df import jeans
+from galpy.df import (constantbetadf, constantbetaHernquistdf, eddingtondf,
+                      isotropicHernquistdf, isotropicNFWdf, isotropicPlummerdf,
+                      jeans, kingdf, osipkovmerrittdf,
+                      osipkovmerrittHernquistdf, osipkovmerrittNFWdf)
+
 
 ############################# ISOTROPIC HERNQUIST DF ##########################
 # Note that we use the Hernquist case to check a bunch of code in the
@@ -36,7 +39,7 @@ def test_isotropic_hernquist_dens_spherically_symmetric():
     check_spherical_symmetry(samp,3,1,tol)
     check_spherical_symmetry(samp,9,-6,tol)
     return None
-    
+
 def test_isotropic_hernquist_dens_massprofile():
     pot= potential.HernquistPotential(amp=2.3,a=1.3)
     dfh= isotropicHernquistdf(pot=pot)
@@ -201,7 +204,7 @@ def test_isotropic_hernquist_energyoutofbounds():
 def test_isotropic_hernquist_phasespacesamples_vs_orbitsamples():
     pot= potential.HernquistPotential(amp=2.3,a=1.3)
     dfh= isotropicHernquistdf(pot=pot)
-    numpy.random.seed(10)    
+    numpy.random.seed(10)
     samp_orbits= dfh.sample(n=1000)
     # Reset seed such that we should get the same
     numpy.random.seed(10)
@@ -225,7 +228,7 @@ def test_isotropic_hernquist_diffcalls():
     # Also L
     assert numpy.fabs(dfh(R,vR,vT,z,vz,phi)-dfh((pot(R,z)+0.5*(vR**2.+vT**2.+vz**2.),numpy.sqrt(numpy.sum(Orbit([R,vR,vT,z,vz,phi]).L()**2.))))) < 1e-8, 'Calling the isotropic Hernquist DF with R,vR,... or E[R,vR,...] does not give the same answer'
     # Also as orbit
-    assert numpy.fabs(dfh(R,vR,vT,z,vz,phi)-dfh(Orbit([R,vR,vT,z,vz,phi]))) < 1e-8, 'Calling the isotropic Hernquist DF with R,vR,... or E[R,vR,...] does not give the same answer'   
+    assert numpy.fabs(dfh(R,vR,vT,z,vz,phi)-dfh(Orbit([R,vR,vT,z,vz,phi]))) < 1e-8, 'Calling the isotropic Hernquist DF with R,vR,... or E[R,vR,...] does not give the same answer'
     return None
 
 ############################# ANISOTROPIC HERNQUIST DF ########################
@@ -251,7 +254,7 @@ def test_anisotropic_hernquist_dens_spherically_symmetric():
         check_spherical_symmetry(samp,3,1,tol)
         check_spherical_symmetry(samp,9,-6,tol)
     return None
-    
+
 def test_anisotropic_hernquist_dens_massprofile():
     pot= potential.HernquistPotential(amp=2.3,a=1.3)
     betas= [-0.7,-0.5,-0.4,0.,0.3,0.5]
@@ -356,7 +359,7 @@ def test_anisotropic_hernquist_diffcalls():
         # Calculate E directly and L from Orbit
         assert numpy.fabs(dfh(R,vR,vT,z,vz,phi)-dfh((pot(R,z)+0.5*(vR**2.+vT**2.+vz**2.),numpy.sqrt(numpy.sum(Orbit([R,vR,vT,z,vz,phi]).L()**2.))))) < 1e-8, 'Calling the anisotropic Hernquist DF with R,vR,... or E[R,vR,...] does not give the same answer'
         # Also as orbit
-        assert numpy.fabs(dfh(R,vR,vT,z,vz,phi)-dfh(Orbit([R,vR,vT,z,vz,phi]))) < 1e-8, 'Calling the anisotropic Hernquist DF with R,vR,... or E[R,vR,...] does not give the same answer'   
+        assert numpy.fabs(dfh(R,vR,vT,z,vz,phi)-dfh(Orbit([R,vR,vT,z,vz,phi]))) < 1e-8, 'Calling the anisotropic Hernquist DF with R,vR,... or E[R,vR,...] does not give the same answer'
     return None
 
 ########################### OSIPKOV-MERRITT HERNQUIST DF ######################
@@ -382,7 +385,7 @@ def test_osipkovmerritt_hernquist_dens_spherically_symmetric():
         check_spherical_symmetry(samp,3,1,tol)
         check_spherical_symmetry(samp,9,-6,tol)
     return None
-    
+
 def test_osipkovmerritt_hernquist_dens_massprofile():
     pot= potential.HernquistPotential(amp=2.3,a=1.3)
     ras= [0.3,2.3,5.7]
@@ -491,7 +494,7 @@ def test_osipkovmerritt_hernquist_diffcalls():
         # Calculate E directly and L from Orbit
         assert numpy.fabs(dfh(R,vR,vT,z,vz,phi)-dfh((pot(R,z)+0.5*(vR**2.+vT**2.+vz**2.),numpy.sqrt(numpy.sum(Orbit([R,vR,vT,z,vz,phi]).L()**2.))))) < 1e-8, 'Calling the Osipkov-Merritt anisotropic Hernquist DF with R,vR,... or E[R,vR,...] does not give the same answer'
         # Also as orbit
-        assert numpy.fabs(dfh(R,vR,vT,z,vz,phi)-dfh(Orbit([R,vR,vT,z,vz,phi]))) < 1e-8, 'Calling the Osipkov-Merritt isotropic Hernquist DF with R,vR,... or E[R,vR,...] does not give the same answer'   
+        assert numpy.fabs(dfh(R,vR,vT,z,vz,phi)-dfh(Orbit([R,vR,vT,z,vz,phi]))) < 1e-8, 'Calling the Osipkov-Merritt isotropic Hernquist DF with R,vR,... or E[R,vR,...] does not give the same answer'
     return None
 
 ############################## OSIPKOV-MERRITT NFW DF #########################
@@ -517,7 +520,7 @@ def test_osipkovmerritt_nfw_dens_spherically_symmetric():
         check_spherical_symmetry(samp,3,1,tol)
         check_spherical_symmetry(samp,9,-6,tol)
     return None
-    
+
 def test_osipkovmerritt_nfw_dens_massprofile():
     pot= potential.NFWPotential(amp=2.3,a=1.3)
     ras= [2.3,5.7]
@@ -636,7 +639,7 @@ def test_isotropic_plummer_dens_spherically_symmetric():
     check_spherical_symmetry(samp,3,1,tol)
     check_spherical_symmetry(samp,9,-6,tol)
     return None
-    
+
 def test_isotropic_plummer_dens_massprofile():
     pot= potential.PlummerPotential(amp=2.3,b=1.3)
     dfp= isotropicPlummerdf(pot=pot)
@@ -732,7 +735,7 @@ def test_isotropic_nfw_dens_spherically_symmetric():
     check_spherical_symmetry(samp,3,1,tol)
     check_spherical_symmetry(samp,9,-6,tol)
     return None
-    
+
 def test_isotropic_nfw_dens_massprofile():
     pot= potential.NFWPotential(amp=2.3,a=1.3)
     dfp= isotropicNFWdf(pot=pot)
@@ -814,7 +817,7 @@ def test_isotropic_nfw_widrow_against_improved():
     dfpw= isotropicNFWdf(pot=pot,widrow=True)
     Es= numpy.linspace(-dfp._Etildemax*0.999,0,101,endpoint=False)
     assert numpy.all(numpy.fabs(1.-dfp.fE(Es)/dfpw.fE(Es)) < 1e-2), 'isotropic NFW with widrow=True does not agree on f(E) with widrow=False'
-    return None    
+    return None
 
 ################################# EDDINGTON DF ################################
 # For the following tests, we use a DehnenCoreSphericalPotential
@@ -838,7 +841,7 @@ def test_isotropic_eddington_selfconsist_dehnencore_dens_spherically_symmetric()
     check_spherical_symmetry(samp,3,1,tol)
     check_spherical_symmetry(samp,9,-6,tol)
     return None
-    
+
 def test_isotropic_eddington_selfconsist_dehnencore_dens_massprofile():
     # Do one with pot as list
     pot= [potential.DehnenCoreSphericalPotential(amp=2.5,a=1.15)]
@@ -937,7 +940,7 @@ def test_isotropic_eddington_dehnencore_in_nfw_dens_spherically_symmetric():
     check_spherical_symmetry(samp,3,1,tol)
     check_spherical_symmetry(samp,9,-6,tol)
     return None
-    
+
 def test_isotropic_eddington_dehnencore_in_nfw_dens_massprofile():
     pot= potential.NFWPotential(amp=2.3,a=1.3)
     denspot= potential.DehnenCoreSphericalPotential(amp=2.5,a=1.15)
@@ -1067,7 +1070,7 @@ def test_king_dens_spherically_symmetric():
     check_spherical_symmetry(samp,3,1,tol)
     check_spherical_symmetry(samp,9,-6,tol)
     return None
-    
+
 def test_king_dens_massprofile():
     pot= potential.KingPotential(W0=3.,M=2.3,rt=1.76)
     dfk= kingdf(W0=3.,M=2.3,rt=1.76)
@@ -1106,7 +1109,7 @@ def test_king_beta():
     check_beta(samp,pot,tol,beta=0.,rmin=dfk._scale/10.,rmax=dfk.rt,
                bins=31)
     return None
-               
+
 def test_king_dens_directint():
     pot= potential.KingPotential(W0=3.,M=2.3,rt=1.76)
     dfk= kingdf(W0=3.,M=2.3,rt=1.76)
@@ -1161,7 +1164,7 @@ def test_osipkovmerritt_selfconsist_dehnencore_dens_spherically_symmetric():
         check_spherical_symmetry(samp,3,1,tol)
         check_spherical_symmetry(samp,9,-6,tol)
     return None
-    
+
 def test_osipkovmerritt_selfconsist_dehnencore_dens_massprofile():
     pot= potential.DehnenCoreSphericalPotential(amp=2.5,a=1.15)
     ras= [2.3,5.7]
@@ -1281,7 +1284,7 @@ def test_osipkovmerritt_dehnencore_in_nfw_dens_spherically_symmetric():
         check_spherical_symmetry(samp,3,1,tol)
         check_spherical_symmetry(samp,9,-6,tol)
     return None
-    
+
 def test_osipkovmerritt_dehnencore_in_nfw_dens_massprofile():
     pot= potential.NFWPotential(amp=2.3,a=1.3)
     denspot= potential.DehnenCoreSphericalPotential(amp=2.5,a=1.15)
@@ -1304,7 +1307,7 @@ def test_osipkovmerritt_dehnencore_in_nfw_sigmar():
         numpy.random.seed(10)
         samp= dfh.sample(n=300000)
         tol= 0.07
-        # rmin larger than usual to avoid low number sampling  
+        # rmin larger than usual to avoid low number sampling
         check_sigmar_against_jeans(samp,pot,tol,
                                    dens=lambda r: denspot.dens(r,0),
                                    beta=lambda r: 1./(1.+ra**2./r**2.),
@@ -1400,7 +1403,7 @@ def test_constantbetadf_against_hernquist():
         R,vR,vT,z,vz,phi= 1.1,0.3,0.2,0.9,-0.2,2.4
         assert numpy.fabs(dfh(R,vR,vT,z,vz,phi)-cdfh(R,vR,vT,z,vz,phi)) < 1e-5, 'constantbetadf version of Hernquist does not agree with constantbetaHernquistdf'
     return None
-        
+
 # For the following tests, we use a DehnenCoreSphericalPotential
 constantbeta_dfs_selfconsist= None # re-use in other tests
 def test_constantbeta_selfconsist_dehnencore_dens_spherically_symmetric():
@@ -1429,7 +1432,7 @@ def test_constantbeta_selfconsist_dehnencore_dens_spherically_symmetric():
         check_spherical_symmetry(samp,3,1,tol)
         check_spherical_symmetry(samp,9,-6,tol)
     return None
-    
+
 def test_constantbeta_selfconsist_dehnencore_dens_massprofile():
     if WIN32: return None # skip on appveyor, because no JAX
     pot= potential.DehnenCoreSphericalPotential(amp=2.5,a=1.15)
@@ -1553,7 +1556,7 @@ def test_constantbeta_dehnencore_in_nfw_dens_spherically_symmetric():
     denspot= potential.DehnenCoreSphericalPotential(amp=2.5,a=1.15)
     betas= [0.25]
     global constantbeta_dfs_dehnencore_in_nfw
-    constantbeta_dfs_dehnencore_in_nfw= []   
+    constantbeta_dfs_dehnencore_in_nfw= []
     for beta in betas:
         dfh= constantbetadf(pot=pot,denspot=denspot,beta=beta)
         constantbeta_dfs_dehnencore_in_nfw.append(dfh)
@@ -1574,7 +1577,7 @@ def test_constantbeta_dehnencore_in_nfw_dens_spherically_symmetric():
         check_spherical_symmetry(samp,3,1,tol)
         check_spherical_symmetry(samp,9,-6,tol)
     return None
-    
+
 def test_constantbeta_dehnencore_in_nfw_dens_massprofile():
     if WIN32: return None # skip on appveyor, because no JAX
     pot= potential.NFWPotential(amp=2.3,a=1.3)
@@ -1599,7 +1602,7 @@ def test_constantbeta_dehnencore_in_nfw_sigmar():
         numpy.random.seed(10)
         samp= dfh.sample(n=1000000)
         tol= 0.07
-        # rmin larger than usual to avoid low number sampling  
+        # rmin larger than usual to avoid low number sampling
         check_sigmar_against_jeans(samp,pot,tol,
                                    dens=lambda r: denspot.dens(r,0),
                                    beta=beta,
@@ -1727,7 +1730,7 @@ def test_isotropic_hernquist_nopot():
     return None
 
 def test_isotropic_hernquist_wrongpot():
-    pot= potential.JaffePotential(amp=2.,a=1.3)   
+    pot= potential.JaffePotential(amp=2.,a=1.3)
     with pytest.raises(AssertionError)  as excinfo:
         dfh= isotropicHernquistdf(pot=pot)
     assert str(excinfo.value) == 'pot= must be potential.HernquistPotential', 'Error message when not supplying the potential is incorrect'
@@ -1740,7 +1743,7 @@ def test_anisotropic_hernquist_nopot():
     return None
 
 def test_anisotropic_hernquist_wrongpot():
-    pot= potential.JaffePotential(amp=2.,a=1.3)   
+    pot= potential.JaffePotential(amp=2.,a=1.3)
     with pytest.raises(AssertionError)  as excinfo:
         dfh= constantbetaHernquistdf(pot=pot)
     assert str(excinfo.value) == 'pot= must be potential.HernquistPotential', 'Error message when not supplying the potential is incorrect'
@@ -1757,7 +1760,7 @@ def test_anisotropic_hernquist_negdf():
         # check that the message matches
         raisedWarning+= (str(rec.message.args[0]) == "The DF appears to have negative regions; we'll try to ignore these for sampling the DF, but this may adversely affect the generated samples. Proceed with care!")
     assert raisedWarning, "Using an anisotropic Hernquist DF that has negative parts should have raised a warning, but didn't"
-    
+
 ############################# TESTS OF UNIT HANDLING###########################
 
 # Test that setting up a DF with unit conversion parameters that are
@@ -1788,7 +1791,7 @@ def test_eddington_pot_denspot_incompatibleunits():
         dfh= eddingtondf(pot=pot,denspot=denspot)
     return None
 
-# Test that the unit system is correctly transfered
+# Test that the unit system is correctly transferred
 def test_isotropic_hernquist_unittransfer():
     from galpy.util import conversion
     ro, vo= 9., 210.
@@ -1797,8 +1800,8 @@ def test_isotropic_hernquist_unittransfer():
     phys= conversion.get_physical(dfh,include_set=True)
     assert phys['roSet'], "sphericaldf's ro not set when that of the underlying potential is set"
     assert phys['voSet'], "sphericaldf's vo not set when that of the underlying potential is set"
-    assert numpy.fabs(phys['ro']-ro) < 1e-8, "Potential's unit system not correctly transfered to sphericaldf's"
-    assert numpy.fabs(phys['vo']-vo) < 1e-8, "Potential's unit system not correctly transfered to sphericaldf's"
+    assert numpy.fabs(phys['ro']-ro) < 1e-8, "Potential's unit system not correctly transferred to sphericaldf's"
+    assert numpy.fabs(phys['vo']-vo) < 1e-8, "Potential's unit system not correctly transferred to sphericaldf's"
     # Following should not be on
     pot= potential.HernquistPotential(amp=2.,a=1.3)
     dfh= isotropicHernquistdf(pot=pot)
@@ -1831,18 +1834,18 @@ def check_spherical_symmetry(samp,l,m,tol):
     """Check for spherical symmetry by Monte Carlo integration of the
     spherical harmonic Y_lm over the sample, should be zero unless l=m=0"""
     thetas, phis= numpy.arctan2(samp.R(),samp.z()), samp.phi()
-    assert numpy.fabs(numpy.sum(special.lpmv(m,l,numpy.cos(thetas))*numpy.cos(m*phis))/samp.size-(l==0)*(m==0)) < tol, 'Sample does not appear to be spherically symmetric, fails spherical harmonics test for (l,m) = ({},{})'.format(l,m)
+    assert numpy.fabs(numpy.sum(special.lpmv(m,l,numpy.cos(thetas))*numpy.cos(m*phis))/samp.size-(l==0)*(m==0)) < tol, f'Sample does not appear to be spherically symmetric, fails spherical harmonics test for (l,m) = ({l},{m})'
     return None
 
 def check_azimuthal_symmetry(samp,m,tol):
     """Check for spherical symmetry by Monte Carlo integration of the
     spherical harmonic Y_lm over the sample, should be zero unless l=m=0"""
     thetas, phis= numpy.arctan2(samp.R(),samp.z()), samp.phi()
-    assert numpy.fabs(numpy.sum(numpy.cos(m*phis))/samp.size-(m==0)) < tol, 'Sample does not appear to be azimuthally symmetric, fails Fourier test for m = {}'.format(m)
+    assert numpy.fabs(numpy.sum(numpy.cos(m*phis))/samp.size-(m==0)) < tol, f'Sample does not appear to be azimuthally symmetric, fails Fourier test for m = {m}'
     return None
 
 def check_spherical_massprofile(samp,mass_profile,tol,skip=100):
-    """Check that the cumulative distribution of radii follows the 
+    """Check that the cumulative distribution of radii follows the
     cumulative mass profile (normalized such that total mass = 1)"""
     rs= samp.r()
     cumul_rs= numpy.sort(rs)
@@ -1854,7 +1857,7 @@ def check_spherical_massprofile(samp,mass_profile,tol,skip=100):
 
 def check_sigmar_against_jeans(samp,pot,tol,beta=0.,dens=None,
                                rmin=None,rmax=None,bins=31):
-    """Check that sigma_r(r) obtained from a sampling agrees with that coming 
+    """Check that sigma_r(r) obtained from a sampling agrees with that coming
     from the Jeans equation
     Does this by logarithmically binning in r between rmin and rmax"""
     vrs= (samp.vR()*samp.R()+samp.vz()*samp.z())/samp.r()
@@ -1880,7 +1883,7 @@ def check_beta(samp,pot,tol,beta=0.,
     Does this by logarithmically binning in r between rmin and rmax"""
     vrs= (samp.vR()*samp.R()+samp.vz()*samp.z())/samp.r()
     vthetas=(samp.z()*samp.vR()-samp.R()*samp.vz())/samp.r()
-    vphis= samp.vT()    
+    vphis= samp.vT()
     logrs= numpy.log(samp.r())
     if rmin is None: numpy.exp(numpy.amin(logrs))
     if rmax is None: numpy.exp(numpy.amax(logrs))
@@ -1901,12 +1904,12 @@ def check_beta(samp,pot,tol,beta=0.,
         beta_func= lambda r: beta
     else:
         beta_func= beta
-    assert numpy.all(numpy.fabs(samp_beta-beta_func(brs)) < tol), "beta(r) from samples does not agree with the expected value for beta = {}".format(beta)
+    assert numpy.all(numpy.fabs(samp_beta-beta_func(brs)) < tol), f"beta(r) from samples does not agree with the expected value for beta = {beta}"
     return None
 
 def check_dens_directint(dfi,pot,tol,dens,
                          rmin=None,rmax=None,bins=31):
-    """Check that the density obtained from integrating over the DF agrees 
+    """Check that the density obtained from integrating over the DF agrees
     with the expected density"""
     rs= numpy.linspace(rmin,rmax,bins)
     intdens= numpy.array([dfi.vmomentdensity(r,0,0) for r in rs])
@@ -1917,7 +1920,7 @@ def check_dens_directint(dfi,pot,tol,dens,
 
 def check_meanvr_directint(dfi,pot,tol,beta=0.,
                            rmin=None,rmax=None,bins=31):
-    """Check that the mean v_r(r) obtained from integrating over the DF agrees 
+    """Check that the mean v_r(r) obtained from integrating over the DF agrees
     with the expected zero"""
     rs= numpy.linspace(rmin,rmax,bins)
     intmvr= numpy.array([dfi.vmomentdensity(r,1,0)/dfi.vmomentdensity(r,0,0)
@@ -1929,7 +1932,7 @@ def check_meanvr_directint(dfi,pot,tol,beta=0.,
 def check_sigmar_against_jeans_directint(dfi,pot,tol,beta=0.,
                                          dens=None,
                                          rmin=None,rmax=None,bins=31):
-    """Check that sigma_r(r) obtained from integrating over the DF agrees 
+    """Check that sigma_r(r) obtained from integrating over the DF agrees
     with that coming from the Jeans equation"""
     rs= numpy.linspace(rmin,rmax,bins)
     intsr= numpy.array([dfi.sigmar(r,use_physical=False) for r in rs])
@@ -1941,7 +1944,7 @@ def check_sigmar_against_jeans_directint(dfi,pot,tol,beta=0.,
 def check_sigmar_against_jeans_directint_forcevmoment(dfi,pot,tol,beta=0.,
                                                       rmin=None,rmax=None,
                                                       bins=31):
-    """Check that sigma_r(r) obtained from integrating over the DF agrees 
+    """Check that sigma_r(r) obtained from integrating over the DF agrees
     with that coming from the Jeans equation, using the general sphericaldf
     class' vmomentdensity"""
     from galpy.df.sphericaldf import sphericaldf
@@ -1955,7 +1958,7 @@ def check_sigmar_against_jeans_directint_forcevmoment(dfi,pot,tol,beta=0.,
     return None
 
 def check_beta_directint(dfi,tol,beta=0.,rmin=None,rmax=None,bins=31):
-    """Check that beta(r) obtained from integrating over the DF agrees 
+    """Check that beta(r) obtained from integrating over the DF agrees
     with the expected behavior"""
     rs= numpy.linspace(rmin,rmax,bins)
     intbeta= numpy.array([dfi.beta(r) for r in rs])
@@ -1966,4 +1969,3 @@ def check_beta_directint(dfi,tol,beta=0.,rmin=None,rmax=None,bins=31):
     assert numpy.all(numpy.fabs(intbeta-beta_func(rs)) < tol), \
         "beta(r) from direct integration does not agree with the expected value"
     return None
-

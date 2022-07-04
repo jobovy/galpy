@@ -5,15 +5,15 @@ C implementations of symplectic integrators
 Copyright (c) 2011, Jo Bovy
 All rights reserved.
 
-Redistribution and use in source and binary forms, with or without 
+Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:
 
-   Redistributions of source code must retain the above copyright notice, 
+   Redistributions of source code must retain the above copyright notice,
       this list of conditions and the following disclaimer.
-   Redistributions in binary form must reproduce the above copyright notice, 
-      this list of conditions and the following disclaimer in the 
+   Redistributions in binary form must reproduce the above copyright notice,
+      this list of conditions and the following disclaimer in the
       documentation and/or other materials provided with the distribution.
-   The name of the author may not be used to endorse or promote products 
+   The name of the author may not be used to endorse or promote products
       derived from this software without specific prior written permission.
 
 THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
@@ -607,7 +607,7 @@ double leapfrog_estimate_step(void (*func)(double t, double *q, double *a,int na
     leapfrog_leapq(dim,q12,ptmp,dt/2.,qtmp);//Take full step combining two half
     func(to+3.*dt/4.,qtmp,a,nargs,potentialArgs);
     leapfrog_leapp(dim,ptmp,dt/2.,a,p12);
-    leapfrog_leapq(dim,qtmp,p12,dt/4.,q12);//Take full step combining two half   
+    leapfrog_leapq(dim,qtmp,p12,dt/4.,q12);//Take full step combining two half
     //Norm
     err= 0.;
     for (ii=0; ii < dim; ii++) {
@@ -706,7 +706,7 @@ double symplec4_estimate_step(void (*func)(double t, double *q, double *a,int na
     to+= c4*dt;
     //p4=p3
     //reset
-    to-= dt;   
+    to-= dt;
     /*
       dt/2
     */
@@ -883,7 +883,7 @@ double symplec6_estimate_step(void (*func)(double t, double *q, double *a,int na
     to+= c8*dt;
     //p8=p7
     //reset
-    to-= dt;   
+    to-= dt;
     /*
       dt/2
     */

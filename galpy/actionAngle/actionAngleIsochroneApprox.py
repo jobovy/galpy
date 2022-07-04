@@ -3,9 +3,9 @@
 #
 #      class: actionAngleIsochroneApprox
 #
-#             Calculate actions-angle coordinates for any potential by using 
-#             an isochrone potential as an approximate potential and using 
-#             a Fox & Binney (2013?) + torus machinery-like algorithm 
+#             Calculate actions-angle coordinates for any potential by using
+#             an isochrone potential as an approximate potential and using
+#             a Fox & Binney (2013?) + torus machinery-like algorithm
 #             (angle-fit) (Bovy 2014)
 #
 #      methods:
@@ -15,17 +15,20 @@
 #
 ###############################################################################
 import warnings
+
 import numpy
 from numpy import linalg
 from scipy import optimize
-from ..potential import dvcircdR, vcirc, _isNonAxi
+
+from ..potential import (IsochronePotential, MWPotential, _isNonAxi, dvcircdR,
+                         vcirc)
 from ..potential.Potential import flatten as flatten_potential
-from .actionAngleIsochrone import actionAngleIsochrone
+from ..util import conversion, galpyWarning, plot
+from ..util.conversion import (physical_conversion, potential_physical_input,
+                               time_in_Gyr)
 from .actionAngle import actionAngle
-from ..potential import IsochronePotential, MWPotential
-from ..util import plot, galpyWarning, conversion
-from ..util.conversion import physical_conversion, \
-    potential_physical_input, time_in_Gyr
+from .actionAngleIsochrone import actionAngleIsochrone
+
 _TWOPI= 2.*numpy.pi
 _ANGLETOL= 0.02 #tolerance for deciding whether full angle range is covered
 class actionAngleIsochroneApprox(actionAngle):
@@ -110,7 +113,7 @@ class actionAngleIsochroneApprox(actionAngle):
         # Check the units
         self._check_consistent_units()
         return None
-    
+
     def _evaluate(self,*args,**kwargs):
         """
         NAME:
@@ -123,7 +126,7 @@ class actionAngleIsochroneApprox(actionAngle):
                  1) floats: phase-space value for single object (phi is optional) (each can be a Quantity)
                  2) numpy.ndarray: [N] phase-space values for N objects (each can be a Quantity)
               b) Orbit instance: initial condition used if that's it, orbit(t) if there is a time given as well as the second argument
-           cumul= if True, return the cumulative average actions (to look 
+           cumul= if True, return the cumulative average actions (to look
                   at convergence)
         OUTPUT:
            (jr,lz,jz)
@@ -286,7 +289,7 @@ class actionAngleIsochroneApprox(actionAngle):
             if _isNonAxi(self._pot):
                 nn= (2*maxn-1)**2*maxn-(maxn-1)*(2*maxn-1)-maxn
             else:
-                nn= maxn*(2*maxn-1)-maxn 
+                nn= maxn*(2*maxn-1)-maxn
             A= numpy.zeros((no,nt,2+nn))
             A[:,:,0]= 1.
             A[:,:,1]= ts
@@ -517,7 +520,7 @@ class actionAngleIsochroneApprox(actionAngle):
                           vmin=vmin,vmax=vmax,
                           crange=crange,
                           colorbar=True,
-                          **kwargs)           
+                          **kwargs)
             elif type == 'araphi':
                 if downsample:
                     plotx= angleRT[0,::int(round(self._ntintJ//400))]
@@ -537,7 +540,7 @@ class actionAngleIsochroneApprox(actionAngle):
                           vmin=vmin,vmax=vmax,
                           crange=crange,
                           colorbar=True,
-                          **kwargs)           
+                          **kwargs)
             elif type == 'azaphi':
                 if downsample:
                     plotx= angleZT[0,::int(round(self._ntintJ//400))]
@@ -557,7 +560,7 @@ class actionAngleIsochroneApprox(actionAngle):
                           vmin=vmin,vmax=vmax,
                           crange=crange,
                           colorbar=True,
-                          **kwargs)           
+                          **kwargs)
         return None
 
     def _parse_args(self,freqsAngles=True,_firstFlip=False,*args):
@@ -670,18 +673,18 @@ class actionAngleIsochroneApprox(actionAngle):
                 for ii in range(no):
                     oR[ii,nt:]= os[ii].R(ts[1:]) #drop t=0, which we have
                     ovR[ii,nt:]= os[ii].vR(ts[1:]) #already
-                    ovT[ii,nt:]= os[ii].vT(ts[1:]) # reverse, such that 
+                    ovT[ii,nt:]= os[ii].vT(ts[1:]) # reverse, such that
                     if os[ii].getOrbit().shape[1] == 6:
-                        oz[ii,nt:]= os[ii].z(ts[1:]) #everything is in the 
+                        oz[ii,nt:]= os[ii].z(ts[1:]) #everything is in the
                         ovz[ii,nt:]= os[ii].vz(ts[1:]) #right order
                     ophi[ii,nt:]= os[ii].phi(ts[1:]) #!
             else:
                 for ii in range(no):
                     oR[ii,:nt-1]= os[ii].R(ts[1:])[::-1] #drop t=0, which we have
                     ovR[ii,:nt-1]= -os[ii].vR(ts[1:])[::-1] #already
-                    ovT[ii,:nt-1]= -os[ii].vT(ts[1:])[::-1] # reverse, such that 
+                    ovT[ii,:nt-1]= -os[ii].vT(ts[1:])[::-1] # reverse, such that
                     if os[ii].getOrbit().shape[1] == 6:
-                        oz[ii,:nt-1]= os[ii].z(ts[1:])[::-1] #everything is in the 
+                        oz[ii,:nt-1]= os[ii].z(ts[1:])[::-1] #everything is in the
                         ovz[ii,:nt-1]= -os[ii].vz(ts[1:])[::-1] #right order
                     ophi[ii,:nt-1]= os[ii].phi(ts[1:])[::-1] #!
             return (oR,ovR,ovT,oz,ovz,ophi)
@@ -712,7 +715,7 @@ def estimateBIsochrone(pot,R,z,phi=None):
 
        b if 1 R,Z given
 
-       bmin,bmedian,bmax if multiple R given       
+       bmin,bmedian,bmax if multiple R given
 
     HISTORY:
 

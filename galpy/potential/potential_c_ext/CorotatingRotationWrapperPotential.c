@@ -77,7 +77,7 @@ double CorotatingRotationWrapperPotentialPlanarR2deriv(double R,double phi,doubl
 		  + calcPlanarphitorque(R,phi_new,t,
 				    potentialArgs->nwrapped,
 				    potentialArgs->wrappedPotentialArg)
-		  * *(args+1) * (*(args+2)-1) * (*(args+2)-2) 
+		  * *(args+1) * (*(args+2)-1) * (*(args+2)-2)
 		  * pow(R,*(args+2)-3) * (t-*(args+4)));
 }
 double CorotatingRotationWrapperPotentialPlanarphi2deriv(double R,double phi,

@@ -1,10 +1,12 @@
 # Class that implements the anisotropic spherical NFW DF with radially
 # varying anisotropy of the Osipkov-Merritt type
 import numpy
-from ..util import conversion
+
 from ..potential import NFWPotential
-from .osipkovmerrittdf import _osipkovmerrittdf
+from ..util import conversion
 from .isotropicNFWdf import isotropicNFWdf
+from .osipkovmerrittdf import _osipkovmerrittdf
+
 _COEFFS= numpy.array([-0.9958957901383353, 4.2905266124525259,
                       -7.6069046709185919,7.0313234865878806,
                       -3.6920719890718035, 0.8313023634615980,
@@ -13,7 +15,7 @@ _COEFFS= numpy.array([-0.9958957901383353, 4.2905266124525259,
 
 class osipkovmerrittNFWdf(_osipkovmerrittdf):
     """Class that implements the anisotropic spherical NFW DF with radially varying anisotropy of the Osipkov-Merritt type
-    
+
     .. math::
 
         \\beta(r) = \\frac{1}{1+r_a^2/r^2}
@@ -58,7 +60,7 @@ class osipkovmerrittNFWdf(_osipkovmerrittdf):
         self._fQnorm= self._a2overra2/(4.*numpy.pi)/pot.a**1.5/pot._amp**0.5
         # Initialize isotropic version to use as part of fQ
         self._idf= isotropicNFWdf(pot=pot,rmax=rmax,ro=ro,vo=vo)
-  
+
     def fQ(self,Q):
         """
         NAME:

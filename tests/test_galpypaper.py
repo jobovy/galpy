@@ -1,4 +1,7 @@
-# Test that all of the examples in the galpy paper run
+""" Test that all of the examples in the galpy paper run
+
+   isort:skip_file
+"""
 import os
 import numpy
 import pytest
@@ -97,7 +100,7 @@ def smoothInterp(t,dt,tform):
         xi= 2.*(t-tform)/dt-1.
         smooth= (3./16.*xi**5.-5./8*xi**3.+15./16.*xi+.5)
     return smooth
-    
+
 class TimeInterpPotential(Potential):
     """Potential that smoothly interpolates in time between two static potentials"""
     def __init__(self,pot1,pot2,dt=100.,tform=50.):
@@ -109,11 +112,11 @@ class TimeInterpPotential(Potential):
         self._tform= tform
         self._dt= dt
         return None
-    
+
     def _Rforce(self,R,z,phi=0.,t=0.):
         smooth= smoothInterp(t,self._dt,self._tform)
         return (1.-smooth)*self._pot1.Rforce(R,z)+smooth*self._pot2.Rforce(R,z)
-    
+
     def _zforce(self,R,z,phi=0.,t=0.):
         smooth= smoothInterp(t,self._dt,self._tform)
         return (1.-smooth)*self._pot1.zforce(R,z)+smooth*self._pot2.zforce(R,z)
@@ -163,7 +166,7 @@ def test_orbitint():
 def test_orbmethods():
     from galpy.orbit import Orbit
     from galpy.potential import MWPotential2014
-    # 8/17/2019: added explicit z=0.025, because that was the default at the 
+    # 8/17/2019: added explicit z=0.025, because that was the default at the
     # time of the galpy paper, but the default has been changed
     o= Orbit([0.8,0.3,0.75,0.,0.2,0.],zo=0.025) # setup R,vR,vT,z,vz,phi
     times= numpy.linspace(0.,10.,1001) # Output times
@@ -188,7 +191,7 @@ def test_orbmethods():
     o.vR(5.,vo=220.) # Cyl. rad. velocity at time 5. in km/s
     assert numpy.fabs(o.vR(5.,vo=220.)-45.202530965094553) < 10.**-3., 'Orbit method does not work as expected'
     o.ra(1.), o.dec(1.) # RA and Dec at t=1. (default settings)
-    # 5/12/2016: test weakened, because improved galcen<->heliocen 
+    # 5/12/2016: test weakened, because improved galcen<->heliocen
     #            transformation has changed these, but still close
     assert numpy.fabs(o.ra(1.)-numpy.array([ 288.19277])) < 10.**-1., 'Orbit method does not work as expected'
     assert numpy.fabs(o.dec(1.)-numpy.array([ 18.98069155])) < 10.**-1., 'Orbit method does not work as expected'
@@ -196,7 +199,7 @@ def test_orbmethods():
     assert numpy.fabs(o.jr(type='adiabatic')-0.05285302231137586) < 10.**-3., 'Orbit method does not work as expected'
     assert numpy.fabs(o.jz()-0.006637988850751242) < 10.**-3., 'Orbit method does not work as expected'
     # Rad. period w/ Staeckel approximation w/ focal length 0.5,
-    o.Tr(type='staeckel',delta=0.5,ro=8.,vo=220.) # in Gyr  
+    o.Tr(type='staeckel',delta=0.5,ro=8.,vo=220.) # in Gyr
     assert numpy.fabs(o.Tr(type='staeckel',delta=0.5,ro=8.,vo=220.)-0.1039467864018446) < 10.**-3., 'Orbit method does not work as expected'
     o.plot(d1='R',d2='z') # Plot the orbit in (R,z)
     o.plot3d() # Plot the orbit in 3D, w/ default [x,y,z]
@@ -278,7 +281,7 @@ def test_adinvariance():
     assert numpy.fabs(js[0]-numpy.array([ 0.00773779])) < 10.**-4., 'action in the adiabatic invariance test is different'
     assert numpy.fabs(js[1]-numpy.array([ 1.1])) < 10.**-4., 'action in the adiabatic invariance test is different'
     assert numpy.fabs(js[2]-numpy.array([ 0.0045361])) < 10.**-4., 'action in the adiabatic invariance test is different'
-    aAI2= actionAngleIsochrone(ip=ip2); print(aAI2(o3))  
+    aAI2= actionAngleIsochrone(ip=ip2); print(aAI2(o3))
     js= aAI2(o3)
     assert numpy.fabs(js[0]-numpy.array([ 0.00773812])) < 10.**-4., 'action in the adiabatic invariance test is different'
     assert numpy.fabs(js[1]-numpy.array([ 1.1])) < 10.**-4., 'action in the adiabatic invariance test is different'
@@ -310,7 +313,7 @@ def test_diskdf():
         assert numpy.fabs(df(numpy.array([0.9,0.1,0.8]))-numpy.array(0.1740247246180417)) < 10.**-4., 'diskdf does not behave as expected'
     # Evaluate corrected DF w/ Orbit instance
         from galpy.orbit import Orbit
-        dfc(Orbit([0.9,0.1,0.8]))   
+        dfc(Orbit([0.9,0.1,0.8]))
         assert numpy.fabs(dfc(Orbit([0.9,0.1,0.8]))-numpy.array(0.16834863725552207)) < 10.**-4., 'diskdf does not behave as expected'
     # Calculate the mean velocities
         df.meanvR(0.9), df.meanvT(0.9)
@@ -399,7 +402,7 @@ def test_qdf():
     df.estimate_hz(0.9,0.02)
     assert numpy.fabs(df.estimate_hz(0.9,0.02)-0.064836202345657207) < 10.**-4., 'qdf does not behave as expected'
     # Calculate the mean velocities
-    df.meanvR(0.9,0.05), df.meanvT(0.9,0.05), 
+    df.meanvR(0.9,0.05), df.meanvT(0.9,0.05),
     df.meanvz(0.9,0.05)
     assert numpy.fabs(df.meanvR(0.9,0.05)-3.8432265354618213e-18) < 10.**-4., 'qdf does not behave as expected'
     assert numpy.fabs(df.meanvT(0.9,0.05)-0.90840425173325279) < 10.**-4., 'qdf does not behave as expected'
@@ -437,7 +440,7 @@ def test_coords():
     # Assuming Sun's distance to GC is (8,0.025) in (R,z)
     R,phi,z= coords.XYZ_to_galcencyl(X,Y,Z,Xsun=8.,Zsun=0.025)
     vR,vT,vz= coords.vxvyvz_to_galcencyl(vX,vY,vZ,R,phi,Z,vsun=[-10.1,244.,6.7],galcen=True)
-    # 5/12/2016: test weakened, because improved galcen<->heliocen 
+    # 5/12/2016: test weakened, because improved galcen<->heliocen
     #            transformation has changed these, but still close
     print(R,phi,z,vR,vT,vz)
     assert numpy.fabs(R-12.51328515156942) < 10.**-1., 'Coordinate transformation has changed'

@@ -1,7 +1,7 @@
 /***************************************************************************//**\file galpyPot.cc
-\brief Contains class galpyPotential. 
+\brief Contains class galpyPotential.
 General interface to galpy potentials
-									     
+
 *                                                                              *
 * galpyPot.cc                                                                   *
 *                                                                              *
@@ -36,7 +36,7 @@ double galpyPotential::LfromRc(const double R, double* dR) const
 {
   double dPR,dPz,P;
   P = (*this)(R,0.,dPR,dPz);
-  return sqrt(R*R*R*dPR);  
+  return sqrt(R*R*R*dPR);
 }
 // LCOV_EXCL_STOP
 double galpyPotential::RfromLc(const double L_in, double* dR) const
@@ -49,7 +49,7 @@ double galpyPotential::RfromLc(const double L_in, double* dR) const
   if(LcR == L) return R;
   if(L>LcR) more=true;
   oldL=LcR;
-  
+
   for( ; ; ) {
     lR += (more)? dlR : -dlR;
     R=exp(lR);
@@ -61,11 +61,11 @@ double galpyPotential::RfromLc(const double L_in, double* dR) const
       return R;}
     oldL=LcR;
   }
-  
+
 }
 // LCOV_EXCL_START
 Frequencies galpyPotential::KapNuOm(const double R) const {
-  Frequencies KNO = -9999.99;
-  return KNO;
+  Frequencies KNOW = -9999.99;
+  return KNOW;
 }
 // LCOV_EXCL_STOP

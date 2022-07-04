@@ -1,15 +1,17 @@
 ###############################################################################
-#   surfaceSigmaProfile: classes that implement different surface-mass and 
+#   surfaceSigmaProfile: classes that implement different surface-mass and
 #                        radial velocity dispersion profiles
-# 
+#
 #   Includes the following:
-#      surfaceSigmaProfile - top-level class that represents a surface 
+#      surfaceSigmaProfile - top-level class that represents a surface
 #                            density profile and a sigma_R profile
 #      expSurfaceSigmaProfile - class that represents an exponential surface
-#                               density profile and an exponential sigma_R 
+#                               density profile and an exponential sigma_R
 #                               profile
 ###############################################################################
 import numpy
+
+
 class surfaceSigmaProfile:
     """Class that contains the surface density and sigma_R^2 profile"""
     def __init__(self):
@@ -21,7 +23,7 @@ class surfaceSigmaProfile:
         NAME:
            formatStringParams
         PURPOSE:
-           when writing the parameters of this profile, what 
+           when writing the parameters of this profile, what
            format-strings to use?
            This function defaults to '%6.4f' for each parameter in self._params
         INPUT:
@@ -80,7 +82,7 @@ class surfaceSigmaProfile:
            2010-03-26 - Written - Bovy (NYU)
         """
         raise NotImplementedError("'sigma2' function not implemented for this surfaceSigmaProfile class")
-        
+
 class expSurfaceSigmaProfile(surfaceSigmaProfile):
     """Exponential surface density and sigma_R^2 class"""
     def __init__(self,params=(1./3.,1.0,0.2)):

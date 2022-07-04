@@ -1,11 +1,13 @@
 # Class that implements anisotropic DFs of the Osipkov-Merritt type
 import numpy
-from scipy import integrate, special, interpolate
-from ..util import conversion
+from scipy import integrate, interpolate, special
+
 from ..potential import evaluateDensities
 from ..potential.Potential import _evaluatePotentials
-from .sphericaldf import anisotropicsphericaldf, sphericaldf
+from ..util import conversion
 from .eddingtondf import eddingtondf
+from .sphericaldf import anisotropicsphericaldf, sphericaldf
+
 
 # This is the general Osipkov-Merritt superclass, implementation of general
 # formula can be found following this class
@@ -32,8 +34,8 @@ class _osipkovmerrittdf(anisotropicsphericaldf):
 
            rmax= (None) maximum radius to consider (can be Quantity); DF is cut off at E = Phi(rmax)
 
-            scale - Characteristic scale radius to aid sampling calculations. 
-                Not necessary, and will also be overridden by value from pot 
+            scale - Characteristic scale radius to aid sampling calculations.
+                Not necessary, and will also be overridden by value from pot
                 if available.
 
            ro=, vo= galpy unit parameters
@@ -119,7 +121,7 @@ class _osipkovmerrittdf(anisotropicsphericaldf):
                              0.,self._vmax_at_r(self._pot,r))[0]\
             *special.gamma(m/2.+1.)*special.gamma((n+1)/2.)/\
             special.gamma(0.5*(m+n+3.))/(1+r**2./self._ra2)**(m/2+1)
-    
+
 class osipkovmerrittdf(_osipkovmerrittdf):
     """Class that implements spherical DFs with Osipkov-Merritt-type orbital anisotropy
 
@@ -205,7 +207,7 @@ class osipkovmerrittdf(_osipkovmerrittdf):
                                         k=3,ext=3)
         return sphericaldf.sample(self,R=R,z=z,phi=phi,n=n,
                                   return_orbit=return_orbit,rmin=rmin)
-   
+
     def fQ(self,Q):
         """
         NAME:

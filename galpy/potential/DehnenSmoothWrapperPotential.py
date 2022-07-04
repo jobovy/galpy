@@ -1,8 +1,10 @@
 ###############################################################################
 #   DehnenSmoothWrapperPotential.py: Wrapper to smoothly grow a potential
 ###############################################################################
-from .WrapperPotential import parentWrapperPotential
 from ..util import conversion
+from .WrapperPotential import parentWrapperPotential
+
+
 class DehnenSmoothWrapperPotential(parentWrapperPotential):
     """Potential wrapper class that implements the growth of a gravitational potential following `Dehnen (2000) <http://adsabs.harvard.edu/abs/2000AJ....119..800D>`__. The amplitude A applied to a potential wrapped by an instance of this class is changed as
 
@@ -77,7 +79,7 @@ class DehnenSmoothWrapperPotential(parentWrapperPotential):
             smooth= (3./16.*xi**5.-5./8*xi**3.+15./16.*xi+.5)
         else: #bar is fully on
             smooth= 1.
-        return smooth if self._grow else 1.-smooth 
+        return smooth if self._grow else 1.-smooth
 
     def _wrap(self,attribute,*args,**kwargs):
         return self._smooth(kwargs.get('t',0.))\

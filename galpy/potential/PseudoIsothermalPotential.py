@@ -3,8 +3,11 @@
 #                                 halo potential
 ###############################################################################
 import numpy
+
 from ..util import conversion
 from .Potential import Potential
+
+
 class PseudoIsothermalPotential(Potential):
     """Class that implements the pseudo-isothermal potential
 
@@ -53,7 +56,7 @@ class PseudoIsothermalPotential(Potential):
         self._a3= a**3.
         if normalize or \
                 (isinstance(normalize,(int,float)) \
-                     and not isinstance(normalize,bool)): #pragma: no cover 
+                     and not isinstance(normalize,bool)): #pragma: no cover
             self.normalize(normalize)
         return None
 
@@ -209,4 +212,3 @@ class PseudoIsothermalPotential(Potential):
         return (3.*self._a/r2/r2*numpy.arctan(r/self._a)\
                     -1./r2/r*((3.*self._a2+2.*r2)/(r2+self._a2)))*R*z/r\
                     /self._a
-

@@ -1,16 +1,15 @@
 # Test consistency between galpy and amuse
 import numpy
-from galpy.orbit import Orbit
-from galpy import potential
-from galpy.util import conversion
-
-from galpy.potential import to_amuse
-
-from amuse.lab import *
 from amuse.couple import bridge
 from amuse.datamodel import Particles
-
+from amuse.lab import *
 from astropy import units as apy_u
+
+from galpy import potential
+from galpy.orbit import Orbit
+from galpy.potential import to_amuse
+from galpy.util import conversion
+
 
 def test_amuse_potential_with_physical():
     ro, vo=8., 220.
@@ -209,7 +208,7 @@ def run_orbitIntegration_comparison(orb,pot,tmax,vo,ro,tol=0.01):
     assert vzdiff < tol, 'galpy and amuse orbit integration inconsistent for vz by %g' % vzdiff
 
     return None
-    
+
 def integrate_amuse(orb,pot,tmax,vo,ro):
     """Integrate a snapshot in infile until tmax in Gyr, save to outfile"""
 
@@ -224,7 +223,7 @@ def integrate_amuse(orb,pot,tmax,vo,ro):
     orbit.position=[orb.x(),orb.y(),orb.z()] | units.kpc
     orbit.velocity=[orb.vx(),orb.vy(),orb.vz()] | units.kms
     galaxy_code = to_amuse(pot,ro=ro,vo=vo)
-    
+
     orbit_gravity=drift_without_gravity(orbit)
     orbit_gravity.particles.add_particles(orbit)
     channel_from_gravity_to_orbit= orbit_gravity.particles.new_channel_to(orbit)

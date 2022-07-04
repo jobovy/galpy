@@ -1,8 +1,10 @@
 # Class that implements isotropic spherical NFW DF
 import numpy
-from ..util import conversion
+
 from ..potential import NFWPotential
+from ..util import conversion
 from .sphericaldf import isotropicsphericaldf
+
 # Coefficients of the improved analytical approximation that JB made
 _COEFFS= numpy.array([7.8480631889123114, -41.0268009529575863,
                       92.5144063082258157,-117.6477872907975382,
@@ -35,7 +37,7 @@ class isotropicNFWdf(isotropicsphericaldf):
            ro=, vo= galpy unit parameters
 
         OUTPUT:
-        
+
             None
 
         HISTORY:

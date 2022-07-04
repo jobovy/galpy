@@ -1,7 +1,9 @@
 import numpy
+
 from ..util import conversion
 from ..util._optional_deps import _APY_LOADED
 from .linearPotential import linearPotential
+
 if _APY_LOADED:
     from astropy import units
 class KGPotential(linearPotential):
@@ -60,7 +62,7 @@ class KGPotential(linearPotential):
         self._D= D
         self._D2= self._D**2.
         self.hasC= True
-        
+
     def _evaluate(self,x,t=0.):
         return self._K*(numpy.sqrt(x**2.+self._D2)-self._D)+self._F*x**2.
 

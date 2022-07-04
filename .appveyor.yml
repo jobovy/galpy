@@ -7,17 +7,17 @@ environment:
   matrix:
     - TEST_FILES: tests\test_orbit.py tests\test_orbits.py
       ADDL_CONDA_PKGS: astropy astroquery
-      COMPILE_NOOPENMP: 
+      COMPILE_NOOPENMP:
       BUILD_WHEELS: "true"
 
     - TEST_FILES: tests\test_potential.py tests\test_actionAngle.py
-      ADDL_CONDA_PKGS: 
-      COMPILE_NOOPENMP: 
+      ADDL_CONDA_PKGS:
+      COMPILE_NOOPENMP:
       BUILD_WHEELS: "false"
 
     - TEST_FILES: "tests\\ --ignore=tests\\test_actionAngleTorus.py --ignore=tests\\test_snapshotpotential.py --ignore=tests\\test_qdf.py --ignore=tests\\test_pv2qdf.py --ignore=tests\\test_diskdf.py --ignore=tests\\test_orbit.py --ignore=tests\\test_orbits.py --ignore=tests\\test_potential.py --ignore=tests\\test_actionAngle.py --ignore=tests\\test_streamdf.py --ignore=tests\\test_streamgapdf.py --ignore=tests\\test_evolveddiskdf.py --ignore=tests\\test_quantity.py --ignore=tests\\test_nemo.py --ignore=tests\\test_amuse.py --ignore=tests\\test_coords.py"
-      ADDL_CONDA_PKGS: 
-      COMPILE_NOOPENMP: 
+      ADDL_CONDA_PKGS:
+      COMPILE_NOOPENMP:
       BUILD_WHEELS: "false"
 
     - TEST_FILES: tests\test_quantity.py tests\test_coords.py
@@ -90,16 +90,6 @@ after_test:
   - conda create -n py37 python=3.7 numpy scipy matplotlib setuptools pip pytest gsl
   - conda activate py37
   - conda remove --name py38 --all
-  - pip install wheel
-  - set INCLUDE=%CONDA_PREFIX%\Library\include;%INCLUDE%
-  - set LIB=%CONDA_PREFIX%\Library\lib;%LIB%
-  - set LIBPATH=%CONDA_PREFIX%\Library\lib;%LIBPATH%
-  - python setup.py bdist_wheel
-  - conda deactivate
-  # Python 3.6
-  - conda create -n py36 python=3.6 numpy scipy matplotlib setuptools pip pytest gsl
-  - conda activate py36
-  - conda remove --name py37 --all
   - pip install wheel
   - set INCLUDE=%CONDA_PREFIX%\Library\include;%INCLUDE%
   - set LIB=%CONDA_PREFIX%\Library\lib;%LIB%

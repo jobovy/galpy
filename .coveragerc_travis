@@ -12,7 +12,7 @@ exclude_lines =
     if 0:
     if __name__ == .__main__.:
 
-omit = 
+omit =
     galpy/snapshot/*
     galpy/potential/amuse.py
     galpy/util/plot.py
@@ -26,4 +26,3 @@ ignore_errors = True
 
 [html]
 directory = ../coverage_html_report
-

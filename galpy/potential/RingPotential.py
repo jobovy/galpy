@@ -3,8 +3,11 @@
 ###############################################################################
 import numpy
 from scipy import special
+
 from ..util import conversion
 from .Potential import Potential
+
+
 class RingPotential(Potential):
     """Class that implements the potential of an infinitesimally-thin, circular ring
 
@@ -144,7 +147,7 @@ class RingPotential(Potential):
                 +0.5*R2ma2mz2o4aR1m*(special.ellipe(m)-special.ellipk(m))
                 +0.5*(special.ellipe(m)/(1.-m)-special.ellipk(m))/m)\
                                   *4*self.a*(self.a2+z**2-R**2)/Raz2**2)
-    
+
     def _z2deriv(self,R,z,phi=0.,t=0.):
         """
         NAME:
@@ -163,13 +166,13 @@ class RingPotential(Potential):
         """
         Raz2= (R+self.a)**2+z**2
         m= 4.*R*self.a/Raz2
-        # Explicitly swapped in zforce here, so the z/z can be cancelled 
+        # Explicitly swapped in zforce here, so the z/z can be cancelled
         # and z=0 is handled properly
         return -4.*(3.*z**2/Raz2-1.
                     +4.*((1.+m)/(1.-m)-special.ellipk(m)/special.ellipe(m))\
                         *self.a*R*z**2/Raz2**2/m)\
                     *self.a/(1.-m)*((R+self.a)**2+z**2)**-1.5*special.ellipe(m)
-     
+
     def _Rzderiv(self,R,z,phi=0.,t=0.):
         """
         NAME:

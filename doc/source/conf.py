@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 #
 # galpy documentation build configuration file, created by
 # sphinx-quickstart on Sun Jul 11 15:58:27 2010.
@@ -11,11 +10,13 @@
 # All configuration values have a default; values that are commented out
 # serve to show the default.
 
-import sys, os, re
-import importlib
 import datetime
+import importlib
 import inspect
+import os
+import re
 import subprocess
+import sys
 
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
@@ -81,8 +82,8 @@ source_suffix = '.rst'
 master_doc = 'index'
 
 # General information about the project.
-project = u'galpy'
-copyright = u'2010 - {}, Jo Bovy'.format(datetime.datetime.now().year)
+project = 'galpy'
+copyright = f'2010 - {datetime.datetime.now().year}, Jo Bovy'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -229,8 +230,8 @@ htmlhelp_basename = 'galpydoc'
 # Grouping the document tree into LaTeX files. List of tuples
 # (source start file, target name, title, author, documentclass [howto/manual]).
 latex_documents = [
-  ('index', 'galpy.tex', u'galpy Documentation',
-   u'Jo Bovy', 'manual'),
+  ('index', 'galpy.tex', 'galpy Documentation',
+   'Jo Bovy', 'manual'),
 ]
 
 # The name of an image file (relative to this directory) to place at the top of

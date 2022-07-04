@@ -1,15 +1,16 @@
-from setuptools import setup
-from distutils.core import Extension
-from distutils.command.build_ext import build_ext as build_ext
-import sys
-import distutils.sysconfig as sysconfig
 import distutils.ccompiler
-from distutils.errors import DistutilsPlatformError
-import os, os.path
+import distutils.sysconfig as sysconfig
+import glob
+import os
+import os.path
 import platform
 import subprocess
-import glob
+import sys
+from distutils.command.build_ext import build_ext as build_ext
+from distutils.core import Extension
+from distutils.errors import DistutilsPlatformError
 
+from setuptools import setup
 
 PY3= sys.version > '3'
 WIN32= platform.system() == 'Windows'
@@ -100,7 +101,7 @@ else:
     del sys.argv[no_ext_pos]
     no_ext= True
 
-#code to check the GSL version; list cmd w/ shell=True only works on Windows 
+#code to check the GSL version; list cmd w/ shell=True only works on Windows
 # (https://docs.python.org/3/library/subprocess.html#converting-argument-sequence)
 cmd= ['gsl-config','--version']
 try:
@@ -144,7 +145,7 @@ if WIN32:
     extra_compile_args.append("-DWIN32")
 
 #main C extension
-galpy_c_src= ['galpy/util/bovy_symplecticode.c', 'galpy/util/bovy_rk.c', 
+galpy_c_src= ['galpy/util/bovy_symplecticode.c', 'galpy/util/bovy_rk.c',
               'galpy/util/leung_dop853.c','galpy/util/bovy_coords.c']
 galpy_c_src.extend(glob.glob('galpy/potential/potential_c_ext/*.c'))
 galpy_c_src.extend(glob.glob('galpy/potential/interppotential_c_ext/*.c'))
@@ -193,7 +194,7 @@ if single_ext: #add the code and libraries for the actionAngleTorus extensions
         galpy_c_src= list(set(galpy_c_src))
         galpy_c_include_dirs.extend(actionAngleTorus_include_dirs)
         galpy_c_include_dirs= list(set(galpy_c_include_dirs))
-    
+
 #Installation of this extension using the GSL may (silently) fail, if the GSL
 #is built for the wrong architecture, on Mac you can install the GSL correctly
 #using
@@ -256,7 +257,7 @@ class BuildExt(build_ext):
                         extra_compile_args.append(flag)
                 ext.extra_compile_args= extra_compile_args
         build_ext.build_extensions(self)
-    
+
 setup(cmdclass=dict(build_ext=BuildExt), # this to allow compiler check above
       name='galpy',
       version='1.8.1.dev0',
