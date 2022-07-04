@@ -96,16 +96,6 @@ after_test:
   - set LIBPATH=%CONDA_PREFIX%\Library\lib;%LIBPATH%
   - python setup.py bdist_wheel
   - conda deactivate
-  # Python 3.6
-  - conda create -n py36 python=3.6 numpy scipy matplotlib setuptools pip pytest gsl
-  - conda activate py36
-  - conda remove --name py37 --all
-  - pip install wheel
-  - set INCLUDE=%CONDA_PREFIX%\Library\include;%INCLUDE%
-  - set LIB=%CONDA_PREFIX%\Library\lib;%LIB%
-  - set LIBPATH=%CONDA_PREFIX%\Library\lib;%LIBPATH%
-  - python setup.py bdist_wheel
-  - conda deactivate
   # Upload as artifacts
   - ps: |
       if ($env:BUILD_WHEELS -eq "true") {
