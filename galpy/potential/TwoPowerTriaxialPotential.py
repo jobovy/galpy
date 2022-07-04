@@ -452,10 +452,10 @@ class TriaxialNFWPotential(EllipsoidalPotential):
             self.a= a
         else:
             from ..potential import NFWPotential
-            dum= NFWPotential(mvir=mvir,conc=conc,ro=self._ro,vo=self._vo,
+            dumb= NFWPotential(mvir=mvir,conc=conc,ro=self._ro,vo=self._vo,
                               H=H,Om=Om,wrtcrit=wrtcrit,overdens=overdens)
-            self.a= dum.a
-            self._amp= dum._amp
+            self.a= dumb.a
+            self._amp= dumb._amp
         self._scale= self.a
         self.hasC= not self._glorder is None
         self.hasC_dxdv= False

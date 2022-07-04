@@ -1834,7 +1834,7 @@ class dehnendf(diskdf):
         if kwargs.get('use_physical',True) and \
                 self._roSet and self._voSet:
             if isinstance(out[0],Orbit):
-                dum= [o.turn_physical_on(ro=self._ro,vo=self._vo) for o in out]
+                dumb= [o.turn_physical_on(ro=self._ro,vo=self._vo) for o in out]
         return out
 
     def _dlnfdR(self,R,vR,vT):
@@ -2117,7 +2117,7 @@ class shudf(diskdf):
         if kwargs.get('use_physical',True) and \
                 self._roSet and self._voSet:
             if isinstance(out[0],Orbit):
-                dum= [o.turn_physical_on(ro=self._ro,vo=self._vo) for o in out]
+                dumb= [o.turn_physical_on(ro=self._ro,vo=self._vo) for o in out]
         return out
 
     def _dlnfdR(self,R,vR,vT):

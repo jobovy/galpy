@@ -376,9 +376,9 @@ def test_actionAngleTorus_hessian_freqs():
     from galpy.potential import MWPotential2014
     aAT= actionAngleTorus(pot=MWPotential2014)
     jr,jphi,jz= 0.075,1.1,0.05
-    fO= aAT.Freqs(jr,jphi,jz)[:3]
-    hO= aAT.hessianFreqs(jr,jphi,jz)[1:4]
-    assert numpy.all(numpy.fabs(numpy.array(fO)-numpy.array(hO)) < 10.**-8.), 'actionAngleTorus methods Freqs and hessianFreqs return different frequencies'
+    freqO= aAT.Freqs(jr,jphi,jz)[:3]
+    hessO= aAT.hessianFreqs(jr,jphi,jz)[1:4]
+    assert numpy.all(numpy.fabs(numpy.array(freqO)-numpy.array(hessO)) < 10.**-8.), 'actionAngleTorus methods Freqs and hessianFreqs return different frequencies'
     return None
 
 # Test that the Hessian is approximately symmetric
@@ -411,11 +411,11 @@ def test_actionAngleTorus_jacobian_freqs():
     from galpy.potential import MWPotential2014
     aAT= actionAngleTorus(pot=MWPotential2014)
     jr,jphi,jz= 0.075,1.1,0.05
-    fO= aAT.Freqs(jr,jphi,jz)[:3]
-    hO= aAT.xvJacobianFreqs(jr,jphi,jz,
+    freqO= aAT.Freqs(jr,jphi,jz)[:3]
+    hessO= aAT.xvJacobianFreqs(jr,jphi,jz,
                             numpy.array([0.]),numpy.array([1.]),
                             numpy.array([2.]))[3:6]
-    assert numpy.all(numpy.fabs(numpy.array(fO)-numpy.array(hO)) < 10.**-8.), 'actionAngleTorus methods Freqs and xvJacobianFreqs return different frequencies'
+    assert numpy.all(numpy.fabs(numpy.array(freqO)-numpy.array(hessO)) < 10.**-8.), 'actionAngleTorus methods Freqs and xvJacobianFreqs return different frequencies'
     return None
 
 # Test that the Hessian returned by xvJacobianFreqs are the same as those returned by hessianFreqs
@@ -424,11 +424,11 @@ def test_actionAngleTorus_jacobian_hessian():
     from galpy.potential import MWPotential2014
     aAT= actionAngleTorus(pot=MWPotential2014)
     jr,jphi,jz= 0.075,1.1,0.05
-    fO= aAT.hessianFreqs(jr,jphi,jz)[0]
-    hO= aAT.xvJacobianFreqs(jr,jphi,jz,
+    freqO= aAT.hessianFreqs(jr,jphi,jz)[0]
+    hessO= aAT.xvJacobianFreqs(jr,jphi,jz,
                             numpy.array([0.]),numpy.array([1.]),
                             numpy.array([2.]))[2]
-    assert numpy.all(numpy.fabs(numpy.array(fO)-numpy.array(hO)) < 10.**-8.), 'actionAngleTorus methods hessianFreqs and xvJacobianFreqs return different Hessians'
+    assert numpy.all(numpy.fabs(numpy.array(freqO)-numpy.array(hessO)) < 10.**-8.), 'actionAngleTorus methods hessianFreqs and xvJacobianFreqs return different Hessians'
     return None
 
 # Test that the xv returned by xvJacobianFreqs are the same as those returned by __call__
@@ -440,9 +440,9 @@ def test_actionAngleTorus_jacobian_xv():
     angler= numpy.array([0.,1.])
     anglephi= numpy.array([1.,2.])
     anglez= numpy.array([2.,3.])
-    fO= aAT(jr,jphi,jz,angler,anglephi,anglez)
-    hO= aAT.xvJacobianFreqs(jr,jphi,jz,angler,anglephi,anglez)[0]
-    assert numpy.all(numpy.fabs(numpy.array(fO)-numpy.array(hO)) < 10.**-8.), 'actionAngleTorus methods __call__ and xvJacobianFreqs return different xv'
+    freqO= aAT(jr,jphi,jz,angler,anglephi,anglez)
+    hessO= aAT.xvJacobianFreqs(jr,jphi,jz,angler,anglephi,anglez)[0]
+    assert numpy.all(numpy.fabs(numpy.array(freqO)-numpy.array(hessO)) < 10.**-8.), 'actionAngleTorus methods __call__ and xvJacobianFreqs return different xv'
     return None
 
 # Test that the determinant of the Jacobian returned by xvJacobianFreqs is close to 1/R (should be 1 for rectangular coordinates, 1/R for cylindrical

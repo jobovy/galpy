@@ -290,7 +290,7 @@ class streamgapdf(streamdf.streamdf):
             return numpy.sum(gaussxpolyInt[:,:lowbindx+1])
 
     def _densMoments_approx_higherorder_gaussxpolyInts(self,ll,ul,maxj):
-        """Calculate all of the polynomial x Gaussian integrals occuring
+        """Calculate all of the polynomial x Gaussian integrals occurring
         in the higher-order terms, recursively"""
         gaussxpolyInt= numpy.zeros((maxj,len(ul)))
         gaussxpolyInt[-1]= 1./numpy.sqrt(numpy.pi)\

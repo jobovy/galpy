@@ -136,7 +136,7 @@ def degreeDecorator(inDegrees,outDegrees):
 
     INPUT:
 
-       inDegrees - list specifiying indices of angle arguments (e.g., [0,1])
+       inDegrees - list specifying indices of angle arguments (e.g., [0,1])
        outDegrees - list, same as inDegrees, but for function return
 
     HISTORY:
@@ -238,7 +238,7 @@ def lb_to_radec(l,b,degree=False,epoch=2000.0):
 
        l - Galactic longitude
 
-       b - Galactic lattitude
+       b - Galactic latitude
 
        degree - (Bool) if True, l and b are given in degree and ra and dec will be as well
 
@@ -298,7 +298,7 @@ def lbd_to_XYZ(l,b,d,degree=False):
 
        l - Galactic longitude (rad)
 
-       b - Galactic lattitude (rad)
+       b - Galactic latitude (rad)
 
        d - distance (arbitrary units)
 
@@ -381,7 +381,7 @@ def sphergal_to_rectgal(l,b,d,vr,pmll,pmbb,degree=False):
 
        l - Galactic longitude (rad)
 
-       b - Galactic lattitude (rad)
+       b - Galactic latitude (rad)
 
        d - distance (kpc)
 
@@ -389,7 +389,7 @@ def sphergal_to_rectgal(l,b,d,vr,pmll,pmbb,degree=False):
 
        pmll - proper motion in the Galactic longitude direction (mu_l*cos(b) ) (mas/yr)
 
-       pmbb - proper motion in the Galactic lattitude (mas/yr)
+       pmbb - proper motion in the Galactic latitude (mas/yr)
 
        degree - (bool) if True, l and b are in degrees
 
@@ -430,11 +430,11 @@ def vrpmllpmbb_to_vxvyvz(vr,pmll,pmbb,l,b,d,XYZ=False,degree=False):
 
        pmll - proper motion in the Galactic longitude (mu_l * cos(b))(mas/yr)
 
-       pmbb - proper motion in the Galactic lattitude (mas/yr)
+       pmbb - proper motion in the Galactic latitude (mas/yr)
 
        l - Galactic longitude
 
-       b - Galactic lattitude
+       b - Galactic latitude
 
        d - distance (kpc)
 
@@ -500,7 +500,7 @@ def vxvyvz_to_vrpmllpmbb(vx,vy,vz,l,b,d,XYZ=False,degree=False):
 
        l - Galactic longitude
 
-       b - Galactic lattitude
+       b - Galactic latitude
 
        d - distance (kpc)
 
@@ -607,7 +607,7 @@ def pmrapmdec_to_pmllpmbb(pmra,pmdec,ra,dec,degree=False,epoch=2000.0):
 
     INPUT:
 
-       pmra - proper motion in ra (multplied with cos(dec)) [mas/yr]
+       pmra - proper motion in ra (multiplied with cos(dec)) [mas/yr]
 
        pmdec - proper motion in dec [mas/yr]
 
@@ -664,13 +664,13 @@ def pmllpmbb_to_pmrapmdec(pmll,pmbb,l,b,degree=False,epoch=2000.0):
 
     INPUT:
 
-       pmll - proper motion in l (multplied with cos(b)) [mas/yr]
+       pmll - proper motion in l (multiplied with cos(b)) [mas/yr]
 
        pmbb - proper motion in b [mas/yr]
 
        l - Galactic longitude
 
-       b - Galactic lattitude
+       b - Galactic latitude
 
        degree - if True, l and b are given in degrees (default=False)
 
@@ -722,7 +722,7 @@ def cov_pmrapmdec_to_pmllpmbb(cov_pmradec,ra,dec,degree=False,epoch=2000.0):
 
     INPUT:
 
-       covar_pmradec - uncertainty covariance matrix of the proper motion in ra (multplied with cos(dec)) and dec [2,2] or [:,2,2]
+       covar_pmradec - uncertainty covariance matrix of the proper motion in ra (multiplied with cos(dec)) and dec [2,2] or [:,2,2]
 
        ra - right ascension
 
@@ -808,7 +808,7 @@ def cov_dvrpmllbb_to_vxyz(d,e_d,e_vr,pmll,pmbb,cov_pmllbb,l,b,
 
        l - Galactic longitude
 
-       b - Galactic lattitude
+       b - Galactic latitude
 
     KEYWORDS:
 
@@ -2392,7 +2392,7 @@ def pmrapmdec_to_custom(pmra,pmdec,ra,dec,T=None,degree=False):
 
     INPUT:
 
-       pmra - proper motion in ra (multplied with cos(dec)) [mas/yr]
+       pmra - proper motion in ra (multiplied with cos(dec)) [mas/yr]
 
        pmdec - proper motion in dec [mas/yr]
 
@@ -2482,7 +2482,7 @@ def custom_to_pmrapmdec(pmphi1,pmphi2,phi1,phi2,T=None,degree=False):
 
     INPUT:
 
-       pmphi1 - proper motion in custom (multplied with cos(phi2)) [mas/yr]
+       pmphi1 - proper motion in custom (multiplied with cos(phi2)) [mas/yr]
 
        pmphi2 - proper motion in phi2 [mas/yr]
 
@@ -2522,7 +2522,7 @@ def get_epoch_angles(epoch=2000.0):
        get the angles relevant for the transformation from ra, dec to l,b for the given epoch
     INPUT:
 
-       epoch - epoch of ra,dec (right now only 2000.0 and 1950.0 are supported when not using astropy's transformations internally; when internally using astropy's coordinate transformations, epoch can be None for ICRS, 'JXXXX' for FK5, and 'BXXXX' for FK4 [but for B1950 FK4 with no E abberation terms is assumed... really, there's no reason to use B1950 in 2018 when using galpy...))
+       epoch - epoch of ra,dec (right now only 2000.0 and 1950.0 are supported when not using astropy's transformations internally; when internally using astropy's coordinate transformations, epoch can be None for ICRS, 'JXXXX' for FK5, and 'BXXXX' for FK4 [but for B1950 FK4 with no E aberration terms is assumed... really, there's no reason to use B1950 in 2018 when using galpy...))
 
     OUTPUT:
 

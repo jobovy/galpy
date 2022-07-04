@@ -1742,7 +1742,7 @@ class quasiisothermaldf(df):
             z_max= numpy.amin([numpy.mean(z)+num_std*numpy.std(z),
                                numpy.amax(z)])
         z_min= 0. #Always start grid at z=0 for stars close to plane
-        #Separate the coodinates into outliers and normal points
+        #Separate the coordinates into outliers and normal points
         #Define outliers as points outside of grid
         mask= numpy.any([R < R_min, R > R_max, z > z_max],axis = 0)
         outliers_R= R[mask]
@@ -1841,7 +1841,7 @@ class quasiisothermaldf(df):
         maxVz= numpy.zeros(length)
         logmaxVD= self(R,maxVR,maxVT,z,maxVz,log=True,use_physical=False)
         #Now rejection-sample
-        #Intiialize boolean index of position remaining to be sampled
+        #Initialize boolean index of position remaining to be sampled
         remain_indx = numpy.full(length,True)
         while numpy.any(remain_indx):
             nmore= numpy.sum(remain_indx)

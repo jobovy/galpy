@@ -65,7 +65,7 @@ double galpyPotential::RfromLc(const double L_in, double* dR) const
 }
 // LCOV_EXCL_START
 Frequencies galpyPotential::KapNuOm(const double R) const {
-  Frequencies KNO = -9999.99;
-  return KNO;
+  Frequencies KNOW = -9999.99;
+  return KNOW;
 }
 // LCOV_EXCL_STOP

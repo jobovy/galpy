@@ -2363,7 +2363,7 @@ def test_DehnenBar_special():
     #if _TRAVIS: return None
     #Test that array input works
     dp= potential.DehnenBarPotential()
-    #Test frmo rs < rb through to rs > rb
+    #Test from rs < rb through to rs > rb
     rs= numpy.linspace(0.1*dp._rb,2.11*dp._rb)
     zs= numpy.ones_like(rs)*0.1
     phis=numpy.ones_like(rs)*0.1
@@ -2622,7 +2622,7 @@ def test_MWPotential2014():
     assert numpy.fabs(pot[0].Rforce(1.,0.)+0.05) < 10.**-14., "MWPotential2014's bulge amplitude is incorrect"
     #Check the parameters of the disk
     assert numpy.fabs(pot[1]._a-3./R0) < 10.**-14., "MWPotential2014's disk scale length is incorrect"
-    assert numpy.fabs(pot[1]._b-0.28/R0) < 10.**-14., "MWPotential2014's disk scale heigth is incorrect"
+    assert numpy.fabs(pot[1]._b-0.28/R0) < 10.**-14., "MWPotential2014's disk scale height is incorrect"
     assert numpy.fabs(pot[1].Rforce(1.,0.)+0.60) < 10.**-14., "MWPotential2014's disk amplitude is incorrect"
     #Check the parameters of the halo
     assert numpy.fabs(pot[2].a-16./R0) < 10.**-14., "MWPotential2014's halo scale radius is incorrect"
@@ -3554,22 +3554,22 @@ def test_WrapperPotential_unittransfer_3d():
     hpw_phys= conversion.get_physical(hpw,include_set=True)
     assert hpw_phys['roSet'], "ro not set when wrapping a potential with ro set"
     assert hpw_phys['voSet'], "vo not set when wrapping a potential with vo set"
-    assert numpy.fabs(hpw_phys['ro']-ro) < 1e-10, "ro not properly tranferred to wrapper when wrapping a potential with ro set"
-    assert numpy.fabs(hpw_phys['vo']-vo) < 1e-10, "vo not properly tranferred to wrapper when wrapping a potential with vo set"
+    assert numpy.fabs(hpw_phys['ro']-ro) < 1e-10, "ro not properly transferred to wrapper when wrapping a potential with ro set"
+    assert numpy.fabs(hpw_phys['vo']-vo) < 1e-10, "vo not properly transferred to wrapper when wrapping a potential with vo set"
     # Just set ro
     hp= potential.HernquistPotential(amp=0.55,a=1.3,ro=ro)
     hpw= potential.DehnenSmoothWrapperPotential(pot=hp)
     hpw_phys= conversion.get_physical(hpw,include_set=True)
     assert hpw_phys['roSet'], "ro not set when wrapping a potential with ro set"
     assert not hpw_phys['voSet'], "vo not set when wrapping a potential with vo set"
-    assert numpy.fabs(hpw_phys['ro']-ro) < 1e-10, "ro not properly tranferred to wrapper when wrapping a potential with ro set"
+    assert numpy.fabs(hpw_phys['ro']-ro) < 1e-10, "ro not properly transferred to wrapper when wrapping a potential with ro set"
     # Just set vo
     hp= potential.HernquistPotential(amp=0.55,a=1.3,vo=vo)
     hpw= potential.DehnenSmoothWrapperPotential(pot=hp)
     hpw_phys= conversion.get_physical(hpw,include_set=True)
     assert not hpw_phys['roSet'], "ro not set when wrapping a potential with ro set"
     assert hpw_phys['voSet'], "vo not set when wrapping a potential with vo set"
-    assert numpy.fabs(hpw_phys['vo']-vo) < 1e-10, "vo not properly tranferred to wrapper when wrapping a potential with vo set"
+    assert numpy.fabs(hpw_phys['vo']-vo) < 1e-10, "vo not properly transferred to wrapper when wrapping a potential with vo set"
     return None
 
 def test_WrapperPotential_unittransfer_2d():
@@ -3582,22 +3582,22 @@ def test_WrapperPotential_unittransfer_2d():
     hpw_phys= conversion.get_physical(hpw,include_set=True)
     assert hpw_phys['roSet'], "ro not set when wrapping a potential with ro set"
     assert hpw_phys['voSet'], "vo not set when wrapping a potential with vo set"
-    assert numpy.fabs(hpw_phys['ro']-ro) < 1e-10, "ro not properly tranferred to wrapper when wrapping a potential with ro set"
-    assert numpy.fabs(hpw_phys['vo']-vo) < 1e-10, "vo not properly tranferred to wrapper when wrapping a potential with vo set"
+    assert numpy.fabs(hpw_phys['ro']-ro) < 1e-10, "ro not properly transferred to wrapper when wrapping a potential with ro set"
+    assert numpy.fabs(hpw_phys['vo']-vo) < 1e-10, "vo not properly transferred to wrapper when wrapping a potential with vo set"
     # Just set ro
     hp= potential.HernquistPotential(amp=0.55,a=1.3,ro=ro).toPlanar()
     hpw= potential.DehnenSmoothWrapperPotential(pot=hp)
     hpw_phys= conversion.get_physical(hpw,include_set=True)
     assert hpw_phys['roSet'], "ro not set when wrapping a potential with ro set"
     assert not hpw_phys['voSet'], "vo not set when wrapping a potential with vo set"
-    assert numpy.fabs(hpw_phys['ro']-ro) < 1e-10, "ro not properly tranferred to wrapper when wrapping a potential with ro set"
+    assert numpy.fabs(hpw_phys['ro']-ro) < 1e-10, "ro not properly transferred to wrapper when wrapping a potential with ro set"
     # Just set vo
     hp= potential.HernquistPotential(amp=0.55,a=1.3,vo=vo).toPlanar()
     hpw= potential.DehnenSmoothWrapperPotential(pot=hp)
     hpw_phys= conversion.get_physical(hpw,include_set=True)
     assert not hpw_phys['roSet'], "ro not set when wrapping a potential with ro set"
     assert hpw_phys['voSet'], "vo not set when wrapping a potential with vo set"
-    assert numpy.fabs(hpw_phys['vo']-vo) < 1e-10, "vo not properly tranferred to wrapper when wrapping a potential with vo set"
+    assert numpy.fabs(hpw_phys['vo']-vo) < 1e-10, "vo not properly transferred to wrapper when wrapping a potential with vo set"
     return None
 
 def test_WrapperPotential_serialization():
@@ -3845,11 +3845,11 @@ def test_Ferrers_Rzderiv_issue319():
 def test_rtide():
     #Test that rtide is being calculated properly in select potentials
     lp=potential.LogarithmicHaloPotential()
-    assert abs(1.0-lp.rtide(1.,0.,M=1.0)/0.793700525984) < 10.**-12.,"Calculation of rtide in logaritmic potential fails"
+    assert abs(1.0-lp.rtide(1.,0.,M=1.0)/0.793700525984) < 10.**-12.,"Calculation of rtide in logarithmic potential fails"
     pmass=potential.PlummerPotential(b=0.0)
     assert abs(1.0-pmass.rtide(1.,0.,M=1.0)/0.693361274351) < 10.**-12., "Calculation of rtide in point-mass potential fails"
     # Also test function interface
-    assert abs(1.0-potential.rtide([lp],1.,0.,M=1.0)/0.793700525984) < 10.**-12.,"Calculation of rtide in logaritmic potential fails"
+    assert abs(1.0-potential.rtide([lp],1.,0.,M=1.0)/0.793700525984) < 10.**-12.,"Calculation of rtide in logarithmic potential fails"
     pmass=potential.PlummerPotential(b=0.0)
     assert abs(1.0-potential.rtide([pmass],1.,0.,M=1.0)/0.693361274351) < 10.**-12., "Calculation of rtide in point-mass potential fails"
     return None
@@ -4331,15 +4331,15 @@ def test_TimeDependentAmplitudeWrapperPotential_against_DehnenSmooth():
     o= Orbit()
     ts= numpy.linspace(0.,-20.,1001)
     o.integrate(ts,lp+dp)
-    ot= o()
-    ot.integrate(ts,lp+tp)
+    ott= o()
+    ott.integrate(ts,lp+tp)
     tol= 1e-10
-    assert numpy.amax(numpy.fabs(o.x(ts)-ot.x(ts))) <tol, 'Integrating an orbit in a growing DehnenSmoothWrapper does not agree between DehnenSmooth and TimeDependentWrapper'
-    assert numpy.amax(numpy.fabs(o.y(ts)-ot.y(ts))) <tol, 'Integrating an orbit in a growing DehnenSmoothWrapper does not agree between DehnenSmooth and TimeDependentWrapper'
-    assert numpy.amax(numpy.fabs(o.z(ts)-ot.z(ts))) <tol, 'Integrating an orbit in a growing DehnenSmoothWrapper does not agree between DehnenSmooth and TimeDependentWrapper'
-    assert numpy.amax(numpy.fabs(o.vx(ts)-ot.vx(ts))) <tol, 'Integrating an orbit in a growing DehnenSmoothWrapper does not agree between DehnenSmooth and TimeDependentWrapper'
-    assert numpy.amax(numpy.fabs(o.vy(ts)-ot.vy(ts))) <tol, 'Integrating an orbit in a growing DehnenSmoothWrapper does not agree between DehnenSmooth and TimeDependentWrapper'
-    assert numpy.amax(numpy.fabs(o.vz(ts)-ot.vz(ts))) <tol, 'Integrating an orbit in a growing DehnenSmoothWrapper does not agree between DehnenSmooth and TimeDependentWrapper'
+    assert numpy.amax(numpy.fabs(o.x(ts)-ott.x(ts))) <tol, 'Integrating an orbit in a growing DehnenSmoothWrapper does not agree between DehnenSmooth and TimeDependentWrapper'
+    assert numpy.amax(numpy.fabs(o.y(ts)-ott.y(ts))) <tol, 'Integrating an orbit in a growing DehnenSmoothWrapper does not agree between DehnenSmooth and TimeDependentWrapper'
+    assert numpy.amax(numpy.fabs(o.z(ts)-ott.z(ts))) <tol, 'Integrating an orbit in a growing DehnenSmoothWrapper does not agree between DehnenSmooth and TimeDependentWrapper'
+    assert numpy.amax(numpy.fabs(o.vx(ts)-ott.vx(ts))) <tol, 'Integrating an orbit in a growing DehnenSmoothWrapper does not agree between DehnenSmooth and TimeDependentWrapper'
+    assert numpy.amax(numpy.fabs(o.vy(ts)-ott.vy(ts))) <tol, 'Integrating an orbit in a growing DehnenSmoothWrapper does not agree between DehnenSmooth and TimeDependentWrapper'
+    assert numpy.amax(numpy.fabs(o.vz(ts)-ott.vz(ts))) <tol, 'Integrating an orbit in a growing DehnenSmoothWrapper does not agree between DehnenSmooth and TimeDependentWrapper'
     return None
 
 def test_TimeDependentAmplitudeWrapperPotential_against_DehnenSmooth_2d():
@@ -4355,13 +4355,13 @@ def test_TimeDependentAmplitudeWrapperPotential_against_DehnenSmooth_2d():
     o= Orbit().toPlanar()
     ts= numpy.linspace(0.,-20.,1001)
     o.integrate(ts,lp+dp)
-    ot= o()
-    ot.integrate(ts,lp+tp)
+    ott= o()
+    ott.integrate(ts,lp+tp)
     tol= 1e-10
-    assert numpy.amax(numpy.fabs(o.x(ts)-ot.x(ts))) <tol, 'Integrating an orbit in a growing DehnenSmoothWrapper does not agree between DehnenSmooth and TimeDependentWrapper'
-    assert numpy.amax(numpy.fabs(o.y(ts)-ot.y(ts))) <tol, 'Integrating an orbit in a growing DehnenSmoothWrapper does not agree between DehnenSmooth and TimeDependentWrapper'
-    assert numpy.amax(numpy.fabs(o.vx(ts)-ot.vx(ts))) <tol, 'Integrating an orbit in a growing DehnenSmoothWrapper does not agree between DehnenSmooth and TimeDependentWrapper'
-    assert numpy.amax(numpy.fabs(o.vy(ts)-ot.vy(ts))) <tol, 'Integrating an orbit in a growing DehnenSmoothWrapper does not agree between DehnenSmooth and TimeDependentWrapper'
+    assert numpy.amax(numpy.fabs(o.x(ts)-ott.x(ts))) <tol, 'Integrating an orbit in a growing DehnenSmoothWrapper does not agree between DehnenSmooth and TimeDependentWrapper'
+    assert numpy.amax(numpy.fabs(o.y(ts)-ott.y(ts))) <tol, 'Integrating an orbit in a growing DehnenSmoothWrapper does not agree between DehnenSmooth and TimeDependentWrapper'
+    assert numpy.amax(numpy.fabs(o.vx(ts)-ott.vx(ts))) <tol, 'Integrating an orbit in a growing DehnenSmoothWrapper does not agree between DehnenSmooth and TimeDependentWrapper'
+    assert numpy.amax(numpy.fabs(o.vy(ts)-ott.vy(ts))) <tol, 'Integrating an orbit in a growing DehnenSmoothWrapper does not agree between DehnenSmooth and TimeDependentWrapper'
     return None
 
 def test_TimeDependentAmplitudeWrapperPotential_against_DehnenSmooth_2d_dxdv():
@@ -4377,10 +4377,10 @@ def test_TimeDependentAmplitudeWrapperPotential_against_DehnenSmooth_2d_dxdv():
     o= Orbit().toPlanar()
     ts= numpy.linspace(0.,-20.,1001)
     o.integrate_dxdv([1.,0.,0.,0.],ts,lp+dp,rectIn=True,rectOut=True)
-    ot= o()
-    ot.integrate_dxdv([1.,0.,0.,0.],ts,lp+tp,rectIn=True,rectOut=True)
+    ott= o()
+    ott.integrate_dxdv([1.,0.,0.,0.],ts,lp+tp,rectIn=True,rectOut=True)
     tol= 1e-10
-    assert numpy.amax(numpy.fabs(o.getOrbit_dxdv()-ot.getOrbit_dxdv())) <tol, 'Integrating an orbit with dxdv in a growing DehnenSmoothWrapper does not agree between DehnenSmooth and TimeDependentWrapper'
+    assert numpy.amax(numpy.fabs(o.getOrbit_dxdv()-ott.getOrbit_dxdv())) <tol, 'Integrating an orbit with dxdv in a growing DehnenSmoothWrapper does not agree between DehnenSmooth and TimeDependentWrapper'
     return None
 
 def test_TimeDependentAmplitudeWrapperPotential_inputerrors():

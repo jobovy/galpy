@@ -51,7 +51,7 @@ jobs:
       - name: Build package
         uses: jobovy/pyodide-buildpackage-action/actions/build-package@v1
       # Just make everything executable, because a bunch of stuff needs to be
-      # and it isn't alltogether obvious which (not just .sh)
+      # and it isn't altogether obvious which (not just .sh)
       - name: Change permissions of pyodide directory
         shell: bash
         run: |

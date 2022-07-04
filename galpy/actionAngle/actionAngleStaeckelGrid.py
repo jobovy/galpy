@@ -114,8 +114,8 @@ class actionAngleStaeckelGrid(actionAngle):
         thisLzs= (numpy.tile(self._Lzs,(nE,1)).T).flatten()
         thisERL= (numpy.tile(self._ERL,(nE,1)).T).flatten()
         thisERa= (numpy.tile(self._ERa,(nE,1)).T).flatten()
-        thisy= (numpy.tile(y,(nLz,1))).flatten()
-        thisE= _invEfunc(_Efunc(thisERa,thisERL)+thisy*(_Efunc(thisERL,thisERL)-_Efunc(thisERa,thisERL)),thisERL)
+        this= (numpy.tile(y,(nLz,1))).flatten()
+        thisE= _invEfunc(_Efunc(thisERa,thisERL)+this*(_Efunc(thisERL,thisERL)-_Efunc(thisERa,thisERL)),thisERL)
         if isinstance(self._pot,potential.interpRZPotential) and hasattr(self._pot,'_origPot'):
             u0pot= self._pot._origPot
         else:
@@ -165,7 +165,7 @@ class actionAngleStaeckelGrid(actionAngle):
             indx+= (mjz == 9999.99)
             #Re-calculate these using the original potential, hopefully not too slow
             tmpaA= actionAngleStaeckel.actionAngleStaeckel(pot=self._pot._origPot,delta=self._delta,c=self._c)
-            mjr[indx], dum, mjz[indx]= tmpaA(thisR[indx], #R
+            mjr[indx], dumb, mjz[indx]= tmpaA(thisR[indx], #R
                                              thisv[indx]*numpy.cos(thispsi[indx]), #vR
                                              thisLzs[indx]/thisR[indx], #vT
                                              numpy.zeros(numpy.sum(indx)), #z

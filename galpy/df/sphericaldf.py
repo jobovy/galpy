@@ -14,7 +14,7 @@
 #       * _call_internal(self,*args,**kwargs): which returns the DF as a
 #                                              function of (E,L,Lz)
 #       * _sample_eta(self,r,n=1): to sample the velocity angle at r
-#       * _p_v_at_r(self,v,r): whcih returns p(v|r)
+#       * _p_v_at_r(self,v,r): which returns p(v|r)
 #     constantbetadf is an example of this
 #
 import warnings

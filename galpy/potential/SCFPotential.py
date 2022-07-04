@@ -1075,7 +1075,7 @@ def scf_compute_coeffs(dens,N,L,a=1.,
     Nln = .5*gammaln(l - m + 1) - .5*gammaln(l + m + 1) - (2*l)*numpy.log(2)
     NN = numpy.e**(Nln)
 
-    NN[numpy.where(NN == numpy.inf)] = 0 ## To account for the fact that m cant be bigger than l
+    NN[numpy.where(NN == numpy.inf)] = 0 ## To account for the fact that m can't be bigger than l
 
     constants = NN*(2*l + 1.)**.5
 

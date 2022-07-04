@@ -30,7 +30,7 @@ def test_setupimpact_error():
     V0, R0= 220., 8.
     sigv= 0.365*(10./2.)**(1./3.) # km/s
     with pytest.raises(IOError) as excinfo:
-        dum= streamgapdf(sigv/V0,progenitor=prog_unp_peri,pot=lp,aA=aAI,
+        dumb= streamgapdf(sigv/V0,progenitor=prog_unp_peri,pot=lp,aA=aAI,
                          leading=False,nTrackChunks=26,
                          nTrackIterations=1,
                          sigMeanOffset=4.5,
@@ -66,7 +66,7 @@ def test_leadingwtrailingimpact_error():
     V0, R0= 220., 8.
     sigv= 0.365*(10./2.)**(1./3.) # km/s
     with pytest.raises(ValueError) as excinfo:
-        dum= streamgapdf(sigv/V0,progenitor=prog_unp_peri,pot=lp,aA=aAI,
+        dumb= streamgapdf(sigv/V0,progenitor=prog_unp_peri,pot=lp,aA=aAI,
                          leading=True,nTrackChunks=26,
                          nTrackIterations=1,
                          sigMeanOffset=4.5,
@@ -101,7 +101,7 @@ def test_trailingwleadingimpact_error():
     V0, R0= 220., 8.
     sigv= 0.365*(10./2.)**(1./3.) # km/s
     with pytest.raises(ValueError) as excinfo:
-        dum= streamgapdf(sigv/V0,progenitor=prog_unp_peri,pot=lp,aA=aAI,
+        dumb= streamgapdf(sigv/V0,progenitor=prog_unp_peri,pot=lp,aA=aAI,
                          leading=False,nTrackChunks=26,
                          nTrackIterations=1,
                          sigMeanOffset=4.5,

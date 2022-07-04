@@ -21,7 +21,7 @@ def actionAngleAdiabatic_c(pot,gamma,R,vR,vT,z,vz):
     OUTPUT:
        (jr,jz,err)
        jr,jz : array, shape (len(R))
-       err - non-zero if error occured
+       err - non-zero if error occurred
     HISTORY:
        2012-12-10 - Written - Bovy (IAS)
     """
@@ -106,7 +106,7 @@ def actionAngleRperiRapZmaxAdiabatic_c(pot,gamma,R,vR,vT,z,vz):
     OUTPUT:
        (Rperi,Rap,Zmax,err)
        Rperi,Rap,Zmax : array, shape (len(R))
-       err - non-zero if error occured
+       err - non-zero if error occurred
     HISTORY:
        2017-12-21 - Written - Bovy (UofT)
     """

@@ -243,7 +243,7 @@ class actionAngleStaeckel(actionAngle):
                 u0= None
             jr, jz, Omegar, Omegaphi, Omegaz, err= actionAngleStaeckel_c.actionAngleFreqStaeckel_c(\
                 self._pot,delta,R,vR,vT,z,vz,u0=u0,order=order)
-            # Adjustements for close-to-circular orbits
+            # Adjustments for close-to-circular orbits
             indx= numpy.isnan(Omegar)*(jr < 10.**-3.)+numpy.isnan(Omegaz)*(jz < 10.**-3.) #Close-to-circular and close-to-the-plane orbits
             if numpy.sum(indx) > 0:
                 Omegar[indx]= [epifreq(self._pot,r,use_physical=False) for r in R[indx]]
@@ -321,7 +321,7 @@ class actionAngleStaeckel(actionAngle):
                 u0= None
             jr, jz, Omegar, Omegaphi, Omegaz, angler, anglephi,anglez, err= actionAngleStaeckel_c.actionAngleFreqAngleStaeckel_c(\
                 self._pot,delta,R,vR,vT,z,vz,phi,u0=u0,order=order)
-            # Adjustements for close-to-circular orbits
+            # Adjustments for close-to-circular orbits
             indx= numpy.isnan(Omegar)*(jr < 10.**-3.)+numpy.isnan(Omegaz)*(jz < 10.**-3.) #Close-to-circular and close-to-the-plane orbits
             if numpy.sum(indx) > 0:
                 Omegar[indx]= [epifreq(self._pot,r,use_physical=False) for r in R[indx]]

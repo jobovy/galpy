@@ -151,7 +151,7 @@ def test_density():
 
 #-----------------------------------------------------------------------------
 
-#test wheter the orbit integration in C and Python are the same
+#test whether the orbit integration in C and Python are the same
 def test_orbitIntegrationC():
 
     #_____initialize some KKSPot_____

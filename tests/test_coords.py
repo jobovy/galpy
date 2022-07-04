@@ -301,9 +301,9 @@ def test_radec_to_lb_galpyvsastropy():
     # using astropy
     c= SkyCoord(ra=ra*u.deg,dec=dec*u.deg,frame='fk5',equinox='J2000')
     c= c.transform_to('galactic')
-    la,ba= c.l.to(u.deg).value,c.b.to(u.deg).value
-    assert numpy.fabs(lg-la) < 1e-12, "radec_to_lb using galpy's own transformations does not agree with astropy's"
-    assert numpy.fabs(bg-ba) < 1e-12, "radec_to_lb using galpy's own transformations does not agree with astropy's"
+    lla,bba= c.l.to(u.deg).value,c.b.to(u.deg).value
+    assert numpy.fabs(lg-lla) < 1e-12, "radec_to_lb using galpy's own transformations does not agree with astropy's"
+    assert numpy.fabs(bg-bba) < 1e-12, "radec_to_lb using galpy's own transformations does not agree with astropy's"
     _turn_on_apy()
     return None
 
@@ -318,9 +318,9 @@ def test_radec_to_lb__1950_galpyvsastropy():
     # using astropy
     c= SkyCoord(ra=ra*u.deg,dec=dec*u.deg,frame='fk4noeterms',equinox='B1950')
     c= c.transform_to('galactic')
-    la,ba= c.l.to(u.deg).value,c.b.to(u.deg).value
-    assert numpy.fabs(lg-la) < 1e-12, "radec_to_lb using galpy's own transformations does not agree with astropy's"
-    assert numpy.fabs(bg-ba) < 1e-12, "radec_to_lb using galpy's own transformations does not agree with astropy's"
+    lla,bba= c.l.to(u.deg).value,c.b.to(u.deg).value
+    assert numpy.fabs(lg-lla) < 1e-12, "radec_to_lb using galpy's own transformations does not agree with astropy's"
+    assert numpy.fabs(bg-bba) < 1e-12, "radec_to_lb using galpy's own transformations does not agree with astropy's"
     _turn_on_apy()
     return None
 
@@ -1091,10 +1091,10 @@ def test_cov_dvrpmllbb_to_vxyz():
                                                   degree=True,
                                                   plx=False)
     assert numpy.fabs(numpy.sqrt(cov_vxvyvz[0,0])
-                      -d*4.740470463496208*pmll*numpy.sqrt((e_d/d)**2.+(10./pmll)**2.)) < 10.**-8., 'cov_dvrpmllbb_to_vxyz coversion did not work as expected'
-    assert numpy.fabs(numpy.sqrt(cov_vxvyvz[1,1])-e_vr) < 10.**-10., 'cov_dvrpmllbb_to_vxyz coversion did not work as expected'
+                      -d*4.740470463496208*pmll*numpy.sqrt((e_d/d)**2.+(10./pmll)**2.)) < 10.**-8., 'cov_dvrpmllbb_to_vxyz conversion did not work as expected'
+    assert numpy.fabs(numpy.sqrt(cov_vxvyvz[1,1])-e_vr) < 10.**-10., 'cov_dvrpmllbb_to_vxyz conversion did not work as expected'
     assert numpy.fabs(numpy.sqrt(cov_vxvyvz[2,2])
-                      -d*4.740470463496208*pmbb*numpy.sqrt((e_d/d)**2.+(20./pmbb)**2.)) < 10.**-8., 'cov_dvrpmllbb_to_vxyz coversion did not work as expected'
+                      -d*4.740470463496208*pmbb*numpy.sqrt((e_d/d)**2.+(20./pmbb)**2.)) < 10.**-8., 'cov_dvrpmllbb_to_vxyz conversion did not work as expected'
     #Another one
     l,b,d= 180., 0., 1./2.
     e_d, e_vr= 0.05, 2.
@@ -1107,11 +1107,11 @@ def test_cov_dvrpmllbb_to_vxyz():
                                                   b/180.*numpy.pi,
                                                   degree=False,
                                                   plx=True)
-    assert numpy.fabs(numpy.sqrt(cov_vxvyvz[0,0])-e_vr) < 10.**-8., 'cov_dvrpmllbb_to_vxyz coversion did not work as expected'
+    assert numpy.fabs(numpy.sqrt(cov_vxvyvz[0,0])-e_vr) < 10.**-8., 'cov_dvrpmllbb_to_vxyz conversion did not work as expected'
     assert numpy.fabs(numpy.sqrt(cov_vxvyvz[1,1])
-                      -1./d*4.740470463496208*pmll*numpy.sqrt((e_d/d)**2.+(10./pmll)**2.)) < 10.**-8., 'cov_dvrpmllbb_to_vxyz coversion did not work as expected'
+                      -1./d*4.740470463496208*pmll*numpy.sqrt((e_d/d)**2.+(10./pmll)**2.)) < 10.**-8., 'cov_dvrpmllbb_to_vxyz conversion did not work as expected'
     assert numpy.fabs(numpy.sqrt(cov_vxvyvz[2,2])
-                      -1./d*4.740470463496208*pmbb*numpy.sqrt((e_d/d)**2.+(20./pmbb)**2.)) < 10.**-8., 'cov_dvrpmllbb_to_vxyz coversion did not work as expected'
+                      -1./d*4.740470463496208*pmbb*numpy.sqrt((e_d/d)**2.+(20./pmbb)**2.)) < 10.**-8., 'cov_dvrpmllbb_to_vxyz conversion did not work as expected'
     #Another one, w/ arrays (using einsum)
     l,b,d= 90., 90., 2.
     e_d, e_vr= 0.2, 2.
@@ -1128,10 +1128,10 @@ def test_cov_dvrpmllbb_to_vxyz():
                                                   plx=False)
     for ii in range(3):
         assert numpy.fabs(numpy.sqrt(cov_vxvyvz[ii,0,0])
-                          -d*4.740470463496208*pmll*numpy.sqrt((e_d/d)**2.+(10./pmll)**2.)) < 10.**-8., 'cov_dvrpmllbb_to_vxyz coversion did not work as expected'
+                          -d*4.740470463496208*pmll*numpy.sqrt((e_d/d)**2.+(10./pmll)**2.)) < 10.**-8., 'cov_dvrpmllbb_to_vxyz conversion did not work as expected'
         assert numpy.fabs(numpy.sqrt(cov_vxvyvz[ii,1,1])
-                          -d*4.740470463496208*pmbb*numpy.sqrt((e_d/d)**2.+(20./pmbb)**2.)) < 10.**-8., 'cov_dvrpmllbb_to_vxyz coversion did not work as expected'
-        assert numpy.fabs(numpy.sqrt(cov_vxvyvz[ii,2,2])-e_vr) < 10.**-10., 'cov_dvrpmllbb_to_vxyz coversion did not work as expected'
+                          -d*4.740470463496208*pmbb*numpy.sqrt((e_d/d)**2.+(20./pmbb)**2.)) < 10.**-8., 'cov_dvrpmllbb_to_vxyz conversion did not work as expected'
+        assert numpy.fabs(numpy.sqrt(cov_vxvyvz[ii,2,2])-e_vr) < 10.**-10., 'cov_dvrpmllbb_to_vxyz conversion did not work as expected'
 
     return None
 

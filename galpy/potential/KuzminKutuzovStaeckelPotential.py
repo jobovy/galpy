@@ -270,9 +270,9 @@ class KuzminKutuzovStaeckelPotential(Potential):
         HISTORY:
             2015-02-15 - Written - Trick (MPIA)
         """
-        numer = -3.*numpy.sqrt(l) - numpy.sqrt(n)
+        number = -3.*numpy.sqrt(l) - numpy.sqrt(n)
         denom = 4. * l**1.5 * (numpy.sqrt(l)+numpy.sqrt(n))**3
-        return numer / denom
+        return number / denom
 
     def _n2deriv(self,l,n):
         """
@@ -288,9 +288,9 @@ class KuzminKutuzovStaeckelPotential(Potential):
         HISTORY:
             2015-02-15 - Written - Trick (MPIA)
         """
-        numer = -numpy.sqrt(l) - 3.*numpy.sqrt(n)
+        number = -numpy.sqrt(l) - 3.*numpy.sqrt(n)
         denom = 4. * n**1.5 * (numpy.sqrt(l)+numpy.sqrt(n))**3
-        return numer / denom
+        return number / denom
 
     def _lnderiv(self,l,n):
         """

@@ -1,6 +1,7 @@
 v1.8.1 (XXXX-XX-XX)
 ===================
 
+- Added pre-commit hooks.
 
 v1.8.0 (2022-07-04)
 ===================
@@ -107,7 +108,7 @@ v1.7 (2021-07-04)
   (#444).
 
 - Added NFWPotential initialization method using rmax and vmax, the
-  radius and alue at which the rotation curve peaks; also added rmax
+  radius and value at which the rotation curve peaks; also added rmax
   and vmax methods to NFWPotential to compute these quantities for any
   NFWPotential.
 
@@ -293,7 +294,7 @@ v1.5 (2019-09-12)
 
 - Added support to adjust the amplitude of a Potential instance
   through multiplication of the instance by a number or through
-  division by a numer. E.g., pot= 2.*pot1 returns a Potential instance
+  division by a number. E.g., pot= 2.*pot1 returns a Potential instance
   that is the same as pot1, except that the amplitude is twice
   larger. Similarly, pot= pot1/2. decreases the amplitude by a factor
   of two. This is useful, for example, to quickly change the mass of a
@@ -301,7 +302,7 @@ v1.5 (2019-09-12)
   Potential instances (#369).
 
 - Added support to plot arbitrary combinations of the basic Orbit
-  attributes by giving them as an expresion (e.g.,
+  attributes by giving them as an expression (e.g.,
   orb.plot(d2='vR*R/r+vz*z/r')); requires the numexpr package.
 
 - Switched default Sun's vertical height zo parameter for Orbit
@@ -313,7 +314,7 @@ v1.5 (2019-09-12)
 
 - Added NumericalPotentialDerivativesMixin, a Mixin class to add
   numerically-computed forces and second derivatives to any Potential
-  class, allowing new potentials to be implmented quickly by only
+  class, allowing new potentials to be implemented quickly by only
   implementing the potential itself and obtaining all forces and
   second derivatives numerically.
 

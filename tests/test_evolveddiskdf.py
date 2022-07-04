@@ -129,7 +129,7 @@ def test_mildnonaxi_meanvt_hierarchgrid_tlist():
     return None
 
 def test_mildnonaxi_meanvt_grid_rmEstimates():
-    # Test vmomentsurfacemass w/o having the _estimateX functions in the intial DF
+    # Test vmomentsurfacemass w/o having the _estimateX functions in the initial DF
     class fakeDehnen(dehnendf): #class that removes the _estimate functions
         def __init__(self,*args,**kwargs):
             dehnendf.__init__(self,*args,**kwargs)

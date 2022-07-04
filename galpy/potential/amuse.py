@@ -92,7 +92,7 @@ class galpy_profile(LiteratureReferencesMixIn):
         NAME:
            get_potential_at_point
         PURPOSE:
-           Get potenial at a given location in the potential
+           Get potential at a given location in the potential
         INPUT:
            eps - softening length (necessary for AMUSE, but not used by galpy potential)
            x,y,z - position in the potential

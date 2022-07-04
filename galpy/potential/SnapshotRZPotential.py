@@ -224,7 +224,7 @@ class InterpSnapshotRZPotential(interpRZPotential) :
         self._interpzforce = self._interpPot
         self._interpvcirc = self._interpPot
 
-        # these require additional calculations so set them seperately
+        # these require additional calculations so set them separately
         self._interpepifreq = interpepifreq
         self._interpverticalfreq = interpverticalfreq
 

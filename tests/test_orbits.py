@@ -1683,7 +1683,7 @@ def test_output_specialshapes():
     return None
 
 def test_call_issue256():
-    # Same as for Orbit instances: non-integrated orbit with t=/=0 should return eror
+    # Same as for Orbit instances: non-integrated orbit with t=/=0 should return error
     from galpy.orbit import Orbit
     o = Orbit(vxvv=[[5.,-1.,0.8, 3, -0.1, 0]])
     # no integration of the orbit
@@ -2070,7 +2070,7 @@ def test_plotting():
     return None
 
 def test_integrate_method_warning():
-    """ Test Orbits.integrate raises an error if method is unvalid """
+    """ Test Orbits.integrate raises an error if method is invalid """
     from galpy.orbit import Orbit
     from galpy.potential import MWPotential2014
     o = Orbit([Orbit(vxvv=[1.0, 0.1, 0.1, 0.5, 0.1, 0.0]),
@@ -2330,7 +2330,7 @@ def test_flip_inplace_integrated_evaluated():
             o.integrate(ts,llp)
             of.integrate(ts,llp)
         # Evaluate, make sure it is at an interpolated time!
-        dum= of.R(0.52)
+        dumb= of.R(0.52)
         # Now flip
         of.flip(inplace=True)
         # Just check one time, allows code duplication!

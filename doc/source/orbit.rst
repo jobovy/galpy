@@ -826,7 +826,7 @@ parameters as demonstrated in `Mackereth & Bovy (2018)
 <http://adsabs.harvard.edu/abs/2018PASP..130k4501M>`__ via the
 Staeckel approximation (originally used by `Binney (2012)
 <http://adsabs.harvard.edu/abs/2012MNRAS.426.1324B>`_ for the
-appoximation of actions in axisymmetric potentials), without
+approximation of actions in axisymmetric potentials), without
 performing any orbit integration.  The method uses the geometry of the
 orbit tori to estimate the orbit parameters. After initialising an
 ``Orbit`` instance, the method is applied by specifying
@@ -950,7 +950,7 @@ For ``Orbit`` instances that contain multiple objects, the functions
 above return arrays with the shape of the Orbit.
 
 We can also initialize an ``Orbit`` instance using the phase-space
-position of another ``Orbit`` instance evaulated at time t. For
+position of another ``Orbit`` instance evaluated at time t. For
 example,
 
 >>> newOrbit= o(10.)
@@ -1144,7 +1144,7 @@ A script that calculates and plots everything can be downloaded
 
     python dierickx_eccentricities.py ../path/to/folder
 
-specifiying the location you want to put the plots and data.
+specifying the location you want to put the plots and data.
 
 Alternatively - one can transform the observed coordinates into spherical coordinates and perform
 the estimations in one batch using the ``actionAngle`` interface, which takes considerably less time:

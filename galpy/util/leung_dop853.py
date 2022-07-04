@@ -4,7 +4,7 @@
 #############################################################################
 # Copyright (c) 2018, Henry Leung
 # All rights reserved.
-# This code is written with reference of tha c-version dop853 here: http://www.unige.ch/~hairer/software.html
+# This code is written with reference of the c-version dop853 here: http://www.unige.ch/~hairer/software.html
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are met:

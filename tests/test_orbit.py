@@ -2829,7 +2829,7 @@ def test_flip_inplace_integrated_evaluated():
             o.integrate(ts,llp)
             of.integrate(ts,llp)
         # Evaluate, make sure it is at an interpolated time!
-        dum= of.R(0.52)
+        dumb= of.R(0.52)
         # Now flip
         of.flip(inplace=True)
         # Just check one time, allows code duplication!
@@ -3544,7 +3544,7 @@ def test_scalar_all():
     return None
 
 def test_call_issue256():
-    # Reported by Semyeong Oh: non-integrated orbit with t=/=0 should return eror
+    # Reported by Semyeong Oh: non-integrated orbit with t=/=0 should return error
     from galpy.orbit import Orbit
     o = Orbit(vxvv=[5.,-1.,0.8, 3, -0.1, 0])
     # no integration of the orbit
@@ -4795,7 +4795,7 @@ def test_full_plotting():
            d2='R*sin(phi-{:f}*t)'\
                .format(o.Op(quantity=False)-o.Or(quantity=False)/2))
     with pytest.raises(TypeError) as excinfo:
-        # Unparseable expression gives TypeError
+        # Unparsable expression gives TypeError
         o.plot(d1='t',d2='r^2')
     # Test AttributeErrors
     try: oa.plotx()
@@ -5474,11 +5474,11 @@ def check_integrate_t_asQuantity_warning(o,funcName):
     for rec in record:
         # check that the message matches
         raisedWarning+= (str(rec.message.args[0]) == "You specified integration times as a Quantity, but are evaluating at times not specified as a Quantity; assuming that time given is in natural (internal) units (multiply time by unit to get output at physical time)")
-    assert raisedWarning, "Orbit method %s wit unitless time after integrating with unitful time should have thrown a warning, but didn't" % funcName
+    assert raisedWarning, "Orbit method %s with unitless time after integrating with unitful time should have thrown a warning, but didn't" % funcName
     return None
 
 def test_integrate_method_warning():
-    """ Test Orbit.integrate raises an error if method is unvalid """
+    """ Test Orbit.integrate raises an error if method is invalid """
     from galpy.orbit import Orbit
     from galpy.potential import MWPotential2014
     o = Orbit(vxvv=[1.0, 0.1, 0.1, 0.5, 0.1, 0.0])

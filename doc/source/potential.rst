@@ -289,7 +289,7 @@ with a bar potential grown as above would be
 # -1.00965326579
 
 .. WARNING::
-   When wrapping a potential that has :ref:`physical outputs turned on <physunits>`, the wrapper object inherits the units of the wrapped potential and automatically turns them on, even when you do not explictly set ``ro=`` and ``vo=``.
+   When wrapping a potential that has :ref:`physical outputs turned on <physunits>`, the wrapper object inherits the units of the wrapped potential and automatically turns them on, even when you do not explicitly set ``ro=`` and ``vo=``.
 
 
 Close-to-circular orbits and orbital frequencies
@@ -1137,7 +1137,7 @@ also see :ref:`the next section <addwrappot>`):
   galpy codebase upon code pushes will then automatically test all of
   this, streamlining push requests of new potentials.
 
-  A few atrributes need to be set depending on the potential:
+  A few attributes need to be set depending on the potential:
   ``hasC=True`` for potentials for which the forces and potential are
   implemented in C (see below); ``self.hasC_dxdv=True`` for potentials
   for which the (planar) second derivatives are implemented in C;

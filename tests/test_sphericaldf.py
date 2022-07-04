@@ -1791,7 +1791,7 @@ def test_eddington_pot_denspot_incompatibleunits():
         dfh= eddingtondf(pot=pot,denspot=denspot)
     return None
 
-# Test that the unit system is correctly transfered
+# Test that the unit system is correctly transferred
 def test_isotropic_hernquist_unittransfer():
     from galpy.util import conversion
     ro, vo= 9., 210.
@@ -1800,8 +1800,8 @@ def test_isotropic_hernquist_unittransfer():
     phys= conversion.get_physical(dfh,include_set=True)
     assert phys['roSet'], "sphericaldf's ro not set when that of the underlying potential is set"
     assert phys['voSet'], "sphericaldf's vo not set when that of the underlying potential is set"
-    assert numpy.fabs(phys['ro']-ro) < 1e-8, "Potential's unit system not correctly transfered to sphericaldf's"
-    assert numpy.fabs(phys['vo']-vo) < 1e-8, "Potential's unit system not correctly transfered to sphericaldf's"
+    assert numpy.fabs(phys['ro']-ro) < 1e-8, "Potential's unit system not correctly transferred to sphericaldf's"
+    assert numpy.fabs(phys['vo']-vo) < 1e-8, "Potential's unit system not correctly transferred to sphericaldf's"
     # Following should not be on
     pot= potential.HernquistPotential(amp=2.,a=1.3)
     dfh= isotropicHernquistdf(pot=pot)

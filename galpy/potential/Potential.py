@@ -3471,7 +3471,7 @@ def nemo_accpars(Pot,vo,ro):
 
     OUTPUT:
 
-       accpars string in the corrct format to give to accpars
+       accpars string in the correct format to give to accpars
 
     HISTORY:
 

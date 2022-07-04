@@ -372,7 +372,7 @@ class DehnenSphericalPotential(TwoPowerSphericalPotential):
 
         PURPOSE:
 
-           initialize a Dehnen Spherical Potential; note that the amplitude definitio used here does NOT match that of Dehnen (1993)
+           initialize a Dehnen Spherical Potential; note that the amplitude definition used here does NOT match that of Dehnen (1993)
 
         INPUT:
 
