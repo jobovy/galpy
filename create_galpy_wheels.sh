@@ -4,7 +4,7 @@
 # not possible with CIs currently
 source ~/.bash_profile
 PYTHON_VERSIONS=("3.8" "3.9" "3.10")
-GALPY_VERSION=1.7.2
+GALPY_VERSION=1.8.0
 
 rm -rf galpy-wheels-output 
 mkdir galpy-wheels-output
