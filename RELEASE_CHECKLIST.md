@@ -28,7 +28,7 @@
 
 - [ ] Switch default readthedocs version to the latest version
 
-- [ ] If major version update, create maintenance branch
+- [ ] ~~If major version update, create maintenance branch~~
 
 - [ ] Bump version to development version with ``bumpversion patch`` (for X.Y.1 --> X.Y.2) or ``bumpversion minor`` (for X.1.0 --> X.2.0).
 
