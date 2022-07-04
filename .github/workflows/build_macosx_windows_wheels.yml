@@ -33,7 +33,7 @@ jobs:
       # check-out this repository
       - uses: actions/checkout@v3
       # Install micro-mamba, as specificed by this repository's environment.yml
-      - uses: mamba-org/provision-with-micromamba@main
+      - uses: mamba-org/provision-with-micromamba@v12
         with:
           environment-name: galpywheels
           environment-file: .github/conda-build-environment-${{ matrix.os }}.yml
@@ -70,7 +70,7 @@ jobs:
           python -m pip install delocate
           delocate-wheel -v wheelhouse/*
       # Upload wheel as artifact
-      - uses: actions/upload-artifact@v2-preview
+      - uses: actions/upload-artifact@v3
         with:
           name: galpy-wheel-python-${{ matrix.python-version }}-${{ matrix.os }}
           path: wheelhouse/*.whl
@@ -81,22 +81,22 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2      
+      - uses: actions/checkout@v3
       - run: |
           mkdir tmp_wheelhouse
           mkdir wheelhouse
-      - uses: actions/download-artifact@v2-preview
+      - uses: actions/download-artifact@v3
         with:
           path: tmp_wheelhouse/
       - run: find tmp_wheelhouse/ -mindepth 2 -type f -exec mv -i '{}' wheelhouse/ ';'
-      - uses: actions/upload-artifact@v2-preview
+      - uses: actions/upload-artifact@v3
         with:
           name: galpy-wheels-macos-windows-latest
           path: wheelhouse/*.whl
       # Upload to PyPI if this is a release
       - name: Publish distribution to PyPI
         if: github.event_name == 'release' && github.event.action == 'created'
-        uses: pypa/gh-action-pypi-publish@master
+        uses: pypa/gh-action-pypi-publish@release/v1
         with:
           password: ${{ secrets.pypi_token }}
           packages_dir: wheelhouse/

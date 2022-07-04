@@ -13,7 +13,7 @@ jobs:
       - uses: actions/checkout@v3
       # Setup python
       - name: Set up Python
-        uses: actions/setup-python@v1
+        uses: actions/setup-python@v4
         with:
           python-version: 3.8
       # Install the GSL (necessary to properly include the C files)
@@ -27,6 +27,6 @@ jobs:
           python -m build --sdist
       # Upload to PyPI if this is a release
       - name: Publish distribution to PyPI
-        uses: pypa/gh-action-pypi-publish@master
+        uses: pypa/gh-action-pypi-publish@release/v1
         with:
           password: ${{ secrets.pypi_token }}

@@ -33,14 +33,14 @@ jobs:
         run: |
           GALPY_VERSION="$(awk '/^current_version/{print $NF}' .bumpversion.cfg)"
           for f in wheelhouse/*$GALPY_VERSION*; do sudo mv -i -- "$f" "${f//$GALPY_VERSION/latest}"; done
-      - uses: actions/upload-artifact@v2-preview
+      - uses: actions/upload-artifact@v3
         with:
           name: galpy-wheels-manylinux
           path: wheelhouse/*manylinux*.whl
       # Upload to PyPI if this is a release
       - name: Publish distribution to PyPI
         if: github.event_name == 'release' && github.event.action == 'created'
-        uses: pypa/gh-action-pypi-publish@master
+        uses: pypa/gh-action-pypi-publish@release/v1
         with:
           password: ${{ secrets.pypi_token }}
           packages_dir: wheelhouse/
