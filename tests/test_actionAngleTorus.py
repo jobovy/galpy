@@ -8,7 +8,6 @@ from test_actionAngle import reset_warning_registry
 
 from galpy.util import galpyWarning
 
-_TRAVIS= bool(os.getenv('TRAVIS'))
 PY2= sys.version < '3'
 # Print all galpyWarnings always for tests of warnings
 warnings.simplefilter("always",galpyWarning)

@@ -9,8 +9,6 @@ from galpy.orbit import Orbit
 from galpy.potential import SCFPotential
 from galpy.util import coords
 
-_TRAVIS= bool(os.getenv('TRAVIS'))
-
 EPS = 1e-13 ## default epsilon
 
 DEFAULT_R= numpy.array([0.5,1.,2.])

@@ -7,7 +7,6 @@ import pytest
 
 from galpy.util import galpyWarning
 
-_TRAVIS= bool(os.getenv('TRAVIS'))
 PY2= sys.version < '3'
 # Print all galpyWarnings always for tests of warnings
 warnings.simplefilter("always",galpyWarning)
@@ -2475,7 +2474,7 @@ def test_actionAngleIsochroneApprox_triaxialnfw_linear_angles():
                                     -5.,-5.,-5.,
                                     -5.,-5.,-5.,
                                     -4.,-4.,-4.,
-                                    separate_times=True, # otherwise, memory issues on travis
+                                    separate_times=True,
                                     maxt=4.,ntimes=51) # quick, essentially tests that nothing is grossly wrong
     return None
 

@@ -15,7 +15,6 @@ except ImportError:
 from galpy import orbit, potential
 from galpy.util import _rotate_to_arbitrary_vector, coords
 
-_TRAVIS= bool(os.getenv('TRAVIS'))
 
 #Test whether the normalization of the potential works
 def test_normalize_potential():
@@ -43,7 +42,7 @@ def test_normalize_potential():
              'SnapshotRZPotential','InterpSnapshotRZPotential',
              'EllipsoidalPotential','NumericalPotentialDerivativesMixin',
              'SphericalPotential','interpSphericalPotential']
-    if False: #_TRAVIS: #travis CI
+    if False:
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
     for p in rmpots:
@@ -182,7 +181,7 @@ def test_forceAsDeriv_potential():
              'SnapshotRZPotential','InterpSnapshotRZPotential',
              'EllipsoidalPotential','NumericalPotentialDerivativesMixin',
              'SphericalPotential','interpSphericalPotential']
-    if False: #_TRAVIS: #travis CI
+    if False:
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
     for p in rmpots:
@@ -361,7 +360,7 @@ def test_2ndDeriv_potential():
              'SnapshotRZPotential','InterpSnapshotRZPotential',
              'EllipsoidalPotential','NumericalPotentialDerivativesMixin',
              'SphericalPotential','interpSphericalPotential']
-    if False: #_TRAVIS: #travis CI
+    if False:
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
     for p in rmpots:
@@ -614,7 +613,7 @@ def test_poisson_potential():
              'SnapshotRZPotential','InterpSnapshotRZPotential',
              'EllipsoidalPotential','NumericalPotentialDerivativesMixin',
              'SphericalPotential','interpSphericalPotential']
-    if False: #_TRAVIS: #travis CI
+    if False:
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
     for p in rmpots:
@@ -728,7 +727,7 @@ def test_poisson_surfdens_potential():
              'SnapshotRZPotential','InterpSnapshotRZPotential',
              'EllipsoidalPotential','NumericalPotentialDerivativesMixin',
              'SphericalPotential','interpSphericalPotential']
-    if False: #_TRAVIS: #travis CI
+    if False:
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
     rmpots.append('RazorThinExponentialDiskPotential') # R2deriv not implemented for |Z| > 0
@@ -864,7 +863,7 @@ def test_evaluateAndDerivs_potential():
              'SnapshotRZPotential','InterpSnapshotRZPotential',
              'EllipsoidalPotential','NumericalPotentialDerivativesMixin',
              'SphericalPotential','interpSphericalPotential']
-    if False: #_TRAVIS: #travis CI
+    if False:
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
     for p in rmpots:
@@ -1081,7 +1080,7 @@ def test_amp_mult_divide():
              'SnapshotRZPotential','InterpSnapshotRZPotential',
              'EllipsoidalPotential','NumericalPotentialDerivativesMixin',
              'SphericalPotential','interpSphericalPotential']
-    if False: #_TRAVIS: #travis CI
+    if False:
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
     for p in rmpots:
@@ -1801,7 +1800,7 @@ def test_toVertical_toPlanar():
              'SnapshotRZPotential','InterpSnapshotRZPotential',
              'EllipsoidalPotential','NumericalPotentialDerivativesMixin',
              'SphericalPotential','interpSphericalPotential']
-    if False: #_TRAVIS: #travis CI
+    if False:
         rmpots.append('DoubleExponentialDiskPotential')
         rmpots.append('RazorThinExponentialDiskPotential')
     for p in rmpots:
@@ -2285,7 +2284,7 @@ def test_verticalfreq():
         assert numpy.fabs(potential.verticalfreq([bp],r)-bp.omegac(r)) < 10.**-10., \
             'Verticalfreq for spherical potential does not equal rotational freq'
     #For Double-exponential disk potential, epi^2+vert^2-2*rot^2 =~ 0 at very large distances (no longer explicitly, because we don't use a Kepler potential anylonger)
-    if True: #not _TRAVIS:
+    if True:
         dp= potential.DoubleExponentialDiskPotential(normalize=1.,hr=0.05,hz=0.01)
         assert numpy.fabs(dp.epifreq(1.)**2.+dp.verticalfreq(1.)**2.-2.*dp.omegac(1.)**2.) < 10.**-4., 'epi^2+vert^2-2*rot^2 !=~ 0 for dblexp potential, very far from center'
         #Closer to the center, this becomes the Poisson eqn.
@@ -2322,7 +2321,6 @@ def test_planar_nonaxi():
 
 def test_ExpDisk_special():
     #Test some special cases for the ExponentialDisk potentials
-    #if _TRAVIS: return None
     #Test that array input works
     dp= potential.DoubleExponentialDiskPotential(normalize=1.)
     rs= numpy.linspace(0.1,2.11)
@@ -2360,7 +2358,6 @@ def test_ExpDisk_special():
 
 def test_DehnenBar_special():
     #Test some special cases for the DehnenBar potentials
-    #if _TRAVIS: return None
     #Test that array input works
     dp= potential.DehnenBarPotential()
     #Test from rs < rb through to rs > rb
@@ -2491,8 +2488,7 @@ def test_DehnenBar_special():
 
 def test_SpiralArm_special():
     #Test some special cases for the DehnenBar potentials
-    #if _TRAVIS: return None
-    #Test that array input works
+     #Test that array input works
     dp= potential.SpiralArmsPotential()
     rs= numpy.linspace(0.1,2.,11)
     zs= numpy.ones_like(rs)*0.1
