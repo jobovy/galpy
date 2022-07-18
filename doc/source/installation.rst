@@ -79,15 +79,15 @@ The latest updates in galpy can be installed using::
 
 or::
 
-    pip install -U --no-deps --install-option="--prefix=~/local" git+https://github.com/jobovy/galpy.git#egg=galpy
+    pip install -U --no-deps --prefix=~/local git+https://github.com/jobovy/galpy.git#egg=galpy
 
-for a local installation. The latest updates can also be installed from the source code downloaded from github using the standard python ``setup.py`` installation::
+for a local installation. The latest updates can also be installed from the source code downloaded from github::
 
-      python setup.py install
+      pip install .
 
 or::
 
-	python setup.py install --prefix=~/local
+	pip install --prefix=~/local .
 
 for a local installation.
 
@@ -155,11 +155,13 @@ To compile with OpenMP on Windows, you have to install Intel OpenMP via::
 
 and then to compile the code::
 
-   python setup.py install
+   pip install .
 
 If you encounter any issue related to OpenMP during compilation, you can do::
 
-    python setup.py install --no-openmp
+    pip install . --install-option="--no-openmp"
+
+Note that in this case, you should install all dependencies (e.g., numpy, scipy, matplotlib) first using ``conda`` or ``pip``, because using ``--install-option`` causes ``pip`` to build all dependencies from source, which may cause problems.
 
 Installing from source with Intel Compiler
 -------------------------------------------
@@ -183,10 +185,7 @@ Then you can simply install with::
 
      python setup.py install
 
-or other similar installation commands, or you can build your own
-wheels with::
-
-    python setup.py sdist bdist_wheel
+or other similar installation commands.
 
 .. _install_tm:
 
@@ -203,7 +202,7 @@ uses a stripped-down version of the TorusMapper code, that is not
 bundled with the galpy code, but kept in a fork of the original
 TorusMapper code. Installation of the TorusMapper interface is
 therefore only possible when installing from source after downloading
-or cloning the galpy code and using the ``python setup.py install``
+or cloning the galpy code and using the ``pip install .``
 method above.
 
 To install the TorusMapper code, *before* running the installation of
@@ -215,7 +214,7 @@ galpy, navigate to the top-level galpy directory (which contains the
 	     git checkout galpy
 	     cd -
 
-Then proceed to install galpy using the ``python setup.py install``
+Then proceed to install galpy using the ``pip install .``
 technique or its variants as usual.
 
 .. _install_pyodide:
@@ -346,7 +345,7 @@ where you should add ``/lib`` to the output of the latter. In a bash shell, you 
 
 or::
 
-   export CFLAGS="$CFLAGS -I`gsl-config --prefix`/include" && export LDFLAGS="$LDFLAGS -L`gsl-config --prefix`/lib" && python setup.py install
+   export CFLAGS="$CFLAGS -I`gsl-config --prefix`/include" && export LDFLAGS="$LDFLAGS -L`gsl-config --prefix`/lib" && pip install .
 
 depending on whether you are installing using ``pip`` or from source.
 
@@ -360,10 +359,10 @@ I'm having issues with OpenMP
 
 galpy uses `OpenMP <http://www.openmp.org/>`_ to parallelize various
 of the computations done in C. galpy can be installed without OpenMP
-by specifying the option ``--no-openmp`` when running the ``python
-setup.py`` commands above::
+by specifying the option ``--no-openmp`` when running the installation
+commands above::
 
-	   python setup.py install --no-openmp
+	   pip install . --install-option="--no-openmp"
 
 or when using pip as follows::
 
@@ -371,7 +370,7 @@ or when using pip as follows::
 
 or::
 
-    pip install -U --no-deps --install-option="--prefix=~/local" --install-option="--no-openmp" git+https://github.com/jobovy/galpy.git#egg=galpy
+    pip install -U --no-deps --prefix=~/local --install-option="--no-openmp" git+https://github.com/jobovy/galpy.git#egg=galpy
 
 for a local installation. This might be useful if one is using the
 ``clang`` compiler, which is the new default on macs with OS X (>=
