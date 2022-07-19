@@ -1,6 +1,4 @@
 ############################TESTS ON POTENTIALS################################
-import os
-import sys
 
 import numpy
 

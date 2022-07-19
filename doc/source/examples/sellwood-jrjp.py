@@ -41,7 +41,7 @@ def calcj(rotcurve):
     else:
         dialect= csv.excel
         dialect.skipinitialspace=True
-        reader= csv.reader(open('../data/gcs.tsv','r'),delimiter='|',dialect=dialect)
+        reader= csv.reader(open('../data/gcs.tsv'),delimiter='|',dialect=dialect)
         vxvs= []
         es= []
         zmaxs= []
@@ -83,7 +83,7 @@ def calcj(rotcurve):
                 o.integrate(ts,lp)
                 mye[ii]= o.e()
                 myzmax[ii]= o.zmax()*8.
-                print e[ii], mye[ii], zmax[ii], myzmax[ii]
+                print(e[ii], mye[ii], zmax[ii], myzmax[ii])
                 myjr[ii]= o.jr(lp)
             else:
                 myjr[ii]= o.jr(pp)

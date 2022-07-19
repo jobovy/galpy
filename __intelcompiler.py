@@ -4,7 +4,7 @@
 #############################################################################
 import platform
 from distutils import ccompiler
-from distutils.ccompiler import *
+from distutils.ccompiler import *  # nopycln: import
 
 if platform.system() == 'Windows':  # to prevent linux import error
     from distutils._msvccompiler import MSVCCompiler, _find_exe

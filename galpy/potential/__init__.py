@@ -1,5 +1,3 @@
-import warnings
-
 from . import (AdiabaticContractionWrapperPotential,
                AnyAxisymmetricRazorThinDiskPotential, AnySphericalPotential,
                BurkertPotential, ChandrasekharDynamicalFrictionForce,

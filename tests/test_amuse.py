@@ -2,7 +2,7 @@
 import numpy
 from amuse.couple import bridge
 from amuse.datamodel import Particles
-from amuse.lab import *
+from amuse.lab import *  # nopycln: import
 from astropy import units as apy_u
 
 from galpy import potential

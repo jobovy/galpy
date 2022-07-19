@@ -1,8 +1,6 @@
 import csv
-import math as m
 import os
 import os.path
-import sys
 
 import cPickle as pickle
 import numpy as nu

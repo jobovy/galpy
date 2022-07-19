@@ -1,5 +1,4 @@
 #_____import packages_____
-import math
 
 import numpy
 import scipy
