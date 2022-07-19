@@ -670,6 +670,8 @@ def physical_conversion(quantity,pop=False):
     def wrapper(method):
         @wraps(method)
         def wrapped(*args,**kwargs):
+            use_physical_explicitly_set= \
+                kwargs.get('use_physical',None) is not None
             use_physical= kwargs.get('use_physical',True) and \
                 not kwargs.get('log',False)
             # Parse whether ro or vo should be considered to be set, because
@@ -828,7 +830,7 @@ def physical_conversion(quantity,pop=False):
                 else:
                     return out*fac
             else:
-                if use_physical:
+                if use_physical and use_physical_explicitly_set:
                     warnings.warn("Returning output(s) in internal units even though use_physical=True, because ro and/or vo not set")
                 return method(*args,**kwargs)
         return wrapped
