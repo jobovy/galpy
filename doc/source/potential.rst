@@ -59,7 +59,7 @@ function
    ``galpy`` potentials do *not* necessarily approach zero at infinity. To compute, for example, the escape velocity or whether or not an orbit is unbound, you need to take into account the value of the potential at infinity. E.g., :math:`v_{\mathrm{esc}}(r) = \sqrt{2[\Phi(\infty)-\Phi(r)]}`. If you want to create a potential that does go to zero at infinity, you can add a :ref:`NullPotential <null_potential>` with value equal to minus the original potential evaluated at infinity.
 
 .. TIP::
-   As discussed in the section on :ref:`physical units <physunits>`, potentials can be initialized and evaluated with arguments specified as a astropy Quantity with units. Use the configuration parameter ``apy-units = True`` to get output values as a Quantity. See also the subsection on :ref:`Initializing potentials with parameters with units <physunits_pot>` below.
+   As discussed in the section on :ref:`physical units <physunits>`, potentials can be initialized and evaluated with arguments specified as a astropy Quantity with units. Use the configuration parameter ``astropy-units = True`` to get output values as a Quantity. See also the subsection on :ref:`Initializing potentials with parameters with units <physunits_pot>` below.
 
 We can plot the potential of axisymmetric potentials (or of
 non-axisymmetric potentials at phi=0) using the ``plot`` member
