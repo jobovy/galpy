@@ -155,12 +155,6 @@ def test_energy_jacobi_conservation():
              'SphericalPotential','interpSphericalPotential']
     rmpots.append('SphericalShellPotential')
     rmpots.append('RingPotential')
-    if _GHACTIONS and (WIN32 or MACOS):
-        # Fails on GH Windows/Mac for some reason and I don't care...
-        rmpots.append('AnyAxisymmetricRazorThinDiskPotential')
-    if False: #_GHACTIONS:
-        rmpots.append('DoubleExponentialDiskPotential')
-        rmpots.append('RazorThinExponentialDiskPotential')
     for p in rmpots:
         pots.remove(p)
     #tolerances in log10
