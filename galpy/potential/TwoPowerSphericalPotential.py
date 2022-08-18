@@ -1617,7 +1617,7 @@ class NFWPotential(TwoPowerSphericalPotential):
            2020-02-05 - Written - Bovy (UofT)
 
         """
-        # 0.21621659550187311005 = (numpy.log(1.+rmax)-rmax/(1.+rmax))/rmax
+        # 0.21621659550187311005 = (numpy.log(1.+rmax/a)-rmax/(a+rmax))*a/rmax
         return numpy.sqrt(0.21621659550187311005*self._amp/self.a)
 
     @kms_to_kpcGyrDecorator
