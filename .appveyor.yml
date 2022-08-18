@@ -34,7 +34,7 @@ install:
   - "set PATH=%MINICONDA%;%MINICONDA%\\Scripts;%PATH%"
   - conda config --set always_yes yes --set changeps1 no
   - conda info -a
-  - conda config --append channels conda-forge
+  - conda config --prepend channels conda-forge
   - "conda create -n test-environment python=%PYTHON_VERSION% numpy scipy matplotlib numexpr setuptools pip cython>=0.20 pytest gsl %ADDL_CONDA_PKGS%"
   - activate test-environment
   - pip install coverage
