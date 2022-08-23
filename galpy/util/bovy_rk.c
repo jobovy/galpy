@@ -355,7 +355,7 @@ double rk4_estimate_step(void (*func)(double t, double *y, double *a,int nargs, 
   //dt*= 2.;
   while ( err > 1. ){
     //dt/= 2.;
-    //copy initial codition
+    //copy initial condition
     for (ii=0; ii < dim; ii++) *(yn+ii)= *(yo+ii);
     for (ii=0; ii < dim; ii++) *(y1+ii)= *(yo+ii);
     for (ii=0; ii < dim; ii++) *(y21+ii)= *(yo+ii);
@@ -428,7 +428,7 @@ double rk6_estimate_step(void (*func)(double t, double *y, double *a,int nargs, 
   //dt*= 2.;
   while ( err > 1. ){
     //dt/= 2.;
-    //copy initial codition
+    //copy initial condition
     for (ii=0; ii < dim; ii++) *(yn+ii)= *(yo+ii);
     for (ii=0; ii < dim; ii++) *(y1+ii)= *(yo+ii);
     for (ii=0; ii < dim; ii++) *(y21+ii)= *(yo+ii);

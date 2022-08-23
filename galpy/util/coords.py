@@ -2248,7 +2248,7 @@ def Rz_to_lambdanu_hess(R,z,Delta=1.):
 
     OUTPUT:
 
-       hessian [d^2(lamda)/d(R,z)^2 , d^2(nu)/d(R,z)^2]
+       hessian [d^2(lambda)/d(R,z)^2 , d^2(nu)/d(R,z)^2]
 
     HISTORY:
 

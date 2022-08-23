@@ -192,7 +192,7 @@ class InterpSnapshotRZPotential(interpRZPotential) :
         if not _PYNBODY_LOADED: #pragma: no cover
             raise ImportError("The InterpSnapRZShotPotential class is designed to work with pynbody snapshots, which cannot be loaded (probably because it is not installed) -- obtain from pynbody.github.io")
 
-        # inititalize using the base class
+        # initialize using the base class
         Potential.__init__(self,amp=1.0,ro=ro,vo=vo)
 
         # other properties
