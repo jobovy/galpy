@@ -38,5 +38,5 @@ repos:
   rev: "v2.2.1"
   hooks:
     - id: codespell
-      args: ["-L", "thisE,thise,mye,tE,te,hist",
+      args: ["-L", "thisE,thise,mye,tE,te,hist,ro",
       "-x","doc/source/_static/try-galpy.js"]
