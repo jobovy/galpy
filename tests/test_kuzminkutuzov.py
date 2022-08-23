@@ -433,12 +433,12 @@ def test_Rz_to_lambdanu_hess():
                      -coords.Rz_to_lambdanu(R-dR,z+dz,ac=ac,Delta=Delta)[1]
                      +coords.Rz_to_lambdanu(R-dR,z-dz,ac=ac,Delta=Delta)[1])/dR**2./4.
     hess= coords.Rz_to_lambdanu_hess(R,z,Delta=Delta)
-    assert numpy.fabs(num_deriv_llRR-hess[0,0,0]) < 10.**-4., 'hessian [d^2(lamda)/d(R,z)^2 , d^2(nu)/d(R,z)^2] fails for (dl/dR)'
-    assert numpy.fabs(num_deriv_llRz-hess[0,0,1]) < 10.**-4., 'hessian [d^2(lamda)/d(R,z)^2 , d^2(nu)/d(R,z)^2] fails for (dn/dR)'
-    assert numpy.fabs(num_deriv_nnRR-hess[1,0,0]) < 10.**-4., 'hessian [d^2(lamda)/d(R,z)^2 , d^2(nu)/d(R,z)^2] fails for (dn/dR)'
-    assert numpy.fabs(num_deriv_llzz-hess[0,1,1]) < 10.**-4., 'hessian [d^2(lamda)/d(R,z)^2 , d^2(nu)/d(R,z)^2] fails for (dl/dz)'
-    assert numpy.fabs(num_deriv_nnRz-hess[1,0,1]) < 10.**-4., 'hessian [d^2(lamda)/d(R,z)^2 , d^2(nu)/d(R,z)^2] fails for (dn/dz)'
-    assert numpy.fabs(num_deriv_nnzz-hess[1,1,1]) < 10.**-4., 'hessian [d^2(lamda)/d(R,z)^2 , d^2(nu)/d(R,z)^2] fails for (dn/dz)'
+    assert numpy.fabs(num_deriv_llRR-hess[0,0,0]) < 10.**-4., 'hessian [d^2(lambda)/d(R,z)^2 , d^2(nu)/d(R,z)^2] fails for (dl/dR)'
+    assert numpy.fabs(num_deriv_llRz-hess[0,0,1]) < 10.**-4., 'hessian [d^2(lambda)/d(R,z)^2 , d^2(nu)/d(R,z)^2] fails for (dn/dR)'
+    assert numpy.fabs(num_deriv_nnRR-hess[1,0,0]) < 10.**-4., 'hessian [d^2(lambda)/d(R,z)^2 , d^2(nu)/d(R,z)^2] fails for (dn/dR)'
+    assert numpy.fabs(num_deriv_llzz-hess[0,1,1]) < 10.**-4., 'hessian [d^2(lambda)/d(R,z)^2 , d^2(nu)/d(R,z)^2] fails for (dl/dz)'
+    assert numpy.fabs(num_deriv_nnRz-hess[1,0,1]) < 10.**-4., 'hessian [d^2(lambda)/d(R,z)^2 , d^2(nu)/d(R,z)^2] fails for (dn/dz)'
+    assert numpy.fabs(num_deriv_nnzz-hess[1,1,1]) < 10.**-4., 'hessian [d^2(lambda)/d(R,z)^2 , d^2(nu)/d(R,z)^2] fails for (dn/dz)'
 
     #___Also test for arrays___
     R= numpy.arange(1,4)*0.5
@@ -472,11 +472,11 @@ def test_Rz_to_lambdanu_hess():
                      -coords.Rz_to_lambdanu(R-dR,z+dz,ac=ac,Delta=Delta)[1]
                      +coords.Rz_to_lambdanu(R-dR,z-dz,ac=ac,Delta=Delta)[1])/dR**2./4.
     hess= coords.Rz_to_lambdanu_hess(R,z,Delta=Delta)
-    assert numpy.all(numpy.fabs(num_deriv_llRR-hess[0,0,0]) < 10.**-4.), 'hessian [d^2(lamda)/d(R,z)^2 , d^2(nu)/d(R,z)^2] fails for (dl/dR)'
-    assert numpy.all(numpy.fabs(num_deriv_llRz-hess[0,0,1]) < 10.**-4.), 'hessian [d^2(lamda)/d(R,z)^2 , d^2(nu)/d(R,z)^2] fails for (dn/dR)'
-    assert numpy.all(numpy.fabs(num_deriv_nnRR-hess[1,0,0]) < 10.**-4.), 'hessian [d^2(lamda)/d(R,z)^2 , d^2(nu)/d(R,z)^2] fails for (dn/dR)'
-    assert numpy.all(numpy.fabs(num_deriv_llzz-hess[0,1,1]) < 10.**-4.), 'hessian [d^2(lamda)/d(R,z)^2 , d^2(nu)/d(R,z)^2] fails for (dl/dz)'
-    assert numpy.all(numpy.fabs(num_deriv_nnRz-hess[1,0,1]) < 10.**-4.), 'hessian [d^2(lamda)/d(R,z)^2 , d^2(nu)/d(R,z)^2] fails for (dn/dz)'
-    assert numpy.all(numpy.fabs(num_deriv_nnzz-hess[1,1,1]) < 10.**-4.), 'hessian [d^2(lamda)/d(R,z)^2 , d^2(nu)/d(R,z)^2] fails for (dn/dz)'
+    assert numpy.all(numpy.fabs(num_deriv_llRR-hess[0,0,0]) < 10.**-4.), 'hessian [d^2(lambda)/d(R,z)^2 , d^2(nu)/d(R,z)^2] fails for (dl/dR)'
+    assert numpy.all(numpy.fabs(num_deriv_llRz-hess[0,0,1]) < 10.**-4.), 'hessian [d^2(lambda)/d(R,z)^2 , d^2(nu)/d(R,z)^2] fails for (dn/dR)'
+    assert numpy.all(numpy.fabs(num_deriv_nnRR-hess[1,0,0]) < 10.**-4.), 'hessian [d^2(lambda)/d(R,z)^2 , d^2(nu)/d(R,z)^2] fails for (dn/dR)'
+    assert numpy.all(numpy.fabs(num_deriv_llzz-hess[0,1,1]) < 10.**-4.), 'hessian [d^2(lambda)/d(R,z)^2 , d^2(nu)/d(R,z)^2] fails for (dl/dz)'
+    assert numpy.all(numpy.fabs(num_deriv_nnRz-hess[1,0,1]) < 10.**-4.), 'hessian [d^2(lambda)/d(R,z)^2 , d^2(nu)/d(R,z)^2] fails for (dn/dz)'
+    assert numpy.all(numpy.fabs(num_deriv_nnzz-hess[1,1,1]) < 10.**-4.), 'hessian [d^2(lambda)/d(R,z)^2 , d^2(nu)/d(R,z)^2] fails for (dn/dz)'
 
     return None
