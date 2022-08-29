@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Discussions
+    url: https://github.com/jobovy/galpy/discussions
+    about: Please ask questions about the code that aren't issues here
