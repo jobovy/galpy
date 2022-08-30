@@ -27,11 +27,11 @@ Class that interpolates a spherical potential on a grid"""
 
         INPUT:
 
-           rforce= (None) Either a) function that gives the radial force as a function of r or b) a galpy Potential instance or list thereof
+           rforce= (None) Either a) function that gives the radial force (in internal units) as a function of r (in internal units) or b) a galpy Potential instance or list thereof
 
-           rgrid= (numpy.geomspace(0.01,20,101)) radial grid on which to evaluate the potential for interpolation (note that beyond rgrid[-1], the potential is extrapolated as -GM(<rgrid[-1])/r)
+           rgrid= (numpy.geomspace(0.01,20,101)) radial grid in internal units on which to evaluate the potential for interpolation (note that beyond rgrid[-1], the potential is extrapolated as -GM(<rgrid[-1])/r)
 
-           Phi0= (0.) value of the potential at rgrid[0] (only necessary when rforce is a function, for galpy potentials automatically determined)
+           Phi0= (0.) value of the potential at rgrid[0] in internal units (only necessary when rforce is a function, for galpy potentials automatically determined)
 
            ro=, vo= distance and velocity scales for translation into internal units (default from configuration file)
 
