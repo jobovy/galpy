@@ -30,7 +30,7 @@ radius, simply pass it divided by :math:`-r^2` to set up a
 ``interpSphericalPotential`` instance for this enclosed-mass profile.
 Note that the force function has to return the force in ``galpy``'s
 internal units and it has to take the radius in internal units. For example,
-if you have the enclosed mass in solar masses, multiply it with the
+if you have the enclosed mass in solar masses, divide it by the
 following ``mass_conversion`` factor
 
 >>> from galpy.util import conversion
@@ -38,7 +38,7 @@ following ``mass_conversion`` factor
 
 where ``vo`` and ``ro`` are the usual unit-conversion parameters (they cannot
 be Quantities in this case, they need to be floats in km/s and kpc). To convert
-the radius to/from internal units, simply divide/multiply by ``ro``. The radial
+the radius in kpc to/from internal units, simply divide/multiply by ``ro``. The radial
 interpolation grid also specifies radii in internal units.
 
 Alternatively, you can specify a ``galpy`` potential or list of
