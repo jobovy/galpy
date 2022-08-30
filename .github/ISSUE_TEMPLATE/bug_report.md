@@ -13,7 +13,7 @@ assignees: ''
 
 ### Reproducible example
 
-<!-- Please provide a minimal, reproducible example illustrating the bug (https://stackoverflow.com/help/minimal-reproducible-example) 
+<!-- Please provide a minimal, reproducible example illustrating the bug (https://stackoverflow.com/help/minimal-reproducible-example)
 
 You may want to try out your example on the galpy REPL, which always runs the latest version of the code, to make sure that the bug hasn't been resolved yet in the development version: https://www.galpy.org/repl -->
 
