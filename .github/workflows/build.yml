@@ -248,7 +248,7 @@ jobs:
          # Matplotlib dependencies
          pip install --no-binary contourpy contourpy
          pip install --upgrade --upgrade-strategy eager kiwisolver cycler fonttools packaging pillow pyparsing python-dateutil
-         pip install -i https://pypi.anaconda.org/scipy-wheels-nightly/simple matplotlib==3.6.0.dev3113+g7c6a74c47a
+         pip install -i https://pypi.anaconda.org/scipy-wheels-nightly/simple matplotlib
          pip install --upgrade --upgrade-strategy eager numexpr setuptools cython pytest tqdm
     - name: Install pynbody
       if: ${{ matrix.REQUIRES_PYNBODY && matrix.python-version != 4.0 }}
