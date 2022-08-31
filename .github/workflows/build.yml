@@ -259,7 +259,7 @@ jobs:
     - name: Install pynbody (Python 4.0; doesn't exist of course, placeholder for new python v)
       if: ${{ matrix.REQUIRES_PYNBODY && matrix.python-version == '3.11-dev' }}
       run: |
-         curl -O pandas-1.6.0.dev0+34.g58d1b898d4-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl
+         curl -O https://astro.utoronto.ca/~bovy/scipywheels/pandas-1.6.0.dev0+34.g58d1b898d4-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl
          pip install pandas-1.6.0.dev0+34.g58d1b898d4-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl
          sudo apt-get install libhdf5-dev
          pip install --upgrade --upgrade-strategy eager --no-binary=h5py git+https://github.com/h5py/h5py.git@d4e4418a3dcfea5c978fe7fcdff0e80570bb7565#egg=h5py
