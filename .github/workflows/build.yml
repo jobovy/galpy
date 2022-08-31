@@ -251,13 +251,13 @@ jobs:
          pip install -i https://pypi.anaconda.org/scipy-wheels-nightly/simple matplotlib
          pip install --upgrade --upgrade-strategy eager numexpr setuptools cython pytest tqdm
     - name: Install pynbody
-      if: ${{ matrix.REQUIRES_PYNBODY && matrix.python-version != 3.11-dev }}
+      if: ${{ matrix.REQUIRES_PYNBODY && matrix.python-version != '3.11-dev' }}
       run: |
          pip install --upgrade --upgrade-strategy eager h5py pandas pytz
          pip install --upgrade --upgrade-strategy eager wheel
          pip install --upgrade --upgrade-strategy eager pynbody
     - name: Install pynbody (Python 4.0; doesn't exist of course, placeholder for new python v)
-      if: ${{ matrix.REQUIRES_PYNBODY && matrix.python-version == 3.11-dev }}
+      if: ${{ matrix.REQUIRES_PYNBODY && matrix.python-version == '3.11-dev' }}
       run: |
          sudo apt-get install libhdf5-dev
          pip install --upgrade --upgrade-strategy eager --no-binary=h5py git+https://github.com/h5py/h5py.git@d4e4418a3dcfea5c978fe7fcdff0e80570bb7565#egg=h5py
