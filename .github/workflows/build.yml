@@ -239,12 +239,23 @@ jobs:
       if: matrix.python-version != '3.11-dev'
       run: |
          pip install --upgrade --upgrade-strategy eager numpy scipy matplotlib numexpr setuptools cython pytest tqdm
-    - name: Install Python dependencies (3.11-dev)
-      if: matrix.python-version == '3.11-dev'
+    - name: Install Python dependencies (3.11-dev; ubuntu)
+      if: ${{ matrix.os == 'ubuntu-latest' && matrix.python-version == '3.11-dev' }}
       run: |
          pip install --upgrade --upgrade-strategy eager numpy
          curl -O https://astro.utoronto.ca/~bovy/scipywheels/scipy-1.10.0.dev0-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl
          pip install scipy-1.10.0.dev0-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl
+         # Matplotlib dependencies
+         pip install --no-binary contourpy contourpy
+         pip install --upgrade --upgrade-strategy eager kiwisolver cycler fonttools packaging pillow pyparsing python-dateutil
+         pip install -i https://pypi.anaconda.org/scipy-wheels-nightly/simple matplotlib
+         pip install --upgrade --upgrade-strategy eager numexpr setuptools cython pytest tqdm
+    - name: Install Python dependencies (3.11-dev; mac)
+      if: ${{ matrix.os == 'macos-latest' && matrix.python-version == '3.11-dev' }}
+      run: |
+         pip install --upgrade --upgrade-strategy eager numpy
+         curl -O https://astro.utoronto.ca/~bovy/scipywheels/scipy-1.10.0.dev0-cp311-cp311-macosx_10_9_x86_64.whl
+         pip install scipy-1.10.0.dev0-cp311-cp311-macosx_10_9_x86_64.whl
          # Matplotlib dependencies
          pip install --no-binary contourpy contourpy
          pip install --upgrade --upgrade-strategy eager kiwisolver cycler fonttools packaging pillow pyparsing python-dateutil
@@ -256,11 +267,21 @@ jobs:
          pip install --upgrade --upgrade-strategy eager h5py pandas pytz
          pip install --upgrade --upgrade-strategy eager wheel
          pip install --upgrade --upgrade-strategy eager pynbody
-    - name: Install pynbody (Python 4.0; doesn't exist of course, placeholder for new python v)
-      if: ${{ matrix.REQUIRES_PYNBODY && matrix.python-version == '3.11-dev' }}
+    - name: Install pynbody (3.11-dev; ubuntu)
+      if: ${{ matrix.os == 'ubuntu-latest' && matrix.REQUIRES_PYNBODY && matrix.python-version == '3.11-dev' }}
       run: |
          curl -O https://astro.utoronto.ca/~bovy/scipywheels/pandas-1.6.0.dev0+34.g58d1b898d4-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl
          pip install pandas-1.6.0.dev0+34.g58d1b898d4-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl
+         sudo apt-get install libhdf5-dev
+         pip install --upgrade --upgrade-strategy eager --no-binary=h5py git+https://github.com/h5py/h5py.git@d4e4418a3dcfea5c978fe7fcdff0e80570bb7565#egg=h5py
+         pip install --upgrade --upgrade-strategy eager pytz
+         pip install --upgrade --upgrade-strategy eager wheel
+         pip install git+https://github.com/pynbody/pynbody.git@cfbefac64bfad3b8d042e669ff2b36bad25813ce#egg=pynbody
+    - name: Install pynbody (3.11-dev; mac)
+      if: ${{ matrix.os == 'macos-latest' && matrix.REQUIRES_PYNBODY && matrix.python-version == '3.11-dev' }}
+      run: |
+         curl -O https://astro.utoronto.ca/~bovy/scipywheels/pandas-1.6.0.dev0+34.g58d1b898d4-cp311-cp311-macosx_10_9_x86_64.whl
+         pip install pandas-1.6.0.dev0+34.g58d1b898d4-cp311-cp311-macosx_10_9_x86_64.whl
          sudo apt-get install libhdf5-dev
          pip install --upgrade --upgrade-strategy eager --no-binary=h5py git+https://github.com/h5py/h5py.git@d4e4418a3dcfea5c978fe7fcdff0e80570bb7565#egg=h5py
          pip install --upgrade --upgrade-strategy eager pytz
