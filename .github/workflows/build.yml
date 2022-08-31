@@ -282,7 +282,7 @@ jobs:
       run: |
          curl -O https://astro.utoronto.ca/~bovy/scipywheels/pandas-1.6.0.dev0+34.g58d1b898d4-cp311-cp311-macosx_10_9_x86_64.whl
          pip install pandas-1.6.0.dev0+34.g58d1b898d4-cp311-cp311-macosx_10_9_x86_64.whl
-         sudo apt-get install libhdf5-dev
+         brew install hdf5
          pip install --upgrade --upgrade-strategy eager --no-binary=h5py git+https://github.com/h5py/h5py.git@d4e4418a3dcfea5c978fe7fcdff0e80570bb7565#egg=h5py
          pip install --upgrade --upgrade-strategy eager pytz
          pip install --upgrade --upgrade-strategy eager wheel
