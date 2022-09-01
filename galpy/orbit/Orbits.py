@@ -3119,11 +3119,11 @@ class Orbit:
 
         PURPOSE:
 
-           return tangential velocity at time t
+           return rotational velocity at time t
 
         INPUT:
 
-           t - (optional) time at which to get the tangential velocity
+           t - (optional) time at which to get the rotational velocity
 
            vo= (Object-wide default) physical scale for velocities to use to convert
 

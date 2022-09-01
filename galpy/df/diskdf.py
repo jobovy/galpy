@@ -2502,7 +2502,7 @@ def vRvTRToEL(vR,vT,R,beta,dftype='dehnen'):
        calculate the energy and angular momentum
     INPUT:
        vR - radial velocity
-       vT - tangential velocity
+       vT - rotational velocity
        R - Galactocentric radius
     OUTPUT:
     HISTORY:

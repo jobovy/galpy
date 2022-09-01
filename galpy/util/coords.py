@@ -1452,7 +1452,7 @@ def galcencyl_to_vxvyvz(vR,vT,vZ,phi,vsun=[0.,1.,0.],Xsun=1.,Zsun=0.,
 
        vR - Galactocentric radial velocity
 
-       vT - Galactocentric tangential velocity
+       vT - Galactocentric rotational velocity
 
        vZ - Galactocentric vertical velocity
 
@@ -1495,7 +1495,7 @@ def cyl_to_spher_vec(vR,vT,vz,R,z):
 
        vR - Galactocentric cylindrical radial velocity
 
-       vT - Galactocentric cylindrical tangential velocity
+       vT - Galactocentric cylindrical rotational velocity
 
        vz - Galactocentric cylindrical vertical velocity
 
@@ -1607,7 +1607,7 @@ def cyl_to_rect_vec(vr,vt,vz,phi):
 
        vr - radial velocity
 
-       vt - tangential velocity
+       vt - rotational velocity
 
        vz - vertical velocity
 

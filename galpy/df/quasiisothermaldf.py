@@ -1965,7 +1965,7 @@ class quasiisothermaldf(df):
 
         INPUT:
 
-           vT - tangential velocity (can be Quantity)
+           vT - rotational velocity (can be Quantity)
 
            R - radius (can be Quantity)
 
@@ -2223,7 +2223,7 @@ class quasiisothermaldf(df):
 
            vR - radial velocity (can be Quantity)
 
-           vT - tangential velocity (can be Quantity)
+           vT - rotational velocity (can be Quantity)
 
            R - radius (can be Quantity)
 
@@ -2298,7 +2298,7 @@ class quasiisothermaldf(df):
 
         INPUT:
 
-           vT - tangential velocity (can be Quantity)
+           vT - rotational velocity (can be Quantity)
 
            vz - vertical velocity (can be Quantity)
 
