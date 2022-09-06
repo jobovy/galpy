@@ -5,7 +5,7 @@ import copy
 
 import numpy
 import scipy
-from pkg_resources import parse_version
+from packaging.version import parse as parse_version
 
 _SCIPY_VERSION= parse_version(scipy.__version__)
 if _SCIPY_VERSION < parse_version('0.10'): #pragma: no cover

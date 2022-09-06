@@ -1,6 +1,6 @@
 # Make sure to set configuration, needs to be before any galpy imports
 import pytest
-from pkg_resources import parse_version
+from packaging.version import parse as parse_version
 
 from galpy.util import config
 

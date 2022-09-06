@@ -12,7 +12,7 @@ from string import ascii_lowercase
 
 import numpy
 import scipy
-from pkg_resources import parse_version
+from packaging.version import parse as parse_version
 from scipy import interpolate, optimize
 
 _SCIPY_VERSION= parse_version(scipy.__version__)

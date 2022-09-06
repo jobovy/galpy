@@ -4404,7 +4404,7 @@ def test_phiforce_deprecation():
     import warnings
 
     # Check that we've removed phiforce in the correct version
-    from pkg_resources import parse_version
+    from packaging.version import parse as parse_version
     deprecation_version= parse_version('1.9')
     from galpy import __version__ as galpy_version
     galpy_version= parse_version(galpy_version)
@@ -4449,7 +4449,7 @@ def test_phiforce_deprecation_2d():
     import warnings
 
     # Check that we've removed phiforce in the correct version
-    from pkg_resources import parse_version
+    from packaging.version import parse as parse_version
     deprecation_version= parse_version('1.9')
     from galpy import __version__ as galpy_version
     galpy_version= parse_version(galpy_version)

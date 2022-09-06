@@ -41,7 +41,7 @@ from .surfaceSigmaProfile import expSurfaceSigmaProfile, surfaceSigmaProfile
 if _APY_LOADED:
     from astropy import units
 #scipy version
-from pkg_resources import parse_version
+from packaging.version import parse as parse_version
 
 _SCIPY_VERSION= parse_version(scipy.__version__)
 _SCIPY_VERSION_BREAK= parse_version('0.9')
