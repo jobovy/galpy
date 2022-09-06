@@ -1,11 +1,11 @@
 import distutils.ccompiler
-import distutils.sysconfig as sysconfig
 import glob
 import os
 import os.path
 import platform
 import subprocess
 import sys
+import sysconfig
 from distutils.command.build_ext import build_ext as build_ext
 from distutils.core import Extension
 from distutils.errors import DistutilsPlatformError
