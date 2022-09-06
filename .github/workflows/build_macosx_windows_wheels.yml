@@ -33,7 +33,7 @@ jobs:
       # check-out this repository
       - uses: actions/checkout@v3
       # Install micro-mamba, as specified by this repository's environment.yml
-      - uses: mamba-org/provision-with-micromamba@v12
+      - uses: mamba-org/provision-with-micromamba@v13
         with:
           environment-name: galpywheels
           environment-file: .github/conda-build-environment-${{ matrix.os }}.yml

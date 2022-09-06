@@ -150,7 +150,7 @@ jobs:
       with:
         path: ~\AppData\Local\pip\Cache
         key: ${{ runner.os }}-pip-${{ matrix.python-version }}-${{ hashFiles('.github/workflows/build_windows.yml') }}-${{ matrix.REQUIRES_PYNBODY }}-${{ matrix.REQUIRES_ASTROPY }}-${{ matrix.REQUIRES_ASTROQUERY }}-${{ matrix.REQUIRES_NUMBA }}-${{ matrix.REQUIRES_JAX }}
-    - uses: mamba-org/provision-with-micromamba@v12
+    - uses: mamba-org/provision-with-micromamba@v13
       with:
          environment-name: galpywheels
          environment-file: .github/conda-build-environment-${{ matrix.os }}.yml
