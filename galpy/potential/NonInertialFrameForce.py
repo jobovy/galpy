@@ -25,7 +25,7 @@ class NonInertialFrameForce(DissipativeForce):
     where :math:`\\mathbf{R}` is a rotation matrix and :math:`\\mathbf{x}_0`
     is the motion of the origin. The rotation matrix has angular frequencies
     :math:`\\boldsymbol{\\Omega}` with time derivative :math:`\\dot{\\boldsymbol{\\Omega}}`;
-    :math:`\\boldsymbol{\\Omega}` can be any function of time. The motion of the
+    :math:`\\boldsymbol{\\Omega}` can be any function of time (note that the sign of :math:`\\boldsymbol{\\Omega}` is such that :math:`\\boldsymbol{\\Omega}` is the frequency of the rotating frame as seen from the inertial frame). The motion of the
     origin can also be any function of time.
     This leads to the fictitious force
 
@@ -74,7 +74,7 @@ class NonInertialFrameForce(DissipativeForce):
 
            amp= (1.) amplitude to be applied to the potential (default: 1)
 
-           Omega= (1.) Angular frequency of the rotation of the non-inertial frame in an inertial one; can either be a function of time or a number (when the frequency is assumed to be Omega + Omegadot x t) and in each case can be a list [Omega_x,Omega_y,Omega_z] or a single value Omega_z (when not a function, can be a Quantity; when a function, need to take input time in internal units and output the frequency in internal units; see galpy.util.conversion.time_in_Gyr and galpy.util.conversion.freq_in_XXX conversion functions)
+           Omega= (1.) Angular frequency of the rotation of the non-inertial frame as seen from an inertial one; can either be a function of time or a number (when the frequency is assumed to be Omega + Omegadot x t) and in each case can be a list [Omega_x,Omega_y,Omega_z] or a single value Omega_z (when not a function, can be a Quantity; when a function, need to take input time in internal units and output the frequency in internal units; see galpy.util.conversion.time_in_Gyr and galpy.util.conversion.freq_in_XXX conversion functions)
 
            Omegadot= (None) Time derivative of the angular frequency of the non-intertial frame's rotation. format should match Omega input ([list of] function[s] when Omega is one, number/list if Omega is a number/list; when a function, need to take input time in internal units and output the frequency derivative in internal units; see galpy.util.conversion.time_in_Gyr and galpy.util.conversion.freq_in_XXX conversion functions)
 
