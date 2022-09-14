@@ -16,9 +16,9 @@ import warnings
 import numpy
 from scipy import integrate, optimize
 
-from ..potential import (MWPotential, epifreq, evaluateR2derivs,
-                         evaluateRzderivs, evaluatez2derivs, omegac,
-                         verticalfreq)
+from ..potential import (DiskSCFPotential, MWPotential, SCFPotential, epifreq,
+                         evaluateR2derivs, evaluateRzderivs, evaluatez2derivs,
+                         omegac, verticalfreq)
 from ..potential.Potential import (_check_c, _evaluatePotentials,
                                    _evaluateRforces, _evaluatezforces)
 from ..potential.Potential import flatten as flatten_potential
@@ -1057,7 +1057,12 @@ def estimateDeltaStaeckel(pot,R,z, no_median=False):
     HISTORY:
        2013-08-28 - Written - Bovy (IAS)
        2016-02-20 - Changed input order to allow physical conversions - Bovy (UofT)
+       2022-09-14 - Deal with numerical issues with SCF/DiskSCFPotentials - Bovy (UofT)
     """
+    pot= flatten_potential(pot)
+    pot_includes_scf= numpy.any([isinstance(p,SCFPotential)
+                                 or isinstance(p,DiskSCFPotential)
+                                 for p in pot])
     if isinstance(R,numpy.ndarray):
         delta2= numpy.array([(z[ii]**2.-R[ii]**2. #eqn. (9) has a sign error
                            +(3.*R[ii]*_evaluatezforces(pot,R[ii],z[ii])
@@ -1066,7 +1071,7 @@ def estimateDeltaStaeckel(pot,R,z, no_median=False):
                                                             use_physical=False)
                                            -evaluatez2derivs(pot,R[ii],z[ii],
                                                              use_physical=False)))/evaluateRzderivs(pot,R[ii],z[ii],use_physical=False)) for ii in range(len(R))])
-        indx= (delta2 < 0.)*(delta2 > -10.**-10.)
+        indx= (delta2 < 0.)*((delta2 > -10.**-10.) + pot_includes_scf)
         delta2[indx]= 0.
         if not no_median:
         	delta2= numpy.median(delta2[True^numpy.isnan(delta2)])
@@ -1076,5 +1081,6 @@ def estimateDeltaStaeckel(pot,R,z, no_median=False):
                    -3.*z*_evaluateRforces(pot,R,z)
                    +R*z*(evaluateR2derivs(pot,R,z,use_physical=False)
                          -evaluatez2derivs(pot,R,z,use_physical=False)))/evaluateRzderivs(pot,R,z,use_physical=False))
-        if delta2 < 0. and delta2 > -10.**-10.: delta2= 0.
+        if delta2 < 0. and (delta2 > -10.**-10. or pot_includes_scf):
+           delta2= 0.
     return numpy.sqrt(delta2)
