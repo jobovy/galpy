@@ -269,7 +269,8 @@ This technique was introduced by `Kuijken & Dubinski (1995) <http://adsabs.harva
             zd= hz.get('h',0.0375)
             # th/tH written so as to avoid overflow in cosh
             th= lambda z, tzd=zd: numpy.exp(\
-               -logsumexp(numpy.array([z/tzd,-z/tzd,numpy.log(2.)]),axis=0))/tzd
+               -logsumexp(numpy.array([z/tzd,-z/tzd,
+                                       numpy.log(2.)*numpy.ones_like(z)]),axis=0))/tzd
             tH= lambda z, tzd= zd: \
                 tzd*(logsumexp(numpy.array([z/2./tzd,-z/2./tzd]),axis=0)\
                          -numpy.log(2.))
