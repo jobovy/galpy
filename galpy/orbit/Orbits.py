@@ -1932,6 +1932,7 @@ class Orbit:
             if numpy.all(delta < 1e-6):
                 self._setupaA(pot=pot,type='spherical')
             else:
+                delta[delta < 1e-6]= 1e-6
                 self._aA= actionAngle.actionAngleStaeckel(pot=self._aAPot,
                                                           delta=delta,
                                                           **kwargs)
