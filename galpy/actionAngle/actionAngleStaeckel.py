@@ -1060,9 +1060,12 @@ def estimateDeltaStaeckel(pot,R,z, no_median=False):
        2022-09-14 - Deal with numerical issues with SCF/DiskSCFPotentials - Bovy (UofT)
     """
     pot= flatten_potential(pot)
-    pot_includes_scf= numpy.any([isinstance(p,SCFPotential)
-                                 or isinstance(p,DiskSCFPotential)
-                                 for p in pot])
+    # We'll special-case delta<0 when the potential includes SCF/DiskSCF components
+    pot_includes_scf= \
+        numpy.any([isinstance(p,SCFPotential) or isinstance(p,DiskSCFPotential)
+                  for p in pot]) \
+        if isinstance(pot,list) \
+        else isinstance(pot,SCFPotential) or isinstance(pot,DiskSCFPotential)
     if isinstance(R,numpy.ndarray):
         delta2= numpy.array([(z[ii]**2.-R[ii]**2. #eqn. (9) has a sign error
                            +(3.*R[ii]*_evaluatezforces(pot,R[ii],z[ii])
