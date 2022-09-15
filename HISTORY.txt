@@ -1,6 +1,10 @@
 v1.8.1 (XXXX-XX-XX)
 ===================
 
+- Changed estimateDeltaStaeckel to by default return delta0=1e-6 when
+  delta<delta0, because giving delta=0 to an actionAngleStaeckel instance
+  does not work.
+
 - Added pre-commit hooks.
 
 v1.8.0 (2022-07-04)

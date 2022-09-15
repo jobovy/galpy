@@ -1,5 +1,5 @@
 import numpy
-from pkg_resources import parse_version
+from packaging.version import parse as parse_version
 
 _NUMPY_VERSION= parse_version(numpy.__version__)
 _NUMPY_1_23= (_NUMPY_VERSION > parse_version('1.22'))\

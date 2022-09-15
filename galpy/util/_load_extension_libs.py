@@ -1,8 +1,8 @@
 # _load_extension_libs.py: centralized place to load the C extensions
 import ctypes
-import distutils.sysconfig as sysconfig
 import os
 import sys
+import sysconfig
 import warnings
 
 from ..util import galpyWarning, galpyWarningVerbose

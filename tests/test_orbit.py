@@ -1323,7 +1323,7 @@ def test_analytic_ecc_rperi_rap():
              'SphericalPotential','interpSphericalPotential']
     rmpots.append('SphericalShellPotential')
     rmpots.append('RingPotential')
-    rmpots.append('HomogeneousSpherePotential') # fails currently, because delta esimation gives a NaN due to a 0/0; delta should just be zero, but don't want to special-case
+    rmpots.append('HomogeneousSpherePotential') # fails currently, because delta estimation gives a NaN due to a 0/0; delta should just be zero, but don't want to special-case
     # No C and therefore annoying
     rmpots.append('AnyAxisymmetricRazorThinDiskPotential')
     if False: #_GHACTIONS:
@@ -1754,7 +1754,7 @@ def test_analytic_zmax():
              'SphericalPotential','interpSphericalPotential']
     rmpots.append('SphericalShellPotential')
     rmpots.append('RingPotential')
-    rmpots.append('HomogeneousSpherePotential') # fails currently, because delta esimation gives a NaN due to a 0/0; delta should just be zero, but don't want to special-case
+    rmpots.append('HomogeneousSpherePotential') # fails currently, because delta estimation gives a NaN due to a 0/0; delta should just be zero, but don't want to special-case
     # No C and therefore annoying
     rmpots.append('AnyAxisymmetricRazorThinDiskPotential')
     if False: #_GHACTIONS:

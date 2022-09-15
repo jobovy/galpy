@@ -5,7 +5,7 @@ import warnings
 
 import numpy
 import scipy
-from pkg_resources import parse_version
+from packaging.version import parse as parse_version
 from scipy import integrate, interpolate, optimize, special
 
 _SCIPY_VERSION= parse_version(scipy.__version__)

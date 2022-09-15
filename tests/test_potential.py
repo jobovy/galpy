@@ -4404,7 +4404,7 @@ def test_phiforce_deprecation():
     import warnings
 
     # Check that we've removed phiforce in the correct version
-    from pkg_resources import parse_version
+    from packaging.version import parse as parse_version
     deprecation_version= parse_version('1.9')
     from galpy import __version__ as galpy_version
     galpy_version= parse_version(galpy_version)
@@ -4449,7 +4449,7 @@ def test_phiforce_deprecation_2d():
     import warnings
 
     # Check that we've removed phiforce in the correct version
-    from pkg_resources import parse_version
+    from packaging.version import parse as parse_version
     deprecation_version= parse_version('1.9')
     from galpy import __version__ as galpy_version
     galpy_version= parse_version(galpy_version)
@@ -4488,6 +4488,18 @@ def test_phiforce_deprecation_2d():
             raisedWarning= (str(wa.message) == 'evaluateplanarphiforces has been renamed evaluateplanarphitorques, because it has always really been a torque (per unit mass); please switch to the new method name, because the old name will be removed in v1.9 and may be re-used for the actual phi force component')
             if raisedWarning: break
         assert raisedWarning, "phiforce deprecation did not raise the expected warning"
+
+# Issue #495
+def test_diskscf_overflow():
+    from galpy.actionAngle import estimateDeltaStaeckel
+    from galpy.orbit import Orbit
+    from galpy.potential.mwpotentials import McMillan17
+    from galpy.util import conversion
+    ro17= conversion.get_physical(McMillan17)['ro']
+    vo17= conversion.get_physical(McMillan17)['vo']
+    o17= Orbit([209.3, 26.8, 46.5, -1.16, -0.88, 189.11], radec=True, ro = ro17, vo=vo17)
+    delta= estimateDeltaStaeckel(McMillan17,o17.R(use_physical=False),o17.z(use_physical=False))
+    assert not numpy.isnan(delta), 'estimateDeltaStaeckel returns NaN due to overflow in DiskSCFPotential'
 
 def test_plotting():
     import tempfile

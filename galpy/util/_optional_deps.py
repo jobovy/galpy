@@ -1,5 +1,5 @@
 # Central place to process optional dependencies
-from pkg_resources import parse_version
+from packaging.version import parse as parse_version
 
 # astropy
 from ..util.config import __config__

@@ -12,7 +12,7 @@ from string import ascii_lowercase
 
 import numpy
 import scipy
-from pkg_resources import parse_version
+from packaging.version import parse as parse_version
 from scipy import interpolate, optimize
 
 _SCIPY_VERSION= parse_version(scipy.__version__)
@@ -1929,9 +1929,11 @@ class Orbit:
                         raise PotentialError('Automagic calculation of delta parameter for Staeckel approximation failed because the given potential is not axisymmetric; pass an axisymmetric potential instead')
                     else: #pragma: no cover
                         raise
-            if numpy.all(delta < 1e-6):
+            if numpy.all(delta == 1e-6):
                 self._setupaA(pot=pot,type='spherical')
             else:
+                if hasattr(delta,"__len__"):
+                    delta[delta < 1e-6]= 1e-6
                 self._aA= actionAngle.actionAngleStaeckel(pot=self._aAPot,
                                                           delta=delta,
                                                           **kwargs)
@@ -3119,11 +3121,11 @@ class Orbit:
 
         PURPOSE:
 
-           return tangential velocity at time t
+           return rotational velocity at time t
 
         INPUT:
 
-           t - (optional) time at which to get the tangential velocity
+           t - (optional) time at which to get the rotational velocity
 
            vo= (Object-wide default) physical scale for velocities to use to convert
 
