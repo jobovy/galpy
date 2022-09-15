@@ -21,7 +21,32 @@ jobs:
         with:
           version: 3.1.14
       - run: pip install pyodide-build==0.21.0
-      - run: pyodide build
+      - name: Build wheel
+        run: |
+          # From https://github.com/pyodide/pyodide/issues/3002#issuecomment-1248513970
+          # Set up libs dir and pkg config
+          mkdir .libs
+          export LIBDIR=`pwd`/.libs
+          export PKG_CONFIG_PATH=`pwd`/.libs/lib/pkgconfig
+
+          # Build gsl
+          wget https://ftp.gnu.org/gnu/gsl/gsl-2.7.tar.gz
+          unpack https://ftp.gnu.org/gnu/gsl/gsl-2.7.tar.gz into gsl
+          cd gsl
+          source $EMSDK/emsdk_env.sh
+          emconfigure ./configure \
+              CFLAGS="-fPIC" \
+              --prefix=$LIBDIR \
+              --disable-dependency-tracking \
+              --disable-shared
+          emmake make -j 3
+          emmake make install
+
+          # Build galpy
+          cd ..
+          CFLAGS=`pkg-config --cflags-only-I --dont-define-prefix gsl` \
+          LDFLAGS=`pkg-config --libs-only-L --dont-define-prefix gsl` \
+          pyodide build
       - uses: actions/upload-artifact@v3
         with:
           name: galpy-wheel-pyodide
