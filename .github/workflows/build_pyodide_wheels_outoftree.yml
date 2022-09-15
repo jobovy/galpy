@@ -31,7 +31,7 @@ jobs:
 
           # Build gsl
           wget https://ftp.gnu.org/gnu/gsl/gsl-2.7.tar.gz
-          unpack https://ftp.gnu.org/gnu/gsl/gsl-2.7.tar.gz into gsl
+          tar -xvzf https://ftp.gnu.org/gnu/gsl/gsl-2.7.tar.gz -C gsl
           cd gsl
           source $EMSDK/emsdk_env.sh
           emconfigure ./configure \
