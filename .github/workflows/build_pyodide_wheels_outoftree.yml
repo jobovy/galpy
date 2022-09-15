@@ -31,8 +31,8 @@ jobs:
 
           # Build gsl
           wget https://ftp.gnu.org/gnu/gsl/gsl-2.7.tar.gz
-          tar -xvzf https://ftp.gnu.org/gnu/gsl/gsl-2.7.tar.gz -C gsl
-          cd gsl
+          tar -xvzf gsl-2.7.tar.gz
+          cd gsl-2.7
           source $EMSDK/emsdk_env.sh
           emconfigure ./configure \
               CFLAGS="-fPIC" \
