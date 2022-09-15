@@ -33,7 +33,6 @@ jobs:
           wget https://ftp.gnu.org/gnu/gsl/gsl-2.7.tar.gz
           tar -xvzf gsl-2.7.tar.gz
           cd gsl-2.7
-          source $EMSDK/emsdk_env.sh
           emconfigure ./configure \
               CFLAGS="-fPIC" \
               --prefix=$LIBDIR \
@@ -50,4 +49,4 @@ jobs:
       - uses: actions/upload-artifact@v3
         with:
           name: galpy-wheel-pyodide
-          path: '*.whl'
+          path: 'dist/*.whl'
