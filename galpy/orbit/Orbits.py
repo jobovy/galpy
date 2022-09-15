@@ -1929,7 +1929,7 @@ class Orbit:
                         raise PotentialError('Automagic calculation of delta parameter for Staeckel approximation failed because the given potential is not axisymmetric; pass an axisymmetric potential instead')
                     else: #pragma: no cover
                         raise
-            if numpy.all(delta < 1e-6):
+            if numpy.all(delta == 1e-6):
                 self._setupaA(pot=pot,type='spherical')
             else:
                 if hasattr(delta,"__len__"):

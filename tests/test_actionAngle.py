@@ -2828,10 +2828,11 @@ def test_estimateDeltaStaeckel_spherical():
     times= numpy.linspace(0.,100.,1001)
     lp= LogarithmicHaloPotential(normalize=1.,q=1.)
     o.integrate(times,lp)
-    delta= estimateDeltaStaeckel(lp,o.R(),o.z())
+    # Need to set delta0=0 so spherical actualluy returns 0
+    delta= estimateDeltaStaeckel(lp,o.R(),o.z(),delta0=0.)
     assert numpy.fabs(delta) < 10.**-6., \
         'Estimated focal parameter delta when estimateDeltaStaeckel is applied to a spherical potential is wrong'
-    delta= estimateDeltaStaeckel(lp,o.R(times),o.z(times))
+    delta= estimateDeltaStaeckel(lp,o.R(times),o.z(times),delta0=0.)
     assert numpy.fabs(delta) < 10.**-16., \
         'Estimated focal parameter delta when estimateDeltaStaeckel is applied to a spherical potential is wrong'
     return None
