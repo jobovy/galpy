@@ -4503,6 +4503,8 @@ def test_diskscf_overflow():
 
 def test_InterpSnapshotRZPotential_pickling():
     # Test that InterpSnapshotRZPotential can be pickled (see #507, #509)
+    if not _PYNBODY_LOADED:
+        pytest.skip()
     import pickle
     import pynbody
     from galpy.potential import InterpSnapshotRZPotential
