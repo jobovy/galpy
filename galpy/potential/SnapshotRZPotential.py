@@ -1,6 +1,6 @@
+import copy
 import hashlib
 from os import system
-import copy
 
 import numpy
 from scipy import interpolate
@@ -612,8 +612,8 @@ class InterpSnapshotRZPotential(interpRZPotential) :
     def __setstate__(self,pdict):
         # Set up snapshot again for origPot
         pdict['_s']= pynbody.new(star=len(pdict['_mass']))
-        pdict['_s']['pos']= pdict['_pos'] 
-        pdict['_s']['mass']= pdict['_mass'] 
+        pdict['_s']['pos']= pdict['_pos']
+        pdict['_s']['mass']= pdict['_mass']
         pdict['_s']['eps']= pdict['_eps']
         # Transfer __dict__
         del pdict['_pos']

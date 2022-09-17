@@ -4506,8 +4506,11 @@ def test_InterpSnapshotRZPotential_pickling():
     if not _PYNBODY_LOADED:
         pytest.skip()
     import pickle
+
     import pynbody
+
     from galpy.potential import InterpSnapshotRZPotential
+
     # Set up simple snapshot: 1 star!
     s= pynbody.new(star=1)
     s['mass']= 1.
