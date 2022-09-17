@@ -4501,6 +4501,24 @@ def test_diskscf_overflow():
     delta= estimateDeltaStaeckel(McMillan17,o17.R(use_physical=False),o17.z(use_physical=False))
     assert not numpy.isnan(delta), 'estimateDeltaStaeckel returns NaN due to overflow in DiskSCFPotential'
 
+def test_InterpSnapshotRZPotential_pickling():
+    # Test that InterpSnapshotRZPotential can be pickled (see #507, #509)
+    import pickle
+    import pynbody
+    from galpy.potential import InterpSnapshotRZPotential
+    # Set up simple snapshot: 1 star!
+    s= pynbody.new(star=1)
+    s['mass']= 1.
+    s['eps']= 0.
+    spi= InterpSnapshotRZPotential(s)
+    test= pickle.dumps(spi)
+    newspi= pickle.loads(test)
+    # Inside the grid
+    assert numpy.fabs(newspi(1.,0.)-spi(1.,0.)) < 1e-10, "Unpickled InterpSnapshotRZPotential does not return the same potential as original instance"
+    # Outside the grid, needs _origPot
+    assert numpy.fabs(newspi(1.,10.)-spi(1.,10.)) < 1e-10, "Unpickled InterpSnapshotRZPotential does not return the same potential as original instance"
+    return None
+
 def test_plotting():
     import tempfile
 
