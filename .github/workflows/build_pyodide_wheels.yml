@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - pyodide-outoftree
     paths:
       - '**'
       - '!tests/**'
@@ -23,52 +24,44 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - uses: actions/cache@v3
-        id: cache-pyodide
+      - uses: actions/setup-python@v4
         with:
-          path: pyodide/**
-          key: pyodide-cache-0.20.0
-      - name: Build pyodide
-        uses: jobovy/pyodide-buildpackage-action/actions/build-pyodide@v1
+          python-version: 3.10.2
+      - uses: mymindstorm/setup-emsdk@v11
         with:
-          pyodide-tag: 0.20.0
-          pyodide-cache-hit: ${{ steps.cache-pyodide.outputs.cache-hit }}
-      # Because the GSL isn't in pyodide 0.20.0 and we need that for
-      # jupyterlite, we need to also add the GSL here
-      # Once we can switch to a version of pyodide that has the GSL
-      # we can go back to just using the jobovy/pyodide-buildpackage-action
-      # rather than the individual steps
-      - name: Build gsl meta.yaml
-        uses: jobovy/pyodide-buildpackage-action/actions/build-meta@v1
-        with:
-          meta-yaml-path: .github/pyodide_gsl_meta.yaml
-          package-name: libgsl
-          build-url: https://ftp.gnu.org/gnu/gsl/gsl-2.7.tar.gz
-      - name: Build galpy meta.yaml
-        uses: jobovy/pyodide-buildpackage-action/actions/build-meta@v1
-        with:
-          meta-yaml-path: .github/pyodide_meta.yaml
-      - name: Build package
-        uses: jobovy/pyodide-buildpackage-action/actions/build-package@v1
-      # Just make everything executable, because a bunch of stuff needs to be
-      # and it isn't altogether obvious which (not just .sh)
-      - name: Change permissions of pyodide directory
-        shell: bash
+          version: 3.1.14
+      - run: pip install pyodide-build==0.21.0
+      - name: Build wheel
         run: |
-          sudo find pyodide -type d -exec chmod 755 {} \;
-          sudo find pyodide -type f -exec chmod 755 {} \;
-#      - uses: jobovy/pyodide-buildpackage-action@main
-#        with:
-#          pyodide-tag: main
-#          meta-yaml-path: .github/pyodide_meta.yaml
+          # From https://github.com/pyodide/pyodide/issues/3002#issuecomment-1248513970
+          # Set up libs dir and pkg config
+          mkdir .libs
+          export LIBDIR=`pwd`/.libs
+          export PKG_CONFIG_PATH=`pwd`/.libs/lib/pkgconfig
+          # Build gsl
+          wget https://ftp.gnu.org/gnu/gsl/gsl-2.7.tar.gz
+          tar -xvzf gsl-2.7.tar.gz
+          cd gsl-2.7
+          emconfigure ./configure \
+              CFLAGS="-fPIC" \
+              --prefix=$LIBDIR \
+              --disable-dependency-tracking \
+              --disable-shared
+          emmake make -j 3
+          emmake make install
+          # Build galpy
+          cd ..
+          CFLAGS=`pkg-config --cflags-only-I --dont-define-prefix gsl` \
+          LDFLAGS=`pkg-config --libs-only-L --dont-define-prefix gsl` \
+          pyodide build
       - name: Rename wheels to 'latest' version
         run: |
           GALPY_VERSION="$(awk '/^current_version/{print $NF}' .bumpversion.cfg)"
-          for f in wheelhouse/*$GALPY_VERSION*; do sudo mv -i -- "$f" "${f//$GALPY_VERSION/latest}"; done
+          for f in dist/*$GALPY_VERSION*; do sudo mv -i -- "$f" "${f//$GALPY_VERSION/latest}"; done
       - uses: actions/upload-artifact@v3
         with:
           name: galpy-wheel-pyodide
-          path: wheelhouse/*.whl
+          path: dist/*.whl
       # Upload to AWS S3
       - name: Upload to AWS S3
         uses: jakejarvis/s3-sync-action@v0.5.1
@@ -79,5 +72,5 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_REGION: 'us-east-2'
-          SOURCE_DIR: wheelhouse
+          SOURCE_DIR: dist
           DEST_DIR: wheelhouse
