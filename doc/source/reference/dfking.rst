@@ -1,3 +1,5 @@
+.. _king_df_api:
+
 King DF
 =======
 

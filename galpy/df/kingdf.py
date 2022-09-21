@@ -10,7 +10,15 @@ _FOURPI= 4.*numpy.pi
 _TWOOVERSQRTPI= 2./numpy.sqrt(numpy.pi)
 
 class kingdf(isotropicsphericaldf):
-    """Class that represents a King DF"""
+    """Class that represents a King DF:
+
+    .. math::
+
+      f(\\mathcal{E}) = \\begin{cases} \\rho_1\\,(2\\pi\\sigma^2)^{-3/2}\\,\\left(e^{\\mathcal{E}/\\sigma^2}-1\\right), & \\mathcal{E} > 0\\\\0, & \\mathcal{E} \\leq 0\\end{cases}
+
+    where :math:`\\mathcal{E}` is the binding energy. See also :ref:`King potential <king_potential_api>`.
+
+    """
     def __init__(self,W0,M=1.,rt=1.,npt=1001,ro=None,vo=None):
         """
         NAME:

@@ -177,6 +177,7 @@ ellipsoidal triaxial potentials below.
    potentialisochrone.rst
    potentialjaffe.rst
    potentialkepler.rst
+   potentialking.rst
    potentialnfw.rst
    potentialplummer.rst
    potentialpowerspher.rst
