@@ -23,12 +23,6 @@ repos:
   rev: v2.1.1
   hooks:
     - id: pycln
-- repo: https://github.com/nbQA-dev/nbQA
-  rev: 1.5.1
-  hooks:
-  - id: nbqa-pyupgrade
-    args: [--py37-plus]
-  - id: nbqa-isort
 - repo: https://github.com/PyCQA/isort
   rev: 5.10.1
   hooks:
