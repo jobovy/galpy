@@ -171,6 +171,7 @@ jobs:
         echo "INCLUDE=$CONDA_PREFIX\\Library\\include" >> $GITHUB_ENV
         echo "LIB=$CONDA_PREFIX\\Library\\lib" >> $GITHUB_ENV
         echo "LIBPATH=$CONDA_PREFIX\\Library\\lib" >> $GITHUB_ENV
+        echo "$CONDA_PREFIX\\Library\\bin" >> $GITHUB_PATH
     - name: Install Python dependencies
       run: |
          pip install --upgrade --upgrade-strategy eager numpy scipy matplotlib numexpr setuptools cython pytest tqdm
@@ -220,11 +221,9 @@ jobs:
          if ( $REQUIRES_ASTROQUERY ) { python -c "import astroquery; print('astroquery: {}'.format(astroquery.__version__))"}
          if ( $REQUIRES_PYNBODY ) {python -c "import pynbody; print('pynbody: {}'.format(pynbody.__version__))"}
     - name: Test with pytest
-      shell: bash -l {0}
       env:
           TEST_FILES: ${{ matrix.TEST_FILES }}
       run: |
-        micromamba deactivate
         python -c "from galpy.orbit import Orbit" # Try to see why extension doesn't load
         pip install pytest-cov
         # eval necessary for -k 'not ...' in TEST_FILES
