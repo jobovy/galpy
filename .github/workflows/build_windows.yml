@@ -219,8 +219,10 @@ jobs:
          if ( $REQUIRES_ASTROQUERY ) { python -c "import astroquery; print('astroquery: {}'.format(astroquery.__version__))"}
          if ( $REQUIRES_PYNBODY ) {python -c "import pynbody; print('pynbody: {}'.format(pynbody.__version__))"}
     - name: Test with pytest
+      shell: bash
       env:
           TEST_FILES: ${{ matrix.TEST_FILES }}
       run: |
         pip install pytest-cov
-        pytest -v %TEST_FILES% --cov galpy --cov-config .coveragerc --disable-pytest-warnings --durations=0
+        # eval necessary for -k 'not ...' in TEST_FILES
+        eval "pytest -v $TEST_FILES --cov galpy --cov-config .coveragerc --disable-pytest-warnings --durations=0"
