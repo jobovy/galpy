@@ -280,20 +280,9 @@ jobs:
     - name: Install JAX (3.11-dev)
       if: ${{ matrix.REQUIRES_JAX && matrix.python-version == '3.11-dev' }}
       run: |
-        pip install wheel
-        curl -O -L https://github.com/google/jax/archive/refs/tags/jax-v0.3.23.tar.gz
-        tar -xvzf jax-v0.3.23.tar.gz
-        cd jax-jax-v0.3.23
-        python build/build.py
-        pip install dist/*.whl
-        pip install -e .  # installs jax
-          # Upload wheel as artifact
-    # Upload jax wheel for re-use
-    - uses: actions/upload-artifact@v3
-      if: ${{ matrix.REQUIRES_JAX && matrix.python-version == '3.11-dev' }}
-      with:
-        name: jaxlib-wheel-python-${{ matrix.python-version }}-${{ matrix.os }}
-        path: jax-jax-v0.3.23/dist/*.whl
+        curl -O https://astro.utoronto.ca/~bovy/scipywheels/jaxlib-0.3.23-cp311-cp311-manylinux2014_x86_64.whl
+        pip install jaxlib-0.3.23-cp311-cp311-manylinux2014_x86_64.whl
+        pip install jax==0.3.23
     - name: Install torus code
       env:
           TEST_FILES: ${{ matrix.TEST_FILES }}
