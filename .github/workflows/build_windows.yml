@@ -144,7 +144,10 @@ jobs:
             REQUIRES_JAX: false
     steps:
     - uses: actions/checkout@v3
-    # Windows installation: Install Micromamba, as specified by this repository's environment.yml for Windows
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
     # Cache both conda and pip, conda done by provision-with-micromamba
     - uses: actions/cache@v3
       with:
@@ -204,6 +207,7 @@ jobs:
         python setup.py build_ext --no-openmp --single_ext --inplace
         python setup.py develop --single_ext
     - name: Print debug info
+      shell: cmd
       env:
          REQUIRES_ASTROPY : ${{ matrix.REQUIRES_ASTROPY }}
          REQUIRES_ASTROQUERY : ${{ matrix.REQUIRES_ASTROQUERY }}
