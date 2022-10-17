@@ -295,6 +295,31 @@ or on distros with ``yum``, do::
 
    yum install gsl-devel
 
+On Windows, using ``conda-forge`` to install the GSL is your best bet, but note
+that this doesn't mean that you have to use ``conda`` for the rest of your
+Python environment. You can simply use a ``conda`` environment for the GSL,
+while using ``pip`` to install ``galpy`` and other packages. However, in that
+case, you need to add the relevant ``conda`` environment to your ``PATH`` as.
+So, for example, you can install the GSL as::
+
+    conda create -n gsl gsl
+    conda activate gsl
+
+and then set the path using
+
+    set PATH=%PATH%;"$CONDA_PREFIX\\Library\\bin"
+
+in the ``CMD`` shell or::
+
+    $env:Path+="$env:CONDA_PREFIX\Library\bin"
+
+if you are using ``PowerShell``. Note that you have to execute these commands
+from the ``conda`` environment such that the ``CONDA_PREFIX`` variable is set.
+You also still have to set the ``INCLUDE``, ``LIB``, and ``LIBPATH`` environment
+variables as discussed in :ref:`see below <install_win>` (also from the conda
+environment). Then you can deactivate it and install ``galpy`` using, e.g., ``pip``.
+Whenever you run ``galpy``, you have to adjust the ``PATH`` variable as above.
+
 .. _gsl_cflags:
 
 The ``galpy`` installation fails because of C compilation errors
