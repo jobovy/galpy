@@ -13,6 +13,10 @@ on:
   schedule:
     - cron: '0 20 * * 2'
 
+defaults:
+    run:
+        shell: wsl-bash {0}
+
 jobs:
   build:
     runs-on: ${{ matrix.os }}
@@ -143,6 +147,7 @@ jobs:
             REQUIRES_NUMBA: false
             REQUIRES_JAX: false
     steps:
+    - uses: Vampire/setup-wsl@v1
     - uses: actions/checkout@v3
     # Windows installation: Install Micromamba, as specified by this repository's environment.yml for Windows
     # Cache both conda and pip, conda done by provision-with-micromamba
@@ -157,7 +162,7 @@ jobs:
         cd gsl-2.7
         ./configure
         make
-        sudo make install
+        make install
     - uses: mamba-org/provision-with-micromamba@v13
       with:
          environment-name: galpywheels
