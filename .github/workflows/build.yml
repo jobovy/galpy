@@ -248,7 +248,7 @@ jobs:
       if: ${{ matrix.os == 'ubuntu-latest' && matrix.REQUIRES_PYNBODY && matrix.python-version == '3.11-dev' }}
       run: |
          sudo apt-get install libhdf5-dev
-         pip install --upgrade --upgrade-strategy eager --no-binary=h5py h5py
+         pip install --upgrade --upgrade-strategy eager --no-binary=h5py git+https://github.com/h5py/h5py.git@e9095d83e9f23846653ce2b02a92437bed4ed32c#egg=h5py
          pip install --upgrade --upgrade-strategy eager pandas pytz
          pip install --upgrade --upgrade-strategy eager wheel
          pip install git+https://github.com/pynbody/pynbody.git@cfbefac64bfad3b8d042e669ff2b36bad25813ce#egg=pynbody
@@ -257,7 +257,7 @@ jobs:
       run: |
          brew install hdf5
          export HDF5_DIR="$(brew --prefix hdf5)"
-         pip install --upgrade --upgrade-strategy eager --no-binary=h5py h5py
+         pip install --upgrade --upgrade-strategy eager --no-binary=h5py git+https://github.com/h5py/h5py.git@e9095d83e9f23846653ce2b02a92437bed4ed32c#egg=h5py
          pip install --upgrade --upgrade-strategy eager pandas pytz
          pip install --upgrade --upgrade-strategy eager wheel
          pip install git+https://github.com/pynbody/pynbody.git@cfbefac64bfad3b8d042e669ff2b36bad25813ce#egg=pynbody
