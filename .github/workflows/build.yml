@@ -301,8 +301,17 @@ jobs:
         # but it isn't actually a *runtime* requirement numba/numba#8366
         pip install --upgrade --force-reinstall setuptools
     - name: Install JAX
-      if: ${{ matrix.REQUIRES_JAX }}
+      if: ${{ matrix.REQUIRES_JAX && matrix.python-version != '3.11-dev'}}
       run: pip install jax jaxlib
+    - name: Install JAX (3.11-dev)
+      if: ${{ matrix.REQUIRES_JAX && matrix.python-version == '3.11-dev' }}
+      run: |
+        pip install wheel
+        git clone git@github.com:google/jax.git
+        cd jax
+        python build/build.py
+        pip install dist/*.whl
+        pip install jax
     - name: Install torus code
       env:
           TEST_FILES: ${{ matrix.TEST_FILES }}
