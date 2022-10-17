@@ -219,7 +219,7 @@ jobs:
          if ( $REQUIRES_ASTROQUERY ) { python -c "import astroquery; print('astroquery: {}'.format(astroquery.__version__))"}
          if ( $REQUIRES_PYNBODY ) {python -c "import pynbody; print('pynbody: {}'.format(pynbody.__version__))"}
     - name: Test with pytest
-      shell: bash -l {0}
+      shell: bash
       env:
           TEST_FILES: ${{ matrix.TEST_FILES }}
       run: |
