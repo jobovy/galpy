@@ -223,7 +223,7 @@ jobs:
       env:
           TEST_FILES: ${{ matrix.TEST_FILES }}
       run: |
-        conda deactivate # Need env variables, but not the environment itself
+        mamba deactivate # Need env variables, but not the environment itself
         pip install pytest-cov
         # eval necessary for -k 'not ...' in TEST_FILES
         eval "pytest -v $TEST_FILES --cov galpy --cov-config .coveragerc --disable-pytest-warnings --durations=0"
