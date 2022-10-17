@@ -171,7 +171,7 @@ jobs:
         echo "INCLUDE=$CONDA_PREFIX\\Library\\include" >> $GITHUB_ENV
         echo "LIB=$CONDA_PREFIX\\Library\\lib" >> $GITHUB_ENV
         echo "LIBPATH=$CONDA_PREFIX\\Library\\lib" >> $GITHUB_ENV
-        echo "PATH=$PATH:'$CONDA_PREFIX\\Library\\lib'" >> $GITHUB_ENV
+        echo "$CONDA_PREFIX\\Library\\lib" >> $GITHUB_PATH
     - name: Install Python dependencies
       run: |
          pip install --upgrade --upgrade-strategy eager numpy scipy matplotlib numexpr setuptools cython pytest tqdm
