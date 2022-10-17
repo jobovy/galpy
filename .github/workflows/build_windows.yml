@@ -148,6 +148,8 @@ jobs:
             REQUIRES_JAX: false
     steps:
     - uses: Vampire/setup-wsl@v1
+      with:
+        distribution: Ubuntu-22.04
     - uses: actions/checkout@v3
     # Windows installation: Install Micromamba, as specified by this repository's environment.yml for Windows
     # Cache both conda and pip, conda done by provision-with-micromamba
