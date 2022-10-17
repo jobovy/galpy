@@ -236,31 +236,8 @@ jobs:
         path: ~/.cache/pip
         key: ${{ runner.os }}-pip-${{ matrix.python-version }}-${{ hashFiles('.github/workflows/build.yml') }}-${{ matrix.REQUIRES_PYNBODY }}-${{ matrix.REQUIRES_ASTROPY }}-${{ matrix.REQUIRES_ASTROQUERY }}-${{ matrix.REQUIRES_NUMBA }}-${{ matrix.REQUIRES_JAX }}
     - name: Install Python dependencies
-      if: matrix.python-version != '3.11-dev'
       run: |
          pip install --upgrade --upgrade-strategy eager numpy scipy matplotlib numexpr setuptools cython pytest tqdm
-    - name: Install Python dependencies (3.11-dev; ubuntu)
-      if: ${{ matrix.os == 'ubuntu-latest' && matrix.python-version == '3.11-dev' }}
-      run: |
-         pip install --upgrade --upgrade-strategy eager numpy
-         curl -O https://astro.utoronto.ca/~bovy/scipywheels/scipy-1.10.0.dev0-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl
-         pip install scipy-1.10.0.dev0-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl
-         # Matplotlib dependencies
-         pip install --no-binary contourpy contourpy
-         pip install --upgrade --upgrade-strategy eager kiwisolver cycler fonttools packaging pillow pyparsing python-dateutil
-         pip install -i https://pypi.anaconda.org/scipy-wheels-nightly/simple matplotlib
-         pip install --upgrade --upgrade-strategy eager numexpr setuptools cython pytest tqdm
-    - name: Install Python dependencies (3.11-dev; mac)
-      if: ${{ matrix.os == 'macos-latest' && matrix.python-version == '3.11-dev' }}
-      run: |
-         pip install --upgrade --upgrade-strategy eager numpy
-         curl -O https://astro.utoronto.ca/~bovy/scipywheels/scipy-1.10.0.dev0-cp311-cp311-macosx_10_9_x86_64.whl
-         pip install scipy-1.10.0.dev0-cp311-cp311-macosx_10_9_x86_64.whl
-         # Matplotlib dependencies
-         pip install --no-binary contourpy contourpy
-         pip install --upgrade --upgrade-strategy eager kiwisolver cycler fonttools packaging pillow pyparsing python-dateutil
-         pip install -i https://pypi.anaconda.org/scipy-wheels-nightly/simple matplotlib
-         pip install --upgrade --upgrade-strategy eager numexpr setuptools cython pytest tqdm
     - name: Install pynbody
       if: ${{ matrix.REQUIRES_PYNBODY && matrix.python-version != '3.11-dev' }}
       run: |
