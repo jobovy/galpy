@@ -16,9 +16,9 @@ import warnings
 import numpy
 from scipy import integrate, optimize
 
-from ..potential import (MWPotential, epifreq, evaluateR2derivs,
-                         evaluateRzderivs, evaluatez2derivs, omegac,
-                         verticalfreq)
+from ..potential import (DiskSCFPotential, MWPotential, SCFPotential, epifreq,
+                         evaluateR2derivs, evaluateRzderivs, evaluatez2derivs,
+                         omegac, verticalfreq)
 from ..potential.Potential import (_check_c, _evaluatePotentials,
                                    _evaluateRforces, _evaluatezforces)
 from ..potential.Potential import flatten as flatten_potential
@@ -1041,7 +1041,7 @@ def _vminFindStart(v,E,Lz,I3V,delta,u0,cosh2u0,sinh2u0,
 
 @potential_physical_input
 @physical_conversion('position',pop=True)
-def estimateDeltaStaeckel(pot,R,z, no_median=False):
+def estimateDeltaStaeckel(pot,R,z,no_median=False,delta0=1e-6):
     """
     NAME:
        estimateDeltaStaeckel
@@ -1052,12 +1052,22 @@ def estimateDeltaStaeckel(pot,R,z, no_median=False):
        R,z- coordinates (if these are arrays, the median estimated delta is returned, i.e., if this is an orbit)
        no_median - (False) if True, and input is array, return all calculated values of delta (useful for quickly
        estimating delta for many phase space points)
+       delta0= (1e-6) value to return when delta<delta0 (because actionAngleStaeckel does not work with delta=0 exactly)
     OUTPUT:
        delta
     HISTORY:
        2013-08-28 - Written - Bovy (IAS)
        2016-02-20 - Changed input order to allow physical conversions - Bovy (UofT)
+       2022-09-14 - Deal with numerical issues with SCF/DiskSCFPotentials - Bovy (UofT)
+       2022-09-15 - Add delta0 - Bovy (UofT)
     """
+    pot= flatten_potential(pot)
+    # We'll special-case delta<0 when the potential includes SCF/DiskSCF components
+    pot_includes_scf= \
+        numpy.any([isinstance(p,SCFPotential) or isinstance(p,DiskSCFPotential)
+                  for p in pot]) \
+        if isinstance(pot,list) \
+        else isinstance(pot,SCFPotential) or isinstance(pot,DiskSCFPotential)
     if isinstance(R,numpy.ndarray):
         delta2= numpy.array([(z[ii]**2.-R[ii]**2. #eqn. (9) has a sign error
                            +(3.*R[ii]*_evaluatezforces(pot,R[ii],z[ii])
@@ -1066,8 +1076,8 @@ def estimateDeltaStaeckel(pot,R,z, no_median=False):
                                                             use_physical=False)
                                            -evaluatez2derivs(pot,R[ii],z[ii],
                                                              use_physical=False)))/evaluateRzderivs(pot,R[ii],z[ii],use_physical=False)) for ii in range(len(R))])
-        indx= (delta2 < 0.)*(delta2 > -10.**-10.)
-        delta2[indx]= 0.
+        indx= (delta2 < delta0**2.)*((delta2 > -10.**-10.) + pot_includes_scf)
+        delta2[indx]= delta0**2.
         if not no_median:
         	delta2= numpy.median(delta2[True^numpy.isnan(delta2)])
     else:
@@ -1076,5 +1086,6 @@ def estimateDeltaStaeckel(pot,R,z, no_median=False):
                    -3.*z*_evaluateRforces(pot,R,z)
                    +R*z*(evaluateR2derivs(pot,R,z,use_physical=False)
                          -evaluatez2derivs(pot,R,z,use_physical=False)))/evaluateRzderivs(pot,R,z,use_physical=False))
-        if delta2 < 0. and delta2 > -10.**-10.: delta2= 0.
+        if delta2 < delta0**2. and (delta2 > -10.**-10. or pot_includes_scf):
+           delta2= delta0**2.
     return numpy.sqrt(delta2)

@@ -6,7 +6,7 @@ import platform
 import subprocess
 import sys
 
-from pkg_resources import parse_version
+from packaging.version import parse as parse_version
 
 from .util.config import (__config__, __orig__config__, configfilename,
                           write_config)

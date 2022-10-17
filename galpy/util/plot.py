@@ -57,7 +57,7 @@ from matplotlib.ticker import NullFormatter
 from matplotlib.transforms import Affine2D, Bbox, IdentityTransform
 from mpl_toolkits.mplot3d import \
     Axes3D  # Necessary for 3D plotting (projection = '3d')
-from pkg_resources import parse_version
+from packaging.version import parse as parse_version
 from scipy import interpolate, ndimage, special
 
 _MPL_VERSION= parse_version(matplotlib.__version__)

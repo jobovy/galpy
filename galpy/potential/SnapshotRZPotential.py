@@ -1,3 +1,4 @@
+import copy
 import hashlib
 from os import system
 
@@ -229,7 +230,7 @@ class InterpSnapshotRZPotential(interpRZPotential) :
         self._interpverticalfreq = interpverticalfreq
 
         # make the potential accessible at points beyond the grid
-        self._origPot = SnapshotRZPotential(s, numcores)
+        self._origPot = SnapshotRZPotential(s,self._numcores)
 
         # setup the grid
         self._zsym = zsym
@@ -594,3 +595,31 @@ class InterpSnapshotRZPotential(interpRZPotential) :
         if self._interpverticalfreq:
             self._z2interp = self._savedsplines['z2deriv']
             self._verticalfreqInterp = self._savedsplines['verticalfreq']
+
+    # Pickling functions
+    def __getstate__(self):
+        print("Here")
+        pdict= copy.copy(self.__dict__)
+        # Deconstruct _s
+        pdict['_pos']= self._s['pos']
+        pdict['_mass']= self._s['mass']
+        pdict['_eps']= self._s['eps']
+        # rm _s and _origPot,
+        del pdict['_s']
+        del pdict['_origPot']
+        return pdict
+
+    def __setstate__(self,pdict):
+        # Set up snapshot again for origPot
+        pdict['_s']= pynbody.new(star=len(pdict['_mass']))
+        pdict['_s']['pos']= pdict['_pos']
+        pdict['_s']['mass']= pdict['_mass']
+        pdict['_s']['eps']= pdict['_eps']
+        # Transfer __dict__
+        del pdict['_pos']
+        del pdict['_mass']
+        del pdict['_eps']
+        self.__dict__= pdict
+        # Now setup origPotnagain
+        self._origPot = SnapshotRZPotential(self._s,self._numcores)
+        return None

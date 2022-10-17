@@ -925,7 +925,7 @@ class evolveddiskdf(df):
 
         PURPOSE:
 
-           calculate the tangential variance of the velocity distribution at (R,phi)
+           calculate the rotational-velocity variance of the velocity distribution at (R,phi)
 
         INPUT:
 
@@ -935,7 +935,7 @@ class evolveddiskdf(df):
 
            t= time at which to evaluate the DF (can be a list or ndarray; if this is the case, list needs to be in descending order and equally spaced) (can be Quantity)
 
-           surfacemass, meanvT= if set use this pre-calculated surfacemass and mean tangential velocity
+           surfacemass, meanvT= if set use this pre-calculated surfacemass and mean rotational velocity
 
            nsigma - number of sigma to integrate the velocities over (based on an estimate, so be generous)
 
@@ -1040,7 +1040,7 @@ class evolveddiskdf(df):
 
         PURPOSE:
 
-           calculate the radial-tangential co-variance of the velocity distribution at (R,phi)
+           calculate the radial-rotational co-variance of the velocity distribution at (R,phi)
 
         INPUT:
 
@@ -2046,9 +2046,9 @@ class evolveddiskdfHierarchicalGrid:
             nsigma - number of sigma to integrate over
             t- time
             sigmaR1 - radial dispersion
-            sigmaT1 - tangential dispersion
+            sigmaT1 - rotational-velocity dispersion
             meanvR - mean of radial velocity
-            meanvT - mean of tangential velocity
+            meanvT - mean of rotational velocity
             gridpoints- number of gridpoints
             nlevels- number of levels to build
             deriv- None, 'R', or 'phi': calculates derivative of the moment wrt

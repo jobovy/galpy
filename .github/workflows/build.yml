@@ -295,7 +295,11 @@ jobs:
       run: pip install astroquery
     - name: Install numba
       if: ${{ matrix.REQUIRES_NUMBA }}
-      run: pip install numba
+      run: |
+        pip install numba
+        # numba may force install an older version of setuptools,
+        # but it isn't actually a *runtime* requirement numba/numba#8366
+        pip install --upgrade --force-reinstall setuptools
     - name: Install JAX
       if: ${{ matrix.REQUIRES_JAX }}
       run: pip install jax jaxlib

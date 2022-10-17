@@ -1,16 +1,15 @@
 import distutils.ccompiler
-import distutils.sysconfig as sysconfig
 import glob
 import os
 import os.path
 import platform
 import subprocess
 import sys
-from distutils.command.build_ext import build_ext as build_ext
-from distutils.core import Extension
-from distutils.errors import DistutilsPlatformError
+import sysconfig
 
-from setuptools import setup
+from setuptools import Extension, setup
+from setuptools.command.build_ext import build_ext
+from setuptools.errors import PlatformError
 
 PY3= sys.version > '3'
 WIN32= platform.system() == 'Windows'
@@ -136,7 +135,7 @@ if distutils.ccompiler.get_default_compiler().lower() == 'msvc':
     try:
         test_compiler = distutils.ccompiler.new_compiler()
         test_compiler.initialize()  # try to initialize a test compiler to see if compiler presented
-    except DistutilsPlatformError:  # this error will be raised if no compiler in the system
+    except PlatformError:  # this error will be raised if no compiler in the system
         no_compiler = True
 
 # To properly export GSL symbols on Windows, need to defined GSL_DLL and WIN32
@@ -236,7 +235,8 @@ else:
 def compiler_has_flag(compiler,flagname):
     """Test whether a given compiler supports a given option"""
     import tempfile
-    from distutils.errors import CompileError
+
+    from setuptools.errors import CompileError
     with tempfile.NamedTemporaryFile('w', suffix='.cpp') as f:
         f.write('int main (int argc, char **argv) { return 0; }')
         try:
@@ -276,7 +276,7 @@ setup(cmdclass=dict(build_ext=BuildExt), # this to allow compiler check above
                     'galpy/df':['data/*.sav'],
                     "": ["README.md","README.dev","LICENSE","AUTHORS.rst"]},
       include_package_data=True,
-      install_requires=['setuptools','numpy>=1.7','scipy','matplotlib'],
+      install_requires=['packaging','numpy>=1.7','scipy','matplotlib'],
       ext_modules=ext_modules if not no_compiler and not no_ext else None,
       classifiers=[
         "Development Status :: 6 - Mature",

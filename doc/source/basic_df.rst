@@ -307,7 +307,7 @@ minutes)
 
 >>> o= dfc.sample(n=1000,returnOrbit=True,nphi=1,rrange=[0.8,1.2])
 
-and we can plot the distribution of tangential velocities
+and we can plot the distribution of rotational velocities
 
 >>> vTs= [e.vxvv[2] for e in o]
 >>> hists, bins, edges= hist(vTs,range=[.5,1.5],normed=True,bins=30)
