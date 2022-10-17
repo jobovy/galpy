@@ -17,7 +17,7 @@ jobs:
   build:
     defaults:
       run:
-        shell: bash
+        shell: bash -l {0}
     runs-on: ${{ matrix.os }}
     if: "!contains(github.event.head_commit.message, 'ci skip')"
     strategy:
@@ -210,7 +210,6 @@ jobs:
         python setup.py build_ext --no-openmp --single_ext --inplace
         python setup.py develop --single_ext
     - name: Print debug info
-      shell: pwsh
       env:
          REQUIRES_ASTROPY : ${{ matrix.REQUIRES_ASTROPY }}
          REQUIRES_ASTROQUERY : ${{ matrix.REQUIRES_ASTROQUERY }}
