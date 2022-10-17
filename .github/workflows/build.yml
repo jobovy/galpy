@@ -307,7 +307,8 @@ jobs:
       if: ${{ matrix.REQUIRES_JAX && matrix.python-version == '3.11-dev' }}
       run: |
         pip install wheel
-        git clone git@github.com:google/jax.git
+        curl -O https://github.com/google/jax/archive/refs/tags/jax-v0.3.23.tar.gz
+        tar -xvzf jax-v0.3.23.tar.gz
         cd jax
         python build/build.py
         pip install dist/*.whl
