@@ -150,6 +150,14 @@ jobs:
       with:
         path: ~\AppData\Local\pip\Cache
         key: ${{ runner.os }}-pip-${{ matrix.python-version }}-${{ hashFiles('.github/workflows/build_windows.yml') }}-${{ matrix.REQUIRES_PYNBODY }}-${{ matrix.REQUIRES_ASTROPY }}-${{ matrix.REQUIRES_ASTROQUERY }}-${{ matrix.REQUIRES_NUMBA }}-${{ matrix.REQUIRES_JAX }}
+    - name: Install the GSL
+      run: |
+        curl -O https://ftp.gnu.org/gnu/gsl/gsl-2.7.tar.gz
+        tar -xvzf gsl-2.7.tar.gz
+        cd gsl-2.7
+        ./configure
+        make
+        sudo make install
     - uses: mamba-org/provision-with-micromamba@v13
       with:
          environment-name: galpywheels
