@@ -223,7 +223,7 @@ jobs:
       env:
           TEST_FILES: ${{ matrix.TEST_FILES }}
       run: |
-        deactivate # deactivate environment, bc we don't want to use it
+        python -c "from galpy.orbit import Orbit" # Try to see why extension doesn't load
         pip install pytest-cov
         # eval necessary for -k 'not ...' in TEST_FILES
-        eval "pytest -v $TEST_FILES --cov galpy --cov-config .coveragerc --durations=0" # --disable-pytest-warnings
+        eval "pytest -v $TEST_FILES --cov galpy --cov-config .coveragerc --disable-pytest-warnings --durations=0
