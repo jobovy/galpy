@@ -1,0 +1,49 @@
+name: Wheel builder and uploader
+
+# Update on every push and PR to main, and upon release creation
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '**'
+      - '!tests/**'
+      - '!doc/**'
+      - '!.github/**'
+      - '.github/workflows/build_and_release_wheels.yml'
+  pull_request:
+    branches:
+      - main
+    paths-ignore:
+      - 'doc/**'
+  release:
+    types: [created]
+
+jobs:
+  build_wheels:
+    name: Build wheel for ${{ matrix.python }}-${{ matrix.buildplat[1] }}
+    runs-on: ${{ matrix.buildplat[0] }}
+    strategy:
+      # Ensure that a wheel builder finishes even if another fails
+      fail-fast: false
+      matrix:
+        # Following numpy's setup
+        buildplat:
+        - [ubuntu-latest, manylinux_x86_64]
+        - [macos-latest, macosx_*]
+        - [windows-2019, win_amd64]
+        - [windows-2019, win32]
+        python: ["cp37", "cp38", "cp39", "cp310", "cp311"]
+    steps:
+      - uses: actions/checkout@v3
+      - name: Build wheels
+        uses: pypa/cibuildwheel@v2.11.1
+        env:
+          CIBW_BUILD: ${{ matrix.python }}-${{ matrix.buildplat[1] }}
+          CIBW_BEFORE_BUILD_LINUX: sudo apt-get install -y libgsl-dev
+          CIBW_BEFORE_BUILD_MACOS: brew install gsl
+          CIBW_BEFORE_BUILD_WINDOWS: choco install gsl
+      - uses: actions/upload-artifact@v3
+        with:
+          name: ${{ matrix.python }}-${{ startsWith(matrix.buildplat[1], 'macosx') && 'macosx' || matrix.buildplat[1] }}
+          path: ./wheelhouse/*.whl
