@@ -1769,7 +1769,7 @@ class quasiisothermaldf(df):
             Rv, zv= numpy.meshgrid(R_linspace, z_linspace)
             grid= numpy.dstack((Rv, zv)) #This grid stores (R,z) coordinate
             #Grid is a 3 dimensional array since it stores pairs of values, but
-            #grid max vT is a 2 dimensinal array
+            #grid max vT is a 2 dimensional array
             grid_max_vT= numpy.empty((grid.shape[0], grid.shape[1]))
             #Optimize max_vT on the grid
             for i in range(z_number):
