@@ -32,14 +32,14 @@ jobs:
         buildplat:
         - [ubuntu-latest, manylinux, x86_64]
         - [macos-latest, macosx, x86_64]
-#        - [macos-latest, macosx, arm64]
+        - [macos-latest, macosx, arm64]
         - [windows-2019, win, amd64]
         python: ["cp37", "cp38", "cp39", "cp310", "cp311"]
     steps:
       - uses: actions/checkout@v3
       - name: Install GSL (Windows)
         uses: mamba-org/provision-with-micromamba@v13
-        if: matrix.buildplat[1] == 'win'
+        if: matrix.buildplat[1] == 'win' || ( matrix.buildplat[1] == 'macosx' && matrix.buildplat[2] == 'x86_64' )
         with:
           environment-name: gsl
           environment-file: false
@@ -53,28 +53,32 @@ jobs:
           echo "LIB=$CONDA_PREFIX\\Library\\lib" >> $GITHUB_ENV
           echo "LIBPATH=$CONDA_PREFIX\\Library\\lib" >> $GITHUB_ENV
           echo "$CONDA_PREFIX\\Library\\bin" >> $GITHUB_PATH # necessary when we don't activate the environment
-      - name: Install GSL (Mac OS x86_64)
+      - name: Set GSL environment variables (Mac OS x86_64)
         if: matrix.buildplat[1] == 'macosx' && matrix.buildplat[2] == 'x86_64'
+        shell: bash -l {0}
         run: |
-          mkdir gsl
-          curl -O https://conda.anaconda.org/conda-forge/osx-64/gsl-2.7-h93259b0_0.tar.bz2
-          curl -O https://conda.anaconda.org/conda-forge/osx-64/libblas-3.9.0-16_osx64_openblas.tar.bz2
-          curl -O https://conda.anaconda.org/conda-forge/osx-64/libcblas-3.9.0-16_osx64_openblas.tar.bz2
-          curl -O https://conda.anaconda.org/conda-forge/osx-64/libopenblas-0.3.21-openmp_h429af6e_3.tar.bz2
-          tar -xjf gsl-2.7-h93259b0_0.tar.bz2 -C gsl
-          tar -xjf libblas-3.9.0-16_osx64_openblas.tar.bz2 -C gsl
-          tar -xjf libcblas-3.9.0-16_osx64_openblas.tar.bz2 -C gsl
-          tar -xjf libopenblas-0.3.21-openmp_h429af6e_3.tar.bz2 -C gsl
-          rsync -azv gsl/bin/ /usr/local/bin/
-          rsync -azv gsl/include/ /usr/local/include/
-          rsync -azv gsl/lib/ /usr/local/lib/
-          echo "REPAIR_LIBRARY_PATH=/usr/local/lib/" >> $GITHUB_ENV
-      - name: Install GSL (Mac OS ARM64)
+          echo "CFLAGS=-I$CONDA_PREFIX/include" >> $GITHUB_ENV
+          echo "LDFLAGS=-L$CONDA_PREFIX/lib" >> $GITHUB_ENV
+          echo "REPAIR_LIBRARY_PATH=$CONDA_PREFIX/lib" >> $GITHUB_ENV
+          echo "$CONDA_PREFIX/bin" >> $GITHUB_PATH # necessary when we don't activate the environment
+      - name: Install GSL (Mac OS ARM64) !HACK!
         if: matrix.buildplat[1] == 'macosx' && matrix.buildplat[2] == 'arm64'
         run: |
           curl -O https://conda.anaconda.org/conda-forge/osx-64/gsl-2.7-h6e638da_0.tar.bz2
+          curl -O https://conda.anaconda.org/conda-forge/osx-arm64/libblas-3.9.0-16_osxarm64_openblas.tar.bz2
+          curl -O https://conda.anaconda.org/conda-forge/osx-arm64/libcblas-3.9.0-16_osxarm64_openblas.tar.bz2
+          curl -O https://conda.anaconda.org/conda-forge/osx-arm64/libopenblas-0.3.21-openmp_hc731615_3.tar.bz2
+          curl -O https://conda.anaconda.org/conda-forge/osx-arm64/libgfortran-5.0.0-11_3_0_hd922786_25.tar.bz2
+          curl -O https://conda.anaconda.org/conda-forge/osx-arm64/libgfortran5-11.3.0-hdaf2cc0_25.tar.bz2
+          curl -O https://conda.anaconda.org/conda-forge/osx-arm64/llvm-openmp-14.0.4-hd125106_0.tar.bz2
           mkdir gsl
           tar -xjf gsl-2.7-h6e638da_0.tar.bz2 -C gsl
+          tar -xjf libblas-3.9.0-16_osxarm64_openblas.tar.bz2 -C gsl
+          tar -xjf libcblas-3.9.0-16_osxarm64_openblas.tar.bz2 -C gsl
+          tar -xjf libopenblas-0.3.21-openmp_hc731615_3.tar.bz2 -C gsl
+          tar -xjf libgfortran-5.0.0-11_3_0_hd922786_25.tar.bz2 -C gsl
+          tar -xjf libgfortran5-11.3.0-hdaf2cc0_25.tar.bz2 -C gsl
+          tar -xjf llvm-openmp-14.0.4-hd125106_0.tar.bz2 -C gsl
           rsync -azv gsl/bin/ /usr/local/bin/
           rsync -azv gsl/include/ /usr/local/include/
           rsync -azv gsl/lib/ /usr/local/lib/
