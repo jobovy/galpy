@@ -33,7 +33,6 @@ jobs:
         - [ubuntu-latest, manylinux_x86_64]
         - [macos-latest, macosx_*]
         - [windows-2019, win_amd64]
-        - [windows-2019, win32]
         python: ["cp37", "cp38", "cp39", "cp310", "cp311"]
     steps:
       - uses: actions/checkout@v3
@@ -42,25 +41,16 @@ jobs:
         if: matrix.buildplat[1] == 'macosx_*'
         run: |
           brew install gsl
-          echo 'CFLAGS="-I/usr/local/opt/gsl/include"'' >> $GITHUB_ENV
-          echo 'LDFLAGS="-L/usr/local/opt/gsl/lib"'' >> $GITHUB_ENV
+          echo 'CFLAGS="-I/usr/local/opt/gsl/include"' >> $GITHUB_ENV
+          echo 'LDFLAGS="-L/usr/local/opt/gsl/lib"' >> $GITHUB_ENV
       # Install the GSL on Windows
       - uses: mamba-org/provision-with-micromamba@v13
-        name: Install GSL (Windows 64)
+        name: Install GSL (Windows)
         if: matrix.buildplat[1] == 'win_amd64'
         with:
           environment-name: gsl
           environment-file: false
-          channels: conda-forge/win-64
-          extra-specs: gsl
-      # Install the GSL on Windows
-      - uses: mamba-org/provision-with-micromamba@v13
-        name: Install GSL (Windows 32)
-        if: matrix.buildplat[1] == 'win32'
-        with:
-          environment-name: gsl
-          environment-file: false
-          channels: conda-forge/win-32
+          channels: conda-forge
           extra-specs: gsl
       - name: Set GSL environment variables (Windows)
         if: matrix.buildplat[1] == 'win_amd64' || matrix.buildplat[1] == 'win32'
