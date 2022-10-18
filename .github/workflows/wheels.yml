@@ -56,9 +56,15 @@ jobs:
       - name: Install GSL (Mac OS x86_64)
         if: matrix.buildplat[1] == 'macosx' && matrix.buildplat[2] == 'x86_64'
         run: |
-          curl -O https://conda.anaconda.org/conda-forge/osx-64/gsl-2.7-h93259b0_0.tar.bz2
           mkdir gsl
+          curl -O https://conda.anaconda.org/conda-forge/osx-64/gsl-2.7-h93259b0_0.tar.bz2
+          curl -O https://conda.anaconda.org/conda-forge/osx-64/libblas-3.9.0-16_osx64_openblas.tar.bz2
+          curl -O https://conda.anaconda.org/conda-forge/osx-64/libcblas-3.9.0-16_osx64_openblas.tar.bz2
+          curl -O https://conda.anaconda.org/conda-forge/osx-64/libopenblas-0.3.21-openmp_h429af6e_3.tar.bz2
           tar -xjf gsl-2.7-h93259b0_0.tar.bz2 -C gsl
+          tar -xjf libblas-3.9.0-16_osx64_openblas.tar.bz2 -C gsl
+          tar -xjf libcblas-3.9.0-16_osx64_openblas.tar.bz2 -C gsl
+          tar -xjf libopenblas-0.3.21-openmp_h429af6e_3.tar.bz2 -C gsl
           rsync -azv gsl/bin/ /usr/local/bin/
           rsync -azv gsl/include/ /usr/local/include/
           rsync -azv gsl/lib/ /usr/local/lib/
