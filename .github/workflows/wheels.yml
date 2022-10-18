@@ -37,18 +37,18 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       # Install LLVM on Mac OS
-      - name: Install GSL
+      - name: Install LLVM (Mac OS)
         if: matrix.buildplat[1] == 'macosx_*'
         run: |
           brew install llvm
-          echo "/opt/homebrew/opt/llvm/bin" >> $GITHUB_PATH
+          echo "/usr/local/opt/llvm/bin" >> $GITHUB_PATH
       # Install the GSL on Mac OS
-      - name: Install GSL
+      - name: Install GSL (Mac OS)
         if: matrix.buildplat[1] == 'macosx_*'
         run: |
           brew install gsl
-          echo "CFLAGS=-I`gsl-config --prefix`/include" >> $GITHUB_ENV
-          echo "LDFLAGS=-L`gsl-config --prefix`/lib" >> $GITHUB_ENV
+          echo "CFLAGS=-I`gsl-config --prefix`/include -I/usr/local/opt/llvm/include" >> $GITHUB_ENV
+          echo "LDFLAGS=-L`gsl-config --prefix`/lib -L/usr/local/opt/llvm/lib -L/usr/local/opt/llvm/lib/c++ -Wl,-rpath,/usr/local/opt/llvm/lib/c++" >> $GITHUB_ENV
       # Install the GSL on Windows
       - uses: mamba-org/provision-with-micromamba@v13
         name: Install GSL (Windows)
@@ -71,7 +71,7 @@ jobs:
         env:
           CIBW_BUILD: ${{ matrix.python }}-${{ matrix.buildplat[1] }}
           CIBW_BEFORE_BUILD_LINUX: yum -y install gsl-devel
-          CIBW_ENVIRONMENT_MACOS: CC=/opt/homebrew/opt/llvm/bin/clang CXX=/opt/homebrew/opt/llvm/bin/clang++
+          CIBW_ENVIRONMENT_MACOS: CC=/usr/local/opt/llvm/bin/clang CXX=/usr/local/opt/llvm/bin/clang++
           CIBW_ARCHS_MACOS: x86_64 arm64
       - uses: actions/upload-artifact@v3
         with:
