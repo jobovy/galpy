@@ -43,8 +43,8 @@ jobs:
           brew install gsl
           export CFLAGS="$CFLAGS -I`gsl-config --prefix`/include"
           export LDFLAGS="$LDFLAGS -L`gsl-config --prefix`/lib"
-          echo 'CFLAGS="$CFLAGS"' >> $GITHUB_ENV
-          echo 'LDFLAGS="$LDFLAGS"' >> $GITHUB_ENV
+          echo 'CFLAGS=$CFLAGS' >> $GITHUB_ENV
+          echo 'LDFLAGS=$LDFLAGS' >> $GITHUB_ENV
       # Install the GSL on Windows
       - uses: mamba-org/provision-with-micromamba@v13
         name: Install GSL (Windows)
