@@ -2,8 +2,6 @@ name: Windows build
 
 on:
   push:
-    branches:
-      - '!cibw'
     paths:
       - '**'
       - '!doc/**'

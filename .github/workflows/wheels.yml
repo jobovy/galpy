@@ -5,7 +5,6 @@ on:
   push:
     branches:
       - main
-      - cibw
     paths:
       - '**'
       - '!tests/**'
@@ -124,7 +123,7 @@ jobs:
           path: ./dist/*.tar.gz
 # Deploy wheels and sdist to PyPI (upon release creation)
   deploy_pypi:
-    name: Deploy wheels and sdist
+    name: Deploy to PyPI
     needs: [build_wheels, build_sdist]
     runs-on: ubuntu-latest
     if: github.event_name == 'release' && github.event.action == 'created'
@@ -144,7 +143,7 @@ jobs:
           packages_dir: wheelhouse/
 # Deploy wheels and sdist to AWS S3 (main)
   deploy_s3:
-    name: Deploy wheels and sdist
+    name: Deploy to AWS S3
     needs: [build_wheels, build_sdist]
     runs-on: ubuntu-latest
     if: github.event_name != 'release' && github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
