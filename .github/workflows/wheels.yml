@@ -36,30 +36,27 @@ jobs:
         python: ["cp37", "cp38", "cp39", "cp310", "cp311"]
     steps:
       - uses: actions/checkout@v3
-      # Install the GSL on Mac OS
-      - name: Install GSL (Mac OS)
-        if: matrix.buildplat[1] == 'macosx_*'
-        run: |
-          brew install gsl
-          echo "CFLAGS=-I`gsl-config --prefix`/include" >> $GITHUB_ENV
-          echo "LDFLAGS=-L`gsl-config --prefix`/lib" >> $GITHUB_ENV
-      # Install the GSL on Windows
-      - uses: mamba-org/provision-with-micromamba@v13
-        name: Install GSL (Windows)
-        if: matrix.buildplat[1] == 'win_amd64'
+      - name: Install GSL (Mac OS/Windows)
+        uses: mamba-org/provision-with-micromamba@v13
+        if: matrix.buildplat[1] == 'macosx_*' || matrix.buildplat[1] == 'win_amd64'
         with:
           environment-name: gsl
           environment-file: false
           channels: conda-forge
           extra-specs: gsl
       - name: Set GSL environment variables (Windows)
-        if: matrix.buildplat[1] == 'win_amd64' || matrix.buildplat[1] == 'win32'
+        if: matrix.buildplat[1] == 'win_amd64'
         shell: bash -l {0}
         run: |
           echo "INCLUDE=$CONDA_PREFIX\\Library\\include" >> $GITHUB_ENV
           echo "LIB=$CONDA_PREFIX\\Library\\lib" >> $GITHUB_ENV
           echo "LIBPATH=$CONDA_PREFIX\\Library\\lib" >> $GITHUB_ENV
           echo "$CONDA_PREFIX\\Library\\bin" >> $GITHUB_PATH # necessary when we don't activate the environment
+      - name: Set GSL environment variables (Mac OS)
+        if: matrix.buildplat[1] == 'macosx_*'
+        run: |
+          echo "CFLAGS=-I`gsl-config --prefix`/include" >> $GITHUB_ENV
+          echo "LDFLAGS=-L`gsl-config --prefix`/lib" >> $GITHUB_ENV
       - name: Build wheels
         uses: pypa/cibuildwheel@v2.11.1
         env:
