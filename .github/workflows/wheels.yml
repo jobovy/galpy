@@ -42,7 +42,10 @@ jobs:
         env:
           CIBW_BUILD: ${{ matrix.python }}-${{ matrix.buildplat[1] }}
           CIBW_BEFORE_BUILD_LINUX: yum -y install gsl-devel
-          CIBW_BEFORE_BUILD_MACOS: brew install gsl
+          CIBW_BEFORE_BUILD_MACOS: |
+            brew install gsl
+            export CFLAGS="$CFLAGS -I`gsl-config --prefix`/include"
+            export LDFLAGS="$LDFLAGS -L`gsl-config --prefix`/lib"
           CIBW_ENVIRONMENT_MACOS: CC=gcc-10 CXX=g++-
           CIBW_BEFORE_BUILD_WINDOWS: choco install gsl
       - uses: actions/upload-artifact@v3
