@@ -61,8 +61,8 @@ jobs:
           CIBW_BEFORE_BUILD_LINUX: yum -y install gsl-devel
           CIBW_BEFORE_BUILD_MACOS: |
             brew install gsl
-            export CFLAGS="-I/usr/local/opt/gsl/include"
-            export LDFLAGS="-L/usr/local/opt/gsl/lib"
+            echo 'CFLAGS="-I/usr/local/opt/gsl/include"'' >> $GITHUB_ENV
+            echo 'LDFLAGS="-L/usr/local/opt/gsl/lib"'' >> $GITHUB_ENV
           CIBW_ENVIRONMENT_MACOS: CC=gcc-10 CXX=g++-
       - uses: actions/upload-artifact@v3
         with:
