@@ -41,6 +41,7 @@ jobs:
         if: matrix.buildplat[1] == 'macosx_*'
         run: |
           brew install llvm
+          brew install libomp
           echo "/usr/local/opt/llvm/bin" >> $GITHUB_PATH
       # Install the GSL on Mac OS
       - name: Install GSL (Mac OS)
