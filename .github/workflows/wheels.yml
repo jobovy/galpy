@@ -65,7 +65,9 @@ jobs:
         env:
           CIBW_BUILD: ${{ matrix.python }}-${{ matrix.buildplat[1] }}
           CIBW_BEFORE_BUILD_LINUX: yum -y install gsl-devel
-          CIBW_BEFORE_BUILD_MACOS: micromamba activate gsl
+          CIBW_BEFORE_BUILD_MACOS: |
+            micromamba activate gsl
+            eval "$(micromamba shell hook --shell=)"
           CIBW_ARCHS_MACOS: x86_64 arm64
           CIBW_CONFIG_SETTINGS_MACOS: "--build-option=--no-openmp"
           CIBW_REPAIR_WHEEL_COMMAND_MACOS: 'delocate-listdeps {wheel} && delocate-wheel -v --require-archs {delocate_archs} -w {dest_dir} {wheel}'
