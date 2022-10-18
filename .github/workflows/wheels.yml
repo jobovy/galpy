@@ -54,6 +54,7 @@ jobs:
           echo "$CONDA_PREFIX\\Library\\bin" >> $GITHUB_PATH # necessary when we don't activate the environment
       - name: Set GSL environment variables (Mac OS)
         if: matrix.buildplat[1] == 'macosx_*'
+        shell: bash -l {0}
         run: |
           echo "CFLAGS=-I`gsl-config --prefix`/include" >> $GITHUB_ENV
           echo "LDFLAGS=-L`gsl-config --prefix`/lib" >> $GITHUB_ENV
