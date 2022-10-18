@@ -46,15 +46,22 @@ jobs:
           echo 'LDFLAGS="-L/usr/local/opt/gsl/lib"'' >> $GITHUB_ENV
       # Install the GSL on Windows
       - uses: mamba-org/provision-with-micromamba@v13
-        name: Install GSL (Windows)
-        if: matrix.buildplat[1] == 'win_amd64' || matrix.buildplat[1] == 'win32'
+        name: Install GSL (Windows 64)
+        if: matrix.buildplat[1] == 'win_amd64'
         with:
           environment-name: gsl
           environment-file: false
-          channels: conda-forge,anaconda
+          channels: conda-forge/win-64
           extra-specs: gsl
-        env:
-          CONDA_FORCE_32BIT: ${{ matrix.buildplat[1] == 'win32' }}
+      # Install the GSL on Windows
+      - uses: mamba-org/provision-with-micromamba@v13
+        name: Install GSL (Windows 32)
+        if: matrix.buildplat[1] == 'win32'
+        with:
+          environment-name: gsl
+          environment-file: false
+          channels: conda-forge/win-32
+          extra-specs: gsl
       - name: Set GSL environment variables (Windows)
         if: matrix.buildplat[1] == 'win_amd64' || matrix.buildplat[1] == 'win32'
         shell: bash -l {0}
