@@ -58,6 +58,8 @@ jobs:
         run: |
           echo "CFLAGS=-I`gsl-config --prefix`/include" >> $GITHUB_ENV
           echo "LDFLAGS=-L`gsl-config --prefix`/lib" >> $GITHUB_ENV
+          echo "$CONDA_PREFIX//bin" >> $GITHUB_PATH # necessary when we don't activate the environment
+          echo "$CONDA_PREFIX//lib" >> $GITHUB_PATH # necessary when we don't activate the environment
       - name: Build wheels
         uses: pypa/cibuildwheel@v2.11.1
         env:
