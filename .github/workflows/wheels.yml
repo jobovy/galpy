@@ -35,9 +35,12 @@ jobs:
         - [macos-latest, macosx, arm64]
         - [windows-2019, win, amd64]
         python: ["cp37", "cp38", "cp39", "cp310", "cp311"]
+        exclude:
+          - buildplat: [macos-latest, macosx, arm64]
+            python: "cp37"
     steps:
       - uses: actions/checkout@v3
-      - name: Install GSL (Windows)
+      - name: Install GSL (Windows / Mac OS x86_64)
         uses: mamba-org/provision-with-micromamba@v13
         if: matrix.buildplat[1] == 'win' || ( matrix.buildplat[1] == 'macosx' && matrix.buildplat[2] == 'x86_64' )
         with:
