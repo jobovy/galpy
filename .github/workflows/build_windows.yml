@@ -172,12 +172,10 @@ jobs:
     # Install just the GSL using conda
     - uses: mamba-org/provision-with-micromamba@v13
       with:
-         environment-name: installgsl
+         environment-name: gsl
          environment-file: false
          channels: conda-forge,anaconda
-         extra-specs: |
-           python=3.10
-           gsl
+         extra-specs: gsl
          cache-downloads: true
          cache-env: true
          cache-env-key: ${{ runner.os }}-${{ hashFiles('.github/workflows/build_windows.yml') }}

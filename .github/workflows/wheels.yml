@@ -1,0 +1,174 @@
+name: Wheel builder and uploader
+
+# Update on every push and PR to main, and upon release creation
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '**'
+      - '!tests/**'
+      - '!doc/**'
+      - '!.github/**'
+      - '.github/workflows/wheels.yml'
+  pull_request:
+    branches:
+      - main
+    paths-ignore:
+      - 'doc/**'
+  release:
+    types: [created]
+
+jobs:
+  build_wheels:
+    name: Build wheel for ${{ matrix.python }}-${{ matrix.buildplat[1] }}-${{ matrix.buildplat[2] }}
+    runs-on: ${{ matrix.buildplat[0] }}
+    strategy:
+      # Ensure that a wheel builder finishes even if another fails
+      fail-fast: false
+      matrix:
+        # Following numpy's setup
+        buildplat:
+        - [ubuntu-latest, manylinux, x86_64]
+        - [macos-latest, macosx, x86_64]
+        - [macos-latest, macosx, arm64]
+        - [windows-2019, win, amd64]
+        python: ["cp37", "cp38", "cp39", "cp310", "cp311"]
+        exclude:
+          - buildplat: [macos-latest, macosx, arm64]
+            python: "cp37"
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install GSL (Windows / Mac OS x86_64)
+        uses: mamba-org/provision-with-micromamba@v13
+        if: matrix.buildplat[1] == 'win' || ( matrix.buildplat[1] == 'macosx' && matrix.buildplat[2] == 'x86_64' )
+        with:
+          environment-name: gsl
+          environment-file: false
+          channels: conda-forge
+          extra-specs: gsl
+      - name: Set GSL environment variables (Windows)
+        if: matrix.buildplat[1] == 'win'
+        shell: bash -l {0}
+        run: |
+          echo "INCLUDE=$CONDA_PREFIX\\Library\\include" >> $GITHUB_ENV
+          echo "LIB=$CONDA_PREFIX\\Library\\lib" >> $GITHUB_ENV
+          echo "LIBPATH=$CONDA_PREFIX\\Library\\lib" >> $GITHUB_ENV
+          echo "$CONDA_PREFIX\\Library\\bin" >> $GITHUB_PATH # necessary when we don't activate the environment
+      - name: Set GSL environment variables (Mac OS x86_64)
+        if: matrix.buildplat[1] == 'macosx' && matrix.buildplat[2] == 'x86_64'
+        shell: bash -l {0}
+        run: |
+          echo "CFLAGS=-I$CONDA_PREFIX/include" >> $GITHUB_ENV
+          echo "LDFLAGS=-L$CONDA_PREFIX/lib" >> $GITHUB_ENV
+          echo "REPAIR_LIBRARY_PATH=$CONDA_PREFIX/lib" >> $GITHUB_ENV # https://github.com/pypa/cibuildwheel/issues/816#issuecomment-916197079
+          echo "$CONDA_PREFIX/bin" >> $GITHUB_PATH # necessary when we don't activate the environment
+      - name: Install GSL (Mac OS ARM64) !HACK!
+        if: matrix.buildplat[1] == 'macosx' && matrix.buildplat[2] == 'arm64'
+        run: |
+          curl -O https://conda.anaconda.org/conda-forge/osx-arm64/gsl-2.7-h6e638da_0.tar.bz2
+          curl -O https://conda.anaconda.org/conda-forge/osx-arm64/libblas-3.9.0-16_osxarm64_openblas.tar.bz2
+          curl -O https://conda.anaconda.org/conda-forge/osx-arm64/libcblas-3.9.0-16_osxarm64_openblas.tar.bz2
+          curl -O https://conda.anaconda.org/conda-forge/osx-arm64/libopenblas-0.3.21-openmp_hc731615_3.tar.bz2
+          curl -O https://conda.anaconda.org/conda-forge/osx-arm64/libgfortran-5.0.0-11_3_0_hd922786_25.tar.bz2
+          curl -O https://conda.anaconda.org/conda-forge/osx-arm64/libgfortran5-11.3.0-hdaf2cc0_25.tar.bz2
+          curl -O https://conda.anaconda.org/conda-forge/osx-arm64/llvm-openmp-14.0.4-hd125106_0.tar.bz2
+          mkdir gsl
+          tar -xjf gsl-2.7-h6e638da_0.tar.bz2 -C gsl
+          tar -xjf libblas-3.9.0-16_osxarm64_openblas.tar.bz2 -C gsl
+          tar -xjf libcblas-3.9.0-16_osxarm64_openblas.tar.bz2 -C gsl
+          tar -xjf libopenblas-0.3.21-openmp_hc731615_3.tar.bz2 -C gsl
+          tar -xjf libgfortran-5.0.0-11_3_0_hd922786_25.tar.bz2 -C gsl
+          tar -xjf libgfortran5-11.3.0-hdaf2cc0_25.tar.bz2 -C gsl
+          tar -xjf llvm-openmp-14.0.4-hd125106_0.tar.bz2 -C gsl
+          rsync -azv gsl/bin/ /usr/local/bin/
+          rsync -azv gsl/include/ /usr/local/include/
+          rsync -azv gsl/lib/ /usr/local/lib/
+          echo "REPAIR_LIBRARY_PATH=/usr/local/lib/" >> $GITHUB_ENV # https://github.com/pypa/cibuildwheel/issues/816#issuecomment-916197079
+      - name: Build wheels
+        uses: pypa/cibuildwheel@v2.11.1
+        env:
+          CIBW_BUILD: ${{ matrix.python }}-${{ matrix.buildplat[1] }}_${{ matrix.buildplat[2] }}
+          CIBW_BEFORE_BUILD_LINUX: yum -y install gsl-devel
+          CIBW_ARCHS_MACOS: ${{ matrix.buildplat[2] }}
+          CIBW_CONFIG_SETTINGS_MACOS: "--build-option=--no-openmp"
+          CIBW_REPAIR_WHEEL_COMMAND_MACOS: >
+            DYLD_LIBRARY_PATH=$REPAIR_LIBRARY_PATH delocate-listdeps {wheel} &&
+            DYLD_LIBRARY_PATH=$REPAIR_LIBRARY_PATH delocate-wheel -v --require-archs {delocate_archs} -w {dest_dir} {wheel}
+      - uses: actions/upload-artifact@v3
+        with:
+          name: ${{ matrix.python }}-${{ matrix.buildplat[1] }}_${{ matrix.buildplat[2] }}
+          path: ./wheelhouse/*.whl
+  build_sdist:
+    name: Build source directory for release
+    if: github.event_name == 'release' && github.event.action == 'created'
+    runs-on: ubuntu-latest
+    steps:
+      # check-out this repository
+      - uses: actions/checkout@v3
+      # Setup python
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.x
+      # Install the GSL (necessary to properly include the C files)
+      - name: Install GSL
+        run: sudo apt-get install -y libgsl0-dev
+      - name: Build sdist
+        run: |
+          pip install build
+          python -m build --sdist
+      - uses: actions/upload-artifact@v3
+        with:
+          name: sdist
+          path: ./dist/*.tar.gz
+# Deploy wheels and sdist to PyPI (upon release creation)
+  deploy_pypi:
+    name: Deploy to PyPI
+    needs: [build_wheels, build_sdist]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'release' && github.event.action == 'created'
+    steps:
+      - uses: actions/checkout@v3
+      - run: |
+          mkdir tmp_wheelhouse
+          mkdir wheelhouse
+      - uses: actions/download-artifact@v3
+        with:
+          path: tmp_wheelhouse/
+      - run: find tmp_wheelhouse/ -mindepth 2 -type f -exec mv -i '{}' wheelhouse/ ';'
+      - name: Publish distribution to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          password: ${{ secrets.pypi_token }}
+          packages_dir: wheelhouse/
+# Deploy wheels and sdist to AWS S3 (main)
+  deploy_s3:
+    name: Deploy to AWS S3
+    needs: build_wheels
+    runs-on: ubuntu-latest
+    if: github.event_name != 'release' && github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v3
+      - run: |
+          mkdir tmp_wheelhouse
+          mkdir wheelhouse
+      - uses: actions/download-artifact@v3
+        with:
+          path: tmp_wheelhouse/
+      - run: find tmp_wheelhouse/ -mindepth 2 -type f -exec mv -i '{}' wheelhouse/ ';'
+      - name: Rename wheel to 'latest' version for AWS S3
+        run: |
+          GALPY_VERSION="$(awk '/^current_version/{print $NF}' .bumpversion.cfg)"
+          for f in wheelhouse/*$GALPY_VERSION*.whl; do mv -i -- "$f" "${f//$GALPY_VERSION/latest}"; done
+      - name: Upload to AWS S3
+        uses: jakejarvis/s3-sync-action@v0.5.1
+        with:
+          args: --acl public-read --follow-symlinks --delete --exclude "*emscripten*"
+        env:
+          AWS_S3_BUCKET: ${{ secrets.AWS_S3_BUCKET }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: 'us-east-2'
+          SOURCE_DIR: wheelhouse
+          DEST_DIR: wheelhouse
