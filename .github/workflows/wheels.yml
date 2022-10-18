@@ -11,7 +11,7 @@ on:
       - '!tests/**'
       - '!doc/**'
       - '!.github/**'
-      - '.github/workflows/build_and_release_wheels.yml'
+      - '.github/workflows/wheels.yml'
   pull_request:
     branches:
       - main
