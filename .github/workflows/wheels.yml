@@ -46,6 +46,8 @@ jobs:
           environment-file: false
           channels: conda-forge,anaconda
           extra-specs: gsl
+        env:
+          CONDA_FORCE_32BIT: ${{ matrix.buildplat[1] == 'win32' }}
       - name: Set GSL environment variables (Windows)
         if: matrix.buildplat[1] == 'win_amd64' || matrix.buildplat[1] == 'win32'
         shell: bash -l {0}
