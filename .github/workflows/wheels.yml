@@ -122,11 +122,12 @@ jobs:
         with:
           name: sdist
           path: ./dist/*.tar.gz
-# Deploy wheels and sdist to AWS S3 (main) or PyPI (upon release creation)
-  deploy:
+# Deploy wheels and sdist to PyPI (upon release creation)
+  deploy_pypi:
     name: Deploy wheels and sdist
     needs: [build_wheels, build_sdist]
     runs-on: ubuntu-latest
+    if: github.event_name == 'release' && github.event.action == 'created'
     steps:
       - uses: actions/checkout@v3
       - run: |
@@ -136,21 +137,31 @@ jobs:
         with:
           path: tmp_wheelhouse/
       - run: find tmp_wheelhouse/ -mindepth 2 -type f -exec mv -i '{}' wheelhouse/ ';'
-      # Upload to PyPI if this is a release
       - name: Publish distribution to PyPI
-        if: github.event_name == 'release' && github.event.action == 'created'
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           password: ${{ secrets.pypi_token }}
           packages_dir: wheelhouse/
+# Deploy wheels and sdist to AWS S3 (main)
+  deploy_s3:
+    name: Deploy wheels and sdist
+    needs: [build_wheels, build_sdist]
+    runs-on: ubuntu-latest
+    if: github.event_name != 'release' && github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v3
+      - run: |
+          mkdir tmp_wheelhouse
+          mkdir wheelhouse
+      - uses: actions/download-artifact@v3
+        with:
+          path: tmp_wheelhouse/
+      - run: find tmp_wheelhouse/ -mindepth 2 -type f -exec mv -i '{}' wheelhouse/ ';'
       - name: Rename wheel to 'latest' version for AWS S3
-        if: github.event_name != 'release' && github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         run: |
           GALPY_VERSION="$(awk '/^current_version/{print $NF}' .bumpversion.cfg)"
           for f in wheelhouse/*$GALPY_VERSION*.whl; do mv -i -- "$f" "${f//$GALPY_VERSION/latest}"; done
-      # Upload to AWS S3
       - name: Upload to AWS S3
-        if: github.event_name != 'release' && github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         uses: jakejarvis/s3-sync-action@v0.5.1
         with:
           args: --acl public-read --follow-symlinks --delete --exclude "*emscripten*"
