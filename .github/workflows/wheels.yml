@@ -101,6 +101,7 @@ jobs:
           path: ./wheelhouse/*.whl
   build_sdist:
     name: Build source directory for release
+    if: github.event_name == 'release' && github.event.action == 'created'
     runs-on: ubuntu-latest
     steps:
       # check-out this repository
@@ -144,7 +145,7 @@ jobs:
 # Deploy wheels and sdist to AWS S3 (main)
   deploy_s3:
     name: Deploy to AWS S3
-    needs: [build_wheels, build_sdist]
+    needs: build_wheels
     runs-on: ubuntu-latest
     if: github.event_name != 'release' && github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     steps:
