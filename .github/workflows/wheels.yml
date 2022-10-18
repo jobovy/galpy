@@ -62,7 +62,7 @@ jobs:
         run: |
           echo "CFLAGS=-I$CONDA_PREFIX/include" >> $GITHUB_ENV
           echo "LDFLAGS=-L$CONDA_PREFIX/lib" >> $GITHUB_ENV
-          echo "REPAIR_LIBRARY_PATH=$CONDA_PREFIX/lib" >> $GITHUB_ENV
+          echo "REPAIR_LIBRARY_PATH=$CONDA_PREFIX/lib" >> $GITHUB_ENV # https://github.com/pypa/cibuildwheel/issues/816#issuecomment-916197079
           echo "$CONDA_PREFIX/bin" >> $GITHUB_PATH # necessary when we don't activate the environment
       - name: Install GSL (Mac OS ARM64) !HACK!
         if: matrix.buildplat[1] == 'macosx' && matrix.buildplat[2] == 'arm64'
@@ -85,7 +85,7 @@ jobs:
           rsync -azv gsl/bin/ /usr/local/bin/
           rsync -azv gsl/include/ /usr/local/include/
           rsync -azv gsl/lib/ /usr/local/lib/
-          echo "REPAIR_LIBRARY_PATH=/usr/local/lib/" >> $GITHUB_ENV
+          echo "REPAIR_LIBRARY_PATH=/usr/local/lib/" >> $GITHUB_ENV # https://github.com/pypa/cibuildwheel/issues/816#issuecomment-916197079
       - name: Build wheels
         uses: pypa/cibuildwheel@v2.11.1
         env:
