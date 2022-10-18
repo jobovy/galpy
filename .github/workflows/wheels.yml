@@ -68,6 +68,7 @@ jobs:
           CIBW_BUILD: ${{ matrix.python }}-${{ matrix.buildplat[1] }}
           CIBW_BEFORE_BUILD_LINUX: yum -y install gsl-devel
           CIBW_ENVIRONMENT_MACOS: CC=gcc-10 CXX=g++-
+          CIBW_ARCHS_MACOS: x86_64 arm64
       - uses: actions/upload-artifact@v3
         with:
           name: ${{ matrix.python }}-${{ startsWith(matrix.buildplat[1], 'macosx') && 'macosx' || matrix.buildplat[1] }}
