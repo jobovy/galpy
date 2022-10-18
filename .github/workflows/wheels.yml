@@ -31,14 +31,15 @@ jobs:
         # Following numpy's setup
         buildplat:
         - [ubuntu-latest, manylinux_x86_64]
-        - [macos-latest, macosx_*]
+        - [macos-latest, macosx_x86_64]
+        - [macos-latest, macosx_arm64]
         - [windows-2019, win_amd64]
         python: ["cp37", "cp38", "cp39", "cp310", "cp311"]
     steps:
       - uses: actions/checkout@v3
-      - name: Install GSL (Mac OS/Windows)
+      - name: Install GSL (Windows)
         uses: mamba-org/provision-with-micromamba@v13
-        if: matrix.buildplat[1] == 'macosx_*' || matrix.buildplat[1] == 'win_amd64'
+        if: matrix.buildplat[1] == 'win_amd64'
         with:
           environment-name: gsl
           environment-file: false
@@ -52,22 +53,20 @@ jobs:
           echo "LIB=$CONDA_PREFIX\\Library\\lib" >> $GITHUB_ENV
           echo "LIBPATH=$CONDA_PREFIX\\Library\\lib" >> $GITHUB_ENV
           echo "$CONDA_PREFIX\\Library\\bin" >> $GITHUB_PATH # necessary when we don't activate the environment
-      - name: Set GSL environment variables (Mac OS)
-        if: matrix.buildplat[1] == 'macosx_*'
-        shell: bash -l {0}
+      - name: Install GSL (Mac OS x86_64)
+        if: matrix.buildplat[1] == 'macosx_x86_64'
         run: |
-          echo "CFLAGS=-I`gsl-config --prefix`/include" >> $GITHUB_ENV
-          echo "LDFLAGS=-L`gsl-config --prefix`/lib" >> $GITHUB_ENV
-          echo "LD_LIBRARY_PATH=`gsl-config --prefix`/lib" >> $GITHUB_ENV
-          echo "$CONDA_PREFIX//bin" >> $GITHUB_PATH # necessary when we don't activate the environment
+          curl -O https://conda.anaconda.org/conda-forge/osx-64/gsl-2.7-h6e638da_0.tar.bz2
+          mkdir gsl
+          tar -xjf gsl-2.7-h6e638da_0.tar.bz2 -C gsl
+          rsync -azv gsl/bin/ /usr/local/bin/
+          rsync -azv gsl/include/ /usr/local/include/
+          rsync -azv gsl/lib/ /usr/local/lib/
       - name: Build wheels
         uses: pypa/cibuildwheel@v2.11.1
         env:
           CIBW_BUILD: ${{ matrix.python }}-${{ matrix.buildplat[1] }}
           CIBW_BEFORE_BUILD_LINUX: yum -y install gsl-devel
-          CIBW_BEFORE_BUILD_MACOS: |
-            micromamba activate gsl
-            eval "$(micromamba shell hook --shell=bash)"
           CIBW_ARCHS_MACOS: x86_64 arm64
           CIBW_CONFIG_SETTINGS_MACOS: "--build-option=--no-openmp"
           CIBW_REPAIR_WHEEL_COMMAND_MACOS: 'delocate-listdeps {wheel} && delocate-wheel -v --require-archs {delocate_archs} -w {dest_dir} {wheel}'
