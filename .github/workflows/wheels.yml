@@ -22,7 +22,7 @@ on:
 
 jobs:
   build_wheels:
-    name: Build wheel for ${{ matrix.python }}-${{ matrix.buildplat[1] }}
+    name: Build wheel for ${{ matrix.python }}-${{ matrix.buildplat[1] }}-${{ matrix.buildplat[2] }}
     runs-on: ${{ matrix.buildplat[0] }}
     strategy:
       # Ensure that a wheel builder finishes even if another fails
@@ -30,23 +30,23 @@ jobs:
       matrix:
         # Following numpy's setup
         buildplat:
-        - [ubuntu-latest, manylinux_x86_64]
-        - [macos-latest, macosx_x86_64]
-#        - [macos-latest, macosx_arm64]
-        - [windows-2019, win_amd64]
+        - [ubuntu-latest, manylinux, x86_64]
+        - [macos-latest, macosx, x86_64]
+#        - [macos-latest, macosx, arm64]
+        - [windows-2019, win, amd64]
         python: ["cp37", "cp38", "cp39", "cp310", "cp311"]
     steps:
       - uses: actions/checkout@v3
       - name: Install GSL (Windows)
         uses: mamba-org/provision-with-micromamba@v13
-        if: matrix.buildplat[1] == 'win_amd64'
+        if: matrix.buildplat[1] == 'win'
         with:
           environment-name: gsl
           environment-file: false
           channels: conda-forge
           extra-specs: gsl
       - name: Set GSL environment variables (Windows)
-        if: matrix.buildplat[1] == 'win_amd64'
+        if: matrix.buildplat[1] == 'win'
         shell: bash -l {0}
         run: |
           echo "INCLUDE=$CONDA_PREFIX\\Library\\include" >> $GITHUB_ENV
@@ -54,7 +54,7 @@ jobs:
           echo "LIBPATH=$CONDA_PREFIX\\Library\\lib" >> $GITHUB_ENV
           echo "$CONDA_PREFIX\\Library\\bin" >> $GITHUB_PATH # necessary when we don't activate the environment
       - name: Install GSL (Mac OS x86_64)
-        if: matrix.buildplat[1] == 'macosx_x86_64'
+        if: matrix.buildplat[1] == 'macosx' && matrix.buildplat[2] == 'x86_64'
         run: |
           curl -O https://conda.anaconda.org/conda-forge/osx-64/gsl-2.7-h93259b0_0.tar.bz2
           mkdir gsl
@@ -64,7 +64,7 @@ jobs:
           rsync -azv gsl/lib/ /usr/local/lib/
           echo "REPAIR_LIBRARY_PATH=/usr/local/lib/" >> $GITHUB_ENV
       - name: Install GSL (Mac OS ARM64)
-        if: matrix.buildplat[1] == 'macosx_arm64'
+        if: matrix.buildplat[1] == 'macosx' && matrix.buildplat[2] == 'arm64'
         run: |
           curl -O https://conda.anaconda.org/conda-forge/osx-64/gsl-2.7-h6e638da_0.tar.bz2
           mkdir gsl
@@ -76,16 +76,16 @@ jobs:
       - name: Build wheels
         uses: pypa/cibuildwheel@v2.11.1
         env:
-          CIBW_BUILD: ${{ matrix.python }}-${{ matrix.buildplat[1] }}
+          CIBW_BUILD: ${{ matrix.python }}-${{ matrix.buildplat[1] }}_${{ matrix.buildplat[2] }}
           CIBW_BEFORE_BUILD_LINUX: yum -y install gsl-devel
-          CIBW_ARCHS_MACOS: x86_64 arm64
+          CIBW_ARCHS_MACOS: ${{ matrix.buildplat[2] }}
           CIBW_CONFIG_SETTINGS_MACOS: "--build-option=--no-openmp"
           CIBW_REPAIR_WHEEL_COMMAND_MACOS: >
             DYLD_LIBRARY_PATH=$REPAIR_LIBRARY_PATH delocate-listdeps {wheel}
             DYLD_LIBRARY_PATH=$REPAIR_LIBRARY_PATH delocate-wheel -v --require-archs {delocate_archs} -w {dest_dir} {wheel}
       - uses: actions/upload-artifact@v3
         with:
-          name: ${{ matrix.python }}-${{ startsWith(matrix.buildplat[1], 'macosx') && 'macosx' || matrix.buildplat[1] }}
+          name: ${{ matrix.python }}-${{ matrix.buildplat[1] }}_${{ matrix.buildplat[2] }}
           path: ./wheelhouse/*.whl
   build_sdist:
     name: Build source directory for release
