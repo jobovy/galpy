@@ -136,10 +136,6 @@ jobs:
         with:
           path: tmp_wheelhouse/
       - run: find tmp_wheelhouse/ -mindepth 2 -type f -exec mv -i '{}' wheelhouse/ ';'
-      - uses: actions/upload-artifact@v3
-        with:
-          name: galpy-wheels-linux-macos-windows-latest
-          path: wheelhouse/*.whl
       # Upload to PyPI if this is a release
       - name: Publish distribution to PyPI
         if: github.event_name == 'release' && github.event.action == 'created'
