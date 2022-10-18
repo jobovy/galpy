@@ -48,8 +48,8 @@ jobs:
         if: matrix.buildplat[1] == 'macosx_*'
         run: |
           brew install gsl
-          echo "CFLAGS=-I`gsl-config --prefix`/include `llvm-config --cflags`" >> $GITHUB_ENV
-          echo "LDFLAGS=-L`gsl-config --prefix`/lib `llvm-config --ldflags`" >> $GITHUB_ENV
+          echo "CFLAGS=-I`gsl-config --prefix`/include `llvm-config --cflags` -I/usr/local/opt/libomp/include" >> $GITHUB_ENV
+          echo "LDFLAGS=-L`gsl-config --prefix`/lib `llvm-config --ldflags` -L/usr/local/opt/libomp/lib" >> $GITHUB_ENV
       # Install the GSL on Windows
       - uses: mamba-org/provision-with-micromamba@v13
         name: Install GSL (Windows)
