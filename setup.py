@@ -32,13 +32,13 @@ with open('README.md') as dfile:
 # --compiler= set the compiler by hand
 # --single_ext: compile all of the C code into a single extension (just for testing, do not use this)
 
-galpy_c_libraries = ['m','gsl','gslcblas','omp']
+galpy_c_libraries = ['m','gsl','gslcblas','gomp']
 
 if WIN32:
     # On Windows it's unnecessary and erroneous to include m
     galpy_c_libraries.remove('m')
-    # Windows does not need 'omp' whether compiled with OpenMP or not
-    galpy_c_libraries.remove('omp')
+    # Windows does not need 'gomp' whether compiled with OpenMP or not
+    galpy_c_libraries.remove('gomp')
 
 #Option to use Intel compilers
 try:
@@ -55,7 +55,7 @@ elif use_intel_compiler and WIN32:
     import __intelcompiler
 
 if use_intel_compiler: # OpenMP by default included for Intel, see #416
-    galpy_c_libraries.remove('omp')
+    galpy_c_libraries.remove('gomp')
 
 #Option to forego OpenMP
 try:
@@ -63,14 +63,14 @@ try:
 except ValueError:
     if "PYODIDE" in os.environ:
         extra_compile_args= ["-DNO_OMP"]
-        galpy_c_libraries.remove('omp')
+        galpy_c_libraries.remove('gomp')
     else:
         extra_compile_args = ["-fopenmp" if not WIN32 else "/openmp"]
 else:
     del sys.argv[openmp_pos]
     extra_compile_args= ["-DNO_OMP"]
-    if not WIN32:  # Because windows guarantee do not have 'omp' in the list
-        galpy_c_libraries.remove('omp')
+    if not WIN32:  # Because windows guarantee do not have 'gomp' in the list
+        galpy_c_libraries.remove('gomp')
 
 #Option to track coverage
 try:
