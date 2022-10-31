@@ -1,11 +1,22 @@
-v1.8.1 (XXXX-XX-XX)
+v1.8.1 (2022-10-31)
 ===================
 
 - Changed estimateDeltaStaeckel to by default return delta0=1e-6 when
   delta<delta0, because giving delta=0 to an actionAngleStaeckel instance
   does not work.
 
-- Added pre-commit hooks.
+- Added pre-commit hooks. Many changes to all files for imports, code style,
+  spelling, etc.
+
+- Added dependabot alerts to keep GitHub Actions dependencies up to date.
+
+- Added Python 3.11 wheels for all major platforms. Added Python >=3.8 wheels
+  for arm64 Macs (M1s)
+
+- Switched to using cibuildwheel to build Linux, Mac (incl. M1/arm64), and
+  Windows wheels.
+
+- Switched to using pyodide-build to build the pyodide wheel.
 
 v1.8.0 (2022-07-04)
 ===================
