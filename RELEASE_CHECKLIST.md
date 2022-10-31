@@ -22,9 +22,9 @@
 
 - [ ] Create new release on GitHub for this tag, with all of the links and a brief summary of major updates. Creating the release on GitHub will automatically build the source distribution and binary wheels using GitHub Actions and upload these to PyPI!
 
-- [ ] (Optional) Create wheels using the ``create_galpy_wheels.sh`` script for platforms that aren't supported by the CI builds. Current one like this is the ARM64 architecture on Macs. Upload these to PyPI with ``twine upload wheels_directory/*``
+- [ ] ~(Optional; currently not necessary) Create wheels using the ``create_galpy_wheels.sh`` script for platforms that aren't supported by the CI builds (all platforms are currently CI built). Upload these to PyPI with ``twine upload wheels_directory/*``~
 
-- [ ] Create the new conda builds at conda-forge —> now done automatically by bot, but still need to check that builds run correctly (should start within about half an hour from pushing the new release to PyPI)
+- [ ] ~Create the new conda builds at conda-forge~ —> now done automatically by bot, but still need to check that builds run correctly (should start within about half an hour from pushing the new release to PyPI)
 
 - [ ] Switch default readthedocs version to the latest version
 
