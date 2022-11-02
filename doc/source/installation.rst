@@ -3,12 +3,37 @@
 Installation
 ==============
 
+.. _tldr_installation:
+
+TL;DR
+------
+
+If you are on a **Linux or Mac** system, the recommended way to install is using ``pip``::
+
+    python -m pip install --only-binary galpy galpy
+
+This should install a fully-working version of galpy for Python versions >=3.7 (>=3.8 on ARM64 Macs). If this fails, please open an `issue <https://github.com/jobovy/galpy/issues/new?assignees=&labels=&template=bug_report.md&title=>`__ on the ``galpy`` GitHub page, making sure to specify your platform and Python version. Then read on at :ref:`detailed_installation` to learn how to install ``galpy`` when the above fails.
+
+If you are on a **Windows** system, the recommended way to install is using ``conda``::
+
+    conda install -c conda-forge gsl galpy
+
+Note that on Windows it is necessary to explicitly install the GNU Scientific Library (GSL) in this way.
+
+For more info on installation options, jump to the detailed instructions below:
+
+* :ref:`detailed_installation_mac`
+* :ref:`detailed_installation_linux`
+* :ref:`detailed_installation_win`
+
+.. _deps_installation:
+
 Dependencies
 ------------
 
 galpy requires the ``numpy``, ``scipy``, and ``matplotlib`` packages;
 these must be installed or the code will not be able to be imported.
-The installation methods described below will all automatically install
+All installation methods described on this page will automatically install
 these required dependencies.
 
 Optional dependencies are:
@@ -21,150 +46,254 @@ Optional dependencies are:
   * ``JAX`` for use of constant-anisotropy DFs in ``galpy.df.constantbetadf``, and
   * `pynbody <https://github.com/pynbody/pynbody>`__ for use of ``SnapshotRZPotential`` and ``InterpSnapshotRZPotential``.
 
-To be able to use the fast C extensions for orbit integration and
-action-angle calculations, the GNU Scientific Library (GSL) needs to
-be installed (:ref:`see below <gsl_install>`).
+.. _detailed_installation:
 
-With conda
-----------
+Detailed installation instructions
+----------------------------------
 
-The easiest way to install the latest released version of galpy is using conda or pip (see below)::
+If you are reading this, either the simple installation instructions at the top of this page did not work, you are trying to install the latest bleeding-edge version, or you are trying to set up a development installation. For info on setting up a development installation, see :ref:`dev_installation`. In this section, we cover how to install the latest release *or* the latest bleeding-edge version for use on different platforms.
 
-    conda install galpy -c conda-forge
+.. WARNING::
+   When using ``conda`` to install the GSL, make sure to install it from the
+   ``conda-forge`` channel using ``conda install -c conda-forge gsl``. If you
+   install the GSL from the ``anaconda`` channel, it will often not work with
+   ``galpy``. In an ``environment.yml`` file, use ``- conda-forge::gsl``.
 
-or::
+.. _detailed_installation_mac:
 
-	conda config --add channels conda-forge
-	conda install galpy
+Mac installation
+++++++++++++++++
 
-Installing with conda will automatically install the required
-dependencies (``numpy``, ``scipy``, and ``matplotlib``) and the GSL,
-but not the optional dependencies.
+As discussed in the :ref:`tldr_installation` section above, the simplest and
+quickest way to install the latest ``galpy`` release on a Mac is to use
+``pip``::
 
-With pip
---------
+    python -m pip install --only-binary galpy galpy
 
-galpy can also be installed using pip. Since v1.6.0, the pip
-installation will install binary *wheels* for most major operating
-systems (Mac, Windows, and Linux) and commonly-used Python 3
-versions. When this is the case, you do not need to separately install
-the GSL.
+Alternatively, you can install both the GSL and ``galpy`` using ``conda``::
 
-When you are on a platform or Python version for which no binary wheel
-is available, pip will compile the source code on your machine. Some
-advanced features require the GNU Scientific Library (GSL; :ref:`see
-below <gsl_install>`). If you want to use these with a pip-from-source
-install, install the GSL first (or install it later and re-install
-using the upgrade command. Then do::
+    conda install -c conda-forge gsl galpy
 
-      pip install galpy
+To compile ``galpy`` from source, you will first need to install the GSL. The
+easiest way to do this is using `Homebrew <http://brew.sh/>`__ as::
 
-or to upgrade without upgrading the dependencies::
+    brew install gsl --universal
 
-      pip install -U --no-deps galpy
+Alternatively, you can use ``conda`` to install the GSL and use ``conda`` to
+manage your Python environment. Install the GSL in your preferred environment
+with::
 
-Installing with pip will automatically install the required
-dependencies (``numpy``, ``scipy``, and ``matplotlib``), but not the
-optional dependencies. On a Mac/UNIX system, you can make sure to include
-the necessary GSL environment variables by doing (see :ref:`below <gsl_cflags>`)::
+    conda install -c conda-forge gsl
 
-  export CFLAGS="$CFLAGS -I`gsl-config --prefix`/include" && export LDFLAGS="$LDFLAGS -L`gsl-config --prefix`/lib" && pip install galpy
+Once you have installed the GSL, compile ``galpy`` from source using::
 
-Latest version
---------------
+    export CFLAGS="$CFLAGS -I`gsl-config --prefix`/include"
+    export LDFLAGS="$LDFLAGS -L`gsl-config --prefix`/lib"
+    python -m pip install --no-binary galpy galpy
 
-The latest updates in galpy can be installed using::
-
-    pip install -U --no-deps git+https://github.com/jobovy/galpy.git#egg=galpy
-
-or::
-
-    pip install -U --no-deps --prefix=~/local git+https://github.com/jobovy/galpy.git#egg=galpy
-
-for a local installation. The latest updates can also be installed from the source code downloaded from github::
-
-      pip install .
-
-or::
-
-	pip install --prefix=~/local .
-
-for a local installation.
-
-Note that these latest-version commands all install directly from the
-source code and thus require you to have the GSL and a C compiler
-installed to build the C extension(s). If you are having issues with
-this, you can also download a binary wheel for the latest ``main``
-version, which are available `here <http://www.galpy.org.s3-website.us-east-2.amazonaws.com/list.html>`__.
+The commands in this section so far all install the latest release. If you want
+to install the latest bleeding-edge version, you have two options. If the
+installion in the :ref:`tldr_installation` works for you, you can download a
+binary wheel for the latest ``main`` branch version on GitHub, which is
+available `here <http://www.galpy.org.s3-website.us-east-2.amazonaws.com/list.html>`__.
 To install these wheels, download the relevant version for your operating
 system and Python version and do::
 
-    pip install WHEEL_FILE.whl
+    python -m pip install WHEEL_FILE.whl
 
-Note that there is also a Pure Python wheel available there, but use of this is not recommended.
-These wheels have stable ``...latest...`` names, so you can embed them in workflows that should always
-be using the latest version of ``galpy`` (e.g., to test your code against the latest development version).
+These wheels have stable ``...latest...`` names, so you can embed them in
+workflows that should always be using the latest version of ``galpy``
+(e.g., to test your code against the latest development version).
 
-Installing from a branch
-------------------------
+If this doesn't work, follow the steps above to install the GSL, define the
+relevant environment variables, and then install from source using::
 
-If you want to use a feature that is currently only available in a branch, do::
+    python -m pip install git+https://github.com/jobovy/galpy.git#egg=galpy
 
-   pip install -U --no-deps git+https://github.com/jobovy/galpy.git@dev#egg=galpy
+You can also download the source code or clone the repository, navigate to the
+top-level directory, and install using::
 
-to, for example, install the ``dev`` branch.
+    python -m pip install .
 
-Note that we currently do not build binary wheels for branches other
-than ``main``. If you *really* wanted this, you could fork galpy,
-edit the GitHub Actions workflow file that generates the wheel to
-include the branch that you want to build (in the ``on:`` section),
-and push to GitHub; then the binary wheel will be built as part of
-your fork. Alternatively, you could do a pull request, which would also
-trigger the building of the wheels.
+.. _detailed_installation_linux:
 
-.. _install_win:
+Linux installation
+++++++++++++++++++
 
-Installing from source on Windows
----------------------------------
+As discussed in the :ref:`tldr_installation` section above, the simplest and
+quickest way to install the latest ``galpy`` release on Linux is to use
+``pip``::
 
-.. TIP::
-   You can install a pre-compiled Windows "wheel" of the latest ``main`` version that is
-   automatically built using ``GitHub Actions`` for all recent Python versions
-   `here <http://www.galpy.org.s3-website.us-east-2.amazonaws.com/list.html>`__.
-   Download the wheel for your version of Python, and install with ``pip install WHEEL_FILE.whl``
-   (see above).
+    python -m pip install --only-binary galpy galpy
 
-Versions >1.3 should be able to be compiled on Windows systems using the Microsoft Visual Studio C compiler (>= 2015). For this you need to first install the GNU Scientific Library (GSL), for example using Anaconda (:ref:`see below <gsl_install>`). Similar to on a UNIX system, you need to set paths to the header and library files where the GSL is located. On Windows, using the CDM commandline, this is done as::
+Alternatively, you can install both the GSL and ``galpy`` using ``conda``::
 
+    conda install -c conda-forge gsl galpy
+
+To compile ``galpy`` from source, you will first need to install the GSL. The
+easiest way to do this is using your package manager. On Linux distributions
+with ``apt-get``, do::
+
+   apt-get install libgsl0-dev
+
+or on distros with ``yum``, do::
+
+   yum install gsl-devel
+
+Alternatively, you can use ``conda`` to install the GSL and use ``conda`` to
+manage your Python environment. Install the GSL in your preferred environment
+with::
+
+    conda install -c conda-forge gsl
+
+Once you have installed the GSL, compile ``galpy`` from source using::
+
+    export CFLAGS="$CFLAGS -I`gsl-config --prefix`/include"
+    export LDFLAGS="$LDFLAGS -L`gsl-config --prefix`/lib"
+    python -m pip install --no-binary galpy galpy
+
+The commands in this section so far all install the latest release. If you want
+to install the latest bleeding-edge version, you have two options. If the
+installion in the :ref:`tldr_installation` works for you, you can download a
+binary wheel for the latest ``main`` branch version on GitHub, which is available
+`here <http://www.galpy.org.s3-website.us-east-2.amazonaws.com/list.html>`__.
+To install these wheels, download the relevant version for your operating system
+and Python version and do::
+
+    python -m pip install WHEEL_FILE.whl
+
+These wheels have stable ``...latest...`` names, so you can embed them in
+workflows that should always be using the latest version of ``galpy``
+(e.g., to test your code against the latest development version).
+
+If this doesn't work, follow the steps above to install the GSL, define the
+relevant environment variables, and then install from source using::
+
+    python -m pip install git+https://github.com/jobovy/galpy.git#egg=galpy
+
+You can also download the source code or clone the repository, navigate to the
+top-level directory, and install using::
+
+    python -m pip install .
+
+.. _detailed_installation_win:
+
+Windows installation
+++++++++++++++++++++
+
+As discussed in the :ref:`tldr_installation` section above, the simplest and
+quickest way to install the latest ``galpy`` release on Windows is to use
+``conda``::
+
+    conda install -c conda-forge gsl galpy
+
+If you want to install the latest bleeding-edge version, you have to install
+the GSL first as. In an existing ``conda`` environment, do::
+
+    conda install -c conda-forge gsl
+
+while if you don't want to use ``conda`` to manage your Python environment, you
+can do::
+
+    conda create -n gsl conda-forge::gsl
+    conda activate gsl
+
+Either way, then set the path and relevant environment variables using::
+
+    set PATH=%PATH%;"$CONDA_PREFIX\\Library\\bin"
     set INCLUDE=%CONDA_PREFIX%\Library\include;%INCLUDE%
     set LIB=%CONDA_PREFIX%\Library\lib;%LIB%
     set LIBPATH=%CONDA_PREFIX%\Library\lib;%LIBPATH%
 
-If you are using the Windows PowerShell (which newer versions of the
-Anaconda prompt might set as the default), do::
+in the ``CMD`` shell or::
 
+    $env:Path+="$env:CONDA_PREFIX\Library\bin"
     $env:INCLUDE="$env:CONDA_PREFIX\Library\include"
     $env:LIB="$env:CONDA_PREFIX\Library\lib"
     $env:LIBPATH="$env:CONDA_PREFIX\Library\lib"
 
-where in this example ``CONDA_PREFIX`` is the path of your current conda environment (the path that ends in ``\ENV_NAME``). If you have installed the GSL somewhere else, adjust these paths (but do not use ``YOUR_PATH\include\gsl`` or ``YOUR_PATH\lib\gsl`` as the paths, simply use ``YOUR_PATH\include`` and ``YOUR_PATH\lib``).
-
-To compile with OpenMP on Windows, you have to install Intel OpenMP via::
+if you are using ``PowerShell``. Note that you have to execute these commands
+from the ``conda`` environment such that the ``CONDA_PREFIX`` variable is set.
+To compile with OpenMP on Windows, you have to also install Intel OpenMP via::
 
     conda install -c anaconda intel-openmp
 
-and then to compile the code::
+Then you can deactivate the conda environment (but you don't have to!).
 
-   pip install .
+With the GSL set up, you can then download a binary wheel for the latest
+``main`` branch version on GitHub, which is available
+`here <http://www.galpy.org.s3-website.us-east-2.amazonaws.com/list.html>`__.
+To install these wheels, download the relevant version for your operating
+system and Python version and do::
 
-If you encounter any issue related to OpenMP during compilation, you can do::
+    python -m pip install WHEEL_FILE.whl
 
-    pip install . --install-option="--no-openmp"
+You can also compile from source using::
 
-Note that in this case, you should install all dependencies (e.g., numpy, scipy, matplotlib) first using ``conda`` or ``pip``, because using ``--install-option`` causes ``pip`` to build all dependencies from source, which may cause problems.
+    python -m pip install git+https://github.com/jobovy/galpy.git#egg=galpy
+
+or you can download the source code or clone the repository, navigate to the
+top-level directory, and install using::
+
+    python -m pip install .
+
+Whenever you run ``galpy``, you have to adjust the ``PATH`` variable as above.
+These wheels have stable ``...latest...`` names, so you can embed them in
+workflows that should always be using the latest version of ``galpy``
+(e.g., to test your code against the latest development version).
+
+.. _dev_installation:
+
+Development installation
+------------------------
+
+To install ``galpy`` for local development (i.e., you are changing the
+``galpy`` source code), first fork the repository on GitHub to your own account
+and then clone it to your local machine::
+
+    git clone git@github.com:YOUR_GITHUB_USERNAME/galpy.git
+
+Then, install the GSL as described in the relevant :ref:`detailed_installation`
+section above. Once you have installed the GSL, compile ``galpy`` from source::
+
+    export CFLAGS="$CFLAGS -I`gsl-config --prefix`/include"
+    export LDFLAGS="$LDFLAGS -L`gsl-config --prefix`/lib"
+    python -m pip install -e .
+
+Whenever you change the C code, you have to re-run the last command. Note that
+any development should happen on a branch with an informative name.
+
+To test the code locally, install ``pytest``::
+
+    pip install pytest
+
+You might also need to make sure to install the optional dependencies as
+discussed :ref:`here <deps_installation>` depending on which tests you want to
+run. Running the entire test code takes a long time and isn't recommended (CI
+does that). Tests are arranged in files for large chunks of related
+functionality and you would typically run a single one of these locally. For
+example::
+
+    pytest -vxs tests/test_coords.py
+
+The '-v' flag is for verbose output, the '-x' flag stops after the first failure,
+and the '-s' flag prints output from print statements. You can also run a single
+test in a file, e.g.,::
+
+    pytest -vxs tests/test_coords.py::test_radec_to_lb_ngp
+
+to just run the ``test_radec_to_lb_ngp`` test. You can also run tests with names
+that match a pattern, e.g.,::
+
+    pytest -vxs tests/test_coords.py -k "ngp"
+
+to run all tests in ``test_coords.py`` that have ``ngp`` in their name.
+
+More esoteric installations
+---------------------------
 
 Installing from source with Intel Compiler
--------------------------------------------
+++++++++++++++++++++++++++++++++++++++++++
 
 Compiling galpy with an Intel Compiler can give significant
 performance improvements on 64-bit Intel CPUs. Moreover students can
@@ -172,11 +301,13 @@ obtain a free copy of an Intel Compiler at `this link
 <https://software.intel.com/en-us/qualify-for-free-software/student>`__.
 
 To compile the galpy C extensions with the Intel Compiler on 64bit
-MacOS/Linux do::
+MacOS/Linux do, follow the instructions to compile from source for your platform
+in :ref:`detailed_installation` above, clone the repository or download the
+source code and then do::
 
     python setup.py build_ext --inplace --compiler=intelem
 
-and to compile the galpy C extensions with the Intel Compiler on 64bit
+To compile the galpy C extensions with the Intel Compiler on 64bit
 Windows do::
 
     python setup.py build_ext --inplace --compiler=intel64w
@@ -190,7 +321,7 @@ or other similar installation commands.
 .. _install_tm:
 
 Installing the TorusMapper code
---------------------------------
++++++++++++++++++++++++++++++++
 
 .. WARNING::
    The TorusMapper code is *not* part of any of galpy's binary distributions (installed using conda or pip); if you want to gain access to the TorusMapper, you need to install from source as explained in this section and above.
@@ -202,10 +333,10 @@ uses a stripped-down version of the TorusMapper code, that is not
 bundled with the galpy code, but kept in a fork of the original
 TorusMapper code. Installation of the TorusMapper interface is
 therefore only possible when installing from source after downloading
-or cloning the galpy code and using the ``pip install .``
-method above.
+or cloning the galpy code and installing using ``pip install .``.
 
-To install the TorusMapper code, *before* running the installation of
+To install the TorusMapper code, clone the ``galpy`` repository and *before*
+running the installation of
 galpy, navigate to the top-level galpy directory (which contains the
 ``setup.py`` file) and do::
 
@@ -220,11 +351,11 @@ technique or its variants as usual.
 .. _install_pyodide:
 
 **NEW IN v1.8** Using ``galpy`` in web applications
-----------------------------------------------------
+++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 ``galpy`` can be compiled to `WebAssembly <https://webassembly.org/>`__ using the `emscripten <https://emscripten.org/>`__ compiler. In particular, ``galpy`` is part of the `pyodide <https://pyodide.org/en/stable/>`__ Python distribution for the browser, meaning that ``galpy`` can be used on websites without user installation and it still runs at the speed of a compiled language. This powers, for example, the :ref:`Try galpy <try_galpy>` interactive session on this documentation's home page. Thus, it is easy to, e.g., build web-based, interactive galactic-dynamics examples or tutorials without requiring users to install the scientific Python stack and ``galpy`` itself.
 
-``galpy`` will be included in versions >0.20 of ``pyodide``, so ``galpy`` can be imported in any web context that uses ``pyodide`` (e.g., `jupyterlite <https://jupyterlite.readthedocs.io/en/latest/>`__ or `pyscript <https://pyscript.net/>`__). Python packages used in ``pyodide`` are compiled to the usual wheels, but for the ``emscripten`` compiler. Such a wheel for the latest development version of ``galpy`` is always available at `galpy-latest-cp310-cp310-emscripten_wasm32.whl <https://www.galpy.org/wheelhouse/galpy-latest-cp310-cp310-emscripten_wasm32.whl>`__ (note that this URL will change for future ``pyodide`` versions, which include ``emscripten`` version numbers in the wheel name). It can be used in ``pyodide`` for example as
+``galpy`` is included in versions >0.20 of ``pyodide``, so ``galpy`` can be imported in any web context that uses ``pyodide`` (e.g., `jupyterlite <https://jupyterlite.readthedocs.io/en/latest/>`__ or `pyscript <https://pyscript.net/>`__). Python packages used in ``pyodide`` are compiled to the usual wheels, but for the ``emscripten`` compiler. Such a wheel for the latest development version of ``galpy`` is always available at `galpy-latest-cp310-cp310-emscripten_wasm32.whl <https://www.galpy.org/wheelhouse/galpy-latest-cp310-cp310-emscripten_wasm32.whl>`__ (note that this URL will change for future ``pyodide`` versions, which include ``emscripten`` version numbers in the wheel name). It can be used in ``pyodide`` for example as
 
 >>> import pyodide_js
 >>> await pyodide_js.loadPackage(['numpy','scipy','matplotlib','astropy',
@@ -233,19 +364,12 @@ technique or its variants as usual.
 
 after which you can ``import galpy`` and do (almost) everything you can in the Python version of ``galpy`` (everything except for querying Simbad using ``Orbit.from_name`` and except for ``Orbit.animate``). Note that depending on your context, you might have to just ``import pyodide`` to get the ``loadPackage`` function.
 
+
 Installation FAQ
 -----------------
 
-What is the required ``numpy`` version?
-++++++++++++++++++++++++++++++++++++++++
-
-``galpy`` should mostly work for any relatively recent version of
-``numpy``, but some advanced features, including calculating the
-normalization of certain distribution functions using Gauss-Legendre
-integration require ``numpy`` version 1.7.0 or higher.
-
 I get warnings like "galpyWarning: libgalpy C extension module not loaded, because libgalpy.so image was not found"
-++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 This typically means that the GNU Scientific Library (`GSL
 <http://www.gnu.org/software/gsl/>`_) was unavailable during galpy's
@@ -255,8 +379,32 @@ Python. The code requires GSL versions >= 1.14. If you believe that
 the correct GSL version is installed for galpy, check that the library
 can be found during installation (see :ref:`below <gsl_cflags>`).
 
+I get warnings like "libgalpy C extension module not loaded, because of error 'dlopen(....../site-packages/libgalpy.cpython-310-darwin.so, 0x0006): Library not loaded: '@rpath/libgsl.25.dylib' etc."
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+This happens when ``galpy`` was successfully compiled against the GSL, but the
+GSL is not available at runtime. This mainly happens when you installed a binary
+package (e.g,, using ``conda`` or a Windows wheel from ``pip``) and you don't
+have the GSL or the correct version available locally.
+
+For example, this commonly happens when you have installed the GSL using
+``conda`` from the ``anaconda`` channel, which often happens because most people
+have the ``defaults`` channel at higher priority than the ``conda-forge`` channel.
+Use::
+
+    conda list gsl
+
+to check the channel from which the GSL was installed. If it was not the
+``conda-forge`` channel, uninstall the GSL::
+
+    conda uninstall gsl
+
+and re-install from ``conda-forge``::
+
+    conda install -c conda-forge gsl
+
 I get the warning "galpyWarning: libgalpy_actionAngleTorus C extension module not loaded, because libgalpy_actionAngleTorus.so image was not found"
-++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 This is typically because the TorusMapper code was not compiled,
 because it was unavailable during installation. This code is only
@@ -272,16 +420,14 @@ unless you set ``verbose=True`` in the :ref:`configuration file
 How do I install the GSL?
 ++++++++++++++++++++++++++
 
-Certain advanced features require the GNU Scientific Library (`GSL
-<http://www.gnu.org/software/gsl/>`_), with action calculations
-requiring version 1.14 or higher. The easiest way to install this is using its Anaconda build::
+The easiest way to install this is using its Anaconda build::
 
-	  conda install -c conda-forge gsl
+	conda install -c conda-forge gsl
 
 If you do not want to go that route, on a Mac, the next easiest way to install
 the GSL is using `Homebrew <http://brew.sh/>`_ as::
 
-		brew install gsl --universal
+	brew install gsl --universal
 
 You should be able to check your version using (on Mac/Linux)::
 
@@ -302,7 +448,7 @@ while using ``pip`` to install ``galpy`` and other packages. However, in that
 case, you need to add the relevant ``conda`` environment to your ``PATH``.
 So, for example, you can install the GSL as::
 
-    conda create -n gsl gsl
+    conda create -n gsl conda-forge::gsl
     conda activate gsl
 
 and then set the path using::
@@ -316,7 +462,7 @@ in the ``CMD`` shell or::
 if you are using ``PowerShell``. Note that you have to execute these commands
 from the ``conda`` environment such that the ``CONDA_PREFIX`` variable is set.
 You also still have to set the ``INCLUDE``, ``LIB``, and ``LIBPATH`` environment
-variables as discussed in :ref:`<install_win>` (also from the conda
+variables as discussed in :ref:`detailed_installation_win` (also from the conda
 environment). Then you can deactivate the conda environment and install
 ``galpy`` using, e.g., ``pip``. Whenever you run ``galpy``, you have to adjust
 the ``PATH`` variable as above.
@@ -326,9 +472,10 @@ the ``PATH`` variable as above.
 The ``galpy`` installation fails because of C compilation errors
 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-``galpy``'s installation can fail due to compilation errors, which look like::
+``galpy``'s installation from source can fail due to compilation errors, which
+look like::
 
-	    error: command 'gcc' failed with exit status 1
+    error: command 'gcc' failed with exit status 1
 
 or::
 
@@ -344,9 +491,9 @@ you've installed the GSL library by defining (for example, when the
 GSL was installed under ``/usr``; the ``LD_LIBRARY_PATH`` part of this
 may or may not be necessary depending on your system)::
 
-       export CFLAGS=-I/usr/include
-       export LDFLAGS=-L/usr/lib
-       export LD_LIBRARY_PATH=/usr/lib
+    export CFLAGS=-I/usr/include
+    export LDFLAGS=-L/usr/lib
+    export LD_LIBRARY_PATH=/usr/lib
 
 or::
 
@@ -360,25 +507,20 @@ and lib directories that have the gsl directory). If you already have
 to add the ``'-I/usr/include'``, ``'-L/usr/lib'``, and ``'/usr/lib'`` to
 them.
 
-If you are on a Mac or UNIX system (e.g., Linux), you can find the correct ``CFLAGS`` and ``LDFLAGS``/``LD_LIBRARY_path`` entries by doing::
+If you are on a Mac or UNIX system (e.g., Linux), you can find the correct
+``CFLAGS`` and ``LDFLAGS``/``LD_LIBRARY_path`` entries by doing::
 
    gsl-config --cflags
    gsl-config --prefix
 
-where you should add ``/lib`` to the output of the latter. In a bash shell, you could also simply do::
-
-   export CFLAGS="$CFLAGS -I`gsl-config --prefix`/include" && export LDFLAGS="$LDFLAGS -L`gsl-config --prefix`/lib" && pip install galpy
-
-or::
-
-   export CFLAGS="$CFLAGS -I`gsl-config --prefix`/include" && export LDFLAGS="$LDFLAGS -L`gsl-config --prefix`/lib" && pip install .
-
-depending on whether you are installing using ``pip`` or from source.
+where you should add ``/lib`` to the output of the latter.
 
 I have defined ``CFLAGS``, ``LDFLAGS``, and ``LD_LIBRARY_PATH``, but the compiler does not seem to include these and still returns with errors
 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-This typically happens if you install using ``sudo``, but have defined the ``CFLAGS`` etc. environment variables without using sudo. Try using ``sudo -E`` instead, which propagates your own environment variables to the ``sudo`` user.
+This typically happens if you install using ``sudo``, but have defined the
+``CFLAGS`` etc. environment variables without using sudo. Try using ``sudo -E``
+instead, which propagates your own environment variables to the ``sudo`` user.
 
 I'm having issues with OpenMP
 +++++++++++++++++++++++++++++++
@@ -394,11 +536,7 @@ or when using pip as follows::
 
     pip install -U --no-deps --install-option="--no-openmp" git+https://github.com/jobovy/galpy.git#egg=galpy
 
-or::
-
-    pip install -U --no-deps --prefix=~/local --install-option="--no-openmp" git+https://github.com/jobovy/galpy.git#egg=galpy
-
-for a local installation. This might be useful if one is using the
+This might be useful if one is using the
 ``clang`` compiler, which is the new default on macs with OS X (>=
 10.8), but does not support OpenMP. ``clang`` might lead to errors in the
 installation of galpy such as::
@@ -409,9 +547,9 @@ installation of galpy such as::
 
 If you get these errors, you can use the commands given above to
 install without OpenMP, or specify to use ``gcc`` by specifying the
-``CC`` and ``LDSHARED`` environment variables to use ``gcc``. Note
-that ``clang`` does not seem to have this issue anymore in more recent
-versions, but it still does not support ``OpenMP``.
+``CC`` and ``LDSHARED`` environment variables to use ``gcc``. Note that recent
+versions of ``galpy`` attempt to automatically detect OpenMP support, so using
+``--no-openmp`` should not typically be necessary even on Macs.
 
 .. _configfile:
 
