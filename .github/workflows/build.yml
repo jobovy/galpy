@@ -255,9 +255,8 @@ jobs:
     - name: Install pynbody (3.11-dev; mac)
       if: ${{ matrix.os == 'macos-latest' && matrix.REQUIRES_PYNBODY && matrix.python-version == '3.11-dev' }}
       run: |
-         brew install hdf5
-         export HDF5_DIR="$(brew --prefix hdf5)"
-         pip install --upgrade --upgrade-strategy eager --no-binary=h5py git+https://github.com/h5py/h5py.git@e9095d83e9f23846653ce2b02a92437bed4ed32c#egg=h5py
+         curl -O https://astro.utoronto.ca/~bovy/scipywheels/h5py-3.7.0-cp311-cp311-macosx_10_9_x86_64.whl
+         pip install h5py-3.7.0-cp311-cp311-macosx_10_9_x86_64.whl
          pip install --upgrade --upgrade-strategy eager pandas pytz
          pip install --upgrade --upgrade-strategy eager wheel
          pip install git+https://github.com/pynbody/pynbody.git@cfbefac64bfad3b8d042e669ff2b36bad25813ce#egg=pynbody
