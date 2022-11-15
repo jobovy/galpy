@@ -8,7 +8,7 @@ import numpy
 from ..util import config, conversion, plot
 from ..util.conversion import (physical_compatible, physical_conversion,
                                potential_physical_input)
-from .Potential import PotentialError, flatten
+from .Potential import PotentialError, flatten, potential_positional_arg
 
 
 class linearPotential:
@@ -302,6 +302,7 @@ class linearPotential:
                          xlabel=r"$x/x_0$",ylabel=r"$\Phi(x)$",
                          xrange=[min,max])
 
+@potential_positional_arg
 @potential_physical_input
 @physical_conversion('energy',pop=True)
 def evaluatelinearPotentials(Pot,x,t=0.):
@@ -345,6 +346,7 @@ def _evaluatelinearPotentials(Pot,x,t=0.):
     else: #pragma: no cover
         raise PotentialError("Input to 'evaluatelinearPotentials' is neither a linearPotential-instance or a list of such instances")
 
+@potential_positional_arg
 @potential_physical_input
 @physical_conversion('force',pop=True)
 def evaluatelinearForces(Pot,x,t=0.):

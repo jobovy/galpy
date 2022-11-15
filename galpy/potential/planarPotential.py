@@ -12,7 +12,8 @@ from ..util.conversion import (physical_compatible, physical_conversion,
 from .DissipativeForce import _isDissipative
 from .plotEscapecurve import _INF, plotEscapecurve
 from .plotRotcurve import plotRotcurve
-from .Potential import Potential, PotentialError, flatten, lindbladR
+from .Potential import (Potential, PotentialError, flatten, lindbladR,
+                        potential_positional_arg)
 
 
 class planarPotential:
@@ -1017,6 +1018,7 @@ def toPlanarPotential(Pot):
     else:
         raise PotentialError("Input to 'toPlanarPotential' is neither an Potential-instance or a list of such instances")
 
+@potential_positional_arg
 @potential_physical_input
 @physical_conversion('energy',pop=True)
 def evaluateplanarPotentials(Pot,R,phi=None,t=0.,dR=0,dphi=0):
@@ -1074,6 +1076,7 @@ def _evaluateplanarPotentials(Pot,R,phi=None,t=0.,dR=0,dphi=0):
     else: #pragma: no cover
         raise PotentialError("Input to 'evaluatePotentials' is neither a Potential-instance or a list of such instances")
 
+@potential_positional_arg
 @potential_physical_input
 @physical_conversion('force',pop=True)
 def evaluateplanarRforces(Pot,R,phi=None,t=0.):
@@ -1131,10 +1134,12 @@ def _evaluateplanarRforces(Pot,R,phi=None,t=0.):
     else: #pragma: no cover
         raise PotentialError("Input to 'evaluatePotentials' is neither a Potential-instance or a list of such instances")
 
+@potential_positional_arg
 def evaluateplanarphiforces(Pot,R,phi=None,t=0.):
    warnings.warn('evaluateplanarphiforces has been renamed evaluateplanarphitorques, because it has always really been a torque (per unit mass); please switch to the new method name, because the old name will be removed in v1.9 and may be re-used for the actual phi force component',FutureWarning)
    return evaluateplanarphitorques(Pot,R,phi=phi,t=t)
 
+@potential_positional_arg
 @potential_physical_input
 @physical_conversion('energy',pop=True)
 def evaluateplanarphitorques(Pot,R,phi=None,t=0.):
@@ -1191,6 +1196,7 @@ def _evaluateplanarphitorques(Pot,R,phi=None,t=0.):
     else: #pragma: no cover
         raise PotentialError("Input to 'evaluatePotentials' is neither a Potential-instance or a list of such instances")
 
+@potential_positional_arg
 @potential_physical_input
 @physical_conversion('forcederivative',pop=True)
 def evaluateplanarR2derivs(Pot,R,phi=None,t=0.):

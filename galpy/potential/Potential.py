@@ -53,7 +53,11 @@ def check_potential_inputs_not_arrays(func):
             raise TypeError(f'Methods in {self.__class__.__name__} do not accept array inputs. Please input scalars')
         return func(self,R,z,phi,t)
     return func_wrapper
-
+def potential_positional_arg(func):
+    @wraps(func)
+    def wrapper(Pot,/,*args,**kwargs):
+        return func(Pot,*args,**kwargs)
+    return wrapper
 
 class Potential(Force):
     """Top-level class for a potential"""
@@ -1871,6 +1875,7 @@ class PotentialError(Exception): #pragma: no cover
     def __str__(self):
         return repr(self.value)
 
+@potential_positional_arg
 @potential_physical_input
 @physical_conversion('energy',pop=True)
 def evaluatePotentials(Pot,R,z,phi=None,t=0.,dR=0,dphi=0):
@@ -1925,6 +1930,7 @@ def _evaluatePotentials(Pot,R,z,phi=None,t=0.,dR=0,dphi=0):
     else: #pragma: no cover
         raise PotentialError("Input to 'evaluatePotentials' is neither a Potential-instance or a list of such instances")
 
+@potential_positional_arg
 @potential_physical_input
 @physical_conversion('density',pop=True)
 def evaluateDensities(Pot,R,z,phi=None,t=0.,forcepoisson=False):
@@ -1979,6 +1985,7 @@ def evaluateDensities(Pot,R,z,phi=None,t=0.,forcepoisson=False):
     else: #pragma: no cover
         raise PotentialError("Input to 'evaluateDensities' is neither a Potential-instance or a list of such instances")
 
+@potential_positional_arg
 @potential_physical_input
 @physical_conversion('surfacedensity',pop=True)
 def evaluateSurfaceDensities(Pot,R,z,phi=None,t=0.,forcepoisson=False):
@@ -2031,6 +2038,7 @@ def evaluateSurfaceDensities(Pot,R,z,phi=None,t=0.,forcepoisson=False):
     else: #pragma: no cover
         raise PotentialError("Input to 'evaluateSurfaceDensities' is neither a Potential-instance or a list of such instances")
 
+@potential_positional_arg
 @potential_physical_input
 @physical_conversion('mass',pop=True)
 def mass(Pot,R,z=None,t=0.,forceint=False):
@@ -2083,6 +2091,7 @@ def mass(Pot,R,z=None,t=0.,forceint=False):
     else: #pragma: no cover
         raise PotentialError("Input to 'mass' is neither a Potential-instance or a list of such instances")
 
+@potential_positional_arg
 @potential_physical_input
 @physical_conversion('force',pop=True)
 def evaluateRforces(Pot,R,z,phi=None,t=0.,v=None):
@@ -2146,10 +2155,12 @@ def _evaluateRforces(Pot,R,z,phi=None,t=0.,v=None):
     else: #pragma: no cover
         raise PotentialError("Input to 'evaluateRforces' is neither a Potential-instance, DissipativeForce-instance or a list of such instances")
 
+@potential_positional_arg
 def evaluatephiforces(Pot,R,z,phi=None,t=0.,v=None):
     warnings.warn('evaluatephiforces has been renamed evaluatephitorques, because it has always really been a torque (per unit mass); please switch to the new method name, because the old name will be removed in v1.9 and may be re-used for the actual phi force component',FutureWarning)
     return evaluatephitorques(Pot,R,z,phi=phi,t=t,v=v)
 
+@potential_positional_arg
 @potential_physical_input
 @physical_conversion('energy',pop=True)
 def evaluatephitorques(Pot,R,z,phi=None,t=0.,v=None):
@@ -2212,6 +2223,7 @@ def _evaluatephitorques(Pot,R,z,phi=None,t=0.,v=None):
     else: #pragma: no cover
         raise PotentialError("Input to 'evaluatephitorques' is neither a Potential-instance, DissipativeForce-instance or a list of such instances")
 
+@potential_positional_arg
 @potential_physical_input
 @physical_conversion('force',pop=True)
 def evaluatezforces(Pot,R,z,phi=None,t=0.,v=None):
@@ -2275,6 +2287,7 @@ def _evaluatezforces(Pot,R,z,phi=None,t=0.,v=None):
     else: #pragma: no cover
         raise PotentialError("Input to 'evaluatezforces' is neither a Potential-instance, DissipativeForce-instance or a list of such instances")
 
+@potential_positional_arg
 @potential_physical_input
 @physical_conversion('force',pop=True)
 def evaluaterforces(Pot,R,z,phi=None,t=0.,v=None):
@@ -2332,6 +2345,7 @@ def evaluaterforces(Pot,R,z,phi=None,t=0.,v=None):
     else: #pragma: no cover
         raise PotentialError("Input to 'evaluaterforces' is neither a Potential-instance or a list of such instances")
 
+@potential_positional_arg
 @potential_physical_input
 @physical_conversion('forcederivative',pop=True)
 def evaluateR2derivs(Pot,R,z,phi=None,t=0.):
@@ -2380,6 +2394,7 @@ def evaluateR2derivs(Pot,R,z,phi=None,t=0.):
     else: #pragma: no cover
         raise PotentialError("Input to 'evaluateR2derivs' is neither a Potential-instance or a list of such instances")
 
+@potential_positional_arg
 @potential_physical_input
 @physical_conversion('forcederivative',pop=True)
 def evaluatez2derivs(Pot,R,z,phi=None,t=0.):
@@ -2428,6 +2443,7 @@ def evaluatez2derivs(Pot,R,z,phi=None,t=0.):
     else: #pragma: no cover
         raise PotentialError("Input to 'evaluatez2derivs' is neither a Potential-instance or a list of such instances")
 
+@potential_positional_arg
 @potential_physical_input
 @physical_conversion('forcederivative',pop=True)
 def evaluateRzderivs(Pot,R,z,phi=None,t=0.):
@@ -2476,6 +2492,7 @@ def evaluateRzderivs(Pot,R,z,phi=None,t=0.):
     else: #pragma: no cover
         raise PotentialError("Input to 'evaluateRzderivs' is neither a Potential-instance or a list of such instances")
 
+@potential_positional_arg
 @potential_physical_input
 @physical_conversion('energy',pop=True)
 def evaluatephi2derivs(Pot,R,z,phi=None,t=0.):
@@ -2524,6 +2541,7 @@ def evaluatephi2derivs(Pot,R,z,phi=None,t=0.):
     else: #pragma: no cover
         raise PotentialError("Input to 'evaluatephi2derivs' is neither a Potential-instance or a list of such instances")
 
+@potential_positional_arg
 @potential_physical_input
 @physical_conversion('force',pop=True)
 def evaluateRphiderivs(Pot,R,z,phi=None,t=0.):
@@ -2572,6 +2590,7 @@ def evaluateRphiderivs(Pot,R,z,phi=None,t=0.):
     else: #pragma: no cover
         raise PotentialError("Input to 'evaluateRphiderivs' is neither a Potential-instance or a list of such instances")
 
+@potential_positional_arg
 @potential_physical_input
 @physical_conversion('force',pop=True)
 def evaluatephizderivs(Pot,R,z,phi=None,t=0.):
@@ -2620,6 +2639,7 @@ def evaluatephizderivs(Pot,R,z,phi=None,t=0.):
     else: #pragma: no cover
         raise PotentialError("Input to 'evaluatephizderivs' is neither a Potential-instance or a list of such instances")
 
+@potential_positional_arg
 @potential_physical_input
 @physical_conversion('forcederivative',pop=True)
 def evaluater2derivs(Pot,R,z,phi=None,t=0.):
@@ -2668,6 +2688,7 @@ def evaluater2derivs(Pot,R,z,phi=None,t=0.):
     else: #pragma: no cover
         raise PotentialError("Input to 'evaluater2derivs' is neither a Potential-instance or a list of such instances")
 
+@potential_positional_arg
 def plotPotentials(Pot,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
                    phi=None,xy=False,t=0.,effective=False,Lz=None,
                    ncontours=21,savefilename=None,aspect=None,
@@ -2783,6 +2804,7 @@ def plotPotentials(Pot,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
                            justcontours=justcontours,
                            levels=levels,cntrcolors=cntrcolors)
 
+@potential_positional_arg
 def plotDensities(Pot,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
                   phi=None,xy=False,t=0.,
                   ncontours=21,savefilename=None,aspect=None,log=False,
@@ -2889,6 +2911,7 @@ def plotDensities(Pot,rmin=0.,rmax=1.5,nrs=21,zmin=-0.5,zmax=0.5,nzs=21,
                                                  ncontours),
                            **kwargs)
 
+@potential_positional_arg
 def plotSurfaceDensities(Pot,
                          xmin=-1.5,xmax=1.5,nxs=21,ymin=-1.5,ymax=1.5,nys=21,
                          z=numpy.inf,t=0.,
@@ -2990,6 +3013,7 @@ def plotSurfaceDensities(Pot,
                                                  ncontours),
                            **kwargs)
 
+@potential_positional_arg
 @potential_physical_input
 @physical_conversion('frequency',pop=True)
 def epifreq(Pot,R,t=0.):
@@ -3034,6 +3058,7 @@ def epifreq(Pot,R,t=0.):
         return numpy.sqrt(evaluateplanarR2derivs(Pot,R,t=t,use_physical=False)
                        -3./R*evaluateplanarRforces(Pot,R,t=t,use_physical=False))
 
+@potential_positional_arg
 @potential_physical_input
 @physical_conversion('frequency',pop=True)
 def verticalfreq(Pot,R,t=0.):
@@ -3069,6 +3094,7 @@ def verticalfreq(Pot,R,t=0.):
         return Pot.verticalfreq(R,t=t,use_physical=False)
     return numpy.sqrt(evaluatez2derivs(Pot,R,0.,t=t,use_physical=False))
 
+@potential_positional_arg
 @potential_physical_input
 @physical_conversion('dimensionless',pop=True)
 def flattening(Pot,R,z,t=0.):
@@ -3104,6 +3130,7 @@ def flattening(Pot,R,z,t=0.):
     return numpy.sqrt(numpy.fabs(z/R*evaluateRforces(Pot,R,z,t=t,use_physical=False)\
                                /evaluatezforces(Pot,R,z,t=t,use_physical=False)))
 
+@potential_positional_arg
 @physical_conversion('velocity',pop=True)
 def vterm(Pot,l,t=0.,deg=True):
     """
@@ -3146,6 +3173,7 @@ def vterm(Pot,l,t=0.,deg=True):
     return sinl*(omegac(Pot,sinl,t=t,use_physical=False)
                  -omegac(Pot,1.,t=t,use_physical=False))
 
+@potential_positional_arg
 @physical_conversion('position',pop=True)
 def rl(Pot,lz,t=0.):
     """
@@ -3215,6 +3243,7 @@ def _rlFindStart(rl,lz,pot,t=0.,lower=False):
             rtry*= 2.
     return rtry
 
+@potential_positional_arg
 @physical_conversion('position',pop=True)
 def rE(Pot,E,t=0.):
     """
@@ -3276,6 +3305,7 @@ def _rEFindStart(rE,E,pot,t=0.,lower=False):
             rtry*= 2.
     return rtry
 
+@potential_positional_arg
 @physical_conversion('action',pop=True)
 def LcE(Pot,E,t=0.):
     """
@@ -3307,6 +3337,7 @@ def LcE(Pot,E,t=0.):
     thisrE= rE(Pot,E,t=t,use_physical=False)
     return thisrE*vcirc(Pot,thisrE,use_physical=False)
 
+@potential_positional_arg
 @physical_conversion('position',pop=True)
 def lindbladR(Pot,OmegaP,m=2,t=0.,**kwargs):
     """
@@ -3378,6 +3409,7 @@ def _lindbladR_eq(R,Pot,OmegaP,m,t=0.):
     return m*(omegac(Pot,R,t=t,use_physical=False)-OmegaP)\
         -epifreq(Pot,R,t=t,use_physical=False)
 
+@potential_positional_arg
 @potential_physical_input
 @physical_conversion('frequency',pop=True)
 def omegac(Pot,R,t=0.):
@@ -3746,6 +3778,7 @@ def kms_to_kpcGyrDecorator(func):
         return func(args[0],velocity_in_kpcGyr(args[1],1.),args[2],**kwargs)
     return kms_to_kpcGyr_wrapper
 
+@potential_positional_arg
 @potential_physical_input
 @physical_conversion('position',pop=True)
 def rtide(Pot,R,z,phi=0.,t=0.,M=None):
@@ -3797,6 +3830,7 @@ def rtide(Pot,R,z,phi=0.,t=0.,M=None):
     d2phidr2= evaluater2derivs(Pot,R,z,phi=phi,t=t,use_physical=False)
     return (M/(omegac2-d2phidr2))**(1./3.)
 
+@potential_positional_arg
 @potential_physical_input
 @physical_conversion('forcederivative',pop=True)
 def ttensor(Pot,R,z,phi=0.,t=0.,eigenval=False):
@@ -3870,6 +3904,7 @@ def ttensor(Pot,R,z,phi=0.,t=0.,eigenval=False):
     else:
        return tij
 
+@potential_positional_arg
 @physical_conversion('position',pop=True)
 def zvc(Pot,R,E,Lz,phi=0.,t=0.):
     """
@@ -3928,6 +3963,7 @@ def zvc(Pot,R,E,Lz,phi=0.,t=0.):
         raise ValueError('No solution for the zero-velocity curve found for this combination of parameters')
     return out
 
+@potential_positional_arg
 @physical_conversion('position',pop=True)
 def zvc_range(Pot,E,Lz,phi=0.,t=0.):
     """
@@ -3988,6 +4024,7 @@ def zvc_range(Pot,E,Lz,phi=0.,t=0.):
                           +Lz2over2/R**2.-E,RLz,Rstart)
     return numpy.array([Rmin,Rmax])
 
+@potential_positional_arg
 @physical_conversion('position',pop=True)
 def rhalf(Pot,t=0.,INF=numpy.inf):
     """
@@ -4038,6 +4075,7 @@ def _rhalfFindStart(rh,pot,tot_mass,t=0.,lower=False):
             rtry*= 2.
     return rtry
 
+@potential_positional_arg
 @potential_physical_input
 @physical_conversion('time',pop=True)
 def tdyn(Pot,R,t=0.):
