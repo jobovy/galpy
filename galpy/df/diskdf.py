@@ -27,9 +27,13 @@ import scipy
 numpylog= numpy.lib.scimath.log # somehow, this code produces log(negative), which scipy (now numpy.lib.scimath.log) implements as log(|negative|) + i pi while numpy gives NaN and we want the scipy behavior; not sure where the log(negative) comes from though! I think it's for sigma=0 DFs (this test fails with numpy.log) where the DF eval has a log(~zero) that can be slightly negative because of numerical precision issues
 from scipy import integrate, interpolate, optimize, stats
 
-from ..actionAngle import actionAngleAdiabatic, actionAngleAxi
+from ..actionAngle import actionAngleAdiabatic
 from ..orbit import Orbit
 from ..potential import PowerSphericalPotential
+from ..util import conversion, save_pickles
+from ..util.ars import ars
+from ..util.conversion import (_APY_LOADED, _APY_UNITS, physical_conversion,
+                               potential_physical_input, surfdens_in_msolpc2)
 from .df import df
 from .surfaceSigmaProfile import expSurfaceSigmaProfile, surfaceSigmaProfile
 

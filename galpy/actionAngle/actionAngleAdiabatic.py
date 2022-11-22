@@ -14,8 +14,10 @@ import warnings
 import numpy
 
 from ..potential import MWPotential, toPlanarPotential, toVerticalPotential
-from ..potential.Potential import _check_c
+from ..potential.Potential import _check_c, _dim
 from ..potential.Potential import flatten as flatten_potential
+from ..util import galpyWarning
+from . import actionAngleAdiabatic_c
 from .actionAngle import actionAngle
 from .actionAngleAdiabatic_c import _ext_loaded as ext_loaded
 from .actionAngleSpherical import actionAngleSpherical
