@@ -1,13 +1,18 @@
-__version__ = "1.7.3.dev0"
+__version__ = "1.8.2.dev0"
 # Check whether a new version is available
-import sys
 import datetime
-import subprocess
-import platform
 import http.client
-from pkg_resources import parse_version
-from .util.config import (__config__, __orig__config__, write_config, 
-                          configfilename)
+import platform
+import subprocess
+import sys
+
+from packaging.version import Version
+from packaging.version import parse as parse_version
+
+from .util.config import (__config__, __orig__config__, configfilename,
+                          write_config)
+
+
 def latest_pypi_version(name):
     # First check whether there's internet, code below this works w/o
     # but is very slow without internet, so this is a quick check
@@ -21,15 +26,20 @@ def latest_pypi_version(name):
         finally:
             conn.close()
     if not online(): # pragma: no cover
-        return __version__        
+        return __version__
     # Essentially from https://stackoverflow.com/a/58649262
     try: # Wrap everything in try/except to avoid any issues with connections
-        latest_version= str(subprocess.run([sys.executable, '-m', 'pip', 'install', 
-                                            '{}==random'.format(name)], 
+        latest_version= str(subprocess.run([sys.executable, '-m', 'pip', 'install',
+                                            f'{name}==random'],
                                         capture_output=True, text=True))
         latest_version= latest_version[latest_version.find('(from versions:')+15:]
         latest_version= latest_version[:latest_version.find(')')]
-        latest_version= latest_version.replace(' ','').split(',')[-1]
+        latest_version= latest_version.replace(' ','').split(',')
+        # Remove any pre-releases
+        latest_version= [v for v in latest_version
+                         if not Version(v).is_prerelease]
+        # Latest is now the final one
+        latest_version= latest_version[-1]
     except Exception: # pragma: no cover
         return __version__
     else:
@@ -40,7 +50,7 @@ def check_pypi_version(name):
     if parse_version(latest_version) > parse_version(__version__): # pragma: no cover
         return True
     else:
-        return False   
+        return False
 def print_version_warning(): # pragma: no cover
     print("\033[91mA new version of galpy ({}) is available, please upgrade using pip/conda/... to get the latest features and bug fixes!\033[0m".format(latest_pypi_version("galpy")))
 _CHECK_VERSION_UPGRADE= __config__.getboolean('version-check','do-check') \
@@ -51,8 +61,8 @@ if _CHECK_VERSION_UPGRADE and hasattr(sys,'ps1'): # pragma: no cover
         print_version_warning()
 elif _CHECK_VERSION_UPGRADE \
     and __config__.getboolean('version-check','check-non-interactive'):
-    # Non-interactive session, only check once every 
-    # 'check-non-interactive-every' days 
+    # Non-interactive session, only check once every
+    # 'check-non-interactive-every' days
     today= datetime.date.today()
     last_check= datetime.date.fromisoformat(\
         __config__.get('version-check','last-non-interactive-check'))

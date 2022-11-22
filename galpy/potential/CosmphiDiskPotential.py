@@ -2,8 +2,10 @@
 #   CosmphiDiskPotential: cos(mphi) potential
 ###############################################################################
 import numpy
+
 from ..util import conversion
 from .planarPotential import planarPotential
+
 _degtorad= numpy.pi/180.
 class CosmphiDiskPotential(planarPotential):
     """Class that implements the disk potential
@@ -46,11 +48,11 @@ class CosmphiDiskPotential(planarPotential):
 
 
            Either:
-           
+
               a) phib= angle (in rad; default=25 degree; or can be Quantity)
 
                  phio= potential perturbation (in terms of phio/vo^2 if vo=1 at Ro=1; or can be Quantity with units of velocity-squared)
-                 
+
               b) cp, sp= m * phio * cos(m * phib), m * phio * sin(m * phib); can be Quantity with units of velocity-squared)
 
         OUTPUT:
@@ -70,7 +72,7 @@ class CosmphiDiskPotential(planarPotential):
         rb= conversion.parse_length(rb,ro=self._ro)
         phio= conversion.parse_energy(phio,vo=self._vo)
         cp= conversion.parse_energy(cp,vo=self._vo)
-        sp= conversion.parse_energy(sp,vo=self._vo)       
+        sp= conversion.parse_energy(sp,vo=self._vo)
         # Back to old definition
         self._r1p= r1**p
         self._amp/= self._r1p
@@ -118,7 +120,7 @@ class CosmphiDiskPotential(planarPotential):
         else:
             return self._mphio/self._m*R**self._p\
                 *numpy.cos(self._m*phi-self._mphib)
-        
+
     def _Rforce(self,R,phi=0.,t=0.):
         """
         NAME:
@@ -140,7 +142,7 @@ class CosmphiDiskPotential(planarPotential):
         else:
             return -self._p*self._mphio/self._m*R**(self._p-1.)\
                 *numpy.cos(self._m*phi-self._mphib)
-        
+
     def _phitorque(self,R,phi=0.,t=0.):
         """
         NAME:
@@ -169,7 +171,7 @@ class CosmphiDiskPotential(planarPotential):
         else:
             return self._p*(self._p-1.)/self._m*self._mphio*R**(self._p-2.)\
                 *numpy.cos(self._m*phi-self._mphib)
-        
+
     def _phi2deriv(self,R,phi=0.,t=0.):
         if R < self._rb:
             return -self._m*self._mphio*numpy.cos(self._m*phi-self._mphib)\

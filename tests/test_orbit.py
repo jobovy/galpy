@@ -1,77 +1,74 @@
 ##############################TESTS ON ORBITS##################################
-import warnings
-import os, os.path
-import sys
+import os
+import os.path
 import platform
+import sys
+import warnings
+
 WIN32= platform.system() == 'Windows'
 MACOS= platform.system() == 'Darwin'
-import time
 import signal
 import subprocess
-import pytest
-import numpy
+import time
+
 import astropy
+import numpy
+import pytest
+
 PY2= sys.version < '3'
 _APY3= astropy.__version__ > '3'
+from test_actionAngle import reset_warning_registry
+from test_potential import (BurkertPotentialNoC, NFWTwoPowerTriaxialPotential,
+                            altExpwholeDiskSCFPotential,
+                            expwholeDiskSCFPotential,
+                            fullyRotatedTriaxialNFWPotential,
+                            mockAdiabaticContractionMWP14WrapperPotential,
+                            mockCombLinearPotential,
+                            mockFlatCorotatingRotationSpiralArmsPotential,
+                            mockFlatCosmphiDiskPotential,
+                            mockFlatCosmphiDiskwBreakPotential,
+                            mockFlatDehnenBarPotential,
+                            mockFlatDehnenSmoothBarPotential,
+                            mockFlatEllipticalDiskPotential,
+                            mockFlatGaussianAmplitudeBarPotential,
+                            mockFlatLopsidedDiskPotential,
+                            mockFlatSolidBodyRotationPlanarSpiralArmsPotential,
+                            mockFlatSolidBodyRotationSpiralArmsPotential,
+                            mockFlatSpiralArmsPotential,
+                            mockFlatSteadyLogSpiralPotential,
+                            mockFlatTransientLogSpiralPotential,
+                            mockFlatTrulyCorotatingRotationSpiralArmsPotential,
+                            mockFlatTrulyGaussianAmplitudeBarPotential,
+                            mockInterpSphericalPotential,
+                            mockMovingObjectLongIntPotential,
+                            mockRotatedAndTiltedMWP14WrapperPotential,
+                            mockRotatingFlatSpiralArmsPotential,
+                            mockSCFAxiDensity1Potential,
+                            mockSCFAxiDensity2Potential,
+                            mockSCFDensityPotential, mockSCFNFWPotential,
+                            mockSCFZeeuwPotential, mockSimpleLinearPotential,
+                            mockSlowFlatDecayingDehnenSmoothBarPotential,
+                            mockSlowFlatDehnenBarPotential,
+                            mockSlowFlatDehnenSmoothBarPotential,
+                            mockSlowFlatEllipticalDiskPotential,
+                            mockSlowFlatSteadyLogSpiralPotential,
+                            mockSpecialRotatingFlatSpiralArmsPotential,
+                            nestedListPotential, oblateHernquistPotential,
+                            oblateNFWPotential, prolateJaffePotential,
+                            prolateNFWPotential, sech2DiskSCFPotential,
+                            specialFlattenedPowerPotential,
+                            specialMiyamotoNagaiPotential,
+                            testlinearMWPotential, testMWPotential,
+                            testNullPotential, testorbitHenonHeilesPotential,
+                            testplanarMWPotential,
+                            triaxialLogarithmicHaloPotential,
+                            triaxialNFWPotential)
+
 from galpy import potential
-from galpy.potential.Potential import  _check_c
+from galpy.potential.Potential import _check_c
 from galpy.util import galpyWarning
 from galpy.util.coords import _K
-from test_actionAngle import reset_warning_registry
-from test_potential import testplanarMWPotential, testMWPotential, \
-    testlinearMWPotential, \
-    mockFlatEllipticalDiskPotential, \
-    mockFlatLopsidedDiskPotential, \
-    mockFlatCosmphiDiskPotential, \
-    mockFlatCosmphiDiskwBreakPotential, \
-    mockSlowFlatEllipticalDiskPotential, \
-    mockFlatDehnenBarPotential, \
-    mockSlowFlatDehnenBarPotential, \
-    mockFlatSteadyLogSpiralPotential, \
-    mockSlowFlatSteadyLogSpiralPotential, \
-    mockFlatTransientLogSpiralPotential, \
-    mockCombLinearPotential, \
-    mockSimpleLinearPotential, \
-    mockMovingObjectLongIntPotential, \
-    mockSCFZeeuwPotential, \
-    mockSCFNFWPotential, \
-    mockSCFAxiDensity1Potential, \
-    mockSCFAxiDensity2Potential, \
-    mockSCFDensityPotential, \
-    specialFlattenedPowerPotential, \
-    specialMiyamotoNagaiPotential, \
-    BurkertPotentialNoC, \
-    oblateHernquistPotential, \
-    oblateNFWPotential, \
-    prolateNFWPotential, \
-    prolateJaffePotential, \
-    triaxialNFWPotential, \
-    NFWTwoPowerTriaxialPotential, \
-    fullyRotatedTriaxialNFWPotential, \
-    sech2DiskSCFPotential, \
-    expwholeDiskSCFPotential, \
-    altExpwholeDiskSCFPotential, \
-    mockFlatSpiralArmsPotential, \
-    mockRotatingFlatSpiralArmsPotential, \
-    mockSpecialRotatingFlatSpiralArmsPotential, \
-    expwholeDiskSCFPotential, \
-    mockFlatDehnenSmoothBarPotential, \
-    mockSlowFlatDehnenSmoothBarPotential, \
-    mockSlowFlatDecayingDehnenSmoothBarPotential, \
-    mockFlatSolidBodyRotationSpiralArmsPotential, \
-    mockFlatSolidBodyRotationPlanarSpiralArmsPotential, \
-    triaxialLogarithmicHaloPotential, \
-    testorbitHenonHeilesPotential, \
-    mockFlatCorotatingRotationSpiralArmsPotential, \
-    mockFlatTrulyCorotatingRotationSpiralArmsPotential, \
-    mockFlatGaussianAmplitudeBarPotential, \
-    mockFlatTrulyGaussianAmplitudeBarPotential, \
-    testorbitHenonHeilesPotential, \
-    nestedListPotential, \
-    mockInterpSphericalPotential, \
-    mockAdiabaticContractionMWP14WrapperPotential, \
-    mockRotatedAndTiltedMWP14WrapperPotential, \
-    testNullPotential
+
 _GHACTIONS= bool(os.getenv('GITHUB_ACTIONS'))
 if not _GHACTIONS:
     _QUICKTEST= True #Run a more limited set of tests
@@ -158,12 +155,6 @@ def test_energy_jacobi_conservation():
              'SphericalPotential','interpSphericalPotential']
     rmpots.append('SphericalShellPotential')
     rmpots.append('RingPotential')
-    if _GHACTIONS and (WIN32 or MACOS):
-        # Fails on GH Windows/Mac for some reason and I don't care...
-        rmpots.append('AnyAxisymmetricRazorThinDiskPotential')
-    if False: #_GHACTIONS:
-        rmpots.append('DoubleExponentialDiskPotential')
-        rmpots.append('RazorThinExponentialDiskPotential')
     for p in rmpots:
         pots.remove(p)
     #tolerances in log10
@@ -795,7 +786,7 @@ def test_liouville_planar():
                 dvy= o.getOrbit_dxdv()[-1,:]
             tjac= numpy.linalg.det(numpy.array([dx,dy,dvx,dvy]))
             #print(p, integrator, numpy.fabs(tjac-1.),ttol)
-            assert numpy.fabs(tjac-1.) < 10.**ttol, 'Liouville theorem jacobian differs from one by {:g} for {} and integrator {}'.format(numpy.fabs(tjac-1.),p,integrator)
+            assert numpy.fabs(tjac-1.) < 10.**ttol, f'Liouville theorem jacobian differs from one by {numpy.fabs(tjac-1.):g} for {p} and integrator {integrator}'
             if firstTest or ('Burkert' in p and not ptp.hasC):
                 #Some one time tests
                 #Test non-rectangular in- and output
@@ -1332,7 +1323,7 @@ def test_analytic_ecc_rperi_rap():
              'SphericalPotential','interpSphericalPotential']
     rmpots.append('SphericalShellPotential')
     rmpots.append('RingPotential')
-    rmpots.append('HomogeneousSpherePotential') # fails currently, because delta esimation gives a NaN due to a 0/0; delta should just be zero, but don't want to special-case
+    rmpots.append('HomogeneousSpherePotential') # fails currently, because delta estimation gives a NaN due to a 0/0; delta should just be zero, but don't want to special-case
     # No C and therefore annoying
     rmpots.append('AnyAxisymmetricRazorThinDiskPotential')
     if False: #_GHACTIONS:
@@ -1588,9 +1579,10 @@ def test_analytic_ecc_rperi_rap():
     return None
 
 def test_orbit_rguiding():
-    from galpy.potential import LogarithmicHaloPotential, MWPotential2014, \
-        TriaxialNFWPotential, rl
     from galpy.orbit import Orbit
+    from galpy.potential import (LogarithmicHaloPotential, MWPotential2014,
+                                 TriaxialNFWPotential, rl)
+
     # For a single potential
     lp= LogarithmicHaloPotential(normalize=1.)
     R,Lz= 1.,1.4
@@ -1611,9 +1603,10 @@ def test_orbit_rguiding():
     return None
 
 def test_orbit_rguiding_planar():
-    from galpy.potential import LogarithmicHaloPotential, MWPotential2014, \
-        TriaxialNFWPotential, rl
     from galpy.orbit import Orbit
+    from galpy.potential import (LogarithmicHaloPotential, MWPotential2014,
+                                 TriaxialNFWPotential, rl)
+
     # For a single potential
     lp= LogarithmicHaloPotential(normalize=1.)
     R,Lz= 1.,1.4
@@ -1634,9 +1627,10 @@ def test_orbit_rguiding_planar():
     return None
 
 def test_orbit_rE():
-    from galpy.potential import LogarithmicHaloPotential, MWPotential2014, \
-        DehnenBarPotential, rE
     from galpy.orbit import Orbit
+    from galpy.potential import (DehnenBarPotential, LogarithmicHaloPotential,
+                                 MWPotential2014, rE)
+
     # For a single potential
     lp= LogarithmicHaloPotential(normalize=1.)
     R,Lz= 1.,1.4
@@ -1659,9 +1653,10 @@ def test_orbit_rE():
     return None
 
 def test_orbit_rE_planar():
-    from galpy.potential import LogarithmicHaloPotential, MWPotential2014, \
-        DehnenBarPotential, rE
     from galpy.orbit import Orbit
+    from galpy.potential import (DehnenBarPotential, LogarithmicHaloPotential,
+                                 MWPotential2014, rE)
+
     # For a single potential
     lp= LogarithmicHaloPotential(normalize=1.)
     R,Lz= 1.,1.4
@@ -1683,9 +1678,10 @@ def test_orbit_rE_planar():
     return None
 
 def test_orbit_LcE():
-    from galpy.potential import LogarithmicHaloPotential, MWPotential2014, \
-        DehnenBarPotential, LcE
     from galpy.orbit import Orbit
+    from galpy.potential import (DehnenBarPotential, LcE,
+                                 LogarithmicHaloPotential, MWPotential2014)
+
     # For a single potential
     lp= LogarithmicHaloPotential(normalize=1.)
     R,Lz= 1.,1.4
@@ -1708,9 +1704,10 @@ def test_orbit_LcE():
     return None
 
 def test_orbit_LcE_planar():
-    from galpy.potential import LogarithmicHaloPotential, MWPotential2014, \
-        DehnenBarPotential, LcE
     from galpy.orbit import Orbit
+    from galpy.potential import (DehnenBarPotential, LcE,
+                                 LogarithmicHaloPotential, MWPotential2014)
+
     # For a single potential
     lp= LogarithmicHaloPotential(normalize=1.)
     R,Lz= 1.,1.4
@@ -1757,7 +1754,7 @@ def test_analytic_zmax():
              'SphericalPotential','interpSphericalPotential']
     rmpots.append('SphericalShellPotential')
     rmpots.append('RingPotential')
-    rmpots.append('HomogeneousSpherePotential') # fails currently, because delta esimation gives a NaN due to a 0/0; delta should just be zero, but don't want to special-case
+    rmpots.append('HomogeneousSpherePotential') # fails currently, because delta estimation gives a NaN due to a 0/0; delta should just be zero, but don't want to special-case
     # No C and therefore annoying
     rmpots.append('AnyAxisymmetricRazorThinDiskPotential')
     if False: #_GHACTIONS:
@@ -1859,8 +1856,10 @@ def test_check_integrate_dt():
 # Test that fixing the stepsize works, issue #207
 def test_fixedstepsize():
     if WIN32: return None # skip on appveyor, because fails for reason that I can't figure out (runtimes[0] == 0.) and not that important
-    from galpy.potential import LogarithmicHaloPotential
     import time
+
+    from galpy.potential import LogarithmicHaloPotential
+
     # Integrators for which it should work
     integrators= ['leapfrog_c','rk4_c','rk6_c','symplec4_c','symplec6_c']
     # Somewhat long time
@@ -1898,8 +1897,10 @@ numpy.fabs(runtimes[ii]/runtimes[0]/mults[ii]*mults[0]-1.),mults[ii]/mults[0],ru
 # Test that fixing the stepsize works for integrate_dxdv
 def test_fixedstepsize_dxdv():
     if WIN32: return None # skip on appveyor, because test_fixedstepsize fails for reason that I can't figure out (runtimes[0] == 0.) and not that important
-    from galpy.potential import LogarithmicHaloPotential
     import time
+
+    from galpy.potential import LogarithmicHaloPotential
+
     # Integrators for which it should work
     integrators= ['rk4_c','rk6_c']
     # Somewhat long time
@@ -1974,6 +1975,7 @@ def test_add_linear_planar_orbit():
 # Check that pickling orbits works
 def test_pickle():
     import pickle
+
     from galpy.orbit import Orbit
     o= Orbit([1.,0.1,1.1,0.1,0.2,2.])
     po= pickle.dumps(o)
@@ -2007,6 +2009,7 @@ def test_pickle():
 # Basic checks of the angular momentum function
 def test_angularmomentum():
     from galpy.orbit import Orbit
+
     # Shouldn't work for a 1D orbit
     o= Orbit([1.,0.1])
     try:
@@ -2100,6 +2103,7 @@ def test_ER_EZ():
 # Check that the different setups work
 def test_orbit_setup_linear():
     from galpy.orbit import Orbit
+
     # linearOrbit
     o= Orbit([1.,0.1])
     assert o.dim() == 1, 'linearOrbit does not have dim == 1'
@@ -2332,9 +2336,10 @@ def test_orbit_setup():
 def test_orbit_setup_SkyCoord():
     # Only run this for astropy>3
     if not _APY3: return None
-    from galpy.orbit import Orbit
     import astropy.coordinates as apycoords
     import astropy.units as u
+
+    from galpy.orbit import Orbit
     ra= 120.*u.deg
     dec= 60.*u.deg
     distance= 2.*u.kpc
@@ -2530,6 +2535,7 @@ def test_toLinear():
 # Check that some relevant errors are being raised
 def test_attributeerrors():
     from galpy.orbit import Orbit
+
     #Vertical functions for planarOrbits
     o= Orbit([1.,0.1,1.,0.1])
     try:
@@ -2817,7 +2823,7 @@ def test_flip_inplace_integrated_evaluated():
             o.integrate(ts,llp)
             of.integrate(ts,llp)
         # Evaluate, make sure it is at an interpolated time!
-        dum= of.R(0.52)
+        dumb= of.R(0.52)
         # Now flip
         of.flip(inplace=True)
         # Just check one time, allows code duplication!
@@ -3108,8 +3114,9 @@ def test_physical_output_off():
 # Check that the routines that should return physical coordinates are turned
 # back on by turn_physical_on
 def test_physical_output_on():
-    from galpy.potential import LogarithmicHaloPotential
     from astropy import units
+
+    from galpy.potential import LogarithmicHaloPotential
     lp= LogarithmicHaloPotential(normalize=1.)
     plp= lp.toPlanar()
     for ii in range(4):
@@ -3197,8 +3204,9 @@ def test_physical_newOrbit():
 #Test the orbit interpolation
 def test_interpolation_issue187():
     #Test that fails because of issue 187 reported by Mark Fardal
-    from galpy.orbit import Orbit
     from scipy import interpolate
+
+    from galpy.orbit import Orbit
     pot = potential.IsochronePotential(b=1./7.,normalize=True)
     R, vR, vT, z, vz, phi = 1.,0.0,0.8,0.,0.,0.
     orb = Orbit(vxvv=[R, vR, vT, z, vz, phi])
@@ -3530,7 +3538,7 @@ def test_scalar_all():
     return None
 
 def test_call_issue256():
-    # Reported by Semyeong Oh: non-integrated orbit with t=/=0 should return eror
+    # Reported by Semyeong Oh: non-integrated orbit with t=/=0 should return error
     from galpy.orbit import Orbit
     o = Orbit(vxvv=[5.,-1.,0.8, 3, -0.1, 0])
     # no integration of the orbit
@@ -3540,8 +3548,10 @@ def test_call_issue256():
 
 # Test whether the output from the SkyCoord function is correct
 def test_SkyCoord():
-    from galpy.orbit import Orbit
     from astropy import units
+
+    from galpy.orbit import Orbit
+
     # In ra, dec
     o= Orbit([120.,60.,2.,0.5,0.4,30.],radec=True)
     assert numpy.fabs(o.SkyCoord().ra.degree-o.ra()) < 10.**-13., 'Orbit SkyCoord ra and direct ra do not agree'
@@ -3571,6 +3581,7 @@ def test_orbit_obs_list_issue322():
     # Further tests of obs= list parameter for orbit output, mainly in relation
     # to issue #322
     from galpy.orbit import Orbit
+
     # The basic case, for a planar orbit
     o= Orbit([0.9,0.1,1.2,0.])
     assert numpy.fabs(o.helioX(obs=[1.,0.,0.],ro=1.)-0.1) < 10.**-7., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
@@ -3602,6 +3613,7 @@ def test_orbit_obs_Orbit_issue322():
     #Further tests of obs= Orbit parameter for orbit output, mainly in relation
     # to issue #322
     from galpy.orbit import Orbit
+
     # The basic case, for a planar orbit
     o= Orbit([0.9,0.1,1.2,0.])
     assert numpy.fabs(o.helioX(obs=Orbit([1.,0.,0.,0.]),ro=1.)-0.1) < 10.**-7., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
@@ -3634,6 +3646,7 @@ def test_orbit_obs_Orbits_issue322():
     # to issue #322; specific case where the orbit gets evaluated at multiple
     # times
     from galpy.orbit import Orbit
+
     # Do non-zero Ysun case for planarOrbit
     o= Orbit([0.9,0.1,1.2,numpy.pi/2.],ro=1.)
     obs= Orbit([1.,0.,0.,numpy.pi/2.],ro=1.)
@@ -3673,6 +3686,7 @@ def test_orbit_obsvel_list_issue322():
     # Further tests of obs= list parameter for orbit output, incl. velocity
     # mainly in relation to issue #322
     from galpy.orbit import Orbit
+
     # The basic case, for a planar orbit
     o= Orbit([0.9,0.1,1.2,0.])
     assert numpy.fabs(o.U(obs=[1.,0.,0.,0.,0.7,0.],ro=1.,vo=1.)+0.1) < 10.**-6., 'Relative position wrt the Sun from using obs= keyword does not work as expected'
@@ -3705,6 +3719,7 @@ def test_orbit_obsvel_Orbit_issue322():
     # Further tests of obs= Orbit parameter for orbit output, incl. velocity
     # mainly in relation to issue #322
     from galpy.orbit import Orbit
+
     # The basic case, for a planar orbit
     o= Orbit([0.9,0.1,1.2,0.])
     obs= Orbit([1.,0.,0.7,0.,0.,0.],ro=1.,vo=1.)
@@ -3743,6 +3758,7 @@ def test_orbit_obsvel_Orbits_issue322():
     # to issue #322; specific case where the orbit gets evaluated at multiple
     # times; for velocity
     from galpy.orbit import Orbit
+
     # Do non-zero Ysun case for planarOrbit
     o= Orbit([0.9,0.1,1.2,numpy.pi/2.],ro=1.)
     obs= Orbit([1.,0.5,1.3,numpy.pi/2.],ro=1.)
@@ -3781,8 +3797,8 @@ def test_orbit_obsvel_Orbits_issue322():
 def test_orbit_dim_2dPot_3dOrb():
     # Test that orbit integration throws an error when using a potential that
     # is lower dimensional than the orbit (using ~Plevne's example)
-    from galpy.util import conversion
     from galpy.orbit import Orbit
+    from galpy.util import conversion
     b_p= potential.PowerSphericalPotentialwCutoff(\
         alpha=1.8,rc=1.9/8.,normalize=0.05)
     ell_p= potential.EllipticalDiskPotential()
@@ -3797,8 +3813,8 @@ def test_orbit_dim_2dPot_3dOrb():
 def test_orbit_dim_1dPot_3dOrb():
     # Test that orbit integration throws an error when using a potential that
     # is lower dimensional than the orbit, for a 1D potential
-    from galpy.util import conversion
     from galpy.orbit import Orbit
+    from galpy.util import conversion
     b_p= potential.PowerSphericalPotentialwCutoff(\
         alpha=1.8,rc=1.9/8.,normalize=0.05)
     pota= potential.RZToverticalPotential(b_p,1.1)
@@ -3897,9 +3913,11 @@ def test_orbit_radecetc_voWarning():
 # Test whether orbit evaluation methods sound warning when called with
 # unitless time when orbit is integrated with unitfull times
 def test_orbit_method_integrate_t_asQuantity_warning():
-    from galpy.potential import MWPotential2014
-    from galpy.orbit import Orbit
     from astropy import units
+
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential2014
+
     # Setup and integrate orbit
     ts= numpy.linspace(0.,10.,1001)*units.Gyr
     o= Orbit([1.1,0.1,1.1,0.1,0.1,0.2])
@@ -3949,9 +3967,10 @@ def test_orbit_method_integrate_t_asQuantity_warning():
 # Test whether ro in methods using physical_conversion can be specified
 # as a Quantity
 def test_orbit_method_inputro_quantity():
+    from astropy import units
+
     from galpy.orbit import Orbit
     from galpy.potential import MWPotential2014
-    from astropy import units
     o= Orbit([1.1,0.1,1.1,0.2,0.3,0.3])
     ro= 11.
     assert numpy.fabs(o.E(pot=MWPotential2014,ro=ro*units.kpc)-o.E(pot=MWPotential2014,ro=ro)) < 10.**-8., 'Orbit method E does not return the correct value when input ro is Quantity'
@@ -4014,9 +4033,10 @@ def test_orbit_method_inputro_quantity():
 # Test whether vo in methods using physical_conversion can be specified
 # as a Quantity
 def test_orbit_method_inputvo_quantity():
+    from astropy import units
+
     from galpy.orbit import Orbit
     from galpy.potential import MWPotential2014
-    from astropy import units
     o= Orbit([1.1,0.1,1.1,0.2,0.3,0.3])
     vo= 222.
     assert numpy.fabs(o.E(pot=MWPotential2014,vo=vo*units.km/units.s)-o.E(pot=MWPotential2014,vo=vo)) < 10.**-8., 'Orbit method E does not return the correct value when input vo is Quantity'
@@ -4079,8 +4099,9 @@ def test_orbit_method_inputvo_quantity():
 # Test whether obs in methods using physical_conversion can be specified
 # as a Quantity
 def test_orbit_method_inputobs_quantity():
-    from galpy.orbit import Orbit
     from astropy import units
+
+    from galpy.orbit import Orbit
     o= Orbit([1.1,0.1,1.1,0.2,0.3,0.3])
     obs= [11.,0.1,0.2,-10.,245.,7.]
     obs_units= [11.*units.kpc,0.1*units.kpc,0.2*units.kpc,
@@ -4309,10 +4330,11 @@ def test_doublewrapper_2d():
     # Test that a doubly-wrapped potential gets passed to C correctly,
     # by comparing orbit integrated in C to that in python
     from galpy.orbit import Orbit
-    from galpy.potential import LogarithmicHaloPotential, \
-        DehnenBarPotential, \
-        SolidBodyRotationWrapperPotential, \
-        DehnenSmoothWrapperPotential
+    from galpy.potential import (DehnenBarPotential,
+                                 DehnenSmoothWrapperPotential,
+                                 LogarithmicHaloPotential,
+                                 SolidBodyRotationWrapperPotential)
+
     # potential= flat vc + doubly-wrapped bar
     pot= [LogarithmicHaloPotential(normalize=1.),
           SolidBodyRotationWrapperPotential(\
@@ -4338,10 +4360,11 @@ def test_doublewrapper_3d():
     # Test that a doubly-wrapped potential gets passed to C correctly,
     # by comparing orbit integrated in C to that in python
     from galpy.orbit import Orbit
-    from galpy.potential import LogarithmicHaloPotential, \
-        DehnenBarPotential, \
-        SolidBodyRotationWrapperPotential, \
-        DehnenSmoothWrapperPotential
+    from galpy.potential import (DehnenBarPotential,
+                                 DehnenSmoothWrapperPotential,
+                                 LogarithmicHaloPotential,
+                                 SolidBodyRotationWrapperPotential)
+
     # potential= flat vc + doubly-wrapped bar
     pot= [LogarithmicHaloPotential(normalize=1.),
           SolidBodyRotationWrapperPotential(\
@@ -4370,11 +4393,12 @@ def test_wrapper_followedbyanotherpotential_2d():
     # gets passed to C correctly,
     # by comparing orbit integrated in C to that in python
     from galpy.orbit import Orbit
-    from galpy.potential import LogarithmicHaloPotential, \
-        DehnenBarPotential, \
-        SolidBodyRotationWrapperPotential, \
-        DehnenSmoothWrapperPotential, \
-        SpiralArmsPotential
+    from galpy.potential import (DehnenBarPotential,
+                                 DehnenSmoothWrapperPotential,
+                                 LogarithmicHaloPotential,
+                                 SolidBodyRotationWrapperPotential,
+                                 SpiralArmsPotential)
+
     # potential= flat vc + doubly-wrapped bar
     pot= [LogarithmicHaloPotential(normalize=1.),
           SolidBodyRotationWrapperPotential(\
@@ -4402,11 +4426,12 @@ def test_wrapper_followedbyanotherpotential_3d():
     # gets passed to C correctly,
     # by comparing orbit integrated in C to that in python
     from galpy.orbit import Orbit
-    from galpy.potential import LogarithmicHaloPotential, \
-        DehnenBarPotential, \
-        SolidBodyRotationWrapperPotential, \
-        DehnenSmoothWrapperPotential, \
-        SpiralArmsPotential
+    from galpy.potential import (DehnenBarPotential,
+                                 DehnenSmoothWrapperPotential,
+                                 LogarithmicHaloPotential,
+                                 SolidBodyRotationWrapperPotential,
+                                 SpiralArmsPotential)
+
     # potential= flat vc + doubly-wrapped bar
     pot= [LogarithmicHaloPotential(normalize=1.),
           SolidBodyRotationWrapperPotential(\
@@ -4436,11 +4461,12 @@ def test_wrapper_complicatedsequence_2d():
     # gets passed to C correctly, by comparing orbit integrated in C to that
     # in python
     from galpy.orbit import Orbit
-    from galpy.potential import LogarithmicHaloPotential, \
-        DehnenBarPotential, \
-        SolidBodyRotationWrapperPotential, \
-        DehnenSmoothWrapperPotential, \
-        SpiralArmsPotential
+    from galpy.potential import (DehnenBarPotential,
+                                 DehnenSmoothWrapperPotential,
+                                 LogarithmicHaloPotential,
+                                 SolidBodyRotationWrapperPotential,
+                                 SpiralArmsPotential)
+
     # potential= flat vc + doubly-wrapped bar + spiral-arms
     pot= [LogarithmicHaloPotential(normalize=0.2),
           SolidBodyRotationWrapperPotential(\
@@ -4471,11 +4497,12 @@ def test_wrapper_complicatedsequence_3d():
     # gets passed to C correctly, by comparing orbit integrated in C to that
     # in python
     from galpy.orbit import Orbit
-    from galpy.potential import LogarithmicHaloPotential, \
-        DehnenBarPotential, \
-        SolidBodyRotationWrapperPotential, \
-        DehnenSmoothWrapperPotential, \
-        SpiralArmsPotential
+    from galpy.potential import (DehnenBarPotential,
+                                 DehnenSmoothWrapperPotential,
+                                 LogarithmicHaloPotential,
+                                 SolidBodyRotationWrapperPotential,
+                                 SpiralArmsPotential)
+
     # potential= flat vc + doubly-wrapped bar + spiral-arms
     pot= [LogarithmicHaloPotential(normalize=0.2),
           SolidBodyRotationWrapperPotential(\
@@ -4762,7 +4789,7 @@ def test_full_plotting():
            d2='R*sin(phi-{:f}*t)'\
                .format(o.Op(quantity=False)-o.Or(quantity=False)/2))
     with pytest.raises(TypeError) as excinfo:
-        # Unparseable expression gives TypeError
+        # Unparsable expression gives TypeError
         o.plot(d1='t',d2='r^2')
     # Test AttributeErrors
     try: oa.plotx()
@@ -4938,29 +4965,30 @@ def test_from_name_errors():
         Orbit.from_name('GJ 440')
     msg = "failed to find some coordinates for GJ 440 in SIMBAD"
     assert str(excinfo.value) == msg, \
-        "expected message '{}' but got '{}' instead".format(msg, str(excinfo.value))
+        f"expected message '{msg}' but got '{str(excinfo.value)}' instead"
 
     # test with a fake object
     with pytest.raises(ValueError) as excinfo:
         Orbit.from_name('abc123')
     msg = "failed to find abc123 in SIMBAD"
     assert str(excinfo.value) == msg, \
-        "expected message '{}' but got '{}' instead".format(msg, str(excinfo.value))
+        f"expected message '{msg}' but got '{str(excinfo.value)}' instead"
 
     # test GRB 090423
     with pytest.raises(ValueError) as excinfo:
         Orbit.from_name('GRB 090423')
     msg = "failed to find some coordinates for GRB 090423 in SIMBAD"
     assert str(excinfo.value) == msg, \
-        "expected message '{}' but got '{}' instead".format(msg, str(excinfo.value))
+        f"expected message '{msg}' but got '{str(excinfo.value)}' instead"
 
 def test_from_name_named():
     # Test that the values from the JSON file are correctly transferred
-    from galpy.orbit import Orbit
-    import galpy.orbit
+    import json
     # Read the JSON file
     import os
-    import json
+
+    import galpy.orbit
+    from galpy.orbit import Orbit
     named_objects_file= os.path.join(os.path.dirname(os.path.realpath(\
                 galpy.orbit.__file__)),'named_objects.json')
     with open(named_objects_file) as json_file:
@@ -4977,24 +5005,25 @@ def test_from_name_named():
             if attr == 'pmcorr' or '_e' in attr: continue
             if attr == 'ro' or attr == 'vo' or attr == 'zo' \
                     or attr == 'solarmotion':
-                assert numpy.all(numpy.isclose(getattr(o,'_{:s}'.format(attr)),
+                assert numpy.all(numpy.isclose(getattr(o,f'_{attr:s}'),
                                                named_data[obj][attr]))
             elif attr == 'distance':
                 assert numpy.isclose(o.dist(),named_data[obj][attr])
             else:
-                assert numpy.isclose(getattr(o,'{:s}'.format(attr))(),
+                assert numpy.isclose(getattr(o,f'{attr:s}')(),
                                      named_data[obj][attr])
     return None
 
 def test_from_name_collections():
     # Test that the values from the JSON file are correctly transferred,
     # for collections of objects
-    from galpy.orbit import Orbit
-    from galpy.orbit.Orbits import _known_objects_collections_original_keys
-    import galpy.orbit
+    import json
     # Read the JSON file
     import os
-    import json
+
+    import galpy.orbit
+    from galpy.orbit import Orbit
+    from galpy.orbit.Orbits import _known_objects_collections_original_keys
     named_objects_file= os.path.join(os.path.dirname(os.path.realpath(\
                 galpy.orbit.__file__)),'named_objects.json')
     with open(named_objects_file) as json_file:
@@ -5011,13 +5040,14 @@ def test_from_name_collections():
                     assert numpy.isclose(o.dist()[ii],
                                          named_data[individual_obj][attr])
                 else:
-                    assert numpy.isclose(getattr(o,'{:s}'.format(attr))()[ii],
+                    assert numpy.isclose(getattr(o,f'{attr:s}')()[ii],
                                          named_data[individual_obj][attr])
     return None
 
 def test_from_name_solarsystem():
     # Test that the solar system matches Bovy et al. (2010)'s input data
     from astropy import units
+
     from galpy.orbit import Orbit
     correct_xyz= numpy.array(
         [[0.324190175,0.090955208,-0.022920510,-4.627851589,10.390063716,1.273504997],
@@ -5039,8 +5069,8 @@ def test_from_name_solarsystem():
     return None
 
 def test_rguiding_errors():
-    from galpy.potential import TriaxialNFWPotential
     from galpy.orbit import Orbit
+    from galpy.potential import TriaxialNFWPotential
     R,Lz= 1.,1.4
     o= Orbit([R,0.4,Lz/R,0.])
     # No potential raises error
@@ -5053,8 +5083,8 @@ def test_rguiding_errors():
     return None
 
 def test_rE_errors():
-    from galpy.potential import TriaxialNFWPotential
     from galpy.orbit import Orbit
+    from galpy.potential import TriaxialNFWPotential
     R,Lz= 1.,1.4
     o= Orbit([R,0.4,Lz/R,0.])
     # No potential raises error
@@ -5067,8 +5097,8 @@ def test_rE_errors():
     return None
 
 def test_LcE_errors():
-    from galpy.potential import TriaxialNFWPotential
     from galpy.orbit import Orbit
+    from galpy.potential import TriaxialNFWPotential
     R,Lz= 1.,1.4
     o= Orbit([R,0.4,Lz/R,0.])
     # No potential raises error
@@ -5101,10 +5131,11 @@ def test_phi_range():
 def test_orbit_time():
     # Test that Orbit.time returns the time correctly, with units when that's
     # required
+    from astropy import units as u
+
     from galpy.orbit import Orbit
     from galpy.potential import MWPotential2014
     from galpy.util import conversion
-    from astropy import units as u
     ts= numpy.linspace(0.,1.,1001)*u.Gyr
     o= Orbit()
     o.integrate(ts,MWPotential2014)
@@ -5126,9 +5157,10 @@ def test_noDeprecationWarning_timeInCall():
     # The short-cut in calling an orbit to check whether the given times are
     # exactly the same as the input times should not raise a DeprecationWarning
     # (in the first implementation as 'numpy.all(t == self.t)' it did)
+    from astropy import units
+
     from galpy.orbit import Orbit
     from galpy.potential import MWPotential
-    from astropy import units
     ts= numpy.linspace(0.,10.,1001)
     orb= Orbit()
     orb.integrate(ts,MWPotential)
@@ -5154,9 +5186,11 @@ def test_noDeprecationWarning_timeInCall():
 # Test that issue 402 is resolved: initialization with a SkyCoord when radec=True should work fine
 def test_SkyCoord_init_with_radecisTrue():
     if not _APY3: return None # not done in python 2
-    from galpy.orbit import Orbit
     from astropy import units as u
     from astropy.coordinates import SkyCoord
+
+    from galpy.orbit import Orbit
+
     # Example is for NGC5466 from @jjensen4571
     rv_ngc5466= 106.93
     pmra_ngc5466= -5.41
@@ -5197,7 +5231,7 @@ def test_SkyCoord_init_with_radecisTrue():
 # work properly
 # Test from @jamesmlane
 def test_orbit_call_single_time_as_int():
-    from galpy import potential, orbit
+    from galpy import orbit, potential
     pot = potential.MWPotential2014
     o= orbit.Orbit()
     times = numpy.array([0,1,2])
@@ -5215,8 +5249,9 @@ def test_orbit_call_single_time_as_int():
 # does not work properly
 # Test from @jamesmlane
 def test_orbit_call_single_time_as_Quantity():
-    from galpy import potential, orbit
     from astropy import units as u
+
+    from galpy import orbit, potential
     pot = potential.MWPotential2014
     o= orbit.Orbit()
     times = numpy.array([0,1,2])*u.Gyr
@@ -5408,7 +5443,7 @@ def check_radecetc_roWarning(o,funcName):
     raisedWarning= False
     for rec in record:
         # check that the message matches
-        raisedWarning+= (str(rec.message.args[0]) == "Method {}(.) requires ro to be given at Orbit initialization or at method evaluation; using default ro which is {:f} kpc".format(funcName,8.))
+        raisedWarning+= (str(rec.message.args[0]) == f"Method {funcName}(.) requires ro to be given at Orbit initialization or at method evaluation; using default ro which is {8.:f} kpc")
     assert raisedWarning, "Orbit method %s without ro specified should have thrown a warning, but didn't" % funcName
     return None
 
@@ -5422,7 +5457,7 @@ def check_radecetc_voWarning(o,funcName):
     raisedWarning= False
     for rec in record:
         # check that the message matches
-        raisedWarning+= (str(rec.message.args[0]) == "Method {}(.) requires vo to be given at Orbit initialization or at method evaluation; using default vo which is {:f} km/s".format(funcName,220.))
+        raisedWarning+= (str(rec.message.args[0]) == f"Method {funcName}(.) requires vo to be given at Orbit initialization or at method evaluation; using default vo which is {220.:f} km/s")
     assert raisedWarning, "Orbit method %s without vo specified should have thrown a warning, but didn't" % funcName
     return None
 
@@ -5433,13 +5468,13 @@ def check_integrate_t_asQuantity_warning(o,funcName):
     for rec in record:
         # check that the message matches
         raisedWarning+= (str(rec.message.args[0]) == "You specified integration times as a Quantity, but are evaluating at times not specified as a Quantity; assuming that time given is in natural (internal) units (multiply time by unit to get output at physical time)")
-    assert raisedWarning, "Orbit method %s wit unitless time after integrating with unitful time should have thrown a warning, but didn't" % funcName
+    assert raisedWarning, "Orbit method %s with unitless time after integrating with unitful time should have thrown a warning, but didn't" % funcName
     return None
 
 def test_integrate_method_warning():
-    """ Test Orbit.integrate raises an error if method is unvalid """
-    from galpy.potential import MWPotential2014
+    """ Test Orbit.integrate raises an error if method is invalid """
     from galpy.orbit import Orbit
+    from galpy.potential import MWPotential2014
     o = Orbit(vxvv=[1.0, 0.1, 0.1, 0.5, 0.1, 0.0])
     t = numpy.arange(0.0, 10.0, 0.001)
     with pytest.raises(ValueError):
@@ -5449,7 +5484,8 @@ def test_MovingObjectPotential_orbit():
     # Test integration of an object with a MovingObjectPotential
     # Test that orbits integrated by C and Python are the same
     from galpy.orbit import Orbit
-    from galpy.potential import MWPotential2014, HernquistPotential, MovingObjectPotential
+    from galpy.potential import (HernquistPotential, MovingObjectPotential,
+                                 MWPotential2014)
 
     tmax = 5.
     times = numpy.linspace(0, tmax, 101)
@@ -5477,7 +5513,8 @@ def test_MovingObjectPotential_planar_orbit():
     # Test integration of an object with a MovingObjectPotential
     # Test that orbits integrated by C and Python are the same
     from galpy.orbit import Orbit
-    from galpy.potential import MWPotential2014, HernquistPotential, MovingObjectPotential
+    from galpy.potential import (HernquistPotential, MovingObjectPotential,
+                                 MWPotential2014)
 
     tmax = 5.
     times = numpy.linspace(0, tmax, 101)

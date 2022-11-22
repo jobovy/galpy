@@ -1,13 +1,16 @@
 ###############################################################################
 #   KuzminDiskPotential.py: class that implements Kuzmin disk potential
 #
-#                                   - amp                   
+#                                   - amp
 #               Phi(R, z)=  ---------------------------
-#                            \sqrt{R^2 + (a + |z|)^2} 
+#                            \sqrt{R^2 + (a + |z|)^2}
 ###############################################################################
 import numpy
+
 from ..util import conversion
 from .Potential import Potential
+
+
 class KuzminDiskPotential(Potential):
     """Class that implements the Kuzmin Disk potential
 
@@ -32,7 +35,7 @@ class KuzminDiskPotential(Potential):
             amp - amplitude to be applied to the potential, the total mass (default: 1); can be a Quantity with units of mass density or Gxmass density
 
             a - scale length (can be Quantity)
-    
+
             normalize - if True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
 
            ro=, vo= distance and velocity scales for translation into internal units (default from configuration file)
@@ -43,15 +46,15 @@ class KuzminDiskPotential(Potential):
 
         HISTORY:
 
-           2016-05-09 - Written - Aladdin 
+           2016-05-09 - Written - Aladdin
 
         """
         Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='mass')
         a= conversion.parse_length(a,ro=self._ro)
-        self._a = a ## a must be greater or equal to 0. 
+        self._a = a ## a must be greater or equal to 0.
         if normalize or \
                 (isinstance(normalize,(int,float)) \
-                     and not isinstance(normalize,bool)): 
+                     and not isinstance(normalize,bool)):
             self.normalize(normalize)
         self.hasC = True
         self.hasC_dxdv= True
@@ -71,7 +74,7 @@ class KuzminDiskPotential(Potential):
         OUTPUT:
            potential at (R,z)
         HISTORY:
-           2016-05-09 - Written - Aladdin 
+           2016-05-09 - Written - Aladdin
         """
         return -self._denom(R, z)**-0.5
 
@@ -89,7 +92,7 @@ class KuzminDiskPotential(Potential):
         OUTPUT:
             the radial force = -dphi/dR
         HISTORY:
-            2016-05-09 - Written - Aladdin 
+            2016-05-09 - Written - Aladdin
         """
         return -self._denom(R, z)**-1.5 * R
 
@@ -107,10 +110,10 @@ class KuzminDiskPotential(Potential):
         OUTPUT:
            the vertical force = -dphi/dz
         HISTORY:
-           2016-05-09 - Written - Aladdin 
+           2016-05-09 - Written - Aladdin
         """
         return -numpy.sign(z) * self._denom(R,z)**-1.5 * (self._a + numpy.fabs(z))
-        
+
     def _R2deriv(self,R,z,phi=0.,t=0.):
         """
         NAME:
@@ -125,10 +128,10 @@ class KuzminDiskPotential(Potential):
         OUTPUT:
             the second radial derivative
         HISTORY:
-            2016-05-13 - Written - Aladdin 
+            2016-05-13 - Written - Aladdin
         """
-        return self._denom(R, z)**-1.5 - 3.*R**2 * self._denom(R, z)**-2.5 
-        
+        return self._denom(R, z)**-1.5 - 3.*R**2 * self._denom(R, z)**-2.5
+
     def _z2deriv(self,R,z,phi=0.,t=0.):
         """
         NAME:
@@ -143,10 +146,10 @@ class KuzminDiskPotential(Potential):
         OUTPUT:
            the second vertical derivative
         HISTORY:
-           2016-05-13 - Written - Aladdin 
+           2016-05-13 - Written - Aladdin
         """
         a = self._a
-        return self._denom(R, z)**-1.5 - 3. * (a + numpy.fabs(z))**2. * self._denom(R, z)**-2.5 
+        return self._denom(R, z)**-1.5 - 3. * (a + numpy.fabs(z))**2. * self._denom(R, z)**-2.5
 
     def _Rzderiv(self,R,z,phi=0.,t=0.):
         """
@@ -162,10 +165,10 @@ class KuzminDiskPotential(Potential):
         OUTPUT:
            d2phi/dR/dz
         HISTORY:
-           2016-05-13 - Written - Aladdin 
+           2016-05-13 - Written - Aladdin
         """
-        return -3 * numpy.sign(z) * R * (self._a + numpy.fabs(z)) *self._denom(R, z)**-2.5 
-       
+        return -3 * numpy.sign(z) * R * (self._a + numpy.fabs(z)) *self._denom(R, z)**-2.5
+
     def _surfdens(self,R,z,phi=0.,t=0.):
         """
         NAME:
@@ -214,6 +217,6 @@ class KuzminDiskPotential(Potential):
         OUTPUT:
            R^2 + (a + |z|)^2
         HISTORY:
-           2016-05-09 - Written - Aladdin 
+           2016-05-09 - Written - Aladdin
         """
         return (R**2. + (self._a + numpy.fabs(z))**2.)

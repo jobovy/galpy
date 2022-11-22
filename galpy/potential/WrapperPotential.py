@@ -1,16 +1,17 @@
 ###############################################################################
 #   WrapperPotential.py: Super-class for wrapper potentials
 ###############################################################################
-from .Potential import Potential, _isNonAxi, _dim
-from .planarPotential import planarPotential
-from .Potential import _evaluatePotentials, \
-    _evaluateRforces, _evaluatephitorques, _evaluatezforces, \
-    evaluateR2derivs, evaluatez2derivs, \
-    evaluateRzderivs, evaluateDensities
-from .planarPotential import _evaluateplanarPotentials, \
-    _evaluateplanarRforces, _evaluateplanarphitorques, \
-    evaluateplanarR2derivs
-from ..util.conversion import physical_compatible, get_physical
+from ..util.conversion import get_physical, physical_compatible
+from .planarPotential import (_evaluateplanarphitorques,
+                              _evaluateplanarPotentials,
+                              _evaluateplanarRforces, evaluateplanarR2derivs,
+                              planarPotential)
+from .Potential import (Potential, _dim, _evaluatephitorques,
+                        _evaluatePotentials, _evaluateRforces,
+                        _evaluatezforces, _isNonAxi, evaluateDensities,
+                        evaluateR2derivs, evaluateRzderivs, evaluatez2derivs)
+
+
 def _new_obj(cls, kwargs, args):
     """Maps kwargs to cls.__new__"""
     return cls.__new__(cls, *args, **kwargs)
@@ -73,7 +74,7 @@ class WrapperPotential(Potential):
         Potential.__init__(self,amp=amp,ro=ro,vo=vo)
         self._pot= pot
         self.isNonAxi= _isNonAxi(self._pot)
-        # Check whether units are consistent between the wrapper and the 
+        # Check whether units are consistent between the wrapper and the
         # wrapped potential
         assert physical_compatible(self,self._pot), \
             """Physical unit conversion parameters (ro,vo) are not """\
@@ -88,7 +89,7 @@ class WrapperPotential(Potential):
     def __repr__(self):
         wrapped_repr= repr(self._pot)
         return Potential.__repr__(self) + ', wrapper of' \
-            + ''.join(['\n\t{}'.format(s) for s in wrapped_repr.split('\n')])
+            + ''.join([f'\n\t{s}' for s in wrapped_repr.split('\n')])
 
     def __getattr__(self,attribute):
         if attribute == '_evaluate' \
@@ -166,7 +167,7 @@ class planarWrapperPotential(planarPotential):
         planarPotential.__init__(self,amp=amp,ro=ro,vo=vo)
         self._pot= pot
         self.isNonAxi= _isNonAxi(self._pot)
-        # Check whether units are consistent between the wrapper and the 
+        # Check whether units are consistent between the wrapper and the
         # wrapped potential
         assert physical_compatible(self,self._pot), \
             """Physical unit conversion parameters (ro,vo) are not """\
@@ -181,7 +182,7 @@ class planarWrapperPotential(planarPotential):
     def __repr__(self):
         wrapped_repr= repr(self._pot)
         return Potential.__repr__(self) + ', wrapper of' \
-            + ''.join(['\n\t{}'.format(s) for s in wrapped_repr.split('\n')])
+            + ''.join([f'\n\t{s}' for s in wrapped_repr.split('\n')])
 
     def __getattr__(self,attribute):
         if attribute == '_evaluate' \
@@ -216,4 +217,3 @@ class planarWrapperPotential(planarPotential):
                 _evaluateplanarPotentials(p,R,phi=phi,t=t,dR=1,dphi=1)
         else: #pragma: no cover
             raise AttributeError("Attribute %s not found in for this WrapperPotential" % attribute)
-

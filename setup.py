@@ -1,15 +1,15 @@
-from setuptools import setup
-from distutils.core import Extension
-from distutils.command.build_ext import build_ext as build_ext
-import sys
-import distutils.sysconfig as sysconfig
 import distutils.ccompiler
-from distutils.errors import DistutilsPlatformError
-import os, os.path
+import glob
+import os
+import os.path
 import platform
 import subprocess
-import glob
+import sys
+import sysconfig
 
+from setuptools import Extension, setup
+from setuptools.command.build_ext import build_ext
+from setuptools.errors import PlatformError
 
 PY3= sys.version > '3'
 WIN32= platform.system() == 'Windows'
@@ -61,7 +61,11 @@ if use_intel_compiler: # OpenMP by default included for Intel, see #416
 try:
     openmp_pos = sys.argv.index('--no-openmp')
 except ValueError:
-    extra_compile_args = ["-fopenmp" if not WIN32 else "/openmp"]
+    if "PYODIDE" in os.environ:
+        extra_compile_args= ["-DNO_OMP"]
+        galpy_c_libraries.remove('gomp')
+    else:
+        extra_compile_args = ["-fopenmp" if not WIN32 else "/openmp"]
 else:
     del sys.argv[openmp_pos]
     extra_compile_args= ["-DNO_OMP"]
@@ -96,7 +100,7 @@ else:
     del sys.argv[no_ext_pos]
     no_ext= True
 
-#code to check the GSL version; list cmd w/ shell=True only works on Windows 
+#code to check the GSL version; list cmd w/ shell=True only works on Windows
 # (https://docs.python.org/3/library/subprocess.html#converting-argument-sequence)
 cmd= ['gsl-config','--version']
 try:
@@ -108,7 +112,10 @@ try:
             subprocess.check_output(cmd,
                                     shell=sys.platform.startswith('win'))
 except (OSError,subprocess.CalledProcessError):
-    gsl_version= ['0','0']
+    if "PYODIDE" in os.environ:
+        gsl_version= ['2','7']
+    else:
+        gsl_version= ['0','0']
 else:
     if PY3:
         gsl_version= gsl_version.decode('utf-8')
@@ -128,7 +135,7 @@ if distutils.ccompiler.get_default_compiler().lower() == 'msvc':
     try:
         test_compiler = distutils.ccompiler.new_compiler()
         test_compiler.initialize()  # try to initialize a test compiler to see if compiler presented
-    except DistutilsPlatformError:  # this error will be raised if no compiler in the system
+    except PlatformError:  # this error will be raised if no compiler in the system
         no_compiler = True
 
 # To properly export GSL symbols on Windows, need to defined GSL_DLL and WIN32
@@ -137,7 +144,7 @@ if WIN32:
     extra_compile_args.append("-DWIN32")
 
 #main C extension
-galpy_c_src= ['galpy/util/bovy_symplecticode.c', 'galpy/util/bovy_rk.c', 
+galpy_c_src= ['galpy/util/bovy_symplecticode.c', 'galpy/util/bovy_rk.c',
               'galpy/util/leung_dop853.c','galpy/util/bovy_coords.c']
 galpy_c_src.extend(glob.glob('galpy/potential/potential_c_ext/*.c'))
 galpy_c_src.extend(glob.glob('galpy/potential/interppotential_c_ext/*.c'))
@@ -186,7 +193,7 @@ if single_ext: #add the code and libraries for the actionAngleTorus extensions
         galpy_c_src= list(set(galpy_c_src))
         galpy_c_include_dirs.extend(actionAngleTorus_include_dirs)
         galpy_c_include_dirs= list(set(galpy_c_include_dirs))
-    
+
 #Installation of this extension using the GSL may (silently) fail, if the GSL
 #is built for the wrong architecture, on Mac you can install the GSL correctly
 #using
@@ -228,7 +235,8 @@ else:
 def compiler_has_flag(compiler,flagname):
     """Test whether a given compiler supports a given option"""
     import tempfile
-    from distutils.errors import CompileError
+
+    from setuptools.errors import CompileError
     with tempfile.NamedTemporaryFile('w', suffix='.cpp') as f:
         f.write('int main (int argc, char **argv) { return 0; }')
         try:
@@ -249,10 +257,10 @@ class BuildExt(build_ext):
                         extra_compile_args.append(flag)
                 ext.extra_compile_args= extra_compile_args
         build_ext.build_extensions(self)
-    
+
 setup(cmdclass=dict(build_ext=BuildExt), # this to allow compiler check above
       name='galpy',
-      version='1.7.3.dev0',
+      version='1.8.2.dev0',
       description='Galactic Dynamics in python',
       author='Jo Bovy',
       author_email='bovy@astro.utoronto.ca',
@@ -268,7 +276,8 @@ setup(cmdclass=dict(build_ext=BuildExt), # this to allow compiler check above
                     'galpy/df':['data/*.sav'],
                     "": ["README.md","README.dev","LICENSE","AUTHORS.rst"]},
       include_package_data=True,
-      install_requires=['setuptools','numpy>=1.7','scipy','matplotlib'],
+      python_requires='>=3.8',
+      install_requires=['packaging','numpy>=1.7','scipy','matplotlib'],
       ext_modules=ext_modules if not no_compiler and not no_ext else None,
       classifiers=[
         "Development Status :: 6 - Mature",
@@ -276,10 +285,10 @@ setup(cmdclass=dict(build_ext=BuildExt), # this to allow compiler check above
         "License :: OSI Approved :: BSD License",
         "Operating System :: OS Independent",
         "Programming Language :: C",
-        "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
         "Topic :: Scientific/Engineering :: Astronomy",
         "Topic :: Scientific/Engineering :: Physics"]
       )

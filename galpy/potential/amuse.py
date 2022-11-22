@@ -1,16 +1,19 @@
 # galpy.potential.amuse: AMUSE representation of galpy potentials
 import numpy
+from amuse.support.literature import LiteratureReferencesMixIn
 from amuse.units import units
 from amuse.units.quantities import ScalarQuantity
-from amuse.support.literature import LiteratureReferencesMixIn
+
 from .. import potential
 from ..util import conversion
+
+
 class galpy_profile(LiteratureReferencesMixIn):
     """
     User-defined potential from galpy
-    
+
     .. [#] Bovy, J, 2015, galpy: A Python Library for Galactic Dynamics, Astrophys. J. Supp. 216, 29 [2015ApJS..216...29B]
-    
+
     """
     def __init__(self,pot,t = 0.,tgalpy = 0.,ro=8,vo=220.,reverse=False):
         """
@@ -76,7 +79,7 @@ class galpy_profile(LiteratureReferencesMixIn):
            2019-08-12 - Written - Webb (UofT)
         """
         dt= time-self.model_time
-        self.model_time= time  
+        self.model_time= time
         if self.reverse:
             self.tgalpy-= dt.value_in(units.Gyr)\
                 /conversion.time_in_Gyr(ro=self.ro,vo=self.vo)
@@ -89,7 +92,7 @@ class galpy_profile(LiteratureReferencesMixIn):
         NAME:
            get_potential_at_point
         PURPOSE:
-           Get potenial at a given location in the potential
+           Get potential at a given location in the potential
         INPUT:
            eps - softening length (necessary for AMUSE, but not used by galpy potential)
            x,y,z - position in the potential

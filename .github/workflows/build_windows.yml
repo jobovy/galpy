@@ -125,7 +125,7 @@ jobs:
             REQUIRES_ASTROPY: false
             REQUIRES_ASTROQUERY: false
             REQUIRES_NUMBA: false
-            REQUIRES_JAX: false    
+            REQUIRES_JAX: false
           - os: windows-latest
             python-version: 3.9
             TEST_FILES: tests/test_orbit.py -k test_energy_jacobi_conservation
@@ -141,75 +141,72 @@ jobs:
             REQUIRES_ASTROPY: true
             REQUIRES_ASTROQUERY: true
             REQUIRES_NUMBA: false
-            REQUIRES_JAX: false            
+            REQUIRES_JAX: false
     steps:
     - uses: actions/checkout@v3
-    # Windows installation: Install Micromamba, as specificed by this repository's environment.yml for Windows
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
     # Cache both conda and pip, conda done by provision-with-micromamba
-    - uses: actions/cache@v2
+    - uses: actions/cache@v3
       with:
         path: ~\AppData\Local\pip\Cache
         key: ${{ runner.os }}-pip-${{ matrix.python-version }}-${{ hashFiles('.github/workflows/build_windows.yml') }}-${{ matrix.REQUIRES_PYNBODY }}-${{ matrix.REQUIRES_ASTROPY }}-${{ matrix.REQUIRES_ASTROQUERY }}-${{ matrix.REQUIRES_NUMBA }}-${{ matrix.REQUIRES_JAX }}
-    - uses: mamba-org/provision-with-micromamba@main
+    # Install just the GSL using conda
+    - uses: mamba-org/provision-with-micromamba@v14
       with:
-         environment-name: galpywheels
-         environment-file: .github/conda-build-environment-${{ matrix.os }}.yml
-         extra-specs: python=${{ matrix.python-version }}
+         environment-name: gsl
+         environment-file: false
+         channels: conda-forge,anaconda
+         extra-specs: gsl
          cache-downloads: true
          cache-env: true
-         cache-env-key: ${{ runner.os }}-${{ matrix.python-version }}-${{ hashFiles('.github/workflows/build_windows.yml') }}-${{ hashFiles('.github/conda-build-environment-windows-latest.yml') }}-${{ matrix.REQUIRES_PYNBODY }}-${{ matrix.REQUIRES_ASTROPY }}-${{ matrix.REQUIRES_ASTROQUERY }}-${{ matrix.REQUIRES_NUMBA }}-${{ matrix.REQUIRES_JAX }}
-    - name: Set environment variables on Windows
+         cache-env-key: ${{ runner.os }}-${{ hashFiles('.github/workflows/build_windows.yml') }}
+    - name: Set GSL environment variables
       shell: bash -l {0}
       run: |
         echo "INCLUDE=$CONDA_PREFIX\\Library\\include" >> $GITHUB_ENV
         echo "LIB=$CONDA_PREFIX\\Library\\lib" >> $GITHUB_ENV
         echo "LIBPATH=$CONDA_PREFIX\\Library\\lib" >> $GITHUB_ENV
+        echo "$CONDA_PREFIX\\Library\\bin" >> $GITHUB_PATH # necessary when we don't activate the environment
     - name: Install Python dependencies
-      shell: bash -l {0}
       run: |
          pip install --upgrade --upgrade-strategy eager numpy scipy matplotlib numexpr setuptools cython pytest tqdm
     - name: Install pynbody
       if: ${{ matrix.REQUIRES_PYNBODY }}
-      shell: bash -l {0}
       run: |
          pip install --upgrade --upgrade-strategy eager h5py pandas pytz
          pip install --upgrade --upgrade-strategy eager wheel
-         pip install git+https://github.com/pynbody/pynbody.git@cfbefac64bfad3b8d042e669ff2b36bad25813ce#egg=pynbody
+         pip install --upgrade --upgrade-strategy eager pynbody
     - name: Install astropy
       if: ${{ matrix.REQUIRES_ASTROPY && matrix.python-version != 4.0 }}
-      shell: bash -l {0}
       run: |
          pip install astropy pyerfa
     - name: Install astropy (Python 4.0; doesn't exist of course, placeholder for new python v)
       if: ${{ matrix.REQUIRES_ASTROPY && matrix.python-version == 4.0 }}
-      shell: bash -l {0}
       run: |
          pip install pyerfa
          pip install --extra-index-url=https://pkgs.dev.azure.com/astropy-project/astropy/_packaging/nightly/pypi/simple/ --pre astropy
     - name: Install astroquery
       if: ${{ matrix.REQUIRES_ASTROQUERY }}
-      shell: bash -l {0}
       run: pip install astroquery
     - name: Install numba
       if: ${{ matrix.REQUIRES_NUMBA }}
-      shell: bash -l {0}
       run: pip install numba
     - name: Install JAX
       if: ${{ matrix.REQUIRES_JAX }}
-      shell: bash -l {0}
       run: pip install jax jaxlib
     - name: Download dfcorrections
-      shell: bash -l {0}
       run: |
          curl -O https://github.s3.amazonaws.com/downloads/jobovy/galpy/galpy-dfcorrections.tar.gz
          tar xvzf galpy-dfcorrections.tar.gz -C ./galpy/df/data/
     - name: Install package
-      shell: bash -l {0}
       run: |
         python setup.py build_ext --no-openmp --single_ext --inplace
         python setup.py develop --single_ext
     - name: Print debug info
-      shell: bash -l {0}
+      shell: pwsh
       env:
          REQUIRES_ASTROPY : ${{ matrix.REQUIRES_ASTROPY }}
          REQUIRES_ASTROQUERY : ${{ matrix.REQUIRES_ASTROQUERY }}
@@ -218,14 +215,14 @@ jobs:
          python -c "import numpy; print('numpy: {}'.format(numpy.__version__))"
          python -c "import scipy; print('scipy: {}'.format(scipy.__version__))"
          python -c "import matplotlib; print('matplotlib: {}'.format(matplotlib.__version__))"
-         if $REQUIRES_ASTROPY; then python -c "import astropy; print('astropy: {}'.format(astropy.__version__))"; fi
-         if $REQUIRES_ASTROQUERY; then python -c "import astroquery; print('astroquery: {}'.format(astroquery.__version__))"; fi
-         if $REQUIRES_PYNBODY; then python -c "import pynbody; print('pynbody: {}'.format(pynbody.__version__))"; fi
+         if ( $REQUIRES_ASTROPY ) { python -c "import astropy; print('astropy: {}'.format(astropy.__version__))"}
+         if ( $REQUIRES_ASTROQUERY ) { python -c "import astroquery; print('astroquery: {}'.format(astroquery.__version__))"}
+         if ( $REQUIRES_PYNBODY ) {python -c "import pynbody; print('pynbody: {}'.format(pynbody.__version__))"}
     - name: Test with pytest
-      shell: bash -l {0}
+      shell: bash
       env:
           TEST_FILES: ${{ matrix.TEST_FILES }}
       run: |
         pip install pytest-cov
         # eval necessary for -k 'not ...' in TEST_FILES
-        eval "pytest -v $TEST_FILES --cov galpy --cov-config .coveragerc_travis --disable-pytest-warnings --durations=0"
+        eval "pytest -v $TEST_FILES --cov galpy --cov-config .coveragerc --disable-pytest-warnings --durations=0"

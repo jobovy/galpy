@@ -10,7 +10,7 @@
 #include <galpy_potentials.h>
 // ChandrasekharDynamicalFrictionForce: 8 arguments: amp,ms,rhm,gamma^2,
 // lnLambda, minr^2, ro, rf
-double ChandrasekharDynamicalFrictionForceAmplitude(double R,double z, 
+double ChandrasekharDynamicalFrictionForceAmplitude(double R,double z,
 						    double phi,double t,
 						    double r2,
 						    struct potentialArg * potentialArgs,
@@ -142,4 +142,3 @@ double ChandrasekharDynamicalFrictionForcephitorque(double R,double z,
     forceAmplitude= *(args + 8);
   return forceAmplitude * vT * R;
 }
-

@@ -1,18 +1,23 @@
 # Make sure to set configuration, needs to be before any galpy imports
-from pkg_resources import parse_version
 import pytest
+from packaging.version import parse as parse_version
+
 from galpy.util import config
+
 config.__config__.set('astropy','astropy-units','True')
 import numpy
+
 _NUMPY_VERSION= parse_version(numpy.__version__)
 _NUMPY_1_22= (_NUMPY_VERSION > parse_version('1.21'))\
     *(_NUMPY_VERSION < parse_version('1.23')) # For testing 1.22 precision issues
-from astropy import units, constants
+from astropy import constants, units
+
 sdf_sanders15= None #so we can set this up and then use in other tests
 sdf_sanders15_nou= None #so we can set this up and then use in other tests
 
 def test_parsers():
     from galpy.util import conversion
+
     # Unitless
     assert numpy.fabs(conversion.parse_length(2.)-2.) < 1e-10, 'parse_length does not parse unitless position correctly'
     assert numpy.fabs(conversion.parse_energy(3.)-3.) < 1e-10, 'parse_energy does not parse unitless energy correctly'
@@ -22,6 +27,21 @@ def test_parsers():
     assert numpy.fabs(conversion.parse_length(2.*units.parsec,ro=ro,vo=vo)-(0.002/ro)) < 1e-10, 'parse_length does parse Quantity position correctly'
     assert numpy.fabs(conversion.parse_energy(-30.*units.km**2/units.s**2,ro=ro,vo=vo)-(-30./vo**2)) < 1e-10, 'parse_energy does parse Quantity energy correctly'
     assert numpy.fabs(conversion.parse_angmom(2200.*units.kpc*units.km/units.s,ro=ro,vo=vo)-(2200./ro/vo)) < 1e-10, 'parse_angmom does parse Quantity angular momentum correctly'
+    return None
+
+def test_warn_internal_when_use_physical():
+    import warnings
+
+    from galpy import potential
+    from galpy.util import galpyWarning
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always",galpyWarning)
+        potential.evaluateRforces(potential.MWPotential2014,1.,0.,use_physical=True)
+        raisedWarning= False
+        for wa in w:
+            raisedWarning= (str(wa.message) == "Returning output(s) in internal units even though use_physical=True, because ro and/or vo not set")
+            if raisedWarning: break
+        assert raisedWarning, 'No warning raised when returning internal-units with use_physical=True'
     return None
 
 def test_orbit_setup_radec_basic():
@@ -697,10 +717,11 @@ def test_orbit_method_value_turnquantityoff():
     return None
 
 def test_integrate_timeAsQuantity():
+    import copy
+
     from galpy.orbit import Orbit
     from galpy.potential import MWPotential
     from galpy.util import conversion
-    import copy
     ro, vo= 8., 200.
     o= Orbit([10.*units.kpc,-20.*units.km/units.s,210.*units.km/units.s,
               500.*units.pc,-12.*units.km/units.s,45.*units.deg],
@@ -721,10 +742,11 @@ def test_integrate_timeAsQuantity():
     return None
 
 def test_integrate_timeAsQuantity_Myr():
+    import copy
+
     from galpy.orbit import Orbit
     from galpy.potential import MWPotential
     from galpy.util import conversion
-    import copy
     ro, vo= 8., 200.
     o= Orbit([10.*units.kpc,-20.*units.km/units.s,210.*units.km/units.s,
               500.*units.pc,-12.*units.km/units.s,45.*units.deg],
@@ -745,10 +767,11 @@ def test_integrate_timeAsQuantity_Myr():
     return None
 
 def test_integrate_dtimeAsQuantity():
+    import copy
+
     from galpy.orbit import Orbit
     from galpy.potential import MWPotential
     from galpy.util import conversion
-    import copy
     ro, vo= 8., 200.
     o= Orbit([10.*units.kpc,-20.*units.km/units.s,210.*units.km/units.s,
               500.*units.pc,-12.*units.km/units.s,45.*units.deg],
@@ -772,10 +795,11 @@ def test_integrate_dtimeAsQuantity():
     return None
 
 def test_integrate_dxdv_timeAsQuantity():
+    import copy
+
     from galpy.orbit import Orbit
     from galpy.potential import MWPotential
     from galpy.util import conversion
-    import copy
     ro, vo= 8., 200.
     o= Orbit([10.*units.kpc,-20.*units.km/units.s,210.*units.km/units.s,
               45.*units.deg],
@@ -795,10 +819,11 @@ def test_integrate_dxdv_timeAsQuantity():
     return None
 
 def test_integrate_dxdv_timeAsQuantity_Myr():
+    import copy
+
     from galpy.orbit import Orbit
     from galpy.potential import MWPotential
     from galpy.util import conversion
-    import copy
     ro, vo= 8., 200.
     o= Orbit([10.*units.kpc,-20.*units.km/units.s,210.*units.km/units.s,
               45.*units.deg],
@@ -1354,10 +1379,11 @@ def test_orbits_method_value_turnquantityoff():
     return None
 
 def test_integrate_orbits_timeAsQuantity():
+    import copy
+
     from galpy.orbit import Orbit
     from galpy.potential import MWPotential
     from galpy.util import conversion
-    import copy
     ro, vo= 8., 200.
     o= Orbit([Orbit([10.*units.kpc,-20.*units.km/units.s,
                      210.*units.km/units.s,
@@ -1393,10 +1419,11 @@ def test_integrate_orbits_timeAsQuantity():
     return None
 
 def test_orbits_integrate_timeAsQuantity_Myr():
+    import copy
+
     from galpy.orbit import Orbit
     from galpy.potential import MWPotential
     from galpy.util import conversion
-    import copy
     ro, vo= 8., 200.
     o= Orbit([Orbit([10.*units.kpc,-20.*units.km/units.s,
                      210.*units.km/units.s,
@@ -1432,10 +1459,11 @@ def test_orbits_integrate_timeAsQuantity_Myr():
     return None
 
 def test_orbits_integrate_dtimeAsQuantity():
+    import copy
+
     from galpy.orbit import Orbit
     from galpy.potential import MWPotential
     from galpy.util import conversion
-    import copy
     ro, vo= 8., 200.
     o= Orbit([Orbit([10.*units.kpc,-20.*units.km/units.s,
                      210.*units.km/units.s,
@@ -1503,8 +1531,8 @@ def test_orbits_inconsistentPotentialUnits_error():
     return None
 
 def test_orbit_method_inputAsQuantity():
-    from galpy.orbit import Orbit
     from galpy import potential
+    from galpy.orbit import Orbit
     ro, vo= 7., 210.
     o= Orbit([10.*units.kpc,-20.*units.km/units.s,210.*units.km/units.s,
               500.*units.pc,-12.*units.km/units.s,45.*units.deg],
@@ -1897,8 +1925,8 @@ def test_linearPotential_method_value():
     return None
 
 def test_potential_function_returntype():
-    from galpy.potential import PlummerPotential
     from galpy import potential
+    from galpy.potential import PlummerPotential
     pot= [PlummerPotential(normalize=True,ro=8.,vo=220.)]
     assert isinstance(potential.evaluatePotentials(pot,1.1,0.1),units.Quantity), 'Potential function __call__ does not return Quantity when it should'
     assert isinstance(potential.evaluateRforces(pot,1.1,0.1),units.Quantity), 'Potential function Rforce does not return Quantity when it should'
@@ -1933,8 +1961,8 @@ def test_potential_function_returntype():
     return None
 
 def test_planarPotential_function_returntype():
-    from galpy.potential import PlummerPotential
     from galpy import potential
+    from galpy.potential import PlummerPotential
     pot= [PlummerPotential(normalize=True,ro=8.,vo=220.).toPlanar()]
     assert isinstance(potential.evaluateplanarPotentials(pot,1.1),units.Quantity), 'Potential function __call__ does not return Quantity when it should'
     assert isinstance(potential.evaluateplanarRforces(pot,1.1),units.Quantity), 'Potential function Rforce does not return Quantity when it should'
@@ -1949,16 +1977,16 @@ def test_planarPotential_function_returntype():
     return None
 
 def test_linearPotential_function_returntype():
-    from galpy.potential import PlummerPotential
     from galpy import potential
+    from galpy.potential import PlummerPotential
     pot= [PlummerPotential(normalize=True,ro=8.,vo=220.).toVertical(1.1)]
     assert isinstance(potential.evaluatelinearPotentials(pot,1.1),units.Quantity), 'Potential function __call__ does not return Quantity when it should'
     assert isinstance(potential.evaluatelinearForces(pot,1.1),units.Quantity), 'Potential function Rforce does not return Quantity when it should'
     return None
 
 def test_potential_function_returnunit():
-    from galpy.potential import PlummerPotential
     from galpy import potential
+    from galpy.potential import PlummerPotential
     pot= [PlummerPotential(normalize=True,ro=8.,vo=220.)]
     try:
         potential.evaluatePotentials(pot,1.1,0.1).to(units.km**2/units.s**2)
@@ -2079,8 +2107,8 @@ def test_potential_function_returnunit():
     return None
 
 def test_planarPotential_function_returnunit():
-    from galpy.potential import PlummerPotential, LopsidedDiskPotential
     from galpy import potential
+    from galpy.potential import LopsidedDiskPotential, PlummerPotential
     pot= [PlummerPotential(normalize=True,ro=8.,vo=220.).toPlanar(),
           LopsidedDiskPotential(ro=8.*units.kpc,vo=220.*units.km/units.s)]
     try:
@@ -2123,8 +2151,8 @@ def test_planarPotential_function_returnunit():
     return None
 
 def test_linearPotential_function_returnunit():
-    from galpy.potential import KGPotential
     from galpy import potential
+    from galpy.potential import KGPotential
     pot= [KGPotential(ro=8.*units.kpc,vo=220.*units.km/units.s)]
     try:
         potential.evaluatelinearPotentials(pot,1.1).to(units.km**2/units.s**2)
@@ -2137,8 +2165,8 @@ def test_linearPotential_function_returnunit():
     return None
 
 def test_potential_function_value():
-    from galpy.potential import PlummerPotential
     from galpy import potential
+    from galpy.potential import PlummerPotential
     from galpy.util import conversion
     ro, vo= 8., 220.
     pot= [PlummerPotential(normalize=True,ro=ro,vo=vo)]
@@ -2175,8 +2203,8 @@ def test_potential_function_value():
     return None
 
 def test_planarPotential_function_value():
-    from galpy.potential import PlummerPotential
     from galpy import potential
+    from galpy.potential import PlummerPotential
     from galpy.util import conversion
     ro, vo= 8., 220.
     pot= [PlummerPotential(normalize=True,ro=ro,vo=vo).toPlanar()]
@@ -2192,8 +2220,8 @@ def test_planarPotential_function_value():
     return None
 
 def test_linearPotential_function_value():
-    from galpy.potential import PlummerPotential
     from galpy import potential
+    from galpy.potential import PlummerPotential
     from galpy.util import conversion
     ro, vo= 8., 220.
     pot= [PlummerPotential(normalize=True,ro=ro,vo=vo).toVertical(1.1)]
@@ -2331,8 +2359,8 @@ def test_planarPotential_method_inputAsQuantity_Raskwarg():
     return None
 
 def test_linearPotential_method_inputAsQuantity():
-    from galpy.potential import PlummerPotential, SpiralArmsPotential
     from galpy import potential
+    from galpy.potential import PlummerPotential, SpiralArmsPotential
     from galpy.util import conversion
     ro, vo= 8.*units.kpc, 220.*units.km/units.s
     pot= PlummerPotential(normalize=True,ro=ro,vo=vo)
@@ -2363,8 +2391,8 @@ def test_linearPotential_method_inputAsQuantity():
     return None
 
 def test_linearPotential_method_inputAsQuantity_xaskwarg():
-    from galpy.potential import PlummerPotential, SpiralArmsPotential
     from galpy import potential
+    from galpy.potential import PlummerPotential, SpiralArmsPotential
     from galpy.util import conversion
     ro, vo= 8.*units.kpc, 220.*units.km/units.s
     pot= PlummerPotential(normalize=True,ro=ro,vo=vo)
@@ -2408,9 +2436,9 @@ def test_dissipativeforce_method_inputAsQuantity():
     return None
 
 def test_potential_function_inputAsQuantity():
+    from galpy import potential
     from galpy.potential import PlummerPotential
     from galpy.util import conversion
-    from galpy import potential
     ro, vo= 8.*units.kpc, 220.
     pot= [PlummerPotential(normalize=True,ro=ro,vo=vo)]
     potu= [PlummerPotential(normalize=True)]
@@ -2451,9 +2479,9 @@ def test_potential_function_inputAsQuantity():
     return None
 
 def test_potential_function_inputAsQuantity_Rzaskwargs():
+    from galpy import potential
     from galpy.potential import PlummerPotential
     from galpy.util import conversion
-    from galpy import potential
     ro, vo= 8.*units.kpc, 220.
     pot= [PlummerPotential(normalize=True,ro=ro,vo=vo)]
     potu= [PlummerPotential(normalize=True)]
@@ -2483,9 +2511,9 @@ def test_potential_function_inputAsQuantity_Rzaskwargs():
     return None
 
 def test_dissipativeforce_function_inputAsQuantity():
+    from galpy import potential
     from galpy.potential import ChandrasekharDynamicalFrictionForce
     from galpy.util import conversion
-    from galpy import potential
     ro, vo= 8.*units.kpc, 220.
     pot= ChandrasekharDynamicalFrictionForce(\
         GMs=0.1,rhm=1.2/8.,ro=ro,vo=vo)
@@ -2497,8 +2525,8 @@ def test_dissipativeforce_function_inputAsQuantity():
     return None
 
 def test_planarPotential_function_inputAsQuantity():
-    from galpy.potential import PlummerPotential
     from galpy import potential
+    from galpy.potential import PlummerPotential
     ro, vo= 8.*units.kpc, 220.
     pot= [PlummerPotential(normalize=True,ro=ro,vo=vo).toPlanar()]
     potu= [PlummerPotential(normalize=True).toPlanar()]
@@ -2513,8 +2541,8 @@ def test_planarPotential_function_inputAsQuantity():
     return None
 
 def test_planarPotential_function_inputAsQuantity_Raskwarg():
-    from galpy.potential import PlummerPotential
     from galpy import potential
+    from galpy.potential import PlummerPotential
     ro, vo= 8.*units.kpc, 220.
     pot= [PlummerPotential(normalize=True,ro=ro,vo=vo).toPlanar()]
     potu= [PlummerPotential(normalize=True).toPlanar()]
@@ -2529,8 +2557,8 @@ def test_planarPotential_function_inputAsQuantity_Raskwarg():
     return None
 
 def test_linearPotential_function_inputAsQuantity():
-    from galpy.potential import PlummerPotential, SpiralArmsPotential
     from galpy import potential
+    from galpy.potential import PlummerPotential, SpiralArmsPotential
     ro, vo= 8.*units.kpc, 220.
     pot= [PlummerPotential(normalize=True,ro=ro,vo=vo).toVertical(1.1*ro)]
     potu= potential.RZToverticalPotential([PlummerPotential(normalize=True)],
@@ -2549,8 +2577,8 @@ def test_linearPotential_function_inputAsQuantity():
     return None
 
 def test_linearPotential_function_inputAsQuantity_xaskwarg():
-    from galpy.potential import PlummerPotential, SpiralArmsPotential
     from galpy import potential
+    from galpy.potential import PlummerPotential, SpiralArmsPotential
     ro, vo= 8.*units.kpc, 220.
     pot= [PlummerPotential(normalize=True,ro=ro,vo=vo).toVertical(1.1*ro)]
     potu= potential.RZToverticalPotential([PlummerPotential(normalize=True)],
@@ -2569,8 +2597,8 @@ def test_linearPotential_function_inputAsQuantity_xaskwarg():
     return None
 
 def test_plotting_inputAsQuantity():
-    from galpy.potential import PlummerPotential
     from galpy import potential
+    from galpy.potential import PlummerPotential
     ro, vo= 8.*units.kpc, 220.
     pot= PlummerPotential(normalize=True,ro=ro,vo=vo)
     pot.plot(rmin=1.*units.kpc,rmax=4.*units.kpc,
@@ -2695,11 +2723,11 @@ def test_potential_ampunits():
     # IsochronePotential
     pot= potential.IsochronePotential(amp=20.*units.Msun,b=2.,ro=ro,vo=vo)
     # Check potential
-    assert numpy.fabs(pot(4.,0.,use_physical=False)*vo**2.+(20.*units.Msun*constants.G).to(units.pc*units.km**2/units.s**2).value/(2.+numpy.sqrt(4.+16.))/ro/1000.) < 10.**-8., "IsochronePotential w/ amp w/ units does not behave as expected"   
+    assert numpy.fabs(pot(4.,0.,use_physical=False)*vo**2.+(20.*units.Msun*constants.G).to(units.pc*units.km**2/units.s**2).value/(2.+numpy.sqrt(4.+16.))/ro/1000.) < 10.**-8., "IsochronePotential w/ amp w/ units does not behave as expected"
     # KeplerPotential
     pot= potential.KeplerPotential(amp=20.*units.Msun,ro=ro,vo=vo)
     # Check mass
-    assert numpy.fabs(pot.mass(100.,use_physical=False)*conversion.mass_in_msol(vo,ro)-20.) < 10.**-8., "KeplerPotential w/ amp w/ units does not behave as expected"   
+    assert numpy.fabs(pot.mass(100.,use_physical=False)*conversion.mass_in_msol(vo,ro)-20.) < 10.**-8., "KeplerPotential w/ amp w/ units does not behave as expected"
     # KuzminKutuzovStaeckelPotential
     pot= potential.KuzminKutuzovStaeckelPotential(amp=20.*units.Msun,
                                                   Delta=2.,ro=ro,vo=vo)
@@ -2707,32 +2735,32 @@ def test_potential_ampunits():
         amp=(20.*units.Msun*constants.G).to(units.kpc*units.km**2/units.s**2).value/ro/vo**2,
         Delta=2.,ro=ro,vo=vo)
     # Check potential
-    assert numpy.fabs(pot(4.,0.,use_physical=False)-pot_nounits(4.,0.,use_physical=False)) < 10.**-8., "KuzminKutuzovStaeckelPotential w/ amp w/ units does not behave as expected"   
+    assert numpy.fabs(pot(4.,0.,use_physical=False)-pot_nounits(4.,0.,use_physical=False)) < 10.**-8., "KuzminKutuzovStaeckelPotential w/ amp w/ units does not behave as expected"
     # LogarithmicHaloPotential
     pot= potential.LogarithmicHaloPotential(amp=40000*units.km**2/units.s**2,
                                             core=0.,ro=ro,vo=vo)
     # Check potential
-    assert numpy.fabs(pot(4.,0.,use_physical=False)*vo**2.-20000*numpy.log(16.)) < 10.**-8., "LogarithmicHaloPotential w/ amp w/ units does not behave as expected"   
+    assert numpy.fabs(pot(4.,0.,use_physical=False)*vo**2.-20000*numpy.log(16.)) < 10.**-8., "LogarithmicHaloPotential w/ amp w/ units does not behave as expected"
     # MiyamotoNagaiPotential
     pot= potential.MiyamotoNagaiPotential(amp=20*units.Msun,
                                           a=2.,b=0.5,ro=ro,vo=vo)
     # Check potential
-    assert numpy.fabs(pot(4.,1.,use_physical=False)*vo**2.+(20.*units.Msun*constants.G).to(units.pc*units.km**2/units.s**2).value/numpy.sqrt(16.+(2.+numpy.sqrt(1.+0.25))**2.)/ro/1000.) < 10.**-8., "MiyamotoNagaiPotential( w/ amp w/ units does not behave as expected"   
+    assert numpy.fabs(pot(4.,1.,use_physical=False)*vo**2.+(20.*units.Msun*constants.G).to(units.pc*units.km**2/units.s**2).value/numpy.sqrt(16.+(2.+numpy.sqrt(1.+0.25))**2.)/ro/1000.) < 10.**-8., "MiyamotoNagaiPotential( w/ amp w/ units does not behave as expected"
     # KuzminDiskPotential
     pot= potential.KuzminDiskPotential(amp=20*units.Msun,
                                        a=2.,ro=ro,vo=vo)
     # Check potential
-    assert numpy.fabs(pot(4.,1.,use_physical=False)*vo**2.+(20.*units.Msun*constants.G).to(units.pc*units.km**2/units.s**2).value/numpy.sqrt(16.+(2.+1.)**2.)/ro/1000.) < 10.**-8., "KuzminDiskPotential( w/ amp w/ units does not behave as expected"   
+    assert numpy.fabs(pot(4.,1.,use_physical=False)*vo**2.+(20.*units.Msun*constants.G).to(units.pc*units.km**2/units.s**2).value/numpy.sqrt(16.+(2.+1.)**2.)/ro/1000.) < 10.**-8., "KuzminDiskPotential( w/ amp w/ units does not behave as expected"
     # MN3ExponentialDiskPotential
     pot= potential.MN3ExponentialDiskPotential(\
         amp=0.1*units.Msun/units.pc**3.,hr=2.,hz=0.2,ro=ro,vo=vo)
-    # density at hr should be 
+    # density at hr should be
     assert numpy.fabs(pot.dens(2.,0.2,use_physical=False)*conversion.dens_in_msolpc3(vo,ro)-0.1*numpy.exp(-2.)) < 10.**-3., "MN3ExponentialDiskPotential w/ amp w/ units does not behave as expected"
     # PlummerPotential
     pot= potential.PlummerPotential(amp=20*units.Msun,
                                     b=0.5,ro=ro,vo=vo)
     # Check potential
-    assert numpy.fabs(pot(4.,0.,use_physical=False)*vo**2.+(20.*units.Msun*constants.G).to(units.pc*units.km**2/units.s**2).value/numpy.sqrt(16.+0.25)/ro/1000.) < 10.**-8., "PlummerPotential w/ amp w/ units does not behave as expected"   
+    assert numpy.fabs(pot(4.,0.,use_physical=False)*vo**2.+(20.*units.Msun*constants.G).to(units.pc*units.km**2/units.s**2).value/numpy.sqrt(16.+0.25)/ro/1000.) < 10.**-8., "PlummerPotential w/ amp w/ units does not behave as expected"
     # PowerSphericalPotential
     pot= potential.PowerSphericalPotential(amp=10.**10.*units.Msun,
                                            r1=1.,alpha=2.,ro=ro,vo=vo)
@@ -2755,7 +2783,7 @@ def test_potential_ampunits():
         amp=(40.*units.Msun/units.pc**2*constants.G).to(1/units.kpc*units.km**2/units.s**2).value*ro/vo**2,
         hr=2.,ro=ro,vo=vo)
     # Check potential
-    assert numpy.fabs(pot(4.,0.,use_physical=False)-pot_nounits(4.,0.,use_physical=False)) < 10.**-8., "RazorThinExponentialDiskPotential w/ amp w/ units does not behave as expected"   
+    assert numpy.fabs(pot(4.,0.,use_physical=False)-pot_nounits(4.,0.,use_physical=False)) < 10.**-8., "RazorThinExponentialDiskPotential w/ amp w/ units does not behave as expected"
     # SoftenedNeedleBarPotential
     pot= potential.SoftenedNeedleBarPotential(amp=4.*10.**10.*units.Msun,
                                               a=1.,b=2.,c=3.,pa=0.,omegab=0.,
@@ -2764,7 +2792,7 @@ def test_potential_ampunits():
         amp=4./conversion.mass_in_1010msol(vo,ro),
         a=1.,b=2.,c=3.,pa=0.,omegab=0.,ro=ro,vo=vo)
     # Check potential
-    assert numpy.fabs(pot(4.,0.,phi=1.,use_physical=False)-pot_nounits(4.,0.,phi=1.,use_physical=False)) < 10.**-8., "SoftenedNeedleBarPotential w/ amp w/ units does not behave as expected"   
+    assert numpy.fabs(pot(4.,0.,phi=1.,use_physical=False)-pot_nounits(4.,0.,phi=1.,use_physical=False)) < 10.**-8., "SoftenedNeedleBarPotential w/ amp w/ units does not behave as expected"
     # FerrersPotential
     pot= potential.FerrersPotential(amp=4.*10.**10.*units.Msun,
                                     a=1.,b=2.,c=3.,pa=0.,omegab=0.,
@@ -2826,7 +2854,7 @@ def test_potential_ampunits():
     pot_nounits= potential.NullPotential(\
         amp=(200/vo)**2.,ro=ro,vo=vo)
     # Check potential
-    assert numpy.fabs(pot(4.,0.,phi=1.,use_physical=False)-pot_nounits(4.,0.,phi=1.,use_physical=False)) < 10.**-8., "NullPotential w/ amp w/ units does not behave as expected"    
+    assert numpy.fabs(pot(4.,0.,phi=1.,use_physical=False)-pot_nounits(4.,0.,phi=1.,use_physical=False)) < 10.**-8., "NullPotential w/ amp w/ units does not behave as expected"
     return None
 
 def test_potential_ampunits_altunits():
@@ -2900,11 +2928,11 @@ def test_potential_ampunits_altunits():
     # IsochronePotential
     pot= potential.IsochronePotential(amp=20.*units.Msun*constants.G,b=2.,ro=ro,vo=vo)
     # Check potential
-    assert numpy.fabs(pot(4.,0.,use_physical=False)*vo**2.+(20.*units.Msun*constants.G).to(units.pc*units.km**2/units.s**2).value/(2.+numpy.sqrt(4.+16.))/ro/1000.) < 10.**-8., "IsochronePotential w/ amp w/ units does not behave as expected"   
+    assert numpy.fabs(pot(4.,0.,use_physical=False)*vo**2.+(20.*units.Msun*constants.G).to(units.pc*units.km**2/units.s**2).value/(2.+numpy.sqrt(4.+16.))/ro/1000.) < 10.**-8., "IsochronePotential w/ amp w/ units does not behave as expected"
     # KeplerPotential
     pot= potential.KeplerPotential(amp=20.*units.Msun*constants.G,ro=ro,vo=vo)
     # Check mass
-    assert numpy.fabs(pot.mass(100.,use_physical=False)*conversion.mass_in_msol(vo,ro)-20.) < 10.**-8., "KeplerPotential w/ amp w/ units does not behave as expected"   
+    assert numpy.fabs(pot.mass(100.,use_physical=False)*conversion.mass_in_msol(vo,ro)-20.) < 10.**-8., "KeplerPotential w/ amp w/ units does not behave as expected"
     # KuzminKutuzovStaeckelPotential
     pot= potential.KuzminKutuzovStaeckelPotential(amp=20.*units.Msun*constants.G,
                                                   Delta=2.,ro=ro,vo=vo)
@@ -2912,27 +2940,27 @@ def test_potential_ampunits_altunits():
         amp=(20.*units.Msun*constants.G).to(units.kpc*units.km**2/units.s**2).value/ro/vo**2,
         Delta=2.,ro=ro,vo=vo)
     # Check potential
-    assert numpy.fabs(pot(4.,0.,use_physical=False)-pot_nounits(4.,0.,use_physical=False)) < 10.**-8., "KuzminKutuzovStaeckelPotential w/ amp w/ units does not behave as expected"   
+    assert numpy.fabs(pot(4.,0.,use_physical=False)-pot_nounits(4.,0.,use_physical=False)) < 10.**-8., "KuzminKutuzovStaeckelPotential w/ amp w/ units does not behave as expected"
     # MiyamotoNagaiPotential
     pot= potential.MiyamotoNagaiPotential(amp=20*units.Msun*constants.G,
                                           a=2.,b=0.5,ro=ro,vo=vo)
     # Check potential
-    assert numpy.fabs(pot(4.,1.,use_physical=False)*vo**2.+(20.*units.Msun*constants.G).to(units.pc*units.km**2/units.s**2).value/numpy.sqrt(16.+(2.+numpy.sqrt(1.+0.25))**2.)/ro/1000.) < 10.**-8., "MiyamotoNagaiPotential( w/ amp w/ units does not behave as expected"   
+    assert numpy.fabs(pot(4.,1.,use_physical=False)*vo**2.+(20.*units.Msun*constants.G).to(units.pc*units.km**2/units.s**2).value/numpy.sqrt(16.+(2.+numpy.sqrt(1.+0.25))**2.)/ro/1000.) < 10.**-8., "MiyamotoNagaiPotential( w/ amp w/ units does not behave as expected"
     # KuzminDiskPotential
     pot= potential.KuzminDiskPotential(amp=20*units.Msun*constants.G,
                                        a=2.,ro=ro,vo=vo)
     # Check potential
-    assert numpy.fabs(pot(4.,1.,use_physical=False)*vo**2.+(20.*units.Msun*constants.G).to(units.pc*units.km**2/units.s**2).value/numpy.sqrt(16.+(2.+1.)**2.)/ro/1000.) < 10.**-8., "KuzminDiskPotential( w/ amp w/ units does not behave as expected"   
+    assert numpy.fabs(pot(4.,1.,use_physical=False)*vo**2.+(20.*units.Msun*constants.G).to(units.pc*units.km**2/units.s**2).value/numpy.sqrt(16.+(2.+1.)**2.)/ro/1000.) < 10.**-8., "KuzminDiskPotential( w/ amp w/ units does not behave as expected"
     # MN3ExponentialDiskPotential
     pot= potential.MN3ExponentialDiskPotential(\
         amp=0.1*units.Msun*constants.G/units.pc**3.,hr=2.,hz=0.2,ro=ro,vo=vo)
-    # density at hr should be 
+    # density at hr should be
     assert numpy.fabs(pot.dens(2.,0.2,use_physical=False)*conversion.dens_in_msolpc3(vo,ro)-0.1*numpy.exp(-2.)) < 10.**-3., "MN3ExponentialDiskPotential w/ amp w/ units does not behave as expected"
     # PlummerPotential
     pot= potential.PlummerPotential(amp=20*units.Msun*constants.G,
                                     b=0.5,ro=ro,vo=vo)
     # Check potential
-    assert numpy.fabs(pot(4.,0.,use_physical=False)*vo**2.+(20.*units.Msun*constants.G).to(units.pc*units.km**2/units.s**2).value/numpy.sqrt(16.+0.25)/ro/1000.) < 10.**-8., "PlummerPotential w/ amp w/ units does not behave as expected"   
+    assert numpy.fabs(pot(4.,0.,use_physical=False)*vo**2.+(20.*units.Msun*constants.G).to(units.pc*units.km**2/units.s**2).value/numpy.sqrt(16.+0.25)/ro/1000.) < 10.**-8., "PlummerPotential w/ amp w/ units does not behave as expected"
     # PowerSphericalPotential
     pot= potential.PowerSphericalPotential(amp=10.**10.*units.Msun*constants.G,
                                            r1=1.,alpha=2.,ro=ro,vo=vo)
@@ -2955,7 +2983,7 @@ def test_potential_ampunits_altunits():
         amp=(40.*units.Msun/units.pc**2*constants.G).to(1/units.kpc*units.km**2/units.s**2).value*ro/vo**2,
         hr=2.,ro=ro,vo=vo)
     # Check potential
-    assert numpy.fabs(pot(4.,0.,use_physical=False)-pot_nounits(4.,0.,use_physical=False)) < 10.**-8., "RazorThinExponentialDiskPotential w/ amp w/ units does not behave as expected"   
+    assert numpy.fabs(pot(4.,0.,use_physical=False)-pot_nounits(4.,0.,use_physical=False)) < 10.**-8., "RazorThinExponentialDiskPotential w/ amp w/ units does not behave as expected"
     # SoftenedNeedleBarPotential
     pot= potential.SoftenedNeedleBarPotential(amp=4.*10.**10.*units.Msun*constants.G,
                                               a=1.,b=2.,c=3.,pa=0.,omegab=0.,
@@ -2964,7 +2992,7 @@ def test_potential_ampunits_altunits():
         amp=4./conversion.mass_in_1010msol(vo,ro),
         a=1.,b=2.,c=3.,pa=0.,omegab=0.,ro=ro,vo=vo)
     # Check potential
-    assert numpy.fabs(pot(4.,0.,phi=1.,use_physical=False)-pot_nounits(4.,0.,phi=1.,use_physical=False)) < 10.**-8., "SoftenedNeedleBarPotential w/ amp w/ units does not behave as expected"   
+    assert numpy.fabs(pot(4.,0.,phi=1.,use_physical=False)-pot_nounits(4.,0.,phi=1.,use_physical=False)) < 10.**-8., "SoftenedNeedleBarPotential w/ amp w/ units does not behave as expected"
     # FerrersPotential
     pot= potential.FerrersPotential(amp=4.*10.**10.*units.Msun*constants.G,
                                     a=1.,b=2.,c=3.,pa=0.,omegab=0.,
@@ -2973,7 +3001,7 @@ def test_potential_ampunits_altunits():
         amp=4./conversion.mass_in_1010msol(vo,ro),
         a=1.,b=2.,c=3.,pa=0.,omegab=0.,ro=ro,vo=vo)
     # Check potential
-    assert numpy.fabs(pot(4.,0.,phi=1.,use_physical=False)-pot_nounits(4.,0.,phi=1.,use_physical=False)) < 10.**-8., "FerrersPotential w/ amp w/ units does not behave as expected"   
+    assert numpy.fabs(pot(4.,0.,phi=1.,use_physical=False)-pot_nounits(4.,0.,phi=1.,use_physical=False)) < 10.**-8., "FerrersPotential w/ amp w/ units does not behave as expected"
     # SphericalShellPotential
     pot= potential.SphericalShellPotential(amp=4.*10.**10.*units.Msun*constants.G,
                                     ro=ro,vo=vo)
@@ -2981,7 +3009,7 @@ def test_potential_ampunits_altunits():
         amp=4./conversion.mass_in_1010msol(vo,ro),
         ro=ro,vo=vo)
     # Check potential
-    assert numpy.fabs(pot(4.,0.,phi=1.,use_physical=False)-pot_nounits(4.,0.,phi=1.,use_physical=False)) < 10.**-8., "SphericalShellPotential w/ amp w/ units does not behave as expected"   
+    assert numpy.fabs(pot(4.,0.,phi=1.,use_physical=False)-pot_nounits(4.,0.,phi=1.,use_physical=False)) < 10.**-8., "SphericalShellPotential w/ amp w/ units does not behave as expected"
     # RingPotential
     pot= potential.RingPotential(amp=4.*10.**10.*units.Msun*constants.G,
                                     ro=ro,vo=vo)
@@ -2989,7 +3017,7 @@ def test_potential_ampunits_altunits():
         amp=4./conversion.mass_in_1010msol(vo,ro),
         ro=ro,vo=vo)
     # Check potential
-    assert numpy.fabs(pot(4.,0.,phi=1.,use_physical=False)-pot_nounits(4.,0.,phi=1.,use_physical=False)) < 10.**-8., "RingPotential w/ amp w/ units does not behave as expected"   
+    assert numpy.fabs(pot(4.,0.,phi=1.,use_physical=False)-pot_nounits(4.,0.,phi=1.,use_physical=False)) < 10.**-8., "RingPotential w/ amp w/ units does not behave as expected"
     # PerfectEllipsoidPotential
     pot= potential.PerfectEllipsoidPotential(\
         amp=4.*10.**10.*units.Msun*constants.G,
@@ -3000,7 +3028,7 @@ def test_potential_ampunits_altunits():
         a=2.,ro=ro,vo=vo,
         b=1.3,c=0.4)
     # Check potential
-    assert numpy.fabs(pot(4.,0.,phi=1.,use_physical=False)-pot_nounits(4.,0.,phi=1.,use_physical=False)) < 10.**-8., "PerfectEllipsoidPotential w/ amp w/ units does not behave as expected"   
+    assert numpy.fabs(pot(4.,0.,phi=1.,use_physical=False)-pot_nounits(4.,0.,phi=1.,use_physical=False)) < 10.**-8., "PerfectEllipsoidPotential w/ amp w/ units does not behave as expected"
     # HomogeneousSpherePotential
     pot= potential.HomogeneousSpherePotential(amp=0.1*units.Msun/units.pc**3.*constants.G,
                                               R=2.,ro=ro,vo=vo)
@@ -3019,7 +3047,7 @@ def test_potential_ampunits_altunits():
         sigma=2.,ro=ro,vo=vo,
         b=1.3,c=0.4)
     # Check potential
-    assert numpy.fabs(pot(4.,0.,phi=1.,use_physical=False)-pot_nounits(4.,0.,phi=1.,use_physical=False)) < 10.**-8., "TriaxialGaussianPotential w/ amp w/ units does not behave as expected"   
+    assert numpy.fabs(pot(4.,0.,phi=1.,use_physical=False)-pot_nounits(4.,0.,phi=1.,use_physical=False)) < 10.**-8., "TriaxialGaussianPotential w/ amp w/ units does not behave as expected"
     return None
 
 def test_potential_ampunits_wrongunits():
@@ -3256,7 +3284,7 @@ def test_potential_paramunits():
     pot= potential.IsochronePotential(amp=20.*units.Msun,b=10.*units.kpc,
                                       ro=ro,vo=vo)
     # Check potential
-    assert numpy.fabs(pot(4.,0.,use_physical=False)*vo**2.+(20.*units.Msun*constants.G).to(units.pc*units.km**2/units.s**2).value/(10./ro+numpy.sqrt((10./ro)**2.+16.))/ro/1000.) < 10.**-8., "IsochronePotential w/ parameters w/ units does not behave as expected"   
+    assert numpy.fabs(pot(4.,0.,use_physical=False)*vo**2.+(20.*units.Msun*constants.G).to(units.pc*units.km**2/units.s**2).value/(10./ro+numpy.sqrt((10./ro)**2.+16.))/ro/1000.) < 10.**-8., "IsochronePotential w/ parameters w/ units does not behave as expected"
     # KuzminKutuzovStaeckelPotential
     pot= potential.KuzminKutuzovStaeckelPotential(amp=20.*units.Msun,
                                                   Delta=10.*units.kpc,
@@ -3265,12 +3293,12 @@ def test_potential_paramunits():
         amp=(20.*units.Msun*constants.G).to(units.kpc*units.km**2/units.s**2).value/ro/vo**2,
         Delta=10./ro,ro=ro,vo=vo)
     # Check potential
-    assert numpy.fabs(pot(4.,0.,use_physical=False)-pot_nounits(4.,0.,use_physical=False)) < 10.**-8., "KuzminKutuzovStaeckelPotential w/ parameters w/ units does not behave as expected"   
+    assert numpy.fabs(pot(4.,0.,use_physical=False)-pot_nounits(4.,0.,use_physical=False)) < 10.**-8., "KuzminKutuzovStaeckelPotential w/ parameters w/ units does not behave as expected"
     # LogarithmicHaloPotential
     pot= potential.LogarithmicHaloPotential(amp=40000*units.km**2/units.s**2,
                                             core=1.*units.kpc,ro=ro,vo=vo)
     # Check potential
-    assert numpy.fabs(pot(4.,0.,use_physical=False)*vo**2.-20000*numpy.log(16.+(1./ro)**2.)) < 10.**-8., "LogarithmicHaloPotential w/ parameters w/ units does not behave as expected"   
+    assert numpy.fabs(pot(4.,0.,use_physical=False)*vo**2.-20000*numpy.log(16.+(1./ro)**2.)) < 10.**-8., "LogarithmicHaloPotential w/ parameters w/ units does not behave as expected"
     # DehnenBarPotential
     pot= potential.DehnenBarPotential(amp=1.,
                                       omegab=50.*units.km/units.s/units.kpc,
@@ -3285,7 +3313,7 @@ def test_potential_paramunits():
                                               barphi=20./180.*numpy.pi,
                                               ro=ro,vo=vo)
     # Check potential
-    assert numpy.fabs(pot(1.5,0.3,phi=0.1,use_physical=False)-pot_nounits(1.5,0.3,phi=0.1,use_physical=False)) < 10.**-8., "DehnenBarPotential w/ parameters w/ units does not behave as expected"   
+    assert numpy.fabs(pot(1.5,0.3,phi=0.1,use_physical=False)-pot_nounits(1.5,0.3,phi=0.1,use_physical=False)) < 10.**-8., "DehnenBarPotential w/ parameters w/ units does not behave as expected"
     # DehnenBarPotential, alternative setup
     pot= potential.DehnenBarPotential(amp=1.,
                                       rolr=8.*units.kpc,
@@ -3302,29 +3330,29 @@ def test_potential_paramunits():
                                               barphi=20./180.*numpy.pi,
                                               ro=ro,vo=vo)
     # Check potential
-    assert numpy.fabs(pot(1.5,0.3,phi=0.1,use_physical=False)-pot_nounits(1.5,0.3,phi=0.1,use_physical=False)) < 10.**-8., "DehnenBarPotential w/ parameters w/ units does not behave as expected"   
+    assert numpy.fabs(pot(1.5,0.3,phi=0.1,use_physical=False)-pot_nounits(1.5,0.3,phi=0.1,use_physical=False)) < 10.**-8., "DehnenBarPotential w/ parameters w/ units does not behave as expected"
     # MiyamotoNagaiPotential
     pot= potential.MiyamotoNagaiPotential(amp=20*units.Msun,
                                           a=5.*units.kpc,b=300.*units.pc,
                                           ro=ro,vo=vo)
     # Check potential
-    assert numpy.fabs(pot(4.,1.,use_physical=False)*vo**2.+(20.*units.Msun*constants.G).to(units.pc*units.km**2/units.s**2).value/numpy.sqrt(16.+(5./ro+numpy.sqrt(1.+(0.3/ro)**2.))**2.)/ro/1000.) < 10.**-8., "MiyamotoNagaiPotential( w/ parameters w/ units does not behave as expected"   
+    assert numpy.fabs(pot(4.,1.,use_physical=False)*vo**2.+(20.*units.Msun*constants.G).to(units.pc*units.km**2/units.s**2).value/numpy.sqrt(16.+(5./ro+numpy.sqrt(1.+(0.3/ro)**2.))**2.)/ro/1000.) < 10.**-8., "MiyamotoNagaiPotential( w/ parameters w/ units does not behave as expected"
     # KuzminDiskPotential
     pot= potential.KuzminDiskPotential(amp=20*units.Msun,
                                        a=5.*units.kpc,ro=ro,vo=vo)
     # Check potential
-    assert numpy.fabs(pot(4.,1.,use_physical=False)*vo**2.+(20.*units.Msun*constants.G).to(units.pc*units.km**2/units.s**2).value/numpy.sqrt(16.+(5./ro+1.)**2.)/ro/1000.) < 10.**-8., "KuzminDiskPotential( w/ parameters w/ units does not behave as expected"   
+    assert numpy.fabs(pot(4.,1.,use_physical=False)*vo**2.+(20.*units.Msun*constants.G).to(units.pc*units.km**2/units.s**2).value/numpy.sqrt(16.+(5./ro+1.)**2.)/ro/1000.) < 10.**-8., "KuzminDiskPotential( w/ parameters w/ units does not behave as expected"
     # MN3ExponentialDiskPotential
     pot= potential.MN3ExponentialDiskPotential(\
         amp=0.1*units.Msun/units.pc**3.,hr=6.*units.kpc,hz=300.*units.pc,
         ro=ro,vo=vo)
-    # density at hr should be 
+    # density at hr should be
     assert numpy.fabs(pot.dens(6./ro,0.3/ro,use_physical=False)*conversion.dens_in_msolpc3(vo,ro)-0.1*numpy.exp(-2.)) < 10.**-3., "MN3ExponentialDiskPotential w/ parameters w/ units does not behave as expected"
     # PlummerPotential
     pot= potential.PlummerPotential(amp=20*units.Msun,
                                     b=5.*units.kpc,ro=ro,vo=vo)
     # Check potential
-    assert numpy.fabs(pot(4.,0.,use_physical=False)*vo**2.+(20.*units.Msun*constants.G).to(units.pc*units.km**2/units.s**2).value/numpy.sqrt(16.+(5./ro)**2.)/ro/1000.) < 10.**-8., "PlummerPotential w/ parameters w/ units does not behave as expected"   
+    assert numpy.fabs(pot(4.,0.,use_physical=False)*vo**2.+(20.*units.Msun*constants.G).to(units.pc*units.km**2/units.s**2).value/numpy.sqrt(16.+(5./ro)**2.)/ro/1000.) < 10.**-8., "PlummerPotential w/ parameters w/ units does not behave as expected"
     # PowerSphericalPotential
     pot= potential.PowerSphericalPotential(amp=10.**10.*units.Msun,
                                            r1=10.*units.kpc,
@@ -3351,7 +3379,7 @@ def test_potential_paramunits():
         amp=(40.*units.Msun/units.pc**2*constants.G).to(1/units.kpc*units.km**2/units.s**2).value*ro/vo**2,
         hr=10./ro,ro=ro,vo=vo)
     # Check potential
-    assert numpy.fabs(pot(4.,0.,use_physical=False)-pot_nounits(4.,0.,use_physical=False)) < 10.**-8., "RazorThinExponentialDiskPotential w/ parameters w/ units does not behave as expected"   
+    assert numpy.fabs(pot(4.,0.,use_physical=False)-pot_nounits(4.,0.,use_physical=False)) < 10.**-8., "RazorThinExponentialDiskPotential w/ parameters w/ units does not behave as expected"
     # SoftenedNeedleBarPotential
     pot= potential.SoftenedNeedleBarPotential(amp=4.*10.**10.*units.Msun,
                                               a=10.*units.kpc,
@@ -3369,7 +3397,7 @@ def test_potential_paramunits():
         omegab=20./conversion.freq_in_kmskpc(vo,ro),
         ro=ro,vo=vo)
     # Check potential
-    assert numpy.fabs(pot(4.,0.,phi=1.,use_physical=False)-pot_nounits(4.,0.,phi=1.,use_physical=False)) < 10.**-8., "SoftenedNeedleBarPotential w/ amp w/ units does not behave as expected"   
+    assert numpy.fabs(pot(4.,0.,phi=1.,use_physical=False)-pot_nounits(4.,0.,phi=1.,use_physical=False)) < 10.**-8., "SoftenedNeedleBarPotential w/ amp w/ units does not behave as expected"
     # FerrersPotential
     pot= potential.FerrersPotential(amp=4.*10.**10.*units.Msun,
                                     a=10.*units.kpc,
@@ -3387,7 +3415,7 @@ def test_potential_paramunits():
         omegab=20./conversion.freq_in_kmskpc(vo,ro),
         ro=ro,vo=vo)
     # Check potential
-    assert numpy.fabs(pot(4.,0.,phi=1.,use_physical=False)-pot_nounits(4.,0.,phi=1.,use_physical=False)) < 10.**-8., "FerrersPotential w/ amp w/ units does not behave as expected"   
+    assert numpy.fabs(pot(4.,0.,phi=1.,use_physical=False)-pot_nounits(4.,0.,phi=1.,use_physical=False)) < 10.**-8., "FerrersPotential w/ amp w/ units does not behave as expected"
     # DiskSCFPotential
     pot= potential.DiskSCFPotential(dens=lambda R,z: 1.,# doesn't matter
                                     Sigma=[{'type':'exp','h':1./3.,'amp':1.},
@@ -3423,7 +3451,7 @@ def test_potential_paramunits():
                                                         tform=-1./conversion.time_in_Gyr(vo,ro),
                                                         tsteady=3./conversion.time_in_Gyr(vo,ro))
     # Check potential
-    assert numpy.fabs(pot(1.5,0.3,phi=0.1,use_physical=False)-pot_nounits(1.5,0.3,phi=0.1,use_physical=False)) < 10.**-8., "DehnenSmoothWrapperPotential w/ parameters w/ units does not behave as expected"   
+    assert numpy.fabs(pot(1.5,0.3,phi=0.1,use_physical=False)-pot_nounits(1.5,0.3,phi=0.1,use_physical=False)) < 10.**-8., "DehnenSmoothWrapperPotential w/ parameters w/ units does not behave as expected"
     # SolidBodyRotationWrapperPotential
     spn= potential.SpiralArmsPotential(omega=0.,phi_ref=0.)
     pot= potential.SolidBodyRotationWrapperPotential(pot=spn,\
@@ -3433,7 +3461,7 @@ def test_potential_paramunits():
                            omega=20./conversion.freq_in_kmskpc(vo,ro),
                            pa=30./180.*numpy.pi)
     # Check potential
-    assert numpy.fabs(pot(1.5,0.3,phi=0.1,use_physical=False)-pot_nounits(1.5,0.3,phi=0.1,use_physical=False)) < 10.**-8., "SolidBodyRotationWrapperPotential w/ parameters w/ units does not behave as expected"   
+    assert numpy.fabs(pot(1.5,0.3,phi=0.1,use_physical=False)-pot_nounits(1.5,0.3,phi=0.1,use_physical=False)) < 10.**-8., "SolidBodyRotationWrapperPotential w/ parameters w/ units does not behave as expected"
     # CorotatingRotationWrapperPotential
     spn= potential.SpiralArmsPotential(omega=0.,phi_ref=0.)
     pot= potential.CorotatingRotationWrapperPotential(pot=spn,\
@@ -3445,7 +3473,7 @@ def test_potential_paramunits():
                            to=1./conversion.time_in_Gyr(vo,ro),
                            pa=30./180.*numpy.pi)
     # Check potential
-    assert numpy.fabs(pot(1.5,0.3,phi=0.1,use_physical=False)-pot_nounits(1.5,0.3,phi=0.1,use_physical=False)) < 10.**-8., "CorotatingRotationWrapperPotential w/ parameters w/ units does not behave as expected"   
+    assert numpy.fabs(pot(1.5,0.3,phi=0.1,use_physical=False)-pot_nounits(1.5,0.3,phi=0.1,use_physical=False)) < 10.**-8., "CorotatingRotationWrapperPotential w/ parameters w/ units does not behave as expected"
     # GaussianAmplitudeWrapperPotential
     dpn= potential.DehnenBarPotential(tform=-100.,tsteady=1.)
     pot= potential.GaussianAmplitudeWrapperPotential(pot=dpn,
@@ -3456,7 +3484,7 @@ def test_potential_paramunits():
                                  to=-1./conversion.time_in_Gyr(vo,ro),
                                  sigma=10./conversion.time_in_Gyr(vo,ro))
     # Check potential
-    assert numpy.fabs(pot(1.5,0.3,phi=0.1,use_physical=False)-pot_nounits(1.5,0.3,phi=0.1,use_physical=False)) < 10.**-8., "GaussianAmplitudeWrapperPotential w/ parameters w/ units does not behave as expected"   
+    assert numpy.fabs(pot(1.5,0.3,phi=0.1,use_physical=False)-pot_nounits(1.5,0.3,phi=0.1,use_physical=False)) < 10.**-8., "GaussianAmplitudeWrapperPotential w/ parameters w/ units does not behave as expected"
     # ChandrasekharDynamicalFrictionForce
     pot= potential.ChandrasekharDynamicalFrictionForce(GMs=10.**9.*units.Msun,
                                                        rhm=1.2*units.kpc,
@@ -3503,7 +3531,7 @@ def test_potential_paramunits():
         a=5./ro,
         ro=ro,vo=vo)
     # Check potential
-    assert numpy.fabs(pot(4.,0.,phi=1.,use_physical=False)-pot_nounits(4.,0.,phi=1.,use_physical=False)) < 10.**-8., "SphericalShellPotential w/ amp w/ units does not behave as expected"   
+    assert numpy.fabs(pot(4.,0.,phi=1.,use_physical=False)-pot_nounits(4.,0.,phi=1.,use_physical=False)) < 10.**-8., "SphericalShellPotential w/ amp w/ units does not behave as expected"
     # RingPotential
     pot= potential.RingPotential(amp=4.*10.**10.*units.Msun,
                                            a=5.*units.kpc,
@@ -3513,7 +3541,7 @@ def test_potential_paramunits():
         a=5./ro,
         ro=ro,vo=vo)
     # Check potential
-    assert numpy.fabs(pot(4.,0.,phi=1.,use_physical=False)-pot_nounits(4.,0.,phi=1.,use_physical=False)) < 10.**-8., "RingPotential w/ amp w/ units does not behave as expected"   
+    assert numpy.fabs(pot(4.,0.,phi=1.,use_physical=False)-pot_nounits(4.,0.,phi=1.,use_physical=False)) < 10.**-8., "RingPotential w/ amp w/ units does not behave as expected"
     # If you add one here, don't base it on ChandrasekharDynamicalFrictionForce!!
     # PerfectEllipsoidPotential
     pot= potential.PerfectEllipsoidPotential(amp=4.*10.**10.*units.Msun,
@@ -3526,7 +3554,7 @@ def test_potential_paramunits():
         ro=ro,vo=vo,
         b=1.3,c=0.4)
     # Check potential
-    assert numpy.fabs(pot(4.,0.,phi=1.,use_physical=False)-pot_nounits(4.,0.,phi=1.,use_physical=False)) < 10.**-8., "PerfectEllipsoidPotential w/ amp w/ units does not behave as expected"   
+    assert numpy.fabs(pot(4.,0.,phi=1.,use_physical=False)-pot_nounits(4.,0.,phi=1.,use_physical=False)) < 10.**-8., "PerfectEllipsoidPotential w/ amp w/ units does not behave as expected"
     # If you add one here, don't base it on ChandrasekharDynamicalFrictionForce!!
     # HomogeneousSpherePotential
     pot= potential.HomogeneousSpherePotential(amp=0.1*units.Msun/units.pc**3,
@@ -3537,7 +3565,7 @@ def test_potential_paramunits():
         R=10./ro,
         ro=ro,vo=vo)
     # Check potential
-    assert numpy.fabs(pot(1.1,0.2,phi=1.,use_physical=False)-pot_nounits(1.1,0.2,phi=1.,use_physical=False)) < 10.**-8., "HomogeneousSpherePotential w/ amp w/ units does not behave as expected"   
+    assert numpy.fabs(pot(1.1,0.2,phi=1.,use_physical=False)-pot_nounits(1.1,0.2,phi=1.,use_physical=False)) < 10.**-8., "HomogeneousSpherePotential w/ amp w/ units does not behave as expected"
     # TriaxialGaussianPotential
     pot= potential.TriaxialGaussianPotential(amp=4.*10.**10.*units.Msun,
                                              sigma=5.*units.kpc,
@@ -3549,7 +3577,7 @@ def test_potential_paramunits():
         ro=ro,vo=vo,
         b=1.3,c=0.4)
     # Check potential
-    assert numpy.fabs(pot(4.,0.,phi=1.,use_physical=False)-pot_nounits(4.,0.,phi=1.,use_physical=False)) < 10.**-8., "TriaxialGaussianPotential w/ amp w/ units does not behave as expected"   
+    assert numpy.fabs(pot(4.,0.,phi=1.,use_physical=False)-pot_nounits(4.,0.,phi=1.,use_physical=False)) < 10.**-8., "TriaxialGaussianPotential w/ amp w/ units does not behave as expected"
     # If you add one here, don't base it on ChandrasekharDynamicalFrictionForce!!
     # KingPotential
     pot= potential.KingPotential(W0=3.,M=4.*10.**6.*units.Msun,
@@ -3560,7 +3588,7 @@ def test_potential_paramunits():
                     rt=10./1000/ro,
                     ro=ro,vo=vo)
     # Check potential
-    assert numpy.fabs(pot(4.,0.,phi=1.,use_physical=False)-pot_nounits(4.,0.,phi=1.,use_physical=False)) < 10.**-8., "KingPotential w/ amp w/ units does not behave as expected"   
+    assert numpy.fabs(pot(4.,0.,phi=1.,use_physical=False)-pot_nounits(4.,0.,phi=1.,use_physical=False)) < 10.**-8., "KingPotential w/ amp w/ units does not behave as expected"
     # AnyAxisymmetricRazorThinDiskPotential
     pot= potential.AnyAxisymmetricRazorThinDiskPotential(\
             surfdens=lambda R: 1.5*conversion.surfdens_in_msolpc2(vo,ro)
@@ -3570,7 +3598,7 @@ def test_potential_paramunits():
             surfdens=lambda R: 1.5*numpy.exp(-R),
                                                          ro=ro,vo=vo)
     # Check potential
-    assert numpy.fabs(pot(4.,0.,phi=1.,use_physical=False)-pot_nounits(4.,0.,phi=1.,use_physical=False)) < 10.**-8., "AnyAxisymmetricRazorThinDiskPotential w/ parameters w/ units does not behave as expected"   
+    assert numpy.fabs(pot(4.,0.,phi=1.,use_physical=False)-pot_nounits(4.,0.,phi=1.,use_physical=False)) < 10.**-8., "AnyAxisymmetricRazorThinDiskPotential w/ parameters w/ units does not behave as expected"
     # AnyAxisymmetricRazorThinDiskPotential, r in surfdens also has units
     pot= potential.AnyAxisymmetricRazorThinDiskPotential(\
             surfdens=lambda R: 1.5*conversion.surfdens_in_msolpc2(vo,ro)
@@ -3580,7 +3608,7 @@ def test_potential_paramunits():
             surfdens=lambda R: 1.5*numpy.exp(-R),
                                                          ro=ro,vo=vo)
     # Check potential
-    assert numpy.fabs(pot(4.,0.,phi=1.,use_physical=False)-pot_nounits(4.,0.,phi=1.,use_physical=False)) < 10.**-8., "AnyAxisymmetricRazorThinDiskPotential w/ parameters w/ units does not behave as expected"   
+    assert numpy.fabs(pot(4.,0.,phi=1.,use_physical=False)-pot_nounits(4.,0.,phi=1.,use_physical=False)) < 10.**-8., "AnyAxisymmetricRazorThinDiskPotential w/ parameters w/ units does not behave as expected"
     # AnyAxisymmetricRazorThinDiskPotential, r in surfdens only has units
     pot= potential.AnyAxisymmetricRazorThinDiskPotential(\
             surfdens=lambda R: 1.5*numpy.exp(-R/ro/units.kpc),
@@ -3589,25 +3617,25 @@ def test_potential_paramunits():
             surfdens=lambda R: 1.5*numpy.exp(-R),
                                                          ro=ro,vo=vo)
     # Check potential
-    assert numpy.fabs(pot(4.,0.,phi=1.,use_physical=False)-pot_nounits(4.,0.,phi=1.,use_physical=False)) < 10.**-8., "AnyAxisymmetricRazorThinDiskPotential w/ parameters w/ units does not behave as expected"   
+    assert numpy.fabs(pot(4.,0.,phi=1.,use_physical=False)-pot_nounits(4.,0.,phi=1.,use_physical=False)) < 10.**-8., "AnyAxisymmetricRazorThinDiskPotential w/ parameters w/ units does not behave as expected"
     # AnySphericalPotential
     pot= potential.AnySphericalPotential(
             dens=lambda r: 0.64/r/(1+r)**3*conversion.dens_in_msolpc3(vo,ro)\
-        *units.Msun/units.pc**3,       
+        *units.Msun/units.pc**3,
                                                          ro=ro,vo=vo)
     pot_nounits= potential.AnySphericalPotential(dens=lambda r: 0.64/r/(1+r)**3,
                                                  ro=ro,vo=vo)
     # Check potential
-    assert numpy.fabs(pot(4.,0.,phi=1.,use_physical=False)-pot_nounits(4.,0.,phi=1.,use_physical=False)) < 10.**-8., "potential.AnySphericalPotential w/ parameters w/ units does not behave as expected"   
+    assert numpy.fabs(pot(4.,0.,phi=1.,use_physical=False)-pot_nounits(4.,0.,phi=1.,use_physical=False)) < 10.**-8., "potential.AnySphericalPotential w/ parameters w/ units does not behave as expected"
     # AnySphericalPotential, r in dens also has units
     pot= potential.AnySphericalPotential(
             dens=lambda r: 0.64/(r/ro/units.kpc)/(1+r/ro/units.kpc)**3*conversion.dens_in_msolpc3(vo,ro)\
-        *units.Msun/units.pc**3,       
+        *units.Msun/units.pc**3,
                                                          ro=ro,vo=vo)
     pot_nounits= potential.AnySphericalPotential(dens=lambda r: 0.64/r/(1+r)**3,
                                                  ro=ro,vo=vo)
     # Check potential
-    assert numpy.fabs(pot(4.,0.,phi=1.,use_physical=False)-pot_nounits(4.,0.,phi=1.,use_physical=False)) < 10.**-8., "AnyAxisymmetricRazorThinDiskPotential w/ parameters w/ units does not behave as expected"   
+    assert numpy.fabs(pot(4.,0.,phi=1.,use_physical=False)-pot_nounits(4.,0.,phi=1.,use_physical=False)) < 10.**-8., "AnyAxisymmetricRazorThinDiskPotential w/ parameters w/ units does not behave as expected"
     # AnySphericalPotential, r in dens only has units
     pot= potential.AnySphericalPotential(
             dens=lambda r: 0.64/(r/ro/units.kpc)/(1+r/ro/units.kpc)**3,
@@ -3615,7 +3643,7 @@ def test_potential_paramunits():
     pot_nounits= potential.AnySphericalPotential(dens=lambda r: 0.64/r/(1+r)**3,
                                                  ro=ro,vo=vo)
     # Check potential
-    assert numpy.fabs(pot(4.,0.,phi=1.,use_physical=False)-pot_nounits(4.,0.,phi=1.,use_physical=False)) < 10.**-8., "AnyAxisymmetricRazorThinDiskPotential w/ parameters w/ units does not behave as expected"   
+    assert numpy.fabs(pot(4.,0.,phi=1.,use_physical=False)-pot_nounits(4.,0.,phi=1.,use_physical=False)) < 10.**-8., "AnyAxisymmetricRazorThinDiskPotential w/ parameters w/ units does not behave as expected"
     # If you add one here, don't base it on ChandrasekharDynamicalFrictionForce!!
     # RotateAndTiltWrapperPotential, zvec, pa
     wrappot= potential.TriaxialNFWPotential(amp=1.,a=3.,b=0.7,c=0.5)
@@ -3624,7 +3652,7 @@ def test_potential_paramunits():
     pot_nounits= potential.RotateAndTiltWrapperPotential(pot=wrappot,zvec=[0,1.,0],galaxy_pa=numpy.pi/6.,
                                                          ro=ro,vo=vo)
     # Check potential
-    assert numpy.fabs(pot(4.,0.,phi=1.,use_physical=False)-pot_nounits(4.,0.,phi=1.,use_physical=False)) < 10.**-8., "RotateAndTiltWrapperPotential w/ pa w/ units does not behave as expected"   
+    assert numpy.fabs(pot(4.,0.,phi=1.,use_physical=False)-pot_nounits(4.,0.,phi=1.,use_physical=False)) < 10.**-8., "RotateAndTiltWrapperPotential w/ pa w/ units does not behave as expected"
     # RotateAndTiltWrapperPotential, inclination, galaxy_pa, sky_pa
     wrappot= potential.TriaxialNFWPotential(amp=1.,a=3.,b=0.7,c=0.5)
     pot= potential.RotateAndTiltWrapperPotential(pot=wrappot,galaxy_pa=30.*units.deg,
@@ -3634,7 +3662,7 @@ def test_potential_paramunits():
                                                          inclination=numpy.pi/3.,sky_pa=-numpy.pi/4.,
                                                          ro=ro,vo=vo)
     # Check potential
-    assert numpy.fabs(pot(4.,0.,phi=1.,use_physical=False)-pot_nounits(4.,0.,phi=1.,use_physical=False)) < 10.**-8., "RotateAndTiltWrapperPotential w/ pa w/ units does not behave as expected"   
+    assert numpy.fabs(pot(4.,0.,phi=1.,use_physical=False)-pot_nounits(4.,0.,phi=1.,use_physical=False)) < 10.**-8., "RotateAndTiltWrapperPotential w/ pa w/ units does not behave as expected"
     # If you add one here, don't base it on ChandrasekharDynamicalFrictionForce!!
     return None
 
@@ -3660,7 +3688,7 @@ def test_potential_paramunits_2d():
                                                 rb=7./ro,
                                                 ro=ro,vo=vo)
     # Check potential
-    assert numpy.fabs(pot(1.5,phi=0.1,t=2./conversion.time_in_Gyr(vo,ro),use_physical=False)-pot_nounits(1.5,phi=0.1,t=2./conversion.time_in_Gyr(vo,ro),use_physical=False)) < 10.**-8., "CosmphiDiskPotential w/ parameters w/ units does not behave as expected"   
+    assert numpy.fabs(pot(1.5,phi=0.1,t=2./conversion.time_in_Gyr(vo,ro),use_physical=False)-pot_nounits(1.5,phi=0.1,t=2./conversion.time_in_Gyr(vo,ro),use_physical=False)) < 10.**-8., "CosmphiDiskPotential w/ parameters w/ units does not behave as expected"
     # CosmphiDiskPotential, alternative setup
     pot= potential.CosmphiDiskPotential(amp=1.,
                                         m=3,
@@ -3675,7 +3703,7 @@ def test_potential_paramunits_2d():
                                                 r1=8./ro,
                                                 ro=ro,vo=vo)
     # Check potential
-    assert numpy.fabs(pot(1.5,phi=0.1,t=2./conversion.time_in_Gyr(vo,ro),use_physical=False)-pot_nounits(1.5,phi=0.1,t=2./conversion.time_in_Gyr(vo,ro),use_physical=False)) < 10.**-8., "CosmphiDiskPotential w/ parameters w/ units does not behave as expected"   
+    assert numpy.fabs(pot(1.5,phi=0.1,t=2./conversion.time_in_Gyr(vo,ro),use_physical=False)-pot_nounits(1.5,phi=0.1,t=2./conversion.time_in_Gyr(vo,ro),use_physical=False)) < 10.**-8., "CosmphiDiskPotential w/ parameters w/ units does not behave as expected"
     # EllipticalDiskPotential
     pot= potential.EllipticalDiskPotential(amp=1.,
                                            tform=1.*units.Gyr,
@@ -3692,7 +3720,7 @@ def test_potential_paramunits_2d():
                                                    r1=8./ro,
                                                    ro=ro,vo=vo)
     # Check potential
-    assert numpy.fabs(pot(1.5,phi=0.1,t=2./conversion.time_in_Gyr(vo,ro),use_physical=False)-pot_nounits(1.5,phi=0.1,t=2./conversion.time_in_Gyr(vo,ro),use_physical=False)) < 10.**-8., "EllipticalDiskPotential w/ parameters w/ units does not behave as expected"   
+    assert numpy.fabs(pot(1.5,phi=0.1,t=2./conversion.time_in_Gyr(vo,ro),use_physical=False)-pot_nounits(1.5,phi=0.1,t=2./conversion.time_in_Gyr(vo,ro),use_physical=False)) < 10.**-8., "EllipticalDiskPotential w/ parameters w/ units does not behave as expected"
     # EllipticalDiskPotential, alternative setup
     pot= potential.EllipticalDiskPotential(amp=1.,
                                            tform=1.*units.Gyr,
@@ -3709,7 +3737,7 @@ def test_potential_paramunits_2d():
                                                    r1=8./ro,
                                                    ro=ro,vo=vo)
     # Check potential
-    assert numpy.fabs(pot(1.5,phi=0.1,t=2./conversion.time_in_Gyr(vo,ro),use_physical=False)-pot_nounits(1.5,phi=0.1,t=2./conversion.time_in_Gyr(vo,ro),use_physical=False)) < 10.**-8., "EllipticalDiskPotential w/ parameters w/ units does not behave as expected"   
+    assert numpy.fabs(pot(1.5,phi=0.1,t=2./conversion.time_in_Gyr(vo,ro),use_physical=False)-pot_nounits(1.5,phi=0.1,t=2./conversion.time_in_Gyr(vo,ro),use_physical=False)) < 10.**-8., "EllipticalDiskPotential w/ parameters w/ units does not behave as expected"
     # LopsidedDiskPotential
     pot= potential.LopsidedDiskPotential(amp=1.,
                                          phib=20.*units.deg,
@@ -3722,7 +3750,7 @@ def test_potential_paramunits_2d():
                                                  r1=8./ro,
                                                  ro=ro,vo=vo)
     # Check potential
-    assert numpy.fabs(pot(1.5,phi=0.1,t=2./conversion.time_in_Gyr(vo,ro),use_physical=False)-pot_nounits(1.5,phi=0.1,t=2./conversion.time_in_Gyr(vo,ro),use_physical=False)) < 10.**-8., "LopsidedDiskPotential w/ parameters w/ units does not behave as expected"   
+    assert numpy.fabs(pot(1.5,phi=0.1,t=2./conversion.time_in_Gyr(vo,ro),use_physical=False)-pot_nounits(1.5,phi=0.1,t=2./conversion.time_in_Gyr(vo,ro),use_physical=False)) < 10.**-8., "LopsidedDiskPotential w/ parameters w/ units does not behave as expected"
     # LopsidedDiskPotential, alternative setup
     pot= potential.LopsidedDiskPotential(amp=1.,
                                          cp=1000.*units.km**2/units.s**2.,
@@ -3735,7 +3763,7 @@ def test_potential_paramunits_2d():
                                                  r1=8./ro,
                                                  ro=ro,vo=vo)
     # Check potential
-    assert numpy.fabs(pot(1.5,phi=0.1,t=2./conversion.time_in_Gyr(vo,ro),use_physical=False)-pot_nounits(1.5,phi=0.1,t=2./conversion.time_in_Gyr(vo,ro),use_physical=False)) < 10.**-8., "LopsidedDiskPotential w/ parameters w/ units does not behave as expected"   
+    assert numpy.fabs(pot(1.5,phi=0.1,t=2./conversion.time_in_Gyr(vo,ro),use_physical=False)-pot_nounits(1.5,phi=0.1,t=2./conversion.time_in_Gyr(vo,ro),use_physical=False)) < 10.**-8., "LopsidedDiskPotential w/ parameters w/ units does not behave as expected"
     # SteadyLogSpiralPotential
     pot= potential.SteadyLogSpiralPotential(amp=1.,
                                             m=4,
@@ -3752,7 +3780,7 @@ def test_potential_paramunits_2d():
                                                     alpha=-9.,
                                                     ro=ro,vo=vo)
     # Check potential
-    assert numpy.fabs(pot(1.5,phi=0.1,t=2./conversion.time_in_Gyr(vo,ro),use_physical=False)-pot_nounits(1.5,phi=0.1,t=2./conversion.time_in_Gyr(vo,ro),use_physical=False)) < 10.**-8., "SteadyLogSpiralPotential w/ parameters w/ units does not behave as expected"   
+    assert numpy.fabs(pot(1.5,phi=0.1,t=2./conversion.time_in_Gyr(vo,ro),use_physical=False)-pot_nounits(1.5,phi=0.1,t=2./conversion.time_in_Gyr(vo,ro),use_physical=False)) < 10.**-8., "SteadyLogSpiralPotential w/ parameters w/ units does not behave as expected"
     # SteadyLogSpiralPotential, alternative setup
     pot= potential.SteadyLogSpiralPotential(amp=1.,
                                             m=4,
@@ -3769,7 +3797,7 @@ def test_potential_paramunits_2d():
                                                     p=10./180.*numpy.pi,
                                                     ro=ro,vo=vo)
     # Check potential
-    assert numpy.fabs(pot(1.5,phi=0.1,t=2./conversion.time_in_Gyr(vo,ro),use_physical=False)-pot_nounits(1.5,phi=0.1,t=2./conversion.time_in_Gyr(vo,ro),use_physical=False)) < 10.**-8., "SteadyLogSpiralPotential w/ parameters w/ units does not behave as expected"   
+    assert numpy.fabs(pot(1.5,phi=0.1,t=2./conversion.time_in_Gyr(vo,ro),use_physical=False)-pot_nounits(1.5,phi=0.1,t=2./conversion.time_in_Gyr(vo,ro),use_physical=False)) < 10.**-8., "SteadyLogSpiralPotential w/ parameters w/ units does not behave as expected"
     # TransientLogSpiralPotential
     pot= potential.TransientLogSpiralPotential(amp=1.,
                                                m=4,
@@ -3790,7 +3818,7 @@ def test_potential_paramunits_2d():
                                                        sigma=1./conversion.time_in_Gyr(vo,ro),
                                                        ro=ro,vo=vo)
     # Check potential
-    assert numpy.fabs(pot(1.5,phi=0.1,t=2./conversion.time_in_Gyr(vo,ro),use_physical=False)-pot_nounits(1.5,phi=0.1,t=2./conversion.time_in_Gyr(vo,ro),use_physical=False)) < 10.**-8., "TransientLogSpiralPotential w/ parameters w/ units does not behave as expected"   
+    assert numpy.fabs(pot(1.5,phi=0.1,t=2./conversion.time_in_Gyr(vo,ro),use_physical=False)-pot_nounits(1.5,phi=0.1,t=2./conversion.time_in_Gyr(vo,ro),use_physical=False)) < 10.**-8., "TransientLogSpiralPotential w/ parameters w/ units does not behave as expected"
     # TransientLogSpiralPotential, alternative setup
     pot= potential.TransientLogSpiralPotential(amp=1.,
                                                m=4,
@@ -3811,7 +3839,7 @@ def test_potential_paramunits_2d():
                                                        sigma=1./conversion.time_in_Gyr(vo,ro),
                                                        ro=ro,vo=vo)
     # Check potential
-    assert numpy.fabs(pot(1.5,phi=0.1,t=2./conversion.time_in_Gyr(vo,ro),use_physical=False)-pot_nounits(1.5,phi=0.1,t=2./conversion.time_in_Gyr(vo,ro),use_physical=False)) < 10.**-8., "TransientLogSpiralPotential w/ parameters w/ units does not behave as expected"   
+    assert numpy.fabs(pot(1.5,phi=0.1,t=2./conversion.time_in_Gyr(vo,ro),use_physical=False)-pot_nounits(1.5,phi=0.1,t=2./conversion.time_in_Gyr(vo,ro),use_physical=False)) < 10.**-8., "TransientLogSpiralPotential w/ parameters w/ units does not behave as expected"
     return None
 
 def test_potential_paramunits_1d():
@@ -3830,7 +3858,7 @@ def test_potential_paramunits_1d():
                                        F=0.02/conversion.dens_in_msolpc3(vo,ro)*4.*numpy.pi,
                                        D=0.2/ro,ro=ro,vo=vo)
     # Check potential
-    assert numpy.fabs(pot(1.5,use_physical=False)-pot_nounits(1.5,use_physical=False)) < 10.**-8., "KGPotential w/ parameters w/ units does not behave as expected"   
+    assert numpy.fabs(pot(1.5,use_physical=False)-pot_nounits(1.5,use_physical=False)) < 10.**-8., "KGPotential w/ parameters w/ units does not behave as expected"
     # KGPotential, alternative setup
     pot= potential.KGPotential(amp=1.,
                                K=40.*units.Msun/units.pc**2*constants.G,
@@ -3841,7 +3869,7 @@ def test_potential_paramunits_1d():
                                        F=0.02/conversion.dens_in_msolpc3(vo,ro),
                                        D=0.2/ro,ro=ro,vo=vo)
     # Check potential
-    assert numpy.fabs(pot(1.5,use_physical=False)-pot_nounits(1.5,use_physical=False)) < 10.**-8., "KGPotential w/ parameters w/ units does not behave as expected"   
+    assert numpy.fabs(pot(1.5,use_physical=False)-pot_nounits(1.5,use_physical=False)) < 10.**-8., "KGPotential w/ parameters w/ units does not behave as expected"
     # IsothermalDiskPotential
     pot= potential.IsothermalDiskPotential(amp=1.2,
                                            sigma=30.*units.km/units.s,
@@ -3849,7 +3877,7 @@ def test_potential_paramunits_1d():
     pot_nounits= potential.IsothermalDiskPotential(amp=1.2,
                                                    sigma=30./vo,ro=ro,vo=vo)
     # Check potential
-    assert numpy.fabs(pot(1.5,use_physical=False)-pot_nounits(1.5,use_physical=False)) < 10.**-8., "IsothermalDiskPotential w/ parameters w/ units does not behave as expected"   
+    assert numpy.fabs(pot(1.5,use_physical=False)-pot_nounits(1.5,use_physical=False)) < 10.**-8., "IsothermalDiskPotential w/ parameters w/ units does not behave as expected"
     return None
 
 def test_potential_paramunits_1d_wrongunits():
@@ -3875,6 +3903,7 @@ def test_potential_paramunits_1d_wrongunits():
 
 def test_potential_method_turnphysicalon():
     from galpy import potential
+
     # 3D
     pot= potential.BurkertPotential(ro=7.*units.kpc)
     pot.turn_physical_on()
@@ -3913,6 +3942,7 @@ def test_potential_method_turnphysicalon():
 
 def test_potential_method_turnphysicaloff():
     from galpy import potential
+
     # 3D
     pot= potential.BurkertPotential(ro=7.*units.kpc)
     pot.turn_physical_off()
@@ -3929,6 +3959,7 @@ def test_potential_method_turnphysicaloff():
 
 def test_potential_function_turnphysicalon():
     from galpy import potential
+
     # 3D
     pot= potential.BurkertPotential(ro=7.*units.kpc)
     potential.turn_physical_on(pot)
@@ -3961,6 +3992,7 @@ def test_potential_function_turnphysicalon():
 
 def test_potential_function_turnphysicaloff():
     from galpy import potential
+
     # 3D
     pot= potential.BurkertPotential(ro=7.*units.kpc)
     potential.turn_physical_off(pot)
@@ -3984,6 +4016,7 @@ def test_potential_function_turnphysicaloff():
 
 def test_potential_setup_roAsQuantity():
     from galpy import potential
+
     # 3D
     pot= potential.BurkertPotential(ro=7.*units.kpc)
     assert numpy.fabs(pot._ro-7.) < 10.**-10., 'ro in 3D potential setup as Quantity does not work as expected'
@@ -3997,6 +4030,7 @@ def test_potential_setup_roAsQuantity():
 
 def test_potential_setup_roAsQuantity_oddunits():
     from galpy import potential
+
     # 3D
     pot= potential.BurkertPotential(ro=7.*units.lyr)
     assert numpy.fabs(pot._ro-7.*units.lyr.to(units.kpc)) < 10.**-10., 'ro in 3D potential setup as Quantity does not work as expected'
@@ -4010,6 +4044,7 @@ def test_potential_setup_roAsQuantity_oddunits():
 
 def test_potential_setup_voAsQuantity():
     from galpy import potential
+
     # 3D
     pot= potential.BurkertPotential(vo=210.*units.km/units.s)
     assert numpy.fabs(pot._vo-210.) < 10.**-10., 'vo in 3D potential setup as Quantity does not work as expected'
@@ -4023,6 +4058,7 @@ def test_potential_setup_voAsQuantity():
 
 def test_potential_setup_voAsQuantity_oddunits():
     from galpy import potential
+
     # 3D
     pot= potential.BurkertPotential(vo=210.*units.pc/units.Myr)
     assert numpy.fabs(pot._vo-210.*(units.pc/units.Myr).to(units.km/units.s)) < 10.**-10., 'vo in 3D potential setup as Quantity does not work as expected'
@@ -4111,12 +4147,15 @@ def test_SCFPotential_from_density():
     return None
 
 def test_actionAngle_method_returntype():
-    from galpy.actionAngle import actionAngleIsochrone, actionAngleSpherical, \
-        actionAngleAdiabatic, actionAngleStaeckel, actionAngleIsochroneApprox,\
-        actionAngleIsochroneInverse, actionAngleHarmonic, \
-        actionAngleHarmonicInverse
-    from galpy.potential import PlummerPotential, MWPotential, \
-        IsochronePotential
+    from galpy.actionAngle import (actionAngleAdiabatic, actionAngleHarmonic,
+                                   actionAngleHarmonicInverse,
+                                   actionAngleIsochrone,
+                                   actionAngleIsochroneApprox,
+                                   actionAngleIsochroneInverse,
+                                   actionAngleSpherical, actionAngleStaeckel)
+    from galpy.potential import (IsochronePotential, MWPotential,
+                                 PlummerPotential)
+
     # actionAngleHarmonic
     ip= IsochronePotential(normalize=5.,b=10000.)
     # Omega = sqrt(4piG density / 3)
@@ -4193,12 +4232,15 @@ def test_actionAngle_method_returntype():
     return None
 
 def test_actionAngle_method_returnunit():
-    from galpy.actionAngle import actionAngleIsochrone, actionAngleSpherical, \
-        actionAngleAdiabatic, actionAngleStaeckel, actionAngleIsochroneApprox,\
-        actionAngleIsochroneInverse, actionAngleHarmonic, \
-        actionAngleHarmonicInverse
-    from galpy.potential import PlummerPotential, MWPotential, \
-        IsochronePotential
+    from galpy.actionAngle import (actionAngleAdiabatic, actionAngleHarmonic,
+                                   actionAngleHarmonicInverse,
+                                   actionAngleIsochrone,
+                                   actionAngleIsochroneApprox,
+                                   actionAngleIsochroneInverse,
+                                   actionAngleSpherical, actionAngleStaeckel)
+    from galpy.potential import (IsochronePotential, MWPotential,
+                                 PlummerPotential)
+
     # actionAngleHarmonic
     ip= IsochronePotential(normalize=5.,b=10000.)
     # Omega = sqrt(4piG density / 3)
@@ -4446,12 +4488,14 @@ def test_actionAngle_method_returnunit():
     return None
 
 def test_actionAngle_method_value():
-    from galpy.actionAngle import actionAngleIsochrone, actionAngleSpherical, \
-        actionAngleAdiabatic, actionAngleStaeckel, actionAngleIsochroneApprox,\
-        actionAngleIsochroneInverse, actionAngleHarmonic, \
-        actionAngleHarmonicInverse
-    from galpy.potential import PlummerPotential, MWPotential, \
-        IsochronePotential
+    from galpy.actionAngle import (actionAngleAdiabatic, actionAngleHarmonic,
+                                   actionAngleHarmonicInverse,
+                                   actionAngleIsochrone,
+                                   actionAngleIsochroneApprox,
+                                   actionAngleIsochroneInverse,
+                                   actionAngleSpherical, actionAngleStaeckel)
+    from galpy.potential import (IsochronePotential, MWPotential,
+                                 PlummerPotential)
     from galpy.util import conversion
     ro,vo= 9.,230.
     # actionAngleHarmonic
@@ -4584,12 +4628,15 @@ def test_actionAngle_method_value():
     return None
 
 def test_actionAngle_setup_roAsQuantity():
-    from galpy.actionAngle import actionAngleIsochrone, actionAngleSpherical, \
-        actionAngleAdiabatic, actionAngleStaeckel, actionAngleIsochroneApprox,\
-        actionAngleIsochroneInverse, actionAngleHarmonic, \
-        actionAngleHarmonicInverse
-    from galpy.potential import PlummerPotential, MWPotential, \
-        IsochronePotential
+    from galpy.actionAngle import (actionAngleAdiabatic, actionAngleHarmonic,
+                                   actionAngleHarmonicInverse,
+                                   actionAngleIsochrone,
+                                   actionAngleIsochroneApprox,
+                                   actionAngleIsochroneInverse,
+                                   actionAngleSpherical, actionAngleStaeckel)
+    from galpy.potential import (IsochronePotential, MWPotential,
+                                 PlummerPotential)
+
     # actionAngleHarmonicc
     ip= IsochronePotential(normalize=5.,b=10000.)
     aA= actionAngleHarmonic(omega=numpy.sqrt(4.*numpy.pi*ip.dens(1.2,0.)/3.),
@@ -4622,12 +4669,15 @@ def test_actionAngle_setup_roAsQuantity():
     return None
 
 def test_actionAngle_setup_roAsQuantity_oddunits():
-    from galpy.actionAngle import actionAngleIsochrone, actionAngleSpherical, \
-        actionAngleAdiabatic, actionAngleStaeckel, actionAngleIsochroneApprox,\
-        actionAngleIsochroneInverse, actionAngleHarmonic, \
-        actionAngleHarmonicInverse
-    from galpy.potential import PlummerPotential, MWPotential, \
-        IsochronePotential
+    from galpy.actionAngle import (actionAngleAdiabatic, actionAngleHarmonic,
+                                   actionAngleHarmonicInverse,
+                                   actionAngleIsochrone,
+                                   actionAngleIsochroneApprox,
+                                   actionAngleIsochroneInverse,
+                                   actionAngleSpherical, actionAngleStaeckel)
+    from galpy.potential import (IsochronePotential, MWPotential,
+                                 PlummerPotential)
+
     # actionAngleHarmonic
     ip= IsochronePotential(normalize=5.,b=10000.)
     aA= actionAngleHarmonic(omega=numpy.sqrt(4.*numpy.pi*ip.dens(1.2,0.)/3.),
@@ -4660,12 +4710,15 @@ def test_actionAngle_setup_roAsQuantity_oddunits():
     return None
 
 def test_actionAngle_setup_voAsQuantity():
-    from galpy.actionAngle import actionAngleIsochrone, actionAngleSpherical, \
-        actionAngleAdiabatic, actionAngleStaeckel, actionAngleIsochroneApprox,\
-        actionAngleIsochroneInverse, actionAngleHarmonic, \
-        actionAngleHarmonicInverse
-    from galpy.potential import PlummerPotential, MWPotential, \
-        IsochronePotential
+    from galpy.actionAngle import (actionAngleAdiabatic, actionAngleHarmonic,
+                                   actionAngleHarmonicInverse,
+                                   actionAngleIsochrone,
+                                   actionAngleIsochroneApprox,
+                                   actionAngleIsochroneInverse,
+                                   actionAngleSpherical, actionAngleStaeckel)
+    from galpy.potential import (IsochronePotential, MWPotential,
+                                 PlummerPotential)
+
     # actionAngleHarmonic
     ip= IsochronePotential(normalize=5.,b=10000.)
     aA= actionAngleHarmonic(omega=numpy.sqrt(4.*numpy.pi*ip.dens(1.2,0.)/3.),
@@ -4699,12 +4752,15 @@ def test_actionAngle_setup_voAsQuantity():
     return None
 
 def test_actionAngle_setup_voAsQuantity_oddunits():
-    from galpy.actionAngle import actionAngleIsochrone, actionAngleSpherical, \
-        actionAngleAdiabatic, actionAngleStaeckel, actionAngleIsochroneApprox,\
-        actionAngleIsochroneInverse, actionAngleHarmonic, \
-        actionAngleHarmonicInverse
-    from galpy.potential import PlummerPotential, MWPotential, \
-        IsochronePotential
+    from galpy.actionAngle import (actionAngleAdiabatic, actionAngleHarmonic,
+                                   actionAngleHarmonicInverse,
+                                   actionAngleIsochrone,
+                                   actionAngleIsochroneApprox,
+                                   actionAngleIsochroneInverse,
+                                   actionAngleSpherical, actionAngleStaeckel)
+    from galpy.potential import (IsochronePotential, MWPotential,
+                                 PlummerPotential)
+
     # actionAngleHarmonic
     ip= IsochronePotential(normalize=5.,b=10000.)
     aA= actionAngleHarmonic(omega=numpy.sqrt(4.*numpy.pi*ip.dens(1.2,0.)/3.),
@@ -4854,12 +4910,14 @@ def test_actionAngleIsochroneApprix_setup_tintJ_units():
     return None
 
 def test_actionAngle_method_inputAsQuantity():
-    from galpy.actionAngle import actionAngleIsochrone, actionAngleSpherical, \
-        actionAngleAdiabatic, actionAngleStaeckel, actionAngleIsochroneApprox,\
-        actionAngleIsochroneInverse, actionAngleHarmonic, \
-        actionAngleHarmonicInverse
-    from galpy.potential import PlummerPotential, MWPotential, \
-        IsochronePotential
+    from galpy.actionAngle import (actionAngleAdiabatic, actionAngleHarmonic,
+                                   actionAngleHarmonicInverse,
+                                   actionAngleIsochrone,
+                                   actionAngleIsochroneApprox,
+                                   actionAngleIsochroneInverse,
+                                   actionAngleSpherical, actionAngleStaeckel)
+    from galpy.potential import (IsochronePotential, MWPotential,
+                                 PlummerPotential)
     ro,vo= 9.,230.
     # actionAngleHarmonic
     ip= IsochronePotential(normalize=5.,b=10000.)
@@ -4969,10 +5027,10 @@ def test_actionAngle_method_inputAsQuantity():
         assert numpy.fabs(aA.Freqs(0.1*actionsUnit,1.1*actionsUnit,0.1*actionsUnit,use_physical=False)[ii]-aAnu.Freqs(0.1,1.1,0.1)[ii]) < 10.**-8., 'actionAngleInverse method Freqs does not return the correct value when input is Quantity'
     return None
 
-def test_actionAngleIsochroneApprox_method_ts_units():   
-    from galpy.potential import IsochronePotential
+def test_actionAngleIsochroneApprox_method_ts_units():
     from galpy.actionAngle import actionAngleIsochroneApprox
     from galpy.orbit import Orbit
+    from galpy.potential import IsochronePotential
     from galpy.util import conversion
     ip= IsochronePotential(normalize=1.,b=1.2)
     ro, vo= 7.5, 215.
@@ -5002,12 +5060,14 @@ def test_actionAngleIsochroneApprox_method_ts_units():
     return None
 
 def test_actionAngle_inconsistentPotentialUnits_error():
-    from galpy.actionAngle import actionAngleIsochrone, actionAngleSpherical, \
-        actionAngleAdiabatic, actionAngleStaeckel, actionAngleIsochroneApprox,\
-        actionAngleIsochroneInverse
-    from galpy.potential import PlummerPotential, IsochronePotential
+    from galpy.actionAngle import (actionAngleAdiabatic, actionAngleIsochrone,
+                                   actionAngleIsochroneApprox,
+                                   actionAngleIsochroneInverse,
+                                   actionAngleSpherical, actionAngleStaeckel)
+    from galpy.potential import IsochronePotential, PlummerPotential
+
     # actionAngleIsochrone
-    pot= IsochronePotential(normalize=1.,ro=7.,vo=220.) 
+    pot= IsochronePotential(normalize=1.,ro=7.,vo=220.)
     with pytest.raises(AssertionError) as excinfo:
         actionAngleIsochrone(ip=pot,ro=8.,vo=220.)
     pot= IsochronePotential(normalize=1.,ro=8.,vo=230.)
@@ -5042,7 +5102,7 @@ def test_actionAngle_inconsistentPotentialUnits_error():
     with pytest.raises(AssertionError) as excinfo:
         actionAngleIsochroneApprox(b=0.8,pot=pot,ro=8.,vo=220.)
     # actionAngleIsochroneInverse
-    pot= IsochronePotential(normalize=1.,ro=7.,vo=220.) 
+    pot= IsochronePotential(normalize=1.,ro=7.,vo=220.)
     with pytest.raises(AssertionError) as excinfo:
         actionAngleIsochroneInverse(ip=pot,ro=8.,vo=220.)
     pot= IsochronePotential(normalize=1.,ro=8.,vo=230.)
@@ -5051,14 +5111,16 @@ def test_actionAngle_inconsistentPotentialUnits_error():
     return None
 
 def test_actionAngle_inconsistentOrbitUnits_error():
-    from galpy.actionAngle import actionAngleIsochrone, actionAngleSpherical, \
-        actionAngleAdiabatic, actionAngleStaeckel, actionAngleIsochroneApprox
-    from galpy.potential import PlummerPotential, IsochronePotential
+    from galpy.actionAngle import (actionAngleAdiabatic, actionAngleIsochrone,
+                                   actionAngleIsochroneApprox,
+                                   actionAngleSpherical, actionAngleStaeckel)
     from galpy.orbit import Orbit
+    from galpy.potential import IsochronePotential, PlummerPotential
+
     # actionAngleIsochrone
     pot= IsochronePotential(normalize=1)
     aA= actionAngleIsochrone(ip=pot,ro=8.,vo=220.)
-    o= Orbit([1.1,0.2,1.2,0.1,0.2,0.2],ro=7.,vo=220.) 
+    o= Orbit([1.1,0.2,1.2,0.1,0.2,0.2],ro=7.,vo=220.)
     with pytest.raises(AssertionError) as excinfo: aA(o)
     with pytest.raises(AssertionError) as excinfo: aA.actionsFreqs(o)
     with pytest.raises(AssertionError) as excinfo: aA.actionsFreqsAngles(o)
@@ -5108,6 +5170,7 @@ def test_actionAngle_inconsistentOrbitUnits_error():
 def test_actionAngle_input_wrongunits():
     from galpy.actionAngle import actionAngleSpherical
     from galpy.potential import PlummerPotential
+
     # actionAngleSpherical
     pot= PlummerPotential(normalize=1.,b=0.7)
     aA= actionAngleSpherical(pot=pot,ro=8.,vo=220.)
@@ -5120,7 +5183,7 @@ def test_actionAngle_input_wrongunits():
            1.1*units.km/units.s,0.1*units.kpc,
            0.2*units.km/units.s,0.1*units.rad)
     return None
-    
+
 def test_actionAngleInverse_input_wrongunits():
     from galpy.actionAngle import actionAngleIsochroneInverse
     from galpy.potential import IsochronePotential
@@ -5135,18 +5198,18 @@ def test_actionAngleInverse_input_wrongunits():
              1.1*units.kpc*units.km/units.s,0.1*units.km,
              0.2*units.rad,0.1*units.rad)
     return None
-    
+
 def test_estimateDeltaStaeckel_method_returntype():
-    from galpy.potential import MiyamotoNagaiPotential
     from galpy.actionAngle import estimateDeltaStaeckel
+    from galpy.potential import MiyamotoNagaiPotential
     pot= MiyamotoNagaiPotential(normalize=True,ro=8.,vo=220.)
     assert isinstance(estimateDeltaStaeckel(pot,1.1,0.1),units.Quantity), 'estimateDeltaStaeckel function does not return Quantity when it should'
     assert isinstance(estimateDeltaStaeckel(pot,1.1*numpy.ones(3),0.1*numpy.ones(3)),units.Quantity), 'estimateDeltaStaeckel function does not return Quantity when it should'
     return None
 
 def test_estimateDeltaStaeckel_method_returnunit():
-    from galpy.potential import MiyamotoNagaiPotential
     from galpy.actionAngle import estimateDeltaStaeckel
+    from galpy.potential import MiyamotoNagaiPotential
     pot= MiyamotoNagaiPotential(normalize=True,ro=8.,vo=220.)
     try:
         estimateDeltaStaeckel(pot,1.1,0.1).to(units.kpc)
@@ -5159,8 +5222,8 @@ def test_estimateDeltaStaeckel_method_returnunit():
     return None
 
 def test_estimateDeltaStaeckel_method_value():
-    from galpy.potential import MiyamotoNagaiPotential
     from galpy.actionAngle import estimateDeltaStaeckel
+    from galpy.potential import MiyamotoNagaiPotential
     ro, vo= 9., 230.
     pot= MiyamotoNagaiPotential(normalize=True,ro=ro,vo=vo)
     potu= MiyamotoNagaiPotential(normalize=True)
@@ -5169,8 +5232,8 @@ def test_estimateDeltaStaeckel_method_value():
     return None
 
 def test_estimateBIsochrone_method_returntype():
-    from galpy.potential import MiyamotoNagaiPotential
     from galpy.actionAngle import estimateBIsochrone
+    from galpy.potential import MiyamotoNagaiPotential
     pot= MiyamotoNagaiPotential(normalize=True,ro=8.,vo=220.)
     assert isinstance(estimateBIsochrone(pot,1.1,0.1),units.Quantity), 'estimateBIsochrone function does not return Quantity when it should'
     for ii in range(3):
@@ -5178,8 +5241,8 @@ def test_estimateBIsochrone_method_returntype():
     return None
 
 def test_estimateBIsochrone_method_returnunit():
-    from galpy.potential import MiyamotoNagaiPotential
     from galpy.actionAngle import estimateBIsochrone
+    from galpy.potential import MiyamotoNagaiPotential
     pot= MiyamotoNagaiPotential(normalize=True,ro=8.,vo=220.)
     try:
         estimateBIsochrone(pot,1.1,0.1).to(units.kpc)
@@ -5193,8 +5256,8 @@ def test_estimateBIsochrone_method_returnunit():
     return None
 
 def test_estimateBIsochrone_method_value():
-    from galpy.potential import MiyamotoNagaiPotential
     from galpy.actionAngle import estimateBIsochrone
+    from galpy.potential import MiyamotoNagaiPotential
     ro, vo= 9., 230.
     pot= MiyamotoNagaiPotential(normalize=True,ro=ro,vo=vo)
     potu= MiyamotoNagaiPotential(normalize=True)
@@ -5238,7 +5301,7 @@ def test_df_method_turnphysicaloff():
     return None
 
 def test_diskdf_method_returntype():
-    from galpy.df import dehnendf,shudf
+    from galpy.df import dehnendf, shudf
     from galpy.orbit import Orbit
     df= dehnendf(ro=8.,vo=220.)
     dfs= shudf(ro=8.,vo=220.)
@@ -5504,7 +5567,7 @@ def test_diskdf_setup_voAsQuantity_oddunits():
     return None
 
 def test_diskdf_setup_profileAsQuantity():
-    from galpy.df import dehnendf,shudf
+    from galpy.df import dehnendf, shudf
     from galpy.orbit import Orbit
     df= dehnendf(ro=8.,vo=220.,profileParams=(9.*units.kpc,
                                               10.*units.kpc,
@@ -5522,8 +5585,8 @@ def test_diskdf_setup_profileAsQuantity():
 
 def test_evolveddiskdf_method_returntype():
     from galpy.df import dehnendf
-    from galpy.potential import LogarithmicHaloPotential, \
-        EllipticalDiskPotential
+    from galpy.potential import (EllipticalDiskPotential,
+                                 LogarithmicHaloPotential)
     lp= LogarithmicHaloPotential(normalize=1.)
     ep= EllipticalDiskPotential(twophio=0.05,phib=0.,p=0.,
                                 tform=-150.,tsteady=125.)
@@ -5551,8 +5614,8 @@ def test_evolveddiskdf_method_returntype():
 
 def test_evolveddiskdf_method_returnunit():
     from galpy.df import dehnendf
-    from galpy.potential import LogarithmicHaloPotential, \
-        EllipticalDiskPotential
+    from galpy.potential import (EllipticalDiskPotential,
+                                 LogarithmicHaloPotential)
     lp= LogarithmicHaloPotential(normalize=1.)
     ep= EllipticalDiskPotential(twophio=0.05,phib=0.,p=0.,
                                 tform=-150.,tsteady=125.)
@@ -5607,10 +5670,10 @@ def test_evolveddiskdf_method_returnunit():
     return None
 
 def test_evolveddiskdf_method_value():
-    from galpy.util import conversion
     from galpy.df import dehnendf
-    from galpy.potential import LogarithmicHaloPotential, \
-        EllipticalDiskPotential
+    from galpy.potential import (EllipticalDiskPotential,
+                                 LogarithmicHaloPotential)
+    from galpy.util import conversion
     lp= LogarithmicHaloPotential(normalize=1.)
     ep= EllipticalDiskPotential(twophio=0.05,phib=0.,p=0.,
                                 tform=-150.,tsteady=125.)
@@ -5637,10 +5700,10 @@ def test_evolveddiskdf_method_value():
 
 def test_evolveddiskdf_method_inputAsQuantity():
     # Those that use the decorator
-    from galpy.util import conversion
     from galpy.df import dehnendf
-    from galpy.potential import LogarithmicHaloPotential, \
-        EllipticalDiskPotential
+    from galpy.potential import (EllipticalDiskPotential,
+                                 LogarithmicHaloPotential)
+    from galpy.util import conversion
     lp= LogarithmicHaloPotential(normalize=1.)
     ep= EllipticalDiskPotential(twophio=0.05,phib=0.,p=0.,
                                 tform=-150.,tsteady=125.)
@@ -5664,10 +5727,10 @@ def test_evolveddiskdf_method_inputAsQuantity():
     return None
 
 def test_evolveddiskdf_method_inputAsQuantity_special():
-    from galpy.util import conversion
     from galpy.df import dehnendf
-    from galpy.potential import LogarithmicHaloPotential, \
-        EllipticalDiskPotential
+    from galpy.potential import (EllipticalDiskPotential,
+                                 LogarithmicHaloPotential)
+    from galpy.util import conversion
     lp= LogarithmicHaloPotential(normalize=1.)
     ep= EllipticalDiskPotential(twophio=0.05,phib=0.,p=0.,
                                 tform=-150.,tsteady=125.)
@@ -5685,8 +5748,8 @@ def test_evolveddiskdf_method_inputAsQuantity_special():
 
 def test_evolveddiskdf_setup_roAsQuantity():
     from galpy.df import dehnendf
-    from galpy.potential import LogarithmicHaloPotential, \
-        EllipticalDiskPotential
+    from galpy.potential import (EllipticalDiskPotential,
+                                 LogarithmicHaloPotential)
     lp= LogarithmicHaloPotential(normalize=1.)
     ep= EllipticalDiskPotential(twophio=0.05,phib=0.,p=0.,
                                 tform=-150.,tsteady=125.)
@@ -5699,8 +5762,8 @@ def test_evolveddiskdf_setup_roAsQuantity():
 
 def test_evolveddiskdf_setup_roAsQuantity_oddunits():
     from galpy.df import dehnendf
-    from galpy.potential import LogarithmicHaloPotential, \
-        EllipticalDiskPotential
+    from galpy.potential import (EllipticalDiskPotential,
+                                 LogarithmicHaloPotential)
     lp= LogarithmicHaloPotential(normalize=1.)
     ep= EllipticalDiskPotential(twophio=0.05,phib=0.,p=0.,
                                 tform=-150.,tsteady=125.)
@@ -5713,8 +5776,8 @@ def test_evolveddiskdf_setup_roAsQuantity_oddunits():
 
 def test_evolveddiskdf_setup_voAsQuantity():
     from galpy.df import dehnendf
-    from galpy.potential import LogarithmicHaloPotential, \
-        EllipticalDiskPotential
+    from galpy.potential import (EllipticalDiskPotential,
+                                 LogarithmicHaloPotential)
     lp= LogarithmicHaloPotential(normalize=1.)
     ep= EllipticalDiskPotential(twophio=0.05,phib=0.,p=0.,
                                 tform=-150.,tsteady=125.)
@@ -5728,8 +5791,8 @@ def test_evolveddiskdf_setup_voAsQuantity():
 
 def test_evolveddiskdf_setup_voAsQuantity_oddunits():
     from galpy.df import dehnendf
-    from galpy.potential import LogarithmicHaloPotential, \
-        EllipticalDiskPotential
+    from galpy.potential import (EllipticalDiskPotential,
+                                 LogarithmicHaloPotential)
     lp= LogarithmicHaloPotential(normalize=1.)
     ep= EllipticalDiskPotential(twophio=0.05,phib=0.,p=0.,
                                 tform=-150.,tsteady=125.)
@@ -5742,10 +5805,10 @@ def test_evolveddiskdf_setup_voAsQuantity_oddunits():
     return None
 
 def test_evolveddiskdf_setup_toAsQuantity():
-    from galpy.util import conversion
     from galpy.df import dehnendf
-    from galpy.potential import LogarithmicHaloPotential, \
-        EllipticalDiskPotential
+    from galpy.potential import (EllipticalDiskPotential,
+                                 LogarithmicHaloPotential)
+    from galpy.util import conversion
     lp= LogarithmicHaloPotential(normalize=1.)
     ep= EllipticalDiskPotential(twophio=0.05,phib=0.,p=0.,
                                 tform=-150.,tsteady=125.)
@@ -5757,10 +5820,10 @@ def test_evolveddiskdf_setup_toAsQuantity():
     return None
 
 def test_quasiisothermaldf_method_returntype():
-    from galpy.potential import MWPotential
     from galpy.actionAngle import actionAngleAdiabatic
     from galpy.df import quasiisothermaldf
     from galpy.orbit import Orbit
+    from galpy.potential import MWPotential
     aA= actionAngleAdiabatic(pot=MWPotential,c=True)
     qdf= quasiisothermaldf(1./3.,0.2,0.1,1.,1.,pot=MWPotential,aA=aA,
                            cutcounter=True,ro=8.,vo=220.)
@@ -5808,10 +5871,10 @@ def test_quasiisothermaldf_method_returntype():
     return None
 
 def test_quasiisothermaldf_method_returnunit():
-    from galpy.potential import MWPotential
     from galpy.actionAngle import actionAngleAdiabatic
     from galpy.df import quasiisothermaldf
     from galpy.orbit import Orbit
+    from galpy.potential import MWPotential
     aA= actionAngleAdiabatic(pot=MWPotential,c=True)
     qdf= quasiisothermaldf(1./3.,0.2,0.1,1.,1.,pot=MWPotential,aA=aA,
                            cutcounter=True,ro=8.,vo=220.)
@@ -5949,10 +6012,10 @@ def test_quasiisothermaldf_method_returnunit():
     return None
 
 def test_quasiisothermaldf_method_value():
-    from galpy.potential import MWPotential
     from galpy.actionAngle import actionAngleAdiabatic
     from galpy.df import quasiisothermaldf
     from galpy.orbit import Orbit
+    from galpy.potential import MWPotential
     aA= actionAngleAdiabatic(pot=MWPotential,c=True)
     ro, vo= 9., 210.
     qdf= quasiisothermaldf(1./3.,0.2,0.1,1.,1.,pot=MWPotential,aA=aA,
@@ -5998,9 +6061,9 @@ def test_quasiisothermaldf_method_value():
     return None
 
 def test_quasiisothermaldf_sample():
-    from galpy.potential import MWPotential
     from galpy.actionAngle import actionAngleAdiabatic
     from galpy.df import quasiisothermaldf
+    from galpy.potential import MWPotential
     aA= actionAngleAdiabatic(pot=MWPotential,c=True)
     ro, vo= 9., 210.
     qdf= quasiisothermaldf(1./3.,0.2,0.1,1.,1.,pot=MWPotential,aA=aA,
@@ -6022,9 +6085,9 @@ def test_quasiisothermaldf_sample():
     return None
 
 def test_quasiisothermaldf_interpolate_sample():
-    from galpy.potential import MWPotential
     from galpy.actionAngle import actionAngleAdiabatic
     from galpy.df import quasiisothermaldf
+    from galpy.potential import MWPotential
     aA= actionAngleAdiabatic(pot=MWPotential,c=True)
     ro, vo= 9., 210.
     R= numpy.array([0.6,0.7,0.8,0.9,1.0])
@@ -6049,9 +6112,9 @@ def test_quasiisothermaldf_interpolate_sample():
 
 def test_quasiisothermaldf_method_inputAsQuantity():
     # Those that use the decorator
-    from galpy.potential import MWPotential
     from galpy.actionAngle import actionAngleAdiabatic
     from galpy.df import quasiisothermaldf
+    from galpy.potential import MWPotential
     aA= actionAngleAdiabatic(pot=MWPotential,c=True)
     ro, vo= 9., 210.
     qdf= quasiisothermaldf(1./3.,0.2,0.1,1.,1.,pot=MWPotential,aA=aA,
@@ -6085,9 +6148,9 @@ def test_quasiisothermaldf_method_inputAsQuantity():
     return None
 
 def test_quasiisothermaldf_method_inputAsQuantity_special():
-    from galpy.potential import MWPotential
     from galpy.actionAngle import actionAngleAdiabatic
     from galpy.df import quasiisothermaldf
+    from galpy.potential import MWPotential
     aA= actionAngleAdiabatic(pot=MWPotential,c=True)
     ro, vo= 9., 210.
     qdf= quasiisothermaldf(1./3.,0.2,0.1,1.,1.,pot=MWPotential,aA=aA,
@@ -6100,9 +6163,9 @@ def test_quasiisothermaldf_method_inputAsQuantity_special():
     return None
 
 def test_quasiisothermaldf_setup_roAsQuantity():
-    from galpy.potential import MWPotential
     from galpy.actionAngle import actionAngleAdiabatic
     from galpy.df import quasiisothermaldf
+    from galpy.potential import MWPotential
     aA= actionAngleAdiabatic(pot=MWPotential,c=True)
     ro= 9.
     df= quasiisothermaldf(1./3.,0.2,0.1,1.,1.,pot=MWPotential,aA=aA,
@@ -6111,9 +6174,9 @@ def test_quasiisothermaldf_setup_roAsQuantity():
     return None
 
 def test_quasiisothermaldf_setup_roAsQuantity_oddunits():
-    from galpy.potential import MWPotential
     from galpy.actionAngle import actionAngleAdiabatic
     from galpy.df import quasiisothermaldf
+    from galpy.potential import MWPotential
     aA= actionAngleAdiabatic(pot=MWPotential,c=True)
     ro= 9000.
     df= quasiisothermaldf(1./3.,0.2,0.1,1.,1.,pot=MWPotential,aA=aA,
@@ -6122,9 +6185,9 @@ def test_quasiisothermaldf_setup_roAsQuantity_oddunits():
     return None
 
 def test_quasiisothermaldf_setup_voAsQuantity():
-    from galpy.potential import MWPotential
     from galpy.actionAngle import actionAngleAdiabatic
     from galpy.df import quasiisothermaldf
+    from galpy.potential import MWPotential
     aA= actionAngleAdiabatic(pot=MWPotential,c=True)
     vo= 230.
     df= quasiisothermaldf(1./3.,0.2,0.1,1.,1.,pot=MWPotential,aA=aA,
@@ -6133,9 +6196,9 @@ def test_quasiisothermaldf_setup_voAsQuantity():
     return None
 
 def test_quasiisothermaldf_setup_voAsQuantity_oddunits():
-    from galpy.potential import MWPotential
     from galpy.actionAngle import actionAngleAdiabatic
     from galpy.df import quasiisothermaldf
+    from galpy.potential import MWPotential
     aA= actionAngleAdiabatic(pot=MWPotential,c=True)
     vo= 230.
     df= quasiisothermaldf(1./3.,0.2,0.1,1.,1.,pot=MWPotential,aA=aA,
@@ -6144,10 +6207,10 @@ def test_quasiisothermaldf_setup_voAsQuantity_oddunits():
     return None
 
 def test_test_quasiisothermaldf_setup_profileAsQuantity():
-    from galpy.potential import MWPotential
     from galpy.actionAngle import actionAngleAdiabatic
     from galpy.df import quasiisothermaldf
     from galpy.orbit import Orbit
+    from galpy.potential import MWPotential
     aA= actionAngleAdiabatic(pot=MWPotential,c=True)
     ro, vo= 7., 250.
     qdf= quasiisothermaldf(3.*units.kpc,
@@ -6165,10 +6228,10 @@ def test_test_quasiisothermaldf_setup_profileAsQuantity():
     return None
 
 def test_test_quasiisothermaldf_setup_refrloAsQuantity():
-    from galpy.potential import MWPotential
     from galpy.actionAngle import actionAngleAdiabatic
     from galpy.df import quasiisothermaldf
     from galpy.orbit import Orbit
+    from galpy.potential import MWPotential
     aA= actionAngleAdiabatic(pot=MWPotential,c=True)
     ro, vo= 7., 250.
     qdf= quasiisothermaldf(1./3.,0.2,0.1,1.,1.,pot=MWPotential,aA=aA,
@@ -6182,7 +6245,7 @@ def test_test_quasiisothermaldf_setup_refrloAsQuantity():
 
 def test_sphericaldf_method_returntype():
     from galpy import potential
-    from galpy.df import isotropicHernquistdf, constantbetaHernquistdf
+    from galpy.df import constantbetaHernquistdf, isotropicHernquistdf
     from galpy.orbit import Orbit
     pot= potential.HernquistPotential(amp=2.,a=1.3,ro=8.,vo=220.)
     dfh= isotropicHernquistdf(pot=pot)
@@ -6205,7 +6268,7 @@ def test_sphericaldf_method_returntype():
 
 def test_sphericaldf_method_returnunit():
     from galpy import potential
-    from galpy.df import isotropicHernquistdf, constantbetaHernquistdf
+    from galpy.df import constantbetaHernquistdf, isotropicHernquistdf
     from galpy.orbit import Orbit
     pot= potential.HernquistPotential(amp=2.,a=1.3,ro=8.,vo=220.)
     dfh= isotropicHernquistdf(pot=pot)
@@ -6259,7 +6322,7 @@ def test_sphericaldf_method_returnunit():
 
 def test_sphericaldf_method_value():
     from galpy import potential
-    from galpy.df import isotropicHernquistdf, constantbetaHernquistdf
+    from galpy.df import constantbetaHernquistdf, isotropicHernquistdf
     from galpy.orbit import Orbit
     ro,vo= 8., 220.
     pot= potential.HernquistPotential(amp=2.,a=1.3)
@@ -6276,10 +6339,10 @@ def test_sphericaldf_method_value():
     assert numpy.fabs(dfh.vmomentdensity(1.1,1,0).to(1/units.kpc**3*units.km/units.s).value-dfh_nou.vmomentdensity(1.1,1,0)*vo/ro**3) < 10.**-8., 'sphericaldf method vmomentdensity does not return correct Quantity'
     assert numpy.fabs(dfa.vmomentdensity(1.1,1,0).to(1/units.kpc**3*units.km/units.s).value-dfa_nou.vmomentdensity(1.1,1,0)*vo/ro**3) < 10.**-8., 'sphericaldf method vmomentdensity does not return correct Quantity'
     # One with no quantity output
-    from galpy.util import conversion
-    conversion._APY_UNITS= False # Hack
+    import galpy.util._optional_deps
+    galpy.util._optional_deps._APY_UNITS= False # Hack
     assert numpy.fabs(dfh.vmomentdensity(1.1,0,2)-dfh_nou.vmomentdensity(1.1,0,2)*vo**2/ro**3) < 10.**-8., 'sphericaldf method vmomentdensity does not return correct Quantity'
-    conversion._APY_UNITS= True # Hack
+    galpy.util._optional_deps._APY_UNITS= True # Hack
     assert numpy.fabs(dfh.vmomentdensity(1.1,0,2).to(1/units.kpc**3*units.km**2/units.s**2).value-dfh_nou.vmomentdensity(1.1,0,2)*vo**2/ro**3) < 10.**-8., 'sphericaldf method vmomentdensity does not return correct Quantity'
     assert numpy.fabs(dfa.vmomentdensity(1.1,0,2).to(1/units.kpc**3*units.km**2/units.s**2).value-dfa_nou.vmomentdensity(1.1,0,2)*vo**2/ro**3) < 10.**-8., 'sphericaldf method vmomentdensity does not return correct Quantity'
     assert numpy.fabs(dfh.sigmar(1.1).to(units.km/units.s).value-dfh_nou.sigmar(1.1)*vo) < 10.**-8., 'sphericaldf method sigmar does not return correct Quantity'
@@ -6288,7 +6351,7 @@ def test_sphericaldf_method_value():
 
 def test_sphericaldf_method_inputAsQuantity():
     from galpy import potential
-    from galpy.df import isotropicHernquistdf, constantbetaHernquistdf
+    from galpy.df import constantbetaHernquistdf, isotropicHernquistdf
     from galpy.orbit import Orbit
     ro,vo= 8., 220.
     pot= potential.HernquistPotential(amp=2.,a=1.3)
@@ -6340,9 +6403,30 @@ def test_sphericaldf_sample():
     assert numpy.all(numpy.fabs(sam.r(use_physical=False)-sam_nou.r(use_physical=False)) < 1e-8), 'Sample returned by sphericaldf.sample with input rmin with units does not agree with that returned by sampline with input rmin without units'
     return None
 
+def test_sphericaldf_sample_outputunits():
+    from galpy import potential
+    from galpy.df import isotropicHernquistdf
+    ro,vo= 8., 220.
+    pot= potential.HernquistPotential(amp=2.,a=1.3)
+    dfh= isotropicHernquistdf(pot=pot,ro=ro,vo=vo)
+    dfh_nou= isotropicHernquistdf(pot=pot)
+    numpy.random.seed(10)
+    sam= dfh.sample(R=1.*units.kpc,z=0.*units.kpc,phi=10.*units.deg,n=2,
+                    return_orbit=False)
+    numpy.random.seed(10)
+    sam_nou= dfh_nou.sample(R=1./ro,z=0./ro,phi=10./180.*numpy.pi,n=2,
+                            return_orbit=False)
+    assert numpy.all(numpy.fabs(sam[0].to_value(units.kpc)/ro-sam_nou[0]) < 1e-8), 'Sample returned by sphericaldf.sample with with unit output is inconsistenty with the same sample sampled without unit output'
+    assert numpy.all(numpy.fabs(sam[1].to_value(units.km/units.s)/vo-sam_nou[1]) < 1e-8), 'Sample returned by streamspraydf.sample with with unit output is inconsistenty with the same sample sampled without unit output'
+    assert numpy.all(numpy.fabs(sam[2].to_value(units.km/units.s)/vo-sam_nou[2]) < 1e-8), 'Sample returned by sphericaldf.sample with with unit output is inconsistenty with the same sample sampled without unit output'
+    assert numpy.all(numpy.fabs(sam[3].to_value(units.kpc)/ro-sam_nou[3]) < 1e-8), 'Sample returned by sphericaldf.sample with with unit output is inconsistenty with the same sample sampled without unit output'
+    assert numpy.all(numpy.fabs(sam[4].to_value(units.km/units.s)/vo-sam_nou[4]) < 1e-8), 'Sample returned by sphericaldf.sample with with unit output is inconsistenty with the same sample sampled without unit output'
+    assert numpy.all(numpy.fabs(sam[5].to_value(units.rad)-sam_nou[5]) < 1e-8), 'Sample returned by sphericaldf.sample with with unit output is inconsistenty with the same sample sampled without unit output'
+    return None
+
 def test_kingdf_setup_wunits():
-    from galpy.util import conversion
     from galpy.df import kingdf
+    from galpy.util import conversion
     ro, vo= 9., 210.
     dfk= kingdf(W0=3.,M=4*1e4*units.Msun,rt=10.*units.pc,ro=ro,vo=vo)
     dfk_nou= kingdf(W0=3.,M=4*1e4/conversion.mass_in_msol(vo,ro),
@@ -6352,11 +6436,11 @@ def test_kingdf_setup_wunits():
 
 def test_streamdf_method_returntype():
     #Imports
+    from galpy.actionAngle import actionAngleIsochroneApprox
     from galpy.df import streamdf
     from galpy.orbit import Orbit
     from galpy.potential import LogarithmicHaloPotential
-    from galpy.actionAngle import actionAngleIsochroneApprox
-    from galpy.util import conversion #for unit conversions
+    from galpy.util import conversion  # for unit conversions
     lp= LogarithmicHaloPotential(normalize=1.,q=0.9)
     aAI= actionAngleIsochroneApprox(pot=lp,b=0.8)
     obs= Orbit([1.56148083,0.35081535,-1.15481504,
@@ -6380,11 +6464,11 @@ def test_streamdf_method_returntype():
 
 def test_streamdf_method_returnunit():
     #Imports
+    from galpy.actionAngle import actionAngleIsochroneApprox
     from galpy.df import streamdf
     from galpy.orbit import Orbit
     from galpy.potential import LogarithmicHaloPotential
-    from galpy.actionAngle import actionAngleIsochroneApprox
-    from galpy.util import conversion #for unit conversions
+    from galpy.util import conversion  # for unit conversions
     lp= LogarithmicHaloPotential(normalize=1.,q=0.9)
     aAI= actionAngleIsochroneApprox(pot=lp,b=0.8)
     obs= Orbit([1.56148083,0.35081535,-1.15481504,
@@ -6432,11 +6516,11 @@ def test_streamdf_method_returnunit():
 
 def test_streamdf_method_value():
     #Imports
+    from galpy.actionAngle import actionAngleIsochroneApprox
     from galpy.df import streamdf
     from galpy.orbit import Orbit
     from galpy.potential import LogarithmicHaloPotential
-    from galpy.actionAngle import actionAngleIsochroneApprox
-    from galpy.util import conversion #for unit conversions
+    from galpy.util import conversion  # for unit conversions
     lp= LogarithmicHaloPotential(normalize=1.,q=0.9)
     aAI= actionAngleIsochroneApprox(pot=lp,b=0.8)
     obs= Orbit([1.56148083,0.35081535,-1.15481504,
@@ -6465,11 +6549,11 @@ def test_streamdf_method_value():
 
 def test_streamdf_method_inputAsQuantity():
     #Imports
+    from galpy.actionAngle import actionAngleIsochroneApprox
     from galpy.df import streamdf
     from galpy.orbit import Orbit
     from galpy.potential import LogarithmicHaloPotential
-    from galpy.actionAngle import actionAngleIsochroneApprox
-    from galpy.util import conversion #for unit conversions
+    from galpy.util import conversion  # for unit conversions
     lp= LogarithmicHaloPotential(normalize=1.,q=0.9)
     aAI= actionAngleIsochroneApprox(pot=lp,b=0.8)
     obs= Orbit([1.56148083,0.35081535,-1.15481504,
@@ -6500,11 +6584,11 @@ def test_streamdf_method_inputAsQuantity():
 
 def test_streamdf_sample():
     #Imports
+    from galpy.actionAngle import actionAngleIsochroneApprox
     from galpy.df import streamdf
     from galpy.orbit import Orbit
     from galpy.potential import LogarithmicHaloPotential
-    from galpy.actionAngle import actionAngleIsochroneApprox
-    from galpy.util import conversion #for unit conversions
+    from galpy.util import conversion  # for unit conversions
     lp= LogarithmicHaloPotential(normalize=1.,q=0.9)
     aAI= actionAngleIsochroneApprox(pot=lp,b=0.8)
     obs= Orbit([1.56148083,0.35081535,-1.15481504,
@@ -6534,11 +6618,11 @@ def test_streamdf_sample():
 
 def test_streamdf_setup_roAsQuantity():
     #Imports
+    from galpy.actionAngle import actionAngleIsochroneApprox
     from galpy.df import streamdf
     from galpy.orbit import Orbit
     from galpy.potential import LogarithmicHaloPotential
-    from galpy.actionAngle import actionAngleIsochroneApprox
-    from galpy.util import conversion #for unit conversions
+    from galpy.util import conversion  # for unit conversions
     lp= LogarithmicHaloPotential(normalize=1.,q=0.9)
     aAI= actionAngleIsochroneApprox(pot=lp,b=0.8)
     obs= Orbit([1.56148083,0.35081535,-1.15481504,
@@ -6556,11 +6640,11 @@ def test_streamdf_setup_roAsQuantity():
 
 def test_streamdf_setup_roAsQuantity_oddunits():
     #Imports
+    from galpy.actionAngle import actionAngleIsochroneApprox
     from galpy.df import streamdf
     from galpy.orbit import Orbit
     from galpy.potential import LogarithmicHaloPotential
-    from galpy.actionAngle import actionAngleIsochroneApprox
-    from galpy.util import conversion #for unit conversions
+    from galpy.util import conversion  # for unit conversions
     lp= LogarithmicHaloPotential(normalize=1.,q=0.9)
     aAI= actionAngleIsochroneApprox(pot=lp,b=0.8)
     obs= Orbit([1.56148083,0.35081535,-1.15481504,
@@ -6578,11 +6662,11 @@ def test_streamdf_setup_roAsQuantity_oddunits():
 
 def test_streamdf_setup_voAsQuantity():
     #Imports
+    from galpy.actionAngle import actionAngleIsochroneApprox
     from galpy.df import streamdf
     from galpy.orbit import Orbit
     from galpy.potential import LogarithmicHaloPotential
-    from galpy.actionAngle import actionAngleIsochroneApprox
-    from galpy.util import conversion #for unit conversions
+    from galpy.util import conversion  # for unit conversions
     lp= LogarithmicHaloPotential(normalize=1.,q=0.9)
     aAI= actionAngleIsochroneApprox(pot=lp,b=0.8)
     obs= Orbit([1.56148083,0.35081535,-1.15481504,
@@ -6600,11 +6684,11 @@ def test_streamdf_setup_voAsQuantity():
 
 def test_streamdf_setup_voAsQuantity_oddunits():
     #Imports
+    from galpy.actionAngle import actionAngleIsochroneApprox
     from galpy.df import streamdf
     from galpy.orbit import Orbit
     from galpy.potential import LogarithmicHaloPotential
-    from galpy.actionAngle import actionAngleIsochroneApprox
-    from galpy.util import conversion #for unit conversions
+    from galpy.util import conversion  # for unit conversions
     lp= LogarithmicHaloPotential(normalize=1.,q=0.9)
     aAI= actionAngleIsochroneApprox(pot=lp,b=0.8)
     obs= Orbit([1.56148083,0.35081535,-1.15481504,
@@ -6622,11 +6706,11 @@ def test_streamdf_setup_voAsQuantity_oddunits():
 
 def test_streamdf_setup_paramsAsQuantity():
     #Imports
+    from galpy.actionAngle import actionAngleIsochroneApprox
     from galpy.df import streamdf
     from galpy.orbit import Orbit
     from galpy.potential import LogarithmicHaloPotential
-    from galpy.actionAngle import actionAngleIsochroneApprox
-    from galpy.util import conversion #for unit conversions
+    from galpy.util import conversion  # for unit conversions
     lp= LogarithmicHaloPotential(normalize=1.,q=0.9)
     aAI= actionAngleIsochroneApprox(pot=lp,b=0.8)
     obs= Orbit([1.56148083,0.35081535,-1.15481504,
@@ -6649,11 +6733,11 @@ def test_streamdf_setup_paramsAsQuantity():
 
 def test_streamdf_setup_coordtransformparamsAsQuantity():
     #Imports
+    from galpy.actionAngle import actionAngleIsochroneApprox
     from galpy.df import streamdf
     from galpy.orbit import Orbit
     from galpy.potential import LogarithmicHaloPotential
-    from galpy.actionAngle import actionAngleIsochroneApprox
-    from galpy.util import conversion #for unit conversions
+    from galpy.util import conversion  # for unit conversions
     lp= LogarithmicHaloPotential(normalize=1.,q=0.9)
     aAI= actionAngleIsochroneApprox(pot=lp,b=0.8)
     obs= Orbit([1.56148083,0.35081535,-1.15481504,
@@ -6693,13 +6777,14 @@ def test_streamdf_setup_coordtransformparamsAsQuantity():
 
 def test_streamdf_RnormWarning():
     import warnings
-    from galpy.util import galpyWarning
+
+    from galpy.actionAngle import actionAngleIsochroneApprox
     #Imports
     from galpy.df import streamdf
     from galpy.orbit import Orbit
     from galpy.potential import LogarithmicHaloPotential
-    from galpy.actionAngle import actionAngleIsochroneApprox
-    from galpy.util import conversion #for unit conversions
+    from galpy.util import conversion  # for unit conversions
+    from galpy.util import galpyWarning
     lp= LogarithmicHaloPotential(normalize=1.,q=0.9)
     aAI= actionAngleIsochroneApprox(pot=lp,b=0.8)
     obs= Orbit([1.56148083,0.35081535,-1.15481504,
@@ -6722,13 +6807,14 @@ def test_streamdf_RnormWarning():
 
 def test_streamdf_VnormWarning():
     import warnings
-    from galpy.util import galpyWarning
+
+    from galpy.actionAngle import actionAngleIsochroneApprox
     #Imports
     from galpy.df import streamdf
     from galpy.orbit import Orbit
     from galpy.potential import LogarithmicHaloPotential
-    from galpy.actionAngle import actionAngleIsochroneApprox
-    from galpy.util import conversion #for unit conversions
+    from galpy.util import conversion  # for unit conversions
+    from galpy.util import galpyWarning
     lp= LogarithmicHaloPotential(normalize=1.,q=0.9)
     aAI= actionAngleIsochroneApprox(pot=lp,b=0.8)
     obs= Orbit([1.56148083,0.35081535,-1.15481504,
@@ -6751,11 +6837,11 @@ def test_streamdf_VnormWarning():
 
 def test_streamgapdf_method_returntype():
     #Imports
+    from galpy.actionAngle import actionAngleIsochroneApprox
     from galpy.df import streamgapdf
     from galpy.orbit import Orbit
     from galpy.potential import LogarithmicHaloPotential
-    from galpy.actionAngle import actionAngleIsochroneApprox
-    from galpy.util import conversion #for unit conversions
+    from galpy.util import conversion  # for unit conversions
     lp= LogarithmicHaloPotential(normalize=1.,q=0.9)
     aAI= actionAngleIsochroneApprox(pot=lp,b=0.8)
     prog_unp_peri= Orbit([2.6556151742081835,
@@ -6835,6 +6921,7 @@ def test_streamgapdf_inputAsQuantity():
 
 def test_streamgapdf_sample():
     from galpy.util import conversion
+
     # RvR
     numpy.random.seed(1)
     RvR= sdf_sanders15.sample(1)
@@ -6911,7 +6998,7 @@ def test_streamspraydf_setup_paramsAsQuantity():
     from galpy.df import streamspraydf
     from galpy.orbit import Orbit
     from galpy.potential import LogarithmicHaloPotential
-    from galpy.util import conversion #for unit conversions
+    from galpy.util import conversion  # for unit conversions
     ro, vo= 8., 220.
     lp= LogarithmicHaloPotential(normalize=1.,q=0.9)
     obs= Orbit([1.56148083,0.35081535,-1.15481504,
@@ -6999,10 +7086,10 @@ def test_streamspraydf_sample_RvR():
     return None
 
 def test_df_inconsistentPotentialUnits_error():
-    from galpy.df import quasiisothermaldf, streamdf
-    from galpy.potential import LogarithmicHaloPotential
-    from galpy.orbit import Orbit
     from galpy.actionAngle import actionAngleAdiabatic
+    from galpy.df import quasiisothermaldf, streamdf
+    from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential
     ro, vo= 9., 220.
     # quasiisothermaldf
     lp= LogarithmicHaloPotential(normalize=1.,q=0.9,ro=ro,vo=vo)
@@ -7073,8 +7160,8 @@ def test_jeans_sigmar_inputAsQuantity():
     return None
 
 def test_orbitmethodswunits_quantity_issue326():
-    # Methods that *always* return a number with implied units 
-    # (like Orbit.dist), should return always return a Quantity when 
+    # Methods that *always* return a number with implied units
+    # (like Orbit.dist), should return always return a Quantity when
     # apy-units=True in the configuration file (see issue 326)
     from galpy.orbit import Orbit
     o= Orbit([1.,0.1,1.1,0.1,0.2,0.])
@@ -7101,8 +7188,8 @@ def test_orbitmethodswunits_quantity_issue326():
     return None
 
 def test_orbitmethodswunits_quantity_overrideusephysical_issue326():
-    # Methods that *always* return a number with implied units 
-    # (like Orbit.dist), should return always return a Quantity when 
+    # Methods that *always* return a number with implied units
+    # (like Orbit.dist), should return always return a Quantity when
     # apy-units=True in the configuration file (see issue 326)
     # This test: *even* when use_physical=False
     from galpy.orbit import Orbit
@@ -7131,7 +7218,7 @@ def test_orbitmethodswunits_quantity_overrideusephysical_issue326():
 
 def test_SkyCoord_nodoubleunits_issue325():
     # make sure that SkyCoord doesn't return distances with units like kpc^2
-    # which happened before, because it would use a distance with units of 
+    # which happened before, because it would use a distance with units of
     # kpc and then again multiply with kpc
     from galpy.orbit import Orbit
     o = Orbit(vxvv=[0.,0.,0.,0.,0.,0.],radec=True)

@@ -2,12 +2,14 @@
 #   SteadyLogSpiralPotential: a steady-state spiral potential
 ###############################################################################
 import numpy
+
 from ..util import conversion
 from .planarPotential import planarPotential
+
 _degtorad= numpy.pi/180.
 class SteadyLogSpiralPotential(planarPotential):
     """Class that implements a steady-state spiral potential
-    
+
     .. math::
 
         \\Phi(R,\\phi) = \\frac{\\mathrm{amp}\\times A}{\\alpha}\\,\\cos\\left(\\alpha\\,\\ln R - m\\,(\\phi-\\Omega_s\\,t-\\gamma)\\right)
@@ -34,19 +36,19 @@ class SteadyLogSpiralPotential(planarPotential):
            1., A below)
 
            gamma - angle between sun-GC line and the line connecting the peak of the spiral pattern at the Solar radius (in rad; default=45 degree; or can be Quantity)
-        
+
            A - amplitude (alpha*potential-amplitude; default=0.035; can be Quantity
 
            omegas= - pattern speed (default=0.65; can be Quantity)
 
            m= number of arms
-           
+
            Either provide:
 
               a) alpha=
-               
+
               b) p= pitch angle (rad; can be Quantity)
-              
+
            tform - start of spiral growth / spiral period (default: -Infinity)
 
            tsteady - time from tform at which the spiral is fully grown / spiral period (default: 2 periods)
@@ -144,7 +146,7 @@ class SteadyLogSpiralPotential(planarPotential):
         return smooth*self._A/R*numpy.sin(self._alpha*numpy.log(R)
                                          -self._m*(phi-self._omegas*t
                                                    -self._gamma))
-       
+
     def _phitorque(self,R,phi=0.,t=0.):
         """
         NAME:
@@ -175,7 +177,7 @@ class SteadyLogSpiralPotential(planarPotential):
                                                            -self._m*(phi
                                                                      -self._omegas*t
                                                                      -self._gamma))
-    
+
     def wavenumber(self,R):
         """
         NAME:
@@ -278,4 +280,3 @@ class SteadyLogSpiralPotential(planarPotential):
 
         """
         return self._tform
-

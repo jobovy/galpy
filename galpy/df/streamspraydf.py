@@ -1,14 +1,15 @@
 import numpy
-from ..orbit import Orbit
+
 from ..df.df import df
+from ..orbit import Orbit
+from ..potential import evaluateRforces
 from ..potential import flatten as flatten_potential
-from ..potential import rtide, evaluateRforces
-from ..util import _rotate_to_arbitrary_vector
-from ..util import coords, conversion
-_APY_LOADED= conversion._APY_LOADED
+from ..potential import rtide
+from ..util import _rotate_to_arbitrary_vector, conversion, coords
+from ..util._optional_deps import _APY_LOADED, _APY_UNITS
+
 if _APY_LOADED:
     from astropy import units
-_APY_UNITS= conversion._APY_UNITS
 class streamspraydf(df):
     def __init__(self,progenitor_mass,progenitor=None,
                  pot=None,rtpot=None,
@@ -19,7 +20,7 @@ class streamspraydf(df):
                  ro=None,vo=None):
         """
         NAME:
-        
+
            __init__
         PURPOSE:
 
@@ -35,25 +36,25 @@ class streamspraydf(df):
                            if False, model the trailing part
 
            progenitor= progenitor orbit as Orbit instance (will be re-integrated, so don't bother integrating the orbit before)
-           
-           meankvec= (Fardal+2015-ish defaults) 
-           
-           sigkvec= (Fardal+2015-ish defaults) 
+
+           meankvec= (Fardal+2015-ish defaults)
+
+           sigkvec= (Fardal+2015-ish defaults)
 
            pot = (None) potential for integrating orbits
-           
+
            rtpot = (pot) potential for calculating tidal radius and circular velocity (should generally be the same as pot, but sometimes you need to drop parts of the potential that don't allow the tidal radius / circular velocity to be computed, such as velocity-dependent forces; when using center, rtpot should be the relevant potential in the frame of the center, thus, also being different from pot)
-           
+
            center = (None) Orbit instance that represents the center around which the progenitor is orbiting for the purpose of stream formation; allows for a stream to be generated from a progenitor orbiting a moving object, like a satellite galaxy. Integrated internally using centerpot.
 
            centerpot = (pot) potential for calculating the orbit of the center; this might be different from the potential that the progenitor is integrated in if, for example, dynamical friction is important for the orbit of the center (if it's a satellite).
-           
+
         OUTPUT:
-        
+
             Instance
-            
+
         HISTORY:
-        
+
            2018-07-31 - Written - Bovy (UofT)
 
            2021-05-05 - Added center keyword - Yansong Qian (UofT)
@@ -79,7 +80,7 @@ class streamspraydf(df):
         self._progenitor_times= numpy.linspace(0.,-self._tdisrupt,10001)
         self._progenitor.integrate(self._progenitor_times,self._pot)
         self._meankvec= numpy.array(meankvec)
-        self._sigkvec= numpy.array(sigkvec)  
+        self._sigkvec= numpy.array(sigkvec)
         # Set up center orbit if given
         if not center is None:
             self._centerpot=self._pot if centerpot is None \
@@ -92,7 +93,7 @@ class streamspraydf(df):
             self._center= None
         if leading: self._meankvec*= -1.
         return None
-    
+
     def sample(self,n,return_orbit=True,returndt=False,integrate=True):
         """
         NAME:
@@ -106,11 +107,11 @@ class streamspraydf(df):
         INPUT:
 
             n - number of points to return
-            
+
             return_orbit= (True) If True, the output phase-space positions is an orbit.Orbit object, if False, the output is (R,vR,vT,z,vz,phi)
 
             returndt= (False) if True, also return the time since the star was stripped
-            
+
             integrate= (True) if True, integrate the orbits to the present time, if False, return positions at stripping (probably want to combine with returndt=True then to make sense of them!)
 
             xy= (False) if True, return Galactocentric rectangular coordinates
@@ -124,7 +125,7 @@ class streamspraydf(df):
         HISTORY:
 
             2018-07-31 - Written - Bovy (UofT)
-            
+
             2022-05-18 - Made output Orbit ro/vo/zo/solarmotion/roSet/voSet match that of the progenitor orbit - Bovy (UofT)
 
         """
@@ -146,7 +147,7 @@ class streamspraydf(df):
             centerz-= self._center.z(-dt)
             centervx-= self._center.vx(-dt)
             centervy-= self._center.vy(-dt)
-            centervz-= self._center.vz(-dt)       
+            centervz-= self._center.vz(-dt)
         xyzpt= numpy.einsum('ijk,ik->ij',rot,
                             numpy.array([centerx,centery,centerz]).T)
         vxyzpt= numpy.einsum('ijk,ik->ij',rot,

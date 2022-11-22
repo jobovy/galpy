@@ -3,10 +3,15 @@
 #                             a moving object
 ###############################################################################
 import copy
+
 import numpy
-from .Potential import Potential, _isNonAxi, flatten, \
-    evaluatePotentials, evaluateRforces, evaluatezforces, evaluateDensities, _check_c
+
 from .PlummerPotential import PlummerPotential
+from .Potential import (Potential, _check_c, _isNonAxi, evaluateDensities,
+                        evaluatePotentials, evaluateRforces, evaluatezforces,
+                        flatten)
+
+
 class MovingObjectPotential(Potential):
     """
     Class that implements the potential coming from a moving object by combining
@@ -28,7 +33,7 @@ class MovingObjectPotential(Potential):
            orbit - the Orbit of the object (Orbit object)
 
            pot - A potential object or list of potential objects representing the potential of the moving object; should be spherical, but this is not checked [default= PlummerPotential(amp=0.06,b=0.01)]
-           
+
            amp (=1.) another amplitude to apply to the potential
 
            ro=, vo= distance and velocity scales for translation into internal units (default from configuration file)
@@ -45,7 +50,7 @@ class MovingObjectPotential(Potential):
 
         """
 
-        Potential.__init__(self,amp=amp,ro=ro,vo=vo)       
+        Potential.__init__(self,amp=amp,ro=ro,vo=vo)
         # If no potential supplied use a default Plummer sphere
         if pot is None:
             pot=PlummerPotential(amp=0.06,b=0.01)

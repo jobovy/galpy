@@ -1,8 +1,10 @@
 # mwpot_helpers.py: auxiliary functions to help in setting up various
 # Milky-Way-like potentials
-# (for now, functions required to setup the Dehnen & Binney (1998), 
+# (for now, functions required to setup the Dehnen & Binney (1998),
 #  Binney & Tremaine (2008), and McMillan (2017) potentials)
 import numpy
+
+
 def expexp_dens(R,z,Rd,zd,Sigma0):
     """rho(R,z) = Sigma_0/(2zd) exp(-|z|/zd-R/Rd)"""
     return Sigma0/(2*zd)*numpy.exp(-numpy.fabs(z)/zd-R/Rd)

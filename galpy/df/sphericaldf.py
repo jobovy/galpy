@@ -14,21 +14,25 @@
 #       * _call_internal(self,*args,**kwargs): which returns the DF as a
 #                                              function of (E,L,Lz)
 #       * _sample_eta(self,r,n=1): to sample the velocity angle at r
-#       * _p_v_at_r(self,v,r): whcih returns p(v|r)
+#       * _p_v_at_r(self,v,r): which returns p(v|r)
 #     constantbetadf is an example of this
 #
 import warnings
+
 import numpy
 import scipy.interpolate
 from scipy import integrate, special
-from .df import df
+
+from ..orbit import Orbit
 from ..potential import mass
 from ..potential.Potential import _evaluatePotentials
-from ..potential.SCFPotential import _xiToR, _RToxi
-from ..orbit import Orbit
-from ..util import conversion, galpyWarning
+from ..potential.SCFPotential import _RToxi, _xiToR
+from ..util import _optional_deps, conversion, galpyWarning
 from ..util.conversion import physical_conversion
-if conversion._APY_LOADED:
+from .df import df
+
+# Use _APY_LOADED/_APY_UNITS like this to be able to change them in tests
+if _optional_deps._APY_LOADED:
     from astropy import units
 
 class sphericaldf(df):
@@ -80,7 +84,7 @@ class sphericaldf(df):
         if not conversion.physical_compatible(self._pot,self._denspot):
             raise RuntimeError("Unit-conversion parameters of input potential incompatible with those of the density potential")
         self._rmax= numpy.inf if rmax is None \
-            else conversion.parse_length(rmax,ro=self._ro)            
+            else conversion.parse_length(rmax,ro=self._ro)
         try:
             self._scale= pot._scale
         except AttributeError:
@@ -107,11 +111,11 @@ class sphericaldf(df):
 
                 a) (E,L,Lz): tuple of E and (optionally) L and (optionally) Lz.
                     Each may be Quantity
-                    
-                b) R,vR,vT,z,vz,phi: 
 
-                c) Orbit instance: orbit.Orbit instance and if specific time 
-                    then orbit.Orbit(t) 
+                b) R,vR,vT,z,vz,phi:
+
+                c) Orbit instance: orbit.Orbit instance and if specific time
+                    then orbit.Orbit(t)
 
         OUTPUT:
 
@@ -158,7 +162,7 @@ class sphericaldf(df):
 
         PURPOSE:
 
-           calculate an arbitrary moment of the velocity distribution 
+           calculate an arbitrary moment of the velocity distribution
            at r times the density
 
         INPUT:
@@ -174,7 +178,7 @@ class sphericaldf(df):
            <vr^n vt^m x density> at r
 
         HISTORY:
-         
+
             2020-09-04 - Written - Bovy (UofT)
         """
         r= conversion.parse_length(r,ro=self._ro)
@@ -189,10 +193,10 @@ class sphericaldf(df):
         vo= conversion.parse_velocity_kms(vo)
         if use_physical and not vo is None and not ro is None:
             fac= vo**(n+m)/ro**3
-            if conversion._APY_UNITS:
+            if _optional_deps._APY_UNITS:
                 u= 1/units.kpc**3*(units.km/units.s)**(n+m)
             out= self._vmomentdensity(r,n,m)
-            if conversion._APY_UNITS:
+            if _optional_deps._APY_UNITS:
                 return units.Quantity(out*fac,unit=u)
             else:
                 return out*fac
@@ -207,7 +211,7 @@ class sphericaldf(df):
                                      use_physical=False),
                                0.,self._vmax_at_r(self._pot,r),
                                lambda x: 0.,lambda x: numpy.pi)[0]
-    
+
     @physical_conversion('velocity',pop=True)
     def sigmar(self,r):
         """
@@ -228,13 +232,13 @@ class sphericaldf(df):
            sigma_r(r)
 
         HISTORY:
-         
+
             2020-09-04 - Written - Bovy (UofT)
         """
         r= conversion.parse_length(r,ro=self._ro)
         return numpy.sqrt(self._vmomentdensity(r,2,0)
                           /self._vmomentdensity(r,0,0))
-    
+
     @physical_conversion('velocity',pop=True)
     def sigmat(self,r):
         """
@@ -255,7 +259,7 @@ class sphericaldf(df):
            sigma_t(r)
 
         HISTORY:
-         
+
             2020-09-04 - Written - Bovy (UofT)
         """
         r= conversion.parse_length(r,ro=self._ro)
@@ -281,12 +285,12 @@ class sphericaldf(df):
            beta(r)
 
         HISTORY:
-         
+
             2020-09-04 - Written - Bovy (UofT)
         """
         r= conversion.parse_length(r,ro=self._ro)
         return 1.-self._vmomentdensity(r,0,2)/2./self._vmomentdensity(r,2,0)
-    
+
 ############################### SAMPLING THE DF################################
     def sample(self,R=None,z=None,phi=None,n=1,return_orbit=True,rmin=0.):
         """
@@ -303,7 +307,7 @@ class sphericaldf(df):
             R= cylindrical radius at which to generate samples (can be Quantity)
 
             z= height at which to generate samples (can be Quantity)
-            
+
             phi= azimuth at which to generate samples (can be Quantity)
 
             n= number of samples to generate
@@ -316,13 +320,13 @@ class sphericaldf(df):
 
         OUTPUT:
 
-            List of samples. Either vector (R,vR,vT,z,vz,phi) or orbit.Orbit
+            List of samples. Either vector (R,vR,vT,z,vz,phi) or orbit.Orbit; the (R,vR,vT,z,vz,phi) is either in internal units or is a set of Quantities
 
         NOTES:
 
-            If R,z,phi are None then sample positions with CMF. If R,z,phi are 
-            floats then sample n velocities at location. If array then sample 
-            velocities at radii, ignoring n. phi can be None if R,z are set 
+            If R,z,phi are None then sample positions with CMF. If R,z,phi are
+            floats then sample n velocities at location. If array then sample
+            velocities at radii, ignoring n. phi can be None if R,z are set
             by any above mechanism, will then sample phi for output.
 
         HISTORY:
@@ -331,7 +335,7 @@ class sphericaldf(df):
 
         """
         if hasattr(self,'_rmin_sampling') and rmin != self._rmin_sampling:
-            # Build new grids, easiest            
+            # Build new grids, easiest
             if hasattr(self,'_xi_cmf_interpolator'):
                 delattr(self,'_xi_cmf_interpolator')
             if hasattr(self,'_v_vesc_pvr_interpolator'):
@@ -341,7 +345,7 @@ class sphericaldf(df):
             r= self._sample_r(n=n)
             phi,theta= self._sample_position_angles(n=n)
             R= r*numpy.sin(theta)
-            z= r*numpy.cos(theta) 
+            z= r*numpy.cos(theta)
         else: # 3D velocity samples
             R= conversion.parse_length(R,ro=self._ro)
             z= conversion.parse_length(z,ro=self._ro)
@@ -375,16 +379,23 @@ class sphericaldf(df):
                 o.turn_physical_on(ro=self._ro,vo=self._vo)
             return o
         else:
+            if _optional_deps._APY_UNITS and self._voSet and self._roSet:
+                R= units.Quantity(R)*self._ro*units.kpc
+                vR= units.Quantity(vR)*self._vo*units.km/units.s
+                vT= units.Quantity(vT)*self._vo*units.km/units.s
+                z= units.Quantity(z)*self._ro*units.kpc
+                vz= units.Quantity(vz)*self._vo*units.km/units.s
+                phi= units.Quantity(phi)*units.rad
             return (R,vR,vT,z,vz,phi)
 
     def _sample_r(self,n=1):
         """Generate radial position samples from potential
-        Note - the function interpolates the normalized CMF onto the variable 
+        Note - the function interpolates the normalized CMF onto the variable
         xi defined as:
-        
+
         .. math:: \\xi = \\frac{r/a-1}{r/a+1}
-        
-        so that xi is in the range [-1,1], which corresponds to an r range of 
+
+        so that xi is in the range [-1,1], which corresponds to an r range of
         [0,infinity)"""
         rand_mass_frac= numpy.random.uniform(size=n)
         if hasattr(self,'_icmf'):
@@ -400,12 +411,12 @@ class sphericaldf(df):
     def _make_cmf_interpolator(self):
         """Create the interpolator object for calculating radii from the CMF
         Note - must use self.xi_to_r() on any output of interpolator
-        Note - the function interpolates the normalized CMF onto the variable 
+        Note - the function interpolates the normalized CMF onto the variable
         xi defined as:
-        
+
         .. math:: \\xi = \\frac{r-1}{r+1}
-        
-        so that xi is in the range [-1,1], which corresponds to an r range of 
+
+        so that xi is in the range [-1,1], which corresponds to an r range of
         [0,infinity)"""
         ximin= _RToxi(self._rmin_sampling,a=self._scale)
         ximax= _RToxi(self._rmax,a=self._scale)
@@ -413,7 +424,7 @@ class sphericaldf(df):
         rs= _xiToR(xis,a=self._scale)
         # try/except necessary when mass doesn't take arrays, also need to
         # switch to a more general mass method at some point...
-        #try: 
+        #try:
         ms= mass(self._denspot,rs,use_physical=False)
         #except ValueError:
         #    ms= numpy.array([mass(self._denspot,r,use_physical=False) for r in rs])
@@ -443,20 +454,20 @@ class sphericaldf(df):
                     grid=False)*self._vmax_at_r(self._pot,r)
 
     def _sample_velocity_angles(self,r,n=1):
-        """Generate samples of angles that set radial vs tangential 
+        """Generate samples of angles that set radial vs tangential
         velocities"""
         eta_samples= self._sample_eta(r,n)
         psi_samples= numpy.random.uniform(size=n)*2*numpy.pi
         return eta_samples,psi_samples
 
     def _vmax_at_r(self,pot,r,**kwargs):
-        """Function that gives the max velocity in the DF at r; 
-        typically equal to vesc, but not necessarily for finite systems 
+        """Function that gives the max velocity in the DF at r;
+        typically equal to vesc, but not necessarily for finite systems
         such as King"""
         return numpy.sqrt(2.*(\
                 _evaluatePotentials(self._pot,self._rmax+1e-10,0)
                 -_evaluatePotentials(self._pot,r,0.)))
-    
+
     def _make_pvr_interpolator(self,r_a_start=-3,r_a_end=3,
                                n_r_a=120,n_v_vesc=100):
         """
@@ -466,12 +477,12 @@ class sphericaldf(df):
 
         PURPOSE:
 
-        Calculate a grid of the velocity sampling function v^2*f(E) over many 
-        radii. The radii are fractional with respect to some scale radius 
-        which characteristically describes the size of the potential, 
-        and the velocities are fractional with respect to the escape velocity 
-        at each radius r. This information is saved in a 2D interpolator which 
-        represents the inverse cumulative distribution at many radii. This 
+        Calculate a grid of the velocity sampling function v^2*f(E) over many
+        radii. The radii are fractional with respect to some scale radius
+        which characteristically describes the size of the potential,
+        and the velocities are fractional with respect to the escape velocity
+        at each radius r. This information is saved in a 2D interpolator which
+        represents the inverse cumulative distribution at many radii. This
         allows for sampling of v/vesc given an input r/a
 
         INPUT:
@@ -558,7 +569,7 @@ class isotropicsphericaldf(sphericaldf):
            ro=, vo= galpy unit parameters
 
         OUTPUT:
-        
+
             None
 
         HISTORY:
@@ -604,7 +615,7 @@ class isotropicsphericaldf(sphericaldf):
                              0.,self._vmax_at_r(self._pot,r))[0]\
             *special.gamma(m//2+1)*special.gamma(n//2+0.5)\
             /special.gamma(m//2+n//2+1.5)
-         
+
     def _sample_eta(self,r,n=1):
         """Sample the angle eta which defines radial vs tangential velocities"""
         return numpy.arccos(1.-2.*numpy.random.uniform(size=n))
@@ -616,7 +627,7 @@ class isotropicsphericaldf(sphericaldf):
         else:
             return self.fE(_evaluatePotentials(self._pot,r,0)\
                            +0.5*v**2.)*v**2.
-    
+
 class anisotropicsphericaldf(sphericaldf):
     """Superclass for anisotropic spherical distribution functions"""
     def __init__(self,pot=None,denspot=None,rmax=None,
@@ -643,7 +654,7 @@ class anisotropicsphericaldf(sphericaldf):
            ro= ,vo= galpy unit parameters
 
         OUTPUT:
-        
+
             None
 
         HISTORY:

@@ -3,7 +3,7 @@
 #
 #      class: actionAngleAdiabaticGrid
 #
-#             build grid in integrals of motion to quickly evaluate 
+#             build grid in integrals of motion to quickly evaluate
 #             actionAngleAdiabatic
 #
 #      methods:
@@ -12,12 +12,14 @@
 ###############################################################################
 import numpy
 from scipy import interpolate
-from .actionAngleAdiabatic import actionAngleAdiabatic
-from .actionAngle import actionAngle, UnboundError
+
 from .. import potential
 from ..potential.Potential import _evaluatePotentials
 from ..potential.Potential import flatten as flatten_potential
 from ..util import multi
+from .actionAngle import UnboundError, actionAngle
+from .actionAngleAdiabatic import actionAngleAdiabatic
+
 _PRINTOUTSIDEGRID= False
 class actionAngleAdiabaticGrid(actionAngle):
     """Action-angle formalism for axisymmetric potentials using the adiabatic approximation, grid-based interpolation"""
@@ -84,20 +86,20 @@ class actionAngleAdiabaticGrid(actionAngle):
         jzEzzmax= numpy.zeros(nR)
         thisRs= (numpy.tile(self._Rs,(nEz,1)).T).flatten()
         thisEzZmaxs= (numpy.tile(self._EzZmaxs,(nEz,1)).T).flatten()
-        thisy= (numpy.tile(y,(nR,1))).flatten()
+        this= (numpy.tile(y,(nR,1))).flatten()
         if self._c:
             jz= self._aA(thisRs,
                          numpy.zeros(len(thisRs)),
                          numpy.ones(len(thisRs)),#these two r dummies
                          numpy.zeros(len(thisRs)),
-                         numpy.sqrt(2.*thisy*thisEzZmaxs),
+                         numpy.sqrt(2.*this*thisEzZmaxs),
                          **kwargs)[2]
             jz= numpy.reshape(jz,(nR,nEz))
             jzEzzmax[0:nR]= jz[:,nEz-1]
         else:
             if numcores > 1:
                 jz= multi.parallel_map((lambda x: self._aA(thisRs[x],0.,1.,#these two r dummies
-                                                              0.,numpy.sqrt(2.*thisy[x]*thisEzZmaxs[x]),
+                                                              0.,numpy.sqrt(2.*this[x]*thisEzZmaxs[x]),
                                                            _justjz=True,
                                                            **kwargs)[2]),
                                        range(nR*nEz),numcores=numcores)
@@ -110,7 +112,7 @@ class actionAngleAdiabaticGrid(actionAngle):
                         jz[ii,jj]= self._aA(self._Rs[ii],0.,1.,#these two r dummies
                                             0.,numpy.sqrt(2.*y[jj]*self._EzZmaxs[ii]),
                                             _justjz=True,**kwargs)[2]
-                        if jj == nEz-1: 
+                        if jj == nEz-1:
                             jzEzzmax[ii]= jz[ii,jj]
         for ii in range(nR): jz[ii,:]/= jzEzzmax[ii]
         #First interpolate Ez=Ezmax
@@ -147,10 +149,10 @@ class actionAngleAdiabaticGrid(actionAngle):
         thisLzs= (numpy.tile(self._Lzs,(nEr-1,1)).T).flatten()
         thisERRL= (numpy.tile(self._ERRL,(nEr-1,1)).T).flatten()
         thisERRa= (numpy.tile(self._ERRa,(nEr-1,1)).T).flatten()
-        thisy= (numpy.tile(y[0:-1],(nLz,1))).flatten()
+        this= (numpy.tile(y[0:-1],(nLz,1))).flatten()
         if self._c:
             mjr= self._aA(thisRL,
-                          numpy.sqrt(2.*(thisERRa+thisy*(thisERRL-thisERRa)-_evaluatePotentials(self._pot,thisRL,numpy.zeros((nEr-1)*nLz)))-thisLzs**2./thisRL**2.),
+                          numpy.sqrt(2.*(thisERRa+this*(thisERRL-thisERRa)-_evaluatePotentials(self._pot,thisRL,numpy.zeros((nEr-1)*nLz)))-thisLzs**2./thisRL**2.),
                           thisLzs/thisRL,
                           numpy.zeros(len(thisRL)),
                           numpy.zeros(len(thisRL)),
@@ -160,7 +162,7 @@ class actionAngleAdiabaticGrid(actionAngle):
         else:
             if numcores > 1:
                 mjr= multi.parallel_map((lambda x: self._aA(thisRL[x],
-                                                          numpy.sqrt(2.*(thisERRa[x]+thisy[x]*(thisERRL[x]-thisERRa[x])-_evaluatePotentials(self._pot,thisRL[x],0.))-thisLzs[x]**2./thisRL[x]**2.),
+                                                          numpy.sqrt(2.*(thisERRa[x]+this[x]*(thisERRL[x]-thisERRa[x])-_evaluatePotentials(self._pot,thisRL[x],0.))-thisLzs[x]**2./thisRL[x]**2.),
                                                                thisLzs[x]/thisRL[x],
                                                                0.,0.,
                                                             _justjr=True,
@@ -181,7 +183,7 @@ class actionAngleAdiabaticGrid(actionAngle):
                                                    **kwargs)[0]
                         except UnboundError: #pragma: no cover
                             raise
-                        if jj == 0: 
+                        if jj == 0:
                             jrERRa[ii]= jr[ii,jj]
         for ii in range(nLz): jr[ii,:]/= jrERRa[ii]
         #First interpolate Ez=Ezmax
@@ -295,7 +297,7 @@ class actionAngleAdiabaticGrid(actionAngle):
                                    numpy.zeros(len(thisRL)),
                                    numpy.zeros(len(thisRL)),
                                    _justjr=True,
-                                   **kwargs)[0]                
+                                   **kwargs)[0]
         else:
             if (ER-thisERRa)/(thisERRL-thisERRa) > 1. \
                     and ((ER-thisERRa)/(thisERRL-thisERRa)-1.) < 10.**-2.:

@@ -4,7 +4,7 @@
  ****************************************************************************/
 
 #include	"cubic_bspline_2d_coeffs.h"
- 
+
 /*--------------------------------------------------------------------------*/
 static void convert_to_interpolation_coefficients
 (
@@ -271,7 +271,7 @@ extern int samples_to_coefficients
 	double	pole[4];
 	long	nb_poles;
 	long	x, y;
-	
+
 	nb_poles = 1L;
 	pole[0] = sqrt(3.0) - 2.0;
 

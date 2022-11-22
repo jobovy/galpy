@@ -10,17 +10,18 @@
 ###############################################################################
 import copy
 import warnings
+
 import numpy
-from ..util import galpyWarning
-from ..potential import MWPotential
+
+from ..potential import MWPotential, toPlanarPotential, toVerticalPotential
+from ..potential.Potential import _check_c
 from ..potential.Potential import flatten as flatten_potential
-from ..potential import toPlanarPotential, toVerticalPotential
+from .actionAngle import actionAngle
+from .actionAngleAdiabatic_c import _ext_loaded as ext_loaded
 from .actionAngleSpherical import actionAngleSpherical
 from .actionAngleVertical import actionAngleVertical
-from .actionAngle import actionAngle
-from . import actionAngleAdiabatic_c
-from .actionAngleAdiabatic_c import _ext_loaded as ext_loaded
-from ..potential.Potential import _check_c, _dim
+
+
 class actionAngleAdiabatic(actionAngle):
     """Action-angle formalism for axisymmetric potentials using the adiabatic approximation"""
     def __init__(self,*args,**kwargs):
@@ -44,7 +45,7 @@ class actionAngleAdiabatic(actionAngle):
            vo= circular velocity at ro (km/s; can be Quantity)
 
         OUTPUT:
-        
+
            instance
 
         HISTORY:
@@ -67,7 +68,7 @@ class actionAngleAdiabatic(actionAngle):
         else:
             self._c= False
         self._gamma= kwargs.get('gamma',1.)
-        # Setup actionAngleSpherical object for calculations in Python 
+        # Setup actionAngleSpherical object for calculations in Python
         # (if they become necessary)
         if _dim(self._pot) == 3:
             thispot= toPlanarPotential(self._pot)
@@ -78,7 +79,7 @@ class actionAngleAdiabatic(actionAngle):
         # Check the units
         self._check_consistent_units()
         return None
-    
+
     def _evaluate(self,*args,**kwargs):
         """
         NAME:
@@ -90,7 +91,7 @@ class actionAngleAdiabatic(actionAngle):
               a) R,vR,vT,z,vz[,phi]:
                  1) floats: phase-space value for single object (phi is optional) (each can be a Quantity)
                  2) numpy.ndarray: [N] phase-space values for N objects (each can be a Quantity)
-              b) Orbit instance: initial condition used if that's it, orbit(t) if there is a time given as well as the second argument 
+              b) Orbit instance: initial condition used if that's it, orbit(t) if there is a time given as well as the second argument
            c= (object-wide default, bool) True/False to override the object-wide setting for whether or not to use the C implementation
            scipy.integrate.quadrature keywords
            _justjr, _justjz= if True, only calculate the radial or vertical action (internal use)
@@ -156,7 +157,7 @@ class actionAngleAdiabatic(actionAngle):
                 if kwargs.get('_justjz',False):
                     kwargs.pop('_justjz')
                     return (numpy.atleast_1d(numpy.nan),
-                            numpy.atleast_1d(numpy.nan),                
+                            numpy.atleast_1d(numpy.nan),
                             Jz)
                 else:
                     axiJ= self._aAS(R[0],vR[0],vT[0],0.,0.,_Jz=Jz)
@@ -173,7 +174,7 @@ class actionAngleAdiabatic(actionAngle):
               a) R,vR,vT,z,vz[,phi]:
                  1) floats: phase-space value for single object (phi is optional) (each can be a Quantity)
                  2) numpy.ndarray: [N] phase-space values for N objects (each can be a Quantity)
-              b) Orbit instance: initial condition used if that's it, orbit(t) if there is a time given as well as the second argument 
+              b) Orbit instance: initial condition used if that's it, orbit(t) if there is a time given as well as the second argument
            c= (object-wide default, bool) True/False to override the object-wide setting for whether or not to use the C implementation
         OUTPUT:
            (e,zmax,rperi,rap)

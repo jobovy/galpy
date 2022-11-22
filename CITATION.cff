@@ -5,7 +5,7 @@ authors:
   given-names: "Jo"
   orcid: "https://orcid.org/0000-0001-6855-442X"
 title: "galpy"
-version: 1.7.3.dev0
+version: 1.8.2.dev0
 url: "https://github.com/jobovy/galpy"
 preferred-citation:
   type: article
@@ -21,4 +21,3 @@ preferred-citation:
   issue: 2
   volume: 216
   year: 2015
-  

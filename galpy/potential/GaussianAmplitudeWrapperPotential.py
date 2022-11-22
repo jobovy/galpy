@@ -3,8 +3,11 @@
 #                                         of a potential with a Gaussian
 ###############################################################################
 import numpy
-from .WrapperPotential import parentWrapperPotential
+
 from ..util import conversion
+from .WrapperPotential import parentWrapperPotential
+
+
 class GaussianAmplitudeWrapperPotential(parentWrapperPotential):
     """Potential wrapper class that allows the amplitude of a Potential object to be modulated as a Gaussian. The amplitude A applied to a potential wrapped by an instance of this class is changed as
 

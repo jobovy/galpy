@@ -10,13 +10,16 @@
 #
 ###############################################################################
 import copy
+
 import numpy
 from scipy import integrate, optimize
-from ..potential import vcirc, epifreq, omegac, _dim
+
+from ..potential import _dim, epifreq, omegac, vcirc
+from ..potential.planarPotential import _evaluateplanarPotentials
 from ..potential.Potential import _evaluatePotentials
 from ..potential.Potential import flatten as flatten_potential
-from ..potential.planarPotential import _evaluateplanarPotentials
-from .actionAngle import actionAngle, UnboundError
+from .actionAngle import UnboundError, actionAngle
+
 _EPS= 10.**-15.
 class actionAngleSpherical(actionAngle):
     """Action-angle formalism for spherical potentials"""
@@ -218,7 +221,7 @@ class actionAngleSpherical(actionAngle):
             Oz= copy.copy(Op)
             Op[vT < 0.]*= -1.
             return (numpy.array(Jr),Jphi,Jz,numpy.array(Or),Op,Oz)
-    
+
     def _actionsFreqsAngles(self,*args,**kwargs):
         """
         NAME:
@@ -321,7 +324,7 @@ class actionAngleSpherical(actionAngle):
             az= az % (2.*numpy.pi)
             return (numpy.array(Jr),Jphi,Jz,numpy.array(Or),Op,Oz,
                     ar,ap,az)
-    
+
     def _EccZmaxRperiRap(self,*args,**kwargs):
         """
         NAME:
@@ -383,7 +386,7 @@ class actionAngleSpherical(actionAngle):
             rap= numpy.array(rap)
             return ((rap-rperi)/(rap+rperi),rap*numpy.sqrt(1.-Lz**2./L2),
                     rperi,rap)
-        
+
     def _calc_rperi_rap(self,r,vr,vt,E,L):
         if vr == 0. \
             and numpy.fabs(vt-vcirc(self._2dpot,r,use_physical=False)) < _EPS:
@@ -421,7 +424,7 @@ class actionAngleSpherical(actionAngle):
                 startsign= 1.
             rstart= _rapRperiAxiFindStart(r,E,L,self._2dpot,startsign=startsign)
             if rstart == 0.: rperi= 0.
-            else: 
+            else:
                 try:
                     rperi= optimize.brentq(_rapRperiAxiEq,rstart,r,
                                            (E,L,self._2dpot),
@@ -509,14 +512,14 @@ class actionAngleSpherical(actionAngle):
         pindx= (sinu > 1.)*(sinu < (1.+10.**-7.))
         sinu[pindx]= 1.
         pindx= (sinu < -1.)*numpy.isfinite(sinu)
-        sinu[pindx]= -1.           
+        sinu[pindx]= -1.
         u= numpy.arcsin(sinu)
         vzindx= vtheta > 0.
         u[vzindx]= numpy.pi-u[vzindx]
         # For non-inclined orbits, we set Omega=0 by convention
-        u[True^numpy.isfinite(u)]= phi[True^numpy.isfinite(u)]        
+        u[True^numpy.isfinite(u)]= phi[True^numpy.isfinite(u)]
         return phi-u
-    
+
     def _calc_angler(self,Or,r,Rmean,rperi,rap,E,L,vr,fixed_quad,**kwargs):
         if r < Rmean:
             if r > rperi and not fixed_quad:
@@ -550,7 +553,7 @@ class actionAngleSpherical(actionAngle):
             else:
                 wr= numpy.pi-wr
         return wr
-        
+
     def _calc_anglez(self,Or,Op,ar,z,r,Rmean,rperi,rap,E,L,Lz,vr,vtheta,phi,
                      fixed_quad,**kwargs):
         #First calculate psi
@@ -659,4 +662,3 @@ def _rapRperiAxiFindStart(R,E,L,pot,rap=False,startsign=1.):
             rtry/= 2.
     if rtry < 0.000000001: return 0.
     return rtry
-

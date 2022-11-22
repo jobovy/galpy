@@ -30,7 +30,7 @@ class NumericalPotentialDerivativesMixin:
         self._dR2= kwargs.pop('dR2',1e-4)
         self._dphi2= kwargs.pop('dphi2',1e-4)
         self._dz2= kwargs.pop('dz2',1e-4)
-    
+
     def _Rforce(self,R,z,phi=0.,t=0.):
         # Do forward difference because R cannot be negative
         RplusdR= R+self._dR
@@ -86,7 +86,7 @@ class NumericalPotentialDerivativesMixin:
         return (self._evaluate(R,z,phi=phiplusdphi,t=t)
                    +self._evaluate(R,z,phi=phiminusdphi,t=t)
                    -2.*self._evaluate(R,z,phi=phi,t=t))/dphi**2.
-       
+
     def _Rzderiv(self,R,z,phi=0.,t=0.):
         # Do forward difference in R because R cannot be negative
         RplusdR= R+self._dR2
@@ -133,4 +133,3 @@ class NumericalPotentialDerivativesMixin:
                 -self._evaluate(R,zminusdz,phi=phiplusdphi,t=t)
                 +self._evaluate(R,zminusdz,phi=phiminusdphi,t=t))\
                 /dz/dphi/2.
-    

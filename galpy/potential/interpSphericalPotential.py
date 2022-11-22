@@ -3,9 +3,12 @@
 ###################3###################3###################3##################
 import numpy
 from scipy import interpolate
+
+from ..util.conversion import get_physical, physical_compatible
+from .Potential import _evaluatePotentials, _evaluateRforces
 from .SphericalPotential import SphericalPotential
-from .Potential import _evaluateRforces, _evaluatePotentials
-from ..util.conversion import physical_compatible, get_physical
+
+
 class interpSphericalPotential(SphericalPotential):
     """__init__(self,rforce=None,rgrid=numpy.geomspace(0.01,20,101),Phi0=None,ro=None,vo=None)
 
@@ -24,11 +27,11 @@ Class that interpolates a spherical potential on a grid"""
 
         INPUT:
 
-           rforce= (None) Either a) function that gives the radial force as a function of r or b) a galpy Potential instance or list thereof
+           rforce= (None) Either a) function that gives the radial force (in internal units) as a function of r (in internal units) or b) a galpy Potential instance or list thereof
 
-           rgrid= (numpy.geomspace(0.01,20,101)) radial grid on which to evaluate the potential for interpolation (note that beyond rgrid[-1], the potential is extrapolated as -GM(<rgrid[-1])/r)
+           rgrid= (numpy.geomspace(0.01,20,101)) radial grid in internal units on which to evaluate the potential for interpolation (note that beyond rgrid[-1], the potential is extrapolated as -GM(<rgrid[-1])/r)
 
-           Phi0= (0.) value of the potential at rgrid[0] (only necessary when rforce is a function, for galpy potentials automatically determined)
+           Phi0= (0.) value of the potential at rgrid[0] in internal units (only necessary when rforce is a function, for galpy potentials automatically determined)
 
            ro=, vo= distance and velocity scales for translation into internal units (default from configuration file)
 
@@ -85,13 +88,13 @@ Class that interpolates a spherical potential on a grid"""
         out[r >= self._rmax]= -self._total_mass/r[r >= self._rmax]+self._Phimax
         out[r < self._rmax]= -self._pot_spline(r[r < self._rmax])+self._Phi0
         return out
-    
+
     def _rforce(self,r,t=0.):
         out= numpy.empty_like(r)
         out[r >= self._rmax]= -self._total_mass/r[r >= self._rmax]**2.
         out[r < self._rmax]= self._force_spline(r[r < self._rmax])
         return out
-    
+
     def _r2deriv(self,r,t=0.):
         out= numpy.empty_like(r)
         out[r >= self._rmax]= -2.*self._total_mass/r[r >= self._rmax]**3.

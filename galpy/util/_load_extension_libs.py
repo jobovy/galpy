@@ -1,9 +1,10 @@
 # _load_extension_libs.py: centralized place to load the C extensions
+import ctypes
 import os
 import sys
-import distutils.sysconfig as sysconfig
+import sysconfig
 import warnings
-import ctypes
+
 from ..util import galpyWarning, galpyWarningVerbose
 
 PY3= sys.version > '3'
@@ -45,7 +46,7 @@ def load_libgalpy():
         else:
             warnings.warn("libgalpy C extension module not loaded, because libgalpy%s image was not found" % _ext_suffix,
                           galpyWarning)
-        _libgalpy_loaded= False    
+        _libgalpy_loaded= False
     else:
         _libgalpy_loaded= True
     _libgalpy= _lib
@@ -79,7 +80,7 @@ def load_libgalpy_actionAngleTorus():
         else:
             warnings.warn("libgalpy_actionAngleTorus C extension module not loaded, because libgalpy%s image was not found" % _ext_suffix,
                           galpyWarningVerbose)
-        _libgalpy_actionAngleTorus_loaded= False    
+        _libgalpy_actionAngleTorus_loaded= False
     else:
         _libgalpy_actionAngleTorus_loaded= True
     _libgalpy_actionAngleTorus= _lib

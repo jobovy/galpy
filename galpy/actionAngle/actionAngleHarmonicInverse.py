@@ -3,13 +3,16 @@
 #
 #      class: actionAngleHarmonicInverse
 #
-#             Calculate (x,v) coordinates for the harmonic oscillator from 
+#             Calculate (x,v) coordinates for the harmonic oscillator from
 #             given actions-angle coordinates
 #
 ###############################################################################
 import numpy
-from .actionAngleInverse import actionAngleInverse
+
 from ..util import conversion
+from .actionAngleInverse import actionAngleInverse
+
+
 class actionAngleHarmonicInverse(actionAngleInverse):
     """Inverse action-angle formalism for the one-dimensional harmonic oscillator"""
     def __init__(self,*args,**kwargs):
@@ -31,7 +34,7 @@ class actionAngleHarmonicInverse(actionAngleInverse):
            vo= circular velocity at ro (km/s; can be Quantity)
 
         OUTPUT:
-        
+
            instance
 
         HISTORY:
@@ -46,7 +49,7 @@ class actionAngleHarmonicInverse(actionAngleInverse):
                                           ro=self._ro,vo=self._vo)
         self._omega= omega
         return None
-    
+
     def _evaluate(self,j,angle,**kwargs):
         """
         NAME:
@@ -73,7 +76,7 @@ class actionAngleHarmonicInverse(actionAngleInverse):
 
         """
         return self._xvFreqs(j,angle,**kwargs)[:2]
-        
+
     def _xvFreqs(self,j,angle,**kwargs):
         """
         NAME:
@@ -103,7 +106,7 @@ class actionAngleHarmonicInverse(actionAngleInverse):
         x= amp*numpy.sin(angle)
         vx= amp*self._omega*numpy.cos(angle)
         return (x,vx,self._omega)
-        
+
     def _Freqs(self,j,**kwargs):
         """
         NAME:

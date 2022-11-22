@@ -5,6 +5,102 @@ This page gives some of the key improvements in each galpy
 version. See the ``HISTORY.txt`` file in the galpy source for full
 details on what is new and different in each version.
 
+v1.8
++++++
+
+Version 1.8 contains two big new features and a variety of smaller
+improvements described below. In addition to this, version 1.8 is also the
+first version to fully drop Python 2.7 support (and, thus, all Python 2
+support; note that Python 2 was already almost not supported before). Version
+1.8 also represents the start of a new release cycle, in which we will attempt
+to release a new major version 1.x every year around July 1 and have two minor
+version releases at roughly four-month intervals in between (so around
+November 1 and March 1). Major releases will include this overview of what's
+new since the last major version release.
+
+Major new features:
+
+* ``galpy`` now allows for a very general set of fictitious forces that arise
+  when working in a non-inertial reference frame through the new potential class
+  :ref:`NonInertialFrameForce <noninertialframe_potential>`. The main driver for
+  this new addition is to include the effect of the Milky Way's barycenter
+  acceleration due to the effect of the Large Magellanic Cloud on the orbits of
+  stars, satellite galaxies, and star clusters in the Milky Way. How this can be
+  done exactly is explained in the
+  :ref:`orbit-example-barycentric-acceleration-LMC` section. But a much more
+  general set of non-inertial reference frames are supported: any combination of
+  barycenter acceleration and arbitrary rotations. See
+  :ref:`orbintegration-noninertial` for some more info.
+
+* A particle-spray technique for generating mock stellar streams has been added
+  as :ref:`galpy.df.streamspraydf <api_streamspraydf>`. This roughly follows the
+  `Fardal et al. (2015) <https://ui.adsabs.harvard.edu/abs/2015MNRAS.452..301F/abstract>`__
+  implementation, with some notable additions (e.g., the ability to generate a
+  stream around the center of an orbiting satellite). The full ``galpy``
+  implementation is described in
+  `Qian et al. (2022) <https://ui.adsabs.harvard.edu/abs/2022MNRAS.511.2339Q/abstract>`__.
+
+Other user-facing improvements and additions are
+
+* Potential classes, methods, and functions:
+
+  *  Renamed ``phiforce`` --> ``phitorque`` everywhere (including
+     ``potential.evaluatephiforces`` and ``potential.evaluateplanarphiforces``), such
+     that the method's name actually reflect what it returns (a torque, not a force).
+     ``phiforce`` will be fully removed in version 1.9 and may later be re-used
+     for the actual phi component of the force, so switch to the new name now.
+
+  * Added ``SCFPotential.from_density`` to directly initialize an ``SCFPotential``
+    based on a density function. Allows for full correct and consistent handling
+    of Quantity inputs and outputs.
+
+  * Added ``TimeDependentAmplitudeWrapperPotential`` for adding arbitrary
+    time-dependence to the amplitude of any Potential/Force.
+
+  * Added ``NullPotential``, a Potential with a constant value (useful, e.g..
+    to adjust the zero point of a potential, or for testing code in the absence
+    of forces).
+
+  * Added Potential methods/functions ``rE`` and ``LcE`` to compute the radius
+    and angular momentum of an orbit with energy E. Also added these
+    as Orbit methods for efficient calculation for collections of
+    orbits.
+
+  * Added the ``offset=`` keyword to ``RotateAndTiltWrapperPotential``, which
+    allows a Potential/Force instance to also be offset from (0,0,0) in
+    addition to being rotated or tilted.
+
+* New and improved ``Orbit`` methods:
+
+  * Added a progress bar when integrating multiple objects in a single
+    orbit instance (requires ``tqdm``).
+
+  * Added ``rE`` and ``LcE`` for the efficient computation of the radius
+    and angular momentum of an orbit with energy E (this is efficient for
+    many orbits in a single ``Orbit`` instance; see above).
+
+  * Updated existing and added new phase-space positions for MW satellite
+    galaxies from `Pace et al. (2022) <https://ui.adsabs.harvard.edu/abs/2022arXiv220505699P/abstract>`__.
+
+  * Updated existing and added new phase-space positions for MW globular
+    clusters from `Baumgardt et al. (2019) <https://ui.adsabs.harvard.edu/abs/2019MNRAS.482.5138B/abstract>`__,
+    `Vasiliev & Baumgardt (2021) <https://ui.adsabs.harvard.edu/abs/2021MNRAS.505.5978V/abstract>`__, and
+    `Baumgardt & Vasiliev (2021) <https://ui.adsabs.harvard.edu/abs/2021MNRAS.505.5957B/abstract>`__.
+
+  * Allow actions to be computed for Orbit instances with actionAngle
+    methods that don't compute frequencies.
+
+* Updated spherical distribution functions:
+
+  * Added necessary derivatives to allow spherical DFs to be constructed using
+    PowerSphericalPotentialwCutoff and PlummerPotential.
+
+Finally, ``galpy`` can now also be compiled to WebAssembly using the
+``emscripten`` compiler, as part of the ``pyodide`` project. This allows for
+``galpy`` use in the browser without installation at near-C speeds. See
+:ref:`install_pyodide` for more info. This, for example, powers the new "Try
+``galpy``" interactive session on this documentation's home page.
+
 v1.7
 +++++
 
@@ -124,7 +220,7 @@ Other additions and changes include:
     <api_aa_isochroneinv>`) and for the one-dimensional harmonic
     oscillator (in :ref:`actionAngleHarmonicInverse
     <api_aa_harminv>`). Also added the action-angle calculation for
-    the harmonic oscilator in :ref:`actionAngleHarmonic
+    the harmonic oscillator in :ref:`actionAngleHarmonic
     <api_aa_harm>`. Why yes, I have been playing around with the
     TorusMapper a bit!
 
@@ -177,8 +273,8 @@ This version mainly consists of changes to the internal functioning of
     shared-object library ``libgalpy``.
 
   * Binary wheels are now automatically built for Windows, Mac, and
-    most major Linux distributions upon every push to the ``master`` 
-    (now ``main``) branch and these are automatically uploaded to PyPI 
+    most major Linux distributions upon every push to the ``master``
+    (now ``main``) branch and these are automatically uploaded to PyPI
     upon release. See the :ref:`Installation Instructions <installation>`
     for more info. Binary wheels on Windows are also built for every
     push on AppVeyor, see the :ref:`Windows installation instructions
@@ -225,26 +321,29 @@ This version will be the last to support Python 2.7 as this version of Python is
 
   * `IsothermalDiskPotential <reference/potentialisodisk.html>`__: The one-dimensional potential of an isothermal self-gravitating disk (sech^2 profile).
 
-  * `NumericalPotentialDerivativesMixin <reference/potentialnumericalpotentialderivsmixin.html>`__: a Mixin class to add numerically-computed forces and second derivatives to any Potential class, allowing new potentials to be implmented quickly by only implementing the potential itself and obtaining all forces and second derivatives numerically.
+  * `NumericalPotentialDerivativesMixin <reference/potentialnumericalpotentialderivsmixin.html>`__: a Mixin class to add numerically-computed forces and second derivatives to any Potential class, allowing new potentials to be implemented quickly by only implementing the potential itself and obtaining all forces and second derivatives numerically.
 
   * `DehnenSmoothWrapperPotential <reference/potentialdehnensmoothwrapper.html>`__: Can now decay rather than grow a potential by setting ``decay=True``.
 
   * Added support to combine Potential instances or lists thereof through the addition operator. E.g., ``pot= pot1+pot2+pot3`` to create the combined potential of the three component potentials (pot1,pot2,pot3). Each of these components can be a combined potential itself. As before, combined potentials are simply lists of potentials, so this is simply an alternative (and perhaps more intuitive) way to create these lists.
 
-  * Added support to adjust the amplitude of a Potential instance through multiplication of the instance by a number or through division by a numer. E.g., ``pot= 2.*pot1`` returns a Potential instance that is the same as pot1, except that the amplitude is twice larger. Similarly, ``pot= pot1/2.`` decreases the amplitude by a factor of two. This is useful, for example, to quickly change the mass of a potential. Only works for Potential instances, not for lists of Potential instances.
+  * Added support to adjust the amplitude of a Potential instance through multiplication of the instance by a number or through division by a number. E.g., ``pot= 2.*pot1`` returns a Potential instance that is the same as pot1, except that the amplitude is twice larger. Similarly, ``pot= pot1/2.`` decreases the amplitude by a factor of two. This is useful, for example, to quickly change the mass of a potential. Only works for Potential instances, not for lists of Potential instances.
 
 * New or improved ``galpy.orbit.Orbit`` functionality and methods:
 
   * Added support for 1D orbit integration in C.
 
-  * Added support to plot arbitrary combinations of the basic Orbit attributes by giving them as an expresion (e.g., ``orb.plot(d2='vR*R/r+vz*z/r')``); requires the `numexpr <https://github.com/pydata/numexpr>`__ package.
+  * Added support to plot arbitrary combinations of the basic Orbit attributes by giving them as an expression (e.g., ``orb.plot(d2='vR*R/r+vz*z/r')``); requires the `numexpr <https://github.com/pydata/numexpr>`__ package.
 
   * Switched default Sun's vertical height zo parameter for Orbit initialization to be the value of 20.8 pc from `Bennett & Bovy (2019) <http://adsabs.harvard.edu/abs/2019MNRAS.482.1417B>`__.
 
   * Add Python and C implementation of Dormand-Prince 8(5,3) integrator.
 
-v1.4
+Pre-v1.5
 +++++
+
+v1.4
+----
 
 * Added dynamical friction as the `ChandrasekharDynamicalFrictionForce
   <reference/potentialchandrasekhardynfric.html>`__ class, an
@@ -299,7 +398,7 @@ v1.4
 * Support for compilation on Windows with MSVC.
 
 v1.3
-+++++
+----
 
 * A fast and precise method for approximating an orbit's eccentricity,
   peri- and apocenter radii, and maximum height above the midplane
@@ -341,14 +440,14 @@ v1.3
 
 * ``actionAngleStaeckel`` upgrades:
 
-  * ``actionAngleStaeckel`` methods now allow for different focal lengths delta for different phase-space points and for the order of the Gauss-Legendre integration to be specified (default: 10, which is good enough when using actionAngleStaeckel to compute approximate actions etc. for an axisymmetric potential). 
-  * Added an option to the estimateDeltaStaeckel function to facilitate the return of an estimated delta parameter at every phase space point passed, rather than returning a median of the estimate at each point. 
+  * ``actionAngleStaeckel`` methods now allow for different focal lengths delta for different phase-space points and for the order of the Gauss-Legendre integration to be specified (default: 10, which is good enough when using actionAngleStaeckel to compute approximate actions etc. for an axisymmetric potential).
+  * Added an option to the estimateDeltaStaeckel function to facilitate the return of an estimated delta parameter at every phase space point passed, rather than returning a median of the estimate at each point.
 
 * `galpy.df.schwarzschilddf <reference/dfschwarzschild.html>`__:the simple Schwarzschild distribution function for a razor-thin disk (useful for teaching).
 
 
 v1.2
-+++++
+----
 
 * Full support for providing inputs to all initializations, methods,
   and functions as `astropy Quantity
@@ -404,7 +503,7 @@ v1.2
   general epochs.
 
 v1.1
-+++++
+----
 
 * Full support for Python 3.
 

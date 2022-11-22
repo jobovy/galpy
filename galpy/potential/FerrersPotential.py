@@ -8,11 +8,14 @@
 #       m^2 = x^2 + y^2/b^2 + z^2/c^2
 ########################################################################
 import hashlib
+
 import numpy
 from scipy import integrate
 from scipy.special import gamma
+
 from ..util import conversion, coords
 from .Potential import Potential
+
 
 class FerrersPotential(Potential):
     """Class that implements triaxial Ferrers potential for the ellipsoidal density profile with the short axis along the z-direction
@@ -117,7 +120,7 @@ class FerrersPotential(Potential):
         return self._evaluate_xyz(x,y,z)
 
     def _evaluate_xyz(self,x,y,z=0.):
-        """Evaluation of the potential as a function of (x,y,z) in the 
+        """Evaluation of the potential as a function of (x,y,z) in the
         aligned coordinate frame"""
         return -numpy.pi * self._rhoc_M /(self.n+1.)*self.a**3*self._b*self._c * \
             _potInt(x, y, z, self._a2, self._b2*self._a2, self._c2*self._a2, self.n)

@@ -1,5 +1,5 @@
 ###############################################################################
-#   evolveddiskdf.py: module that builds a distribution function as a 
+#   evolveddiskdf.py: module that builds a distribution function as a
 #                     steady-state DF + subsequent evolution
 #
 #   This module contains the following classes:
@@ -9,21 +9,23 @@
 _NSIGMA= 4.
 _NTS= 1000
 _PROFILE= False
-import sys
 import copy
+import sys
 import time as time_module
 import warnings
+
 import numpy
 from scipy import integrate
-from ..util import galpyWarning
+
 from ..orbit import Orbit
 from ..potential import calcRotcurve
-from .df import df
 from ..potential.Potential import _check_c
+from ..util import galpyWarning, plot
+from ..util.conversion import (parse_time, physical_conversion,
+                               potential_physical_input)
 from ..util.quadpack import dblquad
-from ..util import plot
-from ..util.conversion import physical_conversion, \
-    potential_physical_input, parse_time
+from .df import df
+
 _DEGTORAD= numpy.pi/180.
 _RADTODEG= 180./numpy.pi
 _NAN= numpy.nan
@@ -145,7 +147,7 @@ class evolveddiskdf(df):
             if kwargs.pop('log',False):
                 return numpy.log(self._call_marginalizevlos(args[0],integrate_method=integrate_method,**kwargs))
             else:
-                return self._call_marginalizevlos(args[0],integrate_method=integrate_method,**kwargs)   
+                return self._call_marginalizevlos(args[0],integrate_method=integrate_method,**kwargs)
         #Integrate back
         if tlist:
             if self._to == t[0]:
@@ -292,7 +294,7 @@ class evolveddiskdf(df):
                 o.integrate(ts,self._pot,method=integrate_method)
             #int_time= (time.time()-start)
             #Now evaluate the DF
-            if o.R(self._to-t,use_physical=False) <= 0.: 
+            if o.R(self._to-t,use_physical=False) <= 0.:
                 if kwargs.get('log',False):
                     return -numpy.finfo(numpy.dtype(numpy.float64)).max
                 else:
@@ -464,14 +466,14 @@ class evolveddiskdf(df):
         if initvmoment == 0.: initvmoment= 1.
         norm= sigmaR1**(n+1)*sigmaT1**(m+1)*initvmoment
         if isinstance(t,(list,numpy.ndarray)):
-            raise OSError("list of times is only supported with grid-based calculation")            
+            raise OSError("list of times is only supported with grid-based calculation")
         return dblquad(_vmomentsurfaceIntegrand,
                                  meanvT/sigmaT1-nsigma,
                                  meanvT/sigmaT1+nsigma,
                                  lambda x: meanvR/sigmaR1
                                  -numpy.sqrt(nsigma**2.-(x-meanvT/sigmaT1)**2.),
                                  lambda x: meanvR/sigmaR1
-                                 +numpy.sqrt(nsigma**2.-(x-meanvT/sigmaT1)**2.), 
+                                 +numpy.sqrt(nsigma**2.-(x-meanvT/sigmaT1)**2.),
                                  (R,az,self,n,m,sigmaR1,sigmaT1,t,initvmoment),
                                  epsrel=epsrel,epsabs=epsabs)[0]*norm
 
@@ -533,7 +535,7 @@ class evolveddiskdf(df):
         #times the surface-mass density; that drops out
         if isinstance(grid,evolveddiskdfGrid) or \
                 isinstance(grid,evolveddiskdfHierarchicalGrid):
-            grido= grid           
+            grido= grid
         elif (sigmaR2 is None or sigmaT2 is None or sigmaRT is None) \
                 and isinstance(grid,bool) and grid:
             #Precalculate the grid
@@ -579,7 +581,7 @@ class evolveddiskdf(df):
                                   integrate_method=integrate_method,
                                   use_physical=False)
         warnings.warn("In versions >1.3, the output unit of evolveddiskdf.vertexdev has been changed to radian (from degree before)",galpyWarning)
-        if returnGrid and ((isinstance(grid,bool) and grid) or 
+        if returnGrid and ((isinstance(grid,bool) and grid) or
                            isinstance(grid,evolveddiskdfGrid) or
                            isinstance(grid,evolveddiskdfHierarchicalGrid)):
             return (-numpy.arctan(2.*sigmaRT/(sigmaR2-sigmaT2))/2.,grido)
@@ -641,7 +643,7 @@ class evolveddiskdf(df):
         """
         if isinstance(grid,evolveddiskdfGrid) or \
                 isinstance(grid,evolveddiskdfHierarchicalGrid):
-            grido= grid           
+            grido= grid
             vmomentR= self.vmomentsurfacemass(R,1,0,deg=deg,t=t,phi=phi,
                                               nsigma=nsigma,
                                               epsrel=epsrel,
@@ -681,7 +683,7 @@ class evolveddiskdf(df):
                                                  hierarchgrid=hierarchgrid,
                                                  nlevels=nlevels,integrate_method=integrate_method)
         out= vmomentR/surfacemass
-        if returnGrid and ((isinstance(grid,bool) and grid) or 
+        if returnGrid and ((isinstance(grid,bool) and grid) or
                            isinstance(grid,evolveddiskdfGrid) or
                            isinstance(grid,evolveddiskdfHierarchicalGrid)):
             return (out,grido)
@@ -743,7 +745,7 @@ class evolveddiskdf(df):
         """
         if isinstance(grid,evolveddiskdfGrid) or \
                 isinstance(grid,evolveddiskdfHierarchicalGrid):
-            grido= grid           
+            grido= grid
             vmomentT= self.vmomentsurfacemass(R,0,1,deg=deg,t=t,
                                               nsigma=nsigma,phi=phi,
                                               epsrel=epsrel,
@@ -784,7 +786,7 @@ class evolveddiskdf(df):
                                                  nlevels=nlevels,
                                                  integrate_method=integrate_method)
         out= vmomentT/surfacemass
-        if returnGrid and ((isinstance(grid,bool) and grid) or 
+        if returnGrid and ((isinstance(grid,bool) and grid) or
                            isinstance(grid,evolveddiskdfGrid) or
                            isinstance(grid,evolveddiskdfHierarchicalGrid)):
             return (out,grido)
@@ -901,7 +903,7 @@ class evolveddiskdf(df):
                                             nlevels=nlevels,
                                             integrate_method=integrate_method)/surfacemass
         out= sigmaR2/surfacemass-meanvR**2.
-        if returnGrid and ((isinstance(grid,bool) and grid) or 
+        if returnGrid and ((isinstance(grid,bool) and grid) or
                            isinstance(grid,evolveddiskdfGrid) or
                            isinstance(grid,evolveddiskdfHierarchicalGrid)):
             return (out,grido)
@@ -923,7 +925,7 @@ class evolveddiskdf(df):
 
         PURPOSE:
 
-           calculate the tangential variance of the velocity distribution at (R,phi)
+           calculate the rotational-velocity variance of the velocity distribution at (R,phi)
 
         INPUT:
 
@@ -933,7 +935,7 @@ class evolveddiskdf(df):
 
            t= time at which to evaluate the DF (can be a list or ndarray; if this is the case, list needs to be in descending order and equally spaced) (can be Quantity)
 
-           surfacemass, meanvT= if set use this pre-calculated surfacemass and mean tangential velocity
+           surfacemass, meanvT= if set use this pre-calculated surfacemass and mean rotational velocity
 
            nsigma - number of sigma to integrate the velocities over (based on an estimate, so be generous)
 
@@ -1016,7 +1018,7 @@ class evolveddiskdf(df):
                                             nlevels=nlevels,
                                             integrate_method=integrate_method)/surfacemass
         out= sigmaT2/surfacemass-meanvT**2.
-        if returnGrid and ((isinstance(grid,bool) and grid) or 
+        if returnGrid and ((isinstance(grid,bool) and grid) or
                            isinstance(grid,evolveddiskdfGrid) or
                            isinstance(grid,evolveddiskdfHierarchicalGrid)):
             return (out,grido)
@@ -1038,7 +1040,7 @@ class evolveddiskdf(df):
 
         PURPOSE:
 
-           calculate the radial-tangential co-variance of the velocity distribution at (R,phi)
+           calculate the radial-rotational co-variance of the velocity distribution at (R,phi)
 
         INPUT:
 
@@ -1142,7 +1144,7 @@ class evolveddiskdf(df):
                                             nlevels=nlevels,
                                             integrate_method=integrate_method)/surfacemass
         out= sigmaRT/surfacemass-meanvR*meanvT
-        if returnGrid and ((isinstance(grid,bool) and grid) or 
+        if returnGrid and ((isinstance(grid,bool) and grid) or
                            isinstance(grid,evolveddiskdfGrid) or
                            isinstance(grid,evolveddiskdfHierarchicalGrid)):
             return (out,grido)
@@ -1183,7 +1185,7 @@ class evolveddiskdf(df):
            grid= if set to True, build a grid and use that to evaluate integrals; if set to a grid-objects (such as returned by this procedure), use this grid
 
            derivRGrid, derivphiGrid= if set to True, build a grid and use that to evaluate integrals of the derivatives of the DF;if set to a grid-objects (such as returned by this procedure), use this grid
-           
+
            gridpoints= number of points to use for the grid in 1D (default=101)
 
            derivGridpoints= number of points to use for the grid in 1D (default=101)
@@ -1348,7 +1350,7 @@ class evolveddiskdf(df):
            epsrel, epsabs - scipy.integrate keywords
 
            grid= if set to True, build a grid and use that to evaluate integrals; if set to a grid-objects (such as returned by this procedure), use this grid
-           
+
            derivRGrid, derivphiGrid= if set to True, build a grid and use that to evaluat integrals of the derivatives of the DF: if set to a grid-objects (such as returned by this procedure), use this grid
 
            gridpoints= number of points to use for the grid in 1D (default=101)
@@ -1515,7 +1517,7 @@ class evolveddiskdf(df):
            epsrel, epsabs - scipy.integrate keywords
 
            grid= if set to True, build a grid and use that to evaluate integrals; if set to a grid-objects (such as returned by this procedure), use this grid
-           
+
            derivRGrid, derivphiGrid= if set to True, build a grid and use that to evaluate integrals of the derivatives of the DF; if set to a grid-objects (such as returned by this procedure), use this grid
 
            gridpoints= number of points to use for the grid in 1D (default=101)
@@ -1818,11 +1820,11 @@ class evolveddiskdf(df):
             return 0.5*(meanvR/R+dmeanvTdphi/R+dmeanvRdR)
 
     def _vmomentsurfacemassGrid(self,n,m,grid):
-        """Internal function to evaluate vmomentsurfacemass using a grid 
+        """Internal function to evaluate vmomentsurfacemass using a grid
         rather than direct integration"""
         if len(grid.df.shape) == 3: tlist= True
         else: tlist= False
-        if tlist: 
+        if tlist:
             nt= grid.df.shape[2]
             out= []
             for ii in range(nt):
@@ -1832,7 +1834,7 @@ class evolveddiskdf(df):
         else:
             return numpy.dot(grid.vRgrid**n,numpy.dot(grid.df,grid.vTgrid**m))*\
                 (grid.vRgrid[1]-grid.vRgrid[0])*(grid.vTgrid[1]-grid.vTgrid[0])
-        
+
     def _buildvgrid(self,R,phi,nsigma,t,sigmaR1,sigmaT1,meanvR,meanvT,
                     gridpoints,print_progress,integrate_method,deriv):
         """Internal function to grid the vDF at a given location"""
@@ -1940,7 +1942,7 @@ class evolveddiskdf(df):
                                   args=(self,R,sinalphalos,cotalphalos,
                                         vlos-vcirclos,vcirc,sigmaR1,phi),
                                   **kwargs)[0]/numpy.fabs(sinalphalos)*sigmaR1
-        
+
     def _call_marginalizevlos(self,o,integrate_method='dopr54_c',**kwargs):
         """Call the DF, marginalizing over line-of-sight velocity"""
         #Get d, l, vperp
@@ -1948,13 +1950,13 @@ class evolveddiskdf(df):
         vperp= o.vll(ro=1.,vo=1.,obs=[1.,0.,0.,0.,0.,0.])
         R= o.R(use_physical=False)
         phi= o.phi(use_physical=False)
-        #Get local circular velocity, projected onto the perpendicular 
+        #Get local circular velocity, projected onto the perpendicular
         #direction
         if isinstance(self._pot,list):
             vcirc= calcRotcurve([p for p in self._pot if not p.isNonAxi],R)[0]
         else:
             vcirc= calcRotcurve(self._pot,R)[0]
-        vcircperp= vcirc*numpy.cos(phi+l) 
+        vcircperp= vcirc*numpy.cos(phi+l)
         #Marginalize
         alphaperp= numpy.pi/2.+phi+l
         if not 'nsigma' in kwargs or ('nsigma' in kwargs and \
@@ -1990,11 +1992,11 @@ class evolveddiskdf(df):
                                   **kwargs)[0]/numpy.fabs(sinalphaperp)*sigmaR1
 
     def _vmomentsurfacemassHierarchicalGrid(self,n,m,grid):
-        """Internal function to evaluate vmomentsurfacemass using a 
+        """Internal function to evaluate vmomentsurfacemass using a
         hierarchical grid rather than direct integration,
-        rather unnecessary""" 
-        return grid(n,m)       
-        
+        rather unnecessary"""
+        return grid(n,m)
+
 class evolveddiskdfGrid:
     """(not quite) Empty class since it is only used to store some stuff"""
     def __init__(self):
@@ -2044,9 +2046,9 @@ class evolveddiskdfHierarchicalGrid:
             nsigma - number of sigma to integrate over
             t- time
             sigmaR1 - radial dispersion
-            sigmaT1 - tangential dispersion
+            sigmaT1 - rotational-velocity dispersion
             meanvR - mean of radial velocity
-            meanvT - mean of tangential velocity
+            meanvT - mean of rotational velocity
             gridpoints- number of gridpoints
             nlevels- number of levels to build
             deriv- None, 'R', or 'phi': calculates derivative of the moment wrt
@@ -2102,7 +2104,7 @@ class evolveddiskdfHierarchicalGrid:
                     self.df[ii,jj,numpy.isnan(self.df[ii,jj,:])]= 0.#BOVY: for now
                     #Multiply in area, somewhat tricky for edge objects
                     if upperdxdy is None or (ii != 0 and ii != gridpoints-1\
-                                                 and jj != 0 
+                                                 and jj != 0
                                              and jj != gridpoints-1):
                         self.df[ii,jj,:]*= dxdy
                     elif ((ii == 0 or ii == gridpoints-1) and \
@@ -2140,7 +2142,7 @@ class evolveddiskdfHierarchicalGrid:
                     if numpy.isnan(self.df[ii,jj]): self.df[ii,jj]= 0. #BOVY: for now
                     #Multiply in area, somewhat tricky for edge objects
                     if upperdxdy is None or (ii != 0 and ii != gridpoints-1\
-                                                 and jj != 0 
+                                                 and jj != 0
                                              and jj != gridpoints-1):
                         self.df[ii,jj]*= dxdy
                     elif ((ii == 0 or ii == gridpoints-1) and \
@@ -2170,12 +2172,12 @@ class evolveddiskdfHierarchicalGrid:
         else:
             self.subgrid= None
         return None
-                
+
     def __call__(self,n,m):
         """Call"""
         if isinstance(self.t,(list,numpy.ndarray)): tlist= True
         else: tlist= False
-        if tlist: 
+        if tlist:
             nt= self.df.shape[2]
             out= []
             for ii in range(nt):
@@ -2282,7 +2284,7 @@ def _vmomentsurfaceIntegrand(vR,vT,R,az,df,n,m,sigmaR1,sigmaT1,t,initvmoment):
 def _marginalizeVperpIntegrandSinAlphaLarge(vR,df,R,sinalpha,cotalpha,
                                             vlos,vcirc,sigma,phi):
     return df(Orbit([R,vR*sigma,cotalpha*vR*sigma+vlos/sinalpha+vcirc,phi]))
-                     
+
 
 def _marginalizeVperpIntegrandSinAlphaSmall(vT,df,R,cosalpha,tanalpha,
                                             vlos,vcirc,sigma,phi):

@@ -1,9 +1,11 @@
 # Tests of the quasiisothermaldf module
 import numpy
-#fiducial setup uses these
-from galpy.potential import MWPotential, vcirc, omegac, epifreq, verticalfreq
+
 from galpy.actionAngle import actionAngleAdiabatic, actionAngleStaeckel
 from galpy.df import quasiisothermaldf
+#fiducial setup uses these
+from galpy.potential import MWPotential, epifreq, omegac, vcirc, verticalfreq
+
 aAA= actionAngleAdiabatic(pot=MWPotential,c=True)
 aAS= actionAngleStaeckel(pot=MWPotential,c=True,delta=0.5)
 
@@ -263,4 +265,3 @@ def test_pvRvz_staeckel_arrayin():
     pvRvz= qdf.pvRvz(0.1*numpy.ones(2),0.05*numpy.ones(2),R*numpy.ones(2),z*numpy.ones(2))
     assert numpy.all(numpy.fabs(numpy.log(pvRvz)-numpy.log(qdf.pvRvz(0.1,0.05,R,z))) < 10.**-10.), 'pvRvz calculated with R and z array input does not equal to calculated with scalar input'
     return None
-

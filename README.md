@@ -5,8 +5,9 @@
 
 [galpy](http://www.galpy.org) is a Python package for galactic dynamics. It supports orbit integration in a variety of potentials, evaluating and sampling various distribution functions, and the calculation of action-angle coordinates for all static potentials. `galpy` is an [astropy](http://www.astropy.org/) [affiliated package](http://www.astropy.org/affiliated/) and provides full support for astropy’s [Quantity](http://docs.astropy.org/en/stable/api/astropy.units.Quantity.html) framework for variables with units.
 
-[![image](https://github.com/jobovy/galpy/actions/workflows/build.yml/badge.svg?branch=main)](https://github.com/jobovy/galpy/actions/workflows/build.yml) [![image](https://github.com/jobovy/galpy/actions/workflows/build_windows.yml/badge.svg?branch=main)](https://github.com/jobovy/galpy/actions/workflows/build_windows.yml) [![image](https://ci.appveyor.com/api/projects/status/wmgs1sq3i7tbtap2/branch/main?svg=true)](https://ci.appveyor.com/project/jobovy/galpy) [![image](http://codecov.io/github/jobovy/galpy/coverage.svg?branch=main)](http://codecov.io/github/jobovy/galpy?branch=main) [![image](https://readthedocs.org/projects/galpy/badge/?version=latest)](http://docs.galpy.org/en/latest/)  
-[![image](http://img.shields.io/pypi/v/galpy.svg)](https://pypi.python.org/pypi/galpy/) [![image](https://img.shields.io/pypi/pyversions/galpy?logo=python&logoColor=white)](https://pypi.python.org/pypi/galpy/) [![image](https://anaconda.org/conda-forge/galpy/badges/installer/conda.svg)](https://anaconda.org/conda-forge/galpy) [![image](https://img.shields.io/github/commits-since/jobovy/galpy/latest)](https://github.com/jobovy/galpy/commits/main)  
+[![image](https://github.com/jobovy/galpy/actions/workflows/build.yml/badge.svg?branch=main)](https://github.com/jobovy/galpy/actions/workflows/build.yml) [![image](https://github.com/jobovy/galpy/actions/workflows/build_windows.yml/badge.svg?branch=main)](https://github.com/jobovy/galpy/actions/workflows/build_windows.yml) [![image](https://ci.appveyor.com/api/projects/status/wmgs1sq3i7tbtap2/branch/main?svg=true)](https://ci.appveyor.com/project/jobovy/galpy) [![pre-commit.ci status](https://results.pre-commit.ci/badge/github/jobovy/galpy/main.svg)](https://results.pre-commit.ci/latest/github/jobovy/galpy/main)
+[![image](http://codecov.io/github/jobovy/galpy/coverage.svg?branch=main)](http://codecov.io/github/jobovy/galpy?branch=main) [![image](https://readthedocs.org/projects/galpy/badge/?version=latest)](http://docs.galpy.org/en/latest/)
+[![image](http://img.shields.io/pypi/v/galpy.svg)](https://pypi.python.org/pypi/galpy/) [![image](https://img.shields.io/pypi/pyversions/galpy?logo=python&logoColor=white)](https://pypi.python.org/pypi/galpy/) [![image](https://anaconda.org/conda-forge/galpy/badges/version.svg)](https://anaconda.org/conda-forge/galpy) [![image](https://img.shields.io/github/commits-since/jobovy/galpy/latest)](https://github.com/jobovy/galpy/commits/main)
 [![image](http://img.shields.io/badge/license-New%20BSD-brightgreen.svg)](https://github.com/jobovy/galpy/blob/main/LICENSE) [![image](http://img.shields.io/badge/DOI-10.1088/0067%2D%2D0049/216/2/29-blue.svg)](http://dx.doi.org/10.1088/0067-0049/216/2/29) [![image](http://img.shields.io/badge/powered%20by-AstroPy-orange.svg?style=flat)](http://www.astropy.org/) [![image](https://img.shields.io/badge/join-slack-E01563.svg?style=flat&logo=slack&logoWidth=10)](https://join.slack.com/t/galpy/shared_invite/zt-p6upr4si-mX7u8MRdtm~3bW7o8NA_Ww)
 
 AUTHOR
@@ -45,15 +46,11 @@ FAQ](http://docs.galpy.org/en/latest/installation.html#installation-faq).
 PYTHON VERSIONS AND DEPENDENCIES
 ================================
 
-`galpy` supports Python 3. Specifically, galpy supports Python 3.7,
-3.8, 3.9, 3.10. It should also work on earlier Python 3.\* versions,
-but this is not extensively tested on an ongoing basis and because
-libraries that `galpy` depends on are dropping earlier Python 3.\*
-versions, `galpy` itself likely doesn't fully work on them.  GitHub
-Actions CI builds regularly check support for Python 3.10 (and of 3.7,
-3.8, and 3.9 using a more limited, core set of tests) on Linux and
-Windows (and 3.10 on Mac OS); Appveyor builds regularly check support
-for Python 3.10 on Windows. Python 2.7 is no longer supported.
+`galpy` supports Python 3. Specifically, galpy supports Python 3.8, 3.9, 3.10,
+and 3.11. GitHub Actions CI builds regularly check support for
+Python 3.10 (and of 3.8, and 3.9 using a more limited, core set of tests)
+on Linux and Windows (and 3.10 on Mac OS); Appveyor builds regularly check
+support for Python 3.10 on Windows. Python 2.7 is no longer supported.
 
 This package requires [Numpy](https://numpy.org/),
 [Scipy](http://www.scipy.org/), and
@@ -69,7 +66,7 @@ requiring version 1.14 or higher. Other optional dependencies include:
 * Plotting arbitrary functions of Orbit attributes requires [`numexpr`](https://github.com/pydata/numexpr).
 * Speeding up the evaluation of certain functions in the C code requires [`numba`](https://numba.pydata.org/).
 * Constant-anisotropy DFs in `galpy.df.constantbetadf` require [`JAX`](https://github.com/google/jax).
-* Use of `SnapshotRZPotential` and `InterpSnapshotRZPotential` requires [`pynbody`](https://github.com/pynbody/pynbody). 
+* Use of `SnapshotRZPotential` and `InterpSnapshotRZPotential` requires [`pynbody`](https://github.com/pynbody/pynbody).
 
 Other parts of the code may require additional packages and you will be alerted by the code if they are
 not installed.

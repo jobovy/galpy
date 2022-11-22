@@ -1,9 +1,11 @@
 # Tests of the quasiisothermaldf module
 import numpy
-#fiducial setup uses these
-from galpy.potential import MWPotential, vcirc, omegac, epifreq, verticalfreq
+
 from galpy.actionAngle import actionAngleAdiabatic, actionAngleStaeckel
 from galpy.df import quasiisothermaldf
+#fiducial setup uses these
+from galpy.potential import MWPotential, epifreq, omegac, vcirc, verticalfreq
+
 aAA= actionAngleAdiabatic(pot=MWPotential,c=True)
 aAS= actionAngleStaeckel(pot=MWPotential,c=True,delta=0.5)
 
@@ -54,7 +56,7 @@ def test_meanvR_staeckel_mc():
 def test_meanvT_adiabatic_gl():
     qdf= quasiisothermaldf(1./4.,0.2,0.1,1.,1.,
                            pot=MWPotential,aA=aAA,cutcounter=True)
-    from galpy.df import dehnendf #baseline
+    from galpy.df import dehnendf  # baseline
     dfc= dehnendf(profileParams=(1./4.,1.0, 0.2),
                   beta=0.,correct=False)
     #In the mid-plane
@@ -70,7 +72,7 @@ def test_meanvT_adiabatic_mc():
     numpy.random.seed(1)
     qdf= quasiisothermaldf(1./4.,0.2,0.1,1.,1.,
                            pot=MWPotential,aA=aAA,cutcounter=True)
-    from galpy.df import dehnendf #baseline
+    from galpy.df import dehnendf  # baseline
     dfc= dehnendf(profileParams=(1./4.,1.0, 0.2),
                   beta=0.,correct=False)
     #In the mid-plane
@@ -85,7 +87,7 @@ def test_meanvT_adiabatic_mc():
 def test_meanvT_staeckel_gl():
     qdf= quasiisothermaldf(1./4.,0.2,0.1,1.,1.,
                            pot=MWPotential,aA=aAS,cutcounter=True)
-    from galpy.df import dehnendf #baseline
+    from galpy.df import dehnendf  # baseline
     dfc= dehnendf(profileParams=(1./4.,1.0, 0.2),
                   beta=0.,correct=False)
     #In the mid-plane
@@ -101,7 +103,7 @@ def test_meanvT_staeckel_mc():
     numpy.random.seed(1)
     qdf= quasiisothermaldf(1./4.,0.2,0.1,1.,1.,
                            pot=MWPotential,aA=aAS,cutcounter=True)
-    from galpy.df import dehnendf #baseline
+    from galpy.df import dehnendf  # baseline
     dfc= dehnendf(profileParams=(1./4.,1.0, 0.2),
                   beta=0.,correct=False)
     #In the mid-plane
@@ -313,6 +315,7 @@ def test_estimate_hz():
     qdf= quasiisothermaldf(1./4.,0.2,0.1,1.,1.,
                            pot=MWPotential,aA=aAS,cutcounter=True)
     from scipy import integrate
+
     from galpy.potential import evaluateDensities
     expec_hz= 0.1**2./2.\
         /integrate.quad(lambda x: evaluateDensities(MWPotential,0.9,x),
@@ -364,7 +367,7 @@ def test_meanlz():
     #This is a *very* rough test against a rough estimate of the mean
     qdf= quasiisothermaldf(1./4.,0.2,0.1,1.,1.,
                            pot=MWPotential,aA=aAS,cutcounter=True)
-    from galpy.df import dehnendf #baseline
+    from galpy.df import dehnendf  # baseline
     dfc= dehnendf(profileParams=(1./4.,1.0, 0.2),
                   beta=0.,correct=False)
     assert numpy.fabs(numpy.log(qdf.meanlz(0.9,0.,mc=True))\
@@ -672,8 +675,8 @@ def test_setup_diffsetups():
     except OSError: pass
     else: raise AssertionError("qdf setup w/ aA potential different from pot= did not raise exception")
     #qdf setup with an actionAngleIsochrone instance (issue #190)
-    from galpy.potential import IsochronePotential
     from galpy.actionAngle import actionAngleIsochrone
+    from galpy.potential import IsochronePotential
     ip= IsochronePotential(normalize=1.,b=2.)
     try:
         qdf= quasiisothermaldf(1./4.,0.2,0.1,1.,1.,
@@ -721,7 +724,7 @@ def test_call_diffinoutputs():
     assert numpy.fabs(acs[1]-lz) < 10.**-8., 'direct calculation of lz and that returned from qdf.__call__ does not agree'
     assert numpy.fabs(acs[2]-jz) < 10.**-8., 'direct calculation of jz and that returned from qdf.__call__ does not agree'
     #Test unbound orbits
-    #Find unbound orbit, new qdf s.t. we can get UnboundError (only with 
+    #Find unbound orbit, new qdf s.t. we can get UnboundError (only with
     taAS= actionAngleStaeckel(pot=MWPotential,c=False,delta=0.5)
     qdfnc= quasiisothermaldf(1./4.,0.2,0.1,1.,1.,
                              pot=MWPotential,
@@ -730,7 +733,7 @@ def test_call_diffinoutputs():
     from galpy.actionAngle import UnboundError
     try: acs= taAS(0.9,10.,-20.,0.1,10.)
     except UnboundError: pass
-    else: 
+    else:
         print(acs)
         raise AssertionError('Test orbit in qdf that is supposed to be unbound is not')
     assert qdfnc(0.9,10.,-20.,0.1,10.) < 10.**-10., 'unbound orbit does not return qdf equal to zero'
@@ -742,7 +745,7 @@ def test_call_diffinoutputs():
     fval= qdf((0.03,0.9,0.02),func=lambda x,y,z: numpy.sin(x)*numpy.cos(y)\
                   *numpy.exp(z))
     assert numpy.fabs(val*numpy.sin(0.03)*numpy.cos(0.9)*numpy.exp(0.02)-
-                      fval) < 10.**-8, 'qdf __call__ w/ func does not work as expected'  
+                      fval) < 10.**-8, 'qdf __call__ w/ func does not work as expected'
     lfval= qdf((0.03,0.9,0.02),func=lambda x,y,z: numpy.sin(x)*numpy.cos(y)\
                    *numpy.exp(z),log=True)
     assert numpy.fabs(numpy.log(val)+numpy.log(numpy.sin(0.03)\
@@ -763,7 +766,7 @@ def test_vmomentdensity_diffinoutputs():
         qdf.vmomentdensity(R,z,0,0,0,gl=True,ngl=11)
     except ValueError: pass
     else: raise AssertionError('qdf.vmomentdensity w/ ngl == odd does not raise ValueError')
-    surfmass, glqeval= qdf.vmomentdensity(R,z,0.,0.,0., 
+    surfmass, glqeval= qdf.vmomentdensity(R,z,0.,0.,0.,
                                           gl=True,
                                           _returngl=True)
     #This shouldn't reuse gleval, but should work nonetheless

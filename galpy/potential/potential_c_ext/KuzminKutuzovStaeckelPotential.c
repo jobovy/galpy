@@ -15,7 +15,7 @@ double KuzminKutuzovStaeckelPotentialEval(double R,double z, double phi,
   double alpha = gamma - Delta*Delta;
   double term  =     R*R + z*z - alpha - gamma;
   double discr = pow(R*R + z*z - Delta*Delta, 2.) + (4. * Delta*Delta * R*R);
-  double l     = 0.5 * (term + sqrt(discr)); 
+  double l     = 0.5 * (term + sqrt(discr));
   double n     = 0.5 * (term - sqrt(discr));
   n= ((n > 0.) ? n: 0.);
   //Calculate potential
@@ -34,7 +34,7 @@ double KuzminKutuzovStaeckelPotentialRforce(double R,double z, double phi,
   double alpha = gamma - Delta*Delta;
   double term  =     R*R + z*z - alpha - gamma;
   double discr = pow(R*R + z*z - Delta*Delta, 2.) + (4. * Delta*Delta * R*R);
-  double l     = 0.5 * (term + sqrt(discr)); 
+  double l     = 0.5 * (term + sqrt(discr));
   double n     = 0.5 * (term - sqrt(discr));
   double dldR  = R * (1. + (R*R + z*z + Delta*Delta) / sqrt(discr));
   double dndR  = R * (1. - (R*R + z*z + Delta*Delta) / sqrt(discr));
@@ -74,7 +74,7 @@ double KuzminKutuzovStaeckelPotentialzforce(double R,double z,double phi,
   double alpha = gamma - Delta*Delta;
   double term  =     R*R + z*z - alpha - gamma;
   double discr = pow(R*R + z*z - Delta*Delta, 2.) + (4. * Delta*Delta * R*R);
-  double l     = 0.5 * (term + sqrt(discr)); 
+  double l     = 0.5 * (term + sqrt(discr));
   double n     = 0.5 * (term - sqrt(discr));
   double dldz  = z * (1. + (R*R + z*z - Delta*Delta) / sqrt(discr));
   double dndz  = z * (1. - (R*R + z*z - Delta*Delta) / sqrt(discr));
@@ -103,4 +103,3 @@ double KuzminKutuzovStaeckelPotentialPlanarR2deriv(double R,double phi,
   double d2Vdl2 = (-3.*sqrt(l)-sqrt(n)) / (4. * pow(l,1.5) * pow(sqrt(l)+sqrt(n),3.));
   return amp * (d2ldR2 * dVdl + dldR*dldR*d2Vdl2);
 }
-

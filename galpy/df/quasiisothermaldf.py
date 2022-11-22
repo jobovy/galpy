@@ -1,20 +1,23 @@
 #A 'Binney' quasi-isothermal DF
-import warnings
 import hashlib
+import warnings
+
 import numpy
-from scipy import optimize, interpolate, integrate
-from .. import potential
-from .. import actionAngle
+from scipy import integrate, interpolate, optimize
+
+from .. import actionAngle, potential
 from ..actionAngle import actionAngleIsochrone
+from ..orbit import Orbit
 from ..potential import IsochronePotential
 from ..potential import flatten as flatten_potential
-from ..orbit import Orbit
+from ..util import conversion, galpyWarning
+from ..util._optional_deps import _APY_LOADED, _APY_UNITS
+from ..util.conversion import (actionAngle_physical_input, parse_angmom,
+                               parse_length, parse_length_kpc, parse_velocity,
+                               parse_velocity_kms, physical_compatible,
+                               physical_conversion, potential_physical_input)
 from .df import df
-from ..util import galpyWarning
-from ..util.conversion import physical_conversion, \
-    potential_physical_input, actionAngle_physical_input, _APY_UNITS, \
-    physical_compatible, parse_length, parse_velocity, parse_angmom, \
-    parse_length_kpc, parse_velocity_kms, _APY_LOADED
+
 if _APY_LOADED:
     from astropy import units
 _NSIGMA=4
@@ -180,13 +183,13 @@ class quasiisothermaldf(df):
 
         NOTE:
 
-           For Miyamoto-Nagai/adiabatic approximation this seems to take 
+           For Miyamoto-Nagai/adiabatic approximation this seems to take
            about 30 ms / evaluation in the extended Solar neighborhood
-           For a MWPotential/adiabatic approximation this takes about 
+           For a MWPotential/adiabatic approximation this takes about
            50 ms / evaluation in the extended Solar neighborhood
 
-           For adiabatic-approximation grid this seems to take 
-           about 0.67 to 0.75 ms / evaluation in the extended Solar 
+           For adiabatic-approximation grid this seems to take
+           about 0.67 to 0.75 ms / evaluation in the extended Solar
            neighborhood (includes some out of the grid)
 
            up to 200x faster when called with vector R,vR,vT,z,vz
@@ -248,7 +251,7 @@ class quasiisothermaldf(df):
             if log:
                 funcTerm= 0.
             else:
-                funcFactor= 1.            
+                funcFactor= 1.
         if log:
             lnfsr= numpy.log(Omega)+lnsurfmass-2.*lnsr-numpy.log(numpy.pi)\
                 -numpy.log(kappa)\
@@ -498,7 +501,7 @@ class quasiisothermaldf(df):
 
         PURPOSE:
 
-           calculate the an arbitrary moment of the velocity distribution 
+           calculate the an arbitrary moment of the velocity distribution
            at R times the density
 
         INPUT:
@@ -514,7 +517,7 @@ class quasiisothermaldf(df):
         OPTIONAL INPUT:
 
            nsigma - number of sigma to integrate the vR and vz velocities over (when doing explicit numerical integral; default: 4)
-           
+
            vTmax - upper limit for integration over vT (default: 1.5)
 
            mc= if True, calculate using Monte Carlo integration
@@ -557,7 +560,7 @@ class quasiisothermaldf(df):
             else:
                 return out*fac
         else:
-            return self._vmomentdensity(*args,**kwargs)  
+            return self._vmomentdensity(*args,**kwargs)
 
     def _vmomentdensity(self,R,z,n,m,o,nsigma=None,mc=False,nmc=10000,
                        _returnmc=False,_vrs=None,_vts=None,_vzs=None,
@@ -732,7 +735,7 @@ class quasiisothermaldf(df):
                                      lambda x,y: 0., lambda x,y: nsigma,
                                      (R,z,self,sigmaR1,gamma,sigmaz1,n,m,o),
                                      **kwargs)[0]*sigmaR1**(2.+n+m)*gamma**(1.+m)*sigmaz1**(1.+o)
-        
+
     def jmomentdensity(self,*args,**kwargs):
         """
         NAME:
@@ -741,7 +744,7 @@ class quasiisothermaldf(df):
         PURPOSE:
 
            calculate the an arbitrary moment of an action
-           of the velocity distribution 
+           of the velocity distribution
            at R times the surfacmass
         INPUT:
 
@@ -789,7 +792,7 @@ class quasiisothermaldf(df):
             else:
                 return out*fac
         else:
-            return self._jmomentdensity(*args,**kwargs)  
+            return self._jmomentdensity(*args,**kwargs)
 
     def _jmomentdensity(self,R,z,n,m,o,nsigma=None,mc=True,nmc=10000,
                        _returnmc=False,_vrs=None,_vts=None,_vzs=None,
@@ -835,7 +838,7 @@ class quasiisothermaldf(df):
                                      lambda x,y: 0., lambda x,y: nsigma,
                                      (R,z,self,sigmaR1,gamma,sigmaz1,n,m,o),
                                      **kwargs)[0]*sigmaR1**2.*gamma*sigmaz1
-        
+
     @potential_physical_input
     @physical_conversion('numberdensity',pop=True)
     def density(self,R,z,nsigma=None,mc=False,nmc=10000,
@@ -882,7 +885,7 @@ class quasiisothermaldf(df):
                                    nsigma=nsigma,mc=mc,nmc=nmc,
                                    gl=gl,ngl=ngl,
                                    **kwargs)
-    
+
     @potential_physical_input
     @physical_conversion('velocity2',pop=True)
     def sigmaR2(self,R,z,nsigma=None,mc=False,nmc=10000,
@@ -949,7 +952,7 @@ class quasiisothermaldf(df):
                     self._vmomentdensity(R,z,0.,0.,0.,
                                             nsigma=nsigma,mc=mc,nmc=nmc,
                                             **kwargs))
-        
+
     @potential_physical_input
     @physical_conversion('velocity2',pop=True)
     def sigmaRz(self,R,z,nsigma=None,mc=False,nmc=10000,
@@ -1016,7 +1019,7 @@ class quasiisothermaldf(df):
                     self._vmomentdensity(R,z,0.,0.,0.,
                                             nsigma=nsigma,mc=mc,nmc=nmc,
                                             **kwargs))
-        
+
     @potential_physical_input
     @physical_conversion('angle',pop=True)
     def tilt(self,R,z,nsigma=None,mc=False,nmc=10000,
@@ -1099,7 +1102,7 @@ class quasiisothermaldf(df):
             return 0.5*numpy.arctan(2.*tsigmarz/(tsigmar2-tsigmaz2))
         else:
             raise NotImplementedError("Use either mc=True or gl=True")
-        
+
     @potential_physical_input
     @physical_conversion('velocity2',pop=True)
     def sigmaz2(self,R,z,nsigma=None,mc=False,nmc=10000,
@@ -1166,7 +1169,7 @@ class quasiisothermaldf(df):
                     self._vmomentdensity(R,z,0.,0.,0.,
                                             nsigma=nsigma,mc=mc,nmc=nmc,
                                             **kwargs))
-        
+
     @potential_physical_input
     @physical_conversion('velocity',pop=True)
     def meanvT(self,R,z,nsigma=None,mc=False,nmc=10000,
@@ -1178,7 +1181,7 @@ class quasiisothermaldf(df):
 
         PURPOSE:
 
-           calculate the mean rotational velocity by marginalizing over velocity 
+           calculate the mean rotational velocity by marginalizing over velocity
 
         INPUT:
 
@@ -1233,7 +1236,7 @@ class quasiisothermaldf(df):
                     self._vmomentdensity(R,z,0.,0.,0.,
                                             nsigma=nsigma,mc=mc,nmc=nmc,
                                             **kwargs))
-        
+
     @potential_physical_input
     @physical_conversion('velocity',pop=True)
     def meanvR(self,R,z,nsigma=None,mc=False,nmc=10000,
@@ -1300,7 +1303,7 @@ class quasiisothermaldf(df):
                     self._vmomentdensity(R,z,0.,0.,0.,
                                             nsigma=nsigma,mc=mc,nmc=nmc,
                                             **kwargs))
-        
+
     @potential_physical_input
     @physical_conversion('velocity',pop=True)
     def meanvz(self,R,z,nsigma=None,mc=False,nmc=10000,
@@ -1367,7 +1370,7 @@ class quasiisothermaldf(df):
                     self._vmomentdensity(R,z,0.,0.,0.,
                                             nsigma=nsigma,mc=mc,nmc=nmc,
                                             **kwargs))
-        
+
     @potential_physical_input
     @physical_conversion('velocity2',pop=True)
     def sigmaT2(self,R,z,nsigma=None,mc=False,nmc=10000,
@@ -1500,7 +1503,7 @@ class quasiisothermaldf(df):
                     self._vmomentdensity(R,z,0.,0.,0.,
                                             nsigma=nsigma,mc=mc,nmc=nmc,
                                             **kwargs))
-        
+
     @potential_physical_input
     @physical_conversion('action',pop=True)
     def meanlz(self,R,z,nsigma=None,mc=True,nmc=10000,**kwargs):
@@ -1553,7 +1556,7 @@ class quasiisothermaldf(df):
                     self._vmomentdensity(R,z,0.,0.,0.,
                                             nsigma=nsigma,mc=mc,nmc=nmc,
                                             **kwargs))
-        
+
     @potential_physical_input
     @physical_conversion('action',pop=True)
     def meanjz(self,R,z,nsigma=None,mc=True,nmc=10000,**kwargs):
@@ -1606,7 +1609,7 @@ class quasiisothermaldf(df):
                     self._vmomentdensity(R,z,0.,0.,0.,
                                             nsigma=nsigma,mc=mc,nmc=nmc,
                                             **kwargs))
-        
+
     @potential_physical_input
     def sampleV(self,R,z,n=1,**kwargs):
         """
@@ -1687,37 +1690,37 @@ class quasiisothermaldf(df):
                             R_max=None,z_max=None,**kwargs):
         """
         NAME:
-            
+
             sampleV_interpolate
-    
+
         PURPOSE:
-            
-            Given an array of R and z coordinates of stars, return the 
+
+            Given an array of R and z coordinates of stars, return the
             positions and their radial, azimuthal, and vertical velocity.
-    
+
         INPUT:
-            
+
             R - array of Galactocentric distance (can be Quantity)
 
             z - array of height (can be Quantity)
-            
+
             R_pixel, z_pixel= the pixel size for creating the grid for
                    interpolation (in natural unit)
-            
+
             num_std= number of standard deviation to be considered outliers
                       sampled separately from interpolation
-                      
+
             R_min, R_max, z_max= optional edges of the grid
-    
+
         OUTPUT:
-            
+
             coord_v= a numpy array containing the sampled velocity, (vR, vT, vz),
                      where each row correspond to the row of (R,z)
-    
+
         HISTORY:
-            
+
             2018-08-10 - Written - Samuel Wong (University of Toronto)
-            
+
         """
         use_physical= kwargs.pop('use_physical',True)
         vo= kwargs.pop('vo',None)
@@ -1739,7 +1742,7 @@ class quasiisothermaldf(df):
             z_max= numpy.amin([numpy.mean(z)+num_std*numpy.std(z),
                                numpy.amax(z)])
         z_min= 0. #Always start grid at z=0 for stars close to plane
-        #Separate the coodinates into outliers and normal points
+        #Separate the coordinates into outliers and normal points
         #Define outliers as points outside of grid
         mask= numpy.any([R < R_min, R > R_max, z > z_max],axis = 0)
         outliers_R= R[mask]
@@ -1765,8 +1768,8 @@ class quasiisothermaldf(df):
             z_linspace= numpy.linspace(z_min, z_max, z_number)
             Rv, zv= numpy.meshgrid(R_linspace, z_linspace)
             grid= numpy.dstack((Rv, zv)) #This grid stores (R,z) coordinate
-            #Grid is a 3 dimensional array since it stores pairs of values, but 
-            #grid max vT is a 2 dimensinal array
+            #Grid is a 3 dimensional array since it stores pairs of values, but
+            #grid max vT is a 2 dimensional array
             grid_max_vT= numpy.empty((grid.shape[0], grid.shape[1]))
             #Optimize max_vT on the grid
             for i in range(z_number):
@@ -1818,7 +1821,7 @@ class quasiisothermaldf(df):
            R - Galactocentric distance (can be Quantity)
 
            z - height (can be Quantity)
-           
+
            maxVT - an array of pre-optimized maximum vT at corresponding R,z
 
         OUTPUT:
@@ -1838,7 +1841,7 @@ class quasiisothermaldf(df):
         maxVz= numpy.zeros(length)
         logmaxVD= self(R,maxVR,maxVT,z,maxVz,log=True,use_physical=False)
         #Now rejection-sample
-        #Intiialize boolean index of position remaining to be sampled
+        #Initialize boolean index of position remaining to be sampled
         remain_indx = numpy.full(length,True)
         while numpy.any(remain_indx):
             nmore= numpy.sum(remain_indx)
@@ -1962,7 +1965,7 @@ class quasiisothermaldf(df):
 
         INPUT:
 
-           vT - tangential velocity (can be Quantity)
+           vT - rotational velocity (can be Quantity)
 
            R - radius (can be Quantity)
 
@@ -2194,7 +2197,7 @@ class quasiisothermaldf(df):
             if _return_actions and _return_freqs:
                 return (result,
                         jr,lz,jz,
-                        rg, kappa, nu, Omega)          
+                        rg, kappa, nu, Omega)
             elif _return_freqs:
                 return (result,
                         rg, kappa, nu, Omega)
@@ -2220,7 +2223,7 @@ class quasiisothermaldf(df):
 
            vR - radial velocity (can be Quantity)
 
-           vT - tangential velocity (can be Quantity)
+           vT - rotational velocity (can be Quantity)
 
            R - radius (can be Quantity)
 
@@ -2229,7 +2232,7 @@ class quasiisothermaldf(df):
            gl - use Gauss-Legendre integration (True, currently the only option)
 
            ngl - order of Gauss-Legendre integration
-           
+
            nsigma - sets integration limits to [-1,+1]*nsigma*sigma_z(R) for integration over vz (default: 4)
 
         OUTPUT:
@@ -2238,7 +2241,7 @@ class quasiisothermaldf(df):
 
         HISTORY:
 
-           2013-01-02 - Written - Bovy (IAS)           
+           2013-01-02 - Written - Bovy (IAS)
            2018-01-12 - Added Gauss-Legendre integration prefactor nsigma/2 - Trick (MPA)
 
         """
@@ -2295,7 +2298,7 @@ class quasiisothermaldf(df):
 
         INPUT:
 
-           vT - tangential velocity (can be Quantity)
+           vT - rotational velocity (can be Quantity)
 
            vz - vertical velocity (can be Quantity)
 
@@ -2306,7 +2309,7 @@ class quasiisothermaldf(df):
            gl - use Gauss-Legendre integration (True, currently the only option)
 
            ngl - order of Gauss-Legendre integration
-           
+
            nsigma - sets integration limits to [-1,+1]*nsigma*sigma_R(R) for integration over vR (default: 4)
 
         OUTPUT:
@@ -2315,7 +2318,7 @@ class quasiisothermaldf(df):
 
         HISTORY:
 
-           2012-12-22 - Written - Bovy (IAS)           
+           2012-12-22 - Written - Bovy (IAS)
            2018-01-12 - Added Gauss-Legendre integration prefactor nsigma/2 - Trick (MPA)
 
         """
@@ -2383,7 +2386,7 @@ class quasiisothermaldf(df):
            gl - use Gauss-Legendre integration (True, currently the only option)
 
            ngl - order of Gauss-Legendre integration
-           
+
            vTmax - sets integration limits to [0,vTmax] for integration over vT (default: 1.5)
 
         OUTPUT:
@@ -2490,7 +2493,7 @@ class quasiisothermaldf(df):
         HISTORY:
            2012-07-25 - Written - Bovy (IAS@MPIA)
         NOTE:
-           seems to take about ~0.5 ms for a Miyamoto-Nagai potential; 
+           seems to take about ~0.5 ms for a Miyamoto-Nagai potential;
            ~0.75 ms for a MWPotential
            about the same with or without interpolation of the rotation curve
 

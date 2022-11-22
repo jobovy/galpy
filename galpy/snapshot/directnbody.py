@@ -1,12 +1,15 @@
 #Direct force summation N-body code
 import numpy as nu
 from numpy import linalg
-from galpy.util import symplecticode
-from galpy.potential.Potential import evaluateRforces, evaluatezforces,\
-    evaluatephitorques
-from galpy.potential.planarPotential import evaluateplanarRforces,\
-    evaluateplanarphitorques
+
 from galpy.potential.linearPotential import evaluatelinearForces
+from galpy.potential.planarPotential import (evaluateplanarphitorques,
+                                             evaluateplanarRforces)
+from galpy.potential.Potential import (evaluatephitorques, evaluateRforces,
+                                       evaluatezforces)
+from galpy.util import symplecticode
+
+
 def direct_nbody(q,p,m,t,pot=None,softening_model='plummer',
                  softening_length=None,
                  atol=None,rtol=None):
@@ -130,4 +133,3 @@ def _external_force(x,t,pot):
 
 def _plummer_soft(d,eps):
     return d/(d**2.+eps**2.)**1.5
-

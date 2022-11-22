@@ -6,8 +6,10 @@
 ###############################################################################
 import numpy
 from scipy import special
+
 from ..util import conversion
 from .Potential import Potential, check_potential_inputs_not_arrays
+
 
 def _de_psi(t):
     return t*numpy.tanh(numpy.pi/2.*numpy.sinh(t))
@@ -146,7 +148,7 @@ class DoubleExponentialDiskPotential(Potential):
         out[(R == 0)*(z == 0)]= self._pot_zero
         if floatIn: return out[0]
         else: return numpy.reshape(out,outShape)
-    
+
     @check_potential_inputs_not_arrays
     def _Rforce(self,R,z,phi=0.,t=0.):
         """
@@ -172,7 +174,7 @@ class DoubleExponentialDiskPotential(Potential):
               /(self._beta**2.-(x/R)**2.)
         return -4.*numpy.pi*self._alpha/R**2.\
             *numpy.nansum(fun(self._de_j1_xs)*self._de_j1_weights)
-    
+
     @check_potential_inputs_not_arrays
     def _zforce(self,R,z,phi=0.,t=0.):
         """
@@ -229,7 +231,7 @@ class DoubleExponentialDiskPotential(Potential):
             *numpy.nansum(fun(self._de_j0_xs)*self._de_j0_weights
                           -fun(self._de_j1_xs)/self._de_j1_xs\
                           *self._de_j1_weights)
-    
+
     @check_potential_inputs_not_arrays
     def _z2deriv(self,R,z,phi=0.,t=0.):
         """

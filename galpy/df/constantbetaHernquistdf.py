@@ -1,11 +1,13 @@
 # Class that implements the anisotropic spherical Hernquist DF with constant
 # beta parameter
 import numpy
-import scipy.special
 import scipy.integrate
+import scipy.special
+
+from ..potential import HernquistPotential, evaluatePotentials
 from ..util import conversion
-from ..potential import evaluatePotentials,HernquistPotential
 from .constantbetadf import _constantbetadf
+
 
 class constantbetaHernquistdf(_constantbetadf):
     """Class that implements the anisotropic spherical Hernquist DF with constant beta parameter"""
@@ -45,7 +47,7 @@ class constantbetaHernquistdf(_constantbetadf):
             /scipy.special.gamma(3.5-self._beta)\
             /self._GMa**(1.5-self._beta)\
             *self._psi0*self._pot.a
-  
+
     def fE(self,E):
         """
         NAME:
@@ -96,8 +98,8 @@ class constantbetaHernquistdf(_constantbetadf):
             fE[Etilde_out]= 0.
         return fE
 
-       
+
     def _icmf(self,ms):
-        '''Analytic expression for the normalized inverse cumulative mass 
+        '''Analytic expression for the normalized inverse cumulative mass
         function. The argument ms is normalized mass fraction [0,1]'''
         return self._pot.a*numpy.sqrt(ms)/(1-numpy.sqrt(ms))

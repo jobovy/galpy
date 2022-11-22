@@ -904,4 +904,3 @@ double dD_dR(double R, double H, double n, double N, double sin_alpha) {
     return HNn_R_sina * (0.3 * (HNn_R_sina + 0.3 * HNn_R_sina * HNn_R_sina + 1) / R / pow((0.3 * HNn_R_sina + 1), 2)
                          - (1 / R * (1 + 0.6 * HNn_R_sina) / (0.3 * HNn_R_sina + 1)));
 }
-

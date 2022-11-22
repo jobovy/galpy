@@ -594,7 +594,7 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->nargs= 1;
       potentialArgs->ntfuncs= 1;
       potentialArgs->requiresVelocity= false;
-      break;  
+      break;
     }
     int setupMovingObjectSplines = *(*pot_type-1) == -6 ? 1 : 0;
     int setupChandrasekharDynamicalFrictionSplines = *(*pot_type-1) == -7 ? 1 : 0;

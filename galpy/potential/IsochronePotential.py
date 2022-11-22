@@ -6,8 +6,11 @@
 #                                   b + sqrt{b^2+r^2}
 ###############################################################################
 import numpy
+
 from ..util import conversion
 from .Potential import Potential
+
+
 class IsochronePotential(Potential):
     """Class that implements the Isochrone potential
 
@@ -227,4 +230,3 @@ class IsochronePotential(Potential):
         return self.b*((R*z)/r2-(self.b*R*z*(self.b**2+2.*R**2+z**2))
                        /((self.b**2+R**2)*r2*rb)
                        +numpy.arctan(z/R)-numpy.arctan(self.b*z/R/rb))/R**3/2./numpy.pi
-

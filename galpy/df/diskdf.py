@@ -1,5 +1,5 @@
 ###############################################################################
-#   diskdf.py: module that interprets (E,Lz) pairs in terms of a 
+#   diskdf.py: module that interprets (E,Lz) pairs in terms of a
 #              distribution function (following Dehnen 1999)
 #
 #   This module contains the following classes:
@@ -17,25 +17,27 @@ _RMIN=10.**-10.
 _MAXD_REJECTLOS= 4.
 _PROFILE= False
 import copy
-import os, os.path
+import os
+import os.path
 import pickle
+
 import numpy
 import scipy
+
 numpylog= numpy.lib.scimath.log # somehow, this code produces log(negative), which scipy (now numpy.lib.scimath.log) implements as log(|negative|) + i pi while numpy gives NaN and we want the scipy behavior; not sure where the log(negative) comes from though! I think it's for sigma=0 DFs (this test fails with numpy.log) where the DF eval has a log(~zero) that can be slightly negative because of numerical precision issues
-from scipy import integrate, interpolate, stats, optimize
-from .surfaceSigmaProfile import surfaceSigmaProfile, expSurfaceSigmaProfile
+from scipy import integrate, interpolate, optimize, stats
+
+from ..actionAngle import actionAngleAdiabatic, actionAngleAxi
 from ..orbit import Orbit
-from ..util.ars import ars
-from ..util import save_pickles, conversion
-from ..util.conversion import physical_conversion, \
-    potential_physical_input, _APY_UNITS, _APY_LOADED, surfdens_in_msolpc2
 from ..potential import PowerSphericalPotential
-from ..actionAngle import actionAngleAdiabatic
 from .df import df
+from .surfaceSigmaProfile import expSurfaceSigmaProfile, surfaceSigmaProfile
+
 if _APY_LOADED:
     from astropy import units
 #scipy version
-from pkg_resources import parse_version
+from packaging.version import parse as parse_version
+
 _SCIPY_VERSION= parse_version(scipy.__version__)
 _SCIPY_VERSION_BREAK= parse_version('0.9')
 _CORRECTIONSDIR=os.path.join(os.path.dirname(os.path.realpath(__file__)),'data')
@@ -54,8 +56,8 @@ class diskdf(df):
            Initialize a DF
         INPUT:
            dftype= 'dehnen' or 'corrected-dehnen', 'shu' or 'corrected-shu'
-           surfaceSigma - instance or class name of the target 
-                      surface density and sigma_R profile 
+           surfaceSigma - instance or class name of the target
+                      surface density and sigma_R profile
                       (default: both exponential)
            profileParams - parameters of the surface and sigma_R profile:
                       (xD,xS,Sro) where
@@ -100,7 +102,7 @@ class diskdf(df):
         #Setup aA objects for frequency and rap,rperi calculation
         self._aA= actionAngleAdiabatic(pot=self._psp,gamma=0.)
         return None
-    
+
     @physical_conversion('phasespacedensity2d',pop=True)
     def __call__(self,*args,**kwargs):
         """
@@ -215,7 +217,7 @@ class diskdf(df):
         if numpy.fabs(va) > sigmaR1: va = 0. #To avoid craziness near the center
         if numpy.fabs(numpy.sin(alphalos)) < numpy.sqrt(1./2.):
             cosalphalos= numpy.cos(alphalos)
-            tanalphalos= numpy.tan(alphalos)            
+            tanalphalos= numpy.tan(alphalos)
             return integrate.quad(_marginalizeVperpIntegrandSinAlphaSmall,
                                   -self._gamma*va/sigmaR1-nsigma,
                                   -self._gamma*va/sigmaR1+nsigma,
@@ -232,7 +234,7 @@ class diskdf(df):
                                   args=(self,R,sinalphalos,cotalphalos,
                                         vlos-vcirclos,vcirc,sigmaR1),
                                   **kwargs)[0]/numpy.fabs(sinalphalos)*sigmaR1
-        
+
     def _call_marginalizevlos(self,o,**kwargs):
         """Call the DF, marginalizing over line-of-sight velocity"""
         #Get d, l, vperp
@@ -240,7 +242,7 @@ class diskdf(df):
         vperp= o.vll(ro=1.,vo=1.,obs=[1.,0.,0.,0.,0.,0.])
         R= o.R(use_physical=False)
         phi= o.phi(use_physical=False)
-        #Get local circular velocity, projected onto the perpendicular 
+        #Get local circular velocity, projected onto the perpendicular
         #direction
         vcirc= R**self._beta
         vcircperp= vcirc*numpy.cos(phi+l)
@@ -280,9 +282,9 @@ class diskdf(df):
                                   args=(self,R,sinalphaperp,cotalphaperp,
                                         vperp-vcircperp,vcirc,sigmaR1),
                                   **kwargs)[0]/numpy.fabs(sinalphaperp)*sigmaR1
-        
+
     @potential_physical_input
-    @physical_conversion('velocity2',pop=True)        
+    @physical_conversion('velocity2',pop=True)
     def targetSigma2(self,R,log=False):
         """
         NAME:
@@ -311,7 +313,7 @@ class diskdf(df):
         return self._surfaceSigmaProfile.sigma2(R,log=log)
 
     @potential_physical_input
-    @physical_conversion('surfacedensity',pop=True)        
+    @physical_conversion('surfacedensity',pop=True)
     def targetSurfacemass(self,R,log=False):
          """
          NAME:
@@ -339,7 +341,7 @@ class diskdf(df):
          """
          return self._surfaceSigmaProfile.surfacemass(R,log=log)
 
-    @physical_conversion('surfacedensitydistance',pop=True)        
+    @physical_conversion('surfacedensitydistance',pop=True)
     def targetSurfacemassLOS(self,d,l,log=False,deg=True):
         """
         NAME:
@@ -385,7 +387,7 @@ class diskdf(df):
             return self._surfaceSigmaProfile.surfacemass(R,log=log)\
                 *d
 
-    @physical_conversion('surfacedensitydistance',pop=True)        
+    @physical_conversion('surfacedensitydistance',pop=True)
     def surfacemassLOS(self,d,l,deg=True,target=True,
                        romberg=False,nsigma=None,relative=None):
         """
@@ -652,7 +654,7 @@ class diskdf(df):
 
 
     @potential_physical_input
-    @physical_conversion('surfacedensity',pop=True)        
+    @physical_conversion('surfacedensity',pop=True)
     def surfacemass(self,R,romberg=False,nsigma=None,relative=False):
         """
         NAME:
@@ -788,10 +790,10 @@ class diskdf(df):
         NAME:
 
            vmomentsurfacemass
-           
+
         PURPOSE:
 
-           calculate the an arbitrary moment of the velocity distribution 
+           calculate the an arbitrary moment of the velocity distribution
            at R times the surfacmass
 
         INPUT:
@@ -841,7 +843,7 @@ class diskdf(df):
                 return out*fac
         else:
             return self._vmomentsurfacemass(*args,**kwargs)
-          
+
     def _vmomentsurfacemass(self,R,n,m,romberg=False,nsigma=None,
                            relative=False,phi=0.,deriv=None):
         """Non-physical version of vmomentsurfacemass, otherwise the same"""
@@ -1092,7 +1094,7 @@ class diskdf(df):
         return 0.5*(+meanvr/R+dmeanvphiRdphi/R+dmeanvRdR)
 
     @potential_physical_input
-    @physical_conversion('velocity2',pop=True)        
+    @physical_conversion('velocity2',pop=True)
     def sigma2(self,R,romberg=False,nsigma=None,phi=0.):
         """
         NAME:
@@ -1128,7 +1130,7 @@ class diskdf(df):
             /self.surfacemass(R,romberg,nsigma,use_physical=False)
 
     @potential_physical_input
-    @physical_conversion('velocity2',pop=True)        
+    @physical_conversion('velocity2',pop=True)
     def sigmaT2(self,R,romberg=False,nsigma=None,phi=0.):
         """
 
@@ -1169,7 +1171,7 @@ class diskdf(df):
                     /surfmass)/surfmass
 
     @potential_physical_input
-    @physical_conversion('velocity2',pop=True)        
+    @physical_conversion('velocity2',pop=True)
     def sigmaR2(self,R,romberg=False,nsigma=None,phi=0.):
         """
         NAME:
@@ -1458,7 +1460,7 @@ class diskdf(df):
         NAME:
            _ELtowRRapRperi
         PURPOSE:
-           calculate the radial frequency based on E,L, also return rap and 
+           calculate the radial frequency based on E,L, also return rap and
            rperi
         INPUT:
            E - energy
@@ -1470,7 +1472,7 @@ class diskdf(df):
         """
         if self._beta == 0.:
             xE= numpy.exp(E-.5)
-        else: #non-flat rotation curve                                      
+        else: #non-flat rotation curve
             xE= (2.*E/(1.+1./self._beta))**(1./2./self._beta)
         _,_,rperi,rap= self._aA.EccZmaxRperiRap(\
             xE,numpy.sqrt(2.*(E-self._psp(xE))-L**2./xE**2.),L/xE,0.,0.)
@@ -1494,7 +1496,7 @@ class diskdf(df):
 
            rrange - if you only want samples in this rrange, set this keyword (only works when asking for an (RZ)Orbit) (can be Quantity)
 
-           returnROrbit - if True, return a planarROrbit instance: 
+           returnROrbit - if True, return a planarROrbit instance:
                           [R,vR,vT] (default)
 
            returnOrbit - if True, return a planarOrbit instance (including phi)
@@ -1515,7 +1517,7 @@ class diskdf(df):
 
            n*nphi list of [[E,Lz],...] or list of planar(R)Orbits
 
-           CAUTION: lists of EL need to be post-processed to account for the 
+           CAUTION: lists of EL need to be post-processed to account for the
                     \kappa/\omega_R discrepancy
 
         HISTORY:
@@ -1618,8 +1620,8 @@ class dehnendf(diskdf):
         PURPOSE:
            Initialize a Dehnen 'new' DF
         INPUT:
-           surfaceSigma - instance or class name of the target 
-                      surface density and sigma_R profile 
+           surfaceSigma - instance or class name of the target
+                      surface density and sigma_R profile
                       (default: both exponential)
            profileParams - parameters of the surface and sigma_R profile:
                       (xD,xS,Sro) where
@@ -1687,7 +1689,7 @@ class dehnendf(diskdf):
         if _PROFILE: #pragma: no cover
             one_time= (time.time()-start)
             start= time.time()
-        if self._correct: 
+        if self._correct:
             correction= self._corr.correct(xE,log=True)
         else:
             correction= numpy.zeros(2)
@@ -1716,11 +1718,11 @@ class dehnendf(diskdf):
         PURPOSE:
            sample n*nphi points from this DF
         INPUT:
-           n - number of desired sample (specifying this rather than calling 
+           n - number of desired sample (specifying this rather than calling
                this routine n times is more efficient)
-           rrange - if you only want samples in this rrange, set this keyword 
+           rrange - if you only want samples in this rrange, set this keyword
                     (only works when asking for an (RZ)Orbit
-           returnROrbit - if True, return a planarROrbit instance: 
+           returnROrbit - if True, return a planarROrbit instance:
                           [R,vR,vT] (default)
            returnOrbit - if True, return a planarOrbit instance (including phi)
            nphi - number of azimuths to sample for each E,L
@@ -1732,8 +1734,8 @@ class dehnendf(diskdf):
            maxd= maximum distance to consider (for the rejection sampling)
         OUTPUT:
            n*nphi list of [[E,Lz],...] or list of planar(R)Orbits
-           CAUTION: lists of EL need to be post-processed to account for the 
-                    \kappa/\omega_R discrepancy; EL not returned in physical units        
+           CAUTION: lists of EL need to be post-processed to account for the
+                    \kappa/\omega_R discrepancy; EL not returned in physical units
         HISTORY:
            2010-07-10 - Started  - Bovy (NYU)
         """
@@ -1822,7 +1824,7 @@ class dehnendf(diskdf):
         if kwargs.get('use_physical',True) and \
                 self._roSet and self._voSet:
             if isinstance(out[0],Orbit):
-                dum= [o.turn_physical_on(ro=self._ro,vo=self._vo) for o in out]
+                dumb= [o.turn_physical_on(ro=self._ro,vo=self._vo) for o in out]
         return out
 
     def _dlnfdR(self,R,vR,vT):
@@ -1841,7 +1843,7 @@ class dehnendf(diskdf):
             dRedR= xE/2./self._beta/E*R**(2.*self._beta-1.)
         return self._dlnfdRe(R,vR,vT,E=E,xE=xE,OE=OE,LCE=LCE)*dRedR\
             +self._dlnfdl(R,vR,vT,E=E,xE=xE,OE=OE)*vT
-            
+
     def _dlnfdvR(self,R,vR,vT):
         #Calculate a bunch of stuff that we need
         if self._beta == 0.:
@@ -1857,7 +1859,7 @@ class dehnendf(diskdf):
             LCE= xE**(self._beta+1.)
             dRedvR= xE/2./self._beta/E*vR
         return self._dlnfdRe(R,vR,vT,E=E,xE=xE,OE=OE,LCE=LCE)*dRedvR
-            
+
     def _dlnfdvT(self,R,vR,vT):
         #Calculate a bunch of stuff that we need
         if self._beta == 0.:
@@ -1874,7 +1876,7 @@ class dehnendf(diskdf):
             dRedvT= xE/2./self._beta/E*vT
         return self._dlnfdRe(R,vR,vT,E=E,xE=xE,OE=OE,LCE=LCE)*dRedvT\
             +self._dlnfdl(R,vR,vT,E=E,xE=xE,OE=OE)*R
-           
+
     def _dlnfdRe(self,R,vR,vT,E=None,xE=None,OE=None,LCE=None):
         """d ln f(x,v) / d R_e"""
         #Calculate a bunch of stuff that we need
@@ -1922,18 +1924,18 @@ class shudf(diskdf):
         PURPOSE:
            Initialize a Shu DF
         INPUT:
-           surfaceSigma - instance or class name of the target 
-                      surface density and sigma_R profile 
+           surfaceSigma - instance or class name of the target
+                      surface density and sigma_R profile
                       (default: both exponential)
            profileParams - parameters of the surface and sigma_R profile:
                       (xD,xS,Sro) where
-          
+
                         xD - disk surface mass scalelength (can be Quantity)
-              
+
                         xS - disk velocity dispersion scalelength (can be Quantity)
-                        
+
                         Sro - disk velocity dispersion at Ro (can be Quantity)
-                        
+
                         Directly given to the 'surfaceSigmaProfile class, so
                         could be anything that class takes
 
@@ -1960,7 +1962,7 @@ class shudf(diskdf):
                                profileParams=profileParams,
                                correct=correct,dftype='shu',
                                beta=beta,**kwargs)
-    
+
     def eval(self,E,L,logSigmaR=0.,logsigmaR2=0.):
         """
         NAME:
@@ -1986,7 +1988,7 @@ class shudf(diskdf):
             logECLE= numpylog(-0.5*(1./self._beta+1.)*xL**(2.*self._beta)+E)
         if xL < 0.: #We must remove counter-rotating mass
             return 0.
-        if self._correct: 
+        if self._correct:
             correction= self._corr.correct(xL,log=True)
         else:
             correction= numpy.zeros(2)
@@ -2002,11 +2004,11 @@ class shudf(diskdf):
         PURPOSE:
            sample n*nphi points from this DF
         INPUT:
-           n - number of desired sample (specifying this rather than calling 
+           n - number of desired sample (specifying this rather than calling
                this routine n times is more efficient)
-           rrange - if you only want samples in this rrange, set this keyword 
+           rrange - if you only want samples in this rrange, set this keyword
                     (only works when asking for an (RZ)Orbit
-           returnROrbit - if True, return a planarROrbit instance: 
+           returnROrbit - if True, return a planarROrbit instance:
                           [R,vR,vT] (default)
            returnOrbit - if True, return a planarOrbit instance (including phi)
            nphi - number of azimuths to sample for each E,L
@@ -2018,7 +2020,7 @@ class shudf(diskdf):
            maxd= maximum distance to consider (for the rejection sampling)
         OUTPUT:
            n*nphi list of [[E,Lz],...] or list of planar(R)Orbits
-           CAUTION: lists of EL need to be post-processed to account for the 
+           CAUTION: lists of EL need to be post-processed to account for the
                     \kappa/\omega_R discrepancy
         HISTORY:
            2010-07-10 - Started  - Bovy (NYU)
@@ -2103,7 +2105,7 @@ class shudf(diskdf):
         if kwargs.get('use_physical',True) and \
                 self._roSet and self._voSet:
             if isinstance(out[0],Orbit):
-                dum= [o.turn_physical_on(ro=self._ro,vo=self._vo) for o in out]
+                dumb= [o.turn_physical_on(ro=self._ro,vo=self._vo) for o in out]
         return out
 
     def _dlnfdR(self,R,vR,vT):
@@ -2125,7 +2127,7 @@ class shudf(diskdf):
         return (self._surfaceSigmaProfile.surfacemassDerivative(xL,log=True)\
                  -(1.+(ECL-E)/sigma2xL)*self._surfaceSigmaProfile.sigma2Derivative(xL,log=True))*dRldR\
                  +dECLEdR/sigma2xL
-    
+
     def _dlnfdvR(self,R,vR,vT):
         #Calculate a bunch of stuff that we need
         E, L= vRvTRToEL(vR,vT,R,self._beta,self._dftype)
@@ -2135,7 +2137,7 @@ class shudf(diskdf):
             xL= L**(1./(self._beta+1.))
         sigma2xL= self._surfaceSigmaProfile.sigma2(xL,log=False)
         return -vR/sigma2xL
-    
+
     def _dlnfdvT(self,R,vR,vT):
         #Calculate a bunch of stuff that we need
         E, L= vRvTRToEL(vR,vT,R,self._beta,self._dftype)
@@ -2155,7 +2157,7 @@ class shudf(diskdf):
         return (self._surfaceSigmaProfile.surfacemassDerivative(xL,log=True)\
                  -(1.+(ECL-E)/sigma2xL)*self._surfaceSigmaProfile.sigma2Derivative(xL,log=True))*dRldvT\
                  +dECLEdvT/sigma2xL
-    
+
 class schwarzschilddf(shudf):
     """Schwarzschild's df"""
     def __init__(self,surfaceSigma=expSurfaceSigmaProfile,
@@ -2168,18 +2170,18 @@ class schwarzschilddf(shudf):
         PURPOSE:
            Initialize a Schwarzschild DF
         INPUT:
-           surfaceSigma - instance or class name of the target 
-                      surface density and sigma_R profile 
+           surfaceSigma - instance or class name of the target
+                      surface density and sigma_R profile
                       (default: both exponential)
            profileParams - parameters of the surface and sigma_R profile:
                       (xD,xS,Sro) where
-          
+
                         xD - disk surface mass scalelength (can be Quantity)
-              
+
                         xS - disk velocity dispersion scalelength (can be Quantity)
-                        
+
                         Sro - disk velocity dispersion at Ro (can be Quantity)
-                        
+
                         Directly given to the 'surfaceSigmaProfile class, so
                         could be anything that class takes
 
@@ -2209,7 +2211,7 @@ class schwarzschilddf(shudf):
                                profileParams=profileParams,
                                correct=correct,dftype='schwarzschild',
                                beta=beta,**kwargs)
-    
+
 
 def _surfaceIntegrand(vR,vT,R,df,logSigmaR,logsigmaR2,sigmaR1,gamma):
     """Internal function that is the integrand for the surface mass integration"""
@@ -2231,7 +2233,7 @@ def _vmomentsurfaceIntegrand(vR,vT,R,df,logSigmaR,logsigmaR2,sigmaR1,gamma,
 
 def _vmomentderivsurfaceIntegrand(vR,vT,R,df,logSigmaR,logsigmaR2,sigmaR1,
                                   gamma,n,m,deriv):
-    """Internal function that is the integrand for the derivative of velocity 
+    """Internal function that is the integrand for the derivative of velocity
     moment times surface mass integration"""
     E,L= _vRpvTpRToEL(vR,vT,R,df._beta,sigmaR1,gamma,df._dftype)
     if deriv.lower() == 'r':
@@ -2400,14 +2402,14 @@ class DFcorrection:
             return out
         else:
             return numpy.exp(out)
-            
+
 
     def derivLogcorrect(self,R):
         """
         NAME:
            derivLogcorrect
         PURPOSE:
-           calculate the derivative of the log of the correction in Sigma 
+           calculate the derivative of the log of the correction in Sigma
            and sigma2 at R
         INPUT:
            R - Galactocentric radius(/ro)
@@ -2429,10 +2431,10 @@ class DFcorrection:
                 out= numpy.array([self._surfaceInterpolate(R,nu=1)[0],
                                self._sigma2Interpolate(R,nu=1)[0]])
         return out
-            
+
 
     def _calc_corrections(self):
-        """Internal function that calculates the corrections"""     
+        """Internal function that calculates the corrections"""
         searchIter= self._niter-1
         while searchIter > 0:
             trySavefilename= self._createSavefilename(searchIter)
@@ -2473,7 +2475,7 @@ class DFcorrection:
             picklethis.append([float(a) for a in arr])
         save_pickles(self._savefilename,picklethis) #We pickle a list for platform-independence)
         return corrections
-    
+
 class DFcorrectionError(Exception):
     def __init__(self, value):
         self.value = value
@@ -2488,7 +2490,7 @@ def vRvTRToEL(vR,vT,R,beta,dftype='dehnen'):
        calculate the energy and angular momentum
     INPUT:
        vR - radial velocity
-       vT - tangential velocity
+       vT - rotational velocity
        R - Galactocentric radius
     OUTPUT:
     HISTORY:
@@ -2501,7 +2503,7 @@ def vRvTRToEL(vR,vT,R,beta,dftype='dehnen'):
         if beta == 0.:
             xL= L
         else: #non-flat rotation curve
-            xL= L**(1./(beta+1.))   
+            xL= L**(1./(beta+1.))
         return (0.5*vR**2.+0.5*gamma**2.*(vT-R**beta)**2.
                 +xL**(2.*beta)/2.+axipotential(xL,beta=beta),
                 L)
@@ -2592,7 +2594,7 @@ def _dlToRphi(d,l):
     else:
         theta= numpy.arcsin(d/R*numpy.sin(l))
     return (R,theta)
-    
+
 def _vtmaxEq(vT,R,diskdf):
     """Equation to solve to find the max vT at R"""
     #Calculate a bunch of stuff that we need
@@ -2626,4 +2628,3 @@ def _marginalizeVperpIntegrandSinAlphaSmall(vT,df,R,cosalpha,tanalpha,
                                             vlos,vcirc,sigma):
     return df(*vRvTRToEL(tanalpha*vT*sigma-vlos/cosalpha,vT*sigma+vcirc,
                         R,df._beta,df._dftype))
-

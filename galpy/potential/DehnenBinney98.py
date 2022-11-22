@@ -1,11 +1,11 @@
 # Dehnen & Binney (1998) potentials: models 1 through 4
 import numpy
-from ..potential import TwoPowerTriaxialPotential
-from ..potential import DiskSCFPotential
-from ..potential import SCFPotential
-from ..potential import scf_compute_coeffs_axi
-from ..potential import mwpot_helpers
+
+from ..potential import (DiskSCFPotential, SCFPotential,
+                         TwoPowerTriaxialPotential, mwpot_helpers,
+                         scf_compute_coeffs_axi)
 from ..util import conversion
+
 # Unit normalization, all models have R0 = 8 kpc
 ro= 8.0
 # Parameters in common between all models
@@ -100,7 +100,7 @@ def define_dehnenbinney98_models(model=1):
     bulge_dens= lambda R,z: mwpot_helpers.pow_dens_with_cut(R,z,alpha_bulge,
                                                             r0_bulge,rc_bulge,
                                                             rho0_bulge,q_bulge)
-    #dicts used in DiskSCFPotential 
+    #dicts used in DiskSCFPotential
     sigmadict = [{'type':'expwhole','h':Rd_ISM,'amp':Sigma0_ISM,
                   'Rhole':Rm_ISM},
                  {'type':'exp','h':Rd_thin,'amp':Sigma0_thin},
@@ -121,4 +121,3 @@ def define_dehnenbinney98_models(model=1):
     # Go back to old floating-point warnings settings
     numpy.seterr(**old_error_settings)
     return DB98_bulge+DB98_disk+DB98_halo
-

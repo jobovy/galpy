@@ -436,7 +436,7 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
       potentialArgs->ntfuncs= 0;
       break;
     case 40: //NullPotential, no arguments (only supported for orbit int)
-      potentialArgs->potentialEval= &ZeroPlanarForce;
+      potentialArgs->potentialEval= &ZeroForce;
       potentialArgs->planarRforce= &ZeroPlanarForce;
       potentialArgs->planarphitorque= &ZeroPlanarForce;
       potentialArgs->planarR2deriv= &ZeroPlanarForce;

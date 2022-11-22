@@ -1,13 +1,14 @@
 #_____import packages_____
-from galpy.potential import KuzminKutuzovStaeckelPotential
-from galpy.potential import evaluatePotentials, evaluateRforces, evaluateDensities
-from galpy.actionAngle import estimateDeltaStaeckel
-from galpy.actionAngle import actionAngleStaeckel
-from galpy.orbit import Orbit
-from galpy.util import coords
+
 import numpy
 import scipy
-import math
+
+from galpy.actionAngle import actionAngleStaeckel, estimateDeltaStaeckel
+from galpy.orbit import Orbit
+from galpy.potential import (KuzminKutuzovStaeckelPotential, evaluateDensities,
+                             evaluatePotentials, evaluateRforces)
+from galpy.util import coords
+
 
 #Test whether circular velocity calculation works
 def test_vcirc():
@@ -28,7 +29,7 @@ def test_vcirc():
         ac_D = ac_Ds[ii]
         ac_H = ac_Hs[ii]
         k    = ks[ii]
-        
+
         #_____setup potential_____
         #first try, not normalized:
         V_D = KuzminKutuzovStaeckelPotential(amp=    k ,ac=ac_D,Delta=Delta,normalize=False)
@@ -40,12 +41,12 @@ def test_vcirc():
         V_D = KuzminKutuzovStaeckelPotential(amp=    k  / (-V00),ac=ac_D,Delta=Delta,normalize=False)
         V_H = KuzminKutuzovStaeckelPotential(amp=(1.-k) / (-V00),ac=ac_H,Delta=Delta,normalize=False)
         pot = [V_D,V_H]
-        
+
         #_____calculate rotation curve_____
         Rs = numpy.linspace(0.,20.,100)
         z = 0.
         vcirc_calc = numpy.sqrt(-Rs * evaluateRforces(pot,Rs,z))
-            
+
         #_____vcirc by Batsleer & Dejonghe eq. (10) (with proper Jacobian)_____
         def vc2w(R):
             g_D = Delta**2 / (1.-ac_D**2)
@@ -88,10 +89,10 @@ def test_density():
 
     for ii in range(len(ac_D)):
 
-        if ac_D[ii] == 40.: 
-            continue    
+        if ac_D[ii] == 40.:
+            continue
             #because I believe that there are typos in tab. 2 by Batsleer & Dejonghe...
-    
+
         for jj in range(2):
 
             #_____parameters depending on solar position____
@@ -109,7 +110,7 @@ def test_density():
                 Sig  = Sigmax[ii]
             outstr = 'ac_D='+str(ac_D[ii])+', ac_H='+str(ac_H[ii])+', k='+str(k[ii])+', Delta='+str(Delta[ii])+\
                      ', Mtot='+str(GM)+'*10^11Msun, Rsun='+str(Rsun)+'kpc, rho(Rsun,zsun)='+str(rho)+'Msun/pc^3, Sig(Rsun,z<1.1kpc)='+str(Sig)+'Msun/pc^2'
-            
+
 
             #_____setup potential_____
             amp_D = GM * k[ii]
@@ -122,34 +123,34 @@ def test_density():
             rho_calc = evaluateDensities(pot,Rsun,zsun) * 100. #units: [solar mass / pc^3]
             rho_calc = round(rho_calc,2)
 
-            #an error of 0.01 corresponds to the significant digit 
-            #given in the table, to which the density was rounded, 
+            #an error of 0.01 corresponds to the significant digit
+            #given in the table, to which the density was rounded,
             #to be wrong by one.
             assert numpy.fabs(rho_calc - rho) <= 0.01+10.**-8, \
                 'Calculated density %f for KuzminKutuzovStaeckelPotential ' % rho_calc + \
                 'with model parameters:\n'+outstr+'\n'+ \
                 'does not agree with value from tab. 2 '+ \
-                'by Batsleer & Dejonghe (1994)' 
+                'by Batsleer & Dejonghe (1994)'
 
             #_____surface density_____
             Sig_calc, err = scipy.integrate.quad(lambda z: (evaluateDensities(pot,Rsun,z/1000.) * 100.), #units: [solar mass / pc^3]
                                             0., 1100.) #units: pc
             Sig_calc = round(2. * Sig_calc)
 
-            #an error of 1 corresponds to the significant digit 
-            #given in the table, to which the surface density was rounded, 
+            #an error of 1 corresponds to the significant digit
+            #given in the table, to which the surface density was rounded,
             #to be wrong by one.
             assert numpy.fabs(Sig_calc - Sig) <= 1., \
                 'Calculated surface density %f for KuzminKutuzovStaeckelPotential ' % Sig_calc + \
                 'with model parameters:\n'+outstr+'\n'+ \
                 'does not agree with value from tab. 2 '+ \
-                'by Batsleer & Dejonghe (1994)' 
+                'by Batsleer & Dejonghe (1994)'
 
     return None
 
 #-----------------------------------------------------------------------------
 
-#test wheter the orbit integration in C and Python are the same
+#test whether the orbit integration in C and Python are the same
 def test_orbitIntegrationC():
 
     #_____initialize some KKSPot_____
@@ -211,7 +212,7 @@ def test_estimateDelta():
 
     #for all time steps together:
     delta_estimate = estimateDeltaStaeckel(pot,o.R(ts),o.z(ts))
-    
+
     assert numpy.fabs(delta_estimate - Delta) < 10.**-8, \
             'Focal length Delta estimated from the orbit is not the same as the input focal length.'
 
@@ -252,7 +253,7 @@ def test_actionConservation():
 
 #test coordinate transformation
 def test_lambdanu_to_Rz():
-    
+
     #coordinate system:
     a = 3.
     g = 4.
@@ -279,11 +280,11 @@ def test_lambdanu_to_Rz():
     R_true = numpy.sqrt((l+a)*(n+a)/(a-g))
     z_true = numpy.sqrt((l+g)*(n+g)/(g-a))
     #test:
-    rel_diff = numpy.fabs((R-R_true)/R_true) < 10.**-8. 
+    rel_diff = numpy.fabs((R-R_true)/R_true) < 10.**-8.
     abs_diff = (numpy.fabs(R-R_true) < 10.**-6.) * (numpy.fabs(R_true) < 10.**-6.)
     assert numpy.all(rel_diff+abs_diff), 'lambdanu_to_Rz conversion did not work as expected (R array)'
 
-    rel_diff = numpy.fabs((z-z_true)/z_true) < 10.**-8. 
+    rel_diff = numpy.fabs((z-z_true)/z_true) < 10.**-8.
     abs_diff = (numpy.fabs(z-z_true) < 10.**-6.) * (numpy.fabs(z_true) < 10.**-6.)
     assert numpy.all(rel_diff+abs_diff), 'lambdanu_to_Rz conversion did not work as expected (z array)'
     return None
@@ -432,12 +433,12 @@ def test_Rz_to_lambdanu_hess():
                      -coords.Rz_to_lambdanu(R-dR,z+dz,ac=ac,Delta=Delta)[1]
                      +coords.Rz_to_lambdanu(R-dR,z-dz,ac=ac,Delta=Delta)[1])/dR**2./4.
     hess= coords.Rz_to_lambdanu_hess(R,z,Delta=Delta)
-    assert numpy.fabs(num_deriv_llRR-hess[0,0,0]) < 10.**-4., 'hessian [d^2(lamda)/d(R,z)^2 , d^2(nu)/d(R,z)^2] fails for (dl/dR)'
-    assert numpy.fabs(num_deriv_llRz-hess[0,0,1]) < 10.**-4., 'hessian [d^2(lamda)/d(R,z)^2 , d^2(nu)/d(R,z)^2] fails for (dn/dR)'
-    assert numpy.fabs(num_deriv_nnRR-hess[1,0,0]) < 10.**-4., 'hessian [d^2(lamda)/d(R,z)^2 , d^2(nu)/d(R,z)^2] fails for (dn/dR)'
-    assert numpy.fabs(num_deriv_llzz-hess[0,1,1]) < 10.**-4., 'hessian [d^2(lamda)/d(R,z)^2 , d^2(nu)/d(R,z)^2] fails for (dl/dz)'
-    assert numpy.fabs(num_deriv_nnRz-hess[1,0,1]) < 10.**-4., 'hessian [d^2(lamda)/d(R,z)^2 , d^2(nu)/d(R,z)^2] fails for (dn/dz)'
-    assert numpy.fabs(num_deriv_nnzz-hess[1,1,1]) < 10.**-4., 'hessian [d^2(lamda)/d(R,z)^2 , d^2(nu)/d(R,z)^2] fails for (dn/dz)'
+    assert numpy.fabs(num_deriv_llRR-hess[0,0,0]) < 10.**-4., 'hessian [d^2(lambda)/d(R,z)^2 , d^2(nu)/d(R,z)^2] fails for (dl/dR)'
+    assert numpy.fabs(num_deriv_llRz-hess[0,0,1]) < 10.**-4., 'hessian [d^2(lambda)/d(R,z)^2 , d^2(nu)/d(R,z)^2] fails for (dn/dR)'
+    assert numpy.fabs(num_deriv_nnRR-hess[1,0,0]) < 10.**-4., 'hessian [d^2(lambda)/d(R,z)^2 , d^2(nu)/d(R,z)^2] fails for (dn/dR)'
+    assert numpy.fabs(num_deriv_llzz-hess[0,1,1]) < 10.**-4., 'hessian [d^2(lambda)/d(R,z)^2 , d^2(nu)/d(R,z)^2] fails for (dl/dz)'
+    assert numpy.fabs(num_deriv_nnRz-hess[1,0,1]) < 10.**-4., 'hessian [d^2(lambda)/d(R,z)^2 , d^2(nu)/d(R,z)^2] fails for (dn/dz)'
+    assert numpy.fabs(num_deriv_nnzz-hess[1,1,1]) < 10.**-4., 'hessian [d^2(lambda)/d(R,z)^2 , d^2(nu)/d(R,z)^2] fails for (dn/dz)'
 
     #___Also test for arrays___
     R= numpy.arange(1,4)*0.5
@@ -471,12 +472,11 @@ def test_Rz_to_lambdanu_hess():
                      -coords.Rz_to_lambdanu(R-dR,z+dz,ac=ac,Delta=Delta)[1]
                      +coords.Rz_to_lambdanu(R-dR,z-dz,ac=ac,Delta=Delta)[1])/dR**2./4.
     hess= coords.Rz_to_lambdanu_hess(R,z,Delta=Delta)
-    assert numpy.all(numpy.fabs(num_deriv_llRR-hess[0,0,0]) < 10.**-4.), 'hessian [d^2(lamda)/d(R,z)^2 , d^2(nu)/d(R,z)^2] fails for (dl/dR)'
-    assert numpy.all(numpy.fabs(num_deriv_llRz-hess[0,0,1]) < 10.**-4.), 'hessian [d^2(lamda)/d(R,z)^2 , d^2(nu)/d(R,z)^2] fails for (dn/dR)'
-    assert numpy.all(numpy.fabs(num_deriv_nnRR-hess[1,0,0]) < 10.**-4.), 'hessian [d^2(lamda)/d(R,z)^2 , d^2(nu)/d(R,z)^2] fails for (dn/dR)'
-    assert numpy.all(numpy.fabs(num_deriv_llzz-hess[0,1,1]) < 10.**-4.), 'hessian [d^2(lamda)/d(R,z)^2 , d^2(nu)/d(R,z)^2] fails for (dl/dz)'
-    assert numpy.all(numpy.fabs(num_deriv_nnRz-hess[1,0,1]) < 10.**-4.), 'hessian [d^2(lamda)/d(R,z)^2 , d^2(nu)/d(R,z)^2] fails for (dn/dz)'
-    assert numpy.all(numpy.fabs(num_deriv_nnzz-hess[1,1,1]) < 10.**-4.), 'hessian [d^2(lamda)/d(R,z)^2 , d^2(nu)/d(R,z)^2] fails for (dn/dz)'
+    assert numpy.all(numpy.fabs(num_deriv_llRR-hess[0,0,0]) < 10.**-4.), 'hessian [d^2(lambda)/d(R,z)^2 , d^2(nu)/d(R,z)^2] fails for (dl/dR)'
+    assert numpy.all(numpy.fabs(num_deriv_llRz-hess[0,0,1]) < 10.**-4.), 'hessian [d^2(lambda)/d(R,z)^2 , d^2(nu)/d(R,z)^2] fails for (dn/dR)'
+    assert numpy.all(numpy.fabs(num_deriv_nnRR-hess[1,0,0]) < 10.**-4.), 'hessian [d^2(lambda)/d(R,z)^2 , d^2(nu)/d(R,z)^2] fails for (dn/dR)'
+    assert numpy.all(numpy.fabs(num_deriv_llzz-hess[0,1,1]) < 10.**-4.), 'hessian [d^2(lambda)/d(R,z)^2 , d^2(nu)/d(R,z)^2] fails for (dl/dz)'
+    assert numpy.all(numpy.fabs(num_deriv_nnRz-hess[1,0,1]) < 10.**-4.), 'hessian [d^2(lambda)/d(R,z)^2 , d^2(nu)/d(R,z)^2] fails for (dn/dz)'
+    assert numpy.all(numpy.fabs(num_deriv_nnzz-hess[1,1,1]) < 10.**-4.), 'hessian [d^2(lambda)/d(R,z)^2 , d^2(nu)/d(R,z)^2] fails for (dn/dz)'
 
     return None
-

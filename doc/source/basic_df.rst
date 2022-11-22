@@ -210,10 +210,10 @@ and the same for the velocity-dispersion profile
 
 .. image:: images/testSigmaCorrections_sigma0_0.5.png
 
-galpy will automatically save any new corrections that you calculate. 
+galpy will automatically save any new corrections that you calculate.
 
 All of the methods for an uncorrected disk DF can be used for the
-corrected DFs as well. For example, the velocity dispersion is now 
+corrected DFs as well. For example, the velocity dispersion is now
 
 >>> numpy.sqrt(dfc.sigmaR2(1.))
 # 0.19999985069451526
@@ -307,7 +307,7 @@ minutes)
 
 >>> o= dfc.sample(n=1000,returnOrbit=True,nphi=1,rrange=[0.8,1.2])
 
-and we can plot the distribution of tangential velocities
+and we can plot the distribution of rotational velocities
 
 >>> vTs= [e.vxvv[2] for e in o]
 >>> hists, bins, edges= hist(vTs,range=[.5,1.5],normed=True,bins=30)
@@ -501,7 +501,7 @@ which returns
 The shift of the smooth DF here is much smaller than the velocity
 dispersion.
 
-Example: The Hercules stream in the Solar neighborhood as a result of the Galactic bar 
+Example: The Hercules stream in the Solar neighborhood as a result of the Galactic bar
 ---------------------------------------------------------------------------------------
 .. _hercules:
 

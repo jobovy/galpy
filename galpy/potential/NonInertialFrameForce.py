@@ -3,55 +3,59 @@
 #                          present when integrating orbits in a non-intertial
 #                          frame
 ###############################################################################
+import hashlib
+
 import numpy
 import numpy.linalg
-import hashlib
-from ..util import coords, conversion
+
+from ..util import conversion, coords
 from .DissipativeForce import DissipativeForce
+
+
 class NonInertialFrameForce(DissipativeForce):
-    """Class that implements the fictitious forces present when integrating 
-    orbits in a non-intertial frame. Coordinates in the inertial frame 
+    """Class that implements the fictitious forces present when integrating
+    orbits in a non-intertial frame. Coordinates in the inertial frame
     :math:`\\mathbf{x}` and in the non-inertial frame :math:`\\mathbf{r}` are
     related through rotation and linear motion as
-    
+
     .. math::
-    
+
         \\mathbf{x} = \\mathbf{R}\\,\\left(\\mathbf{r} + \\mathbf{x}_0\\right)
-        
+
     where :math:`\\mathbf{R}` is a rotation matrix and :math:`\\mathbf{x}_0`
     is the motion of the origin. The rotation matrix has angular frequencies
     :math:`\\boldsymbol{\\Omega}` with time derivative :math:`\\dot{\\boldsymbol{\\Omega}}`;
-    :math:`\\boldsymbol{\\Omega}` can be any function of time. The motion of the 
-    origin can also be any function of time.    
+    :math:`\\boldsymbol{\\Omega}` can be any function of time (note that the sign of :math:`\\boldsymbol{\\Omega}` is such that :math:`\\boldsymbol{\\Omega}` is the frequency of the rotating frame as seen from the inertial frame). The motion of the
+    origin can also be any function of time.
     This leads to the fictitious force
-    
+
     .. math::
-    
+
         \\mathbf{F} = -\\mathbf{a}_0 - \\boldsymbol{\\Omega} \\times ( \\boldsymbol{\\Omega} \\times \\left[\\mathbf{r} + \\mathbf{x}_0\\right]) - \\dot{\\boldsymbol{\\Omega}} \\times \\left[\\mathbf{r}+\\mathbf{x}_0\\right] -2\\boldsymbol{\\Omega}\\times \\left[\\dot{\\mathbf{r}}+\\mathbf{v}_0\\right]
-        
-    where :math:`\\mathbf{a}_0`, :math:`\\mathbf{v}_0`, and :math:`\\mathbf{x}_0` are 
-    the acceleration, velocity, and position of the origin of the non-inertial frame, 
-    respectively, as a function of time. Note that if the non-inertial frame is not 
+
+    where :math:`\\mathbf{a}_0`, :math:`\\mathbf{v}_0`, and :math:`\\mathbf{x}_0` are
+    the acceleration, velocity, and position of the origin of the non-inertial frame,
+    respectively, as a function of time. Note that if the non-inertial frame is not
     rotating, it is not necessary to specify :math:`\\mathbf{v}_0` and :math:`\\mathbf{x}_0`.
     In that case, the fictitious force is simply
-    
+
     .. math::
-    
+
         \\mathbf{F} = -\\mathbf{a}_0\\quad (\\boldsymbol{\\Omega} = 0)
-        
-    If the non-inertial frame only rotates without any motion of the origin, the 
+
+    If the non-inertial frame only rotates without any motion of the origin, the
     fictitious force is the familiar combination of the centrifugal force
     and the Coriolis force (plus an additional term if :math:`\\dot{\\boldsymbol{\\Omega}}`
     is not constant)
-    
+
     .. math::
-    
+
         \\mathbf{F} = - \\boldsymbol{\\Omega} \\times ( \\boldsymbol{\\Omega} \\times \\mathbf{r}) - \\dot{\\boldsymbol{\\Omega}} \\times \\mathbf{r} -2\\boldsymbol{\\Omega}\\times \\dot{\\mathbf{r}}\\quad (\\mathbf{a}_0=\\mathbf{v}_0=\\mathbf{x}_0=0)
-        
-    The functions of time are passed to the C code for fast orbit integration 
-    by attempting to build fast ``numba`` versions of them. Significant 
-    speed-ups can therefore be obtained by making sure that the provided 
-    functions can be turned into ``nopython=True`` ``numba`` functions (try 
+
+    The functions of time are passed to the C code for fast orbit integration
+    by attempting to build fast ``numba`` versions of them. Significant
+    speed-ups can therefore be obtained by making sure that the provided
+    functions can be turned into ``nopython=True`` ``numba`` functions (try
     running ``numba.njit`` on them and then evaluate them to check).
     """
     def __init__(self,amp=1.,Omega=None,Omegadot=None,
@@ -70,14 +74,14 @@ class NonInertialFrameForce(DissipativeForce):
 
            amp= (1.) amplitude to be applied to the potential (default: 1)
 
-           Omega= (1.) Angular frequency of the rotation of the non-inertial frame in an inertial one; can either be a function of time or a number (when the frequency is assumed to be Omega + Omegadot x t) and in each case can be a list [Omega_x,Omega_y,Omega_z] or a single value Omega_z (when not a function, can be a Quantity; when a function, need to take input time in internal units and output the frequency in internal units; see galpy.util.conversion.time_in_Gyr and galpy.util.conversion.freq_in_XXX conversion functions)
-           
+           Omega= (1.) Angular frequency of the rotation of the non-inertial frame as seen from an inertial one; can either be a function of time or a number (when the frequency is assumed to be Omega + Omegadot x t) and in each case can be a list [Omega_x,Omega_y,Omega_z] or a single value Omega_z (when not a function, can be a Quantity; when a function, need to take input time in internal units and output the frequency in internal units; see galpy.util.conversion.time_in_Gyr and galpy.util.conversion.freq_in_XXX conversion functions)
+
            Omegadot= (None) Time derivative of the angular frequency of the non-intertial frame's rotation. format should match Omega input ([list of] function[s] when Omega is one, number/list if Omega is a number/list; when a function, need to take input time in internal units and output the frequency derivative in internal units; see galpy.util.conversion.time_in_Gyr and galpy.util.conversion.freq_in_XXX conversion functions)
-           
+
            x0= (None) Position vector x_0 (cartesian) of the center of mass of the non-intertial frame (see definition in the class documentation); list of functions [x_0x,x_0y,x_0z]; only necessary when considering both rotation and center-of-mass acceleration of the inertial frame (functions need to take input time in internal units and output the position in internal units; see galpy.util.conversion.time_in_Gyr and divided physical positions by the `ro` parameter in kpc)
-           
+
            v0= (None) Velocity vector v_0 (cartesian) of the center of mass of the non-intertial frame (see definition in the class documentation); list of functions [v_0x,v_0y,v_0z]; only necessary when considering both rotation and center-of-mass acceleration of the inertial frame (functions need to take input time in internal units and output the velocity in internal units; see galpy.util.conversion.time_in_Gyr and divided physical positions by the `vo` parameter in km/s)
-           
+
            a0= (None) Acceleration vector a_0 (cartesian) of the center of mass of the non-intertial frame (see definition in the class documentation); constant or a list of functions [a_0x,a_0y, a_0z] (functions need to take input time in internal units and output the acceleration in internal units; see galpy.util.conversion.time_in_Gyr and galpy.util.conversion.force_in_XXX conversion functions [force is actually acceleration in galpy])
 
         OUTPUT:
@@ -87,7 +91,7 @@ class NonInertialFrameForce(DissipativeForce):
         HISTORY:
 
            2022-03-02 - Started - Bovy (UofT)
-           
+
            2022-03-26 - Generalized Omega to any function of time - Bovy (UofT)
 
         """
@@ -123,7 +127,7 @@ class NonInertialFrameForce(DissipativeForce):
                 self._a0= [lambda t, copy=a0[0]: copy,
                            lambda t, copy=a0[1]: copy,
                            lambda t, copy=a0[2]: copy]
-            else: 
+            else:
                 self._a0= a0
             # Convenient access in Python
             self._a0_py= lambda t: [self._a0[0](t),
@@ -154,7 +158,7 @@ class NonInertialFrameForce(DissipativeForce):
                     numpy.array([[0.,-self._Omegadot[2],self._Omegadot[1]],
                                 [self._Omegadot[2],0.,-self._Omegadot[0]],
                                 [-self._Omegadot[1],self._Omegadot[0],0.]])
-        self._force_hash= None            
+        self._force_hash= None
         self.hasC= True
         return None
 
@@ -173,10 +177,10 @@ class NonInertialFrameForce(DissipativeForce):
                 tOmega2= self._Omega2
             elif self._Omega_as_func:
                 tOmega= self._Omega_py(t)
-                tOmega2= numpy.linalg.norm(tOmega)**2.            
+                tOmega2= numpy.linalg.norm(tOmega)**2.
             else:
                 tOmega= self._Omega+self._Omegadot*t
-                tOmega2= numpy.linalg.norm(tOmega)**2.            
+                tOmega2= numpy.linalg.norm(tOmega)**2.
             if self._omegaz_only:
                 force+= -2.*tOmega*numpy.array([-vy,vx,0.])\
                     +tOmega2*numpy.array([x,y,0.])
@@ -224,7 +228,7 @@ class NonInertialFrameForce(DissipativeForce):
             force-= self._a0_py(t)
         self._force_hash= new_hash
         self._cached_force= force
-        return force       
+        return force
 
     def _Rforce(self,R,z,phi=0.,t=0.,v=None):
         """

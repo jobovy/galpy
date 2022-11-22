@@ -1,11 +1,16 @@
-import os, os.path
 import copy
+import os
+import os.path
 import pickle
+
 import numpy
-from ..util import plot, conversion, config
-from .Potential import PotentialError, flatten
-from ..util.conversion import physical_conversion,\
-    potential_physical_input, physical_compatible
+
+from ..util import config, conversion, plot
+from ..util.conversion import (physical_compatible, physical_conversion,
+                               potential_physical_input)
+from .Potential import PotentialError, flatten, potential_positional_arg
+
+
 class linearPotential:
     """Class representing 1D potentials"""
     def __init__(self,amp=1.,ro=None,vo=None):
@@ -297,6 +302,7 @@ class linearPotential:
                          xlabel=r"$x/x_0$",ylabel=r"$\Phi(x)$",
                          xrange=[min,max])
 
+@potential_positional_arg
 @potential_physical_input
 @physical_conversion('energy',pop=True)
 def evaluatelinearPotentials(Pot,x,t=0.):
@@ -340,6 +346,7 @@ def _evaluatelinearPotentials(Pot,x,t=0.):
     else: #pragma: no cover
         raise PotentialError("Input to 'evaluatelinearPotentials' is neither a linearPotential-instance or a list of such instances")
 
+@potential_positional_arg
 @potential_physical_input
 @physical_conversion('force',pop=True)
 def evaluatelinearForces(Pot,x,t=0.):
@@ -435,4 +442,3 @@ def plotlinearPotentials(Pot,t=0.,min=-15.,max=15,ns=21,savefilename=None):
     return plot.plot(xs,potx,
                      xlabel=r"$x/x_0$",ylabel=r"$\Phi(x)$",
                      xrange=[min,max])
-

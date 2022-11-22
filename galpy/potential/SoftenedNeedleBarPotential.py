@@ -3,9 +3,13 @@
 #                                  bar potential from Long & Murali (1992)
 ###############################################################################
 import hashlib
+
 import numpy
+
+from ..util import conversion, coords
 from .Potential import Potential
-from ..util import coords, conversion
+
+
 class SoftenedNeedleBarPotential(Potential):
     """Class that implements the softened needle bar potential from `Long & Murali (1992) <http://adsabs.harvard.edu/abs/1992ApJ...397...44L>`__
 
@@ -76,7 +80,7 @@ class SoftenedNeedleBarPotential(Potential):
         self.hasC_dxdv= False
         if normalize or \
                 (isinstance(normalize,(int,float)) \
-                     and not isinstance(normalize,bool)): #pragma: no cover 
+                     and not isinstance(normalize,bool)): #pragma: no cover
             self.normalize(normalize)
         self.isNonAxi= True
         return None

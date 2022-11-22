@@ -1,9 +1,11 @@
 import os
 import pickle
+
 import numpy
-from ..util import plot, conversion
-from ..util.conversion import physical_conversion,\
-    potential_physical_input
+
+from ..util import conversion, plot
+from ..util.conversion import physical_conversion, potential_physical_input
+
 _INF= 10**12.
 def plotEscapecurve(Pot,*args,**kwargs):
     """
@@ -112,7 +114,7 @@ def calcEscapecurve(Pot,Rs,t=0.):
     NAME:
        calcEscapecurve
     PURPOSE:
-       calculate the escape velocity curve for this potential (in the 
+       calculate the escape velocity curve for this potential (in the
        z=0 plane for non-spherical potentials)
     INPUT:
        Pot - Potential or list of Potential instances
@@ -170,12 +172,10 @@ def vesc(Pot,R,t=0.):
        2011-10-09 - Written - Bovy (IAS)
 
     """
-    from ..potential import evaluateplanarPotentials
-    from ..potential import PotentialError
+    from ..potential import PotentialError, evaluateplanarPotentials
     try:
         return numpy.sqrt(2.*(evaluateplanarPotentials(Pot,_INF,t=t,use_physical=False)-evaluateplanarPotentials(Pot,R,t=t,use_physical=False)))
     except PotentialError:
         from ..potential import RZToplanarPotential
         Pot= RZToplanarPotential(Pot)
         return numpy.sqrt(2.*(evaluateplanarPotentials(Pot,_INF,t=t,use_physical=False)-evaluateplanarPotentials(Pot,R,t=t,use_physical=False)))
-        

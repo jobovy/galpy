@@ -1,18 +1,19 @@
 import ctypes
 import ctypes.util
-from numpy.ctypeslib import ndpointer
+
 import numpy
+from numpy.ctypeslib import ndpointer
 from scipy import integrate
+
 from .. import potential
-from ..util.multi import parallel_map
-from .integratePlanarOrbit import (_parse_integrator, _parse_tol,
-                                   _prep_tfuncs, _TQDM_LOADED)
-from .integrateFullOrbit import _parse_pot as _parse_pot_full
 from ..potential.linearPotential import _evaluatelinearForces
 from ..potential.verticalPotential import verticalPotential
+from ..util import _load_extension_libs, symplecticode
+from ..util._optional_deps import _TQDM_LOADED
 from ..util.leung_dop853 import dop853
-from ..util import symplecticode
-from ..util import _load_extension_libs
+from ..util.multi import parallel_map
+from .integrateFullOrbit import _parse_pot as _parse_pot_full
+from .integratePlanarOrbit import _parse_integrator, _parse_tol, _prep_tfuncs
 
 if _TQDM_LOADED:
     import tqdm
@@ -22,6 +23,7 @@ _lib, _ext_loaded= _load_extension_libs.load_libgalpy()
 def _parse_pot(pot):
     """Parse the potential so it can be fed to C"""
     from .integrateFullOrbit import _parse_scf_pot
+
     #Figure out what's in pot
     if not isinstance(pot,list):
         pot= [pot]
@@ -81,10 +83,10 @@ def _parse_pot(pot):
                 pot_args.extend([p._R,p._phi])
         elif isinstance(p,potential.KGPotential):
             pot_type.append(31)
-            pot_args.extend([p._amp,p._K,p._D2,2.*p._F]) 
+            pot_args.extend([p._amp,p._K,p._D2,2.*p._F])
         elif isinstance(p,potential.IsothermalDiskPotential):
             pot_type.append(32)
-            pot_args.extend([p._amp*p._sigma2/p._H,2.*p._H]) 
+            pot_args.extend([p._amp*p._sigma2/p._H,2.*p._H])
         # All other potentials can be handled in the same way as follows:
         elif isinstance(p,verticalPotential):
             _,pt,pa,ptf= _parse_pot_full(p._Pot)
@@ -131,13 +133,13 @@ def integrateLinearOrbit_c(pot,yo,t,int_method,rtol=None,atol=None,
     npot, pot_type, pot_args, pot_tfuncs= _parse_pot(pot)
     pot_tfuncs= _prep_tfuncs(pot_tfuncs)
     int_method_c= _parse_integrator(int_method)
-    if dt is None: 
+    if dt is None:
         dt= -9999.99
 
     #Set up result array
     result= numpy.empty((nobj,len(t),2))
     err= numpy.zeros(nobj,dtype=numpy.int32)
-    
+
     #Set up progressbar
     progressbar*= _TQDM_LOADED
     if nobj > 1 and progressbar:
@@ -152,7 +154,7 @@ def integrateLinearOrbit_c(pot,yo,t,int_method,rtol=None,atol=None,
     integrationFunc= _lib.integrateLinearOrbit
     integrationFunc.argtypes= [ctypes.c_int,
                                ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
-                               ctypes.c_int,                             
+                               ctypes.c_int,
                                ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
                                ctypes.c_int,
                                ndpointer(dtype=numpy.int32,flags=ndarrayFlags),
@@ -189,10 +191,10 @@ def integrateLinearOrbit_c(pot,yo,t,int_method,rtol=None,atol=None,
                     err,
                     ctypes.c_int(int_method_c),
                     pbar_c)
-    
+
     if nobj > 1 and progressbar:
         pbar.close()
-    
+
     if numpy.any(err == -10): #pragma: no cover
         raise KeyboardInterrupt("Orbit integration interrupted by CTRL-C (SIGINT)")
 

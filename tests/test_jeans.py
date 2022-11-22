@@ -1,6 +1,8 @@
 # Tests of the galpy.df.jeans module: Jeans equations
 import numpy
+
 from galpy.df import jeans
+
 
 # Test sigmar: radial velocity dispersion from the spherical Jeans equation
 # For log halo, constant beta: sigma(r) = vc/sqrt(2.-2*beta)
@@ -46,9 +48,10 @@ def test_sigmar_wlog_constbeta_asbetafunc():
     return None
 
 def test_sigmar_wlog_linbeta():
-    # for log halo, dens ~ r^-gamma, and beta = -b x r --> 
+    # for log halo, dens ~ r^-gamma, and beta = -b x r -->
     # sigmar = vc sqrt( scipy.special.gamma(-gamma)*scipy.special.gammaincc(-gamma,2*b*r)/[(2*b*r)**-gamma*exp(-2*b*r)]
     from scipy import special
+
     from galpy.potential import LogarithmicHaloPotential
     lp= LogarithmicHaloPotential(normalize=1.,q=1.)
     rs= numpy.linspace(0.001,5.,101)
@@ -90,4 +93,3 @@ def test_sigmalos_wlog_zerobeta():
     # beta = 0 --> sigma = vc/sqrt(2)
     assert numpy.all(numpy.fabs(numpy.array([jeans.sigmalos(lp,r,sigma_r=1./numpy.sqrt(2.),beta=lambda x: 0.) for r in rs])-1./numpy.sqrt(2.)) < 1e-8), 'Radial sigma_los computed w/ spherical Jeans equation incorrect for LogarithmicHaloPotential and beta=0'
     return None
-

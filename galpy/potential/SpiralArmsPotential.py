@@ -6,14 +6,17 @@
 #
 #  Phi(r, phi, z) = -4*pi*G*H*rho0*exp(-(r-r0)/Rs)*sum(Cn/(Kn*Dn)*cos(n*gamma)*sech(Kn*z/Bn)^Bn)
 ###############################################################################
-from .Potential import Potential
-from ..util import conversion
 import numpy
+
+from ..util import conversion
+from .Potential import Potential
+
+
 class SpiralArmsPotential(Potential):
     """Class that implements the spiral arms potential from (`Cox and Gomez 2002 <https://arxiv.org/abs/astro-ph/0207635>`__). Should be used to modulate an existing potential (density is positive in the arms, negative outside; note that because of this, a contour plot of this potential will appear to have twice as many arms, where half are the underdense regions).
-    
+
     .. math::
-    
+
         \\Phi(R, \\phi, z) = -4 \\pi GH \\,\\rho_0 exp \\left( -\\frac{R-r_{ref}}{R_s} \\right) \\sum{\\frac{C_n}{K_n D_n} \\,\\cos(n \\gamma) \\,\\mathrm{sech}^{B_n} \\left( \\frac{K_n z}{B_n} \\right)}
 
     where
@@ -28,7 +31,7 @@ class SpiralArmsPotential(Potential):
     .. math::
         \\gamma = N \\left[\\phi - \\phi_{ref} - \\frac{\\ln(R/r_{ref})}{\\tan(\\alpha)} \\right]
 
-    The default of :math:`C_n=[1]` gives a sinusoidal profile for the potential. An alternative from `Cox and Gomez (2002) <https://arxiv.org/abs/astro-ph/0207635>`__  creates a density that behaves approximately as a cosine squared in the arms but is separated by a flat interarm region by setting 
+    The default of :math:`C_n=[1]` gives a sinusoidal profile for the potential. An alternative from `Cox and Gomez (2002) <https://arxiv.org/abs/astro-ph/0207635>`__  creates a density that behaves approximately as a cosine squared in the arms but is separated by a flat interarm region by setting
 
      .. math::
         C_n = \\left[\\frac{8}{3 \\pi}\\,,\\frac{1}{2} \\,, \\frac{8}{15 \\pi}\\right]
@@ -39,12 +42,12 @@ class SpiralArmsPotential(Potential):
                  N=2, alpha=0.2, r_ref=1, phi_ref=0, Rs=0.3, H=0.125, omega=0, Cs=[1]):
 
         """
-        NAME:       
+        NAME:
             __init__
         PURPOSE:
             initialize a spiral arms potential
         INPUT:
-            :amp: amplitude to be applied to the potential (default: 1); 
+            :amp: amplitude to be applied to the potential (default: 1);
                         can be a Quantity with units of density. (:math:`amp = 4 \\pi G \\rho_0`)
             :ro: distance scales for translation into internal units (default from configuration file)
             :vo: velocity scales for translation into internal units (default from configuration file)
@@ -89,7 +92,7 @@ class SpiralArmsPotential(Potential):
         self.hasC = True       # Potential has C implementation to speed up orbit integrations
         self.hasC_dxdv = True  # Potential has C implementation of second derivatives
 
-    
+
     def _evaluate(self, R, z, phi=0, t=0):
         """
         NAME:
@@ -123,7 +126,7 @@ class SpiralArmsPotential(Potential):
         return -self._H * numpy.exp(-(R-self._r_ref) / self._Rs) \
                * numpy.sum(self._Cs / Ks / Ds * numpy.cos(self._ns * self._gamma(R, phi - self._omega * t)) / numpy.cosh(Ks * z / Bs) ** Bs,axis=0)
 
-    
+
     def _Rforce(self, R, z, phi=0, t=0):
         """
         NAME:
@@ -176,7 +179,7 @@ class SpiralArmsPotential(Potential):
                                                                         + dDs_dR / Ds / Ks))
                                                            + cos_ng / Ks / self._Rs),axis=0)
 
-    
+
     def _zforce(self, R, z, phi=0, t=0):
         """
         NAME:
@@ -191,7 +194,7 @@ class SpiralArmsPotential(Potential):
         OUTPUT:
             :return: the vertical force
         HISTORY:
-            2017-05-25  Jack Hong (UBC) 
+            2017-05-25  Jack Hong (UBC)
         """
         if isinstance(R,numpy.ndarray) or isinstance(z,numpy.ndarray):
             nR= len(R) if isinstance(R,numpy.ndarray) else len(z)
@@ -246,7 +249,7 @@ class SpiralArmsPotential(Potential):
         return -self._H * numpy.exp(-(R-self._r_ref) / self._Rs) \
                * numpy.sum(self._N * self._ns * self._Cs / Ds / Ks / numpy.cosh(z * Ks / Bs)**Bs * numpy.sin(self._ns * g),axis=0)
 
-    
+
     def _R2deriv(self, R, z, phi=0, t=0):
         """
         NAME:
@@ -345,7 +348,7 @@ class SpiralArmsPotential(Potential):
                                                                      + log_sechzKB * dBs_dR))
                                                        + sin_ng * self._ns * dg_dR)))),axis=0))
 
-    
+
     def _z2deriv(self, R, z, phi=0, t=0):
         """
         NAME:
@@ -361,7 +364,7 @@ class SpiralArmsPotential(Potential):
         OUTPUT:
             :return: the second vertical derivative
         HISTORY:
-            2017-05-26  Jack Hong (UBC) 
+            2017-05-26  Jack Hong (UBC)
         """
         if isinstance(R,numpy.ndarray) or isinstance(z,numpy.ndarray):
             nR= len(R) if isinstance(R,numpy.ndarray) else len(z)
@@ -383,7 +386,7 @@ class SpiralArmsPotential(Potential):
         return -self._H * numpy.exp(-(R-self._r_ref)/self._Rs) \
                * numpy.sum(self._Cs * Ks / Ds * ((tanh2_zKB - 1) / Bs + tanh2_zKB) * numpy.cos(self._ns * g) / numpy.cosh(zKB)**Bs,axis=0)
 
-    
+
     def _phi2deriv(self, R, z, phi=0, t=0):
         """
         NAME:
@@ -419,7 +422,7 @@ class SpiralArmsPotential(Potential):
         return self._H * numpy.exp(-(R-self._r_ref) / self._Rs) \
                * numpy.sum(self._Cs * self._N**2. * self._ns**2. / Ds / Ks / numpy.cosh(z*Ks/Bs)**Bs * numpy.cos(self._ns*g),axis=0)
 
-    
+
     def _Rzderiv(self, R, z, phi=0., t=0.):
         """
         NAME:
@@ -480,7 +483,7 @@ class SpiralArmsPotential(Potential):
                                                                         + dBs_dR / Bs * tanhzKB)
                                                                        - tanhzKB / Rs)),axis=0)
 
-    
+
     def _Rphideriv(self, R, z, phi=0,t=0):
         """
         NAME:
@@ -535,7 +538,7 @@ class SpiralArmsPotential(Potential):
                                                     + dDs_dR / Ds
                                                     + 1 / self._Rs))),axis=0)
 
-    
+
     def _phizderiv(self, R, z, phi=0, t=0):
         """
         NAME:
@@ -550,7 +553,7 @@ class SpiralArmsPotential(Potential):
         OUTPUT:
             :return: mixed azimuthal, vertical derivative
         HISTORY:
-            2021-04-30 - Jo Bovy (UofT) 
+            2021-04-30 - Jo Bovy (UofT)
         """
         if isinstance(R,numpy.ndarray) or isinstance(z,numpy.ndarray):
             nR= len(R) if isinstance(R,numpy.ndarray) else len(z)

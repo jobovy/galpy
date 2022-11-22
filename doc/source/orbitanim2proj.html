@@ -66,7 +66,7 @@ require(['Plotly'], function (Plotly) {
     anchor: 'x2',
 },
 };
-  let numPerFrame= 5;    
+  let numPerFrame= 5;
   let cnt= 1;
   let interval;
   let trace_slice_len;
@@ -74,7 +74,7 @@ require(['Plotly'], function (Plotly) {
   let trace_slice_end;
 
   setup_trace();
-  
+
   $('.controlbutton button').click(function() {
     let button_type= this.parentNode.id;
     if ( button_type === 'galpy-omyujbdlhoxjqtbexsvcofke-play' ) {
@@ -94,7 +94,7 @@ require(['Plotly'], function (Plotly) {
     else if ( button_type === 'galpy-omyujbdlhoxjqtbexsvcofke-replay' ) {
       cnt= 1;
       try { // doesn't exist if animation has already ended
-        
+
         Plotly.deleteTraces('galpy-omyujbdlhoxjqtbexsvcofke', 3);
         Plotly.deleteTraces('galpy-omyujbdlhoxjqtbexsvcofke',1);
       }
@@ -102,16 +102,16 @@ require(['Plotly'], function (Plotly) {
       }
       Plotly.deleteTraces('galpy-omyujbdlhoxjqtbexsvcofke',0);
       Plotly.deleteTraces('galpy-omyujbdlhoxjqtbexsvcofke', 0);
-      
+
       clearInterval(interval);
       setup_trace();
       interval= animate_trace();
     }
   });
-    
+
   function setup_trace() {
     let trace1= {
-      x: data.x.slice(0,numPerFrame), 
+      x: data.x.slice(0,numPerFrame),
       y: data.y.slice(0,numPerFrame),
       mode: 'lines',
       line: {
@@ -122,7 +122,7 @@ require(['Plotly'], function (Plotly) {
     };
 
    let trace2= {
-     x: data.x.slice(0,numPerFrame), 
+     x: data.x.slice(0,numPerFrame),
      y: data.y.slice(0,numPerFrame),
      mode: 'lines',
      line: {
@@ -132,7 +132,7 @@ require(['Plotly'], function (Plotly) {
        },
      };
 
-    
+
     let trace3= {
       x: data.x2.slice(0,numPerFrame),
       y: data.y2.slice(0,numPerFrame),
@@ -147,7 +147,7 @@ require(['Plotly'], function (Plotly) {
     };
 
     let trace4= {
-      x: data.x2.slice(0,numPerFrame), 
+      x: data.x2.slice(0,numPerFrame),
       y: data.y2.slice(0,numPerFrame),
       xaxis: 'x2',
       yaxis: 'y2',
@@ -160,7 +160,7 @@ require(['Plotly'], function (Plotly) {
     };
 
 
-    
+
     let traces= [trace1,trace2,trace3,trace4];
 
 
@@ -169,7 +169,7 @@ require(['Plotly'], function (Plotly) {
 
   function animate_trace() {
     return setInterval(function() {
-      // Make sure narrow and thick trace end in the same 
+      // Make sure narrow and thick trace end in the same
       // and the highlighted length has constant length
       trace_slice_len= Math.floor(numPerFrame);
       if ( trace_slice_len < 1) trace_slice_len= 1;
@@ -181,12 +181,12 @@ require(['Plotly'], function (Plotly) {
       }, [0]);
       trace_slice_begin-= trace_slice_len;
       trace2= {
-        x: [data.x.slice(trace_slice_begin,trace_slice_end)], 
+        x: [data.x.slice(trace_slice_begin,trace_slice_end)],
         y: [data.y.slice(trace_slice_begin,trace_slice_end)],
       };
       Plotly.restyle('galpy-omyujbdlhoxjqtbexsvcofke',trace2,[1]);
 
-      
+
       trace_slice_begin+= trace_slice_len;
       Plotly.extendTraces('galpy-omyujbdlhoxjqtbexsvcofke', {
         x: [data.x2.slice(trace_slice_begin,trace_slice_end)],
@@ -195,16 +195,16 @@ require(['Plotly'], function (Plotly) {
 
       trace_slice_begin-= trace_slice_len;
       trace4= {
-        x: [data.x2.slice(trace_slice_begin,trace_slice_end)], 
+        x: [data.x2.slice(trace_slice_begin,trace_slice_end)],
         y: [data.y2.slice(trace_slice_begin,trace_slice_end)],
       },
       Plotly.restyle('galpy-omyujbdlhoxjqtbexsvcofke',trace4,[3]);
 
-      
+
       cnt+= 1;
       if(cnt*numPerFrame+trace_slice_len > data.x.length/1) {
           clearInterval(interval);
-          
+
           Plotly.deleteTraces('galpy-omyujbdlhoxjqtbexsvcofke', 3);
           Plotly.deleteTraces('galpy-omyujbdlhoxjqtbexsvcofke',1);
       }

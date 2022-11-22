@@ -10,4 +10,3 @@ Note: This function computes Acos and Asin as defined in `Hernquist & Ostriker (
 Further note that this function is a specification of :ref:`scf_compute_coeffs_nbody` where :math:`Acos_{nlm} = 0` at :math:`m\neq0` and :math:`Asin_{nlm} = None`.
 
 .. autofunction:: galpy.potential.scf_compute_coeffs_axi_nbody
-

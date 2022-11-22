@@ -1,11 +1,14 @@
-from pkg_resources import parse_version
 import numpy
+from packaging.version import parse as parse_version
+
 _NUMPY_VERSION= parse_version(numpy.__version__)
-_NUMPY_1_22= (_NUMPY_VERSION > parse_version('1.21'))\
-    *(_NUMPY_VERSION < parse_version('1.23'))
-from galpy.util import coords
-import pytest
+_NUMPY_GE_1_22= (_NUMPY_VERSION > parse_version('1.21'))\
+    *(_NUMPY_VERSION < parse_version('1.24'))
 import astropy
+import pytest
+
+from galpy.util import coords
+
 _APY3= astropy.__version__ > '3'
 
 def test_radec_to_lb_ngp():
@@ -14,7 +17,7 @@ def test_radec_to_lb_ngp():
     ra, dec= 192.25, 27.4
     lb= coords.radec_to_lb(ra,dec,degree=True,epoch=1950.)
     assert not coords._APY_LOADED, "_APY_LOADED should be False, but isn't"
-    assert numpy.fabs(lb[1]-90.) < _NUMPY_1_22 * 1e-5 + (1-_NUMPY_1_22) * 1e-6, 'Galactic latitude of the NGP given in ra,dec is not 90'
+    assert numpy.fabs(lb[1]-90.) < _NUMPY_GE_1_22 * 1e-5 + (1-_NUMPY_GE_1_22) * 1e-6, 'Galactic latitude of the NGP given in ra,dec is not 90'
     # Also test this for degree=False
     lb= coords.radec_to_lb(ra/180.*numpy.pi,dec/180.*numpy.pi,
                                 degree=False,epoch=1950.)
@@ -107,7 +110,7 @@ def test_radec_to_lb_sgp():
     ra, dec= 12.25, -27.4
     assert not coords._APY_LOADED, "_APY_LOADED should be False, but isn't"
     lb= coords.radec_to_lb(ra,dec,degree=True,epoch=1950.)
-    assert numpy.fabs(lb[1]+90.) < _NUMPY_1_22 * 1e-5 + (1-_NUMPY_1_22) * 1e-6, 'Galactic latitude of the SGP given in ra,dec is not 90'
+    assert numpy.fabs(lb[1]+90.) < _NUMPY_GE_1_22 * 1e-5 + (1-_NUMPY_GE_1_22) * 1e-6, 'Galactic latitude of the SGP given in ra,dec is not 90'
     # Also test this for degree=False
     lb= coords.radec_to_lb(ra/180.*numpy.pi,dec/180.*numpy.pi,
                                 degree=False,epoch=1950.)
@@ -289,8 +292,8 @@ def test_lb_to_radec_apy_icrs():
 
 def test_radec_to_lb_galpyvsastropy():
     # Test that galpy's radec_to_lb agrees with astropy's
-    from astropy.coordinates import SkyCoord
     import astropy.units as u
+    from astropy.coordinates import SkyCoord
     _turn_off_apy(keep_loaded=True)
     ra, dec= 33., -20.
     # using galpy
@@ -298,16 +301,16 @@ def test_radec_to_lb_galpyvsastropy():
     # using astropy
     c= SkyCoord(ra=ra*u.deg,dec=dec*u.deg,frame='fk5',equinox='J2000')
     c= c.transform_to('galactic')
-    la,ba= c.l.to(u.deg).value,c.b.to(u.deg).value
-    assert numpy.fabs(lg-la) < 1e-12, "radec_to_lb using galpy's own transformations does not agree with astropy's"
-    assert numpy.fabs(bg-ba) < 1e-12, "radec_to_lb using galpy's own transformations does not agree with astropy's"
+    lla,bba= c.l.to(u.deg).value,c.b.to(u.deg).value
+    assert numpy.fabs(lg-lla) < 1e-12, "radec_to_lb using galpy's own transformations does not agree with astropy's"
+    assert numpy.fabs(bg-bba) < 1e-12, "radec_to_lb using galpy's own transformations does not agree with astropy's"
     _turn_on_apy()
     return None
 
 def test_radec_to_lb__1950_galpyvsastropy():
     # Test that galpy's radec_to_lb agrees with astropy's
-    from astropy.coordinates import SkyCoord
     import astropy.units as u
+    from astropy.coordinates import SkyCoord
     _turn_off_apy(keep_loaded=True)
     ra, dec= 33., -20.
     # using galpy
@@ -315,9 +318,9 @@ def test_radec_to_lb__1950_galpyvsastropy():
     # using astropy
     c= SkyCoord(ra=ra*u.deg,dec=dec*u.deg,frame='fk4noeterms',equinox='B1950')
     c= c.transform_to('galactic')
-    la,ba= c.l.to(u.deg).value,c.b.to(u.deg).value
-    assert numpy.fabs(lg-la) < 1e-12, "radec_to_lb using galpy's own transformations does not agree with astropy's"
-    assert numpy.fabs(bg-ba) < 1e-12, "radec_to_lb using galpy's own transformations does not agree with astropy's"
+    lla,bba= c.l.to(u.deg).value,c.b.to(u.deg).value
+    assert numpy.fabs(lg-lla) < 1e-12, "radec_to_lb using galpy's own transformations does not agree with astropy's"
+    assert numpy.fabs(bg-bba) < 1e-12, "radec_to_lb using galpy's own transformations does not agree with astropy's"
     _turn_on_apy()
     return None
 
@@ -461,8 +464,8 @@ def test_XYZ_to_galcenrect_negXsun():
 
 def test_lbd_to_galcenrect_galpyvsastropy():
     # Test that galpy's transformations agree with astropy's
-    from astropy.coordinates import SkyCoord, Galactocentric
     import astropy.units as u
+    from astropy.coordinates import Galactocentric, SkyCoord
     _turn_off_apy()
     l,b,d= 32., -12., 3.
     Zsun= 0.025
@@ -498,8 +501,8 @@ def test_lbd_to_galcenrect_galpyvsastropy():
 
 def test_lbd_to_galcencyl_galpyvsastropy():
     # Test that galpy's transformations agree with astropy's
-    from astropy.coordinates import SkyCoord, Galactocentric
     import astropy.units as u
+    from astropy.coordinates import Galactocentric, SkyCoord
     _turn_off_apy()
     l,b,d= 32., -12., 3.
     Zsun= 0.025
@@ -673,9 +676,9 @@ def test_vrpmllpmbb_to_galcenrect_galpyvsastropy():
     # Only run this for astropy>3
     if not _APY3: return None
     # Test that galpy's transformations agree with astropy's
-    from astropy.coordinates import SkyCoord, Galactocentric, \
-        CartesianDifferential
     import astropy.units as u
+    from astropy.coordinates import (CartesianDifferential, Galactocentric,
+                                     SkyCoord)
     _turn_off_apy()
     l,b,d= 32., -12., 3.
     vr,pmll,pmbb= -112., -13.,5.
@@ -743,9 +746,9 @@ def test_vrpmllpmbb_to_galcencyl_galpyvsastropy():
     # Only run this for astropy>3
     if not _APY3: return None
     # Test that galpy's transformations agree with astropy's
-    from astropy.coordinates import SkyCoord, Galactocentric, \
-        CartesianDifferential
     import astropy.units as u
+    from astropy.coordinates import (CartesianDifferential, Galactocentric,
+                                     SkyCoord)
     _turn_off_apy()
     l,b,d= 32., -12., 3.
     vr,pmll,pmbb= -112., -13.,5.
@@ -1088,10 +1091,10 @@ def test_cov_dvrpmllbb_to_vxyz():
                                                   degree=True,
                                                   plx=False)
     assert numpy.fabs(numpy.sqrt(cov_vxvyvz[0,0])
-                      -d*4.740470463496208*pmll*numpy.sqrt((e_d/d)**2.+(10./pmll)**2.)) < 10.**-8., 'cov_dvrpmllbb_to_vxyz coversion did not work as expected'
-    assert numpy.fabs(numpy.sqrt(cov_vxvyvz[1,1])-e_vr) < 10.**-10., 'cov_dvrpmllbb_to_vxyz coversion did not work as expected'
+                      -d*4.740470463496208*pmll*numpy.sqrt((e_d/d)**2.+(10./pmll)**2.)) < 10.**-8., 'cov_dvrpmllbb_to_vxyz conversion did not work as expected'
+    assert numpy.fabs(numpy.sqrt(cov_vxvyvz[1,1])-e_vr) < 10.**-10., 'cov_dvrpmllbb_to_vxyz conversion did not work as expected'
     assert numpy.fabs(numpy.sqrt(cov_vxvyvz[2,2])
-                      -d*4.740470463496208*pmbb*numpy.sqrt((e_d/d)**2.+(20./pmbb)**2.)) < 10.**-8., 'cov_dvrpmllbb_to_vxyz coversion did not work as expected'
+                      -d*4.740470463496208*pmbb*numpy.sqrt((e_d/d)**2.+(20./pmbb)**2.)) < 10.**-8., 'cov_dvrpmllbb_to_vxyz conversion did not work as expected'
     #Another one
     l,b,d= 180., 0., 1./2.
     e_d, e_vr= 0.05, 2.
@@ -1104,11 +1107,11 @@ def test_cov_dvrpmllbb_to_vxyz():
                                                   b/180.*numpy.pi,
                                                   degree=False,
                                                   plx=True)
-    assert numpy.fabs(numpy.sqrt(cov_vxvyvz[0,0])-e_vr) < 10.**-8., 'cov_dvrpmllbb_to_vxyz coversion did not work as expected'
+    assert numpy.fabs(numpy.sqrt(cov_vxvyvz[0,0])-e_vr) < 10.**-8., 'cov_dvrpmllbb_to_vxyz conversion did not work as expected'
     assert numpy.fabs(numpy.sqrt(cov_vxvyvz[1,1])
-                      -1./d*4.740470463496208*pmll*numpy.sqrt((e_d/d)**2.+(10./pmll)**2.)) < 10.**-8., 'cov_dvrpmllbb_to_vxyz coversion did not work as expected'
+                      -1./d*4.740470463496208*pmll*numpy.sqrt((e_d/d)**2.+(10./pmll)**2.)) < 10.**-8., 'cov_dvrpmllbb_to_vxyz conversion did not work as expected'
     assert numpy.fabs(numpy.sqrt(cov_vxvyvz[2,2])
-                      -1./d*4.740470463496208*pmbb*numpy.sqrt((e_d/d)**2.+(20./pmbb)**2.)) < 10.**-8., 'cov_dvrpmllbb_to_vxyz coversion did not work as expected'
+                      -1./d*4.740470463496208*pmbb*numpy.sqrt((e_d/d)**2.+(20./pmbb)**2.)) < 10.**-8., 'cov_dvrpmllbb_to_vxyz conversion did not work as expected'
     #Another one, w/ arrays (using einsum)
     l,b,d= 90., 90., 2.
     e_d, e_vr= 0.2, 2.
@@ -1125,10 +1128,10 @@ def test_cov_dvrpmllbb_to_vxyz():
                                                   plx=False)
     for ii in range(3):
         assert numpy.fabs(numpy.sqrt(cov_vxvyvz[ii,0,0])
-                          -d*4.740470463496208*pmll*numpy.sqrt((e_d/d)**2.+(10./pmll)**2.)) < 10.**-8., 'cov_dvrpmllbb_to_vxyz coversion did not work as expected'
+                          -d*4.740470463496208*pmll*numpy.sqrt((e_d/d)**2.+(10./pmll)**2.)) < 10.**-8., 'cov_dvrpmllbb_to_vxyz conversion did not work as expected'
         assert numpy.fabs(numpy.sqrt(cov_vxvyvz[ii,1,1])
-                          -d*4.740470463496208*pmbb*numpy.sqrt((e_d/d)**2.+(20./pmbb)**2.)) < 10.**-8., 'cov_dvrpmllbb_to_vxyz coversion did not work as expected'
-        assert numpy.fabs(numpy.sqrt(cov_vxvyvz[ii,2,2])-e_vr) < 10.**-10., 'cov_dvrpmllbb_to_vxyz coversion did not work as expected'
+                          -d*4.740470463496208*pmbb*numpy.sqrt((e_d/d)**2.+(20./pmbb)**2.)) < 10.**-8., 'cov_dvrpmllbb_to_vxyz conversion did not work as expected'
+        assert numpy.fabs(numpy.sqrt(cov_vxvyvz[ii,2,2])-e_vr) < 10.**-10., 'cov_dvrpmllbb_to_vxyz conversion did not work as expected'
 
     return None
 

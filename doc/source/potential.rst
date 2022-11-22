@@ -59,7 +59,7 @@ function
    ``galpy`` potentials do *not* necessarily approach zero at infinity. To compute, for example, the escape velocity or whether or not an orbit is unbound, you need to take into account the value of the potential at infinity. E.g., :math:`v_{\mathrm{esc}}(r) = \sqrt{2[\Phi(\infty)-\Phi(r)]}`. If you want to create a potential that does go to zero at infinity, you can add a :ref:`NullPotential <null_potential>` with value equal to minus the original potential evaluated at infinity.
 
 .. TIP::
-   As discussed in the section on :ref:`physical units <physunits>`, potentials can be initialized and evaluated with arguments specified as a astropy Quantity with units. Use the configuration parameter ``apy-units = True`` to get output values as a Quantity. See also the subsection on :ref:`Initializing potentials with parameters with units <physunits_pot>` below.
+   As discussed in the section on :ref:`physical units <physunits>`, potentials can be initialized and evaluated with arguments specified as a astropy Quantity with units. Use the configuration parameter ``astropy-units = True`` to get output values as a Quantity. See also the subsection on :ref:`Initializing potentials with parameters with units <physunits_pot>` below.
 
 We can plot the potential of axisymmetric potentials (or of
 non-axisymmetric potentials at phi=0) using the ``plot`` member
@@ -72,7 +72,7 @@ which produces the following plot
 .. image:: images/mp-potential.png
 
 Similarly, we can plot combinations of Potentials using
-``plotPotentials``, e.g., 
+``plotPotentials``, e.g.,
 
 >>> from galpy.potential import plotPotentials
 >>> plotPotentials(MWPotential2014,rmin=0.01)
@@ -244,10 +244,10 @@ for ``DehnenBarPotential``. Thus we can compare the two
 >>> print(dp.Rforce(0.9,0.3,phi=3.,t=-2.)-dswp.Rforce(0.9,0.3,phi=3.,t=-2.))
 # 0.0
 
-Other wrappers to modify the amplitude of a potential include 
-``GaussianAmplitudeWrapperPotential``, for modulating the amplitude using 
-a Gaussian, and the fully general ``TimeDependentAmplitudeWrapperPotential``, 
-which can modulate the amplitude of any potential with an arbitrary function 
+Other wrappers to modify the amplitude of a potential include
+``GaussianAmplitudeWrapperPotential``, for modulating the amplitude using
+a Gaussian, and the fully general ``TimeDependentAmplitudeWrapperPotential``,
+which can modulate the amplitude of any potential with an arbitrary function
 of time.
 
 .. TIP::
@@ -269,17 +269,17 @@ Compare for example
 >>> print(sp.Rforce(0.8,0.2,phi=0.2,t=3.)-swp.Rforce(0.8,0.2,phi=0.2,t=3.))
 # 8.881784197e-16
 
-``RotateAndTiltWrapperPotential`` is a wrapper that allows you to rotate, 
-tilt, or offset a potential. This can be useful if you are trying to 
+``RotateAndTiltWrapperPotential`` is a wrapper that allows you to rotate,
+tilt, or offset a potential. This can be useful if you are trying to
 see a potential they way an external galaxy is tilted, or, in combination
 with ``SolidBodyRotationWrapperPotential``, to make a potential rotate around
 an arbitrary axis (you can tilt, solid-body rotate, and tilt back to do this).
 
 Wrapper potentials can be used anywhere in galpy where general
 potentials can be used. They can be part of lists of Potential
-instances. Wrappers can be wrapped again. They can also be used in C for 
-orbit integration provided that both the wrapper and the potentials that 
-it wraps are implemented in C. For example, a static ``LogarithmicHaloPotential`` 
+instances. Wrappers can be wrapped again. They can also be used in C for
+orbit integration provided that both the wrapper and the potentials that
+it wraps are implemented in C. For example, a static ``LogarithmicHaloPotential``
 with a bar potential grown as above would be
 
 >>> from galpy.potential import LogarithmicHaloPotential, evaluateRforces
@@ -289,7 +289,7 @@ with a bar potential grown as above would be
 # -1.00965326579
 
 .. WARNING::
-   When wrapping a potential that has :ref:`physical outputs turned on <physunits>`, the wrapper object inherits the units of the wrapped potential and automatically turns them on, even when you do not explictly set ``ro=`` and ``vo=``.
+   When wrapping a potential that has :ref:`physical outputs turned on <physunits>`, the wrapper object inherits the units of the wrapped potential and automatically turns them on, even when you do not explicitly set ``ro=`` and ``vo=``.
 
 
 Close-to-circular orbits and orbital frequencies
@@ -378,8 +378,8 @@ The ``None`` here means that there is no inner Lindblad resonance, the
 the :ref:`Hercules stream <hercules>` in this documentation).
 
 
-**UPDATED IN v1.7** Using interpolations of potentials
-------------------------------------------------------
+Using interpolations of potentials
+-----------------------------------
 
 ``galpy`` contains various ways to set up interpolated versions of
 potentials that can be used to generate interpolations of potentials
@@ -416,7 +416,7 @@ As already discussed in the section on :ref:`physical units
 with units since v1.2. For most inputs to the initialization it is
 straightforward to know what type of units the input Quantity needs to
 have. For example, the scale length parameter ``a=`` of a
-Miyamoto-Nagai disk needs to have units of distance. 
+Miyamoto-Nagai disk needs to have units of distance.
 
 The amplitude of a potential is specified through the ``amp=``
 initialization parameter. The units of this parameter vary from
@@ -430,7 +430,7 @@ you find any problems with this.
 
 .. _scf_potential_docs:
 
-**UPDATED IN v1.7** General density/potential pairs with basis-function expansions
+**UPDATED IN v1.8** General density/potential pairs with basis-function expansions
 ------------------------------------------------------------------------------------
 
 ``galpy`` allows for the potential and forces of general,
@@ -449,27 +449,27 @@ potentials.
 
 The basis-function approach in the SCF method is implemented in the
 :ref:`SCFPotential <scf_potential>` class, which is also implemented
-in C for fast orbit integration. The easiest way to initialize an 
-``SCFPotential`` using a target density profile is using the 
-``SCFPotential.from_density`` method. As an example, we consider a 
+in C for fast orbit integration. The easiest way to initialize an
+``SCFPotential`` using a target density profile is using the
+``SCFPotential.from_density`` method. As an example, we consider a
 prolate NFW potential
 
 >>> from galpy.potential import TriaxialNFWPotential
 >>> np= TriaxialNFWPotential(normalize=1.,c=1.4,a=1.)
 
-To create an ``SCFPotential`` version of this, we need to chose a value of 
-a scale parameter ``a`` that is used in the definition of the basis functions 
-(this often needs to be tweaked to create the best-possible match with as 
-few basis functions as possible). Once we choose a value for ``a``, we can 
+To create an ``SCFPotential`` version of this, we need to chose a value of
+a scale parameter ``a`` that is used in the definition of the basis functions
+(this often needs to be tweaked to create the best-possible match with as
+few basis functions as possible). Once we choose a value for ``a``, we can
 initialize the ``SCFPotential`` as follows
 
 >>> a_SCF= 50. # much larger a than true scale radius works well for NFW
 >>> from galpy.potential import SCFPotential
 >>> sp= SCFPotential.from_density(np.dens,80,L=40,a=a_SCF,symmetry='axisymmetry')
 
-Here ``symmetry='axisymmetry'`` indicates that we are assuming axisymmetry in the 
-basis-function expansion; other valid values are ``symmetry='spherical'`` when 
-assuming spherical symmetry or ``symmetry=None`` for the general, non-axisymmetric 
+Here ``symmetry='axisymmetry'`` indicates that we are assuming axisymmetry in the
+basis-function expansion; other valid values are ``symmetry='spherical'`` when
+assuming spherical symmetry or ``symmetry=None`` for the general, non-axisymmetric
 computation. If we compare the densities along the ``R=Z`` line as
 
 >>> xs= numpy.linspace(0.,3.,1001)
@@ -500,7 +500,7 @@ Near the end of the orbit integration, the slight differences between
 the original potential and the basis-expansion version cause the two
 orbits to deviate from each other.
 
-If you want to know the basis-function coefficients, you can compute them 
+If you want to know the basis-function coefficients, you can compute them
 using the :ref:`scf_compute_coeffs_spherical <scf_compute_coeffs_sphere>` (for
 spherically-symmetric density distribution),
 :ref:`scf_compute_coeffs_axi <scf_compute_coeffs_axi>` (for
@@ -508,7 +508,7 @@ axisymmetric densities), and :ref:`scf_compute_coeffs
 <scf_compute_coeffs>` (for the general case). The coefficients
 obtained from these functions can be directly fed into the
 :ref:`SCFPotential <scf_potential>` initialization. The basis-function
-expansion scale parameter ``a`` needs to be passed to both 
+expansion scale parameter ``a`` needs to be passed to both
 the ``scf_compute_coeffs_XX`` functions and for the ``SCFPotential``
 itself. Make sure that you use the same ``a``! Note that the general
 functions are quite slow. Equivalent functions for computing the
@@ -516,8 +516,8 @@ coefficients based on an N-body snapshot are also available:
 :ref:`scf_compute_coeffs_spherical_nbody
 <scf_compute_coeffs_sphere_nbody>`, :ref:`scf_compute_coeffs_axi_nbody
 <scf_compute_coeffs_axi_nbody>`, and :ref:`scf_compute_coeffs_nbody
-<scf_compute_coeffs_nbody>`. Note that all of these functions expect ``a`` to 
-be in internal units. The simplest example of computing coefficients 
+<scf_compute_coeffs_nbody>`. Note that all of these functions expect ``a`` to
+be in internal units. The simplest example of computing coefficients
 is that of the Hernquist potential, which is the
 lowest-order basis function. When we compute the first ten radial
 coefficients for this density we obtain that only the lowest-order
@@ -699,7 +699,7 @@ the simulation on it, and align the galaxy face-on using
 >>> pynbody.analysis.halo.center(h1,mode='hyb')
 >>> pynbody.analysis.angmom.faceon(h1, cen=(0,0,0),mode='ssc')
 
-we also convert the simulation to physical units, but set `G=1` by
+we also convert the simulation to physical units, but set ``G=1`` by
 doing the following
 
 >>> s.physical_units()
@@ -716,7 +716,7 @@ into ``galpy`` using
 
 where we further assume that the potential is symmetric around the
 mid-plane (`z=0`). This instantiation will take about ten to fiteen
-minutes. This potential instance has `physical` units (and thus the
+minutes. This potential instance has *physical* units (and thus the
 ``rgrid=`` and ``zgrid=`` inputs are given in kpc if the simulation's
 distance unit is kpc). For example, if we ask for the rotation curve,
 we get the following:
@@ -729,15 +729,15 @@ This can be compared to the rotation curve calculated by ``pynbody``,
 see `here
 <http://pynbody.github.io/pynbody/tutorials/snapshot_manipulation.html>`_.
 
-Because ``galpy`` works best in a system of `natural units` as
+Because ``galpy`` works best in a system of *natural units* as
 explained in :ref:`Units in galpy <units>`, we will convert this
-instance to natural units using the circular velocity at `R=10` kpc,
+instance to natural units using the circular velocity at ``R=10`` kpc,
 which is
 
 >>> spi.vcirc(10.)
 # 294.62723076942245
 
-To convert to `natural units` we do
+To convert to *natural units* we do
 
 >>> spi.normalize(R0=10.)
 
@@ -931,7 +931,7 @@ N-body dynamics using an AMUSE ``BHTree`` in the external
 >>>
 >>> # Convert galpy MWPotential2014 to AMUSE representation
 >>> mwp_amuse= to_amuse(MWPotential2014)
->>> 
+>>>
 >>> # Set initial cluster parameters
 >>> N= 1000
 >>> Mcluster= 1000. | units.MSun
@@ -953,7 +953,7 @@ N-body dynamics using an AMUSE ``BHTree`` in the external
 >>>     stars.vy+= Vinit[1]
 >>>     stars.vz+= Vinit[2]
 >>>     return stars,converter
->>> 
+>>>
 >>> # Setup cluster
 >>> stars,converter= setup_cluster(N,Mcluster,Rcluster,Rinit,Vinit)
 >>> cluster_code= BHTree(converter,number_of_workers=1) #Change number of workers depending no. of CPUs
@@ -964,7 +964,7 @@ N-body dynamics using an AMUSE ``BHTree`` in the external
 >>>
 >>> # Setup channels between stars particle dataset and the cluster code
 >>> channel_from_stars_to_cluster_code= stars.new_channel_to(cluster_code.particles,
->>>                                        attributes=["mass", "x", "y", "z", "vx", "vy", "vz"])    
+>>>                                        attributes=["mass", "x", "y", "z", "vx", "vy", "vz"])
 >>> channel_from_cluster_code_to_stars= cluster_code.particles.new_channel_to(stars,
 >>>                                        attributes=["mass", "x", "y", "z", "vx", "vy", "vz"])
 >>>
@@ -980,11 +980,11 @@ N-body dynamics using an AMUSE ``BHTree`` in the external
 >>> time= 0.0 | tend.unit
 >>> while time<tend:
 >>>     gravity.evolve_model(time+dt)
->>>     # If you want to output or analyze the simulation, you need to copy 
+>>>     # If you want to output or analyze the simulation, you need to copy
 >>>     # stars from cluster_code
 >>>     #channel_from_cluster_code_to_stars.copy()
 >>>
->>>     # If you edited the stars particle set, for example to remove stars from the 
+>>>     # If you edited the stars particle set, for example to remove stars from the
 >>>     # array because they have been kicked far from the cluster, you need to
 >>>     # copy the array back to cluster_code:
 >>>     #channel_from_stars_to_cluster_code.copy()
@@ -1023,7 +1023,7 @@ Currently, the dissipative forces implemented in ``galpy`` include
 :ref:`ChandrasekharDynamicalFrictionForce <dynamfric_potential>`, an
 implementation of the classic Chandrasekhar dynamical-friction
 formula, with recent tweaks to better represent the results from
-*N*-body simulations, and :ref:`NonInertialFrameForce <noninertialframe_potential>`, 
+*N*-body simulations, and :ref:`NonInertialFrameForce <noninertialframe_potential>`,
 the fictitious forces of a non-inertial reference frame.
 
 .. WARNING::
@@ -1047,12 +1047,12 @@ used. Adding a new class of potentials to galpy consists of the
 following series of steps (for steps to add a new wrapper potential,
 also see :ref:`the next section <addwrappot>`):
 
-1. Implement the new potential in a class that inherits from ``galpy.potential.Potential`` (velocity-dependent forces should inherit from ``galpy.potential.DissipativeForce`` instead; see below for a brief discussion on differences in implementing such forces). The new class should have an ``__init__`` method that sets up the necessary parameters for the class. An amplitude parameter ``amp=`` and two units parameters ``ro=`` and ``vo=`` should be taken as an argument for this class and before performing any other setup, the   ``galpy.potential.Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units=)`` method should   be called to setup the amplitude and the system of units; the ``amp_units=`` keyword specifies the physical units of the amplitude parameter (e.g., ``amp_units='velocity2'`` when the units of the amplitude are velocity-squared) To add support for normalizing the   potential to standard galpy units, one can call the   ``galpy.potential.Potential.normalize`` function at the end of the __init__ function. 
+1. Implement the new potential in a class that inherits from ``galpy.potential.Potential`` (velocity-dependent forces should inherit from ``galpy.potential.DissipativeForce`` instead; see below for a brief discussion on differences in implementing such forces). The new class should have an ``__init__`` method that sets up the necessary parameters for the class. An amplitude parameter ``amp=`` and two units parameters ``ro=`` and ``vo=`` should be taken as an argument for this class and before performing any other setup, the   ``galpy.potential.Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units=)`` method should   be called to setup the amplitude and the system of units; the ``amp_units=`` keyword specifies the physical units of the amplitude parameter (e.g., ``amp_units='velocity2'`` when the units of the amplitude are velocity-squared) To add support for normalizing the   potential to standard galpy units, one can call the   ``galpy.potential.Potential.normalize`` function at the end of the __init__ function.
 
 .. _addpypot:
 
   The new potential class should implement some of the following
-  functions: 
+  functions:
 
   * ``_evaluate(self,R,z,phi=0,t=0)`` which evaluates the
     potential itself (*without* the amp factor, which is added in the
@@ -1137,7 +1137,7 @@ also see :ref:`the next section <addwrappot>`):
   galpy codebase upon code pushes will then automatically test all of
   this, streamlining push requests of new potentials.
 
-  A few atrributes need to be set depending on the potential:
+  A few attributes need to be set depending on the potential:
   ``hasC=True`` for potentials for which the forces and potential are
   implemented in C (see below); ``self.hasC_dxdv=True`` for potentials
   for which the (planar) second derivatives are implemented in C;
@@ -1146,12 +1146,12 @@ also see :ref:`the next section <addwrappot>`):
   friction in C); ``self.isNonAxi=True`` for non-axisymmetric
   potentials.
 
-2. To add a C implementation of the potential, implement it in a .c file under ``potential/potential_c_ext``. Look at ``potential/potential_c_ext/LogarithmicHaloPotential.c`` for the right format for 3D, axisymmetric potentials, or at ``potential/potential_c_ext/LopsidedDiskPotential.c`` for 2D, non-axisymmetric potentials. 
+2. To add a C implementation of the potential, implement it in a .c file under ``potential/potential_c_ext``. Look at ``potential/potential_c_ext/LogarithmicHaloPotential.c`` for the right format for 3D, axisymmetric potentials, or at ``potential/potential_c_ext/LopsidedDiskPotential.c`` for 2D, non-axisymmetric potentials.
 
  For orbit integration, the functions such as:
 
  * double LogarithmicHaloPotentialRforce(double R,double Z, double phi,double t,struct potentialArg * potentialArgs)
- * double LogarithmicHaloPotentialzforce(double R,double Z, double phi,double t,struct potentialArg * potentialArgs) 
+ * double LogarithmicHaloPotentialzforce(double R,double Z, double phi,double t,struct potentialArg * potentialArgs)
 
  are most important. For some of the action-angle calculations
 
@@ -1328,7 +1328,7 @@ are required to take an extra keyword argument ``v=`` that gives the
 velocity in cylindrical coordinates (because dissipative forces will
 in general depend on the current velocity). Thus, the steps are:
 
-1. Implement the new dissipative force in a class that inherits from ``galpy.potential.DissipativeForce``. The new class should have an ``__init__`` method that sets up the necessary parameters for the class. An amplitude parameter ``amp=`` and two units parameters ``ro=`` and ``vo=`` should be taken as an argument for this class  and before performing any other setup, the   ``galpy.potential.DissipativeForce.__init__(self,amp=amp,ro=ro,vo=vo,amp_units=)`` method should   be called to setup the amplitude and the system of units; the ``amp_units=`` keyword specifies the physical units of the amplitude parameter (e.g., ``amp_units='mass'`` when the units of the amplitude are mass) 
+1. Implement the new dissipative force in a class that inherits from ``galpy.potential.DissipativeForce``. The new class should have an ``__init__`` method that sets up the necessary parameters for the class. An amplitude parameter ``amp=`` and two units parameters ``ro=`` and ``vo=`` should be taken as an argument for this class  and before performing any other setup, the   ``galpy.potential.DissipativeForce.__init__(self,amp=amp,ro=ro,vo=vo,amp_units=)`` method should   be called to setup the amplitude and the system of units; the ``amp_units=`` keyword specifies the physical units of the amplitude parameter (e.g., ``amp_units='mass'`` when the units of the amplitude are mass)
 
   The new dissipative-force class should implement the following
   functions:

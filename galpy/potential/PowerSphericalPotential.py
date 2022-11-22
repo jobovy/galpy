@@ -1,5 +1,5 @@
 ###############################################################################
-#   PowerSphericalPotential.py: General class for potentials derived from 
+#   PowerSphericalPotential.py: General class for potentials derived from
 #                               densities with two power-laws
 #
 #                                     amp
@@ -8,8 +8,11 @@
 ###############################################################################
 import numpy
 from scipy import special
+
 from ..util import conversion
 from .Potential import Potential
+
+
 class PowerSphericalPotential(Potential):
     """Class that implements spherical potentials that are derived from power-law density models
 
@@ -82,14 +85,14 @@ class PowerSphericalPotential(Potential):
         """
         r2= R**2.+z**2.
         if self.alpha == 2.:
-            return numpy.log(r2)/2. 
+            return numpy.log(r2)/2.
         elif isinstance(r2,(float,int)) and r2 == 0 and self.alpha > 2:
             return -numpy.inf
         else:
             out= -r2**(1.-self.alpha/2.)/(self.alpha-2.)
             if isinstance(r2,numpy.ndarray) and self.alpha > 2:
                 out[r2 == 0]= -numpy.inf
-            return out                
+            return out
 
     def _Rforce(self,R,z,phi=0.,t=0.):
         """
@@ -267,7 +270,7 @@ class PowerSphericalPotential(Potential):
         """
         return -self._amp*(self.alpha-2.*beta)\
             *(3.-self.alpha)/4./numpy.pi/r**(self.alpha+1.-2.*beta)
-    
+
     def _surfdens(self,R,z,phi=0.,t=0.):
         """
         NAME:

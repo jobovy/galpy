@@ -1,8 +1,9 @@
 # Tests of streamgapdf implementation, impulse tests moved to
 # test_streamgapdf_impulse.py
 import numpy
-from scipy import integrate
 import pytest
+from scipy import integrate
+
 sdf_sanders15= None #so we can set this up and then use in other tests
 sdf_sanders15_unp= None #so we can set this up and then use in other tests
 sdfl_sanders15= None #so we can set this up and then use in other tests
@@ -13,11 +14,11 @@ sdfl_sanders15_unp= None #so we can set this up and then use in other tests
 def test_setupimpact_error():
     numpy.random.seed(1)
     #Imports
+    from galpy.actionAngle import actionAngleIsochroneApprox
     from galpy.df import streamgapdf
     from galpy.orbit import Orbit
     from galpy.potential import LogarithmicHaloPotential
-    from galpy.actionAngle import actionAngleIsochroneApprox
-    from galpy.util import conversion #for unit conversions
+    from galpy.util import conversion  # for unit conversions
     lp= LogarithmicHaloPotential(normalize=1.,q=0.9)
     aAI= actionAngleIsochroneApprox(pot=lp,b=0.8)
     prog_unp_peri= Orbit([2.6556151742081835,
@@ -29,7 +30,7 @@ def test_setupimpact_error():
     V0, R0= 220., 8.
     sigv= 0.365*(10./2.)**(1./3.) # km/s
     with pytest.raises(IOError) as excinfo:
-        dum= streamgapdf(sigv/V0,progenitor=prog_unp_peri,pot=lp,aA=aAI,
+        dumb= streamgapdf(sigv/V0,progenitor=prog_unp_peri,pot=lp,aA=aAI,
                          leading=False,nTrackChunks=26,
                          nTrackIterations=1,
                          sigMeanOffset=4.5,
@@ -49,11 +50,11 @@ def test_setupimpact_error():
 
 def test_leadingwtrailingimpact_error():
     #Imports
+    from galpy.actionAngle import actionAngleIsochroneApprox
     from galpy.df import streamgapdf
     from galpy.orbit import Orbit
     from galpy.potential import LogarithmicHaloPotential
-    from galpy.actionAngle import actionAngleIsochroneApprox
-    from galpy.util import conversion #for unit conversions
+    from galpy.util import conversion  # for unit conversions
     lp= LogarithmicHaloPotential(normalize=1.,q=0.9)
     aAI= actionAngleIsochroneApprox(pot=lp,b=0.8)
     prog_unp_peri= Orbit([2.6556151742081835,
@@ -65,7 +66,7 @@ def test_leadingwtrailingimpact_error():
     V0, R0= 220., 8.
     sigv= 0.365*(10./2.)**(1./3.) # km/s
     with pytest.raises(ValueError) as excinfo:
-        dum= streamgapdf(sigv/V0,progenitor=prog_unp_peri,pot=lp,aA=aAI,
+        dumb= streamgapdf(sigv/V0,progenitor=prog_unp_peri,pot=lp,aA=aAI,
                          leading=True,nTrackChunks=26,
                          nTrackIterations=1,
                          sigMeanOffset=4.5,
@@ -84,11 +85,11 @@ def test_leadingwtrailingimpact_error():
 
 def test_trailingwleadingimpact_error():
     #Imports
+    from galpy.actionAngle import actionAngleIsochroneApprox
     from galpy.df import streamgapdf
     from galpy.orbit import Orbit
     from galpy.potential import LogarithmicHaloPotential
-    from galpy.actionAngle import actionAngleIsochroneApprox
-    from galpy.util import conversion #for unit conversions
+    from galpy.util import conversion  # for unit conversions
     lp= LogarithmicHaloPotential(normalize=1.,q=0.9)
     aAI= actionAngleIsochroneApprox(pot=lp,b=0.8)
     prog_unp_peri= Orbit([2.6556151742081835,
@@ -100,7 +101,7 @@ def test_trailingwleadingimpact_error():
     V0, R0= 220., 8.
     sigv= 0.365*(10./2.)**(1./3.) # km/s
     with pytest.raises(ValueError) as excinfo:
-        dum= streamgapdf(sigv/V0,progenitor=prog_unp_peri,pot=lp,aA=aAI,
+        dumb= streamgapdf(sigv/V0,progenitor=prog_unp_peri,pot=lp,aA=aAI,
                          leading=False,nTrackChunks=26,
                          nTrackIterations=1,
                          sigMeanOffset=4.5,
@@ -120,11 +121,11 @@ def test_trailingwleadingimpact_error():
 #Exact setup from Section 5 of Sanders, Bovy, and Erkal (2015); should reproduce those results (which have been checked against a simulation)
 def test_sanders15_setup():
     #Imports
+    from galpy.actionAngle import actionAngleIsochroneApprox
     from galpy.df import streamdf, streamgapdf
     from galpy.orbit import Orbit
     from galpy.potential import LogarithmicHaloPotential
-    from galpy.actionAngle import actionAngleIsochroneApprox
-    from galpy.util import conversion #for unit conversions
+    from galpy.util import conversion  # for unit conversions
     lp= LogarithmicHaloPotential(normalize=1.,q=0.9)
     aAI= actionAngleIsochroneApprox(pot=lp,b=0.8)
     prog_unp_peri= Orbit([2.6556151742081835,
@@ -167,11 +168,11 @@ def test_sanders15_setup():
 
 def test_sanders15_leading_setup():
     #Imports
+    from galpy.actionAngle import actionAngleIsochroneApprox
     from galpy.df import streamdf, streamgapdf
     from galpy.orbit import Orbit
     from galpy.potential import LogarithmicHaloPotential, PlummerPotential
-    from galpy.actionAngle import actionAngleIsochroneApprox
-    from galpy.util import conversion #for unit conversions
+    from galpy.util import conversion  # for unit conversions
     lp= LogarithmicHaloPotential(normalize=1.,q=0.9)
     aAI= actionAngleIsochroneApprox(pot=lp,b=0.8)
     prog_unp_peri= Orbit([2.6556151742081835,
@@ -188,6 +189,7 @@ def test_sanders15_leading_setup():
                              /conversion.mass_in_1010msol(V0,R0),
                          b=0.625/R0)
     import warnings
+
     from galpy.util import galpyWarning
     with warnings.catch_warnings(record=True) as w:
         warnings.simplefilter("always",galpyWarning)
@@ -266,8 +268,8 @@ def test_trackNearImpact():
     assert numpy.fabs(sdf_sanders15._gap_ObsTrack[27,3]*sdf_sanders15._ro
                       +12.) < 1., 'Point along the track near impact near R=16.25 does not have the correct vertical height'
     assert numpy.fabs(sdf_sanders15._gap_ObsTrack[27,4]*sdf_sanders15._vo
-                      -25.) < 5., 'Point along the track near impact near R=16.25 does not have the correct vertical velocity'   
-    assert numpy.fabs(sdf_sanders15._gap_ObsTrack[27,5]-1.2) < .2, 'Point along the track near impact near R=16.25 does not have the correct azimuth'   
+                      -25.) < 5., 'Point along the track near impact near R=16.25 does not have the correct vertical velocity'
+    assert numpy.fabs(sdf_sanders15._gap_ObsTrack[27,5]-1.2) < .2, 'Point along the track near impact near R=16.25 does not have the correct azimuth'
     return None
 
 def test_interpolatedTrackNearImpact():
@@ -310,6 +312,7 @@ def test_kickdv():
 # Test the calculation of the kicks in dO
 def test_kickdO():
     from galpy.util import conversion
+
     # Closest one to the impact point, should be close to zero
     tIndx= numpy.argmin(numpy.fabs(sdf_sanders15._kick_interpolatedThetasTrack\
                                        -sdf_sanders15._impact_angle))
@@ -513,6 +516,7 @@ def test_hernquist():
     # Test that Hernquist kicks are similar to Plummer kicks, but are
     # different in understood ways (...)
     from galpy.util import conversion
+
     # Switch to Hernquist
     V0, R0= 220., 8.
     impactb=0.
@@ -552,6 +556,7 @@ def test_determine_deltav_valueerrort():
     # Test that modeling leading (trailing) impact for trailing (leading) arm
     # raises a ValueError when using _determine_deltav_kick
     from galpy.util import conversion
+
     # Switch to Hernquist
     V0, R0= 220., 8.
     impactb=0.
@@ -666,4 +671,3 @@ def test_rotation_vy():
     assert numpy.fabs(ma[0,1,2]) < 10.**tol, 'Rotation matrix to 90 deg off incorrect'
     assert numpy.fabs(ma[0,2,0]) < 10.**tol, 'Rotation matrix to 90 deg off incorrect'
     assert numpy.fabs(ma[0,2,1]) < 10.**tol, 'Rotation matrix to 90 deg off incorrect'
-

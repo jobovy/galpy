@@ -28,8 +28,8 @@ General instance routines for all df classes
 
 .. _api_sphericaldfs:
 
-**NEW in v1.7** Spherical distribution functions
-------------------------------------------------
+Spherical distribution functions
+---------------------------------
 
 Isotropic and anisotropic distribution functions for spherical
 systems. Documentation of these is limited at this point, but
@@ -77,7 +77,7 @@ General instance routines
    sigmar <sphericaldfsigmar.rst>
    sigmar <sphericaldfsigmat.rst>
    vmomentdensity <sphericaldfvmomentdensity.rst>
-   
+
 Sampling routines
 ^^^^^^^^^^^^^^^^^^^
 
@@ -115,7 +115,7 @@ Two-dimensional, axisymmetric disk distribution functions
 ----------------------------------------------------------
 
 Distribution function for orbits in the plane of a galactic
-disk. 
+disk.
 
 General instance routines
 +++++++++++++++++++++++++
@@ -328,9 +328,9 @@ Helper routines to compute kicks
 The distribution function of a tidal stream using a particle-spray technique
 ----------------------------------------------------------------------------
 
-Model from `Fardal et al. (2015) 
-<https://ui.adsabs.harvard.edu/abs/2015MNRAS.452..301F/abstract>`__ with full 
-details of the ``galpy`` implementation given in `Qian et al. (2022) 
+Model from `Fardal et al. (2015)
+<https://ui.adsabs.harvard.edu/abs/2015MNRAS.452..301F/abstract>`__ with full
+details of the ``galpy`` implementation given in `Qian et al. (2022)
 <https://ui.adsabs.harvard.edu/abs/2022MNRAS.511.2339Q/abstract>`__;
 see :ref:`streamspray-tutorial`.
 

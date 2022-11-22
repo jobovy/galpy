@@ -1,12 +1,15 @@
-import sys
-import os, os.path
-import math as m
-import numpy as nu
 import csv
+import os
+import os.path
+
 import cPickle as pickle
-from galpy.util import plot
-from galpy.potential import MiyamotoNagaiPotential, HernquistPotential, NFWPotential, LogarithmicHaloPotential
+import numpy as nu
+
 from galpy.orbit import Orbit
+from galpy.potential import (HernquistPotential, LogarithmicHaloPotential,
+                             MiyamotoNagaiPotential, NFWPotential)
+from galpy.util import plot
+
 _degtorad= nu.pi/180.
 def calc_es():
     savefilename= 'myes.sav'
@@ -19,7 +22,7 @@ def calc_es():
        #Read data
         dialect= csv.excel
         dialect.skipinitialspace=True
-        reader= csv.reader(open('../data/Dierickx-etal-tab2.txt','r'),delimiter=' ',dialect=dialect)
+        reader= csv.reader(open('../data/Dierickx-etal-tab2.txt'),delimiter=' ',dialect=dialect)
         vxvs= []
         es= []
         vphis= []
@@ -56,14 +59,14 @@ def calc_es():
         np= NFWPotential(a=4.5,normalize=.35)
         hp= HernquistPotential(a=0.6/8,normalize=0.05)
         ts= nu.linspace(0.,20.,10000)
-        
+
         mye= nu.zeros(len(e))
         for ii in range(len(e)):
            #Integrate the orbit
             o= Orbit(vxvv[ii,:],radec=True,vo=220.,ro=8.)
             o.integrate(ts,lp)
             mye[ii]= o.e()
-            
+
 
         #Save
         savefile= open(savefilename,'wb')

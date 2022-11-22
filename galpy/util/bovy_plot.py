@@ -1,7 +1,9 @@
 # renamed to plot.py
-from .plot import *
-from .plot import _MPL_VERSION, _DEFAULTNCNTR, _add_axislabels, _add_ticks
 import warnings
+
+from .plot import *
+from .plot import _DEFAULTNCNTR, _MPL_VERSION, _add_axislabels, _add_ticks
+
 warnings.warn('galpy.util.bovy_plot is being deprecated in favor of galpy.util.plot; functions inside of this module have also changed name, but all functions still exist; please switch to the new import and new function names, because the old import and function names will be removed in v1.9',FutureWarning)
 # Old names
 bovy_end_print= end_print

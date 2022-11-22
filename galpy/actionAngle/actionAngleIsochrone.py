@@ -13,10 +13,14 @@
 ###############################################################################
 import copy
 import warnings
+
 import numpy
-from .actionAngle import actionAngle
+
 from ..potential import IsochronePotential
-from ..util import galpyWarning, conversion
+from ..util import conversion, galpyWarning
+from .actionAngle import actionAngle
+
+
 class actionAngleIsochrone(actionAngle):
     """Action-angle formalism for the isochrone potential, on the Jphi, Jtheta system of Binney & Tremaine (2008)"""
     def __init__(self,*args,**kwargs):
@@ -37,7 +41,7 @@ class actionAngleIsochrone(actionAngle):
            vo= circular velocity at ro (km/s; can be Quantity)
 
         OUTPUT:
-        
+
            instance
 
         HISTORY:
@@ -74,7 +78,7 @@ class actionAngleIsochrone(actionAngle):
         # Check the units
         self._check_consistent_units()
         return None
-    
+
     def _evaluate(self,*args,**kwargs):
         """
         NAME:
@@ -249,7 +253,7 @@ class actionAngleIsochrone(actionAngle):
             pindx= (coseta > 1.)
             coseta[pindx]= 1.
             pindx= (coseta < -1.)
-            coseta[pindx]= -1.           
+            coseta[pindx]= -1.
             eta= numpy.arccos(coseta)
             costheta= z/numpy.sqrt(R**2.+z**2.)
             sintheta= R/numpy.sqrt(R**2.+z**2.)
@@ -271,7 +275,7 @@ class actionAngleIsochrone(actionAngle):
             pindx= (sinpsi > 1.)*numpy.isfinite(sinpsi)
             sinpsi[pindx]= 1.
             pindx= (sinpsi < -1.)*numpy.isfinite(sinpsi)
-            sinpsi[pindx]= -1.           
+            sinpsi[pindx]= -1.
             psi= numpy.arcsin(sinpsi)
             psi[vzindx]= numpy.pi-psi[vzindx]
             # For non-inclined orbits, we set Omega=0 by convention
@@ -283,7 +287,7 @@ class actionAngleIsochrone(actionAngle):
             pindx= (sinu > 1.)*numpy.isfinite(sinu)
             sinu[pindx]= 1.
             pindx= (sinu < -1.)*numpy.isfinite(sinu)
-            sinu[pindx]= -1.           
+            sinu[pindx]= -1.
             u= numpy.arcsin(sinu)
             u[vzindx]= numpy.pi-u[vzindx]
             # For non-inclined orbits, we set Omega=0 by convention

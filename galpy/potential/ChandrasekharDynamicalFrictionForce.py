@@ -1,15 +1,18 @@
 ###############################################################################
-#   ChandrasekharDynamicalFrictionForce: Class that implements the 
+#   ChandrasekharDynamicalFrictionForce: Class that implements the
 #                                        Chandrasekhar dynamical friction
 ###############################################################################
 import copy
 import hashlib
+
 import numpy
-from scipy import special, interpolate
+from scipy import interpolate, special
+
 from ..util import conversion
 from .DissipativeForce import DissipativeForce
-from .Potential import evaluateDensities, _check_c
+from .Potential import _check_c, evaluateDensities
 from .Potential import flatten as flatten_pot
+
 _INVSQRTTWO= 1./numpy.sqrt(2.)
 _INVSQRTPI= 1./numpy.sqrt(numpy.pi)
 class ChandrasekharDynamicalFrictionForce(DissipativeForce):
@@ -110,7 +113,7 @@ class ChandrasekharDynamicalFrictionForce(DissipativeForce):
             sigmar= lambda x: jeans.sigmar(self._dens_pot,x,beta=0.,
                                            use_physical=False)
         self._sigmar_rs_4interp= numpy.linspace(self._minr,self._maxr,nr)
-        self._sigmars_4interp= numpy.array([sigmar(x) 
+        self._sigmars_4interp= numpy.array([sigmar(x)
                                             for x in self._sigmar_rs_4interp])
         if numpy.any(numpy.isnan(self._sigmars_4interp)):
             # Check for case where density is zero, in that case, just
@@ -118,8 +121,8 @@ class ChandrasekharDynamicalFrictionForce(DissipativeForce):
             # (doesn't matter in the end, because force = 0 when dens = 0)
             nanrs_indx= numpy.isnan(self._sigmars_4interp)
             if numpy.all(numpy.array([self._dens(r*_INVSQRTTWO,r*_INVSQRTTWO)
-                                      for r in 
-                                      self._sigmar_rs_4interp[nanrs_indx]]) 
+                                      for r in
+                                      self._sigmar_rs_4interp[nanrs_indx]])
                          == 0.):
                 self._sigmars_4interp[nanrs_indx]= interpolate.interp1d(\
                     self._sigmar_rs_4interp[True^nanrs_indx],
@@ -152,8 +155,8 @@ class ChandrasekharDynamicalFrictionForce(DissipativeForce):
         # Reset the hash
         self._force_hash= None
         return None
-    rhm= property(None,rhm)        
-    
+    rhm= property(None,rhm)
+
     def lnLambda(self,r,v):
         """
         NAME:
@@ -176,7 +179,7 @@ class ChandrasekharDynamicalFrictionForce(DissipativeForce):
                 Lambda= r/self._gamma/self._rhm
             else:
                 Lambda= r/self._gamma/GMvs
-            lnLambda= 0.5*numpy.log(1.+Lambda**2.) 
+            lnLambda= 0.5*numpy.log(1.+Lambda**2.)
         return lnLambda
 
     def _calc_force(self,R,phi,z,v,t):

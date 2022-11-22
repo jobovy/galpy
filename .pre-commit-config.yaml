@@ -1,0 +1,37 @@
+ci:
+    autofix_prs: true
+    autoupdate_schedule: monthly
+
+repos:
+- repo: https://github.com/pre-commit/pre-commit-hooks
+  rev: v4.3.0
+  hooks:
+  - id: trailing-whitespace
+  - id: end-of-file-fixer
+  - id: check-shebang-scripts-are-executable
+  - id: check-executables-have-shebangs
+  - id: check-yaml
+- repo: https://github.com/asottile/pyupgrade
+  rev: v3.2.2
+  hooks:
+  - id: pyupgrade
+    args: [--py38-plus]
+- repo: https://github.com/pre-commit/pygrep-hooks
+  rev: v1.9.0
+  hooks:
+  - id: rst-backticks
+- repo: https://github.com/hadialqattan/pycln
+  rev: v2.1.2
+  hooks:
+    - id: pycln
+- repo: https://github.com/PyCQA/isort
+  rev: 5.10.1
+  hooks:
+  - id: isort
+    name: isort (python)
+- repo: https://github.com/codespell-project/codespell
+  rev: "v2.2.2"
+  hooks:
+    - id: codespell
+      args: ["-L", "thisE,thise,mye,tE,te,hist,ro,sav",
+      "-x","doc/source/_static/try-galpy.js"]

@@ -1,15 +1,18 @@
 ##########################TESTS ON MULTIPLE ORBITS#############################
-import numpy
-import astropy.units as u
-import astropy.coordinates as apycoords
-import pytest
-from galpy import potential
 import astropy
+import astropy.coordinates as apycoords
+import astropy.units as u
+import numpy
+import pytest
+
+from galpy import potential
+
 _APY3= astropy.__version__ > '3'
 
 # Test Orbits initialization
 def test_initialization_vxvv():
     from galpy.orbit import Orbit
+
     # 1D
     vxvvs= [[1.,0.1],[0.1,3.]]
     orbits= Orbit(vxvvs)
@@ -90,7 +93,7 @@ def test_initialization_SkyCoord():
     pmdecs= 20.*(2.*numpy.random.uniform(size=nrand)-1.)*20.*u.mas/u.yr
     vloss= 200.*(2.*numpy.random.uniform(size=nrand)-1.)*u.km/u.s
     # Without any custom coordinate-transformation parameters
-    co= apycoords.SkyCoord(ra=ras,dec=decs,distance=dists, 
+    co= apycoords.SkyCoord(ra=ras,dec=decs,distance=dists,
                            pm_ra_cosdec=pmras,pm_dec=pmdecs,
                            radial_velocity=vloss,
                            frame='icrs')
@@ -107,7 +110,7 @@ def test_initialization_SkyCoord():
         assert numpy.fabs(orbits.phi()[ii]-to.phi()) < 1e-10, 'Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected'
     # With custom coordinate-transformation parameters
     v_sun= apycoords.CartesianDifferential([-11.1,215.,3.25]*u.km/u.s)
-    co= apycoords.SkyCoord(ra=ras,dec=decs,distance=dists, 
+    co= apycoords.SkyCoord(ra=ras,dec=decs,distance=dists,
                            pm_ra_cosdec=pmras,pm_dec=pmdecs,
                            radial_velocity=vloss,
                            frame='icrs',
@@ -126,7 +129,7 @@ def test_initialization_SkyCoord():
         assert numpy.fabs(orbits.phi()[ii]-to.phi()) < 1e-10, 'Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected'
     return None
 
-# Tests that integrating Orbits agrees with integrating multiple Orbit 
+# Tests that integrating Orbits agrees with integrating multiple Orbit
 # instances
 def test_integration_1d():
     from galpy.orbit import Orbit
@@ -147,7 +150,7 @@ def test_integration_1d():
         assert numpy.amax(numpy.fabs(orbits_list[ii].x(times)-orbits.x(times)[ii])) < 1e-10, 'Integration of multiple orbits as Orbits does not agree with integrating multiple orbits'
         assert numpy.amax(numpy.fabs(orbits_list[ii].vx(times)-orbits.vx(times)[ii])) < 1e-10, 'Integration of multiple orbits as Orbits does not agree with integrating multiple orbits'
     return None
-    
+
 def test_integration_2d():
     from galpy.orbit import Orbit
     times= numpy.linspace(0.,10.,1001)
@@ -171,7 +174,7 @@ def test_integration_2d():
         assert numpy.amax(numpy.fabs(orbits_list[ii].vT(times)-orbits.vT(times)[ii])) < 1e-10, 'Integration of multiple orbits as Orbits does not agree with integrating multiple orbits'
         assert numpy.amax(numpy.fabs(((orbits_list[ii].phi(times)-orbits.phi(times)[ii]+numpy.pi) % (2.*numpy.pi)) - numpy.pi)) < 1e-10, 'Integration of multiple orbits as Orbits does not agree with integrating multiple orbits'
     return None
-    
+
 def test_integration_p3d():
     # 3D phase-space integration
     from galpy.orbit import Orbit
@@ -191,7 +194,7 @@ def test_integration_p3d():
         assert numpy.amax(numpy.fabs(orbits_list[ii].vR(times)-orbits.vR(times)[ii])) < 1e-10, 'Integration of multiple orbits as Orbits does not agree with integrating multiple orbits'
         assert numpy.amax(numpy.fabs(orbits_list[ii].vT(times)-orbits.vT(times)[ii])) < 1e-10, 'Integration of multiple orbits as Orbits does not agree with integrating multiple orbits'
     return None
-    
+
 def test_integration_3d():
     from galpy.orbit import Orbit
     times= numpy.linspace(0.,10.,1001)
@@ -217,7 +220,7 @@ def test_integration_3d():
         assert numpy.amax(numpy.fabs(orbits_list[ii].vT(times)-orbits.vT(times)[ii])) < 1e-10, 'Integration of multiple orbits as Orbits does not agree with integrating multiple orbits'
         assert numpy.amax(numpy.fabs((((orbits_list[ii].phi(times)-orbits.phi(times)[ii])+numpy.pi) % (2.*numpy.pi)) - numpy.pi)) < 1e-10, 'Integration of multiple orbits as Orbits does not agree with integrating multiple orbits'
     return None
-    
+
 def test_integration_p5d():
     # 5D phase-space integration
     from galpy.orbit import Orbit
@@ -239,8 +242,8 @@ def test_integration_p5d():
         assert numpy.amax(numpy.fabs(orbits_list[ii].vR(times)-orbits.vR(times)[ii])) < 1e-10, 'Integration of multiple orbits as Orbits does not agree with integrating multiple orbits'
         assert numpy.amax(numpy.fabs(orbits_list[ii].vT(times)-orbits.vT(times)[ii])) < 1e-10, 'Integration of multiple orbits as Orbits does not agree with integrating multiple orbits'
     return None
-    
-# Tests that integrating Orbits agrees with integrating multiple Orbit 
+
+# Tests that integrating Orbits agrees with integrating multiple Orbit
 # instances when using parallel_map Python parallelization
 def test_integration_forcemap_1d():
     from galpy.orbit import Orbit
@@ -260,7 +263,7 @@ def test_integration_forcemap_1d():
         assert numpy.amax(numpy.fabs(orbits_list[ii].x(times)-orbits.x(times)[ii])) < 1e-10, 'Integration of multiple orbits as Orbits does not agree with integrating multiple orbits'
         assert numpy.amax(numpy.fabs(orbits_list[ii].vx(times)-orbits.vx(times)[ii])) < 1e-10, 'Integration of multiple orbits as Orbits does not agree with integrating multiple orbits'
     return None
-    
+
 def test_integration_forcemap_2d():
     from galpy.orbit import Orbit
     times= numpy.linspace(0.,10.,1001)
@@ -283,7 +286,7 @@ def test_integration_forcemap_2d():
         assert numpy.amax(numpy.fabs(orbits_list[ii].vT(times)-orbits.vT(times)[ii])) < 1e-10, 'Integration of multiple orbits as Orbits does not agree with integrating multiple orbits'
         assert numpy.amax(numpy.fabs((((orbits_list[ii].phi(times)-orbits.phi(times)[ii])+numpy.pi) % (2.*numpy.pi)) - numpy.pi)) < 1e-10, 'Integration of multiple orbits as Orbits does not agree with integrating multiple orbits'
     return None
-    
+
 def test_integration_forcemap_3d():
     from galpy.orbit import Orbit
     times= numpy.linspace(0.,10.,1001)
@@ -333,7 +336,7 @@ def test_integration_dxdv_2d():
         o.integrate_dxdv(tdxdv,times,lp,method=integrator)
     assert numpy.amax(numpy.fabs(orbits.getOrbit_dxdv()-numpy.array([o.getOrbit_dxdv() for o in orbits_list]))) < 1e-8, 'Integration of the phase-space volume of multiple orbits as Orbits does not agree with integrating the phase-space volume of multiple orbits'
     return None
-    
+
 def test_integration_dxdv_2d_rectInOut():
     from galpy.orbit import Orbit
     lp= potential.LogarithmicHaloPotential(normalize=1.)
@@ -362,7 +365,7 @@ def test_integration_dxdv_2d_rectInOut():
                          rectIn=True,rectOut=True)
     assert numpy.amax(numpy.fabs(orbits.getOrbit_dxdv()-numpy.array([o.getOrbit_dxdv() for o in orbits_list]))) < 1e-8, 'Integration of the phase-space volume of multiple orbits as Orbits does not agree with integrating the phase-space volume of multiple orbits'
     return None
-    
+
 # Test slicing of orbits
 def test_slice_singleobject():
     from galpy.orbit import Orbit
@@ -384,7 +387,7 @@ def test_slice_singleobject():
         assert numpy.amax(numpy.fabs(orbits[ii].vT(times)-orbits.vT(times)[ii])) < 1e-10, 'Integration of multiple orbits as Orbits does not agree with integrating multiple orbits'
         assert numpy.amax(numpy.fabs((((orbits[ii].phi(times)-orbits.phi(times)[ii])+numpy.pi) % (2.*numpy.pi)) - numpy.pi)) < 1e-10, 'Integration of multiple orbits as Orbits does not agree with integrating multiple orbits'
     return None
-    
+
 # Test slicing of orbits
 def test_slice_multipleobjects():
     from galpy.orbit import Orbit
@@ -452,7 +455,7 @@ def test_slice_singleobject_multidim():
         assert numpy.amax(numpy.fabs(orbits[ii].vT(times)-orbits.vT(times)[ii])) < 1e-10, 'Integration of multiple orbits as Orbits does not agree with integrating multiple orbits'
         assert numpy.amax(numpy.fabs((((orbits[ii].phi(times)-orbits.phi(times)[ii])+numpy.pi) % (2.*numpy.pi)) - numpy.pi)) < 1e-10, 'Integration of multiple orbits as Orbits does not agree with integrating multiple orbits'
     return None
-    
+
 # Test slicing of orbits with non-trivial shapes
 def test_slice_multipleobjects_multidim():
     from galpy.orbit import Orbit
@@ -501,16 +504,18 @@ def test_slice_multipleobjects_multidim():
     return None
 
 def test_slice_integratedorbit_wrapperpot_367():
-    # Test related to issue 367: slicing orbits with a potential that includes 
+    # Test related to issue 367: slicing orbits with a potential that includes
     # a wrapper potential (from Ted Mackereth)
     from galpy.orbit import Orbit
-    from galpy.potential import DehnenSmoothWrapperPotential, \
-        DehnenBarPotential, LogarithmicHaloPotential
+    from galpy.potential import (DehnenBarPotential,
+                                 DehnenSmoothWrapperPotential,
+                                 LogarithmicHaloPotential)
+
     #initialise a wrapper potential
     tform= -10.
-    tsteady= 5. 
-    omega= 1.85 
-    angle=25./180.*numpy.pi 
+    tsteady= 5.
+    omega= 1.85
+    angle=25./180.*numpy.pi
     dp= DehnenBarPotential(omegab=omega,rb=3.5/8.,Af=(1./75.),
                            tform=tform,tsteady=tsteady,barphi=angle)
     lhp=LogarithmicHaloPotential(normalize=1.)
@@ -565,12 +570,13 @@ def test_slice_physical_issue385():
         assert numpy.amax(numpy.fabs(orbits[ii].vT()-orbits.vT()[ii])) < 1e-10, 'Integration of multiple orbits as Orbits does not agree with integrating multiple orbits'
         assert numpy.amax(numpy.fabs((((orbits[ii].phi()-orbits.phi()[ii])+numpy.pi) % (2.*numpy.pi)) - numpy.pi)) < 1e-10, 'Integration of multiple orbits as Orbits does not agree with integrating multiple orbits'
     return None
-    
+
 
 # Test that initializing Orbits with orbits with different phase-space
 # dimensions raises an error
 def test_initialize_diffphasedim_error():
     from galpy.orbit import Orbit
+
     # 2D with 3D
     with pytest.raises(RuntimeError) as excinfo:
         Orbit([[1.,0.1],[1.,0.1,1.]])
@@ -610,7 +616,7 @@ def test_initialize_listorbits_error():
         Orbit([Orbit([[1.,0.1],[1.,0.1]]),
                Orbit([[1.,0.1],[1.,0.1]])])
     return None
-               
+
 # Test that initializing Orbits with an array of the wrong shape raises an error, that is, the phase-space dim part is > 6 or 1
 def test_initialize_wrongshape():
     from galpy.orbit import Orbit
@@ -716,12 +722,12 @@ def test_orbits_stringsolarmotion():
     orbits= Orbit(orbits_list,solarmotion='hogg')
     assert numpy.all(numpy.fabs(orbits._solarmotion-numpy.array([-10.1,4.0,6.7])) < 1e-10), 'String solarmotion not parsed correcty'
     return None
-                     
+
 def test_orbits_dim_2dPot_3dOrb():
     # Test that orbit integration throws an error when using a potential that
     # is lower dimensional than the orbit (using ~Plevne's example)
-    from galpy.util import conversion
     from galpy.orbit import Orbit
+    from galpy.util import conversion
     b_p= potential.PowerSphericalPotentialwCutoff(\
         alpha=1.8,rc=1.9/8.,normalize=0.05)
     ell_p= potential.EllipticalDiskPotential()
@@ -739,8 +745,8 @@ def test_orbits_dim_2dPot_3dOrb():
 def test_orbit_dim_1dPot_3dOrb():
     # Test that orbit integration throws an error when using a potential that
     # is lower dimensional than the orbit, for a 1D potential
-    from galpy.util import conversion
     from galpy.orbit import Orbit
+    from galpy.util import conversion
     b_p= potential.PowerSphericalPotentialwCutoff(\
         alpha=1.8,rc=1.9/8.,normalize=0.05)
     pota= potential.RZToverticalPotential(b_p,1.1)
@@ -1015,7 +1021,7 @@ def test_coordinate_interpolation():
             assert numpy.all(numpy.fabs(os.SkyCoord(itimes[1]).radial_velocity[ii]-list_os[ii].SkyCoord(itimes[1]).radial_velocity).to(u.km/u.s).value < 1e-10), 'Evaluating Orbits SkyCoord does not agree with Orbit'
     return None
 
-# Test that evaluating coordinate functions for integrated orbits works, 
+# Test that evaluating coordinate functions for integrated orbits works,
 # for 5D orbits
 def test_coordinate_interpolation_5d():
     from galpy.orbit import Orbit
@@ -1082,7 +1088,7 @@ def test_coordinate_interpolation_5d():
         os.phi()
     return None
 
-# Test that evaluating coordinate functions for integrated orbits works, 
+# Test that evaluating coordinate functions for integrated orbits works,
 # for 4D orbits
 def test_coordinate_interpolation_4d():
     from galpy.orbit import Orbit
@@ -1145,7 +1151,7 @@ def test_coordinate_interpolation_4d():
         os.vz()
     return None
 
-# Test that evaluating coordinate functions for integrated orbits works, 
+# Test that evaluating coordinate functions for integrated orbits works,
 # for 3D orbits
 def test_coordinate_interpolation_3d():
     from galpy.orbit import Orbit
@@ -1208,7 +1214,7 @@ def test_coordinate_interpolation_3d():
         os.vy()
     return None
 
-# Test that evaluating coordinate functions for integrated orbits works, 
+# Test that evaluating coordinate functions for integrated orbits works,
 # for 2D orbits
 def test_coordinate_interpolation_2d():
     from galpy.orbit import Orbit
@@ -1345,7 +1351,7 @@ def test_coordinate_interpolation_oneorbit():
         assert numpy.all(numpy.fabs(((os.phi(itimes[1])[ii]-list_os[ii].phi(itimes[1])+numpy.pi) % (2.*numpy.pi)) - numpy.pi) < 1e-10), 'Evaluating Orbits phi does not agree with Orbit'
     return None
 
-# Test that an error is raised when evaluating an orbit outside of the 
+# Test that an error is raised when evaluating an orbit outside of the
 # integration range
 def test_interpolate_outsiderange():
     from galpy.orbit import Orbit
@@ -1359,7 +1365,7 @@ def test_interpolate_outsiderange():
     vzs= 0.2*(2.*numpy.random.uniform(size=nrand)-1.)
     phis= 2.*numpy.pi*(2.*numpy.random.uniform(size=nrand)-1.)
     os= Orbit(list(zip(Rs,vRs,vTs,zs,vzs,phis)))
-    # Integrate all                                                            
+    # Integrate all
     times= numpy.linspace(0.,10.,1001)
     os.integrate(times,MWPotential2014)
     with pytest.raises(ValueError) as excinfo:
@@ -1626,6 +1632,7 @@ def test_output_reshape():
 def test_output_specialshapes():
     # Test that the output shape is correct and that the shaped output is correct, for 'special' inputs (single objects, ...)
     from galpy.orbit import Orbit
+
     # vxvv= list of [R,vR,vT,z,...] should be shape == () and scalar output
     os= Orbit([1.,0.1,1.,0.1,0.,0.1])
     assert os.shape == (), 'Shape of Orbits with list of [R,vR,...] input is not empty'
@@ -1676,7 +1683,7 @@ def test_output_specialshapes():
     return None
 
 def test_call_issue256():
-    # Same as for Orbit instances: non-integrated orbit with t=/=0 should return eror
+    # Same as for Orbit instances: non-integrated orbit with t=/=0 should return error
     from galpy.orbit import Orbit
     o = Orbit(vxvv=[[5.,-1.,0.8, 3, -0.1, 0]])
     # no integration of the orbit
@@ -1724,8 +1731,9 @@ def test_energy_jacobi_angmom():
 
 def _check_energy_jacobi_angmom(os,list_os):
     nrand= len(os)
-    from galpy.potential import MWPotential2014, SpiralArmsPotential, \
-        DehnenBarPotential, DoubleExponentialDiskPotential
+    from galpy.potential import (DehnenBarPotential,
+                                 DoubleExponentialDiskPotential,
+                                 MWPotential2014, SpiralArmsPotential)
     sp= SpiralArmsPotential()
     dp= DehnenBarPotential()
     lp= DoubleExponentialDiskPotential(normalize=1.)
@@ -1825,10 +1833,12 @@ def test_angmom_errors():
 # Test whether Orbits evaluation methods sound warning when called with
 # unitless time when orbit is integrated with unitfull times
 def test_orbits_method_integrate_t_asQuantity_warning():
-    from galpy.potential import MWPotential2014
-    from galpy.orbit import Orbit
     from astropy import units
     from test_orbit import check_integrate_t_asQuantity_warning
+
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential2014
+
     # Setup and integrate orbit
     ts= numpy.linspace(0.,10.,1001)*units.Gyr
     o= Orbit([[1.1,0.1,1.1,0.1,0.1,0.2],
@@ -2060,9 +2070,9 @@ def test_plotting():
     return None
 
 def test_integrate_method_warning():
-    """ Test Orbits.integrate raises an error if method is unvalid """
-    from galpy.potential import MWPotential2014
+    """ Test Orbits.integrate raises an error if method is invalid """
     from galpy.orbit import Orbit
+    from galpy.potential import MWPotential2014
     o = Orbit([Orbit(vxvv=[1.0, 0.1, 0.1, 0.5, 0.1, 0.0]),
                 Orbit(vxvv=[1.0, 0.1, 0.1, 0.5, 0.1, 0.0])])
     t = numpy.arange(0.0, 10.0, 0.001)
@@ -2072,6 +2082,7 @@ def test_integrate_method_warning():
 # Test that fallback onto Python integrators works for Orbits
 def test_integrate_Cfallback_symplec():
     from test_potential import BurkertPotentialNoC
+
     from galpy.orbit import Orbit
     times= numpy.linspace(0.,10.,1001)
     orbits_list= [Orbit([1.,0.1,1.]),Orbit([.9,0.3,1.]),
@@ -2090,9 +2101,10 @@ def test_integrate_Cfallback_symplec():
         assert numpy.amax(numpy.fabs(orbits_list[ii].vR(times)-orbits.vR(times)[ii])) < 1e-10, 'Integration of multiple orbits as Orbits does not agree with integrating multiple orbits'
         assert numpy.amax(numpy.fabs(orbits_list[ii].vT(times)-orbits.vT(times)[ii])) < 1e-10, 'Integration of multiple orbits as Orbits does not agree with integrating multiple orbits'
     return None
-    
+
 def test_integrate_Cfallback_nonsymplec():
     from test_potential import BurkertPotentialNoC
+
     from galpy.orbit import Orbit
     times= numpy.linspace(0.,10.,1001)
     orbits_list= [Orbit([1.,0.1,1.]),Orbit([.9,0.3,1.]),
@@ -2111,7 +2123,7 @@ def test_integrate_Cfallback_nonsymplec():
         assert numpy.amax(numpy.fabs(orbits_list[ii].vR(times)-orbits.vR(times)[ii])) < 1e-10, 'Integration of multiple orbits as Orbits does not agree with integrating multiple orbits'
         assert numpy.amax(numpy.fabs(orbits_list[ii].vT(times)-orbits.vT(times)[ii])) < 1e-10, 'Integration of multiple orbits as Orbits does not agree with integrating multiple orbits'
     return None
-    
+
 # Test flippingg an orbit
 def setup_orbits_flip(tp,ro,vo,zo,solarmotion,axi=False):
     from galpy.orbit import Orbit
@@ -2318,7 +2330,7 @@ def test_flip_inplace_integrated_evaluated():
             o.integrate(ts,llp)
             of.integrate(ts,llp)
         # Evaluate, make sure it is at an interpolated time!
-        dum= of.R(0.52)
+        dumb= of.R(0.52)
         # Now flip
         of.flip(inplace=True)
         # Just check one time, allows code duplication!
@@ -2464,10 +2476,10 @@ def test_EccZmaxRperiRap_analytic_againstorbit_3d():
         os.rap(analytic=True)
     for type in ['spherical','staeckel','adiabatic']:
         for ii in range(nrand):
-            assert numpy.all(numpy.fabs(os.e(pot=MWPotential2014,analytic=True,type=type)[ii]-list_os[ii].e(pot=MWPotential2014,analytic=True,type=type)) < 1e-10), 'Evaluating Orbits e analytically does not agree with Orbit for type={}'.format(type)
-        assert numpy.all(numpy.fabs(os.zmax(pot=MWPotential2014,analytic=True,type=type)[ii]-list_os[ii].zmax(pot=MWPotential2014,analytic=True,type=type)) < 1e-10), 'Evaluating Orbits zmax analytically does not agree with Orbit for type={}'.format(type)
-        assert numpy.all(numpy.fabs(os.rperi(pot=MWPotential2014,analytic=True,type=type)[ii]-list_os[ii].rperi(pot=MWPotential2014,analytic=True,type=type)) < 1e-10), 'Evaluating Orbits rperi analytically does not agree with Orbit for type={}'.format(type)
-        assert numpy.all(numpy.fabs(os.rap(pot=MWPotential2014,analytic=True,type=type)[ii]-list_os[ii].rap(pot=MWPotential2014,analytic=True,type=type)) < 1e-10), 'Evaluating Orbits rap analytically does not agree with Orbit for type={}'.format(type)
+            assert numpy.all(numpy.fabs(os.e(pot=MWPotential2014,analytic=True,type=type)[ii]-list_os[ii].e(pot=MWPotential2014,analytic=True,type=type)) < 1e-10), f'Evaluating Orbits e analytically does not agree with Orbit for type={type}'
+        assert numpy.all(numpy.fabs(os.zmax(pot=MWPotential2014,analytic=True,type=type)[ii]-list_os[ii].zmax(pot=MWPotential2014,analytic=True,type=type)) < 1e-10), f'Evaluating Orbits zmax analytically does not agree with Orbit for type={type}'
+        assert numpy.all(numpy.fabs(os.rperi(pot=MWPotential2014,analytic=True,type=type)[ii]-list_os[ii].rperi(pot=MWPotential2014,analytic=True,type=type)) < 1e-10), f'Evaluating Orbits rperi analytically does not agree with Orbit for type={type}'
+        assert numpy.all(numpy.fabs(os.rap(pot=MWPotential2014,analytic=True,type=type)[ii]-list_os[ii].rap(pot=MWPotential2014,analytic=True,type=type)) < 1e-10), f'Evaluating Orbits rap analytically does not agree with Orbit for type={type}'
     return None
 
 def test_EccZmaxRperiRap_analytic_againstorbit_2d():
@@ -2482,13 +2494,13 @@ def test_EccZmaxRperiRap_analytic_againstorbit_2d():
     os= Orbit(list(zip(Rs,vRs,vTs,phis)))
     list_os= [Orbit([R,vR,vT,phi])
               for R,vR,vT,phi in zip(Rs,vRs,vTs,phis)]
-    # No matter the type, should always be using adiabtic, not specified in 
+    # No matter the type, should always be using adiabtic, not specified in
     # Orbit
     for type in ['spherical','staeckel','adiabatic']:
         for ii in range(nrand):
-            assert numpy.all(numpy.fabs(os.e(pot=MWPotential2014,analytic=True,type=type)[ii]-list_os[ii].e(pot=MWPotential2014,analytic=True)) < 1e-10), 'Evaluating Orbits e analytically does not agree with Orbit for type={}'.format(type)
-        assert numpy.all(numpy.fabs(os.rperi(pot=MWPotential2014,analytic=True,type=type)[ii]-list_os[ii].rperi(pot=MWPotential2014,analytic=True,type=type)) < 1e-10), 'Evaluating Orbits rperi analytically does not agree with Orbit for type={}'.format(type)
-        assert numpy.all(numpy.fabs(os.rap(pot=MWPotential2014,analytic=True,type=type)[ii]-list_os[ii].rap(pot=MWPotential2014,analytic=True)) < 1e-10), 'Evaluating Orbits rap analytically does not agree with Orbit for type={}'.format(type)
+            assert numpy.all(numpy.fabs(os.e(pot=MWPotential2014,analytic=True,type=type)[ii]-list_os[ii].e(pot=MWPotential2014,analytic=True)) < 1e-10), f'Evaluating Orbits e analytically does not agree with Orbit for type={type}'
+        assert numpy.all(numpy.fabs(os.rperi(pot=MWPotential2014,analytic=True,type=type)[ii]-list_os[ii].rperi(pot=MWPotential2014,analytic=True,type=type)) < 1e-10), f'Evaluating Orbits rperi analytically does not agree with Orbit for type={type}'
+        assert numpy.all(numpy.fabs(os.rap(pot=MWPotential2014,analytic=True,type=type)[ii]-list_os[ii].rap(pot=MWPotential2014,analytic=True)) < 1e-10), f'Evaluating Orbits rap analytically does not agree with Orbit for type={type}'
     return None
 
 def test_rguiding():
@@ -2608,7 +2620,7 @@ def test_LcE():
         os.LcE(pot=MWPotential2014+potential.DehnenBarPotential())
     return None
 
-# Test that the actions, frequencies/periods, and angles calculated 
+# Test that the actions, frequencies/periods, and angles calculated
 # analytically by Orbits agrees with that calculated analytically using Orbit
 def test_actionsFreqsAngles_againstorbit_3d():
     from galpy.orbit import Orbit
@@ -2659,28 +2671,28 @@ def test_actionsFreqsAngles_againstorbit_3d():
     tol['staeckel']=-12.
     tol['adiabatic']= -12.
     tol['isochroneApprox']= -2.
-    # For now we skip adiabatic here, because frequencies and angles not 
+    # For now we skip adiabatic here, because frequencies and angles not
     # implemented yet
 #    for type in ['spherical','staeckel','adiabatic']:
     for type in ['spherical','staeckel','isochroneApprox']:
         for ii in range(nrand):
-            assert numpy.all(numpy.fabs(os.jr(pot=MWPotential2014,analytic=True,type=type,b=0.8)[ii]/list_os[ii].jr(pot=MWPotential2014,analytic=True,type=type,b=0.8)-1.) < 10.**tol[type]), 'Evaluating Orbits jr analytically does not agree with Orbit for type={}'.format(type)
-            assert numpy.all(numpy.fabs(os.jp(pot=MWPotential2014,analytic=True,type=type,b=0.8)[ii]/list_os[ii].jp(pot=MWPotential2014,analytic=True,type=type,b=0.8)-1.) < 10.**tol[type]), 'Evaluating Orbits jp analytically does not agree with Orbit for type={}'.format(type)
-            assert numpy.all(numpy.fabs(os.jz(pot=MWPotential2014,analytic=True,type=type,b=0.8)[ii]/list_os[ii].jz(pot=MWPotential2014,analytic=True,type=type,b=0.8)-1.) < 10.**tol[type]), 'Evaluating Orbits jz analytically does not agree with Orbit for type={}'.format(type)
-            assert numpy.all(numpy.fabs(os.wr(pot=MWPotential2014,analytic=True,type=type,b=0.8)[ii]/list_os[ii].wr(pot=MWPotential2014,analytic=True,type=type,b=0.8)-1.) < 1e-10), 'Evaluating Orbits wr analytically does not agree with Orbit for type={}'.format(type)
-            assert numpy.all(numpy.fabs(os.wp(pot=MWPotential2014,analytic=True,type=type,b=0.8)[ii]/list_os[ii].wp(pot=MWPotential2014,analytic=True,type=type,b=0.8)-1.) < 1e-10), 'Evaluating Orbits wp analytically does not agree with Orbit for type={}'.format(type)
-            assert numpy.all(numpy.fabs(os.wz(pot=MWPotential2014,analytic=True,type=type,b=0.8)[ii]/list_os[ii].wz(pot=MWPotential2014,analytic=True,type=type,b=0.8)-1.) < 1e-10), 'Evaluating Orbits wz analytically does not agree with Orbit for type={}'.format(type)
-            assert numpy.all(numpy.fabs(os.Or(pot=MWPotential2014,analytic=True,type=type,b=0.8)[ii]/list_os[ii].Or(pot=MWPotential2014,analytic=True,type=type,b=0.8)-1.) < 1e-10), 'Evaluating Orbits Or analytically does not agree with Orbit for type={}'.format(type)
-            assert numpy.all(numpy.fabs(os.Op(pot=MWPotential2014,analytic=True,type=type,b=0.8)[ii]/list_os[ii].Op(pot=MWPotential2014,analytic=True,type=type,b=0.8)-1.) < 1e-10), 'Evaluating Orbits Op analytically does not agree with Orbit for type={}'.format(type)
-            assert numpy.all(numpy.fabs(os.Oz(pot=MWPotential2014,analytic=True,type=type,b=0.8)[ii]/list_os[ii].Oz(pot=MWPotential2014,analytic=True,type=type,b=0.8)-1.) < 1e-10), 'Evaluating Orbits Oz analytically does not agree with Orbit for type={}'.format(type)
-            assert numpy.all(numpy.fabs(os.Tr(pot=MWPotential2014,analytic=True,type=type,b=0.8)[ii]/list_os[ii].Tr(pot=MWPotential2014,analytic=True,type=type,b=0.8)-1.) < 1e-10), 'Evaluating Orbits Tr analytically does not agree with Orbit for type={}'.format(type)
-            assert numpy.all(numpy.fabs(os.Tp(pot=MWPotential2014,analytic=True,type=type,b=0.8)[ii]/list_os[ii].Tp(pot=MWPotential2014,analytic=True,type=type,b=0.8)-1.) < 1e-10), 'Evaluating Orbits Tp analytically does not agree with Orbit for type={}'.format(type)
-            assert numpy.all(numpy.fabs(os.TrTp(pot=MWPotential2014,analytic=True,type=type,b=0.8)[ii]/list_os[ii].TrTp(pot=MWPotential2014,analytic=True,type=type,b=0.8)-1.) < 1e-10), 'Evaluating Orbits TrTp analytically does not agree with Orbit for type={}'.format(type)
-            assert numpy.all(numpy.fabs(os.Tz(pot=MWPotential2014,analytic=True,type=type,b=0.8)[ii]/list_os[ii].Tz(pot=MWPotential2014,analytic=True,type=type,b=0.8)-1.) < 1e-10), 'Evaluating Orbits Tz analytically does not agree with Orbit for type={}'.format(type)
+            assert numpy.all(numpy.fabs(os.jr(pot=MWPotential2014,analytic=True,type=type,b=0.8)[ii]/list_os[ii].jr(pot=MWPotential2014,analytic=True,type=type,b=0.8)-1.) < 10.**tol[type]), f'Evaluating Orbits jr analytically does not agree with Orbit for type={type}'
+            assert numpy.all(numpy.fabs(os.jp(pot=MWPotential2014,analytic=True,type=type,b=0.8)[ii]/list_os[ii].jp(pot=MWPotential2014,analytic=True,type=type,b=0.8)-1.) < 10.**tol[type]), f'Evaluating Orbits jp analytically does not agree with Orbit for type={type}'
+            assert numpy.all(numpy.fabs(os.jz(pot=MWPotential2014,analytic=True,type=type,b=0.8)[ii]/list_os[ii].jz(pot=MWPotential2014,analytic=True,type=type,b=0.8)-1.) < 10.**tol[type]), f'Evaluating Orbits jz analytically does not agree with Orbit for type={type}'
+            assert numpy.all(numpy.fabs(os.wr(pot=MWPotential2014,analytic=True,type=type,b=0.8)[ii]/list_os[ii].wr(pot=MWPotential2014,analytic=True,type=type,b=0.8)-1.) < 1e-10), f'Evaluating Orbits wr analytically does not agree with Orbit for type={type}'
+            assert numpy.all(numpy.fabs(os.wp(pot=MWPotential2014,analytic=True,type=type,b=0.8)[ii]/list_os[ii].wp(pot=MWPotential2014,analytic=True,type=type,b=0.8)-1.) < 1e-10), f'Evaluating Orbits wp analytically does not agree with Orbit for type={type}'
+            assert numpy.all(numpy.fabs(os.wz(pot=MWPotential2014,analytic=True,type=type,b=0.8)[ii]/list_os[ii].wz(pot=MWPotential2014,analytic=True,type=type,b=0.8)-1.) < 1e-10), f'Evaluating Orbits wz analytically does not agree with Orbit for type={type}'
+            assert numpy.all(numpy.fabs(os.Or(pot=MWPotential2014,analytic=True,type=type,b=0.8)[ii]/list_os[ii].Or(pot=MWPotential2014,analytic=True,type=type,b=0.8)-1.) < 1e-10), f'Evaluating Orbits Or analytically does not agree with Orbit for type={type}'
+            assert numpy.all(numpy.fabs(os.Op(pot=MWPotential2014,analytic=True,type=type,b=0.8)[ii]/list_os[ii].Op(pot=MWPotential2014,analytic=True,type=type,b=0.8)-1.) < 1e-10), f'Evaluating Orbits Op analytically does not agree with Orbit for type={type}'
+            assert numpy.all(numpy.fabs(os.Oz(pot=MWPotential2014,analytic=True,type=type,b=0.8)[ii]/list_os[ii].Oz(pot=MWPotential2014,analytic=True,type=type,b=0.8)-1.) < 1e-10), f'Evaluating Orbits Oz analytically does not agree with Orbit for type={type}'
+            assert numpy.all(numpy.fabs(os.Tr(pot=MWPotential2014,analytic=True,type=type,b=0.8)[ii]/list_os[ii].Tr(pot=MWPotential2014,analytic=True,type=type,b=0.8)-1.) < 1e-10), f'Evaluating Orbits Tr analytically does not agree with Orbit for type={type}'
+            assert numpy.all(numpy.fabs(os.Tp(pot=MWPotential2014,analytic=True,type=type,b=0.8)[ii]/list_os[ii].Tp(pot=MWPotential2014,analytic=True,type=type,b=0.8)-1.) < 1e-10), f'Evaluating Orbits Tp analytically does not agree with Orbit for type={type}'
+            assert numpy.all(numpy.fabs(os.TrTp(pot=MWPotential2014,analytic=True,type=type,b=0.8)[ii]/list_os[ii].TrTp(pot=MWPotential2014,analytic=True,type=type,b=0.8)-1.) < 1e-10), f'Evaluating Orbits TrTp analytically does not agree with Orbit for type={type}'
+            assert numpy.all(numpy.fabs(os.Tz(pot=MWPotential2014,analytic=True,type=type,b=0.8)[ii]/list_os[ii].Tz(pot=MWPotential2014,analytic=True,type=type,b=0.8)-1.) < 1e-10), f'Evaluating Orbits Tz analytically does not agree with Orbit for type={type}'
             if type == 'isochroneApprox': break # otherwise takes too long
     return None
 
-# Test that the actions, frequencies/periods, and angles calculated 
+# Test that the actions, frequencies/periods, and angles calculated
 # analytically by Orbits agrees with that calculated analytically using Orbit
 def test_actionsFreqsAngles_againstorbit_2d():
     from galpy.orbit import Orbit
@@ -2729,27 +2741,27 @@ def test_actionsFreqsAngles_againstorbit_2d():
     tol['staeckel']=-12.
     tol['adiabatic']= -12.
     tol['isochroneApprox']= -2.
-    # For now we skip adiabatic here, because frequencies and angles not 
+    # For now we skip adiabatic here, because frequencies and angles not
     # implemented yet
 #    for type in ['spherical','staeckel','adiabatic']:
     for type in ['spherical','staeckel','isochroneApprox']:
         for ii in range(nrand):
-            assert numpy.all(numpy.fabs(os.jr(pot=MWPotential2014,analytic=True,type=type,b=0.8)[ii]/list_os[ii].jr(pot=MWPotential2014,analytic=True,type=type,b=0.8)-1.) < 10.**tol[type]), 'Evaluating Orbits jr analytically does not agree with Orbit for type={}'.format(type)
-            assert numpy.all(numpy.fabs(os.jp(pot=MWPotential2014,analytic=True,type=type,b=0.8)[ii]/list_os[ii].jp(pot=MWPotential2014,analytic=True,type=type,b=0.8)-1.) < 10.**tol[type]), 'Evaluating Orbits jp analytically does not agree with Orbit for type={}'.format(type)
+            assert numpy.all(numpy.fabs(os.jr(pot=MWPotential2014,analytic=True,type=type,b=0.8)[ii]/list_os[ii].jr(pot=MWPotential2014,analytic=True,type=type,b=0.8)-1.) < 10.**tol[type]), f'Evaluating Orbits jr analytically does not agree with Orbit for type={type}'
+            assert numpy.all(numpy.fabs(os.jp(pot=MWPotential2014,analytic=True,type=type,b=0.8)[ii]/list_os[ii].jp(pot=MWPotential2014,analytic=True,type=type,b=0.8)-1.) < 10.**tol[type]), f'Evaluating Orbits jp analytically does not agree with Orbit for type={type}'
             # zero, so don't divide, also doesn't work for isochroneapprox now
             if not type == 'isochroneApprox':
-                assert numpy.all(numpy.fabs(os.jz(pot=MWPotential2014,analytic=True,type=type,b=0.8)[ii]-list_os[ii].jz(pot=MWPotential2014,analytic=True,type=type,b=0.8)) < 10.**tol[type]), 'Evaluating Orbits jz analytically does not agree with Orbit for type={}'.format(type)
-                assert numpy.all(numpy.fabs(os.wr(pot=MWPotential2014,analytic=True,type=type,b=0.8)[ii]/list_os[ii].wr(pot=MWPotential2014,analytic=True,type=type,b=0.8)-1.) < 1e-10), 'Evaluating Orbits wr analytically does not agree with Orbit for type={}'.format(type)
+                assert numpy.all(numpy.fabs(os.jz(pot=MWPotential2014,analytic=True,type=type,b=0.8)[ii]-list_os[ii].jz(pot=MWPotential2014,analytic=True,type=type,b=0.8)) < 10.**tol[type]), f'Evaluating Orbits jz analytically does not agree with Orbit for type={type}'
+                assert numpy.all(numpy.fabs(os.wr(pot=MWPotential2014,analytic=True,type=type,b=0.8)[ii]/list_os[ii].wr(pot=MWPotential2014,analytic=True,type=type,b=0.8)-1.) < 1e-10), f'Evaluating Orbits wr analytically does not agree with Orbit for type={type}'
                 # Think I may have fixed wp = NaN?
                 #assert numpy.all(numpy.fabs(os.wp(pot=MWPotential2014,analytic=True,type=type,b=0.8)[ii]/list_os[ii].wp(pot=MWPotential2014,analytic=True,type=type,b=0.8)-1.) < 1e-10), 'Evaluating Orbits wp analytically does not agree with Orbit for type={}'.format(type)
                 #assert numpy.all(numpy.fabs(os.wz(pot=MWPotential2014,analytic=True,type=type,b=0.8)[ii]/list_os[ii].wz(pot=MWPotential2014,analytic=True,type=type,b=0.8)-1.) < 1e-10), 'Evaluating Orbits wz analytically does not agree with Orbit for type={}'.format(type)
-                assert numpy.all(numpy.fabs(os.Or(pot=MWPotential2014,analytic=True,type=type,b=0.8)[ii]/list_os[ii].Or(pot=MWPotential2014,analytic=True,type=type,b=0.8)-1.) < 1e-10), 'Evaluating Orbits Or analytically does not agree with Orbit for type={}'.format(type)
-                assert numpy.all(numpy.fabs(os.Op(pot=MWPotential2014,analytic=True,type=type,b=0.8)[ii]/list_os[ii].Op(pot=MWPotential2014,analytic=True,type=type,b=0.8)-1.) < 1e-10), 'Evaluating Orbits Op analytically does not agree with Orbit for type={}'.format(type)
-                assert numpy.all(numpy.fabs(os.Oz(pot=MWPotential2014,analytic=True,type=type,b=0.8)[ii]/list_os[ii].Oz(pot=MWPotential2014,analytic=True,type=type,b=0.8)-1.) < 1e-10), 'Evaluating Orbits Oz analytically does not agree with Orbit for type={}'.format(type)
-                assert numpy.all(numpy.fabs(os.Tr(pot=MWPotential2014,analytic=True,type=type,b=0.8)[ii]/list_os[ii].Tr(pot=MWPotential2014,analytic=True,type=type,b=0.8)-1.) < 1e-10), 'Evaluating Orbits Tr analytically does not agree with Orbit for type={}'.format(type)
-                assert numpy.all(numpy.fabs(os.Tp(pot=MWPotential2014,analytic=True,type=type,b=0.8)[ii]/list_os[ii].Tp(pot=MWPotential2014,analytic=True,type=type,b=0.8)-1.) < 1e-10), 'Evaluating Orbits Tp analytically does not agree with Orbit for type={}'.format(type)
-                assert numpy.all(numpy.fabs(os.TrTp(pot=MWPotential2014,analytic=True,type=type,b=0.8)[ii]/list_os[ii].TrTp(pot=MWPotential2014,analytic=True,type=type,b=0.8)-1.) < 1e-10), 'Evaluating Orbits TrTp analytically does not agree with Orbit for type={}'.format(type)
-                assert numpy.all(numpy.fabs(os.Tz(pot=MWPotential2014,analytic=True,type=type,b=0.8)[ii]/list_os[ii].Tz(pot=MWPotential2014,analytic=True,type=type,b=0.8)-1.) < 1e-10), 'Evaluating Orbits Tz analytically does not agree with Orbit for type={}'.format(type)
+                assert numpy.all(numpy.fabs(os.Or(pot=MWPotential2014,analytic=True,type=type,b=0.8)[ii]/list_os[ii].Or(pot=MWPotential2014,analytic=True,type=type,b=0.8)-1.) < 1e-10), f'Evaluating Orbits Or analytically does not agree with Orbit for type={type}'
+                assert numpy.all(numpy.fabs(os.Op(pot=MWPotential2014,analytic=True,type=type,b=0.8)[ii]/list_os[ii].Op(pot=MWPotential2014,analytic=True,type=type,b=0.8)-1.) < 1e-10), f'Evaluating Orbits Op analytically does not agree with Orbit for type={type}'
+                assert numpy.all(numpy.fabs(os.Oz(pot=MWPotential2014,analytic=True,type=type,b=0.8)[ii]/list_os[ii].Oz(pot=MWPotential2014,analytic=True,type=type,b=0.8)-1.) < 1e-10), f'Evaluating Orbits Oz analytically does not agree with Orbit for type={type}'
+                assert numpy.all(numpy.fabs(os.Tr(pot=MWPotential2014,analytic=True,type=type,b=0.8)[ii]/list_os[ii].Tr(pot=MWPotential2014,analytic=True,type=type,b=0.8)-1.) < 1e-10), f'Evaluating Orbits Tr analytically does not agree with Orbit for type={type}'
+                assert numpy.all(numpy.fabs(os.Tp(pot=MWPotential2014,analytic=True,type=type,b=0.8)[ii]/list_os[ii].Tp(pot=MWPotential2014,analytic=True,type=type,b=0.8)-1.) < 1e-10), f'Evaluating Orbits Tp analytically does not agree with Orbit for type={type}'
+                assert numpy.all(numpy.fabs(os.TrTp(pot=MWPotential2014,analytic=True,type=type,b=0.8)[ii]/list_os[ii].TrTp(pot=MWPotential2014,analytic=True,type=type,b=0.8)-1.) < 1e-10), f'Evaluating Orbits TrTp analytically does not agree with Orbit for type={type}'
+                assert numpy.all(numpy.fabs(os.Tz(pot=MWPotential2014,analytic=True,type=type,b=0.8)[ii]/list_os[ii].Tz(pot=MWPotential2014,analytic=True,type=type,b=0.8)-1.) < 1e-10), f'Evaluating Orbits Tz analytically does not agree with Orbit for type={type}'
             if type == 'isochroneApprox': break # otherwise takes too long
     return None
 
@@ -2780,7 +2792,7 @@ def test_actionsFreqsAngles_output_shape():
     tol['staeckel']=-12.
     tol['adiabatic']= -12.
     tol['isochroneApprox']= -2.
-    # For now we skip adiabatic here, because frequencies and angles not 
+    # For now we skip adiabatic here, because frequencies and angles not
     # implemented yet
 #    for type in ['spherical','staeckel','adiabatic']:
     for type in ['spherical','staeckel','isochroneApprox']:
@@ -2801,27 +2813,27 @@ def test_actionsFreqsAngles_output_shape():
         for ii in range(nrand[0]):
             for jj in range(nrand[1]):
                 for kk in range(nrand[2]):
-                    assert numpy.all(numpy.fabs(tjr[ii,jj,kk]/list_os[ii][jj][kk].jr(pot=MWPotential2014,analytic=True,type=type,b=0.8)-1.) < 10.**tol[type]), 'Evaluating Orbits jr analytically does not agree with Orbit for type={}'.format(type)
-                    assert numpy.all(numpy.fabs(tjp[ii,jj,kk]/list_os[ii][jj][kk].jp(pot=MWPotential2014,analytic=True,type=type,b=0.8)-1.) < 10.**tol[type]), 'Evaluating Orbits jp analytically does not agree with Orbit for type={}'.format(type)
-                    assert numpy.all(numpy.fabs(tjz[ii,jj,kk]/list_os[ii][jj][kk].jz(pot=MWPotential2014,analytic=True,type=type,b=0.8)-1.) < 10.**tol[type]), 'Evaluating Orbits jz analytically does not agree with Orbit for type={}'.format(type)
-                    assert numpy.all(numpy.fabs(twr[ii,jj,kk]/list_os[ii][jj][kk].wr(pot=MWPotential2014,analytic=True,type=type,b=0.8)-1.) < 1e-10), 'Evaluating Orbits wr analytically does not agree with Orbit for type={}'.format(type)
-                    assert numpy.all(numpy.fabs(twp[ii,jj,kk]/list_os[ii][jj][kk].wp(pot=MWPotential2014,analytic=True,type=type,b=0.8)-1.) < 1e-10), 'Evaluating Orbits wp analytically does not agree with Orbit for type={}'.format(type)
-                    assert numpy.all(numpy.fabs(twz[ii,jj,kk]/list_os[ii][jj][kk].wz(pot=MWPotential2014,analytic=True,type=type,b=0.8)-1.) < 1e-10), 'Evaluating Orbits wz analytically does not agree with Orbit for type={}'.format(type)
-                    assert numpy.all(numpy.fabs(tOr[ii,jj,kk]/list_os[ii][jj][kk].Or(pot=MWPotential2014,analytic=True,type=type,b=0.8)-1.) < 1e-10), 'Evaluating Orbits Or analytically does not agree with Orbit for type={}'.format(type)
-                    assert numpy.all(numpy.fabs(tOp[ii,jj,kk]/list_os[ii][jj][kk].Op(pot=MWPotential2014,analytic=True,type=type,b=0.8)-1.) < 1e-10), 'Evaluating Orbits Op analytically does not agree with Orbit for type={}'.format(type)
-                    assert numpy.all(numpy.fabs(tOz[ii,jj,kk]/list_os[ii][jj][kk].Oz(pot=MWPotential2014,analytic=True,type=type,b=0.8)-1.) < 1e-10), 'Evaluating Orbits Oz analytically does not agree with Orbit for type={}'.format(type)
-                    assert numpy.all(numpy.fabs(tTr[ii,jj,kk]/list_os[ii][jj][kk].Tr(pot=MWPotential2014,analytic=True,type=type,b=0.8)-1.) < 1e-10), 'Evaluating Orbits Tr analytically does not agree with Orbit for type={}'.format(type)
-                    assert numpy.all(numpy.fabs(tTp[ii,jj,kk]/list_os[ii][jj][kk].Tp(pot=MWPotential2014,analytic=True,type=type,b=0.8)-1.) < 1e-10), 'Evaluating Orbits Tp analytically does not agree with Orbit for type={}'.format(type)
-                    assert numpy.all(numpy.fabs(tTrTp[ii,jj,kk]/list_os[ii][jj][kk].TrTp(pot=MWPotential2014,analytic=True,type=type,b=0.8)-1.) < 1e-10), 'Evaluating Orbits TrTp analytically does not agree with Orbit for type={}'.format(type)
-                    assert numpy.all(numpy.fabs(tTz[ii,jj,kk]/list_os[ii][jj][kk].Tz(pot=MWPotential2014,analytic=True,type=type,b=0.8)-1.) < 1e-10), 'Evaluating Orbits Tz analytically does not agree with Orbit for type={}'.format(type)
+                    assert numpy.all(numpy.fabs(tjr[ii,jj,kk]/list_os[ii][jj][kk].jr(pot=MWPotential2014,analytic=True,type=type,b=0.8)-1.) < 10.**tol[type]), f'Evaluating Orbits jr analytically does not agree with Orbit for type={type}'
+                    assert numpy.all(numpy.fabs(tjp[ii,jj,kk]/list_os[ii][jj][kk].jp(pot=MWPotential2014,analytic=True,type=type,b=0.8)-1.) < 10.**tol[type]), f'Evaluating Orbits jp analytically does not agree with Orbit for type={type}'
+                    assert numpy.all(numpy.fabs(tjz[ii,jj,kk]/list_os[ii][jj][kk].jz(pot=MWPotential2014,analytic=True,type=type,b=0.8)-1.) < 10.**tol[type]), f'Evaluating Orbits jz analytically does not agree with Orbit for type={type}'
+                    assert numpy.all(numpy.fabs(twr[ii,jj,kk]/list_os[ii][jj][kk].wr(pot=MWPotential2014,analytic=True,type=type,b=0.8)-1.) < 1e-10), f'Evaluating Orbits wr analytically does not agree with Orbit for type={type}'
+                    assert numpy.all(numpy.fabs(twp[ii,jj,kk]/list_os[ii][jj][kk].wp(pot=MWPotential2014,analytic=True,type=type,b=0.8)-1.) < 1e-10), f'Evaluating Orbits wp analytically does not agree with Orbit for type={type}'
+                    assert numpy.all(numpy.fabs(twz[ii,jj,kk]/list_os[ii][jj][kk].wz(pot=MWPotential2014,analytic=True,type=type,b=0.8)-1.) < 1e-10), f'Evaluating Orbits wz analytically does not agree with Orbit for type={type}'
+                    assert numpy.all(numpy.fabs(tOr[ii,jj,kk]/list_os[ii][jj][kk].Or(pot=MWPotential2014,analytic=True,type=type,b=0.8)-1.) < 1e-10), f'Evaluating Orbits Or analytically does not agree with Orbit for type={type}'
+                    assert numpy.all(numpy.fabs(tOp[ii,jj,kk]/list_os[ii][jj][kk].Op(pot=MWPotential2014,analytic=True,type=type,b=0.8)-1.) < 1e-10), f'Evaluating Orbits Op analytically does not agree with Orbit for type={type}'
+                    assert numpy.all(numpy.fabs(tOz[ii,jj,kk]/list_os[ii][jj][kk].Oz(pot=MWPotential2014,analytic=True,type=type,b=0.8)-1.) < 1e-10), f'Evaluating Orbits Oz analytically does not agree with Orbit for type={type}'
+                    assert numpy.all(numpy.fabs(tTr[ii,jj,kk]/list_os[ii][jj][kk].Tr(pot=MWPotential2014,analytic=True,type=type,b=0.8)-1.) < 1e-10), f'Evaluating Orbits Tr analytically does not agree with Orbit for type={type}'
+                    assert numpy.all(numpy.fabs(tTp[ii,jj,kk]/list_os[ii][jj][kk].Tp(pot=MWPotential2014,analytic=True,type=type,b=0.8)-1.) < 1e-10), f'Evaluating Orbits Tp analytically does not agree with Orbit for type={type}'
+                    assert numpy.all(numpy.fabs(tTrTp[ii,jj,kk]/list_os[ii][jj][kk].TrTp(pot=MWPotential2014,analytic=True,type=type,b=0.8)-1.) < 1e-10), f'Evaluating Orbits TrTp analytically does not agree with Orbit for type={type}'
+                    assert numpy.all(numpy.fabs(tTz[ii,jj,kk]/list_os[ii][jj][kk].Tz(pot=MWPotential2014,analytic=True,type=type,b=0.8)-1.) < 1e-10), f'Evaluating Orbits Tz analytically does not agree with Orbit for type={type}'
                     if type == 'isochroneApprox': break # otherwise takes too long
     return None
 
 # Test that the delta parameter is properly dealt with when using the staeckel
 # approximation: when it changes, need to re-do the aA calcs.
 def test_actionsFreqsAngles_staeckeldelta():
-    from galpy.potential import MWPotential2014
     from galpy.orbit import Orbit
+    from galpy.potential import MWPotential2014
     os= Orbit([None,None]) # Just twice the Sun!
     # First with delta
     jr= os.jr(delta=0.4,pot=MWPotential2014)
@@ -2840,8 +2852,8 @@ def test_actionsFreqsAngles_staeckeldelta():
 # Test that actionAngleStaeckel for a spherical potential is the same
 # as actionAngleSpherical
 def test_actionsFreqsAngles_staeckeldeltaequalzero():
-    from galpy.potential import LogarithmicHaloPotential
     from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential
     os= Orbit([None,None]) # Just twice the Sun!
     lp= LogarithmicHaloPotential(normalize=1.)
     assert numpy.all(numpy.fabs(os.jr(pot=lp,type='staeckel')-os.jr(pot=lp,type='spherical')) < 1e-8), 'Action-angle function for staeckel method with spherical potential is not equal to actionAngleSpherical'
@@ -2855,11 +2867,11 @@ def test_actionsFreqsAngles_staeckeldeltaequalzero():
     assert numpy.all(numpy.fabs(os.Tz(pot=lp,type='staeckel')-os.Tz(pot=lp,type='spherical')) < 1e-8), 'Action-angle function for staeckel method with spherical potential is not equal to actionAngleSpherical'
     return None
 
-# Test that the b / ip parameters are properly dealt with when using the 
+# Test that the b / ip parameters are properly dealt with when using the
 # isochroneapprox approximation: when they change, need to re-do the aA calcs.
 def test_actionsFreqsAngles_isochroneapproxb():
-    from galpy.potential import MWPotential2014, IsochronePotential
     from galpy.orbit import Orbit
+    from galpy.potential import IsochronePotential, MWPotential2014
     os= Orbit([None,None]) # Just twice the Sun!
     # First with one b
     jr= os.jr(type='isochroneapprox',b=0.8,pot=MWPotential2014)
@@ -2889,12 +2901,12 @@ def test_ChandrasekharDynamicalFrictionForce_constLambda():
     #
     # Test that the ChandrasekharDynamicalFrictionForce with constant Lambda
     # agrees with analytical solutions for circular orbits:
-    # assuming that a mass remains on a circular orbit in an isothermal halo 
+    # assuming that a mass remains on a circular orbit in an isothermal halo
     # with velocity dispersion sigma and for constant Lambda:
-    # r_final^2 - r_initial^2 = -0.604 ln(Lambda) GM/sigma t 
+    # r_final^2 - r_initial^2 = -0.604 ln(Lambda) GM/sigma t
     # (e.g., B&T08, p. 648)
-    from galpy.util import conversion
     from galpy.orbit import Orbit
+    from galpy.util import conversion
     ro,vo= 8.,220.
     # Parameters
     GMs= 10.**9./conversion.mass_in_msol(vo,ro)
@@ -3045,9 +3057,10 @@ def test_physical_output_off():
 # Check that the routines that should return physical coordinates are turned
 # back on by turn_physical_on
 def test_physical_output_on():
+    from astropy import units
+
     from galpy.orbit import Orbit
     from galpy.potential import LogarithmicHaloPotential
-    from astropy import units
     lp= LogarithmicHaloPotential(normalize=1.)
     o= Orbit()
     ro= o._ro
@@ -3098,7 +3111,9 @@ def test_physical_output_on():
 # Test that Orbits can be pickled
 def test_pickling():
     import pickle
+
     from galpy.orbit import Orbit
+
     # Just test most common setup: 3D, 6 phase-D
     vxvvs= [[1.,0.1,1.,0.1,-0.2,1.5],[0.1,3.,1.1,-0.3,0.4,2.]]
     orbits= Orbit(vxvvs)
@@ -3123,7 +3138,8 @@ def test_pickling():
 
 def test_from_name_values():
     from galpy.orbit import Orbit
-    # test Vega and Lacaille 8760 
+
+    # test Vega and Lacaille 8760
     o = Orbit.from_name('Vega','Lacaille 8760')
     assert numpy.allclose(o.ra(), [279.23473479,319.31362024]), \
         "RA of Vega/Lacaille 8760  does not match SIMBAD value"

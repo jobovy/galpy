@@ -1,5 +1,5 @@
 ###############################################################################
-#   TwoPowerSphericalPotential.py: General class for potentials derived from 
+#   TwoPowerSphericalPotential.py: General class for potentials derived from
 #                                  densities with two power-laws
 #
 #                                                    amp
@@ -7,13 +7,18 @@
 #                                      (r/a)^\alpha (1+r/a)^(\beta-\alpha)
 ###############################################################################
 import numpy
-from scipy import special, optimize
+from scipy import optimize, special
+
 from ..util import conversion
-from .Potential import Potential, kms_to_kpcGyrDecorator, _APY_LOADED
+from ..util._optional_deps import _APY_LOADED, _JAX_LOADED
+from .Potential import Potential, kms_to_kpcGyrDecorator
+
 if _APY_LOADED:
     from astropy import units
+if _JAX_LOADED:
+   import jax.numpy as jnp
 class TwoPowerSphericalPotential(Potential):
-    """Class that implements spherical potentials that are derived from 
+    """Class that implements spherical potentials that are derived from
     two-power density models
 
     .. math::
@@ -247,7 +252,7 @@ s           evaluate the radial density derivative for this potential
             *r**(2.*beta-2.)*(self.a/r)**(self.alpha-1.)\
             *(1.+r/self.a)**(self.alpha-self.beta-1.)\
             *(self.a*(2.*beta-self.alpha)+r*(2.*beta-self.beta))
-    
+
     def _R2deriv(self,R,z,phi=0.,t=0.):
         """
         NAME:
@@ -275,7 +280,7 @@ s           evaluate the radial density derivative for this potential
                                 1.+self.beta-self.alpha,
                                 5.-self.alpha,
                                 -r/self.a)
-        
+
         term1 = A * r**(-self.alpha) * hyper
         term2 = -self.alpha * A * R**2. * r**(-self.alpha-2.) * hyper
         term3 = -A * R**2 * r**(-self.alpha-1.) / self.a * hyper_deriv
@@ -308,7 +313,7 @@ s           evaluate the radial density derivative for this potential
                                 1.+self.beta-self.alpha,
                                 5.-self.alpha,
                                 -r/self.a)
-        
+
         term1 = -self.alpha * A * R * r**(-self.alpha-2.) * z * hyper
         term2 = -A * R * r**(-self.alpha-1.) * z / self.a * hyper_deriv
         return term1 + term2
@@ -367,7 +372,7 @@ class DehnenSphericalPotential(TwoPowerSphericalPotential):
 
         PURPOSE:
 
-           initialize a Dehnen Spherical Potential; note that the amplitude definitio used here does NOT match that of Dehnen (1993)
+           initialize a Dehnen Spherical Potential; note that the amplitude definition used here does NOT match that of Dehnen (1993)
 
         INPUT:
 
@@ -583,7 +588,7 @@ class DehnenSphericalPotential(TwoPowerSphericalPotential):
            2019-11-20 - Written - Starkman (UofT)
         """
         if z is not None: raise AttributeError # use general implementation
-        return 1./(1.+self.a/R)**(3.-self.alpha)/(3.-self.alpha) # written so it works for r=numpy.inf 
+        return 1./(1.+self.a/R)**(3.-self.alpha)/(3.-self.alpha) # written so it works for r=numpy.inf
 
 class DehnenCoreSphericalPotential(DehnenSphericalPotential):
     """Class that implements the Dehnen Spherical Potential from `Dehnen (1993) <https://ui.adsabs.harvard.edu/abs/1993MNRAS.265..250D>`_ with alpha=0 (corresponding to an inner core)
@@ -797,7 +802,7 @@ class DehnenCoreSphericalPotential(DehnenSphericalPotential):
            2019-11-20 - Written - Starkman (UofT)
         """
         if z is not None: raise AttributeError # use general implementation
-        return 1./(1.+self.a/R)**3./3. # written so it works for r=numpy.inf 
+        return 1./(1.+self.a/R)**3./3. # written so it works for r=numpy.inf
 
 class HernquistPotential(DehnenSphericalPotential):
     """Class that implements the Hernquist potential
@@ -1033,7 +1038,7 @@ class HernquistPotential(DehnenSphericalPotential):
 
         """
         GM= self._amp*vo**2.*ro/2.
-        return "0,1,{},{},0".format(GM,self.a*ro)
+        return f"0,1,{GM},{self.a*ro},0"
 
 class JaffePotential(DehnenSphericalPotential):
     """Class that implements the Jaffe potential
@@ -1230,7 +1235,7 @@ class JaffePotential(DehnenSphericalPotential):
            2014-01-29 - Written - Bovy (IAS)
         """
         if z is not None: raise AttributeError # use general implementation
-        return 1./(1.+self.a/R) # written so it works for r=numpy.inf 
+        return 1./(1.+self.a/R) # written so it works for r=numpy.inf
 
 class NFWPotential(TwoPowerSphericalPotential):
     """Class that implements the NFW potential
@@ -1278,15 +1283,15 @@ class NFWPotential(TwoPowerSphericalPotential):
               mvir= virial mass in 10^12 Msolar
 
            in which case you also need to supply the following keywords
-           
+
               H= (default: 70) Hubble constant in km/s/Mpc
-           
+
               Om= (default: 0.3) Omega matter
-       
+
               overdens= (200) overdensity which defines the virial radius
 
               wrtcrit= (False) if True, the overdensity is wrt the critical density rather than the mean matter density
-           
+
            ro=, vo= distance and velocity scales for translation into internal units (default from configuration file)
 
         OUTPUT:
@@ -1300,7 +1305,7 @@ class NFWPotential(TwoPowerSphericalPotential):
            2014-04-03 - Initialization w/ concentration and mass - Bovy (IAS)
 
            2020-04-29 - Initialization w/ rmax and vmax - Bovy (UofT)
-           
+
         """
         Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='mass')
         a= conversion.parse_length(a,ro=self._ro)
@@ -1423,9 +1428,7 @@ class NFWPotential(TwoPowerSphericalPotential):
         HISTORY:
            2021-02-14 - Written - Bovy (UofT)
         """
-        try:
-            import jax.numpy as jnp
-        except ImportError: # pragma: no cover
+        if not _JAX_LOADED: # pragma: no cover
             raise ImportError("Making use of _rforce_jax function requires the google/jax library")
         return self._amp*(1./r/(self.a+r)-jnp.log(1.+r/self.a)/r**2.)
 
@@ -1531,9 +1534,9 @@ class NFWPotential(TwoPowerSphericalPotential):
         INPUT:
 
            H= (default: 70) Hubble constant in km/s/Mpc
-           
+
            Om= (default: 0.3) Omega matter
-       
+
            overdens= (200) overdensity which defines the virial radius
 
            wrtcrit= (False) if True, the overdensity is wrt the critical density rather than the mean matter density
@@ -1543,9 +1546,9 @@ class NFWPotential(TwoPowerSphericalPotential):
            vo= velocity scale in km/s or as Quantity (default: object-wide, which if not set is 220 km/s))
 
         OUTPUT:
-        
+
            virial radius
-        
+
         HISTORY:
 
            2014-01-29 - Written - Bovy (IAS)
@@ -1579,9 +1582,9 @@ class NFWPotential(TwoPowerSphericalPotential):
            (none)
 
         OUTPUT:
-        
+
            Radius at which the rotation curve peaks
-        
+
         HISTORY:
 
            2020-02-05 - Written - Bovy (UofT)
@@ -1606,15 +1609,15 @@ class NFWPotential(TwoPowerSphericalPotential):
            (none)
 
         OUTPUT:
-        
+
            Peak velocity in the rotation curve
-        
+
         HISTORY:
 
            2020-02-05 - Written - Bovy (UofT)
 
         """
-        # 0.21621659550187311005 = (numpy.log(1.+rmax)-rmax/(1.+rmax))/rmax 
+        # 0.21621659550187311005 = (numpy.log(1.+rmax/a)-rmax/(a+rmax))*a/rmax
         return numpy.sqrt(0.21621659550187311005*self._amp/self.a)
 
     @kms_to_kpcGyrDecorator
@@ -1645,4 +1648,4 @@ class NFWPotential(TwoPowerSphericalPotential):
         """
         ampl= self._amp*vo**2.*ro
         vmax= numpy.sqrt(ampl/self.a/ro*0.2162165954) #Take that factor directly from gyrfalcon
-        return "0,{},{}".format(self.a*ro,vmax)
+        return f"0,{self.a*ro},{vmax}"

@@ -4,18 +4,15 @@
 #             units
 #
 ###############################################################################
-from functools import wraps
-import warnings
 import copy
 import math as m
+import warnings
+from functools import wraps
+
+from ..util._optional_deps import _APY_LOADED, _APY_UNITS
 from ..util.config import __config__
-_APY_UNITS= __config__.getboolean('astropy','astropy-units')
-_APY_LOADED= True
-try:
-    from astropy import units, constants
-except ImportError:
-    _APY_UNITS= False
-    _APY_LOADED= False
+
+if not _APY_LOADED:
     _G= 4.302*10.**-3. #pc / Msolar (km/s)^2
     _kmsInPcMyr= 1.0227121655399913
     _PCIN10p18CM= 3.08567758 #10^18 cm
@@ -23,6 +20,7 @@ except ImportError:
     _MSOLAR10p30KG= 1.9891 #10^30 kg
     _EVIN10m19J= 1.60217657 #10^-19 J
 else:
+    from astropy import constants, units
     _G= constants.G.to(units.pc/units.Msun*units.km**2/units.s**2).value
     _kmsInPcMyr= (units.km/units.s).to(units.pc/units.Myr)
     _PCIN10p18CM= units.pc.to(units.cm)/10.**18. #10^18 cm
@@ -48,7 +46,7 @@ def dens_in_criticaldens(vo,ro,H=70.):
        ro - length unit in kpc
 
        H= (default: 70) Hubble constant in km/s/Mpc
-       
+
     OUTPUT:
 
        conversion from units where vo=1. at ro=1. to units of the critical density
@@ -79,7 +77,7 @@ def dens_in_meanmatterdens(vo,ro,H=70.,Om=0.3):
        H= (default: 70) Hubble constant in km/s/Mpc
 
        Om= (default: 0.3) Omega matter
-       
+
     OUTPUT:
 
        conversion from units where vo=1. at ro=1. to units of the mean matter density
@@ -468,11 +466,12 @@ def get_physical(obj,include_set=False):
 
     """
     # Try flattening the object in case it's a nested list of Potentials
+    from ..potential import Force
     from ..potential import flatten as flatten_pot
-    from ..potential import Force, planarPotential, linearPotential
+    from ..potential import linearPotential, planarPotential
     try:
         new_obj= flatten_pot(obj)
-    except: # pragma: no cover 
+    except: # pragma: no cover
         pass # hope for the best!
     else: # only apply flattening for potentials
         if isinstance(new_obj,(Force,planarPotential,linearPotential)) \
@@ -606,7 +605,7 @@ def parse_dens(x,ro=None,vo=None):
         /dens_in_msolpc3(vo,ro)/_G \
         if _APY_LOADED and isinstance(x,units.Quantity) \
         else x
-   
+
 def parse_surfdens(x,ro=None,vo=None):
     try:
         return x.to(units.Msun/units.pc**2).value\
@@ -619,7 +618,7 @@ def parse_surfdens(x,ro=None,vo=None):
         /surfdens_in_msolpc2(vo,ro)/_G \
         if _APY_LOADED and isinstance(x,units.Quantity) \
         else x
-   
+
 def parse_numdens(x,ro=None,vo=None):
     return x.to(1/units.kpc**3).value*ro**3 \
         if _APY_LOADED and isinstance(x,units.Quantity) \
@@ -666,14 +665,16 @@ _voNecessary['velocity2']= True
 _voNecessary['velocity_kms']= True
 _voNecessary['energy']= True
 def physical_conversion(quantity,pop=False):
-    """Decorator to convert to physical coordinates: 
+    """Decorator to convert to physical coordinates:
     quantity = [position,velocity,time]"""
     def wrapper(method):
         @wraps(method)
         def wrapped(*args,**kwargs):
+            use_physical_explicitly_set= \
+                kwargs.get('use_physical',None) is not None
             use_physical= kwargs.get('use_physical',True) and \
                 not kwargs.get('log',False)
-            # Parse whether ro or vo should be considered to be set, because 
+            # Parse whether ro or vo should be considered to be set, because
             # the return value will have units anyway
             # (like in Orbit methods that return numbers with units, like ra)
             roSet= '_' in quantity # _ in quantity name means always units
@@ -829,11 +830,13 @@ def physical_conversion(quantity,pop=False):
                 else:
                     return out*fac
             else:
+                if use_physical and use_physical_explicitly_set:
+                    warnings.warn("Returning output(s) in internal units even though use_physical=True, because ro and/or vo not set")
                 return method(*args,**kwargs)
         return wrapped
     return wrapper
 def potential_physical_input(method):
-    """Decorator to convert inputs to Potential functions from physical 
+    """Decorator to convert inputs to Potential functions from physical
     to internal coordinates"""
     @wraps(method)
     def wrapper(*args,**kwargs):
@@ -896,7 +899,7 @@ def potential_physical_input(method):
             except units.UnitConversionError:
                 kwargs['M']= kwargs['M'].to(units.pc*units.km**2/units.s**2)\
                     .value/mass_in_msol(vo,ro)/_G
-        # kwargs that come up in quasiisothermaldf    
+        # kwargs that come up in quasiisothermaldf
         # z done above
         if 'dz' in kwargs and _APY_LOADED \
                 and isinstance(kwargs['dz'],units.Quantity):
@@ -910,7 +913,7 @@ def potential_physical_input(method):
         return method(*args,**kwargs)
     return wrapper
 def physical_conversion_actionAngle(quantity,pop=False):
-    """Decorator to convert to physical coordinates for the actionAngle methods: 
+    """Decorator to convert to physical coordinates for the actionAngle methods:
     quantity= call, actionsFreqs, or actionsFreqsAngles (or EccZmaxRperiRap for actionAngleStaeckel)"""
     def wrapper(method):
         @wraps(method)
@@ -995,7 +998,7 @@ def physical_conversion_actionAngle(quantity,pop=False):
     return wrapper
 
 def actionAngle_physical_input(method):
-    """Decorator to convert inputs to actionAngle functions from physical 
+    """Decorator to convert inputs to actionAngle functions from physical
     to internal coordinates"""
     @wraps(method)
     def wrapper(*args,**kwargs):
@@ -1024,7 +1027,7 @@ def actionAngle_physical_input(method):
                         try:
                             targ= args[ii].to(units.rad).value
                         except units.UnitConversionError:
-                            raise units.UnitConversionError("Input units not understood")               
+                            raise units.UnitConversionError("Input units not understood")
                 newargs= newargs+(targ,)
             else:
                 newargs= newargs+(args[ii],)
@@ -1033,7 +1036,7 @@ def actionAngle_physical_input(method):
     return wrapper
 
 def physical_conversion_actionAngleInverse(quantity,pop=False):
-    """Decorator to convert to physical coordinates for the actionAngleInverse methods: 
+    """Decorator to convert to physical coordinates for the actionAngleInverse methods:
     quantity= call, xvFreqs, or Freqs"""
     def wrapper(method):
         @wraps(method)
@@ -1103,7 +1106,7 @@ def physical_conversion_actionAngleInverse(quantity,pop=False):
     return wrapper
 
 def actionAngleInverse_physical_input(method):
-    """Decorator to convert inputs to actionAngleInverse functions from 
+    """Decorator to convert inputs to actionAngleInverse functions from
     physical to internal coordinates"""
     @wraps(method)
     def wrapper(*args,**kwargs):
@@ -1127,11 +1130,10 @@ def actionAngleInverse_physical_input(method):
                     try:
                         targ= args[ii].to(units.rad).value
                     except units.UnitConversionError:
-                        raise units.UnitConversionError("Input units not understood")               
+                        raise units.UnitConversionError("Input units not understood")
                 newargs= newargs+(targ,)
             else:
                 newargs= newargs+(args[ii],)
         args= newargs
         return method(*args,**kwargs)
     return wrapper
-

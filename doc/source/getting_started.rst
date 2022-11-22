@@ -68,7 +68,7 @@ This is *not* the recommended Milky-Way-like potential in
 
 ``MWPotential2014`` has a more realistic bulge model and is actually
 fit to various dynamical constraints on the Milky Way (see
-:ref:`here <potential-mw>` and the ``galpy`` paper). 
+:ref:`here <potential-mw>` and the ``galpy`` paper).
 
 .. _units:
 
@@ -186,7 +186,7 @@ Physical units
 +++++++++++++++
 
 .. TIP::
-   With ``apy-units = True`` in the configuration file and specifying all inputs using astropy Quantity with units, ``galpy`` will return outputs in convenient, unambiguous units.
+   With ``astropy-units = True`` in the configuration file and specifying all inputs using astropy Quantity with units, ``galpy`` will return outputs in convenient, unambiguous units.
 
 Full support for unitful quantities using `astropy Quantity
 <http://docs.astropy.org/en/stable/api/astropy.units.Quantity.html>`__
@@ -227,8 +227,8 @@ input to any galpy function that does not take a Quantity as an input
 
 galpy can also return values with units as an astropy
 Quantity. Whether or not this is done is specified by the
-``apy-units`` option in the :ref:`configuration file <configfile>`. If
-you want to get return values as a Quantity, set ``apy-units = True``
+``astropy-units`` option in the :ref:`configuration file <configfile>`. If
+you want to get return values as a Quantity, set ``astropy-units = True``
 in the configuration file. Then you can do for the Miyamoto-Nagai
 potential above
 
@@ -251,11 +251,11 @@ Miyamoto-Nagai instantiation of this subsection)
 .. WARNING::
    If you do not specify arguments of methods and functions using a Quantity with units, galpy assumes that the argument has internal (natural) units.
 
-If you do not use astropy Quantities (``apy-units = False`` in the
+If you do not use astropy Quantities (``astropy-units = False`` in the
 configuration file), you can still get output in physical units when
 you have specified ``ro=`` and ``vo=`` during instantiation of the
 Potential, Orbit, etc. For example, for the Miyamoto-Nagai potential
-above in a session with ``apy-units = False``
+above in a session with ``astropy-units = False``
 
       >>> mp= MiyamotoNagaiPotential(amp=5*10**10*units.Msun,a=3.*units.kpc,b=300.*units.pc)
       >>> mp.vcirc(10.*units.kpc)
@@ -265,7 +265,7 @@ This return value is in km/s (see the :ref:`table <unitstable>` at the
 end of the previous section for default units for different
 quantities). Note that as long as astropy is installed, we can still
 provide arguments as a Quantity, but the return value will not be a
-Quantity when ``apy-units = False``. If you setup a Potential, Orbit,
+Quantity when ``astropy-units = False``. If you setup a Potential, Orbit,
 actionAngle, or DF object with parameters specified as a Quantity, the
 default is to return any output in physical units. This is why
 ``mp.vcirc`` returns the velocity in km/s above. Potential and Orbit
@@ -301,7 +301,7 @@ Physical output can also be turned off on a method-by-method or function-by-func
 	 # 0.61692726624127459 # in natural units
 
 Further examples of specifying inputs with units will be given
-throughout the documentation.	
+throughout the documentation.
 
 Orbit integration
 -----------------

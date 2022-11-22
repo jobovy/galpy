@@ -1,6 +1,7 @@
 # Class that represents a King DF
 import numpy
-from scipy import special, integrate, interpolate
+from scipy import integrate, interpolate, special
+
 from ..util import conversion
 from .df import df
 from .sphericaldf import isotropicsphericaldf
@@ -9,7 +10,15 @@ _FOURPI= 4.*numpy.pi
 _TWOOVERSQRTPI= 2./numpy.sqrt(numpy.pi)
 
 class kingdf(isotropicsphericaldf):
-    """Class that represents a King DF"""
+    """Class that represents a King DF:
+
+    .. math::
+
+      f(\\mathcal{E}) = \\begin{cases} \\rho_1\\,(2\\pi\\sigma^2)^{-3/2}\\,\\left(e^{\\mathcal{E}/\\sigma^2}-1\\right), & \\mathcal{E} > 0\\\\0, & \\mathcal{E} \\leq 0\\end{cases}
+
+    where :math:`\\mathcal{E}` is the binding energy. See also :ref:`King potential <king_potential_api>`.
+
+    """
     def __init__(self,W0,M=1.,rt=1.,npt=1001,ro=None,vo=None):
         """
         NAME:
@@ -80,7 +89,7 @@ class kingdf(isotropicsphericaldf):
         self._rmin_sampling= 0.
         self._v_vesc_pvr_interpolator= self._make_pvr_interpolator(\
                                     r_a_end=numpy.log10(self.rt/self._scale))
-        
+
     def dens(self,r):
         return self._scalefree_kdf.dens(r/self._radius_scale)\
             *self._density_scale
@@ -92,14 +101,14 @@ class kingdf(isotropicsphericaldf):
             out[varE > 0.]= (numpy.exp(varE[varE > 0.]/self._sigma2)-1.)\
                 *(2.*numpy.pi*self._sigma2)**-1.5*self.rho1
         return out# mass density, not /self.M as for number density
-       
+
 class _scalefreekingdf:
     """Internal helper class to solve the scale-free King DF model, that is, the one that only depends on W = Psi/sigma^2"""
     def __init__(self,W0):
         self.W0= W0
 
     def solve(self,npt=1001):
-        """Solve the model W(r) at npt points (note: not equally spaced in 
+        """Solve the model W(r) at npt points (note: not equally spaced in
         either r or W, because combination of two ODEs for different r ranges)"""
         # Set up arrays for outputs
         r= numpy.zeros(npt)
@@ -158,7 +167,7 @@ class _scalefreekingdf:
                 numpy.cumsum(mass_shells)))
         self.mass= self._cumul_mass[-1]
         return None
-        
+
     def _dens_W(self,W):
         """Density as a function of W"""
         sqW= numpy.sqrt(W)

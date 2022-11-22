@@ -158,22 +158,6 @@ jobs:
             REQUIRES_ASTROQUERY: true
             REQUIRES_NUMBA: false
             REQUIRES_JAX: false
-          - os: ubuntu-latest
-            python-version: 3.7
-            TEST_FILES: tests/test_orbit.py -k test_energy_jacobi_conservation
-            REQUIRES_PYNBODY: true
-            REQUIRES_ASTROPY: true
-            REQUIRES_ASTROQUERY: true
-            REQUIRES_NUMBA: false
-            REQUIRES_JAX: false
-          - os: ubuntu-latest
-            python-version: 3.7
-            TEST_FILES: tests/test_orbit.py tests/test_orbits.py -k 'not test_energy_jacobi_conservation'
-            REQUIRES_PYNBODY: true
-            REQUIRES_ASTROPY: true
-            REQUIRES_ASTROQUERY: true
-            REQUIRES_NUMBA: false
-            REQUIRES_JAX: false
           - os: macos-latest
             python-version: "3.10"
             TEST_FILES: tests/test_orbit.py -k test_energy_jacobi_conservation
@@ -225,15 +209,15 @@ jobs:
     - name: Install pynbody
       if: ${{ matrix.REQUIRES_PYNBODY && matrix.python-version != 4.0 }}
       run: |
-         pip install --upgrade --upgrade-strategy eager h5py pandas pytz         
+         pip install --upgrade --upgrade-strategy eager h5py pandas pytz
          pip install --upgrade --upgrade-strategy eager wheel
-         pip install git+https://github.com/pynbody/pynbody.git@cfbefac64bfad3b8d042e669ff2b36bad25813ce#egg=pynbody
+         pip install --upgrade --upgrade-strategy eager pynbody
     - name: Install pynbody (Python 4.0; doesn't exist of course, placeholder for new python v)
       if: ${{ matrix.REQUIRES_PYNBODY && matrix.python-version == 4.0 }}
       run: |
          sudo apt-get install libhdf5-dev
          pip install --upgrade --upgrade-strategy eager --no-binary=h5py git+https://github.com/h5py/h5py.git@d4e4418a3dcfea5c978fe7fcdff0e80570bb7565#egg=h5py
-         pip install --upgrade --upgrade-strategy eager pandas pytz         
+         pip install --upgrade --upgrade-strategy eager pandas pytz
          pip install --upgrade --upgrade-strategy eager wheel
          pip install git+https://github.com/pynbody/pynbody.git@cfbefac64bfad3b8d042e669ff2b36bad25813ce#egg=pynbody
     - name: Install astropy
@@ -244,7 +228,11 @@ jobs:
       run: pip install astroquery
     - name: Install numba
       if: ${{ matrix.REQUIRES_NUMBA }}
-      run: pip install numba
+      run: |
+        pip install numba
+        # numba may force install an older version of setuptools,
+        # but it isn't actually a *runtime* requirement numba/numba#8366
+        pip install --upgrade --force-reinstall setuptools
     - name: Install JAX
       if: ${{ matrix.REQUIRES_JAX }}
       run: pip install jax jaxlib
@@ -297,7 +285,7 @@ jobs:
         pip install coverage
         pip install pytest-cov
         # eval necessary for -k 'not ...' in TEST_FILES
-        eval "pytest -v $TEST_FILES --cov galpy --cov-config .coveragerc_travis --disable-pytest-warnings --durations=0 --cov-report=term --cov-report=xml"
+        eval "pytest -v $TEST_FILES --cov galpy --cov-config .coveragerc --disable-pytest-warnings --durations=0 --cov-report=term --cov-report=xml"
     - name: Generate code coverage
       if: ${{ matrix.python-version == env.PYTHON_COVREPORTS_VERSION && matrix.os == 'ubuntu-latest' }}
       run: |
@@ -305,4 +293,4 @@ jobs:
         lcov --remove coverage_full.info 'galpy/actionAngle/actionAngleTorus_c_ext/torus/*' -o coverage.info
     - name: Upload coverage reports to codecov
       if: ${{ matrix.python-version == env.PYTHON_COVREPORTS_VERSION && matrix.os == 'ubuntu-latest' }}
-      uses: codecov/codecov-action@v2
+      uses: codecov/codecov-action@v3

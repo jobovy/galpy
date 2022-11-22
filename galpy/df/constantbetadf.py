@@ -1,10 +1,15 @@
 # Class that implements DFs of the form f(E,L) = L^{-2\beta} f(E) with constant
 # beta anisotropy parameter
 import numpy
-from scipy import interpolate, integrate, special
-from ..util import conversion
+from scipy import integrate, interpolate, special
+
 from ..potential.Potential import _evaluatePotentials
+from ..util import conversion
+from ..util._optional_deps import _JAX_LOADED
 from .sphericaldf import anisotropicsphericaldf, sphericaldf
+
+if _JAX_LOADED:
+    from jax import grad, vmap
 
 # This is the general constantbeta superclass, implementation of general
 # formula can be found following this class
@@ -29,8 +34,8 @@ class _constantbetadf(anisotropicsphericaldf):
 
            rmax= (None) maximum radius to consider (can be Quantity); DF is cut off at E = Phi(rmax)
 
-            scale - Characteristic scale radius to aid sampling calculations. 
-                Not necessary, and will also be overridden by value from pot if 
+            scale - Characteristic scale radius to aid sampling calculations.
+                Not necessary, and will also be overridden by value from pot if
                 available.
 
         """
@@ -87,7 +92,7 @@ class _constantbetadf(anisotropicsphericaldf):
         else:
             return self.fE(_evaluatePotentials(self._pot,r,0)\
                            +0.5*v**2.)*v**(2.-2.*self._beta)
-    
+
     def _vmomentdensity(self,r,n,m):
          if m%2 == 1 or n%2 == 1:
              return 0.
@@ -137,9 +142,7 @@ class constantbetadf(_constantbetadf):
            2021-02-14 - Written - Bovy (UofT)
 
         """
-        try:
-            from jax import grad, vmap
-        except ImportError: # pragma: no cover
+        if not _JAX_LOADED: # pragma: no cover
             raise ImportError("galpy.df.constantbetadf requires the google/jax library")
         # Parse twobeta
         if not twobeta is None:
@@ -218,7 +221,7 @@ class constantbetadf(_constantbetadf):
                                                     self._rphi(Es[indx]))
             self._logstartt= interpolate.InterpolatedUnivariateSpline(\
                             Es,numpy.log10(startt)+10./3.*(1.-self._alpha),k=3)
-        
+
     def sample(self,R=None,z=None,phi=None,n=1,return_orbit=True,rmin=0.):
         # Slight over-write of superclass method to first build f(E) interp
         # No docstring so superclass' is used
@@ -287,7 +290,7 @@ class constantbetadf(_constantbetadf):
                                               self._alpha),
                 0.,0.5/self._rphi(tE))[0] for tE in Eint[indx]])
             return -out*self._fE_prefactor
-  
+
 def _fEintegrand_raw(r,pot,E,dmp1nudrmp1,alpha):
     # The 'raw', i.e., direct integrand in the constant-beta inversion
     out= numpy.zeros_like(r) # Avoid JAX item assignment issues
@@ -305,4 +308,3 @@ def _fEintegrand_smallr(t,pot,E,dmp1nudrmp1,alpha,rmin):
 def _fEintegrand_larger(t,pot,E,dmp1nudrmp1,alpha):
     # The integrand at large r, using transformation to deal with infinity
     return 1./t**2*_fEintegrand_raw(1./t,pot,E,dmp1nudrmp1,alpha)
-

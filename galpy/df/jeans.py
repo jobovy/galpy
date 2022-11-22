@@ -1,10 +1,12 @@
 # jeans.py: utilities related to the Jeans equations
 import numpy
 from scipy import integrate
-from ..potential.Potential import evaluateDensities, \
-    evaluaterforces, evaluateSurfaceDensities
+
+from ..potential.Potential import (evaluateDensities, evaluaterforces,
+                                   evaluateSurfaceDensities)
 from ..potential.Potential import flatten as flatten_pot
 from ..util.conversion import physical_conversion, potential_physical_input
+
 _INVSQRTTWO= 1./numpy.sqrt(2.)
 @potential_physical_input
 @physical_conversion('velocity',pop=True)
@@ -27,7 +29,7 @@ def sigmar(Pot,r,dens=None,beta=0.):
        dens= (None) tracer density profile (function of r); if None, the density is assumed to be that corresponding to the potential
 
        beta= (0.) anisotropy; can be a constant or a function of r
-       
+
     OUTPUT:
 
        sigma_r(r)
@@ -50,7 +52,7 @@ def sigmar(Pot,r,dens=None,beta=0.):
     return numpy.sqrt(integrate.quad(lambda x: -intFactor(x)*dens(x)
                                      *evaluaterforces(Pot,
                                                       x*_INVSQRTTWO,
-                                                      x*_INVSQRTTWO, 
+                                                      x*_INVSQRTTWO,
                                                       phi=numpy.pi/4.,
                                                       use_physical=False),
                                      r,numpy.inf)[0]/
@@ -81,7 +83,7 @@ def sigmalos(Pot,R,dens=None,surfdens=None,beta=0.,sigma_r=None):
        beta= (0.) anisotropy; can be a constant or a function of r
 
        sigma_r= (None) if given, the solution of the spherical Jeans equation sigma_r(r) (used instead of solving the Jeans equation as part of this routine)
-       
+
     OUTPUT:
 
        sigma_los(R)

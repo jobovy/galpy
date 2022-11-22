@@ -10,9 +10,12 @@
 #             calcxmax
 ###############################################################################
 import numpy
-from scipy import optimize, integrate
-from .actionAngle import actionAngle
+from scipy import integrate, optimize
+
 from ..potential.linearPotential import evaluatelinearPotentials
+from .actionAngle import actionAngle
+
+
 class actionAngleVertical(actionAngle):
     """Action-angle formalism for one-dimensional potentials (or of the vertical potential in a galactic disk in the adiabatic approximation, hence the name)"""
     def __init__(self,*args,**kwargs):
@@ -28,13 +31,13 @@ class actionAngleVertical(actionAngle):
         INPUT:
 
            pot= potential or list of potentials (planarPotentials)
-           
+
            ro= distance from vantage point to GC (kpc; can be Quantity)
 
            vo= circular velocity at ro (km/s; can be Quantity)
 
         OUTPUT:
-        
+
            instance
 
         HISTORY:
@@ -47,9 +50,9 @@ class actionAngleVertical(actionAngle):
         actionAngle.__init__(self,
                              ro=kwargs.get('ro',None),vo=kwargs.get('vo',None))
         if not 'pot' in kwargs: #pragma: no cover
-            raise IOError("Must specify pot= for actionAngleVertical")
+            raise OSError("Must specify pot= for actionAngleVertical")
         if not 'pot' in kwargs: #pragma: no cover
-            raise IOError("Must specify pot= for actionAngleVertical")
+            raise OSError("Must specify pot= for actionAngleVertical")
         self._pot= kwargs['pot']
         return None
         """

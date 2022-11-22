@@ -1,0 +1,19 @@
+{% extends "!layout.html" %}
+
+{% block extrahead %}
+<!--  Setup Google Tag Manager -->
+<script>
+    // Skip analytics for users with Do Not Track enabled, like RTD itself
+    if (navigator.doNotTrack === '1') {
+        console.debug('Respecting DNT with respect to analytics...');
+    } else {
+        window.dataLayer = window.dataLayer || [];
+        // Not ideal to use $(document).ready, but the only way I could figure out
+        // to fire this after RTD sets up analytics
+        $(document).ready(function () {
+            function gtag(){dataLayer.push(arguments);}
+            (function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);})(window,document,'script','dataLayer','GTM-TC38TT8');
+        });
+    }
+</script>
+{% endblock %}

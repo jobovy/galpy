@@ -20,7 +20,7 @@ potential and all different forces and functions (``dens``, ``vcirc``,
 separately and one needs to specify that these need to be interpolated
 separately (so, for example, one needs to set ``interpRforce=True`` to
 interpolate the radial force, or ``interpvcirc=True`` to interpolate
-the circular velocity). 
+the circular velocity).
 
 When points outside the grid are requested within the python code, the
 instance will fall back on the original (non-interpolated)

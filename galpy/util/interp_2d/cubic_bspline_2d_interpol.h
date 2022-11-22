@@ -1,11 +1,11 @@
 /*****************************************************************************
  *	This code is based on work by Phillipe Thevenaz, which can be found
  * at http://bigwww.epfl.ch/thevenaz/interpolation/
- ****************************************************************************/ 
+ ****************************************************************************/
 #ifdef __cplusplus
 extern "C" {
 #endif
-  
+
 #include	<math.h>
 #include	<stddef.h>
 #include	<stdio.h>
