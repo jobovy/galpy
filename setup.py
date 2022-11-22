@@ -1,3 +1,4 @@
+import copy
 import distutils.ccompiler
 import glob
 import os
@@ -215,7 +216,8 @@ else:
     galpy_c_incl= False
 
 # Add the actionAngleTorus extension (src and include specified above)
-extra_compile_args.append("-std=gnu++14")
+aAT_extra_compile_args= copy.deepcopy(extra_compile_args)
+aAT_extra_compile_args.append("-std=gnu++14")
 actionAngleTorus_c= Extension('libgalpy_actionAngleTorus',
                               sources=actionAngleTorus_c_src,
                               libraries=galpy_c_libraries,
