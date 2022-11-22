@@ -224,7 +224,7 @@ actionAngleTorus_c= Extension('libgalpy_actionAngleTorus',
                               sources=actionAngleTorus_c_src,
                               libraries=galpy_c_libraries,
                               include_dirs=actionAngleTorus_include_dirs,
-                              extra_compile_args=extra_compile_args,
+                              extra_compile_args=aAT_extra_compile_args,
                               extra_link_args=extra_link_args)
 if float(gsl_version[0]) >= 1. \
         and (float(gsl_version[0]) >= 2. or float(gsl_version[1]) >= 14.) and \
