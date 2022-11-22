@@ -194,6 +194,7 @@ if single_ext: #add the code and libraries for the actionAngleTorus extensions
         galpy_c_src= list(set(galpy_c_src))
         galpy_c_include_dirs.extend(actionAngleTorus_include_dirs)
         galpy_c_include_dirs= list(set(galpy_c_include_dirs))
+        extra_compile_args.append("-std=gnu++14")
 
 if not WIN32:
     extra_compile_args.insert(0,"-pthread")
