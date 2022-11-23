@@ -3,7 +3,7 @@
 #
 #      class: actionAngleVerticalInverse
 #
-#             Calculate (x,v) coordinates for a one-dimensional potental
+#             Calculate (x,v) coordinates for a one-dimensional potential
 #             given actions-angle coordinates
 #
 ###############################################################################
