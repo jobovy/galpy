@@ -8,19 +8,22 @@
 #
 ###############################################################################
 import copy
-import numpy
 import warnings
-from numpy.polynomial import polynomial, chebyshev
-from scipy import interpolate,ndimage, optimize
-from ..potential import evaluatelinearPotentials, \
-    evaluatelinearForces
-from ..util import bovy_plot, galpyWarning
-from matplotlib import pyplot, gridspec, cm
+
+import numpy
+from matplotlib import cm, gridspec, pyplot
 from matplotlib.ticker import NullFormatter
+from numpy.polynomial import chebyshev, polynomial
+from scipy import interpolate, ndimage, optimize
+
+from ..potential import evaluatelinearForces, evaluatelinearPotentials
+from ..util import bovy_plot, galpyWarning
 from .actionAngleHarmonic import actionAngleHarmonic
 from .actionAngleHarmonicInverse import actionAngleHarmonicInverse
-from .actionAngleVertical import actionAngleVertical
 from .actionAngleInverse import actionAngleInverse
+from .actionAngleVertical import actionAngleVertical
+
+
 class actionAngleVerticalInverse(actionAngleInverse):
     """Inverse action-angle formalism for one dimensional systems"""
     def __init__(self,pot=None,Es=[0.1,0.3],nta=128,setup_interp=False,
@@ -50,7 +53,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
            angle_tol= (1e-12) tolerance for angle root-finding (f(x) is within tol of desired value)
 
            bisect= (False) if True, use simple bisection for root-finding, otherwise first try Newton-Raphson (mainly useful for testing the bisection fallback)
-           
+
         OUTPUT:
 
            instance
@@ -62,7 +65,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
         """
         #actionAngleInverse.__init__(self,*args,**kwargs)
         if pot is None: #pragma: no cover
-            raise IOError("Must specify pot= for actionAngleVerticalInverse")
+            raise OSError("Must specify pot= for actionAngleVerticalInverse")
         self._pot= pot
         self._aAV= actionAngleVertical(pot=self._pot)
         # Compute action, frequency, and xmax for each energy
@@ -336,7 +339,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
                         "Torus mapping with bisection did not converge in {} iterations"\
                             .format(self._maxiter)
                         +" for energies:"+""\
-                  .join(' {:g}'.format(k) for k in sorted(set(Egrid[unconv]))),
+                  .join(f' {k:g}' for k in sorted(set(Egrid[unconv]))),
                     galpyWarning)
                     break
         xgrid[:,self._nta//4+1:self._nta//2+1]= xgrid[:,:self._nta//4][:,::-1]
@@ -354,7 +357,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
                     vsign=-1.)
         self._dta= (ta-mta+numpy.pi) % (2.*numpy.pi)-numpy.pi
         self._mta= mta
-        # Store these, they are useful (obv. arbitrary to return xgrid 
+        # Store these, they are useful (obv. arbitrary to return xgrid
         # and not just store it...)
         self._Egrid= Egrid
         self._omegagrid= omegagrid
@@ -382,9 +385,9 @@ class actionAngleVerticalInverse(actionAngleInverse):
                             color='k',ls='--' if overplot else '-',
                             ylabel=r'$x(\theta^A)$',
                             gcf=True,overplot=overplot)
-        if not overplot: 
+        if not overplot:
             pyplot.gca().xaxis.set_major_formatter(NullFormatter())
-        if not overplot: 
+        if not overplot:
             pyplot.subplot(gs[3])
             negv= (self._thetaa > numpy.pi/2.)*(self._thetaa < 3.*numpy.pi/2.)
             thetaa_out= numpy.empty_like(self._thetaa)
@@ -401,7 +404,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
             thetaa_out[negv]= _anglea(self._xgrid[indx][negv],
                                       E,self._pot,
                                       self._OmegaHO[indx],
-                                      self._pt_coeffs[indx], 
+                                      self._pt_coeffs[indx],
                                       numpy.tile(self._pt_deriv_coeffs[indx],(numpy.sum(negv),1)),
                                       self._xmaxs[indx]*one,
                                       self._pt_xmaxs[indx]*one,
@@ -423,14 +426,14 @@ class actionAngleVerticalInverse(actionAngleInverse):
         pyplot.axhline(self._js[indx]+shift_action*(self._js_orig[indx]
                                                     -self._js[indx]),
                        color='k',ls='--')
-        if not overplot: 
+        if not overplot:
             pyplot.gca().xaxis.set_major_formatter(NullFormatter())
-        if not overplot: 
+        if not overplot:
             pyplot.subplot(gs[4])
             bovy_plot.bovy_plot(self._thetaa,
                                 numpy.array([self._js[indx]
                                              +2.*numpy.sum(self._nSn[indx]\
-                                                   *numpy.cos(self._nforSn*x)) 
+                                                   *numpy.cos(self._nforSn*x))
                                              for x in self._thetaa])\
                                 /self._ja[indx]-1.,
                                 color='k',
@@ -444,14 +447,14 @@ class actionAngleVerticalInverse(actionAngleInverse):
                             ylabel=r'$\mathrm{d}J^A/\mathrm{d}J(\theta^A)$',
                             gcf=True,overplot=overplot)
         pyplot.axhline(1.,color='k',ls='--')
-        if not overplot: 
+        if not overplot:
             pyplot.gca().xaxis.set_major_formatter(NullFormatter())
-        if not overplot: 
+        if not overplot:
             pyplot.subplot(gs[5])
             bovy_plot.bovy_plot(self._thetaa,
                                 numpy.array([1.+2.*numpy.sum(self._nforSn\
                                                    *self._dSndJ[indx]\
-                                                   *numpy.cos(self._nforSn*x)) 
+                                                   *numpy.cos(self._nforSn*x))
                                          for x in self._thetaa])\
                                     -self._djadj[indx]\
                                     /numpy.nanmean(self._djadj[indx]),
@@ -479,7 +482,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
                 gs= gridspec.GridSpecFromSubplotSpec(1,2,subplot_spec=outer[0],
                                                      wspace=0.35)
             else:
-                raise RuntimeError('plot_power with >= {} energies and overplot=True is not supported'.format(minn_for_cmap))
+                raise RuntimeError(f'plot_power with >= {minn_for_cmap} energies and overplot=True is not supported')
         for ii,E in enumerate(Es):
             # First find the torus for this energy
             indx= numpy.nanargmin(numpy.fabs(E-self._Es))
@@ -496,8 +499,8 @@ class actionAngleVerticalInverse(actionAngleInverse):
                 ymin= numpy.amax([numpy.amin(y[numpy.isfinite(y)]),1e-17])
                 ymax= numpy.amax(y[numpy.isfinite(y)])
             if len(Es) < minn_for_cmap:
-                label= r'$E = {:g}$'.format(E)
-                color= "C{}".format(ii)
+                label= fr'$E = {E:g}$'
+                color= f"C{ii}"
             else:
                 label= None
                 color= cm.plasma((E-Es[0])/(Es[-1]-Es[0]))
@@ -520,8 +523,8 @@ class actionAngleVerticalInverse(actionAngleInverse):
                 ymin= numpy.amax([numpy.amin(y[numpy.isfinite(y)]),1e-17])
                 ymax= numpy.amax(y[numpy.isfinite(y)])
             if len(Es) < minn_for_cmap:
-                label= r'$E = {:g}$'.format(E)
-                color= "C{}".format(ii)
+                label= fr'$E = {E:g}$'
+                color= f"C{ii}"
             else:
                 label= None
                 color= cm.plasma((E-Es[0])/(Es[-1]-Es[0]))
@@ -553,7 +556,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
             cbar.set_label(r'$E$')
             outer.tight_layout(pyplot.gcf())
         if return_gridspec: return gs
-        else: return None        
+        else: return None
 
     def plot_orbit(self,E):
         ta= numpy.linspace(0.,2.*numpy.pi,1001)
@@ -750,7 +753,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
         x,v= self(self.J(E),ta)
         Einterp= v**2./2.+evaluatelinearPotentials(self._pot,x)
         ymin, ymax= numpy.amin([Edirect,Einterp]),numpy.amax([Edirect,Einterp])
-        
+
         bovy_plot.bovy_plot(ta,Einterp,
                             xrange=[0.,2.*numpy.pi],
                             yrange=[ymin-(ymax-ymin)*2.,ymax+(ymax-ymin)*2.],
@@ -797,7 +800,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
 
         """
         return self._xvFreqs(j,angle,**kwargs)[:2]
-        
+
     def _xvFreqs(self,j,angle,**kwargs):
         """
         NAME:
@@ -909,7 +912,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
                         "Angle mapping with bisection did not converge in {} iterations"\
                             .format(self._maxiter)
                         +" for angles:"+""\
-                  .join(' {:g}'.format(k) for k in sorted(set(angle[unconv]))),
+                  .join(f' {k:g}' for k in sorted(set(angle[unconv]))),
                     galpyWarning)
                     break
         # Then compute the auxiliary action
@@ -922,7 +925,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
         v= va/tptxmax*txmax*polynomial.polyval((xa/tptxmax).T,tptderivcoeffs.T,
                                                tensor=False).T
         return (x,v,tOmega)
-        
+
     def _Freqs(self,j,**kwargs):
         """
         NAME:
@@ -1113,4 +1116,3 @@ def _djadj(xa,E,pot,omega,ptcoeffs,ptderivcoeffs,ptderiv2coeffs,
     return (1.
             +(evaluatelinearForces(pot,x)/piprime
               +omega**2.*xa-piprime**-3.*piprime2*v2)*dxAdE)
-              
