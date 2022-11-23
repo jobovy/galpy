@@ -339,9 +339,9 @@ void dop853(void(*func)(double t, double *q, double *a, int nargs, struct potent
 			interrupted = 0; // need to reset, bc library and vars stay in memory
 #ifdef USING_COVERAGE
 			__gcov_dump();
+// LCOV_EXCL_START
 			__gcov_reset();
 #endif
-// LCOV_EXCL_START
 			break;
 // LCOV_EXCL_STOP
 		}
