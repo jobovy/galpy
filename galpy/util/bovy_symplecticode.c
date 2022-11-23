@@ -147,7 +147,8 @@ void leapfrog(void (*func)(double t, double *q, double *a,
       *err= -10;
       interrupted= 0; // need to reset, bc library and vars stay in memory
 #ifdef USING_COVERAGE
-      __gcov_flush();
+      __gcov_dump();
+      __gcov_reset();
 #endif
 // LCOV_EXCL_START
       break;
@@ -272,7 +273,8 @@ void symplec4(void (*func)(double t, double *q, double *a,
       *err= -10;
       interrupted= 0; // need to reset, bc library and vars stay in memory
 #ifdef USING_COVERAGE
-      __gcov_flush();
+      __gcov_dump();
+      __gcov_reset();
 #endif
 // LCOV_EXCL_START
       break;
@@ -432,7 +434,8 @@ void symplec6(void (*func)(double t, double *q, double *a,
       *err= -10;
       interrupted= 0; // need to reset, bc library and vars stay in memory
 #ifdef USING_COVERAGE
-      __gcov_flush();
+      __gcov_dump();
+      __gcov_reset();
 #endif
 // LCOV_EXCL_START
       break;
