@@ -1,4 +1,3 @@
-import copy
 import distutils.ccompiler
 import glob
 import os
@@ -194,10 +193,6 @@ if single_ext: #add the code and libraries for the actionAngleTorus extensions
         galpy_c_src= list(set(galpy_c_src))
         galpy_c_include_dirs.extend(actionAngleTorus_include_dirs)
         galpy_c_include_dirs= list(set(galpy_c_include_dirs))
-        extra_compile_args.append("-std=gnu++14")
-
-if not WIN32:
-    extra_compile_args.insert(0,"-pthread")
 
 #Installation of this extension using the GSL may (silently) fail, if the GSL
 #is built for the wrong architecture, on Mac you can install the GSL correctly
@@ -218,14 +213,11 @@ else:
     galpy_c_incl= False
 
 # Add the actionAngleTorus extension (src and include specified above)
-aAT_extra_compile_args= copy.deepcopy(extra_compile_args)
-if not WIN32:
-    aAT_extra_compile_args.append("-std=gnu++14")
 actionAngleTorus_c= Extension('libgalpy_actionAngleTorus',
                               sources=actionAngleTorus_c_src,
                               libraries=galpy_c_libraries,
                               include_dirs=actionAngleTorus_include_dirs,
-                              extra_compile_args=aAT_extra_compile_args,
+                              extra_compile_args=extra_compile_args,
                               extra_link_args=extra_link_args)
 if float(gsl_version[0]) >= 1. \
         and (float(gsl_version[0]) >= 2. or float(gsl_version[1]) >= 14.) and \

@@ -255,7 +255,6 @@ jobs:
       run: |
         python setup.py build_ext --no-openmp --coverage --single_ext --inplace
         python setup.py develop --single_ext
-        python -c "import ctypes; import sysconfig; ctypes.CDLL('./build/lib.linux-x86_64-cpython-310/libgalpy'+sysconfig.get_config_var('EXT_SUFFIX'))"
     - name: Install package
       if: matrix.os == 'macos-latest'
       run: |
@@ -286,7 +285,7 @@ jobs:
         pip install coverage
         pip install pytest-cov
         # eval necessary for -k 'not ...' in TEST_FILES
-        eval "pytest -v $TEST_FILES --cov galpy --cov-config .coveragerc --durations=0 --cov-report=term --cov-report=xml"
+        eval "pytest -v $TEST_FILES --cov galpy --cov-config .coveragerc --disable-pytest-warnings --durations=0 --cov-report=term --cov-report=xml"
     - name: Generate code coverage
       if: ${{ matrix.python-version == env.PYTHON_COVREPORTS_VERSION && matrix.os == 'ubuntu-latest' }}
       run: |
