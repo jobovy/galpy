@@ -17,7 +17,8 @@ from numpy.polynomial import chebyshev, polynomial
 from scipy import interpolate, ndimage, optimize
 
 from ..potential import evaluatelinearForces, evaluatelinearPotentials
-from ..util import bovy_plot, galpyWarning
+from ..util import galpyWarning
+from ..util import plot as plot
 from .actionAngleHarmonic import actionAngleHarmonic
 from .actionAngleHarmonicInverse import actionAngleHarmonicInverse
 from .actionAngleInverse import actionAngleInverse
@@ -381,10 +382,10 @@ class actionAngleVerticalInverse(actionAngleInverse):
             gs= overplot # confusingly, we overload the meaning of overplot
         # mapping of thetaa --> x
         pyplot.subplot(gs[0])
-        bovy_plot.bovy_plot(self._thetaa,self._xgrid[indx],
-                            color='k',ls='--' if overplot else '-',
-                            ylabel=r'$x(\theta^A)$',
-                            gcf=True,overplot=overplot)
+        plot.plot(self._thetaa,self._xgrid[indx],
+                  color='k',ls='--' if overplot else '-',
+                  ylabel=r'$x(\theta^A)$',
+                  gcf=True,overplot=overplot)
         if not overplot:
             pyplot.gca().xaxis.set_major_formatter(NullFormatter())
         if not overplot:
@@ -409,20 +410,20 @@ class actionAngleVerticalInverse(actionAngleInverse):
                                       self._xmaxs[indx]*one,
                                       self._pt_xmaxs[indx]*one,
                                       vsign=-1.)
-            bovy_plot.bovy_plot(self._thetaa,
-                                ((thetaa_out-self._thetaa+numpy.pi) \
-                                     % (2.*numpy.pi))-numpy.pi,
-                                color='k',
-                                gcf=True,
-                                xlabel=r'$\theta^A$',
-                                ylabel=r'$\theta^A[x(\theta^A)]-\theta^A$')
+            plot.plot(self._thetaa,
+                      ((thetaa_out-self._thetaa+numpy.pi) \
+                            % (2.*numpy.pi))-numpy.pi,
+                      color='k',
+                      gcf=True,
+                      xlabel=r'$\theta^A$',
+                      ylabel=r'$\theta^A[x(\theta^A)]-\theta^A$')
         # Recovery of the nSn from J^A(theta^A) behavior
         pyplot.subplot(gs[1])
-        bovy_plot.bovy_plot(self._thetaa,
-                            self._ja[indx],
-                            color='k',ls='--' if overplot else '-',
-                            ylabel=r'$J^A(\theta^A),J$',gcf=True,
-                            overplot=overplot)
+        plot.plot(self._thetaa,
+                  self._ja[indx],
+                  color='k',ls='--' if overplot else '-',
+                  ylabel=r'$J^A(\theta^A),J$',gcf=True,
+                  overplot=overplot)
         pyplot.axhline(self._js[indx]+shift_action*(self._js_orig[indx]
                                                     -self._js[indx]),
                        color='k',ls='--')
@@ -430,38 +431,38 @@ class actionAngleVerticalInverse(actionAngleInverse):
             pyplot.gca().xaxis.set_major_formatter(NullFormatter())
         if not overplot:
             pyplot.subplot(gs[4])
-            bovy_plot.bovy_plot(self._thetaa,
-                                numpy.array([self._js[indx]
-                                             +2.*numpy.sum(self._nSn[indx]\
-                                                   *numpy.cos(self._nforSn*x))
-                                             for x in self._thetaa])\
-                                /self._ja[indx]-1.,
-                                color='k',
-                                xlabel=r'$\theta^A$',
-                                ylabel=r'$\delta J^A/J^A$',gcf=True)
+            plot.plot(self._thetaa,
+                      numpy.array([self._js[indx]
+                        +2.*numpy.sum(self._nSn[indx]\
+                        *numpy.cos(self._nforSn*x))
+                                   for x in self._thetaa])\
+                        /self._ja[indx]-1.,
+                      color='k',
+                      xlabel=r'$\theta^A$',
+                      ylabel=r'$\delta J^A/J^A$',gcf=True)
         # Recovery of the dSndJ from dJ^A/dJ(theta^A) behavior
         pyplot.subplot(gs[2])
-        bovy_plot.bovy_plot(self._thetaa,self._djadj[indx]\
-                                /numpy.nanmean(self._djadj[indx]),
-                            color='k',ls='--' if overplot else '-',
-                            ylabel=r'$\mathrm{d}J^A/\mathrm{d}J(\theta^A)$',
-                            gcf=True,overplot=overplot)
+        plot.plot(self._thetaa,self._djadj[indx]\
+                      /numpy.nanmean(self._djadj[indx]),
+                  color='k',ls='--' if overplot else '-',
+                  ylabel=r'$\mathrm{d}J^A/\mathrm{d}J(\theta^A)$',
+                  gcf=True,overplot=overplot)
         pyplot.axhline(1.,color='k',ls='--')
         if not overplot:
             pyplot.gca().xaxis.set_major_formatter(NullFormatter())
         if not overplot:
             pyplot.subplot(gs[5])
-            bovy_plot.bovy_plot(self._thetaa,
-                                numpy.array([1.+2.*numpy.sum(self._nforSn\
-                                                   *self._dSndJ[indx]\
-                                                   *numpy.cos(self._nforSn*x))
-                                         for x in self._thetaa])\
-                                    -self._djadj[indx]\
-                                    /numpy.nanmean(self._djadj[indx]),
-                                color='k',
-                                xlabel=r'$\theta^A$',
-                                ylabel=r'$\delta \mathrm{d}J^A/\mathrm{d}J(\theta^A)$',
-                                gcf=True)
+            plot.plot(self._thetaa,
+                      numpy.array([1.+2.*numpy.sum(self._nforSn\
+                                     *self._dSndJ[indx]\
+                                     *numpy.cos(self._nforSn*x))
+                                   for x in self._thetaa])\
+                        -self._djadj[indx]\
+                        /numpy.nanmean(self._djadj[indx]),
+                      color='k',
+                      xlabel=r'$\theta^A$',
+                      ylabel=r'$\delta \mathrm{d}J^A/\mathrm{d}J(\theta^A)$',
+                      gcf=True)
         pyplot.tight_layout()
         if return_gridspec: return gs
         else: return None
@@ -505,13 +506,13 @@ class actionAngleVerticalInverse(actionAngleInverse):
                 label= None
                 color= cm.plasma((E-Es[0])/(Es[-1]-Es[0]))
             pyplot.subplot(gs[0])
-            bovy_plot.bovy_plot(numpy.fabs(self._nforSn[symm::symm+1]),
-                                y,yrange=[ymin,ymax],
-                                ls=ls,
-                                gcf=True,semilogy=True,overplot=overplot,
-                                xrange=[0.,self._nforSn[-1]],
-                                label=label,color=color,
-                                xlabel=r'$n$',ylabel=r'$|nS_n|$')
+            plot.plot(numpy.fabs(self._nforSn[symm::symm+1]),
+                      y,yrange=[ymin,ymax],
+                      ls=ls,
+                      gcf=True,semilogy=True,overplot=overplot,
+                      xrange=[0.,self._nforSn[-1]],
+                      label=label,color=color,
+                      xlabel=r'$n$',ylabel=r'$|nS_n|$')
             # d S_n / d J
             y= numpy.fabs(self._dSndJ[indx,symm::symm+1])
             if len(Es) > 1 and E == Es[0]:
@@ -529,14 +530,14 @@ class actionAngleVerticalInverse(actionAngleInverse):
                 label= None
                 color= cm.plasma((E-Es[0])/(Es[-1]-Es[0]))
             pyplot.subplot(gs[1])
-            bovy_plot.bovy_plot(numpy.fabs(self._nforSn[symm::symm+1]),
-                                y,yrange=[ymin,ymax],
-                                ls=ls,
-                                gcf=True,semilogy=True,overplot=overplot,
-                                xrange=[0.,self._nforSn[-1]],
-                                label=label,color=color,
-                                xlabel=r'$n$',
-                                ylabel=r'$|\mathrm{d}S_n/\mathrm{d}J|$')
+            plot.plot(numpy.fabs(self._nforSn[symm::symm+1]),
+                      y,yrange=[ymin,ymax],
+                      ls=ls,
+                      gcf=True,semilogy=True,overplot=overplot,
+                      xrange=[0.,self._nforSn[-1]],
+                      label=label,color=color,
+                      xlabel=r'$n$',
+                      ylabel=r'$|\mathrm{d}S_n/\mathrm{d}J|$')
             if not overplot == gs: overplot= True
         if len(Es) < minn_for_cmap:
             if not overplot == gs:
@@ -571,20 +572,20 @@ class actionAngleVerticalInverse(actionAngleInverse):
         x,v= self(tJ,ta)
         # First plot orbit in x,v
         pyplot.subplot(1,2,1)
-        bovy_plot.bovy_plot(x,v,xlabel=r'$x$',ylabel=r'$v$',gcf=True,
-                            color='k',
-                            xrange=[1.1*numpy.amin(x),1.1*numpy.amax(x)],
-                            yrange=[1.1*numpy.amin(v),1.1*numpy.amax(v)])
+        plot.plot(x,v,xlabel=r'$x$',ylabel=r'$v$',gcf=True,
+                  color='k',
+                  xrange=[1.1*numpy.amin(x),1.1*numpy.amax(x)],
+                  yrange=[1.1*numpy.amin(v),1.1*numpy.amax(v)])
         # Then plot energy
         pyplot.subplot(1,2,2)
         Eorbit= (v**2./2.+evaluatelinearPotentials(self._pot,x))/E-1.
         ymin, ymax= numpy.amin(Eorbit),numpy.amax(Eorbit)
-        bovy_plot.bovy_plot(ta,Eorbit,
-                            xrange=[0.,2.*numpy.pi],
-                            yrange=[ymin-(ymax-ymin)*3.,ymax+(ymax-ymin)*3.],
-                            gcf=True,color='k',
-                            xlabel=r'$\theta$',
-                            ylabel=r'$E/E_{\mathrm{true}}-1$')
+        plot.plot(ta,Eorbit,
+                  xrange=[0.,2.*numpy.pi],
+                  yrange=[ymin-(ymax-ymin)*3.,ymax+(ymax-ymin)*3.],
+                  gcf=True,color='k',
+                  xlabel=r'$\theta$',
+                  ylabel=r'$E/E_{\mathrm{true}}-1$')
         pyplot.tight_layout()
         return None
 
@@ -696,55 +697,55 @@ class actionAngleVerticalInverse(actionAngleInverse):
         y= numpy.fabs(self.nSn(E)[0,symm::symm+1])
         ymin= numpy.amax([numpy.amin(y[numpy.isfinite(y)]),1e-17])
         ymax= numpy.amax(y[numpy.isfinite(y)])
-        bovy_plot.bovy_plot(numpy.fabs(self._nforSn[symm::symm+1]),
-                            y,yrange=[ymin,ymax],
-                            gcf=True,semilogy=True,
-                            xrange=[0.,self._nforSn[-1]],
-                            label=r'$\mathrm{Interpolation}$',
-                            xlabel=r'$n$',ylabel=r'$|nS_n|$')
-        bovy_plot.bovy_plot(self._nforSn[symm::symm+1],
-                            truthaAV._nSn[0,symm::symm+1],overplot=True,
-                            label=r'$\mathrm{Direct}$')
+        plot.plot(numpy.fabs(self._nforSn[symm::symm+1]),
+                  y,yrange=[ymin,ymax],
+                  gcf=True,semilogy=True,
+                  xrange=[0.,self._nforSn[-1]],
+                  label=r'$\mathrm{Interpolation}$',
+                  xlabel=r'$n$',ylabel=r'$|nS_n|$')
+        plot.plot(self._nforSn[symm::symm+1],
+                  truthaAV._nSn[0,symm::symm+1],overplot=True,
+                  label=r'$\mathrm{Direct}$')
         pyplot.legend(fontsize=17.,frameon=False)
         pyplot.subplot(2,3,4)
         y= ((self.nSn(E)[0]-truthaAV._nSn[0])\
                                  /truthaAV._nSn[0])[symm::symm+1]
         ymin= numpy.amin(y[numpy.isfinite(y)])
         ymax= numpy.amax(y[numpy.isfinite(y)])
-        bovy_plot.bovy_plot(self._nforSn[symm::symm+1],
-                            y,yrange=[ymin,ymax],
-                            xrange=[0.,self._nforSn[-1]],
-                            gcf=True,
-                            xlabel=r'$n$',
-                            ylabel=r'$S_{n,\mathrm{interp}}/S_{n,\mathrm{direct}}-1$')
+        plot.plot(self._nforSn[symm::symm+1],
+                  y,yrange=[ymin,ymax],
+                  xrange=[0.,self._nforSn[-1]],
+                  gcf=True,
+                  xlabel=r'$n$',
+                  ylabel=r'$S_{n,\mathrm{interp}}/S_{n,\mathrm{direct}}-1$')
         # Check whether d S_n / d J is matched
         pyplot.subplot(2,3,2)
         y= numpy.fabs(self.dSndJ(E)[0,symm::symm+1])
         ymin= numpy.amax([numpy.amin(y[numpy.isfinite(y)]),1e-18])
         ymax= numpy.amax(y[numpy.isfinite(y)])
-        bovy_plot.bovy_plot(numpy.fabs(self._nforSn[symm::symm+1]),
-                            y,yrange=[ymin,ymax],
-                            xrange=[0.,self._nforSn[-1]],
-                            gcf=True,semilogy=True,
-                            label=r'$\mathrm{Interpolation}$',
-                            xlabel=r'$n$',
-                            ylabel=r'$|\mathrm{d}S_n/\mathrm{d}J|$')
-        bovy_plot.bovy_plot(self._nforSn[symm::symm+1],
-                            numpy.fabs(truthaAV._dSndJ[0,symm::symm+1]),
-                            overplot=True,
-                            label=r'$\mathrm{Direct}$')
+        plot.plot(numpy.fabs(self._nforSn[symm::symm+1]),
+                  y,yrange=[ymin,ymax],
+                  xrange=[0.,self._nforSn[-1]],
+                  gcf=True,semilogy=True,
+                  label=r'$\mathrm{Interpolation}$',
+                  xlabel=r'$n$',
+                  ylabel=r'$|\mathrm{d}S_n/\mathrm{d}J|$')
+        plot.plot(self._nforSn[symm::symm+1],
+                  numpy.fabs(truthaAV._dSndJ[0,symm::symm+1]),
+                  overplot=True,
+                  label=r'$\mathrm{Direct}$')
         pyplot.legend(fontsize=17.,frameon=False)
         pyplot.subplot(2,3,5)
         y= ((self.dSndJ(E)[0]-truthaAV._dSndJ[0])\
                                  /truthaAV._dSndJ[0])[symm::symm+1]
         ymin= numpy.amin(y[numpy.isfinite(y)])
         ymax= numpy.amax(y[numpy.isfinite(y)])
-        bovy_plot.bovy_plot(self._nforSn[symm::symm+1],
-                            y,yrange=[ymin,ymax],
-                            xrange=[0.,self._nforSn[-1]],
-                            gcf=True,
-                            xlabel=r'$n$',
-                            ylabel=r'$(\mathrm{d}S_n/\mathrm{d}J)_{\mathrm{interp}}/(\mathrm{d}S_n/\mathrm{d}J)_{\mathrm{direct}}-1$')
+        plot.plot(self._nforSn[symm::symm+1],
+                  y,yrange=[ymin,ymax],
+                  xrange=[0.,self._nforSn[-1]],
+                  gcf=True,
+                  xlabel=r'$n$',
+                  ylabel=r'$(\mathrm{d}S_n/\mathrm{d}J)_{\mathrm{interp}}/(\mathrm{d}S_n/\mathrm{d}J)_{\mathrm{direct}}-1$')
         # Check energy along the torus
         pyplot.subplot(2,3,3)
         ta= numpy.linspace(0.,2.*numpy.pi,1001)
@@ -754,23 +755,23 @@ class actionAngleVerticalInverse(actionAngleInverse):
         Einterp= v**2./2.+evaluatelinearPotentials(self._pot,x)
         ymin, ymax= numpy.amin([Edirect,Einterp]),numpy.amax([Edirect,Einterp])
 
-        bovy_plot.bovy_plot(ta,Einterp,
-                            xrange=[0.,2.*numpy.pi],
-                            yrange=[ymin-(ymax-ymin)*2.,ymax+(ymax-ymin)*2.],
-                            gcf=True,
-                            label=r'$\mathrm{Interpolation}$',
-                            xlabel=r'$\theta$',
-                            ylabel=r'$E$')
-        bovy_plot.bovy_plot(ta,Edirect,overplot=True,
-                            label=r'$\mathrm{Direct}$')
+        plot.plot(ta,Einterp,
+                  xrange=[0.,2.*numpy.pi],
+                  yrange=[ymin-(ymax-ymin)*2.,ymax+(ymax-ymin)*2.],
+                  gcf=True,
+                  label=r'$\mathrm{Interpolation}$',
+                  xlabel=r'$\theta$',
+                  ylabel=r'$E$')
+        plot.plot(ta,Edirect,overplot=True,
+                  label=r'$\mathrm{Direct}$')
         pyplot.legend(fontsize=17.,frameon=False)
         pyplot.subplot(2,3,6)
-        bovy_plot.bovy_plot(ta,Einterp/Edirect-1.,
-                            xrange=[0.,2.*numpy.pi],
-                            gcf=True,
-                            label=r'$\mathrm{Interpolation}$',
-                            xlabel=r'$\theta$',
-                            ylabel=r'$E_{\mathrm{interp}}/E_{\mathrm{direct}}-1$')
+        plot.plot(ta,Einterp/Edirect-1.,
+                  xrange=[0.,2.*numpy.pi],
+                  gcf=True,
+                  label=r'$\mathrm{Interpolation}$',
+                  xlabel=r'$\theta$',
+                  ylabel=r'$E_{\mathrm{interp}}/E_{\mathrm{direct}}-1$')
         pyplot.tight_layout()
         return None
 
