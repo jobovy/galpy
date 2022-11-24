@@ -2935,6 +2935,22 @@ def test_orbit_interface_adiabatic_2d():
     assert maxdev < 10.**-16., 'Orbit interface for actionAngleAdiabatic does not return the same as actionAngle interface'
     return None
 
+def test_orbit_interface_adiabatic_2d_2dpot():
+    # Test with 2D orbit
+    from galpy.actionAngle import actionAngleAdiabatic
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential, toPlanarPotential
+    obs= Orbit([1.05, 0.02, 1.05,2.])
+    aAS= actionAngleAdiabatic(pot=toPlanarPotential(MWPotential))
+    acfs= numpy.array(list(aAS(obs))).reshape(3)
+    type= 'adiabatic'
+    acfso= numpy.array([obs.jr(pot=toPlanarPotential(MWPotential),type=type),
+                        obs.jp(pot=toPlanarPotential(MWPotential),type=type),
+                        obs.jz(pot=toPlanarPotential(MWPotential),type=type)])
+    maxdev= numpy.amax(numpy.abs(acfs-acfso))
+    assert maxdev < 10.**-16., 'Orbit interface for actionAngleAdiabatic does not return the same as actionAngle interface'
+    return None
+
 def test_orbit_interface_actionAngleIsochroneApprox():
     from galpy.actionAngle import actionAngleIsochroneApprox
     from galpy.orbit import Orbit
