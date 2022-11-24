@@ -145,6 +145,22 @@ def test_actionAngleVertical_linear_angles():
     assert numpy.all(numpy.fabs(aAV.actionsFreqs(obs.x(times),obs.vx(times))[1]-aAV.actionsFreqsAngles(obs.x(times),obs.vx(times))[1])) < 1e-100, 'Frequency returned by actionsFreqs not equal to that returned by actionsFreqsAngles'
     return None
 
+# Test that unbound orbits are handled properly
+def test_actionAngleVertical_unbound():
+    from galpy.actionAngle import actionAngleVertical
+    from galpy.potential import (MWPotential2014, evaluatelinearPotentials,
+                                 toVerticalPotential)
+    mwp14_v= toVerticalPotential(MWPotential2014,1.)
+    aAV= actionAngleVertical(pot=mwp14_v)
+    vesc= numpy.sqrt(2.*(evaluatelinearPotentials(mwp14_v,numpy.inf)-evaluatelinearPotentials(mwp14_v,0.)))
+    assert numpy.fabs(aAV(0.,vesc+1e-4)-9999.99) < 10.**-8., 'actionAngleVertical does not return J=9999.99 for unbound orbits'
+    assert numpy.fabs(aAV.actionsFreqs(0.,vesc+1e-4)[0]-9999.99) < 10.**-8., 'actionAngleVertical does not return J=9999.99 for unbound orbits'
+    assert numpy.fabs(aAV.actionsFreqs(0.,vesc+1e-4)[1]-9999.99) < 10.**-8., 'actionAngleVertical does not return O=9999.99 for unbound orbits'
+    assert numpy.fabs(aAV.actionsFreqsAngles(0.,vesc+1e-4)[0]-9999.99) < 10.**-8., 'actionAngleVertical does not return J=9999.99 for unbound orbits'
+    assert numpy.fabs(aAV.actionsFreqsAngles(0.,vesc+1e-4)[1]-9999.99) < 10.**-8., 'actionAngleVertical does not return O=9999.99 for unbound orbits'
+    assert numpy.fabs(aAV.actionsFreqsAngles(0.,vesc+1e-4)[2]-((9999.99*9999.99) % (2*numpy.pi))) < 10.**-8., 'actionAngleVertical does not return O=9999.99 for unbound orbits'
+    return None
+
 # Test actionAngleVertical against actionAngleHarmonic for HO
 def test_actionAngleVertical_Harmonic_actions():
     from galpy.actionAngle import actionAngleHarmonic, actionAngleVertical
