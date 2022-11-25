@@ -3721,8 +3721,8 @@ def test_actionAngleVerticalInverse_orbit_interpolation_pointtransform(setup_act
     x,v= aAVI(aAVI.J(Ei),Om*ts)
     orb= Orbit([x[0],v[0]])
     orb.integrate(ts,isopot)
-    assert numpy.amax(numpy.fabs(orb.x(ts)-x)) < 1e-8, 'Position does not agree with that of the integrated orbit along the torus of the IsothermalDiskPotential when using interpolation and a point transformation'
-    assert numpy.amax(numpy.fabs(orb.vx(ts)-v)) < 1e-8, 'Velocity does not agree with that of the integrated orbit along the torus of the IsothermalDiskPotential when using interpolation and a point transformation'
+    assert numpy.amax(numpy.fabs(orb.x(ts)-x)) < 1e-7, 'Position does not agree with that of the integrated orbit along the torus of the IsothermalDiskPotential when using interpolation and a point transformation'
+    assert numpy.amax(numpy.fabs(orb.vx(ts)-v)) < 1e-7, 'Velocity does not agree with that of the integrated orbit along the torus of the IsothermalDiskPotential when using interpolation and a point transformation'
     return None
 
 # Test that computing actionAngle coordinates in C for a NullPotential leads to an error
