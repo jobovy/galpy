@@ -3694,7 +3694,7 @@ def test_actionAngleVerticalInverse_freqs_wrtVertical_interpolation_pointtransfo
     aAV= actionAngleVertical(pot=isopot)
     x,vx= 0.1,-0.3
     obs= Orbit([x,vx])
-    tol= -9.
+    tol= -8.
     Om= aAVI.Freqs(aAVI.J(obs.E(pot=isopot)))
     # Compute frequency with actionAngleHarmonic
     _,Omi= aAV.actionsFreqs(*aAVI(aAVI.J(obs.E(pot=isopot)),0.))
@@ -3714,7 +3714,7 @@ def test_actionAngleVerticalInverse_orbit_interpolation_pointtransform(setup_act
     x,v= aAVI(aAVI.J(Ei),ta)
     # Compute energy and check whether it's conserved
     E= evaluatelinearPotentials(isopot,x)+v**2./2.
-    assert numpy.std(E)/numpy.mean(E) < 1e-10, 'Energy is not conserved along the actionAngleVerticalInverse torus for the IsothermalDiskPotential when using interpolation and a point transformation'
+    assert numpy.std(E)/numpy.mean(E) < 1e-8, 'Energy is not conserved along the actionAngleVerticalInverse torus for the IsothermalDiskPotential when using interpolation and a point transformation'
     # Now traverse the orbit at the frequency rate and check against orbit integration
     Om= aAVI.Freqs(aAVI.J(Ei))
     ts= numpy.linspace(0.,2.*numpy.pi/Om,1001)
