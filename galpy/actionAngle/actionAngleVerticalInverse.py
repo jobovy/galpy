@@ -775,6 +775,36 @@ class actionAngleVerticalInverse(actionAngleInverse):
         pyplot.tight_layout()
         return None
 
+    def J(self,E):
+        """
+        NAME:
+
+           J
+
+        PURPOSE:
+
+           return the action for the given energy
+
+        INPUT:
+
+           E - Energy
+
+        OUTPUT:
+
+           action
+
+        HISTORY:
+
+           2022-11-24 - Written - Bovy (UofT)
+
+        """
+        # Note: this is the function when not using interpolation, when using
+        # interpolation, self.J is defined within _setup_interp
+        indx= numpy.nanargmin(numpy.fabs(E-self._Es))
+        if numpy.fabs(E-self._Es[indx]) > 1e-10:
+            raise ValueError('Given energy not found; please specify an energy used in the initialization of the instance')
+        return self._js[indx]
+
     def _evaluate(self,j,angle,**kwargs):
         """
         NAME:

@@ -3189,7 +3189,7 @@ def test_actionAngleHarmonicInverse_freqs_wrtHarmonic():
     # Compute frequency with actionAngleHarmonic
     _,Omi= aAH.actionsFreqs(*aAHI(j,0.))
     assert numpy.fabs((Om-Omi)/Om) < 10.**tol, \
-        'Radial frequency computed using actionAngleHarmonicInverse does not agree with that computed by actionAngleHarmonic'
+        'Frequency computed using actionAngleHarmonicInverse does not agree with that computed by actionAngleHarmonic'
     return None
 
 #Test that orbit from actionAngleHarmonicInverse is the same as an integrated orbit
@@ -3442,6 +3442,148 @@ def test_physical_actionAngleIsochroneInverse():
         assert numpy.fabs(aAII.xvFreqs(0.1,1.1,0.1,0.1,0.2,0.)[ii]-aAIInu.xvFreqs(0.1,1.1,0.1,0.1,0.2,0.)[ii]*correct_fac[ii]) < 10.**-8., 'actionAngleInverse function xvFreqs does not return Quantity with the right value'
     for ii in range(3):
         assert numpy.fabs(aAII.Freqs(0.1,1.1,0.1)[ii]-aAIInu.Freqs(0.1,1.1,0.1)[ii]*conversion.freq_in_Gyr(vo,ro)) < 10.**-8., 'actionAngleInverse function Freqs does not return Quantity with the right value'
+    return None
+
+# Test that actionAngleVerticalInverse is the inverse of actionAngleVertical
+def test_actionAngleVerticalInverse_wrtVertical():
+    from galpy.actionAngle import (actionAngleVertical,
+                                   actionAngleVerticalInverse)
+    from galpy.orbit import Orbit
+    from galpy.potential import IsothermalDiskPotential
+
+    isopot= IsothermalDiskPotential(amp=1.,sigma=0.5)
+    aAV= actionAngleVertical(pot=isopot)
+    # Check a few orbits
+    x,vx= 0.1,-0.3
+    obs= Orbit([x,vx])
+    times= numpy.linspace(0.,30.,1001)
+    obs.integrate(times,isopot)
+    j,_,a= aAV.actionsFreqsAngles(obs.x(times),obs.vx(times))
+    # Set up actionAngleVerticalInverse for this energy
+    aAVI= actionAngleVerticalInverse(pot=isopot,nta=4*128,Es=[obs.E()],
+                                     use_pointtransform=False)
+    xi, vxi= aAVI(aAVI.J(obs.E()),a)
+    assert numpy.amax(numpy.fabs(obs.x(times)-xi)) < 10.**-6., 'actionAngleVerticalInverse is not the inverse of actionAngleVertical for an example orbit'
+    assert numpy.amax(numpy.fabs(obs.vx(times)-vxi)) < 10.**-6., 'actionAngleVerticalInverse is not the inverse of actionAngleVertical for an example orbit'
+    return None
+
+def test_actionAngleVerticalInverse_freqs_wrtVertical():
+    # Create harmonic oscillator potential as isochrone w/ large b --> 1D
+    from galpy.actionAngle import (actionAngleVertical,
+                                   actionAngleVerticalInverse)
+    from galpy.orbit import Orbit
+    from galpy.potential import IsothermalDiskPotential
+    isopot= IsothermalDiskPotential(amp=1.,sigma=0.5)
+    aAV= actionAngleVertical(pot=isopot)
+    x,vx= 0.1,-0.3
+    obs= Orbit([x,vx])
+    aAVI= actionAngleVerticalInverse(pot=isopot,nta=4*128,Es=[obs.E(pot=isopot)],
+                                     use_pointtransform=False)
+    tol= -10.
+    Om= aAVI.Freqs(aAVI.J(obs.E(pot=isopot)))
+    # Compute frequency with actionAngleHarmonic
+    _,Omi= aAV.actionsFreqs(*aAVI(aAVI.J(obs.E(pot=isopot)),0.))
+    assert numpy.fabs((Om-Omi)/Om) < 10.**tol, \
+        'Frequency computed using actionAngleVerticalInverse does not agree with that computed by actionAngleVertical'
+    return None
+
+#Test that orbit from actionAngleVerticalInverse is the same as an integrated orbit
+def test_actionAngleVerticalInverse_orbit():
+    from galpy.actionAngle import actionAngleVerticalInverse
+    from galpy.orbit import Orbit
+    from galpy.potential import (IsothermalDiskPotential,
+                                 evaluatelinearPotentials)
+
+    # Set up instance
+    isopot= IsothermalDiskPotential(amp=1.,sigma=0.5)
+    aAVI= actionAngleVerticalInverse(pot=isopot,nta=4*128,Es=[0.1,1.,10.],
+                                     use_pointtransform=False)
+
+    ta= numpy.linspace(0.,2.*numpy.pi,1001)
+    x,v= aAVI(aAVI.J(1.),ta)
+    # Compute energy and check whether it's conserved
+    E= evaluatelinearPotentials(isopot,x)+v**2./2.
+    assert numpy.std(E)/numpy.mean(E) < 1e-10, 'Energy is not conserved along the actionAngleVerticalInverse torus for the IsothermalDiskPotential'
+    # Now traverse the orbit at the frequency rate and check against orbit integration
+    Om= aAVI.Freqs(aAVI.J(1.))
+    ts= numpy.linspace(0.,2.*numpy.pi/Om,1001)
+    x,v= aAVI(aAVI.J(1.),Om*ts)
+    orb= Orbit([x[0],v[0]])
+    orb.integrate(ts,isopot)
+    assert numpy.amax(numpy.fabs(orb.x(ts)-x)) < 1e-8, 'Position does not agree with that of the integrated orbit along the torus of the IsothermalDiskPotential'
+    assert numpy.amax(numpy.fabs(orb.vx(ts)-v)) < 1e-8, 'Velocity does not agree with that of the integrated orbit along the torus of the IsothermalDiskPotential'
+    return None
+
+# Test that actionAngleVerticalInverse is the inverse of actionAngleVertical
+# when using a point transformation
+def test_actionAngleVerticalInverse_wrtVertical_pointtransform():
+    from galpy.actionAngle import (actionAngleVertical,
+                                   actionAngleVerticalInverse)
+    from galpy.orbit import Orbit
+    from galpy.potential import IsothermalDiskPotential
+
+    isopot= IsothermalDiskPotential(amp=1.,sigma=0.5)
+    aAV= actionAngleVertical(pot=isopot)
+    # Check a few orbits
+    x,vx= 0.1,-0.3
+    obs= Orbit([x,vx])
+    times= numpy.linspace(0.,30.,1001)
+    obs.integrate(times,isopot)
+    j,_,a= aAV.actionsFreqsAngles(obs.x(times),obs.vx(times))
+    # Set up actionAngleVerticalInverse for this energy
+    aAVI= actionAngleVerticalInverse(pot=isopot,nta=4*128,Es=[obs.E()],
+                                     use_pointtransform=True)
+    xi, vxi= aAVI(aAVI.J(obs.E()),a)
+    assert numpy.amax(numpy.fabs(obs.x(times)-xi)) < 10.**-6., 'actionAngleVerticalInverse is not the inverse of actionAngleVertical for an example orbit'
+    assert numpy.amax(numpy.fabs(obs.vx(times)-vxi)) < 10.**-6., 'actionAngleVerticalInverse is not the inverse of actionAngleVertical for an example orbit'
+    return None
+
+def test_actionAngleVerticalInverse_freqs_wrtVertical_pointtransform():
+    # Create harmonic oscillator potential as isochrone w/ large b --> 1D
+    from galpy.actionAngle import (actionAngleVertical,
+                                   actionAngleVerticalInverse)
+    from galpy.orbit import Orbit
+    from galpy.potential import IsothermalDiskPotential
+    isopot= IsothermalDiskPotential(amp=1.,sigma=0.5)
+    aAV= actionAngleVertical(pot=isopot)
+    x,vx= 0.1,-0.3
+    obs= Orbit([x,vx])
+    aAVI= actionAngleVerticalInverse(pot=isopot,nta=4*128,Es=[obs.E(pot=isopot)],
+                                     use_pointtransform=True)
+    tol= -10.
+    Om= aAVI.Freqs(aAVI.J(obs.E(pot=isopot)))
+    # Compute frequency with actionAngleHarmonic
+    _,Omi= aAV.actionsFreqs(*aAVI(aAVI.J(obs.E(pot=isopot)),0.))
+    assert numpy.fabs((Om-Omi)/Om) < 10.**tol, \
+        'Frequency computed using actionAngleVerticalInverse does not agree with that computed by actionAngleVertical'
+    return None
+
+#Test that orbit from actionAngleVerticalInverse is the same as an integrated
+# orbit when using a point transformation
+def test_actionAngleVerticalInverse_orbit_pointtransform():
+    from galpy.actionAngle import actionAngleVerticalInverse
+    from galpy.orbit import Orbit
+    from galpy.potential import (IsothermalDiskPotential,
+                                 evaluatelinearPotentials)
+
+    # Set up instance
+    isopot= IsothermalDiskPotential(amp=1.,sigma=0.5)
+    aAVI= actionAngleVerticalInverse(pot=isopot,nta=4*128,Es=[0.1,1.,10.],
+                                     use_pointtransform=True)
+
+    ta= numpy.linspace(0.,2.*numpy.pi,1001)
+    x,v= aAVI(aAVI.J(1.),ta)
+    # Compute energy and check whether it's conserved
+    E= evaluatelinearPotentials(isopot,x)+v**2./2.
+    assert numpy.std(E)/numpy.mean(E) < 1e-10, 'Energy is not conserved along the actionAngleVerticalInverse torus for the IsothermalDiskPotential'
+    # Now traverse the orbit at the frequency rate and check against orbit integration
+    Om= aAVI.Freqs(aAVI.J(1.))
+    ts= numpy.linspace(0.,2.*numpy.pi/Om,1001)
+    x,v= aAVI(aAVI.J(1.),Om*ts)
+    orb= Orbit([x[0],v[0]])
+    orb.integrate(ts,isopot)
+    assert numpy.amax(numpy.fabs(orb.x(ts)-x)) < 1e-8, 'Position does not agree with that of the integrated orbit along the torus of the IsothermalDiskPotential'
+    assert numpy.amax(numpy.fabs(orb.vx(ts)-v)) < 1e-8, 'Velocity does not agree with that of the integrated orbit along the torus of the IsothermalDiskPotential'
     return None
 
 # Test that computing actionAngle coordinates in C for a NullPotential leads to an error
