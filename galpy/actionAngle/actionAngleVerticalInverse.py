@@ -632,7 +632,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
         indxc= (evalE >= self._Emin)*(evalE <= self._Emax)
         coords= self._coords_for_map_coords(evalE[indxc])
         out= numpy.empty((len(evalE),self._nnSn))
-        out[indxc]= numpy.reshape(ndimage.interpolation.map_coordinates(\
+        out[indxc]= numpy.reshape(ndimage.map_coordinates(\
                 self._nSnFiltered,coords,order=3,prefilter=False),
                                   (numpy.sum(indxc),self._nnSn))
         out[True^indxc]= numpy.nan
@@ -645,7 +645,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
         indxc= (evalE >= self._Emin)*(evalE <= self._Emax)
         coords= self._coords_for_map_coords(evalE[indxc])
         out= numpy.empty((len(evalE),self._nnSn))
-        out[indxc]= numpy.reshape(ndimage.interpolation.map_coordinates(\
+        out[indxc]= numpy.reshape(ndimage.map_coordinates(\
                 self._dSndJFiltered,coords,order=3,prefilter=False),
                                   (numpy.sum(indxc),self._nnSn))
         out[True^indxc]= numpy.nan
@@ -667,7 +667,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
         indxc= (evalE >= self._Emin)*(evalE <= self._Emax)
         coords= self._coords_for_map_coords_pt(evalE[indxc],deriv=False)
         out= numpy.empty((len(evalE),self._nptcoeffs))
-        out[indxc]= numpy.reshape(ndimage.interpolation.map_coordinates(\
+        out[indxc]= numpy.reshape(ndimage.map_coordinates(\
                 self._ptcoeffsFiltered,coords,order=3,prefilter=False),
                                   (numpy.sum(indxc),self._nptcoeffs))
         out[True^indxc]= numpy.nan
@@ -680,7 +680,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
         indxc= (evalE >= self._Emin)*(evalE <= self._Emax)
         coords= self._coords_for_map_coords_pt(evalE[indxc],deriv=True)
         out= numpy.empty((len(evalE),self._nptcoeffs-1))
-        out[indxc]= numpy.reshape(ndimage.interpolation.map_coordinates(\
+        out[indxc]= numpy.reshape(ndimage.map_coordinates(\
                 self._ptderivcoeffsFiltered,coords,order=3,prefilter=False),
                                   (numpy.sum(indxc),self._nptcoeffs-1))
         out[True^indxc]= numpy.nan
