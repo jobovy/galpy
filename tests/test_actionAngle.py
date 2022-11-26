@@ -365,7 +365,6 @@ def test_actionAngleIsochrone_EccZmaxRperiRap_againstOrbit_kepler():
     assert numpy.fabs(rap-o.rap()) < 1e-10, 'Analytically calculated rap does not agree with numerically calculated one for an IsochronePotential'
     return None
 
-
 #Test the actions of an actionAngleIsochrone
 def test_actionAngleIsochrone_conserved_actions():
     from galpy.actionAngle import actionAngleIsochrone
@@ -3864,6 +3863,49 @@ def test_actionAngleVerticalInverse_orbit_interpolation_pointtransform(setup_act
     orb.integrate(ts,isopot)
     assert numpy.amax(numpy.fabs(orb.x(ts)-x)) < 1e-7, 'Position does not agree with that of the integrated orbit along the torus of the IsothermalDiskPotential when using interpolation and a point transformation'
     assert numpy.amax(numpy.fabs(orb.vx(ts)-v)) < 1e-7, 'Velocity does not agree with that of the integrated orbit along the torus of the IsothermalDiskPotential when using interpolation and a point transformation'
+    return None
+
+def test_actionAngleVerticalInverse_plotting():
+    import matplotlib.pyplot as pyplot
+
+    import galpy.util.plot as galpy_plot
+    galpy_plot.start_print(axes_labelsize=17.,text_fontsize=12.,xtick_labelsize=15.,ytick_labelsize=15.)
+    from galpy.actionAngle import actionAngleVerticalInverse
+    from galpy.potential import IsothermalDiskPotential
+
+    # Set up instance
+    isopot= IsothermalDiskPotential(amp=1.,sigma=0.5)
+    aAVI= actionAngleVerticalInverse(pot=isopot,nta=4*128,Es=[0.1,1.,10.],
+                                     use_pointtransform=False)
+    aAVIpt= actionAngleVerticalInverse(pot=isopot,nta=4*128,Es=[0.1,1.,10.],
+                                     use_pointtransform=True)
+
+    galpy_plot.start_print(axes_labelsize=17.,text_fontsize=12.,
+                           xtick_labelsize=15.,ytick_labelsize=15.)
+    gs= aAVI.plot_convergence(1.,return_gridspec=True)
+    aAVIpt.plot_convergence(1.,overplot=gs)
+    pyplot.close()
+    gs= aAVI.plot_power([0.1,1.,10.],return_gridspec=True)
+    pyplot.close()
+    aAVI.plot_orbit(1.)
+    return None
+
+# Test that actionAngleVerticalInverse is the inverse of actionAngleVertical
+def test_actionAngleVerticalInverse_interpolation_plotting(setup_actionAngleVerticalInverse_interpolated):
+    import matplotlib.pyplot as pyplot
+
+    import galpy.util.plot as galpy_plot
+
+    aAVI, _= setup_actionAngleVerticalInverse_interpolated
+    galpy_plot.start_print(axes_labelsize=17.,text_fontsize=12.,
+                           xtick_labelsize=15.,ytick_labelsize=15.)
+    gs= aAVI.plot_convergence(3.7,return_gridspec=True)
+    pyplot.close()
+    aAVI.plot_power(numpy.linspace(0.,4.,1001))
+    pyplot.close()
+    aAVI.plot_orbit(3.706)
+    pyplot.close()
+    aAVI.plot_interp(3.706)
     return None
 
 # Test that computing actionAngle coordinates in C for a NullPotential leads to an error
