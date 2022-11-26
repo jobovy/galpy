@@ -3868,8 +3868,6 @@ def test_actionAngleVerticalInverse_orbit_interpolation_pointtransform(setup_act
 def test_actionAngleVerticalInverse_plotting():
     import matplotlib.pyplot as pyplot
 
-    import galpy.util.plot as galpy_plot
-    galpy_plot.start_print(axes_labelsize=17.,text_fontsize=12.,xtick_labelsize=15.,ytick_labelsize=15.)
     from galpy.actionAngle import actionAngleVerticalInverse
     from galpy.potential import IsothermalDiskPotential
 
@@ -3880,8 +3878,6 @@ def test_actionAngleVerticalInverse_plotting():
     aAVIpt= actionAngleVerticalInverse(pot=isopot,nta=4*128,Es=[0.1,1.,10.],
                                      use_pointtransform=True)
 
-    galpy_plot.start_print(axes_labelsize=17.,text_fontsize=12.,
-                           xtick_labelsize=15.,ytick_labelsize=15.)
     gs= aAVI.plot_convergence(1.,return_gridspec=True)
     aAVIpt.plot_convergence(1.,overplot=gs)
     pyplot.close()
@@ -3894,11 +3890,7 @@ def test_actionAngleVerticalInverse_plotting():
 def test_actionAngleVerticalInverse_interpolation_plotting(setup_actionAngleVerticalInverse_interpolated):
     import matplotlib.pyplot as pyplot
 
-    import galpy.util.plot as galpy_plot
-
     aAVI, _= setup_actionAngleVerticalInverse_interpolated
-    galpy_plot.start_print(axes_labelsize=17.,text_fontsize=12.,
-                           xtick_labelsize=15.,ytick_labelsize=15.)
     gs= aAVI.plot_convergence(3.7,return_gridspec=True)
     pyplot.close()
     aAVI.plot_power(numpy.linspace(0.,4.,1001))
