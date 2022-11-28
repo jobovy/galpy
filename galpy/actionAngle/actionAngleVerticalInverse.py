@@ -912,7 +912,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
             cntr+= 1
             if numpy.sum(unconv) == 0:
                 break
-            if cntr > self._maxiter:
+            if cntr > self._maxiter: # pragma: no cover
                 warnings.warn(\
                     "Angle mapping with Newton-Raphson did not converge in {} iterations, falling back onto simple bisection (increase maxiter to try harder with Newton-Raphson)"\
                         .format(self._maxiter),galpyWarning)
@@ -938,7 +938,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
                 cntr+= 1
                 if numpy.sum(unconv) == 0:
                     break
-                if cntr > self._maxiter:
+                if cntr > self._maxiter: # pragma: no cover
                     warnings.warn(\
                         "Angle mapping with bisection did not converge in {} iterations"\
                             .format(self._maxiter)

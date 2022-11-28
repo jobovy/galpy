@@ -3881,7 +3881,8 @@ def test_actionAngleVerticalInverse_plotting():
     gs= aAVI.plot_convergence(1.,return_gridspec=True)
     aAVIpt.plot_convergence(1.,overplot=gs)
     pyplot.close()
-    gs= aAVI.plot_power([0.1,1.,10.],return_gridspec=True)
+    gs= aAVI.plot_power(0.1,return_gridspec=True)
+    gs= aAVI.plot_power([0.1,1.,10.],overplot=gs)
     pyplot.close()
     aAVI.plot_orbit(1.)
     return None
@@ -3898,6 +3899,100 @@ def test_actionAngleVerticalInverse_interpolation_plotting(setup_actionAngleVert
     aAVI.plot_orbit(3.706)
     pyplot.close()
     aAVI.plot_interp(3.706)
+    return None
+
+def test_actionAngleVerticalInverse_convergence_warnings():
+    from galpy.actionAngle import actionAngleVerticalInverse
+    from galpy.potential import IsothermalDiskPotential
+
+    isopot= IsothermalDiskPotential(amp=1.,sigma=0.5)
+    # Setup warnings
+    with warnings.catch_warnings(record=True) as w:
+        if PY2: reset_warning_registry('galpy')
+        warnings.simplefilter("always",galpyWarning)
+        aAVI= actionAngleVerticalInverse(pot=isopot,nta=4*128,Es=[300.],
+                                         use_pointtransform=False,
+                                         maxiter=100)
+        # Should raise convergence warnings
+        raisedWarning= False
+        for wa in w:
+            raisedWarning= (str(wa.message) == "Torus mapping with Newton-Raphson did not converge in 100 iterations, falling back onto simple bisection (increase maxiter to try harder with Newton-Raphson)")
+            if raisedWarning: break
+        assert raisedWarning, "actionAngleVerticalInverse for large energy should have raised convergence warning, but didn't"
+        for wa in w:
+            raisedWarning= (str(wa.message) == "Torus mapping with bisection did not converge in 100 iterations for energies: 300")
+            if raisedWarning: break
+        assert raisedWarning, "actionAngleVerticalInverse for large energy should have raised convergence warning, but didn't"
+    return None
+
+def test_actionAngleVerticalInverse_plotting_errors():
+    from galpy.actionAngle import actionAngleVerticalInverse
+    from galpy.potential import IsothermalDiskPotential
+
+    # Set up instance
+    isopot= IsothermalDiskPotential(amp=1.,sigma=0.5)
+    aAVI= actionAngleVerticalInverse(pot=isopot,nta=4*128,
+                                     Es=[0.1,1.,10.,20.,30.],
+                                     use_pointtransform=False)
+    with pytest.raises(ValueError) as excinfo:
+        gs= aAVI.plot_convergence(1.1,return_gridspec=True)
+        pytest.fail('Calling plot_convergence with an energy not given should have given a ValueError, but did not')
+    with pytest.raises(ValueError) as excinfo:
+        aAVI.plot_power(1.1)
+        pytest.fail('Calling plot_convergence with an energy not given should have given a ValueError, but did not')
+    with pytest.raises(RuntimeError) as excinfo:
+        aAVI.plot_power(numpy.linspace(0.,4.,1001),overplot=True)
+        pytest.fail("Calling plot_power with overplot=True and many Es should have raised a RuntimeError, but didn't")
+    with pytest.raises(ValueError) as excinfo:
+        aAVI.plot_orbit(1.1)
+        pytest.fail('Calling plot_convergence with an energy not given should have given a ValueError, but did not')
+    return None
+
+def test_actionAngleVerticalInverse_interpolation_errors():
+    from galpy.actionAngle import actionAngleVerticalInverse
+    from galpy.potential import IsothermalDiskPotential
+
+    # Set up instance
+    isopot= IsothermalDiskPotential(amp=1.,sigma=0.5)
+    aAVI= actionAngleVerticalInverse(pot=isopot,nta=4*128,
+                                     Es=[0.1,1.,10.],
+                                     use_pointtransform=True)
+    # Interpolation not being set up should lead to a bunch of errors
+    with pytest.raises(RuntimeError) as excinfo:
+        aAVI.nSn(0.1)
+        pytest.fail('Calling nSn without interpolation should have raised a RuntimeError, but did not')
+    with pytest.raises(RuntimeError) as excinfo:
+        aAVI.dSndJ(0.1)
+        pytest.fail('Calling dSndJ without interpolation should have raised a RuntimeError, but did not')
+    with pytest.raises(RuntimeError) as excinfo:
+        aAVI.pt_coeffs(0.1)
+        pytest.fail('Calling pt_coeffs without interpolation should have raised a RuntimeError, but did not')
+    with pytest.raises(RuntimeError) as excinfo:
+        aAVI.pt_deriv_coeffs(0.1)
+        pytest.fail('Calling pt_deriv_coeffs without interpolation should have raised a RuntimeError, but did not')
+    return None
+
+# Test that evaluating various functions for an actionAngleVerticalInverse instance for an E not in the instantiation raises an error
+def test_actionAngleVerticalInverse_notE_errors():
+    from galpy.actionAngle import actionAngleVerticalInverse
+    from galpy.potential import IsothermalDiskPotential
+
+    # Set up instance
+    isopot= IsothermalDiskPotential(amp=1.,sigma=0.5)
+    aAVI= actionAngleVerticalInverse(pot=isopot,nta=4*128,
+                                     Es=[0.1,1.,10.],
+                                     use_pointtransform=True)
+    with pytest.raises(ValueError) as excinfo:
+        aAVI.J(0.11)
+        pytest.fail('Calling J with an energy not given should have given a ValueError, but did not')
+    with pytest.raises(ValueError) as excinfo:
+        # actually action input here, but this is fine
+        aAVI.xvFreqs(0.11,0.)
+        pytest.fail('Calling xvFreqs with an energy not given should have given a ValueError, but did not')
+    with pytest.raises(ValueError) as excinfo:
+        # actually action input here, but this is fine
+        aAVI.Freqs(0.11)
+        pytest.fail('Calling Freqs with an energy not given should have given a ValueError, but did not')
     return None
 
 # Test that computing actionAngle coordinates in C for a NullPotential leads to an error
