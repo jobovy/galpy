@@ -1252,7 +1252,7 @@ def evaluateplanarR2derivs(Pot,R,phi=None,t=0.):
 
 def LinShuReductionFactor(axiPot,R,sigmar,nonaxiPot=None,
                           k=None,m=None,OmegaP=None):
-    """
+    r"""
     NAME:
 
        LinShuReductionFactor
@@ -1275,7 +1275,7 @@ def LinShuReductionFactor(axiPot,R,sigmar,nonaxiPot=None,
 
           k= wavenumber (see Binney & Tremaine 2008)
 
-          OmegaP= pattern speed (can be Quantity)
+          OmegaP= pattern speed (can be Quantity); note that in the usual Lin-Shu formula \omega = m x OmegaP
 
        2) nonaxiPot= a non-axisymmetric Potential instance (such as SteadyLogSpiralPotential) that has functions that return OmegaP, m, and wavenumber
 
@@ -1297,6 +1297,7 @@ def LinShuReductionFactor(axiPot,R,sigmar,nonaxiPot=None,
         k= nonaxiPot.wavenumber(R)
         m= nonaxiPot.m()
     tepif= epifreq(axiPot,R)
+    # We define omega = m x OmegaP in the usual Lin-Shu formula
     s= m*(OmegaP-omegac(axiPot,R))/tepif
     chi= sigmar**2.*k**2./tepif**2.
     return (1.-s**2.)/numpy.sin(numpy.pi*s)\
