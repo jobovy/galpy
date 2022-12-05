@@ -30,7 +30,7 @@ class actionAngleVertical(actionAngle):
 
         INPUT:
 
-           pot= potential or list of potentials (planarPotentials)
+           pot= potential or list of 1D potentials (linearPotential or verticalPotential)
 
            ro= distance from vantage point to GC (kpc; can be Quantity)
 

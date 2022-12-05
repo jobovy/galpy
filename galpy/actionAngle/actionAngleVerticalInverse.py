@@ -41,7 +41,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
 
         INPUT:
 
-           pot= a linearPotential or list thereof
+           pot= a linearPotential/verticalPotential or list thereof
 
            Es= energies of the orbits to map the tori for, will be forcibly sorted (needs to be a dense grid when setting up the object for interpolation with setup_interp=True)
 

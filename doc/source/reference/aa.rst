@@ -36,6 +36,7 @@ Specific actionAngle modules
    actionAngleStaeckel <aastaeckel.rst>
    actionAngleStaeckelGrid <aastaeckelgrid.rst>
    actionAngleIsochroneApprox <aaisochroneapprox.rst>
+   actionAngleVertical <aavertical.rst>
 
 (**J**, **a**) --> (**x**, **v**, **O**)
 ------------------------------------------
@@ -63,6 +64,7 @@ Specific actionAngle modules
    actionAngleHarmonicInverse <aaharmonicinverse.rst>
    actionAngleIsochroneInverse <aaisochroneinverse.rst>
    actionAngleTorus <aatorus.rst>
+   actionAngleVerticalInverse <aaverticalinverse.rst>
 
 In addition to the methods listed above, ``actionAngleTorus`` also has
 the following methods:
