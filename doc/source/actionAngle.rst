@@ -5,51 +5,62 @@ Action-angle coordinates
 
 galpy can calculate actions and angles for a large variety of
 potentials (any time-independent potential in principle). These are
-implemented in a separate module ``galpy.actionAngle``, and the
-preferred method for accessing them is through the routines in this
-module. There is also some support for accessing the actionAngle
-routines as methods of the ``Orbit`` class.
+implemented in a separate module ``galpy.actionAngle``. This module contains
+classes for computing both the forward (**x**, **v**) --> (**J**, **O**, **a**)
+and the reverse (**J**, **a**) --> (**x**, **v**, **O**) transformations. It is
+also possible to compute most forward transformations as methods of the
+``Orbit`` class, which is typically the simplest way to compute actions,
+frequencies, and angles for a given orbit.
 
 .. TIP::
    If you want to quickly and easily compute actions, angles, or frequencies using the Staeckel approximation, using the ``Orbit`` interface as described in :ref:`this section <aaorbit>` is recommended. Especially if you are starting from observed coordinates, as ``Orbit`` instances can easily be initialized using these.
 
-Since v1.2, galpy can also compute positions and velocities
-corresponding to a given set of actions and angles for axisymmetric
-potentials using the TorusMapper code of `Binney & McMillan (2016)
-<http://adsabs.harvard.edu/abs/2016MNRAS.456.1982B>`__. This is
-described in :ref:`this section <aatorus>` below. The interface for
-this is different than for the other action-angle classes, because the
-transformations are generally different.
-
-Action-angle coordinates can be calculated for the following
+Forward action-angle transformations can be calculated for the following
 potentials/approximations:
 
 * Isochrone potential
+* Harmonic potential
 * Spherical potentials
-* Adiabatic approximation
-* Staeckel approximation
-* A general orbit-integration-based technique
+* Axisymmetric potentials with the adiabatic approximation
+* Axisymmetric potentials with the Staeckel approximation
+* Static potentials with a general orbit-integration-based technique
+* One-dimensional potentials
 
 There are classes corresponding to these different
 potentials/approximations and actions, frequencies, and angles can
 typically be calculated using these three methods:
 
-* __call__: returns the actions
-* actionsFreqs: returns the actions and the frequencies
-* actionsFreqsAngles: returns the actions, frequencies, and angles
+* ``__call__``: returns the actions
+* ``actionsFreqs``: returns the actions and the frequencies
+* ``actionsFreqsAngles``: returns the actions, frequencies, and angles
 
-These are not all implemented for each of the cases above yet.
-
-The adiabatic and Staeckel approximation have also been implemented in
+These are not all implemented for each of the cases above yet. The adiabatic and
+Staeckel approximation have also been implemented in
 C and using grid-based interpolation, for extremely fast action-angle
-calculations (see below).
+calculations (see below). Forward transformations are discussed in
+:ref:`this section <aafwd>`.
 
-Action-angle coordinates for the isochrone potential
------------------------------------------------------
+Reverse action-angle transformations can be calculated for the following
+potentials/approximations:
 
-The isochrone potential is the only potential for which all of the
-actions, frequencies, and angles can be calculated analytically. We
-can do this in galpy by doing
+* Isochrone potential
+* Harmonic potential
+* 1D potentials
+* Axisymmetric potentials using the TorusMapper.
+
+Reverse transformations are discussed in
+:ref:`this section <aareverse>`.
+
+We start by discussing the forward and reverse transformations for the two
+specific potentials: the isochrone and the harmonic potentals.
+
+**UPDATED IN v1.8.2** Action-angle coordinates for the isochrone/harmonic potentials
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+The harmonic and isochrone potentials are the only potentials for which all of
+the actions, frequencies, and angles can be calculated analytically and for
+which the action-angle transformation can be straightforwardly reversed. For the
+isochrone potential, we can do this in galpy by doing
 
 >>> from galpy.potential import IsochronePotential
 >>> from galpy.actionAngle import actionAngleIsochrone
@@ -133,11 +144,67 @@ The actions are all conserved. The angles increase linearly with time
 
 .. image:: images/ip-tangles.png
 
+The reverse transformation is implemented as ``actionAngleIsochroneInverse``.
+For example, for the same isochrone potential as above, we set up the inverse
+transformation as
+
+>>> from galpy.actionAngle import actionAngleIsochroneInverse
+>>> aAII= actionAngleIsochroneInverse(ip=ip)
+
+We can then reverse the transformation as follows:
+
+>>> jr,jp,jz,oR,op,oz,ar,ap,az= aAI.actionsFreqsAngles(1.,0.5,1.3,0.2,0.1,0.)
+>>> print(aAII(jr,jp,jz,ar,ap,az))
+# (array([1.]), array([0.5]), array([1.3]), array([0.2]), array([0.1]), array([0.]))
+
+We can also do this for an entire orbit and compare to the orbit
+
+>>> ar0,ap0,az0= 0.,0.,0.
+>>> ts= numpy.linspace(0.,10.,1001)
+>>> ars,apz,azs= ar0+oR*ts, ap0+op*ts, az0+oz*ts
+>>> xv= aAII(jr,jp,jz,ars,apz,azs)
+>>> plot(xv[0],xv[3])
+>>> o= Orbit([xv[0][0],xv[1][0],xv[2][0],xv[3][0],xv[4][0],xv[5][0]])
+>>> o.integrate(ts,ip)
+>>> o.plot(gcf=True)
+
+which gives
+
+.. image:: images/ip-inverse.png
+   :width: 60%
+
+We see that the action-angle calculated orbit and the numerically-integrated
+orbit are right on top of each other.
+
+For the 1D harmonic oscillator, do, e.g.,
+
+>>> from galpy.actionAngle import actionAngleHarmonic
+>>> aAH= actionAngleHarmonic(omega=1.)
+>>> print(aAH(1.,0.2))
+# 0.52
+>>> print(aAH.actionsFreqs(1.,0.2))
+# (0.52, 1.0)
+>>> print(aAH.actionsFreqsAngles(1.,0.2))
+# (0.52, 1.0, 1.373400766945016)
+
+We can also reverse this using ``actionAngleHarmonicInverse``
+
+>>> from galpy.actionAngle import actionAngleHarmonicInverse
+>>> aAHI= actionAngleHarmonicInverse(omega=1.)
+>>> J,O,a= aAH.actionsFreqsAngles(1.,0.2)
+>>> print(aAHI(J,a))
+# (1.0, 0.19999999999999996)
+
+.. _aafwd:
+
+**UPDATED IN v1.8.2** Forward action-angle transformations (**x**, **v**) --> (**J**, **O**, **a**)
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
 Action-angle coordinates for spherical potentials
 --------------------------------------------------
 
 Action-angle coordinates for any spherical potential can be calculated
-using a few orbit integrations. These are implemented in galpy in the
+using a few simple numerical integrations. These are implemented in galpy in the
 ``actionAngleSpherical`` module. For example, we can do
 
 >>> from galpy.potential import LogarithmicHaloPotential
@@ -564,7 +631,6 @@ or
 
 .. image:: images/MWPotential-angles.png
 
-
 Action-angle coordinates using an orbit-integration-based approximation
 -------------------------------------------------------------------------
 
@@ -744,17 +810,150 @@ calculate actions for triaxial potentials by specifying that
 >>> aAIA(*obs,nonaxi=True)
 # (array([ 0.16605011]), array([-1.80322155]), array([ 0.50704439]))
 
+Action-angle coordinates for one dimensional potentials
+--------------------------------------------------------
+
+As for spherical potentials, actions, frequencies, and angles can be computed
+for any one-dimensional potential using a few simple numerical integrals. In
+the context of galactic dynamics, this is, for example, useful for studying the
+dynamical in the vertical direction perpendicular to the main plane of a disk.
+
+The action-angle coordinates for one-dimensional potentials are computed using the
+``actionAngleVertical`` class. This class can be initialized with a
+``linearPotential`` instance or with a list of such instances
+(``verticalPotential`` instances which represent the vertical direction of
+3D potentials are examples of a ``linearPotential``). As an example, we'll
+consider orbits in the one-dimensional version of the ``MWPotential2014`` model
+
+>>> from galpy.potential import MWPotential2014, toVerticalPotential
+>>> from galpy.actionAngle import actionAngleVertical
+>>> pot= toVerticalPotential(MWPotential2014,1.) # vertical potential at R=1.
+>>> aAV= actionAngleVertical(pot=pot)
+
+Now we can compute the actions, frequencies, and angles using the usual set of
+methods:
+
+>>> aAV.actionsFreqsAngles(1.,0.1)
+# (array([0.40513006]), array([0.73363198]), array([1.40229361]))
+
+To check the accuracy of the 1D action-angle coordinates, we can compute them
+along an orbit
+
+>>> from galpy.orbit import Orbit
+>>> o= Orbit([1.,0.1])
+>>> ts= numpy.linspace(0.,10.,1001)
+>>> o.integrate(ts,pot)
+>>> plot(ts,aAV(o.x(ts),o.vx(ts)))
+
+which gives
+
+.. image:: images/aAV-1D.png
+   :width: 60%
+
+The angles increase linearly with time
+
+>>> plot(ts,aAV.actionsFreqsAngles(o.x(ts),o.vx(ts))[2],'.')
+
+which gives
+
+.. image:: images/aAV-1Dangles.png
+   :width: 60%
+
+.. _aareverse:
+
+**UPDATED IN v1.8.2** Reverse action-angle transformations (**J**, **a**) --> (**x**, **v**, **O**)
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+Reverse action-angle transformations for one-dimensional potentials
+------------------------------------------------------------------
+
+The ``actionAngleVerticalInverse`` class also allows to compute the phase-space
+coordinates for given actions and angles in one-dimensional potentials. This
+uses a robust root-finding/Fourier-transformation implementation of the torus
+mapping algorithm that can optionally use a point-transformation to improve the
+quality of the transformation (Bovy in prep. who knows). As an example, we use
+a simple ``IsothermalDiskPotential``:
+
+>>> from galpy.potential import IsothermalDiskPotential
+>>> isopot= IsothermalDiskPotential(amp=1.,sigma=0.5)
+
+We then set up the ``actionAngleVerticalInverse`` object, e.g., to only reverse
+the transformation for three values of the energy:
+
+>>> from galpy.actionAngle import actionAngleVerticalInverse
+>>> aA1Dinv= actionAngleVerticalInverse(pot=isopot,nta=4*128,
+                                        Es=[0.1,1.,10.],
+                                        use_pointtransform=False)
+
+Let's then compute an orbit using the reverse transformation. First, we obtain
+the frequency, e.g., for the ``E=1.`` orbit (note that the input to this method
+is action, so we use ``aA1Dinv.J`` to convert energy to action):
+
+>>> O= aA1Dinv.Freqs(aA1Dinv.J(1.))
+
+Then we integrate an orbit
+
+>>> a0= 0.1
+>>> ts= numpy.linspace(0.,10.,1001)
+>>> angles= a0+O*ts
+>>> xv= aA1Dinv(aA1Dinv.J(1.),angles)
+>>> plot(xv[0],xv[1])
+>>> from galpy.orbit import Orbit
+>>> o= Orbit([xv[0][0],xv[1][0]])
+>>> o.integrate(ts,isopot)
+>>> o.plot(gcf=True)
+
+which gives
+
+.. image:: images/aA1Dinv.png
+   :width: 50%
+
+To be able to reverse the action-angle transformation for many orbits, we can
+set up the instance so it supports interpolation between the tori at which the
+reverse transformation is computed. This can be done as follows
+
+>>> aA1Dinv= actionAngleVerticalInverse(pot=isopot,nta=2*128,
+                                        Es=numpy.linspace(0.,4.,1001),
+                                        setup_interp=True,
+                                        use_pointtransform=True,pt_deg=7)
+
+where we have also used a point transformation. Now we can compute the reverse
+transformation at any orbit within the energy range, e.g.,
+
+>>> a0= 0.1
+>>> ts= numpy.linspace(0.,10.,1001)
+>>> angles= a0+O*ts
+>>> xv= aA1Dinv(aA1Dinv.J(3.706),angles) # between grid points
+>>> plot(xv[0],xv[1])
+>>> from galpy.orbit import Orbit
+>>> o= Orbit([xv[0][0],xv[1][0]])
+>>> o.integrate(ts,isopot)
+>>> o.plot(gcf=True)
+
+which gives
+
+.. image:: images/aA1Dinv-interp.png
+   :width: 50%
+
+Energy conservation is very good
+
+>>> from galpy.potential import evaluatelinearPotentials
+>>> plot(ts,xv[1]**2./2.+evaluatelinearPotentials(isopot,xv[0]))
+
+gives
+
+.. image:: images/aA1Dinv-interp-E.png
+   :width: 50%
+
 .. _aatorus:
 
 Action-angle coordinates using the TorusMapper code
 ----------------------------------------------------
 
-All of the methods described so far allow one to compute the actions,
-angles, and frequencies for a given phase-space location. ``galpy``
-also contains some support for computing the inverse transformation by
-using an interface to the `TorusMapper
-<https://github.com/PaulMcMillan-Astro/Torus>`__ code. Currently, this
-is limited to axisymmetric potentials, because the TorusMapper code is
+``galpy`` also contains some support for computing the reverse action-angle
+transformation for general axisymmetric potentials using an interface to the
+`TorusMapper <https://github.com/PaulMcMillan-Astro/Torus>`__ code. Currently,
+this is limited to axisymmetric potentials, because the TorusMapper code is
 limited to such potentials.
 
 The basic use of this part of ``galpy`` is to compute an orbit
@@ -836,7 +1035,7 @@ coordinates.
 .. _aaorbit:
 
 Accessing action-angle coordinates for Orbit instances
-------------------------------------------------------
+++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 While the most flexible way to access the actionAngle routines is
 through the methods in the ``galpy.actionAngle`` modules, action-angle
@@ -917,7 +1116,7 @@ data in observed coordinates (e.g., RA, Dec, etc.), for example,
 # [2363.7957, 360.12445, 690.32238, 1046.2924, 132.9572, 86.989812, 272.06487, 360.73566, 55.568238, 698.18447, 24.783574, 21.889352, 16.148216, 3870.4286, 743.63456, 317.66551, 325.93816, 183.86429, 56.087796, 180.42838, 1121.8019, 8700.8335, 977.8525, 7.569396, 8.2847477, 210.72127, 160.9785, 680.63864, 1093.7413, 87.629873]kmkpcs
 
 Example: Evidence for a Lindblad resonance in the Solar neighborhood
----------------------------------------------------------------------
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 We can use galpy to calculate action-angle coordinates for a set of
 stars in the Solar neighborhood and look for unexplained features. For
@@ -967,7 +1166,7 @@ information see `2010MNRAS.409..145S
 
 
 Example: actions in an N-body simulation
-------------------------------------------
+++++++++++++++++++++++++++++++++++++++++
 
 To illustrate how we can use ``galpy`` to calculate actions in a
 snapshot of an N-body simulation, we again look at the ``g15784``
