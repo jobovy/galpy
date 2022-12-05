@@ -1822,9 +1822,8 @@ class dehnendf(diskdf):
                                    returnROrbit=returnROrbit,
                                    returnOrbit=returnOrbit,nphi=int(nphi),
                                    los=los,losdeg=losdeg))
-        if len(out) > n*nphi:
-            print(n, nphi, n*nphi)
-            out= out[0:int(n*nphi)]
+        # Trim to make sure output has the right size
+        out= out[0:int(n*nphi)]
         if kwargs.get('use_physical',True) and \
                 self._roSet and self._voSet:
             if isinstance(out[0],Orbit):
