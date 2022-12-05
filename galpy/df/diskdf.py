@@ -1780,7 +1780,10 @@ class dehnendf(diskdf):
             for ii in range(int(n)):
                 try:
                     wR, rap, rperi= self._ELtowRRapRperi(E[ii],Lz[ii])
-                except ValueError:
+                except ValueError: # pragma: no cover
+                    # Tests don't get here anymore, because of improvements
+                    # in the rperi/rap calculation, but leaving the try/except
+                    # in because it can do no harm
                     continue
                 TR= 2.*numpy.pi/wR
                 tr= stats.uniform.rvs()*TR
