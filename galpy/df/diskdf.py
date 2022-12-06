@@ -2106,8 +2106,8 @@ class shudf(diskdf):
             out.extend(self.sample(n=int(n-len(out)/nphi),rrange=rrange,
                                    returnROrbit=returnROrbit,
                                    returnOrbit=returnOrbit,nphi=nphi))
-        if len(out) > n*nphi:
-            out= out[0:int(n*nphi)]
+        # Trim to make sure output has the right size
+        out= out[0:int(n*nphi)]
         if kwargs.get('use_physical',True) and \
                 self._roSet and self._voSet:
             if isinstance(out[0],Orbit):
