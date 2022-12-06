@@ -1348,7 +1348,7 @@ def test_setup_progIsTrack():
     return None
 
 def test_bovy14_useTM_poterror():
-    if WIN32: return None # skip on appveyor, because no TM
+    if WIN32: return None # skip on Windows, because no TM
     # Test that setting up the stream model with useTM, but a different
     # actionAngleTorus potential raises a IOError
     #Imports
@@ -1372,7 +1372,7 @@ def test_bovy14_useTM_poterror():
     return None
 
 def test_bovy14_useTM():
-    if WIN32: return None # skip on appveyor, because no TM
+    if WIN32: return None # skip on Windows, because no TM
     #Test that setting up with useTM is very close to the Bovy (2014) setup
     #Imports
     from scipy import interpolate
@@ -1408,7 +1408,7 @@ def test_bovy14_useTM():
     return None
 
 def test_bovy14_useTM_useTMHessian():
-    if WIN32: return None # skip on appveyor, because no TM
+    if WIN32: return None # skip on Windows, because no TM
     #Test that setting up with useTM is very close to the Bovy (2014) setup
     #Imports
     from scipy import interpolate
@@ -1447,7 +1447,7 @@ def test_bovy14_useTM_useTMHessian():
     return None
 
 def test_bovy14_useTM_approxConstTrackFreq():
-    if WIN32: return None # skip on appveyor, because no TM
+    if WIN32: return None # skip on Windows, because no TM
     #Test that setting up with useTM is very close to the Bovy (2014) setup
     #Imports
     from scipy import interpolate

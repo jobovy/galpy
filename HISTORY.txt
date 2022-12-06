@@ -19,6 +19,8 @@ v1.8.2 (2023-XX-XX)
 - Dropped Python 3.7 support (to allow required positional-only arguments
   using PEP 570).
 
+- Dropped Appveyor CI builds entirely, now only using GitHub Actions for CI.
+
 v1.8.1 (2022-10-31)
 ===================
 
