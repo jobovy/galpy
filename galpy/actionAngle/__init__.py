@@ -1,9 +1,10 @@
 from . import (actionAngle, actionAngleAdiabatic, actionAngleAdiabaticGrid,
-               actionAngleAxi, actionAngleHarmonic, actionAngleHarmonicInverse,
+               actionAngleHarmonic, actionAngleHarmonicInverse,
                actionAngleInverse, actionAngleIsochrone,
                actionAngleIsochroneApprox, actionAngleIsochroneInverse,
                actionAngleSpherical, actionAngleStaeckel,
-               actionAngleStaeckelGrid, actionAngleTorus)
+               actionAngleStaeckelGrid, actionAngleTorus, actionAngleVertical,
+               actionAngleVerticalInverse)
 
 #
 # Exceptions
@@ -21,7 +22,6 @@ dePeriod= actionAngleIsochroneApprox.dePeriod
 #
 actionAngle= actionAngle.actionAngle
 actionAngleInverse= actionAngleInverse.actionAngleInverse
-actionAngleAxi= actionAngleAxi.actionAngleAxi
 actionAngleAdiabatic= actionAngleAdiabatic.actionAngleAdiabatic
 actionAngleAdiabaticGrid= actionAngleAdiabaticGrid.actionAngleAdiabaticGrid
 actionAngleStaeckelSingle= actionAngleStaeckel.actionAngleStaeckelSingle
@@ -35,3 +35,5 @@ actionAngleTorus= actionAngleTorus.actionAngleTorus
 actionAngleIsochroneInverse= actionAngleIsochroneInverse.actionAngleIsochroneInverse
 actionAngleHarmonic= actionAngleHarmonic.actionAngleHarmonic
 actionAngleHarmonicInverse= actionAngleHarmonicInverse.actionAngleHarmonicInverse
+actionAngleVertical= actionAngleVertical.actionAngleVertical
+actionAngleVerticalInverse= actionAngleVerticalInverse.actionAngleVerticalInverse

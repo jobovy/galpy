@@ -341,10 +341,10 @@ class actionAngleStaeckelGrid(actionAngle):
                 y= (_Efunc(E[indxc],thisERL[indxc])-_Efunc(thisERa[indxc],thisERL[indxc]))/(_Efunc(thisERL[indxc],thisERL[indxc])-_Efunc(thisERa[indxc],thisERL[indxc]))
                 coords[1,:]= y*(self._nE-1.)
                 coords[2,:]= psi/numpy.pi*2.*(self._npsi-1.)
-                jr[indxc]= (numpy.exp(ndimage.interpolation.map_coordinates(self._jrFiltered,
-                                                                            coords,
-                                                                            order=3,
-                                                                            prefilter=False))-10.**-10.)*(numpy.exp(self._jrLzInterp(Lz[indxc]))-10.**-5.)
+                jr[indxc]= (numpy.exp(ndimage.map_coordinates(self._jrFiltered,
+                                                              coords,
+                                                              order=3,
+                                                              prefilter=False))-10.**-10.)*(numpy.exp(self._jrLzInterp(Lz[indxc]))-10.**-5.)
                 #Switch to Ez-calculated psi
                 sin2psi= 2.*thisEz[True^indxCos2psi]/thisv2[True^indxCos2psi]/(1.+sinh2u0[True^indxCos2psi]) #latter is cosh2u0
                 sin2psi[(sin2psi > 1.)*(sin2psi < 1.+10.**-5.)]= 1.
@@ -356,10 +356,10 @@ class actionAngleStaeckelGrid(actionAngle):
                 newcoords= numpy.empty((3,numpy.sum(indxc)))
                 newcoords[0:2,:]= coords[0:2,True^indxSin2psi]
                 newcoords[2,:]= psiz/numpy.pi*2.*(self._npsi-1.)
-                jz[indxc]= (numpy.exp(ndimage.interpolation.map_coordinates(self._jzFiltered,
-                                                                           newcoords,
-                                                                           order=3,
-                                                                           prefilter=False))-10.**-10.)*(numpy.exp(self._jzLzInterp(Lz[indxc]))-10.**-5.)
+                jz[indxc]= (numpy.exp(ndimage.map_coordinates(self._jzFiltered,
+                                                              newcoords,
+                                                              order=3,
+                                                              prefilter=False))-10.**-10.)*(numpy.exp(self._jzLzInterp(Lz[indxc]))-10.**-5.)
             if numpy.sum(indx) > 0:
                 jrindiv, lzindiv, jzindiv= self._aA(R[indx],
                                                     vR[indx],
@@ -509,14 +509,14 @@ class actionAngleStaeckelGrid(actionAngle):
                 y= (_Efunc(E[indxc],thisERL[indxc])-_Efunc(thisERa[indxc],thisERL[indxc]))/(_Efunc(thisERL[indxc],thisERL[indxc])-_Efunc(thisERa[indxc],thisERL[indxc]))
                 coords[1,:]= y*(self._nE-1.)
                 coords[2,:]= psi/numpy.pi*2.*(self._npsi-1.)
-                ecc[indxc]= (numpy.exp(ndimage.interpolation.map_coordinates(self._eccFiltered,
-                                                                            coords,
-                                                                            order=3,
-                                                                            prefilter=False))-10.**-10.)
-                rperi[indxc]= (numpy.exp(ndimage.interpolation.map_coordinates(self._rperiFiltered,
-                                                                            coords,
-                                                                            order=3,
-                                                                            prefilter=False))-10.**-10.)*(numpy.exp(self._rperiLzInterp(Lz[indxc]))-10.**-5.)
+                ecc[indxc]= (numpy.exp(ndimage.map_coordinates(self._eccFiltered,
+                                                               coords,
+                                                               order=3,
+                                                               prefilter=False))-10.**-10.)
+                rperi[indxc]= (numpy.exp(ndimage.map_coordinates(self._rperiFiltered,
+                                                                 coords,
+                                                                 order=3,
+                                                                 prefilter=False))-10.**-10.)*(numpy.exp(self._rperiLzInterp(Lz[indxc]))-10.**-5.)
                 # We do rap below with zmax
                 #Switch to Ez-calculated psi
                 sin2psi= 2.*thisEz[True^indxCos2psi]/thisv2[True^indxCos2psi]/(1.+sinh2u0[True^indxCos2psi]) #latter is cosh2u0
@@ -529,14 +529,14 @@ class actionAngleStaeckelGrid(actionAngle):
                 newcoords= numpy.empty((3,numpy.sum(indxc)))
                 newcoords[0:2,:]= coords[0:2,True^indxSin2psi]
                 newcoords[2,:]= psiz/numpy.pi*2.*(self._npsi-1.)
-                zmax[indxc]= (numpy.exp(ndimage.interpolation.map_coordinates(self._zmaxFiltered,
-                                                                           newcoords,
-                                                                           order=3,
-                                                                           prefilter=False))-10.**-10.)*(numpy.exp(self._zmaxLzInterp(Lz[indxc]))-10.**-5.)
-                rap[indxc]= (numpy.exp(ndimage.interpolation.map_coordinates(self._rapFiltered,
-                                                                           newcoords,
-                                                                           order=3,
-                                                                           prefilter=False))-10.**-10.)*(numpy.exp(self._rapLzInterp(Lz[indxc]))-10.**-5.)
+                zmax[indxc]= (numpy.exp(ndimage.map_coordinates(self._zmaxFiltered,
+                                                                newcoords,
+                                                                order=3,
+                                                                prefilter=False))-10.**-10.)*(numpy.exp(self._zmaxLzInterp(Lz[indxc]))-10.**-5.)
+                rap[indxc]= (numpy.exp(ndimage.map_coordinates(self._rapFiltered,
+                                                               newcoords,
+                                                               order=3,
+                                                               prefilter=False))-10.**-10.)*(numpy.exp(self._rapLzInterp(Lz[indxc]))-10.**-5.)
             if numpy.sum(indx) > 0:
                 eccindiv, zmaxindiv, rperiindiv, rapindiv=\
                     self._aA.EccZmaxRperiRap(R[indx],

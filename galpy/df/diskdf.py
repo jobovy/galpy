@@ -27,14 +27,13 @@ import scipy
 numpylog= numpy.lib.scimath.log # somehow, this code produces log(negative), which scipy (now numpy.lib.scimath.log) implements as log(|negative|) + i pi while numpy gives NaN and we want the scipy behavior; not sure where the log(negative) comes from though! I think it's for sigma=0 DFs (this test fails with numpy.log) where the DF eval has a log(~zero) that can be slightly negative because of numerical precision issues
 from scipy import integrate, interpolate, optimize, stats
 
-from ..actionAngle import actionAngleAdiabatic, actionAngleAxi
+from ..actionAngle import actionAngleAdiabatic
 from ..orbit import Orbit
 from ..potential import PowerSphericalPotential
 from ..util import conversion, save_pickles
-from ..util._optional_deps import _APY_LOADED, _APY_UNITS
 from ..util.ars import ars
-from ..util.conversion import (physical_conversion, potential_physical_input,
-                               surfdens_in_msolpc2)
+from ..util.conversion import (_APY_LOADED, _APY_UNITS, physical_conversion,
+                               potential_physical_input, surfdens_in_msolpc2)
 from .df import df
 from .surfaceSigmaProfile import expSurfaceSigmaProfile, surfaceSigmaProfile
 
@@ -103,9 +102,9 @@ class diskdf(df):
                                      beta=beta,**kwargs)
         else:
             self._correct= False
+        self._psp= PowerSphericalPotential(normalize=1.,alpha=2.-2.*self._beta).toPlanar()
         #Setup aA objects for frequency and rap,rperi calculation
-        self._aA= actionAngleAdiabatic(pot=PowerSphericalPotential(normalize=1.,
-                                                                   alpha=2.-2.*self._beta),gamma=0.)
+        self._aA= actionAngleAdiabatic(pot=self._psp,gamma=0.)
         return None
 
     @physical_conversion('phasespacedensity2d',pop=True)
@@ -1479,13 +1478,10 @@ class diskdf(df):
             xE= numpy.exp(E-.5)
         else: #non-flat rotation curve
             xE= (2.*E/(1.+1./self._beta))**(1./2./self._beta)
-        rperi,rap= self._aA.calcRapRperi(xE,0.,L/xE,0.,0.)
-        #Replace the above w/
-        aA= actionAngleAxi(xE,0.,L/xE,
-                           pot=PowerSphericalPotential(normalize=1.,
-                                                       alpha=2.-2.*self._beta).toPlanar())
-        TR= aA.TR()
-        return (2.*numpy.pi/TR,rap,rperi)
+        _,_,rperi,rap= self._aA.EccZmaxRperiRap(\
+            xE,numpy.sqrt(2.*(E-self._psp(xE))-L**2./xE**2.),L/xE,0.,0.)
+        return (self._aA._aAS.actionsFreqs(xE,0.,L/xE,0.,0.)[3][0],
+                rap[0],rperi[0])
 
     def sample(self,n=1,rrange=None,returnROrbit=True,returnOrbit=False,
                nphi=1.,los=None,losdeg=True,nsigma=None,maxd=None,target=True):
@@ -1780,13 +1776,14 @@ class dehnendf(diskdf):
             if not rrange is None:
                 rrange[0]= conversion.parse_length(rrange[0],ro=self._ro)
                 rrange[1]= conversion.parse_length(rrange[1],ro=self._ro)
-            if not hasattr(self,'_psp'):
-                self._psp= PowerSphericalPotential(alpha=2.-self._beta,normalize=True).toPlanar()
             out= []
             for ii in range(int(n)):
                 try:
                     wR, rap, rperi= self._ELtowRRapRperi(E[ii],Lz[ii])
-                except ValueError:
+                except ValueError: # pragma: no cover
+                    # Tests don't get here anymore, because of improvements
+                    # in the rperi/rap calculation, but leaving the try/except
+                    # in because it can do no harm
                     continue
                 TR= 2.*numpy.pi/wR
                 tr= stats.uniform.rvs()*TR
@@ -1828,9 +1825,8 @@ class dehnendf(diskdf):
                                    returnROrbit=returnROrbit,
                                    returnOrbit=returnOrbit,nphi=int(nphi),
                                    los=los,losdeg=losdeg))
-        if len(out) > n*nphi:
-            print(n, nphi, n*nphi)
-            out= out[0:int(n*nphi)]
+        # Trim to make sure output has the right size
+        out= out[0:int(n*nphi)]
         if kwargs.get('use_physical',True) and \
                 self._roSet and self._voSet:
             if isinstance(out[0],Orbit):
@@ -2067,8 +2063,6 @@ class shudf(diskdf):
             if not rrange is None:
                 rrange[0]= conversion.parse_length(rrange[0],ro=self._ro)
                 rrange[1]= conversion.parse_length(rrange[1],ro=self._ro)
-            if not hasattr(self,'_psp'):
-                self._psp= PowerSphericalPotential(alpha=2.-self._beta,normalize=True).toPlanar()
             out= []
             for ii in range(n):
                 try:
@@ -2112,8 +2106,8 @@ class shudf(diskdf):
             out.extend(self.sample(n=int(n-len(out)/nphi),rrange=rrange,
                                    returnROrbit=returnROrbit,
                                    returnOrbit=returnOrbit,nphi=nphi))
-        if len(out) > n*nphi:
-            out= out[0:int(n*nphi)]
+        # Trim to make sure output has the right size
+        out= out[0:int(n*nphi)]
         if kwargs.get('use_physical',True) and \
                 self._roSet and self._voSet:
             if isinstance(out[0],Orbit):

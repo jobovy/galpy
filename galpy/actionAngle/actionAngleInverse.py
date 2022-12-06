@@ -2,9 +2,8 @@
 # actionAngleInverse.py: top-level class with common routines for inverse
 #                        actionAngle methods
 ###############################################################################
-from galpy.util.conversion import (actionAngleInverse_physical_input,
-                                   physical_conversion_actionAngleInverse)
-
+from ..util.conversion import (actionAngleInverse_physical_input,
+                               physical_conversion_actionAngleInverse)
 from .actionAngle import actionAngle
 
 
@@ -41,6 +40,10 @@ class actionAngleInverse(actionAngle):
               actionAngleTorus:
 
                   tol= (object-wide value) goal for |dJ|/|J| along the torus
+
+              actionAngleSphericalInverse (eventually), actionAngleVerticalInverse:
+
+                  point= (True) if True, don't apply the point transformation, i.e., return (x^A,v^A)
 
         OUTPUT:
 

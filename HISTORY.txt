@@ -1,8 +1,20 @@
 v1.8.2 (2023-XX-XX)
 ===================
 
+- Added actionAngleVertical to the public API, an actionAngle class for
+  1D action-angle calculations. actionAngleVertical was used internally in galpy
+  before, but now follows the usual method structure for actionAngle classes.
+
+- Added actionAngleVerticalInverse, an inverse actionAngle class that allows one
+  to go from (x,v) -> (J,theta,Omega) for 1D potentials using a custom
+  implementation of the torus machinery with point transformations.
+
 - Made the potential input explicitly positional-only for all galpy.potential
   functions to avoid errors when specifying it as a keyword argument.
+
+- Rewrite actionAngleAdiabatic's Python implementation as a combination of
+  actionAngleSpherical (for the 2D planar part) and actionAngleVertical (for
+  the 1D vertical part).
 
 - Dropped Python 3.7 support (to allow required positional-only arguments
   using PEP 570).
