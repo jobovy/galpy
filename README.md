@@ -49,8 +49,7 @@ PYTHON VERSIONS AND DEPENDENCIES
 `galpy` supports Python 3. Specifically, galpy supports Python 3.8, 3.9, 3.10,
 and 3.11. GitHub Actions CI builds regularly check support for
 Python 3.10 (and of 3.8, and 3.9 using a more limited, core set of tests)
-on Linux and Windows (and 3.10 on Mac OS); Appveyor builds regularly check
-support for Python 3.10 on Windows. Python 2.7 is no longer supported.
+on Linux and Windows (and 3.10 on Mac OS). Python 2.7 is no longer supported.
 
 This package requires [Numpy](https://numpy.org/),
 [Scipy](http://www.scipy.org/), and
