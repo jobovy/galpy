@@ -5536,3 +5536,51 @@ def test_MovingObjectPotential_planar_orbit():
     assert numpy.fabs(oc.vx(tmax)-op.vx(tmax)) < 10.**-3.,  'Final orbit velocity between C and Python integration in a planar MovingObjectPotential is too large'
     assert numpy.fabs(oc.vy(tmax)-op.vy(tmax)) < 10.**-3.,  'Final orbit velocity between C and Python integration in a planar MovingObjectPotential is too large'
     return None
+
+# Test that all integrators can start from a negative time
+def test_integrate_negative_time():
+    from galpy.orbit import Orbit
+    from galpy.potential import DehnenBarPotential, MWPotential2014
+    dp= DehnenBarPotential()
+    methods= ['odeint', 'leapfrog', 'leapfrog_c', 'rk4_c', 'rk6_c',
+              'symplec4_c', 'symplec6_c', 'dopr54_c', 'dop853_c']
+    # negative time to negative time
+    times= numpy.linspace(-70.,-30.,1001)
+    for method in methods:
+        o= Orbit([1.,0.1,1.1,0.1,0.1,0.1])
+        o.integrate(times,MWPotential2014+dp,method=method)
+        assert numpy.std(o.Jacobi(times))/numpy.fabs(numpy.mean(o.Jacobi(times))) < 1e-7, f'Orbit integration with method {method} does not conserve energy when integrating from a negative time to a negative time'
+    # negative time to positive time
+    times= numpy.linspace(-30.,10.,1001)
+    for method in methods:
+        o= Orbit([1.,0.1,1.1,0.1,0.1,0.1])
+        o.integrate(times,MWPotential2014+dp,method=method)
+        assert numpy.std(o.Jacobi(times))/numpy.fabs(numpy.mean(o.Jacobi(times))) < 1e-4, f'Orbit integration with method {method} does not conserve energy when integrating from a negative time to a positive time'
+    return None
+
+# Test that all integrators can integrate backwards in time
+def test_integrate_backwards():
+    from galpy.orbit import Orbit
+    from galpy.potential import DehnenBarPotential, MWPotential2014
+    dp= DehnenBarPotential()
+    methods= ['odeint', 'leapfrog', 'leapfrog_c', 'rk4_c', 'rk6_c',
+              'symplec4_c', 'symplec6_c', 'dopr54_c', 'dop853_c']
+    # negative time to negative time
+    times= numpy.linspace(-30.,-70.,1001)
+    for method in methods:
+        o= Orbit([1.,0.1,1.1,0.1,0.1,0.1])
+        o.integrate(times,MWPotential2014+dp,method=method)
+        assert numpy.std(o.Jacobi(times))/numpy.fabs(numpy.mean(o.Jacobi(times))) < 1e-7, f'Orbit integration with method {method} does not conserve energy when integrating from a negative time to a negative time'
+    # positive time to negative time
+    times= numpy.linspace(30.,-10.,1001)
+    for method in methods:
+        o= Orbit([1.,0.1,1.1,0.1,0.1,0.1])
+        o.integrate(times,MWPotential2014+dp,method=method)
+        assert numpy.std(o.Jacobi(times))/numpy.fabs(numpy.mean(o.Jacobi(times))) < 1e-4, f'Orbit integration with method {method} does not conserve energy when integrating from a negative time to a positive time'
+    # positive time to positive time
+    times= numpy.linspace(70.,30.,1001)
+    for method in methods:
+        o= Orbit([1.,0.1,1.1,0.1,0.1,0.1])
+        o.integrate(times,MWPotential2014+dp,method=method)
+        assert numpy.std(o.Jacobi(times))/numpy.fabs(numpy.mean(o.Jacobi(times))) < 1e-4, f'Orbit integration with method {method} does not conserve energy when integrating from a negative time to a positive time'
+    return None
