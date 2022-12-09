@@ -66,7 +66,7 @@ class OrbitDistribution:
         mean = np.c_[
             tuple(
                 getattr(orbit, n)(quantity=True).to_value(unit)
-                for n, unit in zip(['ra', 'dec', 'dist', 'pmra', 'pmdec', 'vr'],
+                for n, unit in zip(['ra', 'dec', 'dist', 'pmra', 'pmdec', 'vlos'],
                                     units)
             )
         ][0]
