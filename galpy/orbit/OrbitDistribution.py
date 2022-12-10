@@ -255,7 +255,7 @@ class OrbitDistribution:
             raise ValueError("Orbit must be a single orbit!")
         # TODO! orbit cannot be integrated
 
-        mean, _u = _get_mean(orbit, "galactocentric", cov_u)
+        mean, _u = _get_mean(orbit, "galactocentric", cov_units)
         xyz = multivariate_normal(mean=mean, cov=cov).rvs(n_samples)
 
         R, phi, z = rect_to_cyl(*(xyz[:, i] * _u[i] for i in range(3)))
