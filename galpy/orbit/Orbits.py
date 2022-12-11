@@ -5167,6 +5167,10 @@ class Orbit:
         ys= []
         xlabels= []
         ylabels= []
+        if hasattr(self, "name"):  # name for display
+            names = self.name if isinstance(self.name, list) or isinstance(self.name, numpy.ndarray) else [self.name]
+        else:
+            names = [f"Object {i}" for i in range(len(self))]
         if isinstance(d1,str) or callable(d1):
             d1s= [d1]
             d2s= [d2]
@@ -5217,6 +5221,7 @@ class Orbit:
             for jj in range(self.size):
                 jsonDict['x%i_%i' % (ii+1,jj)]= xs[ii][jj].tolist()
                 jsonDict['y%i_%i' % (ii+1,jj)]= ys[ii][jj].tolist()
+        jsonDict["time"] = self.time().tolist()
         json_filename= kwargs.pop('json_filename',None)
         if json_filename is None:
             jd= json.dumps(jsonDict)
@@ -5290,51 +5295,67 @@ class Orbit:
     let trace1= {{
       x: data.x1_0.slice(0,numPerFrame),
       y: data.y1_0.slice(0,numPerFrame),
+      customdata: data.time,
+      hovertemplate: '<b>{name}</b>' + '<br><b>{xlabel}</b>: %{{x}}' + '<br><b>{ylabel}</b>: %{{y}}' + '<br><b>t (Gyr)</b>: %{{customdata:.5f}}',
+      name: '',
       mode: 'lines',
       line: {{
         shape: 'spline',
         width: 0.8,
         color: '{line_color}',
        }},
+      type: "scattergl",
     }};
 
     let trace2= {{
       x: data.x1_0.slice(0,numPerFrame),
       y: data.y1_0.slice(0,numPerFrame),
+      customdata: data.time,
+      hovertemplate: '<b>{name} (Current location)</b>' + '<br><b>{xlabel}</b>: %{{x}}' + '<br><b>{ylabel}</b>: %{{y}}' + '<br><b>t (Gyr)</b>: %{{customdata:.5f}}',
+      name: '',
       mode: 'lines',
       line: {{
         shape: 'spline',
         width: 3.,
         color: '{line_color}',
         }},
+      type: "scattergl",
     }};
-""".format(line_color=line_colors[0])
+""".format(line_color=line_colors[0], name=names[0], xlabel=xlabels[0], ylabel=ylabels[0])
         traces_cumul= """trace1,trace2"""
         for ii in range(1,self.size):
             setup_trace1+= """
     let trace{trace_num_1}= {{
       x: data.x1_{trace_indx}.slice(0,numPerFrame),
       y: data.y1_{trace_indx}.slice(0,numPerFrame),
+      customdata: data.time,
+      hovertemplate: '<b>{name}</b>' + '<br><b>{xlabel}</b>: %{{x}}' + '<br><b>{ylabel}</b>: %{{y}}' + '<br><b>t (Gyr)</b>: %{{customdata:.5f}}',
+      name: '',
       mode: 'lines',
       line: {{
         shape: 'spline',
         width: 0.8,
         color: '{line_color}',
        }},
+      type: "scattergl",
     }};
 
     let trace{trace_num_2}= {{
       x: data.x1_{trace_indx}.slice(0,numPerFrame),
       y: data.y1_{trace_indx}.slice(0,numPerFrame),
+      customdata: data.time,
+      hovertemplate: '<b>{name} (Current location)</b>' + '<br><b>{xlabel}</b>: %{{x}}' + '<br><b>{ylabel}</b>: %{{y}}'  + '<br><b>t (Gyr)</b>: %{{customdata:.5f}}',
+      name: '',
       mode: 'lines',
       line: {{
         shape: 'spline',
         width: 3.,
         color: '{line_color}',
         }},
+      type: "scattergl",
     }};
 """.format(trace_indx=str(ii),trace_num_1=str(2*ii+1),trace_num_2=str(2*ii+2),
-           line_color=line_colors[ii])
+           line_color=line_colors[ii], name=names[ii], xlabel=xlabels[0], ylabel=ylabels[0])
             traces_cumul+= f""",trace{str(2*ii+1)},trace{str(2*ii+2)}"""
         x_data_list = """"""
         y_data_list = """"""
@@ -5354,6 +5375,9 @@ class Orbit:
     let trace{trace_num_1}= {{
       x: data.x2_0.slice(0,numPerFrame),
       y: data.y2_0.slice(0,numPerFrame),
+      customdata: data.time,
+      hovertemplate: '<b>{name}</b>' + '<br><b>{xlabel}</b>: %{{x}}' + '<br><b>{ylabel}</b>: %{{y}}' + '<br><b>t (Gyr)</b>: %{{customdata:.5f}}',
+      name: '',
       xaxis: 'x2',
       yaxis: 'y2',
       mode: 'lines',
@@ -5362,11 +5386,15 @@ class Orbit:
         width: 0.8,
         color: '{line_color}',
       }},
+      type: "scattergl",
     }};
 
     let trace{trace_num_2}= {{
       x: data.x2_0.slice(0,numPerFrame),
       y: data.y2_0.slice(0,numPerFrame),
+      customdata: data.time,
+      hovertemplate: '<b>{name} (Current location)</b>' + '<br><b>{xlabel}</b>: %{{x}}' + '<br><b>{ylabel}</b>: %{{y}}' + '<br><b>t (Gyr)</b>: %{{customdata:.5f}}',
+      name: '',
       xaxis: 'x2',
       yaxis: 'y2',
       mode: 'lines',
@@ -5375,15 +5403,19 @@ class Orbit:
         width: 3.,
         color: '{line_color}',
       }},
+      type: "scattergl",
     }};
-""".format(line_color=line_colors[0],trace_num_1=str(2*self.size+1),
-           trace_num_2=str(2*self.size+2))
+""".format(line_color=line_colors[0],trace_num_1=str(2*self.size+1),name=names[0],
+           trace_num_2=str(2*self.size+2), xlabel=xlabels[1], ylabel=ylabels[1])
             traces_cumul+= f""",trace{str(2*self.size+1)},trace{str(2*self.size+2)}"""
             for ii in range(1,self.size):
                 setup_trace2+= """
     let trace{trace_num_1}= {{
       x: data.x2_{trace_indx}.slice(0,numPerFrame),
       y: data.y2_{trace_indx}.slice(0,numPerFrame),
+      customdata: data.time,
+      hovertemplate: '<b>{name}</b>' + '<br><b>{xlabel}</b>: %{{x}}' + '<br><b>{ylabel}</b>: %{{y}}' + '<br><b>t (Gyr)</b>: %{{customdata:.5f}}',
+      name: '',
       xaxis: 'x2',
       yaxis: 'y2',
       mode: 'lines',
@@ -5392,11 +5424,15 @@ class Orbit:
         width: 0.8,
         color: '{line_color}',
       }},
+      type: "scattergl",
     }};
 
     let trace{trace_num_2}= {{
       x: data.x2_{trace_indx}.slice(0,numPerFrame),
       y: data.y2_{trace_indx}.slice(0,numPerFrame),
+      customdata: data.time,
+      hovertemplate: '<b>{name} (Current location)</b>' + '<br><b>{xlabel}</b>: %{{x}}' + '<br><b>{ylabel}</b>: %{{y}}' + '<br><b>t (Gyr)</b>: %{{customdata:.5f}}',
+      name: '',
       xaxis: 'x2',
       yaxis: 'y2',
       mode: 'lines',
@@ -5405,10 +5441,11 @@ class Orbit:
         width: 3.,
         color: '{line_color}',
       }},
+      type: "scattergl",
     }};
-""".format(line_color=line_colors[ii],trace_indx=str(ii),
+""".format(line_color=line_colors[ii],trace_indx=str(ii),name=names[ii],
            trace_num_1=str(2*self.size+2*ii+1),
-           trace_num_2=str(2*self.size+2*ii+2))
+           trace_num_2=str(2*self.size+2*ii+2), xlabel=xlabels[1], ylabel=ylabels[1])
                 traces_cumul+= f""",trace{str(2*self.size+2*ii+1)},trace{str(2*self.size+2*ii+2)}"""
         else: # else for "if there is a 2nd panel"
             setup_trace2= """
@@ -5419,6 +5456,9 @@ class Orbit:
     let trace{trace_num_1}= {{
       x: data.x3_0.slice(0,numPerFrame),
       y: data.y3_0.slice(0,numPerFrame),
+      customdata: data.time,
+      hovertemplate: '<b>{name}</b>' + '<br><b>{xlabel}</b>: %{{x}}' + '<br><b>{ylabel}</b>: %{{y}}' + '<br><b>t (Gyr)</b>: %{{customdata:.5f}}',
+      name: '',
       xaxis: 'x3',
       yaxis: 'y3',
       mode: 'lines',
@@ -5427,11 +5467,15 @@ class Orbit:
         width: 0.8,
         color: '{line_color}',
       }},
+      type: "scattergl",
     }};
 
     let trace{trace_num_2}= {{
       x: data.x3_0.slice(0,numPerFrame),
       y: data.y3_0.slice(0,numPerFrame),
+      customdata: data.time,
+      hovertemplate: '<b>{name} (Current location)</b>' + '<br><b>{xlabel}</b>: %{{x}}' + '<br><b>{ylabel}</b>: %{{y}}' + '<br><b>t (Gyr)</b>: %{{customdata:.5f}}',
+      name: '',
       xaxis: 'x3',
       yaxis: 'y3',
       mode: 'lines',
@@ -5440,15 +5484,19 @@ class Orbit:
         width: 3.,
         color: '{line_color}',
       }},
+      type: "scattergl",
     }};
-""".format(line_color=line_colors[0],trace_num_1=str(4*self.size+1),
-           trace_num_2=str(4*self.size+2))
+""".format(line_color=line_colors[0],trace_num_1=str(4*self.size+1),name=names[0],
+           trace_num_2=str(4*self.size+2), xlabel=xlabels[2], ylabel=ylabels[2])
             traces_cumul+= f""",trace{str(4*self.size+1)},trace{str(4*self.size+2)}"""
             for ii in range(1,self.size):
                 setup_trace3+= """
     let trace{trace_num_1}= {{
       x: data.x3_{trace_indx}.slice(0,numPerFrame),
       y: data.y3_{trace_indx}.slice(0,numPerFrame),
+      customdata: data.time,
+      hovertemplate: '<b>{name}</b>' + '<br><b>{xlabel}</b>: %{{x}}' + '<br><b>{ylabel}</b>: %{{y}}' + '<br><b>t (Gyr)</b>: %{{customdata:.5f}}',
+      name: '',
       xaxis: 'x3',
       yaxis: 'y3',
       mode: 'lines',
@@ -5457,11 +5505,15 @@ class Orbit:
         width: 0.8,
         color: '{line_color}',
       }},
+      type: "scattergl",
     }};
 
     let trace{trace_num_2}= {{
       x: data.x3_{trace_indx}.slice(0,numPerFrame),
       y: data.y3_{trace_indx}.slice(0,numPerFrame),
+      customdata: data.time,
+      hovertemplate: '<b>{name} (Current location)</b>' + '<br><b>{xlabel}</b>: %{{x}}' + '<br><b>{ylabel}</b>: %{{y}}' + '<br><b>t (Gyr)</b>: %{{customdata:.5f}}',
+      name: '',
       xaxis: 'x3',
       yaxis: 'y3',
       mode: 'lines',
@@ -5470,12 +5522,13 @@ class Orbit:
         width: 3.,
         color: '{line_color}',
       }},
+      type: "scattergl",
     }};
-""".format(line_color=line_colors[ii],trace_indx=str(ii),
+""".format(line_color=line_colors[ii],trace_indx=str(ii),name=names[ii],
            trace_num_1=str(4*self.size+2*ii+1),
            trace_num_2=str(4*self.size+2*ii+2),
            trace_num_10=str(4*self.size+2*ii+1-1),
-           trace_num_20=str(4*self.size+2*ii+2-1))
+           trace_num_20=str(4*self.size+2*ii+2-1), xlabel=xlabels[2], ylabel=ylabels[2])
                 traces_cumul+= f""",trace{str(4*self.size+2*ii+1)},trace{str(4*self.size+2*ii+2)}"""
             setup_trace3 += """
             let traces= [{traces_cumul}];
