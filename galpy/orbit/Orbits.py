@@ -5683,7 +5683,7 @@ require(['Plotly'], function (Plotly) {{
             d1= first dimension to plot ('x', 'y', 'R', 'vR', 'vT', 'z', 'vz', ...), can only be a single entry same as d2, d3
 
             d2= second dimension to plot
-            
+
            d3= third dimension to plot
 
             width= (800) width of output div in px
@@ -5703,7 +5703,7 @@ require(['Plotly'], function (Plotly) {{
             vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
 
             use_physical= use to override Object-wide default for using a physical scale for output
-            
+
             mw_plane_bg= whether to add a milkyway plane when plotting x, y, z
 
         OUTPUT:
@@ -6177,9 +6177,9 @@ require(['Plotly'], function (Plotly) {{
 
     function setup_trace() {{
     {setup_trace1}
-    
+
     let traces= [{traces_cumul}];
-    
+
     Plotly.newPlot('{divid}',traces,layout,{config});
     }}
 
