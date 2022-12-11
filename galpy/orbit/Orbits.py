@@ -5205,8 +5205,8 @@ class Orbit:
         load_jslibs= kwargs.pop('load_jslibs',True)
         if load_jslibs:
             load_jslibs_code= """
-<script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.5/require.min.js"></script>
-<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js"></script>
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.1/jquery.min.js"></script>
 """
         else:
             load_jslibs_code= ""
@@ -5531,7 +5531,7 @@ class Orbit:
 <script>
 require.config({{
   paths: {{
-    Plotly: 'https://cdn.plot.ly/plotly-latest.min',
+    Plotly: 'https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.16.4/plotly.min',
   }}
 }});
 </script>
@@ -5586,7 +5586,7 @@ require(['Plotly'], function (Plotly) {{
 
     {setup_trace3}
 
-    Plotly.plot('{divid}',traces,layout,{config});
+    Plotly.newPlot('{divid}',traces,layout,{config});
   }}
 
   function animate_trace() {{
