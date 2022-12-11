@@ -5656,10 +5656,6 @@ require(['Plotly'], function (Plotly) {{
       traces = {{x: [{x_data_list}], y: [{y_data_list}]}};
       Plotly.restyle('{divid}', traces, [{trace_num_20_list}]);
       cnt+= 1;
-      if(cnt*numPerFrame+trace_slice_len > data.x1_0.length/1) {{
-          clearInterval(interval);
-          Plotly.deleteTraces('{divid}',[{trace_num_20_list}]);
-      }}
     }}, 30);
     }}
 {close_json_code}}});
@@ -5671,6 +5667,546 @@ require(['Plotly'], function (Plotly) {{
                     trace_num_10_list=trace_num_10_list, trace_num_20_list=trace_num_20_list,
                     setup_trace1=setup_trace1,setup_trace2=setup_trace2,
                     setup_trace3=setup_trace3, trace_num_list= [ii for ii in range(self.size * len(d1s))]))
+
+    def animate3d(self,mw_plane_bg=True,*args,**kwargs): #pragma: no cover
+        """
+        NAME:
+
+            animate3d
+
+        PURPOSE:
+
+            animate a previously calculated orbit (with reasonable defaults)
+
+        INPUT:
+
+            d1= first dimension to plot ('x', 'y', 'R', 'vR', 'vT', 'z', 'vz', ...), can only be a single entry same as d2, d3
+
+            d2= second dimension to plot
+            
+           d3= third dimension to plot
+
+            width= (800) width of output div in px
+
+            height= (600) height of output div in px
+
+            xlabel= (pre-defined labels) label for the first dimension (or list of labels if d1 is a list); should only have to be specified when using a function as d1 and can then specify as, e.g., [None,'YOUR LABEL',None] if d1 is a list of three xs and the first and last are standard entries)
+
+            ylabel= (pre-defined labels) label for the second dimension (or list of labels if d2 is a list); should only have to be specified when using a function as d2 and can then specify as, e.g., [None,'YOUR LABEL',None] if d1 is a list of three xs and the first and last are standard entries)
+
+            json_filename= (None) if set, save the data necessary for the figure in this filename (e.g.,  json_filename= 'orbit_data/orbit.json'); this path is also used in the output HTML, so needs to be accessible
+
+            staticPlot= (False) if True, create a static plot that doesn't allow zooming, panning, etc.
+
+            ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
+
+            vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
+
+            use_physical= use to override Object-wide default for using a physical scale for output
+            
+            mw_plane_bg= whether to add a milkyway plane when plotting x, y, z
+
+        OUTPUT:
+
+            IPython.display.HTML object with code to animate the orbit; can be directly shown in jupyter notebook or embedded in HTML pages; get a text version of the HTML using the _repr_html_() function
+
+        HISTORY:
+
+            2022-12-09 - Written - Henry Leung (UofT)
+
+        """
+        try:
+            from IPython.display import HTML
+        except ImportError:
+            raise ImportError("Orbit.animate requires ipython/jupyter to be installed")
+        if (kwargs.get('use_physical',False) \
+                and kwargs.get('ro',self._roSet)) or \
+                (not 'use_physical' in kwargs \
+                        and kwargs.get('ro',self._roSet)):
+            labeldict= {'t':'t (Gyr)',
+                        'R':'R (kpc)',
+                        'vR':'v_R (km/s)',
+                        'vT':'v_T (km/s)',
+                        'z':'z (kpc)',
+                        'vz':'v_z (km/s)',
+                        'phi':'azimuthal angle',
+                        'r':'r (kpc)',
+                        'x':'x (kpc)',
+                        'y':'y (kpc)',
+                        'vx':'v_x (km/s)',
+                        'vy':'v_y (km/s)',
+                        'E':'E (km^2/s^2)',
+                        'Ez':'E_z (km^2/s^2)',
+                        'ER':'E_R (km^2/s^2)',
+                        'Enorm':'E(t)/E(0.)',
+                        'Eznorm':'E_z(t)/E_z(0.)',
+                        'ERnorm':'E_R(t)/E_R(0.)',
+                        'Jacobi':'E-Omega_p L (km^2/s^2)',
+                        'Jacobinorm':'(E-Omega_p L)(t)/(E-Omega_p L)(0)'}
+        else:
+            labeldict= {'t':'t','R':'R','vR':'v_R','vT':'v_T',
+                        'z':'z','vz':'v_z','phi':r'azimuthal angle',
+                        'r':'r',
+                        'x':'x','y':'y','vx':'v_x','vy':'v_y',
+                        'E':'E','Enorm':'E(t)/E(0.)',
+                        'Ez':'E_z','Eznorm':'E_z(t)/E_z(0.)',
+                        'ER':r'E_R','ERnorm':r'E_R(t)/E_R(0.)',
+                        'Jacobi':r'E-Omega_p L',
+                        'Jacobinorm':r'(E-Omega_p L)(t)/(E-Omega_p L)(0)'}
+        labeldict.update({'ra':'RA (deg)',
+                            'dec':'Dec (deg)',
+                            'll':'Galactic lon (deg)',
+                            'bb':'Galactic lat (deg)',
+                            'dist':'distance (kpc)',
+                            'pmra':'pmRA (mas/yr)',
+                            'pmdec':'pmDec (mas/yr)',
+                            'pmll':'pmGlon (mas/yr)',
+                            'pmbb':'pmGlat (mas/yr)',
+                            'vlos':'line-of-sight vel (km/s)',
+                            'helioX':'X (kpc)',
+                            'helioY':'Y (kpc)',
+                            'helioZ':'Z (kpc)',
+                            'U':'U (km/s)',
+                            'V':'V (km/s)',
+                            'W':'W (km/s)'})
+        # Cannot be using Quantity output
+        kwargs['quantity']= False
+        #Defaults
+        if not 'd1' in kwargs and not 'd2' in kwargs and not 'd3' in kwargs:
+            if self.phasedim() == 3:
+                d1= 'R'
+                d2= 'vR'
+                d3= 'vT'
+            elif self.phasedim() == 4:
+                d1= 'x'
+                d2= 'y'
+                d3= 'vR'
+            elif self.phasedim() == 2:
+                raise AttributeError("Cannot do 3D animation with 1D orbits")
+            elif self.phasedim() == 5:
+                d1= 'R'
+                d2= 'vR'
+                d3= 'z'
+            elif self.phasedim() == 6:
+                d1= 'x'
+                d2= 'y'
+                d3= 'z'
+        elif not 'd1' in kwargs:
+            d2=  kwargs.pop('d2')
+            d1= 't'
+        elif not 'd2' in kwargs:
+            d1= kwargs.pop('d1')
+            d2= 't'
+        else:
+            d1= kwargs.pop('d1')
+            d2= kwargs.pop('d2')
+            d3= kwargs.pop('d3')
+        xs= []
+        ys= []
+        zs= []
+        xlabels= []
+        ylabels= []
+        zlabels= []
+        if hasattr(self, "name"):  # name for display
+            names = self.name if isinstance(self.name, list) or isinstance(self.name, numpy.ndarray) else [self.name]
+        else:
+            names = [f"Object {i}" for i in range(len(self))]
+        if isinstance(d1,str) or callable(d1):
+            d1s= [d1]
+            d2s= [d2]
+            d3s= [d3]
+        else:
+            d1s= d1
+            d2s= d2
+            d3s= d3
+        if len(d1s) > 1:
+            raise ValueError('Orbit.animate3d only works for one subplot')
+        all_xlabel= kwargs.get('xlabel',[None for d in d1])
+        all_ylabel= kwargs.get('ylabel',[None for d in d2])
+        all_zlabel= kwargs.get('zlabel',[None for d in d3])
+        for d1,d2,d3, xlabel, ylabel, zlabel in zip(d1s,d2s,d3s,all_xlabel,all_ylabel,all_zlabel):
+            #Get x and y for each subplot
+            kwargs['dontreshape']= True
+            x= self._parse_plot_quantity(d1,**kwargs)
+            y= self._parse_plot_quantity(d2,**kwargs)
+            z= self._parse_plot_quantity(d3,**kwargs)
+            kwargs.pop('dontreshape')
+            xs.append(x)
+            ys.append(y)
+            zs.append(z)
+            if xlabel is None:
+                xlabels.append(labeldict.get(d1,r'\mathrm{No\ xlabel\ specified}'))
+            else:
+                xlabels.append(xlabel)
+            if ylabel is None:
+                ylabels.append(labeldict.get(d2,r'\mathrm{No\ ylabel\ specified}'))
+            else:
+                ylabels.append(ylabel)
+            if zlabel is None:
+                zlabels.append(labeldict.get(d3,r'\mathrm{No\ ylabel\ specified}'))
+            else:
+                zlabels.append(zlabel)
+        kwargs.pop('ro',None)
+        kwargs.pop('vo',None)
+        kwargs.pop('obs',None)
+        kwargs.pop('use_physical',None)
+        kwargs.pop('pot',None)
+        kwargs.pop('OmegaP',None)
+        kwargs.pop('quantity',None)
+        width= kwargs.pop('width',800)
+        height= kwargs.pop('height',600)
+        load_jslibs= kwargs.pop('load_jslibs',True)
+        if load_jslibs:
+            load_jslibs_code= """
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.1/jquery.min.js"></script>
+    """
+        else:
+            load_jslibs_code= ""
+        # Dump data to HTML
+        nplots= len(xs)
+        jsonDict= {}
+        for ii in range(nplots):
+            for jj in range(self.size):
+                jsonDict['x%i_%i' % (ii+1,jj)]= xs[ii][jj].tolist()
+                jsonDict['y%i_%i' % (ii+1,jj)]= ys[ii][jj].tolist()
+                jsonDict['z%i_%i' % (ii+1,jj)]= zs[ii][jj].tolist()
+        jsonDict["time"] = self.time().tolist()
+        json_filename= kwargs.pop('json_filename',None)
+        if json_filename is None:
+            jd= json.dumps(jsonDict)
+            json_code= f"""  let data= JSON.parse('{jd}');"""
+            close_json_code= ""
+        else:
+            with open(json_filename,'w') as jfile:
+                json.dump(jsonDict,jfile)
+            json_code= f"""Plotly.d3.json('{json_filename}',function(data){{"""
+            close_json_code= "});"
+        self.divid= 'galpy-'\
+            +''.join(choice(ascii_lowercase) for i in range(24))
+        button_width= 419.51+4.*10.
+        button_margin_left= int(numpy.round((width-button_width)/2.))
+        if button_margin_left < 0: button_margin_left= 0
+        # Configuration options
+        config= """{{staticPlot: {staticPlot}}}"""\
+            .format(staticPlot='true' if kwargs.pop('staticPlot',False)
+                    else 'false')
+        # Layout for multiple plots
+        if len(d1s) == 1:
+            xmin= [0,0,0]
+            xmax= [1,1,1]
+        elif len(d1s) == 2:
+            xmin= [0,0.55,0]
+            xmax= [0.45,1,1]
+        elif len(d1s) == 3:
+            xmin= [0,0.365,0.73]
+            xmax= [0.27,0.635,1]
+        # Colors
+        line_colors= ['#1f77b4', # muted blue
+                        '#ff7f0e', # safety orange
+                        '#2ca02c', # cooked asparagus green
+                        '#d62728', # brick red
+                        '#9467bd', # muted purple
+                        '#8c564b', # chestnut brown
+                        '#e377c2', # raspberry yogurt pink
+                        '#7f7f7f', # middle gray
+                        '#bcbd22', # curry yellow-green
+                        '#17becf'] # blue-teal
+        # When there are more than these # of colors needed, make up randoms
+        if self.size > len(line_colors):
+            line_colors.extend(["#%06x" % numpy.random.randint(0, 0xFFFFFF)
+                                for ii in range(self.size-len(line_colors))])
+        layout= """{{
+            scene:{{    xaxis: {{
+    title: '{xlabel}',
+    domain: [{xmin},{xmax}],
+    }},
+    yaxis: {{title: '{ylabel}'}},
+    zaxis: {{title: '{zlabel}'}},}},
+    margin: {{t: 20}},
+    hovermode: 'closest',
+    showlegend: false,
+    """.format(xlabel=xlabels[0],ylabel=ylabels[0],zlabel=zlabels[0],xmin=xmin[0],xmax=xmax[0])
+
+        layout+="""}"""
+        # First plot
+        setup_trace1= """
+    let trace1= {{
+        x: data.x1_0.slice(0,numPerFrame),
+        y: data.y1_0.slice(0,numPerFrame),
+        z: data.z1_0.slice(0,numPerFrame),
+        customdata: data.time,
+        hovertemplate: '<b>{name}</b>' + '<br><b>{xlabel}</b>: %{{x}}' + '<br><b>{ylabel}</b>: %{{y}}' + '<br><b>{zlabel}</b>: %{{z}}' + '<br><b>t (Gyr)</b>: %{{customdata:.5f}}',
+        mode: 'lines',
+        name: '',
+        line: {{
+        shape: 'spline',
+        width: 3.,
+        color: '{line_color}',
+        }},
+        type: "scatter3d",
+    }};
+
+    let trace2= {{
+        x: data.x1_0.slice(0,numPerFrame),
+        y: data.y1_0.slice(0,numPerFrame),
+        z: data.z1_0.slice(0,numPerFrame),
+        customdata: data.time,
+        hovertemplate: '<b>{name} (Current location)</b>' + '<br><b>{xlabel}</b>: %{{x}}' + '<br><b>{ylabel}</b>: %{{y}}' + '<br><b>{zlabel}</b>: %{{z}}' + '<br><b>t (Gyr)</b>: %{{customdata:.5f}}',
+        mode: 'lines',
+        name: '',
+        line: {{
+        shape: 'spline',
+        width: 8.,
+        color: '{line_color}',
+        }},
+        type: "scatter3d",
+    }};
+    """.format(line_color=line_colors[0], name=names[0], xlabel=xlabels[0], ylabel=ylabels[0], zlabel=zlabels[0])
+        traces_cumul= """trace1,trace2"""
+        # milkyway plane surface
+        mw_bg_surface = f"""let mw_bg = {{
+            x: {json.dumps((numpy.linspace(-1, 1, 50)*20.775).tolist())},
+            y: {json.dumps((numpy.linspace(-1, 1, 50)*20.775).tolist())},
+            z: {json.dumps((numpy.zeros((50, 50))).tolist())},
+            colorscale: [[0.0,"rgb(0, 0, 0)"],[0.09090909090909091,"rgb(16, 16, 16)"],[0.18181818181818182,"rgb(38, 38, 38)"],[0.2727272727272727,"rgb(59, 59, 59)"],[0.36363636363636365,"rgb(81, 80, 80)"],[0.45454545454545453,"rgb(102, 101, 101)"],[0.5454545454545454,"rgb(124, 123, 122)"],[0.6363636363636364,"rgb(146, 146, 145)"],[0.7272727272727273,"rgb(171, 171, 170)"],[0.8181818181818182,"rgb(197, 197, 195)"],[0.9090909090909091,"rgb(224, 224, 223)"],[1.0,"rgb(254, 254, 253)"]],
+            surfacecolor: [
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 2, 2, 1, 3, 4, 4, 6, 6, 2, 1, 2, 4, 4, 6, 5, 2, 0, 1, 1, 0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 3, 4, 8, 13, 17, 19, 20, 27, 25, 26, 31, 30, 28, 28, 19, 16, 22, 28, 16, 2, 1, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 4, 8, 12, 16, 22, 25, 26, 29, 27, 28, 26, 26, 35, 37, 32, 30, 21, 16, 24, 32, 41, 22, 7, 1, 2, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 5, 8, 14, 19, 24, 25, 20, 20, 26, 26, 26, 27, 27, 23, 22, 22, 22, 19, 19, 17, 19, 35, 53, 28, 8, 5, 2, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 4, 7, 10, 14, 17, 19, 18, 18, 23, 28, 34, 38, 38, 40, 38, 33, 30, 28, 25, 23, 20, 19, 19, 39, 43, 20, 10, 7, 4, 3, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 5, 8, 10, 13, 15, 17, 20, 24, 24, 28, 35, 38, 42, 45, 46, 47, 43, 40, 38, 33, 29, 25, 23, 22, 35, 48, 22, 8, 9, 6, 4, 2, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 2, 3, 6, 9, 12, 16, 19, 22, 26, 28, 30, 32, 33, 37, 39, 39, 44, 50, 52, 50, 53, 50, 40, 34, 32, 27, 27, 45, 35, 14, 11, 9, 6, 4, 1, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 1, 2, 4, 8, 12, 16, 21, 25, 28, 31, 33, 35, 37, 39, 41, 46, 50, 45, 47, 53, 59, 63, 62, 58, 57, 48, 37, 31, 30, 46, 32, 15, 11, 10, 7, 3, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 1, 0, 0, 1, 3, 6, 11, 16, 21, 26, 30, 33, 36, 39, 43, 43, 45, 46, 48, 55, 55, 50, 54, 61, 66, 69, 72, 77, 82, 66, 47, 33, 41, 40, 20, 16, 12, 9, 6, 2, 1, 0, 1, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 1, 3, 9, 14, 21, 27, 31, 33, 38, 39, 43, 46, 49, 52, 56, 59, 54, 55, 56, 58, 59, 63, 70, 74, 79, 87, 95, 80, 52, 34, 29, 27, 25, 19, 11, 8, 3, 2, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 3, 7, 11, 18, 25, 31, 35, 39, 43, 52, 58, 65, 75, 75, 82, 93, 86, 77, 80, 66, 58, 61, 60, 66, 78, 80, 108, 119, 78, 47, 29, 29, 38, 30, 12, 10, 6, 3, 1, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 2, 6, 10, 17, 24, 29, 36, 40, 44, 55, 77, 75, 78, 80, 77, 83, 94, 101, 96, 99, 100, 78, 69, 70, 62, 69, 82, 96, 115, 114, 66, 39, 30, 45, 43, 19, 13, 10, 3, 1, 0, 1, 0, 0],
+            [0, 0, 0, 0, 0, 1, 4, 9, 15, 21, 28, 33, 39, 44, 50, 62, 66, 63, 64, 67, 72, 76, 74, 76, 79, 78, 96, 105, 87, 93, 77, 62, 72, 88, 104, 132, 113, 57, 34, 36, 45, 29, 13, 11, 6, 2, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 2, 7, 13, 19, 26, 32, 37, 46, 61, 66, 58, 64, 73, 83, 94, 104, 113, 113, 111, 106, 86, 75, 86, 83, 85, 102, 84, 69, 77, 90, 115, 155, 103, 44, 31, 50, 44, 16, 11, 8, 3, 0, 0, 0, 0],
+            [0, 0, 0, 0, 1, 4, 10, 17, 22, 30, 37, 55, 69, 66, 64, 68, 85, 103, 123, 133, 135, 142, 150, 157, 166, 152, 130, 101, 84, 79, 97, 118, 83, 70, 87, 101, 128, 117, 67, 36, 48, 50, 20, 15, 10, 5, 1, 0, 0, 0],
+            [0, 0, 0, 0, 2, 8, 12, 20, 28, 39, 58, 71, 63, 57, 66, 94, 121, 134, 138, 136, 126, 120, 123, 129, 136, 150, 163, 160, 130, 93, 79, 119, 104, 66, 82, 100, 106, 115, 85, 46, 42, 44, 26, 18, 12, 7, 2, 0, 0, 0],
+            [0, 0, 0, 0, 4, 9, 16, 24, 34, 50, 62, 57, 55, 64, 97, 151, 155, 131, 121, 110, 95, 95, 93, 89, 90, 102, 121, 153, 165, 151, 104, 99, 100, 75, 78, 90, 107, 131, 102, 56, 46, 50, 29, 20, 14, 7, 3, 0, 0, 0],
+            [0, 0, 0, 1, 7, 12, 20, 28, 41, 54, 53, 50, 58, 90, 143, 152, 128, 104, 96, 86, 94, 102, 94, 108, 94, 84, 83, 104, 135, 182, 145, 97, 95, 85, 78, 87, 102, 140, 118, 65, 55, 51, 32, 23, 16, 10, 4, 1, 0, 0],
+            [0, 0, 0, 2, 8, 14, 22, 33, 48, 52, 49, 54, 78, 121, 139, 110, 94, 93, 99, 112, 116, 123, 103, 81, 82, 94, 93, 76, 99, 147, 165, 116, 97, 97, 80, 86, 104, 121, 112, 79, 56, 51, 36, 25, 18, 12, 5, 1, 0, 0],
+            [0, 0, 0, 4, 9, 17, 24, 39, 49, 47, 49, 69, 130, 135, 101, 92, 88, 93, 116, 126, 131, 177, 163, 88, 78, 76, 104, 84, 78, 116, 162, 139, 108, 110, 80, 89, 111, 117, 115, 83, 59, 55, 39, 26, 21, 13, 6, 1, 0, 0],
+            [0, 0, 1, 5, 11, 20, 27, 41, 46, 46, 55, 105, 143, 122, 94, 85, 85, 107, 111, 113, 195, 230, 187, 131, 108, 83, 73, 93, 83, 90, 139, 146, 120, 117, 83, 89, 112, 138, 126, 82, 60, 51, 39, 27, 21, 14, 8, 3, 0, 0],
+            [0, 0, 0, 6, 12, 22, 31, 42, 47, 47, 76, 129, 124, 99, 93, 80, 101, 130, 107, 161, 188, 196, 217, 179, 136, 127, 101, 82, 94, 83, 138, 164, 122, 125, 91, 97, 114, 137, 129, 87, 59, 45, 39, 28, 21, 15, 9, 3, 0, 0],
+            [0, 0, 0, 6, 13, 22, 35, 44, 43, 50, 97, 125, 104, 92, 81, 82, 122, 123, 123, 174, 126, 140, 216, 240, 224, 191, 149, 90, 85, 92, 140, 176, 123, 113, 92, 107, 109, 135, 128, 81, 64, 45, 35, 29, 24, 14, 9, 3, 0, 0],
+            [0, 1, 3, 7, 13, 23, 41, 47, 40, 64, 115, 121, 101, 87, 77, 90, 125, 111, 164, 162, 93, 102, 166, 238, 255, 247, 201, 128, 85, 99, 133, 156, 124, 97, 108, 111, 112, 132, 110, 81, 61, 47, 36, 29, 23, 15, 9, 3, 0, 0],
+            [0, 0, 2, 7, 14, 24, 41, 44, 40, 73, 124, 117, 98, 84, 79, 99, 126, 112, 156, 140, 85, 80, 128, 196, 251, 255, 234, 172, 110, 99, 134, 138, 130, 106, 115, 118, 113, 124, 105, 77, 57, 46, 38, 28, 22, 15, 9, 3, 0, 0],
+            [0, 0, 2, 7, 13, 24, 38, 40, 42, 71, 119, 118, 94, 84, 78, 97, 113, 116, 158, 119, 90, 80, 100, 135, 185, 228, 243, 215, 142, 110, 156, 144, 129, 117, 109, 102, 136, 137, 99, 68, 59, 47, 36, 29, 23, 14, 7, 3, 0, 0],
+            [0, 0, 2, 6, 14, 24, 36, 39, 44, 72, 115, 118, 87, 83, 79, 95, 110, 110, 167, 135, 94, 81, 72, 106, 119, 141, 188, 215, 174, 160, 176, 142, 124, 115, 101, 114, 153, 132, 88, 62, 64, 54, 35, 28, 20, 14, 8, 2, 0, 0],
+            [0, 0, 2, 6, 13, 23, 34, 35, 40, 74, 122, 115, 91, 82, 79, 99, 106, 99, 163, 158, 95, 89, 71, 71, 91, 107, 129, 188, 222, 206, 149, 118, 109, 94, 99, 130, 135, 101, 71, 65, 75, 56, 33, 26, 20, 13, 6, 3, 0, 0],
+            [0, 0, 1, 5, 12, 23, 33, 32, 39, 65, 130, 127, 89, 79, 82, 90, 94, 95, 147, 172, 116, 91, 100, 74, 60, 72, 87, 135, 205, 169, 128, 115, 95, 100, 129, 148, 131, 87, 71, 92, 77, 40, 29, 26, 19, 12, 7, 0, 0, 0],
+            [0, 0, 1, 5, 11, 21, 32, 33, 36, 62, 115, 114, 98, 80, 81, 82, 84, 91, 113, 159, 153, 107, 99, 109, 89, 76, 63, 83, 127, 148, 128, 106, 111, 124, 141, 138, 114, 86, 80, 79, 50, 33, 30, 23, 17, 10, 4, 2, 0, 0],
+            [0, 0, 1, 4, 10, 18, 31, 35, 33, 56, 94, 121, 107, 87, 80, 76, 79, 87, 98, 123, 160, 151, 105, 99, 115, 110, 108, 102, 101, 111, 108, 112, 134, 165, 147, 97, 84, 81, 75, 50, 40, 34, 27, 22, 15, 10, 5, 0, 0, 0],
+            [0, 0, 0, 3, 9, 16, 26, 32, 33, 45, 90, 127, 105, 90, 77, 70, 74, 85, 105, 101, 122, 168, 164, 132, 114, 104, 108, 111, 110, 116, 126, 149, 164, 142, 106, 75, 64, 69, 63, 44, 37, 31, 26, 19, 13, 7, 2, 0, 0, 0],
+            [0, 0, 1, 3, 8, 14, 22, 28, 30, 38, 71, 109, 115, 96, 79, 69, 71, 75, 112, 105, 91, 121, 159, 169, 164, 158, 143, 139, 151, 165, 171, 147, 117, 85, 66, 65, 76, 86, 56, 40, 34, 29, 23, 16, 11, 5, 1, 0, 0, 0],
+            [0, 0, 1, 3, 7, 12, 19, 24, 28, 34, 54, 94, 113, 96, 85, 71, 67, 69, 86, 106, 97, 91, 101, 126, 142, 161, 159, 147, 143, 150, 132, 87, 70, 68, 75, 85, 85, 67, 44, 35, 31, 26, 20, 13, 8, 3, 0, 0, 0, 0],
+            [0, 0, 1, 2, 5, 10, 16, 21, 25, 29, 42, 75, 103, 97, 87, 76, 67, 67, 65, 90, 112, 110, 94, 87, 86, 85, 96, 94, 80, 76, 65, 68, 86, 92, 92, 74, 54, 41, 37, 34, 28, 23, 16, 10, 5, 1, 0, 0, 0, 0],
+            [0, 0, 0, 1, 3, 6, 12, 18, 21, 25, 34, 51, 91, 120, 92, 80, 72, 66, 62, 67, 86, 86, 85, 107, 96, 78, 81, 77, 75, 70, 70, 74, 78, 76, 61, 45, 43, 39, 36, 30, 25, 19, 12, 7, 3, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 1, 2, 7, 14, 19, 21, 26, 36, 64, 104, 103, 92, 80, 73, 67, 61, 67, 72, 65, 78, 97, 89, 82, 94, 94, 82, 70, 67, 55, 48, 46, 44, 41, 35, 31, 27, 21, 14, 9, 4, 1, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 1, 3, 9, 15, 18, 21, 26, 41, 68, 111, 108, 82, 79, 75, 69, 69, 73, 68, 60, 61, 67, 67, 71, 74, 64, 57, 53, 50, 47, 43, 40, 33, 32, 26, 22, 16, 10, 6, 2, 1, 0, 0, 0, 0, 0],
+            [0, 1, 0, 0, 0, 0, 1, 4, 10, 14, 18, 20, 28, 48, 82, 104, 104, 93, 78, 77, 75, 70, 68, 63, 58, 55, 57, 54, 52, 53, 50, 48, 45, 41, 40, 34, 32, 27, 22, 16, 12, 7, 3, 1, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 4, 10, 14, 16, 19, 29, 49, 71, 106, 114, 87, 79, 75, 70, 66, 65, 62, 58, 55, 50, 48, 46, 45, 44, 41, 40, 38, 34, 28, 22, 18, 13, 9, 4, 1, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 2, 5, 8, 11, 14, 19, 29, 41, 57, 78, 86, 89, 80, 69, 61, 65, 61, 59, 57, 50, 43, 40, 40, 42, 42, 41, 37, 30, 23, 17, 14, 10, 6, 2, 1, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 3, 6, 9, 13, 17, 24, 32, 40, 54, 65, 67, 71, 69, 59, 56, 54, 53, 48, 43, 41, 40, 40, 39, 37, 30, 21, 16, 13, 10, 7, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 4, 7, 10, 15, 21, 27, 33, 37, 38, 44, 52, 50, 48, 49, 51, 49, 44, 39, 35, 32, 29, 27, 21, 15, 11, 9, 6, 4, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 3, 5, 8, 11, 17, 22, 25, 28, 30, 31, 36, 38, 39, 41, 39, 34, 29, 25, 23, 21, 17, 13, 10, 7, 5, 3, 2, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 3, 5, 8, 11, 14, 15, 19, 20, 23, 25, 25, 24, 23, 21, 19, 17, 16, 13, 9, 6, 5, 3, 2, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 3, 2, 5, 7, 9, 10, 11, 11, 12, 12, 12, 11, 10, 8, 8, 5, 3, 2, 2, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 2, 3, 4, 4, 5, 4, 5, 4, 3, 2, 2, 1, 1, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+        ],
+            hoverinfo:"skip",
+            showscale:false,
+            cmax:255,
+            cmin:0,
+            type: 'surface',
+            }};"""
+        setup_trace1+=mw_bg_surface
+        for ii in range(1,self.size):
+            setup_trace1+= """
+    let trace{trace_num_1}= {{
+        x: data.x1_{trace_indx}.slice(0,numPerFrame),
+        y: data.y1_{trace_indx}.slice(0,numPerFrame),
+        z: data.z1_{trace_indx}.slice(0,numPerFrame),
+        customdata: data.time,
+        hovertemplate: '<b>{name}</b>' + '<br><b>{xlabel}</b>: %{{x}}' + '<br><b>{ylabel}</b>: %{{y}}' + '<br><b>{zlabel}</b>: %{{z}}' + '<br><b>t (Gyr)</b>: %{{customdata:.5f}}',
+        name: '',
+        mode: 'lines',
+        line: {{
+        shape: 'spline',
+        width: 3.,
+        color: '{line_color}',
+        }},
+        type: "scatter3d",
+    }};
+
+    let trace{trace_num_2}= {{
+        x: data.x1_{trace_indx}.slice(0,numPerFrame),
+        y: data.y1_{trace_indx}.slice(0,numPerFrame),
+        z: data.z1_{trace_indx}.slice(0,numPerFrame),
+        customdata: data.time,
+        hovertemplate: '<b>{name} (Current location)</b>' + '<br><b>{xlabel}</b>: %{{x}}' + '<br><b>{ylabel}</b>: %{{y}}' + '<br><b>{zlabel}</b>: %{{z}}' + '<br><b>t (Gyr)</b>: %{{customdata:.5f}}',
+        name: '',
+        mode: 'lines',
+        line: {{
+        shape: 'spline',
+        width: 8.,
+        color: '{line_color}',
+        }},
+        type: "scatter3d",
+    }};
+    """.format(trace_indx=str(ii),trace_num_1=str(2*ii+1),trace_num_2=str(2*ii+2),
+            line_color=line_colors[ii], name=names[ii], xlabel=xlabels[0], ylabel=ylabels[0], zlabel=zlabels[0])
+            traces_cumul+= f""",trace{str(2*ii+1)},trace{str(2*ii+2)}"""
+        x_data_list = """"""
+        y_data_list = """"""
+        z_data_list = """"""
+        trace_num_10_list = """"""
+        trace_num_20_list = """"""
+        if mw_plane_bg and d1=="x" and d2=="y" and d3=="z":  # only add when its true
+            traces_cumul+= """,mw_bg"""
+        for jj in range(len(d1s)):
+            for ii in range(0, self.size):
+                x_data_list += """data.x{jj}_{trace_indx}.slice(trace_slice_begin,trace_slice_end), """.format(jj=jj+1,
+                    divid=self.divid, trace_indx=str(ii))
+                y_data_list += """data.y{jj}_{trace_indx}.slice(trace_slice_begin,trace_slice_end), """.format(jj=jj+1,
+                    divid=self.divid, trace_indx=str(ii))
+                z_data_list += """data.z{jj}_{trace_indx}.slice(trace_slice_begin,trace_slice_end), """.format(jj=jj+1,
+                    divid=self.divid, trace_indx=str(ii))
+                trace_num_10_list += f"""{str(2*jj*self.size + 2 * ii + 1 - 1)}, """
+                trace_num_20_list += f"""{str(2*jj*self.size + 2 * ii + 2 - 1)}, """
+        return HTML("""
+    <style>
+    .galpybutton {{
+    background-color:#ffffff;
+    -moz-border-radius:16px;
+    -webkit-border-radius:16px;
+    border-radius:16px;
+    border:1px solid #1f77b4;
+    display:inline-block;
+    cursor:pointer;
+    color:#1f77b4;
+    font-family:Courier;
+    font-size:17px;
+    padding:8px 10px;
+    text-decoration:none;
+    text-shadow:0px 1px 0px #2f6627;
+    }}
+    .galpybutton:hover {{
+    background-color:#ffffff;
+    }}
+    .galpybutton:active {{
+    position:relative;
+    top:1px;
+    }}
+    .galpybutton:focus{{
+    outline:0;
+    }}
+    </style>
+
+    <div id='{divid}' style='width:{width}px;height:{height}px;'></div>
+    <div class="controlbutton" id="{divid}-play" style="margin-left:{button_margin_left}px;display: inline-block;">
+    <button class="galpybutton">Play</button></div>
+    <div class="controlbutton" id="{divid}-pause" style="margin-left:10px;display: inline-block;">
+    <button class="galpybutton">Pause</button></div>
+    <div class="controlbutton" id="{divid}-timestwo" style="margin-left:10px;display: inline-block;">
+    <button class="galpybutton">Speed<font face="Arial">&thinsp;</font>x<font face="Arial">&thinsp;</font>2</button></div>
+    <div class="controlbutton" id="{divid}-timeshalf" style="margin-left:10px;display: inline-block;">
+    <button class="galpybutton">Speed<font face="Arial">&thinsp;</font>/<font face="Arial">&thinsp;</font>2</button></div>
+    <div class="controlbutton" id="{divid}-replay" style="margin-left:10px;display: inline-block;">
+    <button class="galpybutton">Replay</button></div>
+    {load_jslibs_code}
+
+    <script>
+    require.config({{
+    paths: {{
+    Plotly: 'https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.16.4/plotly.min',
+    }}
+    }});
+    </script>
+
+    <script>
+    require(['Plotly'], function (Plotly) {{
+    {json_code}
+    let layout = {layout};
+    let numPerFrame= 5;
+    let cnt= 1;
+    let interval;
+    let trace_slice_len;
+    let trace_slice_begin;
+    let trace_slice_end;
+
+    setup_trace();
+
+    $('.controlbutton button').click(function() {{
+    let button_type= this.parentNode.id;
+    if ( button_type === '{divid}-play' ) {{
+        clearInterval(interval);
+        interval= animate_trace();
+    }}
+    else if ( button_type === '{divid}-pause' )
+        clearInterval(interval);
+    else if ( button_type === '{divid}-timestwo' ) {{
+        cnt/= 2;
+        numPerFrame*= 2;
+    }}
+    else if ( button_type === '{divid}-timeshalf' ) {{
+        cnt*= 2;
+        numPerFrame/= 2;
+    }}
+    else if ( button_type === '{divid}-replay' ) {{
+        cnt= 1;
+        try {{ // doesn't exist if animation has already ended
+        Plotly.deleteTraces('{divid}',[{trace_num_20_list}]);
+        }}
+        catch (err) {{
+        }}
+        Plotly.deleteTraces('{divid}', {trace_num_list});
+        clearInterval(interval);
+        setup_trace();
+        interval= animate_trace();
+    }}
+    }});
+
+    function setup_trace() {{
+    {setup_trace1}
+    
+    let traces= [{traces_cumul}];
+    
+    Plotly.newPlot('{divid}',traces,layout,{config});
+    }}
+
+    function animate_trace() {{
+    return setInterval(function() {{
+        // Make sure narrow and thick trace end in the same
+        // and the highlighted length has constant length
+        trace_slice_len= Math.floor(numPerFrame);
+        if ( trace_slice_len < 1) trace_slice_len= 1;
+        trace_slice_begin= Math.floor(cnt*numPerFrame);
+        trace_slice_end= Math.floor(Math.min(cnt*numPerFrame+trace_slice_len,data.x1_0.length-1));
+        traces = {{x: [{x_data_list}], y: [{y_data_list}], z: [{z_data_list}]}};
+        Plotly.extendTraces('{divid}', traces, [{trace_num_10_list}]);
+        trace_slice_begin-= trace_slice_len;
+        traces = {{x: [{x_data_list}], y: [{y_data_list}], z: [{z_data_list}]}};
+        Plotly.restyle('{divid}', traces, [{trace_num_20_list}]);
+        cnt+= 1;
+    }}, 100);
+    }}
+    {close_json_code}}});
+    </script>""".format(json_code=json_code,close_json_code=close_json_code,
+                    divid=self.divid,width=width,height=height,
+                    button_margin_left=button_margin_left,config=config,
+                    layout=layout,load_jslibs_code=load_jslibs_code,
+                    x_data_list=x_data_list, y_data_list=y_data_list, z_data_list=z_data_list,
+                    trace_num_10_list=trace_num_10_list, trace_num_20_list=trace_num_20_list,
+                    setup_trace1=setup_trace1, traces_cumul=traces_cumul, trace_num_list= [ii for ii in range(self.size * len(d1s))]))
 
 class _1DInterp:
     """Class to simulate 2D interpolation when using a single orbit"""
