@@ -5359,6 +5359,7 @@ class Orbit:
             traces_cumul+= f""",trace{str(2*ii+1)},trace{str(2*ii+2)}"""
         x_data_list = """"""
         y_data_list = """"""
+        t_data_list = """"""
         trace_num_10_list = """"""
         trace_num_20_list = """"""
         for jj in range(len(d1s)):
@@ -5367,6 +5368,7 @@ class Orbit:
                     divid=self.divid, trace_indx=str(ii))
                 y_data_list += """data.y{jj}_{trace_indx}.slice(trace_slice_begin,trace_slice_end), """.format(jj=jj+1,
                     divid=self.divid, trace_indx=str(ii))
+                t_data_list += """data.time.slice(trace_slice_begin,trace_slice_end), """
                 trace_num_10_list += f"""{str(2*jj*self.size + 2 * ii + 1 - 1)}, """
                 trace_num_20_list += f"""{str(2*jj*self.size + 2 * ii + 2 - 1)}, """
         # Additional traces for additional plots
@@ -5650,10 +5652,10 @@ require(['Plotly'], function (Plotly) {{
       if ( trace_slice_len < 1) trace_slice_len= 1;
       trace_slice_begin= Math.floor(cnt*numPerFrame);
       trace_slice_end= Math.floor(Math.min(cnt*numPerFrame+trace_slice_len,data.x1_0.length-1));
-      traces = {{x: [{x_data_list}], y: [{y_data_list}]}};
+      traces = {{x: [{x_data_list}], y: [{y_data_list}], customdata:[{t_data_list}]}};
       Plotly.extendTraces('{divid}', traces, [{trace_num_10_list}]);
       trace_slice_begin-= trace_slice_len;
-      traces = {{x: [{x_data_list}], y: [{y_data_list}]}};
+      traces = {{x: [{x_data_list}], y: [{y_data_list}], customdata:[{t_data_list}]}};
       Plotly.restyle('{divid}', traces, [{trace_num_20_list}]);
       cnt+= 1;
     }}, 30);
@@ -5663,7 +5665,7 @@ require(['Plotly'], function (Plotly) {{
                     divid=self.divid,width=width,height=height,
                     button_margin_left=button_margin_left,config=config,
                     layout=layout,load_jslibs_code=load_jslibs_code,
-                    x_data_list=x_data_list, y_data_list=y_data_list,
+                    x_data_list=x_data_list, y_data_list=y_data_list, t_data_list=t_data_list,
                     trace_num_10_list=trace_num_10_list, trace_num_20_list=trace_num_20_list,
                     setup_trace1=setup_trace1,setup_trace2=setup_trace2,
                     setup_trace3=setup_trace3, trace_num_list= [ii for ii in range(self.size * len(d1s))]))
@@ -6068,6 +6070,7 @@ require(['Plotly'], function (Plotly) {{
         x_data_list = """"""
         y_data_list = """"""
         z_data_list = """"""
+        t_data_list = """"""
         trace_num_10_list = """"""
         trace_num_20_list = """"""
         if mw_plane_bg and d1=="x" and d2=="y" and d3=="z":  # only add when its true
@@ -6080,6 +6083,7 @@ require(['Plotly'], function (Plotly) {{
                     divid=self.divid, trace_indx=str(ii))
                 z_data_list += """data.z{jj}_{trace_indx}.slice(trace_slice_begin,trace_slice_end), """.format(jj=jj+1,
                     divid=self.divid, trace_indx=str(ii))
+                t_data_list += """data.time.slice(trace_slice_begin,trace_slice_end), """
                 trace_num_10_list += f"""{str(2*jj*self.size + 2 * ii + 1 - 1)}, """
                 trace_num_20_list += f"""{str(2*jj*self.size + 2 * ii + 2 - 1)}, """
         return HTML("""
@@ -6191,10 +6195,10 @@ require(['Plotly'], function (Plotly) {{
         if ( trace_slice_len < 1) trace_slice_len= 1;
         trace_slice_begin= Math.floor(cnt*numPerFrame);
         trace_slice_end= Math.floor(Math.min(cnt*numPerFrame+trace_slice_len,data.x1_0.length-1));
-        traces = {{x: [{x_data_list}], y: [{y_data_list}], z: [{z_data_list}]}};
+        traces = {{x: [{x_data_list}], y: [{y_data_list}], z: [{z_data_list}], customdata:[{t_data_list}]}};
         Plotly.extendTraces('{divid}', traces, [{trace_num_10_list}]);
         trace_slice_begin-= trace_slice_len;
-        traces = {{x: [{x_data_list}], y: [{y_data_list}], z: [{z_data_list}]}};
+        traces = {{x: [{x_data_list}], y: [{y_data_list}], z: [{z_data_list}], customdata:[{t_data_list}]}};
         Plotly.restyle('{divid}', traces, [{trace_num_20_list}]);
         cnt+= 1;
     }}, 100);
@@ -6204,7 +6208,7 @@ require(['Plotly'], function (Plotly) {{
                     divid=self.divid,width=width,height=height,
                     button_margin_left=button_margin_left,config=config,
                     layout=layout,load_jslibs_code=load_jslibs_code,
-                    x_data_list=x_data_list, y_data_list=y_data_list, z_data_list=z_data_list,
+                    x_data_list=x_data_list, y_data_list=y_data_list, z_data_list=z_data_list, t_data_list=t_data_list,
                     trace_num_10_list=trace_num_10_list, trace_num_20_list=trace_num_20_list,
                     setup_trace1=setup_trace1, traces_cumul=traces_cumul, trace_num_list= [ii for ii in range(self.size * len(d1s))]))
 
