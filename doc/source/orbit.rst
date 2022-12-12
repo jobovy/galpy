@@ -1360,7 +1360,10 @@ Directly using these accelerations in the ``NonInertialFrameForce`` is very
 slow (because they have to be evaluated *a lot* during orbit integration),
 so we build interpolated versions to speed things up:
 
->>> t_intunits= o.time(use_physical=False)[::-1] # need to reverse the order for interp
+>>> if o.time(use_physical=False)[0] > o.time(use_physical=False)[1]:
+>>>     t_intunits= o.time(use_physical=False)[::-1] # need to reverse the order for interp
+>>> else:
+>>>     t_intunits= o.time(use_physical=False)
 >>> ax4int= numpy.array([ax(t) for t in t_intunits])
 >>> ax_int= lambda t: numpy.interp(t,t_intunits,ax4int)
 >>> ay4int= numpy.array([ay(t) for t in t_intunits])
