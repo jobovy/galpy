@@ -83,7 +83,7 @@ jobs:
           rsync -azv gsl/lib/ /usr/local/lib/
           echo "REPAIR_LIBRARY_PATH=/usr/local/lib/" >> $GITHUB_ENV # https://github.com/pypa/cibuildwheel/issues/816#issuecomment-916197079
       - name: Build wheels
-        uses: pypa/cibuildwheel@v2.11.2
+        uses: pypa/cibuildwheel@v2.11.3
         env:
           CIBW_BUILD: ${{ matrix.python }}-${{ matrix.buildplat[1] }}_${{ matrix.buildplat[2] }}
           CIBW_BEFORE_BUILD_LINUX: yum -y install gsl-devel
