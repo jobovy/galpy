@@ -5672,6 +5672,8 @@ require(['Plotly'], function (Plotly) {{
       traces = {{x: [{x_data_list}], y: [{y_data_list}], customdata:[{t_data_list}]}};
       Plotly.restyle('{divid}', traces, [{trace_num_20_list}]);
       cnt+= 1;
+      // need to clearInterval here otherwise the pan/zoom/rotate is bugged somehow at the end of play
+      if (cnt*numPerFrame+trace_slice_len > data.x1_0.length) clearInterval(interval);
     }}, 30);
     }}
 {close_json_code}}});
@@ -6223,6 +6225,8 @@ require(['Plotly'], function (Plotly) {{
         traces = {{x: [{x_data_list}], y: [{y_data_list}], z: [{z_data_list}], customdata:[{t_data_list}]}};
         Plotly.restyle('{divid3d}', traces, [{trace_num_20_list}]);
         cnt+= 1;
+        // need to clearInterval here otherwise the pan/zoom/rotate is bugged somehow at the end of play
+        if (cnt*numPerFrame+trace_slice_len>data.x1_0.length) clearInterval(interval);
     }}, 100);
     }}
     {close_json_code}}});
