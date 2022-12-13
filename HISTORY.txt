@@ -21,6 +21,11 @@ v1.8.2 (2023-XX-XX)
 
 - Dropped Appveyor CI builds entirely, now only using GitHub Actions for CI.
 
+- Added Orbit.animate3d to display a 3D animation of an integrated orbit (#532) with 
+  an optional milky way plane at the origin when plotted with x,y,z
+
+- Improved Orbit.animate performance by using webgl, some UI tweaks
+
 v1.8.1 (2022-10-31)
 ===================
 
