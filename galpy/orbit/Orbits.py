@@ -5586,7 +5586,7 @@ class Orbit:
 
 <div id='{divid}' style='width:{width}px;height:{height}px;'></div>
 <div class="controlbutton" id="{divid}-play" style="margin-left:{button_margin_left}px;display: inline-block;">
-<button class="galpybutton" id="playpause">Play</button></div>
+<button class="galpybutton" id="{divid}-playpause">Play</button></div>
 <div class="controlbutton" id="{divid}-timestwo" style="margin-left:10px;display: inline-block;">
 <button class="galpybutton">Speed<font face="Arial">&thinsp;</font>x<font face="Arial">&thinsp;</font>2</button></div>
 <div class="controlbutton" id="{divid}-timeshalf" style="margin-left:10px;display: inline-block;">
@@ -5621,12 +5621,12 @@ require(['Plotly'], function (Plotly) {{
     if ( button_type === '{divid}-play' ) {{
       clearInterval(interval);
       interval= animate_trace();
-      document.querySelector('#playpause').textContent = 'Pause';
+      document.querySelector('#{divid}-playpause').textContent = 'Pause';
       document.getElementById('{divid}-play').id = '{divid}-pause';
     }}
     else if ( button_type === '{divid}-pause' ) {{
         clearInterval(interval);
-        document.querySelector('#playpause').textContent = 'Play';
+        document.querySelector('#{divid}-playpause').textContent = 'Resume';
         document.getElementById('{divid}-pause').id = '{divid}-play';
         }}
     else if ( button_type === '{divid}-timestwo' ) {{
@@ -5638,8 +5638,8 @@ require(['Plotly'], function (Plotly) {{
       numPerFrame/= 2;
     }}
     else if ( button_type === '{divid}-replay' ) {{
-      $("#playpause").removeAttr('disabled');
-      document.querySelector('#playpause').textContent = 'Pause';
+      $("#{divid}-playpause").removeAttr('disabled');
+      document.querySelector('#{divid}-playpause').textContent = 'Pause';
       try {{ // doesn't exist if replay with pressing pause
       document.getElementById('{divid}-play').id = '{divid}-pause';
       }}
@@ -5684,8 +5684,17 @@ require(['Plotly'], function (Plotly) {{
       cnt+= 1;
       // need to clearInterval here otherwise the pan/zoom/rotate is bugged somehow at the end of play
       if (cnt*numPerFrame+trace_slice_len>data.x1_0.length) {{
-          document.getElementById("playpause").disabled = "disabled";
-          document.querySelector('#playpause').textContent = 'Finished!';
+          document.getElementById("{divid}-playpause").disabled = "disabled";
+          document.querySelector('#{divid}-playpause').textContent = 'Finished!';
+          // making sure the whole orbits is plotted when finished
+          trace_slice_begin = trace_slice_end;
+          trace_slice_end = -1;
+          traces = {{x: [{x_data_list}], y: [{y_data_list}], customdata:[{t_data_list}]}};
+          Plotly.extendTraces('{divid}', traces, [{trace_num_10_list}]);
+          trace_slice_begin = -2;
+          trace_slice_end = -1;
+          traces = {{x: [{x_data_list}], y: [{y_data_list}], customdata:[{t_data_list}], mode: 'markers', marker_size: 10}};
+          Plotly.restyle('{divid}', traces, [{trace_num_20_list}]);
           clearInterval(interval);
       }};
         }}, 30);
@@ -5948,17 +5957,19 @@ require(['Plotly'], function (Plotly) {{
         hovertemplate = lambda name, xlabel, ylabel, zlabel, tlabel: """'<b>{name}</b>' + '<br><b>{xlabel}</b>: %{{x:.2f}}' + '<br><b>{ylabel}</b>: %{{y:.2f}}' + '<br><b>{zlabel}</b>: %{{z:.2f}}' + '<br><b>{tlabel}</b>: %{{customdata:.2f}}'""".format(name=name, xlabel=xlabel, ylabel=ylabel, zlabel=zlabel, tlabel=tlabel)
         hovertemplate_current = lambda name, xlabel, ylabel, zlabel, tlabel: """'<b>{name} (Current location)</b>' + '<br><b>{xlabel}</b>: %{{x:.2f}}' + '<br><b>{ylabel}</b>: %{{y:.2f}}' + '<br><b>{zlabel}</b>: %{{z:.2f}}' + '<br><b>{tlabel}</b>: %{{customdata:.2f}}'""".format(name=name, xlabel=xlabel, ylabel=ylabel, zlabel=zlabel, tlabel=tlabel)
         layout= """{{
-            scene:{{    xaxis: {{
-    title: '{xlabel}',
-    domain: [{xmin},{xmax}],
-    }},
-    yaxis: {{title: '{ylabel}'}},
-    zaxis: {{title: '{zlabel}'}},}},
-    margin: {{t: 20}},
-    hovermode: 'closest',
-    showlegend: false,
-    """.format(xlabel=xlabels[0],ylabel=ylabels[0],zlabel=zlabels[0],xmin=xmin[0],xmax=xmax[0])
-
+            scene:{{
+                // force the scene always look like a cube    
+                aspectmode: 'cube',  
+                xaxis: {{
+                    title: '{xlabel}',
+                    domain: [{xmin},{xmax}],
+                        }},
+                yaxis: {{title: '{ylabel}'}},
+                zaxis: {{title: '{zlabel}'}},}},
+                margin: {{t: 20}},
+                hovermode: 'closest',
+                showlegend: false,
+                """.format(xlabel=xlabels[0],ylabel=ylabels[0],zlabel=zlabels[0],xmin=xmin[0],xmax=xmax[0])
         layout+="""}"""
         # First plot
         setup_trace1= """
@@ -6155,7 +6166,7 @@ require(['Plotly'], function (Plotly) {{
 
     <div id='{divid3d}' style='width:{width}px;height:{height}px;'></div>
     <div class="controlbutton" id="{divid3d}-play" style="margin-left:{button_margin_left}px;display: inline-block;">
-    <button class="galpybutton" id='playpause'>Play</button></div>
+    <button class="galpybutton" id='{divid3d}-playpause'>Play</button></div>
     <div class="controlbutton" id="{divid3d}-timestwo" style="margin-left:10px;display: inline-block;">
     <button class="galpybutton">Speed<font face="Arial">&thinsp;</font>x<font face="Arial">&thinsp;</font>2</button></div>
     <div class="controlbutton" id="{divid3d}-timeshalf" style="margin-left:10px;display: inline-block;">
@@ -6182,7 +6193,15 @@ require(['Plotly'], function (Plotly) {{
     let trace_slice_len;
     let trace_slice_begin;
     let trace_slice_end;
-
+    
+    // guess on plotly current axis limit
+    let xaxis_min_guess;
+    let xaxis_max_guess;
+    let yaxis_min_guess;
+    let yaxis_max_guess;
+    let zaxis_min_guess;
+    let zaxis_max_guess;
+    
     setup_trace();
 
     $('.controlbutton button').click(function() {{
@@ -6190,12 +6209,12 @@ require(['Plotly'], function (Plotly) {{
     if ( button_type === '{divid3d}-play' ) {{
         clearInterval(interval);
         interval= animate_trace();
-        document.querySelector('#playpause').textContent = 'Pause';
+        document.querySelector('#{divid3d}-playpause').textContent = 'Pause';
         document.getElementById('{divid3d}-play').id = '{divid3d}-pause';
     }}
     else if ( button_type === '{divid3d}-pause' ) {{
         clearInterval(interval);
-        document.querySelector('#playpause').textContent = 'Play';
+        document.querySelector('#{divid3d}-playpause').textContent = 'Resume';
         document.getElementById('{divid3d}-pause').id = '{divid3d}-play';
         }}
     else if ( button_type === '{divid3d}-timestwo' ) {{
@@ -6207,8 +6226,8 @@ require(['Plotly'], function (Plotly) {{
         numPerFrame/= 2;
     }}
     else if ( button_type === '{divid3d}-replay' ) {{
-        $("#playpause").removeAttr('disabled');
-        document.querySelector('#playpause').textContent = 'Pause';
+        $("#{divid3d}-playpause").removeAttr('disabled');
+        document.querySelector('#{divid3d}-playpause').textContent = 'Pause';
         try {{ // doesn't exist if replay with pressing pause
         document.getElementById('{divid3d}-play').id = '{divid3d}-pause';
         }}
@@ -6251,8 +6270,17 @@ require(['Plotly'], function (Plotly) {{
         cnt+= 1;
         // need to clearInterval here otherwise the pan/zoom/rotate is bugged somehow at the end of play
         if (cnt*numPerFrame+trace_slice_len>data.x1_0.length) {{
-            document.getElementById("playpause").disabled = "disabled";
-            document.querySelector('#playpause').textContent = 'Finished!';
+            document.getElementById("{divid3d}-playpause").disabled = "disabled";
+            document.querySelector('#{divid3d}-playpause').textContent = 'Finished!';
+            // making sure the whole orbits is plotted when finished
+            trace_slice_begin = trace_slice_end;
+            trace_slice_end = -1;
+            traces = {{x: [{x_data_list}], y: [{y_data_list}], z: [{z_data_list}], customdata:[{t_data_list}]}};
+            Plotly.extendTraces('{divid3d}', traces, [{trace_num_10_list}]);
+            trace_slice_begin = -2;
+            trace_slice_end = -1;
+            traces = {{x: [{x_data_list}], y: [{y_data_list}], z: [{z_data_list}], customdata:[{t_data_list}], mode: 'markers', marker_size: 5}};
+            Plotly.restyle('{divid3d}', traces, [{trace_num_20_list}]);
             clearInterval(interval);
         }};
     }}, 100);
