@@ -5039,7 +5039,7 @@ class Orbit:
         plot._add_ticks()
         return [line3d]
 
-    def animate(self,*args,**kwargs): #pragma: no cover
+    def animate(self, **kwargs): #pragma: no cover
         """
         NAME:
 
@@ -5167,10 +5167,11 @@ class Orbit:
         ys= []
         xlabels= []
         ylabels= []
+        tlabel= labeldict.get('t')
         if hasattr(self, "name"):  # name for display
             names = self.name if isinstance(self.name, list) or isinstance(self.name, numpy.ndarray) else [self.name]
         else:
-            names = [f"Object {i}" for i in range(len(self))]
+            names = [f"Object {i}" for i in range(self.size)]
         if isinstance(d1,str) or callable(d1):
             d1s= [d1]
             d2s= [d2]
@@ -5221,7 +5222,7 @@ class Orbit:
             for jj in range(self.size):
                 jsonDict['x%i_%i' % (ii+1,jj)]= xs[ii][jj].tolist()
                 jsonDict['y%i_%i' % (ii+1,jj)]= ys[ii][jj].tolist()
-        jsonDict["time"] = self.time().tolist()
+        jsonDict["time"] = self._parse_plot_quantity('t',**kwargs)[0].tolist()
         json_filename= kwargs.pop('json_filename',None)
         if json_filename is None:
             jd= json.dumps(jsonDict)
@@ -5276,7 +5277,8 @@ class Orbit:
   hovermode: 'closest',
   showlegend: false,
 """.format(xlabel=xlabels[0],ylabel=ylabels[0],xmin=xmin[0],xmax=xmax[0])
-
+        hovertemplate = lambda name, xlabel, ylabel, tlabel: """'<b>{name}</b>' + '<br><b>{xlabel}</b>: %{{x:.2f}}' + '<br><b>{ylabel}</b>: %{{y:.2f}}' + '<br><b>{tlabel}</b>: %{{customdata:.2f}}'""".format(name=name, xlabel=xlabel, ylabel=ylabel, tlabel=tlabel)
+        hovertemplate_current = lambda name, xlabel, ylabel, tlabel: """'<b>{name} (Current location)</b>' + '<br><b>{xlabel}</b>: %{{x:.2f}}' + '<br><b>{ylabel}</b>: %{{y:.2f}}' + '<br><b>{tlabel}</b>: %{{customdata:.2f}}'""".format(name=name, xlabel=xlabel, ylabel=ylabel, tlabel=tlabel)
         for ii in range(1,nplots):
             layout+= """  xaxis{idx}: {{
     title: '{xlabel}',
@@ -5296,7 +5298,7 @@ class Orbit:
       x: data.x1_0.slice(0,numPerFrame),
       y: data.y1_0.slice(0,numPerFrame),
       customdata: data.time,
-      hovertemplate: '<b>{name}</b>' + '<br><b>{xlabel}</b>: %{{x}}' + '<br><b>{ylabel}</b>: %{{y}}' + '<br><b>t (Gyr)</b>: %{{customdata:.5f}}',
+      hovertemplate: {hovertemplate},
       name: '',
       mode: 'lines',
       line: {{
@@ -5311,7 +5313,7 @@ class Orbit:
       x: data.x1_0.slice(0,numPerFrame),
       y: data.y1_0.slice(0,numPerFrame),
       customdata: data.time,
-      hovertemplate: '<b>{name} (Current location)</b>' + '<br><b>{xlabel}</b>: %{{x}}' + '<br><b>{ylabel}</b>: %{{y}}' + '<br><b>t (Gyr)</b>: %{{customdata:.5f}}',
+      hovertemplate: {hovertemplate_current},
       name: '',
       mode: 'lines',
       line: {{
@@ -5321,7 +5323,9 @@ class Orbit:
         }},
       type: "scattergl",
     }};
-""".format(line_color=line_colors[0], name=names[0], xlabel=xlabels[0], ylabel=ylabels[0])
+""".format(line_color=line_colors[0], 
+           hovertemplate=hovertemplate(names[0], xlabels[0], ylabels[0], tlabel), 
+           hovertemplate_current=hovertemplate_current(names[0], xlabels[0], ylabels[0], tlabel))
         traces_cumul= """trace1,trace2"""
         for ii in range(1,self.size):
             setup_trace1+= """
@@ -5329,7 +5333,7 @@ class Orbit:
       x: data.x1_{trace_indx}.slice(0,numPerFrame),
       y: data.y1_{trace_indx}.slice(0,numPerFrame),
       customdata: data.time,
-      hovertemplate: '<b>{name}</b>' + '<br><b>{xlabel}</b>: %{{x}}' + '<br><b>{ylabel}</b>: %{{y}}' + '<br><b>t (Gyr)</b>: %{{customdata:.5f}}',
+      hovertemplate: {hovertemplate},
       name: '',
       mode: 'lines',
       line: {{
@@ -5344,7 +5348,7 @@ class Orbit:
       x: data.x1_{trace_indx}.slice(0,numPerFrame),
       y: data.y1_{trace_indx}.slice(0,numPerFrame),
       customdata: data.time,
-      hovertemplate: '<b>{name} (Current location)</b>' + '<br><b>{xlabel}</b>: %{{x}}' + '<br><b>{ylabel}</b>: %{{y}}'  + '<br><b>t (Gyr)</b>: %{{customdata:.5f}}',
+      hovertemplate: {hovertemplate_current},
       name: '',
       mode: 'lines',
       line: {{
@@ -5355,7 +5359,9 @@ class Orbit:
       type: "scattergl",
     }};
 """.format(trace_indx=str(ii),trace_num_1=str(2*ii+1),trace_num_2=str(2*ii+2),
-           line_color=line_colors[ii], name=names[ii], xlabel=xlabels[0], ylabel=ylabels[0])
+           line_color=line_colors[ii], 
+           hovertemplate=hovertemplate(names[ii], xlabels[0], ylabels[0], tlabel), 
+           hovertemplate_current=hovertemplate_current(names[ii], xlabels[0], ylabels[0], tlabel))
             traces_cumul+= f""",trace{str(2*ii+1)},trace{str(2*ii+2)}"""
         x_data_list = """"""
         y_data_list = """"""
@@ -5378,7 +5384,7 @@ class Orbit:
       x: data.x2_0.slice(0,numPerFrame),
       y: data.y2_0.slice(0,numPerFrame),
       customdata: data.time,
-      hovertemplate: '<b>{name}</b>' + '<br><b>{xlabel}</b>: %{{x}}' + '<br><b>{ylabel}</b>: %{{y}}' + '<br><b>t (Gyr)</b>: %{{customdata:.5f}}',
+      hovertemplate: {hovertemplate},
       name: '',
       xaxis: 'x2',
       yaxis: 'y2',
@@ -5395,7 +5401,7 @@ class Orbit:
       x: data.x2_0.slice(0,numPerFrame),
       y: data.y2_0.slice(0,numPerFrame),
       customdata: data.time,
-      hovertemplate: '<b>{name} (Current location)</b>' + '<br><b>{xlabel}</b>: %{{x}}' + '<br><b>{ylabel}</b>: %{{y}}' + '<br><b>t (Gyr)</b>: %{{customdata:.5f}}',
+      hovertemplate: {hovertemplate_current},
       name: '',
       xaxis: 'x2',
       yaxis: 'y2',
@@ -5407,8 +5413,10 @@ class Orbit:
       }},
       type: "scattergl",
     }};
-""".format(line_color=line_colors[0],trace_num_1=str(2*self.size+1),name=names[0],
-           trace_num_2=str(2*self.size+2), xlabel=xlabels[1], ylabel=ylabels[1])
+""".format(line_color=line_colors[0],trace_num_1=str(2*self.size+1),
+           trace_num_2=str(2*self.size+2),            
+           hovertemplate=hovertemplate(names[0], xlabels[1], ylabels[1], tlabel), 
+           hovertemplate_current=hovertemplate_current(names[0], xlabels[1], ylabels[1], tlabel))
             traces_cumul+= f""",trace{str(2*self.size+1)},trace{str(2*self.size+2)}"""
             for ii in range(1,self.size):
                 setup_trace2+= """
@@ -5416,7 +5424,7 @@ class Orbit:
       x: data.x2_{trace_indx}.slice(0,numPerFrame),
       y: data.y2_{trace_indx}.slice(0,numPerFrame),
       customdata: data.time,
-      hovertemplate: '<b>{name}</b>' + '<br><b>{xlabel}</b>: %{{x}}' + '<br><b>{ylabel}</b>: %{{y}}' + '<br><b>t (Gyr)</b>: %{{customdata:.5f}}',
+      hovertemplate: {hovertemplate},
       name: '',
       xaxis: 'x2',
       yaxis: 'y2',
@@ -5433,7 +5441,7 @@ class Orbit:
       x: data.x2_{trace_indx}.slice(0,numPerFrame),
       y: data.y2_{trace_indx}.slice(0,numPerFrame),
       customdata: data.time,
-      hovertemplate: '<b>{name} (Current location)</b>' + '<br><b>{xlabel}</b>: %{{x}}' + '<br><b>{ylabel}</b>: %{{y}}' + '<br><b>t (Gyr)</b>: %{{customdata:.5f}}',
+      hovertemplate: {hovertemplate_current},
       name: '',
       xaxis: 'x2',
       yaxis: 'y2',
@@ -5445,9 +5453,11 @@ class Orbit:
       }},
       type: "scattergl",
     }};
-""".format(line_color=line_colors[ii],trace_indx=str(ii),name=names[ii],
+""".format(line_color=line_colors[ii],trace_indx=str(ii),
            trace_num_1=str(2*self.size+2*ii+1),
-           trace_num_2=str(2*self.size+2*ii+2), xlabel=xlabels[1], ylabel=ylabels[1])
+           trace_num_2=str(2*self.size+2*ii+2),            
+           hovertemplate=hovertemplate(names[ii], xlabels[1], ylabels[1], tlabel), 
+           hovertemplate_current=hovertemplate_current(names[ii], xlabels[1], ylabels[1], tlabel))
                 traces_cumul+= f""",trace{str(2*self.size+2*ii+1)},trace{str(2*self.size+2*ii+2)}"""
         else: # else for "if there is a 2nd panel"
             setup_trace2= """
@@ -5459,7 +5469,7 @@ class Orbit:
       x: data.x3_0.slice(0,numPerFrame),
       y: data.y3_0.slice(0,numPerFrame),
       customdata: data.time,
-      hovertemplate: '<b>{name}</b>' + '<br><b>{xlabel}</b>: %{{x}}' + '<br><b>{ylabel}</b>: %{{y}}' + '<br><b>t (Gyr)</b>: %{{customdata:.5f}}',
+      hovertemplate: {hovertemplate},
       name: '',
       xaxis: 'x3',
       yaxis: 'y3',
@@ -5476,7 +5486,7 @@ class Orbit:
       x: data.x3_0.slice(0,numPerFrame),
       y: data.y3_0.slice(0,numPerFrame),
       customdata: data.time,
-      hovertemplate: '<b>{name} (Current location)</b>' + '<br><b>{xlabel}</b>: %{{x}}' + '<br><b>{ylabel}</b>: %{{y}}' + '<br><b>t (Gyr)</b>: %{{customdata:.5f}}',
+      hovertemplate: {hovertemplate_current},
       name: '',
       xaxis: 'x3',
       yaxis: 'y3',
@@ -5488,8 +5498,10 @@ class Orbit:
       }},
       type: "scattergl",
     }};
-""".format(line_color=line_colors[0],trace_num_1=str(4*self.size+1),name=names[0],
-           trace_num_2=str(4*self.size+2), xlabel=xlabels[2], ylabel=ylabels[2])
+""".format(line_color=line_colors[0],trace_num_1=str(4*self.size+1),
+           trace_num_2=str(4*self.size+2),            
+           hovertemplate=hovertemplate(names[0], xlabels[2], ylabels[2], tlabel), 
+           hovertemplate_current=hovertemplate_current(names[0], xlabels[2], ylabels[2], tlabel))
             traces_cumul+= f""",trace{str(4*self.size+1)},trace{str(4*self.size+2)}"""
             for ii in range(1,self.size):
                 setup_trace3+= """
@@ -5497,7 +5509,7 @@ class Orbit:
       x: data.x3_{trace_indx}.slice(0,numPerFrame),
       y: data.y3_{trace_indx}.slice(0,numPerFrame),
       customdata: data.time,
-      hovertemplate: '<b>{name}</b>' + '<br><b>{xlabel}</b>: %{{x}}' + '<br><b>{ylabel}</b>: %{{y}}' + '<br><b>t (Gyr)</b>: %{{customdata:.5f}}',
+      hovertemplate: {hovertemplate},
       name: '',
       xaxis: 'x3',
       yaxis: 'y3',
@@ -5514,7 +5526,7 @@ class Orbit:
       x: data.x3_{trace_indx}.slice(0,numPerFrame),
       y: data.y3_{trace_indx}.slice(0,numPerFrame),
       customdata: data.time,
-      hovertemplate: '<b>{name} (Current location)</b>' + '<br><b>{xlabel}</b>: %{{x}}' + '<br><b>{ylabel}</b>: %{{y}}' + '<br><b>t (Gyr)</b>: %{{customdata:.5f}}',
+      hovertemplate: {hovertemplate_current},
       name: '',
       xaxis: 'x3',
       yaxis: 'y3',
@@ -5526,11 +5538,13 @@ class Orbit:
       }},
       type: "scattergl",
     }};
-""".format(line_color=line_colors[ii],trace_indx=str(ii),name=names[ii],
+""".format(line_color=line_colors[ii],trace_indx=str(ii),
            trace_num_1=str(4*self.size+2*ii+1),
            trace_num_2=str(4*self.size+2*ii+2),
            trace_num_10=str(4*self.size+2*ii+1-1),
-           trace_num_20=str(4*self.size+2*ii+2-1), xlabel=xlabels[2], ylabel=ylabels[2])
+           trace_num_20=str(4*self.size+2*ii+2-1), 
+           hovertemplate=hovertemplate(names[ii], xlabels[2], ylabels[2], tlabel), 
+           hovertemplate_current=hovertemplate_current(names[ii], xlabels[2], ylabels[0], tlabel))
                 traces_cumul+= f""",trace{str(4*self.size+2*ii+1)},trace{str(4*self.size+2*ii+2)}"""
             setup_trace3 += """
             let traces= [{traces_cumul}];
@@ -5670,7 +5684,7 @@ require(['Plotly'], function (Plotly) {{
                     setup_trace1=setup_trace1,setup_trace2=setup_trace2,
                     setup_trace3=setup_trace3, trace_num_list= [ii for ii in range(self.size * len(d1s))]))
 
-    def animate3d(self,mw_plane_bg=True,*args,**kwargs): #pragma: no cover
+    def animate3d(self, mw_plane_bg=False,**kwargs): #pragma: no cover
         """
         NAME:
 
@@ -5678,7 +5692,7 @@ require(['Plotly'], function (Plotly) {{
 
         PURPOSE:
 
-            animate a previously calculated orbit (with reasonable defaults)
+            animate a previously calculated orbit in 3D (with reasonable defaults)
 
         INPUT:
 
@@ -5686,7 +5700,7 @@ require(['Plotly'], function (Plotly) {{
 
             d2= second dimension to plot
 
-           d3= third dimension to plot
+            d3= third dimension to plot
 
             width= (800) width of output div in px
 
@@ -5695,10 +5709,10 @@ require(['Plotly'], function (Plotly) {{
             xlabel= (pre-defined labels) label for the first dimension (or list of labels if d1 is a list); should only have to be specified when using a function as d1 and can then specify as, e.g., [None,'YOUR LABEL',None] if d1 is a list of three xs and the first and last are standard entries)
 
             ylabel= (pre-defined labels) label for the second dimension (or list of labels if d2 is a list); should only have to be specified when using a function as d2 and can then specify as, e.g., [None,'YOUR LABEL',None] if d1 is a list of three xs and the first and last are standard entries)
+            
+            zlabel= (pre-defined labels) label for the third dimension (or list of labels if d3 is a list); should only have to be specified when using a function as d3 and can then specify as, e.g., [None,'YOUR LABEL',None] if d1 is a list of three xs and the first and last are standard entries)
 
             json_filename= (None) if set, save the data necessary for the figure in this filename (e.g.,  json_filename= 'orbit_data/orbit.json'); this path is also used in the output HTML, so needs to be accessible
-
-            staticPlot= (False) if True, create a static plot that doesn't allow zooming, panning, etc.
 
             ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
 
@@ -5809,10 +5823,11 @@ require(['Plotly'], function (Plotly) {{
         xlabels= []
         ylabels= []
         zlabels= []
+        tlabel= labeldict.get('t')
         if hasattr(self, "name"):  # name for display
             names = self.name if isinstance(self.name, list) or isinstance(self.name, numpy.ndarray) else [self.name]
         else:
-            names = [f"Object {i}" for i in range(len(self))]
+            names = [f"Object {i}" for i in range(self.size)]
         if isinstance(d1,str) or callable(d1):
             d1s= [d1]
             d2s= [d2]
@@ -5873,7 +5888,7 @@ require(['Plotly'], function (Plotly) {{
                 jsonDict['x%i_%i' % (ii+1,jj)]= xs[ii][jj].tolist()
                 jsonDict['y%i_%i' % (ii+1,jj)]= ys[ii][jj].tolist()
                 jsonDict['z%i_%i' % (ii+1,jj)]= zs[ii][jj].tolist()
-        jsonDict["time"] = self.time().tolist()
+        jsonDict["time"] = self._parse_plot_quantity('t',**kwargs)[0].tolist()
         json_filename= kwargs.pop('json_filename',None)
         if json_filename is None:
             jd= json.dumps(jsonDict)
@@ -5884,15 +5899,11 @@ require(['Plotly'], function (Plotly) {{
                 json.dump(jsonDict,jfile)
             json_code= f"""Plotly.d3.json('{json_filename}',function(data){{"""
             close_json_code= "});"
-        self.divid= 'galpy-'\
+        self.divid3d= 'galpy-'\
             +''.join(choice(ascii_lowercase) for i in range(24))
         button_width= 419.51+4.*10.
         button_margin_left= int(numpy.round((width-button_width)/2.))
         if button_margin_left < 0: button_margin_left= 0
-        # Configuration options
-        config= """{{staticPlot: {staticPlot}}}"""\
-            .format(staticPlot='true' if kwargs.pop('staticPlot',False)
-                    else 'false')
         # Layout for multiple plots
         if len(d1s) == 1:
             xmin= [0,0,0]
@@ -5918,6 +5929,8 @@ require(['Plotly'], function (Plotly) {{
         if self.size > len(line_colors):
             line_colors.extend(["#%06x" % numpy.random.randint(0, 0xFFFFFF)
                                 for ii in range(self.size-len(line_colors))])
+        hovertemplate = lambda name, xlabel, ylabel, zlabel, tlabel: """'<b>{name}</b>' + '<br><b>{xlabel}</b>: %{{x:.2f}}' + '<br><b>{ylabel}</b>: %{{y:.2f}}' + '<br><b>{zlabel}</b>: %{{z:.2f}}' + '<br><b>{tlabel}</b>: %{{customdata:.2f}}'""".format(name=name, xlabel=xlabel, ylabel=ylabel, zlabel=zlabel, tlabel=tlabel)
+        hovertemplate_current = lambda name, xlabel, ylabel, zlabel, tlabel: """'<b>{name} (Current location)</b>' + '<br><b>{xlabel}</b>: %{{x:.2f}}' + '<br><b>{ylabel}</b>: %{{y:.2f}}' + '<br><b>{zlabel}</b>: %{{z:.2f}}' + '<br><b>{tlabel}</b>: %{{customdata:.2f}}'""".format(name=name, xlabel=xlabel, ylabel=ylabel, zlabel=zlabel, tlabel=tlabel)
         layout= """{{
             scene:{{    xaxis: {{
     title: '{xlabel}',
@@ -5938,7 +5951,7 @@ require(['Plotly'], function (Plotly) {{
         y: data.y1_0.slice(0,numPerFrame),
         z: data.z1_0.slice(0,numPerFrame),
         customdata: data.time,
-        hovertemplate: '<b>{name}</b>' + '<br><b>{xlabel}</b>: %{{x}}' + '<br><b>{ylabel}</b>: %{{y}}' + '<br><b>{zlabel}</b>: %{{z}}' + '<br><b>t (Gyr)</b>: %{{customdata:.5f}}',
+        hovertemplate: {hovertemplate},
         mode: 'lines',
         name: '',
         line: {{
@@ -5954,7 +5967,7 @@ require(['Plotly'], function (Plotly) {{
         y: data.y1_0.slice(0,numPerFrame),
         z: data.z1_0.slice(0,numPerFrame),
         customdata: data.time,
-        hovertemplate: '<b>{name} (Current location)</b>' + '<br><b>{xlabel}</b>: %{{x}}' + '<br><b>{ylabel}</b>: %{{y}}' + '<br><b>{zlabel}</b>: %{{z}}' + '<br><b>t (Gyr)</b>: %{{customdata:.5f}}',
+        hovertemplate: {hovertemplate_current},
         mode: 'lines',
         name: '',
         line: {{
@@ -5964,14 +5977,22 @@ require(['Plotly'], function (Plotly) {{
         }},
         type: "scatter3d",
     }};
-    """.format(line_color=line_colors[0], name=names[0], xlabel=xlabels[0], ylabel=ylabels[0], zlabel=zlabels[0])
+    """.format(line_color=line_colors[0],
+               hovertemplate=hovertemplate(names[0], xlabels[0], ylabels[0], zlabels[0], tlabel), 
+               hovertemplate_current=hovertemplate_current(names[0], xlabels[0], ylabels[0], zlabels[0], tlabel))
         traces_cumul= """trace1,trace2"""
         # milkyway plane surface
+        # kpc or internal unit, because we need to scale the img correctly
+        is_kpc = True if 'kpc' in labeldict.get(d1,r'\mathrm{No\ xlabel\ specified}') else False
+        mw_bg_surface_scale = 20.775
+        if not is_kpc:
+            mw_bg_surface_scale /= self._ro
         mw_bg_surface = f"""let mw_bg = {{
-            x: {json.dumps((numpy.linspace(-1, 1, 50)*20.775).tolist())},
-            y: {json.dumps((numpy.linspace(-1, 1, 50)*20.775).tolist())},
+            x: {json.dumps((numpy.linspace(-1, 1, 50)*mw_bg_surface_scale).tolist())},
+            y: {json.dumps((numpy.linspace(-1, 1, 50)*mw_bg_surface_scale).tolist())},
             z: {json.dumps((numpy.zeros((50, 50))).tolist())},
-            colorscale: [[0.0,"rgba(0, 0, 0, 1)"],[0.09090909090909091,"rgba(16, 16, 16, 1)"],[0.18181818181818182,"rgba(38, 38, 38, 0.9)"],[0.2727272727272727,"rgba(59, 59, 59, 0.8)"],[0.36363636363636365,"rgba(81, 80, 80, 0.7)"],[0.45454545454545453,"rgba(102, 101, 101, 0.6)"],[0.5454545454545454,"rgba(124, 123, 122, 0.5)"],[0.6363636363636364,"rgba(146, 146, 145, 0.4)"],[0.7272727272727273,"rgba(171, 171, 170, 0.3)"],[0.8181818181818182,"rgba(197, 197, 195, 0.2)"],[0.9090909090909091,"rgba(224, 224, 223, 0.1)"],[1.0,"rgba(254, 254, 253, 0.05)"]],            surfacecolor: [
+            colorscale: [[0.0,"rgba(0, 0, 0, 1)"],[0.09090909090909091,"rgba(16, 16, 16, 1)"],[0.18181818181818182,"rgba(38, 38, 38, 0.9)"],[0.2727272727272727,"rgba(59, 59, 59, 0.8)"],[0.36363636363636365,"rgba(81, 80, 80, 0.7)"],[0.45454545454545453,"rgba(102, 101, 101, 0.6)"],[0.5454545454545454,"rgba(124, 123, 122, 0.5)"],[0.6363636363636364,"rgba(146, 146, 145, 0.4)"],[0.7272727272727273,"rgba(171, 171, 170, 0.3)"],[0.8181818181818182,"rgba(197, 197, 195, 0.2)"],[0.9090909090909091,"rgba(224, 224, 223, 0.1)"],[1.0,"rgba(254, 254, 253, 0.05)"]],            
+            surfacecolor: [
             [255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 254, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255],
             [255, 255, 255, 255, 255, 255, 255, 255, 254, 255, 255, 255, 255, 255, 255, 255, 253, 252, 254, 252, 251, 251, 249, 249, 253, 254, 253, 251, 251, 249, 250, 253, 255, 254, 254, 255, 255, 254, 255, 254, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255],
             [255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 254, 253, 252, 251, 247, 242, 238, 236, 235, 228, 230, 229, 224, 225, 228, 227, 236, 239, 233, 227, 239, 253, 254, 254, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255],
@@ -6037,7 +6058,7 @@ require(['Plotly'], function (Plotly) {{
         y: data.y1_{trace_indx}.slice(0,numPerFrame),
         z: data.z1_{trace_indx}.slice(0,numPerFrame),
         customdata: data.time,
-        hovertemplate: '<b>{name}</b>' + '<br><b>{xlabel}</b>: %{{x}}' + '<br><b>{ylabel}</b>: %{{y}}' + '<br><b>{zlabel}</b>: %{{z}}' + '<br><b>t (Gyr)</b>: %{{customdata:.5f}}',
+        hovertemplate: {hovertemplate},
         name: '',
         mode: 'lines',
         line: {{
@@ -6053,7 +6074,7 @@ require(['Plotly'], function (Plotly) {{
         y: data.y1_{trace_indx}.slice(0,numPerFrame),
         z: data.z1_{trace_indx}.slice(0,numPerFrame),
         customdata: data.time,
-        hovertemplate: '<b>{name} (Current location)</b>' + '<br><b>{xlabel}</b>: %{{x}}' + '<br><b>{ylabel}</b>: %{{y}}' + '<br><b>{zlabel}</b>: %{{z}}' + '<br><b>t (Gyr)</b>: %{{customdata:.5f}}',
+        hovertemplate: {hovertemplate_current},
         name: '',
         mode: 'lines',
         line: {{
@@ -6064,7 +6085,9 @@ require(['Plotly'], function (Plotly) {{
         type: "scatter3d",
     }};
     """.format(trace_indx=str(ii),trace_num_1=str(2*ii+1),trace_num_2=str(2*ii+2),
-            line_color=line_colors[ii], name=names[ii], xlabel=xlabels[0], ylabel=ylabels[0], zlabel=zlabels[0])
+            line_color=line_colors[ii],
+            hovertemplate=hovertemplate(names[ii], xlabels[0], ylabels[0], zlabels[0], tlabel), 
+            hovertemplate_current=hovertemplate_current(names[ii], xlabels[0], ylabels[0], zlabels[0], tlabel))
             traces_cumul+= f""",trace{str(2*ii+1)},trace{str(2*ii+2)}"""
         x_data_list = """"""
         y_data_list = """"""
@@ -6077,11 +6100,11 @@ require(['Plotly'], function (Plotly) {{
         for jj in range(len(d1s)):
             for ii in range(0, self.size):
                 x_data_list += """data.x{jj}_{trace_indx}.slice(trace_slice_begin,trace_slice_end), """.format(jj=jj+1,
-                    divid=self.divid, trace_indx=str(ii))
+                    divid3d=self.divid3d, trace_indx=str(ii))
                 y_data_list += """data.y{jj}_{trace_indx}.slice(trace_slice_begin,trace_slice_end), """.format(jj=jj+1,
-                    divid=self.divid, trace_indx=str(ii))
+                    divid3d=self.divid3d, trace_indx=str(ii))
                 z_data_list += """data.z{jj}_{trace_indx}.slice(trace_slice_begin,trace_slice_end), """.format(jj=jj+1,
-                    divid=self.divid, trace_indx=str(ii))
+                    divid3d=self.divid3d, trace_indx=str(ii))
                 t_data_list += """data.time.slice(trace_slice_begin,trace_slice_end), """
                 trace_num_10_list += f"""{str(2*jj*self.size + 2 * ii + 1 - 1)}, """
                 trace_num_20_list += f"""{str(2*jj*self.size + 2 * ii + 2 - 1)}, """
@@ -6114,16 +6137,16 @@ require(['Plotly'], function (Plotly) {{
     }}
     </style>
 
-    <div id='{divid}' style='width:{width}px;height:{height}px;'></div>
-    <div class="controlbutton" id="{divid}-play" style="margin-left:{button_margin_left}px;display: inline-block;">
+    <div id='{divid3d}' style='width:{width}px;height:{height}px;'></div>
+    <div class="controlbutton" id="{divid3d}-play" style="margin-left:{button_margin_left}px;display: inline-block;">
     <button class="galpybutton">Play</button></div>
-    <div class="controlbutton" id="{divid}-pause" style="margin-left:10px;display: inline-block;">
+    <div class="controlbutton" id="{divid3d}-pause" style="margin-left:10px;display: inline-block;">
     <button class="galpybutton">Pause</button></div>
-    <div class="controlbutton" id="{divid}-timestwo" style="margin-left:10px;display: inline-block;">
+    <div class="controlbutton" id="{divid3d}-timestwo" style="margin-left:10px;display: inline-block;">
     <button class="galpybutton">Speed<font face="Arial">&thinsp;</font>x<font face="Arial">&thinsp;</font>2</button></div>
-    <div class="controlbutton" id="{divid}-timeshalf" style="margin-left:10px;display: inline-block;">
+    <div class="controlbutton" id="{divid3d}-timeshalf" style="margin-left:10px;display: inline-block;">
     <button class="galpybutton">Speed<font face="Arial">&thinsp;</font>/<font face="Arial">&thinsp;</font>2</button></div>
-    <div class="controlbutton" id="{divid}-replay" style="margin-left:10px;display: inline-block;">
+    <div class="controlbutton" id="{divid3d}-replay" style="margin-left:10px;display: inline-block;">
     <button class="galpybutton">Replay</button></div>
     {load_jslibs_code}
 
@@ -6150,28 +6173,28 @@ require(['Plotly'], function (Plotly) {{
 
     $('.controlbutton button').click(function() {{
     let button_type= this.parentNode.id;
-    if ( button_type === '{divid}-play' ) {{
+    if ( button_type === '{divid3d}-play' ) {{
         clearInterval(interval);
         interval= animate_trace();
     }}
-    else if ( button_type === '{divid}-pause' )
+    else if ( button_type === '{divid3d}-pause' )
         clearInterval(interval);
-    else if ( button_type === '{divid}-timestwo' ) {{
+    else if ( button_type === '{divid3d}-timestwo' ) {{
         cnt/= 2;
         numPerFrame*= 2;
     }}
-    else if ( button_type === '{divid}-timeshalf' ) {{
+    else if ( button_type === '{divid3d}-timeshalf' ) {{
         cnt*= 2;
         numPerFrame/= 2;
     }}
-    else if ( button_type === '{divid}-replay' ) {{
+    else if ( button_type === '{divid3d}-replay' ) {{
         cnt= 1;
         try {{ // doesn't exist if animation has already ended
-        Plotly.deleteTraces('{divid}',[{trace_num_20_list}]);
+        Plotly.deleteTraces('{divid3d}',[{trace_num_20_list}]);
         }}
         catch (err) {{
         }}
-        Plotly.deleteTraces('{divid}', {trace_num_list});
+        Plotly.deleteTraces('{divid3d}', {trace_num_list});
         clearInterval(interval);
         setup_trace();
         interval= animate_trace();
@@ -6183,7 +6206,7 @@ require(['Plotly'], function (Plotly) {{
 
     let traces= [{traces_cumul}];
 
-    Plotly.newPlot('{divid}',traces,layout,{config});
+    Plotly.newPlot('{divid3d}',traces,layout);
     }}
 
     function animate_trace() {{
@@ -6195,17 +6218,17 @@ require(['Plotly'], function (Plotly) {{
         trace_slice_begin= Math.floor(cnt*numPerFrame);
         trace_slice_end= Math.floor(Math.min(cnt*numPerFrame+trace_slice_len,data.x1_0.length-1));
         traces = {{x: [{x_data_list}], y: [{y_data_list}], z: [{z_data_list}], customdata:[{t_data_list}]}};
-        Plotly.extendTraces('{divid}', traces, [{trace_num_10_list}]);
+        Plotly.extendTraces('{divid3d}', traces, [{trace_num_10_list}]);
         trace_slice_begin-= trace_slice_len;
         traces = {{x: [{x_data_list}], y: [{y_data_list}], z: [{z_data_list}], customdata:[{t_data_list}]}};
-        Plotly.restyle('{divid}', traces, [{trace_num_20_list}]);
+        Plotly.restyle('{divid3d}', traces, [{trace_num_20_list}]);
         cnt+= 1;
     }}, 100);
     }}
     {close_json_code}}});
     </script>""".format(json_code=json_code,close_json_code=close_json_code,
-                    divid=self.divid,width=width,height=height,
-                    button_margin_left=button_margin_left,config=config,
+                    divid3d=self.divid3d,width=width,height=height,
+                    button_margin_left=button_margin_left,
                     layout=layout,load_jslibs_code=load_jslibs_code,
                     x_data_list=x_data_list, y_data_list=y_data_list, z_data_list=z_data_list, t_data_list=t_data_list,
                     trace_num_10_list=trace_num_10_list, trace_num_20_list=trace_num_20_list,
