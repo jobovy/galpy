@@ -5586,9 +5586,7 @@ class Orbit:
 
 <div id='{divid}' style='width:{width}px;height:{height}px;'></div>
 <div class="controlbutton" id="{divid}-play" style="margin-left:{button_margin_left}px;display: inline-block;">
-<button class="galpybutton">Play</button></div>
-<div class="controlbutton" id="{divid}-pause" style="margin-left:10px;display: inline-block;">
-<button class="galpybutton">Pause</button></div>
+<button class="galpybutton" id="playpause">Play</button></div>
 <div class="controlbutton" id="{divid}-timestwo" style="margin-left:10px;display: inline-block;">
 <button class="galpybutton">Speed<font face="Arial">&thinsp;</font>x<font face="Arial">&thinsp;</font>2</button></div>
 <div class="controlbutton" id="{divid}-timeshalf" style="margin-left:10px;display: inline-block;">
@@ -5623,9 +5621,14 @@ require(['Plotly'], function (Plotly) {{
     if ( button_type === '{divid}-play' ) {{
       clearInterval(interval);
       interval= animate_trace();
+      document.querySelector('#playpause').textContent = 'Pause';
+      document.getElementById('{divid}-play').id = '{divid}-pause';
     }}
-    else if ( button_type === '{divid}-pause' )
-      clearInterval(interval);
+    else if ( button_type === '{divid}-pause' ) {{
+        clearInterval(interval);
+        document.querySelector('#playpause').textContent = 'Play';
+        document.getElementById('{divid}-pause').id = '{divid}-play';
+        }}
     else if ( button_type === '{divid}-timestwo' ) {{
       cnt/= 2;
       numPerFrame*= 2;
@@ -5635,6 +5638,13 @@ require(['Plotly'], function (Plotly) {{
       numPerFrame/= 2;
     }}
     else if ( button_type === '{divid}-replay' ) {{
+      $("#playpause").removeAttr('disabled');
+      document.querySelector('#playpause').textContent = 'Pause';
+      try {{ // doesn't exist if replay with pressing pause
+      document.getElementById('{divid}-play').id = '{divid}-pause';
+      }}
+      catch (err) {{
+      }}
       cnt= 1;
       try {{ // doesn't exist if animation has already ended
         Plotly.deleteTraces('{divid}',[{trace_num_20_list}]);
@@ -5673,8 +5683,12 @@ require(['Plotly'], function (Plotly) {{
       Plotly.restyle('{divid}', traces, [{trace_num_20_list}]);
       cnt+= 1;
       // need to clearInterval here otherwise the pan/zoom/rotate is bugged somehow at the end of play
-      if (cnt*numPerFrame+trace_slice_len > data.x1_0.length) clearInterval(interval);
-    }}, 30);
+      if (cnt*numPerFrame+trace_slice_len>data.x1_0.length) {{
+          document.getElementById("playpause").disabled = "disabled";
+          document.querySelector('#playpause').textContent = 'Finished!';
+          clearInterval(interval);
+      }};
+        }}, 30);
     }}
 {close_json_code}}});
 </script>""".format(json_code=json_code,close_json_code=close_json_code,
@@ -6141,9 +6155,7 @@ require(['Plotly'], function (Plotly) {{
 
     <div id='{divid3d}' style='width:{width}px;height:{height}px;'></div>
     <div class="controlbutton" id="{divid3d}-play" style="margin-left:{button_margin_left}px;display: inline-block;">
-    <button class="galpybutton">Play</button></div>
-    <div class="controlbutton" id="{divid3d}-pause" style="margin-left:10px;display: inline-block;">
-    <button class="galpybutton">Pause</button></div>
+    <button class="galpybutton" id='playpause'>Play</button></div>
     <div class="controlbutton" id="{divid3d}-timestwo" style="margin-left:10px;display: inline-block;">
     <button class="galpybutton">Speed<font face="Arial">&thinsp;</font>x<font face="Arial">&thinsp;</font>2</button></div>
     <div class="controlbutton" id="{divid3d}-timeshalf" style="margin-left:10px;display: inline-block;">
@@ -6178,9 +6190,14 @@ require(['Plotly'], function (Plotly) {{
     if ( button_type === '{divid3d}-play' ) {{
         clearInterval(interval);
         interval= animate_trace();
+        document.querySelector('#playpause').textContent = 'Pause';
+        document.getElementById('{divid3d}-play').id = '{divid3d}-pause';
     }}
-    else if ( button_type === '{divid3d}-pause' )
+    else if ( button_type === '{divid3d}-pause' ) {{
         clearInterval(interval);
+        document.querySelector('#playpause').textContent = 'Play';
+        document.getElementById('{divid3d}-pause').id = '{divid3d}-play';
+        }}
     else if ( button_type === '{divid3d}-timestwo' ) {{
         cnt/= 2;
         numPerFrame*= 2;
@@ -6190,6 +6207,13 @@ require(['Plotly'], function (Plotly) {{
         numPerFrame/= 2;
     }}
     else if ( button_type === '{divid3d}-replay' ) {{
+        $("#playpause").removeAttr('disabled');
+        document.querySelector('#playpause').textContent = 'Pause';
+        try {{ // doesn't exist if replay with pressing pause
+        document.getElementById('{divid3d}-play').id = '{divid3d}-pause';
+        }}
+        catch (err) {{
+        }}
         cnt= 1;
         try {{ // doesn't exist if animation has already ended
         Plotly.deleteTraces('{divid3d}',[{trace_num_20_list}]);
@@ -6226,7 +6250,11 @@ require(['Plotly'], function (Plotly) {{
         Plotly.restyle('{divid3d}', traces, [{trace_num_20_list}]);
         cnt+= 1;
         // need to clearInterval here otherwise the pan/zoom/rotate is bugged somehow at the end of play
-        if (cnt*numPerFrame+trace_slice_len>data.x1_0.length) clearInterval(interval);
+        if (cnt*numPerFrame+trace_slice_len>data.x1_0.length) {{
+            document.getElementById("playpause").disabled = "disabled";
+            document.querySelector('#playpause').textContent = 'Finished!';
+            clearInterval(interval);
+        }};
     }}, 100);
     }}
     {close_json_code}}});
