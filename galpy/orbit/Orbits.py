@@ -5277,8 +5277,8 @@ class Orbit:
   hovermode: 'closest',
   showlegend: false,
 """.format(xlabel=xlabels[0],ylabel=ylabels[0],xmin=xmin[0],xmax=xmax[0])
-        hovertemplate = lambda name, xlabel, ylabel, tlabel: """'<b>{name}</b>' + '<br><b>{xlabel}</b>: %{{x:.2f}}' + '<br><b>{ylabel}</b>: %{{y:.2f}}' + '<br><b>{tlabel}</b>: %{{customdata:.2f}}'""".format(name=name, xlabel=xlabel, ylabel=ylabel, tlabel=tlabel)
-        hovertemplate_current = lambda name, xlabel, ylabel, tlabel: """'<b>{name} (Current location)</b>' + '<br><b>{xlabel}</b>: %{{x:.2f}}' + '<br><b>{ylabel}</b>: %{{y:.2f}}' + '<br><b>{tlabel}</b>: %{{customdata:.2f}}'""".format(name=name, xlabel=xlabel, ylabel=ylabel, tlabel=tlabel)
+        hovertemplate = lambda name, xlabel, ylabel, tlabel: f"""'<b>{name}</b>' + '<br><b>{xlabel}</b>: %{{x:.2f}}' + '<br><b>{ylabel}</b>: %{{y:.2f}}' + '<br><b>{tlabel}</b>: %{{customdata:.2f}}'"""
+        hovertemplate_current = lambda name, xlabel, ylabel, tlabel: f"""'<b>{name} (Current location)</b>' + '<br><b>{xlabel}</b>: %{{x:.2f}}' + '<br><b>{ylabel}</b>: %{{y:.2f}}' + '<br><b>{tlabel}</b>: %{{customdata:.2f}}'"""
         for ii in range(1,nplots):
             layout+= """  xaxis{idx}: {{
     title: '{xlabel}',
@@ -5323,8 +5323,8 @@ class Orbit:
         }},
       type: "scattergl",
     }};
-""".format(line_color=line_colors[0], 
-           hovertemplate=hovertemplate(names[0], xlabels[0], ylabels[0], tlabel), 
+""".format(line_color=line_colors[0],
+           hovertemplate=hovertemplate(names[0], xlabels[0], ylabels[0], tlabel),
            hovertemplate_current=hovertemplate_current(names[0], xlabels[0], ylabels[0], tlabel))
         traces_cumul= """trace1,trace2"""
         for ii in range(1,self.size):
@@ -5359,8 +5359,8 @@ class Orbit:
       type: "scattergl",
     }};
 """.format(trace_indx=str(ii),trace_num_1=str(2*ii+1),trace_num_2=str(2*ii+2),
-           line_color=line_colors[ii], 
-           hovertemplate=hovertemplate(names[ii], xlabels[0], ylabels[0], tlabel), 
+           line_color=line_colors[ii],
+           hovertemplate=hovertemplate(names[ii], xlabels[0], ylabels[0], tlabel),
            hovertemplate_current=hovertemplate_current(names[ii], xlabels[0], ylabels[0], tlabel))
             traces_cumul+= f""",trace{str(2*ii+1)},trace{str(2*ii+2)}"""
         x_data_list = """"""
@@ -5414,8 +5414,8 @@ class Orbit:
       type: "scattergl",
     }};
 """.format(line_color=line_colors[0],trace_num_1=str(2*self.size+1),
-           trace_num_2=str(2*self.size+2),            
-           hovertemplate=hovertemplate(names[0], xlabels[1], ylabels[1], tlabel), 
+           trace_num_2=str(2*self.size+2),
+           hovertemplate=hovertemplate(names[0], xlabels[1], ylabels[1], tlabel),
            hovertemplate_current=hovertemplate_current(names[0], xlabels[1], ylabels[1], tlabel))
             traces_cumul+= f""",trace{str(2*self.size+1)},trace{str(2*self.size+2)}"""
             for ii in range(1,self.size):
@@ -5455,8 +5455,8 @@ class Orbit:
     }};
 """.format(line_color=line_colors[ii],trace_indx=str(ii),
            trace_num_1=str(2*self.size+2*ii+1),
-           trace_num_2=str(2*self.size+2*ii+2),            
-           hovertemplate=hovertemplate(names[ii], xlabels[1], ylabels[1], tlabel), 
+           trace_num_2=str(2*self.size+2*ii+2),
+           hovertemplate=hovertemplate(names[ii], xlabels[1], ylabels[1], tlabel),
            hovertemplate_current=hovertemplate_current(names[ii], xlabels[1], ylabels[1], tlabel))
                 traces_cumul+= f""",trace{str(2*self.size+2*ii+1)},trace{str(2*self.size+2*ii+2)}"""
         else: # else for "if there is a 2nd panel"
@@ -5499,8 +5499,8 @@ class Orbit:
       type: "scattergl",
     }};
 """.format(line_color=line_colors[0],trace_num_1=str(4*self.size+1),
-           trace_num_2=str(4*self.size+2),            
-           hovertemplate=hovertemplate(names[0], xlabels[2], ylabels[2], tlabel), 
+           trace_num_2=str(4*self.size+2),
+           hovertemplate=hovertemplate(names[0], xlabels[2], ylabels[2], tlabel),
            hovertemplate_current=hovertemplate_current(names[0], xlabels[2], ylabels[2], tlabel))
             traces_cumul+= f""",trace{str(4*self.size+1)},trace{str(4*self.size+2)}"""
             for ii in range(1,self.size):
@@ -5542,8 +5542,8 @@ class Orbit:
            trace_num_1=str(4*self.size+2*ii+1),
            trace_num_2=str(4*self.size+2*ii+2),
            trace_num_10=str(4*self.size+2*ii+1-1),
-           trace_num_20=str(4*self.size+2*ii+2-1), 
-           hovertemplate=hovertemplate(names[ii], xlabels[2], ylabels[2], tlabel), 
+           trace_num_20=str(4*self.size+2*ii+2-1),
+           hovertemplate=hovertemplate(names[ii], xlabels[2], ylabels[2], tlabel),
            hovertemplate_current=hovertemplate_current(names[ii], xlabels[2], ylabels[0], tlabel))
                 traces_cumul+= f""",trace{str(4*self.size+2*ii+1)},trace{str(4*self.size+2*ii+2)}"""
             setup_trace3 += """
@@ -5734,7 +5734,7 @@ require(['Plotly'], function (Plotly) {{
             xlabel= (pre-defined labels) label for the first dimension (or list of labels if d1 is a list); should only have to be specified when using a function as d1 and can then specify as, e.g., [None,'YOUR LABEL',None] if d1 is a list of three xs and the first and last are standard entries)
 
             ylabel= (pre-defined labels) label for the second dimension (or list of labels if d2 is a list); should only have to be specified when using a function as d2 and can then specify as, e.g., [None,'YOUR LABEL',None] if d1 is a list of three xs and the first and last are standard entries)
-            
+
             zlabel= (pre-defined labels) label for the third dimension (or list of labels if d3 is a list); should only have to be specified when using a function as d3 and can then specify as, e.g., [None,'YOUR LABEL',None] if d1 is a list of three xs and the first and last are standard entries)
 
             json_filename= (None) if set, save the data necessary for the figure in this filename (e.g.,  json_filename= 'orbit_data/orbit.json'); this path is also used in the output HTML, so needs to be accessible
@@ -5954,12 +5954,12 @@ require(['Plotly'], function (Plotly) {{
         if self.size > len(line_colors):
             line_colors.extend(["#%06x" % numpy.random.randint(0, 0xFFFFFF)
                                 for ii in range(self.size-len(line_colors))])
-        hovertemplate = lambda name, xlabel, ylabel, zlabel, tlabel: """'<b>{name}</b>' + '<br><b>{xlabel}</b>: %{{x:.2f}}' + '<br><b>{ylabel}</b>: %{{y:.2f}}' + '<br><b>{zlabel}</b>: %{{z:.2f}}' + '<br><b>{tlabel}</b>: %{{customdata:.2f}}'""".format(name=name, xlabel=xlabel, ylabel=ylabel, zlabel=zlabel, tlabel=tlabel)
-        hovertemplate_current = lambda name, xlabel, ylabel, zlabel, tlabel: """'<b>{name} (Current location)</b>' + '<br><b>{xlabel}</b>: %{{x:.2f}}' + '<br><b>{ylabel}</b>: %{{y:.2f}}' + '<br><b>{zlabel}</b>: %{{z:.2f}}' + '<br><b>{tlabel}</b>: %{{customdata:.2f}}'""".format(name=name, xlabel=xlabel, ylabel=ylabel, zlabel=zlabel, tlabel=tlabel)
+        hovertemplate = lambda name, xlabel, ylabel, zlabel, tlabel: f"""'<b>{name}</b>' + '<br><b>{xlabel}</b>: %{{x:.2f}}' + '<br><b>{ylabel}</b>: %{{y:.2f}}' + '<br><b>{zlabel}</b>: %{{z:.2f}}' + '<br><b>{tlabel}</b>: %{{customdata:.2f}}'"""
+        hovertemplate_current = lambda name, xlabel, ylabel, zlabel, tlabel: f"""'<b>{name} (Current location)</b>' + '<br><b>{xlabel}</b>: %{{x:.2f}}' + '<br><b>{ylabel}</b>: %{{y:.2f}}' + '<br><b>{zlabel}</b>: %{{z:.2f}}' + '<br><b>{tlabel}</b>: %{{customdata:.2f}}'"""
         layout= """{{
             scene:{{
-                // force the scene always look like a cube    
-                aspectmode: 'cube',  
+                // force the scene always look like a cube
+                aspectmode: 'cube',
                 xaxis: {{
                     title: '{xlabel}',
                     domain: [{xmin},{xmax}],
@@ -6005,7 +6005,7 @@ require(['Plotly'], function (Plotly) {{
         type: "scatter3d",
     }};
     """.format(line_color=line_colors[0],
-               hovertemplate=hovertemplate(names[0], xlabels[0], ylabels[0], zlabels[0], tlabel), 
+               hovertemplate=hovertemplate(names[0], xlabels[0], ylabels[0], zlabels[0], tlabel),
                hovertemplate_current=hovertemplate_current(names[0], xlabels[0], ylabels[0], zlabels[0], tlabel))
         traces_cumul= """trace1,trace2"""
         # milkyway plane surface
@@ -6018,7 +6018,7 @@ require(['Plotly'], function (Plotly) {{
             x: {json.dumps((numpy.linspace(-1, 1, 50)*mw_bg_surface_scale).tolist())},
             y: {json.dumps((numpy.linspace(-1, 1, 50)*mw_bg_surface_scale).tolist())},
             z: {json.dumps((numpy.zeros((50, 50))).tolist())},
-            colorscale: [[0.0,"rgba(0, 0, 0, 1)"],[0.09090909090909091,"rgba(16, 16, 16, 1)"],[0.18181818181818182,"rgba(38, 38, 38, 0.9)"],[0.2727272727272727,"rgba(59, 59, 59, 0.8)"],[0.36363636363636365,"rgba(81, 80, 80, 0.7)"],[0.45454545454545453,"rgba(102, 101, 101, 0.6)"],[0.5454545454545454,"rgba(124, 123, 122, 0.5)"],[0.6363636363636364,"rgba(146, 146, 145, 0.4)"],[0.7272727272727273,"rgba(171, 171, 170, 0.3)"],[0.8181818181818182,"rgba(197, 197, 195, 0.2)"],[0.9090909090909091,"rgba(224, 224, 223, 0.1)"],[1.0,"rgba(254, 254, 253, 0.05)"]],            
+            colorscale: [[0.0,"rgba(0, 0, 0, 1)"],[0.09090909090909091,"rgba(16, 16, 16, 1)"],[0.18181818181818182,"rgba(38, 38, 38, 0.9)"],[0.2727272727272727,"rgba(59, 59, 59, 0.8)"],[0.36363636363636365,"rgba(81, 80, 80, 0.7)"],[0.45454545454545453,"rgba(102, 101, 101, 0.6)"],[0.5454545454545454,"rgba(124, 123, 122, 0.5)"],[0.6363636363636364,"rgba(146, 146, 145, 0.4)"],[0.7272727272727273,"rgba(171, 171, 170, 0.3)"],[0.8181818181818182,"rgba(197, 197, 195, 0.2)"],[0.9090909090909091,"rgba(224, 224, 223, 0.1)"],[1.0,"rgba(254, 254, 253, 0.05)"]],
             surfacecolor: [
             [255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 254, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255],
             [255, 255, 255, 255, 255, 255, 255, 255, 254, 255, 255, 255, 255, 255, 255, 255, 253, 252, 254, 252, 251, 251, 249, 249, 253, 254, 253, 251, 251, 249, 250, 253, 255, 254, 254, 255, 255, 254, 255, 254, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255],
@@ -6113,7 +6113,7 @@ require(['Plotly'], function (Plotly) {{
     }};
     """.format(trace_indx=str(ii),trace_num_1=str(2*ii+1),trace_num_2=str(2*ii+2),
             line_color=line_colors[ii],
-            hovertemplate=hovertemplate(names[ii], xlabels[0], ylabels[0], zlabels[0], tlabel), 
+            hovertemplate=hovertemplate(names[ii], xlabels[0], ylabels[0], zlabels[0], tlabel),
             hovertemplate_current=hovertemplate_current(names[ii], xlabels[0], ylabels[0], zlabels[0], tlabel))
             traces_cumul+= f""",trace{str(2*ii+1)},trace{str(2*ii+2)}"""
         x_data_list = """"""
@@ -6193,7 +6193,7 @@ require(['Plotly'], function (Plotly) {{
     let trace_slice_len;
     let trace_slice_begin;
     let trace_slice_end;
-    
+
     // guess on plotly current axis limit
     let xaxis_min_guess;
     let xaxis_max_guess;
@@ -6201,7 +6201,7 @@ require(['Plotly'], function (Plotly) {{
     let yaxis_max_guess;
     let zaxis_min_guess;
     let zaxis_max_guess;
-    
+
     setup_trace();
 
     $('.controlbutton button').click(function() {{
