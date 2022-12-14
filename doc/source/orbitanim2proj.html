@@ -29,7 +29,7 @@
 
   <div id='galpy-inbxvjdspcnngdiraredcdou' style='width:800px;height:400px;'></div>
   <div class="controlbutton" id="galpy-inbxvjdspcnngdiraredcdou-play" style="margin-left:170px;display: inline-block;">
-  <button class="galpybutton" id="galpy-inbxvjdspcnngdiraredcdou-playpause">Play</button></div>
+  <button class="galpybutton" id="galpy-inbxvjdspcnngdiraredcdou-playpause"  style='width: 108px !important'>Play</button></div>
   <div class="controlbutton" id="galpy-inbxvjdspcnngdiraredcdou-timestwo" style="margin-left:10px;display: inline-block;">
   <button class="galpybutton">Speed<font face="Arial">&thinsp;</font>x<font face="Arial">&thinsp;</font>2</button></div>
   <div class="controlbutton" id="galpy-inbxvjdspcnngdiraredcdou-timeshalf" style="margin-left:10px;display: inline-block;">
@@ -221,10 +221,8 @@
             trace_slice_end = -1;
             traces = {x: [data.x1_0.slice(trace_slice_begin,trace_slice_end), data.x2_0.slice(trace_slice_begin,trace_slice_end), ], y: [data.y1_0.slice(trace_slice_begin,trace_slice_end), data.y2_0.slice(trace_slice_begin,trace_slice_end), ], customdata:[data.time.slice(trace_slice_begin,trace_slice_end), data.time.slice(trace_slice_begin,trace_slice_end), ]};
             Plotly.extendTraces('galpy-inbxvjdspcnngdiraredcdou', traces, [0, 2, ]);
-            trace_slice_begin = -2;
-            trace_slice_end = -1;
-            traces = {x: [data.x1_0.slice(trace_slice_begin,trace_slice_end), data.x2_0.slice(trace_slice_begin,trace_slice_end), ], y: [data.y1_0.slice(trace_slice_begin,trace_slice_end), data.y2_0.slice(trace_slice_begin,trace_slice_end), ], customdata:[data.time.slice(trace_slice_begin,trace_slice_end), data.time.slice(trace_slice_begin,trace_slice_end), ], mode: 'markers', marker_size: 10};
-            Plotly.restyle('galpy-inbxvjdspcnngdiraredcdou', traces, [1, 3, ]);
+            // make sure trace heads are gone when finished playing, sometimes they will stay around
+            Plotly.deleteTraces('galpy-inbxvjdspcnngdiraredcdou', [1, 3, ]);
             clearInterval(interval);
         };
           }, 30);

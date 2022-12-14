@@ -5586,7 +5586,7 @@ class Orbit:
 
 <div id='{divid}' style='width:{width}px;height:{height}px;'></div>
 <div class="controlbutton" id="{divid}-play" style="margin-left:{button_margin_left}px;display: inline-block;">
-<button class="galpybutton" id="{divid}-playpause">Play</button></div>
+<button class="galpybutton" id="{divid}-playpause" style='width: 108px !important'>Play</button></div>
 <div class="controlbutton" id="{divid}-timestwo" style="margin-left:10px;display: inline-block;">
 <button class="galpybutton">Speed<font face="Arial">&thinsp;</font>x<font face="Arial">&thinsp;</font>2</button></div>
 <div class="controlbutton" id="{divid}-timeshalf" style="margin-left:10px;display: inline-block;">
@@ -5691,10 +5691,8 @@ require(['Plotly'], function (Plotly) {{
           trace_slice_end = -1;
           traces = {{x: [{x_data_list}], y: [{y_data_list}], customdata:[{t_data_list}]}};
           Plotly.extendTraces('{divid}', traces, [{trace_num_10_list}]);
-          trace_slice_begin = -2;
-          trace_slice_end = -1;
-          traces = {{x: [{x_data_list}], y: [{y_data_list}], customdata:[{t_data_list}], mode: 'markers', marker_size: 10}};
-          Plotly.restyle('{divid}', traces, [{trace_num_20_list}]);
+          // make sure trace heads are gone when finished playing, sometimes they will stay around
+          Plotly.deleteTraces('{divid}', [{trace_num_20_list}]);
           clearInterval(interval);
       }};
         }}, 30);
@@ -6166,7 +6164,7 @@ require(['Plotly'], function (Plotly) {{
 
     <div id='{divid3d}' style='width:{width}px;height:{height}px;'></div>
     <div class="controlbutton" id="{divid3d}-play" style="margin-left:{button_margin_left}px;display: inline-block;">
-    <button class="galpybutton" id='{divid3d}-playpause'>Play</button></div>
+    <button class="galpybutton" id='{divid3d}-playpause' style='width: 108px !important'>Play</button></div>
     <div class="controlbutton" id="{divid3d}-timestwo" style="margin-left:10px;display: inline-block;">
     <button class="galpybutton">Speed<font face="Arial">&thinsp;</font>x<font face="Arial">&thinsp;</font>2</button></div>
     <div class="controlbutton" id="{divid3d}-timeshalf" style="margin-left:10px;display: inline-block;">
@@ -6277,10 +6275,8 @@ require(['Plotly'], function (Plotly) {{
             trace_slice_end = -1;
             traces = {{x: [{x_data_list}], y: [{y_data_list}], z: [{z_data_list}], customdata:[{t_data_list}]}};
             Plotly.extendTraces('{divid3d}', traces, [{trace_num_10_list}]);
-            trace_slice_begin = -2;
-            trace_slice_end = -1;
-            traces = {{x: [{x_data_list}], y: [{y_data_list}], z: [{z_data_list}], customdata:[{t_data_list}], mode: 'markers', marker_size: 5}};
-            Plotly.restyle('{divid3d}', traces, [{trace_num_20_list}]);
+            // make sure trace heads are gone when finished playing, sometimes they will stay around
+            Plotly.deleteTraces('{divid3d}', [{trace_num_20_list}]);
             clearInterval(interval);
         }};
     }}, 100);

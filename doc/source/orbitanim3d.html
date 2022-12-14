@@ -29,7 +29,7 @@
 
       <div id='galpy-srgqzhsgyxwdxovzaqreowll' style='width:800px;height:600px;'></div>
       <div class="controlbutton" id="galpy-srgqzhsgyxwdxovzaqreowll-play" style="margin-left:170px;display: inline-block;">
-      <button class="galpybutton" id='galpy-srgqzhsgyxwdxovzaqreowll-playpause'>Play</button></div>
+      <button class="galpybutton" id='galpy-srgqzhsgyxwdxovzaqreowll-playpause' style='width: 108px !important'>Play</button></div>
       <div class="controlbutton" id="galpy-srgqzhsgyxwdxovzaqreowll-timestwo" style="margin-left:10px;display: inline-block;">
       <button class="galpybutton">Speed<font face="Arial">&thinsp;</font>x<font face="Arial">&thinsp;</font>2</button></div>
       <div class="controlbutton" id="galpy-srgqzhsgyxwdxovzaqreowll-timeshalf" style="margin-left:10px;display: inline-block;">
@@ -250,10 +250,8 @@
               trace_slice_end = -1;
               traces = {x: [data.x1_0.slice(trace_slice_begin,trace_slice_end), ], y: [data.y1_0.slice(trace_slice_begin,trace_slice_end), ], z: [data.z1_0.slice(trace_slice_begin,trace_slice_end), ], customdata:[data.time.slice(trace_slice_begin,trace_slice_end), ]};
               Plotly.extendTraces('galpy-srgqzhsgyxwdxovzaqreowll', traces, [0, ]);
-              trace_slice_begin = -2;
-              trace_slice_end = -1;
-              traces = {x: [data.x1_0.slice(trace_slice_begin,trace_slice_end), ], y: [data.y1_0.slice(trace_slice_begin,trace_slice_end), ], z: [data.z1_0.slice(trace_slice_begin,trace_slice_end), ], customdata:[data.time.slice(trace_slice_begin,trace_slice_end), ], mode: 'markers', marker_size: 5};
-              Plotly.restyle('galpy-srgqzhsgyxwdxovzaqreowll', traces, [1, ]);
+              // make sure trace heads are gone when finished playing, sometimes they will stay around
+              Plotly.deleteTraces('galpy-srgqzhsgyxwdxovzaqreowll', [1, ]);
               clearInterval(interval);
           };
       }, 50);
