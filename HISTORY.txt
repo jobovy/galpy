@@ -21,10 +21,12 @@ v1.8.2 (2023-XX-XX)
 
 - Dropped Appveyor CI builds entirely, now only using GitHub Actions for CI.
 
-- Added Orbit.animate3d to display a 3D animation of an integrated orbit (#532) with
-  an optional milky way plane at the origin when plotted with x,y,z
+- Added Orbit.animate3d to display a 3D animation of an integrated orbit (#532)
+  with an optional Milky-Way representation at the origin when plotting x,y,z.
 
-- Improved Orbit.animate performance by using webgl, some UI tweaks
+- Improved the performance of Orbit.animate performance by using webgl, some UI
+  tweaks. Also fixed using Orbit.animate in jupyterlab and retrolab (latter
+  #534).
 
 v1.8.1 (2022-10-31)
 ===================
