@@ -740,7 +740,7 @@ which gives
 
 You can also animate orbit in 3D with an optional Milky Way galaxy centered at the origin
 
->>> op.animate(mw_plane_bg=True)
+>>> op.animate3d(mw_plane_bg=True)
 
 which gives
 
@@ -749,7 +749,7 @@ which gives
 
 If you want to embed the animation in a webpage, you can obtain the necessary HTML using the ``_repr_html_()`` function of the IPython.core.display.HTML object returned by ``animate``. By default, the HTML includes the entire orbit's data, but ``animate`` also has an option to store the orbit in a separate ``JSON`` file that will then be loaded by the output HTML code.
 
-``animate`` and ``animate3d`` also works in principle for ``Orbit`` instances containing multiple objects.
+``animate`` and ``animate3d`` also work for ``Orbit`` instances containing multiple objects.
 
 Orbit characterization
 ----------------------
