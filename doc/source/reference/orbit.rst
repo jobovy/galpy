@@ -23,6 +23,7 @@ Plotting
    :maxdepth: 2
 
    animate <orbitanimate.rst>
+   animate3d <orbitanimate3d.rst>
    plot <orbitplot.rst>
    plot3d <orbitplot3d.rst>
 

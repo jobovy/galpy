@@ -5039,7 +5039,7 @@ class Orbit:
         plot._add_ticks()
         return [line3d]
 
-    def animate(self,*args,**kwargs): #pragma: no cover
+    def animate(self, **kwargs): #pragma: no cover
         """
         NAME:
 
@@ -5167,6 +5167,11 @@ class Orbit:
         ys= []
         xlabels= []
         ylabels= []
+        tlabel= labeldict.get('t')
+        if hasattr(self, "name"):  # name for display
+            names = self.name if isinstance(self.name, list) or isinstance(self.name, numpy.ndarray) else [self.name]
+        else:
+            names = [f"Object {i}" for i in range(self.size)]
         if isinstance(d1,str) or callable(d1):
             d1s= [d1]
             d2s= [d2]
@@ -5205,8 +5210,8 @@ class Orbit:
         load_jslibs= kwargs.pop('load_jslibs',True)
         if load_jslibs:
             load_jslibs_code= """
-<script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.5/require.min.js"></script>
-<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js"></script>
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.1/jquery.min.js"></script>
 """
         else:
             load_jslibs_code= ""
@@ -5217,6 +5222,7 @@ class Orbit:
             for jj in range(self.size):
                 jsonDict['x%i_%i' % (ii+1,jj)]= xs[ii][jj].tolist()
                 jsonDict['y%i_%i' % (ii+1,jj)]= ys[ii][jj].tolist()
+        jsonDict["time"] = self._parse_plot_quantity('t',**kwargs)[0].tolist()
         json_filename= kwargs.pop('json_filename',None)
         if json_filename is None:
             jd= json.dumps(jsonDict)
@@ -5271,7 +5277,8 @@ class Orbit:
   hovermode: 'closest',
   showlegend: false,
 """.format(xlabel=xlabels[0],ylabel=ylabels[0],xmin=xmin[0],xmax=xmax[0])
-
+        hovertemplate = lambda name, xlabel, ylabel, tlabel: f"""'<b>{name}</b>' + '<br><b>{xlabel}</b>: %{{x:.2f}}' + '<br><b>{ylabel}</b>: %{{y:.2f}}' + '<br><b>{tlabel}</b>: %{{customdata:.2f}}'"""
+        hovertemplate_current = lambda name, xlabel, ylabel, tlabel: f"""'<b>{name} (Current location)</b>' + '<br><b>{xlabel}</b>: %{{x:.2f}}' + '<br><b>{ylabel}</b>: %{{y:.2f}}' + '<br><b>{tlabel}</b>: %{{customdata:.2f}}'"""
         for ii in range(1,nplots):
             layout+= """  xaxis{idx}: {{
     title: '{xlabel}',
@@ -5290,54 +5297,75 @@ class Orbit:
     let trace1= {{
       x: data.x1_0.slice(0,numPerFrame),
       y: data.y1_0.slice(0,numPerFrame),
+      customdata: data.time,
+      hovertemplate: {hovertemplate},
+      name: '',
       mode: 'lines',
       line: {{
         shape: 'spline',
         width: 0.8,
         color: '{line_color}',
        }},
+      type: "scattergl",
     }};
 
     let trace2= {{
       x: data.x1_0.slice(0,numPerFrame),
       y: data.y1_0.slice(0,numPerFrame),
+      customdata: data.time,
+      hovertemplate: {hovertemplate_current},
+      name: '',
       mode: 'lines',
       line: {{
         shape: 'spline',
         width: 3.,
         color: '{line_color}',
         }},
+      type: "scattergl",
     }};
-""".format(line_color=line_colors[0])
+""".format(line_color=line_colors[0],
+           hovertemplate=hovertemplate(names[0], xlabels[0], ylabels[0], tlabel),
+           hovertemplate_current=hovertemplate_current(names[0], xlabels[0], ylabels[0], tlabel))
         traces_cumul= """trace1,trace2"""
         for ii in range(1,self.size):
             setup_trace1+= """
     let trace{trace_num_1}= {{
       x: data.x1_{trace_indx}.slice(0,numPerFrame),
       y: data.y1_{trace_indx}.slice(0,numPerFrame),
+      customdata: data.time,
+      hovertemplate: {hovertemplate},
+      name: '',
       mode: 'lines',
       line: {{
         shape: 'spline',
         width: 0.8,
         color: '{line_color}',
        }},
+      type: "scattergl",
     }};
 
     let trace{trace_num_2}= {{
       x: data.x1_{trace_indx}.slice(0,numPerFrame),
       y: data.y1_{trace_indx}.slice(0,numPerFrame),
+      customdata: data.time,
+      hovertemplate: {hovertemplate_current},
+      name: '',
       mode: 'lines',
       line: {{
         shape: 'spline',
         width: 3.,
         color: '{line_color}',
         }},
+      type: "scattergl",
     }};
 """.format(trace_indx=str(ii),trace_num_1=str(2*ii+1),trace_num_2=str(2*ii+2),
-           line_color=line_colors[ii])
+           line_color=line_colors[ii],
+           hovertemplate=hovertemplate(names[ii], xlabels[0], ylabels[0], tlabel),
+           hovertemplate_current=hovertemplate_current(names[ii], xlabels[0], ylabels[0], tlabel))
             traces_cumul+= f""",trace{str(2*ii+1)},trace{str(2*ii+2)}"""
         x_data_list = """"""
         y_data_list = """"""
+        t_data_list = """"""
         trace_num_10_list = """"""
         trace_num_20_list = """"""
         for jj in range(len(d1s)):
@@ -5346,6 +5374,7 @@ class Orbit:
                     divid=self.divid, trace_indx=str(ii))
                 y_data_list += """data.y{jj}_{trace_indx}.slice(trace_slice_begin,trace_slice_end), """.format(jj=jj+1,
                     divid=self.divid, trace_indx=str(ii))
+                t_data_list += """data.time.slice(trace_slice_begin,trace_slice_end), """
                 trace_num_10_list += f"""{str(2*jj*self.size + 2 * ii + 1 - 1)}, """
                 trace_num_20_list += f"""{str(2*jj*self.size + 2 * ii + 2 - 1)}, """
         # Additional traces for additional plots
@@ -5354,6 +5383,9 @@ class Orbit:
     let trace{trace_num_1}= {{
       x: data.x2_0.slice(0,numPerFrame),
       y: data.y2_0.slice(0,numPerFrame),
+      customdata: data.time,
+      hovertemplate: {hovertemplate},
+      name: '',
       xaxis: 'x2',
       yaxis: 'y2',
       mode: 'lines',
@@ -5362,11 +5394,15 @@ class Orbit:
         width: 0.8,
         color: '{line_color}',
       }},
+      type: "scattergl",
     }};
 
     let trace{trace_num_2}= {{
       x: data.x2_0.slice(0,numPerFrame),
       y: data.y2_0.slice(0,numPerFrame),
+      customdata: data.time,
+      hovertemplate: {hovertemplate_current},
+      name: '',
       xaxis: 'x2',
       yaxis: 'y2',
       mode: 'lines',
@@ -5375,15 +5411,21 @@ class Orbit:
         width: 3.,
         color: '{line_color}',
       }},
+      type: "scattergl",
     }};
 """.format(line_color=line_colors[0],trace_num_1=str(2*self.size+1),
-           trace_num_2=str(2*self.size+2))
+           trace_num_2=str(2*self.size+2),
+           hovertemplate=hovertemplate(names[0], xlabels[1], ylabels[1], tlabel),
+           hovertemplate_current=hovertemplate_current(names[0], xlabels[1], ylabels[1], tlabel))
             traces_cumul+= f""",trace{str(2*self.size+1)},trace{str(2*self.size+2)}"""
             for ii in range(1,self.size):
                 setup_trace2+= """
     let trace{trace_num_1}= {{
       x: data.x2_{trace_indx}.slice(0,numPerFrame),
       y: data.y2_{trace_indx}.slice(0,numPerFrame),
+      customdata: data.time,
+      hovertemplate: {hovertemplate},
+      name: '',
       xaxis: 'x2',
       yaxis: 'y2',
       mode: 'lines',
@@ -5392,11 +5434,15 @@ class Orbit:
         width: 0.8,
         color: '{line_color}',
       }},
+      type: "scattergl",
     }};
 
     let trace{trace_num_2}= {{
       x: data.x2_{trace_indx}.slice(0,numPerFrame),
       y: data.y2_{trace_indx}.slice(0,numPerFrame),
+      customdata: data.time,
+      hovertemplate: {hovertemplate_current},
+      name: '',
       xaxis: 'x2',
       yaxis: 'y2',
       mode: 'lines',
@@ -5405,10 +5451,13 @@ class Orbit:
         width: 3.,
         color: '{line_color}',
       }},
+      type: "scattergl",
     }};
 """.format(line_color=line_colors[ii],trace_indx=str(ii),
            trace_num_1=str(2*self.size+2*ii+1),
-           trace_num_2=str(2*self.size+2*ii+2))
+           trace_num_2=str(2*self.size+2*ii+2),
+           hovertemplate=hovertemplate(names[ii], xlabels[1], ylabels[1], tlabel),
+           hovertemplate_current=hovertemplate_current(names[ii], xlabels[1], ylabels[1], tlabel))
                 traces_cumul+= f""",trace{str(2*self.size+2*ii+1)},trace{str(2*self.size+2*ii+2)}"""
         else: # else for "if there is a 2nd panel"
             setup_trace2= """
@@ -5419,6 +5468,9 @@ class Orbit:
     let trace{trace_num_1}= {{
       x: data.x3_0.slice(0,numPerFrame),
       y: data.y3_0.slice(0,numPerFrame),
+      customdata: data.time,
+      hovertemplate: {hovertemplate},
+      name: '',
       xaxis: 'x3',
       yaxis: 'y3',
       mode: 'lines',
@@ -5427,11 +5479,15 @@ class Orbit:
         width: 0.8,
         color: '{line_color}',
       }},
+      type: "scattergl",
     }};
 
     let trace{trace_num_2}= {{
       x: data.x3_0.slice(0,numPerFrame),
       y: data.y3_0.slice(0,numPerFrame),
+      customdata: data.time,
+      hovertemplate: {hovertemplate_current},
+      name: '',
       xaxis: 'x3',
       yaxis: 'y3',
       mode: 'lines',
@@ -5440,15 +5496,21 @@ class Orbit:
         width: 3.,
         color: '{line_color}',
       }},
+      type: "scattergl",
     }};
 """.format(line_color=line_colors[0],trace_num_1=str(4*self.size+1),
-           trace_num_2=str(4*self.size+2))
+           trace_num_2=str(4*self.size+2),
+           hovertemplate=hovertemplate(names[0], xlabels[2], ylabels[2], tlabel),
+           hovertemplate_current=hovertemplate_current(names[0], xlabels[2], ylabels[2], tlabel))
             traces_cumul+= f""",trace{str(4*self.size+1)},trace{str(4*self.size+2)}"""
             for ii in range(1,self.size):
                 setup_trace3+= """
     let trace{trace_num_1}= {{
       x: data.x3_{trace_indx}.slice(0,numPerFrame),
       y: data.y3_{trace_indx}.slice(0,numPerFrame),
+      customdata: data.time,
+      hovertemplate: {hovertemplate},
+      name: '',
       xaxis: 'x3',
       yaxis: 'y3',
       mode: 'lines',
@@ -5457,11 +5519,15 @@ class Orbit:
         width: 0.8,
         color: '{line_color}',
       }},
+      type: "scattergl",
     }};
 
     let trace{trace_num_2}= {{
       x: data.x3_{trace_indx}.slice(0,numPerFrame),
       y: data.y3_{trace_indx}.slice(0,numPerFrame),
+      customdata: data.time,
+      hovertemplate: {hovertemplate_current},
+      name: '',
       xaxis: 'x3',
       yaxis: 'y3',
       mode: 'lines',
@@ -5470,12 +5536,15 @@ class Orbit:
         width: 3.,
         color: '{line_color}',
       }},
+      type: "scattergl",
     }};
 """.format(line_color=line_colors[ii],trace_indx=str(ii),
            trace_num_1=str(4*self.size+2*ii+1),
            trace_num_2=str(4*self.size+2*ii+2),
            trace_num_10=str(4*self.size+2*ii+1-1),
-           trace_num_20=str(4*self.size+2*ii+2-1))
+           trace_num_20=str(4*self.size+2*ii+2-1),
+           hovertemplate=hovertemplate(names[ii], xlabels[2], ylabels[2], tlabel),
+           hovertemplate_current=hovertemplate_current(names[ii], xlabels[2], ylabels[0], tlabel))
                 traces_cumul+= f""",trace{str(4*self.size+2*ii+1)},trace{str(4*self.size+2*ii+2)}"""
             setup_trace3 += """
             let traces= [{traces_cumul}];
@@ -5517,9 +5586,7 @@ class Orbit:
 
 <div id='{divid}' style='width:{width}px;height:{height}px;'></div>
 <div class="controlbutton" id="{divid}-play" style="margin-left:{button_margin_left}px;display: inline-block;">
-<button class="galpybutton">Play</button></div>
-<div class="controlbutton" id="{divid}-pause" style="margin-left:10px;display: inline-block;">
-<button class="galpybutton">Pause</button></div>
+<button class="galpybutton" id="{divid}-playpause" style='width: 108px !important'>Play</button></div>
 <div class="controlbutton" id="{divid}-timestwo" style="margin-left:10px;display: inline-block;">
 <button class="galpybutton">Speed<font face="Arial">&thinsp;</font>x<font face="Arial">&thinsp;</font>2</button></div>
 <div class="controlbutton" id="{divid}-timeshalf" style="margin-left:10px;display: inline-block;">
@@ -5531,7 +5598,7 @@ class Orbit:
 <script>
 require.config({{
   paths: {{
-    Plotly: 'https://cdn.plot.ly/plotly-latest.min',
+    Plotly: 'https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.16.4/plotly.min',
   }}
 }});
 </script>
@@ -5554,9 +5621,14 @@ require(['Plotly'], function (Plotly) {{
     if ( button_type === '{divid}-play' ) {{
       clearInterval(interval);
       interval= animate_trace();
+      document.querySelector('#{divid}-playpause').textContent = 'Pause';
+      document.getElementById('{divid}-play').id = '{divid}-pause';
     }}
-    else if ( button_type === '{divid}-pause' )
-      clearInterval(interval);
+    else if ( button_type === '{divid}-pause' ) {{
+        clearInterval(interval);
+        document.querySelector('#{divid}-playpause').textContent = 'Resume';
+        document.getElementById('{divid}-pause').id = '{divid}-play';
+        }}
     else if ( button_type === '{divid}-timestwo' ) {{
       cnt/= 2;
       numPerFrame*= 2;
@@ -5566,6 +5638,13 @@ require(['Plotly'], function (Plotly) {{
       numPerFrame/= 2;
     }}
     else if ( button_type === '{divid}-replay' ) {{
+      $("#{divid}-playpause").removeAttr('disabled');
+      document.querySelector('#{divid}-playpause').textContent = 'Pause';
+      try {{ // doesn't exist if replay with pressing pause
+      document.getElementById('{divid}-play').id = '{divid}-pause';
+      }}
+      catch (err) {{
+      }}
       cnt= 1;
       try {{ // doesn't exist if animation has already ended
         Plotly.deleteTraces('{divid}',[{trace_num_20_list}]);
@@ -5586,7 +5665,7 @@ require(['Plotly'], function (Plotly) {{
 
     {setup_trace3}
 
-    Plotly.plot('{divid}',traces,layout,{config});
+    Plotly.newPlot('{divid}',traces,layout,{config});
   }}
 
   function animate_trace() {{
@@ -5597,27 +5676,619 @@ require(['Plotly'], function (Plotly) {{
       if ( trace_slice_len < 1) trace_slice_len= 1;
       trace_slice_begin= Math.floor(cnt*numPerFrame);
       trace_slice_end= Math.floor(Math.min(cnt*numPerFrame+trace_slice_len,data.x1_0.length-1));
-      traces = {{x: [{x_data_list}], y: [{y_data_list}]}};
+      traces = {{x: [{x_data_list}], y: [{y_data_list}], customdata:[{t_data_list}]}};
       Plotly.extendTraces('{divid}', traces, [{trace_num_10_list}]);
       trace_slice_begin-= trace_slice_len;
-      traces = {{x: [{x_data_list}], y: [{y_data_list}]}};
+      traces = {{x: [{x_data_list}], y: [{y_data_list}], customdata:[{t_data_list}]}};
       Plotly.restyle('{divid}', traces, [{trace_num_20_list}]);
       cnt+= 1;
-      if(cnt*numPerFrame+trace_slice_len > data.x1_0.length/1) {{
+      // need to clearInterval here otherwise the pan/zoom/rotate is bugged somehow at the end of play
+      if (cnt*numPerFrame+trace_slice_len>data.x1_0.length) {{
+          document.getElementById("{divid}-playpause").disabled = "disabled";
+          document.querySelector('#{divid}-playpause').textContent = 'Finished!';
+          // making sure the whole orbits is plotted when finished
+          trace_slice_begin = trace_slice_end;
+          trace_slice_end = -1;
+          traces = {{x: [{x_data_list}], y: [{y_data_list}], customdata:[{t_data_list}]}};
+          Plotly.extendTraces('{divid}', traces, [{trace_num_10_list}]);
+          // make sure trace heads are gone when finished playing, sometimes they will stay around
+          Plotly.deleteTraces('{divid}', [{trace_num_20_list}]);
           clearInterval(interval);
-          Plotly.deleteTraces('{divid}',[{trace_num_20_list}]);
-      }}
-    }}, 30);
+      }};
+        }}, 30);
     }}
 {close_json_code}}});
 </script>""".format(json_code=json_code,close_json_code=close_json_code,
                     divid=self.divid,width=width,height=height,
                     button_margin_left=button_margin_left,config=config,
                     layout=layout,load_jslibs_code=load_jslibs_code,
-                    x_data_list=x_data_list, y_data_list=y_data_list,
+                    x_data_list=x_data_list, y_data_list=y_data_list, t_data_list=t_data_list,
                     trace_num_10_list=trace_num_10_list, trace_num_20_list=trace_num_20_list,
                     setup_trace1=setup_trace1,setup_trace2=setup_trace2,
                     setup_trace3=setup_trace3, trace_num_list= [ii for ii in range(self.size * len(d1s))]))
+
+    def animate3d(self, mw_plane_bg=False,**kwargs): #pragma: no cover
+        """
+        NAME:
+
+            animate3d
+
+        PURPOSE:
+
+            animate a previously calculated orbit in 3D (with reasonable defaults)
+
+        INPUT:
+
+            d1= first dimension to plot ('x', 'y', 'R', 'vR', 'vT', 'z', 'vz', ...), can only be a single entry same as d2, d3
+
+            d2= second dimension to plot
+
+            d3= third dimension to plot
+
+            width= (800) width of output div in px
+
+            height= (600) height of output div in px
+
+            xlabel= (pre-defined labels) label for the first dimension (or list of labels if d1 is a list); should only have to be specified when using a function as d1 and can then specify as, e.g., [None,'YOUR LABEL',None] if d1 is a list of three xs and the first and last are standard entries)
+
+            ylabel= (pre-defined labels) label for the second dimension (or list of labels if d2 is a list); should only have to be specified when using a function as d2 and can then specify as, e.g., [None,'YOUR LABEL',None] if d1 is a list of three xs and the first and last are standard entries)
+
+            zlabel= (pre-defined labels) label for the third dimension (or list of labels if d3 is a list); should only have to be specified when using a function as d3 and can then specify as, e.g., [None,'YOUR LABEL',None] if d1 is a list of three xs and the first and last are standard entries)
+
+            json_filename= (None) if set, save the data necessary for the figure in this filename (e.g.,  json_filename= 'orbit_data/orbit.json'); this path is also used in the output HTML, so needs to be accessible
+
+            ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
+
+            vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
+
+            use_physical= use to override Object-wide default for using a physical scale for output
+
+            mw_plane_bg= whether to add a milkyway plane when plotting x, y, z
+
+        OUTPUT:
+
+            IPython.display.HTML object with code to animate the orbit; can be directly shown in jupyter notebook or embedded in HTML pages; get a text version of the HTML using the _repr_html_() function
+
+        HISTORY:
+
+            2022-12-09 - Written - Henry Leung (UofT)
+
+        """
+        try:
+            from IPython.display import HTML
+        except ImportError:
+            raise ImportError("Orbit.animate requires ipython/jupyter to be installed")
+        if (kwargs.get('use_physical',False) \
+                and kwargs.get('ro',self._roSet)) or \
+                (not 'use_physical' in kwargs \
+                        and kwargs.get('ro',self._roSet)):
+            labeldict= {'t':'t (Gyr)',
+                        'R':'R (kpc)',
+                        'vR':'v_R (km/s)',
+                        'vT':'v_T (km/s)',
+                        'z':'z (kpc)',
+                        'vz':'v_z (km/s)',
+                        'phi':'azimuthal angle',
+                        'r':'r (kpc)',
+                        'x':'x (kpc)',
+                        'y':'y (kpc)',
+                        'vx':'v_x (km/s)',
+                        'vy':'v_y (km/s)',
+                        'E':'E (km^2/s^2)',
+                        'Ez':'E_z (km^2/s^2)',
+                        'ER':'E_R (km^2/s^2)',
+                        'Enorm':'E(t)/E(0.)',
+                        'Eznorm':'E_z(t)/E_z(0.)',
+                        'ERnorm':'E_R(t)/E_R(0.)',
+                        'Jacobi':'E-Omega_p L (km^2/s^2)',
+                        'Jacobinorm':'(E-Omega_p L)(t)/(E-Omega_p L)(0)'}
+        else:
+            labeldict= {'t':'t','R':'R','vR':'v_R','vT':'v_T',
+                        'z':'z','vz':'v_z','phi':r'azimuthal angle',
+                        'r':'r',
+                        'x':'x','y':'y','vx':'v_x','vy':'v_y',
+                        'E':'E','Enorm':'E(t)/E(0.)',
+                        'Ez':'E_z','Eznorm':'E_z(t)/E_z(0.)',
+                        'ER':r'E_R','ERnorm':r'E_R(t)/E_R(0.)',
+                        'Jacobi':r'E-Omega_p L',
+                        'Jacobinorm':r'(E-Omega_p L)(t)/(E-Omega_p L)(0)'}
+        labeldict.update({'ra':'RA (deg)',
+                            'dec':'Dec (deg)',
+                            'll':'Galactic lon (deg)',
+                            'bb':'Galactic lat (deg)',
+                            'dist':'distance (kpc)',
+                            'pmra':'pmRA (mas/yr)',
+                            'pmdec':'pmDec (mas/yr)',
+                            'pmll':'pmGlon (mas/yr)',
+                            'pmbb':'pmGlat (mas/yr)',
+                            'vlos':'line-of-sight vel (km/s)',
+                            'helioX':'X (kpc)',
+                            'helioY':'Y (kpc)',
+                            'helioZ':'Z (kpc)',
+                            'U':'U (km/s)',
+                            'V':'V (km/s)',
+                            'W':'W (km/s)'})
+        # Cannot be using Quantity output
+        kwargs['quantity']= False
+        #Defaults
+        if not 'd1' in kwargs and not 'd2' in kwargs and not 'd3' in kwargs:
+            if self.phasedim() == 3:
+                d1= 'R'
+                d2= 'vR'
+                d3= 'vT'
+            elif self.phasedim() == 4:
+                d1= 'x'
+                d2= 'y'
+                d3= 'vR'
+            elif self.phasedim() == 2:
+                raise AttributeError("Cannot do 3D animation with 1D orbits")
+            elif self.phasedim() == 5:
+                d1= 'R'
+                d2= 'vR'
+                d3= 'z'
+            elif self.phasedim() == 6:
+                d1= 'x'
+                d2= 'y'
+                d3= 'z'
+        elif not 'd1' in kwargs:
+            d2=  kwargs.pop('d2')
+            d1= 't'
+        elif not 'd2' in kwargs:
+            d1= kwargs.pop('d1')
+            d2= 't'
+        else:
+            d1= kwargs.pop('d1')
+            d2= kwargs.pop('d2')
+            d3= kwargs.pop('d3')
+        xs= []
+        ys= []
+        zs= []
+        xlabels= []
+        ylabels= []
+        zlabels= []
+        tlabel= labeldict.get('t')
+        if hasattr(self, "name"):  # name for display
+            names = self.name if isinstance(self.name, list) or isinstance(self.name, numpy.ndarray) else [self.name]
+        else:
+            names = [f"Object {i}" for i in range(self.size)]
+        if isinstance(d1,str) or callable(d1):
+            d1s= [d1]
+            d2s= [d2]
+            d3s= [d3]
+        else:
+            d1s= d1
+            d2s= d2
+            d3s= d3
+        if len(d1s) > 1:
+            raise ValueError('Orbit.animate3d only works for one subplot')
+        all_xlabel= kwargs.get('xlabel',[None for d in d1])
+        all_ylabel= kwargs.get('ylabel',[None for d in d2])
+        all_zlabel= kwargs.get('zlabel',[None for d in d3])
+        for d1,d2,d3, xlabel, ylabel, zlabel in zip(d1s,d2s,d3s,all_xlabel,all_ylabel,all_zlabel):
+            #Get x and y for each subplot
+            kwargs['dontreshape']= True
+            x= self._parse_plot_quantity(d1,**kwargs)
+            y= self._parse_plot_quantity(d2,**kwargs)
+            z= self._parse_plot_quantity(d3,**kwargs)
+            kwargs.pop('dontreshape')
+            xs.append(x)
+            ys.append(y)
+            zs.append(z)
+            if xlabel is None:
+                xlabels.append(labeldict.get(d1,r'\mathrm{No\ xlabel\ specified}'))
+            else:
+                xlabels.append(xlabel)
+            if ylabel is None:
+                ylabels.append(labeldict.get(d2,r'\mathrm{No\ ylabel\ specified}'))
+            else:
+                ylabels.append(ylabel)
+            if zlabel is None:
+                zlabels.append(labeldict.get(d3,r'\mathrm{No\ ylabel\ specified}'))
+            else:
+                zlabels.append(zlabel)
+        kwargs.pop('ro',None)
+        kwargs.pop('vo',None)
+        kwargs.pop('obs',None)
+        kwargs.pop('use_physical',None)
+        kwargs.pop('pot',None)
+        kwargs.pop('OmegaP',None)
+        kwargs.pop('quantity',None)
+        width= kwargs.pop('width',800)
+        height= kwargs.pop('height',600)
+        load_jslibs= kwargs.pop('load_jslibs',True)
+        if load_jslibs:
+            load_jslibs_code= """
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.1/jquery.min.js"></script>
+    """
+        else:
+            load_jslibs_code= ""
+        # Dump data to HTML
+        nplots= len(xs)
+        jsonDict= {}
+        for ii in range(nplots):
+            for jj in range(self.size):
+                jsonDict['x%i_%i' % (ii+1,jj)]= xs[ii][jj].tolist()
+                jsonDict['y%i_%i' % (ii+1,jj)]= ys[ii][jj].tolist()
+                jsonDict['z%i_%i' % (ii+1,jj)]= zs[ii][jj].tolist()
+        jsonDict["time"] = self._parse_plot_quantity('t',**kwargs)[0].tolist()
+        json_filename= kwargs.pop('json_filename',None)
+        if json_filename is None:
+            jd= json.dumps(jsonDict)
+            json_code= f"""  let data= JSON.parse('{jd}');"""
+            close_json_code= ""
+        else:
+            with open(json_filename,'w') as jfile:
+                json.dump(jsonDict,jfile)
+            json_code= f"""Plotly.d3.json('{json_filename}',function(data){{"""
+            close_json_code= "});"
+        self.divid3d= 'galpy-'\
+            +''.join(choice(ascii_lowercase) for i in range(24))
+        button_width= 419.51+4.*10.
+        button_margin_left= int(numpy.round((width-button_width)/2.))
+        if button_margin_left < 0: button_margin_left= 0
+        # Layout for multiple plots
+        if len(d1s) == 1:
+            xmin= [0,0,0]
+            xmax= [1,1,1]
+        elif len(d1s) == 2:
+            xmin= [0,0.55,0]
+            xmax= [0.45,1,1]
+        elif len(d1s) == 3:
+            xmin= [0,0.365,0.73]
+            xmax= [0.27,0.635,1]
+        # Colors
+        line_colors= ['#1f77b4', # muted blue
+                        '#ff7f0e', # safety orange
+                        '#2ca02c', # cooked asparagus green
+                        '#d62728', # brick red
+                        '#9467bd', # muted purple
+                        '#8c564b', # chestnut brown
+                        '#e377c2', # raspberry yogurt pink
+                        '#7f7f7f', # middle gray
+                        '#bcbd22', # curry yellow-green
+                        '#17becf'] # blue-teal
+        # When there are more than these # of colors needed, make up randoms
+        if self.size > len(line_colors):
+            line_colors.extend(["#%06x" % numpy.random.randint(0, 0xFFFFFF)
+                                for ii in range(self.size-len(line_colors))])
+        hovertemplate = lambda name, xlabel, ylabel, zlabel, tlabel: f"""'<b>{name}</b>' + '<br><b>{xlabel}</b>: %{{x:.2f}}' + '<br><b>{ylabel}</b>: %{{y:.2f}}' + '<br><b>{zlabel}</b>: %{{z:.2f}}' + '<br><b>{tlabel}</b>: %{{customdata:.2f}}'"""
+        hovertemplate_current = lambda name, xlabel, ylabel, zlabel, tlabel: f"""'<b>{name} (Current location)</b>' + '<br><b>{xlabel}</b>: %{{x:.2f}}' + '<br><b>{ylabel}</b>: %{{y:.2f}}' + '<br><b>{zlabel}</b>: %{{z:.2f}}' + '<br><b>{tlabel}</b>: %{{customdata:.2f}}'"""
+        layout= """{{
+            scene:{{
+                // force the scene always look like a cube
+                aspectmode: 'cube',
+                xaxis: {{
+                    title: '{xlabel}',
+                    domain: [{xmin},{xmax}],
+                        }},
+                yaxis: {{title: '{ylabel}'}},
+                zaxis: {{title: '{zlabel}'}},}},
+                margin: {{t: 20}},
+                hovermode: 'closest',
+                showlegend: false,
+                """.format(xlabel=xlabels[0],ylabel=ylabels[0],zlabel=zlabels[0],xmin=xmin[0],xmax=xmax[0])
+        layout+="""}"""
+        # First plot
+        setup_trace1= """
+    let trace1= {{
+        x: data.x1_0.slice(0,numPerFrame),
+        y: data.y1_0.slice(0,numPerFrame),
+        z: data.z1_0.slice(0,numPerFrame),
+        customdata: data.time,
+        hovertemplate: {hovertemplate},
+        mode: 'lines',
+        name: '',
+        line: {{
+        shape: 'spline',
+        width: 3.,
+        color: '{line_color}',
+        }},
+        type: "scatter3d",
+    }};
+
+    let trace2= {{
+        x: data.x1_0.slice(0,numPerFrame),
+        y: data.y1_0.slice(0,numPerFrame),
+        z: data.z1_0.slice(0,numPerFrame),
+        customdata: data.time,
+        hovertemplate: {hovertemplate_current},
+        mode: 'lines',
+        name: '',
+        line: {{
+        shape: 'spline',
+        width: 8.,
+        color: '{line_color}',
+        }},
+        type: "scatter3d",
+    }};
+    """.format(line_color=line_colors[0],
+               hovertemplate=hovertemplate(names[0], xlabels[0], ylabels[0], zlabels[0], tlabel),
+               hovertemplate_current=hovertemplate_current(names[0], xlabels[0], ylabels[0], zlabels[0], tlabel))
+        traces_cumul= """trace1,trace2"""
+        # milkyway plane surface
+        # kpc or internal unit, because we need to scale the img correctly
+        is_kpc = True if 'kpc' in labeldict.get(d1,r'\mathrm{No\ xlabel\ specified}') else False
+        mw_bg_surface_scale = 20.775
+        if not is_kpc:
+            mw_bg_surface_scale /= self._ro
+        mw_bg_surface = f"""let mw_bg = {{
+            x: {json.dumps((numpy.linspace(-1, 1, 50)*mw_bg_surface_scale).tolist())},
+            y: {json.dumps((numpy.linspace(-1, 1, 50)*mw_bg_surface_scale).tolist())},
+            z: {json.dumps((numpy.zeros((50, 50))).tolist())},
+            colorscale: [[0.0,"rgba(0, 0, 0, 1)"],[0.09090909090909091,"rgba(16, 16, 16, 1)"],[0.18181818181818182,"rgba(38, 38, 38, 0.9)"],[0.2727272727272727,"rgba(59, 59, 59, 0.8)"],[0.36363636363636365,"rgba(81, 80, 80, 0.7)"],[0.45454545454545453,"rgba(102, 101, 101, 0.6)"],[0.5454545454545454,"rgba(124, 123, 122, 0.5)"],[0.6363636363636364,"rgba(146, 146, 145, 0.4)"],[0.7272727272727273,"rgba(171, 171, 170, 0.3)"],[0.8181818181818182,"rgba(197, 197, 195, 0.2)"],[0.9090909090909091,"rgba(224, 224, 223, 0.1)"],[1.0,"rgba(254, 254, 253, 0.05)"]],
+            surfacecolor: [
+            [255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 254, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255],
+            [255, 255, 255, 255, 255, 255, 255, 255, 254, 255, 255, 255, 255, 255, 255, 255, 253, 252, 254, 252, 251, 251, 249, 249, 253, 254, 253, 251, 251, 249, 250, 253, 255, 254, 254, 255, 255, 254, 255, 254, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255],
+            [255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 254, 253, 252, 251, 247, 242, 238, 236, 235, 228, 230, 229, 224, 225, 228, 227, 236, 239, 233, 227, 239, 253, 254, 254, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255],
+            [255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 254, 253, 251, 247, 243, 239, 233, 230, 229, 225, 228, 227, 229, 230, 220, 218, 223, 225, 235, 239, 231, 223, 214, 233, 248, 254, 253, 255, 254, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255],
+            [255, 255, 255, 255, 255, 255, 255, 255, 255, 254, 252, 250, 247, 241, 236, 232, 231, 235, 235, 229, 229, 229, 228, 228, 232, 233, 233, 233, 236, 236, 238, 236, 220, 202, 227, 248, 250, 253, 254, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255],
+            [255, 255, 255, 255, 255, 255, 255, 255, 255, 254, 251, 248, 245, 241, 238, 236, 236, 237, 232, 227, 221, 217, 217, 215, 217, 222, 225, 227, 230, 232, 235, 235, 236, 216, 212, 235, 245, 248, 251, 252, 254, 255, 255, 255, 255, 255, 255, 255, 255, 255],
+            [255, 255, 255, 255, 255, 255, 255, 255, 254, 253, 250, 247, 245, 241, 240, 238, 235, 231, 231, 226, 220, 217, 213, 210, 209, 208, 212, 215, 218, 222, 226, 230, 232, 233, 220, 207, 233, 247, 246, 249, 251, 253, 255, 255, 255, 255, 255, 255, 255, 255],
+            [255, 255, 255, 255, 255, 255, 255, 255, 253, 252, 249, 246, 243, 239, 236, 233, 229, 227, 225, 223, 222, 218, 216, 216, 211, 205, 203, 205, 202, 206, 215, 221, 223, 228, 228, 211, 219, 241, 244, 246, 248, 251, 254, 255, 255, 255, 255, 255, 255, 255],
+            [255, 255, 255, 255, 255, 255, 255, 254, 253, 251, 247, 243, 239, 234, 230, 227, 224, 222, 220, 218, 216, 214, 209, 205, 210, 208, 202, 196, 192, 193, 197, 198, 207, 218, 224, 225, 209, 223, 240, 244, 245, 248, 252, 255, 255, 255, 255, 255, 255, 255],
+            [255, 255, 255, 255, 254, 255, 255, 254, 253, 249, 244, 239, 234, 229, 225, 222, 219, 216, 212, 212, 210, 209, 208, 200, 200, 205, 201, 194, 189, 186, 183, 178, 173, 189, 208, 222, 214, 215, 235, 239, 243, 246, 249, 253, 254, 255, 254, 255, 255, 255],
+            [255, 255, 255, 255, 255, 255, 255, 254, 251, 246, 241, 234, 227, 224, 221, 217, 216, 212, 209, 206, 203, 199, 196, 201, 200, 199, 197, 196, 192, 185, 181, 176, 168, 160, 175, 203, 221, 226, 228, 230, 236, 244, 247, 252, 253, 255, 255, 255, 255, 255],
+            [255, 255, 255, 255, 255, 255, 255, 252, 248, 244, 237, 230, 225, 220, 217, 212, 203, 197, 189, 181, 180, 173, 162, 169, 178, 175, 189, 197, 194, 195, 189, 177, 175, 147, 136, 177, 209, 226, 226, 217, 225, 243, 245, 249, 252, 254, 255, 255, 255, 255],
+            [255, 255, 255, 255, 255, 255, 253, 249, 245, 238, 231, 226, 219, 215, 211, 200, 178, 180, 177, 175, 178, 172, 161, 154, 159, 156, 155, 177, 186, 185, 192, 186, 173, 159, 140, 141, 189, 216, 225, 210, 212, 236, 242, 246, 252, 254, 255, 254, 255, 255],
+            [255, 255, 255, 255, 255, 254, 251, 246, 241, 234, 227, 222, 216, 211, 205, 193, 190, 192, 191, 188, 183, 179, 181, 180, 176, 177, 159, 149, 168, 162, 178, 193, 183, 167, 152, 123, 142, 198, 221, 219, 210, 226, 242, 244, 249, 253, 255, 255, 255, 255],
+            [255, 255, 255, 255, 255, 253, 248, 242, 236, 229, 223, 218, 209, 194, 189, 197, 191, 182, 172, 161, 151, 142, 142, 144, 148, 169, 180, 169, 173, 170, 153, 171, 186, 178, 166, 140, 100, 152, 211, 224, 206, 211, 239, 244, 247, 252, 255, 254, 255, 255],
+            [255, 255, 255, 255, 254, 251, 245, 238, 233, 225, 218, 200, 186, 189, 191, 187, 170, 152, 132, 122, 120, 113, 105, 98, 89, 103, 125, 154, 171, 176, 158, 137, 173, 185, 168, 154, 127, 138, 188, 219, 207, 205, 235, 240, 245, 250, 254, 255, 255, 255],
+            [255, 255, 255, 255, 253, 247, 243, 235, 227, 216, 197, 184, 192, 197, 189, 161, 134, 121, 117, 119, 129, 135, 132, 126, 119, 105, 92, 95, 124, 162, 176, 136, 151, 189, 174, 155, 149, 140, 170, 209, 213, 211, 229, 237, 243, 248, 253, 255, 255, 255],
+            [255, 255, 255, 255, 251, 245, 239, 231, 221, 205, 193, 198, 200, 191, 158, 104, 100, 124, 134, 145, 160, 160, 162, 166, 165, 154, 134, 102, 90, 105, 151, 156, 155, 180, 177, 165, 148, 124, 153, 199, 208, 205, 226, 235, 241, 248, 252, 255, 255, 255],
+            [255, 255, 255, 254, 248, 243, 235, 227, 214, 201, 202, 205, 197, 165, 112, 103, 127, 151, 159, 169, 161, 153, 161, 147, 161, 171, 172, 151, 120, 73, 110, 158, 160, 170, 177, 169, 153, 115, 137, 190, 199, 204, 223, 232, 239, 245, 251, 254, 255, 255],
+            [255, 255, 255, 253, 247, 241, 233, 222, 207, 203, 206, 201, 177, 135, 116, 145, 161, 162, 156, 143, 139, 132, 152, 174, 173, 161, 162, 179, 156, 108, 90, 139, 158, 158, 175, 169, 151, 134, 143, 176, 199, 204, 219, 230, 237, 243, 250, 254, 255, 255],
+            [255, 255, 255, 251, 246, 238, 231, 216, 206, 208, 206, 186, 125, 120, 154, 163, 167, 163, 139, 129, 124, 78, 92, 167, 177, 179, 151, 171, 176, 139, 92, 116, 147, 145, 175, 166, 144, 138, 140, 171, 196, 200, 216, 228, 234, 242, 249, 254, 255, 255],
+            [255, 255, 255, 250, 244, 235, 228, 214, 209, 209, 200, 150, 112, 133, 161, 170, 170, 148, 144, 142, 60, 25, 68, 124, 147, 172, 182, 162, 171, 165, 116, 109, 135, 138, 172, 166, 143, 117, 130, 173, 195, 204, 216, 228, 234, 241, 247, 252, 255, 255],
+            [255, 255, 255, 249, 242, 233, 224, 213, 208, 208, 179, 126, 131, 156, 162, 175, 154, 125, 148, 94, 67, 59, 38, 76, 119, 128, 154, 173, 161, 172, 117, 91, 133, 130, 164, 158, 141, 118, 126, 168, 196, 210, 216, 227, 234, 240, 246, 252, 255, 255],
+            [255, 255, 255, 249, 242, 233, 220, 211, 211, 205, 158, 131, 151, 164, 173, 173, 133, 132, 133, 81, 129, 115, 39, 15, 31, 64, 106, 165, 170, 163, 115, 79, 132, 142, 163, 148, 146, 120, 127, 174, 191, 210, 220, 226, 232, 241, 246, 252, 255, 255],
+            [255, 254, 253, 248, 242, 232, 215, 208, 215, 191, 140, 134, 154, 168, 177, 165, 130, 144, 91, 93, 162, 153, 89, 17, 0, 8, 54, 127, 170, 156, 122, 99, 131, 158, 147, 144, 142, 123, 145, 174, 194, 208, 219, 226, 232, 240, 246, 252, 255, 255],
+            [255, 255, 253, 247, 242, 231, 214, 211, 215, 182, 131, 139, 157, 170, 175, 156, 129, 144, 99, 115, 170, 175, 127, 59, 4, 0, 21, 83, 145, 156, 121, 117, 125, 149, 140, 137, 142, 131, 150, 178, 198, 209, 217, 227, 233, 240, 246, 252, 255, 255],
+            [255, 255, 253, 248, 242, 231, 216, 214, 213, 184, 136, 137, 161, 171, 177, 158, 142, 139, 97, 136, 165, 175, 155, 120, 70, 27, 12, 40, 113, 145, 100, 111, 126, 138, 146, 153, 119, 118, 156, 187, 196, 208, 219, 226, 232, 241, 248, 252, 255, 255],
+            [255, 255, 253, 249, 241, 231, 219, 216, 211, 183, 140, 137, 168, 171, 176, 160, 145, 145, 88, 119, 162, 173, 183, 149, 136, 113, 67, 40, 81, 95, 79, 113, 131, 140, 154, 141, 102, 123, 167, 192, 192, 201, 220, 227, 235, 241, 247, 253, 255, 255],
+            [255, 254, 253, 249, 242, 231, 221, 220, 215, 181, 133, 140, 164, 173, 176, 155, 149, 156, 92, 97, 160, 166, 184, 184, 164, 148, 126, 67, 33, 49, 106, 137, 146, 162, 156, 125, 120, 154, 184, 190, 180, 199, 222, 229, 235, 242, 249, 252, 255, 255],
+            [255, 255, 254, 250, 243, 232, 222, 223, 216, 190, 125, 128, 166, 176, 173, 165, 161, 160, 108, 83, 139, 164, 155, 180, 195, 183, 169, 120, 50, 86, 127, 140, 160, 155, 126, 107, 124, 167, 184, 163, 178, 215, 226, 229, 236, 243, 248, 255, 255, 255],
+            [254, 255, 254, 250, 244, 234, 223, 222, 219, 193, 140, 141, 157, 175, 174, 173, 171, 165, 142, 97, 102, 148, 156, 146, 166, 179, 191, 172, 128, 107, 127, 148, 144, 131, 114, 117, 141, 168, 175, 176, 205, 221, 225, 232, 238, 245, 250, 253, 255, 255],
+            [255, 255, 254, 251, 245, 237, 224, 219, 222, 199, 161, 134, 148, 169, 175, 179, 176, 168, 157, 132, 95, 104, 150, 156, 140, 145, 147, 153, 154, 144, 147, 143, 121, 91, 108, 158, 171, 174, 181, 205, 215, 221, 228, 233, 240, 245, 250, 255, 255, 255],
+            [255, 255, 255, 252, 246, 239, 229, 223, 222, 210, 165, 128, 150, 165, 178, 185, 181, 170, 150, 154, 133, 87, 91, 123, 141, 151, 147, 144, 145, 139, 129, 106, 91, 113, 149, 180, 191, 186, 192, 211, 218, 224, 229, 236, 242, 248, 253, 255, 255, 255],
+            [255, 255, 254, 252, 247, 241, 233, 227, 225, 217, 184, 145, 140, 159, 176, 187, 184, 180, 143, 150, 164, 134, 96, 86, 91, 97, 112, 116, 104, 90, 84, 108, 138, 170, 189, 190, 179, 169, 199, 215, 221, 226, 232, 239, 244, 250, 254, 255, 255, 255],
+            [255, 255, 254, 252, 248, 243, 236, 231, 227, 221, 201, 161, 142, 159, 170, 184, 188, 186, 168, 149, 158, 164, 154, 129, 113, 94, 96, 108, 111, 105, 123, 168, 185, 187, 180, 170, 170, 188, 211, 220, 225, 229, 235, 242, 247, 252, 255, 255, 255, 255],
+            [255, 254, 254, 253, 249, 245, 239, 234, 231, 226, 213, 180, 152, 158, 168, 179, 188, 188, 190, 165, 143, 145, 161, 168, 169, 170, 159, 161, 175, 179, 190, 187, 170, 163, 163, 181, 201, 214, 218, 221, 227, 232, 239, 245, 250, 254, 255, 255, 255, 255],
+            [255, 255, 255, 254, 252, 249, 243, 237, 234, 230, 222, 204, 164, 135, 163, 175, 183, 189, 193, 187, 169, 169, 170, 148, 159, 177, 174, 178, 180, 185, 185, 181, 177, 179, 194, 210, 212, 216, 219, 225, 230, 236, 243, 248, 253, 255, 255, 255, 255, 255],
+            [255, 255, 255, 255, 254, 252, 248, 241, 236, 234, 229, 219, 191, 151, 152, 163, 175, 182, 188, 194, 188, 183, 190, 177, 158, 165, 173, 161, 161, 173, 184, 188, 199, 207, 209, 211, 214, 220, 224, 228, 234, 241, 246, 251, 254, 255, 255, 255, 255, 255],
+            [255, 255, 255, 255, 255, 254, 252, 246, 240, 236, 234, 229, 214, 187, 144, 147, 173, 176, 180, 186, 186, 182, 187, 195, 194, 188, 188, 184, 181, 191, 198, 202, 205, 208, 212, 215, 222, 223, 229, 233, 239, 245, 249, 253, 254, 255, 255, 255, 255, 255],
+            [255, 254, 255, 255, 255, 255, 254, 251, 245, 241, 237, 235, 227, 207, 173, 151, 151, 162, 177, 178, 180, 185, 187, 192, 197, 199, 198, 201, 203, 202, 205, 207, 210, 214, 216, 221, 223, 228, 233, 239, 243, 248, 252, 254, 255, 255, 255, 255, 255, 255],
+            [255, 255, 255, 255, 255, 255, 255, 255, 251, 245, 241, 239, 236, 226, 206, 184, 149, 141, 168, 176, 180, 185, 189, 190, 193, 197, 200, 205, 207, 209, 210, 211, 214, 215, 217, 221, 227, 233, 237, 242, 246, 251, 254, 255, 255, 255, 255, 255, 255, 255],
+            [255, 255, 255, 255, 255, 255, 255, 255, 253, 250, 247, 244, 241, 236, 226, 214, 198, 177, 169, 166, 175, 186, 194, 191, 194, 196, 198, 205, 212, 215, 215, 213, 213, 214, 218, 225, 232, 238, 241, 245, 249, 253, 254, 255, 255, 255, 255, 255, 255, 255],
+            [255, 255, 255, 255, 255, 255, 255, 255, 255, 254, 252, 249, 246, 242, 238, 231, 223, 215, 201, 190, 188, 184, 186, 196, 199, 201, 202, 207, 212, 214, 215, 215, 217, 218, 225, 234, 239, 242, 245, 248, 252, 255, 255, 255, 255, 255, 255, 255, 255, 255],
+            [255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 254, 253, 251, 248, 245, 240, 234, 228, 222, 218, 217, 211, 203, 205, 207, 206, 204, 206, 211, 216, 220, 223, 226, 228, 234, 240, 244, 246, 249, 251, 253, 255, 255, 255, 255, 255, 255, 255, 255, 255],
+            [255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 254, 255, 254, 252, 250, 247, 244, 238, 234, 231, 227, 225, 224, 219, 217, 216, 214, 216, 221, 226, 230, 232, 235, 238, 242, 245, 248, 250, 252, 253, 254, 255, 255, 255, 255, 255, 255, 254, 255, 255],
+            [255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 254, 253, 252, 250, 247, 244, 241, 240, 236, 235, 232, 230, 230, 231, 232, 234, 236, 238, 239, 242, 246, 249, 250, 252, 253, 254, 254, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255],
+            [255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 254, 254, 252, 253, 250, 247, 246, 245, 244, 244, 243, 243, 243, 244, 245, 247, 247, 250, 252, 253, 253, 254, 254, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255],
+            [255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 254, 255, 254, 253, 252, 251, 252, 250, 251, 250, 251, 252, 253, 253, 254, 254, 254, 255, 255, 255, 255, 255, 255, 254, 255, 255, 255, 255, 255, 255, 255, 255],
+            [255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255],
+            [255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255]
+        ],
+            hoverinfo:"skip",
+            showscale:false,
+            cmax:255,
+            cmin:0,
+            type: 'surface',
+            }};"""
+        setup_trace1+=mw_bg_surface
+        for ii in range(1,self.size):
+            setup_trace1+= """
+    let trace{trace_num_1}= {{
+        x: data.x1_{trace_indx}.slice(0,numPerFrame),
+        y: data.y1_{trace_indx}.slice(0,numPerFrame),
+        z: data.z1_{trace_indx}.slice(0,numPerFrame),
+        customdata: data.time,
+        hovertemplate: {hovertemplate},
+        name: '',
+        mode: 'lines',
+        line: {{
+        shape: 'spline',
+        width: 3.,
+        color: '{line_color}',
+        }},
+        type: "scatter3d",
+    }};
+
+    let trace{trace_num_2}= {{
+        x: data.x1_{trace_indx}.slice(0,numPerFrame),
+        y: data.y1_{trace_indx}.slice(0,numPerFrame),
+        z: data.z1_{trace_indx}.slice(0,numPerFrame),
+        customdata: data.time,
+        hovertemplate: {hovertemplate_current},
+        name: '',
+        mode: 'lines',
+        line: {{
+        shape: 'spline',
+        width: 8.,
+        color: '{line_color}',
+        }},
+        type: "scatter3d",
+    }};
+    """.format(trace_indx=str(ii),trace_num_1=str(2*ii+1),trace_num_2=str(2*ii+2),
+            line_color=line_colors[ii],
+            hovertemplate=hovertemplate(names[ii], xlabels[0], ylabels[0], zlabels[0], tlabel),
+            hovertemplate_current=hovertemplate_current(names[ii], xlabels[0], ylabels[0], zlabels[0], tlabel))
+            traces_cumul+= f""",trace{str(2*ii+1)},trace{str(2*ii+2)}"""
+        x_data_list = """"""
+        y_data_list = """"""
+        z_data_list = """"""
+        t_data_list = """"""
+        trace_num_10_list = """"""
+        trace_num_20_list = """"""
+        if mw_plane_bg and d1=="x" and d2=="y" and d3=="z":  # only add when its true
+            traces_cumul+= """,mw_bg"""
+        for jj in range(len(d1s)):
+            for ii in range(0, self.size):
+                x_data_list += """data.x{jj}_{trace_indx}.slice(trace_slice_begin,trace_slice_end), """.format(jj=jj+1,
+                    divid3d=self.divid3d, trace_indx=str(ii))
+                y_data_list += """data.y{jj}_{trace_indx}.slice(trace_slice_begin,trace_slice_end), """.format(jj=jj+1,
+                    divid3d=self.divid3d, trace_indx=str(ii))
+                z_data_list += """data.z{jj}_{trace_indx}.slice(trace_slice_begin,trace_slice_end), """.format(jj=jj+1,
+                    divid3d=self.divid3d, trace_indx=str(ii))
+                t_data_list += """data.time.slice(trace_slice_begin,trace_slice_end), """
+                trace_num_10_list += f"""{str(2*jj*self.size + 2 * ii + 1 - 1)}, """
+                trace_num_20_list += f"""{str(2*jj*self.size + 2 * ii + 2 - 1)}, """
+        return HTML("""
+    <style>
+    .galpybutton {{
+    background-color:#ffffff;
+    -moz-border-radius:16px;
+    -webkit-border-radius:16px;
+    border-radius:16px;
+    border:1px solid #1f77b4;
+    display:inline-block;
+    cursor:pointer;
+    color:#1f77b4;
+    font-family:Courier;
+    font-size:17px;
+    padding:8px 10px;
+    text-decoration:none;
+    text-shadow:0px 1px 0px #2f6627;
+    }}
+    .galpybutton:hover {{
+    background-color:#ffffff;
+    }}
+    .galpybutton:active {{
+    position:relative;
+    top:1px;
+    }}
+    .galpybutton:focus{{
+    outline:0;
+    }}
+    </style>
+
+    <div id='{divid3d}' style='width:{width}px;height:{height}px;'></div>
+    <div class="controlbutton" id="{divid3d}-play" style="margin-left:{button_margin_left}px;display: inline-block;">
+    <button class="galpybutton" id='{divid3d}-playpause' style='width: 108px !important'>Play</button></div>
+    <div class="controlbutton" id="{divid3d}-timestwo" style="margin-left:10px;display: inline-block;">
+    <button class="galpybutton">Speed<font face="Arial">&thinsp;</font>x<font face="Arial">&thinsp;</font>2</button></div>
+    <div class="controlbutton" id="{divid3d}-timeshalf" style="margin-left:10px;display: inline-block;">
+    <button class="galpybutton">Speed<font face="Arial">&thinsp;</font>/<font face="Arial">&thinsp;</font>2</button></div>
+    <div class="controlbutton" id="{divid3d}-replay" style="margin-left:10px;display: inline-block;">
+    <button class="galpybutton">Replay</button></div>
+    {load_jslibs_code}
+
+    <script>
+    require.config({{
+    paths: {{
+    Plotly: 'https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.16.4/plotly.min',
+    }}
+    }});
+    </script>
+
+    <script>
+    require(['Plotly'], function (Plotly) {{
+    {json_code}
+    let layout = {layout};
+    let numPerFrame= 5;
+    let cnt= 1;
+    let interval;
+    let trace_slice_len;
+    let trace_slice_begin;
+    let trace_slice_end;
+
+    // guess on plotly current axis limit
+    let xaxis_min_guess;
+    let xaxis_max_guess;
+    let yaxis_min_guess;
+    let yaxis_max_guess;
+    let zaxis_min_guess;
+    let zaxis_max_guess;
+
+    setup_trace();
+
+    $('.controlbutton button').click(function() {{
+    let button_type= this.parentNode.id;
+    if ( button_type === '{divid3d}-play' ) {{
+        clearInterval(interval);
+        interval= animate_trace();
+        document.querySelector('#{divid3d}-playpause').textContent = 'Pause';
+        document.getElementById('{divid3d}-play').id = '{divid3d}-pause';
+    }}
+    else if ( button_type === '{divid3d}-pause' ) {{
+        clearInterval(interval);
+        document.querySelector('#{divid3d}-playpause').textContent = 'Resume';
+        document.getElementById('{divid3d}-pause').id = '{divid3d}-play';
+        }}
+    else if ( button_type === '{divid3d}-timestwo' ) {{
+        cnt/= 2;
+        numPerFrame*= 2;
+    }}
+    else if ( button_type === '{divid3d}-timeshalf' ) {{
+        cnt*= 2;
+        numPerFrame/= 2;
+    }}
+    else if ( button_type === '{divid3d}-replay' ) {{
+        $("#{divid3d}-playpause").removeAttr('disabled');
+        document.querySelector('#{divid3d}-playpause').textContent = 'Pause';
+        try {{ // doesn't exist if replay with pressing pause
+        document.getElementById('{divid3d}-play').id = '{divid3d}-pause';
+        }}
+        catch (err) {{
+        }}
+        cnt= 1;
+        try {{ // doesn't exist if animation has already ended
+        Plotly.deleteTraces('{divid3d}',[{trace_num_20_list}]);
+        }}
+        catch (err) {{
+        }}
+        Plotly.deleteTraces('{divid3d}', {trace_num_list});
+        clearInterval(interval);
+        setup_trace();
+        interval= animate_trace();
+    }}
+    }});
+
+    function setup_trace() {{
+    {setup_trace1}
+
+    let traces= [{traces_cumul}];
+
+    Plotly.newPlot('{divid3d}',traces,layout);
+    }}
+
+    function animate_trace() {{
+    return setInterval(function() {{
+        // Make sure narrow and thick trace end in the same
+        // and the highlighted length has constant length
+        trace_slice_len= Math.floor(numPerFrame);
+        if ( trace_slice_len < 1) trace_slice_len= 1;
+        trace_slice_begin= Math.floor(cnt*numPerFrame);
+        trace_slice_end= Math.floor(Math.min(cnt*numPerFrame+trace_slice_len,data.x1_0.length-1));
+        traces = {{x: [{x_data_list}], y: [{y_data_list}], z: [{z_data_list}], customdata:[{t_data_list}]}};
+        Plotly.extendTraces('{divid3d}', traces, [{trace_num_10_list}]);
+        trace_slice_begin-= trace_slice_len;
+        traces = {{x: [{x_data_list}], y: [{y_data_list}], z: [{z_data_list}], customdata:[{t_data_list}]}};
+        Plotly.restyle('{divid3d}', traces, [{trace_num_20_list}]);
+        cnt+= 1;
+        // need to clearInterval here otherwise the pan/zoom/rotate is bugged somehow at the end of play
+        if (cnt*numPerFrame+trace_slice_len>data.x1_0.length) {{
+            document.getElementById("{divid3d}-playpause").disabled = "disabled";
+            document.querySelector('#{divid3d}-playpause').textContent = 'Finished!';
+            // making sure the whole orbits is plotted when finished
+            trace_slice_begin = trace_slice_end;
+            trace_slice_end = -1;
+            traces = {{x: [{x_data_list}], y: [{y_data_list}], z: [{z_data_list}], customdata:[{t_data_list}]}};
+            Plotly.extendTraces('{divid3d}', traces, [{trace_num_10_list}]);
+            // make sure trace heads are gone when finished playing, sometimes they will stay around
+            Plotly.deleteTraces('{divid3d}', [{trace_num_20_list}]);
+            clearInterval(interval);
+        }};
+    }}, 100);
+    }}
+    {close_json_code}}});
+    </script>""".format(json_code=json_code,close_json_code=close_json_code,
+                    divid3d=self.divid3d,width=width,height=height,
+                    button_margin_left=button_margin_left,
+                    layout=layout,load_jslibs_code=load_jslibs_code,
+                    x_data_list=x_data_list, y_data_list=y_data_list, z_data_list=z_data_list, t_data_list=t_data_list,
+                    trace_num_10_list=trace_num_10_list, trace_num_20_list=trace_num_20_list,
+                    setup_trace1=setup_trace1, traces_cumul=traces_cumul, trace_num_list= [ii for ii in range(self.size * len(d1s))]))
 
 class _1DInterp:
     """Class to simulate 2D interpolation when using a single orbit"""
