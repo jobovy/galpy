@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import functools
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Literal, Sequence, TypedDict, TypeVar
+from typing import TYPE_CHECKING, NamedTuple
 
 import numpy as np
 from scipy.stats import multivariate_normal
@@ -12,7 +12,6 @@ from galpy.util._optional_deps import _APY_LOADED
 from galpy.util.coords import rect_to_cyl, rect_to_cyl_vec
 
 if TYPE_CHECKING:
-    from astropy.units import Quantity
     from astropy.units import UnitBase as UB
 
 if _APY_LOADED:
@@ -27,78 +26,64 @@ else:
         samples.shape = x.shape[:-1]
         return samples
 
+###############################################################################
+# OrbitDistribution
 
-Self = TypeVar("Self", bound="OrbitDistribution")
-L1 = Literal[1]
-
-class _SystemInfo(TypedDict):
-    names: tuple[str, str, str, str, str, str]
-    units: tuple[UB, UB, UB, UB, UB, UB] | None
-
-
-_info: dict[str, _SystemInfo] = {}
-if _APY_LOADED:
-    _info["icrs"] = _SystemInfo(
-        names=("ra", "dec", "dist", "pmra", "pmdec", "vlos"),
-        units=(u.deg, u.deg, u.kpc, u.mas/u.yr, u.mas/u.yr, u.km/u.s)
-    )
-    _info["galactocentric"] = _SystemInfo(
-        names=("x", "y", "z", "vx", "vy", "vz"),
-        units=(u.kpc, u.kpc, u.kpc, u.km/u.s, u.km/u.s, u.km/u.s)
-    )
-else:
-    _info["icrs"] = _SystemInfo(
-        names=("ra", "dec", "dist", "pmra", "pmdec", "vlos"),
-        units=None
-    )
-    _info["galactocentric"] = _SystemInfo(
-        names=("x", "y", "z", "vx", "vy", "vz"),
-        units=None
-    )
-
-
-def _get_mean(
-    orbit: Orbit,
-    system: str,
-    units: tuple[UB, ...] | None
-) -> tuple[np.ndarray, tuple[UB, UB, UB, UB, UB, UB] | tuple[L1, L1, L1, L1, L1, L1]]:
-    names, default_units = _info[system]["names"], _info[system]["units"]
-
-    if _APY_LOADED:
-        if units is None:
-            units = default_units
-
-        mean = np.c_[
-            tuple(
-                getattr(orbit, n)(quantity=True).to_value(unit)
-                for n, unit in zip(names, units)
-            )
-        ][0]
-    elif units is not None:
-        raise ValueError("Cannot specify units if astropy is not installed!")
-    else:
-        mean = np.c_[
-            tuple(
-                getattr(orbit, n)(quantity=False)
-                for n in names
-            )
-        ][0]
-
-    return mean, units if _APY_LOADED else (1, 1, 1, 1, 1, 1)
-
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True)
 class OrbitDistribution:
     """A distribution of orbits.
 
     Parameters
     ----------
-    orbit : Orbit
-        The orbit instance.
-    """
-    orbit: Orbit
+    orbit : (..., S) Orbit, OrbitDistribution, or array_like
+        The distribution, with sampling along the last axis. If 1D, the sole
+        dimension is used as the sampling axis (i.e., it is a scalar
+        distribution).
 
-    def __getattr__(self, name: str) -> Any:
-        out = getattr(self.orbit, name)
+    *args, **kwargs : Any
+        If ``orbit`` is not an Orbit (or OrbitDistribution), these are passed to
+        the Orbit constructor.
+
+    Raises
+    ------
+    ValueError
+        If ``orbit`` is an Orbit (or OrbitDistribution) and ``args`` or
+        ``kwargs`` are passed.
+    """
+    distribution: Orbit
+
+    def __init__(self, orbit, *args, **kwargs) -> None:
+        # Convert to Orbit
+        if isinstance(orbit, OrbitDistribution):
+            orbit = orbit.distribution  # TODO: .copy()
+        # kept separate so only one arg/kwarg check is needed.
+        if not isinstance(orbit, Orbit):
+            orbit = Orbit(orbit, *args, **kwargs)
+        elif args or kwargs:  # orbit, but args/kwargs
+            raise ValueError("Cannot pass arguments to OrbitDistribution "
+                                 "if orbit is an Orbit!")
+        # else:  # orbit, no args/kwargs
+        #     orbit = orbit.copy()  # copy to avoid modifying original
+
+        # Shape check
+        if orbit.shape == ():
+            raise ValueError("Orbit must be an array of orbits!")
+        elif len(orbit.shape) == 1:  # 1D -> scalar distribution
+            orbit.reshape((1, -1))
+
+        object.__setattr__(self, "distribution", orbit)  # bypass frozen
+
+    @property
+    def n_samples(self):
+        """The number of samples."""
+        return self.distribution.shape[-1]
+
+
+    # =========================================================================
+    # Orbit API
+
+    def __getattr__(self, name):
+        out = getattr(self.distribution, name)
 
         # properties
         if isinstance(out, np.ndarray):
@@ -108,7 +93,7 @@ class OrbitDistribution:
         elif callable(out):
 
             @functools.wraps(out)  # rm for speed?
-            def wrapped(*args: Any, **kwargs: Any) -> Any:
+            def wrapped(*args, **kwargs):
                 _out = out(*args, **kwargs)  # call method
 
                 if isinstance(_out, np.ndarray):
@@ -123,11 +108,20 @@ class OrbitDistribution:
         return out
 
     @property
-    def shape(self) -> tuple[int, ...]:
-        """The shape of the distribution."""
-        return self.orbit[0].shape
+    def shape(self):
+        """The shape of the orbit."""
+        return self.distribution.shape[:-1]
 
-    def plot(self, *args: Any, **kwargs: Any) -> None:
+    @shape.setter
+    def shape(self, newshape):
+        self.distribution.reshape(newshape + (-1,))
+
+    @property
+    def size(self):
+        """The size of the orbit."""
+        return np.prod(self.shape)
+
+    def plot(self, *args, **kwargs):
         """Plot the distribution.
 
         Parameters
@@ -137,24 +131,30 @@ class OrbitDistribution:
         **kwargs
             Keyword arguments to pass to the orbit's plot method.
         """
-        # TODO! better plotting
-        self.orbit[1:].plot(*args, **kwargs)
-
+        # Plot orbit samples
         nkw = kwargs.copy()
-        nkw["overplot"] = True
-        self.orbit[0].plot(*args, **nkw)
+        nkw["c"] = "gray"
+        # TODO: it would be nice to have the same color as the primary orbit
+        # but with alpha set to a lower value.
+        nkw["alpha"] = kwargs.get("alpha", 1) / 2
+        self.distribution[..., 1:].plot(*args, **nkw)
+
+        # Plot primary orbit
+        kwargs["overplot"] = True
+        self.distribution[..., 0].plot(*args, **kwargs)
 
     # =========================================================================
-    # Constructors
+    # More explicit constructors
 
     @classmethod
-    def from_orbit(cls: type[Self], orbit: Orbit) -> Self:
-        """Create a distribution from an orbit.
+    def from_samples(cls, orbit):
+        """Create a distribution from an `~galpy.orbit.Orbit` sampling.
 
         Parameters
         ----------
-        orbit : Orbit
+        orbit : (..., S) Orbit
             The orbit instance. Must be an array of orbits.
+            The last axis is the sample axis.
 
         Returns
         -------
@@ -172,20 +172,13 @@ class OrbitDistribution:
         return cls(orbit)
 
     @classmethod
-    def from_icrs_cov(
-        cls: type[Self],
-        orbit: Orbit,
-        cov: np.ndarray,
-        *,
-        cov_units: tuple[UB, UB, UB, UB, UB, UB] | None = None,  # noqa: E501
-        n_samples: int = 1_000
-    ) -> Self:
+    def from_cov_icrs(cls, orbit, cov, *, cov_units=None, n_samples=1_000):
         """Construct a distribution from the observational covariance matrix.
 
         Parameters
         ----------
         orbit : Orbit
-            The orbit instance. This is the mean of the distribution.
+            The orbit instance. This is the primary orbit of the distribution.
         cov : ndarray
             Columns / rows are [ra, dec, distance, pm_ra_cosdec, pm_dec, vr]
 
@@ -205,32 +198,31 @@ class OrbitDistribution:
         ValueError
             If the orbit is integrated.
         """
-        # TODO: relax this and have the cov apply to each orbit
-        if orbit.shape != ():
-            raise ValueError("Orbit must be a single orbit!")
         # TODO: orbit cannot be integrated
 
-        mean, _u = _get_mean(orbit, "icrs", cov_units)
-        coords = multivariate_normal(mean=mean, cov=cov).rvs(n_samples)
+        # Get the mean and covariance
+        mean, _u = _orbit_arr_in_system(orbit, "icrs", cov_units)
+        cov = _reshape_cov(cov, mean.shape)
 
-        # TODO: add the original orbit as well
-        ounc = Orbit(coords, radec=True,
-                     ro=orbit._ro, vo=orbit._vo, zo=orbit._zo,
-                     solarmotion=orbit._solarmotion)
+        # Draw samples (n_samples, *orbit.shape * 6)
+        samples = multivariate_normal(mean=mean.flat, cov=cov).rvs(n_samples)
+        # Reshape to (*orbit.shape, n_samples, 6)
+        samples = np.moveaxis(samples.reshape((-1,) + mean.shape), 0, -2)
+
+        # Add the original orbit (*orbit.shape, n_samples + 1, 6)
+        coords = np.concatenate([mean[..., None, :], samples], axis=-2)
+
+        # Make orbit (*orbit.shape, n_samples)
+        o = Orbit(coords, radec=True, ro=orbit._ro, vo=orbit._vo, zo=orbit._zo,
+                  solarmotion=orbit._solarmotion)
         if hasattr(orbit, "_name"):
-            ounc.__dict__["_name"] = orbit._name
+            o.__dict__["_name"] = orbit._name
 
-        return cls(ounc)
+        # Make Distribution (*orbit.shape)
+        return cls(o)
 
     @classmethod
-    def from_galactocentric_cov(
-        cls: type[Self],
-        orbit: Orbit,
-        cov: np.ndarray,
-        *,
-        cov_units: tuple[UB, UB, UB, UB, UB, UB] | None = None,  # noqa: E501
-        n_samples: int = 1_000
-    ) -> Self:
+    def from_cov_galactocentric(cls, orbit, cov, *, cov_units=None, n_samples=1_000):
         """From galactocentric cartesian covariance matrix.
 
         Parameters
@@ -250,51 +242,111 @@ class OrbitDistribution:
         -------
         OrbitDistribution
         """
-        # TODO: relax this and have the cov apply to each orbit
-        if orbit.shape != ():
-            raise ValueError("Orbit must be a single orbit!")
         # TODO! orbit cannot be integrated
 
-        mean, _u = _get_mean(orbit, "galactocentric", cov_units)
-        xyz = multivariate_normal(mean=mean, cov=cov).rvs(n_samples)
+        # Get the mean and covariance
+        mean, _u = _orbit_arr_in_system(orbit, "galactocentric", cov_units)
+        cov = _reshape_cov(cov, mean.shape)
 
-        R, phi, z = rect_to_cyl(*(xyz[:, i] * _u[i] for i in range(3)))
-        vR,vT,vz = rect_to_cyl_vec(
-            *(xyz[:, i] * _u[i] for i in range(3, 6)),
-            R, phi, z, cyl=True
-        )
+        # Draw samples (n_samples, *orbit.shape * 6)
+        samples_xyz = multivariate_normal(mean=mean.flat, cov=cov).rvs(n_samples)
+        # Reshape to (*orbit.shape, n_samples, 6)
+        samples_xyz = np.moveaxis(samples_xyz.reshape((-1,) + mean.shape), 0, -2)
+        # Add the original orbit (*orbit.shape, n_samples + 1, 6)
+        coords_xyz = np.concatenate([mean[..., None, :], samples_xyz], axis=-2)
 
-        # TODO: add the original orbit as well
-        ounc = Orbit(
-            [R, vR, vT, z, vz, phi],
-            ro=orbit._ro, vo=orbit._vo, zo=orbit._zo,
-            solarmotion=orbit._solarmotion
-        )
+        # Convert to cylindrical coordinates
+        R, phi, z = rect_to_cyl(*(coords_xyz[..., i] * _u[i] for i in range(3)))
+        vR,vT,vz = rect_to_cyl_vec(*(coords_xyz[..., i] * _u[i] for i in range(3, 6)),
+                                   R, phi, z, cyl=True)
+
+        o = Orbit([R, vR, vT, z, vz, phi], ro=orbit._ro, vo=orbit._vo, zo=orbit._zo,
+                  solarmotion=orbit._solarmotion)
         if hasattr(orbit, "_name"):
-            ounc.__dict__["_name"] = orbit._name
+            o.__dict__["_name"] = orbit._name
 
-        return cls(ounc)
+        return cls(o)
 
-    @classmethod
-    def from_fit(
-        cls: type[Self],
-        init_vxvv: np.ndarray,
-        vxvv: np.ndarray,
-        vxvv_err: np.ndarray | None = None,
-        pot: Potential | None = None,
-        radec: bool = False,
-        lb: bool = False,
-        customsky: bool = False,  # TODO
-        lb_to_customsky=None,  # TODO
-        pmllpmbb_to_customsky=None,  # TODO
-        tintJ: int = 10,
-        ntintJ: int = 1000,
-        integrate_method: str = 'dopr54_c',
-        ro: float | Quantity | None = None,
-        vo: float | Quantity | None = None,
-        zo: float | Quantity | None = None,
-        solarmotion: Sequence[float] | Quantity | None = None,
-        disp: bool = False,
-    ) -> Self:
-        raise NotImplementedError("TODO")
-        # TODO: use the vxvv_err to construct the covariance matrix
+
+###############################################################################
+# Constructor helpers
+
+class _SystemInfo(NamedTuple):
+    names: tuple[str, str, str, str, str, str]
+    default_units: tuple[UB, UB, UB, UB, UB, UB] | None
+
+
+_system_dict: dict[str, _SystemInfo] = {}
+if _APY_LOADED:
+    _system_dict["icrs"] = _SystemInfo(
+        names=("ra", "dec", "dist", "pmra", "pmdec", "vlos"),
+        default_units=(u.deg, u.deg, u.kpc, u.mas/u.yr, u.mas/u.yr, u.km/u.s)
+    )
+    _system_dict["galactocentric"] = _SystemInfo(
+        names=("x", "y", "z", "vx", "vy", "vz"),
+        default_units=(u.kpc, u.kpc, u.kpc, u.km/u.s, u.km/u.s, u.km/u.s)
+    )
+else:
+    _system_dict["icrs"] = _SystemInfo(
+        names=("ra", "dec", "dist", "pmra", "pmdec", "vlos"),
+        default_units=None
+    )
+    _system_dict["galactocentric"] = _SystemInfo(
+        names=("x", "y", "z", "vx", "vy", "vz"),
+        default_units=None
+    )
+
+
+def _orbit_arr_in_system(orbit, system, units):
+    """Get the mean of the orbit distribution in the given system.
+
+    Parameters
+    ----------
+    orbit : Orbit
+        The orbit instance.
+    system : str
+        A string in ``_system_dict``.
+    units : tuple[Unit, ...] or None
+        The units of the mean.
+
+    Returns
+    -------
+    ndarray
+        The mean of the orbit distribution.
+    units : tuple[Unit, ...] or tuple[1, ...]
+        The units of the mean. If astropy is not installed, this is a tuple of
+        ones.
+
+    Raises
+    ------
+    ValueError
+        If Astropy units are specified but astropy is not installed. I'm not
+        sure how this would happen, except if Astropy were installed after galpy
+        were imported.
+    """
+    names, default_units = _system_dict[system]
+
+    if _APY_LOADED:
+        if units is None:
+            units = default_units
+        means = (getattr(orbit, n)(quantity=True).to_value(unit)
+                 for n, unit in zip(names, units))
+    elif units is not None:
+        raise ValueError("Cannot specify units if astropy is not installed!")
+    else:
+        means = (getattr(orbit, n)(quantity=False) for n in names)
+
+    mean = np.atleast_2d(np.stack(tuple(means), axis=-1))  # (N, 6)
+
+    return mean, units if _APY_LOADED else (1, 1, 1, 1, 1, 1)
+
+
+def _reshape_cov(cov, mean_shape):
+    if isinstance(cov, float):
+        pass
+    elif isinstance(cov, np.ndarray):
+        # TODO: better shape checks.
+        if cov.shape == (6, 6):
+            cov = np.kron(np.eye(np.prod(mean_shape[:-1]), dtype=int), cov)
+
+    return cov
