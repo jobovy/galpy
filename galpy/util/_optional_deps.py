@@ -36,7 +36,7 @@ _NUMEXPR_LOADED= True
 try:
     import numexpr
 except ImportError: # pragma: no cover
-    _NUMEXPR_LOADED= True
+    _NUMEXPR_LOADED= False
 
 # tqdm
 _TQDM_LOADED= True
