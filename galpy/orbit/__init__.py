@@ -1,5 +1,5 @@
 from . import Orbits
-from .OrbitDistribution import OrbitDistribution
+from .distribution import OrbitDistribution
 
 #
 # Functions
