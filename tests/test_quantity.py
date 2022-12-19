@@ -11,7 +11,7 @@ _NUMPY_VERSION= parse_version(numpy.__version__)
 _NUMPY_1_22= (_NUMPY_VERSION > parse_version('1.21'))\
     *(_NUMPY_VERSION < parse_version('1.23')) \
     +(_NUMPY_VERSION > parse_version('1.23'))\
-    *(_NUMPY_VERSION < parse_version('1.24'))# For testing 1.22/1.24 precision issues
+    *(_NUMPY_VERSION < parse_version('1.25'))# For testing 1.22/1.24 precision issues
 from astropy import constants, units
 
 sdf_sanders15= None #so we can set this up and then use in other tests
