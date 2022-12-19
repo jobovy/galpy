@@ -3182,7 +3182,8 @@ def _determine_stream_track_TM_single(aAT,
     ObsTrackAA[:3]= thisFreq
     ObsTrackAA[3:]= theseAngles
     detdOdJ= numpy.linalg.det(xvJacHess[2])
-    return [alljacsTrack,allinvjacsTrack,ObsTrack,ObsTrackAA,detdOdJ]
+    return numpy.array([alljacsTrack,allinvjacsTrack,ObsTrack,
+                        ObsTrackAA,detdOdJ],dtype='object')
 
 def _determine_stream_track_TM_approxConstantTrackFreq(aAT,
                                                        progenitor_j,
