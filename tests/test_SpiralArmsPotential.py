@@ -3,7 +3,7 @@ from packaging.version import parse as parse_version
 
 _NUMPY_VERSION= parse_version(numpy.__version__)
 _NUMPY_1_23= (_NUMPY_VERSION > parse_version('1.22'))\
-    *(_NUMPY_VERSION < parse_version('1.24')) # For testing 1.23 precision issues
+    *(_NUMPY_VERSION < parse_version('1.25')) # For testing 1.23/1.24 precision issues
 import unittest
 
 from numpy.testing import assert_allclose

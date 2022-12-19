@@ -6916,7 +6916,7 @@ def test_streamgapdf_setup_impactparamsAsQuantity():
 
 def test_streamgapdf_inputAsQuantity():
     from galpy.util import conversion
-    assert numpy.fabs(sdf_sanders15.pOparapar(0.2/units.Gyr,30.*units.deg)-sdf_sanders15_nou.pOparapar(0.2/conversion.freq_in_Gyr(sdf_sanders15._vo,sdf_sanders15._ro),30.*numpy.pi/180.)) < _NUMPY_1_22 * 1e-4 + (1-_NUMPY_1_22) * 1e-6, 'streamgapdf method pOparapar with Quantity input does not return correct Quantity'
+    assert numpy.fabs(sdf_sanders15.pOparapar(0.2/units.Gyr,30.*units.deg)-sdf_sanders15_nou.pOparapar(0.2/conversion.freq_in_Gyr(sdf_sanders15._vo,sdf_sanders15._ro),30.*numpy.pi/180.)) < 1e-4, 'streamgapdf method pOparapar with Quantity input does not return correct Quantity'
     return None
 
 def test_streamgapdf_sample():
@@ -6973,12 +6973,12 @@ def test_streamgapdf_sample():
     lb= sdf_sanders15.sample(1,lb=True)
     numpy.random.seed(1)
     lbnou= sdf_sanders15_nou.sample(1,lb=True)
-    assert numpy.fabs(lb[0].to(units.deg).value-lbnou[0]) < _NUMPY_1_22 * 1e-4 + (1-_NUMPY_1_22) * 1e-6, 'streamgapdf sample lb does not return a correct Quantity'
-    assert numpy.fabs(lb[1].to(units.deg).value-lbnou[1]) < _NUMPY_1_22 * 1e-4 + (1-_NUMPY_1_22) * 1e-6, 'streamgapdf sample lb does not return a correct Quantity'
+    assert numpy.fabs(lb[0].to(units.deg).value-lbnou[0]) < _NUMPY_1_22 * 1e-4 + (1-_NUMPY_1_22) * 1e-5, 'streamgapdf sample lb does not return a correct Quantity'
+    assert numpy.fabs(lb[1].to(units.deg).value-lbnou[1]) < _NUMPY_1_22 * 1e-4 + (1-_NUMPY_1_22) * 1e-5, 'streamgapdf sample lb does not return a correct Quantity'
     assert numpy.fabs(lb[2].to(units.kpc).value-lbnou[2]) < _NUMPY_1_22 * 1e-5 + (1-_NUMPY_1_22) * 1e-8, 'streamgapdf sample lb does not return a correct Quantity'
-    assert numpy.fabs(lb[3].to(units.km/units.s).value-lbnou[3]) < _NUMPY_1_22 * 1e-4 + (1-_NUMPY_1_22) * 1e-6, 'streamgapdf sample lb does not return a correct Quantity'
-    assert numpy.fabs(lb[4].to(units.mas/units.yr).value-lbnou[4]) < _NUMPY_1_22 * 1e-4 + (1-_NUMPY_1_22) * 1e-6, 'streamgapdf sample lb does not return a correct Quantity'
-    assert numpy.fabs(lb[5].to(units.mas/units.yr).value-lbnou[5]) < _NUMPY_1_22 * 1e-4 + (1-_NUMPY_1_22) * 1e-6, 'streamgapdf sample lb does not return a correct Quantity'
+    assert numpy.fabs(lb[3].to(units.km/units.s).value-lbnou[3]) < _NUMPY_1_22 * 1e-4 + (1-_NUMPY_1_22) * 1e-5, 'streamgapdf sample lb does not return a correct Quantity'
+    assert numpy.fabs(lb[4].to(units.mas/units.yr).value-lbnou[4]) < _NUMPY_1_22 * 1e-4 + (1-_NUMPY_1_22) * 1e-5, 'streamgapdf sample lb does not return a correct Quantity'
+    assert numpy.fabs(lb[5].to(units.mas/units.yr).value-lbnou[5]) < _NUMPY_1_22 * 1e-4 + (1-_NUMPY_1_22) * 1e-5, 'streamgapdf sample lb does not return a correct Quantity'
     # lbdt
     numpy.random.seed(1)
     lbdt= sdf_sanders15.sample(1,lb=True,returndt=True)
