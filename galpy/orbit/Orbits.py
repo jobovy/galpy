@@ -225,6 +225,7 @@ class Orbit:
         if vxvv is None: # Assume one wants the Sun
             vxvv= numpy.array([0.,0.,0.,0.,0.,0.])
             radec= True
+            self._name= numpy.char.array(['Sun'])
         elif isinstance(vxvv,(list, tuple)):
             if None in vxvv:
                 vxvv= [[0.,0.,0.,0.,0.,0.]
