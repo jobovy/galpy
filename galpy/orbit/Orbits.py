@@ -6511,7 +6511,9 @@ def _helioXYZ(orb,thiso,*args,**kwargs):
     elif len(thiso[:,0]) == 4: #planarOrbit
         if isinstance(obs,(numpy.ndarray,list)):
             X,Y,Z = coords.galcencyl_to_XYZ(\
-                thiso[0,:],thiso[3,:]-numpy.arctan2(obs[1],obs[0]),0.,
+                thiso[0],
+                thiso[3]-numpy.arctan2(obs[1],obs[0]),
+                numpy.zeros_like(thiso[0]),
                 Xsun=numpy.sqrt(obs[0]**2.+obs[1]**2.)/ro,
                 Zsun=obs[2]/ro,_extra_rot=False).T
         else: #Orbit instance
@@ -6594,11 +6596,11 @@ def _XYZvxvyvz(orb,thiso,*args,**kwargs):
                     numpy.zeros_like(thiso[0]),
                     Xsun=obs.R(*args,**kwargs),Zsun=0.,_extra_rot=False).T
                 vX,vY,vZ = coords.galcencyl_to_vxvyvz(\
-                    thiso[1,:],thiso[2,:],numpy.zeros_like(thiso[0]),
-                    thiso[3,:]-obs.phi(*args,**kwargs),
+                    thiso[1],thiso[2],numpy.zeros_like(thiso[0]),
+                    thiso[3]-obs.phi(*args,**kwargs),
                     vsun=numpy.array([\
                             obs.vR(*args,**kwargs),obs.vT(*args,**kwargs),
-                            0.]),
+                            numpy.zeros_like(obs.vR(*args,**kwargs))]),
                     Xsun=obs.R(*args,**kwargs),Zsun=0.,_extra_rot=False).T
             else:
                 X,Y,Z = coords.galcencyl_to_XYZ(\

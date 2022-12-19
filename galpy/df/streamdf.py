@@ -876,8 +876,10 @@ class streamdf(df):
         if self._multi is None:
             aatrack= numpy.empty((self._nTrackChunks,6))
             for ii in range(self._nTrackChunks):
-                aatrack[ii]= self._aA.actionsFreqsAngles(Orbit(self._ObsTrack[ii,:]),
-                                                         use_physical=False)[3:]
+                aatrack[ii]= numpy.array(
+                    self._aA.actionsFreqsAngles(Orbit(self._ObsTrack[ii,:]),
+                                                use_physical=False)[3:]
+                ).flatten()
         else:
             aatrack= numpy.reshape(\
                 multi.parallel_map(
@@ -2074,12 +2076,9 @@ class streamdf(df):
         if isinstance(t,(int,float,numpy.float32,numpy.float64)):
             t= numpy.array([t])
         out= numpy.zeros(len(t))
-        if t > 0.:
-            dO= dangle/t[t < self._tdisrupt]
-        else:
-            return 0.
+        dO= dangle/t[(t > 0.)*(t < self._tdisrupt)]
         #p(t|a) = \int dO p(O,t|a) = \int dO p(t|O,a) p(O|a) = \int dO delta (t-a/O)p(O|a) = O*2/a p(O|a); p(O|a) = \int dt p(a|O,t) p(O)p(t) = 1/O p(O)
-        out[t < self._tdisrupt]=\
+        out[(t > 0.)*(t < self._tdisrupt)]=\
             dO**2./dangle*numpy.exp(-0.5*(dO-self._meandO)**2.\
                                          /self._sortedSigOEig[2])/\
                                          numpy.sqrt(self._sortedSigOEig[2])
@@ -3143,8 +3142,8 @@ def _determine_stream_track_single(aA,progenitorTrack,trackt,
         progenitorTrack(trackt).vz()
     ObsTrack[5]+= \
         progenitorTrack(trackt).phi()
-    return [allAcfsTrack,alljacsTrack,allinvjacsTrack,ObsTrack,ObsTrackAA,
-            detdOdJ]
+    return numpy.array([allAcfsTrack,alljacsTrack,allinvjacsTrack,ObsTrack,
+                        ObsTrackAA,detdOdJ],dtype='object')
 
 def _determine_stream_track_TM_single(aAT,
                                       progenitor_j,

@@ -155,7 +155,7 @@ class actionAngleAdiabatic(actionAngle):
                     aAV= actionAngleVertical(pot=thisverticalpot)
                     Jz= aAV(z[0],vz[0])
                 else: #2D in-plane
-                    Jz= 0.
+                    Jz= numpy.zeros(1)
                 if kwargs.get('_justjz',False):
                     kwargs.pop('_justjz')
                     return (numpy.atleast_1d(numpy.nan),
