@@ -259,7 +259,7 @@ def test_actionAngleVertical_Harmonic_actionsFreqsAngles():
 def test_physical_vertical():
     from galpy.actionAngle import actionAngleVertical
     from galpy.potential import IsothermalDiskPotential
-    from galpy.util import bovy_conversion
+    from galpy.util import conversion
     ro,vo= 7., 230.
     isopot= IsothermalDiskPotential(amp=1.,sigma=0.5)
     # Omega = sqrt(4piG density / 3)
@@ -269,10 +269,10 @@ def test_physical_vertical():
     assert numpy.fabs(aAV(-0.1,0.1)-aAVnu(-0.1,0.1)*ro*vo) < 10.**-8., 'actionAngle function __call__ does not return Quantity with the right value for actionAngleVertical'
     # actionsFreqs
     assert numpy.fabs(aAV.actionsFreqs(0.2,0.1)[0]-aAVnu.actionsFreqs(0.2,0.1)[0]*ro*vo) < 10.**-8., 'actionAngle function actionsFreqs does not return Quantity with the right value for actionAngleVertical'
-    assert numpy.fabs(aAV.actionsFreqs(0.2,0.1)[1]-aAVnu.actionsFreqs(0.2,0.1)[1]*bovy_conversion.freq_in_Gyr(vo,ro)) < 10.**-8., 'actionAngle function actionsFreqs does not return Quantity with the right value for actionAngleVertical'
+    assert numpy.fabs(aAV.actionsFreqs(0.2,0.1)[1]-aAVnu.actionsFreqs(0.2,0.1)[1]*conversion.freq_in_Gyr(vo,ro)) < 10.**-8., 'actionAngle function actionsFreqs does not return Quantity with the right value for actionAngleVertical'
     # actionsFreqsAngles
     assert numpy.fabs(aAV.actionsFreqsAngles(0.2,0.1)[0]-aAVnu.actionsFreqsAngles(0.2,0.1)[0]*ro*vo) < 10.**-8., 'actionAngle function actionsFreqsAngles does not return Quantity with the right value for actionAngleVertical'
-    assert numpy.fabs(aAV.actionsFreqsAngles(0.2,0.1)[1]-aAVnu.actionsFreqsAngles(0.2,0.1)[1]*bovy_conversion.freq_in_Gyr(vo,ro)) < 10.**-8., 'actionAngle function actionsFreqsAngles does not return Quantity with the right value for actionAngleVertical'
+    assert numpy.fabs(aAV.actionsFreqsAngles(0.2,0.1)[1]-aAVnu.actionsFreqsAngles(0.2,0.1)[1]*conversion.freq_in_Gyr(vo,ro)) < 10.**-8., 'actionAngle function actionsFreqsAngles does not return Quantity with the right value for actionAngleVertical'
     assert numpy.fabs(aAV.actionsFreqsAngles(0.2,0.1)[2]-aAVnu.actionsFreqsAngles(0.2,0.1)[2]) < 10.**-8., 'actionAngle function actionsFreqsAngles does not return Quantity with the right value for actionAngleVertical'
     return None
 
@@ -2672,6 +2672,8 @@ def test_actionAngleIsochroneApprox_triaxialnfw_linear_angles():
     return None
 
 def test_actionAngleIsochroneApprox_plotting():
+    from matplotlib import pyplot
+
     from galpy.actionAngle import actionAngleIsochroneApprox
     from galpy.orbit import Orbit
     from galpy.potential import LogarithmicHaloPotential
@@ -2705,6 +2707,7 @@ def test_actionAngleIsochroneApprox_plotting():
                 0.88719443,-0.47713334,0.12019596])
     obs.integrate(numpy.linspace(0.,200.,20001),lp)
     aAI.plot(obs,type='jr')
+    pyplot.close('all')
     return None
 
 #Test the Orbit interface
@@ -3885,6 +3888,7 @@ def test_actionAngleVerticalInverse_plotting():
     gs= aAVI.plot_power([0.1,1.,10.],overplot=gs)
     pyplot.close()
     aAVI.plot_orbit(1.)
+    pyplot.close()
     return None
 
 # Test that actionAngleVerticalInverse is the inverse of actionAngleVertical
@@ -3899,6 +3903,7 @@ def test_actionAngleVerticalInverse_interpolation_plotting(setup_actionAngleVert
     aAVI.plot_orbit(3.706)
     pyplot.close()
     aAVI.plot_interp(3.706)
+    pyplot.close()
     return None
 
 def test_actionAngleVerticalInverse_convergence_warnings():

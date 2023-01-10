@@ -76,7 +76,9 @@ class osipkovmerrittHernquistdf(_osipkovmerrittdf):
             2020-11-12 - Written - Bovy (UofT)
 
         """
-        Qtilde= conversion.parse_energy(Q,vo=self._vo)/self._psi0
+        Qtilde= numpy.atleast_1d(
+            conversion.parse_energy(Q,vo=self._vo)/self._psi0
+        )
         # Handle potential Q outside of bounds
         Qtilde_out = numpy.where(numpy.logical_or(Qtilde<0,Qtilde>1))[0]
         if len(Qtilde_out)>0:

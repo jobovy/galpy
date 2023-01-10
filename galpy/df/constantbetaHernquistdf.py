@@ -70,7 +70,9 @@ class constantbetaHernquistdf(_constantbetadf):
 
             2020-07-22 - Written
         """
-        Etilde= -conversion.parse_energy(E,vo=self._vo)/self._psi0
+        Etilde= -numpy.atleast_1d(
+            conversion.parse_energy(E,vo=self._vo)/self._psi0
+        )
         # Handle potential E outside of bounds
         Etilde_out = numpy.where(numpy.logical_or(Etilde<0,Etilde>1))[0]
         if len(Etilde_out)>0:

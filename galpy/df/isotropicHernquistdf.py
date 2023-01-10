@@ -65,7 +65,9 @@ class isotropicHernquistdf(isotropicsphericaldf):
 
             2020-08-09 - Written - James Lane (UofT)
         """
-        Etilde= -conversion.parse_energy(E,vo=self._vo)/self._psi0
+        Etilde= -numpy.atleast_1d(
+            conversion.parse_energy(E,vo=self._vo)/self._psi0
+        )
         # Handle E out of bounds
         Etilde_out = numpy.where(numpy.logical_or(Etilde<0,Etilde>1))[0]
         if len(Etilde_out)>0:

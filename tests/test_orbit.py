@@ -2418,7 +2418,7 @@ def test_orbit_setup_SkyCoord():
                           frame='icrs',
                           galcen_distance=10.*u.kpc,z_sun=1.*u.kpc,
                           galcen_v_sun=v_sun)
-    with pytest.warns(None) as record:
+    with pytest.warns(galpyWarning) as record:
         o= Orbit(c,ro=10.)
     raisedWarning= False
     for rec in record:
@@ -2431,13 +2431,10 @@ def test_orbit_setup_SkyCoord():
                           frame='icrs',
                           galcen_distance=10.*u.kpc,z_sun=1.*u.kpc,
                           galcen_v_sun=v_sun)
-    with pytest.warns(None) as record:
+    with warnings.catch_warnings(record=True) as w:
         o= Orbit(c,ro=numpy.sqrt(10.**2.-1.**2.))
-    raisedWarning= False
-    for rec in record:
-        # check that the message matches
-        raisedWarning+= (str(rec.message.args[0]) == "Orbit's initialization normalization ro and zo are incompatible with SkyCoord's galcen_distance (should have galcen_distance^2 = ro^2 + zo^2)")
-    assert not raisedWarning, "Orbit initialization with SkyCoord with galcen_distance compatible with ro shouldn't have raised a warning, but did"
+        for wi in w:
+            assert not issubclass(wi.category, galpyWarning), "Orbit initialization with SkyCoord with galcen_distance compatible with ro shouldn't have raised a warning, but did"
     # If we specify both v_sun and solarmotion, they need to be consistent
     v_sun= apycoords.CartesianDifferential([-11.1,215.,3.25]*u.km/u.s)
     c= apycoords.SkyCoord(ra=ra,dec=dec,distance=distance,
@@ -3386,7 +3383,7 @@ def test_MWPotential_warning():
     # Test that using MWPotential throws a warning, see #229
     ts= numpy.linspace(0.,100.,1001)
     o= setup_orbit_energy(potential.MWPotential,axi=False)
-    with pytest.warns(None) as record:
+    with pytest.warns(galpyWarning) as record:
         if PY2: reset_warning_registry('galpy')
         warnings.simplefilter("always",galpyWarning)
         o.integrate(ts,potential.MWPotential)
@@ -4246,7 +4243,7 @@ def test_orbitint_pythonfallback():
     ts= numpy.linspace(0.,1.,101)
     for orb in [Orbit([1.,0.1,1.1,0.1,0.,1.]),Orbit([1.,0.1,1.1,0.1,0.]),
                 Orbit([1.,0.1,1.1,1.]),Orbit([1.,0.1,1.1])]:
-        with pytest.warns(None) as record:
+        with pytest.warns(galpyWarning) as record:
             if PY2: reset_warning_registry('galpy')
             warnings.simplefilter("always",galpyWarning)
             #Test w/ dopr54_c
@@ -4269,7 +4266,7 @@ def test_orbitint_dissipativefallback():
         dens=lp,sigmar=lambda r: 1./numpy.sqrt(2.))
     ts= numpy.linspace(0.,1.,101)
     for orb in [Orbit([1.,0.1,1.1,0.1,0.,1.])]:
-        with pytest.warns(None) as record:
+        with pytest.warns(galpyWarning) as record:
             orb.integrate(ts,[lp,cdf], method='leapfrog')
         raisedWarning= False
         for rec in record:
@@ -5153,36 +5150,6 @@ def test_orbit_time():
     assert numpy.fabs(ts[-1].to(u.Gyr).value/conversion.time_in_Gyr(MWPotential2014[0]._vo,MWPotential2014[0]._ro)-o.time(ts[-1].to(u.Gyr).value/conversion.time_in_Gyr(MWPotential2014[0]._vo,MWPotential2014[0]._ro))) < 1e-10, 'Orbit.time does not return the correct times'
     return None
 
-def test_noDeprecationWarning_timeInCall():
-    # The short-cut in calling an orbit to check whether the given times are
-    # exactly the same as the input times should not raise a DeprecationWarning
-    # (in the first implementation as 'numpy.all(t == self.t)' it did)
-    from astropy import units
-
-    from galpy.orbit import Orbit
-    from galpy.potential import MWPotential
-    ts= numpy.linspace(0.,10.,1001)
-    orb= Orbit()
-    orb.integrate(ts,MWPotential)
-    with pytest.warns(None) as record:
-        orb.R(ts[:2])
-        raisedWarning= False
-        for rec in record:
-            # check that the message matches
-            raisedWarning+= (str(rec.message.args[0]) == "elementwise == comparison failed; this will raise an error in the future.")
-        assert not raisedWarning, "Orbit evaluation with array times raises the DeprecationWarning 'elementwise == comparison failed; this will raise an error in the future.'"
-    # Also when using time units and evaluating without
-    ts= numpy.linspace(0.,0.1,1001)*units.Gyr
-    orb.integrate(ts,MWPotential)
-    with pytest.warns(None) as record:
-        orb.R(ts[:2].to(units.Gyr).value)
-        raisedWarning= False
-        for rec in record:
-            # check that the message matches
-            raisedWarning+= (str(rec.message.args[0]) == "elementwise == comparison failed; this will raise an error in the future.")
-        assert not raisedWarning, "Orbit evaluation with array times raises the DeprecationWarning 'elementwise == comparison failed; this will raise an error in the future.'"
-    return None
-
 # Test that issue 402 is resolved: initialization with a SkyCoord when radec=True should work fine
 def test_SkyCoord_init_with_radecisTrue():
     if not _APY3: return None # not done in python 2
@@ -5436,7 +5403,7 @@ def setup_orbit_flip(tp,ro,vo,zo,solarmotion,axi=False):
 def check_radecetc_roWarning(o,funcName):
     # Convenience function to check whether the ro-needs-to-be-specified
     # warning is sounded
-    with pytest.warns(None) as record:
+    with pytest.warns(galpyWarning) as record:
         if PY2: reset_warning_registry('galpy')
         warnings.simplefilter("always",galpyWarning)
         getattr(o,funcName)()
@@ -5450,7 +5417,7 @@ def check_radecetc_roWarning(o,funcName):
 def check_radecetc_voWarning(o,funcName):
     # Convenience function to check whether the vo-needs-to-be-specified
     # warning is sounded
-    with pytest.warns(None) as record:
+    with pytest.warns(galpyWarning) as record:
         if PY2: reset_warning_registry('galpy')
         warnings.simplefilter("always",galpyWarning)
         getattr(o,funcName)()
@@ -5462,7 +5429,7 @@ def check_radecetc_voWarning(o,funcName):
     return None
 
 def check_integrate_t_asQuantity_warning(o,funcName):
-    with pytest.warns(None) as record:
+    with pytest.warns(galpyWarning) as record:
         getattr(o,funcName)(1.)
     raisedWarning= False
     for rec in record:

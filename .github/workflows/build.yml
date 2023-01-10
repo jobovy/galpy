@@ -281,11 +281,14 @@ jobs:
     - name: Test with pytest
       env:
           TEST_FILES: ${{ matrix.TEST_FILES }}
+          REQUIRES_ASTROPY : ${{ matrix.REQUIRES_ASTROPY }}
       run: |
         pip install coverage
         pip install pytest-cov
+        # Turn astropy deprecation warnings into errors as well if astropy
+        if $REQUIRES_ASTROPY; then export PYTEST_ADDOPTS="-W error::astropy.utils.exceptions.AstropyDeprecationWarning"; else export PYTEST_ADDOPTS=""; fi
         # eval necessary for -k 'not ...' in TEST_FILES
-        eval "pytest -v $TEST_FILES --cov galpy --cov-config .coveragerc --disable-pytest-warnings --durations=0 --cov-report=term --cov-report=xml"
+        eval "pytest -W error::DeprecationWarning -W error::FutureWarning $PYTEST_ADDOPTS -v $TEST_FILES --cov galpy --cov-config .coveragerc --disable-pytest-warnings --durations=0 --cov-report=term --cov-report=xml"
     - name: Generate code coverage
       if: ${{ matrix.python-version == env.PYTHON_COVREPORTS_VERSION && matrix.os == 'ubuntu-latest' }}
       run: |

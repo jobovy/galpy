@@ -28,6 +28,10 @@ v1.8.2 (2023-XX-XX)
   tweaks. Also fixed using Orbit.animate in jupyterlab and retrolab (latter
   #534).
 
+- Run tests with deprecation warnings of various types (DeprecationWarning,
+  FutureWarning, AstropyDeprecationWarning) turned into errors to guard against
+  coming deprecations (#538)
+
 v1.8.1 (2022-10-31)
 ===================
 

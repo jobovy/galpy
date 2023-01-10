@@ -3831,7 +3831,7 @@ def test_vtermnegl_issue314():
 def test_Ferrers_Rzderiv_issue319():
     # Test that the Rz derivative works for the FerrersPotential (issue 319)
      fp= potential.FerrersPotential(normalize=1.)
-     from scipy.misc import derivative
+     from test_SpiralArmsPotential import deriv as derivative
      rzderiv= fp.Rzderiv(0.5,0.2,phi=1.)
      rzderiv_finitediff= derivative(lambda x: -fp.zforce(x,0.2,phi=1.),
                                     0.5,dx=10.**-8.)
