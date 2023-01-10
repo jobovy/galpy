@@ -90,12 +90,14 @@ class df:
            2020-04-22 - Don't turn on a parameter when it is False - Bovy (UofT)
 
         """
-        if not ro is False: self._roSet= True
-        if not vo is False: self._voSet= True
-        ro= conversion.parse_length_kpc(ro)
-        if not ro is None:
-            self._ro= ro
-        vo= conversion.parse_velocity_kms(vo)
-        if not vo is None:
-            self._vo= vo
+        if not ro is False:
+            self._roSet= True
+            ro= conversion.parse_length_kpc(ro)
+            if not ro is None:
+                self._ro= ro
+        if not vo is False:
+            self._voSet= True
+            vo= conversion.parse_velocity_kms(vo)
+            if not vo is None:
+                self._vo= vo
         return None
