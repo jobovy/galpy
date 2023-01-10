@@ -7,10 +7,15 @@ _NUMPY_1_23= (_NUMPY_VERSION > parse_version('1.22'))\
 import unittest
 
 from numpy.testing import assert_allclose
-from scipy.misc import derivative as deriv
 
 from galpy.potential import SpiralArmsPotential as spiral
 
+
+def deriv(func,x0,dx=1.,args=()):
+    """Like the deprecated scipy.misc.derivative, but using numpy.gradient"""
+    xs= numpy.array([x0-dx,x0,x0+dx])
+    ys= numpy.array([func(x,*args) for x in xs]).flatten()
+    return numpy.gradient(ys,xs)[1]
 
 class TestSpiralArmsPotential(unittest.TestCase):
 

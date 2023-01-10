@@ -14,6 +14,7 @@ from galpy.df import (constantbetadf, constantbetaHernquistdf, eddingtondf,
                       isotropicHernquistdf, isotropicNFWdf, isotropicPlummerdf,
                       jeans, kingdf, osipkovmerrittdf,
                       osipkovmerrittHernquistdf, osipkovmerrittNFWdf)
+from galpy.util import galpyWarning
 
 
 ############################# ISOTROPIC HERNQUIST DF ##########################
@@ -1753,7 +1754,7 @@ def test_anisotropic_hernquist_negdf():
     pot= potential.HernquistPotential(amp=2.3,a=1.3)
     # beta > 0.5 has negative DF parts
     dfh= constantbetaHernquistdf(pot=pot,beta=0.7)
-    with pytest.warns(None) as record:
+    with pytest.warns(galpyWarning) as record:
         samp= dfh.sample(n=100)
     raisedWarning= False
     for rec in record:

@@ -241,10 +241,12 @@ class Force:
         """
         if not ro is False: self._roSet= True
         if not vo is False: self._voSet= True
-        if not ro is None and ro:
-            self._ro= conversion.parse_length_kpc(ro)
-        if not vo is None and vo:
-            self._vo= conversion.parse_velocity_kms(vo)
+        ro= conversion.parse_length_kpc(ro)
+        if not ro is None:
+            self._ro= ro
+        vo= conversion.parse_velocity_kms(vo)
+        if not vo is None:
+            self._vo= vo
         return None
 
     @potential_physical_input
