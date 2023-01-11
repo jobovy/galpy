@@ -1,7 +1,8 @@
-from galpy import potential
-
-
 def pytest_generate_tests(metafunc):
+    # galpy imports must be hear to not interfere with different config settings
+    # in different files
+    # Maybe I should define a cmdline option to set the config instead...
+    from galpy import potential
     if metafunc.function.__name__ == 'test_energy_jacobi_conservation':
         # Generate orbit integration tests for all potentials
         #Grab all of the potentials
