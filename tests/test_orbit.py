@@ -80,7 +80,8 @@ warnings.simplefilter("always",galpyWarning)
 
 # Test whether the energy of simple orbits is conserved for different
 # integrators; tests 3D and 2D orbits, 1D orbits done separately below
-def test_energy_jacobi_conservation():
+# Parametrized list of tests generated programmatically in conftest.py
+def test_energy_jacobi_conservation(pot,ttol,tjactol,firstTest):
     if _NOLONGINTEGRATIONS: return None
     #Basic parameters for the test
     times= numpy.linspace(0.,210.,5001) #~7.5 Gyr at the Solar circle
@@ -92,146 +93,117 @@ def test_energy_jacobi_conservation():
                   'leapfrog','leapfrog_c',
                   'rk4_c','rk6_c',
                   'symplec4_c','symplec6_c']
-    #Grab all of the potentials
-    pots= [p for p in dir(potential)
-           if ('Potential' in p and not 'plot' in p and not 'RZTo' in p
-               and not 'FullTo' in p and not 'toPlanar' in p
-               and not 'evaluate' in p and not 'Wrapper' in p
-               and not 'toVertical' in p)]
-    pots.append('mockFlatEllipticalDiskPotential')
-    pots.append('mockFlatLopsidedDiskPotential')
-    pots.append('mockFlatCosmphiDiskPotential')
-    pots.append('mockFlatCosmphiDiskwBreakPotential')
-    pots.append('mockSlowFlatEllipticalDiskPotential')
-    pots.append('mockFlatDehnenBarPotential')
-    pots.append('mockSlowFlatDehnenBarPotential')
-    pots.append('mockFlatSteadyLogSpiralPotential')
-    pots.append('mockSlowFlatSteadyLogSpiralPotential')
-    pots.append('mockFlatTransientLogSpiralPotential')
-    pots.append('specialMiyamotoNagaiPotential')
-    pots.append('specialFlattenedPowerPotential')
-    pots.append('BurkertPotentialNoC')
-    pots.append('testMWPotential')
-    pots.append('testplanarMWPotential')
-    pots.append('mockMovingObjectLongIntPotential')
-    pots.append('oblateHernquistPotential')
-    pots.append('oblateNFWPotential')
-    pots.append('prolateNFWPotential')
-    pots.append('prolateJaffePotential')
-    pots.append('triaxialNFWPotential')
-    pots.append('fullyRotatedTriaxialNFWPotential')
-    pots.append('NFWTwoPowerTriaxialPotential') # for planar-from-full
-    pots.append('mockSCFZeeuwPotential')
-    pots.append('mockSCFNFWPotential')
-    pots.append('mockSCFAxiDensity1Potential')
-    pots.append('mockSCFAxiDensity2Potential')
-    pots.append('mockSCFDensityPotential')
-    pots.append('sech2DiskSCFPotential')
-    pots.append('expwholeDiskSCFPotential')
-    pots.append('altExpwholeDiskSCFPotential')
-    pots.append('mockFlatSpiralArmsPotential')
-    pots.append('mockRotatingFlatSpiralArmsPotential')
-    pots.append('mockSpecialRotatingFlatSpiralArmsPotential')
-    pots.append('mockFlatDehnenSmoothBarPotential')
-    pots.append('mockSlowFlatDehnenSmoothBarPotential')
-    pots.append('mockSlowFlatDecayingDehnenSmoothBarPotential')
-    pots.append('mockFlatSolidBodyRotationSpiralArmsPotential')
-    pots.append('mockFlatSolidBodyRotationPlanarSpiralArmsPotential')
-    pots.append('triaxialLogarithmicHaloPotential')
-    pots.append('testorbitHenonHeilesPotential')
-    pots.append('mockFlatCorotatingRotationSpiralArmsPotential')
-    pots.append('mockFlatGaussianAmplitudeBarPotential')
-    pots.append('nestedListPotential')
-    pots.append('mockInterpSphericalPotential')
-    pots.append('mockAdiabaticContractionMWP14WrapperPotential')
-    pots.append('mockRotatedAndTiltedMWP14WrapperPotential')
-    pots.append('testNullPotential')
-    rmpots= ['Potential','MWPotential','MWPotential2014',
-             'MovingObjectPotential',
-             'interpRZPotential', 'linearPotential', 'planarAxiPotential',
-             'planarPotential', 'verticalPotential','PotentialError',
-             'SnapshotRZPotential','InterpSnapshotRZPotential',
-             'EllipsoidalPotential','NumericalPotentialDerivativesMixin',
-             'SphericalPotential','interpSphericalPotential']
-    rmpots.append('SphericalShellPotential')
-    rmpots.append('RingPotential')
-    for p in rmpots:
-        pots.remove(p)
-    #tolerances in log10
-    tol= {}
-    tol['default']= -10.
-    tol['DoubleExponentialDiskPotential']= -6. #these are more difficult
-    jactol= {}
-    jactol['default']= -10.
-    jactol['RazorThinExponentialDiskPotential']= -9. #these are more difficult
-    jactol['DoubleExponentialDiskPotential']= -6. #these are more difficult
-    jactol['mockFlatDehnenBarPotential']= -8. #these are more difficult
-    jactol['mockFlatDehnenSmoothBarPotential']= -8. #these are more difficult
-    jactol['mockMovingObjectLongIntPotential']= -8. #these are more difficult
-    jactol['mockSlowFlatEllipticalDiskPotential']= -6. #these are more difficult (and also not quite conserved)
-    jactol['mockSlowFlatSteadyLogSpiralPotential']= -8. #these are more difficult (and also not quite conserved)
-    jactol['mockSlowFlatDehnenSmoothBarPotential']= -8. #these are more difficult (and also not quite conserved)
-    jactol['mockSlowFlatDecayingDehnenSmoothBarPotential']= -8. #these are more difficult (and also not quite conserved)
-    firstTest= True
-    for p in pots:
-        #Setup instance of potential
-        if p in list(tol.keys()): ttol= tol[p]
-        else: ttol= tol['default']
-        if p in list(jactol.keys()): tjactol= jactol[p]
-        else: tjactol= jactol['default']
-        try:
-            tclass= getattr(potential,p)
-        except AttributeError:
-            tclass= getattr(sys.modules[__name__],p)
-        #if not p == 'NFWPotential' and not p == 'mockSlowFlatDecayingDehnenSmoothBarPotential': continue
-        tp= tclass()
-        if not hasattr(tp,'normalize'): continue #skip these
-        tp.normalize(1.)
-        if hasattr(tp,'toPlanar'):
-            ptp= tp.toPlanar()
+    try:
+        tclass= getattr(potential,pot)
+    except AttributeError:
+        tclass= getattr(sys.modules[__name__],pot)
+    #if not pot == 'NFWPotential' and not pot == 'mockSlowFlatDecayingDehnenSmoothBarPotential': continue
+    tp= tclass()
+    if not hasattr(tp,'normalize'): return None #skip these
+    tp.normalize(1.)
+    if hasattr(tp,'toPlanar'):
+        ptp= tp.toPlanar()
+    else:
+        ptp= None
+    for integrator in integrators:
+        if integrator == 'dopr54_c' \
+                and ('Spiral' in pot or 'Lopsided' in pot \
+                            or 'Dehnen' in pot or 'Cosmphi' in pot):
+            ttimes= growtimes
+        elif integrator == 'dopr54_c' \
+                and not 'MovingObject' in pot \
+                and not pot == 'FerrersPotential': ttimes= times
+        else: ttimes= fasttimes
+        #First track azimuth
+        o= setup_orbit_energy(tp,axi=False,henon='Henon' in pot)
+        if isinstance(tp,testMWPotential):
+            o.integrate(ttimes,tp._potlist,method=integrator)
+        elif isinstance(tp,testplanarMWPotential):
+            o.integrate(ttimes,tp._potlist,method=integrator)
         else:
-            ptp= None
-        for integrator in integrators:
-            if integrator == 'dopr54_c' \
-                    and ('Spiral' in p or 'Lopsided' in p \
-                             or 'Dehnen' in p or 'Cosmphi' in p):
-                ttimes= growtimes
-            elif integrator == 'dopr54_c' \
-                    and not 'MovingObject' in p \
-                    and not p == 'FerrersPotential': ttimes= times
-            else: ttimes= fasttimes
-            #First track azimuth
-            o= setup_orbit_energy(tp,axi=False,henon='Henon' in p)
-            if isinstance(tp,testMWPotential):
-                o.integrate(ttimes,tp._potlist,method=integrator)
-            elif isinstance(tp,testplanarMWPotential):
+            o.integrate(ttimes,tp,method=integrator)
+        tEs= o.E(ttimes)
+        #print(p, integrator, (numpy.std(tEs)/numpy.mean(tEs))**2.)
+        if not 'Bar' in pot and not 'Spiral' in pot \
+                and not 'MovingObject' in pot and not 'Slow' in pot:
+            assert (numpy.std(tEs)/numpy.mean(tEs))**2. < 10.**ttol, \
+                "Energy conservation during the orbit integration fails for potential %s and integrator %s by %g" %(p,integrator,(numpy.std(tEs)/numpy.mean(tEs)))
+        #Jacobi
+        if 'Elliptical' in pot or 'Lopsided' in pot \
+                or 'DehnenSmoothBar' in pot  \
+                or 'SolidBodyRotation' in pot \
+                or 'CorotatingRotation' in pot \
+                or 'GaussianAmplitudeBar' in pot  \
+                or pot == 'mockMovingObjectLongIntPotential' \
+                or 'Cosmphi' in pot or 'triaxialLog' in pot \
+                or 'RotatedAndTilted' in pot \
+                or 'Henon' in pot:
+            tJacobis= o.Jacobi(ttimes,pot=tp)
+        else:
+            tJacobis= o.Jacobi(ttimes)
+#            print(p, (numpy.std(tJacobis)/numpy.mean(tJacobis))**2.)
+        assert (numpy.std(tJacobis)/numpy.mean(tJacobis))**2. < 10.**tjactol, \
+            "Jacobi integral conservation during the orbit integration fails for potential %s and integrator %s at the %g level" %(p,integrator,(numpy.std(tJacobis)/numpy.mean(tJacobis))**2.)
+        if firstTest or 'testMWPotential' in pot:
+            #Some basic checking of the energy and Jacobi functions
+            assert (o.E(pot=None)-o.E(pot=tp))**2. < 10.**ttol, \
+                "Energy calculated with pot=None and pot=the Potential the orbit was integrated with do not agree"
+            assert (o.E()-o.E(0.))**2. < 10.**ttol, \
+                "Energy calculated with o.E() and o.E(0.) do not agree"
+            assert (o.Jacobi(OmegaP=None)-o.Jacobi())**2. < 10.**ttol, \
+                "o.Jacobi calculated with OmegaP=None is not equal to o.Jacobi"
+            assert (o.Jacobi(pot=None)-o.Jacobi(pot=tp))**2. < 10.**ttol, \
+                "o.Jacobi calculated with pot=None is not equal to o.Jacobi with pot=the Potential the orbit was integrated with do not agree"
+            assert (o.Jacobi(pot=None)-o.Jacobi(pot=[tp]))**2. < 10.**ttol, \
+                "o.Jacobi calculated with pot=None is not equal to o.Jacobi with pot=[the Potential the orbit was integrated with] do not agree"
+            if not tp.isNonAxi:
+                assert (o.Jacobi(OmegaP=1.)-o.Jacobi())**2. < 10.**ttol, \
+                    "o.Jacobi calculated with OmegaP=1. for axisymmetric potential is not equal to o.Jacobi (OmegaP=1 is the default for potentials without a pattern speed"
+                assert (o.Jacobi(OmegaP=[0.,0.,1.])-o.Jacobi(OmegaP=1.))**2. < 10.**ttol, \
+                    "o.Jacobi calculated with OmegaP=[0,0,1] for axisymmetric potential is not equal to o.Jacobi with OmegaP=1"
+                assert (o.Jacobi(OmegaP=numpy.array([0.,0.,1.]))-o.Jacobi(OmegaP=1.))**2. < 10.**ttol, \
+                    "o.Jacobi calculated with OmegaP=[0,0,1] for axisymmetric potential is not equal to o.Jacobi with OmegaP=1"
+            o= setup_orbit_energy(tp,axi=False,henon='Henon' in pot)
+            try:
+                o.E()
+            except AttributeError:
+                pass
+            else:
+                raise AssertionError("o.E() before the orbit was integrated did not throw an AttributeError")
+            if not isinstance(tp,potential.linearPotential):
+                try:
+                    o.Jacobi()
+                except AttributeError:
+                    pass
+                else:
+                    raise AssertionError("o.Jacobi() before the orbit was integrated did not throw an AttributeError")
+        if 'MovingObject' in pot:
+            if _QUICKTEST \
+                    and not (('NFW' in pot and not tp.isNonAxi and 'SCF' not in pot)
+                                or 'linearMWPotential' in pot \
+                                    or ('Burkert' in pot and not tp.hasC)):
+                break
+            else: continue
+        # AnyAxisymmetricRazorThinDiskPot has bad behavior for odeint and isn't really meant for orbit integration
+        if 'AnyAxisymmetricRazorThinDiskPotential' in pot: break
+        #Now do axisymmetric
+        if not tp.isNonAxi:
+            o= setup_orbit_energy(tp,axi=True,henon='Henon' in pot)
+            if isinstance(tp,testMWPotential) \
+                    or isinstance(tp,testplanarMWPotential):
                 o.integrate(ttimes,tp._potlist,method=integrator)
             else:
                 o.integrate(ttimes,tp,method=integrator)
             tEs= o.E(ttimes)
-            #print(p, integrator, (numpy.std(tEs)/numpy.mean(tEs))**2.)
-            if not 'Bar' in p and not 'Spiral' in p \
-                    and not 'MovingObject' in p and not 'Slow' in p:
-                assert (numpy.std(tEs)/numpy.mean(tEs))**2. < 10.**ttol, \
-                    "Energy conservation during the orbit integration fails for potential %s and integrator %s by %g" %(p,integrator,(numpy.std(tEs)/numpy.mean(tEs)))
+#            print p, integrator, (numpy.std(tEs)/numpy.mean(tEs))**2.
+            assert (numpy.std(tEs)/numpy.mean(tEs))**2. < 10.**ttol, \
+                "Energy conservation during the orbit integration fails for potential %s and integrator %s by %g" %(p,integrator,(numpy.std(tEs)/numpy.mean(tEs))**2.)
             #Jacobi
-            if 'Elliptical' in p or 'Lopsided' in p \
-                    or 'DehnenSmoothBar' in p  \
-                    or 'SolidBodyRotation' in p \
-                    or 'CorotatingRotation' in p \
-                    or 'GaussianAmplitudeBar' in p  \
-                    or p == 'mockMovingObjectLongIntPotential' \
-                    or 'Cosmphi' in p or 'triaxialLog' in p \
-                    or 'RotatedAndTilted' in p \
-                    or 'Henon' in p:
-                tJacobis= o.Jacobi(ttimes,pot=tp)
-            else:
-                tJacobis= o.Jacobi(ttimes)
-#            print(p, (numpy.std(tJacobis)/numpy.mean(tJacobis))**2.)
+            tJacobis= o.Jacobi(ttimes)
             assert (numpy.std(tJacobis)/numpy.mean(tJacobis))**2. < 10.**tjactol, \
-                "Jacobi integral conservation during the orbit integration fails for potential %s and integrator %s at the %g level" %(p,integrator,(numpy.std(tJacobis)/numpy.mean(tJacobis))**2.)
-            if firstTest or 'testMWPotential' in p:
-                #Some basic checking of the energy and Jacobi functions
+                "Jacobi integral conservation during the orbit integration fails for potential %s and integrator %s" %(p,integrator)
+            if firstTest or 'MWPotential' in pot:
+                #Some basic checking of the energy function
                 assert (o.E(pot=None)-o.E(pot=tp))**2. < 10.**ttol, \
                     "Energy calculated with pot=None and pot=the Potential the orbit was integrated with do not agree"
                 assert (o.E()-o.E(0.))**2. < 10.**ttol, \
@@ -241,135 +213,31 @@ def test_energy_jacobi_conservation():
                 assert (o.Jacobi(pot=None)-o.Jacobi(pot=tp))**2. < 10.**ttol, \
                     "o.Jacobi calculated with pot=None is not equal to o.Jacobi with pot=the Potential the orbit was integrated with do not agree"
                 assert (o.Jacobi(pot=None)-o.Jacobi(pot=[tp]))**2. < 10.**ttol, \
-                    "o.Jacobi calculated with pot=None is not equal to o.Jacobi with pot=[the Potential the orbit was integrated with] do not agree"
-                if not tp.isNonAxi:
-                    assert (o.Jacobi(OmegaP=1.)-o.Jacobi())**2. < 10.**ttol, \
-                        "o.Jacobi calculated with OmegaP=1. for axisymmetric potential is not equal to o.Jacobi (OmegaP=1 is the default for potentials without a pattern speed"
-                    assert (o.Jacobi(OmegaP=[0.,0.,1.])-o.Jacobi(OmegaP=1.))**2. < 10.**ttol, \
-                        "o.Jacobi calculated with OmegaP=[0,0,1] for axisymmetric potential is not equal to o.Jacobi with OmegaP=1"
-                    assert (o.Jacobi(OmegaP=numpy.array([0.,0.,1.]))-o.Jacobi(OmegaP=1.))**2. < 10.**ttol, \
-                        "o.Jacobi calculated with OmegaP=[0,0,1] for axisymmetric potential is not equal to o.Jacobi with OmegaP=1"
-                o= setup_orbit_energy(tp,axi=False,henon='Henon' in p)
+                    "o.Jacobi calculated with pot=None is not equal to o.Jacobi with pot=the Potential the orbit was integrated with do not agree"
+                assert (o.Jacobi(OmegaP=1.)-o.Jacobi())**2. < 10.**ttol, \
+                    "o.Jacobi calculated with OmegaP=1. for axisymmetric potential is not equal to o.Jacobi (OmegaP=1 is the default for potentials without a pattern speed"
+                o= setup_orbit_energy(tp,axi=True,henon='Henon' in pot)
                 try:
                     o.E()
                 except AttributeError:
                     pass
                 else:
                     raise AssertionError("o.E() before the orbit was integrated did not throw an AttributeError")
-                if not isinstance(tp,potential.linearPotential):
-                    try:
-                        o.Jacobi()
-                    except AttributeError:
-                        pass
-                    else:
-                        raise AssertionError("o.Jacobi() before the orbit was integrated did not throw an AttributeError")
-            if 'MovingObject' in p:
-                if _QUICKTEST \
-                        and not (('NFW' in p and not tp.isNonAxi and 'SCF' not in p)
-                                 or 'linearMWPotential' in p \
-                                     or ('Burkert' in p and not tp.hasC)):
-                    break
-                else: continue
-            # AnyAxisymmetricRazorThinDiskPot has bad behavior for odeint and isn't really meant for orbit integration
-            if 'AnyAxisymmetricRazorThinDiskPotential' in p: break
-            #Now do axisymmetric
-            if not tp.isNonAxi:
-                o= setup_orbit_energy(tp,axi=True,henon='Henon' in p)
-                if isinstance(tp,testMWPotential) \
-                        or isinstance(tp,testplanarMWPotential):
-                    o.integrate(ttimes,tp._potlist,method=integrator)
+                try:
+                    o.Jacobi()
+                except AttributeError:
+                    pass
                 else:
-                    o.integrate(ttimes,tp,method=integrator)
-                tEs= o.E(ttimes)
-    #            print p, integrator, (numpy.std(tEs)/numpy.mean(tEs))**2.
-                assert (numpy.std(tEs)/numpy.mean(tEs))**2. < 10.**ttol, \
-                    "Energy conservation during the orbit integration fails for potential %s and integrator %s by %g" %(p,integrator,(numpy.std(tEs)/numpy.mean(tEs))**2.)
-                #Jacobi
-                tJacobis= o.Jacobi(ttimes)
-                assert (numpy.std(tJacobis)/numpy.mean(tJacobis))**2. < 10.**tjactol, \
-                    "Jacobi integral conservation during the orbit integration fails for potential %s and integrator %s" %(p,integrator)
-                if firstTest or 'MWPotential' in p:
-                    #Some basic checking of the energy function
-                    assert (o.E(pot=None)-o.E(pot=tp))**2. < 10.**ttol, \
-                        "Energy calculated with pot=None and pot=the Potential the orbit was integrated with do not agree"
-                    assert (o.E()-o.E(0.))**2. < 10.**ttol, \
-                        "Energy calculated with o.E() and o.E(0.) do not agree"
-                    assert (o.Jacobi(OmegaP=None)-o.Jacobi())**2. < 10.**ttol, \
-                        "o.Jacobi calculated with OmegaP=None is not equal to o.Jacobi"
-                    assert (o.Jacobi(pot=None)-o.Jacobi(pot=tp))**2. < 10.**ttol, \
-                        "o.Jacobi calculated with pot=None is not equal to o.Jacobi with pot=the Potential the orbit was integrated with do not agree"
-                    assert (o.Jacobi(pot=None)-o.Jacobi(pot=[tp]))**2. < 10.**ttol, \
-                        "o.Jacobi calculated with pot=None is not equal to o.Jacobi with pot=the Potential the orbit was integrated with do not agree"
-                    assert (o.Jacobi(OmegaP=1.)-o.Jacobi())**2. < 10.**ttol, \
-                        "o.Jacobi calculated with OmegaP=1. for axisymmetric potential is not equal to o.Jacobi (OmegaP=1 is the default for potentials without a pattern speed"
-                    o= setup_orbit_energy(tp,axi=True,henon='Henon' in p)
-                    try:
-                        o.E()
-                    except AttributeError:
-                        pass
-                    else:
-                        raise AssertionError("o.E() before the orbit was integrated did not throw an AttributeError")
-                    try:
-                        o.Jacobi()
-                    except AttributeError:
-                        pass
-                    else:
-                        raise AssertionError("o.Jacobi() before the orbit was integrated did not throw an AttributeError")
-            if ptp is None:
-                if _QUICKTEST and not (('NFW' in p and not tp.isNonAxi and 'SCF' not in p) \
-                                           or ('Burkert' in p and not tp.hasC)): break
-                else: continue
-            #Same for a planarPotential
-            if p == 'mockRotatedAndTiltedMWP14WrapperPotential': break
+                    raise AssertionError("o.Jacobi() before the orbit was integrated did not throw an AttributeError")
+        if ptp is None:
+            if _QUICKTEST and not (('NFW' in pot and not tp.isNonAxi and 'SCF' not in pot) \
+                                        or ('Burkert' in pot and not tp.hasC)): break
+            else: continue
+        #Same for a planarPotential
+        if pot == 'mockRotatedAndTiltedMWP14WrapperPotential': break
 #            print integrator
-            if not ptp is None and not ptp.isNonAxi:
-                o= setup_orbit_energy(ptp,axi=True)
-                if isinstance(tp,testMWPotential) \
-                        or isinstance(tp,testplanarMWPotential):
-                    o.integrate(ttimes,
-                                potential.toPlanarPotential(tp._potlist),
-                                method=integrator)
-                else:
-                    o.integrate(ttimes,ptp,method=integrator)
-                tEs= o.E(ttimes)
-#                print(p, integrator, (numpy.std(tEs)/numpy.mean(tEs))**2.)
-                assert (numpy.std(tEs)/numpy.mean(tEs))**2. < 10.**ttol, \
-                    "Energy conservation during the orbit integration fails for potential %s and integrator %s" %(p,integrator)
-                #Jacobi
-                tJacobis= o.Jacobi(ttimes)
-                assert (numpy.std(tJacobis)/numpy.mean(tJacobis))**2. < 10.**tjactol, \
-                    "Jacobi integral conservation during the orbit integration fails for potential %s and integrator %s" %(p,integrator)
-                if firstTest or 'MWPotential' in p:
-                    #Some basic checking of the energy function
-                    assert (o.E(pot=None)-o.E(pot=ptp))**2. < 10.**ttol, \
-                        "Energy calculated with pot=None and pot=the planarPotential the orbit was integrated with do not agree for planarPotential"
-                    assert (o.E(pot=None)-o.E(pot=tp))**2. < 10.**ttol, \
-                        "Energy calculated with pot=None and pot=the Potential the orbit was integrated with do not agree for planarPotential"
-                    assert (o.E()-o.E(0.))**2. < 10.**ttol, \
-                        "Energy calculated with o.E() and o.E(0.) do not agree"
-                    assert (o.Jacobi(OmegaP=None)-o.Jacobi())**2. < 10.**ttol, \
-                        "o.Jacobi calculated with OmegaP=None is not equal to o.Jacobi"
-                    assert (o.Jacobi(pot=None)-o.Jacobi(pot=tp))**2. < 10.**ttol, \
-                        "o.Jacobi calculated with pot=None is not equal to o.Jacobi with pot=the Potential the orbit was integrated with do not agree"
-                    assert (o.Jacobi(pot=None)-o.Jacobi(pot=[tp]))**2. < 10.**ttol, \
-                        "o.Jacobi calculated with pot=None is not equal to o.Jacobi with pot=the Potential the orbit was integrated with do not agree"
-                    assert (o.Jacobi(OmegaP=1.)-o.Jacobi())**2. < 10.**ttol, \
-                        "o.Jacobi calculated with OmegaP=1. for axisymmetric potential is not equal to o.Jacobi (OmegaP=1 is the default for potentials without a pattern speed"
-                    o= setup_orbit_energy(ptp,axi=True)
-                    try:
-                        o.E()
-                    except AttributeError:
-                        pass
-                    else:
-                        raise AssertionError("o.E() before the orbit was integrated did not throw an AttributeError")
-                    try:
-                        o.Jacobi()
-                    except AttributeError:
-                        pass
-                    else:
-                        raise AssertionError("o.Jacobi() before the orbit was integrated did not throw an AttributeError")
-            #Same for a planarPotential, track azimuth
-            o= setup_orbit_energy(ptp,axi=False)
+        if not ptp is None and not ptp.isNonAxi:
+            o= setup_orbit_energy(ptp,axi=True)
             if isinstance(tp,testMWPotential) \
                     or isinstance(tp,testplanarMWPotential):
                 o.integrate(ttimes,
@@ -378,20 +246,14 @@ def test_energy_jacobi_conservation():
             else:
                 o.integrate(ttimes,ptp,method=integrator)
             tEs= o.E(ttimes)
-            #print(p, integrator, (numpy.std(tEs)/numpy.mean(tEs))**2.)
-            if not 'Bar' in p and not 'Spiral' in p:
-                assert (numpy.std(tEs)/numpy.mean(tEs))**2. < 10.**ttol, \
-                    "Energy conservation during the orbit integration fails for potential %s and integrator %s by %g" %(p,integrator,(numpy.std(tEs)/numpy.mean(tEs))**2.)
+#                print(p, integrator, (numpy.std(tEs)/numpy.mean(tEs))**2.)
+            assert (numpy.std(tEs)/numpy.mean(tEs))**2. < 10.**ttol, \
+                "Energy conservation during the orbit integration fails for potential %s and integrator %s" %(p,integrator)
             #Jacobi
-            if 'DehnenSmoothBar' in p or 'SolidBodyRotation' in p \
-                    or 'CorotatingRotation' in p \
-                    or 'GaussianAmplitudeBar' in p:
-                tJacobis= o.Jacobi(ttimes,pot=tp)
-            else:
-                tJacobis= o.Jacobi(ttimes)
+            tJacobis= o.Jacobi(ttimes)
             assert (numpy.std(tJacobis)/numpy.mean(tJacobis))**2. < 10.**tjactol, \
-                "Jacobi integral conservation during the orbit integration fails by %g for potential %s and integrator %s" %((numpy.std(tJacobis)/numpy.mean(tJacobis))**2.,p,integrator)
-            if firstTest or 'MWPotential' in p:
+                "Jacobi integral conservation during the orbit integration fails for potential %s and integrator %s" %(p,integrator)
+            if firstTest or 'MWPotential' in pot:
                 #Some basic checking of the energy function
                 assert (o.E(pot=None)-o.E(pot=ptp))**2. < 10.**ttol, \
                     "Energy calculated with pot=None and pot=the planarPotential the orbit was integrated with do not agree for planarPotential"
@@ -407,7 +269,7 @@ def test_energy_jacobi_conservation():
                     "o.Jacobi calculated with pot=None is not equal to o.Jacobi with pot=the Potential the orbit was integrated with do not agree"
                 assert (o.Jacobi(OmegaP=1.)-o.Jacobi())**2. < 10.**ttol, \
                     "o.Jacobi calculated with OmegaP=1. for axisymmetric potential is not equal to o.Jacobi (OmegaP=1 is the default for potentials without a pattern speed"
-                o= setup_orbit_energy(ptp,axi=False)
+                o= setup_orbit_energy(ptp,axi=True)
                 try:
                     o.E()
                 except AttributeError:
@@ -420,57 +282,110 @@ def test_energy_jacobi_conservation():
                     pass
                 else:
                     raise AssertionError("o.Jacobi() before the orbit was integrated did not throw an AttributeError")
-                firstTest= False
-            #Same for a planarPotential, but integrating w/ the potential directly, rather than the toPlanar instance; this tests that those potential attributes are passed to C correctly
-#            print integrator
-            if not ptp is None and not ptp.isNonAxi:
-                o= setup_orbit_energy(ptp,axi=True)
-                if isinstance(tp,testMWPotential) \
-                        or isinstance(tp,testplanarMWPotential):
-                    o.integrate(ttimes,tp._potlist,method=integrator)
-                else:
-                    o.integrate(ttimes,tp,method=integrator)
-                tEs= o.E(ttimes)
-                #print(p, integrator, (numpy.std(tEs)/numpy.mean(tEs))**2.)
-                assert (numpy.std(tEs)/numpy.mean(tEs))**2. < 10.**ttol, \
-                    "Energy conservation during the orbit integration fails for potential %s and integrator %s by %g" %(p,integrator,(numpy.std(tEs)/numpy.mean(tEs))**2.)
-                #Jacobi
-                if 'DehnenSmoothBar' in p or 'SolidBodyRotation' in p \
-                        or 'CorotatingRotation' in p \
-                        or 'GaussianAmplitudeBar' in p:
-                    tJacobis= o.Jacobi(ttimes,pot=tp)
-                else:
-                    tJacobis= o.Jacobi(ttimes)
-                assert (numpy.std(tJacobis)/numpy.mean(tJacobis))**2. < 10.**tjactol, \
-                    "Jacobi integral conservation during the orbit integration fails for potential %s and integrator %s" %(p,integrator)
-            #Same for a planarPotential, track azimuth
+        #Same for a planarPotential, track azimuth
+        o= setup_orbit_energy(ptp,axi=False)
+        if isinstance(tp,testMWPotential) \
+                or isinstance(tp,testplanarMWPotential):
+            o.integrate(ttimes,
+                        potential.toPlanarPotential(tp._potlist),
+                        method=integrator)
+        else:
+            o.integrate(ttimes,ptp,method=integrator)
+        tEs= o.E(ttimes)
+        #print(p, integrator, (numpy.std(tEs)/numpy.mean(tEs))**2.)
+        if not 'Bar' in pot and not 'Spiral' in pot:
+            assert (numpy.std(tEs)/numpy.mean(tEs))**2. < 10.**ttol, \
+                "Energy conservation during the orbit integration fails for potential %s and integrator %s by %g" %(p,integrator,(numpy.std(tEs)/numpy.mean(tEs))**2.)
+        #Jacobi
+        if 'DehnenSmoothBar' in pot or 'SolidBodyRotation' in pot \
+                or 'CorotatingRotation' in pot \
+                or 'GaussianAmplitudeBar' in pot:
+            tJacobis= o.Jacobi(ttimes,pot=tp)
+        else:
+            tJacobis= o.Jacobi(ttimes)
+        assert (numpy.std(tJacobis)/numpy.mean(tJacobis))**2. < 10.**tjactol, \
+            "Jacobi integral conservation during the orbit integration fails by %g for potential %s and integrator %s" %((numpy.std(tJacobis)/numpy.mean(tJacobis))**2.,p,integrator)
+        if firstTest or 'MWPotential' in pot:
+            #Some basic checking of the energy function
+            assert (o.E(pot=None)-o.E(pot=ptp))**2. < 10.**ttol, \
+                "Energy calculated with pot=None and pot=the planarPotential the orbit was integrated with do not agree for planarPotential"
+            assert (o.E(pot=None)-o.E(pot=tp))**2. < 10.**ttol, \
+                "Energy calculated with pot=None and pot=the Potential the orbit was integrated with do not agree for planarPotential"
+            assert (o.E()-o.E(0.))**2. < 10.**ttol, \
+                "Energy calculated with o.E() and o.E(0.) do not agree"
+            assert (o.Jacobi(OmegaP=None)-o.Jacobi())**2. < 10.**ttol, \
+                "o.Jacobi calculated with OmegaP=None is not equal to o.Jacobi"
+            assert (o.Jacobi(pot=None)-o.Jacobi(pot=tp))**2. < 10.**ttol, \
+                "o.Jacobi calculated with pot=None is not equal to o.Jacobi with pot=the Potential the orbit was integrated with do not agree"
+            assert (o.Jacobi(pot=None)-o.Jacobi(pot=[tp]))**2. < 10.**ttol, \
+                "o.Jacobi calculated with pot=None is not equal to o.Jacobi with pot=the Potential the orbit was integrated with do not agree"
+            assert (o.Jacobi(OmegaP=1.)-o.Jacobi())**2. < 10.**ttol, \
+                "o.Jacobi calculated with OmegaP=1. for axisymmetric potential is not equal to o.Jacobi (OmegaP=1 is the default for potentials without a pattern speed"
             o= setup_orbit_energy(ptp,axi=False)
+            try:
+                o.E()
+            except AttributeError:
+                pass
+            else:
+                raise AssertionError("o.E() before the orbit was integrated did not throw an AttributeError")
+            try:
+                o.Jacobi()
+            except AttributeError:
+                pass
+            else:
+                raise AssertionError("o.Jacobi() before the orbit was integrated did not throw an AttributeError")
+            firstTest= False
+        #Same for a planarPotential, but integrating w/ the potential directly, rather than the toPlanar instance; this tests that those potential attributes are passed to C correctly
+#            print integrator
+        if not ptp is None and not ptp.isNonAxi:
+            o= setup_orbit_energy(ptp,axi=True)
             if isinstance(tp,testMWPotential) \
                     or isinstance(tp,testplanarMWPotential):
                 o.integrate(ttimes,tp._potlist,method=integrator)
             else:
                 o.integrate(ttimes,tp,method=integrator)
             tEs= o.E(ttimes)
-#            print p, integrator, (numpy.std(tEs)/numpy.mean(tEs))**2.
-            if not 'Bar' in p and not 'Spiral' in p:
-                assert (numpy.std(tEs)/numpy.mean(tEs))**2. < 10.**ttol, \
-                    "Energy conservation during the orbit integration fails for potential %s and integrator %s" %(p,integrator)
+            #print(p, integrator, (numpy.std(tEs)/numpy.mean(tEs))**2.)
+            assert (numpy.std(tEs)/numpy.mean(tEs))**2. < 10.**ttol, \
+                "Energy conservation during the orbit integration fails for potential %s and integrator %s by %g" %(p,integrator,(numpy.std(tEs)/numpy.mean(tEs))**2.)
             #Jacobi
-            if 'DehnenSmoothBar' in p or 'SolidBodyRotation' in p \
-                    or 'CorotatingRotation' in p \
-                    or 'GaussianAmplitudeBar' in p:
+            if 'DehnenSmoothBar' in pot or 'SolidBodyRotation' in pot \
+                    or 'CorotatingRotation' in pot \
+                    or 'GaussianAmplitudeBar' in pot:
                 tJacobis= o.Jacobi(ttimes,pot=tp)
             else:
                 tJacobis= o.Jacobi(ttimes)
             assert (numpy.std(tJacobis)/numpy.mean(tJacobis))**2. < 10.**tjactol, \
                 "Jacobi integral conservation during the orbit integration fails for potential %s and integrator %s" %(p,integrator)
-            if _QUICKTEST and not (('NFW' in p and not tp.isNonAxi and 'SCF' not in p) \
-                                     or ('Burkert' in p and not tp.hasC)): break
+        #Same for a planarPotential, track azimuth
+        o= setup_orbit_energy(ptp,axi=False)
+        if isinstance(tp,testMWPotential) \
+                or isinstance(tp,testplanarMWPotential):
+            o.integrate(ttimes,tp._potlist,method=integrator)
+        else:
+            o.integrate(ttimes,tp,method=integrator)
+        tEs= o.E(ttimes)
+#            print p, integrator, (numpy.std(tEs)/numpy.mean(tEs))**2.
+        if not 'Bar' in pot and not 'Spiral' in pot:
+            assert (numpy.std(tEs)/numpy.mean(tEs))**2. < 10.**ttol, \
+                "Energy conservation during the orbit integration fails for potential %s and integrator %s" %(p,integrator)
+        #Jacobi
+        if 'DehnenSmoothBar' in pot or 'SolidBodyRotation' in pot \
+                or 'CorotatingRotation' in pot \
+                or 'GaussianAmplitudeBar' in pot:
+            tJacobis= o.Jacobi(ttimes,pot=tp)
+        else:
+            tJacobis= o.Jacobi(ttimes)
+        assert (numpy.std(tJacobis)/numpy.mean(tJacobis))**2. < 10.**tjactol, \
+            "Jacobi integral conservation during the orbit integration fails for potential %s and integrator %s" %(p,integrator)
+        if _QUICKTEST and not (('NFW' in pot and not tp.isNonAxi and 'SCF' not in pot) \
+                                    or ('Burkert' in pot and not tp.hasC)): break
     #raise AssertionError
     return None
 
 # Test whether the energy of 1D orbits is conserved for different integrators
-def test_energy_conservation_linear():
+# Parametrized list of tests generated programmatically in conftest.py
+def test_energy_conservation_linear(pot,ttol,firstTest):
     if _NOLONGINTEGRATIONS: return None
     #Basic parameters for the test
     times= numpy.linspace(0.,210.,5001) #~7.5 Gyr at the Solar circle
@@ -482,117 +397,62 @@ def test_energy_conservation_linear():
                   'leapfrog','leapfrog_c',
                   'rk4_c','rk6_c',
                   'symplec4_c','symplec6_c']
-    #Grab all of the potentials
-    pots= [p for p in dir(potential)
-           if ('Potential' in p and not 'plot' in p and not 'RZTo' in p
-               and not 'FullTo' in p and not 'toPlanar' in p
-               and not 'evaluate' in p and not 'Wrapper' in p
-               and not 'toVertical' in p)]
-    pots.append('specialMiyamotoNagaiPotential')
-    pots.append('specialFlattenedPowerPotential')
-    pots.append('BurkertPotentialNoC')
-    pots.append('testMWPotential')
-    pots.append('testplanarMWPotential')
-    pots.append('testlinearMWPotential')
-    pots.append('mockCombLinearPotential')
-    pots.append('mockSimpleLinearPotential')
-    pots.append('oblateNFWPotential')
-    pots.append('prolateNFWPotential')
-    pots.append('triaxialNFWPotential')
-    pots.append('fullyRotatedTriaxialNFWPotential')
-    pots.append('NFWTwoPowerTriaxialPotential') # for planar-from-full
-    pots.append('mockSCFZeeuwPotential')
-    pots.append('mockSCFNFWPotential')
-    pots.append('mockSCFAxiDensity1Potential')
-    pots.append('mockSCFAxiDensity2Potential')
-    pots.append('sech2DiskSCFPotential')
-    pots.append('expwholeDiskSCFPotential')
-    pots.append('altExpwholeDiskSCFPotential')
-    pots.append('triaxialLogarithmicHaloPotential')
-    pots.append('nestedListPotential')
-    pots.append('mockInterpSphericalPotential')
-    pots.append('mockAdiabaticContractionMWP14WrapperPotential')
-    pots.append('mockRotatedAndTiltedMWP14WrapperPotential')
-    pots.append('testNullPotential')
-    rmpots= ['Potential','MWPotential','MWPotential2014',
-             'MovingObjectPotential',
-             'interpRZPotential', 'linearPotential', 'planarAxiPotential',
-             'planarPotential', 'verticalPotential','PotentialError',
-             'SnapshotRZPotential','InterpSnapshotRZPotential',
-             'EllipsoidalPotential','NumericalPotentialDerivativesMixin',
-             'SphericalPotential','interpSphericalPotential']
-    rmpots.append('SphericalShellPotential')
-    rmpots.append('RingPotential')
-    rmpots.append('SoftenedNeedleBarPotential')
-    if False: #_GHACTIONS:
-        rmpots.append('DoubleExponentialDiskPotential')
-        rmpots.append('RazorThinExponentialDiskPotential')
-    for p in rmpots:
-        pots.remove(p)
-    #tolerances in log10
-    tol= {}
-    tol['default']= -10.
-    tol['DoubleExponentialDiskPotential']= -6. #these are more difficult
-    firstTest= True
-    for p in pots:
-        #Setup instance of potential
-        if p in list(tol.keys()): ttol= tol[p]
-        else: ttol= tol['default']
-        try:
-            tclass= getattr(potential,p)
-        except AttributeError:
-            tclass= getattr(sys.modules[__name__],p)
-        #if not p == 'NFWPotential' and not p == 'mockFlatGaussianAmplitudeBarPotential': continue
-        tp= tclass()
-        if hasattr(tp,'toVertical'):
-            if not hasattr(tp,'normalize'): continue #skip these
-            tp.normalize(1.)
-            tp= tp.toVertical(1.2,phi=0.3)
-        elif isinstance(tp,potential.linearPotential):
-            pass
-        else: # not 3D --> 1D or 1D, so skip
-            continue
-        for integrator in integrators:
-            if integrator == 'dopr54_c' \
-                    and ('Spiral' in p or 'Lopsided' in p \
-                             or 'Dehnen' in p or 'Cosmphi' in p):
-                ttimes= growtimes
-            elif integrator == 'dopr54_c' \
-                    and not 'MovingObject' in p \
-                    and not p == 'FerrersPotential' \
-                    and not p == 'AnyAxisymmetricRazorThinDiskPotential': ttimes= times
-            else: ttimes= fasttimes
-            #First track azimuth
-            o= setup_orbit_energy(tp)
-            if isinstance(tp,testMWPotential):
-                o.integrate(ttimes,tp._potlist,method=integrator)
-            elif isinstance(tp,testplanarMWPotential):
-                o.integrate(ttimes,tp._potlist,method=integrator)
-            elif isinstance(tp,testlinearMWPotential):
-                o.integrate(ttimes,tp._potlist,method=integrator)
+    #Setup instance of potential
+    try:
+        tclass= getattr(potential,pot)
+    except AttributeError:
+        tclass= getattr(sys.modules[__name__],pot)
+    #if not p == 'NFWPotential' and not p == 'mockFlatGaussianAmplitudeBarPotential': continue
+    tp= tclass()
+    if hasattr(tp,'toVertical'):
+        if not hasattr(tp,'normalize'): return None #skip these
+        tp.normalize(1.)
+        tp= tp.toVertical(1.2,phi=0.3)
+    elif isinstance(tp,potential.linearPotential):
+        pass
+    else: # not 3D --> 1D or 1D, so skip
+        return None
+    for integrator in integrators:
+        if integrator == 'dopr54_c' \
+                and ('Spiral' in pot or 'Lopsided' in pot \
+                            or 'Dehnen' in pot or 'Cosmphi' in pot):
+            ttimes= growtimes
+        elif integrator == 'dopr54_c' \
+                and not 'MovingObject' in pot \
+                and not pot == 'FerrersPotential' \
+                and not pot == 'AnyAxisymmetricRazorThinDiskPotential': ttimes= times
+        else: ttimes= fasttimes
+        #First track azimuth
+        o= setup_orbit_energy(tp)
+        if isinstance(tp,testMWPotential):
+            o.integrate(ttimes,tp._potlist,method=integrator)
+        elif isinstance(tp,testplanarMWPotential):
+            o.integrate(ttimes,tp._potlist,method=integrator)
+        elif isinstance(tp,testlinearMWPotential):
+            o.integrate(ttimes,tp._potlist,method=integrator)
+        else:
+            o.integrate(ttimes,tp,method=integrator)
+        tEs= o.E(ttimes)
+        #print(p, integrator, (numpy.std(tEs)/numpy.mean(tEs))**2.)
+        if not 'Bar' in pot and not 'Spiral' in pot \
+                and not 'MovingObject' in pot and not 'Slow' in pot:
+            assert (numpy.std(tEs)/numpy.mean(tEs))**2. < 10.**ttol, \
+                "Energy conservation during the orbit integration fails for potential %s and integrator %s by %g" %(p,integrator,(numpy.std(tEs)/numpy.mean(tEs)))
+        if firstTest or 'testMWPotential' in pot or 'linearMWPotential' in pot:
+            #Some basic checking of the energy function
+            assert (o.E(pot=None)-o.E(pot=tp))**2. < 10.**ttol, \
+                "Energy calculated with pot=None and pot=the Potential the orbit was integrated with do not agree"
+            assert (o.E()-o.E(0.))**2. < 10.**ttol, \
+                "Energy calculated with o.E() and o.E(0.) do not agree"
+            o= setup_orbit_energy(tp,axi=False,henon='Henon' in pot)
+            try:
+                o.E()
+            except AttributeError:
+                pass
             else:
-                o.integrate(ttimes,tp,method=integrator)
-            tEs= o.E(ttimes)
-            #print(p, integrator, (numpy.std(tEs)/numpy.mean(tEs))**2.)
-            if not 'Bar' in p and not 'Spiral' in p \
-                    and not 'MovingObject' in p and not 'Slow' in p:
-                assert (numpy.std(tEs)/numpy.mean(tEs))**2. < 10.**ttol, \
-                    "Energy conservation during the orbit integration fails for potential %s and integrator %s by %g" %(p,integrator,(numpy.std(tEs)/numpy.mean(tEs)))
-            if firstTest or 'testMWPotential' in p or 'linearMWPotential' in p:
-                #Some basic checking of the energy function
-                assert (o.E(pot=None)-o.E(pot=tp))**2. < 10.**ttol, \
-                    "Energy calculated with pot=None and pot=the Potential the orbit was integrated with do not agree"
-                assert (o.E()-o.E(0.))**2. < 10.**ttol, \
-                    "Energy calculated with o.E() and o.E(0.) do not agree"
-                o= setup_orbit_energy(tp,axi=False,henon='Henon' in p)
-                try:
-                    o.E()
-                except AttributeError:
-                    pass
-                else:
-                    raise AssertionError("o.E() before the orbit was integrated did not throw an AttributeError")
-            if _QUICKTEST and not (p == 'NFWPotential' \
-                                  or ('Burkert' in p and not tp.hasC)): break
+                raise AssertionError("o.E() before the orbit was integrated did not throw an AttributeError")
+        if _QUICKTEST and not (pot == 'NFWPotential' \
+                                or ('Burkert' in pot and not tp.hasC)): break
     return None
 
 # Test some long-term integrations for the symplectic integrators
