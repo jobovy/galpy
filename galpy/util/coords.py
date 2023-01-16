@@ -84,6 +84,7 @@ _APY_COORDS= __config__.getboolean('astropy','astropy-coords')
 _APY_COORDS*= _APY_LOADED
 _DEGTORAD= numpy.pi/180.
 if _APY_LOADED:
+    import astropy.coordinates as apycoords
     from astropy import units
     _K= (1.*units.mas/units.yr).to(units.km/units.s/units.kpc,
                                    equivalencies=units.dimensionless_angles())\
@@ -92,7 +93,6 @@ else:
     _K=4.74047
 # numpy 1.14 einsum bug causes astropy conversions to fail in py2.7 -> turn off
 if _APY_COORDS:
-    import astropy.coordinates as apycoords
     ra, dec= numpy.array([192.25*_DEGTORAD]), numpy.array([27.4*_DEGTORAD])
     c= apycoords.SkyCoord(ra*units.rad,dec*units.rad,
                           equinox='B1950',frame='fk4')
