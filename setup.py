@@ -289,6 +289,7 @@ setup(cmdclass=dict(build_ext=BuildExt), # this to allow compiler check above
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
+        "Environment :: WebAssembly :: Emscripten",        
         "Topic :: Scientific/Engineering :: Astronomy",
         "Topic :: Scientific/Engineering :: Physics"]
       )
