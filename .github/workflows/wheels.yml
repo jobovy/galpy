@@ -37,7 +37,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - name: Install GSL (Windows / Mac OS x86_64)
-        uses: mamba-org/provision-with-micromamba@v14
+        uses: mamba-org/provision-with-micromamba@v15
         if: matrix.buildplat[1] == 'win' || ( matrix.buildplat[1] == 'macosx' && matrix.buildplat[2] == 'x86_64' )
         with:
           environment-name: gsl
