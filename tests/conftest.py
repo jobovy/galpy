@@ -1,10 +1,4 @@
-import warnings
-
-
 def pytest_generate_tests(metafunc):
-    # Ignore pynbody deprecation error (see pynbody#700)
-    warnings.filterwarnings("ignore", category=DeprecationWarning,
-                            message="'xdrlib' is deprecated and slated for removal in Python 3.13")
     # galpy imports must be hear to not interfere with different config settings
     # in different files
     # Maybe I should define a cmdline option to set the config instead...
