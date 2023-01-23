@@ -3,7 +3,7 @@ from packaging.version import parse as parse_version
 
 _NUMPY_VERSION= parse_version(numpy.__version__)
 _NUMPY_GE_1_22= (_NUMPY_VERSION > parse_version('1.21'))\
-    *(_NUMPY_VERSION < parse_version('1.24'))
+    *(_NUMPY_VERSION < parse_version('1.25'))
 import astropy
 import pytest
 

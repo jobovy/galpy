@@ -124,12 +124,16 @@ class actionAngle(metaclass=MetaActionAngle):
            2020-04-22 - Don't turn on a parameter when it is False - Bovy (UofT)
 
         """
-        if not ro is False: self._roSet= True
-        if not vo is False: self._voSet= True
-        if not ro is None and ro:
-            self._ro= conversion.parse_length_kpc(ro)
-        if not vo is None and vo:
-            self._vo= conversion.parse_velocity_kms(vo)
+        if not ro is False:
+            self._roSet= True
+            ro= conversion.parse_length_kpc(ro)
+            if not ro is None:
+                self._ro= ro
+        if not vo is False:
+            self._voSet= True
+            vo= conversion.parse_velocity_kms(vo)
+            if not vo is None:
+                self._vo= vo
         return None
 
     def _parse_eval_args(self,*args,**kwargs):
@@ -143,14 +147,7 @@ class actionAngle(metaclass=MetaActionAngle):
         HISTORY:
            2010-07-11 - Written - Bovy (NYU)
         """
-        if len(args) == 3: #R, vR, vT
-            R,vR,vT= args
-            self._eval_R= R
-            self._eval_vR= vR
-            self._eval_vT= vT
-            self._eval_z= numpy.zeros_like(R)
-            self._eval_vz= numpy.zeros_like(R)
-        elif len(args) == 5: #R,vR.vT, z, vz
+        if len(args) == 5: #R,vR.vT, z, vz
             R,vR,vT, z, vz= args
             self._eval_R= R
             self._eval_vR= vR

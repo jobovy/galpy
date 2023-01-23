@@ -23,6 +23,7 @@ Plotting
    :maxdepth: 2
 
    animate <orbitanimate.rst>
+   animate3d <orbitanimate3d.rst>
    plot <orbitplot.rst>
    plot3d <orbitplot3d.rst>
 
@@ -60,13 +61,13 @@ Methods
    ER <orbitER.rst>
    Ez <orbitEz.rst>
    flip <orbitflip.rst>
-   integrate <orbitint.rst>
-   integrate_dxdv <orbitintdxdv.rst>
    getOrbit <orbitgetorbit.rst>
    getOrbit_dxdv <orbitgetorbitdxdv.rst>
    helioX <orbitheliox.rst>
    helioY <orbithelioy.rst>
    helioZ <orbithelioz.rst>
+   integrate <orbitint.rst>
+   integrate_dxdv <orbitintdxdv.rst>
    Jacobi <orbitJacobi.rst>
    jp <orbitjp.rst>
    jr <orbitjr.rst>

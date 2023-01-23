@@ -1,11 +1,56 @@
-v1.8.1 (XXXX-XX-XX)
+v1.8.2 (2023-XX-XX)
+===================
+
+- Added actionAngleVertical to the public API, an actionAngle class for
+  1D action-angle calculations. actionAngleVertical was used internally in galpy
+  before, but now follows the usual method structure for actionAngle classes.
+
+- Added actionAngleVerticalInverse, an inverse actionAngle class that allows one
+  to go from (x,v) -> (J,theta,Omega) for 1D potentials using a custom
+  implementation of the torus machinery with point transformations.
+
+- Made the potential input explicitly positional-only for all galpy.potential
+  functions to avoid errors when specifying it as a keyword argument.
+
+- Rewrite actionAngleAdiabatic's Python implementation as a combination of
+  actionAngleSpherical (for the 2D planar part) and actionAngleVertical (for
+  the 1D vertical part).
+
+- Dropped Python 3.7 support (to allow required positional-only arguments
+  using PEP 570).
+
+- Dropped Appveyor CI builds entirely, now only using GitHub Actions for CI.
+
+- Added Orbit.animate3d to display a 3D animation of an integrated orbit (#532)
+  with an optional Milky-Way representation at the origin when plotting x,y,z.
+
+- Improved the performance of Orbit.animate performance by using webgl, some UI
+  tweaks. Also fixed using Orbit.animate in jupyterlab and retrolab (latter
+  #534).
+
+- Run tests with deprecation warnings of various types (DeprecationWarning,
+  FutureWarning, AstropyDeprecationWarning) turned into errors to guard against
+  coming deprecations (#538)
+
+v1.8.1 (2022-10-31)
 ===================
 
 - Changed estimateDeltaStaeckel to by default return delta0=1e-6 when
   delta<delta0, because giving delta=0 to an actionAngleStaeckel instance
   does not work.
 
-- Added pre-commit hooks.
+- Added pre-commit hooks. Many changes to all files for imports, code style,
+  spelling, etc.
+
+- Added dependabot alerts to keep GitHub Actions dependencies up to date.
+
+- Added Python 3.11 wheels for all major platforms. Added Python >=3.8 wheels
+  for arm64 Macs (M1s)
+
+- Switched to using cibuildwheel to build Linux, Mac (incl. M1/arm64), and
+  Windows wheels.
+
+- Switched to using pyodide-build to build the pyodide wheel.
 
 v1.8.0 (2022-07-04)
 ===================

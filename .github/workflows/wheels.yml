@@ -33,14 +33,11 @@ jobs:
         - [macos-latest, macosx, x86_64]
         - [macos-latest, macosx, arm64]
         - [windows-2019, win, amd64]
-        python: ["cp37", "cp38", "cp39", "cp310", "cp311"]
-        exclude:
-          - buildplat: [macos-latest, macosx, arm64]
-            python: "cp37"
+        python: ["cp38", "cp39", "cp310", "cp311"]
     steps:
       - uses: actions/checkout@v3
       - name: Install GSL (Windows / Mac OS x86_64)
-        uses: mamba-org/provision-with-micromamba@v13
+        uses: mamba-org/provision-with-micromamba@v15
         if: matrix.buildplat[1] == 'win' || ( matrix.buildplat[1] == 'macosx' && matrix.buildplat[2] == 'x86_64' )
         with:
           environment-name: gsl
@@ -86,7 +83,7 @@ jobs:
           rsync -azv gsl/lib/ /usr/local/lib/
           echo "REPAIR_LIBRARY_PATH=/usr/local/lib/" >> $GITHUB_ENV # https://github.com/pypa/cibuildwheel/issues/816#issuecomment-916197079
       - name: Build wheels
-        uses: pypa/cibuildwheel@v2.11.1
+        uses: pypa/cibuildwheel@v2.12.0
         env:
           CIBW_BUILD: ${{ matrix.python }}-${{ matrix.buildplat[1] }}_${{ matrix.buildplat[2] }}
           CIBW_BEFORE_BUILD_LINUX: yum -y install gsl-devel

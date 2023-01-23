@@ -14,6 +14,7 @@ from galpy.df import (constantbetadf, constantbetaHernquistdf, eddingtondf,
                       isotropicHernquistdf, isotropicNFWdf, isotropicPlummerdf,
                       jeans, kingdf, osipkovmerrittdf,
                       osipkovmerrittHernquistdf, osipkovmerrittNFWdf)
+from galpy.util import galpyWarning
 
 
 ############################# ISOTROPIC HERNQUIST DF ##########################
@@ -1393,7 +1394,7 @@ def test_osipkovmerritt_dehnencore_in_nfw_Qoutofbounds():
 ################################ CONSTANT-BETA DF #############################
 # Test against the known analytical solution for Hernquist
 def test_constantbetadf_against_hernquist():
-    if WIN32: return None # skip on appveyor, because no JAX
+    if WIN32: return None # skip on Windows, because no JAX
     pot= potential.HernquistPotential(amp=2.3,a=1.3)
     betas= [-1.7,-0.7,-0.5,-0.4,0.,0.3,0.52]
     for beta in betas:
@@ -1407,7 +1408,7 @@ def test_constantbetadf_against_hernquist():
 # For the following tests, we use a DehnenCoreSphericalPotential
 constantbeta_dfs_selfconsist= None # re-use in other tests
 def test_constantbeta_selfconsist_dehnencore_dens_spherically_symmetric():
-    if WIN32: return None # skip on appveyor, because no JAX
+    if WIN32: return None # skip on Windows, because no JAX
     pot= potential.DehnenCoreSphericalPotential(amp=2.5,a=1.15)
     twobetas= [-1]
     global constantbeta_dfs_selfconsist
@@ -1434,7 +1435,7 @@ def test_constantbeta_selfconsist_dehnencore_dens_spherically_symmetric():
     return None
 
 def test_constantbeta_selfconsist_dehnencore_dens_massprofile():
-    if WIN32: return None # skip on appveyor, because no JAX
+    if WIN32: return None # skip on Windows, because no JAX
     pot= potential.DehnenCoreSphericalPotential(amp=2.5,a=1.15)
     twobetas= [-1]
     for twobeta,dfh in zip(twobetas,constantbeta_dfs_selfconsist):
@@ -1447,7 +1448,7 @@ def test_constantbeta_selfconsist_dehnencore_dens_massprofile():
     return None
 
 def test_constantbeta_selfconsist_dehnencore_sigmar():
-    if WIN32: return None # skip on appveyor, because no JAX
+    if WIN32: return None # skip on Windows, because no JAX
     pot= potential.DehnenCoreSphericalPotential(amp=2.5,a=1.15)
     twobetas= [-1]
     for twobeta,dfh in zip(twobetas,constantbeta_dfs_selfconsist):
@@ -1461,7 +1462,7 @@ def test_constantbeta_selfconsist_dehnencore_sigmar():
     return None
 
 def test_constantbeta_selfconsist_dehnencore_beta():
-    if WIN32: return None # skip on appveyor, because no JAX
+    if WIN32: return None # skip on Windows, because no JAX
     pot= potential.DehnenCoreSphericalPotential(amp=2.5,a=1.15)
     twobetas= [-1]
     for twobeta,dfh in zip(twobetas,constantbeta_dfs_selfconsist):
@@ -1474,7 +1475,7 @@ def test_constantbeta_selfconsist_dehnencore_beta():
     return None
 
 def test_constantbeta_selfconsist_dehnencore_dens_directint():
-    if WIN32: return None # skip on appveyor, because no JAX
+    if WIN32: return None # skip on Windows, because no JAX
     pot= potential.DehnenCoreSphericalPotential(amp=2.5,a=1.15)
     twobetas= [-1]
     for twobeta,dfh in zip(twobetas,constantbeta_dfs_selfconsist):
@@ -1486,7 +1487,7 @@ def test_constantbeta_selfconsist_dehnencore_dens_directint():
     return None
 
 def test_constantbeta_selfconsist_dehnencore_meanvr_directint():
-    if WIN32: return None # skip on appveyor, because no JAX
+    if WIN32: return None # skip on Windows, because no JAX
     pot= potential.DehnenCoreSphericalPotential(amp=2.5,a=1.15)
     twobetas= [-1]
     for twobeta,dfh in zip(twobetas,constantbeta_dfs_selfconsist):
@@ -1496,7 +1497,7 @@ def test_constantbeta_selfconsist_dehnencore_meanvr_directint():
     return None
 
 def test_constantbeta_selfconsist_dehnencore_sigmar_directint():
-    if WIN32: return None # skip on appveyor, because no JAX
+    if WIN32: return None # skip on Windows, because no JAX
     pot= potential.DehnenCoreSphericalPotential(amp=2.5,a=1.15)
     twobetas= [-1]
     for twobeta,dfh in zip(twobetas,constantbeta_dfs_selfconsist):
@@ -1511,7 +1512,7 @@ def test_constantbeta_selfconsist_dehnencore_sigmar_directint():
 # We don't do this test, because it is trivially satisfied by
 # any f(E,L) = L^(-2beta) f1(E)
 #def test_constantbeta_selfconsist_dehnencore_beta_directint():
-#    if WIN32: return None # skip on appveyor, because no JAX
+#    if WIN32: return None # skip on Windows, because no JAX
 #    pot= potential.DehnenCoreSphericalPotential(amp=2.5,a=1.15)
 #    twobetas= [-1]
 #    for twobeta,dfh in zip(twobetas,constantbeta_dfs_selfconsist):
@@ -1523,7 +1524,7 @@ def test_constantbeta_selfconsist_dehnencore_sigmar_directint():
 #    return None
 
 def test_constantbeta_selfconsist_dehnencore_Qoutofbounds():
-    if WIN32: return None # skip on appveyor, because no JAX
+    if WIN32: return None # skip on Windows, because no JAX
     pot= potential.DehnenCoreSphericalPotential(amp=2.5,a=1.15)
     twobetas= [-1]
     for twobeta,dfh in zip(twobetas,constantbeta_dfs_selfconsist):
@@ -1535,7 +1536,7 @@ def test_constantbeta_selfconsist_dehnencore_Qoutofbounds():
 
 # Also some tests with rmin in sampling
 def test_constantbeta_selfconsist_dehnencore_rmin_inbounds():
-    if WIN32: return None # skip on appveyor, because no JAX
+    if WIN32: return None # skip on Windows, because no JAX
     pot= potential.DehnenCoreSphericalPotential(amp=2.5,a=1.15)
     twobetas= [-1]
     rmin = 0.5
@@ -1551,7 +1552,7 @@ def test_constantbeta_selfconsist_dehnencore_rmin_inbounds():
 # an NFW halo
 constantbeta_dfs_dehnencore_in_nfw= None # re-use in other tests
 def test_constantbeta_dehnencore_in_nfw_dens_spherically_symmetric():
-    if WIN32: return None # skip on appveyor, because no JAX
+    if WIN32: return None # skip on Windows, because no JAX
     pot= potential.NFWPotential(amp=2.3,a=1.3)
     denspot= potential.DehnenCoreSphericalPotential(amp=2.5,a=1.15)
     betas= [0.25]
@@ -1579,7 +1580,7 @@ def test_constantbeta_dehnencore_in_nfw_dens_spherically_symmetric():
     return None
 
 def test_constantbeta_dehnencore_in_nfw_dens_massprofile():
-    if WIN32: return None # skip on appveyor, because no JAX
+    if WIN32: return None # skip on Windows, because no JAX
     pot= potential.NFWPotential(amp=2.3,a=1.3)
     denspot= potential.DehnenCoreSphericalPotential(amp=2.5,a=1.15)
     betas= [0.25]
@@ -1593,7 +1594,7 @@ def test_constantbeta_dehnencore_in_nfw_dens_massprofile():
     return None
 
 def test_constantbeta_dehnencore_in_nfw_sigmar():
-    if WIN32: return None # skip on appveyor, because no JAX
+    if WIN32: return None # skip on Windows, because no JAX
     # Use list
     pot= [potential.NFWPotential(amp=2.3,a=1.3)]
     denspot= potential.DehnenCoreSphericalPotential(amp=2.5,a=1.15)
@@ -1612,7 +1613,7 @@ def test_constantbeta_dehnencore_in_nfw_sigmar():
     return None
 
 def test_constantbeta_dehnencore_in_nfw_beta():
-    if WIN32: return None # skip on appveyor, because no JAX
+    if WIN32: return None # skip on Windows, because no JAX
     # Use list
     pot= potential.NFWPotential(amp=2.3,a=1.3)
     denspot= [potential.DehnenCoreSphericalPotential(amp=2.5,a=1.15)]
@@ -1628,7 +1629,7 @@ def test_constantbeta_dehnencore_in_nfw_beta():
 
 # Here in this case so it gets run before fE is changed for directint tests
 def test_constantbeta_dehnencore_in_nfw_Qoutofbounds():
-    if WIN32: return None # skip on appveyor, because no JAX
+    if WIN32: return None # skip on Windows, because no JAX
     pot= potential.NFWPotential(amp=2.3,a=1.3)
     denspot= potential.DehnenCoreSphericalPotential(amp=2.5,a=1.15)
     betas= [0.25]
@@ -1640,7 +1641,7 @@ def test_constantbeta_dehnencore_in_nfw_Qoutofbounds():
     return None
 
 def test_constantbeta_dehnencore_in_nfw_dens_directint():
-    if WIN32: return None # skip on appveyor, because no JAX
+    if WIN32: return None # skip on Windows, because no JAX
     # Use list for both
     pot= [potential.NFWPotential(amp=2.3,a=1.3)]
     denspot= [potential.DehnenCoreSphericalPotential(amp=2.5,a=1.15)]
@@ -1655,7 +1656,7 @@ def test_constantbeta_dehnencore_in_nfw_dens_directint():
     return None
 
 def test_constantbeta_dehnencore_in_nfw_meanvr_directint():
-    if WIN32: return None # skip on appveyor, because no JAX
+    if WIN32: return None # skip on Windows, because no JAX
     pot= potential.NFWPotential(amp=2.3,a=1.3)
     denspot= potential.DehnenCoreSphericalPotential(amp=2.5,a=1.15)
     betas= [0.25]
@@ -1667,7 +1668,7 @@ def test_constantbeta_dehnencore_in_nfw_meanvr_directint():
     return None
 
 def test_constantbeta_dehnencore_in_nfw_sigmar_directint():
-    if WIN32: return None # skip on appveyor, because no JAX
+    if WIN32: return None # skip on Windows, because no JAX
     pot= potential.NFWPotential(amp=2.3,a=1.3)
     denspot= potential.DehnenCoreSphericalPotential(amp=2.5,a=1.15)
     betas= [0.25]
@@ -1683,7 +1684,7 @@ def test_constantbeta_dehnencore_in_nfw_sigmar_directint():
     return None
 
 #def test_constantbeta_dehnencore_in_nfw_beta_directint():
-#    if WIN32: return None # skip on appveyor, because no JAX
+#    if WIN32: return None # skip on Windows, because no JAX
 #    pot= potential.NFWPotential(amp=2.3,a=1.3)
 #    denspot= potential.DehnenCoreSphericalPotential(amp=2.5,a=1.15)
 #    betas= [0.25]
@@ -1700,7 +1701,7 @@ def test_constantbeta_dehnencore_in_nfw_sigmar_directint():
 # If you implement the required potential derivatives and force in JAX,
 # add your potential to the tests here; use a quick twobeta (odd int)!
 def test_constantbeta_differentpotentials_dens_directint():
-    if WIN32: return None # skip on appveyor, because no JAX
+    if WIN32: return None # skip on Windows, because no JAX
     # Combinations of potentials and betas
     pots= [potential.HernquistPotential(amp=2.3,a=1.3),
            potential.PowerSphericalPotential(amp=1.3,alpha=1.9),
@@ -1753,7 +1754,7 @@ def test_anisotropic_hernquist_negdf():
     pot= potential.HernquistPotential(amp=2.3,a=1.3)
     # beta > 0.5 has negative DF parts
     dfh= constantbetaHernquistdf(pot=pot,beta=0.7)
-    with pytest.warns(None) as record:
+    with pytest.warns(galpyWarning) as record:
         samp= dfh.sample(n=100)
     raisedWarning= False
     for rec in record:

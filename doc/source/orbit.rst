@@ -738,9 +738,18 @@ which gives
 .. raw:: html
    :file: orbitanim2proj.html
 
+You can also animate orbit in 3D with an optional Milky Way galaxy centered at the origin
+
+>>> op.animate3d(mw_plane_bg=True)
+
+which gives
+
+.. raw:: html
+   :file: orbitanim3d.html
+
 If you want to embed the animation in a webpage, you can obtain the necessary HTML using the ``_repr_html_()`` function of the IPython.core.display.HTML object returned by ``animate``. By default, the HTML includes the entire orbit's data, but ``animate`` also has an option to store the orbit in a separate ``JSON`` file that will then be loaded by the output HTML code.
 
-``animate`` also works in principle for ``Orbit`` instances containing multiple objects, but in practice the resulting animation is very slow once more than a few orbits/projections are used.
+``animate`` and ``animate3d`` also work for ``Orbit`` instances containing multiple objects.
 
 Orbit characterization
 ----------------------
@@ -1360,7 +1369,10 @@ Directly using these accelerations in the ``NonInertialFrameForce`` is very
 slow (because they have to be evaluated *a lot* during orbit integration),
 so we build interpolated versions to speed things up:
 
->>> t_intunits= o.time(use_physical=False)[::-1] # need to reverse the order for interp
+>>> if o.time(use_physical=False)[0] > o.time(use_physical=False)[1]:
+>>>     t_intunits= o.time(use_physical=False)[::-1] # need to reverse the order for interp
+>>> else:
+>>>     t_intunits= o.time(use_physical=False)
 >>> ax4int= numpy.array([ax(t) for t in t_intunits])
 >>> ax_int= lambda t: numpy.interp(t,t_intunits,ax4int)
 >>> ay4int= numpy.array([ay(t) for t in t_intunits])

@@ -7,6 +7,7 @@ PY3= sys.version > '3'
 import numpy
 
 from galpy import potential
+from galpy.util import galpyWarning
 
 
 def test_ChandrasekharDynamicalFrictionForce_constLambda():
@@ -282,7 +283,7 @@ def test_dynamfric_c_minr_warning():
     cdf= potential.ChandrasekharDynamicalFrictionForce(\
         GMs=0.5553870441722593,rhm=5./8.,dens=pot,minr=1.)
     # Integrate, should raise warning
-    with pytest.warns(None) as record:
+    with pytest.warns(galpyWarning) as record:
         o.integrate(times,pot+cdf,method=integrator)
     raisedWarning= False
     for rec in record:

@@ -1,4 +1,4 @@
-__version__ = "1.8.1.dev0"
+__version__ = "1.8.2.dev0"
 # Check whether a new version is available
 import datetime
 import http.client
@@ -6,6 +6,7 @@ import platform
 import subprocess
 import sys
 
+from packaging.version import Version
 from packaging.version import parse as parse_version
 
 from .util.config import (__config__, __orig__config__, configfilename,
@@ -33,7 +34,12 @@ def latest_pypi_version(name):
                                         capture_output=True, text=True))
         latest_version= latest_version[latest_version.find('(from versions:')+15:]
         latest_version= latest_version[:latest_version.find(')')]
-        latest_version= latest_version.replace(' ','').split(',')[-1]
+        latest_version= latest_version.replace(' ','').split(',')
+        # Remove any pre-releases
+        latest_version= [v for v in latest_version
+                         if not Version(v).is_prerelease]
+        # Latest is now the final one
+        latest_version= latest_version[-1]
     except Exception: # pragma: no cover
         return __version__
     else:

@@ -200,7 +200,7 @@ er12 = -0.2235530786388629525884427845e-1
 
 # machine limit related info from numpy
 unsigned_int_max = numpy.iinfo(numpy.int32).max
-uround = numpy.finfo(numpy.float).eps
+uround = numpy.finfo(numpy.float64).eps
 
 
 def custom_sign(a, b):

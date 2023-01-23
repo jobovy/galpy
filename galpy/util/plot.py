@@ -1129,7 +1129,7 @@ class GalPolarAxes(PolarAxes):
 
     class GalPolarTransform(PolarAxes.PolarTransform):
         def transform(self, tr):
-            xy   = numpy.zeros(tr.shape, numpy.float_)
+            xy   = numpy.zeros(tr.shape, numpy.float64)
             t    = tr[:, 0:1]
             r    = tr[:, 1:2]
             x    = xy[:, 0:1]

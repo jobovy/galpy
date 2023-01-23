@@ -95,16 +95,6 @@ after_test:
   - set LIBPATH=%CONDA_PREFIX%\Library\lib;%LIBPATH%
   - python setup.py bdist_wheel
   - conda deactivate
-  # Python 3.7
-  - conda create -n py37 python=3.7 numpy scipy matplotlib setuptools pip pytest gsl
-  - conda activate py37
-  - conda remove --name py38 --all
-  - pip install wheel
-  - set INCLUDE=%CONDA_PREFIX%\Library\include;%INCLUDE%
-  - set LIB=%CONDA_PREFIX%\Library\lib;%LIB%
-  - set LIBPATH=%CONDA_PREFIX%\Library\lib;%LIBPATH%
-  - python setup.py bdist_wheel
-  - conda deactivate
   # Upload as artifacts
   - ps: |
       if ($env:BUILD_WHEELS -eq "true") {

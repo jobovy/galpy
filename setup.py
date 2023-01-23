@@ -260,7 +260,7 @@ class BuildExt(build_ext):
 
 setup(cmdclass=dict(build_ext=BuildExt), # this to allow compiler check above
       name='galpy',
-      version='1.8.1.dev0',
+      version='1.8.2.dev0',
       description='Galactic Dynamics in python',
       author='Jo Bovy',
       author_email='bovy@astro.utoronto.ca',
@@ -276,6 +276,7 @@ setup(cmdclass=dict(build_ext=BuildExt), # this to allow compiler check above
                     'galpy/df':['data/*.sav'],
                     "": ["README.md","README.dev","LICENSE","AUTHORS.rst"]},
       include_package_data=True,
+      python_requires='>=3.8',
       install_requires=['packaging','numpy>=1.7','scipy','matplotlib'],
       ext_modules=ext_modules if not no_compiler and not no_ext else None,
       classifiers=[
@@ -284,10 +285,11 @@ setup(cmdclass=dict(build_ext=BuildExt), # this to allow compiler check above
         "License :: OSI Approved :: BSD License",
         "Operating System :: OS Independent",
         "Programming Language :: C",
-        "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
+        "Environment :: WebAssembly :: Emscripten",
         "Topic :: Scientific/Engineering :: Astronomy",
         "Topic :: Scientific/Engineering :: Physics"]
       )

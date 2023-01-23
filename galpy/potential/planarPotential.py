@@ -12,7 +12,8 @@ from ..util.conversion import (physical_compatible, physical_conversion,
 from .DissipativeForce import _isDissipative
 from .plotEscapecurve import _INF, plotEscapecurve
 from .plotRotcurve import plotRotcurve
-from .Potential import Potential, PotentialError, flatten, lindbladR
+from .Potential import (Potential, PotentialError, flatten, lindbladR,
+                        potential_positional_arg)
 
 
 class planarPotential:
@@ -174,12 +175,16 @@ class planarPotential:
            2020-04-22 - Don't turn on a parameter when it is False - Bovy (UofT)
 
         """
-        if not ro is False: self._roSet= True
-        if not vo is False: self._voSet= True
-        if not ro is None and ro:
-            self._ro= conversion.parse_length_kpc(ro)
-        if not vo is None and vo:
-            self._vo= conversion.parse_velocity_kms(vo)
+        if not ro is False:
+            self._roSet= True
+            ro= conversion.parse_length_kpc(ro)
+            if not ro is None:
+                self._ro= ro
+        if not vo is False:
+            self._voSet= True
+            vo= conversion.parse_velocity_kms(vo)
+            if not vo is None:
+                self._vo= vo
         return None
 
     @potential_physical_input
@@ -1017,6 +1022,7 @@ def toPlanarPotential(Pot):
     else:
         raise PotentialError("Input to 'toPlanarPotential' is neither an Potential-instance or a list of such instances")
 
+@potential_positional_arg
 @potential_physical_input
 @physical_conversion('energy',pop=True)
 def evaluateplanarPotentials(Pot,R,phi=None,t=0.,dR=0,dphi=0):
@@ -1074,6 +1080,7 @@ def _evaluateplanarPotentials(Pot,R,phi=None,t=0.,dR=0,dphi=0):
     else: #pragma: no cover
         raise PotentialError("Input to 'evaluatePotentials' is neither a Potential-instance or a list of such instances")
 
+@potential_positional_arg
 @potential_physical_input
 @physical_conversion('force',pop=True)
 def evaluateplanarRforces(Pot,R,phi=None,t=0.):
@@ -1131,10 +1138,12 @@ def _evaluateplanarRforces(Pot,R,phi=None,t=0.):
     else: #pragma: no cover
         raise PotentialError("Input to 'evaluatePotentials' is neither a Potential-instance or a list of such instances")
 
+@potential_positional_arg
 def evaluateplanarphiforces(Pot,R,phi=None,t=0.):
    warnings.warn('evaluateplanarphiforces has been renamed evaluateplanarphitorques, because it has always really been a torque (per unit mass); please switch to the new method name, because the old name will be removed in v1.9 and may be re-used for the actual phi force component',FutureWarning)
    return evaluateplanarphitorques(Pot,R,phi=phi,t=t)
 
+@potential_positional_arg
 @potential_physical_input
 @physical_conversion('energy',pop=True)
 def evaluateplanarphitorques(Pot,R,phi=None,t=0.):
@@ -1191,6 +1200,7 @@ def _evaluateplanarphitorques(Pot,R,phi=None,t=0.):
     else: #pragma: no cover
         raise PotentialError("Input to 'evaluatePotentials' is neither a Potential-instance or a list of such instances")
 
+@potential_positional_arg
 @potential_physical_input
 @physical_conversion('forcederivative',pop=True)
 def evaluateplanarR2derivs(Pot,R,phi=None,t=0.):
@@ -1246,7 +1256,7 @@ def evaluateplanarR2derivs(Pot,R,phi=None,t=0.):
 
 def LinShuReductionFactor(axiPot,R,sigmar,nonaxiPot=None,
                           k=None,m=None,OmegaP=None):
-    """
+    r"""
     NAME:
 
        LinShuReductionFactor
@@ -1269,7 +1279,7 @@ def LinShuReductionFactor(axiPot,R,sigmar,nonaxiPot=None,
 
           k= wavenumber (see Binney & Tremaine 2008)
 
-          OmegaP= pattern speed (can be Quantity)
+          OmegaP= pattern speed (can be Quantity); note that in the usual Lin-Shu formula \omega = m x OmegaP
 
        2) nonaxiPot= a non-axisymmetric Potential instance (such as SteadyLogSpiralPotential) that has functions that return OmegaP, m, and wavenumber
 
@@ -1291,6 +1301,7 @@ def LinShuReductionFactor(axiPot,R,sigmar,nonaxiPot=None,
         k= nonaxiPot.wavenumber(R)
         m= nonaxiPot.m()
     tepif= epifreq(axiPot,R)
+    # We define omega = m x OmegaP in the usual Lin-Shu formula
     s= m*(OmegaP-omegac(axiPot,R))/tepif
     chi= sigmar**2.*k**2./tepif**2.
     return (1.-s**2.)/numpy.sin(numpy.pi*s)\

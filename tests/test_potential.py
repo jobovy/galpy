@@ -3831,7 +3831,7 @@ def test_vtermnegl_issue314():
 def test_Ferrers_Rzderiv_issue319():
     # Test that the Rz derivative works for the FerrersPotential (issue 319)
      fp= potential.FerrersPotential(normalize=1.)
-     from scipy.misc import derivative
+     from test_SpiralArmsPotential import deriv as derivative
      rzderiv= fp.Rzderiv(0.5,0.2,phi=1.)
      rzderiv_finitediff= derivative(lambda x: -fp.zforce(x,0.2,phi=1.),
                                     0.5,dx=10.**-8.)
@@ -4489,6 +4489,88 @@ def test_phiforce_deprecation_2d():
             if raisedWarning: break
         assert raisedWarning, "phiforce deprecation did not raise the expected warning"
 
+# Test that Pot is required to be a positional argument for Potential functions
+def test_potential_Pot_is_positional():
+    from galpy import potential
+    from galpy.potential import MWPotential2014
+    for func in [potential.evaluatePotentials,
+                 potential.evaluateRforces,
+                 potential.evaluatezforces,
+                 potential.evaluateR2derivs,
+                 potential.evaluatez2derivs,
+                 potential.evaluateRzderivs,
+                 potential.evaluaterforces,
+                 potential.evaluatephitorques,
+                 potential.evaluateDensities,
+                 potential.evaluateSurfaceDensities,
+                 potential.flattening,
+                 potential.rtide,
+                 potential.ttensor]:
+        with pytest.raises(TypeError) as excinfo:
+            func(Pot=MWPotential2014,R=1.,z=0.)
+        assert "required positional argument: 'Pot'" in excinfo.value.args[0]
+    for func in [potential.omegac,
+                 potential.epifreq,
+                 potential.verticalfreq,
+                 potential.rhalf,
+                 potential.tdyn]:
+        with pytest.raises(TypeError) as excinfo:
+            func(Pot=MWPotential2014,R=1.)
+        assert "required positional argument: 'Pot'" in excinfo.value.args[0]
+        # Special cases
+        with pytest.raises(TypeError) as excinfo:
+            potential.evaluatephiforces(Pot=MWPotential2014,R=1.,z=0.)
+        assert "required positional argument: 'Pot'" in excinfo.value.args[0]
+        with pytest.raises(TypeError) as excinfo:
+            potential.lindbladR(Pot=MWPotential2014,OmegaP=1.)
+        assert "required positional argument: 'Pot'" in excinfo.value.args[0]
+        with pytest.raises(TypeError) as excinfo:
+            potential.rl(Pot=MWPotential2014,lz=1.)
+        assert "required positional argument: 'Pot'" in excinfo.value.args[0]
+        with pytest.raises(TypeError) as excinfo:
+            potential.rE(Pot=MWPotential2014,E=1.)
+        assert "required positional argument: 'Pot'" in excinfo.value.args[0]
+        with pytest.raises(TypeError) as excinfo:
+            potential.LcE(Pot=MWPotential2014,E=1.)
+        assert "required positional argument: 'Pot'" in excinfo.value.args[0]
+        with pytest.raises(TypeError) as excinfo:
+            potential.vterm(Pot=MWPotential2014,l=1.)
+        assert "required positional argument: 'Pot'" in excinfo.value.args[0]
+        with pytest.raises(TypeError) as excinfo:
+            potential.zvc_range(Pot=MWPotential2014,E=1.,Lz=1.)
+        assert "required positional argument: 'Pot'" in excinfo.value.args[0]
+        with pytest.raises(TypeError) as excinfo:
+            potential.zvc(Pot=MWPotential2014,R=1.,E=1.,Lz=1.)
+        assert "required positional argument: 'Pot'" in excinfo.value.args[0]
+        with pytest.raises(TypeError) as excinfo:
+            potential.rhalf(Pot=MWPotential2014)
+        assert "required positional argument: 'Pot'" in excinfo.value.args[0]
+    return None
+
+# Test that Pot is required to be a positional argument for Potential functions
+def test_potential_Pot_is_positional_planar():
+    from galpy import potential
+    from galpy.potential import MWPotential2014
+    for func in [potential.evaluateplanarPotentials,
+                 potential.evaluateplanarRforces,
+                 potential.evaluateplanarR2derivs,
+                 potential.evaluateplanarphitorques]:
+        with pytest.raises(TypeError) as excinfo:
+            func(Pot=potential.toPlanarPotential(MWPotential2014),R=1.)
+        assert "required positional argument: 'Pot'" in excinfo.value.args[0]
+    return None
+
+# Test that Pot is required to be a positional argument for Potential functions
+def test_potential_Pot_is_positional_linear():
+    from galpy import potential
+    from galpy.potential import MWPotential2014
+    for func in [potential.evaluatelinearPotentials,
+                 potential.evaluatelinearForces]:
+        with pytest.raises(TypeError) as excinfo:
+            func(Pot=potential.toVerticalPotential(MWPotential2014,1.),x=1.)
+        assert "required positional argument: 'Pot'" in excinfo.value.args[0]
+    return None
+
 # Issue #495
 def test_diskscf_overflow():
     from galpy.actionAngle import estimateDeltaStaeckel
@@ -4627,7 +4709,6 @@ def test_plotting():
     try:
         kp.plot(effective=True,Lz=None)
     except RuntimeError:
-        print("Here")
         pass
     else:
         raise AssertionError("Potential.plot with effective=True, but Lz=None did not return a RuntimeError")

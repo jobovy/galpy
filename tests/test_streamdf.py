@@ -495,7 +495,7 @@ def test_ptdAngle():
     #Now test that the mean and sigma calculated with a simple Riemann sum agrees with meantdAngle
     da= 0.2
     ts= numpy.linspace(0.,100.,1001)
-    pts= numpy.array([sdf_bovy14.ptdAngle(t,da) for t in ts])
+    pts= sdf_bovy14.ptdAngle(ts,da)
     assert numpy.fabs((numpy.sum(ts*pts)/numpy.sum(pts)\
                            -sdf_bovy14.meantdAngle(da))/sdf_bovy14.meantdAngle(da)) < 10.**-2., 'mean td at angle 0.2 calculated with Riemann sum does not agree with that calculated by meantdAngle'
     assert numpy.fabs((numpy.sqrt(numpy.sum(ts**2.*pts)/numpy.sum(pts)-(numpy.sum(ts*pts)/numpy.sum(pts))**2.)\
@@ -1348,7 +1348,7 @@ def test_setup_progIsTrack():
     return None
 
 def test_bovy14_useTM_poterror():
-    if WIN32: return None # skip on appveyor, because no TM
+    if WIN32: return None # skip on Windows, because no TM
     # Test that setting up the stream model with useTM, but a different
     # actionAngleTorus potential raises a IOError
     #Imports
@@ -1372,7 +1372,7 @@ def test_bovy14_useTM_poterror():
     return None
 
 def test_bovy14_useTM():
-    if WIN32: return None # skip on appveyor, because no TM
+    if WIN32: return None # skip on Windows, because no TM
     #Test that setting up with useTM is very close to the Bovy (2014) setup
     #Imports
     from scipy import interpolate
@@ -1408,7 +1408,7 @@ def test_bovy14_useTM():
     return None
 
 def test_bovy14_useTM_useTMHessian():
-    if WIN32: return None # skip on appveyor, because no TM
+    if WIN32: return None # skip on Windows, because no TM
     #Test that setting up with useTM is very close to the Bovy (2014) setup
     #Imports
     from scipy import interpolate
@@ -1447,7 +1447,7 @@ def test_bovy14_useTM_useTMHessian():
     return None
 
 def test_bovy14_useTM_approxConstTrackFreq():
-    if WIN32: return None # skip on appveyor, because no TM
+    if WIN32: return None # skip on Windows, because no TM
     #Test that setting up with useTM is very close to the Bovy (2014) setup
     #Imports
     from scipy import interpolate

@@ -338,9 +338,10 @@ void dop853(void(*func)(double t, double *q, double *a, int nargs, struct potent
 			*err_ = -10;
 			interrupted = 0; // need to reset, bc library and vars stay in memory
 #ifdef USING_COVERAGE
-			__gcov_flush();
-#endif
+			__gcov_dump();
 // LCOV_EXCL_START
+			__gcov_reset();
+#endif
 			break;
 // LCOV_EXCL_STOP
 		}
@@ -462,7 +463,7 @@ void dop853(void(*func)(double t, double *q, double *a, int nargs, struct potent
 			}
 
 			// loop for dense output in this time slot
-			while ((finished_user_t_ii < nt - 1) && (fabs(t[finished_user_t_ii + 1]) < fabs(t_current)))
+			while ((finished_user_t_ii < nt - 1) && (pos_neg * t[finished_user_t_ii + 1] < pos_neg * t_current))
 			{
 				s = (t[finished_user_t_ii + 1] - t_old) / h;
 				s1 = 1.0 - s;

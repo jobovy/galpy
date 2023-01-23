@@ -4,7 +4,8 @@ import pickle
 import numpy
 
 from ..util import conversion, plot
-from ..util.conversion import physical_conversion, potential_physical_input
+from ..util.conversion import (parse_length, parse_velocity,
+                               physical_conversion, potential_physical_input)
 
 _INF= 10**12.
 def plotEscapecurve(Pot,*args,**kwargs):
@@ -50,10 +51,11 @@ def plotEscapecurve(Pot,*args,**kwargs):
         roSet= Pot._roSet
         potvo= Pot._vo
         voSet= Pot._voSet
-    if (kwargs.get('use_physical',False) \
-            and kwargs.get('ro',roSet) and kwargs.get('vo',voSet)) or \
-            (not 'use_physical' in kwargs \
-                 and kwargs.get('ro',roSet) and kwargs.get('vo',voSet)):
+    # Following just to deal with Quantity ro/vo and check whether they are set
+    _ro= parse_length(kwargs.get('ro',None),ro=potro)
+    _vo= parse_velocity(kwargs.get('vo',None),vo=potvo)
+    if kwargs.get('use_physical',True) \
+        and (not _ro is None or roSet) and (not _vo is None or voSet):
         use_physical= True
         potro= kwargs.get('ro',potro)
         potvo= kwargs.get('vo',potvo)
