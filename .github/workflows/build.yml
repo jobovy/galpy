@@ -223,13 +223,18 @@ jobs:
       run: |
          pip install --upgrade --upgrade-strategy eager numpy scipy matplotlib numexpr setuptools cython pytest tqdm
     - name: Install pynbody
-      if: ${{ matrix.REQUIRES_PYNBODY }}
-      env:
-        CC: gcc-11
+      if: ${{ matrix.REQUIRES_PYNBODY && ( matrix.os != 'macos-latest' || matrix.python-version != '3.11' }}
       run: |
          pip install --upgrade --upgrade-strategy eager h5py pandas pytz
          pip install --upgrade --upgrade-strategy eager wheel
          pip install --upgrade --upgrade-strategy eager pynbody
+    - name: Install pynbody
+      if: ${{ matrix.REQUIRES_PYNBODY && matrix.os == 'macos-latest' && matrix.python-version == '3.11' }}
+      run: |
+         pip install --upgrade --upgrade-strategy eager h5py pandas pytz
+         pip install --upgrade --upgrade-strategy eager wheel
+         curl -O https://www.astro.utoronto.ca/~bovy/scipywheels/pynbody-1.3.0-cp311-cp311-macosx_10_9_x86_64.whl
+         pip install pynbody-1.3.0-cp311-cp311-macosx_10_9_x86_64.whl
     - name: Install astropy
       if: ${{ matrix.REQUIRES_ASTROPY }}
       run: pip install astropy pyerfa
