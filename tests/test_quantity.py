@@ -72,6 +72,17 @@ def test_parsers_with_unrecognized_inputs():
         assert conversion.parse_numdens(obj,ro=ro,vo=vo)
     return None
 
+def test_parsers_rovo_input():
+    # Test that providing ro in kpc and vo in km/s to the parsers works
+    from galpy.util import conversion
+
+    ro,vo= 7., 230.
+    assert numpy.fabs(conversion.parse_length(2.*units.parsec,ro=ro,vo=vo)
+                      -conversion.parse_length(2.*units.parsec,ro=ro*units.kpc,vo=vo*units.km/units.s)) < 1e-10, 'parse_length does parse Quantity position correctly when specifying ro and vo as Quantities'
+    assert numpy.fabs(conversion.parse_energy(-30.*units.km**2/units.s**2,ro=ro,vo=vo)
+                      -conversion.parse_energy(-30.*units.km**2/units.s**2,ro=(ro*units.kpc).to(units.m),vo=(vo*units.km/units.s).to(units.pc/units.Myr))) < 1e-10, 'parse_energy does parse Quantity energy correctly when specifying ro and vo as Quantities'
+    return None
+
 def test_warn_internal_when_use_physical():
     import warnings
 

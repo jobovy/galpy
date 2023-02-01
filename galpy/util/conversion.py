@@ -529,10 +529,13 @@ def physical_compatible(obj,other_obj):
 # Parsers of different inputs with units
 def check_parser_input_type(func):
     """
-    Decorator to check the inputs to a parse_ function; should be either
+    Decorator to check the inputs to a parse_ function; should be either:
     a) a number
     b) an array of numbers
     c) an astropy Quantity (incl. arrays)
+
+    Also parses ro/vo if they are provided and converts them to the correct
+    internal representation
     """
     @wraps(func)
     def parse_x_wrapper(x,**kwargs):
@@ -545,7 +548,26 @@ def check_parser_input_type(func):
                          or isinstance(x.flatten()[0],numbers.Number)
                      ))
             and not (_APY_LOADED and isinstance(x,units.Quantity))):
-                raise RuntimeError(f"Input '{x}' not understood; should either be a number or an astropy Quantity")
+            raise RuntimeError(f"Input '{x}' not understood; should either be a number or an astropy Quantity")
+        # Also parse ro and vo inputs
+        if 'ro' in kwargs:
+            if (not kwargs['ro'] is None
+                and not isinstance(kwargs['ro'],numbers.Number)
+                and not (_APY_LOADED and isinstance(kwargs['ro'],units.Quantity))):
+                raise RuntimeError(f"Input 'ro={kwargs['ro']}' not understood; should either be a number or an astropy Quantity")
+            else:
+                kwargs['ro']= kwargs['ro'].to(units.kpc).value \
+                    if _APY_LOADED and isinstance(kwargs['ro'],units.Quantity) \
+                    else kwargs['ro']
+        if 'vo' in kwargs:
+            if (not kwargs['vo'] is None
+                and not isinstance(kwargs['vo'],numbers.Number)
+                and not (_APY_LOADED and isinstance(kwargs['vo'],units.Quantity))):
+                raise RuntimeError(f"Input 'vo={kwargs['vo']}' not understood; should either be a number or an astropy Quantity")
+            else:
+                kwargs['vo']= kwargs['vo'].to(units.km/units.s).value \
+                    if _APY_LOADED and isinstance(kwargs['vo'],units.Quantity) \
+                    else kwargs['vo']
         return func(x,**kwargs)
     return parse_x_wrapper
 
