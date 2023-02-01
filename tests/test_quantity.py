@@ -83,6 +83,22 @@ def test_parsers_rovo_input():
                       -conversion.parse_energy(-30.*units.km**2/units.s**2,ro=(ro*units.kpc).to(units.m),vo=(vo*units.km/units.s).to(units.pc/units.Myr))) < 1e-10, 'parse_energy does parse Quantity energy correctly when specifying ro and vo as Quantities'
     return None
 
+def test_parsers_rovo_wronginputtype():
+    # Test that giving ro and vo that can't be understood gives an error
+    from galpy.util import conversion
+
+    # Just some object
+    class other_quantity_object:
+        def __init__(self):
+            return None
+    obj= other_quantity_object()
+    ro,vo= 7., 230.
+    with pytest.raises(RuntimeError,match="should either be a number or an astropy Quantity"):
+        assert conversion.parse_length(8.*units.kpc,ro=obj,vo=vo)
+    with pytest.raises(RuntimeError,match="should either be a number or an astropy Quantity"):
+        assert conversion.parse_length(8.*units.kpc,ro=ro,vo=obj)
+    return None
+
 def test_warn_internal_when_use_physical():
     import warnings
 
