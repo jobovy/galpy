@@ -79,7 +79,11 @@ A final `offset` option allows one to apply a static offset in Cartesian coordin
         galaxy_pa= conversion.parse_angle(galaxy_pa)
         zvec, galaxy_pa= self._parse_inclination(inclination,sky_pa,
                                                  zvec,galaxy_pa)
-        self._offset= conversion.parse_length(offset,ro=self._ro)
+        self._offset= conversion.parse_length(
+           numpy.array(offset)
+           if isinstance(offset,list)
+           else offset,
+           ro=self._ro)
         self._setup_zvec_pa(zvec,galaxy_pa)
         self._norot = False
         if (self._rot == numpy.eye(3)).all():
@@ -152,7 +156,7 @@ A final `offset` option allows one to apply a static offset in Cartesian coordin
            xyzp = numpy.array([x,y,z])
         else:
            xyzp = numpy.dot(self._rot,numpy.array([x,y,z]))
-        if self._offset:
+        if self._offset is not None:
             xyzp+= self._offset
         Rp,phip,zp = coords.rect_to_cyl(xyzp[0],xyzp[1],xyzp[2])
         return _evaluatePotentials(self._pot,Rp,zp,phi=phip,t=t)
@@ -223,7 +227,7 @@ A final `offset` option allows one to apply a static offset in Cartesian coordin
            xyzp = numpy.array([x,y,z])
         else:
            xyzp = numpy.dot(self._rot,numpy.array([x,y,z]))
-        if self._offset:
+        if self._offset is not None:
             xyzp+= self._offset
         Rp,phip,zp =coords.rect_to_cyl(xyzp[0],xyzp[1],xyzp[2])
         Rforcep= _evaluateRforces(self._pot,Rp,zp,phi=phip,t=t)
@@ -368,7 +372,7 @@ A final `offset` option allows one to apply a static offset in Cartesian coordin
            xyzp = numpy.array([x,y,z])
         else:
            xyzp = numpy.dot(self._rot,numpy.array([x,y,z]))
-        if self._offset:
+        if self._offset is not None:
             xyzp+= self._offset
         Rp,phip,zp =coords.rect_to_cyl(xyzp[0],xyzp[1],xyzp[2])
         Rforcep= _evaluateRforces(self._pot,Rp,zp,phi=phip,t=t)
@@ -425,7 +429,7 @@ A final `offset` option allows one to apply a static offset in Cartesian coordin
            xyzp = numpy.array([x,y,z])
         else:
            xyzp = numpy.dot(self._rot,numpy.array([x,y,z]))
-        if self._offset:
+        if self._offset is not None:
             xyzp+= self._offset
         Rp,phip,zp = coords.rect_to_cyl(xyzp[0],xyzp[1],xyzp[2])
         return evaluateDensities(self._pot,Rp,zp,phi=phip,t=t,

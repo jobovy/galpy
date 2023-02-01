@@ -130,7 +130,7 @@ class streamdf(df):
 
               Zsun= (0.0208) Sun's height above the plane (kpc; can be Quantity)
 
-              vsun= ([-11.1,241.92,7.25]) Sun's motion in cylindrical coordinates (vR positive away from center) (can be Quantity)
+              vsun= ([-11.1,241.92,7.25]) Sun's motion in cylindrical coordinates (vR positive away from center) (can be Quantity array, but not a list of Quantities)
 
               custom_transform= (None) matrix implementing the rotation from (ra,dec) to a custom set of sky coordinates
 
@@ -191,7 +191,9 @@ class streamdf(df):
             self._setup_progIsTrack()
         R0= conversion.parse_length_kpc(R0)
         Zsun= conversion.parse_length_kpc(Zsun)
-        vsun= conversion.parse_velocity_kms(vsun)
+        vsun= conversion.parse_velocity_kms(numpy.array(vsun)
+                                            if isinstance(vsun,list)
+                                            else vsun)
         vsun[0]= conversion.parse_velocity_kms(vsun[0])
         vsun[1]= conversion.parse_velocity_kms(vsun[1])
         vsun[2]= conversion.parse_velocity_kms(vsun[2])
