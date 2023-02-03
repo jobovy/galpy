@@ -84,7 +84,7 @@ because the vertical profile flattens, e.g.,
 or even
 
 >>> qdf.estimate_hz(1.,0.)
-# 187649.98447377066
+# 221852.19839263527
 
 which is basically infinity.
 
@@ -236,7 +236,7 @@ vertical velocities. We can calculate the distribution of rotational
 velocities marginalized over the radial and vertical velocities as
 
 >>> qdfS.pvT(1.,1.,0.) #input vT,R,z
-# 14.677231196899195
+# 58.708924787596544
 
 or as a function of rotational velocity
 
@@ -261,7 +261,7 @@ sampling locations from the density profile, although that is rather
 trivial):
 
 >>> vs= qdfS.sampleV(1.,0.,n=10000)
->>> hist(vs[:,1],normed=True,histtype='step',bins=101,range=[0.,1.5])
+>>> hist(vs[:,1],density=True,histtype='step',bins=101,range=[0.,1.5])
 
 gives
 
