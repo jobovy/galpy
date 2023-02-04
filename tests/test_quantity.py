@@ -31,6 +31,74 @@ def test_parsers():
     assert numpy.fabs(conversion.parse_angmom(2200.*units.kpc*units.km/units.s,ro=ro,vo=vo)-(2200./ro/vo)) < 1e-10, 'parse_angmom does parse Quantity angular momentum correctly'
     return None
 
+def test_parsers_with_unrecognized_inputs():
+    # Test related to $542: test that an error is raised when parsing an object
+    # that is not a float/... or an astropy Quantity (e.g., a different unit system)
+    from galpy.util import conversion
+
+    # Just some object
+    class other_quantity_object:
+        def __init__(self):
+            return None
+    obj= other_quantity_object()
+    ro,vo= 7., 230.
+    with pytest.raises(RuntimeError,match="should either be a number or an astropy Quantity"):
+        assert conversion.parse_length(obj,ro=ro,vo=vo)
+    with pytest.raises(RuntimeError,match="should either be a number or an astropy Quantity"):
+        assert conversion.parse_length_kpc(obj,ro=ro,vo=vo)
+    with pytest.raises(RuntimeError,match="should either be a number or an astropy Quantity"):
+        assert conversion.parse_velocity(obj,ro=ro,vo=vo)
+    with pytest.raises(RuntimeError,match="should either be a number or an astropy Quantity"):
+        assert conversion.parse_velocity_kms(obj,ro=ro,vo=vo)
+    with pytest.raises(RuntimeError,match="should either be a number or an astropy Quantity"):
+        assert conversion.parse_angle(obj,ro=ro,vo=vo)
+    with pytest.raises(RuntimeError,match="should either be a number or an astropy Quantity"):
+        assert conversion.parse_time(obj,ro=ro,vo=vo)
+    with pytest.raises(RuntimeError,match="should either be a number or an astropy Quantity"):
+        assert conversion.parse_mass(obj,ro=ro,vo=vo)
+    with pytest.raises(RuntimeError,match="should either be a number or an astropy Quantity"):
+        assert conversion.parse_energy(obj,ro=ro,vo=vo)
+    with pytest.raises(RuntimeError,match="should either be a number or an astropy Quantity"):
+        assert conversion.parse_angmom(obj,ro=ro,vo=vo)
+    with pytest.raises(RuntimeError,match="should either be a number or an astropy Quantity"):
+        assert conversion.parse_frequency(obj,ro=ro,vo=vo)
+    with pytest.raises(RuntimeError,match="should either be a number or an astropy Quantity"):
+        assert conversion.parse_force(obj,ro=ro,vo=vo)
+    with pytest.raises(RuntimeError,match="should either be a number or an astropy Quantity"):
+        assert conversion.parse_dens(obj,ro=ro,vo=vo)
+    with pytest.raises(RuntimeError,match="should either be a number or an astropy Quantity"):
+        assert conversion.parse_surfdens(obj,ro=ro,vo=vo)
+    with pytest.raises(RuntimeError,match="should either be a number or an astropy Quantity"):
+        assert conversion.parse_numdens(obj,ro=ro,vo=vo)
+    return None
+
+def test_parsers_rovo_input():
+    # Test that providing ro in kpc and vo in km/s to the parsers works
+    from galpy.util import conversion
+
+    ro,vo= 7., 230.
+    assert numpy.fabs(conversion.parse_length(2.*units.parsec,ro=ro,vo=vo)
+                      -conversion.parse_length(2.*units.parsec,ro=ro*units.kpc,vo=vo*units.km/units.s)) < 1e-10, 'parse_length does parse Quantity position correctly when specifying ro and vo as Quantities'
+    assert numpy.fabs(conversion.parse_energy(-30.*units.km**2/units.s**2,ro=ro,vo=vo)
+                      -conversion.parse_energy(-30.*units.km**2/units.s**2,ro=(ro*units.kpc).to(units.m),vo=(vo*units.km/units.s).to(units.pc/units.Myr))) < 1e-10, 'parse_energy does parse Quantity energy correctly when specifying ro and vo as Quantities'
+    return None
+
+def test_parsers_rovo_wronginputtype():
+    # Test that giving ro and vo that can't be understood gives an error
+    from galpy.util import conversion
+
+    # Just some object
+    class other_quantity_object:
+        def __init__(self):
+            return None
+    obj= other_quantity_object()
+    ro,vo= 7., 230.
+    with pytest.raises(RuntimeError,match="should either be a number or an astropy Quantity"):
+        assert conversion.parse_length(8.*units.kpc,ro=obj,vo=vo)
+    with pytest.raises(RuntimeError,match="should either be a number or an astropy Quantity"):
+        assert conversion.parse_length(8.*units.kpc,ro=ro,vo=obj)
+    return None
+
 def test_warn_internal_when_use_physical():
     import warnings
 
@@ -6754,9 +6822,9 @@ def test_streamdf_setup_coordtransformparamsAsQuantity():
                  nosetup=True,
                  R0=8.*units.kpc,
                  Zsun=25.*units.pc,
-                 vsun=[-10.*units.km/units.s,
-                        240.*units.pc/units.Myr,
-                        7.*units.km/units.s])
+                 vsun=units.Quantity([-10.*units.km/units.s,
+                                      240.*units.pc/units.Myr,
+                                      7.*units.km/units.s]))
     assert numpy.fabs(df._R0-8.) < 10.**-10., 'R0 in streamdf setup as Quantity does not work as expected'
     assert numpy.fabs(df._Zsun-0.025) < 10.**-10., 'Zsun in streamdf setup as Quantity does not work as expected'
     assert numpy.fabs(df._vsun[0]+10.) < 10.**-10., 'vsun in streamdf setup as Quantity does not work as expected'

@@ -343,7 +343,13 @@ class Orbit:
                 and solarmotion.lower() == 'schoenrich':
             vsolar= numpy.array([-11.1,12.24,7.25])
         else:
-            vsolar= numpy.array(conversion.parse_velocity_kms(solarmotion))
+            vsolar= numpy.array(
+                conversion.parse_velocity_kms(
+                    numpy.array(solarmotion)
+                    if isinstance(solarmotion,list)
+                    else solarmotion
+                )
+            )
         # If both vxvv SkyCoord with vsun and solarmotion set, check the same
         if _APY_COORD_LOADED and isinstance(vxvv,SkyCoord) \
                 and not vxvv.galcen_v_sun is None:
@@ -1829,7 +1835,11 @@ class Orbit:
             kwargs.pop('OmegaP',None)
         else:
             OmegaP= kwargs.pop('OmegaP')
-        OmegaP= conversion.parse_frequency(OmegaP,ro=self._ro,vo=self._vo)
+        OmegaP= conversion.parse_frequency(
+            numpy.array(OmegaP)
+            if isinstance(OmegaP,list)
+            else OmegaP,
+            ro=self._ro,vo=self._vo)
         #Make sure you are not using physical coordinates
         old_physical= kwargs.get('use_physical',None)
         kwargs['use_physical']= False

@@ -6,8 +6,11 @@
 ###############################################################################
 import copy
 import math as m
+import numbers
 import warnings
 from functools import wraps
+
+import numpy
 
 from ..util._optional_deps import _APY_LOADED, _APY_UNITS
 from ..util.config import __config__
@@ -524,36 +527,87 @@ def physical_compatible(obj,other_obj):
     return out
 
 # Parsers of different inputs with units
+def check_parser_input_type(func):
+    """
+    Decorator to check the inputs to a parse_ function; should be either:
+    a) a number
+    b) an array of numbers
+    c) an astropy Quantity (incl. arrays)
+
+    Also parses ro/vo if they are provided and converts them to the correct
+    internal representation
+    """
+    @wraps(func)
+    def parse_x_wrapper(x,**kwargs):
+        if (not x is None
+            and not isinstance(x,numbers.Number)
+            and not (isinstance(x,numpy.ndarray)
+                     and
+                     (
+                         x.size == 0
+                         or isinstance(x.flatten()[0],numbers.Number)
+                     ))
+            and not (_APY_LOADED and isinstance(x,units.Quantity))):
+            raise RuntimeError(f"Input '{x}' not understood; should either be a number or an astropy Quantity")
+        # Also parse ro and vo inputs
+        if 'ro' in kwargs:
+            if (not kwargs['ro'] is None
+                and not isinstance(kwargs['ro'],numbers.Number)
+                and not (_APY_LOADED and isinstance(kwargs['ro'],units.Quantity))):
+                raise RuntimeError(f"Input 'ro={kwargs['ro']}' not understood; should either be a number or an astropy Quantity")
+            else:
+                kwargs['ro']= kwargs['ro'].to(units.kpc).value \
+                    if _APY_LOADED and isinstance(kwargs['ro'],units.Quantity) \
+                    else kwargs['ro']
+        if 'vo' in kwargs:
+            if (not kwargs['vo'] is None
+                and not isinstance(kwargs['vo'],numbers.Number)
+                and not (_APY_LOADED and isinstance(kwargs['vo'],units.Quantity))):
+                raise RuntimeError(f"Input 'vo={kwargs['vo']}' not understood; should either be a number or an astropy Quantity")
+            else:
+                kwargs['vo']= kwargs['vo'].to(units.km/units.s).value \
+                    if _APY_LOADED and isinstance(kwargs['vo'],units.Quantity) \
+                    else kwargs['vo']
+        return func(x,**kwargs)
+    return parse_x_wrapper
+
+@check_parser_input_type
 def parse_length(x,ro=None,vo=None):
     return x.to(units.kpc).value/ro \
         if _APY_LOADED and isinstance(x,units.Quantity) \
         else x
 
+@check_parser_input_type
 def parse_length_kpc(x):
     return x.to(units.kpc).value \
         if _APY_LOADED and isinstance(x,units.Quantity) \
         else x
 
+@check_parser_input_type
 def parse_velocity(x,ro=None,vo=None):
     return x.to(units.km/units.s).value/vo \
         if _APY_LOADED and isinstance(x,units.Quantity) \
         else x
 
+@check_parser_input_type
 def parse_velocity_kms(x):
     return x.to(units.km/units.s).value \
         if _APY_LOADED and isinstance(x,units.Quantity) \
         else x
 
+@check_parser_input_type
 def parse_angle(x):
     return x.to(units.rad).value \
         if _APY_LOADED and isinstance(x,units.Quantity) \
         else x
 
+@check_parser_input_type
 def parse_time(x,ro=None,vo=None):
     return x.to(units.Gyr).value/time_in_Gyr(vo,ro) \
         if _APY_LOADED and isinstance(x,units.Quantity) \
         else x
 
+@check_parser_input_type
 def parse_mass(x,ro=None,vo=None):
     try:
         return x.to(units.pc*units.km**2/units.s**2).value\
@@ -565,22 +619,26 @@ def parse_mass(x,ro=None,vo=None):
         if _APY_LOADED and isinstance(x,units.Quantity) \
            else x
 
+@check_parser_input_type
 def parse_energy(x,ro=None,vo=None):
     return x.to(units.km**2/units.s**2).value/vo**2. \
         if _APY_LOADED and isinstance(x,units.Quantity) \
         else x
 
+@check_parser_input_type
 def parse_angmom(x,ro=None,vo=None):
     return x.to(units.kpc*units.km/units.s).value/ro/vo \
         if _APY_LOADED and isinstance(x,units.Quantity) \
         else x
 
+@check_parser_input_type
 def parse_frequency(x,ro=None,vo=None):
     return x.to(units.km/units.s/units.kpc).value/\
         freq_in_kmskpc(vo,ro) \
         if _APY_LOADED and isinstance(x,units.Quantity) \
         else x
 
+@check_parser_input_type
 def parse_force(x,ro=None,vo=None):
     try:
         return x.to(units.pc/units.Myr**2).value\
@@ -593,6 +651,7 @@ def parse_force(x,ro=None,vo=None):
         if _APY_LOADED and isinstance(x,units.Quantity) \
         else x
 
+@check_parser_input_type
 def parse_dens(x,ro=None,vo=None):
     try:
         return x.to(units.Msun/units.pc**3).value\
@@ -606,6 +665,7 @@ def parse_dens(x,ro=None,vo=None):
         if _APY_LOADED and isinstance(x,units.Quantity) \
         else x
 
+@check_parser_input_type
 def parse_surfdens(x,ro=None,vo=None):
     try:
         return x.to(units.Msun/units.pc**2).value\
@@ -619,6 +679,7 @@ def parse_surfdens(x,ro=None,vo=None):
         if _APY_LOADED and isinstance(x,units.Quantity) \
         else x
 
+@check_parser_input_type
 def parse_numdens(x,ro=None,vo=None):
     return x.to(1/units.kpc**3).value*ro**3 \
         if _APY_LOADED and isinstance(x,units.Quantity) \

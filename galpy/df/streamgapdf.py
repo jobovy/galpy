@@ -197,12 +197,12 @@ class streamgapdf(streamdf.streamdf):
         afterIndx= (ts < self._timpact)*(ts >= 0.)
         out[afterIndx]=\
             super().pOparapar(Opar[afterIndx],
-                                              apar)
+                                            apar)
         out[True^afterIndx]=\
             super().pOparapar(Opar_b4impact[True^afterIndx],
-                                              apar_impact[True^afterIndx],
-                                              tdisrupt=
-                                              self._tdisrupt-self._timpact)
+                                            apar_impact[True^afterIndx],
+                                            tdisrupt=
+                                            self._tdisrupt-self._timpact)
         return out
 
     def _density_par(self,dangle,tdisrupt=None,approx=True,
