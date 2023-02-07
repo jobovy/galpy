@@ -28,7 +28,7 @@ import sys
 # Add any Sphinx extension module names here, as strings. They can be extensions
 # coming with Sphinx (named 'sphinx.ext.*') or your custom ones.
 extensions = ['sphinx.ext.autodoc', 'sphinx.ext.mathjax','sphinx.ext.ifconfig',
-              'sphinx.ext.linkcode']
+              'sphinx.ext.linkcode',"sphinxext.opengraph"]
 
 # from disnake via:
 # https://twitter.com/readthedocs/status/1541830907082022913?s=20&t=eJ293FfjILT7sIxEyz834w
@@ -68,6 +68,8 @@ def linkcode_resolve(domain, info):
 
     path = f"{path}#L{lineno}-L{lineno + len(src) - 1}"
     return f"{github_repo}/blob/{git_ref}/galpy/{path}"
+
+ogp_site_name= "galpy's documentation"
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
