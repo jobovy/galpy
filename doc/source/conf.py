@@ -69,7 +69,15 @@ def linkcode_resolve(domain, info):
     path = f"{path}#L{lineno}-L{lineno + len(src) - 1}"
     return f"{github_repo}/blob/{git_ref}/galpy/{path}"
 
-ogp_site_name= "galpy's documentation"
+ogp_site_name= "galpy documentation"
+ogp_site_url= (f"https://docs.galpy.org/en/{git_ref}/"
+               if not git_ref == 'main'
+               else "https://docs.galpy.org/en/latest/")
+
+ogp_social_cards = {
+    "enable": True,
+    "image": "images/galpy-logo-small.png",
+}
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
