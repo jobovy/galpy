@@ -1,6 +1,10 @@
 p {
   text-align: justify;
 }
+
+pre {
+    background-color: #f8f8f8;
+}
 .codeblock, pre.literal-block, .rst-content .literal-block, .rst-content pre.literal-block, div[class^='highlight'] {
     border-radius: 3px !important;
     position: relative;
