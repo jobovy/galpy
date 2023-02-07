@@ -109,6 +109,7 @@ if on_rtd:
     release= 'v'+release
 def setup(app):
     app.add_config_value('not_on_rtd',True,True)
+    app.add_js_file("https://code.jquery.com/jquery-3.6.3.min.js")
     app.add_css_file("custom.css")
     app.add_css_file("gallery.css")
     app.add_js_file("clipboard.min.js")
