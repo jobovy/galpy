@@ -252,10 +252,14 @@ class BuildExt(build_ext):
             for ext in self.extensions:
                 # only add flags which pass the flag_filter
                 extra_compile_args= []
+                libraries= ext.libraries
                 for flag in ext.extra_compile_args:
                     if compiler_has_flag(self.compiler,flag):
                         extra_compile_args.append(flag)
+                    if flag == '-fopenmp' and 'gomp' in libraries:
+                        libraries.remove('gomp')
                 ext.extra_compile_args= extra_compile_args
+                ext.libraries= libraries
         build_ext.build_extensions(self)
 
 setup(cmdclass=dict(build_ext=BuildExt), # this to allow compiler check above
