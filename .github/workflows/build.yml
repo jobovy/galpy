@@ -258,8 +258,7 @@ jobs:
     - name: Install package
       if: matrix.os == 'macos-latest'
       run: |
-        python setup.py build_ext --no-openmp --single_ext --inplace
-        python setup.py develop --single_ext
+        python -m pip install -v .
     - name: Special config
       env:
           TEST_FILES: ${{ matrix.TEST_FILES }}

@@ -1,9 +1,9 @@
 # _load_extension_libs.py: centralized place to load the C extensions
 import ctypes
-import os
 import sys
 import sysconfig
 import warnings
+from pathlib import Path
 
 from ..util import galpyWarning, galpyWarningVerbose
 
@@ -25,26 +25,31 @@ def load_libgalpy():
     if _libgalpy_loaded is False or not _libgalpy is None:
         return (_libgalpy,_libgalpy_loaded)
     outerr= None
-    for path in sys.path:
-        if not os.path.isdir(path): continue
+    # Add top-level galpy repository directory for pip install (-e) .,
+    # just becomes site-packages for regular install
+    paths= sys.path
+    paths.append(str(Path(__file__).parent.parent.parent.absolute()))
+    for path in [Path(p) for p in paths]:
+        if not path.is_dir(): continue
         try:
             if sys.platform == 'win32' and sys.version_info >= (3,8): # pragma: no cover
                 # winmode=0x008 is easy-going way to call LoadLibraryExA
-                _lib = ctypes.CDLL(os.path.join(path,'libgalpy%s' % _ext_suffix),winmode=0x008)
+                _lib = ctypes.CDLL(str(path / f'libgalpy{_ext_suffix}'),
+                                   winmode=0x008)
             else:
-                _lib = ctypes.CDLL(os.path.join(path,'libgalpy%s' % _ext_suffix))
+                _lib = ctypes.CDLL(str(path / f'libgalpy{_ext_suffix}'))
         except OSError as e:
-            if os.path.exists(os.path.join(path,'libgalpy%s' % _ext_suffix)): #pragma: no cover
+            if (path / f'libgalpy{_ext_suffix}').exists(): #pragma: no cover
                 outerr= e
             _lib = None
         else:
             break
     if _lib is None: #pragma: no cover
         if not outerr is None:
-            warnings.warn("libgalpy C extension module not loaded, because of error '%s' " % outerr,
+            warnings.warn(f"libgalpy C extension module not loaded, because of error '{outerr}'",
                           galpyWarning)
         else:
-            warnings.warn("libgalpy C extension module not loaded, because libgalpy%s image was not found" % _ext_suffix,
+            warnings.warn(f"libgalpy C extension module not loaded, because libgalpy{_ext_suffix} image was not found",
                           galpyWarning)
         _libgalpy_loaded= False
     else:
@@ -59,26 +64,31 @@ def load_libgalpy_actionAngleTorus():
             or not _libgalpy_actionAngleTorus is None:
         return (_libgalpy_actionAngleTorus,_libgalpy_actionAngleTorus_loaded)
     outerr= None
-    for path in sys.path:
-        if not os.path.isdir(path): continue
+    # Add top-level galpy repository directory for pip install (-e) .,
+    # just becomes site-packages for regular install
+    paths= sys.path
+    paths.append(str(Path(__file__).parent.parent.parent.absolute()))
+    for path in [Path(p) for p in paths]:
+        if not path.is_dir(): continue
         try:
             if sys.platform == 'win32' and sys.version_info >= (3,8): # pragma: no cover
                 # winmode=0x008 is easy-going way to call LoadLibraryExA
-                _lib = ctypes.CDLL(os.path.join(path,'libgalpy_actionAngleTorus%s' % _ext_suffix),winmode=0x008)
+                _lib = ctypes.CDLL(str(path / f'libgalpy_actionAngleTorus{_ext_suffix}'),
+                                   winmode=0x008)
             else:
-                _lib = ctypes.CDLL(os.path.join(path,'libgalpy_actionAngleTorus%s' % _ext_suffix))
+                _lib = ctypes.CDLL(str(path / f'libgalpy_actionAngleTorus{_ext_suffix}'))
         except OSError as e:
-            if os.path.exists(os.path.join(path,'libgalpy_actionAngleTorus%s' % _ext_suffix)): #pragma: no cover
+            if (path / f'libgalpy_actionAngleTorus{_ext_suffix}').exists(): #pragma: no cover
                 outerr= e
             _lib = None
         else:
             break
     if _lib is None: #pragma: no cover
         if not outerr is None:
-            warnings.warn("libgalpy_actionAngleTorus C extension module not loaded, because of error '%s' " % outerr,
+            warnings.warn(f"libgalpy_actionAngleTorus C extension module not loaded, because of error '{outerr}'",
                           galpyWarningVerbose)
         else:
-            warnings.warn("libgalpy_actionAngleTorus C extension module not loaded, because libgalpy%s image was not found" % _ext_suffix,
+            warnings.warn(f"libgalpy_actionAngleTorus C extension module not loaded, because libgalpy{_ext_suffix} image was not found",
                           galpyWarningVerbose)
         _libgalpy_actionAngleTorus_loaded= False
     else:
