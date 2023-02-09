@@ -186,7 +186,7 @@ class Orbit:
 
                     1) individual Orbit instances (of single objects)
 
-                    2) Quantity arrays arranged as in section 2) above (so things like [R,vR,vT,z,vz,phi], where R, vR, ... can be arbitrary shape Quantity arrays)
+                    2) regular or Quanitty arrays arranged as in section 2) above (so things like [R,vR,vT,z,vz,phi], where R, vR, ... can be arbitrary shape Quantity arrays)
 
                     3) list of Quantities (so things like [R1,vR1,..,], where R1, vR1, ... are scalar Quantities
 
@@ -227,7 +227,9 @@ class Orbit:
             radec= True
             self._name= numpy.char.array(['Sun'])
         elif isinstance(vxvv,(list, tuple)):
-            if None in vxvv:
+            # Robust way to check for None in case of a list of arrays (None in
+            # doesn't work then for some reason)
+            if any(elem is None for elem in vxvv):
                 vxvv= [[0.,0.,0.,0.,0.,0.]
                        if tvxvv is None else tvxvv
                        for tvxvv in vxvv]
@@ -271,6 +273,9 @@ class Orbit:
                 vxvv= [vxvv]
                 input_shape= ()
                 vxvv= numpy.array(vxvv)
+            elif isinstance(vxvv[0],numpy.ndarray):
+                input_shape= vxvv[0].shape
+                vxvv= numpy.array(vxvv).T
             else:
                 input_shape= (len(vxvv),)
                 vxvv= numpy.array(vxvv)
