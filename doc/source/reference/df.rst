@@ -63,7 +63,12 @@ Various spherical DFs are explicitly implemented (e.g., Hernquist, NFW
 using a new approximation, King, Plummer) in isotropic and various
 anisotropic forms. General methods for computing isotropic,
 constant-beta anisotropic, and Osipkov-Merritt anisotropic for any
-potential/density pair are also included.
+potential/density pair are also included. Use of interpolated spherical 
+potentials (``galpy.potential.interpSphericalPotential``) is also supported 
+with DFs, however numerical issues can arise during sampling or calculation 
+of moments of the DF, and so caution is recommended when using these potentials. 
+It is adviseable to use a very finely spaced radial grid, and ensure that it 
+spans a range of radii much larger than the radii of interest for the DF.
 
 General instance routines
 +++++++++++++++++++++++++
