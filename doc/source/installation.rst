@@ -289,6 +289,17 @@ that match a pattern, e.g.,::
 
 to run all tests in ``test_coords.py`` that have ``ngp`` in their name.
 
+``galpy`` uses `pre-commit <https://pre-commit.com/>`__ to run a number of
+pre-commit checks on the code. To install pre-commit, do::
+
+    pip install pre-commit
+
+and then run::
+
+    pre-commit install
+
+to install the pre-commit hooks. These will run automatically whenever you commit.
+
 More esoteric installations
 ---------------------------
 
