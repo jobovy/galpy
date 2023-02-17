@@ -1722,6 +1722,175 @@ def test_constantbeta_differentpotentials_dens_directint():
                              bins=11)
     return None
 
+################# INTERPOLATED POTENTIALS IN DFS ##############################
+
+# Eddington DFs with interpolated potentials
+def test_eddington_interpolatedpotentials_dens_directint():
+    # Some potentials
+    pots= [potential.HernquistPotential(amp=1.3,a=0.8),
+           potential.PlummerPotential(amp=2.3,b=1.3),
+           potential.NFWPotential(amp=1.3,a=1.5),
+           ]
+    tols= [1e-3 for pot in pots]
+    rmins = [0.1,0.2,0.2]
+    for pot,tol,rmin in zip(pots,tols,rmins):
+        print(pot)
+        ipot= potential.interpSphericalPotential(rforce=pot,
+            rgrid=numpy.geomspace(0.01,100.,10001))
+        # Make sure to use the actual galpy potential for denspot
+        dfh= eddingtondf(pot=ipot,denspot=pot)
+        check_dens_directint(dfh,pot,tol,lambda r: pot.dens(r,0),
+                             rmin=rmin,rmax=10.,bins=5)
+    return None
+
+def test_eddington_interpolatedpotentials_meanvr_directint():
+    # Some potentials
+    pots= [potential.HernquistPotential(amp=1.3,a=0.8),
+           potential.PlummerPotential(amp=2.3,b=1.3),
+           potential.NFWPotential(amp=1.3,a=1.5),
+           ]
+    tols= [1e-3 for pot in pots]
+    rmins = [0.1,0.2,0.2]
+    for pot,tol,rmin in zip(pots,tols,rmins):
+        print(pot)
+        ipot= potential.interpSphericalPotential(rforce=pot,
+            rgrid=numpy.geomspace(0.01,100.,10001))
+        # Make sure to use the actual galpy potential for denspot
+        dfh= eddingtondf(pot=ipot,denspot=pot)
+        check_meanvr_directint(dfh,pot,tol,rmin=rmin,rmax=10.,bins=5)
+    return None
+
+def test_eddington_interpolatedpotentials_sigmar():
+    # Some potentials, make sure to use something stable for denspot
+    denspot = potential.HernquistPotential(amp=1.3,a=0.8)
+    pots= [potential.HernquistPotential(amp=1.3,a=0.8),
+           potential.PlummerPotential(amp=2.3,b=1.3),
+           potential.NFWPotential(amp=1.3,a=1.5),
+           ]
+    tols = [5e-2 for pot in pots]
+    rmins = [0.1,0.2,0.2]
+    for pot,tol,rmin in zip(pots,tols,rmins):
+        ipot= potential.interpSphericalPotential(rforce=pot,
+            rgrid=numpy.geomspace(0.01,100.,10001))   
+        # Make sure to use the actual galpy potential for denspot
+        dfh= eddingtondf(pot=ipot,denspot=denspot)
+        numpy.random.seed(10)
+        samp= dfh.sample(n=1000000)
+        # rmin larger than usual to avoid low number sampling
+        check_sigmar_against_jeans(samp,pot,tol,dens=lambda r: denspot.dens(r,0),
+                                   rmin=rmin,rmax=10.,bins=31)
+    return None
+
+def test_eddington_interpolatedpotentials_beta():
+    # Some potentials, make sure to use something stable for denspot
+    denspot = potential.HernquistPotential(amp=1.3,a=0.8)
+    pots= [potential.HernquistPotential(amp=1.3,a=0.8),
+           potential.PlummerPotential(amp=2.3,b=1.3),
+           potential.NFWPotential(amp=1.3,a=1.5),
+           ]
+    tols = [5e-2 for pot in pots]
+    rmins = [0.1,0.2,0.2]
+    for pot,tol,rmin in zip(pots,tols,rmins):
+        ipot= potential.interpSphericalPotential(rforce=pot,
+            rgrid=numpy.geomspace(0.01,100.,10001))   
+        # Make sure to use the actual galpy potential for denspot
+        dfh= eddingtondf(pot=ipot,denspot=denspot)
+        numpy.random.seed(10)
+        samp= dfh.sample(n=2000000)
+        # rmin larger than usual to avoid low number sampling
+        check_beta(samp,pot,tol,rmin=rmin,rmax=10.,bins=31)
+    return None
+
+# Constant beta DFs with interpolated potentials
+def test_constantbeta_interpolatedpotentials_dens_directint():
+    if WIN32: return None # skip on Windows, because no JAX
+    # Combinations of potentials and betas
+    pots= [potential.HernquistPotential(amp=1.3,a=0.8),
+           potential.PlummerPotential(amp=2.3,b=1.3),
+           potential.NFWPotential(amp=1.3,a=1.5),
+           ]
+    twobetas= [-1,1]
+    tols= [1e-2 for pot in pots]
+    rmins = [0.1,0.2,0.2]
+    # Also test interpolated spherical potentials as source potential
+    for pot,tol,rmin in zip(pots,tols,rmins):
+        # Important for rgrid to extend far beyond the test range
+        ipot= potential.interpSphericalPotential(rforce=pot,
+                rgrid=numpy.geomspace(0.01,100.,10001))
+        for twobeta in twobetas:
+            # Make sure to use the actual galpy potential for denspot
+            dfh= constantbetadf(pot=ipot,denspot=pot,twobeta=twobeta)
+            check_dens_directint(dfh,pot,tol,lambda r: pot.dens(r,0),
+                                 rmin=rmin,rmax=10.,bins=5)
+    return None
+
+def test_constantbeta_interpolatedpotentials_sigmar_directint():
+    if WIN32: return None # skip on Windows, because no JAX
+    # Combinations of potentials and betas
+    pots= [potential.HernquistPotential(amp=1.3,a=0.8),
+           potential.PlummerPotential(amp=2.3,b=1.3),
+           potential.NFWPotential(amp=1.3,a=1.5),
+           ]
+    twobetas= [-1,1]
+    tols= [1e-2 for pot in pots]
+    rmins = [0.1,0.2,0.2]
+    # Also test interpolated spherical potentials as source potential
+    for pot,tol,rmin in zip(pots,tols,rmins):
+        # Important for rgrid to extend far beyond the test range
+        ipot= potential.interpSphericalPotential(rforce=pot,
+                rgrid=numpy.geomspace(0.01,100.,10001))
+        for twobeta in twobetas:
+            # Make sure to use the actual galpy potential for denspot
+            dfh= constantbetadf(pot=ipot,denspot=pot,twobeta=twobeta)
+            check_meanvr_directint(dfh,pot,tol,rmin=rmin,rmax=10.,bins=5)
+    return None
+
+def test_constantbeta_interpolatedpotentials_sigmar():
+    if WIN32: return None # skip on Windows, because no JAX
+    # Combinations of potentials and betas, make sure to use something stable for denspot
+    denspot = potential.HernquistPotential(amp=1.3,a=0.8)
+    pots= [potential.HernquistPotential(amp=1.3,a=0.8),
+           potential.PlummerPotential(amp=2.3,b=1.3),
+           potential.NFWPotential(amp=1.3,a=1.5),
+           ]
+    twobetas= [-1,1]
+    tols = [5e-2 for pot in pots]
+    rmins = [0.1,0.2,0.2]
+    for pot,tol,rmin in zip(pots,tols,rmins):
+        ipot= potential.interpSphericalPotential(rforce=pot,
+            rgrid=numpy.geomspace(0.01,100.,10001))   
+        for twobeta in twobetas:
+            # Make sure to use the actual galpy potential for denspot
+            dfh= constantbetadf(pot=ipot,denspot=denspot,twobeta=twobeta)
+            numpy.random.seed(10)
+            samp= dfh.sample(n=1000000)
+            check_sigmar_against_jeans(samp,pot,tol,
+                dens=lambda r: denspot.dens(r,0),beta=twobeta/2,rmin=rmin,
+                rmax=10.,bins=21)
+    return None
+
+def test_constantbeta_interpolatedpotentials_beta():
+    if WIN32: return None # skip on Windows, because no JAX
+    # Combinations of potentials and betas, make sure to use something stable for denspot
+    denspot = potential.HernquistPotential(amp=1.3,a=0.8)
+    pots= [potential.HernquistPotential(amp=1.3,a=0.8),
+           potential.PlummerPotential(amp=2.3,b=1.3),
+           potential.NFWPotential(amp=1.3,a=1.5),
+           ]
+    twobetas= [-1,1]
+    tols = [5e-2 for pot in pots]
+    rmins = [0.1,0.2,0.2]
+    for pot,tol,rmin in zip(pots,tols,rmins):
+        ipot= potential.interpSphericalPotential(rforce=pot,
+            rgrid=numpy.geomspace(0.01,100.,10001))   
+        for twobeta in twobetas:
+            # Make sure to use the actual galpy potential for denspot
+            dfh= constantbetadf(pot=ipot,denspot=denspot,twobeta=twobeta)
+            numpy.random.seed(10)
+            samp= dfh.sample(n=2000000)
+            check_beta(samp,pot,tol,beta=twobeta/2,rmin=rmin,rmax=10.,bins=31)
+    return None
+
 ########################### TESTS OF ERRORS AND WARNINGS#######################
 
 def test_isotropic_hernquist_nopot():
