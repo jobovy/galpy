@@ -63,9 +63,16 @@ class eddingtondf(isotropicsphericaldf):
         r_a_values= numpy.concatenate(\
                         (numpy.array([0.]),
                          numpy.geomspace(1e-6,1e6,10001)))
-        self._rphi= interpolate.InterpolatedUnivariateSpline(\
-                        [_evaluatePotentials(self._pot,r*self._scale,0)
-                         for r in r_a_values],r_a_values*self._scale,k=3)
+        phis = numpy.array([_evaluatePotentials(self._pot,r*self._scale,0)
+                           for r in r_a_values])
+        # Ensure phi is monotonic
+        if numpy.any(numpy.diff(phis) <= 0):
+            phim = numpy.maximum.accumulate(phis)
+            indx_rm = numpy.where(numpy.diff(phim)==0)[0]
+            phis = numpy.delete(phim,indx_rm)
+            r_a_values = numpy.delete(r_a_values,indx_rm)
+        self._rphi= interpolate.InterpolatedUnivariateSpline(phis,
+            r_a_values*self._scale,k=3)
 
     def sample(self,R=None,z=None,phi=None,n=1,return_orbit=True,rmin=0.):
         # Slight over-write of superclass method to first build f(E) interp
