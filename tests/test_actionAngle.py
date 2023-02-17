@@ -1640,6 +1640,25 @@ def test_estimateDeltaStaeckel_no_median():
 	assert (numpy.fabs(nomed-indiv) < 1e-10).all(), 'no_median option returns different values to individual Delta estimation'
 	return None
 
+# Test that the replacement of z=0 with a small value works
+def test_estimateDeltaStaeckel_z_is_0():
+    from galpy.actionAngle import estimateDeltaStaeckel
+    from galpy.potential import MWPotential2014
+
+    # Test that z=0 works for a single value
+    n = 11
+    rs = numpy.linspace(0.1,10.,n)
+    for r in rs:
+        delta0= estimateDeltaStaeckel(MWPotential2014,r,0.)
+        deltasmall = estimateDeltaStaeckel(MWPotential2014,r,5e-4)
+        assert numpy.fabs(delta0-deltasmall) < 1e-3, 'Delta computed with z=0 does not agree with that computed for small z'
+    # And an array
+    delta0= estimateDeltaStaeckel(MWPotential2014,rs,numpy.zeros(n))
+    deltasmall = estimateDeltaStaeckel(MWPotential2014,rs,5e-4*numpy.ones(n))
+    assert numpy.all(numpy.fabs(delta0-deltasmall) < 1e-3), 'Delta computed with array of z=0 does not agree with that computed for array of small z'
+
+
+
 def test_actionAngleStaeckel_indivdelta_actions_c():
     from galpy.actionAngle import actionAngleStaeckel
     from galpy.orbit import Orbit

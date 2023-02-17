@@ -1068,8 +1068,7 @@ def estimateDeltaStaeckel(pot,R,z,no_median=False,delta0=1e-6):
                   for p in pot]) \
         if isinstance(pot,list) \
         else isinstance(pot,SCFPotential) or isinstance(pot,DiskSCFPotential)
-    if numpy.any(z==0.): # pragma: no cover
-        warnings.warn("z=0 encountered in estimateDeltaStaeckel, for which delta is undefined. Setting instances of z=0 to z=1e-4",galpyWarning)
+    if numpy.any(z==0.):
         if isinstance(z,numpy.ndarray):
             z[z==0.]= 1e-4
         else:
