@@ -193,12 +193,7 @@ class constantbetadf(_constantbetadf):
         self._potInf= _evaluatePotentials(self._pot,self._rmax,0)
         self._Emin= _evaluatePotentials(self._pot,0.,0)
         # Build interpolator r(pot)
-        r_a_values= numpy.concatenate(\
-                        (numpy.array([0.]),
-                         numpy.geomspace(1e-6,1e6,10001)))
-        self._rphi= interpolate.InterpolatedUnivariateSpline(\
-                        [_evaluatePotentials(self._pot,r*self._scale,0)
-                         for r in r_a_values],r_a_values*self._scale,k=3)
+        self._rphi= self._setup_rphi_interpolator()
         # Build interpolator for the lower limit of the integration (near the
         # 1/(Phi-E)^alpha divergence; at the end, we slightly adjust it up
         # to be sure to be above the point where things go haywire...

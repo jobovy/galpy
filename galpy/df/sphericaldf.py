@@ -21,7 +21,7 @@ import warnings
 
 import numpy
 import scipy.interpolate
-from scipy import integrate, special
+from scipy import integrate, interpolate, special
 
 from ..orbit import Orbit
 from ..potential import mass
@@ -542,6 +542,46 @@ class sphericaldf(df):
         return scipy.interpolate.RectBivariateSpline(
             numpy.log10(r_a_grid[0,:]), icdf_pvr_grid_reg[:,0],
             icdf_v_vesc_grid_reg.T,kx=1,ky=1)
+
+    def _setup_rphi_interpolator(self,r_a_min=1e-6,r_a_max=1e6,nra=10001):
+        """
+        NAME:
+
+        _setup_rphi_interpolator
+
+        PURPOSE:
+
+        Set up the interpolator for r(phi)
+
+        INPUT:
+
+            r_a_min= minimum r/a
+
+            r_a_max= maximum r/a
+
+            nra= number of points to use in the r/a grid
+
+        OUTPUT:
+
+            _rphi_interpolator (scipy.interpolate.InterpolatedUnivariateSpline)
+
+        HISTORY:
+
+            Written 2023-02-23 - James Lane (UofT)
+        """
+        r_a_values= numpy.concatenate(\
+                        (numpy.array([0.]),
+                         numpy.geomspace(r_a_min,r_a_max,nra)))
+        phis = numpy.array([_evaluatePotentials(self._pot,r*self._scale,0)
+                           for r in r_a_values])
+        # Ensure phi is monotonic (required if coming from interpolated pot)
+        if numpy.any(numpy.diff(phis) <= 0):
+            phim = numpy.maximum.accumulate(phis)
+            indx_rm = numpy.where(numpy.diff(phim)==0)[0]
+            phis = numpy.delete(phim,indx_rm)
+            r_a_values = numpy.delete(r_a_values,indx_rm)
+        return interpolate.InterpolatedUnivariateSpline(phis,
+            r_a_values*self._scale,k=3)
 
 class isotropicsphericaldf(sphericaldf):
     """Superclass for isotropic spherical distribution functions"""
