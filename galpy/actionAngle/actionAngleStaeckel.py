@@ -1068,6 +1068,11 @@ def estimateDeltaStaeckel(pot,R,z,no_median=False,delta0=1e-6):
                   for p in pot]) \
         if isinstance(pot,list) \
         else isinstance(pot,SCFPotential) or isinstance(pot,DiskSCFPotential)
+    if numpy.any(z==0.):
+        if isinstance(z,numpy.ndarray):
+            z[z==0.]= 1e-4
+        else:
+            z= 1e-4
     if isinstance(R,numpy.ndarray):
         delta2= numpy.array([(z[ii]**2.-R[ii]**2. #eqn. (9) has a sign error
                            +(3.*R[ii]*_evaluatezforces(pot,R[ii],z[ii])
