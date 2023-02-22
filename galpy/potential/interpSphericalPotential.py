@@ -4,8 +4,8 @@
 import numpy
 from scipy import interpolate
 
-from ..util.conversion import get_physical, physical_compatible
 from ..util._optional_deps import _JAX_LOADED
+from ..util.conversion import get_physical, physical_compatible
 from .Potential import _evaluatePotentials, _evaluateRforces
 from .SphericalPotential import SphericalPotential
 
@@ -105,7 +105,7 @@ Class that interpolates a spherical potential on a grid"""
         NAME:
            _rforce_jax
         PURPOSE:
-           evaluate the spherical radial force for this potential using JAX, 
+           evaluate the spherical radial force for this potential using JAX,
            which doesn't support splines, only linear interpolation.
         INPUT:
            r - Galactocentric spherical radius

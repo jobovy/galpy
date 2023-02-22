@@ -1771,7 +1771,7 @@ def test_eddington_interpolatedpotentials_sigmar():
     rmins = [0.1,0.2,0.2]
     for pot,tol,rmin in zip(pots,tols,rmins):
         ipot= potential.interpSphericalPotential(rforce=pot,
-            rgrid=numpy.geomspace(0.01,100.,10001))   
+            rgrid=numpy.geomspace(0.01,100.,10001))
         # Make sure to use the actual galpy potential for denspot
         dfh= eddingtondf(pot=ipot,denspot=denspot)
         numpy.random.seed(10)
@@ -1792,7 +1792,7 @@ def test_eddington_interpolatedpotentials_beta():
     rmins = [0.1,0.2,0.2]
     for pot,tol,rmin in zip(pots,tols,rmins):
         ipot= potential.interpSphericalPotential(rforce=pot,
-            rgrid=numpy.geomspace(0.01,100.,10001))   
+            rgrid=numpy.geomspace(0.01,100.,10001))
         # Make sure to use the actual galpy potential for denspot
         dfh= eddingtondf(pot=ipot,denspot=denspot)
         numpy.random.seed(10)
@@ -1858,7 +1858,7 @@ def test_constantbeta_interpolatedpotentials_sigmar():
     rmins = [0.1,0.2,0.2]
     for pot,tol,rmin in zip(pots,tols,rmins):
         ipot= potential.interpSphericalPotential(rforce=pot,
-            rgrid=numpy.geomspace(0.01,100.,10001))   
+            rgrid=numpy.geomspace(0.01,100.,10001))
         for twobeta in twobetas:
             # Make sure to use the actual galpy potential for denspot
             dfh= constantbetadf(pot=ipot,denspot=denspot,twobeta=twobeta)
@@ -1882,7 +1882,7 @@ def test_constantbeta_interpolatedpotentials_beta():
     rmins = [0.1,0.2,0.2]
     for pot,tol,rmin in zip(pots,tols,rmins):
         ipot= potential.interpSphericalPotential(rforce=pot,
-            rgrid=numpy.geomspace(0.01,100.,10001))   
+            rgrid=numpy.geomspace(0.01,100.,10001))
         for twobeta in twobetas:
             # Make sure to use the actual galpy potential for denspot
             dfh= constantbetadf(pot=ipot,denspot=denspot,twobeta=twobeta)
