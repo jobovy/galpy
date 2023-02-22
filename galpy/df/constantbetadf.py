@@ -1,10 +1,13 @@
 # Class that implements DFs of the form f(E,L) = L^{-2\beta} f(E) with constant
 # beta anisotropy parameter
+import warnings
+
 import numpy
 from scipy import integrate, interpolate, special
 
+from ..potential import interpSphericalPotential
 from ..potential.Potential import _evaluatePotentials
-from ..util import conversion
+from ..util import conversion, galpyWarning
 from ..util._optional_deps import _JAX_LOADED
 from .sphericaldf import anisotropicsphericaldf, sphericaldf
 
@@ -149,6 +152,8 @@ class constantbetadf(_constantbetadf):
             beta= twobeta/2.
         else:
             twobeta= 2.*beta
+        if isinstance(pot,interpSphericalPotential) and beta < -0.5: # pragma: no cover
+            warnings.warn("constantbetadf with beta < -0.5 is not recommended for use with interpSphericalPotential.",galpyWarning)
         _constantbetadf.__init__(self,pot=pot,denspot=denspot,beta=beta,
                                  rmax=rmax,scale=scale,ro=ro,vo=vo)
         self._twobeta= twobeta
