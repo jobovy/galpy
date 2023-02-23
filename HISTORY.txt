@@ -9,6 +9,9 @@ v1.8.2 (2023-XX-XX)
   to go from (x,v) -> (J,theta,Omega) for 1D potentials using a custom
   implementation of the torus machinery with point transformations.
 
+- Made it possible to use an interpSphericalPotential as the potential in spherical
+  distribution functions (#554)
+
 - Made the potential input explicitly positional-only for all galpy.potential
   functions to avoid errors when specifying it as a keyword argument.
 
