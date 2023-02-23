@@ -4,6 +4,8 @@ on:
   push:
     paths:
       - '**'
+      - '!*'
+      - '*.py'
       - '!doc/**'
       - '!.github/**'
       - '.github/workflows/build.yml'
