@@ -49,7 +49,7 @@ Class that interpolates a spherical potential on a grid"""
         """
         SphericalPotential.__init__(self,amp=1.,ro=ro,vo=vo)
         self._rgrid= rgrid
-        self._rforce_jax_rgrid= rgrid if len(rgrid)>10000 else numpy.geomspace(0.01,100.,10001)
+        self._rforce_jax_rgrid= rgrid if len(rgrid)>10000 else numpy.geomspace(1e-3 if rgrid[0]==0. else rgrid[0],rgrid[-1],10001)
         # Determine whether rforce is a galpy Potential or list thereof
         try:
             _evaluateRforces(rforce,1.,0.)
@@ -72,7 +72,7 @@ Class that interpolates a spherical potential on a grid"""
         self._rforce_grid= numpy.array([_rforce(r) for r in rgrid])
         self._force_spline= interpolate.InterpolatedUnivariateSpline(
             self._rgrid,self._rforce_grid,k=3,ext=0)
-        self._rforce_jax_grid= numpy.array([_rforce(r) for r in self._rforce_jax_rgrid])
+        self._rforce_jax_grid= numpy.array([self._force_spline(r) for r in self._rforce_jax_rgrid])
         # Get potential and r2deriv as splines for the integral and derivative
         self._pot_spline= self._force_spline.antiderivative()
         self._Phi0= Phi0+self._pot_spline(self._rgrid[0])
