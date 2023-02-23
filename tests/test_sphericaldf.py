@@ -1987,8 +1987,8 @@ def check_sigmar_against_jeans(samp,pot,tol,beta=0.,dens=None,
     Does this by logarithmically binning in r between rmin and rmax"""
     vrs= (samp.vR()*samp.R()+samp.vz()*samp.z())/samp.r()
     logrs= numpy.log(samp.r())
-    if rmin is None: numpy.exp(numpy.amin(logrs))
-    if rmax is None: numpy.exp(numpy.amax(logrs))
+    if rmin is None: rmin= numpy.exp(numpy.amin(logrs))
+    if rmax is None: rmax= numpy.exp(numpy.amax(logrs))
     w,e= numpy.histogram(logrs,range=[numpy.log(rmin),numpy.log(rmax)],
                          bins=bins,weights=numpy.ones_like(logrs))
     mv2,_= numpy.histogram(logrs,range=[numpy.log(rmin),numpy.log(rmax)],
@@ -2010,8 +2010,8 @@ def check_beta(samp,pot,tol,beta=0.,
     vthetas=(samp.z()*samp.vR()-samp.R()*samp.vz())/samp.r()
     vphis= samp.vT()
     logrs= numpy.log(samp.r())
-    if rmin is None: numpy.exp(numpy.amin(logrs))
-    if rmax is None: numpy.exp(numpy.amax(logrs))
+    if rmin is None: rmin= numpy.exp(numpy.amin(logrs))
+    if rmax is None: rmax= numpy.exp(numpy.amax(logrs))
     w,e= numpy.histogram(logrs,range=[numpy.log(rmin),numpy.log(rmax)],
                          bins=bins,weights=numpy.ones_like(logrs))
     mvr2,_= numpy.histogram(logrs,range=[numpy.log(rmin),numpy.log(rmax)],
