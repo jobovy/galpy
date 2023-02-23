@@ -60,12 +60,7 @@ class eddingtondf(isotropicsphericaldf):
         self._potInf= _evaluatePotentials(pot,self._rmax,0)
         self._Emin= _evaluatePotentials(pot,0.,0)
         # Build interpolator r(pot)
-        r_a_values= numpy.concatenate(\
-                        (numpy.array([0.]),
-                         numpy.geomspace(1e-6,1e6,10001)))
-        self._rphi= interpolate.InterpolatedUnivariateSpline(\
-                        [_evaluatePotentials(self._pot,r*self._scale,0)
-                         for r in r_a_values],r_a_values*self._scale,k=3)
+        self._rphi= self._setup_rphi_interpolator()
 
     def sample(self,R=None,z=None,phi=None,n=1,return_orbit=True,rmin=0.):
         # Slight over-write of superclass method to first build f(E) interp
