@@ -24,7 +24,7 @@ import scipy.interpolate
 from scipy import integrate, interpolate, special
 
 from ..orbit import Orbit
-from ..potential import mass
+from ..potential import interpSphericalPotential, mass
 from ..potential.Potential import _evaluatePotentials
 from ..potential.SCFPotential import _RToxi, _xiToR
 from ..util import _optional_deps, conversion, galpyWarning
@@ -92,6 +92,9 @@ class sphericaldf(df):
             except (TypeError,AttributeError):
                 self._scale= conversion.parse_length(scale,ro=self._ro) \
                     if scale is not None else 1.
+        # Check that interpolated potential has appropriate grid range for DF
+        if isinstance(pot,interpSphericalPotential) and pot._rmax < self._rmax:
+            warnings.warn("The interpolated potential's rmax is smaller than the DF's rmax",galpyWarning)
 
 ############################## EVALUATING THE DF###############################
     @physical_conversion('phasespacedensity',pop=True)
@@ -503,6 +506,9 @@ class sphericaldf(df):
 
             Written 2020-07-24 - James Lane (UofT)
         """
+        # Check that interpolated potential has appropriate grid range
+        if isinstance(self._pot,interpSphericalPotential) and self._rmin_sampling < self._pot._rmin:
+            warnings.warn("Interpolated potential grid rmin is larger than the rmin to be used for the v_vesc_interpolator grid. This may adversely affect the generated samples. Proceed with care!",galpyWarning)
         # Make an array of r/a by v/vesc and then calculate p(v|r)
         r_a_start= numpy.amax([\
                     numpy.log10((self._rmin_sampling+1e-8)/self._scale),

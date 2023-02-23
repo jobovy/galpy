@@ -1810,6 +1810,42 @@ def test_constantbeta_interpolatedpotentials_beta():
             check_beta(samp,pot,tol,beta=twobeta/2,rmin=rmin,rmax=10.,bins=31)
     return None
 
+# Test errors and warnings are raised correctly when using interpSphericalPotential
+def test_constantbeta_interpolatedpotentials_beta_lt_neg05():
+    if WIN32: return None # skip on Windows, because no JAX
+    pot = potential.HernquistPotential(amp=1.3,a=0.8)
+    ipot = potential.interpSphericalPotential(rforce=pot)
+    with pytest.raises(RuntimeError) as excinfo:
+        dfh = constantbetadf(pot=ipot,denspot=pot,twobeta=-2)
+    assert str(excinfo.value) == "constantbetadf with beta < -0.5 is not supported for use with interpSphericalPotential.", "Error message when beta < -0.5 while using interpSphericalPotential is incorrect"
+
+def test_eddington_interpolatedpotentials_rmin():
+    pot = potential.HernquistPotential(amp=1.3,a=0.8)
+    rmin = 0.2
+    ipot = potential.interpSphericalPotential(rforce=pot,
+        rgrid= numpy.geomspace(rmin,100.,10001))
+    dfh = eddingtondf(pot=ipot,denspot=pot,rmax=10.)
+    with pytest.warns(galpyWarning) as record:
+        samp = dfh.sample(n=100)
+    raisedWarning = False
+    for rec in record:
+        # check that the message matches
+        raisedWarning += (str(rec.message.args[0]) == "Interpolated potential grid rmin is larger than the rmin to be used for the v_vesc_interpolator grid. This may adversely affect the generated samples. Proceed with care!")
+    assert raisedWarning, "Using an interpolated potential with rmin smaller than the rmin to be used for the v_vesc_interpolator grid should have raised a warning, but didn't"
+
+def test_eddington_interpolatedpotentials_rmax():
+    pot = potential.HernquistPotential(amp=1.3,a=0.8)
+    rmax = 10.
+    ipot = potential.interpSphericalPotential(rforce=pot,
+        rgrid= numpy.geomspace(0.001,rmax,10001))
+    with pytest.warns(galpyWarning) as record:
+        dfh = eddingtondf(pot=ipot,denspot=pot)
+    raisedWarning = False
+    for rec in record:
+        # check that the message matches
+        raisedWarning += (str(rec.message.args[0]) == "The interpolated potential's rmax is smaller than the DF's rmax")
+    assert raisedWarning, "Using an interpolated potential with rmax smaller than the DF's rmax should have raised a warning, but didn't"
+
 ########################### TESTS OF ERRORS AND WARNINGS#######################
 
 def test_isotropic_hernquist_nopot():
