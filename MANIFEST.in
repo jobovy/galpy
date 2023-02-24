@@ -4,6 +4,9 @@ include galpy/df/data/*.sav
 include galpy/orbit/named_objects.json
 include galpy/actionAngle/actionAngle_c_ext/*.h
 include galpy/actionAngle/actionAngleTorus_c_ext/*.h
+include galpy/actionAngle/actionAngleTorus_c_ext/torus/src/*.h
+include galpy/actionAngle/actionAngleTorus_c_ext/torus/src/utils/*.h
+include galpy/actionAngle/actionAngleTorus_c_ext/torus/src/utils/Numerics.templates
 include galpy/orbit/orbit_c_ext/*.h
 include galpy/potential/potential_c_ext/*.h
 include galpy/util/*.h

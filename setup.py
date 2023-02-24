@@ -7,7 +7,7 @@ import subprocess
 import sys
 import sysconfig
 
-from setuptools import Extension, setup
+from setuptools import Extension, find_namespace_packages, setup
 from setuptools.command.build_ext import build_ext
 from setuptools.errors import PlatformError
 
@@ -272,10 +272,7 @@ setup(cmdclass=dict(build_ext=BuildExt), # this to allow compiler check above
       long_description=long_description,
       long_description_content_type='text/markdown',
       url='http://github.com/jobovy/galpy',
-      package_dir = {'galpy/': ''},
-      packages=['galpy','galpy/orbit','galpy/potential',
-                'galpy/df','galpy/util','galpy/snapshot',
-                'galpy/actionAngle'],
+      packages=find_namespace_packages(where=".", include=["galpy*"]),
       package_data={'galpy/orbit':['named_objects.json'],
                     'galpy/df':['data/*.sav'],
                     "": ["README.md","README.dev","LICENSE","AUTHORS.rst"]},
