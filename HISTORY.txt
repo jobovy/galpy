@@ -1,4 +1,4 @@
-v1.8.2 (2023-XX-XX)
+v1.8.2 (2023-02-28)
 ===================
 
 - Added actionAngleVertical to the public API, an actionAngle class for
