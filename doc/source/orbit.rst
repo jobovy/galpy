@@ -216,7 +216,7 @@ multiple objects. Specifically, the initial conditions can be:
 * astropy (>v3.0) SkyCoord with arbitrary shape, including velocities;
 * lists of initial conditions, entries can be
    * individual Orbit instances (of single objects)
-   * Quantity arrays arranged as in the first bullet above (so things like [R,vR,vT,z,vz,phi], where R, vR, ... can be arbitrary shape Quantity arrays)
+   * Regular or Quantity arrays arranged as in the first bullet above (so things like [R,vR,vT,z,vz,phi], where R, vR, ... can be arbitrary shape regular or Quantity arrays)
    * list of Quantities (so things like [R1,vR1,..,], where R1, vR1, ... are scalar Quantities
    * None: assumed to be the Sun; if None occurs in a list it is assumed to be the Sun *and all other items in the list are assumed to be [ra,dec,...]*; cannot be combined with Quantity lists
    * lists of scalar phase-space coordinates arranged as in the first bullet above (so things like [R,vR,...] where R,vR are scalars in internal units

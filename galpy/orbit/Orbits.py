@@ -186,7 +186,7 @@ class Orbit:
 
                     1) individual Orbit instances (of single objects)
 
-                    2) regular or Quanitty arrays arranged as in section 2) above (so things like [R,vR,vT,z,vz,phi], where R, vR, ... can be arbitrary shape Quantity arrays)
+                    2) regular or Quantity arrays arranged as in section 2) above (so things like [R,vR,vT,z,vz,phi], where R, vR, ... can be arbitrary shape Quantity arrays)
 
                     3) list of Quantities (so things like [R1,vR1,..,], where R1, vR1, ... are scalar Quantities
 

@@ -1574,7 +1574,7 @@ def rect_to_cyl_vec(vx,vy,vz,X,Y,Z,cyl=False):
 
        Z - Z
 
-       cyl - if True, X,Y,Z are already cylindrical
+       cyl - if True, X,Y,Z are already cylindrical (i.e., [X,Y,Z] == [R,phi,Z])
 
     OUTPUT:
 
