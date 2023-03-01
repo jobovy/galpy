@@ -12,7 +12,7 @@ If you are on a **Linux or Mac** system, the recommended way to install is using
 
     python -m pip install --only-binary galpy galpy
 
-This should install a fully-working version of galpy for Python versions >=3.7 (>=3.8 on ARM64 Macs). If this fails, please open an `issue <https://github.com/jobovy/galpy/issues/new?assignees=&labels=&template=bug_report.md&title=>`__ on the ``galpy`` GitHub page, making sure to specify your platform and Python version. Then read on at :ref:`detailed_installation` to learn how to install ``galpy`` when the above fails.
+This should install a fully-working version of galpy for Python versions >=3.8. If this fails, please open an `issue <https://github.com/jobovy/galpy/issues/new?assignees=&labels=&template=bug_report.md&title=>`__ on the ``galpy`` GitHub page, making sure to specify your platform and Python version. Then read on at :ref:`detailed_installation` to learn how to install ``galpy`` when the above fails.
 
 If you are on a **Windows** system, the recommended way to install is using ``conda``::
 
@@ -31,7 +31,7 @@ For more info on installation options, jump to the detailed instructions below:
 Dependencies
 ------------
 
-galpy requires the ``numpy``, ``scipy``, and ``matplotlib`` packages;
+galpy requires the ``packaging``, ``numpy``, ``scipy``, and ``matplotlib`` packages;
 these must be installed or the code will not be able to be imported.
 All installation methods described on this page will automatically install
 these required dependencies.
