@@ -28,7 +28,7 @@ import sys
 # Add any Sphinx extension module names here, as strings. They can be extensions
 # coming with Sphinx (named 'sphinx.ext.*') or your custom ones.
 extensions = ['sphinx.ext.autodoc', 'sphinx.ext.mathjax','sphinx.ext.ifconfig',
-              'sphinx.ext.linkcode',"sphinxext.opengraph"]
+              'sphinx.ext.linkcode',"sphinxext.opengraph","sphinx_design"]
 
 # from disnake via:
 # https://twitter.com/readthedocs/status/1541830907082022913?s=20&t=eJ293FfjILT7sIxEyz834w

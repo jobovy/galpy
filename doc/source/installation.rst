@@ -8,23 +8,35 @@ Installation
 TL;DR
 ------
 
-If you are on a **Linux or Mac** system, the recommended way to install is using ``pip``::
+.. tab-set::
+    :class: platform-selector-tabset
 
-    python -m pip install --only-binary galpy galpy
+    .. tab-item:: Linux
 
-This should install a fully-working version of galpy for Python versions >=3.8. If this fails, please open an `issue <https://github.com/jobovy/galpy/issues/new?assignees=&labels=&template=bug_report.md&title=>`__ on the ``galpy`` GitHub page, making sure to specify your platform and Python version. Then read on at :ref:`detailed_installation` to learn how to install ``galpy`` when the above fails.
+        The recommended way to install is using ``pip``::
 
-If you are on a **Windows** system, the recommended way to install is using ``conda``::
+            python -m pip install --only-binary galpy galpy
 
-    conda install -c conda-forge gsl galpy
+        This should install a fully-working version of galpy for Python versions >=3.8. If this fails, please open an `issue <https://github.com/jobovy/galpy/issues/new?assignees=&labels=&template=bug_report.md&title=>`__ on the ``galpy`` GitHub page, making sure to specify your platform and Python version. Then read on at :ref:`detailed_installation` to learn how to install ``galpy`` when the above fails.
 
-Note that on Windows it is necessary to explicitly install the GNU Scientific Library (GSL) in this way.
+    .. tab-item:: Mac
 
-For more info on installation options, jump to the detailed instructions below:
+        The recommended way to install is using ``pip``::
 
-* :ref:`detailed_installation_mac`
-* :ref:`detailed_installation_linux`
-* :ref:`detailed_installation_win`
+            python -m pip install --only-binary galpy galpy
+
+        This should install a fully-working version of galpy for Python versions >=3.8. If this fails, please open an `issue <https://github.com/jobovy/galpy/issues/new?assignees=&labels=&template=bug_report.md&title=>`__ on the ``galpy`` GitHub page, making sure to specify your platform and Python version. Then read on at :ref:`detailed_installation` to learn how to install ``galpy`` when the above fails.
+
+    .. tab-item:: Windows
+
+        The recommended way to install is using ``conda``::
+
+            conda install -c conda-forge gsl galpy
+
+        Note that on Windows it is necessary to explicitly install the GNU Scientific Library (GSL) in this way.
+
+For more info on installation options, jump to the detailed instructions below: :ref:`detailed_installation`
+
 
 .. _deps_installation:
 
@@ -59,188 +71,182 @@ If you are reading this, either the simple installation instructions at the top 
    install the GSL from the ``anaconda`` channel, it will often not work with
    ``galpy``. In an ``environment.yml`` file, use ``- conda-forge::gsl``.
 
-.. _detailed_installation_mac:
+.. tab-set::
+    :class: platform-selector-tabset
 
-Mac installation
-++++++++++++++++
+    .. tab-item:: Linux
 
-As discussed in the :ref:`tldr_installation` section above, the simplest and
-quickest way to install the latest ``galpy`` release on a Mac is to use
-``pip``::
+        As discussed in the :ref:`tldr_installation` section above, the simplest and
+        quickest way to install the latest ``galpy`` release on Linux is to use
+        ``pip``::
 
-    python -m pip install --only-binary galpy galpy
+            python -m pip install --only-binary galpy galpy
 
-Alternatively, you can install both the GSL and ``galpy`` using ``conda``::
+        Alternatively, you can install both the GSL and ``galpy`` using ``conda``::
 
-    conda install -c conda-forge gsl galpy
+            conda install -c conda-forge gsl galpy
 
-To compile ``galpy`` from source, you will first need to install the GSL. The
-easiest way to do this is using `Homebrew <http://brew.sh/>`__ as::
+        To compile ``galpy`` from source, you will first need to install the GSL. The
+        easiest way to do this is using your package manager. On Linux distributions
+        with ``apt-get``, do::
 
-    brew install gsl --universal
+            apt-get install libgsl0-dev
 
-Alternatively, you can use ``conda`` to install the GSL and use ``conda`` to
-manage your Python environment. Install the GSL in your preferred environment
-with::
+        or on distros with ``yum``, do::
 
-    conda install -c conda-forge gsl
+            yum install gsl-devel
 
-Once you have installed the GSL, compile ``galpy`` from source using::
+        Alternatively, you can use ``conda`` to install the GSL and use ``conda`` to
+        manage your Python environment. Install the GSL in your preferred environment
+        with::
 
-    export CFLAGS="$CFLAGS -I`gsl-config --prefix`/include"
-    export LDFLAGS="$LDFLAGS -L`gsl-config --prefix`/lib"
-    python -m pip install --no-binary galpy galpy
+            conda install -c conda-forge gsl
 
-The commands in this section so far all install the latest release. If you want
-to install the latest bleeding-edge version, you have two options. If the
-installion in the :ref:`tldr_installation` works for you, you can download a
-binary wheel for the latest ``main`` branch version on GitHub, which is
-available `here <http://www.galpy.org.s3-website.us-east-2.amazonaws.com/list.html>`__.
-To install these wheels, download the relevant version for your operating
-system and Python version and do::
+        Once you have installed the GSL, compile ``galpy`` from source using::
 
-    python -m pip install WHEEL_FILE.whl
+            export CFLAGS="$CFLAGS -I`gsl-config --prefix`/include"
+            export LDFLAGS="$LDFLAGS -L`gsl-config --prefix`/lib"
+            python -m pip install --no-binary galpy galpy
 
-These wheels have stable ``...latest...`` names, so you can embed them in
-workflows that should always be using the latest version of ``galpy``
-(e.g., to test your code against the latest development version).
+        The commands in this section so far all install the latest release. If you want
+        to install the latest bleeding-edge version, you have two options. If the
+        installion in the :ref:`tldr_installation` works for you, you can download a
+        binary wheel for the latest ``main`` branch version on GitHub, which is available
+        `here <http://www.galpy.org.s3-website.us-east-2.amazonaws.com/list.html>`__.
+        To install these wheels, download the relevant version for your operating system
+        and Python version and do::
 
-If this doesn't work, follow the steps above to install the GSL, define the
-relevant environment variables, and then install from source using::
+            python -m pip install WHEEL_FILE.whl
 
-    python -m pip install git+https://github.com/jobovy/galpy.git#egg=galpy
+        These wheels have stable ``...latest...`` names, so you can embed them in
+        workflows that should always be using the latest version of ``galpy``
+        (e.g., to test your code against the latest development version).
 
-You can also download the source code or clone the repository, navigate to the
-top-level directory, and install using::
+        If this doesn't work, follow the steps above to install the GSL, define the
+        relevant environment variables, and then install from source using::
 
-    python -m pip install .
+            python -m pip install git+https://github.com/jobovy/galpy.git#egg=galpy
 
-.. _detailed_installation_linux:
+        You can also download the source code or clone the repository, navigate to the
+        top-level directory, and install using::
 
-Linux installation
-++++++++++++++++++
+            python -m pip install .
 
-As discussed in the :ref:`tldr_installation` section above, the simplest and
-quickest way to install the latest ``galpy`` release on Linux is to use
-``pip``::
+    .. tab-item:: Mac
 
-    python -m pip install --only-binary galpy galpy
+        As discussed in the :ref:`tldr_installation` section above, the simplest and
+        quickest way to install the latest ``galpy`` release on a Mac is to use
+        ``pip``::
 
-Alternatively, you can install both the GSL and ``galpy`` using ``conda``::
+            python -m pip install --only-binary galpy galpy
 
-    conda install -c conda-forge gsl galpy
+        Alternatively, you can install both the GSL and ``galpy`` using ``conda``::
 
-To compile ``galpy`` from source, you will first need to install the GSL. The
-easiest way to do this is using your package manager. On Linux distributions
-with ``apt-get``, do::
+            conda install -c conda-forge gsl galpy
 
-   apt-get install libgsl0-dev
+        To compile ``galpy`` from source, you will first need to install the GSL. The
+        easiest way to do this is using `Homebrew <http://brew.sh/>`__ as::
 
-or on distros with ``yum``, do::
+            brew install gsl --universal
 
-   yum install gsl-devel
+        Alternatively, you can use ``conda`` to install the GSL and use ``conda`` to
+        manage your Python environment. Install the GSL in your preferred environment
+        with::
 
-Alternatively, you can use ``conda`` to install the GSL and use ``conda`` to
-manage your Python environment. Install the GSL in your preferred environment
-with::
+            conda install -c conda-forge gsl
 
-    conda install -c conda-forge gsl
+        Once you have installed the GSL, compile ``galpy`` from source using::
 
-Once you have installed the GSL, compile ``galpy`` from source using::
+            export CFLAGS="$CFLAGS -I`gsl-config --prefix`/include"
+            export LDFLAGS="$LDFLAGS -L`gsl-config --prefix`/lib"
+            python -m pip install --no-binary galpy galpy
 
-    export CFLAGS="$CFLAGS -I`gsl-config --prefix`/include"
-    export LDFLAGS="$LDFLAGS -L`gsl-config --prefix`/lib"
-    python -m pip install --no-binary galpy galpy
+        The commands in this section so far all install the latest release. If you want
+        to install the latest bleeding-edge version, you have two options. If the
+        installion in the :ref:`tldr_installation` works for you, you can download a
+        binary wheel for the latest ``main`` branch version on GitHub, which is
+        available `here <http://www.galpy.org.s3-website.us-east-2.amazonaws.com/list.html>`__.
+        To install these wheels, download the relevant version for your operating
+        system and Python version and do::
 
-The commands in this section so far all install the latest release. If you want
-to install the latest bleeding-edge version, you have two options. If the
-installion in the :ref:`tldr_installation` works for you, you can download a
-binary wheel for the latest ``main`` branch version on GitHub, which is available
-`here <http://www.galpy.org.s3-website.us-east-2.amazonaws.com/list.html>`__.
-To install these wheels, download the relevant version for your operating system
-and Python version and do::
+            python -m pip install WHEEL_FILE.whl
 
-    python -m pip install WHEEL_FILE.whl
+        These wheels have stable ``...latest...`` names, so you can embed them in
+        workflows that should always be using the latest version of ``galpy``
+        (e.g., to test your code against the latest development version).
 
-These wheels have stable ``...latest...`` names, so you can embed them in
-workflows that should always be using the latest version of ``galpy``
-(e.g., to test your code against the latest development version).
+        If this doesn't work, follow the steps above to install the GSL, define the
+        relevant environment variables, and then install from source using::
 
-If this doesn't work, follow the steps above to install the GSL, define the
-relevant environment variables, and then install from source using::
+            python -m pip install git+https://github.com/jobovy/galpy.git#egg=galpy
 
-    python -m pip install git+https://github.com/jobovy/galpy.git#egg=galpy
+        You can also download the source code or clone the repository, navigate to the
+        top-level directory, and install using::
 
-You can also download the source code or clone the repository, navigate to the
-top-level directory, and install using::
+            python -m pip install .
 
-    python -m pip install .
+    .. tab-item:: Windows
 
-.. _detailed_installation_win:
+        As discussed in the :ref:`tldr_installation` section above, the simplest and
+        quickest way to install the latest ``galpy`` release on Windows is to use
+        ``conda``::
 
-Windows installation
-++++++++++++++++++++
+            conda install -c conda-forge gsl galpy
 
-As discussed in the :ref:`tldr_installation` section above, the simplest and
-quickest way to install the latest ``galpy`` release on Windows is to use
-``conda``::
+        If you want to install the latest bleeding-edge version, you have to install
+        the GSL first as. In an existing ``conda`` environment, do::
 
-    conda install -c conda-forge gsl galpy
+            conda install -c conda-forge gsl
 
-If you want to install the latest bleeding-edge version, you have to install
-the GSL first as. In an existing ``conda`` environment, do::
+        while if you don't want to use ``conda`` to manage your Python environment, you
+        can do::
 
-    conda install -c conda-forge gsl
+            conda create -n gsl conda-forge::gsl
+            conda activate gsl
 
-while if you don't want to use ``conda`` to manage your Python environment, you
-can do::
+        Either way, then set the path and relevant environment variables using::
 
-    conda create -n gsl conda-forge::gsl
-    conda activate gsl
+            set PATH=%PATH%;"$CONDA_PREFIX\\Library\\bin"
+            set INCLUDE=%CONDA_PREFIX%\Library\include;%INCLUDE%
+            set LIB=%CONDA_PREFIX%\Library\lib;%LIB%
+            set LIBPATH=%CONDA_PREFIX%\Library\lib;%LIBPATH%
 
-Either way, then set the path and relevant environment variables using::
+        in the ``CMD`` shell or::
 
-    set PATH=%PATH%;"$CONDA_PREFIX\\Library\\bin"
-    set INCLUDE=%CONDA_PREFIX%\Library\include;%INCLUDE%
-    set LIB=%CONDA_PREFIX%\Library\lib;%LIB%
-    set LIBPATH=%CONDA_PREFIX%\Library\lib;%LIBPATH%
+            $env:Path+="$env:CONDA_PREFIX\Library\bin"
+            $env:INCLUDE="$env:CONDA_PREFIX\Library\include"
+            $env:LIB="$env:CONDA_PREFIX\Library\lib"
+            $env:LIBPATH="$env:CONDA_PREFIX\Library\lib"
 
-in the ``CMD`` shell or::
+        if you are using ``PowerShell``. Note that you have to execute these commands
+        from the ``conda`` environment such that the ``CONDA_PREFIX`` variable is set.
+        To compile with OpenMP on Windows, you have to also install Intel OpenMP via::
 
-    $env:Path+="$env:CONDA_PREFIX\Library\bin"
-    $env:INCLUDE="$env:CONDA_PREFIX\Library\include"
-    $env:LIB="$env:CONDA_PREFIX\Library\lib"
-    $env:LIBPATH="$env:CONDA_PREFIX\Library\lib"
+            conda install -c anaconda intel-openmp
 
-if you are using ``PowerShell``. Note that you have to execute these commands
-from the ``conda`` environment such that the ``CONDA_PREFIX`` variable is set.
-To compile with OpenMP on Windows, you have to also install Intel OpenMP via::
+        Then you can deactivate the conda environment (but you don't have to!).
 
-    conda install -c anaconda intel-openmp
+        With the GSL set up, you can then download a binary wheel for the latest
+        ``main`` branch version on GitHub, which is available
+        `here <http://www.galpy.org.s3-website.us-east-2.amazonaws.com/list.html>`__.
+        To install these wheels, download the relevant version for your operating
+        system and Python version and do::
 
-Then you can deactivate the conda environment (but you don't have to!).
+            python -m pip install WHEEL_FILE.whl
 
-With the GSL set up, you can then download a binary wheel for the latest
-``main`` branch version on GitHub, which is available
-`here <http://www.galpy.org.s3-website.us-east-2.amazonaws.com/list.html>`__.
-To install these wheels, download the relevant version for your operating
-system and Python version and do::
+        You can also compile from source using::
 
-    python -m pip install WHEEL_FILE.whl
+            python -m pip install git+https://github.com/jobovy/galpy.git#egg=galpy
 
-You can also compile from source using::
+        or you can download the source code or clone the repository, navigate to the
+        top-level directory, and install using::
 
-    python -m pip install git+https://github.com/jobovy/galpy.git#egg=galpy
+            python -m pip install .
 
-or you can download the source code or clone the repository, navigate to the
-top-level directory, and install using::
-
-    python -m pip install .
-
-Whenever you run ``galpy``, you have to adjust the ``PATH`` variable as above.
-These wheels have stable ``...latest...`` names, so you can embed them in
-workflows that should always be using the latest version of ``galpy``
-(e.g., to test your code against the latest development version).
+        Whenever you run ``galpy``, you have to adjust the ``PATH`` variable as above.
+        These wheels have stable ``...latest...`` names, so you can embed them in
+        workflows that should always be using the latest version of ``galpy``
+        (e.g., to test your code against the latest development version).
 
 .. _dev_installation:
 
@@ -621,3 +627,32 @@ at ``$HOME/.galpyrc``. If you want to change any of the settings (for
 example, you want Quantity output), you can edit this file. The
 default configuration file can also be found :download:`here
 <examples/galpyrc>`.
+
+
+.. raw:: html
+
+    <script type="text/javascript">
+      var platform = "linux";
+      if (navigator.userAgent.indexOf("Win") !== -1) {
+        platform = "windows";
+      }
+      if (navigator.userAgent.indexOf("Mac") !== -1) {
+        platform = "mac";
+      }
+      $(document).ready(function(){
+        let platformSelectorTabsets= document.querySelectorAll('.platform-selector-tabset');
+        let all_tab_nodes, input_nodes, tab_label_nodes, correct_label, hash, correct_input;
+        for (let i = 0; i < platformSelectorTabsets.length; i++) {
+          all_tab_nodes = platformSelectorTabsets[i].children;
+          input_nodes = [...all_tab_nodes].filter(
+              child => child.nodeName === "INPUT");
+          tab_label_nodes = [...all_tab_nodes].filter(
+              child => child.nodeName === "LABEL");
+          correct_label = tab_label_nodes.filter(
+              label => label.textContent.trim().toLowerCase() === platform)[0];
+          hash = correct_label.getAttribute('for');
+          correct_input = input_nodes.filter(node => node.id === hash)[0];
+          correct_input.checked = true;
+        }
+      });
+     </script>
