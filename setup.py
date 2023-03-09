@@ -279,7 +279,7 @@ setup(cmdclass=dict(build_ext=BuildExt), # this to allow compiler check above
       include_package_data=True,
       python_requires='>=3.8',
       install_requires=['packaging','numpy>=1.7','scipy','matplotlib'],
-      extras_require={'docs': ['sphinxext-opengraph']},
+      extras_require={'docs': ['sphinxext-opengraph','sphinx-design','markupsafe==2.0.1']},
       ext_modules=ext_modules if not no_compiler and not no_ext else None,
       classifiers=[
         "Development Status :: 6 - Mature",
