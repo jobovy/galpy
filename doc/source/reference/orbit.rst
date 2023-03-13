@@ -10,7 +10,7 @@ Initialization
 --------------
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
    Orbit <orbitinit.rst>
    Orbit.from_fit <orbitfromfit.rst>
@@ -20,7 +20,7 @@ Plotting
 --------
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
    animate <orbitanimate.rst>
    animate3d <orbitanimate3d.rst>
@@ -37,18 +37,16 @@ time. For example, ``o.plotR()`` will plot the orbit's R vs time.
 Attributes
 ----------
 
-* .. autoinstanceattribute:: galpy.orbit.Orbit.name
-     :annotation: Name(s) of objects initialized using ``Orbit.from_name``
-* .. autoinstanceattribute:: galpy.orbit.Orbit.shape
-     :annotation: Tuple of Orbit dimensions
-* .. autoinstanceattribute:: galpy.orbit.Orbit.size
-     :annotation: Total number of elements in the Orbit instance
+* .. autoattribute:: galpy.orbit.Orbit.name
+     :annotation: Name(s) of objects initialized using Orbit.from_name
+* .. autoattribute:: galpy.orbit.Orbit.shape
+* .. autoattribute:: galpy.orbit.Orbit.size
 
 Methods
 -------
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
    __call__ <orbitcall.rst>
    __getitem__ <orbitgetitem.rst>

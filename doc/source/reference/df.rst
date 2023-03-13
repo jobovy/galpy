@@ -11,7 +11,7 @@ Jeans modeling tools (``galpy.df.jeans``)
 -----------------------------------------
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
    sigmar <dfjeanssigmar.rst>
    sigmalos <dfjeanssigmalos.rst>
@@ -21,7 +21,7 @@ General instance routines for all df classes
 
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
    turn_physical_off <dfturnphysicaloff.rst>
    turn_physical_on <dfturnphysicalon.rst>
@@ -75,7 +75,7 @@ General instance routines
 
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
    __call__ <sphericaldfcall.rst>
    beta <sphericaldfbeta.rst>
@@ -87,7 +87,7 @@ Sampling routines
 ^^^^^^^^^^^^^^^^^^^
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
    sample <sphericaldfsample.rst>
 
@@ -97,7 +97,7 @@ Specific distribution functions
 The following are isotropic distribution functions
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
    Arbitrary Eddington-inversion DF <dfeddington.rst>
    Hernquist DF <dfhernquist.rst>
@@ -108,7 +108,7 @@ The following are isotropic distribution functions
 Anisotropic versions also exist:
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
    Arbitrary constant-anisotropy DF <dfconstantbeta.rst>
    Arbitrary Osipkov-Merritt DF <dfosipkovmerritt.rst>
@@ -127,7 +127,7 @@ General instance routines
 
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
    __call__ <diskdfcall.rst>
    asymmetricdrift <diskdfasymmetricdrift.rst>
@@ -156,7 +156,7 @@ Sampling routines
 ^^^^^^^^^^^^^^^^^^^
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
    sample <diskdfsample.rst>
    sampledSurfacemassLOS <diskdfsampledSurfacemassLOS.rst>
@@ -168,7 +168,7 @@ Specific distribution functions
 +++++++++++++++++++++++++++++++
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
    Dehnen DF <dfdehnen.rst>
    Schwarzschild DF <dfschwarzschild.rst>
@@ -190,7 +190,7 @@ General instance routines
 
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
    __call__ <edfcall.rst>
    __init__ <edf.rst>
@@ -218,7 +218,7 @@ General instance routines
 
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
    __call__ <quasidfcall.rst>
    density <quasidfdensity.rst>
@@ -254,7 +254,7 @@ Specific distribution functions
 +++++++++++++++++++++++++++++++
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
    quasiisothermal DF <dfquasiisothermal.rst>
 
@@ -269,7 +269,7 @@ General instance routines
 +++++++++++++++++++++++++
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
    __call__ <streamdfcall.rst>
    __init__ <streamdf.rst>
@@ -310,7 +310,7 @@ General instance routines
 +++++++++++++++++++++++++
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
    __init__ <streamgapdf.rst>
    sample <streamdfsample.rst>
@@ -319,7 +319,7 @@ Helper routines to compute kicks
 +++++++++++++++++++++++++++++++++
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
    impulse_deltav_plummer <impulse_deltav_plummer.rst>
    impulse_deltav_plummer_curvedstream <impulse_deltav_plummer_curvedstream.rst>
@@ -343,7 +343,7 @@ General instance routines
 +++++++++++++++++++++++++
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
    __init__ <streamspraydf.rst>
    sample <streamspraydfsample.rst>

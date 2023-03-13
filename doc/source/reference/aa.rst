@@ -13,7 +13,7 @@ modules, so check the documentation of the module-specific functions
 for more info (e.g., ``?actionAngleIsochrone.__call__``)
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
    __call__ <aacall.rst>
    actionsFreqs <aaactionsfreqs.rst>
@@ -26,7 +26,7 @@ Specific actionAngle modules
 ++++++++++++++++++++++++++++++
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
    actionAngleHarmonic <aaharmonic.rst>
    actionAngleIsochrone <aaisochrone.rst>
@@ -49,7 +49,7 @@ General instance routines
 Currently, only the interface to the TorusMapper code supports going from (**J**, **a**) --> (**x**, **v**, **O**). Instance methods are
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
    __call__ <aatcall.rst>
    Freqs <aatfreqs.rst>
@@ -59,7 +59,7 @@ Specific actionAngle modules
 ++++++++++++++++++++++++++++++
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
    actionAngleHarmonicInverse <aaharmonicinverse.rst>
    actionAngleIsochroneInverse <aaisochroneinverse.rst>
@@ -70,7 +70,7 @@ In addition to the methods listed above, ``actionAngleTorus`` also has
 the following methods:
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
    hessianFreqs <aathessianfreqs.rst>
    xvJacobianFreqs <aatxvjacobianfreqs.rst>
