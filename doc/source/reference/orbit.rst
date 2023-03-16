@@ -26,6 +26,7 @@ Plotting
    animate3d <orbitanimate3d.rst>
    plot <orbitplot.rst>
    plot3d <orbitplot3d.rst>
+   plotSOS <orbitplotsos.rst>
 
 In addition to these methods, any calculable attribute listed below
 can be plotted versus other attributes using ``plotATTR``, where
@@ -66,6 +67,7 @@ Methods
    helioZ <orbithelioz.rst>
    integrate <orbitint.rst>
    integrate_dxdv <orbitintdxdv.rst>
+   integrate_SOS <orbitintsos.rst>
    Jacobi <orbitJacobi.rst>
    jp <orbitjp.rst>
    jr <orbitjr.rst>
@@ -92,6 +94,7 @@ Methods
    rguiding <orbitrguiding.rst>
    rperi <orbitrperi.rst>
    SkyCoord <orbitskycoord.rst>
+   SOS <orbitsos.rst>
    theta <orbittheta.rst>
    time <orbittime.rst>
    toLinear <orbittolinear.rst>

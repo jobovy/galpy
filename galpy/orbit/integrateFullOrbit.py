@@ -676,6 +676,88 @@ def integrateFullOrbit(pot,yo,t,int_method,rtol=None,atol=None,
         out= out[:,:,:5]
     return out, numpy.zeros(len(yo))
 
+def integrateFullOrbit_sos(pot,yo,psi,t0,int_method,rtol=None,atol=None,
+                           numcores=1,progressbar=True,dpsi=None):
+    """
+    NAME:
+       integrateFullOrbit_sos
+    PURPOSE:
+       Integrate an ode for a FullOrbit for integrate_sos
+    INPUT:
+       pot - Potential or list of such instances
+       yo - initial condition [q,p], shape [N,5] or [N,6]
+       psi - set of increment angles at which one wants the result [increments wrt initial angle]
+       t0 - initial time
+       int_method= 'leapfrog', 'odeint', or 'dop853'
+       rtol, atol= tolerances (not always used...)
+       numcores= (1) number of cores to use for multi-processing
+       progressbar= (True) if True, display a tqdm progress bar when integrating multiple orbits (requires tqdm to be installed!)
+       dpsi= (None) force integrator to use this stepsize (default is to automatically determine one; only for C-based integrators)
+    OUTPUT:
+       (y,err)
+       y : array, shape (N,len(psi),5/6)
+       Array containing the value of y for each desired angle in psi, \
+       with the initial value y0 in the first row.
+       err: error message, always zero for now
+    HISTORY:
+       2023-03-16 - Written based on integrateFullOrbit - Bovy (UofT)
+    """
+    nophi= False
+    if len(yo[0]) == 5:
+        nophi= True
+        #We hack this by putting in a dummy phi=0
+        yo= numpy.pad(yo,((0,0),(0,1)),'constant',constant_values=0)
+    if not '_c' in int_method:
+        if rtol is None: rtol= 1e-8
+        if int_method.lower() == 'leapfrog':
+            integrator= symplecticode.leapfrog
+            extra_kwargs= {'rtol':rtol}
+        elif int_method.lower() == 'dop853':
+            integrator= dop853
+            extra_kwargs= {}
+        else:
+            integrator= integrate.odeint
+            extra_kwargs= {'rtol':rtol}
+        def integrate_for_map(vxvv):
+            #go to the transformed plane: (x,vx,y,vy,A,t)
+            init_psi= numpy.arctan2(vxvv[3],vxvv[4])
+            init= numpy.array([vxvv[0]*numpy.cos(vxvv[5]),
+                               vxvv[1]*numpy.cos(vxvv[5])
+                                   -vxvv[2]*numpy.sin(vxvv[5]),
+                               vxvv[0]*numpy.sin(vxvv[5]),
+                               vxvv[2]*numpy.cos(vxvv[5])
+                                   +vxvv[1]*numpy.sin(vxvv[5]),
+                               numpy.sqrt(vxvv[3]**2.+vxvv[4]**2.),
+                               t0])
+            #integrate
+            intOut= integrator(_SOSEOM,init,t=psi+init_psi,args=(pot,),
+                               **extra_kwargs)
+            #go back to the cylindrical frame
+            out= numpy.zeros((len(psi),7))
+            out[:,0]= numpy.sqrt(intOut[:,0]**2.+intOut[:,2]**2.)
+            out[:,5]= numpy.arctan2(intOut[:,2],intOut[:,0])
+            out[:,1]= intOut[:,1]*numpy.cos(out[:,5])+intOut[:,3]*numpy.sin(out[:,5])
+            out[:,2]= intOut[:,3]*numpy.cos(out[:,5])-intOut[:,1]*numpy.sin(out[:,5])
+            out[:,3]= intOut[:,4]*numpy.sin(psi+init_psi)
+            out[:,4]= intOut[:,4]*numpy.cos(psi+init_psi)
+            out[:,6]= intOut[:,5]
+            return out
+    else: # Assume we are forcing parallel_mapping of a C integrator...
+        raise NotImplementedError("C-based integrators not implemented for integrateFullOrbit_sos")
+        def integrate_for_map(vxvv):
+            return integrateFullOrbit_c(pot,numpy.copy(vxvv),
+                                        t,int_method,dt=dt)[0]
+    if len(yo) == 1: # Can't map a single value...
+        out= numpy.atleast_3d(integrate_for_map(yo[0]).T).T
+    else:
+        out= numpy.array(parallel_map(integrate_for_map,yo,numcores=numcores,
+                                       progressbar=progressbar))
+    if nophi:
+        phi_mask= numpy.ones(out.shape[2],dtype='bool')
+        phi_mask[5]= False
+        out= out[:,:,phi_mask]
+    return out, numpy.zeros(len(yo))
+
 def _RZEOM(y,t,pot,l2):
     """
     NAME:
@@ -725,6 +807,31 @@ def _EOM(y,t,pot):
             y[5],
             _evaluatezforces(pot,y[0],y[4],phi=y[2],t=t,
                              v=[y[1],y[0]*y[3],y[5]])]
+
+def _SOSEOM(y,psi,pot):
+    """
+    NAME:
+       _SOSEOM
+    PURPOSE:
+       implements the EOM, i.e., the right-hand side of the differential
+       equation, for the SOS integration of a 3D orbit
+    INPUT:
+       y - current phase-space position
+       psi - current angle
+       pot - (list of) Potential instance(s)
+    OUTPUT:
+       dy/dpsi
+    HISTORY:
+       2023-03-16 - Written - Bovy (UofT)
+    """
+    # y = (x,vx,y,vy,A,t)
+    # Calculate z
+    sp, cp= numpy.sin(psi), numpy.cos(psi)
+    z= y[4]*sp
+    gxyz= _rectForce([y[0],y[2],z],pot,t=y[5])
+    psidot= cp**2.-sp/y[4]*gxyz[2]
+    Adot= y[4]*cp*sp+gxyz[2]*cp
+    return numpy.array([y[1],gxyz[0],y[3],gxyz[1],Adot,1.])/psidot
 
 def _rectForce(x,pot,t=0.):
     """

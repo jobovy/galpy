@@ -896,6 +896,21 @@ def physical_conversion(quantity,pop=False):
                 return method(*args,**kwargs)
         return wrapped
     return wrapper
+def physical_conversion_tuple(quantities,pop=False):
+    """Decorator to convert to physical coordinates for tuple outputs.
+    So outputs are a tuple of quantities that each need to be converted,
+    with possibly different conversions, e.g., (R,vR)"""
+    def wrapper(method):
+        @wraps(method)
+        def wrapped(*args,**kwargs):
+            rawOut= method(*args,**kwargs)
+            out= ()
+            for ii in range(len(rawOut)):
+                # Apply physical conversion by converting a wrapped dummy function that returns the raw output
+                out= out+(physical_conversion(quantities[ii])(lambda x,**kwargs: rawOut[ii])(args[0],**kwargs),)
+            return out
+        return wrapped
+    return wrapper
 def potential_physical_input(method):
     """Decorator to convert inputs to Potential functions from physical
     to internal coordinates"""
