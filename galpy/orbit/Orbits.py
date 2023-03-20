@@ -38,7 +38,8 @@ from ..util.conversion import (physical_compatible, physical_conversion,
                                physical_conversion_tuple)
 from ..util.coords import _K
 from .integrateFullOrbit import (integrateFullOrbit, integrateFullOrbit_c,
-                                 integrateFullOrbit_sos)
+                                 integrateFullOrbit_sos,
+                                 integrateFullOrbit_sos_c)
 from .integrateLinearOrbit import (_ext_loaded, integrateLinearOrbit,
                                    integrateLinearOrbit_c)
 from .integratePlanarOrbit import (integratePlanarOrbit,
@@ -1111,10 +1112,19 @@ class Orbit:
         return None
 
     @staticmethod
-    def check_integrator(method):
-        if method.lower() not in ['odeint', 'leapfrog', 'dop853', 'leapfrog_c',
-                'symplec4_c', 'symplec6_c', 'rk4_c', 'rk6_c',
-                'dopr54_c', 'dop853_c']:
+    def check_integrator(method,no_symplec=False):
+        valid_methods= [
+            'odeint', 'leapfrog', 'dop853', 'leapfrog_c',
+            'symplec4_c', 'symplec6_c', 'rk4_c', 'rk6_c',
+            'dopr54_c', 'dop853_c'
+        ]
+        if no_symplec:
+            symplec_methods= [
+                'leapfrog','leapfrog_c',
+                'symplec4_c','symplec6_c',
+            ]
+            [valid_methods.remove(symplec_method) for symplec_method in symplec_methods]
+        if method.lower() not in valid_methods:
             raise ValueError(f'{method:s} is not a valid `method`')
         return None
 
@@ -1313,7 +1323,7 @@ class Orbit:
         return None
 
     def integrate_SOS(self,psi,pot,surface=None,t0=0.,
-                      method='symplec4_c',progressbar=True,
+                      method='dop853_c',progressbar=True,
                       dpsi=None,numcores=_NUMCORES,
                       force_map=False):
         """
@@ -1336,10 +1346,6 @@ class Orbit:
             t0= (0.) initial time (can be Quantity)
 
             method = 'odeint' for scipy's odeint
-                     'leapfrog' for a simple leapfrog implementation
-                     'leapfrog_c' for a simple leapfrog implementation in C
-                     'symplec4_c' for a 4th order symplectic integrator in C
-                     'symplec6_c' for a 6th order symplectic integrator in C
                      'rk4_c' for a 4th-order Runge-Kutta integrator in C
                      'rk6_c' for a 6-th order Runge-Kutta integrator in C
                      'dopr54_c' for a 5-4 Dormand-Prince integrator in C
@@ -1363,7 +1369,7 @@ class Orbit:
             2023-03-16 - Written - Bovy (UofT)
 
         """
-        self.check_integrator(method)
+        self.check_integrator(method,no_symplec=True)
         pot= flatten_potential(pot)
         _check_potential_dim(self,pot)
         _check_consistent_units(self,pot)
@@ -1409,10 +1415,10 @@ class Orbit:
                                                  progressbar=progressbar,
                                                  numcores=numcores,dpsi=dpsi)
         else:
-            raise NotImplementedError("SOS integration not implemented for C-based integration")
             warnings.warn("Using C implementation to integrate orbits",
                           galpyWarningVerbose)
             if self.dim() == 1:
+                raise NotImplementedError("SOS integration not implemented for 1D orbits in C")
                 out, msg= integrateLinearOrbit_c(self._pot,
                                                  numpy.copy(self.vxvv),
                                                  t,method,
@@ -1427,19 +1433,21 @@ class Orbit:
                 else:
                     vxvvs= numpy.copy(self.vxvv)
                 if self.dim() == 2:
+                    raise NotImplementedError("SOS integration not implemented for 2D orbits")
                     out, msg= integratePlanarOrbit_c(self._pot,vxvvs,
                                                      t,method,
                                                      progressbar=progressbar,
                                                      dt=dt)
                 else:
-                    out, msg= integrateFullOrbit_c(self._pot,vxvvs,
-                                                   t,method,
-                                                   progressbar=progressbar,
-                                                   dt=dt)
+                    out, msg= integrateFullOrbit_sos_c(self._pot,vxvvs,psi,t0,
+                                                       method,progressbar=progressbar,
+                                                       dpsi=dpsi)
 
                 if self.phasedim() == 3 \
                    or self.phasedim() == 5:
-                    out= out[:,:,:-1]
+                    phi_mask= numpy.ones(out.shape[2],dtype='bool')
+                    phi_mask[5]= False
+                    out= out[:,:,phi_mask]
         # Store orbit internally
         self.orbit= out[:,:,:-1]
         self.t= out[:,:,-1]
@@ -4732,15 +4740,11 @@ class Orbit:
             integration keyword arguments:
 
                 method = 'odeint' for scipy's odeint
-                        'leapfrog' for a simple leapfrog implementation
-                        'leapfrog_c' for a simple leapfrog implementation in C
-                        'symplec4_c' for a 4th order symplectic integrator in C
-                        'symplec6_c' for a 6th order symplectic integrator in C
-                        'rk4_c' for a 4th-order Runge-Kutta integrator in C
-                        'rk6_c' for a 6-th order Runge-Kutta integrator in C
-                        'dopr54_c' for a 5-4 Dormand-Prince integrator in C
-                        'dop853' for a 8-5-3 Dormand-Prince integrator in Python
-                        'dop853_c' for a 8-5-3 Dormand-Prince integrator in C
+                         'rk4_c' for a 4th-order Runge-Kutta integrator in C
+                         'rk6_c' for a 6-th order Runge-Kutta integrator in C
+                         'dopr54_c' for a 5-4 Dormand-Prince integrator in C
+                         'dop853' for a 8-5-3 Dormand-Prince integrator in Python
+                         'dop853_c' for a 8-5-3 Dormand-Prince integrator in C
 
                 progressbar= (True) if True, display a tqdm progress bar when integrating multiple orbits (requires tqdm to be installed!)
 
@@ -5300,15 +5304,11 @@ class Orbit:
            integration keyword arguments:
 
                 method = 'odeint' for scipy's odeint
-                        'leapfrog' for a simple leapfrog implementation
-                        'leapfrog_c' for a simple leapfrog implementation in C
-                        'symplec4_c' for a 4th order symplectic integrator in C
-                        'symplec6_c' for a 6th order symplectic integrator in C
-                        'rk4_c' for a 4th-order Runge-Kutta integrator in C
-                        'rk6_c' for a 6-th order Runge-Kutta integrator in C
-                        'dopr54_c' for a 5-4 Dormand-Prince integrator in C
-                        'dop853' for a 8-5-3 Dormand-Prince integrator in Python
-                        'dop853_c' for a 8-5-3 Dormand-Prince integrator in C
+                         'rk4_c' for a 4th-order Runge-Kutta integrator in C
+                         'rk6_c' for a 6-th order Runge-Kutta integrator in C
+                         'dopr54_c' for a 5-4 Dormand-Prince integrator in C
+                         'dop853' for a 8-5-3 Dormand-Prince integrator in Python
+                         'dop853_c' for a 8-5-3 Dormand-Prince integrator in C
 
                 progressbar= (True) if True, display a tqdm progress bar when integrating multiple orbits (requires tqdm to be installed!)
 

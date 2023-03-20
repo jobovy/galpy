@@ -137,3 +137,53 @@ void rect_to_cyl_galpy(double *vxvv){
   *(vxvv+1)=  vx * cp + vy * sp;
   *(vxvv+2)= -vx * sp + vy * cp;
 }
+/*
+NAME: cyl_to_sos_galpy
+PURPOSE: convert (R,vR,vT,z,vz,phi,t) to (x,y,vx,vy,A,t,psi) coordinates for SOS integration
+INPUT:
+   double * vxvv - (R,vR,vT,z,vz,phi,t)
+OUTPUT:
+   performed in-place
+HISTORY: 2023-03-19 - Written - Bovy (UofT)
+ */
+void cyl_to_sos_galpy(double *vxvv){
+  double R,cp,sp,vR,vT;
+  R  = *vxvv;
+  cp = cos ( *(vxvv+5) );
+  sp = sin ( *(vxvv+5) );
+  vR = *(vxvv+1);
+  vT = *(vxvv+2);
+  *(vxvv+5)= *(vxvv+6);
+  *(vxvv+6)= atan2( *(vxvv+3) , *(vxvv+4) );
+  *(vxvv+4)= sqrt( *(vxvv+3) * *(vxvv+3) + *(vxvv+4) * *(vxvv+4) );
+  *vxvv    = R * cp;
+  *(vxvv+1)= R * sp;
+  *(vxvv+2)= vR * cp - vT * sp;
+  *(vxvv+3)= vR * sp + vT * cp;
+}
+/*
+NAME: sos_to_cyl_galpy
+PURPOSE: convert (x,y,vx,vy,A,t,psi) to (R,vR,vT,z,vz,phi,t)
+INPUT:
+   double * vxvv - (x,y,vx,vy,A,t,psi)
+OUTPUT (as arguments):
+   performed in-place
+HISTORY: 2023-03-19 - Written - Bovy (UofT)
+ */
+void sos_to_cyl_galpy(double *vxvv){
+  double x,y,vx,vy,phi,cp,sp;
+  x = *(vxvv  );
+  y = *(vxvv+1);
+  vx= *(vxvv+2);
+  vy= *(vxvv+3);
+  phi= atan2( y , x );
+  cp = cos ( phi );
+  sp = sin ( phi );
+  *(vxvv  )= sqrt ( x * x + y * y );
+  *(vxvv+1)=  vx * cp + vy * sp;
+  *(vxvv+2)= -vx * sp + vy * cp;
+  *(vxvv+3)= *(vxvv+4) * sin ( *(vxvv+6) );
+  *(vxvv+4)= *(vxvv+4) * cos ( *(vxvv+6) );
+  *(vxvv+6)= *(vxvv+5);
+  *(vxvv+5)= phi;
+}
