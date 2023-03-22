@@ -730,19 +730,20 @@ EXPORT void integrateFullOrbit(int nobj,
 }
 EXPORT void integrateFullOrbit_sos(
     int nobj,
-		double *yo,
-		int npsi,
-		double *psi,
+	double *yo,
+	int npsi,
+	double *psi,
+    int indiv_psi,
     int npot,
-		int * pot_type,
-		double * pot_args,
+	int * pot_type,
+	double * pot_args,
     tfuncs_type_arr pot_tfuncs,
-		double dpsi,
-		double rtol,
-		double atol,
-		double *result,
-		int * err,
-		int odeint_type,
+	double dpsi,
+	double rtol,
+	double atol,
+	double *result,
+	int * err,
+	int odeint_type,
     orbint_callback_type cb){
   //Set up the forces, first count
   int ii,jj;
@@ -795,7 +796,7 @@ EXPORT void integrateFullOrbit_sos(
 #pragma omp parallel for schedule(dynamic,ORBITS_CHUNKSIZE) private(ii,jj) num_threads(max_threads)
   for (ii=0; ii < nobj; ii++) {
     cyl_to_sos_galpy(yo+dim*ii);
-    odeint_func(odeint_deriv_func,dim,yo+dim*ii,npsi,dpsi,psi,
+    odeint_func(odeint_deriv_func,dim,yo+dim*ii,npsi,dpsi,psi+npsi*ii*indiv_psi,
 		npot,potentialArgs+omp_get_thread_num()*npot,rtol,atol,
 		result+dim*npsi*ii,err+ii);
     for (jj=0; jj < npsi; jj++)

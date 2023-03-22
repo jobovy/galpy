@@ -1324,7 +1324,7 @@ class Orbit:
 
     def integrate_SOS(self,psi,pot,surface=None,t0=0.,
                       method='dop853_c',progressbar=True,
-                      dpsi=None,numcores=_NUMCORES,
+                      numcores=_NUMCORES,
                       force_map=False):
         """
         NAME:
@@ -1354,8 +1354,6 @@ class Orbit:
 
             progressbar= (True) if True, display a tqdm progress bar when integrating multiple orbits (requires tqdm to be installed!)
 
-            dpsi - if set, force the integrator to use this basic stepsize; must be an integer divisor of output stepsize (only works for the C integrators that use a fixed stepsize) (can be Quantity)
-
             numcores - number of cores to use for Python-based multiprocessing (pure Python or using force_map=True); default = OMP_NUM_THREADS
 
             force_map= (False) if True, force use of Python-based multiprocessing (not recommended)
@@ -1376,8 +1374,6 @@ class Orbit:
         # Parse psi
         if _APY_LOADED and isinstance(psi,units.Quantity):
             psi= conversion.parse_angle(psi)
-        if _APY_LOADED and not dpsi is None and isinstance(dpsi,units.Quantity):
-            dpsi= conversion.parse_angle(dpsi)
         if _APY_LOADED and isinstance(t0,units.Quantity):
             t0= conversion.parse_time(t0,ro=self._ro,vo=self._vo)
         self._integrate_t_asQuantity= False
@@ -1385,8 +1381,6 @@ class Orbit:
         if pot == MWPotential:
             warnings.warn("Use of MWPotential as a Milky-Way-like potential is deprecated; galpy.potential.MWPotential2014, a potential fit to a large variety of dynamical constraints (see Bovy 2015), is the preferred Milky-Way-like potential in galpy",
                           galpyWarning)
-        if not _check_integrate_dt(psi,dpsi):
-            raise ValueError('dpsi input (integrator stepsize) for Orbit.integrate must be an integer divisor of the output stepsize')
         # Delete attributes for interpolation and rperi etc. determination
         if hasattr(self,'_orbInterp'): delattr(self,'_orbInterp')
         if hasattr(self,'rs'): delattr(self,'rs')
@@ -1411,9 +1405,9 @@ class Orbit:
                                                progressbar=progressbar,
                                                numcores=numcores,dt=dt)
             else:
-                out, msg= integrateFullOrbit_sos(self._pot,self.vxvv,psi,t0,method,
+                out, msg= integrateFullOrbit_sos(self._pot,self.vxvv,self._psi,t0,method,
                                                  progressbar=progressbar,
-                                                 numcores=numcores,dpsi=dpsi)
+                                                 numcores=numcores)
         else:
             warnings.warn("Using C implementation to integrate orbits",
                           galpyWarningVerbose)
@@ -1439,9 +1433,8 @@ class Orbit:
                                                      progressbar=progressbar,
                                                      dt=dt)
                 else:
-                    out, msg= integrateFullOrbit_sos_c(self._pot,vxvvs,psi,t0,
-                                                       method,progressbar=progressbar,
-                                                       dpsi=dpsi)
+                    out, msg= integrateFullOrbit_sos_c(self._pot,vxvvs,self._psi,t0,
+                                                       method,progressbar=progressbar)
 
                 if self.phasedim() == 3 \
                    or self.phasedim() == 5:
@@ -4766,13 +4759,24 @@ class Orbit:
         else:
             raise NotImplementedError("SOS not implemented for 1D or 2D orbits")
         if numpy.any(numpy.fabs(init_psis) > 1e-10):
-            raise RuntimeError("Use of SOS requires the orbit's initial conditions to be in the plane of the surface of section")
+            # Integrate to the next crossing
+            init_psis= numpy.atleast_1d((init_psis + 2.*numpy.pi) % (2.*numpy.pi))
+            psis= numpy.array([numpy.linspace(init_psi,2.*numpy.pi,11)
+                               for init_psi in init_psis])
+            self.integrate_SOS(psis,pot,surface=surface,t0=t0,method=method,
+                               progressbar=progressbar,
+                               numcores=numcores,force_map=force_map)
+            old_vxvv= self.vxvv
+            self.vxvv= self.orbit[:,-1]
         psis= numpy.arange(ncross)*2*numpy.pi
         self.integrate_SOS(psis,pot,surface=surface,t0=t0,method=method,
                            progressbar=progressbar,
                            numcores=numcores,force_map=force_map)
         if self.dim() == 3:
-            return (self.R(self.t,use_physical=False),self.vR(self.t,use_physical=False))
+            out= (self.R(self.t,use_physical=False),self.vR(self.t,use_physical=False))
+        if numpy.any(numpy.fabs(init_psis) > 1e-10):
+            self.vxvv= old_vxvv
+        return out
 
     def __call__(self,*args,**kwargs):
         """

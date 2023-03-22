@@ -718,9 +718,10 @@ def integrateFullOrbit_sos_c(pot,yo,psi,t0,int_method,rtol=None,atol=None,
         yoo[:,6]= t0[0]
     else:
         yoo[:,6]= t0
+    npsi= len(psi.T) # .T to make npsi always the first dim
 
     #Set up result array
-    result= numpy.empty((nobj,len(psi),7))
+    result= numpy.empty((nobj,npsi,7))
     err= numpy.zeros(nobj,dtype=numpy.int32)
 
     #Set up progressbar
@@ -739,6 +740,7 @@ def integrateFullOrbit_sos_c(pot,yo,psi,t0,int_method,rtol=None,atol=None,
                                ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
                                ctypes.c_int,
                                ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
+                               ctypes.c_int,
                                ctypes.c_int,
                                ndpointer(dtype=numpy.int32,flags=ndarrayFlags),
                                ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
@@ -759,11 +761,12 @@ def integrateFullOrbit_sos_c(pot,yo,psi,t0,int_method,rtol=None,atol=None,
     result= numpy.require(result,dtype=numpy.float64,requirements=['C','W'])
     err= numpy.require(err,dtype=numpy.int32,requirements=['C','W'])
 
-    #Run the C code
+    #Run the C code)
     integrationFunc(ctypes.c_int(nobj),
                     yoo,
-                    ctypes.c_int(len(psi)),
+                    ctypes.c_int(npsi),
                     psi,
+                    ctypes.c_int(len(psi.shape) > 1),
                     ctypes.c_int(npot),
                     pot_type,
                     pot_args,
@@ -831,7 +834,7 @@ def integrateFullOrbit_sos(pot,yo,psi,t0,int_method,rtol=None,atol=None,
         else:
             integrator= integrate.odeint
             extra_kwargs= {'rtol':rtol}
-        def integrate_for_map(vxvv):
+        def integrate_for_map(vxvv,psi):
             #go to the transformed plane: (x,vx,y,vy,A,t)
             init_psi= numpy.arctan2(vxvv[3],vxvv[4])
             init= numpy.array([vxvv[0]*numpy.cos(vxvv[5]),
@@ -856,15 +859,21 @@ def integrateFullOrbit_sos(pot,yo,psi,t0,int_method,rtol=None,atol=None,
             out[:,6]= intOut[:,5]
             return out
     else: # Assume we are forcing parallel_mapping of a C integrator...
-        raise NotImplementedError("C-based integrators not implemented for integrateFullOrbit_sos")
-        def integrate_for_map(vxvv):
-            return integrateFullOrbit_c(pot,numpy.copy(vxvv),
-                                        t,int_method,dt=dt)[0]
+        def integrate_for_map(vxvv,psi):
+            return integrateFullOrbit_sos_c(pot,numpy.copy(vxvv),psi,
+                                            t0,int_method,dpsi=dpsi)[0]
     if len(yo) == 1: # Can't map a single value...
-        out= numpy.atleast_3d(integrate_for_map(yo[0]).T).T
+        out= numpy.atleast_3d(integrate_for_map(yo[0],psi).T).T
+    elif len(psi.shape) > 1:
+        out= numpy.array(parallel_map(
+            lambda ii: integrate_for_map(yo[ii],psi[ii]),
+            range(len(yo)),numcores=numcores,progressbar=progressbar
+        ))
     else:
-        out= numpy.array(parallel_map(integrate_for_map,yo,numcores=numcores,
-                                       progressbar=progressbar))
+        out= numpy.array(parallel_map(
+            lambda ii: integrate_for_map(yo[ii],psi),
+            range(len(yo)),numcores=numcores,progressbar=progressbar
+        ))
     if nophi:
         phi_mask= numpy.ones(out.shape[2],dtype='bool')
         phi_mask[5]= False
