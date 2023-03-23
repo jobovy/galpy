@@ -4761,20 +4761,29 @@ class Orbit:
         if numpy.any(numpy.fabs(init_psis) > 1e-10):
             # Integrate to the next crossing
             init_psis= numpy.atleast_1d((init_psis + 2.*numpy.pi) % (2.*numpy.pi))
-            psis= numpy.array([numpy.linspace(init_psi,2.*numpy.pi,11)
+            psis= numpy.array([numpy.linspace(0.,2.*numpy.pi-init_psi,101)
                                for init_psi in init_psis])
             self.integrate_SOS(psis,pot,surface=surface,t0=t0,method=method,
                                progressbar=progressbar,
                                numcores=numcores,force_map=force_map)
             old_vxvv= self.vxvv
             self.vxvv= self.orbit[:,-1]
-        psis= numpy.arange(ncross)*2*numpy.pi
+        if method == 'rk4_c' or method == 'rk6_c':
+            # Because these are non-adaptive, we need to make sure we
+            # integrate finely enough
+            skip= 100
+        else:
+            skip= 1
+        psis= numpy.arange(ncross*skip)*2*numpy.pi/skip
         self.integrate_SOS(psis,pot,surface=surface,t0=t0,method=method,
                            progressbar=progressbar,
                            numcores=numcores,force_map=force_map)
+        self.t= self.t[:,::skip]
+        self.orbit= self.orbit[:,::skip]
         if self.dim() == 3:
-            out= (self.R(self.t,use_physical=False),self.vR(self.t,use_physical=False))
-        if numpy.any(numpy.fabs(init_psis) > 1e-10):
+            out= (self.R(self.t,use_physical=False),
+                  self.vR(self.t,use_physical=False))
+        if numpy.any(numpy.fabs(init_psis) > 1e-7):
             self.vxvv= old_vxvv
         return out
 

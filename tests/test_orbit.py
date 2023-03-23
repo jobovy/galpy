@@ -661,6 +661,33 @@ def test_liouville_planar():
                                        or ('Burkert' in p and not ptp.hasC)): break
     return None
 
+# Test that integrating an orbit in MWPotential2014 using integrate_SOS conserves energy
+def test_integrate_SOS_3D():
+    pot= potential.MWPotential2014
+    o= setup_orbit_energy(pot)
+    psis= numpy.linspace(0.,20.*numpy.pi,1001)
+    for method in ['dopr54_c','dop853_c','rk4_c','rk6_c','dop853','odeint']:
+        o.integrate_SOS(psis,pot,method=method)
+        Es= o.E(o.t)
+        assert (numpy.std(Es)/numpy.mean(Es))**2. < 10.**-10, \
+            f'Energy is not conserved by integrate_sos for method={method}'
+    return None
+
+# Test that the 3D SOS function returns points with z=0, vz > 0
+def test_SOS_3D():
+    pot= potential.MWPotential2014
+    o= setup_orbit_energy(pot)
+    psis= numpy.linspace(0.,20.*numpy.pi,1001)
+    for method in ['dopr54_c','dop853_c','rk4_c','rk6_c','dop853','odeint']:
+        o.SOS(pot,method=method,ncross=500 if '_c' in method else 20)
+        zs= o.z(o.t)
+        vzs= o.vz(o.t)
+        assert (numpy.fabs(zs) < 10.**-7.).all(), \
+            f'z on SOS is not zero for integrate_sos for method={method}'
+        assert (vzs > 0.).all(), \
+            f'vz on SOS is not positive for integrate_sos for method={method}'
+    return None
+
 # Test that the eccentricity of circular orbits is zero
 def test_eccentricity():
     #return None
@@ -4748,6 +4775,13 @@ def test_full_plotting():
     try: oa.plot3d(d3='vy',d2='R',d1='t')
     except AttributeError: pass
     else: raise AssertionError("plot3d(d3='vy') applied to RZOrbit did not raise AttributeError")
+    return None
+
+def test_plotSOS():
+    pot= potential.MWPotential2014
+    o= setup_orbit_energy(pot)
+    o.plotSOS(pot)
+    o.plotSOS(pot,use_physical=True)
     return None
 
 def test_from_name_values():

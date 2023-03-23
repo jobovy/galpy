@@ -863,7 +863,7 @@ def integrateFullOrbit_sos(pot,yo,psi,t0,int_method,rtol=None,atol=None,
             return integrateFullOrbit_sos_c(pot,numpy.copy(vxvv),psi,
                                             t0,int_method,dpsi=dpsi)[0]
     if len(yo) == 1: # Can't map a single value...
-        out= numpy.atleast_3d(integrate_for_map(yo[0],psi).T).T
+        out= numpy.atleast_3d(integrate_for_map(yo[0],psi.flatten()).T).T
     elif len(psi.shape) > 1:
         out= numpy.array(parallel_map(
             lambda ii: integrate_for_map(yo[ii],psi[ii]),
