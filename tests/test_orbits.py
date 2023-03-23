@@ -418,7 +418,12 @@ def test_SOS_3D():
     orbits= Orbit(orbits_list)
     pot= potential.MWPotential2014
     for method in ['dopr54_c','dop853_c','rk4_c','rk6_c','dop853','odeint']:
-        orbits.SOS(pot,method=method,ncross=500 if '_c' in method else 20)
+        orbits.SOS(
+            pot,
+            method=method,ncross=500 if '_c' in method else 20,
+            force_map='rk' in method,
+            t0=numpy.arange(len(orbits)),
+        )
         zs= orbits.z(orbits.t)
         vzs= orbits.vz(orbits.t)
         assert (numpy.fabs(zs) < 10.**-6.).all(), \
@@ -2136,7 +2141,7 @@ def test_plotSOS():
     o= Orbit([Orbit([1.,0.1,1.1,0.1,0.2,2.]),Orbit([1.,0.1,1.1,0.1,0.2,2.])])
     pot= potential.MWPotential2014
     o.plotSOS(pot)
-    o.plotSOS(pot,use_physical=True)
+    o.plotSOS(pot,use_physical=True,ro=8.,vo=220.)
     return None
 
 def test_integrate_method_warning():

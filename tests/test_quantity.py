@@ -912,6 +912,34 @@ def test_integrate_dxdv_timeAsQuantity_Myr():
     assert numpy.all(numpy.fabs(dx-dxc) < 10.**-8.), 'Orbit integrated_dxdv with times specified as Quantity does not agree with Orbit integrated_dxdv with time specified as array'
     return None
 
+def test_integrate_SOS_psiQuantity():
+    import copy
+
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential
+    from galpy.util import conversion
+    ro, vo= 8., 200.
+    o= Orbit([10.*units.kpc,-20.*units.km/units.s,210.*units.km/units.s,
+              500.*units.pc,-12.*units.km/units.s,45.*units.deg],
+             ro=ro,vo=vo)
+    oc= o()
+    psis_nounits= numpy.linspace(0.,400.,1001)
+    psis= units.Quantity(copy.copy(psis_nounits),unit=units.deg)
+    psis_nounits/= 180./numpy.pi
+    t0_nounits= 1.
+    t0= units.Quantity(copy.copy(t0_nounits),unit=units.Gyr)
+    t0_nounits/= conversion.time_in_Gyr(vo,ro)
+    # Integrate both with Quantity time and with unitless time
+    o.integrate_SOS(psis,MWPotential,t0=t0)
+    oc.integrate_SOS(psis_nounits,MWPotential,t0=t0_nounits)
+    assert numpy.all(numpy.fabs(o.x(o.t)-oc.x(oc.t)).value < 10.**-8.), 'Orbit SOS integrated with psis specified as Quantity does not agree with Orbit integrated with time specified as array'
+    assert numpy.all(numpy.fabs(o.y(o.t)-oc.y(oc.t)).value < 10.**-8.), 'Orbit SOS integrated with psis specified as Quantity does not agree with Orbit integrated with time specified as array'
+    assert numpy.all(numpy.fabs(o.z(o.t)-oc.z(oc.t)).value < 10.**-8.), 'Orbit SOS ntegrated with psis specified as Quantity does not agree with Orbit integrated with time specified as array'
+    assert numpy.all(numpy.fabs(o.vx(o.t)-oc.vx(oc.t)).value < 10.**-8.), 'Orbit SOS integrated with psis specified as Quantity does not agree with Orbit integrated with time specified as array'
+    assert numpy.all(numpy.fabs(o.vy(o.t)-oc.vy(oc.t)).value < 10.**-8.), 'Orbit SOS integrated with psis specified as Quantity does not agree with Orbit integrated with time specified as array'
+    assert numpy.all(numpy.fabs(o.vz(o.t)-oc.vz(oc.t)).value < 10.**-8.), 'Orbit SOS integrated with psis specified as Quantity does not agree with Orbit integrated with time specified as array'
+    return None
+
 def test_orbit_inconsistentPotentialUnits_error():
     from galpy.orbit import Orbit
     from galpy.potential import IsochronePotential

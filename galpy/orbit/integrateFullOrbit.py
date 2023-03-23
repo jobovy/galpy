@@ -825,16 +825,13 @@ def integrateFullOrbit_sos(pot,yo,psi,t0,int_method,rtol=None,atol=None,
         yo= numpy.pad(yo,((0,0),(0,1)),'constant',constant_values=0)
     if not '_c' in int_method:
         if rtol is None: rtol= 1e-8
-        if int_method.lower() == 'leapfrog':
-            integrator= symplecticode.leapfrog
-            extra_kwargs= {'rtol':rtol}
-        elif int_method.lower() == 'dop853':
+        if int_method.lower() == 'dop853':
             integrator= dop853
             extra_kwargs= {}
         else:
             integrator= integrate.odeint
             extra_kwargs= {'rtol':rtol}
-        def integrate_for_map(vxvv,psi):
+        def integrate_for_map(vxvv,psi,t0):
             #go to the transformed plane: (x,vx,y,vy,A,t)
             init_psi= numpy.arctan2(vxvv[3],vxvv[4])
             init= numpy.array([vxvv[0]*numpy.cos(vxvv[5]),
@@ -859,21 +856,24 @@ def integrateFullOrbit_sos(pot,yo,psi,t0,int_method,rtol=None,atol=None,
             out[:,6]= intOut[:,5]
             return out
     else: # Assume we are forcing parallel_mapping of a C integrator...
-        def integrate_for_map(vxvv,psi):
+        def integrate_for_map(vxvv,psi,t0):
             return integrateFullOrbit_sos_c(pot,numpy.copy(vxvv),psi,
                                             t0,int_method,dpsi=dpsi)[0]
     if len(yo) == 1: # Can't map a single value...
-        out= numpy.atleast_3d(integrate_for_map(yo[0],psi.flatten()).T).T
-    elif len(psi.shape) > 1:
-        out= numpy.array(parallel_map(
-            lambda ii: integrate_for_map(yo[ii],psi[ii]),
-            range(len(yo)),numcores=numcores,progressbar=progressbar
-        ))
+        out= numpy.atleast_3d(integrate_for_map(yo[0],psi.flatten(),t0).T).T
     else:
-        out= numpy.array(parallel_map(
-            lambda ii: integrate_for_map(yo[ii],psi),
-            range(len(yo)),numcores=numcores,progressbar=progressbar
-        ))
+        out= numpy.array(
+            parallel_map(
+                lambda ii: integrate_for_map(
+                    yo[ii],
+                    psi[ii] if len(psi.shape) > 1 else psi,
+                    t0[0] if len(t0) == 1 else t0[ii]
+                ),
+                range(len(yo)),
+                numcores=numcores,
+                progressbar=progressbar
+            )
+        )
     if nophi:
         phi_mask= numpy.ones(out.shape[2],dtype='bool')
         phi_mask[5]= False

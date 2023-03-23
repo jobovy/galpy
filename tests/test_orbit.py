@@ -664,7 +664,7 @@ def test_liouville_planar():
 # Test that integrating an orbit in MWPotential2014 using integrate_SOS conserves energy
 def test_integrate_SOS_3D():
     pot= potential.MWPotential2014
-    o= setup_orbit_energy(pot)
+    o= setup_orbit_energy(pot,axi=True)
     psis= numpy.linspace(0.,20.*numpy.pi,1001)
     for method in ['dopr54_c','dop853_c','rk4_c','rk6_c','dop853','odeint']:
         o.integrate_SOS(psis,pot,method=method)
@@ -678,7 +678,11 @@ def test_SOS_3D():
     pot= potential.MWPotential2014
     o= setup_orbit_energy(pot)
     for method in ['dopr54_c','dop853_c','rk4_c','rk6_c','dop853','odeint']:
-        o.SOS(pot,method=method,ncross=500 if '_c' in method else 20)
+        o.SOS(
+            pot,
+            method=method,ncross=500 if '_c' in method else 20,
+            force_map='rk' in method
+        )
         zs= o.z(o.t)
         vzs= o.vz(o.t)
         assert (numpy.fabs(zs) < 10.**-7.).all(), \
@@ -3268,11 +3272,23 @@ def comp_orbfit(of,vxvv,ts,pot,lb=False,radec=False,ro=None,vo=None):
 def test_MWPotential_warning():
     # Test that using MWPotential throws a warning, see #229
     ts= numpy.linspace(0.,100.,1001)
+    psis= numpy.linspace(0.,20.*numpy.pi,1001)
     o= setup_orbit_energy(potential.MWPotential,axi=False)
     with pytest.warns(galpyWarning) as record:
         if PY2: reset_warning_registry('galpy')
         warnings.simplefilter("always",galpyWarning)
         o.integrate(ts,potential.MWPotential)
+        # Should raise warning bc of MWPotential, might raise others
+    raisedWarning= False
+    for rec in record:
+        # check that the message matches
+        raisedWarning+= (str(rec.message.args[0]) == "Use of MWPotential as a Milky-Way-like potential is deprecated; galpy.potential.MWPotential2014, a potential fit to a large variety of dynamical constraints (see Bovy 2015), is the preferred Milky-Way-like potential in galpy")
+    assert raisedWarning, "Orbit integration with MWPotential should have thrown a warning, but didn't"
+    # Also test for SOS integration
+    with pytest.warns(galpyWarning) as record:
+        if PY2: reset_warning_registry('galpy')
+        warnings.simplefilter("always",galpyWarning)
+        o.integrate_SOS(psis,potential.MWPotential)
         # Should raise warning bc of MWPotential, might raise others
     raisedWarning= False
     for rec in record:
