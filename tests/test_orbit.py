@@ -677,7 +677,6 @@ def test_integrate_SOS_3D():
 def test_SOS_3D():
     pot= potential.MWPotential2014
     o= setup_orbit_energy(pot)
-    psis= numpy.linspace(0.,20.*numpy.pi,1001)
     for method in ['dopr54_c','dop853_c','rk4_c','rk6_c','dop853','odeint']:
         o.SOS(pot,method=method,ncross=500 if '_c' in method else 20)
         zs= o.z(o.t)

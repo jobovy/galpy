@@ -409,6 +409,24 @@ def test_integration_dxdv_2d_rectInOut():
     assert numpy.amax(numpy.fabs(orbits.getOrbit_dxdv()-numpy.array([o.getOrbit_dxdv() for o in orbits_list]))) < 1e-8, 'Integration of the phase-space volume of multiple orbits as Orbits does not agree with integrating the phase-space volume of multiple orbits'
     return None
 
+# Test that the 3D SOS function returns points with z=0, vz > 0
+def test_SOS_3D():
+    from galpy.orbit import Orbit
+    times= numpy.linspace(0.,10.,1001)
+    orbits_list= [Orbit([1.,0.1,1.,0.,0.1,0.]),Orbit([.9,0.3,1.,-0.3,0.4,3.]),
+                  Orbit([1.2,-0.3,0.7,.5,-0.5,6.])]
+    orbits= Orbit(orbits_list)
+    pot= potential.MWPotential2014
+    for method in ['dopr54_c','dop853_c','rk4_c','rk6_c','dop853','odeint']:
+        orbits.SOS(pot,method=method,ncross=500 if '_c' in method else 20)
+        zs= orbits.z(orbits.t)
+        vzs= orbits.vz(orbits.t)
+        assert (numpy.fabs(zs) < 10.**-6.).all(), \
+            f'z on SOS is not zero for integrate_sos for method={method}'
+        assert (vzs > 0.).all(), \
+            f'vz on SOS is not positive for integrate_sos for method={method}'
+    return None
+
 # Test slicing of orbits
 def test_slice_singleobject():
     from galpy.orbit import Orbit
@@ -2110,6 +2128,15 @@ def test_plotting():
     # Expressions
     o.plot(d1='t',d2='r*R/vR')
     os.plot(d1='t',d2='r*R/vR')
+    return None
+
+def test_plotSOS():
+    from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential
+    o= Orbit([Orbit([1.,0.1,1.1,0.1,0.2,2.]),Orbit([1.,0.1,1.1,0.1,0.2,2.])])
+    pot= potential.MWPotential2014
+    o.plotSOS(pot)
+    o.plotSOS(pot,use_physical=True)
     return None
 
 def test_integrate_method_warning():
