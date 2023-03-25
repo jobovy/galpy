@@ -88,6 +88,7 @@ jobs:
         uses: pypa/cibuildwheel@v2.12.1
         env:
           CIBW_BUILD: ${{ matrix.python }}-${{ matrix.buildplat[1] }}_${{ matrix.buildplat[2] }}
+          CIBW_BUILD_VERBOSITY: 1
           CIBW_BEFORE_BUILD_LINUX: yum -y install gsl-devel
           CIBW_ARCHS_MACOS: ${{ matrix.buildplat[2] }}
           CIBW_CONFIG_SETTINGS_MACOS: "--build-option=--no-openmp"
