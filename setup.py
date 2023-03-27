@@ -256,7 +256,7 @@ class BuildExt(build_ext):
                 for flag in ext.extra_compile_args:
                     if compiler_has_flag(self.compiler,flag):
                         extra_compile_args.append(flag)
-                    if flag == '-fopenmp' and 'gomp' in libraries:
+                    elif flag == '-fopenmp' and 'gomp' in libraries:
                         libraries.remove('gomp')
                 ext.extra_compile_args= extra_compile_args
                 ext.libraries= libraries
