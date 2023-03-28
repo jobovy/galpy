@@ -691,6 +691,57 @@ def test_SOS_3D():
             f'vz on SOS is not positive for integrate_sos for method={method}'
     return None
 
+# Test that integrating an orbit in MWPotential2014 using integrate_SOS conserves energy
+def test_integrate_SOS_2D():
+    pot= potential.LogarithmicHaloPotential(normalize=1.,q=0.9).toPlanar()
+    o= setup_orbit_energy(pot,axi=True)
+    psis= numpy.linspace(0.,20.*numpy.pi,1001)
+    for method in ['dopr54_c','dop853_c','rk4_c','rk6_c','dop853','odeint']:
+        for surface in ['x','y']:
+            o.integrate_SOS(psis,pot,method=method,surface='x')
+            Es= o.E(o.t)
+            assert (numpy.std(Es)/numpy.mean(Es))**2. < 10.**-10, \
+                f'Energy is not conserved by integrate_sos for method={method} and surface={surface}'
+    return None
+
+# Test that the 2D SOS function returns points with x=0, vx > 0 when surface='x'
+def test_SOS_2Dx():
+    pot= potential.LogarithmicHaloPotential(normalize=1.,q=0.9).toPlanar()
+    o= setup_orbit_energy(pot)
+    for method in ['dopr54_c','dop853_c','rk4_c','rk6_c','dop853','odeint']:
+        o.SOS(
+            pot,
+            method=method,ncross=500 if '_c' in method else 20,
+            force_map='rk' in method,
+            surface='x'
+        )
+        xs= o.x(o.t)
+        vxs= o.vx(o.t)
+        assert (numpy.fabs(xs) < 10.**-6.).all(), \
+            f'x on SOS is not zero for integrate_sos for method={method}'
+        assert (vxs > 0.).all(), \
+            f'vx on SOS is not positive for integrate_sos for method={method}'
+    return None
+
+# Test that the 2D SOS function returns points with y=0, vy > 0 when surface='y'
+def test_SOS_2Dy():
+    pot= potential.LogarithmicHaloPotential(normalize=1.,q=0.9).toPlanar()
+    o= setup_orbit_energy(pot)
+    for method in ['dopr54_c','dop853_c','rk4_c','rk6_c','dop853','odeint']:
+        o.SOS(
+            pot,
+            method=method,ncross=500 if '_c' in method else 20,
+            force_map='rk' in method,
+            surface='y'
+        )
+        ys= o.y(o.t)
+        vys= o.vy(o.t)
+        assert (numpy.fabs(ys) < 10.**-7.).all(), \
+            f'y on SOS is not zero for integrate_sos for method={method}'
+        assert (vys > 0.).all(), \
+            f'vy on SOS is not positive for integrate_sos for method={method}'
+    return None
+
 # Test that the eccentricity of circular orbits is zero
 def test_eccentricity():
     #return None
@@ -4793,7 +4844,13 @@ def test_full_plotting():
     return None
 
 def test_plotSOS():
+    # 3D
     pot= potential.MWPotential2014
+    o= setup_orbit_energy(pot)
+    o.plotSOS(pot)
+    o.plotSOS(pot,use_physical=True)
+    # 2D
+    pot= potential.LogarithmicHaloPotential(normalize=1.,q=0.9).toPlanar()
     o= setup_orbit_energy(pot)
     o.plotSOS(pot)
     o.plotSOS(pot,use_physical=True)

@@ -432,6 +432,54 @@ def test_SOS_3D():
             f'vz on SOS is not positive for integrate_sos for method={method}'
     return None
 
+# Test that the 2D SOS function returns points with x=0, vx > 0
+def test_SOS_2Dx():
+    from galpy.orbit import Orbit
+    times= numpy.linspace(0.,10.,1001)
+    orbits_list= [Orbit([1.,0.1,1.,0.]),Orbit([.9,0.3,1.,3.]),
+                  Orbit([1.2,-0.3,0.7,6.])]
+    orbits= Orbit(orbits_list)
+    pot= potential.LogarithmicHaloPotential(normalize=1.,q=0.9).toPlanar()
+    for method in ['dopr54_c','dop853_c','rk4_c','rk6_c','dop853','odeint']:
+        orbits.SOS(
+            pot,
+            method=method,ncross=500 if '_c' in method else 20,
+            force_map='rk' in method,
+            t0=numpy.arange(len(orbits)),
+            surface='x',
+        )
+        xs= orbits.x(orbits.t)
+        vxs= orbits.vx(orbits.t)
+        assert (numpy.fabs(xs) < 10.**-6.).all(), \
+            f'x on SOS is not zero for integrate_sos for method={method}'
+        assert (vxs > 0.).all(), \
+            f'vx on SOS is not positive for integrate_sos for method={method}'
+    return None
+
+# Test that the 2D SOS function returns points with y=0, vy > 0
+def test_SOS_2Dy():
+    from galpy.orbit import Orbit
+    times= numpy.linspace(0.,10.,1001)
+    orbits_list= [Orbit([1.,0.1,1.,0.]),Orbit([.9,0.3,1.,3.]),
+                  Orbit([1.2,-0.3,0.7,6.])]
+    orbits= Orbit(orbits_list)
+    pot= potential.LogarithmicHaloPotential(normalize=1.,q=0.9).toPlanar()
+    for method in ['dopr54_c','dop853_c','rk4_c','rk6_c','dop853','odeint']:
+        orbits.SOS(
+            pot,
+            method=method,ncross=500 if '_c' in method else 20,
+            force_map='rk' in method,
+            t0=numpy.arange(len(orbits)),
+            surface='y',
+        )
+        ys= orbits.y(orbits.t)
+        vys= orbits.vy(orbits.t)
+        assert (numpy.fabs(ys) < 10.**-6.).all(), \
+            f'y on SOS is not zero for integrate_sos for method={method}'
+        assert (vys > 0.).all(), \
+            f'vy on SOS is not positive for integrate_sos for method={method}'
+    return None
+
 # Test slicing of orbits
 def test_slice_singleobject():
     from galpy.orbit import Orbit
@@ -2138,8 +2186,15 @@ def test_plotting():
 def test_plotSOS():
     from galpy.orbit import Orbit
     from galpy.potential import LogarithmicHaloPotential
+
+    # 3D
     o= Orbit([Orbit([1.,0.1,1.1,0.1,0.2,2.]),Orbit([1.,0.1,1.1,0.1,0.2,2.])])
     pot= potential.MWPotential2014
+    o.plotSOS(pot)
+    o.plotSOS(pot,use_physical=True,ro=8.,vo=220.)
+    # 2D
+    o= Orbit([Orbit([1.,0.1,1.1,2.]),Orbit([1.,0.1,1.1,2.])])
+    pot= LogarithmicHaloPotential(normalize=1.).toPlanar()
     o.plotSOS(pot)
     o.plotSOS(pot,use_physical=True,ro=8.,vo=220.)
     return None
