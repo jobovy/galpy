@@ -1432,6 +1432,11 @@ class Orbit:
         # Store orbit internally
         self.orbit= out[:,:,:-1]
         self.t= out[:,:,-1]
+        # Quick check that all is well in terms of psi increasing with time
+        assert numpy.all((numpy.roll(self.t,-1,axis=1)-self.t)[:,:-1]
+                         *(numpy.roll(self._psi.T,-1,axis=0)-self._psi.T)[:-1].T
+                         > 0.), \
+            "SOS integration failed (time does not monotonically increase with increasing psi)"
         return None
 
     def integrate_dxdv(self,dxdv,t,pot,method='dopr54_c',
