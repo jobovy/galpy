@@ -4765,10 +4765,10 @@ class Orbit:
             old_vxvv= self.vxvv
             self.vxvv= self.orbit[:,-1]
         # We are on the SOS now. Let's check that v(x/y/z) > 0
-        if ( ( self.dim() == 3 and not self.vz() > 0. )
-            or ( self.dim() == 2 and not surface is None and surface.lower() == 'y' and not self.vy() > 0. )
-            or ( self.dim() == 2 and (surface is None or surface.lower() == 'x') and not self.vx() > 0. ) ):
-                raise RuntimeError("Orbit appears to be within the SOS surface. Refusing to perform specialized SOS integration, please use normal integration instead")
+        if ( ( self.dim() == 3 and not numpy.all(self.vz() > 0.) )
+            or ( self.dim() == 2 and not surface is None and surface.lower() == 'y' and not numpy.all(self.vy() > 0.) )
+            or ( self.dim() == 2 and (surface is None or surface.lower() == 'x') and not numpy.all(self.vx() > 0.) ) ):
+                raise RuntimeError("An orbit appears to be within the SOS surface. Refusing to perform specialized SOS integration, please use normal integration instead")
         if method == 'rk4_c' or method == 'rk6_c':
             # Because these are non-adaptive, we need to make sure we
             # integrate finely enough

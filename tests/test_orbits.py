@@ -685,6 +685,25 @@ def test_slice_physical_issue385():
         assert numpy.amax(numpy.fabs((((orbits[ii].phi()-orbits.phi()[ii])+numpy.pi) % (2.*numpy.pi)) - numpy.pi)) < 1e-10, 'Integration of multiple orbits as Orbits does not agree with integrating multiple orbits'
     return None
 
+# Test that slicing in the case of individual time arrays works as expected
+# Currently, the only way individual time arrays occur is through SOS integration
+# so we implementing this test using SOS integration
+def test_slice_indivtimes():
+    from galpy.orbit import Orbit
+    times= numpy.linspace(0.,10.,1001)
+    orbits_list= [Orbit([1.,0.1,1.,0.,0.1,0.]),Orbit([.9,0.3,1.,-0.3,0.4,3.]),
+                  Orbit([1.2,-0.3,0.7,.5,-0.5,6.])]
+    orbits= Orbit(orbits_list)
+    pot= potential.MWPotential2014
+    orbits.SOS(pot,t0=numpy.arange(len(orbits)))
+    # First check that we actually have individual times
+    assert len(orbits.t.shape) >= len(orbits.orbit.shape)-1, 'Test should be using individual time arrays, but a single time array was found'
+    # Now slice single and multiple
+    assert numpy.all(orbits[0].t == orbits.t[0]), 'Individually sliced orbit with individual time arrays does not produce the correct time array in the slice'
+    assert numpy.all(orbits[1].t == orbits.t[1]), 'Individually sliced orbit with individual time arrays does not produce the correct time array in the slice'
+    assert numpy.all(orbits[:2].t == orbits.t[:2]), 'Multiply-sliced orbit with individual time arrays does not produce the correct time array in the slice'
+    assert numpy.all(orbits[1:4].t == orbits.t[1:4]), 'Multiply-sliced orbit with individual time arrays does not produce the correct time array in the slice'
+    return None
 
 # Test that initializing Orbits with orbits with different phase-space
 # dimensions raises an error
