@@ -49,6 +49,8 @@ void cyl_to_rect_galpy(double *);
 void rect_to_cyl_galpy(double *);
 void cyl_to_sos_galpy(double *);
 void sos_to_cyl_galpy(double *);
+void polar_to_sos_galpy(double *,int);
+void sos_to_polar_galpy(double *,int);
 #ifdef __cplusplus
 }
 #endif

@@ -688,7 +688,7 @@ def integrateFullOrbit_sos_c(pot,yo,psi,t0,int_method,rtol=None,atol=None,
        yo - initial condition [q,p], shape [N,5] or [N,6]
        psi - set of increment angles at which one wants the result [increments wrt initial angle]
        t0 - initial time
-       int_method= 'leapfrog', 'odeint', or 'dop853'
+       int_method= 'rk4_c', 'rk6_c', 'dopr54_c', or 'dop853_c'
        rtol, atol= tolerances (not always used...)
        progressbar= (True) if True, display a tqdm progress bar when integrating multiple orbits (requires tqdm to be installed!)
        dpsi= (None) force integrator to use this stepsize (default is to automatically determine one; only for C-based integrators)

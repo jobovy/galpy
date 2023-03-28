@@ -932,8 +932,7 @@ void evalRectDeriv(double t, double *q, double *a,
 
 void evalSOSDeriv(double psi, double *q, double *a,
 		              int nargs, struct potentialArg * potentialArgs){
-  // q= (x,y,vx,vy,A,t,psi); to save operations, we use the first three
-  // components of q as (x,y,z) and then re-use a first for the
+  // q= (x,y,vx,vy,A,t,psi); to save operations, we re-use a first for the
   // rectForce then for the actual RHS
   // Note also that we keep track of psi in q+6, not in psi! This is
   // such that we can avoid having to convert psi to psi+psi0

@@ -44,7 +44,9 @@ from .integrateLinearOrbit import (_ext_loaded, integrateLinearOrbit,
                                    integrateLinearOrbit_c)
 from .integratePlanarOrbit import (integratePlanarOrbit,
                                    integratePlanarOrbit_c,
-                                   integratePlanarOrbit_dxdv)
+                                   integratePlanarOrbit_dxdv,
+                                   integratePlanarOrbit_sos,
+                                   integratePlanarOrbit_sos_c)
 
 ext_loaded= _ext_loaded
 if _APY_LOADED:
@@ -1400,10 +1402,9 @@ class Orbit:
                                                progressbar=progressbar,
                                                numcores=numcores,dt=dt)
             elif self.dim() == 2:
-                raise NotImplementedError("SOS integration not implemented for 2D orbits")
-                out, msg= integratePlanarOrbit(self._pot,self.vxvv,t,method,
-                                               progressbar=progressbar,
-                                               numcores=numcores,dt=dt)
+                out, msg= integratePlanarOrbit_sos(self._pot,self.vxvv,self._psi,t0,method,
+                                                   surface=surface,progressbar=progressbar,
+                                                   numcores=numcores)
             else:
                 out, msg= integrateFullOrbit_sos(self._pot,self.vxvv,self._psi,t0,method,
                                                  progressbar=progressbar,
@@ -1427,11 +1428,9 @@ class Orbit:
                 else:
                     vxvvs= numpy.copy(self.vxvv)
                 if self.dim() == 2:
-                    raise NotImplementedError("SOS integration not implemented for 2D orbits")
-                    out, msg= integratePlanarOrbit_c(self._pot,vxvvs,
-                                                     t,method,
-                                                     progressbar=progressbar,
-                                                     dt=dt)
+                    out, msg= integratePlanarOrbit_sos_c(self._pot,vxvvs,self._psi,t0,
+                                                         method,surface=surface,
+                                                         progressbar=progressbar)
                 else:
                     out, msg= integrateFullOrbit_sos_c(self._pot,vxvvs,self._psi,t0,
                                                        method,progressbar=progressbar)
@@ -1439,7 +1438,7 @@ class Orbit:
                 if self.phasedim() == 3 \
                    or self.phasedim() == 5:
                     phi_mask= numpy.ones(out.shape[2],dtype='bool')
-                    phi_mask[5]= False
+                    phi_mask[3+2*(self.phasedim()==5)]= False
                     out= out[:,:,phi_mask]
         # Store orbit internally
         self.orbit= out[:,:,:-1]
@@ -4708,7 +4707,8 @@ class Orbit:
 
     @physical_conversion_tuple(['position','velocity'])
     def SOS(self,pot,ncross=500,surface=None,t0=0.,
-            method='dop853_c',progressbar=True,
+            method='dop853_c',skip=100,
+            progressbar=True,
             numcores=_NUMCORES,
             force_map=False,**kwargs):
         """
@@ -4739,6 +4739,8 @@ class Orbit:
                          'dop853' for a 8-5-3 Dormand-Prince integrator in Python
                          'dop853_c' for a 8-5-3 Dormand-Prince integrator in C
 
+                skip= (100) for non-adaptive integrators, the number of basic steps to take between crossings (these are further refined in the code, but only up to a maximum refinement, so you can use skip to get finer integration in cases where more accuracy is needed)
+
                 progressbar= (True) if True, display a tqdm progress bar when integrating multiple orbits (requires tqdm to be installed!)
 
                 numcores - number of cores to use for Python-based multiprocessing (pure Python or using force_map=True); default = OMP_NUM_THREADS
@@ -4756,8 +4758,13 @@ class Orbit:
         """
         if self.dim() == 3:
             init_psis= numpy.arctan2(self.z(use_physical=False),self.vz(use_physical=False))
+        elif self.phasedim() == 4:
+            if not surface is None and surface.lower() == 'y':
+                init_psis= numpy.arctan2(self.y(use_physical=False),self.vy(use_physical=False))
+            else:
+                init_psis= numpy.arctan2(self.x(use_physical=False),self.vx(use_physical=False))
         else:
-            raise NotImplementedError("SOS not implemented for 1D or 2D orbits")
+            raise NotImplementedError("SOS not implemented for 1D orbits or 2D orbits without phi")
         if numpy.any(numpy.fabs(init_psis) > 1e-10):
             # Integrate to the next crossing
             init_psis= numpy.atleast_1d((init_psis + 2.*numpy.pi) % (2.*numpy.pi))
@@ -4771,18 +4778,24 @@ class Orbit:
         if method == 'rk4_c' or method == 'rk6_c':
             # Because these are non-adaptive, we need to make sure we
             # integrate finely enough
-            skip= 100
+            iskip= skip
         else:
-            skip= 1
-        psis= numpy.arange(ncross*skip)*2*numpy.pi/skip
+            iskip= 1
+        psis= numpy.arange(ncross*iskip)*2*numpy.pi/iskip
         self.integrate_SOS(psis,pot,surface=surface,t0=t0,method=method,
                            progressbar=progressbar,
                            numcores=numcores,force_map=force_map)
-        self.t= self.t[:,::skip]
-        self.orbit= self.orbit[:,::skip]
+        self.t= self.t[:,::iskip]
+        self.orbit= self.orbit[:,::iskip]
         if self.dim() == 3:
             out= (self.R(self.t,use_physical=False),
                   self.vR(self.t,use_physical=False))
+        elif not surface is None and surface.lower() == 'y':
+            out= (self.x(self.t,use_physical=False),
+                  self.vx(self.t,use_physical=False))
+        else:
+            out= (self.y(self.t,use_physical=False),
+                  self.vy(self.t,use_physical=False))
         if numpy.any(numpy.fabs(init_psis) > 1e-7):
             self.vxvv= old_vxvv
         return out
@@ -5293,7 +5306,7 @@ class Orbit:
         return [line3d]
 
     def plotSOS(self,pot,*args,ncross=500,surface=None,t0=0.,
-                method='dop853_c',progressbar=True,
+                method='dop853_c',skip=100,progressbar=True,
                 **kwargs):
         """
         NAME:
@@ -5323,6 +5336,8 @@ class Orbit:
                          'dop853' for a 8-5-3 Dormand-Prince integrator in Python
                          'dop853_c' for a 8-5-3 Dormand-Prince integrator in C
 
+                skip= (100) for non-adaptive integrators, the number of basic steps to take between crossings (these are further refined in the code, but only up to a maximum refinement, so you can use skip to get finer integration in cases where more accuracy is needed)
+
                 progressbar= (True) if True, display a tqdm progress bar when integrating multiple orbits (requires tqdm to be installed!)
 
                 for more control of the integrator, use the SOS method directly and plot its results
@@ -5349,8 +5364,14 @@ class Orbit:
         if self.dim() == 3:
             d1= 'R'
             d2= 'vR'
+        elif not surface is None and surface.lower() == 'y':
+            d1= 'x'
+            d2= 'vx'
+        else:
+            d1= 'y'
+            d2= 'vy'
         x,y= self.SOS(pot,ncross=ncross,surface=surface,
-                      t0=t0,method=method,
+                      t0=t0,method=method,skip=skip,
                       progressbar=progressbar,**kwargs)
         x= numpy.atleast_2d(x)
         y= numpy.atleast_2d(y)
