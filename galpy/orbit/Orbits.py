@@ -1369,6 +1369,8 @@ class Orbit:
             2023-03-16 - Written - Bovy (UofT)
 
         """
+        if self.dim() == 1:
+            raise NotImplementedError("SOS integration is not supported for 1D orbits")
         self.check_integrator(method,no_symplec=True)
         pot= flatten_potential(pot)
         _check_potential_dim(self,pot)
@@ -1396,12 +1398,7 @@ class Orbit:
         method= self._check_method_dissipative_compatible(method,self._pot)
         # Implementation with parallel_map in Python
         if not '_c' in method or not ext_loaded or force_map:
-            if self.dim() == 1:
-                raise NotImplementedError("SOS integration not implemented for 1D orbits")
-                out, msg= integrateLinearOrbit(self._pot,self.vxvv,t,method,
-                                               progressbar=progressbar,
-                                               numcores=numcores,dt=dt)
-            elif self.dim() == 2:
+            if self.dim() == 2:
                 out, msg= integratePlanarOrbit_sos(self._pot,self.vxvv,self._psi,t0,method,
                                                    surface=surface,progressbar=progressbar,
                                                    numcores=numcores)
@@ -1412,34 +1409,26 @@ class Orbit:
         else:
             warnings.warn("Using C implementation to integrate orbits",
                           galpyWarningVerbose)
-            if self.dim() == 1:
-                raise NotImplementedError("SOS integration not implemented for 1D orbits in C")
-                out, msg= integrateLinearOrbit_c(self._pot,
-                                                 numpy.copy(self.vxvv),
-                                                 t,method,
-                                                 progressbar=progressbar,
-                                                 dt=dt)
+            if self.phasedim() == 3 \
+                or self.phasedim() == 5:
+                #We hack this by putting in a dummy phi=0
+                vxvvs= numpy.pad(self.vxvv,((0,0),(0,1)),
+                                    'constant',constant_values=0)
             else:
-                if self.phasedim() == 3 \
-                   or self.phasedim() == 5:
-                    #We hack this by putting in a dummy phi=0
-                    vxvvs= numpy.pad(self.vxvv,((0,0),(0,1)),
-                                     'constant',constant_values=0)
-                else:
-                    vxvvs= numpy.copy(self.vxvv)
-                if self.dim() == 2:
-                    out, msg= integratePlanarOrbit_sos_c(self._pot,vxvvs,self._psi,t0,
-                                                         method,surface=surface,
-                                                         progressbar=progressbar)
-                else:
-                    out, msg= integrateFullOrbit_sos_c(self._pot,vxvvs,self._psi,t0,
-                                                       method,progressbar=progressbar)
+                vxvvs= numpy.copy(self.vxvv)
+            if self.dim() == 2:
+                out, msg= integratePlanarOrbit_sos_c(self._pot,vxvvs,self._psi,t0,
+                                                        method,surface=surface,
+                                                        progressbar=progressbar)
+            else:
+                out, msg= integrateFullOrbit_sos_c(self._pot,vxvvs,self._psi,t0,
+                                                    method,progressbar=progressbar)
 
-                if self.phasedim() == 3 \
-                   or self.phasedim() == 5:
-                    phi_mask= numpy.ones(out.shape[2],dtype='bool')
-                    phi_mask[3+2*(self.phasedim()==5)]= False
-                    out= out[:,:,phi_mask]
+            if self.phasedim() == 3 \
+                or self.phasedim() == 5:
+                phi_mask= numpy.ones(out.shape[2],dtype='bool')
+                phi_mask[3+2*(self.phasedim()==5)]= False
+                out= out[:,:,phi_mask]
         # Store orbit internally
         self.orbit= out[:,:,:-1]
         self.t= out[:,:,-1]
@@ -4777,8 +4766,8 @@ class Orbit:
             self.vxvv= self.orbit[:,-1]
         # We are on the SOS now. Let's check that v(x/y/z) > 0
         if ( ( self.dim() == 3 and not self.vz() > 0. )
-            or ( self.dim() == 2 and surface.lower() == 'y' and not self.vy() > 0. )
-            or ( self.dim() == 2 and surface.lower() == 'x' and not self.vx() > 0. ) ):
+            or ( self.dim() == 2 and not surface is None and surface.lower() == 'y' and not self.vy() > 0. )
+            or ( self.dim() == 2 and (surface is None or surface.lower() == 'x') and not self.vx() > 0. ) ):
                 raise RuntimeError("Orbit appears to be within the SOS surface. Refusing to perform specialized SOS integration, please use normal integration instead")
         if method == 'rk4_c' or method == 'rk6_c':
             # Because these are non-adaptive, we need to make sure we
