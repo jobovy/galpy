@@ -742,6 +742,41 @@ def test_SOS_2Dy():
             f'vy on SOS is not positive for integrate_sos for method={method}'
     return None
 
+# Test that the SOS integration returns an error
+# when the orbit does not leave the surface
+def test_SOS_onsurfaceerror_3D():
+    from galpy.orbit import Orbit
+    o= Orbit([1.,0.1,1.1,0.,0.,0.])
+    with pytest.raises(RuntimeError,match="Orbit appears to be within the SOS surface. Refusing to perform specialized SOS integration, please use normal integration instead"):
+        o.SOS(potential.MWPotential2014,surface='y')
+    return None
+
+# Test that the SOS integration returns an error
+# when the orbit does not leave the surface
+def test_SOS_onsurfaceerror_2D():
+    from galpy.orbit import Orbit
+
+    # An orbit considered in the book
+    def orbit_xvxE(x,vx,E,pot=None):
+        """Returns Orbit at (x,vx,y=0) with given E"""
+        return Orbit([x,vx,numpy.sqrt(2.*(E-potential.evaluatePotentials(pot,x,0.,phi=0.)
+                                          -vx**2./2)),0.])
+    # Need the 2d zvc here (maybe should add to galpy?)
+    def zvc(x,E,pot=None):
+        """Returns the maximum v_x at this x and this
+           energy: the zero-velocity curve"""
+        return numpy.sqrt(2.*(E-potential.evaluatePotentials(pot,x,0.,phi=0.)))
+    lp= potential.LogarithmicHaloPotential(normalize=True,b=0.9,core=0.2)
+    E= -0.87
+    x= 0.204
+    # This orbit remains in the y=0 plane and psi therefore
+    # remains zero, thus not increasing
+    maxvx= zvc(x,E,pot=lp)
+    o= orbit_xvxE(x,maxvx,E,pot=lp)
+    with pytest.raises(RuntimeError,match="Orbit appears to be within the SOS surface. Refusing to perform specialized SOS integration, please use normal integration instead"):
+        o.SOS(lp,surface='y')
+    return None
+
 # Test that the eccentricity of circular orbits is zero
 def test_eccentricity():
     #return None
