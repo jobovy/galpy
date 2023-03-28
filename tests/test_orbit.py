@@ -698,7 +698,7 @@ def test_integrate_SOS_2D():
     psis= numpy.linspace(0.,20.*numpy.pi,1001)
     for method in ['dopr54_c','dop853_c','rk4_c','rk6_c','dop853','odeint']:
         for surface in ['x','y']:
-            o.integrate_SOS(psis,pot,method=method,surface='x')
+            o.integrate_SOS(psis,pot,method=method) # default is surface='x'
             Es= o.E(o.t)
             assert (numpy.std(Es)/numpy.mean(Es))**2. < 10.**-10, \
                 f'Energy is not conserved by integrate_sos for method={method} and surface={surface}'
@@ -4854,6 +4854,8 @@ def test_plotSOS():
     o= setup_orbit_energy(pot)
     o.plotSOS(pot)
     o.plotSOS(pot,use_physical=True)
+    o.plotSOS(pot,surface='y')
+    o.plotSOS(pot,surface='y',use_physical=True)
     return None
 
 def test_from_name_values():
