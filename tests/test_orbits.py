@@ -480,6 +480,15 @@ def test_SOS_2Dy():
             f'vy on SOS is not positive for integrate_sos for method={method}'
     return None
 
+# Test that the SOS integration returns an error
+# when one orbit does not leave the surface
+def test_SOS_onsurfaceerror_3D():
+    from galpy.orbit import Orbit
+    o= Orbit([[1.,0.1,1.1,0.1,0.,0.],[1.,0.1,1.1,0.,0.,0.]])
+    with pytest.raises(RuntimeError,match="An orbit appears to be within the SOS surface. Refusing to perform specialized SOS integration, please use normal integration instead"):
+        o.SOS(potential.MWPotential2014)
+    return None
+
 # Test slicing of orbits
 def test_slice_singleobject():
     from galpy.orbit import Orbit

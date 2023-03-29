@@ -747,8 +747,8 @@ def test_SOS_2Dy():
 def test_SOS_onsurfaceerror_3D():
     from galpy.orbit import Orbit
     o= Orbit([1.,0.1,1.1,0.,0.,0.])
-    with pytest.raises(RuntimeError,match="Orbit appears to be within the SOS surface. Refusing to perform specialized SOS integration, please use normal integration instead"):
-        o.SOS(potential.MWPotential2014,surface='y')
+    with pytest.raises(RuntimeError,match="An orbit appears to be within the SOS surface. Refusing to perform specialized SOS integration, please use normal integration instead"):
+        o.SOS(potential.MWPotential2014)
     return None
 
 # Test that the SOS integration returns an error
@@ -773,7 +773,7 @@ def test_SOS_onsurfaceerror_2D():
     # remains zero, thus not increasing
     maxvx= zvc(x,E,pot=lp)
     o= orbit_xvxE(x,maxvx,E,pot=lp)
-    with pytest.raises(RuntimeError,match="Orbit appears to be within the SOS surface. Refusing to perform specialized SOS integration, please use normal integration instead"):
+    with pytest.raises(RuntimeError,match="An orbit appears to be within the SOS surface. Refusing to perform specialized SOS integration, please use normal integration instead"):
         o.SOS(lp,surface='y')
     return None
 
