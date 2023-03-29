@@ -5370,6 +5370,7 @@ class Orbit:
         else:
             d1= 'y'
             d2= 'vy'
+        kwargs['quantity']= False
         x,y= self.SOS(pot,ncross=ncross,surface=surface,
                       t0=t0,method=method,skip=skip,
                       progressbar=progressbar,**kwargs)
