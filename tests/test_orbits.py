@@ -409,6 +409,86 @@ def test_integration_dxdv_2d_rectInOut():
     assert numpy.amax(numpy.fabs(orbits.getOrbit_dxdv()-numpy.array([o.getOrbit_dxdv() for o in orbits_list]))) < 1e-8, 'Integration of the phase-space volume of multiple orbits as Orbits does not agree with integrating the phase-space volume of multiple orbits'
     return None
 
+# Test that the 3D SOS function returns points with z=0, vz > 0
+def test_SOS_3D():
+    from galpy.orbit import Orbit
+    times= numpy.linspace(0.,10.,1001)
+    orbits_list= [Orbit([1.,0.1,1.,0.,0.1,0.]),Orbit([.9,0.3,1.,-0.3,0.4,3.]),
+                  Orbit([1.2,-0.3,0.7,.5,-0.5,6.])]
+    orbits= Orbit(orbits_list)
+    pot= potential.MWPotential2014
+    for method in ['dopr54_c','dop853_c','rk4_c','rk6_c','dop853','odeint']:
+        orbits.SOS(
+            pot,
+            method=method,ncross=500 if '_c' in method else 20,
+            force_map='rk' in method,
+            t0=numpy.arange(len(orbits)),
+        )
+        zs= orbits.z(orbits.t)
+        vzs= orbits.vz(orbits.t)
+        assert (numpy.fabs(zs) < 10.**-6.).all(), \
+            f'z on SOS is not zero for integrate_sos for method={method}'
+        assert (vzs > 0.).all(), \
+            f'vz on SOS is not positive for integrate_sos for method={method}'
+    return None
+
+# Test that the 2D SOS function returns points with x=0, vx > 0
+def test_SOS_2Dx():
+    from galpy.orbit import Orbit
+    times= numpy.linspace(0.,10.,1001)
+    orbits_list= [Orbit([1.,0.1,1.,0.]),Orbit([.9,0.3,1.,3.]),
+                  Orbit([1.2,-0.3,0.7,6.])]
+    orbits= Orbit(orbits_list)
+    pot= potential.LogarithmicHaloPotential(normalize=1.,q=0.9).toPlanar()
+    for method in ['dopr54_c','dop853_c','rk4_c','rk6_c','dop853','odeint']:
+        orbits.SOS(
+            pot,
+            method=method,ncross=500 if '_c' in method else 20,
+            force_map='rk' in method,
+            t0=numpy.arange(len(orbits)),
+            surface='x',
+        )
+        xs= orbits.x(orbits.t)
+        vxs= orbits.vx(orbits.t)
+        assert (numpy.fabs(xs) < 10.**-6.).all(), \
+            f'x on SOS is not zero for integrate_sos for method={method}'
+        assert (vxs > 0.).all(), \
+            f'vx on SOS is not positive for integrate_sos for method={method}'
+    return None
+
+# Test that the 2D SOS function returns points with y=0, vy > 0
+def test_SOS_2Dy():
+    from galpy.orbit import Orbit
+    times= numpy.linspace(0.,10.,1001)
+    orbits_list= [Orbit([1.,0.1,1.,0.]),Orbit([.9,0.3,1.,3.]),
+                  Orbit([1.2,-0.3,0.7,6.])]
+    orbits= Orbit(orbits_list)
+    pot= potential.LogarithmicHaloPotential(normalize=1.,q=0.9).toPlanar()
+    for method in ['dopr54_c','dop853_c','rk4_c','rk6_c','dop853','odeint']:
+        orbits.SOS(
+            pot,
+            method=method,ncross=500 if '_c' in method else 20,
+            force_map='rk' in method,
+            t0=numpy.arange(len(orbits)),
+            surface='y',
+        )
+        ys= orbits.y(orbits.t)
+        vys= orbits.vy(orbits.t)
+        assert (numpy.fabs(ys) < 10.**-6.).all(), \
+            f'y on SOS is not zero for integrate_sos for method={method}'
+        assert (vys > 0.).all(), \
+            f'vy on SOS is not positive for integrate_sos for method={method}'
+    return None
+
+# Test that the SOS integration returns an error
+# when one orbit does not leave the surface
+def test_SOS_onsurfaceerror_3D():
+    from galpy.orbit import Orbit
+    o= Orbit([[1.,0.1,1.1,0.1,0.,0.],[1.,0.1,1.1,0.,0.,0.]])
+    with pytest.raises(RuntimeError,match="An orbit appears to be within the SOS surface. Refusing to perform specialized SOS integration, please use normal integration instead"):
+        o.SOS(potential.MWPotential2014)
+    return None
+
 # Test slicing of orbits
 def test_slice_singleobject():
     from galpy.orbit import Orbit
@@ -614,6 +694,25 @@ def test_slice_physical_issue385():
         assert numpy.amax(numpy.fabs((((orbits[ii].phi()-orbits.phi()[ii])+numpy.pi) % (2.*numpy.pi)) - numpy.pi)) < 1e-10, 'Integration of multiple orbits as Orbits does not agree with integrating multiple orbits'
     return None
 
+# Test that slicing in the case of individual time arrays works as expected
+# Currently, the only way individual time arrays occur is through SOS integration
+# so we implementing this test using SOS integration
+def test_slice_indivtimes():
+    from galpy.orbit import Orbit
+    times= numpy.linspace(0.,10.,1001)
+    orbits_list= [Orbit([1.,0.1,1.,0.,0.1,0.]),Orbit([.9,0.3,1.,-0.3,0.4,3.]),
+                  Orbit([1.2,-0.3,0.7,.5,-0.5,6.])]
+    orbits= Orbit(orbits_list)
+    pot= potential.MWPotential2014
+    orbits.SOS(pot,t0=numpy.arange(len(orbits)))
+    # First check that we actually have individual times
+    assert len(orbits.t.shape) >= len(orbits.orbit.shape)-1, 'Test should be using individual time arrays, but a single time array was found'
+    # Now slice single and multiple
+    assert numpy.all(orbits[0].t == orbits.t[0]), 'Individually sliced orbit with individual time arrays does not produce the correct time array in the slice'
+    assert numpy.all(orbits[1].t == orbits.t[1]), 'Individually sliced orbit with individual time arrays does not produce the correct time array in the slice'
+    assert numpy.all(orbits[:2].t == orbits.t[:2]), 'Multiply-sliced orbit with individual time arrays does not produce the correct time array in the slice'
+    assert numpy.all(orbits[1:4].t == orbits.t[1:4]), 'Multiply-sliced orbit with individual time arrays does not produce the correct time array in the slice'
+    return None
 
 # Test that initializing Orbits with orbits with different phase-space
 # dimensions raises an error
@@ -2110,6 +2209,22 @@ def test_plotting():
     # Expressions
     o.plot(d1='t',d2='r*R/vR')
     os.plot(d1='t',d2='r*R/vR')
+    return None
+
+def test_plotSOS():
+    from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential
+
+    # 3D
+    o= Orbit([Orbit([1.,0.1,1.1,0.1,0.2,2.]),Orbit([1.,0.1,1.1,0.1,0.2,2.])])
+    pot= potential.MWPotential2014
+    o.plotSOS(pot)
+    o.plotSOS(pot,use_physical=True,ro=8.,vo=220.)
+    # 2D
+    o= Orbit([Orbit([1.,0.1,1.1,2.]),Orbit([1.,0.1,1.1,2.])])
+    pot= LogarithmicHaloPotential(normalize=1.).toPlanar()
+    o.plotSOS(pot)
+    o.plotSOS(pot,use_physical=True,ro=8.,vo=220.)
     return None
 
 def test_integrate_method_warning():

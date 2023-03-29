@@ -676,6 +676,210 @@ def integrateFullOrbit(pot,yo,t,int_method,rtol=None,atol=None,
         out= out[:,:,:5]
     return out, numpy.zeros(len(yo))
 
+def integrateFullOrbit_sos_c(pot,yo,psi,t0,int_method,rtol=None,atol=None,
+                             progressbar=True,dpsi=None):
+    """
+    NAME:
+       integrateFullOrbit_sos_c
+    PURPOSE:
+       Integrate an ode for a FullOrbit for integrate_sos in C
+    INPUT:
+       pot - Potential or list of such instances
+       yo - initial condition [q,p], shape [N,5] or [N,6]
+       psi - set of increment angles at which one wants the result [increments wrt initial angle]
+       t0 - initial time
+       int_method= 'rk4_c', 'rk6_c', 'dopr54_c', or 'dop853_c'
+       rtol, atol= tolerances (not always used...)
+       progressbar= (True) if True, display a tqdm progress bar when integrating multiple orbits (requires tqdm to be installed!)
+       dpsi= (None) force integrator to use this stepsize (default is to automatically determine one; only for C-based integrators)
+    OUTPUT:
+       (y,err)
+       y : array, shape (N,len(psi),7) where the last of the last dimension is the time
+       Array containing the value of y for each desired angle in psi, \
+       with the initial value y0 in the first row.
+       err: error message, always zero for now
+    HISTORY:
+       2023-03-17 - Written based on integrateFullOrbit_c - Bovy (UofT)
+    """
+    if len(yo.shape) == 1: single_obj= True
+    else: single_obj= False
+    yo= numpy.atleast_2d(yo)
+    nobj= len(yo)
+    rtol, atol= _parse_tol(rtol,atol)
+    npot, pot_type, pot_args, pot_tfuncs= _parse_pot(pot)
+    pot_tfuncs= _prep_tfuncs(pot_tfuncs)
+    int_method_c= _parse_integrator(int_method)
+    if dpsi is None:
+        dpsi= -9999.99
+    t0= numpy.atleast_1d(t0)
+    yoo= numpy.empty((nobj,7))
+    yoo[:,:6]= yo[:,:6]
+    if len(t0) == 1:
+        yoo[:,6]= t0[0]
+    else:
+        yoo[:,6]= t0
+    npsi= len(psi.T) # .T to make npsi always the first dim
+
+    #Set up result array
+    result= numpy.empty((nobj,npsi,7))
+    err= numpy.zeros(nobj,dtype=numpy.int32)
+
+    #Set up progressbar
+    progressbar*= _TQDM_LOADED
+    if nobj > 1 and progressbar:
+        pbar= tqdm.tqdm(total=nobj,leave=False)
+        pbar_func_ctype= ctypes.CFUNCTYPE(None)
+        pbar_c= pbar_func_ctype(pbar.update)
+    else: # pragma: no cover
+        pbar_c= None
+
+    #Set up the C code
+    ndarrayFlags= ('C_CONTIGUOUS','WRITEABLE')
+    integrationFunc= _lib.integrateFullOrbit_sos
+    integrationFunc.argtypes= [ctypes.c_int,
+                               ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
+                               ctypes.c_int,
+                               ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
+                               ctypes.c_int,
+                               ctypes.c_int,
+                               ndpointer(dtype=numpy.int32,flags=ndarrayFlags),
+                               ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
+                               ctypes.c_void_p,
+                               ctypes.c_double,
+                               ctypes.c_double,
+                               ctypes.c_double,
+                               ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
+                               ndpointer(dtype=numpy.int32,flags=ndarrayFlags),
+                               ctypes.c_int,
+                               ctypes.c_void_p]
+
+    #Array requirements, first store old order
+    f_cont= [yoo.flags['F_CONTIGUOUS'],
+             psi.flags['F_CONTIGUOUS']]
+    yoo= numpy.require(yoo,dtype=numpy.float64,requirements=['C','W'])
+    psi= numpy.require(psi,dtype=numpy.float64,requirements=['C','W'])
+    result= numpy.require(result,dtype=numpy.float64,requirements=['C','W'])
+    err= numpy.require(err,dtype=numpy.int32,requirements=['C','W'])
+
+    #Run the C code)
+    integrationFunc(ctypes.c_int(nobj),
+                    yoo,
+                    ctypes.c_int(npsi),
+                    psi,
+                    ctypes.c_int(len(psi.shape) > 1),
+                    ctypes.c_int(npot),
+                    pot_type,
+                    pot_args,
+                    pot_tfuncs,
+                    ctypes.c_double(dpsi),
+                    ctypes.c_double(rtol),
+                    ctypes.c_double(atol),
+                    result,
+                    err,
+                    ctypes.c_int(int_method_c),
+                    pbar_c)
+
+    if nobj > 1 and progressbar:
+        pbar.close()
+
+    if numpy.any(err == -10): #pragma: no cover
+        raise KeyboardInterrupt("Orbit integration interrupted by CTRL-C (SIGINT)")
+
+    #Reset input arrays
+    if f_cont[0]: yoo= numpy.asfortranarray(yoo)
+    if f_cont[1]: psi= numpy.asfortranarray(psi)
+
+    if single_obj: return (result[0],err[0])
+    else: return (result,err)
+
+def integrateFullOrbit_sos(pot,yo,psi,t0,int_method,rtol=None,atol=None,
+                           numcores=1,progressbar=True,dpsi=None):
+    """
+    NAME:
+       integrateFullOrbit_sos
+    PURPOSE:
+       Integrate an ode for a FullOrbit for integrate_sos
+    INPUT:
+       pot - Potential or list of such instances
+       yo - initial condition [q,p], shape [N,5] or [N,6]
+       psi - set of increment angles at which one wants the result [increments wrt initial angle]
+       t0 - initial time
+       int_method= 'leapfrog', 'odeint', or 'dop853'
+       rtol, atol= tolerances (not always used...)
+       numcores= (1) number of cores to use for multi-processing
+       progressbar= (True) if True, display a tqdm progress bar when integrating multiple orbits (requires tqdm to be installed!)
+       dpsi= (None) force integrator to use this stepsize (default is to automatically determine one; only for C-based integrators)
+    OUTPUT:
+       (y,err)
+       y : array, shape (N,len(psi),6/7) where the last of the last dimension is the time
+       Array containing the value of y for each desired angle in psi, \
+       with the initial value y0 in the first row.
+       err: error message, always zero for now
+    HISTORY:
+       2023-03-16 - Written based on integrateFullOrbit - Bovy (UofT)
+    """
+    nophi= False
+    if len(yo[0]) == 5:
+        nophi= True
+        #We hack this by putting in a dummy phi=0
+        yo= numpy.pad(yo,((0,0),(0,1)),'constant',constant_values=0)
+    if not '_c' in int_method:
+        if rtol is None: rtol= 1e-8
+        if int_method.lower() == 'dop853':
+            integrator= dop853
+            extra_kwargs= {}
+        else:
+            integrator= integrate.odeint
+            extra_kwargs= {'rtol':rtol}
+        def integrate_for_map(vxvv,psi,t0):
+            #go to the transformed plane: (x,vx,y,vy,A,t)
+            init_psi= numpy.arctan2(vxvv[3],vxvv[4])
+            init= numpy.array([vxvv[0]*numpy.cos(vxvv[5]),
+                               vxvv[1]*numpy.cos(vxvv[5])
+                                   -vxvv[2]*numpy.sin(vxvv[5]),
+                               vxvv[0]*numpy.sin(vxvv[5]),
+                               vxvv[2]*numpy.cos(vxvv[5])
+                                   +vxvv[1]*numpy.sin(vxvv[5]),
+                               numpy.sqrt(vxvv[3]**2.+vxvv[4]**2.),
+                               t0])
+            #integrate
+            intOut= integrator(_SOSEOM,init,t=psi+init_psi,args=(pot,),
+                               **extra_kwargs)
+            #go back to the cylindrical frame
+            out= numpy.zeros((len(psi),7))
+            out[:,0]= numpy.sqrt(intOut[:,0]**2.+intOut[:,2]**2.)
+            out[:,5]= numpy.arctan2(intOut[:,2],intOut[:,0])
+            out[:,1]= intOut[:,1]*numpy.cos(out[:,5])+intOut[:,3]*numpy.sin(out[:,5])
+            out[:,2]= intOut[:,3]*numpy.cos(out[:,5])-intOut[:,1]*numpy.sin(out[:,5])
+            out[:,3]= intOut[:,4]*numpy.sin(psi+init_psi)
+            out[:,4]= intOut[:,4]*numpy.cos(psi+init_psi)
+            out[:,6]= intOut[:,5]
+            return out
+    else: # Assume we are forcing parallel_mapping of a C integrator...
+        def integrate_for_map(vxvv,psi,t0):
+            return integrateFullOrbit_sos_c(pot,numpy.copy(vxvv),psi,
+                                            t0,int_method,dpsi=dpsi)[0]
+    if len(yo) == 1: # Can't map a single value...
+        out= numpy.atleast_3d(integrate_for_map(yo[0],psi.flatten(),t0).T).T
+    else:
+        out= numpy.array(
+            parallel_map(
+                lambda ii: integrate_for_map(
+                    yo[ii],
+                    psi[ii] if len(psi.shape) > 1 else psi,
+                    t0[0] if len(t0) == 1 else t0[ii]
+                ),
+                range(len(yo)),
+                numcores=numcores,
+                progressbar=progressbar
+            )
+        )
+    if nophi:
+        phi_mask= numpy.ones(out.shape[2],dtype='bool')
+        phi_mask[5]= False
+        out= out[:,:,phi_mask]
+    return out, numpy.zeros(len(yo))
+
 def _RZEOM(y,t,pot,l2):
     """
     NAME:
@@ -725,6 +929,31 @@ def _EOM(y,t,pot):
             y[5],
             _evaluatezforces(pot,y[0],y[4],phi=y[2],t=t,
                              v=[y[1],y[0]*y[3],y[5]])]
+
+def _SOSEOM(y,psi,pot):
+    """
+    NAME:
+       _SOSEOM
+    PURPOSE:
+       implements the EOM, i.e., the right-hand side of the differential
+       equation, for the SOS integration of a 3D orbit
+    INPUT:
+       y - current phase-space position
+       psi - current angle
+       pot - (list of) Potential instance(s)
+    OUTPUT:
+       dy/dpsi
+    HISTORY:
+       2023-03-16 - Written - Bovy (UofT)
+    """
+    # y = (x,vx,y,vy,A,t)
+    # Calculate z
+    sp, cp= numpy.sin(psi), numpy.cos(psi)
+    z= y[4]*sp
+    gxyz= _rectForce([y[0],y[2],z],pot,t=y[5])
+    psidot= cp**2.-sp/y[4]*gxyz[2]
+    Adot= y[4]*cp*sp+gxyz[2]*cp
+    return numpy.array([y[1],gxyz[0],y[3],gxyz[1],Adot,1.])/psidot
 
 def _rectForce(x,pot,t=0.):
     """

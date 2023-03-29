@@ -34,14 +34,19 @@ from ..util import conversion, coords, galpyWarning, galpyWarningVerbose, plot
 from ..util._optional_deps import (_APY3, _APY_COORD_LOADED, _APY_GE_31,
                                    _APY_LOADED, _APY_UNITS, _ASTROQUERY_LOADED,
                                    _NUMEXPR_LOADED)
-from ..util.conversion import physical_compatible, physical_conversion
+from ..util.conversion import (physical_compatible, physical_conversion,
+                               physical_conversion_tuple)
 from ..util.coords import _K
-from .integrateFullOrbit import integrateFullOrbit, integrateFullOrbit_c
+from .integrateFullOrbit import (integrateFullOrbit, integrateFullOrbit_c,
+                                 integrateFullOrbit_sos,
+                                 integrateFullOrbit_sos_c)
 from .integrateLinearOrbit import (_ext_loaded, integrateLinearOrbit,
                                    integrateLinearOrbit_c)
 from .integratePlanarOrbit import (integratePlanarOrbit,
                                    integratePlanarOrbit_c,
-                                   integratePlanarOrbit_dxdv)
+                                   integratePlanarOrbit_dxdv,
+                                   integratePlanarOrbit_sos,
+                                   integratePlanarOrbit_sos_c)
 
 ext_loaded= _ext_loaded
 if _APY_LOADED:
@@ -64,6 +69,69 @@ try:
 except KeyError:
     import multiprocessing
     _NUMCORES= multiprocessing.cpu_count()
+
+# Plot labeling dictionaries
+_labeldict_physical= {
+    't':r'$t\ (\mathrm{Gyr})$',
+    'R':r'$R\ (\mathrm{kpc})$',
+    'vR':r'$v_R\ (\mathrm{km\,s}^{-1})$',
+    'vT':r'$v_T\ (\mathrm{km\,s}^{-1})$',
+    'z':r'$z\ (\mathrm{kpc})$',
+    'vz':r'$v_z\ (\mathrm{km\,s}^{-1})$','phi':r'$\phi$',
+    'r':r'$r\ (\mathrm{kpc})$',
+    'x':r'$x\ (\mathrm{kpc})$','y':r'$y\ (\mathrm{kpc})$',
+    'vx':r'$v_x\ (\mathrm{km\,s}^{-1})$',
+    'vy':r'$v_y\ (\mathrm{km\,s}^{-1})$',
+    'E':r'$E\,(\mathrm{km}^2\,\mathrm{s}^{-2})$',
+    'Ez':r'$E_z\,(\mathrm{km}^2\,\mathrm{s}^{-2})$',
+    'ER':r'$E_R\,(\mathrm{km}^2\,\mathrm{s}^{-2})$',
+    'Enorm':r'$E(t)/E(0.)$',
+    'Eznorm':r'$E_z(t)/E_z(0.)$',
+    'ERnorm':r'$E_R(t)/E_R(0.)$',
+    'Jacobi':r'$E-\Omega_p\,L\,(\mathrm{km}^2\,\mathrm{s}^{-2})$',
+    'Jacobinorm':r'$(E-\Omega_p\,L)(t)/(E-\Omega_p\,L)(0)$'
+}
+_labeldict_internal= {
+    't':r'$t$',
+    'R':r'$R$',
+    'vR':r'$v_R$',
+    'vT':r'$v_T$',
+    'z':r'$z$',
+    'vz':r'$v_z$',
+    'phi':r'$\phi$',
+    'r':r'$r$',
+    'x':r'$x$',
+    'y':r'$y$',
+    'vx':r'$v_x$',
+    'vy':r'$v_y$',
+    'E':r'$E$',
+    'Enorm':r'$E(t)/E(0.)$',
+    'Ez':r'$E_z$',
+    'Eznorm':r'$E_z(t)/E_z(0.)$',
+    'ER':r'$E_R$',
+    'ERnorm':r'$E_R(t)/E_R(0.)$',
+    'Jacobi':r'$E-\Omega_p\,L$',
+    'Jacobinorm':r'$(E-\Omega_p\,L)(t)/(E-\Omega_p\,L)(0)$'
+}
+_labeldict_radec= {
+    'ra':r'$\alpha\ (\mathrm{deg})$',
+    'dec':r'$\delta\ (\mathrm{deg})$',
+    'll':r'$l\ (\mathrm{deg})$',
+    'bb':r'$b\ (\mathrm{deg})$',
+    'dist':r'$d\ (\mathrm{kpc})$',
+    'pmra':r'$\mu_\alpha\ (\mathrm{mas\,yr}^{-1})$',
+    'pmdec':r'$\mu_\delta\ (\mathrm{mas\,yr}^{-1})$',
+    'pmll':r'$\mu_l\ (\mathrm{mas\,yr}^{-1})$',
+    'pmbb':r'$\mu_b\ (\mathrm{mas\,yr}^{-1})$',
+    'vlos':r'$v_\mathrm{los}\ (\mathrm{km\,s}^{-1})$',
+    'helioX':r'$X\ (\mathrm{kpc})$',
+    'helioY':r'$Y\ (\mathrm{kpc})$',
+    'helioZ':r'$Z\ (\mathrm{kpc})$',
+    'U':r'$U\ (\mathrm{km\,s}^{-1})$',
+    'V':r'$V\ (\mathrm{km\,s}^{-1})$',
+    'W':r'$W\ (\mathrm{km\,s}^{-1})$'
+}
+
 # named_objects file
 def _named_objects_key_formatting(name):
     # Remove punctuation, spaces, and make lowercase
@@ -908,7 +976,11 @@ class Orbit:
         # Also transfer all attributes related to integration
         if hasattr(self,'orbit'):
             integrate_kwargs= {}
-            integrate_kwargs['t']= self.t
+            # Single vs. individual time arrays
+            if len(self.t.shape) < len(self.orbit.shape)-1:
+                integrate_kwargs['t']= self.t
+            else:
+                integrate_kwargs['t']= self.t[flat_indx_array]
             integrate_kwargs['_integrate_t_asQuantity']= \
                 self._integrate_t_asQuantity
             integrate_kwargs['orbit']= \
@@ -1041,6 +1113,49 @@ class Orbit:
                 self._vo= vo
         return None
 
+    @staticmethod
+    def check_integrator(method,no_symplec=False):
+        valid_methods= [
+            'odeint', 'leapfrog', 'dop853', 'leapfrog_c',
+            'symplec4_c', 'symplec6_c', 'rk4_c', 'rk6_c',
+            'dopr54_c', 'dop853_c'
+        ]
+        if no_symplec:
+            symplec_methods= [
+                'leapfrog','leapfrog_c',
+                'symplec4_c','symplec6_c',
+            ]
+            [valid_methods.remove(symplec_method) for symplec_method in symplec_methods]
+        if method.lower() not in valid_methods:
+            raise ValueError(f'{method:s} is not a valid `method`')
+        return None
+
+    @staticmethod
+    def _check_method_c_compatible(method,pot):
+        if '_c' in method:
+            if not ext_loaded or not _check_c(pot):
+                if ('leapfrog' in method or 'symplec' in method):
+                    method= 'leapfrog'
+                else:
+                    method= 'odeint'
+                if not ext_loaded: # pragma: no cover
+                    warnings.warn("Cannot use C integration because C extension not loaded (using %s instead)" % (method), galpyWarning)
+                else:
+                    warnings.warn("Cannot use C integration because some of the potentials are not implemented in C (using %s instead)" % (method), galpyWarning)
+        return method
+
+    @staticmethod
+    def _check_method_dissipative_compatible(method,pot):
+        if _isDissipative(pot) and ('leapfrog' in method
+                                    or 'symplec' in method):
+            if '_c' in method:
+                method= 'dopr54_c'
+            else:
+                method= 'odeint'
+            warnings.warn("Cannot use symplectic integration because some of the included forces are dissipative (using non-symplectic integrator %s instead)" % (method), galpyWarning)
+        return method
+
+
     def integrate(self,t,pot,method='symplec4_c',progressbar=True,
                   dt=None,numcores=_NUMCORES,
                   force_map=False):
@@ -1089,10 +1204,7 @@ class Orbit:
             2018-12-26 - Written to use OpenMP C implementation - Bovy (UofT)
 
         """
-        if method.lower() not in ['odeint', 'leapfrog', 'dop853', 'leapfrog_c',
-                'symplec4_c', 'symplec6_c', 'rk4_c', 'rk6_c',
-                'dopr54_c', 'dop853_c']:
-            raise ValueError(f'{method:s} is not a valid `method`')
+        self.check_integrator(method)
         pot= flatten_potential(pot)
         _check_potential_dim(self,pot)
         _check_consistent_units(self,pot)
@@ -1118,26 +1230,8 @@ class Orbit:
             thispot= pot
         self.t= numpy.array(t)
         self._pot= thispot
-        #First check that the potential has C
-        if '_c' in method:
-            if not ext_loaded or not _check_c(self._pot):
-                if ('leapfrog' in method or 'symplec' in method):
-                    method= 'leapfrog'
-                else:
-                    method= 'odeint'
-                if not ext_loaded: # pragma: no cover
-                    warnings.warn("Cannot use C integration because C extension not loaded (using %s instead)" % (method), galpyWarning)
-                else:
-                    warnings.warn("Cannot use C integration because some of the potentials are not implemented in C (using %s instead)" % (method), galpyWarning)
-        # Now check that we aren't trying to integrate a dissipative force
-        # with a symplectic integrator
-        if _isDissipative(self._pot) and ('leapfrog' in method
-                                    or 'symplec' in method):
-            if '_c' in method:
-                method= 'dopr54_c'
-            else:
-                method= 'odeint'
-            warnings.warn("Cannot use symplectic integration because some of the included forces are dissipative (using non-symplectic integrator %s instead)" % (method), galpyWarning)
+        method= self._check_method_c_compatible(method,self._pot)
+        method= self._check_method_dissipative_compatible(method,self._pot)
         # Implementation with parallel_map in Python
         if not '_c' in method or not ext_loaded or force_map:
             if self.dim() == 1:
@@ -1228,6 +1322,121 @@ class Orbit:
                               """if you wish (min/max r = {:.3f},{:.3f}"""\
                               .format(self.rperi(),self.rap()),
                           galpyWarning)
+        return None
+
+    def integrate_SOS(self,psi,pot,surface=None,t0=0.,
+                      method='dop853_c',progressbar=True,
+                      numcores=_NUMCORES,
+                      force_map=False):
+        """
+        NAME:
+
+            integrate_SOS
+
+        PURPOSE:
+
+            integrate this Orbit instance using an independent variable suitable to creating surfaces-of-section
+
+        INPUT:
+
+            psi - increment angles over which to integrate [increments wrt initial angle] (can be Quantity)
+
+            pot - potential instance or list of instances
+
+            surface= (None) surface to punch through (this has no effect in 3D, where the surface is always z=0, but in 2D it can be 'x' or 'y' for x=0 or y=0)
+
+            t0= (0.) initial time (can be Quantity)
+
+            method = 'odeint' for scipy's odeint
+                     'rk4_c' for a 4th-order Runge-Kutta integrator in C
+                     'rk6_c' for a 6-th order Runge-Kutta integrator in C
+                     'dopr54_c' for a 5-4 Dormand-Prince integrator in C
+                     'dop853' for a 8-5-3 Dormand-Prince integrator in Python
+                     'dop853_c' for a 8-5-3 Dormand-Prince integrator in C
+
+            progressbar= (True) if True, display a tqdm progress bar when integrating multiple orbits (requires tqdm to be installed!)
+
+            numcores - number of cores to use for Python-based multiprocessing (pure Python or using force_map=True); default = OMP_NUM_THREADS
+
+            force_map= (False) if True, force use of Python-based multiprocessing (not recommended)
+
+        OUTPUT:
+
+            None (get the actual orbit using getOrbit())
+
+        HISTORY:
+
+            2023-03-16 - Written - Bovy (UofT)
+
+        """
+        if self.dim() == 1:
+            raise NotImplementedError("SOS integration is not supported for 1D orbits")
+        self.check_integrator(method,no_symplec=True)
+        pot= flatten_potential(pot)
+        _check_potential_dim(self,pot)
+        _check_consistent_units(self,pot)
+        # Parse psi
+        if _APY_LOADED and isinstance(psi,units.Quantity):
+            psi= conversion.parse_angle(psi)
+        if _APY_LOADED and isinstance(t0,units.Quantity):
+            t0= conversion.parse_time(t0,ro=self._ro,vo=self._vo)
+        self._integrate_t_asQuantity= False
+        from ..potential import MWPotential
+        if pot == MWPotential:
+            warnings.warn("Use of MWPotential as a Milky-Way-like potential is deprecated; galpy.potential.MWPotential2014, a potential fit to a large variety of dynamical constraints (see Bovy 2015), is the preferred Milky-Way-like potential in galpy",
+                          galpyWarning)
+        # Delete attributes for interpolation and rperi etc. determination
+        if hasattr(self,'_orbInterp'): delattr(self,'_orbInterp')
+        if hasattr(self,'rs'): delattr(self,'rs')
+        if self.dim() == 2:
+            thispot= toPlanarPotential(pot)
+        else:
+            thispot= pot
+        self._psi= numpy.array(psi)
+        self._pot= thispot
+        method= self._check_method_c_compatible(method,self._pot)
+        method= self._check_method_dissipative_compatible(method,self._pot)
+        # Implementation with parallel_map in Python
+        if not '_c' in method or not ext_loaded or force_map:
+            if self.dim() == 2:
+                out, msg= integratePlanarOrbit_sos(self._pot,self.vxvv,self._psi,t0,method,
+                                                   surface=surface,progressbar=progressbar,
+                                                   numcores=numcores)
+            else:
+                out, msg= integrateFullOrbit_sos(self._pot,self.vxvv,self._psi,t0,method,
+                                                 progressbar=progressbar,
+                                                 numcores=numcores)
+        else:
+            warnings.warn("Using C implementation to integrate orbits",
+                          galpyWarningVerbose)
+            if self.phasedim() == 3 \
+                or self.phasedim() == 5:
+                #We hack this by putting in a dummy phi=0
+                vxvvs= numpy.pad(self.vxvv,((0,0),(0,1)),
+                                    'constant',constant_values=0)
+            else:
+                vxvvs= numpy.copy(self.vxvv)
+            if self.dim() == 2:
+                out, msg= integratePlanarOrbit_sos_c(self._pot,vxvvs,self._psi,t0,
+                                                        method,surface=surface,
+                                                        progressbar=progressbar)
+            else:
+                out, msg= integrateFullOrbit_sos_c(self._pot,vxvvs,self._psi,t0,
+                                                    method,progressbar=progressbar)
+
+            if self.phasedim() == 3 \
+                or self.phasedim() == 5:
+                phi_mask= numpy.ones(out.shape[2],dtype='bool')
+                phi_mask[3+2*(self.phasedim()==5)]= False
+                out= out[:,:,phi_mask]
+        # Store orbit internally
+        self.orbit= out[:,:,:-1]
+        self.t= out[:,:,-1]
+        # Quick check that all is well in terms of psi increasing with time
+        assert numpy.all((numpy.roll(self.t,-1,axis=1)-self.t)[:,:-1]
+                         *(numpy.roll(self._psi.T,-1,axis=0)-self._psi.T)[:-1].T
+                         > 0.), \
+            "SOS integration failed (time does not monotonically increase with increasing psi)"
         return None
 
     def integrate_dxdv(self,dxdv,t,pot,method='dopr54_c',
@@ -4490,6 +4699,110 @@ class Orbit:
                                     z_sun=self._zo*units.kpc,
                                     galcen_v_sun=v_sun).T
 
+    @physical_conversion_tuple(['position','velocity'])
+    def SOS(self,pot,ncross=500,surface=None,t0=0.,
+            method='dop853_c',skip=100,
+            progressbar=True,
+            numcores=_NUMCORES,
+            force_map=False,**kwargs):
+        """
+        NAME:
+
+            SOS
+
+        PURPOSE:
+
+            calculate the surface of section of the orbit
+
+        INPUT:
+
+            pot - Potential or list of such instances
+
+            ncross= (500) number of times to cross the surface
+
+            surface= (None) surface to punch through (this has no effect in 3D, where the surface is always z=0, but in 2D it can be 'x' or 'y' for x=0 or y=0)
+
+            t0= (0.) time of the initial condition (can be a Quantity)
+
+            integration keyword arguments:
+
+                method = 'odeint' for scipy's odeint
+                         'rk4_c' for a 4th-order Runge-Kutta integrator in C
+                         'rk6_c' for a 6-th order Runge-Kutta integrator in C
+                         'dopr54_c' for a 5-4 Dormand-Prince integrator in C
+                         'dop853' for a 8-5-3 Dormand-Prince integrator in Python
+                         'dop853_c' for a 8-5-3 Dormand-Prince integrator in C
+
+                skip= (100) for non-adaptive integrators, the number of basic steps to take between crossings (these are further refined in the code, but only up to a maximum refinement, so you can use skip to get finer integration in cases where more accuracy is needed)
+
+                progressbar= (True) if True, display a tqdm progress bar when integrating multiple orbits (requires tqdm to be installed!)
+
+                numcores - number of cores to use for Python-based multiprocessing (pure Python or using force_map=True); default = OMP_NUM_THREADS
+
+                force_map= (False) if True, force use of Python-based multiprocessing (not recommended)
+
+        OUTPUT:
+
+            (R,vR) for 3D orbits, (y,vy) for 2D orbits when surface=='x', (x,vx) for 2D orbits when surface=='y'
+
+        HISTORY:
+
+            2023-03-16 - Written - Bovy (UofT)
+
+        """
+        if self.dim() == 3:
+            init_psis= numpy.arctan2(self.z(use_physical=False),self.vz(use_physical=False))
+        elif self.phasedim() == 4:
+            if not surface is None and surface.lower() == 'y':
+                init_psis= numpy.arctan2(self.y(use_physical=False),self.vy(use_physical=False))
+            else:
+                init_psis= numpy.arctan2(self.x(use_physical=False),self.vx(use_physical=False))
+        else:
+            raise NotImplementedError("SOS not implemented for 1D orbits or 2D orbits without phi")
+        # Let's check that v(x/y/z) != 0 for orbits that are already on the SOS
+        if ( ( self.dim() == 3
+              and not numpy.all((self.vz() != 0.)+(numpy.fabs(init_psis % numpy.pi) > 1e-10)) )
+            or ( self.dim() == 2
+                and not surface is None and surface.lower() == 'y'
+                and not numpy.all((self.vy() != 0.)+(numpy.fabs(init_psis % numpy.pi) > 1e-10)) )
+            or ( self.dim() == 2
+                and (surface is None or surface.lower() == 'x')
+                and not numpy.all((self.vx() != 0.)+(numpy.fabs(init_psis % numpy.pi) > 1e-10)) ) ):
+                raise RuntimeError("An orbit appears to be within the SOS surface. Refusing to perform specialized SOS integration, please use normal integration instead")
+        if numpy.any(numpy.fabs(init_psis) > 1e-10):
+            # Integrate to the next crossing
+            init_psis= numpy.atleast_1d((init_psis + 2.*numpy.pi) % (2.*numpy.pi))
+            psis= numpy.array([numpy.linspace(0.,2.*numpy.pi-init_psi,101)
+                               for init_psi in init_psis])
+            self.integrate_SOS(psis,pot,surface=surface,t0=t0,method=method,
+                               progressbar=progressbar,
+                               numcores=numcores,force_map=force_map)
+            old_vxvv= self.vxvv
+            self.vxvv= self.orbit[:,-1]
+        if method == 'rk4_c' or method == 'rk6_c':
+            # Because these are non-adaptive, we need to make sure we
+            # integrate finely enough
+            iskip= skip
+        else:
+            iskip= 1
+        psis= numpy.arange(ncross*iskip)*2*numpy.pi/iskip
+        self.integrate_SOS(psis,pot,surface=surface,t0=t0,method=method,
+                           progressbar=progressbar,
+                           numcores=numcores,force_map=force_map)
+        self.t= self.t[:,::iskip]
+        self.orbit= self.orbit[:,::iskip]
+        if self.dim() == 3:
+            out= (self.R(self.t,use_physical=False),
+                  self.vR(self.t,use_physical=False))
+        elif not surface is None and surface.lower() == 'y':
+            out= (self.x(self.t,use_physical=False),
+                  self.vx(self.t,use_physical=False))
+        else:
+            out= (self.y(self.t,use_physical=False),
+                  self.vy(self.t,use_physical=False))
+        if numpy.any(numpy.fabs(init_psis) > 1e-7):
+            self.vxvv= old_vxvv
+        return out
 
     def __call__(self,*args,**kwargs):
         """
@@ -4750,8 +5063,10 @@ class Orbit:
             # Check those that don't have the exact name of the function
             if q == 't':
                 # Typically expect this to have same shape as other quantities
-                return numpy.tile(self.time(self.t,**kwargs),
-                                  (len(self.vxvv),1))
+                out= self.time(self.t,**kwargs)
+                if len(self.t.shape) < len(self.orbit.shape)-1:
+                    out= numpy.tile(out,(len(self.vxvv),1))
+                return out
             elif q == 'Enorm':
                 return (self.E(self.t,**kwargs).T/self.E(0.,**kwargs)).T
             elif q == 'Eznorm':
@@ -4827,49 +5142,10 @@ class Orbit:
                 and kwargs.get('ro',self._roSet)) or \
                 (not 'use_physical' in kwargs \
                      and kwargs.get('ro',self._roSet)):
-            labeldict= {'t':r'$t\ (\mathrm{Gyr})$','R':r'$R\ (\mathrm{kpc})$',
-                        'vR':r'$v_R\ (\mathrm{km\,s}^{-1})$',
-                        'vT':r'$v_T\ (\mathrm{km\,s}^{-1})$',
-                        'z':r'$z\ (\mathrm{kpc})$',
-                        'vz':r'$v_z\ (\mathrm{km\,s}^{-1})$','phi':r'$\phi$',
-                        'r':r'$r\ (\mathrm{kpc})$',
-                        'x':r'$x\ (\mathrm{kpc})$','y':r'$y\ (\mathrm{kpc})$',
-                        'vx':r'$v_x\ (\mathrm{km\,s}^{-1})$',
-                        'vy':r'$v_y\ (\mathrm{km\,s}^{-1})$',
-                        'E':r'$E\,(\mathrm{km}^2\,\mathrm{s}^{-2})$',
-                        'Ez':r'$E_z\,(\mathrm{km}^2\,\mathrm{s}^{-2})$',
-                        'ER':r'$E_R\,(\mathrm{km}^2\,\mathrm{s}^{-2})$',
-                        'Enorm':r'$E(t)/E(0.)$',
-                        'Eznorm':r'$E_z(t)/E_z(0.)$',
-                        'ERnorm':r'$E_R(t)/E_R(0.)$',
-                        'Jacobi':r'$E-\Omega_p\,L\,(\mathrm{km}^2\,\mathrm{s}^{-2})$',
-                        'Jacobinorm':r'$(E-\Omega_p\,L)(t)/(E-\Omega_p\,L)(0)$'}
+            labeldict= _labeldict_physical.copy()
         else:
-            labeldict= {'t':r'$t$','R':r'$R$','vR':r'$v_R$','vT':r'$v_T$',
-                        'z':r'$z$','vz':r'$v_z$','phi':r'$\phi$',
-                        'r':r'$r$',
-                        'x':r'$x$','y':r'$y$','vx':r'$v_x$','vy':r'$v_y$',
-                        'E':r'$E$','Enorm':r'$E(t)/E(0.)$',
-                        'Ez':r'$E_z$','Eznorm':r'$E_z(t)/E_z(0.)$',
-                        'ER':r'$E_R$','ERnorm':r'$E_R(t)/E_R(0.)$',
-                        'Jacobi':r'$E-\Omega_p\,L$',
-                        'Jacobinorm':r'$(E-\Omega_p\,L)(t)/(E-\Omega_p\,L)(0)$'}
-        labeldict.update({'ra':r'$\alpha\ (\mathrm{deg})$',
-                          'dec':r'$\delta\ (\mathrm{deg})$',
-                          'll':r'$l\ (\mathrm{deg})$',
-                          'bb':r'$b\ (\mathrm{deg})$',
-                          'dist':r'$d\ (\mathrm{kpc})$',
-                          'pmra':r'$\mu_\alpha\ (\mathrm{mas\,yr}^{-1})$',
-                          'pmdec':r'$\mu_\delta\ (\mathrm{mas\,yr}^{-1})$',
-                          'pmll':r'$\mu_l\ (\mathrm{mas\,yr}^{-1})$',
-                          'pmbb':r'$\mu_b\ (\mathrm{mas\,yr}^{-1})$',
-                          'vlos':r'$v_\mathrm{los}\ (\mathrm{km\,s}^{-1})$',
-                          'helioX':r'$X\ (\mathrm{kpc})$',
-                          'helioY':r'$Y\ (\mathrm{kpc})$',
-                          'helioZ':r'$Z\ (\mathrm{kpc})$',
-                          'U':r'$U\ (\mathrm{km\,s}^{-1})$',
-                          'V':r'$V\ (\mathrm{km\,s}^{-1})$',
-                          'W':r'$W\ (\mathrm{km\,s}^{-1})$'})
+            labeldict= _labeldict_internal.copy()
+        labeldict.update(_labeldict_radec.copy())
         # Cannot be using Quantity output
         kwargs['quantity']= False
         #Defaults
@@ -4975,36 +5251,10 @@ class Orbit:
                 and kwargs.get('ro',self._roSet)) or \
                 (not 'use_physical' in kwargs \
                      and kwargs.get('ro',self._roSet)):
-            labeldict= {'t':r'$t\ (\mathrm{Gyr})$','R':r'$R\ (\mathrm{kpc})$',
-                        'vR':r'$v_R\ (\mathrm{km\,s}^{-1})$',
-                        'vT':r'$v_T\ (\mathrm{km\,s}^{-1})$',
-                        'z':r'$z\ (\mathrm{kpc})$',
-                        'vz':r'$v_z\ (\mathrm{km\,s}^{-1})$','phi':r'$\phi$',
-                        'r':r'$r\ (\mathrm{kpc})$',
-                        'x':r'$x\ (\mathrm{kpc})$','y':r'$y\ (\mathrm{kpc})$',
-                        'vx':r'$v_x\ (\mathrm{km\,s}^{-1})$',
-                        'vy':r'$v_y\ (\mathrm{km\,s}^{-1})$'}
+            labeldict= _labeldict_physical.copy()
         else:
-            labeldict= {'t':r'$t$','R':r'$R$','vR':r'$v_R$','vT':r'$v_T$',
-                        'z':r'$z$','vz':r'$v_z$','phi':r'$\phi$',
-                        'r':r'$r$','x':r'$x$','y':r'$y$',
-                        'vx':r'$v_x$','vy':r'$v_y$'}
-        labeldict.update({'ra':r'$\alpha\ (\mathrm{deg})$',
-                          'dec':r'$\delta\ (\mathrm{deg})$',
-                          'll':r'$l\ (\mathrm{deg})$',
-                          'bb':r'$b\ (\mathrm{deg})$',
-                          'dist':r'$d\ (\mathrm{kpc})$',
-                          'pmra':r'$\mu_\alpha\ (\mathrm{mas\,yr}^{-1})$',
-                          'pmdec':r'$\mu_\delta\ (\mathrm{mas\,yr}^{-1})$',
-                          'pmll':r'$\mu_l\ (\mathrm{mas\,yr}^{-1})$',
-                          'pmbb':r'$\mu_b\ (\mathrm{mas\,yr}^{-1})$',
-                          'vlos':r'$v_\mathrm{los}\ (\mathrm{km\,s}^{-1})$',
-                          'helioX':r'$X\ (\mathrm{kpc})$',
-                          'helioY':r'$Y\ (\mathrm{kpc})$',
-                          'helioZ':r'$Z\ (\mathrm{kpc})$',
-                          'U':r'$U\ (\mathrm{km\,s}^{-1})$',
-                          'V':r'$V\ (\mathrm{km\,s}^{-1})$',
-                          'W':r'$W\ (\mathrm{km\,s}^{-1})$'})
+            labeldict= _labeldict_internal.copy()
+        labeldict.update(_labeldict_radec.copy())
         # Cannot be using Quantity output
         kwargs['quantity']= False
         #Defaults
@@ -5058,6 +5308,103 @@ class Orbit:
         if auto_scale: line3d.axes.autoscale(enable=True)
         plot._add_ticks()
         return [line3d]
+
+    def plotSOS(self,pot,*args,ncross=500,surface=None,t0=0.,
+                method='dop853_c',skip=100,progressbar=True,
+                **kwargs):
+        """
+        NAME:
+
+           plotSOS
+
+        PURPOSE:
+
+           Calculate and plot a surface of section of the orbit
+
+        INPUT:
+
+           pot - Potential or list of such instances
+
+           ncross= (500) number of times to cross the surface
+
+           surface= (None) surface to punch through (this has no effect in 3D, where the surface is always z=0, but in 2D it can be 'x' or 'y' for x=0 or y=0)
+
+           t0= (0.) time of the initial condition (can be a Quantity)
+
+           integration keyword arguments:
+
+                method = 'odeint' for scipy's odeint
+                         'rk4_c' for a 4th-order Runge-Kutta integrator in C
+                         'rk6_c' for a 6-th order Runge-Kutta integrator in C
+                         'dopr54_c' for a 5-4 Dormand-Prince integrator in C
+                         'dop853' for a 8-5-3 Dormand-Prince integrator in Python
+                         'dop853_c' for a 8-5-3 Dormand-Prince integrator in C
+
+                skip= (100) for non-adaptive integrators, the number of basic steps to take between crossings (these are further refined in the code, but only up to a maximum refinement, so you can use skip to get finer integration in cases where more accuracy is needed)
+
+                progressbar= (True) if True, display a tqdm progress bar when integrating multiple orbits (requires tqdm to be installed!)
+
+                for more control of the integrator, use the SOS method directly and plot its results
+
+           matplotlib.plot inputs+galpy.util.plot.plot inputs
+
+        OUTPUT:
+
+           sends plot to output device
+
+        HISTORY:
+
+           2023-03-16 - Written - Bovy (UofT)
+
+        """
+        if (kwargs.get('use_physical',False) \
+                and kwargs.get('ro',self._roSet)) or \
+                (not 'use_physical' in kwargs \
+                     and kwargs.get('ro',self._roSet)):
+            labeldict= _labeldict_physical.copy()
+        else:
+            labeldict= _labeldict_internal.copy()
+        labeldict.update(_labeldict_radec.copy())
+        if self.dim() == 3:
+            d1= 'R'
+            d2= 'vR'
+        elif not surface is None and surface.lower() == 'y':
+            d1= 'x'
+            d2= 'vx'
+        else:
+            d1= 'y'
+            d2= 'vy'
+        kwargs['quantity']= False
+        x,y= self.SOS(pot,ncross=ncross,surface=surface,
+                      t0=t0,method=method,skip=skip,
+                      progressbar=progressbar,**kwargs)
+        x= numpy.atleast_2d(x)
+        y= numpy.atleast_2d(y)
+        kwargs.pop('ro',None)
+        kwargs.pop('vo',None)
+        kwargs.pop('use_physical',None)
+        kwargs.pop('quantity',None)
+        auto_scale= not 'xrange' in kwargs and not 'yrange' in kwargs \
+            and not kwargs.get('overplot',False)
+        labels= kwargs.pop('label',[f'Orbit {ii+1}'
+                                    for ii in range(self.size)])
+        if self.size == 1 and isinstance(labels,str): labels= [labels]
+        #Plot
+        if not 'xlabel' in kwargs:
+            kwargs['xlabel']= labeldict.get(d1,fr'${d1}$')
+        if not 'ylabel' in kwargs:
+            kwargs['ylabel']= labeldict.get(d2,fr'${d2}$')
+        if not 'ls' in kwargs:
+            kwargs['ls']= 'none'
+            if not 'marker' in kwargs:
+                kwargs['marker']= '.'
+        for ii,(tx,ty) in enumerate(zip(x,y)):
+            kwargs['label']= labels[ii]
+            line2d= plot.plot(tx,ty,*args,**kwargs)[0]
+            kwargs['overplot']= True
+        if auto_scale: line2d.axes.autoscale(enable=True)
+        plot._add_ticks()
+        return [line2d]
 
     def animate(self, **kwargs): #pragma: no cover
         """
