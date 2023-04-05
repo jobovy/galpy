@@ -30,8 +30,8 @@ repos:
   - id: isort
     name: isort (python)
 - repo: https://github.com/codespell-project/codespell
-  rev: "v2.2.2"
+  rev: "v2.2.4"
   hooks:
     - id: codespell
-      args: ["-L", "thisE,thise,mye,tE,te,hist,ro,sav",
+      args: ["-L", "thisE,thise,mye,tE,te,hist,ro,sav,ccompiler",
       "-x","doc/source/_static/try-galpy.js"]
