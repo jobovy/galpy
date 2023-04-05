@@ -110,7 +110,7 @@ If you are reading this, either the simple installation instructions at the top 
 
         The commands in this section so far all install the latest release. If you want
         to install the latest bleeding-edge version, you have two options. If the
-        installion in the :ref:`tldr_installation` works for you, you can download a
+        installation in the :ref:`tldr_installation` works for you, you can download a
         binary wheel for the latest ``main`` branch version on GitHub, which is available
         `here <http://www.galpy.org.s3-website.us-east-2.amazonaws.com/list.html>`__.
         To install these wheels, download the relevant version for your operating system
@@ -163,7 +163,7 @@ If you are reading this, either the simple installation instructions at the top 
 
         The commands in this section so far all install the latest release. If you want
         to install the latest bleeding-edge version, you have two options. If the
-        installion in the :ref:`tldr_installation` works for you, you can download a
+        installation in the :ref:`tldr_installation` works for you, you can download a
         binary wheel for the latest ``main`` branch version on GitHub, which is
         available `here <http://www.galpy.org.s3-website.us-east-2.amazonaws.com/list.html>`__.
         To install these wheels, download the relevant version for your operating
