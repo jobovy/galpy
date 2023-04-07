@@ -832,6 +832,242 @@ def integratePlanarOrbit_dxdv(pot,yo,dyo,t,int_method,
         out[...,6]= dvT
     return out, numpy.zeros(len(yo))
 
+def integratePlanarOrbit_sos_c(pot,yo,psi,t0,int_method,surface='x',
+                               rtol=None,atol=None,
+                               progressbar=True,dpsi=None):
+    """
+    NAME:
+       integratePlanarOrbit_sos_c
+    PURPOSE:
+       Integrate an ode for a PlanarOrbit for integrate_sos in C
+    INPUT:
+       pot - Potential or list of such instances
+       yo - initial condition [q,p], shape [N,5] or [N,6]
+       psi - set of increment angles at which one wants the result [increments wrt initial angle]
+       t0 - initial time
+       int_method= 'rk4_c', 'rk6_c', 'dopr54_c', or 'dop853_c'
+       surface= ('x') surface to use ('x' for finding x=0, vx>0; 'y' for finding y=0, vy>0)
+       rtol, atol= tolerances (not always used...)
+       progressbar= (True) if True, display a tqdm progress bar when integrating multiple orbits (requires tqdm to be installed!)
+       dpsi= (None) force integrator to use this stepsize (default is to automatically determine one; only for C-based integrators)
+    OUTPUT:
+       (y,err)
+       y : array, shape (N,len(psi),5) where the last of the last dimension is the time
+       Array containing the value of y for each desired angle in psi, \
+       with the initial value y0 in the first row.
+       err: error message, always zero for now
+    HISTORY:
+       2023-03-17 - Written based on integrateFullOrbit_sos_c - Bovy (UofT)
+    """
+    if len(yo.shape) == 1: single_obj= True
+    else: single_obj= False
+    yo= numpy.atleast_2d(yo)
+    nobj= len(yo)
+    rtol, atol= _parse_tol(rtol,atol)
+    npot, pot_type, pot_args, pot_tfuncs= _parse_pot(pot)
+    pot_tfuncs= _prep_tfuncs(pot_tfuncs)
+    int_method_c= _parse_integrator(int_method)
+    if dpsi is None:
+        dpsi= -9999.99
+    t0= numpy.atleast_1d(t0)
+    yoo= numpy.empty((nobj,5))
+    yoo[:,:4]= yo[:,:4]
+    if len(t0) == 1:
+        yoo[:,4]= t0[0]
+    else:
+        yoo[:,4]= t0
+    npsi= len(psi.T) # .T to make npsi always the first dim
+
+    #Set up result array
+    result= numpy.empty((nobj,npsi,5))
+    err= numpy.zeros(nobj,dtype=numpy.int32)
+
+    #Set up progressbar
+    progressbar*= _TQDM_LOADED
+    if nobj > 1 and progressbar:
+        pbar= tqdm.tqdm(total=nobj,leave=False)
+        pbar_func_ctype= ctypes.CFUNCTYPE(None)
+        pbar_c= pbar_func_ctype(pbar.update)
+    else: # pragma: no cover
+        pbar_c= None
+
+    #Set up the C code
+    ndarrayFlags= ('C_CONTIGUOUS','WRITEABLE')
+    integrationFunc= _lib.integratePlanarOrbit_sos
+    integrationFunc.argtypes= [ctypes.c_int,
+                               ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
+                               ctypes.c_int,
+                               ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
+                               ctypes.c_int,
+                               ctypes.c_int,
+                               ctypes.c_int,
+                               ndpointer(dtype=numpy.int32,flags=ndarrayFlags),
+                               ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
+                               ctypes.c_void_p,
+                               ctypes.c_double,
+                               ctypes.c_double,
+                               ctypes.c_double,
+                               ndpointer(dtype=numpy.float64,flags=ndarrayFlags),
+                               ndpointer(dtype=numpy.int32,flags=ndarrayFlags),
+                               ctypes.c_int,
+                               ctypes.c_void_p]
+
+    #Array requirements, first store old order
+    f_cont= [yoo.flags['F_CONTIGUOUS'],
+             psi.flags['F_CONTIGUOUS']]
+    yoo= numpy.require(yoo,dtype=numpy.float64,requirements=['C','W'])
+    psi= numpy.require(psi,dtype=numpy.float64,requirements=['C','W'])
+    result= numpy.require(result,dtype=numpy.float64,requirements=['C','W'])
+    err= numpy.require(err,dtype=numpy.int32,requirements=['C','W'])
+
+    #Run the C code)
+    integrationFunc(ctypes.c_int(nobj),
+                    yoo,
+                    ctypes.c_int(npsi),
+                    psi,
+                    ctypes.c_int(len(psi.shape) > 1),
+                    ctypes.c_int(1 if surface == 'y' else 0),
+                    ctypes.c_int(npot),
+                    pot_type,
+                    pot_args,
+                    pot_tfuncs,
+                    ctypes.c_double(dpsi),
+                    ctypes.c_double(rtol),
+                    ctypes.c_double(atol),
+                    result,
+                    err,
+                    ctypes.c_int(int_method_c),
+                    pbar_c)
+
+    if nobj > 1 and progressbar:
+        pbar.close()
+
+    if numpy.any(err == -10): #pragma: no cover
+        raise KeyboardInterrupt("Orbit integration interrupted by CTRL-C (SIGINT)")
+
+    #Reset input arrays
+    if f_cont[0]: yoo= numpy.asfortranarray(yoo)
+    if f_cont[1]: psi= numpy.asfortranarray(psi)
+
+    if single_obj: return (result[0],err[0])
+    else: return (result,err)
+
+def integratePlanarOrbit_sos(pot,yo,psi,t0,int_method,surface='x',
+                             rtol=None,atol=None,numcores=1,progressbar=True,
+                             dpsi=None):
+    """
+    NAME:
+       integratePlanarOrbit_sos
+    PURPOSE:
+       Integrate an ode for a PlanarOrbit for integrate_sos
+    INPUT:
+       pot - Potential or list of such instances
+       yo - initial condition [q,p], shape [N,5] or [N,6]
+       psi - set of increment angles at which one wants the result [increments wrt initial angle]
+       t0 - initial time
+       surface= ('x') surface to use ('x' for finding x=0, vx>0; 'y' for finding y=0, vy>0)
+       int_method= 'leapfrog', 'odeint', or 'dop853'
+       rtol, atol= tolerances (not always used...)
+       numcores= (1) number of cores to use for multi-processing
+       progressbar= (True) if True, display a tqdm progress bar when integrating multiple orbits (requires tqdm to be installed!)
+       dpsi= (None) force integrator to use this stepsize (default is to automatically determine one; only for C-based integrators)
+    OUTPUT:
+       (y,err)
+       y : array, shape (N,len(psi),4/5) where the last of the last dimension is the time
+       Array containing the value of y for each desired angle in psi, \
+       with the initial value y0 in the first row.
+       err: error message, always zero for now
+    HISTORY:
+       2023-03-24 - Written based on integrateFullOrbi_sos - Bovy (UofT)
+    """
+    if surface is None:
+        surface= 'x'
+    nophi= False
+    if len(yo[0]) == 3:
+        nophi= True
+        #We hack this by putting in a dummy phi=0
+        yo= numpy.pad(yo,((0,0),(0,1)),'constant',constant_values=0)
+    if not '_c' in int_method:
+        if rtol is None: rtol= 1e-8
+        if int_method.lower() == 'dop853':
+            integrator= dop853
+            extra_kwargs= {}
+        else:
+            integrator= integrate.odeint
+            extra_kwargs= {'rtol':rtol}
+        def integrate_for_map(vxvv,psi,t0):
+            #go to the transformed plane: (A,t,y,vy) or (x,vx,A,t)
+            if surface.lower() == 'x':
+                x= vxvv[0]*numpy.cos(vxvv[3])
+                vx= vxvv[1]*numpy.cos(vxvv[3])-vxvv[2]*numpy.sin(vxvv[3])
+                init_psi= numpy.arctan2(x,vx)
+                this_vxvv= numpy.array([
+                    vxvv[0]*numpy.sin(vxvv[3]),
+                    vxvv[2]*numpy.cos(vxvv[3])+vxvv[1]*numpy.sin(vxvv[3]),
+                    numpy.sqrt(x**2.+vx**2.),
+                    t0,
+                ])
+                #integrate
+                intOut= integrator(_planarSOSEOMx,this_vxvv,
+                                   t=psi+init_psi,args=(pot,),
+                                   **extra_kwargs)
+                #go back to the cylindrical frame
+                x= intOut[:,2]*numpy.sin(psi+init_psi)
+                vx= intOut[:,2]*numpy.cos(psi+init_psi)
+                y= intOut[:,0]
+                vy= intOut[:,1]
+            else:
+                y= vxvv[0]*numpy.sin(vxvv[3])
+                vy= vxvv[2]*numpy.cos(vxvv[3])+vxvv[1]*numpy.sin(vxvv[3])
+                init_psi= numpy.arctan2(y,vy)
+                this_vxvv= numpy.array([
+                    vxvv[0]*numpy.cos(vxvv[3]),
+                    vxvv[1]*numpy.cos(vxvv[3])-vxvv[2]*numpy.sin(vxvv[3]),
+                    numpy.sqrt(y**2.+vy**2.),
+                    t0
+                ])
+                #integrate
+                intOut= integrator(_planarSOSEOMy,this_vxvv,
+                                   t=psi+init_psi,args=(pot,),
+                                   **extra_kwargs)
+                #go back to the cylindrical frame
+                x= intOut[:,0]
+                vx= intOut[:,1]
+                y= intOut[:,2]*numpy.sin(psi+init_psi)
+                vy= intOut[:,2]*numpy.cos(psi+init_psi)
+            out= numpy.zeros((len(psi),5))
+            out[:,0]= numpy.sqrt(x**2.+y**2.)
+            out[:,3]= numpy.arctan2(y,x)
+            out[:,1]= vx*numpy.cos(out[:,3])+vy*numpy.sin(out[:,3])
+            out[:,2]= vy*numpy.cos(out[:,3])-vx*numpy.sin(out[:,3])
+            out[:,4]= intOut[:,3]
+            return out
+    else: # Assume we are forcing parallel_mapping of a C integrator...
+        def integrate_for_map(vxvv,psi,t0):
+            return integratePlanarOrbit_sos_c(pot,numpy.copy(vxvv),psi,
+                                              t0,int_method,surface=surface,
+                                              dpsi=dpsi)[0]
+    if len(yo) == 1: # Can't map a single value...
+        out= numpy.atleast_3d(integrate_for_map(yo[0],psi.flatten(),t0).T).T
+    else:
+        out= numpy.array(
+            parallel_map(
+                lambda ii: integrate_for_map(
+                    yo[ii],
+                    psi[ii] if len(psi.shape) > 1 else psi,
+                    t0[0] if len(t0) == 1 else t0[ii]
+                ),
+                range(len(yo)),
+                numcores=numcores,
+                progressbar=progressbar
+            )
+        )
+    if nophi:
+        phi_mask= numpy.ones(out.shape[2],dtype='bool')
+        phi_mask[3]= False
+        out= out[:,:,phi_mask]
+    return out, numpy.zeros(len(yo))
+
 def _planarREOM(y,t,pot,l2):
     """
     NAME:
@@ -931,6 +1167,54 @@ def _planarEOM_dxdv(x,t,pot):
                      x[6],x[7],
                      dFxdx*x[4]+dFxdy*x[5],
                      dFydx*x[4]+dFydy*x[5]])
+
+def _planarSOSEOMx(y,psi,pot):
+    """
+    NAME:
+       _planarSOSEOMx
+    PURPOSE:
+       implements the EOM, i.e., the right-hand side of the differential
+       equation, for integrating a general planar Orbit in the SOS style
+    INPUT:
+       y - current phase-space position
+       psi - current angle
+       pot - (list of) Potential instance(s)
+    OUTPUT:
+       dy/dt
+    HISTORY:
+       2023-03-24 - Written - Bovy (UofT)
+    """
+    # y = (y,vy,A,t)
+    # Calculate x
+    sp, cp= numpy.sin(psi), numpy.cos(psi)
+    gxyz= _planarRectForce([y[2]*sp,y[0]],pot,t=y[3])
+    psidot= cp**2.-sp/y[2]*gxyz[0]
+    Adot= y[2]*cp*sp+gxyz[0]*cp
+    return numpy.array([y[1],gxyz[1],Adot,1.])/psidot
+
+def _planarSOSEOMy(y,psi,pot):
+    """
+    NAME:
+       _planarSOSEOMy
+    PURPOSE:
+       implements the EOM, i.e., the right-hand side of the differential
+       equation, for integrating a general planar Orbit in the SOS style
+    INPUT:
+       y - current phase-space position
+       psi - current angle
+       pot - (list of) Potential instance(s)
+    OUTPUT:
+       dy/dt
+    HISTORY:
+       2023-03-24 - Written - Bovy (UofT)
+    """
+    # y = (x,vx,A,t)
+    # Calculate y
+    sp, cp= numpy.sin(psi), numpy.cos(psi)
+    gxyz= _planarRectForce([y[0],y[2]*sp],pot,t=y[3])
+    psidot= cp**2.-sp/y[2]*gxyz[1]
+    Adot= y[2]*cp*sp+gxyz[1]*cp
+    return numpy.array([y[1],gxyz[0],Adot,1.])/psidot
 
 def _planarRectForce(x,pot,t=0.):
     """

@@ -1726,6 +1726,16 @@ def test_mass_axi():
         potential.mass([mop],1.,0.)
     return None
 
+# Test that axisymmetric masses are correctly returned for negative z (issue #555)
+# they should just be the same as those for positive z
+def test_mass_axi_negz():
+    # Example from @sferrone in issue #555
+    R= 1.6303380979868902
+    z= 1.2732319411637634
+    assert numpy.fabs(potential.mass(potential.MWPotential2014,R,z)-potential.mass(potential.MWPotential2014,R,-z)) < 1e-10, \
+        'Axisymmetric mass for negative z is not the same as for positive z'
+    return None
+
 # Check that the masses are calculated correctly for spheroidal potentials
 def test_mass_spheroidal():
     # PerfectEllipsoidPotential: total mass is amp, no matter what the axis ratio

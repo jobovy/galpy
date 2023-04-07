@@ -49,6 +49,8 @@ void evalRectForce(double, double *, double *,
 		   int, struct potentialArg *);
 void evalRectDeriv(double, double *, double *,
 			 int, struct potentialArg *);
+void evalSOSDeriv(double, double *, double *,
+			 int, struct potentialArg *);
 void evalRectDeriv_dxdv(double,double *, double *,
 			      int, struct potentialArg *);
 void initMovingObjectSplines(struct potentialArg *, double ** pot_args);
@@ -726,6 +728,89 @@ EXPORT void integrateFullOrbit(int nobj,
   free(potentialArgs);
   //Done!
 }
+EXPORT void integrateFullOrbit_sos(
+    int nobj,
+	double *yo,
+	int npsi,
+	double *psi,
+    int indiv_psi,
+    int npot,
+	int * pot_type,
+	double * pot_args,
+    tfuncs_type_arr pot_tfuncs,
+	double dpsi,
+	double rtol,
+	double atol,
+	double *result,
+	int * err,
+	int odeint_type,
+    orbint_callback_type cb){
+  //Set up the forces, first count
+  int ii,jj;
+  int dim;
+  int max_threads;
+  int * thread_pot_type;
+  double * thread_pot_args;
+  tfuncs_type_arr thread_pot_tfuncs;
+  max_threads= ( nobj < omp_get_max_threads() ) ? nobj : omp_get_max_threads();
+  // Because potentialArgs may cache, safest to have one / thread
+  struct potentialArg * potentialArgs= (struct potentialArg *) malloc ( max_threads * npot * sizeof (struct potentialArg) );
+#pragma omp parallel for schedule(static,1) private(ii,thread_pot_type,thread_pot_args,thread_pot_tfuncs) num_threads(max_threads)
+  for (ii=0; ii < max_threads; ii++) {
+    thread_pot_type= pot_type; // need to make thread-private pointers, bc
+    thread_pot_args= pot_args; // these pointers are changed in parse_...
+    thread_pot_tfuncs= pot_tfuncs; // ...
+    parse_leapFuncArgs_Full(npot,potentialArgs+ii*npot,
+			    &thread_pot_type,&thread_pot_args,&thread_pot_tfuncs);
+  }
+  //Integrate
+  void (*odeint_func)(void (*func)(double, double *, double *,
+			   int, struct potentialArg *),
+		      int,
+		      double *,
+		      int, double, double *,
+		      int, struct potentialArg *,
+		      double, double,
+		      double *,int *);
+  void (*odeint_deriv_func)(double, double *, double *,
+			    int,struct potentialArg *);
+  dim= 7;
+  odeint_deriv_func= &evalSOSDeriv;
+  switch ( odeint_type ) {
+  // case 0: = leapfrog = not supported symplectic method
+  case 1: //RK4
+    odeint_func= &bovy_rk4;
+    break;
+  case 2: //RK6
+    odeint_func= &bovy_rk6;
+    break;
+  // case 3: = symplec4 = not supported symplectic method
+  // case 4: = symplec6 = not supported symplectic method
+  case 5: //DOPR54
+    odeint_func= &bovy_dopr54;
+    break;
+  case 6: //DOP853
+    odeint_func= &dop853;
+    break;
+  }
+#pragma omp parallel for schedule(dynamic,ORBITS_CHUNKSIZE) private(ii,jj) num_threads(max_threads)
+  for (ii=0; ii < nobj; ii++) {
+    cyl_to_sos_galpy(yo+dim*ii);
+    odeint_func(odeint_deriv_func,dim,yo+dim*ii,npsi,dpsi,psi+npsi*ii*indiv_psi,
+		npot,potentialArgs+omp_get_thread_num()*npot,rtol,atol,
+		result+dim*npsi*ii,err+ii);
+    for (jj=0; jj < npsi; jj++)
+      sos_to_cyl_galpy(result+dim*jj+dim*npsi*ii);
+    if ( cb ) // Callback if not void
+      cb();
+  }
+  //Free allocated memory
+#pragma omp parallel for schedule(static,1) private(ii) num_threads(max_threads)
+  for (ii=0; ii < max_threads; ii++)
+    free_potentialArgs(npot,potentialArgs+ii*npot);
+  free(potentialArgs);
+  //Done!
+}
 // LCOV_EXCL_START
 void integrateOrbit_dxdv(double *yo,
 			 int nt,
@@ -801,7 +886,7 @@ void integrateOrbit_dxdv(double *yo,
 // LCOV_EXCL_STOP
 void evalRectForce(double t, double *q, double *a,
 		   int nargs, struct potentialArg * potentialArgs){
-  double sinphi, cosphi, x, y, phi,R,Rforce,phitorque, z, zforce;
+  double sinphi, cosphi, x, y, phi,R,Rforce,phitorque, z;
   //q is rectangular so calculate R and phi
   x= *q;
   y= *(q+1);
@@ -813,15 +898,14 @@ void evalRectForce(double t, double *q, double *a,
   if ( y < 0. ) phi= 2.*M_PI-phi;
   //Calculate the forces
   Rforce= calcRforce(R,z,phi,t,nargs,potentialArgs);
-  zforce= calczforce(R,z,phi,t,nargs,potentialArgs);
   phitorque= calcphitorque(R,z,phi,t,nargs,potentialArgs);
   *a++= cosphi*Rforce-1./R*sinphi*phitorque;
   *a++= sinphi*Rforce+1./R*cosphi*phitorque;
-  *a= zforce;
+  *a= calczforce(R,z,phi,t,nargs,potentialArgs);
 }
 void evalRectDeriv(double t, double *q, double *a,
 		   int nargs, struct potentialArg * potentialArgs){
-  double sinphi, cosphi, x, y, phi,R,Rforce,phitorque,z,zforce,vR,vT;
+  double sinphi, cosphi, x, y, phi,R,Rforce,phitorque,z,vR,vT;
   //first three derivatives are just the velocities
   *a++= *(q+3);
   *a++= *(q+4);
@@ -840,11 +924,49 @@ void evalRectDeriv(double t, double *q, double *a,
   vT= -*(q+3) * sinphi + *(q+4) * cosphi;
   //Calculate the forces
   Rforce= calcRforce(R,z,phi,t,nargs,potentialArgs,vR,vT,*(q+5));
-  zforce= calczforce(R,z,phi,t,nargs,potentialArgs,vR,vT,*(q+5));
   phitorque= calcphitorque(R,z,phi,t,nargs,potentialArgs,vR,vT,*(q+5));
   *a++= cosphi*Rforce-1./R*sinphi*phitorque;
   *a++= sinphi*Rforce+1./R*cosphi*phitorque;
-  *a= zforce;
+  *a= calczforce(R,z,phi,t,nargs,potentialArgs,vR,vT,*(q+5));;
+}
+
+void evalSOSDeriv(double psi, double *q, double *a,
+		              int nargs, struct potentialArg * potentialArgs){
+  // q= (x,y,vx,vy,A,t,psi); to save operations, we re-use a first for the
+  // rectForce then for the actual RHS
+  // Note also that we keep track of psi in q+6, not in psi! This is
+  // such that we can avoid having to convert psi to psi+psi0
+  // q+6 starts as psi0 and then just increments as psi (exactly)
+  double sinpsi,cospsi,psidot,x,y,z,R,phi,sinphi,cosphi,vR,vT,vz,Rforce,phitorque;
+  sinpsi= sin( *(q+6) );
+  cospsi= cos( *(q+6) );
+  // Calculate forces, put them in a+3, a+4, a+5
+  //q is rectangular so calculate R and phi, vR and vT (for dissipative)
+  x= *q;
+  y= *(q+1);
+  z= *(q+4) * sinpsi;
+  R= sqrt(x*x+y*y);
+  phi= atan2( y ,x );
+  sinphi= y/R;
+  cosphi= x/R;
+  vR=  *(q+2) * cosphi + *(q+3) * sinphi;
+  vT= -*(q+2) * sinphi + *(q+3) * cosphi;
+  vz= *(q+4) * cospsi;
+  //Calculate the forces
+  Rforce= calcRforce(R,z,phi,*(q+5),nargs,potentialArgs,vR,vT,vz);
+  phitorque= calcphitorque(R,z,phi,*(q+5),nargs,potentialArgs,vR,vT,vz);
+  *(a+3)= cosphi*Rforce-1./R*sinphi*phitorque;
+  *(a+4)= sinphi*Rforce+1./R*cosphi*phitorque;
+  *(a+5)= calczforce(R,z,phi,*(q+5),nargs,potentialArgs,vR,vT,vz);
+  // Now calculate the RHS of the ODE
+  psidot= cospsi * cospsi - sinpsi * *(a+5) / ( *(q+4) );
+  *(a  )= *(q+2) / psidot;
+  *(a+1)= *(q+3) / psidot;
+  *(a+2)= *(a+3) / psidot;
+  *(a+3)= *(a+4) / psidot;
+  *(a+4)= cospsi * ( *(q+4) * sinpsi + *(a+5) ) / psidot;
+  *(a+5)= 1./psidot;
+  *(a+6)= 1.; // dpsi / dpsi to keep track of psi
 }
 
 void initMovingObjectSplines(struct potentialArg * potentialArgs,

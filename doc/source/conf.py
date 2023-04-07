@@ -28,7 +28,7 @@ import sys
 # Add any Sphinx extension module names here, as strings. They can be extensions
 # coming with Sphinx (named 'sphinx.ext.*') or your custom ones.
 extensions = ['sphinx.ext.autodoc', 'sphinx.ext.mathjax','sphinx.ext.ifconfig',
-              'sphinx.ext.linkcode']
+              'sphinx.ext.linkcode',"sphinxext.opengraph","sphinx_design"]
 
 # from disnake via:
 # https://twitter.com/readthedocs/status/1541830907082022913?s=20&t=eJ293FfjILT7sIxEyz834w
@@ -69,6 +69,16 @@ def linkcode_resolve(domain, info):
     path = f"{path}#L{lineno}-L{lineno + len(src) - 1}"
     return f"{github_repo}/blob/{git_ref}/galpy/{path}"
 
+ogp_site_name= "galpy documentation"
+ogp_site_url= (f"https://docs.galpy.org/en/{git_ref}/"
+               if not git_ref == 'main'
+               else "https://docs.galpy.org/en/latest/")
+
+ogp_social_cards = {
+    "enable": True,
+    "image": "images/galpy-logo-small.png",
+}
+
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
 
@@ -90,7 +100,7 @@ copyright = f'2010 - {datetime.datetime.now().year}, Jo Bovy'
 # built documents.
 #
 # The short X.Y version.
-version = '1.8.2.dev0'
+version = '1.9.0.dev0'
 # The full version, including alpha/beta/rc tags.
 release = version
 on_rtd = os.environ.get('READTHEDOCS', None) == 'True'
@@ -99,6 +109,7 @@ if on_rtd:
     release= 'v'+release
 def setup(app):
     app.add_config_value('not_on_rtd',True,True)
+    app.add_js_file("https://code.jquery.com/jquery-3.6.3.min.js")
     app.add_css_file("custom.css")
     app.add_css_file("gallery.css")
     app.add_js_file("clipboard.min.js")

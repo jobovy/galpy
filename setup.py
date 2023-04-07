@@ -7,7 +7,7 @@ import subprocess
 import sys
 import sysconfig
 
-from setuptools import Extension, setup
+from setuptools import Extension, find_namespace_packages, setup
 from setuptools.command.build_ext import build_ext
 from setuptools.errors import PlatformError
 
@@ -252,15 +252,19 @@ class BuildExt(build_ext):
             for ext in self.extensions:
                 # only add flags which pass the flag_filter
                 extra_compile_args= []
+                libraries= ext.libraries
                 for flag in ext.extra_compile_args:
                     if compiler_has_flag(self.compiler,flag):
                         extra_compile_args.append(flag)
+                    elif flag == '-fopenmp' and 'gomp' in libraries:
+                        libraries.remove('gomp')
                 ext.extra_compile_args= extra_compile_args
+                ext.libraries= libraries
         build_ext.build_extensions(self)
 
 setup(cmdclass=dict(build_ext=BuildExt), # this to allow compiler check above
       name='galpy',
-      version='1.8.2.dev0',
+      version='1.9.0.dev0',
       description='Galactic Dynamics in python',
       author='Jo Bovy',
       author_email='bovy@astro.utoronto.ca',
@@ -268,16 +272,14 @@ setup(cmdclass=dict(build_ext=BuildExt), # this to allow compiler check above
       long_description=long_description,
       long_description_content_type='text/markdown',
       url='http://github.com/jobovy/galpy',
-      package_dir = {'galpy/': ''},
-      packages=['galpy','galpy/orbit','galpy/potential',
-                'galpy/df','galpy/util','galpy/snapshot',
-                'galpy/actionAngle'],
+      packages=find_namespace_packages(where=".", include=["galpy*"]),
       package_data={'galpy/orbit':['named_objects.json'],
                     'galpy/df':['data/*.sav'],
                     "": ["README.md","README.dev","LICENSE","AUTHORS.rst"]},
       include_package_data=True,
       python_requires='>=3.8',
       install_requires=['packaging','numpy>=1.7','scipy','matplotlib'],
+      extras_require={'docs': ['sphinxext-opengraph','sphinx-design','markupsafe==2.0.1']},
       ext_modules=ext_modules if not no_compiler and not no_ext else None,
       classifiers=[
         "Development Status :: 6 - Mature",

@@ -11,7 +11,7 @@ Jeans modeling tools (``galpy.df.jeans``)
 -----------------------------------------
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
    sigmar <dfjeanssigmar.rst>
    sigmalos <dfjeanssigmalos.rst>
@@ -21,7 +21,7 @@ General instance routines for all df classes
 
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
    turn_physical_off <dfturnphysicaloff.rst>
    turn_physical_on <dfturnphysicalon.rst>
@@ -63,14 +63,19 @@ Various spherical DFs are explicitly implemented (e.g., Hernquist, NFW
 using a new approximation, King, Plummer) in isotropic and various
 anisotropic forms. General methods for computing isotropic,
 constant-beta anisotropic, and Osipkov-Merritt anisotropic for any
-potential/density pair are also included.
+potential/density pair are also included. Use of interpolated spherical
+potentials (``galpy.potential.interpSphericalPotential``) is also supported
+with DFs, however numerical issues can arise during sampling or calculation
+of moments of the DF, and so caution is recommended when using these potentials.
+It is advisable to use a very finely spaced radial grid, and ensure that it
+spans a range of radii much larger than the radii of interest for the DF.
 
 General instance routines
 +++++++++++++++++++++++++
 
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
    __call__ <sphericaldfcall.rst>
    beta <sphericaldfbeta.rst>
@@ -82,7 +87,7 @@ Sampling routines
 ^^^^^^^^^^^^^^^^^^^
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
    sample <sphericaldfsample.rst>
 
@@ -92,7 +97,7 @@ Specific distribution functions
 The following are isotropic distribution functions
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
    Arbitrary Eddington-inversion DF <dfeddington.rst>
    Hernquist DF <dfhernquist.rst>
@@ -103,7 +108,7 @@ The following are isotropic distribution functions
 Anisotropic versions also exist:
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
    Arbitrary constant-anisotropy DF <dfconstantbeta.rst>
    Arbitrary Osipkov-Merritt DF <dfosipkovmerritt.rst>
@@ -122,7 +127,7 @@ General instance routines
 
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
    __call__ <diskdfcall.rst>
    asymmetricdrift <diskdfasymmetricdrift.rst>
@@ -151,7 +156,7 @@ Sampling routines
 ^^^^^^^^^^^^^^^^^^^
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
    sample <diskdfsample.rst>
    sampledSurfacemassLOS <diskdfsampledSurfacemassLOS.rst>
@@ -163,7 +168,7 @@ Specific distribution functions
 +++++++++++++++++++++++++++++++
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
    Dehnen DF <dfdehnen.rst>
    Schwarzschild DF <dfschwarzschild.rst>
@@ -185,7 +190,7 @@ General instance routines
 
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
    __call__ <edfcall.rst>
    __init__ <edf.rst>
@@ -213,7 +218,7 @@ General instance routines
 
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
    __call__ <quasidfcall.rst>
    density <quasidfdensity.rst>
@@ -249,7 +254,7 @@ Specific distribution functions
 +++++++++++++++++++++++++++++++
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
    quasiisothermal DF <dfquasiisothermal.rst>
 
@@ -264,7 +269,7 @@ General instance routines
 +++++++++++++++++++++++++
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
    __call__ <streamdfcall.rst>
    __init__ <streamdf.rst>
@@ -305,7 +310,7 @@ General instance routines
 +++++++++++++++++++++++++
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
    __init__ <streamgapdf.rst>
    sample <streamdfsample.rst>
@@ -314,7 +319,7 @@ Helper routines to compute kicks
 +++++++++++++++++++++++++++++++++
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
    impulse_deltav_plummer <impulse_deltav_plummer.rst>
    impulse_deltav_plummer_curvedstream <impulse_deltav_plummer_curvedstream.rst>
@@ -338,7 +343,7 @@ General instance routines
 +++++++++++++++++++++++++
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
    __init__ <streamspraydf.rst>
    sample <streamspraydfsample.rst>

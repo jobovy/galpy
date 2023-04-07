@@ -101,7 +101,7 @@ double evaluatePotentials(double,double,int, struct potentialArg *);
 // that there should always be many. Final subtlety is that we have to define
 // the EXPAND macro to expand the __VA_ARGS__ into multiple arguments,
 // otherwise it's treated as a single argument in the next function call
-// calll (e.g., CALCRFORCE would get R = __VA_ARGS = R,Z,phi,...)
+// (e.g., CALCRFORCE would get R = __VA_ARGS = R,Z,phi,...)
 #ifdef _MSC_VER
 #define EXPAND(x) x
 #define calcRforce(...)   EXPAND(CALCRFORCE(__VA_ARGS__,0.,0.,0.))

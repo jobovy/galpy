@@ -34,6 +34,10 @@ void evalPlanarRectForce(double, double *, double *,
 			 int, struct potentialArg *);
 void evalPlanarRectDeriv(double, double *, double *,
 			 int, struct potentialArg *);
+void evalPlanarSOSDerivx(double, double *, double *,
+			 int, struct potentialArg *);
+void evalPlanarSOSDerivy(double, double *, double *,
+			 int, struct potentialArg *);
 void evalPlanarRectDeriv_dxdv(double, double *, double *,
 			      int, struct potentialArg *);
 void initPlanarMovingObjectSplines(struct potentialArg *, double ** pot_args);
@@ -628,7 +632,98 @@ EXPORT void integratePlanarOrbit(int nobj,
   free(potentialArgs);
   //Done!
 }
+EXPORT void integratePlanarOrbit_sos(
+    int nobj,
+	double *yo,
+	int npsi,
+	double *psi,
+    int indiv_psi,
+    int surface,
+    int npot,
+	int * pot_type,
+	double * pot_args,
+    tfuncs_type_arr pot_tfuncs,
+	double dpsi,
+	double rtol,
+	double atol,
+	double *result,
+	int * err,
+	int odeint_type,
+    orbint_callback_type cb){
+  //Set up the forces, first count
+  int ii,jj;
+  int dim;
+  int max_threads;
+  int * thread_pot_type;
+  double * thread_pot_args;
+  tfuncs_type_arr thread_pot_tfuncs;
+  max_threads= ( nobj < omp_get_max_threads() ) ? nobj : omp_get_max_threads();
+  // Because potentialArgs may cache, safest to have one / thread
+  struct potentialArg * potentialArgs= (struct potentialArg *) malloc ( max_threads * npot * sizeof (struct potentialArg) );
+#pragma omp parallel for schedule(static,1) private(ii,thread_pot_type,thread_pot_args,thread_pot_tfuncs) num_threads(max_threads)
+  for (ii=0; ii < max_threads; ii++) {
+    thread_pot_type= pot_type; // need to make thread-private pointers, bc
+    thread_pot_args= pot_args; // these pointers are changed in parse_...
+    thread_pot_tfuncs= pot_tfuncs; // ...
+    parse_leapFuncArgs(npot,potentialArgs+ii*npot,
+			    &thread_pot_type,&thread_pot_args,&thread_pot_tfuncs);
+  }
+  //Integrate
+  void (*odeint_func)(void (*func)(double, double *, double *,
+			   int, struct potentialArg *),
+		      int,
+		      double *,
+		      int, double, double *,
+		      int, struct potentialArg *,
+		      double, double,
+		      double *,int *);
+  void (*odeint_deriv_func)(double, double *, double *,
+			    int,struct potentialArg *);
+  dim= 5;
+  switch ( odeint_type ) {
+  // case 0: = leapfrog = not supported symplectic method
+  case 1: //RK4
+    odeint_func= &bovy_rk4;
+    break;
+  case 2: //RK6
+    odeint_func= &bovy_rk6;
+    break;
+  // case 3: = symplec4 = not supported symplectic method
+  // case 4: = symplec6 = not supported symplectic method
+  case 5: //DOPR54
+    odeint_func= &bovy_dopr54;
+    break;
+  case 6: //DOP853
+    odeint_func= &dop853;
+    break;
+  }
+  switch ( surface ) {
+    case 0: // x=0
+      odeint_deriv_func= &evalPlanarSOSDerivx;
+      break;
+    case 1: // y=0
+      odeint_deriv_func= &evalPlanarSOSDerivy;
+      break;
+  }
 
+#pragma omp parallel for schedule(dynamic,ORBITS_CHUNKSIZE) private(ii,jj) num_threads(max_threads)
+  for (ii=0; ii < nobj; ii++) {
+    polar_to_sos_galpy(yo+dim*ii,surface);
+    odeint_func(odeint_deriv_func,dim,yo+dim*ii,npsi,dpsi,psi+npsi*ii*indiv_psi,
+		npot,potentialArgs+omp_get_thread_num()*npot,rtol,atol,
+		result+dim*npsi*ii,err+ii);
+    for (jj=0; jj < npsi; jj++)
+      sos_to_polar_galpy(result+dim*jj+dim*npsi*ii,surface);
+    if ( cb ) // Callback if not void
+      cb();
+  }
+  //Free allocated memory
+#pragma omp parallel for schedule(static,1) private(ii) num_threads(max_threads)
+  for (ii=0; ii < max_threads; ii++)
+    free_potentialArgs(npot,potentialArgs+ii*npot);
+  free(potentialArgs);
+  //Done!
+}
 EXPORT void integratePlanarOrbit_dxdv(double *yo,
 				      int nt,
 				      double *t,
@@ -725,6 +820,70 @@ void evalPlanarRectDeriv(double t, double *q, double *a,
   phitorque= calcPlanarphitorque(R,phi,t,nargs,potentialArgs);
   *a++= cosphi*Rforce-1./R*sinphi*phitorque;
   *a= sinphi*Rforce+1./R*cosphi*phitorque;
+}
+
+void evalPlanarSOSDerivx(double psi, double *q, double *a,
+		                 int nargs, struct potentialArg * potentialArgs){
+  // q= (y,vy,A,t,psi); to save operations, we re-use a first for the
+  // rectForce then for the actual RHS
+  // Note also that we keep track of psi in q+4, not in psi! This is
+  // such that we can avoid having to convert psi to psi+psi0
+  // q+4 starts as psi0 and then just increments as psi (exactly)
+  double sinpsi,cospsi,psidot,x,y,R,phi,sinphi,cosphi,Rforce,phitorque;
+  sinpsi= sin( *(q+4) );
+  cospsi= cos( *(q+4) );
+  // Calculate forces, put them in a+2, a+3
+  //q is rectangular so calculate R and phi
+  x= *(q+2) * sinpsi;;
+  y= *(q  );
+  R= sqrt(x*x+y*y);
+  phi= atan2( y ,x );
+  sinphi= y/R;
+  cosphi= x/R;
+  //Calculate the forces
+  Rforce= calcPlanarRforce(R,phi,*(q+3),nargs,potentialArgs);
+  phitorque= calcPlanarphitorque(R,phi,*(q+3),nargs,potentialArgs);
+  *(a+2)= cosphi*Rforce-1./R*sinphi*phitorque;
+  *(a+3)= sinphi*Rforce+1./R*cosphi*phitorque;
+  // Now calculate the RHS of the ODE
+  psidot= cospsi * cospsi - sinpsi * *(a+2) / ( *(q+2) );
+  *(a  )= *(q+1) / psidot;
+  *(a+1)= *(a+3) / psidot;
+  *(a+2)= cospsi * ( *(q+2) * sinpsi + *(a+2) ) / psidot;
+  *(a+3)= 1./psidot;
+  *(a+4)= 1.; // dpsi / dpsi to keep track of psi
+}
+
+void evalPlanarSOSDerivy(double psi, double *q, double *a,
+		                 int nargs, struct potentialArg * potentialArgs){
+  // q= (x,vx,A,t,psi); to save operations, we re-use a first for the
+  // rectForce then for the actual RHS
+  // Note also that we keep track of psi in q+4, not in psi! This is
+  // such that we can avoid having to convert psi to psi+psi0
+  // q+4 starts as psi0 and then just increments as psi (exactly)
+  double sinpsi,cospsi,psidot,x,y,R,phi,sinphi,cosphi,Rforce,phitorque;
+  sinpsi= sin( *(q+4) );
+  cospsi= cos( *(q+4) );
+  // Calculate forces, put them in a+2, a+3
+  //q is rectangular so calculate R and phi
+  x= *(q  );
+  y= *(q+2) * sinpsi;
+  R= sqrt(x*x+y*y);
+  phi= atan2( y ,x );
+  sinphi= y/R;
+  cosphi= x/R;
+  //Calculate the forces
+  Rforce= calcPlanarRforce(R,phi,*(q+3),nargs,potentialArgs);
+  phitorque= calcPlanarphitorque(R,phi,*(q+3),nargs,potentialArgs);
+  *(a+2)= cosphi*Rforce-1./R*sinphi*phitorque;
+  *(a+3)= sinphi*Rforce+1./R*cosphi*phitorque;
+  // Now calculate the RHS of the ODE
+  psidot= cospsi * cospsi - sinpsi * *(a+3) / ( *(q+2) );
+  *(a  )= *(q+1) / psidot;
+  *(a+1)= *(a+2) / psidot;
+  *(a+2)= cospsi * ( *(q+2) * sinpsi + *(a+3) ) / psidot;
+  *(a+3)= 1./psidot;
+  *(a+4)= 1.; // dpsi / dpsi to keep track of psi
 }
 
 void evalPlanarRectDeriv_dxdv(double t, double *q, double *a,

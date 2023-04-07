@@ -216,7 +216,7 @@ multiple objects. Specifically, the initial conditions can be:
 * astropy (>v3.0) SkyCoord with arbitrary shape, including velocities;
 * lists of initial conditions, entries can be
    * individual Orbit instances (of single objects)
-   * Quantity arrays arranged as in the first bullet above (so things like [R,vR,vT,z,vz,phi], where R, vR, ... can be arbitrary shape Quantity arrays)
+   * Regular or Quantity arrays arranged as in the first bullet above (so things like [R,vR,vT,z,vz,phi], where R, vR, ... can be arbitrary shape regular or Quantity arrays)
    * list of Quantities (so things like [R1,vR1,..,], where R1, vR1, ... are scalar Quantities
    * None: assumed to be the Sun; if None occurs in a list it is assumed to be the Sun *and all other items in the list are assumed to be [ra,dec,...]*; cannot be combined with Quantity lists
    * lists of scalar phase-space coordinates arranged as in the first bullet above (so things like [R,vR,...] where R,vR are scalars in internal units
@@ -1042,6 +1042,107 @@ same example as above
 # 153 ms ± 2.59 ms per loop (mean ± std. dev. of 7 runs, 10 loops each)
 >>> timeit(o.integrate(ts,mp,method='dop853'))
 # 1.61 s ± 218 ms per loop (mean ± std. dev. of 7 runs, 1 loop each)
+
+**NEW in v1.9** Surfaces of section
+-----------------------------------
+
+``galpy`` can compute surfaces of section for two- and three-dimensional
+orbits using a special integration method that exactly determines the
+intersection between orbits and a surface of section. The implemented
+method follows
+`Hunter et al. (1998) <https://ui.adsabs.harvard.edu/abs/1998NYASA.867...61H/abstract>`__
+in re-writing the integration in terms of an independent angular variable :math:`\psi`
+that is equal to a multiple of :math:`2\pi` at intersections of the orbit with
+a surface of section. For example, to compute the surface of section of a
+three-dimensional orbit in an axisymmetric potential for the :math:`z=0,\,v_z>0`
+surface of section, we re-write the vertical phase-space coordinates as
+
+.. math::
+
+    z & = A\,\sin \psi\,,\\
+    v_z & = A\,\cos \psi\,.
+
+When computing the surface of section of a two-dimensional orbit using either the
+:math:`x=0,\,v_x>0` or :math:`y=0,\,v_y>0` surfaces, we proceed in a similar way.
+As long as the surface of section is a symmetry plane of the potential, the angle
+:math:`\psi` increases monotonically with time and we can use :math:`\psi` as the
+independent variable in orbit integration rather than time. This allows us to
+exactly integrate to integer multiples of :math:`\psi = 2\pi` and compute the
+surface of section. ``galpy`` only supports surfaces of section for the three cases
+mentioned above, repeated here:
+
+* 3D orbits: :math:`z=0,\,v_z>0` surface;
+* 2D orbits: :math:`x=0,\,v_x>0` or :math:`y=0,\,v_y>0` surfaces.
+
+While ``galpy`` will happily compute the surface of section for any 3D or 2D orbit,
+surfaces of section make most sense in 3D for static, axisymmetric potentials and
+in 2D for static, non-axisymmetric potentials, like the examples below.
+
+As an example, let's consider the orbit of the Sun in ``MWPotential2014``. To plot the
+surface of section, simply do::
+
+    >>> from galpy.orbit import Orbit
+    >>> from galpy.potential import MWPotential2014
+    >>> o= Orbit()
+    >>> o.plotSOS(MWPotential2014)
+
+which gives
+
+.. image:: images/orbit-sos-Sun-MWP14.png
+	:scale: 100 %
+
+To get the values plotted here, do::
+
+    >>> Rs, vRs= o.SOS(MWPotential2014)
+
+.. WARNING::
+    Computing the surface of section leaves the Orbit instance in a state where its
+    internally-stored integrated orbit is that computed during the surface-of-section
+    integration (any previously integrated orbit is overwritten). However, the orbit is
+    only output *at intersections with the surface of section*. Furthermore, with an
+    Orbit like that of the Sun above whose initial condition is *not* in the surface of
+    section, the first point along this orbit is not the initial condition, but the first
+    surface-of-section crossing instead. This is because for orbits like this, internally
+    ``galpy`` first integrates to the first crossing and then re-starts the integration
+    to obtain many subsequent crossings to create the surface of section.
+
+Surfaces of section can also be computed for Orbit instances that contain multiple
+orbits, e.g., for the following two orbits defined to have the same energy and
+angular momentum::
+
+    >>> from galpy.orbit import Orbit
+    >>> from galpy.potential import MWPotential2014, evaluatePotentials
+    >>> def orbit_RvRELz(R,vR,E,Lz,z_init=0.,pot=None):
+            """Returns Orbit at (R,vR,phi=0,z=z_init) with given (E,Lz)"""
+            return Orbit([R,vR,Lz/R,z_init,
+                          numpy.sqrt(2.*(E-evaluatePotentials(pot,R,z_init)
+                                 -(Lz/R)**2./2.-vR**2./2)),0.],ro=8.,vo=220.)
+    >>> twoorb= Orbit([orbit_RvRELz(R,0.,E,Lz,pot=MWPotential2014),
+                       orbit_RvRELz(R,0.1,E,Lz,pot=MWPotential2014,z_init=0.1)])
+    >>> twoorb.plotSOS(MWPotential2014)
+
+which gives
+
+.. image:: images/orbit-sos-twoorb-MWP14.png
+	:scale: 100 %
+
+You can increase the number of points in the surface of section using the ``ncross=``
+keyword. For example, you will see the outer locus fill in with ``ncross=1500``.
+
+An example in two dimensions is given by the following box orbit in a
+non-axisymmetric cored logarithmic potential::
+
+    >>> from galpy.orbit import Orbit
+    >>> from galpy.potential import LogarithmicHaloPotential
+    >>> lp= LogarithmicHaloPotential(normalize=True,b=0.9,core=0.2)
+    >>> orb= Orbit([0.1,0.,lp.vcirc(0.1,phi=0.),numpy.pi/2.])
+    >>> orb.plotSOS(lp,surface='y') # default is surface='x'
+
+which gives
+
+.. image:: images/orbit-sos-2Dbox.png
+	:scale: 100 %
+
 
 Integration of the phase-space volume
 --------------------------------------

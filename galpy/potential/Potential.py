@@ -408,6 +408,8 @@ class Potential(Force):
         from .EllipsoidalPotential import EllipsoidalPotential
         if self.isNonAxi and not isinstance(self,EllipsoidalPotential):
             raise NotImplementedError('mass for non-axisymmetric potentials that are not EllipsoidalPotentials is not currently supported')
+        if not z is None: # Make sure z is positive, bc we integrate from -z to z
+            z= numpy.fabs(z)
         try:
             if forceint: raise AttributeError #Hack!
             return self._amp*self._mass(R,z=z,t=t)

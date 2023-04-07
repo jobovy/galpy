@@ -47,9 +47,9 @@ class DoubleExponentialDiskPotential(Potential):
 
            normalize - if True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
 
-           de_h= (1e-3) step used in numerical integration (use 1000 for a lower accuracy version that is typically still high accuracy enough, but faster)
+           de_h= (1e-3) step used in numerical integration
 
-           de_b= (10000) number of points used in numerical integration
+           de_b= (10000) number of points used in numerical integration (use 1000 for a lower accuracy version that is typically still high accuracy enough, but faster)
 
            ro=, vo= distance and velocity scales for translation into internal units (default from configuration file)
 

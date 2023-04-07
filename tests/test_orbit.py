@@ -661,6 +661,122 @@ def test_liouville_planar():
                                        or ('Burkert' in p and not ptp.hasC)): break
     return None
 
+# Test that integrating an orbit in MWPotential2014 using integrate_SOS conserves energy
+def test_integrate_SOS_3D():
+    pot= potential.MWPotential2014
+    o= setup_orbit_energy(pot,axi=True)
+    psis= numpy.linspace(0.,20.*numpy.pi,1001)
+    for method in ['dopr54_c','dop853_c','rk4_c','rk6_c','dop853','odeint']:
+        o.integrate_SOS(psis,pot,method=method)
+        Es= o.E(o.t)
+        assert (numpy.std(Es)/numpy.mean(Es))**2. < 10.**-10, \
+            f'Energy is not conserved by integrate_sos for method={method}'
+    return None
+
+# Test that the 3D SOS function returns points with z=0, vz > 0
+def test_SOS_3D():
+    pot= potential.MWPotential2014
+    o= setup_orbit_energy(pot)
+    for method in ['dopr54_c','dop853_c','rk4_c','rk6_c','dop853','odeint']:
+        o.SOS(
+            pot,
+            method=method,ncross=500 if '_c' in method else 20,
+            force_map='rk' in method
+        )
+        zs= o.z(o.t)
+        vzs= o.vz(o.t)
+        assert (numpy.fabs(zs) < 10.**-7.).all(), \
+            f'z on SOS is not zero for integrate_sos for method={method}'
+        assert (vzs > 0.).all(), \
+            f'vz on SOS is not positive for integrate_sos for method={method}'
+    return None
+
+# Test that integrating an orbit in MWPotential2014 using integrate_SOS conserves energy
+def test_integrate_SOS_2D():
+    pot= potential.LogarithmicHaloPotential(normalize=1.,q=0.9).toPlanar()
+    o= setup_orbit_energy(pot,axi=True)
+    psis= numpy.linspace(0.,20.*numpy.pi,1001)
+    for method in ['dopr54_c','dop853_c','rk4_c','rk6_c','dop853','odeint']:
+        for surface in ['x','y']:
+            o.integrate_SOS(psis,pot,method=method) # default is surface='x'
+            Es= o.E(o.t)
+            assert (numpy.std(Es)/numpy.mean(Es))**2. < 10.**-10, \
+                f'Energy is not conserved by integrate_sos for method={method} and surface={surface}'
+    return None
+
+# Test that the 2D SOS function returns points with x=0, vx > 0 when surface='x'
+def test_SOS_2Dx():
+    pot= potential.LogarithmicHaloPotential(normalize=1.,q=0.9).toPlanar()
+    o= setup_orbit_energy(pot)
+    for method in ['dopr54_c','dop853_c','rk4_c','rk6_c','dop853','odeint']:
+        o.SOS(
+            pot,
+            method=method,ncross=500 if '_c' in method else 20,
+            force_map='rk' in method,
+            surface='x'
+        )
+        xs= o.x(o.t)
+        vxs= o.vx(o.t)
+        assert (numpy.fabs(xs) < 10.**-6.).all(), \
+            f'x on SOS is not zero for integrate_sos for method={method}'
+        assert (vxs > 0.).all(), \
+            f'vx on SOS is not positive for integrate_sos for method={method}'
+    return None
+
+# Test that the 2D SOS function returns points with y=0, vy > 0 when surface='y'
+def test_SOS_2Dy():
+    pot= potential.LogarithmicHaloPotential(normalize=1.,q=0.9).toPlanar()
+    o= setup_orbit_energy(pot)
+    for method in ['dopr54_c','dop853_c','rk4_c','rk6_c','dop853','odeint']:
+        o.SOS(
+            pot,
+            method=method,ncross=500 if '_c' in method else 20,
+            force_map='rk' in method,
+            surface='y'
+        )
+        ys= o.y(o.t)
+        vys= o.vy(o.t)
+        assert (numpy.fabs(ys) < 10.**-7.).all(), \
+            f'y on SOS is not zero for integrate_sos for method={method}'
+        assert (vys > 0.).all(), \
+            f'vy on SOS is not positive for integrate_sos for method={method}'
+    return None
+
+# Test that the SOS integration returns an error
+# when the orbit does not leave the surface
+def test_SOS_onsurfaceerror_3D():
+    from galpy.orbit import Orbit
+    o= Orbit([1.,0.1,1.1,0.,0.,0.])
+    with pytest.raises(RuntimeError,match="An orbit appears to be within the SOS surface. Refusing to perform specialized SOS integration, please use normal integration instead"):
+        o.SOS(potential.MWPotential2014)
+    return None
+
+# Test that the SOS integration returns an error
+# when the orbit does not leave the surface
+def test_SOS_onsurfaceerror_2D():
+    from galpy.orbit import Orbit
+
+    # An orbit considered in the book
+    def orbit_xvxE(x,vx,E,pot=None):
+        """Returns Orbit at (x,vx,y=0) with given E"""
+        return Orbit([x,vx,numpy.sqrt(2.*(E-potential.evaluatePotentials(pot,x,0.,phi=0.)
+                                          -vx**2./2)),0.])
+    # Need the 2d zvc here (maybe should add to galpy?)
+    def zvc(x,E,pot=None):
+        """Returns the maximum v_x at this x and this
+           energy: the zero-velocity curve"""
+        return numpy.sqrt(2.*(E-potential.evaluatePotentials(pot,x,0.,phi=0.)))
+    lp= potential.LogarithmicHaloPotential(normalize=True,b=0.9,core=0.2)
+    E= -0.87
+    x= 0.204
+    # This orbit remains in the y=0 plane and psi therefore
+    # remains zero, thus not increasing
+    maxvx= zvc(x,E,pot=lp)
+    o= orbit_xvxE(x,maxvx,E,pot=lp)
+    with pytest.raises(RuntimeError,match="An orbit appears to be within the SOS surface. Refusing to perform specialized SOS integration, please use normal integration instead"):
+        o.SOS(lp,surface='y')
+    return None
+
 # Test that the eccentricity of circular orbits is zero
 def test_eccentricity():
     #return None
@@ -3242,11 +3358,23 @@ def comp_orbfit(of,vxvv,ts,pot,lb=False,radec=False,ro=None,vo=None):
 def test_MWPotential_warning():
     # Test that using MWPotential throws a warning, see #229
     ts= numpy.linspace(0.,100.,1001)
+    psis= numpy.linspace(0.,20.*numpy.pi,1001)
     o= setup_orbit_energy(potential.MWPotential,axi=False)
     with pytest.warns(galpyWarning) as record:
         if PY2: reset_warning_registry('galpy')
         warnings.simplefilter("always",galpyWarning)
         o.integrate(ts,potential.MWPotential)
+        # Should raise warning bc of MWPotential, might raise others
+    raisedWarning= False
+    for rec in record:
+        # check that the message matches
+        raisedWarning+= (str(rec.message.args[0]) == "Use of MWPotential as a Milky-Way-like potential is deprecated; galpy.potential.MWPotential2014, a potential fit to a large variety of dynamical constraints (see Bovy 2015), is the preferred Milky-Way-like potential in galpy")
+    assert raisedWarning, "Orbit integration with MWPotential should have thrown a warning, but didn't"
+    # Also test for SOS integration
+    with pytest.warns(galpyWarning) as record:
+        if PY2: reset_warning_registry('galpy')
+        warnings.simplefilter("always",galpyWarning)
+        o.integrate_SOS(psis,potential.MWPotential)
         # Should raise warning bc of MWPotential, might raise others
     raisedWarning= False
     for rec in record:
@@ -4748,6 +4876,21 @@ def test_full_plotting():
     try: oa.plot3d(d3='vy',d2='R',d1='t')
     except AttributeError: pass
     else: raise AssertionError("plot3d(d3='vy') applied to RZOrbit did not raise AttributeError")
+    return None
+
+def test_plotSOS():
+    # 3D
+    pot= potential.MWPotential2014
+    o= setup_orbit_energy(pot)
+    o.plotSOS(pot)
+    o.plotSOS(pot,use_physical=True)
+    # 2D
+    pot= potential.LogarithmicHaloPotential(normalize=1.,q=0.9).toPlanar()
+    o= setup_orbit_energy(pot)
+    o.plotSOS(pot)
+    o.plotSOS(pot,use_physical=True)
+    o.plotSOS(pot,surface='y')
+    o.plotSOS(pot,surface='y',use_physical=True)
     return None
 
 def test_from_name_values():

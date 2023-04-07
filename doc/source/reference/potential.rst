@@ -11,7 +11,7 @@ General instance routines
 Use as ``Potential-instance.method(...)``
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
    __add__ <potentialadd.rst>
    __mul__ <potentialmul.rst>
@@ -63,7 +63,7 @@ Use as ``Potential-instance.method(...)``
 In addition to these, the ``NFWPotential`` also has methods to calculate virial quantities
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
    conc <potentialconc.rst>
    mvir <potentialmvir.rst>
@@ -77,7 +77,7 @@ General 3D potential routines
 Use as ``method(...)``
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
    dvcircdR <potentialdvcircdrs.rst>
    epifreq <potentialepifreqs.rst>
@@ -127,7 +127,7 @@ Use as ``method(...)``
 In addition to these, the following methods are available to compute expansion coefficients for the ``SCFPotential`` class for a given density
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
    scf_compute_coeffs <potentialscfcompute.rst>
    scf_compute_coeffs_axi <potentialscfcomputeaxi.rst>
@@ -164,7 +164,7 @@ ratios equal for the triaxial potentials listed in the section on
 ellipsoidal triaxial potentials below.
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
    potentialanyspherical.rst
    potentialburkert.rst
@@ -193,7 +193,7 @@ axis ratio equal to 1 for the triaxial potentials listed in the
 section on ellipsoidal triaxial potentials below.
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
    potentialanyaxirazorthin.rst
    potentialdoubleexp.rst
@@ -225,7 +225,7 @@ respectively. For adding a C implementation, follow similar steps (use
 ``PerfectEllipsoidPotential`` as an example to follow).
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
    potentialdoublepowertriaxial.rst
    potentialperfectellipsoid.rst
@@ -248,7 +248,7 @@ Spiral, bar, other triaxial, and miscellaneous potentials
 **********************************************************
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
    potentialdehnenbar.rst
    potentialferrers.rst
@@ -264,7 +264,7 @@ General Poisson solvers for disks and halos
 *******************************************
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
    potentialdiskscf.rst
    potentialscf.rst
@@ -273,7 +273,7 @@ Dissipative forces
 *******************
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
    potentialchandrasekhardynfric.rst
 
@@ -281,7 +281,7 @@ Fictitious forces in non-inertial frames
 ****************************************
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
    potentialnoninertialframe.rst
 
@@ -289,7 +289,7 @@ Helper classes
 **************
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
    potentialnumericalpotentialderivsmixin.rst
 
@@ -453,7 +453,7 @@ General instance routines
 Use as ``Potential-instance.method(...)``
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
    __add__ <potential2dadd.rst>
    __mul__ <potential2dmul.rst>
@@ -469,7 +469,7 @@ General axisymmetric potential instance routines
 Use as ``Potential-instance.method(...)``
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
    epifreq <potential2depifreq.rst>
    lindbladR <potential2dlindbladR.rst>
@@ -487,7 +487,7 @@ General 2D potential routines
 Use as ``method(...)``
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
    evaluateplanarphitorques <potential2dphitorques.rst>
    evaluateplanarPotentials <potential2devaluate.rst>
@@ -508,7 +508,7 @@ All of the 3D potentials above can be used as two-dimensional
 potentials in the mid-plane.
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
    toPlanarPotential (general) <potential2dtoplanar.rst>
    RZToplanarPotential <potential2dRZtoplanar.rst>
@@ -516,7 +516,7 @@ potentials in the mid-plane.
 In addition, a two-dimensional bar potential, two spiral potentials, the `Henon & Heiles (1964) <http://adsabs.harvard.edu/abs/1964AJ.....69...73H>`__ potential, and some static non-axisymmetric perturbations are included
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
    potentialdehnenbar.rst
    potentialcosmphidisk.rst
@@ -537,7 +537,7 @@ General instance routines
 Use as ``Potential-instance.method(...)``
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
    __add__ <potential1dadd.rst>
    __mul__ <potential1dmul.rst>
@@ -553,7 +553,7 @@ General 1D potential routines
 Use as ``method(...)``
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
    evaluatelinearForces <potential1dforces.rst>
    evaluatelinearPotentials <potential1devaluate.rst>
@@ -566,7 +566,7 @@ Specific potentials
 +++++++++++++++++++
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
    IsothermalDiskPotential <potentialisodisk.rst>
    KGPotential <potentialkg.rst>
@@ -574,7 +574,7 @@ Specific potentials
 One-dimensional potentials can also be derived from 3D axisymmetric potentials as the vertical potential at a certain Galactocentric radius
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
    toVerticalPotential (general) <potential1dtolinear.rst>
    RZToverticalPotential <potential1dRZtolinear.rst>
@@ -590,7 +590,7 @@ Specific wrappers
 ++++++++++++++++++
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
    potentialadiabaticcontractwrapper.rst
    potentialtimedependentamplitude.rst
