@@ -7839,6 +7839,127 @@ def test_integrate_dxdv_errors():
     return None
 
 
+# Test that the internal interpolator is reset when the orbit is re-integrated
+def test_orbinterp_reset_integrate():
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential, MWPotential2014
+
+    o = Orbit([1.0, 0.1, 1.1, 0.1, -0.03, numpy.pi])
+    op = o()
+    ts = numpy.linspace(0.0, 100.0, 10001)
+    o.integrate(ts, MWPotential)
+    o.R(numpy.linspace(0.0, o.t[-1], 1001))
+    o.integrate(ts, MWPotential2014)
+    op.integrate(ts, MWPotential2014)
+    # If things are reset correctly, o and op should now agree on everything
+    assert numpy.all(
+        numpy.fabs(o.R(ts) - op.R(ts)) < 10.0**-10.0
+    ), "Orbit R not reset correctly"
+    assert numpy.all(
+        numpy.fabs(o.vR(ts) - op.vR(ts)) < 10.0**-10.0
+    ), "Orbit vR not reset correctly"
+    assert numpy.all(
+        numpy.fabs(o.vT(ts) - op.vT(ts)) < 10.0**-10.0
+    ), "Orbit vT not reset correctly"
+    assert numpy.all(
+        numpy.fabs(o.z(ts) - op.z(ts)) < 10.0**-10.0
+    ), "Orbit z not reset correctly"
+    assert numpy.all(
+        numpy.fabs(o.vz(ts) - op.vz(ts)) < 10.0**-10.0
+    ), "Orbit vz not reset correctly"
+    assert numpy.all(
+        numpy.fabs(o.phi(ts) - op.phi(ts)) < 10.0**-10.0
+    ), "Orbit phi not reset correctly"
+    assert (
+        numpy.fabs(o.rperi() - op.rperi()) < 10.0**-10.0
+    ), "Orbit rperi not reset correctly"
+    assert (
+        numpy.fabs(o.rap() - op.rap()) < 10.0**-10.0
+    ), "Orbit rap not reset correctly"
+    assert numpy.fabs(o.e() - op.e()) < 10.0**-10.0, "Orbit e not reset correctly"
+    return None
+
+
+# Test that the internal interpolator is reset when the orbit is re-integrated
+# with integrate_SOS
+def test_orbinterp_reset_integrateSOS():
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential, MWPotential2014
+
+    o = Orbit([1.0, 0.1, 1.1, 0.1, -0.03, numpy.pi])
+    op = o()
+    ts = numpy.linspace(0.0, 100.0, 10001)
+    psis = numpy.linspace(0.0, 100.0, 10001)
+    o.integrate(ts, MWPotential)
+    o.R(numpy.linspace(0.0, o.t[-1], 1001))
+    o.integrate_SOS(psis, MWPotential2014)
+    op.integrate_SOS(psis, MWPotential2014)
+    ts = o.t
+    # If things are reset correctly, o and op should now agree on everything
+    assert numpy.all(
+        numpy.fabs(o.R(ts) - op.R(ts)) < 10.0**-10.0
+    ), "Orbit R not reset correctly"
+    assert numpy.all(
+        numpy.fabs(o.vR(ts) - op.vR(ts)) < 10.0**-10.0
+    ), "Orbit vR not reset correctly"
+    assert numpy.all(
+        numpy.fabs(o.vT(ts) - op.vT(ts)) < 10.0**-10.0
+    ), "Orbit vT not reset correctly"
+    assert numpy.all(
+        numpy.fabs(o.z(ts) - op.z(ts)) < 10.0**-10.0
+    ), "Orbit z not reset correctly"
+    assert numpy.all(
+        numpy.fabs(o.vz(ts) - op.vz(ts)) < 10.0**-10.0
+    ), "Orbit vz not reset correctly"
+    assert numpy.all(
+        numpy.fabs(o.phi(ts) - op.phi(ts)) < 10.0**-10.0
+    ), "Orbit phi not reset correctly"
+    assert (
+        numpy.fabs(o.rperi() - op.rperi()) < 10.0**-10.0
+    ), "Orbit rperi not reset correctly"
+    assert (
+        numpy.fabs(o.rap() - op.rap()) < 10.0**-10.0
+    ), "Orbit rap not reset correctly"
+    assert numpy.fabs(o.e() - op.e()) < 10.0**-10.0, "Orbit e not reset correctly"
+    return None
+
+
+# Test that the internal interpolator is reset when the orbit is re-integrated
+# with integrate_SOS
+def test_orbinterp_reset_integratedxdv():
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential, MWPotential2014
+
+    o = Orbit([1.0, 0.1, 1.1, numpy.pi])
+    op = o()
+    ts = numpy.linspace(0.0, 100.0, 10001)
+    o.integrate_dxdv([1.0, 0.0, 0.0, 0.0], ts, MWPotential)
+    o.R(numpy.linspace(0.0, o.t[-1], 1001))
+    o.integrate_dxdv([1.0, 0.0, 0.0, 0.0], ts, MWPotential2014)
+    op.integrate_dxdv([1.0, 0.0, 0.0, 0.0], ts, MWPotential2014)
+    # If things are reset correctly, o and op should now agree on everything
+    assert numpy.all(
+        numpy.fabs(o.R(ts) - op.R(ts)) < 10.0**-10.0
+    ), "Orbit R not reset correctly"
+    assert numpy.all(
+        numpy.fabs(o.vR(ts) - op.vR(ts)) < 10.0**-10.0
+    ), "Orbit vR not reset correctly"
+    assert numpy.all(
+        numpy.fabs(o.vT(ts) - op.vT(ts)) < 10.0**-10.0
+    ), "Orbit vT not reset correctly"
+    assert numpy.all(
+        numpy.fabs(o.phi(ts) - op.phi(ts)) < 10.0**-10.0
+    ), "Orbit phi not reset correctly"
+    assert (
+        numpy.fabs(o.rperi() - op.rperi()) < 10.0**-10.0
+    ), "Orbit rperi not reset correctly"
+    assert (
+        numpy.fabs(o.rap() - op.rap()) < 10.0**-10.0
+    ), "Orbit rap not reset correctly"
+    assert numpy.fabs(o.e() - op.e()) < 10.0**-10.0, "Orbit e not reset correctly"
+    return None
+
+
 def test_linear_plotting():
     from galpy.orbit import Orbit
     from galpy.potential.verticalPotential import RZToverticalPotential
@@ -8084,8 +8205,8 @@ def test_full_plotting():
     # Plot the orbit itself
     o.plot()  # defaults
     oa.plot()
-    o.plot(d1="vR")
-    o.plot(d2="vR")
+    o.plot(d1="vR", label="vR")
+    o.plot(d2="vR", label=["vR"])
     o.plotR()
     o.plotvR(d1="vT")
     o.plotvT(d1="z")
@@ -8344,8 +8465,8 @@ def test_plotSOS():
     # 2D
     pot = potential.LogarithmicHaloPotential(normalize=1.0, q=0.9).toPlanar()
     o = setup_orbit_energy(pot)
-    o.plotSOS(pot)
-    o.plotSOS(pot, use_physical=True)
+    o.plotSOS(pot, label="test")
+    o.plotSOS(pot, use_physical=True, label=["test"])
     o.plotSOS(pot, surface="y")
     o.plotSOS(pot, surface="y", use_physical=True)
     return None
