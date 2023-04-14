@@ -23,7 +23,8 @@ class TimeDependentAmplitudeWrapperPotential(parentWrapperPotential):
     where :math:`A(t)` is an arbitrary function of time.
     Note that `amp` itself can already be a function of time.
     """
-    def __init__(self,amp=1.,A=None,pot=None,ro=None,vo=None):
+
+    def __init__(self, amp=1.0, A=None, pot=None, ro=None, vo=None):
         """
         NAME:
 
@@ -51,24 +52,30 @@ class TimeDependentAmplitudeWrapperPotential(parentWrapperPotential):
 
         """
         if not callable(A):
-            raise TypeError("A= input to TimeDependentAmplitudeWrapperPotential should be a function")
+            raise TypeError(
+                "A= input to TimeDependentAmplitudeWrapperPotential should be a function"
+            )
         # Check whether there is at least a single parameter and not more than a single
         # argument, such that the function can be called as A(t)
-        Aparams= signature(A).parameters
-        nparams= 0
+        Aparams = signature(A).parameters
+        nparams = 0
         for param in Aparams.keys():
-            if Aparams[param].default == Aparams[param].empty \
-                or nparams == 0:
-                nparams+= 1
+            if Aparams[param].default == Aparams[param].empty or nparams == 0:
+                nparams += 1
         if nparams != 1:
-            raise TypeError("A= input to TimeDependentAmplitudeWrapperPotential should be a function that can be called with a single parameter")
+            raise TypeError(
+                "A= input to TimeDependentAmplitudeWrapperPotential should be a function that can be called with a single parameter"
+            )
         # Finally, check that A only returns a single value
-        if not isinstance(A(0.),Number):
-            raise TypeError("A= function needs to return a number (specifically, a numbers.Number)")
-        self._A= A
-        self.hasC= True
-        self.hasC_dxdv= True
+        if not isinstance(A(0.0), Number):
+            raise TypeError(
+                "A= function needs to return a number (specifically, a numbers.Number)"
+            )
+        self._A = A
+        self.hasC = True
+        self.hasC_dxdv = True
 
-    def _wrap(self,attribute,*args,**kwargs):
-        return self._A(kwargs.get('t',0.))\
-                *self._wrap_pot_func(attribute)(self._pot,*args,**kwargs)
+    def _wrap(self, attribute, *args, **kwargs):
+        return self._A(kwargs.get("t", 0.0)) * self._wrap_pot_func(attribute)(
+            self._pot, *args, **kwargs
+        )

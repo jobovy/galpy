@@ -24,8 +24,10 @@ class DehnenSmoothWrapperPotential(parentWrapperPotential):
 
     if ``decay=True``, the amplitude decays rather than grows as decay = 1 - grow.
     """
-    def __init__(self,amp=1.,pot=None,tform=-4.,tsteady=None,decay=False,
-                 ro=None,vo=None):
+
+    def __init__(
+        self, amp=1.0, pot=None, tform=-4.0, tsteady=None, decay=False, ro=None, vo=None
+    ):
         """
         NAME:
 
@@ -58,29 +60,32 @@ class DehnenSmoothWrapperPotential(parentWrapperPotential):
            2018-10-07 - Added 'decay' option - Bovy (UofT)
 
         """
-        tform= conversion.parse_time(tform,ro=self._ro,vo=self._vo)
-        tsteady= conversion.parse_time(tsteady,ro=self._ro,vo=self._vo)
-        self._tform= tform
+        tform = conversion.parse_time(tform, ro=self._ro, vo=self._vo)
+        tsteady = conversion.parse_time(tsteady, ro=self._ro, vo=self._vo)
+        self._tform = tform
         if tsteady is None:
-            self._tsteady= self._tform/2.
+            self._tsteady = self._tform / 2.0
         else:
-            self._tsteady= self._tform+tsteady
-        self._grow= not decay
-        self.hasC= True
-        self.hasC_dxdv= True
+            self._tsteady = self._tform + tsteady
+        self._grow = not decay
+        self.hasC = True
+        self.hasC_dxdv = True
 
-    def _smooth(self,t):
-        #Calculate relevant time
+    def _smooth(self, t):
+        # Calculate relevant time
         if t < self._tform:
-            smooth= 0.
+            smooth = 0.0
         elif t < self._tsteady:
-            deltat= t-self._tform
-            xi= 2.*deltat/(self._tsteady-self._tform)-1.
-            smooth= (3./16.*xi**5.-5./8*xi**3.+15./16.*xi+.5)
-        else: #bar is fully on
-            smooth= 1.
-        return smooth if self._grow else 1.-smooth
+            deltat = t - self._tform
+            xi = 2.0 * deltat / (self._tsteady - self._tform) - 1.0
+            smooth = (
+                3.0 / 16.0 * xi**5.0 - 5.0 / 8 * xi**3.0 + 15.0 / 16.0 * xi + 0.5
+            )
+        else:  # bar is fully on
+            smooth = 1.0
+        return smooth if self._grow else 1.0 - smooth
 
-    def _wrap(self,attribute,*args,**kwargs):
-        return self._smooth(kwargs.get('t',0.))\
-                *self._wrap_pot_func(attribute)(self._pot,*args,**kwargs)
+    def _wrap(self, attribute, *args, **kwargs):
+        return self._smooth(kwargs.get("t", 0.0)) * self._wrap_pot_func(attribute)(
+            self._pot, *args, **kwargs
+        )

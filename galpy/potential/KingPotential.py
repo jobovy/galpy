@@ -17,7 +17,8 @@ class KingPotential(interpSphericalPotential):
 
     where :math:`\\mathcal{E}` is the binding energy. See also :ref:`King DF <king_df_api>`.
     """
-    def __init__(self,W0=2.,M=3.,rt=1.5,npt=1001,_sfkdf=None,ro=None,vo=None):
+
+    def __init__(self, W0=2.0, M=3.0, rt=1.5, npt=1001, _sfkdf=None, ro=None, vo=None):
         """
         NAME:
 
@@ -49,30 +50,32 @@ class KingPotential(interpSphericalPotential):
 
         """
         # Initialize with Force just to parse (ro,vo)
-        Force.__init__(self,ro=ro,vo=vo)
-        newM= conversion.parse_mass(M,ro=self._ro,vo=self._vo)
+        Force.__init__(self, ro=ro, vo=vo)
+        newM = conversion.parse_mass(M, ro=self._ro, vo=self._vo)
         if newM != M:
-            self.turn_physical_on(ro=self._ro,vo=self._vo)
-        M= newM
-        rt= conversion.parse_length(rt,ro=self._ro)
+            self.turn_physical_on(ro=self._ro, vo=self._vo)
+        M = newM
+        rt = conversion.parse_length(rt, ro=self._ro)
         # Set up King DF
         if _sfkdf is None:
             from ..df.kingdf import _scalefreekingdf
-            sfkdf= _scalefreekingdf(W0)
+
+            sfkdf = _scalefreekingdf(W0)
             sfkdf.solve(npt)
         else:
-            sfkdf= _sfkdf
-        mass_scale= M/sfkdf.mass
-        radius_scale= rt/sfkdf.rt
+            sfkdf = _sfkdf
+        mass_scale = M / sfkdf.mass
+        radius_scale = rt / sfkdf.rt
         # Remember whether to turn units on
-        ro= self._ro if self._roSet else ro
-        vo= self._vo if self._voSet else vo
-        interpSphericalPotential.__init__(\
+        ro = self._ro if self._roSet else ro
+        vo = self._vo if self._voSet else vo
+        interpSphericalPotential.__init__(
             self,
-            rforce=lambda r: mass_scale/radius_scale**2.
-                            *numpy.interp(r/radius_scale,
-                                          sfkdf._r,
-                                          sfkdf._dWdr),
-            rgrid=sfkdf._r*radius_scale,
-            Phi0=-W0*mass_scale/radius_scale,
-            ro=ro,vo=vo)
+            rforce=lambda r: mass_scale
+            / radius_scale**2.0
+            * numpy.interp(r / radius_scale, sfkdf._r, sfkdf._dWdr),
+            rgrid=sfkdf._r * radius_scale,
+            Phi0=-W0 * mass_scale / radius_scale,
+            ro=ro,
+            vo=vo,
+        )

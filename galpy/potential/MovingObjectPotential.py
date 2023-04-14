@@ -7,9 +7,16 @@ import copy
 import numpy
 
 from .PlummerPotential import PlummerPotential
-from .Potential import (Potential, _check_c, _isNonAxi, evaluateDensities,
-                        evaluatePotentials, evaluateRforces, evaluatezforces,
-                        flatten)
+from .Potential import (
+    Potential,
+    _check_c,
+    _isNonAxi,
+    evaluateDensities,
+    evaluatePotentials,
+    evaluateRforces,
+    evaluatezforces,
+    flatten,
+)
 
 
 class MovingObjectPotential(Potential):
@@ -17,8 +24,8 @@ class MovingObjectPotential(Potential):
     Class that implements the potential coming from a moving object by combining
     any galpy potential with an integrated galpy orbit.
     """
-    def __init__(self,orbit,pot=None,amp=1.0,
-                 ro=None,vo=None):
+
+    def __init__(self, orbit, pot=None, amp=1.0, ro=None, vo=None):
         """
         NAME:
 
@@ -50,23 +57,25 @@ class MovingObjectPotential(Potential):
 
         """
 
-        Potential.__init__(self,amp=amp,ro=ro,vo=vo)
+        Potential.__init__(self, amp=amp, ro=ro, vo=vo)
         # If no potential supplied use a default Plummer sphere
         if pot is None:
-            pot=PlummerPotential(amp=0.06,b=0.01)
+            pot = PlummerPotential(amp=0.06, b=0.01)
             self._pot = pot
         else:
-            pot=flatten(pot)
+            pot = flatten(pot)
             if _isNonAxi(pot):
-                raise NotImplementedError('MovingObjectPotential for non-axisymmetric potentials is not currently supported')
-            self._pot=pot
-        self._orb= copy.deepcopy(orbit)
+                raise NotImplementedError(
+                    "MovingObjectPotential for non-axisymmetric potentials is not currently supported"
+                )
+            self._pot = pot
+        self._orb = copy.deepcopy(orbit)
         self._orb.turn_physical_off()
-        self.isNonAxi= True
-        self.hasC= _check_c(self._pot)
+        self.isNonAxi = True
+        self.hasC = _check_c(self._pot)
         return None
 
-    def _evaluate(self,R,z,phi=0.,t=0.):
+    def _evaluate(self, R, z, phi=0.0, t=0.0):
         """
         NAME:
            _evaluate
@@ -83,14 +92,13 @@ class MovingObjectPotential(Potential):
            2011-04-10 - Started - Bovy (NYU)
            2018-10-18 - Updated for general object potential - James Lane (UofT)
         """
-        #Cylindrical distance
-        Rdist = _cylR(R,phi,self._orb.R(t),self._orb.phi(t))
+        # Cylindrical distance
+        Rdist = _cylR(R, phi, self._orb.R(t), self._orb.phi(t))
         orbz = self._orb.z(t) if self._orb.dim() == 3 else 0
-        #Evaluate potential
-        return evaluatePotentials(self._pot,Rdist,orbz-z,t=t,
-                                  use_physical=False)
+        # Evaluate potential
+        return evaluatePotentials(self._pot, Rdist, orbz - z, t=t, use_physical=False)
 
-    def _Rforce(self,R,z,phi=0.,t=0.):
+    def _Rforce(self, R, z, phi=0.0, t=0.0):
         """
         NAME:
            _Rforce
@@ -107,19 +115,18 @@ class MovingObjectPotential(Potential):
            2011-04-10 - Written - Bovy (NYU)
            2018-10-18 - Updated for general object potential - James Lane (UofT)
         """
-        #Cylindrical distance
-        Rdist = _cylR(R,phi,self._orb.R(t),self._orb.phi(t))
+        # Cylindrical distance
+        Rdist = _cylR(R, phi, self._orb.R(t), self._orb.phi(t))
         # Difference vector
         orbz = self._orb.z(t) if self._orb.dim() == 3 else 0
-        (xd,yd,zd) = _cyldiff(self._orb.R(t), self._orb.phi(t), orbz,
-            R, phi, z)
-        #Evaluate cylindrical radial force
-        RF = evaluateRforces(self._pot,Rdist,zd,t=t,use_physical=False)
+        (xd, yd, zd) = _cyldiff(self._orb.R(t), self._orb.phi(t), orbz, R, phi, z)
+        # Evaluate cylindrical radial force
+        RF = evaluateRforces(self._pot, Rdist, zd, t=t, use_physical=False)
 
         # Return R force, negative of radial vector to evaluation location.
-        return -RF*(numpy.cos(phi)*xd+numpy.sin(phi)*yd)/Rdist
+        return -RF * (numpy.cos(phi) * xd + numpy.sin(phi) * yd) / Rdist
 
-    def _zforce(self,R,z,phi=0.,t=0.):
+    def _zforce(self, R, z, phi=0.0, t=0.0):
         """
         NAME:
            _zforce
@@ -136,16 +143,15 @@ class MovingObjectPotential(Potential):
            2011-04-10 - Written - Bovy (NYU)
            2018-10-18 - Updated for general object potential - James Lane (UofT)
         """
-        #Cylindrical distance
-        Rdist = _cylR(R,phi,self._orb.R(t),self._orb.phi(t))
+        # Cylindrical distance
+        Rdist = _cylR(R, phi, self._orb.R(t), self._orb.phi(t))
         # Difference vector
         orbz = self._orb.z(t) if self._orb.dim() == 3 else 0
-        (xd,yd,zd) = _cyldiff(self._orb.R(t), self._orb.phi(t), orbz,
-            R, phi, z)
-        #Evaluate and return z force
-        return -evaluatezforces(self._pot,Rdist,zd,t=t,use_physical=False)
+        (xd, yd, zd) = _cyldiff(self._orb.R(t), self._orb.phi(t), orbz, R, phi, z)
+        # Evaluate and return z force
+        return -evaluatezforces(self._pot, Rdist, zd, t=t, use_physical=False)
 
-    def _phitorque(self,R,z,phi=0.,t=0.):
+    def _phitorque(self, R, z, phi=0.0, t=0.0):
         """
         NAME:
            _phitorque
@@ -162,18 +168,17 @@ class MovingObjectPotential(Potential):
            2011-04-10 - Written - Bovy (NYU)
            2018-10-18 - Updated for general object potential - James Lane (UofT)
         """
-        #Cylindrical distance
-        Rdist = _cylR(R,phi,self._orb.R(t),self._orb.phi(t))
+        # Cylindrical distance
+        Rdist = _cylR(R, phi, self._orb.R(t), self._orb.phi(t))
         # Difference vector
         orbz = self._orb.z(t) if self._orb.dim() == 3 else 0
-        (xd,yd,zd) = _cyldiff(self._orb.R(t), self._orb.phi(t), orbz,
-            R, phi, z)
-        #Evaluate cylindrical radial force.
-        RF = evaluateRforces(self._pot,Rdist,zd,t=t,use_physical=False)
+        (xd, yd, zd) = _cyldiff(self._orb.R(t), self._orb.phi(t), orbz, R, phi, z)
+        # Evaluate cylindrical radial force.
+        RF = evaluateRforces(self._pot, Rdist, zd, t=t, use_physical=False)
         # Return phi force, negative of phi vector to evaluate location
-        return -RF*R*(numpy.cos(phi)*yd-numpy.sin(phi)*xd)/Rdist
+        return -RF * R * (numpy.cos(phi) * yd - numpy.sin(phi) * xd) / Rdist
 
-    def _dens(self,R,z,phi=0.,t=0.):
+    def _dens(self, R, z, phi=0.0, t=0.0):
         """
         NAME:
            _dens
@@ -189,20 +194,23 @@ class MovingObjectPotential(Potential):
         HISTORY:
            2010-08-08 - Written - Bovy (NYU)
         """
-        #Cylindrical distance
-        Rdist = _cylR(R,phi,self._orb.R(t),self._orb.phi(t))
+        # Cylindrical distance
+        Rdist = _cylR(R, phi, self._orb.R(t), self._orb.phi(t))
         # Difference vector
         orbz = self._orb.z(t) if self._orb.dim() == 3 else 0
-        (xd,yd,zd) = _cyldiff(self._orb.R(t), self._orb.phi(t), orbz,
-            R, phi, z)
+        (xd, yd, zd) = _cyldiff(self._orb.R(t), self._orb.phi(t), orbz, R, phi, z)
         # Return the density
-        return evaluateDensities(self._pot,Rdist,zd,t=t,use_physical=False)
+        return evaluateDensities(self._pot, Rdist, zd, t=t, use_physical=False)
 
-def _cylR(R1,phi1,R2,phi2):
-    return numpy.sqrt(R1**2.+R2**2.-2.*R1*R2*numpy.cos(phi1-phi2)) # Cosine law
 
-def _cyldiff(R1,phi1,z1,R2,phi2,z2):
-    dx = R1*numpy.cos(phi1)-R2*numpy.cos(phi2)
-    dy = R1*numpy.sin(phi1)-R2*numpy.sin(phi2)
-    dz = z1-z2
-    return (dx,dy,dz)
+def _cylR(R1, phi1, R2, phi2):
+    return numpy.sqrt(
+        R1**2.0 + R2**2.0 - 2.0 * R1 * R2 * numpy.cos(phi1 - phi2)
+    )  # Cosine law
+
+
+def _cyldiff(R1, phi1, z1, R2, phi2, z2):
+    dx = R1 * numpy.cos(phi1) - R2 * numpy.cos(phi2)
+    dy = R1 * numpy.sin(phi1) - R2 * numpy.sin(phi2)
+    dz = z1 - z2
+    return (dx, dy, dz)

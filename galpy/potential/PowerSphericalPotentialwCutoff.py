@@ -13,8 +13,9 @@ from ..util._optional_deps import _JAX_LOADED
 from .Potential import Potential, kms_to_kpcGyrDecorator
 
 if _JAX_LOADED:
-   import jax.numpy as jnp
-   import jax.scipy.special as jspecial
+    import jax.numpy as jnp
+    import jax.scipy.special as jspecial
+
 
 class PowerSphericalPotentialwCutoff(Potential):
     """Class that implements spherical potentials that are derived from
@@ -25,8 +26,10 @@ class PowerSphericalPotentialwCutoff(Potential):
         \\rho(r) = \\mathrm{amp}\\,\\left(\\frac{r_1}{r}\\right)^\\alpha\\,\\exp\\left(-(r/rc)^2\\right)
 
     """
-    def __init__(self,amp=1.,alpha=1.,rc=1.,normalize=False,r1=1.,
-                 ro=None,vo=None):
+
+    def __init__(
+        self, amp=1.0, alpha=1.0, rc=1.0, normalize=False, r1=1.0, ro=None, vo=None
+    ):
         """
         NAME:
 
@@ -59,24 +62,24 @@ class PowerSphericalPotentialwCutoff(Potential):
            2013-06-28 - Written - Bovy (IAS)
 
         """
-        Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='density')
-        r1= conversion.parse_length(r1,ro=self._ro)
-        rc= conversion.parse_length(rc,ro=self._ro)
-        self.alpha= alpha
+        Potential.__init__(self, amp=amp, ro=ro, vo=vo, amp_units="density")
+        r1 = conversion.parse_length(r1, ro=self._ro)
+        rc = conversion.parse_length(rc, ro=self._ro)
+        self.alpha = alpha
         # Back to old definition
-        self._amp*= r1**self.alpha
-        self.rc= rc
-        self._scale= self.rc
-        if normalize or \
-                (isinstance(normalize,(int,float)) \
-                     and not isinstance(normalize,bool)): #pragma: no cover
+        self._amp *= r1**self.alpha
+        self.rc = rc
+        self._scale = self.rc
+        if normalize or (
+            isinstance(normalize, (int, float)) and not isinstance(normalize, bool)
+        ):  # pragma: no cover
             self.normalize(normalize)
-        self.hasC= True
-        self.hasC_dxdv= True
-        self.hasC_dens= True
-        self._nemo_accname= 'PowSphwCut'
+        self.hasC = True
+        self.hasC_dxdv = True
+        self.hasC_dens = True
+        self._nemo_accname = "PowSphwCut"
 
-    def _evaluate(self,R,z,phi=0.,t=0.):
+    def _evaluate(self, R, z, phi=0.0, t=0.0):
         """
         NAME:
            _evaluate
@@ -92,18 +95,31 @@ class PowerSphericalPotentialwCutoff(Potential):
         HISTORY:
            2013-06-28 - Started - Bovy (IAS)
         """
-        r= numpy.sqrt(R**2.+z**2.)
-        out= 2.*numpy.pi*self.rc**(3.-self.alpha)*(1/self.rc*special.gamma(1.-self.alpha/2.)*special.gammainc(1.-self.alpha/2.,(r/self.rc)**2.)-special.gamma(1.5-self.alpha/2.)*special.gammainc(1.5-self.alpha/2.,(r/self.rc)**2.)/r)
-        if isinstance(r,(float,int)):
+        r = numpy.sqrt(R**2.0 + z**2.0)
+        out = (
+            2.0
+            * numpy.pi
+            * self.rc ** (3.0 - self.alpha)
+            * (
+                1
+                / self.rc
+                * special.gamma(1.0 - self.alpha / 2.0)
+                * special.gammainc(1.0 - self.alpha / 2.0, (r / self.rc) ** 2.0)
+                - special.gamma(1.5 - self.alpha / 2.0)
+                * special.gammainc(1.5 - self.alpha / 2.0, (r / self.rc) ** 2.0)
+                / r
+            )
+        )
+        if isinstance(r, (float, int)):
             if r == 0:
-                return 0.
+                return 0.0
             else:
                 return out
         else:
-            out[r==0]= 0.
+            out[r == 0] = 0.0
             return out
 
-    def _Rforce(self,R,z,phi=0.,t=0.):
+    def _Rforce(self, R, z, phi=0.0, t=0.0):
         """
         NAME:
            _Rforce
@@ -119,10 +135,10 @@ class PowerSphericalPotentialwCutoff(Potential):
         HISTORY:
            2013-06-26 - Written - Bovy (IAS)
         """
-        r= numpy.sqrt(R*R+z*z)
-        return -self._mass(r)*R/r**3.
+        r = numpy.sqrt(R * R + z * z)
+        return -self._mass(r) * R / r**3.0
 
-    def _zforce(self,R,z,phi=0.,t=0.):
+    def _zforce(self, R, z, phi=0.0, t=0.0):
         """
         NAME:
            _zforce
@@ -138,10 +154,10 @@ class PowerSphericalPotentialwCutoff(Potential):
         HISTORY:
            2013-06-26 - Written - Bovy (IAS)
         """
-        r= numpy.sqrt(R*R+z*z)
-        return -self._mass(r)*z/r**3.
+        r = numpy.sqrt(R * R + z * z)
+        return -self._mass(r) * z / r**3.0
 
-    def _R2deriv(self,R,z,phi=0.,t=0.):
+    def _R2deriv(self, R, z, phi=0.0, t=0.0):
         """
         NAME:
            _Rderiv
@@ -157,11 +173,12 @@ class PowerSphericalPotentialwCutoff(Potential):
         HISTORY:
            2013-06-28 - Written - Bovy (IAS)
         """
-        r= numpy.sqrt(R*R+z*z)
-        return 4.*numpy.pi*r**(-2.-self.alpha)*numpy.exp(-(r/self.rc)**2.)*R**2.\
-            +self._mass(r)/r**5.*(z**2.-2.*R**2.)
+        r = numpy.sqrt(R * R + z * z)
+        return 4.0 * numpy.pi * r ** (-2.0 - self.alpha) * numpy.exp(
+            -((r / self.rc) ** 2.0)
+        ) * R**2.0 + self._mass(r) / r**5.0 * (z**2.0 - 2.0 * R**2.0)
 
-    def _z2deriv(self,R,z,phi=0.,t=0.):
+    def _z2deriv(self, R, z, phi=0.0, t=0.0):
         """
         NAME:
            _z2deriv
@@ -177,11 +194,12 @@ class PowerSphericalPotentialwCutoff(Potential):
         HISTORY:
            2013-06-28 - Written - Bovy (IAS)
         """
-        r= numpy.sqrt(R*R+z*z)
-        return 4.*numpy.pi*r**(-2.-self.alpha)*numpy.exp(-(r/self.rc)**2.)*z**2.\
-            +self._mass(r)/r**5.*(R**2.-2.*z**2.)
+        r = numpy.sqrt(R * R + z * z)
+        return 4.0 * numpy.pi * r ** (-2.0 - self.alpha) * numpy.exp(
+            -((r / self.rc) ** 2.0)
+        ) * z**2.0 + self._mass(r) / r**5.0 * (R**2.0 - 2.0 * z**2.0)
 
-    def _Rzderiv(self,R,z,phi=0.,t=0.):
+    def _Rzderiv(self, R, z, phi=0.0, t=0.0):
         """
         NAME:
            _Rzderiv
@@ -197,11 +215,20 @@ class PowerSphericalPotentialwCutoff(Potential):
         HISTORY:
            2013-08-28 - Written - Bovy (IAS)
         """
-        r= numpy.sqrt(R*R+z*z)
-        return R*z*(4.*numpy.pi*r**(-2.-self.alpha)*numpy.exp(-(r/self.rc)**2.)
-                    -3.*self._mass(r)/r**5.)
+        r = numpy.sqrt(R * R + z * z)
+        return (
+            R
+            * z
+            * (
+                4.0
+                * numpy.pi
+                * r ** (-2.0 - self.alpha)
+                * numpy.exp(-((r / self.rc) ** 2.0))
+                - 3.0 * self._mass(r) / r**5.0
+            )
+        )
 
-    def _rforce_jax(self,r):
+    def _rforce_jax(self, r):
         """
         NAME:
            _rforce_jax
@@ -214,13 +241,21 @@ class PowerSphericalPotentialwCutoff(Potential):
         HISTORY:
            2022-05-10 - Written - Bovy (UofT)
         """
-        if not _JAX_LOADED: # pragma: no cover
-            raise ImportError("Making use of the _rforce_jax function requires the google/jax library")
-        return -self._amp*2.*numpy.pi*self.rc**(3.-self.alpha)\
-            *jspecial.gammainc(1.5-0.5*self.alpha,(r/self.rc)**2.)\
-            *numpy.exp(jspecial.gammaln(1.5-0.5*self.alpha))/r**2
+        if not _JAX_LOADED:  # pragma: no cover
+            raise ImportError(
+                "Making use of the _rforce_jax function requires the google/jax library"
+            )
+        return (
+            -self._amp
+            * 2.0
+            * numpy.pi
+            * self.rc ** (3.0 - self.alpha)
+            * jspecial.gammainc(1.5 - 0.5 * self.alpha, (r / self.rc) ** 2.0)
+            * numpy.exp(jspecial.gammaln(1.5 - 0.5 * self.alpha))
+            / r**2
+        )
 
-    def _ddensdr(self,r,t=0.):
+    def _ddensdr(self, r, t=0.0):
         """
         NAME:
            _ddensdr
@@ -234,10 +269,14 @@ class PowerSphericalPotentialwCutoff(Potential):
         HISTORY:
            2021-12-15 - Written - Lane (UofT)
         """
-        return -self._amp*r**(-1.-self.alpha)*numpy.exp(-(r/self.rc)**2.)\
-            *(2.*r**2./self.rc**2.+self.alpha)
+        return (
+            -self._amp
+            * r ** (-1.0 - self.alpha)
+            * numpy.exp(-((r / self.rc) ** 2.0))
+            * (2.0 * r**2.0 / self.rc**2.0 + self.alpha)
+        )
 
-    def _d2densdr2(self,r,t=0.):
+    def _d2densdr2(self, r, t=0.0):
         """
         NAME:
            _d2densdr2
@@ -251,11 +290,20 @@ class PowerSphericalPotentialwCutoff(Potential):
         HISTORY:
            2021-12-15 - Written - Lane (UofT)
         """
-        return self._amp*r**(-2.-self.alpha)*numpy.exp(-(r/self.rc)**2)\
-            *(self.alpha**2.+self.alpha+4*self.alpha*r**2./self.rc**2.\
-            -2.*r**2./self.rc**2.+4.*r**4./self.rc**4.)
+        return (
+            self._amp
+            * r ** (-2.0 - self.alpha)
+            * numpy.exp(-((r / self.rc) ** 2))
+            * (
+                self.alpha**2.0
+                + self.alpha
+                + 4 * self.alpha * r**2.0 / self.rc**2.0
+                - 2.0 * r**2.0 / self.rc**2.0
+                + 4.0 * r**4.0 / self.rc**4.0
+            )
+        )
 
-    def _ddenstwobetadr(self,r,beta=0):
+    def _ddenstwobetadr(self, r, beta=0):
         """
         NAME:
            _ddenstwobetadr
@@ -269,12 +317,18 @@ class PowerSphericalPotentialwCutoff(Potential):
         HISTORY:
            2021-03-15 - Written - Lane (UofT)
         """
-        if not _JAX_LOADED: # pragma: no cover
-            raise ImportError("Making use of _rforce_jax function requires the google/jax library")
-        return -self._amp*jnp.exp(-(r/self.rc)**2.)/r**(self.alpha-2.*beta)\
-                         *((self.alpha-2.*beta)/r+2.*r/self.rc**2.)
+        if not _JAX_LOADED:  # pragma: no cover
+            raise ImportError(
+                "Making use of _rforce_jax function requires the google/jax library"
+            )
+        return (
+            -self._amp
+            * jnp.exp(-((r / self.rc) ** 2.0))
+            / r ** (self.alpha - 2.0 * beta)
+            * ((self.alpha - 2.0 * beta) / r + 2.0 * r / self.rc**2.0)
+        )
 
-    def _dens(self,R,z,phi=0.,t=0.):
+    def _dens(self, R, z, phi=0.0, t=0.0):
         """
         NAME:
            _dens
@@ -290,10 +344,10 @@ class PowerSphericalPotentialwCutoff(Potential):
         HISTORY:
            2013-06-28 - Written - Bovy (IAS)
         """
-        r= numpy.sqrt(R**2.+z**2.)
-        return 1./r**self.alpha*numpy.exp(-(r/self.rc)**2.)
+        r = numpy.sqrt(R**2.0 + z**2.0)
+        return 1.0 / r**self.alpha * numpy.exp(-((r / self.rc) ** 2.0))
 
-    def _mass(self,R,z=None,t=0.):
+    def _mass(self, R, z=None, t=0.0):
         """
         NAME:
            _mass
@@ -309,13 +363,20 @@ class PowerSphericalPotentialwCutoff(Potential):
            2013-XX-XX - Written - Bovy (IAS)
            2021-04-07 - Switched to hypergeometric function equivalent to incomplete gamma function for better behavior at alpha < -3 - Bovy (UofT)
         """
-        if z is not None: raise AttributeError # use general implementation
-        return 2.*numpy.pi*R**(3.-self.alpha)/(1.5-self.alpha/2.)\
-            *special.hyp1f1(1.5-self.alpha/2.,2.5-self.alpha/2.,
-                            -(R/self.rc)**2.)
+        if z is not None:
+            raise AttributeError  # use general implementation
+        return (
+            2.0
+            * numpy.pi
+            * R ** (3.0 - self.alpha)
+            / (1.5 - self.alpha / 2.0)
+            * special.hyp1f1(
+                1.5 - self.alpha / 2.0, 2.5 - self.alpha / 2.0, -((R / self.rc) ** 2.0)
+            )
+        )
 
     @kms_to_kpcGyrDecorator
-    def _nemo_accpars(self,vo,ro):
+    def _nemo_accpars(self, vo, ro):
         """
         NAME:
 
@@ -340,5 +401,5 @@ class PowerSphericalPotentialwCutoff(Potential):
            2014-12-18 - Written - Bovy (IAS)
 
         """
-        ampl= self._amp*vo**2.*ro**(self.alpha-2.)
+        ampl = self._amp * vo**2.0 * ro ** (self.alpha - 2.0)
         return f"0,{ampl},{self.alpha},{self.rc*ro}"

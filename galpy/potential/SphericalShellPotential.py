@@ -17,7 +17,8 @@ class SphericalShellPotential(SphericalPotential):
 
     with :math:`\\mathrm{amp} = GM` the mass of the shell.
     """
-    def __init__(self,amp=1.,a=0.75,normalize=False,ro=None,vo=None):
+
+    def __init__(self, amp=1.0, a=0.75, normalize=False, ro=None, vo=None):
         """
         NAME:
 
@@ -48,48 +49,50 @@ class SphericalShellPotential(SphericalPotential):
            2020-03-30 - Re-implemented using SphericalPotential - Bovy (UofT)
 
         """
-        SphericalPotential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='mass')
-        a= conversion.parse_length(a,ro=self._ro)
-        self.a= a
-        self.a2= a**2
-        if normalize or \
-                (isinstance(normalize,(int,float)) \
-                     and not isinstance(normalize,bool)):
-            if self.a > 1.:
-                raise ValueError('SphericalShellPotential with normalize= for a > 1 is not supported (because the force is always 0 at r=1)')
+        SphericalPotential.__init__(self, amp=amp, ro=ro, vo=vo, amp_units="mass")
+        a = conversion.parse_length(a, ro=self._ro)
+        self.a = a
+        self.a2 = a**2
+        if normalize or (
+            isinstance(normalize, (int, float)) and not isinstance(normalize, bool)
+        ):
+            if self.a > 1.0:
+                raise ValueError(
+                    "SphericalShellPotential with normalize= for a > 1 is not supported (because the force is always 0 at r=1)"
+                )
             self.normalize(normalize)
-        self.hasC= False
-        self.hasC_dxdv= False
+        self.hasC = False
+        self.hasC_dxdv = False
 
-    def _revaluate(self,r,t=0.):
+    def _revaluate(self, r, t=0.0):
         """The potential as a function of r"""
         if r <= self.a:
-            return -1./self.a
+            return -1.0 / self.a
         else:
-            return -1./r
+            return -1.0 / r
 
-    def _rforce(self,r,t=0.):
+    def _rforce(self, r, t=0.0):
         """The force as a function of r"""
         if r <= self.a:
-            return 0.
+            return 0.0
         else:
-            return -1/r**2.
+            return -1 / r**2.0
 
-    def _r2deriv(self,r,t=0.):
+    def _r2deriv(self, r, t=0.0):
         """The second radial derivative as a function of r"""
         if r <= self.a:
-            return 0.
+            return 0.0
         else:
-            return -2./r**3.
+            return -2.0 / r**3.0
 
-    def _rdens(self,r,t=0.):
+    def _rdens(self, r, t=0.0):
         """The density as a function of r"""
         if r != self.a:
-            return 0.
-        else: # pragma: no cover
+            return 0.0
+        else:  # pragma: no cover
             return numpy.infty
 
-    def _surfdens(self,R,z,phi=0.,t=0.):
+    def _surfdens(self, R, z, phi=0.0, t=0.0):
         """
         NAME:
            _surfdens
@@ -105,7 +108,10 @@ class SphericalShellPotential(SphericalPotential):
         HISTORY:
            2018-08-04 - Written - Bovy (UofT)
         """
-        if R > self.a: return 0.
-        h= numpy.sqrt(self.a2-R**2)
-        if z < h: return 0.
-        else: return 1./(2.*numpy.pi*self.a*h)
+        if R > self.a:
+            return 0.0
+        h = numpy.sqrt(self.a2 - R**2)
+        if z < h:
+            return 0.0
+        else:
+            return 1.0 / (2.0 * numpy.pi * self.a * h)

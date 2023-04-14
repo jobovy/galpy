@@ -19,9 +19,17 @@ class RazorThinExponentialDiskPotential(Potential):
         \\rho(R,z) = \\mathrm{amp}\\,\\exp\\left(-R/h_R\\right)\\,\\delta(z)
 
     """
-    def __init__(self,amp=1.,hr=1./3.,normalize=False,
-                 ro=None,vo=None,
-                 new=True,glorder=100):
+
+    def __init__(
+        self,
+        amp=1.0,
+        hr=1.0 / 3.0,
+        normalize=False,
+        ro=None,
+        vo=None,
+        new=True,
+        glorder=100,
+    ):
         """
         NAME:
 
@@ -50,20 +58,20 @@ class RazorThinExponentialDiskPotential(Potential):
            2012-12-27 - Written - Bovy (IAS)
 
         """
-        Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='surfacedensity')
-        hr= conversion.parse_length(hr,ro=self._ro)
-        self._new= new
-        self._glorder= glorder
-        self._hr= hr
-        self._scale= self._hr
-        self._alpha= 1./self._hr
-        self._glx, self._glw= numpy.polynomial.legendre.leggauss(self._glorder)
-        if normalize or \
-                (isinstance(normalize,(int,float)) \
-                     and not isinstance(normalize,bool)): #pragma: no cover
+        Potential.__init__(self, amp=amp, ro=ro, vo=vo, amp_units="surfacedensity")
+        hr = conversion.parse_length(hr, ro=self._ro)
+        self._new = new
+        self._glorder = glorder
+        self._hr = hr
+        self._scale = self._hr
+        self._alpha = 1.0 / self._hr
+        self._glx, self._glw = numpy.polynomial.legendre.leggauss(self._glorder)
+        if normalize or (
+            isinstance(normalize, (int, float)) and not isinstance(normalize, bool)
+        ):  # pragma: no cover
             self.normalize(normalize)
 
-    def _evaluate(self,R,z,phi=0.,t=0.):
+    def _evaluate(self, R, z, phi=0.0, t=0.0):
         """
         NAME:
            _evaluate
@@ -80,19 +88,29 @@ class RazorThinExponentialDiskPotential(Potential):
            2012-12-26 - Written - Bovy (IAS)
         """
         if self._new:
-            if numpy.fabs(z) < 10.**-6.:
-                y= 0.5*self._alpha*R
-                return -numpy.pi*R*(special.i0(y)*special.k1(y)-special.i1(y)*special.k0(y))
-            kalphamax= 10.
-            ks= kalphamax*0.5*(self._glx+1.)
-            weights= kalphamax*self._glw
-            sqrtp= numpy.sqrt(z**2.+(ks+R)**2.)
-            sqrtm= numpy.sqrt(z**2.+(ks-R)**2.)
-            evalInt= numpy.arcsin(2.*ks/(sqrtp+sqrtm))*ks*special.k0(self._alpha*ks)
-            return -2.*self._alpha*numpy.sum(weights*evalInt)
-        raise NotImplementedError("Not new=True not implemented for RazorThinExponentialDiskPotential")
+            if numpy.fabs(z) < 10.0**-6.0:
+                y = 0.5 * self._alpha * R
+                return (
+                    -numpy.pi
+                    * R
+                    * (special.i0(y) * special.k1(y) - special.i1(y) * special.k0(y))
+                )
+            kalphamax = 10.0
+            ks = kalphamax * 0.5 * (self._glx + 1.0)
+            weights = kalphamax * self._glw
+            sqrtp = numpy.sqrt(z**2.0 + (ks + R) ** 2.0)
+            sqrtm = numpy.sqrt(z**2.0 + (ks - R) ** 2.0)
+            evalInt = (
+                numpy.arcsin(2.0 * ks / (sqrtp + sqrtm))
+                * ks
+                * special.k0(self._alpha * ks)
+            )
+            return -2.0 * self._alpha * numpy.sum(weights * evalInt)
+        raise NotImplementedError(
+            "Not new=True not implemented for RazorThinExponentialDiskPotential"
+        )
 
-    def _Rforce(self,R,z,phi=0.,t=0.):
+    def _Rforce(self, R, z, phi=0.0, t=0.0):
         """
         NAME:
            Rforce
@@ -109,30 +127,58 @@ class RazorThinExponentialDiskPotential(Potential):
            2012-12-27 - Written - Bovy (IAS)
         """
         if self._new:
-            #if R > 6.: return self._kp(R,z)
-            if numpy.fabs(z) < 10.**-6.:
-                y= 0.5*self._alpha*R
-                return -2.*numpy.pi*y*(special.i0(y)*special.k0(y)-special.i1(y)*special.k1(y))
-            kalphamax1= R
-            ks1= kalphamax1*0.5*(self._glx+1.)
-            weights1= kalphamax1*self._glw
-            sqrtp= numpy.sqrt(z**2.+(ks1+R)**2.)
-            sqrtm= numpy.sqrt(z**2.+(ks1-R)**2.)
-            evalInt1= ks1**2.*special.k0(ks1*self._alpha)*((ks1+R)/sqrtp-(ks1-R)/sqrtm)/numpy.sqrt(R**2.+z**2.-ks1**2.+sqrtp*sqrtm)/(sqrtp+sqrtm)
-            if R < 10.:
-                kalphamax2= 10.
-                ks2= (kalphamax2-kalphamax1)*0.5*(self._glx+1.)+kalphamax1
-                weights2= (kalphamax2-kalphamax1)*self._glw
-                sqrtp= numpy.sqrt(z**2.+(ks2+R)**2.)
-                sqrtm= numpy.sqrt(z**2.+(ks2-R)**2.)
-                evalInt2= ks2**2.*special.k0(ks2*self._alpha)*((ks2+R)/sqrtp-(ks2-R)/sqrtm)/numpy.sqrt(R**2.+z**2.-ks2**2.+sqrtp*sqrtm)/(sqrtp+sqrtm)
-                return -2.*numpy.sqrt(2.)*self._alpha*numpy.sum(weights1*evalInt1
-                                                          +weights2*evalInt2)
+            # if R > 6.: return self._kp(R,z)
+            if numpy.fabs(z) < 10.0**-6.0:
+                y = 0.5 * self._alpha * R
+                return (
+                    -2.0
+                    * numpy.pi
+                    * y
+                    * (special.i0(y) * special.k0(y) - special.i1(y) * special.k1(y))
+                )
+            kalphamax1 = R
+            ks1 = kalphamax1 * 0.5 * (self._glx + 1.0)
+            weights1 = kalphamax1 * self._glw
+            sqrtp = numpy.sqrt(z**2.0 + (ks1 + R) ** 2.0)
+            sqrtm = numpy.sqrt(z**2.0 + (ks1 - R) ** 2.0)
+            evalInt1 = (
+                ks1**2.0
+                * special.k0(ks1 * self._alpha)
+                * ((ks1 + R) / sqrtp - (ks1 - R) / sqrtm)
+                / numpy.sqrt(R**2.0 + z**2.0 - ks1**2.0 + sqrtp * sqrtm)
+                / (sqrtp + sqrtm)
+            )
+            if R < 10.0:
+                kalphamax2 = 10.0
+                ks2 = (kalphamax2 - kalphamax1) * 0.5 * (self._glx + 1.0) + kalphamax1
+                weights2 = (kalphamax2 - kalphamax1) * self._glw
+                sqrtp = numpy.sqrt(z**2.0 + (ks2 + R) ** 2.0)
+                sqrtm = numpy.sqrt(z**2.0 + (ks2 - R) ** 2.0)
+                evalInt2 = (
+                    ks2**2.0
+                    * special.k0(ks2 * self._alpha)
+                    * ((ks2 + R) / sqrtp - (ks2 - R) / sqrtm)
+                    / numpy.sqrt(R**2.0 + z**2.0 - ks2**2.0 + sqrtp * sqrtm)
+                    / (sqrtp + sqrtm)
+                )
+                return (
+                    -2.0
+                    * numpy.sqrt(2.0)
+                    * self._alpha
+                    * numpy.sum(weights1 * evalInt1 + weights2 * evalInt2)
+                )
             else:
-                return -2.*numpy.sqrt(2.)*self._alpha*numpy.sum(weights1*evalInt1)
-        raise NotImplementedError("Not new=True not implemented for RazorThinExponentialDiskPotential")
+                return (
+                    -2.0
+                    * numpy.sqrt(2.0)
+                    * self._alpha
+                    * numpy.sum(weights1 * evalInt1)
+                )
+        raise NotImplementedError(
+            "Not new=True not implemented for RazorThinExponentialDiskPotential"
+        )
 
-    def _zforce(self,R,z,phi=0.,t=0.):
+    def _zforce(self, R, z, phi=0.0, t=0.0):
         """
         NAME:
            zforce
@@ -149,30 +195,54 @@ class RazorThinExponentialDiskPotential(Potential):
            2012-12-27 - Written - Bovy (IAS)
         """
         if self._new:
-            #if R > 6.: return self._kp(R,z)
-            if numpy.fabs(z) < 10.**-6.:
-                return 0.
-            kalphamax1= R
-            ks1= kalphamax1*0.5*(self._glx+1.)
-            weights1= kalphamax1*self._glw
-            sqrtp= numpy.sqrt(z**2.+(ks1+R)**2.)
-            sqrtm= numpy.sqrt(z**2.+(ks1-R)**2.)
-            evalInt1= ks1**2.*special.k0(ks1*self._alpha)*(1./sqrtp+1./sqrtm)/numpy.sqrt(R**2.+z**2.-ks1**2.+sqrtp*sqrtm)/(sqrtp+sqrtm)
-            if R < 10.:
-                kalphamax2= 10.
-                ks2= (kalphamax2-kalphamax1)*0.5*(self._glx+1.)+kalphamax1
-                weights2= (kalphamax2-kalphamax1)*self._glw
-                sqrtp= numpy.sqrt(z**2.+(ks2+R)**2.)
-                sqrtm= numpy.sqrt(z**2.+(ks2-R)**2.)
-                evalInt2= ks2**2.*special.k0(ks2*self._alpha)*(1./sqrtp+1./sqrtm)/numpy.sqrt(R**2.+z**2.-ks2**2.+sqrtp*sqrtm)/(sqrtp+sqrtm)
-                return -z*2.*numpy.sqrt(2.)*self._alpha*numpy.sum(weights1*evalInt1
-                                                            +weights2*evalInt2)
+            # if R > 6.: return self._kp(R,z)
+            if numpy.fabs(z) < 10.0**-6.0:
+                return 0.0
+            kalphamax1 = R
+            ks1 = kalphamax1 * 0.5 * (self._glx + 1.0)
+            weights1 = kalphamax1 * self._glw
+            sqrtp = numpy.sqrt(z**2.0 + (ks1 + R) ** 2.0)
+            sqrtm = numpy.sqrt(z**2.0 + (ks1 - R) ** 2.0)
+            evalInt1 = (
+                ks1**2.0
+                * special.k0(ks1 * self._alpha)
+                * (1.0 / sqrtp + 1.0 / sqrtm)
+                / numpy.sqrt(R**2.0 + z**2.0 - ks1**2.0 + sqrtp * sqrtm)
+                / (sqrtp + sqrtm)
+            )
+            if R < 10.0:
+                kalphamax2 = 10.0
+                ks2 = (kalphamax2 - kalphamax1) * 0.5 * (self._glx + 1.0) + kalphamax1
+                weights2 = (kalphamax2 - kalphamax1) * self._glw
+                sqrtp = numpy.sqrt(z**2.0 + (ks2 + R) ** 2.0)
+                sqrtm = numpy.sqrt(z**2.0 + (ks2 - R) ** 2.0)
+                evalInt2 = (
+                    ks2**2.0
+                    * special.k0(ks2 * self._alpha)
+                    * (1.0 / sqrtp + 1.0 / sqrtm)
+                    / numpy.sqrt(R**2.0 + z**2.0 - ks2**2.0 + sqrtp * sqrtm)
+                    / (sqrtp + sqrtm)
+                )
+                return (
+                    -z
+                    * 2.0
+                    * numpy.sqrt(2.0)
+                    * self._alpha
+                    * numpy.sum(weights1 * evalInt1 + weights2 * evalInt2)
+                )
             else:
-                return -z*2.*numpy.sqrt(2.)*self._alpha*numpy.sum(weights1*evalInt1)
-        raise NotImplementedError("Not new=True not implemented for RazorThinExponentialDiskPotential")
+                return (
+                    -z
+                    * 2.0
+                    * numpy.sqrt(2.0)
+                    * self._alpha
+                    * numpy.sum(weights1 * evalInt1)
+                )
+        raise NotImplementedError(
+            "Not new=True not implemented for RazorThinExponentialDiskPotential"
+        )
 
-
-    def _R2deriv(self,R,z,phi=0.,t=0.):
+    def _R2deriv(self, R, z, phi=0.0, t=0.0):
         """
         NAME:
            R2deriv
@@ -189,13 +259,19 @@ class RazorThinExponentialDiskPotential(Potential):
            2012-12-27 - Written - Bovy (IAS)
         """
         if self._new:
-            if numpy.fabs(z) < 10.**-6.:
-                y= 0.5*self._alpha*R
-                return numpy.pi*self._alpha*(special.i0(y)*special.k0(y)-special.i1(y)*special.k1(y)) \
-                    +numpy.pi/4.*self._alpha**2.*R*(special.i1(y)*(3.*special.k0(y)+special.kn(2,y))-special.k1(y)*(3.*special.i0(y)+special.iv(2,y)))
-            raise AttributeError("'R2deriv' for RazorThinExponentialDisk not implemented for z =/= 0")
+            if numpy.fabs(z) < 10.0**-6.0:
+                y = 0.5 * self._alpha * R
+                return numpy.pi * self._alpha * (
+                    special.i0(y) * special.k0(y) - special.i1(y) * special.k1(y)
+                ) + numpy.pi / 4.0 * self._alpha**2.0 * R * (
+                    special.i1(y) * (3.0 * special.k0(y) + special.kn(2, y))
+                    - special.k1(y) * (3.0 * special.i0(y) + special.iv(2, y))
+                )
+            raise AttributeError(
+                "'R2deriv' for RazorThinExponentialDisk not implemented for z =/= 0"
+            )
 
-    def _z2deriv(self,R,z,phi=0.,t=0.): #pragma: no cover
+    def _z2deriv(self, R, z, phi=0.0, t=0.0):  # pragma: no cover
         """
         NAME:
            z2deriv
@@ -213,7 +289,7 @@ class RazorThinExponentialDiskPotential(Potential):
         """
         return numpy.infty
 
-    def _surfdens(self,R,z,phi=0.,t=0.):
+    def _surfdens(self, R, z, phi=0.0, t=0.0):
         """
         NAME:
            _surfdens
@@ -229,9 +305,9 @@ class RazorThinExponentialDiskPotential(Potential):
         HISTORY:
            2018-08-19 - Written - Bovy (UofT)
         """
-        return numpy.exp(-self._alpha*R)
+        return numpy.exp(-self._alpha * R)
 
-    def _mass(self,R,z=None,t=0.):
+    def _mass(self, R, z=None, t=0.0):
         """
         NAME:
            _mass
@@ -246,5 +322,9 @@ class RazorThinExponentialDiskPotential(Potential):
         HISTORY:
            2021-03-04 - Written - Bovy (UofT)
         """
-        return 2.*numpy.pi*(1.-numpy.exp(-self._alpha*R)*(1.+self._alpha*R))\
-            /self._alpha**2.
+        return (
+            2.0
+            * numpy.pi
+            * (1.0 - numpy.exp(-self._alpha * R) * (1.0 + self._alpha * R))
+            / self._alpha**2.0
+        )

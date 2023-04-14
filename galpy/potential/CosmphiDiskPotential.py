@@ -6,7 +6,9 @@ import numpy
 from ..util import conversion
 from .planarPotential import planarPotential
 
-_degtorad= numpy.pi/180.
+_degtorad = numpy.pi / 180.0
+
+
 class CosmphiDiskPotential(planarPotential):
     """Class that implements the disk potential
 
@@ -20,9 +22,21 @@ class CosmphiDiskPotential(planarPotential):
     This potential can be grown between  :math:`t_{\\mathrm{form}}` and  :math:`t_{\\mathrm{form}}+T_{\\mathrm{steady}}` in a similar way as DehnenBarPotential by wrapping it with a DehnenSmoothWrapperPotential
 
    """
-    def __init__(self,amp=1.,phib=25.*_degtorad,
-                 p=1.,phio=0.01,m=4,r1=1.,rb=None,
-                 cp=None,sp=None,ro=None,vo=None):
+
+    def __init__(
+        self,
+        amp=1.0,
+        phib=25.0 * _degtorad,
+        p=1.0,
+        phio=0.01,
+        m=4,
+        r1=1.0,
+        rb=None,
+        cp=None,
+        sp=None,
+        ro=None,
+        vo=None,
+    ):
         """
         NAME:
 
@@ -66,40 +80,40 @@ class CosmphiDiskPotential(planarPotential):
            2017-09-16 - Added break radius rb - Bovy (UofT)
 
         """
-        planarPotential.__init__(self,amp=amp,ro=ro,vo=vo)
-        phib= conversion.parse_angle(phib)
-        r1= conversion.parse_length(r1,ro=self._ro)
-        rb= conversion.parse_length(rb,ro=self._ro)
-        phio= conversion.parse_energy(phio,vo=self._vo)
-        cp= conversion.parse_energy(cp,vo=self._vo)
-        sp= conversion.parse_energy(sp,vo=self._vo)
+        planarPotential.__init__(self, amp=amp, ro=ro, vo=vo)
+        phib = conversion.parse_angle(phib)
+        r1 = conversion.parse_length(r1, ro=self._ro)
+        rb = conversion.parse_length(rb, ro=self._ro)
+        phio = conversion.parse_energy(phio, vo=self._vo)
+        cp = conversion.parse_energy(cp, vo=self._vo)
+        sp = conversion.parse_energy(sp, vo=self._vo)
         # Back to old definition
-        self._r1p= r1**p
-        self._amp/= self._r1p
-        self.hasC= False
-        self._m= int(m) # make sure this is an int
+        self._r1p = r1**p
+        self._amp /= self._r1p
+        self.hasC = False
+        self._m = int(m)  # make sure this is an int
         if cp is None or sp is None:
-            self._phib= phib
-            self._mphio= phio*self._m
+            self._phib = phib
+            self._mphio = phio * self._m
         else:
-            self._mphio= numpy.sqrt(cp*cp+sp*sp)
-            self._phib= numpy.arctan(sp/cp)/self._m
-            if m < 2. and cp < 0.:
-                self._phib= numpy.pi+self._phib
-        self._p= p
+            self._mphio = numpy.sqrt(cp * cp + sp * sp)
+            self._phib = numpy.arctan(sp / cp) / self._m
+            if m < 2.0 and cp < 0.0:
+                self._phib = numpy.pi + self._phib
+        self._p = p
         if rb is None:
-            self._rb= 0.
-            self._rbp= 1. # never used, but for p < 0 general expr fails
-            self._rb2p= 1.
+            self._rb = 0.0
+            self._rbp = 1.0  # never used, but for p < 0 general expr fails
+            self._rb2p = 1.0
         else:
-            self._rb= rb
-            self._rbp= self._rb**self._p
-            self._rb2p= self._rbp**2.
-        self._mphib= self._m*self._phib
-        self.hasC= True
-        self.hasC_dxdv= True
+            self._rb = rb
+            self._rbp = self._rb**self._p
+            self._rb2p = self._rbp**2.0
+        self._mphib = self._m * self._phib
+        self.hasC = True
+        self.hasC_dxdv = True
 
-    def _evaluate(self,R,phi=0.,t=0.):
+    def _evaluate(self, R, phi=0.0, t=0.0):
         """
         NAME:
            _evaluate
@@ -115,13 +129,22 @@ class CosmphiDiskPotential(planarPotential):
            2011-10-19 - Started - Bovy (IAS)
         """
         if R < self._rb:
-            return self._mphio/self._m*numpy.cos(self._m*phi-self._mphib)\
-                *self._rbp*(2.*self._r1p-self._rbp/R**self._p)
+            return (
+                self._mphio
+                / self._m
+                * numpy.cos(self._m * phi - self._mphib)
+                * self._rbp
+                * (2.0 * self._r1p - self._rbp / R**self._p)
+            )
         else:
-            return self._mphio/self._m*R**self._p\
-                *numpy.cos(self._m*phi-self._mphib)
+            return (
+                self._mphio
+                / self._m
+                * R**self._p
+                * numpy.cos(self._m * phi - self._mphib)
+            )
 
-    def _Rforce(self,R,phi=0.,t=0.):
+    def _Rforce(self, R, phi=0.0, t=0.0):
         """
         NAME:
            _Rforce
@@ -137,13 +160,24 @@ class CosmphiDiskPotential(planarPotential):
            2011-10-19 - Written - Bovy (IAS)
         """
         if R < self._rb:
-            return -self._p*self._mphio/self._m*self._rb2p/R**(self._p+1.)\
-                *numpy.cos(self._m*phi-self._mphib)
+            return (
+                -self._p
+                * self._mphio
+                / self._m
+                * self._rb2p
+                / R ** (self._p + 1.0)
+                * numpy.cos(self._m * phi - self._mphib)
+            )
         else:
-            return -self._p*self._mphio/self._m*R**(self._p-1.)\
-                *numpy.cos(self._m*phi-self._mphib)
+            return (
+                -self._p
+                * self._mphio
+                / self._m
+                * R ** (self._p - 1.0)
+                * numpy.cos(self._m * phi - self._mphib)
+            )
 
-    def _phitorque(self,R,phi=0.,t=0.):
+    def _phitorque(self, R, phi=0.0, t=0.0):
         """
         NAME:
            _phitorque
@@ -159,51 +193,96 @@ class CosmphiDiskPotential(planarPotential):
            2011-10-19 - Written - Bovy (IAS)
         """
         if R < self._rb:
-            return self._mphio*numpy.sin(self._m*phi-self._mphib)\
-                *self._rbp*(2.*self._r1p-self._rbp/R**self._p)
+            return (
+                self._mphio
+                * numpy.sin(self._m * phi - self._mphib)
+                * self._rbp
+                * (2.0 * self._r1p - self._rbp / R**self._p)
+            )
         else:
-            return self._mphio*R**self._p*numpy.sin(self._m*phi-self._mphib)
+            return self._mphio * R**self._p * numpy.sin(self._m * phi - self._mphib)
 
-    def _R2deriv(self,R,phi=0.,t=0.):
+    def _R2deriv(self, R, phi=0.0, t=0.0):
         if R < self._rb:
-            return -self._p*(self._p+1.)*self._mphio/self._m\
-                *self._rb2p/R**(self._p+2.)*numpy.cos(self._m*phi-self._mphib)
+            return (
+                -self._p
+                * (self._p + 1.0)
+                * self._mphio
+                / self._m
+                * self._rb2p
+                / R ** (self._p + 2.0)
+                * numpy.cos(self._m * phi - self._mphib)
+            )
         else:
-            return self._p*(self._p-1.)/self._m*self._mphio*R**(self._p-2.)\
-                *numpy.cos(self._m*phi-self._mphib)
+            return (
+                self._p
+                * (self._p - 1.0)
+                / self._m
+                * self._mphio
+                * R ** (self._p - 2.0)
+                * numpy.cos(self._m * phi - self._mphib)
+            )
 
-    def _phi2deriv(self,R,phi=0.,t=0.):
+    def _phi2deriv(self, R, phi=0.0, t=0.0):
         if R < self._rb:
-            return -self._m*self._mphio*numpy.cos(self._m*phi-self._mphib)\
-                *self._rbp*(2.*self._r1p-self._rbp/R**self._p)
+            return (
+                -self._m
+                * self._mphio
+                * numpy.cos(self._m * phi - self._mphib)
+                * self._rbp
+                * (2.0 * self._r1p - self._rbp / R**self._p)
+            )
         else:
-            return -self._m*self._mphio*R**self._p\
-                *numpy.cos(self._m*phi-self._mphib)
+            return (
+                -self._m
+                * self._mphio
+                * R**self._p
+                * numpy.cos(self._m * phi - self._mphib)
+            )
 
-    def _Rphideriv(self,R,phi=0.,t=0.):
+    def _Rphideriv(self, R, phi=0.0, t=0.0):
         if R < self._rb:
-            return -self._p*self._mphio/self._m*self._rb2p/R**(self._p+1.)\
-                *numpy.sin(self._m*phi-self._mphib)
+            return (
+                -self._p
+                * self._mphio
+                / self._m
+                * self._rb2p
+                / R ** (self._p + 1.0)
+                * numpy.sin(self._m * phi - self._mphib)
+            )
         else:
-            return -self._p*self._mphio*R**(self._p-1.)*\
-                numpy.sin(self._m*phi-self._mphib)
+            return (
+                -self._p
+                * self._mphio
+                * R ** (self._p - 1.0)
+                * numpy.sin(self._m * phi - self._mphib)
+            )
+
 
 class LopsidedDiskPotential(CosmphiDiskPotential):
     """Class that implements the disk potential
 
-    .. math::
+     .. math::
 
-        \\Phi(R,\\phi) = \\mathrm{amp}\\,\\phi_0\\,\\left(\\frac{R}{R_1}\\right)^p\\,\\cos\\left(\\phi-\\phi_b\\right)
+         \\Phi(R,\\phi) = \\mathrm{amp}\\,\\phi_0\\,\\left(\\frac{R}{R_1}\\right)^p\\,\\cos\\left(\\phi-\\phi_b\\right)
 
-   Special case of CosmphiDiskPotential with m=1; see documentation for CosmphiDiskPotential
-   """
-    def __init__(self,amp=1.,phib=25.*_degtorad,
-                 p=1.,phio=0.01,r1=1.,
-                 cp=None,sp=None,ro=None,vo=None):
-        CosmphiDiskPotential.__init__(self,
-                                      amp=amp,
-                                      phib=phib,
-                                      p=p,phio=phio,m=1.,
-                                      cp=cp,sp=sp,ro=ro,vo=vo)
-        self.hasC= True
-        self.hasC_dxdv= True
+    Special case of CosmphiDiskPotential with m=1; see documentation for CosmphiDiskPotential
+    """
+
+    def __init__(
+        self,
+        amp=1.0,
+        phib=25.0 * _degtorad,
+        p=1.0,
+        phio=0.01,
+        r1=1.0,
+        cp=None,
+        sp=None,
+        ro=None,
+        vo=None,
+    ):
+        CosmphiDiskPotential.__init__(
+            self, amp=amp, phib=phib, p=p, phio=phio, m=1.0, cp=cp, sp=sp, ro=ro, vo=vo
+        )
+        self.hasC = True
+        self.hasC_dxdv = True

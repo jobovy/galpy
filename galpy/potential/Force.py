@@ -9,14 +9,20 @@ import numpy
 
 from ..util import config, conversion
 from ..util._optional_deps import _APY_LOADED
-from ..util.conversion import (physical_compatible, physical_conversion,
-                               potential_physical_input)
+from ..util.conversion import (
+    physical_compatible,
+    physical_conversion,
+    potential_physical_input,
+)
 
 if _APY_LOADED:
     from astropy import units
+
+
 class Force:
     """Top-level class for any force, conservative or dissipative"""
-    def __init__(self,amp=1.,ro=None,vo=None,amp_units=None):
+
+    def __init__(self, amp=1.0, ro=None, vo=None, amp_units=None):
         """
         NAME:
 
@@ -41,68 +47,88 @@ class Force:
         HISTORY:
            2018-03-18 - Written to generalize Potential to force that may or may not be conservative - Bovy (UofT)
         """
-        self._amp= amp
+        self._amp = amp
         # Parse ro and vo
         if ro is None:
-            self._ro= config.__config__.getfloat('normalization','ro')
-            self._roSet= False
+            self._ro = config.__config__.getfloat("normalization", "ro")
+            self._roSet = False
         else:
-            self._ro= conversion.parse_length_kpc(ro)
-            self._roSet= True
+            self._ro = conversion.parse_length_kpc(ro)
+            self._roSet = True
         if vo is None:
-            self._vo= config.__config__.getfloat('normalization','vo')
-            self._voSet= False
+            self._vo = config.__config__.getfloat("normalization", "vo")
+            self._voSet = False
         else:
-            self._vo= conversion.parse_velocity_kms(vo)
-            self._voSet= True
+            self._vo = conversion.parse_velocity_kms(vo)
+            self._voSet = True
         # Parse amp if it has units
-        if _APY_LOADED and isinstance(self._amp,units.Quantity):
+        if _APY_LOADED and isinstance(self._amp, units.Quantity):
             # Try a bunch of possible units
-            unitFound= False
+            unitFound = False
             # velocity^2
             try:
-                self._amp= conversion.parse_energy(self._amp,vo=self._vo)
-            except units.UnitConversionError: pass
+                self._amp = conversion.parse_energy(self._amp, vo=self._vo)
+            except units.UnitConversionError:
+                pass
             else:
-                unitFound= True
-                if not amp_units == 'velocity2':
-                    raise units.UnitConversionError(f'amp= parameter of {type(self).__name__} should have units of {amp_units}, but has units of velocity2 instead')
+                unitFound = True
+                if not amp_units == "velocity2":
+                    raise units.UnitConversionError(
+                        f"amp= parameter of {type(self).__name__} should have units of {amp_units}, but has units of velocity2 instead"
+                    )
             if not unitFound:
                 # mass
                 try:
-                    self._amp= conversion.parse_mass(self._amp,ro=self._ro,vo=self._vo)
-                except units.UnitConversionError: pass
+                    self._amp = conversion.parse_mass(
+                        self._amp, ro=self._ro, vo=self._vo
+                    )
+                except units.UnitConversionError:
+                    pass
                 else:
-                    unitFound= True
-                    if not amp_units == 'mass':
-                        raise units.UnitConversionError(f'amp= parameter of {type(self).__name__} should have units of {amp_units}, but has units of mass instead')
+                    unitFound = True
+                    if not amp_units == "mass":
+                        raise units.UnitConversionError(
+                            f"amp= parameter of {type(self).__name__} should have units of {amp_units}, but has units of mass instead"
+                        )
             if not unitFound:
                 # density
                 try:
-                    self._amp= conversion.parse_dens(self._amp,ro=self._ro,vo=self._vo)
-                except units.UnitConversionError: pass
+                    self._amp = conversion.parse_dens(
+                        self._amp, ro=self._ro, vo=self._vo
+                    )
+                except units.UnitConversionError:
+                    pass
                 else:
-                    unitFound= True
-                    if not amp_units == 'density':
-                        raise units.UnitConversionError(f'amp= parameter of {type(self).__name__} should have units of {amp_units}, but has units of density instead')
+                    unitFound = True
+                    if not amp_units == "density":
+                        raise units.UnitConversionError(
+                            f"amp= parameter of {type(self).__name__} should have units of {amp_units}, but has units of density instead"
+                        )
             if not unitFound:
                 # surface density
                 try:
-                    self._amp= conversion.parse_surfdens(self._amp,ro=self._ro,vo=self._vo)
-                except units.UnitConversionError: pass
+                    self._amp = conversion.parse_surfdens(
+                        self._amp, ro=self._ro, vo=self._vo
+                    )
+                except units.UnitConversionError:
+                    pass
                 else:
-                    unitFound= True
-                    if not amp_units == 'surfacedensity':
-                        raise units.UnitConversionError(f'amp= parameter of {type(self).__name__} should have units of {amp_units}, but has units of surface density instead')
+                    unitFound = True
+                    if not amp_units == "surfacedensity":
+                        raise units.UnitConversionError(
+                            f"amp= parameter of {type(self).__name__} should have units of {amp_units}, but has units of surface density instead"
+                        )
             if not unitFound:
-                raise units.UnitConversionError(f'amp= parameter of {type(self).__name__} should have units of {amp_units}; given units are not understood')
+                raise units.UnitConversionError(
+                    f"amp= parameter of {type(self).__name__} should have units of {amp_units}; given units are not understood"
+                )
             else:
                 # When amplitude is given with units, turn on physical output
-                self._roSet= True
-                self._voSet= True
+                self._roSet = True
+                self._voSet = True
         return None
 
-    def __mul__(self,b):
+    def __mul__(self, b):
         """
         NAME:
 
@@ -125,17 +151,23 @@ class Force:
            2019-01-27 - Written - Bovy (UofT)
 
         """
-        if not isinstance(b,(int,float)):
-            raise TypeError("Can only multiply a Force or Potential instance with a number")
-        out= copy.deepcopy(self)
-        out._amp*= b
+        if not isinstance(b, (int, float)):
+            raise TypeError(
+                "Can only multiply a Force or Potential instance with a number"
+            )
+        out = copy.deepcopy(self)
+        out._amp *= b
         return out
-    # Similar functions
-    __rmul__= __mul__
-    def __div__(self,b): return self.__mul__(1./b)
-    __truediv__= __div__
 
-    def __add__(self,b):
+    # Similar functions
+    __rmul__ = __mul__
+
+    def __div__(self, b):
+        return self.__mul__(1.0 / b)
+
+    __truediv__ = __div__
+
+    def __add__(self, b):
         """
         NAME:
 
@@ -162,28 +194,37 @@ class Force:
         """
         from ..potential import flatten as flatten_pot
         from ..potential import planarPotential
-        if not isinstance(flatten_pot([b])[0],(Force,planarPotential)):
-            raise TypeError("""Can only combine galpy Force objects with """
-                            """other Force objects or lists thereof""")
-        assert physical_compatible(self,b), \
-            """Physical unit conversion parameters (ro,vo) are not """\
+
+        if not isinstance(flatten_pot([b])[0], (Force, planarPotential)):
+            raise TypeError(
+                """Can only combine galpy Force objects with """
+                """other Force objects or lists thereof"""
+            )
+        assert physical_compatible(self, b), (
+            """Physical unit conversion parameters (ro,vo) are not """
             """compatible between potentials to be combined"""
-        if isinstance(b,list):
-            return [self]+b
+        )
+        if isinstance(b, list):
+            return [self] + b
         else:
-            return [self,b]
+            return [self, b]
+
     # Define separately to keep order
-    def __radd__(self,b):
+    def __radd__(self, b):
         from ..potential import flatten as flatten_pot
         from ..potential import planarPotential
-        if not isinstance(flatten_pot([b])[0],(Force,planarPotential)):
-            raise TypeError("""Can only combine galpy Force objects with """
-                            """other Force objects or lists thereof""")
-        assert physical_compatible(self,b), \
-            """Physical unit conversion parameters (ro,vo) are not """\
+
+        if not isinstance(flatten_pot([b])[0], (Force, planarPotential)):
+            raise TypeError(
+                """Can only combine galpy Force objects with """
+                """other Force objects or lists thereof"""
+            )
+        assert physical_compatible(self, b), (
+            """Physical unit conversion parameters (ro,vo) are not """
             """compatible between potentials to be combined"""
+        )
         # If we get here, b has to be a list
-        return b+[self]
+        return b + [self]
 
     def turn_physical_off(self):
         """
@@ -208,11 +249,11 @@ class Force:
            2016-01-30 - Written - Bovy (UofT)
 
         """
-        self._roSet= False
-        self._voSet= False
+        self._roSet = False
+        self._voSet = False
         return None
 
-    def turn_physical_on(self,ro=None,vo=None):
+    def turn_physical_on(self, ro=None, vo=None):
         """
         NAME:
 
@@ -240,20 +281,20 @@ class Force:
 
         """
         if not ro is False:
-            self._roSet= True
-            ro= conversion.parse_length_kpc(ro)
+            self._roSet = True
+            ro = conversion.parse_length_kpc(ro)
             if not ro is None:
-                self._ro= ro
+                self._ro = ro
         if not vo is False:
-            self._voSet= True
-            vo= conversion.parse_velocity_kms(vo)
+            self._voSet = True
+            vo = conversion.parse_velocity_kms(vo)
             if not vo is None:
-                self._vo= vo
+                self._vo = vo
         return None
 
     @potential_physical_input
-    @physical_conversion('force',pop=True)
-    def rforce(self,R,z,**kwargs):
+    @physical_conversion("force", pop=True)
+    def rforce(self, R, z, **kwargs):
         """
         NAME:
 
@@ -284,6 +325,6 @@ class Force:
            2016-06-20 - Written - Bovy (UofT)
 
         """
-        r= numpy.sqrt(R**2.+z**2.)
-        kwargs['use_physical']= False
-        return self.Rforce(R,z,**kwargs)*R/r+self.zforce(R,z,**kwargs)*z/r
+        r = numpy.sqrt(R**2.0 + z**2.0)
+        kwargs["use_physical"] = False
+        return self.Rforce(R, z, **kwargs) * R / r + self.zforce(R, z, **kwargs) * z / r
