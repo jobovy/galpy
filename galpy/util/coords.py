@@ -1881,14 +1881,12 @@ def galcenrect_to_XYZ_jac(*args, **kwargs):
     out[1, 1] = 1.0
     out[2, 0] = -numpy.sign(Xsun) * sintheta
     out[2, 2] = numpy.sign(Xsun) * costheta
-    if len(args) == 3:
-        return out[:3, :3]
     out[3, 3] = -costheta
     out[3, 5] = -sintheta
     out[4, 4] = 1.0
     out[5, 3] = -numpy.sign(Xsun) * sintheta
     out[5, 5] = numpy.sign(Xsun) * costheta
-    return out
+    return out[: len(args), : len(args)]
 
 
 def lbd_to_XYZ_jac(*args, **kwargs):
@@ -2364,10 +2362,8 @@ def Rz_to_lambdanu(R, z, ac=5.0, Delta=1.0):
         l = R**2 - a
         n = -g
     elif isinstance(z, numpy.ndarray) and numpy.sum(z == 0.0) > 0:
-        if isinstance(R, float):
-            l[z == 0.0] = R**2 - a
-        if isinstance(R, numpy.ndarray):
-            l[z == 0.0] = R[z == 0.0] ** 2 - a
+        R = numpy.atleast_1d(R)
+        l[z == 0.0] = R[z == 0.0] ** 2 - a
         n[z == 0.0] = -g
     return (l, n)
 
@@ -2404,11 +2400,7 @@ def Rz_to_lambdanu_jac(R, z, Delta=1.0):
     dndR = R * (1.0 - (R**2 + z**2 + Delta**2) / numpy.sqrt(discr))
     dldz = z * (1.0 + (R**2 + z**2 - Delta**2) / numpy.sqrt(discr))
     dndz = z * (1.0 - (R**2 + z**2 - Delta**2) / numpy.sqrt(discr))
-    dim = 1
-    if isinstance(R, numpy.ndarray):
-        dim = len(R)
-    elif isinstance(z, numpy.ndarray):
-        dim = len(z)
+    dim = numpy.amax([len(numpy.atleast_1d(R)), len(numpy.atleast_1d(z))])
     jac = numpy.zeros((2, 2, dim))
     jac[0, 0, :] = dldR
     jac[0, 1, :] = dldz
@@ -2474,11 +2466,7 @@ def Rz_to_lambdanu_hess(R, z, Delta=1.0):
     )
     d2ldRdz = 2.0 * R * z / discr**0.5 * (1.0 - ((R2 + z2) ** 2 - D**4) / discr)
     d2ndRdz = 2.0 * R * z / discr**0.5 * (-1.0 + ((R2 + z2) ** 2 - D**4) / discr)
-    dim = 1
-    if isinstance(R, numpy.ndarray):
-        dim = len(R)
-    elif isinstance(z, numpy.ndarray):
-        dim = len(z)
+    dim = numpy.amax([len(numpy.atleast_1d(R)), len(numpy.atleast_1d(z))])
     hess = numpy.zeros((2, 2, 2, dim))
     # Hessian for lambda:
     hess[0, 0, 0, :] = d2ldR2
