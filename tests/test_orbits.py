@@ -1577,35 +1577,130 @@ def test_initialize_diffphasedim_error():
     from galpy.orbit import Orbit
 
     # 2D with 3D
-    with pytest.raises((RuntimeError, ValueError)) as excinfo:
+    with pytest.raises(
+        (RuntimeError, ValueError),
+        match="All individual orbits in an Orbit class must have the same phase-space dimensionality",
+    ) as excinfo:
         Orbit([[1.0, 0.1], [1.0, 0.1, 1.0]])
     # 2D with 4D
-    with pytest.raises((RuntimeError, ValueError)) as excinfo:
+    with pytest.raises(
+        (RuntimeError, ValueError),
+        match="All individual orbits in an Orbit class must have the same phase-space dimensionality",
+    ) as excinfo:
         Orbit([[1.0, 0.1], [1.0, 0.1, 1.0, 0.1]])
     # 2D with 5D
-    with pytest.raises((RuntimeError, ValueError)) as excinfo:
+    with pytest.raises(
+        (RuntimeError, ValueError),
+        match="All individual orbits in an Orbit class must have the same phase-space dimensionality",
+    ) as excinfo:
         Orbit([[1.0, 0.1], [1.0, 0.1, 1.0, 0.1, 0.2]])
     # 2D with 6D
-    with pytest.raises((RuntimeError, ValueError)) as excinfo:
+    with pytest.raises(
+        (RuntimeError, ValueError),
+        match="All individual orbits in an Orbit class must have the same phase-space dimensionality",
+    ) as excinfo:
         Orbit([[1.0, 0.1], [1.0, 0.1, 1.0, 0.1, 0.2, 3.0]])
     # 3D with 4D
-    with pytest.raises((RuntimeError, ValueError)) as excinfo:
+    with pytest.raises(
+        (RuntimeError, ValueError),
+        match="All individual orbits in an Orbit class must have the same phase-space dimensionality",
+    ) as excinfo:
         Orbit([[1.0, 0.1, 1.0], [1.0, 0.1, 1.0, 0.1]])
     # 3D with 5D
-    with pytest.raises((RuntimeError, ValueError)) as excinfo:
+    with pytest.raises(
+        (RuntimeError, ValueError),
+        match="All individual orbits in an Orbit class must have the same phase-space dimensionality",
+    ) as excinfo:
         Orbit([[1.0, 0.1, 1.0], [1.0, 0.1, 1.0, 0.1, 0.2]])
     # 3D with 6D
-    with pytest.raises((RuntimeError, ValueError)) as excinfo:
+    with pytest.raises(
+        (RuntimeError, ValueError),
+        match="All individual orbits in an Orbit class must have the same phase-space dimensionality",
+    ) as excinfo:
         Orbit([[1.0, 0.1, 1.0], [1.0, 0.1, 1.0, 0.1, 0.2, 6.0]])
     # 4D with 5D
-    with pytest.raises((RuntimeError, ValueError)) as excinfo:
+    with pytest.raises(
+        (RuntimeError, ValueError),
+        match="All individual orbits in an Orbit class must have the same phase-space dimensionality",
+    ) as excinfo:
         Orbit([[1.0, 0.1, 1.0, 2.0], [1.0, 0.1, 1.0, 0.1, 0.2]])
     # 4D with 6D
-    with pytest.raises((RuntimeError, ValueError)) as excinfo:
+    with pytest.raises(
+        (RuntimeError, ValueError),
+        match="All individual orbits in an Orbit class must have the same phase-space dimensionality",
+    ) as excinfo:
         Orbit([[1.0, 0.1, 1.0, 2.0], [1.0, 0.1, 1.0, 0.1, 0.2, 6.0]])
     # 5D with 6D
-    with pytest.raises((RuntimeError, ValueError)) as excinfo:
+    with pytest.raises(
+        (RuntimeError, ValueError),
+        match="All individual orbits in an Orbit class must have the same phase-space dimensionality",
+    ) as excinfo:
         Orbit([[1.0, 0.1, 1.0, 0.2, -0.2], [1.0, 0.1, 1.0, 0.1, 0.2, 6.0]])
+
+    # Also as Orbit inputs
+    # 2D with 3D
+    with pytest.raises(
+        (RuntimeError, ValueError),
+        match="All individual orbits in an Orbit class must have the same phase-space dimensionality",
+    ) as excinfo:
+        Orbit([Orbit([1.0, 0.1]), Orbit([1.0, 0.1, 1.0])])
+    # 2D with 4D
+    with pytest.raises(
+        (RuntimeError, ValueError),
+        match="All individual orbits in an Orbit class must have the same phase-space dimensionality",
+    ) as excinfo:
+        Orbit([Orbit([1.0, 0.1]), Orbit([1.0, 0.1, 1.0, 0.1])])
+    # 2D with 5D
+    with pytest.raises(
+        (RuntimeError, ValueError),
+        match="All individual orbits in an Orbit class must have the same phase-space dimensionality",
+    ) as excinfo:
+        Orbit([Orbit([1.0, 0.1]), Orbit([1.0, 0.1, 1.0, 0.1, 0.2])])
+    # 2D with 6D
+    with pytest.raises(
+        (RuntimeError, ValueError),
+        match="All individual orbits in an Orbit class must have the same phase-space dimensionality",
+    ) as excinfo:
+        Orbit([Orbit([1.0, 0.1]), Orbit([1.0, 0.1, 1.0, 0.1, 0.2, 3.0])])
+    # 3D with 4D
+    with pytest.raises(
+        (RuntimeError, ValueError),
+        match="All individual orbits in an Orbit class must have the same phase-space dimensionality",
+    ) as excinfo:
+        Orbit([Orbit([1.0, 0.1, 1.0]), Orbit([1.0, 0.1, 1.0, 0.1])])
+    # 3D with 5D
+    with pytest.raises(
+        (RuntimeError, ValueError),
+        match="All individual orbits in an Orbit class must have the same phase-space dimensionality",
+    ) as excinfo:
+        Orbit([Orbit([1.0, 0.1, 1.0]), Orbit([1.0, 0.1, 1.0, 0.1, 0.2])])
+    # 3D with 6D
+    with pytest.raises(
+        (RuntimeError, ValueError),
+        match="All individual orbits in an Orbit class must have the same phase-space dimensionality",
+    ) as excinfo:
+        Orbit([Orbit([1.0, 0.1, 1.0]), Orbit([1.0, 0.1, 1.0, 0.1, 0.2, 6.0])])
+    # 4D with 5D
+    with pytest.raises(
+        (RuntimeError, ValueError),
+        match="All individual orbits in an Orbit class must have the same phase-space dimensionality",
+    ) as excinfo:
+        Orbit([Orbit([1.0, 0.1, 1.0, 2.0]), Orbit([1.0, 0.1, 1.0, 0.1, 0.2])])
+    # 4D with 6D
+    with pytest.raises(
+        (RuntimeError, ValueError),
+        match="All individual orbits in an Orbit class must have the same phase-space dimensionality",
+    ) as excinfo:
+        Orbit([Orbit([1.0, 0.1, 1.0, 2.0]), Orbit([1.0, 0.1, 1.0, 0.1, 0.2, 6.0])])
+    # 5D with 6D
+    with pytest.raises(
+        (RuntimeError, ValueError),
+        match="All individual orbits in an Orbit class must have the same phase-space dimensionality",
+    ) as excinfo:
+        Orbit(
+            [Orbit([1.0, 0.1, 1.0, 0.2, -0.2]), Orbit([1.0, 0.1, 1.0, 0.1, 0.2, 6.0])]
+        )
+
     return None
 
 

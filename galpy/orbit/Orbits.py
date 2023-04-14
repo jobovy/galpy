@@ -382,10 +382,14 @@ class Orbit:
             vxvv = numpy.atleast_2d(vxvv)
             vxvv = vxvv.reshape((numpy.prod(vxvv.shape[:-1]), vxvv.shape[-1]))
         elif isinstance(vxvv, (list, tuple)):
+            raise_diffphasedim_error = False
             if isinstance(vxvv[0], Orbit):
-                vxvv = self._setup_parse_listofOrbits(vxvv, ro, vo, zo, solarmotion)
-                input_shape = (len(vxvv),)
-                vxvv = numpy.array(vxvv)
+                try:
+                    vxvv = self._setup_parse_listofOrbits(vxvv, ro, vo, zo, solarmotion)
+                    input_shape = (len(vxvv),)
+                    vxvv = numpy.array(vxvv)
+                except ValueError:
+                    raise_diffphasedim_error = True
             elif _APY_LOADED and isinstance(vxvv[0], units.Quantity):
                 # Case where vxvv= [R,vR,...] or [ra,dec,...] with Quantities
                 input_shape = vxvv[0].shape
@@ -419,8 +423,13 @@ class Orbit:
                 vxvv = numpy.array(vxvv).T
             else:
                 input_shape = (len(vxvv),)
-                vxvv = numpy.array(vxvv)
-            if isinstance(vxvv, numpy.ndarray) and vxvv.dtype == "object":
+                try:
+                    vxvv = numpy.array(vxvv)
+                except ValueError:
+                    raise_diffphasedim_error = True
+            if (
+                isinstance(vxvv, numpy.ndarray) and vxvv.dtype == "object"
+            ) or raise_diffphasedim_error:
                 # if diff. phasedim, object array is created
                 raise RuntimeError(
                     "All individual orbits in an Orbit class must have the same phase-space dimensionality"
@@ -1473,8 +1482,6 @@ class Orbit:
         # Delete attributes for interpolation and rperi etc. determination
         if hasattr(self, "_orbInterp"):
             delattr(self, "_orbInterp")
-        if hasattr(self, "rs"):
-            delattr(self, "rs")
         if self.dim() == 2:
             thispot = toPlanarPotential(pot)
         else:
@@ -1685,8 +1692,6 @@ class Orbit:
         # Delete attributes for interpolation and rperi etc. determination
         if hasattr(self, "_orbInterp"):
             delattr(self, "_orbInterp")
-        if hasattr(self, "rs"):
-            delattr(self, "rs")
         if self.dim() == 2:
             thispot = toPlanarPotential(pot)
         else:
@@ -1860,8 +1865,6 @@ class Orbit:
         # Delete attributes for interpolation and rperi etc. determination
         if hasattr(self, "_orbInterp"):
             delattr(self, "_orbInterp")
-        if hasattr(self, "rs"):
-            delattr(self, "rs")
         if self.dim() == 2:
             thispot = toPlanarPotential(pot)
         self.t = numpy.array(t)
@@ -2537,10 +2540,7 @@ class Orbit:
         kwargs["use_physical"] = False
         kwargs["dontreshape"] = True
         if not isinstance(OmegaP, (int, float)) and len(OmegaP) == 3:
-            if isinstance(OmegaP, list):
-                thisOmegaP = numpy.array(OmegaP)
-            else:
-                thisOmegaP = OmegaP
+            thisOmegaP = OmegaP
             tL = self.L(*args, **kwargs)
             if len(tL.shape) == 2:  # 1 time
                 out = self.E(*args, **kwargs) - numpy.einsum("i,ji->j", thisOmegaP, tL)
@@ -2756,8 +2756,9 @@ class Orbit:
     def _setup_actions(self, pot=None, **kwargs):
         """Internal function to compute the actions and cache them for re-use (used for methods that don't support frequencies and angles)"""
         self._setupaA(pot=pot, **kwargs)
-        if hasattr(self, "_aA_jr"):
-            return None
+        # Caching effectively checked in _setup_actionsFreqsAngles, because always called first
+        # if hasattr(self, "_aA_jr"):
+        #    return None
         if self.dim() == 3:
             # try to make sure this is not 0
             tz = (
@@ -2767,9 +2768,11 @@ class Orbit:
                 * 1e-10
             )
             tvz = self.vz(use_physical=False, dontreshape=True)
-        elif self.dim() == 2:
-            tz = numpy.zeros(self.size)
-            tvz = numpy.zeros(self.size)
+        # dim = 2 never reached currently, bc adiabatic is the only method that uses
+        # this and for 2D orbits that just uses spherical
+        # elif self.dim() == 2:
+        #    tz = numpy.zeros(self.size)
+        #    tvz = numpy.zeros(self.size)
         # self.dim() == 1 error caught by _setupaA
         self._aA_jr, self._aA_jp, self._aA_jz = self._aA(
             self.R(use_physical=False, dontreshape=True),
@@ -7750,7 +7753,7 @@ def _fit_orbit_mlogl(
             Zsun=obs[2] / ro,
         ).T
         bad_indx = (X == 0.0) * (Y == 0.0) * (Z == 0.0)
-        if True in bad_indx:
+        if True in bad_indx:  # pragma: no cover
             X[bad_indx] += ro / 10000.0
         lbdvrpmllpmbb = coords.rectgal_to_sphergal(
             X * ro, Y * ro, Z * ro, vX * vo, vY * vo, vZ * vo, degree=True
@@ -7856,8 +7859,6 @@ def _check_voSet(orb, kwargs, funcName):
 def _helioXYZ(orb, thiso, *args, **kwargs):
     """Calculate heliocentric rectangular coordinates"""
     obs, ro, vo = _parse_radec_kwargs(orb, kwargs)
-    if not len(thiso.shape) == 2:
-        thiso = thiso.reshape((thiso.shape[0], 1))
     if len(thiso[:, 0]) != 4 and len(thiso[:, 0]) != 6:  # pragma: no cover
         raise AttributeError("orbit must track azimuth to use radeclbd functions")
     elif len(thiso[:, 0]) == 4:  # planarOrbit
@@ -7941,8 +7942,6 @@ def _radec(orb, thiso, *args, **kwargs):
 def _XYZvxvyvz(orb, thiso, *args, **kwargs):
     """Calculate X,Y,Z,U,V,W"""
     obs, ro, vo = _parse_radec_kwargs(orb, kwargs, vel=True)
-    if not len(thiso.shape) == 2:
-        thiso = thiso.reshape((thiso.shape[0], 1))
     if len(thiso[:, 0]) != 4 and len(thiso[:, 0]) != 6:  # pragma: no cover
         raise AttributeError("orbit must track azimuth to use radeclbduvw functions")
     elif len(thiso[:, 0]) == 4:  # planarOrbit
