@@ -179,9 +179,7 @@ class RotateAndTiltWrapperPotential(WrapperPotential):
         HISTORY:
            2021-04-18 - Written - Bovy (UofT)
         """
-        x, y, z = coords.cyl_to_rect(R, phi, z)
-        if numpy.isinf(R):
-            y = 0.0
+        x, y, z = coords.cyl_to_rect(R, phi, z) if not numpy.isinf(R) else (R, 0.0, z)
         if self._norot:
             xyzp = numpy.array([x, y, z])
         else:
@@ -488,9 +486,7 @@ class RotateAndTiltWrapperPotential(WrapperPotential):
         HISTORY:
            2021-04-18 - Written - Bovy (UofT)
         """
-        x, y, z = coords.cyl_to_rect(R, phi, z)
-        if numpy.isinf(R):
-            y = 0.0
+        x, y, z = coords.cyl_to_rect(R, phi, z) if not numpy.isinf(R) else (R, 0.0, z)
         if self._norot:
             xyzp = numpy.array([x, y, z])
         else:

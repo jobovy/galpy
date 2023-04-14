@@ -263,7 +263,7 @@ class SCFPotential(Potential, NumericalPotentialDerivativesMixin):
                 vo = internal_vo
         return cls(Acos=Acos, Asin=Asin, a=a, ro=ro, vo=vo)
 
-    def _Nroot(self, L, M=None):
+    def _Nroot(self, L, M):
         """
         NAME:
            _Nroot
@@ -277,8 +277,6 @@ class SCFPotential(Potential, NumericalPotentialDerivativesMixin):
         HISTORY:
            2016-05-16 - Written - Aladdin Seaifan (UofT)
         """
-        if M is None:
-            M = L
         NN = numpy.zeros((L, M), float)
         l = numpy.arange(0, L)[:, numpy.newaxis]
         m = numpy.arange(0, M)[numpy.newaxis, :]
@@ -1334,8 +1332,5 @@ def _gaussianQuadrature(integrand, bounds, Ksample=[20], roundoff=0):
         s += numpy.prod(wp[index]) * integrand(*xp[index])
 
     ##Rounds values that are less than roundoff to zero
-    if shape != None:
-        s[numpy.where(numpy.fabs(s) < roundoff)] = 0
-    else:
-        s *= numpy.fabs(s) > roundoff
+    s[numpy.where(numpy.fabs(s) < roundoff)] = 0
     return s

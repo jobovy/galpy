@@ -140,10 +140,7 @@ class Potential(Force):
                 raise PotentialError(
                     "'_evaluate' function not implemented for this potential"
                 )
-            if rawOut is None:
-                return rawOut
-            else:
-                return self._amp * rawOut
+            return self._amp * rawOut if not rawOut is None else rawOut
         elif dR == 1 and dphi == 0:
             return -self.Rforce(R, z, phi=phi, t=t, use_physical=False)
         elif dR == 0 and dphi == 1:
@@ -460,6 +457,10 @@ class Potential(Force):
         if self.isNonAxi and not isinstance(self, EllipsoidalPotential):
             raise NotImplementedError(
                 "mass for non-axisymmetric potentials that are not EllipsoidalPotentials is not currently supported"
+            )
+        if self.isNonAxi and isinstance(self, EllipsoidalPotential) and not z is None:
+            raise NotImplementedError(
+                "mass for EllipsoidalPotentials is not currently supported for z != None"
             )
         if not z is None:  # Make sure z is positive, bc we integrate from -z to z
             z = numpy.fabs(z)

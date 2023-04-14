@@ -2378,7 +2378,7 @@ def test_mass_spher():
     bp = potential.BurkertPotential(amp=2.0, a=3.0)
     assert (
         numpy.fabs(bp.mass(4.2, forceint=True) - bp.mass(4.2)) < 1e-6
-    ), "Mass computed with SphericalPotential's general implementation incorrect"
+    ), "2D Mass computed with Potentials's general implementation incorrect for spherical potential"
     return None
 
 
@@ -2414,6 +2414,150 @@ def test_mass_spher_analytic():
     assert (
         numpy.fabs(pp.mass(tR, forceint=True) - pp.mass(tR)) < 10.0**-10.0
     ), "Explicit mass does not agree with integral of the density for Plummer potential"
+    return None
+
+
+# Check that the masses within (0,R) and (-z,z) are calculated correctly for spherical potentials
+def test_mass_spher_z():
+    from scipy import integrate
+
+    def sphermass(pot, R, z):
+        return (
+            4.0
+            * numpy.pi
+            * integrate.dblquad(
+                lambda rp, zp: rp * potential.evaluateDensities(pot, rp, 0.0, phi=0.0),
+                0.0,
+                z,
+                lambda z: z,
+                lambda z: numpy.sqrt(R**2.0 + z**2.0),
+            )[0]
+        )
+
+    # TwoPowerSphericalPotential
+    tp = potential.TwoPowerSphericalPotential(amp=2.0)
+    assert (
+        numpy.fabs(tp.mass(4.2, 1.3) - sphermass(tp, 4.2, 1.3)) < 1e-10
+    ), "2D Mass computed with Potentials's general implementation incorrect for spherical potential"
+
+    # DehnenSphericalPotential
+    dp = potential.DehnenSphericalPotential(amp=2.0)
+    assert (
+        numpy.fabs(dp.mass(4.2, 1.3) - sphermass(dp, 4.2, 1.3)) < 1e-10
+    ), "2D Mass computed with Potentials's general implementation incorrect for spherical potential"
+
+    # PlummerPotential
+    pp = potential.PlummerPotential(amp=2.0, b=1.3)
+    assert (
+        numpy.fabs(pp.mass(4.2, 1.3) - sphermass(pp, 4.2, 1.3)) < 1e-10
+    ), "2D Mass computed with Potentials's general implementation incorrect for spherical potential"
+
+    # DehnenCoreSphericalPotential
+    dcp = potential.DehnenCoreSphericalPotential(amp=2.0)
+    assert (
+        numpy.fabs(dcp.mass(4.2, 1.3) - sphermass(dcp, 4.2, 1.3)) < 1e-10
+    ), "2D Mass computed with Potentials's general implementation incorrect for spherical potential"
+
+    # JaffePotential
+    jp = potential.JaffePotential(amp=2.0)
+    assert (
+        numpy.fabs(jp.mass(4.2, 1.3) - sphermass(jp, 4.2, 1.3)) < 1e-10
+    ), "2D Mass computed with Potentials's general implementation incorrect for spherical potential"
+
+    # HernquistPotential
+    hp = potential.HernquistPotential(amp=2.0)
+    assert (
+        numpy.fabs(hp.mass(4.2, 1.3) - sphermass(hp, 4.2, 1.3)) < 1e-10
+    ), "2D Mass computed with Potentials's general implementation incorrect for spherical potential"
+
+    # NFWPotential
+    np = potential.NFWPotential(amp=2.0)
+    assert (
+        numpy.fabs(np.mass(4.2, 1.3) - sphermass(np, 4.2, 1.3)) < 1e-10
+    ), "2D Mass computed with Potentials's general implementation incorrect for spherical potential"
+
+    # SCF version of HernquistPotential
+    hp = potential.SCFPotential.from_density(
+        potential.HernquistPotential(amp=2.0), 1, 0, 1.0, symmetry="spherical"
+    )
+    assert (
+        numpy.fabs(hp.mass(4.2, 1.3) - sphermass(hp, 4.2, 1.3)) < 1e-10
+    ), "2D Mass computed with Potentials's general implementation incorrect for spherical potential"
+
+    # AnySphericalPotential version of HernquistPotential
+    hp = potential.AnySphericalPotential(
+        dens=lambda r: potential.HernquistPotential(amp=2.0).dens(r, 0.0),
+    )
+    assert (
+        numpy.fabs(hp.mass(4.2, 1.3) - sphermass(hp, 4.2, 1.3)) < 1e-10
+    ), "2D Mass computed with Potentials's general implementation incorrect for spherical potential"
+
+    # TwoPowerTriaxialPotential that is actually spherical
+    ttp = potential.TwoPowerTriaxialPotential(amp=2.0, a=1.0, b=1.0, c=1.0)
+    assert (
+        numpy.fabs(ttp.mass(4.2, 1.3) - sphermass(ttp, 4.2, 1.3)) < 1e-5
+    ), "2D Mass computed with Potentials's general implementation incorrect for spherical potential"
+
+    # TriaxialHernquistPotential that is actually spherical
+    thp = potential.TriaxialHernquistPotential(amp=2.0, a=1.0, b=1.0, c=1.0)
+    assert (
+        numpy.fabs(thp.mass(4.2, 1.3) - sphermass(thp, 4.2, 1.3)) < 1e-10
+    ), "2D Mass computed with Potentials's general implementation incorrect for spherical potential"
+
+    # TriaxialJaffe potential that is actually spherical
+    tjp = potential.TriaxialJaffePotential(amp=2.0, a=1.0, b=1.0, c=1.0)
+    assert (
+        numpy.fabs(tjp.mass(4.2, 1.3) - sphermass(tjp, 4.2, 1.3)) < 1e-10
+    ), "2D Mass computed with Potentials's general implementation incorrect for spherical potential"
+
+    # TriaxialNFW potential that is actually spherical
+    tnp = potential.TriaxialNFWPotential(amp=2.0, a=1.0, b=1.0, c=1.0)
+    assert (
+        numpy.fabs(tnp.mass(4.2, 1.3) - sphermass(tnp, 4.2, 1.3)) < 1e-10
+    ), "2D Mass computed with Potentials's general implementation incorrect for spherical potential"
+
+    # PerfectEllipsoidPotential that is actually spherical
+    pep = potential.PerfectEllipsoidPotential(amp=2.0, a=1.0, b=1.0, c=1.0)
+    assert (
+        numpy.fabs(pep.mass(4.2, 1.3) - sphermass(pep, 4.2, 1.3)) < 1e-10
+    ), "2D Mass computed with Potentials's general implementation incorrect for spherical potential"
+
+    # TriaxialGaussian potential that is actually spherical
+    tgp = potential.TriaxialGaussianPotential(amp=2.0, sigma=1.0, b=1.0, c=1.0)
+    assert (
+        numpy.fabs(tgp.mass(4.2, 1.3) - sphermass(tgp, 4.2, 1.3)) < 1e-10
+    ), "2D Mass computed with Potentials's general implementation incorrect for spherical potential"
+
+    # Dummy EllipsoidalPotential for testing the general approach
+    from galpy.potential.EllipsoidalPotential import EllipsoidalPotential
+
+    class dummy(EllipsoidalPotential):
+        def __init__(
+            self,
+            amp=1.0,
+            b=1.0,
+            c=1.0,
+            zvec=None,
+            pa=None,
+            glorder=50,
+            normalize=False,
+            ro=None,
+            vo=None,
+        ):
+            EllipsoidalPotential.__init__(
+                self, amp=amp, b=b, c=c, zvec=zvec, pa=pa, glorder=glorder, ro=ro, vo=vo
+            )
+            return None
+
+        def _mdens(self, m):
+            return m**-2.0
+
+    dp = dummy(amp=2.0, b=1.0, c=1.0)
+    r = 1.9
+    assert (
+        numpy.fabs(dp.mass(4.2, 1.3) - sphermass(dp, 4.2, 1.3)) < 1e-10
+    ), "2D Mass computed with Potentials's general implementation incorrect for spherical potential"
+
     return None
 
 
@@ -2607,6 +2751,7 @@ def test_mass_spheroidal():
     assert (
         numpy.fabs(pep.mass(1000.0) - 2.0) < 1e-2
     ), "Total mass for TriaxialGaussianPotential is incorrect"
+
     # Dummy EllipsoidalPotential for testing the general approach
     from galpy.potential.EllipsoidalPotential import EllipsoidalPotential
 

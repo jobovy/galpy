@@ -588,7 +588,7 @@ class DiskSCFPotential(Potential):
         HISTORY:
            2021-03-09 - Written - Bovy (UofT)
         """
-        if not z is None:
+        if not z is None:  # pragma: no cover
             raise AttributeError  # Hack to fall back to general
         out = self._scf.mass(R, z=None, use_physical=False)
         r = R
