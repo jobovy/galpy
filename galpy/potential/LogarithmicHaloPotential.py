@@ -9,7 +9,9 @@ import numpy
 from ..util import conversion, galpyWarning
 from .Potential import Potential, kms_to_kpcGyrDecorator
 
-_CORE=10**-8
+_CORE = 10**-8
+
+
 class LogarithmicHaloPotential(Potential):
     """Class that implements the logarithmic potential
 
@@ -26,8 +28,10 @@ class LogarithmicHaloPotential(Potential):
     With these definitions, :math:`\\sqrt{\\mathrm{amp}}` is the circular velocity at :math:`r \\gg \\mathrm{core}` at :math:`(y,z) = (0,0)`.
 
     """
-    def __init__(self,amp=1.,core=_CORE,q=1.,b=None,normalize=False,
-                 ro=None,vo=None):
+
+    def __init__(
+        self, amp=1.0, core=_CORE, q=1.0, b=None, normalize=False, ro=None, vo=None
+    ):
         """
         NAME:
 
@@ -60,25 +64,25 @@ class LogarithmicHaloPotential(Potential):
            2010-04-02 - Started - Bovy (NYU)
 
         """
-        Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='velocity2')
-        core= conversion.parse_length(core,ro=self._ro)
-        self.hasC= True
-        self.hasC_dxdv= True
-        self.hasC_dens= True
-        self._core2= core**2.
-        self._q= q
-        self._b= b
+        Potential.__init__(self, amp=amp, ro=ro, vo=vo, amp_units="velocity2")
+        core = conversion.parse_length(core, ro=self._ro)
+        self.hasC = True
+        self.hasC_dxdv = True
+        self.hasC_dens = True
+        self._core2 = core**2.0
+        self._q = q
+        self._b = b
         if not self._b is None:
-            self.isNonAxi= True
-            self._1m1overb2= 1.-1./self._b**2.
-        if normalize or \
-                (isinstance(normalize,(int,float)) \
-                     and not isinstance(normalize,bool)): #pragma: no cover
+            self.isNonAxi = True
+            self._1m1overb2 = 1.0 - 1.0 / self._b**2.0
+        if normalize or (
+            isinstance(normalize, (int, float)) and not isinstance(normalize, bool)
+        ):  # pragma: no cover
             self.normalize(normalize)
-        self._nemo_accname= 'LogPot'
+        self._nemo_accname = "LogPot"
         return None
 
-    def _evaluate(self,R,z,phi=0.,t=0.):
+    def _evaluate(self, R, z, phi=0.0, t=0.0):
         """
         NAME:
            _evaluate
@@ -96,12 +100,19 @@ class LogarithmicHaloPotential(Potential):
            2010-04-30 - Adapted for R,z - Bovy (NYU)
         """
         if self.isNonAxi:
-            return 1./2.*numpy.log(R**2.*(1.-self._1m1overb2*numpy.sin(phi)**2.)
-                                +(z/self._q)**2.+self._core2)
+            return (
+                1.0
+                / 2.0
+                * numpy.log(
+                    R**2.0 * (1.0 - self._1m1overb2 * numpy.sin(phi) ** 2.0)
+                    + (z / self._q) ** 2.0
+                    + self._core2
+                )
+            )
         else:
-            return 1./2.*numpy.log(R**2.+(z/self._q)**2.+self._core2)
+            return 1.0 / 2.0 * numpy.log(R**2.0 + (z / self._q) ** 2.0 + self._core2)
 
-    def _Rforce(self,R,z,phi=0.,t=0.):
+    def _Rforce(self, R, z, phi=0.0, t=0.0):
         """
         NAME:
            _Rforce
@@ -117,12 +128,12 @@ class LogarithmicHaloPotential(Potential):
         HISTORY:
         """
         if self.isNonAxi:
-            Rt2= R**2.*(1.-self._1m1overb2*numpy.sin(phi)**2.)
-            return -Rt2/R/(Rt2+(z/self._q)**2.+self._core2)
+            Rt2 = R**2.0 * (1.0 - self._1m1overb2 * numpy.sin(phi) ** 2.0)
+            return -Rt2 / R / (Rt2 + (z / self._q) ** 2.0 + self._core2)
         else:
-            return -R/(R**2.+(z/self._q)**2.+self._core2)
+            return -R / (R**2.0 + (z / self._q) ** 2.0 + self._core2)
 
-    def _zforce(self,R,z,phi=0.,t=0.):
+    def _zforce(self, R, z, phi=0.0, t=0.0):
         """
         NAME:
            _zforce
@@ -138,12 +149,12 @@ class LogarithmicHaloPotential(Potential):
         HISTORY:
         """
         if self.isNonAxi:
-            Rt2= R**2.*(1.-self._1m1overb2*numpy.sin(phi)**2.)
-            return -z/self._q**2./(Rt2+(z/self._q)**2.+self._core2)
+            Rt2 = R**2.0 * (1.0 - self._1m1overb2 * numpy.sin(phi) ** 2.0)
+            return -z / self._q**2.0 / (Rt2 + (z / self._q) ** 2.0 + self._core2)
         else:
-            return -z/self._q**2./(R**2.+(z/self._q)**2.+self._core2)
+            return -z / self._q**2.0 / (R**2.0 + (z / self._q) ** 2.0 + self._core2)
 
-    def _phitorque(self,R,z,phi=0.,t=0.):
+    def _phitorque(self, R, z, phi=0.0, t=0.0):
         """
         NAME:
            _phitorque
@@ -159,13 +170,18 @@ class LogarithmicHaloPotential(Potential):
         HISTORY:
         """
         if self.isNonAxi:
-            Rt2= R**2.*(1.-self._1m1overb2*numpy.sin(phi)**2.)
-            return R**2./(Rt2+(z/self._q)**2.+self._core2)\
-                *numpy.sin(2.*phi)*self._1m1overb2/2.
+            Rt2 = R**2.0 * (1.0 - self._1m1overb2 * numpy.sin(phi) ** 2.0)
+            return (
+                R**2.0
+                / (Rt2 + (z / self._q) ** 2.0 + self._core2)
+                * numpy.sin(2.0 * phi)
+                * self._1m1overb2
+                / 2.0
+            )
         else:
             return 0
 
-    def _dens(self,R,z,phi=0.,t=0.):
+    def _dens(self, R, z, phi=0.0, t=0.0):
         """
         NAME:
            _dens
@@ -181,22 +197,45 @@ class LogarithmicHaloPotential(Potential):
         HISTORY:
         """
         if self.isNonAxi:
-            R2= R**2.
-            Rt2= R2*(1.-self._1m1overb2*numpy.sin(phi)**2.)
-            denom= 1./(Rt2+(z/self._q)**2.+self._core2)
-            denom2= denom**2.
-            return 1./4./numpy.pi\
-                *(2.*Rt2/R2*(denom-Rt2*denom2)\
-                      +denom/self._q**2.-2.*z**2.*denom2/self._q**4.\
-                      -self._1m1overb2\
-                      *(2.*R2*numpy.sin(2.*phi)**2./4.*self._1m1overb2\
-                            *denom2+denom*numpy.cos(2.*phi)))
+            R2 = R**2.0
+            Rt2 = R2 * (1.0 - self._1m1overb2 * numpy.sin(phi) ** 2.0)
+            denom = 1.0 / (Rt2 + (z / self._q) ** 2.0 + self._core2)
+            denom2 = denom**2.0
+            return (
+                1.0
+                / 4.0
+                / numpy.pi
+                * (
+                    2.0 * Rt2 / R2 * (denom - Rt2 * denom2)
+                    + denom / self._q**2.0
+                    - 2.0 * z**2.0 * denom2 / self._q**4.0
+                    - self._1m1overb2
+                    * (
+                        2.0
+                        * R2
+                        * numpy.sin(2.0 * phi) ** 2.0
+                        / 4.0
+                        * self._1m1overb2
+                        * denom2
+                        + denom * numpy.cos(2.0 * phi)
+                    )
+                )
+            )
         else:
-            return 1./4./numpy.pi/self._q**2.*((2.*self._q**2.+1.)*self._core2+R**2.\
-                                                +(2.-self._q**-2.)*z**2.)/\
-                                                (R**2.+(z/self._q)**2.+self._core2)**2.
+            return (
+                1.0
+                / 4.0
+                / numpy.pi
+                / self._q**2.0
+                * (
+                    (2.0 * self._q**2.0 + 1.0) * self._core2
+                    + R**2.0
+                    + (2.0 - self._q**-2.0) * z**2.0
+                )
+                / (R**2.0 + (z / self._q) ** 2.0 + self._core2) ** 2.0
+            )
 
-    def _R2deriv(self,R,z,phi=0.,t=0.):
+    def _R2deriv(self, R, z, phi=0.0, t=0.0):
         """
         NAME:
            _R2deriv
@@ -213,14 +252,14 @@ class LogarithmicHaloPotential(Potential):
            2011-10-09 - Written - Bovy (IAS)
         """
         if self.isNonAxi:
-            Rt2= R**2.*(1.-self._1m1overb2*numpy.sin(phi)**2.)
-            denom= 1./(Rt2+(z/self._q)**2.+self._core2)
-            return (denom-2.*Rt2*denom**2.)*Rt2/R**2.
+            Rt2 = R**2.0 * (1.0 - self._1m1overb2 * numpy.sin(phi) ** 2.0)
+            denom = 1.0 / (Rt2 + (z / self._q) ** 2.0 + self._core2)
+            return (denom - 2.0 * Rt2 * denom**2.0) * Rt2 / R**2.0
         else:
-            denom= 1./(R**2.+(z/self._q)**2.+self._core2)
-            return denom-2.*R**2.*denom**2.
+            denom = 1.0 / (R**2.0 + (z / self._q) ** 2.0 + self._core2)
+            return denom - 2.0 * R**2.0 * denom**2.0
 
-    def _z2deriv(self,R,z,phi=0.,t=0.):
+    def _z2deriv(self, R, z, phi=0.0, t=0.0):
         """
         NAME:
            _z2deriv
@@ -237,14 +276,18 @@ class LogarithmicHaloPotential(Potential):
            2012-07-25 - Written - Bovy (IAS@MPIA)
         """
         if self.isNonAxi:
-            Rt2= R**2.*(1.-self._1m1overb2*numpy.sin(phi)**2.)
-            denom= 1./(Rt2+(z/self._q)**2.+self._core2)
-            return denom/self._q**2.-2.*z**2.*denom**2./self._q**4.
+            Rt2 = R**2.0 * (1.0 - self._1m1overb2 * numpy.sin(phi) ** 2.0)
+            denom = 1.0 / (Rt2 + (z / self._q) ** 2.0 + self._core2)
+            return (
+                denom / self._q**2.0 - 2.0 * z**2.0 * denom**2.0 / self._q**4.0
+            )
         else:
-            denom= 1./(R**2.+(z/self._q)**2.+self._core2)
-            return denom/self._q**2.-2.*z**2.*denom**2./self._q**4.
+            denom = 1.0 / (R**2.0 + (z / self._q) ** 2.0 + self._core2)
+            return (
+                denom / self._q**2.0 - 2.0 * z**2.0 * denom**2.0 / self._q**4.0
+            )
 
-    def _Rzderiv(self,R,z,phi=0.,t=0.):
+    def _Rzderiv(self, R, z, phi=0.0, t=0.0):
         """
         NAME:
            _Rzderiv
@@ -261,12 +304,25 @@ class LogarithmicHaloPotential(Potential):
            2013-08-28 - Written - Bovy (IAS)
         """
         if self.isNonAxi:
-            Rt2= R**2.*(1.-self._1m1overb2*numpy.sin(phi)**2.)
-            return -2.*Rt2/R*z/self._q**2./(Rt2+(z/self._q)**2.+self._core2)**2.
+            Rt2 = R**2.0 * (1.0 - self._1m1overb2 * numpy.sin(phi) ** 2.0)
+            return (
+                -2.0
+                * Rt2
+                / R
+                * z
+                / self._q**2.0
+                / (Rt2 + (z / self._q) ** 2.0 + self._core2) ** 2.0
+            )
         else:
-            return -2.*R*z/self._q**2./(R**2.+(z/self._q)**2.+self._core2)**2.
+            return (
+                -2.0
+                * R
+                * z
+                / self._q**2.0
+                / (R**2.0 + (z / self._q) ** 2.0 + self._core2) ** 2.0
+            )
 
-    def _phi2deriv(self,R,z,phi=0.,t=0.):
+    def _phi2deriv(self, R, z, phi=0.0, t=0.0):
         """
         NAME:
            _phi2deriv
@@ -283,16 +339,20 @@ class LogarithmicHaloPotential(Potential):
            2017-10-15 - Written - Bovy (UofT)
         """
         if self.isNonAxi:
-            Rt2= R**2.*(1.-self._1m1overb2*numpy.sin(phi)**2.)
-            denom= 1./(Rt2+(z/self._q)**2.+self._core2)
-            return -self._1m1overb2\
-                *(R**4.*numpy.sin(2.*phi)**2./2.*self._1m1overb2\
-                      *denom**2.
-                  +R**2.*denom*numpy.cos(2.*phi))
+            Rt2 = R**2.0 * (1.0 - self._1m1overb2 * numpy.sin(phi) ** 2.0)
+            denom = 1.0 / (Rt2 + (z / self._q) ** 2.0 + self._core2)
+            return -self._1m1overb2 * (
+                R**4.0
+                * numpy.sin(2.0 * phi) ** 2.0
+                / 2.0
+                * self._1m1overb2
+                * denom**2.0
+                + R**2.0 * denom * numpy.cos(2.0 * phi)
+            )
         else:
-            return 0.
+            return 0.0
 
-    def _Rphideriv(self,R,z,phi=0.,t=0.):
+    def _Rphideriv(self, R, z, phi=0.0, t=0.0):
         """
         NAME:
            _Rphideriv
@@ -309,13 +369,18 @@ class LogarithmicHaloPotential(Potential):
            2017-10-15 - Written - Bovy (UofT)
         """
         if self.isNonAxi:
-            Rt2= R**2.*(1.-self._1m1overb2*numpy.sin(phi)**2.)
-            denom= 1./(Rt2+(z/self._q)**2.+self._core2)
-            return -(denom-Rt2*denom**2.)*R*numpy.sin(2.*phi)*self._1m1overb2
+            Rt2 = R**2.0 * (1.0 - self._1m1overb2 * numpy.sin(phi) ** 2.0)
+            denom = 1.0 / (Rt2 + (z / self._q) ** 2.0 + self._core2)
+            return (
+                -(denom - Rt2 * denom**2.0)
+                * R
+                * numpy.sin(2.0 * phi)
+                * self._1m1overb2
+            )
         else:
-            return 0.
+            return 0.0
 
-    def _phizderiv(self,R,z,phi=0.,t=0.):
+    def _phizderiv(self, R, z, phi=0.0, t=0.0):
         """
         NAME:
            _phizderiv
@@ -332,15 +397,23 @@ class LogarithmicHaloPotential(Potential):
            2021-04-30 - Written - Bovy (UofT)
         """
         if self.isNonAxi:
-            Rt2= R**2.*(1.-self._1m1overb2*numpy.sin(phi)**2.)
-            denom= 1./(Rt2+(z/self._q)**2.+self._core2)
-            return 2*R**2*z*numpy.sin(phi)*numpy.cos(phi)*self._1m1overb2\
-                *denom**2/self._q**2
+            Rt2 = R**2.0 * (1.0 - self._1m1overb2 * numpy.sin(phi) ** 2.0)
+            denom = 1.0 / (Rt2 + (z / self._q) ** 2.0 + self._core2)
+            return (
+                2
+                * R**2
+                * z
+                * numpy.sin(phi)
+                * numpy.cos(phi)
+                * self._1m1overb2
+                * denom**2
+                / self._q**2
+            )
         else:
-            return 0.
+            return 0.0
 
     @kms_to_kpcGyrDecorator
-    def _nemo_accpars(self,vo,ro):
+    def _nemo_accpars(self, vo, ro):
         """
         NAME:
 
@@ -365,8 +438,15 @@ class LogarithmicHaloPotential(Potential):
            2014-12-18 - Written - Bovy (IAS)
 
         """
-        warnings.warn("NEMO's LogPot does not allow flattening in z (for some reason); therefore, flip y and z in NEMO wrt galpy; also does not allow the triaxial b parameter",galpyWarning)
-        ampl= self._amp*vo**2.
-        return "0,{},{},1.0,{}".format(ampl,
-                                  self._core2*ro**2.*self._q**(2./3.), #somewhat weird gyrfalcon implementation
-                                  self._q)
+        warnings.warn(
+            "NEMO's LogPot does not allow flattening in z (for some reason); therefore, flip y and z in NEMO wrt galpy; also does not allow the triaxial b parameter",
+            galpyWarning,
+        )
+        ampl = self._amp * vo**2.0
+        return "0,{},{},1.0,{}".format(
+            ampl,
+            self._core2
+            * ro**2.0
+            * self._q ** (2.0 / 3.0),  # somewhat weird gyrfalcon implementation
+            self._q,
+        )

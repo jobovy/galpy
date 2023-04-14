@@ -19,8 +19,8 @@ class HomogeneousSpherePotential(Potential):
 
     We have that :math:`\\rho_0 = 3\\,\\mathrm{amp}/[2\\pi G]`.
     """
-    def __init__(self,amp=1.,R=1.1,normalize=False,
-                 ro=None,vo=None):
+
+    def __init__(self, amp=1.0, R=1.1, normalize=False, ro=None, vo=None):
         """
         NAME:
 
@@ -49,20 +49,20 @@ class HomogeneousSpherePotential(Potential):
            2019-12-20 - Written - Bovy (UofT)
 
         """
-        Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='density')
-        R= conversion.parse_length(R,ro=self._ro)
-        self.R= R
-        self._R2= self.R**2.
-        self._R3= self.R**3.
-        if normalize or \
-                (isinstance(normalize,(int,float)) \
-                     and not isinstance(normalize,bool)): #pragma: no cover
+        Potential.__init__(self, amp=amp, ro=ro, vo=vo, amp_units="density")
+        R = conversion.parse_length(R, ro=self._ro)
+        self.R = R
+        self._R2 = self.R**2.0
+        self._R3 = self.R**3.0
+        if normalize or (
+            isinstance(normalize, (int, float)) and not isinstance(normalize, bool)
+        ):  # pragma: no cover
             self.normalize(normalize)
-        self.hasC= True
-        self.hasC_dxdv= True
-        self.hasC_dens= True
+        self.hasC = True
+        self.hasC_dxdv = True
+        self.hasC_dens = True
 
-    def _evaluate(self,R,z,phi=0.,t=0.):
+    def _evaluate(self, R, z, phi=0.0, t=0.0):
         """
         NAME:
            _evaluate
@@ -78,13 +78,13 @@ class HomogeneousSpherePotential(Potential):
         HISTORY:
            2019-12-20 - Written - Bovy (UofT)
         """
-        r2= R**2.+z**2.
+        r2 = R**2.0 + z**2.0
         if r2 < self._R2:
-            return r2-3.*self._R2
+            return r2 - 3.0 * self._R2
         else:
-            return -2.*self._R3/numpy.sqrt(r2)
+            return -2.0 * self._R3 / numpy.sqrt(r2)
 
-    def _Rforce(self,R,z,phi=0.,t=0.):
+    def _Rforce(self, R, z, phi=0.0, t=0.0):
         """
         NAME:
            _Rforce
@@ -100,13 +100,13 @@ class HomogeneousSpherePotential(Potential):
         HISTORY:
            2019-12-20 - Written - Bovy (UofT)
         """
-        r2= R**2.+z**2.
+        r2 = R**2.0 + z**2.0
         if r2 < self._R2:
-            return -2.*R
+            return -2.0 * R
         else:
-            return -2.*self._R3*R/r2**1.5
+            return -2.0 * self._R3 * R / r2**1.5
 
-    def _zforce(self,R,z,phi=0.,t=0.):
+    def _zforce(self, R, z, phi=0.0, t=0.0):
         """
         NAME:
            _zforce
@@ -122,13 +122,13 @@ class HomogeneousSpherePotential(Potential):
         HISTORY:
            2019-12-20 - Written - Bovy (UofT)
         """
-        r2= R**2.+z**2.
+        r2 = R**2.0 + z**2.0
         if r2 < self._R2:
-            return -2.*z
+            return -2.0 * z
         else:
-            return -2.*self._R3*z/r2**1.5
+            return -2.0 * self._R3 * z / r2**1.5
 
-    def _R2deriv(self,R,z,phi=0.,t=0.):
+    def _R2deriv(self, R, z, phi=0.0, t=0.0):
         """
         NAME:
            _Rderiv
@@ -144,13 +144,13 @@ class HomogeneousSpherePotential(Potential):
         HISTORY:
            2019-12-20 - Written - Bovy (UofT)
         """
-        r2= R**2.+z**2.
+        r2 = R**2.0 + z**2.0
         if r2 < self._R2:
-            return 2.
+            return 2.0
         else:
-            return 2.*self._R3/r2**1.5-6.*self._R3*R**2./r2**2.5
+            return 2.0 * self._R3 / r2**1.5 - 6.0 * self._R3 * R**2.0 / r2**2.5
 
-    def _z2deriv(self,R,z,phi=0.,t=0.):
+    def _z2deriv(self, R, z, phi=0.0, t=0.0):
         """
         NAME:
            _z2deriv
@@ -166,13 +166,13 @@ class HomogeneousSpherePotential(Potential):
         HISTORY:
            2019-12-20 - Written - Bovy (UofT)
         """
-        r2= R**2.+z**2.
+        r2 = R**2.0 + z**2.0
         if r2 < self._R2:
-            return 2.
+            return 2.0
         else:
-            return 2.*self._R3/r2**1.5-6.*self._R3*z**2./r2**2.5
+            return 2.0 * self._R3 / r2**1.5 - 6.0 * self._R3 * z**2.0 / r2**2.5
 
-    def _Rzderiv(self,R,z,phi=0.,t=0.):
+    def _Rzderiv(self, R, z, phi=0.0, t=0.0):
         """
         NAME:
            _Rzderiv
@@ -188,13 +188,13 @@ class HomogeneousSpherePotential(Potential):
         HISTORY:
            2019-12-20 - Written - Bovy (UofT)
         """
-        r2= R**2.+z**2.
+        r2 = R**2.0 + z**2.0
         if r2 < self._R2:
-            return 0.
+            return 0.0
         else:
-            return -6.*self._R3*R*z/r2**2.5
+            return -6.0 * self._R3 * R * z / r2**2.5
 
-    def _dens(self,R,z,phi=0.,t=0.):
+    def _dens(self, R, z, phi=0.0, t=0.0):
         """
         NAME:
            _dens
@@ -210,8 +210,8 @@ class HomogeneousSpherePotential(Potential):
         HISTORY:
            2019-12-20 - Written - Bovy (UofT)
         """
-        r2= R**2.+z**2.
+        r2 = R**2.0 + z**2.0
         if r2 < self._R2:
-            return 1.5/numpy.pi
+            return 1.5 / numpy.pi
         else:
-            return 0.
+            return 0.0

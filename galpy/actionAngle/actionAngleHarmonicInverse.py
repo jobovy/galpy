@@ -15,7 +15,8 @@ from .actionAngleInverse import actionAngleInverse
 
 class actionAngleHarmonicInverse(actionAngleInverse):
     """Inverse action-angle formalism for the one-dimensional harmonic oscillator"""
-    def __init__(self,*args,**kwargs):
+
+    def __init__(self, *args, **kwargs):
         """
         NAME:
 
@@ -42,15 +43,16 @@ class actionAngleHarmonicInverse(actionAngleInverse):
            2018-04-08 - Started - Bovy (UofT)
 
         """
-        actionAngleInverse.__init__(self,*args,**kwargs)
-        if not 'omega' in kwargs: #pragma: no cover
+        actionAngleInverse.__init__(self, *args, **kwargs)
+        if not "omega" in kwargs:  # pragma: no cover
             raise OSError("Must specify omega= for actionAngleHarmonic")
-        omega= conversion.parse_frequency(kwargs.get('omega'),
-                                          ro=self._ro,vo=self._vo)
-        self._omega= omega
+        omega = conversion.parse_frequency(
+            kwargs.get("omega"), ro=self._ro, vo=self._vo
+        )
+        self._omega = omega
         return None
 
-    def _evaluate(self,j,angle,**kwargs):
+    def _evaluate(self, j, angle, **kwargs):
         """
         NAME:
 
@@ -75,9 +77,9 @@ class actionAngleHarmonicInverse(actionAngleInverse):
            2018-04-08 - Written - Bovy (UofT)
 
         """
-        return self._xvFreqs(j,angle,**kwargs)[:2]
+        return self._xvFreqs(j, angle, **kwargs)[:2]
 
-    def _xvFreqs(self,j,angle,**kwargs):
+    def _xvFreqs(self, j, angle, **kwargs):
         """
         NAME:
 
@@ -102,12 +104,12 @@ class actionAngleHarmonicInverse(actionAngleInverse):
            2018-04-08 - Written - Bovy (UofT)
 
         """
-        amp= numpy.sqrt(2.*j/self._omega)
-        x= amp*numpy.sin(angle)
-        vx= amp*self._omega*numpy.cos(angle)
-        return (x,vx,self._omega)
+        amp = numpy.sqrt(2.0 * j / self._omega)
+        x = amp * numpy.sin(angle)
+        vx = amp * self._omega * numpy.cos(angle)
+        return (x, vx, self._omega)
 
-    def _Freqs(self,j,**kwargs):
+    def _Freqs(self, j, **kwargs):
         """
         NAME:
 

@@ -23,9 +23,20 @@ class TriaxialGaussianPotential(EllipsoidalPotential):
 
     where :math:`\\mathrm{amp} = GM` is the total mass and :math:`m^2 = x^2+y^2/b^2+z^2/c^2`.
     """
-    def __init__(self,amp=1.,sigma=5.,b=1.,c=1.,
-                 zvec=None,pa=None,glorder=50,
-                 normalize=False,ro=None,vo=None):
+
+    def __init__(
+        self,
+        amp=1.0,
+        sigma=5.0,
+        b=1.0,
+        c=1.0,
+        zvec=None,
+        pa=None,
+        glorder=50,
+        normalize=False,
+        ro=None,
+        vo=None,
+    ):
         """
         NAME:
 
@@ -62,37 +73,46 @@ class TriaxialGaussianPotential(EllipsoidalPotential):
            2020-08-18 - Started - Bovy (UofT)
 
         """
-        EllipsoidalPotential.__init__(self,amp=amp,b=b,c=c,
-                                      zvec=zvec,pa=pa,glorder=glorder,
-                                      ro=ro,vo=vo,amp_units='mass')
-        sigma= conversion.parse_length(sigma,ro=self._ro)
-        self._sigma= sigma
-        self._twosigma2= 2.*self._sigma**2
-        self._scale= self._sigma
+        EllipsoidalPotential.__init__(
+            self,
+            amp=amp,
+            b=b,
+            c=c,
+            zvec=zvec,
+            pa=pa,
+            glorder=glorder,
+            ro=ro,
+            vo=vo,
+            amp_units="mass",
+        )
+        sigma = conversion.parse_length(sigma, ro=self._ro)
+        self._sigma = sigma
+        self._twosigma2 = 2.0 * self._sigma**2
+        self._scale = self._sigma
         # Adjust amp
-        self._amp/= (2.*numpy.pi)**1.5*self._sigma**3.*self._b*self._c
-        if normalize or \
-                (isinstance(normalize,(int,float)) \
-                     and not isinstance(normalize,bool)): #pragma: no cover
+        self._amp /= (2.0 * numpy.pi) ** 1.5 * self._sigma**3.0 * self._b * self._c
+        if normalize or (
+            isinstance(normalize, (int, float)) and not isinstance(normalize, bool)
+        ):  # pragma: no cover
             self.normalize(normalize)
-        self.hasC= not self._glorder is None
-        self.hasC_dxdv= False
-        self.hasC_dens= self.hasC # works if mdens is defined, necessary for hasC
+        self.hasC = not self._glorder is None
+        self.hasC_dxdv = False
+        self.hasC_dens = self.hasC  # works if mdens is defined, necessary for hasC
         return None
 
-    def _psi(self,m):
+    def _psi(self, m):
         """\\psi(m) = -\\int_m^\\infty d m^2 \rho(m^2)"""
-        return -self._twosigma2*numpy.exp(-m**2./self._twosigma2)
+        return -self._twosigma2 * numpy.exp(-(m**2.0) / self._twosigma2)
 
-    def _mdens(self,m):
+    def _mdens(self, m):
         """Density as a function of m"""
-        return numpy.exp(-m**2/self._twosigma2)
+        return numpy.exp(-(m**2) / self._twosigma2)
 
-    def _mdens_deriv(self,m):
+    def _mdens_deriv(self, m):
         """Derivative of the density as a function of m"""
-        return -2.*m*numpy.exp(-m**2/self._twosigma2)/self._twosigma2
+        return -2.0 * m * numpy.exp(-(m**2) / self._twosigma2) / self._twosigma2
 
-    def _mass(self,R,z=None,t=0.):
+    def _mass(self, R, z=None, t=0.0):
         """
         NAME:
            _mass
@@ -107,7 +127,17 @@ class TriaxialGaussianPotential(EllipsoidalPotential):
         HISTORY:
            2021-03-09 - Written - Bovy (UofT)
         """
-        if not z is None: raise AttributeError # Hack to fall back to general
-        return numpy.pi*self._b*self._c*self._twosigma2*self._sigma\
-            *(numpy.sqrt(2.*numpy.pi)*special.erf(R/self._sigma/numpy.sqrt(2.))
-             -2.*R/self._sigma*numpy.exp(-R**2./self._twosigma2))
+        if not z is None:
+            raise AttributeError  # Hack to fall back to general
+        return (
+            numpy.pi
+            * self._b
+            * self._c
+            * self._twosigma2
+            * self._sigma
+            * (
+                numpy.sqrt(2.0 * numpy.pi)
+                * special.erf(R / self._sigma / numpy.sqrt(2.0))
+                - 2.0 * R / self._sigma * numpy.exp(-(R**2.0) / self._twosigma2)
+            )
+        )
