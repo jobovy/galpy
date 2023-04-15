@@ -10,6 +10,149 @@ sdfl_sanders15 = None  # so we can set this up and then use in other tests
 sdfl_sanders15_unp = None  # so we can set this up and then use in other tests
 
 
+@pytest.fixture(scope="module")
+def setup_sanders15_trailing():
+    # Imports
+    from galpy.actionAngle import actionAngleIsochroneApprox
+    from galpy.df import streamdf, streamgapdf
+    from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential
+    from galpy.util import conversion  # for unit conversions
+
+    lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
+    aAI = actionAngleIsochroneApprox(pot=lp, b=0.8)
+    prog_unp_peri = Orbit(
+        [
+            2.6556151742081835,
+            0.2183747276300308,
+            0.67876510797240575,
+            -2.0143395648974671,
+            -0.3273737682604374,
+            0.24218273922966019,
+        ]
+    )
+    V0, R0 = 220.0, 8.0
+    sigv = 0.365 * (10.0 / 2.0) ** (1.0 / 3.0)  # km/s
+    sdf_sanders15 = streamgapdf(
+        sigv / V0,
+        progenitor=prog_unp_peri,
+        pot=lp,
+        aA=aAI,
+        leading=False,
+        nTrackChunks=26,
+        nTrackIterations=1,
+        sigMeanOffset=4.5,
+        tdisrupt=10.88 / conversion.time_in_Gyr(V0, R0),
+        Vnorm=V0,
+        Rnorm=R0,
+        impactb=0.0,
+        subhalovel=numpy.array([6.82200571, 132.7700529, 149.4174464]) / V0,
+        timpact=0.88 / conversion.time_in_Gyr(V0, R0),
+        impact_angle=-2.34,
+        GM=10.0**-2.0 / conversion.mass_in_1010msol(V0, R0),
+        rs=0.625 / R0,
+    )
+    # Also setup the unperturbed model
+    sdf_sanders15_unp = streamdf(
+        sigv / V0,
+        progenitor=prog_unp_peri,
+        pot=lp,
+        aA=aAI,
+        leading=False,
+        nTrackChunks=26,
+        nTrackIterations=1,
+        sigMeanOffset=4.5,
+        tdisrupt=10.88 / conversion.time_in_Gyr(V0, R0),
+        Vnorm=V0,
+        Rnorm=R0,
+    )
+    return sdf_sanders15, sdf_sanders15_unp
+
+
+@pytest.fixture(scope="module")
+def setup_sanders15_leading():
+    # Imports
+    from galpy.actionAngle import actionAngleIsochroneApprox
+    from galpy.df import streamdf, streamgapdf
+    from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential, PlummerPotential
+    from galpy.util import conversion  # for unit conversions
+
+    lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
+    aAI = actionAngleIsochroneApprox(pot=lp, b=0.8)
+    prog_unp_peri = Orbit(
+        [
+            2.6556151742081835,
+            0.2183747276300308,
+            0.67876510797240575,
+            -2.0143395648974671,
+            -0.3273737682604374,
+            0.24218273922966019,
+        ]
+    )
+    V0, R0 = 220.0, 8.0
+    sigv = 0.365 * (10.0 / 2.0) ** (1.0 / 3.0)  # km/s
+    # Use a Potential object for the impact
+    pp = PlummerPotential(
+        amp=10.0**-2.0 / conversion.mass_in_1010msol(V0, R0), b=0.625 / R0
+    )
+    import warnings
+
+    from galpy.util import galpyWarning
+
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always", galpyWarning)
+        sdfl_sanders15 = streamgapdf(
+            sigv / V0,
+            progenitor=prog_unp_peri,
+            pot=lp,
+            aA=aAI,
+            leading=True,
+            nTrackChunks=26,
+            nTrackChunksImpact=29,
+            nTrackIterations=1,
+            sigMeanOffset=4.5,
+            tdisrupt=10.88 / conversion.time_in_Gyr(V0, R0),
+            Vnorm=V0,
+            Rnorm=R0,
+            impactb=0.0,
+            subhalovel=numpy.array([49.447319, 116.179436, 155.104156]) / V0,
+            timpact=0.88 / conversion.time_in_Gyr(V0, R0),
+            impact_angle=2.09,
+            subhalopot=pp,
+            nKickPoints=290,
+            deltaAngleTrackImpact=4.5,
+            multi=True,
+        )  # test multi
+        # Should raise warning bc of deltaAngleTrackImpact, might raise others
+        raisedWarning = False
+        for wa in w:
+            raisedWarning = (
+                str(wa.message)
+                == "WARNING: deltaAngleTrackImpact angle range large compared to plausible value"
+            )
+            if raisedWarning:
+                break
+        assert (
+            raisedWarning
+        ), "deltaAngleTrackImpact warning not raised when it should have been"
+    # Also setup the unperturbed model
+    sdfl_sanders15_unp = streamdf(
+        sigv / V0,
+        progenitor=prog_unp_peri,
+        pot=lp,
+        aA=aAI,
+        leading=True,
+        nTrackChunks=26,
+        nTrackIterations=1,
+        sigMeanOffset=4.5,
+        tdisrupt=10.88 / conversion.time_in_Gyr(V0, R0),
+        Vnorm=V0,
+        Rnorm=R0,
+    )
+    return sdfl_sanders15, sdfl_sanders15_unp
+
+
 # Put seed in first function, so the seed gets set even if other test files
 # were run first
 def test_setupimpact_error():
@@ -151,153 +294,20 @@ def test_trailingwleadingimpact_error():
 
 
 # Exact setup from Section 5 of Sanders, Bovy, and Erkal (2015); should reproduce those results (which have been checked against a simulation)
-def test_sanders15_setup():
-    # Imports
-    from galpy.actionAngle import actionAngleIsochroneApprox
-    from galpy.df import streamdf, streamgapdf
-    from galpy.orbit import Orbit
-    from galpy.potential import LogarithmicHaloPotential
-    from galpy.util import conversion  # for unit conversions
-
-    lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
-    aAI = actionAngleIsochroneApprox(pot=lp, b=0.8)
-    prog_unp_peri = Orbit(
-        [
-            2.6556151742081835,
-            0.2183747276300308,
-            0.67876510797240575,
-            -2.0143395648974671,
-            -0.3273737682604374,
-            0.24218273922966019,
-        ]
-    )
-    global sdf_sanders15
-    V0, R0 = 220.0, 8.0
-    sigv = 0.365 * (10.0 / 2.0) ** (1.0 / 3.0)  # km/s
-    sdf_sanders15 = streamgapdf(
-        sigv / V0,
-        progenitor=prog_unp_peri,
-        pot=lp,
-        aA=aAI,
-        leading=False,
-        nTrackChunks=26,
-        nTrackIterations=1,
-        sigMeanOffset=4.5,
-        tdisrupt=10.88 / conversion.time_in_Gyr(V0, R0),
-        Vnorm=V0,
-        Rnorm=R0,
-        impactb=0.0,
-        subhalovel=numpy.array([6.82200571, 132.7700529, 149.4174464]) / V0,
-        timpact=0.88 / conversion.time_in_Gyr(V0, R0),
-        impact_angle=-2.34,
-        GM=10.0**-2.0 / conversion.mass_in_1010msol(V0, R0),
-        rs=0.625 / R0,
-    )
+def test_sanders15_setup(setup_sanders15_trailing):
+    # Load the streamgapdf objects
+    sdf_sanders15, sdf_sanders15_unp = setup_sanders15_trailing
     assert not sdf_sanders15 is None, "sanders15 streamgapdf setup did not work"
-    # Also setup the unperturbed model
-    global sdf_sanders15_unp
-    sdf_sanders15_unp = streamdf(
-        sigv / V0,
-        progenitor=prog_unp_peri,
-        pot=lp,
-        aA=aAI,
-        leading=False,
-        nTrackChunks=26,
-        nTrackIterations=1,
-        sigMeanOffset=4.5,
-        tdisrupt=10.88 / conversion.time_in_Gyr(V0, R0),
-        Vnorm=V0,
-        Rnorm=R0,
-    )
     assert (
         not sdf_sanders15_unp is None
     ), "sanders15 unperturbed streamdf setup did not work"
     return None
 
 
-def test_sanders15_leading_setup():
-    # Imports
-    from galpy.actionAngle import actionAngleIsochroneApprox
-    from galpy.df import streamdf, streamgapdf
-    from galpy.orbit import Orbit
-    from galpy.potential import LogarithmicHaloPotential, PlummerPotential
-    from galpy.util import conversion  # for unit conversions
-
-    lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
-    aAI = actionAngleIsochroneApprox(pot=lp, b=0.8)
-    prog_unp_peri = Orbit(
-        [
-            2.6556151742081835,
-            0.2183747276300308,
-            0.67876510797240575,
-            -2.0143395648974671,
-            -0.3273737682604374,
-            0.24218273922966019,
-        ]
-    )
-    global sdfl_sanders15
-    V0, R0 = 220.0, 8.0
-    sigv = 0.365 * (10.0 / 2.0) ** (1.0 / 3.0)  # km/s
-    # Use a Potential object for the impact
-    pp = PlummerPotential(
-        amp=10.0**-2.0 / conversion.mass_in_1010msol(V0, R0), b=0.625 / R0
-    )
-    import warnings
-
-    from galpy.util import galpyWarning
-
-    with warnings.catch_warnings(record=True) as w:
-        warnings.simplefilter("always", galpyWarning)
-        sdfl_sanders15 = streamgapdf(
-            sigv / V0,
-            progenitor=prog_unp_peri,
-            pot=lp,
-            aA=aAI,
-            leading=True,
-            nTrackChunks=26,
-            nTrackChunksImpact=29,
-            nTrackIterations=1,
-            sigMeanOffset=4.5,
-            tdisrupt=10.88 / conversion.time_in_Gyr(V0, R0),
-            Vnorm=V0,
-            Rnorm=R0,
-            impactb=0.0,
-            subhalovel=numpy.array([49.447319, 116.179436, 155.104156]) / V0,
-            timpact=0.88 / conversion.time_in_Gyr(V0, R0),
-            impact_angle=2.09,
-            subhalopot=pp,
-            nKickPoints=290,
-            deltaAngleTrackImpact=4.5,
-            multi=True,
-        )  # test multi
-        # Should raise warning bc of deltaAngleTrackImpact, might raise others
-        raisedWarning = False
-        for wa in w:
-            raisedWarning = (
-                str(wa.message)
-                == "WARNING: deltaAngleTrackImpact angle range large compared to plausible value"
-            )
-            if raisedWarning:
-                break
-        assert (
-            raisedWarning
-        ), "deltaAngleTrackImpact warning not raised when it should have been"
+def test_sanders15_leading_setup(setup_sanders15_leading):
+    # Load the streamgapdf objects
+    sdfl_sanders15, sdfl_sanders15_unp = setup_sanders15_leading
     assert not sdfl_sanders15 is None, "sanders15 trailing streamdf setup did not work"
-    # Also setup the unperturbed model
-    global sdfl_sanders15_unp
-    sdfl_sanders15_unp = streamdf(
-        sigv / V0,
-        progenitor=prog_unp_peri,
-        pot=lp,
-        aA=aAI,
-        leading=True,
-        nTrackChunks=26,
-        nTrackIterations=1,
-        sigMeanOffset=4.5,
-        tdisrupt=10.88 / conversion.time_in_Gyr(V0, R0),
-        Vnorm=V0,
-        Rnorm=R0,
-    )
     assert (
         not sdfl_sanders15_unp is None
     ), "sanders15 unperturbed streamdf setup did not work"
@@ -305,17 +315,23 @@ def test_sanders15_leading_setup():
 
 
 # Some very basic tests
-def test_nTrackIterations():
+def test_nTrackIterations(setup_sanders15_trailing):
+    # Load the streamgapdf objects
+    sdf_sanders15, sdf_sanders15_unp = setup_sanders15_trailing
     assert sdf_sanders15.nTrackIterations == 1, "nTrackIterations should have been 1"
     return None
 
 
-def test_nTrackChunks():
+def test_nTrackChunks(setup_sanders15_trailing):
+    # Load the streamgapdf objects
+    sdf_sanders15, sdf_sanders15_unp = setup_sanders15_trailing
     assert sdf_sanders15._nTrackChunks == 26, "nTrackChunks should have been 26"
     return None
 
 
-def test_deltaAngleTrackImpact():
+def test_deltaAngleTrackImpact(setup_sanders15_trailing):
+    # Load the streamgapdf objects
+    sdf_sanders15, sdf_sanders15_unp = setup_sanders15_trailing
     assert (
         numpy.fabs(sdf_sanders15._deltaAngleTrackImpact - 4.31) < 0.01
     ), "deltaAngleTrackImpact should have been ~4.31"
@@ -323,7 +339,9 @@ def test_deltaAngleTrackImpact():
 
 
 # Tests of the track near the impact
-def test_trackNearImpact():
+def test_trackNearImpact(setup_sanders15_trailing):
+    # Load the streamgapdf objects
+    sdf_sanders15, sdf_sanders15_unp = setup_sanders15_trailing
     # Sanity checks against numbers taken from plots of the simulation
     # Make sure we're near 14.5
     assert (
@@ -363,7 +381,9 @@ def test_trackNearImpact():
     return None
 
 
-def test_interpolatedTrackNearImpact():
+def test_interpolatedTrackNearImpact(setup_sanders15_trailing):
+    # Load the streamgapdf objects
+    sdf_sanders15, sdf_sanders15_unp = setup_sanders15_trailing
     # Sanity checks against numbers taken from plots of the simulation
     # Make sure we're near X=-10.9
     theta = 2.7
@@ -395,7 +415,9 @@ def test_interpolatedTrackNearImpact():
 
 
 # Test the calculation of the kicks in dv
-def test_kickdv():
+def test_kickdv(setup_sanders15_trailing):
+    # Load the streamgapdf objects
+    sdf_sanders15, sdf_sanders15_unp = setup_sanders15_trailing
     # Closest one to the impact point, should be close to zero
     tIndx = numpy.argmin(
         numpy.fabs(
@@ -463,7 +485,9 @@ def test_kickdv():
 
 
 # Test the calculation of the kicks in dO
-def test_kickdO():
+def test_kickdO(setup_sanders15_trailing):
+    # Load the streamgapdf objects
+    sdf_sanders15, sdf_sanders15_unp = setup_sanders15_trailing
     from galpy.util import conversion
 
     # Closest one to the impact point, should be close to zero
@@ -555,7 +579,9 @@ def test_kickdO():
     return None
 
 
-def test_kickda():
+def test_kickda(setup_sanders15_trailing):
+    # Load the streamgapdf objects
+    sdf_sanders15, sdf_sanders15_unp = setup_sanders15_trailing
     # All angle kicks should be small, just test that they are smaller than dO/O close to the impact
     nIndx = (
         numpy.fabs(
@@ -576,7 +602,9 @@ def test_kickda():
 
 
 # Test the interpolation of the kicks
-def test_interpKickdO():
+def test_interpKickdO(setup_sanders15_trailing):
+    # Load the streamgapdf objects
+    sdf_sanders15, sdf_sanders15_unp = setup_sanders15_trailing
     from galpy.util import conversion
 
     freqConv = conversion.freq_in_Gyr(sdf_sanders15._vo, sdf_sanders15._ro)
@@ -653,7 +681,9 @@ def test_interpKickdO():
     return None
 
 
-def test_interpKickda():
+def test_interpKickda(setup_sanders15_trailing):
+    # Load the streamgapdf objects
+    sdf_sanders15, sdf_sanders15_unp = setup_sanders15_trailing
     thetas = numpy.linspace(-0.75, 0.75, 10) + sdf_sanders15._impact_angle
     assert numpy.all(
         numpy.fabs(sdf_sanders15._kick_interpdar(thetas))
@@ -666,7 +696,9 @@ def test_interpKickda():
 
 
 # Test the sampling of present-day perturbed points based on the model
-def test_sample():
+def test_sample(setup_sanders15_trailing):
+    # Load the streamgapdf objects
+    sdf_sanders15, sdf_sanders15_unp = setup_sanders15_trailing
     # Sample stars from the model and compare them to the stream
     xv_mock_per = sdf_sanders15.sample(n=100000, xy=True).T
     # Rough gap-density check
@@ -717,7 +749,9 @@ def test_sample():
 
 # Test the sampling of present-day perturbed-unperturbed points
 # (like in the paper)
-def test_sample_offset():
+def test_sample_offset(setup_sanders15_trailing):
+    # Load the streamgapdf objects
+    sdf_sanders15, sdf_sanders15_unp = setup_sanders15_trailing
     # Sample stars from the model and compare them to the stream
     numpy.random.seed(1)
     xv_mock_per = sdf_sanders15.sample(n=100000, xy=True).T
@@ -781,7 +815,9 @@ def test_sample_offset():
 
 # Test the sampling of present-day perturbed-unperturbed points
 # (like in the paper, but for the leading stream impact)
-def test_sample_offset_leading():
+def test_sample_offset_leading(setup_sanders15_leading):
+    # Load the streamgapdf objects
+    sdfl_sanders15, sdfl_sanders15_unp = setup_sanders15_leading
     # Sample stars from the model and compare them to the stream
     numpy.random.seed(1)
     xv_mock_per = sdfl_sanders15.sample(n=100000, xy=True).T
@@ -847,7 +883,9 @@ def test_sample_offset_leading():
 # Tests of the density and meanOmega functions
 
 
-def test_pOparapar():
+def test_pOparapar(setup_sanders15_trailing):
+    # Load the streamgapdf objects
+    sdf_sanders15, sdf_sanders15_unp = setup_sanders15_trailing
     # Test that integrating pOparapar gives density_par
     dens_frompOpar_close = integrate.quad(
         lambda x: sdf_sanders15.pOparapar(x, 0.3),
@@ -870,7 +908,9 @@ def test_pOparapar():
     return None
 
 
-def test_density_apar_approx():
+def test_density_apar_approx(setup_sanders15_trailing):
+    # Load the streamgapdf objects
+    sdf_sanders15, sdf_sanders15_unp = setup_sanders15_trailing
     # Test that the approximate density agrees with the direct integration
     # Need to do this relatively to another density, because there is an
     # overall offset
@@ -899,7 +939,9 @@ def test_density_apar_approx():
     return None
 
 
-def test_density_apar_approx_higherorder():
+def test_density_apar_approx_higherorder(setup_sanders15_trailing):
+    # Load the streamgapdf objects
+    sdf_sanders15, sdf_sanders15_unp = setup_sanders15_trailing
     # Test that the approximate density agrees with the direct integration
     # Need to do this relatively to another density, because there is an
     # overall offset
@@ -928,7 +970,9 @@ def test_density_apar_approx_higherorder():
     return None
 
 
-def test_minOpar():
+def test_minOpar(setup_sanders15_trailing):
+    # Load the streamgapdf objects
+    sdf_sanders15, sdf_sanders15_unp = setup_sanders15_trailing
     # Test that for Opar < minOpar, p(Opar,apar) is in fact zero!
     apar = 0.3
     dO = 10.0**-4.0
@@ -945,7 +989,9 @@ def test_minOpar():
     return None
 
 
-def test_meanOmega_approx():
+def test_meanOmega_approx(setup_sanders15_trailing):
+    # Load the streamgapdf objects
+    sdf_sanders15, sdf_sanders15_unp = setup_sanders15_trailing
     # Test that the approximate meanOmega agrees with the direct integration
     # Need to do this relatively to another density, because there is an
     # overall offset
@@ -970,7 +1016,9 @@ def test_meanOmega_approx():
     return None
 
 
-def test_meanOmega_approx_higherorder():
+def test_meanOmega_approx_higherorder(setup_sanders15_trailing):
+    # Load the streamgapdf objects
+    sdf_sanders15, sdf_sanders15_unp = setup_sanders15_trailing
     # Test that the approximate meanOmega agrees with the direct integration
     # Need to do this relatively to another density, because there is an
     # overall offset
@@ -995,7 +1043,9 @@ def test_meanOmega_approx_higherorder():
     return None
 
 
-def test_hernquist():
+def test_hernquist(setup_sanders15_trailing):
+    # Load the streamgapdf objects
+    sdf_sanders15, sdf_sanders15_unp = setup_sanders15_trailing
     # Test that Hernquist kicks are similar to Plummer kicks, but are
     # different in understood ways (...)
     from galpy.util import conversion
@@ -1080,7 +1130,9 @@ def test_hernquist():
     return None
 
 
-def test_determine_deltav_valueerrort():
+def test_determine_deltav_valueerrort(setup_sanders15_trailing):
+    # Load the streamgapdf objects
+    sdf_sanders15, sdf_sanders15_unp = setup_sanders15_trailing
     # Test that modeling leading (trailing) impact for trailing (leading) arm
     # raises a ValueError when using _determine_deltav_kick
     from galpy.util import conversion
