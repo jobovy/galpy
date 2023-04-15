@@ -311,7 +311,7 @@ class quasiisothermaldf(df):
                 out[numpy.isnan(out)] = -numpy.finfo(numpy.dtype(numpy.float64)).max
                 if self._cutcounter:
                     out[(lz < 0.0)] = -numpy.finfo(numpy.dtype(numpy.float64)).max
-            elif numpy.isnan(out):
+            elif numpy.isnan(out):  # pragma: no cover
                 out = -numpy.finfo(numpy.dtype(numpy.float64)).max
         else:
             srm2 = numpy.exp(-2.0 * lnsr)
@@ -331,7 +331,7 @@ class quasiisothermaldf(df):
                 out[numpy.isnan(out)] = 0.0
                 if self._cutcounter:
                     out[(lz < 0.0)] = 0.0
-            elif numpy.isnan(out):
+            elif numpy.isnan(out):  # pragma: no cover
                 out = 0.0
         if _return_actions and _return_freqs:
             return (out, jr, lz, jz, thisrg, kappa, nu, Omega)
@@ -761,10 +761,7 @@ class quasiisothermaldf(df):
                 vzglw = list(vzglw)
                 vzglw.extend(glw12)
                 vzglw = numpy.array(vzglw)
-            if "vTmax" in kwargs:
-                vTmax = kwargs["vTmax"]
-            else:
-                vTmax = 1.5
+            vTmax = kwargs.get("vTmax", 1.5)
             vTgl = vTmax / 2.0 * (glx + 1.0)
             # Tile everything
             vTgl = numpy.tile(vTgl, (ngl, ngl, 1)).T
