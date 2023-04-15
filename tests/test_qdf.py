@@ -56,6 +56,17 @@ def test_meanvR_adiabatic_mc():
     return None
 
 
+def test_meanvR_adiabatic_gl_center():
+    qdf = quasiisothermaldf(
+        1.0 / 4.0, 0.2, 0.1, 1.0, 1.0, pot=MWPotential, aA=aAA, cutcounter=True
+    )
+    # In the mid-plane
+    assert (
+        numpy.fabs(qdf.meanvR(0.001, 0.0, gl=True)) < 0.01
+    ), "qdf's meanvr is not equal to zero for adiabatic approx."
+    return None
+
+
 def test_meanvR_staeckel_gl():
     qdf = quasiisothermaldf(
         1.0 / 4.0, 0.2, 0.1, 1.0, 1.0, pot=MWPotential, aA=aAS, cutcounter=True
@@ -696,6 +707,17 @@ def test_meanjr():
         )
         < 0.4
     ), "meanjr is not what is expected"
+    return None
+
+
+def test_meanjr_center():
+    # Just checking that this isn't NaN!
+    qdf = quasiisothermaldf(
+        1.0 / 4.0, 0.2, 0.1, 1.0, 1.0, pot=MWPotential, aA=aAS, cutcounter=True
+    )
+    assert not numpy.isnan(
+        qdf.meanjr(0.001, 0.0, mc=True)
+    ), "meanjr at the center is NaN"
     return None
 
 
@@ -1356,6 +1378,10 @@ def test_call_diffinoutputs():
     assert (
         qdfnc(0.9, 10.0, -20.0, 0.1, 10.0) < 10.0**-10.0
     ), "unbound orbit does not return qdf equal to zero"
+    assert qdfnc(0.9, 10.0, -20.0, 0.1, 10.0, log=True) < -10.0 * numpy.log(
+        10.0
+    ), "unbound orbit does not return qdf equal to zero"
+
     # Test negative lz
     assert (
         qdf((0.03, -0.1, 0.02)) < 10.0**-8.0
