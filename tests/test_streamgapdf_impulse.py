@@ -208,7 +208,7 @@ def test_impulse_deltav_general_hernquist():
     GM = 1.5
     tol = -10.0
     kick = impulse_deltav_hernquist(
-        numpy.array([[3.4, 0.0, 0.0]]),
+        numpy.array([3.4, 0.0, 0.0]),
         numpy.array([4.0]),
         3.0,
         numpy.array([0.0, numpy.pi / 2.0, 0.0]),
@@ -218,7 +218,7 @@ def test_impulse_deltav_general_hernquist():
     # Note factor of 2 in definition of GM and amp
     pp = HernquistPotential(amp=2.0 * GM, a=4.0)
     general_kick = impulse_deltav_general(
-        numpy.array([[3.4, 0.0, 0.0]]),
+        numpy.array([3.4, 0.0, 0.0]),
         numpy.array([4.0]),
         3.0,
         numpy.array([0.0, numpy.pi / 2.0, 0.0]),
@@ -256,8 +256,8 @@ def test_impulse_deltav_general_curved_hernquist():
     GM = 1.5
     tol = -10.0
     kick = impulse_deltav_hernquist_curvedstream(
-        numpy.array([[3.4, 0.0, 0.0]]),
-        numpy.array([[4.0, 0.0, 0.0]]),
+        numpy.array([3.4, 0.0, 0.0]),
+        numpy.array([4.0, 0.0, 0.0]),
         3.0,
         numpy.array([0.0, numpy.pi / 2.0, 0.0]),
         numpy.array([0.0, 0.0, 0.0]),
@@ -268,8 +268,8 @@ def test_impulse_deltav_general_curved_hernquist():
     # Note factor of 2 in definition of GM and amp
     pp = HernquistPotential(amp=2.0 * GM, a=4.0)
     general_kick = impulse_deltav_general_curvedstream(
-        numpy.array([[3.4, 0.0, 0.0]]),
-        numpy.array([[4.0, 0.0, 0.0]]),
+        numpy.array([3.4, 0.0, 0.0]),
+        numpy.array([4.0, 0.0, 0.0]),
         3.0,
         numpy.array([0.0, numpy.pi / 2.0, 0.0]),
         numpy.array([0.0, 0.0, 0.0]),
@@ -551,8 +551,8 @@ def test_impulse_deltav_plummerstream_curved_subhalo_perpendicular():
     rs = 0.625 / R0
     dt = 0.01 * rs / (numpy.pi / 4.0)
     kick = impulse_deltav_plummer_curvedstream(
-        numpy.array([[0.5, 0.1, 0.2]]),
-        numpy.array([[1.2, 0.0, 0.0]]),
+        numpy.array([0.5, 0.1, 0.2]),
+        numpy.array([1.2, 0.0, 0.0]),
         rs,
         numpy.array([0.1, numpy.pi / 4.0, 0.1]),
         numpy.array([1.2, 0.0, 0.0]),
@@ -575,6 +575,35 @@ def test_impulse_deltav_plummerstream_curved_subhalo_perpendicular():
         dt / 2.0,
     )
     # Should be equal
+    assert numpy.all(numpy.fabs((kick - stream_kick) / kick) < 10.0**tol), (
+        "Curved, short Plummer-stream kick does not agree with curved Plummer-sphere kick by %g"
+        % (numpy.amax(numpy.fabs((kick - stream_kick) / kick)))
+    )
+    # Also test with other array shape input for x and v
+    kick = impulse_deltav_plummer_curvedstream(
+        numpy.array([[0.5, 0.1, 0.2]]),
+        numpy.array([[1.2, 0.0, 0.0]]),
+        rs,
+        numpy.array([0.1, numpy.pi / 4.0, 0.1]),
+        numpy.array([1.2, 0.0, 0.0]),
+        numpy.array([0.5, 0.1, 0.2]),
+        GM,
+        rs,
+    )
+    stream_kick = impulse_deltav_plummerstream_curvedstream(
+        numpy.array([0.5, 0.1, 0.2]),
+        numpy.array([1.2, 0.0, 0.0]),
+        numpy.array([0.0]),
+        rs,
+        numpy.array([0.1, numpy.pi / 4.0, 0.1]),
+        numpy.array([1.2, 0.0, 0.0]),
+        numpy.array([0.5, 0.1, 0.2]),
+        lambda t: GM / dt,
+        rs,
+        lp,
+        -dt / 2.0,
+        dt / 2.0,
+    )
     assert numpy.all(numpy.fabs((kick - stream_kick) / kick) < 10.0**tol), (
         "Curved, short Plummer-stream kick does not agree with curved Plummer-sphere kick by %g"
         % (numpy.amax(numpy.fabs((kick - stream_kick) / kick)))
