@@ -143,7 +143,7 @@ class streamgapdf(streamdf.streamdf):
             self._nKickPoints = 30 * self._nTrackChunksImpact
         else:
             self._nKickPoints = nKickPoints
-        if nokicksetup:
+        if nokicksetup:  # pragma: no cover
             return None
         # Compute \Delta Omega ( \Delta \theta_perp) and \Delta theta,
         # setup interpolating function
@@ -293,7 +293,7 @@ class streamgapdf(streamdf.streamdf):
     ):
         """Contribution from non-linear spline terms"""
         spline_order = self._kick_interpdOpar_raw._eval_args[2]
-        if spline_order == 1:
+        if spline_order == 1:  # pragma: no cover
             return 0.0
         # Form all Gaussian-like integrals necessary
         ll = (
@@ -536,7 +536,7 @@ class streamgapdf(streamdf.streamdf):
     def _meanOmega_num_approx_higherorder(self, Oparb, lowbindx):
         """Contribution from non-linear spline terms"""
         spline_order = self._kick_interpdOpar_raw._eval_args[2]
-        if spline_order == 1:
+        if spline_order == 1:  # pragma: no cover
             return 0.0
         # Form all Gaussian-like integrals necessary
         ll = (
@@ -978,10 +978,11 @@ class streamgapdf(streamdf.streamdf):
             self._nTrackChunksImpact = (
                 int(numpy.floor(self._deltaAngleTrackImpact / 0.15)) + 1
             )
+            self._nTrackChunksImpact = (
+                self._nTrackChunksImpact if self._nTrackChunksImpact >= 4 else 4
+            )
         else:
             self._nTrackChunksImpact = nTrackChunksImpact
-        if self._nTrackChunksImpact < 4:
-            self._nTrackChunksImpact = 4
         dt = (
             self._deltaAngleTrackImpact
             / self._progenitor_Omega_along_dOmega
