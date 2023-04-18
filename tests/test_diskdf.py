@@ -140,6 +140,10 @@ def test_dehnendf_cold_flat_vt():
     assert (
         numpy.fabs(df.meanvT(2.0) - 1.0) < 10.0**-3.0
     ), "mean vT of cold dehnendf in a flat rotation curve is not close to V_c at R=2"
+    # Really close to the center
+    assert (
+        numpy.fabs(df.meanvT(0.0001) - 1.0) < 10.0**-3.0
+    ), "mean vT of cold dehnendf in a flat rotation curve is not close to V_c at R=0.5"
     return None
 
 
@@ -953,7 +957,7 @@ def test_sigma2surfacemass():
 
 def test_vmomentsurfacemass():
     # Test that vmomentsurfacemass gives reasonable results
-    dfc = dehnendf(beta=0.0, profileParams=(1.0 / 4.0, 1.0, 0.2))
+    dfc = dehnendf(beta=0.0, profileParams=(1.0 / 4.0, 1.0, 0.4))
     assert (
         numpy.fabs(dfc.vmomentsurfacemass(0.9, 0.0, 0.0) - dfc.surfacemass(0.9))
         < 10.0**-8.0
@@ -1251,9 +1255,20 @@ def test_call_diffinputs():
 def test_call_marginalizevperp():
     from galpy.orbit import Orbit
 
-    dfc = dehnendf(beta=0.0, profileParams=(1.0 / 4.0, 1.0, 0.2))
+    dfc = dehnendf(beta=0.0, profileParams=(1.0 / 4.0, 1.0, 0.4))
     # l=0
-    R, vR = 0.8, 0.4
+    R, vR = 1.8, 0.4
+    vts = numpy.linspace(0.0, 1.5, 51)
+    pvts = numpy.array([dfc(numpy.array([R, vR, vt])) for vt in vts])
+    assert (
+        numpy.fabs(
+            numpy.sum(pvts) * (vts[1] - vts[0])
+            - dfc(Orbit([R, vR, 0.0, 0.0]), marginalizeVperp=True)
+        )
+        < 10.0**-4.0
+    ), "diskdf call w/ marginalizeVperp does not work"
+    # Another l=0, where va > sigmaR1
+    R, vR = 1.25, 0.4
     vts = numpy.linspace(0.0, 1.5, 51)
     pvts = numpy.array([dfc(numpy.array([R, vR, vt])) for vt in vts])
     assert (
@@ -1265,7 +1280,7 @@ def test_call_marginalizevperp():
     ), "diskdf call w/ marginalizeVperp does not work"
     # l=270
     R, vT = numpy.sin(numpy.pi / 6.0), 0.7  # l=30 degree
-    vrs = numpy.linspace(-1.0, 1.0, 101)
+    vrs = numpy.linspace(-2.0, 2.0, 101)
     pvrs = numpy.array([dfc(numpy.array([R, vr, vT])) for vr in vrs])
     assert (
         numpy.fabs(
@@ -1280,10 +1295,10 @@ def test_call_marginalizevperp():
 def test_call_marginalizevlos():
     from galpy.orbit import Orbit
 
-    dfc = dehnendf(beta=0.0, profileParams=(1.0 / 4.0, 1.0, 0.2))
+    dfc = dehnendf(beta=0.0, profileParams=(1.0 / 4.0, 1.0, 0.4))
     # l=0
     R, vT = 0.8, 0.7
-    vrs = numpy.linspace(-1.0, 1.0, 101)
+    vrs = numpy.linspace(-2.0, 2.0, 101)
     pvrs = numpy.array([dfc(numpy.array([R, vr, vT])) for vr in vrs])
     assert (
         numpy.fabs(
@@ -1294,7 +1309,7 @@ def test_call_marginalizevlos():
     ), "diskdf call w/ marginalizeVlos does not work"
     # l=270
     R, vR = numpy.sin(numpy.pi / 6.0), 0.4  # l=30 degree
-    vts = numpy.linspace(0.0, 1.5, 51)
+    vts = numpy.linspace(-2.5, 2.5, 101)
     pvts = numpy.array([dfc(numpy.array([R, vR, vt])) for vt in vts])
     assert (
         numpy.fabs(
@@ -2612,7 +2627,7 @@ def test_dehnendf_flat_DFcorrection_setup():
 
 def test_dehnendf_flat_DFcorrection_mag():
     # Test that the call is not too different from before
-    tcorr = numpy.log(ddf_correct2_flat._corr.correct(1.1))
+    tcorr = ddf_correct2_flat._corr.correct(1.1, log=True)
     assert numpy.fabs(tcorr[0]) < 0.15, "dehnendf correction is larger than expected"
     assert numpy.fabs(tcorr[1]) < 0.1, "dehnendf correction is larger than expected"
     # small R
@@ -2633,6 +2648,14 @@ def test_dehnendf_flat_DFcorrection_mag():
     ), "dehnendf correction is larger than expected"
     # large R
     tcorr = numpy.log(ddf_correct2_flat._corr.correct(12.0 * numpy.ones(2)))
+    assert numpy.all(
+        numpy.fabs(tcorr[0]) < 0.01
+    ), "dehnendf correction is larger than expected"
+    assert numpy.all(
+        numpy.fabs(tcorr[1]) < 0.01
+    ), "dehnendf correction is larger than expected"
+    # large R, log
+    tcorr = ddf_correct2_flat._corr.correct(12.0 * numpy.ones(2), log=True)
     assert numpy.all(
         numpy.fabs(tcorr[0]) < 0.01
     ), "dehnendf correction is larger than expected"
