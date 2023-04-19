@@ -193,8 +193,7 @@ that the output profiles more closely resemble the desired profiles
 (see `1999AJ....118.1201D
 <http://adsabs.harvard.edu/abs/1999AJ....118.1201D>`_). galpy supports
 the calculation of these corrections, and comes with some
-pre-calculated corrections (these can be found `here
-<http://github.com/downloads/jobovy/galpy/galpy-dfcorrections.tar.gz>`_). For
+pre-calculated corrections bundled with the code. For
 example, the following initializes a ``dehnendf`` with corrections up
 to 20th order (the default)
 
