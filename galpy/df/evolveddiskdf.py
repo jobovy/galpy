@@ -148,8 +148,8 @@ class evolveddiskdf(df):
             tlist = False
         t = parse_time(t, ro=self._ro, vo=self._vo)
         if kwargs.pop("marginalizeVperp", False):
-            if tlist:
-                raise OSError(
+            if tlist:  # pragma: no cover
+                raise RuntimeError(
                     "Input times to __call__ is a list; this is not supported in conjunction with marginalizeVperp"
                 )
             if kwargs.pop("log", False):
@@ -163,8 +163,8 @@ class evolveddiskdf(df):
                     args[0], integrate_method=integrate_method, **kwargs
                 )
         elif kwargs.pop("marginalizeVlos", False):
-            if tlist:
-                raise OSError(
+            if tlist:  # pragma: no cover
+                raise RuntimeError(
                     "Input times to __call__ is a list; this is not supported in conjunction with marginalizeVlos"
                 )
             if kwargs.pop("log", False):
@@ -401,20 +401,17 @@ class evolveddiskdf(df):
                 o.integrate(ts, self._pot, method=integrate_method)
             # int_time= (time.time()-start)
             # Now evaluate the DF
-            if o.R(self._to - t, use_physical=False) <= 0.0:
-                if kwargs.get("log", False):
-                    return -numpy.finfo(numpy.dtype(numpy.float64)).max
-                else:
-                    return numpy.finfo(numpy.dtype(numpy.float64)).eps
+            if o.R(self._to, use_physical=False) <= 0.0:
+                return (
+                    -numpy.finfo(numpy.dtype(numpy.float64)).max
+                    if kwargs.get("log", False)
+                    else numpy.finfo(numpy.dtype(numpy.float64)).eps
+                )
             # start= time.time()
-            retval = self._initdf(
-                o(self._to - t, use_physical=False), use_physical=False
-            )
+            retval = self._initdf(o(self._to, use_physical=False), use_physical=False)
             # print( int_time/(time.time()-start))
-            if numpy.isnan(retval):
-                print(retval, o.vxvv, o(self._to - t).vxvv)
             if not deriv is None:
-                thisorbit = o(self._to - t).vxvv[0]
+                thisorbit = o(self._to).vxvv[0]
                 dlnfdRo = self._initdf._dlnfdR(thisorbit[0], thisorbit[1], thisorbit[2])
                 dlnfdvRo = self._initdf._dlnfdvR(
                     thisorbit[0], thisorbit[1], thisorbit[2]
@@ -422,7 +419,7 @@ class evolveddiskdf(df):
                 dlnfdvTo = self._initdf._dlnfdvT(
                     thisorbit[0], thisorbit[1], thisorbit[2]
                 )
-                indx = list(ts).index(self._to - t)
+                indx = list(ts).index(self._to)
                 dRo = o.getOrbit_dxdv()[indx, 0] / dderiv
                 dvRo = o.getOrbit_dxdv()[indx, 1] / dderiv
                 dvTo = o.getOrbit_dxdv()[indx, 2] / dderiv
@@ -430,13 +427,14 @@ class evolveddiskdf(df):
                 retval *= dlnfderiv
         if kwargs.get("log", False) and deriv is None:
             if tlist:
-                out = numpy.log(retval)
+                out = numpy.atleast_1d(numpy.log(retval))
                 out[retval == 0.0] = -numpy.finfo(numpy.dtype(numpy.float64)).max
             else:
-                if retval == 0.0:
-                    out = -numpy.finfo(numpy.dtype(numpy.float64)).max
-                else:
-                    out = numpy.log(retval)
+                out = (
+                    numpy.log(retval)
+                    if retval != 0.0
+                    else -numpy.finfo(numpy.dtype(numpy.float64)).max
+                )
             return out
         else:
             return retval
@@ -2953,16 +2951,15 @@ class evolveddiskdf(df):
                         deriv=deriv,
                         use_physical=False,
                     )
-                    if numpy.isnan(out.df[ii, jj]):
-                        out.df[ii, jj] = 0.0  # BOVY: for now
+            out.df[numpy.isnan(out.df)] = 0.0  # BOVY: for now
             if print_progress:
                 sys.stdout.write("\n")  # pragma: no cover
         return out
 
     def _create_ts_tlist(self, t, integrate_method):
         # Check input
-        if not all(t == sorted(t, reverse=True)):
-            raise OSError("List of times has to be sorted in descending order")
+        if not all(t == sorted(t, reverse=True)):  # pragma: no cover
+            raise RuntimeError("List of times has to be sorted in descending order")
         # Initialize
         if integrate_method == "odeint":
             _NTS = 1000
@@ -3326,8 +3323,6 @@ class evolveddiskdfHierarchicalGrid:
                         continue
                     thiso = Orbit([R, self.vRgrid[ii], self.vTgrid[jj], phi])
                     self.df[ii, jj] = edf(thiso, t, deriv=deriv)
-                    if numpy.isnan(self.df[ii, jj]):
-                        self.df[ii, jj] = 0.0  # BOVY: for now
                     # Multiply in area, somewhat tricky for edge objects
                     if upperdxdy is None or (
                         ii != 0
@@ -3346,6 +3341,7 @@ class evolveddiskdfHierarchicalGrid:
                         self.df[ii, jj] *= 1.5 * dxdy / 1.5  # turn this off for now
                     else:  # corner
                         self.df[ii, jj] *= 2.25 * dxdy / 2.25  # turn this off for now
+            self.df[numpy.isnan(self.df)] = 0.0  # BOVY: for now
             if print_progress:
                 sys.stdout.write("\n")  # pragma: no cover
         if nlevels > 1:

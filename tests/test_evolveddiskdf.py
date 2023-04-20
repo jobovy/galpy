@@ -57,7 +57,14 @@ def test_mildnonaxi_meanvr_grid():
     ), "grid returned by vmomentsurfacemass w/ grid input is not the same as the input"
     # Pre-compute surfmass and use it
     nsmass = edf.vmomentsurfacemass(
-        0.9, 0, 0, phi=0.2, integrate_method="rk6_c", grid=True, gridpoints=_GRIDPOINTS
+        0.9,
+        0,
+        0,
+        phi=0.2 * 180.0 / numpy.pi,
+        integrate_method="rk6_c",
+        grid=True,
+        gridpoints=_GRIDPOINTS,
+        deg=True,
     )
     assert (
         numpy.fabs(smass - nsmass) < 0.001
@@ -226,6 +233,72 @@ def test_mildnonaxi_meanvt_hierarchgrid_tlist():
         integrate_method="rk6_c",
         grid=True,
         hierarchgrid=True,
+        returnGrid=True,
+        gridpoints=_GRIDPOINTS,
+    )
+    assert numpy.all(
+        numpy.fabs(mvt - idf.meanvT(0.9)) < 0.005
+    ), "meanvT of evolveddiskdf for axisymmetric potential is not equal to that of the initial dehnendf when using hierarchgrid and tlist"
+    mvt = edf.meanvT(
+        0.9,
+        t=[0.0, -2.5, -5.0, -7.5, -10.0],
+        phi=0.2,
+        integrate_method="rk6_c",
+        grid=grid,
+        gridpoints=_GRIDPOINTS,
+    )
+    assert numpy.all(
+        numpy.fabs(mvt - idf.meanvT(0.9)) < 0.005
+    ), "meanvT of evolveddiskdf for axisymmetric potential is not equal to that of the initial dehnendf when calculated with pre-computed grid when using hierarchgrid and tlist"
+    return None
+
+
+def test_mildnonaxi_meanvt_hierarchgrid_zerolevels():
+    # Test that for a close to axisymmetric potential, the mean vt is close to that of the initial DF
+    idf = dehnendf(beta=0.0)
+    pot = [
+        LogarithmicHaloPotential(normalize=1.0),
+        SteadyLogSpiralPotential(A=-0.005, omegas=0.2),
+    ]  # very mild non-axi
+    edf = evolveddiskdf(idf, pot=pot, to=-10.0)
+    mvt, grid = edf.meanvT(
+        0.9,
+        phi=0.2,
+        integrate_method="rk6_c",
+        grid=True,
+        hierarchgrid=True,
+        nlevels=0,
+        returnGrid=True,
+        gridpoints=_GRIDPOINTS,
+    )
+    assert (
+        numpy.fabs(mvt - idf.meanvT(0.9)) < 0.005
+    ), "meanvT of evolveddiskdf for axisymmetric potential is not equal to that of the initial dehnendf when using hierarchgrid"
+    mvt = edf.meanvT(
+        0.9, phi=0.2, integrate_method="rk6_c", grid=grid, gridpoints=_GRIDPOINTS
+    )
+    assert (
+        numpy.fabs(mvt - idf.meanvT(0.9)) < 0.005
+    ), "meanvT of evolveddiskdf for axisymmetric potential is not equal to that of the initial dehnendf when calculated with pre-computed grid when using hierarchgrid"
+    return None
+
+
+def test_mildnonaxi_meanvt_hierarchgrid_tlist_zerolevels():
+    # Test that for a close to axisymmetric potential, the mean vt is close to that of the initial DF
+    idf = dehnendf(beta=0.0)
+    pot = [
+        LogarithmicHaloPotential(normalize=1.0),
+        SteadyLogSpiralPotential(A=-0.005, omegas=0.2),
+    ]  # very mild non-axi
+    edf = evolveddiskdf(idf, pot=pot, to=-10.0)
+    mvt, grid = edf.meanvT(
+        0.9,
+        t=[0.0, -2.5, -5.0, -7.5, -10.0],
+        phi=0.2,
+        integrate_method="rk6_c",
+        grid=True,
+        hierarchgrid=True,
+        nlevels=0,
         returnGrid=True,
         gridpoints=_GRIDPOINTS,
     )
@@ -1054,7 +1127,7 @@ def test_call_special():
     assert (
         numpy.fabs(edf(o, -10.0, log=True) - numpy.log(idf(o))) < 10.0**-10.0
     ), "edf.__call__ w/ tlist set to [to] did not return initial DF (log)"
-    # Tests w/ odeint: tlist
+    # Tests w/ odeint: tlist, one NaN
     codeint = edf(
         o, [0.0, -2.5, -5.0, -7.5, -10.0], integrate_method="odeint", log=True
     )
@@ -1111,6 +1184,17 @@ def test_call_special():
     assert (
         numpy.fabs(cleapfrog - crk6c) < 10.0**-4.0
     ), "edf.__call__ w/ odeint and tlist does not give the same result as w/ rk6_c"
+    # Call w/ just one t agrees whether or not t is list
+    cleapfrog_list = edf(o, [-2.5], integrate_method="leapfrog_c", log=True)
+    cleapfrog_scal = edf(o, -2.5, integrate_method="leapfrog_c", log=True)
+    assert (
+        numpy.fabs(cleapfrog_list - cleapfrog_scal) < 10.0**-4.0
+    ), "edf.__call__ w/ single t scalar or tlist does not give the same result"
+    # Radial orbit
+    o = Orbit([1.0, -1.0, 0.0, 0.0])
+    assert (
+        numpy.fabs(edf(o, 0.0)) < 10.0**-10.0
+    ), "edf.__call__ w/ radial orbit does not return zero"
 
 
 def test_call_marginalizevperp():
