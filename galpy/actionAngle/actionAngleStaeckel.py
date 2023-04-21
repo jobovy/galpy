@@ -1148,42 +1148,11 @@ class actionAngleStaeckelSingle(actionAngle):
                 self._potupi2,
                 self._pot,
             )
-            if peps < 0.0 and meps > 0.0:  # we are at vmax, which cannot happen
-                rstart = _vminFindStart(
-                    self._vx,
-                    E,
-                    L,
-                    self._I3V,
-                    self._delta,
-                    self._ux,
-                    self._coshux**2.0,
-                    self._sinhux**2.0,
-                    self._potupi2,
-                    self._pot,
+            if peps < 0.0 and meps > 0.0:  # pragma: no cover
+                # we are at vmax, which cannot happen
+                raise RuntimeError(
+                    "Orbit is at the vmax turning point in v, which mathematically cannot happen; something is very wrong!!"
                 )
-                if rstart == 0.0:
-                    vmin = 0.0
-                else:
-                    try:
-                        vmin = optimize.brentq(
-                            _JzStaeckelIntegrandSquared,
-                            rstart,
-                            self._vx - eps,
-                            (
-                                E,
-                                L,
-                                self._I3V,
-                                self._delta,
-                                self._ux,
-                                self._coshux**2.0,
-                                self._sinhux**2.0,
-                                self._potupi2,
-                                self._pot,
-                            ),
-                            maxiter=200,
-                        )
-                    except RuntimeError:  # pragma: no cover
-                        raise UnboundError("Orbit seems to be unbound")
             elif peps > 0.0 and meps < 0.0:  # we are at vmin
                 vmin = self._vx
             else:  # planar orbit
@@ -1415,7 +1384,7 @@ def _vminFindStart(v, E, Lz, I3V, delta, u0, cosh2u0, sinh2u0, potu0pi2, pot):
         vtry *= 0.9
     if vtry < 0.000000001:
         return 0.0
-    return vtry
+    return vtry if vtry >= 0.000000001 else 0.0
 
 
 @potential_physical_input
