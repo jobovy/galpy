@@ -217,7 +217,11 @@ class actionAngleSpherical(actionAngle):
                     Or.append(epifreq(self._2dpot, r[ii], use_physical=False))
                     Op.append(omegac(self._2dpot, r[ii], use_physical=False))
                     continue
-                Rmean = numpy.exp((numpy.log(rperi) + numpy.log(rap)) / 2.0)
+                Rmean = (
+                    numpy.exp((numpy.log(rperi) + numpy.log(rap)) / 2.0)
+                    if rperi > 0.0
+                    else rap / 2.0
+                )
                 Or.append(
                     self._calc_or(Rmean, rperi, rap, E[ii], L[ii], fixed_quad, **kwargs)
                 )
@@ -304,7 +308,11 @@ class actionAngleSpherical(actionAngle):
                 rperi, rap = self._calc_rperi_rap(r[ii], vr[ii], vt[ii], E[ii], L[ii])
                 Jr.append(self._calc_jr(rperi, rap, E[ii], L[ii], fixed_quad, **kwargs))
                 # Radial period
-                Rmean = numpy.exp((numpy.log(rperi) + numpy.log(rap)) / 2.0)
+                Rmean = (
+                    numpy.exp((numpy.log(rperi) + numpy.log(rap)) / 2.0)
+                    if rperi > 0
+                    else rap / 2.0
+                )
                 if Jr[-1] < 10.0**-9.0:  # Circular orbit
                     Or.append(epifreq(self._2dpot, r[ii], use_physical=False))
                     Op.append(omegac(self._2dpot, r[ii], use_physical=False))
@@ -713,10 +721,7 @@ class actionAngleSpherical(actionAngle):
         i = numpy.arccos(Lz / L)
         sinpsi = z / r / numpy.sin(i)
         if numpy.isfinite(sinpsi):
-            if sinpsi > 1.0:
-                sinpsi = 1.0
-            elif sinpsi < -1.0:
-                sinpsi = -1.0
+            sinpsi = 1.0 if sinpsi > 1.0 else (-1.0 if sinpsi < -1.0 else sinpsi)
             psi = numpy.arcsin(sinpsi)
             if vtheta > 0.0:
                 psi = numpy.pi - psi

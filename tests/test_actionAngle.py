@@ -1325,6 +1325,42 @@ def test_actionAngleSpherical_otherIsochrone_angles():
     return None
 
 
+# Test that actionAngleSpherical works at small r
+def test_actionAngleSpherical_smallr():
+    from galpy.orbit import Orbit
+    from galpy.potential import IsochronePotential
+
+    ip = IsochronePotential()
+    # Orbit at rperi, very small r
+    o = Orbit([0.000000001, 0.0, ip.vcirc(0.000000001), 0.0, 0.0, 0.0])
+    # Code should have rperi = 0
+    assert (
+        numpy.fabs(o.rperi(analytic=True, pot=ip, type="spherical") - 0.0)
+        < 10.0**-10.0
+    ), "rperi is not 0 for very small r"
+    # Orbit just outside rperi, very small r
+    o = Orbit([0.000000001, 0.0001, ip.vcirc(0.000000001), 0.0, 0.0, 0.0])
+    assert (
+        numpy.fabs(o.rperi(analytic=True, pot=ip, type="spherical") - 0.0)
+        < 10.0**-10.0
+    ), "rperi is not 0 for very small r"
+    return None
+
+
+# Test that actionAngleSpherical's angler works when at pericenter
+def test_actionAngleSpherical_angler_at_pericenter():
+    from galpy.orbit import Orbit
+    from galpy.potential import IsochronePotential
+
+    ip = IsochronePotential()
+    o = Orbit([1.0, 0.0, ip.vcirc(1.0) * 2.1, 0.0, 0.0, 0.0])
+    # Radial angle wr should be zero
+    assert (
+        numpy.fabs(o.wr(analytic=True, pot=ip, type="spherical")) < 10.0**-10.0
+    ), "angler is not 0 at pericenter"
+    return None
+
+
 # Basic sanity checking of the actionAngleAdiabatic actions
 def test_actionAngleAdiabatic_basic_actions():
     from galpy.actionAngle import actionAngleAdiabatic
