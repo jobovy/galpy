@@ -1128,10 +1128,9 @@ class streamdf(df):
         if nTrackChunks is None:
             # default is floor(self._deltaAngleTrack/0.15)+1
             self._nTrackChunks = int(numpy.floor(self._deltaAngleTrack / 0.15)) + 1
+            self._nTrackChunks = self._nTrackChunks if self._nTrackChunks >= 4 else 4
         else:
             self._nTrackChunks = nTrackChunks
-        if self._nTrackChunks < 4:
-            self._nTrackChunks = 4
         if not hasattr(self, "nInterpolatedTrackChunks"):
             self.nInterpolatedTrackChunks = 1001
         dt = self._deltaAngleTrack / self._progenitor_Omega_along_dOmega
@@ -2577,10 +2576,12 @@ class streamdf(df):
         Thigh = dangle / (self._meandO - 3.0 * numpy.sqrt(self._sortedSigOEig[2]))
         num = integrate.quad(lambda x: x * self.ptdAngle(x, dangle), Tlow, Thigh)[0]
         denom = integrate.quad(self.ptdAngle, Tlow, Thigh, (dangle,))[0]
-        if denom == 0.0:
-            return self._tdisrupt
-        elif numpy.isnan(denom):
+        # Denom is 0 at the progenitor and very far from it,
+        # so distinguish between those two cases
+        if denom == 0.0 and dangle / self._meandO < self._tdisrupt / 10.0:
             return 0.0
+        elif denom == 0.0 and dangle / self._meandO > self._tdisrupt / 10.0:
+            return self._tdisrupt
         else:
             return num / denom
 
@@ -2616,7 +2617,7 @@ class streamdf(df):
         nummean = integrate.quad(lambda x: x * self.ptdAngle(x, dangle), Tlow, Thigh)[0]
         denom = integrate.quad(self.ptdAngle, Tlow, Thigh, (dangle,))[0]
         if denom == 0.0:
-            return numpy.nan
+            return 0.0
         else:
             return numpy.sqrt(numsig2 / denom - (nummean / denom) ** 2.0)
 
@@ -2699,8 +2700,8 @@ class streamdf(df):
             lambda x: x * self.pangledAngle(x, dangle, smallest), aplow, -aplow
         )[0]
         denom = integrate.quad(self.pangledAngle, aplow, -aplow, (dangle, smallest))[0]
-        if denom == 0.0:
-            return numpy.nan
+        if denom == 0.0 or numpy.isnan(denom):
+            return 0.0
         else:
             return num / denom
 
@@ -2759,8 +2760,8 @@ class streamdf(df):
         else:
             nummean = 0.0
         denom = integrate.quad(self.pangledAngle, aplow, -aplow, (dangle,))[0]
-        if denom == 0.0:
-            return numpy.nan
+        if denom == 0.0 or numpy.isnan(denom):
+            return 0.0
         else:
             return numpy.sqrt(numsig2 / denom - (nummean / denom) ** 2.0)
 
@@ -2902,10 +2903,7 @@ class streamdf(df):
                 numpy.sqrt(dmJacIndx) + numpy.sqrt(dmJacIndx2)
             )
             # Make sure phi hasn't wrapped around
-            if dxv[5] > numpy.pi:
-                dxv[5] -= 2.0 * numpy.pi
-            elif dxv[5] < -numpy.pi:
-                dxv[5] += 2.0 * numpy.pi
+            dxv[5] = (dxv[5] + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
             # Apply closest jacobians
             out[:, ii] = numpy.dot(
                 (1.0 - ampJacIndx) * self._alljacsTrack[jacIndx, :, :]
@@ -3006,18 +3004,9 @@ class streamdf(df):
                     dmJacIndx2 = dm2
             ampJacIndx = dmJacIndx / (dmJacIndx + dmJacIndx2)
             # Make sure the angles haven't wrapped around
-            if dOa[3] > numpy.pi:
-                dOa[3] -= 2.0 * numpy.pi
-            elif dOa[3] < -numpy.pi:
-                dOa[3] += 2.0 * numpy.pi
-            if dOa[4] > numpy.pi:
-                dOa[4] -= 2.0 * numpy.pi
-            elif dOa[4] < -numpy.pi:
-                dOa[4] += 2.0 * numpy.pi
-            if dOa[5] > numpy.pi:
-                dOa[5] -= 2.0 * numpy.pi
-            elif dOa[5] < -numpy.pi:
-                dOa[5] += 2.0 * numpy.pi
+            dOa[3] = (dOa[3] + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
+            dOa[4] = (dOa[4] + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
+            dOa[5] = (dOa[5] + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
             # Apply closest jacobian
             out[:, ii] = numpy.dot(
                 (1.0 - ampJacIndx) * self._allinvjacsTrack[jacIndx, :, :]
@@ -3902,10 +3891,11 @@ def _determine_stream_spread_single(
         numpy.dot(numpy.diag(tsigOdiag), numpy.linalg.inv(sigomatrixEig[1])),
     )
     # angles
-    if hasattr(sigAngle, "__call__"):
-        sigangle2 = sigAngle(thetasTrack) ** 2.0
-    else:
-        sigangle2 = sigAngle**2.0
+    sigangle2 = (
+        sigAngle(thetasTrack) ** 2.0
+        if hasattr(sigAngle, "__call__")
+        else sigAngle**2.0
+    )
     tsigadiag = numpy.ones(3) * sigangle2
     tsigadiag[numpy.argmax(tsigOdiag)] = 1.0
     tsiga = numpy.dot(
@@ -4040,24 +4030,15 @@ def calcaAJac(
             jac2[1, ii] = (tOphi - Ophi) / dxv[ii]
             jac2[2, ii] = (tOz - Oz) / dxv[ii]
         # For the angles, make sure we do not hit a turning point
-        if tar - ar > numpy.pi:
-            jac[angleIndx, ii] = (tar - ar - 2.0 * numpy.pi) / dxv[ii]
-        elif tar - ar < -numpy.pi:
-            jac[angleIndx, ii] = (tar - ar + 2.0 * numpy.pi) / dxv[ii]
-        else:
-            jac[angleIndx, ii] = (tar - ar) / dxv[ii]
-        if taphi - aphi > numpy.pi:
-            jac[angleIndx + 1, ii] = (taphi - aphi - 2.0 * numpy.pi) / dxv[ii]
-        elif taphi - aphi < -numpy.pi:
-            jac[angleIndx + 1, ii] = (taphi - aphi + 2.0 * numpy.pi) / dxv[ii]
-        else:
-            jac[angleIndx + 1, ii] = (taphi - aphi) / dxv[ii]
-        if taz - az > numpy.pi:
-            jac[angleIndx + 2, ii] = (taz - az - 2.0 * numpy.pi) / dxv[ii]
-        if taz - az < -numpy.pi:
-            jac[angleIndx + 2, ii] = (taz - az + 2.0 * numpy.pi) / dxv[ii]
-        else:
-            jac[angleIndx + 2, ii] = (taz - az) / dxv[ii]
+        jac[angleIndx, ii] = (
+            (tar - ar + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
+        ) / dxv[ii]
+        jac[angleIndx + 1, ii] = (
+            (taphi - aphi + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
+        ) / dxv[ii]
+        jac[angleIndx + 2, ii] = (
+            (taz - az + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
+        ) / dxv[ii]
     if dOdJ:
         jac2[3, :] = jac[3, :]
         jac2[4, :] = jac[4, :]
