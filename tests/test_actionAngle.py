@@ -3682,6 +3682,24 @@ def test_actionAngleStaeckel_otherIsochrone_angles():
     return None
 
 
+# Test that actionAngleStaeckel at very small u works okay
+def test_actionAngleStaeckel_smallu():
+    from galpy.actionAngle import actionAngleStaeckel
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential2014, vcirc
+
+    aAS = actionAngleStaeckel(pot=MWPotential2014, c=False, delta=0.45)
+
+    rmin = 8e-9
+    o = Orbit([rmin, 0.0, vcirc(MWPotential2014, rmin) / 20, 1e-8, 0.0])
+    ezrpra = aAS.EccZmaxRperiRap(o)
+    # Check that rperi is close to zero
+    assert (
+        numpy.fabs(ezrpra[2]) < 1e-8
+    ), "actionAngleStaeckel at very small u does not give rperi=0"
+    return None
+
+
 # Basic sanity checking of the actionAngleStaeckelGrid actions (incl. conserved and ecc etc., bc takes a lot of time)
 def test_actionAngleStaeckelGrid_basicAndConserved_actions():
     from galpy.actionAngle import actionAngleStaeckelGrid
