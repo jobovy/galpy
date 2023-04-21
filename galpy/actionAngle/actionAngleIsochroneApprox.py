@@ -274,17 +274,14 @@ class actionAngleIsochroneApprox(actionAngle):
             pass
         else:
             # Use self._aAI to calculate the actions and angles in the isochrone potential
-            if "_acfs" in kwargs:
-                acfs = kwargs["_acfs"]
-            else:
-                acfs = self._aAI._actionsFreqsAngles(
-                    R.flatten(),
-                    vR.flatten(),
-                    vT.flatten(),
-                    z.flatten(),
-                    vz.flatten(),
-                    phi.flatten(),
-                )
+            acfs = self._aAI._actionsFreqsAngles(
+                R.flatten(),
+                vR.flatten(),
+                vT.flatten(),
+                z.flatten(),
+                vz.flatten(),
+                phi.flatten(),
+            )
             jrI = numpy.reshape(acfs[0], R.shape)[:, :-1]
             jzI = numpy.reshape(acfs[2], R.shape)[:, :-1]
             anglerI = numpy.reshape(acfs[6], R.shape)
