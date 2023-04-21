@@ -7,8 +7,94 @@ from scipy import integrate, interpolate
 
 from galpy.util import coords
 
-sdf_bovy14 = None  # so we can set this up and then use in other tests
-sdft_bovy14 = None  # so we can set this up and then use in other tests, trailing
+
+# Exact setup from Bovy (2014); should reproduce those results (which have been
+# sanity checked
+@pytest.fixture(scope="module")
+def bovy14_setup():
+    # Imports
+    from galpy.actionAngle import actionAngleIsochroneApprox
+    from galpy.df import streamdf
+    from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential
+    from galpy.util import conversion  # for unit conversions
+
+    lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
+    aAI = actionAngleIsochroneApprox(pot=lp, b=0.8)
+    obs = Orbit(
+        [1.56148083, 0.35081535, -1.15481504, 0.88719443, -0.47713334, 0.12019596]
+    )
+    sigv = 0.365  # km/s
+    # For custom_transform
+    theta, dec_ngp, ra_ngp = coords.get_epoch_angles(2000.0)
+    T = numpy.dot(
+        numpy.array(
+            [
+                [numpy.cos(ra_ngp), -numpy.sin(ra_ngp), 0.0],
+                [numpy.sin(ra_ngp), numpy.cos(ra_ngp), 0.0],
+                [0.0, 0.0, 1.0],
+            ]
+        ),
+        numpy.dot(
+            numpy.array(
+                [
+                    [-numpy.sin(dec_ngp), 0.0, numpy.cos(dec_ngp)],
+                    [0.0, 1.0, 0.0],
+                    [numpy.cos(dec_ngp), 0.0, numpy.sin(dec_ngp)],
+                ]
+            ),
+            numpy.array(
+                [
+                    [numpy.cos(theta), numpy.sin(theta), 0.0],
+                    [numpy.sin(theta), -numpy.cos(theta), 0.0],
+                    [0.0, 0.0, 1.0],
+                ]
+            ),
+        ),
+    ).T
+    sdf_bovy14 = streamdf(
+        sigv / 220.0,
+        progenitor=obs,
+        pot=lp,
+        aA=aAI,
+        leading=True,
+        nTrackChunks=11,
+        tdisrupt=4.5 / conversion.time_in_Gyr(220.0, 8.0),
+        custom_transform=T,
+    )
+    return sdf_bovy14
+
+
+# Trailing setup
+@pytest.fixture(scope="module")
+def bovy14_trailing_setup():
+    # Imports
+    from galpy.actionAngle import actionAngleIsochroneApprox
+    from galpy.df import streamdf
+    from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential
+    from galpy.util import conversion  # for unit conversions
+
+    lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
+    lp_false = LogarithmicHaloPotential(normalize=1.0, q=0.8)
+    aAI = actionAngleIsochroneApprox(pot=lp, b=0.8)
+    # This is the trailing of the stream that is going the opposite direction
+    obs = Orbit(
+        [1.56148083, -0.35081535, 1.15481504, 0.88719443, 0.47713334, 0.12019596]
+    )
+    sigv = 0.365  # km/s
+    sdft_bovy14 = streamdf(
+        sigv / 220.0,
+        progenitor=obs,
+        pot=lp,
+        aA=aAI,
+        multi=True,  # test multi
+        leading=False,
+        tdisrupt=4.5 / conversion.time_in_Gyr(220.0, 8.0),
+        nTrackIterations=0,
+        sigangle=0.657,
+    )
+    return sdft_bovy14
 
 
 def test_progenitor_coordtransformparams():
@@ -178,63 +264,16 @@ def test_progenitor_coordtransformparams():
 
 # Exact setup from Bovy (2014); should reproduce those results (which have been
 # sanity checked
-def test_bovy14_setup():
-    # Imports
-    from galpy.actionAngle import actionAngleIsochroneApprox
-    from galpy.df import streamdf
-    from galpy.orbit import Orbit
-    from galpy.potential import LogarithmicHaloPotential
-    from galpy.util import conversion  # for unit conversions
-
-    lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
-    aAI = actionAngleIsochroneApprox(pot=lp, b=0.8)
-    obs = Orbit(
-        [1.56148083, 0.35081535, -1.15481504, 0.88719443, -0.47713334, 0.12019596]
-    )
-    sigv = 0.365  # km/s
-    # For custom_transform
-    theta, dec_ngp, ra_ngp = coords.get_epoch_angles(2000.0)
-    T = numpy.dot(
-        numpy.array(
-            [
-                [numpy.cos(ra_ngp), -numpy.sin(ra_ngp), 0.0],
-                [numpy.sin(ra_ngp), numpy.cos(ra_ngp), 0.0],
-                [0.0, 0.0, 1.0],
-            ]
-        ),
-        numpy.dot(
-            numpy.array(
-                [
-                    [-numpy.sin(dec_ngp), 0.0, numpy.cos(dec_ngp)],
-                    [0.0, 1.0, 0.0],
-                    [numpy.cos(dec_ngp), 0.0, numpy.sin(dec_ngp)],
-                ]
-            ),
-            numpy.array(
-                [
-                    [numpy.cos(theta), numpy.sin(theta), 0.0],
-                    [numpy.sin(theta), -numpy.cos(theta), 0.0],
-                    [0.0, 0.0, 1.0],
-                ]
-            ),
-        ),
-    ).T
-    global sdf_bovy14
-    sdf_bovy14 = streamdf(
-        sigv / 220.0,
-        progenitor=obs,
-        pot=lp,
-        aA=aAI,
-        leading=True,
-        nTrackChunks=11,
-        tdisrupt=4.5 / conversion.time_in_Gyr(220.0, 8.0),
-        custom_transform=T,
-    )
+def test_bovy14_setup(bovy14_setup):
+    # Load the streamdf object
+    sdf_bovy14 = bovy14_setup
     assert not sdf_bovy14 is None, "bovy14 streamdf setup did not work"
     return None
 
 
-def test_bovy14_freqratio():
+def test_bovy14_freqratio(bovy14_setup):
+    # Load the streamdf object
+    sdf_bovy14 = bovy14_setup
     # Test the frequency ratio
     assert (
         sdf_bovy14.freqEigvalRatio() - 30.0
@@ -247,7 +286,9 @@ def test_bovy14_freqratio():
     return None
 
 
-def test_bovy14_misalignment():
+def test_bovy14_misalignment(bovy14_setup):
+    # Load the streamdf object
+    sdf_bovy14 = bovy14_setup
     # Test the misalignment
     assert (
         sdf_bovy14.misalignment() / numpy.pi * 180.0 + 0.5
@@ -258,7 +299,9 @@ def test_bovy14_misalignment():
     return None
 
 
-def test_bovy14_track_prog_diff():
+def test_bovy14_track_prog_diff(bovy14_setup):
+    # Load the streamdf object
+    sdf_bovy14 = bovy14_setup
     # Test that the stream and the progenitor are close together, for both leading and trailing
     check_track_prog_diff(sdf_bovy14, "R", "Z", 0.1)
     check_track_prog_diff(sdf_bovy14, "R", "Z", 0.8, phys=True)  # do 1 with phys
@@ -278,7 +321,9 @@ def test_bovy14_track_prog_diff():
     return None
 
 
-def test_bovy14_track_spread():
+def test_bovy14_track_spread(bovy14_setup):
+    # Load the streamdf object
+    sdf_bovy14 = bovy14_setup
     # Test that the spreads are small
     check_track_spread(sdf_bovy14, "R", "Z", 0.01, 0.005)
     check_track_spread(sdf_bovy14, "R", "Z", 0.08, 0.04, phys=True)  # do 1 with phys
@@ -312,7 +357,9 @@ def test_bovy14_track_spread():
     return None
 
 
-def test_closest_trackpoint():
+def test_closest_trackpoint(bovy14_setup):
+    # Load the streamdf object
+    sdf_bovy14 = bovy14_setup
     # Check that we can find the closest trackpoint properly
     check_closest_trackpoint(sdf_bovy14, 50)
     check_closest_trackpoint(sdf_bovy14, 230, usev=True)
@@ -323,7 +370,9 @@ def test_closest_trackpoint():
     return None
 
 
-def test_closest_trackpointLB():
+def test_closest_trackpointLB(bovy14_setup):
+    # Load the streamdf object
+    sdf_bovy14 = bovy14_setup
     # Check that we can find the closest trackpoint properly in LB
     check_closest_trackpointLB(sdf_bovy14, 50)
     check_closest_trackpointLB(sdf_bovy14, 230, usev=True)
@@ -335,14 +384,18 @@ def test_closest_trackpointLB():
     return None
 
 
-def test_closest_trackpointaA():
+def test_closest_trackpointaA(bovy14_setup):
+    # Load the streamdf object
+    sdf_bovy14 = bovy14_setup
     # Check that we can find the closest trackpoint properly in AA
     check_closest_trackpointaA(sdf_bovy14, 50)
     check_closest_trackpointaA(sdf_bovy14, 4, interp=False)
     return None
 
 
-def test_pOparapar():
+def test_pOparapar(bovy14_setup):
+    # Load the streamdf object
+    sdf_bovy14 = bovy14_setup
     # Test that integrating pOparapar gives density_par
     dens_frompOpar_close = integrate.quad(
         lambda x: sdf_bovy14.pOparapar(x, 0.1),
@@ -363,14 +416,18 @@ def test_pOparapar():
     return None
 
 
-def test_density_par_valueerror():
+def test_density_par_valueerror(bovy14_setup):
+    # Load the streamdf object
+    sdf_bovy14 = bovy14_setup
     # Test that the code throws a ValueError if coord is not understood
     with pytest.raises(ValueError) as excinfo:
         sdf_bovy14.density_par(0.1, coord="xi")
     return None
 
 
-def test_density_par():
+def test_density_par(bovy14_setup):
+    # Load the streamdf object
+    sdf_bovy14 = bovy14_setup
     # Test that the density is close to 1 close to the progenitor and close to zero far from the progenitor
     assert (
         numpy.fabs(sdf_bovy14.density_par(0.1) - 1.0) < 10.0**-2.0
@@ -384,7 +441,10 @@ def test_density_par():
     return None
 
 
-def test_density_phi():
+def test_density_phi(bovy14_setup):
+    # Load the streamdf object
+    sdf_bovy14 = bovy14_setup
+
     # Test that the density in phi is correctly computed, by doing this by hand
     def dens_phi(apar):
         dapar = 10.0**-9.0
@@ -421,7 +481,10 @@ def test_density_phi():
     return None
 
 
-def test_density_ll_and_customra():
+def test_density_ll_and_customra(bovy14_setup):
+    # Load the streamdf object
+    sdf_bovy14 = bovy14_setup
+
     # Test that the density in ll is correctly computed, by doing this by hand
     # custom should be the same for this setup (see above)
     def dens_ll(apar):
@@ -477,7 +540,10 @@ def test_density_ll_and_customra():
     return None
 
 
-def test_density_ra():
+def test_density_ra(bovy14_setup):
+    # Load the streamdf object
+    sdf_bovy14 = bovy14_setup
+
     # Test that the density in ra is correctly computed, by doing this by hand
     def dens_ra(apar):
         dapar = 10.0**-9.0
@@ -522,7 +588,9 @@ def test_density_ra():
     return None
 
 
-def test_density_ll_wsampling():
+def test_density_ll_wsampling(bovy14_setup):
+    # Load the streamdf object
+    sdf_bovy14 = bovy14_setup
     # Test that the density computed using density_par is correct using a
     # random sample
     numpy.random.seed(1)
@@ -552,7 +620,9 @@ def test_density_ll_wsampling():
     return None
 
 
-def test_length():
+def test_length(bovy14_setup):
+    # Load the streamdf object
+    sdf_bovy14 = bovy14_setup
     # Test that the length is correct according to its definition
     thresh = 0.2
     assert (
@@ -575,7 +645,9 @@ def test_length():
     return None
 
 
-def test_length_valueerror():
+def test_length_valueerror(bovy14_setup):
+    # Load the streamdf object
+    sdf_bovy14 = bovy14_setup
     thresh = 0.00001
     with pytest.raises(ValueError) as excinfo:
         assert (
@@ -589,7 +661,10 @@ def test_length_valueerror():
     return None
 
 
-def test_length_ang():
+def test_length_ang(bovy14_setup):
+    # Load the streamdf object
+    sdf_bovy14 = bovy14_setup
+
     # Test that this is roughly correct
     def dphidapar(apar):
         dapar = 10.0**-9.0
@@ -637,7 +712,10 @@ def test_length_ang():
     return None
 
 
-def test_length_phys():
+def test_length_phys(bovy14_setup):
+    # Load the streamdf object
+    sdf_bovy14 = bovy14_setup
+
     # Test that this is roughly correct
     def dxdapar(apar):
         dapar = 10.0**-9.0
@@ -669,7 +747,9 @@ def test_length_phys():
     return None
 
 
-def test_meanOmega():
+def test_meanOmega(bovy14_setup):
+    # Load the streamdf object
+    sdf_bovy14 = bovy14_setup
     # Test that meanOmega is close to constant and the mean Omega close to the progenitor
     assert numpy.all(
         numpy.fabs(sdf_bovy14.meanOmega(0.1) - sdf_bovy14._progenitor_Omega)
@@ -682,7 +762,9 @@ def test_meanOmega():
     return None
 
 
-def test_meanOmega_oned():
+def test_meanOmega_oned(bovy14_setup):
+    # Load the streamdf object
+    sdf_bovy14 = bovy14_setup
     # Test that meanOmega is close to constant and the mean Omega close to the progenitor
     assert (
         numpy.fabs(sdf_bovy14.meanOmega(0.1, oned=True)) < 10.0**-2.0
@@ -693,7 +775,9 @@ def test_meanOmega_oned():
     return None
 
 
-def test_sigOmega_constant():
+def test_sigOmega_constant(bovy14_setup):
+    # Load the streamdf object
+    sdf_bovy14 = bovy14_setup
     # Test that sigOmega is close to constant close to the progenitor
     assert (
         numpy.fabs(sdf_bovy14.sigOmega(0.1) - sdf_bovy14.sigOmega(0.5)) < 10.0**-4.0
@@ -701,7 +785,9 @@ def test_sigOmega_constant():
     return None
 
 
-def test_sigOmega_small():
+def test_sigOmega_small(bovy14_setup):
+    # Load the streamdf object
+    sdf_bovy14 = bovy14_setup
     # Test that sigOmega is smaller than the total spread
     assert sdf_bovy14.sigOmega(0.1) < numpy.sqrt(
         sdf_bovy14._sortedSigOEig[2]
@@ -715,7 +801,9 @@ def test_sigOmega_small():
     return None
 
 
-def test_meantdAngle():
+def test_meantdAngle(bovy14_setup):
+    # Load the streamdf object
+    sdf_bovy14 = bovy14_setup
     # Test that the mean td for a given angle is close to what's expected
     assert (
         numpy.fabs(
@@ -731,10 +819,18 @@ def test_meantdAngle():
         )
         < 10.0**-0.9
     ), "mean td close to the progenitor is not dangle/dO"
+    assert (
+        numpy.fabs(sdf_bovy14.meantdAngle(0.0) - 0.0) < 10.0**-0.9
+    ), "mean td at the progenitor is not 0"
+    assert (
+        numpy.fabs(sdf_bovy14.meantdAngle(10.0) - sdf_bovy14._tdisrupt) < 10.0**-0.9
+    ), "mean td far from the progenitor is not tdisrupt"
     return None
 
 
-def test_sigtdAngle():
+def test_sigtdAngle(bovy14_setup):
+    # Load the streamdf object
+    sdf_bovy14 = bovy14_setup
     # Test that the sigma of td for a given angle is small
     assert (
         sdf_bovy14.sigtdAngle(0.1) < 0.2 * 0.1 / sdf_bovy14._meandO
@@ -742,10 +838,16 @@ def test_sigtdAngle():
     assert (
         sdf_bovy14.sigtdAngle(0.5) > 0.2 * 0.1 / sdf_bovy14._meandO
     ), "sigma of td in the middle of the stream is not large"
+    # Spread at the progenitor should be zero
+    assert (
+        sdf_bovy14.sigtdAngle(0.0) < 1e-5
+    ), "sigma of td at the progenitor is not zero"
     return None
 
 
-def test_ptdAngle():
+def test_ptdAngle(bovy14_setup):
+    # Load the streamdf object
+    sdf_bovy14 = bovy14_setup
     # Test that the probability distribution for p(td|angle) is reasonable
     # at 0.1
     da = 0.1
@@ -792,7 +894,9 @@ def test_ptdAngle():
     return None
 
 
-def test_meanangledAngle():
+def test_meanangledAngle(bovy14_setup):
+    # Load the streamdf object
+    sdf_bovy14 = bovy14_setup
     # Test that the mean perpendicular angle at a given angle is zero
     da = 0.1
     assert (
@@ -808,10 +912,19 @@ def test_meanangledAngle():
     assert (
         numpy.fabs(sdf_bovy14.meanangledAngle(da, smallest=True)) < 10.0**-2
     ), "mean perpendicular angle not zero"
+    da = 0.0
+    assert (
+        numpy.fabs(sdf_bovy14.meanangledAngle(da, smallest=False)) < 10.0**-2
+    ), "mean perpendicular angle not zero"
+    assert (
+        numpy.fabs(sdf_bovy14.meanangledAngle(da, smallest=True)) < 10.0**-2
+    ), "mean perpendicular angle not zero"
     return None
 
 
-def test_sigangledAngle():
+def test_sigangledAngle(bovy14_setup):
+    # Load the streamdf object
+    sdf_bovy14 = bovy14_setup
     # Test that the spread in perpendicular angle is much smaller than 1 (the typical spread in the parallel angle)
     da = 0.1
     assert (
@@ -843,6 +956,18 @@ def test_sigangledAngle():
         sdf_bovy14.sigangledAngle(da, assumeZeroMean=False, smallest=True, simple=False)
         < 1.0 / sdf_bovy14.freqEigvalRatio()
     ), "spread in perpendicular angle is not small"
+    # w/o assuming zeroMean, at da=0
+    da = 0.0
+    assert (
+        sdf_bovy14.sigangledAngle(
+            da, assumeZeroMean=False, smallest=False, simple=False
+        )
+        < 1.0 / sdf_bovy14.freqEigvalRatio()
+    ), "spread in perpendicular angle is not small"
+    assert (
+        sdf_bovy14.sigangledAngle(da, assumeZeroMean=False, smallest=True, simple=False)
+        < 1.0 / sdf_bovy14.freqEigvalRatio()
+    ), "spread in perpendicular angle is not small"
     # simple estimate
     da = 0.1
     assert (
@@ -856,7 +981,9 @@ def test_sigangledAngle():
     return None
 
 
-def test_pangledAngle():
+def test_pangledAngle(bovy14_setup):
+    # Load the streamdf object
+    sdf_bovy14 = bovy14_setup
     # Sanity check pangledAngle, does it peak near zero? Does the mean agree with meandAngle, does the sigma agree with sigdAngle?
     da = 0.1
     assert sdf_bovy14.pangledAngle(0.0, da, smallest=False) > sdf_bovy14.pangledAngle(
@@ -919,7 +1046,9 @@ def test_pangledAngle():
     return None
 
 
-def test_bovy14_approxaA_inv():
+def test_bovy14_approxaA_inv(bovy14_setup):
+    # Load the streamdf object
+    sdf_bovy14 = bovy14_setup
     # Test that the approximate action-angle conversion near the track works, ie, that the inverse gives the initial point
     # Point on track, interpolated
     RvR = sdf_bovy14._interpolatedObsTrack[22, :]
@@ -964,7 +1093,9 @@ def test_bovy14_approxaA_inv():
     return None
 
 
-def test_bovy14_gaussApprox_onemissing():
+def test_bovy14_gaussApprox_onemissing(bovy14_setup):
+    # Load the streamdf object
+    sdf_bovy14 = bovy14_setup
     # Test the Gaussian approximation
     # First, test near an interpolated point, without using interpolation (non-trivial)
     tol = -3.0
@@ -1020,7 +1151,9 @@ def test_bovy14_gaussApprox_onemissing():
     return None
 
 
-def test_bovy14_gaussApprox_threemissing():
+def test_bovy14_gaussApprox_threemissing(bovy14_setup):
+    # Load the streamdf object
+    sdf_bovy14 = bovy14_setup
     # Test the Gaussian approximation
     # First, test near an interpolated point, without using interpolation (non-trivial)
     tol = -3.0
@@ -1064,7 +1197,9 @@ def test_bovy14_gaussApprox_threemissing():
     return None
 
 
-def test_bovy14_gaussApprox_fivemissing():
+def test_bovy14_gaussApprox_fivemissing(bovy14_setup):
+    # Load the streamdf object
+    sdf_bovy14 = bovy14_setup
     # Test the Gaussian approximation
     # Test near an interpolation point
     tol = -3.0
@@ -1128,7 +1263,9 @@ def test_bovy14_gaussApprox_fivemissing():
     return None
 
 
-def test_bovy14_gaussApprox_interp():
+def test_bovy14_gaussApprox_interp(bovy14_setup):
+    # Load the streamdf object
+    sdf_bovy14 = bovy14_setup
     # Tests of Gaussian approximation when using interpolation
     tol = -10.0
     trackp = 234
@@ -1157,7 +1294,9 @@ def test_bovy14_gaussApprox_interp():
     return None
 
 
-def test_bovy14_gaussApproxLB_onemissing():
+def test_bovy14_gaussApproxLB_onemissing(bovy14_setup):
+    # Load the streamdf object
+    sdf_bovy14 = bovy14_setup
     # Test the Gaussian approximation
     # First, test near an interpolated point, without using interpolation (non-trivial)
     tol = -2.0
@@ -1213,7 +1352,9 @@ def test_bovy14_gaussApproxLB_onemissing():
     return None
 
 
-def test_bovy14_gaussApproxLB_threemissing():
+def test_bovy14_gaussApproxLB_threemissing(bovy14_setup):
+    # Load the streamdf object
+    sdf_bovy14 = bovy14_setup
     # Test the Gaussian approximation
     # First, test near an interpolated point, without using interpolation (non-trivial)
     tol = -1.8
@@ -1257,7 +1398,9 @@ def test_bovy14_gaussApproxLB_threemissing():
     return None
 
 
-def test_bovy14_gaussApproxLB_fivemissing():
+def test_bovy14_gaussApproxLB_fivemissing(bovy14_setup):
+    # Load the streamdf object
+    sdf_bovy14 = bovy14_setup
     # Test the Gaussian approximation
     # Test near an interpolation point
     tol = -1.98  # vlos just doesn't make -2.
@@ -1321,7 +1464,9 @@ def test_bovy14_gaussApproxLB_fivemissing():
     return None
 
 
-def test_bovy14_gaussApproxLB_interp():
+def test_bovy14_gaussApproxLB_interp(bovy14_setup):
+    # Load the streamdf object
+    sdf_bovy14 = bovy14_setup
     # Tests of Gaussian approximation when using interpolation
     tol = -10.0
     trackp = 234
@@ -1340,7 +1485,9 @@ def test_bovy14_gaussApproxLB_interp():
     return None
 
 
-def test_bovy14_callMargXZ():
+def test_bovy14_callMargXZ(bovy14_setup):
+    # Load the streamdf object
+    sdf_bovy14 = bovy14_setup
     # Example from the tutorial and paper
     meanp, varp = sdf_bovy14.gaussApprox([None, None, 2.0 / 8.0, None, None, None])
     xs = (
@@ -1393,7 +1540,9 @@ def test_bovy14_callMargXZ():
     return None
 
 
-def test_bovy14_callMargDPMLL():
+def test_bovy14_callMargDPMLL(bovy14_setup):
+    # Load the streamdf object
+    sdf_bovy14 = bovy14_setup
     # p(D|pmll)
     meanp, varp = sdf_bovy14.gaussApprox([None, None, None, None, 8.0, None], lb=True)
     xs = (
@@ -1472,7 +1621,30 @@ def test_bovy14_callMargDPMLL():
     return None
 
 
-def test_callArgs():
+def test_bovy14_callMargVLOSPMBB(bovy14_setup):
+    # Load the streamdf object
+    sdf_bovy14 = bovy14_setup
+    # p(vlos|pmbb)
+    meanp, varp = sdf_bovy14.gaussApprox([None, None, None, None, None, 5.0], lb=True)
+    xs = (
+        numpy.linspace(-3.0 * numpy.sqrt(varp[3, 3]), 3.0 * numpy.sqrt(varp[3, 3]), 11)
+        + meanp[3]
+    )
+    logps = numpy.array(
+        [sdf_bovy14.callMarg([None, None, None, x, None, 5.0], lb=True) for x in xs]
+    )
+    ps = numpy.exp(logps - numpy.amax(logps))
+    ps /= numpy.sum(ps) * (xs[1] - xs[0])
+    # Test that the mean is close to the approximation
+    assert (
+        numpy.fabs(numpy.sum(xs * ps) / numpy.sum(ps) - meanp[3]) < 5.0
+    ), "mean of full PDF calculation does not agree with Gaussian approximation to the level at which this is expected for p(D|pmll)"
+    return None
+
+
+def test_callArgs(bovy14_setup):
+    # Load the streamdf object
+    sdf_bovy14 = bovy14_setup
     # Tests of _parse_call_args
     from galpy.orbit import Orbit
 
@@ -1549,7 +1721,9 @@ def test_callArgs():
     return None
 
 
-def test_bovy14_sample():
+def test_bovy14_sample(bovy14_setup):
+    # Load the streamdf object
+    sdf_bovy14 = bovy14_setup
     numpy.random.seed(1)
     RvR = sdf_bovy14.sample(n=1000)
     # Sanity checks
@@ -1578,7 +1752,9 @@ def test_bovy14_sample():
     return None
 
 
-def test_bovy14_sampleXY():
+def test_bovy14_sampleXY(bovy14_setup):
+    # Load the streamdf object
+    sdf_bovy14 = bovy14_setup
     XvX = sdf_bovy14.sample(n=1000, xy=True)
     # Sanity checks
     # Range in Z
@@ -1606,7 +1782,9 @@ def test_bovy14_sampleXY():
     return None
 
 
-def test_bovy14_sampleLB():
+def test_bovy14_sampleLB(bovy14_setup):
+    # Load the streamdf object
+    sdf_bovy14 = bovy14_setup
     LB = sdf_bovy14.sample(n=1000, lb=True)
     # Sanity checks
     # Range in l
@@ -1634,7 +1812,9 @@ def test_bovy14_sampleLB():
     return None
 
 
-def test_bovy14_sampleA():
+def test_bovy14_sampleA(bovy14_setup):
+    # Load the streamdf object
+    sdf_bovy14 = bovy14_setup
     AA = sdf_bovy14.sample(n=1000, returnaAdt=True)
     # Sanity checks
     indx = (AA[0][0] > 0.5625) * (AA[0][0] < 0.563)
@@ -1660,7 +1840,9 @@ def test_bovy14_sampleA():
     return None
 
 
-def test_subhalo_encounters():
+def test_subhalo_encounters(bovy14_setup):
+    # Load the streamdf object
+    sdf_bovy14 = bovy14_setup
     # Test that subhalo_encounters acts as expected
     # linear in sigma
     assert (
@@ -1773,7 +1955,10 @@ def test_subhalo_encounters():
     return None
 
 
-def test_subhalo_encounters_venc():
+def test_subhalo_encounters_venc(bovy14_setup):
+    # Load the streamdf object
+    sdf_bovy14 = bovy14_setup
+
     # Test that the dependence on venc of subhalo_encounters is correct
     def expected_venc(venc, sigma):
         return 1.0 - numpy.exp(-(venc**2.0) / 2.0 / sigma**2.0)
@@ -1818,7 +2003,10 @@ def test_subhalo_encounters_venc():
     return None
 
 
-def test_subhalo_encounters_venc_yoon():
+def test_subhalo_encounters_venc_yoon(bovy14_setup):
+    # Load the streamdf object
+    sdf_bovy14 = bovy14_setup
+
     # Test that the dependence on venc of subhalo_encounters is correct
     # in the Yoon et al. case
     def expected_venc(venc, sigma):
@@ -1866,7 +2054,7 @@ def test_subhalo_encounters_venc_yoon():
     return None
 
 
-def test_bovy14_oppositetrailing_setup():
+def test_bovy14_oppositetrailing_setup_errors():
     # Imports
     from galpy.actionAngle import actionAngleIsochroneApprox
     from galpy.df import streamdf
@@ -1882,8 +2070,7 @@ def test_bovy14_oppositetrailing_setup():
         [1.56148083, -0.35081535, 1.15481504, 0.88719443, 0.47713334, 0.12019596]
     )
     sigv = 0.365  # km/s
-    global sdft_bovy14
-    # First provoke some errors
+    # Provoke some errors
     try:
         sdft_bovy14 = streamdf(
             sigv / 220.0, progenitor=obs, pot=lp_false, aA=aAI, leading=False
@@ -1914,18 +2101,11 @@ def test_bovy14_oppositetrailing_setup():
             "streamdf setup w/ deltaAngleTrack too large did not raise warning"
         )
     warnings.simplefilter("default")
-    # Now setup w/ the right potential
-    sdft_bovy14 = streamdf(
-        sigv / 220.0,
-        progenitor=obs,
-        pot=lp,
-        aA=aAI,
-        multi=True,  # test multi
-        leading=False,
-        tdisrupt=4.5 / conversion.time_in_Gyr(220.0, 8.0),
-        nTrackIterations=0,
-        sigangle=0.657,
-    )
+    return None
+
+
+def test_bovy14_oppositetrailing_setup_errors(bovy14_trailing_setup):
+    sdft_bovy14 = bovy14_trailing_setup
     assert not sdft_bovy14 is None, "bovy14 streamdf setup did not work"
     return None
 
@@ -2055,7 +2235,9 @@ def test_calcaAJacLB():
     return None
 
 
-def test_estimateTdisrupt():
+def test_estimateTdisrupt(bovy14_setup):
+    # Load the streamdf object
+    sdf_bovy14 = bovy14_setup
     from galpy.util import conversion
 
     td = numpy.log10(
@@ -2065,7 +2247,10 @@ def test_estimateTdisrupt():
     return None
 
 
-def test_plotting():
+def test_plotting(bovy14_setup, bovy14_trailing_setup):
+    # Load the streamdf object
+    sdf_bovy14 = bovy14_setup
+    sdft_bovy14 = bovy14_trailing_setup
     # Check plotting routines
     check_track_plotting(sdf_bovy14, "R", "Z")
     check_track_plotting(sdf_bovy14, "R", "Z", phys=True)  # do 1 with phys
@@ -2136,7 +2321,9 @@ def test_2ndsetup():
     return None
 
 
-def test_bovy14_trackaa():
+def test_bovy14_trackaa(bovy14_setup):
+    # Load the streamdf object
+    sdf_bovy14 = bovy14_setup
     # Test that the explicitly-calculated frequencies along the track are close to those that the track is based on (Fardal test, #194)
     from galpy.orbit import Orbit
 
@@ -2346,7 +2533,9 @@ def test_bovy14_useTM_poterror():
     return None
 
 
-def test_bovy14_useTM():
+def test_bovy14_useTM(bovy14_setup):
+    # Load the streamdf object
+    sdf_bovy14 = bovy14_setup
     if WIN32:
         return None  # skip on Windows, because no TM
     # Test that setting up with useTM is very close to the Bovy (2014) setup
@@ -2416,7 +2605,9 @@ def test_bovy14_useTM():
     return None
 
 
-def test_bovy14_useTM_useTMHessian():
+def test_bovy14_useTM_useTMHessian(bovy14_setup):
+    # Load the streamdf object
+    sdf_bovy14 = bovy14_setup
     if WIN32:
         return None  # skip on Windows, because no TM
     # Test that setting up with useTM is very close to the Bovy (2014) setup
@@ -2500,7 +2691,9 @@ def test_bovy14_useTM_useTMHessian():
     return None
 
 
-def test_bovy14_useTM_approxConstTrackFreq():
+def test_bovy14_useTM_approxConstTrackFreq(bovy14_setup):
+    # Load the streamdf object
+    sdf_bovy14 = bovy14_setup
     if WIN32:
         return None  # skip on Windows, because no TM
     # Test that setting up with useTM is very close to the Bovy (2014) setup
