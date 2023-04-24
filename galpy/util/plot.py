@@ -685,7 +685,6 @@ def dens2d(X, **kwargs):
                 colors=cntrcolors,
                 linewidths=cntrlw,
                 extent=extent,
-                aspect=aspect,
                 linestyles=cntrls,
                 origin=origin,
             )

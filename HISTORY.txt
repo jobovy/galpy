@@ -7,6 +7,8 @@ v1.9.0 (XXXX-XX-XX)
 
 - Started using black for code formatting.
 
+- Allow potentials' density and surface density to be plotted on physical axes.
+
 v1.8.3 (2023-03-27)
 ===================
 

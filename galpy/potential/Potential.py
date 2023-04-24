@@ -3230,12 +3230,19 @@ def plotDensities(
 
        2013-07-05 - Written - Bovy (IAS)
 
+       2023-04-24 - Allow plotting in physical coordinates - Bovy (UofT)
+
     """
     Pot = flatten(Pot)
-    rmin = conversion.parse_length(rmin, **get_physical(Pot))
-    rmax = conversion.parse_length(rmax, **get_physical(Pot))
-    zmin = conversion.parse_length(zmin, **get_physical(Pot))
-    zmax = conversion.parse_length(zmax, **get_physical(Pot))
+    physical_kwargs = conversion.extract_physical_kwargs(kwargs)
+    use_physical, ro, vo = conversion.physical_output(Pot, physical_kwargs, "density")
+    if ro is None:
+        ro = get_physical(Pot)["ro"]
+    physical_kwargs["quantity"] = False  # make sure to not use quantity output
+    rmin = conversion.parse_length(rmin, ro=ro)
+    rmax = conversion.parse_length(rmax, ro=ro)
+    zmin = conversion.parse_length(zmin, ro=ro)
+    zmax = conversion.parse_length(zmax, ro=ro)
     if not savefilename == None and os.path.exists(savefilename):
         print("Restoring savefile " + savefilename + " ...")
         savefile = open(savefilename, "rb")
@@ -3254,7 +3261,7 @@ def plotDensities(
                 else:
                     R, z = Rs[ii], zs[jj]
                 potRz[ii, jj] = evaluateDensities(
-                    Pot, numpy.fabs(R), z, phi=phi, t=t, use_physical=False
+                    Pot, numpy.fabs(R), z, phi=phi, t=t, **physical_kwargs
                 )
         if not savefilename == None:
             print("Writing savefile " + savefilename + " ...")
@@ -3268,21 +3275,28 @@ def plotDensities(
     if log:
         potRz = numpy.log(potRz)
     if xy:
-        xlabel = r"$x/R_0$"
-        ylabel = r"$y/R_0$"
+        xlabel = r"$x"
+        ylabel = r"$y"
     else:
-        xlabel = r"$R/R_0$"
-        ylabel = r"$z/R_0$"
+        xlabel = r"$R"
+        ylabel = r"$z"
+    if use_physical:
+        xlabel += r"\,(\mathrm{kpc})$"
+        ylabel += r"\,(\mathrm{kpc})$"
+    else:
+        ro = 1.0
+        xlabel += "/R_0$"
+        ylabel += "/R_0$"
+    kwargs["cmap"] = kwargs.get("cmap", "gist_yarg")
     return plot.dens2d(
         potRz.T,
         origin="lower",
-        cmap="gist_yarg",
         contours=True,
         xlabel=xlabel,
         ylabel=ylabel,
         aspect=aspect,
-        xrange=[rmin, rmax],
-        yrange=[zmin, zmax],
+        xrange=[rmin * ro, rmax * ro],
+        yrange=[zmin * ro, zmax * ro],
         cntrls=kwargs.pop("cntrls", "-"),
         justcontours=justcontours,
         levels=numpy.linspace(numpy.nanmin(potRz), numpy.nanmax(potRz), ncontours),
@@ -3355,10 +3369,17 @@ def plotSurfaceDensities(
 
     """
     Pot = flatten(Pot)
-    xmin = conversion.parse_length(xmin, **get_physical(Pot))
-    xmax = conversion.parse_length(xmax, **get_physical(Pot))
-    ymin = conversion.parse_length(ymin, **get_physical(Pot))
-    ymax = conversion.parse_length(ymax, **get_physical(Pot))
+    physical_kwargs = conversion.extract_physical_kwargs(kwargs)
+    use_physical, ro, vo = conversion.physical_output(
+        Pot, physical_kwargs, "surfacedensity"
+    )
+    if ro is None:
+        ro = get_physical(Pot)["ro"]
+    physical_kwargs["quantity"] = False  # make sure to not use quantity output
+    xmin = conversion.parse_length(xmin, ro=ro)
+    xmax = conversion.parse_length(xmax, ro=ro)
+    ymin = conversion.parse_length(ymin, ro=ro)
+    ymax = conversion.parse_length(ymax, ro=ro)
     if not savefilename == None and os.path.exists(savefilename):
         print("Restoring savefile " + savefilename + " ...")
         savefile = open(savefilename, "rb")
@@ -3374,7 +3395,7 @@ def plotSurfaceDensities(
             for jj in range(nys):
                 R, phi, _ = coords.rect_to_cyl(xs[ii], ys[jj], 0.0)
                 surfxy[ii, jj] = evaluateSurfaceDensities(
-                    Pot, numpy.fabs(R), z, phi=phi, t=t, use_physical=False
+                    Pot, numpy.fabs(R), z, phi=phi, t=t, **physical_kwargs
                 )
         if not savefilename == None:
             print("Writing savefile " + savefilename + " ...")
@@ -3387,18 +3408,25 @@ def plotSurfaceDensities(
         aspect = 1.0
     if log:
         surfxy = numpy.log(surfxy)
-    xlabel = r"$x/R_0$"
-    ylabel = r"$y/R_0$"
+    xlabel = r"$x"
+    ylabel = r"$y"
+    if use_physical:
+        xlabel += r"\,(\mathrm{kpc})$"
+        ylabel += r"\,(\mathrm{kpc})$"
+    else:
+        ro = 1.0
+        xlabel += "/R_0$"
+        ylabel += "/R_0$"
+    kwargs["cmap"] = kwargs.get("cmap", "gist_yarg")
     return plot.dens2d(
         surfxy.T,
         origin="lower",
-        cmap="gist_yarg",
         contours=True,
         xlabel=xlabel,
         ylabel=ylabel,
         aspect=aspect,
-        xrange=[xmin, xmax],
-        yrange=[ymin, ymax],
+        xrange=[xmin * ro, xmax * ro],
+        yrange=[ymin * ro, ymax * ro],
         cntrls=kwargs.pop("cntrls", "-"),
         justcontours=justcontours,
         levels=numpy.linspace(numpy.nanmin(surfxy), numpy.nanmax(surfxy), ncontours),
