@@ -26,16 +26,18 @@ Utility  functions:
 -------------------
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
+   extract_physical_kwargs <conversionextractphysicalkwargs.rst>
    get_physical <conversiongetphysical.rst>
    physical_compatible <conversionphysicalcompatible.rst>
+   physical_output <conversionphysicaloutput.rst>
 
 Conversion functions:
 ---------------------
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
    dens_in_criticaldens <conversiondens_in_criticaldens.rst>
    dens_in_gevcc <conversiondens_in_gevcc.rst>

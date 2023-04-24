@@ -9,6 +9,7 @@ import math as m
 import numbers
 import warnings
 from functools import wraps
+from typing import Any, Tuple
 
 import numpy
 
@@ -470,7 +471,7 @@ def velocity_in_kpcGyr(vo, ro):
     return vo * _kmsInPcMyr
 
 
-def get_physical(obj, include_set=False):
+def get_physical(obj: Any, include_set: bool = False) -> dict:
     """
     NAME:
 
@@ -521,7 +522,37 @@ def get_physical(obj, include_set=False):
     return out
 
 
-def physical_compatible(obj, other_obj):
+def extract_physical_kwargs(kwargs: dict) -> dict:
+    """
+    NAME:
+
+       extract_physical_kwargs
+
+    PURPOSE:
+
+       extract the physical kwargs from a kwargs dictionary
+
+    INPUT:
+
+       kwargs - a dictionary of kwargs
+
+    OUTPUT:
+
+       dictionary with just the physical kwargs
+
+    HISTORY:
+
+       2023-04-24 - Written - Bovy (UofT)
+
+    """
+    out = {}
+    for key in kwargs.copy():
+        if key in ["use_physical", "ro", "vo", "quantity"]:
+            out[key] = kwargs.pop(key)
+    return out
+
+
+def physical_compatible(obj: Any, other_obj: Any) -> bool:
     """
     NAME:
 
@@ -822,6 +853,84 @@ _voNecessary["velocity_kms"] = True
 _voNecessary["energy"] = True
 
 
+# Determine whether or not outputs will be physical or not
+def physical_output(obj: Any, kwargs: dict, quantity: str) -> Tuple[bool, float, float]:
+    """
+    NAME:
+
+       physical_output
+
+    PURPOSE:
+
+       Determine whether or not outputs will be physical or not
+
+    INPUT:
+
+       obj - galpy object (or list in case of potentials)
+
+       kwargs - kwargs passed to the method
+
+       quantity - quantity to be returned
+
+    OUTPUT:
+
+       (
+        boolean that indicates whether or not to use physical units,
+        ro,
+        vo
+       )
+
+    HISTORY:
+
+        2023-04-24 - Written - Bovy (UofT)
+
+    """
+    use_physical = kwargs.get("use_physical", True) and not kwargs.get("log", False)
+    # Parse whether ro or vo should be considered to be set, because
+    # the return value will have units anyway
+    # (like in Orbit methods that return numbers with units, like ra)
+    roSet = "_" in quantity  # _ in quantity name means always units
+    voSet = "_" in quantity  # _ in quantity name means always units
+    use_physical = (
+        use_physical or "_" in quantity
+    )  # _ in quantity name means always units
+    ro = kwargs.get("ro", None)
+    if ro is None and (roSet or (hasattr(obj, "_roSet") and obj._roSet)):
+        ro = obj._ro
+    if (
+        ro is None
+        and isinstance(obj, list)
+        and hasattr(obj[0], "_roSet")
+        and obj[0]._roSet
+    ):
+        # For lists of Potentials
+        ro = obj[0]._ro
+    if _APY_LOADED and isinstance(ro, units.Quantity):
+        ro = ro.to(units.kpc).value
+    vo = kwargs.get("vo", None)
+    if vo is None and (voSet or (hasattr(obj, "_voSet") and obj._voSet)):
+        vo = obj._vo
+    if (
+        vo is None
+        and isinstance(obj, list)
+        and hasattr(obj[0], "_voSet")
+        and obj[0]._voSet
+    ):
+        # For lists of Potentials
+        vo = obj[0]._vo
+    if _APY_LOADED and isinstance(vo, units.Quantity):
+        vo = vo.to(units.km / units.s).value
+    return (
+        (
+            use_physical
+            and not (_voNecessary[quantity.lower()] and vo is None)
+            and not (_roNecessary[quantity.lower()] and ro is None)
+        ),
+        ro,
+        vo,
+    )
+
+
 def physical_conversion(quantity, pop=False):
     """Decorator to convert to physical coordinates:
     quantity = [position,velocity,time]"""
@@ -829,64 +938,16 @@ def physical_conversion(quantity, pop=False):
     def wrapper(method):
         @wraps(method)
         def wrapped(*args, **kwargs):
-            use_physical_explicitly_set = kwargs.get("use_physical", None) is not None
-            use_physical = kwargs.get("use_physical", True) and not kwargs.get(
-                "log", False
-            )
-            # Parse whether ro or vo should be considered to be set, because
-            # the return value will have units anyway
-            # (like in Orbit methods that return numbers with units, like ra)
-            roSet = "_" in quantity  # _ in quantity name means always units
-            voSet = "_" in quantity  # _ in quantity name means always units
-            use_physical = (
-                use_physical or "_" in quantity
-            )  # _ in quantity name means always units
-            ro = kwargs.get("ro", None)
-            if ro is None and (
-                roSet or (hasattr(args[0], "_roSet") and args[0]._roSet)
-            ):
-                ro = args[0]._ro
-            if (
-                ro is None
-                and isinstance(args[0], list)
-                and hasattr(args[0][0], "_roSet")
-                and args[0][0]._roSet
-            ):
-                # For lists of Potentials
-                ro = args[0][0]._ro
-            if _APY_LOADED and isinstance(ro, units.Quantity):
-                ro = ro.to(units.kpc).value
-            vo = kwargs.get("vo", None)
-            if vo is None and (
-                voSet or (hasattr(args[0], "_voSet") and args[0]._voSet)
-            ):
-                vo = args[0]._vo
-            if (
-                vo is None
-                and isinstance(args[0], list)
-                and hasattr(args[0][0], "_voSet")
-                and args[0][0]._voSet
-            ):
-                # For lists of Potentials
-                vo = args[0][0]._vo
-            if _APY_LOADED and isinstance(vo, units.Quantity):
-                vo = vo.to(units.km / units.s).value
-            # Override Quantity output?
+            # Determine whether or not to return outputs in physical units
+            use_physical_output, ro, vo = physical_output(args[0], kwargs, quantity)
+            # Determine whether physical outputs were explicitly asked for
+            use_physical_explicitly_set = kwargs.get("use_physical", False)
+            # Determine whether or not to return outputs as quantities
             _apy_units = kwargs.get("quantity", _APY_UNITS)
             # Remove ro, vo, use_physical, and quantity kwargs if necessary
-            if pop and "use_physical" in kwargs:
-                kwargs.pop("use_physical")
-            if pop and "quantity" in kwargs:
-                kwargs.pop("quantity")
-            if pop and "ro" in kwargs:
-                kwargs.pop("ro")
-            if pop and "vo" in kwargs:
-                kwargs.pop("vo")
-            if (
-                use_physical
-                and not (_voNecessary[quantity.lower()] and vo is None)
-                and not (_roNecessary[quantity.lower()] and ro is None)
-            ):
+            if pop:
+                _ = extract_physical_kwargs(kwargs)
+            if use_physical_output:
                 from ..orbit import Orbit
 
                 if quantity.lower() == "time":
@@ -1008,7 +1069,7 @@ def physical_conversion(quantity, pop=False):
                 else:
                     return out * fac
             else:
-                if use_physical and use_physical_explicitly_set:
+                if use_physical_explicitly_set:
                     warnings.warn(
                         "Returning output(s) in internal units even though use_physical=True, because ro and/or vo not set"
                     )
