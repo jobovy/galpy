@@ -22,9 +22,20 @@ class PerfectEllipsoidPotential(EllipsoidalPotential):
 
     where :math:`\\mathrm{amp} = GM` is the total mass and :math:`m^2 = x^2+y^2/b^2+z^2/c^2`.
     """
-    def __init__(self,amp=1.,a=5.,b=1.,c=1.,
-                 zvec=None,pa=None,glorder=50,
-                 normalize=False,ro=None,vo=None):
+
+    def __init__(
+        self,
+        amp=1.0,
+        a=5.0,
+        b=1.0,
+        c=1.0,
+        zvec=None,
+        pa=None,
+        glorder=50,
+        normalize=False,
+        ro=None,
+        vo=None,
+    ):
         """
         NAME:
 
@@ -61,37 +72,46 @@ class PerfectEllipsoidPotential(EllipsoidalPotential):
            2018-08-06 - Started - Bovy (UofT)
 
         """
-        EllipsoidalPotential.__init__(self,amp=amp,b=b,c=c,
-                                      zvec=zvec,pa=pa,glorder=glorder,
-                                      ro=ro,vo=vo,amp_units='mass')
-        a= conversion.parse_length(a,ro=self._ro)
-        self.a= a
-        self.a2= self.a**2
-        self._scale= self.a
+        EllipsoidalPotential.__init__(
+            self,
+            amp=amp,
+            b=b,
+            c=c,
+            zvec=zvec,
+            pa=pa,
+            glorder=glorder,
+            ro=ro,
+            vo=vo,
+            amp_units="mass",
+        )
+        a = conversion.parse_length(a, ro=self._ro)
+        self.a = a
+        self.a2 = self.a**2
+        self._scale = self.a
         # Adjust amp
-        self._amp*= self.a/(numpy.pi**2*self._b*self._c)
-        if normalize or \
-                (isinstance(normalize,(int,float)) \
-                     and not isinstance(normalize,bool)): #pragma: no cover
+        self._amp *= self.a / (numpy.pi**2 * self._b * self._c)
+        if normalize or (
+            isinstance(normalize, (int, float)) and not isinstance(normalize, bool)
+        ):  # pragma: no cover
             self.normalize(normalize)
-        self.hasC= not self._glorder is None
-        self.hasC_dxdv= False
-        self.hasC_dens= self.hasC # works if mdens is defined, necessary for hasC
+        self.hasC = not self._glorder is None
+        self.hasC_dxdv = False
+        self.hasC_dens = self.hasC  # works if mdens is defined, necessary for hasC
         return None
 
-    def _psi(self,m):
+    def _psi(self, m):
         """\\psi(m) = -\\int_m^\\infty d m^2 \rho(m^2)"""
-        return -1./(self.a2+m**2)
+        return -1.0 / (self.a2 + m**2)
 
-    def _mdens(self,m):
+    def _mdens(self, m):
         """Density as a function of m"""
-        return (self.a2+m**2)**-2
+        return (self.a2 + m**2) ** -2
 
-    def _mdens_deriv(self,m):
+    def _mdens_deriv(self, m):
         """Derivative of the density as a function of m"""
-        return -4.*m*(self.a2+m**2)**-3
+        return -4.0 * m * (self.a2 + m**2) ** -3
 
-    def _mass(self,R,z=None,t=0.):
+    def _mass(self, R, z=None, t=0.0):
         """
         NAME:
            _mass
@@ -106,6 +126,13 @@ class PerfectEllipsoidPotential(EllipsoidalPotential):
         HISTORY:
            2021-03-08 - Written - Bovy (UofT)
         """
-        if not z is None: raise AttributeError # Hack to fall back to general
-        return 2.*numpy.pi*self._b*self._c/self.a\
-            *(numpy.arctan(R/self.a)-R*self.a/(1.+R**2.))
+        if not z is None:
+            raise AttributeError  # Hack to fall back to general
+        return (
+            2.0
+            * numpy.pi
+            * self._b
+            * self._c
+            / self.a
+            * (numpy.arctan(R / self.a) - R * self.a / (1.0 + R**2.0))
+        )

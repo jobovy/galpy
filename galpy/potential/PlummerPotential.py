@@ -19,8 +19,8 @@ class PlummerPotential(Potential):
 
     with :math:`\\mathrm{amp} = GM` the total mass.
     """
-    def __init__(self,amp=1.,b=0.8,normalize=False,
-                 ro=None,vo=None):
+
+    def __init__(self, amp=1.0, b=0.8, normalize=False, ro=None, vo=None):
         """
         NAME:
 
@@ -49,20 +49,20 @@ class PlummerPotential(Potential):
            2015-06-15 - Written - Bovy (IAS)
 
         """
-        Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='mass')
-        self._b= conversion.parse_length(b,ro=self._ro)
-        self._scale= self._b
-        self._b2= self._b**2.
-        if normalize or \
-                (isinstance(normalize,(int,float)) \
-                     and not isinstance(normalize,bool)):
+        Potential.__init__(self, amp=amp, ro=ro, vo=vo, amp_units="mass")
+        self._b = conversion.parse_length(b, ro=self._ro)
+        self._scale = self._b
+        self._b2 = self._b**2.0
+        if normalize or (
+            isinstance(normalize, (int, float)) and not isinstance(normalize, bool)
+        ):
             self.normalize(normalize)
-        self.hasC= True
-        self.hasC_dxdv= True
-        self.hasC_dens= True
-        self._nemo_accname= 'Plummer'
+        self.hasC = True
+        self.hasC_dxdv = True
+        self.hasC_dens = True
+        self._nemo_accname = "Plummer"
 
-    def _evaluate(self,R,z,phi=0.,t=0.):
+    def _evaluate(self, R, z, phi=0.0, t=0.0):
         """
         NAME:
            _evaluate
@@ -78,9 +78,9 @@ class PlummerPotential(Potential):
         HISTORY:
            2015-06-15 - Started - Bovy (IAS)
         """
-        return -1./numpy.sqrt(R**2.+z**2.+self._b2)
+        return -1.0 / numpy.sqrt(R**2.0 + z**2.0 + self._b2)
 
-    def _Rforce(self,R,z,phi=0.,t=0.):
+    def _Rforce(self, R, z, phi=0.0, t=0.0):
         """
         NAME:
            _Rforce
@@ -96,10 +96,10 @@ class PlummerPotential(Potential):
         HISTORY:
            2015-06-15 - Written - Bovy (IAS)
         """
-        dPhidrr= -(R**2.+z**2.+self._b2)**-1.5
-        return dPhidrr*R
+        dPhidrr = -((R**2.0 + z**2.0 + self._b2) ** -1.5)
+        return dPhidrr * R
 
-    def _zforce(self,R,z,phi=0.,t=0.):
+    def _zforce(self, R, z, phi=0.0, t=0.0):
         """
         NAME:
            _zforce
@@ -115,10 +115,10 @@ class PlummerPotential(Potential):
         HISTORY:
            2015-06-15 - Written - Bovy (IAS)
         """
-        dPhidrr= -(R**2.+z**2.+self._b2)**-1.5
-        return dPhidrr*z
+        dPhidrr = -((R**2.0 + z**2.0 + self._b2) ** -1.5)
+        return dPhidrr * z
 
-    def _rforce_jax(self,r):
+    def _rforce_jax(self, r):
         """
         NAME:
            _rforce_jax
@@ -132,9 +132,9 @@ class PlummerPotential(Potential):
            2021-12-14 - Written - Lane (UofT)
         """
         # No need for actual JAX!
-        return -self._amp*r*(r**2.+self._b2)**-1.5
+        return -self._amp * r * (r**2.0 + self._b2) ** -1.5
 
-    def _dens(self,R,z,phi=0.,t=0.):
+    def _dens(self, R, z, phi=0.0, t=0.0):
         """
         NAME:
            _dens
@@ -150,9 +150,11 @@ class PlummerPotential(Potential):
         HISTORY:
            2015-06-15 - Written - Bovy (IAS)
         """
-        return 3./4./numpy.pi*self._b2*(R**2.+z**2.+self._b2)**-2.5
+        return (
+            3.0 / 4.0 / numpy.pi * self._b2 * (R**2.0 + z**2.0 + self._b2) ** -2.5
+        )
 
-    def _surfdens(self,R,z,phi=0.,t=0.):
+    def _surfdens(self, R, z, phi=0.0, t=0.0):
         """
         NAME:
            _surfdens
@@ -168,10 +170,18 @@ class PlummerPotential(Potential):
         HISTORY:
            2018-08-19 - Written - Bovy (UofT)
         """
-        Rb= R**2.+self._b2
-        return self._b2*z*(3.*Rb+2.*z**2.)/Rb**2.*(Rb+z**2.)**-1.5/2./numpy.pi
+        Rb = R**2.0 + self._b2
+        return (
+            self._b2
+            * z
+            * (3.0 * Rb + 2.0 * z**2.0)
+            / Rb**2.0
+            * (Rb + z**2.0) ** -1.5
+            / 2.0
+            / numpy.pi
+        )
 
-    def _R2deriv(self,R,z,phi=0.,t=0.):
+    def _R2deriv(self, R, z, phi=0.0, t=0.0):
         """
         NAME:
            _R2deriv
@@ -187,9 +197,11 @@ class PlummerPotential(Potential):
         HISTORY:
            2015-06-15 - Written - Bovy (IAS)
         """
-        return (self._b2-2.*R**2.+z**2.)*(R**2.+z**2.+self._b2)**-2.5
+        return (self._b2 - 2.0 * R**2.0 + z**2.0) * (
+            R**2.0 + z**2.0 + self._b2
+        ) ** -2.5
 
-    def _z2deriv(self,R,z,phi=0.,t=0.):
+    def _z2deriv(self, R, z, phi=0.0, t=0.0):
         """
         NAME:
            _z2deriv
@@ -205,9 +217,11 @@ class PlummerPotential(Potential):
         HISTORY:
            2015-06-15 - Written - Bovy (IAS)
         """
-        return (self._b2+R**2.-2.*z**2.)*(R**2.+z**2.+self._b2)**-2.5
+        return (self._b2 + R**2.0 - 2.0 * z**2.0) * (
+            R**2.0 + z**2.0 + self._b2
+        ) ** -2.5
 
-    def _Rzderiv(self,R,z,phi=0.,t=0.):
+    def _Rzderiv(self, R, z, phi=0.0, t=0.0):
         """
         NAME:
            _Rzderiv
@@ -223,9 +237,9 @@ class PlummerPotential(Potential):
         HISTORY:
            2015-06-15 - Written - Bovy (IAS)
         """
-        return -3.*R*z*(R**2.+z**2.+self._b2)**-2.5
+        return -3.0 * R * z * (R**2.0 + z**2.0 + self._b2) ** -2.5
 
-    def _ddensdr(self,r,t=0.):
+    def _ddensdr(self, r, t=0.0):
         """
         NAME:
            _ddensdr
@@ -239,9 +253,17 @@ class PlummerPotential(Potential):
         HISTORY:
            2021-12-15 - Written - Lane (UofT)
         """
-        return self._amp*(-15.)/4./numpy.pi*self._b2*r*(r**2+self._b2)**-3.5
+        return (
+            self._amp
+            * (-15.0)
+            / 4.0
+            / numpy.pi
+            * self._b2
+            * r
+            * (r**2 + self._b2) ** -3.5
+        )
 
-    def _d2densdr2(self,r,t=0.):
+    def _d2densdr2(self, r, t=0.0):
         """
         NAME:
            _d2densdr2
@@ -255,10 +277,19 @@ class PlummerPotential(Potential):
         HISTORY:
            2021-12-15 - Written - Lane (UofT)
         """
-        return self._amp*(-15.)/4./numpy.pi*self._b2*((r**2.+self._b2)**-3.5\
-            -7.*r**2.*(r**2+self._b2)**-4.5)
+        return (
+            self._amp
+            * (-15.0)
+            / 4.0
+            / numpy.pi
+            * self._b2
+            * (
+                (r**2.0 + self._b2) ** -3.5
+                - 7.0 * r**2.0 * (r**2 + self._b2) ** -4.5
+            )
+        )
 
-    def _ddenstwobetadr(self,r,beta=0):
+    def _ddenstwobetadr(self, r, beta=0):
         """
         NAME:
            _ddenstwobetadr
@@ -272,10 +303,20 @@ class PlummerPotential(Potential):
         HISTORY:
            2021-03-15 - Written - Lane (UofT)
         """
-        return self._amp*3./4./numpy.pi*self._b2*r**(2.*beta-1.)\
-            *(2.*beta*(r**2.+self._b2)**-2.5-5.*r**2.*(r**2.+self._b2)**-3.5)
+        return (
+            self._amp
+            * 3.0
+            / 4.0
+            / numpy.pi
+            * self._b2
+            * r ** (2.0 * beta - 1.0)
+            * (
+                2.0 * beta * (r**2.0 + self._b2) ** -2.5
+                - 5.0 * r**2.0 * (r**2.0 + self._b2) ** -3.5
+            )
+        )
 
-    def _mass(self,R,z=None,t=0.):
+    def _mass(self, R, z=None, t=0.0):
         """
         NAME:
            _mass
@@ -290,12 +331,13 @@ class PlummerPotential(Potential):
         HISTORY:
            2020-10-02 - Written - Bovy (UofT)
         """
-        if z is not None: raise AttributeError # use general implementation
-        r2= R**2.
-        return (1.+self._b2/r2)**-1.5 # written so it works for r=numpy.inf
+        if z is not None:
+            raise AttributeError  # use general implementation
+        r2 = R**2.0
+        return (1.0 + self._b2 / r2) ** -1.5  # written so it works for r=numpy.inf
 
     @kms_to_kpcGyrDecorator
-    def _nemo_accpars(self,vo,ro):
+    def _nemo_accpars(self, vo, ro):
         """
         NAME:
 
@@ -320,5 +362,5 @@ class PlummerPotential(Potential):
            2014-12-18 - Written - Bovy (IAS)
 
         """
-        ampl= self._amp*vo**2.*ro
+        ampl = self._amp * vo**2.0 * ro
         return f"0,{ampl},{self._b*ro}"

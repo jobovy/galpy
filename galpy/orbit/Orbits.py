@@ -1,7 +1,7 @@
 import os
 import sys
 
-_PY3= sys.version > '3'
+_PY3 = sys.version > "3"
 import copy
 import json
 import string
@@ -15,40 +15,62 @@ import scipy
 from packaging.version import parse as parse_version
 from scipy import interpolate, optimize
 
-_SCIPY_VERSION= parse_version(scipy.__version__)
-if _SCIPY_VERSION < parse_version('0.10'): #pragma: no cover
+_SCIPY_VERSION = parse_version(scipy.__version__)
+if _SCIPY_VERSION < parse_version("0.10"):  # pragma: no cover
     from scipy.maxentropy import logsumexp
-elif _SCIPY_VERSION < parse_version('0.19'): #pragma: no cover
+elif _SCIPY_VERSION < parse_version("0.19"):  # pragma: no cover
     from scipy.misc import logsumexp
 else:
     from scipy.special import logsumexp
 
-from ..potential import (LcE, PotentialError, _isNonAxi,
-                         evaluatelinearPotentials, evaluateplanarPotentials,
-                         evaluatePotentials)
+from ..potential import (
+    LcE,
+    PotentialError,
+    _isNonAxi,
+    evaluatelinearPotentials,
+    evaluateplanarPotentials,
+    evaluatePotentials,
+)
 from ..potential import flatten as flatten_potential
 from ..potential import rE, rl, toPlanarPotential
 from ..potential.DissipativeForce import _isDissipative
 from ..potential.Potential import _check_c
 from ..util import conversion, coords, galpyWarning, galpyWarningVerbose, plot
-from ..util._optional_deps import (_APY3, _APY_COORD_LOADED, _APY_GE_31,
-                                   _APY_LOADED, _APY_UNITS, _ASTROQUERY_LOADED,
-                                   _NUMEXPR_LOADED)
-from ..util.conversion import (physical_compatible, physical_conversion,
-                               physical_conversion_tuple)
+from ..util._optional_deps import (
+    _APY3,
+    _APY_COORD_LOADED,
+    _APY_GE_31,
+    _APY_LOADED,
+    _APY_UNITS,
+    _ASTROQUERY_LOADED,
+    _NUMEXPR_LOADED,
+)
+from ..util.conversion import (
+    physical_compatible,
+    physical_conversion,
+    physical_conversion_tuple,
+)
 from ..util.coords import _K
-from .integrateFullOrbit import (integrateFullOrbit, integrateFullOrbit_c,
-                                 integrateFullOrbit_sos,
-                                 integrateFullOrbit_sos_c)
-from .integrateLinearOrbit import (_ext_loaded, integrateLinearOrbit,
-                                   integrateLinearOrbit_c)
-from .integratePlanarOrbit import (integratePlanarOrbit,
-                                   integratePlanarOrbit_c,
-                                   integratePlanarOrbit_dxdv,
-                                   integratePlanarOrbit_sos,
-                                   integratePlanarOrbit_sos_c)
+from .integrateFullOrbit import (
+    integrateFullOrbit,
+    integrateFullOrbit_c,
+    integrateFullOrbit_sos,
+    integrateFullOrbit_sos_c,
+)
+from .integrateLinearOrbit import (
+    _ext_loaded,
+    integrateLinearOrbit,
+    integrateLinearOrbit_c,
+)
+from .integratePlanarOrbit import (
+    integratePlanarOrbit,
+    integratePlanarOrbit_c,
+    integratePlanarOrbit_dxdv,
+    integratePlanarOrbit_sos,
+    integratePlanarOrbit_sos_c,
+)
 
-ext_loaded= _ext_loaded
+ext_loaded = _ext_loaded
 if _APY_LOADED:
     from astropy import units
 # Separate like this, because coordinates don't work in Pyodide astropy (2/25/22)
@@ -61,166 +83,212 @@ if _ASTROQUERY_LOADED:
 from ..util import config
 
 if _APY_LOADED:
-    vxvv_units= [units.kpc,units.km/units.s,units.km/units.s,
-                 units.kpc,units.km/units.s,units.rad]
+    vxvv_units = [
+        units.kpc,
+        units.km / units.s,
+        units.km / units.s,
+        units.kpc,
+        units.km / units.s,
+        units.rad,
+    ]
 # Set default numcores for integrate w/ parallel map using OMP_NUM_THREADS
 try:
-    _NUMCORES= int(os.environ['OMP_NUM_THREADS'])
+    _NUMCORES = int(os.environ["OMP_NUM_THREADS"])
 except KeyError:
     import multiprocessing
-    _NUMCORES= multiprocessing.cpu_count()
+
+    _NUMCORES = multiprocessing.cpu_count()
 
 # Plot labeling dictionaries
-_labeldict_physical= {
-    't':r'$t\ (\mathrm{Gyr})$',
-    'R':r'$R\ (\mathrm{kpc})$',
-    'vR':r'$v_R\ (\mathrm{km\,s}^{-1})$',
-    'vT':r'$v_T\ (\mathrm{km\,s}^{-1})$',
-    'z':r'$z\ (\mathrm{kpc})$',
-    'vz':r'$v_z\ (\mathrm{km\,s}^{-1})$','phi':r'$\phi$',
-    'r':r'$r\ (\mathrm{kpc})$',
-    'x':r'$x\ (\mathrm{kpc})$','y':r'$y\ (\mathrm{kpc})$',
-    'vx':r'$v_x\ (\mathrm{km\,s}^{-1})$',
-    'vy':r'$v_y\ (\mathrm{km\,s}^{-1})$',
-    'E':r'$E\,(\mathrm{km}^2\,\mathrm{s}^{-2})$',
-    'Ez':r'$E_z\,(\mathrm{km}^2\,\mathrm{s}^{-2})$',
-    'ER':r'$E_R\,(\mathrm{km}^2\,\mathrm{s}^{-2})$',
-    'Enorm':r'$E(t)/E(0.)$',
-    'Eznorm':r'$E_z(t)/E_z(0.)$',
-    'ERnorm':r'$E_R(t)/E_R(0.)$',
-    'Jacobi':r'$E-\Omega_p\,L\,(\mathrm{km}^2\,\mathrm{s}^{-2})$',
-    'Jacobinorm':r'$(E-\Omega_p\,L)(t)/(E-\Omega_p\,L)(0)$'
+_labeldict_physical = {
+    "t": r"$t\ (\mathrm{Gyr})$",
+    "R": r"$R\ (\mathrm{kpc})$",
+    "vR": r"$v_R\ (\mathrm{km\,s}^{-1})$",
+    "vT": r"$v_T\ (\mathrm{km\,s}^{-1})$",
+    "z": r"$z\ (\mathrm{kpc})$",
+    "vz": r"$v_z\ (\mathrm{km\,s}^{-1})$",
+    "phi": r"$\phi$",
+    "r": r"$r\ (\mathrm{kpc})$",
+    "x": r"$x\ (\mathrm{kpc})$",
+    "y": r"$y\ (\mathrm{kpc})$",
+    "vx": r"$v_x\ (\mathrm{km\,s}^{-1})$",
+    "vy": r"$v_y\ (\mathrm{km\,s}^{-1})$",
+    "E": r"$E\,(\mathrm{km}^2\,\mathrm{s}^{-2})$",
+    "Ez": r"$E_z\,(\mathrm{km}^2\,\mathrm{s}^{-2})$",
+    "ER": r"$E_R\,(\mathrm{km}^2\,\mathrm{s}^{-2})$",
+    "Enorm": r"$E(t)/E(0.)$",
+    "Eznorm": r"$E_z(t)/E_z(0.)$",
+    "ERnorm": r"$E_R(t)/E_R(0.)$",
+    "Jacobi": r"$E-\Omega_p\,L\,(\mathrm{km}^2\,\mathrm{s}^{-2})$",
+    "Jacobinorm": r"$(E-\Omega_p\,L)(t)/(E-\Omega_p\,L)(0)$",
 }
-_labeldict_internal= {
-    't':r'$t$',
-    'R':r'$R$',
-    'vR':r'$v_R$',
-    'vT':r'$v_T$',
-    'z':r'$z$',
-    'vz':r'$v_z$',
-    'phi':r'$\phi$',
-    'r':r'$r$',
-    'x':r'$x$',
-    'y':r'$y$',
-    'vx':r'$v_x$',
-    'vy':r'$v_y$',
-    'E':r'$E$',
-    'Enorm':r'$E(t)/E(0.)$',
-    'Ez':r'$E_z$',
-    'Eznorm':r'$E_z(t)/E_z(0.)$',
-    'ER':r'$E_R$',
-    'ERnorm':r'$E_R(t)/E_R(0.)$',
-    'Jacobi':r'$E-\Omega_p\,L$',
-    'Jacobinorm':r'$(E-\Omega_p\,L)(t)/(E-\Omega_p\,L)(0)$'
+_labeldict_internal = {
+    "t": r"$t$",
+    "R": r"$R$",
+    "vR": r"$v_R$",
+    "vT": r"$v_T$",
+    "z": r"$z$",
+    "vz": r"$v_z$",
+    "phi": r"$\phi$",
+    "r": r"$r$",
+    "x": r"$x$",
+    "y": r"$y$",
+    "vx": r"$v_x$",
+    "vy": r"$v_y$",
+    "E": r"$E$",
+    "Enorm": r"$E(t)/E(0.)$",
+    "Ez": r"$E_z$",
+    "Eznorm": r"$E_z(t)/E_z(0.)$",
+    "ER": r"$E_R$",
+    "ERnorm": r"$E_R(t)/E_R(0.)$",
+    "Jacobi": r"$E-\Omega_p\,L$",
+    "Jacobinorm": r"$(E-\Omega_p\,L)(t)/(E-\Omega_p\,L)(0)$",
 }
-_labeldict_radec= {
-    'ra':r'$\alpha\ (\mathrm{deg})$',
-    'dec':r'$\delta\ (\mathrm{deg})$',
-    'll':r'$l\ (\mathrm{deg})$',
-    'bb':r'$b\ (\mathrm{deg})$',
-    'dist':r'$d\ (\mathrm{kpc})$',
-    'pmra':r'$\mu_\alpha\ (\mathrm{mas\,yr}^{-1})$',
-    'pmdec':r'$\mu_\delta\ (\mathrm{mas\,yr}^{-1})$',
-    'pmll':r'$\mu_l\ (\mathrm{mas\,yr}^{-1})$',
-    'pmbb':r'$\mu_b\ (\mathrm{mas\,yr}^{-1})$',
-    'vlos':r'$v_\mathrm{los}\ (\mathrm{km\,s}^{-1})$',
-    'helioX':r'$X\ (\mathrm{kpc})$',
-    'helioY':r'$Y\ (\mathrm{kpc})$',
-    'helioZ':r'$Z\ (\mathrm{kpc})$',
-    'U':r'$U\ (\mathrm{km\,s}^{-1})$',
-    'V':r'$V\ (\mathrm{km\,s}^{-1})$',
-    'W':r'$W\ (\mathrm{km\,s}^{-1})$'
+_labeldict_radec = {
+    "ra": r"$\alpha\ (\mathrm{deg})$",
+    "dec": r"$\delta\ (\mathrm{deg})$",
+    "ll": r"$l\ (\mathrm{deg})$",
+    "bb": r"$b\ (\mathrm{deg})$",
+    "dist": r"$d\ (\mathrm{kpc})$",
+    "pmra": r"$\mu_\alpha\ (\mathrm{mas\,yr}^{-1})$",
+    "pmdec": r"$\mu_\delta\ (\mathrm{mas\,yr}^{-1})$",
+    "pmll": r"$\mu_l\ (\mathrm{mas\,yr}^{-1})$",
+    "pmbb": r"$\mu_b\ (\mathrm{mas\,yr}^{-1})$",
+    "vlos": r"$v_\mathrm{los}\ (\mathrm{km\,s}^{-1})$",
+    "helioX": r"$X\ (\mathrm{kpc})$",
+    "helioY": r"$Y\ (\mathrm{kpc})$",
+    "helioZ": r"$Z\ (\mathrm{kpc})$",
+    "U": r"$U\ (\mathrm{km\,s}^{-1})$",
+    "V": r"$V\ (\mathrm{km\,s}^{-1})$",
+    "W": r"$W\ (\mathrm{km\,s}^{-1})$",
 }
+
 
 # named_objects file
 def _named_objects_key_formatting(name):
     # Remove punctuation, spaces, and make lowercase
     if _PY3:
-        out_name= name.translate(\
-            str.maketrans('', '',string.punctuation)).replace(' ', '').lower()
-    else: #pragma: no cover
-        out_name= str(name).translate(None,string.punctuation)\
-            .replace(' ', '').lower()
+        out_name = (
+            name.translate(str.maketrans("", "", string.punctuation))
+            .replace(" ", "")
+            .lower()
+        )
+    else:  # pragma: no cover
+        out_name = (
+            str(name).translate(None, string.punctuation).replace(" ", "").lower()
+        )
     return out_name
-_known_objects= None
-_known_objects_original_keys= None # these are use for auto-completion
-_known_objects_collections_original_keys= None
-_known_objects_synonyms_original_keys= None
-_known_objects_keys_updated= False
+
+
+_known_objects = None
+_known_objects_original_keys = None  # these are use for auto-completion
+_known_objects_collections_original_keys = None
+_known_objects_synonyms_original_keys = None
+_known_objects_keys_updated = False
+
+
 def _load_named_objects():
     global _known_objects
     global _known_objects_original_keys
     global _known_objects_collections_original_keys
     global _known_objects_synonyms_original_keys
     if not _known_objects:
-        with open(os.path.join(os.path.dirname(os.path.realpath(__file__)),
-                               'named_objects.json')) as jsonfile:
-            _known_objects= json.load(jsonfile)
+        with open(
+            os.path.join(
+                os.path.dirname(os.path.realpath(__file__)), "named_objects.json"
+            )
+        ) as jsonfile:
+            _known_objects = json.load(jsonfile)
         # Save original keys for auto-completion
-        _known_objects_original_keys= copy.copy(list(_known_objects.keys()))
-        _known_objects_collections_original_keys= \
-            copy.copy(list(_known_objects['_collections'].keys()))
-        _known_objects_synonyms_original_keys= \
-            copy.copy(list(_known_objects['_synonyms'].keys()))
+        _known_objects_original_keys = copy.copy(list(_known_objects.keys()))
+        _known_objects_collections_original_keys = copy.copy(
+            list(_known_objects["_collections"].keys())
+        )
+        _known_objects_synonyms_original_keys = copy.copy(
+            list(_known_objects["_synonyms"].keys())
+        )
         # Add synonyms as duplicates
-        for name in _known_objects['_synonyms']:
-            _known_objects[name]= \
-                _known_objects[_known_objects['_synonyms'][name]]
+        for name in _known_objects["_synonyms"]:
+            _known_objects[name] = _known_objects[_known_objects["_synonyms"][name]]
     return None
+
+
 def _update_keys_named_objects():
     global _known_objects_keys_updated
     if not _known_objects_keys_updated:
         # Format the keys of the known objects dictionary, first collections
-        old_keys= list(_known_objects['_collections'].keys())
+        old_keys = list(_known_objects["_collections"].keys())
         for old_key in old_keys:
-            _known_objects['_collections']\
-                [_named_objects_key_formatting(old_key)]= \
-                   _known_objects['_collections'].pop(old_key)
+            _known_objects["_collections"][
+                _named_objects_key_formatting(old_key)
+            ] = _known_objects["_collections"].pop(old_key)
         # Then the objects themselves
-        old_keys= list(_known_objects.keys())
-        old_keys.remove('_collections')
-        old_keys.remove('_synonyms')
+        old_keys = list(_known_objects.keys())
+        old_keys.remove("_collections")
+        old_keys.remove("_synonyms")
         for old_key in old_keys:
-            _known_objects[_named_objects_key_formatting(old_key)]= \
-                   _known_objects.pop(old_key)
-        _known_objects_keys_updated= True
+            _known_objects[_named_objects_key_formatting(old_key)] = _known_objects.pop(
+                old_key
+            )
+        _known_objects_keys_updated = True
+
+
 # Auto-completion
-try: # pragma: no cover
+try:  # pragma: no cover
     from IPython import get_ipython
+
     _load_named_objects()
-    def name_completer(ipython,event):
-        try: # encapsulate in try/except to avoid *any* error
-            out= copy.copy(_known_objects_original_keys)
-            out.remove('_collections')
-            out.remove('_synonyms')
+
+    def name_completer(ipython, event):
+        try:  # encapsulate in try/except to avoid *any* error
+            out = copy.copy(_known_objects_original_keys)
+            out.remove("_collections")
+            out.remove("_synonyms")
             out.extend(_known_objects_collections_original_keys)
             out.extend(_known_objects_synonyms_original_keys)
-            out.extend(['ro=','vo=','zo=','solarmotion='])
-        except: pass
+            out.extend(["ro=", "vo=", "zo=", "solarmotion="])
+        except:
+            pass
         return out
-    get_ipython().set_hook('complete_command',name_completer,
-                           re_key=".*from_name")
-except: pass
+
+    get_ipython().set_hook("complete_command", name_completer, re_key=".*from_name")
+except:
+    pass
+
 
 def shapeDecorator(func):
     """Decorator to return Orbits outputs with the correct shape"""
+
     @wraps(func)
-    def shape_wrapper(*args,**kwargs):
-        dontreshape= kwargs.get('dontreshape',False)
-        result= func(*args,**kwargs)
+    def shape_wrapper(*args, **kwargs):
+        dontreshape = kwargs.get("dontreshape", False)
+        result = func(*args, **kwargs)
         if dontreshape:
             return result
         elif args[0].shape == ():
             return result[0]
         else:
-            return numpy.reshape(result,args[0].shape+result.shape[1:])
+            return numpy.reshape(result, args[0].shape + result.shape[1:])
+
     return shape_wrapper
+
+
 class Orbit:
     """
     Class representing single and multiple orbits.
     """
-    def __init__(self,vxvv=None,ro=None,vo=None,zo=None,solarmotion=None,
-                 radec=False,uvw=False,lb=False):
+
+    def __init__(
+        self,
+        vxvv=None,
+        ro=None,
+        vo=None,
+        zo=None,
+        solarmotion=None,
+        radec=False,
+        uvw=False,
+        lb=False,
+    ):
         """
         NAME:
 
@@ -290,336 +358,435 @@ class Orbit:
 
         """
         # First deal with None = Sun
-        if vxvv is None: # Assume one wants the Sun
-            vxvv= numpy.array([0.,0.,0.,0.,0.,0.])
-            radec= True
-            self._name= numpy.char.array(['Sun'])
-        elif isinstance(vxvv,(list, tuple)):
+        if vxvv is None:  # Assume one wants the Sun
+            vxvv = numpy.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+            radec = True
+            self._name = numpy.char.array(["Sun"])
+        elif isinstance(vxvv, (list, tuple)):
             # Robust way to check for None in case of a list of arrays (None in
             # doesn't work then for some reason)
             if any(elem is None for elem in vxvv):
-                vxvv= [[0.,0.,0.,0.,0.,0.]
-                       if tvxvv is None else tvxvv
-                       for tvxvv in vxvv]
-                radec= True
+                vxvv = [
+                    [0.0, 0.0, 0.0, 0.0, 0.0, 0.0] if tvxvv is None else tvxvv
+                    for tvxvv in vxvv
+                ]
+                radec = True
         # Set ro, vo, zo, solarmotion based on input, SkyCoord vxvv, ...
-        self._setup_parse_coordtransform(vxvv,ro,vo,zo,solarmotion,
-                                         radec,lb)
+        self._setup_parse_coordtransform(vxvv, ro, vo, zo, solarmotion, radec, lb)
         # Determine and record input shape and flatten for further processing
-        if _APY_COORD_LOADED and isinstance(vxvv,SkyCoord):
-            input_shape= vxvv.shape
-            vxvv=vxvv.flatten()
-        elif isinstance(vxvv,numpy.ndarray):
-            input_shape= vxvv.shape[:-1]
-            vxvv= numpy.atleast_2d(vxvv)
-            vxvv= vxvv.reshape((numpy.prod(vxvv.shape[:-1]),vxvv.shape[-1]))
-        elif isinstance(vxvv,(list, tuple)):
-            if isinstance(vxvv[0],Orbit):
-                vxvv= self._setup_parse_listofOrbits(vxvv,ro,vo,zo,solarmotion)
-                input_shape= (len(vxvv),)
-                vxvv= numpy.array(vxvv)
-            elif _APY_LOADED and isinstance(vxvv[0],units.Quantity):
+        if _APY_COORD_LOADED and isinstance(vxvv, SkyCoord):
+            input_shape = vxvv.shape
+            vxvv = vxvv.flatten()
+        elif isinstance(vxvv, numpy.ndarray):
+            input_shape = vxvv.shape[:-1]
+            vxvv = numpy.atleast_2d(vxvv)
+            vxvv = vxvv.reshape((numpy.prod(vxvv.shape[:-1]), vxvv.shape[-1]))
+        elif isinstance(vxvv, (list, tuple)):
+            raise_diffphasedim_error = False
+            if isinstance(vxvv[0], Orbit):
+                try:
+                    vxvv = self._setup_parse_listofOrbits(vxvv, ro, vo, zo, solarmotion)
+                    input_shape = (len(vxvv),)
+                    vxvv = numpy.array(vxvv)
+                except ValueError:
+                    raise_diffphasedim_error = True
+            elif _APY_LOADED and isinstance(vxvv[0], units.Quantity):
                 # Case where vxvv= [R,vR,...] or [ra,dec,...] with Quantities
-                input_shape= vxvv[0].shape
-                vxvv= [s.flatten() for s in vxvv]
+                input_shape = vxvv[0].shape
+                vxvv = [s.flatten() for s in vxvv]
                 # Keep as list, is fine later...
-            elif _APY_LOADED and isinstance(vxvv[0],list) \
-                    and isinstance(vxvv[0][0],units.Quantity):
+            elif (
+                _APY_LOADED
+                and isinstance(vxvv[0], list)
+                and isinstance(vxvv[0][0], units.Quantity)
+            ):
                 # Case where vxvv= [[R1,vR1,...],[R2,vR2,...]]
                 # or [[ra1,dec1,...],[ra2,dec2,...]] with Quantities
-                input_shape= (len(vxvv),)
-                pdim= len(vxvv[0])
-                stack= []
+                input_shape = (len(vxvv),)
+                pdim = len(vxvv[0])
+                stack = []
                 for pp in range(pdim):
-                    stack.append(\
-                        numpy.array([tvxvv[pp].to(vxvv[0][pp].unit).value
-                                     for tvxvv in vxvv])\
-                            *vxvv[0][pp].unit)
-                vxvv= stack
+                    stack.append(
+                        numpy.array(
+                            [tvxvv[pp].to(vxvv[0][pp].unit).value for tvxvv in vxvv]
+                        )
+                        * vxvv[0][pp].unit
+                    )
+                vxvv = stack
                 # Keep as list, is fine later...
-            elif numpy.ndim(vxvv[0]) == 0: # Scalar, so assume single object
-                vxvv= [vxvv]
-                input_shape= ()
-                vxvv= numpy.array(vxvv)
-            elif isinstance(vxvv[0],numpy.ndarray):
-                input_shape= vxvv[0].shape
-                vxvv= numpy.array(vxvv).T
+            elif numpy.ndim(vxvv[0]) == 0:  # Scalar, so assume single object
+                vxvv = [vxvv]
+                input_shape = ()
+                vxvv = numpy.array(vxvv)
+            elif isinstance(vxvv[0], numpy.ndarray):
+                input_shape = vxvv[0].shape
+                vxvv = numpy.array(vxvv).T
             else:
-                input_shape= (len(vxvv),)
-                vxvv= numpy.array(vxvv)
-            if isinstance(vxvv,numpy.ndarray) and vxvv.dtype == 'object':
+                input_shape = (len(vxvv),)
+                try:
+                    vxvv = numpy.array(vxvv)
+                except ValueError:
+                    raise_diffphasedim_error = True
+            if (
+                isinstance(vxvv, numpy.ndarray) and vxvv.dtype == "object"
+            ) or raise_diffphasedim_error:
                 # if diff. phasedim, object array is created
-                raise RuntimeError("All individual orbits in an Orbit class must have the same phase-space dimensionality")
+                raise RuntimeError(
+                    "All individual orbits in an Orbit class must have the same phase-space dimensionality"
+                )
         #: Tuple of Orbit dimensions
-        self.shape= input_shape
-        self._setup_parse_vxvv(vxvv,radec,lb,uvw)
+        self.shape = input_shape
+        self._setup_parse_vxvv(vxvv, radec, lb, uvw)
         # Check that we have a valid phase-space dim (often messed up by not
         # transposing the input array to the correct shape)
         if self.phasedim() < 2 or self.phasedim() > 6:
             if len(self.vxvv) > 1 and len(self.vxvv) < 7:
-                raise RuntimeError(f"Invalid phase-space dimension {self.phasedim():d} for {len(self.vxvv):d} objects; perhaps you meant to transpose the input?")
+                raise RuntimeError(
+                    f"Invalid phase-space dimension {self.phasedim():d} for {len(self.vxvv):d} objects; perhaps you meant to transpose the input?"
+                )
             else:
-                raise RuntimeError(f"Invalid phase-space dimension: phasedim = {self.phasedim():d}, but should be between 2 and 6")
+                raise RuntimeError(
+                    f"Invalid phase-space dimension: phasedim = {self.phasedim():d}, but should be between 2 and 6"
+                )
         #: Total number of elements in the Orbit instance
-        self.size= 1 if self.shape == () else len(self.vxvv)
+        self.size = 1 if self.shape == () else len(self.vxvv)
         if self.dim() == 1:
             # For the 1D case, solar position/velocity is not used currently
-            self._zo= None
-            self._solarmotion= None
+            self._zo = None
+            self._solarmotion = None
 
-    def _setup_parse_coordtransform(self,vxvv,ro,vo,zo,solarmotion,
-                                    radec,lb):
+    def _setup_parse_coordtransform(self, vxvv, ro, vo, zo, solarmotion, radec, lb):
         # Parse coordinate-transformation inputs with units
-        ro= conversion.parse_length_kpc(ro)
-        zo= conversion.parse_length_kpc(zo)
-        vo= conversion.parse_velocity_kms(vo)
+        ro = conversion.parse_length_kpc(ro)
+        zo = conversion.parse_length_kpc(zo)
+        vo = conversion.parse_velocity_kms(vo)
         # if vxvv is SkyCoord, preferentially use its ro and zo
-        if _APY_COORD_LOADED and isinstance(vxvv,SkyCoord):
-            if not _APY3: # pragma: no cover
-                raise ImportError('Orbit initialization using an astropy SkyCoord requires astropy >3.0')
+        if _APY_COORD_LOADED and isinstance(vxvv, SkyCoord):
+            if not _APY3:  # pragma: no cover
+                raise ImportError(
+                    "Orbit initialization using an astropy SkyCoord requires astropy >3.0"
+                )
             if zo is None and not vxvv.z_sun is None:
-                zo= vxvv.z_sun.to(units.kpc).value
+                zo = vxvv.z_sun.to(units.kpc).value
             elif not vxvv.z_sun is None:
-                if numpy.fabs(zo-vxvv.z_sun.to(units.kpc).value) > 1e-8:
-                    raise ValueError("Orbit initialization's zo different from SkyCoord's z_sun; these should be the same for consistency")
+                if numpy.fabs(zo - vxvv.z_sun.to(units.kpc).value) > 1e-8:
+                    raise ValueError(
+                        "Orbit initialization's zo different from SkyCoord's z_sun; these should be the same for consistency"
+                    )
             elif zo is None and not vxvv.galcen_distance is None:
-                zo= 0.
+                zo = 0.0
             if ro is None and not vxvv.galcen_distance is None:
-                ro= numpy.sqrt(vxvv.galcen_distance.to(units.kpc).value**2.
-                            -zo**2.)
-            elif not vxvv.galcen_distance is None and \
-                    numpy.fabs(ro**2.+zo**2.-vxvv.galcen_distance.to(units.kpc).value**2.) > 1e-10:
-                warnings.warn("Orbit's initialization normalization ro and zo are incompatible with SkyCoord's galcen_distance (should have galcen_distance^2 = ro^2 + zo^2)",galpyWarning)
+                ro = numpy.sqrt(
+                    vxvv.galcen_distance.to(units.kpc).value ** 2.0 - zo**2.0
+                )
+            elif (
+                not vxvv.galcen_distance is None
+                and numpy.fabs(
+                    ro**2.0
+                    + zo**2.0
+                    - vxvv.galcen_distance.to(units.kpc).value ** 2.0
+                )
+                > 1e-10
+            ):
+                warnings.warn(
+                    "Orbit's initialization normalization ro and zo are incompatible with SkyCoord's galcen_distance (should have galcen_distance^2 = ro^2 + zo^2)",
+                    galpyWarning,
+                )
         # If at this point ro/vo not set, use default from config
-        if (_APY_COORD_LOADED and isinstance(vxvv,SkyCoord)) or radec or lb:
+        if (_APY_COORD_LOADED and isinstance(vxvv, SkyCoord)) or radec or lb:
             if ro is None:
-                ro= config.__config__.getfloat('normalization','ro')
+                ro = config.__config__.getfloat("normalization", "ro")
             if vo is None:
-                vo= config.__config__.getfloat('normalization','vo')
+                vo = config.__config__.getfloat("normalization", "vo")
         # If at this point zo not set, use default
-        if zo is None: zo= 0.0208
+        if zo is None:
+            zo = 0.0208
         # if vxvv is SkyCoord, preferentially use its solarmotion
-        if _APY_COORD_LOADED and isinstance(vxvv,SkyCoord) \
-                and not vxvv.galcen_v_sun is None:
-            sc_solarmotion= vxvv.galcen_v_sun.d_xyz.to(units.km/units.s).value
-            sc_solarmotion[0]= -sc_solarmotion[0] # right->left
-            sc_solarmotion[1]-= vo
+        if (
+            _APY_COORD_LOADED
+            and isinstance(vxvv, SkyCoord)
+            and not vxvv.galcen_v_sun is None
+        ):
+            sc_solarmotion = vxvv.galcen_v_sun.d_xyz.to(units.km / units.s).value
+            sc_solarmotion[0] = -sc_solarmotion[0]  # right->left
+            sc_solarmotion[1] -= vo
             if solarmotion is None:
-                solarmotion= sc_solarmotion
+                solarmotion = sc_solarmotion
         # If at this point solarmotion not set, use default
-        if solarmotion is None: solarmotion= 'schoenrich'
-        if isinstance(solarmotion,str) and solarmotion.lower() == 'hogg':
-            vsolar= numpy.array([-10.1,4.0,6.7])
-        elif isinstance(solarmotion,str) and solarmotion.lower() == 'dehnen':
-            vsolar= numpy.array([-10.,5.25,7.17])
-        elif isinstance(solarmotion,str) \
-                and solarmotion.lower() == 'schoenrich':
-            vsolar= numpy.array([-11.1,12.24,7.25])
+        if solarmotion is None:
+            solarmotion = "schoenrich"
+        if isinstance(solarmotion, str) and solarmotion.lower() == "hogg":
+            vsolar = numpy.array([-10.1, 4.0, 6.7])
+        elif isinstance(solarmotion, str) and solarmotion.lower() == "dehnen":
+            vsolar = numpy.array([-10.0, 5.25, 7.17])
+        elif isinstance(solarmotion, str) and solarmotion.lower() == "schoenrich":
+            vsolar = numpy.array([-11.1, 12.24, 7.25])
         else:
-            vsolar= numpy.array(
+            vsolar = numpy.array(
                 conversion.parse_velocity_kms(
                     numpy.array(solarmotion)
-                    if isinstance(solarmotion,list)
+                    if isinstance(solarmotion, list)
                     else solarmotion
                 )
             )
         # If both vxvv SkyCoord with vsun and solarmotion set, check the same
-        if _APY_COORD_LOADED and isinstance(vxvv,SkyCoord) \
-                and not vxvv.galcen_v_sun is None:
-            if numpy.any(numpy.fabs(sc_solarmotion-vsolar) > 1e-8):
-                raise ValueError("Orbit initialization's solarmotion parameter not compatible with SkyCoord's galcen_v_sun; these should be the same for consistency (this may be because you did not set vo; galcen_v_sun = solarmotion+vo for consistency)")
+        if (
+            _APY_COORD_LOADED
+            and isinstance(vxvv, SkyCoord)
+            and not vxvv.galcen_v_sun is None
+        ):
+            if numpy.any(numpy.fabs(sc_solarmotion - vsolar) > 1e-8):
+                raise ValueError(
+                    "Orbit initialization's solarmotion parameter not compatible with SkyCoord's galcen_v_sun; these should be the same for consistency (this may be because you did not set vo; galcen_v_sun = solarmotion+vo for consistency)"
+                )
         # Now store all coordinate-transformation parameters and save whether
         # ro/vo are set (they are considered to be set if they have been
         # determined at this point, even if they were not explicitly set
         if vo is None:
-            self._vo= config.__config__.getfloat('normalization','vo')
-            self._voSet= False
+            self._vo = config.__config__.getfloat("normalization", "vo")
+            self._voSet = False
         else:
-            self._vo= vo
-            self._voSet= True
+            self._vo = vo
+            self._voSet = True
         if ro is None:
-            self._ro= config.__config__.getfloat('normalization','ro')
-            self._roSet= False
+            self._ro = config.__config__.getfloat("normalization", "ro")
+            self._roSet = False
         else:
-            self._ro= ro
-            self._roSet= True
-        self._zo= zo
-        self._solarmotion= vsolar
+            self._ro = ro
+            self._roSet = True
+        self._zo = zo
+        self._solarmotion = vsolar
         return None
 
-    def _setup_parse_listofOrbits(self,vxvv,ro,vo,zo,solarmotion):
+    def _setup_parse_listofOrbits(self, vxvv, ro, vo, zo, solarmotion):
         # Only implement lists of scalar Orbit for now
         if not numpy.all([o.shape == () for o in vxvv]):
-            raise RuntimeError("Initializing an Orbit instance with a list of Orbit instances only supports lists of single Orbit instances")
+            raise RuntimeError(
+                "Initializing an Orbit instance with a list of Orbit instances only supports lists of single Orbit instances"
+            )
         # Need to check that coordinate-transformation parameters are
         # consistent between given orbits and between this instance's
         # initialization and the given orbits; if not explicitly given
         # for this instance, fall back onto list's parameters
-        ros= numpy.array([o._ro for o in vxvv])
-        vos= numpy.array([o._vo for o in vxvv])
-        zos= numpy.array([o._zo for o in vxvv])
-        solarmotions= numpy.array([o._solarmotion for o in vxvv])
-        if numpy.any(numpy.fabs(ros-ros[0]) > 1e-10):
-            raise RuntimeError("All individual orbits given to an Orbit class must have the same ro unit-conversion parameter")
-        if numpy.any(numpy.fabs(vos-vos[0]) > 1e-10):
-            raise RuntimeError("All individual orbits given to an Orbit class must have the same vo unit-conversion parameter")
-        if not zos[0] is None and numpy.any(numpy.fabs(zos-zos[0]) > 1e-10):
-            raise RuntimeError("All individual orbits given to an Orbit class must have the same zo solar offset")
-        if not solarmotions[0] is None and \
-                numpy.any(numpy.fabs(solarmotions-solarmotions[0]) > 1e-10):
-            raise RuntimeError("All individual orbits given to an Orbit class must have the same solar motion")
+        ros = numpy.array([o._ro for o in vxvv])
+        vos = numpy.array([o._vo for o in vxvv])
+        zos = numpy.array([o._zo for o in vxvv])
+        solarmotions = numpy.array([o._solarmotion for o in vxvv])
+        if numpy.any(numpy.fabs(ros - ros[0]) > 1e-10):
+            raise RuntimeError(
+                "All individual orbits given to an Orbit class must have the same ro unit-conversion parameter"
+            )
+        if numpy.any(numpy.fabs(vos - vos[0]) > 1e-10):
+            raise RuntimeError(
+                "All individual orbits given to an Orbit class must have the same vo unit-conversion parameter"
+            )
+        if not zos[0] is None and numpy.any(numpy.fabs(zos - zos[0]) > 1e-10):
+            raise RuntimeError(
+                "All individual orbits given to an Orbit class must have the same zo solar offset"
+            )
+        if not solarmotions[0] is None and numpy.any(
+            numpy.fabs(solarmotions - solarmotions[0]) > 1e-10
+        ):
+            raise RuntimeError(
+                "All individual orbits given to an Orbit class must have the same solar motion"
+            )
         if self._roSet:
-            if numpy.fabs(ros[0]-self._ro) > 1e-10:
-                raise RuntimeError("All individual orbits given to an Orbit class must have the same ro unit-conversion parameter as used in the initialization call")
+            if numpy.fabs(ros[0] - self._ro) > 1e-10:
+                raise RuntimeError(
+                    "All individual orbits given to an Orbit class must have the same ro unit-conversion parameter as used in the initialization call"
+                )
         else:
-            self._ro= vxvv[0]._ro
-            self._roSet= vxvv[0]._roSet
+            self._ro = vxvv[0]._ro
+            self._roSet = vxvv[0]._roSet
         if self._voSet:
-            if numpy.fabs(vos[0]-self._vo) > 1e-10:
-                raise RuntimeError("All individual orbits given to an Orbit class must have the same vo unit-conversion parameter as used in the initialization call")
+            if numpy.fabs(vos[0] - self._vo) > 1e-10:
+                raise RuntimeError(
+                    "All individual orbits given to an Orbit class must have the same vo unit-conversion parameter as used in the initialization call"
+                )
         else:
-            self._vo= vxvv[0]._vo
-            self._voSet= vxvv[0]._voSet
+            self._vo = vxvv[0]._vo
+            self._voSet = vxvv[0]._voSet
         if not zo is None:
-            if numpy.fabs(zos[0]-self._zo) > 1e-10:
-                raise RuntimeError("All individual orbits given to an Orbit class must have the same zo solar offset parameter as used in the initialization call")
+            if numpy.fabs(zos[0] - self._zo) > 1e-10:
+                raise RuntimeError(
+                    "All individual orbits given to an Orbit class must have the same zo solar offset parameter as used in the initialization call"
+                )
         else:
-            self._zo= vxvv[0]._zo
+            self._zo = vxvv[0]._zo
         if not solarmotion is None:
-            if numpy.any(numpy.fabs(solarmotions[0]-self._solarmotion) > 1e-10):
-                raise RuntimeError("All individual orbits given to an Orbit class must have the same solar motion as used in the initialization call")
+            if numpy.any(numpy.fabs(solarmotions[0] - self._solarmotion) > 1e-10):
+                raise RuntimeError(
+                    "All individual orbits given to an Orbit class must have the same solar motion as used in the initialization call"
+                )
         else:
-            self._solarmotion= vxvv[0]._solarmotion
+            self._solarmotion = vxvv[0]._solarmotion
         # shape of o.vxvv is (1,phasedim) due to internal storage
         return [list(o.vxvv[0]) for o in vxvv]
 
-    def _setup_parse_vxvv(self,vxvv,radec,lb,uvw):
-        if _APY_COORD_LOADED and isinstance(vxvv,SkyCoord):
-            galcen_v_sun= coordinates.CartesianDifferential(\
-                numpy.array([-self._solarmotion[0],
-                              self._solarmotion[1]+self._vo,
-                              self._solarmotion[2]])*units.km/units.s)
-            gc_frame= coordinates.Galactocentric(\
-                galcen_distance=numpy.sqrt(self._ro**2.+self._zo**2.)\
-                                    *units.kpc,
-                z_sun=self._zo*units.kpc,galcen_v_sun=galcen_v_sun)
-            vxvvg= vxvv.transform_to(gc_frame)
+    def _setup_parse_vxvv(self, vxvv, radec, lb, uvw):
+        if _APY_COORD_LOADED and isinstance(vxvv, SkyCoord):
+            galcen_v_sun = coordinates.CartesianDifferential(
+                numpy.array(
+                    [
+                        -self._solarmotion[0],
+                        self._solarmotion[1] + self._vo,
+                        self._solarmotion[2],
+                    ]
+                )
+                * units.km
+                / units.s
+            )
+            gc_frame = coordinates.Galactocentric(
+                galcen_distance=numpy.sqrt(self._ro**2.0 + self._zo**2.0)
+                * units.kpc,
+                z_sun=self._zo * units.kpc,
+                galcen_v_sun=galcen_v_sun,
+            )
+            vxvvg = vxvv.transform_to(gc_frame)
             if _APY_GE_31:
-                vxvvg.representation_type= 'cylindrical'
-            else: #pragma: no cover
-                vxvvg.representation= 'cylindrical'
-            R= vxvvg.rho.to(units.kpc).value/self._ro
-            phi= numpy.pi-vxvvg.phi.to(units.rad).value
-            z= vxvvg.z.to(units.kpc).value/self._ro
+                vxvvg.representation_type = "cylindrical"
+            else:  # pragma: no cover
+                vxvvg.representation = "cylindrical"
+            R = vxvvg.rho.to(units.kpc).value / self._ro
+            phi = numpy.pi - vxvvg.phi.to(units.rad).value
+            z = vxvvg.z.to(units.kpc).value / self._ro
             try:
-                vR= vxvvg.d_rho.to(units.km/units.s).value/self._vo
+                vR = vxvvg.d_rho.to(units.km / units.s).value / self._vo
             except TypeError:
-                raise TypeError("SkyCoord given to Orbit initialization does not have velocity data, which is required to setup an Orbit")
-            vT= -(vxvvg.d_phi*vxvvg.rho)\
-                .to(units.km/units.s,
-                    equivalencies=units.dimensionless_angles()).value/self._vo
-            vz= vxvvg.d_z.to(units.km/units.s).value/self._vo
-            vxvv= numpy.array([R,vR,vT,z,vz,phi])
+                raise TypeError(
+                    "SkyCoord given to Orbit initialization does not have velocity data, which is required to setup an Orbit"
+                )
+            vT = (
+                -(vxvvg.d_phi * vxvvg.rho)
+                .to(units.km / units.s, equivalencies=units.dimensionless_angles())
+                .value
+                / self._vo
+            )
+            vz = vxvvg.d_z.to(units.km / units.s).value / self._vo
+            vxvv = numpy.array([R, vR, vT, z, vz, phi])
             # Make sure radec and lb are False (issue #402)
-            radec= False
-            lb= False
-        elif not isinstance(vxvv,(list, tuple)):
-            vxvv= vxvv.T # (norb,phasedim) --> (phasedim,norb) easier later
-        if not (_APY_COORD_LOADED and isinstance(vxvv,SkyCoord)) and (radec or lb):
+            radec = False
+            lb = False
+        elif not isinstance(vxvv, (list, tuple)):
+            vxvv = vxvv.T  # (norb,phasedim) --> (phasedim,norb) easier later
+        if not (_APY_COORD_LOADED and isinstance(vxvv, SkyCoord)) and (radec or lb):
             if radec:
-                if _APY_LOADED and isinstance(vxvv[0],units.Quantity):
-                    ra, dec= vxvv[0].to(units.deg).value, \
-                        vxvv[1].to(units.deg).value
+                if _APY_LOADED and isinstance(vxvv[0], units.Quantity):
+                    ra, dec = vxvv[0].to(units.deg).value, vxvv[1].to(units.deg).value
                 else:
-                    ra, dec= vxvv[0], vxvv[1]
-                l,b= coords.radec_to_lb(ra,dec,degree=True,epoch=None).T
-                _extra_rot= True
+                    ra, dec = vxvv[0], vxvv[1]
+                l, b = coords.radec_to_lb(ra, dec, degree=True, epoch=None).T
+                _extra_rot = True
             elif len(vxvv) == 4:
-                l, b= vxvv[0], numpy.zeros_like(vxvv[0])
-                _extra_rot= False
+                l, b = vxvv[0], numpy.zeros_like(vxvv[0])
+                _extra_rot = False
             else:
-                l,b= vxvv[0],vxvv[1]
-                _extra_rot= True
-            if _APY_LOADED and isinstance(l,units.Quantity):
-                l= l.to(units.deg).value
-            if _APY_LOADED and isinstance(b,units.Quantity):
-                b= b.to(units.deg).value
+                l, b = vxvv[0], vxvv[1]
+                _extra_rot = True
+            if _APY_LOADED and isinstance(l, units.Quantity):
+                l = l.to(units.deg).value
+            if _APY_LOADED and isinstance(b, units.Quantity):
+                b = b.to(units.deg).value
             if uvw:
-                if _APY_LOADED and isinstance(vxvv[2],units.Quantity):
-                    X,Y,Z= coords.lbd_to_XYZ(l,b,vxvv[2].to(units.kpc).value,
-                                             degree=True).T
+                if _APY_LOADED and isinstance(vxvv[2], units.Quantity):
+                    X, Y, Z = coords.lbd_to_XYZ(
+                        l, b, vxvv[2].to(units.kpc).value, degree=True
+                    ).T
                 else:
-                    X,Y,Z= coords.lbd_to_XYZ(l,b,vxvv[2],degree=True).T
-                vx= conversion.parse_velocity_kms(vxvv[3])
-                vy= conversion.parse_velocity_kms(vxvv[4])
-                vz= conversion.parse_velocity_kms(vxvv[5])
+                    X, Y, Z = coords.lbd_to_XYZ(l, b, vxvv[2], degree=True).T
+                vx = conversion.parse_velocity_kms(vxvv[3])
+                vy = conversion.parse_velocity_kms(vxvv[4])
+                vz = conversion.parse_velocity_kms(vxvv[5])
             else:
                 if radec:
-                    if _APY_LOADED and isinstance(vxvv[3],units.Quantity):
-                        pmra, pmdec= vxvv[3].to(units.mas/units.yr).value, \
-                            vxvv[4].to(units.mas/units.yr).value
+                    if _APY_LOADED and isinstance(vxvv[3], units.Quantity):
+                        pmra, pmdec = (
+                            vxvv[3].to(units.mas / units.yr).value,
+                            vxvv[4].to(units.mas / units.yr).value,
+                        )
                     else:
-                        pmra, pmdec= vxvv[3], vxvv[4]
-                    pmll, pmbb= coords.pmrapmdec_to_pmllpmbb(pmra,pmdec,ra,dec,
-                                                             degree=True,
-                                                             epoch=None).T
-                    d, vlos= vxvv[2], vxvv[5]
+                        pmra, pmdec = vxvv[3], vxvv[4]
+                    pmll, pmbb = coords.pmrapmdec_to_pmllpmbb(
+                        pmra, pmdec, ra, dec, degree=True, epoch=None
+                    ).T
+                    d, vlos = vxvv[2], vxvv[5]
                 elif len(vxvv) == 4:
-                    pmll, pmbb= vxvv[2], numpy.zeros_like(vxvv[2])
-                    d, vlos= vxvv[1], vxvv[3]
+                    pmll, pmbb = vxvv[2], numpy.zeros_like(vxvv[2])
+                    d, vlos = vxvv[1], vxvv[3]
                 else:
-                    pmll, pmbb= vxvv[3], vxvv[4]
-                    d, vlos= vxvv[2], vxvv[5]
-                d= conversion.parse_length_kpc(d)
-                vlos= conversion.parse_velocity_kms(vlos)
-                if _APY_LOADED and isinstance(pmll,units.Quantity):
-                    pmll= pmll.to(units.mas/units.yr).value
-                if _APY_LOADED and isinstance(pmbb,units.Quantity):
-                    pmbb= pmbb.to(units.mas/units.yr).value
-                X,Y,Z,vx,vy,vz= coords.sphergal_to_rectgal(l,b,d,
-                                                           vlos,pmll, pmbb,
-                                                           degree=True).T
-            X/= self._ro
-            Y/= self._ro
-            Z/= self._ro
-            vx/= self._vo
-            vy/= self._vo
-            vz/= self._vo
-            vsun= numpy.array([0.,1.,0.,])+self._solarmotion/self._vo
-            R, phi, z= coords.XYZ_to_galcencyl(X,Y,Z,Zsun=self._zo/self._ro,
-                                               _extra_rot=_extra_rot).T
-            vR, vT,vz= coords.vxvyvz_to_galcencyl(vx,vy,vz,
-                                                  R,phi,z,
-                                                  vsun=vsun,
-                                                  Xsun=1.,Zsun=self._zo/self._ro,
-                                                  galcen=True,
-                                                  _extra_rot=_extra_rot).T
-            if lb and len(vxvv) == 4: vxvv= numpy.array([R,vR,vT,phi])
-            else: vxvv= numpy.array([R,vR,vT,z,vz,phi])
+                    pmll, pmbb = vxvv[3], vxvv[4]
+                    d, vlos = vxvv[2], vxvv[5]
+                d = conversion.parse_length_kpc(d)
+                vlos = conversion.parse_velocity_kms(vlos)
+                if _APY_LOADED and isinstance(pmll, units.Quantity):
+                    pmll = pmll.to(units.mas / units.yr).value
+                if _APY_LOADED and isinstance(pmbb, units.Quantity):
+                    pmbb = pmbb.to(units.mas / units.yr).value
+                X, Y, Z, vx, vy, vz = coords.sphergal_to_rectgal(
+                    l, b, d, vlos, pmll, pmbb, degree=True
+                ).T
+            X /= self._ro
+            Y /= self._ro
+            Z /= self._ro
+            vx /= self._vo
+            vy /= self._vo
+            vz /= self._vo
+            vsun = (
+                numpy.array(
+                    [
+                        0.0,
+                        1.0,
+                        0.0,
+                    ]
+                )
+                + self._solarmotion / self._vo
+            )
+            R, phi, z = coords.XYZ_to_galcencyl(
+                X, Y, Z, Zsun=self._zo / self._ro, _extra_rot=_extra_rot
+            ).T
+            vR, vT, vz = coords.vxvyvz_to_galcencyl(
+                vx,
+                vy,
+                vz,
+                R,
+                phi,
+                z,
+                vsun=vsun,
+                Xsun=1.0,
+                Zsun=self._zo / self._ro,
+                galcen=True,
+                _extra_rot=_extra_rot,
+            ).T
+            if lb and len(vxvv) == 4:
+                vxvv = numpy.array([R, vR, vT, phi])
+            else:
+                vxvv = numpy.array([R, vR, vT, z, vz, phi])
         # Parse vxvv if it consists of Quantities
-        if _APY_LOADED and isinstance(vxvv[0],units.Quantity):
+        if _APY_LOADED and isinstance(vxvv[0], units.Quantity):
             # Need to set ro and vo, default if not specified, so need to
             # turn them on
-            self._roSet= True
-            self._voSet= True
-            new_vxvv= [vxvv[0].to(vxvv_units[0]).value/self._ro,
-                       vxvv[1].to(vxvv_units[1]).value/self._vo]
+            self._roSet = True
+            self._voSet = True
+            new_vxvv = [
+                vxvv[0].to(vxvv_units[0]).value / self._ro,
+                vxvv[1].to(vxvv_units[1]).value / self._vo,
+            ]
             if len(vxvv) > 2:
-                new_vxvv.append(vxvv[2].to(vxvv_units[2]).value/self._vo)
+                new_vxvv.append(vxvv[2].to(vxvv_units[2]).value / self._vo)
             if len(vxvv) == 4:
                 new_vxvv.append(vxvv[3].to(vxvv_units[5]).value)
             elif len(vxvv) > 4:
-                new_vxvv.append(vxvv[3].to(vxvv_units[3]).value/self._ro)
-                new_vxvv.append(vxvv[4].to(vxvv_units[4]).value/self._vo)
+                new_vxvv.append(vxvv[3].to(vxvv_units[3]).value / self._ro)
+                new_vxvv.append(vxvv[4].to(vxvv_units[4]).value / self._vo)
                 if len(vxvv) == 6:
                     new_vxvv.append(vxvv[5].to(vxvv_units[5]).value)
-            vxvv= numpy.array(new_vxvv)
+            vxvv = numpy.array(new_vxvv)
         # (phasedim,norb) --> (norb,phasedim) again and store
-        self.vxvv= vxvv.T
+        self.vxvv = vxvv.T
         return None
 
     @classmethod
-    def from_name(cls,*args,**kwargs):
+    def from_name(cls, *args, **kwargs):
         """
         NAME:
 
@@ -654,37 +821,52 @@ class Orbit:
             2019-05-21 - Generalized to multiple objects and incorporated into Orbits - Bovy (UofT)
 
         """
-        if not _APY_LOADED: # pragma: no cover
-            raise ImportError('astropy needs to be installed to use '
-                              'Orbit.from_name')
+        if not _APY_LOADED:  # pragma: no cover
+            raise ImportError("astropy needs to be installed to use " "Orbit.from_name")
         _load_named_objects()
         _update_keys_named_objects()
         # Stack coordinate-transform parameters, so they can be changed...
-        obs= numpy.array([kwargs.get('ro',None),
-                          kwargs.get('vo',None),
-                          kwargs.get('zo',None),
-                          kwargs.get('solarmotion',None)],
-                         dtype='object')
+        obs = numpy.array(
+            [
+                kwargs.get("ro", None),
+                kwargs.get("vo", None),
+                kwargs.get("zo", None),
+                kwargs.get("solarmotion", None),
+            ],
+            dtype="object",
+        )
         if len(args) > 1:
-            name= [n for n in args]
-        elif isinstance(args[0],list):
-            name= args[0]
+            name = [n for n in args]
+        elif isinstance(args[0], list):
+            name = args[0]
         else:
-            this_name= _named_objects_key_formatting(args[0])
-            if this_name in _known_objects['_collections'].keys():
-                name= _known_objects['_collections'][this_name]
+            this_name = _named_objects_key_formatting(args[0])
+            if this_name in _known_objects["_collections"].keys():
+                name = _known_objects["_collections"][this_name]
             else:
-                name= args[0]
-        if isinstance(name,str):
-            out= cls(vxvv=_from_name_oneobject(name,obs),radec=True,
-                     ro=obs[0],vo=obs[1],zo=obs[2],solarmotion=obs[3])
-        else: # assume list
-            all_vxvv= []
+                name = args[0]
+        if isinstance(name, str):
+            out = cls(
+                vxvv=_from_name_oneobject(name, obs),
+                radec=True,
+                ro=obs[0],
+                vo=obs[1],
+                zo=obs[2],
+                solarmotion=obs[3],
+            )
+        else:  # assume list
+            all_vxvv = []
             for tname in name:
-                all_vxvv.append(_from_name_oneobject(tname,obs))
-            out= cls(vxvv=all_vxvv,radec=True,
-                     ro=obs[0],vo=obs[1],zo=obs[2],solarmotion=obs[3])
-        out._name= numpy.char.array(name)
+                all_vxvv.append(_from_name_oneobject(tname, obs))
+            out = cls(
+                vxvv=all_vxvv,
+                radec=True,
+                ro=obs[0],
+                vo=obs[1],
+                zo=obs[2],
+                solarmotion=obs[3],
+            )
+        out._name = numpy.char.array(name)
         return out
 
     @property
@@ -693,13 +875,26 @@ class Orbit:
         return self._name
 
     @classmethod
-    def from_fit(cls,init_vxvv,vxvv,vxvv_err=None,pot=None,
-                 radec=False,lb=False,
-                 customsky=False,lb_to_customsky=None,
-                 pmllpmbb_to_customsky=None,
-                 tintJ=10,ntintJ=1000,integrate_method='dopr54_c',
-                 ro=None,vo=None,zo=None,solarmotion=None,
-                 disp=False):
+    def from_fit(
+        cls,
+        init_vxvv,
+        vxvv,
+        vxvv_err=None,
+        pot=None,
+        radec=False,
+        lb=False,
+        customsky=False,
+        lb_to_customsky=None,
+        pmllpmbb_to_customsky=None,
+        tintJ=10,
+        ntintJ=1000,
+        integrate_method="dopr54_c",
+        ro=None,
+        vo=None,
+        zo=None,
+        solarmotion=None,
+        disp=False,
+    ):
         """
         NAME:
 
@@ -767,35 +962,53 @@ class Orbit:
            2019-05-22 - Incorporated into new Orbit class as from_fit -  Bovy (UofT)
 
         """
-        pot= flatten_potential(pot)
+        pot = flatten_potential(pot)
         # Setup Orbit instance for initialization to, among other things,
         # parse the coordinate-transformation keywords
-        init_orbit= cls(init_vxvv,radec=radec or customsky,
-                        lb=lb,ro=ro,vo=vo,zo=zo,
-                        solarmotion=solarmotion)
-        _check_potential_dim(init_orbit,pot)
-        _check_consistent_units(init_orbit,pot)
+        init_orbit = cls(
+            init_vxvv,
+            radec=radec or customsky,
+            lb=lb,
+            ro=ro,
+            vo=vo,
+            zo=zo,
+            solarmotion=solarmotion,
+        )
+        _check_potential_dim(init_orbit, pot)
+        _check_consistent_units(init_orbit, pot)
         if radec or lb or customsky:
-            obs, ro, vo= _parse_radec_kwargs(init_orbit,
-                                             {'ro':init_orbit._ro,
-                                              'vo':init_orbit._vo},
-                                             vel=True,dontpop=True)
+            obs, ro, vo = _parse_radec_kwargs(
+                init_orbit,
+                {"ro": init_orbit._ro, "vo": init_orbit._vo},
+                vel=True,
+                dontpop=True,
+            )
         else:
-            obs, ro, vo= None, None, None
-        if customsky \
-                and (lb_to_customsky is None or pmllpmbb_to_customsky is None):
-            raise OSError('if customsky=True, the functions lb_to_customsky and pmllpmbb_to_customsky need to be given')
-        new_vxvv, maxLogL= _fit_orbit(init_orbit,vxvv,vxvv_err,pot,
-                                      radec=radec,lb=lb,
-                                      customsky=customsky,
-                                      lb_to_customsky=lb_to_customsky,
-                                      pmllpmbb_to_customsky=pmllpmbb_to_customsky,
-                                      tintJ=tintJ,ntintJ=ntintJ,
-                                      integrate_method=integrate_method,
-                                      ro=ro,vo=vo,obs=obs,disp=disp)
-        #Setup with these new initial conditions
-        return cls(new_vxvv,
-                   ro=ro,vo=vo,zo=zo,solarmotion=solarmotion)
+            obs, ro, vo = None, None, None
+        if customsky and (lb_to_customsky is None or pmllpmbb_to_customsky is None):
+            raise OSError(
+                "if customsky=True, the functions lb_to_customsky and pmllpmbb_to_customsky need to be given"
+            )
+        new_vxvv, maxLogL = _fit_orbit(
+            init_orbit,
+            vxvv,
+            vxvv_err,
+            pot,
+            radec=radec,
+            lb=lb,
+            customsky=customsky,
+            lb_to_customsky=lb_to_customsky,
+            pmllpmbb_to_customsky=pmllpmbb_to_customsky,
+            tintJ=tintJ,
+            ntintJ=ntintJ,
+            integrate_method=integrate_method,
+            ro=ro,
+            vo=vo,
+            obs=obs,
+            disp=disp,
+        )
+        # Setup with these new initial conditions
+        return cls(new_vxvv, ro=ro, vo=vo, zo=zo, solarmotion=solarmotion)
 
     def __len__(self):
         return 1 if self.shape == () else self.shape[0]
@@ -823,7 +1036,7 @@ class Orbit:
            2011-02-03 - Written - Bovy (NYU)
 
         """
-        pdim= self.phasedim()
+        pdim = self.phasedim()
         if pdim == 2:
             return 1
         elif pdim == 3 or pdim == 4:
@@ -856,7 +1069,7 @@ class Orbit:
         """
         return self.vxvv.shape[-1]
 
-    def __getattr__(self,name):
+    def __getattr__(self, name):
         """
         NAME:
 
@@ -882,24 +1095,29 @@ class Orbit:
 
         """
         # Catch all plotting functions
-        if 'plot' in name:
-            def _plot(*args,**kwargs):
-                kwargs['d1']= kwargs.get('d1','t')
-                kwargs['d2']= name.split('plot')[1]
-                if ('E' in kwargs['d2'] or kwargs['d2'] == 'Jacobi') \
-                        and kwargs.pop('normed',False):
-                    kwargs['d2']+= 'norm'
-                return self.plot(*args,**kwargs)
+        if "plot" in name:
+
+            def _plot(*args, **kwargs):
+                kwargs["d1"] = kwargs.get("d1", "t")
+                kwargs["d2"] = name.split("plot")[1]
+                if ("E" in kwargs["d2"] or kwargs["d2"] == "Jacobi") and kwargs.pop(
+                    "normed", False
+                ):
+                    kwargs["d2"] += "norm"
+                return self.plot(*args, **kwargs)
+
             # Assign documentation
-            if 'E' in name or 'Jacobi' in name:
-                Estring= """pot= Potential instance or list of instances in which the orbit was integrated
+            if "E" in name or "Jacobi" in name:
+                Estring = """pot= Potential instance or list of instances in which the orbit was integrated
 
            normed= if set, plot {quant}(t)/{quant}(0) rather than {quant}(t)
 
-           """.format(quant=name.split('plot')[1])
+           """.format(
+                    quant=name.split("plot")[1]
+                )
             else:
-                Estring= ''
-            _plot.__doc__= """
+                Estring = ""
+            _plot.__doc__ = """
         NAME:
 
            plot{quant}
@@ -928,14 +1146,18 @@ class Orbit:
 
            2019-04-13 - Written - Bovy (UofT)
 
-        """.format(quant=name.split('plot')[1],Estring=Estring)
+        """.format(
+                quant=name.split("plot")[1], Estring=Estring
+            )
             return _plot
         else:
-            raise AttributeError("'{}' object has no attribute '{}'"\
-                                     .format(self.__class__.__name__,
-                                             name))
+            raise AttributeError(
+                "'{}' object has no attribute '{}'".format(
+                    self.__class__.__name__, name
+                )
+            )
 
-    def __getitem__(self,key):
+    def __getitem__(self, key):
         """
         NAME:
 
@@ -958,62 +1180,62 @@ class Orbit:
            2018-12-31 - Written - Bovy (UofT)
 
         """
-        indx_array= numpy.arange(self.size).reshape(self.shape)
-        indx_array= indx_array[key]
-        flat_indx_array= indx_array.flatten()
-        orbits_list= self.vxvv[flat_indx_array]
+        indx_array = numpy.arange(self.size).reshape(self.shape)
+        indx_array = indx_array[key]
+        flat_indx_array = indx_array.flatten()
+        orbits_list = self.vxvv[flat_indx_array]
         # Transfer new shape
-        shape_kwargs= {}
-        shape_kwargs['shape']= indx_array.shape
+        shape_kwargs = {}
+        shape_kwargs["shape"] = indx_array.shape
         # Transfer physical
-        physical_kwargs= {}
-        physical_kwargs['_roSet']= self._roSet
-        physical_kwargs['_voSet']= self._voSet
-        physical_kwargs['_ro']= self._ro
-        physical_kwargs['_vo']= self._vo
-        physical_kwargs['_zo']= self._zo
-        physical_kwargs['_solarmotion']= self._solarmotion
+        physical_kwargs = {}
+        physical_kwargs["_roSet"] = self._roSet
+        physical_kwargs["_voSet"] = self._voSet
+        physical_kwargs["_ro"] = self._ro
+        physical_kwargs["_vo"] = self._vo
+        physical_kwargs["_zo"] = self._zo
+        physical_kwargs["_solarmotion"] = self._solarmotion
         # Also transfer all attributes related to integration
-        if hasattr(self,'orbit'):
-            integrate_kwargs= {}
+        if hasattr(self, "orbit"):
+            integrate_kwargs = {}
             # Single vs. individual time arrays
-            if len(self.t.shape) < len(self.orbit.shape)-1:
-                integrate_kwargs['t']= self.t
+            if len(self.t.shape) < len(self.orbit.shape) - 1:
+                integrate_kwargs["t"] = self.t
             else:
-                integrate_kwargs['t']= self.t[flat_indx_array]
-            integrate_kwargs['_integrate_t_asQuantity']= \
-                self._integrate_t_asQuantity
-            integrate_kwargs['orbit']= \
-                copy.deepcopy(self.orbit[flat_indx_array])
-            integrate_kwargs['_pot']= self._pot
-        else: integrate_kwargs= None
+                integrate_kwargs["t"] = self.t[flat_indx_array]
+            integrate_kwargs["_integrate_t_asQuantity"] = self._integrate_t_asQuantity
+            integrate_kwargs["orbit"] = copy.deepcopy(self.orbit[flat_indx_array])
+            integrate_kwargs["_pot"] = self._pot
+        else:
+            integrate_kwargs = None
         # Other things to transfer
-        misc_kwargs= {}
-        if hasattr(self,'_name'):
-            misc_kwargs['_name']= self._name[flat_indx_array]
-        return self._from_slice(orbits_list,integrate_kwargs,
-                                shape_kwargs,physical_kwargs,
-                                misc_kwargs)
+        misc_kwargs = {}
+        if hasattr(self, "_name"):
+            misc_kwargs["_name"] = self._name[flat_indx_array]
+        return self._from_slice(
+            orbits_list, integrate_kwargs, shape_kwargs, physical_kwargs, misc_kwargs
+        )
 
     @classmethod
-    def _from_slice(cls,orbits_list,integrate_kwargs,shape_kwargs,
-                    physical_kwargs,misc_kwargs):
-        out= cls(vxvv=orbits_list)
+    def _from_slice(
+        cls, orbits_list, integrate_kwargs, shape_kwargs, physical_kwargs, misc_kwargs
+    ):
+        out = cls(vxvv=orbits_list)
         # Set shape
-        out.shape= shape_kwargs['shape']
+        out.shape = shape_kwargs["shape"]
         # Transfer attributes related to physical
         for kw in physical_kwargs:
-            out.__dict__[kw]= physical_kwargs[kw]
+            out.__dict__[kw] = physical_kwargs[kw]
         # Also transfer all attributes related to integration
         if not integrate_kwargs is None:
             for kw in integrate_kwargs:
-                out.__dict__[kw]= integrate_kwargs[kw]
+                out.__dict__[kw] = integrate_kwargs[kw]
         # Transfer miscellaneous attributes
         for kw in misc_kwargs:
-            out.__dict__[kw]= misc_kwargs[kw]
+            out.__dict__[kw] = misc_kwargs[kw]
         return out
 
-    def reshape(self,newshape):
+    def reshape(self, newshape):
         """
         NAME:
 
@@ -1037,16 +1259,20 @@ class Orbit:
 
         """
         # We reshape a dummy numpy array to use numpy.reshape's parsing
-        dummy= numpy.empty(self.shape)
+        dummy = numpy.empty(self.shape)
         try:
-            dummy= dummy.reshape(newshape)
+            dummy = dummy.reshape(newshape)
         except ValueError:
-            raise (ValueError('cannot reshape Orbit of shape %s into shape %s'
-                                  % (self.shape,newshape))) from None
-        self.shape= dummy.shape
+            raise (
+                ValueError(
+                    "cannot reshape Orbit of shape %s into shape %s"
+                    % (self.shape, newshape)
+                )
+            ) from None
+        self.shape = dummy.shape
         return None
 
-############################ CUSTOM IMPLEMENTED ORBIT FUNCTIONS################
+    ############################ CUSTOM IMPLEMENTED ORBIT FUNCTIONS################
     def turn_physical_off(self):
         """
         NAME:
@@ -1070,11 +1296,11 @@ class Orbit:
            2019-02-28 - Written - Bovy (UofT)
 
         """
-        self._roSet= False
-        self._voSet= False
+        self._roSet = False
+        self._voSet = False
         return None
 
-    def turn_physical_on(self,ro=None,vo=None):
+    def turn_physical_on(self, ro=None, vo=None):
         """
         NAME:
 
@@ -1102,63 +1328,89 @@ class Orbit:
 
         """
         if not ro is False:
-            self._roSet= True
-            ro= conversion.parse_length_kpc(ro)
+            self._roSet = True
+            ro = conversion.parse_length_kpc(ro)
             if not ro is None:
-                self._ro= ro
+                self._ro = ro
         if not vo is False:
-            self._voSet= True
-            vo= conversion.parse_velocity_kms(vo)
+            self._voSet = True
+            vo = conversion.parse_velocity_kms(vo)
             if not vo is None:
-                self._vo= vo
+                self._vo = vo
         return None
 
     @staticmethod
-    def check_integrator(method,no_symplec=False):
-        valid_methods= [
-            'odeint', 'leapfrog', 'dop853', 'leapfrog_c',
-            'symplec4_c', 'symplec6_c', 'rk4_c', 'rk6_c',
-            'dopr54_c', 'dop853_c'
+    def check_integrator(method, no_symplec=False):
+        valid_methods = [
+            "odeint",
+            "leapfrog",
+            "dop853",
+            "leapfrog_c",
+            "symplec4_c",
+            "symplec6_c",
+            "rk4_c",
+            "rk6_c",
+            "dopr54_c",
+            "dop853_c",
         ]
         if no_symplec:
-            symplec_methods= [
-                'leapfrog','leapfrog_c',
-                'symplec4_c','symplec6_c',
+            symplec_methods = [
+                "leapfrog",
+                "leapfrog_c",
+                "symplec4_c",
+                "symplec6_c",
             ]
             [valid_methods.remove(symplec_method) for symplec_method in symplec_methods]
         if method.lower() not in valid_methods:
-            raise ValueError(f'{method:s} is not a valid `method`')
+            raise ValueError(f"{method:s} is not a valid `method`")
         return None
 
     @staticmethod
-    def _check_method_c_compatible(method,pot):
-        if '_c' in method:
+    def _check_method_c_compatible(method, pot):
+        if "_c" in method:
             if not ext_loaded or not _check_c(pot):
-                if ('leapfrog' in method or 'symplec' in method):
-                    method= 'leapfrog'
+                if "leapfrog" in method or "symplec" in method:
+                    method = "leapfrog"
                 else:
-                    method= 'odeint'
-                if not ext_loaded: # pragma: no cover
-                    warnings.warn("Cannot use C integration because C extension not loaded (using %s instead)" % (method), galpyWarning)
+                    method = "odeint"
+                if not ext_loaded:  # pragma: no cover
+                    warnings.warn(
+                        "Cannot use C integration because C extension not loaded (using %s instead)"
+                        % (method),
+                        galpyWarning,
+                    )
                 else:
-                    warnings.warn("Cannot use C integration because some of the potentials are not implemented in C (using %s instead)" % (method), galpyWarning)
+                    warnings.warn(
+                        "Cannot use C integration because some of the potentials are not implemented in C (using %s instead)"
+                        % (method),
+                        galpyWarning,
+                    )
         return method
 
     @staticmethod
-    def _check_method_dissipative_compatible(method,pot):
-        if _isDissipative(pot) and ('leapfrog' in method
-                                    or 'symplec' in method):
-            if '_c' in method:
-                method= 'dopr54_c'
+    def _check_method_dissipative_compatible(method, pot):
+        if _isDissipative(pot) and ("leapfrog" in method or "symplec" in method):
+            if "_c" in method:
+                method = "dopr54_c"
             else:
-                method= 'odeint'
-            warnings.warn("Cannot use symplectic integration because some of the included forces are dissipative (using non-symplectic integrator %s instead)" % (method), galpyWarning)
+                method = "odeint"
+            warnings.warn(
+                "Cannot use symplectic integration because some of the included forces are dissipative (using non-symplectic integrator %s instead)"
+                % (method),
+                galpyWarning,
+            )
         return method
 
-
-    def integrate(self,t,pot,method='symplec4_c',progressbar=True,
-                  dt=None,numcores=_NUMCORES,
-                  force_map=False):
+    def integrate(
+        self,
+        t,
+        pot,
+        method="symplec4_c",
+        progressbar=True,
+        dt=None,
+        numcores=_NUMCORES,
+        force_map=False,
+    ):
         """
         NAME:
 
@@ -1205,129 +1457,178 @@ class Orbit:
 
         """
         self.check_integrator(method)
-        pot= flatten_potential(pot)
-        _check_potential_dim(self,pot)
-        _check_consistent_units(self,pot)
+        pot = flatten_potential(pot)
+        _check_potential_dim(self, pot)
+        _check_consistent_units(self, pot)
         # Parse t
-        if _APY_LOADED and isinstance(t,units.Quantity):
-            self._integrate_t_asQuantity= True
-            t= conversion.parse_time(t,ro=self._ro,vo=self._vo)
-        else: self._integrate_t_asQuantity= False
-        if _APY_LOADED and not dt is None and isinstance(dt,units.Quantity):
-            dt= conversion.parse_time(dt,ro=self._ro,vo=self._vo)
+        if _APY_LOADED and isinstance(t, units.Quantity):
+            self._integrate_t_asQuantity = True
+            t = conversion.parse_time(t, ro=self._ro, vo=self._vo)
+        else:
+            self._integrate_t_asQuantity = False
+        if _APY_LOADED and not dt is None and isinstance(dt, units.Quantity):
+            dt = conversion.parse_time(dt, ro=self._ro, vo=self._vo)
         from ..potential import MWPotential
-        if pot == MWPotential:
-            warnings.warn("Use of MWPotential as a Milky-Way-like potential is deprecated; galpy.potential.MWPotential2014, a potential fit to a large variety of dynamical constraints (see Bovy 2015), is the preferred Milky-Way-like potential in galpy",
-                          galpyWarning)
-        if not _check_integrate_dt(t,dt):
-            raise ValueError('dt input (integrator stepsize) for Orbit.integrate must be an integer divisor of the output stepsize')
-        # Delete attributes for interpolation and rperi etc. determination
-        if hasattr(self,'_orbInterp'): delattr(self,'_orbInterp')
-        if hasattr(self,'rs'): delattr(self,'rs')
-        if self.dim() == 2:
-            thispot= toPlanarPotential(pot)
-        else:
-            thispot= pot
-        self.t= numpy.array(t)
-        self._pot= thispot
-        method= self._check_method_c_compatible(method,self._pot)
-        method= self._check_method_dissipative_compatible(method,self._pot)
-        # Implementation with parallel_map in Python
-        if not '_c' in method or not ext_loaded or force_map:
-            if self.dim() == 1:
-                out, msg= integrateLinearOrbit(self._pot,self.vxvv,t,method,
-                                               progressbar=progressbar,
-                                               numcores=numcores,dt=dt)
-            elif self.dim() == 2:
-                out, msg= integratePlanarOrbit(self._pot,self.vxvv,t,method,
-                                               progressbar=progressbar,
-                                               numcores=numcores,dt=dt)
-            else:
-                out, msg= integrateFullOrbit(self._pot,self.vxvv,t,method,
-                                             progressbar=progressbar,
-                                             numcores=numcores,dt=dt)
-        else:
-            warnings.warn("Using C implementation to integrate orbits",
-                          galpyWarningVerbose)
-            if self.dim() == 1:
-                out, msg= integrateLinearOrbit_c(self._pot,
-                                                 numpy.copy(self.vxvv),
-                                                 t,method,
-                                                 progressbar=progressbar,
-                                                 dt=dt)
-            else:
-                if self.phasedim() == 3 \
-                   or self.phasedim() == 5:
-                    #We hack this by putting in a dummy phi=0
-                    vxvvs= numpy.pad(self.vxvv,((0,0),(0,1)),
-                                     'constant',constant_values=0)
-                else:
-                    vxvvs= numpy.copy(self.vxvv)
-                if self.dim() == 2:
-                    out, msg= integratePlanarOrbit_c(self._pot,vxvvs,
-                                                     t,method,
-                                                     progressbar=progressbar,
-                                                     dt=dt)
-                else:
-                    out, msg= integrateFullOrbit_c(self._pot,vxvvs,
-                                                   t,method,
-                                                   progressbar=progressbar,
-                                                   dt=dt)
 
-                if self.phasedim() == 3 \
-                   or self.phasedim() == 5:
-                    out= out[:,:,:-1]
+        if pot == MWPotential:
+            warnings.warn(
+                "Use of MWPotential as a Milky-Way-like potential is deprecated; galpy.potential.MWPotential2014, a potential fit to a large variety of dynamical constraints (see Bovy 2015), is the preferred Milky-Way-like potential in galpy",
+                galpyWarning,
+            )
+        if not _check_integrate_dt(t, dt):
+            raise ValueError(
+                "dt input (integrator stepsize) for Orbit.integrate must be an integer divisor of the output stepsize"
+            )
+        # Delete attributes for interpolation and rperi etc. determination
+        if hasattr(self, "_orbInterp"):
+            delattr(self, "_orbInterp")
+        if self.dim() == 2:
+            thispot = toPlanarPotential(pot)
+        else:
+            thispot = pot
+        self.t = numpy.array(t)
+        self._pot = thispot
+        method = self._check_method_c_compatible(method, self._pot)
+        method = self._check_method_dissipative_compatible(method, self._pot)
+        # Implementation with parallel_map in Python
+        if not "_c" in method or not ext_loaded or force_map:
+            if self.dim() == 1:
+                out, msg = integrateLinearOrbit(
+                    self._pot,
+                    self.vxvv,
+                    t,
+                    method,
+                    progressbar=progressbar,
+                    numcores=numcores,
+                    dt=dt,
+                )
+            elif self.dim() == 2:
+                out, msg = integratePlanarOrbit(
+                    self._pot,
+                    self.vxvv,
+                    t,
+                    method,
+                    progressbar=progressbar,
+                    numcores=numcores,
+                    dt=dt,
+                )
+            else:
+                out, msg = integrateFullOrbit(
+                    self._pot,
+                    self.vxvv,
+                    t,
+                    method,
+                    progressbar=progressbar,
+                    numcores=numcores,
+                    dt=dt,
+                )
+        else:
+            warnings.warn(
+                "Using C implementation to integrate orbits", galpyWarningVerbose
+            )
+            if self.dim() == 1:
+                out, msg = integrateLinearOrbit_c(
+                    self._pot,
+                    numpy.copy(self.vxvv),
+                    t,
+                    method,
+                    progressbar=progressbar,
+                    dt=dt,
+                )
+            else:
+                if self.phasedim() == 3 or self.phasedim() == 5:
+                    # We hack this by putting in a dummy phi=0
+                    vxvvs = numpy.pad(
+                        self.vxvv, ((0, 0), (0, 1)), "constant", constant_values=0
+                    )
+                else:
+                    vxvvs = numpy.copy(self.vxvv)
+                if self.dim() == 2:
+                    out, msg = integratePlanarOrbit_c(
+                        self._pot, vxvvs, t, method, progressbar=progressbar, dt=dt
+                    )
+                else:
+                    out, msg = integrateFullOrbit_c(
+                        self._pot, vxvvs, t, method, progressbar=progressbar, dt=dt
+                    )
+
+                if self.phasedim() == 3 or self.phasedim() == 5:
+                    out = out[:, :, :-1]
         # Store orbit internally
-        self.orbit= out
+        self.orbit = out
         # Check whether r ever < minr if dynamical friction is included
         # and warn if so
         # or if using interpSphericalPotential and r < rmin or r > rmax
-        from ..potential import (ChandrasekharDynamicalFrictionForce,
-                                 interpSphericalPotential)
-        if numpy.any([isinstance(p,ChandrasekharDynamicalFrictionForce)
-                      for p in flatten_potential([pot])]): # make sure pot=list
-            lpot= flatten_potential([pot])
-            cdf_indx= numpy.arange(len(lpot))[\
-                numpy.array([isinstance(p,ChandrasekharDynamicalFrictionForce)
-                             for p in lpot],dtype='bool')][0]
-            if numpy.any(self.r(self.t,use_physical=False) \
-                             < lpot[cdf_indx]._minr):
-                warnings.warn("""Orbit integration with """
-                              """ChandrasekharDynamicalFrictionForce """
-                              """entered domain where r < minr and """
-                              """ChandrasekharDynamicalFrictionForce is """
-                              """turned off; initialize """
-                              """ChandrasekharDynamicalFrictionForce with a """
-                              """smaller minr to avoid this if you wish """
-                              """(but note that you want to turn it off """
-                              """close to the center for an object that """
-                              """sinks all the way to r=0, to avoid """
-                              """numerical instabilities)""",
-                          galpyWarning)
-        elif numpy.any([isinstance(p,interpSphericalPotential)
-                      for p in flatten_potential([pot])]): # make sure pot=list
-            lpot= flatten_potential([pot])
-            isp_indx= numpy.arange(len(lpot))[\
-                numpy.array([isinstance(p,interpSphericalPotential)
-                             for p in lpot],dtype='bool')][0]
-            if numpy.any(self.r(self.t,use_physical=False) \
-                             < lpot[isp_indx]._rmin) \
-                             or numpy.any(self.r(self.t,use_physical=False) \
-                                          > lpot[isp_indx]._rmax):
-                warnings.warn("""Orbit integration with """
-                              """interpSphericalPotential visited radii """
-                              """outside of the interpolation range; """
-                              """initialize interpSphericalPotential """
-                              """with a wider radial range to avoid this """
-                              """if you wish (min/max r = {:.3f},{:.3f}"""\
-                              .format(self.rperi(),self.rap()),
-                          galpyWarning)
+        from ..potential import (
+            ChandrasekharDynamicalFrictionForce,
+            interpSphericalPotential,
+        )
+
+        if numpy.any(
+            [
+                isinstance(p, ChandrasekharDynamicalFrictionForce)
+                for p in flatten_potential([pot])
+            ]
+        ):  # make sure pot=list
+            lpot = flatten_potential([pot])
+            cdf_indx = numpy.arange(len(lpot))[
+                numpy.array(
+                    [isinstance(p, ChandrasekharDynamicalFrictionForce) for p in lpot],
+                    dtype="bool",
+                )
+            ][0]
+            if numpy.any(self.r(self.t, use_physical=False) < lpot[cdf_indx]._minr):
+                warnings.warn(
+                    """Orbit integration with """
+                    """ChandrasekharDynamicalFrictionForce """
+                    """entered domain where r < minr and """
+                    """ChandrasekharDynamicalFrictionForce is """
+                    """turned off; initialize """
+                    """ChandrasekharDynamicalFrictionForce with a """
+                    """smaller minr to avoid this if you wish """
+                    """(but note that you want to turn it off """
+                    """close to the center for an object that """
+                    """sinks all the way to r=0, to avoid """
+                    """numerical instabilities)""",
+                    galpyWarning,
+                )
+        elif numpy.any(
+            [isinstance(p, interpSphericalPotential) for p in flatten_potential([pot])]
+        ):  # make sure pot=list
+            lpot = flatten_potential([pot])
+            isp_indx = numpy.arange(len(lpot))[
+                numpy.array(
+                    [isinstance(p, interpSphericalPotential) for p in lpot],
+                    dtype="bool",
+                )
+            ][0]
+            if numpy.any(
+                self.r(self.t, use_physical=False) < lpot[isp_indx]._rmin
+            ) or numpy.any(self.r(self.t, use_physical=False) > lpot[isp_indx]._rmax):
+                warnings.warn(
+                    """Orbit integration with """
+                    """interpSphericalPotential visited radii """
+                    """outside of the interpolation range; """
+                    """initialize interpSphericalPotential """
+                    """with a wider radial range to avoid this """
+                    """if you wish (min/max r = {:.3f},{:.3f}""".format(
+                        self.rperi(), self.rap()
+                    ),
+                    galpyWarning,
+                )
         return None
 
-    def integrate_SOS(self,psi,pot,surface=None,t0=0.,
-                      method='dop853_c',progressbar=True,
-                      numcores=_NUMCORES,
-                      force_map=False):
+    def integrate_SOS(
+        self,
+        psi,
+        pot,
+        surface=None,
+        t0=0.0,
+        method="dop853_c",
+        progressbar=True,
+        numcores=_NUMCORES,
+        force_map=False,
+    ):
         """
         NAME:
 
@@ -1371,78 +1672,111 @@ class Orbit:
         """
         if self.dim() == 1:
             raise NotImplementedError("SOS integration is not supported for 1D orbits")
-        self.check_integrator(method,no_symplec=True)
-        pot= flatten_potential(pot)
-        _check_potential_dim(self,pot)
-        _check_consistent_units(self,pot)
+        self.check_integrator(method, no_symplec=True)
+        pot = flatten_potential(pot)
+        _check_potential_dim(self, pot)
+        _check_consistent_units(self, pot)
         # Parse psi
-        if _APY_LOADED and isinstance(psi,units.Quantity):
-            psi= conversion.parse_angle(psi)
-        if _APY_LOADED and isinstance(t0,units.Quantity):
-            t0= conversion.parse_time(t0,ro=self._ro,vo=self._vo)
-        self._integrate_t_asQuantity= False
+        if _APY_LOADED and isinstance(psi, units.Quantity):
+            psi = conversion.parse_angle(psi)
+        if _APY_LOADED and isinstance(t0, units.Quantity):
+            t0 = conversion.parse_time(t0, ro=self._ro, vo=self._vo)
+        self._integrate_t_asQuantity = False
         from ..potential import MWPotential
-        if pot == MWPotential:
-            warnings.warn("Use of MWPotential as a Milky-Way-like potential is deprecated; galpy.potential.MWPotential2014, a potential fit to a large variety of dynamical constraints (see Bovy 2015), is the preferred Milky-Way-like potential in galpy",
-                          galpyWarning)
-        # Delete attributes for interpolation and rperi etc. determination
-        if hasattr(self,'_orbInterp'): delattr(self,'_orbInterp')
-        if hasattr(self,'rs'): delattr(self,'rs')
-        if self.dim() == 2:
-            thispot= toPlanarPotential(pot)
-        else:
-            thispot= pot
-        self._psi= numpy.array(psi)
-        self._pot= thispot
-        method= self._check_method_c_compatible(method,self._pot)
-        method= self._check_method_dissipative_compatible(method,self._pot)
-        # Implementation with parallel_map in Python
-        if not '_c' in method or not ext_loaded or force_map:
-            if self.dim() == 2:
-                out, msg= integratePlanarOrbit_sos(self._pot,self.vxvv,self._psi,t0,method,
-                                                   surface=surface,progressbar=progressbar,
-                                                   numcores=numcores)
-            else:
-                out, msg= integrateFullOrbit_sos(self._pot,self.vxvv,self._psi,t0,method,
-                                                 progressbar=progressbar,
-                                                 numcores=numcores)
-        else:
-            warnings.warn("Using C implementation to integrate orbits",
-                          galpyWarningVerbose)
-            if self.phasedim() == 3 \
-                or self.phasedim() == 5:
-                #We hack this by putting in a dummy phi=0
-                vxvvs= numpy.pad(self.vxvv,((0,0),(0,1)),
-                                    'constant',constant_values=0)
-            else:
-                vxvvs= numpy.copy(self.vxvv)
-            if self.dim() == 2:
-                out, msg= integratePlanarOrbit_sos_c(self._pot,vxvvs,self._psi,t0,
-                                                        method,surface=surface,
-                                                        progressbar=progressbar)
-            else:
-                out, msg= integrateFullOrbit_sos_c(self._pot,vxvvs,self._psi,t0,
-                                                    method,progressbar=progressbar)
 
-            if self.phasedim() == 3 \
-                or self.phasedim() == 5:
-                phi_mask= numpy.ones(out.shape[2],dtype='bool')
-                phi_mask[3+2*(self.phasedim()==5)]= False
-                out= out[:,:,phi_mask]
+        if pot == MWPotential:
+            warnings.warn(
+                "Use of MWPotential as a Milky-Way-like potential is deprecated; galpy.potential.MWPotential2014, a potential fit to a large variety of dynamical constraints (see Bovy 2015), is the preferred Milky-Way-like potential in galpy",
+                galpyWarning,
+            )
+        # Delete attributes for interpolation and rperi etc. determination
+        if hasattr(self, "_orbInterp"):
+            delattr(self, "_orbInterp")
+        if self.dim() == 2:
+            thispot = toPlanarPotential(pot)
+        else:
+            thispot = pot
+        self._psi = numpy.array(psi)
+        self._pot = thispot
+        method = self._check_method_c_compatible(method, self._pot)
+        method = self._check_method_dissipative_compatible(method, self._pot)
+        # Implementation with parallel_map in Python
+        if not "_c" in method or not ext_loaded or force_map:
+            if self.dim() == 2:
+                out, msg = integratePlanarOrbit_sos(
+                    self._pot,
+                    self.vxvv,
+                    self._psi,
+                    t0,
+                    method,
+                    surface=surface,
+                    progressbar=progressbar,
+                    numcores=numcores,
+                )
+            else:
+                out, msg = integrateFullOrbit_sos(
+                    self._pot,
+                    self.vxvv,
+                    self._psi,
+                    t0,
+                    method,
+                    progressbar=progressbar,
+                    numcores=numcores,
+                )
+        else:
+            warnings.warn(
+                "Using C implementation to integrate orbits", galpyWarningVerbose
+            )
+            if self.phasedim() == 3 or self.phasedim() == 5:
+                # We hack this by putting in a dummy phi=0
+                vxvvs = numpy.pad(
+                    self.vxvv, ((0, 0), (0, 1)), "constant", constant_values=0
+                )
+            else:
+                vxvvs = numpy.copy(self.vxvv)
+            if self.dim() == 2:
+                out, msg = integratePlanarOrbit_sos_c(
+                    self._pot,
+                    vxvvs,
+                    self._psi,
+                    t0,
+                    method,
+                    surface=surface,
+                    progressbar=progressbar,
+                )
+            else:
+                out, msg = integrateFullOrbit_sos_c(
+                    self._pot, vxvvs, self._psi, t0, method, progressbar=progressbar
+                )
+
+            if self.phasedim() == 3 or self.phasedim() == 5:
+                phi_mask = numpy.ones(out.shape[2], dtype="bool")
+                phi_mask[3 + 2 * (self.phasedim() == 5)] = False
+                out = out[:, :, phi_mask]
         # Store orbit internally
-        self.orbit= out[:,:,:-1]
-        self.t= out[:,:,-1]
+        self.orbit = out[:, :, :-1]
+        self.t = out[:, :, -1]
         # Quick check that all is well in terms of psi increasing with time
-        assert numpy.all((numpy.roll(self.t,-1,axis=1)-self.t)[:,:-1]
-                         *(numpy.roll(self._psi.T,-1,axis=0)-self._psi.T)[:-1].T
-                         > 0.), \
-            "SOS integration failed (time does not monotonically increase with increasing psi)"
+        assert numpy.all(
+            (numpy.roll(self.t, -1, axis=1) - self.t)[:, :-1]
+            * (numpy.roll(self._psi.T, -1, axis=0) - self._psi.T)[:-1].T
+            > 0.0
+        ), "SOS integration failed (time does not monotonically increase with increasing psi)"
         return None
 
-    def integrate_dxdv(self,dxdv,t,pot,method='dopr54_c',
-                       progressbar=True,dt=None,
-                       numcores=_NUMCORES,force_map=False,
-                       rectIn=False,rectOut=False):
+    def integrate_dxdv(
+        self,
+        dxdv,
+        t,
+        pot,
+        method="dopr54_c",
+        progressbar=True,
+        dt=None,
+        numcores=_NUMCORES,
+        force_map=False,
+        rectIn=False,
+        rectOut=False,
+    ):
         """
         NAME:
 
@@ -1492,60 +1826,89 @@ class Orbit:
 
         """
         if not self.phasedim() == 4:
-            raise AttributeError('integrate_dxdv is only implemented for 4D (planar) orbits')
-        if method.lower() not in ['odeint', 'dop853', 'rk4_c', 'rk6_c',
-                                  'dopr54_c', 'dop853_c']:
-            if 'leapfrog' in method.lower() or 'symplec' in method.lower():
-                raise ValueError(f'{method:s} is not a valid `method for integrate_dxdv, because symplectic integrators cannot be used`')
+            raise AttributeError(
+                "integrate_dxdv is only implemented for 4D (planar) orbits"
+            )
+        if method.lower() not in [
+            "odeint",
+            "dop853",
+            "rk4_c",
+            "rk6_c",
+            "dopr54_c",
+            "dop853_c",
+        ]:
+            if "leapfrog" in method.lower() or "symplec" in method.lower():
+                raise ValueError(
+                    f"{method:s} is not a valid `method for integrate_dxdv, because symplectic integrators cannot be used`"
+                )
             else:
-                raise ValueError(f'{method:s} is not a valid `method for integrate_dxdv`')
-        pot= flatten_potential(pot)
-        _check_potential_dim(self,pot)
-        _check_consistent_units(self,pot)
+                raise ValueError(
+                    f"{method:s} is not a valid `method for integrate_dxdv`"
+                )
+        pot = flatten_potential(pot)
+        _check_potential_dim(self, pot)
+        _check_consistent_units(self, pot)
         # Parse t
-        if _APY_LOADED and isinstance(t,units.Quantity):
-            self._integrate_t_asQuantity= True
-            t= conversion.parse_time(t,ro=self._ro,vo=self._vo)
-        else: self._integrate_t_asQuantity= False
-        if not dt is None:
-            dt= conversion.parse_time(dt,ro=self._ro,vo=self._vo)
-        # Parse dxdv
-        dxdv= numpy.array(dxdv)
-        if dxdv.ndim > 1:
-            dxdv= dxdv.reshape((numpy.prod(dxdv.shape[:-1]),dxdv.shape[-1]))
+        if _APY_LOADED and isinstance(t, units.Quantity):
+            self._integrate_t_asQuantity = True
+            t = conversion.parse_time(t, ro=self._ro, vo=self._vo)
         else:
-            dxdv= numpy.atleast_2d(dxdv)
+            self._integrate_t_asQuantity = False
+        if not dt is None:
+            dt = conversion.parse_time(dt, ro=self._ro, vo=self._vo)
+        # Parse dxdv
+        dxdv = numpy.array(dxdv)
+        if dxdv.ndim > 1:
+            dxdv = dxdv.reshape((numpy.prod(dxdv.shape[:-1]), dxdv.shape[-1]))
+        else:
+            dxdv = numpy.atleast_2d(dxdv)
         # Delete attributes for interpolation and rperi etc. determination
-        if hasattr(self,'_orbInterp'): delattr(self,'_orbInterp')
-        if hasattr(self,'rs'): delattr(self,'rs')
+        if hasattr(self, "_orbInterp"):
+            delattr(self, "_orbInterp")
         if self.dim() == 2:
-            thispot= toPlanarPotential(pot)
-        self.t= numpy.array(t)
-        self._pot_dxdv= thispot
-        self._pot= thispot
-        #First check that the potential has C
-        if '_c' in method:
-            allHasC= _check_c(pot) and _check_c(pot,dxdv=True)
-            if not ext_loaded or \
-                    (not allHasC and not 'leapfrog' in method and not 'symplec' in method):
-                method= 'odeint'
-                if not ext_loaded: # pragma: no cover
-                    warnings.warn("Cannot use C integration because C extension not loaded (using %s instead)" % (method), galpyWarning)
+            thispot = toPlanarPotential(pot)
+        self.t = numpy.array(t)
+        self._pot_dxdv = thispot
+        self._pot = thispot
+        # First check that the potential has C
+        if "_c" in method:
+            allHasC = _check_c(pot) and _check_c(pot, dxdv=True)
+            if not ext_loaded or (
+                not allHasC and not "leapfrog" in method and not "symplec" in method
+            ):
+                method = "odeint"
+                if not ext_loaded:  # pragma: no cover
+                    warnings.warn(
+                        "Cannot use C integration because C extension not loaded (using %s instead)"
+                        % (method),
+                        galpyWarning,
+                    )
                 else:
-                    warnings.warn("Using odeint because not all used potential have adequate C implementations to integrate phase-space volumes",galpyWarning)
+                    warnings.warn(
+                        "Using odeint because not all used potential have adequate C implementations to integrate phase-space volumes",
+                        galpyWarning,
+                    )
         # Implementation with parallel_map in Python
-        if True or not '_c' in method or not ext_loaded or force_map:
+        if True or not "_c" in method or not ext_loaded or force_map:
             if self.dim() == 2:
-                out, msg= integratePlanarOrbit_dxdv(self._pot,self.vxvv,dxdv,
-                                                    t,method,rectIn,rectOut,
-                                                    progressbar=progressbar,
-                                                    numcores=numcores,dt=dt)
+                out, msg = integratePlanarOrbit_dxdv(
+                    self._pot,
+                    self.vxvv,
+                    dxdv,
+                    t,
+                    method,
+                    rectIn,
+                    rectOut,
+                    progressbar=progressbar,
+                    numcores=numcores,
+                    dt=dt,
+                )
         # Store orbit internally
-        self.orbit_dxdv= out
-        self.orbit= self.orbit_dxdv[...,:4]
+        self.orbit_dxdv = out
+        self.orbit = self.orbit_dxdv[..., :4]
         return None
 
-    def flip(self,inplace=False):
+    def flip(self, inplace=False):
         """
         NAME:
 
@@ -1569,47 +1932,80 @@ class Orbit:
 
         """
         if inplace:
-            self.vxvv[...,1]= -self.vxvv[...,1]
+            self.vxvv[..., 1] = -self.vxvv[..., 1]
             if self.phasedim() > 2:
-                self.vxvv[...,2]= -self.vxvv[...,2]
+                self.vxvv[..., 2] = -self.vxvv[..., 2]
             if self.phasedim() > 4:
-                self.vxvv[...,4]= -self.vxvv[...,4]
-            if hasattr(self,'orbit'):
-                self.orbit[...,1]= -self.orbit[...,1]
+                self.vxvv[..., 4] = -self.vxvv[..., 4]
+            if hasattr(self, "orbit"):
+                self.orbit[..., 1] = -self.orbit[..., 1]
                 if self.phasedim() > 2:
-                    self.orbit[...,2]= -self.orbit[...,2]
+                    self.orbit[..., 2] = -self.orbit[..., 2]
                 if self.phasedim() > 4:
-                    self.orbit[...,4]= -self.orbit[...,4]
-                if hasattr(self,"_orbInterp"):
-                    delattr(self,"_orbInterp")
+                    self.orbit[..., 4] = -self.orbit[..., 4]
+                if hasattr(self, "_orbInterp"):
+                    delattr(self, "_orbInterp")
             return None
-        orbSetupKwargs= {'ro':self._ro,
-                         'vo':self._vo,
-                         'zo':self._zo,
-                         'solarmotion':self._solarmotion}
+        orbSetupKwargs = {
+            "ro": self._ro,
+            "vo": self._vo,
+            "zo": self._zo,
+            "solarmotion": self._solarmotion,
+        }
         if self.phasedim() == 2:
-            orbSetupKwargs.pop('zo',None)
-            orbSetupKwargs.pop('solarmotion',None)
-            out= Orbit(numpy.array([self.vxvv[...,0],-self.vxvv[...,1]]).T,
-                       **orbSetupKwargs)
+            orbSetupKwargs.pop("zo", None)
+            orbSetupKwargs.pop("solarmotion", None)
+            out = Orbit(
+                numpy.array([self.vxvv[..., 0], -self.vxvv[..., 1]]).T, **orbSetupKwargs
+            )
         elif self.phasedim() == 3:
-            out= Orbit(numpy.array([self.vxvv[...,0],-self.vxvv[...,1],
-                                    -self.vxvv[...,2]]).T,**orbSetupKwargs)
+            out = Orbit(
+                numpy.array(
+                    [self.vxvv[..., 0], -self.vxvv[..., 1], -self.vxvv[..., 2]]
+                ).T,
+                **orbSetupKwargs,
+            )
         elif self.phasedim() == 4:
-            out= Orbit(numpy.array([self.vxvv[...,0],-self.vxvv[...,1],
-                                    -self.vxvv[...,2],self.vxvv[...,3]]).T,
-                       **orbSetupKwargs)
+            out = Orbit(
+                numpy.array(
+                    [
+                        self.vxvv[..., 0],
+                        -self.vxvv[..., 1],
+                        -self.vxvv[..., 2],
+                        self.vxvv[..., 3],
+                    ]
+                ).T,
+                **orbSetupKwargs,
+            )
         elif self.phasedim() == 5:
-            out= Orbit(numpy.array([self.vxvv[...,0],-self.vxvv[...,1],
-                                    -self.vxvv[...,2],self.vxvv[...,3],
-                                    -self.vxvv[...,4]]).T,**orbSetupKwargs)
+            out = Orbit(
+                numpy.array(
+                    [
+                        self.vxvv[..., 0],
+                        -self.vxvv[..., 1],
+                        -self.vxvv[..., 2],
+                        self.vxvv[..., 3],
+                        -self.vxvv[..., 4],
+                    ]
+                ).T,
+                **orbSetupKwargs,
+            )
         elif self.phasedim() == 6:
-            out= Orbit(numpy.array([self.vxvv[...,0],-self.vxvv[...,1],
-                                    -self.vxvv[...,2],self.vxvv[...,3],
-                                    -self.vxvv[...,4],self.vxvv[...,5]]).T,
-                       **orbSetupKwargs)
-        out._roSet= self._roSet
-        out._voSet= self._voSet
+            out = Orbit(
+                numpy.array(
+                    [
+                        self.vxvv[..., 0],
+                        -self.vxvv[..., 1],
+                        -self.vxvv[..., 2],
+                        self.vxvv[..., 3],
+                        -self.vxvv[..., 4],
+                        self.vxvv[..., 5],
+                    ]
+                ).T,
+                **orbSetupKwargs,
+            )
+        out._roSet = self._roSet
+        out._voSet = self._voSet
         # Make sure the output has the same shape as the original Orbit
         out.reshape(self.shape)
         return out
@@ -1666,11 +2062,11 @@ class Orbit:
            2019-05-21 - Written - Bovy (UofT)
 
         """
-        return self.orbit_dxdv[...,4:].copy()
+        return self.orbit_dxdv[..., 4:].copy()
 
-    @physical_conversion('energy')
+    @physical_conversion("energy")
     @shapeDecorator
-    def E(self,*args,**kwargs):
+    def E(self, *args, **kwargs):
         """
         NAME:
 
@@ -1699,117 +2095,199 @@ class Orbit:
            2019-03-01 - Written - Bovy (UofT)
 
         """
-        if not kwargs.get('pot',None) is None: kwargs['pot']= flatten_potential(kwargs.get('pot'))
-        _check_consistent_units(self,kwargs.get('pot',None))
-        if not 'pot' in kwargs or kwargs['pot'] is None:
+        if not kwargs.get("pot", None) is None:
+            kwargs["pot"] = flatten_potential(kwargs.get("pot"))
+        _check_consistent_units(self, kwargs.get("pot", None))
+        if not "pot" in kwargs or kwargs["pot"] is None:
             try:
-                pot= self._pot
+                pot = self._pot
             except AttributeError:
                 raise AttributeError("Integrate orbits or specify pot=")
-            if 'pot' in kwargs and kwargs['pot'] is None:
-                kwargs.pop('pot')
+            if "pot" in kwargs and kwargs["pot"] is None:
+                kwargs.pop("pot")
         else:
-            pot= kwargs.pop('pot')
+            pot = kwargs.pop("pot")
         if self.dim() == 2:
-            pot= toPlanarPotential(pot)
+            pot = toPlanarPotential(pot)
         if len(args) > 0:
-            t= args[0]
+            t = args[0]
         else:
-            t= 0.
-        #Get orbit
-        thiso= self._call_internal(*args,**kwargs)
-        onet= (len(thiso.shape) == 2)
+            t = 0.0
+        # Get orbit
+        thiso = self._call_internal(*args, **kwargs)
+        onet = len(thiso.shape) == 2
         if onet:
-            thiso= thiso[:,numpy.newaxis,:]
-            t= numpy.atleast_1d(t)
+            thiso = thiso[:, numpy.newaxis, :]
+            t = numpy.atleast_1d(t)
         if self.phasedim() == 2:
             try:
-                out= (evaluatelinearPotentials(\
-                        pot,thiso[0],
-                        t=numpy.tile(t,thiso[0].T.shape[:-1]+(1,)).T,
-                        use_physical=False)\
-                          +thiso[1]**2./2.).T
-            except (ValueError,TypeError,IndexError):
-                out= (numpy.array([[evaluatelinearPotentials(\
-                                    pot,thiso[0][ii][jj],t=t[ii],
-                                    use_physical=False)
-                                    for ii in range(len(thiso[0]))]
-                                   for jj in range(self.size)])\
-                          +(thiso[1]**2./2.).T)
+                out = (
+                    evaluatelinearPotentials(
+                        pot,
+                        thiso[0],
+                        t=numpy.tile(t, thiso[0].T.shape[:-1] + (1,)).T,
+                        use_physical=False,
+                    )
+                    + thiso[1] ** 2.0 / 2.0
+                ).T
+            except (ValueError, TypeError, IndexError):
+                out = (
+                    numpy.array(
+                        [
+                            [
+                                evaluatelinearPotentials(
+                                    pot, thiso[0][ii][jj], t=t[ii], use_physical=False
+                                )
+                                for ii in range(len(thiso[0]))
+                            ]
+                            for jj in range(self.size)
+                        ]
+                    )
+                    + (thiso[1] ** 2.0 / 2.0).T
+                )
         elif self.phasedim() == 3:
             try:
-                out= (evaluateplanarPotentials(\
-                        pot,thiso[0],
-                        t=numpy.tile(t,thiso[0].T.shape[:-1]+(1,)).T,
-                        use_physical=False)\
-                          +thiso[1]**2./2.+thiso[2]**2./2.).T
-            except (ValueError,TypeError,IndexError):
-                out= (numpy.array([[evaluateplanarPotentials(\
-                                    pot,thiso[0][ii][jj],t=t[ii],
-                                    use_physical=False)
-                                    for ii in range(len(thiso[0]))]
-                                   for jj in range(self.size)])
-                      +(thiso[1]**2./2.+thiso[2]**2./2.).T)
+                out = (
+                    evaluateplanarPotentials(
+                        pot,
+                        thiso[0],
+                        t=numpy.tile(t, thiso[0].T.shape[:-1] + (1,)).T,
+                        use_physical=False,
+                    )
+                    + thiso[1] ** 2.0 / 2.0
+                    + thiso[2] ** 2.0 / 2.0
+                ).T
+            except (ValueError, TypeError, IndexError):
+                out = (
+                    numpy.array(
+                        [
+                            [
+                                evaluateplanarPotentials(
+                                    pot, thiso[0][ii][jj], t=t[ii], use_physical=False
+                                )
+                                for ii in range(len(thiso[0]))
+                            ]
+                            for jj in range(self.size)
+                        ]
+                    )
+                    + (thiso[1] ** 2.0 / 2.0 + thiso[2] ** 2.0 / 2.0).T
+                )
         elif self.phasedim() == 4:
             try:
-                out= (evaluateplanarPotentials(\
-                        pot,thiso[0],phi=thiso[-1],
-                        t=numpy.tile(t,thiso[0].T.shape[:-1]+(1,)).T,
-                        use_physical=False)\
-                          +thiso[1]**2./2.+thiso[2]**2./2.).T
-            except (ValueError,TypeError,IndexError):
-                out= (numpy.array([[evaluateplanarPotentials(\
-                                    pot,thiso[0][ii][jj],t=t[ii],
+                out = (
+                    evaluateplanarPotentials(
+                        pot,
+                        thiso[0],
+                        phi=thiso[-1],
+                        t=numpy.tile(t, thiso[0].T.shape[:-1] + (1,)).T,
+                        use_physical=False,
+                    )
+                    + thiso[1] ** 2.0 / 2.0
+                    + thiso[2] ** 2.0 / 2.0
+                ).T
+            except (ValueError, TypeError, IndexError):
+                out = (
+                    numpy.array(
+                        [
+                            [
+                                evaluateplanarPotentials(
+                                    pot,
+                                    thiso[0][ii][jj],
+                                    t=t[ii],
                                     phi=thiso[-1][ii][jj],
-                                    use_physical=False)
-                                    for ii in range(len(thiso[0]))]
-                                   for jj in range(self.size)])
-                                  +(thiso[1]**2./2.+thiso[2]**2./2.).T)
+                                    use_physical=False,
+                                )
+                                for ii in range(len(thiso[0]))
+                            ]
+                            for jj in range(self.size)
+                        ]
+                    )
+                    + (thiso[1] ** 2.0 / 2.0 + thiso[2] ** 2.0 / 2.0).T
+                )
         elif self.phasedim() == 5:
-            z= kwargs.get('_z',1.)*thiso[3] # For ER and Ez
-            vz= kwargs.get('_vz',1.)*thiso[4] # For ER and Ez
+            z = kwargs.get("_z", 1.0) * thiso[3]  # For ER and Ez
+            vz = kwargs.get("_vz", 1.0) * thiso[4]  # For ER and Ez
             try:
-                out= (evaluatePotentials(\
-                        pot,thiso[0],z,
-                        t=numpy.tile(t,thiso[0].T.shape[:-1]+(1,)).T,
-                        use_physical=False)\
-                          +thiso[1]**2./2.+thiso[2]**2./2.+vz**2./2.).T
-            except (ValueError,TypeError,IndexError):
-                out= (numpy.array([[evaluatePotentials(\
-                                    pot,thiso[0][ii][jj],
+                out = (
+                    evaluatePotentials(
+                        pot,
+                        thiso[0],
+                        z,
+                        t=numpy.tile(t, thiso[0].T.shape[:-1] + (1,)).T,
+                        use_physical=False,
+                    )
+                    + thiso[1] ** 2.0 / 2.0
+                    + thiso[2] ** 2.0 / 2.0
+                    + vz**2.0 / 2.0
+                ).T
+            except (ValueError, TypeError, IndexError):
+                out = (
+                    numpy.array(
+                        [
+                            [
+                                evaluatePotentials(
+                                    pot,
+                                    thiso[0][ii][jj],
                                     z[ii][jj],
                                     t=t[ii],
-                                    use_physical=False)
-                                    for ii in range(len(thiso[0]))]
-                                   for jj in range(self.size)])
-                      +(thiso[1]**2./2.+thiso[2]**2./2.+vz**2./2.).T)
+                                    use_physical=False,
+                                )
+                                for ii in range(len(thiso[0]))
+                            ]
+                            for jj in range(self.size)
+                        ]
+                    )
+                    + (
+                        thiso[1] ** 2.0 / 2.0 + thiso[2] ** 2.0 / 2.0 + vz**2.0 / 2.0
+                    ).T
+                )
         elif self.phasedim() == 6:
-            z= kwargs.get('_z',1.)*thiso[3] # For ER and Ez
-            vz= kwargs.get('_vz',1.)*thiso[4] # For ER and Ez
+            z = kwargs.get("_z", 1.0) * thiso[3]  # For ER and Ez
+            vz = kwargs.get("_vz", 1.0) * thiso[4]  # For ER and Ez
             try:
-                out= (evaluatePotentials(\
-                        pot,thiso[0],z,phi=thiso[-1],
-                        t=numpy.tile(t,thiso[0].T.shape[:-1]+(1,)).T,
-                        use_physical=False)\
-                          +thiso[1]**2./2.+thiso[2]**2./2.+vz**2./2.).T
-            except (ValueError,TypeError,IndexError):
-                out= (numpy.array([[evaluatePotentials(\
-                                    pot,thiso[0][ii][jj],
+                out = (
+                    evaluatePotentials(
+                        pot,
+                        thiso[0],
+                        z,
+                        phi=thiso[-1],
+                        t=numpy.tile(t, thiso[0].T.shape[:-1] + (1,)).T,
+                        use_physical=False,
+                    )
+                    + thiso[1] ** 2.0 / 2.0
+                    + thiso[2] ** 2.0 / 2.0
+                    + vz**2.0 / 2.0
+                ).T
+            except (ValueError, TypeError, IndexError):
+                out = (
+                    numpy.array(
+                        [
+                            [
+                                evaluatePotentials(
+                                    pot,
+                                    thiso[0][ii][jj],
                                     z[ii][jj],
                                     t=t[ii],
                                     phi=thiso[-1][ii][jj],
-                                    use_physical=False)
-                                    for ii in range(len(thiso[0]))]
-                                   for jj in range(self.size)])
-                      +(thiso[1]**2./2.+thiso[2]**2./2.+vz**2./2.).T)
+                                    use_physical=False,
+                                )
+                                for ii in range(len(thiso[0]))
+                            ]
+                            for jj in range(self.size)
+                        ]
+                    )
+                    + (
+                        thiso[1] ** 2.0 / 2.0 + thiso[2] ** 2.0 / 2.0 + vz**2.0 / 2.0
+                    ).T
+                )
         if onet:
-            return out[:,0]
+            return out[:, 0]
         else:
             return out
 
-    @physical_conversion('action')
+    @physical_conversion("action")
     @shapeDecorator
-    def L(self,*args,**kwargs):
+    def L(self, *args, **kwargs):
         """
         NAME:
 
@@ -1840,36 +2318,38 @@ class Orbit:
         """
         if self.dim() == 1:
             raise AttributeError("'linear Orbit has no angular momentum")
-        #Get orbit
+        # Get orbit
         if self.dim() == 2:
-            thiso= self._call_internal(*args,**kwargs)
-            return (thiso[0]*thiso[2]).T
+            thiso = self._call_internal(*args, **kwargs)
+            return (thiso[0] * thiso[2]).T
         elif self.phasedim() == 5:
-            raise AttributeError("You must track the azimuth to get the angular momentum of a 3D Orbit")
-        else: # phasedim == 6
-            old_physical= kwargs.get('use_physical',None)
-            kwargs['use_physical']= False
-            kwargs['dontreshape']= True
-            vx= self.vx(*args,**kwargs)
-            vy= self.vy(*args,**kwargs)
-            vz= self.vz(*args,**kwargs)
-            x= self.x(*args,**kwargs)
-            y= self.y(*args,**kwargs)
-            z= self.z(*args,**kwargs)
-            out= numpy.zeros(x.shape+(3,))
-            out[...,0]= y*vz-z*vy
-            out[...,1]= z*vx-x*vz
-            out[...,2]= x*vy-y*vx
+            raise AttributeError(
+                "You must track the azimuth to get the angular momentum of a 3D Orbit"
+            )
+        else:  # phasedim == 6
+            old_physical = kwargs.get("use_physical", None)
+            kwargs["use_physical"] = False
+            kwargs["dontreshape"] = True
+            vx = self.vx(*args, **kwargs)
+            vy = self.vy(*args, **kwargs)
+            vz = self.vz(*args, **kwargs)
+            x = self.x(*args, **kwargs)
+            y = self.y(*args, **kwargs)
+            z = self.z(*args, **kwargs)
+            out = numpy.zeros(x.shape + (3,))
+            out[..., 0] = y * vz - z * vy
+            out[..., 1] = z * vx - x * vz
+            out[..., 2] = x * vy - y * vx
             if not old_physical is None:
-                kwargs['use_physical']= old_physical
+                kwargs["use_physical"] = old_physical
             else:
-                kwargs.pop('use_physical')
-            kwargs.pop('dontreshape')
+                kwargs.pop("use_physical")
+            kwargs.pop("dontreshape")
             return out
 
-    @physical_conversion('action')
+    @physical_conversion("action")
     @shapeDecorator
-    def Lz(self,*args,**kwargs):
+    def Lz(self, *args, **kwargs):
         """
         NAME:
 
@@ -1898,12 +2378,12 @@ class Orbit:
            2019-03-01 - Written - Bovy (UofT)
 
         """
-        thiso= self._call_internal(*args,**kwargs)
-        return (thiso[0]*thiso[2]).T
+        thiso = self._call_internal(*args, **kwargs)
+        return (thiso[0] * thiso[2]).T
 
-    @physical_conversion('energy')
+    @physical_conversion("energy")
     @shapeDecorator
-    def ER(self,*args,**kwargs):
+    def ER(self, *args, **kwargs):
         """
         NAME:
 
@@ -1932,24 +2412,24 @@ class Orbit:
            2019-03-01 - Written - Bovy (UofT)
 
         """
-        old_physical= kwargs.get('use_physical',None)
-        kwargs['use_physical']= False
-        kwargs['_z']= 0.
-        kwargs['_vz']= 0.
-        kwargs['dontreshape']= True
-        out= self.E(*args,**kwargs)
+        old_physical = kwargs.get("use_physical", None)
+        kwargs["use_physical"] = False
+        kwargs["_z"] = 0.0
+        kwargs["_vz"] = 0.0
+        kwargs["dontreshape"] = True
+        out = self.E(*args, **kwargs)
         if not old_physical is None:
-            kwargs['use_physical']= old_physical
+            kwargs["use_physical"] = old_physical
         else:
-            kwargs.pop('use_physical')
-        kwargs.pop('_z')
-        kwargs.pop('_vz')
-        kwargs.pop('dontreshape')
+            kwargs.pop("use_physical")
+        kwargs.pop("_z")
+        kwargs.pop("_vz")
+        kwargs.pop("dontreshape")
         return out
 
-    @physical_conversion('energy')
+    @physical_conversion("energy")
     @shapeDecorator
-    def Ez(self,*args,**kwargs):
+    def Ez(self, *args, **kwargs):
         """
         NAME:
 
@@ -1978,25 +2458,25 @@ class Orbit:
            2019-03-01 - Written - Bovy (UofT)
 
         """
-        old_physical= kwargs.get('use_physical',None)
-        kwargs['use_physical']= False
-        kwargs['dontreshape']= True
-        tE= self.E(*args,**kwargs)
-        kwargs['_z']= 0.
-        kwargs['_vz']= 0.
-        out= tE-self.E(*args,**kwargs)
+        old_physical = kwargs.get("use_physical", None)
+        kwargs["use_physical"] = False
+        kwargs["dontreshape"] = True
+        tE = self.E(*args, **kwargs)
+        kwargs["_z"] = 0.0
+        kwargs["_vz"] = 0.0
+        out = tE - self.E(*args, **kwargs)
         if not old_physical is None:
-            kwargs['use_physical']= old_physical
+            kwargs["use_physical"] = old_physical
         else:
-            kwargs.pop('use_physical')
-        kwargs.pop('_z')
-        kwargs.pop('_vz')
-        kwargs.pop('dontreshape')
+            kwargs.pop("use_physical")
+        kwargs.pop("_z")
+        kwargs.pop("_vz")
+        kwargs.pop("dontreshape")
         return out
 
-    @physical_conversion('energy')
+    @physical_conversion("energy")
     @shapeDecorator
-    def Jacobi(self,*args,**kwargs):
+    def Jacobi(self, *args, **kwargs):
         """
         NAME:
 
@@ -2027,57 +2507,57 @@ class Orbit:
            2019-03-01 - Written - Bovy (UofT)
 
         """
-        if not kwargs.get('pot',None) is None: kwargs['pot']= flatten_potential(kwargs.get('pot'))
-        _check_consistent_units(self,kwargs.get('pot',None))
-        if not 'OmegaP' in kwargs or kwargs['OmegaP'] is None:
-            OmegaP= 1.
-            if not 'pot' in kwargs or kwargs['pot'] is None:
+        if not kwargs.get("pot", None) is None:
+            kwargs["pot"] = flatten_potential(kwargs.get("pot"))
+        _check_consistent_units(self, kwargs.get("pot", None))
+        if not "OmegaP" in kwargs or kwargs["OmegaP"] is None:
+            OmegaP = 1.0
+            if not "pot" in kwargs or kwargs["pot"] is None:
                 try:
-                    pot= self._pot
+                    pot = self._pot
                 except AttributeError:
                     raise AttributeError("Integrate orbit or specify pot=")
             else:
-                pot= kwargs['pot']
-            if isinstance(pot,list):
+                pot = kwargs["pot"]
+            if isinstance(pot, list):
                 for p in pot:
-                    if hasattr(p,'OmegaP'):
-                        OmegaP= p.OmegaP()
+                    if hasattr(p, "OmegaP"):
+                        OmegaP = p.OmegaP()
                         break
             else:
-                if hasattr(pot,'OmegaP'):
-                    OmegaP= pot.OmegaP()
-            kwargs.pop('OmegaP',None)
+                if hasattr(pot, "OmegaP"):
+                    OmegaP = pot.OmegaP()
+            kwargs.pop("OmegaP", None)
         else:
-            OmegaP= kwargs.pop('OmegaP')
-        OmegaP= conversion.parse_frequency(
-            numpy.array(OmegaP)
-            if isinstance(OmegaP,list)
-            else OmegaP,
-            ro=self._ro,vo=self._vo)
-        #Make sure you are not using physical coordinates
-        old_physical= kwargs.get('use_physical',None)
-        kwargs['use_physical']= False
-        kwargs['dontreshape']= True
-        if not isinstance(OmegaP,(int,float)) and len(OmegaP) == 3:
-            if isinstance(OmegaP,list): thisOmegaP= numpy.array(OmegaP)
-            else: thisOmegaP= OmegaP
-            tL= self.L(*args,**kwargs)
-            if len(tL.shape) == 2: # 1 time
-                out= self.E(*args,**kwargs)-numpy.einsum('i,ji->j',
-                                                         thisOmegaP,tL)
+            OmegaP = kwargs.pop("OmegaP")
+        OmegaP = conversion.parse_frequency(
+            numpy.array(OmegaP) if isinstance(OmegaP, list) else OmegaP,
+            ro=self._ro,
+            vo=self._vo,
+        )
+        # Make sure you are not using physical coordinates
+        old_physical = kwargs.get("use_physical", None)
+        kwargs["use_physical"] = False
+        kwargs["dontreshape"] = True
+        if not isinstance(OmegaP, (int, float)) and len(OmegaP) == 3:
+            thisOmegaP = OmegaP
+            tL = self.L(*args, **kwargs)
+            if len(tL.shape) == 2:  # 1 time
+                out = self.E(*args, **kwargs) - numpy.einsum("i,ji->j", thisOmegaP, tL)
             else:
-                out= self.E(*args,**kwargs)-numpy.einsum('i,jki->jk',
-                                                         thisOmegaP,tL)
+                out = self.E(*args, **kwargs) - numpy.einsum(
+                    "i,jki->jk", thisOmegaP, tL
+                )
         else:
-            out= self.E(*args,**kwargs)-OmegaP*self.Lz(*args,**kwargs)
+            out = self.E(*args, **kwargs) - OmegaP * self.Lz(*args, **kwargs)
         if not old_physical is None:
-            kwargs['use_physical']= old_physical
+            kwargs["use_physical"] = old_physical
         else:
-            kwargs.pop('use_physical')
-        kwargs.pop('dontreshape')
+            kwargs.pop("use_physical")
+        kwargs.pop("dontreshape")
         return out
 
-    def _setupaA(self,pot=None,type='staeckel',**kwargs):
+    def _setupaA(self, pot=None, type="staeckel", **kwargs):
         """
         NAME:
            _setupaA
@@ -2095,168 +2575,218 @@ class Orbit:
            2019-02-25 - Written based on OrbitTop._setupaA - Bovy (UofT)
         """
         from .. import actionAngle
-        if not pot is None: pot= flatten_potential(pot)
-        if self.dim() == 2 and (type == 'staeckel' or type == 'adiabatic'):
+
+        if not pot is None:
+            pot = flatten_potential(pot)
+        if self.dim() == 2 and (type == "staeckel" or type == "adiabatic"):
             # No reason to do Staeckel or adiabatic...
-            type= 'spherical'
+            type = "spherical"
         elif self.dim() == 1:
-            raise RuntimeError("Orbit action-angle methods are not supported for 1D orbits")
-        delta= kwargs.pop('delta',None)
+            raise RuntimeError(
+                "Orbit action-angle methods are not supported for 1D orbits"
+            )
+        delta = kwargs.pop("delta", None)
         if not delta is None:
-            delta= conversion.parse_length(delta,ro=self._ro)
-        b= kwargs.pop('b',None)
+            delta = conversion.parse_length(delta, ro=self._ro)
+        b = kwargs.pop("b", None)
         if not b is None:
-            b= conversion.parse_length(b,ro=self._ro)
+            b = conversion.parse_length(b, ro=self._ro)
         if pot is None:
             try:
-                pot= self._pot
+                pot = self._pot
             except AttributeError:
                 raise AttributeError("Integrate orbit or specify pot=")
-        if hasattr(self,'_aA'):
-            if (not pot is None and pot != self._aAPot) \
-                    or (not type is None and type != self._aAType) \
-                    or (not delta is None and hasattr(self._aA,'_delta')
-                        and numpy.any(delta != self._aA._delta)) \
-                    or (delta is None
-                        and hasattr(self,'_aA_delta_automagic')
-                        and not self._aA_delta_automagic) \
-                    or (not b is None and hasattr(self._aA,'_aAI')
-                        and numpy.any(b != self._aA._aAI.b)) \
-                    or ('ip' in kwargs and hasattr(self._aA,'_aAI')
-                        and (numpy.any(kwargs['ip'].b != self._aA._aAI.b) \
-                        or numpy.any(kwargs['ip']._amp != self._aA._aAI.amp))):
+        if hasattr(self, "_aA"):
+            if (
+                (not pot is None and pot != self._aAPot)
+                or (not type is None and type != self._aAType)
+                or (
+                    not delta is None
+                    and hasattr(self._aA, "_delta")
+                    and numpy.any(delta != self._aA._delta)
+                )
+                or (
+                    delta is None
+                    and hasattr(self, "_aA_delta_automagic")
+                    and not self._aA_delta_automagic
+                )
+                or (
+                    not b is None
+                    and hasattr(self._aA, "_aAI")
+                    and numpy.any(b != self._aA._aAI.b)
+                )
+                or (
+                    "ip" in kwargs
+                    and hasattr(self._aA, "_aAI")
+                    and (
+                        numpy.any(kwargs["ip"].b != self._aA._aAI.b)
+                        or numpy.any(kwargs["ip"]._amp != self._aA._aAI.amp)
+                    )
+                )
+            ):
                 for attr in list(self.__dict__):
-                    if '_aA' in attr: delattr(self,attr)
+                    if "_aA" in attr:
+                        delattr(self, attr)
             else:
                 return None
-        _check_consistent_units(self,pot)
-        self._aAPot= pot
-        self._aAType= type
-        #Setup
-        if self._aAType.lower() == 'adiabatic':
-            self._aA= actionAngle.actionAngleAdiabatic(pot=self._aAPot,
-                                                       **kwargs)
-        elif self._aAType.lower() == 'staeckel':
+        _check_consistent_units(self, pot)
+        self._aAPot = pot
+        self._aAType = type
+        # Setup
+        if self._aAType.lower() == "adiabatic":
+            self._aA = actionAngle.actionAngleAdiabatic(pot=self._aAPot, **kwargs)
+        elif self._aAType.lower() == "staeckel":
             # try to make sure this is not 0
-            tz= self.z(use_physical=False,dontreshape=True)\
-                +(numpy.fabs(self.z(use_physical=False,
-                                    dontreshape=True)) < 1e-8) \
-                * (2.*(self.z(use_physical=False,
-                              dontreshape=True) >= 0)-1.)*1e-10
-            self._aA_delta_automagic= False
+            tz = (
+                self.z(use_physical=False, dontreshape=True)
+                + (numpy.fabs(self.z(use_physical=False, dontreshape=True)) < 1e-8)
+                * (2.0 * (self.z(use_physical=False, dontreshape=True) >= 0) - 1.0)
+                * 1e-10
+            )
+            self._aA_delta_automagic = False
             if delta is None:
-                self._aA_delta_automagic= True
+                self._aA_delta_automagic = True
                 try:
-                    delta= actionAngle.estimateDeltaStaeckel(\
+                    delta = actionAngle.estimateDeltaStaeckel(
                         self._aAPot,
-                        self.R(use_physical=False,dontreshape=True),
-                        tz,no_median=True,use_physical=False)
+                        self.R(use_physical=False, dontreshape=True),
+                        tz,
+                        no_median=True,
+                        use_physical=False,
+                    )
                 except PotentialError as e:
-                    if 'deriv' in str(e):
-                        raise PotentialError('Automagic calculation of delta parameter for Staeckel approximation failed because the necessary second derivatives of the given potential are not implemented; set delta= explicitly (to a single value or an array with the same shape as the orbits')
-                    elif 'non-axi' in str(e):
-                        raise PotentialError('Automagic calculation of delta parameter for Staeckel approximation failed because the given potential is not axisymmetric; pass an axisymmetric potential instead')
-                    else: #pragma: no cover
+                    if "deriv" in str(e):
+                        raise PotentialError(
+                            "Automagic calculation of delta parameter for Staeckel approximation failed because the necessary second derivatives of the given potential are not implemented; set delta= explicitly (to a single value or an array with the same shape as the orbits"
+                        )
+                    elif "non-axi" in str(e):
+                        raise PotentialError(
+                            "Automagic calculation of delta parameter for Staeckel approximation failed because the given potential is not axisymmetric; pass an axisymmetric potential instead"
+                        )
+                    else:  # pragma: no cover
                         raise
             if numpy.all(delta == 1e-6):
-                self._setupaA(pot=pot,type='spherical')
+                self._setupaA(pot=pot, type="spherical")
             else:
-                if hasattr(delta,"__len__"):
-                    delta[delta < 1e-6]= 1e-6
-                self._aA= actionAngle.actionAngleStaeckel(pot=self._aAPot,
-                                                          delta=delta,
-                                                          **kwargs)
-        elif self._aAType.lower() == 'isochroneapprox':
+                if hasattr(delta, "__len__"):
+                    delta[delta < 1e-6] = 1e-6
+                self._aA = actionAngle.actionAngleStaeckel(
+                    pot=self._aAPot, delta=delta, **kwargs
+                )
+        elif self._aAType.lower() == "isochroneapprox":
             from ..actionAngle import actionAngleIsochroneApprox
-            self._aA= actionAngleIsochroneApprox(pot=self._aAPot,b=b,
-                                                 **kwargs)
-        elif self._aAType.lower() == 'spherical':
-            self._aA= actionAngle.actionAngleSpherical(pot=self._aAPot,
-                                                       **kwargs)
+
+            self._aA = actionAngleIsochroneApprox(pot=self._aAPot, b=b, **kwargs)
+        elif self._aAType.lower() == "spherical":
+            self._aA = actionAngle.actionAngleSpherical(pot=self._aAPot, **kwargs)
         return None
 
-    def _setup_EccZmaxRperiRap(self,pot=None,**kwargs):
+    def _setup_EccZmaxRperiRap(self, pot=None, **kwargs):
         """Internal function to compute e,zmax,rperi,rap and cache it for re-use"""
-        self._setupaA(pot=pot,**kwargs)
-        if hasattr(self,'_aA_ecc'): return None
+        self._setupaA(pot=pot, **kwargs)
+        if hasattr(self, "_aA_ecc"):
+            return None
         if self.dim() == 3:
             # try to make sure this is not 0
-            tz= self.z(use_physical=False,dontreshape=True)\
-                +(numpy.fabs(self.z(use_physical=False,
-                                    dontreshape=True)) < 1e-8) \
-                * (2.*(self.z(use_physical=False,
-                              dontreshape=True) >= 0)-1.)*1e-10
-            tvz= self.vz(use_physical=False,dontreshape=True)
+            tz = (
+                self.z(use_physical=False, dontreshape=True)
+                + (numpy.fabs(self.z(use_physical=False, dontreshape=True)) < 1e-8)
+                * (2.0 * (self.z(use_physical=False, dontreshape=True) >= 0) - 1.0)
+                * 1e-10
+            )
+            tvz = self.vz(use_physical=False, dontreshape=True)
         elif self.dim() == 2:
-            tz= numpy.zeros(self.size)
-            tvz= numpy.zeros(self.size)
+            tz = numpy.zeros(self.size)
+            tvz = numpy.zeros(self.size)
         # self.dim() == 1 error caught by _setupaA
-        self._aA_ecc, self._aA_zmax, self._aA_rperi, self._aA_rap=\
-            self._aA.EccZmaxRperiRap(self.R(use_physical=False,
-                                            dontreshape=True),
-                                     self.vR(use_physical=False,
-                                             dontreshape=True),
-                                     self.vT(use_physical=False,
-                                             dontreshape=True),
-                                     tz,tvz,
-                                     use_physical=False)
+        (
+            self._aA_ecc,
+            self._aA_zmax,
+            self._aA_rperi,
+            self._aA_rap,
+        ) = self._aA.EccZmaxRperiRap(
+            self.R(use_physical=False, dontreshape=True),
+            self.vR(use_physical=False, dontreshape=True),
+            self.vT(use_physical=False, dontreshape=True),
+            tz,
+            tvz,
+            use_physical=False,
+        )
         return None
 
-    def _setup_actionsFreqsAngles(self,pot=None,**kwargs):
+    def _setup_actionsFreqsAngles(self, pot=None, **kwargs):
         """Internal function to compute the actions, frequencies, and angles and cache them for re-use"""
-        self._setupaA(pot=pot,**kwargs)
-        if hasattr(self,'_aA_jr'): return None
+        self._setupaA(pot=pot, **kwargs)
+        if hasattr(self, "_aA_jr"):
+            return None
         if self.dim() == 3:
             # try to make sure this is not 0
-            tz= self.z(use_physical=False,dontreshape=True)\
-                +(numpy.fabs(self.z(use_physical=False,
-                                    dontreshape=True)) < 1e-8) \
-                * (2.*(self.z(use_physical=False,
-                              dontreshape=True) >= 0)-1.)*1e-10
-            tvz= self.vz(use_physical=False,dontreshape=True)
+            tz = (
+                self.z(use_physical=False, dontreshape=True)
+                + (numpy.fabs(self.z(use_physical=False, dontreshape=True)) < 1e-8)
+                * (2.0 * (self.z(use_physical=False, dontreshape=True) >= 0) - 1.0)
+                * 1e-10
+            )
+            tvz = self.vz(use_physical=False, dontreshape=True)
         elif self.dim() == 2:
-            tz= numpy.zeros(self.size)
-            tvz= numpy.zeros(self.size)
+            tz = numpy.zeros(self.size)
+            tvz = numpy.zeros(self.size)
         # self.dim() == 1 error caught by _setupaA
-        self._aA_jr, self._aA_jp, self._aA_jz, \
-            self._aA_Or, self._aA_Op, self._aA_Oz, \
-            self._aA_wr, self._aA_wp, self._aA_wz= \
-            self._aA.actionsFreqsAngles(\
-                self.R(use_physical=False,dontreshape=True),
-                self.vR(use_physical=False,dontreshape=True),
-                self.vT(use_physical=False,dontreshape=True),
-                tz,tvz,
-                self.phi(use_physical=False,dontreshape=True),
-                use_physical=False)
+        (
+            self._aA_jr,
+            self._aA_jp,
+            self._aA_jz,
+            self._aA_Or,
+            self._aA_Op,
+            self._aA_Oz,
+            self._aA_wr,
+            self._aA_wp,
+            self._aA_wz,
+        ) = self._aA.actionsFreqsAngles(
+            self.R(use_physical=False, dontreshape=True),
+            self.vR(use_physical=False, dontreshape=True),
+            self.vT(use_physical=False, dontreshape=True),
+            tz,
+            tvz,
+            self.phi(use_physical=False, dontreshape=True),
+            use_physical=False,
+        )
         return None
 
-    def _setup_actions(self,pot=None,**kwargs):
+    def _setup_actions(self, pot=None, **kwargs):
         """Internal function to compute the actions and cache them for re-use (used for methods that don't support frequencies and angles)"""
-        self._setupaA(pot=pot,**kwargs)
-        if hasattr(self,'_aA_jr'): return None
+        self._setupaA(pot=pot, **kwargs)
+        # Caching effectively checked in _setup_actionsFreqsAngles, because always called first
+        # if hasattr(self, "_aA_jr"):
+        #    return None
         if self.dim() == 3:
             # try to make sure this is not 0
-            tz= self.z(use_physical=False,dontreshape=True)\
-                +(numpy.fabs(self.z(use_physical=False,
-                                    dontreshape=True)) < 1e-8) \
-                * (2.*(self.z(use_physical=False,
-                              dontreshape=True) >= 0)-1.)*1e-10
-            tvz= self.vz(use_physical=False,dontreshape=True)
-        elif self.dim() == 2:
-            tz= numpy.zeros(self.size)
-            tvz= numpy.zeros(self.size)
+            tz = (
+                self.z(use_physical=False, dontreshape=True)
+                + (numpy.fabs(self.z(use_physical=False, dontreshape=True)) < 1e-8)
+                * (2.0 * (self.z(use_physical=False, dontreshape=True) >= 0) - 1.0)
+                * 1e-10
+            )
+            tvz = self.vz(use_physical=False, dontreshape=True)
+        # dim = 2 never reached currently, bc adiabatic is the only method that uses
+        # this and for 2D orbits that just uses spherical
+        # elif self.dim() == 2:
+        #    tz = numpy.zeros(self.size)
+        #    tvz = numpy.zeros(self.size)
         # self.dim() == 1 error caught by _setupaA
-        self._aA_jr, self._aA_jp, self._aA_jz= self._aA(\
-                    self.R(use_physical=False,dontreshape=True),
-                    self.vR(use_physical=False,dontreshape=True),
-                    self.vT(use_physical=False,dontreshape=True),
-                    tz,tvz,
-                    self.phi(use_physical=False,dontreshape=True),
-                    use_physical=False)
+        self._aA_jr, self._aA_jp, self._aA_jz = self._aA(
+            self.R(use_physical=False, dontreshape=True),
+            self.vR(use_physical=False, dontreshape=True),
+            self.vT(use_physical=False, dontreshape=True),
+            tz,
+            tvz,
+            self.phi(use_physical=False, dontreshape=True),
+            use_physical=False,
+        )
         return None
 
     @shapeDecorator
-    def e(self,analytic=False,pot=None,**kwargs):
+    def e(self, analytic=False, pot=None, **kwargs):
         """
         NAME:
 
@@ -2294,17 +2824,20 @@ class Orbit:
 
         """
         if analytic:
-            self._setup_EccZmaxRperiRap(pot=pot,**kwargs)
+            self._setup_EccZmaxRperiRap(pot=pot, **kwargs)
             return self._aA_ecc
-        if not hasattr(self,'orbit'):
-            raise AttributeError("Integrate the orbit first or use analytic=True for approximate eccentricity")
-        rs= self.r(self.t,use_physical=False,dontreshape=True)
-        return (numpy.amax(rs,axis=-1)-numpy.amin(rs,axis=-1))\
-            /(numpy.amax(rs,axis=-1)+numpy.amin(rs,axis=-1))
+        if not hasattr(self, "orbit"):
+            raise AttributeError(
+                "Integrate the orbit first or use analytic=True for approximate eccentricity"
+            )
+        rs = self.r(self.t, use_physical=False, dontreshape=True)
+        return (numpy.amax(rs, axis=-1) - numpy.amin(rs, axis=-1)) / (
+            numpy.amax(rs, axis=-1) + numpy.amin(rs, axis=-1)
+        )
 
-    @physical_conversion('position')
+    @physical_conversion("position")
     @shapeDecorator
-    def rap(self,analytic=False,pot=None,**kwargs):
+    def rap(self, analytic=False, pot=None, **kwargs):
         """
         NAME:
 
@@ -2346,16 +2879,18 @@ class Orbit:
 
         """
         if analytic:
-            self._setup_EccZmaxRperiRap(pot=pot,**kwargs)
+            self._setup_EccZmaxRperiRap(pot=pot, **kwargs)
             return self._aA_rap
-        if not hasattr(self,'orbit'):
-            raise AttributeError("Integrate the orbit first or use analytic=True for approximate eccentricity")
-        rs= self.r(self.t,use_physical=False,dontreshape=True)
-        return numpy.amax(rs,axis=-1)
+        if not hasattr(self, "orbit"):
+            raise AttributeError(
+                "Integrate the orbit first or use analytic=True for approximate eccentricity"
+            )
+        rs = self.r(self.t, use_physical=False, dontreshape=True)
+        return numpy.amax(rs, axis=-1)
 
-    @physical_conversion('position')
+    @physical_conversion("position")
     @shapeDecorator
-    def rperi(self,analytic=False,pot=None,**kwargs):
+    def rperi(self, analytic=False, pot=None, **kwargs):
         """
         NAME:
 
@@ -2397,16 +2932,18 @@ class Orbit:
 
         """
         if analytic:
-            self._setup_EccZmaxRperiRap(pot=pot,**kwargs)
+            self._setup_EccZmaxRperiRap(pot=pot, **kwargs)
             return self._aA_rperi
-        if not hasattr(self,'orbit'):
-            raise AttributeError("Integrate the orbit first or use analytic=True for approximate eccentricity")
-        rs= self.r(self.t,use_physical=False,dontreshape=True)
-        return numpy.amin(rs,axis=-1)
+        if not hasattr(self, "orbit"):
+            raise AttributeError(
+                "Integrate the orbit first or use analytic=True for approximate eccentricity"
+            )
+        rs = self.r(self.t, use_physical=False, dontreshape=True)
+        return numpy.amin(rs, axis=-1)
 
-    @physical_conversion('position')
+    @physical_conversion("position")
     @shapeDecorator
-    def rguiding(self,*args,**kwargs):
+    def rguiding(self, *args, **kwargs):
         """
         NAME:
 
@@ -2435,34 +2972,38 @@ class Orbit:
            2019-03-02 - Written as thin wrapper around Potential.rl - Bovy (UofT)
 
         """
-        pot= kwargs.get('pot',self.__dict__.get('_pot',None))
+        pot = kwargs.get("pot", self.__dict__.get("_pot", None))
         if pot is None:
-            raise RuntimeError("You need to specify the potential as pot= to compute the guiding-center radius")
+            raise RuntimeError(
+                "You need to specify the potential as pot= to compute the guiding-center radius"
+            )
         flatten_potential(pot)
         if _isNonAxi(pot):
-            raise RuntimeError('Potential given to rguiding is non-axisymmetric, but rguiding requires an axisymmetric potential')
-        _check_consistent_units(self,pot)
-        Lz= numpy.atleast_1d(self.Lz(*args,use_physical=False,
-                                      dontreshape=True))
-        Lz_shape= Lz.shape
-        Lz= Lz.flatten()
+            raise RuntimeError(
+                "Potential given to rguiding is non-axisymmetric, but rguiding requires an axisymmetric potential"
+            )
+        _check_consistent_units(self, pot)
+        Lz = numpy.atleast_1d(self.Lz(*args, use_physical=False, dontreshape=True))
+        Lz_shape = Lz.shape
+        Lz = Lz.flatten()
         if len(Lz) > 500:
             # Build interpolation grid, 500 ~ 1s
-            precomputergLzgrid= numpy.linspace(numpy.nanmin(Lz),
-                                               numpy.nanmax(Lz),
-                                               500)
-            rls= numpy.array([rl(pot,lz,use_physical=False)
-                              for lz in precomputergLzgrid])
-            #Spline interpolate
-            return interpolate.InterpolatedUnivariateSpline(\
-                precomputergLzgrid,rls,k=3)(Lz).reshape(Lz_shape)
+            precomputergLzgrid = numpy.linspace(numpy.nanmin(Lz), numpy.nanmax(Lz), 500)
+            rls = numpy.array(
+                [rl(pot, lz, use_physical=False) for lz in precomputergLzgrid]
+            )
+            # Spline interpolate
+            return interpolate.InterpolatedUnivariateSpline(
+                precomputergLzgrid, rls, k=3
+            )(Lz).reshape(Lz_shape)
         else:
-            return numpy.array([rl(pot,lz,use_physical=False)
-                                for lz in Lz]).reshape(Lz_shape)
+            return numpy.array([rl(pot, lz, use_physical=False) for lz in Lz]).reshape(
+                Lz_shape
+            )
 
-    @physical_conversion('position')
+    @physical_conversion("position")
     @shapeDecorator
-    def rE(self,*args,**kwargs):
+    def rE(self, *args, **kwargs):
         """
         NAME:
 
@@ -2491,33 +3032,40 @@ class Orbit:
            2022-04-07 - Written as thin wrapper around Potential.rE - Bovy (UofT)
 
         """
-        pot= kwargs.get('pot',self.__dict__.get('_pot',None))
+        pot = kwargs.get("pot", self.__dict__.get("_pot", None))
         if pot is None:
-            raise RuntimeError("You need to specify the potential as pot= to compute rE")
+            raise RuntimeError(
+                "You need to specify the potential as pot= to compute rE"
+            )
         flatten_potential(pot)
         if _isNonAxi(pot):
-            raise RuntimeError('Potential given to rE is non-axisymmetric, but rE requires an axisymmetric potential')
-        _check_consistent_units(self,pot)
-        E= numpy.atleast_1d(self.E(*args,pot=pot,use_physical=False,dontreshape=True))
-        E_shape= E.shape
-        E= E.flatten()
+            raise RuntimeError(
+                "Potential given to rE is non-axisymmetric, but rE requires an axisymmetric potential"
+            )
+        _check_consistent_units(self, pot)
+        E = numpy.atleast_1d(
+            self.E(*args, pot=pot, use_physical=False, dontreshape=True)
+        )
+        E_shape = E.shape
+        E = E.flatten()
         if len(E) > 500:
             # Build interpolation grid
-            precomputerEEgrid= numpy.linspace(numpy.nanmin(E),
-                                              numpy.nanmax(E),
-                                              500)
-            rEs= numpy.array([rE(pot,tE,use_physical=False)
-                              for tE in precomputerEEgrid])
-            #Spline interpolate
-            return interpolate.InterpolatedUnivariateSpline(\
-                precomputerEEgrid,rEs,k=3)(E).reshape(E_shape)
+            precomputerEEgrid = numpy.linspace(numpy.nanmin(E), numpy.nanmax(E), 500)
+            rEs = numpy.array(
+                [rE(pot, tE, use_physical=False) for tE in precomputerEEgrid]
+            )
+            # Spline interpolate
+            return interpolate.InterpolatedUnivariateSpline(
+                precomputerEEgrid, rEs, k=3
+            )(E).reshape(E_shape)
         else:
-            return numpy.array([rE(pot,tE,use_physical=False)
-                                for tE in E]).reshape(E_shape)
+            return numpy.array([rE(pot, tE, use_physical=False) for tE in E]).reshape(
+                E_shape
+            )
 
-    @physical_conversion('action')
+    @physical_conversion("action")
     @shapeDecorator
-    def LcE(self,*args,**kwargs):
+    def LcE(self, *args, **kwargs):
         """
         NAME:
 
@@ -2546,33 +3094,40 @@ class Orbit:
            2022-04-07 - Written - Bovy (UofT)
 
         """
-        pot= kwargs.pop('pot',self.__dict__.get('_pot',None))
+        pot = kwargs.pop("pot", self.__dict__.get("_pot", None))
         if pot is None:
-            raise RuntimeError("You need to specify the potential as pot= to compute LcE")
+            raise RuntimeError(
+                "You need to specify the potential as pot= to compute LcE"
+            )
         flatten_potential(pot)
         if _isNonAxi(pot):
-            raise RuntimeError('Potential given to LcE is non-axisymmetric, but LcE requires an axisymmetric potential')
-        _check_consistent_units(self,pot)
-        E= numpy.atleast_1d(self.E(*args,pot=pot,use_physical=False,dontreshape=True))
-        E_shape= E.shape
-        E= E.flatten()
+            raise RuntimeError(
+                "Potential given to LcE is non-axisymmetric, but LcE requires an axisymmetric potential"
+            )
+        _check_consistent_units(self, pot)
+        E = numpy.atleast_1d(
+            self.E(*args, pot=pot, use_physical=False, dontreshape=True)
+        )
+        E_shape = E.shape
+        E = E.flatten()
         if len(E) > 500:
             # Build interpolation grid
-            precomputeLcEEgrid= numpy.linspace(numpy.nanmin(E),
-                                              numpy.nanmax(E),
-                                              500)
-            LcEs= numpy.array([LcE(pot,tE,use_physical=False)
-                              for tE in precomputeLcEEgrid])
-            #Spline interpolate
-            return interpolate.InterpolatedUnivariateSpline(\
-                precomputeLcEEgrid,LcEs,k=3)(E).reshape(E_shape)
+            precomputeLcEEgrid = numpy.linspace(numpy.nanmin(E), numpy.nanmax(E), 500)
+            LcEs = numpy.array(
+                [LcE(pot, tE, use_physical=False) for tE in precomputeLcEEgrid]
+            )
+            # Spline interpolate
+            return interpolate.InterpolatedUnivariateSpline(
+                precomputeLcEEgrid, LcEs, k=3
+            )(E).reshape(E_shape)
         else:
-            return numpy.array([LcE(pot,tE,use_physical=False)
-                                for tE in E]).reshape(E_shape)
+            return numpy.array([LcE(pot, tE, use_physical=False) for tE in E]).reshape(
+                E_shape
+            )
 
-    @physical_conversion('position')
+    @physical_conversion("position")
     @shapeDecorator
-    def zmax(self,analytic=False,pot=None,**kwargs):
+    def zmax(self, analytic=False, pot=None, **kwargs):
         """
         NAME:
 
@@ -2614,17 +3169,19 @@ class Orbit:
 
         """
         if analytic:
-            self._setup_EccZmaxRperiRap(pot=pot,**kwargs)
+            self._setup_EccZmaxRperiRap(pot=pot, **kwargs)
             return self._aA_zmax
-        if not hasattr(self,'orbit'):
-            raise AttributeError("Integrate the orbit first or use analytic=True for approximate eccentricity")
-        return numpy.amax(numpy.fabs(self.z(self.t,use_physical=False,
-                                            dontreshape=True)),
-                          axis=-1)
+        if not hasattr(self, "orbit"):
+            raise AttributeError(
+                "Integrate the orbit first or use analytic=True for approximate eccentricity"
+            )
+        return numpy.amax(
+            numpy.fabs(self.z(self.t, use_physical=False, dontreshape=True)), axis=-1
+        )
 
-    @physical_conversion('action')
+    @physical_conversion("action")
     @shapeDecorator
-    def jr(self,pot=None,**kwargs):
+    def jr(self, pot=None, **kwargs):
         """
         NAME:
 
@@ -2666,14 +3223,14 @@ class Orbit:
 
         """
         try:
-            self._setup_actionsFreqsAngles(pot=pot,**kwargs)
+            self._setup_actionsFreqsAngles(pot=pot, **kwargs)
         except NotImplementedError:
-            self._setup_actions(pot=pot,**kwargs)
+            self._setup_actions(pot=pot, **kwargs)
         return self._aA_jr
 
-    @physical_conversion('action')
+    @physical_conversion("action")
     @shapeDecorator
-    def jp(self,pot=None,**kwargs):
+    def jp(self, pot=None, **kwargs):
         """
         NAME:
 
@@ -2715,14 +3272,14 @@ class Orbit:
 
         """
         try:
-            self._setup_actionsFreqsAngles(pot=pot,**kwargs)
-        except NotImplementedError: # pragma: no cover
-            self._setup_actions(pot=pot,**kwargs)
+            self._setup_actionsFreqsAngles(pot=pot, **kwargs)
+        except NotImplementedError:  # pragma: no cover
+            self._setup_actions(pot=pot, **kwargs)
         return self._aA_jp
 
-    @physical_conversion('action')
+    @physical_conversion("action")
     @shapeDecorator
-    def jz(self,pot=None,**kwargs):
+    def jz(self, pot=None, **kwargs):
         """
         NAME:
 
@@ -2764,14 +3321,14 @@ class Orbit:
 
         """
         try:
-            self._setup_actionsFreqsAngles(pot=pot,**kwargs)
-        except NotImplementedError: # pragma: no cover
-            self._setup_actions(pot=pot,**kwargs)
+            self._setup_actionsFreqsAngles(pot=pot, **kwargs)
+        except NotImplementedError:  # pragma: no cover
+            self._setup_actions(pot=pot, **kwargs)
         return self._aA_jz
 
-    @physical_conversion('angle')
+    @physical_conversion("angle")
     @shapeDecorator
-    def wr(self,pot=None,**kwargs):
+    def wr(self, pot=None, **kwargs):
         """
         NAME:
 
@@ -2806,12 +3363,12 @@ class Orbit:
            2019-02-27 - Written - Bovy (UofT)
 
         """
-        self._setup_actionsFreqsAngles(pot=pot,**kwargs)
+        self._setup_actionsFreqsAngles(pot=pot, **kwargs)
         return self._aA_wr
 
-    @physical_conversion('angle')
+    @physical_conversion("angle")
     @shapeDecorator
-    def wp(self,pot=None,**kwargs):
+    def wp(self, pot=None, **kwargs):
         """
         NAME:
 
@@ -2846,12 +3403,12 @@ class Orbit:
            2019-02-27 - Written - Bovy (UofT)
 
         """
-        self._setup_actionsFreqsAngles(pot=pot,**kwargs)
+        self._setup_actionsFreqsAngles(pot=pot, **kwargs)
         return self._aA_wp
 
-    @physical_conversion('angle')
+    @physical_conversion("angle")
     @shapeDecorator
-    def wz(self,pot=None,**kwargs):
+    def wz(self, pot=None, **kwargs):
         """
         NAME:
 
@@ -2886,12 +3443,12 @@ class Orbit:
            2019-02-27 - Written - Bovy (UofT)
 
         """
-        self._setup_actionsFreqsAngles(pot=pot,**kwargs)
+        self._setup_actionsFreqsAngles(pot=pot, **kwargs)
         return self._aA_wz
 
-    @physical_conversion('time')
+    @physical_conversion("time")
     @shapeDecorator
-    def Tr(self,pot=None,**kwargs):
+    def Tr(self, pot=None, **kwargs):
         """
         NAME:
 
@@ -2932,12 +3489,12 @@ class Orbit:
            2019-02-27 - Written - Bovy (UofT)
 
         """
-        self._setup_actionsFreqsAngles(pot=pot,**kwargs)
-        return 2.*numpy.pi/self._aA_Or
+        self._setup_actionsFreqsAngles(pot=pot, **kwargs)
+        return 2.0 * numpy.pi / self._aA_Or
 
-    @physical_conversion('time')
+    @physical_conversion("time")
     @shapeDecorator
-    def Tp(self,pot=None,**kwargs):
+    def Tp(self, pot=None, **kwargs):
         """
         NAME:
 
@@ -2978,11 +3535,11 @@ class Orbit:
            2019-02-27 - Written - Bovy (UofT)
 
         """
-        self._setup_actionsFreqsAngles(pot=pot,**kwargs)
-        return 2.*numpy.pi/self._aA_Op
+        self._setup_actionsFreqsAngles(pot=pot, **kwargs)
+        return 2.0 * numpy.pi / self._aA_Op
 
     @shapeDecorator
-    def TrTp(self,pot=None,**kwargs):
+    def TrTp(self, pot=None, **kwargs):
         """
         NAME:
 
@@ -3017,12 +3574,12 @@ class Orbit:
            2019-02-27 - Written - Bovy (UofT)
 
         """
-        self._setup_actionsFreqsAngles(pot=pot,**kwargs)
-        return self._aA_Op/self._aA_Or*numpy.pi
+        self._setup_actionsFreqsAngles(pot=pot, **kwargs)
+        return self._aA_Op / self._aA_Or * numpy.pi
 
-    @physical_conversion('time')
+    @physical_conversion("time")
     @shapeDecorator
-    def Tz(self,pot=None,**kwargs):
+    def Tz(self, pot=None, **kwargs):
         """
         NAME:
 
@@ -3063,12 +3620,12 @@ class Orbit:
            2019-02-27 - Written - Bovy (UofT)
 
         """
-        self._setup_actionsFreqsAngles(pot=pot,**kwargs)
-        return 2.*numpy.pi/self._aA_Oz
+        self._setup_actionsFreqsAngles(pot=pot, **kwargs)
+        return 2.0 * numpy.pi / self._aA_Oz
 
-    @physical_conversion('frequency')
+    @physical_conversion("frequency")
     @shapeDecorator
-    def Or(self,pot=None,**kwargs):
+    def Or(self, pot=None, **kwargs):
         """
         NAME:
 
@@ -3109,12 +3666,12 @@ class Orbit:
            2019-02-27 - Written - Bovy (UofT)
 
         """
-        self._setup_actionsFreqsAngles(pot=pot,**kwargs)
+        self._setup_actionsFreqsAngles(pot=pot, **kwargs)
         return self._aA_Or
 
-    @physical_conversion('frequency')
+    @physical_conversion("frequency")
     @shapeDecorator
-    def Op(self,pot=None,**kwargs):
+    def Op(self, pot=None, **kwargs):
         """
         NAME:
 
@@ -3155,12 +3712,12 @@ class Orbit:
            2019-02-27 - Written - Bovy (UofT)
 
         """
-        self._setup_actionsFreqsAngles(pot=pot,**kwargs)
+        self._setup_actionsFreqsAngles(pot=pot, **kwargs)
         return self._aA_Op
 
-    @physical_conversion('frequency')
+    @physical_conversion("frequency")
     @shapeDecorator
-    def Oz(self,pot=None,**kwargs):
+    def Oz(self, pot=None, **kwargs):
         """
         NAME:
 
@@ -3201,11 +3758,11 @@ class Orbit:
            2019-02-27 - Written - Bovy (UofT)
 
         """
-        self._setup_actionsFreqsAngles(pot=pot,**kwargs)
+        self._setup_actionsFreqsAngles(pot=pot, **kwargs)
         return self._aA_Oz
 
-    @physical_conversion('time')
-    def time(self,*args,**kwargs):
+    @physical_conversion("time")
+    def time(self, *args, **kwargs):
         """
         NAME:
 
@@ -3238,14 +3795,14 @@ class Orbit:
             try:
                 return self.t.copy()
             except AttributeError:
-                return 0.
+                return 0.0
         else:
-            out= args[0]
-            return conversion.parse_time(out,ro=self._ro,vo=self._vo)
+            out = args[0]
+            return conversion.parse_time(out, ro=self._ro, vo=self._vo)
 
-    @physical_conversion('position')
+    @physical_conversion("position")
     @shapeDecorator
-    def R(self,*args,**kwargs):
+    def R(self, *args, **kwargs):
         """
         NAME:
 
@@ -3272,11 +3829,11 @@ class Orbit:
            2019-02-01 - Written - Bovy (UofT)
 
         """
-        return self._call_internal(*args,**kwargs)[0].T
+        return self._call_internal(*args, **kwargs)[0].T
 
-    @physical_conversion('position')
+    @physical_conversion("position")
     @shapeDecorator
-    def r(self,*args,**kwargs):
+    def r(self, *args, **kwargs):
         """
         NAME:
 
@@ -3303,15 +3860,15 @@ class Orbit:
            2019-02-20 - Written - Bovy (UofT)
 
         """
-        thiso= self._call_internal(*args,**kwargs)
+        thiso = self._call_internal(*args, **kwargs)
         if self.dim() == 3:
-            return numpy.sqrt(thiso[0]**2.+thiso[3]**2.).T
+            return numpy.sqrt(thiso[0] ** 2.0 + thiso[3] ** 2.0).T
         else:
             return numpy.fabs(thiso[0]).T
 
-    @physical_conversion('velocity')
+    @physical_conversion("velocity")
     @shapeDecorator
-    def vR(self,*args,**kwargs):
+    def vR(self, *args, **kwargs):
         """
         NAME:
 
@@ -3338,11 +3895,11 @@ class Orbit:
            2019-02-20 - Written - Bovy (UofT)
 
         """
-        return self._call_internal(*args,**kwargs)[1].T
+        return self._call_internal(*args, **kwargs)[1].T
 
-    @physical_conversion('velocity')
+    @physical_conversion("velocity")
     @shapeDecorator
-    def vT(self,*args,**kwargs):
+    def vT(self, *args, **kwargs):
         """
         NAME:
 
@@ -3369,11 +3926,11 @@ class Orbit:
            2019-02-20 - Written - Bovy (UofT)
 
         """
-        return self._call_internal(*args,**kwargs)[2].T
+        return self._call_internal(*args, **kwargs)[2].T
 
-    @physical_conversion('position')
+    @physical_conversion("position")
     @shapeDecorator
-    def z(self,*args,**kwargs):
+    def z(self, *args, **kwargs):
         """
         NAME:
 
@@ -3402,11 +3959,11 @@ class Orbit:
         """
         if self.dim() < 3:
             raise AttributeError("linear and planar orbits do not have z()")
-        return self._call_internal(*args,**kwargs)[3].T
+        return self._call_internal(*args, **kwargs)[3].T
 
-    @physical_conversion('velocity')
+    @physical_conversion("velocity")
     @shapeDecorator
-    def vz(self,*args,**kwargs):
+    def vz(self, *args, **kwargs):
         """
         NAME:
 
@@ -3435,11 +3992,11 @@ class Orbit:
         """
         if self.dim() < 3:
             raise AttributeError("linear and planar orbits do not have vz()")
-        return self._call_internal(*args,**kwargs)[4].T
+        return self._call_internal(*args, **kwargs)[4].T
 
-    @physical_conversion('angle')
+    @physical_conversion("angle")
     @shapeDecorator
-    def phi(self,*args,**kwargs):
+    def phi(self, *args, **kwargs):
         """
         NAME:
 
@@ -3464,11 +4021,11 @@ class Orbit:
         """
         if self.phasedim() != 4 and self.phasedim() != 6:
             raise AttributeError("Orbit must track azimuth to use phi()")
-        return self._call_internal(*args,**kwargs)[-1].T
+        return self._call_internal(*args, **kwargs)[-1].T
 
-    @physical_conversion('position')
+    @physical_conversion("position")
     @shapeDecorator
-    def x(self,*args,**kwargs):
+    def x(self, *args, **kwargs):
         """
         NAME:
 
@@ -3495,17 +4052,17 @@ class Orbit:
            2019-02-20 - Written - Bovy (UofT)
 
         """
-        thiso= self._call_internal(*args,**kwargs)
+        thiso = self._call_internal(*args, **kwargs)
         if self.dim() == 1:
             return thiso[0].T
-        elif self.phasedim()  != 4 and self.phasedim() != 6:
+        elif self.phasedim() != 4 and self.phasedim() != 6:
             raise AttributeError("Orbit must track azimuth to use x()")
         else:
-            return (thiso[0]*numpy.cos(thiso[-1,:])).T
+            return (thiso[0] * numpy.cos(thiso[-1, :])).T
 
-    @physical_conversion('position')
+    @physical_conversion("position")
     @shapeDecorator
-    def y(self,*args,**kwargs):
+    def y(self, *args, **kwargs):
         """
         NAME:
 
@@ -3532,15 +4089,15 @@ class Orbit:
            2019-02-20 - Written - Bovy (UofT)
 
         """
-        thiso= self._call_internal(*args,**kwargs)
-        if self.phasedim()  != 4 and self.phasedim() != 6:
+        thiso = self._call_internal(*args, **kwargs)
+        if self.phasedim() != 4 and self.phasedim() != 6:
             raise AttributeError("Orbit must track azimuth to use y()")
         else:
-            return (thiso[0]*numpy.sin(thiso[-1,:])).T
+            return (thiso[0] * numpy.sin(thiso[-1, :])).T
 
-    @physical_conversion('velocity')
+    @physical_conversion("velocity")
     @shapeDecorator
-    def vx(self,*args,**kwargs):
+    def vx(self, *args, **kwargs):
         """
         NAME:
 
@@ -3567,18 +4124,17 @@ class Orbit:
            2019-02-20 - Written - Bovy (UofT)
 
         """
-        thiso= self._call_internal(*args,**kwargs)
+        thiso = self._call_internal(*args, **kwargs)
         if self.dim() == 1:
             return thiso[1].T
-        elif self.phasedim()  != 4 and self.phasedim() != 6:
+        elif self.phasedim() != 4 and self.phasedim() != 6:
             raise AttributeError("Orbit must track azimuth to use vx()")
         else:
-            return (thiso[1]*numpy.cos(thiso[-1])
-                    -thiso[2]*numpy.sin(thiso[-1])).T
+            return (thiso[1] * numpy.cos(thiso[-1]) - thiso[2] * numpy.sin(thiso[-1])).T
 
-    @physical_conversion('velocity')
+    @physical_conversion("velocity")
     @shapeDecorator
-    def vy(self,*args,**kwargs):
+    def vy(self, *args, **kwargs):
         """
         NAME:
 
@@ -3605,16 +4161,15 @@ class Orbit:
            2019-02-20 - Written - Bovy (UofT)
 
         """
-        thiso= self._call_internal(*args,**kwargs)
-        if self.phasedim()  != 4 and self.phasedim() != 6:
+        thiso = self._call_internal(*args, **kwargs)
+        if self.phasedim() != 4 and self.phasedim() != 6:
             raise AttributeError("Orbit must track azimuth to use vy()")
         else:
-            return (thiso[2]*numpy.cos(thiso[-1])
-                    +thiso[1]*numpy.sin(thiso[-1])).T
+            return (thiso[2] * numpy.cos(thiso[-1]) + thiso[1] * numpy.sin(thiso[-1])).T
 
-    @physical_conversion('frequency-kmskpc')
+    @physical_conversion("frequency-kmskpc")
     @shapeDecorator
-    def vphi(self,*args,**kwargs):
+    def vphi(self, *args, **kwargs):
         """
         NAME:
 
@@ -3641,12 +4196,12 @@ class Orbit:
            2019-02-20 - Written - Bovy (UofT)
 
         """
-        thiso= self._call_internal(*args,**kwargs)
-        return (thiso[2]/thiso[0]).T
+        thiso = self._call_internal(*args, **kwargs)
+        return (thiso[2] / thiso[0]).T
 
-    @physical_conversion('velocity')
+    @physical_conversion("velocity")
     @shapeDecorator
-    def vr(self,*args,**kwargs):
+    def vr(self, *args, **kwargs):
         """
         NAME:
 
@@ -3673,16 +4228,16 @@ class Orbit:
            2020-07-01 - Written - James Lane (UofT)
 
         """
-        thiso = self._call_internal(*args,**kwargs)
+        thiso = self._call_internal(*args, **kwargs)
         if self.dim() == 3:
-            r = numpy.sqrt(thiso[0]**2.+thiso[3]**2.)
-            return ((thiso[0]*thiso[1]+thiso[3]*thiso[4])/r).T
+            r = numpy.sqrt(thiso[0] ** 2.0 + thiso[3] ** 2.0)
+            return ((thiso[0] * thiso[1] + thiso[3] * thiso[4]) / r).T
         else:
             return thiso[1].T
 
-    @physical_conversion('velocity')
+    @physical_conversion("velocity")
     @shapeDecorator
-    def vtheta(self,*args,**kwargs):
+    def vtheta(self, *args, **kwargs):
         """
         NAME:
 
@@ -3709,16 +4264,16 @@ class Orbit:
            2020-07-01 - Written - James Lane (UofT)
 
         """
-        thiso = self._call_internal(*args,**kwargs)
+        thiso = self._call_internal(*args, **kwargs)
         if not self.dim() == 3:
             raise AttributeError("Orbit must be 3D to use vtheta()")
         else:
-            r = numpy.sqrt( thiso[0]**2.+thiso[3]**2.)
-            return ((thiso[1]*thiso[3]-thiso[0]*thiso[4])/r).T
+            r = numpy.sqrt(thiso[0] ** 2.0 + thiso[3] ** 2.0)
+            return ((thiso[1] * thiso[3] - thiso[0] * thiso[4]) / r).T
 
-    @physical_conversion('angle')
+    @physical_conversion("angle")
     @shapeDecorator
-    def theta(self,*args,**kwargs):
+    def theta(self, *args, **kwargs):
         """
         NAME:
 
@@ -3741,16 +4296,15 @@ class Orbit:
            2020-07-01 - Written - James Lane (UofT)
 
         """
-        thiso = self._call_internal(*args,**kwargs)
+        thiso = self._call_internal(*args, **kwargs)
         if self.dim() != 3:
             raise AttributeError("Orbit must be 3D to use theta()")
         else:
-            return numpy.arctan2(thiso[0],thiso[3])
+            return numpy.arctan2(thiso[0], thiso[3])
 
-
-    @physical_conversion('angle_deg')
+    @physical_conversion("angle_deg")
     @shapeDecorator
-    def ra(self,*args,**kwargs):
+    def ra(self, *args, **kwargs):
         """
         NAME:
 
@@ -3782,16 +4336,15 @@ class Orbit:
            2019-02-21 - Written - Bovy (UofT)
 
         """
-        _check_roSet(self,kwargs,'ra')
-        thiso= self._call_internal(*args,**kwargs)
-        thiso_shape= thiso.shape
-        thiso= thiso.reshape((thiso_shape[0],-1))
-        return _radec(self,thiso,*args,**kwargs).T[0]\
-            .reshape(thiso_shape[1:]).T
+        _check_roSet(self, kwargs, "ra")
+        thiso = self._call_internal(*args, **kwargs)
+        thiso_shape = thiso.shape
+        thiso = thiso.reshape((thiso_shape[0], -1))
+        return _radec(self, thiso, *args, **kwargs).T[0].reshape(thiso_shape[1:]).T
 
-    @physical_conversion('angle_deg')
+    @physical_conversion("angle_deg")
     @shapeDecorator
-    def dec(self,*args,**kwargs):
+    def dec(self, *args, **kwargs):
         """
         NAME:
 
@@ -3823,16 +4376,15 @@ class Orbit:
            2019-02-21 - Written - Bovy (UofT)
 
         """
-        _check_roSet(self,kwargs,'dec')
-        thiso= self._call_internal(*args,**kwargs)
-        thiso_shape= thiso.shape
-        thiso= thiso.reshape((thiso_shape[0],-1))
-        return _radec(self,thiso,*args,**kwargs).T[1]\
-            .reshape(thiso_shape[1:]).T
+        _check_roSet(self, kwargs, "dec")
+        thiso = self._call_internal(*args, **kwargs)
+        thiso_shape = thiso.shape
+        thiso = thiso.reshape((thiso_shape[0], -1))
+        return _radec(self, thiso, *args, **kwargs).T[1].reshape(thiso_shape[1:]).T
 
-    @physical_conversion('angle_deg')
+    @physical_conversion("angle_deg")
     @shapeDecorator
-    def ll(self,*args,**kwargs):
+    def ll(self, *args, **kwargs):
         """
         NAME:
 
@@ -3864,15 +4416,15 @@ class Orbit:
            2019-02-21 - Written - Bovy (UofT)
 
         """
-        _check_roSet(self,kwargs,'ll')
-        thiso= self._call_internal(*args,**kwargs)
-        thiso_shape= thiso.shape
-        thiso= thiso.reshape((thiso_shape[0],-1))
-        return _lbd(self,thiso,*args,**kwargs).T[0].reshape(thiso_shape[1:]).T
+        _check_roSet(self, kwargs, "ll")
+        thiso = self._call_internal(*args, **kwargs)
+        thiso_shape = thiso.shape
+        thiso = thiso.reshape((thiso_shape[0], -1))
+        return _lbd(self, thiso, *args, **kwargs).T[0].reshape(thiso_shape[1:]).T
 
-    @physical_conversion('angle_deg')
+    @physical_conversion("angle_deg")
     @shapeDecorator
-    def bb(self,*args,**kwargs):
+    def bb(self, *args, **kwargs):
         """
         NAME:
 
@@ -3904,15 +4456,15 @@ class Orbit:
            2019-02-21 - Written - Bovy (UofT
 
         """
-        _check_roSet(self,kwargs,'bb')
-        thiso= self._call_internal(*args,**kwargs)
-        thiso_shape= thiso.shape
-        thiso= thiso.reshape((thiso_shape[0],-1))
-        return _lbd(self,thiso,*args,**kwargs).T[1].reshape(thiso_shape[1:]).T
+        _check_roSet(self, kwargs, "bb")
+        thiso = self._call_internal(*args, **kwargs)
+        thiso_shape = thiso.shape
+        thiso = thiso.reshape((thiso_shape[0], -1))
+        return _lbd(self, thiso, *args, **kwargs).T[1].reshape(thiso_shape[1:]).T
 
-    @physical_conversion('position_kpc')
+    @physical_conversion("position_kpc")
     @shapeDecorator
-    def dist(self,*args,**kwargs):
+    def dist(self, *args, **kwargs):
         """
         NAME:
 
@@ -3944,15 +4496,15 @@ class Orbit:
            2019-02-21 - Written - Bovy (UofT)
 
         """
-        _check_roSet(self,kwargs,'dist')
-        thiso= self._call_internal(*args,**kwargs)
-        thiso_shape= thiso.shape
-        thiso= thiso.reshape((thiso_shape[0],-1))
-        return _lbd(self,thiso,*args,**kwargs).T[2].reshape(thiso_shape[1:]).T
+        _check_roSet(self, kwargs, "dist")
+        thiso = self._call_internal(*args, **kwargs)
+        thiso_shape = thiso.shape
+        thiso = thiso.reshape((thiso_shape[0], -1))
+        return _lbd(self, thiso, *args, **kwargs).T[2].reshape(thiso_shape[1:]).T
 
-    @physical_conversion('proper-motion_masyr')
+    @physical_conversion("proper-motion_masyr")
     @shapeDecorator
-    def pmra(self,*args,**kwargs):
+    def pmra(self, *args, **kwargs):
         """
         NAME:
 
@@ -3986,17 +4538,16 @@ class Orbit:
            2019-02-21 - Written - Bovy (UofT)
 
         """
-        _check_roSet(self,kwargs,'pmra')
-        _check_voSet(self,kwargs,'pmra')
-        thiso= self._call_internal(*args,**kwargs)
-        thiso_shape= thiso.shape
-        thiso= thiso.reshape((thiso_shape[0],-1))
-        return _pmrapmdec(self,thiso,*args,**kwargs).T[0]\
-            .reshape(thiso_shape[1:]).T
+        _check_roSet(self, kwargs, "pmra")
+        _check_voSet(self, kwargs, "pmra")
+        thiso = self._call_internal(*args, **kwargs)
+        thiso_shape = thiso.shape
+        thiso = thiso.reshape((thiso_shape[0], -1))
+        return _pmrapmdec(self, thiso, *args, **kwargs).T[0].reshape(thiso_shape[1:]).T
 
-    @physical_conversion('proper-motion_masyr')
+    @physical_conversion("proper-motion_masyr")
     @shapeDecorator
-    def pmdec(self,*args,**kwargs):
+    def pmdec(self, *args, **kwargs):
         """
         NAME:
 
@@ -4030,17 +4581,16 @@ class Orbit:
            2019-02-21 - Written - Bovy (UofT)
 
         """
-        _check_roSet(self,kwargs,'pmdec')
-        _check_voSet(self,kwargs,'pmdec')
-        thiso= self._call_internal(*args,**kwargs)
-        thiso_shape= thiso.shape
-        thiso= thiso.reshape((thiso_shape[0],-1))
-        return _pmrapmdec(self,thiso,*args,**kwargs).T[1]\
-            .reshape(thiso_shape[1:]).T
+        _check_roSet(self, kwargs, "pmdec")
+        _check_voSet(self, kwargs, "pmdec")
+        thiso = self._call_internal(*args, **kwargs)
+        thiso_shape = thiso.shape
+        thiso = thiso.reshape((thiso_shape[0], -1))
+        return _pmrapmdec(self, thiso, *args, **kwargs).T[1].reshape(thiso_shape[1:]).T
 
-    @physical_conversion('proper-motion_masyr')
+    @physical_conversion("proper-motion_masyr")
     @shapeDecorator
-    def pmll(self,*args,**kwargs):
+    def pmll(self, *args, **kwargs):
         """
         NAME:
 
@@ -4074,17 +4624,18 @@ class Orbit:
            2019-02-21 - Written - Bovy (UofT)
 
         """
-        _check_roSet(self,kwargs,'pmll')
-        _check_voSet(self,kwargs,'pmll')
-        thiso= self._call_internal(*args,**kwargs)
-        thiso_shape= thiso.shape
-        thiso= thiso.reshape((thiso_shape[0],-1))
-        return _lbdvrpmllpmbb(self,thiso,*args,**kwargs).T[4]\
-            .reshape(thiso_shape[1:]).T
+        _check_roSet(self, kwargs, "pmll")
+        _check_voSet(self, kwargs, "pmll")
+        thiso = self._call_internal(*args, **kwargs)
+        thiso_shape = thiso.shape
+        thiso = thiso.reshape((thiso_shape[0], -1))
+        return (
+            _lbdvrpmllpmbb(self, thiso, *args, **kwargs).T[4].reshape(thiso_shape[1:]).T
+        )
 
-    @physical_conversion('proper-motion_masyr')
+    @physical_conversion("proper-motion_masyr")
     @shapeDecorator
-    def pmbb(self,*args,**kwargs):
+    def pmbb(self, *args, **kwargs):
         """
         NAME:
 
@@ -4118,17 +4669,18 @@ class Orbit:
            2019-02-21 - Written - Bovy (UofT)
 
         """
-        _check_roSet(self,kwargs,'pmbb')
-        _check_voSet(self,kwargs,'pmbb')
-        thiso= self._call_internal(*args,**kwargs)
-        thiso_shape= thiso.shape
-        thiso= thiso.reshape((thiso_shape[0],-1))
-        return _lbdvrpmllpmbb(self,thiso,*args,**kwargs).T[5]\
-            .reshape(thiso_shape[1:]).T
+        _check_roSet(self, kwargs, "pmbb")
+        _check_voSet(self, kwargs, "pmbb")
+        thiso = self._call_internal(*args, **kwargs)
+        thiso_shape = thiso.shape
+        thiso = thiso.reshape((thiso_shape[0], -1))
+        return (
+            _lbdvrpmllpmbb(self, thiso, *args, **kwargs).T[5].reshape(thiso_shape[1:]).T
+        )
 
-    @physical_conversion('velocity_kms')
+    @physical_conversion("velocity_kms")
     @shapeDecorator
-    def vlos(self,*args,**kwargs):
+    def vlos(self, *args, **kwargs):
         """
         NAME:
 
@@ -4162,16 +4714,17 @@ class Orbit:
            2019-02-21 - Written - Bovy (UofT)
 
         """
-        _check_roSet(self,kwargs,'vlos')
-        _check_voSet(self,kwargs,'vlos')
-        thiso= self._call_internal(*args,**kwargs)
-        thiso_shape= thiso.shape
-        thiso= thiso.reshape((thiso_shape[0],-1))
-        return _lbdvrpmllpmbb(self,thiso,*args,**kwargs).T[3]\
-            .reshape(thiso_shape[1:]).T
+        _check_roSet(self, kwargs, "vlos")
+        _check_voSet(self, kwargs, "vlos")
+        thiso = self._call_internal(*args, **kwargs)
+        thiso_shape = thiso.shape
+        thiso = thiso.reshape((thiso_shape[0], -1))
+        return (
+            _lbdvrpmllpmbb(self, thiso, *args, **kwargs).T[3].reshape(thiso_shape[1:]).T
+        )
 
     @shapeDecorator
-    def vra(self,*args,**kwargs):
+    def vra(self, *args, **kwargs):
         """
         NAME:
 
@@ -4206,22 +4759,24 @@ class Orbit:
            2019-02-28 - Written - Bovy (UofT)
 
         """
-        _check_roSet(self,kwargs,'vra')
-        _check_voSet(self,kwargs,'vra')
-        kwargs['dontreshape']= True
-        dist= self.dist(*args,**kwargs)
-        if _APY_UNITS and isinstance(dist,units.Quantity):
-            result= units.Quantity(dist.to(units.kpc).value*_K*
-                                   self.pmra(*args,**kwargs)\
-                                       .to(units.mas/units.yr).value,
-                                   unit=units.km/units.s)
+        _check_roSet(self, kwargs, "vra")
+        _check_voSet(self, kwargs, "vra")
+        kwargs["dontreshape"] = True
+        dist = self.dist(*args, **kwargs)
+        if _APY_UNITS and isinstance(dist, units.Quantity):
+            result = units.Quantity(
+                dist.to(units.kpc).value
+                * _K
+                * self.pmra(*args, **kwargs).to(units.mas / units.yr).value,
+                unit=units.km / units.s,
+            )
         else:
-            result= dist*_K*self.pmra(*args,**kwargs)
-        kwargs.pop('dontreshape')
+            result = dist * _K * self.pmra(*args, **kwargs)
+        kwargs.pop("dontreshape")
         return result
 
     @shapeDecorator
-    def vdec(self,*args,**kwargs):
+    def vdec(self, *args, **kwargs):
         """
         NAME:
 
@@ -4256,22 +4811,24 @@ class Orbit:
            2019-02-28 - Written - Bovy (UofT)
 
         """
-        _check_roSet(self,kwargs,'vdec')
-        _check_voSet(self,kwargs,'vdec')
-        kwargs['dontreshape']= True
-        dist= self.dist(*args,**kwargs)
-        if _APY_UNITS and isinstance(dist,units.Quantity):
-            result= units.Quantity(dist.to(units.kpc).value*_K*
-                                   self.pmdec(*args,**kwargs)\
-                                       .to(units.mas/units.yr).value,
-                                   unit=units.km/units.s)
+        _check_roSet(self, kwargs, "vdec")
+        _check_voSet(self, kwargs, "vdec")
+        kwargs["dontreshape"] = True
+        dist = self.dist(*args, **kwargs)
+        if _APY_UNITS and isinstance(dist, units.Quantity):
+            result = units.Quantity(
+                dist.to(units.kpc).value
+                * _K
+                * self.pmdec(*args, **kwargs).to(units.mas / units.yr).value,
+                unit=units.km / units.s,
+            )
         else:
-            result= dist*_K*self.pmdec(*args,**kwargs)
-        kwargs.pop('dontreshape')
+            result = dist * _K * self.pmdec(*args, **kwargs)
+        kwargs.pop("dontreshape")
         return result
 
     @shapeDecorator
-    def vll(self,*args,**kwargs):
+    def vll(self, *args, **kwargs):
         """
         NAME:
 
@@ -4306,22 +4863,24 @@ class Orbit:
            2019-02-28 - Written - Bovy (UofT)
 
         """
-        _check_roSet(self,kwargs,'vll')
-        _check_voSet(self,kwargs,'vll')
-        kwargs['dontreshape']= True
-        dist= self.dist(*args,**kwargs)
-        if _APY_UNITS and isinstance(dist,units.Quantity):
-            result= units.Quantity(dist.to(units.kpc).value*_K*
-                                   self.pmll(*args,**kwargs)\
-                                       .to(units.mas/units.yr).value,
-                                   unit=units.km/units.s)
+        _check_roSet(self, kwargs, "vll")
+        _check_voSet(self, kwargs, "vll")
+        kwargs["dontreshape"] = True
+        dist = self.dist(*args, **kwargs)
+        if _APY_UNITS and isinstance(dist, units.Quantity):
+            result = units.Quantity(
+                dist.to(units.kpc).value
+                * _K
+                * self.pmll(*args, **kwargs).to(units.mas / units.yr).value,
+                unit=units.km / units.s,
+            )
         else:
-            result= dist*_K*self.pmll(*args,**kwargs)
-        kwargs.pop('dontreshape')
+            result = dist * _K * self.pmll(*args, **kwargs)
+        kwargs.pop("dontreshape")
         return result
 
     @shapeDecorator
-    def vbb(self,*args,**kwargs):
+    def vbb(self, *args, **kwargs):
         """
         NAME:
 
@@ -4356,23 +4915,25 @@ class Orbit:
            2019-02-28 - Written - Bovy (UofT)
 
         """
-        _check_roSet(self,kwargs,'vbb')
-        _check_voSet(self,kwargs,'vbb')
-        kwargs['dontreshape']= True
-        dist= self.dist(*args,**kwargs)
-        if _APY_UNITS and isinstance(dist,units.Quantity):
-            result= units.Quantity(dist.to(units.kpc).value*_K*
-                                   self.pmbb(*args,**kwargs)\
-                                       .to(units.mas/units.yr).value,
-                                   unit=units.km/units.s)
+        _check_roSet(self, kwargs, "vbb")
+        _check_voSet(self, kwargs, "vbb")
+        kwargs["dontreshape"] = True
+        dist = self.dist(*args, **kwargs)
+        if _APY_UNITS and isinstance(dist, units.Quantity):
+            result = units.Quantity(
+                dist.to(units.kpc).value
+                * _K
+                * self.pmbb(*args, **kwargs).to(units.mas / units.yr).value,
+                unit=units.km / units.s,
+            )
         else:
-            result= dist*_K*self.pmbb(*args,**kwargs)
-        kwargs.pop('dontreshape')
+            result = dist * _K * self.pmbb(*args, **kwargs)
+        kwargs.pop("dontreshape")
         return result
 
-    @physical_conversion('position_kpc')
+    @physical_conversion("position_kpc")
     @shapeDecorator
-    def helioX(self,*args,**kwargs):
+    def helioX(self, *args, **kwargs):
         """
         NAME:
 
@@ -4404,16 +4965,15 @@ class Orbit:
            2019-02-21 - Written - Bovy (UofT)
 
         """
-        _check_roSet(self,kwargs,'helioX')
-        thiso= self._call_internal(*args,**kwargs)
-        thiso_shape= thiso.shape
-        thiso= thiso.reshape((thiso_shape[0],-1))
-        return _helioXYZ(self,thiso,*args,**kwargs)[0]\
-            .reshape(thiso_shape[1:]).T
+        _check_roSet(self, kwargs, "helioX")
+        thiso = self._call_internal(*args, **kwargs)
+        thiso_shape = thiso.shape
+        thiso = thiso.reshape((thiso_shape[0], -1))
+        return _helioXYZ(self, thiso, *args, **kwargs)[0].reshape(thiso_shape[1:]).T
 
-    @physical_conversion('position_kpc')
+    @physical_conversion("position_kpc")
     @shapeDecorator
-    def helioY(self,*args,**kwargs):
+    def helioY(self, *args, **kwargs):
         """
         NAME:
 
@@ -4445,16 +5005,15 @@ class Orbit:
            2019-02-21 - Written - Bovy (UofT)
 
         """
-        _check_roSet(self,kwargs,'helioY')
-        thiso= self._call_internal(*args,**kwargs)
-        thiso_shape= thiso.shape
-        thiso= thiso.reshape((thiso_shape[0],-1))
-        return _helioXYZ(self,thiso,*args,**kwargs)[1]\
-            .reshape(thiso_shape[1:]).T
+        _check_roSet(self, kwargs, "helioY")
+        thiso = self._call_internal(*args, **kwargs)
+        thiso_shape = thiso.shape
+        thiso = thiso.reshape((thiso_shape[0], -1))
+        return _helioXYZ(self, thiso, *args, **kwargs)[1].reshape(thiso_shape[1:]).T
 
-    @physical_conversion('position_kpc')
+    @physical_conversion("position_kpc")
     @shapeDecorator
-    def helioZ(self,*args,**kwargs):
+    def helioZ(self, *args, **kwargs):
         """
         NAME:
 
@@ -4486,16 +5045,15 @@ class Orbit:
            2019-02-21 - Written - Bovy (UofT)
 
         """
-        _check_roSet(self,kwargs,'helioZ')
-        thiso= self._call_internal(*args,**kwargs)
-        thiso_shape= thiso.shape
-        thiso= thiso.reshape((thiso_shape[0],-1))
-        return _helioXYZ(self,thiso,*args,**kwargs)[2]\
-            .reshape(thiso_shape[1:]).T
+        _check_roSet(self, kwargs, "helioZ")
+        thiso = self._call_internal(*args, **kwargs)
+        thiso_shape = thiso.shape
+        thiso = thiso.reshape((thiso_shape[0], -1))
+        return _helioXYZ(self, thiso, *args, **kwargs)[2].reshape(thiso_shape[1:]).T
 
-    @physical_conversion('velocity_kms')
+    @physical_conversion("velocity_kms")
     @shapeDecorator
-    def U(self,*args,**kwargs):
+    def U(self, *args, **kwargs):
         """
         NAME:
 
@@ -4529,17 +5087,16 @@ class Orbit:
            2019-02-21 - Written - Bovy (UofT)
 
         """
-        _check_roSet(self,kwargs,'U')
-        _check_voSet(self,kwargs,'U')
-        thiso= self._call_internal(*args,**kwargs)
-        thiso_shape= thiso.shape
-        thiso= thiso.reshape((thiso_shape[0],-1))
-        return _XYZvxvyvz(self,thiso,*args,**kwargs)[3]\
-            .reshape(thiso_shape[1:]).T
+        _check_roSet(self, kwargs, "U")
+        _check_voSet(self, kwargs, "U")
+        thiso = self._call_internal(*args, **kwargs)
+        thiso_shape = thiso.shape
+        thiso = thiso.reshape((thiso_shape[0], -1))
+        return _XYZvxvyvz(self, thiso, *args, **kwargs)[3].reshape(thiso_shape[1:]).T
 
-    @physical_conversion('velocity_kms')
+    @physical_conversion("velocity_kms")
     @shapeDecorator
-    def V(self,*args,**kwargs):
+    def V(self, *args, **kwargs):
         """
         NAME:
 
@@ -4573,17 +5130,16 @@ class Orbit:
            2019-02-21 - Written - Bovy (UofT)
 
         """
-        _check_roSet(self,kwargs,'V')
-        _check_voSet(self,kwargs,'V')
-        thiso= self._call_internal(*args,**kwargs)
-        thiso_shape= thiso.shape
-        thiso= thiso.reshape((thiso_shape[0],-1))
-        return _XYZvxvyvz(self,thiso,*args,**kwargs)[4]\
-            .reshape(thiso_shape[1:]).T
+        _check_roSet(self, kwargs, "V")
+        _check_voSet(self, kwargs, "V")
+        thiso = self._call_internal(*args, **kwargs)
+        thiso_shape = thiso.shape
+        thiso = thiso.reshape((thiso_shape[0], -1))
+        return _XYZvxvyvz(self, thiso, *args, **kwargs)[4].reshape(thiso_shape[1:]).T
 
-    @physical_conversion('velocity_kms')
+    @physical_conversion("velocity_kms")
     @shapeDecorator
-    def W(self,*args,**kwargs):
+    def W(self, *args, **kwargs):
         """
         NAME:
 
@@ -4617,16 +5173,15 @@ class Orbit:
            2019-02-21 - Written - Bovy (UofT)
 
         """
-        _check_roSet(self,kwargs,'W')
-        _check_voSet(self,kwargs,'W')
-        thiso= self._call_internal(*args,**kwargs)
-        thiso_shape= thiso.shape
-        thiso= thiso.reshape((thiso_shape[0],-1))
-        return _XYZvxvyvz(self,thiso,*args,**kwargs)[5]\
-            .reshape(thiso_shape[1:]).T
+        _check_roSet(self, kwargs, "W")
+        _check_voSet(self, kwargs, "W")
+        thiso = self._call_internal(*args, **kwargs)
+        thiso_shape = thiso.shape
+        thiso = thiso.reshape((thiso_shape[0], -1))
+        return _XYZvxvyvz(self, thiso, *args, **kwargs)[5].reshape(thiso_shape[1:]).T
 
     @shapeDecorator
-    def SkyCoord(self,*args,**kwargs):
+    def SkyCoord(self, *args, **kwargs):
         """
         NAME:
 
@@ -4660,51 +5215,67 @@ class Orbit:
            2019-02-21 - Written - Bovy (UofT)
 
         """
-        kwargs.pop('quantity',None) # rm useless keyword to no conflict later
-        kwargs['dontreshape']= True
-        _check_roSet(self,kwargs,'SkyCoord')
-        thiso= self._call_internal(*args,**kwargs)
-        thiso_shape= thiso.shape
-        thiso= thiso.reshape((thiso_shape[0],-1))
-        radec= _radec(self,thiso,*args,**kwargs).T\
-            .reshape((2,)+thiso_shape[1:])
-        tdist= self.dist(quantity=False,*args,**kwargs).T
-        if not _APY3: # pragma: no cover
-            kwargs.pop('dontreshape')
-            return coordinates.SkyCoord(radec[0]*units.degree,
-                                        radec[1]*units.degree,
-                                        distance=tdist*units.kpc,
-                                        frame='icrs').T
-        _check_voSet(self,kwargs,'SkyCoord')
-        pmrapmdec= _pmrapmdec(self,thiso,*args,**kwargs).T\
-            .reshape((2,)+thiso_shape[1:])
-        tvlos= self.vlos(quantity=False,*args,**kwargs).T
-        kwargs.pop('dontreshape')
+        kwargs.pop("quantity", None)  # rm useless keyword to no conflict later
+        kwargs["dontreshape"] = True
+        _check_roSet(self, kwargs, "SkyCoord")
+        thiso = self._call_internal(*args, **kwargs)
+        thiso_shape = thiso.shape
+        thiso = thiso.reshape((thiso_shape[0], -1))
+        radec = _radec(self, thiso, *args, **kwargs).T.reshape((2,) + thiso_shape[1:])
+        tdist = self.dist(quantity=False, *args, **kwargs).T
+        if not _APY3:  # pragma: no cover
+            kwargs.pop("dontreshape")
+            return coordinates.SkyCoord(
+                radec[0] * units.degree,
+                radec[1] * units.degree,
+                distance=tdist * units.kpc,
+                frame="icrs",
+            ).T
+        _check_voSet(self, kwargs, "SkyCoord")
+        pmrapmdec = _pmrapmdec(self, thiso, *args, **kwargs).T.reshape(
+            (2,) + thiso_shape[1:]
+        )
+        tvlos = self.vlos(quantity=False, *args, **kwargs).T
+        kwargs.pop("dontreshape")
         # Also return the Galactocentric frame used
-        v_sun= coordinates.CartesianDifferential(\
-            numpy.array([-self._solarmotion[0],
-                       self._solarmotion[1]+self._vo,
-                       self._solarmotion[2]])*units.km/units.s)
-        return coordinates.SkyCoord(radec[0]*units.degree,
-                                    radec[1]*units.degree,
-                                    distance=tdist*units.kpc,
-                                    pm_ra_cosdec=pmrapmdec[0]\
-                                        *units.mas/units.yr,
-                                    pm_dec=pmrapmdec[1]*units.mas/units.yr,
-                                    radial_velocity=tvlos*units.km/units.s,
-                                    frame='icrs',
-                                    galcen_distance=\
-                                        numpy.sqrt(self._ro**2.+self._zo**2.)\
-                                        *units.kpc,
-                                    z_sun=self._zo*units.kpc,
-                                    galcen_v_sun=v_sun).T
+        v_sun = coordinates.CartesianDifferential(
+            numpy.array(
+                [
+                    -self._solarmotion[0],
+                    self._solarmotion[1] + self._vo,
+                    self._solarmotion[2],
+                ]
+            )
+            * units.km
+            / units.s
+        )
+        return coordinates.SkyCoord(
+            radec[0] * units.degree,
+            radec[1] * units.degree,
+            distance=tdist * units.kpc,
+            pm_ra_cosdec=pmrapmdec[0] * units.mas / units.yr,
+            pm_dec=pmrapmdec[1] * units.mas / units.yr,
+            radial_velocity=tvlos * units.km / units.s,
+            frame="icrs",
+            galcen_distance=numpy.sqrt(self._ro**2.0 + self._zo**2.0) * units.kpc,
+            z_sun=self._zo * units.kpc,
+            galcen_v_sun=v_sun,
+        ).T
 
-    @physical_conversion_tuple(['position','velocity'])
-    def SOS(self,pot,ncross=500,surface=None,t0=0.,
-            method='dop853_c',skip=100,
-            progressbar=True,
-            numcores=_NUMCORES,
-            force_map=False,**kwargs):
+    @physical_conversion_tuple(["position", "velocity"])
+    def SOS(
+        self,
+        pot,
+        ncross=500,
+        surface=None,
+        t0=0.0,
+        method="dop853_c",
+        skip=100,
+        progressbar=True,
+        numcores=_NUMCORES,
+        force_map=False,
+        **kwargs,
+    ):
         """
         NAME:
 
@@ -4751,60 +5322,111 @@ class Orbit:
 
         """
         if self.dim() == 3:
-            init_psis= numpy.arctan2(self.z(use_physical=False),self.vz(use_physical=False))
+            init_psis = numpy.arctan2(
+                self.z(use_physical=False), self.vz(use_physical=False)
+            )
         elif self.phasedim() == 4:
-            if not surface is None and surface.lower() == 'y':
-                init_psis= numpy.arctan2(self.y(use_physical=False),self.vy(use_physical=False))
+            if not surface is None and surface.lower() == "y":
+                init_psis = numpy.arctan2(
+                    self.y(use_physical=False), self.vy(use_physical=False)
+                )
             else:
-                init_psis= numpy.arctan2(self.x(use_physical=False),self.vx(use_physical=False))
+                init_psis = numpy.arctan2(
+                    self.x(use_physical=False), self.vx(use_physical=False)
+                )
         else:
-            raise NotImplementedError("SOS not implemented for 1D orbits or 2D orbits without phi")
+            raise NotImplementedError(
+                "SOS not implemented for 1D orbits or 2D orbits without phi"
+            )
         # Let's check that v(x/y/z) != 0 for orbits that are already on the SOS
-        if ( ( self.dim() == 3
-              and not numpy.all((self.vz() != 0.)+(numpy.fabs(init_psis % numpy.pi) > 1e-10)) )
-            or ( self.dim() == 2
-                and not surface is None and surface.lower() == 'y'
-                and not numpy.all((self.vy() != 0.)+(numpy.fabs(init_psis % numpy.pi) > 1e-10)) )
-            or ( self.dim() == 2
-                and (surface is None or surface.lower() == 'x')
-                and not numpy.all((self.vx() != 0.)+(numpy.fabs(init_psis % numpy.pi) > 1e-10)) ) ):
-                raise RuntimeError("An orbit appears to be within the SOS surface. Refusing to perform specialized SOS integration, please use normal integration instead")
+        if (
+            (
+                self.dim() == 3
+                and not numpy.all(
+                    (self.vz() != 0.0) + (numpy.fabs(init_psis % numpy.pi) > 1e-10)
+                )
+            )
+            or (
+                self.dim() == 2
+                and not surface is None
+                and surface.lower() == "y"
+                and not numpy.all(
+                    (self.vy() != 0.0) + (numpy.fabs(init_psis % numpy.pi) > 1e-10)
+                )
+            )
+            or (
+                self.dim() == 2
+                and (surface is None or surface.lower() == "x")
+                and not numpy.all(
+                    (self.vx() != 0.0) + (numpy.fabs(init_psis % numpy.pi) > 1e-10)
+                )
+            )
+        ):
+            raise RuntimeError(
+                "An orbit appears to be within the SOS surface. Refusing to perform specialized SOS integration, please use normal integration instead"
+            )
         if numpy.any(numpy.fabs(init_psis) > 1e-10):
             # Integrate to the next crossing
-            init_psis= numpy.atleast_1d((init_psis + 2.*numpy.pi) % (2.*numpy.pi))
-            psis= numpy.array([numpy.linspace(0.,2.*numpy.pi-init_psi,101)
-                               for init_psi in init_psis])
-            self.integrate_SOS(psis,pot,surface=surface,t0=t0,method=method,
-                               progressbar=progressbar,
-                               numcores=numcores,force_map=force_map)
-            old_vxvv= self.vxvv
-            self.vxvv= self.orbit[:,-1]
-        if method == 'rk4_c' or method == 'rk6_c':
+            init_psis = numpy.atleast_1d(
+                (init_psis + 2.0 * numpy.pi) % (2.0 * numpy.pi)
+            )
+            psis = numpy.array(
+                [
+                    numpy.linspace(0.0, 2.0 * numpy.pi - init_psi, 101)
+                    for init_psi in init_psis
+                ]
+            )
+            self.integrate_SOS(
+                psis,
+                pot,
+                surface=surface,
+                t0=t0,
+                method=method,
+                progressbar=progressbar,
+                numcores=numcores,
+                force_map=force_map,
+            )
+            old_vxvv = self.vxvv
+            self.vxvv = self.orbit[:, -1]
+        if method == "rk4_c" or method == "rk6_c":
             # Because these are non-adaptive, we need to make sure we
             # integrate finely enough
-            iskip= skip
+            iskip = skip
         else:
-            iskip= 1
-        psis= numpy.arange(ncross*iskip)*2*numpy.pi/iskip
-        self.integrate_SOS(psis,pot,surface=surface,t0=t0,method=method,
-                           progressbar=progressbar,
-                           numcores=numcores,force_map=force_map)
-        self.t= self.t[:,::iskip]
-        self.orbit= self.orbit[:,::iskip]
+            iskip = 1
+        psis = numpy.arange(ncross * iskip) * 2 * numpy.pi / iskip
+        self.integrate_SOS(
+            psis,
+            pot,
+            surface=surface,
+            t0=t0,
+            method=method,
+            progressbar=progressbar,
+            numcores=numcores,
+            force_map=force_map,
+        )
+        self.t = self.t[:, ::iskip]
+        self.orbit = self.orbit[:, ::iskip]
         if self.dim() == 3:
-            out= (self.R(self.t,use_physical=False),
-                  self.vR(self.t,use_physical=False))
-        elif not surface is None and surface.lower() == 'y':
-            out= (self.x(self.t,use_physical=False),
-                  self.vx(self.t,use_physical=False))
+            out = (
+                self.R(self.t, use_physical=False),
+                self.vR(self.t, use_physical=False),
+            )
+        elif not surface is None and surface.lower() == "y":
+            out = (
+                self.x(self.t, use_physical=False),
+                self.vx(self.t, use_physical=False),
+            )
         else:
-            out= (self.y(self.t,use_physical=False),
-                  self.vy(self.t,use_physical=False))
+            out = (
+                self.y(self.t, use_physical=False),
+                self.vy(self.t, use_physical=False),
+            )
         if numpy.any(numpy.fabs(init_psis) > 1e-7):
-            self.vxvv= old_vxvv
+            self.vxvv = old_vxvv
         return out
 
-    def __call__(self,*args,**kwargs):
+    def __call__(self, *args, **kwargs):
         """
         NAME:
 
@@ -4830,18 +5452,22 @@ class Orbit:
            2019-03-20 - Implemented multiple times --> Orbits - Bovy (UofT)
 
         """
-        orbSetupKwargs= {'ro':self._ro,
-                         'vo':self._vo,
-                         'zo':self._zo,
-                         'solarmotion':self._solarmotion}
-        thiso= self._call_internal(*args,**kwargs)
-        out= Orbit(vxvv=numpy.reshape(thiso.T,self.shape+thiso.T.shape[1:]),
-                   **orbSetupKwargs)
-        out._roSet= self._roSet
-        out._voSet= self._voSet
+        orbSetupKwargs = {
+            "ro": self._ro,
+            "vo": self._vo,
+            "zo": self._zo,
+            "solarmotion": self._solarmotion,
+        }
+        thiso = self._call_internal(*args, **kwargs)
+        out = Orbit(
+            vxvv=numpy.reshape(thiso.T, self.shape + thiso.T.shape[1:]),
+            **orbSetupKwargs,
+        )
+        out._roSet = self._roSet
+        out._voSet = self._voSet
         return out
 
-    def _call_internal(self,*args,**kwargs):
+    def _call_internal(self, *args, **kwargs):
         """
         NAME:
            _call_internal
@@ -4855,78 +5481,96 @@ class Orbit:
            2019-02-01 - Started - Bovy (UofT)
            2019-02-18 - Written interpolation part - Bovy (UofT)
         """
-        if len(args) == 0 or (not hasattr(self,'t') and args[0] == 0. ):
+        if len(args) == 0 or (not hasattr(self, "t") and args[0] == 0.0):
             return numpy.array(self.vxvv).T
-        elif not hasattr(self,'t'):
-            raise ValueError("Integrate instance before evaluating it at a specific time")
+        elif not hasattr(self, "t"):
+            raise ValueError(
+                "Integrate instance before evaluating it at a specific time"
+            )
         else:
-            t= args[0]
+            t = args[0]
         # Parse t, first check whether we are dealing with the common case
         # where one wants all integrated times
         # 2nd line: scalar Quantities have __len__, but raise TypeError
         # for scalars
-        t_exact_integration_times= hasattr(t,'__len__') \
-            and not (_APY_LOADED and isinstance(t,units.Quantity)
-                     and t.isscalar) \
-            and (len(t) == len(self.t)) \
+        t_exact_integration_times = (
+            hasattr(t, "__len__")
+            and not (_APY_LOADED and isinstance(t, units.Quantity) and t.isscalar)
+            and (len(t) == len(self.t))
             and numpy.all(t == self.t)
-        if _APY_LOADED and isinstance(t,units.Quantity):
-            t= conversion.parse_time(t,ro=self._ro,vo=self._vo)
+        )
+        if _APY_LOADED and isinstance(t, units.Quantity):
+            t = conversion.parse_time(t, ro=self._ro, vo=self._vo)
             # Need to re-evaluate now that t has changed...
-            t_exact_integration_times= hasattr(t,'__len__') \
-                and (len(t) == len(self.t)) \
+            t_exact_integration_times = (
+                hasattr(t, "__len__")
+                and (len(t) == len(self.t))
                 and numpy.all(t == self.t)
-        elif '_integrate_t_asQuantity' in self.__dict__ \
-                and self._integrate_t_asQuantity \
-                and not t_exact_integration_times:
+            )
+        elif (
+            "_integrate_t_asQuantity" in self.__dict__
+            and self._integrate_t_asQuantity
+            and not t_exact_integration_times
+        ):
             # Not doing hasattr in above elif, bc currently slow due to overwrite of __getattribute__
-            warnings.warn("You specified integration times as a Quantity, but are evaluating at times not specified as a Quantity; assuming that time given is in natural (internal) units (multiply time by unit to get output at physical time)",galpyWarning)
-        if t_exact_integration_times: # Common case where one wants all integrated times
+            warnings.warn(
+                "You specified integration times as a Quantity, but are evaluating at times not specified as a Quantity; assuming that time given is in natural (internal) units (multiply time by unit to get output at physical time)",
+                galpyWarning,
+            )
+        if (
+            t_exact_integration_times
+        ):  # Common case where one wants all integrated times
             return self.orbit.T.copy()
-        elif isinstance(t,(int,float,numpy.number)) and hasattr(self,'t') \
-                and t in list(self.t):
-            return numpy.array(self.orbit[:,list(self.t).index(t),:]).T
+        elif (
+            isinstance(t, (int, float, numpy.number))
+            and hasattr(self, "t")
+            and t in list(self.t)
+        ):
+            return numpy.array(self.orbit[:, list(self.t).index(t), :]).T
         else:
-            if isinstance(t,(int,float,numpy.number)):
-                nt= 1
-                t= numpy.atleast_1d(t)
+            if isinstance(t, (int, float, numpy.number)):
+                nt = 1
+                t = numpy.atleast_1d(t)
             else:
-                nt= len(t)
-            if numpy.any(t > numpy.nanmax(self.t)) \
-                    or numpy.any(t < numpy.nanmin(self.t)):
-                raise ValueError('Found time value not in the integration time domain')
+                nt = len(t)
+            if numpy.any(t > numpy.nanmax(self.t)) or numpy.any(
+                t < numpy.nanmin(self.t)
+            ):
+                raise ValueError("Found time value not in the integration time domain")
             try:
                 self._setupOrbitInterp()
             except:
-                out= numpy.zeros((self.phasedim(),nt,self.size))
+                out = numpy.zeros((self.phasedim(), nt, self.size))
                 for jj in range(nt):
                     try:
-                        indx= list(self.t).index(t[jj])
+                        indx = list(self.t).index(t[jj])
                     except ValueError:
-                        raise LookupError("Orbit interpolaton failed; integrate on finer grid")
-                    out[:,jj]= self.orbit[:,indx].T
-                return out #should always have nt > 1, bc otherwise covered by above
-            out= numpy.empty((self.phasedim(),nt,self.size))
+                        raise LookupError(
+                            "Orbit interpolaton failed; integrate on finer grid"
+                        )
+                    out[:, jj] = self.orbit[:, indx].T
+                return out  # should always have nt > 1, bc otherwise covered by above
+            out = numpy.empty((self.phasedim(), nt, self.size))
             # Evaluating RectBivariateSpline on grid requires sorted arrays
-            sindx= numpy.argsort(t)
-            t= t[sindx]
-            usindx= numpy.argsort(sindx) # to later unsort
+            sindx = numpy.argsort(t)
+            t = t[sindx]
+            usindx = numpy.argsort(sindx)  # to later unsort
             if self.phasedim() == 4 or self.phasedim() == 6:
-                #Unpack interpolated x and y to R and phi
-                x= self._orbInterp[0](t,self._orb_indx_4orbInterp)
-                y= self._orbInterp[-1](t,self._orb_indx_4orbInterp)
-                out[0]= numpy.sqrt(x*x+y*y)
-                out[-1]= numpy.arctan2(y,x)
-                for ii in range(1,self.phasedim()-1):
-                    out[ii]= self._orbInterp[ii](t,self._orb_indx_4orbInterp)
+                # Unpack interpolated x and y to R and phi
+                x = self._orbInterp[0](t, self._orb_indx_4orbInterp)
+                y = self._orbInterp[-1](t, self._orb_indx_4orbInterp)
+                out[0] = numpy.sqrt(x * x + y * y)
+                out[-1] = numpy.arctan2(y, x)
+                for ii in range(1, self.phasedim() - 1):
+                    out[ii] = self._orbInterp[ii](t, self._orb_indx_4orbInterp)
             else:
                 for ii in range(self.phasedim()):
-                    out[ii]= self._orbInterp[ii](t,self._orb_indx_4orbInterp)
+                    out[ii] = self._orbInterp[ii](t, self._orb_indx_4orbInterp)
             if nt == 1:
-                return out[:,0]
+                return out[:, 0]
             else:
-                t= t[usindx]
-                return out[:,usindx]
+                t = t[usindx]
+                return out[:, usindx]
 
     def toPlanar(self):
         """
@@ -4951,19 +5595,23 @@ class Orbit:
            2019-03-02 - Written - Bovy (UofT)
 
         """
-        orbSetupKwargs= {'ro':self._ro,
-                         'vo':self._vo,
-                         'zo':self._zo,
-                         'solarmotion':self._solarmotion}
+        orbSetupKwargs = {
+            "ro": self._ro,
+            "vo": self._vo,
+            "zo": self._zo,
+            "solarmotion": self._solarmotion,
+        }
         if self.phasedim() == 6:
-            vxvv= self.vxvv[:,[0,1,2,5]]
+            vxvv = self.vxvv[:, [0, 1, 2, 5]]
         elif self.phasedim() == 5:
-            vxvv= self.vxvv[:,[0,1,2]]
+            vxvv = self.vxvv[:, [0, 1, 2]]
         else:
-            raise AttributeError("planar or linear Orbit does not have the toPlanar attribute")
-        out= Orbit(vxvv=vxvv,**orbSetupKwargs)
-        out._roSet= self._roSet
-        out._voSet= self._voSet
+            raise AttributeError(
+                "planar or linear Orbit does not have the toPlanar attribute"
+            )
+        out = Orbit(vxvv=vxvv, **orbSetupKwargs)
+        out._roSet = self._roSet
+        out._voSet = self._voSet
         return out
 
     def toLinear(self):
@@ -4989,113 +5637,143 @@ class Orbit:
            2019-03-02 - Written - Bovy (UofT)
 
         """
-        orbSetupKwargs= {'ro':self._ro,
-                         'vo':self._vo}
+        orbSetupKwargs = {"ro": self._ro, "vo": self._vo}
         if self.dim() == 3:
-            vxvv= self.vxvv[:,[3,4]]
+            vxvv = self.vxvv[:, [3, 4]]
         else:
-            raise AttributeError("planar or linear Orbit does not have the toPlanar attribute")
-        out= Orbit(vxvv=vxvv,**orbSetupKwargs)
-        out._roSet= self._roSet
-        out._voSet= self._voSet
+            raise AttributeError(
+                "planar or linear Orbit does not have the toPlanar attribute"
+            )
+        out = Orbit(vxvv=vxvv, **orbSetupKwargs)
+        out._roSet = self._roSet
+        out._voSet = self._voSet
         return out
 
     def _setupOrbitInterp(self):
-        if hasattr(self,"_orbInterp"): return None
+        if hasattr(self, "_orbInterp"):
+            return None
         # Setup one interpolation / phasedim, for all orbits simultaneously
         # First check that times increase
-        if hasattr(self,"t"): #Orbit has been integrated
-            if self.t[1] < self.t[0]: #must be backward
-                sindx= numpy.argsort(self.t)
+        if hasattr(self, "t"):  # Orbit has been integrated
+            if self.t[1] < self.t[0]:  # must be backward
+                sindx = numpy.argsort(self.t)
                 # sort
-                self.t= self.t[sindx]
-                self.orbit= self.orbit[:,sindx]
-                usindx= numpy.argsort(sindx) # to later unsort
-        orbInterp= []
-        orb_indx= numpy.arange(self.size)
+                self.t = self.t[sindx]
+                self.orbit = self.orbit[:, sindx]
+                usindx = numpy.argsort(sindx)  # to later unsort
+        orbInterp = []
+        orb_indx = numpy.arange(self.size)
         for ii in range(self.phasedim()):
             if (self.phasedim() == 4 or self.phasedim() == 6) and ii == 0:
-                #Interpolate x and y rather than R and phi to avoid issues w/ phase wrapping
+                # Interpolate x and y rather than R and phi to avoid issues w/ phase wrapping
                 if self.size == 1:
-                    orbInterp.append(_1DInterp(\
-                          self.t,
-                          self.orbit[0,:,0]*numpy.cos(self.orbit[0,:,-1])))
+                    orbInterp.append(
+                        _1DInterp(
+                            self.t,
+                            self.orbit[0, :, 0] * numpy.cos(self.orbit[0, :, -1]),
+                        )
+                    )
                 else:
-                    orbInterp.append(interpolate.RectBivariateSpline(\
-                          self.t,orb_indx,
-                          (self.orbit[:,:,0]*numpy.cos(self.orbit[:,:,-1])).T,
-                          ky=1,s=0.))
-            elif (self.phasedim() == 4 or self.phasedim() == 6) and \
-                    ii == self.phasedim()-1:
+                    orbInterp.append(
+                        interpolate.RectBivariateSpline(
+                            self.t,
+                            orb_indx,
+                            (self.orbit[:, :, 0] * numpy.cos(self.orbit[:, :, -1])).T,
+                            ky=1,
+                            s=0.0,
+                        )
+                    )
+            elif (
+                self.phasedim() == 4 or self.phasedim() == 6
+            ) and ii == self.phasedim() - 1:
                 if self.size == 1:
-                    orbInterp.append(_1DInterp(\
-                          self.t,
-                          self.orbit[0,:,0]*numpy.sin(self.orbit[0,:,-1])))
+                    orbInterp.append(
+                        _1DInterp(
+                            self.t,
+                            self.orbit[0, :, 0] * numpy.sin(self.orbit[0, :, -1]),
+                        )
+                    )
                 else:
-                    orbInterp.append(interpolate.RectBivariateSpline(\
-                          self.t,orb_indx,
-                          (self.orbit[:,:,0]*numpy.sin(self.orbit[:,:,-1])).T,
-                          ky=1,s=0.))
+                    orbInterp.append(
+                        interpolate.RectBivariateSpline(
+                            self.t,
+                            orb_indx,
+                            (self.orbit[:, :, 0] * numpy.sin(self.orbit[:, :, -1])).T,
+                            ky=1,
+                            s=0.0,
+                        )
+                    )
             else:
                 if self.size == 1:
-                    orbInterp.append(_1DInterp(self.t,self.orbit[0,:,ii]))
+                    orbInterp.append(_1DInterp(self.t, self.orbit[0, :, ii]))
                 else:
-                    orbInterp.append(interpolate.RectBivariateSpline(\
-                            self.t,orb_indx,self.orbit[:,:,ii].T,ky=1,s=0.))
-        self._orbInterp= orbInterp
-        self._orb_indx_4orbInterp= orb_indx
-        try: #unsort
-            self.t= self.t[usindx]
-            self.orbit= self.orbit[:,usindx]
-        except: pass
+                    orbInterp.append(
+                        interpolate.RectBivariateSpline(
+                            self.t, orb_indx, self.orbit[:, :, ii].T, ky=1, s=0.0
+                        )
+                    )
+        self._orbInterp = orbInterp
+        self._orb_indx_4orbInterp = orb_indx
+        try:  # unsort
+            self.t = self.t[usindx]
+            self.orbit = self.orbit[:, usindx]
+        except:
+            pass
         return None
 
-    def _parse_plot_quantity(self,quant,**kwargs):
+    def _parse_plot_quantity(self, quant, **kwargs):
         """Internal function to parse a quantity to be plotted based on input data"""
         # Cannot be using Quantity output
-        kwargs['quantity']= False
+        kwargs["quantity"] = False
         if callable(quant):
-            out= quant(self.t)
+            out = quant(self.t)
             if out.shape == self.t.shape:
-                out= numpy.tile(out,(len(self.vxvv),1))
+                out = numpy.tile(out, (len(self.vxvv), 1))
             return out
+
         def _eval(q):
             # Check those that don't have the exact name of the function
-            if q == 't':
+            if q == "t":
                 # Typically expect this to have same shape as other quantities
-                out= self.time(self.t,**kwargs)
-                if len(self.t.shape) < len(self.orbit.shape)-1:
-                    out= numpy.tile(out,(len(self.vxvv),1))
+                out = self.time(self.t, **kwargs)
+                if len(self.t.shape) < len(self.orbit.shape) - 1:
+                    out = numpy.tile(out, (len(self.vxvv), 1))
                 return out
-            elif q == 'Enorm':
-                return (self.E(self.t,**kwargs).T/self.E(0.,**kwargs)).T
-            elif q == 'Eznorm':
-                return (self.Ez(self.t,**kwargs).T/self.Ez(0.,**kwargs)).T
-            elif q == 'ERnorm':
-                return (self.ER(self.t,**kwargs).T/self.ER(0.,**kwargs)).T
-            elif q == 'Jacobinorm':
-                return (self.Jacobi(self.t,**kwargs).T/self.Jacobi(0.,**kwargs)).T
-            else: # these are exact, e.g., 'x' for self.x
-                return self.__getattribute__(q)(self.t,**kwargs)
+            elif q == "Enorm":
+                return (self.E(self.t, **kwargs).T / self.E(0.0, **kwargs)).T
+            elif q == "Eznorm":
+                return (self.Ez(self.t, **kwargs).T / self.Ez(0.0, **kwargs)).T
+            elif q == "ERnorm":
+                return (self.ER(self.t, **kwargs).T / self.ER(0.0, **kwargs)).T
+            elif q == "Jacobinorm":
+                return (self.Jacobi(self.t, **kwargs).T / self.Jacobi(0.0, **kwargs)).T
+            else:  # these are exact, e.g., 'x' for self.x
+                return self.__getattribute__(q)(self.t, **kwargs)
+
         try:
             return _eval(quant)
-        except AttributeError: pass
+        except AttributeError:
+            pass
         if _NUMEXPR_LOADED:
             import numexpr
-        else: #pragma: no cover
-            raise ImportError('Parsing the quantity to be plotted failed; if you are trying to plot an expression, please make sure to install numexpr first')
+        else:  # pragma: no cover
+            raise ImportError(
+                "Parsing the quantity to be plotted failed; if you are trying to plot an expression, please make sure to install numexpr first"
+            )
         # Figure out the variables in the expression to be computed to plot
         try:
-            vars= numexpr.NumExpr(quant).input_names
+            vars = numexpr.NumExpr(quant).input_names
         except TypeError as err:
-            raise TypeError(f'Parsing the expression {quant} failed, with error message:\n"{err}"')
+            raise TypeError(
+                f'Parsing the expression {quant} failed, with error message:\n"{err}"'
+            )
         # Construct dictionary of necessary parameters
-        vars_dict= {}
+        vars_dict = {}
         for var in vars:
-            vars_dict[var]= _eval(var)
-        return numexpr.evaluate(quant,local_dict=vars_dict)
+            vars_dict[var] = _eval(var)
+        return numexpr.evaluate(quant, local_dict=vars_dict)
 
-    def plot(self,*args,**kwargs):
+    def plot(self, *args, **kwargs):
         """
         NAME:
 
@@ -5138,69 +5816,72 @@ class Orbit:
            2019-04-13 - Edited for multiple Orbits - Bovy (UofT)
 
         """
-        if (kwargs.get('use_physical',False) \
-                and kwargs.get('ro',self._roSet)) or \
-                (not 'use_physical' in kwargs \
-                     and kwargs.get('ro',self._roSet)):
-            labeldict= _labeldict_physical.copy()
+        if (kwargs.get("use_physical", False) and kwargs.get("ro", self._roSet)) or (
+            not "use_physical" in kwargs and kwargs.get("ro", self._roSet)
+        ):
+            labeldict = _labeldict_physical.copy()
         else:
-            labeldict= _labeldict_internal.copy()
+            labeldict = _labeldict_internal.copy()
         labeldict.update(_labeldict_radec.copy())
         # Cannot be using Quantity output
-        kwargs['quantity']= False
-        #Defaults
-        if not 'd1' in kwargs and not 'd2' in kwargs:
+        kwargs["quantity"] = False
+        # Defaults
+        if not "d1" in kwargs and not "d2" in kwargs:
             if self.phasedim() == 3:
-                d1= 'R'
-                d2= 'vR'
+                d1 = "R"
+                d2 = "vR"
             elif self.phasedim() == 4:
-                d1= 'x'
-                d2= 'y'
+                d1 = "x"
+                d2 = "y"
             elif self.phasedim() == 2:
-                d1= 'x'
-                d2= 'vx'
+                d1 = "x"
+                d2 = "vx"
             elif self.phasedim() == 5 or self.phasedim() == 6:
-                d1= 'R'
-                d2= 'z'
-        elif not 'd1' in kwargs:
-            d2=  kwargs.pop('d2')
-            d1= 't'
-        elif not 'd2' in kwargs:
-            d1= kwargs.pop('d1')
-            d2= 't'
+                d1 = "R"
+                d2 = "z"
+        elif not "d1" in kwargs:
+            d2 = kwargs.pop("d2")
+            d1 = "t"
+        elif not "d2" in kwargs:
+            d1 = kwargs.pop("d1")
+            d2 = "t"
         else:
-            d1= kwargs.pop('d1')
-            d2= kwargs.pop('d2')
-        kwargs['dontreshape']= True
-        x= numpy.atleast_2d(self._parse_plot_quantity(d1,**kwargs))
-        y= numpy.atleast_2d(self._parse_plot_quantity(d2,**kwargs))
-        kwargs.pop('dontreshape')
-        kwargs.pop('ro',None)
-        kwargs.pop('vo',None)
-        kwargs.pop('obs',None)
-        kwargs.pop('use_physical',None)
-        kwargs.pop('pot',None)
-        kwargs.pop('OmegaP',None)
-        kwargs.pop('quantity',None)
-        auto_scale= not 'xrange' in kwargs and not 'yrange' in kwargs \
-            and not kwargs.get('overplot',False)
-        labels= kwargs.pop('label',[f'Orbit {ii+1}'
-                                    for ii in range(self.size)])
-        if self.size == 1 and isinstance(labels,str): labels= [labels]
-        #Plot
-        if not 'xlabel' in kwargs:
-            kwargs['xlabel']= labeldict.get(d1,fr'${d1}$')
-        if not 'ylabel' in kwargs:
-            kwargs['ylabel']= labeldict.get(d2,fr'${d2}$')
-        for ii,(tx,ty) in enumerate(zip(x,y)):
-            kwargs['label']= labels[ii]
-            line2d= plot.plot(tx,ty,*args,**kwargs)[0]
-            kwargs['overplot']= True
-        if auto_scale: line2d.axes.autoscale(enable=True)
+            d1 = kwargs.pop("d1")
+            d2 = kwargs.pop("d2")
+        kwargs["dontreshape"] = True
+        x = numpy.atleast_2d(self._parse_plot_quantity(d1, **kwargs))
+        y = numpy.atleast_2d(self._parse_plot_quantity(d2, **kwargs))
+        kwargs.pop("dontreshape")
+        kwargs.pop("ro", None)
+        kwargs.pop("vo", None)
+        kwargs.pop("obs", None)
+        kwargs.pop("use_physical", None)
+        kwargs.pop("pot", None)
+        kwargs.pop("OmegaP", None)
+        kwargs.pop("quantity", None)
+        auto_scale = (
+            not "xrange" in kwargs
+            and not "yrange" in kwargs
+            and not kwargs.get("overplot", False)
+        )
+        labels = kwargs.pop("label", [f"Orbit {ii+1}" for ii in range(self.size)])
+        if self.size == 1 and isinstance(labels, str):
+            labels = [labels]
+        # Plot
+        if not "xlabel" in kwargs:
+            kwargs["xlabel"] = labeldict.get(d1, rf"${d1}$")
+        if not "ylabel" in kwargs:
+            kwargs["ylabel"] = labeldict.get(d2, rf"${d2}$")
+        for ii, (tx, ty) in enumerate(zip(x, y)):
+            kwargs["label"] = labels[ii]
+            line2d = plot.plot(tx, ty, *args, **kwargs)[0]
+            kwargs["overplot"] = True
+        if auto_scale:
+            line2d.axes.autoscale(enable=True)
         plot._add_ticks()
         return [line2d]
 
-    def plot3d(self,*args,**kwargs):
+    def plot3d(self, *args, **kwargs):
         """
         NAME:
 
@@ -5247,71 +5928,84 @@ class Orbit:
            2019-04-13 - Adapted for multiple orbits - Bovy (UofT)
 
         """
-        if (kwargs.get('use_physical',False) \
-                and kwargs.get('ro',self._roSet)) or \
-                (not 'use_physical' in kwargs \
-                     and kwargs.get('ro',self._roSet)):
-            labeldict= _labeldict_physical.copy()
+        if (kwargs.get("use_physical", False) and kwargs.get("ro", self._roSet)) or (
+            not "use_physical" in kwargs and kwargs.get("ro", self._roSet)
+        ):
+            labeldict = _labeldict_physical.copy()
         else:
-            labeldict= _labeldict_internal.copy()
+            labeldict = _labeldict_internal.copy()
         labeldict.update(_labeldict_radec.copy())
         # Cannot be using Quantity output
-        kwargs['quantity']= False
-        #Defaults
-        if not 'd1' in kwargs and not 'd2' in kwargs and not 'd3' in kwargs:
+        kwargs["quantity"] = False
+        # Defaults
+        if not "d1" in kwargs and not "d2" in kwargs and not "d3" in kwargs:
             if self.phasedim() == 3:
-                d1= 'R'
-                d2= 'vR'
-                d3= 'vT'
+                d1 = "R"
+                d2 = "vR"
+                d3 = "vT"
             elif self.phasedim() == 4:
-                d1= 'x'
-                d2= 'y'
-                d3= 'vR'
+                d1 = "x"
+                d2 = "y"
+                d3 = "vR"
             elif self.phasedim() == 2:
                 raise AttributeError("Cannot plot 3D aspects of 1D orbits")
             elif self.phasedim() == 5:
-                d1= 'R'
-                d2= 'vR'
-                d3= 'z'
+                d1 = "R"
+                d2 = "vR"
+                d3 = "z"
             elif self.phasedim() == 6:
-                d1= 'x'
-                d2= 'y'
-                d3= 'z'
-        elif not ('d1' in kwargs and 'd2' in kwargs and 'd3' in kwargs):
+                d1 = "x"
+                d2 = "y"
+                d3 = "z"
+        elif not ("d1" in kwargs and "d2" in kwargs and "d3" in kwargs):
             raise AttributeError("Please provide 'd1', 'd2', and 'd3'")
         else:
-            d1= kwargs.pop('d1')
-            d2= kwargs.pop('d2')
-            d3= kwargs.pop('d3')
-        kwargs['dontreshape']= True
-        x= numpy.atleast_2d(self._parse_plot_quantity(d1,**kwargs))
-        y= numpy.atleast_2d(self._parse_plot_quantity(d2,**kwargs))
-        z= numpy.atleast_2d(self._parse_plot_quantity(d3,**kwargs))
-        kwargs.pop('dontreshape')
-        kwargs.pop('ro',None)
-        kwargs.pop('vo',None)
-        kwargs.pop('obs',None)
-        kwargs.pop('use_physical',None)
-        kwargs.pop('quantity',None)
-        auto_scale= not 'xrange' in kwargs and not 'yrange' in kwargs \
-            and not 'zrange' in kwargs and not kwargs.get('overplot',False)
-        #Plot
-        if not 'xlabel' in kwargs:
-            kwargs['xlabel']= labeldict.get(d1,fr'${d1}$')
-        if not 'ylabel' in kwargs:
-            kwargs['ylabel']= labeldict.get(d2,fr'${d2}$')
-        if not 'zlabel' in kwargs:
-            kwargs['zlabel']= labeldict.get(d3,fr'${d3}$')
-        for tx,ty,tz in zip(x,y,z):
-            line3d= plot.plot3d(tx,ty,tz,*args,**kwargs)[0]
-            kwargs['overplot']= True
-        if auto_scale: line3d.axes.autoscale(enable=True)
+            d1 = kwargs.pop("d1")
+            d2 = kwargs.pop("d2")
+            d3 = kwargs.pop("d3")
+        kwargs["dontreshape"] = True
+        x = numpy.atleast_2d(self._parse_plot_quantity(d1, **kwargs))
+        y = numpy.atleast_2d(self._parse_plot_quantity(d2, **kwargs))
+        z = numpy.atleast_2d(self._parse_plot_quantity(d3, **kwargs))
+        kwargs.pop("dontreshape")
+        kwargs.pop("ro", None)
+        kwargs.pop("vo", None)
+        kwargs.pop("obs", None)
+        kwargs.pop("use_physical", None)
+        kwargs.pop("quantity", None)
+        auto_scale = (
+            not "xrange" in kwargs
+            and not "yrange" in kwargs
+            and not "zrange" in kwargs
+            and not kwargs.get("overplot", False)
+        )
+        # Plot
+        if not "xlabel" in kwargs:
+            kwargs["xlabel"] = labeldict.get(d1, rf"${d1}$")
+        if not "ylabel" in kwargs:
+            kwargs["ylabel"] = labeldict.get(d2, rf"${d2}$")
+        if not "zlabel" in kwargs:
+            kwargs["zlabel"] = labeldict.get(d3, rf"${d3}$")
+        for tx, ty, tz in zip(x, y, z):
+            line3d = plot.plot3d(tx, ty, tz, *args, **kwargs)[0]
+            kwargs["overplot"] = True
+        if auto_scale:
+            line3d.axes.autoscale(enable=True)
         plot._add_ticks()
         return [line3d]
 
-    def plotSOS(self,pot,*args,ncross=500,surface=None,t0=0.,
-                method='dop853_c',skip=100,progressbar=True,
-                **kwargs):
+    def plotSOS(
+        self,
+        pot,
+        *args,
+        ncross=500,
+        surface=None,
+        t0=0.0,
+        method="dop853_c",
+        skip=100,
+        progressbar=True,
+        **kwargs,
+    ):
         """
         NAME:
 
@@ -5357,56 +6051,66 @@ class Orbit:
            2023-03-16 - Written - Bovy (UofT)
 
         """
-        if (kwargs.get('use_physical',False) \
-                and kwargs.get('ro',self._roSet)) or \
-                (not 'use_physical' in kwargs \
-                     and kwargs.get('ro',self._roSet)):
-            labeldict= _labeldict_physical.copy()
+        if (kwargs.get("use_physical", False) and kwargs.get("ro", self._roSet)) or (
+            not "use_physical" in kwargs and kwargs.get("ro", self._roSet)
+        ):
+            labeldict = _labeldict_physical.copy()
         else:
-            labeldict= _labeldict_internal.copy()
+            labeldict = _labeldict_internal.copy()
         labeldict.update(_labeldict_radec.copy())
         if self.dim() == 3:
-            d1= 'R'
-            d2= 'vR'
-        elif not surface is None and surface.lower() == 'y':
-            d1= 'x'
-            d2= 'vx'
+            d1 = "R"
+            d2 = "vR"
+        elif not surface is None and surface.lower() == "y":
+            d1 = "x"
+            d2 = "vx"
         else:
-            d1= 'y'
-            d2= 'vy'
-        kwargs['quantity']= False
-        x,y= self.SOS(pot,ncross=ncross,surface=surface,
-                      t0=t0,method=method,skip=skip,
-                      progressbar=progressbar,**kwargs)
-        x= numpy.atleast_2d(x)
-        y= numpy.atleast_2d(y)
-        kwargs.pop('ro',None)
-        kwargs.pop('vo',None)
-        kwargs.pop('use_physical',None)
-        kwargs.pop('quantity',None)
-        auto_scale= not 'xrange' in kwargs and not 'yrange' in kwargs \
-            and not kwargs.get('overplot',False)
-        labels= kwargs.pop('label',[f'Orbit {ii+1}'
-                                    for ii in range(self.size)])
-        if self.size == 1 and isinstance(labels,str): labels= [labels]
-        #Plot
-        if not 'xlabel' in kwargs:
-            kwargs['xlabel']= labeldict.get(d1,fr'${d1}$')
-        if not 'ylabel' in kwargs:
-            kwargs['ylabel']= labeldict.get(d2,fr'${d2}$')
-        if not 'ls' in kwargs:
-            kwargs['ls']= 'none'
-            if not 'marker' in kwargs:
-                kwargs['marker']= '.'
-        for ii,(tx,ty) in enumerate(zip(x,y)):
-            kwargs['label']= labels[ii]
-            line2d= plot.plot(tx,ty,*args,**kwargs)[0]
-            kwargs['overplot']= True
-        if auto_scale: line2d.axes.autoscale(enable=True)
+            d1 = "y"
+            d2 = "vy"
+        kwargs["quantity"] = False
+        x, y = self.SOS(
+            pot,
+            ncross=ncross,
+            surface=surface,
+            t0=t0,
+            method=method,
+            skip=skip,
+            progressbar=progressbar,
+            **kwargs,
+        )
+        x = numpy.atleast_2d(x)
+        y = numpy.atleast_2d(y)
+        kwargs.pop("ro", None)
+        kwargs.pop("vo", None)
+        kwargs.pop("use_physical", None)
+        kwargs.pop("quantity", None)
+        auto_scale = (
+            not "xrange" in kwargs
+            and not "yrange" in kwargs
+            and not kwargs.get("overplot", False)
+        )
+        labels = kwargs.pop("label", [f"Orbit {ii+1}" for ii in range(self.size)])
+        if self.size == 1 and isinstance(labels, str):
+            labels = [labels]
+        # Plot
+        if not "xlabel" in kwargs:
+            kwargs["xlabel"] = labeldict.get(d1, rf"${d1}$")
+        if not "ylabel" in kwargs:
+            kwargs["ylabel"] = labeldict.get(d2, rf"${d2}$")
+        if not "ls" in kwargs:
+            kwargs["ls"] = "none"
+            if not "marker" in kwargs:
+                kwargs["marker"] = "."
+        for ii, (tx, ty) in enumerate(zip(x, y)):
+            kwargs["label"] = labels[ii]
+            line2d = plot.plot(tx, ty, *args, **kwargs)[0]
+            kwargs["overplot"] = True
+        if auto_scale:
+            line2d.axes.autoscale(enable=True)
         plot._add_ticks()
         return [line2d]
 
-    def animate(self, **kwargs): #pragma: no cover
+    def animate(self, **kwargs):  # pragma: no cover
         """
         NAME:
 
@@ -5455,177 +6159,206 @@ class Orbit:
             from IPython.display import HTML
         except ImportError:
             raise ImportError("Orbit.animate requires ipython/jupyter to be installed")
-        if (kwargs.get('use_physical',False) \
-                and kwargs.get('ro',self._roSet)) or \
-                (not 'use_physical' in kwargs \
-                     and kwargs.get('ro',self._roSet)):
-            labeldict= {'t':'t (Gyr)',
-                        'R':'R (kpc)',
-                        'vR':'v_R (km/s)',
-                        'vT':'v_T (km/s)',
-                        'z':'z (kpc)',
-                        'vz':'v_z (km/s)',
-                        'phi':'azimuthal angle',
-                        'r':'r (kpc)',
-                        'x':'x (kpc)',
-                        'y':'y (kpc)',
-                        'vx':'v_x (km/s)',
-                        'vy':'v_y (km/s)',
-                        'E':'E (km^2/s^2)',
-                        'Ez':'E_z (km^2/s^2)',
-                        'ER':'E_R (km^2/s^2)',
-                        'Enorm':'E(t)/E(0.)',
-                        'Eznorm':'E_z(t)/E_z(0.)',
-                        'ERnorm':'E_R(t)/E_R(0.)',
-                        'Jacobi':'E-Omega_p L (km^2/s^2)',
-                        'Jacobinorm':'(E-Omega_p L)(t)/(E-Omega_p L)(0)'}
+        if (kwargs.get("use_physical", False) and kwargs.get("ro", self._roSet)) or (
+            not "use_physical" in kwargs and kwargs.get("ro", self._roSet)
+        ):
+            labeldict = {
+                "t": "t (Gyr)",
+                "R": "R (kpc)",
+                "vR": "v_R (km/s)",
+                "vT": "v_T (km/s)",
+                "z": "z (kpc)",
+                "vz": "v_z (km/s)",
+                "phi": "azimuthal angle",
+                "r": "r (kpc)",
+                "x": "x (kpc)",
+                "y": "y (kpc)",
+                "vx": "v_x (km/s)",
+                "vy": "v_y (km/s)",
+                "E": "E (km^2/s^2)",
+                "Ez": "E_z (km^2/s^2)",
+                "ER": "E_R (km^2/s^2)",
+                "Enorm": "E(t)/E(0.)",
+                "Eznorm": "E_z(t)/E_z(0.)",
+                "ERnorm": "E_R(t)/E_R(0.)",
+                "Jacobi": "E-Omega_p L (km^2/s^2)",
+                "Jacobinorm": "(E-Omega_p L)(t)/(E-Omega_p L)(0)",
+            }
         else:
-            labeldict= {'t':'t','R':'R','vR':'v_R','vT':'v_T',
-                        'z':'z','vz':'v_z','phi':r'azimuthal angle',
-                        'r':'r',
-                        'x':'x','y':'y','vx':'v_x','vy':'v_y',
-                        'E':'E','Enorm':'E(t)/E(0.)',
-                        'Ez':'E_z','Eznorm':'E_z(t)/E_z(0.)',
-                        'ER':r'E_R','ERnorm':r'E_R(t)/E_R(0.)',
-                        'Jacobi':r'E-Omega_p L',
-                        'Jacobinorm':r'(E-Omega_p L)(t)/(E-Omega_p L)(0)'}
-        labeldict.update({'ra':'RA (deg)',
-                          'dec':'Dec (deg)',
-                          'll':'Galactic lon (deg)',
-                          'bb':'Galactic lat (deg)',
-                          'dist':'distance (kpc)',
-                          'pmra':'pmRA (mas/yr)',
-                          'pmdec':'pmDec (mas/yr)',
-                          'pmll':'pmGlon (mas/yr)',
-                          'pmbb':'pmGlat (mas/yr)',
-                          'vlos':'line-of-sight vel (km/s)',
-                          'helioX':'X (kpc)',
-                          'helioY':'Y (kpc)',
-                          'helioZ':'Z (kpc)',
-                          'U':'U (km/s)',
-                          'V':'V (km/s)',
-                          'W':'W (km/s)'})
+            labeldict = {
+                "t": "t",
+                "R": "R",
+                "vR": "v_R",
+                "vT": "v_T",
+                "z": "z",
+                "vz": "v_z",
+                "phi": r"azimuthal angle",
+                "r": "r",
+                "x": "x",
+                "y": "y",
+                "vx": "v_x",
+                "vy": "v_y",
+                "E": "E",
+                "Enorm": "E(t)/E(0.)",
+                "Ez": "E_z",
+                "Eznorm": "E_z(t)/E_z(0.)",
+                "ER": r"E_R",
+                "ERnorm": r"E_R(t)/E_R(0.)",
+                "Jacobi": r"E-Omega_p L",
+                "Jacobinorm": r"(E-Omega_p L)(t)/(E-Omega_p L)(0)",
+            }
+        labeldict.update(
+            {
+                "ra": "RA (deg)",
+                "dec": "Dec (deg)",
+                "ll": "Galactic lon (deg)",
+                "bb": "Galactic lat (deg)",
+                "dist": "distance (kpc)",
+                "pmra": "pmRA (mas/yr)",
+                "pmdec": "pmDec (mas/yr)",
+                "pmll": "pmGlon (mas/yr)",
+                "pmbb": "pmGlat (mas/yr)",
+                "vlos": "line-of-sight vel (km/s)",
+                "helioX": "X (kpc)",
+                "helioY": "Y (kpc)",
+                "helioZ": "Z (kpc)",
+                "U": "U (km/s)",
+                "V": "V (km/s)",
+                "W": "W (km/s)",
+            }
+        )
         # Cannot be using Quantity output
-        kwargs['quantity']= False
-        #Defaults
-        if not 'd1' in kwargs and not 'd2' in kwargs:
+        kwargs["quantity"] = False
+        # Defaults
+        if not "d1" in kwargs and not "d2" in kwargs:
             if self.phasedim() == 3:
-                d1= 'R'
-                d2= 'vR'
+                d1 = "R"
+                d2 = "vR"
             elif self.phasedim() == 4:
-                d1= 'x'
-                d2= 'y'
+                d1 = "x"
+                d2 = "y"
             elif self.phasedim() == 2:
-                d1= 'x'
-                d2= 'vx'
+                d1 = "x"
+                d2 = "vx"
             elif self.dim() == 3:
-                d1= 'R'
-                d2= 'z'
-        elif not 'd1' in kwargs:
-            d2=  kwargs.pop('d2')
-            d1= 't'
-        elif not 'd2' in kwargs:
-            d1= kwargs.pop('d1')
-            d2= 't'
+                d1 = "R"
+                d2 = "z"
+        elif not "d1" in kwargs:
+            d2 = kwargs.pop("d2")
+            d1 = "t"
+        elif not "d2" in kwargs:
+            d1 = kwargs.pop("d1")
+            d2 = "t"
         else:
-            d1= kwargs.pop('d1')
-            d2= kwargs.pop('d2')
-        xs= []
-        ys= []
-        xlabels= []
-        ylabels= []
-        tlabel= labeldict.get('t')
+            d1 = kwargs.pop("d1")
+            d2 = kwargs.pop("d2")
+        xs = []
+        ys = []
+        xlabels = []
+        ylabels = []
+        tlabel = labeldict.get("t")
         if hasattr(self, "name"):  # name for display
-            names = self.name if isinstance(self.name, list) or isinstance(self.name, numpy.ndarray) else [self.name]
+            names = (
+                self.name
+                if isinstance(self.name, list) or isinstance(self.name, numpy.ndarray)
+                else [self.name]
+            )
         else:
             names = [f"Object {i}" for i in range(self.size)]
-        if isinstance(d1,str) or callable(d1):
-            d1s= [d1]
-            d2s= [d2]
+        if isinstance(d1, str) or callable(d1):
+            d1s = [d1]
+            d2s = [d2]
         else:
-            d1s= d1
-            d2s= d2
+            d1s = d1
+            d2s = d2
         if len(d1s) > 3:
-            raise ValueError('Orbit.animate only works for up to three subplots')
-        all_xlabel= kwargs.get('xlabel',[None for d in d1])
-        all_ylabel= kwargs.get('ylabel',[None for d in d2])
-        for d1,d2, xlabel, ylabel in zip(d1s,d2s,all_xlabel,all_ylabel):
-           #Get x and y for each subplot
-            kwargs['dontreshape']= True
-            x= self._parse_plot_quantity(d1,**kwargs)
-            y= self._parse_plot_quantity(d2,**kwargs)
-            kwargs.pop('dontreshape')
+            raise ValueError("Orbit.animate only works for up to three subplots")
+        all_xlabel = kwargs.get("xlabel", [None for d in d1])
+        all_ylabel = kwargs.get("ylabel", [None for d in d2])
+        for d1, d2, xlabel, ylabel in zip(d1s, d2s, all_xlabel, all_ylabel):
+            # Get x and y for each subplot
+            kwargs["dontreshape"] = True
+            x = self._parse_plot_quantity(d1, **kwargs)
+            y = self._parse_plot_quantity(d2, **kwargs)
+            kwargs.pop("dontreshape")
             xs.append(x)
             ys.append(y)
             if xlabel is None:
-                xlabels.append(labeldict.get(d1,r'\mathrm{No\ xlabel\ specified}'))
+                xlabels.append(labeldict.get(d1, r"\mathrm{No\ xlabel\ specified}"))
             else:
                 xlabels.append(xlabel)
             if ylabel is None:
-                ylabels.append(labeldict.get(d2,r'\mathrm{No\ ylabel\ specified}'))
+                ylabels.append(labeldict.get(d2, r"\mathrm{No\ ylabel\ specified}"))
             else:
                 ylabels.append(ylabel)
-        kwargs.pop('ro',None)
-        kwargs.pop('vo',None)
-        kwargs.pop('obs',None)
-        kwargs.pop('use_physical',None)
-        kwargs.pop('pot',None)
-        kwargs.pop('OmegaP',None)
-        kwargs.pop('quantity',None)
-        width= kwargs.pop('width',600)
-        height= kwargs.pop('height',400)
+        kwargs.pop("ro", None)
+        kwargs.pop("vo", None)
+        kwargs.pop("obs", None)
+        kwargs.pop("use_physical", None)
+        kwargs.pop("pot", None)
+        kwargs.pop("OmegaP", None)
+        kwargs.pop("quantity", None)
+        width = kwargs.pop("width", 600)
+        height = kwargs.pop("height", 400)
         # Dump data to HTML
-        nplots= len(xs)
-        jsonDict= {}
+        nplots = len(xs)
+        jsonDict = {}
         for ii in range(nplots):
             for jj in range(self.size):
-                jsonDict['x%i_%i' % (ii+1,jj)]= xs[ii][jj].tolist()
-                jsonDict['y%i_%i' % (ii+1,jj)]= ys[ii][jj].tolist()
-        jsonDict["time"] = self._parse_plot_quantity('t',**kwargs)[0].tolist()
-        json_filename= kwargs.pop('json_filename',None)
+                jsonDict["x%i_%i" % (ii + 1, jj)] = xs[ii][jj].tolist()
+                jsonDict["y%i_%i" % (ii + 1, jj)] = ys[ii][jj].tolist()
+        jsonDict["time"] = self._parse_plot_quantity("t", **kwargs)[0].tolist()
+        json_filename = kwargs.pop("json_filename", None)
         if json_filename is None:
-            jd= json.dumps(jsonDict)
-            json_code= f"""  let data= JSON.parse('{jd}');"""
-            close_json_code= ""
+            jd = json.dumps(jsonDict)
+            json_code = f"""  let data= JSON.parse('{jd}');"""
+            close_json_code = ""
         else:
-            with open(json_filename,'w') as jfile:
-                json.dump(jsonDict,jfile)
-            json_code= f"""Plotly.d3.json('{json_filename}',function(data){{"""
-            close_json_code= "});"
-        self.divid= ''.join(choice(ascii_lowercase) for i in range(24))
-        button_width= 419.51+4.*10.
-        button_margin_left= int(numpy.round((width-button_width)/2.))
-        if button_margin_left < 0: button_margin_left= 0
+            with open(json_filename, "w") as jfile:
+                json.dump(jsonDict, jfile)
+            json_code = f"""Plotly.d3.json('{json_filename}',function(data){{"""
+            close_json_code = "});"
+        self.divid = "".join(choice(ascii_lowercase) for i in range(24))
+        button_width = 419.51 + 4.0 * 10.0
+        button_margin_left = int(numpy.round((width - button_width) / 2.0))
+        if button_margin_left < 0:
+            button_margin_left = 0
         # Configuration options
-        config= """{{staticPlot: {staticPlot}}}"""\
-            .format(staticPlot='true' if kwargs.pop('staticPlot',False)
-                    else 'false')
+        config = """{{staticPlot: {staticPlot}}}""".format(
+            staticPlot="true" if kwargs.pop("staticPlot", False) else "false"
+        )
         # Layout for multiple plots
         if len(d1s) == 1:
-            xmin= [0,0,0]
-            xmax= [1,1,1]
+            xmin = [0, 0, 0]
+            xmax = [1, 1, 1]
         elif len(d1s) == 2:
-            xmin= [0,0.55,0]
-            xmax= [0.45,1,1]
+            xmin = [0, 0.55, 0]
+            xmax = [0.45, 1, 1]
         elif len(d1s) == 3:
-            xmin= [0,0.365,0.73]
-            xmax= [0.27,0.635,1]
+            xmin = [0, 0.365, 0.73]
+            xmax = [0.27, 0.635, 1]
         # Colors
-        line_colors= ['#1f77b4', # muted blue
-                      '#ff7f0e', # safety orange
-                      '#2ca02c', # cooked asparagus green
-                      '#d62728', # brick red
-                      '#9467bd', # muted purple
-                      '#8c564b', # chestnut brown
-                      '#e377c2', # raspberry yogurt pink
-                      '#7f7f7f', # middle gray
-                      '#bcbd22', # curry yellow-green
-                      '#17becf'] # blue-teal
+        line_colors = [
+            "#1f77b4",  # muted blue
+            "#ff7f0e",  # safety orange
+            "#2ca02c",  # cooked asparagus green
+            "#d62728",  # brick red
+            "#9467bd",  # muted purple
+            "#8c564b",  # chestnut brown
+            "#e377c2",  # raspberry yogurt pink
+            "#7f7f7f",  # middle gray
+            "#bcbd22",  # curry yellow-green
+            "#17becf",
+        ]  # blue-teal
         # When there are more than these # of colors needed, make up randoms
         if self.size > len(line_colors):
-            line_colors.extend(["#%06x" % numpy.random.randint(0, 0xFFFFFF)
-                                for ii in range(self.size-len(line_colors))])
-        layout= """{{
+            line_colors.extend(
+                [
+                    "#%06x" % numpy.random.randint(0, 0xFFFFFF)
+                    for ii in range(self.size - len(line_colors))
+                ]
+            )
+        layout = """{{
   xaxis: {{
     title: '{xlabel}',
     domain: [{xmin},{xmax}],
@@ -5634,11 +6367,17 @@ class Orbit:
   margin: {{t: 20}},
   hovermode: 'closest',
   showlegend: false,
-""".format(xlabel=xlabels[0],ylabel=ylabels[0],xmin=xmin[0],xmax=xmax[0])
-        hovertemplate = lambda name, xlabel, ylabel, tlabel: f"""'<b>{name}</b>' + '<br><b>{xlabel}</b>: %{{x:.2f}}' + '<br><b>{ylabel}</b>: %{{y:.2f}}' + '<br><b>{tlabel}</b>: %{{customdata:.2f}}'"""
-        hovertemplate_current = lambda name, xlabel, ylabel, tlabel: f"""'<b>{name} (Current location)</b>' + '<br><b>{xlabel}</b>: %{{x:.2f}}' + '<br><b>{ylabel}</b>: %{{y:.2f}}' + '<br><b>{tlabel}</b>: %{{customdata:.2f}}'"""
-        for ii in range(1,nplots):
-            layout+= """  xaxis{idx}: {{
+""".format(
+            xlabel=xlabels[0], ylabel=ylabels[0], xmin=xmin[0], xmax=xmax[0]
+        )
+        hovertemplate = (
+            lambda name, xlabel, ylabel, tlabel: f"""'<b>{name}</b>' + '<br><b>{xlabel}</b>: %{{x:.2f}}' + '<br><b>{ylabel}</b>: %{{y:.2f}}' + '<br><b>{tlabel}</b>: %{{customdata:.2f}}'"""
+        )
+        hovertemplate_current = (
+            lambda name, xlabel, ylabel, tlabel: f"""'<b>{name} (Current location)</b>' + '<br><b>{xlabel}</b>: %{{x:.2f}}' + '<br><b>{ylabel}</b>: %{{y:.2f}}' + '<br><b>{tlabel}</b>: %{{customdata:.2f}}'"""
+        )
+        for ii in range(1, nplots):
+            layout += """  xaxis{idx}: {{
     title: '{xlabel}',
     anchor: 'y{idx}',
     domain: [{xmin},{xmax}],
@@ -5647,11 +6386,16 @@ class Orbit:
     title: '{ylabel}',
     anchor: 'x{idx}',
 }},
-""".format(idx=ii+1,xlabel=xlabels[ii],ylabel=ylabels[ii],
-           xmin=xmin[ii],xmax=xmax[ii])
-        layout+="""}"""
+""".format(
+                idx=ii + 1,
+                xlabel=xlabels[ii],
+                ylabel=ylabels[ii],
+                xmin=xmin[ii],
+                xmax=xmax[ii],
+            )
+        layout += """}"""
         # First plot
-        setup_trace1= """
+        setup_trace1 = """
     let trace1= {{
       x: data.x1_0.slice(0,numPerFrame),
       y: data.y1_0.slice(0,numPerFrame),
@@ -5681,12 +6425,16 @@ class Orbit:
         }},
       type: "scattergl",
     }};
-""".format(line_color=line_colors[0],
-           hovertemplate=hovertemplate(names[0], xlabels[0], ylabels[0], tlabel),
-           hovertemplate_current=hovertemplate_current(names[0], xlabels[0], ylabels[0], tlabel))
-        traces_cumul= """trace1,trace2"""
-        for ii in range(1,self.size):
-            setup_trace1+= """
+""".format(
+            line_color=line_colors[0],
+            hovertemplate=hovertemplate(names[0], xlabels[0], ylabels[0], tlabel),
+            hovertemplate_current=hovertemplate_current(
+                names[0], xlabels[0], ylabels[0], tlabel
+            ),
+        )
+        traces_cumul = """trace1,trace2"""
+        for ii in range(1, self.size):
+            setup_trace1 += """
     let trace{trace_num_1}= {{
       x: data.x1_{trace_indx}.slice(0,numPerFrame),
       y: data.y1_{trace_indx}.slice(0,numPerFrame),
@@ -5716,11 +6464,17 @@ class Orbit:
         }},
       type: "scattergl",
     }};
-""".format(trace_indx=str(ii),trace_num_1=str(2*ii+1),trace_num_2=str(2*ii+2),
-           line_color=line_colors[ii],
-           hovertemplate=hovertemplate(names[ii], xlabels[0], ylabels[0], tlabel),
-           hovertemplate_current=hovertemplate_current(names[ii], xlabels[0], ylabels[0], tlabel))
-            traces_cumul+= f""",trace{str(2*ii+1)},trace{str(2*ii+2)}"""
+""".format(
+                trace_indx=str(ii),
+                trace_num_1=str(2 * ii + 1),
+                trace_num_2=str(2 * ii + 2),
+                line_color=line_colors[ii],
+                hovertemplate=hovertemplate(names[ii], xlabels[0], ylabels[0], tlabel),
+                hovertemplate_current=hovertemplate_current(
+                    names[ii], xlabels[0], ylabels[0], tlabel
+                ),
+            )
+            traces_cumul += f""",trace{str(2*ii+1)},trace{str(2*ii+2)}"""
         x_data_list = """"""
         y_data_list = """"""
         t_data_list = """"""
@@ -5728,16 +6482,20 @@ class Orbit:
         trace_num_20_list = """"""
         for jj in range(len(d1s)):
             for ii in range(0, self.size):
-                x_data_list += """data.x{jj}_{trace_indx}.slice(trace_slice_begin,trace_slice_end), """.format(jj=jj+1,
-                    trace_indx=str(ii))
-                y_data_list += """data.y{jj}_{trace_indx}.slice(trace_slice_begin,trace_slice_end), """.format(jj=jj+1,
-                    trace_indx=str(ii))
-                t_data_list += """data.time.slice(trace_slice_begin,trace_slice_end), """
+                x_data_list += """data.x{jj}_{trace_indx}.slice(trace_slice_begin,trace_slice_end), """.format(
+                    jj=jj + 1, trace_indx=str(ii)
+                )
+                y_data_list += """data.y{jj}_{trace_indx}.slice(trace_slice_begin,trace_slice_end), """.format(
+                    jj=jj + 1, trace_indx=str(ii)
+                )
+                t_data_list += (
+                    """data.time.slice(trace_slice_begin,trace_slice_end), """
+                )
                 trace_num_10_list += f"""{str(2*jj*self.size + 2 * ii + 1 - 1)}, """
                 trace_num_20_list += f"""{str(2*jj*self.size + 2 * ii + 2 - 1)}, """
         # Additional traces for additional plots
         if len(d1s) > 1:
-            setup_trace2= """
+            setup_trace2 = """
     let trace{trace_num_1}= {{
       x: data.x2_0.slice(0,numPerFrame),
       y: data.y2_0.slice(0,numPerFrame),
@@ -5771,13 +6529,18 @@ class Orbit:
       }},
       type: "scattergl",
     }};
-""".format(line_color=line_colors[0],trace_num_1=str(2*self.size+1),
-           trace_num_2=str(2*self.size+2),
-           hovertemplate=hovertemplate(names[0], xlabels[1], ylabels[1], tlabel),
-           hovertemplate_current=hovertemplate_current(names[0], xlabels[1], ylabels[1], tlabel))
-            traces_cumul+= f""",trace{str(2*self.size+1)},trace{str(2*self.size+2)}"""
-            for ii in range(1,self.size):
-                setup_trace2+= """
+""".format(
+                line_color=line_colors[0],
+                trace_num_1=str(2 * self.size + 1),
+                trace_num_2=str(2 * self.size + 2),
+                hovertemplate=hovertemplate(names[0], xlabels[1], ylabels[1], tlabel),
+                hovertemplate_current=hovertemplate_current(
+                    names[0], xlabels[1], ylabels[1], tlabel
+                ),
+            )
+            traces_cumul += f""",trace{str(2*self.size+1)},trace{str(2*self.size+2)}"""
+            for ii in range(1, self.size):
+                setup_trace2 += """
     let trace{trace_num_1}= {{
       x: data.x2_{trace_indx}.slice(0,numPerFrame),
       y: data.y2_{trace_indx}.slice(0,numPerFrame),
@@ -5811,18 +6574,27 @@ class Orbit:
       }},
       type: "scattergl",
     }};
-""".format(line_color=line_colors[ii],trace_indx=str(ii),
-           trace_num_1=str(2*self.size+2*ii+1),
-           trace_num_2=str(2*self.size+2*ii+2),
-           hovertemplate=hovertemplate(names[ii], xlabels[1], ylabels[1], tlabel),
-           hovertemplate_current=hovertemplate_current(names[ii], xlabels[1], ylabels[1], tlabel))
-                traces_cumul+= f""",trace{str(2*self.size+2*ii+1)},trace{str(2*self.size+2*ii+2)}"""
-        else: # else for "if there is a 2nd panel"
-            setup_trace2= """
+""".format(
+                    line_color=line_colors[ii],
+                    trace_indx=str(ii),
+                    trace_num_1=str(2 * self.size + 2 * ii + 1),
+                    trace_num_2=str(2 * self.size + 2 * ii + 2),
+                    hovertemplate=hovertemplate(
+                        names[ii], xlabels[1], ylabels[1], tlabel
+                    ),
+                    hovertemplate_current=hovertemplate_current(
+                        names[ii], xlabels[1], ylabels[1], tlabel
+                    ),
+                )
+                traces_cumul += f""",trace{str(2*self.size+2*ii+1)},trace{str(2*self.size+2*ii+2)}"""
+        else:  # else for "if there is a 2nd panel"
+            setup_trace2 = """
     let traces= [{traces_cumul}];
-""".format(traces_cumul=traces_cumul)
+""".format(
+                traces_cumul=traces_cumul
+            )
         if len(d1s) > 2:
-            setup_trace3= """
+            setup_trace3 = """
     let trace{trace_num_1}= {{
       x: data.x3_0.slice(0,numPerFrame),
       y: data.y3_0.slice(0,numPerFrame),
@@ -5856,13 +6628,18 @@ class Orbit:
       }},
       type: "scattergl",
     }};
-""".format(line_color=line_colors[0],trace_num_1=str(4*self.size+1),
-           trace_num_2=str(4*self.size+2),
-           hovertemplate=hovertemplate(names[0], xlabels[2], ylabels[2], tlabel),
-           hovertemplate_current=hovertemplate_current(names[0], xlabels[2], ylabels[2], tlabel))
-            traces_cumul+= f""",trace{str(4*self.size+1)},trace{str(4*self.size+2)}"""
-            for ii in range(1,self.size):
-                setup_trace3+= """
+""".format(
+                line_color=line_colors[0],
+                trace_num_1=str(4 * self.size + 1),
+                trace_num_2=str(4 * self.size + 2),
+                hovertemplate=hovertemplate(names[0], xlabels[2], ylabels[2], tlabel),
+                hovertemplate_current=hovertemplate_current(
+                    names[0], xlabels[2], ylabels[2], tlabel
+                ),
+            )
+            traces_cumul += f""",trace{str(4*self.size+1)},trace{str(4*self.size+2)}"""
+            for ii in range(1, self.size):
+                setup_trace3 += """
     let trace{trace_num_1}= {{
       x: data.x3_{trace_indx}.slice(0,numPerFrame),
       y: data.y3_{trace_indx}.slice(0,numPerFrame),
@@ -5896,24 +6673,36 @@ class Orbit:
       }},
       type: "scattergl",
     }};
-""".format(line_color=line_colors[ii],trace_indx=str(ii),
-           trace_num_1=str(4*self.size+2*ii+1),
-           trace_num_2=str(4*self.size+2*ii+2),
-           trace_num_10=str(4*self.size+2*ii+1-1),
-           trace_num_20=str(4*self.size+2*ii+2-1),
-           hovertemplate=hovertemplate(names[ii], xlabels[2], ylabels[2], tlabel),
-           hovertemplate_current=hovertemplate_current(names[ii], xlabels[2], ylabels[0], tlabel))
-                traces_cumul+= f""",trace{str(4*self.size+2*ii+1)},trace{str(4*self.size+2*ii+2)}"""
+""".format(
+                    line_color=line_colors[ii],
+                    trace_indx=str(ii),
+                    trace_num_1=str(4 * self.size + 2 * ii + 1),
+                    trace_num_2=str(4 * self.size + 2 * ii + 2),
+                    trace_num_10=str(4 * self.size + 2 * ii + 1 - 1),
+                    trace_num_20=str(4 * self.size + 2 * ii + 2 - 1),
+                    hovertemplate=hovertemplate(
+                        names[ii], xlabels[2], ylabels[2], tlabel
+                    ),
+                    hovertemplate_current=hovertemplate_current(
+                        names[ii], xlabels[2], ylabels[0], tlabel
+                    ),
+                )
+                traces_cumul += f""",trace{str(4*self.size+2*ii+1)},trace{str(4*self.size+2*ii+2)}"""
             setup_trace3 += """
             let traces= [{traces_cumul}];
-            """.format(traces_cumul=traces_cumul)
-        elif len(d1s) > 1: # elif for "if there is a 3rd panel
-            setup_trace3= """
+            """.format(
+                traces_cumul=traces_cumul
+            )
+        elif len(d1s) > 1:  # elif for "if there is a 3rd panel
+            setup_trace3 = """
     let traces= [{traces_cumul}];
-""".format(traces_cumul=traces_cumul)
-        else: # else for "if there is a 3rd or 2nd panel" (don't think we can get here!)
-            setup_trace3= ""
-        return HTML("""
+""".format(
+                traces_cumul=traces_cumul
+            )
+        else:  # else for "if there is a 3rd or 2nd panel" (don't think we can get here!)
+            setup_trace3 = ""
+        return HTML(
+            """
 <style>
 .galpybutton {{
     background-color:#ffffff;
@@ -6065,16 +6854,28 @@ if ( typeof window.require == 'undefined' ) {{
 }} else {{
   galpy_{divid}_animation();
 }}
-</script>""".format(json_code=json_code,close_json_code=close_json_code,
-                    divid=self.divid,width=width,height=height,
-                    button_margin_left=button_margin_left,config=config,
-                    layout=layout,
-                    x_data_list=x_data_list, y_data_list=y_data_list, t_data_list=t_data_list,
-                    trace_num_10_list=trace_num_10_list, trace_num_20_list=trace_num_20_list,
-                    setup_trace1=setup_trace1,setup_trace2=setup_trace2,
-                    setup_trace3=setup_trace3, trace_num_list= [ii for ii in range(self.size * len(d1s))]))
+</script>""".format(
+                json_code=json_code,
+                close_json_code=close_json_code,
+                divid=self.divid,
+                width=width,
+                height=height,
+                button_margin_left=button_margin_left,
+                config=config,
+                layout=layout,
+                x_data_list=x_data_list,
+                y_data_list=y_data_list,
+                t_data_list=t_data_list,
+                trace_num_10_list=trace_num_10_list,
+                trace_num_20_list=trace_num_20_list,
+                setup_trace1=setup_trace1,
+                setup_trace2=setup_trace2,
+                setup_trace3=setup_trace3,
+                trace_num_list=[ii for ii in range(self.size * len(d1s))],
+            )
+        )
 
-    def animate3d(self, mw_plane_bg=False,**kwargs): #pragma: no cover
+    def animate3d(self, mw_plane_bg=False, **kwargs):  # pragma: no cover
         """
         NAME:
 
@@ -6125,194 +6926,229 @@ if ( typeof window.require == 'undefined' ) {{
             from IPython.display import HTML
         except ImportError:
             raise ImportError("Orbit.animate requires ipython/jupyter to be installed")
-        if (kwargs.get('use_physical',False) \
-                and kwargs.get('ro',self._roSet)) or \
-                (not 'use_physical' in kwargs \
-                        and kwargs.get('ro',self._roSet)):
-            labeldict= {'t':'t (Gyr)',
-                        'R':'R (kpc)',
-                        'vR':'v_R (km/s)',
-                        'vT':'v_T (km/s)',
-                        'z':'z (kpc)',
-                        'vz':'v_z (km/s)',
-                        'phi':'azimuthal angle',
-                        'r':'r (kpc)',
-                        'x':'x (kpc)',
-                        'y':'y (kpc)',
-                        'vx':'v_x (km/s)',
-                        'vy':'v_y (km/s)',
-                        'E':'E (km^2/s^2)',
-                        'Ez':'E_z (km^2/s^2)',
-                        'ER':'E_R (km^2/s^2)',
-                        'Enorm':'E(t)/E(0.)',
-                        'Eznorm':'E_z(t)/E_z(0.)',
-                        'ERnorm':'E_R(t)/E_R(0.)',
-                        'Jacobi':'E-Omega_p L (km^2/s^2)',
-                        'Jacobinorm':'(E-Omega_p L)(t)/(E-Omega_p L)(0)'}
+        if (kwargs.get("use_physical", False) and kwargs.get("ro", self._roSet)) or (
+            not "use_physical" in kwargs and kwargs.get("ro", self._roSet)
+        ):
+            labeldict = {
+                "t": "t (Gyr)",
+                "R": "R (kpc)",
+                "vR": "v_R (km/s)",
+                "vT": "v_T (km/s)",
+                "z": "z (kpc)",
+                "vz": "v_z (km/s)",
+                "phi": "azimuthal angle",
+                "r": "r (kpc)",
+                "x": "x (kpc)",
+                "y": "y (kpc)",
+                "vx": "v_x (km/s)",
+                "vy": "v_y (km/s)",
+                "E": "E (km^2/s^2)",
+                "Ez": "E_z (km^2/s^2)",
+                "ER": "E_R (km^2/s^2)",
+                "Enorm": "E(t)/E(0.)",
+                "Eznorm": "E_z(t)/E_z(0.)",
+                "ERnorm": "E_R(t)/E_R(0.)",
+                "Jacobi": "E-Omega_p L (km^2/s^2)",
+                "Jacobinorm": "(E-Omega_p L)(t)/(E-Omega_p L)(0)",
+            }
         else:
-            labeldict= {'t':'t','R':'R','vR':'v_R','vT':'v_T',
-                        'z':'z','vz':'v_z','phi':r'azimuthal angle',
-                        'r':'r',
-                        'x':'x','y':'y','vx':'v_x','vy':'v_y',
-                        'E':'E','Enorm':'E(t)/E(0.)',
-                        'Ez':'E_z','Eznorm':'E_z(t)/E_z(0.)',
-                        'ER':r'E_R','ERnorm':r'E_R(t)/E_R(0.)',
-                        'Jacobi':r'E-Omega_p L',
-                        'Jacobinorm':r'(E-Omega_p L)(t)/(E-Omega_p L)(0)'}
-        labeldict.update({'ra':'RA (deg)',
-                            'dec':'Dec (deg)',
-                            'll':'Galactic lon (deg)',
-                            'bb':'Galactic lat (deg)',
-                            'dist':'distance (kpc)',
-                            'pmra':'pmRA (mas/yr)',
-                            'pmdec':'pmDec (mas/yr)',
-                            'pmll':'pmGlon (mas/yr)',
-                            'pmbb':'pmGlat (mas/yr)',
-                            'vlos':'line-of-sight vel (km/s)',
-                            'helioX':'X (kpc)',
-                            'helioY':'Y (kpc)',
-                            'helioZ':'Z (kpc)',
-                            'U':'U (km/s)',
-                            'V':'V (km/s)',
-                            'W':'W (km/s)'})
+            labeldict = {
+                "t": "t",
+                "R": "R",
+                "vR": "v_R",
+                "vT": "v_T",
+                "z": "z",
+                "vz": "v_z",
+                "phi": r"azimuthal angle",
+                "r": "r",
+                "x": "x",
+                "y": "y",
+                "vx": "v_x",
+                "vy": "v_y",
+                "E": "E",
+                "Enorm": "E(t)/E(0.)",
+                "Ez": "E_z",
+                "Eznorm": "E_z(t)/E_z(0.)",
+                "ER": r"E_R",
+                "ERnorm": r"E_R(t)/E_R(0.)",
+                "Jacobi": r"E-Omega_p L",
+                "Jacobinorm": r"(E-Omega_p L)(t)/(E-Omega_p L)(0)",
+            }
+        labeldict.update(
+            {
+                "ra": "RA (deg)",
+                "dec": "Dec (deg)",
+                "ll": "Galactic lon (deg)",
+                "bb": "Galactic lat (deg)",
+                "dist": "distance (kpc)",
+                "pmra": "pmRA (mas/yr)",
+                "pmdec": "pmDec (mas/yr)",
+                "pmll": "pmGlon (mas/yr)",
+                "pmbb": "pmGlat (mas/yr)",
+                "vlos": "line-of-sight vel (km/s)",
+                "helioX": "X (kpc)",
+                "helioY": "Y (kpc)",
+                "helioZ": "Z (kpc)",
+                "U": "U (km/s)",
+                "V": "V (km/s)",
+                "W": "W (km/s)",
+            }
+        )
         # Cannot be using Quantity output
-        kwargs['quantity']= False
-        #Defaults
-        if not 'd1' in kwargs and not 'd2' in kwargs and not 'd3' in kwargs:
+        kwargs["quantity"] = False
+        # Defaults
+        if not "d1" in kwargs and not "d2" in kwargs and not "d3" in kwargs:
             if self.phasedim() == 3:
-                d1= 'R'
-                d2= 'vR'
-                d3= 'vT'
+                d1 = "R"
+                d2 = "vR"
+                d3 = "vT"
             elif self.phasedim() == 4:
-                d1= 'x'
-                d2= 'y'
-                d3= 'vR'
+                d1 = "x"
+                d2 = "y"
+                d3 = "vR"
             elif self.phasedim() == 2:
                 raise AttributeError("Cannot do 3D animation with 1D orbits")
             elif self.phasedim() == 5:
-                d1= 'R'
-                d2= 'vR'
-                d3= 'z'
+                d1 = "R"
+                d2 = "vR"
+                d3 = "z"
             elif self.phasedim() == 6:
-                d1= 'x'
-                d2= 'y'
-                d3= 'z'
-        elif not 'd1' in kwargs:
-            d2=  kwargs.pop('d2')
-            d1= 't'
-        elif not 'd2' in kwargs:
-            d1= kwargs.pop('d1')
-            d2= 't'
+                d1 = "x"
+                d2 = "y"
+                d3 = "z"
+        elif not "d1" in kwargs:
+            d2 = kwargs.pop("d2")
+            d1 = "t"
+        elif not "d2" in kwargs:
+            d1 = kwargs.pop("d1")
+            d2 = "t"
         else:
-            d1= kwargs.pop('d1')
-            d2= kwargs.pop('d2')
-            d3= kwargs.pop('d3')
-        xs= []
-        ys= []
-        zs= []
-        xlabels= []
-        ylabels= []
-        zlabels= []
-        tlabel= labeldict.get('t')
+            d1 = kwargs.pop("d1")
+            d2 = kwargs.pop("d2")
+            d3 = kwargs.pop("d3")
+        xs = []
+        ys = []
+        zs = []
+        xlabels = []
+        ylabels = []
+        zlabels = []
+        tlabel = labeldict.get("t")
         if hasattr(self, "name"):  # name for display
-            names = self.name if isinstance(self.name, list) or isinstance(self.name, numpy.ndarray) else [self.name]
+            names = (
+                self.name
+                if isinstance(self.name, list) or isinstance(self.name, numpy.ndarray)
+                else [self.name]
+            )
         else:
             names = [f"Object {i}" for i in range(self.size)]
-        if isinstance(d1,str) or callable(d1):
-            d1s= [d1]
-            d2s= [d2]
-            d3s= [d3]
+        if isinstance(d1, str) or callable(d1):
+            d1s = [d1]
+            d2s = [d2]
+            d3s = [d3]
         else:
-            d1s= d1
-            d2s= d2
-            d3s= d3
+            d1s = d1
+            d2s = d2
+            d3s = d3
         if len(d1s) > 1:
-            raise ValueError('Orbit.animate3d only works for one subplot')
-        all_xlabel= kwargs.get('xlabel',[None for d in d1])
-        all_ylabel= kwargs.get('ylabel',[None for d in d2])
-        all_zlabel= kwargs.get('zlabel',[None for d in d3])
-        for d1,d2,d3, xlabel, ylabel, zlabel in zip(d1s,d2s,d3s,all_xlabel,all_ylabel,all_zlabel):
-            #Get x and y for each subplot
-            kwargs['dontreshape']= True
-            x= self._parse_plot_quantity(d1,**kwargs)
-            y= self._parse_plot_quantity(d2,**kwargs)
-            z= self._parse_plot_quantity(d3,**kwargs)
-            kwargs.pop('dontreshape')
+            raise ValueError("Orbit.animate3d only works for one subplot")
+        all_xlabel = kwargs.get("xlabel", [None for d in d1])
+        all_ylabel = kwargs.get("ylabel", [None for d in d2])
+        all_zlabel = kwargs.get("zlabel", [None for d in d3])
+        for d1, d2, d3, xlabel, ylabel, zlabel in zip(
+            d1s, d2s, d3s, all_xlabel, all_ylabel, all_zlabel
+        ):
+            # Get x and y for each subplot
+            kwargs["dontreshape"] = True
+            x = self._parse_plot_quantity(d1, **kwargs)
+            y = self._parse_plot_quantity(d2, **kwargs)
+            z = self._parse_plot_quantity(d3, **kwargs)
+            kwargs.pop("dontreshape")
             xs.append(x)
             ys.append(y)
             zs.append(z)
             if xlabel is None:
-                xlabels.append(labeldict.get(d1,r'\mathrm{No\ xlabel\ specified}'))
+                xlabels.append(labeldict.get(d1, r"\mathrm{No\ xlabel\ specified}"))
             else:
                 xlabels.append(xlabel)
             if ylabel is None:
-                ylabels.append(labeldict.get(d2,r'\mathrm{No\ ylabel\ specified}'))
+                ylabels.append(labeldict.get(d2, r"\mathrm{No\ ylabel\ specified}"))
             else:
                 ylabels.append(ylabel)
             if zlabel is None:
-                zlabels.append(labeldict.get(d3,r'\mathrm{No\ ylabel\ specified}'))
+                zlabels.append(labeldict.get(d3, r"\mathrm{No\ ylabel\ specified}"))
             else:
                 zlabels.append(zlabel)
-        kwargs.pop('ro',None)
-        kwargs.pop('vo',None)
-        kwargs.pop('obs',None)
-        kwargs.pop('use_physical',None)
-        kwargs.pop('pot',None)
-        kwargs.pop('OmegaP',None)
-        kwargs.pop('quantity',None)
-        width= kwargs.pop('width',800)
-        height= kwargs.pop('height',600)
+        kwargs.pop("ro", None)
+        kwargs.pop("vo", None)
+        kwargs.pop("obs", None)
+        kwargs.pop("use_physical", None)
+        kwargs.pop("pot", None)
+        kwargs.pop("OmegaP", None)
+        kwargs.pop("quantity", None)
+        width = kwargs.pop("width", 800)
+        height = kwargs.pop("height", 600)
         # Dump data to HTML
-        nplots= len(xs)
-        jsonDict= {}
+        nplots = len(xs)
+        jsonDict = {}
         for ii in range(nplots):
             for jj in range(self.size):
-                jsonDict['x%i_%i' % (ii+1,jj)]= xs[ii][jj].tolist()
-                jsonDict['y%i_%i' % (ii+1,jj)]= ys[ii][jj].tolist()
-                jsonDict['z%i_%i' % (ii+1,jj)]= zs[ii][jj].tolist()
-        jsonDict["time"] = self._parse_plot_quantity('t',**kwargs)[0].tolist()
-        json_filename= kwargs.pop('json_filename',None)
+                jsonDict["x%i_%i" % (ii + 1, jj)] = xs[ii][jj].tolist()
+                jsonDict["y%i_%i" % (ii + 1, jj)] = ys[ii][jj].tolist()
+                jsonDict["z%i_%i" % (ii + 1, jj)] = zs[ii][jj].tolist()
+        jsonDict["time"] = self._parse_plot_quantity("t", **kwargs)[0].tolist()
+        json_filename = kwargs.pop("json_filename", None)
         if json_filename is None:
-            jd= json.dumps(jsonDict)
-            json_code= f"""  let data= JSON.parse('{jd}');"""
-            close_json_code= ""
+            jd = json.dumps(jsonDict)
+            json_code = f"""  let data= JSON.parse('{jd}');"""
+            close_json_code = ""
         else:
-            with open(json_filename,'w') as jfile:
-                json.dump(jsonDict,jfile)
-            json_code= f"""Plotly.d3.json('{json_filename}',function(data){{"""
-            close_json_code= "});"
-        self.divid3d= ''.join(choice(ascii_lowercase) for i in range(24))
-        button_width= 419.51+4.*10.
-        button_margin_left= int(numpy.round((width-button_width)/2.))
-        if button_margin_left < 0: button_margin_left= 0
+            with open(json_filename, "w") as jfile:
+                json.dump(jsonDict, jfile)
+            json_code = f"""Plotly.d3.json('{json_filename}',function(data){{"""
+            close_json_code = "});"
+        self.divid3d = "".join(choice(ascii_lowercase) for i in range(24))
+        button_width = 419.51 + 4.0 * 10.0
+        button_margin_left = int(numpy.round((width - button_width) / 2.0))
+        if button_margin_left < 0:
+            button_margin_left = 0
         # Layout for multiple plots
         if len(d1s) == 1:
-            xmin= [0,0,0]
-            xmax= [1,1,1]
+            xmin = [0, 0, 0]
+            xmax = [1, 1, 1]
         elif len(d1s) == 2:
-            xmin= [0,0.55,0]
-            xmax= [0.45,1,1]
+            xmin = [0, 0.55, 0]
+            xmax = [0.45, 1, 1]
         elif len(d1s) == 3:
-            xmin= [0,0.365,0.73]
-            xmax= [0.27,0.635,1]
+            xmin = [0, 0.365, 0.73]
+            xmax = [0.27, 0.635, 1]
         # Colors
-        line_colors= ['#1f77b4', # muted blue
-                        '#ff7f0e', # safety orange
-                        '#2ca02c', # cooked asparagus green
-                        '#d62728', # brick red
-                        '#9467bd', # muted purple
-                        '#8c564b', # chestnut brown
-                        '#e377c2', # raspberry yogurt pink
-                        '#7f7f7f', # middle gray
-                        '#bcbd22', # curry yellow-green
-                        '#17becf'] # blue-teal
+        line_colors = [
+            "#1f77b4",  # muted blue
+            "#ff7f0e",  # safety orange
+            "#2ca02c",  # cooked asparagus green
+            "#d62728",  # brick red
+            "#9467bd",  # muted purple
+            "#8c564b",  # chestnut brown
+            "#e377c2",  # raspberry yogurt pink
+            "#7f7f7f",  # middle gray
+            "#bcbd22",  # curry yellow-green
+            "#17becf",
+        ]  # blue-teal
         # When there are more than these # of colors needed, make up randoms
         if self.size > len(line_colors):
-            line_colors.extend(["#%06x" % numpy.random.randint(0, 0xFFFFFF)
-                                for ii in range(self.size-len(line_colors))])
-        hovertemplate = lambda name, xlabel, ylabel, zlabel, tlabel: f"""'<b>{name}</b>' + '<br><b>{xlabel}</b>: %{{x:.2f}}' + '<br><b>{ylabel}</b>: %{{y:.2f}}' + '<br><b>{zlabel}</b>: %{{z:.2f}}' + '<br><b>{tlabel}</b>: %{{customdata:.2f}}'"""
-        hovertemplate_current = lambda name, xlabel, ylabel, zlabel, tlabel: f"""'<b>{name} (Current location)</b>' + '<br><b>{xlabel}</b>: %{{x:.2f}}' + '<br><b>{ylabel}</b>: %{{y:.2f}}' + '<br><b>{zlabel}</b>: %{{z:.2f}}' + '<br><b>{tlabel}</b>: %{{customdata:.2f}}'"""
-        layout= """{{
+            line_colors.extend(
+                [
+                    "#%06x" % numpy.random.randint(0, 0xFFFFFF)
+                    for ii in range(self.size - len(line_colors))
+                ]
+            )
+        hovertemplate = (
+            lambda name, xlabel, ylabel, zlabel, tlabel: f"""'<b>{name}</b>' + '<br><b>{xlabel}</b>: %{{x:.2f}}' + '<br><b>{ylabel}</b>: %{{y:.2f}}' + '<br><b>{zlabel}</b>: %{{z:.2f}}' + '<br><b>{tlabel}</b>: %{{customdata:.2f}}'"""
+        )
+        hovertemplate_current = (
+            lambda name, xlabel, ylabel, zlabel, tlabel: f"""'<b>{name} (Current location)</b>' + '<br><b>{xlabel}</b>: %{{x:.2f}}' + '<br><b>{ylabel}</b>: %{{y:.2f}}' + '<br><b>{zlabel}</b>: %{{z:.2f}}' + '<br><b>{tlabel}</b>: %{{customdata:.2f}}'"""
+        )
+        layout = """{{
             scene:{{
                 // force the scene always look like a cube
                 aspectmode: 'cube',
@@ -6325,10 +7161,16 @@ if ( typeof window.require == 'undefined' ) {{
                 margin: {{t: 20}},
                 hovermode: 'closest',
                 showlegend: false,
-                """.format(xlabel=xlabels[0],ylabel=ylabels[0],zlabel=zlabels[0],xmin=xmin[0],xmax=xmax[0])
-        layout+="""}"""
+                """.format(
+            xlabel=xlabels[0],
+            ylabel=ylabels[0],
+            zlabel=zlabels[0],
+            xmin=xmin[0],
+            xmax=xmax[0],
+        )
+        layout += """}"""
         # First plot
-        setup_trace1= """
+        setup_trace1 = """
     let trace1= {{
         x: data.x1_0.slice(0,numPerFrame),
         y: data.y1_0.slice(0,numPerFrame),
@@ -6360,13 +7202,23 @@ if ( typeof window.require == 'undefined' ) {{
         }},
         type: "scatter3d",
     }};
-    """.format(line_color=line_colors[0],
-               hovertemplate=hovertemplate(names[0], xlabels[0], ylabels[0], zlabels[0], tlabel),
-               hovertemplate_current=hovertemplate_current(names[0], xlabels[0], ylabels[0], zlabels[0], tlabel))
-        traces_cumul= """trace1,trace2"""
+    """.format(
+            line_color=line_colors[0],
+            hovertemplate=hovertemplate(
+                names[0], xlabels[0], ylabels[0], zlabels[0], tlabel
+            ),
+            hovertemplate_current=hovertemplate_current(
+                names[0], xlabels[0], ylabels[0], zlabels[0], tlabel
+            ),
+        )
+        traces_cumul = """trace1,trace2"""
         # milkyway plane surface
         # kpc or internal unit, because we need to scale the img correctly
-        is_kpc = True if 'kpc' in labeldict.get(d1,r'\mathrm{No\ xlabel\ specified}') else False
+        is_kpc = (
+            True
+            if "kpc" in labeldict.get(d1, r"\mathrm{No\ xlabel\ specified}")
+            else False
+        )
         mw_bg_surface_scale = 20.775
         if not is_kpc:
             mw_bg_surface_scale /= self._ro
@@ -6433,9 +7285,9 @@ if ( typeof window.require == 'undefined' ) {{
             cmin:0,
             type: 'surface',
             }};"""
-        setup_trace1+=mw_bg_surface
-        for ii in range(1,self.size):
-            setup_trace1+= """
+        setup_trace1 += mw_bg_surface
+        for ii in range(1, self.size):
+            setup_trace1 += """
     let trace{trace_num_1}= {{
         x: data.x1_{trace_indx}.slice(0,numPerFrame),
         y: data.y1_{trace_indx}.slice(0,numPerFrame),
@@ -6467,31 +7319,47 @@ if ( typeof window.require == 'undefined' ) {{
         }},
         type: "scatter3d",
     }};
-    """.format(trace_indx=str(ii),trace_num_1=str(2*ii+1),trace_num_2=str(2*ii+2),
-            line_color=line_colors[ii],
-            hovertemplate=hovertemplate(names[ii], xlabels[0], ylabels[0], zlabels[0], tlabel),
-            hovertemplate_current=hovertemplate_current(names[ii], xlabels[0], ylabels[0], zlabels[0], tlabel))
-            traces_cumul+= f""",trace{str(2*ii+1)},trace{str(2*ii+2)}"""
+    """.format(
+                trace_indx=str(ii),
+                trace_num_1=str(2 * ii + 1),
+                trace_num_2=str(2 * ii + 2),
+                line_color=line_colors[ii],
+                hovertemplate=hovertemplate(
+                    names[ii], xlabels[0], ylabels[0], zlabels[0], tlabel
+                ),
+                hovertemplate_current=hovertemplate_current(
+                    names[ii], xlabels[0], ylabels[0], zlabels[0], tlabel
+                ),
+            )
+            traces_cumul += f""",trace{str(2*ii+1)},trace{str(2*ii+2)}"""
         x_data_list = """"""
         y_data_list = """"""
         z_data_list = """"""
         t_data_list = """"""
         trace_num_10_list = """"""
         trace_num_20_list = """"""
-        if mw_plane_bg and d1=="x" and d2=="y" and d3=="z":  # only add when its true
-            traces_cumul+= """,mw_bg"""
+        if (
+            mw_plane_bg and d1 == "x" and d2 == "y" and d3 == "z"
+        ):  # only add when its true
+            traces_cumul += """,mw_bg"""
         for jj in range(len(d1s)):
             for ii in range(0, self.size):
-                x_data_list += """data.x{jj}_{trace_indx}.slice(trace_slice_begin,trace_slice_end), """.format(jj=jj+1,
-                    trace_indx=str(ii))
-                y_data_list += """data.y{jj}_{trace_indx}.slice(trace_slice_begin,trace_slice_end), """.format(jj=jj+1,
-                    trace_indx=str(ii))
-                z_data_list += """data.z{jj}_{trace_indx}.slice(trace_slice_begin,trace_slice_end), """.format(jj=jj+1,
-                    trace_indx=str(ii))
-                t_data_list += """data.time.slice(trace_slice_begin,trace_slice_end), """
+                x_data_list += """data.x{jj}_{trace_indx}.slice(trace_slice_begin,trace_slice_end), """.format(
+                    jj=jj + 1, trace_indx=str(ii)
+                )
+                y_data_list += """data.y{jj}_{trace_indx}.slice(trace_slice_begin,trace_slice_end), """.format(
+                    jj=jj + 1, trace_indx=str(ii)
+                )
+                z_data_list += """data.z{jj}_{trace_indx}.slice(trace_slice_begin,trace_slice_end), """.format(
+                    jj=jj + 1, trace_indx=str(ii)
+                )
+                t_data_list += (
+                    """data.time.slice(trace_slice_begin,trace_slice_end), """
+                )
                 trace_num_10_list += f"""{str(2*jj*self.size + 2 * ii + 1 - 1)}, """
                 trace_num_20_list += f"""{str(2*jj*self.size + 2 * ii + 2 - 1)}, """
-        return HTML("""
+        return HTML(
+            """
     <style>
     .galpybutton {{
     background-color:#ffffff;
@@ -6649,22 +7517,38 @@ if ( typeof window.require == 'undefined' ) {{
     }} else {{
     galpy_{divid3d}_animation();
     }}
-    </script>""".format(json_code=json_code,close_json_code=close_json_code,
-                    divid3d=self.divid3d,width=width,height=height,
-                    button_margin_left=button_margin_left,
-                    layout=layout,
-                    x_data_list=x_data_list, y_data_list=y_data_list, z_data_list=z_data_list, t_data_list=t_data_list,
-                    trace_num_10_list=trace_num_10_list, trace_num_20_list=trace_num_20_list,
-                    setup_trace1=setup_trace1, traces_cumul=traces_cumul, trace_num_list= [ii for ii in range(self.size * len(d1s))]))
+    </script>""".format(
+                json_code=json_code,
+                close_json_code=close_json_code,
+                divid3d=self.divid3d,
+                width=width,
+                height=height,
+                button_margin_left=button_margin_left,
+                layout=layout,
+                x_data_list=x_data_list,
+                y_data_list=y_data_list,
+                z_data_list=z_data_list,
+                t_data_list=t_data_list,
+                trace_num_10_list=trace_num_10_list,
+                trace_num_20_list=trace_num_20_list,
+                setup_trace1=setup_trace1,
+                traces_cumul=traces_cumul,
+                trace_num_list=[ii for ii in range(self.size * len(d1s))],
+            )
+        )
+
 
 class _1DInterp:
     """Class to simulate 2D interpolation when using a single orbit"""
-    def __init__(self,t,y,k=3):
-        self._ip= interpolate.InterpolatedUnivariateSpline(t,y,k=k)
-    def __call__(self,t,indx):
-        return self._ip(t)[:,None]
 
-def _from_name_oneobject(name,obs):
+    def __init__(self, t, y, k=3):
+        self._ip = interpolate.InterpolatedUnivariateSpline(t, y, k=k)
+
+    def __call__(self, t, indx):
+        return self._ip(t)[:, None]
+
+
+def _from_name_oneobject(name, obs):
     """
     NAME:
        _from_name_oneobject
@@ -6680,428 +7564,635 @@ def _from_name_oneobject(name,obs):
        2019-06-16 - Added named_objects - Bovy (UofT)
     """
     # First check whether this is a named_object
-    this_name= _named_objects_key_formatting(name)
+    this_name = _named_objects_key_formatting(name)
     # Find the object in the file?
     if this_name in _known_objects.keys():
-        if 'ra' in _known_objects[this_name].keys():
-            vxvv= [_known_objects[this_name]['ra'],
-                   _known_objects[this_name]['dec'],
-                   _known_objects[this_name]['distance'],
-                   _known_objects[this_name]['pmra'],
-                   _known_objects[this_name]['pmdec'],
-                   _known_objects[this_name]['vlos']]
+        if "ra" in _known_objects[this_name].keys():
+            vxvv = [
+                _known_objects[this_name]["ra"],
+                _known_objects[this_name]["dec"],
+                _known_objects[this_name]["distance"],
+                _known_objects[this_name]["pmra"],
+                _known_objects[this_name]["pmdec"],
+                _known_objects[this_name]["vlos"],
+            ]
         # If you add another way, need to convert to ra,dec,... bc from_name
         # expects that
-        if obs[0] is None and \
-                'ro' in _known_objects[this_name].keys():
-            obs[0]= _known_objects[this_name]['ro']
-        if obs[1] is None and \
-                'vo' in _known_objects[this_name].keys():
-            obs[1]= _known_objects[this_name]['vo']
-        if obs[2] is None and \
-                'zo' in _known_objects[this_name].keys():
-            obs[2]= _known_objects[this_name]['zo']
-        if obs[3] is None and \
-                'solarmotion' in _known_objects[this_name].keys():
-            obs[3]= _known_objects[this_name]['solarmotion']
+        if obs[0] is None and "ro" in _known_objects[this_name].keys():
+            obs[0] = _known_objects[this_name]["ro"]
+        if obs[1] is None and "vo" in _known_objects[this_name].keys():
+            obs[1] = _known_objects[this_name]["vo"]
+        if obs[2] is None and "zo" in _known_objects[this_name].keys():
+            obs[2] = _known_objects[this_name]["zo"]
+        if obs[3] is None and "solarmotion" in _known_objects[this_name].keys():
+            obs[3] = _known_objects[this_name]["solarmotion"]
         return vxvv
-    if not _ASTROQUERY_LOADED: # pragma: no cover
-        raise ImportError('astroquery needs to be installed to use '
-                          'Orbit.from_name when not using a known '
-                          'object (i.e., when querying Simbad)')
+    if not _ASTROQUERY_LOADED:  # pragma: no cover
+        raise ImportError(
+            "astroquery needs to be installed to use "
+            "Orbit.from_name when not using a known "
+            "object (i.e., when querying Simbad)"
+        )
     # setup a SIMBAD query with the appropriate fields
-    simbad= Simbad()
-    simbad.add_votable_fields('ra(d)', 'dec(d)', 'pmra', 'pmdec',
-                              'rv_value', 'plx', 'distance')
-    simbad.remove_votable_fields('main_id', 'coordinates')
+    simbad = Simbad()
+    simbad.add_votable_fields(
+        "ra(d)", "dec(d)", "pmra", "pmdec", "rv_value", "plx", "distance"
+    )
+    simbad.remove_votable_fields("main_id", "coordinates")
     # query SIMBAD for the named object
     try:
-        simbad_table= simbad.query_object(name)
-    except OSError: # pragma: no cover
-        raise OSError('failed to connect to SIMBAD')
+        simbad_table = simbad.query_object(name)
+    except OSError:  # pragma: no cover
+        raise OSError("failed to connect to SIMBAD")
     if not simbad_table:
-        raise ValueError(f'failed to find {name} in SIMBAD')
+        raise ValueError(f"failed to find {name} in SIMBAD")
     # check that the necessary coordinates have been found
-    missing= simbad_table.mask
-    if (any(missing['RA_d', 'DEC_d', 'PMRA', 'PMDEC', 'RV_VALUE'][0]) or
-        all(missing['PLX_VALUE', 'Distance_distance'][0])):
-        raise ValueError('failed to find some coordinates for {} in '
-                         'SIMBAD'.format(name))
-    ra, dec, pmra, pmdec, vlos= simbad_table['RA_d', 'DEC_d', 'PMRA',
-                                             'PMDEC', 'RV_VALUE'][0]
+    missing = simbad_table.mask
+    if any(missing["RA_d", "DEC_d", "PMRA", "PMDEC", "RV_VALUE"][0]) or all(
+        missing["PLX_VALUE", "Distance_distance"][0]
+    ):
+        raise ValueError(
+            "failed to find some coordinates for {} in " "SIMBAD".format(name)
+        )
+    ra, dec, pmra, pmdec, vlos = simbad_table[
+        "RA_d", "DEC_d", "PMRA", "PMDEC", "RV_VALUE"
+    ][0]
     # get a distance value
-    if not missing['PLX_VALUE'][0]:
-        dist= 1./simbad_table['PLX_VALUE'][0]
+    if not missing["PLX_VALUE"][0]:
+        dist = 1.0 / simbad_table["PLX_VALUE"][0]
     else:
-        dist_str= str(simbad_table['Distance_distance'][0]) + \
-            simbad_table['Distance_unit'][0]
-        dist= units.Quantity(dist_str).to(units.kpc).value
-    return [ra,dec,dist,pmra,pmdec,vlos]
+        dist_str = (
+            str(simbad_table["Distance_distance"][0]) + simbad_table["Distance_unit"][0]
+        )
+        dist = units.Quantity(dist_str).to(units.kpc).value
+    return [ra, dec, dist, pmra, pmdec, vlos]
 
-def _fit_orbit(orb,vxvv,vxvv_err,pot,radec=False,lb=False,
-               customsky=False,lb_to_customsky=None,
-               pmllpmbb_to_customsky=None,
-               tintJ=100,ntintJ=1000,integrate_method='dopr54_c',
-               ro=None,vo=None,obs=None,disp=False):
+
+def _fit_orbit(
+    orb,
+    vxvv,
+    vxvv_err,
+    pot,
+    radec=False,
+    lb=False,
+    customsky=False,
+    lb_to_customsky=None,
+    pmllpmbb_to_customsky=None,
+    tintJ=100,
+    ntintJ=1000,
+    integrate_method="dopr54_c",
+    ro=None,
+    vo=None,
+    obs=None,
+    disp=False,
+):
     """Fit an orbit to data in a given potential"""
     # Need to turn this off for speed
-    coords._APY_COORDS_ORIG= coords._APY_COORDS
-    coords._APY_COORDS= False
-    #Import here, because otherwise there is an infinite loop of imports
+    coords._APY_COORDS_ORIG = coords._APY_COORDS
+    coords._APY_COORDS = False
+    # Import here, because otherwise there is an infinite loop of imports
     from ..actionAngle import actionAngle, actionAngleIsochroneApprox
 
-    #Mock this up, bc we want to use its orbit-integration routines
+    # Mock this up, bc we want to use its orbit-integration routines
     class mockActionAngleIsochroneApprox(actionAngleIsochroneApprox):
-        def __init__(self,tintJ,ntintJ,pot,integrate_method='dopr54_c'):
+        def __init__(self, tintJ, ntintJ, pot, integrate_method="dopr54_c"):
             actionAngle.__init__(self)
-            self._tintJ= tintJ
-            self._ntintJ=ntintJ
-            self._tsJ= numpy.linspace(0.,self._tintJ,self._ntintJ)
-            self._integrate_dt= None
-            self._pot= pot
-            self._integrate_method= integrate_method
+            self._tintJ = tintJ
+            self._ntintJ = ntintJ
+            self._tsJ = numpy.linspace(0.0, self._tintJ, self._ntintJ)
+            self._integrate_dt = None
+            self._pot = pot
+            self._integrate_method = integrate_method
             return None
-    tmockAA= mockActionAngleIsochroneApprox(tintJ,ntintJ,pot,
-                                            integrate_method=integrate_method)
-    opt_vxvv= optimize.fmin_powell(_fit_orbit_mlogl,orb.vxvv,
-                                   args=(vxvv,vxvv_err,pot,radec,lb,
-                                         customsky,lb_to_customsky,
-                                         pmllpmbb_to_customsky,
-                                         tmockAA,
-                                         ro,vo,obs),
-                                   disp=disp)
-    maxLogL= -_fit_orbit_mlogl(opt_vxvv,vxvv,vxvv_err,pot,radec,lb,
-                               customsky,lb_to_customsky,pmllpmbb_to_customsky,
-                               tmockAA,
-                               ro,vo,obs)
-    coords._APY_COORDS= coords._APY_COORDS_ORIG
-    return (opt_vxvv,maxLogL)
 
-def _fit_orbit_mlogl(new_vxvv,vxvv,vxvv_err,pot,radec,lb,
-                     customsky,lb_to_customsky,pmllpmbb_to_customsky,
-                     tmockAA,
-                     ro,vo,obs):
+    tmockAA = mockActionAngleIsochroneApprox(
+        tintJ, ntintJ, pot, integrate_method=integrate_method
+    )
+    opt_vxvv = optimize.fmin_powell(
+        _fit_orbit_mlogl,
+        orb.vxvv,
+        args=(
+            vxvv,
+            vxvv_err,
+            pot,
+            radec,
+            lb,
+            customsky,
+            lb_to_customsky,
+            pmllpmbb_to_customsky,
+            tmockAA,
+            ro,
+            vo,
+            obs,
+        ),
+        disp=disp,
+    )
+    maxLogL = -_fit_orbit_mlogl(
+        opt_vxvv,
+        vxvv,
+        vxvv_err,
+        pot,
+        radec,
+        lb,
+        customsky,
+        lb_to_customsky,
+        pmllpmbb_to_customsky,
+        tmockAA,
+        ro,
+        vo,
+        obs,
+    )
+    coords._APY_COORDS = coords._APY_COORDS_ORIG
+    return (opt_vxvv, maxLogL)
+
+
+def _fit_orbit_mlogl(
+    new_vxvv,
+    vxvv,
+    vxvv_err,
+    pot,
+    radec,
+    lb,
+    customsky,
+    lb_to_customsky,
+    pmllpmbb_to_customsky,
+    tmockAA,
+    ro,
+    vo,
+    obs,
+):
     """The log likelihood for fitting an orbit"""
-    #Use this _parse_args routine, which does forward and backward integration
-    iR,ivR,ivT,iz,ivz,iphi= tmockAA._parse_args(True,False,
-                                                new_vxvv[0],
-                                                new_vxvv[1],
-                                                new_vxvv[2],
-                                                new_vxvv[3],
-                                                new_vxvv[4],
-                                                new_vxvv[5])
+    # Use this _parse_args routine, which does forward and backward integration
+    iR, ivR, ivT, iz, ivz, iphi = tmockAA._parse_args(
+        True,
+        False,
+        new_vxvv[0],
+        new_vxvv[1],
+        new_vxvv[2],
+        new_vxvv[3],
+        new_vxvv[4],
+        new_vxvv[5],
+    )
     if radec or lb or customsky:
-        #Need to transform to (l,b), (ra,dec), or a custom set
-        #First transform to X,Y,Z,vX,vY,vZ (Galactic)
-        X,Y,Z = coords.galcencyl_to_XYZ(iR.flatten(),iphi.flatten(),
-                                        iz.flatten(),
-                                        Xsun=obs[0]/ro,
-                                        Zsun=obs[2]/ro).T
-        vX,vY,vZ = coords.galcencyl_to_vxvyvz(ivR.flatten(),ivT.flatten(),
-                                              ivz.flatten(),iphi.flatten(),
-                                              vsun=numpy.array(\
-                obs[3:6])/vo,Xsun=obs[0]/ro,Zsun=obs[2]/ro).T
-        bad_indx= (X == 0.)*(Y == 0.)*(Z == 0.)
-        if True in bad_indx: X[bad_indx]+= ro/10000.
-        lbdvrpmllpmbb= coords.rectgal_to_sphergal(X*ro,Y*ro,Z*ro,
-                                                  vX*vo,vY*vo,vZ*vo,
-                                                  degree=True)
+        # Need to transform to (l,b), (ra,dec), or a custom set
+        # First transform to X,Y,Z,vX,vY,vZ (Galactic)
+        X, Y, Z = coords.galcencyl_to_XYZ(
+            iR.flatten(),
+            iphi.flatten(),
+            iz.flatten(),
+            Xsun=obs[0] / ro,
+            Zsun=obs[2] / ro,
+        ).T
+        vX, vY, vZ = coords.galcencyl_to_vxvyvz(
+            ivR.flatten(),
+            ivT.flatten(),
+            ivz.flatten(),
+            iphi.flatten(),
+            vsun=numpy.array(obs[3:6]) / vo,
+            Xsun=obs[0] / ro,
+            Zsun=obs[2] / ro,
+        ).T
+        bad_indx = (X == 0.0) * (Y == 0.0) * (Z == 0.0)
+        if True in bad_indx:  # pragma: no cover
+            X[bad_indx] += ro / 10000.0
+        lbdvrpmllpmbb = coords.rectgal_to_sphergal(
+            X * ro, Y * ro, Z * ro, vX * vo, vY * vo, vZ * vo, degree=True
+        )
         if lb:
-            orb_vxvv= numpy.array([lbdvrpmllpmbb[:,0],
-                                   lbdvrpmllpmbb[:,1],
-                                   lbdvrpmllpmbb[:,2],
-                                   lbdvrpmllpmbb[:,4],
-                                   lbdvrpmllpmbb[:,5],
-                                   lbdvrpmllpmbb[:,3]]).T
+            orb_vxvv = numpy.array(
+                [
+                    lbdvrpmllpmbb[:, 0],
+                    lbdvrpmllpmbb[:, 1],
+                    lbdvrpmllpmbb[:, 2],
+                    lbdvrpmllpmbb[:, 4],
+                    lbdvrpmllpmbb[:, 5],
+                    lbdvrpmllpmbb[:, 3],
+                ]
+            ).T
         elif radec:
-            #Further transform to ra,dec,pmra,pmdec
-            radec= coords.lb_to_radec(lbdvrpmllpmbb[:,0],
-                                      lbdvrpmllpmbb[:,1],degree=True,
-                                      epoch=None)
-            pmrapmdec= coords.pmllpmbb_to_pmrapmdec(lbdvrpmllpmbb[:,4],
-                                                    lbdvrpmllpmbb[:,5],
-                                                    lbdvrpmllpmbb[:,0],
-                                                    lbdvrpmllpmbb[:,1],
-                                                    degree=True,
-                                                    epoch=None)
-            orb_vxvv= numpy.array([radec[:,0],radec[:,1],
-                                   lbdvrpmllpmbb[:,2],
-                                   pmrapmdec[:,0],pmrapmdec[:,1],
-                                   lbdvrpmllpmbb[:,3]]).T
+            # Further transform to ra,dec,pmra,pmdec
+            radec = coords.lb_to_radec(
+                lbdvrpmllpmbb[:, 0], lbdvrpmllpmbb[:, 1], degree=True, epoch=None
+            )
+            pmrapmdec = coords.pmllpmbb_to_pmrapmdec(
+                lbdvrpmllpmbb[:, 4],
+                lbdvrpmllpmbb[:, 5],
+                lbdvrpmllpmbb[:, 0],
+                lbdvrpmllpmbb[:, 1],
+                degree=True,
+                epoch=None,
+            )
+            orb_vxvv = numpy.array(
+                [
+                    radec[:, 0],
+                    radec[:, 1],
+                    lbdvrpmllpmbb[:, 2],
+                    pmrapmdec[:, 0],
+                    pmrapmdec[:, 1],
+                    lbdvrpmllpmbb[:, 3],
+                ]
+            ).T
         elif customsky:
-            #Further transform to ra,dec,pmra,pmdec
-            customradec= lb_to_customsky(lbdvrpmllpmbb[:,0],
-                                              lbdvrpmllpmbb[:,1],degree=True)
-            custompmrapmdec= pmllpmbb_to_customsky(lbdvrpmllpmbb[:,4],
-                                                   lbdvrpmllpmbb[:,5],
-                                                   lbdvrpmllpmbb[:,0],
-                                                   lbdvrpmllpmbb[:,1],
-                                                   degree=True)
-            orb_vxvv= numpy.array([customradec[:,0],customradec[:,1],
-                                   lbdvrpmllpmbb[:,2],
-                                   custompmrapmdec[:,0],custompmrapmdec[:,1],
-                                   lbdvrpmllpmbb[:,3]]).T
+            # Further transform to ra,dec,pmra,pmdec
+            customradec = lb_to_customsky(
+                lbdvrpmllpmbb[:, 0], lbdvrpmllpmbb[:, 1], degree=True
+            )
+            custompmrapmdec = pmllpmbb_to_customsky(
+                lbdvrpmllpmbb[:, 4],
+                lbdvrpmllpmbb[:, 5],
+                lbdvrpmllpmbb[:, 0],
+                lbdvrpmllpmbb[:, 1],
+                degree=True,
+            )
+            orb_vxvv = numpy.array(
+                [
+                    customradec[:, 0],
+                    customradec[:, 1],
+                    lbdvrpmllpmbb[:, 2],
+                    custompmrapmdec[:, 0],
+                    custompmrapmdec[:, 1],
+                    lbdvrpmllpmbb[:, 3],
+                ]
+            ).T
     else:
-        #shape=(2tintJ-1,6)
-        orb_vxvv= numpy.array([iR.flatten(),ivR.flatten(),ivT.flatten(),
-                            iz.flatten(),ivz.flatten(),iphi.flatten()]).T
-    out= 0.
+        # shape=(2tintJ-1,6)
+        orb_vxvv = numpy.array(
+            [
+                iR.flatten(),
+                ivR.flatten(),
+                ivT.flatten(),
+                iz.flatten(),
+                ivz.flatten(),
+                iphi.flatten(),
+            ]
+        ).T
+    out = 0.0
     for ii in range(vxvv.shape[0]):
-        sub_vxvv= (orb_vxvv-vxvv[ii,:].flatten())**2.
-        #print(sub_vxvv[numpy.argmin(numpy.sum(sub_vxvv,axis=1))])
+        sub_vxvv = (orb_vxvv - vxvv[ii, :].flatten()) ** 2.0
+        # print(sub_vxvv[numpy.argmin(numpy.sum(sub_vxvv,axis=1))])
         if not vxvv_err is None:
-            sub_vxvv/= vxvv_err[ii,:]**2.
+            sub_vxvv /= vxvv_err[ii, :] ** 2.0
         else:
-            sub_vxvv/= 0.01**2.
-        out+= logsumexp(-0.5*numpy.sum(sub_vxvv,axis=1))
+            sub_vxvv /= 0.01**2.0
+        out += logsumexp(-0.5 * numpy.sum(sub_vxvv, axis=1))
     return -out
 
-def _check_roSet(orb,kwargs,funcName):
+
+def _check_roSet(orb, kwargs, funcName):
     """Function to check whether ro is set, because it's required for funcName"""
-    if not orb._roSet and kwargs.get('ro',None) is None:
-        warnings.warn(f"Method {funcName}(.) requires ro to be given at Orbit initialization or at method evaluation; using default ro which is {orb._ro:f} kpc",
-                      galpyWarning)
+    if not orb._roSet and kwargs.get("ro", None) is None:
+        warnings.warn(
+            f"Method {funcName}(.) requires ro to be given at Orbit initialization or at method evaluation; using default ro which is {orb._ro:f} kpc",
+            galpyWarning,
+        )
 
-def _check_voSet(orb,kwargs,funcName):
+
+def _check_voSet(orb, kwargs, funcName):
     """Function to check whether vo is set, because it's required for funcName"""
-    if not orb._voSet and kwargs.get('vo',None) is None:
-        warnings.warn(f"Method {funcName}(.) requires vo to be given at Orbit initialization or at method evaluation; using default vo which is {orb._vo:f} km/s",
-                      galpyWarning)
+    if not orb._voSet and kwargs.get("vo", None) is None:
+        warnings.warn(
+            f"Method {funcName}(.) requires vo to be given at Orbit initialization or at method evaluation; using default vo which is {orb._vo:f} km/s",
+            galpyWarning,
+        )
 
-def _helioXYZ(orb,thiso,*args,**kwargs):
+
+def _helioXYZ(orb, thiso, *args, **kwargs):
     """Calculate heliocentric rectangular coordinates"""
-    obs, ro, vo= _parse_radec_kwargs(orb,kwargs)
-    if not len(thiso.shape) == 2: thiso= thiso.reshape((thiso.shape[0],1))
-    if len(thiso[:,0]) != 4 and len(thiso[:,0]) != 6: #pragma: no cover
+    obs, ro, vo = _parse_radec_kwargs(orb, kwargs)
+    if len(thiso[:, 0]) != 4 and len(thiso[:, 0]) != 6:  # pragma: no cover
         raise AttributeError("orbit must track azimuth to use radeclbd functions")
-    elif len(thiso[:,0]) == 4: #planarOrbit
-        if isinstance(obs,(numpy.ndarray,list)):
-            X,Y,Z = coords.galcencyl_to_XYZ(\
+    elif len(thiso[:, 0]) == 4:  # planarOrbit
+        if isinstance(obs, (numpy.ndarray, list)):
+            X, Y, Z = coords.galcencyl_to_XYZ(
                 thiso[0],
-                thiso[3]-numpy.arctan2(obs[1],obs[0]),
+                thiso[3] - numpy.arctan2(obs[1], obs[0]),
                 numpy.zeros_like(thiso[0]),
-                Xsun=numpy.sqrt(obs[0]**2.+obs[1]**2.)/ro,
-                Zsun=obs[2]/ro,_extra_rot=False).T
-        else: #Orbit instance
+                Xsun=numpy.sqrt(obs[0] ** 2.0 + obs[1] ** 2.0) / ro,
+                Zsun=obs[2] / ro,
+                _extra_rot=False,
+            ).T
+        else:  # Orbit instance
             obs.turn_physical_off()
             if obs.dim() == 2:
-                X,Y,Z = coords.galcencyl_to_XYZ(\
-                    thiso[0,:],thiso[3,:]-obs.phi(*args,**kwargs),
+                X, Y, Z = coords.galcencyl_to_XYZ(
+                    thiso[0, :],
+                    thiso[3, :] - obs.phi(*args, **kwargs),
                     numpy.zeros_like(thiso[0]),
-                    Xsun=obs.R(*args,**kwargs),Zsun=0.,_extra_rot=False).T
+                    Xsun=obs.R(*args, **kwargs),
+                    Zsun=0.0,
+                    _extra_rot=False,
+                ).T
             else:
-                X,Y,Z = coords.galcencyl_to_XYZ(\
-                    thiso[0,:],thiso[3,:]-obs.phi(*args,**kwargs),
+                X, Y, Z = coords.galcencyl_to_XYZ(
+                    thiso[0, :],
+                    thiso[3, :] - obs.phi(*args, **kwargs),
                     numpy.zeros_like(thiso[0]),
-                    Xsun=obs.R(*args,**kwargs),
-                    Zsun=obs.z(*args,**kwargs),_extra_rot=False).T
+                    Xsun=obs.R(*args, **kwargs),
+                    Zsun=obs.z(*args, **kwargs),
+                    _extra_rot=False,
+                ).T
             obs.turn_physical_on()
-    else: #FullOrbit
-        if isinstance(obs,(numpy.ndarray,list)):
-            X,Y,Z = coords.galcencyl_to_XYZ(\
-                thiso[0,:],thiso[5,:]-numpy.arctan2(obs[1],obs[0]),
-                thiso[3,:],
-                Xsun=numpy.sqrt(obs[0]**2.+obs[1]**2.)/ro,
-                Zsun=obs[2]/ro).T
-        else: #Orbit instance
+    else:  # FullOrbit
+        if isinstance(obs, (numpy.ndarray, list)):
+            X, Y, Z = coords.galcencyl_to_XYZ(
+                thiso[0, :],
+                thiso[5, :] - numpy.arctan2(obs[1], obs[0]),
+                thiso[3, :],
+                Xsun=numpy.sqrt(obs[0] ** 2.0 + obs[1] ** 2.0) / ro,
+                Zsun=obs[2] / ro,
+            ).T
+        else:  # Orbit instance
             obs.turn_physical_off()
             if obs.dim() == 2:
-                X,Y,Z = coords.galcencyl_to_XYZ(\
-                    thiso[0,:],thiso[5,:]-obs.phi(*args,**kwargs),
-                    thiso[3,:],
-                    Xsun=obs.R(*args,**kwargs),Zsun=0.).T
+                X, Y, Z = coords.galcencyl_to_XYZ(
+                    thiso[0, :],
+                    thiso[5, :] - obs.phi(*args, **kwargs),
+                    thiso[3, :],
+                    Xsun=obs.R(*args, **kwargs),
+                    Zsun=0.0,
+                ).T
             else:
-                X,Y,Z = coords.galcencyl_to_XYZ(\
-                    thiso[0,:],thiso[5,:]-obs.phi(*args,**kwargs),
-                    thiso[3,:],
-                    Xsun=obs.R(*args,**kwargs),
-                    Zsun=obs.z(*args,**kwargs)).T
+                X, Y, Z = coords.galcencyl_to_XYZ(
+                    thiso[0, :],
+                    thiso[5, :] - obs.phi(*args, **kwargs),
+                    thiso[3, :],
+                    Xsun=obs.R(*args, **kwargs),
+                    Zsun=obs.z(*args, **kwargs),
+                ).T
             obs.turn_physical_on()
-    return (X*ro,Y*ro,Z*ro)
+    return (X * ro, Y * ro, Z * ro)
 
-def _lbd(orb,thiso,*args,**kwargs):
+
+def _lbd(orb, thiso, *args, **kwargs):
     """Calculate l,b, and d"""
-    obs, ro, vo= _parse_radec_kwargs(orb,kwargs,dontpop=True)
-    X,Y,Z= _helioXYZ(orb,thiso,*args,**kwargs)
-    bad_indx= (X == 0.)*(Y == 0.)*(Z == 0.)
+    obs, ro, vo = _parse_radec_kwargs(orb, kwargs, dontpop=True)
+    X, Y, Z = _helioXYZ(orb, thiso, *args, **kwargs)
+    bad_indx = (X == 0.0) * (Y == 0.0) * (Z == 0.0)
     if True in bad_indx:
-        X[bad_indx]+= 1e-15
-    return coords.XYZ_to_lbd(X,Y,Z,degree=True)
+        X[bad_indx] += 1e-15
+    return coords.XYZ_to_lbd(X, Y, Z, degree=True)
 
-def _radec(orb,thiso,*args,**kwargs):
+
+def _radec(orb, thiso, *args, **kwargs):
     """Calculate ra and dec"""
-    lbd= _lbd(orb,thiso,*args,**kwargs)
-    return coords.lb_to_radec(lbd[:,0],lbd[:,1],degree=True,epoch=None)
+    lbd = _lbd(orb, thiso, *args, **kwargs)
+    return coords.lb_to_radec(lbd[:, 0], lbd[:, 1], degree=True, epoch=None)
 
-def _XYZvxvyvz(orb,thiso,*args,**kwargs):
+
+def _XYZvxvyvz(orb, thiso, *args, **kwargs):
     """Calculate X,Y,Z,U,V,W"""
-    obs, ro, vo= _parse_radec_kwargs(orb,kwargs,vel=True)
-    if not len(thiso.shape) == 2: thiso= thiso.reshape((thiso.shape[0],1))
-    if len(thiso[:,0]) != 4 and len(thiso[:,0]) != 6: #pragma: no cover
+    obs, ro, vo = _parse_radec_kwargs(orb, kwargs, vel=True)
+    if len(thiso[:, 0]) != 4 and len(thiso[:, 0]) != 6:  # pragma: no cover
         raise AttributeError("orbit must track azimuth to use radeclbduvw functions")
-    elif len(thiso[:,0]) == 4: #planarOrbit
-        if isinstance(obs,(numpy.ndarray,list)):
-            Xsun= numpy.sqrt(obs[0]**2.+obs[1]**2.)
-            X,Y,Z = coords.galcencyl_to_XYZ(\
-                thiso[0,:],thiso[3,:]-numpy.arctan2(obs[1],obs[0]),
+    elif len(thiso[:, 0]) == 4:  # planarOrbit
+        if isinstance(obs, (numpy.ndarray, list)):
+            Xsun = numpy.sqrt(obs[0] ** 2.0 + obs[1] ** 2.0)
+            X, Y, Z = coords.galcencyl_to_XYZ(
+                thiso[0, :],
+                thiso[3, :] - numpy.arctan2(obs[1], obs[0]),
                 numpy.zeros_like(thiso[0]),
-                Xsun=Xsun/ro,Zsun=obs[2]/ro,_extra_rot=False).T
-            vX,vY,vZ = coords.galcencyl_to_vxvyvz(\
-                thiso[1,:],thiso[2,:],numpy.zeros_like(thiso[0]),
-                thiso[3,:]-numpy.arctan2(obs[1],obs[0]),
-                vsun=numpy.array(# have to rotate
-                    [obs[3]*obs[0]/Xsun+obs[4]*obs[1]/Xsun,
-                     -obs[3]*obs[1]/Xsun+obs[4]*obs[0]/Xsun,
-                     obs[5]])/vo,
-                Xsun=Xsun/ro,Zsun=obs[2]/ro,_extra_rot=False).T
-        else: #Orbit instance
+                Xsun=Xsun / ro,
+                Zsun=obs[2] / ro,
+                _extra_rot=False,
+            ).T
+            vX, vY, vZ = coords.galcencyl_to_vxvyvz(
+                thiso[1, :],
+                thiso[2, :],
+                numpy.zeros_like(thiso[0]),
+                thiso[3, :] - numpy.arctan2(obs[1], obs[0]),
+                vsun=numpy.array(  # have to rotate
+                    [
+                        obs[3] * obs[0] / Xsun + obs[4] * obs[1] / Xsun,
+                        -obs[3] * obs[1] / Xsun + obs[4] * obs[0] / Xsun,
+                        obs[5],
+                    ]
+                )
+                / vo,
+                Xsun=Xsun / ro,
+                Zsun=obs[2] / ro,
+                _extra_rot=False,
+            ).T
+        else:  # Orbit instance
             obs.turn_physical_off()
             if obs.dim() == 2:
-                X,Y,Z = coords.galcencyl_to_XYZ(\
-                    thiso[0,:],thiso[3,:]-obs.phi(*args,**kwargs),
+                X, Y, Z = coords.galcencyl_to_XYZ(
+                    thiso[0, :],
+                    thiso[3, :] - obs.phi(*args, **kwargs),
                     numpy.zeros_like(thiso[0]),
-                    Xsun=obs.R(*args,**kwargs),Zsun=0.,_extra_rot=False).T
-                vX,vY,vZ = coords.galcencyl_to_vxvyvz(\
-                    thiso[1],thiso[2],numpy.zeros_like(thiso[0]),
-                    thiso[3]-obs.phi(*args,**kwargs),
-                    vsun=numpy.array([\
-                            obs.vR(*args,**kwargs),obs.vT(*args,**kwargs),
-                            numpy.zeros_like(obs.vR(*args,**kwargs))]),
-                    Xsun=obs.R(*args,**kwargs),Zsun=0.,_extra_rot=False).T
+                    Xsun=obs.R(*args, **kwargs),
+                    Zsun=0.0,
+                    _extra_rot=False,
+                ).T
+                vX, vY, vZ = coords.galcencyl_to_vxvyvz(
+                    thiso[1],
+                    thiso[2],
+                    numpy.zeros_like(thiso[0]),
+                    thiso[3] - obs.phi(*args, **kwargs),
+                    vsun=numpy.array(
+                        [
+                            obs.vR(*args, **kwargs),
+                            obs.vT(*args, **kwargs),
+                            numpy.zeros_like(obs.vR(*args, **kwargs)),
+                        ]
+                    ),
+                    Xsun=obs.R(*args, **kwargs),
+                    Zsun=0.0,
+                    _extra_rot=False,
+                ).T
             else:
-                X,Y,Z = coords.galcencyl_to_XYZ(\
-                    thiso[0,:],thiso[3,:]-obs.phi(*args,**kwargs),
+                X, Y, Z = coords.galcencyl_to_XYZ(
+                    thiso[0, :],
+                    thiso[3, :] - obs.phi(*args, **kwargs),
                     numpy.zeros_like(thiso[0]),
-                    Xsun=obs.R(*args,**kwargs),
-                    Zsun=obs.z(*args,**kwargs),_extra_rot=False).T
-                vX,vY,vZ = coords.galcencyl_to_vxvyvz(\
-                    thiso[1,:],thiso[2,:],numpy.zeros_like(thiso[0]),
-                    thiso[3,:]-obs.phi(*args,**kwargs),
-                    vsun=numpy.array([\
-                            obs.vR(*args,**kwargs),
-                            obs.vT(*args,**kwargs),
-                            obs.vz(*args,**kwargs)]),
-                    Xsun=obs.R(*args,**kwargs),
-                    Zsun=obs.z(*args,**kwargs),_extra_rot=False).T
+                    Xsun=obs.R(*args, **kwargs),
+                    Zsun=obs.z(*args, **kwargs),
+                    _extra_rot=False,
+                ).T
+                vX, vY, vZ = coords.galcencyl_to_vxvyvz(
+                    thiso[1, :],
+                    thiso[2, :],
+                    numpy.zeros_like(thiso[0]),
+                    thiso[3, :] - obs.phi(*args, **kwargs),
+                    vsun=numpy.array(
+                        [
+                            obs.vR(*args, **kwargs),
+                            obs.vT(*args, **kwargs),
+                            obs.vz(*args, **kwargs),
+                        ]
+                    ),
+                    Xsun=obs.R(*args, **kwargs),
+                    Zsun=obs.z(*args, **kwargs),
+                    _extra_rot=False,
+                ).T
             obs.turn_physical_on()
-    else: #FullOrbit
-        if isinstance(obs,(numpy.ndarray,list)):
-            Xsun= numpy.sqrt(obs[0]**2.+obs[1]**2.)
-            X,Y,Z = coords.galcencyl_to_XYZ(\
-                thiso[0,:],thiso[5,:]-numpy.arctan2(obs[1],obs[0]),thiso[3,:],
-                Xsun=Xsun/ro,Zsun=obs[2]/ro).T
-            vX,vY,vZ = coords.galcencyl_to_vxvyvz(\
-                thiso[1,:],thiso[2,:],thiso[4,:],
-                thiso[5,:]-numpy.arctan2(obs[1],obs[0]),
-                vsun=numpy.array(# have to rotate
-                    [obs[3]*obs[0]/Xsun+obs[4]*obs[1]/Xsun,
-                     -obs[3]*obs[1]/Xsun+obs[4]*obs[0]/Xsun,
-                     obs[5]])/vo,
-                Xsun=Xsun/ro,Zsun=obs[2]/ro).T
-        else: #Orbit instance
+    else:  # FullOrbit
+        if isinstance(obs, (numpy.ndarray, list)):
+            Xsun = numpy.sqrt(obs[0] ** 2.0 + obs[1] ** 2.0)
+            X, Y, Z = coords.galcencyl_to_XYZ(
+                thiso[0, :],
+                thiso[5, :] - numpy.arctan2(obs[1], obs[0]),
+                thiso[3, :],
+                Xsun=Xsun / ro,
+                Zsun=obs[2] / ro,
+            ).T
+            vX, vY, vZ = coords.galcencyl_to_vxvyvz(
+                thiso[1, :],
+                thiso[2, :],
+                thiso[4, :],
+                thiso[5, :] - numpy.arctan2(obs[1], obs[0]),
+                vsun=numpy.array(  # have to rotate
+                    [
+                        obs[3] * obs[0] / Xsun + obs[4] * obs[1] / Xsun,
+                        -obs[3] * obs[1] / Xsun + obs[4] * obs[0] / Xsun,
+                        obs[5],
+                    ]
+                )
+                / vo,
+                Xsun=Xsun / ro,
+                Zsun=obs[2] / ro,
+            ).T
+        else:  # Orbit instance
             obs.turn_physical_off()
             if obs.dim() == 2:
-                X,Y,Z = coords.galcencyl_to_XYZ(\
-                    thiso[0,:],thiso[5,:]-obs.phi(*args,**kwargs),
-                    thiso[3,:],
-                    Xsun=obs.R(*args,**kwargs),Zsun=0.).T
-                vX,vY,vZ = coords.galcencyl_to_vxvyvz(\
-                    thiso[1,:],thiso[2,:],thiso[4,:],
-                    thiso[5,:]-obs.phi(*args,**kwargs),
-                    vsun=numpy.array([\
-                            obs.vR(*args,**kwargs),obs.vT(*args,**kwargs),
-                            0.]),
-                    Xsun=obs.R(*args,**kwargs),Zsun=0.).T
+                X, Y, Z = coords.galcencyl_to_XYZ(
+                    thiso[0, :],
+                    thiso[5, :] - obs.phi(*args, **kwargs),
+                    thiso[3, :],
+                    Xsun=obs.R(*args, **kwargs),
+                    Zsun=0.0,
+                ).T
+                vX, vY, vZ = coords.galcencyl_to_vxvyvz(
+                    thiso[1, :],
+                    thiso[2, :],
+                    thiso[4, :],
+                    thiso[5, :] - obs.phi(*args, **kwargs),
+                    vsun=numpy.array(
+                        [obs.vR(*args, **kwargs), obs.vT(*args, **kwargs), 0.0]
+                    ),
+                    Xsun=obs.R(*args, **kwargs),
+                    Zsun=0.0,
+                ).T
             else:
-                X,Y,Z = coords.galcencyl_to_XYZ(\
-                    thiso[0,:],thiso[5,:]-obs.phi(*args,**kwargs),
-                    thiso[3,:],
-                    Xsun=obs.R(*args,**kwargs),
-                    Zsun=obs.z(*args,**kwargs)).T
-                vX,vY,vZ = coords.galcencyl_to_vxvyvz(\
-                    thiso[1,:],thiso[2,:],thiso[4,:],
-                    thiso[5,:]-obs.phi(*args,**kwargs),
-                    vsun=numpy.array([\
-                            obs.vR(*args,**kwargs),
-                            obs.vT(*args,**kwargs),
-                            obs.vz(*args,**kwargs)]),
-                    Xsun=obs.R(*args,**kwargs),
-                    Zsun=obs.z(*args,**kwargs)).T
+                X, Y, Z = coords.galcencyl_to_XYZ(
+                    thiso[0, :],
+                    thiso[5, :] - obs.phi(*args, **kwargs),
+                    thiso[3, :],
+                    Xsun=obs.R(*args, **kwargs),
+                    Zsun=obs.z(*args, **kwargs),
+                ).T
+                vX, vY, vZ = coords.galcencyl_to_vxvyvz(
+                    thiso[1, :],
+                    thiso[2, :],
+                    thiso[4, :],
+                    thiso[5, :] - obs.phi(*args, **kwargs),
+                    vsun=numpy.array(
+                        [
+                            obs.vR(*args, **kwargs),
+                            obs.vT(*args, **kwargs),
+                            obs.vz(*args, **kwargs),
+                        ]
+                    ),
+                    Xsun=obs.R(*args, **kwargs),
+                    Zsun=obs.z(*args, **kwargs),
+                ).T
             obs.turn_physical_on()
-    return (X*ro,Y*ro,Z*ro,vX*vo,vY*vo,vZ*vo)
+    return (X * ro, Y * ro, Z * ro, vX * vo, vY * vo, vZ * vo)
 
-def _lbdvrpmllpmbb(orb,thiso,*args,**kwargs):
+
+def _lbdvrpmllpmbb(orb, thiso, *args, **kwargs):
     """Calculate l,b,d,vr,pmll,pmbb"""
-    obs, ro, vo= _parse_radec_kwargs(orb,kwargs,dontpop=True)
-    X,Y,Z,vX,vY,vZ= _XYZvxvyvz(orb,thiso,*args,**kwargs)
-    bad_indx= (X == 0.)*(Y == 0.)*(Z == 0.)
+    obs, ro, vo = _parse_radec_kwargs(orb, kwargs, dontpop=True)
+    X, Y, Z, vX, vY, vZ = _XYZvxvyvz(orb, thiso, *args, **kwargs)
+    bad_indx = (X == 0.0) * (Y == 0.0) * (Z == 0.0)
     if True in bad_indx:
-        X[bad_indx]+= ro/10000.
-    return coords.rectgal_to_sphergal(X,Y,Z,vX,vY,vZ,degree=True)
+        X[bad_indx] += ro / 10000.0
+    return coords.rectgal_to_sphergal(X, Y, Z, vX, vY, vZ, degree=True)
 
-def _pmrapmdec(orb,thiso,*args,**kwargs):
+
+def _pmrapmdec(orb, thiso, *args, **kwargs):
     """Calculate pmra and pmdec"""
-    lbdvrpmllpmbb= _lbdvrpmllpmbb(orb,thiso,*args,**kwargs)
-    return coords.pmllpmbb_to_pmrapmdec(lbdvrpmllpmbb[:,4],
-                                        lbdvrpmllpmbb[:,5],
-                                        lbdvrpmllpmbb[:,0],
-                                        lbdvrpmllpmbb[:,1],degree=True,
-                                        epoch=None)
+    lbdvrpmllpmbb = _lbdvrpmllpmbb(orb, thiso, *args, **kwargs)
+    return coords.pmllpmbb_to_pmrapmdec(
+        lbdvrpmllpmbb[:, 4],
+        lbdvrpmllpmbb[:, 5],
+        lbdvrpmllpmbb[:, 0],
+        lbdvrpmllpmbb[:, 1],
+        degree=True,
+        epoch=None,
+    )
 
-def _parse_radec_kwargs(orb,kwargs,vel=False,dontpop=False):
-    if 'obs' in kwargs:
-        obs= kwargs['obs']
+
+def _parse_radec_kwargs(orb, kwargs, vel=False, dontpop=False):
+    if "obs" in kwargs:
+        obs = kwargs["obs"]
         if not dontpop:
-            kwargs.pop('obs')
-        if isinstance(obs,(list,numpy.ndarray)):
+            kwargs.pop("obs")
+        if isinstance(obs, (list, numpy.ndarray)):
             if len(obs) == 2:
-                obs= [obs[0],obs[1],0.]
+                obs = [obs[0], obs[1], 0.0]
             elif len(obs) == 4:
-                obs= [obs[0],obs[1],0.,obs[2],obs[3],0.]
+                obs = [obs[0], obs[1], 0.0, obs[2], obs[3], 0.0]
             for ii in range(len(obs)):
-                if _APY_LOADED and isinstance(obs[ii],units.Quantity):
+                if _APY_LOADED and isinstance(obs[ii], units.Quantity):
                     if ii < 3:
-                        obs[ii]= conversion.parse_length_kpc(obs[ii])
+                        obs[ii] = conversion.parse_length_kpc(obs[ii])
                     else:
-                        obs[ii]= conversion.parse_velocity_kms(obs[ii])
+                        obs[ii] = conversion.parse_velocity_kms(obs[ii])
     else:
         if vel:
-            obs= [orb._ro,0.,orb._zo,
-                  orb._solarmotion[0],orb._solarmotion[1]+orb._vo,
-                  orb._solarmotion[2]]
+            obs = [
+                orb._ro,
+                0.0,
+                orb._zo,
+                orb._solarmotion[0],
+                orb._solarmotion[1] + orb._vo,
+                orb._solarmotion[2],
+            ]
         else:
-            obs= [orb._ro,0.,orb._zo]
-    if 'ro' in kwargs:
-        ro= conversion.parse_length_kpc(kwargs['ro'])
+            obs = [orb._ro, 0.0, orb._zo]
+    if "ro" in kwargs:
+        ro = conversion.parse_length_kpc(kwargs["ro"])
         if not dontpop:
-            kwargs.pop('ro')
+            kwargs.pop("ro")
     else:
-        ro= orb._ro
-    if 'vo' in kwargs:
-        vo= conversion.parse_velocity_kms(kwargs['vo'])
+        ro = orb._ro
+    if "vo" in kwargs:
+        vo = conversion.parse_velocity_kms(kwargs["vo"])
         if not dontpop:
-            kwargs.pop('vo')
+            kwargs.pop("vo")
     else:
-        vo= orb._vo
-    return (obs,ro,vo)
+        vo = orb._vo
+    return (obs, ro, vo)
 
-def _check_integrate_dt(t,dt):
+
+def _check_integrate_dt(t, dt):
     """Check that the stepsize in t is an integer x dt"""
     if dt is None:
         return True
-    mult= round((t[1]-t[0])/dt)
-    if numpy.fabs(mult*dt-t[1]+t[0]) < 10.**-10.:
+    mult = round((t[1] - t[0]) / dt)
+    if numpy.fabs(mult * dt - t[1] + t[0]) < 10.0**-10.0:
         return True
     else:
         return False
 
-def _check_potential_dim(orb,pot):
+
+def _check_potential_dim(orb, pot):
     from ..potential import _dim
 
     # Don't deal with pot=None here, just dimensionality
-    assert pot is None or orb.dim() <= _dim(pot), 'Orbit dimensionality is %i, but potential dimensionality is %i < %i; orbit needs to be of equal or lower dimensionality as the potential; you can reduce the dimensionality---if appropriate---of your orbit with orbit.toPlanar or orbit.toVertical' % (orb.dim(),_dim(pot),orb.dim())
-    assert pot is None or not (orb.dim() == 1 and _dim(pot) != 1), 'Orbit dimensionality is 1, but potential dimensionality is %i != 1; 1D orbits can only be integrated in 1D potentials; you convert your potential to a 1D potential---if appropriate---using potential.toVerticalPotential' % (_dim(pot))
+    assert pot is None or orb.dim() <= _dim(pot), (
+        "Orbit dimensionality is %i, but potential dimensionality is %i < %i; orbit needs to be of equal or lower dimensionality as the potential; you can reduce the dimensionality---if appropriate---of your orbit with orbit.toPlanar or orbit.toVertical"
+        % (orb.dim(), _dim(pot), orb.dim())
+    )
+    assert pot is None or not (orb.dim() == 1 and _dim(pot) != 1), (
+        "Orbit dimensionality is 1, but potential dimensionality is %i != 1; 1D orbits can only be integrated in 1D potentials; you convert your potential to a 1D potential---if appropriate---using potential.toVerticalPotential"
+        % (_dim(pot))
+    )
 
-def _check_consistent_units(orb,pot):
-    if pot is None: return None
-    assert physical_compatible(orb,pot), 'Physical conversion for the Orbit object is not consistent with that of the Potential given to it'
+
+def _check_consistent_units(orb, pot):
+    if pot is None:
+        return None
+    assert physical_compatible(
+        orb, pot
+    ), "Physical conversion for the Orbit object is not consistent with that of the Potential given to it"

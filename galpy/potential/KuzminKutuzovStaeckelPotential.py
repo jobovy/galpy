@@ -23,8 +23,8 @@ class KuzminKutuzovStaeckelPotential(Potential):
     (see, e.g., `Batsleer & Dejonghe 1994 <http://adsabs.harvard.edu/abs/1994A%26A...287...43B>`__)
 
     """
-    def __init__(self,amp=1.,ac=5.,Delta=1.,normalize=False,
-                 ro=None,vo=None):
+
+    def __init__(self, amp=1.0, ac=5.0, Delta=1.0, normalize=False, ro=None, vo=None):
         """
         NAME:
 
@@ -55,20 +55,20 @@ class KuzminKutuzovStaeckelPotential(Potential):
            2015-02-15 - Written - Trick (MPIA)
 
         """
-        Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='mass')
-        Delta= conversion.parse_length(Delta,ro=self._ro)
-        self._ac    = ac
+        Potential.__init__(self, amp=amp, ro=ro, vo=vo, amp_units="mass")
+        Delta = conversion.parse_length(Delta, ro=self._ro)
+        self._ac = ac
         self._Delta = Delta
-        self._gamma = self._Delta**2 / (1.-self._ac**2)
+        self._gamma = self._Delta**2 / (1.0 - self._ac**2)
         self._alpha = self._gamma - self._Delta**2
-        if normalize or \
-                (isinstance(normalize,(int,float)) \
-                     and not isinstance(normalize,bool)):
+        if normalize or (
+            isinstance(normalize, (int, float)) and not isinstance(normalize, bool)
+        ):
             self.normalize(normalize)
-        self.hasC      = True
+        self.hasC = True
         self.hasC_dxdv = True
 
-    def _evaluate(self,R,z,phi=0.,t=0.):
+    def _evaluate(self, R, z, phi=0.0, t=0.0):
         """
         NAME:
             _evaluate
@@ -84,10 +84,10 @@ class KuzminKutuzovStaeckelPotential(Potential):
         HISTORY:
             2015-02-15 - Written - Trick (MPIA)
         """
-        l,n = coords.Rz_to_lambdanu(R,z,ac=self._ac,Delta=self._Delta)
-        return -1./(numpy.sqrt(l) + numpy.sqrt(n))
+        l, n = coords.Rz_to_lambdanu(R, z, ac=self._ac, Delta=self._Delta)
+        return -1.0 / (numpy.sqrt(l) + numpy.sqrt(n))
 
-    def _Rforce(self,R,z,phi=0.,t=0.):
+    def _Rforce(self, R, z, phi=0.0, t=0.0):
         """
         NAME:
             _Rforce
@@ -103,15 +103,13 @@ class KuzminKutuzovStaeckelPotential(Potential):
         HISTORY:
             2015-02-13 - Written - Trick (MPIA)
         """
-        l,n = coords.Rz_to_lambdanu    (R,z,ac=self._ac,Delta=self._Delta)
-        jac = coords.Rz_to_lambdanu_jac(R,z,            Delta=self._Delta)
-        dldR = jac[0,0]
-        dndR = jac[1,0]
-        return - (dldR * self._lderiv(l,n) + \
-                  dndR * self._nderiv(l,n))
+        l, n = coords.Rz_to_lambdanu(R, z, ac=self._ac, Delta=self._Delta)
+        jac = coords.Rz_to_lambdanu_jac(R, z, Delta=self._Delta)
+        dldR = jac[0, 0]
+        dndR = jac[1, 0]
+        return -(dldR * self._lderiv(l, n) + dndR * self._nderiv(l, n))
 
-
-    def _zforce(self,R,z,phi=0.,t=0.):
+    def _zforce(self, R, z, phi=0.0, t=0.0):
         """
         NAME:
             _zforce
@@ -127,14 +125,13 @@ class KuzminKutuzovStaeckelPotential(Potential):
         HISTORY:
             2015-02-13 - Written - Trick (MPIA)
         """
-        l,n = coords.Rz_to_lambdanu    (R,z,ac=self._ac,Delta=self._Delta)
-        jac = coords.Rz_to_lambdanu_jac(R,z,            Delta=self._Delta)
-        dldz = jac[0,1]
-        dndz = jac[1,1]
-        return - (dldz * self._lderiv(l,n) + \
-                  dndz * self._nderiv(l,n))
+        l, n = coords.Rz_to_lambdanu(R, z, ac=self._ac, Delta=self._Delta)
+        jac = coords.Rz_to_lambdanu_jac(R, z, Delta=self._Delta)
+        dldz = jac[0, 1]
+        dndz = jac[1, 1]
+        return -(dldz * self._lderiv(l, n) + dndz * self._nderiv(l, n))
 
-    def _R2deriv(self,R,z,phi=0.,t=0.):
+    def _R2deriv(self, R, z, phi=0.0, t=0.0):
         """
         NAME:
             _R2deriv
@@ -150,20 +147,22 @@ class KuzminKutuzovStaeckelPotential(Potential):
         HISTORY:
             2015-02-13 - Written - Trick (MPIA)
         """
-        l,n    = coords.Rz_to_lambdanu     (R,z,ac=self._ac,Delta=self._Delta)
-        jac    = coords.Rz_to_lambdanu_jac (R,z,            Delta=self._Delta)
-        hess   = coords.Rz_to_lambdanu_hess(R,z,            Delta=self._Delta)
-        dldR   = jac[0,0]
-        dndR   = jac[1,0]
-        d2ldR2 = hess[0,0,0]
-        d2ndR2 = hess[1,0,0]
-        return d2ldR2       * self._lderiv(l,n)  + \
-               d2ndR2       * self._nderiv(l,n)  + \
-               (dldR)**2    * self._l2deriv(l,n) + \
-               (dndR)**2    * self._n2deriv(l,n) + \
-               2.*dldR*dndR * self._lnderiv(l,n)
+        l, n = coords.Rz_to_lambdanu(R, z, ac=self._ac, Delta=self._Delta)
+        jac = coords.Rz_to_lambdanu_jac(R, z, Delta=self._Delta)
+        hess = coords.Rz_to_lambdanu_hess(R, z, Delta=self._Delta)
+        dldR = jac[0, 0]
+        dndR = jac[1, 0]
+        d2ldR2 = hess[0, 0, 0]
+        d2ndR2 = hess[1, 0, 0]
+        return (
+            d2ldR2 * self._lderiv(l, n)
+            + d2ndR2 * self._nderiv(l, n)
+            + (dldR) ** 2 * self._l2deriv(l, n)
+            + (dndR) ** 2 * self._n2deriv(l, n)
+            + 2.0 * dldR * dndR * self._lnderiv(l, n)
+        )
 
-    def _z2deriv(self,R,z,phi=0.,t=0.):
+    def _z2deriv(self, R, z, phi=0.0, t=0.0):
         """
         NAME:
             _z2deriv
@@ -179,21 +178,22 @@ class KuzminKutuzovStaeckelPotential(Potential):
         HISTORY:
             2015-02-13 - Written - Trick (MPIA)
         """
-        l,n    = coords.Rz_to_lambdanu    (R,z,ac=self._ac,Delta=self._Delta)
-        jac    = coords.Rz_to_lambdanu_jac(R,z,            Delta=self._Delta)
-        hess   = coords.Rz_to_lambdanu_hess(R,z,           Delta=self._Delta)
-        dldz = jac[0,1]
-        dndz = jac[1,1]
-        d2ldz2 = hess[0,1,1]
-        d2ndz2 = hess[1,1,1]
-        return d2ldz2       * self._lderiv(l,n)  + \
-               d2ndz2       * self._nderiv(l,n)  + \
-               (dldz)**2    * self._l2deriv(l,n) + \
-               (dndz)**2    * self._n2deriv(l,n) + \
-               2.*dldz*dndz * self._lnderiv(l,n)
+        l, n = coords.Rz_to_lambdanu(R, z, ac=self._ac, Delta=self._Delta)
+        jac = coords.Rz_to_lambdanu_jac(R, z, Delta=self._Delta)
+        hess = coords.Rz_to_lambdanu_hess(R, z, Delta=self._Delta)
+        dldz = jac[0, 1]
+        dndz = jac[1, 1]
+        d2ldz2 = hess[0, 1, 1]
+        d2ndz2 = hess[1, 1, 1]
+        return (
+            d2ldz2 * self._lderiv(l, n)
+            + d2ndz2 * self._nderiv(l, n)
+            + (dldz) ** 2 * self._l2deriv(l, n)
+            + (dndz) ** 2 * self._n2deriv(l, n)
+            + 2.0 * dldz * dndz * self._lnderiv(l, n)
+        )
 
-
-    def _Rzderiv(self,R,z,phi=0.,t=0.):
+    def _Rzderiv(self, R, z, phi=0.0, t=0.0):
         """
         NAME:
             _Rzderiv
@@ -209,22 +209,24 @@ class KuzminKutuzovStaeckelPotential(Potential):
         HISTORY:
             2015-02-13 - Written - Trick (MPIA)
         """
-        l,n    = coords.Rz_to_lambdanu    (R,z,ac=self._ac,Delta=self._Delta)
-        jac    = coords.Rz_to_lambdanu_jac(R,z,            Delta=self._Delta)
-        hess   = coords.Rz_to_lambdanu_hess(R,z,           Delta=self._Delta)
-        dldR = jac[0,0]
-        dndR = jac[1,0]
-        dldz = jac[0,1]
-        dndz = jac[1,1]
-        d2ldRdz = hess[0,0,1]
-        d2ndRdz = hess[1,0,1]
-        return d2ldRdz              * self._lderiv(l,n)  + \
-               d2ndRdz              * self._nderiv(l,n)  + \
-               dldR*dldz            * self._l2deriv(l,n) + \
-               dndR*dndz            * self._n2deriv(l,n) + \
-               (dldR*dndz+dldz*dndR)* self._lnderiv(l,n)
+        l, n = coords.Rz_to_lambdanu(R, z, ac=self._ac, Delta=self._Delta)
+        jac = coords.Rz_to_lambdanu_jac(R, z, Delta=self._Delta)
+        hess = coords.Rz_to_lambdanu_hess(R, z, Delta=self._Delta)
+        dldR = jac[0, 0]
+        dndR = jac[1, 0]
+        dldz = jac[0, 1]
+        dndz = jac[1, 1]
+        d2ldRdz = hess[0, 0, 1]
+        d2ndRdz = hess[1, 0, 1]
+        return (
+            d2ldRdz * self._lderiv(l, n)
+            + d2ndRdz * self._nderiv(l, n)
+            + dldR * dldz * self._l2deriv(l, n)
+            + dndR * dndz * self._n2deriv(l, n)
+            + (dldR * dndz + dldz * dndR) * self._lnderiv(l, n)
+        )
 
-    def _lderiv(self,l,n):
+    def _lderiv(self, l, n):
         """
         NAME:
             _lderiv
@@ -238,9 +240,9 @@ class KuzminKutuzovStaeckelPotential(Potential):
         HISTORY:
             2015-02-15 - Written - Trick (MPIA)
         """
-        return 0.5/numpy.sqrt(l)/(numpy.sqrt(l)+numpy.sqrt(n))**2
+        return 0.5 / numpy.sqrt(l) / (numpy.sqrt(l) + numpy.sqrt(n)) ** 2
 
-    def _nderiv(self,l,n):
+    def _nderiv(self, l, n):
         """
         NAME:
             _nderiv
@@ -254,9 +256,9 @@ class KuzminKutuzovStaeckelPotential(Potential):
         HISTORY:
             2015-02-15 - Written - Trick (MPIA)
         """
-        return 0.5/numpy.sqrt(n)/(numpy.sqrt(l)+numpy.sqrt(n))**2
+        return 0.5 / numpy.sqrt(n) / (numpy.sqrt(l) + numpy.sqrt(n)) ** 2
 
-    def _l2deriv(self,l,n):
+    def _l2deriv(self, l, n):
         """
         NAME:
             _l2deriv
@@ -270,11 +272,11 @@ class KuzminKutuzovStaeckelPotential(Potential):
         HISTORY:
             2015-02-15 - Written - Trick (MPIA)
         """
-        number = -3.*numpy.sqrt(l) - numpy.sqrt(n)
-        denom = 4. * l**1.5 * (numpy.sqrt(l)+numpy.sqrt(n))**3
+        number = -3.0 * numpy.sqrt(l) - numpy.sqrt(n)
+        denom = 4.0 * l**1.5 * (numpy.sqrt(l) + numpy.sqrt(n)) ** 3
         return number / denom
 
-    def _n2deriv(self,l,n):
+    def _n2deriv(self, l, n):
         """
         NAME:
             _n2deriv
@@ -288,11 +290,11 @@ class KuzminKutuzovStaeckelPotential(Potential):
         HISTORY:
             2015-02-15 - Written - Trick (MPIA)
         """
-        number = -numpy.sqrt(l) - 3.*numpy.sqrt(n)
-        denom = 4. * n**1.5 * (numpy.sqrt(l)+numpy.sqrt(n))**3
+        number = -numpy.sqrt(l) - 3.0 * numpy.sqrt(n)
+        denom = 4.0 * n**1.5 * (numpy.sqrt(l) + numpy.sqrt(n)) ** 3
         return number / denom
 
-    def _lnderiv(self,l,n):
+    def _lnderiv(self, l, n):
         """
         NAME:
             _lnderiv
@@ -306,4 +308,6 @@ class KuzminKutuzovStaeckelPotential(Potential):
         HISTORY:
             2015-02-13 - Written - Trick (MPIA)
         """
-        return -0.5/(numpy.sqrt(l) * numpy.sqrt(n) * (numpy.sqrt(l)+numpy.sqrt(n))**3)
+        return -0.5 / (
+            numpy.sqrt(l) * numpy.sqrt(n) * (numpy.sqrt(l) + numpy.sqrt(n)) ** 3
+        )

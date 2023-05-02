@@ -12,7 +12,7 @@ repos:
   - id: check-executables-have-shebangs
   - id: check-yaml
 - repo: https://github.com/asottile/pyupgrade
-  rev: v3.3.1
+  rev: v3.3.2
   hooks:
   - id: pyupgrade
     args: [--py38-plus]
@@ -35,3 +35,7 @@ repos:
     - id: codespell
       args: ["-L", "thisE,thise,mye,tE,te,hist,ro,sav,ccompiler",
       "-x","doc/source/_static/try-galpy.js"]
+- repo: https://github.com/psf/black
+  rev: 23.3.0
+  hooks:
+    - id: black

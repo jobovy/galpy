@@ -20,8 +20,8 @@ class MiyamotoNagaiPotential(Potential):
 
     with :math:`\\mathrm{amp} = GM` the total mass.
     """
-    def __init__(self,amp=1.,a=1.,b=0.1,normalize=False,
-                 ro=None,vo=None):
+
+    def __init__(self, amp=1.0, a=1.0, b=0.1, normalize=False, ro=None, vo=None):
         """
         NAME:
 
@@ -52,23 +52,23 @@ class MiyamotoNagaiPotential(Potential):
            2010-07-09 - Started - Bovy (NYU)
 
         """
-        Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='mass')
-        a= conversion.parse_length(a,ro=self._ro)
-        b= conversion.parse_length(b,ro=self._ro)
-        self._a= a
-        self._scale= self._a
-        self._b= b
-        self._b2= self._b**2.
-        if normalize or \
-                (isinstance(normalize,(int,float)) \
-                     and not isinstance(normalize,bool)):
+        Potential.__init__(self, amp=amp, ro=ro, vo=vo, amp_units="mass")
+        a = conversion.parse_length(a, ro=self._ro)
+        b = conversion.parse_length(b, ro=self._ro)
+        self._a = a
+        self._scale = self._a
+        self._b = b
+        self._b2 = self._b**2.0
+        if normalize or (
+            isinstance(normalize, (int, float)) and not isinstance(normalize, bool)
+        ):
             self.normalize(normalize)
-        self.hasC= True
-        self.hasC_dxdv= True
-        self.hasC_dens= True
-        self._nemo_accname= 'MiyamotoNagai'
+        self.hasC = True
+        self.hasC_dxdv = True
+        self.hasC_dens = True
+        self._nemo_accname = "MiyamotoNagai"
 
-    def _evaluate(self,R,z,phi=0.,t=0.):
+    def _evaluate(self, R, z, phi=0.0, t=0.0):
         """
         NAME:
            _evaluate
@@ -84,9 +84,11 @@ class MiyamotoNagaiPotential(Potential):
         HISTORY:
            2010-07-09 - Started - Bovy (NYU)
         """
-        return -1./numpy.sqrt(R**2.+(self._a+numpy.sqrt(z**2.+self._b2))**2.)
+        return -1.0 / numpy.sqrt(
+            R**2.0 + (self._a + numpy.sqrt(z**2.0 + self._b2)) ** 2.0
+        )
 
-    def _Rforce(self,R,z,phi=0.,t=0.):
+    def _Rforce(self, R, z, phi=0.0, t=0.0):
         """
         NAME:
            _Rforce
@@ -102,9 +104,11 @@ class MiyamotoNagaiPotential(Potential):
         HISTORY:
            2010-07-09 - Written - Bovy (NYU)
         """
-        return -R/(R**2.+(self._a+numpy.sqrt(z**2.+self._b2))**2.)**(3./2.)
+        return -R / (R**2.0 + (self._a + numpy.sqrt(z**2.0 + self._b2)) ** 2.0) ** (
+            3.0 / 2.0
+        )
 
-    def _zforce(self,R,z,phi=0.,t=0.):
+    def _zforce(self, R, z, phi=0.0, t=0.0):
         """
         NAME:
            _zforce
@@ -120,16 +124,22 @@ class MiyamotoNagaiPotential(Potential):
         HISTORY:
            2010-07-09 - Written - Bovy (NYU)
         """
-        sqrtbz= numpy.sqrt(self._b2+z**2.)
-        asqrtbz= self._a+sqrtbz
-        if isinstance(R,float) and sqrtbz == asqrtbz:
-            return (-z/
-                     (R**2.+(self._a+numpy.sqrt(z**2.+self._b2))**2.)**(3./2.))
+        sqrtbz = numpy.sqrt(self._b2 + z**2.0)
+        asqrtbz = self._a + sqrtbz
+        if isinstance(R, float) and sqrtbz == asqrtbz:
+            return -z / (
+                R**2.0 + (self._a + numpy.sqrt(z**2.0 + self._b2)) ** 2.0
+            ) ** (3.0 / 2.0)
         else:
-            return (-z*asqrtbz/sqrtbz/
-                     (R**2.+(self._a+numpy.sqrt(z**2.+self._b2))**2.)**(3./2.))
+            return (
+                -z
+                * asqrtbz
+                / sqrtbz
+                / (R**2.0 + (self._a + numpy.sqrt(z**2.0 + self._b2)) ** 2.0)
+                ** (3.0 / 2.0)
+            )
 
-    def _dens(self,R,z,phi=0.,t=0.):
+    def _dens(self, R, z, phi=0.0, t=0.0):
         """
         NAME:
            _dens
@@ -145,16 +155,21 @@ class MiyamotoNagaiPotential(Potential):
         HISTORY:
            2010-08-08 - Written - Bovy (NYU)
         """
-        sqrtbz= numpy.sqrt(self._b2+z**2.)
-        asqrtbz= self._a+sqrtbz
-        if isinstance(R,float) and sqrtbz == asqrtbz:
-            return 3./\
-                (R**2.+sqrtbz**2.)**2.5/4./numpy.pi*self._b2
+        sqrtbz = numpy.sqrt(self._b2 + z**2.0)
+        asqrtbz = self._a + sqrtbz
+        if isinstance(R, float) and sqrtbz == asqrtbz:
+            return 3.0 / (R**2.0 + sqrtbz**2.0) ** 2.5 / 4.0 / numpy.pi * self._b2
         else:
-            return (self._a*R**2.+(self._a+3.*sqrtbz)*asqrtbz**2.)/\
-                (R**2.+asqrtbz**2.)**2.5/sqrtbz**3./4./numpy.pi*self._b2
+            return (
+                (self._a * R**2.0 + (self._a + 3.0 * sqrtbz) * asqrtbz**2.0)
+                / (R**2.0 + asqrtbz**2.0) ** 2.5
+                / sqrtbz**3.0
+                / 4.0
+                / numpy.pi
+                * self._b2
+            )
 
-    def _R2deriv(self,R,z,phi=0.,t=0.):
+    def _R2deriv(self, R, z, phi=0.0, t=0.0):
         """
         NAME:
            _R2deriv
@@ -170,10 +185,14 @@ class MiyamotoNagaiPotential(Potential):
         HISTORY:
            2011-10-09 - Written - Bovy (IAS)
         """
-        return 1./(R**2.+(self._a+numpy.sqrt(z**2.+self._b2))**2.)**1.5 \
-            -3.*R**2./(R**2.+(self._a+numpy.sqrt(z**2.+self._b2))**2.)**2.5
+        return (
+            1.0 / (R**2.0 + (self._a + numpy.sqrt(z**2.0 + self._b2)) ** 2.0) ** 1.5
+            - 3.0
+            * R**2.0
+            / (R**2.0 + (self._a + numpy.sqrt(z**2.0 + self._b2)) ** 2.0) ** 2.5
+        )
 
-    def _z2deriv(self,R,z,phi=0.,t=0.):
+    def _z2deriv(self, R, z, phi=0.0, t=0.0):
         """
         NAME:
            _z2deriv
@@ -189,19 +208,28 @@ class MiyamotoNagaiPotential(Potential):
         HISTORY:
            2012-07-25 - Written - Bovy (IAS@MPIA)
         """
-        sqrtbz= numpy.sqrt(self._b2+z**2.)
-        asqrtbz= self._a+sqrtbz
-        if isinstance(R,float) and sqrtbz == asqrtbz:
-            return (self._b2+R**2.-2.*z**2.)*(self._b2+R**2.+z**2.)**-2.5
+        sqrtbz = numpy.sqrt(self._b2 + z**2.0)
+        asqrtbz = self._a + sqrtbz
+        if isinstance(R, float) and sqrtbz == asqrtbz:
+            return (self._b2 + R**2.0 - 2.0 * z**2.0) * (
+                self._b2 + R**2.0 + z**2.0
+            ) ** -2.5
         else:
-            return ((self._a**3.*self._b2 +
-                     self._a**2.*(3.*self._b2 - 2.* z**2.)
-                     *numpy.sqrt(self._b2 + z**2.)
-                     + (self._b2 + R**2. - 2.*z**2.)*(self._b2 + z**2.)**1.5
-                     +self._a* (3.*self._b2**2. - 4.*z**4. + self._b2*(R**2. - z**2.)))/
-                    ((self._b2 + z**2.)**1.5* (R**2. + asqrtbz**2.)**2.5))
+            return (
+                self._a**3.0 * self._b2
+                + self._a**2.0
+                * (3.0 * self._b2 - 2.0 * z**2.0)
+                * numpy.sqrt(self._b2 + z**2.0)
+                + (self._b2 + R**2.0 - 2.0 * z**2.0) * (self._b2 + z**2.0) ** 1.5
+                + self._a
+                * (
+                    3.0 * self._b2**2.0
+                    - 4.0 * z**4.0
+                    + self._b2 * (R**2.0 - z**2.0)
+                )
+            ) / ((self._b2 + z**2.0) ** 1.5 * (R**2.0 + asqrtbz**2.0) ** 2.5)
 
-    def _Rzderiv(self,R,z,phi=0.,t=0.):
+    def _Rzderiv(self, R, z, phi=0.0, t=0.0):
         """
         NAME:
            _Rzderiv
@@ -217,16 +245,17 @@ class MiyamotoNagaiPotential(Potential):
         HISTORY:
            2013-08-28 - Written - Bovy (IAS)
         """
-        sqrtbz= numpy.sqrt(self._b2+z**2.)
-        asqrtbz= self._a+sqrtbz
-        if isinstance(R,float) and sqrtbz == asqrtbz:
-            return -(3.*R*z/(R**2.+asqrtbz**2.)**2.5)
+        sqrtbz = numpy.sqrt(self._b2 + z**2.0)
+        asqrtbz = self._a + sqrtbz
+        if isinstance(R, float) and sqrtbz == asqrtbz:
+            return -(3.0 * R * z / (R**2.0 + asqrtbz**2.0) ** 2.5)
         else:
-            return -(3.*R*z*asqrtbz
-                     /sqrtbz/(R**2.+asqrtbz**2.)**2.5)
+            return -(
+                3.0 * R * z * asqrtbz / sqrtbz / (R**2.0 + asqrtbz**2.0) ** 2.5
+            )
 
     @kms_to_kpcGyrDecorator
-    def _nemo_accpars(self,vo,ro):
+    def _nemo_accpars(self, vo, ro):
         """
         NAME:
 
@@ -251,5 +280,5 @@ class MiyamotoNagaiPotential(Potential):
            2014-12-18 - Written - Bovy (IAS)
 
         """
-        ampl= self._amp*vo**2.*ro
+        ampl = self._amp * vo**2.0 * ro
         return f"0,{ampl},{self._a*ro},{self._b*ro}"

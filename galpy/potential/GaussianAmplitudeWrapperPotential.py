@@ -15,7 +15,8 @@ class GaussianAmplitudeWrapperPotential(parentWrapperPotential):
 
         A(t) = amp\\,\\exp\\left(-\\frac{[t-t_0]^2}{2\\,\\sigma^2}\\right)
     """
-    def __init__(self,amp=1.,pot=None,to=0.,sigma=1.,ro=None,vo=None):
+
+    def __init__(self, amp=1.0, pot=None, to=0.0, sigma=1.0, ro=None, vo=None):
         """
         NAME:
 
@@ -44,16 +45,17 @@ class GaussianAmplitudeWrapperPotential(parentWrapperPotential):
            2018-02-21 - Started - Bovy (UofT)
 
         """
-        to= conversion.parse_time(to,ro=self._ro,vo=self._vo)
-        sigma= conversion.parse_time(sigma,ro=self._ro,vo=self._vo)
-        self._to= to
-        self._sigma2= sigma**2.
-        self.hasC= True
-        self.hasC_dxdv= True
+        to = conversion.parse_time(to, ro=self._ro, vo=self._vo)
+        sigma = conversion.parse_time(sigma, ro=self._ro, vo=self._vo)
+        self._to = to
+        self._sigma2 = sigma**2.0
+        self.hasC = True
+        self.hasC_dxdv = True
 
-    def _smooth(self,t):
-        return numpy.exp(-0.5*(t-self._to)**2./self._sigma2)
+    def _smooth(self, t):
+        return numpy.exp(-0.5 * (t - self._to) ** 2.0 / self._sigma2)
 
-    def _wrap(self,attribute,*args,**kwargs):
-        return self._smooth(kwargs.get('t',0.))\
-                *self._wrap_pot_func(attribute)(self._pot,*args,**kwargs)
+    def _wrap(self, attribute, *args, **kwargs):
+        return self._smooth(kwargs.get("t", 0.0)) * self._wrap_pot_func(attribute)(
+            self._pot, *args, **kwargs
+        )

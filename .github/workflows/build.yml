@@ -256,10 +256,6 @@ jobs:
            git checkout galpy
            cd -
          fi
-    - name: Download dfcorrections
-      run: |
-         curl -O https://github.s3.amazonaws.com/downloads/jobovy/galpy/galpy-dfcorrections.tar.gz
-         tar xvzf galpy-dfcorrections.tar.gz -C ./galpy/df/data/
     - name: Install package
       if: matrix.os == 'ubuntu-latest'
       run: |

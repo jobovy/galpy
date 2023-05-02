@@ -35,9 +35,22 @@ class TwoPowerTriaxialPotential(EllipsoidalPotential):
 
     Note that this general class of potentials does *not* automatically revert to the special TriaxialNFWPotential, TriaxialHernquistPotential, or TriaxialJaffePotential when using their (alpha,beta) values (like TwoPowerSphericalPotential).
     """
-    def __init__(self,amp=1.,a=5.,alpha=1.5,beta=3.5,b=1.,c=1.,
-                 zvec=None,pa=None,glorder=50,
-                 normalize=False,ro=None,vo=None):
+
+    def __init__(
+        self,
+        amp=1.0,
+        a=5.0,
+        alpha=1.5,
+        beta=3.5,
+        b=1.0,
+        c=1.0,
+        zvec=None,
+        pa=None,
+        glorder=50,
+        normalize=False,
+        ro=None,
+        vo=None,
+    ):
         """
         NAME:
 
@@ -82,58 +95,87 @@ class TwoPowerTriaxialPotential(EllipsoidalPotential):
            2018-08-07 - Re-written using the general EllipsoidalPotential class - Bovy (UofT)
 
         """
-        EllipsoidalPotential.__init__(self,amp=amp,b=b,c=c,
-                                      zvec=zvec,pa=pa,glorder=glorder,
-                                      ro=ro,vo=vo,amp_units='mass')
-        a= conversion.parse_length(a,ro=self._ro)
-        self.a= a
-        self._scale= self.a
-        if beta <= 2. or alpha >= 3.:
-            raise OSError('TwoPowerTriaxialPotential requires 0 <= alpha < 3 and beta > 2')
-        self.alpha= alpha
-        self.beta= beta
-        self.betaminusalpha= self.beta-self.alpha
-        self.twominusalpha= 2.-self.alpha
-        self.threeminusalpha= 3.-self.alpha
-        if self.twominusalpha != 0.:
-            self.psi_inf= special.gamma(self.beta-2.)\
-                *special.gamma(3.-self.alpha)\
-                /special.gamma(self.betaminusalpha)
+        EllipsoidalPotential.__init__(
+            self,
+            amp=amp,
+            b=b,
+            c=c,
+            zvec=zvec,
+            pa=pa,
+            glorder=glorder,
+            ro=ro,
+            vo=vo,
+            amp_units="mass",
+        )
+        a = conversion.parse_length(a, ro=self._ro)
+        self.a = a
+        self._scale = self.a
+        if beta <= 2.0 or alpha >= 3.0:
+            raise OSError(
+                "TwoPowerTriaxialPotential requires 0 <= alpha < 3 and beta > 2"
+            )
+        self.alpha = alpha
+        self.beta = beta
+        self.betaminusalpha = self.beta - self.alpha
+        self.twominusalpha = 2.0 - self.alpha
+        self.threeminusalpha = 3.0 - self.alpha
+        if self.twominusalpha != 0.0:
+            self.psi_inf = (
+                special.gamma(self.beta - 2.0)
+                * special.gamma(3.0 - self.alpha)
+                / special.gamma(self.betaminusalpha)
+            )
         # Adjust amp
-        self._amp/= (4.*numpy.pi*self.a**3)
-        if normalize or \
-                (isinstance(normalize,(int,float)) \
-                     and not isinstance(normalize,bool)): #pragma: no cover
+        self._amp /= 4.0 * numpy.pi * self.a**3
+        if normalize or (
+            isinstance(normalize, (int, float)) and not isinstance(normalize, bool)
+        ):  # pragma: no cover
             self.normalize(normalize)
         return None
 
-    def _psi(self,m):
+    def _psi(self, m):
         """\\psi(m) = -\\int_m^\\infty d m^2 \rho(m^2)"""
-        if self.twominusalpha == 0.:
-            return -2.*self.a**2*(self.a/m)**self.betaminusalpha\
-                      /self.betaminusalpha\
-                *special.hyp2f1(self.betaminusalpha,
-                                self.betaminusalpha,
-                                self.betaminusalpha+1,
-                                -self.a/m)
+        if self.twominusalpha == 0.0:
+            return (
+                -2.0
+                * self.a**2
+                * (self.a / m) ** self.betaminusalpha
+                / self.betaminusalpha
+                * special.hyp2f1(
+                    self.betaminusalpha,
+                    self.betaminusalpha,
+                    self.betaminusalpha + 1,
+                    -self.a / m,
+                )
+            )
         else:
-            return -2.*self.a**2\
-                *(self.psi_inf-(m/self.a)**self.twominusalpha\
-                      /self.twominusalpha\
-                      *special.hyp2f1(self.twominusalpha,
-                                      self.betaminusalpha,
-                                      self.threeminusalpha,
-                                      -m/self.a))
+            return (
+                -2.0
+                * self.a**2
+                * (
+                    self.psi_inf
+                    - (m / self.a) ** self.twominusalpha
+                    / self.twominusalpha
+                    * special.hyp2f1(
+                        self.twominusalpha,
+                        self.betaminusalpha,
+                        self.threeminusalpha,
+                        -m / self.a,
+                    )
+                )
+            )
 
-    def _mdens(self,m):
+    def _mdens(self, m):
         """Density as a function of m"""
-        return (self.a/m)**self.alpha/(1.+m/self.a)**(self.betaminusalpha)
+        return (self.a / m) ** self.alpha / (1.0 + m / self.a) ** (self.betaminusalpha)
 
-    def _mdens_deriv(self,m):
+    def _mdens_deriv(self, m):
         """Derivative of the density as a function of m"""
-        return -self._mdens(m)*(self.a*self.alpha+self.beta*m)/m/(self.a+m)
+        return (
+            -self._mdens(m) * (self.a * self.alpha + self.beta * m) / m / (self.a + m)
+        )
 
-    def _mass(self,R,z=None,t=0.):
+    def _mass(self, R, z=None, t=0.0):
         """
         NAME:
            _mass
@@ -148,11 +190,21 @@ class TwoPowerTriaxialPotential(EllipsoidalPotential):
         HISTORY:
            2021-03-09 - Written - Bovy (UofT)
         """
-        if not z is None: raise AttributeError # Hack to fall back to general
-        return 4.*numpy.pi*self.a**self.alpha\
-            *R**(3.-self.alpha)/(3.-self.alpha)*self._b*self._c\
-            *special.hyp2f1(3.-self.alpha,self.betaminusalpha,
-                            4.-self.alpha,-R/self.a)
+        if not z is None:
+            raise AttributeError  # Hack to fall back to general
+        return (
+            4.0
+            * numpy.pi
+            * self.a**self.alpha
+            * R ** (3.0 - self.alpha)
+            / (3.0 - self.alpha)
+            * self._b
+            * self._c
+            * special.hyp2f1(
+                3.0 - self.alpha, self.betaminusalpha, 4.0 - self.alpha, -R / self.a
+            )
+        )
+
 
 class TriaxialHernquistPotential(EllipsoidalPotential):
     """Class that implements the triaxial Hernquist potential
@@ -170,8 +222,20 @@ class TriaxialHernquistPotential(EllipsoidalPotential):
     and :math:`(x',y',z')` is a rotated frame wrt :math:`(x,y,z)` specified by parameters ``zvec`` and ``pa`` which specify (a) ``zvec``: the location of the :math:`z'` axis in the :math:`(x,y,z)` frame and (b) ``pa``: the position angle of the :math:`x'` axis wrt the :math:`\\tilde{x}` axis, that is, the :math:`x` axis after rotating to ``zvec``.
 
     """
-    def __init__(self,amp=1.,a=2.,normalize=False,b=1.,c=1.,zvec=None,pa=None,
-                 glorder=50,ro=None,vo=None):
+
+    def __init__(
+        self,
+        amp=1.0,
+        a=2.0,
+        normalize=False,
+        b=1.0,
+        c=1.0,
+        zvec=None,
+        pa=None,
+        glorder=50,
+        ro=None,
+        vo=None,
+    ):
         """
         NAME:
 
@@ -212,37 +276,46 @@ class TriaxialHernquistPotential(EllipsoidalPotential):
            2018-08-07 - Re-written using the general EllipsoidalPotential class - Bovy (UofT)
 
         """
-        EllipsoidalPotential.__init__(self,amp=amp,b=b,c=c,
-                                      zvec=zvec,pa=pa,glorder=glorder,
-                                      ro=ro,vo=vo,amp_units='mass')
-        a= conversion.parse_length(a,ro=self._ro)
-        self.a= a
-        self._scale= self.a
+        EllipsoidalPotential.__init__(
+            self,
+            amp=amp,
+            b=b,
+            c=c,
+            zvec=zvec,
+            pa=pa,
+            glorder=glorder,
+            ro=ro,
+            vo=vo,
+            amp_units="mass",
+        )
+        a = conversion.parse_length(a, ro=self._ro)
+        self.a = a
+        self._scale = self.a
         # Adjust amp
-        self.a4= self.a**4
-        self._amp/= (4.*numpy.pi*self.a**3)
-        if normalize or \
-                (isinstance(normalize,(int,float)) \
-                     and not isinstance(normalize,bool)):
+        self.a4 = self.a**4
+        self._amp /= 4.0 * numpy.pi * self.a**3
+        if normalize or (
+            isinstance(normalize, (int, float)) and not isinstance(normalize, bool)
+        ):
             self.normalize(normalize)
-        self.hasC= not self._glorder is None
-        self.hasC_dxdv= False
-        self.hasC_dens= self.hasC # works if mdens is defined, necessary for hasC
+        self.hasC = not self._glorder is None
+        self.hasC_dxdv = False
+        self.hasC_dens = self.hasC  # works if mdens is defined, necessary for hasC
         return None
 
-    def _psi(self,m):
+    def _psi(self, m):
         """\\psi(m) = -\\int_m^\\infty d m^2 \rho(m^2)"""
-        return -self.a4/(m+self.a)**2.
+        return -self.a4 / (m + self.a) ** 2.0
 
-    def _mdens(self,m):
+    def _mdens(self, m):
         """Density as a function of m"""
-        return self.a4/m/(m+self.a)**3
+        return self.a4 / m / (m + self.a) ** 3
 
-    def _mdens_deriv(self,m):
+    def _mdens_deriv(self, m):
         """Derivative of the density as a function of m"""
-        return -self.a4*(self.a+4.*m)/m**2/(self.a+m)**4
+        return -self.a4 * (self.a + 4.0 * m) / m**2 / (self.a + m) ** 4
 
-    def _mass(self,R,z=None,t=0.):
+    def _mass(self, R, z=None, t=0.0):
         """
         NAME:
            _mass
@@ -257,8 +330,19 @@ class TriaxialHernquistPotential(EllipsoidalPotential):
         HISTORY:
            2021-03-16 - Written - Bovy (UofT)
         """
-        if not z is None: raise AttributeError # Hack to fall back to general
-        return 4.*numpy.pi*self.a4/self.a/(1.+self.a/R)**2./2.*self._b*self._c
+        if not z is None:
+            raise AttributeError  # Hack to fall back to general
+        return (
+            4.0
+            * numpy.pi
+            * self.a4
+            / self.a
+            / (1.0 + self.a / R) ** 2.0
+            / 2.0
+            * self._b
+            * self._c
+        )
+
 
 class TriaxialJaffePotential(EllipsoidalPotential):
     """Class that implements the Jaffe potential
@@ -276,8 +360,20 @@ class TriaxialJaffePotential(EllipsoidalPotential):
     and :math:`(x',y',z')` is a rotated frame wrt :math:`(x,y,z)` specified by parameters ``zvec`` and ``pa`` which specify (a) ``zvec``: the location of the :math:`z'` axis in the :math:`(x,y,z)` frame and (b) ``pa``: the position angle of the :math:`x'` axis wrt the :math:`\\tilde{x}` axis, that is, the :math:`x` axis after rotating to ``zvec``.
 
     """
-    def __init__(self,amp=1.,a=2.,b=1.,c=1.,zvec=None,pa=None,normalize=False,
-                 glorder=50,ro=None,vo=None):
+
+    def __init__(
+        self,
+        amp=1.0,
+        a=2.0,
+        b=1.0,
+        c=1.0,
+        zvec=None,
+        pa=None,
+        normalize=False,
+        glorder=50,
+        ro=None,
+        vo=None,
+    ):
         """
         NAME:
 
@@ -318,37 +414,50 @@ class TriaxialJaffePotential(EllipsoidalPotential):
            2018-08-07 - Re-written using the general EllipsoidalPotential class - Bovy (UofT)
 
         """
-        EllipsoidalPotential.__init__(self,amp=amp,b=b,c=c,
-                                      zvec=zvec,pa=pa,glorder=glorder,
-                                      ro=ro,vo=vo,amp_units='mass')
-        a= conversion.parse_length(a,ro=self._ro)
-        self.a= a
-        self._scale= self.a
+        EllipsoidalPotential.__init__(
+            self,
+            amp=amp,
+            b=b,
+            c=c,
+            zvec=zvec,
+            pa=pa,
+            glorder=glorder,
+            ro=ro,
+            vo=vo,
+            amp_units="mass",
+        )
+        a = conversion.parse_length(a, ro=self._ro)
+        self.a = a
+        self._scale = self.a
         # Adjust amp
-        self.a2= self.a**2
-        self._amp/= (4.*numpy.pi*self.a2*self.a)
-        if normalize or \
-                (isinstance(normalize,(int,float)) \
-                     and not isinstance(normalize,bool)): #pragma: no cover
+        self.a2 = self.a**2
+        self._amp /= 4.0 * numpy.pi * self.a2 * self.a
+        if normalize or (
+            isinstance(normalize, (int, float)) and not isinstance(normalize, bool)
+        ):  # pragma: no cover
             self.normalize(normalize)
-        self.hasC= not self._glorder is None
-        self.hasC_dxdv= False
-        self.hasC_dens= self.hasC # works if mdens is defined, necessary for hasC
+        self.hasC = not self._glorder is None
+        self.hasC_dxdv = False
+        self.hasC_dens = self.hasC  # works if mdens is defined, necessary for hasC
         return None
 
-    def _psi(self,m):
+    def _psi(self, m):
         """\\psi(m) = -\\int_m^\\infty d m^2 \rho(m^2)"""
-        return 2.*self.a2*(1./(1.+m/self.a)+numpy.log(1./(1.+self.a/m)))
+        return (
+            2.0
+            * self.a2
+            * (1.0 / (1.0 + m / self.a) + numpy.log(1.0 / (1.0 + self.a / m)))
+        )
 
-    def _mdens(self,m):
+    def _mdens(self, m):
         """Density as a function of m"""
-        return self.a2/m**2/(1.+m/self.a)**2
+        return self.a2 / m**2 / (1.0 + m / self.a) ** 2
 
-    def _mdens_deriv(self,m):
+    def _mdens_deriv(self, m):
         """Derivative of the density as a function of m"""
-        return -2.*self.a2**2*(self.a+2.*m)/m**3/(self.a+m)**3
+        return -2.0 * self.a2**2 * (self.a + 2.0 * m) / m**3 / (self.a + m) ** 3
 
-    def _mass(self,R,z=None,t=0.):
+    def _mass(self, R, z=None, t=0.0):
         """
         NAME:
            _mass
@@ -363,8 +472,12 @@ class TriaxialJaffePotential(EllipsoidalPotential):
         HISTORY:
            2021-03-16 - Written - Bovy (UofT)
         """
-        if not z is None: raise AttributeError # Hack to fall back to general
-        return 4.*numpy.pi*self.a*self.a2/(1.+self.a/R)*self._b*self._c
+        if not z is None:
+            raise AttributeError  # Hack to fall back to general
+        return (
+            4.0 * numpy.pi * self.a * self.a2 / (1.0 + self.a / R) * self._b * self._c
+        )
+
 
 class TriaxialNFWPotential(EllipsoidalPotential):
     """Class that implements the triaxial NFW potential
@@ -382,11 +495,26 @@ class TriaxialNFWPotential(EllipsoidalPotential):
     and :math:`(x',y',z')` is a rotated frame wrt :math:`(x,y,z)` specified by parameters ``zvec`` and ``pa`` which specify (a) ``zvec``: the location of the :math:`z'` axis in the :math:`(x,y,z)` frame and (b) ``pa``: the position angle of the :math:`x'` axis wrt the :math:`\\tilde{x}` axis, that is, the :math:`x` axis after rotating to ``zvec``.
 
     """
-    def __init__(self,amp=1.,a=2.,b=1.,c=1.,zvec=None,pa=None,
-                 normalize=False,
-                 conc=None,mvir=None,
-                 glorder=50,vo=None,ro=None,
-                 H=70.,Om=0.3,overdens=200.,wrtcrit=False):
+
+    def __init__(
+        self,
+        amp=1.0,
+        a=2.0,
+        b=1.0,
+        c=1.0,
+        zvec=None,
+        pa=None,
+        normalize=False,
+        conc=None,
+        mvir=None,
+        glorder=50,
+        vo=None,
+        ro=None,
+        H=70.0,
+        Om=0.3,
+        overdens=200.0,
+        wrtcrit=False,
+    ):
         """
         NAME:
 
@@ -444,44 +572,62 @@ class TriaxialNFWPotential(EllipsoidalPotential):
            2018-08-06 - Re-written using the general EllipsoidalPotential class - Bovy (UofT)
 
         """
-        EllipsoidalPotential.__init__(self,amp=amp,b=b,c=c,
-                                      zvec=zvec,pa=pa,glorder=glorder,
-                                      ro=ro,vo=vo,amp_units='mass')
-        a= conversion.parse_length(a,ro=self._ro)
+        EllipsoidalPotential.__init__(
+            self,
+            amp=amp,
+            b=b,
+            c=c,
+            zvec=zvec,
+            pa=pa,
+            glorder=glorder,
+            ro=ro,
+            vo=vo,
+            amp_units="mass",
+        )
+        a = conversion.parse_length(a, ro=self._ro)
         if conc is None:
-            self.a= a
+            self.a = a
         else:
             from ..potential import NFWPotential
-            dumb= NFWPotential(mvir=mvir,conc=conc,ro=self._ro,vo=self._vo,
-                              H=H,Om=Om,wrtcrit=wrtcrit,overdens=overdens)
-            self.a= dumb.a
-            self._amp= dumb._amp
-        self._scale= self.a
-        self.hasC= not self._glorder is None
-        self.hasC_dxdv= False
-        self.hasC_dens= self.hasC # works if mdens is defined, necessary for hasC
+
+            dumb = NFWPotential(
+                mvir=mvir,
+                conc=conc,
+                ro=self._ro,
+                vo=self._vo,
+                H=H,
+                Om=Om,
+                wrtcrit=wrtcrit,
+                overdens=overdens,
+            )
+            self.a = dumb.a
+            self._amp = dumb._amp
+        self._scale = self.a
+        self.hasC = not self._glorder is None
+        self.hasC_dxdv = False
+        self.hasC_dens = self.hasC  # works if mdens is defined, necessary for hasC
         # Adjust amp
-        self.a3= self.a**3
-        self._amp/= (4.*numpy.pi*self.a3)
-        if normalize or \
-                (isinstance(normalize,(int,float)) \
-                     and not isinstance(normalize,bool)):
+        self.a3 = self.a**3
+        self._amp /= 4.0 * numpy.pi * self.a3
+        if normalize or (
+            isinstance(normalize, (int, float)) and not isinstance(normalize, bool)
+        ):
             self.normalize(normalize)
         return None
 
-    def _psi(self,m):
+    def _psi(self, m):
         """\\psi(m) = -\\int_m^\\infty d m^2 \rho(m^2)"""
-        return -2.*self.a3/(self.a+m)
+        return -2.0 * self.a3 / (self.a + m)
 
-    def _mdens(self,m):
+    def _mdens(self, m):
         """Density as a function of m"""
-        return self.a/m/(1.+m/self.a)**2
+        return self.a / m / (1.0 + m / self.a) ** 2
 
-    def _mdens_deriv(self,m):
+    def _mdens_deriv(self, m):
         """Derivative of the density as a function of m"""
-        return -self.a3*(self.a+3.*m)/m**2/(self.a+m)**3
+        return -self.a3 * (self.a + 3.0 * m) / m**2 / (self.a + m) ** 3
 
-    def _mass(self,R,z=None,t=0.):
+    def _mass(self, R, z=None, t=0.0):
         """
         NAME:
            _mass
@@ -496,6 +642,13 @@ class TriaxialNFWPotential(EllipsoidalPotential):
         HISTORY:
            2021-03-16 - Written - Bovy (UofT)
         """
-        if not z is None: raise AttributeError # Hack to fall back to general
-        return 4.*numpy.pi*self.a3*self._b*self._c\
-            *(numpy.log(1+R/self.a)-R/self.a/(1.+R/self.a))
+        if not z is None:
+            raise AttributeError  # Hack to fall back to general
+        return (
+            4.0
+            * numpy.pi
+            * self.a3
+            * self._b
+            * self._c
+            * (numpy.log(1 + R / self.a) - R / self.a / (1.0 + R / self.a))
+        )
