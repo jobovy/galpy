@@ -24,7 +24,7 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
-            python-version: "3.10"
+            python-version: "3.11"
             TEST_FILES: tests/test_actionAngle.py
             REQUIRES_PYNBODY: false
             REQUIRES_ASTROPY: false
@@ -32,7 +32,7 @@ jobs:
             REQUIRES_NUMBA: false
             REQUIRES_JAX: false
           - os: ubuntu-latest
-            python-version: "3.10"
+            python-version: "3.11"
             TEST_FILES: tests/test_sphericaldf.py
             REQUIRES_PYNBODY: false
             REQUIRES_ASTROPY: false
@@ -40,7 +40,7 @@ jobs:
             REQUIRES_NUMBA: false
             REQUIRES_JAX: true
           - os: ubuntu-latest
-            python-version: "3.10"
+            python-version: "3.11"
             TEST_FILES: tests/test_actionAngleTorus.py tests/test_conversion.py tests/test_galpypaper.py tests/test_import.py tests/test_interp_potential.py tests/test_kuzminkutuzov.py  tests/test_util.py
             REQUIRES_PYNBODY: false
             REQUIRES_ASTROPY: false
@@ -48,7 +48,7 @@ jobs:
             REQUIRES_NUMBA: false
             REQUIRES_JAX: false
           - os: ubuntu-latest
-            python-version: "3.10"
+            python-version: "3.11"
             TEST_FILES: tests/test_SpiralArmsPotential.py tests/test_potential.py tests/test_scf.py tests/test_snapshotpotential.py
             REQUIRES_PYNBODY: true
             REQUIRES_ASTROPY: false
@@ -56,7 +56,7 @@ jobs:
             REQUIRES_NUMBA: false
             REQUIRES_JAX: false
           - os: ubuntu-latest
-            python-version: "3.10"
+            python-version: "3.11"
             TEST_FILES: tests/test_quantity.py tests/test_coords.py
             REQUIRES_PYNBODY: false
             # needs to be separate for different config
@@ -65,7 +65,7 @@ jobs:
             REQUIRES_NUMBA: false
             REQUIRES_JAX: false
           - os: ubuntu-latest
-            python-version: "3.10"
+            python-version: "3.11"
             TEST_FILES: tests/test_orbit.py -k test_energy_jacobi_conservation
             REQUIRES_PYNBODY: true
             REQUIRES_ASTROPY: true
@@ -73,7 +73,7 @@ jobs:
             REQUIRES_NUMBA: false
             REQUIRES_JAX: false
           - os: ubuntu-latest
-            python-version: "3.10"
+            python-version: "3.11"
             TEST_FILES: tests/test_orbit.py tests/test_orbits.py -k 'not test_energy_jacobi_conservation'
             REQUIRES_PYNBODY: true
             REQUIRES_ASTROPY: true
@@ -81,7 +81,7 @@ jobs:
             REQUIRES_NUMBA: false
             REQUIRES_JAX: false
           - os: ubuntu-latest
-            python-version: "3.10"
+            python-version: "3.11"
             TEST_FILES: tests/test_evolveddiskdf.py
             REQUIRES_PYNBODY: false
             REQUIRES_ASTROPY: false
@@ -89,7 +89,7 @@ jobs:
             REQUIRES_NUMBA: false
             REQUIRES_JAX: false
           - os: ubuntu-latest
-            python-version: "3.10"
+            python-version: "3.11"
             TEST_FILES: tests/test_jeans.py tests/test_dynamfric.py
             REQUIRES_PYNBODY: false
             REQUIRES_ASTROPY: false
@@ -97,7 +97,7 @@ jobs:
             REQUIRES_NUMBA: false
             REQUIRES_JAX: false
           - os: ubuntu-latest
-            python-version: "3.10"
+            python-version: "3.11"
             TEST_FILES: tests/test_qdf.py tests/test_pv2qdf.py tests/test_streamgapdf_impulse.py tests/test_noninertial.py
             REQUIRES_PYNBODY: false
             REQUIRES_ASTROPY: false
@@ -105,7 +105,7 @@ jobs:
             REQUIRES_NUMBA: true
             REQUIRES_JAX: false
           - os: ubuntu-latest
-            python-version: "3.10"
+            python-version: "3.11"
             TEST_FILES: tests/test_streamgapdf.py
             REQUIRES_PYNBODY: false
             REQUIRES_ASTROPY: false
@@ -113,7 +113,7 @@ jobs:
             REQUIRES_NUMBA: false
             REQUIRES_JAX: false
           - os: ubuntu-latest
-            python-version: "3.10"
+            python-version: "3.11"
             TEST_FILES: tests/test_diskdf.py
             REQUIRES_PYNBODY: false
             REQUIRES_ASTROPY: false
@@ -121,7 +121,7 @@ jobs:
             REQUIRES_NUMBA: false
             REQUIRES_JAX: false
           - os: ubuntu-latest
-            python-version: "3.10"
+            python-version: "3.11"
             TEST_FILES: tests/test_streamdf.py tests/test_streamspraydf.py
             REQUIRES_PYNBODY: false
             REQUIRES_ASTROPY: false
@@ -129,6 +129,22 @@ jobs:
             REQUIRES_NUMBA: false
             REQUIRES_JAX: false
           - os: ubuntu-latest
+            python-version: "3.10"
+            TEST_FILES: tests/test_orbit.py -k test_energy_jacobi_conservation
+            REQUIRES_PYNBODY: true
+            REQUIRES_ASTROPY: true
+            REQUIRES_ASTROQUERY: true
+            REQUIRES_NUMBA: false
+            REQUIRES_JAX: false
+          - os: ubuntu-latest
+            python-version: "3.10"
+            TEST_FILES: tests/test_orbit.py tests/test_orbits.py -k 'not test_energy_jacobi_conservation'
+            REQUIRES_PYNBODY: true
+            REQUIRES_ASTROPY: true
+            REQUIRES_ASTROQUERY: true
+            REQUIRES_NUMBA: false
+            REQUIRES_JAX: false
+          - os: ubuntu-latest
             python-version: 3.9
             TEST_FILES: tests/test_orbit.py -k test_energy_jacobi_conservation
             REQUIRES_PYNBODY: true
@@ -161,7 +177,7 @@ jobs:
             REQUIRES_NUMBA: false
             REQUIRES_JAX: false
           - os: macos-latest
-            python-version: "3.10"
+            python-version: "3.11"
             TEST_FILES: tests/test_orbit.py -k test_energy_jacobi_conservation
             REQUIRES_PYNBODY: true
             REQUIRES_ASTROPY: true
@@ -169,7 +185,7 @@ jobs:
             REQUIRES_NUMBA: false
             REQUIRES_JAX: false
           - os: macos-latest
-            python-version: "3.10"
+            python-version: "3.11"
             TEST_FILES: tests/test_orbit.py tests/test_orbits.py -k 'not test_energy_jacobi_conservation'
             REQUIRES_PYNBODY: true
             REQUIRES_ASTROPY: true
@@ -177,7 +193,7 @@ jobs:
             REQUIRES_NUMBA: false
             REQUIRES_JAX: false
     env:
-      PYTHON_COVREPORTS_VERSION: "3.10"
+      PYTHON_COVREPORTS_VERSION: "3.11"
     steps:
     - uses: actions/checkout@v3
     - name: Set up Python ${{ matrix.python-version }}
@@ -209,19 +225,11 @@ jobs:
       run: |
          pip install --upgrade --upgrade-strategy eager numpy scipy matplotlib numexpr setuptools cython pytest tqdm
     - name: Install pynbody
-      if: ${{ matrix.REQUIRES_PYNBODY && matrix.python-version != 4.0 }}
+      if: ${{ matrix.REQUIRES_PYNBODY }}
       run: |
          pip install --upgrade --upgrade-strategy eager h5py pandas pytz
          pip install --upgrade --upgrade-strategy eager wheel
          pip install --upgrade --upgrade-strategy eager pynbody
-    - name: Install pynbody (Python 4.0; doesn't exist of course, placeholder for new python v)
-      if: ${{ matrix.REQUIRES_PYNBODY && matrix.python-version == 4.0 }}
-      run: |
-         sudo apt-get install libhdf5-dev
-         pip install --upgrade --upgrade-strategy eager --no-binary=h5py git+https://github.com/h5py/h5py.git@d4e4418a3dcfea5c978fe7fcdff0e80570bb7565#egg=h5py
-         pip install --upgrade --upgrade-strategy eager pandas pytz
-         pip install --upgrade --upgrade-strategy eager wheel
-         pip install git+https://github.com/pynbody/pynbody.git@cfbefac64bfad3b8d042e669ff2b36bad25813ce#egg=pynbody
     - name: Install astropy
       if: ${{ matrix.REQUIRES_ASTROPY }}
       run: pip install astropy pyerfa
@@ -284,8 +292,9 @@ jobs:
         pip install pytest-cov
         # Turn astropy deprecation warnings into errors as well if astropy
         if $REQUIRES_ASTROPY; then export PYTEST_ADDOPTS="-W error::astropy.utils.exceptions.AstropyDeprecationWarning"; else export PYTEST_ADDOPTS=""; fi
+        export XDRLIB_DEPRECATION="-W ignore:\"'xdrlib' is deprecated and slated for removal in Python 3.13\":DeprecationWarning"
         # eval necessary for -k 'not ...' in TEST_FILES
-        eval "pytest -W error::DeprecationWarning -W error::FutureWarning $PYTEST_ADDOPTS -v $TEST_FILES --cov galpy --cov-config .coveragerc --disable-pytest-warnings --durations=0 --cov-report=term --cov-report=xml"
+        eval "pytest -W error::DeprecationWarning -W error::FutureWarning $PYTEST_ADDOPTS $XDRLIB_DEPRECATION -v $TEST_FILES --cov galpy --cov-config .coveragerc --disable-pytest-warnings --durations=0 --cov-report=term --cov-report=xml"
     - name: Generate code coverage
       if: ${{ matrix.python-version == env.PYTHON_COVREPORTS_VERSION && matrix.os == 'ubuntu-latest' }}
       run: |

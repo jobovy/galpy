@@ -1,7 +1,7 @@
 build: off
 
 environment:
-  PYTHON_VERSION: "3.10"
+  PYTHON_VERSION: "3.11"
   MINICONDA: C:\\Miniconda37-x64
 
   matrix:
@@ -59,6 +59,15 @@ after_test:
       }
   - conda deactivate
   - conda remove --name test-environment --all
+  # Python 3.11
+  - conda create -n py311 python="3.11" numpy scipy matplotlib setuptools pip pytest gsl
+  - conda activate py311
+  - pip install wheel
+  - set INCLUDE=%CONDA_PREFIX%\Library\include;%INCLUDE%
+  - set LIB=%CONDA_PREFIX%\Library\lib;%LIB%
+  - set LIBPATH=%CONDA_PREFIX%\Library\lib;%LIBPATH%
+  - python setup.py bdist_wheel
+  - conda deactivate
   # Python 3.10
   - conda create -n py310 python="3.10" numpy scipy matplotlib setuptools pip pytest gsl
   - conda activate py310
