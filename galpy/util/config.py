@@ -2,6 +2,7 @@ import configparser
 import copy
 import os
 import os.path
+import warnings
 
 # The default configuration
 default_configuration = {
@@ -30,23 +31,34 @@ def check_config(configuration):
     return True
 
 
-def write_config(filename, configuration=None):
-    # Writes default if configuration is None
-    writeconfig = configparser.ConfigParser()
+def fix_config(configuration=None):
+    # Reduces to default if configuration is None
+    # otherwise fixes the configuration if it is not standard
+    fixedconfig = configparser.ConfigParser()
     # Write different sections
     for sec_key in default_configuration.keys():
-        writeconfig.add_section(sec_key)
+        fixedconfig.add_section(sec_key)
         for key in default_configuration[sec_key]:
             if (
                 configuration is None
                 or not configuration.has_section(sec_key)
                 or not configuration.has_option(sec_key, key)
             ):
-                writeconfig.set(sec_key, key, default_configuration[sec_key][key])
+                fixedconfig.set(sec_key, key, default_configuration[sec_key][key])
             else:
-                writeconfig.set(sec_key, key, configuration.get(sec_key, key))
-    with open(filename, "w") as configfile:
-        writeconfig.write(configfile)
+                fixedconfig.set(sec_key, key, configuration.get(sec_key, key))
+    return fixedconfig
+
+
+def write_config(filename, configuration):
+    try:
+        with open(filename, "w") as configfile:
+            configuration.write(configfile)
+    except Exception as e:  # pragma: no cover
+        warnings.warn(
+            f"""Could not write new/fixed galpy configuration to {filename},"""
+            f""" because of \"{type(e).__name__}: {e.__str__()}\""""
+        )
     return None
 
 
@@ -56,11 +68,12 @@ cfilename = __config__.read(".galpyrc")
 if not cfilename:
     cfilename = __config__.read(default_filename)
     if not cfilename:
-        write_config(default_filename)
-        cfilename = __config__.read(default_filename)
+        __config__ = fix_config()
+        write_config(default_filename, __config__)
+        cfilename = [default_filename]
 if not check_config(__config__):
+    __config__ = fix_config(__config__)
     write_config(cfilename[-1], __config__)
-    cfilename = __config__.read(cfilename[-1])
 # Store a version of the config in case we need to re-write parts of it,
 # but don't want to apply changes that we don't want to re-write
 configfilename = cfilename[-1]
