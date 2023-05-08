@@ -339,7 +339,7 @@ class KeplerPotential(PowerSphericalPotential):
 
         INPUT:
 
-           amp - amplitude to be applied to the potential, the mass of the point mass (default: 1); can be a Quantity with units of mass density or Gxmass density
+           amp - amplitude to be applied to the potential, the mass of the point mass (default: 1); can be a Quantity with units of mass or Gxmass
 
            alpha - inner power
 
