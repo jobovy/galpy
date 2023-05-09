@@ -9476,6 +9476,7 @@ def test_integrate_backwards():
         ), f"Orbit integration with method {method} does not conserve energy when integrating from a negative time to a positive time"
     return None
 
+
 # Test that Orbit._call_internal(t0) and Orbit._call_internal(t=t0) return the same results
 def test_call_internal_kwargs():
     from galpy.orbit import Orbit
@@ -9485,6 +9486,7 @@ def test_call_internal_kwargs():
     o = Orbit([1.0, 0.1, 1.2, 0.3, 0.2, 2.0])
     times = numpy.array([0.0, 10.0])
     o.integrate(times, lp)
-    assert numpy.array_equal(o._call_internal(10.0), o._call_internal(
-        t=10.0)), "Orbit._call_internal(t0) and Orbit._call_internal(t=t0) return different results"
+    assert numpy.array_equal(
+        o._call_internal(10.0), o._call_internal(t=10.0)
+    ), "Orbit._call_internal(t0) and Orbit._call_internal(t=t0) return different results"
     return None
