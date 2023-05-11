@@ -1072,6 +1072,7 @@ class Potential(Force):
         rmax = conversion.parse_length(rmax, ro=self._ro)
         zmin = conversion.parse_length(zmin, ro=self._ro)
         zmax = conversion.parse_length(zmax, ro=self._ro)
+        Lz = conversion.parse_angmom(Lz, ro=self._ro, vo=self._vo)
         if xrange is None:
             xrange = [rmin, rmax]
         if yrange is None:
@@ -3104,6 +3105,7 @@ def plotPotentials(
     rmax = conversion.parse_length(rmax, **get_physical(Pot))
     zmin = conversion.parse_length(zmin, **get_physical(Pot))
     zmax = conversion.parse_length(zmax, **get_physical(Pot))
+    Lz = conversion.parse_angmom(Lz, **get_physical(Pot))
     if not savefilename == None and os.path.exists(savefilename):
         print("Restoring savefile " + savefilename + " ...")
         savefile = open(savefilename, "rb")
