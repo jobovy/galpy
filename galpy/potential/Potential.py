@@ -1049,7 +1049,7 @@ class Potential(Force):
 
            savefilename - save to or restore from this savefile (pickle)
 
-           xrange, yrange= can be specified independently from rmin,zmin, etc.
+           xrange, yrange= can be specified independently from rmin,zmin, etc.; when x/yrange is set, the grid is set up as numpy.linspace(x/yrange[0],x/yrange[1],nrs/zs)
 
            levels= (None) contours to plot
 
@@ -1106,6 +1106,8 @@ class Potential(Force):
             potRz[Rs > rmax, :] = numpy.nan
             potRz[:, zs < zmin] = numpy.nan
             potRz[:, zs > zmax] = numpy.nan
+            # Infinity is bad for plotting
+            potRz[~numpy.isfinite(potRz)] = numpy.nan
             if not savefilename == None:
                 print("Writing savefile " + savefilename + " ...")
                 savefile = open(savefilename, "wb")
@@ -3036,6 +3038,8 @@ def plotPotentials(
     nzs=21,
     phi=None,
     xy=False,
+    xrange=None,
+    yrange=None,
     t=0.0,
     effective=False,
     Lz=None,
@@ -3081,6 +3085,8 @@ def plotPotentials(
 
        Lz= (None) angular momentum to use for the effective potential when effective=True
 
+       xrange, yrange= can be specified independently from rmin,zmin, etc.; when x/yrange is set, the grid is set up as numpy.linspace(x/yrange[0],x/yrange[1],nrs/zs)
+
        justcontours= (False) if True, just plot contours
 
        levels= (None) contours to plot
@@ -3106,6 +3112,10 @@ def plotPotentials(
     zmin = conversion.parse_length(zmin, **get_physical(Pot))
     zmax = conversion.parse_length(zmax, **get_physical(Pot))
     Lz = conversion.parse_angmom(Lz, **get_physical(Pot))
+    if xrange is None:
+        xrange = [rmin, rmax]
+    if yrange is None:
+        yrange = [zmin, zmax]
     if not savefilename == None and os.path.exists(savefilename):
         print("Restoring savefile " + savefilename + " ...")
         savefile = open(savefilename, "rb")
@@ -3116,8 +3126,8 @@ def plotPotentials(
     else:
         if effective and Lz is None:
             raise RuntimeError("When effective=True, you need to specify Lz=")
-        Rs = numpy.linspace(rmin, rmax, nrs)
-        zs = numpy.linspace(zmin, zmax, nzs)
+        Rs = numpy.linspace(xrange[0], xrange[1], nrs)
+        zs = numpy.linspace(yrange[0], yrange[1], nzs)
         potRz = numpy.zeros((nrs, nzs))
         for ii in range(nrs):
             for jj in range(nzs):
@@ -3130,6 +3140,13 @@ def plotPotentials(
                 )
             if effective:
                 potRz[ii, :] += 0.5 * Lz**2 / Rs[ii] ** 2.0
+        # Don't plot outside of the desired range
+        potRz[Rs < rmin, :] = numpy.nan
+        potRz[Rs > rmax, :] = numpy.nan
+        potRz[:, zs < zmin] = numpy.nan
+        potRz[:, zs > zmax] = numpy.nan
+        # Infinity is bad for plotting
+        potRz[~numpy.isfinite(potRz)] = numpy.nan
         if not savefilename == None:
             print("Writing savefile " + savefilename + " ...")
             savefile = open(savefilename, "wb")
@@ -3157,8 +3174,8 @@ def plotPotentials(
         xlabel=xlabel,
         ylabel=ylabel,
         aspect=aspect,
-        xrange=[rmin, rmax],
-        yrange=[zmin, zmax],
+        xrange=xrange,
+        yrange=yrange,
         cntrls="-",
         justcontours=justcontours,
         levels=levels,
