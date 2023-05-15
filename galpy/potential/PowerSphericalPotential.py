@@ -24,34 +24,26 @@ class PowerSphericalPotential(Potential):
 
     def __init__(self, amp=1.0, alpha=1.0, normalize=False, r1=1.0, ro=None, vo=None):
         """
-        NAME:
+        Initialize a power-law-density potential
 
-           __init__
+        Parameters
+        ----------
+        amp : float, optional
+            Amplitude to be applied to the potential (default: 1); can be a Quantity with units of mass or Gxmass
+        alpha : float, optional
+            Power-law exponent
+        r1 : float, optional
+            Reference radius for amplitude (can be Quantity)
+        normalize : bool or float, optional
+            If True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
+        ro : float, optional
+            Distance scale for translation into internal units (default from configuration file)
+        vo : float, optional
+            Velocity scale for translation into internal units (default from configuration file)
 
-        PURPOSE:
-
-           initialize a power-law-density potential
-
-        INPUT:
-
-           amp - amplitude to be applied to the potential (default: 1); can be a Quantity with units of mass or Gxmass
-
-           alpha - power-law exponent
-
-           r1= (1.) reference radius for amplitude (can be Quantity)
-
-           normalize - if True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
-
-           ro=, vo= distance and velocity scales for translation into internal units (default from configuration file)
-
-        OUTPUT:
-
-           (none)
-
-        HISTORY:
-
-           2010-07-10 - Written - Bovy (NYU)
-
+        Notes
+        -----
+        - 2010-07-10 - Written - Bovy (NYU)
         """
         Potential.__init__(self, amp=amp, ro=ro, vo=vo, amp_units="mass")
         r1 = conversion.parse_length(r1, ro=self._ro)
@@ -69,19 +61,27 @@ class PowerSphericalPotential(Potential):
 
     def _evaluate(self, R, z, phi=0.0, t=0.0):
         """
-        NAME:
-           _evaluate
-        PURPOSE:
-           evaluate the potential at R,z
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           Phi(R,z)
-        HISTORY:
-           2010-07-10 - Started - Bovy (NYU)
+        Evaluate the potential at R,z
+
+        Parameters
+        ----------
+        R : float
+            Galactocentric cylindrical radius
+        z : float
+            Vertical height
+        phi : float, optional
+            Azimuth (default: 0.0)
+        t : float, optional
+            Time (default: 0.0)
+
+        Returns
+        -------
+        float
+            Potential at (R, z)
+
+        Notes
+        -----
+        - Started: 2010-07-10 by Bovy (NYU)
         """
         r2 = R**2.0 + z**2.0
         if self.alpha == 2.0:
@@ -96,71 +96,100 @@ class PowerSphericalPotential(Potential):
 
     def _Rforce(self, R, z, phi=0.0, t=0.0):
         """
-        NAME:
-           _Rforce
-        PURPOSE:
-           evaluate the radial force for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           the radial force
-        HISTORY:
-           2010-07-10 - Written - Bovy (NYU)
+        Evaluate the radial force for this potential.
+
+        Parameters
+        ----------
+        R : float
+            Galactocentric cylindrical radius
+        z : float
+            Vertical height
+        phi : float, optional
+            Azimuth (default: 0.0)
+        t : float, optional
+            Time (default: 0.0)
+
+        Returns
+        -------
+        float
+            The radial force.
+
+        Notes
+        -----
+        - 2010-07-10 - Written - Bovy (NYU)
         """
         return -R / (R**2.0 + z**2.0) ** (self.alpha / 2.0)
 
     def _zforce(self, R, z, phi=0.0, t=0.0):
         """
-        NAME:
-           _zforce
-        PURPOSE:
-           evaluate the vertical force for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           the vertical force
-        HISTORY:
-           2010-07-10 - Written - Bovy (NYU)
+        Evaluate the vertical force for this potential.
+
+        Parameters
+        ----------
+        R : float
+            Galactocentric cylindrical radius
+        z : float
+            Vertical height
+        phi : float, optional
+            Azimuth (default: 0.0)
+        t : float, optional
+            Time (default: 0.0)
+
+        Returns
+        -------
+        float
+            The vertical force.
+
+        Notes
+        -----
+        - 2010-07-10 - Written - Bovy (NYU)
         """
         return -z / (R**2.0 + z**2.0) ** (self.alpha / 2.0)
 
     def _rforce_jax(self, r):
         """
-        NAME:
-           _rforce_jax
-        PURPOSE:
-           evaluate the spherical radial force for this potential using JAX
-        INPUT:
-           r - Galactocentric spherical radius
-        OUTPUT:
-           the radial force
-        HISTORY:
-           2021-02-14 - Written - Bovy (UofT)
+        Evaluate the spherical radial force for this potential using JAX.
+
+        Parameters
+        ----------
+        r : float
+            Galactocentric spherical radius.
+
+        Returns
+        -------
+        float
+            The radial force.
+
+        Notes
+        -----
+        - 2021-02-14 - Written - Bovy (UofT)
         """
         # No need for actual JAX!
         return -self._amp / r ** (self.alpha - 1.0)
 
     def _R2deriv(self, R, z, phi=0.0, t=0.0):
         """
-        NAME:
-           _Rderiv
-        PURPOSE:
-           evaluate the second radial derivative for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           the second radial derivative
-        HISTORY:
-           2011-10-09 - Written - Bovy (NYU)
+        Evaluate the second radial derivative for this potential.
+
+        Parameters
+        ----------
+        R : float
+            Galactocentric cylindrical radius.
+        z : float
+            Vertical height.
+        phi : float, optional
+            Azimuth (default: 0.0).
+        t : float, optional
+            Time (default: 0.0).
+
+        Returns
+        -------
+        float
+            The second radial derivative.
+
+        Notes
+        -----
+        - 2011-10-09 - Written - Bovy (NYU)
         """
         return 1.0 / (R**2.0 + z**2.0) ** (
             self.alpha / 2.0
@@ -168,72 +197,102 @@ class PowerSphericalPotential(Potential):
 
     def _z2deriv(self, R, z, phi=0.0, t=0.0):
         """
-        NAME:
-           _z2deriv
-        PURPOSE:
-           evaluate the second vertical derivative for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t- time
-        OUTPUT:
-           the second vertical derivative
-        HISTORY:
-           2012-07-26 - Written - Bovy (IAS@MPIA)
+        Evaluate the second vertical derivative for this potential.
+
+        Parameters
+        ----------
+        R : float
+            Galactocentric cylindrical radius.
+        z : float
+            Vertical height.
+        phi : float, optional
+            Azimuth (default: 0.0).
+        t : float, optional
+            Time (default: 0.0).
+
+        Returns
+        -------
+        float
+            The second vertical derivative.
+
+        Notes
+        -----
+        - 2012-07-26 - Written - Bovy (IAS@MPIA)
         """
         return self._R2deriv(z, R)  # Spherical potential
 
     def _Rzderiv(self, R, z, phi=0.0, t=0.0):
         """
-        NAME:
-           _Rzderiv
-        PURPOSE:
-           evaluate the mixed R,z derivative for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           d2phi/dR/dz
-        HISTORY:
-           2013-08-28 - Written - Bovy (IAs)
+        Evaluate the mixed R,z derivative for this potential.
+
+        Parameters
+        ----------
+        R : float
+            Galactocentric cylindrical radius.
+        z : float
+            Vertical height.
+        phi : float, optional
+            Azimuth (default: 0.0).
+        t : float, optional
+            Time (default: 0.0).
+
+        Returns
+        -------
+        float
+            The mixed R,z derivative.
+
+        Notes
+        -----
+        - 2013-08-28 - Written - Bovy (IAs)
         """
         return -self.alpha * R * z * (R**2.0 + z**2.0) ** (-1.0 - self.alpha / 2.0)
 
     def _dens(self, R, z, phi=0.0, t=0.0):
         """
-        NAME:
-           _dens
-        PURPOSE:
-           evaluate the density for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           the density
-        HISTORY:
-           2013-01-09 - Written - Bovy (IAS)
+        Evaluate the density for this potential.
+
+        Parameters
+        ----------
+        R : float
+            Galactocentric cylindrical radius.
+        z : float
+            Vertical height.
+        phi : float, optional
+            Azimuth (default: 0.0).
+        t : float, optional
+            Time (default: 0.0).
+
+        Returns
+        -------
+        float
+            The density.
+
+        Notes
+        -----
+        - 2013-01-09 - Written - Bovy (IAS)
         """
         r = numpy.sqrt(R**2.0 + z**2.0)
         return (3.0 - self.alpha) / 4.0 / numpy.pi / r**self.alpha
 
     def _ddensdr(self, r, t=0.0):
         """
-        NAME:
-           _ddensdr
-        PURPOSE:
-           evaluate the radial density derivative for this potential
-        INPUT:
-           r - spherical radius
-           t= time
-        OUTPUT:
-           the density derivative
-        HISTORY:
-           2021-02-25 - Written - Bovy (UofT)
+        Evaluate the radial density derivative for this potential.
+
+        Parameters
+        ----------
+        r : float
+            Spherical radius.
+        t : float, optional
+            Time (default: 0.0).
+
+        Returns
+        -------
+        float
+            The density derivative.
+
+        Notes
+        -----
+        - 2021-02-25 - Written - Bovy (UofT)
         """
         return (
             -self._amp
@@ -246,17 +305,23 @@ class PowerSphericalPotential(Potential):
 
     def _d2densdr2(self, r, t=0.0):
         """
-        NAME:
-           _d2densdr2
-        PURPOSE:
-           evaluate the second radial density derivative for this potential
-        INPUT:
-           r - spherical radius
-           t= time
-        OUTPUT:
-           the 2nd density derivative
-        HISTORY:
-           2021-02-25 - Written - Bovy (UofT)
+        Evaluate the second radial density derivative for this potential.
+
+        Parameters
+        ----------
+        r : float
+            Spherical radius.
+        t : float, optional
+            Time (default: 0.0).
+
+        Returns
+        -------
+        float
+            The second density derivative.
+
+        Notes
+        -----
+        - 2021-02-25: Written by Bovy (UofT)
         """
         return (
             self._amp
@@ -270,17 +335,23 @@ class PowerSphericalPotential(Potential):
 
     def _ddenstwobetadr(self, r, beta=0):
         """
-        NAME:
-           _ddenstwobetadr
-        PURPOSE:
-           evaluate the radial density derivative x r^(2beta) for this potential
-        INPUT:
-           r - spherical radius
-           beta= (0)
-        OUTPUT:
-           d (rho x r^{2beta} ) / d r
-        HISTORY:
-           2021-02-14 - Written - Bovy (UofT)
+        Evaluate the radial density derivative x r^(2beta) for this potential.
+
+        Parameters
+        ----------
+        r : float
+            Spherical radius.
+        beta : int, optional
+            Power of r (default: 0).
+
+        Returns
+        -------
+        float
+            The d (rho x r^{2beta} ) / d r derivative.
+
+        Notes
+        -----
+        - 2021-02-14: Written by Bovy (UofT)
         """
         return (
             -self._amp
@@ -293,19 +364,27 @@ class PowerSphericalPotential(Potential):
 
     def _surfdens(self, R, z, phi=0.0, t=0.0):
         """
-        NAME:
-           _surfdens
-        PURPOSE:
-           evaluate the surface density for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           the surface density
-        HISTORY:
-           2018-08-19 - Written - Bovy (UofT)
+        Evaluate the surface density for this potential.
+
+        Parameters
+        ----------
+        R : float
+            Galactocentric cylindrical radius.
+        z : float
+            Vertical height.
+        phi : float, optional
+            Azimuth (default: 0.0).
+        t : float, optional
+            Time (default: 0.0).
+
+        Returns
+        -------
+        float
+            The surface density.
+
+        Notes
+        -----
+        - 2018-08-19: Written by Bovy (UofT)
         """
         return (
             (3.0 - self.alpha)
@@ -329,31 +408,26 @@ class KeplerPotential(PowerSphericalPotential):
 
     def __init__(self, amp=1.0, normalize=False, ro=None, vo=None):
         """
-        NAME:
+        Initialize a Kepler, point-mass potential.
 
-           __init__
+        Parameters
+        ----------
+        amp : float or Quantity, optional
+            Amplitude to be applied to the potential, the mass of the point mass (default: 1); can be a Quantity with units of mass or Gxmass.
+        normalize : bool or float, optional
+            If True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
+        ro : float, optional
+            Distance scale for translation into internal units (default from configuration file).
+        vo : float, optional
+            Velocity scale for translation into internal units (default from configuration file).
 
-        PURPOSE:
+        Returns
+        -------
+        None
 
-           initialize a Kepler, point-mass potential
-
-        INPUT:
-
-           amp - amplitude to be applied to the potential, the mass of the point mass (default: 1); can be a Quantity with units of mass or Gxmass
-
-           alpha - inner power
-
-           normalize - if True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
-
-           ro=, vo= distance and velocity scales for translation into internal units (default from configuration file)
-
-        OUTPUT:
-
-           (none)
-
-        HISTORY:
-
-           2010-07-10 - Written - Bovy (NYU)
+        Notes
+        -----
+        - 2010-07-10: Written by Bovy (NYU)
 
         """
         PowerSphericalPotential.__init__(
@@ -362,17 +436,24 @@ class KeplerPotential(PowerSphericalPotential):
 
     def _mass(self, R, z=None, t=0.0):
         """
-        NAME:
-           _mass
-        PURPOSE:
-           evaluate the mass within R for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           t - time
-        OUTPUT:
-           the mass enclosed
-        HISTORY:
-           2014-07-02 - Written - Bovy (IAS)
+        Evaluate the mass within R for this potential.
+
+        Parameters
+        ----------
+        R : float
+            Galactocentric cylindrical radius.
+        z : float, optional
+            Vertical height (default: None).
+        t : float, optional
+            Time (default: 0.0).
+
+        Returns
+        -------
+        float
+            The mass enclosed.
+
+        Notes
+        -----
+        - Written on 2014-07-02 by Bovy (IAS).
         """
         return 1.0
