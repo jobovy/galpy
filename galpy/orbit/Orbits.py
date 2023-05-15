@@ -7598,7 +7598,7 @@ def _from_name_oneobject(name, obs):
     # setup a SIMBAD query with the appropriate fields
     simbad = Simbad()
     # Make sure to make an HTTPS request so this code works in the browser
-    simbad.SIMBAD_URL.replace("http://", "https://")
+    simbad.SIMBAD_URL = simbad.SIMBAD_URL.replace("http://", "https://")
     simbad.add_votable_fields(
         "ra(d)", "dec(d)", "pmra", "pmdec", "rv_value", "plx", "distance"
     )
