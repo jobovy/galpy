@@ -10,7 +10,7 @@ _degtorad = numpy.pi / 180.0
 
 
 class DehnenBarPotential(Potential):
-    """Class that implements the Dehnen bar potential (`Dehnen 2000 <http://adsabs.harvard.edu/abs/2000AJ....119..800D>`__), generalized to 3D following `Monari et al. (2016) <http://adsabs.harvard.edu/abs/2016MNRAS.461.3835M>`__
+    """Class that implements the Dehnen bar potential (`Dehnen 2000 <http://adsabs.harvard.edu/abs/2000AJ....119..800D>`__; [1]_), generalized to 3D following `Monari et al. (2016) <http://adsabs.harvard.edu/abs/2016MNRAS.461.3835M>`__ [2]_
 
     .. math::
 
@@ -69,54 +69,47 @@ class DehnenBarPotential(Potential):
         vo=None,
     ):
         """
-        NAME:
+        Initialize a Dehnen bar potential.
 
-           __init__
+        Parameters
+        ----------
+        amp : float, optional
+            Amplitude to be applied to the potential (default: 1., see alpha or Ab below).
+        omegab : float or Quantity, optional
+            Rotation speed of the bar (can be Quantity).
+        rb : float or Quantity, optional
+            Bar radius (can be Quantity).
+        Af : float or Quantity, optional
+            Bar strength (can be Quantity).
+        chi : float, optional
+            Fraction R_bar / R_CR (corotation radius of bar).
+        rolr : float or Quantity, optional
+            Radius of the Outer Lindblad Resonance for a circular orbit (can be Quantity).
+        barphi : float or Quantity, optional
+            Angle between sun-GC line and the bar's major axis (in rad; default=25 degree; or can be Quantity).
+        beta : float, optional
+            Power law index of rotation curve (to calculate OLR, etc.).
+        alpha : float or Quantity, optional
+            Relative bar strength (default: 0.01).
+        tform : float, optional
+            Start of bar growth / bar period (default: -4).
+        tsteady : float, optional
+            Time from tform at which the bar is fully grown / bar period (default: -tform/2, so the perturbation is fully grown at tform/2).
+        ro : float or Quantity, optional
+            Distance from the Galactic center to the observer (can be Quantity).
+        vo : float or Quantity, optional
+            Circular velocity at ro (can be Quantity).
 
-        PURPOSE:
+        Notes
+        -----
+        - Either provide (omegab, rb, Af) or (chi, rolr, alpha, beta).
+        - 2010-11-24 - Started - Bovy (NYU)
+        - 2017-06-23 - Converted to 3D following Monari et al. (2016) - Bovy (UofT/CCA)
 
-           initialize a Dehnen bar potential
-
-        INPUT:
-
-           amp - amplitude to be applied to the potential (default:
-           1., see alpha or Ab below)
-
-           barphi - angle between sun-GC line and the bar's major axis
-           (in rad; default=25 degree; or can be Quantity))
-
-           tform - start of bar growth / bar period (default: -4)
-
-           tsteady - time from tform at which the bar is fully grown / bar period (default: -tform/2, st the perturbation is fully grown at tform/2)
-
-           Either provide:
-
-              a) rolr - radius of the Outer Lindblad Resonance for a
-                 circular orbit (can be Quantity)
-
-                 chi - fraction R_bar / R_CR (corotation radius of bar)
-
-                 alpha - relative bar strength (default: 0.01)
-
-                 beta - power law index of rotation curve (to
-                 calculate OLR, etc.)
-
-              b) omegab - rotation speed of the bar (can be Quantity)
-
-                 rb - bar radius (can be Quantity)
-
-                 Af - bar strength (can be Quantity)
-
-        OUTPUT:
-
-           (none)
-
-        HISTORY:
-
-           2010-11-24 - Started - Bovy (NYU)
-
-           2017-06-23 - Converted to 3D following Monari et al. (2016) - Bovy (UofT/CCA)
-
+        References
+        ----------
+        .. [1] Dehnen (1999). The Astrophysical Journal, 524, L35. ADS: https://ui.adsabs.harvard.edu/abs/1999ApJ...524L..35D/abstract
+        .. [2] Monari, G., Famaey, B., Siebert, A., et al. (2016). Monthly Notices of the Royal Astronomical Society, 462(2), 2333-2346. ADS: https://ui.adsabs.harvard.edu/abs/2016MNRAS.462.2333M/abstract
         """
         Potential.__init__(self, amp=amp, ro=ro, vo=vo)
         barphi = conversion.parse_angle(barphi)
