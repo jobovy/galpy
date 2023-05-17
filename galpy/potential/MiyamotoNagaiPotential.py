@@ -12,7 +12,7 @@ from .Potential import Potential, kms_to_kpcGyrDecorator
 
 
 class MiyamotoNagaiPotential(Potential):
-    """Class that implements the Miyamoto-Nagai potential
+    """Class that implements the Miyamoto-Nagai potential [1]_
 
     .. math::
 
@@ -23,34 +23,30 @@ class MiyamotoNagaiPotential(Potential):
 
     def __init__(self, amp=1.0, a=1.0, b=0.1, normalize=False, ro=None, vo=None):
         """
-        NAME:
+        Initialize a Miyamoto-Nagai potential.
 
-           __init__
+        Parameters
+        ----------
+        amp : float or Quantity, optional
+            Amplitude to be applied to the potential, the total mass (default: 1); can be a Quantity with units of mass or Gxmass.
+        a : float or Quantity, optional
+            Scale length.
+        b : float or Quantity, optional
+            Scale height.
+        normalize : bool or float, optional
+            If True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
+        ro : float, optional
+            Distance scale for translation into internal units (default from configuration file).
+        vo : float, optional
+            Velocity scale for translation into internal units (default from configuration file).
 
-        PURPOSE:
+        Notes
+        -----
+        - 2010-07-09 - Started - Bovy (NYU)
 
-           initialize a Miyamoto-Nagai potential
-
-        INPUT:
-
-           amp - amplitude to be applied to the potential, the total mass (default: 1); can be a Quantity with units of mass or Gxmass
-
-           a - scale length (can be Quantity)
-
-           b - scale height (can be Quantity)
-
-           normalize - if True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
-
-           ro=, vo= distance and velocity scales for translation into internal units (default from configuration file)
-
-        OUTPUT:
-
-           (none)
-
-        HISTORY:
-
-           2010-07-09 - Started - Bovy (NYU)
-
+        References
+        ----------
+        .. [1] Miyamoto, M., & Nagai, R. (1975). Three-dimensional models for the distribution of mass in galaxies. Publications of the Astronomical Society of Japan, 27(4), 533-543. ADS: https://ui.adsabs.harvard.edu/abs/1975PASJ...27..533M/abstract
         """
         Potential.__init__(self, amp=amp, ro=ro, vo=vo, amp_units="mass")
         a = conversion.parse_length(a, ro=self._ro)
