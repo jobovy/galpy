@@ -290,74 +290,54 @@ class Orbit:
         lb=False,
     ):
         """
-        NAME:
+        Initialize an Orbit instance.
 
-            __init__
+        Parameters
+        ----------
+        vxvv : array_like, optional
+            Initial conditions (must all have the same phase-space dimension); can be either:
 
-        PURPOSE:
+            - astropy (>v3.0) SkyCoord with arbitrary shape, including velocities (note that this turns *on* physical output even if ro and vo are not given)
+            - array of arbitrary shape (shape,phasedim) (shape of the orbits, followed by the phase-space dimension of the orbit); shape information is retained and used in outputs; elements can be either:
+                1. In Galactocentric cylindrical coordinates with phase-space coordinates arranged as [R,vR,vT(,z,vz,phi)]; needs to be in internal units (for Quantity input; see 'list' option below)
+                2. [ra,dec,d,mu_ra, mu_dec,vlos] in [deg,deg,kpc,mas/yr,mas/yr,km/s] (ICRS; mu_ra = mu_ra * cos dec); (for Quantity input, see 'list' option below);
+                3. [ra,dec,d,U,V,W] in [deg,deg,kpc,km/s,km/s,kms]; (for Quantity input; see 'list' option below); ICRS frame
+                4. (l,b,d,mu_l, mu_b, vlos) in [deg,deg,kpc,mas/yr,mas/yr,km/s) (mu_l = mu_l * cos b); (for Quantity input; see 'list' option below)
+                5. [l,b,d,U,V,W] in [deg,deg,kpc,km/s,km/s,kms]; (for Quantity input; see 'list' option below)
+                6. And 5) also work when leaving out b and mu_b/W
+            - lists of initial conditions, entries can be:
+                1. Individual Orbit instances (of single objects)
+                2. Regular or Quantity arrays arranged as in section 2) above (so things like [R,vR,vT,z,vz,phi], where R, vR, ... can be arbitrary shape Quantity arrays)
+                3. List of Quantities (so things like [R1,vR1,..,], where R1, vR1, ... are scalar Quantities
+                4. None: assumed to be the Sun; if None occurs in a list it is assumed to be the Sun *and all other items in the list are assumed to be [ra,dec,...]*; cannot be combined with Quantity lists (2 and 3 above)
+                5. Lists of scalar phase-space coordinates arranged as in b) (so things like [R,vR,...] where R,vR are scalars in internal units
+        ro : float or Quantity, optional
+            Distance from vantage point to Galactic center (kpc; can be an array with the same shape as the Orbit itself).
+        vo : float or Quantity, optional
+            Circular velocity at ro (km/s; can be an array with the same shape as the Orbit itself).
+        zo : float or Quantity, optional
+            Offset toward the NGP of the Sun wrt the plane in kpc; default = 20.8 pc from Bennett & Bovy 2019). Can be an array with the same shape as the Orbit itself
+        solarmotion : str, array_like or Quantity, optional
+            'hogg' or 'dehnen', or 'schoenrich', or value in [-U,V,W] in km/s. Can be an array with the same shape as the Orbit itself
+        radec : bool, optional
+            If set, treat input as being in ICRS coordinates [ra,dec,d,mu_ra, mu_dec,vlos] in [deg,deg,kpc,mas/yr,mas/yr,km/s] (mu_ra = mu_ra * cos dec).
+        lb : bool, optional
+            If set, treat input as being in Galactic coordinates (l,b,d,mu_l, mu_b, vlos) in [deg,deg,kpc,mas/yr,mas/yr,km/s) (mu_l = mu_l * cos b).
+        uvw : bool, optional
+            If set, treat velocity part of radec or lb input as [U,V,W] in km/s.
 
-            Initialize an Orbit instance
+        Returns
+        -------
+        instance
 
-        INPUT:
-
-            vxvv - initial conditions (must all have the same phase-space dimension); can be either
-
-                a) astropy (>v3.0) SkyCoord with arbitrary shape, including velocities (note that this turns *on* physical output even if ro and vo are not given)
-
-                b) array of arbitrary shape (shape,phasedim) (shape of the orbits, followed by the phase-space dimension of the orbit); shape information is retained and used in outputs; elements can be either
-
-                    1) in Galactocentric cylindrical coordinates with phase-space coordinates arranged as [R,vR,vT(,z,vz,phi)]; needs to be in internal units (for Quantity input; see 'list' option below)
-
-                    2) [ra,dec,d,mu_ra, mu_dec,vlos] in [deg,deg,kpc,mas/yr,mas/yr,km/s] (ICRS; mu_ra = mu_ra * cos dec); (for Quantity input, see 'list' option below);
-
-                    4) [ra,dec,d,U,V,W] in [deg,deg,kpc,km/s,km/s,kms]; (for Quantity input; see 'list' option below); ICRS frame
-
-                    5) (l,b,d,mu_l, mu_b, vlos) in [deg,deg,kpc,mas/yr,mas/yr,km/s) (mu_l = mu_l * cos b); (for Quantity input; see 'list' option below)
-
-                    6) [l,b,d,U,V,W] in [deg,deg,kpc,km/s,km/s,kms]; (for Quantity input; see 'list' option below)
-
-                    5) and 6) also work when leaving out b and mu_b/W
-
-                c) lists of initial conditions, entries can be
-
-                    1) individual Orbit instances (of single objects)
-
-                    2) regular or Quantity arrays arranged as in section 2) above (so things like [R,vR,vT,z,vz,phi], where R, vR, ... can be arbitrary shape Quantity arrays)
-
-                    3) list of Quantities (so things like [R1,vR1,..,], where R1, vR1, ... are scalar Quantities
-
-                    4) None: assumed to be the Sun; if None occurs in a list it is assumed to be the Sun *and all other items in the list are assumed to be [ra,dec,...]*; cannot be combined with Quantity lists (2 and 3 above)
-
-                    5) lists of scalar phase-space coordinates arranged as in b) (so things like [R,vR,...] where R,vR are scalars in internal units
-
-        OPTIONAL INPUTS:
-
-            ro - distance from vantage point to GC (kpc; can be Quantity and can be an array with the same shape as the Orbit itself)
-
-            vo - circular velocity at ro (km/s; can be Quantity and can be an array with the same shape as the Orbit itself)
-
-            zo - offset toward the NGP of the Sun wrt the plane (kpc; can be Quantity; default = 20.8 pc from Bennett & Bovy 2019; can be an array with the same shape as the Orbit itself)
-
-            solarmotion - 'hogg' or 'dehnen', or 'schoenrich', or value in [-U,V,W]; can be Quantity and can be an array with the same shape as the Orbit itself; default = 'schoenrich'
-
-        OUTPUT:
-
-            instance
-
-        HISTORY:
-
-            2018-10-13 - Written - Mathew Bub (UofT)
-
-            2019-01-01 - Better handling of unit/coordinate-conversion parameters and consistency checks - Bovy (UofT)
-
-            2019-02-01 - Handle array of SkyCoords in a faster way by making use of the fact that array of SkyCoords is processed correctly by Orbit
-
-            2019-02-18 - Don't support radec, lb, or uvw keywords to avoid slow coordinate transformations that would require ugly code to fix - Bovy (UofT)
-
-            2019-03-19 - Allow array vxvv and arbitrary shapes - Bovy (UofT)
-
-            2023-07-20 - Allowed ro/zo/vo/solarmotion input to be arrays with the same shape as the Orbit itself - Bovy (UofT)
-
+        Notes
+        -----
+        - 2010-07-XX - Original version started - Bovy (NYU)
+        - 2018-10-13 - Start of re-write to allow multiple orbits - Mathew Bub (UofT)
+        - 2019-01-01 - Better handling of unit/coordinate-conversion parameters and consistency checks - Bovy (UofT)
+        - 2019-02-01 - Handle array of SkyCoords in a faster way by making use of the fact that array of SkyCoords is processed correctly by Orbit
+        - 2019-03-19 - Allow array vxvv and arbitrary shapes - Bovy (UofT)
+        - 2023-07-20 - Allowed ro/zo/vo/solarmotion input to be arrays with the same shape as the Orbit itself - Bovy (UofT)
         """
         # First deal with None = Sun
         if vxvv is None:  # Assume one wants the Sun
@@ -811,37 +791,30 @@ class Orbit:
     @classmethod
     def from_name(cls, *args, **kwargs):
         """
-        NAME:
+        Construct an orbit from the name of an object or a list of names.
 
-            from_name
+        Parameters
+        ----------
+        name : str or list
+            The name of the object or list of names. When loading a collection of objects (like 'mwglobularclusters'), lists are not allowed.
+        ro : float or Quantity, optional
+            Distance from vantage point to Galactic center (kpc).
+        vo : float or Quantity, optional
+            Circular velocity at ro (km/s; can be Quantity).
+        zo : float or Quantity, optional
+            Offset toward the NGP of the Sun wrt the plane in kpc; default = 20.8 pc from Bennett & Bovy 2019).
+        solarmotion : str, array_like or Quantity, optional
+            Solar motion. Can be 'hogg' or 'dehnen', or 'schoenrich', or value in [-U,V,W] in km/s.
 
-        PURPOSE:
+        Returns
+        -------
+        Orbit
+            An orbit containing the phase space coordinates of the named object.
 
-            given the name of an object or a list of names, retrieve coordinate information for that object from SIMBAD and return a corresponding orbit
-
-        INPUT:
-
-            name - the name of the object or list of names; when loading a collection of objects (like 'mwglobularclusters'), lists are not allowed
-
-            +standard Orbit initialization keywords:
-
-                ro= distance from vantage point to GC (kpc; can be Quantity)
-
-                vo= circular velocity at ro (km/s; can be Quantity)
-
-                zo= offset toward the NGP of the Sun wrt the plane (kpc; can be Quantity; default = 20.8 pc from Bennett & Bovy 2019)
-
-                solarmotion= 'hogg' or 'dehnen', or 'schoenrich', or value in [-U,V,W]; can be Quantity
-
-        OUTPUT:
-
-            orbit containing the phase space coordinates of the named object
-
-        HISTORY:
-
-            2018-07-15 - Written - Mathew Bub (UofT)
-
-            2019-05-21 - Generalized to multiple objects and incorporated into Orbits - Bovy (UofT)
+        Notes
+        -----
+        - 2018-07-15: Written - Mathew Bub (UofT)
+        - 2019-05-21: Generalized to multiple objects and incorporated into Orbits - Bovy (UofT)
 
         """
         if not _APY_LOADED:  # pragma: no cover
@@ -919,70 +892,62 @@ class Orbit:
         disp=False,
     ):
         """
-        NAME:
+        Initialize an Orbit using a fit to data.
 
-           from_fit
+        Parameters
+        ----------
+        init_vxvv : array_like
+            Initial guess for the fit (same representation [e.g.,radec=True] as vxvv data, except when customsky, then init_vxvv is assumed to be ra,dec).
+        vxvv : array_like
+            [:,6] array of positions and velocities along the orbit (if not lb=True or radec=True, these need to be in natural units [/ro,/vo], cannot be Quantities).
+        vxvv_err : array_like, optional
+            [:,6] array of errors on positions and velocities along the orbit (if None, these are set to 0.01) (if not lb=True or radec=True, these need to be in natural units [/ro,/vo], cannot be Quantities).
+        pot : Potential, DissipativeForce, or list of such instances, optional
+            Gravitational field to integrate orbits in.
 
-        PURPOSE:
+        radec : bool, optional
+            If set, treat input as being in ICRS coordinates [ra,dec,d,mu_ra, mu_dec,vlos] in [deg,deg,kpc,mas/yr,mas/yr,km/s] (mu_ra = mu_ra * cos dec).
+        lb : bool, optional
+            If set, treat input as being in Galactic coordinates (l,b,d,mu_l, mu_b, vlos) in [deg,deg,kpc,mas/yr,mas/yr,km/s) (mu_l = mu_l * cos b).
+        customsky : bool, optional
+            If True, input vxvv and vxvv_err are [custom long,custom lat,d,mu_customll, mu_custombb,vlos] in [deg,deg,kpc,mas/yr,mas/yr,km/s] (mu_ll = mu_ll * cos lat) where custom longitude and custom latitude are a custom set of sky coordinates (e.g., ecliptic) and the proper motions are also expressed in these coordinates; you need to provide the functions lb_to_customsky and pmllpmbb_to_customsky to convert to the custom sky coordinates (these should have the same inputs and outputs as lb_to_radec and pmllpmbb_to_pmrapmdec); the attributes of the current Orbit are used to convert between these coordinates and Galactocentric coordinates.
+        lb_to_customsky : function, optional
+            Function that converts l,b,degree=False to the custom sky coordinates (like lb_to_radec); needs to be given when customsky=True.
+        pmllpmbb_to_customsky : function, optional
+            Function that converts pmll,pmbb,l,b,degree=False to proper motions in the custom sky coordinates (like pmllpmbb_to_pmrapmdec); needs to be given when customsky=True.
 
-           Initialize an Orbit using a fit to data
+        tintJ : float, optional
+            Time to integrate orbits for fitting the orbit (can be Quantity).
+        ntintJ : int, optional
+            Number of time-integration points.
+        integrate_method : str, optional
+            Integration method to use (default: 'dopr54_c'; see galpy.orbit.Orbit.integrate).
 
-        INPUT:
+        ro : float or Quantity, optional
+            Distance from vantage point to Galactic center (kpc).
+        vo : float or Quantity, optional
+            Circular velocity at ro (km/s; can be Quantity).
+        zo : float or Quantity, optional
+            Offset toward the NGP of the Sun wrt the plane in pc; default = 20.8 pc from Bennett & Bovy 2019).
+        solarmotion : str, array_like or Quantity, optional
+            'hogg' or 'dehnen', or 'schoenrich', or value in [-U,V,W] in km/s.
 
-           init_vxvv - initial guess for the fit (same representation [e.g.,radec=True] as vxvv data, except when customsky, then init_vxvv is assumed to be ra,dec)
+        disp : bool, optional
+            Display the optimizer's convergence message.
 
-           vxvv - [:,6] array of positions and velocities along the orbit (if not lb=True or radec=True, these need to be in natural units [/ro,/vo], cannot be Quantities)
+        Returns
+        -------
+        Orbit
+            An orbit that is the best fit to the given data.
 
-           vxvv_err= [:,6] array of errors on positions and velocities along the orbit (if None, these are set to 0.01) (if not lb=True or radec=True, these need to be in natural units [/ro,/vo], cannot be Quantities)
+        Notes
+        -----
+        - 2014-06-17 - Written - Bovy (IAS)
+        - 2019-05-22 - Incorporated into new Orbit class as from_fit -  Bovy (UofT)
 
-           pot= Potential to fit the orbit in
-
-           Keywords related to the input data:
-
-               radec= if True, input vxvv and vxvv are [ra,dec,d,mu_ra, mu_dec,vlos] in [deg,deg,kpc,mas/yr,mas/yr,km/s] (all J2000.0; mu_ra = mu_ra * cos dec); the attributes of the current Orbit are used to convert between these coordinates and Galactocentric coordinates
-
-               lb= if True, input vxvv and vxvv are [long,lat,d,mu_ll, mu_bb,vlos] in [deg,deg,kpc,mas/yr,mas/yr,km/s] (mu_ll = mu_ll * cos lat); the attributes of the current Orbit are used to convert between these coordinates and Galactocentric coordinates
-
-               customsky= if True, input vxvv and vxvv_err are [custom long,custom lat,d,mu_customll, mu_custombb,vlos] in [deg,deg,kpc,mas/yr,mas/yr,km/s] (mu_ll = mu_ll * cos lat) where custom longitude and custom latitude are a custom set of sky coordinates (e.g., ecliptic) and the proper motions are also expressed in these coordinates; you need to provide the functions lb_to_customsky and pmllpmbb_to_customsky to convert to the custom sky coordinates (these should have the same inputs and outputs as lb_to_radec and pmllpmbb_to_pmrapmdec); the attributes of the current Orbit are used to convert between these coordinates and Galactocentric coordinates
-
-               obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
-                                      (in kpc and km/s; entries can be Quantity) (default=Object-wide default)
-                                      Cannot be an Orbit instance with the orbit of the reference point, as w/ the ra etc. functions
-                                      Y is ignored and always assumed to be zero
-
-               lb_to_customsky= function that converts l,b,degree=False to the custom sky coordinates (like lb_to_radec); needs to be given when customsky=True
-
-               pmllpmbb_to_customsky= function that converts pmll,pmbb,l,b,degree=False to proper motions in the custom sky coordinates (like pmllpmbb_to_pmrapmdec); needs to be given when customsky=True
-
-           Keywords related to the orbit integrations:
-
-               tintJ= (default: 10) time to integrate orbits for fitting the orbit (can be Quantity)
-
-               ntintJ= (default: 1000) number of time-integration points
-
-               integrate_method= (default: 'dopr54_c') integration method to use
-
-           Keywords related to the coordinate transformation:
-
-               ro= distance from vantage point to GC (kpc; can be Quantity)
-
-               vo= circular velocity at ro (km/s; can be Quantity)
-
-               zo= offset toward the NGP of the Sun wrt the plane (kpc; can be Quantity; default = 20.8 pc from Bennett & Bovy 2019)
-
-               solarmotion= 'hogg' or 'dehnen', or 'schoenrich', or value in [-U,V,W]; can be Quantity
-
-           disp= (False) display the optimizer's convergence message
-
-        OUTPUT:
-
-           Orbit instance
-
-        HISTORY:
-
-           2014-06-17 - Written - Bovy (IAS)
-
-           2019-05-22 - Incorporated into new Orbit class as from_fit -  Bovy (UofT)
+        See Also
+        --------
+        galpy.orbit.Orbit.integrate
 
         """
         pot = flatten_potential(pot)
@@ -1038,26 +1003,16 @@ class Orbit:
 
     def dim(self):
         """
-        NAME:
+        Return the dimension of the Orbit.
 
-           dim
+        Returns
+        -------
+        int
+            Dimension of the orbit.
 
-        PURPOSE:
-
-           return the dimension of the Orbit
-
-        INPUT:
-
-           (none)
-
-        OUTPUT:
-
-           dimension
-
-        HISTORY:
-
-           2011-02-03 - Written - Bovy (NYU)
-
+        Notes
+        -----
+        - 2011-02-03 - Written - Bovy (NYU)
         """
         pdim = self.phasedim()
         if pdim == 2:
@@ -1069,52 +1024,38 @@ class Orbit:
 
     def phasedim(self):
         """
-        NAME:
+        Return the phase-space dimension of the problem.
 
-           phasedim
+        Returns
+        -------
+        int
+            Phase-space dimension (2 for 1D, 3 for 2D-axi, 4 for 2D, 5 for 3D-axi, 6 for 3D).
 
-        PURPOSE:
-
-           return the phase-space dimension of the problem (2 for 1D, 3 for 2D-axi, 4 for 2D, 5 for 3D-axi, 6 for 3D)
-
-        INPUT:
-
-           (none)
-
-        OUTPUT:
-
-           phase-space dimension
-
-        HISTORY:
-
-           2018-12-20 - Written - Bovy (UofT)
+        Notes
+        -----
+        - 2018-12-20: Written by Bovy (UofT).
 
         """
         return self.vxvv.shape[-1]
 
     def __getattr__(self, name):
         """
-        NAME:
+        Get or evaluate an attribute for this Orbit instance.
 
-            __getattr__
+        Parameters
+        ----------
+        name : str
+            Name of the attribute.
 
-        PURPOSE:
+        Returns
+        -------
+        function or list
+            If the attribute is callable, a function to evaluate the attribute for each Orbit; otherwise a list of attributes.
 
-            get or evaluate an attribute for this Orbit instance
-
-        INPUT:
-
-            name - name of the attribute
-
-        OUTPUT:
-
-            if the attribute is callable, a function to evaluate the attribute for each Orbit; otherwise a list of attributes
-
-        HISTORY:
-
-            2018-10-13 - Written - Mathew Bub (UofT)
-
-            2019-02-28 - Implement all plotting function - Bovy (UofT)
+        Notes
+        -----
+        - 2018-10-13 - Written - Mathew Bub (UofT)
+        - 2019-02-28 - Implement all plotting function - Bovy (UofT)
 
         """
         # Catch all plotting functions
@@ -1131,45 +1072,42 @@ class Orbit:
 
             # Assign documentation
             if "E" in name or "Jacobi" in name:
-                Estring = """pot= Potential instance or list of instances in which the orbit was integrated
-
-           normed= if set, plot {quant}(t)/{quant}(0) rather than {quant}(t)
-
-           """.format(
+                Estring = """pot : Potential, DissipativeForce or list of such instances, optional
+                Gravitational field to use. Default is the gravitational field used to integrate the orbit.
+            normed : bool, optional
+                if set, plot {quant}(t)/{quant}(0) rather than {quant}(t)
+            """.format(
                     quant=name.split("plot")[1]
                 )
             else:
                 Estring = ""
-            _plot.__doc__ = """
-        NAME:
+            _plot.__doc__ = """Plot {quant}(t) along the orbit.
 
-           plot{quant}
+            Parameters
+            ----------
+            d1 : str or callable, optional
+                First dimension to plot. Can be a string ('x', 'y', 'R', 'vR', 'vT', 'z', 'vz', ...), an expression like 'R*vR', or a user-defined function of time (e.g., lambda t: o.R(t) for R). Default is determined by the number of dimensions in the orbit.
+            {Estring}ro : float or Quantity, optional
+                Physical scale in kpc for distances to use to convert. Default is object-wide default.
+            vo : float or Quantity, optional
+                Physical scale in km/s for velocities to use to convert. Default is object-wide default.
+            use_physical : bool, optional
+                Use to override object-wide default for using a physical scale for output.
+            *args : optional
+                Additional arguments to pass to galpy.util.plot.plot.
+            **kwargs : optional
+                Additional keyword arguments to pass to galpy.util.plot.plot.
 
-        PURPOSE:
+            Returns
+            -------
+            None
+                Sends plot to output device.
 
-           plot {quant}(t) along the orbit
+            Notes
+            -----
+            - 2019-04-13 - Written - Bovy (UofT)
 
-        INPUT:
-
-           d1= first dimension to plot ('x', 'y', 'R', 'vR', 'vT', 'z', 'vz', ...); can also be an expression, like 'R*vR', or a user-defined function of time (e.g., lambda t: o.R(t) for R)
-
-           {Estring}ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
-
-           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
-
-           use_physical= use to override Object-wide default for using a physical scale for output
-
-           matplotlib.plot inputs+galpy.util.plot.plot inputs
-
-        OUTPUT:
-
-           sends plot to output device
-
-        HISTORY:
-
-           2019-04-13 - Written - Bovy (UofT)
-
-        """.format(
+            """.format(
                 quant=name.split("plot")[1], Estring=Estring
             )
             return _plot
@@ -1182,25 +1120,21 @@ class Orbit:
 
     def __getitem__(self, key):
         """
-        NAME:
+        Get a subset of this instance's orbits.
 
-           __getitem__
+        Parameters
+        ----------
+        key : slice
+            The slice of the orbits to get.
 
-        PURPOSE:
+        Returns
+        -------
+        Orbit
+            A new Orbit instance with the subset of orbits.
 
-           get a subset of this instance's orbits
-
-        INPUT:
-
-           key - slice
-
-        OUTPUT:
-
-           For single item: Orbit instance, for multiple items: another Orbit instance
-
-        HISTORY:
-
-           2018-12-31 - Written - Bovy (UofT)
+        Notes
+        -----
+        - 2018-12-31: Written by Bovy (UofT).
 
         """
         indx_array = numpy.arange(self.size).reshape(self.shape)
@@ -1260,25 +1194,21 @@ class Orbit:
 
     def reshape(self, newshape):
         """
-        NAME:
+        Change the shape of the Orbit instance.
 
-           reshape
+        Parameters
+        ----------
+        newshape : int or tuple of ints
+            New shape (see numpy.reshape).
 
-        PURPOSE:
+        Returns
+        -------
+        None
+            Re-shaping is done in-place.
 
-           Change the shape of the Orbit instance
-
-        INPUT:
-
-           newshape - new shape (int or tuple of ints; see numpy.reshape)
-
-        OUTPUT:
-
-           (none; re-shaping is done in-place)
-
-        HISTORY:
-
-           2019-03-20 - Written - Bovy (UofT)
+        Notes
+        -----
+        - 2019-03-20: Written by Bovy (UofT).
 
         """
         # We reshape a dummy numpy array to use numpy.reshape's parsing
@@ -1298,25 +1228,19 @@ class Orbit:
     ############################ CUSTOM IMPLEMENTED ORBIT FUNCTIONS################
     def turn_physical_off(self):
         """
-        NAME:
+        Turn off automatic returning of outputs in physical units.
 
-           turn_physical_off
+        Parameters
+        ----------
+        None
 
-        PURPOSE:
+        Returns
+        -------
+        None
 
-           turn off automatic returning of outputs in physical units
-
-        INPUT:
-
-           (none)
-
-        OUTPUT:
-
-           (none)
-
-        HISTORY:
-
-           2019-02-28 - Written - Bovy (UofT)
+        Notes
+        -----
+        - 2019-02-28 - Written - Bovy (UofT)
 
         """
         self._roSet = False
@@ -1325,29 +1249,23 @@ class Orbit:
 
     def turn_physical_on(self, ro=None, vo=None):
         """
-        NAME:
+        Turn on automatic returning of outputs in physical units.
 
-           turn_physical_on
+        Parameters
+        ----------
+        ro : float, Quantity or bool, optional
+            Physical scale in kpc for distances to use to convert. If False, do not set.
+        vo : float, Quantity or bool, optional
+            Physical scale for velocities in km/s to use to convert. If False, do not set.
 
-        PURPOSE:
+        Returns
+        -------
+        None
 
-           turn on automatic returning of outputs in physical units
-
-        INPUT:
-
-           ro= reference distance (kpc; can be Quantity)
-
-           vo= reference velocity (km/s; can be Quantity)
-
-        OUTPUT:
-
-           (none)
-
-        HISTORY:
-
-           2019-02-28 - Written - Bovy (UofT)
-
-           2020-04-22 - Don't turn on a parameter when it is False - Bovy (UofT)
+        Notes
+        -----
+        - 2019-02-28: Written by Bovy (UofT).
+        - 2020-04-22: Don't turn on a parameter when it is False - Bovy (UofT).
 
         """
         if not ro is False:
@@ -1435,49 +1353,47 @@ class Orbit:
         force_map=False,
     ):
         """
-        NAME:
+        Integrate the orbit instance with multiprocessing.
 
-            integrate
+        Parameters
+        ----------
+        t : list, numpy.ndarray or Quantity
+            List of equispaced times at which to compute the orbit. The initial condition is t[0].
+        pot : Potential, DissipativeForce or list of such instances
+            Gravitational field to integrate the orbit in.
+        method : str, optional
+            Integration method to use. Default is 'symplec4_c'. See Notes for more information.
+        progressbar : bool, optional
+            If True, display a tqdm progress bar when integrating multiple orbits (requires tqdm to be installed!). Default is True.
+        dt : int or Quantity, optional
+            If set, force the integrator to use this basic stepsize; must be an integer divisor of output stepsize (only works for the C integrators that use a fixed stepsize). Can be Quantity.
+        numcores : int, optional
+            Number of cores to use for Python-based multiprocessing (pure Python or using force_map=True). Default is OMP_NUM_THREADS.
+        force_map : bool, optional
+            If True, force use of Python-based multiprocessing (not recommended). Default is False.
 
-        PURPOSE:
+        Returns
+        -------
+        None
+            Get the actual orbit using getOrbit() or access the individual attributes (e.g., R, vR, etc.).
 
-            integrate this Orbit instance with multiprocessing
+        Notes
+        -----
+        - Possible integration methods are:
 
-        INPUT:
+          - 'odeint' for scipy's odeint
+          - 'leapfrog' for a simple leapfrog implementation
+          - 'leapfrog_c' for a simple leapfrog implementation in C
+          -  'symplec4_c' for a 4th order symplectic integrator in C
+          -  'symplec6_c' for a 6th order symplectic integrator in C
+          -  'rk4_c' for a 4th-order Runge-Kutta integrator in C
+          -  'rk6_c' for a 6-th order Runge-Kutta integrator in C
+          -  'dopr54_c' for a 5-4 Dormand-Prince integrator in C
+          -  'dop853' for a 8-5-3 Dormand-Prince integrator in Python
+          -  'dop853_c' for a 8-5-3 Dormand-Prince integrator in C
 
-            t - list of times at which to output (0 has to be in this!) (can be Quantity)
-
-            pot - potential instance or list of instances
-
-            method = 'odeint' for scipy's odeint
-                     'leapfrog' for a simple leapfrog implementation
-                     'leapfrog_c' for a simple leapfrog implementation in C
-                     'symplec4_c' for a 4th order symplectic integrator in C
-                     'symplec6_c' for a 6th order symplectic integrator in C
-                     'rk4_c' for a 4th-order Runge-Kutta integrator in C
-                     'rk6_c' for a 6-th order Runge-Kutta integrator in C
-                     'dopr54_c' for a 5-4 Dormand-Prince integrator in C
-                     'dop853' for a 8-5-3 Dormand-Prince integrator in Python
-                     'dop853_c' for a 8-5-3 Dormand-Prince integrator in C
-
-            progressbar= (True) if True, display a tqdm progress bar when integrating multiple orbits (requires tqdm to be installed!)
-
-            dt - if set, force the integrator to use this basic stepsize; must be an integer divisor of output stepsize (only works for the C integrators that use a fixed stepsize) (can be Quantity)
-
-            numcores - number of cores to use for Python-based multiprocessing (pure Python or using force_map=True); default = OMP_NUM_THREADS
-
-            force_map= (False) if True, force use of Python-based multiprocessing (not recommended)
-
-        OUTPUT:
-
-            None (get the actual orbit using getOrbit())
-
-        HISTORY:
-
-            2018-10-13 - Written as parallel_map applied to regular Orbit integration - Mathew Bub (UofT)
-
-            2018-12-26 - Written to use OpenMP C implementation - Bovy (UofT)
-
+        - 2018-10-13 - Written as parallel_map applied to regular Orbit integration - Mathew Bub (UofT)
+        - 2018-12-26 - Written to use OpenMP C implementation - Bovy (UofT)
         """
         self.check_integrator(method)
         pot = flatten_potential(pot)
@@ -1653,44 +1569,44 @@ class Orbit:
         force_map=False,
     ):
         """
-        NAME:
+        Integrate this Orbit instance using an independent variable suitable to creating surfaces-of-section.
 
-            integrate_SOS
+        Parameters
+        ----------
+        psi : list, numpy.ndarray or Quantity
+            Equispaced list of increment angles over which to integrate [increments wrt initial angle].
+        pot : Potential, DissipativeForce or list of such instances
+            Gravitational field to integrate the orbit in.
+        surface : str, optional
+            Surface to punch through (this has no effect in 3D, where the surface is always z=0, but in 2D it can be 'x' or 'y' for x=0 or y=0).
+        t0 : float or Quantity, optional
+            Initial time.
+        method : {'odeint', 'dop853_c', 'dop853', 'rk4_c', 'rk6_c', 'dop54_c'}, optional
+            Integration method to use. Default is 'dop853_c'. See Notes for more information.
+        progressbar : bool, optional
+            If True, display a tqdm progress bar when integrating multiple orbits (requires tqdm to be installed!).
+        numcores : int, optional
+            Number of cores to use for Python-based multiprocessing (pure Python or using force_map=True); default = OMP_NUM_THREADS.
+        force_map : bool, optional
+            If True, force use of Python-based multiprocessing (not recommended).
 
-        PURPOSE:
+        Returns
+        -------
+        None
+            Get the actual orbit using getOrbit() or access the individual attributes (e.g., R, vR, etc.).
 
-            integrate this Orbit instance using an independent variable suitable to creating surfaces-of-section
+        Notes
+        -----
+        - Possible integration methods are:
 
-        INPUT:
+          - 'odeint' for scipy's odeint
+          -  'rk4_c' for a 4th-order Runge-Kutta integrator in C
+          -  'rk6_c' for a 6-th order Runge-Kutta integrator in C
+          -  'dopr54_c' for a 5-4 Dormand-Prince integrator in C
+          -  'dop853' for a 8-5-3 Dormand-Prince integrator in Python
+          -  'dop853_c' for a 8-5-3 Dormand-Prince integrator in C
 
-            psi - increment angles over which to integrate [increments wrt initial angle] (can be Quantity)
-
-            pot - potential instance or list of instances
-
-            surface= (None) surface to punch through (this has no effect in 3D, where the surface is always z=0, but in 2D it can be 'x' or 'y' for x=0 or y=0)
-
-            t0= (0.) initial time (can be Quantity)
-
-            method = 'odeint' for scipy's odeint
-                     'rk4_c' for a 4th-order Runge-Kutta integrator in C
-                     'rk6_c' for a 6-th order Runge-Kutta integrator in C
-                     'dopr54_c' for a 5-4 Dormand-Prince integrator in C
-                     'dop853' for a 8-5-3 Dormand-Prince integrator in Python
-                     'dop853_c' for a 8-5-3 Dormand-Prince integrator in C
-
-            progressbar= (True) if True, display a tqdm progress bar when integrating multiple orbits (requires tqdm to be installed!)
-
-            numcores - number of cores to use for Python-based multiprocessing (pure Python or using force_map=True); default = OMP_NUM_THREADS
-
-            force_map= (False) if True, force use of Python-based multiprocessing (not recommended)
-
-        OUTPUT:
-
-            None (get the actual orbit using getOrbit())
-
-        HISTORY:
-
-            2023-03-16 - Written - Bovy (UofT)
+        - 2023-03-16 - Written - Bovy (UofT)
 
         """
         if self.dim() == 1:
@@ -1800,52 +1716,51 @@ class Orbit:
         rectIn=False,
         rectOut=False,
     ):
-        """
-        NAME:
+        r"""
+        Integrate the orbit and a small area of phase space.
 
-           integrate_dxdv
+        Parameters
+        ----------
+        dxdv : numpy.ndarray
+            Initial conditions for the orbit in cylindrical or rectangular coordinates. The shape of the array should be (\*input_shape, 4).
+        t : list, numpy.ndarray or Quantity
+            List of equispaced times at which to compute the orbit. The initial condition is t[0].
+        pot : Potential, DissipativeForce or list of such instances
+            Gravitational field to integrate the orbit in.
+        method : str, optional
+            Integration method. Default is 'dopr54_c'. See Notes for more information.
+        progressbar : bool, optional
+            If True, display a tqdm progress bar when integrating multiple orbits (requires tqdm to be installed!). Default is True.
+        dt : float, optional
+            If set, force the integrator to use this basic stepsize; must be an integer divisor of output stepsize (only works for the C integrators that use a fixed stepsize) (can be Quantity).
+        numcores : int, optional
+            Number of cores to use for Python-based multiprocessing (pure Python or using force_map=True); default = OMP_NUM_THREADS.
+        force_map : bool, optional
+            If True, force use of Python-based multiprocessing (not recommended). Default is False.
+        rectIn : bool, optional
+            If True, input dxdv is in rectangular coordinates. Default is False.
+        rectOut : bool, optional
+            If True, output dxdv (that in orbit_dxdv) is in rectangular coordinates. Default is False.
 
-        PURPOSE:
+        Returns
+        -------
+        None
+            Get the actual orbit using getOrbit_dxdv(), the orbit that is integrated alongside with dxdv is stored as usual, any previous regular orbit integration will be erased!
 
-           integrate the orbit and a small area of phase space
+        Notes
+        -----
+        - Possible integration methods are:
 
-        INPUT:
+          - 'odeint' for scipy's odeint
+          -  'rk4_c' for a 4th-order Runge-Kutta integrator in C
+          -  'rk6_c' for a 6-th order Runge-Kutta integrator in C
+          -  'dopr54_c' for a 5-4 Dormand-Prince integrator in C
+          -  'dop853' for a 8-5-3 Dormand-Prince integrator in Python
+          -  'dop853_c' for a 8-5-3 Dormand-Prince integrator in C
 
-           dxdv - [dR,dvR,dvT,dphi], shape=(*input_shape,4)
-
-           t - list of times at which to output (0 has to be in this!) (can be Quantity)
-
-           pot - potential instance or list of instances
-
-           progressbar= (True) if True, display a tqdm progress bar when integrating multiple orbits (requires tqdm to be installed!)
-
-           dt - if set, force the integrator to use this basic stepsize; must be an integer divisor of output stepsize (only works for the C integrators that use a fixed stepsize) (can be Quantity)
-
-           method = 'odeint' for scipy's odeint
-                    'rk4_c' for a 4th-order Runge-Kutta integrator in C
-                    'rk6_c' for a 6-th order Runge-Kutta integrator in C
-                    'dopr54_c' for a 5-4 Dormand-Prince integrator in C
-                    'dopr853_c' for a 8-5-3 Dormand-Prince integrator in C
-
-           rectIn= (False) if True, input dxdv is in rectangular coordinates
-
-           rectOut= (False) if True, output dxdv (that in orbit_dxdv) is in rectangular coordinates
-
-           numcores - number of cores to use for Python-based multiprocessing (pure Python or using force_map=True); default = OMP_NUM_THREADS
-
-           force_map= (False) if True, force use of Python-based multiprocessing (not recommended)
-
-        OUTPUT:
-
-           (none) (get the actual orbit using getOrbit_dxdv(), the orbit that is integrated alongside with dxdv is stored as usual, any previous regular orbit integration will be erased!)
-
-        HISTORY:
-
-           2011-10-17 - Written - Bovy (IAS)
-
-           2014-06-29 - Added rectIn and rectOut - Bovy (IAS)
-
-           2019-05-21 - Parallelized and incorporated into new Orbits class - Bovy (UofT)
+        - 2011-10-17 - Written - Bovy (IAS)
+        - 2014-06-29 - Added rectIn and rectOut - Bovy (IAS)
+        - 2019-05-21 - Parallelized and incorporated into new Orbits class - Bovy (UofT)
 
         """
         if not self.phasedim() == 4:
@@ -1933,25 +1848,21 @@ class Orbit:
 
     def flip(self, inplace=False):
         """
-        NAME:
+        Flip an orbit's initial conditions such that the velocities are minus the original velocities.
 
-           flip
+        Parameters
+        ----------
+        inplace : bool, optional
+            If True, flip the orbit in-place, that is, without returning a new instance and also flip the velocities of the integrated orbit (if it exists). Default is False.
 
-        PURPOSE:
+        Returns
+        -------
+        Orbit
+            If inplace=False, returns a new Orbit instance that has the velocities of the current orbit flipped. If inplace=True, flips all velocities of current instance.
 
-           'flip' an orbit's initial conditions such that the velocities are minus the original velocities; useful for quick backward integration; returns a new Orbit instance
-
-        INPUT:
-
-           inplace= (False) if True, flip the orbit in-place, that is, without returning a new instance and also flip the velocities of the integrated orbit (if it exists)
-
-        OUTPUT:
-
-           Orbit instance that has the velocities of the current orbit flipped (inplace=False) or just flips all velocities of current instance (inplace=True)
-
-        HISTORY:
-
-           2019-03-02 - Written - Bovy (UofT)
+        Notes
+        -----
+        - 2019-03-02 - Written - Bovy (UofT)
 
         """
         if inplace:
@@ -2035,54 +1946,33 @@ class Orbit:
 
     @shapeDecorator
     def getOrbit(self):
-        """
+        r"""
+        Return previously calculated orbits.
 
-        NAME:
+        Returns
+        -------
+        numpy.ndarray [\*input_shape,nt,nphasedim]
+            Integrated orbit.
 
-           getOrbit
-
-        PURPOSE:
-
-           return previously calculated orbits
-
-        INPUT:
-
-           (none)
-
-        OUTPUT:
-
-           array orbit[*input_shape,nt,nphasedim]
-
-        HISTORY:
-
-           2019-03-02 - Written - Bovy (UofT)
-
+        Notes
+        -----
+        - 2019-03-02 - Written - Bovy (UofT)
         """
         return self.orbit.copy()
 
     @shapeDecorator
     def getOrbit_dxdv(self):
-        """
+        r"""
+        Return a previously calculated integration of a small phase-space volume (with integrate_dxdv).
 
-        NAME:
+        Returns
+        -------
+        numpy.ndarray [\*input_shape,nt,nphasedim]
+            Integrated orbit's phase-space volume.
 
-           getOrbit_dxdv
-
-        PURPOSE:
-
-           return a previously calculated integration of a small phase-space volume (with integrate_dxdv)
-
-        INPUT:
-
-           (none)
-
-        OUTPUT:
-
-           array orbit[*input_shape,nt,nphasedim]
-
-        HISTORY:
-
-           2019-05-21 - Written - Bovy (UofT)
+        Notes
+        -----
+        - 2019-05-21: Written by Bovy (UofT)
 
         """
         return self.orbit_dxdv[..., 4:].copy()
@@ -2090,32 +1980,30 @@ class Orbit:
     @physical_conversion("energy")
     @shapeDecorator
     def E(self, *args, **kwargs):
-        """
-        NAME:
+        r"""
+        Calculate the energy.
 
-           E
+        Parameters
+        ----------
+        t : numeric, numpy.ndarray, or Quantity, optional
+            Time at which to get the energy. Default is the initial time.
+        pot : Potential, DissipativeForce or list of such instances, optional
+            Gravitational potential to use to compute the energy (DissipativeForce instances are ignored). Default is the gravitational field used to integrate the orbit.
+        vo : float or Quantity, optional
+            Physical scale in km/s for velocities to use to convert. Default is object-wide default.
+        use_physical : bool, optional
+            Use to override object-wide default for using a physical scale for output.
+        quantity : bool, optional
+            If True, return an Astropy Quantity object. Default from configuration file.
 
-        PURPOSE:
+        Returns
+        -------
+        float, numpy.ndarray or Quantity [\*input_shape,nt]
+            Energy.
 
-           calculate the energy
-
-        INPUT:
-
-           t - (optional) time at which to get the energy (can be Quantity)
-
-           pot= Potential instance or list of such instances
-
-           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
-
-           use_physical= use to override Object-wide default for using a physical scale for output
-
-        OUTPUT:
-
-           energy [*input_shape,nt]
-
-        HISTORY:
-
-           2019-03-01 - Written - Bovy (UofT)
+        Notes
+        -----
+        - 2019-03-01 - Written - Bovy (UofT)
 
         """
         if not kwargs.get("pot", None) is None:
@@ -2311,32 +2199,30 @@ class Orbit:
     @physical_conversion("action")
     @shapeDecorator
     def L(self, *args, **kwargs):
-        """
-        NAME:
+        r"""
+        Calculate the angular momentum at time t.
 
-           L
+        Parameters
+        ----------
+        t : numeric, numpy.ndarray or Quantity, optional
+            Time at which to get the angular momentum. Default is the initial time.
+        ro : float or Quantity, optional
+            Physical scale in kpc for distances to use to convert. Default is object-wide default.
+        vo : float or Quantity, optional
+            Physical scale in km/s for velocities to use to convert. Default is object-wide default.
+        use_physical : bool, optional
+            Use to override object-wide default for using a physical scale for output.
+        quantity : bool, optional
+            If True, return an Astropy Quantity object. Default from configuration file.
 
-        PURPOSE:
+        Returns
+        -------
+        float, numpy.ndarray or Quantity [\*input_shape,nt,3]
+            Angular momentum.
 
-           calculate the angular momentum at time t
-
-        INPUT:
-
-           t - (optional) time at which to get the angular momentum (can be Quantity)
-
-           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
-
-           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
-
-           use_physical= use to override Object-wide default for using a physical scale for output
-
-        OUTPUT:
-
-           angular momentum [*input_shape,nt,3]
-
-        HISTORY:
-
-           2019-03-01 - Written - Bovy (UofT)
+        Notes
+        -----
+        - 2019-03-01 - Written - Bovy (UofT)
 
         """
         if self.dim() == 1:
@@ -2373,32 +2259,30 @@ class Orbit:
     @physical_conversion("action")
     @shapeDecorator
     def Lz(self, *args, **kwargs):
-        """
-        NAME:
+        r"""
+        Calculate the z-component of the angular momentum at time t.
 
-           Lz
+        Parameters
+        ----------
+        t : numeric, numpy.ndarray or Quantity, optional
+            Time at which to get the angular momentum. Default is the initial time.
+        ro : float or Quantity, optional
+            Physical scale in kpc for distances to use to convert. Default is object-wide default.
+        vo : float or Quantity, optional
+            Physical scale in km/s for velocities to use to convert. Default is object-wide default.
+        use_physical : bool, optional
+            Use to override object-wide default for using a physical scale for output.
+        quantity : bool, optional
+            If True, return an Astropy Quantity object. Default from configuration file.
 
-        PURPOSE:
+        Returns
+        -------
+        float, numpy.ndarray or Quantity [\*input_shape,nt]
+            z-component of the angular momentum.
 
-           calculate the z-component of the angular momentum at time t
-
-        INPUT:
-
-           t - (optional) time at which to get the angular momentum (can be Quantity)
-
-           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
-
-           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
-
-           use_physical= use to override Object-wide default for using a physical scale for output
-
-        OUTPUT:
-
-           z-component of the angular momentum [*input_shape,nt]
-
-        HISTORY:
-
-           2019-03-01 - Written - Bovy (UofT)
+        Notes
+        -----
+        - 2019-03-01 - Written - Bovy (UofT)
 
         """
         thiso = self._call_internal(*args, **kwargs)
@@ -2407,32 +2291,30 @@ class Orbit:
     @physical_conversion("energy")
     @shapeDecorator
     def ER(self, *args, **kwargs):
-        """
-        NAME:
+        r"""
+        Calculate the radial energy.
 
-           ER
+        Parameters
+        ----------
+        t : numeric, numpy.ndarray or Quantity, optional
+            Time at which to get the radial energy. Default is the initial time.
+        pot : Potential, DissipativeForce or list of such instances
+            Gravitational potential to use for the calculation (DissipativeForce instances are ignored). Default is the gravitational field used to integrate the orbit.
+        vo : float or Quantity, optional
+            Physical scale in km/s for velocities to use to convert. Default is object-wide default.
+        use_physical : bool, optional
+            Use to override object-wide default for using a physical scale for output.
+        quantity : bool, optional
+            If True, return an Astropy Quantity object. Default from configuration file.
 
-        PURPOSE:
+        Returns
+        -------
+        float, numpy.ndarray or Quantity [\*input_shape,nt]
+            Radial energy.
 
-           calculate the radial energy
-
-        INPUT:
-
-           t - (optional) time at which to get the radial energy (can be Quantity)
-
-           pot= Potential instance or list of such instances
-
-           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
-
-           use_physical= use to override Object-wide default for using a physical scale for output (can be Quantity)
-
-        OUTPUT:
-
-           radial energy [*input_shape,nt]
-
-        HISTORY:
-
-           2019-03-01 - Written - Bovy (UofT)
+        Notes
+        -----
+        - 2019-03-01 - Written - Bovy (UofT)
 
         """
         old_physical = kwargs.get("use_physical", None)
@@ -2453,32 +2335,30 @@ class Orbit:
     @physical_conversion("energy")
     @shapeDecorator
     def Ez(self, *args, **kwargs):
-        """
-        NAME:
+        r"""
+        Calculate the vertical energy.
 
-           Ez
+        Parameters
+        ----------
+        t : numeric, numpy.ndarray or Quantity, optional
+            Time at which to get the vertical energy. Default is the initial time.
+        pot : Potential, DissipativeForce or list of such instances
+            Gravity potential to use for the calculation (DissipativeForce instances are ignored). Default is the gravitational field used to integrate the orbit.
+        vo : float or Quantity, optional
+            Physical scale in km/s for velocities to use to convert. Default is object-wide default.
+        use_physical : bool, optional
+            Use to override object-wide default for using a physical scale for output.
+        quantity : bool, optional
+            If True, return an Astropy Quantity object. Default from configuration file.
 
-        PURPOSE:
+        Returns
+        -------
+        float, numpy.ndarray or Quantity [\*input_shape,nt]
+            Vertical energy.
 
-           calculate the vertical energy
-
-        INPUT:
-
-           t - (optional) time at which to get the vertical energy (can be Quantity)
-
-           pot= Potential instance or list of such instances
-
-           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
-
-           use_physical= use to override Object-wide default for using a physical scale for output (can be Quantity)
-
-        OUTPUT:
-
-           vertical energy [*input_shape,nt]
-
-        HISTORY:
-
-           2019-03-01 - Written - Bovy (UofT)
+        Notes
+        -----
+        - 2019-03-01 - Written - Bovy (UofT)
 
         """
         old_physical = kwargs.get("use_physical", None)
@@ -2500,34 +2380,32 @@ class Orbit:
     @physical_conversion("energy")
     @shapeDecorator
     def Jacobi(self, *args, **kwargs):
-        """
-        NAME:
+        r"""
+        Calculate the Jacobi integral E - Omega L.
 
-           Jacobi
+        Parameters
+        ----------
+        t : numeric, numpy.ndarray or Quantity, optional
+            Time at which to get the Jacobi integral. Default is the initial time.
+        OmegaP : numeric or Quantity, optional
+            Pattern speed.
+        pot : Potential, DissipativeForce or list of such instances
+            Gravity potential to use for the calculation (DissipativeForce instances are ignored). Default is the gravitational field used to integrate the orbit.
+        vo : float or Quantity, optional
+            Physical scale in km/s for velocities to use to convert. Default is object-wide default.
+        use_physical : bool, optional
+            Use to override object-wide default for using a physical scale for output.
+        quantity : bool, optional
+            If True, return an Astropy Quantity object. Default from configuration file.
 
-        PURPOSE:
+        Returns
+        -------
+        float, numpy.ndarray or Quantity [\*input_shape,nt]
+            Jacobi integral.
 
-           calculate the Jacobi integral E - Omega L
-
-        INPUT:
-
-           t - (optional) time at which to get the Jacobi integral (can be Quantity)
-
-           OmegaP= pattern speed (can be Quantity)
-
-           pot= potential instance or list of such instances
-
-           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
-
-           use_physical= use to override Object-wide default for using a physical scale for output
-
-        OUTPUT:
-
-           Jacobi integral [*input_shape,nt]
-
-        HISTORY:
-
-           2019-03-01 - Written - Bovy (UofT)
+        Notes
+        -----
+        - 2019-03-01 - Written - Bovy (UofT)
 
         """
         if not kwargs.get("pot", None) is None:
@@ -2582,20 +2460,28 @@ class Orbit:
 
     def _setupaA(self, pot=None, type="staeckel", **kwargs):
         """
-        NAME:
-           _setupaA
-        PURPOSE:
-           set up an actionAngle module for this Orbit
-        INPUT:
-           pot - potential
-           type= ('staeckel') type of actionAngle module to use
-              1) 'adiabatic'
-              2) 'staeckel'
-              3) 'isochroneApprox'
-              4) 'spherical'
-        OUTPUT:
-        HISTORY:
-           2019-02-25 - Written based on OrbitTop._setupaA - Bovy (UofT)
+        Set up an actionAngle module for this Orbit.
+
+        Parameters
+        ----------
+        pot : Potential or list of Potentials, optional
+            Gravitational potential to use for the calculation (DissipativeForce instances are ignored). Default is the gravitational field used to integrate the orbit.
+        type : {'staeckel', 'adiabatic', 'spherical', 'isochroneApprox'}, optional
+            Type of actionAngle module to use. Default is 'staeckel'.
+            Options are:
+                1) 'adiabatic'
+                2) 'staeckel'
+                3) 'isochroneApprox'
+                4) 'spherical'
+
+        Returns
+        -------
+        None
+
+        Notes
+        -----
+        - 2019-02-25 - Written based on OrbitTop._setupaA - Bovy (UofT)
+
         """
         from .. import actionAngle
 
@@ -2810,40 +2696,33 @@ class Orbit:
 
     @shapeDecorator
     def e(self, analytic=False, pot=None, **kwargs):
-        """
-        NAME:
+        r"""
+        Calculate the eccentricity, either numerically from the numerical orbit integration or using analytical means.
 
-           e
+        Parameters
+        ----------
+        analytic : bool, optional
+            If True, compute this analytically. Default is False.
+        pot : Potential or list of Potential instances, optional
+            Gravitational potential to use for analytical calculation. Default is the gravitational field used for the orbit integration.
+        type : {'staeckel', 'adiabatic', 'spherical'}, optional
+            Type of actionAngle module to use when analytic=True. Default is 'staeckel'.
 
-        PURPOSE:
+        Returns
+        -------
+        float or numpy.ndarray [\*input_shape]
+            Eccentricity of the orbit.
 
-           calculate the eccentricity, either numerically from the numerical orbit integration or using analytical means
+        Notes
+        -----
+        - Keyword arguments also include the actionAngle module setup kwargs for the corresponding actionAngle modules
+        - 2019-02-25 - Written - Bovy (UofT)
 
-        INPUT:
-
-           analytic(= False) compute this analytically
-
-           pot - potential to use for analytical calculation
-
-           For 3D orbits different approximations for analytic=True are available (see the EccZmaxRperiRap method of actionAngle modules):
-
-              type= ('staeckel') type of actionAngle module to use
-
-                 1) 'adiabatic': assuming motion splits into R and z
-
-                 2) 'staeckel': assuming motion splits into u and v of prolate spheroidal coordinate system, exact for Staeckel potentials (incl. all spherical potentials)
-
-                 3) 'spherical': for spherical potentials, exact
-
-              +actionAngle module setup kwargs for the corresponding actionAngle modules (actionAngleAdiabatic, actionAngleStaeckel, and actionAngleSpherical)
-
-        OUTPUT:
-
-           eccentricity [*input_shape]
-
-        HISTORY:
-
-           2019-02-25 - Written - Bovy (UofT)
+        See Also
+        --------
+        galpy.actionAngle.actionAngleAdiabatic
+        galpy.actionAngle.actionAngleStaeckel
+        galpy.actionAngle.actionAngleSpherical
 
         """
         if analytic:
@@ -2861,44 +2740,38 @@ class Orbit:
     @physical_conversion("position")
     @shapeDecorator
     def rap(self, analytic=False, pot=None, **kwargs):
-        """
-        NAME:
+        r"""
+        Calculate the apocenter radius, either numerically from the numerical orbit integration or using analytical means.
 
-           rap
+        Parameters
+        ----------
+        analytic : bool, optional
+            If True, compute this analytically. Default is False.
+        pot : Potential or list of Potential instances, optional
+            Gravity potential to use for analytical calculation. Default is the gravitational field used for the orbit integration.
+        type : {'staeckel', 'adiabatic', 'spherical'}, optional
+            Type of actionAngle module to use when analytic=True. Default is 'staeckel'.
+        ro : float or Quantity, optional
+            Physical scale in kpc for distances to use to convert. Default is object-wide default.
+        use_physical : bool, optional
+            Use to override object-wide default for using a physical scale for output.
+        quantity : bool, optional
+            If True, return an Astropy Quantity object. Default from configuration file.
 
-        PURPOSE:
+        Returns
+        -------
+        float, numpy.ndarray or Quantity [\*input_shape]
+            Apocenter radius of the orbit.
 
-           calculate the apocenter radius, either numerically from the numerical orbit integration or using analytical means
+        Notes
+        -----
+        - 2019-02-25 - Written - Bovy (UofT)
 
-        INPUT:
-
-           analytic(= False) compute this analytically
-
-           pot - potential to use for analytical calculation
-
-           For 3D orbits different approximations for analytic=True are available (see the EccZmaxRperiRap method of actionAngle modules):
-
-              type= ('staeckel') type of actionAngle module to use
-
-                 1) 'adiabatic': assuming motion splits into R and z
-
-                 2) 'staeckel': assuming motion splits into u and v of prolate spheroidal coordinate system, exact for Staeckel potentials (incl. all spherical potentials)
-
-                 3) 'spherical': for spherical potentials, exact
-
-              +actionAngle module setup kwargs for the corresponding actionAngle modules (actionAngleAdiabatic, actionAngleStaeckel, and actionAngleSpherical)
-
-           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
-
-           use_physical= use to override Object-wide default for using a physical scale for output
-
-        OUTPUT:
-
-           R_ap [*input_shape]
-
-        HISTORY:
-
-           2019-02-25 - Written - Bovy (UofT)
+        See Also
+        --------
+        galpy.actionAngle.actionAngleAdiabatic
+        galpy.actionAngle.actionAngleStaeckel
+        galpy.actionAngle.actionAngleSpherical
 
         """
         if analytic:
@@ -2914,44 +2787,38 @@ class Orbit:
     @physical_conversion("position")
     @shapeDecorator
     def rperi(self, analytic=False, pot=None, **kwargs):
-        """
-        NAME:
+        r"""
+        Calculate the pericenter radius, either numerically from the numerical orbit integration or using analytical means.
 
-           rperi
+        Parameters
+        ----------
+        analytic : bool, optional
+            If True, compute this analytically. Default is False.
+        pot : Potential or list of Potential instances, optional
+            Gravity potential to use for analytical calculation. Default is the gravitational field used for the orbit integration.
+        type : {'staeckel', 'adiabatic', 'spherical'}, optional
+            Type of actionAngle module to use when analytic=True. Default is 'staeckel'.
+        ro : float or Quantity, optional
+            Physical scale in kpc for distances to use to convert. Default is object-wide default.
+        use_physical : bool, optional
+            Use to override object-wide default for using a physical scale for output.
+        quantity : bool, optional
+            If True, return an Astropy Quantity object. Default from configuration file.
 
-        PURPOSE:
+        Returns
+        -------
+        float, numpy.ndarray or Quantity [\*input_shape]
+            Pericenter radius of the orbit.
 
-           calculate the pericenter radius, either numerically from the numerical orbit integration or using analytical means
+        Notes
+        -----
+        - 2019-02-25 - Written - Bovy (UofT)
 
-        INPUT:
-
-           analytic(= False) compute this analytically
-
-           pot - potential to use for analytical calculation
-
-           For 3D orbits different approximations for analytic=True are available (see the EccZmaxRperiRap method of actionAngle modules):
-
-              type= ('staeckel') type of actionAngle module to use
-
-                 1) 'adiabatic': assuming motion splits into R and z
-
-                 2) 'staeckel': assuming motion splits into u and v of prolate spheroidal coordinate system, exact for Staeckel potentials (incl. all spherical potentials)
-
-                 3) 'spherical': for spherical potentials, exact
-
-              +actionAngle module setup kwargs for the corresponding actionAngle modules (actionAngleAdiabatic, actionAngleStaeckel, and actionAngleSpherical)
-
-           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
-
-           use_physical= use to override Object-wide default for using a physical scale for output
-
-        OUTPUT:
-
-           R_peri [*input_shape]
-
-        HISTORY:
-
-           2019-02-25 - Written - Bovy (UofT)
+        See Also
+        --------
+        galpy.actionAngle.actionAngleAdiabatic
+        galpy.actionAngle.actionAngleStaeckel
+        galpy.actionAngle.actionAngleSpherical
 
         """
         if analytic:
@@ -2967,32 +2834,34 @@ class Orbit:
     @physical_conversion("position")
     @shapeDecorator
     def rguiding(self, *args, **kwargs):
-        """
-        NAME:
+        r"""
+        Calculate the guiding-center radius (the radius of a circular orbit with the same angular momentum).
 
-           rguiding
+        Parameters
+        ----------
+        pot : Potential or list of Potential instances, optional
+            Gravitational potential. Default is the gravitational field used for the orbit integration.
+        ro : float or Quantity, optional
+            Physical scale in kpc for distances to use to convert. Default is object-wide default.
+        vo : float or Quantity, optional
+            Physical scale in km/s for velocities to use to convert. Default is object-wide default.
+        use_physical : bool, optional
+            Use to override object-wide default for using a physical scale for output.
+        quantity : bool, optional
+            If True, return an Astropy Quantity object. Default from configuration file.
 
-        PURPOSE:
+        Returns
+        -------
+        float, numpy.ndarray or Quantity [\*input_shape,nt]
+            Guiding-center radius of the orbit.
 
-           calculate the guiding-center radius (the radius of a circular orbit with the same angular momentum)
+        Notes
+        -----
+        - 2019-03-02 - Written as thin wrapper around Potential.rl - Bovy (UofT)
 
-        INPUT:
-
-           pot= potential instance or list of such instances
-
-           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
-
-           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
-
-           use_physical= use to override Object-wide default for using a physical scale for output
-
-        OUTPUT:
-
-           R_guiding [*input_shape,nt]
-
-        HISTORY:
-
-           2019-03-02 - Written as thin wrapper around Potential.rl - Bovy (UofT)
+        See Also
+        --------
+        galpy.potential.Potential.rl
 
         """
         pot = kwargs.get("pot", self.__dict__.get("_pot", None))
@@ -3027,32 +2896,32 @@ class Orbit:
     @physical_conversion("position")
     @shapeDecorator
     def rE(self, *args, **kwargs):
-        """
-        NAME:
+        r"""
+        Calculate the radius of a circular orbit with the same energy.
 
-           rE
+        Parameters
+        ----------
+        t : numeric, numpy.ndarray or Quantity, optional
+            Time at which to get the radius. Default is the initial time.
+        pot : Potential or list of Potential instances, optional
+            Gravitational potential. Default is the gravitational field used for the orbit integration.
+        ro : float or Quantity, optional
+            Physical scale in kpc for distances to use to convert. Default is object-wide default.
+        vo : float or Quantity, optional
+            Physical scale in km/s for velocities to use to convert. Default is object-wide default.
+        use_physical : bool, optional
+            Use to override object-wide default for using a physical scale for output.
+        quantity : bool, optional
+            If True, return an Astropy Quantity object. Default from configuration file.
 
-        PURPOSE:
+        Returns
+        -------
+        float, numpy.ndarray or Quantity [\*input_shape,nt]
+            Radius of a circular orbit with the same energy.
 
-           calculate the radius of a circular orbit with the same energy
-
-        INPUT:
-
-           pot= potential instance or list of such instances
-
-           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
-
-           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
-
-           use_physical= use to override Object-wide default for using a physical scale for output
-
-        OUTPUT:
-
-           r_E [*input_shape,nt]
-
-        HISTORY:
-
-           2022-04-07 - Written as thin wrapper around Potential.rE - Bovy (UofT)
+        Notes
+        -----
+        - 2022-04-07 - Written as thin wrapper around Potential.rE - Bovy (UofT)
 
         """
         pot = kwargs.get("pot", self.__dict__.get("_pot", None))
@@ -3089,32 +2958,32 @@ class Orbit:
     @physical_conversion("action")
     @shapeDecorator
     def LcE(self, *args, **kwargs):
-        """
-        NAME:
+        r"""
+        Calculate the angular momentum of a circular orbit with the same energy.
 
-           LcE
+        Parameters
+        ----------
+        t : numeric, numpy.ndarray or Quantity, optional
+            Time at which to get the radius. Default is the initial time.
+        pot : Potential or list of Potential instances, optional
+            Gravitational potential. Default is the gravitational field used for the orbit integration.
+        ro : float or Quantity, optional
+            Physical scale in kpc for distances to use to convert. Default is object-wide default.
+        vo : float or Quantity, optional
+            Physical scale in km/s for velocities to use to convert. Default is object-wide default.
+        use_physical : bool, optional
+            Use to override object-wide default for using a physical scale for output.
+        quantity : bool, optional
+            If True, return an Astropy Quantity object. Default from configuration file.
 
-        PURPOSE:
+        Returns
+        -------
+        float, numpy.ndarray or Quantity [\*input_shape]
+            Angular momentum of a circular orbit with the same energy.
 
-           calculate the angular momentum of a circular orbit with the same energy
-
-        INPUT:
-
-           pot= potential instance or list of such instances
-
-           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
-
-           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
-
-           use_physical= use to override Object-wide default for using a physical scale for output
-
-        OUTPUT:
-
-           L_c(E) [*input_shape,nt]
-
-        HISTORY:
-
-           2022-04-07 - Written - Bovy (UofT)
+        Notes
+        -----
+        - 2022-04-07 - Written - Bovy (UofT)
 
         """
         pot = kwargs.pop("pot", self.__dict__.get("_pot", None))
@@ -3151,45 +3020,39 @@ class Orbit:
     @physical_conversion("position")
     @shapeDecorator
     def zmax(self, analytic=False, pot=None, **kwargs):
-        """
-        NAME:
+        r"""
+        Calculate the maximum vertical height, either numerically from the numerical orbit integration or using analytical means.
 
-           zmax
+        Parameters
+        ----------
+        analytic : bool, optional
+            Compute this analytically. Default is False.
+        pot : Potential or list of Potential instances, optional
+            Gravitational potential for the analytical calculation. Default is the gravitational field used for the orbit integration.
+        type : {'staeckel', 'adiabatic', 'spherical'}, optional
+            Type of actionAngle module to use for 3D orbits when analytic=True. Default is 'staeckel'.
+        ro : float or Quantity, optional
+            Physical scale in kpc for distances to use to convert. Default is object-wide default.
+        use_physical : bool, optional
+            Use to override object-wide default for using a physical scale for output.
+        quantity : bool, optional
+            If True, return an Astropy Quantity object. Default from configuration file.
 
-        PURPOSE:
+        Returns
+        -------
+        float, numpy.ndarray or Quantity [\*input_shape]
+            Maximum vertical height.
 
-           calculate the maximum vertical height, either numerically from the numerical orbit integration or using analytical means
+        Notes
+        -----
+        - Keyword arguments also include the actionAngle module setup kwargs for the corresponding actionAngle modules
+        - 2019-02-25 - Written - Bovy (UofT)
 
-        INPUT:
-
-           analytic(= False) compute this analytically
-
-           pot - potential to use for analytical calculation
-
-           For 3D orbits different approximations for analytic=True are available (see the EccZmaxRperiRap method of actionAngle modules):
-
-              type= ('staeckel') type of actionAngle module to use
-
-                 1) 'adiabatic': assuming motion splits into R and z
-
-                 2) 'staeckel': assuming motion splits into u and v of prolate spheroidal coordinate system, exact for Staeckel potentials (incl. all spherical potentials)
-
-                 3) 'spherical': for spherical potentials, exact
-
-              +actionAngle module setup kwargs for the corresponding actionAngle modules (actionAngleAdiabatic, actionAngleStaeckel, and actionAngleSpherical)
-
-           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
-
-           use_physical= use to override Object-wide default for using a physical scale for output
-
-        OUTPUT:
-
-           Z_max [*input_shape]
-
-        HISTORY:
-
-           2019-02-25 - Written - Bovy (UofT)
-
+        See Also
+        --------
+        galpy.actionAngle.actionAngleStaeckel
+        galpy.actionAngle.actionAngleAdiabatic
+        galpy.actionAngle.actionAngleSpherical
         """
         if analytic:
             self._setup_EccZmaxRperiRap(pot=pot, **kwargs)
@@ -3205,45 +3068,40 @@ class Orbit:
     @physical_conversion("action")
     @shapeDecorator
     def jr(self, pot=None, **kwargs):
-        """
-        NAME:
+        r"""
+        Calculate the radial action.
 
-           jr
+        Parameters
+        ----------
+        pot : Potential or list of Potential instances, optional
+            Gravitational potential. Default is the gravitational field used for the orbit integration.
+        type : {'staeckel', 'adiabatic', 'isochroneApprox', 'spherical'}, optional
+            Type of actionAngle module to use. Default is 'staeckel'.
+        ro : float or Quantity, optional
+            Physical scale in kpc for distances to use to convert. Default is object-wide default.
+        vo : float or Quantity, optional
+            Physical scale in km/s for velocities to use to convert. Default is object-wide default.
+        use_physical : bool, optional
+            Use to override object-wide default for using a physical scale for output.
+        quantity : bool, optional
+            If True, return an Astropy Quantity object. Default from configuration file.
 
-        PURPOSE:
+        Returns
+        -------
+        float, numpy.ndarray or Quantity [\*input_shape]
+            Radial action.
 
-           calculate the radial action
+        Notes
+        -----
+        - Keyword arguments also include the actionAngle module setup kwargs for the corresponding actionAngle modules
+        - 2019-02-27 - Written - Bovy (UofT)
 
-        INPUT:
-
-           pot - potential
-
-           type= ('staeckel') type of actionAngle module to use
-
-              1) 'adiabatic'
-
-              2) 'staeckel'
-
-              3) 'isochroneApprox'
-
-              4) 'spherical'
-
-           +actionAngle module setup kwargs
-
-           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
-
-           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
-
-           use_physical= use to override Object-wide default for using a physical scale for output
-
-        OUTPUT:
-
-           jr [*input_shape]
-
-        HISTORY:
-
-           2019-02-27 - Written - Bovy (UofT)
-
+        See Also
+        --------
+        galpy.actionAngle.actionAngleStaeckel
+        galpy.actionAngle.actionAngleAdiabatic
+        galpy.actionAngle.actionAngleIsochroneApprox
+        galpy.actionAngle.actionAngleSpherical
         """
         try:
             self._setup_actionsFreqsAngles(pot=pot, **kwargs)
@@ -3254,45 +3112,40 @@ class Orbit:
     @physical_conversion("action")
     @shapeDecorator
     def jp(self, pot=None, **kwargs):
-        """
-        NAME:
+        r"""
+        Calculate the azimuthal action.
 
-           jp
+        Parameters
+        ----------
+        pot : Potential or list of Potential instances, optional
+            Gravitational potential. Default is the gravitational field used for the orbit integration.
+        type : {'staeckel', 'adiabatic', 'isochroneApprox', 'spherical'}, optional
+            Type of actionAngle module to use. Default is 'staeckel'.
+        ro : float or Quantity, optional
+            Physical scale in kpc for distances to use to convert. Default is object-wide default.
+        vo : float or Quantity, optional
+            Physical scale in km/s for velocities to use to convert. Default is object-wide default.
+        use_physical : bool, optional
+            Use to override object-wide default for using a physical scale for output.
+        quantity : bool, optional
+            If True, return an Astropy Quantity object. Default from configuration file.
 
-        PURPOSE:
+        Returns
+        -------
+        float, numpy.ndarray or Quantity [\*input_shape]
+            Azimuthal action.
 
-           calculate the azimuthal action
+        Notes
+        -----
+        - Keyword arguments also include the actionAngle module setup kwargs for the corresponding actionAngle modules
+        - 2019-02-26 - Written - Bovy (UofT)
 
-        INPUT:
-
-           pot - potential
-
-           type= ('staeckel') type of actionAngle module to use
-
-              1) 'adiabatic'
-
-              2) 'staeckel'
-
-              3) 'isochroneApprox'
-
-              4) 'spherical'
-
-           +actionAngle module setup kwargs
-
-           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
-
-           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
-
-           use_physical= use to override Object-wide default for using a physical scale for output
-
-        OUTPUT:
-
-           jp [*input_shape]
-
-        HISTORY:
-
-           2019-02-26 - Written - Bovy (UofT)
-
+        See Also
+        --------
+        galpy.actionAngle.actionAngleStaeckel
+        galpy.actionAngle.actionAngleAdiabatic
+        galpy.actionAngle.actionAngleIsochroneApprox
+        galpy.actionAngle.actionAngleSpherical
         """
         try:
             self._setup_actionsFreqsAngles(pot=pot, **kwargs)
@@ -3303,45 +3156,40 @@ class Orbit:
     @physical_conversion("action")
     @shapeDecorator
     def jz(self, pot=None, **kwargs):
-        """
-        NAME:
+        r"""
+        Calculate the vertical action.
 
-           jz
+        Parameters
+        ----------
+        pot : Potential or list of Potential instances, optional
+            Gravitational potential. Default is the gravitational field used for the orbit integration.
+        type : {'staeckel', 'adiabatic', 'isochroneApprox', 'spherical'}, optional
+            Type of actionAngle module to use. Default is 'staeckel'.
+        ro : float or Quantity, optional
+            Physical scale in kpc for distances to use to convert. Default is object-wide default.
+        vo : float or Quantity, optional
+            Physical scale in km/s for velocities to use to convert. Default is object-wide default.
+        use_physical : bool, optional
+            Use to override object-wide default for using a physical scale for output.
+        quantity : bool, optional
+            If True, return an Astropy Quantity object. Default from configuration file.
 
-        PURPOSE:
+        Returns
+        -------
+        float, numpy.ndarray or Quantity [\*input_shape]
+            Vertical action.
 
-           calculate the vertical action
+        Notes
+        -----
+        - Keyword arguments also include the actionAngle module setup kwargs for the corresponding actionAngle modules
+        - 2019-02-27 - Written - Bovy (UofT)
 
-        INPUT:
-
-           pot - potential
-
-           type= ('staeckel') type of actionAngle module to use
-
-              1) 'adiabatic'
-
-              2) 'staeckel'
-
-              3) 'isochroneApprox'
-
-              4) 'spherical'
-
-           +actionAngle module setup kwargs
-
-           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
-
-           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
-
-           use_physical= use to override Object-wide default for using a physical scale for output
-
-        OUTPUT:
-
-           jz [*input_shape]
-
-        HISTORY:
-
-           2019-02-27 - Written - Bovy (UofT)
-
+        See Also
+        --------
+        galpy.actionAngle.actionAngleStaeckel
+        galpy.actionAngle.actionAngleAdiabatic
+        galpy.actionAngle.actionAngleIsochroneApprox
+        galpy.actionAngle.actionAngleSpherical
         """
         try:
             self._setup_actionsFreqsAngles(pot=pot, **kwargs)
@@ -3352,39 +3200,40 @@ class Orbit:
     @physical_conversion("angle")
     @shapeDecorator
     def wr(self, pot=None, **kwargs):
-        """
-        NAME:
+        r"""
+        Calculate the radial angle.
 
-           wr
+        Parameters
+        ----------
+        pot : Potential or list of Potential instances, optional
+            Gravitational potential. Default is the gravitational field used for the orbit integration.
+        type : {'staeckel', 'adiabatic', 'isochroneApprox', 'spherical'}, optional
+            Type of actionAngle module to use. Default is 'staeckel'.
+        ro : float or Quantity, optional
+            Physical scale in kpc for distances to use to convert. Default is object-wide default.
+        vo : float or Quantity, optional
+            Physical scale in km/s for velocities to use to convert. Default is object-wide default.
+        use_physical : bool, optional
+            Use to override object-wide default for using a physical scale for output.
+        quantity : bool, optional
+            If True, return an Astropy Quantity object. Default from configuration file.
 
-        PURPOSE:
+        Returns
+        -------
+        float, numpy.ndarray or Quantity [\*input_shape]
+            Radial angle.
 
-           calculate the radial angle
+        Notes
+        -----
+        - Keyword arguments also include the actionAngle module setup kwargs for the corresponding actionAngle modules
+        - 2019-02-27 - Written - Bovy (UofT)
 
-        INPUT:
-
-           pot - potential
-
-           type= ('staeckel') type of actionAngle module to use
-
-              1) 'adiabatic'
-
-              2) 'staeckel'
-
-              3) 'isochroneApprox'
-
-              4) 'spherical'
-
-           +actionAngle module setup kwargs
-
-        OUTPUT:
-
-           wr [*input_shape]
-
-        HISTORY:
-
-           2019-02-27 - Written - Bovy (UofT)
-
+        See Also
+        --------
+        galpy.actionAngle.actionAngleStaeckel
+        galpy.actionAngle.actionAngleAdiabatic
+        galpy.actionAngle.actionAngleIsochroneApprox
+        galpy.actionAngle.actionAngleSpherical
         """
         self._setup_actionsFreqsAngles(pot=pot, **kwargs)
         return self._aA_wr
@@ -3392,39 +3241,40 @@ class Orbit:
     @physical_conversion("angle")
     @shapeDecorator
     def wp(self, pot=None, **kwargs):
-        """
-        NAME:
+        r"""
+        Calculate the azimuthal angle.
 
-           wp
+        Parameters
+        ----------
+        pot : Potential or list of Potential instances, optional
+            Gravitational potential. Default is the gravitational field used for the orbit integration.
+        type : {'staeckel', 'adiabatic', 'isochroneApprox', 'spherical'}, optional
+            Type of actionAngle module to use. Default is 'staeckel'.
+        ro : float or Quantity, optional
+            Physical scale in kpc for distances to use to convert. Default is object-wide default.
+        vo : float or Quantity, optional
+            Physical scale in km/s for velocities to use to convert. Default is object-wide default.
+        use_physical : bool, optional
+            Use to override object-wide default for using a physical scale for output.
+        quantity : bool, optional
+            If True, return an Astropy Quantity object. Default from configuration file.
 
-        PURPOSE:
+        Returns
+        -------
+        float, numpy.ndarray or Quantity [\*input_shape]
+            Azimuthal angle.
 
-           calculate the azimuthal angle
+        Notes
+        -----
+        - Keyword arguments also include the actionAngle module setup kwargs for the corresponding actionAngle modules
+        - 2019-02-27 - Written - Bovy (UofT)
 
-        INPUT:
-
-           pot - potential
-
-           type= ('staeckel') type of actionAngle module to use
-
-              1) 'adiabatic'
-
-              2) 'staeckel'
-
-              3) 'isochroneApprox'
-
-              4) 'spherical'
-
-           +actionAngle module setup kwargs
-
-        OUTPUT:
-
-           wp [*input_shape]
-
-        HISTORY:
-
-           2019-02-27 - Written - Bovy (UofT)
-
+        See Also
+        --------
+        galpy.actionAngle.actionAngleStaeckel
+        galpy.actionAngle.actionAngleAdiabatic
+        galpy.actionAngle.actionAngleIsochroneApprox
+        galpy.actionAngle.actionAngleSpherical
         """
         self._setup_actionsFreqsAngles(pot=pot, **kwargs)
         return self._aA_wp
@@ -3432,39 +3282,40 @@ class Orbit:
     @physical_conversion("angle")
     @shapeDecorator
     def wz(self, pot=None, **kwargs):
-        """
-        NAME:
+        r"""
+        Calculate the vertical angle.
 
-           wz
+        Parameters
+        ----------
+        pot : Potential or list of Potential instances, optional
+            Gravitational potential. Default is the gravitational field used for the orbit integration.
+        type : {'staeckel', 'adiabatic', 'isochroneApprox', 'spherical'}, optional
+            Type of actionAngle module to use. Default is 'staeckel'.
+        ro : float or Quantity, optional
+            Physical scale in kpc for distances to use to convert. Default is object-wide default.
+        vo : float or Quantity, optional
+            Physical scale in km/s for velocities to use to convert. Default is object-wide default.
+        use_physical : bool, optional
+            Use to override object-wide default for using a physical scale for output.
+        quantity : bool, optional
+            If True, return an Astropy Quantity object. Default from configuration file.
 
-        PURPOSE:
+        Returns
+        -------
+        float, numpy.ndarray or Quantity [\*input_shape]
+            Vertical angle.
 
-           calculate the vertical angle
+        Notes
+        -----
+        - Keyword arguments also include the actionAngle module setup kwargs for the corresponding actionAngle modules
+        - 2019-02-27 - Written - Bovy (UofT)
 
-        INPUT:
-
-           pot - potential
-
-           type= ('staeckel') type of actionAngle module to use
-
-              1) 'adiabatic'
-
-              2) 'staeckel'
-
-              3) 'isochroneApprox'
-
-              4) 'spherical'
-
-           +actionAngle module setup kwargs
-
-        OUTPUT:
-
-           wz [*input_shape]
-
-        HISTORY:
-
-           2019-02-27 - Written - Bovy (UofT)
-
+        See Also
+        --------
+        galpy.actionAngle.actionAngleStaeckel
+        galpy.actionAngle.actionAngleAdiabatic
+        galpy.actionAngle.actionAngleIsochroneApprox
+        galpy.actionAngle.actionAngleSpherical
         """
         self._setup_actionsFreqsAngles(pot=pot, **kwargs)
         return self._aA_wz
@@ -3472,45 +3323,40 @@ class Orbit:
     @physical_conversion("time")
     @shapeDecorator
     def Tr(self, pot=None, **kwargs):
-        """
-        NAME:
+        r"""
+        Calculate the radial period.
 
-           Tr
+        Parameters
+        ----------
+        pot : Potential or list of Potential instances, optional
+            Gravitational potential. Default is the gravitational field used for the orbit integration.
+        type : {'staeckel', 'adiabatic', 'isochroneApprox', 'spherical'}, optional
+            Type of actionAngle module to use. Default is 'staeckel'.
+        ro : float or Quantity, optional
+            Physical scale in kpc for distances to use to convert. Default is object-wide default.
+        vo : float or Quantity, optional
+            Physical scale in km/s for velocities to use to convert. Default is object-wide default.
+        use_physical : bool, optional
+            Use to override object-wide default for using a physical scale for output.
+        quantity : bool, optional
+            If True, return an Astropy Quantity object. Default from configuration file.
 
-        PURPOSE:
+        Returns
+        -------
+        float, numpy.ndarray or Quantity [\*input_shape]
+            Radial period.
 
-           calculate the radial period
+        Notes
+        -----
+        - Keyword arguments also include the actionAngle module setup kwargs for the corresponding actionAngle modules
+        - 2019-02-27 - Written - Bovy (UofT)
 
-        INPUT:
-
-           pot - potential
-
-           type= ('staeckel') type of actionAngle module to use
-
-              1) 'adiabatic'
-
-              2) 'staeckel'
-
-              3) 'isochroneApprox'
-
-              4) 'spherical'
-
-           +actionAngle module setup kwargs
-
-           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
-
-           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
-
-           use_physical= use to override Object-wide default for using a physical scale for output
-
-        OUTPUT:
-
-           Tr [*input_shape]
-
-        HISTORY:
-
-           2019-02-27 - Written - Bovy (UofT)
-
+        See Also
+        --------
+        galpy.actionAngle.actionAngleStaeckel
+        galpy.actionAngle.actionAngleAdiabatic
+        galpy.actionAngle.actionAngleIsochroneApprox
+        galpy.actionAngle.actionAngleSpherical
         """
         self._setup_actionsFreqsAngles(pot=pot, **kwargs)
         return 2.0 * numpy.pi / self._aA_Or
@@ -3518,84 +3364,72 @@ class Orbit:
     @physical_conversion("time")
     @shapeDecorator
     def Tp(self, pot=None, **kwargs):
-        """
-        NAME:
+        r"""
+        Calculate the azimuthal period.
 
-           Tp
+        Parameters
+        ----------
+        pot : Potential or list of Potential instances, optional
+            Gravitational potential. Default is the gravitational field used for the orbit integration.
+        type : {'staeckel', 'adiabatic', 'isochroneApprox', 'spherical'}, optional
+            Type of actionAngle module to use. Default is 'staeckel'.
+        ro : float or Quantity, optional
+            Physical scale in kpc for distances to use to convert. Default is object-wide default.
+        vo : float or Quantity, optional
+            Physical scale in km/s for velocities to use to convert. Default is object-wide default.
+        use_physical : bool, optional
+            Use to override object-wide default for using a physical scale for output.
+        quantity : bool, optional
+            If True, return an Astropy Quantity object. Default from configuration file.
 
-        PURPOSE:
+        Returns
+        -------
+        float, numpy.ndarray or Quantity [\*input_shape]
+            Azimuthal period.
 
-           calculate the azimuthal period
+        Notes
+        -----
+        - Keyword arguments also include the actionAngle module setup kwargs for the corresponding actionAngle modules
+        - 2019-02-27 - Written - Bovy (UofT)
 
-        INPUT:
-
-           pot - potential
-
-           type= ('staeckel') type of actionAngle module to use
-
-              1) 'adiabatic'
-
-              2) 'staeckel'
-
-              3) 'isochroneApprox'
-
-              4) 'spherical'
-
-           +actionAngle module setup kwargs
-
-           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
-
-           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
-
-           use_physical= use to override Object-wide default for using a physical scale for output
-
-        OUTPUT:
-
-           Tp [*input_shape]
-
-        HISTORY:
-
-           2019-02-27 - Written - Bovy (UofT)
-
+        See Also
+        --------
+        galpy.actionAngle.actionAngleStaeckel
+        galpy.actionAngle.actionAngleAdiabatic
+        galpy.actionAngle.actionAngleIsochroneApprox
+        galpy.actionAngle.actionAngleSpherical
         """
         self._setup_actionsFreqsAngles(pot=pot, **kwargs)
         return 2.0 * numpy.pi / self._aA_Op
 
     @shapeDecorator
     def TrTp(self, pot=None, **kwargs):
-        """
-        NAME:
+        r"""
+        Calculate the ratio between the radial and azimuthal period Tr/Tphi*pi.
 
-           TrTp
+        Parameters
+        ----------
+        pot : Potential or list of Potential instances, optional
+            Gravitational potential. Default is the gravitational field used for the orbit integration.
+        type : {'staeckel', 'adiabatic', 'isochroneApprox', 'spherical'}, optional
+            Type of actionAngle module to use. Default is 'staeckel'.
+        +actionAngle module setup kwargs
 
-        PURPOSE:
+        Returns
+        -------
+        float, numpy.ndarray or Quantity [\*input_shape]
+            Ratio between the radial and azimuthal period Tr/Tphi*pi
 
-           the 'ratio' between the radial and azimuthal period Tr/Tphi*pi
+        Notes
+        -----
+        - 2019-02-27 - Written - Bovy (UofT)
 
-        INPUT:
-
-           pot - potential
-
-           type= ('staeckel') type of actionAngle module to use
-
-              1) 'adiabatic'
-
-              2) 'staeckel'
-
-              3) 'isochroneApprox'
-
-              4) 'spherical'
-
-           +actionAngle module setup kwargs
-
-        OUTPUT:
-
-           Tr/Tp*pi [*input_shape]
-
-        HISTORY:
-
-           2019-02-27 - Written - Bovy (UofT)
-
+        See Also
+        --------
+        galpy.actionAngle.actionAngleStaeckel
+        galpy.actionAngle.actionAngleAdiabatic
+        galpy.actionAngle.actionAngleIsochroneApprox
+        galpy.actionAngle.actionAngleSpherical
         """
         self._setup_actionsFreqsAngles(pot=pot, **kwargs)
         return self._aA_Op / self._aA_Or * numpy.pi
@@ -3603,45 +3437,40 @@ class Orbit:
     @physical_conversion("time")
     @shapeDecorator
     def Tz(self, pot=None, **kwargs):
-        """
-        NAME:
+        r"""
+        Calculate the vertical period.
 
-           Tz
+        Parameters
+        ----------
+        pot : Potential or list of Potential instances, optional
+            Gravitational potential. Default is the gravitational field used for the orbit integration.
+        type : {'staeckel', 'adiabatic', 'isochroneApprox', 'spherical'}, optional
+            Type of actionAngle module to use. Default is 'staeckel'.
+        ro : float or Quantity, optional
+            Physical scale in kpc for distances to use to convert. Default is object-wide default.
+        vo : float or Quantity, optional
+            Physical scale in km/s for velocities to use to convert. Default is object-wide default.
+        use_physical : bool, optional
+            Use to override object-wide default for using a physical scale for output.
+        quantity : bool, optional
+            If True, return an Astropy Quantity object. Default from configuration file.
 
-        PURPOSE:
+        Returns
+        -------
+        float, numpy.ndarray or Quantity [\*input_shape]
+            Vertical period.
 
-           calculate the vertical period
+        Notes
+        -----
+        - Keyword arguments also include the actionAngle module setup kwargs for the corresponding actionAngle modules
+        - 2019-02-27 - Written - Bovy (UofT)
 
-        INPUT:
-
-           pot - potential
-
-           type= ('staeckel') type of actionAngle module to use
-
-              1) 'adiabatic'
-
-              2) 'staeckel'
-
-              3) 'isochroneApprox'
-
-              4) 'spherical'
-
-           +actionAngle module setup kwargs
-
-           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
-
-           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
-
-           use_physical= use to override Object-wide default for using a physical scale for output
-
-        OUTPUT:
-
-           Tz [*input_shape]
-
-        HISTORY:
-
-           2019-02-27 - Written - Bovy (UofT)
-
+        See Also
+        --------
+        galpy.actionAngle.actionAngleStaeckel
+        galpy.actionAngle.actionAngleAdiabatic
+        galpy.actionAngle.actionAngleIsochroneApprox
+        galpy.actionAngle.actionAngleSpherical
         """
         self._setup_actionsFreqsAngles(pot=pot, **kwargs)
         return 2.0 * numpy.pi / self._aA_Oz
@@ -3649,45 +3478,40 @@ class Orbit:
     @physical_conversion("frequency")
     @shapeDecorator
     def Or(self, pot=None, **kwargs):
-        """
-        NAME:
+        r"""
+        Calculate the radial frequency.
 
-           Or
+        Parameters
+        ----------
+        pot : Potential or list of Potential instances, optional
+            Gravitational potential. Default is the gravitational field used for the orbit integration.
+        type : {'staeckel', 'adiabatic', 'isochroneApprox', 'spherical'}, optional
+            Type of actionAngle module to use. Default is 'staeckel'.
+        ro : float or Quantity, optional
+            Physical scale in kpc for distances to use to convert. Default is object-wide default.
+        vo : float or Quantity, optional
+            Physical scale for velocities in km/s to use to convert. Default is object-wide default.
+        use_physical : bool, optional
+            Use to override object-wide default for using a physical scale for output.
+        quantity : bool, optional
+            If True, return an Astropy Quantity object. Default from configuration file.
 
-        PURPOSE:
+        Returns
+        -------
+        float, numpy.ndarray or Quantity [\*input_shape]
+            Radial frequency.
 
-           calculate the radial frequency
+        Notes
+        -----
+        - Keyword arguments also include the actionAngle module setup kwargs for the corresponding actionAngle modules
+        - 2019-02-27 - Written - Bovy (UofT)
 
-        INPUT:
-
-           pot - potential
-
-           type= ('staeckel') type of actionAngle module to use
-
-              1) 'adiabatic'
-
-              2) 'staeckel'
-
-              3) 'isochroneApprox'
-
-              4) 'spherical'
-
-           +actionAngle module setup kwargs
-
-           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
-
-           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
-
-           use_physical= use to override Object-wide default for using a physical scale for output
-
-        OUTPUT:
-
-           Or [*input_shape]
-
-        HISTORY:
-
-           2019-02-27 - Written - Bovy (UofT)
-
+        See Also
+        --------
+        galpy.actionAngle.actionAngleStaeckel
+        galpy.actionAngle.actionAngleAdiabatic
+        galpy.actionAngle.actionAngleIsochroneApprox
+        galpy.actionAngle.actionAngleSpherical
         """
         self._setup_actionsFreqsAngles(pot=pot, **kwargs)
         return self._aA_Or
@@ -3695,45 +3519,40 @@ class Orbit:
     @physical_conversion("frequency")
     @shapeDecorator
     def Op(self, pot=None, **kwargs):
-        """
-        NAME:
+        r"""
+        Calculate the azimuthal frequency.
 
-           Op
+        Parameters
+        ----------
+        pot : Potential or list of Potential instances, optional
+            Gravitational potential. Default is the gravitational field used for the orbit integration.
+        type : {'staeckel', 'adiabatic', 'isochroneApprox', 'spherical'}, optional
+            Type of actionAngle module to use. Default is 'staeckel'.
+        ro : float or Quantity, optional
+            Physical scale in kpc for distances to use to convert. Default is object-wide default.
+        vo : float or Quantity, optional
+            Physical scale for velocities in km/s to use to convert. Default is object-wide default.
+        use_physical : bool, optional
+            Use to override object-wide default for using a physical scale for output.
+        quantity : bool, optional
+            If True, return an Astropy Quantity object. Default from configuration file.
 
-        PURPOSE:
+        Returns
+        -------
+        float, numpy.ndarray or Quantity [\*input_shape]
+            Azimuthal frequency.
 
-           calculate the azimuthal frequency
+        Notes
+        -----
+        - Keyword arguments also include the actionAngle module setup kwargs for the corresponding actionAngle modules
+        - 2019-02-27 - Written - Bovy (UofT)
 
-        INPUT:
-
-           pot - potential
-
-           type= ('staeckel') type of actionAngle module to use
-
-              1) 'adiabatic'
-
-              2) 'staeckel'
-
-              3) 'isochroneApprox'
-
-              4) 'spherical'
-
-           +actionAngle module setup kwargs
-
-           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
-
-           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
-
-           use_physical= use to override Object-wide default for using a physical scale for output
-
-        OUTPUT:
-
-           Op [*input_shape]
-
-        HISTORY:
-
-           2019-02-27 - Written - Bovy (UofT)
-
+        See Also
+        --------
+        galpy.actionAngle.actionAngleStaeckel
+        galpy.actionAngle.actionAngleAdiabatic
+        galpy.actionAngle.actionAngleIsochroneApprox
+        galpy.actionAngle.actionAngleSpherical
         """
         self._setup_actionsFreqsAngles(pot=pot, **kwargs)
         return self._aA_Op
@@ -3741,77 +3560,70 @@ class Orbit:
     @physical_conversion("frequency")
     @shapeDecorator
     def Oz(self, pot=None, **kwargs):
-        """
-        NAME:
+        r"""
+        Calculate the vertical frequency.
 
-           Oz
+        Parameters
+        ----------
+        pot : Potential or list of Potential instances, optional
+            Gravitational potential. Default is the gravitational field used for the orbit integration.
+        type : {'staeckel', 'adiabatic', 'isochroneApprox', 'spherical'}, optional
+            Type of actionAngle module to use. Default is 'staeckel'.
+        ro : float or Quantity, optional
+            Physical scale in kpc for distances to use to convert. Default is object-wide default.
+        vo : float or Quantity, optional
+            Physical scale for velocities in km/s to use to convert. Default is object-wide default.
+        use_physical : bool, optional
+            Use to override object-wide default for using a physical scale for output.
+        quantity : bool, optional
+            If True, return an Astropy Quantity object. Default from configuration file.
 
-        PURPOSE:
+        Returns
+        -------
+        float, numpy.ndarray or Quantity [\*input_shape]
+            Vertical frequency.
 
-           calculate the vertical frequency
+        Notes
+        -----
+        - Keyword arguments also include the actionAngle module setup kwargs for the corresponding actionAngle modules
+        - 2019-02-27 - Written - Bovy (UofT)
 
-        INPUT:
-
-           pot - potential
-
-           type= ('staeckel') type of actionAngle module to use
-
-              1) 'adiabatic'
-
-              2) 'staeckel'
-
-              3) 'isochroneApprox'
-
-              4) 'spherical'
-
-           +actionAngle module setup kwargs
-
-           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
-
-           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
-
-           use_physical= use to override Object-wide default for using a physical scale for output
-
-        OUTPUT:
-
-           Oz [*input_shape]
-
-        HISTORY:
-
-           2019-02-27 - Written - Bovy (UofT)
-
+        See Also
+        --------
+        galpy.actionAngle.actionAngleStaeckel
+        galpy.actionAngle.actionAngleAdiabatic
+        galpy.actionAngle.actionAngleIsochroneApprox
+        galpy.actionAngle.actionAngleSpherical
         """
         self._setup_actionsFreqsAngles(pot=pot, **kwargs)
         return self._aA_Oz
 
     @physical_conversion("time")
     def time(self, *args, **kwargs):
-        """
-        NAME:
+        r"""
+        Return the times at which the orbit is sampled.
 
-           time
+        Parameters
+        ----------
+        t : numeric, numpy.ndarray or Quantity, optional
+            Time at which to get the time (for consistency reasons). Default is to return the list of times at which the orbit is sampled.
+        ro : float or Quantity, optional
+            Physical scale in kpc for distances to use to convert. Default is object-wide default.
+        vo : float or Quantity, optional
+            Physical scale for velocities in km/s to use to convert. Default is object-wide default.
+        use_physical : bool, optional
+            Use to override object-wide default for using a physical scale for output.
+        quantity : bool, optional
+            If True, return an Astropy Quantity object. Default from configuration file.
 
-        PURPOSE:
+        Returns
+        -------
+        float, numpy.ndarray or Quantity [\*input_shape,nt]
+            Times at which the orbit is sampled.
 
-           return the times at which the orbit is sampled
-
-        INPUT:
-
-           t - (default: integration times) time at which to get the time (for consistency reasons); default is to return the list of times at which the orbit is sampled
-
-           ro= (Object-wide default) physical scale for distances to use to convert
-
-           vo= (Object-wide default) physical scale for velocities to use to convert
-
-           use_physical= use to override Object-wide default for using a physical scale for output
-
-        OUTPUT:
-
-           t(t)
-
-        HISTORY:
-
-           2019-02-28 - Written - Bovy (UofT)
+        Notes
+        -----
+        - 2019-02-28 - Written - Bovy (UofT)
 
         """
         if len(args) == 0:
@@ -3826,30 +3638,28 @@ class Orbit:
     @physical_conversion("position")
     @shapeDecorator
     def R(self, *args, **kwargs):
-        """
-        NAME:
+        r"""
+        Return cylindrical radius at time t.
 
-           R
+        Parameters
+        ----------
+        t : numeric, numpy.ndarray or Quantity, optional
+            Time at which to get the radius. Default is the initial time.
+        ro : float or Quantity, optional
+            Physical scale in kpc for distances to use to convert. Default is object-wide default.
+        use_physical : bool, optional
+            Use to override object-wide default for using a physical scale for output.
+        quantity : bool, optional
+            If True, return an Astropy Quantity object. Default from configuration file.
 
-        PURPOSE:
+        Returns
+        -------
+        float, numpy.ndarray or Quantity [\*input_shape,nt]
+            Cylindrical radius.
 
-           return cylindrical radius at time t
-
-        INPUT:
-
-           t - (optional) time at which to get the radius (can be Quantity)
-
-           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
-
-           use_physical= use to override Object-wide default for using a physical scale for output
-
-        OUTPUT:
-
-           R(t) [*input_shape,nt]
-
-        HISTORY:
-
-           2019-02-01 - Written - Bovy (UofT)
+        Notes
+        -----
+        - 2019-02-01 - Written - Bovy (UofT)
 
         """
         return self._call_internal(*args, **kwargs)[0].T
@@ -3857,30 +3667,28 @@ class Orbit:
     @physical_conversion("position")
     @shapeDecorator
     def r(self, *args, **kwargs):
-        """
-        NAME:
+        r"""
+        Return spherical radius at time t.
 
-           r
+        Parameters
+        ----------
+        t : numeric, numpy.ndarray or Quantity, optional
+            Time at which to get the radius. Default is the initial time.
+        ro : float or Quantity, optional
+            Physical scale in kpc for distances to use to convert. Default is object-wide default.
+        use_physical : bool, optional
+            Use to override object-wide default for using a physical scale for output.
+        quantity : bool, optional
+            If True, return an Astropy Quantity object. Default from configuration file.
 
-        PURPOSE:
+        Returns
+        -------
+        float, numpy.ndarray or Quantity [\*input_shape,nt]
+            Spherical radius.
 
-           return spherical radius at time t
-
-        INPUT:
-
-           t - (optional) time at which to get the radius
-
-           ro= (Object-wide default) physical scale for distances to use to convert
-
-           use_physical= use to override Object-wide default for using a physical scale for output
-
-        OUTPUT:
-
-           r(t) [*input_shape,nt]
-
-        HISTORY:
-
-           2019-02-20 - Written - Bovy (UofT)
+        Notes
+        -----
+        - 2019-02-20: Written by Bovy (UofT).
 
         """
         thiso = self._call_internal(*args, **kwargs)
@@ -3892,30 +3700,30 @@ class Orbit:
     @physical_conversion("velocity")
     @shapeDecorator
     def vR(self, *args, **kwargs):
-        """
-        NAME:
+        r"""
+        Return radial velocity at time t.
 
-           vR
+        Parameters
+        ----------
+        t : numeric, numpy.ndarray or Quantity, optional
+            Time at which to get the radial velocity. Default is the initial time.
+        ro : float or Quantity, optional
+            Physical scale in kpc for distances to use to convert. Default is object-wide default.
+        vo : float or Quantity, optional
+            Physical scale for velocities in km/s to use to convert. Default is object-wide default.
+        use_physical : bool, optional
+            Use to override object-wide default for using a physical scale for output.
+        quantity : bool, optional
+            If True, return an Astropy Quantity object. Default from configuration file.
 
-        PURPOSE:
+        Returns
+        -------
+        float, numpy.ndarray or Quantity [\*input_shape,nt]
+            Radial velocity.
 
-           return radial velocity at time t
-
-        INPUT:
-
-           t - (optional) time at which to get the radial velocity
-
-           vo= (Object-wide default) physical scale for velocities to use to convert
-
-           use_physical= use to override Object-wide default for using a physical scale for output
-
-        OUTPUT:
-
-           vR(t) [*input_shape,nt]
-
-        HISTORY:
-
-           2019-02-20 - Written - Bovy (UofT)
+        Notes
+        -----
+        - 2019-02-20 - Written - Bovy (UofT)
 
         """
         return self._call_internal(*args, **kwargs)[1].T
@@ -3923,30 +3731,28 @@ class Orbit:
     @physical_conversion("velocity")
     @shapeDecorator
     def vT(self, *args, **kwargs):
-        """
-        NAME:
+        r"""
+        Return rotational velocity at time t.
 
-           vT
+        Parameters
+        ----------
+        t : numeric, numpy.ndarray or Quantity, optional
+            Time at which to get the rotational velocity. Default is the initial time.
+        vo : float or Quantity, optional
+            Physical scale for velocities in km/s to use to convert. Default is object-wide default.
+        use_physical : bool, optional
+            Use to override object-wide default for using a physical scale for output.
+        quantity : bool, optional
+            If True, return an Astropy Quantity object. Default from configuration file.
 
-        PURPOSE:
+        Returns
+        -------
+        float, numpy.ndarray or Quantity [\*input_shape,nt]
+            Rotational velocity.
 
-           return rotational velocity at time t
-
-        INPUT:
-
-           t - (optional) time at which to get the rotational velocity
-
-           vo= (Object-wide default) physical scale for velocities to use to convert
-
-           use_physical= use to override Object-wide default for using a physical scale for output
-
-        OUTPUT:
-
-           vT(t) [*input_shape,nt]
-
-        HISTORY:
-
-           2019-02-20 - Written - Bovy (UofT)
+        Notes
+        -----
+        - 2019-02-20 - Written by Bovy (UofT).
 
         """
         return self._call_internal(*args, **kwargs)[2].T
@@ -3954,30 +3760,28 @@ class Orbit:
     @physical_conversion("position")
     @shapeDecorator
     def z(self, *args, **kwargs):
-        """
-        NAME:
+        r"""
+        Return vertical height.
 
-           z
+        Parameters
+        ----------
+        t : numeric, numpy.ndarray or Quantity, optional
+            Time at which to get the vertical height. Default is the initial time.
+        ro : float or Quantity, optional
+            Physical scale in kpc for distances to use to convert. Default is object-wide default.
+        use_physical : bool, optional
+            Use to override object-wide default for using a physical scale for output.
+        quantity : bool, optional
+            If True, return an Astropy Quantity object. Default from configuration file.
 
-        PURPOSE:
+        Returns
+        -------
+        float, numpy.ndarray or Quantity [\*input_shape,nt]
+            Vertical height.
 
-           return vertical height
-
-        INPUT:
-
-           t - (optional) time at which to get the vertical height
-
-           ro= (Object-wide default) physical scale for distances to use to convert
-
-           use_physical= use to override Object-wide default for using a physical scale for output
-
-        OUTPUT:
-
-           z(t) [*input_shape,nt]
-
-        HISTORY:
-
-           2019-02-20 - Written - Bovy (UofT)
+        Notes
+        -----
+        - 2019-02-20: Written by Bovy (UofT).
 
         """
         if self.dim() < 3:
@@ -3987,30 +3791,28 @@ class Orbit:
     @physical_conversion("velocity")
     @shapeDecorator
     def vz(self, *args, **kwargs):
-        """
-        NAME:
+        r"""
+        Return vertical velocity.
 
-           vz
+        Parameters
+        ----------
+        t : numeric, numpy.ndarray or Quantity, optional
+            Time at which to get the vertical velocity. Default is the initial time.
+        vo : float or Quantity, optional
+            Physical scale for velocities in km/s to use to convert. Default is object-wide default.
+        use_physical : bool, optional
+            Use to override object-wide default for using a physical scale for output.
+        quantity : bool, optional
+            If True, return an Astropy Quantity object. Default from configuration file.
 
-        PURPOSE:
+        Returns
+        -------
+        float, numpy.ndarray or Quantity [\*input_shape,nt]
+            Vertical velocity.
 
-           return vertical velocity
-
-        INPUT:
-
-           t - (optional) time at which to get the vertical velocity
-
-           vo= (Object-wide default) physical scale for velocities to use to convert
-
-           use_physical= use to override Object-wide default for using a physical scale for output
-
-        OUTPUT:
-
-           vz(t) [*input_shape,nt]
-
-        HISTORY:
-
-           2019-02-20 - Written - Bovy (UofT)
+        Notes
+        -----
+        - 2019-02-20 - Written - Bovy (UofT)
 
         """
         if self.dim() < 3:
@@ -4020,26 +3822,22 @@ class Orbit:
     @physical_conversion("angle")
     @shapeDecorator
     def phi(self, *args, **kwargs):
-        """
-        NAME:
+        r"""
+        Return azimuth.
 
-           phi
+        Parameters
+        ----------
+        t : numeric, numpy.ndarray or Quantity, optional
+            Time at which to get the azimuth. Default is the initial time.
 
-        PURPOSE:
+        Returns
+        -------
+        float, numpy.ndarray or Quantity [\*input_shape,nt]
+            Azimuth in [-pi,pi].
 
-           return azimuth
-
-        INPUT:
-
-           t - (optional) time at which to get the azimuth
-
-        OUTPUT:
-
-           phi(t) [*input_shape,nt] in [-pi,pi]
-
-        HISTORY:
-
-           2019-02-20 - Written - Bovy (UofT)
+        Notes
+        -----
+        - 2019-02-20: Written by Bovy (UofT).
 
         """
         if self.phasedim() != 4 and self.phasedim() != 6:
@@ -4049,30 +3847,28 @@ class Orbit:
     @physical_conversion("position")
     @shapeDecorator
     def x(self, *args, **kwargs):
-        """
-        NAME:
+        r"""
+        Return x.
 
-           x
+        Parameters
+        ----------
+        t : numeric, numpy.ndarray or Quantity, optional
+            Time at which to get the x-coordinate. Default is the initial time.
+        ro : float or Quantity, optional
+            Physical scale in kpc for distances to use to convert. Default is object-wide default.
+        use_physical : bool, optional
+            Use to override object-wide default for using a physical scale for output.
+        quantity : bool, optional
+            If True, return an Astropy Quantity object. Default from configuration file.
 
-        PURPOSE:
+        Returns
+        -------
+        float, numpy.ndarray or Quantity [\*input_shape,nt]
+            x-coordinate.
 
-           return x
-
-        INPUT:
-
-           t - (optional) time at which to get x
-
-           ro= (Object-wide default) physical scale for distances to use to convert
-
-           use_physical= use to override Object-wide default for using a physical scale for output
-
-        OUTPUT:
-
-           x(t) [*input_shape,nt]
-
-        HISTORY:
-
-           2019-02-20 - Written - Bovy (UofT)
+        Notes
+        -----
+        - 2019-02-20 - Written - Bovy (UofT)
 
         """
         thiso = self._call_internal(*args, **kwargs)
@@ -4086,30 +3882,28 @@ class Orbit:
     @physical_conversion("position")
     @shapeDecorator
     def y(self, *args, **kwargs):
-        """
-        NAME:
+        r"""
+        Return y.
 
-           y
+        Parameters
+        ----------
+        t : numeric, numpy.ndarray or Quantity, optional
+            Time at which to get the y-coordinate. Default is the initial time.
+        ro : float or Quantity, optional
+            Physical scale in kpc for distances to use to convert. Default is object-wide default.
+        use_physical : bool, optional
+            Use to override object-wide default for using a physical scale for output.
+        quantity : bool, optional
+            If True, return an Astropy Quantity object. Default from configuration file.
 
-        PURPOSE:
+        Returns
+        -------
+        float, numpy.ndarray or Quantity [\*input_shape,nt]
+            y-coordinate.
 
-           return y
-
-        INPUT:
-
-           t - (optional) time at which to get y
-
-           ro= (Object-wide default) physical scale for distances to use to convert
-
-           use_physical= use to override Object-wide default for using a physical scale for output
-
-        OUTPUT:
-
-           y(t) [*input_shape,nt]
-
-        HISTORY:
-
-           2019-02-20 - Written - Bovy (UofT)
+        Notes
+        -----
+        - 2019-02-20 - Written - Bovy (UofT)
 
         """
         thiso = self._call_internal(*args, **kwargs)
@@ -4121,30 +3915,28 @@ class Orbit:
     @physical_conversion("velocity")
     @shapeDecorator
     def vx(self, *args, **kwargs):
-        """
-        NAME:
+        r"""
+        Return x velocity at time t.
 
-           vx
+        Parameters
+        ----------
+        t : numeric, numpy.ndarray or Quantity, optional
+            Time at which to get the x-velocity. Default is the initial time.
+        vo : float or Quantity, optional
+            Physical scale for velocities in km/s to use to convert. Default is object-wide default.
+        use_physical : bool, optional
+            Use to override object-wide default for using a physical scale for output.
+        quantity : bool, optional
+            If True, return an Astropy Quantity object. Default from configuration file.
 
-        PURPOSE:
+        Returns
+        -------
+        float, numpy.ndarray or Quantity [\*input_shape,nt]
+            x-velocity.
 
-           return x velocity at time t
-
-        INPUT:
-
-           t - (optional) time at which to get the velocity
-
-           vo= (Object-wide default) physical scale for velocities to use to convert
-
-           use_physical= use to override Object-wide default for using a physical scale for output
-
-        OUTPUT:
-
-           vx(t) [*input_shape,nt]
-
-        HISTORY:
-
-           2019-02-20 - Written - Bovy (UofT)
+        Notes
+        -----
+        - 2019-02-20: Written by Bovy (UofT).
 
         """
         thiso = self._call_internal(*args, **kwargs)
@@ -4158,30 +3950,28 @@ class Orbit:
     @physical_conversion("velocity")
     @shapeDecorator
     def vy(self, *args, **kwargs):
-        """
-        NAME:
+        r"""
+        Return y velocity at time t.
 
-           vy
+        Parameters
+        ----------
+        t : numeric, numpy.ndarray or Quantity, optional
+            Time at which to get the y-velocity. Default is the initial time.
+        vo : float or Quantity, optional
+            Physical scale for velocities in km/s to use to convert. Default is object-wide default.
+        use_physical : bool, optional
+            Use to override object-wide default for using a physical scale for output.
+        quantity : bool, optional
+            If True, return an Astropy Quantity object. Default from configuration file.
 
-        PURPOSE:
+        Returns
+        -------
+        float, numpy.ndarray or Quantity [\*input_shape,nt]
+            y-velocity.
 
-           return y velocity at time t
-
-        INPUT:
-
-           t - (optional) time at which to get the velocity
-
-           vo= (Object-wide default) physical scale for velocities to use to convert
-
-           use_physical= use to override Object-wide default for using a physical scale for output
-
-        OUTPUT:
-
-           vy(t) [*input_shape,nt]
-
-        HISTORY:
-
-           2019-02-20 - Written - Bovy (UofT)
+        Notes
+        -----
+        - 2019-02-20 - Written - Bovy (UofT)
 
         """
         thiso = self._call_internal(*args, **kwargs)
@@ -4193,30 +3983,28 @@ class Orbit:
     @physical_conversion("frequency-kmskpc")
     @shapeDecorator
     def vphi(self, *args, **kwargs):
-        """
-        NAME:
+        r"""
+        Return angular velocity.
 
-           vphi
+        Parameters
+        ----------
+        t : numeric, numpy.ndarray or Quantity, optional
+            Time at which to get the angular velocity. Default is the initial time.
+        vo : float or Quantity, optional
+            Physical scale for velocities in km/s to use to convert. Default is object-wide default.
+        use_physical : bool, optional
+            Use to override object-wide default for using a physical scale for output.
+        quantity : bool, optional
+            If True, return an Astropy Quantity object. Default from configuration file.
 
-        PURPOSE:
+        Returns
+        -------
+        float, numpy.ndarray or Quantity [\*input_shape,nt]
+            Angular velocity.
 
-           return angular velocity
-
-        INPUT:
-
-           t - (optional) time at which to get the angular velocity
-
-           vo= (Object-wide default) physical scale for velocities to use to convert
-
-           use_physical= use to override Object-wide default for using a physical scale for output
-
-        OUTPUT:
-
-           vphi(t) [*input_shape,nt]
-
-        HISTORY:
-
-           2019-02-20 - Written - Bovy (UofT)
+        Notes
+        -----
+        - 2019-02-20 - Written - Bovy (UofT)
 
         """
         thiso = self._call_internal(*args, **kwargs)
@@ -4225,30 +4013,28 @@ class Orbit:
     @physical_conversion("velocity")
     @shapeDecorator
     def vr(self, *args, **kwargs):
-        """
-        NAME:
+        r"""
+        Return spherical radial velocity. For < 3 dimensions returns vR.
 
-           vr
+        Parameters
+        ----------
+        t : numeric, numpy.ndarray or Quantity, optional
+            Time at which to get the radial velocity. Default is the initial time.
+        vo : float or Quantity, optional
+            Physical scale for velocities in km/s to use to convert. Default is object-wide default.
+        use_physical : bool, optional
+            Use to override object-wide default for using a physical scale for output.
+        quantity : bool, optional
+            If True, return an Astropy Quantity object. Default from configuration file.
 
-        PURPOSE:
+        Returns
+        -------
+        float, numpy.ndarray or Quantity [\*input_shape,nt]
+            Radial velocity.
 
-           return spherical radial velocity. For < 3 dimensions returns vR
-
-        INPUT:
-
-           t - (optional) time at which to get the radial velocity
-
-           vo= (Object-wide default) physical scale for velocities to use to convert
-
-           use_physical= use to override Object-wide default for using a physical scale for output
-
-        OUTPUT:
-
-           vr(t) [*input_shape,nt]
-
-        HISTORY:
-
-           2020-07-01 - Written - James Lane (UofT)
+        Notes
+        -----
+        - 2020-07-01: Written by James Lane (UofT).
 
         """
         thiso = self._call_internal(*args, **kwargs)
@@ -4261,30 +4047,28 @@ class Orbit:
     @physical_conversion("velocity")
     @shapeDecorator
     def vtheta(self, *args, **kwargs):
-        """
-        NAME:
+        r"""
+        Return spherical polar velocity.
 
-           vtheta
+        Parameters
+        ----------
+        t : numeric, numpy.ndarray or Quantity, optional
+            Time at which to get the theta velocity. Default is the initial time.
+        vo : float or Quantity, optional
+            Physical scale for velocities in km/s to use to convert. Default is object-wide default.
+        use_physical : bool, optional
+            Use to override object-wide default for using a physical scale for output.
+        quantity : bool, optional
+            If True, return an Astropy Quantity object. Default from configuration file.
 
-        PURPOSE:
+        Returns
+        -------
+        float, numpy.ndarray or Quantity [\*input_shape,nt]
+            Spherical polar velocity.
 
-           return spherical polar velocity
-
-        INPUT:
-
-           t - (optional) time at which to get the theta velocity
-
-           vo= (Object-wide default) physical scale for velocities to use to convert
-
-           use_physical= use to override Object-wide default for using a physical scale for output
-
-        OUTPUT:
-
-           vtheta(t) [*input_shape,nt]
-
-        HISTORY:
-
-           2020-07-01 - Written - James Lane (UofT)
+        Notes
+        -----
+        - 2020-07-01: Written by James Lane (UofT).
 
         """
         thiso = self._call_internal(*args, **kwargs)
@@ -4297,26 +4081,22 @@ class Orbit:
     @physical_conversion("angle")
     @shapeDecorator
     def theta(self, *args, **kwargs):
-        """
-        NAME:
+        r"""
+        Return spherical polar angle.
 
-           theta
+        Parameters
+        ----------
+        t : numeric, numpy.ndarray or Quantity, optional
+            Time at which to get the angle. Default is the initial time.
 
-        PURPOSE:
+        Returns
+        -------
+        float, numpy.ndarray or Quantity [\*input_shape,nt]
+            Spherical polar angle.
 
-           return spherical polar angle
-
-        INPUT:
-
-           t - (optional) time at which to get the angle
-
-        OUTPUT:
-
-           theta(t) [*input_shape,nt]
-
-        HISTORY:
-
-           2020-07-01 - Written - James Lane (UofT)
+        Notes
+        -----
+        - 2020-07-01 - Written - James Lane (UofT)
 
         """
         thiso = self._call_internal(*args, **kwargs)
@@ -4328,35 +4108,30 @@ class Orbit:
     @physical_conversion("angle_deg")
     @shapeDecorator
     def ra(self, *args, **kwargs):
-        """
-        NAME:
+        r"""
+        Return the right ascension.
 
-           ra
+        Parameters
+        ----------
+        t : numeric, numpy.ndarray or Quantity, optional
+            Time at which to get the right ascension. Default is the initial time.
+        obs : array_like, Quantity or Orbit, optional
+            Position of observer (in kpc, arranged as [X,Y,Z]; default=object-wide default) OR Orbit object that corresponds to the orbit of the observer. Note that when Y is non-zero, the coordinate system is rotated around z such that Y'=0.
+        ro : float or Quantity, optional
+            Physical scale in kpc for distances to use to convert. Default is object-wide default.
+        use_physical : bool, optional
+            Use to override object-wide default for using a physical scale for output.
+        quantity : bool, optional
+            If True, return an Astropy Quantity object. Default from configuration file.
 
-        PURPOSE:
+        Returns
+        -------
+        float, numpy.ndarray or Quantity [\*input_shape,nt]
+            Right ascension.
 
-           return the right ascension
-
-        INPUT:
-
-           t - (optional) time at which to get ra
-
-           obs=[X,Y,Z] - (optional) position of observer (in kpc)
-                         (default=Object-wide default)
-                         OR Orbit object that corresponds to the orbit
-                         of the observer;
-                         Note that when Y is non-zero, the coordinate system is
-                         rotated around z such that Y'=0
-
-           ro= distance in kpc corresponding to R=1. (default=Object-wide default)
-
-        OUTPUT:
-
-           ra(t) [*input_shape,nt]
-
-        HISTORY:
-
-           2019-02-21 - Written - Bovy (UofT)
+        Notes
+        -----
+        - 2019-02-21: Written by Bovy (UofT).
 
         """
         _check_roSet(self, kwargs, "ra")
@@ -4368,35 +4143,30 @@ class Orbit:
     @physical_conversion("angle_deg")
     @shapeDecorator
     def dec(self, *args, **kwargs):
-        """
-        NAME:
+        r"""
+        Return the declination.
 
-           dec
+        Parameters
+        ----------
+        t : numeric, numpy.ndarray or Quantity, optional
+            Time at which to get the declination. Default is the initial time.
+        obs : array_like, Quantity or Orbit, optional
+            Position of observer (in kpc, arranged as [X,Y,Z]; default=object-wide default) OR Orbit object that corresponds to the orbit of the observer. Note that when Y is non-zero, the coordinate system is rotated around z such that Y'=0.
+        ro : float or Quantity, optional
+            Physical scale in kpc for distances to use to convert. Default is object-wide default.
+        use_physical : bool, optional
+            Use to override object-wide default for using a physical scale for output.
+        quantity : bool, optional
+            If True, return an Astropy Quantity object. Default from configuration file.
 
-        PURPOSE:
+        Returns
+        -------
+        float, numpy.ndarray or Quantity [\*input_shape,nt]
+            Declination.
 
-           return the declination
-
-        INPUT:
-
-           t - (optional) time at which to get dec
-
-           obs=[X,Y,Z] - (optional) position of observer (in kpc)
-                         (default=Object-wide default)
-                         OR Orbit object that corresponds to the orbit
-                         of the observer;
-                         Note that when Y is non-zero, the coordinate system is
-                         rotated around z such that Y'=0
-
-           ro= distance in kpc corresponding to R=1. (default=Object-wide default)
-
-        OUTPUT:
-
-           dec(t) [*input_shape,nt]
-
-        HISTORY:
-
-           2019-02-21 - Written - Bovy (UofT)
+        Notes
+        -----
+        - 2019-02-21: Written by Bovy (UofT).
 
         """
         _check_roSet(self, kwargs, "dec")
@@ -4408,35 +4178,30 @@ class Orbit:
     @physical_conversion("angle_deg")
     @shapeDecorator
     def ll(self, *args, **kwargs):
-        """
-        NAME:
+        r"""
+        Return Galactic longitude.
 
-           ll
+        Parameters
+        ----------
+        t : numeric, numpy.ndarray or Quantity, optional
+            Time at which to get the Galactic longitude. Default is the initial time.
+        obs : array_like, Quantity or Orbit, optional
+            Position of observer (in kpc, arranged as [X,Y,Z]; default=object-wide default) OR Orbit object that corresponds to the orbit of the observer. Note that when Y is non-zero, the coordinate system is rotated around z such that Y'=0.
+        ro : float or Quantity, optional
+            Physical scale in kpc for distances to use to convert. Default is object-wide default.
+        use_physical : bool, optional
+            Use to override object-wide default for using a physical scale for output.
+        quantity : bool, optional
+            If True, return an Astropy Quantity object. Default from configuration file.
 
-        PURPOSE:
+        Returns
+        -------
+        float, numpy.ndarray or Quantity [\*input_shape,nt]
+            Galactic longitude.
 
-           return Galactic longitude
-
-        INPUT:
-
-           t - (optional) time at which to get ll
-
-           obs=[X,Y,Z] - (optional) position of observer (in kpc)
-                         (default=Object-wide default)
-                         OR Orbit object that corresponds to the orbit
-                         of the observer;
-                         Note that when Y is non-zero, the coordinate system is
-                         rotated around z such that Y'=0
-
-           ro= distance in kpc corresponding to R=1. (default=Object-wide default)
-
-        OUTPUT:
-
-           l(t) [*input_shape,nt]
-
-        HISTORY:
-
-           2019-02-21 - Written - Bovy (UofT)
+        Notes
+        -----
+        - 2019-02-21 - Written - Bovy (UofT)
 
         """
         _check_roSet(self, kwargs, "ll")
@@ -4448,35 +4213,30 @@ class Orbit:
     @physical_conversion("angle_deg")
     @shapeDecorator
     def bb(self, *args, **kwargs):
-        """
-        NAME:
+        r"""
+        Return Galactic latitude.
 
-           bb
+        Parameters
+        ----------
+        t : numeric, numpy.ndarray or Quantity, optional
+            Time at which to get the Galactic latitude. Default is the initial time.
+        obs : array_like, Quantity or Orbit, optional
+            Position of observer (in kpc, arranged as [X,Y,Z]; default=object-wide default) OR Orbit object that corresponds to the orbit of the observer. Note that when Y is non-zero, the coordinate system is rotated around z such that Y'=0.
+        ro : float or Quantity, optional
+            Physical scale in kpc for distances to use to convert. Default is object-wide default.
+        use_physical : bool, optional
+            Use to override object-wide default for using a physical scale for output.
+        quantity : bool, optional
+            If True, return an Astropy Quantity object. Default from configuration file.
 
-        PURPOSE:
+        Returns
+        -------
+        float, numpy.ndarray or Quantity [\*input_shape,nt]
+            Galactic latitude.
 
-           return Galactic latitude
-
-        INPUT:
-
-           t - (optional) time at which to get bb
-
-           obs=[X,Y,Z] - (optional) position of observer (in kpc)
-                         (default=Object-wide default)
-                         OR Orbit object that corresponds to the orbit
-                         of the observer;
-                         Note that when Y is non-zero, the coordinate system is
-                         rotated around z such that Y'=0
-
-           ro= distance in kpc corresponding to R=1. (default=Object-wide default)
-
-        OUTPUT:
-
-           b(t) [*input_shape,nt]
-
-        HISTORY:
-
-           2019-02-21 - Written - Bovy (UofT
+        Notes
+        -----
+        - 2019-02-21 - Written - Bovy (UofT)
 
         """
         _check_roSet(self, kwargs, "bb")
@@ -4488,35 +4248,30 @@ class Orbit:
     @physical_conversion("position_kpc")
     @shapeDecorator
     def dist(self, *args, **kwargs):
-        """
-        NAME:
+        r"""
+        Return distance from the observer in kpc.
 
-           dist
+        Parameters
+        ----------
+        t : numeric, numpy.ndarray or Quantity, optional
+            Time at which to get the distance. Default is the initial time.
+        obs : array_like, Quantity or Orbit, optional
+            Position of observer (in kpc, arranged as [X,Y,Z]; default=object-wide default) OR Orbit object that corresponds to the orbit of the observer. Note that when Y is non-zero, the coordinate system is rotated around z such that Y'=0.
+        ro : float or Quantity, optional
+            Physical scale in kpc for distances to use to convert. Default is object-wide default.
+        use_physical : bool, optional
+            Use to override object-wide default for using a physical scale for output.
+        quantity : bool, optional
+            If True, return an Astropy Quantity object. Default from configuration file.
 
-        PURPOSE:
+        Returns
+        -------
+        float, numpy.ndarray or Quantity [\*input_shape,nt]
+            Distance in kpc.
 
-           return distance from the observer in kpc
-
-        INPUT:
-
-           t - (optional) time at which to get dist
-
-           obs=[X,Y,Z] - (optional) position of observer (in kpc)
-                         (default=Object-wide default)
-                         OR Orbit object that corresponds to the orbit
-                         of the observer;
-                         Note that when Y is non-zero, the coordinate system is
-                         rotated around z such that Y'=0
-
-           ro= distance in kpc corresponding to R=1. (default=Object-wide default)
-
-        OUTPUT:
-
-           dist(t) in kpc [*input_shape,nt]
-
-        HISTORY:
-
-           2019-02-21 - Written - Bovy (UofT)
+        Notes
+        -----
+        - 2019-02-21: Written by Bovy (UofT).
 
         """
         _check_roSet(self, kwargs, "dist")
@@ -4528,37 +4283,32 @@ class Orbit:
     @physical_conversion("proper-motion_masyr")
     @shapeDecorator
     def pmra(self, *args, **kwargs):
-        """
-        NAME:
+        r"""
+        Return proper motion in right ascension (in mas/yr).
 
-           pmra
+        Parameters
+        ----------
+        t : numeric, numpy.ndarray or Quantity, optional
+            Time at which to get the proper motion. Default is the initial time.
+        obs : array_like, Quantity or Orbit, optional
+            Position and velocity of observer (in kpc and km/s, arranged as [X,Y,Z,vx,vy,vz]; default=object-wide default) OR Orbit object that corresponds to the orbit of the observer. Note that when Y is non-zero, the coordinate system is rotated around z such that Y'=0.
+        ro : float or Quantity, optional
+            Physical scale in kpc for distances to use to convert. Default is object-wide default.
+        vo : float or Quantity, optional
+            Physical scale for velocities in km/s to use to convert. Default is object-wide default.
+        use_physical : bool, optional
+            Use to override object-wide default for using a physical scale for output.
+        quantity : bool, optional
+            If True, return an Astropy Quantity object. Default from configuration file.
 
-        PURPOSE:
+        Returns
+        -------
+        float, numpy.ndarray or Quantity [\*input_shape,nt]
+            Proper motion in right ascension in mas/yr.
 
-           return proper motion in right ascension (in mas/yr)
-
-        INPUT:
-
-           t - (optional) time at which to get pmra
-
-           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
-                         (in kpc and km/s) (default=Object-wide default)
-                         OR Orbit object that corresponds to the orbit
-                         of the observer;
-                         Note that when Y is non-zero, the coordinate system is
-                         rotated around z such that Y'=0
-
-           ro= distance in kpc corresponding to R=1. (default=Object-wide default)
-
-           vo= velocity in km/s corresponding to v=1. (default=Object-wide default)
-
-        OUTPUT:
-
-           pm_ra(t) in mas / yr [*input_shape,nt]
-
-        HISTORY:
-
-           2019-02-21 - Written - Bovy (UofT)
+        Notes
+        -----
+        - 2019-02-21 - Written - Bovy (UofT)
 
         """
         _check_roSet(self, kwargs, "pmra")
@@ -4571,37 +4321,32 @@ class Orbit:
     @physical_conversion("proper-motion_masyr")
     @shapeDecorator
     def pmdec(self, *args, **kwargs):
-        """
-        NAME:
+        r"""
+        Return proper motion in declination (in mas/yr).
 
-           pmdec
+        Parameters
+        ----------
+        t : numeric, numpy.ndarray or Quantity, optional
+            Time at which to get the proper motion. Default is the initial time.
+        obs : array_like, Quantity or Orbit, optional
+            Position and velocity of observer (in kpc and km/s, arranged as [X,Y,Z,vx,vy,vz]; default=object-wide default) OR Orbit object that corresponds to the orbit of the observer. Note that when Y is non-zero, the coordinate system is rotated around z such that Y'=0.
+        ro : float or Quantity, optional
+            Physical scale in kpc for distances to use to convert. Default is object-wide default.
+        vo : float or Quantity, optional
+            Physical scale for velocities in km/s to use to convert. Default is object-wide default.
+        use_physical : bool, optional
+            Use to override object-wide default for using a physical scale for output.
+        quantity : bool, optional
+            If True, return an Astropy Quantity object. Default from configuration file.
 
-        PURPOSE:
+        Returns
+        -------
+        float, numpy.ndarray or Quantity [\*input_shape,nt]
+            Proper motion in declination in mas/yr.
 
-           return proper motion in declination (in mas/yr)
-
-        INPUT:
-
-           t - (optional) time at which to get pmdec
-
-           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
-                         (in kpc and km/s) (default=Object-wide default)
-                         OR Orbit object that corresponds to the orbit
-                         of the observer;
-                         Note that when Y is non-zero, the coordinate system is
-                         rotated around z such that Y'=0
-
-           ro= distance in kpc corresponding to R=1. (default=Object-wide default)
-
-           vo= velocity in km/s corresponding to v=1. (default=Object-wide default)
-
-        OUTPUT:
-
-           pm_dec(t) in mas/yr [*input_shape,nt]
-
-        HISTORY:
-
-           2019-02-21 - Written - Bovy (UofT)
+        Notes
+        -----
+        - 2019-02-21 - Written - Bovy (UofT)
 
         """
         _check_roSet(self, kwargs, "pmdec")
@@ -4614,37 +4359,32 @@ class Orbit:
     @physical_conversion("proper-motion_masyr")
     @shapeDecorator
     def pmll(self, *args, **kwargs):
-        """
-        NAME:
+        r"""
+        Return proper motion in Galactic longitude (in mas/yr).
 
-           pmll
+        Parameters
+        ----------
+        t : numeric, numpy.ndarray or Quantity, optional
+            Time at which to get the proper motion. Default is the initial time.
+        obs : array_like, Quantity or Orbit, optional
+            Position and velocity of observer (in kpc and km/s, arranged as [X,Y,Z,vx,vy,vz]; default=object-wide default) OR Orbit object that corresponds to the orbit of the observer. Note that when Y is non-zero, the coordinate system is rotated around z such that Y'=0.
+        ro : float or Quantity, optional
+            Physical scale in kpc for distances to use to convert. Default is object-wide default.
+        vo : float or Quantity, optional
+            Physical scale for velocities in km/s to use to convert. Default is object-wide default.
+        use_physical : bool, optional
+            Use to override object-wide default for using a physical scale for output.
+        quantity : bool, optional
+            If True, return an Astropy Quantity object. Default from configuration file.
 
-        PURPOSE:
+        Returns
+        -------
+        float, numpy.ndarray or Quantity [\*input_shape,nt]
+            Proper motion in Galactic longitude in mas/yr.
 
-           return proper motion in Galactic longitude (in mas/yr)
-
-        INPUT:
-
-           t - (optional) time at which to get pmll
-
-           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
-                         (in kpc and km/s) (default=Object-wide default)
-                         OR Orbit object that corresponds to the orbit
-                         of the observer;
-                         Note that when Y is non-zero, the coordinate system is
-                         rotated around z such that Y'=0
-
-           ro= distance in kpc corresponding to R=1. (default=Object-wide default)
-
-           vo= velocity in km/s corresponding to v=1. (default=Object-wide default)
-
-        OUTPUT:
-
-           pm_l(t) in mas/yr [*input_shape,nt]
-
-        HISTORY:
-
-           2019-02-21 - Written - Bovy (UofT)
+        Notes
+        -----
+        - 2019-02-21 - Written - Bovy (UofT)
 
         """
         _check_roSet(self, kwargs, "pmll")
@@ -4659,37 +4399,34 @@ class Orbit:
     @physical_conversion("proper-motion_masyr")
     @shapeDecorator
     def pmbb(self, *args, **kwargs):
-        """
-        NAME:
+        r"""
+        Return proper motion in Galactic latitude (in mas/yr).
 
-           pmbb
+        Parameters
+        ----------
+        t : numeric, numpy.ndarray or Quantity, optional
+            Time at which to get the proper motion. Default is the initial time.
+        obs : array_like, Quantity or Orbit, optional
+            Position and velocity of observer (in kpc and km/s, arranged as [X,Y,Z,vx,vy,vz]; default=object-wide default) OR Orbit object that corresponds to the orbit of the observer. Note that when Y is non-zero, the coordinate system is rotated around z such that Y'=0.
+        ro : float or Quantity, optional
+            Physical scale in kpc for distances to use to convert. Default is object-wide default.
+        vo : float or Quantity, optional
+            Physical scale for velocities in km/s to use to convert. Default is object-wide default.
+        use_physical : bool, optional
+            Use to override object-wide default for using a physical scale for output.
+        quantity : bool, optional
+            If True, return an Astropy Quantity object. Default from configuration file.
 
-        PURPOSE:
+        Returns
+        -------
+        float, numpy.ndarray or Quantity [\*input_shape,nt]
+            Proper motion in Galactic latitude in mas/yr.
 
-           return proper motion in Galactic latitude (in mas/yr)
+        Notes
+        -----
+        This method returns the proper motion in Galactic latitude (in mas/yr).
 
-        INPUT:
-
-           t - (optional) time at which to get pmbb
-
-           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
-                         (in kpc and km/s) (default=Object-wide default)
-                         OR Orbit object that corresponds to the orbit
-                         of the observer;
-                         Note that when Y is non-zero, the coordinate system is
-                         rotated around z such that Y'=0
-
-           ro= distance in kpc corresponding to R=1. (default=Object-wide default)
-
-           vo= velocity in km/s corresponding to v=1. (default=Object-wide default)
-
-        OUTPUT:
-
-           pm_b(t) in mas/yr [*input_shape,nt]
-
-        HISTORY:
-
-           2019-02-21 - Written - Bovy (UofT)
+        - 2019-02-21 - Written - Bovy (UofT)
 
         """
         _check_roSet(self, kwargs, "pmbb")
@@ -4704,37 +4441,32 @@ class Orbit:
     @physical_conversion("velocity_kms")
     @shapeDecorator
     def vlos(self, *args, **kwargs):
-        """
-        NAME:
+        r"""
+        Return the line-of-sight velocity (in km/s).
 
-           vlos
+        Parameters
+        ----------
+        t : numeric, numpy.ndarray or Quantity, optional
+            Time at which to get the line-of-sight velocity. Default is the initial time.
+        obs : array_like, Quantity or Orbit, optional
+            Position and velocity of observer (in kpc and km/s, arranged as [X,Y,Z,vx,vy,vz]; default=object-wide default) OR Orbit object that corresponds to the orbit of the observer. Note that when Y is non-zero, the coordinate system is rotated around z such that Y'=0.
+        ro : float or Quantity, optional
+            Physical scale in kpc for distances to use to convert. Default is object-wide default.
+        vo : float or Quantity, optional
+            Physical scale for velocities in km/s to use to convert. Default is object-wide default.
+        use_physical : bool, optional
+            Use to override object-wide default for using a physical scale for output.
+        quantity : bool, optional
+            If True, return an Astropy Quantity object. Default from configuration file.
 
-        PURPOSE:
+        Returns
+        -------
+        float, numpy.ndarray or Quantity [\*input_shape,nt]
+            Line-of-sight velocity in km/s.
 
-           return the line-of-sight velocity (in km/s)
-
-        INPUT:
-
-           t - (optional) time at which to get vlos
-
-           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
-                         (in kpc and km/s) (default=Object-wide default)
-                         OR Orbit object that corresponds to the orbit
-                         of the observer;
-                         Note that when Y is non-zero, the coordinate system is
-                         rotated around z such that Y'=0
-
-           ro= distance in kpc corresponding to R=1. (default=Object-wide default)
-
-           vo= velocity in km/s corresponding to v=1. (default=Object-wide default)
-
-        OUTPUT:
-
-           vlos(t) in km/s [*input_shape,nt]
-
-        HISTORY:
-
-           2019-02-21 - Written - Bovy (UofT)
+        Notes
+        -----
+        - 2019-02-21 - Written - Bovy (UofT)
 
         """
         _check_roSet(self, kwargs, "vlos")
@@ -4748,38 +4480,32 @@ class Orbit:
 
     @shapeDecorator
     def vra(self, *args, **kwargs):
-        """
-        NAME:
+        r"""
+        Return velocity in right ascension (km/s).
 
-           vra
+        Parameters
+        ----------
+        t : numeric, numpy.ndarray or Quantity, optional
+            Time at which to get vra. Default is the initial time.
+        obs : array_like, Quantity or Orbit, optional
+            Position and velocity of observer in the Galactocentric frame (in kpc and km/s) (default=object-wide default) OR Orbit object that corresponds to the orbit of the observer. Note that when Y is non-zero, the coordinate system is rotated around z such that Y'=0.
+        ro : float or Quantity, optional
+            Physical scale in kpc for distances to use to convert. Default is object-wide default.
+        vo : float or Quantity, optional
+            Physical scale for velocities in km/s to use to convert. Default is object-wide default.
+        use_physical : bool, optional
+            Use to override object-wide default for using a physical scale for output.
+        quantity : bool, optional
+            If True, return an Astropy Quantity object. Default from configuration file.
 
-        PURPOSE:
+        Returns
+        -------
+        numpy.ndarray or Quantity [\*input_shape]
+            v_ra(t) in km/s.
 
-           return velocity in right ascension (km/s)
-
-        INPUT:
-
-           t - (optional) time at which to get vra (can be Quantity)
-
-           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
-                         in the Galactocentric frame
-                         (in kpc and km/s) (default=[8.0,0.,0.,0.,220.,0.]; entries can be Quantity)
-                         OR Orbit object that corresponds to the orbit
-                         of the observer;
-                         Note that when Y is non-zero, the coordinate system is
-                         rotated around z such that Y'=0
-
-           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
-
-           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
-
-        OUTPUT:
-
-           v_ra(t) in km/s [*input_shape]
-
-        HISTORY:
-
-           2019-02-28 - Written - Bovy (UofT)
+        Notes
+        -----
+        - 2019-02-28 - Written - Bovy (UofT)
 
         """
         _check_roSet(self, kwargs, "vra")
@@ -4800,38 +4526,32 @@ class Orbit:
 
     @shapeDecorator
     def vdec(self, *args, **kwargs):
-        """
-        NAME:
+        r"""
+        Return velocity in declination (km/s).
 
-           vdec
+        Parameters
+        ----------
+        t : numeric, numpy.ndarray or Quantity, optional
+            Time at which to get vdec. Default is the initial time.
+        obs : array_like, Quantity or Orbit, optional
+            Position and velocity of observer in the Galactocentric frame (in kpc and km/s) (default=object-wide default) OR Orbit object that corresponds to the orbit of the observer. Note that when Y is non-zero, the coordinate system is rotated around z such that Y'=0.
+        ro : float or Quantity, optional
+            Physical scale in kpc for distances to use to convert. Default is object-wide default.
+        vo : float or Quantity, optional
+            Physical scale for velocities in km/s to use to convert. Default is object-wide default.
+        use_physical : bool, optional
+            Use to override object-wide default for using a physical scale for output.
+        quantity : bool, optional
+            If True, return an Astropy Quantity object. Default from configuration file.
 
-        PURPOSE:
+        Returns
+        -------
+        numpy.ndarray or Quantity [\*input_shape]
+            v_dec(t) in km/s.
 
-           return velocity in declination (km/s)
-
-        INPUT:
-
-           t - (optional) time at which to get vdec (can be Quantity)
-
-           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
-                         in the Galactocentric frame
-                         (in kpc and km/s) (default=[8.0,0.,0.,0.,220.,0.]; entries can be Quantity)
-                         OR Orbit object that corresponds to the orbit
-                         of the observer;
-                         Note that when Y is non-zero, the coordinate system is
-                         rotated around z such that Y'=0
-
-           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
-
-           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
-
-        OUTPUT:
-
-           v_dec(t) in km/s [*input_shape]
-
-        HISTORY:
-
-           2019-02-28 - Written - Bovy (UofT)
+        Notes
+        -----
+        - 2019-02-28 - Written - Bovy (UofT)
 
         """
         _check_roSet(self, kwargs, "vdec")
@@ -4852,38 +4572,32 @@ class Orbit:
 
     @shapeDecorator
     def vll(self, *args, **kwargs):
-        """
-        NAME:
+        r"""
+        Return the velocity in Galactic longitude (km/s).
 
-           vll
+        Parameters
+        ----------
+        t : numeric, numpy.ndarray or Quantity, optional
+            Time at which to get vll. Default is the initial time.
+        obs : array_like, Quantity or Orbit, optional
+            Position and velocity of observer in the Galactocentric frame (in kpc and km/s) (default=object-wide default) OR Orbit object that corresponds to the orbit of the observer. Note that when Y is non-zero, the coordinate system is rotated around z such that Y'=0.
+        ro : float or Quantity, optional
+            Physical scale in kpc for distances to use to convert. Default is object-wide default.
+        vo : float or Quantity, optional
+            Physical scale for velocities in km/s to use to convert. Default is object-wide default.
+        use_physical : bool, optional
+            Use to override object-wide default for using a physical scale for output.
+        quantity : bool, optional
+            If True, return an Astropy Quantity object. Default from configuration file.
 
-        PURPOSE:
+        Returns
+        -------
+        numpy.ndarray or Quantity [\*input_shape]
+            v_l(t) in km/s.
 
-           return the velocity in Galactic longitude (km/s)
-
-        INPUT:
-
-           t - (optional) time at which to get vll (can be Quantity)
-
-           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
-                         in the Galactocentric frame
-                         (in kpc and km/s) (default=[8.0,0.,0.,0.,220.,0.]; entries can be Quantity)
-                         OR Orbit object that corresponds to the orbit
-                         of the observer;
-                         Note that when Y is non-zero, the coordinate system is
-                         rotated around z such that Y'=0
-
-           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
-
-           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
-
-        OUTPUT:
-
-           v_l(t) in km/s [*input_shape]
-
-        HISTORY:
-
-           2019-02-28 - Written - Bovy (UofT)
+        Notes
+        -----
+        - 2019-02-28 - Written - Bovy (UofT)
 
         """
         _check_roSet(self, kwargs, "vll")
@@ -4904,38 +4618,32 @@ class Orbit:
 
     @shapeDecorator
     def vbb(self, *args, **kwargs):
-        """
-        NAME:
+        r"""
+        Return velocity in Galactic latitude (km/s).
 
-           vbb
+        Parameters
+        ----------
+        t : numeric, numpy.ndarray or Quantity, optional
+            Time at which to get vbb. Default is the initial time.
+        obs : array_like, Quantity or Orbit, optional
+            Position and velocity of observer in the Galactocentric frame (in kpc and km/s) (default=object-wide default) OR Orbit object that corresponds to the orbit of the observer. Note that when Y is non-zero, the coordinate system is rotated around z such that Y'=0.
+        ro : float or Quantity, optional
+            Physical scale in kpc for distances to use to convert. Default is object-wide default.
+        vo : float or Quantity, optional
+            Physical scale for velocities in km/s to use to convert. Default is object-wide default.
+        use_physical : bool, optional
+            Use to override object-wide default for using a physical scale for output.
+        quantity : bool, optional
+            If True, return an Astropy Quantity object. Default from configuration file.
 
-        PURPOSE:
+        Returns
+        -------
+        numpy.ndarray or Quantity [\*input_shape]
+            v_b(t) in km/s.
 
-            return velocity in Galactic latitude (km/s)
-
-        INPUT:
-
-           t - (optional) time at which to get vbb (can be Quantity)
-
-           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
-                         in the Galactocentric frame
-                         (in kpc and km/s) (default=[8.0,0.,0.,0.,220.,0.]; entries can be Quantity)
-                         OR Orbit object that corresponds to the orbit
-                         of the observer;
-                         Note that when Y is non-zero, the coordinate system is
-                         rotated around z such that Y'=0
-
-           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
-
-           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
-
-        OUTPUT:
-
-           v_b(t) in km/s [*input_shape]
-
-        HISTORY:
-
-           2019-02-28 - Written - Bovy (UofT)
+        Notes
+        -----
+        - Written on 2019-02-28 by Bovy (UofT)
 
         """
         _check_roSet(self, kwargs, "vbb")
@@ -4957,35 +4665,30 @@ class Orbit:
     @physical_conversion("position_kpc")
     @shapeDecorator
     def helioX(self, *args, **kwargs):
-        """
-        NAME:
+        r"""
+        Return Heliocentric Galactic rectangular x-coordinate (aka "X").
 
-           helioX
+        Parameters
+        ----------
+        t : numeric, numpy.ndarray or Quantity, optional
+            Time at which to get X. Default is the initial time.
+        obs : array_like, Quantity or Orbit, optional
+            Position and velocity of observer in the Galactocentric frame (in kpc and km/s) (default=object-wide default) OR Orbit object that corresponds to the orbit of the observer. Note that when Y is non-zero, the coordinate system is rotated around z such that Y'=0.
+        ro : float or Quantity, optional
+            Physical scale in kpc for distances to use to convert. Default is object-wide default.
+        use_physical : bool, optional
+            Use to override object-wide default for using a physical scale for output.
+        quantity : bool, optional
+            If True, return an Astropy Quantity object. Default from configuration file.
 
-        PURPOSE:
+        Returns
+        -------
+        float, numpy.ndarray or Quantity [\*input_shape,nt]
+            helioX(t) in kpc.
 
-           return Heliocentric Galactic rectangular x-coordinate (aka "X")
-
-        INPUT:
-
-           t - (optional) time at which to get X
-
-           obs=[X,Y,Z] - (optional) position and velocity of observer
-                         (in kpc and km/s) (default=Object-wide default)
-                         OR Orbit object that corresponds to the orbit
-                         of the observer;
-                         Note that when Y is non-zero, the coordinate system is
-                         rotated around z such that Y'=0
-
-           ro= distance in kpc corresponding to R=1. (default=Object-wide default)
-
-        OUTPUT:
-
-           helioX(t) in kpc [*input_shape,nt]
-
-        HISTORY:
-
-           2019-02-21 - Written - Bovy (UofT)
+        Notes
+        -----
+        - 2019-02-21 - Written - Bovy (UofT)
 
         """
         _check_roSet(self, kwargs, "helioX")
@@ -4997,35 +4700,30 @@ class Orbit:
     @physical_conversion("position_kpc")
     @shapeDecorator
     def helioY(self, *args, **kwargs):
-        """
-        NAME:
+        r"""
+        Return Heliocentric Galactic rectangular y-coordinate (aka "Y").
 
-           helioY
+        Parameters
+        ----------
+        t : numeric, numpy.ndarray or Quantity, optional
+            Time at which to get Y. Default is the initial time.
+        obs : array_like, Quantity or Orbit, optional
+            Position and velocity of observer in the Galactocentric frame (in kpc and km/s) (default=object-wide default) OR Orbit object that corresponds to the orbit of the observer. Note that when Y is non-zero, the coordinate system is rotated around z such that Y'=0.
+        ro : float or Quantity, optional
+            Physical scale in kpc for distances to use to convert. Default is object-wide default.
+        use_physical : bool, optional
+            Use to override object-wide default for using a physical scale for output.
+        quantity : bool, optional
+            If True, return an Astropy Quantity object. Default from configuration file.
 
-        PURPOSE:
+        Returns
+        -------
+        float, numpy.ndarray or Quantity [\*input_shape,nt]
+            helioY(t) in kpc.
 
-           return Heliocentric Galactic rectangular y-coordinate (aka "Y")
-
-        INPUT:
-
-           t - (optional) time at which to get Y
-
-           obs=[X,Y,Z] - (optional) position and velocity of observer
-                         (in kpc and km/s) (default=Object-wide default)
-                         OR Orbit object that corresponds to the orbit
-                         of the observer;
-                         Note that when Y is non-zero, the coordinate system is
-                         rotated around z such that Y'=0
-
-           ro= distance in kpc corresponding to R=1. (default=Object-wide default)
-
-        OUTPUT:
-
-           helioY(t) in kpc [*input_shape,nt]
-
-        HISTORY:
-
-           2019-02-21 - Written - Bovy (UofT)
+        Notes
+        -----
+        - 2019-02-21 - Written - Bovy (UofT)
 
         """
         _check_roSet(self, kwargs, "helioY")
@@ -5037,35 +4735,30 @@ class Orbit:
     @physical_conversion("position_kpc")
     @shapeDecorator
     def helioZ(self, *args, **kwargs):
-        """
-        NAME:
+        r"""
+        Return Heliocentric Galactic rectangular z-coordinate (aka "Z").
 
-           helioZ
+        Parameters
+        ----------
+        t : numeric, numpy.ndarray or Quantity, optional
+            Time at which to get Z. Default is the initial time.
+        obs : array_like, Quantity or Orbit, optional
+            Position and velocity of observer in the Galactocentric frame (in kpc and km/s) (default=object-wide default) OR Orbit object that corresponds to the orbit of the observer. Note that when Y is non-zero, the coordinate system is rotated around z such that Y'=0.
+        ro : float or Quantity, optional
+            Physical scale in kpc for distances to use to convert. Default is object-wide default.
+        use_physical : bool, optional
+            Use to override object-wide default for using a physical scale for output.
+        quantity : bool, optional
+            If True, return an Astropy Quantity object. Default from configuration file.
 
-        PURPOSE:
+        Returns
+        -------
+        float, numpy.ndarray or Quantity [\*input_shape,nt]
+            helioZ(t) in kpc.
 
-           return Heliocentric Galactic rectangular z-coordinate (aka "Z")
-
-        INPUT:
-
-           t - (optional) time at which to get Z
-
-           obs=[X,Y,Z] - (optional) position and velocity of observer
-                         (in kpc and km/s) (default=Object-wide default)
-                         OR Orbit object that corresponds to the orbit
-                         of the observer;
-                         Note that when Y is non-zero, the coordinate system is
-                         rotated around z such that Y'=0
-
-           ro= distance in kpc corresponding to R=1. (default=Object-wide default)
-
-        OUTPUT:
-
-           helioZ(t) in kpc [*input_shape,nt]
-
-        HISTORY:
-
-           2019-02-21 - Written - Bovy (UofT)
+        Notes
+        -----
+        - Written on 2019-02-21 by Bovy (UofT)
 
         """
         _check_roSet(self, kwargs, "helioZ")
@@ -5077,37 +4770,32 @@ class Orbit:
     @physical_conversion("velocity_kms")
     @shapeDecorator
     def U(self, *args, **kwargs):
-        """
-        NAME:
+        r"""
+        Return Heliocentric Galactic rectangular x-velocity (aka "U").
 
-           U
+        Parameters
+        ----------
+        t : numeric, numpy.ndarray or Quantity, optional
+            Time at which to get U. Default is the initial time.
+        obs : array_like, Quantity or Orbit, optional
+            Position and velocity of observer in the Galactocentric frame (in kpc and km/s) (default=object-wide default) OR Orbit object that corresponds to the orbit of the observer. Note that when Y is non-zero, the coordinate system is rotated around z such that Y'=0.
+        ro : float or Quantity, optional
+            Physical scale in kpc for distances to use to convert. Default is object-wide default.
+        vo : float or Quantity, optional
+            Physical scale for velocities in km/s to use to convert. Default is object-wide default.
+        use_physical : bool, optional
+            Use to override object-wide default for using a physical scale for output.
+        quantity : bool, optional
+            If True, return an Astropy Quantity object. Default from configuration file.
 
-        PURPOSE:
+        Returns
+        -------
+        float, numpy.ndarray or Quantity [\*input_shape,nt]
+            U(t) in km/s.
 
-           return Heliocentric Galactic rectangular x-velocity (aka "U")
-
-        INPUT:
-
-           t - (optional) time at which to get U
-
-           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
-                         (in kpc and km/s) (default=Object-wide default)
-                         OR Orbit object that corresponds to the orbit
-                         of the observer;
-                         Note that when Y is non-zero, the coordinate system is
-                         rotated around z such that Y'=0
-
-           ro= distance in kpc corresponding to R=1. (default=Object-wide default)
-
-           vo= velocity in km/s corresponding to v=1. (default=Object-wide default)
-
-        OUTPUT:
-
-           U(t) in km/s [*input_shape,nt]
-
-        HISTORY:
-
-           2019-02-21 - Written - Bovy (UofT)
+        Notes
+        -----
+        - 2019-02-21: Written by Bovy (UofT)
 
         """
         _check_roSet(self, kwargs, "U")
@@ -5120,37 +4808,32 @@ class Orbit:
     @physical_conversion("velocity_kms")
     @shapeDecorator
     def V(self, *args, **kwargs):
-        """
-        NAME:
+        r"""
+        Return Heliocentric Galactic rectangular y-velocity (aka "V").
 
-           V
+        Parameters
+        ----------
+        t : numeric, numpy.ndarray or Quantity, optional
+            Time at which to get V. Default is the initial time.
+        obs : array_like, Quantity or Orbit, optional
+            Position and velocity of observer in the Galactocentric frame (in kpc and km/s) (default=object-wide default) OR Orbit object that corresponds to the orbit of the observer. Note that when Y is non-zero, the coordinate system is rotated around z such that Y'=0.
+        ro : float or Quantity, optional
+            Physical scale in kpc for distances to use to convert. Default is object-wide default.
+        vo : float or Quantity, optional
+            Physical scale for velocities in km/s to use to convert. Default is object-wide default.
+        use_physical : bool, optional
+            Use to override object-wide default for using a physical scale for output.
+        quantity : bool, optional
+            If True, return an Astropy Quantity object. Default from configuration file.
 
-        PURPOSE:
+        Returns
+        -------
+        float, numpy.ndarray or Quantity [\*input_shape,nt]
+            V(t) in km/s.
 
-           return Heliocentric Galactic rectangular y-velocity (aka "V")
-
-        INPUT:
-
-           t - (optional) time at which to get U
-
-           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
-                         (in kpc and km/s) (default=Object-wide default)
-                         OR Orbit object that corresponds to the orbit
-                         of the observer;
-                         Note that when Y is non-zero, the coordinate system is
-                         rotated around z such that Y'=0
-
-           ro= distance in kpc corresponding to R=1. (default=Object-wide default)
-
-           vo= velocity in km/s corresponding to v=1. (default=Object-wide default)
-
-        OUTPUT:
-
-           V(t) in km/s [*input_shape,nt]
-
-        HISTORY:
-
-           2019-02-21 - Written - Bovy (UofT)
+        Notes
+        -----
+        - 2019-02-21: Written.
 
         """
         _check_roSet(self, kwargs, "V")
@@ -5163,37 +4846,32 @@ class Orbit:
     @physical_conversion("velocity_kms")
     @shapeDecorator
     def W(self, *args, **kwargs):
-        """
-        NAME:
+        r"""
+        Return Heliocentric Galactic rectangular z-velocity (aka "W").
 
-           W
+        Parameters
+        ----------
+        t : numeric, numpy.ndarray or Quantity, optional
+            Time at which to get W. Default is the initial time.
+        obs : array_like, Quantity or Orbit, optional
+            Position and velocity of observer in the Galactocentric frame (in kpc and km/s) (default=object-wide default) OR Orbit object that corresponds to the orbit of the observer. Note that when Y is non-zero, the coordinate system is rotated around z such that Y'=0.
+        ro : float or Quantity, optional
+            Physical scale in kpc for distances to use to convert. Default is object-wide default.
+        vo : float or Quantity, optional
+            Physical scale for velocities in km/s to use to convert. Default is object-wide default.
+        use_physical : bool, optional
+            Use to override object-wide default for using a physical scale for output.
+        quantity : bool, optional
+            If True, return an Astropy Quantity object. Default from configuration file.
 
-        PURPOSE:
+        Returns
+        -------
+        float, numpy.ndarray or Quantity [\*input_shape,nt]
+            W(t) in km/s.
 
-           return Heliocentric Galactic rectangular z-velocity (aka "W")
-
-        INPUT:
-
-           t - (optional) time at which to get W
-
-           obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
-                         (in kpc and km/s) (default=Object-wide default)
-                         OR Orbit object that corresponds to the orbit
-                         of the observer;
-                         Note that when Y is non-zero, the coordinate system is
-                         rotated around z such that Y'=0
-
-           ro= distance in kpc corresponding to R=1. (default=Object-wide default)
-
-           vo= velocity in km/s corresponding to v=1. (default=Object-wide default)
-
-        OUTPUT:
-
-           W(t) in km/s [*input_shape,nt]
-
-        HISTORY:
-
-           2019-02-21 - Written - Bovy (UofT)
+        Notes
+        -----
+        - Written by Bovy (UofT) on 2019-02-21.
 
         """
         _check_roSet(self, kwargs, "W")
@@ -5205,37 +4883,33 @@ class Orbit:
 
     @shapeDecorator
     def SkyCoord(self, *args, **kwargs):
-        """
-        NAME:
+        r"""
+        Return the positions and velocities as an astropy SkyCoord.
 
-           SkyCoord
+        Parameters
+        ----------
+        t : numeric, numpy.ndarray or Quantity, optional
+            Time at which to get the position. Default is the initial time.
+        obs : array_like, Quantity or Orbit, optional
+            Position and velocity of observer in the Galactocentric frame (in kpc and km/s; arranged as [x,y,z,vx,vy,vz]) (default=object-wide default) OR Orbit object that corresponds to the orbit of the observer.
+            Note that when Y is non-zero, the coordinate system is rotated around z such that Y'=0.
+        ro : float or Quantity, optional
+            Physical scale in kpc for distances to use to convert. Default is object-wide default.
+        vo : float or Quantity, optional
+            Physical scale for velocities in km/s to use to convert. Default is object-wide default.
+        use_physical : bool, optional
+            Use to override object-wide default for using a physical scale for output.
+        quantity : bool, optional
+            If True, return an Astropy Quantity object. Default from configuration file.
 
-        PURPOSE:
+        Returns
+        -------
+        SkyCoord [\*input_shape,nt]
+            SkyCoord(t).
 
-           return the positions and velocities as an astropy SkyCoord
-
-        INPUT:
-
-           t - (optional) time at which to get the position
-
-           obs=[X,Y,Z] - (optional) position of observer (in kpc)
-                         (default=Object-wide default)
-                         OR Orbit object that corresponds to the orbit
-                         of the observer;
-                         Note that when Y is non-zero, the coordinate system is
-                         rotated around z such that Y'=0
-
-           ro= distance in kpc corresponding to R=1. (default=Object-wide default)
-
-           vo= velocity in km/s corresponding to v=1. (default=Object-wide default)
-
-        OUTPUT:
-
-           SkyCoord(t) [*input_shape,nt]
-
-        HISTORY:
-
-           2019-02-21 - Written - Bovy (UofT)
+        Notes
+        -----
+        - 2019-02-21: Written - Bovy (UofT)
 
         """
         kwargs.pop("quantity", None)  # rm useless keyword to no conflict later
@@ -5300,48 +4974,50 @@ class Orbit:
         **kwargs,
     ):
         """
-        NAME:
+        Calculate the surface of section of the orbit.
 
-            SOS
+        Parameters
+        ----------
+        pot : Potential, DissipativeForce, or list of such instances
+            Gravitational field to integrate the orbit in.
+        ncross : int, optional
+            Number of times to cross the surface. Default is 500.
+        surface : str, optional
+            Surface to punch through. This has no effect in 3D, where the surface is always z=0, but in 2D it can be 'x' or 'y' for x=0 or y=0. Default is None.
 
-        PURPOSE:
+        Other Parameters
+        ----------------
+        t0 : float or Quantity, optional
+            Time of the initial condition. Default is 0.
+        method : {'odeint', 'dop853_c', 'dop853', 'rk4_c', 'rk6_c', 'dop54_c'}, optional
+            Integration method. Default is 'dop853_c'. See Notes for more information.
+        skip : int, optional
+            For non-adaptive integrators, the number of basic steps to take between crossings (these are further refined in the code, but only up to a maximum refinement, so you can use skip to get finer integration in cases where more accuracy is needed). Default is 100.
+        progressbar : bool, optional
+            If True, display a tqdm progress bar when integrating multiple orbits (requires tqdm to be installed!). Default is True.
+        numcores : int, optional
+            Number of cores to use for Python-based multiprocessing (pure Python or using force_map=True). Default is OMP_NUM_THREADS.
+        force_map : bool, optional
+            If True, force use of Python-based multiprocessing (not recommended). Default is False.
 
-            calculate the surface of section of the orbit
+        Returns
+        -------
+        tuple
+            (R,vR) for 3D orbits, (y,vy) for 2D orbits when surface=='x', (x,vx) for 2D orbits when surface=='y'.
 
-        INPUT:
+        Notes
+        -----
+        - Possible integration methods are:
 
-            pot - Potential or list of such instances
+          - 'odeint' for scipy's odeint
+          -  'rk4_c' for a 4th-order Runge-Kutta integrator in C
+          -  'rk6_c' for a 6-th order Runge-Kutta integrator in C
+          -  'dopr54_c' for a 5-4 Dormand-Prince integrator in C
+          -  'dop853' for a 8-5-3 Dormand-Prince integrator in Python
+          -  'dop853_c' for a 8-5-3 Dormand-Prince integrator in C
 
-            ncross= (500) number of times to cross the surface
 
-            surface= (None) surface to punch through (this has no effect in 3D, where the surface is always z=0, but in 2D it can be 'x' or 'y' for x=0 or y=0)
-
-            t0= (0.) time of the initial condition (can be a Quantity)
-
-            integration keyword arguments:
-
-                method = 'odeint' for scipy's odeint
-                         'rk4_c' for a 4th-order Runge-Kutta integrator in C
-                         'rk6_c' for a 6-th order Runge-Kutta integrator in C
-                         'dopr54_c' for a 5-4 Dormand-Prince integrator in C
-                         'dop853' for a 8-5-3 Dormand-Prince integrator in Python
-                         'dop853_c' for a 8-5-3 Dormand-Prince integrator in C
-
-                skip= (100) for non-adaptive integrators, the number of basic steps to take between crossings (these are further refined in the code, but only up to a maximum refinement, so you can use skip to get finer integration in cases where more accuracy is needed)
-
-                progressbar= (True) if True, display a tqdm progress bar when integrating multiple orbits (requires tqdm to be installed!)
-
-                numcores - number of cores to use for Python-based multiprocessing (pure Python or using force_map=True); default = OMP_NUM_THREADS
-
-                force_map= (False) if True, force use of Python-based multiprocessing (not recommended)
-
-        OUTPUT:
-
-            (R,vR) for 3D orbits, (y,vy) for 2D orbits when surface=='x', (x,vx) for 2D orbits when surface=='y'
-
-        HISTORY:
-
-            2023-03-16 - Written - Bovy (UofT)
+        - 2023-03-16 - Written - Bovy (UofT)
 
         """
         if self.dim() == 3:
@@ -5557,28 +5233,23 @@ class Orbit:
 
     def __call__(self, *args, **kwargs):
         """
-        NAME:
+        Return the orbits at time t.
 
-          __call__
+        Parameters
+        ----------
+        t : numeric, numpy.ndarray or Quantity
+            Desired time. Default is the initial time.
 
-        PURPOSE:
+        Returns
+        -------
+        Orbit
+            An Orbit instance with initial conditions set to the
+            phase-space at time t; shape of new Orbit is (shape_old,nt).
 
-           return the orbits at time t
-
-        INPUT:
-
-           t - desired time (can be Quantity)
-
-        OUTPUT:
-
-           an Orbit instance with initial conditions set to the
-           phase-space at time t; shape of new Orbit is (shape_old,nt)
-
-        HISTORY:
-
-           2019-03-05 - Written - Bovy (UofT)
-
-           2019-03-20 - Implemented multiple times --> Orbits - Bovy (UofT)
+        Notes
+        -----
+        - 2019-03-05 - Written - Bovy (UofT)
+        - 2019-03-20 - Implemented multiple times --> Orbits - Bovy (UofT)
 
         """
         orbSetupKwargs = {
@@ -5598,17 +5269,23 @@ class Orbit:
 
     def _call_internal(self, *args, **kwargs):
         """
-        NAME:
-           _call_internal
-        PURPOSE:
-           return the orbits vector at time t (like OrbitTop's __call__)
-        INPUT:
-           t - desired time
-        OUTPUT:
-           [R,vR,vT,z,vz(,phi)] or [R,vR,vT(,phi)] depending on the orbit; shape = [phasedim,nt,norb]
-        HISTORY:
-           2019-02-01 - Started - Bovy (UofT)
-           2019-02-18 - Written interpolation part - Bovy (UofT)
+        Return the orbits vector at time t
+
+        Parameters
+        ----------
+        t : numeric, numpy.ndarray or Quantity
+            Desired time. Default is the initial time.
+
+        Returns
+        -------
+        ndarray
+            [R,vR,vT,z,vz(,phi)] or [R,vR,vT(,phi)] depending on the orbit; shape = [phasedim,nt,norb]
+
+        Notes
+        -----
+        - 2019-02-01 - Started - Bovy (UofT)
+        - 2019-02-18 - Written interpolation part - Bovy (UofT)
+
         """
         if len(args) == 0 and "t" in kwargs:
             args = [kwargs.pop("t")]
@@ -5706,25 +5383,16 @@ class Orbit:
 
     def toPlanar(self):
         """
-        NAME:
+        Convert 3D orbits into 2D orbits.
 
-           toPlanar
+        Returns
+        -------
+        Orbit
+            Planar Orbit instance.
 
-        PURPOSE:
-
-           convert 3D orbits into 2D orbits
-
-        INPUT:
-
-           (none)
-
-        OUTPUT:
-
-           planar Orbit instance
-
-        HISTORY:
-
-           2019-03-02 - Written - Bovy (UofT)
+        Notes
+        -----
+        - 2019-03-02 - Written - Bovy (UofT)
 
         """
         orbSetupKwargs = {
@@ -5748,25 +5416,16 @@ class Orbit:
 
     def toLinear(self):
         """
-        NAME:
+        Convert 3D orbits into 1D orbits (z phase space).
 
-           toLinear
+        Returns
+        -------
+        Orbit
+            Linear Orbit instance.
 
-        PURPOSE:
-
-           convert 3D orbits into 1D orbits (z)
-
-        INPUT:
-
-           (none)
-
-        OUTPUT:
-
-           linear Orbit instance
-
-        HISTORY:
-
-           2019-03-02 - Written - Bovy (UofT)
+        Notes
+        -----
+        - 2019-03-02 - Written - Bovy (UofT)
 
         """
         orbSetupKwargs = {"ro": self._ro, "vo": self._vo}
@@ -5907,46 +5566,38 @@ class Orbit:
 
     def plot(self, *args, **kwargs):
         """
-        NAME:
+        Plot a previously calculated orbit.
 
-           plot
+        Parameters
+        ----------
+        d1 : str or callable, optional
+            First dimension to plot. Can be a string ('x', 'y', 'R', 'vR', 'vT', 'z', 'vz', ...), an expression like 'R*vR', or a user-defined function of time (e.g., lambda t: o.R(t) for R). Default is determined by the number of dimensions in the orbit.
+        d2 : str or callable, optional
+            Second dimension to plot. Same format as d1.
+        ro : float or Quantity, optional
+            Physical scale in kpc for distances to use to convert. Default is the object-wide default.
+        vo : float or Quantity, optional
+            Physical scale for velocities in km/s to use to convert. Default is the object-wide default.
+        use_physical : bool, optional
+            Use to override object-wide default for using a physical scale for output.
+        *args : optional
+            Additional arguments to pass to galpy.util.plot.plot.
+        **kwargs : optional
+            Additional keyword arguments to pass to galpy.util.plot.plot.
 
-        PURPOSE:
+        Returns
+        -------
+        list
+            A list of matplotlib.lines.Line2D objects representing the plotted data.
 
-           plot a previously calculated orbit (with reasonable defaults)
-
-        INPUT:
-
-           d1= first dimension to plot ('x', 'y', 'R', 'vR', 'vT', 'z', 'vz', ...); can also be an expression, like 'R*vR', or a  user-defined function of time (e.g., lambda t: o.R(t) for R)
-
-           d2= second dimension to plot; can also be an expression, like 'R*vR', or a user-defined function of time (e.g., lambda t: o.R(t) for R)
-
-           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
-
-           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
-
-           use_physical= use to override Object-wide default for using a physical scale for output
-
-           matplotlib.plot inputs+galpy.util.plot.plot inputs
-
-        OUTPUT:
-
-           sends plot to output device
-
-        HISTORY:
-
-           2010-07-26 - Written - Bovy (NYU)
-
-           2010-09-22 - Adapted to more general framework - Bovy (NYU)
-
-           2013-11-29 - added ra,dec kwargs and other derived quantities - Bovy (IAS)
-
-           2014-06-11 - Support for plotting in physical coordinates - Bovy (IAS)
-
-           2017-11-28 - Allow arbitrary functions of time to be plotted - Bovy (UofT)
-
-           2019-04-13 - Edited for multiple Orbits - Bovy (UofT)
-
+        Notes
+        -----
+        - 2010-07-26 - Written - Bovy (NYU)
+        - 2010-09-22 - Adapted to more general framework - Bovy (NYU)
+        - 2013-11-29 - Added ra,dec kwargs and other derived quantities - Bovy (IAS)
+        - 2014-06-11 - Support for plotting in physical coordinates - Bovy (IAS)
+        - 2017-11-28 - Allow arbitrary functions of time to be plotted - Bovy (UofT)
+        - 2019-04-13 - Edited for multiple Orbits - Bovy (UofT)
         """
         if (kwargs.get("use_physical", False) and kwargs.get("ro", self._roSet)) or (
             not "use_physical" in kwargs and kwargs.get("ro", self._roSet)
@@ -6015,49 +5666,41 @@ class Orbit:
 
     def plot3d(self, *args, **kwargs):
         """
-        NAME:
+        Plot 3D aspects of an Orbit.
 
-           plot3d
+        Parameters
+        ----------
+        d1 : str or callable
+            First dimension to plot ('x', 'y', 'R', 'vR', 'vT', 'z', 'vz', ...); can also be an expression, like 'R*vR', or a user-defined function of time (e.g., lambda t: o.R(t) for R).
+        d2 : str or callable
+            Second dimension to plot. Same format as d1.
+        d3 : str or callable
+            Third dimension to plot. Same format as d1.
+        ro : float or Quantity, optional
+            Physical scale in kpc for distances to use to convert. Default is the object-wide default.
+        vo : float or Quantity, optional
+            Physical scale for velocities in km/s to use to convert. Default is the object-wide default.
+        use_physical : bool, optional
+            Use to override object-wide default for using a physical scale for output.
+        *args : optional
+            Additional arguments to pass to galpy.util.plot.plot3d.
+        **kwargs : optional
+            Additional keyword arguments to pass to galpy.util.plot.plot3d.
 
-        PURPOSE:
+        Returns
+        -------
+        list
+            A list of matplotlib.lines.Line3D objects representing the plotted data.
 
-           plot 3D aspects of an Orbit
-
-        INPUT:
-
-           d1= first dimension to plot ('x', 'y', 'R', 'vR', 'vT', 'z', 'vz', ...); can also be an expression, like 'R*vR', or a user-defined function of time (e.g., lambda t: o.R(t) for R)
-
-           d2= second dimension to plot
-
-           d3= third dimension to plot
-
-           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
-
-           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
-
-           use_physical= use to override Object-wide default for using a physical scale for output
-
-           galpy.util.plot.plot3d args and kwargs
-
-        OUTPUT:
-
-           plot
-
-        HISTORY:
-
-           2010-07-26 - Written - Bovy (NYU)
-
-           2010-09-22 - Adapted to more general framework - Bovy (NYU)
-
-           2010-01-08 - Adapted to 3D - Bovy (NYU)
-
-           2013-11-29 - added ra,dec kwargs and other derived quantities - Bovy (IAS)
-
-           2014-06-11 - Support for plotting in physical coordinates - Bovy (IAS)
-
-           2017-11-28 - Allow arbitrary functions of time to be plotted - Bovy (UofT)
-
-           2019-04-13 - Adapted for multiple orbits - Bovy (UofT)
+        Notes
+        -----
+        - 2010-07-26 - Written - Bovy (NYU)
+        - 2010-09-22 - Adapted to more general framework - Bovy (NYU)
+        - 2010-01-08 - Adapted to 3D - Bovy (NYU)
+        - 2013-11-29 - Added ra,dec kwargs and other derived quantities - Bovy (IAS)
+        - 2014-06-11 - Support for plotting in physical coordinates - Bovy (IAS)
+        - 2017-11-28 - Allow arbitrary functions of time to be plotted - Bovy (UofT)
+        - 2019-04-13 - Adapted for multiple orbits - Bovy (UofT)
 
         """
         if (kwargs.get("use_physical", False) and kwargs.get("ro", self._roSet)) or (
@@ -6139,48 +5782,32 @@ class Orbit:
         **kwargs,
     ):
         """
-        NAME:
+        Calculate and plot a surface of section of the orbit.
 
-           plotSOS
+        Parameters
+        ----------
+        pot : Potential, DissipativeForce, or list of such instances
+            Gravitational field to integrate the orbit in.
+        ncross : int, optional
+            Number of times to cross the surface. The default is 500.
+        surface : str, optional
+            Surface to punch through (this has no effect in 3D, where the surface is always z=0, but in 2D it can be 'x' or 'y' for x=0 or y=0). The default is None.
+        t0 : float or Quantity, optional
+            Time of the initial condition. The default is 0.0.
+        method : {'odeint', 'dop853_c', 'dop853', 'dop54_c', 'rk4_c', 'rk6_c'}, optional
+            Method to integrate the orbit. The default is 'dop853_c'.
+        skip : int, optional
+            For non-adaptive integrators, the number of basic steps to take between crossings (these are further refined in the code, but only up to a maximum refinement, so you can use skip to get finer integration in cases where more accuracy is needed). The default is 100.
+        progressbar : bool, optional
+            If True, display a tqdm progress bar when integrating multiple orbits (requires tqdm to be installed!). The default is True.
+        *args : optional
+            Additional arguments to pass to galpy.util.plot.plot.
+        **kwargs : optional
+            Additional keyword arguments to pass to galpy.util.plot.plot.
 
-        PURPOSE:
-
-           Calculate and plot a surface of section of the orbit
-
-        INPUT:
-
-           pot - Potential or list of such instances
-
-           ncross= (500) number of times to cross the surface
-
-           surface= (None) surface to punch through (this has no effect in 3D, where the surface is always z=0, but in 2D it can be 'x' or 'y' for x=0 or y=0)
-
-           t0= (0.) time of the initial condition (can be a Quantity)
-
-           integration keyword arguments:
-
-                method = 'odeint' for scipy's odeint
-                         'rk4_c' for a 4th-order Runge-Kutta integrator in C
-                         'rk6_c' for a 6-th order Runge-Kutta integrator in C
-                         'dopr54_c' for a 5-4 Dormand-Prince integrator in C
-                         'dop853' for a 8-5-3 Dormand-Prince integrator in Python
-                         'dop853_c' for a 8-5-3 Dormand-Prince integrator in C
-
-                skip= (100) for non-adaptive integrators, the number of basic steps to take between crossings (these are further refined in the code, but only up to a maximum refinement, so you can use skip to get finer integration in cases where more accuracy is needed)
-
-                progressbar= (True) if True, display a tqdm progress bar when integrating multiple orbits (requires tqdm to be installed!)
-
-                for more control of the integrator, use the SOS method directly and plot its results
-
-           matplotlib.plot inputs+galpy.util.plot.plot inputs
-
-        OUTPUT:
-
-           sends plot to output device
-
-        HISTORY:
-
-           2023-03-16 - Written - Bovy (UofT)
+        Notes
+        -----
+        - 2023-03-16 - Written - Bovy (UofT)
 
         """
         if (kwargs.get("use_physical", False) and kwargs.get("ro", self._roSet)) or (
@@ -6358,48 +5985,53 @@ class Orbit:
 
     def animate(self, **kwargs):  # pragma: no cover
         """
-        NAME:
+        Animate a previously calculated orbit.
 
-           animate
+        Parameters
+        ----------
+        d1 : str or callable or list
+            First dimension to plot ('x', 'y', 'R', 'vR', 'vT', 'z', 'vz', ...).
+            Can be a list with up to three entries for three subplots. Each entry
+            can also be an expression like 'R*vR' or a  user-defined function of time
+            (e.g., lambda t: o.R(t) for R).
+        d2 : str or callable or list
+            Second dimension to plot. Same format as d1.
+        width : int, optional
+            Width of output div in pixels. Default is 600.
+        height : int, optional
+            Height of output div in pixels. Default is 400.
+        xlabel : str or list, optional
+            Label for the first dimension (or list of labels if d1 is a list).
+            Should only have to be specified when using a function as d1 and can
+            then specify as, e.g., [None,'YOUR LABEL',None] if d1 is a list of
+            three xs and the first and last are standard entries).
+        ylabel : str or list, optional
+            Label for the second dimension. Same format as xlabel.
+        json_filename : str, optional
+            If set, save the data necessary for the figure in this filename (e.g.,
+            json_filename= 'orbit_data/orbit.json'). This path is also used in the
+            output HTML, so needs to be accessible.
+        staticPlot : bool, optional
+            If True, create a static plot that doesn't allow zooming, panning, etc.
+            Default is False.
+        ro : float or Quantity, optional
+            Physical scale in kpc for distances to use to convert. Default is the object-wide default.
+        vo : float or Quantity, optional
+            Physical scale for velocities in km/s to use to convert. Default is the object-wide default.
+        use_physical : bool, optional
+            Use to override object-wide default for using a physical scale for output.
 
-        PURPOSE:
+        Returns
+        -------
+        IPython.display.HTML
+            Object with code to animate the orbit. Can be directly shown in
+            Jupyter notebook or embedded in HTML pages. Get a text version of the
+            HTML using the _repr_html_() function.
 
-           animate a previously calculated orbit (with reasonable defaults)
-
-        INPUT:
-
-           d1= first dimension to plot ('x', 'y', 'R', 'vR', 'vT', 'z', 'vz', ...); can be list with up to three entries for three subplots; each entry can also be a user-defined function of time (e.g., lambda t: o.R(t) for R)
-
-           d2= second dimension to plot; can be list with up to three entries for three subplots; each entry can also be a user-defined function of time (e.g., lambda t: o.R(t) for R)
-
-           width= (600) width of output div in px
-
-           height= (400) height of output div in px
-
-           xlabel= (pre-defined labels) label for the first dimension (or list of labels if d1 is a list); should only have to be specified when using a function as d1 and can then specify as, e.g., [None,'YOUR LABEL',None] if d1 is a list of three xs and the first and last are standard entries)
-
-           ylabel= (pre-defined labels) label for the second dimension (or list of labels if d2 is a list); should only have to be specified when using a function as d2 and can then specify as, e.g., [None,'YOUR LABEL',None] if d1 is a list of three xs and the first and last are standard entries)
-
-           json_filename= (None) if set, save the data necessary for the figure in this filename (e.g.,  json_filename= 'orbit_data/orbit.json'); this path is also used in the output HTML, so needs to be accessible
-
-           staticPlot= (False) if True, create a static plot that doesn't allow zooming, panning, etc.
-
-           ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
-
-           vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
-
-           use_physical= use to override Object-wide default for using a physical scale for output
-
-        OUTPUT:
-
-           IPython.display.HTML object with code to animate the orbit; can be directly shown in jupyter notebook or embedded in HTML pages; get a text version of the HTML using the _repr_html_() function
-
-        HISTORY:
-
-           2017-09-17-24 - Written - Bovy (UofT)
-
-           2019-03-11 - Adapted for multiple orbits - Bovy (UofT)
-
+        Notes
+        -----
+        - 2017-09-17 - Written - Bovy (UofT)
+        - 2019-03-11 - Adapted for multiple orbits - Bovy (UofT)
         """
         try:
             from IPython.display import HTML
@@ -7123,49 +6755,45 @@ if ( typeof window.require == 'undefined' ) {{
 
     def animate3d(self, mw_plane_bg=False, **kwargs):  # pragma: no cover
         """
-        NAME:
+        Animate a previously calculated orbit in 3D (with reasonable defaults).
 
-            animate3d
+        Parameters
+        ----------
+        d1 : str
+            First dimension to plot ('x', 'y', 'R', 'vR', 'vT', 'z', 'vz', ...), can only be a single entry.
+        d2 : str
+            Second dimension to plot. Same format as d1.
+        d3 : str
+            Third dimension to plot. Same format as d1.
+        width : int, optional
+            Width of output div in px, by default 800.
+        height : int, optional
+            Height of output div in px, by default 600.
+        mw_plane_bg : bool, optional
+            Whether to add a Milky Way plane when plotting x, y, z, by default False.
+        xlabel : str or list, optional
+            Label for the first dimension; should only have to be specified when using a function as d1.
+        ylabel : str or list, optional
+            Label for the second dimension; should only have to be specified when using a function as d2.
+        zlabel : str or list, optional
+            Label for the third dimension; should only have to be specified when using a function as d3.
+        json_filename : str, optional
+            If set, save the data necessary for the figure in this filename (e.g.,  json_filename= 'orbit_data/orbit.json'); this path is also used in the output HTML, so needs to be accessible, by default None.
+        ro : float or Quantity, optional
+            Physical scale in kpc for distances to use to convert, Default is the object-wide default.
+        vo : float or Quantity, optional
+            Physical scale for velocities in km/s to use to convert, by default None. Default is the object-wide default.
+        use_physical : bool, optional
+            Use to override object-wide default for using a physical scale for output.
 
-        PURPOSE:
+        Returns
+        -------
+        IPython.display.HTML
+            Object with code to animate the orbit; can be directly shown in jupyter notebook or embedded in HTML pages; get a text version of the HTML using the _repr_html_() function.
 
-            animate a previously calculated orbit in 3D (with reasonable defaults)
-
-        INPUT:
-
-            d1= first dimension to plot ('x', 'y', 'R', 'vR', 'vT', 'z', 'vz', ...), can only be a single entry same as d2, d3
-
-            d2= second dimension to plot
-
-            d3= third dimension to plot
-
-            width= (800) width of output div in px
-
-            height= (600) height of output div in px
-
-            xlabel= (pre-defined labels) label for the first dimension (or list of labels if d1 is a list); should only have to be specified when using a function as d1 and can then specify as, e.g., [None,'YOUR LABEL',None] if d1 is a list of three xs and the first and last are standard entries)
-
-            ylabel= (pre-defined labels) label for the second dimension (or list of labels if d2 is a list); should only have to be specified when using a function as d2 and can then specify as, e.g., [None,'YOUR LABEL',None] if d1 is a list of three xs and the first and last are standard entries)
-
-            zlabel= (pre-defined labels) label for the third dimension (or list of labels if d3 is a list); should only have to be specified when using a function as d3 and can then specify as, e.g., [None,'YOUR LABEL',None] if d1 is a list of three xs and the first and last are standard entries)
-
-            json_filename= (None) if set, save the data necessary for the figure in this filename (e.g.,  json_filename= 'orbit_data/orbit.json'); this path is also used in the output HTML, so needs to be accessible
-
-            ro= (Object-wide default) physical scale for distances to use to convert (can be Quantity)
-
-            vo= (Object-wide default) physical scale for velocities to use to convert (can be Quantity)
-
-            use_physical= use to override Object-wide default for using a physical scale for output
-
-            mw_plane_bg= whether to add a milkyway plane when plotting x, y, z
-
-        OUTPUT:
-
-            IPython.display.HTML object with code to animate the orbit; can be directly shown in jupyter notebook or embedded in HTML pages; get a text version of the HTML using the _repr_html_() function
-
-        HISTORY:
-
-            2022-12-09 - Written - Henry Leung (UofT)
+        Notes
+        -----
+        - 2022-12-09 - Written - Henry Leung (UofT)
 
         """
         try:
@@ -7796,18 +7424,25 @@ class _1DInterp:
 
 def _from_name_oneobject(name, obs):
     """
-    NAME:
-       _from_name_oneobject
-    PURPOSE:
-       Query Simbad for the phase-space coordinates of one object
-    INPUT:
-       name - name of the object
-       obs - numpy.array of [ro,vo,zo,solarmotion] that can be altered
-    OUTPUT:
-       [ra,dec,dist,pmra,pmdec,vlos]
-    HISTORY:
-       2018-07-15 - Written - Mathew Bub (UofT)
-       2019-06-16 - Added named_objects - Bovy (UofT)
+    Query Simbad for the phase-space coordinates of one object.
+
+    Parameters
+    ----------
+    name : str
+        Name of the object.
+    obs : numpy.ndarray, optional
+        Array of [ro, vo, zo, solarmotion] that can be altered.
+
+    Returns
+    -------
+    list
+        A list of [ra, dec, dist, pmra, pmdec, vlos].
+
+    Notes
+    -----
+    - 2018-07-15 - Written - Mathew Bub (UofT)
+    - 2019-06-16 - Added named_objects - Bovy (UofT)
+
     """
     # First check whether this is a named_object
     this_name = _named_objects_key_formatting(name)
