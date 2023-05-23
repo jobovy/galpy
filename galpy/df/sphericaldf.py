@@ -826,3 +826,8 @@ class anisotropicsphericaldf(sphericaldf):
         sphericaldf.__init__(
             self, pot=pot, denspot=denspot, rmax=rmax, scale=scale, ro=ro, vo=vo
         )
+
+    def _dMdE(self, E):
+        raise NotImplementedError(
+            "dMdE not implemented for general anisotropic spherical DFs"
+        )

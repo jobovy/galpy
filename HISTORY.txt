@@ -5,6 +5,10 @@ v1.9.0 (XXXX-XX-XX)
   add Orbit.SOS and Orbit.plotSOS methods to compute and plot the surface of section
   of an orbit.
 
+- Added a method, dMdE, to calculate the differential energy distribution of
+  spherical distribution functions (currently only for isotropic DFs and DFs with
+  constant anisotropy).
+
 - Started using black for code formatting.
 
 - Allow potentials' density and surface density to be plotted on physical axes.
