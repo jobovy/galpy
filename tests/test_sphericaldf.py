@@ -1948,6 +1948,8 @@ def setup_constantbeta_dfs_selfconsist():
 def test_constantbeta_selfconsist_dehnencore_dens_spherically_symmetric(
     setup_constantbeta_dfs_selfconsist,
 ):
+    if WIN32:
+        return None  # skip on Windows, because no JAX
     pot = potential.DehnenCoreSphericalPotential(amp=2.5, a=1.15)
     twobetas = [-1]
     constantbeta_dfs_selfconsist = setup_constantbeta_dfs_selfconsist
