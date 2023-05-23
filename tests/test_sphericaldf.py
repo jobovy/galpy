@@ -8,7 +8,7 @@ if not WIN32:  # Enable 64bit for JAX
     config.update("jax_enable_x64", True)
 import numpy
 import pytest
-from scipy import special
+from scipy import integrate, special
 
 from galpy import potential
 from galpy.df import (
@@ -29,7 +29,7 @@ from galpy.util import galpyWarning
 
 ############################# ISOTROPIC HERNQUIST DF ##########################
 # Note that we use the Hernquist case to check a bunch of code in the
-# sphericaldf realm that doesn't need to be check for each new spherical DF
+# sphericaldf realm that doesn't need to be checked for each new spherical DF
 def test_isotropic_hernquist_dens_spherically_symmetric():
     pot = potential.HernquistPotential(amp=2.3, a=1.3)
     dfh = isotropicHernquistdf(pot=pot)
@@ -334,6 +334,15 @@ def test_isotropic_hernquist_diffcalls():
         numpy.fabs(dfh(R, vR, vT, z, vz, phi) - dfh(Orbit([R, vR, vT, z, vz, phi])))
         < 1e-8
     ), "Calling the isotropic Hernquist DF with R,vR,... or E[R,vR,...] does not give the same answer"
+    return None
+
+
+# Test that integrating the differential energy distribution dMdE over all energies equals the total mass
+def test_isotropic_hernquist_dMdE_integral():
+    pot = potential.HernquistPotential(amp=2.3, a=1.3)
+    dfh = isotropicHernquistdf(pot=pot)
+    tol = 1e-8
+    check_dMdE_integral(dfh, tol)
     return None
 
 
@@ -1386,6 +1395,21 @@ def test_isotropic_eddington_dehnencore_in_nfw_energyoutofbounds():
     assert numpy.all(
         numpy.fabs(dfp((pot(0, 0) - 1e-4, 1.1))) < 1e-8
     ), "Evaluating the isotropic NFW DF at E < Phi(0) does not give zero"
+    return None
+
+
+############# TEST OF dMdE AGAINST KNOWN HERNQUIST FORMULA ############
+def test_eddington_hernquist_dMdE():
+    # Test that dMdE for an isotropic Hernquist model is correct by comparing to the exact solution in isotropicHernquist
+    pot = potential.HernquistPotential(amp=1.3, a=2.3)
+    dfe = eddingtondf(pot=pot)
+    dfi = isotropicHernquistdf(pot)
+    Emin = pot(0.0, 0.0)
+    Emax = pot(numpy.inf, 0.0)
+    E = numpy.linspace(0.99 * Emin, Emax - 0.001, 1001)
+    assert numpy.all(
+        numpy.fabs(dfe.dMdE(E) / dfi.dMdE(E) - 1.0) < 1e-4
+    ), "dMdE for isotropic Hernquist DF does not agree with exact solution"
     return None
 
 
@@ -2815,4 +2839,17 @@ def check_beta_directint(dfi, tol, beta=0.0, rmin=None, rmax=None, bins=31):
     assert numpy.all(
         numpy.fabs(intbeta - beta_func(rs)) < tol
     ), "beta(r) from direct integration does not agree with the expected value"
+    return None
+
+
+def check_dMdE_integral(dfi, tol, Emax=None):
+    # Check that the integral of dMdE over all energies equals the total mass
+    total_mass = dfi._pot.mass(numpy.inf)
+    # Integrate dMdE over all energies
+    Emin = dfi._pot(0.0, 0.0)
+    Emax = dfi._pot(numpy.inf, 0) if Emax is None else Emax
+    assert (
+        numpy.fabs(integrate.quad(lambda E: dfi.dMdE(E), Emin, Emax)[0] - total_mass)
+        < tol
+    ), "Integral of dMdE over all energies does not equal total mass"
     return None

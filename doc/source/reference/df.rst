@@ -78,6 +78,7 @@ General instance routines
    :maxdepth: 1
 
    __call__ <sphericaldfcall.rst>
+   dMdE <sphericaldfdmde.rst>
    beta <sphericaldfbeta.rst>
    sigmar <sphericaldfsigmar.rst>
    sigmar <sphericaldfsigmat.rst>

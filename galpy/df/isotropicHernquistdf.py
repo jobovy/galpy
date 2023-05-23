@@ -97,6 +97,23 @@ class isotropicHernquistdf(isotropicsphericaldf):
             fE[Etilde_out] = 0
         return fE
 
+    def _dMdE(self, E):
+        # E already in internal units here
+        fE = self.fE(E)
+        A = -self._psi0 / E[fE > 0.0]
+        out = numpy.zeros_like(E)
+        out[fE > 0.0] = (
+            (4.0 * numpy.pi) ** 2.0
+            * fE[fE > 0.0]
+            * self._pot.a**3.0
+            * numpy.sqrt(-2.0 * E[fE > 0.0])
+            * (
+                numpy.sqrt(A - 1.0) * (0.125 * A**2.0 - 5.0 / 12.0 * A - 1.0 / 3.0)
+                + 0.125 * A * (A**2.0 - 4.0 * A + 8.0) * numpy.arccos(A**-0.5)
+            )
+        )
+        return out
+
     def _icmf(self, ms):
         """Analytic expression for the normalized inverse cumulative mass
         function. The argument ms is normalized mass fraction [0,1]"""

@@ -16062,6 +16062,9 @@ def test_sphericaldf_method_returntype():
         dfh(o.R(), o.vR(), o.vT(), o.z(), o.vz(), o.phi()), units.Quantity
     ), "sphericaldf method __call__ does not return Quantity when it should"
     assert isinstance(
+        dfh.dMdE(o.E(pot=pot)), units.Quantity
+    ), "sphericaldf method dMdE does not return Quantity when it should"
+    assert isinstance(
         dfh.vmomentdensity(1.1, 0, 0), units.Quantity
     ), "sphericaldf method vmomentdensity does not return Quantity when it should"
     assert isinstance(
@@ -16120,6 +16123,12 @@ def test_sphericaldf_method_returnunit():
     except units.UnitConversionError:
         raise AssertionError(
             "sphericaldf method __call__ does not return Quantity with the right units"
+        )
+    try:
+        dfh.dMdE(o.E(pot=pot)).to(1 / (units.km / units.s) ** 2)
+    except units.UnitConversionError:
+        raise AssertionError(
+            "sphericaldf method dMdE does not return Quantity with the right units"
         )
     try:
         dfh.vmomentdensity(1.1, 0, 0).to(1 / units.kpc**3)
@@ -16213,6 +16222,13 @@ def test_sphericaldf_method_value():
         )
         < 10.0**-8.0
     ), "sphericaldf method __call__ does not return correct Quantity"
+    assert (
+        numpy.fabs(
+            dfh.dMdE(o.E(pot=pot)).to(1 / (units.km / units.s) ** 2).value
+            - dfh_nou.dMdE(o.E(pot=pot)) / vo**2
+        )
+        < 10.0**-8.0
+    ), "sphericaldf method dMdE does not return correct Quantity"
     assert (
         numpy.fabs(
             dfh.vmomentdensity(1.1, 0, 0).to(1 / units.kpc**3).value
@@ -16329,6 +16345,13 @@ def test_sphericaldf_method_inputAsQuantity():
         )
         < 10.0**-8.0
     ), "sphericaldf method __call__ does not return correct Quantity"
+    assert (
+        numpy.fabs(
+            dfh.dMdE(o.E(pot=pot)).to(1 / (units.km / units.s) ** 2).value
+            - dfh_nou.dMdE(o.E(pot=pot, use_physical=False)) / vo**2
+        )
+        < 10.0**-8.0
+    ), "sphericaldf method dMdE does not return correct Quantity"
     assert (
         numpy.fabs(
             dfh.vmomentdensity(1.1 * ro * units.kpc, 0, 0).to(1 / units.kpc**3).value

@@ -168,6 +168,32 @@ class sphericaldf(df):
             L = numpy.atleast_1d(numpy.sqrt(vtotSq - vrad**2.0) * r)
         return self._call_internal(E, L, Lz)  # Some function for each sub-class
 
+    @physical_conversion("energydensity", pop=True)
+    def dMdE(self, E):
+        """
+        NAME:
+
+            dMdE
+
+        PURPOSE:
+
+            Compute the different energy distribution dM/dE: the amount of mass per unit energy
+
+        INPUT:
+
+            E - energy; can be a Quantity
+
+        OUTPUT:
+
+            dM/dE
+
+        HISTORY:
+
+            2023-05-23 - Written - Bovy (UofT)
+
+        """
+        return self._dMdE(numpy.atleast_1d(conversion.parse_energy(E, vo=self._vo)))
+
     def vmomentdensity(self, r, n, m, **kwargs):
         """
         NAME:
@@ -704,6 +730,30 @@ class isotropicsphericaldf(sphericaldf):
 
         """
         return self.fE(args[0])
+
+    def _dMdE(self, E):
+        if not hasattr(self, "_rphi"):
+            self._rphi = self._setup_rphi_interpolator()
+        fE = self.fE(E)
+        out = numpy.zeros_like(E)
+        out[fE > 0.0] = (
+            (4.0 * numpy.pi) ** 2.0
+            * numpy.sqrt(2.0)
+            * fE[fE > 0.0]
+            * numpy.array(
+                [
+                    integrate.quad(
+                        lambda r: r**2.0
+                        * numpy.sqrt(tE - _evaluatePotentials(self._pot, r, 0.0)),
+                        0.0,
+                        self._rphi(tE),
+                    )[0]
+                    for ii, tE in enumerate(E)
+                    if fE[ii] > 0.0
+                ]
+            )
+        )
+        return out
 
     def _vmomentdensity(self, r, n, m):
         if m % 2 == 1 or n % 2 == 1:
