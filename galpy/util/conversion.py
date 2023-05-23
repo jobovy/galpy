@@ -840,6 +840,7 @@ _roNecessary = {
     "phasespacedensity2d": True,
     "phasespacedensityvelocity": True,
     "phasespacedensityvelocity2": True,
+    "energydensity": True,
     "dimensionless": False,
 }
 _voNecessary = copy.copy(_roNecessary)
@@ -1057,6 +1058,10 @@ def physical_conversion(quantity, pop=False):
                     fac = 1.0 / vo / ro**3.0
                     if _apy_units:
                         u = 1 / (units.km / units.s) / units.kpc**3
+                elif quantity.lower() == "energydensity":
+                    fac = 1.0 / vo**2.0
+                    if _apy_units:
+                        u = 1 / (units.km / units.s) ** 2
                 elif quantity.lower() == "dimensionless":
                     fac = 1.0
                     if _apy_units:
