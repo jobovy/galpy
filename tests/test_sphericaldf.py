@@ -491,6 +491,36 @@ def test_anisotropic_hernquist_beta_directint():
     return None
 
 
+# Test that integrating the differential energy distribution dMdE over all energies equals the total mass
+def test_anisotropic_hernquist_dMdE_integral():
+    pot = potential.HernquistPotential(amp=2.3, a=1.3)
+    betas = [-0.7, -0.5, -0.4, 0.0, 0.3, 0.5]
+    for beta in betas:
+        dfh = constantbetaHernquistdf(pot=pot, beta=beta)
+        tol = 1e-7
+        check_dMdE_integral(dfh, tol)
+    return None
+
+
+# Also test the specific case of beta=0.5, where dMdE is particularly easy (An & Evans 2006)
+def test_anisotropic_hernquist_dMdE_betap05():
+    pot = potential.HernquistPotential(amp=2.3, a=1.3)
+    dfh = constantbetaHernquistdf(pot=pot, beta=0.5)
+    tol = 1e-10
+
+    def dMdE_betap05_analytic(E, dfh):
+        if not hasattr(dfh, "_rphi"):
+            dfh._rphi = dfh._setup_rphi_interpolator()
+        rE = dfh._rphi(E)
+        return 4.0 * numpy.pi**3.0 * rE**2.0 * dfh.fE(E)
+
+    E = numpy.linspace(0.99 * pot(0, 0), pot(numpy.inf, 0) + 1e-6, 1001)
+    assert numpy.all(
+        numpy.fabs(dMdE_betap05_analytic(E, dfh) - dfh.dMdE(E)) < tol
+    ), "Anisotropic Hernquist DF dMdE for beta=0.5 does not agree with analytic expression"
+    return None
+
+
 def test_anisotropic_hernquist_energyoutofbounds():
     pot = potential.HernquistPotential(amp=2.3, a=1.3)
     betas = [-0.7, -0.5, -0.4, 0.0, 0.3, 0.5]
@@ -1902,16 +1932,26 @@ def test_constantbetadf_against_hernquist():
 constantbeta_dfs_selfconsist = None  # re-use in other tests
 
 
-def test_constantbeta_selfconsist_dehnencore_dens_spherically_symmetric():
+@pytest.fixture(scope="module")
+def setup_constantbeta_dfs_selfconsist():
     if WIN32:
         return None  # skip on Windows, because no JAX
     pot = potential.DehnenCoreSphericalPotential(amp=2.5, a=1.15)
     twobetas = [-1]
-    global constantbeta_dfs_selfconsist
     constantbeta_dfs_selfconsist = []
     for twobeta in twobetas:
         dfh = constantbetadf(pot=pot, twobeta=twobeta)
         constantbeta_dfs_selfconsist.append(dfh)
+    return constantbeta_dfs_selfconsist
+
+
+def test_constantbeta_selfconsist_dehnencore_dens_spherically_symmetric(
+    setup_constantbeta_dfs_selfconsist,
+):
+    pot = potential.DehnenCoreSphericalPotential(amp=2.5, a=1.15)
+    twobetas = [-1]
+    constantbeta_dfs_selfconsist = setup_constantbeta_dfs_selfconsist
+    for twobeta, dfh in zip(twobetas, constantbeta_dfs_selfconsist):
         numpy.random.seed(10)
         samp = dfh.sample(n=100000)
         # Check spherical symmetry for different harmonics l,m
@@ -1931,11 +1971,14 @@ def test_constantbeta_selfconsist_dehnencore_dens_spherically_symmetric():
     return None
 
 
-def test_constantbeta_selfconsist_dehnencore_dens_massprofile():
+def test_constantbeta_selfconsist_dehnencore_dens_massprofile(
+    setup_constantbeta_dfs_selfconsist,
+):
     if WIN32:
         return None  # skip on Windows, because no JAX
     pot = potential.DehnenCoreSphericalPotential(amp=2.5, a=1.15)
     twobetas = [-1]
+    constantbeta_dfs_selfconsist = setup_constantbeta_dfs_selfconsist
     for twobeta, dfh in zip(twobetas, constantbeta_dfs_selfconsist):
         numpy.random.seed(10)
         samp = dfh.sample(n=100000)
@@ -1946,11 +1989,12 @@ def test_constantbeta_selfconsist_dehnencore_dens_massprofile():
     return None
 
 
-def test_constantbeta_selfconsist_dehnencore_sigmar():
+def test_constantbeta_selfconsist_dehnencore_sigmar(setup_constantbeta_dfs_selfconsist):
     if WIN32:
         return None  # skip on Windows, because no JAX
     pot = potential.DehnenCoreSphericalPotential(amp=2.5, a=1.15)
     twobetas = [-1]
+    constantbeta_dfs_selfconsist = setup_constantbeta_dfs_selfconsist
     for twobeta, dfh in zip(twobetas, constantbeta_dfs_selfconsist):
         numpy.random.seed(10)
         samp = dfh.sample(n=1000000)
@@ -1967,11 +2011,12 @@ def test_constantbeta_selfconsist_dehnencore_sigmar():
     return None
 
 
-def test_constantbeta_selfconsist_dehnencore_beta():
+def test_constantbeta_selfconsist_dehnencore_beta(setup_constantbeta_dfs_selfconsist):
     if WIN32:
         return None  # skip on Windows, because no JAX
     pot = potential.DehnenCoreSphericalPotential(amp=2.5, a=1.15)
     twobetas = [-1]
+    constantbeta_dfs_selfconsist = setup_constantbeta_dfs_selfconsist
     for twobeta, dfh in zip(twobetas, constantbeta_dfs_selfconsist):
         numpy.random.seed(10)
         samp = dfh.sample(n=1000000)
@@ -1989,11 +2034,14 @@ def test_constantbeta_selfconsist_dehnencore_beta():
     return None
 
 
-def test_constantbeta_selfconsist_dehnencore_dens_directint():
+def test_constantbeta_selfconsist_dehnencore_dens_directint(
+    setup_constantbeta_dfs_selfconsist,
+):
     if WIN32:
         return None  # skip on Windows, because no JAX
     pot = potential.DehnenCoreSphericalPotential(amp=2.5, a=1.15)
     twobetas = [-1]
+    constantbeta_dfs_selfconsist = setup_constantbeta_dfs_selfconsist
     for twobeta, dfh in zip(twobetas, constantbeta_dfs_selfconsist):
         tol = 1e-4
         check_dens_directint(
@@ -2008,11 +2056,14 @@ def test_constantbeta_selfconsist_dehnencore_dens_directint():
     return None
 
 
-def test_constantbeta_selfconsist_dehnencore_meanvr_directint():
+def test_constantbeta_selfconsist_dehnencore_meanvr_directint(
+    setup_constantbeta_dfs_selfconsist,
+):
     if WIN32:
         return None  # skip on Windows, because no JAX
     pot = potential.DehnenCoreSphericalPotential(amp=2.5, a=1.15)
     twobetas = [-1]
+    constantbeta_dfs_selfconsist = setup_constantbeta_dfs_selfconsist
     for twobeta, dfh in zip(twobetas, constantbeta_dfs_selfconsist):
         tol = 1e-8
         check_meanvr_directint(
@@ -2021,11 +2072,14 @@ def test_constantbeta_selfconsist_dehnencore_meanvr_directint():
     return None
 
 
-def test_constantbeta_selfconsist_dehnencore_sigmar_directint():
+def test_constantbeta_selfconsist_dehnencore_sigmar_directint(
+    setup_constantbeta_dfs_selfconsist,
+):
     if WIN32:
         return None  # skip on Windows, because no JAX
     pot = potential.DehnenCoreSphericalPotential(amp=2.5, a=1.15)
     twobetas = [-1]
+    constantbeta_dfs_selfconsist = setup_constantbeta_dfs_selfconsist
     for twobeta, dfh in zip(twobetas, constantbeta_dfs_selfconsist):
         tol = 1e-4
         check_sigmar_against_jeans_directint(
@@ -2055,11 +2109,29 @@ def test_constantbeta_selfconsist_dehnencore_sigmar_directint():
 #    return None
 
 
-def test_constantbeta_selfconsist_dehnencore_Qoutofbounds():
+# Test that integrating the differential energy distribution dMdE over all energies equals the total mass
+def test_constantbeta_selfconsist_dehnencore_dMdE_integral(
+    setup_constantbeta_dfs_selfconsist,
+):
     if WIN32:
         return None  # skip on Windows, because no JAX
     pot = potential.DehnenCoreSphericalPotential(amp=2.5, a=1.15)
     twobetas = [-1]
+    constantbeta_dfs_selfconsist = setup_constantbeta_dfs_selfconsist
+    for twobeta, dfh in zip(twobetas, constantbeta_dfs_selfconsist):
+        tol = 1e-10
+        check_dMdE_integral(dfh, tol)
+    return None
+
+
+def test_constantbeta_selfconsist_dehnencore_Qoutofbounds(
+    setup_constantbeta_dfs_selfconsist,
+):
+    if WIN32:
+        return None  # skip on Windows, because no JAX
+    pot = potential.DehnenCoreSphericalPotential(amp=2.5, a=1.15)
+    twobetas = [-1]
+    constantbeta_dfs_selfconsist = setup_constantbeta_dfs_selfconsist
     for twobeta, dfh in zip(twobetas, constantbeta_dfs_selfconsist):
         assert numpy.all(
             numpy.fabs(dfh((numpy.arange(0.1, 10.0, 0.1), 1.1))) < 1e-8
@@ -2075,11 +2147,14 @@ def test_constantbeta_selfconsist_dehnencore_Qoutofbounds():
 
 
 # Also some tests with rmin in sampling
-def test_constantbeta_selfconsist_dehnencore_rmin_inbounds():
+def test_constantbeta_selfconsist_dehnencore_rmin_inbounds(
+    setup_constantbeta_dfs_selfconsist,
+):
     if WIN32:
         return None  # skip on Windows, because no JAX
     pot = potential.DehnenCoreSphericalPotential(amp=2.5, a=1.15)
     twobetas = [-1]
+    constantbeta_dfs_selfconsist = setup_constantbeta_dfs_selfconsist
     rmin = 0.5
     for twobeta, dfh in zip(twobetas, constantbeta_dfs_selfconsist):
         samp = dfh.sample(n=1000000, rmin=rmin)

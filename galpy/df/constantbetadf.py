@@ -76,6 +76,33 @@ class _constantbetadf(anisotropicsphericaldf):
         E, L, _ = args
         return L ** (-2 * self._beta) * self.fE(E)
 
+    def _dMdE(self, E):
+        if not hasattr(self, "_rphi"):
+            self._rphi = self._setup_rphi_interpolator()
+        fE = self.fE(E)
+        out = numpy.zeros_like(E)
+        out[fE > 0.0] = (
+            (2.0 * numpy.pi) ** 2.5
+            * special.gamma(1.0 - self._beta)
+            / 2.0 ** (self._beta - 1.0)
+            / special.gamma(1.5 - self._beta)
+            * fE[fE > 0.0]
+            * numpy.array(
+                [
+                    integrate.quad(
+                        lambda r: r ** (2.0 - 2.0 * self._beta)
+                        * (tE - _evaluatePotentials(self._pot, r, 0.0))
+                        ** (0.5 - self._beta),
+                        0.0,
+                        self._rphi(tE),
+                    )[0]
+                    for ii, tE in enumerate(E)
+                    if fE[ii] > 0.0
+                ]
+            )
+        )
+        return out
+
     def _sample_eta(self, r, n=1):
         """Sample the angle eta which defines radial vs tangential velocities"""
         if not hasattr(self, "_coseta_icmf_interp"):
