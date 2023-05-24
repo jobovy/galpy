@@ -365,15 +365,26 @@ class PowerSphericalPotentialwCutoff(Potential):
         """
         if z is not None:
             raise AttributeError  # use general implementation
-        return (
+        R = numpy.array(R)
+        out = numpy.ones_like(R)
+        out[~numpy.isinf(R)] = (
             2.0
             * numpy.pi
-            * R ** (3.0 - self.alpha)
+            * R[~numpy.isinf(R)] ** (3.0 - self.alpha)
             / (1.5 - self.alpha / 2.0)
             * special.hyp1f1(
-                1.5 - self.alpha / 2.0, 2.5 - self.alpha / 2.0, -((R / self.rc) ** 2.0)
+                1.5 - self.alpha / 2.0,
+                2.5 - self.alpha / 2.0,
+                -((R[~numpy.isinf(R)] / self.rc) ** 2.0),
             )
         )
+        out[numpy.isinf(R)] = (
+            2.0
+            * numpy.pi
+            * self.rc ** (3.0 - self.alpha)
+            * special.gamma(1.5 - self.alpha / 2.0)
+        )
+        return out
 
     @kms_to_kpcGyrDecorator
     def _nemo_accpars(self, vo, ro):

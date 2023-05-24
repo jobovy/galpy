@@ -1026,6 +1026,15 @@ def test_isotropic_plummer_beta_directint():
     return None
 
 
+# Test that integrating the differential energy distribution dMdE over all energies equals the total mass
+def test_isotropic_plummer_dMdE_integral():
+    pot = potential.PlummerPotential(amp=2.3, b=1.3)
+    dfp = isotropicPlummerdf(pot=pot)
+    tol = 1e-8
+    check_dMdE_integral(dfp, tol)
+    return None
+
+
 def test_isotropic_plummer_energyoutofbounds():
     pot = potential.PlummerPotential(amp=2.3, b=1.3)
     dfp = isotropicPlummerdf(pot=pot)
@@ -1447,7 +1456,6 @@ def test_eddington_hernquist_dMdE():
 # If you implement the required potential derivatives _ddensdr and the 2nd;
 # add your potential to the tests here
 def test_eddington_differentpotentials_dens_directint():
-    # Combinations of potentials and betas
     pots = [
         potential.PowerSphericalPotential(amp=1.3, alpha=1.9),
         potential.PlummerPotential(amp=2.3, b=1.3),
@@ -1465,6 +1473,19 @@ def test_eddington_differentpotentials_dens_directint():
             rmax=pot._scale * 10.0 if hasattr(pot, "_scale") else 10.0,
             bins=11,
         )
+    return None
+
+
+def test_eddington_differentpotentials_dMdE_integral():
+    # Don't do PowerSphericalPotential, because it does not have a finite mass
+    pots = [
+        potential.PlummerPotential(amp=2.3, b=1.3),
+        potential.PowerSphericalPotentialwCutoff(amp=1.3, alpha=1.9, rc=1.2),
+    ]
+    tols = [1e-6 for pot in pots]
+    for pot, tol in zip(pots, tols):
+        dfh = eddingtondf(pot=pot)
+        check_dMdE_integral(dfh, tol)
     return None
 
 
@@ -2928,5 +2949,5 @@ def check_dMdE_integral(dfi, tol, Emax=None):
     assert (
         numpy.fabs(integrate.quad(lambda E: dfi.dMdE(E), Emin, Emax)[0] - total_mass)
         < tol
-    ), "Integral of dMdE over all energies does not equal total mass"
+    ), f"Integral of dMdE over all energies does not equal total mass for potential {dfi._pot.__class__.__name__}"
     return None

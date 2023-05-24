@@ -753,6 +753,9 @@ class isotropicsphericaldf(sphericaldf):
                 ]
             )
         )
+        # Numerical issues can make the integrand's sqrt argument negative, only
+        # happens at dMdE ~ 0, so just set to zero
+        out[numpy.isnan(out)] = 0.0
         return out
 
     def _vmomentdensity(self, r, n, m):
