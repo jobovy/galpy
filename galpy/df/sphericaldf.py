@@ -737,7 +737,8 @@ class isotropicsphericaldf(sphericaldf):
         fE = self.fE(E)
         out = numpy.zeros_like(E)
         out[fE > 0.0] = (
-            (4.0 * numpy.pi) ** 2.0
+            16.0
+            * numpy.pi**2.0
             * numpy.sqrt(2.0)
             * fE[fE > 0.0]
             * numpy.array(
@@ -831,6 +832,42 @@ class anisotropicsphericaldf(sphericaldf):
         )
 
     def _dMdE(self, E):
-        raise NotImplementedError(
-            "dMdE not implemented for general anisotropic spherical DFs"
+        if not hasattr(self, "_rphi"):
+            self._rphi = self._setup_rphi_interpolator()
+
+        def Lintegrand(t, L2lim, E):
+            return self((E, numpy.sqrt(L2lim - t**2.0)), use_physical=False)
+
+        out = (
+            16.0
+            * numpy.pi**2.0
+            * numpy.array(
+                [
+                    integrate.quad(
+                        lambda r: r
+                        * integrate.quad(
+                            Lintegrand,
+                            0.0,
+                            numpy.sqrt(
+                                2.0
+                                * r**2.0
+                                * (tE - _evaluatePotentials(self._pot, r, 0.0))
+                            ),
+                            args=(
+                                2.0
+                                * r**2.0
+                                * (tE - _evaluatePotentials(self._pot, r, 0.0)),
+                                tE,
+                            ),
+                        )[0],
+                        0.0,
+                        self._rphi(tE),
+                    )[0]
+                    for ii, tE in enumerate(E)
+                ]
+            )
         )
+        # Numerical issues can make the integrand's sqrt argument negative, only
+        # happens at dMdE ~ 0, so just set to zero
+        out[numpy.isnan(out)] = 0.0
+        return out

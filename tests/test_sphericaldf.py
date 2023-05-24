@@ -711,6 +711,33 @@ def test_osipkovmerritt_hernquist_beta_directint():
     return None
 
 
+# Test that the differential energy distribution approaches the isotropic one at
+# E=Emin and the radial one at E=Emax
+def test_osipkovmerritt_hernquist_dMdE_limits():
+    pot = potential.HernquistPotential(amp=2.3, a=1.3)
+    ras = [2.3, 5.7]
+    dfi = isotropicHernquistdf(pot=pot)
+    dfr = constantbetaHernquistdf(pot=pot, beta=0.99)
+    for ra in ras:
+        dfh = osipkovmerrittHernquistdf(pot=pot, ra=ra)
+        toli, tolr = 1e-3, 1e-1
+        assert (
+            numpy.fabs(
+                dfh.dMdE(pot(0.0, 0.0) + 0.01) / dfi.dMdE(pot(0.0, 0.0) + 0.01) - 1.0
+            )
+            < toli
+        ), "Osipkov-Merritt Hernquist DF does not approach the isotropic DF at E=Emin"
+        assert (
+            numpy.fabs(
+                dfh.dMdE(pot(numpy.inf, 0.0) - 0.05)
+                / dfr.dMdE(pot(numpy.inf, 0.0) - 0.05)
+                - 1.0
+            )
+            < tolr
+        ), "Osipkov-Merritt Hernquist DF does not approach the radial DF at E=Emax"
+    return None
+
+
 def test_osipkovmerritt_hernquist_Qoutofbounds():
     pot = potential.HernquistPotential(amp=2.3, a=1.3)
     ras = [0.3, 2.3, 5.7]
