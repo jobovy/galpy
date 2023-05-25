@@ -840,7 +840,7 @@ _roNecessary = {
     "phasespacedensity2d": True,
     "phasespacedensityvelocity": True,
     "phasespacedensityvelocity2": True,
-    "energydensity": True,
+    "energydensity": False,
     "dimensionless": False,
 }
 _voNecessary = copy.copy(_roNecessary)
@@ -852,6 +852,7 @@ _voNecessary["velocity"] = True
 _voNecessary["velocity2"] = True
 _voNecessary["velocity_kms"] = True
 _voNecessary["energy"] = True
+_voNecessary["energydensity"] = True
 
 
 # Determine whether or not outputs will be physical or not
