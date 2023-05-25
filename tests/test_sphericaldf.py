@@ -738,6 +738,37 @@ def test_osipkovmerritt_hernquist_dMdE_limits():
     return None
 
 
+# Also do the dMdE test for the general f(E,L) case that we implemented in the
+# anisotropicsphericaldf superclass; need to call the super.dMdE method for this
+def test_osipkovmerritt_hernquist_dMdE_limits_generalimplementation():
+    from galpy.df.osipkovmerrittdf import _osipkovmerrittdf
+
+    pot = potential.HernquistPotential(amp=2.3, a=1.3)
+    ras = [2.3, 5.7]
+    dfi = isotropicHernquistdf(pot=pot)
+    dfr = constantbetaHernquistdf(pot=pot, beta=0.99)
+    for ra in ras:
+        dfh = osipkovmerrittHernquistdf(pot=pot, ra=ra)
+        toli, tolr = 1e-3, 1e-1
+        assert (
+            numpy.fabs(
+                super(_osipkovmerrittdf, dfh)._dMdE([pot(0.0, 0.0) + 0.01])
+                / dfi.dMdE(pot(0.0, 0.0) + 0.01)
+                - 1.0
+            )
+            < toli
+        ), "Osipkov-Merritt Hernquist DF does not approach the isotropic DF at E=Emin"
+        assert (
+            numpy.fabs(
+                super(_osipkovmerrittdf, dfh)._dMdE([pot(numpy.inf, 0.0) - 0.05])
+                / dfr.dMdE(pot(numpy.inf, 0.0) - 0.05)
+                - 1.0
+            )
+            < tolr
+        ), "Osipkov-Merritt Hernquist DF does not approach the radial DF at E=Emax"
+    return None
+
+
 def test_osipkovmerritt_hernquist_Qoutofbounds():
     pot = potential.HernquistPotential(amp=2.3, a=1.3)
     ras = [0.3, 2.3, 5.7]

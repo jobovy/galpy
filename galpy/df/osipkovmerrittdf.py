@@ -85,6 +85,64 @@ class _osipkovmerrittdf(anisotropicsphericaldf):
         E, L, _ = args
         return self.fQ(-E - 0.5 * L**2.0 / self._ra2)
 
+    def _dMdE(self, E):
+        if not hasattr(self, "_rphi"):
+            self._rphi = self._setup_rphi_interpolator()
+
+        def Lintegrand(t, L2lim, E):
+            return self((E, numpy.sqrt(L2lim - t**2.0)), use_physical=False)
+
+        # Integrate where Q > 0
+
+        out = (
+            16.0
+            * numpy.pi**2.0
+            * numpy.array(
+                [
+                    integrate.quad(
+                        lambda r: r
+                        * integrate.quad(
+                            Lintegrand,
+                            numpy.sqrt(
+                                numpy.amax(
+                                    [
+                                        (0.0),
+                                        (
+                                            2.0
+                                            * r**2.0
+                                            * (
+                                                tE
+                                                - _evaluatePotentials(self._pot, r, 0.0)
+                                            )
+                                            + 2.0 * tE * self._ra2
+                                        ),
+                                    ]
+                                )
+                            ),
+                            numpy.sqrt(
+                                2.0
+                                * r**2.0
+                                * (tE - _evaluatePotentials(self._pot, r, 0.0))
+                            ),
+                            args=(
+                                2.0
+                                * r**2.0
+                                * (tE - _evaluatePotentials(self._pot, r, 0.0)),
+                                tE,
+                            ),
+                        )[0],
+                        0.0,
+                        self._rphi(tE),
+                    )[0]
+                    for ii, tE in enumerate(E)
+                ]
+            )
+        )
+        # Numerical issues can make the integrand's sqrt argument negative, only
+        # happens at dMdE ~ 0, so just set to zero
+        out[numpy.isnan(out)] = 0.0
+        return out
+
     def _sample_eta(self, r, n=1):
         """Sample the angle eta which defines radial vs tangential velocities"""
         # cumulative distribution of x = cos eta satisfies

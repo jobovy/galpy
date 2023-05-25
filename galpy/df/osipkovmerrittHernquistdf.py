@@ -85,7 +85,7 @@ class osipkovmerrittHernquistdf(_osipkovmerrittdf):
         """
         Qtilde = numpy.atleast_1d(conversion.parse_energy(Q, vo=self._vo) / self._psi0)
         # Handle potential Q outside of bounds
-        Qtilde_out = numpy.where(numpy.logical_or(Qtilde < 0, Qtilde > 1))[0]
+        Qtilde_out = numpy.where(numpy.logical_or(Qtilde < 0.0, Qtilde > 1.0))[0]
         if len(Qtilde_out) > 0:
             # Dummy variable now and 0 later, prevents numerical issues
             Qtilde[Qtilde_out] = 0.5
@@ -93,7 +93,7 @@ class osipkovmerrittHernquistdf(_osipkovmerrittdf):
         # The 'ergodic' part
         fQ = (
             sqrtQtilde
-            / (1 - Qtilde) ** 2.0
+            / (1.0 - Qtilde) ** 2.0
             * (
                 (1.0 - 2.0 * Qtilde) * (8.0 * Qtilde**2.0 - 8.0 * Qtilde - 3.0)
                 + (
