@@ -177,7 +177,7 @@ class sphericaldf(df):
 
         PURPOSE:
 
-            Compute the different energy distribution dM/dE: the amount of mass per unit energy
+            Compute the differential energy distribution dM/dE: the amount of mass per unit energy
 
         INPUT:
 
