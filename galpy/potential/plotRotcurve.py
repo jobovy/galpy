@@ -14,38 +14,34 @@ from ..util.conversion import (
 
 def plotRotcurve(Pot, *args, **kwargs):
     """
-    NAME:
+    Plot the rotation curve for this potential (in the z=0 plane for non-spherical potentials).
 
-       plotRotcurve
+    Parameters
+    ----------
+    Pot : Potential or list of Potential instances
+        Potential instance or list of such instances.
+    Rrange : array_like
+        Range in R to consider (needs to be in the units that you are plotting; can be Quantity).
+    grid : int, optional
+        Grid in R.
+    phi : float, optional
+        Azimuth to use for non-axisymmetric potentials.
+    savefilename : str, optional
+        Save to or restore from this savefile (pickle).
+    *args
+        Arguments passed to `galpy.util.plot.plot`.
+    **kwargs
+        Keyword arguments passed to `galpy.util.plot.plot`.
 
-    PURPOSE:
+    Returns
+    -------
+    matplotlib.Axes
+        Axes on which the plot was drawn.
 
-       plot the rotation curve for this potential (in the z=0 plane for
-       non-spherical potentials)
-
-    INPUT:
-
-       Pot - Potential or list of Potential instances
-
-       Rrange - Range in R to consider (needs to be in the units that you are plotting; can be Quantity)
-
-       grid= grid in R
-
-       phi= (None) azimuth to use for non-axisymmetric potentials
-
-       savefilename= save to or restore from this savefile (pickle)
-
-       +galpy.util.plot.plot args and kwargs
-
-    OUTPUT:
-
-       plot to output device
-
-    HISTORY:
-
-       2010-07-10 - Written - Bovy (NYU)
-
-       2016-06-15 - Added phi= keyword for non-axisymmetric potential - Bovy (UofT)
+    Notes
+    -----
+    - 2010-07-10 - Written - Bovy (NYU)
+    - 2016-06-15 - Added phi= keyword for non-axisymmetric potential - Bovy (UofT)
 
     """
     # Using physical units or not?
@@ -125,34 +121,28 @@ def plotRotcurve(Pot, *args, **kwargs):
 
 def calcRotcurve(Pot, Rs, phi=None, t=0.0):
     """
-    NAME:
+    Calculate the rotation curve for this potential (in the z=0 plane for non-spherical potentials).
 
-       calcRotcurve
+    Parameters
+    ----------
+    Pot : Potential or list of Potential instances
+        Potential instance or list of such instances.
+    Rs : array_like
+        Radius(i).
+    phi : float, optional
+        Azimuth to use for non-axisymmetric potentials.
+    t : float, optional
+        Instantaneous time.
 
-    PURPOSE:
+    Returns
+    -------
+    array_like
+        Array of circular rotation velocities.
 
-       calculate the rotation curve for this potential (in the z=0 plane for
-       non-spherical potentials)
-
-    INPUT:
-
-       Pot - Potential or list of Potential instances
-
-       Rs - (array of) radius(i)
-
-       phi= (None) azimuth to use for non-axisymmetric potentials
-
-       ts - instantaneous time (optional)
-
-    OUTPUT:
-
-       array of vc
-
-    HISTORY:
-
-       2011-04-13 - Written - Bovy (NYU)
-
-       2016-06-15 - Added phi= keyword for non-axisymmetric potential - Bovy (UofT)
+    Notes
+    -----
+    - 2011-04-13 - Written - Bovy (NYU)
+    - 2016-06-15 - Added phi= keyword for non-axisymmetric potential - Bovy (UofT)
 
     """
     try:
@@ -170,34 +160,28 @@ def calcRotcurve(Pot, Rs, phi=None, t=0.0):
 @physical_conversion("velocity", pop=True)
 def vcirc(Pot, R, phi=None, t=0.0):
     """
+    Calculate the circular velocity at R in potential Pot.
 
-    NAME:
+    Parameters
+    ----------
+    Pot : Potential or list of Potential instances
+        Potential instance or list of such instances.
+    R : array_like
+        Galactocentric radius (can be Quantity).
+    phi : float, optional
+        Azimuth to use for non-axisymmetric potentials.
+    t : float, optional
+        Instantaneous time.
 
-       vcirc
+    Returns
+    -------
+    array_like
+        Circular rotation velocity.
 
-    PURPOSE:
-
-       calculate the circular velocity at R in potential Pot
-
-    INPUT:
-
-       Pot - Potential instance or list of such instances
-
-       R - Galactocentric radius (can be Quantity)
-
-       phi= (None) azimuth to use for non-axisymmetric potentials
-
-       t= time (optional; can be Quantity)
-
-    OUTPUT:
-
-       circular rotation velocity
-
-    HISTORY:
-
-       2011-10-09 - Written - Bovy (IAS)
-
-       2016-06-15 - Added phi= keyword for non-axisymmetric potential - Bovy (UofT)
+    Notes
+    -----
+    - 2011-10-09 - Written - Bovy (IAS)
+    - 2016-06-15 - Added phi= keyword for non-axisymmetric potential - Bovy (UofT)
 
     """
     from ..potential import PotentialError, evaluateplanarRforces
@@ -219,34 +203,28 @@ def vcirc(Pot, R, phi=None, t=0.0):
 @physical_conversion("frequency", pop=True)
 def dvcircdR(Pot, R, phi=None, t=0.0):
     """
+    Calculate the derivative of the circular velocity wrt R at R in potential Pot.
 
-    NAME:
+    Parameters
+    ----------
+    Pot : Potential or list of Potential instances
+        Potential instance or list of such instances.
+    R : array_like
+        Galactocentric radius (can be Quantity).
+    phi : float, optional
+        Azimuth to use for non-axisymmetric potentials.
+    t : float, optional
+        Instantaneous time. Default: 0.0
 
-       dvcircdR
+    Returns
+    -------
+    array_like
+        Derivative of the circular rotation velocity wrt R.
 
-    PURPOSE:
-
-       calculate the derivative of the circular velocity wrt R at R in potential Pot
-
-    INPUT:
-
-       Pot - Potential instance or list of such instances
-
-       R - Galactocentric radius (can be Quantity)
-
-       phi= (None) azimuth to use for non-axisymmetric potentials
-
-       t= time (optional; can be Quantity)
-
-    OUTPUT:
-
-       derivative of the circular rotation velocity wrt R
-
-    HISTORY:
-
-       2013-01-08 - Written - Bovy (IAS)
-
-       2016-06-28 - Added phi= keyword for non-axisymmetric potential - Bovy (UofT)
+    Notes
+    -----
+    - 2013-01-08 - Written - Bovy (IAS)
+    - 2016-06-28 - Added phi= keyword for non-axisymmetric potential - Bovy (UofT)
 
     """
     from ..potential import (
