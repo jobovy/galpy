@@ -175,7 +175,9 @@ jobs:
     - uses: mamba-org/setup-micromamba@v1
       with:
          environment-name: gsl
-         channels: conda-forge
+         condarc: |
+            channels:
+              - conda-forge
          create-args: gsl
          cache-environment: true
          cache-environment-key: ${{ runner.os }}-${{ hashFiles('.github/workflows/build_windows.yml') }}

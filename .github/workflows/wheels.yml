@@ -43,7 +43,9 @@ jobs:
         if: matrix.buildplat[1] == 'win' || ( matrix.buildplat[1] == 'macosx' && matrix.buildplat[2] == 'x86_64' )
         with:
           environment-name: gsl
-          channels: conda-forge
+          condarc: |
+            channels:
+              - conda-forge
           create-args: gsl
           cache-environment: true
           cache-environment-key: ${{ matrix.buildplat[1] }}-${{ matrix.buildplat[2] }}-${{ hashFiles('.github/workflows/wheels.yml') }}
