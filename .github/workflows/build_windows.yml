@@ -166,21 +166,19 @@ jobs:
       uses: actions/setup-python@v4
       with:
         python-version: ${{ matrix.python-version }}
-    # Cache both conda and pip, conda done by provision-with-micromamba
+    # Cache both conda and pip, conda done by setup-micromamba
     - uses: actions/cache@v3
       with:
         path: ~\AppData\Local\pip\Cache
         key: ${{ runner.os }}-pip-${{ matrix.python-version }}-${{ hashFiles('.github/workflows/build_windows.yml') }}-${{ matrix.REQUIRES_PYNBODY }}-${{ matrix.REQUIRES_ASTROPY }}-${{ matrix.REQUIRES_ASTROQUERY }}-${{ matrix.REQUIRES_NUMBA }}-${{ matrix.REQUIRES_JAX }}
     # Install just the GSL using conda
-    - uses: mamba-org/provision-with-micromamba@v15
+    - uses: mamba-org/setup-micromamba@v1
       with:
          environment-name: gsl
-         environment-file: false
-         channels: conda-forge,anaconda
-         extra-specs: gsl
-         cache-downloads: true
-         cache-env: true
-         cache-env-key: ${{ runner.os }}-${{ hashFiles('.github/workflows/build_windows.yml') }}
+         channels: conda-forge
+         create-args: gsl
+         cache-environment: true
+         cache-environment-key: ${{ runner.os }}-${{ hashFiles('.github/workflows/build_windows.yml') }}
     - name: Set GSL environment variables
       shell: bash -l {0}
       run: |

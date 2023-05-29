@@ -39,13 +39,14 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - name: Install GSL (Windows / Mac OS x86_64)
-        uses: mamba-org/provision-with-micromamba@v15
+        uses: mamba-org/setup-micromamba@v1
         if: matrix.buildplat[1] == 'win' || ( matrix.buildplat[1] == 'macosx' && matrix.buildplat[2] == 'x86_64' )
         with:
           environment-name: gsl
-          environment-file: false
           channels: conda-forge
-          extra-specs: gsl
+          create-args: gsl
+          cache-environment: true
+          cache-environment-key: ${{ matrix.buildplat[1] }}-${{ matrix.buildplat[2] }}-${{ hashFiles('.github/workflows/wheels.yml') }}
       - name: Set GSL environment variables (Windows)
         if: matrix.buildplat[1] == 'win'
         shell: bash -l {0}
