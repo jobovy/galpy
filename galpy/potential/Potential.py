@@ -80,14 +80,15 @@ class Potential(Force):
 
     def __init__(self, amp=1.0, ro=None, vo=None, amp_units=None):
         """
-        NAME:
-           __init__
-        PURPOSE:
-        INPUT:
-           amp - amplitude to be applied when evaluating the potential and its forces
-           amp_units - ('mass', 'velocity2', 'density') type of units that amp should have if it has units
-        OUTPUT:
-        HISTORY:
+        Initialize a Potential object.
+
+        Parameters
+        ----------
+        amp : float, optional
+            Amplitude to be applied when evaluating the potential and its forces.
+        amp_units : str, optional
+            Type of units that `amp` should have if it has units. Possible values are 'mass', 'velocity2', and 'density'.
+
         """
         Force.__init__(self, amp=amp, ro=ro, vo=vo, amp_units=amp_units)
         self.dim = 3
@@ -102,31 +103,31 @@ class Potential(Force):
     @physical_conversion("energy", pop=True)
     def __call__(self, R, z, phi=0.0, t=0.0, dR=0, dphi=0):
         """
-        NAME:
+        Evaluate the potential at the specified position and time.
 
-           __call__
+        Parameters
+        ----------
+        R : float or Quantity
+            Cylindrical Galactocentric radius.
+        z : float or Quantity
+            Vertical height.
+        phi : float or Quantity, optional
+            Azimuth (default: 0.0).
+        t : float or Quantity, optional
+            Time (default: 0.0).
+        dR : int, optional
+            Order of radial derivative (default: 0).
+        dphi : int, optional
+            Order of azimuthal derivative (default: 0).
 
-        PURPOSE:
+        Returns
+        -------
+        float or Quantity
+            The potential at the specified position and time.
 
-           evaluate the potential at (R,z,phi,t)
-
-        INPUT:
-
-           R - Cylindrical Galactocentric radius (can be Quantity)
-
-           z - vertical height (can be Quantity)
-
-           phi - azimuth (optional; can be Quantity)
-
-           t - time (optional; can be Quantity)
-
-        OUTPUT:
-
-           Phi(R,z,t)
-
-        HISTORY:
-
-           2010-04-16 - Written - Bovy (NYU)
+        Notes
+        -----
+        - 2010-04-16 - Written - Bovy (NYU)
 
         """
         return self._call_nodecorator(R, z, phi=phi, t=t, dR=dR, dphi=dphi)
@@ -159,31 +160,27 @@ class Potential(Force):
     @physical_conversion("force", pop=True)
     def Rforce(self, R, z, phi=0.0, t=0.0):
         """
-        NAME:
+        Evaluate the cylindrical radial force F_R.
 
-           Rforce
+        Parameters
+        ----------
+        R : float or Quantity
+            Cylindrical Galactocentric radius.
+        z : float or Quantity
+            Vertical height.
+        phi : float or Quantity, optional
+            Azimuth (default: 0.0).
+        t : float or Quantity, optional
+            Time (default: 0.0).
 
-        PURPOSE:
+        Returns
+        -------
+        float or Quantity
+            F_R (R,z,phi,t).
 
-           evaluate cylindrical radial force F_R  (R,z)
-
-        INPUT:
-
-           R - Cylindrical Galactocentric radius (can be Quantity)
-
-           z - vertical height (can be Quantity)
-
-           phi - azimuth (optional; can be Quantity)
-
-           t - time (optional; can be Quantity)
-
-        OUTPUT:
-
-           F_R (R,z,phi,t)
-
-        HISTORY:
-
-           2010-04-16 - Written - Bovy (NYU)
+        Notes
+        -----
+        - 2010-04-16 - Written - Bovy (NYU)
 
         """
         return self._Rforce_nodecorator(R, z, phi=phi, t=t)
@@ -201,31 +198,27 @@ class Potential(Force):
     @physical_conversion("force", pop=True)
     def zforce(self, R, z, phi=0.0, t=0.0):
         """
-        NAME:
+        Evaluate the vertical force F_z.
 
-           zforce
+        Parameters
+        ----------
+        R : float or Quantity
+            Cylindrical Galactocentric radius.
+        z : float or Quantity
+            Vertical height.
+        phi : float or Quantity, optional
+            Azimuth (default: 0.0).
+        t : float or Quantity, optional
+            Time (default: 0.0).
 
-        PURPOSE:
+        Returns
+        -------
+        float or Quantity
+            F_z (R,z,phi,t).
 
-           evaluate the vertical force F_z  (R,z,t)
-
-        INPUT:
-
-           R - Cylindrical Galactocentric radius (can be Quantity)
-
-           z - vertical height (can be Quantity)
-
-           phi - azimuth (optional; can be Quantity)
-
-           t - time (optional; can be Quantity)
-
-        OUTPUT:
-
-           F_z (R,z,phi,t)
-
-        HISTORY:
-
-           2010-04-16 - Written - Bovy (NYU)
+        Notes
+        -----
+        - 2010-04-16 - Written - Bovy (NYU)
 
         """
         return self._zforce_nodecorator(R, z, phi=phi, t=t)
@@ -243,34 +236,29 @@ class Potential(Force):
     @physical_conversion("forcederivative", pop=True)
     def r2deriv(self, R, z, phi=0.0, t=0.0):
         """
-        NAME:
+        Evaluate the second spherical radial derivative.
 
-           r2deriv
+        Parameters
+        ----------
+        R : float or Quantity
+            Cylindrical Galactocentric radius.
+        z : float or Quantity
+            Vertical height.
+        phi : float or Quantity, optional
+            Azimuth (default: 0.0).
+        t : float or Quantity, optional
+            Time (default: 0.0).
 
-        PURPOSE:
+        Returns
+        -------
+        float or Quantity
+            d2phi/dr2.
 
-           evaluate the second spherical radial derivative
-
-        INPUT:
-
-           R - Cylindrical Galactocentric radius (can be Quantity)
-
-           z - vertical height (can be Quantity)
-
-           phi - azimuth (optional; can be Quantity)
-
-           t - time (optional; can be Quantity)
-
-        OUTPUT:
-
-           d2phi/dr2
-
-        HISTORY:
-
-           2018-03-21 - Written - Webb (UofT)
+        Notes
+        -----
+        - 2018-03-21 - Written - Webb (UofT)
 
         """
-
         r = numpy.sqrt(R**2.0 + z**2.0)
         return (
             self.R2deriv(R, z, phi=phi, t=t, use_physical=False) * R / r
@@ -284,35 +272,30 @@ class Potential(Force):
     @physical_conversion("density", pop=True)
     def dens(self, R, z, phi=0.0, t=0.0, forcepoisson=False):
         """
-        NAME:
+        Evaluate the density rho(R,z,t).
 
-           dens
+        Parameters
+        ----------
+        R : float or Quantity
+            Cylindrical Galactocentric radius.
+        z : float or Quantity
+            Vertical height.
+        phi : float or Quantity, optional
+            Azimuth (default: 0.0).
+        t : float or Quantity, optional
+            Time (default: 0.0).
+        forcepoisson : bool, optional
+            If True, calculate the density through the Poisson equation, even if an explicit expression for the density exists (default: False).
 
-        PURPOSE:
+        Returns
+        -------
+        float or Quantity
+            rho (R,z,phi,t).
 
-           evaluate the density rho(R,z,t)
-
-        INPUT:
-
-           R - Cylindrical Galactocentric radius (can be Quantity)
-
-           z - vertical height (can be Quantity)
-
-           phi - azimuth (optional; can be Quantity)
-
-           t - time (optional; can be Quantity)
-
-        KEYWORDS:
-
-           forcepoisson= if True, calculate the density through the Poisson equation, even if an explicit expression for the density exists
-
-        OUTPUT:
-
-           rho (R,z,phi,t)
-
-        HISTORY:
-
-           2010-08-08 - Written - Bovy (NYU)
+        Notes
+        -----
+        - 2010-08-08 - Written - Bovy (NYU)
+        - 2018-03-21 - Modified - Webb (UofT)
 
         """
         try:
@@ -336,79 +319,58 @@ class Potential(Force):
     @physical_conversion("surfacedensity", pop=True)
     def surfdens(self, R, z, phi=0.0, t=0.0, forcepoisson=False):
         """
-        NAME:
+        Evaluate the surface density Sigma(R,z,phi,t) = int_{-z}^{+z} dz' rho(R,z',phi,t).
 
-           surfdens
+        Parameters
+        ----------
+        R : float or Quantity
+            Cylindrical Galactocentric radius.
+        z : float or Quantity
+            Vertical height.
+        phi : float or Quantity, optional
+            Azimuth (default: 0.0).
+        t : float or Quantity, optional
+            Time (default: 0.0).
+        forcepoisson : bool, optional
+            If True, calculate the surface density through the Poisson equation, even if an explicit expression for the surface density exists (default: False).
 
-        PURPOSE:
+        Returns
+        -------
+        float or Quantity
+            Sigma(R,z,phi,t).
 
-           evaluate the surface density :math:`\\Sigma(R,z,\\phi,t) = \\int_{-z}^{+z} dz' \\rho(R,z',\\phi,t)`
-
-        INPUT:
-
-           R - Cylindrical Galactocentric radius (can be Quantity)
-
-           z - vertical height (can be Quantity)
-
-           phi - azimuth (optional; can be Quantity)
-
-           t - time (optional; can be Quantity)
-
-        KEYWORDS:
-
-           forcepoisson= if True, calculate the surface density through the Poisson equation, even if an explicit expression for the surface density exists
-
-        OUTPUT:
-
-           Sigma (R,z,phi,t)
-
-        HISTORY:
-
-           2018-08-19 - Written - Bovy (UofT)
-
-           2021-04-19 - Adjusted for non-z-symmetric densities - Bovy (UofT)
+        Notes
+        -----
+        - 2018-08-19 - Written - Bovy (UofT)
+        - 2021-04-19 - Adjusted for non-z-symmetric densities - Bovy (UofT)
 
         """
-        try:
-            if forcepoisson:
-                raise AttributeError  # Hack!
-            return self._amp * self._surfdens(R, z, phi=phi, t=t)
-        except AttributeError:
-            # Use the Poisson equation to get the surface density
-            return (
-                (
-                    -self.zforce(R, numpy.fabs(z), phi=phi, t=t, use_physical=False)
-                    + self.zforce(R, -numpy.fabs(z), phi=phi, t=t, use_physical=False)
-                    + integrate.quad(
-                        lambda x: -self.Rforce(R, x, phi=phi, t=t, use_physical=False)
-                        / R
-                        + self.R2deriv(R, x, phi=phi, t=t, use_physical=False)
-                        + self.phi2deriv(R, x, phi=phi, t=t, use_physical=False)
-                        / R**2.0,
-                        -numpy.fabs(z),
-                        numpy.fabs(z),
-                    )[0]
-                )
-                / 4.0
-                / numpy.pi
-            )
 
     def _surfdens(self, R, z, phi=0.0, t=0.0):
         """
-        NAME:
-           _surfdens
-        PURPOSE:
-           evaluate the surface density for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           the surface density
-        HISTORY:
-           2018-08-19 - Written - Bovy (UofT)
-           2021-04-19 - Adjusted for non-z-symmetric densities - Bovy (UofT)
+        Evaluate the surface density for this potential.
+
+        Parameters
+        ----------
+        R : float or Quantity
+            Cylindrical Galactocentric radius.
+        z : float or Quantity
+            Vertical height.
+        phi : float or Quantity, optional
+            Azimuth (default: 0.0).
+        t : float or Quantity, optional
+            Time (default: 0.0).
+
+        Returns
+        -------
+        float or Quantity
+            The surface density.
+
+        Notes
+        -----
+        - 2018-08-19: Written by Bovy (UofT).
+        - 2021-04-19: Adjusted for non-z-symmetric densities by Bovy (UofT).
+
         """
         return integrate.quad(
             lambda x: self._dens(R, x, phi=phi, t=t), -numpy.fabs(z), numpy.fabs(z)
@@ -418,37 +380,30 @@ class Potential(Force):
     @physical_conversion("mass", pop=True)
     def mass(self, R, z=None, t=0.0, forceint=False):
         """
-        NAME:
+        Evaluate the mass enclosed.
 
-           mass
+        Parameters
+        ----------
+        R : float or Quantity
+            Cylindrical Galactocentric radius.
+        z : float or Quantity, optional
+            Vertical height up to which to integrate (default: None).
+        t : float or Quantity, optional
+            Time (default: 0.0).
+        forceint : bool, optional
+            If True, calculate the mass through integration of the density, even if an explicit expression for the mass exists (default: False).
 
-        PURPOSE:
+        Returns
+        -------
+        float or Quantity
+            Mass enclosed within the spherical shell with radius R if z is None else mass in the slab <R and between -z and z; except: potentials inheriting from EllipsoidalPotential, which if z is None return the mass within the ellipsoidal shell with semi-major axis R.
 
-           evaluate the mass enclosed
-
-        INPUT:
-
-           R - Cylindrical Galactocentric radius (can be Quantity)
-
-           z= (None) vertical height up to which to integrate (can be Quantity)
-
-           t - time (optional; can be Quantity)
-
-           forceint= if True, calculate the mass through integration of the density, even if an explicit expression for the mass exists
-
-        OUTPUT:
-
-           Mass enclosed within the spherical shell with radius R if z is None else mass in the slab <R and between -z and z; except: potentials inheriting from EllipsoidalPotential, which if z is None return the mass within the ellipsoidal shell with semi-major axis R
-
-        HISTORY:
-
-           2014-01-29 - Written - Bovy (IAS)
-
-           2019-08-15 - Added spherical warning - Bovy (UofT)
-
-           2021-03-15 - Changed to integrate to spherical shell for z is None slab otherwise - Bovy (UofT)
-
-           2021-03-18 - Switched to using Gauss' theorem - Bovy (UofT)
+        Notes
+        -----
+        - 2014-01-29 - Written - Bovy (IAS)
+        - 2019-08-15 - Added spherical warning - Bovy (UofT)
+        - 2021-03-15 - Changed to integrate to spherical shell for z is None slab otherwise - Bovy (UofT)
+        - 2021-03-18 - Switched to using Gauss' theorem - Bovy (UofT)
 
         """
         from .EllipsoidalPotential import EllipsoidalPotential
@@ -494,28 +449,23 @@ class Potential(Force):
     @physical_conversion("position", pop=True)
     def rhalf(self, t=0.0, INF=numpy.inf):
         """
+        Calculate the half-mass radius, the radius of the spherical shell that contains half the total mass.
 
-        NAME:
+        Parameters
+        ----------
+        t : float or Quantity, optional
+            Time (default: 0.0).
+        INF : float or Quantity, optional
+            Radius at which the total mass is calculated (default: numpy.inf).
 
-            rhalf
+        Returns
+        -------
+        float or Quantity
+            Half-mass radius.
 
-        PURPOSE:
-
-            calculate the half-mass radius, the radius of the spherical shell that contains half the total mass
-
-        INPUT:
-
-            t= (0.) time (optional; can be Quantity)
-
-            INF= (numpy.inf) radius at which the total mass is calculated (internal units, just set this to something very large)
-
-        OUTPUT:
-
-            half-mass radius
-
-        HISTORY:
-
-            2021-03-18 - Written - Bovy (UofT)
+        Notes
+        -----
+        - 2021-03-18 - Written - Bovy (UofT)
 
         """
         return rhalf(self, t=t, INF=INF, use_physical=False)
@@ -524,27 +474,23 @@ class Potential(Force):
     @physical_conversion("time", pop=True)
     def tdyn(self, R, t=0.0):
         """
-        NAME:
+        Calculate the dynamical time from tdyn^2 = 3pi/[G<rho>]
 
-           tdyn
+        Parameters
+        ----------
+        R : float or Quantity
+            Galactocentric radius.
+        t : float or Quantity, optional
+            Time (default: 0.0).
 
-        PURPOSE:
+        Returns
+        -------
+        float or Quantity
+            Dynamical time.
 
-           calculate the dynamical time from tdyn^2 = 3pi/[G<rho>]
-
-        INPUT:
-
-           R - Galactocentric radius (can be Quantity)
-
-           t= (0.) time (optional; can be Quantity)
-
-        OUTPUT:
-
-           Dynamical time
-
-        HISTORY:
-
-           2021-03-18 - Written - Bovy (UofT)
+        Notes
+        -----
+        - 2021-03-18 - Written - Bovy (UofT)
 
         """
         return 2.0 * numpy.pi * R * numpy.sqrt(R / self.mass(R, use_physical=False))
@@ -563,39 +509,33 @@ class Potential(Force):
         use_physical=False,
     ):  # use_physical necessary bc of pop=False, does nothing inside
         """
-        NAME:
+        Calculate the virial mass.
 
-           mvir
+        Parameters
+        ----------
+        H : float, optional
+            Hubble constant in km/s/Mpc (default: 70).
+        Om : float, optional
+            Omega matter (default: 0.3).
+        overdens : float, optional
+            Overdensity which defines the virial radius (default: 200).
+        wrtcrit : bool, optional
+            If True, the overdensity is wrt the critical density rather than the mean matter density (default: False).
+        ro : float or Quantity, optional
+            Distance scale in kpc (default: object-wide, which if not set is 8 kpc).
+        vo : float or Quantity, optional
+            Velocity scale in km/s (default: object-wide, which if not set is 220 km/s).
+        forceint : bool, optional
+            If True, calculate the mass through integration of the density, even if an explicit expression for the mass exists.
 
-        PURPOSE:
+        Returns
+        -------
+        float or Quantity
+            M(<rvir).
 
-           calculate the virial mass
-
-        INPUT:
-
-           H= (default: 70) Hubble constant in km/s/Mpc
-
-           Om= (default: 0.3) Omega matter
-
-           overdens= (200) overdensity which defines the virial radius
-
-           wrtcrit= (False) if True, the overdensity is wrt the critical density rather than the mean matter density
-
-           ro= distance scale in kpc or as Quantity (default: object-wide, which if not set is 8 kpc))
-
-           vo= velocity scale in km/s or as Quantity (default: object-wide, which if not set is 220 km/s))
-
-        KEYWORDS:
-
-           forceint= if True, calculate the mass through integration of the density, even if an explicit expression for the mass exists
-
-        OUTPUT:
-
-           M(<rvir)
-
-        HISTORY:
-
-           2014-09-12 - Written - Bovy (IAS)
+        Notes
+        -----
+        - 2014-09-12 - Written - Bovy (IAS)
 
         """
         if ro is None:
@@ -624,31 +564,27 @@ class Potential(Force):
     @physical_conversion("forcederivative", pop=True)
     def R2deriv(self, R, z, phi=0.0, t=0.0):
         """
-        NAME:
+        Evaluate the second radial derivative.
 
-           R2deriv
+        Parameters
+        ----------
+        R : float or Quantity
+            Galactocentric radius.
+        z : float or Quantity
+            Vertical height.
+        phi : float or Quantity, optional
+            Galactocentric azimuth (default: 0.0).
+        t : float or Quantity, optional
+            Time (default: 0.0).
 
-        PURPOSE:
+        Returns
+        -------
+        float or Quantity
+            d2phi/dR2.
 
-           evaluate the second radial derivative
-
-        INPUT:
-
-           R - Galactocentric radius (can be Quantity)
-
-           z - vertical height (can be Quantity)
-
-           phi - Galactocentric azimuth (can be Quantity)
-
-           t - time (can be Quantity)
-
-        OUTPUT:
-
-           d2phi/dR2
-
-        HISTORY:
-
-           2011-10-09 - Written - Bovy (IAS)
+        Notes
+        -----
+        - 2011-10-09 - Written - Bovy (IAS)
 
         """
         try:
@@ -662,31 +598,27 @@ class Potential(Force):
     @physical_conversion("forcederivative", pop=True)
     def z2deriv(self, R, z, phi=0.0, t=0.0):
         """
-        NAME:
+        Evaluate the second vertical derivative.
 
-           z2deriv
+        Parameters
+        ----------
+        R : float or Quantity
+            Galactocentric radius.
+        z : float or Quantity
+            Vertical height.
+        phi : float or Quantity, optional
+            Galactocentric azimuth (default: 0.0).
+        t : float or Quantity, optional
+            Time (default: 0.0).
 
-        PURPOSE:
+        Returns
+        -------
+        float or Quantity
+            d2phi/dz2.
 
-           evaluate the second vertical derivative
-
-        INPUT:
-
-           R - Galactocentric radius (can be Quantity)
-
-           z - vertical height (can be Quantity)
-
-           phi - Galactocentric azimuth (can be Quantity)
-
-           t - time (can be Quantity)
-
-        OUTPUT:
-
-           d2phi/dz2
-
-        HISTORY:
-
-           2012-07-25 - Written - Bovy (IAS@MPIA)
+        Notes
+        -----
+        - 2012-07-25 - Written - Bovy (IAS@MPIA)
 
         """
         try:
@@ -700,31 +632,27 @@ class Potential(Force):
     @physical_conversion("forcederivative", pop=True)
     def Rzderiv(self, R, z, phi=0.0, t=0.0):
         """
-        NAME:
+        Evaluate the mixed R,z derivative.
 
-           Rzderiv
+        Parameters
+        ----------
+        R : float or Quantity
+            Galactocentric radius.
+        z : float or Quantity
+            Vertical height.
+        phi : float or Quantity, optional
+            Galactocentric azimuth (default: 0.0).
+        t : float or Quantity, optional
+            Time (default: 0.0).
 
-        PURPOSE:
+        Returns
+        -------
+        float or Quantity
+            d2phi/dz/dR.
 
-           evaluate the mixed R,z derivative
-
-        INPUT:
-
-           R - Galactocentric radius (can be Quantity)
-
-           Z - vertical height (can be Quantity)
-
-           phi - Galactocentric azimuth (can be Quantity)
-
-           t - time (can be Quantity)
-
-        OUTPUT:
-
-           d2phi/dz/dR
-
-        HISTORY:
-
-           2013-08-26 - Written - Bovy (IAS)
+        Notes
+        -----
+        - 2013-08-26 - Written - Bovy (IAS)
 
         """
         try:
@@ -736,27 +664,20 @@ class Potential(Force):
 
     def normalize(self, norm):
         """
-        NAME:
+        Normalize a potential in such a way that vc(R=1,z=0)=1., or a fraction of this.
 
-           normalize
+        Parameters
+        ----------
+        norm : float
+            Normalize such that Rforce(R=1,z=0) is such that it is 'norm' of the force necessary to make vc(R=1,z=0)=1 (if True, norm=1).
 
-        PURPOSE:
+        Returns
+        -------
+        None
 
-           normalize a potential in such a way that vc(R=1,z=0)=1., or a
-           fraction of this
-
-        INPUT:
-
-           norm - normalize such that Rforce(R=1,z=0) is such that it is 'norm' of the force necessary to make vc(R=1,z=0)=1 (if True, norm=1)
-
-        OUTPUT:
-
-           (none)
-
-        HISTORY:
-
-
-           2010-07-10 - Written - Bovy (NYU)
+        Notes
+        -----
+        - 2010-07-10 - Written - Bovy (NYU)
 
         """
         self._amp *= norm / numpy.fabs(self.Rforce(1.0, 0.0, use_physical=False))
@@ -765,32 +686,27 @@ class Potential(Force):
     @physical_conversion("energy", pop=True)
     def phitorque(self, R, z, phi=0.0, t=0.0):
         """
-        NAME:
+        Evaluate the azimuthal torque.
 
-           phitorque
+        Parameters
+        ----------
+        R : float or Quantity
+            Cylindrical Galactocentric radius.
+        z : float or Quantity
+            Vertical height.
+        phi : float or Quantity, optional
+            Azimuth (default: 0.0).
+        t : float or Quantity, optional
+            Time (default: 0.0).
 
-        PURPOSE:
+        Returns
+        -------
+        float or Quantity
+            tau_phi(R, z, phi, t).
 
-           evaluate the azimuthal torque tau_phi = -d Phi / d phi (R,z,phi,t)
-
-        INPUT:
-
-           R - Cylindrical Galactocentric radius (can be Quantity)
-
-           z - vertical height (can be Quantity)
-
-           phi - azimuth (rad; can be Quantity)
-
-           t - time (optional; can be Quantity)
-
-        OUTPUT:
-
-           tau_phi (R,z,phi,t)
-
-        HISTORY:
-
-           2010-07-10 - Written - Bovy (NYU)
-
+        Notes
+        -----
+        - 2010-07-10: Written by Bovy (NYU)
         """
         return self._phitorque_nodecorator(R, z, phi=phi, t=t)
 
@@ -809,32 +725,27 @@ class Potential(Force):
     @physical_conversion("energy", pop=True)
     def phi2deriv(self, R, z, phi=0.0, t=0.0):
         """
-        NAME:
+        Evaluate the second azimuthal derivative.
 
-           phi2deriv
+        Parameters
+        ----------
+        R : float or Quantity
+            Cylindrical Galactocentric radius.
+        z : float or Quantity
+            Vertical height.
+        phi : float or Quantity, optional
+            Azimuth (default: 0.0).
+        t : float or Quantity, optional
+            Time (default: 0.0).
 
-        PURPOSE:
+        Returns
+        -------
+        float or Quantity
+            d2Phi/dphi2.
 
-           evaluate the second azimuthal derivative
-
-        INPUT:
-
-           R - Galactocentric radius (can be Quantity)
-
-           Z - vertical height (can be Quantity)
-
-           phi - Galactocentric azimuth (can be Quantity)
-
-           t - time (can be Quantity)
-
-        OUTPUT:
-
-           d2Phi/dphi2
-
-        HISTORY:
-
-           2013-09-24 - Written - Bovy (IAS)
-
+        Notes
+        -----
+        - 2013-09-24 - Written - Bovy (IAS)
         """
         try:
             return self._amp * self._phi2deriv(R, z, phi=phi, t=t)
@@ -849,32 +760,27 @@ class Potential(Force):
     @physical_conversion("force", pop=True)
     def Rphideriv(self, R, z, phi=0.0, t=0.0):
         """
-        NAME:
+        Evaluate the mixed radial, azimuthal derivative.
 
-           Rphideriv
+        Parameters
+        ----------
+        R : float or Quantity
+            Cylindrical Galactocentric radius.
+        z : float or Quantity
+            Vertical height.
+        phi : float or Quantity, optional
+            Azimuth (default: 0.0).
+        t : float or Quantity, optional
+            Time (default: 0.0).
 
-        PURPOSE:
+        Returns
+        -------
+        float or Quantity
+            d2Phi/dphidR.
 
-           evaluate the mixed radial, azimuthal derivative
-
-        INPUT:
-
-           R - Galactocentric radius (can be Quantity)
-
-           Z - vertical height (can be Quantity)
-
-           phi - Galactocentric azimuth (can be Quantity)
-
-           t - time (can be Quantity)
-
-        OUTPUT:
-
-           d2Phi/dphidR
-
-        HISTORY:
-
-           2014-06-30 - Written - Bovy (IAS)
-
+        Notes
+        -----
+        - 2014-06-30: Written by Bovy (IAS)
         """
         try:
             return self._amp * self._Rphideriv(R, z, phi=phi, t=t)
@@ -889,31 +795,27 @@ class Potential(Force):
     @physical_conversion("force", pop=True)
     def phizderiv(self, R, z, phi=0.0, t=0.0):
         """
-        NAME:
+        Evaluate the mixed azimuthal, vertical derivative.
 
-           phizderiv
+        Parameters
+        ----------
+        R : float or Quantity
+            Cylindrical Galactocentric radius.
+        z : float or Quantity
+            Vertical height.
+        phi : float or Quantity, optional
+            Azimuth (default: 0.0).
+        t : float or Quantity, optional
+            Time (default: 0.0).
 
-        PURPOSE:
+        Returns
+        -------
+        float or Quantity
+            d2Phi/dphidz.
 
-           evaluate the mixed azimuthal,vertical derivative
-
-        INPUT:
-
-           R - Galactocentric radius (can be Quantity)
-
-           Z - vertical height (can be Quantity)
-
-           phi - Galactocentric azimuth (can be Quantity)
-
-           t - time (can be Quantity)
-
-        OUTPUT:
-
-           d2Phi/dphidz
-
-        HISTORY:
-
-           2021-04-30 - Written - Bovy (UofT)
+        Notes
+        -----
+        - 2021-04-30 - Written - Bovy (UofT)
 
         """
         try:
@@ -925,32 +827,35 @@ class Potential(Force):
                 )
             return 0.0
 
+    def toPlanar(self):
+        """
+        Convert a 3D potential into a planar potential in the mid-plane.
+
+        Returns
+        -------
+        planarPotential
+        """
+        from ..potential import toPlanarPotential
+
+        return toPlanarPotential(self)
+
     def toVertical(self, R, phi=None, t0=0.0):
         """
-        NAME:
+        Convert a 3D potential into a linear (vertical) potential at R.
 
-           toVertical
+        Parameters
+        ----------
+        R : float or Quantity
+            Galactocentric radius at which to create the vertical potential.
+        phi : float or Quantity, optional
+            Galactocentric azimuth at which to create the vertical potential; required for non-axisymmetric potential.
+        t0 : float or Quantity, optional
+            Time at which to create the vertical potential (default: 0.0)
 
-        PURPOSE:
-
-           convert a 3D potential into a linear (vertical) potential at R
-
-        INPUT:
-
-           R - Galactocentric radius at which to create the vertical potential (can be Quantity)
-
-           phi= (None) Galactocentric azimuth at which to create the vertical potential (can be Quantity); required for non-axisymmetric potential
-
-           t0= (0.) time at which to create the vertical potential (can be Quantity)
-
-        OUTPUT:
-
-           linear (vertical) potential: Phi(z,phi,t) = Phi(R,z,phi,t)-Phi(R,0.,phi0,t0) where phi0 and t0 are the phi and t inputs
-
-        HISTORY
-
-           unknown
-
+        Returns
+        -------
+        linear (vertical) potential : function
+            Phi(z,phi,t) = Phi(R,z,phi,t)-Phi(R,0.,phi0,t0) where phi0 and t0 are the phi and t inputs.
         """
         from ..potential import toVerticalPotential
 
@@ -977,62 +882,80 @@ class Potential(Force):
         ncontours=21,
         savefilename=None,
     ):
-        """
-        NAME:
+        def plot(
+            self,
+            t=0.0,
+            rmin=0.0,
+            rmax=1.5,
+            nrs=21,
+            zmin=-0.5,
+            zmax=0.5,
+            nzs=21,
+            phi=None,
+            xy=False,
+            effective=False,
+            Lz=None,
+            justcontours=False,
+            savefilename=None,
+            xrange=None,
+            yrange=None,
+            levels=None,
+            cntrcolors=None,
+            ncontours=21,
+        ):
+            """
+            Plot the potential.
 
-           plot
+            Parameters
+            ----------
+            t : float, optional
+                Time to plot potential at. Default is 0.0.
+            rmin : float or Quantity, optional
+                Minimum R. Default is 0.0.
+            rmax : float or Quantity, optional
+                Maximum R. Default is 1.5.
+            nrs : int, optional
+                Grid in R. Default is 21.
+            zmin : float or Quantity, optional
+                Minimum z. Default is -0.5.
+            zmax : float or Quantity, optional
+                Maximum z. Default is 0.5.
+            nzs : int, optional
+                Grid in z. Default is 21.
+            phi : float or Quantity, optional
+                Azimuth to use for non-axisymmetric potentials. Default is None.
+            xy : bool, optional
+                If True, plot the potential in X-Y. Default is False.
+            effective : bool, optional
+                If True, plot the effective potential Phi + Lz^2/2/R^2. Default is False.
+            Lz : float or Quantity, optional
+                Angular momentum to use for the effective potential when effective=True. Default is None.
+            justcontours : bool, optional
+                If True, just plot contours. Default is False.
+            savefilename : str, optional
+                Save to or restore from this savefile (pickle). Default is None.
+            xrange : list, optional
+                Can be specified independently from rmin, zmin, etc. Default is None.
+            yrange : list, optional
+                Can be specified independently from rmin, zmin, etc. Default is None.
+            levels : list, optional
+                Contours to plot. Default is None.
+            cntrcolors : str or list, optional
+                Colors of the contours (single color or array with length ncontours). Default is None.
+            ncontours : int, optional
+                Number of contours when levels is None. Default is 21.
 
-        PURPOSE:
+            Returns
+            -------
+            None
 
-           plot the potential
+            Notes
+            -----
+            - 2010-07-09 - Written - Bovy (NYU)
+            - 2014-04-08 - Added effective= - Bovy (IAS)
 
-        INPUT:
+            """
 
-           t= time to plot potential at
-
-           rmin= minimum R (can be Quantity) [xmin if xy]
-
-           rmax= maximum R (can be Quantity) [ymax if xy]
-
-           nrs= grid in R
-
-           zmin= minimum z (can be Quantity) [ymin if xy]
-
-           zmax= maximum z (can be Quantity) [ymax if xy]
-
-           nzs= grid in z
-
-           phi= (None) azimuth to use for non-axisymmetric potentials
-
-           xy= (False) if True, plot the potential in X-Y
-
-           effective= (False) if True, plot the effective potential Phi + Lz^2/2/R^2
-
-           Lz= (None) angular momentum to use for the effective potential when effective=True
-
-           justcontours= (False) if True, just plot contours
-
-           savefilename - save to or restore from this savefile (pickle)
-
-           xrange, yrange= can be specified independently from rmin,zmin, etc.; when x/yrange is set, the grid is set up as numpy.linspace(x/yrange[0],x/yrange[1],nrs/zs)
-
-           levels= (None) contours to plot
-
-           ncontours - number of contours when levels is None
-
-           cntrcolors= (None) colors of the contours (single color or array with length ncontours)
-
-        OUTPUT:
-
-           plot to output device
-
-        HISTORY:
-
-           2010-07-09 - Written - Bovy (NYU)
-
-           2014-04-08 - Added effective= - Bovy (IAS)
-
-        """
         if effective and xy:
             raise RuntimeError("xy and effective cannot be True at the same time")
         rmin = conversion.parse_length(rmin, ro=self._ro)
@@ -1127,49 +1050,44 @@ class Potential(Force):
         **kwargs,
     ):
         """
-        NAME:
+        Plot the density of this potential.
 
-           plotDensity
+        Parameters
+        ----------
+        t : float, optional
+            Time to plot potential at.
+        rmin : float or Quantity, optional
+            Minimum R. If `xy` is True, this is `xmin`.
+        rmax : float or Quantity, optional
+            Maximum R. If `xy` is True, this is `ymax`.
+        nrs : int, optional
+            Grid in R.
+        zmin : float or Quantity, optional
+            Minimum z. If `xy` is True, this is `ymin`.
+        zmax : float or Quantity, optional
+            Maximum z. If `xy` is True, this is `ymax`.
+        nzs : int, optional
+            Grid in z.
+        phi : float, optional
+            Azimuth to use for non-axisymmetric potentials.
+        xy : bool, optional
+            If True, plot the density in X-Y.
+        ncontours : int, optional
+            Number of contours.
+        justcontours : bool, optional
+            If True, just plot contours.
+        savefilename : str, optional
+            Save to or restore from this savefile (pickle).
+        log : bool, optional
+            If True, plot the log density.
 
-        PURPOSE:
+        Returns
+        -------
+        None
 
-           plot the density of this potential
-
-        INPUT:
-
-           t= time to plot potential at
-
-           rmin= minimum R (can be Quantity) [xmin if xy]
-
-           rmax= maximum R (can be Quantity) [ymax if xy]
-
-           nrs= grid in R
-
-           zmin= minimum z (can be Quantity) [ymin if xy]
-
-           zmax= maximum z (can be Quantity) [ymax if xy]
-
-           nzs= grid in z
-
-           phi= (None) azimuth to use for non-axisymmetric potentials
-
-           xy= (False) if True, plot the density in X-Y
-
-           ncontours= number of contours
-
-           justcontours= (False) if True, just plot contours
-
-           savefilename= save to or restore from this savefile (pickle)
-
-           log= if True, plot the log density
-
-        OUTPUT:
-
-           plot to output device
-
-        HISTORY:
-
-           2014-01-05 - Written - Bovy (IAS)
+        Notes
+        -----
+        - 2014-01-05: Written - Bovy (IAS)
 
         """
         return plotDensities(
@@ -1209,47 +1127,44 @@ class Potential(Force):
         **kwargs,
     ):
         """
-        NAME:
+        Plot the surface density of this potential.
 
-           plotSurfaceDensity
+        Parameters
+        ----------
+        t : float, optional
+            Time to plot potential at.
+        z : float or Quantity, optional
+            Height between which to integrate the density (from -z to z).
+        xmin : float or Quantity, optional
+            Minimum x.
+        xmax : float or Quantity, optional
+            Maximum x.
+        nxs : int, optional
+            Grid in x.
+        ymin : float or Quantity, optional
+            Minimum y.
+        ymax : float or Quantity, optional
+            Maximum y.
+        nys : int, optional
+            Grid in y.
+        ncontours : int, optional
+            Number of contours.
+        justcontours : bool, optional
+            If True, just plot contours.
+        savefilename : str, optional
+            Save to or restore from this savefile (pickle).
+        log : bool, optional
+            If True, plot the log density.
+        **kwargs : dict, optional
+            Any additional keyword arguments are passed to `galpy.util.plot.dens2d`.
 
-        PURPOSE:
+        Returns
+        -------
+        None
 
-           plot the surface density of this potential
-
-        INPUT:
-
-           t= time to plot potential at
-
-           z= (inf) height between which to integrate the density (from -z to z; can be a Quantity)
-
-           xmin= minimum x (can be Quantity)
-
-           xmax= maximum x (can be Quantity)
-
-           nxs= grid in x
-
-           ymin= minimum y (can be Quantity)
-
-           ymax= maximum y (can be Quantity)
-
-           nys= grid in y
-
-           ncontours= number of contours
-
-           justcontours= (False) if True, just plot contours
-
-           savefilename= save to or restore from this savefile (pickle)
-
-           log= if True, plot the log density
-
-        OUTPUT:
-
-           plot to output device
-
-        HISTORY:
-
-           2020-08-19 - Written - Bovy (UofT)
+        Notes
+        -----
+        - 2020-08-19: Written - Bovy (UofT)
 
         """
         return plotSurfaceDensities(
@@ -1274,32 +1189,26 @@ class Potential(Force):
     @physical_conversion("velocity", pop=True)
     def vcirc(self, R, phi=None, t=0.0):
         """
+        Calculate the circular velocity at R in this potential.
 
-        NAME:
+        Parameters
+        ----------
+        R : float or Quantity
+            Galactocentric radius.
+        phi : float, optional
+            Azimuth to use for non-axisymmetric potentials.
+        t : float or Quantity, optional
+            Time.
 
-            vcirc
+        Returns
+        -------
+        float or Quantity
+            Circular rotation velocity.
 
-        PURPOSE:
-
-            calculate the circular velocity at R in this potential
-
-        INPUT:
-
-            R - Galactocentric radius (can be Quantity)
-
-            phi= (None) azimuth to use for non-axisymmetric potentials
-
-            t - time (optional; can be Quantity)
-
-        OUTPUT:
-
-            circular rotation velocity
-
-        HISTORY:
-
-            2011-10-09 - Written - Bovy (IAS)
-
-            2016-06-15 - Added phi= keyword for non-axisymmetric potential - Bovy (UofT)
+        Notes
+        -----
+        - 2011-10-09: Written - Bovy (IAS)
+        - 2016-06-15: Added phi= keyword for non-axisymmetric potential - Bovy (UofT)
 
         """
         return numpy.sqrt(R * -self.Rforce(R, 0.0, phi=phi, t=t, use_physical=False))
@@ -1308,33 +1217,26 @@ class Potential(Force):
     @physical_conversion("frequency", pop=True)
     def dvcircdR(self, R, phi=None, t=0.0):
         """
+        Calculate the derivative of the circular velocity at R with respect to R in this potential.
 
-        NAME:
+        Parameters
+        ----------
+        R : float or Quantity
+            Galactocentric radius.
+        phi : float, optional
+            Azimuth to use for non-axisymmetric potentials.
+        t : float or Quantity, optional
+            Time. Default: 0.0
 
-            dvcircdR
+        Returns
+        -------
+        float or Quantity
+            Derivative of the circular rotation velocity with respect to R.
 
-        PURPOSE:
-
-            calculate the derivative of the circular velocity at R wrt R
-            in this potential
-
-        INPUT:
-
-            R - Galactocentric radius (can be Quantity)
-
-            phi= (None) azimuth to use for non-axisymmetric potentials
-
-            t - time (optional; can be Quantity)
-
-        OUTPUT:
-
-            derivative of the circular rotation velocity wrt R
-
-        HISTORY:
-
-            2013-01-08 - Written - Bovy (IAS)
-
-            2016-06-28 - Added phi= keyword for non-axisymmetric potential - Bovy (UofT)
+        Notes
+        -----
+        - 2013-01-08: Written - Bovy (IAS)
+        - 2016-06-28: Added phi= keyword for non-axisymmetric potential - Bovy (UofT)
 
         """
         return (
@@ -1350,28 +1252,23 @@ class Potential(Force):
     @physical_conversion("frequency", pop=True)
     def omegac(self, R, t=0.0):
         """
+        Calculate the circular angular speed at R in this potential.
 
-        NAME:
+        Parameters
+        ----------
+        R : float or Quantity
+            Galactocentric radius.
+        t : float or Quantity, optional
+            Time. Default: 0.0
 
-            omegac
+        Returns
+        -------
+        float or Quantity
+            Circular angular speed.
 
-        PURPOSE:
-
-            calculate the circular angular speed at R in this potential
-
-        INPUT:
-
-            R - Galactocentric radius (can be Quantity)
-
-            t - time (optional; can be Quantity)
-
-        OUTPUT:
-
-            circular angular speed
-
-        HISTORY:
-
-            2011-10-09 - Written - Bovy (IAS)
+        Notes
+        -----
+        - 2011-10-09: Written - Bovy (IAS)
 
         """
         return numpy.sqrt(-self.Rforce(R, 0.0, t=t, use_physical=False) / R)
@@ -1380,28 +1277,23 @@ class Potential(Force):
     @physical_conversion("frequency", pop=True)
     def epifreq(self, R, t=0.0):
         """
+        Calculate the epicycle frequency at R in this potential.
 
-        NAME:
+        Parameters
+        ----------
+        R : float or Quantity
+            Galactocentric radius.
+        t : float or Quantity, optional
+            Time. Default: 0.0
 
-           epifreq
+        Returns
+        -------
+        float or Quantity
+            Epicycle frequency.
 
-        PURPOSE:
-
-           calculate the epicycle frequency at R in this potential
-
-        INPUT:
-
-           R - Galactocentric radius (can be Quantity)
-
-           t - time (optional; can be Quantity)
-
-        OUTPUT:
-
-           epicycle frequency
-
-        HISTORY:
-
-           2011-10-09 - Written - Bovy (IAS)
+        Notes
+        -----
+        - 2011-10-09: Written - Bovy (IAS)
 
         """
         return numpy.sqrt(
@@ -1413,28 +1305,23 @@ class Potential(Force):
     @physical_conversion("frequency", pop=True)
     def verticalfreq(self, R, t=0.0):
         """
+        Calculate the vertical frequency at R in this potential.
 
-        NAME:
+        Parameters
+        ----------
+        R : float or Quantity
+            Galactocentric radius.
+        t : float or Quantity, optional
+            Time. Default: 0.0
 
-           verticalfreq
+        Returns
+        -------
+        float or Quantity
+            Vertical frequency.
 
-        PURPOSE:
-
-           calculate the vertical frequency at R in this potential
-
-        INPUT:
-
-           R - Galactocentric radius (can be Quantity)
-
-           t - time (optional; can be Quantity)
-
-        OUTPUT:
-
-           vertical frequency
-
-        HISTORY:
-
-           2012-07-25 - Written - Bovy (IAS@MPIA)
+        Notes
+        -----
+        - 2012-07-25: Written - Bovy (IAS@MPIA)
 
         """
         return numpy.sqrt(self.z2deriv(R, 0.0, t=t, use_physical=False))
@@ -1442,32 +1329,29 @@ class Potential(Force):
     @physical_conversion("position", pop=True)
     def lindbladR(self, OmegaP, m=2, t=0.0, **kwargs):
         """
+        Calculate the radius of a Lindblad resonance.
 
-        NAME:
+        Parameters
+        ----------
+        OmegaP : float or Quantity
+            Pattern speed.
+        m : int or str, optional
+            Order of the resonance (as in m(O-Op)=kappa (negative m for outer)).
+            Use m='corotation' for corotation.
+            Default: 2.
+        t : float or Quantity, optional
+            Time. Default: 0.0.
+        **kwargs: dict, optional
+            Additional parameters passed to scipy.optimize.brentq.
 
-           lindbladR
+        Returns
+        -------
+        float or Quantity or None
+            Radius of Lindblad resonance. None if there is no resonance.
 
-        PURPOSE:
-
-            calculate the radius of a Lindblad resonance
-
-        INPUT:
-
-           OmegaP - pattern speed (can be Quantity)
-
-           m= order of the resonance (as in m(O-Op)=kappa (negative m for outer)
-              use m='corotation' for corotation
-              +scipy.optimize.brentq xtol,rtol,maxiter kwargs
-
-           t - time (optional; can be Quantity)
-
-        OUTPUT:
-
-           radius of Linblad resonance, None if there is no resonance
-
-        HISTORY:
-
-           2011-10-09 - Written - Bovy (IAS)
+        Notes
+        -----
+        - 2011-10-09: Written - Bovy (IAS)
 
         """
         OmegaP = conversion.parse_frequency(OmegaP, ro=self._ro, vo=self._vo)
@@ -1477,28 +1361,23 @@ class Potential(Force):
     @physical_conversion("velocity", pop=True)
     def vesc(self, R, t=0.0):
         """
+        Calculate the escape velocity at R for this potential.
 
-        NAME:
+        Parameters
+        ----------
+        R : float or Quantity
+            Galactocentric radius.
+        t : float or Quantity, optional
+            Time. Default: 0.0.
 
-            vesc
+        Returns
+        -------
+        float or Quantity
+            Escape velocity.
 
-        PURPOSE:
-
-            calculate the escape velocity at R for this potential
-
-        INPUT:
-
-            R - Galactocentric radius (can be Quantity)
-
-            t - time (optional; can be Quantity)
-
-        OUTPUT:
-
-            escape velocity
-
-        HISTORY:
-
-            2011-10-09 - Written - Bovy (IAS)
+        Notes
+        -----
+        - Written on 2011-10-09 by Bovy (IAS)
 
         """
         return numpy.sqrt(
@@ -1512,33 +1391,28 @@ class Potential(Force):
     @physical_conversion("position", pop=True)
     def rl(self, lz, t=0.0):
         """
-        NAME:
+        Calculate the radius of a circular orbit of Lz.
 
-            rl
+        Parameters
+        ----------
+        lz : float or Quantity
+            Angular momentum.
+        t : float or Quantity, optional
+            Time. Default: 0.0.
 
-        PURPOSE:
+        Returns
+        -------
+        float or Quantity
+            Radius.
 
-            calculate the radius of a circular orbit of Lz
+        Notes
+        -----
+        - 2012-07-30: Written - Bovy (IAS@MPIA)
+        - An efficient way to call this function on many objects is provided as the Orbit method rguiding.
 
-        INPUT:
-
-            lz - Angular momentum (can be Quantity)
-
-            t - time (optional; can be Quantity)
-
-        OUTPUT:
-
-            radius
-
-        HISTORY:
-
-            2012-07-30 - Written - Bovy (IAS@MPIA)
-
-        NOTE:
-
-            An efficient way to call this function on many objects is
-            provided as the Orbit method rguiding
-
+        See Also
+        --------
+        galpy.orbit.Orbit.rguiding
         """
         lz = conversion.parse_angmom(lz, ro=self._ro, vo=self._vo)
         return rl(self, lz, t=t, use_physical=False)
@@ -1546,33 +1420,28 @@ class Potential(Force):
     @physical_conversion("position", pop=True)
     def rE(self, E, t=0.0):
         """
-        NAME:
+        Calculate the radius of a circular orbit with energy E.
 
-            rE
+        Parameters
+        ----------
+        E : float or Quantity
+            Energy.
+        t : float or Quantity, optional
+            Time. Default: 0.0.
 
-        PURPOSE:
+        Returns
+        -------
+        float or Quantity
+            Radius.
 
-            calculate the radius of a circular orbit with energy E
+        Notes
+        -----
+        - 2022-04-06: Written - Bovy (UofT)
+        - An efficient way to call this function on many objects is provided as the Orbit method rE.
 
-        INPUT:
-
-            E - Energy (can be Quantity)
-
-            t - time (optional; can be Quantity)
-
-        OUTPUT:
-
-            radius
-
-        HISTORY:
-
-            2022-04-06 - Written - Bovy (UofT)
-
-        NOTE:
-
-            An efficient way to call this function on many objects is
-            provided as the Orbit method rE
-
+        See Also
+        --------
+        galpy.orbit.Orbit.rE
         """
         E = conversion.parse_energy(E, ro=self._ro, vo=self._vo)
         return rE(self, E, t=t, use_physical=False)
@@ -1580,27 +1449,23 @@ class Potential(Force):
     @physical_conversion("action", pop=True)
     def LcE(self, E, t=0.0):
         """
-        NAME:
+        Calculate the angular momentum of a circular orbit with energy E.
 
-            LcE
+        Parameters
+        ----------
+        E : float or Quantity
+            Energy.
+        t : float or Quantity, optional
+            Time. Default: 0.0.
 
-        PURPOSE:
+        Returns
+        -------
+        float or Quantity
+            Lc(E).
 
-            calculate the angular momentum of a circular orbit with energy E
-
-        INPUT:
-
-            E - Energy (can be Quantity)
-
-            t - time (optional; can be Quantity)
-
-        OUTPUT:
-
-            Lc(E)
-
-        HISTORY:
-
-            2022-04-06 - Written - Bovy (UofT)
+        Notes
+        -----
+        - 2022-04-06: Written by Bovy (UofT).
 
         """
         E = conversion.parse_energy(E, ro=self._ro, vo=self._vo)
@@ -1610,30 +1475,25 @@ class Potential(Force):
     @physical_conversion("dimensionless", pop=True)
     def flattening(self, R, z, t=0.0):
         """
+        Calculate the potential flattening, defined as sqrt(fabs(z/R F_R/F_z))
 
-        NAME:
+        Parameters
+        ----------
+        R : float or Quantity
+            Galactocentric radius.
+        z : float or Quantity
+            Height.
+        t : float or Quantity, optional
+            Time. Default: 0.0.
 
-           flattening
+        Returns
+        -------
+        float or Quantity
+            Flattening.
 
-        PURPOSE:
-
-           calculate the potential flattening, defined as sqrt(fabs(z/R F_R/F_z))
-
-        INPUT:
-
-           R - Galactocentric radius (can be Quantity)
-
-           z - height (can be Quantity)
-
-           t - time (optional; can be Quantity)
-
-        OUTPUT:
-
-           flattening
-
-        HISTORY:
-
-           2012-09-13 - Written - Bovy (IAS)
+        Notes
+        -----
+        - 2012-09-13: Written - Bovy (IAS)
 
         """
         return numpy.sqrt(
@@ -1648,30 +1508,25 @@ class Potential(Force):
     @physical_conversion("velocity", pop=True)
     def vterm(self, l, t=0.0, deg=True):
         """
+        Calculate the terminal velocity at l in this potential.
 
-        NAME:
+        Parameters
+        ----------
+        l : float or Quantity
+            Galactic longitude [deg/rad; can be Quantity).
+        t : float or Quantity, optional
+            Time. Default: 0.0.
+        deg : bool, optional
+            If True (default), l in deg.
 
-            vterm
+        Returns
+        -------
+        float or Quantity
+            Terminal velocity.
 
-        PURPOSE:
-
-            calculate the terminal velocity at l in this potential
-
-        INPUT:
-
-            l - Galactic longitude [deg/rad; can be Quantity)
-
-            t - time (optional; can be Quantity)
-
-            deg= if True (default), l in deg
-
-        OUTPUT:
-
-            terminal velocity
-
-        HISTORY:
-
-            2013-05-31 - Written - Bovy (IAS)
+        Notes
+        -----
+        - 2013-05-31: Written - Bovy (IAS).
 
         """
         if _APY_LOADED and isinstance(l, units.Quantity):
@@ -1688,64 +1543,53 @@ class Potential(Force):
 
     def plotRotcurve(self, *args, **kwargs):
         """
-        NAME:
+        Plot the rotation curve for this potential (in the z=0 plane for non-spherical potentials).
 
-           plotRotcurve
+        Parameters
+        ----------
+        Rrange : float or Quantity, optional
+            Range to plot. Default: [0.01, 2.] * ro.
+        grid : int, optional
+            Number of points to plot. Default: 1001.
+        savefilename : str, optional
+            Save to or restore from this savefile (pickle).
+        *args, **kwargs :
+            Arguments and keyword arguments for galpy.util.plot.plot.
 
-        PURPOSE:
+        Returns
+        -------
+        matplotlib.pyplot.axis
+            Plot to output device.
 
-           plot the rotation curve for this potential (in the z=0 plane for
-           non-spherical potentials)
-
-        INPUT:
-
-           Rrange - range (can be Quantity)
-
-           grid= number of points to plot
-
-           savefilename=- save to or restore from this savefile (pickle)
-
-           +galpy.util.plot.plot(*args,**kwargs)
-
-        OUTPUT:
-
-           plot to output device
-
-        HISTORY:
-
-           2010-07-10 - Written - Bovy (NYU)
-
+        Notes
+        -----
+        - 2010-07-10: Written - Bovy (NYU)
         """
         return plotRotcurve(self, *args, **kwargs)
 
     def plotEscapecurve(self, *args, **kwargs):
         """
-        NAME:
+        Plot the escape velocity curve for this potential (in the z=0 plane for non-spherical potentials).
 
-           plotEscapecurve
+        Parameters
+        ----------
+        Rrange : float or Quantity, optional
+            Range to plot. Default: [0.01, 2.] * ro.
+        grid : int, optional
+            Number of points to plot. Default: 1001.
+        savefilename : str, optional
+            Save to or restore from this savefile (pickle).
+        *args, **kwargs :
+            Arguments and keyword arguments for galpy.util.plot.plot.
 
-        PURPOSE:
+        Returns
+        -------
+        matplotlib.pyplot.axis
+            Plot to output device.
 
-           plot the escape velocity  curve for this potential
-           (in the z=0 plane for non-spherical potentials)
-
-        INPUT:
-
-           Rrange - range (can be Quantity)
-
-           grid= number of points to plot
-
-           savefilename= save to or restore from this savefile (pickle)
-
-           +galpy.util.plot.plot(*args,**kwargs)
-
-        OUTPUT:
-
-           plot to output device
-
-        HISTORY:
-
-           2010-08-08 - Written - Bovy (NYU)
+        Notes
+        -----
+        - 2010-08-08: Written - Bovy (NYU).
 
         """
         return plotEscapecurve(self.toPlanar(), *args, **kwargs)
@@ -1754,37 +1598,38 @@ class Potential(Force):
         self, H=70.0, Om=0.3, t=0.0, overdens=200.0, wrtcrit=False, ro=None, vo=None
     ):
         """
-        NAME:
+        Return the concentration.
 
-           conc
+        Parameters
+        ----------
+        H : float, optional
+            Hubble constant in km/s/Mpc. Default: 70.0.
+        Om : float, optional
+            Omega matter. Default: 0.3.
+        t : float or Quantity, optional
+            Time. Default: 0.0.
+        overdens : float, optional
+            Overdensity which defines the virial radius. Default: 200.0.
+        wrtcrit : bool, optional
+            If True, the overdensity is wrt the critical density rather than the mean matter density. Default: False.
+        ro : float or Quantity, optional
+            Distance scale in kpc. Default: object-wide, which if not set is 8 kpc.
+        vo : float or Quantity, optional
+            Velocity scale in km/s. Default: object-wide, which if not set is 220 km/s.
 
-        PURPOSE:
+        Returns
+        -------
+        float
+            Concentration (scale/rvir).
 
-           return the concentration
+        Raises
+        ------
+        AttributeError
+            If this potential does not have a '_scale' defined to base the concentration on or does not support calculating the virial radius.
 
-        INPUT:
-
-           H= (default: 70) Hubble constant in km/s/Mpc
-
-           Om= (default: 0.3) Omega matter
-
-           t - time (optional; can be Quantity)
-
-           overdens= (200) overdensity which defines the virial radius
-
-           wrtcrit= (False) if True, the overdensity is wrt the critical density rather than the mean matter density
-
-           ro= distance scale in kpc or as Quantity (default: object-wide, which if not set is 8 kpc))
-
-           vo= velocity scale in km/s or as Quantity (default: object-wide, which if not set is 220 km/s))
-
-        OUTPUT:
-
-           concentration (scale/rvir)
-
-        HISTORY:
-
-           2014-04-03 - Written - Bovy (IAS)
+        Notes
+        -----
+        - 2014-04-03: Written - Bovy (IAS)
 
         """
         if ro is None:
@@ -1812,25 +1657,21 @@ class Potential(Force):
 
     def nemo_accname(self):
         """
-        NAME:
+        Return the accname potential name for use of this potential with NEMO.
 
-           nemo_accname
+        Returns
+        -------
+        str
+            Acceleration name.
 
-        PURPOSE:
+        Raises
+        ------
+        AttributeError
+            If NEMO acceleration name is not supported for this potential.
 
-           return the accname potential name for use of this potential with NEMO
-
-        INPUT:
-
-           (none)
-
-        OUTPUT:
-
-           Acceleration name
-
-        HISTORY:
-
-           2014-12-18 - Written - Bovy (IAS)
+        Notes
+        -----
+        - 2014-12-18: Written - Bovy (IAS)
 
         """
         try:
@@ -1842,27 +1683,28 @@ class Potential(Force):
 
     def nemo_accpars(self, vo, ro):
         """
-        NAME:
+        Return the accpars potential parameters for use of this potential with NEMO.
 
-           nemo_accpars
+        Parameters
+        ----------
+        vo : float
+            Velocity unit in km/s.
+        ro : float
+            Length unit in kpc.
 
-        PURPOSE:
+        Returns
+        -------
+        str
+            Accpars string.
 
-           return the accpars potential parameters for use of this potential with NEMO
+        Raises
+        ------
+        AttributeError
+            If NEMO acceleration parameters are not supported for this potential.
 
-        INPUT:
-
-           vo - velocity unit in km/s
-
-           ro - length unit in kpc
-
-        OUTPUT:
-
-           accpars string
-
-        HISTORY:
-
-           2014-12-18 - Written - Bovy (IAS)
+        Notes
+        -----
+        - 2014-12-18: Written - Bovy (IAS)
 
         """
         try:
@@ -1877,42 +1719,38 @@ class Potential(Force):
     @physical_conversion("position", pop=True)
     def rtide(self, R, z, phi=0.0, t=0.0, M=None):
         """
+        Calculate the tidal radius for object of mass M assuming a circular orbit
 
-        NAME:
+        Parameters
+        ----------
+        R : float or Quantity
+            Galactocentric radius
+        z : float or Quantity
+            height
+        phi : float or Quantity, optional
+            azimuth (default: 0.0)
+        t : float or Quantity, optional
+            time (default: 0.0)
+        M : float or Quantity
+            mass of the object
 
-            rtide
+        Returns
+        -------
+        float or Quantity
+            Tidal radius
 
-        PURPOSE:
+        Notes
+        -----
+        - 2018-03-21: Written - Webb (UofT)
+        - The tidal radius is computed as
 
-            Calculate the tidal radius for object of mass M assuming a circular orbit as
-
-            .. math::
+           .. math::
 
                r_t^3 = \\frac{GM_s}{\\Omega^2-\\mathrm{d}^2\\Phi/\\mathrm{d}r^2}
 
-            where :math:`M_s` is the cluster mass, :math:`\\Omega` is the circular frequency, and :math:`\\Phi` is the gravitational potential. For non-spherical potentials, we evaluate :math:`\\Omega^2 = (1/r)(\\mathrm{d}\\Phi/\\mathrm{d}r)` and evaluate the derivatives at the given position of the cluster.
-
-        INPUT:
-
-            R - Galactocentric radius (can be Quantity)
-
-            z - height (can be Quantity)
-
-            phi - azimuth (optional; can be Quantity)
-
-            t - time (optional; can be Quantity)
-
-            M - (default = None) Mass of object (can be Quantity)
-
-        OUTPUT:
-
-            Tidal Radius
-
-        HISTORY:
-
-            2018-03-21 - Written - Webb (UofT)
-
+          where :math:`M_s` is the cluster mass, :math:`\\Omega` is the circular frequency, and :math:`\\Phi` is the gravitational potential. For non-spherical potentials, we evaluate :math:`\\Omega^2 = (1/r)(\\mathrm{d}\\Phi/\\mathrm{d}r)` and evaluate the derivatives at the given position of the cluster.
         """
+
         if M is None:
             # Make sure an object mass is given
             raise PotentialError(
@@ -1927,34 +1765,28 @@ class Potential(Force):
     @physical_conversion("forcederivative", pop=True)
     def ttensor(self, R, z, phi=0.0, t=0.0, eigenval=False):
         """
+        Calculate the tidal tensor Tij=-d(Psi)(dxidxj)
 
-        NAME:
+        Parameters
+        ----------
+        R : float or Quantity
+            Galactocentric radius
+        z : float or Quantity
+            height
+        phi : float or Quantity, optional
+            azimuth (default: 0.0)
+        t : float or Quantity, optional
+            time (default: 0.0)
+        eigenval : bool, optional
+            return eigenvalues if true (default: False)
 
-            ttensor
+        Returns
+        -------
+        Tidal Tensor
 
-        PURPOSE:
-
-            Calculate the tidal tensor Tij=-d(Psi)(dxidxj)
-
-        INPUT:
-
-            R - Galactocentric radius (can be Quantity)
-
-            z - height (can be Quantity)
-
-            phi - azimuth (optional; can be Quantity)
-
-            t - time (optional; can be Quantity)
-
-            eigenval - return eigenvalues if true (optional; boolean)
-
-        OUTPUT:
-
-            Tidal Tensor
-
-        HISTORY:
-
-            2018-03-21 - Written - Webb (UofT)
+        Notes
+        -----
+        - 2018-03-21: Written - Webb (UofT)
 
         """
         if self.isNonAxi:
@@ -2014,66 +1846,57 @@ class Potential(Force):
     @physical_conversion("position", pop=True)
     def zvc(self, R, E, Lz, phi=0.0, t=0.0):
         """
+        Calculate the zero-velocity curve.
 
-        NAME:
+        Parameters
+        ----------
+        R : float or Quantity
+            Galactocentric radius
+        E : float or Quantity
+            Energy
+        Lz : float or Quantity
+            Angular momentum
+        phi : float or Quantity, optional
+            azimuth (default: 0.0)
+        t : float or Quantity, optional
+            time (default: 0.0)
 
-           zvc
+        Returns
+        -------
+        z : float or Quantity
+            z such that Phi(R,z) + Lz/[2R^2] = E
 
-        PURPOSE:
+        Notes
+        -----
+        - 2020-08-20: Written - Bovy (UofT)
 
-           Calculate the zero-velocity curve: z such that Phi(R,z) + Lz/[2R^2] = E (assumes that F_z(R,z) = negative at positive z such that there is a single solution)
-
-        INPUT:
-
-           R - Galactocentric radius (can be Quantity)
-
-           E - Energy (can be Quantity)
-
-           Lz - Angular momentum (can be Quantity)
-
-           phi - azimuth (optional; can be Quantity)
-
-           t - time (optional; can be Quantity)
-
-        OUTPUT:
-
-           z such that Phi(R,z) + Lz/[2R^2] = E
-
-        HISTORY:
-
-           2020-08-20 - Written - Bovy (UofT)
         """
         return zvc(self, R, E, Lz, phi=phi, t=t, use_physical=False)
 
     @physical_conversion("position", pop=True)
     def zvc_range(self, E, Lz, phi=0.0, t=0.0):
         """
+        Calculate the minimum and maximum radius for which the zero-velocity curve exists for this energy and angular momentum (R such that Phi(R,0) + Lz/[2R^2] = E)
 
-        NAME:
+        Parameters
+        ----------
+        E : float or Quantity
+            Energy
+        Lz : float or Quantity
+            Angular momentum
+        phi : float or Quantity, optional
+            azimuth (default: 0.0)
+        t : float or Quantity, optional
+            time (default: 0.0)
 
-           zvc_range
+        Returns
+        -------
+        Rmin, Rmax : float or Quantity
+            Solutions R such that Phi(R,0) + Lz/[2R^2] = E
 
-        PURPOSE:
-
-          Calculate the minimum and maximum radius for which the zero-velocity curve exists for this energy and angular momentum (R such that Phi(R,0) + Lz/[2R^2] = E)
-
-        INPUT:
-
-           E - Energy (can be Quantity)
-
-           Lz - Angular momentum (can be Quantity)
-
-           phi - azimuth (optional; can be Quantity)
-
-           t - time (optional; can be Quantity)
-
-        OUTPUT:
-
-           Solutions R such that Phi(R,0) + Lz/[2R^2] = E
-
-        HISTORY:
-
-           2020-08-20 - Written - Bovy (UofT)
+        Notes
+        -----
+        - 2020-08-20 - Written - Bovy (UofT)
         """
         return zvc_range(self, E, Lz, phi=phi, t=t, use_physical=False)
 
