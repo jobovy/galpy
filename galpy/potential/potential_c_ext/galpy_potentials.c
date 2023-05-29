@@ -117,25 +117,31 @@ double (calcphitorque)(double R, double Z, double phi, double t,
   potentialArgs-= nargs;
   return phitorque;
 }
-double calcPlanarRforce(double R, double phi, double t,
-			int nargs, struct potentialArg * potentialArgs){
+double (calcPlanarRforce)(double R, double phi, double t,
+			int nargs, struct potentialArg * potentialArgs,
+            double vR, double vT){
   int ii;
   double Rforce= 0.;
   for (ii=0; ii < nargs; ii++){
-    Rforce+= potentialArgs->planarRforce(R,phi,t,
-					 potentialArgs);
+    if ( potentialArgs->requiresVelocity )
+        Rforce+= potentialArgs->planarRforceVelocity(R,phi,t,potentialArgs,vR,vT);
+    else
+        Rforce+= potentialArgs->planarRforce(R,phi,t,potentialArgs);
     potentialArgs++;
   }
   potentialArgs-= nargs;
   return Rforce;
 }
-double calcPlanarphitorque(double R, double phi, double t,
-			  int nargs, struct potentialArg * potentialArgs){
+double (calcPlanarphitorque)(double R, double phi, double t,
+			  int nargs, struct potentialArg * potentialArgs,
+              double vR, double vT){
   int ii;
   double phitorque= 0.;
   for (ii=0; ii < nargs; ii++){
-    phitorque+= potentialArgs->planarphitorque(R,phi,t,
-					     potentialArgs);
+    if ( potentialArgs->requiresVelocity )
+        phitorque+= potentialArgs->planarphitorqueVelocity(R,phi,t,potentialArgs,vR,vT);
+    else
+        phitorque+= potentialArgs->planarphitorque(R,phi,t,potentialArgs);
     potentialArgs++;
   }
   potentialArgs-= nargs;

@@ -2916,6 +2916,12 @@ def test_toPlanarPotential():
     assert isinstance(
         pptnp, potential.planarPotential
     ), "Running a planarPotential through toPlanarPotential does not produce a planarPotential"
+    # Check that running potential.NonInertialFrameforce through works
+    nip = potential.NonInertialFrameForce(Omega=numpy.array([0.0, 1.0, 0.0]))
+    assert isinstance(
+        potential.toPlanarPotential(nip), potential.planarForce
+    ), "Running a potential.NonInertialFrameForce through toPlanarPotential does not produce a planarDissipativeForce"
+
     try:
         ptnp = potential.toPlanarPotential("something else")
     except potential.PotentialError:
@@ -2927,14 +2933,6 @@ def test_toPlanarPotential():
     # Check that list of objects that are not potentials gives error
     with pytest.raises(potential.PotentialError) as excinfo:
         plp = potential.toPlanarPotential([3, 4, 45])
-    # Check that giving potential.ChandrasekharDynamicalFrictionForce
-    # gives an error
-    pp = potential.PlummerPotential(amp=1.12, b=2.0)
-    cdfc = potential.ChandrasekharDynamicalFrictionForce(
-        GMs=0.01, const_lnLambda=8.0, dens=pp, sigmar=lambda r: 1.0 / numpy.sqrt(2.0)
-    )
-    with pytest.raises(NotImplementedError) as excinfo:
-        plp = potential.toPlanarPotential([pp, cdfc])
     return None
 
 
@@ -5902,6 +5900,107 @@ def test_dissipative_noVelocityError():
         dummy = potential.evaluatezforces([lp, cdfc], R, z, phi=phi)
     with pytest.raises(potential.PotentialError) as excinfo:
         dummy = potential.evaluaterforces([lp, cdfc], R, z, phi=phi)
+    return None
+
+
+def test_dissipative_noVelocityError_2d():
+    # Test that calling evaluateXforces for a dissipative potential
+    # without including velocity produces an error in 2D
+    lp = potential.LogarithmicHaloPotential(normalize=1.0, q=0.9, b=0.8).toPlanar()
+    cdfc = potential.ChandrasekharDynamicalFrictionForce(
+        GMs=0.01, const_lnLambda=8.0, dens=lp, sigmar=lambda r: 1.0 / numpy.sqrt(2.0)
+    ).toPlanar()
+    R, z, phi = 2.0, 0.4, 1.1
+    with pytest.raises(potential.PotentialError) as excinfo:
+        dummy = potential.evaluateplanarRforces(lp + cdfc, R, phi=phi)
+    with pytest.raises(potential.PotentialError) as excinfo:
+        dummy = potential.evaluateplanarphitorques(lp + cdfc, R, phi=phi)
+    return None
+
+
+def test_NonInertialFrameForce_2d():
+    lp = potential.LogarithmicHaloPotential(normalize=1.0)
+    nip = potential.NonInertialFrameForce(Omega=0.5)
+    # Total radial force on circular orbit at R=2. in the non-inertial frame should be zero
+    assert (
+        numpy.fabs(
+            potential.evaluateplanarRforces(
+                potential.toPlanarPotential(lp + nip),
+                2.0,
+                phi=0.0,
+                v=[0.0, 0.0],
+            )
+        )
+        < 1e-10
+    ), "Non-inertial frame force does not cancel radial force on circular orbit"
+    # Also splitting them up
+    assert (
+        numpy.fabs(
+            potential.evaluateplanarRforces(
+                potential.toPlanarPotential(lp), 2.0, phi=0.0
+            )
+            + potential.evaluateplanarRforces(
+                potential.toPlanarPotential(nip),
+                2.0,
+                phi=0.0,
+                v=[0.0, 0.0],
+            )
+        )
+        < 1e-10
+    ), "Non-inertial frame force does not cancel radial force on circular orbit"
+    assert (
+        numpy.fabs(
+            potential.evaluateplanarRforces(
+                potential.toPlanarPotential(lp), 2.0, phi=0.0
+            )
+            + potential.toPlanarPotential(nip).Rforce(
+                2.0,
+                phi=0.0,
+                v=[0.0, 0.0],
+            )
+        )
+        < 1e-10
+    ), "Non-inertial frame force does not cancel radial force on circular orbit"
+    # also the total azimuthal force should be zero
+    assert (
+        numpy.fabs(
+            potential.evaluateplanarphitorques(
+                potential.toPlanarPotential(lp + nip),
+                2.0,
+                phi=0.0,
+                v=[0.0, 0.0],
+            )
+        )
+        < 1e-10
+    ), "Non-inertial frame force does not cancel phi torque on circular orbit"
+    # Also splitting them up
+    assert (
+        numpy.fabs(
+            potential.evaluateplanarphitorques(
+                potential.toPlanarPotential(lp), 2.0, phi=0.0
+            )
+            + potential.evaluateplanarphitorques(
+                potential.toPlanarPotential(nip),
+                2.0,
+                phi=0.0,
+                v=[0.0, 0.0],
+            )
+        )
+        < 1e-10
+    ), "Non-inertial frame force does not cancel phi torque on circular orbit"
+    assert (
+        numpy.fabs(
+            potential.evaluateplanarphitorques(
+                potential.toPlanarPotential(lp), 2.0, phi=0.0
+            )
+            + potential.toPlanarPotential(nip).phitorque(
+                2.0,
+                phi=0.0,
+                v=[0.0, 0.0],
+            )
+        )
+        < 1e-10
+    ), "Non-inertial frame force does not cancel phi torque on circular orbit"
     return None
 
 

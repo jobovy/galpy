@@ -166,6 +166,11 @@ double NonInertialFrameForceRforce(double R,double z,double phi,double t,
   }
   return amp * ( cos ( phi ) * Fx + sin( phi ) * Fy );
 }
+double NonInertialFrameForcePlanarRforce(double R,double phi,double t,
+				                         struct potentialArg * potentialArgs,
+                                         double vR,double vT){
+  return NonInertialFrameForceRforce(R,0.,phi,t,potentialArgs,vR,vT,0.);
+}
 double NonInertialFrameForcephitorque(double R,double z,double phi,double t,
 				                             struct potentialArg * potentialArgs,
                                      double vR,double vT,double vz){
@@ -193,6 +198,11 @@ double NonInertialFrameForcephitorque(double R,double z,double phi,double t,
     Fz= *(args + 10);
   }
   return amp * R * ( -sin ( phi ) * Fx + cos( phi ) * Fy );
+}
+double NonInertialFrameForcePlanarphitorque(double R,double phi,double t,
+				                            struct potentialArg * potentialArgs,
+                                            double vR,double vT){
+  return NonInertialFrameForcephitorque(R,0.,phi,t,potentialArgs,vR,vT,0.);
 }
 double NonInertialFrameForcezforce(double R,double z,double phi,double t,
 				                           struct potentialArg * potentialArgs,

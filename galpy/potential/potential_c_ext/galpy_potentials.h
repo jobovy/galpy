@@ -50,6 +50,11 @@ struct potentialArg{
 			   struct potentialArg *,double,double,double);
   double (*phitorqueVelocity)(double R, double Z, double phi, double t,
 			     struct potentialArg *,double,double,double);
+  double (*planarRforceVelocity)(double R,double phi, double t,
+			 struct potentialArg *,double,double);
+  double (*planarphitorqueVelocity)(double R,double phi, double t,
+			   struct potentialArg *,double,double);
+
   int nargs;
   double * args;
   // To allow 1D interpolation for an arbitrary number of splines
@@ -106,15 +111,15 @@ double evaluatePotentials(double,double,int, struct potentialArg *);
 #define EXPAND(x) x
 #define calcRforce(...)   EXPAND(CALCRFORCE(__VA_ARGS__,0.,0.,0.))
 #define calczforce(...)   EXPAND(CALCZFORCE(__VA_ARGS__,0.,0.,0.))
-#define calcphitorque(...) EXPAND(CALCphitorque(__VA_ARGS__,0.,0.,0.))
+#define calcphitorque(...) EXPAND(CALCPHITORQUE(__VA_ARGS__,0.,0.,0.))
 #else
 #define calcRforce(R,Z,phi,t,nargs,potentialArgs,...) CALCRFORCE(R,Z,phi,t,nargs,potentialArgs,##__VA_ARGS__,0.,0.,0.)
 #define calczforce(R,Z,phi,t,nargs,potentialArgs,...) CALCZFORCE(R,Z,phi,t,nargs,potentialArgs,##__VA_ARGS__,0.,0.,0.)
-#define calcphitorque(R,Z,phi,t,nargs,potentialArgs,...) CALCphitorque(R,Z,phi,t,nargs,potentialArgs,##__VA_ARGS__,0.,0.,0.)
+#define calcphitorque(R,Z,phi,t,nargs,potentialArgs,...) CALCPHITORQUE(R,Z,phi,t,nargs,potentialArgs,##__VA_ARGS__,0.,0.,0.)
 #endif
 #define CALCRFORCE(R,Z,phi,t,nargs,potentialArgs,vR,vT,vZ,...) calcRforce(R,Z,phi,t,nargs,potentialArgs,vR,vT,vZ)
 #define CALCZFORCE(R,Z,phi,t,nargs,potentialArgs,vR,vT,vZ,...) calczforce(R,Z,phi,t,nargs,potentialArgs,vR,vT,vZ)
-#define CALCphitorque(R,Z,phi,t,nargs,potentialArgs,vR,vT,vZ,...) calcphitorque(R,Z,phi,t,nargs,potentialArgs,vR,vT,vZ)
+#define CALCPHITORQUE(R,Z,phi,t,nargs,potentialArgs,vR,vT,vZ,...) calcphitorque(R,Z,phi,t,nargs,potentialArgs,vR,vT,vZ)
 double (calcRforce)(double,double,double,double,int,struct potentialArg *,
 		    double,double,double);
 double (calczforce)(double,double,double,double,int,struct potentialArg *,
@@ -129,10 +134,21 @@ double calcphi2deriv(double, double, double,double,
 			   int, struct potentialArg *);
 double calcRphideriv(double, double, double,double,
 			   int, struct potentialArg *);
-double calcPlanarRforce(double, double, double,
-			int, struct potentialArg *);
-double calcPlanarphitorque(double, double, double,
-			int, struct potentialArg *);
+// Same hack as for Rforce etc. above to allow optional velocity for dissipative forces
+#ifdef _MSC_VER
+#define calcPlanarRforce(...)   EXPAND(CALCPLANARRFORCE(__VA_ARGS__,0.,0.))
+#define calcPlanarphitorque(...)   EXPAND(CALCPLANARPHITORQUE(__VA_ARGS__,0.,0.))
+#else
+#define calcPlanarRforce(R,phi,t,nargs,potentialArgs,...) CALCPLANARRFORCE(R,phi,t,nargs,potentialArgs,##__VA_ARGS__,0.,0.)
+#define calcPlanarphitorque(R,phi,t,nargs,potentialArgs,...) CALCPLANARPHITORQUE(R,phi,t,nargs,potentialArgs,##__VA_ARGS__,0.,0.)
+#endif
+#define CALCPLANARRFORCE(R,phi,t,nargs,potentialArgs,vR,vT,...) calcPlanarRforce(R,phi,t,nargs,potentialArgs,vR,vT)
+#define CALCPLANARPHITORQUE(R,phi,t,nargs,potentialArgs,vR,vT,...) calcPlanarphitorque(R,phi,t,nargs,potentialArgs,vR,vT)
+double (calcPlanarRforce)(double, double, double,
+			int, struct potentialArg *,double,double);
+double (calcPlanarphitorque)(double, double, double,
+			int, struct potentialArg *,double,double);
+// end hack
 double calcPlanarR2deriv(double, double, double,
 			 int, struct potentialArg *);
 double calcPlanarphi2deriv(double, double, double,
@@ -611,9 +627,15 @@ double PowerTriaxialPotentialmdensDeriv(double,double *);
 double NonInertialFrameForceRforce(double,double,double,double,
 						 		   struct potentialArg *,
 						 		   double,double,double);
+double NonInertialFrameForcePlanarRforce(double,double,double,
+						 		         struct potentialArg *,
+						 		         double,double);
 double NonInertialFrameForcephitorque(double,double,double,double,
 						   			 struct potentialArg *,
 						   			 double,double,double);
+double NonInertialFrameForcePlanarphitorque(double,double,double,
+						   			        struct potentialArg *,
+						   			        double,double);
 double NonInertialFrameForcezforce(double,double,double,double,
 						 		   struct potentialArg *,
 						 		   double,double,double);

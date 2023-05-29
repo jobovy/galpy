@@ -6,6 +6,9 @@ from numpy.ctypeslib import ndpointer
 from scipy import integrate
 
 from .. import potential
+from ..potential.planarDissipativeForce import (
+    planarDissipativeForceFromFullDissipativeForce,
+)
 from ..potential.planarPotential import (
     _evaluateplanarphitorques,
     _evaluateplanarPotentials,
@@ -409,6 +412,56 @@ def _parse_pot(pot):
             )
         # 37: TriaxialGaussianPotential, done with other EllipsoidalPotentials above
         # 38: PowerTriaxialPotential, done with other EllipsoidalPotentials above
+        elif isinstance(
+            p, planarDissipativeForceFromFullDissipativeForce
+        ) and isinstance(p._Pot, potential.NonInertialFrameForce):
+            pot_type.append(39)
+            pot_args.append(p._Pot._amp)
+            pot_args.extend(
+                [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+            )  # for caching
+            pot_args.extend(
+                [
+                    p._Pot._rot_acc,
+                    p._Pot._lin_acc,
+                    p._Pot._omegaz_only,
+                    p._Pot._const_freq,
+                    p._Pot._Omega_as_func,
+                ]
+            )
+            if p._Pot._Omega_as_func:
+                pot_args.extend([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+            else:
+                if p._Pot._omegaz_only:
+                    pot_args.extend([0.0, 0.0, p._Pot._Omega])
+                else:
+                    pot_args.extend(p._Pot._Omega)
+                pot_args.append(p._Pot._Omega2)
+                if not p._Pot._const_freq and p._Pot._omegaz_only:
+                    pot_args.extend([0.0, 0.0, p._Pot._Omegadot])
+                elif not p._Pot._const_freq:
+                    pot_args.extend(p._Pot._Omegadot)
+                else:
+                    pot_args.extend([0.0, 0.0, 0.0])
+            if p._Pot._lin_acc:
+                pot_tfuncs.extend([p._Pot._a0[0], p._Pot._a0[1], p._Pot._a0[2]])
+                if p._Pot._rot_acc:
+                    pot_tfuncs.extend([p._Pot._x0[0], p._Pot._x0[1], p._Pot._x0[2]])
+                    pot_tfuncs.extend([p._Pot._v0[0], p._Pot._v0[1], p._Pot._v0[2]])
+            if p._Pot._Omega_as_func:
+                if p._Pot._omegaz_only:
+                    pot_tfuncs.extend([p._Pot._Omega, p._Pot._Omegadot])
+                else:
+                    pot_tfuncs.extend(
+                        [
+                            p._Pot._Omega[0],
+                            p._Pot._Omega[1],
+                            p._Pot._Omega[2],
+                            p._Pot._Omegadot[0],
+                            p._Pot._Omegadot[1],
+                            p._Pot._Omegadot[2],
+                        ]
+                    )
         elif isinstance(p, planarPotentialFromRZPotential) and isinstance(
             p._Pot, potential.NullPotential
         ):
@@ -1393,12 +1446,13 @@ def _planarEOM(y, t, pot):
     l2 = (y[0] ** 2.0 * y[3]) ** 2.0
     return [
         y[1],
-        l2 / y[0] ** 3.0 + _evaluateplanarRforces(pot, y[0], phi=y[2], t=t),
+        l2 / y[0] ** 3.0
+        + _evaluateplanarRforces(pot, y[0], phi=y[2], t=t, v=[y[1], y[0] * y[3]]),
         y[3],
         1.0
         / y[0] ** 2.0
         * (
-            _evaluateplanarphitorques(pot, y[0], phi=y[2], t=t)
+            _evaluateplanarphitorques(pot, y[0], phi=y[2], t=t, v=[y[1], y[0] * y[3]])
             - 2.0 * y[0] * y[1] * y[3]
         ),
     ]
