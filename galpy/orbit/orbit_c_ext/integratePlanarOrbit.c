@@ -881,20 +881,22 @@ void evalPlanarSOSDerivx(double psi, double *q, double *a,
   // Note also that we keep track of psi in q+4, not in psi! This is
   // such that we can avoid having to convert psi to psi+psi0
   // q+4 starts as psi0 and then just increments as psi (exactly)
-  double sinpsi,cospsi,psidot,x,y,R,phi,sinphi,cosphi,Rforce,phitorque;
+  double sinpsi,cospsi,psidot,x,y,R,phi,sinphi,cosphi,Rforce,phitorque,vR,vT;
   sinpsi= sin( *(q+4) );
   cospsi= cos( *(q+4) );
   // Calculate forces, put them in a+2, a+3
   //q is rectangular so calculate R and phi
-  x= *(q+2) * sinpsi;;
+  x= *(q+2) * sinpsi;
   y= *(q  );
   R= sqrt(x*x+y*y);
   phi= atan2( y ,x );
   sinphi= y/R;
   cosphi= x/R;
+  vR=  *(q+2) * cospsi * cosphi + *(q+1) * sinphi;
+  vT= -*(q+2) * cospsi * sinphi + *(q+1) * cosphi;
   //Calculate the forces
-  Rforce= calcPlanarRforce(R,phi,*(q+3),nargs,potentialArgs);
-  phitorque= calcPlanarphitorque(R,phi,*(q+3),nargs,potentialArgs);
+  Rforce= calcPlanarRforce(R,phi,*(q+3),nargs,potentialArgs,vR,vT);
+  phitorque= calcPlanarphitorque(R,phi,*(q+3),nargs,potentialArgs,vR,vT);
   *(a+2)= cosphi*Rforce-1./R*sinphi*phitorque;
   *(a+3)= sinphi*Rforce+1./R*cosphi*phitorque;
   // Now calculate the RHS of the ODE
@@ -913,7 +915,7 @@ void evalPlanarSOSDerivy(double psi, double *q, double *a,
   // Note also that we keep track of psi in q+4, not in psi! This is
   // such that we can avoid having to convert psi to psi+psi0
   // q+4 starts as psi0 and then just increments as psi (exactly)
-  double sinpsi,cospsi,psidot,x,y,R,phi,sinphi,cosphi,Rforce,phitorque;
+  double sinpsi,cospsi,psidot,x,y,R,phi,sinphi,cosphi,Rforce,phitorque,vR,vT;
   sinpsi= sin( *(q+4) );
   cospsi= cos( *(q+4) );
   // Calculate forces, put them in a+2, a+3
@@ -924,9 +926,11 @@ void evalPlanarSOSDerivy(double psi, double *q, double *a,
   phi= atan2( y ,x );
   sinphi= y/R;
   cosphi= x/R;
+  vR=  *(q+1 ) * cosphi + *(q+2) * cospsi * sinphi;
+  vT= -*(q+1 ) * sinphi + *(q+2) * cospsi * cosphi;
   //Calculate the forces
-  Rforce= calcPlanarRforce(R,phi,*(q+3),nargs,potentialArgs);
-  phitorque= calcPlanarphitorque(R,phi,*(q+3),nargs,potentialArgs);
+  Rforce= calcPlanarRforce(R,phi,*(q+3),nargs,potentialArgs,vR,vT);
+  phitorque= calcPlanarphitorque(R,phi,*(q+3),nargs,potentialArgs,vR,vT);
   *(a+2)= cosphi*Rforce-1./R*sinphi*phitorque;
   *(a+3)= sinphi*Rforce+1./R*cosphi*phitorque;
   // Now calculate the RHS of the ODE

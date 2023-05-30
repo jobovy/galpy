@@ -1547,9 +1547,9 @@ def _planarSOSEOMx(y, psi, pot):
        2023-03-24 - Written - Bovy (UofT)
     """
     # y = (y,vy,A,t)
-    # Calculate x
+    # Calculate x, vx
     sp, cp = numpy.sin(psi), numpy.cos(psi)
-    gxyz = _planarRectForce([y[2] * sp, y[0]], pot, t=y[3])
+    gxyz = _planarRectForce([y[2] * sp, y[0]], pot, t=y[3], vx=[y[2] * cp, y[1]])
     psidot = cp**2.0 - sp / y[2] * gxyz[0]
     Adot = y[2] * cp * sp + gxyz[0] * cp
     return numpy.array([y[1], gxyz[1], Adot, 1.0]) / psidot
@@ -1574,13 +1574,13 @@ def _planarSOSEOMy(y, psi, pot):
     # y = (x,vx,A,t)
     # Calculate y
     sp, cp = numpy.sin(psi), numpy.cos(psi)
-    gxyz = _planarRectForce([y[0], y[2] * sp], pot, t=y[3])
+    gxyz = _planarRectForce([y[0], y[2] * sp], pot, t=y[3], vx=[y[1], y[2] * cp])
     psidot = cp**2.0 - sp / y[2] * gxyz[1]
     Adot = y[2] * cp * sp + gxyz[1] * cp
     return numpy.array([y[1], gxyz[0], Adot, 1.0]) / psidot
 
 
-def _planarRectForce(x, pot, t=0.0):
+def _planarRectForce(x, pot, t=0.0, vx=None):
     """
     NAME:
        _planarRectForce
@@ -1590,6 +1590,7 @@ def _planarRectForce(x, pot, t=0.0):
        x - current position
        t - current time
        pot - (list of) Potential instance(s)
+       vx = (None) if set, use this [vx,vy] when evalulating dissipative forces
     OUTPUT:
        force
     HISTORY:
@@ -1602,9 +1603,13 @@ def _planarRectForce(x, pot, t=0.0):
     cosphi = x[0] / R
     if x[1] < 0.0:
         phi = 2.0 * numpy.pi - phi
+    if not vx is None:
+        vR = vx[0] * cosphi + vx[1] * sinphi
+        vT = -vx[0] * sinphi + vx[1] * cosphi
+        vx = [vR, vT]
     # calculate forces
-    Rforce = _evaluateplanarRforces(pot, R, phi=phi, t=t)
-    phitorque = _evaluateplanarphitorques(pot, R, phi=phi, t=t)
+    Rforce = _evaluateplanarRforces(pot, R, phi=phi, t=t, v=vx)
+    phitorque = _evaluateplanarphitorques(pot, R, phi=phi, t=t, v=vx)
     return numpy.array(
         [
             cosphi * Rforce - 1.0 / R * sinphi * phitorque,

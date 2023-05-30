@@ -1123,16 +1123,16 @@ def _SOSEOM(y, psi, pot):
        2023-03-16 - Written - Bovy (UofT)
     """
     # y = (x,vx,y,vy,A,t)
-    # Calculate z
+    # Calculate z, vz
     sp, cp = numpy.sin(psi), numpy.cos(psi)
     z = y[4] * sp
-    gxyz = _rectForce([y[0], y[2], z], pot, t=y[5])
+    gxyz = _rectForce([y[0], y[2], z], pot, t=y[5], vx=[y[1], y[3], y[4] * cp])
     psidot = cp**2.0 - sp / y[4] * gxyz[2]
     Adot = y[4] * cp * sp + gxyz[2] * cp
     return numpy.array([y[1], gxyz[0], y[3], gxyz[1], Adot, 1.0]) / psidot
 
 
-def _rectForce(x, pot, t=0.0):
+def _rectForce(x, pot, t=0.0, vx=None):
     """
     NAME:
        _rectForce
@@ -1142,6 +1142,7 @@ def _rectForce(x, pot, t=0.0):
        x - current position
        t - current time
        pot - (list of) Potential instance(s)
+       vx = (None) if set, use this [vx,vy,vz] when evalulating dissipative forces
     OUTPUT:
        force
     HISTORY:
@@ -1154,13 +1155,17 @@ def _rectForce(x, pot, t=0.0):
     cosphi = x[0] / R
     if x[1] < 0.0:
         phi = 2.0 * numpy.pi - phi
+    if not vx is None:
+        vR = vx[0] * cosphi + vx[1] * sinphi
+        vT = -vx[0] * sinphi + vx[1] * cosphi
+        vx = [vR, vT, vx[2]]
     # calculate forces
-    Rforce = _evaluateRforces(pot, R, x[2], phi=phi, t=t)
-    phitorque = _evaluatephitorques(pot, R, x[2], phi=phi, t=t)
+    Rforce = _evaluateRforces(pot, R, x[2], phi=phi, t=t, v=vx)
+    phitorque = _evaluatephitorques(pot, R, x[2], phi=phi, t=t, v=vx)
     return numpy.array(
         [
             cosphi * Rforce - 1.0 / R * sinphi * phitorque,
             sinphi * Rforce + 1.0 / R * cosphi * phitorque,
-            _evaluatezforces(pot, R, x[2], phi=phi, t=t),
+            _evaluatezforces(pot, R, x[2], phi=phi, t=t, v=vx),
         ]
     )
