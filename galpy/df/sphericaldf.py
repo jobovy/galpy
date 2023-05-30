@@ -386,6 +386,7 @@ class sphericaldf(df):
             2020-07-22 - Written - Lane (UofT)
 
         """
+        rmin = conversion.parse_length(rmin, ro=self._ro)
         if hasattr(self, "_rmin_sampling") and rmin != self._rmin_sampling:
             # Build new grids, easiest
             if hasattr(self, "_xi_cmf_interpolator"):
@@ -478,14 +479,14 @@ class sphericaldf(df):
         rs = _xiToR(xis, a=self._scale)
         # try/except necessary when mass doesn't take arrays, also need to
         # switch to a more general mass method at some point...
-        # try:
-        ms = mass(self._denspot, rs, use_physical=False)
-        # except ValueError:
-        #    ms= numpy.array([mass(self._denspot,r,use_physical=False) for r in rs])
+        try:
+            ms = mass(self._denspot, rs, use_physical=False)
+        except (ValueError, TypeError):
+            ms = numpy.array([mass(self._denspot, r, use_physical=False) for r in rs])
         mnorm = mass(self._denspot, self._rmax, use_physical=False)
         if self._rmin_sampling > 0:
-            ms -= mass(self._denspot, self._rmin_sampling)
-            mnorm -= mass(self._denspot, self._rmin_sampling)
+            ms -= mass(self._denspot, self._rmin_sampling, use_physical=False)
+            mnorm -= mass(self._denspot, self._rmin_sampling, use_phycial=False)
         ms /= mnorm
         # Add total mass point
         if numpy.isinf(self._rmax):
