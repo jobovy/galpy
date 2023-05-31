@@ -1117,6 +1117,7 @@ angular momentum::
             return Orbit([R,vR,Lz/R,z_init,
                           numpy.sqrt(2.*(E-evaluatePotentials(pot,R,z_init)
                                  -(Lz/R)**2./2.-vR**2./2)),0.],ro=8.,vo=220.)
+    >>> R, E, Lz= 0.8, -1.25, 0.6
     >>> twoorb= Orbit([orbit_RvRELz(R,0.,E,Lz,pot=MWPotential2014),
                        orbit_RvRELz(R,0.1,E,Lz,pot=MWPotential2014,z_init=0.1)])
     >>> twoorb.plotSOS(MWPotential2014)
