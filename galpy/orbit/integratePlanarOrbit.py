@@ -6,6 +6,9 @@ from numpy.ctypeslib import ndpointer
 from scipy import integrate
 
 from .. import potential
+from ..potential.planarDissipativeForce import (
+    planarDissipativeForceFromFullDissipativeForce,
+)
 from ..potential.planarPotential import (
     _evaluateplanarphitorques,
     _evaluateplanarPotentials,
@@ -409,6 +412,56 @@ def _parse_pot(pot):
             )
         # 37: TriaxialGaussianPotential, done with other EllipsoidalPotentials above
         # 38: PowerTriaxialPotential, done with other EllipsoidalPotentials above
+        elif isinstance(
+            p, planarDissipativeForceFromFullDissipativeForce
+        ) and isinstance(p._Pot, potential.NonInertialFrameForce):
+            pot_type.append(39)
+            pot_args.append(p._Pot._amp)
+            pot_args.extend(
+                [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+            )  # for caching
+            pot_args.extend(
+                [
+                    p._Pot._rot_acc,
+                    p._Pot._lin_acc,
+                    p._Pot._omegaz_only,
+                    p._Pot._const_freq,
+                    p._Pot._Omega_as_func,
+                ]
+            )
+            if p._Pot._Omega_as_func:
+                pot_args.extend([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+            else:
+                if p._Pot._omegaz_only:
+                    pot_args.extend([0.0, 0.0, p._Pot._Omega])
+                else:
+                    pot_args.extend(p._Pot._Omega)
+                pot_args.append(p._Pot._Omega2)
+                if not p._Pot._const_freq and p._Pot._omegaz_only:
+                    pot_args.extend([0.0, 0.0, p._Pot._Omegadot])
+                elif not p._Pot._const_freq:
+                    pot_args.extend(p._Pot._Omegadot)
+                else:
+                    pot_args.extend([0.0, 0.0, 0.0])
+            if p._Pot._lin_acc:
+                pot_tfuncs.extend([p._Pot._a0[0], p._Pot._a0[1], p._Pot._a0[2]])
+                if p._Pot._rot_acc:
+                    pot_tfuncs.extend([p._Pot._x0[0], p._Pot._x0[1], p._Pot._x0[2]])
+                    pot_tfuncs.extend([p._Pot._v0[0], p._Pot._v0[1], p._Pot._v0[2]])
+            if p._Pot._Omega_as_func:
+                if p._Pot._omegaz_only:
+                    pot_tfuncs.extend([p._Pot._Omega, p._Pot._Omegadot])
+                else:
+                    pot_tfuncs.extend(
+                        [
+                            p._Pot._Omega[0],
+                            p._Pot._Omega[1],
+                            p._Pot._Omega[2],
+                            p._Pot._Omegadot[0],
+                            p._Pot._Omegadot[1],
+                            p._Pot._Omegadot[2],
+                        ]
+                    )
         elif isinstance(p, planarPotentialFromRZPotential) and isinstance(
             p._Pot, potential.NullPotential
         ):
@@ -1393,12 +1446,13 @@ def _planarEOM(y, t, pot):
     l2 = (y[0] ** 2.0 * y[3]) ** 2.0
     return [
         y[1],
-        l2 / y[0] ** 3.0 + _evaluateplanarRforces(pot, y[0], phi=y[2], t=t),
+        l2 / y[0] ** 3.0
+        + _evaluateplanarRforces(pot, y[0], phi=y[2], t=t, v=[y[1], y[0] * y[3]]),
         y[3],
         1.0
         / y[0] ** 2.0
         * (
-            _evaluateplanarphitorques(pot, y[0], phi=y[2], t=t)
+            _evaluateplanarphitorques(pot, y[0], phi=y[2], t=t, v=[y[1], y[0] * y[3]])
             - 2.0 * y[0] * y[1] * y[3]
         ),
     ]
@@ -1493,9 +1547,9 @@ def _planarSOSEOMx(y, psi, pot):
        2023-03-24 - Written - Bovy (UofT)
     """
     # y = (y,vy,A,t)
-    # Calculate x
+    # Calculate x, vx
     sp, cp = numpy.sin(psi), numpy.cos(psi)
-    gxyz = _planarRectForce([y[2] * sp, y[0]], pot, t=y[3])
+    gxyz = _planarRectForce([y[2] * sp, y[0]], pot, t=y[3], vx=[y[2] * cp, y[1]])
     psidot = cp**2.0 - sp / y[2] * gxyz[0]
     Adot = y[2] * cp * sp + gxyz[0] * cp
     return numpy.array([y[1], gxyz[1], Adot, 1.0]) / psidot
@@ -1520,13 +1574,13 @@ def _planarSOSEOMy(y, psi, pot):
     # y = (x,vx,A,t)
     # Calculate y
     sp, cp = numpy.sin(psi), numpy.cos(psi)
-    gxyz = _planarRectForce([y[0], y[2] * sp], pot, t=y[3])
+    gxyz = _planarRectForce([y[0], y[2] * sp], pot, t=y[3], vx=[y[1], y[2] * cp])
     psidot = cp**2.0 - sp / y[2] * gxyz[1]
     Adot = y[2] * cp * sp + gxyz[1] * cp
     return numpy.array([y[1], gxyz[0], Adot, 1.0]) / psidot
 
 
-def _planarRectForce(x, pot, t=0.0):
+def _planarRectForce(x, pot, t=0.0, vx=None):
     """
     NAME:
        _planarRectForce
@@ -1536,6 +1590,7 @@ def _planarRectForce(x, pot, t=0.0):
        x - current position
        t - current time
        pot - (list of) Potential instance(s)
+       vx = (None) if set, use this [vx,vy] when evalulating dissipative forces
     OUTPUT:
        force
     HISTORY:
@@ -1548,9 +1603,13 @@ def _planarRectForce(x, pot, t=0.0):
     cosphi = x[0] / R
     if x[1] < 0.0:
         phi = 2.0 * numpy.pi - phi
+    if not vx is None:
+        vR = vx[0] * cosphi + vx[1] * sinphi
+        vT = -vx[0] * sinphi + vx[1] * cosphi
+        vx = [vR, vT]
     # calculate forces
-    Rforce = _evaluateplanarRforces(pot, R, phi=phi, t=t)
-    phitorque = _evaluateplanarphitorques(pot, R, phi=phi, t=t)
+    Rforce = _evaluateplanarRforces(pot, R, phi=phi, t=t, v=vx)
+    phitorque = _evaluateplanarphitorques(pot, R, phi=phi, t=t, v=vx)
     return numpy.array(
         [
             cosphi * Rforce - 1.0 / R * sinphi * phitorque,

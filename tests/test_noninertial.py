@@ -45,6 +45,44 @@ def test_lsrframe_scalaromegaz():
     return None
 
 
+def test_lsrframe_scalaromegaz_2d():
+    # Test that integrating an orbit in the LSR frame is equivalent to
+    # normal orbit integration in 2D
+    lp = potential.LogarithmicHaloPotential(normalize=1.0)
+    omega = lp.omegac(1.0)
+    dp = potential.DehnenBarPotential(omegab=1.8, rb=0.5, Af=0.03)
+    diskpot = lp + dp
+    framepot = potential.NonInertialFrameForce(Omega=omega)
+    dp_frame = potential.DehnenBarPotential(omegab=1.8 - omega, rb=0.5, Af=0.03)
+    diskframepot = lp + dp_frame + framepot
+
+    # Now integrate the orbit of the Sun in both the inertial and the lsr frame
+    def check_orbit(method="odeint", tol=1e-9):
+        o = Orbit().toPlanar()
+        o.turn_physical_off()
+        # Inertial frame
+        ts = numpy.linspace(0.0, 20.0, 1001)
+        o.integrate(ts, diskpot)
+        # Non-inertial frame
+        op = Orbit([o.R(), o.vR(), o.vT() - omega * o.R(), o.phi()])
+        op.integrate(ts, diskframepot, method=method)
+        # Compare
+        o_xs = o.R(ts) * numpy.cos(o.phi(ts) - omega * ts)
+        o_ys = o.R(ts) * numpy.sin(o.phi(ts) - omega * ts)
+        op_xs = op.x(ts)
+        op_ys = op.y(ts)
+        assert (
+            numpy.amax(numpy.fabs(o_xs - op_xs)) < tol
+        ), f"Integrating an orbit in the rotating LSR frame does not agree with the equivalent orbit in the inertial frame for integration method {method}"
+        assert (
+            numpy.amax(numpy.fabs(o_ys - op_ys)) < tol
+        ), f"Integrating an orbit in the rotating LSR frame does not agree with the equivalent orbit in the inertial frame for integration method {method}"
+
+    check_orbit(method="odeint", tol=1e-6)
+    check_orbit(method="dop853_c", tol=1e-9)
+    return None
+
+
 def test_lsrframe_vecomegaz():
     # Test that integrating an orbit in the LSR frame is equivalent to
     # normal orbit integration
@@ -83,6 +121,44 @@ def test_lsrframe_vecomegaz():
     return None
 
 
+def test_lsrframe_vecomegaz_2d():
+    # Test that integrating an orbit in the LSR frame is equivalent to
+    # normal orbit integration in 2D
+    lp = potential.LogarithmicHaloPotential(normalize=1.0)
+    omega = lp.omegac(1.0)
+    dp = potential.DehnenBarPotential(omegab=1.8, rb=0.5, Af=0.03)
+    diskpot = lp + dp
+    framepot = potential.NonInertialFrameForce(Omega=numpy.array([0.0, 0.0, omega]))
+    dp_frame = potential.DehnenBarPotential(omegab=1.8 - omega, rb=0.5, Af=0.03)
+    diskframepot = lp + dp_frame + framepot
+
+    # Now integrate the orbit of the Sun in both the inertial and the lsr frame
+    def check_orbit(method="odeint", tol=1e-9):
+        o = Orbit().toPlanar()
+        o.turn_physical_off()
+        # Inertial frame
+        ts = numpy.linspace(0.0, 20.0, 1001)
+        o.integrate(ts, diskpot)
+        # Non-inertial frame
+        op = Orbit([o.R(), o.vR(), o.vT() - omega * o.R(), o.phi()])
+        op.integrate(ts, diskframepot, method=method)
+        # Compare
+        o_xs = o.R(ts) * numpy.cos(o.phi(ts) - omega * ts)
+        o_ys = o.R(ts) * numpy.sin(o.phi(ts) - omega * ts)
+        op_xs = op.x(ts)
+        op_ys = op.y(ts)
+        assert (
+            numpy.amax(numpy.fabs(o_xs - op_xs)) < tol
+        ), f"Integrating an orbit in the rotating LSR frame does not agree with the equivalent orbit in the inertial frame for method {method}"
+        assert (
+            numpy.amax(numpy.fabs(o_ys - op_ys)) < tol
+        ), f"Integrating an orbit in the rotating LSR frame does not agree with the equivalent orbit in the inertial frame for method {method}"
+
+    check_orbit(method="odeint", tol=1e-6)
+    check_orbit(method="dop853_c", tol=1e-9)
+    return None
+
+
 def test_accellsrframe_scalaromegaz():
     # Test that integrating an orbit in an LSR frame that is accelerating
     # is equivalent to normal orbit integration
@@ -102,6 +178,43 @@ def test_accellsrframe_scalaromegaz():
         o.integrate(ts, diskpot)
         # Non-inertial frame
         op = Orbit([o.R(), o.vR(), o.vT() - omega * o.R(), o.z(), o.vz(), o.phi()])
+        op.integrate(ts, diskframepot, method=method)
+        # Compare
+        o_xs = o.R(ts) * numpy.cos(o.phi(ts) - omega * ts - omegadot * ts**2.0 / 2.0)
+        o_ys = o.R(ts) * numpy.sin(o.phi(ts) - omega * ts - omegadot * ts**2.0 / 2.0)
+        op_xs = op.x(ts)
+        op_ys = op.y(ts)
+        assert (
+            numpy.amax(numpy.fabs(o_xs - op_xs)) < tol
+        ), f"Integrating an orbit in the acceleratingly-rotating LSR frame does not agree with the equivalent orbit in the inertial frame for method {method}"
+        assert (
+            numpy.amax(numpy.fabs(o_ys - op_ys)) < tol
+        ), f"Integrating an orbit in the acceleratingly-rotating LSR frame does not agree with the equivalent orbit in the inertial frame for method {method}"
+
+    check_orbit(method="odeint", tol=1e-6)
+    check_orbit(method="dop853_c", tol=1e-9)
+    return None
+
+
+def test_accellsrframe_scalaromegaz_2d():
+    # Test that integrating an orbit in an LSR frame that is accelerating
+    # is equivalent to normal orbit integration in 2D
+    lp = potential.LogarithmicHaloPotential(normalize=1.0)
+    omega = lp.omegac(1.0)
+    omegadot = 0.02
+    diskpot = lp
+    framepot = potential.NonInertialFrameForce(Omega=omega, Omegadot=omegadot)
+    diskframepot = lp + framepot
+
+    # Now integrate the orbit of the Sun in both the inertial and the lsr frame
+    def check_orbit(method="odeint", tol=1e-9):
+        o = Orbit().toPlanar()
+        o.turn_physical_off()
+        # Inertial frame
+        ts = numpy.linspace(0.0, 20.0, 1001)
+        o.integrate(ts, diskpot)
+        # Non-inertial frame
+        op = Orbit([o.R(), o.vR(), o.vT() - omega * o.R(), o.phi()])
         op.integrate(ts, diskframepot, method=method)
         # Compare
         o_xs = o.R(ts) * numpy.cos(o.phi(ts) - omega * ts - omegadot * ts**2.0 / 2.0)
@@ -159,6 +272,45 @@ def test_accellsrframe_vecomegaz():
     return None
 
 
+def test_accellsrframe_vecomegaz_2d():
+    # Test that integrating an orbit in an LSR frame that is accelerating
+    # is equivalent to normal orbit integration in 2D
+    lp = potential.LogarithmicHaloPotential(normalize=1.0)
+    omega = lp.omegac(1.0)
+    omegadot = 0.02
+    diskpot = lp
+    framepot = potential.NonInertialFrameForce(
+        Omega=numpy.array([0.0, 0.0, omega]), Omegadot=numpy.array([0.0, 0.0, omegadot])
+    )
+    diskframepot = lp + framepot
+
+    # Now integrate the orbit of the Sun in both the inertial and the lsr frame
+    def check_orbit(method="odeint", tol=1e-9):
+        o = Orbit().toPlanar()
+        o.turn_physical_off()
+        # Inertial frame
+        ts = numpy.linspace(0.0, 20.0, 1001)
+        o.integrate(ts, diskpot)
+        # Non-inertial frame
+        op = Orbit([o.R(), o.vR(), o.vT() - omega * o.R(), o.phi()])
+        op.integrate(ts, diskframepot, method=method)
+        # Compare
+        o_xs = o.R(ts) * numpy.cos(o.phi(ts) - omega * ts - omegadot * ts**2.0 / 2.0)
+        o_ys = o.R(ts) * numpy.sin(o.phi(ts) - omega * ts - omegadot * ts**2.0 / 2.0)
+        op_xs = op.x(ts)
+        op_ys = op.y(ts)
+        assert (
+            numpy.amax(numpy.fabs(o_xs - op_xs)) < tol
+        ), f"Integrating an orbit in the acceleratingly-rotating LSR frame does not agree with the equivalent orbit in the inertial frame for method {method}"
+        assert (
+            numpy.amax(numpy.fabs(o_ys - op_ys)) < tol
+        ), f"Integrating an orbit in the acceleratingly-rotating LSR frame does not agree with the equivalent orbit in the inertial frame for method {method}"
+
+    check_orbit(method="odeint", tol=1e-6)
+    check_orbit(method="dop853_c", tol=1e-9)
+    return None
+
+
 def test_accellsrframe_funcomegaz():
     # Test that integrating an orbit in an LSR frame that is accelerating
     # is equivalent to normal orbit integration
@@ -198,6 +350,45 @@ def test_accellsrframe_funcomegaz():
     return None
 
 
+def test_accellsrframe_funcomegaz_2d():
+    # Test that integrating an orbit in an LSR frame that is accelerating
+    # is equivalent to normal orbit integration
+    lp = potential.LogarithmicHaloPotential(normalize=1.0)
+    omega = lp.omegac(1.0)
+    omegadot = 0.02
+    omega_func = lambda t: lp.omegac(1.0) + 0.02 * t
+    omegadot_func = lambda t: 0.02
+    diskpot = lp
+    framepot = potential.NonInertialFrameForce(Omega=omega_func, Omegadot=omegadot_func)
+    diskframepot = lp + framepot
+
+    # Now integrate the orbit of the Sun in both the inertial and the lsr frame
+    def check_orbit(method="odeint", tol=1e-9):
+        o = Orbit().toPlanar()
+        o.turn_physical_off()
+        # Inertial frame
+        ts = numpy.linspace(0.0, 20.0, 1001)
+        o.integrate(ts, diskpot)
+        # Non-inertial frame
+        op = Orbit([o.R(), o.vR(), o.vT() - omega * o.R(), o.phi()])
+        op.integrate(ts, diskframepot, method=method)
+        # Compare
+        o_xs = o.R(ts) * numpy.cos(o.phi(ts) - omega * ts - omegadot * ts**2.0 / 2.0)
+        o_ys = o.R(ts) * numpy.sin(o.phi(ts) - omega * ts - omegadot * ts**2.0 / 2.0)
+        op_xs = op.x(ts)
+        op_ys = op.y(ts)
+        assert (
+            numpy.amax(numpy.fabs(o_xs - op_xs)) < tol
+        ), f"Integrating an orbit in the acceleratingly-rotating LSR frame does not agree with the equivalent orbit in the inertial frame for method {method}"
+        assert (
+            numpy.amax(numpy.fabs(o_ys - op_ys)) < tol
+        ), f"Integrating an orbit in the acceleratingly-rotating LSR frame does not agree with the equivalent orbit in the inertial frame for method {method}"
+
+    check_orbit(method="odeint", tol=1e-6)
+    check_orbit(method="dop853_c", tol=1e-9)
+    return None
+
+
 def test_accellsrframe_vecfuncomegaz():
     # Test that integrating an orbit in an LSR frame that is accelerating
     # is equivalent to normal orbit integration
@@ -219,6 +410,45 @@ def test_accellsrframe_vecfuncomegaz():
         o.integrate(ts, diskpot)
         # Non-inertial frame
         op = Orbit([o.R(), o.vR(), o.vT() - omega * o.R(), o.z(), o.vz(), o.phi()])
+        op.integrate(ts, diskframepot, method=method)
+        # Compare
+        o_xs = o.R(ts) * numpy.cos(o.phi(ts) - omega * ts - omegadot * ts**2.0 / 2.0)
+        o_ys = o.R(ts) * numpy.sin(o.phi(ts) - omega * ts - omegadot * ts**2.0 / 2.0)
+        op_xs = op.x(ts)
+        op_ys = op.y(ts)
+        assert (
+            numpy.amax(numpy.fabs(o_xs - op_xs)) < tol
+        ), f"Integrating an orbit in the acceleratingly-rotating LSR frame does not agree with the equivalent orbit in the inertial frame for method {method}"
+        assert (
+            numpy.amax(numpy.fabs(o_ys - op_ys)) < tol
+        ), f"Integrating an orbit in the acceleratingly-rotating LSR frame does not agree with the equivalent orbit in the inertial frame for method {method}"
+
+    check_orbit(method="odeint", tol=1e-6)
+    check_orbit(method="dop853_c", tol=1e-9)
+    return None
+
+
+def test_accellsrframe_vecfuncomegaz_2D():
+    # Test that integrating an orbit in an LSR frame that is accelerating
+    # is equivalent to normal orbit integration
+    lp = potential.LogarithmicHaloPotential(normalize=1.0)
+    omega = lp.omegac(1.0)
+    omegadot = 0.02
+    omega_func = [lambda t: 0.0, lambda t: 0.0, lambda t: lp.omegac(1.0) + 0.02 * t]
+    omegadot_func = [lambda t: 0.0, lambda t: 0.0, lambda t: 0.02]
+    diskpot = lp
+    framepot = potential.NonInertialFrameForce(Omega=omega_func, Omegadot=omegadot_func)
+    diskframepot = lp + framepot
+
+    # Now integrate the orbit of the Sun in both the inertial and the lsr frame
+    def check_orbit(method="odeint", tol=1e-9):
+        o = Orbit().toPlanar()
+        o.turn_physical_off()
+        # Inertial frame
+        ts = numpy.linspace(0.0, 20.0, 1001)
+        o.integrate(ts, diskpot)
+        # Non-inertial frame
+        op = Orbit([o.R(), o.vR(), o.vT() - omega * o.R(), o.phi()])
         op.integrate(ts, diskframepot, method=method)
         # Compare
         o_xs = o.R(ts) * numpy.cos(o.phi(ts) - omega * ts - omegadot * ts**2.0 / 2.0)
@@ -1015,6 +1245,51 @@ def test_linacc_constantacc_z():
         ), f"Integrating an orbit in a linearly-accelerating frame with constant acceleration does not agree with the equivalent orbit in the inertial frame for method {method}"
 
     check_orbit(method="odeint", tol=1e-9)
+    check_orbit(method="dop853", tol=1e-9)
+    check_orbit(
+        method="dop853_c", tol=1e-5
+    )  # Lower tol, because diff integrators for inertial and non-inertial, bc wrapper not implemented in C
+    return None
+
+
+def test_linacc_constantacc_x_2d():
+    # Test that a linearly-accelerating frame along the x direction works
+    # with a constant acceleration in 2D
+    lp = potential.LogarithmicHaloPotential(normalize=1.0)
+    dp = potential.DehnenBarPotential(omegab=1.8, rb=0.5, Af=0.03)
+    diskpot = lp + dp
+    ax = 0.02
+    intax = lambda t: ax * t**2.0 / 2.0
+    framepot = potential.NonInertialFrameForce(a0=[ax, 0.0, 0.0])
+    diskframepot = (
+        AcceleratingPotentialWrapperPotential(
+            pot=diskpot, x0=[intax, lambda t: 0.0, lambda t: 0.0]
+        )
+        + framepot
+    )
+
+    def check_orbit(method="odeint", tol=1e-9):
+        o = Orbit().toPlanar()
+        o.turn_physical_off()
+        # Inertial frame
+        ts = numpy.linspace(0.0, 20.0, 1001)
+        o.integrate(ts, diskpot, method=method)
+        # Non-inertial frame
+        op = o()
+        op.integrate(ts, diskframepot, method=method)
+        # Compare
+        o_xs = o.x(ts)
+        o_ys = o.y(ts)
+        op_xs = op.x(ts) + intax(ts)
+        op_ys = op.y(ts)
+        assert (
+            numpy.amax(numpy.fabs(o_xs - op_xs)) < tol
+        ), f"Integrating an orbit in a linearly-accelerating frame with constant acceleration does not agree with the equivalent orbit in the inertial frame for method {method}"
+        assert (
+            numpy.amax(numpy.fabs(o_ys - op_ys)) < tol
+        ), f"Integrating an orbit in a linearly-accelerating frame with constant acceleration does not agree with the equivalent orbit in the inertial frame for method {method}"
+
+    check_orbit(method="odeint", tol=1e-5)
     check_orbit(method="dop853", tol=1e-9)
     check_orbit(
         method="dop853_c", tol=1e-5
@@ -1928,6 +2203,61 @@ def test_python_vs_c_linacc_changingacc_xyz_accellsrframe_scalaromegaz():
         ), f"Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {py_method} and {c_method}"
         assert (
             numpy.amax(numpy.fabs(o.vz(ts) - op.vz(ts))) < tol
+        ), f"Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {py_method} and {c_method}"
+        return None
+
+    check_orbit()
+    return None
+
+
+def test_python_vs_c_linacc_changingacc_xyz_accellsrframe_scalaromegaz_2d():
+    # Integrate an orbit in both Python and C to check that they match in 2D
+    # We don't need to known the true answer here
+    lp = potential.MiyamotoNagaiPotential(normalize=1.0, a=1.0, b=0.2)
+    dp = potential.DehnenBarPotential(omegab=1.8, rb=0.5, Af=0.03)
+    diskpot = lp + dp
+    x0 = [
+        lambda t: -0.03 * t**2.0 / 2.0 - 0.03 * t**3.0 / 6.0 / 20.0,
+        lambda t: 0.04 * t**2.0 / 2.0 + 0.08 * t**3.0 / 6.0 / 20.0,
+        lambda t: 0.0,
+    ]
+    v0 = [
+        lambda t: -0.03 * t - 0.03 * t**2.0 / 2.0 / 20.0,
+        lambda t: 0.04 * t + 0.08 * t**2.0 / 2.0 / 20.0,
+        lambda t: 0.0,
+    ]
+    a0 = [
+        lambda t: -0.03 - 0.03 * t / 20.0,
+        lambda t: 0.04 + 0.08 * t / 20.0,
+        lambda t: 0.0,
+    ]
+    omega = lp.omegac(1.0)
+    omegadot = 0.02
+    framepot = potential.NonInertialFrameForce(
+        x0=x0, v0=v0, a0=a0, Omega=omega, Omegadot=omegadot
+    )
+
+    def check_orbit(py_method="dop853", c_method="dop853_c", tol=1e-8):
+        # Now integrate an orbit in the rotating frame in Python
+        o = Orbit().toPlanar()
+        o.turn_physical_off()
+        # Rotating frame in Python
+        ts = numpy.linspace(0.0, 20.0, 1001)
+        o.integrate(ts, diskpot + framepot, method=py_method)
+        # In C
+        op = o()
+        op.integrate(ts, diskpot + framepot, method=c_method)
+        assert (
+            numpy.amax(numpy.fabs(o.x(ts) - op.x(ts))) < tol
+        ), f"Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {py_method} and {c_method}"
+        assert (
+            numpy.amax(numpy.fabs(o.y(ts) - op.y(ts))) < tol
+        ), f"Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {py_method} and {c_method}"
+        assert (
+            numpy.amax(numpy.fabs(o.vx(ts) - op.vx(ts))) < tol
+        ), f"Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {py_method} and {c_method}"
+        assert (
+            numpy.amax(numpy.fabs(o.vy(ts) - op.vy(ts))) < tol
         ), f"Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {py_method} and {c_method}"
         return None
 

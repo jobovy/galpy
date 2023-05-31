@@ -1,4 +1,3 @@
-import copy
 import os
 import pickle
 import warnings
@@ -12,7 +11,9 @@ from ..util.conversion import (
     physical_conversion,
     potential_physical_input,
 )
-from .DissipativeForce import _isDissipative
+from .DissipativeForce import DissipativeForce, _isDissipative
+from .planarDissipativeForce import planarDissipativeForceFromFullDissipativeForce
+from .planarForce import planarForce
 from .plotEscapecurve import _INF, plotEscapecurve
 from .plotRotcurve import plotRotcurve
 from .Potential import (
@@ -24,192 +25,11 @@ from .Potential import (
 )
 
 
-class planarPotential:
+class planarPotential(planarForce):
     r"""Class representing 2D (R,\phi) potentials"""
 
     def __init__(self, amp=1.0, ro=None, vo=None):
-        self._amp = amp
-        self.dim = 2
-        self.isNonAxi = True  # Gets reset by planarAxiPotential
-        self.isRZ = False
-        self.hasC = False
-        self.hasC_dxdv = False
-        self.hasC_dens = False
-        # Parse ro and vo
-        if ro is None:
-            self._ro = config.__config__.getfloat("normalization", "ro")
-            self._roSet = False
-        else:
-            self._ro = conversion.parse_length_kpc(ro)
-            self._roSet = True
-        if vo is None:
-            self._vo = config.__config__.getfloat("normalization", "vo")
-            self._voSet = False
-        else:
-            self._vo = conversion.parse_velocity_kms(vo)
-            self._voSet = True
-        return None
-
-    def __mul__(self, b):
-        """
-        NAME:
-
-           __mul__
-
-        PURPOSE:
-
-           Multiply a planarPotential's amplitude by a number
-
-        INPUT:
-
-           b - number
-
-        OUTPUT:
-
-           New instance with amplitude = (old amplitude) x b
-
-        HISTORY:
-
-           2019-01-27 - Written - Bovy (UofT)
-
-        """
-        if not isinstance(b, (int, float)):
-            raise TypeError(
-                "Can only multiply a planarPotential instance with a number"
-            )
-        out = copy.deepcopy(self)
-        out._amp *= b
-        return out
-
-    # Similar functions
-    __rmul__ = __mul__
-
-    def __div__(self, b):
-        return self.__mul__(1.0 / b)
-
-    __truediv__ = __div__
-
-    def __add__(self, b):
-        """
-        NAME:
-
-           __add__
-
-        PURPOSE:
-
-           Add planarPotential instances together to create a multi-component potential (e.g., pot= pot1+pot2+pot3)
-
-        INPUT:
-
-           b - planarPotential instance or a list thereof
-
-        OUTPUT:
-
-           List of planarPotential instances that represents the combined potential
-
-        HISTORY:
-
-           2019-01-27 - Written - Bovy (UofT)
-
-        """
-        from ..potential import flatten as flatten_pot
-
-        if not isinstance(flatten_pot([b])[0], (Potential, planarPotential)):
-            raise TypeError(
-                """Can only combine galpy Potential"""
-                """/planarPotential objects with """
-                """other such objects or lists thereof"""
-            )
-        assert physical_compatible(self, b), (
-            """Physical unit conversion parameters (ro,vo) are not """
-            """compatible between potentials to be combined"""
-        )
-        if isinstance(b, list):
-            return [self] + b
-        else:
-            return [self, b]
-
-    # Define separately to keep order
-    def __radd__(self, b):
-        from ..potential import flatten as flatten_pot
-
-        if not isinstance(flatten_pot([b])[0], (Potential, planarPotential)):
-            raise TypeError(
-                """Can only combine galpy Force objects with """
-                """other Force objects or lists thereof"""
-            )
-        assert physical_compatible(self, b), (
-            """Physical unit conversion parameters (ro,vo) are not """
-            """compatible between potentials to be combined"""
-        )
-        # If we get here, b has to be a list
-        return b + [self]
-
-    def turn_physical_off(self):
-        """
-        NAME:
-
-           turn_physical_off
-
-        PURPOSE:
-
-           turn off automatic returning of outputs in physical units
-
-        INPUT:
-
-           (none)
-
-        OUTPUT:
-
-           (none)
-
-        HISTORY:
-
-           2016-01-30 - Written - Bovy (UofT)
-
-        """
-        self._roSet = False
-        self._voSet = False
-        return None
-
-    def turn_physical_on(self, ro=None, vo=None):
-        """
-        NAME:
-
-           turn_physical_on
-
-        PURPOSE:
-
-           turn on automatic returning of outputs in physical units
-
-        INPUT:
-
-           ro= reference distance (kpc; can be Quantity)
-
-           vo= reference velocity (km/s; can be Quantity)
-
-        OUTPUT:
-
-           (none)
-
-        HISTORY:
-
-           2016-01-30 - Written - Bovy (UofT)
-
-           2020-04-22 - Don't turn on a parameter when it is False - Bovy (UofT)
-
-        """
-        if not ro is False:
-            self._roSet = True
-            ro = conversion.parse_length_kpc(ro)
-            if not ro is None:
-                self._ro = ro
-        if not vo is False:
-            self._voSet = True
-            vo = conversion.parse_velocity_kms(vo)
-            if not vo is None:
-                self._vo = vo
-        return None
+        planarForce.__init__(self, amp=amp, ro=ro, vo=vo)
 
     @potential_physical_input
     @physical_conversion("energy", pop=True)
@@ -486,7 +306,6 @@ class planarAxiPotential(planarPotential):
     def __init__(self, amp=1.0, ro=None, vo=None):
         planarPotential.__init__(self, amp=amp, ro=ro, vo=vo)
         self.isNonAxi = False
-        return None
 
     def _phitorque(self, R, phi=0.0, t=0.0):
         return 0.0
@@ -865,7 +684,7 @@ def RZToplanarPotential(RZPot):
     RZPot = flatten(RZPot)
     if _isDissipative(RZPot):
         raise NotImplementedError(
-            "Converting dissipative forces to 2D potentials is currently not supported"
+            "Converting dissipative forces to 2D axisymmetric potentials is currently not supported"
         )
     if isinstance(RZPot, list):
         out = []
@@ -1050,7 +869,7 @@ def toPlanarPotential(Pot):
 
     OUTPUT:
 
-       planarPotential instance(s)
+       planarPotential, planarAxiPotential, or planarDissipativeForce instance(s)
 
     HISTORY:
 
@@ -1058,19 +877,17 @@ def toPlanarPotential(Pot):
 
     """
     Pot = flatten(Pot)
-    if _isDissipative(Pot):
-        raise NotImplementedError(
-            "Converting dissipative forces to 2D potentials is currently not supported"
-        )
-    elif isinstance(Pot, list):
+    if isinstance(Pot, list):
         out = []
         for pot in Pot:
-            if isinstance(pot, planarPotential):
+            if isinstance(pot, planarForce):
                 out.append(pot)
             elif isinstance(pot, Potential) and pot.isNonAxi:
                 out.append(planarPotentialFromFullPotential(pot))
             elif isinstance(pot, Potential):
                 out.append(planarPotentialFromRZPotential(pot))
+            elif isinstance(pot, DissipativeForce):
+                out.append(planarDissipativeForceFromFullDissipativeForce(pot))
             else:
                 raise PotentialError(
                     "Input to 'toPlanarPotential' is neither an Potential-instance or a list of such instances"
@@ -1082,6 +899,8 @@ def toPlanarPotential(Pot):
         return planarPotentialFromRZPotential(Pot)
     elif isinstance(Pot, planarPotential):
         return Pot
+    elif isinstance(Pot, DissipativeForce):
+        return planarDissipativeForceFromFullDissipativeForce(Pot)
     else:
         raise PotentialError(
             "Input to 'toPlanarPotential' is neither an Potential-instance or a list of such instances"
@@ -1156,7 +975,7 @@ def _evaluateplanarPotentials(Pot, R, phi=None, t=0.0, dR=0, dphi=0):
 @potential_positional_arg
 @potential_physical_input
 @physical_conversion("force", pop=True)
-def evaluateplanarRforces(Pot, R, phi=None, t=0.0):
+def evaluateplanarRforces(Pot, R, phi=None, t=0.0, v=None):
     """
     NAME:
 
@@ -1176,6 +995,8 @@ def evaluateplanarRforces(Pot, R, phi=None, t=0.0):
 
        t= time (optional; can be Quantity)
 
+       v = current velocity in cylindrical coordinates (optional, but required when including dissipative forces; can be a Quantity)
+
     OUTPUT:
 
        F_R(R(,phi,t))
@@ -1184,11 +1005,13 @@ def evaluateplanarRforces(Pot, R, phi=None, t=0.0):
 
        2010-07-13 - Written - Bovy (NYU)
 
+       2023-05-29 - Added velocity input for dissipative forces - Bovy (UofT)
+
     """
-    return _evaluateplanarRforces(Pot, R, phi=phi, t=t)
+    return _evaluateplanarRforces(Pot, R, phi=phi, t=t, v=v)
 
 
-def _evaluateplanarRforces(Pot, R, phi=None, t=0.0):
+def _evaluateplanarRforces(Pot, R, phi=None, t=0.0, v=None):
     """Raw, undecorated function for internal use"""
     from .Potential import _isNonAxi
 
@@ -1196,18 +1019,25 @@ def _evaluateplanarRforces(Pot, R, phi=None, t=0.0):
     nonAxi = _isNonAxi(Pot)
     if nonAxi and phi is None:
         raise PotentialError(
-            "The (list of) planarPotential instances is non-axisymmetric, but you did not provide phi"
+            "The (list of) planarForce instances is non-axisymmetric, but you did not provide phi"
         )
-    if isinstance(Pot, list) and numpy.all(
-        [isinstance(p, planarPotential) for p in Pot]
-    ):
+    dissipative = _isDissipative(Pot)
+    if dissipative and v is None:
+        raise PotentialError(
+            "The (list of) planarForce instances includes dissipative components, but you did not provide the 2D velocity (required for dissipative forces)"
+        )
+    if isinstance(Pot, list) and numpy.all([isinstance(p, planarForce) for p in Pot]):
         sum = 0.0
         for pot in Pot:
-            if nonAxi:
+            if _isDissipative(pot):
+                sum += pot._Rforce_nodecorator(R, phi=phi, t=t, v=v)
+            elif nonAxi:
                 sum += pot._Rforce_nodecorator(R, phi=phi, t=t)
             else:
                 sum += pot._Rforce_nodecorator(R, t=t)
         return sum
+    elif dissipative:
+        return Pot._Rforce_nodecorator(R, phi=phi, t=t, v=v)
     elif isinstance(Pot, planarPotential):
         if nonAxi:
             return Pot._Rforce_nodecorator(R, phi=phi, t=t)
@@ -1220,18 +1050,18 @@ def _evaluateplanarRforces(Pot, R, phi=None, t=0.0):
 
 
 @potential_positional_arg
-def evaluateplanarphiforces(Pot, R, phi=None, t=0.0):
+def evaluateplanarphiforces(Pot, R, phi=None, t=0.0, v=None):
     warnings.warn(
         "evaluateplanarphiforces has been renamed evaluateplanarphitorques, because it has always really been a torque (per unit mass); please switch to the new method name, because the old name will be removed in v1.9 and may be re-used for the actual phi force component",
         FutureWarning,
     )
-    return evaluateplanarphitorques(Pot, R, phi=phi, t=t)
+    return evaluateplanarphitorques(Pot, R, phi=phi, t=t, v=None)
 
 
 @potential_positional_arg
 @potential_physical_input
 @physical_conversion("energy", pop=True)
-def evaluateplanarphitorques(Pot, R, phi=None, t=0.0):
+def evaluateplanarphitorques(Pot, R, phi=None, t=0.0, v=None):
     """
     NAME:
 
@@ -1251,6 +1081,8 @@ def evaluateplanarphitorques(Pot, R, phi=None, t=0.0):
 
        t= time (optional; can be Quantity)
 
+       v = current velocity in cylindrical coordinates (optional, but required when including dissipative forces; can be a Quantity)
+
     OUTPUT:
 
        tau_phi(R(,phi,t))
@@ -1259,11 +1091,13 @@ def evaluateplanarphitorques(Pot, R, phi=None, t=0.0):
 
        2010-07-13 - Written - Bovy (NYU)
 
+       2023-05-29 - Added velocity input for dissipative forces - Bovy (UofT)
+
     """
-    return _evaluateplanarphitorques(Pot, R, phi=phi, t=t)
+    return _evaluateplanarphitorques(Pot, R, phi=phi, t=t, v=v)
 
 
-def _evaluateplanarphitorques(Pot, R, phi=None, t=0.0):
+def _evaluateplanarphitorques(Pot, R, phi=None, t=0.0, v=None):
     from .Potential import _isNonAxi
 
     isList = isinstance(Pot, list)
@@ -1272,16 +1106,23 @@ def _evaluateplanarphitorques(Pot, R, phi=None, t=0.0):
         raise PotentialError(
             "The (list of) planarPotential instances is non-axisymmetric, but you did not provide phi"
         )
-    if isinstance(Pot, list) and numpy.all(
-        [isinstance(p, planarPotential) for p in Pot]
-    ):
+    dissipative = _isDissipative(Pot)
+    if dissipative and v is None:
+        raise PotentialError(
+            "The (list of) planarForce instances includes dissipative components, but you did not provide the 2D velocity (required for dissipative forces)"
+        )
+    if isinstance(Pot, list) and numpy.all([isinstance(p, planarForce) for p in Pot]):
         sum = 0.0
         for pot in Pot:
-            if nonAxi:
+            if _isDissipative(pot):
+                sum += pot._phitorque_nodecorator(R, phi=phi, t=t, v=v)
+            elif nonAxi:
                 sum += pot._phitorque_nodecorator(R, phi=phi, t=t)
             else:
                 sum += pot._phitorque_nodecorator(R, t=t)
         return sum
+    elif dissipative:
+        return Pot._phitorque_nodecorator(R, phi=phi, t=t, v=v)
     elif isinstance(Pot, planarPotential):
         if nonAxi:
             return Pot._phitorque_nodecorator(R, phi=phi, t=t)

@@ -55,6 +55,7 @@ from . import (
     interpRZPotential,
     interpSphericalPotential,
     linearPotential,
+    planarForce,
     planarPotential,
     plotEscapecurve,
     plotRotcurve,
@@ -138,6 +139,7 @@ LcE = Potential.LcE
 # Classes
 #
 Force = Force.Force
+planarForce = planarForce.planarForce
 Potential = Potential.Potential
 planarAxiPotential = planarPotential.planarAxiPotential
 planarPotential = planarPotential.planarPotential

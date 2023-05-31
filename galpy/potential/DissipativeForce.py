@@ -68,7 +68,6 @@ class DissipativeForce(Force):
         try:
             return self._amp * self._Rforce(R, z, phi=phi, t=t, v=v)
         except AttributeError:  # pragma: no cover
-            raise
             from .Potential import PotentialError
 
             raise PotentialError(
@@ -192,14 +191,23 @@ def _isDissipative(obj):
 
        2018-03-16 - Written - Bovy (UofT)
 
+       2023-05-29 - Adjusted to also take planarDissipativeForces into account - Bovy (UofT)
+
     """
+    from .planarDissipativeForce import planarDissipativeForce
     from .Potential import flatten
 
     obj = flatten(obj)
     isList = isinstance(obj, list)
     if isList:
-        isCons = [not isinstance(p, DissipativeForce) for p in obj]
+        isCons = [
+            not isinstance(p, DissipativeForce)
+            and not isinstance(p, planarDissipativeForce)
+            for p in obj
+        ]
         nonCons = not numpy.prod(numpy.array(isCons))
     else:
-        nonCons = isinstance(obj, DissipativeForce)
+        nonCons = isinstance(obj, DissipativeForce) or isinstance(
+            obj, planarDissipativeForce
+        )
     return nonCons

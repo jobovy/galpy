@@ -933,33 +933,6 @@ class Potential(Force):
                 )
             return 0.0
 
-    def toPlanar(self):
-        """
-        NAME:
-
-           toPlanar
-
-        PURPOSE:
-
-           convert a 3D potential into a planar potential in the mid-plane
-
-        INPUT:
-
-           (none)
-
-        OUTPUT:
-
-           planarPotential
-
-        HISTORY:
-
-           unknown
-
-        """
-        from ..potential import toPlanarPotential
-
-        return toPlanarPotential(self)
-
     def toVertical(self, R, phi=None, t0=0.0):
         """
         NAME:
@@ -2412,7 +2385,7 @@ def _evaluateRforces(Pot, R, z, phi=None, t=0.0, v=None):
     dissipative = _isDissipative(Pot)
     if dissipative and v is None:
         raise PotentialError(
-            "The (list of) Potential instances includes dissipative, but you did not provide the 3D velocity (required for dissipative forces"
+            "The (list of) Potential instances includes dissipative components, but you did not provide the 3D velocity (required for dissipative forces)"
         )
     if isList:
         out = 0.0
@@ -4195,7 +4168,7 @@ def _check_c(Pot, dxdv=False, dens=False):
 
     """
     Pot = flatten(Pot)
-    from ..potential import linearPotential, planarPotential
+    from ..potential import linearPotential, planarForce
 
     if dxdv:
         hasC_attr = "hasC_dxdv"
@@ -4213,7 +4186,7 @@ def _check_c(Pot, dxdv=False, dens=False):
         return bool(Pot.__dict__[hasC_attr] * _check_c(Pot._pot))
     elif (
         isinstance(Pot, Force)
-        or isinstance(Pot, planarPotential)
+        or isinstance(Pot, planarForce)
         or isinstance(Pot, linearPotential)
     ):
         return Pot.__dict__[hasC_attr]

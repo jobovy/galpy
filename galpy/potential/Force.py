@@ -328,3 +328,30 @@ class Force:
         r = numpy.sqrt(R**2.0 + z**2.0)
         kwargs["use_physical"] = False
         return self.Rforce(R, z, **kwargs) * R / r + self.zforce(R, z, **kwargs) * z / r
+
+    def toPlanar(self):
+        """
+        NAME:
+
+           toPlanar
+
+        PURPOSE:
+
+           convert a 3D potential into a planar potential in the mid-plane
+
+        INPUT:
+
+           (none)
+
+        OUTPUT:
+
+           planarPotential, planarAxiPotential, or planarDissipativeForce instance
+
+        HISTORY:
+
+           unknown
+
+        """
+        from ..potential import toPlanarPotential
+
+        return toPlanarPotential(self)
