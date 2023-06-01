@@ -977,6 +977,98 @@ def test_SOS_onsurfaceerror_3D():
     return None
 
 
+# Test that the 3D bruteSOS function returns points with z=0, vz > 0
+def test_bruteSOS_3D():
+    from galpy.orbit import Orbit
+
+    times = numpy.linspace(0.0, 10.0, 1001)
+    orbits_list = [
+        Orbit([1.0, 0.1, 1.0, 0.0, 0.1, 0.0]),
+        Orbit([0.9, 0.3, 1.0, -0.3, 0.4, 3.0]),
+        Orbit([1.2, -0.3, 0.7, 0.5, -0.5, 6.0]),
+    ]
+    orbits = Orbit(orbits_list)
+    pot = potential.MWPotential2014
+    for method in ["dopr54_c", "dop853_c", "rk4_c", "rk6_c", "dop853", "odeint"]:
+        orbits.bruteSOS(
+            numpy.linspace(0.0, 20.0 * numpy.pi, 100001),
+            pot,
+            method=method,
+            force_map="rk" in method,
+        )
+        zs = orbits.z(orbits.t)
+        vzs = orbits.vz(orbits.t)
+        assert (
+            numpy.fabs(zs[~numpy.isnan(zs)]) < 10.0**-3.0
+        ).all(), f"z on bruteSOS is not zero for bruteSOS for method={method}"
+        assert (
+            vzs[~numpy.isnan(zs)] > 0.0
+        ).all(), f"vz on bruteSOS is not positive for bruteSOS for method={method}"
+    return None
+
+
+# Test that the 2D bruteSOS function returns points with x=0, vx > 0
+def test_bruteSOS_2Dx():
+    from galpy.orbit import Orbit
+
+    times = numpy.linspace(0.0, 10.0, 1001)
+    orbits_list = [
+        Orbit([1.0, 0.1, 1.0, 0.0]),
+        Orbit([0.9, 0.3, 1.0, 3.0]),
+        Orbit([1.2, -0.3, 0.7, 6.0]),
+    ]
+    orbits = Orbit(orbits_list)
+    pot = potential.LogarithmicHaloPotential(normalize=1.0, q=0.9).toPlanar()
+    for method in ["dopr54_c", "dop853_c", "rk4_c", "rk6_c", "dop853", "odeint"]:
+        orbits.bruteSOS(
+            numpy.linspace(0.0, 20.0 * numpy.pi, 100001),
+            pot,
+            method=method,
+            force_map="rk" in method,
+            surface="x",
+        )
+        xs = orbits.x(orbits.t)
+        vxs = orbits.vx(orbits.t)
+        assert (
+            numpy.fabs(xs[~numpy.isnan(xs)]) < 10.0**-3.0
+        ).all(), f"x on SOS is not zero for bruteSOS for method={method}"
+        assert (
+            vxs[~numpy.isnan(xs)] > 0.0
+        ).all(), f"vx on SOS is not zero for bruteSOS for method={method}"
+    return None
+
+
+# Test that the 2D bruteSOS function returns points with y=0, vy > 0
+def test_bruteSOS_2Dy():
+    from galpy.orbit import Orbit
+
+    times = numpy.linspace(0.0, 10.0, 1001)
+    orbits_list = [
+        Orbit([1.0, 0.1, 1.0, 0.0]),
+        Orbit([0.9, 0.3, 1.0, 3.0]),
+        Orbit([1.2, -0.3, 0.7, 6.0]),
+    ]
+    orbits = Orbit(orbits_list)
+    pot = potential.LogarithmicHaloPotential(normalize=1.0, q=0.9).toPlanar()
+    for method in ["dopr54_c", "dop853_c", "rk4_c", "rk6_c", "dop853", "odeint"]:
+        orbits.bruteSOS(
+            numpy.linspace(0.0, 20.0 * numpy.pi, 100001),
+            pot,
+            method=method,
+            force_map="rk" in method,
+            surface="y",
+        )
+        ys = orbits.y(orbits.t)
+        vys = orbits.vy(orbits.t)
+        assert (
+            numpy.fabs(ys[~numpy.isnan(ys)]) < 10.0**-3.0
+        ).all(), f"y on SOS is not zero for bruteSOS for method={method}"
+        assert (
+            vys[~numpy.isnan(ys)] > 0.0
+        ).all(), f"vy on SOS is not zero for bruteSOS for method={method}"
+    return None
+
+
 # Test slicing of orbits
 def test_slice_singleobject():
     from galpy.orbit import Orbit
@@ -5119,6 +5211,37 @@ def test_plotSOS():
     pot = LogarithmicHaloPotential(normalize=1.0).toPlanar()
     o.plotSOS(pot)
     o.plotSOS(pot, use_physical=True, ro=8.0, vo=220.0)
+    return None
+
+
+def test_plotBruteSOS():
+    from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential
+
+    # 3D
+    o = Orbit(
+        [Orbit([1.0, 0.1, 1.1, 0.1, 0.2, 2.0]), Orbit([1.0, 0.1, 1.1, 0.1, 0.2, 2.0])]
+    )
+    pot = potential.MWPotential2014
+    o.plotBruteSOS(numpy.linspace(0.0, 20.0 * numpy.pi, 100001), pot)
+    o.plotBruteSOS(
+        numpy.linspace(0.0, 20.0 * numpy.pi, 100001),
+        pot,
+        use_physical=True,
+        ro=8.0,
+        vo=220.0,
+    )
+    # 2D
+    o = Orbit([Orbit([1.0, 0.1, 1.1, 2.0]), Orbit([1.0, 0.1, 1.1, 2.0])])
+    pot = LogarithmicHaloPotential(normalize=1.0).toPlanar()
+    o.plotBruteSOS(numpy.linspace(0.0, 20.0 * numpy.pi, 100001), pot)
+    o.plotBruteSOS(
+        numpy.linspace(0.0, 20.0 * numpy.pi, 100001),
+        pot,
+        use_physical=True,
+        ro=8.0,
+        vo=220.0,
+    )
     return None
 
 

@@ -962,6 +962,28 @@ def test_SOS_3D():
     return None
 
 
+# Test that the 3D bruteSOS function returns points with z=0, vz > 0
+def test_bruteSOS_3D():
+    pot = potential.MWPotential2014
+    o = setup_orbit_energy(pot)
+    for method in ["dopr54_c", "dop853_c", "rk4_c", "rk6_c", "dop853", "odeint"]:
+        o.bruteSOS(
+            numpy.linspace(0.0, 20.0 * numpy.pi, 100001),
+            pot,
+            method=method,
+            force_map="rk" in method,
+        )
+        zs = o.z(o.t)
+        vzs = o.vz(o.t)
+        assert (
+            numpy.fabs(zs) < 10.0**-3.0
+        ).all(), f"z on SOS is not zero for bruteSOS for method={method}"
+        assert (
+            vzs > 0.0
+        ).all(), f"vz on SOS is not zero for bruteSOS for method={method}"
+    return None
+
+
 # Test that integrating an orbit in MWPotential2014 using integrate_SOS conserves energy
 def test_integrate_SOS_2D():
     pot = potential.LogarithmicHaloPotential(normalize=1.0, q=0.9).toPlanar()
@@ -1020,6 +1042,50 @@ def test_SOS_2Dy():
         assert (
             vys > 0.0
         ).all(), f"vy on SOS is not positive for integrate_sos for method={method}"
+    return None
+
+
+# Test that the 2D SOS function returns points with x=0, vx > 0 when surface='x'
+def test_bruteSOS_2Dx():
+    pot = potential.LogarithmicHaloPotential(normalize=1.0, q=0.9).toPlanar()
+    o = setup_orbit_energy(pot)
+    for method in ["dopr54_c", "dop853_c", "rk4_c", "rk6_c", "dop853", "odeint"]:
+        o.bruteSOS(
+            numpy.linspace(0.0, 20.0 * numpy.pi, 100001),
+            pot,
+            method=method,
+            force_map="rk" in method,
+            surface="x",
+        )
+        xs = o.x(o.t)
+        vxs = o.vx(o.t)
+        assert (
+            numpy.fabs(xs) < 10.0**-3.0
+        ).all(), f"x on SOS is not zero for bruteSOS for method={method}"
+        assert (
+            vxs > 0.0
+        ).all(), f"vx on SOS is not zero for bruteSOS for method={method}"
+    return None
+
+
+# Test that the 2D SOS function returns points with y=0, vy > 0 when surface='y'
+def test_bruteSOS_2Dy():
+    pot = potential.LogarithmicHaloPotential(normalize=1.0, q=0.9).toPlanar()
+    o = setup_orbit_energy(pot)
+    for method in ["dopr54_c", "dop853_c", "rk4_c", "rk6_c", "dop853", "odeint"]:
+        o.bruteSOS(
+            numpy.linspace(0.0, 20.0 * numpy.pi, 100001),
+            pot,
+            method=method,
+            force_map="rk" in method,
+            surface="y",
+        )
+        ys = o.y(o.t)
+        vys = o.vy(o.t)
+        assert (
+            numpy.fabs(ys) < 10.0**-3.0
+        ).all(), f"y on SOS is not zero for bruteSOS for method={method}"
+        assert (vys > 0.0).all(), f"vy SOS is not zero for bruteSOS for method={method}"
     return None
 
 
@@ -7925,7 +7991,51 @@ def test_orbinterp_reset_integrateSOS():
 
 
 # Test that the internal interpolator is reset when the orbit is re-integrated
-# with integrate_SOS
+# with bruteSOS
+def test_orbinterp_reset_bruteSOS():
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential, MWPotential2014
+
+    o = Orbit([1.0, 0.1, 1.1, 0.1, -0.03, numpy.pi])
+    op = o()
+    ts = numpy.linspace(0.0, 100.0, 10001)
+    ts2 = numpy.linspace(0.0, 99.0, 10001)
+    o.integrate(ts, MWPotential)
+    o.R(numpy.linspace(0.0, o.t[-1], 1001))
+    o.bruteSOS(ts2, MWPotential2014)
+    op.bruteSOS(ts2, MWPotential2014)
+    ts = o.t
+    # If things are reset correctly, o and op should now agree on everything
+    assert numpy.all(
+        numpy.fabs(o.R(ts) - op.R(ts)) < 10.0**-10.0
+    ), "Orbit R not reset correctly"
+    assert numpy.all(
+        numpy.fabs(o.vR(ts) - op.vR(ts)) < 10.0**-10.0
+    ), "Orbit vR not reset correctly"
+    assert numpy.all(
+        numpy.fabs(o.vT(ts) - op.vT(ts)) < 10.0**-10.0
+    ), "Orbit vT not reset correctly"
+    assert numpy.all(
+        numpy.fabs(o.z(ts) - op.z(ts)) < 10.0**-10.0
+    ), "Orbit z not reset correctly"
+    assert numpy.all(
+        numpy.fabs(o.vz(ts) - op.vz(ts)) < 10.0**-10.0
+    ), "Orbit vz not reset correctly"
+    assert numpy.all(
+        numpy.fabs(o.phi(ts) - op.phi(ts)) < 10.0**-10.0
+    ), "Orbit phi not reset correctly"
+    assert (
+        numpy.fabs(o.rperi() - op.rperi()) < 10.0**-10.0
+    ), "Orbit rperi not reset correctly"
+    assert (
+        numpy.fabs(o.rap() - op.rap()) < 10.0**-10.0
+    ), "Orbit rap not reset correctly"
+    assert numpy.fabs(o.e() - op.e()) < 10.0**-10.0, "Orbit e not reset correctly"
+    return None
+
+
+# Test that the internal interpolator is reset when the orbit is re-integrated
+# with integratedxdv
 def test_orbinterp_reset_integratedxdv():
     from galpy.orbit import Orbit
     from galpy.potential import MWPotential, MWPotential2014
@@ -8469,6 +8579,26 @@ def test_plotSOS():
     o.plotSOS(pot, use_physical=True, label=["test"])
     o.plotSOS(pot, surface="y")
     o.plotSOS(pot, surface="y", use_physical=True)
+    return None
+
+
+def test_plotBruteSOS():
+    # 3D
+    pot = potential.MWPotential2014
+    o = setup_orbit_energy(pot)
+    o.plotBruteSOS(numpy.linspace(0.0, 100.0, 100001), pot)
+    o.plotBruteSOS(numpy.linspace(0.0, 100.0, 100001), pot, use_physical=True)
+    # 2D
+    pot = potential.LogarithmicHaloPotential(normalize=1.0, q=0.9).toPlanar()
+    o = setup_orbit_energy(pot)
+    o.plotBruteSOS(numpy.linspace(0.0, 100.0, 100001), pot, label="test")
+    o.plotBruteSOS(
+        numpy.linspace(0.0, 100.0, 100001), pot, use_physical=True, label=["test"]
+    )
+    o.plotBruteSOS(numpy.linspace(0.0, 100.0, 100001), pot, surface="y")
+    o.plotBruteSOS(
+        numpy.linspace(0.0, 100.0, 100001), pot, surface="y", use_physical=True
+    )
     return None
 
 

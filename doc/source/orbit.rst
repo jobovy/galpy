@@ -1078,6 +1078,17 @@ While ``galpy`` will happily compute the surface of section for any 3D or 2D orb
 surfaces of section make most sense in 3D for static, axisymmetric potentials and
 in 2D for static, non-axisymmetric potentials, like the examples below.
 
+For some force fields, the reparameterization of the orbit in terms of
+:math:`\psi` does not work, because the angle :math:`\psi` does not increase
+monotonically with time. This is notably the case for many orbits integrated in
+a non-inertial frame (e.g., bar orbits in the bar's rotating frame). In these
+cases, you can use a brute-force approach to determining the surface of section
+implemented in ``Orbit.bruteSOS`` and ``Orbit.plotBruteSOS``, which work
+similarly to the ``Orbit.SOS`` and ``Orbit.plotSOS`` methods discussed below,
+but simply look for surface crossings using a regular orbit integration. In this case,
+you have to specify how long to integrate the orbit for and you can, therefore, not
+directly control the number of crossings that you will get.
+
 As an example, let's consider the orbit of the Sun in ``MWPotential2014``. To plot the
 surface of section, simply do::
 
