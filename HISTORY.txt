@@ -5,6 +5,11 @@ v1.9.0 (XXXX-XX-XX)
   add Orbit.SOS and Orbit.plotSOS methods to compute and plot the surface of section
   of an orbit.
 
+- Also added a brute-force method to determine surfaces of sections and plotting them
+  for force fields for which the specialized method does not work (e.g., orbits in a
+  non-inertial bar frame). Methods Orbit.bruteSOS and Orbit.plotBruteSOS have similar
+  interfaces as Orbit.SOS and Orbit.plotSOS.
+
 - Added a method, dMdE, to calculate the differential energy distribution of
   spherical distribution functions.
 

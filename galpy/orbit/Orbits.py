@@ -5426,6 +5426,112 @@ class Orbit:
             self.vxvv = old_vxvv
         return out
 
+    @physical_conversion_tuple(["position", "velocity"])
+    def bruteSOS(
+        self,
+        t,
+        pot,
+        surface=None,
+        method="dop853_c",
+        dt=None,
+        progressbar=True,
+        numcores=_NUMCORES,
+        force_map=False,
+    ):
+        """
+        NAME:
+
+            bruteSOS
+
+        PURPOSE:
+
+            calculate the surface of section of the orbit using a brute-force integration approach
+
+        INPUT:
+
+            t - list of times at which to output (0 has to be in this!) (can be Quantity)
+
+            pot - Potential or list of such instances
+
+            surface= (None) surface to punch through (this has no effect in 3D, where the surface is always z=0, but in 2D it can be 'x' or 'y' for x=0 or y=0)
+
+            integration keyword arguments:
+
+                method = 'odeint' for scipy's odeint
+                     'leapfrog' for a simple leapfrog implementation
+                     'leapfrog_c' for a simple leapfrog implementation in C
+                     'symplec4_c' for a 4th order symplectic integrator in C
+                     'symplec6_c' for a 6th order symplectic integrator in C
+                     'rk4_c' for a 4th-order Runge-Kutta integrator in C
+                     'rk6_c' for a 6-th order Runge-Kutta integrator in C
+                     'dopr54_c' for a 5-4 Dormand-Prince integrator in C
+                     'dop853' for a 8-5-3 Dormand-Prince integrator in Python
+                     'dop853_c' for a 8-5-3 Dormand-Prince integrator in C
+
+                dt - if set, force the integrator to use this basic stepsize; must be an integer divisor of output stepsize (only works for the C integrators that use a fixed stepsize) (can be Quantity)
+
+                progressbar= (True) if True, display a tqdm progress bar when integrating multiple orbits (requires tqdm to be installed!)
+
+                numcores - number of cores to use for Python-based multiprocessing (pure Python or using force_map=True); default = OMP_NUM_THREADS
+
+                force_map= (False) if True, force use of Python-based multiprocessing (not recommended)
+
+        OUTPUT:
+
+            (R,vR) for 3D orbits, (y,vy) for 2D orbits when surface=='x', (x,vx) for 2D orbits when surface=='y'
+
+        HISTORY:
+
+            2023-05-31 - Written - Bovy (UofT)
+
+        """
+        if not self.dim() == 3 and not self.phasedim() == 4:
+            raise NotImplementedError(
+                "SOS not implemented for 1D orbits or 2D orbits without phi"
+            )
+        # Integrate the Orbit
+        self.integrate(
+            t,
+            pot,
+            method=method,
+            progressbar=progressbar,
+            dt=dt,
+            numcores=numcores,
+            force_map=force_map,
+        )
+        # Find the crossings
+        if self.dim() == 3:
+            cross = self.z(self.t, use_physical=False, dontreshape=True)
+        else:  # phasedim == 4 from check about
+            if not surface is None and surface.lower() == "y":
+                cross = self.y(self.t, use_physical=False, dontreshape=True)
+            else:
+                cross = self.x(self.t, use_physical=False, dontreshape=True)
+        shifts = numpy.roll(cross, -1, axis=1)
+        crossindx = (cross[:, :-1] < 0.0) * (shifts[:, :-1] > 0.0)
+        anycrossindx = numpy.sum(crossindx, axis=0).astype("bool")
+        self.t = numpy.tile(self.t, (self.size, 1))[:, :-1]
+        self.t = self.t[:, anycrossindx]
+        self.orbit = self.orbit[:, :-1][:, anycrossindx]
+        self.t[~crossindx[:, anycrossindx]] = numpy.nan
+        self.orbit[~crossindx[:, anycrossindx]] = numpy.nan
+        if self.dim() == 3:
+            return (
+                self.R(self.t, use_physical=False),
+                self.vR(self.t, use_physical=False),
+            )
+        else:
+            if not surface is None and surface.lower() == "y":
+                return (
+                    self.x(self.t, use_physical=False),
+                    self.vx(self.t, use_physical=False),
+                )
+            else:
+                return (
+                    self.y(self.t, use_physical=False),
+                    self.vy(self.t, use_physical=False),
+                )
+
     def __call__(self, *args, **kwargs):
         """
         NAME:
@@ -5495,11 +5601,12 @@ class Orbit:
         # where one wants all integrated times
         # 2nd line: scalar Quantities have __len__, but raise TypeError
         # for scalars
+        # Remove NaN times from consideration, these are used in internally in  bruteSOS
         t_exact_integration_times = (
-            hasattr(t, "__len__")
-            and not (_APY_LOADED and isinstance(t, units.Quantity) and t.isscalar)
+            not (_APY_LOADED and isinstance(t, units.Quantity))
+            and hasattr(t, "__len__")
             and (len(t) == len(self.t))
-            and numpy.all(t == self.t)
+            and numpy.all((t == self.t)[~numpy.isnan(self.t)])
         )
         if _APY_LOADED and isinstance(t, units.Quantity):
             t = conversion.parse_time(t, ro=self._ro, vo=self._vo)
@@ -5507,7 +5614,7 @@ class Orbit:
             t_exact_integration_times = (
                 hasattr(t, "__len__")
                 and (len(t) == len(self.t))
-                and numpy.all(t == self.t)
+                and numpy.all((t == self.t)[~numpy.isnan(self.t)])
             )
         elif (
             "_integrate_t_asQuantity" in self.__dict__
@@ -6080,6 +6187,120 @@ class Orbit:
             progressbar=progressbar,
             **kwargs,
         )
+        x = numpy.atleast_2d(x)
+        y = numpy.atleast_2d(y)
+        kwargs.pop("ro", None)
+        kwargs.pop("vo", None)
+        kwargs.pop("use_physical", None)
+        kwargs.pop("quantity", None)
+        auto_scale = (
+            not "xrange" in kwargs
+            and not "yrange" in kwargs
+            and not kwargs.get("overplot", False)
+        )
+        labels = kwargs.pop("label", [f"Orbit {ii+1}" for ii in range(self.size)])
+        if self.size == 1 and isinstance(labels, str):
+            labels = [labels]
+        # Plot
+        if not "xlabel" in kwargs:
+            kwargs["xlabel"] = labeldict.get(d1, rf"${d1}$")
+        if not "ylabel" in kwargs:
+            kwargs["ylabel"] = labeldict.get(d2, rf"${d2}$")
+        if not "ls" in kwargs:
+            kwargs["ls"] = "none"
+            if not "marker" in kwargs:
+                kwargs["marker"] = "."
+        for ii, (tx, ty) in enumerate(zip(x, y)):
+            kwargs["label"] = labels[ii]
+            line2d = plot.plot(tx, ty, *args, **kwargs)[0]
+            kwargs["overplot"] = True
+        if auto_scale:
+            line2d.axes.autoscale(enable=True)
+        plot._add_ticks()
+        return [line2d]
+
+    def plotBruteSOS(
+        self,
+        t,
+        pot,
+        *args,
+        ncross=500,
+        surface=None,
+        t0=0.0,
+        method="dop853_c",
+        skip=100,
+        progressbar=True,
+        **kwargs,
+    ):
+        """
+        NAME:
+
+           plotBruteSOS
+
+        PURPOSE:
+
+           Calculate and plot a surface of section of the orbit computed using bruteSOS
+
+        INPUT:
+
+            t - list of times at which to output (0 has to be in this!) (can be Quantity)
+
+            pot - Potential or list of such instances
+
+            surface= (None) surface to punch through (this has no effect in 3D, where the surface is always z=0, but in 2D it can be 'x' or 'y' for x=0 or y=0)
+
+            integration keyword arguments:
+
+                method = 'odeint' for scipy's odeint
+                     'leapfrog' for a simple leapfrog implementation
+                     'leapfrog_c' for a simple leapfrog implementation in C
+                     'symplec4_c' for a 4th order symplectic integrator in C
+                     'symplec6_c' for a 6th order symplectic integrator in C
+                     'rk4_c' for a 4th-order Runge-Kutta integrator in C
+                     'rk6_c' for a 6-th order Runge-Kutta integrator in C
+                     'dopr54_c' for a 5-4 Dormand-Prince integrator in C
+                     'dop853' for a 8-5-3 Dormand-Prince integrator in Python
+                     'dop853_c' for a 8-5-3 Dormand-Prince integrator in C
+
+                progressbar= (True) if True, display a tqdm progress bar when integrating multiple orbits (requires tqdm to be installed!)
+
+                for more control of the integrator, use the bruteSOS method directly and plot its results
+
+           matplotlib.plot inputs+galpy.util.plot.plot inputs
+
+        OUTPUT:
+
+           sends plot to output device
+
+        HISTORY:
+
+           2023-05-31 - Written - Bovy (UofT)
+
+        """
+        x, y = self.bruteSOS(
+            t, pot, surface=surface, method=method, progressbar=progressbar
+        )
+        return self._base_plotSOS(x, y, surface, *args, **kwargs)
+
+    def _base_plotSOS(self, x, y, surface, *args, **kwargs):
+        """Shared code between plotSOS and plotBruteSOS"""
+        if (kwargs.get("use_physical", False) and kwargs.get("ro", self._roSet)) or (
+            not "use_physical" in kwargs and kwargs.get("ro", self._roSet)
+        ):
+            labeldict = _labeldict_physical.copy()
+        else:
+            labeldict = _labeldict_internal.copy()
+        labeldict.update(_labeldict_radec.copy())
+        if self.dim() == 3:
+            d1 = "R"
+            d2 = "vR"
+        elif not surface is None and surface.lower() == "y":
+            d1 = "x"
+            d2 = "vx"
+        else:
+            d1 = "y"
+            d2 = "vy"
+        kwargs["quantity"] = False
         x = numpy.atleast_2d(x)
         y = numpy.atleast_2d(y)
         kwargs.pop("ro", None)

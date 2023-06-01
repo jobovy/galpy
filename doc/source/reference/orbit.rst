@@ -26,6 +26,7 @@ Plotting
    animate3d <orbitanimate3d.rst>
    plot <orbitplot.rst>
    plot3d <orbitplot3d.rst>
+   plotBruteSOS <orbitplotbrutesos.rst>
    plotSOS <orbitplotsos.rst>
 
 In addition to these methods, any calculable attribute listed below
@@ -52,6 +53,7 @@ Methods
    __call__ <orbitcall.rst>
    __getitem__ <orbitgetitem.rst>
    bb <orbitbb.rst>
+   bruteSOS <orbitbrutesos.rst>
    dec <orbitdec.rst>
    dim <orbitdim.rst>
    dist <orbitdist.rst>
