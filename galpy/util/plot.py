@@ -183,9 +183,9 @@ def hist(x, xlabel=None, ylabel=None, overplot=False, **kwargs):
     _add_axislabels(xlabel, ylabel)
     if not "range" in kwargs and not xrangeSet:
         if isinstance(x, list):
-            xlimits = (numpy.array(x).min(), numpy.array(x).max())
+            xlimits = (numpy.nanmin(numpy.array(x)), numpy.nanmax(numpy.array(x)))
         else:
-            pyplot.xlim(x.min(), x.max())
+            pyplot.xlim(numpy.nanmin(x), numpy.nanmax(x))
     elif xrangeSet:
         pyplot.xlim(xlimits)
     else:
@@ -309,21 +309,30 @@ def plot(*args, **kwargs):
     xlimits = kwargs.pop("xrange", None)
     if xlimits is None:
         if isinstance(args[0], list):
-            xlimits = (numpy.array(args[0]).min(), numpy.array(args[0]).max())
+            xlimits = (
+                numpy.nanmin(numpy.array(args[0])),
+                numpy.nanmax(numpy.array(args[0])),
+            )
         else:
-            xlimits = (args[0].min(), args[0].max())
+            xlimits = (numpy.nanmin(args[0]), numpy.nanmax(args[0]))
     ylimits = kwargs.pop("yrange", None)
     if ylimits is None:
         if isinstance(args[1], list):
-            ylimits = (numpy.array(args[1]).min(), numpy.array(args[1]).max())
+            ylimits = (
+                numpy.nanmin(numpy.array(args[1])),
+                numpy.nanmax(numpy.array(args[1])),
+            )
         else:
-            ylimits = (args[1].min(), args[1].max())
+            ylimits = (numpy.nanmin(args[1]), numpy.nanmax(args[1]))
     climits = kwargs.pop("crange", None)
     if climits is None and scatter:
         if "c" in kwargs and isinstance(kwargs["c"], list):
-            climits = (numpy.array(kwargs["c"]).min(), numpy.array(kwargs["c"]).max())
+            climits = (
+                numpy.nanmin(numpy.array(kwargs["c"])),
+                numpy.nanmax(numpy.array(kwargs["c"])),
+            )
         elif "c" in kwargs:
-            climits = (kwargs["c"].min(), kwargs["c"].max())
+            climits = (numpy.nanmin(kwargs["c"]), numpy.nanmax(kwargs["c"].nanmax()))
         else:
             climits = None
     if scatter:
@@ -444,23 +453,32 @@ def plot3d(*args, **kwargs):
         xlimits = kwargs.pop("xrange")
     else:
         if isinstance(args[0], list):
-            xlimits = (numpy.array(args[0]).min(), numpy.array(args[0]).max())
+            xlimits = (
+                numpy.nanmin(numpy.array(args[0])),
+                numpy.nanmax(numpy.array(args[0])),
+            )
         else:
-            xlimits = (args[0].min(), args[0].max())
+            xlimits = (numpy.nanmin(args[0]), numpy.nanmax(args[0]))
     if "yrange" in kwargs:
         ylimits = kwargs.pop("yrange")
     else:
         if isinstance(args[1], list):
-            ylimits = (numpy.array(args[1]).min(), numpy.array(args[1]).max())
+            ylimits = (
+                numpy.nanmin(numpy.array(args[1])),
+                numpy.nanmax(numpy.array(args[1])),
+            )
         else:
-            ylimits = (args[1].min(), args[1].max())
+            ylimits = (numpy.nanmin(args[1]), numpy.nanmax(args[1]))
     if "zrange" in kwargs:
         zlimits = kwargs.pop("zrange")
     else:
         if isinstance(args[2], list):
-            zlimits = (numpy.array(args[2]).min(), numpy.array(args[2]).max())
+            zlimits = (
+                numpy.nanmin(numpy.array(args[2])),
+                numpy.nanmax(numpy.array(args[2])),
+            )
         else:
-            zlimits = (args[1].min(), args[2].max())
+            zlimits = (numpy.nanmin(args[2]), numpy.nanmax(args[2]))
     out = pyplot.plot(*args, **kwargs)
     if overplot:
         pass
