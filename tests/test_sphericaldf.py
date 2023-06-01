@@ -1495,6 +1495,26 @@ def test_isotropic_eddington_dehnencore_in_nfw_energyoutofbounds():
     return None
 
 
+# For the following test use the PowerSphericalPotential to make sure that
+# sampling works properly for potentials which do not have vectorized masses
+def test_eddington_powerspherical_massprofile():
+    rmin = 0.1  # PowerSphericalPotential behaves best w/ rmin
+    rmax = 5.0  # Mass profile divergent
+    pot = potential.PowerSphericalPotential(amp=1.3, alpha=1.4)
+    dfp = eddingtondf(pot=pot, rmax=rmax)
+    numpy.random.seed(10)
+    samp = dfp.sample(n=100000, rmin=rmin)
+    tol = 5 * 1e-3
+    check_spherical_massprofile(
+        samp,
+        lambda r: (pot.mass(r) - pot.mass(rmin))
+        / (pot.mass(numpy.amax(samp.r())) - pot.mass(rmin)),
+        tol,
+        skip=1000,
+    )
+    return None
+
+
 ############# TEST OF dMdE AGAINST KNOWN HERNQUIST FORMULA ############
 def test_eddington_hernquist_dMdE():
     # Test that dMdE for an isotropic Hernquist model is correct by comparing to the exact solution in isotropicHernquist
