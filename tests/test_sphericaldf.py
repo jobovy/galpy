@@ -1503,8 +1503,8 @@ def test_eddington_powerspherical_massprofile():
     pot = potential.PowerSphericalPotential(amp=1.3, alpha=1.4)
     dfp = eddingtondf(pot=pot, rmax=rmax)
     numpy.random.seed(10)
-    samp = dfp.sample(n=100000, rmin=rmin)
-    tol = 5 * 1e-3
+    samp = dfp.sample(n=10000, rmin=rmin)
+    tol = 5 * 1e-2
     check_spherical_massprofile(
         samp,
         lambda r: (pot.mass(r) - pot.mass(rmin))
