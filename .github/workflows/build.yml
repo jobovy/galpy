@@ -293,9 +293,8 @@ jobs:
         # Turn astropy deprecation warnings into errors as well if astropy
         if $REQUIRES_ASTROPY; then export PYTEST_ADDOPTS="-W error::astropy.utils.exceptions.AstropyDeprecationWarning"; else export PYTEST_ADDOPTS=""; fi
         export XDRLIB_DEPRECATION="-W ignore:\"'xdrlib' is deprecated and slated for removal in Python 3.13\":DeprecationWarning"
-        export JAX_DEPRECATION="-W ignore:\"ml_dtypes.float8_e4m3b11 is deprecated.\":DeprecationWarning"
         # eval necessary for -k 'not ...' in TEST_FILES
-        eval "pytest -W error::DeprecationWarning -W error::FutureWarning $PYTEST_ADDOPTS $XDRLIB_DEPRECATION $JAX_DEPRECATION -v $TEST_FILES --cov galpy --cov-config .coveragerc --disable-pytest-warnings --durations=0 --cov-report=term --cov-report=xml"
+        eval "pytest -W error::DeprecationWarning -W error::FutureWarning $PYTEST_ADDOPTS $XDRLIB_DEPRECATION -v $TEST_FILES --cov galpy --cov-config .coveragerc --disable-pytest-warnings --durations=0 --cov-report=term --cov-report=xml"
     - name: Generate code coverage
       if: ${{ matrix.python-version == env.PYTHON_COVREPORTS_VERSION && matrix.os == 'ubuntu-latest' }}
       run: |
