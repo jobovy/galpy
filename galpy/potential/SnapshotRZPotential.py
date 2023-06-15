@@ -666,7 +666,6 @@ class InterpSnapshotRZPotential(interpRZPotential):
 
     # Pickling functions
     def __getstate__(self):
-        print("Here")
         pdict = copy.copy(self.__dict__)
         # Deconstruct _s
         pdict["_pos"] = self._s["pos"]
