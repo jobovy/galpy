@@ -231,7 +231,16 @@ class SoftenedNeedleBarPotential(Potential):
 
     def _zforce_xyz(self, x, y, z, Tp, Tm):
         zc = numpy.sqrt(z**2.0 + self._c2)
-        return self._yforce_xyz(x, y, z, Tp, Tm) * z / y * (self._b + zc) / zc
+        return (
+            -z
+            / 2.0
+            / Tp
+            / Tm
+            * (Tp + Tm - 4.0 * x**2.0 / (Tp + Tm))
+            / (y**2.0 + (self._b + zc) ** 2.0)
+            * (self._b + zc)
+            / zc
+        )
 
     def _dens(self, R, z, phi=0.0, t=0.0):
         """
