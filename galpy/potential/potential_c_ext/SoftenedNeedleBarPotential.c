@@ -48,11 +48,12 @@ void SoftenedNeedleBarPotentialxyzforces_xyz(double R,double z, double phi,
     // Compute forces in rectangular, aligned frame
     cyl_to_rect(R,phi-pa-omegab*t,&x,&y);
     compute_TpTm(x,y,z,&Tp,&Tm,a,b,c2);
+    zc= sqrt ( z * z + c2 );
     Fx= -2. * x / Tp / Tm / (Tp+Tm);
     Fy= -y / 2. / Tp /Tm * ( Tp + Tm -4. * x * x / (Tp+Tm) )	\
-      / ( y * y + pow( b + sqrt ( z * z + c2), 2));
-    zc= sqrt ( z * z + c2 );
-    Fz= Fy * z / y * ( b + zc ) / zc;
+      / ( y * y + pow( b + zc, 2));
+    Fz= -z / 2. / Tp /Tm * ( Tp + Tm -4. * x * x / (Tp+Tm) )	\
+      / ( y * y + pow( b + zc, 2)) * ( b + zc ) / zc;
     cp= cos ( pa + omegab * t );
     sp= sin ( pa + omegab * t );
     // Rotate to rectangular, correct frame
