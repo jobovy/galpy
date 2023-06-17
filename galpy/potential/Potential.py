@@ -16,7 +16,6 @@
 import os
 import os.path
 import pickle
-import warnings
 from functools import wraps
 
 import numpy
@@ -761,13 +760,6 @@ class Potential(Force):
 
         """
         self._amp *= norm / numpy.fabs(self.Rforce(1.0, 0.0, use_physical=False))
-
-    def phiforce(self, R, z, phi=0.0, t=0.0):
-        warnings.warn(
-            "phiforce has been renamed phitorque, because it has always really been a torque (per unit mass); please switch to the new method name, because the old name will be removed in v1.9 and may be re-used for the actual phi force component",
-            FutureWarning,
-        )
-        return self.phitorque(R, z, phi=phi, t=t)
 
     @potential_physical_input
     @physical_conversion("energy", pop=True)
@@ -2403,15 +2395,6 @@ def _evaluateRforces(Pot, R, z, phi=None, t=0.0, v=None):
         raise PotentialError(
             "Input to 'evaluateRforces' is neither a Potential-instance, DissipativeForce-instance or a list of such instances"
         )
-
-
-@potential_positional_arg
-def evaluatephiforces(Pot, R, z, phi=None, t=0.0, v=None):
-    warnings.warn(
-        "evaluatephiforces has been renamed evaluatephitorques, because it has always really been a torque (per unit mass); please switch to the new method name, because the old name will be removed in v1.9 and may be re-used for the actual phi force component",
-        FutureWarning,
-    )
-    return evaluatephitorques(Pot, R, z, phi=phi, t=t, v=v)
 
 
 @potential_positional_arg

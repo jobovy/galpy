@@ -7313,11 +7313,11 @@ def test_phiforce_deprecation():
     # Check that we've removed phiforce in the correct version
     from packaging.version import parse as parse_version
 
-    deprecation_version = parse_version("1.9")
+    deprecation_version = parse_version("1.8.3")
     from galpy import __version__ as galpy_version
 
     galpy_version = parse_version(galpy_version)
-    should_be_removed = galpy_version >= deprecation_version
+    should_be_removed = galpy_version > deprecation_version
     # Now test
     lp = potential.LogarithmicHaloPotential()
     # Method
@@ -7335,15 +7335,17 @@ def test_phiforce_deprecation():
                 raise AssertionError(
                     "phiforce not removed when it was supposed to be removed"
                 )
-        raisedWarning = False
-        for wa in w:
-            raisedWarning = (
-                str(wa.message)
-                == "phiforce has been renamed phitorque, because it has always really been a torque (per unit mass); please switch to the new method name, because the old name will be removed in v1.9 and may be re-used for the actual phi force component"
-            )
-            if raisedWarning:
-                break
-        assert raisedWarning, "phiforce deprecation did not raise the expected warning"
+            raisedWarning = False
+            for wa in w:
+                raisedWarning = (
+                    str(wa.message)
+                    == "phiforce has been renamed phitorque, because it has always really been a torque (per unit mass); please switch to the new method name, because the old name will be removed in v1.9 and may be re-used for the actual phi force component"
+                )
+                if raisedWarning:
+                    break
+            assert (
+                raisedWarning
+            ), "phiforce deprecation did not raise the expected warning"
     # Function
     with warnings.catch_warnings(record=True) as w:
         warnings.simplefilter("always", FutureWarning)
@@ -7359,15 +7361,17 @@ def test_phiforce_deprecation():
                 raise AssertionError(
                     "phiforce not removed when it was supposed to be removed"
                 )
-        raisedWarning = False
-        for wa in w:
-            raisedWarning = (
-                str(wa.message)
-                == "evaluatephiforces has been renamed evaluatephitorques, because it has always really been a torque (per unit mass); please switch to the new method name, because the old name will be removed in v1.9 and may be re-used for the actual phi force component"
-            )
-            if raisedWarning:
-                break
-        assert raisedWarning, "phiforce deprecation did not raise the expected warning"
+            raisedWarning = False
+            for wa in w:
+                raisedWarning = (
+                    str(wa.message)
+                    == "evaluatephiforces has been renamed evaluatephitorques, because it has always really been a torque (per unit mass); please switch to the new method name, because the old name will be removed in v1.9 and may be re-used for the actual phi force component"
+                )
+                if raisedWarning:
+                    break
+            assert (
+                raisedWarning
+            ), "phiforce deprecation did not raise the expected warning"
 
 
 def test_phiforce_deprecation_2d():
@@ -7377,11 +7381,11 @@ def test_phiforce_deprecation_2d():
     # Check that we've removed phiforce in the correct version
     from packaging.version import parse as parse_version
 
-    deprecation_version = parse_version("1.9")
+    deprecation_version = parse_version("1.8.3")
     from galpy import __version__ as galpy_version
 
     galpy_version = parse_version(galpy_version)
-    should_be_removed = galpy_version >= deprecation_version
+    should_be_removed = galpy_version > deprecation_version
     # Now test
     lp = potential.LogarithmicHaloPotential().toPlanar()
     # Method
@@ -7399,15 +7403,17 @@ def test_phiforce_deprecation_2d():
                 raise AssertionError(
                     "phiforce not removed when it was supposed to be removed"
                 )
-        raisedWarning = False
-        for wa in w:
-            raisedWarning = (
-                str(wa.message)
-                == "phiforce has been renamed phitorque, because it has always really been a torque (per unit mass); please switch to the new method name, because the old name will be removed in v1.9 and may be re-used for the actual phi force component"
-            )
-            if raisedWarning:
-                break
-        assert raisedWarning, "phiforce deprecation did not raise the expected warning"
+            raisedWarning = False
+            for wa in w:
+                raisedWarning = (
+                    str(wa.message)
+                    == "phiforce has been renamed phitorque, because it has always really been a torque (per unit mass); please switch to the new method name, because the old name will be removed in v1.9 and may be re-used for the actual phi force component"
+                )
+                if raisedWarning:
+                    break
+            assert (
+                raisedWarning
+            ), "phiforce deprecation did not raise the expected warning"
     # Function
     with warnings.catch_warnings(record=True) as w:
         warnings.simplefilter("always", FutureWarning)
@@ -7423,15 +7429,17 @@ def test_phiforce_deprecation_2d():
                 raise AssertionError(
                     "phiforce not removed when it was supposed to be removed"
                 )
-        raisedWarning = False
-        for wa in w:
-            raisedWarning = (
-                str(wa.message)
-                == "evaluateplanarphiforces has been renamed evaluateplanarphitorques, because it has always really been a torque (per unit mass); please switch to the new method name, because the old name will be removed in v1.9 and may be re-used for the actual phi force component"
-            )
-            if raisedWarning:
-                break
-        assert raisedWarning, "phiforce deprecation did not raise the expected warning"
+            raisedWarning = False
+            for wa in w:
+                raisedWarning = (
+                    str(wa.message)
+                    == "evaluateplanarphiforces has been renamed evaluateplanarphitorques, because it has always really been a torque (per unit mass); please switch to the new method name, because the old name will be removed in v1.9 and may be re-used for the actual phi force component"
+                )
+                if raisedWarning:
+                    break
+            assert (
+                raisedWarning
+            ), "phiforce deprecation did not raise the expected warning"
 
 
 # Test that Pot is required to be a positional argument for Potential functions
@@ -7468,9 +7476,6 @@ def test_potential_Pot_is_positional():
             func(Pot=MWPotential2014, R=1.0)
         assert "required positional argument: 'Pot'" in excinfo.value.args[0]
         # Special cases
-        with pytest.raises(TypeError) as excinfo:
-            potential.evaluatephiforces(Pot=MWPotential2014, R=1.0, z=0.0)
-        assert "required positional argument: 'Pot'" in excinfo.value.args[0]
         with pytest.raises(TypeError) as excinfo:
             potential.lindbladR(Pot=MWPotential2014, OmegaP=1.0)
         assert "required positional argument: 'Pot'" in excinfo.value.args[0]

@@ -23,6 +23,14 @@ v1.9.0 (XXXX-XX-XX)
 
 - Don't fail when writing a (fixed) configuration file, instead just warn.
 
+- Removed the deprecated galpy.util.bovy_coords, galpy.util.bovy_plot, and
+  galpy.util.bovy_conversion modules. These were replaced by galpy.util.coords,
+  galpy.util.plot, and galpy.util.conversion in v1.7.
+
+- Removed the deprecated phiforce method from potentials and the accompanying
+  evaluatephiforces and evaluateplanarphiforces potential functions. These were replaced
+  by phitorque, evaluatephitorques, and evaluateplanarphitorques in v1.8.0.
+
 - Switched to using Python 3.11 as the default Python version in the test suite.
 
 v1.8.3 (2023-03-27)
