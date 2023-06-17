@@ -155,6 +155,7 @@ def test_forceAsDeriv_potential():
     pots.append("mockCosmphiDiskPotentialnegp")
     pots.append("mockDehnenBarPotentialT1")
     pots.append("mockDehnenBarPotentialTm1")
+    pots.append("mockDehnenBarPotentialTm1Omega0")
     pots.append("mockDehnenBarPotentialTm5")
     pots.append("mockEllipticalDiskPotentialT1")
     pots.append("mockEllipticalDiskPotentialTm1")
@@ -402,6 +403,7 @@ def test_2ndDeriv_potential():
     pots.append("mockCosmphiDiskPotentialnegp")
     pots.append("mockDehnenBarPotentialT1")
     pots.append("mockDehnenBarPotentialTm1")
+    pots.append("mockDehnenBarPotentialTm1Omega0")
     pots.append("mockDehnenBarPotentialTm5")
     pots.append("mockEllipticalDiskPotentialT1")
     pots.append("mockEllipticalDiskPotentialTm1")
@@ -1077,6 +1079,7 @@ def test_evaluateAndDerivs_potential():
     pots.append("mockCosmphiDiskPotentialnegp")
     pots.append("mockDehnenBarPotentialT1")
     pots.append("mockDehnenBarPotentialTm1")
+    pots.append("mockDehnenBarPotentialTm1Omega0")
     pots.append("mockDehnenBarPotentialTm5")
     pots.append("mockEllipticalDiskPotentialT1")
     pots.append("mockEllipticalDiskPotentialTm1")
@@ -1343,6 +1346,7 @@ def test_amp_mult_divide():
     pots.append("mockCosmphiDiskPotentialnegp")
     pots.append("mockDehnenBarPotentialT1")
     pots.append("mockDehnenBarPotentialTm1")
+    pots.append("mockDehnenBarPotentialTm1Omega0")
     pots.append("mockDehnenBarPotentialTm5")
     pots.append("mockEllipticalDiskPotentialT1")
     pots.append("mockEllipticalDiskPotentialTm1")
@@ -8339,6 +8343,22 @@ class mockDehnenBarPotentialTm1(DehnenBarPotential):
         DehnenBarPotential.__init__(
             self,
             omegab=1.9,
+            rb=0.6,
+            barphi=25.0 * numpy.pi / 180.0,
+            beta=0.0,
+            tform=-1.0,
+            tsteady=1.01,
+            alpha=0.01,
+            Af=0.04,
+        )
+
+
+# Also one with omegab=0. to test that that works
+class mockDehnenBarPotentialTm1Omega0(DehnenBarPotential):
+    def __init__(self):
+        DehnenBarPotential.__init__(
+            self,
+            omegab=0.0,
             rb=0.6,
             barphi=25.0 * numpy.pi / 180.0,
             beta=0.0,

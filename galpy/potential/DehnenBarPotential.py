@@ -46,6 +46,8 @@ class DehnenBarPotential(Potential):
 
        \\alpha = 3\\,\\frac{A_f}{v_0^2}\\,\\left(\\frac{R_b}{r_0}\\right)^3\\,.
 
+    If the bar's pattern speed is zero, :math:`t_\\mathrm{form}` and :math:`t_\\mathrm{steady}` are straight times, not times divided by the bar period.
+
     """
 
     normalize = property()  # turn off normalize
@@ -142,7 +144,7 @@ class DehnenBarPotential(Potential):
             self._omegab = omegab
             self._rb = rb
             self._af = Af
-        self._tb = 2.0 * numpy.pi / self._omegab
+        self._tb = 2.0 * numpy.pi / self._omegab if self._omegab != 0.0 else 1.0
         self._tform = tform * self._tb
         if tsteady is None:
             self._tsteady = self._tform / 2.0
