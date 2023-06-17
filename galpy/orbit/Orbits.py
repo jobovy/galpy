@@ -5501,18 +5501,49 @@ class Orbit:
         )
         # Find the crossings
         if self.dim() == 3:
-            cross = self.z(self.t, use_physical=False, dontreshape=True)
+            cross_func = lambda t: self.z(t, use_physical=False, dontreshape=True)
         else:  # phasedim == 4 from check about
             if not surface is None and surface.lower() == "y":
-                cross = self.y(self.t, use_physical=False, dontreshape=True)
+                cross_func = lambda t: self.y(t, use_physical=False, dontreshape=True)
             else:
-                cross = self.x(self.t, use_physical=False, dontreshape=True)
+                cross_func = lambda t: self.x(t, use_physical=False, dontreshape=True)
+        cross = cross_func(self.t)
         shifts = numpy.roll(cross, -1, axis=1)
         crossindx = (cross[:, :-1] < 0.0) * (shifts[:, :-1] > 0.0)
         anycrossindx = numpy.sum(crossindx, axis=0).astype("bool")
-        self.t = numpy.tile(self.t, (self.size, 1))[:, :-1]
-        self.t = self.t[:, anycrossindx]
+        t_cross = (numpy.tile(self.t, (self.size, 1))[:, :-1])[:, anycrossindx]
+        t_after = (numpy.tile(self.t, (self.size, 1))[:, :-1])[
+            :, numpy.roll(anycrossindx, +1)
+        ]
+        # Solve better for all crossings
+        for ii in range(self.size):
+            for jj in range(numpy.sum(anycrossindx)):
+                if crossindx[ii, anycrossindx][jj]:
+                    t_cross[ii, jj] = optimize.brentq(
+                        lambda t: cross_func(t)[ii], t_cross[ii, jj], t_after[ii, jj]
+                    )
+        self.t = t_cross
         self.orbit = self.orbit[:, :-1][:, anycrossindx]
+        for ii in range(self.size):
+            self.orbit[ii, :, 0] = self.R(
+                self.t[ii, :], use_physical=False, dontreshape=True
+            )[ii]
+            self.orbit[ii, :, 1] = self.vR(
+                self.t[ii, :], use_physical=False, dontreshape=True
+            )[ii]
+            self.orbit[ii, :, 2] = self.vT(
+                self.t[ii, :], use_physical=False, dontreshape=True
+            )[ii]
+            self.orbit[ii, :, -1] = self.phi(
+                self.t[ii, :], use_physical=False, dontreshape=True
+            )[ii]
+            if self.dim() == 3:
+                self.orbit[ii, :, 3] = self.z(
+                    self.t[ii, :], use_physical=False, dontreshape=True
+                )[ii]
+                self.orbit[ii, :, 4] = self.vz(
+                    self.t[ii, :], use_physical=False, dontreshape=True
+                )[ii]
         self.t[~crossindx[:, anycrossindx]] = numpy.nan
         self.orbit[~crossindx[:, anycrossindx]] = numpy.nan
         if self.dim() == 3:
