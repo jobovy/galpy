@@ -5138,50 +5138,48 @@ class Orbit:
         force_map=False,
     ):
         """
-        NAME:
+        Calculate the surface of section of the orbit using a brute-force integration approach.
 
-            bruteSOS
+        Parameters
+        ----------
+        t : numeric, numpy.ndarray or Quantity, optional
+            Time at which to get the position. Default is the initial time.
+        pot : Potential, DissipativeForce or list of such instances
+            Gravitational field to integrate the orbit in.
+        surface : str, optional
+            Surface to punch through (this has no effect in 3D, where the surface is always z=0, but in 2D it can be 'x' or 'y' for x=0 or y=0), by default None.
+        method : str, optional
+            Integration method to use. Default is 'dop853_c'. See Notes for more information.
+        dt : float, optional
+            If set, force the integrator to use this basic stepsize; must be an integer divisor of output stepsize (only works for the C integrators that use a fixed stepsize) (can be Quantity), by default None.
+        progressbar : bool, optional
+            If True, display a tqdm progress bar when integrating multiple orbits (requires tqdm to be installed!), by default True.
+        numcores : int, optional
+            Number of cores to use for Python-based multiprocessing (pure Python or using force_map=True); default = OMP_NUM_THREADS, by default _NUMCORES.
+        force_map : bool, optional
+            If True, force use of Python-based multiprocessing (not recommended), by default False.
 
-        PURPOSE:
-
-            calculate the surface of section of the orbit using a brute-force integration approach
-
-        INPUT:
-
-            t - list of times at which to output (0 has to be in this!) (can be Quantity)
-
-            pot - Potential or list of such instances
-
-            surface= (None) surface to punch through (this has no effect in 3D, where the surface is always z=0, but in 2D it can be 'x' or 'y' for x=0 or y=0)
-
-            integration keyword arguments:
-
-                method = 'odeint' for scipy's odeint
-                     'leapfrog' for a simple leapfrog implementation
-                     'leapfrog_c' for a simple leapfrog implementation in C
-                     'symplec4_c' for a 4th order symplectic integrator in C
-                     'symplec6_c' for a 6th order symplectic integrator in C
-                     'rk4_c' for a 4th-order Runge-Kutta integrator in C
-                     'rk6_c' for a 6-th order Runge-Kutta integrator in C
-                     'dopr54_c' for a 5-4 Dormand-Prince integrator in C
-                     'dop853' for a 8-5-3 Dormand-Prince integrator in Python
-                     'dop853_c' for a 8-5-3 Dormand-Prince integrator in C
-
-                dt - if set, force the integrator to use this basic stepsize; must be an integer divisor of output stepsize (only works for the C integrators that use a fixed stepsize) (can be Quantity)
-
-                progressbar= (True) if True, display a tqdm progress bar when integrating multiple orbits (requires tqdm to be installed!)
-
-                numcores - number of cores to use for Python-based multiprocessing (pure Python or using force_map=True); default = OMP_NUM_THREADS
-
-                force_map= (False) if True, force use of Python-based multiprocessing (not recommended)
-
-        OUTPUT:
-
+        Returns
+        -------
+        tuple
             (R,vR) for 3D orbits, (y,vy) for 2D orbits when surface=='x', (x,vx) for 2D orbits when surface=='y'
 
-        HISTORY:
+        Notes
+        -----
+        - Possible integration methods are:
 
-            2023-05-31 - Written - Bovy (UofT)
+          - 'odeint' for scipy's odeint
+          - 'leapfrog' for a simple leapfrog implementation
+          - 'leapfrog_c' for a simple leapfrog implementation in C
+          -  'symplec4_c' for a 4th order symplectic integrator in C
+          -  'symplec6_c' for a 6th order symplectic integrator in C
+          -  'rk4_c' for a 4th-order Runge-Kutta integrator in C
+          -  'rk6_c' for a 6-th order Runge-Kutta integrator in C
+          -  'dopr54_c' for a 5-4 Dormand-Prince integrator in C
+          -  'dop853' for a 8-5-3 Dormand-Prince integrator in Python
+          -  'dop853_c' for a 8-5-3 Dormand-Prince integrator in C
+
+        - 2023-05-31 - Written - Bovy (UofT)
 
         """
         if not self.dim() == 3 and not self.phasedim() == 4:
@@ -5874,57 +5872,56 @@ class Orbit:
         t,
         pot,
         *args,
-        ncross=500,
         surface=None,
-        t0=0.0,
         method="dop853_c",
-        skip=100,
         progressbar=True,
         **kwargs,
     ):
         """
-        NAME:
+        Calculate and plot a surface of section of the orbit computed using bruteSOS.
 
-           plotBruteSOS
+        Parameters
+        ----------
+        t : numeric, numpy.ndarray or Quantity, optional
+            Time at which to get the position. Default is the initial time.
+        pot : Potential, DissipativeForce or list of such instances
+            Gravitational field to integrate the orbit in.
+        surface : str, optional
+            Surface to punch through (this has no effect in 3D, where the surface is always z=0, but in 2D it can be 'x' or 'y' for x=0 or y=0), by default None.
+        method : str, optional
+            Integration method to use. Default is 'dop853_c'. See Notes for more information.
+        progressbar : bool, optional
+            If True, display a tqdm progress bar when integrating multiple orbits (requires tqdm to be installed!) (default is True).
+        *args : optional
+            Additional arguments to pass to galpy.util.plot.plot.
+        **kwargs : dict
+            Additional keyword arguments to pass to galpy.util.plot.plot.
 
-        PURPOSE:
+        Returns
+        -------
+        list
+            A list of the plotted line objects.
 
-           Calculate and plot a surface of section of the orbit computed using bruteSOS
+        Other Parameters
+        ----------------
+        matplotlib.plot inputs+galpy.util.plot.plot inputs
 
-        INPUT:
+        Notes
+        -----
+        - Possible integration methods are:
 
-            t - list of times at which to output (0 has to be in this!) (can be Quantity)
+          - 'odeint' for scipy's odeint
+          - 'leapfrog' for a simple leapfrog implementation
+          - 'leapfrog_c' for a simple leapfrog implementation in C
+          -  'symplec4_c' for a 4th order symplectic integrator in C
+          -  'symplec6_c' for a 6th order symplectic integrator in C
+          -  'rk4_c' for a 4th-order Runge-Kutta integrator in C
+          -  'rk6_c' for a 6-th order Runge-Kutta integrator in C
+          -  'dopr54_c' for a 5-4 Dormand-Prince integrator in C
+          -  'dop853' for a 8-5-3 Dormand-Prince integrator in Python
+          -  'dop853_c' for a 8-5-3 Dormand-Prince integrator in C
 
-            pot - Potential or list of such instances
-
-            surface= (None) surface to punch through (this has no effect in 3D, where the surface is always z=0, but in 2D it can be 'x' or 'y' for x=0 or y=0)
-
-            integration keyword arguments:
-
-                method = 'odeint' for scipy's odeint
-                     'leapfrog' for a simple leapfrog implementation
-                     'leapfrog_c' for a simple leapfrog implementation in C
-                     'symplec4_c' for a 4th order symplectic integrator in C
-                     'symplec6_c' for a 6th order symplectic integrator in C
-                     'rk4_c' for a 4th-order Runge-Kutta integrator in C
-                     'rk6_c' for a 6-th order Runge-Kutta integrator in C
-                     'dopr54_c' for a 5-4 Dormand-Prince integrator in C
-                     'dop853' for a 8-5-3 Dormand-Prince integrator in Python
-                     'dop853_c' for a 8-5-3 Dormand-Prince integrator in C
-
-                progressbar= (True) if True, display a tqdm progress bar when integrating multiple orbits (requires tqdm to be installed!)
-
-                for more control of the integrator, use the bruteSOS method directly and plot its results
-
-           matplotlib.plot inputs+galpy.util.plot.plot inputs
-
-        OUTPUT:
-
-           sends plot to output device
-
-        HISTORY:
-
-           2023-05-31 - Written - Bovy (UofT)
+        - 2023-05-31 - Written - Bovy (UofT)
 
         """
         x, y = self.bruteSOS(
