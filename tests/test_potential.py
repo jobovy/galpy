@@ -7582,6 +7582,20 @@ def test_InterpSnapshotRZPotential_pickling():
     return None
 
 
+# Test that trying to plot a potential with xy=True and effective=True raises a RuntimeError
+def test_plotting_xy_effective_error():
+    # First a single potential
+    kp = potential.KeplerPotential(normalize=1.0)
+    with pytest.raises(RuntimeError) as excinfo:
+        kp.plot(xy=True, effective=True)
+    assert "xy and effective cannot be True at the same time" in excinfo.value.args[0]
+    # Then a list of potentials
+    with pytest.raises(RuntimeError) as excinfo:
+        potential.plotPotentials(potential.MWPotential2014, xy=True, effective=True)
+    assert "xy and effective cannot be True at the same time" in excinfo.value.args[0]
+    return None
+
+
 def test_plotting():
     import tempfile
 

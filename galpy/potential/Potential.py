@@ -1033,6 +1033,8 @@ class Potential(Force):
            2014-04-08 - Added effective= - Bovy (IAS)
 
         """
+        if effective and xy:
+            raise RuntimeError("xy and effective cannot be True at the same time")
         rmin = conversion.parse_length(rmin, ro=self._ro)
         rmax = conversion.parse_length(rmax, ro=self._ro)
         zmin = conversion.parse_length(zmin, ro=self._ro)
@@ -3062,6 +3064,8 @@ def plotPotentials(
        2010-07-09 - Written - Bovy (NYU)
 
     """
+    if effective and xy:
+        raise RuntimeError("xy and effective cannot be True at the same time")
     Pot = flatten(Pot)
     rmin = conversion.parse_length(rmin, **get_physical(Pot))
     rmax = conversion.parse_length(rmax, **get_physical(Pot))
