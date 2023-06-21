@@ -55,13 +55,6 @@ class actionAngleVertical(actionAngle):
             raise OSError("Must specify pot= for actionAngleVertical")
         self._pot = kwargs["pot"]
         return None
-        """
-        self._parse_eval_args(*args,_noOrbUnitsCheck=True,**kwargs)
-        self._z= self._eval_z
-        self._vz= self._eval_vz
-        self._verticalpot= kwargs['pot']
-        return None
-        """
 
     def _evaluate(self, *args, **kwargs):
         """

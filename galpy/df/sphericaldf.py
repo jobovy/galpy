@@ -166,7 +166,17 @@ class sphericaldf(df):
             r = numpy.sqrt(R**2.0 + z**2.0)
             vrad = (R * vR + z * vz) / r
             L = numpy.atleast_1d(numpy.sqrt(vtotSq - vrad**2.0) * r)
-        return self._call_internal(E, L, Lz)  # Some function for each sub-class
+        return self._call_internal(E, L, Lz).reshape(
+            args[0].shape
+            if len(args) == 1 and hasattr(args[0], "shape")
+            else (
+                args[0][0].shape
+                if len(args) == 1
+                and hasattr(args[0], "__len__")
+                and hasattr(args[0][0], "shape")
+                else (args[0].shape if hasattr(args[0], "shape") else ())
+            )
+        )
 
     @physical_conversion("energydensity", pop=True)
     def dMdE(self, E):
@@ -192,7 +202,9 @@ class sphericaldf(df):
             2023-05-23 - Written - Bovy (UofT)
 
         """
-        return self._dMdE(numpy.atleast_1d(conversion.parse_energy(E, vo=self._vo)))
+        return self._dMdE(
+            numpy.atleast_1d(conversion.parse_energy(E, vo=self._vo))
+        ).reshape(E.shape if isinstance(E, numpy.ndarray) else ())
 
     def vmomentdensity(self, r, n, m, **kwargs):
         """

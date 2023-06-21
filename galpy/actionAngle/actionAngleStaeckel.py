@@ -200,9 +200,9 @@ class actionAngleStaeckel(actionAngle):
                     except (TypeError, IndexError):
                         tkwargs["delta"] = delta
                     tjr, tlz, tjz = self(*targs, **tkwargs)
-                    ojr[ii] = tjr
-                    ojz[ii] = tjz
-                    olz[ii] = tlz
+                    ojr[ii] = tjr[0]
+                    ojz[ii] = tjz[0]
+                    olz[ii] = tlz[0]
                 return (ojr, olz, ojz)
             else:
                 # Set up the actionAngleStaeckelSingle object
@@ -481,7 +481,7 @@ class actionAngleStaeckel(actionAngle):
         HISTORY:
            2017-12-12 - Written - Bovy (UofT)
         """
-        delta = kwargs.pop("delta", self._delta)
+        delta = numpy.atleast_1d(kwargs.pop("delta", self._delta))
         if len(args) == 5:  # R,vR.vT, z, vz
             R, vR, vT, z, vz = args
         elif len(args) == 6:  # R,vR.vT, z, vz, phi
@@ -552,19 +552,16 @@ class actionAngleStaeckel(actionAngle):
                 for ii in range(len(R)):
                     targs = (R[ii], vR[ii], vT[ii], z[ii], vz[ii])
                     tkwargs = copy.copy(kwargs)
-                    try:
-                        tkwargs["delta"] = delta[ii]
-                    except TypeError:
-                        tkwargs["delta"] = delta
+                    tkwargs["delta"] = delta[ii] if len(delta) > 1 else delta[0]
                     tumin, tumax, tvmin = self._uminumaxvmin(*targs, **tkwargs)
-                    oumin[ii] = tumin
-                    oumax[ii] = tumax
-                    ovmin[ii] = tvmin
+                    oumin[ii] = tumin[0]
+                    oumax[ii] = tumax[0]
+                    ovmin[ii] = tvmin[0]
                 return (oumin, oumax, ovmin)
             else:
                 # Set up the actionAngleStaeckelSingle object
                 aASingle = actionAngleStaeckelSingle(
-                    R[0], vR[0], vT[0], z[0], vz[0], pot=self._pot, delta=delta
+                    R[0], vR[0], vT[0], z[0], vz[0], pot=self._pot, delta=delta[0]
                 )
                 umin, umax = aASingle.calcUminUmax()
                 vmin = aASingle.calcVmin()
@@ -975,8 +972,8 @@ class actionAngleStaeckelSingle(actionAngle):
                     try:
                         umin = optimize.brentq(
                             _JRStaeckelIntegrandSquared,
-                            rstart,
-                            self._ux - eps,
+                            numpy.atleast_1d(rstart)[0],
+                            numpy.atleast_1d(self._ux)[0] - eps,
                             (
                                 E,
                                 L,
@@ -1011,8 +1008,8 @@ class actionAngleStaeckelSingle(actionAngle):
                 )
                 umax = optimize.brentq(
                     _JRStaeckelIntegrandSquared,
-                    self._ux + eps,
-                    rend,
+                    numpy.atleast_1d(self._ux)[0] + eps,
+                    numpy.atleast_1d(rend)[0],
                     (
                         E,
                         L,

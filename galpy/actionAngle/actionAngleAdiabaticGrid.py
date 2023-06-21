@@ -142,7 +142,7 @@ class actionAngleAdiabaticGrid(actionAngle):
                             numpy.sqrt(2.0 * y[jj] * self._EzZmaxs[ii]),
                             _justjz=True,
                             **kwargs
-                        )[2]
+                        )[2][0]
                         if jj == nEz - 1:
                             jzEzzmax[ii] = jz[ii, jj]
         for ii in range(nR):
@@ -261,7 +261,7 @@ class actionAngleAdiabaticGrid(actionAngle):
                                 0.0,
                                 _justjr=True,
                                 **kwargs
-                            )[0]
+                            )[0][0]
                         except UnboundError:  # pragma: no cover
                             raise
                         if jj == 0:

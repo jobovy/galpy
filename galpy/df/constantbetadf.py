@@ -343,7 +343,7 @@ class constantbetadf(_constantbetadf):
         if self._halfint:
             # fE is simply given by the relevant derivative
             out[indx] = self._gradfunc(self._rphi(Eint[indx]))
-            return out / (
+            return out.reshape(E.shape) / (
                 2.0
                 * numpy.pi**1.5
                 * 2 ** (0.5 - self._beta)
@@ -392,7 +392,7 @@ class constantbetadf(_constantbetadf):
                     for tE in Eint[indx]
                 ]
             )
-            return -out * self._fE_prefactor
+            return -out.reshape(E.shape) * self._fE_prefactor
 
 
 def _fEintegrand_raw(r, pot, E, dmp1nudrmp1, alpha):

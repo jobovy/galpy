@@ -96,14 +96,14 @@ class actionAngleVerticalInverse(actionAngleInverse):
                     ),
                 )
                 js[ii] = 0.0
-                Omegas[ii] = tO
+                Omegas[ii] = tO[0]
                 xmaxs[ii] = 0.0
                 continue
             tJ, tO = self._aAV.actionsFreqs(
                 0.0, numpy.sqrt(2.0 * (E - evaluatelinearPotentials(self._pot, 0.0)))
             )
-            js[ii] = tJ
-            Omegas[ii] = tO
+            js[ii] = tJ[0]
+            Omegas[ii] = tO[0]
             xmaxs[ii] = self._aAV.calcxmax(
                 0.0,
                 numpy.sqrt(2.0 * (E - evaluatelinearPotentials(self._pot, 0.0))),

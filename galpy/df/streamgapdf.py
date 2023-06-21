@@ -196,9 +196,8 @@ class streamgapdf(streamdf.streamdf):
         """
         Opar = conversion.parse_frequency(Opar, ro=self._ro, vo=self._vo)
         apar = conversion.parse_angle(apar)
-        if isinstance(Opar, (int, float, numpy.float32, numpy.float64)):
-            Opar = numpy.array([Opar])
-        out = numpy.zeros(len(Opar))
+        Opar = numpy.array(Opar)
+        out = numpy.zeros_like(Opar)
         # Compute ts and where they were at impact for all
         ts = apar / Opar
         apar_impact = apar - Opar * self._timpact
@@ -1890,7 +1889,7 @@ def impulse_deltav_plummerstream(v, y, b, w, GSigma, rs, tmin=None, tmax=None):
     """
     if len(v.shape) == 1:
         v = numpy.reshape(v, (1, 3))
-        y = numpy.reshape(y, (1, 1))
+        y = numpy.atleast_1d(y)
     if tmax is None or tmax is None:
         raise ValueError("tmin= and tmax= need to be set")
     nv = v.shape[0]
