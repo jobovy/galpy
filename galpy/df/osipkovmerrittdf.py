@@ -141,7 +141,7 @@ class _osipkovmerrittdf(anisotropicsphericaldf):
         # Numerical issues can make the integrand's sqrt argument negative, only
         # happens at dMdE ~ 0, so just set to zero
         out[numpy.isnan(out)] = 0.0
-        return out
+        return out.reshape(E.shape)
 
     def _sample_eta(self, r, n=1):
         """Sample the angle eta which defines radial vs tangential velocities"""

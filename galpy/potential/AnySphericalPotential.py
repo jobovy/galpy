@@ -91,7 +91,9 @@ class AnySphericalPotential(SphericalPotential):
         self._rawmass = (
             lambda r: 4.0
             * numpy.pi
-            * integrate.quad(lambda a: a**2 * self._rawdens(a), 0, r)[0]
+            * integrate.quad(
+                lambda a: a**2 * self._rawdens(a), 0, numpy.atleast_1d(r)[0]
+            )[0]
         )
         # The potential at zero, try to figure out whether it's finite
         _zero_msg = integrate.quad(
@@ -131,7 +133,9 @@ class AnySphericalPotential(SphericalPotential):
                 -self._rawmass(r) / r
                 - 4.0
                 * numpy.pi
-                * integrate.quad(lambda a: self._rawdens(a) * a, r, numpy.inf)[0]
+                * integrate.quad(
+                    lambda a: self._rawdens(a) * a, numpy.atleast_1d(r)[0], numpy.inf
+                )[0]
             )
 
     def _rforce(self, r, t=0.0):

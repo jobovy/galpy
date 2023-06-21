@@ -109,7 +109,7 @@ class kingdf(isotropicsphericaldf):
                 * (2.0 * numpy.pi * self._sigma2) ** -1.5
                 * self.rho1
             )
-        return out  # mass density, not /self.M as for number density
+        return out.reshape(E.shape)  # mass density, not /self.M as for number density
 
 
 class _scalefreekingdf:

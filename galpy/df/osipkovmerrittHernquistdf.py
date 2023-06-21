@@ -106,7 +106,7 @@ class osipkovmerrittHernquistdf(_osipkovmerrittdf):
         fQ += 8.0 * self._a2overra2 * sqrtQtilde * (1.0 - 2.0 * Qtilde)
         if len(Qtilde_out) > 0:
             fQ[Qtilde_out] = 0.0
-        return self._fQnorm * fQ
+        return self._fQnorm * fQ.reshape(Q.shape)
 
     def _icmf(self, ms):
         """Analytic expression for the normalized inverse cumulative mass

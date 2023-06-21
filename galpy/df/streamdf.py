@@ -279,15 +279,6 @@ class streamdf(df):
                 self._progenitor_jr, self._progenitor_lz, self._progenitor_jz
             )
             self._dOdJp = h
-            print(
-                self._progenitor_jr,
-                self._progenitor_lz,
-                self._progenitor_jz,
-                h,
-                fr,
-                fp,
-                fz,
-            )
             # Replace frequencies with TM frequencies
             self._progenitor_Omegar = fr
             self._progenitor_Omegaphi = fp
@@ -2169,9 +2160,8 @@ class streamdf(df):
         apar = conversion.parse_angle(apar)
         if tdisrupt is None:
             tdisrupt = self._tdisrupt
-        if isinstance(Opar, (int, float, numpy.float32, numpy.float64)):
-            Opar = numpy.array([Opar])
-        out = numpy.zeros(len(Opar))
+        Opar = numpy.array(Opar)
+        out = numpy.zeros_like(Opar)
         # Compute ts
         ts = apar / Opar
         # Evaluate
@@ -2535,9 +2525,8 @@ class streamdf(df):
            2013-12-05 - Written - Bovy (IAS)
 
         """
-        if isinstance(t, (int, float, numpy.float32, numpy.float64)):
-            t = numpy.array([t])
-        out = numpy.zeros(len(t))
+        t = numpy.array(t)
+        out = numpy.zeros_like(t)
         dO = dangle / t[(t > 0.0) * (t < self._tdisrupt)]
         # p(t|a) = \int dO p(O,t|a) = \int dO p(t|O,a) p(O|a) = \int dO delta (t-a/O)p(O|a) = O*2/a p(O|a); p(O|a) = \int dt p(a|O,t) p(O)p(t) = 1/O p(O)
         out[(t > 0.0) * (t < self._tdisrupt)] = (
@@ -2647,18 +2636,17 @@ class streamdf(df):
            2013-12-06 - Written - Bovy (IAS)
 
         """
-        if isinstance(angleperp, (int, float, numpy.float32, numpy.float64)):
-            angleperp = numpy.array([angleperp])
-        out = numpy.zeros(len(angleperp))
+        angleperp = numpy.array(angleperp)
+        out = numpy.zeros_like(angleperp)
         out = numpy.array(
             [
                 integrate.quad(
                     self._pangledAnglet, 0.0, self._tdisrupt, (ap, dangle, smallest)
                 )[0]
-                for ap in angleperp
+                for ap in numpy.atleast_1d(angleperp)
             ]
         )
-        return out
+        return out.reshape(angleperp.shape)
 
     @physical_conversion("angle", pop=True)
     def meanangledAngle(self, dangle, smallest=False):
@@ -2771,9 +2759,8 @@ class streamdf(df):
             eigIndx = 0
         else:
             eigIndx = 1
-        if isinstance(angleperp, (int, float, numpy.float32, numpy.float64)):
-            angleperp = numpy.array([angleperp])
-            t = numpy.array([t])
+        angleperp = numpy.array(angleperp)
+        t = numpy.array(t)
         out = numpy.zeros_like(angleperp)
         tindx = t < self._tdisrupt
         out[tindx] = (
@@ -3732,7 +3719,7 @@ def _determine_stream_track_single(
     allAcfsTrack[1] = tacfs[1][0]
     allAcfsTrack[2] = tacfs[2][0]
     for jj in range(3, 9):
-        allAcfsTrack[jj] = tacfs[jj]
+        allAcfsTrack[jj] = tacfs[jj][0]
     tjac = calcaAJac(
         progenitorTrack(trackt).vxvv[0],
         aA,
@@ -4010,35 +3997,35 @@ def calcaAJac(
         xv[ii] -= dxv[ii]
         angleIndx = 3
         if actionsFreqsAngles:
-            jac[0, ii] = (tjr - jr) / dxv[ii]
-            jac[1, ii] = (tlz - lz) / dxv[ii]
-            jac[2, ii] = (tjz - jz) / dxv[ii]
-            jac[3, ii] = (tOr - Or) / dxv[ii]
-            jac[4, ii] = (tOphi - Ophi) / dxv[ii]
-            jac[5, ii] = (tOz - Oz) / dxv[ii]
+            jac[0, ii] = (tjr - jr)[0] / dxv[ii]
+            jac[1, ii] = (tlz - lz)[0] / dxv[ii]
+            jac[2, ii] = (tjz - jz)[0] / dxv[ii]
+            jac[3, ii] = (tOr - Or)[0] / dxv[ii]
+            jac[4, ii] = (tOphi - Ophi)[0] / dxv[ii]
+            jac[5, ii] = (tOz - Oz)[0] / dxv[ii]
             angleIndx = 6
         elif freqs:
-            jac[0, ii] = (tOr - Or) / dxv[ii]
-            jac[1, ii] = (tOphi - Ophi) / dxv[ii]
-            jac[2, ii] = (tOz - Oz) / dxv[ii]
+            jac[0, ii] = (tOr - Or)[0] / dxv[ii]
+            jac[1, ii] = (tOphi - Ophi)[0] / dxv[ii]
+            jac[2, ii] = (tOz - Oz)[0] / dxv[ii]
         else:
-            jac[0, ii] = (tjr - jr) / dxv[ii]
-            jac[1, ii] = (tlz - lz) / dxv[ii]
-            jac[2, ii] = (tjz - jz) / dxv[ii]
+            jac[0, ii] = (tjr - jr)[0] / dxv[ii]
+            jac[1, ii] = (tlz - lz)[0] / dxv[ii]
+            jac[2, ii] = (tjz - jz)[0] / dxv[ii]
         if dOdJ:
-            jac2[0, ii] = (tOr - Or) / dxv[ii]
-            jac2[1, ii] = (tOphi - Ophi) / dxv[ii]
-            jac2[2, ii] = (tOz - Oz) / dxv[ii]
+            jac2[0, ii] = (tOr - Or)[0] / dxv[ii]
+            jac2[1, ii] = (tOphi - Ophi)[0] / dxv[ii]
+            jac2[2, ii] = (tOz - Oz)[0] / dxv[ii]
         # For the angles, make sure we do not hit a turning point
-        jac[angleIndx, ii] = (
-            (tar - ar + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
-        ) / dxv[ii]
+        jac[angleIndx, ii] = ((tar - ar + numpy.pi) % (2.0 * numpy.pi) - numpy.pi)[
+            0
+        ] / dxv[ii]
         jac[angleIndx + 1, ii] = (
             (taphi - aphi + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
-        ) / dxv[ii]
-        jac[angleIndx + 2, ii] = (
-            (taz - az + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
-        ) / dxv[ii]
+        )[0] / dxv[ii]
+        jac[angleIndx + 2, ii] = ((taz - az + numpy.pi) % (2.0 * numpy.pi) - numpy.pi)[
+            0
+        ] / dxv[ii]
     if dOdJ:
         jac2[3, :] = jac[3, :]
         jac2[4, :] = jac[4, :]

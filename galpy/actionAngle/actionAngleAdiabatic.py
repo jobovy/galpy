@@ -152,9 +152,9 @@ class actionAngleAdiabatic(actionAngle):
                 for ii in range(len(R)):
                     targs = (R[ii], vR[ii], vT[ii], z[ii], vz[ii])
                     tjr, tlz, tjz = self(*targs, **copy.copy(kwargs))
-                    ojr[ii] = tjr
-                    ojz[ii] = tjz
-                    olz[ii] = tlz
+                    ojr[ii] = tjr[0]
+                    ojz[ii] = tjz[0]
+                    olz[ii] = tlz[0]
                 return (ojr, olz, ojz)
             else:
                 if kwargs.get("_justjr", False):
@@ -180,7 +180,11 @@ class actionAngleAdiabatic(actionAngle):
                     )
                 else:
                     axiJ = self._aAS(R[0], vR[0], vT[0], 0.0, 0.0, _Jz=Jz)
-                    return (axiJ[0], axiJ[1], Jz)
+                    return (
+                        numpy.atleast_1d(axiJ[0]),
+                        numpy.atleast_1d(axiJ[1]),
+                        numpy.atleast_1d(Jz),
+                    )
 
     def _EccZmaxRperiRap(self, *args, **kwargs):
         """
@@ -254,10 +258,10 @@ class actionAngleAdiabatic(actionAngle):
                     tecc, tzmax, trperi, trap = self._EccZmaxRperiRap(
                         *targs, **copy.copy(kwargs)
                     )
-                    oecc[ii] = tecc
-                    ozmax[ii] = tzmax
-                    orperi[ii] = trperi
-                    orap[ii] = trap
+                    oecc[ii] = tecc[0]
+                    ozmax[ii] = tzmax[0]
+                    orperi[ii] = trperi[0]
+                    orap[ii] = trap[0]
                 return (oecc, ozmax, orperi, orap)
             else:
                 if _dim(self._pot) == 3:

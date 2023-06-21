@@ -121,7 +121,7 @@ class constantbetaHernquistdf(_constantbetadf):
             )
         if len(Etilde_out) > 0:
             fE[Etilde_out] = 0.0
-        return fE
+        return fE.reshape(E.shape)
 
     def _icmf(self, ms):
         """Analytic expression for the normalized inverse cumulative mass

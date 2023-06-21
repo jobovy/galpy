@@ -3559,9 +3559,9 @@ def test_actionAngleStaeckel_otherIsochrone_actions_fixed_quad():
     R, vR, vT, z, vz, phi = 1.01, 0.05, 1.05, 0.05, 0.0, 2.0
     ji = aAI(R, vR, vT, z, vz, phi)
     jia = aAA(R, vR, vT, z, vz, phi, fixed_quad=True)
-    djr = numpy.fabs((ji[0] - jia[0]) / ji[0])
-    dlz = numpy.fabs((ji[1] - jia[1]) / ji[1])
-    djz = numpy.fabs((ji[2] - jia[2]) / ji[2])
+    djr = numpy.fabs((ji[0] - jia[0]) / ji[0])[0]
+    dlz = numpy.fabs((ji[1] - jia[1]) / ji[1])[0]
+    djz = numpy.fabs((ji[2] - jia[2]) / ji[2])[0]
     assert (
         djr < 10.0**-3.0
     ), "actionAngleStaeckel applied to isochrone potential fails for Jr at %f%%" % (

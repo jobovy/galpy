@@ -95,7 +95,7 @@ class isotropicHernquistdf(isotropicsphericaldf):
         # Fix out of bounds values
         if len(Etilde_out) > 0:
             fE[Etilde_out] = 0
-        return fE
+        return fE.reshape(E.shape)
 
     def _dMdE(self, E):
         # E already in internal units here
