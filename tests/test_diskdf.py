@@ -2281,7 +2281,7 @@ def test_dehnendf_sample_flat_returnROrbit():
     beta = 0.0
     dfc = dehnendf(beta=beta, profileParams=(1.0 / 4.0, 1.0, 0.2))
     numpy.random.seed(1)
-    os = dfc.sample(n=100, returnROrbit=True)
+    os = dfc.sample(n=300, returnROrbit=True)
     # Test the spatial distribution
     rs = numpy.array([o.R() for o in os])
     assert (
