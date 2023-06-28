@@ -17,7 +17,7 @@ class SteadyLogSpiralPotential(planarPotential):
         \\Phi(R,\\phi) = \\frac{\\mathrm{amp}\\times A}{\\alpha}\\,\\cos\\left(\\alpha\\,\\ln R - m\\,(\\phi-\\Omega_s\\,t-\\gamma)\\right)
 
 
-    Can be grown in a similar way as the DehnenBarPotential, but using :math:`T_s = 2\\pi/\\Omega_s` to normalize :math:`t_{\\mathrm{form}}` and :math:`T_{\\mathrm{steady}}`.
+    Can be grown in a similar way as the DehnenBarPotential, but using :math:`T_s = 2\\pi/\\Omega_s` to normalize :math:`t_{\\mathrm{form}}` and :math:`t_{\\mathrm{steady}}`. If the pattern speed is zero, :math:`t_\\mathrm{form}` and :math:`t_\\mathrm{steady}` are straight times, not times divided by the spiral period.
 
     """
 
