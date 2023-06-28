@@ -162,6 +162,7 @@ def test_forceAsDeriv_potential():
     pots.append("mockEllipticalDiskPotentialTm5")
     pots.append("mockSteadyLogSpiralPotentialT1")
     pots.append("mockSteadyLogSpiralPotentialTm1")
+    pots.append("mockSteadyLogSpiralPotentialTm1Omega0")
     pots.append("mockSteadyLogSpiralPotentialTm5")
     pots.append("mockTransientLogSpiralPotential")
     pots.append("mockFlatEllipticalDiskPotential")  # for evaluate w/ nonaxi lists
@@ -410,6 +411,7 @@ def test_2ndDeriv_potential():
     pots.append("mockEllipticalDiskPotentialTm5")
     pots.append("mockSteadyLogSpiralPotentialT1")
     pots.append("mockSteadyLogSpiralPotentialTm1")
+    pots.append("mockSteadyLogSpiralPotentialTm1Omega0")
     pots.append("mockSteadyLogSpiralPotentialTm5")
     pots.append("mockTransientLogSpiralPotential")
     pots.append("mockFlatEllipticalDiskPotential")  # for evaluate w/ nonaxi lists
@@ -1083,6 +1085,7 @@ def test_evaluateAndDerivs_potential():
     pots.append("mockDehnenBarPotentialTm5")
     pots.append("mockEllipticalDiskPotentialT1")
     pots.append("mockEllipticalDiskPotentialTm1")
+    pots.append("mockSteadyLogSpiralPotentialTm1Omega0")
     pots.append("mockEllipticalDiskPotentialTm5")
     pots.append("mockSteadyLogSpiralPotentialT1")
     pots.append("mockSteadyLogSpiralPotentialTm1")
@@ -1350,6 +1353,7 @@ def test_amp_mult_divide():
     pots.append("mockDehnenBarPotentialTm5")
     pots.append("mockEllipticalDiskPotentialT1")
     pots.append("mockEllipticalDiskPotentialTm1")
+    pots.append("mockSteadyLogSpiralPotentialTm1Omega0")
     pots.append("mockEllipticalDiskPotentialTm5")
     pots.append("mockSteadyLogSpiralPotentialT1")
     pots.append("mockSteadyLogSpiralPotentialTm1")
@@ -8498,6 +8502,22 @@ class mockSteadyLogSpiralPotentialTm1(SteadyLogSpiralPotential):
             self,
             amp=1.0,
             omegas=0.65,
+            A=-0.035,
+            m=2,
+            gamma=numpy.pi / 4.0,
+            p=-0.3,
+            tform=-1.0,
+            tsteady=None,
+        )
+
+
+# Also one with omegab=0. to test that that works
+class mockSteadyLogSpiralPotentialTm1Omega0(SteadyLogSpiralPotential):
+    def __init__(self):
+        SteadyLogSpiralPotential.__init__(
+            self,
+            amp=1.0,
+            omegas=0.0,
             A=-0.035,
             m=2,
             gamma=numpy.pi / 4.0,

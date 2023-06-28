@@ -89,7 +89,7 @@ class SteadyLogSpiralPotential(planarPotential):
             self._alpha = self._m / numpy.tan(p)
         else:
             self._alpha = alpha
-        self._ts = 2.0 * numpy.pi / self._omegas
+        self._ts = 2.0 * numpy.pi / self._omegas if self._omegas != 0.0 else 1.0
         if not tform is None:
             self._tform = tform * self._ts
         else:
