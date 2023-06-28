@@ -17,7 +17,7 @@ class SteadyLogSpiralPotential(planarPotential):
         \\Phi(R,\\phi) = \\frac{\\mathrm{amp}\\times A}{\\alpha}\\,\\cos\\left(\\alpha\\,\\ln R - m\\,(\\phi-\\Omega_s\\,t-\\gamma)\\right)
 
 
-    Can be grown in a similar way as the DehnenBarPotential, but using :math:`T_s = 2\\pi/\\Omega_s` to normalize :math:`t_{\\mathrm{form}}` and :math:`T_{\\mathrm{steady}}`.
+    Can be grown in a similar way as the DehnenBarPotential, but using :math:`T_s = 2\\pi/\\Omega_s` to normalize :math:`t_{\\mathrm{form}}` and :math:`t_{\\mathrm{steady}}`. If the pattern speed is zero, :math:`t_\\mathrm{form}` and :math:`t_\\mathrm{steady}` are straight times, not times divided by the spiral period.
 
     """
 
@@ -89,7 +89,7 @@ class SteadyLogSpiralPotential(planarPotential):
             self._alpha = self._m / numpy.tan(p)
         else:
             self._alpha = alpha
-        self._ts = 2.0 * numpy.pi / self._omegas
+        self._ts = 2.0 * numpy.pi / self._omegas if self._omegas != 0.0 else 1.0
         if not tform is None:
             self._tform = tform * self._ts
         else:
