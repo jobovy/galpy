@@ -430,8 +430,8 @@ you find any problems with this.
 
 .. _scf_potential_docs:
 
-**UPDATED IN v1.8** General density/potential pairs with basis-function expansions
-------------------------------------------------------------------------------------
+General density/potential pairs with basis-function expansions
+--------------------------------------------------------------
 
 ``galpy`` allows for the potential and forces of general,
 time-independent density functions to be computed by expanding the

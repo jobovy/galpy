@@ -5,6 +5,62 @@ This page gives some of the key improvements in each galpy
 version. See the ``HISTORY.txt`` file in the galpy source for full
 details on what is new and different in each version.
 
+v1.9
++++++
+
+Version 1.9 contains two major new additions since version 1.8, a bunch of small
+updates and bug fixes, and a few deprecations. The major new additions are:
+
+* Specialized support for calculating and displaying surfaces of section for orbits.
+  Surfaces of section for 3D and 2D potentials can now be computed using a dedicated
+  integration technique ``Orbit.SOS`` or using a brute-force technique ``Orbit.bruteSOS``
+  (for orbits for which te dedicated technique fails, e.g., orbits in a rotating frame).
+  There is also support for directly plotting surfaces of section in ``Orbit.plotSOS``
+  and ``Orbit.plotBruteSOS``. See :ref:`orbitsos` for more info.
+
+* There is now general support for action-angle and reverse action-angle transformations
+  for 1D potentials using the ``galpy.actionAngle.actionAngleVertical`` and
+  ``galpy.actionAngle.actionAngleVerticalInverse`` classes. The inverse transformation is
+  computing using a robust variation of the torus-mapper.
+
+Important deprecations are:
+
+* ``galpy.util.bovy_coords``, ``galpy.util.bovy_plot``, and
+  ``galpy.util.bovy_conversion`` have now been removed in favor of their ``bovy_``
+  lacking versions.
+
+* ``phiforce`` and associated Potential methods and functions have been removed in favor
+  of ``phitorque`` and associated methods and functions.
+
+Other user-facing improvements and additions are:
+
+* Potential classes, methods, and functions:
+
+  * Made the potential input explicitly positional-only for all ``galpy.potential``
+    functions to avoid errors when specifying it as a keyword argument.
+
+  * Added general support for DissipativeForce instances in 2D.
+
+  * Implemented NonInertialFrameForce in 2D.
+
+  * Allow potentials' density and surface density to be plotted on physical axes.
+
+* New and improved ``Orbit`` methods:
+
+  * Added ``Orbit.animate3d`` to display a 3D animation of an integrated orbit
+    with an optional Milky-Way representation at the origin when plotting x,y,z.
+
+  * Improved the performance of Orbit.animate performance by using webgl, some UI
+    tweaks. Also fixed using Orbit.animate in jupyterlab and retrolab.
+
+* Improvements to spherical distribution functions:
+
+  * Made it possible to use an interpSphericalPotential as the potential in spherical
+    distribution functions.
+
+  * Added a method, ``dMdE``, to calculate the differential energy distribution of
+    spherical distribution functions.
+
 v1.8
 +++++
 
