@@ -295,8 +295,8 @@ an array with shape ``(6,5,ntimes)`` here.
 
 .. _orbfromname:
 
-**UPDATED IN v1.8** Initialization from an object's name
-*********************************************************
+Initialization from an object's name
+************************************
 
 A convenience method, ``Orbit.from_name``, is also available to initialize
 orbits from the name of an object. For example, for the star `Lacaille 8760 <https://en.wikipedia.org/wiki/Lacaille_8760>`__:
@@ -509,8 +509,8 @@ this can be overwritten). A simple example is
 
 .. _orbintegration-noninertial:
 
-**NEW in v1.8** Orbit integration in non-inertial frames
----------------------------------------------------------
+Orbit integration in non-inertial frames
+----------------------------------------
 
 The default assumption in ``galpy`` is that the frame that an orbit is
 integrated in is an inertial one. However, ``galpy`` also supports
@@ -1043,6 +1043,8 @@ same example as above
 >>> timeit(o.integrate(ts,mp,method='dop853'))
 # 1.61 s ± 218 ms per loop (mean ± std. dev. of 7 runs, 1 loop each)
 
+.. _orbitsos:
+
 **NEW in v1.9** Surfaces of section
 -----------------------------------
 
@@ -1410,7 +1412,7 @@ the Milky Way.
 
 .. _orbit-example-barycentric-acceleration-LMC:
 
-**NEW in v1.8** Example: Including the Milky Way center's barycentric acceleration due to the Large Magellanic Cloud in orbit integrations
+Example: Including the Milky Way center's barycentric acceleration due to the Large Magellanic Cloud in orbit integrations
 ---------------------------------------------------------------------------------------------------------------------------
 
 Observations over the last few decades have revealed that the Large Magellanic

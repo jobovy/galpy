@@ -367,8 +367,8 @@ technique or its variants as usual.
 
 .. _install_pyodide:
 
-**NEW IN v1.8** Using ``galpy`` in web applications
-++++++++++++++++++++++++++++++++++++++++++++++++++++
+Using ``galpy`` in web applications
++++++++++++++++++++++++++++++++++++
 
 ``galpy`` can be compiled to `WebAssembly <https://webassembly.org/>`__ using the `emscripten <https://emscripten.org/>`__ compiler. In particular, ``galpy`` is part of the `pyodide <https://pyodide.org/en/stable/>`__ Python distribution for the browser, meaning that ``galpy`` can be used on websites without user installation and it still runs at the speed of a compiled language. This powers, for example, the :ref:`Try galpy <try_galpy>` interactive session on this documentation's home page. Thus, it is easy to, e.g., build web-based, interactive galactic-dynamics examples or tutorials without requiring users to install the scientific Python stack and ``galpy`` itself.
 

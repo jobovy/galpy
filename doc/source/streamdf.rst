@@ -509,7 +509,7 @@ for the difference in :math:`v_Y` as a function of unperturbed :math:`X`:
 
 .. _streamspray-tutorial:
 
-**NEW in v1.8** Particle-spray modeling of streams with ``streamspraydf``
+Particle-spray modeling of streams with ``streamspraydf``
 ---------------------------------------------------------
 
 ``galpy`` also contains an implementation of the particle-spray method
