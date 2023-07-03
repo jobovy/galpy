@@ -1,4 +1,4 @@
-v1.9.0 (XXXX-XX-XX)
+v1.9.0 (2023-07-02)
 ===================
 
 - Add specialized integration method to determine surfaces of sections of orbits and
