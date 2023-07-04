@@ -33,7 +33,7 @@ repos:
   rev: "v2.2.5"
   hooks:
     - id: codespell
-      args: ["-L", "thisE,thise,mye,tE,te,hist,ro,sav,ccompiler,aAS",
+      args: ["-L", "thisE,thise,mye,tE,te,hist,ro,sav,ccompiler,aas",
       "-x","doc/source/_static/try-galpy.js"]
 - repo: https://github.com/psf/black
   rev: 23.3.0
