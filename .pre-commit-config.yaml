@@ -12,7 +12,7 @@ repos:
   - id: check-executables-have-shebangs
   - id: check-yaml
 - repo: https://github.com/asottile/pyupgrade
-  rev: v3.4.0
+  rev: v3.8.0
   hooks:
   - id: pyupgrade
     args: [--py38-plus]
@@ -30,10 +30,10 @@ repos:
   - id: isort
     name: isort (python)
 - repo: https://github.com/codespell-project/codespell
-  rev: "v2.2.4"
+  rev: "v2.2.5"
   hooks:
     - id: codespell
-      args: ["-L", "thisE,thise,mye,tE,te,hist,ro,sav,ccompiler",
+      args: ["-L", "thisE,thise,mye,tE,te,hist,ro,sav,ccompiler,aas",
       "-x","doc/source/_static/try-galpy.js"]
 - repo: https://github.com/psf/black
   rev: 23.3.0
