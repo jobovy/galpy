@@ -1094,9 +1094,9 @@ def XYZ_to_galcenrect(X, Y, Z, Xsun=1.0, Zsun=0.0, _extra_rot=True):
 
        Z - Z
 
-       Xsun - cylindrical distance to the GC
+       Xsun - cylindrical distance to the GC (can be array of same length as R)
 
-       Zsun - Sun's height above the midplane
+       Zsun - Sun's height above the midplane (can be array of same length as R)
 
        _extra_rot= (True) if True, perform an extra tiny rotation to align the Galactocentric coordinate frame with astropy's definition
 
@@ -1112,14 +1112,21 @@ def XYZ_to_galcenrect(X, Y, Z, Xsun=1.0, Zsun=0.0, _extra_rot=True):
 
        2018-04-18 - Tweaked to be consistent with astropy's Galactocentric frame - Bovy (UofT)
 
+       2023-07-23 - Allowed Xsun/Zsun to be arrays - Bovy (UofT)
+
     """
     if _extra_rot:
         X, Y, Z = numpy.dot(galcen_extra_rot, numpy.array([X, Y, Z]))
     dgc = numpy.sqrt(Xsun**2.0 + Zsun**2.0)
     costheta, sintheta = Xsun / dgc, Zsun / dgc
-    return numpy.dot(
+    zero = numpy.zeros_like(costheta)
+    one = numpy.ones_like(costheta)
+    return numpy.einsum(
+        "ijk,jk->ik"
+        if isinstance(costheta, numpy.ndarray) and costheta.ndim > 0
+        else "ij,jk->ik",
         numpy.array(
-            [[costheta, 0.0, -sintheta], [0.0, 1.0, 0.0], [sintheta, 0.0, costheta]]
+            [[costheta, zero, -sintheta], [zero, one, zero], [sintheta, zero, costheta]]
         ),
         numpy.array([-X + dgc, Y, numpy.sign(Xsun) * Z]),
     ).T
@@ -1163,10 +1170,13 @@ def galcenrect_to_XYZ(X, Y, Z, Xsun=1.0, Zsun=0.0, _extra_rot=True):
     """
     dgc = numpy.sqrt(Xsun**2.0 + Zsun**2.0)
     costheta, sintheta = Xsun / dgc, Zsun / dgc
-    if isinstance(Xsun, numpy.ndarray):
-        zero = numpy.zeros(len(Xsun))
-        one = numpy.ones(len(Xsun))
-        Carr = numpy.rollaxis(
+    zero = numpy.zeros_like(costheta)
+    one = numpy.ones_like(costheta)
+    out = (
+        numpy.einsum(
+            "ijk,jk->ik"
+            if isinstance(costheta, numpy.ndarray) and costheta.ndim > 0
+            else "ij,jk->ik",
             numpy.array(
                 [
                     [-costheta, zero, -sintheta],
@@ -1174,22 +1184,10 @@ def galcenrect_to_XYZ(X, Y, Z, Xsun=1.0, Zsun=0.0, _extra_rot=True):
                     [-numpy.sign(Xsun) * sintheta, zero, numpy.sign(Xsun) * costheta],
                 ]
             ),
-            2,
-        )
-        out = (Carr * numpy.array([[X, X, X], [Y, Y, Y], [Z, Z, Z]]).T).sum(
-            -1
-        ) + numpy.array([dgc, zero, zero]).T
-    else:
-        out = numpy.dot(
-            numpy.array(
-                [
-                    [-costheta, 0.0, -sintheta],
-                    [0.0, 1.0, 0.0],
-                    [-numpy.sign(Xsun) * sintheta, 0.0, numpy.sign(Xsun) * costheta],
-                ]
-            ),
             numpy.array([X, Y, Z]),
-        ).T + numpy.array([dgc, 0.0, 0.0])
+        ).T
+        + numpy.array([dgc, zero, zero]).T
+    )
     if _extra_rot:
         return numpy.dot(galcen_extra_rot.T, out.T).T
     else:
@@ -1325,9 +1323,9 @@ def XYZ_to_galcencyl(X, Y, Z, Xsun=1.0, Zsun=0.0, _extra_rot=True):
 
        Z - Z
 
-       Xsun - cylindrical distance to the GC
+       Xsun - cylindrical distance to the GC (can be array of same length as R)
 
-       Zsun - Sun's height above the midplane
+       Zsun - Sun's height above the midplane (can be array of same length as R)
 
        _extra_rot= (True) if True, perform an extra tiny rotation to align the Galactocentric coordinate frame with astropy's definition
 
@@ -1338,6 +1336,8 @@ def XYZ_to_galcencyl(X, Y, Z, Xsun=1.0, Zsun=0.0, _extra_rot=True):
     HISTORY:
 
        2010-09-24 - Written - Bovy (NYU)
+
+       2023-07-19 - Allowed Xsun/Zsun to be arrays - Bovy (UofT)
 
     """
     XYZ = numpy.atleast_2d(
@@ -1403,11 +1403,11 @@ def vxvyvz_to_galcenrect(
 
        vz - W
 
-       vsun - velocity of the sun in the GC frame ndarray[3]
+       vsun - velocity of the sun in the GC frame ndarray[3]  (can also be array of same length as vx; shape [3,N])
 
-       Xsun - cylindrical distance to the GC
+       Xsun - cylindrical distance to the GC (can be array of same length as vXg)
 
-       Zsun - Sun's height above the midplane
+       Zsun - Sun's height above the midplane (can be array of same length as vXg)
 
        _extra_rot= (True) if True, perform an extra tiny rotation to align the Galactocentric coordinate frame with astropy's definition
 
@@ -1423,17 +1423,31 @@ def vxvyvz_to_galcenrect(
 
        2018-04-18 - Tweaked to be consistent with astropy's Galactocentric frame - Bovy (UofT)
 
+       2023-07-23 - Allowed Xsun/Zsun/vsun to be arrays- Bovy (UofT)
+
     """
     if _extra_rot:
         vx, vy, vz = numpy.dot(galcen_extra_rot, numpy.array([vx, vy, vz]))
     dgc = numpy.sqrt(Xsun**2.0 + Zsun**2.0)
     costheta, sintheta = Xsun / dgc, Zsun / dgc
-    return numpy.dot(
-        numpy.array(
-            [[costheta, 0.0, -sintheta], [0.0, 1.0, 0.0], [sintheta, 0.0, costheta]]
-        ),
-        numpy.array([-vx, vy, numpy.sign(Xsun) * vz]),
-    ).T + numpy.array(vsun)
+    zero = numpy.zeros_like(costheta)
+    one = numpy.ones_like(costheta)
+    return (
+        numpy.einsum(
+            "ijk,jk->ik"
+            if isinstance(costheta, numpy.ndarray) and costheta.ndim > 0
+            else "ij,jk->ik",
+            numpy.array(
+                [
+                    [costheta, zero, -sintheta],
+                    [zero, one, zero],
+                    [sintheta, zero, costheta],
+                ]
+            ),
+            numpy.array([-vx, vy, numpy.sign(Xsun) * vz]),
+        ).T
+        + numpy.array(vsun).T
+    )
 
 
 @scalarDecorator
@@ -1473,11 +1487,11 @@ def vxvyvz_to_galcencyl(
 
        Z - Z in Galactocentric rectangular coordinates
 
-       vsun - velocity of the sun in the GC frame ndarray[3]
+       vsun - velocity of the sun in the GC frame ndarray[3]  (can also be array of same length as vx; shape [3,N])
 
-       Xsun - cylindrical distance to the GC
+       Xsun - cylindrical distance to the GC (can be array of same length as vXg)
 
-       Zsun - Sun's height above the midplane
+       Zsun - Sun's height above the midplane (can be array of same length as vXg)
 
        galcen - if True, then X,Y,Z are in cylindrical Galactocentric coordinates rather than rectangular coordinates
 
@@ -1490,6 +1504,8 @@ def vxvyvz_to_galcencyl(
     HISTORY:
 
        2010-09-24 - Written - Bovy (NYU)
+
+       2023-07-19 - Allowed Xsun/Zsun/vsun to be arrays- Bovy (UofT)
 
     """
     vxyz = vxvyvz_to_galcenrect(
@@ -1546,40 +1562,21 @@ def galcenrect_to_vxvyvz(
     """
     dgc = numpy.sqrt(Xsun**2.0 + Zsun**2.0)
     costheta, sintheta = Xsun / dgc, Zsun / dgc
-    if isinstance(Xsun, numpy.ndarray):
-        zero = numpy.zeros(len(Xsun))
-        one = numpy.ones(len(Xsun))
-        Carr = numpy.rollaxis(
-            numpy.array(
-                [
-                    [-costheta, zero, -sintheta],
-                    [zero, one, zero],
-                    [-numpy.sign(Xsun) * sintheta, zero, numpy.sign(Xsun) * costheta],
-                ]
-            ),
-            2,
-        )
-        out = (
-            Carr
-            * numpy.array(
-                [
-                    [vXg - vsun[0], vXg - vsun[0], vXg - vsun[0]],
-                    [vYg - vsun[1], vYg - vsun[1], vYg - vsun[1]],
-                    [vZg - vsun[2], vZg - vsun[2], vZg - vsun[2]],
-                ]
-            ).T
-        ).sum(-1)
-    else:
-        out = numpy.dot(
-            numpy.array(
-                [
-                    [-costheta, 0.0, -sintheta],
-                    [0.0, 1.0, 0.0],
-                    [-numpy.sign(Xsun) * sintheta, 0.0, numpy.sign(Xsun) * costheta],
-                ]
-            ),
-            numpy.array([vXg - vsun[0], vYg - vsun[1], vZg - vsun[2]]),
-        ).T
+    zero = numpy.zeros_like(costheta)
+    one = numpy.ones_like(costheta)
+    out = numpy.einsum(
+        "ijk,jk->ik"
+        if isinstance(costheta, numpy.ndarray) and costheta.ndim > 0
+        else "ij,jk->ik",
+        numpy.array(
+            [
+                [-costheta, zero, -sintheta],
+                [zero, one, zero],
+                [-numpy.sign(Xsun) * sintheta, zero, numpy.sign(Xsun) * costheta],
+            ]
+        ),
+        numpy.array([vXg - vsun[0], vYg - vsun[1], vZg - vsun[2]]),
+    ).T
     if _extra_rot:
         return numpy.dot(galcen_extra_rot.T, out.T).T
     else:

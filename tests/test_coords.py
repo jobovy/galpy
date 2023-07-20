@@ -765,6 +765,27 @@ def test_XYZ_to_galcenrect_negXsun():
     ), "XYZ_to_galcenrect conversion did not work as expected for negative Xsun"
 
 
+def test_XYZ_to_galcenrect_vecSun():
+    X, Y, Z = (
+        numpy.array([1.0, 2.0]),
+        numpy.array([3.0, 3.0]),
+        numpy.array([-2.0, -2.0]),
+    )
+    gcXYZ = coords.XYZ_to_galcenrect(
+        X, Y, Z, Xsun=numpy.array([1.0, -2.0]), Zsun=numpy.array([0.0, 0.0])
+    )
+    assert numpy.all(
+        numpy.fabs(gcXYZ[:, 0]) < 10.0**-5.0
+    ), "XYZ_to_galcenrect conversion did not work as expected"
+    assert numpy.all(
+        numpy.fabs(gcXYZ[:, 1] - 3.0) < 10.0**-5.0
+    ), "XYZ_to_galcenrect conversion did not work as expected"
+    assert numpy.all(
+        numpy.fabs(gcXYZ[:, 2] + 2.0) < 10.0**-5.0
+    ), "XYZ_to_galcenrect conversion did not work as expected"
+    return None
+
+
 def test_lbd_to_galcenrect_galpyvsastropy():
     # Test that galpy's transformations agree with astropy's
     import astropy.units as u
@@ -990,6 +1011,27 @@ def test_XYZ_to_galcencyl():
     return None
 
 
+def test_XYZ_to_galcencyl_vecSun():
+    X, Y, Z = (
+        numpy.array([5.0, 4.0]),
+        numpy.array([4.0, 4.0]),
+        numpy.array([-2.0, -2.0]),
+    )
+    gcRpZ = coords.XYZ_to_galcencyl(
+        X, Y, Z, Xsun=numpy.array([8.0, 7.0]), Zsun=numpy.array([0.0, 0.0])
+    )
+    assert numpy.all(
+        numpy.fabs(gcRpZ[:, 0] - 5.0) < 10.0**-5.0
+    ), "XYZ_to_galcencyl conversion did not work as expected"
+    assert numpy.all(
+        numpy.fabs(gcRpZ[:, 1] - numpy.arctan(4.0 / 3.0)) < 10.0**-5.0
+    ), "XYZ_to_galcencyl conversion did not work as expected"
+    assert numpy.all(
+        numpy.fabs(gcRpZ[:, 2] + 2.0) < 10.0**-4.8
+    ), "XYZ_to_galcencyl conversion did not work as expected"
+    return None
+
+
 def test_galcencyl_to_XYZ():
     gcR, gcp, gcZ = 5.0, numpy.arctan(4.0 / 3.0), 2.0
     XYZ = coords.galcencyl_to_XYZ(gcR, gcp, gcZ, Xsun=8.0, Zsun=0.0)
@@ -1135,6 +1177,79 @@ def test_vxvyvz_to_galcenrect_negXsun():
     assert (
         numpy.fabs(vgc[2] - vgcn[2]) < 10.0**-4.0
     ), "vxvyvz_to_galcenrect conversion did not work as expected for negative Xsun"
+    return None
+
+
+def test_vxvyvz_to_galcenrect_vecXsun():
+    vx, vy, vz = (
+        numpy.array([10.0, 10.0]),
+        numpy.array([-20.0, -20.0]),
+        numpy.array([30.0, 30.0]),
+    )
+    vgc = coords.vxvyvz_to_galcenrect(
+        vx,
+        vy,
+        vz,
+        vsun=[-5.0, 10.0, 5.0],
+        Xsun=numpy.array([1.1, 1.0]),
+        Zsun=numpy.array([0.0, 0.0]),
+    )
+    assert numpy.all(
+        numpy.fabs(vgc[:, 0] + 15.0) < 10.0**-4.0
+    ), "vxvyvz_to_galcenrect conversion did not work as expected"
+    assert numpy.all(
+        numpy.fabs(vgc[:, 1] + 10.0) < 10.0**-4.0
+    ), "vxvyvz_to_galcenrect conversion did not work as expected"
+    assert numpy.all(
+        numpy.fabs(vgc[:, 2] - 35.0) < 10.0**-4.0
+    ), "vxvyvz_to_galcenrect conversion did not work as expected"
+    return None
+
+
+def test_vxvyvz_to_galcenrect_vecvsun():
+    vx, vy, vz = (
+        numpy.array([10.0, 5.0]),
+        numpy.array([-20.0, -10.0]),
+        numpy.array([30.0, 25.0]),
+    )
+    vgc = coords.vxvyvz_to_galcenrect(
+        vx, vy, vz, vsun=numpy.array([[-5.0, 10.0, 5.0], [-10.0, 0.0, 10.0]]).T
+    )
+    assert numpy.all(
+        numpy.fabs(vgc[:, 0] + 15.0) < 10.0**-4.0
+    ), "vxvyvz_to_galcenrect conversion did not work as expected"
+    assert numpy.all(
+        numpy.fabs(vgc[:, 1] + 10.0) < 10.0**-4.0
+    ), "vxvyvz_to_galcenrect conversion did not work as expected"
+    assert numpy.all(
+        numpy.fabs(vgc[:, 2] - 35.0) < 10.0**-4.0
+    ), "vxvyvz_to_galcenrect conversion did not work as expected"
+    return None
+
+
+def test_vxvyvz_to_galcenrect_vecXsunvsun():
+    vx, vy, vz = (
+        numpy.array([10.0, 5.0]),
+        numpy.array([-20.0, -10.0]),
+        numpy.array([30.0, 25.0]),
+    )
+    vgc = coords.vxvyvz_to_galcenrect(
+        vx,
+        vy,
+        vz,
+        Xsun=numpy.array([1.1, 1.0]),
+        Zsun=numpy.array([0.0, 0.0]),
+        vsun=numpy.array([[-5.0, 10.0, 5.0], [-10.0, 0.0, 10.0]]).T,
+    )
+    assert numpy.all(
+        numpy.fabs(vgc[:, 0] + 15.0) < 10.0**-4.0
+    ), "vxvyvz_to_galcenrect conversion did not work as expected"
+    assert numpy.all(
+        numpy.fabs(vgc[:, 1] + 10.0) < 10.0**-4.0
+    ), "vxvyvz_to_galcenrect conversion did not work as expected"
+    assert numpy.all(
+        numpy.fabs(vgc[:, 2] - 35.0) < 10.0**-4.0
+    ), "vxvyvz_to_galcenrect conversion did not work as expected"
     return None
 
 
@@ -1435,6 +1550,79 @@ def test_galcenrect_to_vxvyvz_asInverse():
     assert numpy.all(
         numpy.fabs(vxyzt[:, 2] - vz * os) < 10.0**-10.0
     ), "galcenrect_to_vxvyvz is not the inverse of vxvyvz_to_galcenrect"
+    return None
+
+
+def test_galcenrect_to_vxvyvz_vecXsun():
+    vxg, vyg, vzg = (
+        numpy.array([-15.0, -15.0]),
+        numpy.array([-10.0, -10.0]),
+        numpy.array([35.0, 35.0]),
+    )
+    vxyz = coords.galcenrect_to_vxvyvz(
+        vxg,
+        vyg,
+        vzg,
+        vsun=[-5.0, 10.0, 5.0],
+        Xsun=numpy.array([1.1, 1.0]),
+        Zsun=numpy.array([0.0, 0.0]),
+    )
+    assert numpy.all(
+        numpy.fabs(vxyz[:, 0] - 10.0) < 10.0**-4.0
+    ), "galcenrect_to_vxvyvz conversion did not work as expected"
+    assert numpy.all(
+        numpy.fabs(vxyz[:, 1] + 20.0) < 10.0**-4.0
+    ), "galcenrect_to_vxvyvz conversion did not work as expected"
+    assert numpy.all(
+        numpy.fabs(vxyz[:, 2] - 30.0) < 10.0**-4.0
+    ), "galcenrect_to_vxvyvz conversion did not work as expected"
+    return None
+
+
+def test_galcenrect_to_vxvyvz_vecvsun():
+    vxg, vyg, vzg = (
+        numpy.array([-15.0, -5.0]),
+        numpy.array([-10.0, -20.0]),
+        numpy.array([35.0, 32.5]),
+    )
+    vxyz = coords.galcenrect_to_vxvyvz(
+        vxg, vyg, vzg, vsun=numpy.array([[-5.0, 10.0, 5.0], [5.0, 0.0, 2.5]]).T
+    )
+    assert numpy.all(
+        numpy.fabs(vxyz[:, 0] - 10.0) < 10.0**-4.0
+    ), "galcenrect_to_vxvyvz conversion did not work as expected"
+    assert numpy.all(
+        numpy.fabs(vxyz[:, 1] + 20.0) < 10.0**-4.0
+    ), "galcenrect_to_vxvyvz conversion did not work as expected"
+    assert numpy.all(
+        numpy.fabs(vxyz[:, 2] - 30.0) < 10.0**-4.0
+    ), "galcenrect_to_vxvyvz conversion did not work as expected"
+    return None
+
+
+def test_galcenrect_to_vxvyvz_vecXsunvsun():
+    vxg, vyg, vzg = (
+        numpy.array([-15.0, -5.0]),
+        numpy.array([-10.0, -20.0]),
+        numpy.array([35.0, 32.5]),
+    )
+    vxyz = coords.galcenrect_to_vxvyvz(
+        vxg,
+        vyg,
+        vzg,
+        vsun=numpy.array([[-5.0, 10.0, 5.0], [5.0, 0.0, 2.5]]).T,
+        Xsun=numpy.array([1.1, 1.0]),
+        Zsun=numpy.array([0.0, 0.0]),
+    )
+    assert numpy.all(
+        numpy.fabs(vxyz[:, 0] - 10.0) < 10.0**-4.0
+    ), "galcenrect_to_vxvyvz conversion did not work as expected"
+    assert numpy.all(
+        numpy.fabs(vxyz[:, 1] + 20.0) < 10.0**-4.0
+    ), "galcenrect_to_vxvyvz conversion did not work as expected"
+    assert numpy.all(
+        numpy.fabs(vxyz[:, 2] - 30.0) < 10.0**-4.0
+    ), "galcenrect_to_vxvyvz conversion did not work as expected"
     return None
 
 
