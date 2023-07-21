@@ -1,6 +1,9 @@
 v1.9.1 (expected around 2023-11-01)
 ===================
 
+- Allow vector inputs of solar parameters to Orbit initialization: ro, zo, vo,
+  and solarmotion (#595). Useful when sampling over the uncertainty in the solar
+  parameters.
 
 v1.9.0 (2023-07-02)
 ===================

@@ -221,6 +221,8 @@ multiple objects. Specifically, the initial conditions can be:
    * None: assumed to be the Sun; if None occurs in a list it is assumed to be the Sun *and all other items in the list are assumed to be [ra,dec,...]*; cannot be combined with Quantity lists
    * lists of scalar phase-space coordinates arranged as in the first bullet above (so things like [R,vR,...] where R,vR are scalars in internal units
 
+The solar parameters ``ro``, ``zo``, ``vo``, and ``solarmotion`` can also be specified as arrays with the same shape as the resulting ``Orbit`` instance. This can be useful, for example, when sampling over the uncertainty in the Sun's position and velocity in the Milky Way.
+
 .. TIP::
    For multiple object initialization using an array or SkyCoord, arbitrary input shapes are supported.
 
@@ -252,6 +254,18 @@ and with a SkyCoord:
 
 As before, you can use the ``SkyCoord`` Galactocentric frame
 specification here.
+
+An example initialization with array input for ``ro`` is:
+
+>>> vxvvs= numpy.array([[1.,0.1,1.,0.1,-0.2,1.5] for ii in range(2)])
+>>> orbits= Orbit(vxvvs,ro=numpy.array([8.,8.5]))
+>>> print(orbits.R())
+# [ 8.   8.5]
+
+Array inputs can also be used for ``zo``, ``vo``, and ``solarmotion``. When using arrays,
+their shapes need to agree with the shape of the resulting ``Orbit`` instance (for
+``solarmotion``, the shape needs to be ``[3,*shape_orbit]``).
+
 
 ``Orbit`` instances containing multiple objects act like numpy arrays
 in many ways, but have some subtly different behaviors for some
