@@ -332,13 +332,13 @@ class Orbit:
 
         OPTIONAL INPUTS:
 
-            ro - distance from vantage point to GC (kpc; can be Quantity)
+            ro - distance from vantage point to GC (kpc; can be Quantity and can be an array with the same shape as the Orbit itself)
 
-            vo - circular velocity at ro (km/s; can be Quantity)
+            vo - circular velocity at ro (km/s; can be Quantity and can be an array with the same shape as the Orbit itself)
 
-            zo - offset toward the NGP of the Sun wrt the plane (kpc; can be Quantity; default = 20.8 pc from Bennett & Bovy 2019)
+            zo - offset toward the NGP of the Sun wrt the plane (kpc; can be Quantity; default = 20.8 pc from Bennett & Bovy 2019; can be an array with the same shape as the Orbit itself)
 
-            solarmotion - 'hogg' or 'dehnen', or 'schoenrich', or value in [-U,V,W]; can be Quantity
+            solarmotion - 'hogg' or 'dehnen', or 'schoenrich', or value in [-U,V,W]; can be Quantity and can be an array with the same shape as the Orbit itself; default = 'schoenrich'
 
         OUTPUT:
 
@@ -355,6 +355,8 @@ class Orbit:
             2019-02-18 - Don't support radec, lb, or uvw keywords to avoid slow coordinate transformations that would require ugly code to fix - Bovy (UofT)
 
             2019-03-19 - Allow array vxvv and arbitrary shapes - Bovy (UofT)
+
+            2023-07-20 - Allowed ro/zo/vo/solarmotion input to be arrays with the same shape as the Orbit itself - Bovy (UofT)
 
         """
         # First deal with None = Sun
@@ -436,6 +438,30 @@ class Orbit:
                 )
         #: Tuple of Orbit dimensions
         self.shape = input_shape
+        # Check that ro/zo/vo/solarmotion have the same shape as the vxvv inputs (if they are arrays)
+        for attr in ["_ro", "_zo", "_vo"]:
+            if (
+                isinstance(self.__dict__[attr], numpy.ndarray)
+                and self.__dict__[attr].ndim > 0
+            ):
+                if self.__dict__[attr].shape != self.shape:
+                    raise RuntimeError(
+                        f"{attr[1:]} must have the same shape as the input orbits for an array of orbits"
+                    )
+                else:
+                    self.__dict__[attr] = self.__dict__[attr].flatten()
+        if isinstance(self._solarmotion, numpy.ndarray) and self._solarmotion.ndim > 1:
+            if self._solarmotion.shape[1:] != self.shape:
+                raise RuntimeError(
+                    "solarmotion must have the shape [3,...] where the ... matches the shape of the input orbits for an array of orbits"
+                )
+            else:
+                self._solarmotion = self._solarmotion.reshape(
+                    (
+                        self._solarmotion.shape[0],
+                        numpy.prod(self._solarmotion.shape[1:]),
+                    )
+                )
         self._setup_parse_vxvv(vxvv, radec, lb, uvw)
         # Check that we have a valid phase-space dim (often messed up by not
         # transposing the input array to the correct shape)
@@ -574,21 +600,21 @@ class Orbit:
         solarmotions = numpy.array([o._solarmotion for o in vxvv])
         if numpy.any(numpy.fabs(ros - ros[0]) > 1e-10):
             raise RuntimeError(
-                "All individual orbits given to an Orbit class must have the same ro unit-conversion parameter"
+                "All individual orbits given to an Orbit class when initializing with a list of Orbits must have the same ro unit-conversion parameter"
             )
         if numpy.any(numpy.fabs(vos - vos[0]) > 1e-10):
             raise RuntimeError(
-                "All individual orbits given to an Orbit class must have the same vo unit-conversion parameter"
+                "All individual orbits given to an Orbit class when initializing with a list of Orbits must have the same vo unit-conversion parameter"
             )
         if not zos[0] is None and numpy.any(numpy.fabs(zos - zos[0]) > 1e-10):
             raise RuntimeError(
-                "All individual orbits given to an Orbit class must have the same zo solar offset"
+                "All individual orbits given to an Orbit class when initializing with a list of Orbits must have the same zo solar offset"
             )
         if not solarmotions[0] is None and numpy.any(
             numpy.fabs(solarmotions - solarmotions[0]) > 1e-10
         ):
             raise RuntimeError(
-                "All individual orbits given to an Orbit class must have the same solar motion"
+                "All individual orbits given to an Orbit class when initializing with a list of Orbits must have the same solar motion"
             )
         if self._roSet:
             if numpy.fabs(ros[0] - self._ro) > 1e-10:
@@ -731,15 +757,12 @@ class Orbit:
             vx /= self._vo
             vy /= self._vo
             vz /= self._vo
-            vsun = (
-                numpy.array(
-                    [
-                        0.0,
-                        1.0,
-                        0.0,
-                    ]
-                )
-                + self._solarmotion / self._vo
+            vsun = numpy.array(
+                [
+                    self._solarmotion[0] / self._vo,
+                    1.0 + self._solarmotion[1] / self._vo,
+                    self._solarmotion[2] / self._vo,
+                ]
             )
             R, phi, z = coords.XYZ_to_galcencyl(
                 X, Y, Z, Zsun=self._zo / self._ro, _extra_rot=_extra_rot
@@ -8083,7 +8106,7 @@ def _check_voSet(orb, kwargs, funcName):
 
 def _helioXYZ(orb, thiso, *args, **kwargs):
     """Calculate heliocentric rectangular coordinates"""
-    obs, ro, vo = _parse_radec_kwargs(orb, kwargs)
+    obs, ro, vo = _parse_radec_kwargs(orb, kwargs, thiso=thiso)
     if len(thiso[:, 0]) != 4 and len(thiso[:, 0]) != 6:  # pragma: no cover
         raise AttributeError("orbit must track azimuth to use radeclbd functions")
     elif len(thiso[:, 0]) == 4:  # planarOrbit
@@ -8150,7 +8173,7 @@ def _helioXYZ(orb, thiso, *args, **kwargs):
 
 def _lbd(orb, thiso, *args, **kwargs):
     """Calculate l,b, and d"""
-    obs, ro, vo = _parse_radec_kwargs(orb, kwargs, dontpop=True)
+    obs, ro, vo = _parse_radec_kwargs(orb, kwargs, dontpop=True, thiso=thiso)
     X, Y, Z = _helioXYZ(orb, thiso, *args, **kwargs)
     bad_indx = (X == 0.0) * (Y == 0.0) * (Z == 0.0)
     if True in bad_indx:
@@ -8166,7 +8189,7 @@ def _radec(orb, thiso, *args, **kwargs):
 
 def _XYZvxvyvz(orb, thiso, *args, **kwargs):
     """Calculate X,Y,Z,U,V,W"""
-    obs, ro, vo = _parse_radec_kwargs(orb, kwargs, vel=True)
+    obs, ro, vo = _parse_radec_kwargs(orb, kwargs, vel=True, thiso=thiso)
     if len(thiso[:, 0]) != 4 and len(thiso[:, 0]) != 6:  # pragma: no cover
         raise AttributeError("orbit must track azimuth to use radeclbduvw functions")
     elif len(thiso[:, 0]) == 4:  # planarOrbit
@@ -8187,12 +8210,17 @@ def _XYZvxvyvz(orb, thiso, *args, **kwargs):
                 thiso[3, :] - numpy.arctan2(obs[1], obs[0]),
                 vsun=numpy.array(  # have to rotate
                     [
-                        obs[3] * obs[0] / Xsun + obs[4] * obs[1] / Xsun,
-                        -obs[3] * obs[1] / Xsun + obs[4] * obs[0] / Xsun,
-                        obs[5],
+                        obs[3] * obs[0] / Xsun / vo + obs[4] * obs[1] / Xsun / vo,
+                        -obs[3] * obs[1] / Xsun / vo + obs[4] * obs[0] / Xsun / vo,
+                        obs[5]
+                        * (
+                            numpy.ones_like(Xsun)
+                            if isinstance(Xsun, numpy.ndarray) and obs[5].ndim == 0
+                            else 1.0
+                        )
+                        / vo,
                     ]
-                )
-                / vo,
+                ),
                 Xsun=Xsun / ro,
                 Zsun=obs[2] / ro,
                 _extra_rot=False,
@@ -8267,12 +8295,17 @@ def _XYZvxvyvz(orb, thiso, *args, **kwargs):
                 thiso[5, :] - numpy.arctan2(obs[1], obs[0]),
                 vsun=numpy.array(  # have to rotate
                     [
-                        obs[3] * obs[0] / Xsun + obs[4] * obs[1] / Xsun,
-                        -obs[3] * obs[1] / Xsun + obs[4] * obs[0] / Xsun,
-                        obs[5],
+                        obs[3] * obs[0] / Xsun / vo + obs[4] * obs[1] / Xsun / vo,
+                        -obs[3] * obs[1] / Xsun / vo + obs[4] * obs[0] / Xsun / vo,
+                        obs[5]
+                        * (
+                            numpy.ones_like(Xsun)
+                            if isinstance(Xsun, numpy.ndarray) and obs[5].ndim == 0
+                            else 1.0
+                        )
+                        / vo,
                     ]
-                )
-                / vo,
+                ),
                 Xsun=Xsun / ro,
                 Zsun=obs[2] / ro,
             ).T
@@ -8326,7 +8359,7 @@ def _XYZvxvyvz(orb, thiso, *args, **kwargs):
 
 def _lbdvrpmllpmbb(orb, thiso, *args, **kwargs):
     """Calculate l,b,d,vr,pmll,pmbb"""
-    obs, ro, vo = _parse_radec_kwargs(orb, kwargs, dontpop=True)
+    obs, ro, vo = _parse_radec_kwargs(orb, kwargs, dontpop=True, thiso=thiso)
     X, Y, Z, vX, vY, vZ = _XYZvxvyvz(orb, thiso, *args, **kwargs)
     bad_indx = (X == 0.0) * (Y == 0.0) * (Z == 0.0)
     if True in bad_indx:
@@ -8347,7 +8380,7 @@ def _pmrapmdec(orb, thiso, *args, **kwargs):
     )
 
 
-def _parse_radec_kwargs(orb, kwargs, vel=False, dontpop=False):
+def _parse_radec_kwargs(orb, kwargs, vel=False, dontpop=False, thiso=None):
     if "obs" in kwargs:
         obs = kwargs["obs"]
         if not dontpop:
@@ -8387,6 +8420,17 @@ def _parse_radec_kwargs(orb, kwargs, vel=False, dontpop=False):
             kwargs.pop("vo")
     else:
         vo = orb._vo
+    # Tile everything when thiso includes a time axis
+    if isinstance(obs, list) and not thiso is None and thiso.shape[1] > orb.size:
+        nt = thiso.shape[1] // orb.size
+        obs = [
+            numpy.tile(obs[ii], nt)
+            if isinstance(obs[ii], numpy.ndarray) and obs[ii].ndim > 0
+            else obs[ii]
+            for ii in range(len(obs))
+        ]
+        ro = numpy.tile(ro, nt) if isinstance(ro, numpy.ndarray) and ro.ndim > 0 else ro
+        vo = numpy.tile(vo, nt) if isinstance(vo, numpy.ndarray) and vo.ndim > 0 else vo
     return (obs, ro, vo)
 
 

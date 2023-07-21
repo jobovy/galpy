@@ -1073,7 +1073,12 @@ def physical_conversion(quantity, pop=False):
                 if _apy_units:
                     return units.Quantity(out * fac, unit=u)
                 else:
-                    return out * fac
+                    # complicated logic for dealing with ro and vo arrays
+                    return out * (
+                        fac[:, numpy.newaxis]
+                        if isinstance(fac, numpy.ndarray) and len(out.shape) > 1
+                        else fac
+                    )
             else:
                 if use_physical_explicitly_set:
                     warnings.warn(
