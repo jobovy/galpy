@@ -368,6 +368,410 @@ def test_initialization_list_of_arrays():
     return None
 
 
+def test_initialization_diffro():
+    # Test that supplying an array of ro values works as expected
+    from galpy.orbit import Orbit
+
+    numpy.random.seed(1)
+    nrand = 30
+    ras = numpy.random.uniform(size=nrand) * 360.0 * u.deg
+    decs = 90.0 * (2.0 * numpy.random.uniform(size=nrand) - 1.0) * u.deg
+    dists = numpy.random.uniform(size=nrand) * 10.0 * u.kpc
+    pmras = 20.0 * (2.0 * numpy.random.uniform(size=nrand) - 1.0) * 20.0 * u.mas / u.yr
+    pmdecs = 20.0 * (2.0 * numpy.random.uniform(size=nrand) - 1.0) * 20.0 * u.mas / u.yr
+    vloss = 200.0 * (2.0 * numpy.random.uniform(size=nrand) - 1.0) * u.km / u.s
+
+    ros = (6.0 + numpy.random.uniform(size=nrand) * 2.0) * u.kpc
+
+    all_orbs = Orbit([ras, decs, dists, pmras, pmdecs, vloss], ro=ros, radec=True)
+    for ii in range(nrand):
+        orb = Orbit(
+            [ras[ii], decs[ii], dists[ii], pmras[ii], pmdecs[ii], vloss[ii]],
+            ro=ros[ii],
+            radec=True,
+        )
+        assert (
+            numpy.fabs((all_orbs.R()[ii] - orb.R()) / orb.R()) < 1e-7
+        ), "Orbits initialization with array of ro does not work as expected"
+        assert (
+            numpy.fabs((all_orbs.vR()[ii] - orb.vR()) / orb.vR()) < 1e-7
+        ), "Orbits initialization with array of ro does not work as expected"
+        assert (
+            numpy.fabs((all_orbs.vT()[ii] - orb.vT()) / orb.vT()) < 1e-7
+        ), "Orbits initialization with array of ro does not work as expected"
+        assert (
+            numpy.fabs((all_orbs.z()[ii] - orb.z()) / orb.z()) < 1e-7
+        ), "Orbits initialization with array of ro does not work as expected"
+        assert (
+            numpy.fabs((all_orbs.vz()[ii] - orb.vz()) / orb.vz()) < 1e-7
+        ), "Orbits initialization with array of ro does not work as expected"
+        assert (
+            numpy.fabs(
+                ((all_orbs.phi()[ii] - orb.phi() + numpy.pi) % (2.0 * numpy.pi))
+                - numpy.pi
+            )
+            < 1e-7
+        ), "Orbits initialization with array of ro does not work as expected"
+        # Also some observed values like ra, dec, ...
+        assert (
+            numpy.fabs((all_orbs.ra()[ii] - orb.ra()) / orb.ra()) < 1e-7
+        ), "Orbits initialization with array of ro does not work as expected"
+        assert (
+            numpy.fabs((all_orbs.dec()[ii] - orb.dec()) / orb.dec()) < 1e-7
+        ), "Orbits initialization with array of ro does not work as expected"
+        assert (
+            numpy.fabs((all_orbs.dist()[ii] - orb.dist()) / orb.dist()) < 1e-7
+        ), "Orbits initialization with array of ro does not work as expected"
+        assert (
+            numpy.fabs((all_orbs.pmra()[ii] - orb.pmra()) / orb.pmra()) < 1e-7
+        ), "Orbits initialization with array of ro does not work as expected"
+        assert (
+            numpy.fabs((all_orbs.pmdec()[ii] - orb.pmdec()) / orb.pmdec()) < 1e-7
+        ), "Orbits initialization with array of ro does not work as expected"
+        assert (
+            numpy.fabs((all_orbs.vlos()[ii] - orb.vlos()) / orb.vlos()) < 1e-7
+        ), "Orbits initialization with array of ro does not work as expected"
+    return None
+
+
+def test_initialization_diffzo():
+    # Test that supplying an array of zo values works as expected
+    from galpy.orbit import Orbit
+
+    numpy.random.seed(1)
+    nrand = 30
+    ras = numpy.random.uniform(size=nrand) * 360.0 * u.deg
+    decs = 90.0 * (2.0 * numpy.random.uniform(size=nrand) - 1.0) * u.deg
+    dists = numpy.random.uniform(size=nrand) * 10.0 * u.kpc
+    pmras = 20.0 * (2.0 * numpy.random.uniform(size=nrand) - 1.0) * 20.0 * u.mas / u.yr
+    pmdecs = 20.0 * (2.0 * numpy.random.uniform(size=nrand) - 1.0) * 20.0 * u.mas / u.yr
+    vloss = 200.0 * (2.0 * numpy.random.uniform(size=nrand) - 1.0) * u.km / u.s
+
+    zos = (-1.0 + numpy.random.uniform(size=nrand) * 2.0) * 50.0 * u.pc
+
+    all_orbs = Orbit([ras, decs, dists, pmras, pmdecs, vloss], zo=zos, radec=True)
+    for ii in range(nrand):
+        orb = Orbit(
+            [ras[ii], decs[ii], dists[ii], pmras[ii], pmdecs[ii], vloss[ii]],
+            zo=zos[ii],
+            radec=True,
+        )
+        assert (
+            numpy.fabs((all_orbs.R()[ii] - orb.R()) / orb.R()) < 1e-7
+        ), "Orbits initialization with array of zo does not work as expected"
+        assert (
+            numpy.fabs((all_orbs.vR()[ii] - orb.vR()) / orb.vR()) < 1e-7
+        ), "Orbits initialization with array of zo does not work as expected"
+        assert (
+            numpy.fabs((all_orbs.vT()[ii] - orb.vT()) / orb.vT()) < 1e-7
+        ), "Orbits initialization with array of zo does not work as expected"
+        assert (
+            numpy.fabs((all_orbs.z()[ii] - orb.z()) / orb.z()) < 1e-7
+        ), "Orbits initialization with array of zo does not work as expected"
+        assert (
+            numpy.fabs((all_orbs.vz()[ii] - orb.vz()) / orb.vz()) < 1e-7
+        ), "Orbits initialization with array of zo does not work as expected"
+        assert (
+            numpy.fabs(
+                ((all_orbs.phi()[ii] - orb.phi() + numpy.pi) % (2.0 * numpy.pi))
+                - numpy.pi
+            )
+            < 1e-7
+        ), "Orbits initialization with array of zo does not work as expected"
+        # Also some observed values like ra, dec, ...
+        assert (
+            numpy.fabs((all_orbs.ra()[ii] - orb.ra()) / orb.ra()) < 1e-7
+        ), "Orbits initialization with array of zo does not work as expected"
+        assert (
+            numpy.fabs((all_orbs.dec()[ii] - orb.dec()) / orb.dec()) < 1e-7
+        ), "Orbits initialization with array of zo does not work as expected"
+        assert (
+            numpy.fabs((all_orbs.dist()[ii] - orb.dist()) / orb.dist()) < 1e-7
+        ), "Orbits initialization with array of zo does not work as expected"
+        assert (
+            numpy.fabs((all_orbs.pmra()[ii] - orb.pmra()) / orb.pmra()) < 1e-7
+        ), "Orbits initialization with array of zo does not work as expected"
+        assert (
+            numpy.fabs((all_orbs.pmdec()[ii] - orb.pmdec()) / orb.pmdec()) < 1e-7
+        ), "Orbits initialization with array of zo does not work as expected"
+        assert (
+            numpy.fabs((all_orbs.vlos()[ii] - orb.vlos()) / orb.vlos()) < 1e-7
+        ), "Orbits initialization with array of zo does not work as expected"
+    return None
+
+
+def test_initialization_diffvo():
+    # Test that supplying a single vo value works as expected
+    from galpy.orbit import Orbit
+
+    numpy.random.seed(1)
+    nrand = 30
+    ras = numpy.random.uniform(size=nrand) * 360.0 * u.deg
+    decs = 90.0 * (2.0 * numpy.random.uniform(size=nrand) - 1.0) * u.deg
+    dists = numpy.random.uniform(size=nrand) * 10.0 * u.kpc
+    pmras = 20.0 * (2.0 * numpy.random.uniform(size=nrand) - 1.0) * 20.0 * u.mas / u.yr
+    pmdecs = 20.0 * (2.0 * numpy.random.uniform(size=nrand) - 1.0) * 20.0 * u.mas / u.yr
+    vloss = 200.0 * (2.0 * numpy.random.uniform(size=nrand) - 1.0) * u.km / u.s
+
+    vos = (200.0 + numpy.random.uniform(size=nrand) * 40.0) * u.km / u.s
+
+    all_orbs = Orbit([ras, decs, dists, pmras, pmdecs, vloss], vo=vos, radec=True)
+    for ii in range(nrand):
+        orb = Orbit(
+            [ras[ii], decs[ii], dists[ii], pmras[ii], pmdecs[ii], vloss[ii]],
+            vo=vos[ii],
+            radec=True,
+        )
+        assert (
+            numpy.fabs((all_orbs.R()[ii] - orb.R()) / orb.R()) < 1e-7
+        ), "Orbits initialization with single vo does not work as expected"
+        assert (
+            numpy.fabs((all_orbs.vR()[ii] - orb.vR()) / orb.vR()) < 1e-7
+        ), "Orbits initialization with single vo does not work as expected"
+        assert (
+            numpy.fabs((all_orbs.vT()[ii] - orb.vT()) / orb.vT()) < 1e-7
+        ), "Orbits initialization with single vo does not work as expected"
+        assert (
+            numpy.fabs((all_orbs.z()[ii] - orb.z()) / orb.z()) < 1e-7
+        ), "Orbits initialization with single vo does not work as expected"
+        assert (
+            numpy.fabs((all_orbs.vz()[ii] - orb.vz()) / orb.vz()) < 1e-7
+        ), "Orbits initialization with single vo does not work as expected"
+        assert (
+            numpy.fabs(
+                ((all_orbs.phi()[ii] - orb.phi() + numpy.pi) % (2.0 * numpy.pi))
+                - numpy.pi
+            )
+            < 1e-7
+        ), "Orbits initialization with single vo does not work as expected"
+        # Also some observed values like ra, dec, ...
+        assert (
+            numpy.fabs((all_orbs.ra()[ii] - orb.ra()) / orb.ra()) < 1e-7
+        ), "Orbits initialization with single vo does not work as expected"
+        assert (
+            numpy.fabs((all_orbs.dec()[ii] - orb.dec()) / orb.dec()) < 1e-7
+        ), "Orbits initialization with single vo does not work as expected"
+        assert (
+            numpy.fabs((all_orbs.dist()[ii] - orb.dist()) / orb.dist()) < 1e-7
+        ), "Orbits initialization with single vo does not work as expected"
+        assert (
+            numpy.fabs((all_orbs.pmra()[ii] - orb.pmra()) / orb.pmra()) < 1e-7
+        ), "Orbits initialization with single vo does not work as expected"
+        assert (
+            numpy.fabs((all_orbs.pmdec()[ii] - orb.pmdec()) / orb.pmdec()) < 1e-7
+        ), "Orbits initialization with single vo does not work as expected"
+        assert (
+            numpy.fabs((all_orbs.vlos()[ii] - orb.vlos()) / orb.vlos()) < 1e-7
+        ), "Orbits initialization with single vo does not work as expected"
+    return None
+
+
+def test_initialization_diffsolarmotion():
+    # Test that supplying an array of solarmotion values works as expected
+    from galpy.orbit import Orbit
+
+    numpy.random.seed(1)
+    nrand = 30
+    ras = numpy.random.uniform(size=nrand) * 360.0 * u.deg
+    decs = 90.0 * (2.0 * numpy.random.uniform(size=nrand) - 1.0) * u.deg
+    dists = numpy.random.uniform(size=nrand) * 10.0 * u.kpc
+    pmras = 20.0 * (2.0 * numpy.random.uniform(size=nrand) - 1.0) * 20.0 * u.mas / u.yr
+    pmdecs = 20.0 * (2.0 * numpy.random.uniform(size=nrand) - 1.0) * 20.0 * u.mas / u.yr
+    vloss = 200.0 * (2.0 * numpy.random.uniform(size=nrand) - 1.0) * u.km / u.s
+
+    solarmotions = (
+        (2.0 * numpy.random.uniform(size=(3, nrand)) - 1.0) * 10.0 * u.km / u.s
+    )
+
+    all_orbs = Orbit(
+        [ras, decs, dists, pmras, pmdecs, vloss], solarmotion=solarmotions, radec=True
+    )
+    for ii in range(nrand):
+        orb = Orbit(
+            [ras[ii], decs[ii], dists[ii], pmras[ii], pmdecs[ii], vloss[ii]],
+            solarmotion=solarmotions[:, ii],
+            radec=True,
+        )
+        assert (
+            numpy.fabs((all_orbs.R()[ii] - orb.R()) / orb.R()) < 1e-7
+        ), "Orbits initialization with array of solarmotion does not work as expected"
+        assert (
+            numpy.fabs((all_orbs.vR()[ii] - orb.vR()) / orb.vR()) < 1e-7
+        ), "Orbits initialization with array of solarmotion does not work as expected"
+        assert (
+            numpy.fabs((all_orbs.vT()[ii] - orb.vT()) / orb.vT()) < 1e-7
+        ), "Orbits initialization with array of solarmotion does not work as expected"
+        assert (
+            numpy.fabs((all_orbs.z()[ii] - orb.z()) / orb.z()) < 1e-7
+        ), "Orbits initialization with array of solarmotion does not work as expected"
+        assert (
+            numpy.fabs((all_orbs.vz()[ii] - orb.vz()) / orb.vz()) < 1e-7
+        ), "Orbits initialization with array of solarmotion does not work as expected"
+        assert (
+            numpy.fabs(
+                ((all_orbs.phi()[ii] - orb.phi() + numpy.pi) % (2.0 * numpy.pi))
+                - numpy.pi
+            )
+            < 1e-7
+        ), "Orbits initialization with array of solarmotion does not work as expected"
+        # Also some observed values like ra, dec, ...
+        assert (
+            numpy.fabs((all_orbs.ra()[ii] - orb.ra()) / orb.ra()) < 1e-7
+        ), "Orbits initialization with array of solarmotion does not work as expected"
+        assert (
+            numpy.fabs((all_orbs.dec()[ii] - orb.dec()) / orb.dec()) < 1e-7
+        ), "Orbits initialization with array of solarmotion does not work as expected"
+        assert (
+            numpy.fabs((all_orbs.dist()[ii] - orb.dist()) / orb.dist()) < 1e-7
+        ), "Orbits initialization with array of solarmotion does not work as expected"
+        assert (
+            numpy.fabs((all_orbs.pmra()[ii] - orb.pmra()) / orb.pmra()) < 1e-7
+        ), "Orbits initialization with array of solarmotion does not work as expected"
+        assert (
+            numpy.fabs((all_orbs.pmdec()[ii] - orb.pmdec()) / orb.pmdec()) < 1e-7
+        ), "Orbits initialization with array of solarmotion does not work as expected"
+        assert (
+            numpy.fabs((all_orbs.vlos()[ii] - orb.vlos()) / orb.vlos()) < 1e-7
+        ), "Orbits initialization with array of solarmotion does not work as expected"
+    return None
+
+
+def test_initialization_allsolarparams():
+    # Test that supplying all parameters works as expected
+    from galpy.orbit import Orbit
+
+    numpy.random.seed(1)
+    nrand = 30
+    ras = numpy.random.uniform(size=nrand) * 360.0 * u.deg
+    decs = 90.0 * (2.0 * numpy.random.uniform(size=nrand) - 1.0) * u.deg
+    dists = numpy.random.uniform(size=nrand) * 10.0 * u.kpc
+    pmras = 20.0 * (2.0 * numpy.random.uniform(size=nrand) - 1.0) * 20.0 * u.mas / u.yr
+    pmdecs = 20.0 * (2.0 * numpy.random.uniform(size=nrand) - 1.0) * 20.0 * u.mas / u.yr
+    vloss = 200.0 * (2.0 * numpy.random.uniform(size=nrand) - 1.0) * u.km / u.s
+
+    ros = (6.0 + numpy.random.uniform(size=nrand) * 2.0) * u.kpc
+    zos = (-1.0 + numpy.random.uniform(size=nrand) * 2.0) * 50.0 * u.pc
+    vos = (200.0 + numpy.random.uniform(size=nrand) * 40.0) * u.km / u.s
+    solarmotions = (
+        (2.0 * numpy.random.uniform(size=(3, nrand)) - 1.0) * 10.0 * u.km / u.s
+    )
+
+    all_orbs = Orbit(
+        [ras, decs, dists, pmras, pmdecs, vloss],
+        ro=ros,
+        zo=zos,
+        vo=vos,
+        solarmotion=solarmotions,
+        radec=True,
+    )
+    for ii in range(nrand):
+        orb = Orbit(
+            [ras[ii], decs[ii], dists[ii], pmras[ii], pmdecs[ii], vloss[ii]],
+            ro=ros[ii],
+            zo=zos[ii],
+            vo=vos[ii],
+            solarmotion=solarmotions[:, ii],
+            radec=True,
+        )
+        assert (
+            numpy.fabs((all_orbs.R()[ii] - orb.R()) / orb.R()) < 1e-7
+        ), "Orbits initialization with all parameters does not work as expected"
+        assert (
+            numpy.fabs((all_orbs.vR()[ii] - orb.vR()) / orb.vR()) < 1e-7
+        ), "Orbits initialization with all parameters does not work as expected"
+        assert (
+            numpy.fabs((all_orbs.vT()[ii] - orb.vT()) / orb.vT()) < 1e-7
+        ), "Orbits initialization with all parameters does not work as expected"
+        assert (
+            numpy.fabs((all_orbs.z()[ii] - orb.z()) / orb.z()) < 1e-7
+        ), "Orbits initialization with all parameters does not work as expected"
+        assert (
+            numpy.fabs((all_orbs.vz()[ii] - orb.vz()) / orb.vz()) < 1e-7
+        ), "Orbits initialization with all parameters does not work as expected"
+        assert (
+            numpy.fabs(
+                ((all_orbs.phi()[ii] - orb.phi() + numpy.pi) % (2.0 * numpy.pi))
+                - numpy.pi
+            )
+            < 1e-7
+        ), "Orbits initialization with all parameters does not work as expected"
+        # Also some observed values like ra, dec, ...
+        assert (
+            numpy.fabs((all_orbs.ra()[ii] - orb.ra()) / orb.ra()) < 1e-7
+        ), "Orbits initialization with all parameters does not work as expected"
+        assert (
+            numpy.fabs((all_orbs.dec()[ii] - orb.dec()) / orb.dec()) < 1e-7
+        ), "Orbits initialization with all parameters does not work as expected"
+        assert (
+            numpy.fabs((all_orbs.dist()[ii] - orb.dist()) / orb.dist()) < 1e-7
+        ), "Orbits initialization with all parameters does not work as expected"
+        assert (
+            numpy.fabs((all_orbs.pmra()[ii] - orb.pmra()) / orb.pmra()) < 1e-7
+        ), "Orbits initialization with all parameters does not work as expected"
+        assert (
+            numpy.fabs((all_orbs.pmdec()[ii] - orb.pmdec()) / orb.pmdec()) < 1e-7
+        ), "Orbits initialization with all parameters does not work as expected"
+        assert (
+            numpy.fabs((all_orbs.vlos()[ii] - orb.vlos()) / orb.vlos()) < 1e-7
+        ), "Orbits initialization with all parameters does not work as expected"
+    return None
+
+
+def test_initialization_diffsolarparams_shape_error():
+    # Test that we get the correct error when providing the wrong shape for array
+    # ro/zo/vo/solarmotion inputs
+    from galpy.orbit import Orbit
+
+    numpy.random.seed(1)
+    nrand = 30
+    ras = numpy.random.uniform(size=nrand) * 360.0 * u.deg
+    decs = 90.0 * (2.0 * numpy.random.uniform(size=nrand) - 1.0) * u.deg
+    dists = numpy.random.uniform(size=nrand) * 10.0 * u.kpc
+    pmras = 20.0 * (2.0 * numpy.random.uniform(size=nrand) - 1.0) * 20.0 * u.mas / u.yr
+    pmdecs = 20.0 * (2.0 * numpy.random.uniform(size=nrand) - 1.0) * 20.0 * u.mas / u.yr
+    vloss = 200.0 * (2.0 * numpy.random.uniform(size=nrand) - 1.0) * u.km / u.s
+
+    ros = (6.0 + numpy.random.uniform(size=nrand * 2) * 2.0) * u.kpc
+    with pytest.raises(RuntimeError) as excinfo:
+        Orbit([ras, decs, dists, pmras, pmdecs, vloss], ro=ros, radec=True)
+    assert (
+        excinfo.value.args[0]
+        == "ro must have the same shape as the input orbits for an array of orbits"
+    ), "Orbits initialization with wrong shape for ro does not raise correct error"
+
+    zos = (-1.0 + numpy.random.uniform(size=2 * nrand) * 2.0) * 50.0 * u.pc
+    with pytest.raises(RuntimeError) as excinfo:
+        Orbit([ras, decs, dists, pmras, pmdecs, vloss], zo=zos, radec=True)
+    assert (
+        excinfo.value.args[0]
+        == "zo must have the same shape as the input orbits for an array of orbits"
+    ), "Orbits initialization with wrong shape for zo does not raise correct error"
+
+    vos = (200.0 + numpy.random.uniform(size=2 * nrand) * 40.0) * u.km / u.s
+    with pytest.raises(RuntimeError) as excinfo:
+        Orbit([ras, decs, dists, pmras, pmdecs, vloss], vo=vos, radec=True)
+    assert (
+        excinfo.value.args[0]
+        == "vo must have the same shape as the input orbits for an array of orbits"
+    ), "Orbits initialization with wrong shape for vo does not raise correct error"
+
+    solarmotions = (
+        (2.0 * numpy.random.uniform(size=(3, 2 * nrand)) - 1.0) * 10.0 * u.km / u.s
+    )
+    with pytest.raises(RuntimeError) as excinfo:
+        Orbit(
+            [ras, decs, dists, pmras, pmdecs, vloss],
+            solarmotion=solarmotions,
+            radec=True,
+        )
+    assert (
+        excinfo.value.args[0]
+        == "solarmotion must have the shape [3,...] where the ... matches the shape of the input orbits for an array of orbits"
+    ), "Orbits initialization with wrong shape for solarmotion does not raise correct error"
+
+    return None
+
+
 # Tests that integrating Orbits agrees with integrating multiple Orbit
 # instances
 def test_integration_1d():
@@ -607,6 +1011,753 @@ def test_integration_p5d():
             numpy.amax(numpy.fabs(orbits_list[ii].vT(times) - orbits.vT(times)[ii]))
             < 1e-10
         ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+    return None
+
+
+def test_integrate_3d_diffro():
+    # Test that supplying an array of ro values works as expected when integrating an orbit
+    from galpy.orbit import Orbit
+
+    numpy.random.seed(1)
+    nrand = 4
+    ras = numpy.random.uniform(size=nrand) * 360.0 * u.deg
+    decs = 90.0 * (2.0 * numpy.random.uniform(size=nrand) - 1.0) * u.deg
+    dists = numpy.random.uniform(size=nrand) * 10.0 * u.kpc
+    pmras = 20.0 * (2.0 * numpy.random.uniform(size=nrand) - 1.0) * 20.0 * u.mas / u.yr
+    pmdecs = 20.0 * (2.0 * numpy.random.uniform(size=nrand) - 1.0) * 20.0 * u.mas / u.yr
+    vloss = 200.0 * (2.0 * numpy.random.uniform(size=nrand) - 1.0) * u.km / u.s
+
+    ros = (6.0 + numpy.random.uniform(size=nrand) * 2.0) * u.kpc
+
+    all_orbs = Orbit([ras, decs, dists, pmras, pmdecs, vloss], ro=ros, radec=True)
+
+    times = numpy.linspace(0.0, 10.0, 1001)
+
+    all_orbs.integrate(times, potential.MWPotential2014)
+    for ii in range(nrand):
+        orb = Orbit(
+            [ras[ii], decs[ii], dists[ii], pmras[ii], pmdecs[ii], vloss[ii]],
+            ro=ros[ii],
+            radec=True,
+        )
+        orb.integrate(times, potential.MWPotential2014)
+        assert numpy.all(
+            numpy.fabs((all_orbs.R(times)[ii] - orb.R(times)) / orb.R(times)) < 1e-7
+        ), "Orbits initialization with array of ro does not work as expected"
+        assert numpy.all(
+            numpy.fabs((all_orbs.vR(times)[ii] - orb.vR(times)) / orb.vR(times)) < 1e-7
+        ), "Orbits initialization with array of ro does not work as expected"
+        assert numpy.all(
+            numpy.fabs((all_orbs.vT(times)[ii] - orb.vT(times)) / orb.vT(times)) < 1e-7
+        ), "Orbits initialization with array of ro does not work as expected"
+        assert numpy.all(
+            numpy.fabs((all_orbs.z(times)[ii] - orb.z(times)) / orb.z(times)) < 1e-7
+        ), "Orbits initialization with array of ro does not work as expected"
+        assert numpy.all(
+            numpy.fabs((all_orbs.vz(times)[ii] - orb.vz(times)) / orb.vz(times)) < 1e-7
+        ), "Orbits initialization with array of ro does not work as expected"
+        assert numpy.all(
+            numpy.fabs(
+                (
+                    (all_orbs.phi(times)[ii] - orb.phi(times) + numpy.pi)
+                    % (2.0 * numpy.pi)
+                )
+                - numpy.pi
+            )
+            < 1e-7
+        ), "Orbits initialization with array of ro does not work as expected"
+        # Also some observed values like ra, dec, ...
+        assert numpy.all(
+            numpy.fabs((all_orbs.ra(times)[ii] - orb.ra(times)) / orb.ra(times)) < 1e-7
+        ), "Orbits initialization with array of ro does not work as expected"
+        assert numpy.all(
+            numpy.fabs((all_orbs.dec(times)[ii] - orb.dec(times)) / orb.dec(times))
+            < 1e-7
+        ), "Orbits initialization with array of ro does not work as expected"
+        assert numpy.all(
+            numpy.fabs((all_orbs.dist(times)[ii] - orb.dist(times)) / orb.dist(times))
+            < 1e-7
+        ), "Orbits initialization with array of ro does not work as expected"
+        assert numpy.all(
+            numpy.fabs((all_orbs.pmra(times)[ii] - orb.pmra(times)) / orb.pmra(times))
+            < 1e-7
+        ), "Orbits initialization with array of ro does not work as expected"
+        assert numpy.all(
+            numpy.fabs(
+                (all_orbs.pmdec(times)[ii] - orb.pmdec(times)) / orb.pmdec(times)
+            )
+            < 1e-7
+        ), "Orbits initialization with array of ro does not work as expected"
+        assert numpy.all(
+            numpy.fabs((all_orbs.vlos(times)[ii] - orb.vlos(times)) / orb.vlos(times))
+            < 1e-7
+        ), "Orbits initialization with array of ro does not work as expected"
+    return None
+
+
+def test_integrate_3d_diffzo():
+    # Test that supplying an array of zo values works as expected when integrating an orbit
+    from galpy.orbit import Orbit
+
+    numpy.random.seed(1)
+    nrand = 4
+    ras = numpy.random.uniform(size=nrand) * 360.0 * u.deg
+    decs = 90.0 * (2.0 * numpy.random.uniform(size=nrand) - 1.0) * u.deg
+    dists = numpy.random.uniform(size=nrand) * 10.0 * u.kpc
+    pmras = 20.0 * (2.0 * numpy.random.uniform(size=nrand) - 1.0) * 20.0 * u.mas / u.yr
+    pmdecs = 20.0 * (2.0 * numpy.random.uniform(size=nrand) - 1.0) * 20.0 * u.mas / u.yr
+    vloss = 200.0 * (2.0 * numpy.random.uniform(size=nrand) - 1.0) * u.km / u.s
+
+    zos = (-1.0 + numpy.random.uniform(size=nrand) * 2.0) * 100.0 * u.pc
+
+    all_orbs = Orbit([ras, decs, dists, pmras, pmdecs, vloss], zo=zos, radec=True)
+
+    times = numpy.linspace(0.0, 10.0, 1001)
+
+    all_orbs.integrate(times, potential.MWPotential2014)
+    for ii in range(nrand):
+        orb = Orbit(
+            [ras[ii], decs[ii], dists[ii], pmras[ii], pmdecs[ii], vloss[ii]],
+            zo=zos[ii],
+            radec=True,
+        )
+        orb.integrate(times, potential.MWPotential2014)
+        assert numpy.all(
+            numpy.fabs((all_orbs.R(times)[ii] - orb.R(times)) / orb.R(times)) < 1e-7
+        ), "Orbits initialization with array of zo does not work as expected"
+        assert numpy.all(
+            numpy.fabs((all_orbs.vR(times)[ii] - orb.vR(times)) / orb.vR(times)) < 1e-7
+        ), "Orbits initialization with array of zo does not work as expected"
+        assert numpy.all(
+            numpy.fabs((all_orbs.vT(times)[ii] - orb.vT(times)) / orb.vT(times)) < 1e-7
+        ), "Orbits initialization with array of zo does not work as expected"
+        assert numpy.all(
+            numpy.fabs((all_orbs.z(times)[ii] - orb.z(times)) / orb.z(times)) < 1e-7
+        ), "Orbits initialization with array of zo does not work as expected"
+        assert numpy.all(
+            numpy.fabs((all_orbs.vz(times)[ii] - orb.vz(times)) / orb.vz(times)) < 1e-7
+        ), "Orbits initialization with array of zo does not work as expected"
+        assert numpy.all(
+            numpy.fabs(
+                (
+                    (all_orbs.phi(times)[ii] - orb.phi(times) + numpy.pi)
+                    % (2.0 * numpy.pi)
+                )
+                - numpy.pi
+            )
+            < 1e-7
+        ), "Orbits initialization with array of zo does not work as expected"
+        # Also some observed values like ra, dec, ...
+        assert numpy.all(
+            numpy.fabs((all_orbs.ra(times)[ii] - orb.ra(times)) / orb.ra(times)) < 1e-7
+        ), "Orbits initialization with array of zo does not work as expected"
+        assert numpy.all(
+            numpy.fabs((all_orbs.dec(times)[ii] - orb.dec(times)) / orb.dec(times))
+            < 1e-7
+        ), "Orbits initialization with array of zo does not work as expected"
+        assert numpy.all(
+            numpy.fabs((all_orbs.dist(times)[ii] - orb.dist(times)) / orb.dist(times))
+            < 1e-7
+        ), "Orbits initialization with array of zo does not work as expected"
+        assert numpy.all(
+            numpy.fabs((all_orbs.pmra(times)[ii] - orb.pmra(times)) / orb.pmra(times))
+            < 1e-7
+        ), "Orbits initialization with array of zo does not work as expected"
+        assert numpy.all(
+            numpy.fabs(
+                (all_orbs.pmdec(times)[ii] - orb.pmdec(times)) / orb.pmdec(times)
+            )
+            < 1e-7
+        ), "Orbits initialization with array of zo does not work as expected"
+        assert numpy.all(
+            numpy.fabs((all_orbs.vlos(times)[ii] - orb.vlos(times)) / orb.vlos(times))
+            < 1e-7
+        ), "Orbits initialization with array of zo does not work as expected"
+    return None
+
+
+def test_integrate_3d_diffvo():
+    # Test that supplying an array of zo values works as expected when integrating an orbit
+    from galpy.orbit import Orbit
+
+    numpy.random.seed(1)
+    nrand = 4
+    ras = numpy.random.uniform(size=nrand) * 360.0 * u.deg
+    decs = 90.0 * (2.0 * numpy.random.uniform(size=nrand) - 1.0) * u.deg
+    dists = numpy.random.uniform(size=nrand) * 10.0 * u.kpc
+    pmras = 20.0 * (2.0 * numpy.random.uniform(size=nrand) - 1.0) * 20.0 * u.mas / u.yr
+    pmdecs = 20.0 * (2.0 * numpy.random.uniform(size=nrand) - 1.0) * 20.0 * u.mas / u.yr
+    vloss = 200.0 * (2.0 * numpy.random.uniform(size=nrand) - 1.0) * u.km / u.s
+
+    vos = (200.0 + numpy.random.uniform(size=nrand) * 40.0) * u.km / u.s
+
+    all_orbs = Orbit([ras, decs, dists, pmras, pmdecs, vloss], vo=vos, radec=True)
+
+    times = numpy.linspace(0.0, 10.0, 1001)
+
+    all_orbs.integrate(times, potential.MWPotential2014)
+    for ii in range(nrand):
+        orb = Orbit(
+            [ras[ii], decs[ii], dists[ii], pmras[ii], pmdecs[ii], vloss[ii]],
+            vo=vos[ii],
+            radec=True,
+        )
+        orb.integrate(times, potential.MWPotential2014)
+        assert numpy.all(
+            numpy.fabs((all_orbs.R(times)[ii] - orb.R(times)) / orb.R(times)) < 1e-7
+        ), "Orbits initialization with array of vo does not work as expected"
+        assert numpy.all(
+            numpy.fabs((all_orbs.vR(times)[ii] - orb.vR(times)) / orb.vR(times)) < 1e-7
+        ), "Orbits initialization with array of vo does not work as expected"
+        assert numpy.all(
+            numpy.fabs((all_orbs.vT(times)[ii] - orb.vT(times)) / orb.vT(times)) < 1e-7
+        ), "Orbits initialization with array of vo does not work as expected"
+        assert numpy.all(
+            numpy.fabs((all_orbs.z(times)[ii] - orb.z(times)) / orb.z(times)) < 1e-7
+        ), "Orbits initialization with array of vo does not work as expected"
+        assert numpy.all(
+            numpy.fabs((all_orbs.vz(times)[ii] - orb.vz(times)) / orb.vz(times)) < 1e-7
+        ), "Orbits initialization with array of vo does not work as expected"
+        assert numpy.all(
+            numpy.fabs(
+                (
+                    (all_orbs.phi(times)[ii] - orb.phi(times) + numpy.pi)
+                    % (2.0 * numpy.pi)
+                )
+                - numpy.pi
+            )
+            < 1e-7
+        ), "Orbits initialization with array of vo does not work as expected"
+        # Also some observed values like ra, dec, ...
+        assert numpy.all(
+            numpy.fabs((all_orbs.ra(times)[ii] - orb.ra(times)) / orb.ra(times)) < 1e-7
+        ), "Orbits initialization with array of vo does not work as expected"
+        assert numpy.all(
+            numpy.fabs((all_orbs.dec(times)[ii] - orb.dec(times)) / orb.dec(times))
+            < 1e-7
+        ), "Orbits initialization with array of vo does not work as expected"
+        assert numpy.all(
+            numpy.fabs((all_orbs.dist(times)[ii] - orb.dist(times)) / orb.dist(times))
+            < 1e-7
+        ), "Orbits initialization with array of vo does not work as expected"
+        assert numpy.all(
+            numpy.fabs((all_orbs.pmra(times)[ii] - orb.pmra(times)) / orb.pmra(times))
+            < 1e-7
+        ), "Orbits initialization with array of vo does not work as expected"
+        assert numpy.all(
+            numpy.fabs(
+                (all_orbs.pmdec(times)[ii] - orb.pmdec(times)) / orb.pmdec(times)
+            )
+            < 1e-7
+        ), "Orbits initialization with array of vo does not work as expected"
+        assert numpy.all(
+            numpy.fabs((all_orbs.vlos(times)[ii] - orb.vlos(times)) / orb.vlos(times))
+            < 1e-7
+        ), "Orbits initialization with array of vo does not work as expected"
+    return None
+
+
+def test_integrate_3d_diffsolarmotion():
+    # Test that supplying an array of zo values works as expected when integrating an orbit
+    from galpy.orbit import Orbit
+
+    numpy.random.seed(1)
+    nrand = 4
+    ras = numpy.random.uniform(size=nrand) * 360.0 * u.deg
+    decs = 90.0 * (2.0 * numpy.random.uniform(size=nrand) - 1.0) * u.deg
+    dists = numpy.random.uniform(size=nrand) * 10.0 * u.kpc
+    pmras = 20.0 * (2.0 * numpy.random.uniform(size=nrand) - 1.0) * 20.0 * u.mas / u.yr
+    pmdecs = 20.0 * (2.0 * numpy.random.uniform(size=nrand) - 1.0) * 20.0 * u.mas / u.yr
+    vloss = 200.0 * (2.0 * numpy.random.uniform(size=nrand) - 1.0) * u.km / u.s
+
+    solarmotions = (
+        (2.0 * numpy.random.uniform(size=(3, nrand)) - 1.0) * 10.0 * u.km / u.s
+    )
+
+    all_orbs = Orbit(
+        [ras, decs, dists, pmras, pmdecs, vloss], solarmotion=solarmotions, radec=True
+    )
+
+    times = numpy.linspace(0.0, 10.0, 1001)
+
+    all_orbs.integrate(times, potential.MWPotential2014)
+    for ii in range(nrand):
+        orb = Orbit(
+            [ras[ii], decs[ii], dists[ii], pmras[ii], pmdecs[ii], vloss[ii]],
+            solarmotion=solarmotions[:, ii],
+            radec=True,
+        )
+        orb.integrate(times, potential.MWPotential2014)
+        assert numpy.all(
+            numpy.fabs((all_orbs.R(times)[ii] - orb.R(times)) / orb.R(times)) < 1e-7
+        ), "Orbits initialization with array of solarmotion does not work as expected"
+        assert numpy.all(
+            numpy.fabs((all_orbs.vR(times)[ii] - orb.vR(times)) / orb.vR(times)) < 1e-7
+        ), "Orbits initialization with array of solarmotion does not work as expected"
+        assert numpy.all(
+            numpy.fabs((all_orbs.vT(times)[ii] - orb.vT(times)) / orb.vT(times)) < 1e-7
+        ), "Orbits initialization with array of solarmotion does not work as expected"
+        assert numpy.all(
+            numpy.fabs((all_orbs.z(times)[ii] - orb.z(times)) / orb.z(times)) < 1e-7
+        ), "Orbits initialization with array of solarmotion does not work as expected"
+        assert numpy.all(
+            numpy.fabs((all_orbs.vz(times)[ii] - orb.vz(times)) / orb.vz(times)) < 1e-7
+        ), "Orbits initialization with array of solarmotion does not work as expected"
+        assert numpy.all(
+            numpy.fabs(
+                (
+                    (all_orbs.phi(times)[ii] - orb.phi(times) + numpy.pi)
+                    % (2.0 * numpy.pi)
+                )
+                - numpy.pi
+            )
+            < 1e-7
+        ), "Orbits initialization with array of solarmotion does not work as expected"
+        # Also some observed values like ra, dec, ...
+        assert numpy.all(
+            numpy.fabs((all_orbs.ra(times)[ii] - orb.ra(times)) / orb.ra(times)) < 1e-7
+        ), "Orbits initialization with array of solarmotion does not work as expected"
+        assert numpy.all(
+            numpy.fabs((all_orbs.dec(times)[ii] - orb.dec(times)) / orb.dec(times))
+            < 1e-7
+        ), "Orbits initialization with array of solarmotion does not work as expected"
+        assert numpy.all(
+            numpy.fabs((all_orbs.dist(times)[ii] - orb.dist(times)) / orb.dist(times))
+            < 1e-7
+        ), "Orbits initialization with array of solarmotion does not work as expected"
+        assert numpy.all(
+            numpy.fabs((all_orbs.pmra(times)[ii] - orb.pmra(times)) / orb.pmra(times))
+            < 1e-7
+        ), "Orbits initialization with array of solarmotion does not work as expected"
+        assert numpy.all(
+            numpy.fabs(
+                (all_orbs.pmdec(times)[ii] - orb.pmdec(times)) / orb.pmdec(times)
+            )
+            < 1e-7
+        ), "Orbits initialization with array of solarmotion does not work as expected"
+        assert numpy.all(
+            numpy.fabs((all_orbs.vlos(times)[ii] - orb.vlos(times)) / orb.vlos(times))
+            < 1e-7
+        ), "Orbits initialization with array of solarmotion does not work as expected"
+    return None
+
+
+def test_integrate_3d_diffallsolarparams():
+    # Test that supplying an array of solar values works as expected when integrating an orbit
+    from galpy.orbit import Orbit
+
+    numpy.random.seed(1)
+    nrand = 4
+    ras = numpy.random.uniform(size=nrand) * 360.0 * u.deg
+    decs = 90.0 * (2.0 * numpy.random.uniform(size=nrand) - 1.0) * u.deg
+    dists = numpy.random.uniform(size=nrand) * 10.0 * u.kpc
+    pmras = 20.0 * (2.0 * numpy.random.uniform(size=nrand) - 1.0) * 20.0 * u.mas / u.yr
+    pmdecs = 20.0 * (2.0 * numpy.random.uniform(size=nrand) - 1.0) * 20.0 * u.mas / u.yr
+    vloss = 200.0 * (2.0 * numpy.random.uniform(size=nrand) - 1.0) * u.km / u.s
+
+    ros = (6.0 + numpy.random.uniform(size=nrand) * 2.0) * u.kpc
+    zos = (-1.0 + numpy.random.uniform(size=nrand) * 2.0) * 100.0 * u.pc
+    vos = (200.0 + numpy.random.uniform(size=nrand) * 40.0) * u.km / u.s
+    solarmotions = (
+        (2.0 * numpy.random.uniform(size=(3, nrand)) - 1.0) * 10.0 * u.km / u.s
+    )
+
+    all_orbs = Orbit(
+        [ras, decs, dists, pmras, pmdecs, vloss],
+        ro=ros,
+        zo=zos,
+        vo=vos,
+        solarmotion=solarmotions,
+        radec=True,
+    )
+
+    times = numpy.linspace(0.0, 10.0, 1001)
+
+    all_orbs.integrate(times, potential.MWPotential2014)
+    for ii in range(nrand):
+        orb = Orbit(
+            [ras[ii], decs[ii], dists[ii], pmras[ii], pmdecs[ii], vloss[ii]],
+            ro=ros[ii],
+            zo=zos[ii],
+            vo=vos[ii],
+            solarmotion=solarmotions[:, ii],
+            radec=True,
+        )
+        orb.integrate(times, potential.MWPotential2014)
+        assert numpy.all(
+            numpy.fabs((all_orbs.R(times)[ii] - orb.R(times)) / orb.R(times)) < 1e-7
+        ), "Orbits initialization with array of solarmotion does not work as expected"
+        assert numpy.all(
+            numpy.fabs((all_orbs.vR(times)[ii] - orb.vR(times)) / orb.vR(times)) < 1e-7
+        ), "Orbits initialization with array of solarmotion does not work as expected"
+        assert numpy.all(
+            numpy.fabs((all_orbs.vT(times)[ii] - orb.vT(times)) / orb.vT(times)) < 1e-7
+        ), "Orbits initialization with array of solarmotion does not work as expected"
+        assert numpy.all(
+            numpy.fabs((all_orbs.z(times)[ii] - orb.z(times)) / orb.z(times)) < 1e-7
+        ), "Orbits initialization with array of solarmotion does not work as expected"
+        assert numpy.all(
+            numpy.fabs((all_orbs.vz(times)[ii] - orb.vz(times)) / orb.vz(times)) < 1e-7
+        ), "Orbits initialization with array of solarmotion does not work as expected"
+        assert numpy.all(
+            numpy.fabs(
+                (
+                    (all_orbs.phi(times)[ii] - orb.phi(times) + numpy.pi)
+                    % (2.0 * numpy.pi)
+                )
+                - numpy.pi
+            )
+            < 1e-7
+        ), "Orbits initialization with array of solarmotion does not work as expected"
+        # Also some observed values like ra, dec, ...
+        assert numpy.all(
+            numpy.fabs((all_orbs.ra(times)[ii] - orb.ra(times)) / orb.ra(times)) < 1e-7
+        ), "Orbits initialization with array of solarmotion does not work as expected"
+        assert numpy.all(
+            numpy.fabs((all_orbs.dec(times)[ii] - orb.dec(times)) / orb.dec(times))
+            < 1e-7
+        ), "Orbits initialization with array of solarmotion does not work as expected"
+        assert numpy.all(
+            numpy.fabs((all_orbs.dist(times)[ii] - orb.dist(times)) / orb.dist(times))
+            < 1e-7
+        ), "Orbits initialization with array of solarmotion does not work as expected"
+        assert numpy.all(
+            numpy.fabs((all_orbs.pmra(times)[ii] - orb.pmra(times)) / orb.pmra(times))
+            < 1e-7
+        ), "Orbits initialization with array of solarmotion does not work as expected"
+        assert numpy.all(
+            numpy.fabs(
+                (all_orbs.pmdec(times)[ii] - orb.pmdec(times)) / orb.pmdec(times)
+            )
+            < 1e-7
+        ), "Orbits initialization with array of solarmotion does not work as expected"
+        assert numpy.all(
+            numpy.fabs((all_orbs.vlos(times)[ii] - orb.vlos(times)) / orb.vlos(times))
+            < 1e-7
+        ), "Orbits initialization with array of solarmotion does not work as expected"
+    return None
+
+
+def test_integrate_2d_diffro():
+    # Test that supplying an array of ro values works as expected when integrating an orbit
+    from galpy.orbit import Orbit
+
+    numpy.random.seed(1)
+    nrand = 4
+    ras = numpy.random.uniform(size=nrand) * 360.0 * u.deg
+    decs = 90.0 * (2.0 * numpy.random.uniform(size=nrand) - 1.0) * u.deg
+    dists = numpy.random.uniform(size=nrand) * 10.0 * u.kpc
+    pmras = 20.0 * (2.0 * numpy.random.uniform(size=nrand) - 1.0) * 20.0 * u.mas / u.yr
+    pmdecs = 20.0 * (2.0 * numpy.random.uniform(size=nrand) - 1.0) * 20.0 * u.mas / u.yr
+    vloss = 200.0 * (2.0 * numpy.random.uniform(size=nrand) - 1.0) * u.km / u.s
+
+    ros = (6.0 + numpy.random.uniform(size=nrand) * 2.0) * u.kpc
+
+    all_orbs = Orbit(
+        [ras, decs, dists, pmras, pmdecs, vloss], ro=ros, radec=True
+    ).toPlanar()
+
+    times = numpy.linspace(0.0, 10.0, 1001)
+
+    all_orbs.integrate(times, potential.MWPotential2014)
+    for ii in range(nrand):
+        orb = Orbit(
+            [ras[ii], decs[ii], dists[ii], pmras[ii], pmdecs[ii], vloss[ii]],
+            ro=ros[ii],
+            radec=True,
+        ).toPlanar()
+        orb.integrate(times, potential.MWPotential2014)
+        assert numpy.all(
+            numpy.fabs((all_orbs.R(times)[ii] - orb.R(times)) / orb.R(times)) < 1e-7
+        ), "Orbits initialization with array of ro does not work as expected"
+        assert numpy.all(
+            numpy.fabs((all_orbs.vR(times)[ii] - orb.vR(times)) / orb.vR(times)) < 1e-7
+        ), "Orbits initialization with array of ro does not work as expected"
+        assert numpy.all(
+            numpy.fabs((all_orbs.vT(times)[ii] - orb.vT(times)) / orb.vT(times)) < 1e-7
+        ), "Orbits initialization with array of ro does not work as expected"
+        assert numpy.all(
+            numpy.fabs(
+                (
+                    (all_orbs.phi(times)[ii] - orb.phi(times) + numpy.pi)
+                    % (2.0 * numpy.pi)
+                )
+                - numpy.pi
+            )
+            < 1e-7
+        ), "Orbits initialization with array of ro does not work as expected"
+        # Also some observed values like ra, dec, ...
+        assert numpy.all(
+            numpy.fabs((all_orbs.ra(times)[ii] - orb.ra(times)) / orb.ra(times)) < 1e-7
+        ), "Orbits initialization with array of ro does not work as expected"
+        assert numpy.all(
+            numpy.fabs((all_orbs.dec(times)[ii] - orb.dec(times)) / orb.dec(times))
+            < 1e-7
+        ), "Orbits initialization with array of ro does not work as expected"
+        assert numpy.all(
+            numpy.fabs((all_orbs.dist(times)[ii] - orb.dist(times)) / orb.dist(times))
+            < 1e-7
+        ), "Orbits initialization with array of ro does not work as expected"
+        assert numpy.all(
+            numpy.fabs((all_orbs.pmra(times)[ii] - orb.pmra(times)) / orb.pmra(times))
+            < 1e-7
+        ), "Orbits initialization with array of ro does not work as expected"
+        assert numpy.all(
+            numpy.fabs(
+                (all_orbs.pmdec(times)[ii] - orb.pmdec(times)) / orb.pmdec(times)
+            )
+            < 1e-7
+        ), "Orbits initialization with array of ro does not work as expected"
+        assert numpy.all(
+            numpy.fabs((all_orbs.vlos(times)[ii] - orb.vlos(times)) / orb.vlos(times))
+            < 1e-7
+        ), "Orbits initialization with array of ro does not work as expected"
+    return None
+
+
+def test_integrate_2d_diffvo():
+    # Test that supplying an array of zo values works as expected when integrating an orbit
+    from galpy.orbit import Orbit
+
+    numpy.random.seed(1)
+    nrand = 4
+    ras = numpy.random.uniform(size=nrand) * 360.0 * u.deg
+    decs = 90.0 * (2.0 * numpy.random.uniform(size=nrand) - 1.0) * u.deg
+    dists = numpy.random.uniform(size=nrand) * 10.0 * u.kpc
+    pmras = 20.0 * (2.0 * numpy.random.uniform(size=nrand) - 1.0) * 20.0 * u.mas / u.yr
+    pmdecs = 20.0 * (2.0 * numpy.random.uniform(size=nrand) - 1.0) * 20.0 * u.mas / u.yr
+    vloss = 200.0 * (2.0 * numpy.random.uniform(size=nrand) - 1.0) * u.km / u.s
+
+    vos = (200.0 + numpy.random.uniform(size=nrand) * 40.0) * u.km / u.s
+
+    all_orbs = Orbit(
+        [ras, decs, dists, pmras, pmdecs, vloss], vo=vos, radec=True
+    ).toPlanar()
+
+    times = numpy.linspace(0.0, 10.0, 1001)
+
+    all_orbs.integrate(times, potential.MWPotential2014)
+    for ii in range(nrand):
+        orb = Orbit(
+            [ras[ii], decs[ii], dists[ii], pmras[ii], pmdecs[ii], vloss[ii]],
+            vo=vos[ii],
+            radec=True,
+        ).toPlanar()
+        orb.integrate(times, potential.MWPotential2014)
+        assert numpy.all(
+            numpy.fabs((all_orbs.R(times)[ii] - orb.R(times)) / orb.R(times)) < 1e-7
+        ), "Orbits initialization with array of vo does not work as expected"
+        assert numpy.all(
+            numpy.fabs((all_orbs.vR(times)[ii] - orb.vR(times)) / orb.vR(times)) < 1e-7
+        ), "Orbits initialization with array of vo does not work as expected"
+        assert numpy.all(
+            numpy.fabs((all_orbs.vT(times)[ii] - orb.vT(times)) / orb.vT(times)) < 1e-7
+        ), "Orbits initialization with array of vo does not work as expected"
+        assert numpy.all(
+            numpy.fabs(
+                (
+                    (all_orbs.phi(times)[ii] - orb.phi(times) + numpy.pi)
+                    % (2.0 * numpy.pi)
+                )
+                - numpy.pi
+            )
+            < 1e-7
+        ), "Orbits initialization with array of vo does not work as expected"
+        # Also some observed values like ra, dec, ...
+        assert numpy.all(
+            numpy.fabs((all_orbs.ra(times)[ii] - orb.ra(times)) / orb.ra(times)) < 1e-7
+        ), "Orbits initialization with array of vo does not work as expected"
+        assert numpy.all(
+            numpy.fabs((all_orbs.dec(times)[ii] - orb.dec(times)) / orb.dec(times))
+            < 1e-7
+        ), "Orbits initialization with array of vo does not work as expected"
+        assert numpy.all(
+            numpy.fabs((all_orbs.dist(times)[ii] - orb.dist(times)) / orb.dist(times))
+            < 1e-7
+        ), "Orbits initialization with array of vo does not work as expected"
+        assert numpy.all(
+            numpy.fabs((all_orbs.pmra(times)[ii] - orb.pmra(times)) / orb.pmra(times))
+            < 1e-7
+        ), "Orbits initialization with array of vo does not work as expected"
+        assert numpy.all(
+            numpy.fabs(
+                (all_orbs.pmdec(times)[ii] - orb.pmdec(times)) / orb.pmdec(times)
+            )
+            < 1e-7
+        ), "Orbits initialization with array of vo does not work as expected"
+        assert numpy.all(
+            numpy.fabs((all_orbs.vlos(times)[ii] - orb.vlos(times)) / orb.vlos(times))
+            < 1e-7
+        ), "Orbits initialization with array of vo does not work as expected"
+    return None
+
+
+def test_integrate_2d_diffsolarmotion():
+    # Test that supplying an array of zo values works as expected when integrating an orbit
+    from galpy.orbit import Orbit
+
+    numpy.random.seed(1)
+    nrand = 4
+    ras = numpy.random.uniform(size=nrand) * 360.0 * u.deg
+    decs = 90.0 * (2.0 * numpy.random.uniform(size=nrand) - 1.0) * u.deg
+    dists = numpy.random.uniform(size=nrand) * 10.0 * u.kpc
+    pmras = 20.0 * (2.0 * numpy.random.uniform(size=nrand) - 1.0) * 20.0 * u.mas / u.yr
+    pmdecs = 20.0 * (2.0 * numpy.random.uniform(size=nrand) - 1.0) * 20.0 * u.mas / u.yr
+    vloss = 200.0 * (2.0 * numpy.random.uniform(size=nrand) - 1.0) * u.km / u.s
+
+    solarmotions = (
+        (2.0 * numpy.random.uniform(size=(3, nrand)) - 1.0) * 10.0 * u.km / u.s
+    )
+
+    all_orbs = Orbit(
+        [ras, decs, dists, pmras, pmdecs, vloss], solarmotion=solarmotions, radec=True
+    ).toPlanar()
+
+    times = numpy.linspace(0.0, 10.0, 1001)
+
+    all_orbs.integrate(times, potential.MWPotential2014)
+    for ii in range(nrand):
+        orb = Orbit(
+            [ras[ii], decs[ii], dists[ii], pmras[ii], pmdecs[ii], vloss[ii]],
+            solarmotion=solarmotions[:, ii],
+            radec=True,
+        ).toPlanar()
+        orb.integrate(times, potential.MWPotential2014)
+        assert numpy.all(
+            numpy.fabs((all_orbs.R(times)[ii] - orb.R(times)) / orb.R(times)) < 1e-7
+        ), "Orbits initialization with array of solarmotion does not work as expected"
+        assert numpy.all(
+            numpy.fabs((all_orbs.vR(times)[ii] - orb.vR(times)) / orb.vR(times)) < 1e-7
+        ), "Orbits initialization with array of solarmotion does not work as expected"
+        assert numpy.all(
+            numpy.fabs((all_orbs.vT(times)[ii] - orb.vT(times)) / orb.vT(times)) < 1e-7
+        ), "Orbits initialization with array of solarmotion does not work as expected"
+        assert numpy.all(
+            numpy.fabs(
+                (
+                    (all_orbs.phi(times)[ii] - orb.phi(times) + numpy.pi)
+                    % (2.0 * numpy.pi)
+                )
+                - numpy.pi
+            )
+            < 1e-7
+        ), "Orbits initialization with array of solarmotion does not work as expected"
+        # Also some observed values like ra, dec, ...
+        assert numpy.all(
+            numpy.fabs((all_orbs.ra(times)[ii] - orb.ra(times)) / orb.ra(times)) < 1e-7
+        ), "Orbits initialization with array of solarmotion does not work as expected"
+        assert numpy.all(
+            numpy.fabs((all_orbs.dec(times)[ii] - orb.dec(times)) / orb.dec(times))
+            < 1e-7
+        ), "Orbits initialization with array of solarmotion does not work as expected"
+        assert numpy.all(
+            numpy.fabs((all_orbs.dist(times)[ii] - orb.dist(times)) / orb.dist(times))
+            < 1e-7
+        ), "Orbits initialization with array of solarmotion does not work as expected"
+        assert numpy.all(
+            numpy.fabs((all_orbs.pmra(times)[ii] - orb.pmra(times)) / orb.pmra(times))
+            < 1e-7
+        ), "Orbits initialization with array of solarmotion does not work as expected"
+        assert numpy.all(
+            numpy.fabs(
+                (all_orbs.pmdec(times)[ii] - orb.pmdec(times)) / orb.pmdec(times)
+            )
+            < 1e-7
+        ), "Orbits initialization with array of solarmotion does not work as expected"
+        assert numpy.all(
+            numpy.fabs((all_orbs.vlos(times)[ii] - orb.vlos(times)) / orb.vlos(times))
+            < 1e-7
+        ), "Orbits initialization with array of solarmotion does not work as expected"
+    return None
+
+
+def test_integrate_2d_diffallsolarparams():
+    # Test that supplying an array of solar values works as expected when integrating an orbit
+    from galpy.orbit import Orbit
+
+    numpy.random.seed(1)
+    nrand = 4
+    ras = numpy.random.uniform(size=nrand) * 360.0 * u.deg
+    decs = 90.0 * (2.0 * numpy.random.uniform(size=nrand) - 1.0) * u.deg
+    dists = numpy.random.uniform(size=nrand) * 10.0 * u.kpc
+    pmras = 20.0 * (2.0 * numpy.random.uniform(size=nrand) - 1.0) * 20.0 * u.mas / u.yr
+    pmdecs = 20.0 * (2.0 * numpy.random.uniform(size=nrand) - 1.0) * 20.0 * u.mas / u.yr
+    vloss = 200.0 * (2.0 * numpy.random.uniform(size=nrand) - 1.0) * u.km / u.s
+
+    ros = (6.0 + numpy.random.uniform(size=nrand) * 2.0) * u.kpc
+    zos = (-1.0 + numpy.random.uniform(size=nrand) * 2.0) * 100.0 * u.pc
+    vos = (200.0 + numpy.random.uniform(size=nrand) * 40.0) * u.km / u.s
+    solarmotions = (
+        (2.0 * numpy.random.uniform(size=(3, nrand)) - 1.0) * 10.0 * u.km / u.s
+    )
+
+    all_orbs = Orbit(
+        [ras, decs, dists, pmras, pmdecs, vloss],
+        ro=ros,
+        zo=zos,
+        vo=vos,
+        solarmotion=solarmotions,
+        radec=True,
+    ).toPlanar()
+
+    times = numpy.linspace(0.0, 10.0, 1001)
+
+    all_orbs.integrate(times, potential.MWPotential2014)
+    for ii in range(nrand):
+        orb = Orbit(
+            [ras[ii], decs[ii], dists[ii], pmras[ii], pmdecs[ii], vloss[ii]],
+            ro=ros[ii],
+            zo=zos[ii],
+            vo=vos[ii],
+            solarmotion=solarmotions[:, ii],
+            radec=True,
+        ).toPlanar()
+        orb.integrate(times, potential.MWPotential2014)
+        assert numpy.all(
+            numpy.fabs((all_orbs.R(times)[ii] - orb.R(times)) / orb.R(times)) < 1e-7
+        ), "Orbits initialization with array of solarmotion does not work as expected"
+        assert numpy.all(
+            numpy.fabs((all_orbs.vR(times)[ii] - orb.vR(times)) / orb.vR(times)) < 1e-7
+        ), "Orbits initialization with array of solarmotion does not work as expected"
+        assert numpy.all(
+            numpy.fabs((all_orbs.vT(times)[ii] - orb.vT(times)) / orb.vT(times)) < 1e-7
+        ), "Orbits initialization with array of solarmotion does not work as expected"
+        assert numpy.all(
+            numpy.fabs(
+                (
+                    (all_orbs.phi(times)[ii] - orb.phi(times) + numpy.pi)
+                    % (2.0 * numpy.pi)
+                )
+                - numpy.pi
+            )
+            < 1e-7
+        ), "Orbits initialization with array of solarmotion does not work as expected"
+        # Also some observed values like ra, dec, ...
+        assert numpy.all(
+            numpy.fabs((all_orbs.ra(times)[ii] - orb.ra(times)) / orb.ra(times)) < 1e-7
+        ), "Orbits initialization with array of solarmotion does not work as expected"
+        assert numpy.all(
+            numpy.fabs((all_orbs.dec(times)[ii] - orb.dec(times)) / orb.dec(times))
+            < 1e-7
+        ), "Orbits initialization with array of solarmotion does not work as expected"
+        assert numpy.all(
+            numpy.fabs((all_orbs.dist(times)[ii] - orb.dist(times)) / orb.dist(times))
+            < 1e-7
+        ), "Orbits initialization with array of solarmotion does not work as expected"
+        assert numpy.all(
+            numpy.fabs((all_orbs.pmra(times)[ii] - orb.pmra(times)) / orb.pmra(times))
+            < 1e-7
+        ), "Orbits initialization with array of solarmotion does not work as expected"
+        assert numpy.all(
+            numpy.fabs(
+                (all_orbs.pmdec(times)[ii] - orb.pmdec(times)) / orb.pmdec(times)
+            )
+            < 1e-7
+        ), "Orbits initialization with array of solarmotion does not work as expected"
+        assert numpy.all(
+            numpy.fabs((all_orbs.vlos(times)[ii] - orb.vlos(times)) / orb.vlos(times))
+            < 1e-7
+        ), "Orbits initialization with array of solarmotion does not work as expected"
     return None
 
 
