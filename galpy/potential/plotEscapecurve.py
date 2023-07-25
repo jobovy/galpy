@@ -16,34 +16,29 @@ _INF = 10**12.0
 
 def plotEscapecurve(Pot, *args, **kwargs):
     """
-    NAME:
+    Plot the escape velocity curve for this potential (in the z=0 plane for non-spherical potentials).
 
-       plotEscapecurve
+    Parameters
+    ----------
+    Pot : Potential or list of Potential instances
+        Potential(s) for which to plot the escape velocity curve.
+    Rrange : array_like or Quantity, optional
+        Range in R to consider (can be Quantity).
+    grid : int, optional
+        Grid in R.
+    savefilename : str, optional
+        Save to or restore from this savefile (pickle).
+    *args, **kwargs : dict
+        Arguments and keyword arguments for `galpy.util.plot.plot`.
 
-    PURPOSE:
+    Returns
+    -------
+    matplotlib.AxesSubplot
+        Plot to output device.
 
-       plot the escape velocity curve for this potential (in the z=0 plane for
-       non-spherical potentials)
-
-    INPUT:
-
-       Pot - Potential or list of Potential instances
-
-       Rrange= Range in R to consider (can be Quantity)
-
-       grid= grid in R
-
-       savefilename= save to or restore from this savefile (pickle)
-
-       +galpy.util.plot.plot args and kwargs
-
-    OUTPUT:
-
-       plot to output device
-
-    HISTORY:
-
-       2010-08-08 - Written - Bovy (NYU)
+    Notes
+    -----
+    - 2010-08-08: Written by Bovy (NYU).
 
     """
     # Using physical units or not?
@@ -125,22 +120,31 @@ def plotEscapecurve(Pot, *args, **kwargs):
 
 def calcEscapecurve(Pot, Rs, t=0.0):
     """
-    NAME:
-       calcEscapecurve
-    PURPOSE:
-       calculate the escape velocity curve for this potential (in the
-       z=0 plane for non-spherical potentials)
-    INPUT:
-       Pot - Potential or list of Potential instances
+    Calculate the escape velocity curve for this potential (in the z=0 plane for non-spherical potentials).
 
-       Rs - (array of) radius(i)
+    Parameters
+    ----------
+    Pot : Potential or list of Potential instances
+        Potential or list of Potential instances.
+    Rs : array_like or Quantity
+        Radius(i).
+    t : float, optional
+        Instantaneous time (default is 0.0).
 
-       t - instantaneous time (optional)
+    Returns
+    -------
+    array_like or Quantity
+        Array of v_esc.
 
-    OUTPUT:
-       array of v_esc
-    HISTORY:
-       2011-04-16 - Written - Bovy (NYU)
+    Raises
+    ------
+    AttributeError
+        Escape velocity curve plotting for non-axisymmetric potentials is not currently supported.
+
+    Notes
+    -----
+    - 2011-04-16 - Written - Bovy (NYU)
+
     """
     isList = isinstance(Pot, list)
     isNonAxi = (isList and Pot[0].isNonAxi) or (not isList and Pot.isNonAxi)
@@ -163,30 +167,25 @@ def calcEscapecurve(Pot, Rs, t=0.0):
 @physical_conversion("velocity", pop=True)
 def vesc(Pot, R, t=0.0):
     """
+    Calculate the escape velocity at R for potential Pot.
 
-    NAME:
+    Parameters
+    ----------
+    Pot : Potential or list of Potential instances
+        Potential or list of Potential instances.
+    R : array_like or Quantity
+        Galactocentric radius.
+    t : float, optional
+        Time (default is 0.0).
 
-        vesc
+    Returns
+    -------
+    array_like or Quantity
+        Escape velocity.
 
-    PURPOSE:
-
-       calculate the escape velocity at R for potential Pot
-
-    INPUT:
-
-       Pot - Potential instances or list thereof
-
-       R - Galactocentric radius (can be Quantity)
-
-       t - time (optional; can be Quantity)
-
-    OUTPUT:
-
-       escape velocity
-
-    HISTORY:
-
-       2011-10-09 - Written - Bovy (IAS)
+    Notes
+    -----
+    - 2011-10-09 - Written - Bovy (IAS)
 
     """
     from ..potential import PotentialError, evaluateplanarPotentials

@@ -41,13 +41,27 @@ if _APY_LOADED:
 
 def check_potential_inputs_not_arrays(func):
     """
-    NAME:
-       check_potential_inputs_not_arrays
-    PURPOSE:
-       Decorator to check inputs and throw TypeError if any of the inputs are arrays for Potentials that do not support array evaluation
-    HISTORY:
-       2017-summer - Written for SpiralArmsPotential - Jack Hong (UBC)
-       2019-05-23 - Moved to Potential for more general use - Bovy (UofT)
+    Decorator to check inputs and throw TypeError if any of the inputs are arrays for Potentials that do not support array evaluation.
+
+    Parameters
+    ----------
+    func : function
+        Function to be decorated.
+
+    Returns
+    -------
+    function
+        Decorated function.
+
+    Raises
+    ------
+    TypeError
+        If any of the inputs are arrays for Potentials that do not support array evaluation.
+
+    Notes
+    -----
+    - 2017-summer - Written for SpiralArmsPotential - Jack Hong (UBC)
+    - 2019-05-23 - Moved to Potential for more general use - Bovy (UofT)
 
     """
 
@@ -947,7 +961,7 @@ class Potential(Force):
 
             Returns
             -------
-            None
+            galpy.util.plot.dens2d return value
 
             Notes
             -----
@@ -1914,35 +1928,33 @@ class PotentialError(Exception):  # pragma: no cover
 @physical_conversion("energy", pop=True)
 def evaluatePotentials(Pot, R, z, phi=None, t=0.0, dR=0, dphi=0):
     """
-    NAME:
+    Evaluate a potential or sum of potentials.
 
-       evaluatePotentials
+    Parameters
+    ----------
+    Pot : Potential or list of Potential
+        Potential or list of potentials (dissipative forces in such a list are ignored).
+    R : float or Quantity
+        Cylindrical Galactocentric distance.
+    z : float or Quantity
+        Distance above the plane.
+    phi : float or Quantity, optional
+        Azimuth (default: None).
+    t : float or Quantity, optional
+        Time (default: 0.0).
+    dR : int, optional
+        If set to a non-zero integer, return the dR derivative instead (default: 0).
+    dphi : int, optional
+        If set to a non-zero integer, return the dphi derivative instead (default: 0).
 
-    PURPOSE:
+    Returns
+    -------
+    float or Quantity
+        Potential or potential derivative.
 
-       convenience function to evaluate a possible sum of potentials
-
-    INPUT:
-
-       Pot - potential or list of potentials (dissipative forces in such a list are ignored)
-
-       R - cylindrical Galactocentric distance (can be Quantity)
-
-       z - distance above the plane (can be Quantity)
-
-       phi - azimuth (can be Quantity)
-
-       t - time (can be Quantity)
-
-       dR= dphi=, if set to non-zero integers, return the dR, dphi't derivative instead
-
-    OUTPUT:
-
-       Phi(R,z)
-
-    HISTORY:
-
-       2010-04-16 - Written - Bovy (NYU)
+    Notes
+    -----
+    - 2010-04-16 - Written - Bovy (NYU)
 
     """
     return _evaluatePotentials(Pot, R, z, phi=phi, t=t, dR=dR, dphi=dphi)
@@ -1975,37 +1987,32 @@ def _evaluatePotentials(Pot, R, z, phi=None, t=0.0, dR=0, dphi=0):
 @physical_conversion("density", pop=True)
 def evaluateDensities(Pot, R, z, phi=None, t=0.0, forcepoisson=False):
     """
-    NAME:
+    Evaluate the density corresponding to a potential or sum of potentials.
 
-       evaluateDensities
+    Parameters
+    ----------
+    Pot : potential or list of potentials
+        Dissipative forces in such a list are ignored.
+    R : float or Quantity
+        Cylindrical Galactocentric distance.
+    z : float or Quantity
+        Distance above the plane.
+    phi : float or Quantity, optional
+        Azimuth (default: None).
+    t : float or Quantity, optional
+        Time (default: 0.0).
+    forcepoisson : bool, optional
+        If True, calculate the density through the Poisson equation, even if an explicit expression for the density exists.
 
-    PURPOSE:
+    Returns
+    -------
+    float or Quantity
+        density
 
-       convenience function to evaluate a possible sum of densities
-
-    INPUT:
-
-       Pot - potential or list of potentials (dissipative forces in such a list are ignored)
-
-       R - cylindrical Galactocentric distance (can be Quantity)
-
-       z - distance above the plane (can be Quantity)
-
-       phi - azimuth (can be Quantity)
-
-       t - time (can be Quantity)
-
-       forcepoisson= if True, calculate the density through the Poisson equation, even if an explicit expression for the density exists
-
-    OUTPUT:
-
-       rho(R,z)
-
-    HISTORY:
-
-       2010-08-08 - Written - Bovy (NYU)
-
-       2013-12-28 - Added forcepoisson - Bovy (IAS)
+    Notes
+    -----
+    - 2010-08-08 - Written - Bovy (NYU)
+    - 2013-12-28 - Added forcepoisson - Bovy (IAS)
 
     """
     isList = isinstance(Pot, list)
@@ -2037,35 +2044,31 @@ def evaluateDensities(Pot, R, z, phi=None, t=0.0, forcepoisson=False):
 @physical_conversion("surfacedensity", pop=True)
 def evaluateSurfaceDensities(Pot, R, z, phi=None, t=0.0, forcepoisson=False):
     """
-    NAME:
+    Evaluate the surface density for a potential or sum of potentials.
 
-       evaluateSurfaceDensities
+    Parameters
+    ----------
+    Pot : Potential or list of Potential
+        Potential or list of potentials (dissipative forces in such a list are ignored).
+    R : float or Quantity
+        Cylindrical Galactocentric distance.
+    z : float or Quantity
+        Distance above the plane.
+    phi : float or Quantity, optional
+        Azimuth (default: None).
+    t : float or Quantity, optional
+        Time (default: 0.0).
+    forcepoisson : bool, optional
+        If True, calculate the surface density through the Poisson equation, even if an explicit expression for the surface density exists.
 
-    PURPOSE:
+    Returns
+    -------
+    float or Quantity
+        Surface density.
 
-       convenience function to evaluate a possible sum of surface densities
-
-    INPUT:
-
-       Pot - potential or list of potentials (dissipative forces in such a list are ignored)
-
-       R - cylindrical Galactocentric distance (can be Quantity)
-
-       z - distance above the plane (can be Quantity)
-
-       phi - azimuth (can be Quantity)
-
-       t - time (can be Quantity)
-
-       forcepoisson= if True, calculate the surface density through the Poisson equation, even if an explicit expression for the surface density exists
-
-    OUTPUT:
-
-       Sigma(R,z)
-
-    HISTORY:
-
-       2018-08-20 - Written - Bovy (UofT)
+    Notes
+    -----
+    - 2018-08-20 - Written - Bovy (UofT)
 
     """
     isList = isinstance(Pot, list)
@@ -2097,36 +2100,30 @@ def evaluateSurfaceDensities(Pot, R, z, phi=None, t=0.0, forcepoisson=False):
 @physical_conversion("mass", pop=True)
 def mass(Pot, R, z=None, t=0.0, forceint=False):
     """
-    NAME:
+    Calculate the mass enclosed either within a spherical shell with radius R or in the slab <R and between -z and z.
 
-       mass
+    Parameters
+    ----------
+    Pot : Potential or list of Potentials
+        Potential or list of Potentials (dissipative forces in such a list are ignored).
+    R : float or Quantity
+        Cylindrical Galactocentric distance.
+    z : float or Quantity, optional
+        Vertical height up to which to integrate. Default is None.
+    t : float or Quantity, optional
+        Time. Default: 0.0.
+    forceint : bool, optional
+        If True, calculate the mass through integration of the density, even if an explicit expression for the mass exists. Default is False.
 
-    PURPOSE:
+    Returns
+    -------
+    float or Quantity
+        Mass enclosed within the spherical shell with radius R if z is None else mass in the slab <R and between -z and z.
 
-       convenience function to evaluate a possible sum of masses
-
-    INPUT:
-
-       Pot - potential or list of potentials (dissipative forces in such a list are ignored)
-
-       R - cylindrical Galactocentric distance (can be Quantity)
-
-       z= (None) vertical height up to which to integrate (can be Quantity)
-
-       t - time (can be Quantity)
-
-       forceint= if True, calculate the mass through integration of the density, even if an explicit expression for the mass exists
-
-
-    OUTPUT:
-
-       Mass enclosed within the spherical shell with radius R if z is None else mass in the slab <R and between -z and z
-
-    HISTORY:
-
-       2021-02-07 - Written - Bovy (UofT)
-
-       2021-03-15 - Changed to integrate to spherical shell for z is None slab otherwise - Bovy (UofT)
+    Notes
+    -----
+    - 2021-02-07 - Written - Bovy (UofT)
+    - 2021-03-15 - Changed to integrate to spherical shell for z is None slab otherwise - Bovy (UofT)
 
     """
     Pot = flatten(Pot)
@@ -2155,37 +2152,32 @@ def mass(Pot, R, z=None, t=0.0, forceint=False):
 @physical_conversion("force", pop=True)
 def evaluateRforces(Pot, R, z, phi=None, t=0.0, v=None):
     """
-    NAME:
+    Evaluate the radial force F_R(R,z,phi,t) of a potential, force or a list of potentials/forces.
 
-       evaluateRforce
+    Parameters
+    ----------
+    Pot : Potential, DissipativeForce or list of Potential or DissipativeForce instances
+        A potential, dissipative force or a list of such objects.
+    R : float or Quantity
+        Cylindrical Galactocentric distance.
+    z : float or Quantity
+        Distance above the plane.
+    phi : float or Quantity, optional
+        Azimuth (default: None).
+    t : float or Quantity, optional
+        Time (default: 0.0).
+    v : array_like or Quantity, optional
+        Current velocity in cylindrical coordinates. Required when including dissipative forces. Default is None.
 
-    PURPOSE:
+    Returns
+    -------
+    F_R : float or Quantity
+        Radial force F_R(R,z,phi,t).
 
-       convenience function to evaluate a possible sum of potentials
-
-    INPUT:
-
-       Pot - a potential or list of potentials
-
-       R - cylindrical Galactocentric distance (can be Quantity)
-
-       z - distance above the plane (can be Quantity)
-
-       phi - azimuth (optional; can be Quantity))
-
-       t - time (optional; can be Quantity)
-
-       v - current velocity in cylindrical coordinates (optional, but required when including dissipative forces; can be a Quantity)
-
-    OUTPUT:
-
-       F_R(R,z,phi,t)
-
-    HISTORY:
-
-       2010-04-16 - Written - Bovy (NYU)
-
-       2018-03-16 - Added velocity input for dissipative forces - Bovy (UofT)
+    Notes
+    -----
+    - 2010-04-16 - Written - Bovy (NYU)
+    - 2018-03-16 - Added velocity input for dissipative forces - Bovy (UofT)
 
     """
     return _evaluateRforces(Pot, R, z, phi=phi, t=t, v=v)
@@ -2227,36 +2219,32 @@ def _evaluateRforces(Pot, R, z, phi=None, t=0.0, v=None):
 @physical_conversion("energy", pop=True)
 def evaluatephitorques(Pot, R, z, phi=None, t=0.0, v=None):
     """
-    NAME:
+    Evaluate the azimuthal torque due to a potential, force or a list of potentials/forces.
 
-       evaluatephitorques
+    Parameters
+    ----------
+    Pot : Potential, DissipativeForce or list of Potential or DissipativeForce instances
+        A potential, dissipative force or a list of such objects.
+    R : float or Quantity
+        Cylindrical Galactocentric distance.
+    z : float or Quantity
+        Distance above the plane.
+    phi : float or Quantity, optional
+        Azimuth (default: None).
+    t : float or Quantity, optional
+        Time (default: 0.0).
+    v : array_like, optional
+        Current velocity in cylindrical coordinates. Required when including dissipative forces. Default is None.
 
-    PURPOSE:
+    Returns
+    -------
+    float or Quantity
+        The azimuthal torque.
 
-       convenience function to evaluate a possible sum of potentials
-
-    INPUT:
-       Pot - a potential or list of potentials
-
-       R - cylindrical Galactocentric distance (can be Quantity)
-
-       z - distance above the plane (can be Quantity)
-
-       phi - azimuth (optional; can be Quantity)
-
-       t - time (optional; can be Quantity)
-
-       v - current velocity in cylindrical coordinates (optional, but required when including dissipative forces; can be a Quantity)
-
-    OUTPUT:
-
-       tau_phi(R,z,phi,t)
-
-    HISTORY:
-
-       2010-04-16 - Written - Bovy (NYU)
-
-       2018-03-16 - Added velocity input for dissipative forces - Bovy (UofT)
+    Notes
+    -----
+    - 2010-04-16 - Written - Bovy (NYU)
+    - 2018-03-16 - Added velocity input for dissipative forces - Bovy (UofT)
 
     """
     return _evaluatephitorques(Pot, R, z, phi=phi, t=t, v=v)
@@ -2298,37 +2286,32 @@ def _evaluatephitorques(Pot, R, z, phi=None, t=0.0, v=None):
 @physical_conversion("force", pop=True)
 def evaluatezforces(Pot, R, z, phi=None, t=0.0, v=None):
     """
-    NAME:
+    Evaluate the vertical force at a given position due to a potential, force or a list of potentials/forces.
 
-       evaluatezforces
+    Parameters
+    ----------
+    Pot : Potential, DissipativeForce or list of Potential or DissipativeForce instances
+        A potential, dissipative force or a list of such objects.
+    R : float or Quantity
+        Cylindrical Galactocentric distance.
+    z : float or Quantity
+        Distance above the plane.
+    phi : float or Quantity, optional
+        Azimuth (default: None).
+    t : float or Quantity, optional
+        Time (default: 0.0).
+    v : array_like or Quantity, optional
+        Current velocity in cylindrical coordinates. Required when including dissipative forces. Default is None.
 
-    PURPOSE:
+    Returns
+    -------
+    float or Quantity
+        The vertical force F_z(R,z,phi,t).
 
-       convenience function to evaluate a possible sum of potentials
-
-    INPUT:
-
-       Pot - a potential or list of potentials
-
-       R - cylindrical Galactocentric distance (can be Quantity)
-
-       z - distance above the plane (can be Quantity)
-
-       phi - azimuth (optional; can be Quantity)
-
-       t - time (optional; can be Quantity)
-
-       v - current velocity in cylindrical coordinates (optional, but required when including dissipative forces; can be a Quantity)
-
-    OUTPUT:
-
-       F_z(R,z,phi,t)
-
-    HISTORY:
-
-       2010-04-16 - Written - Bovy (NYU)
-
-       2018-03-16 - Added velocity input for dissipative forces - Bovy (UofT)
+    Notes
+    -----
+    - 2010-04-16 - Written - Bovy (NYU)
+    - 2018-03-16 - Added velocity input for dissipative forces - Bovy (UofT)
 
     """
     return _evaluatezforces(Pot, R, z, phi=phi, t=t, v=v)
@@ -2370,35 +2353,31 @@ def _evaluatezforces(Pot, R, z, phi=None, t=0.0, v=None):
 @physical_conversion("force", pop=True)
 def evaluaterforces(Pot, R, z, phi=None, t=0.0, v=None):
     """
-    NAME:
+    Evaluate the radial force at a given position due to a potential, force or a list of potentials/forces.
 
-       evaluaterforces
+    Parameters
+    ----------
+    Pot : Potential, DissipativeForce or list of Potential or DissipativeForce instances
+        A potential, dissipative force or a list of such objects.
+    R : float or Quantity
+        Cylindrical Galactocentric distance.
+    z : float or Quantity
+        Distance above the plane.
+    phi : float or Quantity, optional
+        Azimuth (default: None).
+    t : float or Quantity, optional
+        Time (default: 0.0).
+    v : array_like or Quantity, optional
+        Current velocity in cylindrical coordinates. Required when including dissipative forces. Default is None.
 
-    PURPOSE:
+    Returns
+    -------
+    float or Quantity
+        The radial force F_r(R,z,phi,t).
 
-       convenience function to evaluate a possible sum of potentials
-
-    INPUT:
-
-       Pot - a potential or list of potentials
-
-       R - cylindrical Galactocentric distance (can be Quantity)
-
-       z - distance above the plane (can be Quantity)
-
-       phi - azimuth (optional; can be Quantity)
-
-       t - time (optional; can be Quantity)
-
-       v - current velocity in cylindrical coordinates (optional, but required when including dissipative forces; can be a Quantity)
-
-    OUTPUT:
-
-       F_r(R,z,phi,t)
-
-    HISTORY:
-
-       2016-06-10 - Written - Bovy (UofT)
+    Notes
+    -----
+    - 2016-06-10 - Written - Bovy (UofT)
 
     """
     isList = isinstance(Pot, list)
@@ -2435,33 +2414,29 @@ def evaluaterforces(Pot, R, z, phi=None, t=0.0, v=None):
 @physical_conversion("forcederivative", pop=True)
 def evaluateR2derivs(Pot, R, z, phi=None, t=0.0):
     """
-    NAME:
+    Evaluate the second (cylindrical) radial derivative of a potential or sum of potentials.
 
-       evaluateR2derivs
+    Parameters
+    ----------
+    Pot : Potential or list of Potential instances
+        A potential or list of potentials (dissipative forces in such a list are ignored).
+    R : float or Quantity
+        Cylindrical Galactocentric distance.
+    z : float or Quantity
+        Distance above the plane.
+    phi : float or Quantity, optional
+        Azimuth (default: None).
+    t : float or Quantity, optional
+        Time (default: 0.0).
 
-    PURPOSE:
+    Returns
+    -------
+    float or Quantity
+        The second (cylindrical) radial derivative d2Phi/d2R of the potential.
 
-       convenience function to evaluate a possible sum of potentials
-
-    INPUT:
-
-       Pot - a potential or list of potentials (dissipative forces in such a list are ignored)
-
-       R - cylindrical Galactocentric distance (can be Quantity)
-
-       z - distance above the plane (can be Quantity)
-
-       phi - azimuth (optional; can be Quantity)
-
-       t - time (optional; can be Quantity)
-
-    OUTPUT:
-
-       d2Phi/d2R(R,z,phi,t)
-
-    HISTORY:
-
-       2012-07-25 - Written - Bovy (IAS)
+    Notes
+    -----
+    - 2012-07-25 - Written - Bovy (IAS)
 
     """
     isList = isinstance(Pot, list)
@@ -2489,33 +2464,29 @@ def evaluateR2derivs(Pot, R, z, phi=None, t=0.0):
 @physical_conversion("forcederivative", pop=True)
 def evaluatez2derivs(Pot, R, z, phi=None, t=0.0):
     """
-    NAME:
+    Evaluate the second vertical derivative of a potential or sum of potentials.
 
-       evaluatez2derivs
+    Parameters
+    ----------
+    Pot : Potential or list of Potential instances
+        A potential or list of potentials (dissipative forces in such a list are ignored).
+    R : float or Quantity
+        Cylindrical Galactocentric distance.
+    z : float or Quantity
+        Distance above the plane.
+    phi : float or Quantity, optional
+        Azimuth (default: None).
+    t : float or Quantity, optional
+        Time (default: 0.0).
 
-    PURPOSE:
+    Returns
+    -------
+    float or Quantity
+        The second vertical derivative d2Phi/d2z of the potential.
 
-       convenience function to evaluate a possible sum of potentials
-
-    INPUT:
-
-       Pot - a potential or list of potentials (dissipative forces in such a list are ignored)
-
-       R - cylindrical Galactocentric distance (can be Quantity)
-
-       z - distance above the plane (can be Quantity)
-
-       phi - azimuth (optional; can be Quantity)
-
-       t - time (optional; can be Quantity)
-
-    OUTPUT:
-
-       d2Phi/d2z(R,z,phi,t)
-
-    HISTORY:
-
-       2012-07-25 - Written - Bovy (IAS)
+    Notes
+    -----
+    - 2012-07-25 - Written - Bovy (IAS)
 
     """
     isList = isinstance(Pot, list)
@@ -2543,33 +2514,29 @@ def evaluatez2derivs(Pot, R, z, phi=None, t=0.0):
 @physical_conversion("forcederivative", pop=True)
 def evaluateRzderivs(Pot, R, z, phi=None, t=0.0):
     """
-    NAME:
+    Evaluate the second derivative of the sum of potentials with respect to cylindrical Galactocentric distance and height.
 
-       evaluateRzderivs
+    Parameters
+    ----------
+    Pot : Potential or list of Potential instances
+        A potential or list of potentials (dissipative forces in such a list are ignored).
+    R : float or Quantity
+        Cylindrical Galactocentric distance.
+    z : float or Quantity
+        Distance above the plane.
+    phi : float or Quantity, optional
+        Azimuth (default: None).
+    t : float or Quantity, optional
+        Time (default: 0.0).
 
-    PURPOSE:
+    Returns
+    -------
+    float or Quantity
+        The second derivative d2Phi/dRdz of the sum of potentials with respect to cylindrical Galactocentric distance and height.
 
-       convenience function to evaluate a possible sum of potentials
-
-    INPUT:
-
-       Pot - a potential or list of potentials (dissipative forces in such a list are ignored)
-
-       R - cylindrical Galactocentric distance (can be Quantity)
-
-       z - distance above the plane (can be Quantity)
-
-       phi - azimuth (optional; can be Quantity)
-
-       t - time (optional; can be Quantity)
-
-    OUTPUT:
-
-       d2Phi/dz/dR(R,z,phi,t)
-
-    HISTORY:
-
-       2013-08-28 - Written - Bovy (IAS)
+    Notes
+    -----
+    - 2013-08-28 - Written - Bovy (IAS)
 
     """
     isList = isinstance(Pot, list)
@@ -2597,33 +2564,29 @@ def evaluateRzderivs(Pot, R, z, phi=None, t=0.0):
 @physical_conversion("energy", pop=True)
 def evaluatephi2derivs(Pot, R, z, phi=None, t=0.0):
     """
-    NAME:
+    Evaluate the second azimuthal derivative of a potential or sum of potentials.
 
-       evaluatephi2derivs
+    Parameters
+    ----------
+    Pot : Potential or list of Potential instances
+        A potential or list of potentials (dissipative forces in such a list are ignored).
+    R : float or Quantity
+        Cylindrical Galactocentric distance.
+    z : float or Quantity
+        Distance above the plane.
+    phi : float or Quantity, optional
+        Azimuth (default: None).
+    t : float or Quantity, optional
+        Time (default: 0.0).
 
-    PURPOSE:
+    Returns
+    -------
+    float or Quantity
+        The second azimuthal derivative d2Phi/d2phi of the potential.
 
-       convenience function to evaluate a possible sum of potentials
-
-    INPUT:
-
-       Pot - a potential or list of potentials
-
-       R - cylindrical Galactocentric distance (can be Quantity)
-
-       z - distance above the plane (can be Quantity)
-
-       phi - azimuth (optional; can be Quantity)
-
-       t - time (optional; can be Quantity)
-
-    OUTPUT:
-
-       d2Phi/d2phi(R,z,phi,t)
-
-    HISTORY:
-
-       2018-03-28 - Written - Bovy (UofT)
+    Notes
+    -----
+    - 2018-03-28 - Written - Bovy (UofT)
 
     """
     isList = isinstance(Pot, list)
@@ -2651,33 +2614,29 @@ def evaluatephi2derivs(Pot, R, z, phi=None, t=0.0):
 @physical_conversion("force", pop=True)
 def evaluateRphiderivs(Pot, R, z, phi=None, t=0.0):
     """
-    NAME:
+    Evaluate the second derivative of the sum of potentials with respect to cylindrical Galactocentric distance and azimuth.
 
-       evaluateRphiderivs
+    Parameters
+    ----------
+    Pot : Potential or list of Potential instances
+        A potential or list of potentials (dissipative forces in such a list are ignored).
+    R : float or Quantity
+        Cylindrical Galactocentric distance.
+    z : float or Quantity
+        Distance above the plane.
+    phi : float or Quantity, optional
+        Azimuth (default: None).
+    t : float or Quantity, optional
+        Time (default: 0.0).
 
-    PURPOSE:
+    Returns
+    -------
+    float or Quantity
+        The second derivative d2Phi/dRdphi of the sum of potentials with respect to cylindrical Galactocentric distance and azimuth.
 
-       convenience function to evaluate a possible sum of potentials
-
-    INPUT:
-
-       Pot - a potential or list of potentials
-
-       R - cylindrical Galactocentric distance (can be Quantity)
-
-       z - distance above the plane (can be Quantity)
-
-       phi - azimuth (optional; can be Quantity)
-
-       t - time (optional; can be Quantity)
-
-    OUTPUT:
-
-       d2Phi/dRdphi(R,z,phi,t)
-
-    HISTORY:
-
-       2014-06-30 - Written - Bovy (IAS)
+    Notes
+    -----
+    - 2014-06-30 - Written - Bovy (IAS)
 
     """
     isList = isinstance(Pot, list)
@@ -2705,33 +2664,29 @@ def evaluateRphiderivs(Pot, R, z, phi=None, t=0.0):
 @physical_conversion("force", pop=True)
 def evaluatephizderivs(Pot, R, z, phi=None, t=0.0):
     """
-    NAME:
+    Evaluate the second derivative of the sum of potentials with respect to cylindrical azimuth and height.
 
-       evaluatephizderivs
+    Parameters
+    ----------
+    Pot : Potential or list of Potential instances
+        A potential or list of potentials (dissipative forces in such a list are ignored).
+    R : float or Quantity
+        Cylindrical Galactocentric distance.
+    z : float or Quantity
+        Distance above the plane.
+    phi : float or Quantity, optional
+        Azimuth (default: None).
+    t : float or Quantity, optional
+        Time (default: 0.0).
 
-    PURPOSE:
+    Returns
+    -------
+    float or Quantity
+        The second derivative d2Phi/dphidz of the sum of potentials with respect to cylindrical azimuth and height.
 
-       convenience function to evaluate a possible sum of potentials
-
-    INPUT:
-
-       Pot - a potential or list of potentials
-
-       R - cylindrical Galactocentric distance (can be Quantity)
-
-       z - distance above the plane (can be Quantity)
-
-       phi - azimuth (optional; can be Quantity)
-
-       t - time (optional; can be Quantity)
-
-    OUTPUT:
-
-       d2Phi/dphi/dz(R,z,phi,t)
-
-    HISTORY:
-
-       2021-04-30 - Written - Bovy (UofT)
+    Notes
+    -----
+    - 2021-04-30 - Written - Bovy (UofT)
 
     """
     isList = isinstance(Pot, list)
@@ -2759,33 +2714,29 @@ def evaluatephizderivs(Pot, R, z, phi=None, t=0.0):
 @physical_conversion("forcederivative", pop=True)
 def evaluater2derivs(Pot, R, z, phi=None, t=0.0):
     """
-    NAME:
+    Evaluate the second (spherical) radial derivative of a potential or sum of potentials.
 
-       evaluater2derivs
+    Parameters
+    ----------
+    Pot : Potential or list of Potential instances
+        A potential or list of potentials (dissipative forces in such a list are ignored).
+    R : float or Quantity
+        Cylindrical Galactocentric distance.
+    z : float or Quantity
+        Distance above the plane.
+    phi : float or Quantity, optional
+        Azimuth (default: None).
+    t : float or Quantity, optional
+        Time (default: 0.0).
 
-    PURPOSE:
+    Returns
+    -------
+    float or Quantity
+        The second (spherical) radial derivative d2Phi/d2r  of the potential.
 
-       convenience function to evaluate a possible sum of potentials
-
-    INPUT:
-
-       Pot - a potential or list of potentials
-
-       R - cylindrical Galactocentric distance (can be Quantity)
-
-       z - distance above the plane (can be Quantity)
-
-       phi - azimuth (optional; can be Quantity)
-
-       t - time (optional; can be Quantity)
-
-    OUTPUT:
-
-       d2phi/dr2(R,z,phi,t)
-
-    HISTORY:
-
-       2018-03-28 - Written - Bovy (UofT)
+    Notes
+    -----
+    - 2018-03-28 - Written - Bovy (UofT)
 
     """
     isList = isinstance(Pot, list)
@@ -2832,59 +2783,62 @@ def plotPotentials(
     cntrcolors=None,
 ):
     """
-    NAME:
+    Plot a set of potentials.
 
-       plotPotentials
+    Parameters
+    ----------
+    Pot : Potential or list of Potential instances
+        Potential(s) to plot.
+    rmin : float, optional
+        Minimum R (can be Quantity). Default is 0.0.
+    rmax : float, optional
+        Maximum R (can be Quantity). Default is 1.5.
+    nrs : int, optional
+        Grid in R. Default is 21.
+    zmin : float, optional
+        Minimum z (can be Quantity). Default is -0.5.
+    zmax : float, optional
+        Maximum z (can be Quantity). Default is 0.5.
+    nzs : int, optional
+        Grid in z. Default is 21.
+    phi : float, optional
+        Azimuth to use for non-axisymmetric potentials. Default is None.
+    t : float, optional
+        Time to use to evaluate potential. Default is 0.0.
+    xy : bool, optional
+        If True, plot the potential in X-Y. Default is False.
+    effective : bool, optional
+        If True, plot the effective potential Phi + Lz^2/2/R^2. Default is False.
+    Lz : float, optional
+        Angular momentum to use for the effective potential when effective=True. Default is None.
+    xrange : list, optional
+        Minimum and maximum R values to plot. Default is None.
+    yrange : list, optional
+        Minimum and maximum z values to plot. Default is None.
+    justcontours : bool, optional
+        If True, just plot contours. Default is False.
+    levels : array-like, optional
+        Contours to plot. Default is None.
+    ncontours : int, optional
+        Number of contours when levels is None. Default is 21.
+    cntrcolors : str or array-like, optional
+        Colors of the contours (single color or array with length ncontours). Default is None.
+    savefilename : str, optional
+        Save to or restore from this savefile (pickle). Default is None.
+    aspect : float, optional
+        Aspect ratio of the plot. Default is None.
 
-    PURPOSE:
+    Returns
+    -------
+    galpy.util.plot.dens2d return value
 
-       plot a set of potentials
+    Notes
+    -----
+    - 2010-07-09: Written by Bovy (NYU).
 
-    INPUT:
-
-       Pot - Potential or list of Potential instances
-
-       rmin= minimum R (can be Quantity) [xmin if xy]
-
-       rmax= maximum R (can be Quantity) [ymax if xy]
-
-       nrs= grid in R
-
-       zmin= minimum z (can be Quantity) [ymin if xy]
-
-       zmax= maximum z (can be Quantity) [ymax if xy]
-
-       nzs= grid in z
-
-       phi= (None) azimuth to use for non-axisymmetric potentials
-
-       t= (0.) time to use to evaluate potential
-
-       xy= (False) if True, plot the potential in X-Y
-
-       effective= (False) if True, plot the effective potential Phi + Lz^2/2/R^2
-
-       Lz= (None) angular momentum to use for the effective potential when effective=True
-
-       xrange, yrange= can be specified independently from rmin,zmin, etc.; when x/yrange is set, the grid is set up as numpy.linspace(x/yrange[0],x/yrange[1],nrs/zs)
-
-       justcontours= (False) if True, just plot contours
-
-       levels= (None) contours to plot
-
-       ncontours - number of contours when levels is None
-
-       cntrcolors= (None) colors of the contours (single color or array with length ncontours)
-
-       savefilename= save to or restore from this savefile (pickle)
-
-    OUTPUT:
-
-       plot to output device
-
-    HISTORY:
-
-       2010-07-09 - Written - Bovy (NYU)
+    See Also
+    --------
+    galpy.util.plot.dens2d
 
     """
     if effective and xy:
@@ -2986,54 +2940,55 @@ def plotDensities(
     **kwargs,
 ):
     """
-    NAME:
+    Plot the density of a set of potentials.
 
-       plotDensities
+    Parameters
+    ----------
+    Pot : Potential or list of Potential instances
+        Potential(s) to evaluate.
+    rmin : float, optional
+        Minimum R (can be Quantity). Default is 0.0.
+    rmax : float, optional
+        Maximum R (can be Quantity). Default is 1.5.
+    nrs : int, optional
+        Grid in R. Default is 21.
+    zmin : float, optional
+        Minimum z (can be Quantity). Default is -0.5.
+    zmax : float, optional
+        Maximum z (can be Quantity). Default is 0.5.
+    nzs : int, optional
+        Grid in z. Default is 21.
+    phi : float, optional
+        Azimuth to use for non-axisymmetric potentials. Default is None.
+    t : float, optional
+        Time to use to evaluate potential. Default is 0.0.
+    xy : bool, optional
+        If True, plot the density in X-Y. Default is False.
+    ncontours : int, optional
+        Number of contours. Default is 21.
+    justcontours : bool, optional
+        If True, just plot contours. Default is False.
+    savefilename : str, optional
+        Save to or restore from this savefile (pickle). Default is None.
+    log : bool, optional
+        If True, plot the log density. Default is False.
+    aspect : float, optional
+        Aspect ratio of the plot. Default is None.
+    **kwargs : dict, optional
+        Additional keyword arguments to pass to plot.dens2d.
 
-    PURPOSE:
+    Returns
+    -------
+    galpy.util.plot.dens2d return value
 
-       plot the density a set of potentials
+    Notes
+    -----
+    - 2013-07-05 - Written - Bovy (IAS)
+    - 2023-04-24 - Allow plotting in physical coordinates - Bovy (UofT)
 
-    INPUT:
-
-       Pot - Potential or list of Potential instances
-
-       rmin= minimum R (can be Quantity) [xmin if xy]
-
-       rmax= maximum R (can be Quantity) [ymax if xy]
-
-       nrs= grid in R
-
-       zmin= minimum z (can be Quantity) [ymin if xy]
-
-       zmax= maximum z (can be Quantity) [ymax if xy]
-
-       nzs= grid in z
-
-       phi= (None) azimuth to use for non-axisymmetric potentials
-
-       t= (0.) time to use to evaluate potential
-
-       xy= (False) if True, plot the density in X-Y
-
-       ncontours= number of contours
-
-       justcontours= (False) if True, just plot contours
-
-       savefilename= save to or restore from this savefile (pickle)
-
-       log= if True, plot the log density
-
-    OUTPUT:
-
-       plot to output device
-
-    HISTORY:
-
-       2013-07-05 - Written - Bovy (IAS)
-
-       2023-04-24 - Allow plotting in physical coordinates - Bovy (UofT)
-
+    See Also
+    --------
+    galpy.util.plot.dens2d
     """
     Pot = flatten(Pot)
     physical_kwargs = conversion.extract_physical_kwargs(kwargs)
@@ -3125,49 +3080,49 @@ def plotSurfaceDensities(
     **kwargs,
 ):
     """
-    NAME:
+    Plot the surface density of a set of potentials.
 
-       plotSurfaceDensities
+    Parameters
+    ----------
+    Pot : Potential or list of Potential instances
+        Potential(s) for which to plot the surface density.
+    xmin : float or Quantity
+        Minimum x value. Default is -1.5.
+    xmax : float or Quantity
+        Maximum x value. Default is 1.5.
+    nxs : int
+        Number of grid points in x.
+    ymin : float or Quantity
+        Minimum y value. Default is -1.5.
+    ymax : float or Quantity
+        Maximum y value. Default is 1.5.
+    nys : int
+        Number of grid points in y.
+    z : float or Quantity, optional
+        Height between which to integrate the density (from -z to z). Default is numpy.inf.
+    t : float, optional
+        Time to use to evaluate potential. Default is 0.0.
+    ncontours : int, optional
+        Number of contours. Default is 21.
+    justcontours : bool, optional
+        If True, just plot contours. Default is False.
+    aspect : float, optional
+        Aspect ratio of the plot. Default is None.
+    savefilename : str, optional
+        Save to or restore from this savefile (pickle). Default is None.
+    log : bool, optional
+        If True, plot the log density. Default is False.
+    **kwargs : dict, optional
+        Additional keyword arguments to pass to plot.dens2d.
 
-    PURPOSE:
+    Returns
+    -------
+    matplotlib plot
+        Plot to output device.
 
-       plot the surface density a set of potentials
-
-    INPUT:
-
-       Pot - Potential or list of Potential instances
-
-       xmin= minimum x (can be Quantity)
-
-       xmax= maximum x (can be Quantity)
-
-       nxs= grid in x
-
-       ymin= minimum y (can be Quantity)
-
-       ymax= maximum y (can be Quantity)
-
-       nys= grid in y
-
-       z= (inf) height between which to integrate the density (from -z to z; can be a Quantity)
-
-       t= (0.) time to use to evaluate potential
-
-       ncontours= number of contours
-
-       justcontours= (False) if True, just plot contours
-
-       savefilename= save to or restore from this savefile (pickle)
-
-       log= if True, plot the log density
-
-    OUTPUT:
-
-       plot to output device
-
-    HISTORY:
-
-       2020-08-19 - Written - Bovy (UofT)
+    Notes
+    -----
+    - 2020-08-19 - Written - Bovy (UofT)
 
     """
     Pot = flatten(Pot)
@@ -3241,30 +3196,25 @@ def plotSurfaceDensities(
 @physical_conversion("frequency", pop=True)
 def epifreq(Pot, R, t=0.0):
     """
+    Calculate the epicycle frequency at R in the potential Pot.
 
-    NAME:
+    Parameters
+    ----------
+    Pot : Potential instance or list thereof
+        Potential instance or list thereof.
+    R : float or Quantity
+        Galactocentric radius.
+    t : float or Quantity, optional
+        Time (default: 0).
 
-        epifreq
+    Returns
+    -------
+    float or Quantity
+        Epicycle frequency.
 
-    PURPOSE:
-
-        calculate the epicycle frequency at R in the potential Pot
-
-    INPUT:
-
-        Pot - Potential instance or list thereof
-
-        R - Galactocentric radius (can be Quantity)
-
-        t - time (optional; can be Quantity)
-
-    OUTPUT:
-
-        epicycle frequency
-
-    HISTORY:
-
-        2012-07-25 - Written - Bovy (IAS)
+    Notes
+    -----
+    - 2012-07-25 - Written - Bovy (IAS)
 
     """
     from .planarPotential import planarPotential
@@ -3297,30 +3247,25 @@ def epifreq(Pot, R, t=0.0):
 @physical_conversion("frequency", pop=True)
 def verticalfreq(Pot, R, t=0.0):
     """
+    Calculate the vertical frequency at R in the potential Pot.
 
-    NAME:
+    Parameters
+    ----------
+    Pot : Potential instance or list thereof
+        Potential instance or list thereof.
+    R : float or Quantity
+        Galactocentric radius.
+    t : float or Quantity, optional
+        Time (default: 0).
 
-       verticalfreq
+    Returns
+    -------
+    float or Quantity
+        Vertical frequency.
 
-    PURPOSE:
-
-        calculate the vertical frequency at R in the potential Pot
-
-    INPUT:
-
-       Pot - Potential instance or list thereof
-
-       R - Galactocentric radius (can be Quantity)
-
-       t - time (optional; can be Quantity)
-
-    OUTPUT:
-
-        vertical frequency
-
-    HISTORY:
-
-        2012-07-25 - Written - Bovy (IAS@MPIA)
+    Notes
+    -----
+    - 2012-07-25 - Written - Bovy (IAS@MPIA)
 
     """
     from .planarPotential import planarPotential
@@ -3335,32 +3280,27 @@ def verticalfreq(Pot, R, t=0.0):
 @physical_conversion("dimensionless", pop=True)
 def flattening(Pot, R, z, t=0.0):
     """
+    Calculate the potential flattening, defined as sqrt(fabs(z/R F_R/F_z))
 
-    NAME:
+    Parameters
+    ----------
+    Pot : Potential instance or list thereof
+        Potential instance or list thereof.
+    R : float or Quantity
+        Galactocentric radius.
+    z : float or Quantity
+        Height.
+    t : float or Quantity, optional
+        Time (default: 0).
 
-        flattening
+    Returns
+    -------
+    float or Quantity
+        Flattening.
 
-    PURPOSE:
-
-       calculate the potential flattening, defined as sqrt(fabs(z/R F_R/F_z))
-
-    INPUT:
-
-        Pot - Potential instance or list thereof
-
-        R - Galactocentric radius (can be Quantity)
-
-        z - height (can be Quantity)
-
-        t - time (optional; can be Quantity)
-
-    OUTPUT:
-
-        flattening
-
-    HISTORY:
-
-        2012-09-13 - Written - Bovy (IAS)
+    Notes
+    -----
+    - 2012-09-13 - Written - Bovy (IAS)
 
     """
     return numpy.sqrt(
@@ -3377,32 +3317,27 @@ def flattening(Pot, R, z, t=0.0):
 @physical_conversion("velocity", pop=True)
 def vterm(Pot, l, t=0.0, deg=True):
     """
+    Calculate the terminal velocity at l in this potential.
 
-    NAME:
+    Parameters
+    ----------
+    Pot : Potential instance or list thereof
+        Potential instance or list thereof.
+    l : float or Quantity
+        Galactic longitude [deg/rad; can be Quantity).
+    t : float or Quantity, optional
+        Time (default: 0).
+    deg : bool, optional
+        If True (default), l in deg.
 
-        vterm
+    Returns
+    -------
+    float or Quantity
+        Terminal velocity.
 
-    PURPOSE:
-
-        calculate the terminal velocity at l in this potential
-
-    INPUT:
-
-        Pot - Potential instance
-
-        l - Galactic longitude [deg/rad; can be Quantity)
-
-        t - time (optional; can be Quantity)
-
-        deg= if True (default), l in deg
-
-    OUTPUT:
-
-        terminal velocity
-
-    HISTORY:
-
-        2013-05-31 - Written - Bovy (IAS)
+    Notes
+    -----
+    - 2013-05-31 - Written - Bovy (IAS)
 
     """
     Pot = flatten(Pot)
@@ -3423,34 +3358,31 @@ def vterm(Pot, l, t=0.0, deg=True):
 @physical_conversion("position", pop=True)
 def rl(Pot, lz, t=0.0):
     """
-    NAME:
+    Calculate the radius of a circular orbit of Lz.
 
-       rl
+    Parameters
+    ----------
+    Pot : Potential instance or list thereof
+        Potential instance or list thereof.
+    lz : float or Quantity
+        Angular momentum (can be Quantity).
+    t : float or Quantity, optional
+        Time (default: 0).
 
-    PURPOSE:
+    Returns
+    -------
+    float or Quantity
+        Radius.
 
-       calculate the radius of a circular orbit of Lz
+    Notes
+    -----
+    - 2012-07-30 - Written - Bovy (IAS@MPIA)
 
-    INPUT:
+    - An efficient way to call this function on many objects is provided as the Orbit method rguiding.
 
-       Pot - Potential instance or list thereof
-
-       lz - Angular momentum (can be Quantity)
-
-       t - time (optional; can be Quantity)
-
-    OUTPUT:
-
-       radius
-
-    HISTORY:
-
-       2012-07-30 - Written - Bovy (IAS@MPIA)
-
-    NOTE:
-
-       An efficient way to call this function on many objects is
-       provided as the Orbit method rguiding
+    See Also
+    --------
+    Orbit.rguiding
 
     """
     Pot = flatten(Pot)
@@ -3492,34 +3424,31 @@ def _rlFindStart(rl, lz, pot, t=0.0, lower=False):
 @physical_conversion("position", pop=True)
 def rE(Pot, E, t=0.0):
     """
-    NAME:
+    Calculate the radius of a circular orbit with energy E.
 
-       rE
+    Parameters
+    ----------
+    Pot : Potential instance or list thereof
+        Potential instance or list thereof.
+    E : float or Quantity
+        Energy.
+    t : float, optional
+        Time (default is 0.0).
 
-    PURPOSE:
+    Returns
+    -------
+    radius : float
+        Radius.
 
-       calculate the radius of a circular orbit with energy E
+    Notes
+    -----
+    - 2022-04-06 - Written - Bovy (UofT)
 
-    INPUT:
+    - An efficient way to call this function on many objects is provided as the Orbit method rE.
 
-       Pot - Potential instance or list thereof
-
-       E - Energy (can be Quantity)
-
-       t - time (optional; can be Quantity)
-
-    OUTPUT:
-
-       radius
-
-    HISTORY:
-
-       2022-04-06 - Written - Bovy (UofT)
-
-    NOTE:
-
-       An efficient way to call this function on many objects is
-       provided as the Orbit method rE
+    See Also
+    --------
+    Orbit.rE
 
     """
     Pot = flatten(Pot)
@@ -3556,29 +3485,25 @@ def _rEFindStart(rE, E, pot, t=0.0, lower=False):
 @physical_conversion("action", pop=True)
 def LcE(Pot, E, t=0.0):
     """
-    NAME:
+    Calculate the angular momentum of a circular orbit with energy E.
 
-       LcE
+    Parameters
+    ----------
+    Pot : Potential instance or list thereof
+        Potential instance or list thereof.
+    E : float or Quantity
+        Energy.
+    t : float or Quantity, optional
+        Time (default: 0.0).
 
-    PURPOSE:
+    Returns
+    -------
+    float or Quantity
+        Angular momentum of circular orbit with energy E
 
-       calculate the angular momentum of a circular orbit with energy E
-
-    INPUT:
-
-       Pot - Potential instance or list thereof
-
-       E - Energy (can be Quantity)
-
-       t - time (optional; can be Quantity)
-
-    OUTPUT:
-
-       Lc(E)
-
-    HISTORY:
-
-       2022-04-06 - Written - Bovy (UofT)
+    Notes
+    -----
+    - 2022-04-06 - Written - Bovy (UofT)
 
     """
     thisrE = rE(Pot, E, t=t, use_physical=False)
@@ -3589,33 +3514,30 @@ def LcE(Pot, E, t=0.0):
 @physical_conversion("position", pop=True)
 def lindbladR(Pot, OmegaP, m=2, t=0.0, **kwargs):
     """
-    NAME:
+    Calculate the radius of a Lindblad resonance.
 
-       lindbladR
+    Parameters
+    ----------
+    Pot : Potential instance or list of such instances
+        Potential instance or list of such instances.
+    OmegaP : float or Quantity
+        Pattern speed.
+    m : int or str, optional
+        Order of the resonance (as in m(O-Op)=kappa (negative m for outer)).
+        Use m='corotation' for corotation (default: 2).
+    t : float or Quantity, optional
+        Time (default: 0.0).
+    **kwargs
+        Additional arguments to be passed to scipy.optimize.brentq.
 
-    PURPOSE:
+    Returns
+    -------
+    float or Quantity or None
+        Radius of Lindblad resonance, None if there is no resonance.
 
-       calculate the radius of a Lindblad resonance
-
-    INPUT:
-
-       Pot - Potential instance or list of such instances
-
-       OmegaP - pattern speed (can be Quantity)
-
-       m= order of the resonance (as in m(O-Op)=kappa (negative m for outer)
-          use m='corotation' for corotation
-       +scipy.optimize.brentq xtol,rtol,maxiter kwargs
-
-       t - time (optional; can be Quantity)
-
-    OUTPUT:
-
-       radius of Linblad resonance, None if there is no resonance
-
-    HISTORY:
-
-       2011-10-09 - Written - Bovy (IAS)
+    Notes
+    -----
+    - 2011-10-09 - Written - Bovy (IAS)
 
     """
     Pot = flatten(Pot)
@@ -3672,30 +3594,25 @@ def _lindbladR_eq(R, Pot, OmegaP, m, t=0.0):
 @physical_conversion("frequency", pop=True)
 def omegac(Pot, R, t=0.0):
     """
+    Calculate the circular angular speed velocity at R in potential Pot.
 
-    NAME:
+    Parameters
+    ----------
+    Pot : Potential instance or list of such instances
+        Potential instance or list of such instances.
+    R : float or Quantity
+        Galactocentric radius.
+    t : float or Quantity, optional
+        Time (default: 0.0).
 
-       omegac
+    Returns
+    -------
+    float or Quantity
+        Circular angular speed.
 
-    PURPOSE:
-
-       calculate the circular angular speed velocity at R in potential Pot
-
-    INPUT:
-
-       Pot - Potential instance or list of such instances
-
-       R - Galactocentric radius (can be Quantity)
-
-       t - time (optional; can be Quantity)
-
-    OUTPUT:
-
-       circular angular speed
-
-    HISTORY:
-
-       2011-10-09 - Written - Bovy (IAS)
+    Notes
+    -----
+    - 2011-10-09 - Written - Bovy (IAS)
 
     """
     from ..potential import evaluateplanarRforces
@@ -3711,25 +3628,20 @@ def omegac(Pot, R, t=0.0):
 
 def nemo_accname(Pot):
     """
-    NAME:
+    Return the accname potential name for use of this potential or list of potentials with NEMO.
 
-       nemo_accname
+    Parameters
+    ----------
+    Pot : Potential instance or list of such instances
 
-    PURPOSE:
+    Returns
+    -------
+    str
+        Acceleration name in the correct format to give to accname=
 
-       return the accname potential name for use of this potential or list of potentials with NEMO
-
-    INPUT:
-
-       Pot - Potential instance or list of such instances
-
-    OUTPUT:
-
-       Acceleration name in the correct format to give to accname=
-
-    HISTORY:
-
-       2014-12-18 - Written - Bovy (IAS)
+    Notes
+    -----
+    - 2014-12-18 - Written - Bovy (IAS)
 
     """
     Pot = flatten(Pot)
@@ -3750,29 +3662,24 @@ def nemo_accname(Pot):
 
 def nemo_accpars(Pot, vo, ro):
     """
-    NAME:
+    Return the accpars potential parameters for use of this potential or list of potentials with NEMO.
 
-       nemo_accpars
+    Parameters
+    ----------
+    Pot : Potential instance or list of such instances
+    vo : float
+        Velocity unit in km/s.
+    ro : float
+        Length unit in kpc.
 
-    PURPOSE:
+    Returns
+    -------
+    str
+        Accpars string in the correct format to give to accpars.
 
-       return the accpars potential parameters for use of this potential or list of potentials with NEMO
-
-    INPUT:
-
-       Pot - Potential instance or list of such instances
-
-       vo - velocity unit in km/s
-
-       ro - length unit in kpc
-
-    OUTPUT:
-
-       accpars string in the correct format to give to accpars
-
-    HISTORY:
-
-       2014-12-18 - Written - Bovy (IAS)
+    Notes
+    -----
+    - 2014-12-18 - Written - Bovy (IAS)
 
     """
     Pot = flatten(Pot)
@@ -3795,37 +3702,31 @@ def to_amuse(
     Pot, t=0.0, tgalpy=0.0, reverse=False, ro=None, vo=None
 ):  # pragma: no cover
     """
-    NAME:
+    Return an AMUSE representation of a galpy Potential or list of Potentials
 
-       to_amuse
+    Parameters
+    ----------
+    Pot : Potential instance or list of such instances
+        Potential(s) to convert to an AMUSE representation.
+    t : float, optional
+        Initial time in AMUSE (can be in internal galpy units or AMUSE units), by default 0.0.
+    tgalpy : float, optional
+        Initial time in galpy (can be in internal galpy units or AMUSE units); because AMUSE initial times have to be positive, this is useful to set if the initial time in galpy is negative, by default 0.0.
+    reverse : bool, optional
+        Set whether the galpy potential evolves forwards or backwards in time (default: False); because AMUSE can only integrate forward in time, this is useful to integrate backward in time in AMUSE, by default False.
+    ro : float, optional
+        Length unit in kpc, by default None.
+    vo : float, optional
+        Velocity unit in km/s, by default None.
 
-    PURPOSE:
+    Returns
+    -------
+    AMUSE representation of Pot.
 
-       Return an AMUSE representation of a galpy Potential or list of Potentials
-
-    INPUT:
-
-       Pot - Potential instance or list of such instances
-
-       t= (0.) Initial time in AMUSE (can be in internal galpy units or AMUSE units)
-
-       tgalpy= (0.) Initial time in galpy (can be in internal galpy units or AMUSE units); because AMUSE initial times have to be positive, this is useful to set if the initial time in galpy is negative
-
-       reverse= (False) set whether the galpy potential evolves forwards or backwards in time (default: False); because AMUSE can only integrate forward in time, this is useful to integrate backward in time in AMUSE
-
-       ro= (default taken from Pot) length unit in kpc
-
-       vo= (default taken from Pot) velocity unit in km/s
-
-    OUTPUT:
-
-       AMUSE representation of Pot
-
-    HISTORY:
-
-       2019-08-04 - Written - Bovy (UofT)
-
-       2019-08-12 - Implemented actual function - Webb (UofT)
+    Notes
+    -----
+    - 2019-08-04 - Written - Bovy (UofT)
+    - 2019-08-12 - Implemented actual function - Webb (UofT)
 
     """
     try:
@@ -3846,25 +3747,20 @@ def to_amuse(
 
 def turn_physical_off(Pot):
     """
-    NAME:
+    Turn off automatic returning of outputs in physical units.
 
-       turn_physical_off
+    Parameters
+    ----------
+    Pot : Potential instance or list of such instances
+        Potential(s) to turn off automatic returning of outputs in physical units.
 
-    PURPOSE:
+    Returns
+    -------
+    None
 
-       turn off automatic returning of outputs in physical units
-
-    INPUT:
-
-       (none)
-
-    OUTPUT:
-
-       (none)
-
-    HISTORY:
-
-       2016-01-30 - Written - Bovy (UofT)
+    Notes
+    -----
+    - 2016-01-30 - Written - Bovy (UofT)
 
     """
     if isinstance(Pot, list):
@@ -3877,27 +3773,24 @@ def turn_physical_off(Pot):
 
 def turn_physical_on(Pot, ro=None, vo=None):
     """
-    NAME:
+    Turn on automatic returning of outputs in physical units.
 
-       turn_physical_on
+    Parameters
+    ----------
+    Pot : Potential instance or list of such instances
+        Potential(s) to turn on automatic returning of outputs in physical units.
+    ro : float or Quantity, optional
+        Reference distance (kpc). Default is None.
+    vo : float or Quantity, optional
+        Reference velocity (km/s). Default is None.
 
-    PURPOSE:
+    Returns
+    -------
+    None
 
-       turn on automatic returning of outputs in physical units
-
-    INPUT:
-
-       ro= reference distance (kpc; can be Quantity)
-
-       vo= reference velocity (km/s; can be Quantity)
-
-    OUTPUT:
-
-        (none)
-
-    HISTORY:
-
-        2016-01-30 - Written - Bovy (UofT)
+    Notes
+    -----
+    - 2016-01-30 - Written - Bovy (UofT)
 
     """
     if isinstance(Pot, list):
@@ -3918,25 +3811,21 @@ def _flatten_list(L):
 
 def flatten(Pot):
     """
-    NAME:
+    Flatten a possibly nested list of Potential instances into a flat list.
 
-       flatten
+    Parameters
+    ----------
+    Pot : list or Potential instance
+        List (possibly nested) of Potential instances.
 
-    PURPOSE:
+    Returns
+    -------
+    list
+        Flattened list of Potential instances.
 
-       flatten a possibly nested list of Potential instances into a flat list
-
-    INPUT:
-
-       Pot - list (possibly nested) of Potential instances
-
-    OUTPUT:
-
-       Flattened list of Potential instances
-
-    HISTORY:
-
-        2018-03-14 - Written - Bovy (UofT)
+    Notes
+    -----
+    - 2018-03-14: Written by Bovy (UofT).
 
     """
     if isinstance(Pot, Potential):
@@ -3949,32 +3838,26 @@ def flatten(Pot):
 
 def _check_c(Pot, dxdv=False, dens=False):
     """
+    Check whether a potential or list thereof has a C implementation.
 
-    NAME:
+    Parameters
+    ----------
+    Pot : Potential instance or list of such instances
+        Potential instance or list of such instances to check.
+    dxdv : bool, optional
+        If True, check whether the potential has dxdv implementation.
+    dens : bool, optional
+        If True, check whether the potential has its density implemented in C.
 
-       _check_c
+    Returns
+    -------
+    bool
+        True if a C implementation exists, False otherwise.
 
-    PURPOSE:
-
-       check whether a potential or list thereof has a C implementation
-
-    INPUT:
-
-       Pot - Potential instance or list of such instances
-
-       dxdv= (False) check whether the potential has dxdv implementation
-
-       dens= (False) check whether the potential has its density implemented in C
-
-    OUTPUT:
-
-       True if a C implementation exists, False otherwise
-
-    HISTORY:
-
-       2014-02-17 - Written - Bovy (IAS)
-
-       2017-07-01 - Generalized to dxdv, added general support for WrapperPotentials, and added support for planarPotentials
+    Notes
+    -----
+    - 2014-02-17 - Written - Bovy (IAS)
+    - 2017-07-01 - Generalized to dxdv, added general support for WrapperPotentials, and added support for planarPotentials.
 
     """
     Pot = flatten(Pot)
@@ -4004,23 +3887,21 @@ def _check_c(Pot, dxdv=False, dens=False):
 
 def _dim(Pot):
     """
-    NAME:
-       _dim
-    PURPOSE:
+    Determine the dimensionality of this potential
 
-       Determine the dimensionality of this potential
+    Parameters
+    ----------
+    Pot : Potential instance or list of such instances
 
-    INPUT:
+    Returns
+    -------
+    int
+        Minimum of the dimensionality of all potentials if list; otherwise Pot.dim
 
-       Pot - Potential instance or list of such instances
+    Notes
+    -----
+    - 2016-04-19 - Written - Bovy (UofT)
 
-    OUTPUT:
-
-       Minimum of the dimensionality of all potentials if list; otherwise Pot.dim
-
-    HISTORY:
-
-       2016-04-19 - Written - Bovy (UofT)
     """
     from ..potential import linearPotential, planarPotential
 
@@ -4034,25 +3915,20 @@ def _dim(Pot):
 
 def _isNonAxi(Pot):
     """
-    NAME:
+    Determine whether this potential is non-axisymmetric
 
-       _isNonAxi
+    Parameters
+    ----------
+    Pot : Potential instance or list of such instances
 
-    PURPOSE:
+    Returns
+    -------
+    bool
+        True or False depending on whether the potential is non-axisymmetric (note that some potentials might return True, even though for some parameter values they are axisymmetric)
 
-       Determine whether this potential is non-axisymmetric
-
-    INPUT:
-
-       Pot - Potential instance or list of such instances
-
-    OUTPUT:
-
-       True or False depending on whether the potential is non-axisymmetric (note that some potentials might return True, even though for some parameter values they are axisymmetric)
-
-    HISTORY:
-
-       2016-06-16 - Written - Bovy (UofT)
+    Notes
+    -----
+    - 2016-06-16 - Written - Bovy (UofT)
 
     """
     isList = isinstance(Pot, list)
@@ -4079,14 +3955,7 @@ def kms_to_kpcGyrDecorator(func):
 @physical_conversion("position", pop=True)
 def rtide(Pot, R, z, phi=0.0, t=0.0, M=None):
     """
-
-    NAME:
-
-        rtide
-
-    PURPOSE:
-
-        Calculate the tidal radius for object of mass M assuming a circular orbit as
+    Calculate the tidal radius for object of mass M assuming a circular orbit as
 
         .. math::
 
@@ -4094,27 +3963,27 @@ def rtide(Pot, R, z, phi=0.0, t=0.0, M=None):
 
         where :math:`M_s` is the cluster mass, :math:`\\Omega` is the circular frequency, and :math:`\\Phi` is the gravitational potential. For non-spherical potentials, we evaluate :math:`\\Omega^2 = (1/r)(\\mathrm{d}\\Phi/\\mathrm{d}r)` and evaluate the derivatives at the given position of the cluster.
 
-    INPUT:
+    Parameters
+    ----------
+    R : float or Quantity
+        Galactocentric radius
+    z : float or Quantity
+        height
+    phi : float or Quantity, optional
+        azimuth (default: 0.0)
+    t : float or Quantity, optional
+        time (default: 0.0)
+    M : float or Quantity, optional
+        Mass of object (default: None)
 
-        Pot - Potential instance or list of such instances
-
-        R - Galactocentric radius (can be Quantity)
-
-        z - height (can be Quantity)
-
-        phi - azimuth (optional; can be Quantity)
-
-        t - time (optional; can be Quantity)
-
-        M - (default = None) Mass of object (can be Quantity)
-
-    OUTPUT:
-
+    Returns
+    -------
+    float or Quantity
         Tidal Radius
 
-    HISTORY:
-
-        2018-03-21 - Written - Webb (UofT)
+    Notes
+    -----
+    - 2018-03-21 - Written - Webb (UofT)
 
     """
     Pot = flatten(Pot)
@@ -4134,36 +4003,32 @@ def rtide(Pot, R, z, phi=0.0, t=0.0, M=None):
 @physical_conversion("forcederivative", pop=True)
 def ttensor(Pot, R, z, phi=0.0, t=0.0, eigenval=False):
     """
+    Calculate the tidal tensor Tij=-d(Psi)(dxidxj)
 
-    NAME:
+    Parameters
+    ----------
+    Pot : Potential instance or list of such instances
+        Potential instance or list of such instances
+    R : float or Quantity
+        Galactocentric radius
+    z : float or Quantity
+        height
+    phi : float or Quantity, optional
+        azimuth (default: 0.0)
+    t : float or Quantity, optional
+        time (default: 0.0)
+    eigenval : bool, optional
+        return eigenvalues if true (default: False)
 
-        ttensor
+    Returns
+    -------
+    array, shape (3,3) or (3,)
+        Tidal tensor or eigenvalues of the tidal tensor
 
-    PURPOSE:
+    Notes
+    -----
+    - 2018-03-21 - Written - Webb (UofT)
 
-        Calculate the tidal tensor Tij=-d(Psi)(dxidxj)
-
-    INPUT:
-
-        Pot - Potential instance or list of such instances
-
-        R - Galactocentric radius (can be Quantity)
-
-        z - height (can be Quantity)
-
-        phi - azimuth (optional; can be Quantity)
-
-        t - time (optional; can be Quantity)
-
-        eigenval - return eigenvalues if true (optional; boolean)
-
-    OUTPUT:
-
-        Tidal Tensor
-
-    HISTORY:
-
-        2018-03-21 - Written - Webb (UofT)
     """
     Pot = flatten(Pot)
     if _isNonAxi(Pot):
@@ -4225,36 +4090,32 @@ def ttensor(Pot, R, z, phi=0.0, t=0.0, eigenval=False):
 @physical_conversion("position", pop=True)
 def zvc(Pot, R, E, Lz, phi=0.0, t=0.0):
     """
+    Calculate the zero-velocity curve: z such that Phi(R,z) + Lz/[2R^2] = E (assumes that F_z(R,z) = negative at positive z such that there is a single solution)
 
-    NAME:
+    Parameters
+    ----------
+    Pot : Potential instance or list of such instances
+        Potential instance or list of such instances.
+    R : float or Quantity
+        Galactocentric radius.
+    E : float or Quantity
+        Energy.
+    Lz : float or Quantity
+        Angular momentum.
+    phi : float or Quantity, optional
+        Azimuth (default: 0.0).
+    t : float or Quantity, optional
+        Time (default: 0.0).
 
-        zvc
+    Returns
+    -------
+    float
+        z such that Phi(R,z) + Lz/[2R^2] = E.
 
-    PURPOSE:
+    Notes
+    -----
+    - 2020-08-20 - Written - Bovy (UofT)
 
-        Calculate the zero-velocity curve: z such that Phi(R,z) + Lz/[2R^2] = E (assumes that F_z(R,z) = negative at positive z such that there is a single solution)
-
-    INPUT:
-
-        Pot - Potential instance or list of such instances
-
-        R - Galactocentric radius (can be Quantity)
-
-        E - Energy (can be Quantity)
-
-        Lz - Angular momentum (can be Quantity)
-
-        phi - azimuth (optional; can be Quantity)
-
-        t - time (optional; can be Quantity)
-
-    OUTPUT:
-
-        z such that Phi(R,z) + Lz/[2R^2] = E
-
-    HISTORY:
-
-        2020-08-20 - Written - Bovy (UofT)
     """
     Pot = flatten(Pot)
     R = conversion.parse_length(R, **get_physical(Pot))
@@ -4294,34 +4155,29 @@ def zvc(Pot, R, E, Lz, phi=0.0, t=0.0):
 @physical_conversion("position", pop=True)
 def zvc_range(Pot, E, Lz, phi=0.0, t=0.0):
     """
+    Calculate the minimum and maximum radius for which the zero-velocity curve exists for this energy and angular momentum (R such that Phi(R,0) + Lz/[2R^2] = E)
 
-    NAME:
+    Parameters
+    ----------
+    Pot : Potential instance or list of such instances
+        Potential instance or list of such instances.
+    E : float or Quantity
+        Energy.
+    Lz : float or Quantity
+        Angular momentum.
+    phi : float or Quantity, optional
+        Azimuth (default: 0.0).
+    t : float or Quantity, optional
+        Time (default: 0.0).
 
-        zvc_range
+    Returns
+    -------
+    numpy.ndarray
+        Solutions R such that Phi(R,0) + Lz/[2R^2] = E.
 
-    PURPOSE:
-
-        Calculate the minimum and maximum radius for which the zero-velocity curve exists for this energy and angular momentum (R such that Phi(R,0) + Lz/[2R^2] = E)
-
-    INPUT:
-
-        Pot - Potential instance or list of such instances
-
-        E - Energy (can be Quantity)
-
-        Lz - Angular momentum (can be Quantity)
-
-        phi - azimuth (optional; can be Quantity)
-
-        t - time (optional; can be Quantity)
-
-    OUTPUT:
-
-        Solutions R such that Phi(R,0) + Lz/[2R^2] = E
-
-    HISTORY:
-
-        2020-08-20 - Written - Bovy (UofT)
+    Notes
+    -----
+    - 2020-08-20 - Written - Bovy (UofT)
     """
     Pot = flatten(Pot)
     E = conversion.parse_energy(E, **get_physical(Pot))
@@ -4371,29 +4227,25 @@ def zvc_range(Pot, E, Lz, phi=0.0, t=0.0):
 @physical_conversion("position", pop=True)
 def rhalf(Pot, t=0.0, INF=numpy.inf):
     """
-    NAME:
+    Calculate the half-mass radius, the radius of the spherical shell that contains half the total mass.
 
-       rhalf
+    Parameters
+    ----------
+    Pot : Potential instance or list thereof
+        Potential instance or list of instances.
+    t : float or Quantity, optional
+        Time (default: 0.0).
+    INF : numeric, optional
+        Radius at which the total mass is calculated (internal units, just set this to something very large) (default: numpy.inf).
 
-    PURPOSE:
+    Returns
+    -------
+    float
+        Half-mass radius.
 
-       calculate the half-mass radius, the radius of the spherical shell that contains half the total mass
-
-    INPUT:
-
-       Pot - Potential instance or list thereof
-
-       t= (0.) time (optional; can be Quantity)
-
-       INF= (numpy.inf) radius at which the total mass is calculated (internal units, just set this to something very large)
-
-    OUTPUT:
-
-       half-mass radius
-
-    HISTORY:
-
-       2021-03-18 - Written - Bovy (UofT)
+    Notes
+    -----
+    - 2021-03-18 - Written - Bovy (UofT)
 
     """
     Pot = flatten(Pot)
@@ -4426,29 +4278,25 @@ def _rhalfFindStart(rh, pot, tot_mass, t=0.0, lower=False):
 @physical_conversion("time", pop=True)
 def tdyn(Pot, R, t=0.0):
     """
-    NAME:
+    Calculate the dynamical time from tdyn^2 = 3pi/[G<rho>].
 
-       tdyn
+    Parameters
+    ----------
+    Pot : Potential instance or list thereof
+        Potential instance or list of instances.
+    R : float or Quantity
+        Galactocentric radius.
+    t : float or Quantity, optional
+        Time (default: 0.0).
 
-    PURPOSE:
+    Returns
+    -------
+    float
+        Dynamical time.
 
-       calculate the dynamical time from tdyn^2 = 3pi/[G<rho>]
-
-    INPUT:
-
-       Pot - Potential instance or list thereof
-
-       R - Galactocentric radius (can be Quantity)
-
-       t= (0.) time (optional; can be Quantity)
-
-    OUTPUT:
-
-       Dynamical time
-
-    HISTORY:
-
-       2021-03-18 - Written - Bovy (UofT)
+    Notes
+    -----
+    - 2021-03-18 - Written - Bovy (UofT)
 
     """
     return 2.0 * numpy.pi * R * numpy.sqrt(R / mass(Pot, R, use_physical=False))

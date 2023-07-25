@@ -20,11 +20,11 @@ def plotRotcurve(Pot, *args, **kwargs):
     ----------
     Pot : Potential or list of Potential instances
         Potential instance or list of such instances.
-    Rrange : array_like
-        Range in R to consider (needs to be in the units that you are plotting; can be Quantity).
+    Rrange : array_like or Quantity
+        Range in R to consider (needs to be in the units that you are plotting).
     grid : int, optional
-        Grid in R.
-    phi : float, optional
+        Number of grid points in R.
+    phi : float or Quantity, optional
         Azimuth to use for non-axisymmetric potentials.
     savefilename : str, optional
         Save to or restore from this savefile (pickle).
@@ -127,12 +127,12 @@ def calcRotcurve(Pot, Rs, phi=None, t=0.0):
     ----------
     Pot : Potential or list of Potential instances
         Potential instance or list of such instances.
-    Rs : array_like
+    Rs : array_like or float
         Radius(i).
-    phi : float, optional
+    phi : float or Quantity, optional
         Azimuth to use for non-axisymmetric potentials.
-    t : float, optional
-        Instantaneous time.
+    t : float or Quantity, optional
+        Instantaneous time (default: 0.0)
 
     Returns
     -------
@@ -166,16 +166,15 @@ def vcirc(Pot, R, phi=None, t=0.0):
     ----------
     Pot : Potential or list of Potential instances
         Potential instance or list of such instances.
-    R : array_like
-        Galactocentric radius (can be Quantity).
-    phi : float, optional
+    R : float or Quantity
+        Galactocentric radius.
+    phi : float or Quantity, optional
         Azimuth to use for non-axisymmetric potentials.
-    t : float, optional
-        Instantaneous time.
-
+    t : float or Quantity, optional
+        Instantaneous time (default: 0.0)
     Returns
     -------
-    array_like
+    float or Quantity
         Circular rotation velocity.
 
     Notes
@@ -209,16 +208,16 @@ def dvcircdR(Pot, R, phi=None, t=0.0):
     ----------
     Pot : Potential or list of Potential instances
         Potential instance or list of such instances.
-    R : array_like
-        Galactocentric radius (can be Quantity).
-    phi : float, optional
+    R : float or Quantity
+        Galactocentric radius.
+    phi : float or Quantity, optional
         Azimuth to use for non-axisymmetric potentials.
     t : float, optional
-        Instantaneous time. Default: 0.0
+        Instantaneous time (default: 0)
 
     Returns
     -------
-    array_like
+    float or Quantity
         Derivative of the circular rotation velocity wrt R.
 
     Notes
