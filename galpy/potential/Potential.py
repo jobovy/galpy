@@ -359,6 +359,29 @@ class Potential(Force):
         - 2021-04-19 - Adjusted for non-z-symmetric densities - Bovy (UofT)
 
         """
+        try:
+            if forcepoisson:
+                raise AttributeError  # Hack!
+            return self._amp * self._surfdens(R, z, phi=phi, t=t)
+        except AttributeError:
+            # Use the Poisson equation to get the surface density
+            return (
+                (
+                    -self.zforce(R, numpy.fabs(z), phi=phi, t=t, use_physical=False)
+                    + self.zforce(R, -numpy.fabs(z), phi=phi, t=t, use_physical=False)
+                    + integrate.quad(
+                        lambda x: -self.Rforce(R, x, phi=phi, t=t, use_physical=False)
+                        / R
+                        + self.R2deriv(R, x, phi=phi, t=t, use_physical=False)
+                        + self.phi2deriv(R, x, phi=phi, t=t, use_physical=False)
+                        / R**2.0,
+                        -numpy.fabs(z),
+                        numpy.fabs(z),
+                    )[0]
+                )
+                / 4.0
+                / numpy.pi
+            )
 
     def _surfdens(self, R, z, phi=0.0, t=0.0):
         """
