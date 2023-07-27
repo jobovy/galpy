@@ -24,28 +24,24 @@ class Force:
 
     def __init__(self, amp=1.0, ro=None, vo=None, amp_units=None):
         """
-        NAME:
+        Initialize Force.
 
-           __init__
+        Parameters
+        ----------
+        amp : float, optional
+            Amplitude to be applied when evaluating the potential and its forces.
+        ro : float or Quantity, optional
+            Physical distance scale (in kpc or as Quantity). Default is from the configuration file.
+        vo : float or Quantity, optional
+            Physical velocity scale (in km/s or as Quantity). Default is from the configuration file.
+        amp_units : str, optional
+            Type of units that `amp` should have if it has units. Must be one of
+            'mass', 'velocity2', or 'density'.
 
-        PURPOSE:
+        Notes
+        -----
+        - 2018-03-18 - Written to generalize Potential to force that may or may not be conservative - Bovy (UofT)
 
-           Initialize Force
-
-        INPUT:
-
-           amp - amplitude to be applied when evaluating the potential and its forces
-
-           ro - physical distance scale (in kpc or as Quantity)
-
-           vo - physical velocity scale (in km/s or as Quantity)
-
-           amp_units - ('mass', 'velocity2', 'density') type of units that amp should have if it has units
-
-        OUTPUT:
-
-        HISTORY:
-           2018-03-18 - Written to generalize Potential to force that may or may not be conservative - Bovy (UofT)
         """
         self._amp = amp
         # Parse ro and vo
@@ -130,25 +126,21 @@ class Force:
 
     def __mul__(self, b):
         """
-        NAME:
+        Multiply a Force or Potential's amplitude by a number
 
-           __mul__
+        Parameters
+        ----------
+        b : int or float
+            Number to multiply the amplitude with.
 
-        PURPOSE:
+        Returns
+        -------
+        Force or Potential instance
+            New instance with amplitude = (old amplitude) x b.
 
-           Multiply a Force or Potential's amplitude by a number
-
-        INPUT:
-
-           b - number
-
-        OUTPUT:
-
-           New instance with amplitude = (old amplitude) x b
-
-        HISTORY:
-
-           2019-01-27 - Written - Bovy (UofT)
+        Notes
+        -----
+        - 2019-01-27 - Written - Bovy (UofT)
 
         """
         if not isinstance(b, (int, float)):
@@ -169,27 +161,21 @@ class Force:
 
     def __add__(self, b):
         """
-        NAME:
+        Add Force or Potential instances together to create a multi-component potential (e.g., pot= pot1+pot2+pot3)
 
-           __add__
+        Parameters
+        ----------
+        b : Force or Potential instance or a list thereof
 
-        PURPOSE:
+        Returns
+        -------
+        list of Force or Potential instances
+            Represents the combined potential
 
-           Add Force or Potential instances together to create a multi-component potential (e.g., pot= pot1+pot2+pot3)
-
-        INPUT:
-
-           b - Force or Potential instance or a list thereof
-
-        OUTPUT:
-
-           List of Force or Potential instances that represents the combined potential
-
-        HISTORY:
-
-           2019-01-27 - Written - Bovy (UofT)
-
-           2020-04-22 - Added check that unit systems of combined potentials are compatible - Bovy (UofT)
+        Notes
+        -----
+        - 2019-01-27 - Written - Bovy (UofT)
+        - 2020-04-22 - Added check that unit systems of combined potentials are compatible - Bovy (UofT)
 
         """
         from ..potential import flatten as flatten_pot
@@ -228,25 +214,15 @@ class Force:
 
     def turn_physical_off(self):
         """
-        NAME:
+        Turn off automatic returning of outputs in physical units.
 
-           turn_physical_off
+        Returns
+        -------
+        None
 
-        PURPOSE:
-
-           turn off automatic returning of outputs in physical units
-
-        INPUT:
-
-           (none)
-
-        OUTPUT:
-
-           (none)
-
-        HISTORY:
-
-           2016-01-30 - Written - Bovy (UofT)
+        Notes
+        -----
+        - 2016-01-30 - Written - Bovy (UofT)
 
         """
         self._roSet = False
@@ -255,29 +231,23 @@ class Force:
 
     def turn_physical_on(self, ro=None, vo=None):
         """
-        NAME:
+        Turn on automatic returning of outputs in physical units.
 
-           turn_physical_on
+        Parameters
+        ----------
+        ro : float or Quantity, optional
+            Reference distance in kpc. Default is None.
+        vo : float or Quantity, optional
+            Reference velocity in km/s. Default is None.
 
-        PURPOSE:
+        Returns
+        -------
+        None
 
-           turn on automatic returning of outputs in physical units
-
-        INPUT:
-
-           ro= reference distance (kpc; can be Quantity)
-
-           vo= reference velocity (km/s; can be Quantity)
-
-        OUTPUT:
-
-           (none)
-
-        HISTORY:
-
-           2016-01-30 - Written - Bovy (UofT)
-
-           2020-04-22 - Don't turn on a parameter when it is False - Bovy (UofT)
+        Notes
+        -----
+        - 2016-01-30 - Written - Bovy (UofT)
+        - 2020-04-22 - Don't turn on a parameter when it is False - Bovy (UofT)
 
         """
         if not ro is False:
@@ -296,33 +266,29 @@ class Force:
     @physical_conversion("force", pop=True)
     def rforce(self, R, z, **kwargs):
         """
-        NAME:
+        Evaluate the spherical radial force F_r (R,z).
 
-           rforce
+        Parameters
+        ----------
+        R : float or Quantity
+            Cylindrical Galactocentric radius.
+        z : float or Quantity
+            Vertical height.
+        phi : float or Quantity, optional
+            Azimuth. Default is None.
+        t : float or Quantity, optional
+            Time. Default is 0.0.
+        v : float or Quantity, optional
+            Current velocity in cylindrical coordinates. Required when including dissipative forces. Default is None.
 
-        PURPOSE:
+        Returns
+        -------
+        F_r : float or Quantity
+            The spherical radial force F_r (R,z).
 
-           evaluate spherical radial force F_r  (R,z)
-
-        INPUT:
-
-           R - Cylindrical Galactocentric radius (can be Quantity)
-
-           z - vertical height (can be Quantity)
-
-           phi - azimuth (optional; can be Quantity)
-
-           t - time (optional; can be Quantity)
-
-           v - current velocity in cylindrical coordinates (optional, but required when including dissipative forces; can be a Quantity)
-
-        OUTPUT:
-
-           F_r (R,z,phi,t)
-
-        HISTORY:
-
-           2016-06-20 - Written - Bovy (UofT)
+        Notes
+        -----
+        - 2016-06-20 - Written - Bovy (UofT)
 
         """
         r = numpy.sqrt(R**2.0 + z**2.0)
@@ -331,25 +297,11 @@ class Force:
 
     def toPlanar(self):
         """
-        NAME:
+        Convert a 3D potential into a planar potential in the mid-plane.
 
-           toPlanar
-
-        PURPOSE:
-
-           convert a 3D potential into a planar potential in the mid-plane
-
-        INPUT:
-
-           (none)
-
-        OUTPUT:
-
-           planarPotential, planarAxiPotential, or planarDissipativeForce instance
-
-        HISTORY:
-
-           unknown
+        Returns
+        -------
+        planarPotential, planarAxiPotential, or planarDissipativeForce instance
 
         """
         from ..potential import toPlanarPotential

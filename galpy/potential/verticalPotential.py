@@ -13,21 +13,28 @@ class verticalPotential(linearPotential):
 
     def __init__(self, Pot, R=1.0, phi=None, t0=0.0):
         """
-        NAME:
-           __init__
-        PURPOSE:
-           Initialize
-        INPUT:
-           Pot - Potential instance
-           R  - Galactocentric radius at which to create the vertical potential
-           phi= (None) Galactocentric azimuth at which to create the vertical potential (rad); necessary for
-           t0= (0.) time at which to create the vertical potential
-        OUTPUT:
-           verticalPotential instance
-        HISTORY:
-           2010-07-13 - Written - Bovy (NYU)
-           2018-10-07 - Added support for non-axi potentials - Bovy (UofT)
-           2019-08-19 - Added support for time-dependent potentials - Bovy (UofT)
+        Initialize a verticalPotential instance.
+
+        Parameters
+        ----------
+        Pot : Potential instance
+            The potential to convert to a vertical potential.
+        R : float, optional
+            Galactocentric radius at which to create the vertical potential. Default is 1.0.
+        phi : float, optional
+            Galactocentric azimuth at which to create the vertical potential (rad); necessary for non-axisymmetric potentials. Default is None.
+        t0 : float, optional
+            Time at which to create the vertical potential. Default is 0.0.
+
+        Returns
+        -------
+        verticalPotential instance
+
+        Notes
+        -----
+        - 2010-07-13 - Written - Bovy (NYU)
+        - 2018-10-07 - Added support for non-axi potentials - Bovy (UofT)
+        - 2019-08-19 - Added support for time-dependent potentials - Bovy (UofT)
         """
         linearPotential.__init__(self, amp=1.0, ro=Pot._ro, vo=Pot._vo)
         self._Pot = Pot
@@ -51,17 +58,25 @@ class verticalPotential(linearPotential):
 
     def _evaluate(self, z, t=0.0):
         """
-        NAME:
-           _evaluate
-        PURPOSE:
-           evaluate the potential
-        INPUT:
-           z
-           t
-        OUTPUT:
-          Pot(z,t;R,phi)
-        HISTORY:
-           2010-07-13 - Written - Bovy (NYU)
+        Evaluate the potential.
+
+        Parameters
+        ----------
+        z : float
+            Height above the midplane.
+        t : float, optional
+            Time at which to evaluate the potential. Default is 0.0.
+
+        Returns
+        -------
+        float
+            The potential at (R, z, phi, t) - phi(R, 0., phi, t0).
+
+        Notes
+        -----
+        - 2010-07-13 - Written - Bovy (NYU)
+        - 2018-10-07 - Added support for non-axi potentials - Bovy (UofT)
+        - 2019-08-19 - Added support for time-dependent potentials - Bovy (UofT)
         """
         tR = self._R if not hasattr(z, "__len__") else self._R * numpy.ones_like(z)
         tphi = (
@@ -71,17 +86,26 @@ class verticalPotential(linearPotential):
 
     def _force(self, z, t=0.0):
         """
-        NAME:
-           _force
-        PURPOSE:
-           evaluate the force
-        INPUT:
-           z
-           t
-        OUTPUT:
-          F_z(z,t;R,phi)
-        HISTORY:
-           2010-07-13 - Written - Bovy (NYU)
+        Evaluate the force.
+
+        Parameters
+        ----------
+        z : float
+            Height above the midplane.
+        t : float, optional
+            Time at which to evaluate the force. Default is 0.0.
+
+        Returns
+        -------
+        float
+            The vertical force at (R, z, phi, t).
+
+        Notes
+        -----
+        - 2010-07-13 - Written - Bovy (NYU)
+        - 2018-10-07 - Added support for non-axi potentials - Bovy (UofT)
+        - 2019-08-19 - Added support for time-dependent potentials - Bovy (UofT)
+
         """
         tR = self._R if not hasattr(z, "__len__") else self._R * numpy.ones_like(z)
         tphi = (
@@ -92,27 +116,23 @@ class verticalPotential(linearPotential):
 
 def RZToverticalPotential(RZPot, R):
     """
-    NAME:
+    Convert a 3D azisymmetric potential to a vertical potential at a given R.
 
-       RZToverticalPotential
+    Parameters
+    ----------
+    Pot : Potential instance
+        The 3D potential to convert.
+    R : float or Quantity
+        Galactocentric radius at which to evaluate the vertical potential.
 
-    PURPOSE:
+    Returns
+    -------
+    verticalPotential instance
+        The vertical potential at (R, z, phi, t).
 
-       convert a RZPotential to a vertical potential at a given R
-
-    INPUT:
-
-       RZPot - RZPotential instance or list of such instances
-
-       R - Galactocentric radius at which to evaluate the vertical potential (can be Quantity)
-
-    OUTPUT:
-
-       (list of) linearPotential instance(s)
-
-    HISTORY:
-
-       2010-07-21 - Written - Bovy (NYU)
+    Notes
+    -----
+    - 2010-07-21 - Written - Bovy (NYU)
 
     """
     RZPot = flatten(RZPot)
@@ -161,31 +181,27 @@ def RZToverticalPotential(RZPot, R):
 
 def toVerticalPotential(Pot, R, phi=None, t0=0.0):
     """
-    NAME:
+    Convert a 3D azisymmetric potential to a vertical potential at a given R.
 
-       toVerticalPotential
+    Parameters
+    ----------
+    Pot : Potential instance
+        The 3D potential to convert.
+    R : float or Quantity
+        Galactocentric radius at which to evaluate the vertical potential.
+    phi : float, optional
+        Azimuth at which to evaluate the vertical potential. Default is None.
+    t0 : float, optional
+        Time at which to evaluate the vertical potential. Default is 0.0.
 
-    PURPOSE:
+    Returns
+    -------
+    verticalPotential instance
+        The vertical potential at (R, z, phi, t).
 
-       convert a Potential to a vertical potential at a given R: Phi(z,phi,t) = Phi(R,z,phi,t)-Phi(R,0.,phi0,t0) where phi0 and t0 are the phi and t inputs
-
-    INPUT:
-
-       Pot - Potential instance or list of such instances
-
-       R - Galactocentric radius at which to evaluate the vertical potential (can be Quantity)
-
-       phi= (None) Galactocentric azimuth at which to evaluate the vertical potential (can be Quantity); required if Pot is non-axisymmetric
-
-       t0= (0.) time at which to evaluate the vertical potential (can be Quantity)
-
-    OUTPUT:
-
-       (list of) linearPotential instance(s)
-
-    HISTORY:
-
-       2018-10-07 - Written - Bovy (UofT)
+    Notes
+    -----
+    - 2010-07-21 - Written - Bovy (NYU)
 
     """
     Pot = flatten(Pot)

@@ -23,28 +23,22 @@ if _APY_LOADED:
 class planarForce:
     """Top-level class for any 2D force, conservative or dissipative"""
 
-    def __init__(self, amp=1.0, ro=None, vo=None):
+    def __init__(self, amp, ro=None, vo=None):
         """
-        NAME:
+        Initialize 2D Force.
 
-           __init__
+        Parameters
+        ----------
+        amp : float
+            Amplitude to be applied when evaluating the potential and its forces.
+        ro : float or Quantity, optional
+            Physical distance scale (in kpc or as Quantity). Default is from the configuration file.
+        vo : float or Quantity, optional
+            Physical velocity scale (in km/s or as Quantity). Default is from the configuration file.
 
-        PURPOSE:
-
-           Initialize 2D Force
-
-        INPUT:
-
-           amp - amplitude to be applied when evaluating the potential and its forces
-
-           ro - physical distance scale (in kpc or as Quantity)
-
-           vo - physical velocity scale (in km/s or as Quantity)
-
-        OUTPUT:
-
-        HISTORY:
-           2023-05-29 - Written to generalize planarPotential to force that may or may not be conservative - Bovy (UofT)
+        Notes
+        -----
+        - 2023-05-29 - Written to generalize planarPotential to force that may or may not be conservative - Bovy (UofT)
         """
         self._amp = amp
         self.dim = 2
@@ -70,25 +64,21 @@ class planarForce:
 
     def __mul__(self, b):
         """
-        NAME:
+        Multiply a planarPotential's amplitude by a number.
 
-           __mul__
+        Parameters
+        ----------
+        b : number
+            The number to multiply the amplitude by.
 
-        PURPOSE:
+        Returns
+        -------
+        planarPotential instance
+            A new instance with amplitude = (old amplitude) x b.
 
-           Multiply a planarPotential's amplitude by a number
-
-        INPUT:
-
-           b - number
-
-        OUTPUT:
-
-           New instance with amplitude = (old amplitude) x b
-
-        HISTORY:
-
-           2019-01-27 - Written - Bovy (UofT)
+        Notes
+        -----
+        - 2019-01-27: Written - Bovy (UofT)
 
         """
         if not isinstance(b, (int, float)):
@@ -109,25 +99,20 @@ class planarForce:
 
     def __add__(self, b):
         """
-        NAME:
+        Add planarPotential instances together to create a multi-component potential (e.g., pot= pot1+pot2+pot3)
 
-           __add__
+        Parameters
+        ----------
+        b : planarPotential instance or a list thereof
 
-        PURPOSE:
+        Returns
+        -------
+        list of planarPotential instances
+            Represents the combined potential
 
-           Add planarPotential instances together to create a multi-component potential (e.g., pot= pot1+pot2+pot3)
-
-        INPUT:
-
-           b - planarPotential instance or a list thereof
-
-        OUTPUT:
-
-           List of planarPotential instances that represents the combined potential
-
-        HISTORY:
-
-           2019-01-27 - Written - Bovy (UofT)
+        Notes
+        -----
+        - 2019-01-27 - Written - Bovy (UofT)
 
         """
         from ..potential import flatten as flatten_pot
@@ -165,25 +150,15 @@ class planarForce:
 
     def turn_physical_off(self):
         """
-        NAME:
+        Turn off automatic returning of outputs in physical units.
 
-           turn_physical_off
+        Returns
+        -------
+        None
 
-        PURPOSE:
-
-           turn off automatic returning of outputs in physical units
-
-        INPUT:
-
-           (none)
-
-        OUTPUT:
-
-           (none)
-
-        HISTORY:
-
-           2016-01-30 - Written - Bovy (UofT)
+        Notes
+        -----
+        - 2016-01-30 - Written - Bovy (UofT)
 
         """
         self._roSet = False
@@ -192,29 +167,23 @@ class planarForce:
 
     def turn_physical_on(self, ro=None, vo=None):
         """
-        NAME:
+        Turn on automatic returning of outputs in physical units.
 
-           turn_physical_on
+        Parameters
+        ----------
+        ro : float or Quantity, optional
+            Reference distance in kpc. Default is None.
+        vo : float or Quantity, optional
+            Reference velocity in km/s. Default is None.
 
-        PURPOSE:
+        Returns
+        -------
+        None
 
-           turn on automatic returning of outputs in physical units
-
-        INPUT:
-
-           ro= reference distance (kpc; can be Quantity)
-
-           vo= reference velocity (km/s; can be Quantity)
-
-        OUTPUT:
-
-           (none)
-
-        HISTORY:
-
-           2016-01-30 - Written - Bovy (UofT)
-
-           2020-04-22 - Don't turn on a parameter when it is False - Bovy (UofT)
+        Notes
+        -----
+        - 2016-01-30 - Written - Bovy (UofT)
+        - 2020-04-22 - Don't turn on a parameter when it is False - Bovy (UofT)
 
         """
         if not ro is False:
