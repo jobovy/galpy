@@ -43,25 +43,21 @@ class linearPotential:
 
     def __mul__(self, b):
         """
-        NAME:
+        Multiply a linearPotential's amplitude by a number
 
-           __mul__
+        Parameters
+        ----------
+        b : int or float
+            Number to multiply the amplitude of the linearPotential instance with.
 
-        PURPOSE:
+        Returns
+        -------
+        linearPotential instance
+            New instance with amplitude = (old amplitude) x b.
 
-           Multiply a linearPotential's amplitude by a number
-
-        INPUT:
-
-           b - number
-
-        OUTPUT:
-
-           New instance with amplitude = (old amplitude) x b
-
-        HISTORY:
-
-           2019-01-27 - Written - Bovy (UofT)
+        Notes
+        -----
+        - 2019-01-27 - Written - Bovy (UofT)
 
         """
         if not isinstance(b, (int, float)):
@@ -82,25 +78,20 @@ class linearPotential:
 
     def __add__(self, b):
         """
-        NAME:
+        Add linearPotential instances together to create a multi-component potential (e.g., pot= pot1+pot2+pot3)
 
-           __add__
+        Parameters
+        ----------
+        b : linearPotential instance or a list thereof
 
-        PURPOSE:
+        Returns
+        -------
+        list of linearPotential instances
+            Represents the combined potential
 
-           Add linearPotential instances together to create a multi-component potential (e.g., pot= pot1+pot2+pot3)
-
-        INPUT:
-
-           b - linearPotential instance or a list thereof
-
-        OUTPUT:
-
-           List of linearPotential instances that represents the combined potential
-
-        HISTORY:
-
-           2019-01-27 - Written - Bovy (UofT)
+        Notes
+        -----
+        - 2019-01-27 - Written - Bovy (UofT)
 
         """
         from ..potential import flatten as flatten_pot
@@ -139,25 +130,15 @@ class linearPotential:
 
     def turn_physical_off(self):
         """
-        NAME:
+        Turn off automatic returning of outputs in physical units.
 
-           turn_physical_off
+        Returns
+        -------
+        None
 
-        PURPOSE:
-
-           turn off automatic returning of outputs in physical units
-
-        INPUT:
-
-           (none)
-
-        OUTPUT:
-
-           (none)
-
-        HISTORY:
-
-           2016-01-30 - Written - Bovy (UofT)
+        Notes
+        -----
+        - 2016-01-30 - Written - Bovy (UofT)
 
         """
         self._roSet = False
@@ -166,29 +147,23 @@ class linearPotential:
 
     def turn_physical_on(self, ro=None, vo=None):
         """
-        NAME:
+        Turn on automatic returning of outputs in physical units.
 
-           turn_physical_on
+        Parameters
+        ----------
+        ro : float or Quantity, optional
+            Reference distance (kpc).
+        vo : float or Quantity, optional
+            Reference velocity (km/s).
 
-        PURPOSE:
+        Returns
+        -------
+        None
 
-           turn on automatic returning of outputs in physical units
-
-        INPUT:
-
-           ro= reference distance (kpc; can be Quantity)
-
-           vo= reference velocity (km/s; can be Quantity)
-
-        OUTPUT:
-
-           (none)
-
-        HISTORY:
-
-           2016-01-30 - Written - Bovy (UofT)
-
-           2020-04-22 - Don't turn on a parameter when it is False - Bovy (UofT)
+        Notes
+        -----
+        - 2016-01-30 - Written - Bovy (UofT)
+        - 2020-04-22 - Don't turn on a parameter when it is False - Bovy (UofT)
 
         """
         if not ro is False:
@@ -207,25 +182,23 @@ class linearPotential:
     @physical_conversion("energy", pop=True)
     def __call__(self, x, t=0.0):
         """
-        NAME:
-           __call__
-        PURPOSE:
+        Evaluate the potential.
 
-           evaluate the potential
+        Parameters
+        ----------
+        x : float or Quantity
+            Position.
+        t : float or Quantity, optional
+            Time (default: 0.0).
 
-        INPUT:
+        Returns
+        -------
+        float or Quantity
+            Potential at position x and time t.
 
-           x - position (can be Quantity)
-
-           t= time (optional; can be Quantity)
-
-        OUTPUT:
-
-           Phi(x,t)
-
-        HISTORY:
-
-           2010-07-12 - Written - Bovy (NYU)
+        Notes
+        -----
+        - 2010-07-12 - Written - Bovy (NYU)
 
         """
         return self._call_nodecorator(x, t=t)
@@ -243,27 +216,23 @@ class linearPotential:
     @physical_conversion("force", pop=True)
     def force(self, x, t=0.0):
         """
-        NAME:
+        Evaluate the force.
 
-           force
+        Parameters
+        ----------
+        x : float or Quantity
+            Position.
+        t : float or Quantity, optional
+            Time (default: 0.0).
 
-        PURPOSE:
+        Returns
+        -------
+        float or Quantity
+            Force at position x and time t.
 
-           evaluate the force
-
-        INPUT:
-
-           x - position (can be Quantity)
-
-           t= time (optional; can be Quantity)
-
-        OUTPUT:
-
-           F(x,t)
-
-        HISTORY:
-
-           2010-07-12 - Written - Bovy (NYU)
+        Notes
+        -----
+        - 2010-07-12 - Written - Bovy (NYU)
 
         """
         return self._force_nodecorator(x, t=t)
@@ -277,34 +246,28 @@ class linearPotential:
 
     def plot(self, t=0.0, min=-15.0, max=15, ns=21, savefilename=None):
         """
-        NAME:
+        Plot the potential
 
-           plot
+        Parameters
+        ----------
+        t : float or Quantity, optional
+            The time at which to evaluate the forces. Default is 0.0.
+        min : float, optional
+            Minimum x.
+        max : float, optional
+            Maximum x.
+        ns : int, optional
+            Grid in x.
+        savefilename : str, optional
+            Save to or restore from this savefile (pickle).
 
-        PURPOSE:
+        Returns
+        -------
+        plot to output device
 
-           plot the potential
-
-        INPUT:
-
-           t - time to evaluate the potential at
-
-           min - minimum x
-
-           max - maximum x
-
-           ns - grid in x
-
-           savefilename - save to or restore from this savefile (pickle)
-
-        OUTPUT:
-
-           plot to output device
-
-        HISTORY:
-
-           2010-07-13 - Written - Bovy (NYU)
-
+        Notes
+        -----
+        - 2010-07-13 - Written - Bovy (NYU)
         """
         if not savefilename == None and os.path.exists(savefilename):
             print("Restoring savefile " + savefilename + " ...")
@@ -333,29 +296,25 @@ class linearPotential:
 @physical_conversion("energy", pop=True)
 def evaluatelinearPotentials(Pot, x, t=0.0):
     """
-    NAME:
+    Evaluate the sum of a list of potentials.
 
-       evaluatelinearPotentials
+    Parameters
+    ----------
+    Pot : list of linearPotential instance(s)
+        The list of potentials to evaluate.
+    x : float or Quantity
+        The position at which to evaluate the potentials.
+    t : float or Quantity, optional
+        The time at which to evaluate the potentials. Default is 0.0.
 
-    PURPOSE:
+    Returns
+    -------
+    float or Quantity
+        The value of the potential at the given position and time.
 
-       evaluate the sum of a list of potentials
-
-    INPUT:
-
-       Pot - (list of) linearPotential instance(s)
-
-       x - evaluate potentials at this position (can be Quantity)
-
-       t - time to evaluate at  (can be Quantity)
-
-    OUTPUT:
-
-       pot(x,t)
-
-    HISTORY:
-
-       2010-07-13 - Written - Bovy (NYU)
+    Notes
+    -----
+    - 2010-07-13 - Written - Bovy (NYU)
 
     """
     return _evaluatelinearPotentials(Pot, x, t=t)
@@ -381,30 +340,25 @@ def _evaluatelinearPotentials(Pot, x, t=0.0):
 @physical_conversion("force", pop=True)
 def evaluatelinearForces(Pot, x, t=0.0):
     """
-    NAME:
+    Evaluate the forces due to a list of potentials.
 
-       evaluatelinearForces
+    Parameters
+    ----------
+    Pot : list of linearPotential instance(s)
+        The list of potentials to evaluate.
+    x : float or Quantity
+        The position at which to evaluate the forces.
+    t : float or Quantity, optional
+        The time at which to evaluate the forces. Default is 0.0.
 
-    PURPOSE:
+    Returns
+    -------
+    float or Quantity
+        The value of the forces at the given position and time.
 
-       evaluate the forces due to a list of potentials
-
-    INPUT:
-
-       Pot - (list of) linearPotential instance(s)
-
-       x - evaluate forces at this position (can be Quantity)
-
-       t - time to evaluate at (can be Quantity)
-
-    OUTPUT:
-
-       force(x,t)
-
-    HISTORY:
-
-       2010-07-13 - Written - Bovy (NYU)
-
+    Notes
+    -----
+    - 2010-07-13 - Written - Bovy (NYU)
     """
     return _evaluatelinearForces(Pot, x, t=t)
 
@@ -426,34 +380,30 @@ def _evaluatelinearForces(Pot, x, t=0.0):
 
 def plotlinearPotentials(Pot, t=0.0, min=-15.0, max=15, ns=21, savefilename=None):
     """
-    NAME:
+    Plot a combination of potentials
 
-       plotlinearPotentials
+    Parameters
+    ----------
+    Pot : list of linearPotential instance(s)
+        The list of potentials to evaluate.
+    t : float or Quantity, optional
+        The time at which to evaluate the forces. Default is 0.0.
+    min : float, optional
+        Minimum x.
+    max : float, optional
+        Maximum x.
+    ns : int, optional
+        Grid in x.
+    savefilename : str, optional
+        Save to or restore from this savefile (pickle).
 
-    PURPOSE:
+    Returns
+    -------
+    plot to output device
 
-       plot a combination of potentials
-
-    INPUT:
-
-       t - time to evaluate potential at
-
-       min - minimum x
-
-       max - maximum x
-
-       ns - grid in x
-
-       savefilename - save to or restore from this savefile (pickle)
-
-    OUTPUT:
-
-       plot to output device
-
-    HISTORY:
-
-       2010-07-13 - Written - Bovy (NYU)
-
+    Notes
+    -----
+    - 2010-07-13 - Written - Bovy (NYU)
     """
     Pot = flatten(Pot)
     if not savefilename == None and os.path.exists(savefilename):

@@ -34,29 +34,29 @@ class planarPotential(planarForce):
     @physical_conversion("energy", pop=True)
     def __call__(self, R, phi=0.0, t=0.0, dR=0, dphi=0):
         """
-        NAME:
+        Evaluate the potential.
 
-           __call__
+        Parameters
+        ----------
+        R : float or Quantity
+            Cylindrical radius.
+        phi : float or Quantity, optional
+            Azimuth (default: 0).
+        t : float or Quantity, optional
+            Time (default: 0).
+        dR : int, optional
+            Order of radial derivative (default: 0).
+        dphi : int, optional
+            Order of azimuthal derivative (default: 0).
 
-        PURPOSE:
+        Returns
+        -------
+        float or Quantity
+            Potential at (R, phi, t) or its derivative.
 
-           evaluate the potential
-
-        INPUT:
-
-           R - Cylindrica radius (can be Quantity)
-
-           phi= azimuth (optional; can be Quantity)
-
-           t= time (optional; can be Quantity)
-
-        OUTPUT:
-
-           Phi(R(,phi,t)))
-
-        HISTORY:
-
-           2010-07-13 - Written - Bovy (NYU)
+        Notes
+        -----
+        - 2010-07-13 - Written - Bovy (NYU)
 
         """
         return self._call_nodecorator(R, phi=phi, t=t, dR=dR, dphi=dphi)
@@ -89,29 +89,25 @@ class planarPotential(planarForce):
     @physical_conversion("force", pop=True)
     def Rforce(self, R, phi=0.0, t=0.0):
         r"""
-        NAME:
+        Evaluate the radial force.
 
-           Rforce
+        Parameters
+        ----------
+        R : float or Quantity
+            Cylindrical radius.
+        phi : float or Quantity, optional
+            Azimuth (default 0.0).
+        t : float  or Quantity, optional
+            Time (default 0.0).
 
-        PURPOSE:
+        Returns
+        -------
+        float or Quantity
+            Cylindrical radial force F_R(R, (\phi, t)).
 
-           evaluate the radial force
-
-        INPUT:
-
-           R - Cylindrical radius (can be Quantity)
-
-           phi= azimuth (optional; can be Quantity)
-
-           t= time (optional; can be Quantity)
-
-        OUTPUT:
-
-           F_R(R,(\phi,t)))
-
-        HISTORY:
-
-           2010-07-13 - Written - Bovy (NYU)
+        Notes
+        -----
+        - 2010-07-13 - Written - Bovy (NYU)
 
         """
         return self._Rforce_nodecorator(R, phi=phi, t=t)
@@ -129,29 +125,25 @@ class planarPotential(planarForce):
     @physical_conversion("energy", pop=True)
     def phitorque(self, R, phi=0.0, t=0.0):
         """
-        NAME:
+        Evaluate the azimuthal torque = - d Phi / d phi.
 
-           phitorque
+        Parameters
+        ----------
+        R : float or Quantity
+            Cylindrical radius.
+        phi : float or Quantity, optional
+            Azimuth (default 0.0).
+        t : float or Quantity, optional
+            Time (default 0.0).
 
-        PURPOSE:
+        Returns
+        -------
+        float or Quantity
+            Azimuthal torque tau_phi(R, (phi, t)).
 
-           evaluate the azimuthal torque = - d Phi / d phi
-
-        INPUT:
-
-           R - Cylindrical radius (can be Quantity)
-
-           phi= azimuth (optional; can be Quantity)
-
-           t= time (optional; can be Quantity)
-
-        OUTPUT:
-
-           tau_phi(R,(phi,t)))
-
-        HISTORY:
-
-           2010-07-13 - Written - Bovy (NYU)
+        Notes
+        -----
+        - 2010-07-13 - Written - Bovy (NYU)
 
         """
         return self._phitorque_nodecorator(R, phi=phi, t=t)
@@ -169,30 +161,25 @@ class planarPotential(planarForce):
     @physical_conversion("forcederivative", pop=True)
     def R2deriv(self, R, phi=0.0, t=0.0):
         """
-        NAME:
+        Evaluate the second radial derivative.
 
-           R2deriv
+        Parameters
+        ----------
+        R : float or Quantity
+            Cylindrical radius.
+        phi : float or Quantity, optional
+            Azimuth (default 0.0).
+        t : float or Quantity, optional
+            Time (default 0.0).
 
-        PURPOSE:
+        Returns
+        -------
+        float or Quantity
+            Second radial derivative d2phi/dR2 of the potential.
 
-           evaluate the second radial derivative
-
-        INPUT:
-
-           R - Cylindrical radius (can be Quantity)
-
-           phi= azimuth (optional; can be Quantity)
-
-           t= time (optional; can be Quantity)
-
-        OUTPUT:
-
-           d2phi/dR2
-
-        HISTORY:
-
-           2011-10-09 - Written - Bovy (IAS)
-
+        Notes
+        -----
+        - 2011-10-09 - Written - Bovy (IAS)
         """
         try:
             return self._amp * self._R2deriv(R, phi=phi, t=t)
@@ -205,29 +192,25 @@ class planarPotential(planarForce):
     @physical_conversion("energy", pop=True)
     def phi2deriv(self, R, phi=0.0, t=0.0):
         """
-        NAME:
+        Evaluate the second azimuthal derivative.
 
-           phi2deriv
+        Parameters
+        ----------
+        R : float or Quantity
+            Cylindrical radius.
+        phi : float or Quantity, optional
+            Azimuth (default 0.0).
+        t : float or Quantity, optional
+            Time (default 0.0).
 
-        PURPOSE:
+        Returns
+        -------
+        float or Quantity
+            Second azimuthal derivative d2phi/dazi2 of the potential.
 
-           evaluate the second azimuthal derivative
-
-        INPUT:
-
-           R - Cylindrical radius (can be Quantity)
-
-           phi= azimuth (optional; can be Quantity)
-
-           t= time (optional; can be Quantity)
-
-        OUTPUT:
-
-           d2phi/daz2
-
-        HISTORY:
-
-           2014-04-06 - Written - Bovy (IAS)
+        Notes
+        -----
+        - 2014-04-06 - Written - Bovy (IAS)
 
         """
         try:
@@ -241,29 +224,25 @@ class planarPotential(planarForce):
     @physical_conversion("force", pop=True)
     def Rphideriv(self, R, phi=0.0, t=0.0):
         """
-        NAME:
+        Evaluate the mixed radial and azimuthal derivative.
 
-           Rphideriv
+        Parameters
+        ----------
+        R : float or Quantity
+            Cylindrical radius.
+        phi : float or Quantity, optional
+            Azimuth (default 0.0).
+        t : float or Quantity, optional
+            Time (default 0.0).
 
-        PURPOSE:
+        Returns
+        -------
+        float or Quantity
+            Mixed radial and azimuthal derivative d2phi/dR dazi of the potential.
 
-           evaluate the mixed radial and azimuthal  derivative
-
-        INPUT:
-
-           R - Cylindrical radius (can be Quantity)
-
-           phi= azimuth (optional can be Quantity)
-
-           t= time (optional; can be Quantity)
-
-        OUTPUT:
-
-           d2phi/dR d az
-
-        HISTORY:
-
-           2014-05-21 - Written - Bovy (IAS)
+        Notes
+        -----
+        - 2014-05-21 - Written - Bovy (IAS)
 
         """
         try:
@@ -275,19 +254,29 @@ class planarPotential(planarForce):
 
     def plot(self, *args, **kwargs):
         """
-        NAME:
-           plot
-        PURPOSE:
-           plot the potential
-        INPUT:
-           Rrange - range (can be Quantity)
-           grid - number of points to plot
-           savefilename - save to or restore from this savefile (pickle)
-           +galpy.util.plot.plot(*args,**kwargs)
-        OUTPUT:
-           plot to output device
-        HISTORY:
-           2010-07-13 - Written - Bovy (NYU)
+        Plot the potential.
+
+        Parameters
+        ----------
+        Rrange : float or Quantity, optional
+            Range (can be Quantity).
+        grid : int, optional
+            Number of points to plot.
+        savefilename : str, optional
+            Save to or restore from this savefile (pickle).
+        *args : list
+            Arguments to be passed to `galpy.util.plot.plot`.
+        **kwargs : dict
+            Keyword arguments to be passed to `galpy.util.plot.plot`.
+
+        Returns
+        -------
+        plot
+
+        Notes
+        -----
+        - 2010-07-13 - Written - Bovy (NYU)
+
         """
         return plotplanarPotentials(self, *args, **kwargs)
 
@@ -302,39 +291,53 @@ class planarAxiPotential(planarPotential):
     def _phitorque(self, R, phi=0.0, t=0.0):
         return 0.0
 
-    def _phi2deriv(self, R, phi=0.0, t=0.0):  # pragma: no cover
+    def _phi2deriv(self, R, phi=0.0, t=0.0):
         """
-        NAME:
-           _phi2deriv
-        PURPOSE:
-           evaluate the second azimuthal derivative for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           the second azimuthal derivative
-        HISTORY:
-           2011-10-17 - Written - Bovy (IAS)
+        Evaluate the second azimuthal derivative for this potential.
+
+        Parameters
+        ----------
+        R : float
+            Galactocentric cylindrical radius.
+        phi : float, optional
+            Azimuth.
+        t : float, optional
+            Time.
+
+        Returns
+        -------
+        float
+            The second azimuthal derivative.
+
+        Notes
+        -----
+        - 2011-10-17 - Written - Bovy (IAS)
+
         """
         return 0.0
 
-    def _Rphideriv(self, R, phi=0.0, t=0.0):  # pragma: no cover
+    def _Rphideriv(self, R, phi=0.0, t=0.0):
         """
-        NAME:
-           _Rphideriv
-        PURPOSE:
-           evaluate the radial+azimuthal derivative for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           the radial+azimuthal derivative
-        HISTORY:
-           2011-10-17 - Written - Bovy (IAS)
+        Evaluate the radial+azimuthal derivative for this potential.
+
+        Parameters
+        ----------
+        R : float
+            Galactocentric cylindrical radius.
+        phi : float, optional
+            Azimuth.
+        t : float, optional
+            Time.
+
+        Returns
+        -------
+        float
+            The radial+azimuthal derivative.
+
+        Notes
+        -----
+        - 2011-10-17 - Written - Bovy (IAS)
+
         """
         return 0.0
 
@@ -342,34 +345,26 @@ class planarAxiPotential(planarPotential):
     @physical_conversion("velocity", pop=True)
     def vcirc(self, R, phi=None, t=0.0):
         """
+        Calculate the circular velocity at R in potential Pot.
 
-        NAME:
+        Parameters
+        ----------
+        R : float or Quantity
+            Galactocentric radius.
+        phi : float or Quantity, optional
+            Azimuth to use for non-axisymmetric potentials.
+        t : float or Quantity, optional
+            Time (default: 0.0)
 
-            vcirc
+        Returns
+        -------
+        float or Quantity
+            Circular rotation velocity.
 
-        PURPOSE:
-
-            calculate the circular velocity at R in potential Pot
-
-        INPUT:
-
-            Pot - Potential instance or list of such instances
-
-            R - Galactocentric radius (can be Quantity)
-
-            phi= (None) azimuth to use for non-axisymmetric potentials
-
-            t - time (optional; can be Quantity)
-
-        OUTPUT:
-
-            circular rotation velocity
-
-        HISTORY:
-
-            2011-10-09 - Written - Bovy (IAS)
-
-            2016-06-15 - Added phi= keyword for non-axisymmetric potential - Bovy (UofT)
+        Notes
+        -----
+        - 2011-10-09 - Written - Bovy (IAS)
+        - 2016-06-15 - Added phi= keyword for non-axisymmetric potential - Bovy (UofT)
 
         """
         return numpy.sqrt(R * -self.Rforce(R, phi=phi, t=t, use_physical=False))
@@ -378,30 +373,23 @@ class planarAxiPotential(planarPotential):
     @physical_conversion("frequency", pop=True)
     def omegac(self, R, t=0.0):
         """
+        Calculate the circular angular speed at R in potential Pot.
 
-        NAME:
+        Parameters
+        ----------
+        R : float or Quantity
+            Galactocentric radius.
+        t : float or Quantity, optional
+            Time (default: 0.0)
 
-            omegac
+        Returns
+        -------
+        float or Quantity
+            Circular angular speed.
 
-        PURPOSE:
-
-            calculate the circular angular speed at R in potential Pot
-
-        INPUT:
-
-            Pot - Potential instance or list of such instances
-
-            R - Galactocentric radius (can be Quantity)
-
-            t - time (optional; can be Quantity)
-
-        OUTPUT:
-
-            circular angular speed
-
-        HISTORY:
-
-            2011-10-09 - Written - Bovy (IAS)
+        Notes
+        -----
+        - Written on 2011-10-09 by Bovy (IAS).
 
         """
         return numpy.sqrt(-self.Rforce(R, t=t, use_physical=False) / R)
@@ -410,28 +398,23 @@ class planarAxiPotential(planarPotential):
     @physical_conversion("frequency", pop=True)
     def epifreq(self, R, t=0.0):
         """
+        Calculate the epicycle frequency at R in this potential.
 
-        NAME:
+        Parameters
+        ----------
+        R : float or Quantity
+            Galactocentric radius.
+        t : float or Quantity, optional
+            Time (default: 0.0).
 
-           epifreq
+        Returns
+        -------
+        float or Quantity
+            Epicycle frequency.
 
-        PURPOSE:
-
-           calculate the epicycle frequency at R in this potential
-
-        INPUT:
-
-           R - Galactocentric radius (can be Quantity)
-
-           t - time (optional; can be Quantity)
-
-        OUTPUT:
-
-           epicycle frequency
-
-        HISTORY:
-
-           2011-10-09 - Written - Bovy (IAS)
+        Notes
+        -----
+        - Written on 2011-10-09 by Bovy (IAS).
 
         """
         return numpy.sqrt(
@@ -442,32 +425,28 @@ class planarAxiPotential(planarPotential):
     @physical_conversion("position", pop=True)
     def lindbladR(self, OmegaP, m=2, t=0.0, **kwargs):
         """
+        Calculate the radius of a Lindblad resonance.
 
-        NAME:
+        Parameters
+        ----------
+        OmegaP : float or Quantity
+            Pattern speed.
+        m : int or str, optional
+            Order of the resonance (as in m(O-Op)=kappa (negative m for outer)).
+            Use m='corotation' for corotation.
+        t : float or Quantity, optional
+            Time (default: 0.0).
+        **kwargs
+            Additional arguments passed to `scipy.optimize.brentq`.
 
-           lindbladR
+        Returns
+        -------
+        float or Quantity or None
+            Radius of Lindblad resonance. None if there is no resonance.
 
-        PURPOSE:
-
-            calculate the radius of a Lindblad resonance
-
-        INPUT:
-
-           OmegaP - pattern speed (can be Quantity)
-
-           m= order of the resonance (as in m(O-Op)=kappa (negative m for outer)
-              use m='corotation' for corotation
-              +scipy.optimize.brentq xtol,rtol,maxiter kwargs
-
-           t - time (optional; can be Quantity)
-
-        OUTPUT:
-
-           radius of Linblad resonance, None if there is no resonance
-
-        HISTORY:
-
-           2011-10-09 - Written - Bovy (IAS)
+        Notes
+        -----
+        - Written on 2011-10-09 by Bovy (IAS).
 
         """
         OmegaP = conversion.parse_frequency(OmegaP, ro=self._ro, vo=self._vo)
@@ -477,30 +456,23 @@ class planarAxiPotential(planarPotential):
     @physical_conversion("velocity", pop=True)
     def vesc(self, R, t=0.0):
         """
+        Calculate the escape velocity at R for the potential.
 
-        NAME:
+        Parameters
+        ----------
+        R : float or Quantity
+            Galactocentric radius.
+        t : float or Quantity, optional
+            Time (default: 0.0).
 
-            vesc
+        Returns
+        -------
+        float or Quantity
+            Escape velocity.
 
-        PURPOSE:
-
-            calculate the escape velocity at R for potential Pot
-
-        INPUT:
-
-            Pot - Potential instances or list thereof
-
-            R - Galactocentric radius (can be Quantity)
-
-            t - time (optional; can be Quantity)
-
-        OUTPUT:
-
-            escape velocity
-
-        HISTORY:
-
-            2011-10-09 - Written - Bovy (IAS)
+        Notes
+        -----
+        - Written on 2011-10-09 by Bovy (IAS).
 
         """
         return numpy.sqrt(
@@ -510,62 +482,54 @@ class planarAxiPotential(planarPotential):
 
     def plotRotcurve(self, *args, **kwargs):
         """
-        NAME:
+        Plot the rotation curve for this potential.
 
-           plotRotcurve
+        Parameters
+        ----------
+        Rrange : list or Quantity, optional
+            Range to plot.
+        grid : int, optional
+            Number of points to plot.
+        savefilename : str, optional
+            Save to or restore from this savefile (pickle).
+        *args, **kwargs :
+            Arguments and keyword arguments for `galpy.util.plot.plot`.
 
-        PURPOSE:
+        Returns
+        -------
+        matplotlib plot
+            Plot to output device.
 
-           plot the rotation curve for this potential
-
-        INPUT:
-
-           Rrange - range (can be Quantity)
-
-           grid - number of points to plot
-
-           savefilename - save to or restore from this savefile (pickle)
-
-           +galpy.util.plot.plot(*args,**kwargs)
-
-        OUTPUT:
-
-           plot to output device
-
-        HISTORY:
-
-           2010-07-13 - Written - Bovy (NYU)
+        Notes
+        -----
+        - 2010-07-13 - Written - Bovy (NYU)
 
         """
         return plotRotcurve(self, *args, **kwargs)
 
     def plotEscapecurve(self, *args, **kwargs):
         """
-        NAME:
+        Plot the escape velocity curve for this potential.
 
-           plotEscapecurve
+        Parameters
+        ----------
+        Rrange : list or Quantity, optional
+            Range to plot.
+        grid : int, optional
+            Number of points to plot.
+        savefilename : str, optional
+            Save to or restore from this savefile (pickle).
+        *args, **kwargs :
+            Arguments and keyword arguments for `galpy.util.plot.plot`.
 
-        PURPOSE:
+        Returns
+        -------
+        matplotlib plot
+            Plot to output device.
 
-           plot the escape velocity curve for this potential
-
-        INPUT:
-
-           Rrange - range (can be Quantity)
-
-           grid - number of points to plot
-
-           savefilename - save to or restore from this savefile (pickle)
-
-           +galpy.util.plot.plot(*args,**kwargs)
-
-        OUTPUT:
-
-           plot to output device
-
-        HISTORY:
-
-           2010-07-13 - Written - Bovy (NYU)
+        Notes
+        -----
+        - 2010-07-13 - Written - Bovy (NYU)
 
         """
         return plotEscapecurve(self, *args, **kwargs)
@@ -577,16 +541,21 @@ class planarPotentialFromRZPotential(planarAxiPotential):
 
     def __init__(self, RZPot):
         """
-        NAME:
-           __init__
-        PURPOSE:
-           Initialize
-        INPUT:
-           RZPot - RZPotential instance
-        OUTPUT:
-           planarAxiPotential instance
-        HISTORY:
-           2010-07-13 - Written - Bovy (NYU)
+        Initialize.
+
+        Parameters
+        ----------
+        RZPot : RZPotential instance
+            RZPotential instance.
+
+        Returns
+        -------
+        planarAxiPotential instance
+
+        Notes
+        -----
+        - 2010-07-13 - Written - Bovy (NYU)
+
         """
         planarAxiPotential.__init__(self, amp=1.0, ro=RZPot._ro, vo=RZPot._vo)
         # Also transfer roSet and voSet
@@ -599,78 +568,95 @@ class planarPotentialFromRZPotential(planarAxiPotential):
         return None
 
     def _evaluate(self, R, phi=0.0, t=0.0):
-        r"""
-        NAME:
-           _evaluate
-        PURPOSE:
-           evaluate the potential
-        INPUT:
-           R
-           phi
-           t
-        OUTPUT:
-          Pot(R(,\phi,t))
-        HISTORY:
-           2010-07-13 - Written - Bovy (NYU)
+        """
+        Evaluate the potential.
+
+        Parameters
+        ----------
+        R : float
+            Galactocentric radius.
+        phi : float, optional
+            Azimuth (default: 0.0).
+        t : float, optional
+            Time (default: 0.0).
+
+        Returns
+        -------
+        float
+            Potential at (R, phi, t).
+
+        Notes
+        -----
+        - 2010-07-13 - Written - Bovy (NYU)
         """
         return self._Pot(R, 0.0, t=t, use_physical=False)
 
     def _Rforce(self, R, phi=0.0, t=0.0):
-        r"""
-        NAME:
-           _Rforce
-        PURPOSE:
-           evaluate the radial force
-        INPUT:
-           R
-           phi
-           t
-        OUTPUT:
-          F_R(R(,\phi,t))
-        HISTORY:
-           2010-07-13 - Written - Bovy (NYU)
+        """
+        Evaluate the radial force.
+
+        Parameters
+        ----------
+        R : float
+            Galactocentric radius.
+        phi : float, optional
+            Azimuth (default: 0.0).
+        t : float, optional
+            Time (default: 0.0).
+
+        Returns
+        -------
+        float
+            Radial force at (R, phi, t).
+
+        Notes
+        -----
+        - Written on 2010-07-13 by Bovy (NYU).
         """
         return self._Pot.Rforce(R, 0.0, t=t, use_physical=False)
 
     def _R2deriv(self, R, phi=0.0, t=0.0):
         """
-        NAME:
-           _R2deriv
-        PURPOSE:
-           evaluate the second radial derivative
-        INPUT:
-           R
-           phi
-           t
-        OUTPUT:
-           d2phi/dR2
-        HISTORY:
-           2011-10-09 - Written - Bovy (IAS)
+        Evaluate the second radial derivative.
+
+        Parameters
+        ----------
+        R : float
+            Galactocentric radius.
+        phi : float, optional
+            Azimuth (default: 0.0).
+        t : float, optional
+            Time (default: 0.0).
+
+        Returns
+        -------
+        float
+            Second radial derivative at (R, phi, t).
+
+        Notes
+        -----
+        - 2011-10-09: Written by Bovy (IAS).
+
         """
         return self._Pot.R2deriv(R, 0.0, t=t, use_physical=False)
 
 
 def RZToplanarPotential(RZPot):
     """
-    NAME:
+    Convert an RZPotential to a planarPotential in the mid-plane (z=0).
 
-       RZToplanarPotential
+    Parameters
+    ----------
+    RZPot : RZPotential instance or list of such instances
+        Existing planarPotential instances are just copied to the output.
 
-    PURPOSE:
+    Returns
+    -------
+    planarPotential instance(s)
 
-       convert an RZPotential to a planarPotential in the mid-plane (z=0)
-
-    INPUT:
-
-       RZPot - RZPotential instance or list of such instances (existing planarPotential instances are just copied to the output)
-
-    OUTPUT:
-
-       planarPotential instance(s)
-
-    HISTORY:
-
-       2010-07-13 - Written - Bovy (NYU)
+    Notes
+    -----
+    - 2010-07-13 - Written - Bovy (NYU)
 
     """
     RZPot = flatten(RZPot)
@@ -706,16 +692,21 @@ class planarPotentialFromFullPotential(planarPotential):
 
     def __init__(self, Pot):
         """
-        NAME:
-           __init__
-        PURPOSE:
-           Initialize
-        INPUT:
-           Pot - Potential instance
-        OUTPUT:
-           planarPotential instance
-        HISTORY:
-           2016-06-02 - Written - Bovy (UofT)
+        Initialize.
+
+        Parameters
+        ----------
+        Pot : Potential instance
+            Potential instance.
+
+        Returns
+        -------
+        planarPotential instance
+
+        Notes
+        -----
+        - 2016-06-02 - Written - Bovy (UofT)
+
         """
         planarPotential.__init__(self, amp=1.0, ro=Pot._ro, vo=Pot._vo)
         # Also transfer roSet and voSet
@@ -728,144 +719,187 @@ class planarPotentialFromFullPotential(planarPotential):
         return None
 
     def _evaluate(self, R, phi=0.0, t=0.0):
-        r"""
-        NAME:
-           _evaluate
-        PURPOSE:
-           evaluate the potential
-        INPUT:
-           R
-           phi
-           t
-        OUTPUT:
-          Pot(R(,\phi,t))
-        HISTORY:
-           2016-06-02 - Written - Bovy (UofT)
+        """
+        Evaluate the potential.
+
+        Parameters
+        ----------
+        R : float
+            Cylindrical radius.
+        phi : float, optional
+            Azimuth (default: 0.0).
+        t : float, optional
+            Time (default: 0.0).
+
+        Returns
+        -------
+        float
+            Potential at (R, phi, t).
+
+        Notes
+        -----
+        - 2016-06-02: Written - Bovy (UofT)
+
         """
         return self._Pot(R, 0.0, phi=phi, t=t, use_physical=False)
 
     def _Rforce(self, R, phi=0.0, t=0.0):
-        r"""
-        NAME:
-           _Rforce
-        PURPOSE:
-           evaluate the radial force
-        INPUT:
-           R
-           phi
-           t
-        OUTPUT:
-          F_R(R(,\phi,t))
-        HISTORY:
-           2016-06-02 - Written - Bovy (UofT)
+        """
+        Evaluate the radial force.
+
+        Parameters
+        ----------
+        R : float
+            Cylindrical radius.
+        phi : float, optional
+            Azimuth (default: 0.0).
+        t : float, optional
+            Time (default: 0.0).
+
+        Returns
+        -------
+        float
+            Radial force at (R, phi, t).
+
+        Notes
+        -----
+        - Written on 2016-06-02 by Bovy (UofT)
+
         """
         return self._Pot.Rforce(R, 0.0, phi=phi, t=t, use_physical=False)
 
     def _phitorque(self, R, phi=0.0, t=0.0):
-        r"""
-        NAME:
-           _phitorque
-        PURPOSE:
-           evaluate the azimuthal torque
-        INPUT:
-           R
-           phi
-           t
-        OUTPUT:
-          tau_phi(R(,\phi,t))
-        HISTORY:
-           2016-06-02 - Written - Bovy (UofT)
+        """
+        Evaluate the azimuthal torque.
+
+        Parameters
+        ----------
+        R : float
+            Cylindrical radius.
+        phi : float, optional
+            Azimuth (default: 0.0).
+        t : float, optional
+            Time (default: 0.0).
+
+        Returns
+        -------
+        float
+            Azimuthal torque at (R, phi, t).
+
+        Notes
+        -----
+        - 2016-06-02: Written - Bovy (UofT)
+
         """
         return self._Pot.phitorque(R, 0.0, phi=phi, t=t, use_physical=False)
 
     def _R2deriv(self, R, phi=0.0, t=0.0):
         """
-        NAME:
-           _R2deriv
-        PURPOSE:
-           evaluate the second radial derivative
-        INPUT:
-           R
-           phi
-           t
-        OUTPUT:
-           d2phi/dR2
-        HISTORY:
-           2016-06-02 - Written - Bovy (UofT)
+        Evaluate the second radial derivative.
+
+        Parameters
+        ----------
+        R : float
+            Cylindrical radius.
+        phi : float, optional
+            Azimuth (default: 0.0).
+        t : float, optional
+            Time (default: 0.0).
+
+        Returns
+        -------
+        float
+            Second radial derivative at (R, phi, t).
+
+        Notes
+        -----
+        - 2016-06-02: Written - Bovy (UofT)
+
         """
         return self._Pot.R2deriv(R, 0.0, phi=phi, t=t, use_physical=False)
 
     def _phi2deriv(self, R, phi=0.0, t=0.0):
         """
-        NAME:
-           _phi2deriv
-        PURPOSE:
-           evaluate the second azimuthal derivative
-        INPUT:
-           R
-           phi
-           t
-        OUTPUT:
-           d2phi/dphi2
-        HISTORY:
-           2016-06-02 - Written - Bovy (UofT)
+        Evaluate the second azimuthal derivative.
+
+        Parameters
+        ----------
+        R : float
+            Cylindrical radius.
+        phi : float, optional
+            Azimuth (default: 0.0).
+        t : float, optional
+            Time (default: 0.0).
+
+        Returns
+        -------
+        float
+            Second azimuthal derivative at (R, phi, t).
+
+        Notes
+        -----
+        - 2016-06-02: Written - Bovy (UofT)
+
         """
         return self._Pot.phi2deriv(R, 0.0, phi=phi, t=t, use_physical=False)
 
     def _Rphideriv(self, R, phi=0.0, t=0.0):
         """
-        NAME:
-           _Rphideriv
-        PURPOSE:
-           evaluate the mixed radial-azimuthal derivative
-        INPUT:
-           R
-           phi
-           t
-        OUTPUT:
-           d2phi/dRdphi
-        HISTORY:
-           2016-06-02 - Written - Bovy (UofT)
+        Evaluate the mixed radial-azimuthal derivative.
+
+        Parameters
+        ----------
+        R : float
+            Cylindrical radius.
+        phi : float, optional
+            Azimuth (default: 0.0).
+        t : float, optional
+            Time (default: 0.0).
+
+        Returns
+        -------
+        float
+            Mixed radial-azimuthal derivative at (R, phi, t).
+
+        Notes
+        -----
+        - 2016-06-02: Written - Bovy (UofT)
+
         """
         return self._Pot.Rphideriv(R, 0.0, phi=phi, t=t, use_physical=False)
 
     def OmegaP(self):
         """
-        NAME:
-           OmegaP
-        PURPOSE:
-           return the pattern speed
-        INPUT:
-           (none)
-        OUTPUT:
-           pattern speed
-        HISTORY:
-           2016-05-31 - Written - Bovy (UofT)
+        Return the pattern speed.
+
+        Returns
+        -------
+        float
+            Pattern speed.
+
+        Notes
+        -----
+        - 2016-05-31: Written - Bovy (UofT)
         """
         return self._Pot.OmegaP()
 
 
 def toPlanarPotential(Pot):
     """
-    NAME:
+    Convert an Potential to a planarPotential in the mid-plane (z=0).
 
-       toPlanarPotential
+    Parameters
+    ----------
+    Pot : Potential instance or list of such instances
+        Existing planarPotential instances are just copied to the output.
 
-    PURPOSE:
+    Returns
+    -------
+    planarPotential, planarAxiPotential, or planarDissipativeForce instance(s)
 
-       convert an Potential to a planarPotential in the mid-plane (z=0)
-
-    INPUT:
-
-       Pot - Potential instance or list of such instances (existing planarPotential instances are just copied to the output)
-
-    OUTPUT:
-
-       planarPotential, planarAxiPotential, or planarDissipativeForce instance(s)
-
-    HISTORY:
-
-       2016-06-11 - Written - Bovy (UofT)
+    Notes
+    -----
+    - 2016-06-11: Written - Bovy (UofT)
 
     """
     Pot = flatten(Pot)
@@ -904,33 +938,31 @@ def toPlanarPotential(Pot):
 @physical_conversion("energy", pop=True)
 def evaluateplanarPotentials(Pot, R, phi=None, t=0.0, dR=0, dphi=0):
     """
-    NAME:
+    Evaluate a (list of) planarPotential instance(s).
 
-       evaluateplanarPotentials
+    Parameters
+    ----------
+    Pot : planarPotential or list of planarPotential
+        A (list of) planarPotential instance(s).
+    R : float or Quantity
+        Cylindrical radius.
+    phi : float or Quantity, optional
+        Azimuth (default None).
+    t : float or Quantity, optional
+        Time (default 0.0).
+    dR : int, optional
+        If set to a non-zero integer, return the dR derivative instead. Default is 0.
+    dphi : int, optional
+        If set to a non-zero integer, return the dphi derivative instead. Default is 0.
 
-    PURPOSE:
+    Returns
+    -------
+    float or Quantity
+        Potential Phi(R(,phi,t)).
 
-       evaluate a (list of) planarPotential instance(s)
-
-    INPUT:
-
-       Pot - (list of) planarPotential instance(s)
-
-       R - Cylindrical radius (can be Quantity)
-
-       phi= azimuth (optional; can be Quantity)
-
-       t= time (optional; can be Quantity)
-
-       dR=, dphi= if set to non-zero integers, return the dR,dphi't derivative instead
-
-    OUTPUT:
-
-       Phi(R(,phi,t))
-
-    HISTORY:
-
-       2010-07-13 - Written - Bovy (NYU)
+    Notes
+    -----
+    - 2010-07-13 - Written - Bovy (NYU)
 
     """
     return _evaluateplanarPotentials(Pot, R, phi=phi, t=t, dR=dR, dphi=dphi)
@@ -969,35 +1001,31 @@ def _evaluateplanarPotentials(Pot, R, phi=None, t=0.0, dR=0, dphi=0):
 @physical_conversion("force", pop=True)
 def evaluateplanarRforces(Pot, R, phi=None, t=0.0, v=None):
     """
-    NAME:
+    Evaluate the cylindrical radial force of a (list of) planarPotential instance(s).
 
-       evaluateplanarRforces
+    Parameters
+    ----------
+    Pot : (list of) planarPotential instance(s)
+        The potential(s) to evaluate.
+    R : float or Quantity
+        Cylindrical radius.
+    phi : float or Quantity, optional
+        Azimuth (default: None).
+    t : float or Quantity, optional
+        Time (default: 0.0).
+    v : array_like or Quantity, optional
+        Current velocity in cylindrical coordinates (default: None).
+        Required when including dissipative forces.
 
-    PURPOSE:
+    Returns
+    -------
+    float or Quantity
+        The cylindrical radial force F_R(R, phi, t).
 
-       evaluate the Rforce of a (list of) planarPotential instance(s)
-
-    INPUT:
-
-       Pot - (list of) planarPotential instance(s)
-
-       R - Cylindrical radius (can be Quantity)
-
-       phi= azimuth (optional can be Quantity)
-
-       t= time (optional; can be Quantity)
-
-       v = current velocity in cylindrical coordinates (optional, but required when including dissipative forces; can be a Quantity)
-
-    OUTPUT:
-
-       F_R(R(,phi,t))
-
-    HISTORY:
-
-       2010-07-13 - Written - Bovy (NYU)
-
-       2023-05-29 - Added velocity input for dissipative forces - Bovy (UofT)
+    Notes
+    -----
+    - 2010-07-13 - Written - Bovy (NYU)
+    - 2023-05-29 - Added velocity input for dissipative forces - Bovy (UofT)
 
     """
     return _evaluateplanarRforces(Pot, R, phi=phi, t=t, v=v)
@@ -1046,35 +1074,31 @@ def _evaluateplanarRforces(Pot, R, phi=None, t=0.0, v=None):
 @physical_conversion("energy", pop=True)
 def evaluateplanarphitorques(Pot, R, phi=None, t=0.0, v=None):
     """
-    NAME:
+    Evaluate the phi torque of a (list of) planarPotential instance(s).
 
-       evaluateplanarphitorques
+    Parameters
+    ----------
+    Pot : (list of) planarPotential instance(s)
+        The potential(s) to evaluate.
+    R : float or Quantity
+        Cylindrical radius
+    phi : float or Quantity, optional
+        Azimuth (default: None)
+    t : float or Quantity, optional
+        Time (default: 0.0)
+    v : array_like or Quantity, optional
+        Current velocity in cylindrical coordinates (default: None)
+        Required when including dissipative forces.
 
-    PURPOSE:
+    Returns
+    -------
+    float or Quantity
+        The phitorque tau_phi(R, phi, t).
 
-       evaluate the phitorque of a (list of) planarPotential instance(s)
-
-    INPUT:
-
-       Pot - (list of) planarPotential instance(s)
-
-       R - Cylindrical radius (can be Quantity)
-
-       phi= azimuth (optional; can be Quantity)
-
-       t= time (optional; can be Quantity)
-
-       v = current velocity in cylindrical coordinates (optional, but required when including dissipative forces; can be a Quantity)
-
-    OUTPUT:
-
-       tau_phi(R(,phi,t))
-
-    HISTORY:
-
-       2010-07-13 - Written - Bovy (NYU)
-
-       2023-05-29 - Added velocity input for dissipative forces - Bovy (UofT)
+    Notes
+    -----
+    - 2010-07-13 - Written - Bovy (NYU)
+    - 2023-05-29 - Added velocity input for dissipative forces - Bovy (UofT)
 
     """
     return _evaluateplanarphitorques(Pot, R, phi=phi, t=t, v=v)
@@ -1122,31 +1146,27 @@ def _evaluateplanarphitorques(Pot, R, phi=None, t=0.0, v=None):
 @physical_conversion("forcederivative", pop=True)
 def evaluateplanarR2derivs(Pot, R, phi=None, t=0.0):
     """
-    NAME:
+    Evaluate the second radial derivative of planarPotential instance(s).
 
-       evaluateplanarR2derivs
+    Parameters
+    ----------
+    Pot : (list of) planarPotential instance(s)
+        The potential(s) to evaluate.
+    R : float or Quantity
+        Cylindrical radius
+    phi : float or Quantity, optional
+        Azimuth (default: None)
+    t : float or Quantity, optional
+        Time (default: 0.0)
 
-    PURPOSE:
+    Returns
+    -------
+    float or Quantity
+        The second potential derivative d2Phi/dR2(R, phi, t).
 
-       evaluate the second radial derivative of a (list of) planarPotential instance(s)
-
-    INPUT:
-
-       Pot - (list of) planarPotential instance(s)
-
-       R - Cylindrical radius (can be Quantity)
-
-       phi= azimuth (optional; can be Quantity)
-
-       t= time (optional; can be Quantity)
-
-    OUTPUT:
-
-       F_R(R(,phi,t))
-
-    HISTORY:
-
-       2010-10-09 - Written - Bovy (IAS)
+    Notes
+    -----
+    - 2010-10-09 - Written - Bovy (IAS)
 
     """
     from .Potential import _isNonAxi
@@ -1182,39 +1202,33 @@ def LinShuReductionFactor(
     axiPot, R, sigmar, nonaxiPot=None, k=None, m=None, OmegaP=None
 ):
     r"""
-    NAME:
+    Calculate the Lin & Shu (1966) reduction factor: the reduced linear response of a kinematically-warm stellar disk to a perturbation
 
-       LinShuReductionFactor
+    Parameters
+    ----------
+    axiPot : Potential or list of Potential instances
+        The background, axisymmetric potential
+    R : float or Quantity
+        Cylindrical radius
+    sigmar : float or Quantity
+        Radial velocity dispersion of the population
+    nonaxiPot : Potential object, optional
+        A non-axisymmetric Potential instance (such as SteadyLogSpiralPotential) that has functions that return OmegaP, m, and wavenumber. Either provide nonaxiPot or m, k, OmegaP.
+    k : float or Quantity, optional
+        Wavenumber (see Binney & Tremaine 2008). Either provide nonaxiPot or m, k, OmegaP.
+    m : int, optional
+        m in the perturbation's m x phi (number of arms for a spiral). Either provide nonaxiPot or m, k, OmegaP.
+    OmegaP : float or Quantity, optional
+        Pattern speed. Note that in the usual Lin-Shu formula \omega = m x OmegaP. Either provide nonaxiPot or m, k, OmegaP.
 
-    PURPOSE:
+    Returns
+    -------
+    float
+        The reduction factor
 
-       Calculate the Lin & Shu (1966) reduction factor: the reduced linear response of a kinematically-warm stellar disk to a perturbation
-
-    INPUT:
-
-       axiPot - The background, axisymmetric potential
-
-       R - Cylindrical radius (can be Quantity)
-
-       sigmar - radial velocity dispersion of the population (can be Quantity)
-
-       Then either provide:
-
-       1) m= m in the perturbation's m x phi (number of arms for a spiral)
-
-          k= wavenumber (see Binney & Tremaine 2008)
-
-          OmegaP= pattern speed (can be Quantity); note that in the usual Lin-Shu formula \omega = m x OmegaP
-
-       2) nonaxiPot= a non-axisymmetric Potential instance (such as SteadyLogSpiralPotential) that has functions that return OmegaP, m, and wavenumber
-
-    OUTPUT:
-
-       reduction factor
-
-    HISTORY:
-
-       2014-08-23 - Written - Bovy (IAS)
+    Notes
+    -----
+    - 2014-08-23 - Written - Bovy (IAS)
 
     """
     axiPot = flatten(axiPot)
@@ -1247,35 +1261,32 @@ def LinShuReductionFactor(
 
 def plotplanarPotentials(Pot, *args, **kwargs):
     """
-    NAME:
+    Plot a planar potential.
 
-       plotplanarPotentials
+    Parameters
+    ----------
+    Pot : Potential or list of Potential instances
+        Potential or list of potentials to plot
+    Rrange : list or Quantity, optional
+        Range in R to plot (default is [0.01, 5.0])
+    xrange, yrange : list, optional
+        Range in x and y to plot (can be Quantity) (default is [-5.0, 5.0])
+    grid, gridx, gridy : int, optional
+        Number of points to plot (default is 100). grid for 1D plots, gridx and gridy for 2D plots
+    savefilename : str, optional
+        Save to or restore from this savefile (pickle)
+    ncontours : int, optional
+        Number of contours to plot (if applicable)
+    *args, **kwargs :
+        Arguments and keyword arguments for `galpy.util.plot.plot` or `galpy.util.plot.dens2d`
 
-    PURPOSE:
+    Returns
+    -------
+    plot to output device
 
-       plot a planar potential
-
-    INPUT:
-
-       Rrange - range (can be Quantity)
-
-       xrange, yrange - if relevant (can be Quantity)
-
-       grid, gridx, gridy - number of points to plot
-
-       savefilename - save to or restore from this savefile (pickle)
-
-       ncontours - number of contours to plot (if applicable)
-
-       +galpy.util.plot.plot(*args,**kwargs) or galpy.util.plot.dens2d(**kwargs)
-
-    OUTPUT:
-
-       plot to output device
-
-    HISTORY:
-
-       2010-07-13 - Written - Bovy (NYU)
+    Notes
+    -----
+    - 2010-07-13 - Written - Bovy (NYU)
 
     """
     Pot = flatten(Pot)
@@ -1339,7 +1350,7 @@ def plotplanarPotentials(Pot, *args, **kwargs):
                 pickle.dump(Rs, savefile)
             savefile.close()
     if nonAxi:
-        if not "orogin" in kwargs:
+        if not "origin" in kwargs:
             kwargs["origin"] = "lower"
         if not "cmap" in kwargs:
             kwargs["cmap"] = "gist_yarg"

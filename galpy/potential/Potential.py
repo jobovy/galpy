@@ -102,6 +102,10 @@ class Potential(Force):
             Amplitude to be applied when evaluating the potential and its forces.
         amp_units : str, optional
             Type of units that `amp` should have if it has units. Possible values are 'mass', 'velocity2', and 'density'.
+        ro : float or Quantity, optional
+            Physical distance scale (in kpc or as Quantity). Default is from the configuration file.
+        vo : float or Quantity, optional
+            Physical velocity scale (in km/s or as Quantity). Default is from the configuration file.
 
         """
         Force.__init__(self, amp=amp, ro=ro, vo=vo, amp_units=amp_units)

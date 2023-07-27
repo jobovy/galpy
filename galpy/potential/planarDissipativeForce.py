@@ -10,16 +10,24 @@ from .planarForce import planarForce
 class planarDissipativeForce(planarForce):
     """Top-level class for non-conservative forces (cannot be derived from a potential function)"""
 
-    def __init__(self, amp=1.0, ro=None, vo=None, amp_units=None):
+    def __init__(self, amp, ro=None, vo=None, amp_units=None):
         """
-        NAME:
-           __init__
-        PURPOSE:
-        INPUT:
-           amp - amplitude to be applied when evaluating the potential and its forces
-        OUTPUT:
-        HISTORY:
-           2023-05-29 - Started - Bovy (UofT)
+        Initialize a planarDissipativeForce object.
+
+        Parameters
+        ----------
+        amp : float
+            Amplitude to be applied when evaluating the potential and its forces.
+        ro : float or Quantity, optional
+            Distance from the Galactic center to the observer, in kpc. Default from the configuration file.
+        vo : float or Quantity, optional
+            Circular velocity at the Solar radius, in km/s. Default is from the configuration file.
+        amp_units : str, optional
+            Units of the amplitude. Default is None.
+
+        Notes
+        -----
+        - 2023-05-29 - Started - Bovy (UofT)
         """
         planarForce.__init__(self, amp=amp, ro=ro, vo=vo)
 
@@ -27,31 +35,27 @@ class planarDissipativeForce(planarForce):
     @physical_conversion("force", pop=True)
     def Rforce(self, R, phi=0.0, t=0.0, v=None):
         """
-        NAME:
+        Evaluate cylindrical radial force F_R  (R,phi).
 
-           Rforce
+        Parameters
+        ----------
+        R : float or Quantity
+            Cylindrical Galactocentric radius.
+        phi : float or Quantity, optional
+            Azimuth. Default is 0.0.
+        t : float or Quantity, optional
+            Time. Default is 0.0.
+        v : array_like, optional
+            2D cylindrical velocity. Default is None.
 
-        PURPOSE:
+        Returns
+        -------
+        float or Quantity
+            Cylindrical radial force.
 
-           evaluate cylindrical radial force F_R  (R,phi)
-
-        INPUT:
-
-           R - Cylindrical Galactocentric radius (can be Quantity)
-
-           phi - azimuth (optional; can be Quantity)
-
-           t - time (optional; can be Quantity)
-
-           v - 2d cylindrical velocity (optional; can be Quantity)
-
-        OUTPUT:
-
-           F_R (R,phi,t,v)
-
-        HISTORY:
-
-           2023-05-29 - Written - Bovy (UofT)
+        Notes
+        -----
+        - 2023-05-29: Written by Bovy (UofT).
 
         """
         return self._Rforce_nodecorator(R, phi=phi, t=t, v=v)
@@ -71,31 +75,27 @@ class planarDissipativeForce(planarForce):
     @physical_conversion("force", pop=True)
     def phitorque(self, R, phi=0.0, t=0.0, v=None):
         """
-        NAME:
+        Evaluate the azimuthal torque F_phi (R, phi, t, v).
 
-           phitorque
+        Parameters
+        ----------
+        R : float or Quantity
+            Cylindrical Galactocentric radius.
+        phi : float or Quantity, optional
+            Azimuth. Default is 0.0.
+        t : float or Quantity, optional
+            Time. Default is 0.0.
+        v : array_like, optional
+            2D cylindrical velocity. Default is None.
 
-        PURPOSE:
+        Returns
+        -------
+        float or Quantity
+            Azimuthal torque.
 
-           evaluate the azimuthal torque F_phi  (R,phi,t,v)
-
-        INPUT:
-
-           R - Cylindrical Galactocentric radius (can be Quantity)
-
-           phi - azimuth (rad; can be Quantity)
-
-           t - time (optional; can be Quantity)
-
-           v - 2d cylindrical velocity (optional; can be Quantity)
-
-        OUTPUT:
-
-           F_phi (R,phi,t,v)
-
-        HISTORY:
-
-           2023-05-29 - Written - Bovy (UofT)
+        Notes
+        -----
+        - 2023-05-29: Written - Bovy (UofT)
 
         """
         return self._phitorque_nodecorator(R, phi=phi, t=t, v=v)
@@ -119,16 +119,21 @@ class planarDissipativeForceFromFullDissipativeForce(planarDissipativeForce):
 
     def __init__(self, Pot):
         """
-        NAME:
-           __init__
-        PURPOSE:
-           Initialize
-        INPUT:
-           Pot - DissipativeForce instance
-        OUTPUT:
-           planarDissipativeForce instance
-        HISTORY:
-           2023-05-29 - Written - Bovy (UofT)
+        Initialize the planarDissipativeForce instance.
+
+        Parameters
+        ----------
+        Pot : DissipativeForce instance
+            The instance of the DissipativeForce class.
+
+        Returns
+        -------
+        None
+
+        Notes
+        -----
+        - 2023-05-29 - Written - Bovy (UofT)
+
         """
         planarDissipativeForce.__init__(self, amp=1.0, ro=Pot._ro, vo=Pot._vo)
         # Also transfer roSet and voSet
@@ -142,19 +147,28 @@ class planarDissipativeForceFromFullDissipativeForce(planarDissipativeForce):
 
     def _Rforce(self, R, phi=0.0, t=0.0, v=None):
         r"""
-        NAME:
-           _Rforce
-        PURPOSE:
-           evaluate the radial force
-        INPUT:
-           R
-           phi
-           t
-           v
-        OUTPUT:
-          F_R(R(,\phi,t,v))
-        HISTORY:
-           2023-09-29 - Written - Bovy (UofT)
+        Evaluate the radial force.
+
+        Parameters
+        ----------
+        R : float
+            Galactocentric radius.
+        phi : float, optional
+            Azimuth (in radians). Default is 0.0.
+        t : float, optional
+            Time. Default is 0.0.
+        v : array_like, optional
+            Velocity in cylindrical coordinates (vR, vT, vz). Default is None.
+
+        Returns
+        -------
+        float or Quantity
+            Radial force F_R(R(,\phi,t,v))
+
+        Notes
+        -----
+        - 2023-09-29 - Written - Bovy (UofT)
+
         """
         return self._Pot.Rforce(
             R, 0.0, phi=phi, t=t, v=[v[0], v[1], 0.0], use_physical=False
@@ -162,19 +176,28 @@ class planarDissipativeForceFromFullDissipativeForce(planarDissipativeForce):
 
     def _phitorque(self, R, phi=0.0, t=0.0, v=None):
         r"""
-        NAME:
-           _phitorque
-        PURPOSE:
-           evaluate the azimuthal torque
-        INPUT:
-           R
-           phi
-           t
-           v
-        OUTPUT:
-          tau_phi(R(,\phi,t,v))
-        HISTORY:
-           2029-05-29 - Written - Bovy (UofT)
+        Evaluate the azimuthal torque.
+
+        Parameters
+        ----------
+        R : float
+            Galactocentric radius.
+        phi : float, optional
+            Azimuth (in radians). Default is 0.0.
+        t : float, optional
+            Time. Default is 0.0.
+        v : array_like, optional
+            Velocity in cylindrical coordinates (vR, vT, vz). Default is None.
+
+        Returns
+        -------
+        float or Quantity
+            Azimuthal torque tau_phi(R(,\phi,t,v))
+
+        Notes
+        -----
+        - 2029-05-29 - Written - Bovy (UofT)
+
         """
         return self._Pot.phitorque(
             R, 0.0, phi=phi, t=t, v=[v[0], v[1], 0.0], use_physical=False

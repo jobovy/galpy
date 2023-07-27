@@ -10,16 +10,29 @@ from .Force import Force
 class DissipativeForce(Force):
     """Top-level class for non-conservative forces (cannot be derived from a potential function)"""
 
-    def __init__(self, amp=1.0, ro=None, vo=None, amp_units=None):
+    def __init__(self, amp, ro=None, vo=None, amp_units=None):
         """
-        NAME:
-           __init__
-        PURPOSE:
-        INPUT:
-           amp - amplitude to be applied when evaluating the potential and its forces
-        OUTPUT:
-        HISTORY:
-           2018-03-16 - Started - Bovy (UofT)
+        Initialize a DissipativeForce object.
+
+        Parameters
+        ----------
+        amp : float
+            Amplitude to be applied when evaluating the potential and its forces.
+        ro : float or Quantity, optional
+            Distance from the Galactic center that corresponds to the zero point of the potential. Default is from galpy.util.const.
+        vo : float or Quantity, optional
+            Velocity that corresponds to the zero point of the velocity. Default is from galpy.util.const.
+        amp_units : str or None, optional
+            Units of the input amplitude. If None, default unit is used.
+
+        Returns
+        -------
+        None
+
+        Notes
+        -----
+        - 2018-03-16 - Started - Bovy (UofT)
+
         """
         Force.__init__(self, amp=amp, ro=ro, vo=vo, amp_units=amp_units)
         self.dim = 3
@@ -32,33 +45,29 @@ class DissipativeForce(Force):
     @physical_conversion("force", pop=True)
     def Rforce(self, R, z, phi=0.0, t=0.0, v=None):
         """
-        NAME:
+        Evaluate cylindrical radial force F_R  (R,z).
 
-           Rforce
+        Parameters
+        ----------
+        R : float or Quantity
+            Cylindrical Galactocentric radius.
+        z : float or Quantity
+            Vertical height.
+        phi : float or Quantity, optional
+            Azimuth. Default is 0.0.
+        t : float or Quantity, optional
+            Time. Default is 0.0.
+        v : array_like, optional
+            3D velocity. Default is None.
 
-        PURPOSE:
+        Returns
+        -------
+        float or Quantity
+            Cylindrical radial force F_R (R,z,phi,t,v).
 
-           evaluate cylindrical radial force F_R  (R,z)
-
-        INPUT:
-
-           R - Cylindrical Galactocentric radius (can be Quantity)
-
-           z - vertical height (can be Quantity)
-
-           phi - azimuth (optional; can be Quantity)
-
-           t - time (optional; can be Quantity)
-
-           v - 3d velocity (optional; can be Quantity)
-
-        OUTPUT:
-
-           F_R (R,z,phi,t,v)
-
-        HISTORY:
-
-           2018-03-18 - Written - Bovy (UofT)
+        Notes
+        -----
+        - 2018-03-18 - Written - Bovy (UofT)
 
         """
         return self._Rforce_nodecorator(R, z, phi=phi, t=t, v=v)
@@ -78,33 +87,29 @@ class DissipativeForce(Force):
     @physical_conversion("force", pop=True)
     def zforce(self, R, z, phi=0.0, t=0.0, v=None):
         """
-        NAME:
+        Evaluate the vertical force F_z  (R,z,t).
 
-           zforce
+        Parameters
+        ----------
+        R : float or Quantity
+            Cylindrical Galactocentric radius.
+        z : float or Quantity
+            Vertical height.
+        phi : float or Quantity, optional
+            Azimuth. Default is 0.0.
+        t : float or Quantity, optional
+            Time. Default is 0.0.
+        v : array_like, optional
+            3D velocity. Default is None.
 
-        PURPOSE:
+        Returns
+        -------
+        float or Quantity
+            Vertical force F_z (R,z,phi,t,v).
 
-           evaluate the vertical force F_z  (R,z,t)
-
-        INPUT:
-
-           R - Cylindrical Galactocentric radius (can be Quantity)
-
-           z - vertical height (can be Quantity)
-
-           phi - azimuth (optional; can be Quantity)
-
-           t - time (optional; can be Quantity)
-
-           v - 3d velocity (optional; can be Quantity)
-
-        OUTPUT:
-
-           F_z (R,z,phi,t,v)
-
-        HISTORY:
-
-           2018-03-16 - Written - Bovy (UofT)
+        Notes
+        -----
+        - 2018-03-16 - Written - Bovy (UofT)
 
         """
         return self._zforce_nodecorator(R, z, phi=phi, t=t, v=v)
@@ -124,33 +129,29 @@ class DissipativeForce(Force):
     @physical_conversion("force", pop=True)
     def phitorque(self, R, z, phi=0.0, t=0.0, v=None):
         """
-        NAME:
+        Evaluate the azimuthal torque F_phi  (R,z,phi,t,v).
 
-           phitorque
+        Parameters
+        ----------
+        R : float or Quantity
+            Cylindrical Galactocentric radius.
+        z : float or Quantity
+            Vertical height.
+        phi : float or Quantity, optional
+            Azimuth. Default is 0.0.
+        t : float or Quantity, optional
+            Time. Default is 0.0.
+        v : array_like, optional
+            3D velocity. Default is None.
 
-        PURPOSE:
+        Returns
+        -------
+        float or Quantity
+            Azimuthal torque F_phi (R,z,phi,t,v).
 
-           evaluate the azimuthal torque F_phi  (R,z,phi,t,v)
-
-        INPUT:
-
-           R - Cylindrical Galactocentric radius (can be Quantity)
-
-           z - vertical height (can be Quantity)
-
-           phi - azimuth (rad; can be Quantity)
-
-           t - time (optional; can be Quantity)
-
-           v - 3d velocity (optional; can be Quantity)
-
-        OUTPUT:
-
-           F_phi (R,z,phi,t,v)
-
-        HISTORY:
-
-           2018-03-16 - Written - Bovy (UofT)
+        Notes
+        -----
+        - 2018-03-16 - Written - Bovy (UofT)
 
         """
         return self._phitorque_nodecorator(R, z, phi=phi, t=t, v=v)
@@ -171,27 +172,21 @@ class DissipativeForce(Force):
 
 def _isDissipative(obj):
     """
-    NAME:
+    Determine whether this combination of potentials and forces is Dissipative
 
-       _isDissipative
+    Parameters
+    ----------
+    obj : Potential/DissipativeForce instance or list of such instances
 
-    PURPOSE:
+    Returns
+    -------
+    bool
+        True or False depending on whether the object is dissipative
 
-       Determine whether this combination of potentials and forces is Dissipative
-
-    INPUT:
-
-       obj - Potential/DissipativeForce instance or list of such instances
-
-    OUTPUT:
-
-       True or False depending on whether the object is dissipative
-
-    HISTORY:
-
-       2018-03-16 - Written - Bovy (UofT)
-
-       2023-05-29 - Adjusted to also take planarDissipativeForces into account - Bovy (UofT)
+    Notes
+    -----
+    - 2018-03-16 - Written - Bovy (UofT)
+    - 2023-05-29 - Adjusted to also take planarDissipativeForces into account - Bovy (UofT)
 
     """
     from .planarDissipativeForce import planarDissipativeForce
