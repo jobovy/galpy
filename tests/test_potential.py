@@ -6026,7 +6026,7 @@ def test_RingPotential_correctPotentialIntegral():
                 * special.jv(0, k * a)
                 * numpy.exp(-k * numpy.fabs(z)),
                 0.0,
-                numpy.infty,
+                numpy.inf,
             )[0]
         )
 
