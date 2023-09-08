@@ -246,7 +246,7 @@ jobs:
       if: matrix.python-version == '3.12'
       run: |
          pip install --upgrade --upgrade-strategy eager --pre numpy
-         pip install --upgrade --upgrade-strategy eager -i https://pypi.anaconda.org/scientific-python-nightly-wheels/simple scipy matplotlib
+         pip install --upgrade --upgrade-strategy eager -i https://pypi.anaconda.org/scientific-python-nightly-wheels/simple scipy matplotlib==3.8.0.dev1960+gac376ea1a6
          pip install --upgrade --upgrade-strategy eager numexpr setuptools cython pytest tqdm
     - name: Install pynbody
       if: ${{ matrix.REQUIRES_PYNBODY }}
