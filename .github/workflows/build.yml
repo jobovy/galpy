@@ -246,7 +246,8 @@ jobs:
       if: matrix.python-version == '3.12'
       run: |
          pip install --upgrade --upgrade-strategy eager --pre numpy
-         pip install --upgrade --upgrade-strategy eager contourpy
+         # matplotlib dependencies
+         pip install --upgrade --upgrade-strategy eager contourpy cycler fonttools kiwisolver packaging pillow pyparsing python-dateutil
          pip install --upgrade --upgrade-strategy eager -i https://pypi.anaconda.org/scientific-python-nightly-wheels/simple scipy matplotlib
          pip install --upgrade --upgrade-strategy eager numexpr setuptools cython pytest tqdm
     - name: Install pynbody
