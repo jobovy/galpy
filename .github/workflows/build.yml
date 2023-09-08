@@ -258,7 +258,7 @@ jobs:
          #pip install --upgrade --upgrade-strategy eager -i https://pypi.anaconda.org/scientific-python-nightly-wheels/simple pandas
          #pip install --upgrade --upgrade-strategy eager h5py
          #pip install --upgrade --upgrade-strategy eager wheel
-         pip install --upgrade --upgrade-strategy eager --no-deps pynbody
+         pip install --upgrade --upgrade-strategy eager --no-deps --pre pynbody
     - name: Install pynbody
       if: ${{ matrix.REQUIRES_PYNBODY && matrix.python-version != '3.12' }}
       run: |
