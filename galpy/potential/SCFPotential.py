@@ -60,36 +60,28 @@ class SCFPotential(Potential, NumericalPotentialDerivativesMixin):
         vo=None,
     ):
         """
-        NAME:
+        Initialize a SCF Potential from a set of expansion coefficients (use SCFPotential.from_density to directly initialize from a density)
 
-            __init__
+        Parameters
+        ----------
+        amp : float or Quantity, optional
+            Amplitude to be applied to the potential (default: 1); can be a Quantity with units of mass or Gxmass.
+        Acos : numpy.ndarray, optional
+            The real part of the expansion coefficient  (NxLxL matrix, or optionally NxLx1 if Asin=None).
+        Asin : numpy.ndarray, optional
+            The imaginary part of the expansion coefficient (NxLxL matrix or None).
+        a : float or Quantity, optional
+            Scale length.
+        normalize : bool or float, optional
+            If True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
+        ro : float or Quantity, optional
+            Distance scale for translation into internal units (default from configuration file).
+        vo : float or Quantity, optional
+            Velocity scale for translation into internal units (default from configuration file).
 
-        PURPOSE:
-
-            initialize a SCF Potential from a set of expansion coefficients (use SCFPotential.from_density to directly initialize from a density)
-
-        INPUT:
-
-           amp - amplitude to be applied to the potential (default: 1); can be a Quantity with units of mass or Gxmass
-
-           Acos - The real part of the expansion coefficient  (NxLxL matrix, or optionally NxLx1 if Asin=None)
-
-           Asin - The imaginary part of the expansion coefficient (NxLxL matrix or None)
-
-           a - scale length (can be Quantity)
-
-           normalize - if True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
-
-           ro=, vo= distance and velocity scales for translation into internal units (default from configuration file)
-
-        OUTPUT:
-
-           SCFPotential object
-
-        HISTORY:
-
-           2016-05-13 - Written - Aladdin Seaifan (UofT)
-
+        Notes
+        -----
+        - 2016-05-13 - Written - Aladdin Seaifan (UofT)
         """
         NumericalPotentialDerivativesMixin.__init__(
             self, {}
@@ -172,41 +164,38 @@ class SCFPotential(Potential, NumericalPotentialDerivativesMixin):
         vo=None,
     ):
         """
-        NAME:
+        Initialize an SCF Potential from a given density.
 
-            from_density
+        Parameters
+        ----------
+        dens : function
+            Density function that takes parameters R, z and phi; z and phi are optional for spherical profiles, phi is optional for axisymmetric profiles. The density function must take input positions in internal units (R/ro, z/ro), but can return densities in physical units. You can use the member dens of Potential instances or the density from evaluateDensities.
+        N : int
+            Number of radial basis functions.
+        L : int, optional
+            Number of costheta basis functions; for non-axisymmetric profiles also sets the number of azimuthal (phi) basis functions to M = 2L+1).
+        a : float or Quantity, optional
+            Expansion scale length.
+        symmetry : {'spherical','axisymmetry',None}, optional
+            Symmetry of the profile to assume. None is the general, non-axisymmetric case.
+        radial_order : int, optional
+            Number of sample points for the radial integral. If None, radial_order=max(20, N + 3/2L + 1).
+        costheta_order : int, optional
+            Number of sample points of the costheta integral. If None, If costheta_order=max(20, L + 1).
+        phi_order : int, optional
+            Number of sample points of the phi integral. If None, If costheta_order=max(20, L + 1).
+        ro : float or Quantity, optional
+            Distance scale for translation into internal units (default from configuration file).
+        vo : float or Quantity, optional
+            Velocity scale for translation into internal units (default from configuration file).
 
-        PURPOSE:
+        Returns
+        -------
+        SCFPotential object
 
-            initialize an SCF Potential from from a given density
-
-        INPUT:
-
-           dens - density function that takes parameters R, z and phi; z and phi are optional for spherical profiles, phi is optional for axisymmetric profiles. The density function must take input positions in internal units (R/ro, z/ro), but can return densities in physical units. You can use the member dens of Potential instances or the density from evaluateDensities
-
-           N - Number of radial basis functions
-
-           L - Number of costheta basis functions; for non-axisymmetric profiles also sets the number of azimuthal (phi) basis functions to M = 2L+1)
-
-           a - expansion scale length (can be Quantity)
-
-           symmetry= (None) symmetry of the profile to assume: 'spherical', 'axisymmetry', or None (for the general, non-axisymmetric case)
-
-           radial_order - Number of sample points for the radial integral. If None, radial_order=max(20, N + 3/2L + 1)
-
-           costheta_order - Number of sample points of the costheta integral. If None, If costheta_order=max(20, L + 1)
-
-           phi_order - Number of sample points of the phi integral. If None, If costheta_order=max(20, L + 1)
-
-           ro=, vo= distance and velocity scales for translation into internal units (default from configuration file)
-
-        OUTPUT:
-
-           SCFPotential object
-
-        HISTORY:
-
-           2022-06-20 - Written - Jo Bovy (UofT)
+        Notes
+        -----
+        - Written - Jo Bovy (UofT) - 2022-06-20
 
         """
         # Dummy object for ro/vo handling, to ensure consistency
@@ -265,17 +254,23 @@ class SCFPotential(Potential, NumericalPotentialDerivativesMixin):
 
     def _Nroot(self, L, M):
         """
-        NAME:
-           _Nroot
-        PURPOSE:
-           Evaluate the square root of equation (3.15) with the (2 - del_m,0) term outside the square root
-        INPUT:
-           L - evaluate Nroot for 0 <= l <= L
-           M - evaluate Nroot for 0 <= m <= M
-        OUTPUT:
-           The square root of equation (3.15) with the (2 - del_m,0) outside
-        HISTORY:
-           2016-05-16 - Written - Aladdin Seaifan (UofT)
+        Evaluate the square root of equation (3.15) with the (2 - del_m,0) term outside the square root.
+
+        Parameters
+        ----------
+        L : int
+            Evaluate Nroot for 0 <= l <= L.
+        M : int
+            Evaluate Nroot for 0 <= m <= M.
+
+        Returns
+        -------
+        numpy.ndarray
+            The square root of equation (3.15) with the (2 - del_m,0) outside.
+
+        Notes
+        -----
+        - Written on 2016-05-16 by Aladdin Seaifan (UofT).
         """
         NN = numpy.zeros((L, M), float)
         l = numpy.arange(0, L)[:, numpy.newaxis]
@@ -288,16 +283,21 @@ class SCFPotential(Potential, NumericalPotentialDerivativesMixin):
 
     def _calculateXi(self, r):
         """
-        NAME:
-           _calculateXi
-        PURPOSE:
-           Calculate xi given r
-        INPUT:
-           r - Evaluate at radius r
-        OUTPUT:
-           xi
-        HISTORY:
-           2016-05-18 - Written - Aladdin Seaifan (UofT)
+        Calculate xi given r.
+
+        Parameters
+        ----------
+        r : float
+            Evaluate at radius r.
+
+        Returns
+        -------
+        xi : float
+            The calculated xi.
+
+        Notes
+        -----
+        - 2016-05-18 - Written - Aladdin Seaifan (UofT)
         """
         a = self._a
         if r == 0:
@@ -307,18 +307,25 @@ class SCFPotential(Potential, NumericalPotentialDerivativesMixin):
 
     def _rhoTilde(self, r, N, L):
         """
-        NAME:
-           _rhoTilde
-        PURPOSE:
-           Evaluate rho_tilde as defined in equation 3.9 and 2.24 for 0 <= n < N and 0 <= l < L
-        INPUT:
-           r - Evaluate at radius r
-           N - size of the N dimension
-           L - size of the L dimension
-        OUTPUT:
-           rho tilde
-        HISTORY:
-           2016-05-17 - Written - Aladdin Seaifan (UofT)
+        Evaluate rho_tilde as defined in equation 3.9 and 2.24 for 0 <= n < N and 0 <= l < L
+
+        Parameters
+        ----------
+        r : float
+            Evaluate at radius r
+        N : int
+            size of the N dimension
+        L : int
+            size of the L dimension
+
+        Returns
+        -------
+        numpy.ndarray
+            The value of rho tilde
+
+        Notes
+        -----
+         - Written on 2016-05-17 by Aladdin Seaifan (UofT)
         """
         xi = self._calculateXi(r)
         CC = _C(xi, N, L)
@@ -338,18 +345,26 @@ class SCFPotential(Potential, NumericalPotentialDerivativesMixin):
 
     def _phiTilde(self, r, N, L):
         """
-        NAME:
-           _phiTilde
-        PURPOSE:
-           Evaluate phi_tilde as defined in equation 3.10 and 2.25 for 0 <= n < N and 0 <= l < L
-        INPUT:
-           r - Evaluate at radius r
-           N - size of the N dimension
-           L - size of the L dimension
-        OUTPUT:
-           phi tilde
-        HISTORY:
-           2016-05-17 - Written - Aladdin Seaifan (UofT)
+        Evaluate phi_tilde as defined in equation 3.10 and 2.25 for 0 <= n < N and 0 <= l < L
+
+        Parameters
+        ----------
+        r : float
+            Evaluate at radius r
+        N : int
+            size of the N dimension
+        L : int
+            size of the L dimension
+
+        Returns
+        -------
+        numpy.ndarray
+            phi tilde
+
+        Notes
+        -----
+        - Written on 2016-05-17 by Aladdin Seaifan (UofT)
+
         """
         xi = self._calculateXi(r)
         CC = _C(xi, N, L)
@@ -371,19 +386,27 @@ class SCFPotential(Potential, NumericalPotentialDerivativesMixin):
 
     def _compute(self, funcTilde, R, z, phi):
         """
-        NAME:
-           _compute
-        PURPOSE:
-           evaluate the NxLxM density or potential
-        INPUT:
-           funcTidle - must be _rhoTilde or _phiTilde
-           R - Cylindrical Galactocentric radius
-           z - vertical height
-           phi - azimuth
-        OUTPUT:
-           An NxLxM density or potential at (R,z, phi)
-        HISTORY:
-           2016-05-18 - Written - Aladdin Seaifan (UofT)
+        Evaluate the NxLxM density or potential
+
+        Parameters
+        ----------
+        funcTilde : function
+            Must be _rhoTilde or _phiTilde
+        R : float
+            Cylindrical Galactocentric radius
+        z : float
+            vertical height
+        phi : float
+            azimuth
+
+        Returns
+        -------
+        numpy.ndarray
+            An NxLxM density or potential at (R,z, phi)
+
+        Notes
+        -----
+        - Written on 2016-05-18 by Aladdin Seaifan (UofT)
         """
         Acos, Asin = self._Acos, self._Asin
         N, L, M = Acos.shape
@@ -408,19 +431,27 @@ class SCFPotential(Potential, NumericalPotentialDerivativesMixin):
 
     def _computeArray(self, funcTilde, R, z, phi):
         """
-        NAME:
-           _computeArray
-        PURPOSE:
-           evaluate the density or potential for a given array of coordinates
-        INPUT:
-           funcTidle - must be _rhoTilde or _phiTilde
-           R - Cylindrical Galactocentric radius
-           z - vertical height
-           phi - azimuth
-        OUTPUT:
-           density or potential evaluated at (R,z, phi)
-        HISTORY:
-           2016-06-02 - Written - Aladdin Seaifan (UofT)
+        Evaluate the density or potential for a given array of coordinates.
+
+        Parameters
+        ----------
+        funcTilde : function
+            Must be _rhoTilde or _phiTilde.
+        R : array_like
+            Cylindrical Galactocentric radius.
+        z : array_like
+            Vertical height.
+        phi : array_like
+            Azimuth.
+
+        Returns
+        -------
+        array_like
+            Density or potential evaluated at (R,z, phi).
+
+        Notes
+        -----
+        - 2016-06-02 - Written - Aladdin Seaifan (UofT)
         """
         R = numpy.array(R, dtype=float)
         z = numpy.array(z, dtype=float)
@@ -441,41 +472,11 @@ class SCFPotential(Potential, NumericalPotentialDerivativesMixin):
         return func
 
     def _dens(self, R, z, phi=0.0, t=0.0):
-        """
-        NAME:
-           _dens
-        PURPOSE:
-           evaluate the density at (R,z, phi)
-        INPUT:
-           R - Cylindrical Galactocentric radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           density at (R,z, phi)
-        HISTORY:
-           2016-05-17 - Written - Aladdin Seaifan (UofT)
-        """
         if not self.isNonAxi and phi is None:
             phi = 0.0
         return self._computeArray(self._rhoTilde, R, z, phi)
 
     def _mass(self, R, z=None, t=0.0):
-        """
-        NAME:
-           _mass
-        PURPOSE:
-           evaluate the mass within R (and z) for this potential; if z=None, integrate spherical
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           t - time
-        OUTPUT:
-           the mass enclosed
-        HISTORY:
-           2021-03-09 - Written - Bovy (UofT)
-           2021-03-18 - Switched to using Gauss' theorem - Bovy (UofT)
-        """
         if not z is None:
             raise AttributeError  # Hack to fall back to general
         # when integrating over spherical volume, all non-zero l,m vanish
@@ -485,40 +486,11 @@ class SCFPotential(Potential, NumericalPotentialDerivativesMixin):
         )
 
     def _evaluate(self, R, z, phi=0.0, t=0.0):
-        """
-        NAME:
-           _evaluate
-        PURPOSE:
-           evaluate the potential at (R,z, phi)
-        INPUT:
-           R - Cylindrical Galactocentric radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           potential at (R,z, phi)
-        HISTORY:
-           2016-05-17 - Written - Aladdin Seaifan (UofT)
-        """
         if not self.isNonAxi and phi is None:
             phi = 0.0
         return self._computeArray(self._phiTilde, R, z, phi)
 
     def _dphiTilde(self, r, N, L):
-        """
-        NAME:
-           _dphiTilde
-        PURPOSE:
-           Evaluate the derivative of phiTilde with respect to r
-        INPUT:
-           r - spherical radius
-           N - size of the N dimension
-           L - size of the L dimension
-        OUTPUT:
-           the derivative of phiTilde with respect to r
-        HISTORY:
-           2016-06-06 - Written - Aladdin Seaifan (UofT)
-        """
         a = self._a
         l = numpy.arange(0, L, dtype=float)[numpy.newaxis, :]
         n = numpy.arange(0, N, dtype=float)[:, numpy.newaxis]
@@ -533,21 +505,7 @@ class SCFPotential(Potential, NumericalPotentialDerivativesMixin):
         )
 
     def _computeforce(self, R, z, phi=0, t=0):
-        """
-        NAME:
-           _computeforce
-        PURPOSE:
-           Evaluate the first derivative of Phi with respect to R, z and phi
-        INPUT:
-           R - Cylindrical Galactocentric radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           dPhi/dr, dPhi/dtheta, dPhi/dphi
-        HISTORY:
-           2016-06-07 - Written - Aladdin Seaifan (UofT)
-        """
+        """Computes dPhi/dr, dPhi/dtheta, dPhi/dphi"""
         Acos, Asin = self._Acos, self._Asin
         N, L, M = Acos.shape
         r, theta, phi = coords.cyl_to_spher(R, z, phi)
@@ -584,22 +542,31 @@ class SCFPotential(Potential, NumericalPotentialDerivativesMixin):
 
     def _computeforceArray(self, dr_dx, dtheta_dx, dphi_dx, R, z, phi):
         """
-        NAME:
-           _computeforceArray
-        PURPOSE:
-           evaluate the forces in the x direction for a given array of coordinates
-        INPUT:
-           dr_dx - the derivative of r with respect to the chosen variable x
-           dtheta_dx - the derivative of theta with respect to the chosen variable x
-           dphi_dx - the derivative of phi with respect to the chosen variable x
-           R - Cylindrical Galactocentric radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           The forces in the x direction
-        HISTORY:
-           2016-06-02 - Written - Aladdin Seaifan (UofT)
+        Evaluate the forces in the x direction for a given array of coordinates.
+
+        Parameters
+        ----------
+        dr_dx : array_like
+            The derivative of r with respect to the chosen variable x.
+        dtheta_dx : array_like
+            The derivative of theta with respect to the chosen variable x.
+        dphi_dx : array_like
+            The derivative of phi with respect to the chosen variable x.
+        R : array_like
+            Cylindrical Galactocentric radius.
+        z : array_like
+            Vertical height.
+        phi : array_like
+            Azimuth.
+
+        Returns
+        -------
+        numpy.ndarray
+            The forces in the x direction.
+
+        Notes
+        -----
+        - 2016-06-02 - Written - Aladdin Seaifan (UofT)
         """
         R = numpy.array(R, dtype=float)
         z = numpy.array(z, dtype=float)
@@ -631,21 +598,6 @@ class SCFPotential(Potential, NumericalPotentialDerivativesMixin):
         return force
 
     def _Rforce(self, R, z, phi=0, t=0):
-        """
-        NAME:
-           _Rforce
-        PURPOSE:
-           evaluate the radial force at (R,z, phi)
-        INPUT:
-           R - Cylindrical Galactocentric radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           radial force at (R,z, phi)
-        HISTORY:
-           2016-06-06 - Written - Aladdin Seaifan (UofT)
-        """
         if not self.isNonAxi and phi is None:
             phi = 0.0
         r, theta, phi = coords.cyl_to_spher(R, z, phi)
@@ -656,21 +608,6 @@ class SCFPotential(Potential, NumericalPotentialDerivativesMixin):
         return self._computeforceArray(dr_dR, dtheta_dR, dphi_dR, R, z, phi)
 
     def _zforce(self, R, z, phi=0.0, t=0.0):
-        """
-        NAME:
-           _zforce
-        PURPOSE:
-           evaluate the vertical force at (R,z, phi)
-        INPUT:
-           R - Cylindrical Galactocentric radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           vertical force at (R,z, phi)
-        HISTORY:
-           2016-06-06 - Written - Aladdin Seaifan (UofT)
-        """
         if not self.isNonAxi and phi is None:
             phi = 0.0
         r, theta, phi = coords.cyl_to_spher(R, z, phi)
@@ -681,21 +618,6 @@ class SCFPotential(Potential, NumericalPotentialDerivativesMixin):
         return self._computeforceArray(dr_dz, dtheta_dz, dphi_dz, R, z, phi)
 
     def _phitorque(self, R, z, phi=0, t=0):
-        """
-        NAME:
-           _phitorque
-        PURPOSE:
-           evaluate the azimuth force at (R,z, phi)
-        INPUT:
-           R - Cylindrical Galactocentric radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           azimuth force at (R,z, phi)
-        HISTORY:
-           2016-06-06 - Written - Aladdin Seaifan (UofT)
-        """
         if not self.isNonAxi and phi is None:
             phi = 0.0
         r, theta, phi = coords.cyl_to_spher(R, z, phi)
@@ -725,22 +647,31 @@ def _RToxi(r, a=1):
 
 def _C(xi, N, L, alpha=lambda x: 2 * x + 3.0 / 2, singleL=False):
     """
-    NAME:
-       _C
-    PURPOSE:
-       Evaluate C_n,l (the Gegenbauer polynomial) for 0 <= l < L and 0<= n < N
-    INPUT:
-       xi - radial transformed variable
-       N - Size of the N dimension
-       L - Size of the L dimension
-       alpha = A lambda function of l. Default alpha = 2l + 3/2
-       singleL= (False), if True only compute the L-th polynomial
-    OUTPUT:
-       An LxN Gegenbauer Polynomial
-    HISTORY:
-       2016-05-16 - Written - Aladdin Seaifan (UofT)
-       2021-02-22 - Upgraded to array xi - Bovy (UofT)
-       2021-02-22 - Added singleL for use in compute...nbody - Bovy (UofT)
+    Evaluate the Gegenbauer polynomial for 0 <= l < L and 0<= n < N
+
+    Parameters
+    ----------
+    xi : float
+        Radial transformed variable
+    N : int
+        Size of the N dimension
+    L : int
+        Size of the L dimension
+    alpha : function, optional
+        A lambda function of l. Default alpha = 2l + 3/2
+    singleL : bool, optional
+        If True only compute the L-th polynomial (default: False)
+
+    Returns
+    -------
+    numpy.ndarray
+        An LxN Gegenbauer Polynomial
+
+    Notes
+    -----
+    - 2016-05-16 - Written - Aladdin Seaifan (UofT)
+    - 2021-02-22 - Upgraded to array xi - Bovy (UofT)
+    - 2021-02-22 - Added singleL for use in compute...nbody - Bovy (UofT)
     """
     floatIn = False
     if isinstance(xi, (float, int)):
@@ -780,33 +711,28 @@ def _dC(xi, N, L):
 
 def scf_compute_coeffs_spherical_nbody(pos, N, mass=1.0, a=1.0):
     """
-    NAME:
+    Numerically compute the expansion coefficients for a spherical expansion for a given $N$-body set of points
 
-       scf_compute_coeffs_spherical_nbody
+    Parameters
+    ----------
+    pos : array_like
+        Positions of particles in rectangular coordinates with shape [3,n]
+    N : int
+        Size of the Nth dimension of the expansion coefficients
+    mass : float or array_like, optional
+        Mass of particles (scalar or array with size n), by default 1.0
+    a : float, optional
+        Parameter used to scale the radius, by default 1.0
 
-    PURPOSE:
+    Returns
+    -------
+    tuple
+        Expansion coefficients for density dens that can be given to SCFPotential.__init__
 
-       Numerically compute the expansion coefficients for a spherical expansion for a given $N$-body set of points
-
-    INPUT:
-
-       pos - positions of particles in rectangular coordinates with shape [3,n]
-
-       N - size of the Nth dimension of the expansion coefficients
-
-       mass= (1.) mass of particles (scalar or array with size n)
-
-       a= (1.) parameter used to scale the radius
-
-    OUTPUT:
-
-       (Acos,Asin) - Expansion coefficients for density dens that can be given to SCFPotential.__init__
-
-    HISTORY:
-
-       2020-11-18 - Written - Morgan Bennett (UofT)
-
-       2021-02-22 - Sped-up - Bovy (UofT)
+    Notes
+    -----
+    - 2020-11-18 - Written - Morgan Bennett (UofT)
+    - 2021-02-22 - Sped-up - Bovy (UofT)
 
     """
     Acos = numpy.zeros((N, 1, 1), float)
@@ -832,32 +758,27 @@ def _scf_compute_determine_dens_kwargs(dens, param):
 
 def scf_compute_coeffs_spherical(dens, N, a=1.0, radial_order=None):
     """
-    NAME:
+    Numerically compute the expansion coefficients for a given spherical density
 
-       scf_compute_coeffs_spherical
+    Parameters
+    ----------
+    dens : function
+        A density function that takes a parameter R
+    N : int
+        Size of expansion coefficients
+    a : float, optional
+        Parameter used to scale the radius (default is 1.0)
+    radial_order : int, optional
+        Number of sample points of the radial integral. If None, radial_order=max(20, N + 1) (default is None)
 
-    PURPOSE:
+    Returns
+    -------
+    tuple
+        (Acos,Asin) - Expansion coefficients for density dens that can be given to SCFPotential.__init__
 
-       Numerically compute the expansion coefficients for a given spherical density
-
-    INPUT:
-
-       dens - A density function that takes a parameter R
-
-       N - size of expansion coefficients
-
-       a= (1.) parameter used to scale the radius
-
-       radial_order - Number of sample points of the radial integral. If None, radial_order=max(20, N + 1)
-
-    OUTPUT:
-
-       (Acos,Asin) - Expansion coefficients for density dens that can be given to SCFPotential.__init__
-
-    HISTORY:
-
-       2016-05-18 - Written - Aladdin Seaifan (UofT)
-
+    Notes
+    -----
+    - 2016-05-18 - Written - Aladdin Seaifan (UofT)
     """
     numOfParam = 0
     try:
@@ -901,34 +822,29 @@ def scf_compute_coeffs_spherical(dens, N, a=1.0, radial_order=None):
 
 def scf_compute_coeffs_axi_nbody(pos, N, L, mass=1.0, a=1.0):
     """
-    NAME:
+    Numerically compute the expansion coefficients for a given $N$-body set of points assuming that the density is axisymmetric
 
-       scf_compute_coeffs_axi_nbody
+    Parameters
+    ----------
+    pos : numpy.ndarray
+        Positions of particles in rectangular coordinates with shape [3,n]
+    N : int
+        Size of the Nth dimension of the expansion coefficients
+    L : int
+        Size of the Lth dimension of the expansion coefficients
+    mass : float or array_like, optional
+        Mass of particles (scalar or array with size n), by default 1.0
+    a : float, optional
+        Parameter used to scale the radius, by default 1.0
 
-    PURPOSE:
+    Returns
+    -------
+    tuple
+        Expansion coefficients for density dens that can be given to SCFPotential.__init__
 
-       Numerically compute the expansion coefficients for a given $N$-body set of points assuming that the density is axisymmetric
-
-    INPUT:
-
-       pos - positions of particles in rectangular coordinates with shape [3,n]
-
-       N - size of the Nth dimension of the expansion coefficients
-
-       L - size of the Lth dimension of the expansion coefficients
-
-       mass= (1.) mass of particles (scalar or array with size n)
-
-       a= (1.) parameter used to scale the radius
-
-    OUTPUT:
-
-       (Acos,Asin) - Expansion coefficients for density dens that can be given to SCFPotential.__init__
-
-    HISTORY:
-
-       2021-02-22 - Written based on general code - Bovy (UofT)
-
+    Notes
+    -----
+    - 2021-02-22 - Written based on general code - Bovy (UofT)
     """
     r = numpy.sqrt(pos[0] ** 2 + pos[1] ** 2 + pos[2] ** 2)
     costheta = pos[2] / r
@@ -970,36 +886,31 @@ def scf_compute_coeffs_axi_nbody(pos, N, L, mass=1.0, a=1.0):
 
 def scf_compute_coeffs_axi(dens, N, L, a=1.0, radial_order=None, costheta_order=None):
     """
-    NAME:
+    Numerically compute the expansion coefficients for a given axi-symmetric density
 
-       scf_compute_coeffs_axi
+    Parameters
+    ----------
+    dens : function
+        A density function that takes parameters R and z
+    N : int
+        Size of the Nth dimension of the expansion coefficients
+    L : int
+        Size of the Lth dimension of the expansion coefficients
+    a : float, optional
+        Parameter used to shift the basis functions (default is 1.0)
+    radial_order : int, optional
+        Number of sample points of the radial integral. If None, radial_order=max(20, N + 3/2L + 1) (default is None)
+    costheta_order : int, optional
+        Number of sample points of the costheta integral. If None, If costheta_order=max(20, L + 1) (default is None)
 
-    PURPOSE:
+    Returns
+    -------
+    tuple
+        (Acos,Asin) - Expansion coefficients for density dens that can be given to SCFPotential.__init__
 
-       Numerically compute the expansion coefficients for a given axi-symmetric density
-
-    INPUT:
-
-       dens - A density function that takes a parameter R and z
-
-       N - size of the Nth dimension of the expansion coefficients
-
-       L - size of the Lth dimension of the expansion coefficients
-
-       a - parameter used to shift the basis functions
-
-       radial_order - Number of sample points of the radial integral. If None, radial_order=max(20, N + 3/2L + 1)
-
-       costheta_order - Number of sample points of the costheta integral. If None, If costheta_order=max(20, L + 1)
-
-    OUTPUT:
-
-       (Acos,Asin) - Expansion coefficients for density dens that can be given to SCFPotential.__init__
-
-    HISTORY:
-
-       2016-05-20 - Written - Aladdin Seaifan (UofT)
-
+    Notes
+    -----
+    - 2016-05-20 - Written - Aladdin Seaifan (UofT)
     """
     numOfParam = 0
     try:
@@ -1061,33 +972,29 @@ def scf_compute_coeffs_axi(dens, N, L, a=1.0, radial_order=None, costheta_order=
 
 def scf_compute_coeffs_nbody(pos, N, L, mass=1.0, a=1.0):
     """
-    NAME:
+    Numerically compute the expansion coefficients for a given $N$-body set of points
 
-       scf_compute_coeffs_nbody
+    Parameters
+    ----------
+    pos : numpy.ndarray
+        Positions of particles in rectangular coordinates with shape [3,n]
+    N : int
+        Size of the Nth dimension of the expansion coefficients
+    L : int
+        Size of the Lth and Mth dimension of the expansion coefficients
+    mass : float or array_like, optional
+        Mass of particles (scalar or array with size n), by default 1.0
+    a : float, optional
+        Parameter used to scale the radius, by default 1.0
 
-    PURPOSE:
+    Returns
+    -------
+    tuple
+        Expansion coefficients for density dens that can be given to SCFPotential.__init__
 
-       Numerically compute the expansion coefficients for a given $N$-body set of points
-
-    INPUT:
-
-       pos - positions of particles in rectangular coordinates with shape [3,n]
-
-       N - size of the Nth dimension of the expansion coefficients
-
-       L - size of the Lth and Mth dimension of the expansion coefficients
-
-       mass= (1.) mass of particles (scalar or array with size n)
-
-       a= (1.) parameter used to scale the radius
-
-    OUTPUT:
-
-       (Acos,Asin) - Expansion coefficients for density dens that can be given to SCFPotential.__init__
-
-    HISTORY:
-
-       2020-11-18 - Written - Morgan Bennett (UofT)
+    Notes
+    -----
+    - 2020-11-18 - Written - Morgan Bennett (UofT)
 
     """
     r = numpy.sqrt(pos[0] ** 2 + pos[1] ** 2 + pos[2] ** 2)
@@ -1147,37 +1054,33 @@ def scf_compute_coeffs(
     dens, N, L, a=1.0, radial_order=None, costheta_order=None, phi_order=None
 ):
     """
-    NAME:
+    Numerically compute the expansion coefficients for a given triaxial density
 
-       scf_compute_coeffs
+    Parameters
+    ----------
+    dens : function
+        A density function that takes parameters R, z and phi
+    N : int
+        Size of the Nth dimension of the expansion coefficients
+    L : int
+        Size of the Lth and Mth dimension of the expansion coefficients
+    a : float, optional
+        Parameter used to shift the basis functions (default is 1.0)
+    radial_order : int, optional
+        Number of sample points of the radial integral. If None, radial_order=max(20, N + 3/2L + 1) (default is None)
+    costheta_order : int, optional
+        Number of sample points of the costheta integral. If None, If costheta_order=max(20, L + 1) (default is None)
+    phi_order : int, optional
+        Number of sample points of the phi integral. If None, If costheta_order=max(20, L + 1) (default is None)
 
-    PURPOSE:
+    Returns
+    -------
+    tuple
+        (Acos,Asin) - Expansion coefficients for density dens that can be given to SCFPotential.__init__
 
-       Numerically compute the expansion coefficients for a given triaxial density
-
-    INPUT:
-
-       dens - A density function that takes a parameter R, z and phi
-
-       N - size of the Nth dimension of the expansion coefficients
-
-       L - size of the Lth and Mth dimension of the expansion coefficients
-
-       a - parameter used to shift the basis functions
-
-       radial_order - Number of sample points of the radial integral. If None, radial_order=max(20, N + 3/2L + 1)
-
-       costheta_order - Number of sample points of the costheta integral. If None, If costheta_order=max(20, L + 1)
-
-       phi_order - Number of sample points of the phi integral. If None, If costheta_order=max(20, L + 1)
-
-    OUTPUT:
-
-       (Acos,Asin) - Expansion coefficients for density dens that can be given to SCFPotential.__init__
-
-    HISTORY:
-
-       2016-05-27 - Written - Aladdin Seaifan (UofT)
+    Notes
+    -----
+    - 2016-05-27 - Written - Aladdin Seaifan (UofT)
 
     """
     dens_kw = _scf_compute_determine_dens_kwargs(dens, [0.1, 0.1, 0.1])
@@ -1253,19 +1156,23 @@ def scf_compute_coeffs(
 
 def _cartesian(arraySizes, out=None):
     """
-    NAME:
-        cartesian
-    PURPOSE:
-        Generate a cartesian product of input arrays.
-    INPUT:
-        arraySizes - list of size of arrays
-        out - Array to place the cartesian product in.
-    OUTPUT:
+    Generate a cartesian product of input arrays.
+
+    Parameters
+    ----------
+    arraySizes : list
+        list of size of arrays
+    out : numpy.ndarray, optional
+        Array to place the cartesian product in.
+
+    Returns
+    -------
+    numpy.ndarray
         2-D array of shape (product(arraySizes), len(arraySizes)) containing cartesian products
-        formed of input arrays.
-    HISTORY:
-        2016-06-02 - Obtained from
-        http://stackoverflow.com/questions/1208118/using-numpy-to-build-an-array-of-all-combinations-of-two-arrays
+
+    Notes
+    -----
+    -  2016-06-02 - Obtained from http://stackoverflow.com/questions/1208118/using-numpy-to-build-an-array-of-all-combinations-of-two-arrays
     """
     arrays = []
     for i in range(len(arraySizes)):
@@ -1289,23 +1196,28 @@ def _cartesian(arraySizes, out=None):
 
 def _gaussianQuadrature(integrand, bounds, Ksample=[20], roundoff=0):
     """
-    NAME:
-       _gaussianQuadrature
-    PURPOSE:
-       Numerically take n integrals over a function that returns a float or an array
-    INPUT:
-       integrand - The function you're integrating over.
-       bounds - The bounds of the integral in the form of [[a_0, b_0], [a_1, b_1], ... , [a_n, b_n]]
-       where a_i is the lower bound and b_i is the upper bound
-       Ksample - Number of sample points in the form of [K_0, K_1, ..., K_n] where K_i is the sample point
-       of the ith integral.
-       roundoff - if the integral is less than this value, round it to 0.
-    OUTPUT:
-       The integral of the function integrand
-    HISTORY:
-       2016-05-24 - Written - Aladdin Seaifan (UofT)
-    """
+    Numerically take n integrals over a function that returns a float or an array
 
+    Parameters
+    ----------
+    integrand : function
+        The function you're integrating over.
+    bounds : list
+        The bounds of the integral in the form of [[a_0, b_0], [a_1, b_1], ... , [a_n, b_n]] where a_i is the lower bound and b_i is the upper bound
+    Ksample : list, optional
+        Number of sample points in the form of [K_0, K_1, ..., K_n] where K_i is the sample point of the ith integral. (default is [20])
+    roundoff : float, optional
+        if the integral is less than this value, round it to 0. (default is 0)
+
+    Returns
+    -------
+    numpy.ndarray
+        The integral of the function integrand
+
+    Notes
+    -----
+    - 2016-05-24 - Written - Aladdin Seaifan (UofT)
+    """
     ##Maps the sample point and weights
     xp = numpy.zeros((len(bounds), numpy.max(Ksample)), float)
     wp = numpy.zeros((len(bounds), numpy.max(Ksample)), float)

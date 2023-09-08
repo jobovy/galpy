@@ -26,35 +26,30 @@ class CorotatingRotationWrapperPotential(parentWrapperPotential):
         self, amp=1.0, pot=None, vpo=1.0, beta=0.0, to=0.0, pa=0.0, ro=None, vo=None
     ):
         """
-        NAME:
+        Initialize a CorotatingRotationWrapper Potential.
 
-           __init__
+        Parameters
+        ----------
+        amp : float, optional
+            Amplitude to be applied to the potential (default: 1.).
+        pot : Potential instance or list thereof, optional
+            This potential is made to rotate around the z axis by the wrapper.
+        vpo : float or Quantity, optional
+            Amplitude of the circular-velocity curve.
+        beta : float, optional
+            Power-law amplitude of the circular-velocity curve.
+        to : float or Quantity, optional
+            Reference time at which the potential == pot.
+        pa : float or Quantity, optional
+            The position angle.
+        ro : float or Quantity, optional
+            Distance scale for translation into internal units (default from configuration file).
+        vo : float or Quantity, optional
+            Velocity scale for translation into internal units (default from configuration file).
 
-        PURPOSE:
-
-           initialize a CorotatingRotationWrapper Potential
-
-        INPUT:
-
-           amp - amplitude to be applied to the potential (default: 1.)
-
-           pot - Potential instance or list thereof; this potential is made to rotate around the z axis by the wrapper
-
-           vpo= (1.) amplitude of the circular-velocity curve (can be a Quantity)
-
-           beta= (0.) power-law amplitude of the circular-velocity curve
-
-           to= (0.) reference time at which the potential == pot
-
-           pa= (0.) the position angle (can be a Quantity)
-
-        OUTPUT:
-
-           (none)
-
-        HISTORY:
-
-           2018-02-21 - Started - Bovy (UofT)
+        Notes
+        -----
+        - 2018-02-21 - Started - Bovy (UofT)
 
         """
         vpo = conversion.parse_velocity(vpo, vo=self._vo)

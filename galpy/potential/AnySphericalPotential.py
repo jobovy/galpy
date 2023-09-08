@@ -17,40 +17,31 @@ class AnySphericalPotential(SphericalPotential):
 
     def __init__(
         self,
-        dens=lambda r: 0.64 / r / (1 + r) ** 3,
         amp=1.0,
+        dens=lambda r: 0.64 / r / (1 + r) ** 3,
         normalize=False,
         ro=None,
         vo=None,
     ):
         """
-        NAME:
+        Initialize the potential of an arbitrary spherical density distribution.
 
-           __init__
+        Parameters
+        ----------
+        amp : float, optional
+            Amplitude to be applied to the potential. Default is 1.0.
+        dens : callable, optional
+            A function of a single variable that gives the density as a function of radius (can return a Quantity). Default is ``lambda r: 0.64 / r / (1 + r) ** 3``.
+        normalize : bool or float, optional
+            If True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
+        ro : float or Quantity, optional
+            Distance scale for translation into internal units (default from configuration file).
+        vo : float or Quantity, optional
+            Velocity scale for translation into internal units (default from configuration file).
 
-        PURPOSE:
-
-           Initialize the potential of an arbitrary spherical density distribution
-
-        INPUT:
-
-           dens= (0.64/r/(1+r)**3) function of a single variable that gives the density as a function of radius (can return a Quantity)
-
-           amp= (1.) amplitude to be applied to the potential
-
-           normalize - if True, normalize such that vc(1.,0.)=1., or, if
-                       given as a number, such that the force is this fraction
-                       of the force necessary to make vc(1.,0.)=1.
-
-           ro=, vo= distance and velocity scales for translation into internal units (default from configuration file)
-
-        OUTPUT:
-
-           (none)
-
-        HISTORY:
-
-           2021-01-05 - Written - Bovy (UofT)
+        Notes
+        -----
+        - 2021-01-05 - Written - Bovy (UofT)
 
         """
         SphericalPotential.__init__(self, amp=amp, ro=ro, vo=vo)

@@ -18,32 +18,26 @@ class GaussianAmplitudeWrapperPotential(parentWrapperPotential):
 
     def __init__(self, amp=1.0, pot=None, to=0.0, sigma=1.0, ro=None, vo=None):
         """
-        NAME:
+        Initialize a GaussianAmplitudeWrapper Potential.
 
-           __init__
+        Parameters
+        ----------
+        amp : float, optional
+            Amplitude to be applied to the potential. Default is 1.0.
+        pot : Potential instance or list thereof, optional
+            This potential is made to rotate around the z axis by the wrapper.
+        to : float or Quantity, optional
+            Time at which the Gaussian peaks. Default is 0.0.
+        sigma : float or Quantity, optional
+            Standard deviation of the Gaussian. Default is 1.0.
+        ro : float or Quantity, optional
+            Distance scale for translation into internal units (default from configuration file).
+        vo : float or Quantity, optional
+            Velocity scale for translation into internal units (default from configuration file).
 
-        PURPOSE:
-
-           initialize a GaussianAmplitudeWrapper Potential
-
-        INPUT:
-
-           amp - amplitude to be applied to the potential (default: 1.)
-
-           pot - Potential instance or list thereof; this potential is made to rotate around the z axis by the wrapper
-
-           to= (0.) time at which the Gaussian peaks
-
-           sigma= (1.) standard deviation of the Gaussian (can be a Quantity)
-
-        OUTPUT:
-
-           (none)
-
-        HISTORY:
-
-           2018-02-21 - Started - Bovy (UofT)
-
+        Notes
+        -----
+        - 2018-02-21 - Started - Bovy (UofT)
         """
         to = conversion.parse_time(to, ro=self._ro, vo=self._vo)
         sigma = conversion.parse_time(sigma, ro=self._ro, vo=self._vo)

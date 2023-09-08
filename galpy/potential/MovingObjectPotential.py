@@ -27,36 +27,26 @@ class MovingObjectPotential(Potential):
 
     def __init__(self, orbit, pot=None, amp=1.0, ro=None, vo=None):
         """
-        NAME:
+        Initialize a MovingObjectPotential.
 
-           __init__
+        Parameters
+        ----------
+        orbit : galpy.orbit.Orbit
+            The orbit of the object.
+        pot : Potential object or list of Potential objects
+            A potential object or list of potential objects representing the potential of the moving object; should be spherical, but this is not checked. Default is `PlummerPotential(amp=0.06,b=0.01)`.
+        amp : float, optional
+            Another amplitude to apply to the potential. Default is 1.0.
+        ro : float, optional
+            Distance scale for translation into internal units (default from configuration file).
+        vo : float, optional
+            Velocity scale for translation into internal units (default from configuration file).
 
-        PURPOSE:
-
-           initialize a MovingObjectPotential
-
-        INPUT:
-
-           orbit - the Orbit of the object (Orbit object)
-
-           pot - A potential object or list of potential objects representing the potential of the moving object; should be spherical, but this is not checked [default= PlummerPotential(amp=0.06,b=0.01)]
-
-           amp (=1.) another amplitude to apply to the potential
-
-           ro=, vo= distance and velocity scales for translation into internal units (default from configuration file)
-
-        OUTPUT:
-
-           (none)
-
-        HISTORY:
-
-           2011-04-10 - Started - Bovy (NYU)
-
-           2018-10-18 - Re-implemented to represent general object potentials using galpy potential models - James Lane (UofT)
-
+        Notes
+        -----
+        - 2011-04-10 - Started - Bovy (NYU)
+        - 2018-10-18 - Re-implemented to represent general object potentials using galpy potential models - James Lane (UofT)
         """
-
         Potential.__init__(self, amp=amp, ro=ro, vo=vo)
         # If no potential supplied use a default Plummer sphere
         if pot is None:
@@ -76,22 +66,6 @@ class MovingObjectPotential(Potential):
         return None
 
     def _evaluate(self, R, z, phi=0.0, t=0.0):
-        """
-        NAME:
-           _evaluate
-        PURPOSE:
-           evaluate the potential at R,z, phi
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           Phi(R,z,phi)
-        HISTORY:
-           2011-04-10 - Started - Bovy (NYU)
-           2018-10-18 - Updated for general object potential - James Lane (UofT)
-        """
         # Cylindrical distance
         Rdist = _cylR(R, phi, self._orb.R(t), self._orb.phi(t))
         orbz = self._orb.z(t) if self._orb.dim() == 3 else 0
@@ -99,22 +73,6 @@ class MovingObjectPotential(Potential):
         return evaluatePotentials(self._pot, Rdist, orbz - z, t=t, use_physical=False)
 
     def _Rforce(self, R, z, phi=0.0, t=0.0):
-        """
-        NAME:
-           _Rforce
-        PURPOSE:
-           evaluate the radial force for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           the radial force
-        HISTORY:
-           2011-04-10 - Written - Bovy (NYU)
-           2018-10-18 - Updated for general object potential - James Lane (UofT)
-        """
         # Cylindrical distance
         Rdist = _cylR(R, phi, self._orb.R(t), self._orb.phi(t))
         # Difference vector
@@ -127,22 +85,6 @@ class MovingObjectPotential(Potential):
         return -RF * (numpy.cos(phi) * xd + numpy.sin(phi) * yd) / Rdist
 
     def _zforce(self, R, z, phi=0.0, t=0.0):
-        """
-        NAME:
-           _zforce
-        PURPOSE:
-           evaluate the vertical force for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           the vertical force
-        HISTORY:
-           2011-04-10 - Written - Bovy (NYU)
-           2018-10-18 - Updated for general object potential - James Lane (UofT)
-        """
         # Cylindrical distance
         Rdist = _cylR(R, phi, self._orb.R(t), self._orb.phi(t))
         # Difference vector
@@ -152,22 +94,6 @@ class MovingObjectPotential(Potential):
         return -evaluatezforces(self._pot, Rdist, zd, t=t, use_physical=False)
 
     def _phitorque(self, R, z, phi=0.0, t=0.0):
-        """
-        NAME:
-           _phitorque
-        PURPOSE:
-           evaluate the azimuthal torque for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           the azimuthal torque
-        HISTORY:
-           2011-04-10 - Written - Bovy (NYU)
-           2018-10-18 - Updated for general object potential - James Lane (UofT)
-        """
         # Cylindrical distance
         Rdist = _cylR(R, phi, self._orb.R(t), self._orb.phi(t))
         # Difference vector
@@ -179,21 +105,6 @@ class MovingObjectPotential(Potential):
         return -RF * R * (numpy.cos(phi) * yd - numpy.sin(phi) * xd) / Rdist
 
     def _dens(self, R, z, phi=0.0, t=0.0):
-        """
-        NAME:
-           _dens
-        PURPOSE:
-           evaluate the density for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           the density
-        HISTORY:
-           2010-08-08 - Written - Bovy (NYU)
-        """
         # Cylindrical distance
         Rdist = _cylR(R, phi, self._orb.R(t), self._orb.phi(t))
         # Difference vector

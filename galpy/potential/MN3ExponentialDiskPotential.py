@@ -42,37 +42,30 @@ class MN3ExponentialDiskPotential(Potential):
         vo=None,
     ):
         """
-        NAME:
+        Initialize a 3MN approximation to an exponential disk potential.
 
-           __init__
+        Parameters
+        ----------
+        amp : float or Quantity, optional
+            Amplitude to be applied to the potential (default: 1); can be a Quantity with units of mass density or Gxmass density.
+        hr : float or Quantity, optional
+            Disk scale-length.
+        hz : float or Quantity, optional
+            Scale-height.
+        sech : bool, optional
+            If True, hz is the scale height of a sech vertical profile (default is exponential vertical profile).
+        posdens : bool, optional
+            If True, allow only positive density solutions (Table 2 in Smith et al. rather than Table 1).
+        normalize : bool or float, optional
+            If True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
+        ro : float, optional
+            Distance scale for translation into internal units (default from configuration file).
+        vo : float, optional
+            Velocity scale for translation into internal units (default from configuration file).
 
-        PURPOSE:
-
-           initialize a 3MN approximation to an exponential disk potential
-
-        INPUT:
-
-           amp - amplitude to be applied to the potential (default: 1); can be a Quantity with units of mass density or Gxmass density
-
-           hr - disk scale-length (can be Quantity)
-
-           hz - scale-height (can be Quantity)
-
-           sech= (False) if True, hz is the scale height of a sech vertical profile (default is exponential vertical profile)
-
-           posdens= (False) if True, allow only positive density solutions (Table 2 in Smith et al. rather than Table 1)
-
-           normalize - if True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
-
-           ro=, vo= distance and velocity scales for translation into internal units (default from configuration file)
-
-        OUTPUT:
-
-           MN3ExponentialDiskPotential object
-
-        HISTORY:
-
-           2015-02-07 - Written - Bovy (IAS)
+        Notes
+        -----
+        - 2015-02-07 - Written - Bovy (IAS)
 
         """
         Potential.__init__(self, amp=amp, ro=ro, vo=vo, amp_units="density")
@@ -147,21 +140,6 @@ class MN3ExponentialDiskPotential(Potential):
         return None
 
     def _evaluate(self, R, z, phi=0.0, t=0.0):
-        """
-        NAME:
-           _evaluate
-        PURPOSE:
-           evaluate the potential at R,z
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           Phi(R,z)
-        HISTORY:
-           2015-02-07 - Written - Bovy (IAS)
-        """
         return (
             self._mn3[0](R, z, phi=phi, t=t)
             + self._mn3[1](R, z, phi=phi, t=t)
@@ -169,21 +147,6 @@ class MN3ExponentialDiskPotential(Potential):
         )
 
     def _Rforce(self, R, z, phi=0.0, t=0.0):
-        """
-        NAME:
-           _Rforce
-        PURPOSE:
-           evaluate the radial force for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           the radial force
-        HISTORY:
-           2015-02-07 - Written - Bovy (IAS)
-        """
         return (
             self._mn3[0].Rforce(R, z, phi=phi, t=t)
             + self._mn3[1].Rforce(R, z, phi=phi, t=t)
@@ -191,21 +154,6 @@ class MN3ExponentialDiskPotential(Potential):
         )
 
     def _zforce(self, R, z, phi=0.0, t=0.0):
-        """
-        NAME:
-           _zforce
-        PURPOSE:
-           evaluate the vertical force for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           the vertical force
-        HISTORY:
-           2015-02-07 - Written - Bovy (IAS)
-        """
         return (
             self._mn3[0].zforce(R, z, phi=phi, t=t)
             + self._mn3[1].zforce(R, z, phi=phi, t=t)
@@ -213,21 +161,6 @@ class MN3ExponentialDiskPotential(Potential):
         )
 
     def _dens(self, R, z, phi=0.0, t=0.0):
-        """
-        NAME:
-           _dens
-        PURPOSE:
-           evaluate the density for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           the density
-        HISTORY:
-           2015-02-07 - Written - Bovy (IAS)
-        """
         return (
             self._mn3[0].dens(R, z, phi=phi, t=t)
             + self._mn3[1].dens(R, z, phi=phi, t=t)
@@ -235,21 +168,6 @@ class MN3ExponentialDiskPotential(Potential):
         )
 
     def _R2deriv(self, R, z, phi=0.0, t=0.0):
-        """
-        NAME:
-           _R2deriv
-        PURPOSE:
-           evaluate the second radial derivative for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           the second radial derivative
-        HISTORY:
-           2015-02-07 - Written - Bovy (IAS)
-        """
         return (
             self._mn3[0].R2deriv(R, z, phi=phi, t=t)
             + self._mn3[1].R2deriv(R, z, phi=phi, t=t)
@@ -257,21 +175,6 @@ class MN3ExponentialDiskPotential(Potential):
         )
 
     def _z2deriv(self, R, z, phi=0.0, t=0.0):
-        """
-        NAME:
-           _z2deriv
-        PURPOSE:
-           evaluate the second vertical derivative for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           the second vertical derivative
-        HISTORY:
-           2015-02-07 - Written - Bovy (IAS)
-        """
         return (
             self._mn3[0].z2deriv(R, z, phi=phi, t=t)
             + self._mn3[1].z2deriv(R, z, phi=phi, t=t)
@@ -279,21 +182,6 @@ class MN3ExponentialDiskPotential(Potential):
         )
 
     def _Rzderiv(self, R, z, phi=0.0, t=0.0):
-        """
-        NAME:
-           _Rzderiv
-        PURPOSE:
-           evaluate the mixed R,z derivative for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           d2phi/dR/dz
-        HISTORY:
-           2015-02-07 - Written - Bovy (IAS)
-        """
         return (
             self._mn3[0].Rzderiv(R, z, phi=phi, t=t)
             + self._mn3[1].Rzderiv(R, z, phi=phi, t=t)
@@ -302,30 +190,6 @@ class MN3ExponentialDiskPotential(Potential):
 
     @kms_to_kpcGyrDecorator
     def _nemo_accpars(self, vo, ro):
-        """
-        NAME:
-
-           _nemo_accpars
-
-        PURPOSE:
-
-           return the accpars potential parameters for use of this potential with NEMO
-
-        INPUT:
-
-           vo - velocity unit in km/s
-
-           ro - length unit in kpc
-
-        OUTPUT:
-
-           accpars string
-
-        HISTORY:
-
-           2015-02-09 - Written - Bovy (IAS)
-
-        """
         out = ""
         # Loop through the self._mn3 MN potentials
         for ii in range(3):

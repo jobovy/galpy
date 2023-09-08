@@ -19,36 +19,29 @@ class BurkertPotential(SphericalPotential):
 
     def __init__(self, amp=1.0, a=2.0, normalize=False, ro=None, vo=None):
         """
-        NAME:
+        Initialize a Burkert-density potential [1]_.
 
-           __init__
+        Parameters
+        ----------
+        amp : float or Quantity
+            Amplitude to be applied to the potential. Can be a Quantity with units of mass density or Gxmass density.
+        a : float or Quantity
+            Scale radius.
+        normalize : bool or float, optional
+            If True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1. Default is False.
+        ro : float or Quantity, optional
+            Distance scale for translation into internal units (default from configuration file).
+        vo : float or Quantity, optional
+            Velocity scale for translation into internal units (default from configuration file).
 
-        PURPOSE:
+        Notes
+        -----
+        - 2013-04-10 - Written - Bovy (IAS)
+        - 2020-03-30 - Re-implemented using SphericalPotential - Bovy (UofT)
 
-           initialize a Burkert-density potential
-
-        INPUT:
-
-           amp - amplitude to be applied to the potential (default: 1); can be a Quantity with units of mass density or Gxmass density
-
-           a = scale radius (can be Quantity)
-
-           normalize - if True, normalize such that vc(1.,0.)=1., or, if
-                       given as a number, such that the force is this fraction
-                       of the force necessary to make vc(1.,0.)=1.
-
-           ro=, vo= distance and velocity scales for translation into internal units (default from configuration file)
-
-        OUTPUT:
-
-           (none)
-
-        HISTORY:
-
-           2013-04-10 - Written - Bovy (IAS)
-
-           2020-03-30 - Re-implemented using SphericalPotential - Bovy (UofT)
-
+        References
+        ----------
+        .. [1] Burkert (1995), Astrophysical Journal, 447, L25. ADS: https://ui.adsabs.harvard.edu/abs/1995ApJ...447L..25B.
         """
         SphericalPotential.__init__(self, amp=amp, ro=ro, vo=vo, amp_units="density")
         a = conversion.parse_length(a, ro=self._ro, vo=self._vo)
@@ -109,21 +102,6 @@ class BurkertPotential(SphericalPotential):
         return 1.0 / (1.0 + x) / (1.0 + x**2.0)
 
     def _surfdens(self, R, z, phi=0.0, t=0.0):
-        """
-        NAME:
-           _surfdens
-        PURPOSE:
-           evaluate the surface density for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           the surface density
-        HISTORY:
-           2018-08-19 - Written - Bovy (UofT)
-        """
         r = numpy.sqrt(R**2.0 + z**2.0)
         x = r / self.a
         Rpa = numpy.sqrt(R**2.0 + self.a**2.0)

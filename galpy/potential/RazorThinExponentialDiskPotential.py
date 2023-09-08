@@ -31,32 +31,28 @@ class RazorThinExponentialDiskPotential(Potential):
         glorder=100,
     ):
         """
-        NAME:
+        Class that implements a razor-thin exponential disk potential.
 
-           __init__
+        Parameters
+        ----------
+        amp : float or Quantity, optional
+            Amplitude to be applied to the potential (default: 1); can be a Quantity with units of surface-mass or Gxsurface-mass.
+        hr : float or Quantity, optional
+            Disk scale-length.
+        normalize : bool or float, optional
+            If True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
+        ro : float or Quantity, optional
+            Distance scale for translation into internal units (default from configuration file).
+        vo : float or Quantity, optional
+            Velocity scale for translation into internal units (default from configuration file).
+        new : bool, optional
+            If True, use a new implementation of the potential that is more accurate for small scale lengths (default: True).
+        glorder : int, optional
+            Gaussian quadrature order to use for numerical integration (default: 100).
 
-        PURPOSE:
-
-           initialize a razor-thin-exponential disk potential
-
-        INPUT:
-
-           amp - amplitude to be applied to the potential (default: 1); can be a Quantity with units of surface-mass or Gxsurface-mass
-
-           hr - disk scale-length (can be Quantity)
-
-           normalize - if True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
-
-           ro=, vo= distance and velocity scales for translation into internal units (default from configuration file)
-
-        OUTPUT:
-
-           RazorThinExponentialDiskPotential object
-
-        HISTORY:
-
-           2012-12-27 - Written - Bovy (IAS)
-
+        Notes
+        -----
+        - 2012-12-27 - Written - Bovy (IAS)
         """
         Potential.__init__(self, amp=amp, ro=ro, vo=vo, amp_units="surfacedensity")
         hr = conversion.parse_length(hr, ro=self._ro)
@@ -72,21 +68,6 @@ class RazorThinExponentialDiskPotential(Potential):
             self.normalize(normalize)
 
     def _evaluate(self, R, z, phi=0.0, t=0.0):
-        """
-        NAME:
-           _evaluate
-        PURPOSE:
-           evaluate the potential at (R,z)
-        INPUT:
-           R - Cylindrical Galactocentric radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           potential at (R,z)
-        HISTORY:
-           2012-12-26 - Written - Bovy (IAS)
-        """
         if self._new:
             if numpy.fabs(z) < 10.0**-6.0:
                 y = 0.5 * self._alpha * R
@@ -111,21 +92,6 @@ class RazorThinExponentialDiskPotential(Potential):
         )
 
     def _Rforce(self, R, z, phi=0.0, t=0.0):
-        """
-        NAME:
-           Rforce
-        PURPOSE:
-           evaluate radial force K_R  (R,z)
-        INPUT:
-           R - Cylindrical Galactocentric radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           K_R (R,z)
-        HISTORY:
-           2012-12-27 - Written - Bovy (IAS)
-        """
         if self._new:
             # if R > 6.: return self._kp(R,z)
             if numpy.fabs(z) < 10.0**-6.0:
@@ -179,21 +145,6 @@ class RazorThinExponentialDiskPotential(Potential):
         )
 
     def _zforce(self, R, z, phi=0.0, t=0.0):
-        """
-        NAME:
-           zforce
-        PURPOSE:
-           evaluate vertical force K_z  (R,z)
-        INPUT:
-           R - Cylindrical Galactocentric radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           K_z (R,z)
-        HISTORY:
-           2012-12-27 - Written - Bovy (IAS)
-        """
         if self._new:
             # if R > 6.: return self._kp(R,z)
             if numpy.fabs(z) < 10.0**-6.0:
@@ -243,21 +194,6 @@ class RazorThinExponentialDiskPotential(Potential):
         )
 
     def _R2deriv(self, R, z, phi=0.0, t=0.0):
-        """
-        NAME:
-           R2deriv
-        PURPOSE:
-           evaluate R2 derivative
-        INPUT:
-           R - Cylindrical Galactocentric radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           -d K_R (R,z) d R
-        HISTORY:
-           2012-12-27 - Written - Bovy (IAS)
-        """
         if self._new:
             if numpy.fabs(z) < 10.0**-6.0:
                 y = 0.5 * self._alpha * R
@@ -272,56 +208,12 @@ class RazorThinExponentialDiskPotential(Potential):
             )
 
     def _z2deriv(self, R, z, phi=0.0, t=0.0):  # pragma: no cover
-        """
-        NAME:
-           z2deriv
-        PURPOSE:
-           evaluate z2 derivative
-        INPUT:
-           R - Cylindrical Galactocentric radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           -d K_z (R,z) d z
-        HISTORY:
-           2012-12-27 - Written - Bovy (IAS)
-        """
         return numpy.infty
 
     def _surfdens(self, R, z, phi=0.0, t=0.0):
-        """
-        NAME:
-           _surfdens
-        PURPOSE:
-           evaluate the surface density
-        INPUT:
-           R - Cylindrical Galactocentric radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           Sigma (R,z)
-        HISTORY:
-           2018-08-19 - Written - Bovy (UofT)
-        """
         return numpy.exp(-self._alpha * R)
 
     def _mass(self, R, z=None, t=0.0):
-        """
-        NAME:
-           _mass
-        PURPOSE:
-           evaluate the mass within R (and z) for this potential; if z=None, integrate to z=inf
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           t - time
-        OUTPUT:
-           the mass enclosed
-        HISTORY:
-           2021-03-04 - Written - Bovy (UofT)
-        """
         return (
             2.0
             * numpy.pi

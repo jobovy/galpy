@@ -36,45 +36,36 @@ class SteadyLogSpiralPotential(planarPotential):
         vo=None,
     ):
         """
-        NAME:
+        Initialize a steady-state logarithmic spiral potential.
 
-           __init__
+        Parameters
+        ----------
+        amp : float, optional
+            Amplitude to be applied to the potential (default: 1., A below).
+        omegas : float or Quantity, optional
+            Pattern speed (default: 0.65).
+        A : float or Quantity, optional
+            Amplitude (alpha*potential-amplitude; default=0.035).
+        alpha : float, optional
+            Parameter that sets the strength of the spiral potential.
+        m : int, optional
+            Number of spiral arms.
+        gamma : float or Quantity, optional
+            Angle between sun-GC line and the line connecting the peak of the spiral pattern at the Solar radius (in rad; default=45 degree).
+        p : float or Quantity, optional
+            Pitch angle.
+        tform : float, optional
+            Start of spiral growth / spiral period (default: -Infinity).
+        tsteady : float, optional
+            Time from tform at which the spiral is fully grown / spiral period (default: 2 periods).
+        ro : float or Quantity, optional
+            Distance scale for translation into internal units (default from configuration file).
+        vo : float or Quantity, optional
+            Velocity scale for translation into internal units (default from configuration file).
 
-        PURPOSE:
-
-           initialize a logarithmic spiral potential
-
-        INPUT:
-
-           amp - amplitude to be applied to the potential (default:
-           1., A below)
-
-           gamma - angle between sun-GC line and the line connecting the peak of the spiral pattern at the Solar radius (in rad; default=45 degree; or can be Quantity)
-
-           A - amplitude (alpha*potential-amplitude; default=0.035; can be Quantity
-
-           omegas= - pattern speed (default=0.65; can be Quantity)
-
-           m= number of arms
-
-           Either provide:
-
-              a) alpha=
-
-              b) p= pitch angle (rad; can be Quantity)
-
-           tform - start of spiral growth / spiral period (default: -Infinity)
-
-           tsteady - time from tform at which the spiral is fully grown / spiral period (default: 2 periods)
-
-        OUTPUT:
-
-           (none)
-
-        HISTORY:
-
-           2011-03-27 - Started - Bovy (NYU)
-
+        Notes
+        -----
+        - 2011-03-27 - Started - Bovy (NYU)
         """
         planarPotential.__init__(self, amp=amp, ro=ro, vo=vo)
         gamma = conversion.parse_angle(gamma)
@@ -104,20 +95,6 @@ class SteadyLogSpiralPotential(planarPotential):
         self.hasC = True
 
     def _evaluate(self, R, phi=0.0, t=0.0):
-        """
-        NAME:
-           _evaluate
-        PURPOSE:
-           evaluate the potential at R,phi,t
-        INPUT:
-           R - Galactocentric cylindrical radius
-           phi - azimuth
-           t - time
-        OUTPUT:
-           Phi(R,phi,t)
-        HISTORY:
-           2011-03-27 - Started - Bovy (NYU)
-        """
         if not self._tform is None:
             if t < self._tform:
                 smooth = 0.0
@@ -145,20 +122,6 @@ class SteadyLogSpiralPotential(planarPotential):
         )
 
     def _Rforce(self, R, phi=0.0, t=0.0):
-        """
-        NAME:
-           _Rforce
-        PURPOSE:
-           evaluate the radial force for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           phi - azimuth
-           t - time
-        OUTPUT:
-           the radial force
-        HISTORY:
-           2010-11-24 - Written - Bovy (NYU)
-        """
         if not self._tform is None:
             if t < self._tform:
                 smooth = 0.0
@@ -186,20 +149,6 @@ class SteadyLogSpiralPotential(planarPotential):
         )
 
     def _phitorque(self, R, phi=0.0, t=0.0):
-        """
-        NAME:
-           _phitorque
-        PURPOSE:
-           evaluate the azimuthal torque for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           phi - azimuth
-           t - time
-        OUTPUT:
-           the azimuthal torque
-        HISTORY:
-           2010-11-24 - Written - Bovy (NYU)
-        """
         if not self._tform is None:
             if t < self._tform:
                 smooth = 0.0
@@ -229,103 +178,55 @@ class SteadyLogSpiralPotential(planarPotential):
 
     def wavenumber(self, R):
         """
-        NAME:
+        Return the wavenumber at radius R (d f(R)/ d R in Phi_a(R) = F(R) e^[i f(R)]; see Binney & Tremaine 2008)
 
+        Parameters
+        ----------
+        R : float
+            Cylindrical radius
 
-           wavenumber
+        Returns
+        -------
+        float
+            wavenumber at R
 
-        PURPOSE:
-
-           return the wavenumber at radius R (d f(R)/ d R in Phi_a(R) = F(R) e^[i f(R)]; see Binney & Tremaine 2008)
-
-        INPUT:
-
-           R - Cylindrical radius
-
-        OUTPUT:
-
-           wavenumber at R
-
-        HISTORY:
-
-           2014-08-23 - Written - Bovy (IAS)
+        Notes
+        -----
+        - 2014-08-23 - Written - Bovy (IAS)
 
         """
         return self._alpha / R
 
     def OmegaP(self):
-        """
-        NAME:
-
-
-           OmegaP
-
-        PURPOSE:
-
-           return the pattern speed
-
-        INPUT:
-
-           (none)
-
-        OUTPUT:
-
-           pattern speed
-
-        HISTORY:
-
-           2011-10-10 - Written - Bovy (IAS)
-
-        """
         return self._omegas
 
     def m(self):
         """
-        NAME:
+        Return the number of arms.
 
+        Returns
+        -------
+        int
+            Number of arms.
 
-           m
-
-        PURPOSE:
-
-           return the number of arms
-
-        INPUT:
-
-           (none)
-
-        OUTPUT:
-
-           number of arms
-
-        HISTORY:
-
-           2014-08-23 - Written - Bovy (IAS)
-
+        Notes
+        -----
+        - 2014-08-23 - Written - Bovy (IAS)
         """
         return self._m
 
     def tform(self):  # pragma: no cover
         """
-        NAME:
+        Return formation time of the bar.
 
-           tform
+        Returns
+        -------
+        tform : float
+            Formation time of the bar in normalized units.
 
-        PURPOSE:
-
-           return formation time of the bar
-
-        INPUT:
-
-           (none)
-
-        OUTPUT:
-
-           tform in normalized units
-
-        HISTORY:
-
-           2011-03-08 - Written - Bovy (NYU)
+        Notes
+        -----
+        - 2011-03-08 - Written - Bovy (NYU)
 
         """
         return self._tform

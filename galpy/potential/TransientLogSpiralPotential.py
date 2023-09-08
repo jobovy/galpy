@@ -39,46 +39,35 @@ class TransientLogSpiralPotential(planarPotential):
         vo=None,
     ):
         """
-        NAME:
+        Initialize a transient logarithmic spiral potential localized around to
 
-           __init__
+        Parameters
+        ----------
+        amp : float, optional
+            Amplitude to be applied to the potential (default: 1).
+        omegas : float or Quantity, optional
+            Pattern speed (default: 0.65).
+        A : float or Quantity, optional
+            Amplitude (alpha*potential-amplitude; default: -0.035).
+        alpha : float, optional
+            Alpha parameter (default: -7.).
+        m : int, optional
+            Number of arms (default: 2).
+        gamma : float or Quantity, optional
+            Angle between sun-GC line and the line connecting the peak of the spiral pattern at the Solar radius (in rad; default: 45 degree).
+        p : float or Quantity, optional
+            Pitch angle.
+        sigma : float or Quantity, optional
+            "Spiral duration" (sigma in Gaussian amplitude; default: 1.).
+        to : float or Quantity, optional
+            Time at which the spiral peaks (default: 0.).
 
-        PURPOSE:
-
-           initialize a transient logarithmic spiral potential localized
-           around to
-
-        INPUT:
-
-           amp - amplitude to be applied to the potential (default:
-           1., A below)
-
-           gamma - angle between sun-GC line and the line connecting the peak of the spiral pattern at the Solar radius (in rad; default=45 degree; can be Quantity)
-
-           A - amplitude (alpha*potential-amplitude; default=0.035; can be Quantity)
-
-           omegas= - pattern speed (default=0.65; can be Quantity)
-
-           m= number of arms
-
-           to= time at which the spiral peaks (can be Quantity)
-
-           sigma= "spiral duration" (sigma in Gaussian amplitude; can be Quantity)
-
-           Either provide:
-
-              a) alpha=
-
-              b) p= pitch angle (rad; can be Quantity)
-
-        OUTPUT:
-
-           (none)
-
-        HISTORY:
-
-           2011-03-27 - Started - Bovy (NYU)
-
+        Notes
+        -----
+        - Either provide:
+            * alpha
+            * p
+        - 2011-03-27 - Started - Bovy (NYU)
         """
         planarPotential.__init__(self, amp=amp, ro=ro, vo=vo)
         gamma = conversion.parse_angle(gamma)
@@ -100,20 +89,6 @@ class TransientLogSpiralPotential(planarPotential):
         self.hasC = True
 
     def _evaluate(self, R, phi=0.0, t=0.0):
-        """
-        NAME:
-           _evaluate
-        PURPOSE:
-           evaluate the potential at R,phi,t
-        INPUT:
-           R - Galactocentric cylindrical radius
-           phi - azimuth
-           t - time
-        OUTPUT:
-           Phi(R,phi,t)
-        HISTORY:
-           2011-03-27 - Started - Bovy (NYU)
-        """
         return (
             self._A
             * numpy.exp(-((t - self._to) ** 2.0) / 2.0 / self._sigma2)
@@ -125,20 +100,6 @@ class TransientLogSpiralPotential(planarPotential):
         )
 
     def _Rforce(self, R, phi=0.0, t=0.0):
-        """
-        NAME:
-           _Rforce
-        PURPOSE:
-           evaluate the radial force for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           phi - azimuth
-           t - time
-        OUTPUT:
-           the radial force
-        HISTORY:
-           2010-11-24 - Written - Bovy (NYU)
-        """
         return (
             self._A
             * numpy.exp(-((t - self._to) ** 2.0) / 2.0 / self._sigma2)
@@ -150,20 +111,6 @@ class TransientLogSpiralPotential(planarPotential):
         )
 
     def _phitorque(self, R, phi=0.0, t=0.0):
-        """
-        NAME:
-           _phitorque
-        PURPOSE:
-           evaluate the azimuthal torque for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           phi - azimuth
-           t - time
-        OUTPUT:
-           the azimuthal torque
-        HISTORY:
-           2010-11-24 - Written - Bovy (NYU)
-        """
         return (
             -self._A
             * numpy.exp(-((t - self._to) ** 2.0) / 2.0 / self._sigma2)
@@ -176,27 +123,4 @@ class TransientLogSpiralPotential(planarPotential):
         )
 
     def OmegaP(self):
-        """
-        NAME:
-
-
-           OmegaP
-
-        PURPOSE:
-
-           return the pattern speed
-
-        INPUT:
-
-           (none)
-
-        OUTPUT:
-
-           pattern speed
-
-        HISTORY:
-
-           2011-10-10 - Written - Bovy (IAS)
-
-        """
         return self._omegas

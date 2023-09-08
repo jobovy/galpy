@@ -18,33 +18,26 @@ class galpy_profile(LiteratureReferencesMixIn):
 
     def __init__(self, pot, t=0.0, tgalpy=0.0, ro=8, vo=220.0, reverse=False):
         """
-        NAME:
+        Initialize a galpy potential for use with AMUSE.
 
-           __init__
+        Parameters
+        ----------
+        pot : Potential instance or list thereof, optional
+            Potential object(s) to be used with AMUSE.
+        t : float or Quantity, optional
+            Start time for AMUSE simulation (can be an AMUSE Quantity).
+        tgalpy : float or Quantity, optional
+            Start time for galpy potential, can be less than zero (can be Quantity).
+        ro : float or Quantity, optional
+            Distance scale for translation into internal units (default from configuration file).
+        vo : float or Quantity, optional
+            Velocity scale for translation into internal units (default from configuration file).
+        reverse : bool, optional
+            Set whether galpy potential evolves forwards or backwards in time (default: False).
 
-        PURPOSE:
-
-           initialize a galpy potential for use with AMUSE
-
-        INPUT:
-
-           pot - galpy potential object or list of such objects
-
-           t - start time for AMUSE simulation (can be an AMUSE Quantity)
-
-           tgalpy - start time for galpy potential, can be less than zero (can be Quantity)
-
-           ro=, vo= distance and velocity scales for translation into internal units (default from configuration file)
-
-           reverse - set whether galpy potential evolves forwards or backwards in time (default: False)
-
-        OUTPUT:
-
-           (none)
-
-        HISTORY:
-
-           2019-08-12 - Written - Webb (UofT)
+        Notes
+        -----
+        - 2019-08-12 - Written - Webb (UofT)
 
         """
         LiteratureReferencesMixIn.__init__(self)
@@ -69,16 +62,21 @@ class galpy_profile(LiteratureReferencesMixIn):
 
     def evolve_model(self, time):
         """
-        NAME:
-           evolve_model
-        PURPOSE:
-           evolve time parameters to t_end
-        INPUT:
-           time - time to evolve potential to
-        OUTPUT:
-           None
-        HISTORY:
-           2019-08-12 - Written - Webb (UofT)
+        Evolve time parameters to t_end.
+
+        Parameters
+        ----------
+        time : float
+            End time for the potential evolution.
+
+        Returns
+        -------
+        None
+
+        Notes
+        -----
+        - 2019-08-12 - Written - Webb (UofT)
+
         """
         dt = time - self.model_time
         self.model_time = time
@@ -93,18 +91,25 @@ class galpy_profile(LiteratureReferencesMixIn):
 
     def get_potential_at_point(self, eps, x, y, z):
         """
-        NAME:
-           get_potential_at_point
-        PURPOSE:
-           Get potential at a given location in the potential
-        INPUT:
-           eps - softening length (necessary for AMUSE, but not used by galpy potential)
-           x,y,z - position in the potential
-        OUTPUT:
-           Phi(x,y,z)
-        HISTORY:
-           2019-08-12 - Written - Webb (UofT)
-           2019-11-06 - added physical compatibility - Starkman (UofT)
+        Get potential at a given location in the potential.
+
+        Parameters
+        ----------
+        eps : AMUSE Quantity
+            Softening length (necessary for AMUSE, but not used by galpy potential).
+        x,y,z : AMUSE Quantity
+            Position in the potential.
+
+        Returns
+        -------
+        AMUSE Quantity
+            Phi(x,y,z).
+
+        Notes
+        -----
+        - 2019-08-12 - Written - Webb (UofT)
+        - 2019-11-06 - Added physical compatibility - Starkman (UofT).
+
         """
         R = numpy.sqrt(x.value_in(units.kpc) ** 2.0 + y.value_in(units.kpc) ** 2.0)
         zed = z.value_in(units.kpc)
@@ -123,18 +128,29 @@ class galpy_profile(LiteratureReferencesMixIn):
 
     def get_gravity_at_point(self, eps, x, y, z):
         """
-        NAME:
-           get_gravity_at_point
-        PURPOSE:
-           Get acceleration due to potential at a given location in the potential
-        INPUT:
-           eps - softening length (necessary for AMUSE, but not used by galpy potential)
-           x,y,z - position in the potential
-        OUTPUT:
-           ax,ay,az
-        HISTORY:
-           2019-08-12 - Written - Webb (UofT)
-           2019-11-06 - added physical compatibility - Starkman (UofT)
+        Get acceleration due to potential at a given location in the potential.
+
+        Parameters
+        ----------
+        eps : AMUSE Quantity
+            Softening length (necessary for AMUSE, but not used by galpy potential).
+        x,y,z : AMUSE Quantity
+            Position in the potential.
+
+        Returns
+        -------
+        ax : AMUSE Quantity
+            Acceleration in the x-direction.
+        ay : AMUSE Quantity
+            Acceleration in the y-direction.
+        az : AMUSE Quantity
+            Acceleration in the z-direction.
+
+        Notes
+        -----
+        - 2019-08-12 - Written - Webb (UofT)
+        - 2019-11-06 - Added physical compatibility - Starkman (UofT).
+
         """
         R = numpy.sqrt(x.value_in(units.kpc) ** 2.0 + y.value_in(units.kpc) ** 2.0)
         zed = z.value_in(units.kpc)
@@ -180,18 +196,25 @@ class galpy_profile(LiteratureReferencesMixIn):
 
     def mass_density(self, x, y, z):
         """
-        NAME:
-           mass_density
-        PURPOSE:
-           Get mass density at a given location in the potential
-        INPUT:
-           eps - softening length (necessary for AMUSE, but not used by galpy potential)
-           x,y,z - position in the potential
-        OUTPUT:
-           the density
-        HISTORY:
-           2019-08-12 - Written - Webb (UofT)
-           2019-11-06 - added physical compatibility - Starkman (UofT)
+        Get mass density at a given location in the potential
+
+        Parameters
+        ----------
+        eps : AMUSE Quantity
+            Softening length (necessary for AMUSE, but not used by galpy potential)
+        x,y,z : AMUSE Quantity
+            Position in the potential
+
+        Returns
+        -------
+        AMUSE Quantity
+            The density
+
+        Notes
+        -----
+        - 2019-08-12 - Written - Webb (UofT)
+        - 2019-11-06 - added physical compatibility - Starkman (UofT)
+
         """
         R = numpy.sqrt(x.value_in(units.kpc) ** 2.0 + y.value_in(units.kpc) ** 2.0)
         zed = z.value_in(units.kpc)
@@ -210,17 +233,23 @@ class galpy_profile(LiteratureReferencesMixIn):
 
     def circular_velocity(self, r):
         """
-        NAME:
-           circular_velocity
-        PURPOSE:
-           Get circular velocity at a given radius in the potential
-        INPUT:
-           r - radius in the potential
-        OUTPUT:
-           the circular velocity
-        HISTORY:
-           2019-08-12 - Written - Webb (UofT)
-           2019-11-06 - added physical compatibility - Starkman (UofT)
+        Get circular velocity at a given radius in the potential
+
+        Parameters
+        ----------
+        r : AMUSE Quantity
+            Radius in the potential
+
+        Returns
+        -------
+        AMUSE Quantity
+            The circular velocity
+
+        Notes
+        -----
+        - 2019-08-12 - Written - Webb (UofT)
+        - 2019-11-06 - added physical compatibility - Starkman (UofT)
+
         """
         res = potential.vcirc(
             self.pot,
@@ -235,17 +264,23 @@ class galpy_profile(LiteratureReferencesMixIn):
 
     def enclosed_mass(self, r):
         """
-        NAME:
-           enclosed_mass
-        PURPOSE:
-           Get mass enclosed within a given radius in the potential
-        INPUT:
-           r - radius in the potential
-        OUTPUT:
-           the mass enclosed
-        HISTORY:
-           2019-08-12 - Written - Webb (UofT)
-           2019-11-06 - added physical compatibility - Starkman (UofT)
+        Get mass enclosed within a given radius in the potential
+
+        Parameters
+        ----------
+        r : AMUSE Quantity
+            Radius in the potential
+
+        Returns
+        -------
+        AMUSE Quantity
+            The mass enclosed
+
+        Notes
+        -----
+        - 2019-08-12 - Written - Webb (UofT)
+        - 2019-11-06 - added physical compatibility - Starkman (UofT)
+
         """
         vc = (
             potential.vcirc(
@@ -263,15 +298,10 @@ class galpy_profile(LiteratureReferencesMixIn):
 
     def stop(self):
         """
-        NAME:
-           stop
-        PURPOSE:
-           Stop the potential model (necessary function for AMUSE)
-        INPUT:
-           None
-        OUTPUT:
-           None
-        HISTORY:
-           2019-08-12 - Written - Webb (UofT)
+        Stop the potential model (necessary function for AMUSE)
+
+        Notes
+        -----
+        - 2019-08-12 - Written - Webb (UofT)
         """
         pass

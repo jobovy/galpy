@@ -64,27 +64,26 @@ class parentWrapperPotential:
 class WrapperPotential(Potential):
     def __init__(self, amp=1.0, pot=None, ro=None, vo=None, _init=None, **kwargs):
         """
-        NAME:
+        Initialize a WrapperPotential, a super-class for wrapper potentials.
 
-           __init__
+        Parameters
+        ----------
+        amp : float, optional
+            Amplitude to be applied to the potential (default: 1.).
+        pot : Potential instance or list thereof
+            Potential instance or list thereof.
+        ro : float or Quantity, optional
+            Distance scale for translation into internal units (default from configuration file).
+        vo : float or Quantity, optional
+            Velocity scale for translation into internal units (default from configuration file).
+        _init : bool, optional
+            If True, run __init__ at the end of setup (default: True).
+        **kwargs
+            Any other keyword arguments are passed to the Potential superclass.
 
-        PURPOSE:
-
-           initialize a WrapperPotential, a super-class for wrapper potentials
-
-        INPUT:
-
-           amp - amplitude to be applied to the potential (default: 1.)
-
-           pot - Potential instance or list thereof
-
-        OUTPUT:
-
-           (none)
-
-        HISTORY:
-
-           2017-06-26 - Started - Bovy (UofT)
+        Notes
+        -----
+        - 2017-06-26 - Started - Bovy (UofT)
 
         """
         if not _init:
@@ -182,27 +181,26 @@ class WrapperPotential(Potential):
 class planarWrapperPotential(planarPotential):
     def __init__(self, amp=1.0, pot=None, ro=None, vo=None, _init=None, **kwargs):
         """
-        NAME:
+        Initialize a WrapperPotential, a super-class for wrapper potentials.
 
-           __init__
+        Parameters
+        ----------
+        amp : float, optional
+            Amplitude to be applied to the potential (default: 1.).
+        pot : Potential instance or list thereof, optional
+            The potential instance or list thereof; the amplitude of this will be grown by this wrapper.
+        ro : float or Quantity, optional
+            Distance scale for translation into internal units (default from configuration file).
+        vo : float or Quantity, optional
+            Velocity scale for translation into internal units (default from configuration file).
+        _init : bool, optional
+            If True, run __init__ at the end of setup. Default is None.
+        **kwargs
+            Any other keyword arguments are passed to the Potential class.
 
-        PURPOSE:
-
-           initialize a WrapperPotential, a super-class for wrapper potentials
-
-        INPUT:
-
-           amp - amplitude to be applied to the potential (default: 1.)
-
-           pot - Potential instance or list thereof; the amplitude of this will be grown by this wrapper
-
-        OUTPUT:
-
-           (none)
-
-        HISTORY:
-
-           2017-06-26 - Started - Bovy (UofT)
+        Notes
+        -----
+        - 2017-06-26 - Started - Bovy (UofT)
 
         """
         if not _init:

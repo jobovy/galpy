@@ -71,38 +71,31 @@ class NonInertialFrameForce(DissipativeForce):
         vo=None,
     ):
         """
-        NAME:
+        Initialize a NonInertialFrameForce.
 
-           __init__
+        Parameters
+        ----------
+        amp : float, optional
+            Amplitude to be applied to the potential (default: 1).
+        Omega : float or list of floats or Quantity or list of Quantities or callable or list of callables, optional
+            Angular frequency of the rotation of the non-inertial frame as seen from an inertial one; can either be a function of time or a number (when the frequency is assumed to be Omega + Omegadot x t) and in each case can be a list [Omega_x,Omega_y,Omega_z] or a single value Omega_z (when not a function, can be a Quantity; when a function, need to take input time in internal units and output the frequency in internal units; see galpy.util.conversion.time_in_Gyr and galpy.util.conversion.freq_in_XXX conversion functions).
+        Omegadot : float or list of floats or Quantity or list of Quantities or callable or list of callables, optional
+            Time derivative of the angular frequency of the non-intertial frame's rotation. Format should match Omega input ([list of] function[s] when Omega is one, number/list if Omega is a number/list; when a function, need to take input time in internal units and output the frequency derivative in internal units; see galpy.util.conversion.time_in_Gyr and galpy.util.conversion.freq_in_XXX conversion functions).
+        x0 : list of callables, optional
+            Position vector x_0 (cartesian) of the center of mass of the non-intertial frame (see definition in the class documentation); list of functions [x_0x,x_0y,x_0z]; only necessary when considering both rotation and center-of-mass acceleration of the inertial frame (functions need to take input time in internal units and output the position in internal units; see galpy.util.conversion.time_in_Gyr and divided physical positions by the `ro` parameter in kpc).
+        v0 : list of callables, optional
+            Velocity vector v_0 (cartesian) of the center of mass of the non-intertial frame (see definition in the class documentation); list of functions [v_0x,v_0y,v_0z]; only necessary when considering both rotation and center-of-mass acceleration of the inertial frame (functions need to take input time in internal units and output the velocity in internal units; see galpy.util.conversion.time_in_Gyr and divided physical positions by the `vo` parameter in km/s).
+        a0 : float or list of callables, optional
+            Acceleration vector a_0 (cartesian) of the center of mass of the non-intertial frame (see definition in the class documentation); constant or a list of functions [a_0x,a_0y, a_0z] (functions need to take input time in internal units and output the acceleration in internal units; see galpy.util.conversion.time_in_Gyr and galpy.util.conversion.force_in_XXX conversion functions [force is actually acceleration in galpy]).
+        ro : float, optional
+            Distance scale for translation into internal units (default from configuration file).
+        vo : float, optional
+            Velocity scale for translation into internal units (default from configuration file).
 
-        PURPOSE:
-
-           initialize a NonInertialFrameForce
-
-        INPUT:
-
-           amp= (1.) amplitude to be applied to the potential (default: 1)
-
-           Omega= (1.) Angular frequency of the rotation of the non-inertial frame as seen from an inertial one; can either be a function of time or a number (when the frequency is assumed to be Omega + Omegadot x t) and in each case can be a list [Omega_x,Omega_y,Omega_z] or a single value Omega_z (when not a function, can be a Quantity; when a function, need to take input time in internal units and output the frequency in internal units; see galpy.util.conversion.time_in_Gyr and galpy.util.conversion.freq_in_XXX conversion functions)
-
-           Omegadot= (None) Time derivative of the angular frequency of the non-intertial frame's rotation. format should match Omega input ([list of] function[s] when Omega is one, number/list if Omega is a number/list; when a function, need to take input time in internal units and output the frequency derivative in internal units; see galpy.util.conversion.time_in_Gyr and galpy.util.conversion.freq_in_XXX conversion functions)
-
-           x0= (None) Position vector x_0 (cartesian) of the center of mass of the non-intertial frame (see definition in the class documentation); list of functions [x_0x,x_0y,x_0z]; only necessary when considering both rotation and center-of-mass acceleration of the inertial frame (functions need to take input time in internal units and output the position in internal units; see galpy.util.conversion.time_in_Gyr and divided physical positions by the `ro` parameter in kpc)
-
-           v0= (None) Velocity vector v_0 (cartesian) of the center of mass of the non-intertial frame (see definition in the class documentation); list of functions [v_0x,v_0y,v_0z]; only necessary when considering both rotation and center-of-mass acceleration of the inertial frame (functions need to take input time in internal units and output the velocity in internal units; see galpy.util.conversion.time_in_Gyr and divided physical positions by the `vo` parameter in km/s)
-
-           a0= (None) Acceleration vector a_0 (cartesian) of the center of mass of the non-intertial frame (see definition in the class documentation); constant or a list of functions [a_0x,a_0y, a_0z] (functions need to take input time in internal units and output the acceleration in internal units; see galpy.util.conversion.time_in_Gyr and galpy.util.conversion.force_in_XXX conversion functions [force is actually acceleration in galpy])
-
-        OUTPUT:
-
-           (none)
-
-        HISTORY:
-
-           2022-03-02 - Started - Bovy (UofT)
-
-           2022-03-26 - Generalized Omega to any function of time - Bovy (UofT)
-
+        Notes
+        -----
+        - 2022-03-02 - Started - Bovy (UofT)
+        - 2022-03-26 - Generalized Omega to any function of time - Bovy (UofT)
         """
         DissipativeForce.__init__(self, amp=amp, ro=ro, vo=vo)
         self._rot_acc = not Omega is None
@@ -276,60 +269,12 @@ class NonInertialFrameForce(DissipativeForce):
         return force
 
     def _Rforce(self, R, z, phi=0.0, t=0.0, v=None):
-        """
-        NAME:
-           _Rforce
-        PURPOSE:
-           evaluate the radial force for this Force
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-           v= current velocity in cylindrical coordinates
-        OUTPUT:
-           the radial force
-        HISTORY:
-           2022-03-02 - Written - Bovy (UofT)
-        """
         force = self._force(R, z, phi, t, v)
         return numpy.cos(phi) * force[0] + numpy.sin(phi) * force[1]
 
     def _phitorque(self, R, z, phi=0.0, t=0.0, v=None):
-        """
-        NAME:
-           _phitorque
-        PURPOSE:
-           evaluate the azimuthal torque for this Force
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-           v= current velocity in cylindrical coordinates
-        OUTPUT:
-           the azimuthal torque
-        HISTORY:
-           2022-03-02 - Written - Bovy (UofT)
-        """
         force = self._force(R, z, phi, t, v)
         return R * (-numpy.sin(phi) * force[0] + numpy.cos(phi) * force[1])
 
     def _zforce(self, R, z, phi=0.0, t=0.0, v=None):
-        """
-        NAME:
-           _zforce
-        PURPOSE:
-           evaluate the vertical force for this Force
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-           v= current velocity in cylindrical coordinates
-        OUTPUT:
-           the vertical force
-        HISTORY:
-           2022-03-02 - Written - Bovy (UofT)
-        """
         return self._force(R, z, phi, t, v)[2]

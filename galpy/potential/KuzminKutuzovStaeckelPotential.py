@@ -26,34 +26,26 @@ class KuzminKutuzovStaeckelPotential(Potential):
 
     def __init__(self, amp=1.0, ac=5.0, Delta=1.0, normalize=False, ro=None, vo=None):
         """
-        NAME:
+        Initialize a Kuzmin-Kutuzov Staeckel potential.
 
-            __init__
+        Parameters
+        ----------
+        amp : float or Quantity, optional
+            Amplitude to be applied to the potential; can be a Quantity with units of mass density or Gxmass density.
+        ac : float, optional
+            Axis ratio of the coordinate surfaces; (a/c) = sqrt(-alpha) / sqrt(-gamma) (default: 5.).
+        Delta : float or Quantity, optional
+            Focal distance that defines the spheroidal coordinate system (default: 1.); Delta=sqrt(gamma-alpha).
+        normalize : bool or float, optional
+            If True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
+        ro : float, optional
+            Distance scale for translation into internal units (default from configuration file).
+        vo : float, optional
+            Velocity scale for translation into internal units (default from configuration file).
 
-        PURPOSE:
-
-            initialize a Kuzmin-Kutuzov Staeckel potential
-
-        INPUT:
-
-            amp       - amplitude to be applied to the potential (default: 1); can be a Quantity with units of mass density or Gxmass density
-
-            ac        - axis ratio of the coordinate surfaces; (a/c) = sqrt(-alpha) / sqrt(-gamma) (default: 5.)
-
-            Delta     - focal distance that defines the spheroidal coordinate system (default: 1.); Delta=sqrt(gamma-alpha) (can be Quantity)
-
-            normalize - if True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
-
-           ro=, vo= distance and velocity scales for translation into internal units (default from configuration file)
-
-        OUTPUT:
-
-           (none)
-
-        HISTORY:
-
-           2015-02-15 - Written - Trick (MPIA)
-
+        Notes
+        -----
+        - 2015-02-15 - Written - Trick (MPIA)
         """
         Potential.__init__(self, amp=amp, ro=ro, vo=vo, amp_units="mass")
         Delta = conversion.parse_length(Delta, ro=self._ro)
@@ -69,40 +61,10 @@ class KuzminKutuzovStaeckelPotential(Potential):
         self.hasC_dxdv = True
 
     def _evaluate(self, R, z, phi=0.0, t=0.0):
-        """
-        NAME:
-            _evaluate
-        PURPOSE:
-            evaluate the potential at R,z
-        INPUT:
-            R - Galactocentric cylindrical radius
-            z - vertical height
-            phi - azimuth
-            t - time
-        OUTPUT:
-            Phi(R,z)
-        HISTORY:
-            2015-02-15 - Written - Trick (MPIA)
-        """
         l, n = coords.Rz_to_lambdanu(R, z, ac=self._ac, Delta=self._Delta)
         return -1.0 / (numpy.sqrt(l) + numpy.sqrt(n))
 
     def _Rforce(self, R, z, phi=0.0, t=0.0):
-        """
-        NAME:
-            _Rforce
-        PURPOSE:
-            evaluate the radial force for this potential
-        INPUT:
-            R - Galactocentric cylindrical radius
-            z - vertical height
-            phi - azimuth
-            t - time
-        OUTPUT:
-            the radial force = -dphi/dR
-        HISTORY:
-            2015-02-13 - Written - Trick (MPIA)
-        """
         l, n = coords.Rz_to_lambdanu(R, z, ac=self._ac, Delta=self._Delta)
         jac = coords.Rz_to_lambdanu_jac(R, z, Delta=self._Delta)
         dldR = jac[0, 0]
@@ -110,21 +72,6 @@ class KuzminKutuzovStaeckelPotential(Potential):
         return -(dldR * self._lderiv(l, n) + dndR * self._nderiv(l, n))
 
     def _zforce(self, R, z, phi=0.0, t=0.0):
-        """
-        NAME:
-            _zforce
-        PURPOSE:
-            evaluate the vertical force for this potential
-        INPUT:
-            R - Galactocentric cylindrical radius
-            z - vertical height
-            phi - azimuth
-            t - time
-        OUTPUT:
-            the vertical force
-        HISTORY:
-            2015-02-13 - Written - Trick (MPIA)
-        """
         l, n = coords.Rz_to_lambdanu(R, z, ac=self._ac, Delta=self._Delta)
         jac = coords.Rz_to_lambdanu_jac(R, z, Delta=self._Delta)
         dldz = jac[0, 1]
@@ -132,21 +79,6 @@ class KuzminKutuzovStaeckelPotential(Potential):
         return -(dldz * self._lderiv(l, n) + dndz * self._nderiv(l, n))
 
     def _R2deriv(self, R, z, phi=0.0, t=0.0):
-        """
-        NAME:
-            _R2deriv
-        PURPOSE:
-            evaluate the second radial derivative for this potential
-        INPUT:
-            R - Galactocentric cylindrical radius
-            z - vertical height
-            phi - azimuth
-            t - time
-        OUTPUT:
-            the second radial derivative
-        HISTORY:
-            2015-02-13 - Written - Trick (MPIA)
-        """
         l, n = coords.Rz_to_lambdanu(R, z, ac=self._ac, Delta=self._Delta)
         jac = coords.Rz_to_lambdanu_jac(R, z, Delta=self._Delta)
         hess = coords.Rz_to_lambdanu_hess(R, z, Delta=self._Delta)
@@ -163,21 +95,6 @@ class KuzminKutuzovStaeckelPotential(Potential):
         )
 
     def _z2deriv(self, R, z, phi=0.0, t=0.0):
-        """
-        NAME:
-            _z2deriv
-        PURPOSE:
-            evaluate the second vertical derivative for this potential
-        INPUT:
-            R - Galactocentric cylindrical radius
-            z - vertical height
-            phi - azimuth
-            t- time
-        OUTPUT:
-            the second vertical derivative
-        HISTORY:
-            2015-02-13 - Written - Trick (MPIA)
-        """
         l, n = coords.Rz_to_lambdanu(R, z, ac=self._ac, Delta=self._Delta)
         jac = coords.Rz_to_lambdanu_jac(R, z, Delta=self._Delta)
         hess = coords.Rz_to_lambdanu_hess(R, z, Delta=self._Delta)
@@ -194,21 +111,6 @@ class KuzminKutuzovStaeckelPotential(Potential):
         )
 
     def _Rzderiv(self, R, z, phi=0.0, t=0.0):
-        """
-        NAME:
-            _Rzderiv
-        PURPOSE:
-            evaluate the mixed R,z derivative for this potential
-        INPUT:
-            R - Galactocentric cylindrical radius
-            z - vertical height
-            phi - azimuth
-            t- time
-        OUTPUT:
-            d2phi/dR/dz
-        HISTORY:
-            2015-02-13 - Written - Trick (MPIA)
-        """
         l, n = coords.Rz_to_lambdanu(R, z, ac=self._ac, Delta=self._Delta)
         jac = coords.Rz_to_lambdanu_jac(R, z, Delta=self._Delta)
         hess = coords.Rz_to_lambdanu_hess(R, z, Delta=self._Delta)
@@ -228,49 +130,69 @@ class KuzminKutuzovStaeckelPotential(Potential):
 
     def _lderiv(self, l, n):
         """
-        NAME:
-            _lderiv
-        PURPOSE:
-            evaluate the derivative w.r.t. lambda for this potential
-        INPUT:
-            l - prolate spheroidal coordinate lambda
-            n - prolate spheroidal coordinate nu
-        OUTPUT:
-            derivative w.r.t. lambda
-        HISTORY:
-            2015-02-15 - Written - Trick (MPIA)
+        Evaluate the derivative w.r.t. lambda for this potential.
+
+        Parameters
+        ----------
+        l : float
+            Prolate spheroidal coordinate lambda.
+        n : float
+            Prolate spheroidal coordinate nu.
+
+        Returns
+        -------
+        float
+            Derivative w.r.t. lambda.
+
+        Notes
+        -----
+        - 2015-02-15 - Written - Trick (MPIA)
         """
         return 0.5 / numpy.sqrt(l) / (numpy.sqrt(l) + numpy.sqrt(n)) ** 2
 
     def _nderiv(self, l, n):
         """
-        NAME:
-            _nderiv
-        PURPOSE:
-            evaluate the derivative w.r.t. nu for this potential
-        INPUT:
-            l - prolate spheroidal coordinate lambda
-            n - prolate spheroidal coordinate nu
-        OUTPUT:
-            derivative w.r.t. nu
-        HISTORY:
-            2015-02-15 - Written - Trick (MPIA)
+        Evaluate the derivative w.r.t. nu for this potential.
+
+        Parameters
+        ----------
+        l : float
+            Prolate spheroidal coordinate lambda.
+        n : float
+            Prolate spheroidal coordinate nu.
+
+        Returns
+        -------
+        float
+            Derivative w.r.t. nu.
+
+        Notes
+        -----
+        - 2015-02-15 - Written - Trick (MPIA)
+
         """
         return 0.5 / numpy.sqrt(n) / (numpy.sqrt(l) + numpy.sqrt(n)) ** 2
 
     def _l2deriv(self, l, n):
         """
-        NAME:
-            _l2deriv
-        PURPOSE:
-            evaluate the second derivative w.r.t. lambda for this potential
-        INPUT:
-            l - prolate spheroidal coordinate lambda
-            n - prolate spheroidal coordinate nu
-        OUTPUT:
-            second derivative w.r.t. lambda
-        HISTORY:
-            2015-02-15 - Written - Trick (MPIA)
+        Evaluate the second derivative w.r.t. lambda for this potential.
+
+        Parameters
+        ----------
+        l : float
+            Prolate spheroidal coordinate lambda.
+        n : float
+            Prolate spheroidal coordinate nu.
+
+        Returns
+        -------
+        float
+            Second derivative w.r.t. lambda.
+
+        Notes
+        -----
+        - 2015-02-15 - Written - Trick (MPIA)
+
         """
         number = -3.0 * numpy.sqrt(l) - numpy.sqrt(n)
         denom = 4.0 * l**1.5 * (numpy.sqrt(l) + numpy.sqrt(n)) ** 3
@@ -278,17 +200,24 @@ class KuzminKutuzovStaeckelPotential(Potential):
 
     def _n2deriv(self, l, n):
         """
-        NAME:
-            _n2deriv
-        PURPOSE:
-            evaluate the second derivative w.r.t. nu for this potential
-        INPUT:
-            l - prolate spheroidal coordinate lambda
-            n - prolate spheroidal coordinate nu
-        OUTPUT:
-            second derivative w.r.t. nu
-        HISTORY:
-            2015-02-15 - Written - Trick (MPIA)
+        Evaluate the second derivative w.r.t. nu for this potential.
+
+        Parameters
+        ----------
+        l : float
+            Prolate spheroidal coordinate lambda.
+        n : float
+            Prolate spheroidal coordinate nu.
+
+        Returns
+        -------
+        float
+            Second derivative w.r.t. nu.
+
+        Notes
+        -----
+        - 2015-02-15 - Written - Trick (MPIA)
+
         """
         number = -numpy.sqrt(l) - 3.0 * numpy.sqrt(n)
         denom = 4.0 * n**1.5 * (numpy.sqrt(l) + numpy.sqrt(n)) ** 3
@@ -296,17 +225,24 @@ class KuzminKutuzovStaeckelPotential(Potential):
 
     def _lnderiv(self, l, n):
         """
-        NAME:
-            _lnderiv
-        PURPOSE:
-            evaluate the mixed derivative w.r.t. lambda and nu for this potential
-        INPUT:
-            l - prolate spheroidal coordinate lambda
-            n - prolate spheroidal coordinate nu
-        OUTPUT:
-            d2phi/dl/dn
-        HISTORY:
-            2015-02-13 - Written - Trick (MPIA)
+        Evaluate the mixed derivative w.r.t. lambda and nu for this potential.
+
+        Parameters
+        ----------
+        l : float
+            Prolate spheroidal coordinate lambda.
+        n : float
+            Prolate spheroidal coordinate nu.
+
+        Returns
+        -------
+        float
+            Mixed derivative w.r.t. lambda and nu.
+
+        Notes
+        -----
+        - 2015-02-13 - Written - Trick (MPIA)
+
         """
         return -0.5 / (
             numpy.sqrt(l) * numpy.sqrt(n) * (numpy.sqrt(l) + numpy.sqrt(n)) ** 3

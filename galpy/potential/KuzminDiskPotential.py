@@ -23,31 +23,24 @@ class KuzminDiskPotential(Potential):
 
     def __init__(self, amp=1.0, a=1.0, normalize=False, ro=None, vo=None):
         """
-        NAME:
+        Initialize a Kuzmin disk Potential.
 
-            __init__
+        Parameters
+        ----------
+        amp : float or Quantity, optional
+            Amplitude to be applied to the potential, the total mass. Can be a Quantity with units of mass or Gxmass.
+        a : float or Quantity, optional
+            Scale length.
+        normalize : bool or float, optional
+            If True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
+        ro : float, optional
+            Distance scale for translation into internal units (default from configuration file).
+        vo : float, optional
+            Velocity scale for translation into internal units (default from configuration file).
 
-        PURPOSE:
-
-            initialize a Kuzmin disk Potential
-
-        INPUT:
-
-            amp - amplitude to be applied to the potential, the total mass (default: 1); can be a Quantity with units of mass density or Gxmass density
-
-            a - scale length (can be Quantity)
-
-            normalize - if True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
-
-           ro=, vo= distance and velocity scales for translation into internal units (default from configuration file)
-
-        OUTPUT:
-
-           KuzminDiskPotential object
-
-        HISTORY:
-
-           2016-05-09 - Written - Aladdin
+        Notes
+        -----
+        - 2016-05-09 - Written - Aladdin
 
         """
         Potential.__init__(self, amp=amp, ro=ro, vo=vo, amp_units="mass")
@@ -62,93 +55,18 @@ class KuzminDiskPotential(Potential):
         return None
 
     def _evaluate(self, R, z, phi=0.0, t=0.0):
-        """
-        NAME:
-           _evaluate
-        PURPOSE:
-           evaluate the potential at (R,z)
-        INPUT:
-           R - Cylindrical Galactocentric radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           potential at (R,z)
-        HISTORY:
-           2016-05-09 - Written - Aladdin
-        """
         return -self._denom(R, z) ** -0.5
 
     def _Rforce(self, R, z, phi=0.0, t=0.0):
-        """
-        NAME:
-            _Rforce
-        PURPOSE:
-            evaluate the radial force for this potential
-        INPUT:
-            R - Galactocentric cylindrical radius
-            z - vertical height
-            phi - azimuth
-            t - time
-        OUTPUT:
-            the radial force = -dphi/dR
-        HISTORY:
-            2016-05-09 - Written - Aladdin
-        """
         return -self._denom(R, z) ** -1.5 * R
 
     def _zforce(self, R, z, phi=0.0, t=0.0):
-        """
-        NAME:
-           _zforce
-        PURPOSE:
-           evaluate the vertical force  for this potential
-        INPUT:
-           R - Cylindrical Galactocentric radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           the vertical force = -dphi/dz
-        HISTORY:
-           2016-05-09 - Written - Aladdin
-        """
         return -numpy.sign(z) * self._denom(R, z) ** -1.5 * (self._a + numpy.fabs(z))
 
     def _R2deriv(self, R, z, phi=0.0, t=0.0):
-        """
-        NAME:
-            _Rforce
-        PURPOSE:
-            evaluate the second radial derivative for this potential
-        INPUT:
-            R - Galactocentric cylindrical radius
-            z - vertical height
-            phi - azimuth
-            t - time
-        OUTPUT:
-            the second radial derivative
-        HISTORY:
-            2016-05-13 - Written - Aladdin
-        """
         return self._denom(R, z) ** -1.5 - 3.0 * R**2 * self._denom(R, z) ** -2.5
 
     def _z2deriv(self, R, z, phi=0.0, t=0.0):
-        """
-        NAME:
-           _z2deriv
-        PURPOSE:
-           evaluate the second vertical derivative for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           the second vertical derivative
-        HISTORY:
-           2016-05-13 - Written - Aladdin
-        """
         a = self._a
         return (
             self._denom(R, z) ** -1.5
@@ -156,21 +74,6 @@ class KuzminDiskPotential(Potential):
         )
 
     def _Rzderiv(self, R, z, phi=0.0, t=0.0):
-        """
-        NAME:
-           _Rzderiv
-        PURPOSE:
-           evaluate the mixed R,z derivative for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           d2phi/dR/dz
-        HISTORY:
-           2016-05-13 - Written - Aladdin
-        """
         return (
             -3
             * numpy.sign(z)
@@ -180,53 +83,10 @@ class KuzminDiskPotential(Potential):
         )
 
     def _surfdens(self, R, z, phi=0.0, t=0.0):
-        """
-        NAME:
-           _surfdens
-        PURPOSE:
-           evaluate the surface density
-        INPUT:
-           R - Cylindrical Galactocentric radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           Sigma (R,z)
-        HISTORY:
-           2018-08-19 - Written - Bovy (UofT)
-        """
         return self._a * (R**2 + self._a**2) ** -1.5 / 2.0 / numpy.pi
 
     def _mass(self, R, z=None, t=0.0):
-        """
-        NAME:
-           _mass
-        PURPOSE:
-           evaluate the mass within R (and z) for this potential; if z=None, integrate to z=inf
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           t - time
-        OUTPUT:
-           the mass enclosed
-        HISTORY:
-           2021-03-04 - Written - Bovy (UofT)
-        """
         return 1.0 - self._a / numpy.sqrt(R**2.0 + self._a**2.0)
 
     def _denom(self, R, z):
-        """
-        NAME:
-           _denom
-        PURPOSE:
-           evaluate R^2 + (a + |z|)^2 which is used in the denominator
-           of most equations
-        INPUT:
-           R - Cylindrical Galactocentric radius
-           z - vertical height
-        OUTPUT:
-           R^2 + (a + |z|)^2
-        HISTORY:
-           2016-05-09 - Written - Aladdin
-        """
         return R**2.0 + (self._a + numpy.fabs(z)) ** 2.0

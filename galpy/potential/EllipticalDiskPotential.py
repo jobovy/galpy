@@ -36,44 +36,37 @@ class EllipticalDiskPotential(planarPotential):
         vo=None,
     ):
         """
-        NAME:
+        Initialize an Elliptical disk potential.
 
-           __init__
+        Parameters
+        ----------
+        amp : float, optional
+            Amplitude to be applied to the potential (default: 1.), see twophio below.
+        tform : float or Quantity, optional
+            Start of growth (to smoothly grow this potential).
+        tsteady : float or Quantity, optional
+            Time delay at which the perturbation is fully grown (default: 2.).
+        p : float, optional
+            Power-law index of the phi(R) = (R/Ro)^p part.
+        r1 : float or Quantity, optional
+            Normalization radius for the amplitude.
+        phib : float or Quantity, optional
+            Angle (in rad; default=25 degree).
+        twophio : float or Quantity, optional
+            Potential perturbation (in terms of 2phio/vo^2 if vo=1 at Ro=1).
+        cp : float or Quantity, optional
+            Twophio * cos(2phib).
+        sp : float or Quantity, optional
+            Twophio * sin(2phib).
+        ro : float or Quantity, optional
+            Distance scale for translation into internal units (default from configuration file).
+        vo : float or Quantity, optional
+            Velocity scale for translation into internal units (default from configuration file).
 
-        PURPOSE:
-
-           initialize an Elliptical disk potential
-
-           phi(R,phi) = phio (R/Ro)^p cos[2(phi-phib)]
-
-        INPUT:
-
-           amp=  amplitude to be applied to the potential (default:
-           1.), see twophio below
-
-           tform= start of growth (to smoothly grow this potential (can be Quantity)
-
-           tsteady= time delay at which the perturbation is fully grown (default: 2.; can be Quantity)
-
-           p= power-law index of the phi(R) = (R/Ro)^p part
-
-           r1= (1.) normalization radius for the amplitude (can be Quantity)
-
-           Either:
-
-              a) phib= angle (in rad; default=25 degree; or can be Quantity)
-
-                 twophio= potential perturbation (in terms of 2phio/vo^2 if vo=1 at Ro=1; can be Quantity with units of velocity-squared)
-
-              b) cp, sp= twophio * cos(2phib), twophio * sin(2phib) (can be Quantity with units of velocity-squared)
-
-        OUTPUT:
-
-           (none)
-
-        HISTORY:
-
-           2011-10-19 - Started - Bovy (IAS)
+        Notes
+        -----
+        - Specify either (phib,twophio) or (cp,sp).
+        - 2011-10-19 - Started - Bovy (IAS)
 
         """
         planarPotential.__init__(self, amp=amp, ro=ro, vo=vo)
@@ -108,20 +101,6 @@ class EllipticalDiskPotential(planarPotential):
                 self._tsteady = self._tform + 2.0
 
     def _evaluate(self, R, phi=0.0, t=0.0):
-        """
-        NAME:
-           _evaluate
-        PURPOSE:
-           evaluate the potential at R,phi,t
-        INPUT:
-           R - Galactocentric cylindrical radius
-           phi - azimuth
-           t - time
-        OUTPUT:
-           Phi(R,phi,t)
-        HISTORY:
-           2011-10-19 - Started - Bovy (IAS)
-        """
         # Calculate relevant time
         if not self._tform is None:
             if t < self._tform:
@@ -148,20 +127,6 @@ class EllipticalDiskPotential(planarPotential):
         )
 
     def _Rforce(self, R, phi=0.0, t=0.0):
-        """
-        NAME:
-           _Rforce
-        PURPOSE:
-           evaluate the radial force for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           phi - azimuth
-           t - time
-        OUTPUT:
-           the radial force
-        HISTORY:
-           2011-10-19 - Written - Bovy (IAS)
-        """
         # Calculate relevant time
         if not self._tform is None:
             if t < self._tform:
@@ -189,20 +154,6 @@ class EllipticalDiskPotential(planarPotential):
         )
 
     def _phitorque(self, R, phi=0.0, t=0.0):
-        """
-        NAME:
-           _phitorque
-        PURPOSE:
-           evaluate the azimuthal torque for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           phi - azimuth
-           t - time
-        OUTPUT:
-           the azimuthal torque
-        HISTORY:
-           2011-10-19 - Written - Bovy (IAS)
-        """
         # Calculate relevant time
         if not self._tform is None:
             if t < self._tform:
@@ -304,27 +255,17 @@ class EllipticalDiskPotential(planarPotential):
             * numpy.sin(2.0 * (phi - self._phib))
         )
 
-    def tform(self):  # pragma: no cover
+    def tform(self):
         """
-        NAME:
+        Return formation time of the perturbation.
 
-           tform
+        Returns
+        -------
+        float
+            Formation time of the perturbation in normalized units.
 
-        PURPOSE:
-
-           return formation time of the perturbation
-
-        INPUT:
-
-           (none)
-
-        OUTPUT:
-
-           tform in normalized units
-
-        HISTORY:
-
-           2011-10-19 - Written - Bovy (IAS)
-
+        Notes
+        -----
+        - 2011-10-19 - Written - Bovy (IAS)
         """
         return self._tform

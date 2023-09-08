@@ -50,38 +50,34 @@ class FerrersPotential(Potential):
         vo=None,
     ):
         """
-        NAME:
+        Initialize a Ferrers potential.
 
-           __init__
+        Parameters
+        ----------
+        amp : float or Quantity, optional
+            Total mass of the ellipsoid determines the amplitude of the potential.
+        a : float or Quantity, optional
+            Scale radius.
+        n : int, optional
+            Power of Ferrers density (n > 0).
+        b : float, optional
+            y-to-x axis ratio of the density.
+        c : float, optional
+            z-to-x axis ratio of the density.
+        omegab : float or Quantity, optional
+            Rotation speed of the ellipsoid.
+        pa : float or Quantity, optional
+            If set, the position angle of the x axis (rad or Quantity).
+        normalize : bool or float, optional
+            If True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
+        ro : float, optional
+            Distance scale for translation into internal units (default from configuration file).
+        vo : float, optional
+            Velocity scale for translation into internal units (default from configuration file).
 
-        PURPOSE:
-
-           initialize a Ferrers potential
-
-        INPUT:
-
-           amp - total mass of the ellipsoid determines the amplitude of the potential; can be a Quantity with units of mass or Gxmass
-
-           a - scale radius (can be Quantity)
-
-           n - power of Ferrers density (n > 0)
-
-           b - y-to-x axis ratio of the density
-
-           c - z-to-x axis ratio of the density
-
-           omegab - rotation speed of the ellipsoid (can be Quantity)
-
-           pa= (None) If set, the position angle of the x axis (rad or Quantity)
-
-           normalize - if True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
-
-           ro=, vo= distance and velocity scales for translation into internal units (default from configuration file)
-
-        OUTPUT:
-
-           (none)
-
+        Notes
+        -----
+        - 2011-02-23: Written - Bovy (NYU)
         """
         Potential.__init__(self, amp=amp, ro=ro, vo=vo, amp_units="mass")
         a = conversion.parse_length(a, ro=self._ro)
@@ -110,19 +106,6 @@ class FerrersPotential(Potential):
         return None
 
     def _evaluate(self, R, z, phi=0.0, t=0.0):
-        """
-        NAME:
-           _evaluate
-        PURPOSE:
-           evaluate the potential at R,z
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           Phi(R,z)
-        """
         if not self.isNonAxi:
             phi = 0.0
         x, y, z = coords.cyl_to_rect(R, phi, z)
@@ -146,38 +129,12 @@ class FerrersPotential(Potential):
         )
 
     def _Rforce(self, R, z, phi=0.0, t=0.0):
-        """
-        NAME:
-           _Rforce
-        PURPOSE:T
-           evaluate the radial force for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           the radial force
-        """
         if not self.isNonAxi:
             phi = 0.0
         self._compute_xyzforces(R, z, phi, t)
         return numpy.cos(phi) * self._cached_Fx + numpy.sin(phi) * self._cached_Fy
 
     def _phitorque(self, R, z, phi=0.0, t=0.0):
-        """
-        NAME:
-           _phitorque
-        PURPOSE:
-           evaluate the azimuthal torque for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           the azimuthal torque
-        """
         if not self.isNonAxi:
             phi = 0.0
         self._compute_xyzforces(R, z, phi, t)
@@ -186,19 +143,6 @@ class FerrersPotential(Potential):
         )
 
     def _zforce(self, R, z, phi=0.0, t=0.0):
-        """
-        NAME:
-           _zforce
-        PURPOSE:
-           evaluate the vertical force for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           the vertical force
-        """
         if not self.isNonAxi:
             phi = 0.0
         self._compute_xyzforces(R, z, phi, t)
@@ -272,19 +216,6 @@ class FerrersPotential(Potential):
         )
 
     def _R2deriv(self, R, z, phi=0.0, t=0.0):
-        """
-        NAME:
-           _R2deriv
-        PURPOSE:
-           evaluate the second radial derivative for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           the second radial derivative
-        """
         if not self.isNonAxi:
             phi = 0.0
         x, y, z = self._compute_xyz(R, phi, z, t)
@@ -303,19 +234,6 @@ class FerrersPotential(Potential):
         )
 
     def _Rzderiv(self, R, z, phi=0.0, t=0.0):
-        """
-        NAME:
-           _Rzderiv
-        PURPOSE:
-           evaluate the mixed radial, vertical derivative for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           the mixed radial, vertical derivative
-        """
         if not self.isNonAxi:
             phi = 0.0
         x, y, z = self._compute_xyz(R, phi, z, t)
@@ -328,38 +246,12 @@ class FerrersPotential(Potential):
         return numpy.cos(phi) * phixz + numpy.sin(phi) * phiyz
 
     def _z2deriv(self, R, z, phi=0.0, t=0.0):
-        """
-        NAME:
-           _z2deriv
-        PURPOSE:
-           evaluate the second vertical derivative for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           the second vertical derivative
-        """
         if not self.isNonAxi:
             phi = 0.0
         x, y, z = self._compute_xyz(R, phi, z, t)
         return self._2ndderiv_xyz(x, y, z, 2, 2)
 
     def _phi2deriv(self, R, z, phi=0.0, t=0.0):
-        """
-        NAME:
-           _phi2deriv
-        PURPOSE:
-           evaluate the second azimuthal derivative for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           the second azimuthal derivative
-        """
         if not self.isNonAxi:
             phi = 0.0
         x, y, z = self._compute_xyz(R, phi, z, t)
@@ -382,19 +274,6 @@ class FerrersPotential(Potential):
         ) + R * (numpy.cos(phi) * Fx + numpy.sin(phi) * Fy)
 
     def _Rphideriv(self, R, z, phi=0.0, t=0.0):
-        """
-        NAME:
-           _Rphideriv
-        PURPOSE:
-           evaluate the mixed radial, azimuthal derivative for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           the mixed radial, azimuthal derivative
-        """
         if not self.isNonAxi:
             phi = 0.0
         x, y, z = self._compute_xyz(R, phi, z, t)
@@ -418,21 +297,6 @@ class FerrersPotential(Potential):
         )
 
     def _phizderiv(self, R, z, phi=0.0, t=0.0):
-        """
-        NAME:
-           _phizderiv
-        PURPOSE:
-           evaluate the mixed azimuthal, vertical derivative for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           the mixed azimuthal, vertical derivative
-        HISTORY:
-           2021-04-30 - Written - Bovy (UofT)
-        """
         if not self.isNonAxi:
             phi = 0.0
         x, y, z = self._compute_xyz(R, phi, z, t)
@@ -466,19 +330,6 @@ class FerrersPotential(Potential):
         )
 
     def _dens(self, R, z, phi=0.0, t=0.0):
-        """
-        NAME:
-           _dens
-        PURPOSE:
-           evaluate the density for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           the density
-        """
         x, y, z = self._compute_xyz(R, phi, z, t)
         m2 = x**2 / self._a2 + y**2 / self._b2 + z**2 / self._c2
         if m2 < 1:
@@ -487,16 +338,6 @@ class FerrersPotential(Potential):
             return 0.0
 
     def OmegaP(self):
-        """
-        NAME:
-           OmegaP
-        PURPOSE:
-           return the pattern speed
-        INPUT:
-           (none)
-        OUTPUT:
-           pattern speed
-        """
         return self._omegab
 
     def rot(self, t=0.0, transposed=False):

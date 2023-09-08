@@ -24,29 +24,22 @@ class SphericalPotential(Potential):
 
     def __init__(self, amp=1.0, ro=None, vo=None, amp_units=None):
         """
-        NAME:
+        Initialize a spherical potential.
 
-           __init__
+        Parameters
+        ----------
+        amp : float, optional
+            Amplitude to be applied to the potential (default: 1).
+        ro : float or Quantity, optional
+            Distance scale for translation into internal units (default from configuration file).
+        vo : float or Quantity, optional
+            Velocity scale for translation into internal units (default from configuration file).
+        amp_units : str, optional
+            Type of units that amp should have if it has units ('mass', 'velocity2', 'density').
 
-        PURPOSE:
-
-           initialize a spherical potential
-
-        INPUT:
-
-           amp - amplitude to be applied to the potential (default: 1); can be a Quantity with units that depend on the specific spherical potential
-
-           amp_units - ('mass', 'velocity2', 'density') type of units that amp should have if it has units (passed to Potential.__init__)
-
-           ro=, vo= distance and velocity scales for translation into internal units (default from configuration file)
-
-        OUTPUT:
-
-           (none)
-
-        HISTORY:
-
-           2020-03-30 - Written - Bovy (UofT)
+        Notes
+        -----
+        - 2020-03-30 - Written - Bovy (UofT)
 
         """
         Potential.__init__(self, amp=amp, ro=ro, vo=vo, amp_units=amp_units)
@@ -57,78 +50,18 @@ class SphericalPotential(Potential):
         return (self._r2deriv(r, t=t) - 2.0 * self._rforce(r, t=t) / r) / 4.0 / numpy.pi
 
     def _evaluate(self, R, z, phi=0.0, t=0.0):
-        """
-        NAME:
-           _evaluate
-        PURPOSE:
-           evaluate the potential at R,z
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           Phi(R,z)
-        HISTORY:
-           2020-03-30 - Written - Bovy (UofT)
-        """
         r = numpy.sqrt(R**2.0 + z**2.0)
         return self._revaluate(r, t=t)
 
     def _Rforce(self, R, z, phi=0.0, t=0.0):
-        """
-        NAME:
-           _Rforce
-        PURPOSE:
-           evaluate the radial force for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           the radial force
-        HISTORY:
-           2020-03-30 - Written - Bovy (UofT)
-        """
         r = numpy.sqrt(R**2.0 + z**2.0)
         return self._rforce(r, t=t) * R / r
 
     def _zforce(self, R, z, phi=0.0, t=0.0):
-        """
-        NAME:
-           _zforce
-        PURPOSE:
-           evaluate the vertical force for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           the radial force
-        HISTORY:
-           2020-03-30 - Written - Bovy (UofT)
-        """
         r = numpy.sqrt(R**2.0 + z**2.0)
         return self._rforce(r, t=t) * z / r
 
     def _R2deriv(self, R, z, phi=0.0, t=0.0):
-        """
-        NAME:
-           _R2deriv
-        PURPOSE:
-           evaluate the second radial derivative for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           the second radial derivative
-        HISTORY:
-           2020-03-30 - Written - Bovy (UofT)
-        """
         r = numpy.sqrt(R**2.0 + z**2.0)
         return (
             self._r2deriv(r, t=t) * R**2.0 / r**2.0
@@ -136,21 +69,6 @@ class SphericalPotential(Potential):
         )
 
     def _z2deriv(self, R, z, phi=0.0, t=0.0):
-        """
-        NAME:
-           _z2deriv
-        PURPOSE:
-           evaluate the second vertical derivative for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           the second radial derivative
-        HISTORY:
-           2020-03-30 - Written - Bovy (UofT)
-        """
         r = numpy.sqrt(R**2.0 + z**2.0)
         return (
             self._r2deriv(r, t=t) * z**2.0 / r**2.0
@@ -158,21 +76,6 @@ class SphericalPotential(Potential):
         )
 
     def _Rzderiv(self, R, z, phi=0.0, t=0.0):
-        """
-        NAME:
-           _Rzderiv
-        PURPOSE:
-           evaluate the mixed radial, vertical  derivative for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           the mixed radial, vertical derivative
-        HISTORY:
-           2020-03-30 - Written - Bovy (UofT)
-        """
         r = numpy.sqrt(R**2.0 + z**2.0)
         return (
             self._r2deriv(r, t=t) * R * z / r**2.0
@@ -180,39 +83,10 @@ class SphericalPotential(Potential):
         )
 
     def _dens(self, R, z, phi=0.0, t=0.0):
-        """
-         NAME:
-            _dens
-         PURPOSE:
-            evaluate the density for this potential
-         INPUT:
-            R - Galactocentric cylindrical radius
-            z - vertical height
-            phi - azimuth
-            t - time
-         OUTPUT:
-            the density
-        HISTORY:
-            2020-03-30 - Written - Bovy (UofT)
-        """
         r = numpy.sqrt(R**2.0 + z**2.0)
         return self._rdens(r, t=t)
 
     def _mass(self, R, z=None, t=0.0):
-        """
-        NAME:
-           _mass
-        PURPOSE:
-           evaluate the mass within R for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           t - time
-        OUTPUT:
-           the mass enclosed
-        HISTORY:
-           2021-03-15 - Written - Bovy (UofT)
-        """
         if z is not None:
             raise AttributeError  # use general implementation
         R = numpy.float64(R)  # Avoid indexing issues

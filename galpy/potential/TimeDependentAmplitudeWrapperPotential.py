@@ -26,29 +26,24 @@ class TimeDependentAmplitudeWrapperPotential(parentWrapperPotential):
 
     def __init__(self, amp=1.0, A=None, pot=None, ro=None, vo=None):
         """
-        NAME:
+        Initialize a TimeDependentAmplitudeWrapperPotential.
 
-           __init__
+        Parameters
+        ----------
+        amp : float, optional
+            Amplitude to be applied to the potential (default: 1.).
+        A : function, optional
+            Function of time giving the time-dependence of the amplitude; should be able to be called with a single time and return a numbers.Number (that is, a number); input time is in internal units (see galpy.util.conversion.time_in_Gyr to convert) and output is a dimensionless amplitude modulation.
+        pot : Potential instance or list thereof
+            The amplitude of this will modified by this wrapper.
+        ro : float or Quantity, optional
+            Distance scale for translation into internal units (default from configuration file).
+        vo : float or Quantity, optional
+            Velocity scale for translation into internal units (default from configuration file).
 
-        PURPOSE:
-
-           initialize a TimeDependentAmplitudeWrapperPotential
-
-        INPUT:
-
-           amp - amplitude to be applied to the potential (default: 1.)
-
-           A - function of time giving the time-dependence of the amplitude; should be able to be called with a single time and return a numbers.Number (that is, a number); input time is in internal units (see galpy.util.conversion.time_in_Gyr to convert) and output is a dimensionless amplitude modulation
-
-           pot - Potential instance or list thereof; the amplitude of this will modified by this wrapper
-
-        OUTPUT:
-
-           (none)
-
-        HISTORY:
-
-           2022-03-29 - Started - Bovy (UofT)
+        Notes
+        -----
+        - Started - 2022-03-29 - Bovy (UofT)
 
         """
         if not callable(A):

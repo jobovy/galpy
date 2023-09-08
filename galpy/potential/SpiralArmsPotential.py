@@ -56,31 +56,38 @@ class SpiralArmsPotential(Potential):
         Cs=[1],
     ):
         """
-        NAME:
-            __init__
-        PURPOSE:
-            initialize a spiral arms potential
-        INPUT:
-            :amp: amplitude to be applied to the potential (default: 1);
-                        can be a Quantity with units of density. (:math:`amp = 4 \\pi G \\rho_0`)
-            :ro: distance scales for translation into internal units (default from configuration file)
-            :vo: velocity scales for translation into internal units (default from configuration file)
-            :N: number of spiral arms
-            :alpha: pitch angle of the logarithmic spiral arms in radians (can be Quantity)
-            :r_ref: fiducial radius where :math:`\\rho = \\rho_0` (:math:`r_0` in the paper by Cox and Gomez) (can be Quantity)
-            :phi_ref: reference angle (:math:`\\phi_p(r_0)` in the paper by Cox and Gomez) (can be Quantity)
-            :Rs: radial scale length of the drop-off in density amplitude of the arms (can be Quantity)
-            :H: scale height of the stellar arm perturbation (can be Quantity)
-            :Cs: list of constants multiplying the :math:`\\cos(n \\gamma)` terms
-            :omega: rotational pattern speed of the spiral arms (can be Quantity)
-        OUTPUT:
-            (none)
-        HISTORY:
-            Started - 2017-05-12  Jack Hong (UBC)
+        Initialize a spiral arms potential
 
-            Completed - 2017-07-04 Jack Hong (UBC)
+        Parameters
+        ----------
+        amp : float or Quantity, optional
+            amplitude to be applied to the potential (default: 1); can be a Quantity with units of density. (:math:`amp = 4 \\pi G \\rho_0`)
+        ro : float or Quantity, optional
+            distance scales for translation into internal units (default from configuration file)
+        vo : float or Quantity, optional
+            velocity scales for translation into internal units (default from configuration file)
+        N : int, optional
+            number of spiral arms.
+        alpha : float or Quantity, optional
+            pitch angle of the logarithmic spiral arms.
+        r_ref : float or Quantity, optional
+            fiducial radius where :math:`\\rho = \\rho_0` (:math:`r_0` in the paper by Cox and Gomez).
+        phi_ref : float or Quantity, optional
+            reference angle (:math:`\\phi_p(r_0)` in the paper by Cox and Gomez).
+        Rs : float or Quantity, optional
+            radial scale length of the drop-off in density amplitude of the arms.
+        H : float or Quantity, optional
+            scale height of the stellar arm perturbation.
+        Cs : list of floats, optional
+            constants multiplying the :math:`\\cos(n \\gamma)` terms.
+        omega : float or Quantity, optional
+            rotational pattern speed of the spiral arms.
+
+        Notes
+        -----
+        - 2017-05-12 - Started - Jack Hong (UBC)
+        - 2020-03-30 - Re-implemented using Potential - Bovy (UofT)
         """
-
         Potential.__init__(self, amp=amp, ro=ro, vo=vo, amp_units=amp_units)
         alpha = conversion.parse_angle(alpha)
         r_ref = conversion.parse_length(r_ref, ro=self._ro)
@@ -113,21 +120,6 @@ class SpiralArmsPotential(Potential):
         self.hasC_dxdv = True  # Potential has C implementation of second derivatives
 
     def _evaluate(self, R, z, phi=0, t=0):
-        """
-        NAME:
-            _evaluate
-        PURPOSE:
-            Evaluate the potential at the given coordinates. (without the amp factor; handled by super class)
-        INPUT:
-            :param R: galactocentric cylindrical radius
-            :param z: vertical height
-            :param phi: azimuth
-            :param t: time
-        OUTPUT:
-            :return: Phi(R, z, phi, t)
-        HISTORY:
-            2017-05-12  Jack Hong (UBC)
-        """
         if isinstance(R, numpy.ndarray) or isinstance(z, numpy.ndarray):
             nR = len(R) if isinstance(R, numpy.ndarray) else len(z)
             self._Cs = numpy.transpose(
@@ -177,21 +169,6 @@ class SpiralArmsPotential(Potential):
         )
 
     def _Rforce(self, R, z, phi=0, t=0):
-        """
-        NAME:
-            _Rforce
-        PURPOSE:
-            Evaluate the radial force for this potential at the given coordinates. (-dPhi/dR)
-        INPUT:
-            :param R: galactocentric cylindrical radius
-            :param z: vertical height
-            :param phi: azimuth
-            :param t: time
-        OUTPUT:
-            :return: the radial force
-        HISTORY:
-            2017-05-12  Jack Hong (UBC)
-        """
         if isinstance(R, numpy.ndarray) or isinstance(z, numpy.ndarray):
             nR = len(R) if isinstance(R, numpy.ndarray) else len(z)
             self._Cs = numpy.transpose(
@@ -263,21 +240,6 @@ class SpiralArmsPotential(Potential):
         )
 
     def _zforce(self, R, z, phi=0, t=0):
-        """
-        NAME:
-            _zforce
-        PURPOSE:
-            Evaluate the vertical force for this potential at the given coordinates. (-dPhi/dz)
-        INPUT:
-            :param R: galactocentric cylindrical radius
-            :param z: vertical height
-            :param phi: azimuth
-            :param t: time
-        OUTPUT:
-            :return: the vertical force
-        HISTORY:
-            2017-05-25  Jack Hong (UBC)
-        """
         if isinstance(R, numpy.ndarray) or isinstance(z, numpy.ndarray):
             nR = len(R) if isinstance(R, numpy.ndarray) else len(z)
             self._Cs = numpy.transpose(
@@ -328,21 +290,6 @@ class SpiralArmsPotential(Potential):
         )
 
     def _phitorque(self, R, z, phi=0, t=0):
-        """
-        NAME:
-            _phitorque
-        PURPOSE:
-            Evaluate the azimuthal torque in cylindrical coordinates. (-dPhi/dphi)
-        INPUT:
-            :param R: galactocentric cylindrical radius
-            :param z: vertical height
-            :param phi: azimuth
-            :param t: time
-        OUTPUT:
-            :return: the azimuthal torque
-        HISTORY:
-            2017-05-25  Jack Hong (UBC)
-        """
         if isinstance(R, numpy.ndarray) or isinstance(z, numpy.ndarray):
             nR = len(R) if isinstance(R, numpy.ndarray) else len(z)
             self._Cs = numpy.transpose(
@@ -395,22 +342,6 @@ class SpiralArmsPotential(Potential):
         )
 
     def _R2deriv(self, R, z, phi=0, t=0):
-        """
-        NAME:
-            _R2deriv
-        PURPOSE:
-            Evaluate the second (cylindrical) radial derivative of the potential.
-             (d^2 potential / d R^2)
-        INPUT:
-            :param R: galactocentric cylindrical radius
-            :param z: vertical height
-            :param phi: azimuth
-            :param t: time
-        OUTPUT:
-            :return: the second radial derivative
-        HISTORY:
-            2017-05-31  Jack Hong (UBC)
-        """
         if isinstance(R, numpy.ndarray) or isinstance(z, numpy.ndarray):
             nR = len(R) if isinstance(R, numpy.ndarray) else len(z)
             self._Cs = numpy.transpose(
@@ -634,22 +565,6 @@ class SpiralArmsPotential(Potential):
         )
 
     def _z2deriv(self, R, z, phi=0, t=0):
-        """
-        NAME:
-            _z2deriv
-        PURPOSE:
-            Evaluate the second (cylindrical) vertical derivative of the potential.
-             (d^2 potential / d z^2)
-        INPUT:
-            :param R: galactocentric cylindrical radius
-            :param z: vertical height
-            :param phi: azimuth
-            :param t: time
-        OUTPUT:
-            :return: the second vertical derivative
-        HISTORY:
-            2017-05-26  Jack Hong (UBC)
-        """
         if isinstance(R, numpy.ndarray) or isinstance(z, numpy.ndarray):
             nR = len(R) if isinstance(R, numpy.ndarray) else len(z)
             self._Cs = numpy.transpose(
@@ -703,22 +618,6 @@ class SpiralArmsPotential(Potential):
         )
 
     def _phi2deriv(self, R, z, phi=0, t=0):
-        """
-        NAME:
-            _phi2deriv
-        PURPOSE:
-            Evaluate the second azimuthal derivative of the potential in cylindrical coordinates.
-            (d^2 potential / d phi^2)
-        INPUT:
-            :param R: galactocentric cylindrical radius
-            :param z: vertical height
-            :param phi: azimuth
-            :param t: time
-        OUTPUT:
-            :return: d^2 potential / d phi^2
-        HISTORY:
-            2017-05-29 Jack Hong (UBC)
-        """
         if isinstance(R, numpy.ndarray) or isinstance(z, numpy.ndarray):
             nR = len(R) if isinstance(R, numpy.ndarray) else len(z)
             self._Cs = numpy.transpose(
@@ -771,22 +670,6 @@ class SpiralArmsPotential(Potential):
         )
 
     def _Rzderiv(self, R, z, phi=0.0, t=0.0):
-        """
-        NAME:
-            _Rzderiv
-        PURPOSE:
-            Evaluate the mixed (cylindrical) radial and vertical derivative of the potential
-            (d^2 potential / dR dz).
-        INPUT:
-            :param R: galactocentric cylindrical radius
-            :param z: vertical height
-            :param phi: azimuth
-            :param t: time
-        OUTPUT:
-            :return: d^2 potential / dR dz
-        HISTORY:
-            2017-05-12  Jack Hong (UBC)
-        """
         if isinstance(R, numpy.ndarray) or isinstance(z, numpy.ndarray):
             nR = len(R) if isinstance(R, numpy.ndarray) else len(z)
             self._Cs = numpy.transpose(
@@ -872,22 +755,6 @@ class SpiralArmsPotential(Potential):
         )
 
     def _Rphideriv(self, R, z, phi=0, t=0):
-        """
-        NAME:
-            _Rphideriv
-        PURPOSE:
-            Return the mixed radial and azimuthal derivative of the potential in cylindrical coordinates
-             (d^2 potential / dR dphi)
-        INPUT:
-            :param R: galactocentric cylindrical radius
-            :param z: vertical height
-            :param phi: azimuth
-            :param t: time
-        OUTPUT:
-            :return: the mixed radial and azimuthal derivative
-        HISTORY:
-            2017-06-09  Jack Hong (UBC)
-        """
         if isinstance(R, numpy.ndarray) or isinstance(z, numpy.ndarray):
             nR = len(R) if isinstance(R, numpy.ndarray) else len(z)
             self._Cs = numpy.transpose(
@@ -963,21 +830,6 @@ class SpiralArmsPotential(Potential):
         )
 
     def _phizderiv(self, R, z, phi=0, t=0):
-        """
-        NAME:
-            _phizderiv
-        PURPOSE:
-            Evaluate the mixed azimuthal, vertical derivative for this potential at the given coordinates. (-dPhi/dz)
-        INPUT:
-            :param R: galactocentric cylindrical radius
-            :param z: vertical height
-            :param phi: azimuth
-            :param t: time
-        OUTPUT:
-            :return: mixed azimuthal, vertical derivative
-        HISTORY:
-            2021-04-30 - Jo Bovy (UofT)
-        """
         if isinstance(R, numpy.ndarray) or isinstance(z, numpy.ndarray):
             nR = len(R) if isinstance(R, numpy.ndarray) else len(z)
             self._Cs = numpy.transpose(
@@ -1030,22 +882,6 @@ class SpiralArmsPotential(Potential):
         )
 
     def _dens(self, R, z, phi=0, t=0):
-        """
-        NAME:
-            _dens
-        PURPOSE:
-            Evaluate the density. If not given, the density is computed using the Poisson equation
-            from the first and second derivatives of the potential (if all are implemented).
-        INPUT:
-            :param R: galactocentric cylindrical radius
-            :param z: vertical height
-            :param phi: azimuth
-            :param t: time
-        OUTPUT:
-            :return: the density
-        HISTORY:
-            2017-05-12  Jack Hong (UBC)
-        """
         if isinstance(R, numpy.ndarray) or isinstance(z, numpy.ndarray):
             nR = len(R) if isinstance(R, numpy.ndarray) else len(z)
             self._Cs = numpy.transpose(
@@ -1126,18 +962,6 @@ class SpiralArmsPotential(Potential):
         )
 
     def OmegaP(self):
-        """
-        NAME:
-            OmegaP
-        PURPOSE:
-            Return the pattern speed. (used to compute the Jacobi integral for orbits).
-        INPUT:
-            :param self
-        OUTPUT:
-            :return: the pattern speed
-        HISTORY:
-            2017-06-09  Jack Hong (UBC)
-        """
         return self._omega
 
     def _gamma(self, R, phi):
