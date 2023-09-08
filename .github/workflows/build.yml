@@ -251,18 +251,26 @@ jobs:
          pip install --upgrade --upgrade-strategy eager contourpy cycler fonttools kiwisolver packaging pillow pyparsing
          pip install --upgrade --upgrade-strategy eager -i https://pypi.anaconda.org/scientific-python-nightly-wheels/simple scipy matplotlib
          pip install --upgrade --upgrade-strategy eager --pre numexpr setuptools cython pytest tqdm
-    - name: Install pynbody
-      if: ${{ matrix.REQUIRES_PYNBODY }}
+    - name: Install pynbody (3.12)
+      if: ${{ matrix.REQUIRES_PYNBODY }} && matrix.python-version == '3.12'
       run: |
-         pip install --upgrade --upgrade-strategy eager h5py pandas pytz
+         pip install --upgrade --upgrade-strategy eager --pre pytz tzdata
+         pip install --upgrade --upgrade-strategy eager -i https://pypi.anaconda.org/scientific-python-nightly-wheels/simple pandas
+         pip install --upgrade --upgrade-strategy eager h5py
          pip install --upgrade --upgrade-strategy eager wheel
          pip install --upgrade --upgrade-strategy eager pynbody
+         - name: Install pynbody
+         if: ${{ matrix.REQUIRES_PYNBODY }} && matrix.python-version != '3.12'
+         run: |
+            pip install --upgrade --upgrade-strategy eager h5py pandas pytz
+            pip install --upgrade --upgrade-strategy eager wheel
+            pip install --upgrade --upgrade-strategy eager pynbody
     - name: Install astropy
       if: ${{ matrix.REQUIRES_ASTROPY }}
-      run: pip install astropy pyerfa
+      run: pip install --pre astropy pyerfa
     - name: Install astroquery
       if: ${{ matrix.REQUIRES_ASTROQUERY }}
-      run: pip install astroquery
+      run: pip install --pre astroquery
     - name: Install numba
       if: ${{ matrix.REQUIRES_NUMBA }}
       run: |
@@ -272,7 +280,7 @@ jobs:
         pip install --upgrade --force-reinstall setuptools
     - name: Install JAX
       if: ${{ matrix.REQUIRES_JAX }}
-      run: pip install jax jaxlib
+      run: pip install --pre jax jaxlib
     - name: Install torus code
       env:
           TEST_FILES: ${{ matrix.TEST_FILES }}
