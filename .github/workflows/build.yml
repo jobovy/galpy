@@ -193,7 +193,7 @@ jobs:
             REQUIRES_NUMBA: false
             REQUIRES_JAX: false
           - os: macos-latest
-            python-version: "3.11"
+            python-version: "3.12"
             TEST_FILES: tests/test_orbit.py -k test_energy_jacobi_conservation
             REQUIRES_PYNBODY: true
             REQUIRES_ASTROPY: true
@@ -201,7 +201,7 @@ jobs:
             REQUIRES_NUMBA: false
             REQUIRES_JAX: false
           - os: macos-latest
-            python-version: "3.11"
+            python-version: "3.12"
             TEST_FILES: tests/test_orbit.py tests/test_orbits.py -k 'not test_energy_jacobi_conservation'
             REQUIRES_PYNBODY: true
             REQUIRES_ASTROPY: true
@@ -251,12 +251,21 @@ jobs:
          pip install --upgrade --upgrade-strategy eager contourpy cycler fonttools kiwisolver packaging pillow pyparsing
          pip install --upgrade --upgrade-strategy eager -i https://pypi.anaconda.org/scientific-python-nightly-wheels/simple scipy matplotlib
          pip install --upgrade --upgrade-strategy eager --pre numexpr setuptools cython pytest tqdm
-    - name: Install pynbody (3.12)
-      if: ${{ matrix.REQUIRES_PYNBODY && matrix.python-version == '3.12' }}
+    - name: Install pynbody (3.12; ubuntu)
+      if: ${{ matrix.os == 'ubuntu-latest' && matrix.REQUIRES_PYNBODY && matrix.python-version == '3.12' }}
       run: |
          pip install --upgrade --upgrade-strategy eager --pre pytz tzdata
-         pip install --upgrade --upgrade-strategy eager -i https://pypi.anaconda.org/scientific-python-nightly-wheels/simple pandas
+         pip install --upgrade --upgrade-strategy eager --no-deps -i https://pypi.anaconda.org/scientific-python-nightly-wheels/simple pandas
          sudo apt-get install libhdf5-dev
+         pip install --upgrade --upgrade-strategy eager --pre --no-binary=h5py git+https://github.com/h5py/h5py.git
+         pip install --upgrade --upgrade-strategy eager wheel
+         pip install --upgrade --upgrade-strategy eager --no-deps --pre git+https://github.com/pynbody/pynbody.git
+    - name: Install pynbody (3.12; macos)
+      if: ${{ matrix.os == 'macos-latest' && matrix.REQUIRES_PYNBODY && matrix.python-version == '3.12' }}
+      run: |
+         pip install --upgrade --upgrade-strategy eager --pre pytz tzdata
+         pip install --upgrade --upgrade-strategy eager --no-deps -i https://pypi.anaconda.org/scientific-python-nightly-wheels/simple pandas
+         brew install hdf5
          pip install --upgrade --upgrade-strategy eager --pre --no-binary=h5py git+https://github.com/h5py/h5py.git
          pip install --upgrade --upgrade-strategy eager wheel
          pip install --upgrade --upgrade-strategy eager --no-deps --pre git+https://github.com/pynbody/pynbody.git
