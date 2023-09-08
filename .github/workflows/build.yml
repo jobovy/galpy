@@ -249,7 +249,7 @@ jobs:
          # matplotlib dependencies
          pip install --upgrade --upgrade-strategy eager contourpy cycler fonttools kiwisolver packaging pillow pyparsing python-dateutil
          pip install --upgrade --upgrade-strategy eager -i https://pypi.anaconda.org/scientific-python-nightly-wheels/simple scipy matplotlib
-         pip install --upgrade --upgrade-strategy eager numexpr setuptools cython pytest tqdm
+         pip install --upgrade --upgrade-strategy eager --pre numexpr setuptools cython pytest tqdm
     - name: Install pynbody
       if: ${{ matrix.REQUIRES_PYNBODY }}
       run: |
