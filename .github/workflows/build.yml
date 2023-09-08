@@ -247,7 +247,8 @@ jobs:
       run: |
          pip install --upgrade --upgrade-strategy eager --pre numpy
          # matplotlib dependencies
-         pip install --upgrade --upgrade-strategy eager contourpy cycler fonttools kiwisolver packaging pillow pyparsing python-dateutil
+         pip install git+https://github.com/dateutil/dateutil.git
+         pip install --upgrade --upgrade-strategy eager contourpy cycler fonttools kiwisolver packaging pillow pyparsing
          pip install --upgrade --upgrade-strategy eager -i https://pypi.anaconda.org/scientific-python-nightly-wheels/simple scipy matplotlib
          pip install --upgrade --upgrade-strategy eager --pre numexpr setuptools cython pytest tqdm
     - name: Install pynbody
