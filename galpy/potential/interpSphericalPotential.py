@@ -26,33 +26,25 @@ class interpSphericalPotential(SphericalPotential):
         ro=None,
         vo=None,
     ):
-        """__init__(self,rforce=None,rgrid=numpy.geomspace(0.01,20,101),Phi0=None,ro=None,vo=None)
+        """
+        Initialize an interpolated, spherical potential.
 
-        NAME:
+        Parameters
+        ----------
+        rforce : function or galpy Potential instance or list thereof, optional
+            Either a function that gives the radial force (in internal units) as a function of r (in internal units) or a galpy Potential instance or list thereof. The default is None.
+        rgrid : numpy.ndarray, optional
+            Radial grid in internal units on which to evaluate the potential for interpolation (note that beyond rgrid[-1], the potential is extrapolated as -GM(<rgrid[-1])/r). The default is numpy.geomspace(0.01,20,101).
+        Phi0 : float, optional
+            Value of the potential at rgrid[0] in internal units (only necessary when rforce is a function, for galpy potentials automatically determined). The default is None.
+        ro : float or Quantity, optional
+            Distance scale for translation into internal units (default from configuration file).
+        vo : float or Quantity, optional
+            Velocity scale for translation into internal units (default from configuration file).
 
-           __init__
-
-        PURPOSE:
-
-           initialize an interpolated, spherical potential
-
-        INPUT:
-
-           rforce= (None) Either a) function that gives the radial force (in internal units) as a function of r (in internal units) or b) a galpy Potential instance or list thereof
-
-           rgrid= (numpy.geomspace(0.01,20,101)) radial grid in internal units on which to evaluate the potential for interpolation (note that beyond rgrid[-1], the potential is extrapolated as -GM(<rgrid[-1])/r)
-
-           Phi0= (0.) value of the potential at rgrid[0] in internal units (only necessary when rforce is a function, for galpy potentials automatically determined)
-
-           ro=, vo= distance and velocity scales for translation into internal units (default from configuration file)
-
-        OUTPUT:
-
-           (none)
-
-        HISTORY:
-
-           2020-07-13 - Written - Bovy (UofT)
+        Notes
+        -----
+        - 2020-07-13 - Written - Bovy (UofT)
 
         """
         SphericalPotential.__init__(self, amp=1.0, ro=ro, vo=vo)
@@ -121,19 +113,6 @@ class interpSphericalPotential(SphericalPotential):
         return out
 
     def _rforce_jax(self, r):
-        """
-        NAME:
-           _rforce_jax
-        PURPOSE:
-           evaluate the spherical radial force for this potential using JAX,
-           which doesn't support splines, only linear interpolation.
-        INPUT:
-           r - Galactocentric spherical radius
-        OUTPUT:
-           the radial force
-        HISTORY:
-           2023-02-10 - Written - Lane (UofT)
-        """
         if not _JAX_LOADED:  # pragma: no cover
             raise ImportError(
                 "Making use of _rforce_jax function requires the google/jax library"

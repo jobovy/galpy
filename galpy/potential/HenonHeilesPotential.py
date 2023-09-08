@@ -17,129 +17,39 @@ class HenonHeilesPotential(planarPotential):
 
     def __init__(self, amp=1.0, ro=None, vo=None):
         """
-        NAME:
+        Initialize a Henon-Heiles potential
 
-           __init__
+        Parameters
+        ----------
+        amp : float, optional
+            Amplitude to be applied to the potential (default: 1.)
+        ro : float or Quantity, optional
+            Distance scale for translation into internal units (default from configuration file).
+        vo : float or Quantity, optional
+            Velocity scale for translation into internal units (default from configuration file).
 
-        PURPOSE:
-
-           initialize a Henon-Heiles potential
-
-        INPUT:
-
-           amp - amplitude to be applied to the potential (default: 1.)
-
-        OUTPUT:
-
-           (none)
-
-        HISTORY:
-
-           2017-10-16 - Written - Bovy (UofT)
-
+        Notes
+        -----
+        - 2017-10-16 - Written - Bovy (UofT)
         """
         planarPotential.__init__(self, amp=amp, ro=ro, vo=vo)
         self.hasC = True
         self.hasC_dxdv = True
 
     def _evaluate(self, R, phi=0.0, t=0.0):
-        """
-        NAME:
-           _evaluate
-        PURPOSE:
-           evaluate the potential at R,phi,t
-        INPUT:
-           R - Galactocentric cylindrical radius
-           phi - azimuth
-           t - time
-        OUTPUT:
-           Phi(R,phi,t)
-        HISTORY:
-           2017-10-16 - Written - Bovy (UofT)
-        """
         return 0.5 * R * R * (1.0 + 2.0 / 3.0 * R * numpy.sin(3.0 * phi))
 
     def _Rforce(self, R, phi=0.0, t=0.0):
-        """
-        NAME:
-           _Rforce
-        PURPOSE:
-           evaluate the radial force for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           phi - azimuth
-           t - time
-        OUTPUT:
-           the radial force
-        HISTORY:
-           2017-10-16 - Written - Bovy (UofT)
-        """
         return -R * (1.0 + R * numpy.sin(3.0 * phi))
 
     def _phitorque(self, R, phi=0.0, t=0.0):
-        """
-        NAME:
-           _phitorque
-        PURPOSE:
-           evaluate the azimuthal torque for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           phi - azimuth
-           t - time
-        OUTPUT:
-           the azimuthal torque
-        HISTORY:
-           2017-10-16 - Written - Bovy (UofT)
-        """
         return -(R**3.0) * numpy.cos(3.0 * phi)
 
     def _R2deriv(self, R, phi=0.0, t=0.0):
-        """
-        NAME:
-           _R2deriv
-        PURPOSE:
-           evaluate the second radial derivative for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           phi - azimuth
-           t - time
-        OUTPUT:
-           the second radial derivative
-        HISTORY:
-           2017-10-16 - Written - Bovy (UofT)
-        """
         return 1.0 + 2.0 * R * numpy.sin(3.0 * phi)
 
     def _phi2deriv(self, R, phi=0.0, t=0.0):
-        """
-        NAME:
-           _phi2deriv
-        PURPOSE:
-           evaluate the second azimuthal derivative for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           phi - azimuth
-           t - time
-        OUTPUT:
-           the second azimuthal derivative
-        HISTORY:
-           2017-10-16 - Written - Bovy (UofT)
-        """
         return -3.0 * R**3.0 * numpy.sin(3.0 * phi)
 
     def _Rphideriv(self, R, phi=0.0, t=0.0):
-        """
-        NAME:
-           _Rphideriv
-        PURPOSE:
-           evaluate the mixed radial, azimuthal derivative for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           phi - azimuth
-           t - time
-        OUTPUT:
-           the mixed radial, azimuthal derivative
-        HISTORY:
-           2017-10-16 - Written - Bovy (UofT)
-        """
         return 3.0 * R**2.0 * numpy.cos(3.0 * phi)

@@ -96,9 +96,9 @@ class DehnenBarPotential(Potential):
         tsteady : float, optional
             Time from tform at which the bar is fully grown / bar period (default: -tform/2, so the perturbation is fully grown at tform/2).
         ro : float or Quantity, optional
-            Distance from the Galactic center to the observer (can be Quantity).
+            Distance scale for translation into internal units (default from configuration file).
         vo : float or Quantity, optional
-            Circular velocity at ro (can be Quantity).
+            Velocity scale for translation into internal units (default from configuration file).
 
         Notes
         -----
@@ -173,21 +173,6 @@ class DehnenBarPotential(Potential):
         return smooth
 
     def _evaluate(self, R, z, phi=0.0, t=0.0):
-        """
-        NAME:
-           _evaluate
-        PURPOSE:
-           evaluate the potential at R,phi,t
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           Phi(R,z,phi,t)
-        HISTORY:
-           2010-11-24 - Started - Bovy (NYU)
-        """
         # Calculate relevant time
         smooth = self._smooth(t)
         r2 = R**2.0 + z**2.0
@@ -243,21 +228,6 @@ class DehnenBarPotential(Potential):
                 )
 
     def _Rforce(self, R, z, phi=0.0, t=0.0):
-        """
-        NAME:
-           _Rforce
-        PURPOSE:
-           evaluate the radial force for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           the radial force
-        HISTORY:
-           2010-11-24 - Written - Bovy (NYU)
-        """
         # Calculate relevant time
         smooth = self._smooth(t)
         r = numpy.sqrt(R**2.0 + z**2.0)
@@ -315,21 +285,6 @@ class DehnenBarPotential(Potential):
                 )
 
     def _phitorque(self, R, z, phi=0.0, t=0.0):
-        """
-        NAME:
-           _phitorque
-        PURPOSE:
-           evaluate the azimuthal torque for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           the azimuthal torque
-        HISTORY:
-           2010-11-24 - Written - Bovy (NYU)
-        """
         # Calculate relevant time
         smooth = self._smooth(t)
         r2 = R**2.0 + z**2.0
@@ -374,21 +329,6 @@ class DehnenBarPotential(Potential):
                 )
 
     def _zforce(self, R, z, phi=0.0, t=0.0):
-        """
-        NAME:
-           _zforce
-        PURPOSE:
-           evaluate the vertical  force for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           the vertical force
-        HISTORY:
-           2017-06-23 - Written - Bovy (NYU)
-        """
         # Calculate relevant time
         smooth = self._smooth(t)
         r = numpy.sqrt(R**2.0 + z**2.0)
@@ -734,21 +674,6 @@ class DehnenBarPotential(Potential):
                 )
 
     def _phizderiv(self, R, z, phi=0.0, t=0.0):
-        """
-        NAME:
-           _phizderiv
-        PURPOSE:
-           evaluate the mixed azimuthal, vertical derivative for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           the mixed azimuthal, vertical derivative
-        HISTORY:
-           2021-04-30 - Written - Bovy (UofT)
-        """
         # Calculate relevant time
         smooth = self._smooth(t)
         r = numpy.sqrt(R**2.0 + z**2.0)
@@ -806,51 +731,36 @@ class DehnenBarPotential(Potential):
 
     def tform(self):  # pragma: no cover
         """
-        NAME:
+        Return formation time of the bar.
 
-           tform
+        Returns
+        -------
+        tform : float
+            Formation time of the bar in normalized units.
 
-        PURPOSE:
+        Other Parameters
+        ----------------
+        none
 
-           return formation time of the bar
-
-        INPUT:
-
-           (none)
-
-        OUTPUT:
-
-           tform in normalized units
-
-        HISTORY:
-
-           2011-03-08 - Written - Bovy (NYU)
+        Notes
+        -----
+        - 2011-03-08 - Written - Bovy (NYU)
 
         """
         return self._tform
 
     def OmegaP(self):
         """
-        NAME:
+        Return the pattern speed.
 
+        Returns
+        -------
+        float
+            The pattern speed.
 
-           OmegaP
-
-        PURPOSE:
-
-           return the pattern speed
-
-        INPUT:
-
-           (none)
-
-        OUTPUT:
-
-           pattern speed
-
-        HISTORY:
-
-           2011-10-10 - Written - Bovy (IAS)
+        Notes
+        -----
+        - 2011-10-10 - Written - Bovy (IAS)
 
         """
         return self._omegab

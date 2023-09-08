@@ -31,7 +31,7 @@ class ChandrasekharDynamicalFrictionForce(DissipativeForce):
 
        \\Lambda = \\frac{r/\\gamma}{\\mathrm{max}\\left(r_{\\mathrm{hm}},GM/|\\mathbf{v}|^2\\right)}\\,,
 
-    where :math:`\\gamma` is a constant. This :math:`\\gamma` should be the absolute value of the logarithmic slope of the density :math:`\\gamma = |\\mathrm{d} \\ln \\rho / \\mathrm{d} \\ln r|`, although for :math:`\\gamma<1` it is advisable to set :math:`\\gamma=1`. Implementation here roughly follows `2016MNRAS.463..858P <http://adsabs.harvard.edu/abs/2016MNRAS.463..858P>`__ and earlier work.
+    where :math:`\\gamma` is a constant. This :math:`\\gamma` should be the absolute value of the logarithmic slope of the density :math:`\\gamma = |\\mathrm{d} \\ln \\rho / \\mathrm{d} \\ln r|`, although for :math:`\\gamma<1` it is advisable to set :math:`\\gamma=1`. Implementation here roughly follows [2]_ and earlier work.
 
     """
 
@@ -51,52 +51,45 @@ class ChandrasekharDynamicalFrictionForce(DissipativeForce):
         vo=None,
     ):
         """
-        NAME:
+        Initialize a Chandrasekhar Dynamical Friction force [1]_.
 
-           __init__
+        Parameters
+        ----------
+        amp : float
+            Amplitude to be applied to the potential (default: 1).
+        GMs : float or Quantity
+            Satellite mass; can be a Quantity with units of mass or Gxmass; can be adjusted after initialization by setting obj.GMs= where obj is your ChandrasekharDynamicalFrictionForce instance (note that the mass of the satellite can *not* be changed simply by multiplying the instance by a number, because he mass is not only used as an amplitude).
+        rhm : float or Quantity
+            Half-mass radius of the satellite (set to zero for a black hole); can be adjusted after initialization by setting obj.rhm= where obj is your ChandrasekharDynamicalFrictionForce instance.
+        gamma : float
+            Free-parameter in :math:`\\Lambda`.
+        dens : Potential instance or list thereof, optional
+            Potential instance or list thereof that represents the density [default: LogarithmicHaloPotential(normalize=1.,q=1.)].
+        sigmar : callable, optional
+            Function that gives the velocity dispersion as a function of r (has to be in natural units!); if None, computed from the dens potential using the spherical Jeans equation (in galpy.df.jeans) assuming zero anisotropy; if set to a lambda function, *the object cannot be pickled* (so set it to a real function).
+        const_lnLambda : bool, optional
+            If set to a number, use a constant ln(Lambda) instead with this value.
+        minr : float or Quantity, optional
+            Minimum r at which to apply dynamical friction: at r < minr, friction is set to zero.
+        maxr : float or Quantity, optional
+            Maximum r for which sigmar gets interpolated; for best performance set this to the maximum r you will consider.
+        nr : int, optional
+            Number of radii to use in the interpolation of sigmar.
+        ro : float or Quantity, optional
+            Distance scale for translation into internal units (default from configuration file).
+        vo : float or Quantity, optional
+            Velocity scale for translation into internal units (default from configuration file).
 
-        PURPOSE:
+        Notes
+        -----
+        - 2011-12-26 - Started - Bovy (NYU)
+        - 2018-03-18 - Re-started: updated to r dependent Lambda form and integrated into galpy framework - Bovy (UofT)
+        - 2018-07-23 - Calculate sigmar from the Jeans equation and interpolate it; allow GMs and rhm to be set on the fly - Bovy (UofT)
 
-           initialize a Chandrasekhar Dynamical Friction force
-
-        INPUT:
-
-           amp - amplitude to be applied to the potential (default: 1)
-
-           GMs - satellite mass; can be a Quantity with units of mass or Gxmass; can be adjusted after initialization by setting obj.GMs= where obj is your ChandrasekharDynamicalFrictionForce instance (note that the mass of the satellite can *not* be changed simply by multiplying the instance by a number, because he mass is not only used as an amplitude)
-
-           rhm - half-mass radius of the satellite (set to zero for a black hole; can be a Quantity); can be adjusted after initialization by setting obj.rhm= where obj is your ChandrasekharDynamicalFrictionForce instance
-
-           gamma - Free-parameter in :math:`\\Lambda`
-
-           dens - Potential instance or list thereof that represents the density [default: LogarithmicHaloPotential(normalize=1.,q=1.)]
-
-           sigmar= (None) function that gives the velocity dispersion as a function of r (has to be in natural units!); if None, computed from the dens potential using the spherical Jeans equation (in galpy.df.jeans) assuming zero anisotropy; if set to a lambda function, *the object cannot be pickled* (so set it to a real function)
-
-           cont_lnLambda= (False) if set to a number, use a constant ln(Lambda) instead with this value
-
-           minr= (0.0001) minimum r at which to apply dynamical friction: at r < minr, friction is set to zero (can be a Quantity)
-
-           Interpolation:
-
-              maxr= (25) maximum r for which sigmar gets interpolated; for best performance set this to the maximum r you will consider (can be a Quantity)
-
-              nr= (501) number of radii to use in the interpolation of sigmar
-
-              You can check that sigmar is interpolated correctly by comparing the methods sigmar [the interpolated version] and sigmar_orig [the original or directly computed version]
-
-        OUTPUT:
-
-           (none)
-
-        HISTORY:
-
-           2011-12-26 - Started - Bovy (NYU)
-
-           2018-03-18 - Re-started: updated to r dependent Lambda form and integrated into galpy framework - Bovy (UofT)
-
-           2018-07-23 - Calculate sigmar from the Jeans equation and interpolate it; allow GMs and rhm to be set on the fly - Bovy (UofT)
-
+        References
+        ----------
+        .. [1] Chandrasekhar, S. (1943), Astrophysical Journal, 97, 255. ADS: http://adsabs.harvard.edu/abs/1943ApJ....97..255C.
+        .. [2] Petts, J. A., Gualandris, A., Read, J. I., & Bovy, J. (2016), Monthly Notices of the Royal Astronomical Society, 463, 858. ADS: http://adsabs.harvard.edu/abs/2016MNRAS.463..858P.
         """
         DissipativeForce.__init__(self, amp=amp * GMs, ro=ro, vo=vo, amp_units="mass")
         rhm = conversion.parse_length(rhm, ro=self._ro)
@@ -186,17 +179,24 @@ class ChandrasekharDynamicalFrictionForce(DissipativeForce):
 
     def lnLambda(self, r, v):
         """
-        NAME:
-           lnLambda
-        PURPOSE:
-           evaluate the Coulomb logarithm :math:`\\ln \\Lambda`
-        INPUT:
-           r - spherical radius (natural units)
-           v - current velocity in cylindrical coordinates (natural units)
-        OUTPUT:
-           Coulomb logarithm
-        HISTORY:
-           2018-03-18 - Started - Bovy (UofT)
+        Evaluate the Coulomb logarithm ln Lambda.
+
+        Parameters
+        ----------
+        r : float
+            Spherical radius (natural units).
+        v : float
+            Current velocity in cylindrical coordinates (natural units).
+
+        Returns
+        -------
+        lnLambda : float
+            Coulomb logarithm.
+
+        Notes
+        -----
+        - 2018-03-18 - Started - Bovy (UofT)
+
         """
         if self._lnLambda:
             lnLambda = self._lnLambda
@@ -227,22 +227,6 @@ class ChandrasekharDynamicalFrictionForce(DissipativeForce):
             )
 
     def _Rforce(self, R, z, phi=0.0, t=0.0, v=None):
-        """
-        NAME:
-           _Rforce
-        PURPOSE:
-           evaluate the radial force for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-           v= current velocity in cylindrical coordinates
-        OUTPUT:
-           the radial force
-        HISTORY:
-           2018-03-18 - Started - Bovy (UofT)
-        """
         new_hash = hashlib.md5(
             numpy.array([R, phi, z, v[0], v[1], v[2], t])
         ).hexdigest()
@@ -251,22 +235,6 @@ class ChandrasekharDynamicalFrictionForce(DissipativeForce):
         return self._cached_force * v[0]
 
     def _phitorque(self, R, z, phi=0.0, t=0.0, v=None):
-        """
-        NAME:
-           _phitorque
-        PURPOSE:
-           evaluate the azimuthal torque for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-           v= current velocity in cylindrical coordinates
-        OUTPUT:
-           the azimuthal torque
-        HISTORY:
-           2018-03-18 - Started - Bovy (UofT)
-        """
         new_hash = hashlib.md5(
             numpy.array([R, phi, z, v[0], v[1], v[2], t])
         ).hexdigest()
@@ -275,22 +243,6 @@ class ChandrasekharDynamicalFrictionForce(DissipativeForce):
         return self._cached_force * v[1] * R
 
     def _zforce(self, R, z, phi=0.0, t=0.0, v=None):
-        """
-        NAME:
-           _zforce
-        PURPOSE:
-           evaluate the vertical force for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-           v= current velocity in cylindrical coordinates
-        OUTPUT:
-           the vertical force
-        HISTORY:
-           2018-03-18 - Started - Bovy (UofT)
-        """
         new_hash = hashlib.md5(
             numpy.array([R, phi, z, v[0], v[1], v[2], t])
         ).hexdigest()

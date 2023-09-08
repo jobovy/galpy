@@ -49,47 +49,32 @@ class RotateAndTiltWrapperPotential(WrapperPotential):
         vo=None,
     ):
         """
-        NAME:
+        A potential that rotates and tilts another potential.
 
-           __init__
+        Parameters
+        ----------
+        amp : float, optional
+            Overall amplitude to apply to the potential. Default is 1.0.
+        inclination : float or Quantity, optional
+            Usual inclination angle (with the line-of-sight being the z axis).
+        galaxy_pa : float or Quantity, optional
+            Rotation angle of the original potential around the original z axis.
+        sky_pa : float or Quantity, optional
+            Rotation angle around the inclined z axis (usual sky position angle measured from North).
+        zvec : numpy.ndarray, optional
+            3D vector specifying the direction of the rotated z axis.
+        offset : numpy.ndarray or Quantity, optional
+            Static offset in Cartesian coordinates.
+        ro : float or Quantity, optional
+            Distance scale for translation into internal units (default from configuration file).
+        vo : float or Quantity, optional
+            Velocity scale for translation into internal units (default from configuration file).
 
-        PURPOSE:
-
-           initialize a RotateAndTiltWrapper Potential
-
-        INPUT:
-
-           amp= (1.) overall amplitude to apply to the potential
-
-           pot= Potential instance or list thereof for the potential to rotate and tilt
-
-           Orientation angles as
-
-              galaxy_pa= rotation angle of the original potential around the original z axis (can be a Quantity)
-
-           and either
-
-
-              1) zvec= 3D vector specifying the direction of the rotated z axis
-
-              2) inclination= usual inclination angle (with the line-of-sight being the z axis)
-
-                 sky_pa= rotation angle around the inclined z axis (usual sky position angle measured from North)
-
-            offset= optional static offset in Cartesian coordinates (can be a Quantity)
-
-        OUTPUT:
-
-           (none)
-
-        HISTORY:
-
-           2021-03-29 - Started - Mackereth (UofT)
-
-           2021-04-18 - Added inclination, sky_pa, galaxy_pa setup - Bovy (UofT)
-
-           2022-03-14 - added offset kwarg - Mackereth (UofT)
-
+        Notes
+        -----
+        - 2021-03-29 - Started - Mackereth (UofT)
+        - 2021-04-18 - Added inclination, sky_pa, galaxy_pa setup - Bovy (UofT)
+        - 2022-03-14 - added offset kwarg - Mackereth (UofT)
         """
         WrapperPotential.__init__(self, amp=amp, pot=pot, ro=ro, vo=vo, _init=True)
         inclination = conversion.parse_angle(inclination)
@@ -164,21 +149,6 @@ class RotateAndTiltWrapperPotential(WrapperPotential):
 
     @check_potential_inputs_not_arrays
     def _evaluate(self, R, z, phi=0.0, t=0.0):
-        """
-        NAME:
-           _evaluate
-        PURPOSE:
-           evaluate the potential at R,z
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           Phi(R,z)
-        HISTORY:
-           2021-04-18 - Written - Bovy (UofT)
-        """
         x, y, z = coords.cyl_to_rect(R, phi, z) if not numpy.isinf(R) else (R, 0.0, z)
         if self._norot:
             xyzp = numpy.array([x, y, z])
@@ -191,61 +161,16 @@ class RotateAndTiltWrapperPotential(WrapperPotential):
 
     @check_potential_inputs_not_arrays
     def _Rforce(self, R, z, phi=0.0, t=0.0):
-        """
-        NAME:
-           _Rforce
-        PURPOSE:
-           evaluate the radial force for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           the radial force
-        HISTORY:
-           2021-04-18 - Written - Bovy (UofT)
-        """
         Fxyz = self._force_xyz(R, z, phi=phi, t=t)
         return numpy.cos(phi) * Fxyz[0] + numpy.sin(phi) * Fxyz[1]
 
     @check_potential_inputs_not_arrays
     def _phitorque(self, R, z, phi=0.0, t=0.0):
-        """
-        NAME:
-           _phitorque
-        PURPOSE:
-           evaluate the azimuthal torque (torque) for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           the azimuthal torque (torque)
-        HISTORY:
-           2021-04-18 - Written - Bovy (UofT)
-        """
         Fxyz = self._force_xyz(R, z, phi=phi, t=t)
         return R * (-numpy.sin(phi) * Fxyz[0] + numpy.cos(phi) * Fxyz[1])
 
     @check_potential_inputs_not_arrays
     def _zforce(self, R, z, phi=0.0, t=0.0):
-        """
-        NAME:
-           _zforce
-        PURPOSE:
-           evaluate the vertical force for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           the vertical force
-        HISTORY:
-           2021-04-18 - Written - Bovy (UofT)
-        """
         return self._force_xyz(R, z, phi=phi, t=t)[2]
 
     def _force_xyz(self, R, z, phi=0.0, t=0.0):
@@ -267,21 +192,6 @@ class RotateAndTiltWrapperPotential(WrapperPotential):
 
     @check_potential_inputs_not_arrays
     def _R2deriv(self, R, z, phi=0.0, t=0.0):
-        """
-        NAME:
-           _R2deriv
-        PURPOSE:
-           evaluate the second radial derivative for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           the second radial derivative
-        HISTORY:
-           2021-04-19 - Written - Bovy (UofT)
-        """
         phi2 = self._2ndderiv_xyz(R, z, phi=phi, t=t)
         return (
             numpy.cos(phi) ** 2.0 * phi2[0, 0]
@@ -291,60 +201,15 @@ class RotateAndTiltWrapperPotential(WrapperPotential):
 
     @check_potential_inputs_not_arrays
     def _Rzderiv(self, R, z, phi=0.0, t=0.0):
-        """
-        NAME:
-           _Rzderiv
-        PURPOSE:
-           evaluate the mixed radial, vertical derivative for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           the mixed radial, vertical derivative
-        HISTORY:
-           2021-04-19 - Written - Bovy (UofT)
-        """
         phi2 = self._2ndderiv_xyz(R, z, phi=phi, t=t)
         return numpy.cos(phi) * phi2[0, 2] + numpy.sin(phi) * phi2[1, 2]
 
     @check_potential_inputs_not_arrays
     def _z2deriv(self, R, z, phi=0.0, t=0.0):
-        """
-        NAME:
-           _z2deriv
-        PURPOSE:
-           evaluate the second vertical derivative for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           the second vertical derivative
-        HISTORY:
-           2021-04-19 - Written - Bovy (UofT)
-        """
         return self._2ndderiv_xyz(R, z, phi=phi, t=t)[2, 2]
 
     @check_potential_inputs_not_arrays
     def _phi2deriv(self, R, z, phi=0.0, t=0.0):
-        """
-        NAME:
-           _phi2deriv
-        PURPOSE:
-           evaluate the second azimuthal derivative for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           the second azimuthal derivative
-        HISTORY:
-           2021-04-19 - Written - Bovy (UofT)
-        """
         Fxyz = self._force_xyz(R, z, phi=phi, t=t)
         phi2 = self._2ndderiv_xyz(R, z, phi=phi, t=t)
         return R**2.0 * (
@@ -355,21 +220,6 @@ class RotateAndTiltWrapperPotential(WrapperPotential):
 
     @check_potential_inputs_not_arrays
     def _Rphideriv(self, R, z, phi=0.0, t=0.0):
-        """
-        NAME:
-           _Rphideriv
-        PURPOSE:
-           evaluate the mixed radial, azimuthal derivative for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           the mixed radial, azimuthal derivative
-        HISTORY:
-           2021-04-19 - Written - Bovy (UofT)
-        """
         Fxyz = self._force_xyz(R, z, phi=phi, t=t)
         phi2 = self._2ndderiv_xyz(R, z, phi=phi, t=t)
         return (
@@ -381,21 +231,6 @@ class RotateAndTiltWrapperPotential(WrapperPotential):
 
     @check_potential_inputs_not_arrays
     def _phizderiv(self, R, z, phi=0.0, t=0.0):
-        """
-        NAME:
-           _phizderiv
-        PURPOSE:
-           evaluate the mixed azimuthal, vertical derivative for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           the mixed azimuthal, vertical derivative
-        HISTORY:
-           2021-04-30 - Written - Bovy (UofT)
-        """
         phi2 = self._2ndderiv_xyz(R, z, phi=phi, t=t)
         return R * (numpy.cos(phi) * phi2[1, 2] - numpy.sin(phi) * phi2[0, 2])
 
@@ -471,21 +306,6 @@ class RotateAndTiltWrapperPotential(WrapperPotential):
 
     @check_potential_inputs_not_arrays
     def _dens(self, R, z, phi=0.0, t=0.0):
-        """
-        NAME:
-           _dens
-        PURPOSE:
-           evaluate the density for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           the density
-        HISTORY:
-           2021-04-18 - Written - Bovy (UofT)
-        """
         x, y, z = coords.cyl_to_rect(R, phi, z) if not numpy.isinf(R) else (R, 0.0, z)
         if self._norot:
             xyzp = numpy.array([x, y, z])

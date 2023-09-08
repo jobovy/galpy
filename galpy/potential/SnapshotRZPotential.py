@@ -32,34 +32,25 @@ class SnapshotRZPotential(Potential):
 
     def __init__(self, s, num_threads=None, nazimuths=4, ro=None, vo=None):
         """
-        NAME:
+        Initialize a SnapshotRZ potential object
 
+        Parameters
+        ----------
+        s : pynbody.snapshot
+            A simulation snapshot loaded with pynbody.
+        num_threads : int, optional
+            Number of threads to use for calculation. Default is None.
+        nazimuths : int, optional
+            Number of azimuths to average over. Default is 4.
+        ro : float or Quantity, optional
+            Distance scale for translation into internal units (default from configuration file).
+        vo : float or Quantity, optional
+            Velocity scale for translation into internal units (default from configuration file).
 
-           __init__
-
-        PURPOSE:
-
-           Initialize a SnapshotRZ potential object
-
-        INPUT:
-
-           s - a simulation snapshot loaded with pynbody
-
-           num_threads= (4) number of threads to use for calculation
-
-           nazimuths= (4) number of azimuths to average over
-
-           ro=, vo= distance and velocity scales for translation into internal units (default from configuration file)
-
-        OUTPUT:
-
-           instance
-
-        HISTORY:
-
-           2013 - Written - Rok Roskar (ETH)
-
-           2014-11-24 - Edited for merging into main galpy - Bovy (IAS)
+        Notes
+        -----
+        - 2013 - Written - Rok Roskar (ETH)
+        - 2014-11-24 - Edited for merging into main galpy - Bovy (IAS)
 
         """
         if not _PYNBODY_LOADED:  # pragma: no cover
@@ -169,48 +160,43 @@ class InterpSnapshotRZPotential(interpRZPotential):
         use_pkdgrav=False,
     ):
         """
-        NAME:
+        Initialize an InterpSnapshotRZPotential instance
 
-           __init__
+        Parameters
+        ----------
+        s : pynbody.snapshot
+            A simulation snapshot loaded with pynbody.
+        rgrid : tuple, optional
+            R grid to be given to linspace as in rs= linspace(*rgrid).
+        zgrid : tuple, optional
+            z grid to be given to linspace as in zs= linspace(*zgrid).
+        interpepifreq : bool, optional
+            If True, interpolate the epicycle frequencies (default: False).
+        interpverticalfreq : bool, optional
+            If True, interpolate the vertical frequencies (default: False).
+        interpPot : bool, optional
+            If True, interpolate the potential (default: True).
+        enable_c : bool, optional
+            If True, use C for the interpolation (default: True).
+        logR : bool, optional
+            If True, rgrid is in the log of R so logrs= linspace(*rgrid) (default: True).
+        zsym : bool, optional
+            If True (default), the potential is assumed to be symmetric around z=0 (so you can use, e.g.,  zgrid=(0.,1.,101)).
+        numcores : int, optional
+            Number of cores to use for the interpolation (default: from pynbody configuration).
+        nazimuths : int, optional
+            Number of azimuths to average over (default: 4).
+        use_pkdgrav : bool, optional
+            If True, use PKDGRAV to calculate the snapshot's potential and forces (default: False).
+        ro : float or Quantity, optional
+            Distance scale for translation into internal units (default from configuration file).
+        vo : float or Quantity, optional
+            Velocity scale for translation into internal units (default from configuration file).
 
-        PURPOSE:
-
-           Initialize an InterpSnapshotRZPotential instance
-
-        INPUT:
-
-           s - a simulation snapshot loaded with pynbody
-
-           rgrid - R grid to be given to linspace as in rs= linspace(*rgrid)
-
-           zgrid - z grid to be given to linspace as in zs= linspace(*zgrid)
-
-           logR - if True, rgrid is in the log of R so logrs= linspace(*rgrid)
-
-           interpPot, interpepifreq, interpverticalfreq= if True, interpolate these functions (interpPot=True also interpolates the R and zforce)
-
-           enable_c= enable use of C for interpolations
-
-           zsym= if True (default), the potential is assumed to be symmetric around z=0 (so you can use, e.g.,  zgrid=(0.,1.,101)).
-
-           numcores= if set to an integer, use this many cores
-
-           nazimuths= (4) number of azimuths to average over
-
-           use_pkdgrav= (False) use PKDGRAV to calculate the snapshot's potential and forces (CURRENTLY NOT IMPLEMENTED)
-
-           ro=, vo= distance and velocity scales for translation into internal units (default from configuration file)
-
-        OUTPUT:
-
-           instance
-
-        HISTORY:
-
-           2013 - Written - Rok Roskar (ETH)
-
-           2014-11-24 - Edited for merging into main galpy - Bovy (IAS)
-
+        Notes
+        -----
+        - 2013 - Written - Rok Roskar (ETH)
+        - 2014-11-24 - Edited for merging into main galpy - Bovy (IAS)
         """
         if not _PYNBODY_LOADED:  # pragma: no cover
             raise ImportError(

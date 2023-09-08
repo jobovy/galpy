@@ -38,39 +38,34 @@ class TriaxialGaussianPotential(EllipsoidalPotential):
         vo=None,
     ):
         """
-        NAME:
+        Initialize a triaxial Gaussian potential.
 
-           __init__
+        Parameters
+        ----------
+        amp : float or Quantity, optional
+            Amplitude to be applied to the potential (default: 1); can be a Quantity with units of mass or Gxmass.
+        sigma : float or Quantity, optional
+            Gaussian dispersion scale.
+        b : float, optional
+            y-to-x axis ratio of the density.
+        c : float, optional
+            z-to-x axis ratio of the density.
+        zvec : array_like, optional
+            If set, a unit vector that corresponds to the z axis.
+        pa : float or Quantity, optional
+            If set, the position angle of the x axis.
+        glorder : int, optional
+            If set, compute the relevant force and potential integrals with Gaussian quadrature of this order.
+        normalize : bool or float, optional
+            If True, normalize the potential (default: False). If a float, normalize the potential to this value.
+        ro : float or Quantity, optional
+            Distance scale for translation into internal units (default from configuration file).
+        vo : float or Quantity, optional
+            Velocity scale for translation into internal units (default from configuration file).
 
-        PURPOSE:
-
-           initialize a Gaussian potential
-
-        INPUT:
-
-           amp - amplitude to be applied to the potential (default: 1); can be a Quantity with units of mass or Gxmass
-
-           sigma - Gaussian dispersion scale (can be Quantity)
-
-           b - y-to-x axis ratio of the density
-
-           c - z-to-x axis ratio of the density
-
-           zvec= (None) If set, a unit vector that corresponds to the z axis
-
-           pa= (None) If set, the position angle of the x axis (rad or Quantity)
-
-           glorder= (50) if set, compute the relevant force and potential integrals with Gaussian quadrature of this order
-
-           ro=, vo= distance and velocity scales for translation into internal units (default from configuration file)
-
-        OUTPUT:
-
-           (none)
-
-        HISTORY:
-
-           2020-08-18 - Started - Bovy (UofT)
+        Notes
+        -----
+        - 2020-08-18 - Started - Bovy (UofT)
 
         """
         EllipsoidalPotential.__init__(
@@ -113,20 +108,6 @@ class TriaxialGaussianPotential(EllipsoidalPotential):
         return -2.0 * m * numpy.exp(-(m**2) / self._twosigma2) / self._twosigma2
 
     def _mass(self, R, z=None, t=0.0):
-        """
-        NAME:
-           _mass
-        PURPOSE:
-           evaluate the mass within R (and z) for this potential; if z=None, integrate to ellipsoidal boundary
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           t - time
-        OUTPUT:
-           the mass enclosed
-        HISTORY:
-           2021-03-09 - Written - Bovy (UofT)
-        """
         if not z is None:
             raise AttributeError  # Hack to fall back to general
         return (

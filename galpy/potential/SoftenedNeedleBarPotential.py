@@ -40,39 +40,32 @@ class SoftenedNeedleBarPotential(Potential):
         vo=None,
     ):
         """
-        NAME:
+        Initialize a softened-needle bar potential.
 
-           __init__
+        Parameters
+        ----------
+        amp : float or Quantity, optional
+            Amplitude to be applied to the potential (default: 1); can be a Quantity with units of mass.
+        a : float or Quantity, optional
+            Bar half-length.
+        b : float , optional
+            Triaxial softening length (can be Quantity).
+        c : float, optional
+            Prolate softening length (can be Quantity).
+        pa : float or Quantity, optional
+            The position angle of the x axis.
+        omegab : float or Quantity, optional
+            Pattern speed.
+        normalize : bool or float, optional
+            If True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
+        ro : float or Quantity, optional
+            Distance scale for translation into internal units (default from configuration file).
+        vo : float or Quantity, optional
+            Velocity scale for translation into internal units (default from configuration file).
 
-        PURPOSE:
-
-           initialize a softened-needle bar potential
-
-        INPUT:
-
-           amp - amplitude to be applied to the potential (default: 1); can be a Quantity with units of mass
-
-           a= (4.) Bar half-length (can be Quantity)
-
-           b= (1.) Triaxial softening length (can be Quantity)
-
-           c= (1.) Prolate softening length (can be Quantity)
-
-           pa= (0.4) The position angle of the x axis (rad or Quantity)
-
-           omegab= (1.8) Pattern speed (can be Quantity)
-
-           normalize - if True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
-
-           ro=, vo= distance and velocity scales for translation into internal units (default from configuration file)
-
-        OUTPUT:
-
-           (none)
-
-        HISTORY:
-
-           2016-11-02 - Started - Bovy (UofT)
+        Notes
+        -----
+        - 2016-11-02 - Started - Bovy (UofT)
 
         """
         Potential.__init__(self, amp=amp, ro=ro, vo=vo, amp_units="mass")
@@ -97,97 +90,25 @@ class SoftenedNeedleBarPotential(Potential):
         return None
 
     def _evaluate(self, R, z, phi=0.0, t=0.0):
-        """
-        NAME:
-           _evaluate
-        PURPOSE:
-           evaluate the potential at R,z
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           Phi(R,z)
-        HISTORY:
-           2016-11-02 - Started - Bovy (UofT)
-        """
         x, y, z = self._compute_xyz(R, phi, z, t)
         Tp, Tm = self._compute_TpTm(x, y, z)
         return numpy.log((x - self._a + Tm) / (x + self._a + Tp)) / 2.0 / self._a
 
     def _Rforce(self, R, z, phi=0.0, t=0.0):
-        """
-        NAME:
-           _Rforce
-        PURPOSE:
-           evaluate the radial force for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           the radial force
-        HISTORY:
-           2016-11-02 - Written - Bovy (UofT)
-        """
         self._compute_xyzforces(R, z, phi, t)
         return numpy.cos(phi) * self._cached_Fx + numpy.sin(phi) * self._cached_Fy
 
     def _phitorque(self, R, z, phi=0.0, t=0.0):
-        """
-        NAME:
-           _phitorque
-        PURPOSE:
-           evaluate the azimuthal torque for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           the azimuthal torque
-        HISTORY:
-           2016-11-02 - Written - Bovy (UofT)
-        """
         self._compute_xyzforces(R, z, phi, t)
         return R * (
             -numpy.sin(phi) * self._cached_Fx + numpy.cos(phi) * self._cached_Fy
         )
 
     def _zforce(self, R, z, phi=0.0, t=0.0):
-        """
-        NAME:
-           _zforce
-        PURPOSE:
-           evaluate the vertical force for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           the vertical force
-        HISTORY:
-           2016-11-02 - Written - Bovy (UofT)
-        """
         self._compute_xyzforces(R, z, phi, t)
         return self._cached_Fz
 
     def OmegaP(self):
-        """
-        NAME:
-           OmegaP
-        PURPOSE:
-           return the pattern speed
-        INPUT:
-           (none)
-        OUTPUT:
-           pattern speed
-        HISTORY:
-           2016-11-02 - Written - Bovy (UofT)
-        """
         return self._omegab
 
     def _compute_xyz(self, R, phi, z, t):
@@ -243,21 +164,6 @@ class SoftenedNeedleBarPotential(Potential):
         )
 
     def _dens(self, R, z, phi=0.0, t=0.0):
-        """
-        NAME:
-           _dens
-        PURPOSE:
-           evaluate the density for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           the density
-        HISTORY:
-           2016-11-04 - Written - Bovy (UofT/CCA)
-        """
         x, y, z = self._compute_xyz(R, phi, z, t)
         zc = numpy.sqrt(z**2.0 + self._c2)
         bzc2 = (self._b + zc) ** 2.0

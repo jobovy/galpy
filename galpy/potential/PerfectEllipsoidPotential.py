@@ -37,39 +37,32 @@ class PerfectEllipsoidPotential(EllipsoidalPotential):
         vo=None,
     ):
         """
-        NAME:
+        Initialize a perfect ellipsoid potential.
 
-           __init__
+        Parameters
+        ----------
+        amp : float or Quantity, optional
+            Amplitude to be applied to the potential (default: 1); can be a Quantity with units of mass or G x mass.
+        a : float or Quantity, optional
+            Scale radius.
+        b : float, optional
+            Y-to-x axis ratio of the density.
+        c : float, optional
+            Z-to-x axis ratio of the density.
+        zvec : numpy.ndarray, optional
+            If set, a unit vector that corresponds to the z axis.
+        pa : float or Quantity, optional
+            If set, the position angle of the x axis (rad or Quantity).
+        glorder : int, optional
+            If set, compute the relevant force and potential integrals with Gaussian quadrature of this order.
+        ro : float, optional
+            Distance scale for translation into internal units (default from configuration file).
+        vo : float, optional
+            Velocity scale for translation into internal units (default from configuration file).
 
-        PURPOSE:
-
-           initialize a perfect ellipsoid potential
-
-        INPUT:
-
-           amp - amplitude to be applied to the potential (default: 1); can be a Quantity with units of mass or G x mass
-
-           a - scale radius (can be Quantity)
-
-           b - y-to-x axis ratio of the density
-
-           c - z-to-x axis ratio of the density
-
-           zvec= (None) If set, a unit vector that corresponds to the z axis
-
-           pa= (None) If set, the position angle of the x axis (rad or Quantity)
-
-           glorder= (50) if set, compute the relevant force and potential integrals with Gaussian quadrature of this order
-
-           ro=, vo= distance and velocity scales for translation into internal units (default from configuration file)
-
-        OUTPUT:
-
-           (none)
-
-        HISTORY:
-
-           2018-08-06 - Started - Bovy (UofT)
+        Notes
+        -----
+        - 2018-08-06 - Started - Bovy (UofT)
 
         """
         EllipsoidalPotential.__init__(
@@ -112,20 +105,6 @@ class PerfectEllipsoidPotential(EllipsoidalPotential):
         return -4.0 * m * (self.a2 + m**2) ** -3
 
     def _mass(self, R, z=None, t=0.0):
-        """
-        NAME:
-           _mass
-        PURPOSE:
-           evaluate the mass within R (and z) for this potential; if z=None, integrate to ellipsoidal boundary
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           t - time
-        OUTPUT:
-           the mass enclosed
-        HISTORY:
-           2021-03-08 - Written - Bovy (UofT)
-        """
         if not z is None:
             raise AttributeError  # Hack to fall back to general
         return (

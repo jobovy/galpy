@@ -38,46 +38,38 @@ class CosmphiDiskPotential(planarPotential):
         vo=None,
     ):
         """
-        NAME:
+        Initialize a CosmphiDiskPotential.
 
-           __init__
+        Parameters
+        ----------
+        amp : float, optional
+            Amplitude to be applied to the potential (default: 1.), degenerate with phio below, but kept for overall consistency with potentials.
+        m : int, optional
+            m in cos(m * phi - m * phib).
+        p : float
+            Power-law index of the phi(R) = (R/Ro)^p part.
+        r1 : float or Quantity, optional
+            Normalization radius for the amplitude (can be Quantity); amp x phio is only the potential at (R,phi) = (r1,pib) when r1 > rb; otherwise more complicated.
+        rb : float or Quantity, optional
+            If set, break radius for power-law: potential R^p at R > Rb, R^-p at R < Rb, potential and force continuous at Rb.
+        phib : float or Quantity, optional
+            Angle (in rad; default=25 degree).
+        phio : float or Quantity, optional
+            Potential perturbation (in terms of phio/vo^2 if vo=1 at Ro=1; or can be Quantity).
+        cp : float or Quantity, optional
+            m * phio * cos(m * phib); can be Quantity with units of velocity-squared.
+        sp : float or Quantity, optional
+            m * phio * sin(m * phib); can be Quantity with units of velocity-squared.
+        ro : float or Quantity, optional
+            Distance scale for translation into internal units (default from configuration file).
+        vo : float or Quantity, optional
+            Velocity scale for translation into internal units (default from configuration file).
 
-        PURPOSE:
-
-           initialize an cosmphi disk potential
-
-        INPUT:
-
-           amp= amplitude to be applied to the potential (default:
-           1.), degenerate with phio below, but kept for overall
-           consistency with potentials
-
-           m= cos( m * (phi - phib) ), integer
-
-           p= power-law index of the phi(R) = (R/Ro)^p part
-
-           r1= (1.) normalization radius for the amplitude (can be Quantity); amp x phio is only the potential at (R,phi) = (r1,pib) when r1 > rb; otherwise more complicated
-
-           rb= (None) if set, break radius for power-law: potential R^p at R > Rb, R^-p at R < Rb, potential and force continuous at Rb
-
-
-           Either:
-
-              a) phib= angle (in rad; default=25 degree; or can be Quantity)
-
-                 phio= potential perturbation (in terms of phio/vo^2 if vo=1 at Ro=1; or can be Quantity with units of velocity-squared)
-
-              b) cp, sp= m * phio * cos(m * phib), m * phio * sin(m * phib); can be Quantity with units of velocity-squared)
-
-        OUTPUT:
-
-           (none)
-
-        HISTORY:
-
-           2011-10-27 - Started - Bovy (IAS)
-
-           2017-09-16 - Added break radius rb - Bovy (UofT)
+        Notes
+        -----
+        - Either specify (phib, phio) or (cp, sp).
+        - 2011-10-27 - Started - Bovy (IAS)
+        - 2017-09-16 - Added break radius rb - Bovy (UofT)
 
         """
         planarPotential.__init__(self, amp=amp, ro=ro, vo=vo)
@@ -114,20 +106,6 @@ class CosmphiDiskPotential(planarPotential):
         self.hasC_dxdv = True
 
     def _evaluate(self, R, phi=0.0, t=0.0):
-        """
-        NAME:
-           _evaluate
-        PURPOSE:
-           evaluate the potential at R,phi,t
-        INPUT:
-           R - Galactocentric cylindrical radius
-           phi - azimuth
-           t - time
-        OUTPUT:
-           Phi(R,phi,t)
-        HISTORY:
-           2011-10-19 - Started - Bovy (IAS)
-        """
         if R < self._rb:
             return (
                 self._mphio
@@ -145,20 +123,6 @@ class CosmphiDiskPotential(planarPotential):
             )
 
     def _Rforce(self, R, phi=0.0, t=0.0):
-        """
-        NAME:
-           _Rforce
-        PURPOSE:
-           evaluate the radial force for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           phi - azimuth
-           t - time
-        OUTPUT:
-           the radial force
-        HISTORY:
-           2011-10-19 - Written - Bovy (IAS)
-        """
         if R < self._rb:
             return (
                 -self._p
@@ -178,20 +142,6 @@ class CosmphiDiskPotential(planarPotential):
             )
 
     def _phitorque(self, R, phi=0.0, t=0.0):
-        """
-        NAME:
-           _phitorque
-        PURPOSE:
-           evaluate the azimuthal torque for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           phi - azimuth
-           t - time
-        OUTPUT:
-           the azimuthal torque
-        HISTORY:
-           2011-10-19 - Written - Bovy (IAS)
-        """
         if R < self._rb:
             return (
                 self._mphio

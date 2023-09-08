@@ -111,45 +111,51 @@ class interpRZPotential(Potential):
         numcores=None,
     ):
         """
-        NAME:
+        Initialize an interpRZPotential instance.
 
-           __init__
+        Parameters
+        ----------
+        RZPot : RZPotential or list of such instances
+            RZPotential to be interpolated.
+        rgrid : tuple, optional
+            R grid to be given to linspace as in rs= linspace(*rgrid).
+        zgrid : tuple, optional
+            z grid to be given to linspace as in zs= linspace(*zgrid).
+        logR : bool, optional
+            If True, rgrid is in the log of R so logrs= linspace(*rgrid).
+        interpPot : bool, optional
+            If True, interpolate the potential.
+        interpRforce : bool, optional
+            If True, interpolate the radial force.
+        interpzforce : bool, optional
+            If True, interpolate the vertical force.
+        interpDens : bool, optional
+            If True, interpolate the density.
+        interpvcirc : bool, optional
+            If True, interpolate the circular velocity.
+        interpdvcircdr : bool, optional
+            If True, interpolate the derivative of the circular velocity with respect to R.
+        interpepifreq : bool, optional
+            If True, interpolate the epicyclic frequency.
+        interpverticalfreq : bool, optional
+            If True, interpolate the vertical frequency.
+        ro : float, optional
+            Distance scale for translation into internal units (default from configuration file).
+        vo : float, optional
+            Velocity scale for translation into internal units (default from configuration file).
+        use_c : bool, optional
+            Use C to speed up the calculation of the grid.
+        enable_c : bool, optional
+            Enable use of C for interpolations.
+        zsym : bool, optional
+            If True (default), the potential is assumed to be symmetric around z=0 (so you can use, e.g.,  zgrid=(0.,1.,101)).
+        numcores : int, optional
+            If set to an integer, use this many cores (only used for vcirc, dvcircdR, epifreq, and verticalfreq; NOT NECESSARILY FASTER, TIME TO MAKE SURE).
 
-        PURPOSE:
-
-           Initialize an interpRZPotential instance
-
-        INPUT:
-
-           RZPot - RZPotential to be interpolated
-
-           rgrid - R grid to be given to linspace as in rs= linspace(*rgrid)
-
-           zgrid - z grid to be given to linspace as in zs= linspace(*zgrid)
-
-           logR - if True, rgrid is in the log of R so logrs= linspace(*rgrid)
-
-           interpPot, interpRforce, interpzforce, interpDens,interpvcirc, interpepifreq, interpverticalfreq, interpdvcircdr= if True, interpolate these functions
-
-           use_c= use C to speed up the calculation of the grid
-
-           enable_c= enable use of C for interpolations
-
-           zsym= if True (default), the potential is assumed to be symmetric around z=0 (so you can use, e.g.,  zgrid=(0.,1.,101)).
-
-           numcores= if set to an integer, use this many cores (only used for vcirc, dvcircdR, epifreq, and verticalfreq; NOT NECESSARILY FASTER, TIME TO MAKE SURE)
-
-           ro=, vo= distance and velocity scales for translation into internal units (default from configuration file)
-
-        OUTPUT:
-
-           instance
-
-        HISTORY:
-
-           2010-07-21 - Written - Bovy (NYU)
-
-           2013-01-24 - Started with new implementation - Bovy (IAS)
+        Notes
+        -----
+        - 2010-07-21 - Written - Bovy (NYU)
+        - 2013-01-24 - Started with new implementation - Bovy (IAS)
 
         """
         if isinstance(RZPot, interpRZPotential):
@@ -605,20 +611,31 @@ class interpRZPotential(Potential):
 
 def calc_potential_c(pot, R, z, rforce=False, zforce=False):
     """
-    NAME:
-       calc_potential_c
-    PURPOSE:
-       Use C to calculate the potential on a grid
-    INPUT:
-       pot - Potential or list of such instances
-       R - grid in R
-       z - grid in z
-       rforce=, zforce= if either of these is True, calculate the radial or vertical force instead
-    OUTPUT:
-       potential on the grid (2D array)
-    HISTORY:
-       2013-01-24 - Written - Bovy (IAS)
-       2013-01-29 - Added forces - Bovy (IAS)
+    Calculate the potential on a grid.
+
+    Parameters
+    ----------
+    pot : Potential or list of such instances
+        Potential object(s) to calculate the potential from.
+    R : numpy.ndarray
+        Grid in R.
+    z : numpy.ndarray
+        Grid in z.
+    rforce : bool, optional
+        If True, calculate the radial force instead. Default is False.
+    zforce : bool, optional
+        If True, calculate the vertical force instead. Default is False.
+
+    Returns
+    -------
+    numpy.ndarray
+        Potential on the grid (2D array).
+
+    Notes
+    -----
+    - 2013-01-24 - Written - Bovy (IAS)
+    - 2013-01-29 - Added forces - Bovy (IAS)
+
     """
     from ..orbit.integrateFullOrbit import (  # here bc otherwise there is an infinite loop
         _parse_pot,
@@ -685,16 +702,21 @@ def calc_potential_c(pot, R, z, rforce=False, zforce=False):
 
 def calc_2dsplinecoeffs_c(array2d):
     """
-    NAME:
-       calc_2dsplinecoeffs_c
-    PURPOSE:
-       Use C to calculate spline coefficients for a 2D array
-    INPUT:
-       array2d
-    OUTPUT:
-       new array with spline coeffs
-    HISTORY:
-       2013-01-24 - Written - Bovy (IAS)
+    Calculate spline coefficients for a 2D array.
+
+    Parameters
+    ----------
+    array2d : numpy.ndarray
+        2D array to calculate spline coefficients for.
+
+    Returns
+    -------
+    ndarray
+        New array with spline coefficients.
+
+    Notes
+    -----
+    - 2013-01-24 - Written - Bovy (IAS)
     """
     # Set up result arrays
     out = copy.copy(array2d)
@@ -717,18 +739,25 @@ def calc_2dsplinecoeffs_c(array2d):
 
 def eval_potential_c(pot, R, z):
     """
-    NAME:
-       eval_potential_c
-    PURPOSE:
-       Use C to evaluate the interpolated potential
-    INPUT:
-       pot - Potential or list of such instances
-       R - array
-       z - array
-    OUTPUT:
-       potential evaluated R and z
-    HISTORY:
-       2013-01-24 - Written - Bovy (IAS)
+    Use C to evaluate the interpolated potential.
+
+    Parameters
+    ----------
+    pot : Potential or list of such instances
+        The potential
+    R : numpy.ndarray
+        Galactocentric cylindrical radius.
+    z : numpy.ndarray
+        Galactocentric height.
+
+    Returns
+    -------
+    numpy.ndarray
+        Potential evaluated at R and z.
+
+    Notes
+    -----
+    - 2013-01-24: Written - Bovy (IAS)
     """
     from ..orbit.integrateFullOrbit import (  # here bc otherwise there is an infinite loop
         _parse_pot,
@@ -788,19 +817,28 @@ def eval_potential_c(pot, R, z):
 
 def eval_force_c(pot, R, z, zforce=False):
     """
-    NAME:
-       eval_force_c
-    PURPOSE:
-       Use C to evaluate the interpolated potential's forces
-    INPUT:
-       pot - Potential or list of such instances
-       R - array
-       z - array
-       zforce= if True, return the vertical force, otherwise return the radial force
-    OUTPUT:
-       force evaluated R and z
-    HISTORY:
-       2013-01-29 - Written - Bovy (IAS)
+    Use C to evaluate the interpolated potential's forces
+
+    Parameters
+    ----------
+    pot : Potential or list of such instances
+        The potential
+    R : numpy.ndarray
+        Galactocentric cylindrical radius.
+    z : numpy.ndarray
+        Galactocentric height.
+    zforce : bool, optional
+        If True, return the vertical force, otherwise return the radial force. Default is False.
+
+    Returns
+    -------
+    numpy.ndarray
+        Force evaluated at R and z.
+
+    Notes
+    -----
+    - 2013-01-29: Written - Bovy (IAS)
+
     """
     from ..orbit.integrateFullOrbit import (  # here bc otherwise there is an infinite loop
         _parse_pot,

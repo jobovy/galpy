@@ -64,55 +64,52 @@ class DiskSCFPotential(Potential):
         vo=None,
     ):
         """
-        NAME:
+        Initialize a DiskSCFPotential.
 
-            __init__
+        Parameters
+        ----------
+        amp : float, optional
+            Amplitude to be applied to the potential (default: 1); cannot have units currently.
+        normalize : bool or float, optional
+            If True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
+        dens : callable
+            Function of R,z[,phi optional] that gives the density [in natural units, cannot return a Quantity currently].
+        N : int, optional
+            Number of radial basis functions to use in the SCF expansion.
+        L : int, optional
+            Number of angular basis functions to use in the SCF expansion.
+        a : float or Quantity, optional
+            Scale radius for the SCF expansion.
+        radial_order : int, optional
+            Order of the radial basis functions to use in the SCF expansion.
+        costheta_order : int, optional
+            Order of the angular basis functions to use in the SCF expansion.
+        phi_order : int, optional
+            Order of the azimuthal basis functions to use in the SCF expansion.
+        Sigma : dict or callable
+            Either a dictionary of surface density (example: {'type':'exp','h':1./3.,'amp':1.,'Rhole':0.} for amp x exp(-Rhole/R-R/h) ) or a function of R that gives the surface density.
+        hz : dict or callable
+            Either a dictionary of vertical profile, either 'exp' or 'sech2' (example {'type':'exp','h':1./27.} for exp(-|z|/h)/[2h], sech2 is sech^2(z/[2h])/[4h]) or a function of z that gives the vertical profile.
+        Sigma_amp : float, optional
+            Amplitude to apply to all Sigma functions.
+        dSigmadR : callable, optional
+            Function that gives d Sigma / d R.
+        d2SigmadR2 : callable, optional
+            Function that gives d^2 Sigma / d R^2.
+        Hz : callable, optional
+            Function of z such that d^2 Hz(z) / d z^2 = hz.
+        dHzdz : callable, optional
+            Function of z that gives d Hz(z) / d z.
+        ro : float or Quantity, optional
+            Distance scale for translation into internal units (default from configuration file).
+        vo : float or Quantity, optional
+            Velocity scale for translation into internal units (default from configuration file).
 
-        PURPOSE:
+        Notes
+        -----
+        - Either specify (Sigma,hz) or (Sigma_amp,Sigma,dSigmadR,d2SigmadR2,hz,Hz,dHzdz)
+        - Written - Bovy (UofT) - 2016-12-26
 
-            initialize a DiskSCF Potential
-
-        INPUT:
-
-           amp - amplitude to be applied to the potential (default: 1); cannot have units currently
-
-           normalize - if True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
-
-           ro=, vo= distance and velocity scales for translation into internal units (default from configuration file)
-
-           dens= function of R,z[,phi optional] that gives the density [in natural units, cannot return a Quantity currently]
-
-           N=, L=, a=, radial_order=, costheta_order=, phi_order= keywords setting parameters for SCF solution for Phi_ME (see :ref:`scf_compute_coeffs_axi <scf_compute_coeffs_axi>` or :ref:`scf_compute_coeffs <scf_compute_coeffs>` depending on whether :math:`\\rho(R,\\phi,z)` is axisymmetric or not)
-
-           Either:
-
-              (a) Sigma= Dictionary of surface density (example: {'type':'exp','h':1./3.,'amp':1.,'Rhole':0.} for amp x exp(-Rhole/R-R/h) )
-
-                  hz= Dictionary of vertical profile, either 'exp' or 'sech2' (example {'type':'exp','h':1./27.} for exp(-|z|/h)/[2h], sech2 is sech^2(z/[2h])/[4h])
-
-              (b) Sigma= function of R that gives the surface density
-
-                  dSigmadR= function that gives d Sigma / d R
-
-                  d2SigmadR2= function that gives d^2 Sigma / d R^2
-
-                  Sigma_amp= amplitude to apply to all Sigma functions
-
-                  hz= function of z that gives the vertical profile
-
-                  Hz= function of z such that d^2 Hz(z) / d z^2 = hz
-
-                  dHzdz= function of z that gives d Hz(z) / d z
-
-              In both of these cases lists of arguments can be given for multiple disk components; can't mix (a) and (b) in these lists;  if hz is a single item the same vertical profile is assumed for all Sigma
-
-        OUTPUT:
-
-           DiskSCFPotential object
-
-        HISTORY:
-
-           2016-12-26 - Written - Bovy (UofT)
         """
         Potential.__init__(self, amp=amp, ro=ro, vo=vo, amp_units=None)
         a = conversion.parse_length(a, ro=self._ro)
@@ -182,14 +179,6 @@ class DiskSCFPotential(Potential):
         return None
 
     def _parse_Sigma(self, Sigma_amp, Sigma, dSigmadR, d2SigmadR2):
-        """
-        NAME:
-           _parse_Sigma
-        PURPOSE:
-           Parse the various input options for Sigma* functions
-        HISTORY:
-           2016-12-27 - Written - Bovy (UofT/CCA)
-        """
         if isinstance(Sigma, dict):
             Sigma = [Sigma]
         try:
@@ -248,14 +237,6 @@ class DiskSCFPotential(Potential):
         return (ta, ts, tds, td2s)
 
     def _parse_hz(self, hz, Hz, dHzdz):
-        """
-        NAME:
-           _parse_hz
-        PURPOSE:
-           Parse the various input options for Sigma* functions
-        HISTORY:
-           2016-12-27 - Written - Bovy (UofT/CCA)
-        """
         if isinstance(hz, dict):
             hz = [hz]
         try:
@@ -336,21 +317,6 @@ class DiskSCFPotential(Potential):
         return (th, tH, tdH)
 
     def _evaluate(self, R, z, phi=0.0, t=0.0):
-        """
-        NAME:
-           _evaluate
-        PURPOSE:
-           evaluate the potential at (R,z, phi)
-        INPUT:
-           R - Cylindrical Galactocentric radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           potential at (R,z, phi)
-        HISTORY:
-           2016-12-26 - Written - Bovy (UofT/CCA)
-        """
         r = numpy.sqrt(R**2.0 + z**2.0)
         out = self._scf(R, z, phi=phi, use_physical=False)
         for a, s, H in zip(self._Sigma_amp, self._Sigma, self._Hz):
@@ -358,21 +324,6 @@ class DiskSCFPotential(Potential):
         return out
 
     def _Rforce(self, R, z, phi=0, t=0):
-        """
-        NAME:
-           _Rforce
-        PURPOSE:
-           evaluate the radial force at (R,z, phi)
-        INPUT:
-           R - Cylindrical Galactocentric radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           radial force at (R,z, phi)
-        HISTORY:
-           2016-12-26 - Written - Bovy (UofT/CCA)
-        """
         r = numpy.sqrt(R**2.0 + z**2.0)
         out = self._scf.Rforce(R, z, phi=phi, use_physical=False)
         for a, ds, H in zip(self._Sigma_amp, self._dSigmadR, self._Hz):
@@ -380,21 +331,6 @@ class DiskSCFPotential(Potential):
         return out
 
     def _zforce(self, R, z, phi=0, t=0):
-        """
-        NAME:
-           _zforce
-        PURPOSE:
-           evaluate the vertical force at (R,z, phi)
-        INPUT:
-           R - Cylindrical Galactocentric radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           vertical force at (R,z, phi)
-        HISTORY:
-           2016-12-26 - Written - Bovy (UofT/CCA)
-        """
         r = numpy.sqrt(R**2.0 + z**2.0)
         out = self._scf.zforce(R, z, phi=phi, use_physical=False)
         for a, s, ds, H, dH in zip(
@@ -404,39 +340,9 @@ class DiskSCFPotential(Potential):
         return out
 
     def _phitorque(self, R, z, phi=0.0, t=0.0):
-        """
-        NAME:
-           _phitorque
-        PURPOSE:
-           evaluate the azimuthal torque for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           the azimuthal torque
-        HISTORY:
-           2016-12-26 - Written - Bovy (UofT)
-        """
         return self._scf.phitorque(R, z, phi=phi, use_physical=False)
 
     def _R2deriv(self, R, z, phi=0.0, t=0.0):
-        """
-        NAME:
-           _R2deriv
-        PURPOSE:
-           evaluate the second radial derivative for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           the second radial derivative
-        HISTORY:
-           2016-12-26 - Written - Bovy (UofT/CCA)
-        """
         r = numpy.sqrt(R**2.0 + z**2.0)
         out = self._scf.R2deriv(R, z, phi=phi, use_physical=False)
         for a, ds, d2s, H in zip(
@@ -453,21 +359,6 @@ class DiskSCFPotential(Potential):
         return out
 
     def _z2deriv(self, R, z, phi=0.0, t=0.0):
-        """
-        NAME:
-           _z2deriv
-        PURPOSE:
-           evaluate the second vertical derivative for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           the second vertical derivative
-        HISTORY:
-           2016-12-26 - Written - Bovy (UofT/CCA)
-        """
         r = numpy.sqrt(R**2.0 + z**2.0)
         out = self._scf.z2deriv(R, z, phi=phi, use_physical=False)
         for a, s, ds, d2s, h, H, dH in zip(
@@ -492,21 +383,6 @@ class DiskSCFPotential(Potential):
         return out
 
     def _Rzderiv(self, R, z, phi=0.0, t=0.0):
-        """
-        NAME:
-           _Rzderiv
-        PURPOSE:
-           evaluate the mixed R,z derivative for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           d2phi/dR/dz
-        HISTORY:
-           2016-12-26 - Written - Bovy (UofT/CCA)
-        """
         r = numpy.sqrt(R**2.0 + z**2.0)
         out = self._scf.Rzderiv(R, z, phi=phi, use_physical=False)
         for a, ds, d2s, H, dH in zip(
@@ -524,39 +400,9 @@ class DiskSCFPotential(Potential):
         return out
 
     def _phi2deriv(self, R, z, phi=0.0, t=0.0):
-        """
-        NAME:
-           _phi2deriv
-        PURPOSE:
-           evaluate the second azimuthal derivative for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           the second azimuthal derivative
-        HISTORY:
-           2016-12-26 - Written - Bovy (UofT/CCA)
-        """
         return self._scf.phi2deriv(R, z, phi=phi, use_physical=False)
 
     def _dens(self, R, z, phi=0.0, t=0.0):
-        """
-        NAME:
-           _dens
-        PURPOSE:
-           evaluate the density at (R,z, phi)
-        INPUT:
-           R - Cylindrical Galactocentric radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           density at (R,z, phi)
-        HISTORY:
-           2016-12-26 - Written - Bovy (UofT/CCA)
-        """
         r = numpy.sqrt(R**2.0 + z**2.0)
         out = self._scf.dens(R, z, phi=phi, use_physical=False)
         for a, s, ds, d2s, h, H, dH in zip(
@@ -574,20 +420,6 @@ class DiskSCFPotential(Potential):
         return out
 
     def _mass(self, R, z=None, t=0.0):
-        """
-        NAME:
-           _mass
-        PURPOSE:
-           evaluate the mass within R (and z) for this potential; if z=None, integrate spherical
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           t - time
-        OUTPUT:
-           the mass enclosed
-        HISTORY:
-           2021-03-09 - Written - Bovy (UofT)
-        """
         if not z is None:  # pragma: no cover
             raise AttributeError  # Hack to fall back to general
         out = self._scf.mass(R, z=None, use_physical=False)

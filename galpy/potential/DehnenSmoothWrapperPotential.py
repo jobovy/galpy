@@ -29,35 +29,29 @@ class DehnenSmoothWrapperPotential(parentWrapperPotential):
         self, amp=1.0, pot=None, tform=-4.0, tsteady=None, decay=False, ro=None, vo=None
     ):
         """
-        NAME:
+        Initialize a DehnenSmoothWrapper Potential.
 
-           __init__
+        Parameters
+        ----------
+        amp : float, optional
+            Amplitude to be applied to the potential (default: 1.).
+        pot : Potential instance or list thereof, optional
+            The amplitude of this will be grown by this wrapper.
+        tform : float or Quantity, optional
+            Start of growth (default: -4.0).
+        tsteady : float or Quantity, optional
+            Time from tform at which the potential is fully grown (default: -tform/2, so the perturbation is fully grown at tform/2).
+        decay : bool, optional
+            If True, decay the amplitude instead of growing it (as 1-grow).
+        ro : float or Quantity, optional
+            Distance scale for translation into internal units (default from configuration file).
+        vo : float or Quantity, optional
+            Velocity scale for translation into internal units (default from configuration file).
 
-        PURPOSE:
-
-           initialize a DehnenSmoothWrapper Potential
-
-        INPUT:
-
-           amp - amplitude to be applied to the potential (default: 1.)
-
-           pot - Potential instance or list thereof; the amplitude of this will be grown by this wrapper
-
-           tform - start of growth (can be a Quantity)
-
-           tsteady - time from tform at which the potential is fully grown (default: -tform/2, st the perturbation is fully grown at tform/2; can be a Quantity)
-
-           decay= (False) if True, decay the amplitude instead of growing it (as 1-grow)
-
-        OUTPUT:
-
-           (none)
-
-        HISTORY:
-
-           2017-06-26 - Started - Bovy (UofT)
-
-           2018-10-07 - Added 'decay' option - Bovy (UofT)
+        Notes
+        -----
+        - 2017-06-26 - Started - Bovy (UofT)
+        - 2018-10-07 - Added 'decay' option - Bovy (UofT)
 
         """
         tform = conversion.parse_time(tform, ro=self._ro, vo=self._vo)

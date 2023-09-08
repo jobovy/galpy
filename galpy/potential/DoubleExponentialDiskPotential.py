@@ -42,42 +42,32 @@ class DoubleExponentialDiskPotential(Potential):
         de_n=10000,
     ):
         """
-        NAME:
+        Initialize a double exponential disk potential
 
-           __init__
+        Parameters
+        ----------
+        amp : float or Quantity, optional
+            Amplitude to be applied to the potential (default: 1); can be a Quantity with units of mass density or Gxmass density.
+        hr : float or Quantity, optional
+            Disk scale-length.
+        hz : float or Quantity, optional
+            Scale-height.
+        normalize : bool or float, optional
+            If True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
+        de_h : float, optional
+            Step used in numerical integration.
+        de_n : int, optional
+            Number of points used in numerical integration (use 1000 for a lower accuracy version that is typically still high accuracy enough, but faster).
+        ro : float, optional
+            Distance scale for translation into internal units (default from configuration file).
+        vo : float, optional
+            Velocity scale for translation into internal units (default from configuration file).
 
-        PURPOSE:
-
-           initialize a double-exponential disk potential
-
-        INPUT:
-
-           amp - amplitude to be applied to the potential (default: 1); can be a Quantity with units of mass density or Gxmass density
-
-           hr - disk scale-length (can be Quantity)
-
-           hz - scale-height (can be Quantity)
-
-           normalize - if True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
-
-           de_h= (1e-3) step used in numerical integration
-
-           de_b= (10000) number of points used in numerical integration (use 1000 for a lower accuracy version that is typically still high accuracy enough, but faster)
-
-           ro=, vo= distance and velocity scales for translation into internal units (default from configuration file)
-
-        OUTPUT:
-
-           DoubleExponentialDiskPotential object
-
-        HISTORY:
-
-           2010-04-16 - Written - Bovy (NYU)
-
-           2013-01-01 - Re-implemented using faster integration techniques - Bovy (IAS)
-
-           2020-12-24 - Re-implemented again using more accurate integration techniques for Bessel integrals - Bovy (UofT)
-
+        Notes
+        -----
+        - 2010-04-16 - Written - Bovy (NYU)
+        - 2013-01-01 - Re-implemented using faster integration techniques - Bovy (IAS)
+        - 2020-12-24 - Re-implemented again using more accurate integration techniques for Bessel integrals - Bovy (UofT)
         """
         Potential.__init__(self, amp=amp, ro=ro, vo=vo, amp_units="density")
         hr = conversion.parse_length(hr, ro=self._ro)
@@ -135,21 +125,29 @@ class DoubleExponentialDiskPotential(Potential):
 
     def _evaluate(self, R, z, phi=0.0, t=0.0, dR=0, dphi=0):
         """
-        NAME:
-           _evaluate
-        PURPOSE:
-           evaluate the potential at (R,z)
-        INPUT:
-           R - Cylindrical Galactocentric radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           potential at (R,z)
-        HISTORY:
-           2010-04-16 - Written - Bovy (NYU)
-           2012-12-26 - New method using Gaussian quadrature between zeros - Bovy (IAS)
-           2020-12-24 - New method using Ogata's Bessel integral formula - Bovy (UofT)
+        Evaluate the potential at (R,z)
+
+        Parameters
+        ----------
+        R : float
+            Cylindrical Galactocentric radius
+        z : float
+            Vertical height
+        phi : float, optional
+            Azimuth (default: 0.0)
+        t : float, optional
+            Time (default: 0.0)
+
+        Returns
+        -------
+        float
+            Potential at (R,z)
+
+        Notes
+        -----
+        - 2010-04-16 - Written - Bovy (NYU)
+        - 2012-12-26 - New method using Gaussian quadrature between zeros - Bovy (IAS)
+        - 2020-12-24 - New method using Ogata's Bessel integral formula - Bovy (UofT)
         """
         if isinstance(R, (float, int)):
             floatIn = True
@@ -189,21 +187,29 @@ class DoubleExponentialDiskPotential(Potential):
     @check_potential_inputs_not_arrays
     def _Rforce(self, R, z, phi=0.0, t=0.0):
         """
-        NAME:
-           Rforce
-        PURPOSE:
-           evaluate radial force K_R  (R,z)
-        INPUT:
-           R - Cylindrical Galactocentric radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           K_R (R,z)
-        HISTORY:
-           2010-04-16 - Written - Bovy (NYU)
-           2012-12-26 - New method using Gaussian quadrature between zeros - Bovy (IAS)
-           2020-12-24 - New method using Ogata's Bessel integral formula - Bovy (UofT)
+        Evaluate radial force K_R  (R,z)
+
+        Parameters
+        ----------
+        R : float
+            Cylindrical Galactocentric radius
+        z : float
+            Vertical height
+        phi : float, optional
+            Azimuth (default: 0.0)
+        t : float, optional
+            Time (default: 0.0)
+
+        Returns
+        -------
+        float
+            Radial force (R,z)
+
+        Notes
+        -----
+        - 2010-04-16 - Written - Bovy (NYU)
+        - 2012-12-26 - New method using Gaussian quadrature between zeros - Bovy (IAS)
+        - 2020-12-24 - New method using Ogata's Bessel integral formula - Bovy (UofT)
         """
         fun = (
             lambda x: x
@@ -225,21 +231,29 @@ class DoubleExponentialDiskPotential(Potential):
     @check_potential_inputs_not_arrays
     def _zforce(self, R, z, phi=0.0, t=0.0):
         """
-        NAME:
-           zforce
-        PURPOSE:
-           evaluate vertical force K_z  (R,z)
-        INPUT:
-           R - Cylindrical Galactocentric radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           K_z (R,z)
-        HISTORY:
-           2010-04-16 - Written - Bovy (NYU)
-           2012-12-26 - New method using Gaussian quadrature between zeros - Bovy (IAS)
-           2020-12-24 - New method using Ogata's Bessel integral formula - Bovy (UofT)
+        Evaluate vertical force K_z  (R,z)
+
+        Parameters
+        ----------
+        R : float
+            Cylindrical Galactocentric radius
+        z : float
+            Vertical height
+        phi : float, optional
+            Azimuth (default: 0.0)
+        t : float, optional
+            Time (default: 0.0)
+
+        Returns
+        -------
+        float
+            Vertical force (R,z)
+
+        Notes
+        -----
+        - 2010-04-16 - Written - Bovy (NYU)
+        - 2012-12-26 - New method using Gaussian quadrature between zeros - Bovy (IAS)
+        - 2020-12-24 - New method using Ogata's Bessel integral formula - Bovy (UofT)
         """
         fun = (
             lambda x: (self._alpha**2.0 + (x / R) ** 2.0) ** -1.5
@@ -267,20 +281,28 @@ class DoubleExponentialDiskPotential(Potential):
     @check_potential_inputs_not_arrays
     def _R2deriv(self, R, z, phi=0.0, t=0.0):
         """
-        NAME:
-           R2deriv
-        PURPOSE:
-           evaluate R2 derivative
-        INPUT:
-           R - Cylindrical Galactocentric radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           -d K_R (R,z) d R
-        HISTORY:
-           2012-12-27 - Written - Bovy (IAS)
-           2020-12-24 - New method using Ogata's Bessel integral formula - Bovy (UofT)
+        Evaluate radial force K_R (R,z) R2 derivative
+
+        Parameters
+        ----------
+        R : float
+            Cylindrical Galactocentric radius
+        z : float
+            Vertical height
+        phi : float, optional
+            Azimuth (default: 0.0)
+        t : float, optional
+            Time (default: 0.0)
+
+        Returns
+        -------
+        float
+            -d K_R (R,z) d R
+
+        Notes
+        -----
+        - 2012-12-27 - Written - Bovy (IAS)
+        - 2020-12-24 - New method using Ogata's Bessel integral formula - Bovy (UofT)
         """
         fun = (
             lambda x: x**2
@@ -305,20 +327,28 @@ class DoubleExponentialDiskPotential(Potential):
     @check_potential_inputs_not_arrays
     def _z2deriv(self, R, z, phi=0.0, t=0.0):
         """
-        NAME:
-           z2deriv
-        PURPOSE:
-           evaluate z2 derivative
-        INPUT:
-           R - Cylindrical Galactocentric radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           -d K_Z (R,z) d Z
-        HISTORY:
-           2012-12-26 - Written - Bovy (IAS)
-           2020-12-24 - New method using Ogata's Bessel integral formula - Bovy (UofT)
+        Evaluate vertical force K_Z (R,z) Z2 derivative
+
+        Parameters
+        ----------
+        R : float
+            Cylindrical Galactocentric radius
+        z : float
+            Vertical height
+        phi : float, optional
+            Azimuth (default: 0.0)
+        t : float, optional
+            Time (default: 0.0)
+
+        Returns
+        -------
+        float
+            -d K_Z (R,z) d Z
+
+        Notes
+        -----
+        - 2012-12-26 - Written - Bovy (IAS)
+        - 2020-12-24 - New method using Ogata's Bessel integral formula - Bovy (UofT)
         """
         fun = (
             lambda x: (self._alpha**2.0 + (x / R) ** 2.0) ** -1.5
@@ -342,20 +372,28 @@ class DoubleExponentialDiskPotential(Potential):
     @check_potential_inputs_not_arrays
     def _Rzderiv(self, R, z, phi=0.0, t=0.0):
         """
-        NAME:
-           Rzderiv
-        PURPOSE:
-           evaluate the mixed R,z derivative
-        INPUT:
-           R - Cylindrical Galactocentric radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           d2phi/dR/dz
-        HISTORY:
-           2013-08-28 - Written - Bovy (IAS)
-           2020-12-24 - New method using Ogata's Bessel integral formula - Bovy (UofT)
+        Evaluate mixed R,z derivative d2phi/dR/dz.
+
+        Parameters
+        ----------
+        R : float
+            Cylindrical Galactocentric radius
+        z : float
+            Vertical height
+        phi : float, optional
+            Azimuth (default: 0.0)
+        t : float, optional
+            Time (default: 0.0)
+
+        Returns
+        -------
+        float
+            d2phi/dR/dz
+
+        Notes
+        -----
+        - 2013-08-28 - Written - Bovy (IAS)
+        - 2020-12-24 - New method using Ogata's Bessel integral formula - Bovy (UofT)
         """
         fun = (
             lambda x: (self._alpha**2.0 + (x / R) ** 2.0) ** -1.5
@@ -380,39 +418,9 @@ class DoubleExponentialDiskPotential(Potential):
             return -out
 
     def _dens(self, R, z, phi=0.0, t=0.0):
-        """
-        NAME:
-           _dens
-        PURPOSE:
-           evaluate the density
-        INPUT:
-           R - Cylindrical Galactocentric radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           rho (R,z)
-        HISTORY:
-           2010-08-08 - Written - Bovy (NYU)
-        """
         return numpy.exp(-self._alpha * R - self._beta * numpy.fabs(z))
 
     def _surfdens(self, R, z, phi=0.0, t=0.0):
-        """
-        NAME:
-           _surfdens
-        PURPOSE:
-           evaluate the surface density
-        INPUT:
-           R - Cylindrical Galactocentric radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           Sigma (R,z)
-        HISTORY:
-           2018-08-19 - Written - Bovy (UofT)
-        """
         return (
             2.0
             * numpy.exp(-self._alpha * R)

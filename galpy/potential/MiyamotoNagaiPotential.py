@@ -65,61 +65,16 @@ class MiyamotoNagaiPotential(Potential):
         self._nemo_accname = "MiyamotoNagai"
 
     def _evaluate(self, R, z, phi=0.0, t=0.0):
-        """
-        NAME:
-           _evaluate
-        PURPOSE:
-           evaluate the potential at R,z
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           Phi(R,z)
-        HISTORY:
-           2010-07-09 - Started - Bovy (NYU)
-        """
         return -1.0 / numpy.sqrt(
             R**2.0 + (self._a + numpy.sqrt(z**2.0 + self._b2)) ** 2.0
         )
 
     def _Rforce(self, R, z, phi=0.0, t=0.0):
-        """
-        NAME:
-           _Rforce
-        PURPOSE:
-           evaluate the radial force for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           the radial force
-        HISTORY:
-           2010-07-09 - Written - Bovy (NYU)
-        """
         return -R / (R**2.0 + (self._a + numpy.sqrt(z**2.0 + self._b2)) ** 2.0) ** (
             3.0 / 2.0
         )
 
     def _zforce(self, R, z, phi=0.0, t=0.0):
-        """
-        NAME:
-           _zforce
-        PURPOSE:
-           evaluate the vertical force for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           the vertical force
-        HISTORY:
-           2010-07-09 - Written - Bovy (NYU)
-        """
         sqrtbz = numpy.sqrt(self._b2 + z**2.0)
         asqrtbz = self._a + sqrtbz
         if isinstance(R, float) and sqrtbz == asqrtbz:
@@ -136,21 +91,6 @@ class MiyamotoNagaiPotential(Potential):
             )
 
     def _dens(self, R, z, phi=0.0, t=0.0):
-        """
-        NAME:
-           _dens
-        PURPOSE:
-           evaluate the density for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           the density
-        HISTORY:
-           2010-08-08 - Written - Bovy (NYU)
-        """
         sqrtbz = numpy.sqrt(self._b2 + z**2.0)
         asqrtbz = self._a + sqrtbz
         if isinstance(R, float) and sqrtbz == asqrtbz:
@@ -166,21 +106,6 @@ class MiyamotoNagaiPotential(Potential):
             )
 
     def _R2deriv(self, R, z, phi=0.0, t=0.0):
-        """
-        NAME:
-           _R2deriv
-        PURPOSE:
-           evaluate the second radial derivative for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           the second radial derivative
-        HISTORY:
-           2011-10-09 - Written - Bovy (IAS)
-        """
         return (
             1.0 / (R**2.0 + (self._a + numpy.sqrt(z**2.0 + self._b2)) ** 2.0) ** 1.5
             - 3.0
@@ -189,21 +114,6 @@ class MiyamotoNagaiPotential(Potential):
         )
 
     def _z2deriv(self, R, z, phi=0.0, t=0.0):
-        """
-        NAME:
-           _z2deriv
-        PURPOSE:
-           evaluate the second vertical derivative for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           the second vertical derivative
-        HISTORY:
-           2012-07-25 - Written - Bovy (IAS@MPIA)
-        """
         sqrtbz = numpy.sqrt(self._b2 + z**2.0)
         asqrtbz = self._a + sqrtbz
         if isinstance(R, float) and sqrtbz == asqrtbz:
@@ -226,21 +136,6 @@ class MiyamotoNagaiPotential(Potential):
             ) / ((self._b2 + z**2.0) ** 1.5 * (R**2.0 + asqrtbz**2.0) ** 2.5)
 
     def _Rzderiv(self, R, z, phi=0.0, t=0.0):
-        """
-        NAME:
-           _Rzderiv
-        PURPOSE:
-           evaluate the mixed R,z derivative for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           d2phi/dR/dz
-        HISTORY:
-           2013-08-28 - Written - Bovy (IAS)
-        """
         sqrtbz = numpy.sqrt(self._b2 + z**2.0)
         asqrtbz = self._a + sqrtbz
         if isinstance(R, float) and sqrtbz == asqrtbz:
@@ -252,29 +147,5 @@ class MiyamotoNagaiPotential(Potential):
 
     @kms_to_kpcGyrDecorator
     def _nemo_accpars(self, vo, ro):
-        """
-        NAME:
-
-           _nemo_accpars
-
-        PURPOSE:
-
-           return the accpars potential parameters for use of this potential with NEMO
-
-        INPUT:
-
-           vo - velocity unit in km/s
-
-           ro - length unit in kpc
-
-        OUTPUT:
-
-           accpars string
-
-        HISTORY:
-
-           2014-12-18 - Written - Bovy (IAS)
-
-        """
         ampl = self._amp * vo**2.0 * ro
         return f"0,{ampl},{self._a*ro},{self._b*ro}"

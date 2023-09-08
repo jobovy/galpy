@@ -39,38 +39,30 @@ class FlattenedPowerPotential(Potential):
         vo=None,
     ):
         """
-        NAME:
+        Initialize a flattened power-law potential.
 
-           __init__
+        Parameters
+        ----------
+        amp : float or Quantity, optional
+            Amplitude to be applied to the potential. Can be a Quantity with units of velocity squared.
+        alpha : float, optional
+            Power-law exponent.
+        q : float, optional
+            Flattening parameter.
+        core : float or Quantity, optional
+            Core radius.
+        normalize : bool or float, optional
+            If True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
+        r1 : float or Quantity, optional
+            Reference radius for amplitude.
+        ro : float or Quantity, optional
+            Distance scale for translation into internal units (default from configuration file).
+        vo : float or Quantity, optional
+            Velocity scale for translation into internal units (default from configuration file).
 
-        PURPOSE:
-
-           initialize a flattened power-law potential
-
-        INPUT:
-
-           amp - amplitude to be applied to the potential (default: 1); can be a Quantity with units of velocity-squared
-
-           alpha - power
-
-           q - flattening
-
-           core - core radius (can be Quantity)
-
-           r1= (1.) reference radius for amplitude (can be Quantity)
-
-           normalize - if True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
-
-           ro=, vo= distance and velocity scales for translation into internal units (default from configuration file)
-
-        OUTPUT:
-
-           (none)
-
-        HISTORY:
-
-           2013-01-09 - Written - Bovy (IAS)
-
+        Notes
+        -----
+        - 2013-01-09 - Written - Bovy (IAS)
         """
         Potential.__init__(self, amp=amp, ro=ro, vo=vo, amp_units="velocity2")
         core = conversion.parse_length(core, ro=self._ro)
@@ -89,21 +81,6 @@ class FlattenedPowerPotential(Potential):
         self.hasC_dens = True
 
     def _evaluate(self, R, z, phi=0.0, t=0.0):
-        """
-        NAME:
-           _evaluate
-        PURPOSE:
-           evaluate the potential at R,z
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           Phi(R,z)
-        HISTORY:
-           2013-01-09 - Started - Bovy (IAS)
-        """
         if self.alpha == 0.0:
             return 1.0 / 2.0 * numpy.log(R**2.0 + z**2.0 / self.q2 + self.core2)
         else:
@@ -111,21 +88,6 @@ class FlattenedPowerPotential(Potential):
             return -(m2 ** (-self.alpha / 2.0)) / self.alpha
 
     def _Rforce(self, R, z, phi=0.0, t=0.0):
-        """
-        NAME:
-           _Rforce
-        PURPOSE:
-           evaluate the radial force for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           the radial force
-        HISTORY:
-           2010-07-10 - Written - Bovy (NYU)
-        """
         if self.alpha == 0.0:
             return -R / (R**2.0 + z**2.0 / self.q2 + self.core2)
         else:
@@ -133,21 +95,6 @@ class FlattenedPowerPotential(Potential):
             return -(m2 ** (-self.alpha / 2.0 - 1.0)) * R
 
     def _zforce(self, R, z, phi=0.0, t=0.0):
-        """
-        NAME:
-           _zforce
-        PURPOSE:
-           evaluate the vertical force for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           the vertical force
-        HISTORY:
-           2010-07-10 - Written - Bovy (NYU)
-        """
         if self.alpha == 0.0:
             return -z / self.q2 / (R**2.0 + z**2.0 / self.q2 + self.core2)
         else:
@@ -155,21 +102,6 @@ class FlattenedPowerPotential(Potential):
             return -(m2 ** (-self.alpha / 2.0 - 1.0)) * z / self.q2
 
     def _R2deriv(self, R, z, phi=0.0, t=0.0):
-        """
-        NAME:
-           _Rderiv
-        PURPOSE:
-           evaluate the second radial derivative for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           the second radial derivative
-        HISTORY:
-           2011-10-09 - Written - Bovy (NYU)
-        """
         if self.alpha == 0.0:
             denom = 1.0 / (R**2.0 + z**2.0 / self.q2 + self.core2)
             return denom - 2.0 * R**2.0 * denom**2.0
@@ -180,21 +112,6 @@ class FlattenedPowerPotential(Potential):
             )
 
     def _z2deriv(self, R, z, phi=0.0, t=0.0):
-        """
-        NAME:
-           _z2deriv
-        PURPOSE:
-           evaluate the second vertical derivative for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t- time
-        OUTPUT:
-           the second vertical derivative
-        HISTORY:
-           2012-07-26 - Written - Bovy (IAS@MPIA)
-        """
         if self.alpha == 0.0:
             denom = 1.0 / (R**2.0 + z**2.0 / self.q2 + self.core2)
             return denom / self.q2 - 2.0 * z**2.0 * denom**2.0 / self.q2**2.0
@@ -208,21 +125,6 @@ class FlattenedPowerPotential(Potential):
             )
 
     def _dens(self, R, z, phi=0.0, t=0.0):
-        """
-        NAME:
-           _dens
-        PURPOSE:
-           evaluate the density force for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           the density
-        HISTORY:
-           2013-01-09 - Written - Bovy (IAS)
-        """
         if self.alpha == 0.0:
             return (
                 1.0

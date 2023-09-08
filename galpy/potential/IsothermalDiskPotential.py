@@ -21,27 +21,22 @@ class IsothermalDiskPotential(linearPotential):
 
     def __init__(self, amp=1.0, sigma=0.1, ro=None, vo=None):
         """
-        NAME:
+        Initialize an IsothermalDiskPotential.
 
-           __init__
+        Parameters
+        ----------
+        amp : float, optional
+            An overall amplitude.
+        sigma : float or Quantity, optional
+            Velocity dispersion.
+        ro : float or Quantity, optional
+            Distance scale for translation into internal units (default from configuration file).
+        vo : float or Quantity, optional
+            Velocity scale for translation into internal units (default from configuration file).
 
-        PURPOSE:
-
-           Initialize an IsothermalDiskPotential
-
-        INPUT:
-
-           amp - an overall amplitude
-
-           sigma - velocity dispersion (can be a Quantity)
-
-        OUTPUT:
-
-           instance
-
-        HISTORY:
-
-           2018-04-11 - Written - Bovy (UofT)
+        Notes
+        -----
+        - 2018-04-11 - Written - Bovy (UofT)
 
         """
         linearPotential.__init__(self, amp=amp, ro=ro, vo=vo)

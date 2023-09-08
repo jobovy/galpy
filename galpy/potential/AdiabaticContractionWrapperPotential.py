@@ -18,9 +18,12 @@ from .interpSphericalPotential import interpSphericalPotential
 class AdiabaticContractionWrapperPotential(interpSphericalPotential):
     """AdiabaticContractionWrapperPotential: Wrapper to adiabatically contract a DM halo in response to the growth of a baryonic component. Use for example as::
 
-        dm= AdiabaticContractionWrapperPotential(pot=MWPotential2014[2],baryonpot=MWPotential2014[:2])
+        dm= AdiabaticContractionWrapperPotential(
+            pot=MWPotential2014[2],
+            baryonpot=MWPotential2014[:2]
+        )
 
-    to contract the dark-matter halo in MWPotential2014 according to the baryon distribution within it. The basic physics of the adiabatic contraction is that a fraction `f_bar` of the mass in the original potential `pot` cools adiabatically to form a baryonic component `baryonpot`; this wrapper computes the resulting dark-matter potential using different approximations in the literature.
+    to contract the dark-matter halo in ``MWPotential2014`` according to the baryon distribution within it. The basic physics of the adiabatic contraction is that a fraction ``f_bar`` of the mass in the original potential ``pot`` cools adiabatically to form a baryonic component ``baryonpot``; this wrapper computes the resulting dark-matter potential using different approximations in the literature.
 
     """
 
@@ -37,44 +40,44 @@ class AdiabaticContractionWrapperPotential(interpSphericalPotential):
         vo=None,
     ):
         """
-        NAME:
+        Initialize a AdiabaticContractionWrapper Potential.
 
-           __init__
+        Parameters
+        ----------
+        amp : float, optional
+            Amplitude to be applied to the potential (default: 1.).
+        pot : Potential instance or list thereof, optional
+            Representing the density that is adiabatically contracted.
+        baryonpot : Potential instance or list thereof, optional
+            Representing the density of baryons whose growth causes the contraction.
+        method : {'cautun', 'blumenthal', 'gnedin'}, optional
+            Type of adiabatic-contraction formula:
 
-        PURPOSE:
+            - 'cautun' for that from Cautun et al. 2020 [1]_;
+            - 'blumenthal' for that from Blumenthal et al. 1986 [2]_;
+            - 'gnedin' for that from Gnedin et al. 2004 [3]_.
 
-           initialize a AdiabaticContractionWrapper Potential
+            (default: 'cautun')
+        f_bar : float, optional
+            Universal baryon fraction; if None, calculated from pot and baryonpot assuming that at rmax the halo contains the universal baryon fraction; leave this at the default value unless you know what you are doing (default: 0.157).
+        rmin : float, optional
+            Minimum radius to consider (default: rmax/2500; don't set this to zero).
+        rmax : float or Quantity, optional
+            Maximum radius to consider (default: 50.).
+        ro : float or Quantity, optional
+            Distance scale for translation into internal units (default from configuration file).
+        vo : float or Quantity, optional
+            Velocity scale for translation into internal units (default from configuration file).
 
-        INPUT:
+        Notes
+        -----
+        - 2021-03-21 - Started based on Marius Cautun's code - Bovy (UofT)
 
-           amp - amplitude to be applied to the potential (default: 1.)
-
-           pot - Potential instance or list thereof representing the density that is adiabatically contracted
-
-           baryonpot - Potential instance or list thereof representing the density of baryons whose growth causes the contraction
-
-           method= ('cautun') Type of adiabatic-contraction formula:
-
-                 * 'cautun' for that from Cautun et al. 2020 (`2020MNRAS.494.4291C <https://ui.adsabs.harvard.edu/abs/2020MNRAS.494.4291C>`__),
-                 * 'blumenthal' for that from Blumenthal et al. 1986 (`1986ApJ...301...27B 1986ApJ...301...27B <https://ui.adsabs.harvard.edu/abs/1986ApJ...301...27B>`__)
-                 * 'gnedin' for that from Gnedin et al. 2004 (`2004ApJ...616...16G <https://ui.adsabs.harvard.edu/abs/2004ApJ...616...16G>`__)
-
-           f_bar= (0.157) universal baryon fraction; if None, calculated from pot and baryonpot assuming that at rmax the halo contains the universal baryon fraction; leave this at the default value unless you know what you are doing
-
-           rmin= (None) minimum radius to consider (default: rmax/2500; don't set this to zero)
-
-           rmax= (50.) maximum radius to consider (can be Quantity)
-
-           ro, vo= standard unit-conversion parameters
-
-        OUTPUT:
-
-           (none)
-
-        HISTORY:
-
-           2021-03-21 - Started based on Marius Cautun's code - Bovy (UofT)
-
+        References
+        ----------
+        .. [1] Cautun, M et al. (2020), Mon. Not. Roy. Astron. Soc., 494, 4291. ADS:  https://ui.adsabs.harvard.edu/abs/2020MNRAS.494.4291C
+        .. [2] Blumenthal et al. (1986), Astrophys. J., 301, 27. ADS:  https://ui.adsabs.harvard.edu/abs/1986ApJ...301...27B
+        .. [3] Gnedin et al. (2004), Astrophys. J., 616, 16. ADS:  https://ui.adsabs.harvard.edu/abs/2004ApJ...616...16G
         """
         # Initialize with Force just to parse (ro,vo)
         Force.__init__(self, ro=ro, vo=vo)

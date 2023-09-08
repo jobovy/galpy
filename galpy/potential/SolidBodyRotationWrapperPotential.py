@@ -19,31 +19,26 @@ class SolidBodyRotationWrapperPotential(parentWrapperPotential):
 
     def __init__(self, amp=1.0, pot=None, omega=1.0, pa=0.0, ro=None, vo=None):
         """
-        NAME:
+        Initialize a SolidBodyRotationWrapper Potential.
 
-           __init__
+        Parameters
+        ----------
+        amp : float, optional
+            Amplitude to be applied to the potential. Default is 1.0.
+        pot : Potential instance or list thereof
+            This potential is made to rotate around the z axis by the wrapper.
+        omega : float or Quantity, optional
+            The pattern speed. Default is 1.0.
+        pa : float or Quantity, optional
+            The position angle. Default is 0.0.
+        ro : float or Quantity, optional
+            Distance scale for translation into internal units (default from configuration file).
+        vo : float or Quantity, optional
+            Velocity scale for translation into internal units (default from configuration file).
 
-        PURPOSE:
-
-           initialize a SolidBodyRotationWrapper Potential
-
-        INPUT:
-
-           amp - amplitude to be applied to the potential (default: 1.)
-
-           pot - Potential instance or list thereof; this potential is made to rotate around the z axis by the wrapper
-
-           omega= (1.) the pattern speed (can be a Quantity)
-
-           pa= (0.) the position angle (can be a Quantity)
-
-        OUTPUT:
-
-           (none)
-
-        HISTORY:
-
-           2017-08-22 - Started - Bovy (UofT)
+        Notes
+        -----
+        - 2017-08-22 - Started - Bovy (UofT)
 
         """
         omega = conversion.parse_frequency(omega, ro=self._ro, vo=self._vo)
@@ -54,18 +49,6 @@ class SolidBodyRotationWrapperPotential(parentWrapperPotential):
         self.hasC_dxdv = True
 
     def OmegaP(self):
-        """
-        NAME:
-           OmegaP
-        PURPOSE:
-           return the pattern speed
-        INPUT:
-           (none)
-        OUTPUT:
-           pattern speed
-        HISTORY:
-           2016-11-02 - Written - Bovy (UofT)
-        """
         return self._omega
 
     def _wrap(self, attribute, *args, **kwargs):

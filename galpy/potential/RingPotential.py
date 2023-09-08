@@ -20,32 +20,24 @@ class RingPotential(Potential):
 
     def __init__(self, amp=1.0, a=0.75, normalize=False, ro=None, vo=None):
         """
-        NAME:
+        Class that implements a circular ring potential.
 
-           __init__
+        Parameters
+        ----------
+        amp : float or Quantity, optional
+            Mass of the ring (default: 1); can be a Quantity with units of mass or Gxmass.
+        a : float or Quantity, optional
+            Radius of the ring (default: 0.75).
+        normalize : bool or float, optional
+            If True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.; note that because the force is always positive at r < a, this does not work if a > 1.
+        ro : float or Quantity, optional
+            Distance scale for translation into internal units (default from configuration file).
+        vo : float or Quantity, optional
+            Velocity scale for translation into internal units (default from configuration file).
 
-        PURPOSE:
-
-           initialize a circular ring potential
-
-        INPUT:
-
-           amp - mass of the ring (default: 1); can be a Quantity with units of mass or Gxmass
-
-           a= (0.75) radius of the ring (can be Quantity)
-
-           normalize - if True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.; note that because the force is always positive at r < a, this does not work if a > 1
-
-           ro=, vo= distance and velocity scales for translation into internal units (default from configuration file)
-
-        OUTPUT:
-
-           (none)
-
-        HISTORY:
-
-           2018-08-04 - Written - Bovy (UofT)
-
+        Notes
+        -----
+        - 2018-08-04 - Written - Bovy (UofT)
         """
         Potential.__init__(self, amp=amp, ro=ro, vo=vo, amp_units="mass")
         a = conversion.parse_length(a, ro=self._ro)
@@ -64,21 +56,6 @@ class RingPotential(Potential):
         self.hasC_dxdv = False
 
     def _evaluate(self, R, z, phi=0.0, t=0.0):
-        """
-        NAME:
-           _evaluate
-        PURPOSE:
-           evaluate the potential at R,z
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           Phi(R,z)
-        HISTORY:
-           2018-08-04 - Written - Bovy (UofT)
-        """
         # Stable as r -> infty
         m = 4.0 * self.a / ((numpy.sqrt(R) + self.a / numpy.sqrt(R)) ** 2 + z**2 / R)
         return (
@@ -86,21 +63,6 @@ class RingPotential(Potential):
         )
 
     def _Rforce(self, R, z, phi=0.0, t=0.0):
-        """
-        NAME:
-           _Rforce
-        PURPOSE:
-           evaluate the radial force for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           the radial force
-        HISTORY:
-           2018-08-04 - Written - Bovy (UofT)
-        """
         m = 4.0 * R * self.a / ((R + self.a) ** 2 + z**2)
         return (
             -2.0
@@ -120,21 +82,6 @@ class RingPotential(Potential):
         )
 
     def _zforce(self, R, z, phi=0.0, t=0.0):
-        """
-        NAME:
-           _zforce
-        PURPOSE:
-           evaluate the vertical force for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           the vertical force
-        HISTORY:
-           2018-08-04 - Written - Bovy (UofT)
-        """
         m = 4.0 * R * self.a / ((R + self.a) ** 2 + z**2)
         return (
             -4.0
@@ -146,21 +93,6 @@ class RingPotential(Potential):
         )
 
     def _R2deriv(self, R, z, phi=0.0, t=0.0):
-        """
-        NAME:
-           _Rderiv
-        PURPOSE:
-           evaluate the second radial derivative for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           the second radial derivative
-        HISTORY:
-           2018-08-04 - Written - Bovy (UofT)
-        """
         Raz2 = (R + self.a) ** 2 + z**2
         Raz = numpy.sqrt(Raz2)
         m = 4.0 * R * self.a / Raz2
@@ -187,21 +119,6 @@ class RingPotential(Potential):
         )
 
     def _z2deriv(self, R, z, phi=0.0, t=0.0):
-        """
-        NAME:
-           _z2deriv
-        PURPOSE:
-           evaluate the second vertical derivative for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t- time
-        OUTPUT:
-           the second vertical derivative
-        HISTORY:
-           2018-08-04 - Written - Bovy (UofT)
-        """
         Raz2 = (R + self.a) ** 2 + z**2
         m = 4.0 * R * self.a / Raz2
         # Explicitly swapped in zforce here, so the z/z can be cancelled
@@ -226,21 +143,6 @@ class RingPotential(Potential):
         )
 
     def _Rzderiv(self, R, z, phi=0.0, t=0.0):
-        """
-        NAME:
-           _Rzderiv
-        PURPOSE:
-           evaluate the mixed R,z derivative for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           d2phi/dR/dz
-        HISTORY:
-           2018-08-04 - Written - Bovy (UofT)
-        """
         Raz2 = (R + self.a) ** 2 + z**2
         m = 4.0 * R * self.a / Raz2
         return (

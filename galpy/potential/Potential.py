@@ -53,11 +53,6 @@ def check_potential_inputs_not_arrays(func):
     function
         Decorated function.
 
-    Raises
-    ------
-    TypeError
-        If any of the inputs are arrays for Potentials that do not support array evaluation.
-
     Notes
     -----
     - 2017-summer - Written for SpiralArmsPotential - Jack Hong (UBC)
@@ -1663,11 +1658,6 @@ class Potential(Force):
         float
             Concentration (scale/rvir).
 
-        Raises
-        ------
-        AttributeError
-            If this potential does not have a '_scale' defined to base the concentration on or does not support calculating the virial radius.
-
         Notes
         -----
         - 2014-04-03: Written - Bovy (IAS)
@@ -1705,11 +1695,6 @@ class Potential(Force):
         str
             Acceleration name.
 
-        Raises
-        ------
-        AttributeError
-            If NEMO acceleration name is not supported for this potential.
-
         Notes
         -----
         - 2014-12-18: Written - Bovy (IAS)
@@ -1737,11 +1722,6 @@ class Potential(Force):
         -------
         str
             Accpars string.
-
-        Raises
-        ------
-        AttributeError
-            If NEMO acceleration parameters are not supported for this potential.
 
         Notes
         -----

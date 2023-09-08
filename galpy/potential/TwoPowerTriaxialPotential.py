@@ -52,47 +52,39 @@ class TwoPowerTriaxialPotential(EllipsoidalPotential):
         vo=None,
     ):
         """
-        NAME:
+        Initialize a triaxial two-power-density potential.
 
-           __init__
+        Parameters
+        ----------
+        amp : float or Quantity, optional
+            Amplitude to be applied to the potential (default: 1); can be a Quantity with units of mass or Gxmass.
+        a : float or Quantity, optional
+            Scale radius.
+        alpha : float, optional
+            Inner power (0 <= alpha < 3).
+        beta : float, optional
+            Outer power ( beta > 2).
+        b : float, optional
+            y-to-x axis ratio of the density.
+        c : float, optional
+            z-to-x axis ratio of the density.
+        zvec : array_like, optional
+            If set, a unit vector that corresponds to the z axis.
+        pa : float or Quantity, optional
+            If set, the position angle of the x axis.
+        glorder : int, optional
+            If set, compute the relevant force and potential integrals with Gaussian quadrature of this order.
+        normalize : bool or float, optional
+            If True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
+        ro : float or Quantity, optional
+            Distance scale for translation into internal units (default from configuration file).
+        vo : float or Quantity, optional
+            Velocity scale for translation into internal units (default from configuration file).
 
-        PURPOSE:
-
-           initialize a triaxial two-power-density potential
-
-        INPUT:
-
-           amp - amplitude to be applied to the potential (default: 1); can be a Quantity with units of mass or Gxmass
-
-           a - scale radius (can be Quantity)
-
-           alpha - inner power (0 <= alpha < 3)
-
-           beta - outer power ( beta > 2)
-
-           b - y-to-x axis ratio of the density
-
-           c - z-to-x axis ratio of the density
-
-           zvec= (None) If set, a unit vector that corresponds to the z axis
-
-           pa= (None) If set, the position angle of the x axis (rad or Quantity)
-
-           glorder= (50) if set, compute the relevant force and potential integrals with Gaussian quadrature of this order
-
-           normalize - if True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
-
-           ro=, vo= distance and velocity scales for translation into internal units (default from configuration file)
-
-        OUTPUT:
-
-           (none)
-
-        HISTORY:
-
-           2016-05-30 - Started - Bovy (UofT)
-
-           2018-08-07 - Re-written using the general EllipsoidalPotential class - Bovy (UofT)
+        Notes
+        -----
+        - 2016-05-30 - Started - Bovy (UofT)
+        - 2018-08-07 - Re-written using the general EllipsoidalPotential class - Bovy (UofT)
 
         """
         EllipsoidalPotential.__init__(
@@ -176,20 +168,6 @@ class TwoPowerTriaxialPotential(EllipsoidalPotential):
         )
 
     def _mass(self, R, z=None, t=0.0):
-        """
-        NAME:
-           _mass
-        PURPOSE:
-           evaluate the mass within R (and z) for this potential; if z=None, integrate to ellipsoidal boundary
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           t - time
-        OUTPUT:
-           the mass enclosed
-        HISTORY:
-           2021-03-09 - Written - Bovy (UofT)
-        """
         if not z is None:
             raise AttributeError  # Hack to fall back to general
         return (
@@ -237,43 +215,36 @@ class TriaxialHernquistPotential(EllipsoidalPotential):
         vo=None,
     ):
         """
-        NAME:
+        Initialize a triaxial two-power-density potential.
 
-           __init__
+        Parameters
+        ----------
+        amp : float or Quantity, optional
+            Amplitude to be applied to the potential (default: 1); can be a Quantity with units of mass or Gxmass.
+        a : float or Quantity, optional
+            Scale radius.
+        normalize : bool or float, optional
+            If True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
+        b : float, optional
+            y-to-x axis ratio of the density.
+        c : float, optional
+            z-to-x axis ratio of the density.
+        zvec : array_like, optional
+            If set, a unit vector that corresponds to the z axis.
+        pa : float or Quantity, optional
+            If set, the position angle of the x axis.
+        glorder : int, optional
+            If set, compute the relevant force and potential integrals with Gaussian quadrature of this order.
+        ro : float or Quantity, optional
+            Distance scale for translation into internal units (default from configuration file).
+        vo : float or Quantity, optional
+            Velocity scale for translation into internal units (default from configuration file).
 
-        PURPOSE:
+        Notes
+        -----
+        - 2010-07-09 - Written - Bovy (UofT)
 
-           Initialize a triaxial Hernquist potential
-
-        INPUT:
-
-           amp - amplitude to be applied to the potential (default: 1); can be a Quantity with units of mass or Gxmass
-
-           a - scale radius (can be Quantity)
-
-           b - y-to-x axis ratio of the density
-
-           c - z-to-x axis ratio of the density
-
-           zvec= (None) If set, a unit vector that corresponds to the z axis
-
-           pa= (None) If set, the position angle of the x axis
-
-           glorder= (50) if set, compute the relevant force and potential integrals with Gaussian quadrature of this order
-
-           normalize - if True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
-
-           ro=, vo= distance and velocity scales for translation into internal units (default from configuration file)
-
-        OUTPUT:
-
-           (none)
-
-        HISTORY:
-
-           2010-07-09 - Written - Bovy (UofT)
-
-           2018-08-07 - Re-written using the general EllipsoidalPotential class - Bovy (UofT)
+        - 2018-08-07 - Re-written using the general EllipsoidalPotential class - Bovy (UofT)
 
         """
         EllipsoidalPotential.__init__(
@@ -316,20 +287,6 @@ class TriaxialHernquistPotential(EllipsoidalPotential):
         return -self.a4 * (self.a + 4.0 * m) / m**2 / (self.a + m) ** 4
 
     def _mass(self, R, z=None, t=0.0):
-        """
-        NAME:
-           _mass
-        PURPOSE:
-           evaluate the mass within R (and z) for this potential; if z=None, integrate to ellipsoidal boundary
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           t - time
-        OUTPUT:
-           the mass enclosed
-        HISTORY:
-           2021-03-16 - Written - Bovy (UofT)
-        """
         if not z is None:
             raise AttributeError  # Hack to fall back to general
         return (
@@ -375,43 +332,35 @@ class TriaxialJaffePotential(EllipsoidalPotential):
         vo=None,
     ):
         """
-        NAME:
+        Two-power-law triaxial potential
 
-           __init__
+        Parameters
+        ----------
+        amp : float or Quantity, optional
+            Amplitude to be applied to the potential (default: 1); can be a Quantity with units of mass or Gxmass
+        a : float or Quantity, optional
+            Scale radius.
+        b : float, optional
+            y-to-x axis ratio of the density
+        c : float, optional
+            z-to-x axis ratio of the density
+        zvec : array_like, optional
+            If set, a unit vector that corresponds to the z axis
+        pa : float or Quantity, optional
+            If set, the position angle of the x axis
+        glorder : int, optional
+            If set, compute the relevant force and potential integrals with Gaussian quadrature of this order
+        normalize : bool or float, optional
+            If True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
+        ro : float or Quantity, optional
+            Distance scale for translation into internal units (default from configuration file).
+        vo : float or Quantity, optional
+            Velocity scale for translation into internal units (default from configuration file).
 
-        PURPOSE:
-
-           Initialize a Jaffe potential
-
-        INPUT:
-
-           amp - amplitude to be applied to the potential (default: 1); can be a Quantity with units of mass or Gxmass
-
-           a - scale radius (can be Quantity)
-
-           b - y-to-x axis ratio of the density
-
-           c - z-to-x axis ratio of the density
-
-           zvec= (None) If set, a unit vector that corresponds to the z axis
-
-           pa= (None) If set, the position angle of the x axis
-
-           glorder= (50) if set, compute the relevant force and potential integrals with Gaussian quadrature of this order
-
-           normalize - if True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
-
-           ro=, vo= distance and velocity scales for translation into internal units (default from configuration file)
-
-        OUTPUT:
-
-           (none)
-
-        HISTORY:
-
-           2010-07-09 - Written - Bovy (UofT)
-
-           2018-08-07 - Re-written using the general EllipsoidalPotential class - Bovy (UofT)
+        Notes
+        -----
+        - 2010-07-09 - Written - Bovy (UofT)
+        - 2018-08-07 - Re-written using the general EllipsoidalPotential class - Bovy (UofT)
 
         """
         EllipsoidalPotential.__init__(
@@ -458,20 +407,6 @@ class TriaxialJaffePotential(EllipsoidalPotential):
         return -2.0 * self.a2**2 * (self.a + 2.0 * m) / m**3 / (self.a + m) ** 3
 
     def _mass(self, R, z=None, t=0.0):
-        """
-        NAME:
-           _mass
-        PURPOSE:
-           evaluate the mass within R (and z) for this potential; if z=None, integrate to ellipsoidal boundary
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           t - time
-        OUTPUT:
-           the mass enclosed
-        HISTORY:
-           2021-03-16 - Written - Bovy (UofT)
-        """
         if not z is None:
             raise AttributeError  # Hack to fall back to general
         return (
@@ -516,61 +451,50 @@ class TriaxialNFWPotential(EllipsoidalPotential):
         wrtcrit=False,
     ):
         """
-        NAME:
+        Initialize a triaxial NFW potential
 
-           __init__
+        Parameters
+        ----------
+        amp : float or Quantity, optional
+            Amplitude to be applied to the potential (default: 1); can be a Quantity with units of mass or Gxmass
+        a : float or Quantity, optional
+            Scale radius.
+        b : float, optional
+            y-to-x axis ratio of the density
+        c : float, optional
+            z-to-x axis ratio of the density
+        zvec : array_like, optional
+            If set, a unit vector that corresponds to the z axis
+        pa : float or Quantity, optional
+            If set, the position angle of the x axis
+        glorder : int, optional
+            If set, compute the relevant force and potential integrals with Gaussian quadrature of this order
+        normalize : bool or float, optional
+            If True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
+        conc : float, optional
+            Concentration.
+        mvir : float, optional
+            Virial mass in 10^12 Msolar.
+        H : float, optional
+            Hubble constant in km/s/Mpc.
+        Om : float, optional
+            Omega matter.
+        overdens : float, optional
+            Overdensity which defines the virial radius.
+        wrtcrit : bool, optional
+            If True, the overdensity is wrt the critical density rather than the mean matter density.
+        ro : float or Quantity, optional
+            Distance scale for translation into internal units (default from configuration file).
+        vo : float or Quantity, optional
+            Velocity scale for translation into internal units (default from configuration file).
 
-        PURPOSE:
-
-           Initialize a triaxial NFW potential
-
-        INPUT:
-
-           amp - amplitude to be applied to the potential (default: 1); can be a Quantity with units of mass or Gxmass
-
-           a - scale radius (can be Quantity)
-
-           b - y-to-x axis ratio of the density
-
-           c - z-to-x axis ratio of the density
-
-           zvec= (None) If set, a unit vector that corresponds to the z axis
-
-           pa= (None) If set, the position angle of the x axis
-
-           glorder= (50) if set, compute the relevant force and potential integrals with Gaussian quadrature of this order
-
-           normalize - if True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
-
-
-           Alternatively, NFW potentials can be initialized using
-
-              conc= concentration
-
-              mvir= virial mass in 10^12 Msolar
-
-           in which case you also need to supply the following keywords
-
-              H= (default: 70) Hubble constant in km/s/Mpc
-
-              Om= (default: 0.3) Omega matter
-
-              overdens= (200) overdensity which defines the virial radius
-
-              wrtcrit= (False) if True, the overdensity is wrt the critical density rather than the mean matter density
-
-           ro=, vo= distance and velocity scales for translation into internal units (default from configuration file)
-
-        OUTPUT:
-
-           (none)
-
-        HISTORY:
-
-           2016-05-30 - Written - Bovy (UofT)
-
-           2018-08-06 - Re-written using the general EllipsoidalPotential class - Bovy (UofT)
-
+        Notes
+        -----
+        - Initialize with one of:
+            * a and amp or normalize
+            * mvir, conc, H, Om, wrtcrit, overdens.
+        - 2010-07-09 - Written - Bovy (UofT)
+        - 2018-08-07 - Re-written using the general EllipsoidalPotential class - Bovy (UofT)
         """
         EllipsoidalPotential.__init__(
             self,
@@ -628,20 +552,6 @@ class TriaxialNFWPotential(EllipsoidalPotential):
         return -self.a3 * (self.a + 3.0 * m) / m**2 / (self.a + m) ** 3
 
     def _mass(self, R, z=None, t=0.0):
-        """
-        NAME:
-           _mass
-        PURPOSE:
-           evaluate the mass within R (and z) for this potential; if z=None, integrate to ellipsoidal boundary
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           t - time
-        OUTPUT:
-           the mass enclosed
-        HISTORY:
-           2021-03-16 - Written - Bovy (UofT)
-        """
         if not z is None:
             raise AttributeError  # Hack to fall back to general
         return (

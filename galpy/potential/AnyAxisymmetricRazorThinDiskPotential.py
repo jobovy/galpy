@@ -15,42 +15,35 @@ if _APY_LOADED:
 
 
 class AnyAxisymmetricRazorThinDiskPotential(Potential):
-    r"""Class that implements the potential of an arbitrary axisymmetric, razor-thin disk with surface density :math:`\Sigma(R)`"""
+    """Class that implements the potential of an arbitrary axisymmetric, razor-thin disk with surface density :math:`\\Sigma(R)`"""
 
     def __init__(
         self,
-        surfdens=lambda R: 1.5 * numpy.exp(-3.0 * R),
         amp=1.0,
+        surfdens=lambda R: 1.5 * numpy.exp(-3.0 * R),
         normalize=False,
         ro=None,
         vo=None,
     ):
         """
-        NAME:
+        Potential of an arbitrary axisymmetric disk.
 
-           __init__
+        Parameters
+        ----------
+        amp : float, optional
+            Amplitude to be applied to the potential. Default is 1.0.
+        surfdens : callable, optional
+            Function of a single variable that gives the surface density as a function of radius (can return a Quantity). Default is ``lambda R: 1.5 * numpy.exp(-3.0 * R)``.
+        normalize : bool or float, optional
+            If True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1. Default is False.
+        ro : float or Quantity, optional
+            Distance scale for translation into internal units (default from configuration file).
+        vo : float or Quantity, optional
+            Velocity scale for translation into internal units (default from configuration file).
 
-        PURPOSE:
-
-           Initialize the potential of an arbitrary axisymmetric disk
-
-        INPUT:
-
-           surfdens= (1.5 e^[-R/0.3]) function of a single variable that gives the surface density as a function of radius (can return a Quantity)
-
-           amp= (1.) amplitude to be applied to the potential
-
-           normalize - if True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
-
-           ro=, vo= distance and velocity scales for translation into internal units (default from configuration file)
-
-        OUTPUT:
-
-           AnyAxisymmetricRazorThinDiskPotential object
-
-        HISTORY:
-
-           2021-01-04 - Written - Bovy (UofT)
+        Notes
+        -----
+        - 2021-01-04 - Written - Bovy (UofT)
 
         """
         Potential.__init__(self, amp=amp, ro=ro, vo=vo)
@@ -99,21 +92,6 @@ class AnyAxisymmetricRazorThinDiskPotential(Potential):
 
     @check_potential_inputs_not_arrays
     def _evaluate(self, R, z, phi=0.0, t=0.0):
-        """
-        NAME:
-           _evaluate
-        PURPOSE:
-           evaluate the potential at (R,z)
-        INPUT:
-           R - Cylindrical Galactocentric radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           potential at (R,z)
-        HISTORY:
-           2021-01-04 - Written - Bovy (UofT)
-        """
         if R == 0 and z == 0:
             return self._pot_zero
         elif numpy.isinf(R**2 + z**2):
@@ -131,21 +109,6 @@ class AnyAxisymmetricRazorThinDiskPotential(Potential):
 
     @check_potential_inputs_not_arrays
     def _Rforce(self, R, z, phi=0.0, t=0.0):
-        """
-        NAME:
-           _Rforce
-        PURPOSE:
-           evaluate the radial force at (R,z)
-        INPUT:
-           R - Cylindrical Galactocentric radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           F_R at (R,z)
-        HISTORY:
-           2021-01-04 - Written - Bovy (UofT)
-        """
         R2 = R**2
         z2 = z**2
 
@@ -172,21 +135,6 @@ class AnyAxisymmetricRazorThinDiskPotential(Potential):
 
     @check_potential_inputs_not_arrays
     def _zforce(self, R, z, phi=0.0, t=0.0):
-        """
-        NAME:
-           _zforce
-        PURPOSE:
-           evaluate the vertical force at (R,z)
-        INPUT:
-           R - Cylindrical Galactocentric radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           F_z at (R,z)
-        HISTORY:
-           2021-01-04 - Written - Bovy (UofT)
-        """
         if z == 0:
             return 0.0
         z2 = z**2
@@ -213,21 +161,6 @@ class AnyAxisymmetricRazorThinDiskPotential(Potential):
 
     @check_potential_inputs_not_arrays
     def _R2deriv(self, R, z, phi=0.0, t=0.0):
-        """
-        NAME:
-           _R2deriv
-        PURPOSE:
-           evaluate the 2nd radial derivative at (R,z)
-        INPUT:
-           R - Cylindrical Galactocentric radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           d2 Phi / dR2 at (R,z)
-        HISTORY:
-           2021-01-04 - Written - Bovy (UofT)
-        """
         R2 = R**2
         z2 = z**2
 
@@ -262,21 +195,6 @@ class AnyAxisymmetricRazorThinDiskPotential(Potential):
 
     @check_potential_inputs_not_arrays
     def _z2deriv(self, R, z, phi=0.0, t=0.0):
-        """
-        NAME:
-           _z2deriv
-        PURPOSE:
-           evaluate the 2nd vertical derivative at (R,z)
-        INPUT:
-           R - Cylindrical Galactocentric radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           d2 Phi / dz2 at (R,z)
-        HISTORY:
-           2021-01-04 - Written - Bovy (UofT)
-        """
         R2 = R**2
         z2 = z**2
 
@@ -304,21 +222,6 @@ class AnyAxisymmetricRazorThinDiskPotential(Potential):
 
     @check_potential_inputs_not_arrays
     def _Rzderiv(self, R, z, phi=0.0, t=0.0):
-        """
-        NAME:
-           _Rzderiv
-        PURPOSE:
-           evaluate the mixed radial, vertical derivative at (R,z)
-        INPUT:
-           R - Cylindrical Galactocentric radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           d2 Phi / dRdz at (R,z)
-        HISTORY:
-           2021-01-04 - Written - Bovy (UofT)
-        """
         R2 = R**2
         z2 = z**2
 
@@ -359,19 +262,4 @@ class AnyAxisymmetricRazorThinDiskPotential(Potential):
         )
 
     def _surfdens(self, R, z, phi=0.0, t=0.0):
-        """
-        NAME:
-           _surfdens
-        PURPOSE:
-           evaluate the surface density
-        INPUT:
-           R - Cylindrical Galactocentric radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           Sigma (R,z)
-        HISTORY:
-           2021-01-04 - Written - Bovy (UofT)
-        """
         return self._sdens(R)

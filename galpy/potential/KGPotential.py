@@ -17,33 +17,28 @@ class KGPotential(linearPotential):
 
     """
 
-    def __init__(self, K=1.15, F=0.03, D=1.8, amp=1.0, ro=None, vo=None):
+    def __init__(self, amp=1.0, K=1.15, F=0.03, D=1.8, ro=None, vo=None):
         """
-        NAME:
+        Initialize a KGPotential
 
-           __init__
+        Parameters
+        ----------
+        amp : float or Quantity, optional
+            An overall amplitude, by default 1.0
+        K : float or Quantity, optional
+            K parameter (= 2πΣ_disk; specify either as surface density or directly as force [i.e., including 2πG]), by default 1.15
+        F : float or Quantity, optional
+            F parameter (= 4πρ_halo; specify either as density or directly as second potential derivative [i.e., including 4πG]), by default 0.03
+        D : float or Quantity, optional
+            D parameter (natural units or Quantity length units), by default 1.8
+        ro : float or Quantity, optional
+            Distance scale for translation into internal units (default from configuration file).
+        vo : float or Quantity, optional
+            Velocity scale for translation into internal units (default from configuration file).
 
-        PURPOSE:
-
-           Initialize a KGPotential
-
-        INPUT:
-
-           K= K parameter (= :math:`2\\pi \\Sigma_{\\mathrm{disk}}`; specify either as surface density or directly as force [i.e., including :math:`2\\pi G`]; can be Quantity)
-
-           F= F parameter (= :math:`4\\pi\\rho_{\\mathrm{halo}}`; specify either as density or directly as second potential derivative [i.e., including :math:`4\\pi G`]; can be Quantity)
-
-           D= D parameter (natural units or Quantity length units)
-
-           amp - an overall amplitude
-
-        OUTPUT:
-
-           instance
-
-        HISTORY:
-
-           2010-07-12 - Written - Bovy (NYU)
+        Notes
+        -----
+        - 2010-07-12 - Written - Bovy (NYU)
 
         """
         linearPotential.__init__(self, amp=amp, ro=ro, vo=vo)

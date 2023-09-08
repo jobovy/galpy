@@ -20,33 +20,25 @@ class SphericalShellPotential(SphericalPotential):
 
     def __init__(self, amp=1.0, a=0.75, normalize=False, ro=None, vo=None):
         """
-        NAME:
+        Initialize a spherical shell potential.
 
-           __init__
+        Parameters
+        ----------
+        amp : float or Quantity, optional
+            Mass of the shell (default: 1); can be a Quantity with units of mass or Gxmass.
+        a : float or Quantity, optional
+            Radius of the shell (default: 0.75).
+        normalize : bool or float, optional
+            If True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.; note that because the force is always zero at r < a, this does not work if a > 1.
+        ro : float or Quantity, optional
+            Distance scale for translation into internal units (default from configuration file).
+        vo : float or Quantity, optional
+            Velocity scale for translation into internal units (default from configuration file).
 
-        PURPOSE:
-
-           initialize a spherical shell potential
-
-        INPUT:
-
-           amp - mass of the shell (default: 1); can be a Quantity with units of mass or Gxmass
-
-           a= (0.75) radius of the shell (can be Quantity)
-
-           normalize - if True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.; note that because the force is always zero at r < a, this does not work if a > 1
-
-           ro=, vo= distance and velocity scales for translation into internal units (default from configuration file)
-
-        OUTPUT:
-
-           (none)
-
-        HISTORY:
-
-           2018-08-04 - Written - Bovy (UofT)
-
-           2020-03-30 - Re-implemented using SphericalPotential - Bovy (UofT)
+        Notes
+        -----
+        - 2018-08-04 - Written - Bovy (UofT)
+        - 2020-03-30 - Re-implemented using SphericalPotential - Bovy (UofT)
 
         """
         SphericalPotential.__init__(self, amp=amp, ro=ro, vo=vo, amp_units="mass")
@@ -93,21 +85,6 @@ class SphericalShellPotential(SphericalPotential):
             return numpy.infty
 
     def _surfdens(self, R, z, phi=0.0, t=0.0):
-        """
-        NAME:
-           _surfdens
-        PURPOSE:
-           evaluate the surface density for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           the density
-        HISTORY:
-           2018-08-04 - Written - Bovy (UofT)
-        """
         if R > self.a:
             return 0.0
         h = numpy.sqrt(self.a2 - R**2)

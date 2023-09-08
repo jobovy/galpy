@@ -20,33 +20,26 @@ class KingPotential(interpSphericalPotential):
 
     def __init__(self, W0=2.0, M=3.0, rt=1.5, npt=1001, _sfkdf=None, ro=None, vo=None):
         """
-        NAME:
+        Initialize a King potential
 
-           __init__
+        Parameters
+        ----------
+        W0 : float, optional
+            Dimensionless central potential W0 = Psi(0)/sigma^2 (in practice, needs to be <~ 200, where the DF is essentially isothermal). Default: 2.
+        M : float or Quantity, optional
+            Total mass. Default: 1.
+        rt : float or Quantity, optional
+            Tidal radius. Default: 1.
+        npt : int, optional
+            Number of points to use to solve for Psi(r) when solving the King DF. Default: 1001.
+        ro : float or Quantity, optional
+            Distance scale for translation into internal units (default from configuration file).
+        vo : float or Quantity, optional
+            Velocity scale for translation into internal units (default from configuration file).
 
-        PURPOSE:
-
-           Initialize a King potential
-
-        INPUT:
-
-           W0= (2.) dimensionless central potential W0 = Psi(0)/sigma^2 (in practice, needs to be <~ 200, where the DF is essentially isothermal)
-
-           M= (1.) total mass (can be a Quantity)
-
-           rt= (1.) tidal radius (can be a Quantity)
-
-           npt= (1001) number of points to use to solve for Psi(r) when solving the King DF
-
-           ro=, vo= standard galpy unit scaling parameters
-
-        OUTPUT:
-
-           (none; sets up instance)
-
-        HISTORY:
-
-           2020-07-11 - Written - Bovy (UofT)
+        Notes
+        -----
+        - 2020-07-11 - Written - Bovy (UofT)
 
         """
         # Initialize with Force just to parse (ro,vo)

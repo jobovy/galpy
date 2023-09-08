@@ -48,39 +48,32 @@ class EllipsoidalPotential(Potential):
         amp_units=None,
     ):
         """
-        NAME:
+        Initialize an ellipsoidal potential.
 
-           __init__
+        Parameters
+        ----------
+        amp : float or Quantity, optional
+            Amplitude to be applied to the potential (default: 1); can be a Quantity with units that depend on the specific spheroidal potential.
+        b : float, optional
+            y-to-x axis ratio of the density.
+        c : float, optional
+            z-to-x axis ratio of the density.
+        zvec : array_like, optional
+            If set, a unit vector that corresponds to the z axis.
+        pa : float or Quantity, optional
+            If set, the position angle of the x axis (rad or Quantity).
+        glorder : int, optional
+            If set, compute the relevant force and potential integrals with Gaussian quadrature of this order.
+        ro : float, optional
+            Distance scale for translation into internal units (default from configuration file).
+        vo : float, optional
+            Velocity scale for translation into internal units (default from configuration file).
+        amp_units : str, optional
+            Type of units that amp should have if it has units (passed to Potential.__init__).
 
-        PURPOSE:
-
-           initialize a ellipsoidal potential
-
-        INPUT:
-
-           amp - amplitude to be applied to the potential (default: 1); can be a Quantity with units that depend on the specific spheroidal potential
-
-           b - y-to-x axis ratio of the density
-
-           c - z-to-x axis ratio of the density
-
-           zvec= (None) If set, a unit vector that corresponds to the z axis
-
-           pa= (None) If set, the position angle of the x axis (rad or Quantity)
-
-           glorder= (50) if set, compute the relevant force and potential integrals with Gaussian quadrature of this order
-
-           amp_units - ('mass', 'velocity2', 'density') type of units that amp should have if it has units (passed to Potential.__init__)
-
-           ro=, vo= distance and velocity scales for translation into internal units (default from configuration file)
-
-        OUTPUT:
-
-           (none)
-
-        HISTORY:
-
-           2018-08-06 - Started - Bovy (UofT)
+        Notes
+        -----
+        - 2018-08-06 - Started - Bovy (UofT)
 
         """
         Potential.__init__(self, amp=amp, ro=ro, vo=vo, amp_units=amp_units)
@@ -140,21 +133,6 @@ class EllipsoidalPotential(Potential):
 
     @check_potential_inputs_not_arrays
     def _evaluate(self, R, z, phi=0.0, t=0.0):
-        """
-        NAME:
-           _evaluate
-        PURPOSE:
-           evaluate the potential at R,z
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           Phi(R,z)
-        HISTORY:
-           2016-05-30 - Started - Bovy (UofT)
-        """
         if not self.isNonAxi:
             phi = 0.0
         x, y, z = coords.cyl_to_rect(R, phi, z)
@@ -181,21 +159,6 @@ class EllipsoidalPotential(Potential):
 
     @check_potential_inputs_not_arrays
     def _Rforce(self, R, z, phi=0.0, t=0.0):
-        """
-        NAME:
-           _Rforce
-        PURPOSE:
-           evaluate the radial force for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           the radial force
-        HISTORY:
-           2016-06-09 - Written - Bovy (UofT)
-        """
         if not self.isNonAxi:
             phi = 0.0
         x, y, z = coords.cyl_to_rect(R, phi, z)
@@ -225,21 +188,6 @@ class EllipsoidalPotential(Potential):
 
     @check_potential_inputs_not_arrays
     def _phitorque(self, R, z, phi=0.0, t=0.0):
-        """
-        NAME:
-           _phitorque
-        PURPOSE:
-           evaluate the azimuthal torque for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           the azimuthal torque
-        HISTORY:
-           2016-06-09 - Written - Bovy (UofT)
-        """
         if not self.isNonAxi:
             phi = 0.0
         x, y, z = coords.cyl_to_rect(R, phi, z)
@@ -269,21 +217,6 @@ class EllipsoidalPotential(Potential):
 
     @check_potential_inputs_not_arrays
     def _zforce(self, R, z, phi=0.0, t=0.0):
-        """
-        NAME:
-           _zforce
-        PURPOSE:
-           evaluate the vertical force for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           the vertical force
-        HISTORY:
-           2016-06-09 - Written - Bovy (UofT)
-        """
         if not self.isNonAxi:
             phi = 0.0
         x, y, z = coords.cyl_to_rect(R, phi, z)
@@ -333,21 +266,6 @@ class EllipsoidalPotential(Potential):
 
     @check_potential_inputs_not_arrays
     def _R2deriv(self, R, z, phi=0.0, t=0.0):
-        """
-        NAME:
-           _R2deriv
-        PURPOSE:
-           evaluate the second radial derivative for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           the second radial derivative
-        HISTORY:
-           2016-06-15 - Written - Bovy (UofT)
-        """
         if not self.isNonAxi:
             phi = 0.0
         x, y, z = coords.cyl_to_rect(R, phi, z)
@@ -366,21 +284,6 @@ class EllipsoidalPotential(Potential):
 
     @check_potential_inputs_not_arrays
     def _Rzderiv(self, R, z, phi=0.0, t=0.0):
-        """
-        NAME:
-           _Rzderiv
-        PURPOSE:
-           evaluate the mixed radial, vertical derivative for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           the mixed radial, vertical derivative
-        HISTORY:
-           2016-06-15 - Written - Bovy (UofT)
-        """
         if not self.isNonAxi:
             phi = 0.0
         x, y, z = coords.cyl_to_rect(R, phi, z)
@@ -394,21 +297,6 @@ class EllipsoidalPotential(Potential):
 
     @check_potential_inputs_not_arrays
     def _z2deriv(self, R, z, phi=0.0, t=0.0):
-        """
-        NAME:
-           _z2deriv
-        PURPOSE:
-           evaluate the second vertical derivative for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           the second vertical derivative
-        HISTORY:
-           2016-06-15 - Written - Bovy (UofT)
-        """
         if not self.isNonAxi:
             phi = 0.0
         x, y, z = coords.cyl_to_rect(R, phi, z)
@@ -420,21 +308,6 @@ class EllipsoidalPotential(Potential):
 
     @check_potential_inputs_not_arrays
     def _phi2deriv(self, R, z, phi=0.0, t=0.0):
-        """
-        NAME:
-           _phi2deriv
-        PURPOSE:
-           evaluate the second azimuthal derivative for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           the second azimuthal derivative
-        HISTORY:
-           2016-06-15 - Written - Bovy (UofT)
-        """
         if not self.isNonAxi:
             phi = 0.0
         x, y, z = coords.cyl_to_rect(R, phi, z)
@@ -455,21 +328,6 @@ class EllipsoidalPotential(Potential):
 
     @check_potential_inputs_not_arrays
     def _Rphideriv(self, R, z, phi=0.0, t=0.0):
-        """
-        NAME:
-           _Rphideriv
-        PURPOSE:
-           evaluate the mixed radial, azimuthal derivative for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           the mixed radial, azimuthal derivative
-        HISTORY:
-           2016-06-15 - Written - Bovy (UofT)
-        """
         if not self.isNonAxi:
             phi = 0.0
         x, y, z = coords.cyl_to_rect(R, phi, z)
@@ -491,21 +349,6 @@ class EllipsoidalPotential(Potential):
 
     @check_potential_inputs_not_arrays
     def _phizderiv(self, R, z, phi=0.0, t=0.0):
-        """
-        NAME:
-           _phizderiv
-        PURPOSE:
-           evaluate the mixed azimuthal, vertical derivative for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           the mixed radial, azimuthal derivative
-        HISTORY:
-           2021-04-30 - Written - Bovy (UofT)
-        """
         if not self.isNonAxi:
             phi = 0.0
         x, y, z = coords.cyl_to_rect(R, phi, z)
@@ -542,21 +385,6 @@ class EllipsoidalPotential(Potential):
 
     @check_potential_inputs_not_arrays
     def _dens(self, R, z, phi=0.0, t=0.0):
-        """
-        NAME:
-           _dens
-        PURPOSE:
-           evaluate the density for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           the density
-        HISTORY:
-           2018-08-06 - Written - Bovy (UofT)
-        """
         x, y, z = coords.cyl_to_rect(R, phi, z)
         if self._aligned:
             xp, yp, zp = x, y, z
@@ -567,20 +395,6 @@ class EllipsoidalPotential(Potential):
         return self._mdens(m)
 
     def _mass(self, R, z=None, t=0.0):
-        """
-        NAME:
-           _mass
-        PURPOSE:
-           evaluate the mass within R (and z) for this potential; if z=None, integrate to z=inf
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           t - time
-        OUTPUT:
-           the mass enclosed
-        HISTORY:
-           2021-03-08 - Written - Bovy (UofT)
-        """
         if not z is None:
             raise AttributeError  # Hack to fall back to general
         return (
@@ -592,18 +406,6 @@ class EllipsoidalPotential(Potential):
         )
 
     def OmegaP(self):
-        """
-        NAME:
-           OmegaP
-        PURPOSE:
-           return the pattern speed
-        INPUT:
-           (none)
-        OUTPUT:
-           pattern speed
-        HISTORY:
-           2016-05-31 - Written - Bovy (UofT)
-        """
         return 0.0
 
 

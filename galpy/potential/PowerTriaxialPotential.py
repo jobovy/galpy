@@ -39,41 +39,34 @@ class PowerTriaxialPotential(EllipsoidalPotential):
         vo=None,
     ):
         """
-        NAME:
+        Initialize a triaxial power-law potential.
 
-           __init__
+        Parameters
+        ----------
+        amp : float or Quantity, optional
+            Amplitude to be applied to the potential (default: 1); can be a Quantity with units of mass or Gxmass.
+        alpha : float
+            Power-law exponent.
+        r1 : float or Quantity, optional
+            Reference radius for amplitude.
+        b : float
+            Y-to-x axis ratio of the density.
+        c : float
+            Z-to-x axis ratio of the density.
+        zvec : numpy.ndarray, optional
+            If set, a unit vector that corresponds to the z axis.
+        pa : float or Quantity, optional
+            If set, the position angle of the x axis (rad or Quantity).
+        glorder : int, optional
+            If set, compute the relevant force and potential integrals with Gaussian quadrature of this order.
+        ro : float, optional
+            Distance scale for translation into internal units (default from configuration file).
+        vo : float, optional
+            Velocity scale for translation into internal units (default from configuration file).
 
-        PURPOSE:
-
-           initialize a triaxial power-law potential
-
-        INPUT:
-
-           amp - amplitude to be applied to the potential (default: 1); can be a Quantity with units of mass or Gxmass
-
-           alpha - power-law exponent
-
-           r1= (1.) reference radius for amplitude (can be Quantity)
-
-           b - y-to-x axis ratio of the density
-
-           c - z-to-x axis ratio of the density
-
-           zvec= (None) If set, a unit vector that corresponds to the z axis
-
-           pa= (None) If set, the position angle of the x axis (rad or Quantity)
-
-           glorder= (50) if set, compute the relevant force and potential integrals with Gaussian quadrature of this order
-
-           ro=, vo= distance and velocity scales for translation into internal units (default from configuration file)
-
-        OUTPUT:
-
-           (none)
-
-        HISTORY:
-
-           2021-05-07 - Started - Bovy (UofT)
+        Notes
+        -----
+        - 2021-05-07 - Started - Bovy (UofT)
 
         """
         EllipsoidalPotential.__init__(
