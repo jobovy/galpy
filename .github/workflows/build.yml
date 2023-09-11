@@ -241,7 +241,7 @@ jobs:
     - name: Install Python dependencies
       if: matrix.python-version != '3.12'
       run: |
-         pip install --upgrade --upgrade-strategy eager numpy scipy matplotlib numexpr setuptools cython pytest tqdm
+         pip install --upgrade --upgrade-strategy eager numpy scipy matplotlib numexpr setuptools cython<1 pytest tqdm
     - name: Install Python dependencies (3.12)
       if: matrix.python-version == '3.12'
       run: |
