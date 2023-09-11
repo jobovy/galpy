@@ -37,7 +37,7 @@ jobs:
         - [windows-2019, win, amd64]
         python: ["cp38", "cp39", "cp310", "cp311", "cp312"]
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Install GSL (Windows / Mac OS x86_64)
         uses: mamba-org/setup-micromamba@v1
         if: matrix.buildplat[1] == 'win' || ( matrix.buildplat[1] == 'macosx' && matrix.buildplat[2] == 'x86_64' )
@@ -108,7 +108,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       # check-out this repository
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       # Setup python
       - name: Set up Python
         uses: actions/setup-python@v4
@@ -132,7 +132,7 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event_name == 'release' && github.event.action == 'created'
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - run: |
           mkdir tmp_wheelhouse
           mkdir wheelhouse
@@ -152,7 +152,7 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event_name != 'release' && github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - run: |
           mkdir tmp_wheelhouse
           mkdir wheelhouse
