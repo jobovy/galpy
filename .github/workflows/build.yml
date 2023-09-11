@@ -241,7 +241,7 @@ jobs:
     - name: Install Python dependencies
       if: matrix.python-version != '3.12'
       run: |
-         pip install --upgrade --upgrade-strategy eager numpy scipy matplotlib numexpr setuptools "cython<1" pytest tqdm
+         pip install --upgrade --upgrade-strategy eager numpy scipy matplotlib numexpr setuptools cython pytest tqdm
     - name: Install Python dependencies (3.12)
       if: matrix.python-version == '3.12'
       run: |
@@ -250,7 +250,7 @@ jobs:
          pip install git+https://github.com/dateutil/dateutil.git
          pip install --upgrade --upgrade-strategy eager contourpy cycler fonttools kiwisolver packaging pillow pyparsing
          pip install --upgrade --upgrade-strategy eager -i https://pypi.anaconda.org/scientific-python-nightly-wheels/simple scipy matplotlib
-         pip install --upgrade --upgrade-strategy eager --pre numexpr setuptools cython pytest tqdm
+         pip install --upgrade --upgrade-strategy eager --pre numexpr setuptools "cython<1" pytest tqdm
     - name: Install pynbody (3.12; ubuntu)
       if: ${{ matrix.os == 'ubuntu-latest' && matrix.REQUIRES_PYNBODY && matrix.python-version == '3.12' }}
       run: |
