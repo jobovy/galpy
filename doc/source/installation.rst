@@ -147,7 +147,7 @@ If you are reading this, either the simple installation instructions at the top 
         To compile ``galpy`` from source, you will first need to install the GSL. The
         easiest way to do this is using `Homebrew <http://brew.sh/>`__ as::
 
-            brew install gsl --universal
+            brew install gsl
 
         Alternatively, you can use ``conda`` to install the GSL and use ``conda`` to
         manage your Python environment. Install the GSL in your preferred environment
@@ -444,7 +444,7 @@ The easiest way to install this is using its Anaconda build::
 If you do not want to go that route, on a Mac, the next easiest way to install
 the GSL is using `Homebrew <http://brew.sh/>`_ as::
 
-	brew install gsl --universal
+	brew install gsl
 
 You should be able to check your version using (on Mac/Linux)::
 
