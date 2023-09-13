@@ -10,22 +10,36 @@ _lib, _ext_loaded = _load_extension_libs.load_libgalpy()
 
 
 def actionAngleAdiabatic_c(pot, gamma, R, vR, vT, z, vz):
-    r"""
-    NAME:
-       actionAngleAdiabatic_c
-    PURPOSE:
-       Use C to calculate actions using the adiabatic approximation
-    INPUT:
-       pot - Potential or list of such instances
-       gamma - as in Lz -> Lz+\gamma * J_z
-       R, vR, vT, z, vz - coordinates (arrays)
-    OUTPUT:
-       (jr,jz,err)
-       jr,jz : array, shape (len(R))
-       err - non-zero if error occurred
-    HISTORY:
-       2012-12-10 - Written - Bovy (IAS)
     """
+    Use C to calculate actions using the adiabatic approximation
+
+    Parameters
+    ----------
+    pot : Potential or list of such instances
+        Gravitational potential to compute actions in
+    gamma : float
+        as in Lz -> Lz+gamma * J_z
+    R : numpy.ndarray
+        R coordinate.
+    vR : numpy.ndarray
+        vR coordinate.
+    vT : numpy.ndarray
+        vT coordinate.
+    z : numpy.ndarray
+        z coordinate.
+    vz : numpy.ndarray
+        vz coordinate.
+
+    Returns
+    -------
+    tuple:
+       (jr,jz,err) with radial, vertical action (numpy.ndarrays), and error (non-zero if error occurred)
+
+    Notes
+    -----
+    - 2012-12-10 - Written - Bovy (IAS)
+    """
+
     # Parse the potential
     from ..orbit.integrateFullOrbit import _parse_pot
     from ..orbit.integratePlanarOrbit import _prep_tfuncs
@@ -108,21 +122,36 @@ def actionAngleAdiabatic_c(pot, gamma, R, vR, vT, z, vz):
 
 
 def actionAngleRperiRapZmaxAdiabatic_c(pot, gamma, R, vR, vT, z, vz):
-    r"""
-    NAME:
-       actionAngleRperiRapZmaxAdiabatic_c
-    PURPOSE:
-       Use C to calculate planar (Rperi,Rap) and the maximum height Zmax using the adiabatic approximation (rap = sqrt(Rap^2+Zmax^2))
-    INPUT:
-       pot - Potential or list of such instances
-       gamma - as in Lz -> Lz+\gamma * J_z
-       R, vR, vT, z, vz - coordinates (arrays)
-    OUTPUT:
-       (Rperi,Rap,Zmax,err)
-       Rperi,Rap,Zmax : array, shape (len(R))
-       err - non-zero if error occurred
-    HISTORY:
-       2017-12-21 - Written - Bovy (UofT)
+    """
+    Calculate planar (Rperi,Rap) and the maximum height Zmax using the adiabatic approximation (rap = sqrt(Rap^2+Zmax^2))
+
+    Parameters
+    ----------
+    pot : Potential or list of such instances
+        Gravitational potential to compute actions in
+    gamma : float
+        as in Lz -> Lz+gamma * J_z
+    R : numpy.ndarray
+        R coordinate.
+    vR : numpy.ndarray
+        vR coordinate.
+    vT : numpy.ndarray
+        vT coordinate.
+    z : numpy.ndarray
+        z coordinate.
+    vz : numpy.ndarray
+        vz coordinate.
+
+    Returns
+    -------
+    tuple
+        (Rperi,Rap,Zmax,err)
+        Rperi,Rap,Zmax : numpy.ndarray, shape (len(R))
+        err - non-zero if error occurred
+
+    Notes
+    -----
+    - 2017-12-21 - Written - Bovy (UofT)
     """
     # Parse the potential
     from ..orbit.integrateFullOrbit import _parse_pot

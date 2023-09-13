@@ -26,27 +26,24 @@ class actionAngleIsochrone(actionAngle):
 
     def __init__(self, *args, **kwargs):
         """
-        NAME:
-           __init__
-        PURPOSE:
-           initialize an actionAngleIsochrone object
-        INPUT:
-           Either:
+        Initialize an actionAngleIsochrone object.
 
-              b= scale parameter of the isochrone parameter (can be Quantity)
+        Parameters
+        ----------
+        b : float or Quantity, optional
+            Scale parameter of the isochrone parameter.
+        ip : IsochronePotential, optional
+            Instance of a IsochronePotential.
+        ro : float or Quantity, optional
+            Distance scale for translation into internal units (default from configuration file).
+        vo : float or Quantity, optional
+            Velocity scale for translation into internal units (default from configuration file).
 
-              ip= instance of a IsochronePotential
+        Notes
+        -----
+        - Specify either b or ip
+        - 2013-09-08 - Written - Bovy (IAS)
 
-           ro= distance from vantage point to GC (kpc; can be Quantity)
-
-           vo= circular velocity at ro (km/s; can be Quantity)
-
-        OUTPUT:
-
-           instance
-
-        HISTORY:
-           2013-09-08 - Written - Bovy (IAS)
         """
         actionAngle.__init__(self, ro=kwargs.get("ro", None), vo=kwargs.get("vo", None))
         if not "b" in kwargs and not "ip" in kwargs:  # pragma: no cover
@@ -84,20 +81,25 @@ class actionAngleIsochrone(actionAngle):
 
     def _evaluate(self, *args, **kwargs):
         """
-        NAME:
-           __call__ (_evaluate)
-        PURPOSE:
-           evaluate the actions (jr,lz,jz)
-        INPUT:
-           Either:
-              a) R,vR,vT,z,vz[,phi]:
-                 1) floats: phase-space value for single object (phi is optional) (each can be a Quantity)
-                 2) numpy.ndarray: [N] phase-space values for N objects (each can be a Quantity)
-              b) Orbit instance: initial condition used if that's it, orbit(t) if there is a time given as well as the second argument
-        OUTPUT:
-           (jr,lz,jz)
-        HISTORY:
-           2013-09-08 - Written - Bovy (IAS)
+        Evaluate the actions (jr,lz,jz).
+
+        Parameters
+        ----------
+        *args : tuple
+            Either:
+            a) R,vR,vT,z,vz[,phi]:
+                1) floats: phase-space value for single object (phi is optional) (each can be a Quantity)
+                2) numpy.ndarray: [N] phase-space values for N objects (each can be a Quantity)
+            b) Orbit instance: initial condition used if that's it, orbit(t) if there is a time given as well as the second argument
+
+        Returns
+        -------
+        tuple
+            (jr,lz,jz)
+
+        Notes
+        -----
+        - 2013-09-08 - Written - Bovy (IAS)
         """
         if len(args) == 5:  # R,vR.vT, z, vz
             R, vR, vT, z, vz = args
@@ -135,20 +137,25 @@ class actionAngleIsochrone(actionAngle):
 
     def _actionsFreqs(self, *args, **kwargs):
         """
-        NAME:
-           actionsFreqs (_actionsFreqs)
-        PURPOSE:
-           evaluate the actions and frequencies (jr,lz,jz,Omegar,Omegaphi,Omegaz)
-        INPUT:
-           Either:
-              a) R,vR,vT,z,vz[,phi]:
-                 1) floats: phase-space value for single object (phi is optional) (each can be a Quantity)
-                 2) numpy.ndarray: [N] phase-space values for N objects (each can be a Quantity)
-              b) Orbit instance: initial condition used if that's it, orbit(t) if there is a time given as well as the second argument
-        OUTPUT:
+        Evaluate the actions and frequencies (jr,lz,jz,Omegar,Omegaphi,Omegaz).
+
+        Parameters
+        ----------
+        *args : tuple
+            Either:
+            a) R,vR,vT,z,vz[,phi]:
+                1) floats: phase-space value for single object (phi is optional) (each can be a Quantity)
+                2) numpy.ndarray: [N] phase-space values for N objects (each can be a Quantity)
+            b) Orbit instance: initial condition used if that's it, orbit(t) if there is a time given as well as the second argument
+
+        Returns
+        -------
+        tuple
             (jr,lz,jz,Omegar,Omegaphi,Omegaz)
-        HISTORY:
-           2013-09-08 - Written - Bovy (IAS)
+
+        Notes
+        -----
+        - 2013-09-08 - Written - Bovy (IAS)
         """
         if len(args) == 5:  # R,vR.vT, z, vz
             R, vR, vT, z, vz = args
@@ -192,20 +199,25 @@ class actionAngleIsochrone(actionAngle):
 
     def _actionsFreqsAngles(self, *args, **kwargs):
         """
-        NAME:
-           actionsFreqsAngles (_actionsFreqsAngles)
-        PURPOSE:
-           evaluate the actions, frequencies, and angles (jr,lz,jz,Omegar,Omegaphi,Omegaz,angler,anglephi,anglez)
-        INPUT:
-           Either:
-              a) R,vR,vT,z,vz[,phi]:
-                 1) floats: phase-space value for single object (phi is optional) (each can be a Quantity)
-                 2) numpy.ndarray: [N] phase-space values for N objects (each can be a Quantity)
-              b) Orbit instance: initial condition used if that's it, orbit(t) if there is a time given as well as the second argument
-        OUTPUT:
+        Evaluate the actions, frequencies, and angles (jr,lz,jz,Omegar,Omegaphi,Omegaz,angler,anglephi,anglez).
+
+        Parameters
+        ----------
+        *args : tuple
+            Either:
+            a) R,vR,vT,z,vz[,phi]:
+                1) floats: phase-space value for single object (phi is optional) (each can be a Quantity)
+                2) numpy.ndarray: [N] phase-space values for N objects (each can be a Quantity)
+            b) Orbit instance: initial condition used if that's it, orbit(t) if there is a time given as well as the second argument
+
+        Returns
+        -------
+        tuple
             (jr,lz,jz,Omegar,Omegaphi,Omegaz,angler,anglephi,anglez)
-        HISTORY:
-           2013-09-08 - Written - Bovy (IAS)
+
+        Notes
+        -----
+        - 2013-09-08 - Written - Bovy (IAS)
         """
         if len(args) == 5:  # R,vR.vT, z, vz pragma: no cover
             raise OSError("You need to provide phi when calculating angles")
@@ -317,22 +329,6 @@ class actionAngleIsochrone(actionAngle):
             return (Jr, Jphi, Jz, Omegar, Omegaphi, Omegaz, angler, anglephi, anglez)
 
     def _EccZmaxRperiRap(self, *args, **kwargs):
-        """
-        NAME:
-           _EccZmaxRperiRap
-        PURPOSE:
-           evaluate the eccentricity, maximum height above the plane, peri- and apocenter for an isochrone potential
-        INPUT:
-           Either:
-              a) R,vR,vT,z,vz[,phi]:
-                 1) floats: phase-space value for single object (phi is optional) (each can be a Quantity)
-                 2) numpy.ndarray: [N] phase-space values for N objects (each can be a Quantity)
-              b) Orbit instance: initial condition used if that's it, orbit(t) if there is a time given as well as the second argument
-        OUTPUT:
-           (e,zmax,rperi,rap)
-        HISTORY:
-           2017-12-22 - Written - Bovy (UofT)
-        """
         if len(args) == 5:  # R,vR.vT, z, vz pragma: no cover
             R, vR, vT, z, vz = args
         elif len(args) == 6:  # R,vR.vT, z, vz, phi

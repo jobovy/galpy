@@ -11,22 +11,39 @@ _lib, _ext_loaded = _load_extension_libs.load_libgalpy()
 
 def actionAngleStaeckel_c(pot, delta, R, vR, vT, z, vz, u0=None, order=10):
     """
-    NAME:
-       actionAngleStaeckel_c
-    PURPOSE:
-       Use C to calculate actions using the Staeckel approximation
-    INPUT:
-       pot - Potential or list of such instances
-       delta - focal length of prolate spheroidal coordinates
-       R, vR, vT, z, vz - coordinates (arrays)
-       u0= (None) if set, u0 to use
-       order= (10) order of Gauss-Legendre integration of the relevant integrals
-    OUTPUT:
-       (jr,jz,err)
-       jr,jz : array, shape (len(R))
-       err - non-zero if error occurred
-    HISTORY:
-       2012-12-01 - Written - Bovy (IAS)
+    Use C to calculate actions using the Staeckel approximation
+
+    Parameters
+    ----------
+    pot : Potential or list of such instances
+        Potential
+    delta : float
+        Focal length of prolate spheroidal coordinates
+    R : float
+        Galactocentric radius
+    vR : float
+        Galactocentric radial velocity
+    vT : float
+        Galactocentric tangential velocity
+    z : float
+        Height
+    vz : float
+        Vertical velocity
+    u0 : float, optional
+        If set, u0 to use
+    order : int, optional
+        Order of Gauss-Legendre integration of the relevant integrals
+
+    Returns
+    -------
+    tuple
+        (jr,jz,err) where:
+           * jr,jz : array, shape (len(R))
+           * err - non-zero if error occurred
+
+    Notes
+    -----
+    - 2012-12-01 - Written - Bovy (IAS)
     """
     if u0 is None:
         u0, dummy = coords.Rz_to_uv(R, z, delta=numpy.atleast_1d(delta))
@@ -131,20 +148,29 @@ def actionAngleStaeckel_c(pot, delta, R, vR, vT, z, vz, u0=None, order=10):
 
 def actionAngleStaeckel_calcu0(E, Lz, pot, delta):
     """
-    NAME:
-       actionAngleStaeckel_calcu0
-    PURPOSE:
-       Use C to calculate u0 in the Staeckel approximation
-    INPUT:
-       E, Lz - energy and angular momentum
-       pot - Potential or list of such instances
-       delta - focal length of prolate spheroidal coordinates
-    OUTPUT:
-       (u0,err)
-       u0 : array, shape (len(E))
-       err - non-zero if error occurred
-    HISTORY:
-       2012-12-03 - Written - Bovy (IAS)
+    Use C to calculate u0 in the Staeckel approximation
+
+    Parameters
+    ----------
+    E : array_like
+        Energy.
+    Lz : array_like
+        Angular momentum.
+    pot : Potential or list of such instances
+        Potential or list of such instances.
+    delta : array_like
+        Focal length of prolate spheroidal coordinates.
+
+    Returns
+    -------
+    tuple
+        (u0,err)
+        u0 : array, shape (len(E))
+        err - non-zero if error occurred
+
+    Notes
+    -----
+    - 2012-12-03 - Written - Bovy (IAS)
     """
     # Parse the potential
     from ..orbit.integrateFullOrbit import _parse_pot
@@ -217,23 +243,39 @@ def actionAngleStaeckel_calcu0(E, Lz, pot, delta):
 
 def actionAngleFreqStaeckel_c(pot, delta, R, vR, vT, z, vz, u0=None, order=10):
     """
-    NAME:
-       actionAngleFreqStaeckel_c
-    PURPOSE:
-       Use C to calculate actions and frequencies
-       using the Staeckel approximation
-    INPUT:
-       pot - Potential or list of such instances
-       delta - focal length of prolate spheroidal coordinates
-       R, vR, vT, z, vz - coordinates (arrays)
-       u0= (None) if set, u0 to use
-       order= (10) order of Gauss-Legendre integration of the relevant integrals
-    OUTPUT:
-       (jr,jz,Omegar,Omegaphi,Omegaz,err)
-       jr,jz,Omegar,Omegaphi,Omegaz : array, shape (len(R))
-       err - non-zero if error occurred
-    HISTORY:
-       2013-08-23 - Written - Bovy (IAS)
+    Use C to calculate actions and frequencies using the Staeckel approximation
+
+    Parameters
+    ----------
+    pot : Potential or list of such instances
+        Potential or list of such instances.
+    delta : float
+        Focal length of prolate spheroidal coordinates.
+    R : float
+        Galactocentric radius.
+    vR : float
+        Galactocentric radial velocity.
+    vT : float
+        Galactocentric tangential velocity.
+    z : float
+        Height.
+    vz : float
+        Vertical velocity.
+    u0 : float, optional
+        If set, u0 to use.
+    order : int, optional
+        Order of Gauss-Legendre integration of the relevant integrals.
+
+    Returns
+    -------
+    tuple
+        (jr,jz,Omegar,Omegaphi,Omegaz,err) where:
+            * jr,jz,Omegar,Omegaphi,Omegaz : array, shape (len(R))
+            * err - non-zero if error occurred
+
+    Notes
+    -----
+    - 2012-12-01 - Written - Bovy (IAS)
     """
     if u0 is None:
         u0, dummy = coords.Rz_to_uv(R, z, delta=numpy.atleast_1d(delta))
@@ -352,23 +394,41 @@ def actionAngleFreqAngleStaeckel_c(
     pot, delta, R, vR, vT, z, vz, phi, u0=None, order=10
 ):
     """
-    NAME:
-       actionAngleFreqAngleStaeckel_c
-    PURPOSE:
-       Use C to calculate actions, frequencies, and angles
-       using the Staeckel approximation
-    INPUT:
-       pot - Potential or list of such instances
-       delta - focal length of prolate spheroidal coordinates
-       R, vR, vT, z, vz, phi - coordinates (arrays)
-       u0= (None) if set, u0 to use
-       order= (10) order of Gauss-Legendre integration of the relevant integrals
-    OUTPUT:
-       (jr,jz,Omegar,Omegaphi,Omegaz,Angler,Anglephi,Anglez,err)
-       jr,jz,Omegar,Omegaphi,Omegaz,Angler,Anglephi,Anglez : array, shape (len(R))
-       err - non-zero if error occurred
-    HISTORY:
-       2013-08-27 - Written - Bovy (IAS)
+    Use C to calculate actions, frequencies, and angles using the Staeckel approximation
+
+    Parameters
+    ----------
+    pot : Potential or list of such instances
+        Potential or list of such instances.
+    delta : float
+        Focal length of prolate spheroidal coordinates.
+    R : float
+        Galactocentric radius.
+    vR : float
+        Galactocentric radial velocity.
+    vT : float
+        Galactocentric tangential velocity.
+    z : float
+        Height.
+    vz : float
+        Vertical velocity.
+    phi : float
+        Azimuth.
+    u0 : float, optional
+        If set, u0 to use.
+    order : int, optional
+        Order of Gauss-Legendre integration of the relevant integrals.
+
+    Returns
+    -------
+    tuple
+        (jr,jz,Omegar,Omegaphi,Omegaz,Angler,Anglephi,Anglez,err) where:
+            * jr,jz,Omegar,Omegaphi,Omegaz,Angler,Anglephi,Anglez : array, shape (len(R))
+            * err - non-zero if error occurred
+
+    Notes
+    -----
+    - 2013-08-27 - Written - Bovy (IAS)
     """
     if u0 is None:
         u0, dummy = coords.Rz_to_uv(R, z, delta=numpy.atleast_1d(delta))
@@ -503,20 +563,37 @@ def actionAngleFreqAngleStaeckel_c(
 
 def actionAngleUminUmaxVminStaeckel_c(pot, delta, R, vR, vT, z, vz, u0=None):
     """
-    NAME:
-       actionAngleUminUmaxVminStaeckel_c
-    PURPOSE:
-       Use C to calculate umin, umax, and vmin using the Staeckel approximation
-    INPUT:
-       pot - Potential or list of such instances
-       delta - focal length of prolate spheroidal coordinates
-       R, vR, vT, z, vz - coordinates (arrays)
-    OUTPUT:
-       (umin,umax,vmin,err)
-       umin,umax,vmin : array, shape (len(R))
-       err - non-zero if error occurred
-    HISTORY:
-       2017-12-12 - Written - Bovy (UofT)
+    Use C to calculate umin, umax, and vmin using the Staeckel approximation
+
+    Parameters
+    ----------
+    pot : Potential or list of such instances
+        Potential or list of such instances.
+    delta : float
+        Focal length of prolate spheroidal coordinates.
+    R : float
+        Galactocentric radius.
+    vR : float
+        Galactocentric radial velocity.
+    vT : float
+        Galactocentric tangential velocity.
+    z : float
+        Height.
+    vz : float
+        Vertical velocity.
+    u0 : float, optional
+        If set, u0 to use.
+
+    Returns
+    -------
+    tuple
+        (umin,umax,vmin,err) where:
+            * umin,umax,vmin : array, shape (len(R))
+            * err - non-zero if error occurred
+
+    Notes
+    -----
+    - 2017-12-12 - Written - Bovy (UofT)
     """
     if u0 is None:
         u0, dummy = coords.Rz_to_uv(R, z, delta=numpy.atleast_1d(delta))

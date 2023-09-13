@@ -40,37 +40,35 @@ class actionAngleStaeckelGrid(actionAngle):
         **kwargs
     ):
         """
-        NAME:
-           __init__
-        PURPOSE:
-           initialize an actionAngleStaeckelGrid object
-        INPUT:
-           pot= potential or list of potentials
+        Initialize an actionAngleStaeckelGrid object
 
-           delta= focus of prolate confocal coordinate system (can be Quantity)
+        Parameters
+        ----------
+        pot : Potential or list of Potential instances
+            The potential or list of potentials to use for the actionAngleStaeckelGrid object.
+        delta : float or Quantity
+            The focal length of the confocal coordinate system.
+        Rmax : float
+            The maximum R to consider (natural units).
+        nE : int
+            The number of grid points in energy.
+        npsi : int
+            The number of grid points in psi.
+        nLz : int
+            The number of grid points in Lz.
+        numcores : int
+            The number of cores to use for multi-processing.
+        interpecc : bool
+            If True, also interpolate the approximate eccentricity, zmax, rperi, and rapo.
+        ro : float or Quantity, optional
+            Distance scale for translation into internal units (default from configuration file).
+        vo : float or Quantity, optional
+            Velocity scale for translation into internal units (default from configuration file).
 
-           Rmax = Rmax for building grids (natural units)
-
-           nE=, npsi=, nLz= grid size
-
-           interpecc= (False) if True, also interpolate the approximate eccentricity, zmax, rperi, and rapo
-
-           numcores= number of cpus to use to parallelize
-
-           ro= distance from vantage point to GC (kpc; can be Quantity)
-
-           vo= circular velocity at ro (km/s; can be Quantity)
-
-        OUTPUT:
-
-           instance
-
-        HISTORY:
-
-            2012-11-29 - Written - Bovy (IAS)
-
-            2017-12-15 - Written - Bovy (UofT)
-
+        Notes
+        -----
+        - 2012-11-29 - Written - Bovy (IAS)
+        - 2017-12-15 - Written - Bovy (UofT)
         """
         actionAngle.__init__(self, ro=kwargs.get("ro", None), vo=kwargs.get("vo", None))
         if pot is None:
@@ -330,21 +328,27 @@ class actionAngleStaeckelGrid(actionAngle):
 
     def _evaluate(self, *args, **kwargs):
         """
-        NAME:
-           __call__ (_evaluate)
-        PURPOSE:
-           evaluate the actions (jr,lz,jz)
-        INPUT:
-           Either:
-              a) R,vR,vT,z,vz[,phi]:
-                 1) floats: phase-space value for single object (phi is optional) (each can be a Quantity)
-                 2) numpy.ndarray: [N] phase-space values for N objects (each can be a Quantity)
-              b) Orbit instance: initial condition used if that's it, orbit(t) if there is a time given as well as the second argument
-           Keywords for actionAngleStaeckel.__call__ for off-the-grid evaluations
-        OUTPUT:
-           (jr,lz,jz)
-        HISTORY:
-           2012-11-29 - Written - Bovy (IAS)
+        Evaluate the actions (jr,lz,jz)
+
+        Parameters
+        ----------
+        *args : tuple
+            Either:
+            a) R,vR,vT,z,vz[,phi]:
+                1) floats: phase-space value for single object (phi is optional) (each can be a Quantity)
+                2) numpy.ndarray: [N] phase-space values for N objects (each can be a Quantity)
+            b) Orbit instance: initial condition used if that's it, orbit(t) if there is a time given as well as the second argument
+        **kwargs: dict, optional
+            Keywords for actionAngleStaeckel.__call__ for off-the-grid evaluations
+
+        Returns
+        -------
+        tuple
+            (jr,lz,jz)
+
+        Notes
+        -----
+        - 2012-11-29 - Written - Bovy (IAS)
         """
         if len(args) == 5:  # R,vR.vT, z, vz
             R, vR, vT, z, vz = args
@@ -512,58 +516,77 @@ class actionAngleStaeckelGrid(actionAngle):
 
     def Jz(self, *args, **kwargs):
         """
-        NAME:
-           Jz
-        PURPOSE:
-           evaluate the action jz
-        INPUT:
-           Either:
-              a) R,vR,vT,z,vz
-              b) Orbit instance: initial condition used if that's it, orbit(t)
-                 if there is a time given as well
-           scipy.integrate.quadrature keywords
-        OUTPUT:
-           jz
-        HISTORY:
-           2012-07-30 - Written - Bovy (IAS@MPIA)
+        Evaluate the action jz
+
+        Parameters
+        ----------
+        *args : tuple
+            Either:
+            a) R,vR,vT,z,vz[,phi]:
+                1) floats: phase-space value for single object (phi is optional) (each can be a Quantity)
+                2) numpy.ndarray: [N] phase-space values for N objects (each can be a Quantity)
+            b) Orbit instance: initial condition used if that's it, orbit(t) if there is a time given as well as the second argument
+        **kwargs: dict, optional
+            Keywords for actionAngleStaeckel.__call__ for off-the-grid evaluations
+
+        Returns
+        -------
+        float or numpy.ndarray
+            jz
+
+        Notes
+        -----
+        - 2012-07-30 - Written - Bovy (IAS@MPIA)
         """
         return self(*args, **kwargs)[2]
 
     def JR(self, *args, **kwargs):
         """
-        NAME:
-           JR
-        PURPOSE:
-           evaluate the action jr
-        INPUT:
-           Either:
-              a) R,vR,vT,z,vz
-              b) Orbit instance: initial condition used if that's it, orbit(t)
-                 if there is a time given as well
-           scipy.integrate.quadrature keywords
-        OUTPUT:
-           jr
-        HISTORY:
-           2012-07-30 - Written - Bovy (IAS@MPIA)
+        Evaluate the action jr.
+
+        Parameters
+        ----------
+        *args : tuple
+            Either:
+            a) R,vR,vT,z,vz[,phi]:
+                1) floats: phase-space value for single object (phi is optional) (each can be a Quantity)
+                2) numpy.ndarray: [N] phase-space values for N objects (each can be a Quantity)
+            b) Orbit instance: initial condition used if that's it, orbit(t) if there is a time given as well as the second argument
+        **kwargs: dict, optional
+            Keywords for actionAngleStaeckel.__call__ for off-the-grid evaluations
+
+
+        Returns
+        -------
+        float
+               The action jr.
+
+        Notes
+        -----
+        - 2012-07-30 - Written - Bovy (IAS@MPIA)
         """
         return self(*args, **kwargs)[0]
 
     def _EccZmaxRperiRap(self, *args, **kwargs):
         """
-        NAME:
-           EccZmaxRperiRap (_EccZmaxRperiRap)
-        PURPOSE:
-           evaluate the eccentricity, maximum height above the plane, peri- and apocenter in the Staeckel approximation
-        INPUT:
-           Either:
-              a) R,vR,vT,z,vz[,phi]:
-                 1) floats: phase-space value for single object (phi is optional) (each can be a Quantity)
-                 2) numpy.ndarray: [N] phase-space values for N objects (each can be a Quantity)
-              b) Orbit instance: initial condition used if that's it, orbit(t) if there is a time given as well as the second argument
-        OUTPUT:
-           (e,zmax,rperi,rap)
-        HISTORY:
-           2017-12-15 - Written - Bovy (UofT)
+        Evaluate the eccentricity, maximum height above the plane, peri- and apocenter in the Staeckel approximation
+
+        Parameters
+        ----------
+        *args : tuple
+            Either:
+            a) R,vR,vT,z,vz[,phi]:
+                1) floats: phase-space value for single object (phi is optional) (each can be a Quantity)
+                2) numpy.ndarray: [N] phase-space values for N objects (each can be a Quantity)
+            b) Orbit instance: initial condition used if that's it, orbit(t) if there is a time given as well as the second argument
+
+        Returns
+        -------
+        tuple
+            (e,zmax,rperi,rap)
+        Notes
+        -----
+        - 2017-12-15 - Written - Bovy (UofT)
         """
         if len(args) == 5:  # R,vR.vT, z, vz
             R, vR, vT, z, vz = args
@@ -734,20 +757,29 @@ class actionAngleStaeckelGrid(actionAngle):
 
     def vatu0(self, E, Lz, u0, R, retv2=False):
         """
-        NAME:
-           vatu0
-        PURPOSE:
-           calculate the velocity at u0
-        INPUT:
-           E - energy
-           Lz - angular momentum
-           u0 - u0
-           R - radius corresponding to u0,pi/2.
-           retv2= (False), if True return v^2
-        OUTPUT:
-           velocity
-        HISTORY:
-           2012-11-29 - Written - Bovy (IAS)
+        Calculate the velocity at u0.
+
+        Parameters
+        ----------
+        E : float
+            Energy.
+        Lz : float
+            Angular momentum.
+        u0 : float
+            u0.
+        R : float
+            Radius corresponding to u0, pi/2.
+        retv2 : bool, optional
+            If True, return v^2. Default is False.
+
+        Returns
+        -------
+        float or numpy.ndarray
+            Velocity or velocity squared if retv2 is True.
+
+        Notes
+        -----
+        - 2012-11-29 - Written - Bovy (IAS).
         """
         v2 = (
             2.0
@@ -766,36 +798,58 @@ class actionAngleStaeckelGrid(actionAngle):
 
     def calcu0(self, E, Lz):
         """
-        NAME:
-           calcu0
-        PURPOSE:
-           calculate the minimum of the u potential
-        INPUT:
-           E - energy
-           Lz - angular momentum
-        OUTPUT:
-           u0
-        HISTORY:
-           2012-11-29 - Written - Bovy (IAS)
+        Calculate the minimum of the u potential.
+
+        Parameters
+        ----------
+        E : float
+            Energy.
+        Lz : float
+            Angular momentum.
+
+        Returns
+        -------
+        float
+            Minimum of the u potential.
+
+        Notes
+        -----
+        - 2012-11-29 - Written - Bovy (IAS)
         """
         logu0 = optimize.brent(_u0Eq, args=(self._delta, self._pot, E, Lz**2.0 / 2.0))
         return numpy.exp(logu0)
 
     def Er(self, R, z, vR, vz, E, Lz, sinh2u0, u0):
         """
-        NAME:
-           Er
-        PURPOSE:
-           calculate the 'radial energy'
-        INPUT:
-           R, z, vR, vz - coordinates
-           E - energy
-           Lz - angular momentum
-           sinh2u0, u0 - sinh^2 and u0
-        OUTPUT:
-           Er
-        HISTORY:
-           2012-11-29 - Written - Bovy (IAS)
+        Calculate the 'radial energy'
+
+        Parameters
+        ----------
+        R : float
+            Galactocentric cylindrical radius
+        z : float
+            vertical height
+        vR : float
+            Galactocentric radial velocity
+        vz : float
+            vertical velocity
+        E : float
+            energy
+        Lz : float
+            angular momentum
+        sinh2u0 : float
+            sinh^2 and u0
+        u0 : float
+            sinh^2 and u0
+
+        Returns
+        -------
+        float
+            radial energy
+
+        Notes
+        -----
+        - 2012-11-29 - Written - Bovy (IAS).
         """
         u, v = coords.Rz_to_uv(R, z, self._delta)
         pu = vR * numpy.cosh(u) * numpy.sin(v) + vz * numpy.sinh(u) * numpy.cos(
@@ -823,19 +877,35 @@ class actionAngleStaeckelGrid(actionAngle):
 
     def Ez(self, R, z, vR, vz, E, Lz, sinh2u0, u0):
         """
-        NAME:
-           Ez
-        PURPOSE:
-           calculate the 'vertical energy'
-        INPUT:
-           R, z, vR, vz - coordinates
-           E - energy
-           Lz - angular momentum
-           sinh2u0, u0 - sinh^2 and u0
-        OUTPUT:
-           Ez
-        HISTORY:
-           2012-12-23 - Written - Bovy (IAS)
+        Calculate the 'vertical energy'
+
+        Parameters
+        ----------
+        R : float
+            Galactocentric cylindrical radius (can be Quantity)
+        z : float
+            height above the plane (can be Quantity)
+        vR : float
+            Galactocentric radial velocity (can be Quantity)
+        vz : float
+            Galactocentric vertical velocity (can be Quantity)
+        E : float
+            energy
+        Lz : float
+            angular momentum
+        sinh2u0 : float
+            sinh^2 and u0
+        u0 : float
+            sinh^2 and u0
+
+        Returns
+        -------
+        float
+            vertical energy
+
+        Notes
+        -----
+        - 2012-12-23 - Written - Bovy (IAS)
         """
         u, v = coords.Rz_to_uv(R, z, self._delta)
         pv = vR * numpy.sinh(u) * numpy.cos(v) - vz * numpy.cosh(u) * numpy.sin(

@@ -40,40 +40,36 @@ class actionAngleAdiabaticGrid(actionAngle):
         **kwargs
     ):
         """
-        NAME:
-           __init__
-        PURPOSE:
-           initialize an actionAngleAdiabaticGrid object
-        INPUT:
+        Initialize an actionAngleAdiabaticGrid object
 
-           pot= potential or list of potentials
+        Parameters
+        ----------
+        pot : Potential or list of Potential instances
+            The potential (instance) or list of potentials (instances) that make up the potential
+        zmax : float
+            Maximum height to which to calculate Ez
+        gamma : float
+            Replace Lz by Lz+gamma Jz in effective potential
+        Rmax : float
+            Maximum radius to which to calculate Er
+        nR : int
+            Number of radii to use in the grid
+        nEz : int
+            Number of Ez values to use in the grid
+        nEr : int
+            Number of Er values to use in the grid
+        nLz : int
+            Number of Lz values to use in the grid
+        numcores : int
+            Number of cores to use for multi-processing
+        ro : float or Quantity, optional
+            Distance scale for translation into internal units (default from configuration file).
+        vo : float or Quantity, optional
+            Velocity scale for translation into internal units (default from configuration file).
 
-           zmax= zmax for building Ez grid
-
-           Rmax = Rmax for building grids
-
-           gamma= (default=1.) replace Lz by Lz+gamma Jz in effective potential
-
-           nEz=, nEr=, nLz, nR= grid size
-
-           numcores= number of cpus to use to parallelize
-
-           c= if True, use C to calculate actions
-
-           ro= distance from vantage point to GC (kpc; can be Quantity)
-
-           vo= circular velocity at ro (km/s; can be Quantity)
-
-           +scipy.integrate.quad keywords
-
-        OUTPUT:
-
-           instance
-
-        HISTORY:
-
-            2012-07-27 - Written - Bovy (IAS@MPIA)
-
+        Notes
+        -----
+        - 2012-07-27 - Written - Bovy (IAS@MPIA)
         """
         actionAngle.__init__(self, ro=kwargs.get("ro", None), vo=kwargs.get("vo", None))
         if pot is None:  # pragma: no cover
@@ -282,24 +278,27 @@ class actionAngleAdiabaticGrid(actionAngle):
 
     def _evaluate(self, *args, **kwargs):
         """
-        NAME:
-           __call__ (_evaluate)
-        PURPOSE:
-           evaluate the actions (jr,lz,jz)
-        INPUT:
-           Either:
-              a) R,vR,vT,z,vz[,phi]:
-                 1) floats: phase-space value for single object (phi is optional) (each can be a Quantity)
-                 2) numpy.ndarray: [N] phase-space values for N objects (each can be a Quantity)
-              b) Orbit instance: initial condition used if that's it, orbit(t) if there is a time given as well as the second argument
-           scipy.integrate.quadrature keywords (used when directly evaluating a point off the grid)
-        OUTPUT:
-           (jr,lz,jz)
-        HISTORY:
-           2012-07-27 - Written - Bovy (IAS@MPIA)
-        NOTE:
-           For a Miyamoto-Nagai potential, this seems accurate to 0.1% and takes ~0.13 ms
-           For a MWPotential, this takes ~ 0.17 ms
+        Evaluate the actions (jr,lz,jz).
+
+        Parameters
+        ----------
+        *args : tuple
+            Either:
+            a) R,vR,vT,z,vz[,phi]:
+                1) floats: phase-space value for single object (phi is optional) (each can be a Quantity)
+                2) numpy.ndarray: [N] phase-space values for N objects (each can be a Quantity)
+            b) Orbit instance: initial condition used if that's it, orbit(t) if there is a time given as well as the second argument
+        **kwargs: dict, optional
+            scipy.integrate.quadrature keywords (used when directly evaluating a point off the grid)
+
+        Returns
+        -------
+        tuple
+            (jr,lz,jz)
+
+        Notes
+        -----
+        - 2012-07-27 - Written - Bovy (IAS@MPIA)
         """
         if len(args) == 5:  # R,vR.vT, z, vz
             R, vR, vT, z, vz = args
@@ -457,20 +456,27 @@ class actionAngleAdiabaticGrid(actionAngle):
 
     def Jz(self, *args, **kwargs):
         """
-        NAME:
-           Jz
-        PURPOSE:
-           evaluate the action jz
-        INPUT:
-           Either:
-              a) R,vR,vT,z,vz
-              b) Orbit instance: initial condition used if that's it, orbit(t)
-                 if there is a time given as well
-           scipy.integrate.quadrature keywords
-        OUTPUT:
-           jz
-        HISTORY:
-           2012-07-30 - Written - Bovy (IAS@MPIA)
+        Evaluate the action jz.
+
+        Parameters
+        ----------
+        *args : tuple
+            Either:
+                a) R,vR,vT,z,vz
+                b) Orbit instance: initial condition used if that's it, orbit(t)
+                    if there is a time given as well
+        **kwargs: dict
+            scipy.integrate.quadrature keywords
+
+        Returns
+        -------
+        float
+            The action jz.
+
+        Notes
+        -----
+        - 2012-07-30 - Written - Bovy (IAS@MPIA)
+
         """
         self._parse_eval_args(*args)
         Phi = _evaluatePotentials(self._pot, self._eval_R, self._eval_z)

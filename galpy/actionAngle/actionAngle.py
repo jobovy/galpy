@@ -48,16 +48,18 @@ class actionAngle(metaclass=MetaActionAngle):
 
     def __init__(self, ro=None, vo=None):
         """
-        NAME:
-           __init__
-        PURPOSE:
-           initialize an actionAngle object
-        INPUT:
-           ro= (None) distance scale
-           vo= (None) velocity scale
-        OUTPUT:
-        HISTORY:
-           2016-02-18 - Written - Bovy (UofT)
+        Initialize an actionAngle object.
+
+        Parameters
+        ----------
+        ro : float or Quantity, optional
+            Distance scale for translation into internal units (default from configuration file).
+        vo : float or Quantity, optional
+            Velocity scale for translation into internal units (default from configuration file).
+
+        Notes
+        -----
+        - 2016-02-18 - Written - Bovy (UofT)
         """
         # Parse ro and vo
         if ro is None:
@@ -88,26 +90,11 @@ class actionAngle(metaclass=MetaActionAngle):
 
     def turn_physical_off(self):
         """
-        NAME:
+        Turn off automatic returning of outputs in physical units.
 
-           turn_physical_off
-
-        PURPOSE:
-
-           turn off automatic returning of outputs in physical units
-
-        INPUT:
-
-           (none)
-
-        OUTPUT:
-
-           (none)
-
-        HISTORY:
-
-           2017-06-05 - Written - Bovy (UofT)
-
+        Notes
+        ------
+        - 2017-06-05 - Written - Bovy (UofT)
         """
         self._roSet = False
         self._voSet = False
@@ -115,30 +102,19 @@ class actionAngle(metaclass=MetaActionAngle):
 
     def turn_physical_on(self, ro=None, vo=None):
         """
-        NAME:
+        Turn on automatic returning of outputs in physical units.
 
-           turn_physical_on
+        Parameters
+        ----------
+        ro : float or Quantity, optional
+            Distance scale for translation into internal units (default from configuration file).
+        vo : float or Quantity, optional
+            Velocity scale for translation into internal units (default from configuration file).
 
-        PURPOSE:
-
-           turn on automatic returning of outputs in physical units
-
-        INPUT:
-
-           ro= reference distance (kpc; can be Quantity)
-
-           vo= reference velocity (km/s; can be Quantity)
-
-        OUTPUT:
-
-           (none)
-
-        HISTORY:
-
-           2016-06-05 - Written - Bovy (UofT)
-
-           2020-04-22 - Don't turn on a parameter when it is False - Bovy (UofT)
-
+        Notes
+        -----
+        - 2016-06-05 - Written - Bovy (UofT)
+        - 2020-04-22 - Don't turn on a parameter when it is False - Bovy (UofT)
         """
         if not ro is False:
             self._roSet = True
@@ -153,16 +129,6 @@ class actionAngle(metaclass=MetaActionAngle):
         return None
 
     def _parse_eval_args(self, *args, **kwargs):
-        """
-        NAME:
-           _parse_eval_args
-        PURPOSE:
-           Internal function to parse the arguments given for an action/frequency/angle evaluation
-        INPUT:
-        OUTPUT:
-        HISTORY:
-           2010-07-11 - Written - Bovy (NYU)
-        """
         if len(args) == 5:  # R,vR.vT, z, vz
             R, vR, vT, z, vz = args
             self._eval_R = R
@@ -210,34 +176,27 @@ class actionAngle(metaclass=MetaActionAngle):
     @physical_conversion_actionAngle("__call__", pop=True)
     def __call__(self, *args, **kwargs):
         """
-        NAME:
+        Evaluate the actions (jr,lz,jz)
 
-           __call__
+        Parameters
+        ----------
+        *args : tuple
+            Either:
+            a) R,vR,vT,z,vz[,phi]:
+                1) floats: phase-space value for single object (phi is optional) (each can be a Quantity)
+                2) numpy.ndarray: [N] phase-space values for N objects (each can be a Quantity)
+            b) Orbit instance: initial condition used if that's it, orbit(t) if there is a time given as well as the second argument
+        **kwargs : dict
+            Any other keyword arguments are passed to the _evaluate method.
 
-        PURPOSE:
+        Returns
+        -------
+        tuple
+            (jr,lz,jz)
 
-           evaluate the actions (jr,lz,jz)
-
-        INPUT:
-
-           Either:
-
-              a) R,vR,vT,z,vz[,phi]:
-
-                 1) floats: phase-space value for single object (phi is optional) (each can be a Quantity)
-
-                 2) numpy.ndarray: [N] phase-space values for N objects (each can be a Quantity)
-
-              b) Orbit instance: initial condition used if that's it, orbit(t) if there is a time given as well as the second argument
-
-        OUTPUT:
-
-           (jr,lz,jz)
-
-        HISTORY:
-
-           2014-01-03 - Written for top level - Bovy (IAS)
-
+        Notes
+        -----
+        - 2014-01-03 - Written for top level - Bovy (IAS)
         """
         try:
             return self._evaluate(*args, **kwargs)
@@ -250,33 +209,27 @@ class actionAngle(metaclass=MetaActionAngle):
     @physical_conversion_actionAngle("actionsFreqs", pop=True)
     def actionsFreqs(self, *args, **kwargs):
         """
-        NAME:
+        Evaluate the actions and frequencies (jr,lz,jz,Omegar,Omegaphi,Omegaz)
 
-           actionsFreqs
+        Parameters
+        ----------
+        *args : tuple
+            Either:
+            a) R,vR,vT,z,vz[,phi]:
+                1) floats: phase-space value for single object (phi is optional) (each can be a Quantity)
+                2) numpy.ndarray: [N] phase-space values for N objects (each can be a Quantity)
+            b) Orbit instance: initial condition used if that's it, orbit(t) if there is a time given as well as the second argument
+        **kwargs : dict
+            Any other keyword arguments are passed to the _actionsFreqs method.
 
-        PURPOSE:
-
-           evaluate the actions and frequencies (jr,lz,jz,Omegar,Omegaphi,Omegaz)
-
-        INPUT:
-
-           Either:
-
-              a) R,vR,vT,z,vz[,phi]:
-
-                 1) floats: phase-space value for single object (phi is optional) (each can be a Quantity)
-
-                 2) numpy.ndarray: [N] phase-space values for N objects (each can be a Quantity)
-
-              b) Orbit instance: initial condition used if that's it, orbit(t) if there is a time given as well as the second argument
-
-        OUTPUT:
-
+        Returns
+        -------
+        tuple
             (jr,lz,jz,Omegar,Omegaphi,Omegaz)
 
-        HISTORY:
-
-           2014-01-03 - Written for top level - Bovy (IAS)
+        Notes
+        -----
+        - 2014-01-03 - Written for top level - Bovy (IAS)
 
         """
         try:
@@ -290,34 +243,27 @@ class actionAngle(metaclass=MetaActionAngle):
     @physical_conversion_actionAngle("actionsFreqsAngles", pop=True)
     def actionsFreqsAngles(self, *args, **kwargs):
         """
-        NAME:
+        Evaluate the actions, frequencies, and angles (jr,lz,jz,Omegar,Omegaphi,Omegaz,angler,anglephi,anglez)
 
-           actionsFreqsAngles
+        Parameters
+        ----------
+        *args : tuple
+            Either:
+            a) R,vR,vT,z,vz,phi:
+                1) floats: phase-space value for single object (phi is optional) (each can be a Quantity)
+                2) numpy.ndarray: [N] phase-space values for N objects (each can be a Quantity)
+            b) Orbit instance: initial condition used if that's it, orbit(t) if there is a time given as well as the second argument
+        **kwargs : dict
+            Additional keyword arguments to be passed to _actionsFreqsAngles method.
 
-        PURPOSE:
-
-           evaluate the actions, frequencies, and angles (jr,lz,jz,Omegar,Omegaphi,Omegaz,angler,anglephi,anglez)
-
-        INPUT:
-
-           Either:
-
-              a) R,vR,vT,z,vz,phi:
-
-                 1) floats: phase-space value for single object (phi is optional) (each can be a Quantity)
-
-                 2) numpy.ndarray: [N] phase-space values for N objects (each can be a Quantity)
-
-              b) Orbit instance: initial condition used if that's it, orbit(t) if there is a time given as well as the second argument
-
-        OUTPUT:
-
+        Returns
+        -------
+        tuple
             (jr,lz,jz,Omegar,Omegaphi,Omegaz,angler,anglephi,anglez)
 
-        HISTORY:
-
-           2014-01-03 - Written for top level - Bovy (IAS)
-
+        Notes
+        -----
+        - 2014-01-03 - Written for top level - Bovy (IAS)
         """
         try:
             return self._actionsFreqsAngles(*args, **kwargs)
@@ -330,34 +276,27 @@ class actionAngle(metaclass=MetaActionAngle):
     @physical_conversion_actionAngle("EccZmaxRperiRap", pop=True)
     def EccZmaxRperiRap(self, *args, **kwargs):
         """
-        NAME:
+        Evaluate the eccentricity, maximum height above the plane, peri- and apocenter.
 
-           EccZmaxRperiRap
+        Parameters
+        ----------
+        *args : tuple
+            Either:
+            a) R,vR,vT,z,vz,phi:
+                1) floats: phase-space value for single object (phi is optional) (each can be a Quantity)
+                2) numpy.ndarray: [N] phase-space values for N objects (each can be a Quantity)
+            b) Orbit instance: initial condition used if that's it, orbit(t) if there is a time given as well as the second argument
+        **kwargs : dict
+            A dictionary of keyword arguments.
 
-        PURPOSE:
+        Returns
+        -------
+        tuple
+            (eccentricity, maximum height above the plane, peri-, and apocenter)
 
-           evaluate the eccentricity, maximum height above the plane, peri- and apocenter
-
-        INPUT:
-
-           Either:
-
-              a) R,vR,vT,z,vz[,phi]:
-
-                 1) floats: phase-space value for single object (phi is optional) (each can be a Quantity)
-
-                 2) numpy.ndarray: [N] phase-space values for N objects (each can be a Quantity)
-
-              b) Orbit instance: initial condition used if that's it, orbit(t) if there is a time given as well as the second argument
-
-        OUTPUT:
-
-           (e,zmax,rperi,rap)
-
-        HISTORY:
-
-           2017-12-12 - Written - Bovy (UofT)
-
+        Notes
+        -----
+        - 2017-12-12 - Written - Bovy (UofT)
         """
         try:
             return self._EccZmaxRperiRap(*args, **kwargs)

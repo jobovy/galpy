@@ -28,32 +28,22 @@ class actionAngleSpherical(actionAngle):
 
     def __init__(self, *args, **kwargs):
         """
-        NAME:
+        Initialize an actionAngleSpherical object.
 
-           __init__
+        Parameters
+        ----------
+        pot : Potential or list thereof
+            A spherical potential.
+        ro : float or Quantity, optional
+            Distance scale for translation into internal units (default from configuration file).
+        vo : float or Quantity, optional
+            Velocity scale for translation into internal units (default from configuration file).
+        _gamma : float, optional
+            Replace Lz by Lz+gamma Jz in effective potential when using this class as part of actionAngleAdiabatic (internal use).
 
-        PURPOSE:
-
-           initialize an actionAngleSpherical object
-
-        INPUT:
-
-           pot= a Spherical potential
-
-           ro= distance from vantage point to GC (kpc; can be Quantity)
-
-           vo= circular velocity at ro (km/s; can be Quantity)
-
-           _gamma= (default=0.) replace Lz by Lz+gamma Jz in effective potential when using this class as part of actionAngleAdiabatic
-
-        OUTPUT:
-
-           instance
-
-        HISTORY:
-
-           2013-12-28 - Written - Bovy (IAS)
-
+        Notes
+        -----
+        - 2013-12-28 - Written - Bovy (IAS)
         """
         actionAngle.__init__(self, ro=kwargs.get("ro", None), vo=kwargs.get("vo", None))
         if not "pot" in kwargs:  # pragma: no cover
@@ -82,22 +72,29 @@ class actionAngleSpherical(actionAngle):
 
     def _evaluate(self, *args, **kwargs):
         """
-        NAME:
-           __call__ (_evaluate)
-        PURPOSE:
-           evaluate the actions (jr,lz,jz)
-        INPUT:
-           Either:
-              a) R,vR,vT,z,vz[,phi]:
-                 1) floats: phase-space value for single object (phi is optional) (each can be a Quantity)
-                 2) numpy.ndarray: [N] phase-space values for N objects (each can be a Quantity)
-              b) Orbit instance: initial condition used if that's it, orbit(t) if there is a time given as well as the second argument
-           fixed_quad= (False) if True, use n=10 fixed_quad integration
-           scipy.integrate.quadrature or .fixed_quad keywords
-        OUTPUT:
-           (jr,lz,jz)
-        HISTORY:
-           2013-12-28 - Written - Bovy (IAS)
+        Evaluate the actions (jr,lz,jz).
+
+        Parameters
+        ----------
+        *args : tuple
+            Either:
+            a) R,vR,vT,z,vz[,phi]:
+                1) floats: phase-space value for single object (phi is optional) (each can be a Quantity)
+                2) numpy.ndarray: [N] phase-space values for N objects (each can be a Quantity)
+            b) Orbit instance: initial condition used if that's it, orbit(t) if there is a time given as well as the second argument
+        fixed_quad: bool, optional
+            if True, use n=10 fixed_quad integration
+        **kwargs: dict, optional
+            scipy.integrate.quadrature or .fixed_quad keywords
+
+        Returns
+        -------
+        tuple
+            (jr,lz,jz)
+
+        Notes
+        -----
+        - 2013-12-28 - Written - Bovy (IAS)
         """
         fixed_quad = kwargs.pop("fixed_quad", False)
         extra_Jz = kwargs.pop("_Jz", None)
@@ -150,22 +147,29 @@ class actionAngleSpherical(actionAngle):
 
     def _actionsFreqs(self, *args, **kwargs):
         """
-        NAME:
-           actionsFreqs (_actionsFreqs)
-        PURPOSE:
-           evaluate the actions and frequencies (jr,lz,jz,Omegar,Omegaphi,Omegaz)
-        INPUT:
-           Either:
-              a) R,vR,vT,z,vz[,phi]:
-                 1) floats: phase-space value for single object (phi is optional) (each can be a Quantity)
-                 2) numpy.ndarray: [N] phase-space values for N objects (each can be a Quantity)
-              b) Orbit instance: initial condition used if that's it, orbit(t) if there is a time given as well as the second argument
-           fixed_quad= (False) if True, use n=10 fixed_quad integration
-           scipy.integrate.quadrature or .fixed_quad keywords
-        OUTPUT:
+        Evaluate the actions and frequencies (jr,lz,jz,Omegar,Omegaphi,Omegaz).
+
+        Parameters
+        ----------
+        *args : tuple
+            Either:
+            a) R,vR,vT,z,vz[,phi]:
+                1) floats: phase-space value for single object (phi is optional) (each can be a Quantity)
+                2) numpy.ndarray: [N] phase-space values for N objects (each can be a Quantity)
+            b) Orbit instance: initial condition used if that's it, orbit(t) if there is a time given as well as the second argument
+        fixed_quad: bool, optional
+            if True, use n=10 fixed_quad integration
+        **kwargs: dict, optional
+            scipy.integrate.quadrature or .fixed_quad keywords
+
+        Returns
+        -------
+        tuple
             (jr,lz,jz,Omegar,Omegaphi,Omegaz)
-        HISTORY:
-           2013-12-28 - Written - Bovy (IAS)
+
+        Notes
+        -----
+        - 2013-12-28 - Written - Bovy (IAS)
         """
         fixed_quad = kwargs.pop("fixed_quad", False)
         if len(args) == 5:  # R,vR.vT, z, vz
@@ -237,23 +241,29 @@ class actionAngleSpherical(actionAngle):
 
     def _actionsFreqsAngles(self, *args, **kwargs):
         """
-        NAME:
-           actionsFreqsAngles (_actionsFreqsAngles)
-        PURPOSE:
-           evaluate the actions, frequencies, and angles
-           (jr,lz,jz,Omegar,Omegaphi,Omegaz,ar,ap,az)
-        INPUT:
-           Either:
-              a) R,vR,vT,z,vz[,phi]:
-                 1) floats: phase-space value for single object (phi is optional) (each can be a Quantity)
-                 2) numpy.ndarray: [N] phase-space values for N objects (each can be a Quantity)
-              b) Orbit instance: initial condition used if that's it, orbit(t) if there is a time given as well as the second argument
-           fixed_quad= (False) if True, use n=10 fixed_quad integration
-           scipy.integrate.quadrature or .fixed_quad keywords
-        OUTPUT:
+        Evaluate the actions, frequencies, and angles (jr,lz,jz,Omegar,Omegaphi,Omegaz,ar,aphi,az).
+
+        Parameters
+        ----------
+        *args : tuple
+            Either:
+            a) R,vR,vT,z,vz[,phi]:
+                1) floats: phase-space value for single object (phi is optional) (each can be a Quantity)
+                2) numpy.ndarray: [N] phase-space values for N objects (each can be a Quantity)
+            b) Orbit instance: initial condition used if that's it, orbit(t) if there is a time given as well as the second argument
+        fixed_quad: bool, optional
+            if True, use n=10 fixed_quad integration
+        **kwargs: dict, optional
+            scipy.integrate.quadrature or .fixed_quad keywords
+
+        Returns
+        -------
+        tuple
             (jr,lz,jz,Omegar,Omegaphi,Omegaz,ar,aphi,az)
-        HISTORY:
-           2013-12-29 - Written - Bovy (IAS)
+
+        Notes
+        -----
+        - 2013-12-29 - Written - Bovy (IAS)
         """
         fixed_quad = kwargs.pop("fixed_quad", False)
         if len(args) == 5:  # R,vR.vT, z, vz pragma: no cover
@@ -384,20 +394,25 @@ class actionAngleSpherical(actionAngle):
 
     def _EccZmaxRperiRap(self, *args, **kwargs):
         """
-        NAME:
-           EccZmaxRperiRap (_EccZmaxRperiRap)
-        PURPOSE:
-           evaluate the eccentricity, maximum height above the plane, peri- and apocenter for a spherical potential
-        INPUT:
-           Either:
-              a) R,vR,vT,z,vz[,phi]:
-                 1) floats: phase-space value for single object (phi is optional) (each can be a Quantity)
-                 2) numpy.ndarray: [N] phase-space values for N objects (each can be a Quantity)
-              b) Orbit instance: initial condition used if that's it, orbit(t) if there is a time given as well as the second argument
-        OUTPUT:
-           (e,zmax,rperi,rap)
-        HISTORY:
-           2017-12-22 - Written - Bovy (UofT)
+        Evaluate the eccentricity, maximum height above the plane, peri- and apocenter for a spherical potential.
+
+        Parameters
+        ----------
+        *args : tuple
+            Either:
+            a) R,vR,vT,z,vz[,phi]:
+                1) floats: phase-space value for single object (phi is optional) (each can be a Quantity)
+                2) numpy.ndarray: [N] phase-space values for N objects (each can be a Quantity)
+            b) Orbit instance: initial condition used if that's it, orbit(t) if there is a time given as well as the second argument
+
+        Returns
+        -------
+        tuple
+            (e,zmax,rperi,rap)
+
+        Notes
+        -----
+        - 2017-12-22 - Written - Bovy (UofT)
         """
         extra_Jz = kwargs.pop("_Jz", None)
         if len(args) == 5:  # R,vR.vT, z, vz
@@ -823,21 +838,31 @@ def _rapRperiAxiEq(R, E, L, pot):
 
 def _rapRperiAxiFindStart(R, E, L, pot, rap=False, startsign=1.0):
     """
-    NAME:
-       _rapRperiAxiFindStart
-    PURPOSE:
-       Find adequate start or end points to solve for rap and rperi
-    INPUT:
-       R - Galactocentric radius
-       E - energy
-       L - angular momentum
-       pot - potential
-       rap - if True, find the rap end-point
-       startsign= set to -1 if the function is not positive (due to gamma in the modified adiabatic approximation)
-    OUTPUT:
-       rstart or rend
-    HISTORY:
-       2010-12-01 - Written - Bovy (NYU)
+    Find adequate start or end points to solve for rap and rperi
+
+    Parameters
+    ----------
+    R : float
+        Galactocentric radius
+    E : float
+        energy
+    L : float
+        angular momentum
+    pot : Potential object or list thereof
+        Potential
+    rap : bool, optional
+        if True, find the rap end-point (default is False)
+    startsign : float, optional
+        set to -1 if the function is not positive (due to gamma in the modified adiabatic approximation) (default is 1.0)
+
+    Returns
+    -------
+    float
+        rstart or rend
+
+    Notes
+    -----
+    - 2010-12-01 - Written - Bovy (NYU)
     """
     if rap:
         rtry = 2.0 * R

@@ -18,30 +18,20 @@ class actionAngleHarmonicInverse(actionAngleInverse):
 
     def __init__(self, *args, **kwargs):
         """
-        NAME:
+        Initialize an actionAngleHarmonicInverse object.
 
-           __init__
+        Parameters
+        ----------
+        omega : float or Quantity
+            Frequency.
+        ro : float or Quantity, optional
+            Distance scale for translation into internal units (default from configuration file).
+        vo : float or Quantity, optional
+            Velocity scale for translation into internal units (default from configuration file).
 
-        PURPOSE:
-
-           initialize an actionAngleHarmonicInverse object
-
-        INPUT:
-
-           omega= frequency (can be Quantity)
-
-           ro= distance from vantage point to GC (kpc; can be Quantity)
-
-           vo= circular velocity at ro (km/s; can be Quantity)
-
-        OUTPUT:
-
-           instance
-
-        HISTORY:
-
-           2018-04-08 - Started - Bovy (UofT)
-
+        Notes
+        -----
+        - 2018-04-08 - Started - Bovy (UofT)
         """
         actionAngleInverse.__init__(self, *args, **kwargs)
         if not "omega" in kwargs:  # pragma: no cover
@@ -54,54 +44,48 @@ class actionAngleHarmonicInverse(actionAngleInverse):
 
     def _evaluate(self, j, angle, **kwargs):
         """
-        NAME:
+        Evaluate the phase-space coordinates (x,v) for a number of angles on a single torus
 
-           __call__
+        Parameters
+        ----------
+        j : float
+            Action
+        angle : numpy.ndarray
+            Angle
 
-        PURPOSE:
+        Returns
+        -------
+        x_vx : list
+            A list containing the phase-space coordinates [x,vx]
 
-           evaluate the phase-space coordinates (x,v) for a number of angles on a single torus
-
-        INPUT:
-
-           j - action (scalar)
-
-           angle - angle (array [N])
-
-        OUTPUT:
-
-           [x,vx]
-
-        HISTORY:
-
-           2018-04-08 - Written - Bovy (UofT)
-
+        Notes
+        -----
+        - 2018-04-08 - Written - Bovy (UofT)
         """
         return self._xvFreqs(j, angle, **kwargs)[:2]
 
     def _xvFreqs(self, j, angle, **kwargs):
         """
-        NAME:
+        Evaluate the phase-space coordinates (x,v) for a number of angles on a single torus as well as the frequency
 
-           xvFreqs
+        Parameters
+        ----------
+        j : float
+            Action.
+        angle : numpy.ndarray
+            Angle.
 
-        PURPOSE:
+        Returns
+        -------
+        tuple
+            Tuple containing:
+                - x (array_like): x-coordinate.
+                - vx (array_like): Velocity in x-direction.
+                - Omega (float): Frequency.
 
-           evaluate the phase-space coordinates (x,v) for a number of angles on a single torus as well as the frequency
-
-        INPUT:
-
-           j - action (scalar)
-
-           angle - angle (array [N])
-
-        OUTPUT:
-
-           ([x,vx],Omega)
-
-        HISTORY:
-
-           2018-04-08 - Written - Bovy (UofT)
+        Notes
+        -----
+        - 2018-04-08 - Written - Bovy (UofT)
 
         """
         amp = numpy.sqrt(2.0 * j / self._omega)
@@ -111,25 +95,21 @@ class actionAngleHarmonicInverse(actionAngleInverse):
 
     def _Freqs(self, j, **kwargs):
         """
-        NAME:
+        Return the frequency corresponding to a torus
 
-           Freqs
+        Parameters
+        ----------
+        j : scalar
+            action
 
-        PURPOSE:
+        Returns
+        -------
+        Omega : float
+            frequency
 
-           return the frequency corresponding to a torus
-
-        INPUT:
-
-           j - action (scalar)
-
-        OUTPUT:
-
-           (Omega)
-
-        HISTORY:
-
-           2018-04-08 - Written - Bovy (UofT)
+        Notes
+        -----
+        - 2018-04-08 - Written - Bovy (UofT)
 
         """
         return self._omega

@@ -19,41 +19,31 @@ class actionAngleInverse(actionAngle):
     @physical_conversion_actionAngleInverse("__call__", pop=True)
     def __call__(self, *args, **kwargs):
         """
-        NAME:
+        Evaluate the phase-space coordinates (x,v) for a number of angles on a single torus.
 
-           evaluate the phase-space coordinates (x,v) for a number of angles on a single torus
+        Parameters
+        ----------
+        jr : float
+            Radial action.
+        jphi : float
+            Azimuthal action.
+        jz : float
+            Vertical action.
+        angler : numpy.ndarray
+            Radial angle.
+        anglephi : numpy.ndarray
+            Azimuthal angle.
+        anglez : numpy.ndarray
+            Vertical angle.
 
-        INPUT:
+        Returns
+        -------
+        numpy.ndarray
+            [R,vR,vT,z,vz,phi]
 
-           jr - radial action (scalar)
-
-           jphi - azimuthal action (scalar)
-
-           jz - vertical action (scalar)
-
-           angler - radial angle (array [N])
-
-           anglephi - azimuthal angle (array [N])
-
-           anglez - vertical angle (array [N])
-
-           Some sub-classes (like actionAngleTorus) have additional parameters:
-
-              actionAngleTorus:
-
-                  tol= (object-wide value) goal for |dJ|/|J| along the torus
-
-              actionAngleSphericalInverse (eventually), actionAngleVerticalInverse:
-
-                  point= (True) if True, don't apply the point transformation, i.e., return (x^A,v^A)
-
-        OUTPUT:
-
-           [R,vR,vT,z,vz,phi]
-
-        HISTORY:
-
-           2017-11-14 - Written - Bovy (UofT)
+        Notes
+        -----
+        - 2017-11-14 - Written - Bovy (UofT)
 
         """
         try:
@@ -67,36 +57,31 @@ class actionAngleInverse(actionAngle):
     @physical_conversion_actionAngleInverse("xvFreqs", pop=True)
     def xvFreqs(self, *args, **kwargs):
         """
-        NAME:
+        Evaluate the phase-space coordinates (x,v) for a number of angles on a single torus as well as the frequencies
 
-           xvFreqs
+        Parameters
+        ----------
+        jr : float
+            Radial action.
+        jphi : float
+            Azimuthal action.
+        jz : float
+            Vertical action.
+        angler : numpy.ndarray
+            Radial angle.
+        anglephi : numpy.ndarray
+            Azimuthal angle.
+        anglez : numpy.ndarray
+            Vertical angle.
 
-        PURPOSE:
+        Returns
+        -------
+        tuple
+            A tuple containing the phase-space coordinates (R,vR,vT,z,vz,phi) and the frequencies (OmegaR,Omegaphi,Omegaz).
 
-           evaluate the phase-space coordinates (x,v) for a number of angles on a single torus as well as the frequencies
-
-        INPUT:
-
-           jr - radial action (scalar)
-
-           jphi - azimuthal action (scalar)
-
-           jz - vertical action (scalar)
-
-           angler - radial angle (array [N])
-
-           anglephi - azimuthal angle (array [N])
-
-           anglez - vertical angle (array [N])
-
-
-        OUTPUT:
-
-           ([R,vR,vT,z,vz,phi],OmegaR,Omegaphi,Omegaz)
-
-        HISTORY:
-
-           2017-11-15 - Written - Bovy (UofT)
+        Notes
+        -----
+        - 2017-11-15 - Written - Bovy (UofT)
 
         """
         try:
@@ -110,29 +95,25 @@ class actionAngleInverse(actionAngle):
     @physical_conversion_actionAngleInverse("Freqs", pop=True)
     def Freqs(self, *args, **kwargs):
         """
-        NAME:
+        Return the frequencies corresponding to a torus
 
-           Freqs
+        Parameters
+        ----------
+        jr : float
+            Radial action.
+        jphi : float
+            Azimuthal action.
+        jz : float
+            Vertical action.
 
-        PURPOSE:
+        Returns
+        -------
+        tuple
+            A tuple of three floats representing the frequencies (OmegaR, Omegaphi, Omegaz).
 
-           return the frequencies corresponding to a torus
-
-        INPUT:
-
-           jr - radial action (scalar)
-
-           jphi - azimuthal action (scalar)
-
-           jz - vertical action (scalar)
-
-        OUTPUT:
-
-           (OmegaR,Omegaphi,Omegaz)
-
-        HISTORY:
-
-           2017-11-15 - Written - Bovy (UofT)
+        Notes
+        -----
+        - 2017-11-15 - Written - Bovy (UofT)
 
         """
         try:

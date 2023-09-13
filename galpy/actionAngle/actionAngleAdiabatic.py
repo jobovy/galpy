@@ -29,32 +29,22 @@ class actionAngleAdiabatic(actionAngle):
 
     def __init__(self, *args, **kwargs):
         """
-        NAME:
+        Initialize an actionAngleAdiabatic object.
 
-           __init__
+        Parameters
+        ----------
+        pot : potential or list of potentials
+            The potential or list of potentials.
+        gamma : float, optional
+            Replace Lz by Lz+gamma Jz in effective potential. Default is 1.0.
+        ro : float or Quantity, optional
+            Distance scale for translation into internal units (default from configuration file).
+        vo : float or Quantity, optional
+            Velocity scale for translation into internal units (default from configuration file).
 
-        PURPOSE:
-
-           initialize an actionAngleAdiabatic object
-
-        INPUT:
-
-           pot= potential or list of potentials
-
-           gamma= (default=1.) replace Lz by Lz+gamma Jz in effective potential
-
-           ro= distance from vantage point to GC (kpc; can be Quantity)
-
-           vo= circular velocity at ro (km/s; can be Quantity)
-
-        OUTPUT:
-
-           instance
-
-        HISTORY:
-
-            2012-07-26 - Written - Bovy (IAS@MPIA)
-
+        Notes
+        -----
+        - 2012-07-26 - Written - Bovy (IAS@MPIA).
         """
         actionAngle.__init__(self, ro=kwargs.get("ro", None), vo=kwargs.get("vo", None))
         if not "pot" in kwargs:  # pragma: no cover
@@ -89,23 +79,31 @@ class actionAngleAdiabatic(actionAngle):
 
     def _evaluate(self, *args, **kwargs):
         """
-        NAME:
-           __call__ (_evaluate)
-        PURPOSE:
-           evaluate the actions (jr,lz,jz)
-        INPUT:
-           Either:
-              a) R,vR,vT,z,vz[,phi]:
-                 1) floats: phase-space value for single object (phi is optional) (each can be a Quantity)
-                 2) numpy.ndarray: [N] phase-space values for N objects (each can be a Quantity)
-              b) Orbit instance: initial condition used if that's it, orbit(t) if there is a time given as well as the second argument
-           c= (object-wide default, bool) True/False to override the object-wide setting for whether or not to use the C implementation
-           scipy.integrate.quadrature keywords
-           _justjr, _justjz= if True, only calculate the radial or vertical action (internal use)
-        OUTPUT:
-           (jr,lz,jz)
-        HISTORY:
-           2012-07-26 - Written - Bovy (IAS@MPIA)
+        Evaluate the actions (jr,lz,jz).
+
+        Parameters
+        ----------
+        *args : tuple
+            Either:
+            a) R,vR,vT,z,vz[,phi]:
+                1) floats: phase-space value for single object (phi is optional) (each can be a Quantity)
+                2) numpy.ndarray: [N] phase-space values for N objects (each can be a Quantity)
+            b) Orbit instance: initial condition used if that's it, orbit(t) if there is a time given as well as the second argument
+        c: bool, optional
+            True/False to override the object-wide setting for whether or not to use the C implementation
+        _justjr, _justjz: bool, optional
+            If True, only calculate the radial or vertical action (internal use)
+        **kwargs : dict
+            scipy.integrate.quadrature keywords
+
+        Returns
+        -------
+        (jr,lz,jz)
+            Actions (jr,lz,jz).
+
+        Notes
+        -----
+        - 2012-07-26 - Written - Bovy (IAS@MPIA).
         """
         if len(args) == 5:  # R,vR.vT, z, vz
             R, vR, vT, z, vz = args
@@ -188,21 +186,27 @@ class actionAngleAdiabatic(actionAngle):
 
     def _EccZmaxRperiRap(self, *args, **kwargs):
         """
-        NAME:
-           EccZmaxRperiRap (_EccZmaxRperiRap)
-        PURPOSE:
-           evaluate the eccentricity, maximum height above the plane, peri- and apocenter in the adiabatic approximation
-        INPUT:
-           Either:
-              a) R,vR,vT,z,vz[,phi]:
-                 1) floats: phase-space value for single object (phi is optional) (each can be a Quantity)
-                 2) numpy.ndarray: [N] phase-space values for N objects (each can be a Quantity)
-              b) Orbit instance: initial condition used if that's it, orbit(t) if there is a time given as well as the second argument
-           c= (object-wide default, bool) True/False to override the object-wide setting for whether or not to use the C implementation
-        OUTPUT:
-           (e,zmax,rperi,rap)
-        HISTORY:
-           2017-12-21 - Written - Bovy (UofT)
+        Evaluate the eccentricity, maximum height above the plane, peri- and apocenter in the adiabatic approximation.
+
+        Parameters
+        ----------
+        *args : tuple
+            Either:
+            a) R,vR,vT,z,vz[,phi]:
+                1) floats: phase-space value for single object (phi is optional) (each can be a Quantity)
+                2) numpy.ndarray: [N] phase-space values for N objects (each can be a Quantity)
+            b) Orbit instance: initial condition used if that's it, orbit(t) if there is a time given as well as the second argument
+        c: bool, optional
+            True/False to override the object-wide setting for whether or not to use the C implementation
+
+        Returns
+        -------
+        (e,zmax,rperi,rap)
+            Eccentricity, maximum height above the plane, peri- and apocenter.
+
+        Notes
+        -----
+        - 2017-12-21 - Written - Bovy (UofT)
         """
         if len(args) == 5:  # R,vR.vT, z, vz
             R, vR, vT, z, vz = args

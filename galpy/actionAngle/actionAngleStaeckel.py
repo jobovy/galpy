@@ -47,33 +47,28 @@ class actionAngleStaeckel(actionAngle):
 
     def __init__(self, *args, **kwargs):
         """
-        NAME:
-           __init__
-        PURPOSE:
-           initialize an actionAngleStaeckel object
-        INPUT:
-           pot= potential or list of potentials (3D)
+        Initialize an actionAngleStaeckel object.
 
-           delta= focus (can be Quantity)
+        Parameters
+        ----------
+        pot : potential or list of potentials (3D)
+            The potential or list of potentials.
+        delta : float or Quantity
+            The focus.
+        useu0 : bool, optional
+            Use u0 to calculate dV (not recommended). Default is False.
+        c : bool, optional
+            If True, always use C for calculations. Default is False.
+        order : int, optional
+            Number of points to use in the Gauss-Legendre numerical integration of the relevant action, frequency, and angle integrals. Default is 10.
+        ro : float or Quantity, optional
+            Distance scale for translation into internal units (default from configuration file).
+        vo : float or Quantity, optional
+            Velocity scale for translation into internal units (default from configuration file).
 
-           useu0 - use u0 to calculate dV (NOT recommended)
-
-           c= if True, always use C for calculations
-
-           order= (10) number of points to use in the Gauss-Legendre numerical integration of the relevant action, frequency, and angle integrals
-
-           ro= distance from vantage point to GC (kpc; can be Quantity)
-
-           vo= circular velocity at ro (km/s; can be Quantity)
-
-        OUTPUT:
-
-           instance
-
-        HISTORY:
-
-           2012-11-27 - Written - Bovy (IAS)
-
+        Notes
+        -----
+        - 2012-11-27 - Started - Bovy (IAS).
         """
         actionAngle.__init__(self, ro=kwargs.get("ro", None), vo=kwargs.get("vo", None))
         if not "pot" in kwargs:  # pragma: no cover
@@ -105,28 +100,38 @@ class actionAngleStaeckel(actionAngle):
 
     def _evaluate(self, *args, **kwargs):
         """
-        NAME:
-           __call__ (_evaluate)
-        PURPOSE:
-           evaluate the actions (jr,lz,jz)
-        INPUT:
-           Either:
-              a) R,vR,vT,z,vz[,phi]:
-                 1) floats: phase-space value for single object (phi is optional) (each can be a Quantity)
-                 2) numpy.ndarray: [N] phase-space values for N objects (each can be a Quantity)
-              b) Orbit instance: initial condition used if that's it, orbit(t) if there is a time given as well as the second argument
-           delta= (object-wide default) can be used to override the object-wide focal length; can also be an array with length N to allow different delta for different phase-space points
-           u0= (None) if object-wide option useu0 is set, u0 to use (if useu0 and useu0 is None, a good value will be computed)
-           c= (object-wide default, bool) True/False to override the object-wide setting for whether or not to use the C implementation
-           order= (object-wide default, int) number of points to use in the Gauss-Legendre numerical integration of the relevant action integrals
-           When not using C:
-              fixed_quad= (False) if True, use Gaussian quadrature (scipy.integrate.fixed_quad instead of scipy.integrate.quad)
-              scipy.integrate.fixed_quad or .quad keywords
-        OUTPUT:
-           (jr,lz,jz)
-        HISTORY:
-           2012-11-27 - Written - Bovy (IAS)
-           2017-12-27 - Allowed individual delta for each point - Bovy (UofT)
+        Evaluate the actions (jr,lz,jz).
+
+        Parameters
+        ----------
+        *args : tuple
+            Either:
+            a) R,vR,vT,z,vz[,phi]:
+                1) floats: phase-space value for single object (phi is optional) (each can be a Quantity)
+                2) numpy.ndarray: [N] phase-space values for N objects (each can be a Quantity)
+            b) Orbit instance: initial condition used if that's it, orbit(t) if there is a time given as well as the second argument
+        delta: bool, optional
+            can be used to override the object-wide focal length; can also be an array with length N to allow different delta for different phase-space points
+        u0: float, optional
+            if object-wide option useu0 is set, u0 to use (if useu0 and useu0 is None, a good value will be computed).
+        c: bool, optional
+            True/False to override the object-wide setting for whether or not to use the C implementation.
+        order: int, optional
+            number of points to use in the Gauss-Legendre numerical integration of the relevant action integrals.
+        fixed_quad: bool, optional
+            if True, use Gaussian quadrature (scipy.integrate.fixed_quad instead of scipy.integrate.quad).
+        **kwargs: dict, optional
+            scipy.integrate.fixed_quad or .quad keywords when not using C
+
+        Returns
+        -------
+        tuple
+            (jr,lz,jz)
+
+        Notes
+        -----
+        - 2012-11-27 - Written - Bovy (IAS)
+        - 2017-12-27 - Allowed individual delta for each point - Bovy (UofT)
         """
         delta = kwargs.pop("delta", self._delta)
         order = kwargs.get("order", self._order)
@@ -217,27 +222,37 @@ class actionAngleStaeckel(actionAngle):
 
     def _actionsFreqs(self, *args, **kwargs):
         """
-        NAME:
-           actionsFreqs (_actionsFreqs)
-        PURPOSE:
-           evaluate the actions and frequencies (jr,lz,jz,Omegar,Omegaphi,Omegaz)
-        INPUT:
-           Either:
-              a) R,vR,vT,z,vz[,phi]:
-                 1) floats: phase-space value for single object (phi is optional) (each can be a Quantity)
-                 2) numpy.ndarray: [N] phase-space values for N objects (each can be a Quantity)
-              b) Orbit instance: initial condition used if that's it, orbit(t) if there is a time given as well as the second argument
-           delta= (object-wide default) can be used to override the object-wide focal length; can also be an array with length N to allow different delta for different phase-space points
-           u0= (None) if object-wide option useu0 is set, u0 to use (if useu0 and useu0 is None, a good value will be computed)
-           c= (object-wide default, bool) True/False to override the object-wide setting for whether or not to use the C implementation
-           order= (10) number of points to use in the Gauss-Legendre numerical integration of the relevant action and frequency integrals
-           When not using C:
-              fixed_quad= (False) if True, use Gaussian quadrature (scipy.integrate.fixed_quad instead of scipy.integrate.quad)
-              scipy.integrate.fixed_quad or .quad keywords
-        OUTPUT:
+        Evaluate the actions and frequencies (jr,lz,jz,Omegar,Omegaphi,Omegaz).
+
+        Parameters
+        ----------
+        *args : tuple
+            Either:
+            a) R,vR,vT,z,vz[,phi]:
+                1) floats: phase-space value for single object (phi is optional) (each can be a Quantity)
+                2) numpy.ndarray: [N] phase-space values for N objects (each can be a Quantity)
+            b) Orbit instance: initial condition used if that's it, orbit(t) if there is a time given as well as the second argument
+        delta: bool, optional
+            can be used to override the object-wide focal length; can also be an array with length N to allow different delta for different phase-space points
+        u0: float, optional
+            if object-wide option useu0 is set, u0 to use (if useu0 and useu0 is None, a good value will be computed).
+        c: bool, optional
+            True/False to override the object-wide setting for whether or not to use the C implementation.
+        order: int, optional
+            number of points to use in the Gauss-Legendre numerical integration of the relevant action integrals.
+        fixed_quad: bool, optional
+            if True, use Gaussian quadrature (scipy.integrate.fixed_quad instead of scipy.integrate.quad).
+        **kwargs: dict, optional
+            scipy.integrate.fixed_quad or .quad keywords when not using C
+
+        Returns
+        -------
+        tuple
             (jr,lz,jz,Omegar,Omegaphi,Omegaz)
-        HISTORY:
-           2013-08-28 - Written - Bovy (IAS)
+
+        Notes
+        -----
+        - 2013-08-28 - Written - Bovy (IAS)
         """
         delta = kwargs.pop("delta", self._delta)
         order = kwargs.get("order", self._order)
@@ -325,27 +340,37 @@ class actionAngleStaeckel(actionAngle):
 
     def _actionsFreqsAngles(self, *args, **kwargs):
         """
-        NAME:
-           actionsFreqsAngles (_actionsFreqsAngles)
-        PURPOSE:
-           evaluate the actions, frequencies, and angles (jr,lz,jz,Omegar,Omegaphi,Omegaz,angler,anglephi,anglez)
-        INPUT:
-           Either:
-              a) R,vR,vT,z,vz[,phi]:
-                 1) floats: phase-space value for single object (phi is optional) (each can be a Quantity)
-                 2) numpy.ndarray: [N] phase-space values for N objects (each can be a Quantity)
-              b) Orbit instance: initial condition used if that's it, orbit(t) if there is a time given as well as the second argument
-           delta= (object-wide default) can be used to override the object-wide focal length; can also be an array with length N to allow different delta for different phase-space points
-           u0= (None) if object-wide option useu0 is set, u0 to use (if useu0 and useu0 is None, a good value will be computed)
-           c= (object-wide default, bool) True/False to override the object-wide setting for whether or not to use the C implementation
-           order= (10) number of points to use in the Gauss-Legendre numerical integration of the relevant action, frequency, and angle integrals
-           When not using C:
-              fixed_quad= (False) if True, use Gaussian quadrature (scipy.integrate.fixed_quad instead of scipy.integrate.quad)
-              scipy.integrate.fixed_quad or .quad keywords
-        OUTPUT:
+        Evaluate the actions, frequencies, and angles (jr,lz,jz,Omegar,Omegaphi,Omegaz,angler,anglephi,anglez).
+
+        Parameters
+        ----------
+        *args : tuple
+            Either:
+            a) R,vR,vT,z,vz[,phi]:
+                1) floats: phase-space value for single object (phi is optional) (each can be a Quantity)
+                2) numpy.ndarray: [N] phase-space values for N objects (each can be a Quantity)
+            b) Orbit instance: initial condition used if that's it, orbit(t) if there is a time given as well as the second argument
+        delta: bool, optional
+            can be used to override the object-wide focal length; can also be an array with length N to allow different delta for different phase-space points
+        u0: float, optional
+            if object-wide option useu0 is set, u0 to use (if useu0 and useu0 is None, a good value will be computed).
+        c: bool, optional
+            True/False to override the object-wide setting for whether or not to use the C implementation.
+        order: int, optional
+            number of points to use in the Gauss-Legendre numerical integration of the relevant action integrals.
+        fixed_quad: bool, optional
+            if True, use Gaussian quadrature (scipy.integrate.fixed_quad instead of scipy.integrate.quad).
+        **kwargs: dict, optional
+            scipy.integrate.fixed_quad or .quad keywords when not using C
+
+        Returns
+        -------
+        tuple
             (jr,lz,jz,Omegar,Omegaphi,Omegaz,angler,anglephi,anglez)
-        HISTORY:
-           2013-08-28 - Written - Bovy (IAS)
+
+        Notes
+        -----
+        - 2013-08-28 - Written - Bovy (IAS)
         """
         delta = kwargs.pop("delta", self._delta)
         order = kwargs.get("order", self._order)
@@ -438,23 +463,31 @@ class actionAngleStaeckel(actionAngle):
 
     def _EccZmaxRperiRap(self, *args, **kwargs):
         """
-        NAME:
-           EccZmaxRperiRap (_EccZmaxRperiRap)
-        PURPOSE:
-           evaluate the eccentricity, maximum height above the plane, peri- and apocenter in the Staeckel approximation
-        INPUT:
-           Either:
-              a) R,vR,vT,z,vz[,phi]:
-                 1) floats: phase-space value for single object (phi is optional) (each can be a Quantity)
-                 2) numpy.ndarray: [N] phase-space values for N objects (each can be a Quantity)
-              b) Orbit instance: initial condition used if that's it, orbit(t) if there is a time given as well as the second argument
-           delta= (object-wide default) can be used to override the object-wide focal length; can also be an array with length N to allow different delta for different phase-space points
-           u0= (None) if object-wide option useu0 is set, u0 to use (if useu0 and useu0 is None, a good value will be computed)
-           c= (object-wide default, bool) True/False to override the object-wide setting for whether or not to use the C implementation
-        OUTPUT:
-           (e,zmax,rperi,rap)
-        HISTORY:
-           2017-12-12 - Written - Bovy (UofT)
+        Evaluate the eccentricity, maximum height above the plane, peri- and apocenter in the Staeckel approximation.
+
+        Parameters
+        ----------
+        *args : tuple
+            Either:
+            a) R,vR,vT,z,vz[,phi]:
+                1) floats: phase-space value for single object (phi is optional) (each can be a Quantity)
+                2) numpy.ndarray: [N] phase-space values for N objects (each can be a Quantity)
+            b) Orbit instance: initial condition used if that's it, orbit(t) if there is a time given as well as the second argument
+        delta: bool, optional
+            can be used to override the object-wide focal length; can also be an array with length N to allow different delta for different phase-space points
+        u0: float, optional
+            if object-wide option useu0 is set, u0 to use (if useu0 and useu0 is None, a good value will be computed).
+        c: bool, optional
+            True/False to override the object-wide setting for whether or not to use the C implementation.
+
+        Returns
+        -------
+        tuple
+            (e,zmax,rperi,rap)
+
+        Notes
+        -----
+        - 2017-12-12 - Written - Bovy (UofT)
         """
         delta = kwargs.get("delta", self._delta)
         umin, umax, vmin = self._uminumaxvmin(*args, **kwargs)
@@ -466,20 +499,31 @@ class actionAngleStaeckel(actionAngle):
 
     def _uminumaxvmin(self, *args, **kwargs):
         """
-        NAME:
-           _uminumaxvmin
-        PURPOSE:
-           evaluate u_min, u_max, and v_min
-        INPUT:
-           Either:
-              a) R,vR,vT,z,vz
-              b) Orbit instance: initial condition used if that's it, orbit(t)
-                 if there is a time given as well
-            c= True/False; overrides the object's c= keyword to use C or not
-        OUTPUT:
-           (umin,umax,vmin)
-        HISTORY:
-           2017-12-12 - Written - Bovy (UofT)
+        Evaluate u_min, u_max, and v_min in the Staeckel approximation.
+
+        Parameters
+        ----------
+        *args : tuple
+            Either:
+            a) R,vR,vT,z,vz[,phi]:
+                1) floats: phase-space value for single object (phi is optional) (each can be a Quantity)
+                2) numpy.ndarray: [N] phase-space values for N objects (each can be a Quantity)
+            b) Orbit instance: initial condition used if that's it, orbit(t) if there is a time given as well as the second argument
+        delta: bool, optional
+            can be used to override the object-wide focal length; can also be an array with length N to allow different delta for different phase-space points
+        u0: float, optional
+            if object-wide option useu0 is set, u0 to use (if useu0 and useu0 is None, a good value will be computed).
+        c: bool, optional
+            True/False to override the object-wide setting for whether or not to use the C implementation.
+
+        Returns
+        -------
+        tuple
+            (u_min, u_max, v_min)
+
+        Notes
+        -----
+        - 2017-12-12 - Written - Bovy (UofT)
         """
         delta = numpy.atleast_1d(kwargs.pop("delta", self._delta))
         if len(args) == 5:  # R,vR.vT, z, vz
@@ -577,19 +621,24 @@ class actionAngleStaeckelSingle(actionAngle):
 
     def __init__(self, *args, **kwargs):
         """
-        NAME:
-           __init__
-        PURPOSE:
-           initialize an actionAngleStaeckelSingle object
-        INPUT:
-           Either:
-              a) R,vR,vT,z,vz
-              b) Orbit instance: initial condition used if that's it, orbit(t)
-                 if there is a time given as well
-              pot= potential or list of potentials
-        OUTPUT:
-        HISTORY:
-           2012-11-27 - Written - Bovy (IAS)
+        Initialize an actionAngleStaeckelSingle object
+
+        Parameters
+        ----------
+        *args : tuple
+            Either:
+            a) R,vR,vT,z,vz[,phi]:
+                1) floats: phase-space value for single object (phi is optional) (each can be a Quantity)
+                2) numpy.ndarray: [N] phase-space values for N objects (each can be a Quantity)
+            b) Orbit instance: initial condition used if that's it, orbit(t) if there is a time given as well as the second argument
+        pot: Potential or list of Potentials
+            Potential to use
+        delta: float, optional
+            focal length of confocal coordinate system
+
+        Notes
+        -----
+        - 2012-11-27 - Written - Bovy (IAS)
         """
         self._parse_eval_args(*args, _noOrbUnitsCheck=True, **kwargs)
         self._R = self._eval_R
@@ -649,97 +698,44 @@ class actionAngleStaeckelSingle(actionAngle):
         return None
 
     def angleR(self, **kwargs):
-        """
-        NAME:
-           AngleR
-        PURPOSE:
-           Calculate the radial angle
-        INPUT:
-           scipy.integrate.quadrature keywords
-        OUTPUT:
-           w_R(R,vT,vT) in radians +
-           estimate of the error (does not include TR error)
-        HISTORY:
-           2012-11-27 - Written - Bovy (IAS)
-        """
         raise NotImplementedError(
             "'angleR' not yet implemented for Staeckel approximation"
         )
 
     def TR(self, **kwargs):
-        """
-        NAME:
-           TR
-        PURPOSE:
-           Calculate the radial period for a power-law rotation curve
-        INPUT:
-           scipy.integrate.quadrature keywords
-        OUTPUT:
-           T_R(R,vT,vT)*vc/ro + estimate of the error
-        HISTORY:
-           2012-11-27 - Written - Bovy (IAS)
-        """
         raise NotImplementedError("'TR' not implemented yet for Staeckel approximation")
 
     def Tphi(self, **kwargs):
-        """
-        NAME:
-           Tphi
-        PURPOSE:
-           Calculate the azimuthal period
-        INPUT:
-           +scipy.integrate.quadrature keywords
-        OUTPUT:
-           T_phi(R,vT,vT)/ro/vc + estimate of the error
-        HISTORY:
-           2012-11-27 - Written - Bovy (IAS)
-        """
         raise NotImplementedError(
             "'Tphi' not implemented yet for Staeckel approxximation"
         )
 
     def I(self, **kwargs):
-        """
-        NAME:
-           I
-        PURPOSE:
-           Calculate I, the 'ratio' between the radial and azimutha period
-        INPUT:
-           +scipy.integrate.quadrature keywords
-        OUTPUT:
-           I(R,vT,vT) + estimate of the error
-        HISTORY:
-           2012-11-27 - Written - Bovy (IAS)
-        """
         raise NotImplementedError("'I' not implemented yet for Staeckel approxximation")
 
     def Jphi(self):  # pragma: no cover
-        """
-        NAME:
-           Jphi
-        PURPOSE:
-           Calculate the azimuthal action
-        INPUT:
-        OUTPUT:
-           J_R(R,vT,vT)/ro/vc
-        HISTORY:
-           2012-11-27 - Written - Bovy (IAS)
-        """
         return self._R * self._vT
 
     def JR(self, **kwargs):
         """
-        NAME:
-           JR
-        PURPOSE:
-           Calculate the radial action
-        INPUT:
-           fixed_quad= (False) if True, use n=10 fixed_quad
-           +scipy.integrate.quad keywords
-        OUTPUT:
-           J_R(R,vT,vT)/ro/vc + estimate of the error (nan for fixed_quad)
-        HISTORY:
-           2012-11-27 - Written - Bovy (IAS)
+        Calculate the radial action
+
+        Parameters
+        ----------
+        fixed_quad : bool, optional
+            If True, use n=10 fixed_quad. Default is False.
+        **kwargs
+            scipy.integrate.quad keywords
+
+        Returns
+        -------
+        float
+            J_R(R,vT,vT)/ro/vc + estimate of the error (nan for fixed_quad)
+
+        Notes
+        -----
+        - 2012-11-27 - Written - Bovy (IAS)
+
         """
         if hasattr(self, "_JR"):  # pragma: no cover
             return self._JR
@@ -804,17 +800,23 @@ class actionAngleStaeckelSingle(actionAngle):
 
     def Jz(self, **kwargs):
         """
-        NAME:
-           Jz
-        PURPOSE:
-           Calculate the vertical action
-        INPUT:
-           fixed_quad= (False) if True, use n=10 fixed_quad
-           +scipy.integrate.quad keywords
-        OUTPUT:
-           J_z(R,vT,vT)/ro/vc + estimate of the error
-        HISTORY:
-           2012-11-27 - Written - Bovy (IAS)
+        Calculate the vertical action
+
+        Parameters
+        ----------
+        fixed_quad : bool, optional
+            If True, use n=10 fixed_quad. Default is False.
+        **kwargs
+            scipy.integrate.quad keywords
+
+        Returns
+        -------
+        float
+            J_z(R,vT,vT)/ro/vc + estimate of the error
+
+        Notes
+        -----
+        - 2012-11-27 - Written - Bovy (IAS)
         """
         if hasattr(self, "_JZ"):  # pragma: no cover
             return self._JZ
@@ -877,31 +879,37 @@ class actionAngleStaeckelSingle(actionAngle):
 
     def calcEL(self, **kwargs):
         """
-        NAME:
-           calcEL
-        PURPOSE:
-           calculate the energy and angular momentum
-        INPUT:
-           scipy.integrate.quadrature keywords
-        OUTPUT:
-           (E,L)
-        HISTORY:
-           2012-11-27 - Written - Bovy (IAS)
+        Calculate the energy and angular momentum.
+
+        Parameters
+        ----------
+        **kwargs : dict
+            scipy.integrate.quadrature keywords
+
+        Returns
+        -------
+        tuple
+            A tuple containing the energy and angular momentum.
+
+        Notes
+        -----
+        - 2012-11-27 - Written - Bovy (IAS)
         """
         E, L = calcELStaeckel(self._R, self._vR, self._vT, self._z, self._vz, self._pot)
         return (E, L)
 
     def calcUminUmax(self, **kwargs):
         """
-        NAME:
-           calcUminUmax
-        PURPOSE:
-           calculate the u 'apocenter' and 'pericenter'
-        INPUT:
-        OUTPUT:
-           (umin,umax)
-        HISTORY:
-           2012-11-27 - Written - Bovy (IAS)
+        Calculate the u 'apocenter' and 'pericenter'
+
+        Returns
+        -------
+        tuple
+            (umin,umax)
+
+        Notes
+        -----
+        - 2012-11-27 - Written - Bovy (IAS)
         """
         if hasattr(self, "_uminumax"):  # pragma: no cover
             return self._uminumax
@@ -1106,15 +1114,16 @@ class actionAngleStaeckelSingle(actionAngle):
 
     def calcVmin(self, **kwargs):
         """
-        NAME:
-           calcVmin
-        PURPOSE:
-           calculate the v 'pericenter'
-        INPUT:
-        OUTPUT:
-           vmin
-        HISTORY:
-           2012-11-28 - Written - Bovy (IAS)
+        Calculate the v 'pericenter'
+
+        Returns
+        -------
+        float
+            v_min(R,vT,vT)/vc + estimate of the error
+
+        Notes
+        -----
+        - 2012-11-28 - Written - Bovy (IAS)
         """
         if hasattr(self, "_vmin"):  # pragma: no cover
             return self._vmin
@@ -1196,20 +1205,36 @@ class actionAngleStaeckelSingle(actionAngle):
 
 def calcELStaeckel(R, vR, vT, z, vz, pot, vc=1.0, ro=1.0):
     """
-    NAME:
-       calcELStaeckel
-    PURPOSE:
-       calculate the energy and angular momentum
-    INPUT:
-       R - Galactocentric radius (/ro)
-       vR - radial part of the velocity (/vc)
-       vT - azimuthal part of the velocity (/vc)
-       vc - circular velocity
-       ro - reference radius
-    OUTPUT:
-       (E,L)
-    HISTORY:
-       2012-11-30 - Written - Bovy (IAS)
+    Calculate the energy and angular momentum.
+
+    Parameters
+    ----------
+    R : float
+        Galactocentric radius (/ro).
+    vR : float
+        Radial part of the velocity (/vc).
+    vT : float
+        Azimuthal part of the velocity (/vc).
+    z : float
+        Vertical height (/ro).
+    vz : float
+        Vertical velocity (/vc).
+    pot : Potential object
+        galpy Potential object or list of such objects.
+    vc : float, optional
+        Circular velocity at ro (km/s). Default: 1.0.
+    ro : float, optional
+        Distance to the Galactic center (kpc). Default: 1.0.
+
+    Returns
+    -------
+    tuple
+        Tuple containing energy and angular momentum.
+
+    Notes
+    -----
+    - 2012-11-30 - Written - Bovy (IAS)
+
     """
     return (
         _evaluatePotentials(pot, R, z)
@@ -1222,19 +1247,27 @@ def calcELStaeckel(R, vR, vT, z, vz, pot, vc=1.0, ro=1.0):
 
 def potentialStaeckel(u, v, pot, delta):
     """
-    NAME:
-       potentialStaeckel
-    PURPOSE:
-       return the potential
-    INPUT:
-       u - confocal u
-       v - confocal v
-       pot - potential
-       delta - focus
-    OUTPUT:
-       Phi(u,v)
-    HISTORY:
-       2012-11-29 - Written - Bovy (IAS)
+    Return the potential.
+
+    Parameters
+    ----------
+    u : float
+        Confocal u.
+    v : float
+        Confocal v.
+    pot : Potential object
+        Potential.
+    delta : float
+        Focus.
+
+    Returns
+    -------
+    float
+        Potential at (u, v).
+
+    Notes
+    -----
+    - 2012-11-29 - Written - Bovy (IAS)
     """
     R, z = coords.uv_to_Rz(u, v, delta=delta)
     return _evaluatePotentials(pot, R, z)
@@ -1242,19 +1275,28 @@ def potentialStaeckel(u, v, pot, delta):
 
 def FRStaeckel(u, v, pot, delta):  # pragma: no cover because unused
     """
-    NAME:
-       FRStaeckel
-    PURPOSE:
-       return the radial force
-    INPUT:
-       u - confocal u
-       v - confocal v
-       pot - potential
-       delta - focus
-    OUTPUT:
-       FR(u,v)
-    HISTORY:
-       2012-11-30 - Written - Bovy (IAS)
+    Return the radial force.
+
+    Parameters
+    ----------
+    u : float
+        Confocal u.
+    v : float
+        Confocal v.
+    pot : Potential object
+        Potential.
+    delta : float
+        Focus.
+
+    Returns
+    -------
+    float
+        Radial force.
+
+    Notes
+    -----
+    - 2012-11-30 - Written - Bovy (IAS)
+
     """
     R, z = coords.uv_to_Rz(u, v, delta=delta)
     return _evaluateRforces(pot, R, z)
@@ -1262,19 +1304,27 @@ def FRStaeckel(u, v, pot, delta):  # pragma: no cover because unused
 
 def FZStaeckel(u, v, pot, delta):  # pragma: no cover because unused
     """
-    NAME:
-       FZStaeckel
-    PURPOSE:
-       return the vertical force
-    INPUT:
-       u - confocal u
-       v - confocal v
-       pot - potential
-       delta - focus
-    OUTPUT:
-       FZ(u,v)
-    HISTORY:
-       2012-11-30 - Written - Bovy (IAS)
+    Return the vertical force.
+
+    Parameters
+    ----------
+    u : float
+        Confocal u.
+    v : float
+        Confocal v.
+    pot : Potential object
+        Potential.
+    delta : float
+        Focus.
+
+    Returns
+    -------
+    Ffloat
+        Vertical force.
+
+    Notes
+    -----
+    - 2012-11-30 - Written - Bovy (IAS)
     """
     R, z = coords.uv_to_Rz(u, v, delta=delta)
     return _evaluatezforces(pot, R, z)
@@ -1322,16 +1372,43 @@ def _uminUmaxFindStart(
     u, E, Lz, I3U, delta, u0, sinh2u0, v0, sin2v0, potu0v0, pot, umax=False
 ):
     """
-    NAME:
-       _uminUmaxFindStart
-    PURPOSE:
-       Find adequate start or end points to solve for umin and umax
-    INPUT:
-       same as JRStaeckelIntegrandSquared
-    OUTPUT:
-       rstart or rend
-    HISTORY:
-       2012-11-30 - Written - Bovy (IAS)
+    Find adequate start or end points to solve for umin and umax
+
+    Parameters
+    ----------
+    u : float
+        Current value of the coordinate to solve for (either umin or umax)
+    E : float
+        Energy
+    Lz : float
+        Angular momentum along z
+    I3U : float
+        Third isolating integral of motion
+    delta : float
+        Focus parameter of the confocal coordinate system
+    u0 : float
+        u coordinate of the center of the coordinate system
+    sinh2u0 : float
+        Hyperbolic sine of twice the u coordinate of the center of the coordinate system
+    v0 : float
+        v coordinate of the center of the coordinate system
+    sin2v0 : float
+        Sine of twice the v coordinate of the center of the coordinate system
+    potu0v0 : float
+        Potential at the center of the coordinate system
+    pot : Potential object
+        Instance of a galpy Potential object
+    umax : bool, optional
+        If True, solve for umax instead of umin (default is False)
+
+    Returns
+    -------
+    float
+        Adequate start or end point to solve for umin or umax
+
+    Notes
+    -----
+    - 2012-11-30 - Written - Bovy (IAS)
     """
     if umax:
         utry = u * 1.1
@@ -1359,16 +1436,39 @@ def _uminUmaxFindStart(
 
 def _vminFindStart(v, E, Lz, I3V, delta, u0, cosh2u0, sinh2u0, potu0pi2, pot):
     """
-    NAME:
-       _vminFindStart
-    PURPOSE:
-       Find adequate start point to solve for vmin
-    INPUT:
-       same as JzStaeckelIntegrandSquared
-    OUTPUT:
-       rstart
-    HISTORY:
-       2012-11-28 - Written - Bovy (IAS)
+    Find adequate start point to solve for vmin
+
+    Parameters
+    ----------
+    v : float
+        Velocity
+    E : float
+        Energy
+    Lz : float
+        Angular momentum along z-axis
+    I3V : float
+        Third isolating integral
+    delta : float
+        Staeckel delta parameter
+    u0 : float
+        Staeckel energy
+    cosh2u0 : float
+        Hyperbolic cosine squared of u0
+    sinh2u0 : float
+        Hyperbolic sine squared of u0
+    potu0pi2 : float
+        Potential at u0 times pi/2
+    pot : Potential object
+        galpy Potential object
+
+    Returns
+    -------
+    float
+        Adequate start point to solve for vmin
+
+    Notes
+    -----
+    - 2012-11-28 - Written - Bovy (IAS)
     """
     vtry = 0.9 * v
     while (
@@ -1388,23 +1488,31 @@ def _vminFindStart(v, E, Lz, I3V, delta, u0, cosh2u0, sinh2u0, potu0pi2, pot):
 @physical_conversion("position", pop=True)
 def estimateDeltaStaeckel(pot, R, z, no_median=False, delta0=1e-6):
     """
-    NAME:
-       estimateDeltaStaeckel
-    PURPOSE:
-       Estimate a good value for delta using eqn. (9) in Sanders (2012)
-    INPUT:
-       pot - Potential instance or list thereof
-       R,z- coordinates (if these are arrays, the median estimated delta is returned, i.e., if this is an orbit)
-       no_median - (False) if True, and input is array, return all calculated values of delta (useful for quickly
-       estimating delta for many phase space points)
-       delta0= (1e-6) value to return when delta<delta0 (because actionAngleStaeckel does not work with delta=0 exactly)
-    OUTPUT:
-       delta
-    HISTORY:
-       2013-08-28 - Written - Bovy (IAS)
-       2016-02-20 - Changed input order to allow physical conversions - Bovy (UofT)
-       2022-09-14 - Deal with numerical issues with SCF/DiskSCFPotentials - Bovy (UofT)
-       2022-09-15 - Add delta0 - Bovy (UofT)
+    Estimate a good value for delta using eqn. (9) in Sanders (2012)
+
+    Parameters
+    ----------
+    pot : Potential instance or list thereof
+    R : float or array_like
+        coordinates
+    z : float or array_like
+        coordinates
+    no_median : bool, optional
+        if True, and input is array, return all calculated values of delta (useful for quickly estimating delta for many phase space points)
+    delta0 : float, optional
+        value to return when delta<delta0 (because actionAngleStaeckel does not work with delta=0 exactly)
+
+    Returns
+    -------
+    float or numpy.ndarray
+        estimate of delta
+
+    Notes
+    -----
+    - 2013-08-28 - Written - Bovy (IAS)
+    - 2016-02-20 - Changed input order to allow physical conversions - Bovy (UofT)
+    - 2022-09-14 - Deal with numerical issues with SCF/DiskSCFPotentials - Bovy (UofT)
+    - 2022-09-15 - Add delta0 - Bovy (UofT)
     """
     pot = flatten_potential(pot)
     # We'll special-case delta<0 when the potential includes SCF/DiskSCF components

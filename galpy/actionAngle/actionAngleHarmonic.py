@@ -22,29 +22,20 @@ class actionAngleHarmonic(actionAngle):
 
     def __init__(self, *args, **kwargs):
         """
-        NAME:
+        Initialize an actionAngleHarmonic object.
 
-           __init__
+        Parameters
+        ----------
+        omega : float or numpy.ndarray
+            Frequencies (can be Quantity).
+        ro : float or Quantity, optional
+            Distance scale for translation into internal units (default from configuration file).
+        vo : float or Quantity, optional
+            Velocity scale for translation into internal units (default from configuration file).
 
-        PURPOSE:
-
-           initialize an actionAngleHarmonic object
-
-        INPUT:
-
-           omega= frequencies (can be Quantity)
-
-           ro= distance from vantage point to GC (kpc; can be Quantity)
-
-           vo= circular velocity at ro (km/s; can be Quantity)
-
-        OUTPUT:
-
-           instance
-
-        HISTORY:
-
-           2018-04-08 - Written - Bovy (Uoft)
+        Notes
+        -----
+        - 2018-04-08 - Written - Bovy (Uoft)
 
         """
         actionAngle.__init__(self, ro=kwargs.get("ro", None), vo=kwargs.get("vo", None))
@@ -57,19 +48,23 @@ class actionAngleHarmonic(actionAngle):
 
     def _evaluate(self, *args, **kwargs):
         """
-        NAME:
-           __call__ (_evaluate)
-        PURPOSE:
-           evaluate the action
-        INPUT:
-           Either:
-              a) x,vx:
-                 1) floats: phase-space value for single object (each can be a Quantity)
-                 2) numpy.ndarray: [N] phase-space values for N objects (each can be a Quantity)
-        OUTPUT:
-           action
-        HISTORY:
-           2018-04-08 - Written - Bovy (UofT)
+        Evaluate the action for the harmonic oscillator
+
+        Parameters
+        ----------
+        Either:
+            a) x,vx:
+                1) floats: phase-space value for single object (each can be a Quantity)
+                2) numpy.ndarray: [N] phase-space values for N objects (each can be a Quantity)
+
+        Returns
+        -------
+        float or numpy.ndarray
+            action
+
+        Notes
+        -----
+        - 2018-04-08 - Written - Bovy (UofT)
         """
         if len(args) == 2:  # x,vx
             x, vx = args
@@ -79,19 +74,23 @@ class actionAngleHarmonic(actionAngle):
 
     def _actionsFreqs(self, *args, **kwargs):
         """
-        NAME:
-           actionsFreqs (_actionsFreqs)
-        PURPOSE:
-           evaluate the action and frequency
-        INPUT:
-           Either:
-              a) x,vx:
-                 1) floats: phase-space value for single object (each can be a Quantity)
-                 2) numpy.ndarray: [N] phase-space values for N objects (each can be a Quantity)
-        OUTPUT:
-           action,frequency
-        HISTORY:
-           2018-04-08 - Written - Bovy (UofT)
+        Evaluate the action and frequency for the harmonic oscillator
+
+        Parameters
+        ----------
+        Either:
+            a) x,vx:
+                1) floats: phase-space value for single object (each can be a Quantity)
+                2) numpy.ndarray: [N] phase-space values for N objects (each can be a Quantity)
+
+        Returns
+        -------
+        tuple
+            (action,frequency)
+
+        Notes
+        -----
+        - 2018-04-08 - Written - Bovy (UofT)
         """
         if len(args) == 2:  # x,vx
             x, vx = args
@@ -104,19 +103,23 @@ class actionAngleHarmonic(actionAngle):
 
     def _actionsFreqsAngles(self, *args, **kwargs):
         """
-        NAME:
-           actionsFreqsAngles (_actionsFreqsAngles)
-        PURPOSE:
-           evaluate the action, frequency, and angle
-        INPUT:
-           Either:
-              a) x,vx:
-                 1) floats: phase-space value for single object (each can be a Quantity)
-                 2) numpy.ndarray: [N] phase-space values for N objects (each can be a Quantity)
-        OUTPUT:
-           action,frequency,angle
-        HISTORY:
-           2018-04-08 - Written - Bovy (UofT)
+        Evaluate the action, frequency, and angle for the harmonic oscillator
+
+        Parameters
+        ----------
+        Either:
+            a) x,vx:
+                1) floats: phase-space value for single object (each can be a Quantity)
+                2) numpy.ndarray: [N] phase-space values for N objects (each can be a Quantity)
+
+        Returns
+        -------
+        tuple
+            (action,frequency,angle)
+
+        Notes
+        -----
+        - 2018-04-08 - Written - Bovy (UofT)
         """
         if len(args) == 2:  # x,vx
             x, vx = args
