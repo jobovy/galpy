@@ -245,7 +245,7 @@ jobs:
     - name: Install Python dependencies (3.12)
       if: matrix.python-version == '3.12'
       run: |
-         pip install --upgrade --upgrade-strategy eager --pre numpy scipy matplotlib numexpr setuptools "cython<1" pytest tqdm
+         pip install --upgrade --upgrade-strategy eager --pre numpy scipy "matplotlib<3.8" numexpr setuptools "cython<1" pytest tqdm
     - name: Install pynbody (3.12; ubuntu)
       if: ${{ matrix.os == 'ubuntu-latest' && matrix.REQUIRES_PYNBODY && matrix.python-version == '3.12' }}
       run: |
