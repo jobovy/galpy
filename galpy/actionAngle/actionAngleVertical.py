@@ -21,31 +21,21 @@ class actionAngleVertical(actionAngle):
 
     def __init__(self, *args, **kwargs):
         """
-        NAME:
+        Initialize an actionAngleVertical object.
 
-           __init__
+        Parameters
+        ----------
+        pot : potential or list of 1D potentials (linearPotential or verticalPotential)
+            Potential or list of 1D potentials.
+        ro : float or Quantity, optional
+            Distance scale for translation into internal units (default from configuration file).
+        vo : float or Quantity, optional
+            Velocity scale for translation into internal units (default from configuration file).
 
-        PURPOSE:
-
-           initialize an actionAngleVertical object
-
-        INPUT:
-
-           pot= potential or list of 1D potentials (linearPotential or verticalPotential)
-
-           ro= distance from vantage point to GC (kpc; can be Quantity)
-
-           vo= circular velocity at ro (km/s; can be Quantity)
-
-        OUTPUT:
-
-           instance
-
-        HISTORY:
-
-           2012-06-01 - Written - Bovy (IAS)
-
-           2018-05-19 - Conformed to the general actionAngle framework - Bovy (UofT)
+        Notes
+        -----
+        - 2012-06-01 - Written - Bovy (IAS)
+        - 2018-05-19 - Conformed to the general actionAngle framework - Bovy (UofT)
 
         """
         actionAngle.__init__(self, ro=kwargs.get("ro", None), vo=kwargs.get("vo", None))
@@ -58,19 +48,24 @@ class actionAngleVertical(actionAngle):
 
     def _evaluate(self, *args, **kwargs):
         """
-        NAME:
-           __call__ (_evaluate)
-        PURPOSE:
-           evaluate the action
-        INPUT:
-           Either:
+        Evaluate the action.
+
+        Parameters
+        ----------
+        *args : tuple
+            Either:
               a) x,vx:
                  1) floats: phase-space value for single object (each can be a Quantity)
                  2) numpy.ndarray: [N] phase-space values for N objects (each can be a Quantity)
-        OUTPUT:
-           action
-        HISTORY:
-           2018-05-19 - Written based on re-write of existing code - Bovy (UofT)
+
+        Returns
+        -------
+        float or numpy.ndarray
+            action
+
+        Notes
+        -----
+        - 2018-05-19 - Written based on re-write of existing code - Bovy (UofT)
         """
         if len(args) == 2:  # x,vx
             x, vx = args
@@ -109,19 +104,24 @@ class actionAngleVertical(actionAngle):
 
     def _actionsFreqs(self, *args, **kwargs):
         """
-        NAME:
-           actionsFreqs (_actionsFreqs)
-        PURPOSE:
-           evaluate the action and frequency
-        INPUT:
-           Either:
+        Evaluate the action and frequency.
+
+        Parameters
+        ----------
+        *args : tuple
+            Either:
               a) x,vx:
                  1) floats: phase-space value for single object (each can be a Quantity)
                  2) numpy.ndarray: [N] phase-space values for N objects (each can be a Quantity)
-        OUTPUT:
-           action,frequency
-        HISTORY:
-           2018-05-19 - Written based on re-write of existing code - Bovy (UofT)
+
+        Returns
+        -------
+        tuple
+            action,frequency
+
+        Notes
+        -----
+        - 2018-05-19 - Written based on re-write of existing code - Bovy (UofT)
         """
         if len(args) == 2:  # x,vx
             x, vx = args
@@ -182,19 +182,24 @@ class actionAngleVertical(actionAngle):
 
     def _actionsFreqsAngles(self, *args, **kwargs):
         """
-        NAME:
-           actionsFreqsAngles (_actionsFreqsAngles)
-        PURPOSE:
-           evaluate the action, frequency, and angle
-        INPUT:
-           Either:
+        Evaluate the action, frequency, and angle.
+
+        Parameters
+        ----------
+        *args : tuple
+            Either:
               a) x,vx:
                  1) floats: phase-space value for single object (each can be a Quantity)
                  2) numpy.ndarray: [N] phase-space values for N objects (each can be a Quantity)
-        OUTPUT:
-           action,frequency,angle
-        HISTORY:
-           2018-05-19 - Written based on re-write of existing code - Bovy (UofT)
+
+        Returns
+        -------
+        tuple
+            action,frequency,angle
+
+        Notes
+        -----
+        - 2018-05-19 - Written based on re-write of existing code - Bovy (UofT)
         """
         if len(args) == 2:  # x,vx
             x, vx = args
@@ -278,18 +283,26 @@ class actionAngleVertical(actionAngle):
 
     def calcxmax(self, x, vx, E=None):
         """
-        NAME:
-           calcxmax
-        PURPOSE:
-           calculate the maximum height
-        INPUT:
-           x - position
-           vx - velocity
-        OUTPUT:
-           zmax
-        HISTORY:
-           2012-06-01 - Written - Bovy (IAS)
-           2018-05-19 - Re-written for new framework - Bovy (UofT)
+        Calculate the maximum height
+
+        Parameters
+        ----------
+        x : float
+            Position
+        vx : float
+            Velocity
+        E : float, optional
+            Energy (default is None)
+
+        Returns
+        -------
+        float
+            Maximum height
+
+        Notes
+        -----
+        - 2012-06-01 - Written - Bovy (IAS)
+        - 2018-05-19 - Re-written for new framework - Bovy (UofT)
         """
         if E is None:
             E = E = vx**2.0 / 2.0 + evaluatelinearPotentials(

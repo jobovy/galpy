@@ -42,38 +42,34 @@ class actionAngleVerticalInverse(actionAngleInverse):
         bisect=False,
     ):
         """
-        NAME:
+        Initialize an actionAngleVerticalInverse object
 
-           __init__
+        Parameters
+        ----------
+        pot : Potential object or list of such objects
+            a linearPotential/verticalPotential or list thereof
+        Es : numpy.ndarray
+            energies of the orbits to map the tori for, will be forcibly sorted (needs to be a dense grid when setting up the object for interpolation with setup_interp=True)
+        nta : int
+            number of auxiliary angles to sample the torus at when mapping the torus
+        setup_interp : bool
+            if True, setup interpolation grids that allow any torus within the E range to be accessed through interpolation
+        use_pointtransform : bool
+            if True, use a point transformation to improve the accuracy of the mapping
+        pt_deg : int
+            degree of the point transformation polynomial
+        pt_nxa : int
+            number of points to use in the point transformation
+        maxiter : int
+            maximum number of iterations of root-finding algorithms
+        angle_tol : float
+            tolerance for angle root-finding (f(x) is within tol of desired value)
+        bisect : bool
+            if True, use simple bisection for root-finding, otherwise first try Newton-Raphson (mainly useful for testing the bisection fallback)
 
-        PURPOSE:
-
-           initialize an actionAngleVerticalInverse object
-
-        INPUT:
-
-           pot= a linearPotential/verticalPotential or list thereof
-
-           Es= energies of the orbits to map the tori for, will be forcibly sorted (needs to be a dense grid when setting up the object for interpolation with setup_interp=True)
-
-           nta= (128) number of auxiliary angles to sample the torus at when mapping the torus
-
-           setup_interp= (False) if True, setup interpolation grids that allow any torus within the E range to be accessed through interpolation
-
-           maxiter= (100) maximum number of iterations of root-finding algorithms
-
-           angle_tol= (1e-12) tolerance for angle root-finding (f(x) is within tol of desired value)
-
-           bisect= (False) if True, use simple bisection for root-finding, otherwise first try Newton-Raphson (mainly useful for testing the bisection fallback)
-
-        OUTPUT:
-
-           instance
-
-        HISTORY:
-
-           2018-04-11 - Started - Bovy (UofT)
-
+        Notes
+        -----
+        - 2018-04-11 - Started - Bovy (UofT)
         """
         # actionAngleInverse.__init__(self,*args,**kwargs)
         if pot is None:  # pragma: no cover
@@ -1003,29 +999,23 @@ class actionAngleVerticalInverse(actionAngleInverse):
 
     def J(self, E):
         """
-        NAME:
+        Return the action for the given energy.
 
-           J
+        Parameters
+        ----------
+        E : float
+            Energy.
 
-        PURPOSE:
+        Returns
+        -------
+        float
+            Action.
 
-           return the action for the given energy
-
-        INPUT:
-
-           E - Energy
-
-        OUTPUT:
-
-           action
-
-        HISTORY:
-
-           2022-11-24 - Written - Bovy (UofT)
+        Notes
+        -----
+        - 2022-11-24 - Written - Bovy (UofT)
 
         """
-        # Note: this is the function when not using interpolation, when using
-        # interpolation, self.J is defined within _setup_interp
         indx = numpy.nanargmin(numpy.fabs(E - self._Es))
         if numpy.fabs(E - self._Es[indx]) > 1e-10:
             raise ValueError(
@@ -1035,55 +1025,45 @@ class actionAngleVerticalInverse(actionAngleInverse):
 
     def _evaluate(self, j, angle, **kwargs):
         """
-           NAME:
+        Evaluate the phase-space coordinates (x,v) for a number of angles on a single torus
 
-              __call__
+        Parameters
+        ----------
+        j : float
+            Action
+        angle : array_like
+            Angle
+        Returns
+        -------
+        tuple
+            Tuple containing the phase-space coordinates [x,vx]
 
-        <   PURPOSE:
-
-              evaluate the phase-space coordinates (x,v) for a number of angles on a single torus
-
-           INPUT:
-
-              j - action (scalar)
-
-              angle - angle (array [N])
-
-           OUTPUT:
-
-              [x,vx]
-
-           HISTORY:
-
-              2018-04-08 - Written - Bovy (UofT)
+        Notes
+        -----
+        - 2018-04-08 - Written - Bovy (UofT)
 
         """
         return self._xvFreqs(j, angle, **kwargs)[:2]
 
     def _xvFreqs(self, j, angle, **kwargs):
         """
-        NAME:
+        Evaluate the phase-space coordinates (x,v) for a number of angles on a single torus as well as the frequency.
 
-           xvFreqs
+        Parameters
+        ----------
+        j : float
+            Action.
+        angle : array_like
+            Angle.
 
-        PURPOSE:
+        Returns
+        -------
+        tuple
+            (x,v,frequency)
 
-           evaluate the phase-space coordinates (x,v) for a number of angles on a single torus as well as the frequency
-
-        INPUT:
-
-           j - action (scalar)
-
-           angle - angle (array [N])
-
-        OUTPUT:
-
-           ([x,vx],Omega)
-
-        HISTORY:
-
-           2018-04-15 - Written - Bovy (UofT)
-
+        Notes
+        -----
+        - 2018-04-15 - Written - Bovy (UofT)
         """
         # Find torus
         if not self._interp:
@@ -1206,28 +1186,24 @@ class actionAngleVerticalInverse(actionAngleInverse):
 
     def _Freqs(self, j, **kwargs):
         """
-        NAME:
+        Return the frequency corresponding to a torus
 
-           Freqs
+        Parameters
+        ----------
+        j : float
+            Action.
 
-        PURPOSE:
+        Returns
+        -------
+        float
+            Frequency corresponding to a torus.
 
-           return the frequency corresponding to a torus
-
-        INPUT:
-
-           j - action (scalar)
-
-        OUTPUT:
-
-           (Omega)
-
-        HISTORY:
-
-           2018-04-08 - Written - Bovy (UofT)
+        Notes
+        -----
+        - 2018-04-08 - Written - Bovy (UofT)
 
         """
-        # Find t<orus
+        # Find torus
         if not self._interp:
             indx = numpy.nanargmin(numpy.fabs(j - self._js))
             if numpy.fabs(j - self._js[indx]) > 1e-10:
@@ -1243,25 +1219,39 @@ class actionAngleVerticalInverse(actionAngleInverse):
 
 def _anglea(xa, E, pot, omega, ptcoeffs, ptderivcoeffs, xmax, ptxmax, vsign=1.0):
     """
-    NAME:
-       _anglea
-    PURPOSE:
-       Compute the auxiliary angle in the harmonic-oscillator for a grid in x and E
-    INPUT:
-       xa - position
-       E - Energy
-       pot - the potential
-       omega - harmonic-oscillator frequencies
-       ptcoeffs - coefficients of the polynomial point transformation
-       ptderivcoeffs - coefficients of the derivative of the polynomial point transformation
-       xmax - xmax of the true torus
-       ptxmax - xmax of the point-transformed torus
-       vsign= (1.) sign of the velocity
-    OUTPUT:
-       auxiliary angles
-    HISTORY:
-       2018-04-13 - Written - Bovy (UofT)
-       2018-11-19 - Added point transformation - Bovy (UofT)
+    Compute the auxiliary angle in the harmonic-oscillator for a grid in x and E
+
+    Parameters
+    ----------
+    xa : array_like
+        Position.
+    E : float
+        Energy.
+    pot : Potential object
+        The potential.
+    omega : array_like
+        Harmonic-oscillator frequencies.
+    ptcoeffs : array_like
+        Coefficients of the polynomial point transformation.
+    ptderivcoeffs : array_like
+        Coefficients of the derivative of the polynomial point transformation.
+    xmax : float
+        Xmax of the true torus.
+    ptxmax : float
+        Xmax of the point-transformed torus.
+    vsign : float, optional
+        Sign of the velocity. Default is 1.0.
+
+    Returns
+    -------
+    numpy.ndarray
+        Auxiliary angles.
+
+    Notes
+    -----
+    - 2018-04-13 - Written - Bovy (UofT)
+    - 2018-11-19 - Added point transformation - Bovy (UofT)
+
     """
     # Compute v
     x = xmax * polynomial.polyval((xa / ptxmax).T, ptcoeffs.T, tensor=False).T
@@ -1289,26 +1279,41 @@ def _danglea(
     xa, E, pot, omega, ptcoeffs, ptderivcoeffs, ptderiv2coeffs, xmax, ptxmax, vsign=1.0
 ):
     """
-    NAME:
-       _danglea
-    PURPOSE:
-       Compute the derivative of the auxiliary angle in the harmonic-oscillator for a grid in x and E at constant E
-    INPUT:
-       xa - position
-       E - Energy
-       pot - the potential
-       omega - harmonic-oscillator frequencies
-       ptcoeffs - coefficients of the polynomial point transformation
-       ptderivcoeffs - coefficients of the derivative of the polynomial point transformation
-       ptderiv2coeffs - coefficients of the second derivative of the polynomial point transformation
-       xmax - xmax of the true torus
-       ptxmax - xmax of the point-transformed torus
-       vsign= (1.) sign of the velocity
-    OUTPUT:
-       d auxiliary angles / d x (2D array)
-    HISTORY:
-       2018-04-13 - Written - Bovy (UofT)
-       2018-11-22 - Added point transformation - Bovy (UofT)
+    Compute the derivative of the auxiliary angle in the harmonic-oscillator for a grid in x and E at constant E
+
+    Parameters
+    ----------
+    xa : array_like
+        Position.
+    E : float
+        Energy.
+    pot : Potential object
+        The potential.
+    omega : array_like
+        Harmonic-oscillator frequencies.
+    ptcoeffs : array_like
+        Coefficients of the polynomial point transformation.
+    ptderivcoeffs : array_like
+        Coefficients of the derivative of the polynomial point transformation.
+    ptderiv2coeffs : array_like
+        Coefficients of the second derivative of the polynomial point transformation.
+    xmax : float
+        Xmax of the true torus.
+    ptxmax : float
+        Xmax of the point-transformed torus.
+    vsign : float, optional
+        Sign of the velocity. Default is 1.0.
+
+    Returns
+    -------
+    numpy.ndarray
+        d auxiliary angles / d x (2D array)
+
+    Notes
+    -----
+    - 2018-04-13 - Written - Bovy (UofT)
+    - 2018-11-22 - Added point transformation - Bovy (UofT)
+
     """
     # Compute v
     x = xmax * polynomial.polyval((xa / ptxmax).T, ptcoeffs.T, tensor=False).T
@@ -1339,25 +1344,37 @@ def _danglea(
 
 def _ja(xa, E, pot, omega, ptcoeffs, ptderivcoeffs, xmax, ptxmax):
     """
-    NAME:
-       _ja
-    PURPOSE:
-       Compute the auxiliary action in the harmonic-oscillator for a grid in x and E
-    INPUT:
-       xa - position
-       E - Energy
-       pot - the potential
-       omega - harmonic-oscillator frequencies
-       ptcoeffs - coefficients of the polynomial point transformation
-       ptderivcoeffs - coefficients of the derivative of the polynomial point transformation
-       xmax - xmax of the true torus
-       ptxmax - xmax of the point-transformed torus
-       vsign= (1.) sign of the velocity
-    OUTPUT:
-       auxiliary actions
-    HISTORY:
-       2018-04-14 - Written - Bovy (UofT)
-       2018-11-22 - Added point transformation - Bovy (UofT)
+    Compute the auxiliary action in the harmonic-oscillator for a grid in x and E
+
+    Parameters
+    ----------
+    xa : array_like
+        position
+    E : array_like
+        Energy
+    pot : Potential object
+        the potential
+    omega : array_like
+        harmonic-oscillator frequencies
+    ptcoeffs : array_like
+        coefficients of the polynomial point transformation
+    ptderivcoeffs : array_like
+        coefficients of the derivative of the polynomial point transformation
+    xmax : float
+        xmax of the true torus
+    ptxmax : float
+        xmax of the point-transformed torus
+
+    Returns
+    -------
+    numpy.ndarray
+        auxiliary actions
+
+    Notes
+    -----
+    - 2018-04-14 - Written - Bovy (UofT)
+    - 2018-11-22 - Added point transformation - Bovy (UofT)
+
     """
     x = xmax * polynomial.polyval((xa / ptxmax).T, ptcoeffs.T, tensor=False).T
     v2over2 = E - evaluatelinearPotentials(pot, x)
@@ -1380,26 +1397,38 @@ def _ja(xa, E, pot, omega, ptcoeffs, ptderivcoeffs, xmax, ptxmax):
 
 def _djadj(xa, E, pot, omega, ptcoeffs, ptderivcoeffs, ptderiv2coeffs, xmax, ptxmax):
     """
-    NAME:
-       _djaj
-    PURPOSE:
-       Compute the derivative of the auxiliary action in the harmonic-oscillator wrt the action for a grid in x and E
-    INPUT:
-       xa - position
-       E - Energy
-       pot - the potential
-       omega - harmonic-oscillator frequencies
-       ptcoeffs - coefficients of the polynomial point transformation
-       ptderivcoeffs - coefficients of the derivative of the polynomial point transformation
-       ptderiv2coeffs - coefficients of the second derivative of the polynomial point transformation
-       xmax - xmax of the true torus
-       ptxmax - xmax of the point-transformed torus
-       vsign= (1.) sign of the velocity
-    OUTPUT:
-       d(auxiliary actions)/d(action)
-    HISTORY:
-       2018-04-14 - Written - Bovy (UofT)
-       2018-11-23 - Added point transformation - Bovy (UofT)
+    Compute the derivative of the auxiliary action in the harmonic-oscillator wrt the action for a grid in x and E
+
+    Parameters
+    ----------
+    xa : numpy.ndarray
+        position
+    E : float
+        Energy
+    pot : galpy.potential.Potential
+        the potential
+    omega : numpy.ndarray
+        harmonic-oscillator frequencies
+    ptcoeffs : numpy.ndarray
+        coefficients of the polynomial point transformation
+    ptderivcoeffs : numpy.ndarray
+        coefficients of the derivative of the polynomial point transformation
+    ptderiv2coeffs : numpy.ndarray
+        coefficients of the second derivative of the polynomial point transformation
+    xmax : float
+        xmax of the true torus
+    ptxmax : float
+        xmax of the point-transformed torus
+
+    Returns
+    -------
+    numpy.ndarray
+        d(auxiliary actions)/d(action)
+
+    Notes
+    -----
+    - 2018-04-14 - Written - Bovy (UofT)
+    - 2018-11-23 - Added point transformation - Bovy (UofT)
     """
     x = xmax * polynomial.polyval((xa / ptxmax).T, ptcoeffs.T, tensor=False).T
     v2 = 2.0 * (E - evaluatelinearPotentials(pot, x))

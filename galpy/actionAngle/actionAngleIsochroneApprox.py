@@ -36,42 +36,37 @@ class actionAngleIsochroneApprox(actionAngle):
 
     def __init__(self, *args, **kwargs):
         """
-        NAME:
-           __init__
-        PURPOSE:
-           initialize an actionAngleIsochroneApprox object
-        INPUT:
+        Initialize an actionAngleIsochroneApprox object.
 
-           Either:
+        Parameters
+        ----------
+        b : float or Quantity, optional
+            Scale parameter of the isochrone parameter.
+        ip : IsochronePotential, optional
+            Instance of a IsochronePotential.
+        aAI : actionAngleIsochrone, optional
+            Instance of an actionAngleIsochrone.
+        pot : Potential or list of Potentials, optional
+            Potential to calculate action-angle variables for.
+        tintJ : float, optional
+            Time to integrate orbits for to estimate actions (can be Quantity).
+        ntintJ : int, optional
+            Number of time-integration points.
+        integrate_method : str, optional
+            Integration method to use.
+        dt : float, optional
+            orbit.integrate dt keyword (for fixed stepsize integration).
+        maxn : int, optional
+            Default value for all methods when using a grid in vec(n) up to this n (zero-based).
+        ro : float or Quantity, optional
+            Distance scale for translation into internal units (default from configuration file).
+        vo : float or Quantity, optional
+            Velocity scale for translation into internal units (default from configuration file).
 
-              b= scale parameter of the isochrone parameter (can be Quantity)
+        Notes
+        -----
+        - 2013-09-10 - Written - Bovy (IAS).
 
-              ip= instance of a IsochronePotential
-
-              aAI= instance of an actionAngleIsochrone
-
-           pot= potential to calculate action-angle variables for
-
-           tintJ= (default: 100) time to integrate orbits for to estimate actions (can be Quantity)
-
-           ntintJ= (default: 10000) number of time-integration points
-
-           integrate_method= (default: 'dopr54_c') integration method to use
-
-           dt= (None) orbit.integrate dt keyword (for fixed stepsize integration)
-
-           maxn= (default: 3) Default value for all methods when using a grid in vec(n) up to this n (zero-based)
-
-           ro= distance from vantage point to GC (kpc; can be Quantity)
-
-           vo= circular velocity at ro (km/s; can be Quantity)
-
-        OUTPUT:
-
-           instance
-
-        HISTORY:
-           2013-09-10 - Written - Bovy (IAS)
         """
         actionAngle.__init__(self, ro=kwargs.get("ro", None), vo=kwargs.get("vo", None))
         if not "pot" in kwargs:  # pragma: no cover
@@ -125,22 +120,27 @@ class actionAngleIsochroneApprox(actionAngle):
 
     def _evaluate(self, *args, **kwargs):
         """
-        NAME:
-           __call__ (_evaluate)
-        PURPOSE:
-           evaluate the actions (jr,lz,jz)
-        INPUT:
-           Either:
-              a) R,vR,vT,z,vz[,phi]:
-                 1) floats: phase-space value for single object (phi is optional) (each can be a Quantity)
-                 2) numpy.ndarray: [N] phase-space values for N objects (each can be a Quantity)
-              b) Orbit instance: initial condition used if that's it, orbit(t) if there is a time given as well as the second argument
-           cumul= if True, return the cumulative average actions (to look
-                  at convergence)
-        OUTPUT:
-           (jr,lz,jz)
-        HISTORY:
-           2013-09-10 - Written - Bovy (IAS)
+        Evaluate the actions (jr,lz,jz).
+
+        Parameters
+        ----------
+        *args : tuple
+            Either:
+            a) R,vR,vT,z,vz[,phi]:
+                1) floats: phase-space value for single object (phi is optional) (each can be a Quantity)
+                2) numpy.ndarray: [N] phase-space values for N objects (each can be a Quantity)
+            b) Orbit instance: initial condition used if that's it, orbit(t) if there is a time given as well as the second argument
+        cumul: bool, optional
+            if True, return the cumulative average actions (to look at convergence).
+
+        Returns
+        -------
+        tuple
+            (jr,lz,jz)
+
+        Notes
+        -----
+        - 2013-09-10 - Written - Bovy (IAS).
         """
         R, vR, vT, z, vz, phi = self._parse_args(False, False, *args)
         if self._c:  # pragma: no cover
@@ -204,46 +204,62 @@ class actionAngleIsochroneApprox(actionAngle):
 
     def _actionsFreqs(self, *args, **kwargs):
         """
-        NAME:
-           actionsFreqs (_actionsFreqs)
-        PURPOSE:
-           evaluate the actions and frequencies (jr,lz,jz,Omegar,Omegaphi,Omegaz)
-        INPUT:
-           Either:
-              a) R,vR,vT,z,vz[,phi]:
-                 1) floats: phase-space value for single object (phi is optional) (each can be a Quantity)
-                 2) numpy.ndarray: [N] phase-space values for N objects (each can be a Quantity)
-              b) Orbit instance: initial condition used if that's it, orbit(t) if there is a time given as well as the second argument
-           maxn= (default: object-wide default) Use a grid in vec(n) up to this n (zero-based)
-           ts= if set, the phase-space points correspond to these times (IF NOT SET, WE ASSUME THAT ts IS THAT THAT IS ASSOCIATED WITH THIS OBJECT)
-           _firstFlip= (False) if True and Orbits are given, the backward part of the orbit is integrated first and stored in the Orbit object
-        OUTPUT:
-            (jr,lz,jz,Omegar,Omegaphi,Omegaz)
-        HISTORY:
-           2013-09-10 - Written - Bovy (IAS)
+        Evaluate the actions (jr,lz,jz) and frequencies (Or,Op,Oz).
+
+        Parameters
+        ----------
+        *args : tuple
+            Either:
+            a) R,vR,vT,z,vz[,phi]:
+                1) floats: phase-space value for single object (phi is optional) (each can be a Quantity)
+                2) numpy.ndarray: [N] phase-space values for N objects (each can be a Quantity)
+            b) Orbit instance: initial condition used if that's it, orbit(t) if there is a time given as well as the second argument
+        maxn: int, optional
+            Use a grid in vec(n) up to this n (zero-based). Default is the object-wide default.
+        ts : float, optional
+            if set, the phase-space points correspond to these times (IF NOT SET, WE ASSUME THAT ts IS THAT THAT IS ASSOCIATED WITH THIS OBJECT)
+        _firstFlip : bool, optional
+            if True and Orbits are given, the backward part of the orbit is integrated first and stored in the Orbit object
+
+        Returns
+        -------
+        tuple
+            (jr,lz,jz,Or,Op,Oz)
+
+        Notes
+        -----
+        - 2013-09-10 - Written - Bovy (IAS).
         """
         acfs = self._actionsFreqsAngles(*args, **kwargs)
         return (acfs[0], acfs[1], acfs[2], acfs[3], acfs[4], acfs[5])
 
     def _actionsFreqsAngles(self, *args, **kwargs):
         """
-        NAME:
-           actionsFreqsAngles (_actionsFreqsAngles)
-        PURPOSE:
-           evaluate the actions, frequencies, and angles (jr,lz,jz,Omegar,Omegaphi,Omegaz,angler,anglephi,anglez)
-        INPUT:
-           Either:
-              a) R,vR,vT,z,vz[,phi]:
-                 1) floats: phase-space value for single object (phi is optional) (each can be a Quantity)
-                 2) numpy.ndarray: [N] phase-space values for N objects (each can be a Quantity)
-              b) Orbit instance: initial condition used if that's it, orbit(t) if there is a time given as well as the second argument
-           maxn= (default: object-wide default) Use a grid in vec(n) up to this n (zero-based)
-           ts= if set, the phase-space points correspond to these times (IF NOT SET, WE ASSUME THAT ts IS THAT THAT IS ASSOCIATED WITH THIS OBJECT)
-           _firstFlip= (False) if True and Orbits are given, the backward part of the orbit is integrated first and stored in the Orbit object
-        OUTPUT:
-            (jr,lz,jz,Omegar,Omegaphi,Omegaz,angler,anglephi,anglez)
-        HISTORY:
-           2013-09-10 - Written - Bovy (IAS)
+        Evaluate the actions (jr,lz,jz), frequencies (Or,Op,Oz), and angles (angler,anglephi,anglez).
+
+        Parameters
+        ----------
+        *args : tuple
+            Either:
+            a) R,vR,vT,z,vz[,phi]:
+                1) floats: phase-space value for single object (phi is optional) (each can be a Quantity)
+                2) numpy.ndarray: [N] phase-space values for N objects (each can be a Quantity)
+            b) Orbit instance: initial condition used if that's it, orbit(t) if there is a time given as well as the second argument
+        maxn: int, optional
+            Use a grid in vec(n) up to this n (zero-based). Default is the object-wide default.
+        ts : float, optional
+            if set, the phase-space points correspond to these times (IF NOT SET, WE ASSUME THAT ts IS THAT THAT IS ASSOCIATED WITH THIS OBJECT)
+        _firstFlip : bool, optional
+            if True and Orbits are given, the backward part of the orbit is integrated first and stored in the Orbit object
+
+        Returns
+        -------
+        tuple
+            (jr,lz,jz,Or,Op,Oz,angler,anglephi,anglez)
+
+        Notes
+        -----
+        - 2013-09-10 - Written - Bovy (IAS).
         """
         from ..orbit import Orbit
 
@@ -443,30 +459,32 @@ class actionAngleIsochroneApprox(actionAngle):
 
     def plot(self, *args, **kwargs):
         """
-        NAME:
-           plot
-        PURPOSE:
-           plot the angles vs. each other, to check whether the isochrone
-           approximation is good
-        INPUT:
-           Either:
-              a) R,vR,vT,z,vz:
-                 floats: phase-space value for single object
-              b) Orbit instance
-           type= ('araz') type of plot to make
-              a) 'araz': az vs. ar, with color-coded aphi
-              b) 'araphi': aphi vs. ar, with color-coded az
-              c) 'azaphi': aphi vs. az, with color-coded ar
-              d) 'jr': cumulative average of jr with time, to assess convergence
-              e) 'lz': same as 'jr' but for lz
-              f) 'jz': same as 'jr' but for jz
-           deperiod= (False), if True, de-period the angles
-           downsample= (False) if True, downsample what's plotted to 400 points
-            +plot kwargs
-        OUTPUT:
-           plot to output
-        HISTORY:
-           2013-09-10 - Written - Bovy (IAS)
+        Plot the angles vs. each other, to check whether the isochrone approximation is good.
+
+        Parameters
+        ----------
+        *args : tuple
+            Either:
+            a) R,vR,vT,z,vz[,phi]:
+                1) floats: phase-space value for single object (phi is optional) (each can be a Quantity)
+                2) numpy.ndarray: [N] phase-space values for N objects (each can be a Quantity)
+            b) Orbit instance: initial condition used if that's it, orbit(t) if there is a time given as well as the second argument
+        type: {'araz','araphi','azaphi','jr','lz','jz'}, optional
+            type of plot to make
+        deperiod: bool, optional
+            if True, de-period the angles.
+        downsample: bool, optional
+            if True, downsample what's plotted to 400 points.
+        **kwargs: dict, optional
+            Any other keyword argument supported by plot.bovy_plot (e.g., xrange=[xmin,xmax])
+
+        Returns
+        -------
+        plot
+
+        Notes
+        -----
+        - 2013-09-10 - Written - Bovy (IAS).
         """
         # Kwargs
         type = kwargs.pop("type", "araz")
@@ -879,36 +897,29 @@ class actionAngleIsochroneApprox(actionAngle):
 @physical_conversion("position", pop=True)
 def estimateBIsochrone(pot, R, z, phi=None):
     """
-    NAME:
+    Estimate a good value for the scale of the isochrone potential by matching the slope of the rotation curve
 
-       estimateBIsochrone
+    Parameters
+    ----------
+    pot : Potential or list thereof
+        Potential or list of potentials to estimate the scale of the isochrone potential for
+    R : float or Quantity
+        Galactocentric radius.
+    z : float or Quantity
+        Vertical height.
+    phi : float or Quantity, optional
+        Azimuth (optional).
 
-    PURPOSE:
+    Returns
+    -------
+    float or tuple
+        If a single (R,z,[phi]) is given, a single value b is returned. If a list of (R,z,[phi]) is given, a tuple (bmin,bmedian,bmax) is returned.
 
-       Estimate a good value for the scale of the isochrone potential by matching the slope of the rotation curve
-
-    INPUT:
-
-       pot- Potential instance or list thereof
-
-       R,z - coordinates (if these are arrays, the median estimated delta is returned, i.e., if this is an orbit)
-
-       phi= (None) azimuth to use for non-axisymmetric potentials (array if R and z are arrays)
-
-    OUTPUT:
-
-       b if 1 R,Z given
-
-       bmin,bmedian,bmax if multiple R given
-
-    HISTORY:
-
-       2013-09-12 - Written - Bovy (IAS)
-
-       2016-02-20 - Changed input order to allow physical conversions - Bovy (UofT)
-
-       2016-06-28 - Added phi= keyword for non-axisymmetric potential - Bovy (UofT)
-
+    Notes
+    -----
+    - 2013-09-12 - Written - Bovy (IAS)
+    - 2016-02-20 - Changed input order to allow physical conversions - Bovy (UofT)
+    - 2016-06-28 - Added phi= keyword for non-axisymmetric potential - Bovy (UofT)
     """
     if pot is None:  # pragma: no cover
         raise OSError("pot= needs to be set to a Potential instance or list thereof")

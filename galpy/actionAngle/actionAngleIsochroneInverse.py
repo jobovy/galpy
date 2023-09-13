@@ -20,34 +20,23 @@ class actionAngleIsochroneInverse(actionAngleInverse):
 
     def __init__(self, *args, **kwargs):
         """
-        NAME:
+        Initialize an actionAngleIsochroneInverse object.
 
-           __init__
+        Parameters
+        ----------
+        b : float or Quantity, optional
+            Scale parameter of the isochrone parameter.
+        ip : galpy.potential.IsochronePotential, optional
+            Instance of a IsochronePotential.
+        ro : float or Quantity, optional
+            Distance scale for translation into internal units (default from configuration file).
+        vo : float or Quantity, optional
+            Velocity scale for translation into internal units (default from configuration file).
 
-        PURPOSE:
-
-           initialize an actionAngleIsochroneInverse object
-
-        INPUT:
-
-           Either:
-
-              b= scale parameter of the isochrone parameter (can be Quantity)
-
-              ip= instance of a IsochronePotential
-
-           ro= distance from vantage point to GC (kpc; can be Quantity)
-
-           vo= circular velocity at ro (km/s; can be Quantity)
-
-        OUTPUT:
-
-           instance
-
-        HISTORY:
-
-           2017-11-14 - Started - Bovy (UofT)
-
+        Notes
+        -----
+        - Either specify b or ip.
+        - 2017-11-14 - Started - Bovy (UofT)
         """
         actionAngleInverse.__init__(self, *args, **kwargs)
         if not "b" in kwargs and not "ip" in kwargs:  # pragma: no cover
@@ -86,74 +75,61 @@ class actionAngleIsochroneInverse(actionAngleInverse):
 
     def _evaluate(self, jr, jphi, jz, angler, anglephi, anglez, **kwargs):
         """
-        NAME:
+        Evaluate the phase-space coordinates (x,v) for a number of angles on a single torus.
 
-           __call__
+        Parameters
+        ----------
+        jr : float
+            Radial action.
+        jphi : float
+            Azimuthal action.
+        jz : float
+            Vertical action.
+        angler : numpy.ndarray
+            Radial angle.
+        anglephi : numpy.ndarray
+            Azimuthal angle.
+        anglez : numpy.ndarray
+            Vertical angle.
 
-        PURPOSE:
+        Returns
+        -------
+        numpy.ndarray
+            Phase-space coordinates [R,vR,vT,z,vz,phi].
 
-           evaluate the phase-space coordinates (x,v) for a number of angles on a single torus
-
-        INPUT:
-
-           jr - radial action (scalar)
-
-           jphi - azimuthal action (scalar)
-
-           jz - vertical action (scalar)
-
-           angler - radial angle (array [N])
-
-           anglephi - azimuthal angle (array [N])
-
-           anglez - vertical angle (array [N])
-
-           tol= (object-wide value) goal for |dJ|/|J| along the torus
-
-        OUTPUT:
-
-           [R,vR,vT,z,vz,phi]
-
-        HISTORY:
-
-           2017-11-14 - Written - Bovy (UofT)
-
+        Notes
+        -----
+        - 2017-11-14 - Written - Bovy (UofT).
         """
         return self._xvFreqs(jr, jphi, jz, angler, anglephi, anglez, **kwargs)[:6]
 
     def _xvFreqs(self, jr, jphi, jz, angler, anglephi, anglez, **kwargs):
         """
-        NAME:
+        Evaluate the phase-space coordinates (x,v) for a number of angles on a single torus as well as the frequencies.
 
-           xvFreqs
+        Parameters
+        ----------
+        jr : float
+            Radial action.
+        jphi : float
+            Azimuthal action.
+        jz : float
+            Vertical action.
+        angler : numpy.ndarray
+            Radial angle.
+        anglephi : numpy.ndarray
+            Azimuthal angle.
+        anglez : numpy.ndarray
+            Vertical angle.
 
-        PURPOSE:
+        Returns
+        -------
+        tuple
+            A tuple containing the phase-space coordinates (R, vR, vT, z, vz, phi), and the frequencies (OmegaR, Omegaphi, Omegaz).
 
-           evaluate the phase-space coordinates (x,v) for a number of angles on a single torus as well as the frequencies
-
-        INPUT:
-
-           jr - radial action (scalar)
-
-           jphi - azimuthal action (scalar)
-
-           jz - vertical action (scalar)
-
-           angler - radial angle (array [N])
-
-           anglephi - azimuthal angle (array [N])
-
-           anglez - vertical angle (array [N])
-
-
-        OUTPUT:
-
-           ([R,vR,vT,z,vz,phi],OmegaR,Omegaphi,Omegaz)
-
-        HISTORY:
-
-           2017-11-15 - Written - Bovy (UofT)
-
+        Notes
+        -----
+        - 2017-11-15 - Written - Bovy (UofT).
         """
         L = jz + numpy.fabs(jphi)  # total angular momentum
         L2 = L**2.0
@@ -217,30 +193,25 @@ class actionAngleIsochroneInverse(actionAngleInverse):
 
     def _Freqs(self, jr, jphi, jz, **kwargs):
         """
-        NAME:
+        Return the frequencies corresponding to a torus
 
-           Freqs
+        Parameters
+        ----------
+        jr : float
+            Radial action
+        jphi : float
+            Azimuthal action
+        jz : float
+            Vertical action
 
-        PURPOSE:
+        Returns
+        -------
+        tuple
+            A tuple of three floats representing the frequencies (OmegaR, Omegaphi, Omegaz)
 
-           return the frequencies corresponding to a torus
-
-        INPUT:
-
-           jr - radial action (scalar)
-
-           jphi - azimuthal action (scalar)
-
-           jz - vertical action (scalar)
-
-        OUTPUT:
-
-           (OmegaR,Omegaphi,Omegaz)
-
-        HISTORY:
-
-           2017-11-15 - Written - Bovy (UofT)
-
+        Notes
+        -----
+        - 2017-11-15 - Written - Bovy (UofT).
         """
         L = jz + numpy.fabs(jphi)  # total angular momentum
         sqrtfourbkL2 = numpy.sqrt(L**2.0 + 4.0 * self.b * self.amp)

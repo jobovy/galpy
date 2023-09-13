@@ -11,23 +11,34 @@ _lib, _ext_loaded = _load_extension_libs.load_libgalpy_actionAngleTorus()
 
 def actionAngleTorus_xvFreqs_c(pot, jr, jphi, jz, angler, anglephi, anglez, tol=0.003):
     """
-    NAME:
-       actionAngleTorus_xvFreqs_c
-    PURPOSE:
-       compute configuration (x,v) and frequencies of a set of angles on a single torus
-    INPUT:
-       pot - Potential object or list thereof
-       jr - radial action (scalar)
-       jphi - azimuthal action (scalar)
-       jz - vertical action (scalar)
-       angler - radial angle (array [N])
-       anglephi - azimuthal angle (array [N])
-       anglez - vertical angle (array [N])
-       tol= (0.003) goal for |dJ|/|J| along the torus
-    OUTPUT:
-       (R,vR,vT,z,vz,phi,Omegar,Omegaphi,Omegaz,flag)
-    HISTORY:
-       2015-08-05/07 - Written - Bovy (UofT)
+    Compute configuration (x,v) and frequencies of a set of angles on a single torus
+
+    Parameters
+    ----------
+    pot : Potential object or list thereof
+    jr : float
+        Radial action
+    jphi : float
+        Azimuthal action
+    jz : float
+        Vertical action
+    angler : numpy.ndarray
+        Radial angle
+    anglephi : numpy.ndarray
+        Azimuthal angle
+    anglez : numpy.ndarray
+        Vertical angle
+    tol : float, optional
+        Goal for |dJ|/|J| along the torus
+
+    Returns
+    -------
+    tuple
+        (R,vR,vT,z,vz,phi,Omegar,Omegaphi,Omegaz,flag)
+
+    Notes
+    -----
+    - 2015-08-05/07 - Written - Bovy (UofT)
     """
     # Parse the potential
     from ..orbit.integrateFullOrbit import _parse_pot
@@ -134,20 +145,28 @@ def actionAngleTorus_xvFreqs_c(pot, jr, jphi, jz, angler, anglephi, anglez, tol=
 
 def actionAngleTorus_Freqs_c(pot, jr, jphi, jz, tol=0.003):
     """
-    NAME:
-       actionAngleTorus_Freqs_c
-    PURPOSE:
-       compute frequencies on a single torus
-    INPUT:
-       pot - Potential object or list thereof
-       jr - radial action (scalar)
-       jphi - azimuthal action (scalar)
-       jz - vertical action (scalar)
-       tol= (0.003) goal for |dJ|/|J| along the torus
-    OUTPUT:
-       (Omegar,Omegaphi,Omegaz,flag)
-    HISTORY:
-       2015-08-05/07 - Written - Bovy (UofT)
+    Compute frequencies on a single torus
+
+    Parameters
+    ----------
+    pot : Potential object or list thereof
+    jr : float
+        Radial action
+    jphi : float
+        Azimuthal action
+    jz : float
+        Vertical action
+    tol : float, optional
+        Goal for |dJ|/|J| along the torus
+
+    Returns
+    -------
+    tuple
+        (Omegar,Omegaphi,Omegaz,flag)
+
+    Notes
+    -----
+    - 2015-08-05/07 - Written - Bovy (UofT)
     """
     # Parse the potential
     from ..orbit.integrateFullOrbit import _parse_pot
@@ -206,22 +225,30 @@ def actionAngleTorus_Freqs_c(pot, jr, jphi, jz, tol=0.003):
 
 def actionAngleTorus_hessian_c(pot, jr, jphi, jz, tol=0.003, dJ=0.001):
     """
-    NAME:
-       actionAngleTorus_hessian_c
-    PURPOSE:
-       compute dO/dJ on a single torus
-    INPUT:
-       pot - Potential object or list thereof
-       jr - radial action (scalar)
-       jphi - azimuthal action (scalar)
-       jz - vertical action (scalar)
-       tol= (0.003) goal for |dJ|/|J| along the torus
-       dJ= (0.001) action difference when computing derivatives (Hessian or Jacobian)
-    OUTPUT:
-       (dO/dJ,Omegar,Omegaphi,Omegaz,Autofit error flag)
-       Note: dO/dJ is *not* symmetrized here
-    HISTORY:
-       2016-07-15 - Written - Bovy (UofT)
+    Compute dO/dJ on a single torus
+
+    Parameters
+    ----------
+    pot : Potential object or list thereof
+    jr : float
+        Radial action
+    jphi : float
+        Azimuthal action
+    jz : float
+        Vertical action
+    tol : float, optional
+        Goal for |dJ|/|J| along the torus
+    dJ : float, optional
+        Action difference when computing derivatives (Hessian or Jacobian)
+
+    Returns
+    -------
+    tuple
+        (dO/dJ,Omegar,Omegaphi,Omegaz,flag)
+
+    Notes
+    -----
+    - 2016-07-15 - Written - Bovy (UofT)
     """
     # Parse the potential
     from ..orbit.integrateFullOrbit import _parse_pot
@@ -288,27 +315,36 @@ def actionAngleTorus_jacobian_c(
     pot, jr, jphi, jz, angler, anglephi, anglez, tol=0.003, dJ=0.001
 ):
     """
-    NAME:
-       actionAngleTorus_jacobian_c
-    PURPOSE:
-       compute d(x,v)/d(J,theta) on a single torus, also compute dO/dJ and the frequencies
-    INPUT:
-       pot - Potential object or list thereof
-       jr - radial action (scalar)
-       jphi - azimuthal action (scalar)
-       jz - vertical action (scalar)
-       angler - radial angle (array [N])
-       anglephi - azimuthal angle (array [N])
-       anglez - vertical angle (array [N])
-       tol= (0.003) goal for |dJ|/|J| along the torus
-       dJ= (0.001) action difference when computing derivatives (Hessian or Jacobian)
-    OUTPUT:
-       (d[R,vR,vT,z,vz,phi]/d[J,theta],
-        Omegar,Omegaphi,Omegaz,
-        Autofit error message)
-        Note: dO/dJ is *not* symmetrized here
-    HISTORY:
-       2016-07-19 - Written - Bovy (UofT)
+    Compute d(x,v)/d(J,theta) on a single torus, also compute dO/dJ and the frequencies
+
+    Parameters
+    ----------
+    pot : Potential object or list thereof
+    jr : float
+        Radial action
+    jphi : float
+        Azimuthal action
+    jz : float
+        Vertical action
+    angler : numpy.ndarray
+        Radial angle
+    anglephi : numpy.ndarray
+        Azimuthal angle
+    anglez : numpy.ndarray
+        Vertical angle
+    tol : float, optional
+        Goal for |dJ|/|J| along the torus
+    dJ : float, optional
+        Action difference when computing derivatives (Hessian or Jacobian)
+
+    Returns
+    -------
+    tuple
+        (d[R,vR,vT,z,vz,phi]/d[J,theta],Omegar,Omegaphi,Omegaz,Autofit error message)
+
+    Notes
+    -----
+    - 2016-07-19 - Written - Bovy (UofT)
     """
     # Parse the potential
     from ..orbit.integrateFullOrbit import _parse_pot
