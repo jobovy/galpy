@@ -23,26 +23,24 @@ class _constantbetadf(anisotropicsphericaldf):
         self, pot=None, denspot=None, beta=None, rmax=None, scale=None, ro=None, vo=None
     ):
         """
-        NAME:
+        Initialize a spherical DF with constant anisotropy parameter.
 
-            __init__
-
-        PURPOSE:
-
-            Initialize a spherical DF with constant anisotropy parameter
-
-        INPUT:
-
-            pot - Spherical potential which determines the DF
-
-           denspot= (None) Potential instance or list thereof that represent the density of the tracers (assumed to be spherical; if None, set equal to pot)
-
-           rmax= (None) maximum radius to consider (can be Quantity); DF is cut off at E = Phi(rmax)
-
-            scale - Characteristic scale radius to aid sampling calculations.
-                Not necessary, and will also be overridden by value from pot if
-                available.
-
+        Parameters
+        ----------
+        pot : Potential or list of Potential instances, optional
+            Spherical potential which determines the DF.
+        denspot : Potential or list of Potential instances, optional
+            Potential instance or list thereof that represent the density of the tracers (assumed to be spherical; if None, set equal to pot).
+        beta : float, optional
+            Anisotropy parameter. Default is None.
+        rmax : float or Quantity, optional
+            Maximum radius to consider; DF is cut off at E = Phi(rmax). Default is None.
+        scale : float or Quantity, optional
+            Characteristic scale radius to aid sampling calculations. Not necessary, and will also be overridden by value from pot if available. Default is None.
+        ro : float or Quantity, optional
+            Distance scale for translation into internal units (default from configuration file).
+        vo : float or Quantity, optional
+            Velocity scale for translation into internal units (default from configuration file).
         """
         anisotropicsphericaldf.__init__(
             self, pot=pot, denspot=denspot, rmax=rmax, scale=scale, ro=ro, vo=vo
@@ -51,27 +49,24 @@ class _constantbetadf(anisotropicsphericaldf):
 
     def _call_internal(self, *args):
         """
-        NAME:
+        Evaluate the DF for a constant anisotropy Hernquist.
 
-            _call_internal
+        Parameters
+        ----------
+        E : float
+            The energy.
+        L : float
+            The angular momentum.
 
-        PURPOSE:
+        Returns
+        -------
+        float
+            The value of the DF.
 
-            Evaluate the DF for a constant anisotropy Hernquist
+        Notes
+        -----
+        - 2020-07-22 - Written - Lane (UofT)
 
-        INPUT:
-
-            E - The energy
-
-            L - The angular momentum
-
-        OUTPUT:
-
-            fH - The value of the DF
-
-        HISTORY:
-
-            2020-07-22 - Written - Lane (UofT)
         """
         E, L, _ = args
         return L ** (-2 * self._beta) * self.fE(E)
@@ -166,37 +161,30 @@ class constantbetadf(_constantbetadf):
         vo=None,
     ):
         """
-        NAME:
+        Initialize a spherical DF with constant anisotropy parameter
 
-           __init__
+        Parameters
+        ----------
+        pot : Potential instance or list thereof, optional
+            Potential instance or list thereof
+        denspot : Potential instance or list thereof, optional
+            Potential instance or list thereof that represent the density of the tracers (assumed to be spherical; if None, set equal to pot)
+        beta : float, optional
+            anisotropy parameter
+        twobeta : float, optional
+            twice the anisotropy parameter (useful for \beta = half-integer, which is a special case); has priority over beta
+        rmax : float or Quantity, optional
+            maximum radius to consider; DF is cut off at E = Phi(rmax)
+        scale : float or Quantity, optional
+            Characteristic scale radius to aid sampling calculations. Optional and will also be overridden by value from pot if available.
+        ro : float or Quantity, optional
+            Distance scale for translation into internal units (default from configuration file).
+        vo : float or Quantity, optional
+            Velocity scale for translation into internal units (default from configuration file).
 
-        PURPOSE:
-
-           Initialize a spherical DF with constant anisotropy parameter
-
-        INPUT:
-
-           pot= (None) Potential instance or list thereof
-
-           denspot= (None) Potential instance or list thereof that represent the density of the tracers (assumed to be spherical; if None, set equal to pot)
-
-           beta= (0.) anisotropy parameter
-
-           twobeta= (None) twice the anisotropy parameter (useful for \beta = half-integer, which is a special case); has priority over beta
-
-           rmax= (None) maximum radius to consider (can be Quantity); DF is cut off at E = Phi(rmax)
-
-           scale - Characteristic scale radius to aid sampling calculations. Optionaland will also be overridden by value from pot if available.
-
-           ro=, vo= galpy unit parameters
-
-        OUTPUT:
-
-           None
-
-        HISTORY:
-
-           2021-02-14 - Written - Bovy (UofT)
+        Notes
+        -----
+        - 2021-02-14 - Written - Bovy (UofT)
 
         """
         if not _JAX_LOADED:  # pragma: no cover
@@ -317,25 +305,21 @@ class constantbetadf(_constantbetadf):
 
     def fE(self, E):
         """
-        NAME:
+        Calculate the energy portion of a constant-beta distribution function
 
-            fE
+        Parameters
+        ----------
+        E : float, numpy.ndarray, or Quantity
+            The energy.
 
-        PURPOSE
+        Returns
+        -------
+        numpy.ndarray
+            The value of the energy portion of the DF
 
-            Calculate the energy portion of a constant-beta distribution function
-
-        INPUT:
-
-            E - The energy (can be Quantity)
-
-        OUTPUT:
-
-            fE - The value of the energy portion of the DF
-
-        HISTORY:
-
-            2021-02-14 - Written - Bovy (UofT)
+        Notes
+        -----
+        - 2021-02-14 - Written - Bovy (UofT)
         """
         Eint = numpy.atleast_1d(conversion.parse_energy(E, vo=self._vo))
         out = numpy.zeros_like(Eint)

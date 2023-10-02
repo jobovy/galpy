@@ -54,56 +54,44 @@ class quasiisothermaldf(df):
         vo=None,
     ):
         """
-        NAME:
+        Initialize a quasi-isothermal DF
 
-           __init__
+        Parameters
+        ----------
+        hr : float or Quantity
+            Radial scale length.
+        sr : float or Quantity
+            Radial velocity dispersion at the solar radius.
+        sz : float or Quantity
+            Vertical velocity dispersion at the solar radius.
+        hsr : float or Quantity
+            Radial-velocity-dispersion scale length.
+        hsz : float or Quantity
+            Vertial-velocity-dispersion scale length.
+        pot : Potential or list thereof
+            Potential or list of potentials that represents the underlying potential.
+        aA : actionAngle instance
+            ActionAngle instance used to convert (x,v) to actions [must be an instance of an actionAngle class that computes (J,Omega,angle) for a given (x,v)].
+        cutcounter : bool, optional
+            If True, set counter-rotating stars' DF to zero.
+        refr : float or Quantity, optional
+            Reference radius for dispersions (can be different from ro).
+        lo : float or Quantity, optional
+            Reference angular momentum below where there are significant numbers of retrograde stars.
+        ro : float or Quantity, optional
+            Distance scale for translation into internal units (default from configuration file).
+        vo : float or Quantity, optional
+            Velocity scale for translation into internal units (default from configuration file).
+        _precomputerg : bool, optional
+            If True (default), pre-compute the rL(L).
+        _precomputergrmax : float or Quantity, optional
+            If set, this is the maximum R for which to pre-compute rg (default: 5*hr).
+        _precomputergnLz : int, optional
+            If set, number of Lz to pre-compute rg for (default: 51).
 
-        PURPOSE:
-
-           Initialize a quasi-isothermal DF
-
-        INPUT:
-
-           hr - radial scale length (can be Quantity)
-
-           sr - radial velocity dispersion at the solar radius (can be Quantity)
-
-           sz - vertical velocity dispersion at the solar radius (can be Quantity)
-
-           hsr - radial-velocity-dispersion scale length (can be Quantity)
-
-           hsz - vertial-velocity-dispersion scale length (can be Quantity)
-
-           pot= Potential instance or list thereof
-
-           aA= actionAngle instance used to convert (x,v) to actions [must be an instance of an actionAngle class that computes (J,Omega,angle) for a given (x,v)]
-
-           cutcounter= if True, set counter-rotating stars' DF to zero
-
-           refr= reference radius for dispersions (can be different from ro) (can be Quantity)
-
-           lo= reference angular momentum below where there are significant numbers of retrograde stars (can be Quantity)
-
-           ro= distance from vantage point to GC (kpc; can be Quantity)
-
-           vo= circular velocity at ro (km/s; can be Quantity)
-
-        OTHER INPUTS:
-
-           _precomputerg= if True (default), pre-compute the rL(L)
-
-           _precomputergrmax= if set, this is the maximum R for which to pre-compute rg (default: 5*hr)
-
-           _precomputergnLz if set, number of Lz to pre-compute rg for (default: 51)
-
-        OUTPUT:
-
-           object
-
-        HISTORY:
-
-           2012-07-25 - Started - Bovy (IAS@MPIA)
-
+        Notes
+        -----
+        - 2012-07-25 - Started - Bovy (IAS@MPIA)
         """
         df.__init__(self, ro=ro, vo=vo)
         self._hr = parse_length(hr, ro=self._ro)
@@ -176,56 +164,40 @@ class quasiisothermaldf(df):
     @physical_conversion("phasespacedensity", pop=True)
     def __call__(self, *args, **kwargs):
         """
-        NAME:
+        Evaluate the DF
 
-           __call__
+        Parameters
+        ----------
+        args: tuple or Orbit
+            Either:
+                a) (jr,lz,jz) tuple; each can be a Quantity
+                    where:
+                        * jr - radial action
+                        * lz - z-component of angular momentum
+                        * jz - vertical action
+                b) R,vR,vT,z,vz
+                c) Orbit instance: initial condition used if that's it, orbit(t) if there is a time given as well
+        log: bool, optional
+            If True, return the natural log.
+        func: function of (jr,lz,jz), optional
+            Function of the actions to multiply the DF with (useful for moments).
+        _return_actions: bool, optional
+            If True, return the actions as well.
+        _return_freqs: bool, optional
+            If True, return the frequencies as well.
+        _return_rgr: bool, optional
+            If True, return the rg as well.
+        kwargs: dict, optional
+            scipy.integrate.quadrature kwargs.
 
-        PURPOSE:
+        Returns
+        -------
+        float
+            Value of DF.
 
-           return the DF
-
-        INPUT:
-
-           Either:
-
-              a)(jr,lz,jz) tuple; each can be a Quantity
-                 where:
-                    jr - radial action
-                    lz - z-component of angular momentum
-                    jz - vertical action
-
-              b) R,vR,vT,z,vz
-
-              c) Orbit instance: initial condition used if that's it, orbit(t)
-                 if there is a time given as well
-
-           log= if True, return the natural log
-
-           +scipy.integrate.quadrature kwargs
-
-           func= function of (jr,lz,jz) to multiply f with (useful for moments)
-
-        OUTPUT:
-
-           value of DF
-
-        HISTORY:
-
-           2012-07-25 - Written - Bovy (IAS@MPIA)
-
-        NOTE:
-
-           For Miyamoto-Nagai/adiabatic approximation this seems to take
-           about 30 ms / evaluation in the extended Solar neighborhood
-           For a MWPotential/adiabatic approximation this takes about
-           50 ms / evaluation in the extended Solar neighborhood
-
-           For adiabatic-approximation grid this seems to take
-           about 0.67 to 0.75 ms / evaluation in the extended Solar
-           neighborhood (includes some out of the grid)
-
-           up to 200x faster when called with vector R,vR,vT,z,vz
-
+        Notes
+        -----
+        - 2012-07-25 - Written - Bovy (IAS@MPIA)
         """
         # First parse log
         log = kwargs.pop("log", False)
@@ -346,34 +318,28 @@ class quasiisothermaldf(df):
     @physical_conversion("position", pop=True)
     def estimate_hr(self, R, z=0.0, dR=10.0**-8.0, **kwargs):
         """
-        NAME:
+        Estimate the exponential scale length at R.
 
-           estimate_hr
+        Parameters
+        ----------
+        R : float or Quantity
+            Galactocentric radius.
+        z : float or Quantity, optional
+            Height (default: 0 pc).
+        dR : float or Quantity, optional
+            Range in R to use.
+        **kwargs
+            Density kwargs.
 
-        PURPOSE:
+        Returns
+        -------
+        float or Quantity
+            Estimated hR.
 
-           estimate the exponential scale length at R
-
-        INPUT:
-
-           R - Galactocentric radius (can be Quantity)
-
-           z= height (default: 0 pc) (can be Quantity)
-
-           dR- range in R to use (can be Quantity)
-
-           density kwargs
-
-        OUTPUT:
-
-           estimated hR
-
-        HISTORY:
-
-           2012-09-11 - Written - Bovy (IAS)
-
-           2013-01-28 - Re-written - Bovy
-
+        Notes
+        -----
+        - 2012-09-11 - Written - Bovy (IAS)
+        - 2013-01-28 - Re-written - Bovy
         """
         Rs = [R - dR / 2.0, R + dR / 2.0]
         if z is None:
@@ -391,32 +357,28 @@ class quasiisothermaldf(df):
     @physical_conversion("position", pop=True)
     def estimate_hz(self, R, z, dz=10.0**-8.0, **kwargs):
         """
-        NAME:
+        Estimate the exponential scale height at R.
 
-           estimate_hz
+        Parameters
+        ----------
+        R : float or Quantity
+            Galactocentric radius.
+        z : float or Quantity
+            Height above the Galactic plane.
+        dz : float or Quantity, optional
+            z range to use.
+        **kwargs
+            density kwargs.
 
-        PURPOSE:
+        Returns
+        -------
+        float or Quantity
+            Estimated hz.
 
-           estimate the exponential scale height at R
-
-        INPUT:
-
-           R - Galactocentric radius (can be Quantity)
-
-           dz - z range to use (can be Quantity)
-
-           density kwargs
-
-        OUTPUT:
-
-           estimated hz
-
-        HISTORY:
-
-           2012-08-30 - Written - Bovy (IAS)
-
-           2013-01-28 - Re-written - Bovy
-
+        Notes
+        -----
+        - 2012-08-30 - Written - Bovy (IAS)
+        - 2013-01-28 - Re-written - Bovy
         """
         if z == 0.0:
             zs = [z, z + dz]
@@ -432,31 +394,27 @@ class quasiisothermaldf(df):
     @physical_conversion("position", pop=True)
     def estimate_hsr(self, R, z=0.0, dR=10.0**-8.0, **kwargs):
         """
-        NAME:
+        Estimate the exponential scale length of the radial dispersion at R.
 
-           estimate_hsr
+        Parameters
+        ----------
+        R : float or Quantity
+            Galactocentric radius.
+        z : float or Quantity, optional
+            Height (default: 0 pc).
+        dR : float or Quantity, optional
+            Range in R to use.
+        **kwargs
+            Density kwargs.
 
-        PURPOSE:
+        Returns
+        -------
+        float or Quantity
+            Estimated hsR.
 
-           estimate the exponential scale length of the radial dispersion at R
-
-        INPUT:
-
-           R - Galactocentric radius (can be Quantity)
-
-           z= height (default: 0 pc) (can be Quantity)
-
-           dR- range in R to use (can be Quantity)
-
-           density kwargs
-
-        OUTPUT:
-
-           estimated hsR
-
-        HISTORY:
-
-           2013-03-08 - Written - Bovy (IAS)
+        Notes
+        -----
+        - 2013-03-08 - Written - Bovy (IAS)
 
         """
         Rs = [R - dR / 2.0, R + dR / 2.0]
@@ -468,31 +426,27 @@ class quasiisothermaldf(df):
     @physical_conversion("position", pop=True)
     def estimate_hsz(self, R, z=0.0, dR=10.0**-8.0, **kwargs):
         """
-        NAME:
+        Estimate the exponential scale length of the vertical dispersion at R.
 
-           estimate_hsz
+        Parameters
+        ----------
+        R : float or Quantity
+            Galactocentric radius.
+        z : float or Quantity, optional
+            Height (default: 0 pc).
+        dR : float or Quantity, optional
+            Range in R to use.
+        **kwargs
+            Density kwargs.
 
-        PURPOSE:
+        Returns
+        -------
+        float or Quantity
+            Estimated hsz.
 
-           estimate the exponential scale length of the vertical dispersion at R
-
-        INPUT:
-
-           R - Galactocentric radius (can be Quantity)
-
-           z= height (default: 0 pc) (can be Quantity)
-
-           dR- range in R to use (can be Quantity)
-
-           density kwargs
-
-        OUTPUT:
-
-           estimated hsz
-
-        HISTORY:
-
-           2013-03-08 - Written - Bovy (IAS)
+        Notes
+        -----
+        - 2013-03-08 - Written - Bovy (IAS)
 
         """
         Rs = [R - dR / 2.0, R + dR / 2.0]
@@ -505,37 +459,32 @@ class quasiisothermaldf(df):
     def surfacemass_z(
         self, R, nz=7, zmax=1.0, fixed_quad=True, fixed_order=8, **kwargs
     ):
-        r"""
-        NAME:
+        """
+        Calculate the vertically-integrated surface density.
 
-           surfacemass_z
+        Parameters
+        ----------
+        R : float or Quantity
+            Galactocentric radius.
+        nz : int, optional
+            Number of zs to use to estimate. Default is 7.
+        zmax : float or Quantity, optional
+            Maximum z to use. Default is 1.0.
+        fixed_quad : bool, optional
+            If True (default), use Gauss-Legendre integration.
+        fixed_order : int, optional
+            Order of GL integration to use. Default is 8.
+        **kwargs : dict
+            Density kwargs.
 
-        PURPOSE:
+        Returns
+        -------
+        float or Quantity
+            Surface density at R.
 
-           calculate the vertically-integrated surface density
-
-        INPUT:
-
-           R - Galactocentric radius (can be Quantity)
-
-           fixed_quad= if True (default), use Gauss-Legendre integration
-
-           fixed_order= (20), order of GL integration to use
-
-           nz= number of zs to use to estimate
-
-           zmax= maximum z to use (can be Quantity)
-
-           density kwargs
-
-        OUTPUT:
-
-           \Sigma(R)
-
-        HISTORY:
-
-           2012-08-30 - Written - Bovy (IAS)
-
+        Notes
+        -----
+        - 2012-08-30 - Written - Bovy (IAS)
         """
         if fixed_quad:
             return (
@@ -559,50 +508,45 @@ class quasiisothermaldf(df):
 
     def vmomentdensity(self, *args, **kwargs):
         """
-        NAME:
+        Calculate the an arbitrary moment of the velocity distribution at R times the density
 
-           vmomentdensity
+        Parameters
+        ----------
+        R : float
+            radius at which to calculate the moment(/ro)
+        z : float
+            height at which to calculate the moment(/ro)
+        n : int
+            vR^n
+        m : int
+            vT^m
+        o : int
+            vz^o
+        nsigma : int, optional
+            number of sigma to integrate the vR and vz velocities over (when doing explicit numerical integral; default: 4)
+        vTmax : float, optional
+            upper limit for integration over vT (default: 1.5)
+        mc : bool, optional
+            if True, calculate using Monte Carlo integration
+        nmc : int, optional
+            if mc, use nmc samples
+        gl : bool, optional
+            use Gauss-Legendre
+        _returngl : bool, optional
+            if True, return the evaluated DF
+        _return_actions : bool, optional
+            if True, return the evaluated actions (does not work with _returngl currently)
+        _return_freqs : bool, optional
+            if True, return the evaluated frequencies and rg (does not work with _returngl currently)
 
-        PURPOSE:
+        Returns
+        -------
+        float
+            <vR^n vT^m  x density> at R,z (no support for units)
 
-           calculate the an arbitrary moment of the velocity distribution
-           at R times the density
-
-        INPUT:
-
-           R - radius at which to calculate the moment(/ro)
-
-           n - vR^n
-
-           m - vT^m
-
-           o - vz^o
-
-        OPTIONAL INPUT:
-
-           nsigma - number of sigma to integrate the vR and vz velocities over (when doing explicit numerical integral; default: 4)
-
-           vTmax - upper limit for integration over vT (default: 1.5)
-
-           mc= if True, calculate using Monte Carlo integration
-
-           nmc= if mc, use nmc samples
-
-           gl= use Gauss-Legendre
-
-           _returngl= if True, return the evaluated DF
-
-           _return_actions= if True, return the evaluated actions (does not work with _returngl currently)
-
-           _return_freqs= if True, return the evaluated frequencies and rg (does not work with _returngl currently)
-
-        OUTPUT:
-
-           <vR^n vT^m  x density> at R,z (no support for units)
-
-        HISTORY:
-
-           2012-08-06 - Written - Bovy (IAS@MPIA)
+        Notes
+        -----
+        - 2012-08-06 - Written - Bovy (IAS@MPIA)
 
         """
         use_physical = kwargs.pop("use_physical", True)
@@ -969,39 +913,35 @@ class quasiisothermaldf(df):
 
     def jmomentdensity(self, *args, **kwargs):
         """
-        NAME:
+        Calculate the an arbitrary moment of an action of the velocity distribution at R times the surfacmass.
 
-           jmomentdensity
-        PURPOSE:
+        Parameters
+        ----------
+        R : float
+            radius at which to calculate the moment(/ro)
+        z : float
+            height at which to calculate the moment(/ro)
+        n : int
+            jr^n
+        m : int
+            lz^m
+        o : int
+            jz^o
+        nsigma : int, optional
+            Number of sigma to integrate the velocities over (when doing explicit numerical integral). Default is None.
+        mc : bool, optional
+            If True, calculate using Monte Carlo integration. Default is False.
+        nmc : int, optional
+            If mc is True, use nmc samples. Default is None.
 
-           calculate the an arbitrary moment of an action
-           of the velocity distribution
-           at R times the surfacmass
-        INPUT:
+        Returns
+        -------
+        float or Quantity
+            <jr^n lz^m jz^o  x density> at R (no support for units)
 
-           R - radius at which to calculate the moment(/ro)
-
-           n - jr^n
-
-           m - lz^m
-
-           o - jz^o
-
-        OPTIONAL INPUT:
-
-           nsigma - number of sigma to integrate the velocities over (when doing explicit numerical integral)
-
-           mc= if True, calculate using Monte Carlo integration
-
-           nmc= if mc, use nmc samples
-
-        OUTPUT:
-
-           <jr^n lz^m jz^o  x density> at R (no support for units)
-
-        HISTORY:
-
-           2012-08-09 - Written - Bovy (IAS@MPIA)
+        Notes
+        -----
+        - 2012-08-09 - Written - Bovy (IAS@MPIA)
 
         """
         use_physical = kwargs.pop("use_physical", True)
@@ -1131,41 +1071,35 @@ class quasiisothermaldf(df):
         self, R, z, nsigma=None, mc=False, nmc=10000, gl=True, ngl=_DEFAULTNGL, **kwargs
     ):
         """
-        NAME:
+        Calculate the density at R,z by marginalizing over velocity.
 
-           density
+        Parameters
+        ----------
+        R : float or Quantity
+            Radius at which to calculate the density.
+        z : float or Quantity
+            Height at which to calculate the density.
+        nsigma : float, optional
+            Number of sigma to integrate the velocities over.
+        mc : bool, optional
+            If True, calculate using Monte Carlo integration.
+        nmc : int, optional
+            If mc, use nmc samples.
+        gl : bool, optional
+            If True, calculate using Gauss-Legendre integration.
+        ngl : int, optional
+            If gl, use ngl-th order Gauss-Legendre integration for each dimension.
+        **kwargs : dict, optional
+            scipy.integrate.tplquad kwargs epsabs and epsrel.
 
-        PURPOSE:
+        Returns
+        -------
+        float
+            Density at (R,z).
 
-           calculate the density at R,z by marginalizing over velocity
-
-        INPUT:
-
-           R - radius at which to calculate the density (can be Quantity)
-
-           z - height at which to calculate the density (can be Quantity)
-
-        OPTIONAL INPUT:
-
-           nsigma - number of sigma to integrate the velocities over
-
-           scipy.integrate.tplquad kwargs epsabs and epsrel
-
-           mc= if True, calculate using Monte Carlo integration
-
-           nmc= if mc, use nmc samples
-
-           gl= if True, calculate using Gauss-Legendre integration
-
-           ngl= if gl, use ngl-th order Gauss-Legendre integration for each dimension
-
-        OUTPUT:
-
-           density at (R,z)
-
-        HISTORY:
-
-           2012-07-26 - Written - Bovy (IAS@MPIA)
+        Notes
+        -----
+        - 2012-07-26 - Written - Bovy (IAS@MPIA)
 
         """
         return self._vmomentdensity(
@@ -1178,41 +1112,35 @@ class quasiisothermaldf(df):
         self, R, z, nsigma=None, mc=False, nmc=10000, gl=True, ngl=_DEFAULTNGL, **kwargs
     ):
         """
-        NAME:
+        Calculate sigma_R^2 by marginalizing over velocity.
 
-           sigmaR2
+        Parameters
+        ----------
+        R : float or Quantity
+            Radius at which to calculate this.
+        z : float or Quantity
+            Height at which to calculate this.
+        nsigma : int, optional
+            Number of sigma to integrate the velocities over.
+        mc : bool, optional
+            If True, calculate using Monte Carlo integration.
+        nmc : int, optional
+            If mc, use nmc samples.
+        gl : bool, optional
+            If True, calculate using Gauss-Legendre integration.
+        ngl : int, optional
+            If gl, use ngl-th order Gauss-Legendre integration for each dimension.
+        **kwargs : dict, optional
+            scipy.integrate.tplquad kwargs epsabs and epsrel.
 
-        PURPOSE:
+        Returns
+        -------
+        float
+            sigma_R^2.
 
-           calculate sigma_R^2 by marginalizing over velocity
-
-        INPUT:
-
-           R - radius at which to calculate this (can be Quantity)
-
-           z - height at which to calculate this (can be Quantity)
-
-        OPTIONAL INPUT:
-
-           nsigma - number of sigma to integrate the velocities over
-
-           scipy.integrate.tplquad kwargs epsabs and epsrel
-
-           mc= if True, calculate using Monte Carlo integration
-
-           nmc= if mc, use nmc samples
-
-           gl= if True, calculate using Gauss-Legendre integration
-
-           ngl= if gl, use ngl-th order Gauss-Legendre integration for each dimension
-
-        OUTPUT:
-
-           sigma_R^2
-
-        HISTORY:
-
-           2012-07-30 - Written - Bovy (IAS@MPIA)
+        Notes
+        -----
+        - 2012-07-30 - Written - Bovy (IAS@MPIA)
 
         """
         if mc:
@@ -1269,41 +1197,35 @@ class quasiisothermaldf(df):
         self, R, z, nsigma=None, mc=False, nmc=10000, gl=True, ngl=_DEFAULTNGL, **kwargs
     ):
         """
-        NAME:
+        Calculate sigma_RZ^2 by marginalizing over velocity.
 
-           sigmaRz
+        Parameters
+        ----------
+        R : float or Quantity
+            Radius at which to calculate this.
+        z : float or Quantity
+            Height at which to calculate this.
+        nsigma : int, optional
+            Number of sigma to integrate the velocities over.
+        mc : bool, optional
+            If True, calculate using Monte Carlo integration.
+        nmc : int, optional
+            If mc, use nmc samples.
+        gl : bool, optional
+            If True, calculate using Gauss-Legendre integration.
+        ngl : int, optional
+            If gl, use ngl-th order Gauss-Legendre integration for each dimension.
+        **kwargs
+            scipy.integrate.tplquad kwargs epsabs and epsrel.
 
-        PURPOSE:
+        Returns
+        -------
+        float
+            sigma_Rz^2.
 
-           calculate sigma_RZ^2 by marginalizing over velocity
-
-        INPUT:
-
-           R - radius at which to calculate this (can be Quantity)
-
-           z - height at which to calculate this (can be Quantity)
-
-        OPTIONAL INPUT:
-
-           nsigma - number of sigma to integrate the velocities over
-
-           scipy.integrate.tplquad kwargs epsabs and epsrel
-
-           mc= if True, calculate using Monte Carlo integration
-
-           nmc= if mc, use nmc samples
-
-           gl= if True, calculate using Gauss-Legendre integration
-
-           ngl= if gl, use ngl-th order Gauss-Legendre integration for each dimension
-
-        OUTPUT:
-
-           sigma_Rz^2
-
-        HISTORY:
-
-           2012-07-30 - Written - Bovy (IAS@MPIA)
+        Notes
+        -----
+        - 2012-07-30 - Written - Bovy (IAS@MPIA)
 
         """
         if mc:
@@ -1360,49 +1282,35 @@ class quasiisothermaldf(df):
         self, R, z, nsigma=None, mc=False, nmc=10000, gl=True, ngl=_DEFAULTNGL, **kwargs
     ):
         """
-        NAME:
+        Calculate the tilt of the velocity ellipsoid by marginalizing over velocity.
 
-           tilt
+        Parameters
+        ----------
+        R : float or Quantity
+            Radius at which to calculate this.
+        z : float or Quantity
+            Height at which to calculate this.
+        nsigma : int, optional
+            Number of sigma to integrate the velocities over.
+        mc : bool, optional
+            If True, calculate using Monte Carlo integration.
+        nmc : int, optional
+            If mc, use nmc samples.
+        gl : bool, optional
+            If True, calculate using Gauss-Legendre integration.
+        ngl : int, optional
+            If gl, use ngl-th order Gauss-Legendre integration for each dimension.
 
-        PURPOSE:
+        Returns
+        -------
+        float
+            Tilt in radians.
 
-           calculate the tilt of the velocity ellipsoid by marginalizing over velocity
-
-        INPUT:
-
-           R - radius at which to calculate this (can be Quantity)
-
-           z - height at which to calculate this (can be Quantity)
-
-        OPTIONAL INPUT:
-
-           nsigma - number of sigma to integrate the velocities over
-
-           scipy.integrate.tplquad kwargs epsabs and epsrel
-
-           mc= if True, calculate using Monte Carlo integration
-
-           nmc= if mc, use nmc samples
-
-           gl= if True, calculate using Gauss-Legendre integration
-
-           ngl= if gl, use ngl-th order Gauss-Legendre integration for each dimension
-
-        OUTPUT:
-
-           tilt in rad
-
-        HISTORY:
-
-           2012-12-23 - Written - Bovy (IAS)
-
-           2017-10-28 - Changed return unit to rad - Bovy (UofT)
-
+        Notes
+        -----
+        - 2012-12-23 - Written - Bovy (IAS)
+        - 2017-10-28 - Changed return unit to rad - Bovy (UofT)
         """
-        warnings.warn(
-            "In versions >1.3, the output unit of quasiisothermaldf.tilt has been changed to radian (from degree before)",
-            galpyWarning,
-        )
         if mc:
             surfmass, vrs, vts, vzs = self._vmomentdensity(
                 R,
@@ -1503,41 +1411,35 @@ class quasiisothermaldf(df):
         self, R, z, nsigma=None, mc=False, nmc=10000, gl=True, ngl=_DEFAULTNGL, **kwargs
     ):
         """
-        NAME:
+        Calculate sigma_z^2 by marginalizing over velocity.
 
-           sigmaz2
+        Parameters
+        ----------
+        R : float or Quantity
+            Radius at which to calculate this.
+        z : float or Quantity
+            Height at which to calculate this.
+        nsigma : int, optional
+            Number of sigma to integrate the velocities over.
+        mc : bool, optional
+            If True, calculate using Monte Carlo integration.
+        nmc : int, optional
+            If mc, use nmc samples.
+        gl : bool, optional
+            If True, calculate using Gauss-Legendre integration.
+        ngl : int, optional
+            If gl, use ngl-th order Gauss-Legendre integration for each dimension.
+        **kwargs : dict, optional
+            scipy.integrate.tplquad kwargs epsabs and epsrel.
 
-        PURPOSE:
+        Returns
+        -------
+        float
+            sigma_z^2.
 
-           calculate sigma_z^2 by marginalizing over velocity
-
-        INPUT:
-
-           R - radius at which to calculate this (can be Quantity)
-
-           z - height at which to calculate this (can be Quantity)
-
-        OPTIONAL INPUT:
-
-           nsigma - number of sigma to integrate the velocities over
-
-           scipy.integrate.tplquad kwargs epsabs and epsrel
-
-           mc= if True, calculate using Monte Carlo integration
-
-           nmc= if mc, use nmc samples
-
-           gl= if True, calculate using Gauss-Legendre integration
-
-           ngl= if gl, use ngl-th order Gauss-Legendre integration for each dimension
-
-        OUTPUT:
-
-           sigma_z^2
-
-        HISTORY:
-
-           2012-07-30 - Written - Bovy (IAS@MPIA)
+        Notes
+        -----
+        - 2012-07-30 - Written - Bovy (IAS@MPIA)
 
         """
         if mc:
@@ -1594,41 +1496,35 @@ class quasiisothermaldf(df):
         self, R, z, nsigma=None, mc=False, nmc=10000, gl=True, ngl=_DEFAULTNGL, **kwargs
     ):
         """
-        NAME:
+        Calculate the mean rotational velocity by marginalizing over velocity.
 
-           meanvT
+        Parameters
+        ----------
+        R : float or Quantity
+            Radius at which to calculate this.
+        z : float or Quantity
+            Height at which to calculate this.
+        nsigma : float, optional
+            Number of sigma to integrate the velocities over.
+        mc : bool, optional
+            If True, calculate using Monte Carlo integration.
+        nmc : int, optional
+            If mc, use nmc samples.
+        gl : bool, optional
+            If True, calculate using Gauss-Legendre integration.
+        ngl : int, optional
+            If gl, use ngl-th order Gauss-Legendre integration for each dimension.
+        **kwargs : dict, optional
+            scipy.integrate.tplquad kwargs epsabs and epsrel.
 
-        PURPOSE:
+        Returns
+        -------
+        float
+            Mean rotational velocity.
 
-           calculate the mean rotational velocity by marginalizing over velocity
-
-        INPUT:
-
-           R - radius at which to calculate this (can be Quantity)
-
-           z - height at which to calculate this (can be Quantity)
-
-        OPTIONAL INPUT:
-
-           nsigma - number of sigma to integrate the velocities over
-
-           scipy.integrate.tplquad kwargs epsabs and epsrel
-
-           mc= if True, calculate using Monte Carlo integration
-
-           nmc= if mc, use nmc samples
-
-           gl= if True, calculate using Gauss-Legendre integration
-
-           ngl= if gl, use ngl-th order Gauss-Legendre integration for each dimension
-
-        OUTPUT:
-
-           meanvT
-
-        HISTORY:
-
-           2012-07-30 - Written - Bovy (IAS@MPIA)
+        Notes
+        -----
+        - 2012-07-30 - Written - Bovy (IAS@MPIA)
 
         """
         if mc:
@@ -1685,41 +1581,35 @@ class quasiisothermaldf(df):
         self, R, z, nsigma=None, mc=False, nmc=10000, gl=True, ngl=_DEFAULTNGL, **kwargs
     ):
         """
-        NAME:
+        Calculate the mean radial velocity by marginalizing over velocity.
 
-           meanvR
+        Parameters
+        ----------
+        R : float or Quantity
+            Radius at which to calculate this.
+        z : float or Quantity
+            Height at which to calculate this.
+        nsigma : float, optional
+            Number of sigma to integrate the velocities over.
+        mc : bool, optional
+            If True, calculate using Monte Carlo integration.
+        nmc : int, optional
+            If mc, use nmc samples.
+        gl : bool, optional
+            If True, calculate using Gauss-Legendre integration.
+        ngl : int, optional
+            If gl, use ngl-th order Gauss-Legendre integration for each dimension.
+        **kwargs : dict, optional
+            scipy.integrate.tplquad kwargs epsabs and epsrel.
 
-        PURPOSE:
+        Returns
+        -------
+        float
+            Mean radial velocity.
 
-           calculate the mean radial velocity by marginalizing over velocity
-
-        INPUT:
-
-           R - radius at which to calculate this (can be Quantity)
-
-           z - height at which to calculate this (can be Quantity)
-
-        OPTIONAL INPUT:
-
-           nsigma - number of sigma to integrate the velocities over
-
-           scipy.integrate.tplquad kwargs epsabs and epsrel
-
-           mc= if True, calculate using Monte Carlo integration
-
-           nmc= if mc, use nmc samples
-
-           gl= if True, calculate using Gauss-Legendre integration
-
-           ngl= if gl, use ngl-th order Gauss-Legendre integration for each dimension
-
-        OUTPUT:
-
-           meanvR
-
-        HISTORY:
-
-           2012-12-23 - Written - Bovy (IAS)
+        Notes
+        -----
+        - 2012-12-23 - Written - Bovy (IAS)
 
         """
         if mc:
@@ -1776,42 +1666,35 @@ class quasiisothermaldf(df):
         self, R, z, nsigma=None, mc=False, nmc=10000, gl=True, ngl=_DEFAULTNGL, **kwargs
     ):
         """
-        NAME:
+        Calculate the mean vertical velocity by marginalizing over velocity.
 
-           meanvz
+        Parameters
+        ----------
+        R : float or Quantity
+            Radius at which to calculate this.
+        z : float or Quantity
+            Height at which to calculate this.
+        nsigma : float, optional
+            Number of sigma to integrate the velocities over.
+        mc : bool, optional
+            If True, calculate using Monte Carlo integration.
+        nmc : int, optional
+            If mc, use nmc samples.
+        gl : bool, optional
+            If True, calculate using Gauss-Legendre integration.
+        ngl : int, optional
+            If gl, use ngl-th order Gauss-Legendre integration for each dimension.
+        **kwargs : dict, optional
+            scipy.integrate.tplquad kwargs epsabs and epsrel.
 
-        PURPOSE:
+        Returns
+        -------
+        float
+            Mean vertical velocity
 
-           calculate the mean vertical velocity by marginalizing over velocity
-
-        INPUT:
-
-           R - radius at which to calculate this (can be Quantity)
-
-           z - height at which to calculate this (can be Quantity)
-
-        OPTIONAL INPUT:
-
-           nsigma - number of sigma to integrate the velocities over
-
-           scipy.integrate.tplquad kwargs epsabs and epsrel
-
-           mc= if True, calculate using Monte Carlo integration
-
-           nmc= if mc, use nmc samples
-
-           gl= if True, calculate using Gauss-Legendre integration
-
-           ngl= if gl, use ngl-th order Gauss-Legendre integration for each dimension
-
-        OUTPUT:
-
-           meanvz
-
-        HISTORY:
-
-           2012-12-23 - Written - Bovy (IAS)
-
+        Notes
+        -----
+        - 2012-12-23 - Written - Bovy (IAS)
         """
         if mc:
             surfmass, vrs, vts, vzs = self._vmomentdensity(
@@ -1867,41 +1750,35 @@ class quasiisothermaldf(df):
         self, R, z, nsigma=None, mc=False, nmc=10000, gl=True, ngl=_DEFAULTNGL, **kwargs
     ):
         """
-        NAME:
+        Calculate sigma_T^2 by marginalizing over velocity.
 
-           sigmaT2
+        Parameters
+        ----------
+        R : float or Quantity
+            Radius at which to calculate this.
+        z : float or Quantity
+            Height at which to calculate this.
+        nsigma : int, optional
+            Number of sigma to integrate the velocities over.
+        mc : bool, optional
+            If True, calculate using Monte Carlo integration.
+        nmc : int, optional
+            If mc is True, use nmc samples.
+        gl : bool, optional
+            If True, calculate using Gauss-Legendre integration.
+        ngl : int, optional
+            If gl is True, use ngl-th order Gauss-Legendre integration for each dimension.
+        **kwargs
+            scipy.integrate.tplquad kwargs epsabs and epsrel.
 
-        PURPOSE:
+        Returns
+        -------
+        float
+            sigma_T^2.
 
-           calculate sigma_T^2 by marginalizing over velocity
-
-        INPUT:
-
-           R - radius at which to calculate this (can be Quantity)
-
-           z - height at which to calculate this (can be Quantity)
-
-        OPTIONAL INPUT:
-
-           nsigma - number of sigma to integrate the velocities over
-
-           scipy.integrate.tplquad kwargs epsabs and epsrel
-
-           mc= if True, calculate using Monte Carlo integration
-
-           nmc= if mc, use nmc samples
-
-           gl= if True, calculate using Gauss-Legendre integration
-
-           ngl= if gl, use ngl-th order Gauss-Legendre integration for each dimension
-
-        OUTPUT:
-
-           sigma_T^2
-
-        HISTORY:
-
-           2012-07-30 - Written - Bovy (IAS@MPIA)
+        Notes
+        -----
+        - 2012-07-30 - Written - Bovy (IAS@MPIA)
 
         """
         if mc:
@@ -1994,37 +1871,31 @@ class quasiisothermaldf(df):
     @physical_conversion("action", pop=True)
     def meanjr(self, R, z, nsigma=None, mc=True, nmc=10000, **kwargs):
         """
-        NAME:
+        Calculate the mean radial action by marginalizing over velocity
 
-           meanjr
+        Parameters
+        ----------
+        R : float or Quantity
+            Radius at which to calculate this
+        z : float or Quantity
+            Height at which to calculate this
+        nsigma : float, optional
+            Number of sigma to integrate the velocities over
+        mc : bool, optional
+            If True, calculate using Monte Carlo integration
+        nmc : int, optional
+            If mc, use nmc samples
+        **kwargs : dict
+            scipy.integrate.tplquad kwargs epsabs and epsrel
 
-        PURPOSE:
+        Returns
+        -------
+        float
+            Mean jr
 
-           calculate the mean radial action by marginalizing over velocity
-
-        INPUT:
-
-           R - radius at which to calculate this (can be Quantity)
-
-           z - height at which to calculate this (can be Quantity)
-
-        OPTIONAL INPUT:
-
-           nsigma - number of sigma to integrate the velocities over
-
-           scipy.integrate.tplquad kwargs epsabs and epsrel
-
-           mc= if True, calculate using Monte Carlo integration
-
-           nmc= if mc, use nmc samples
-
-        OUTPUT:
-
-           meanjr
-
-        HISTORY:
-
-           2012-08-09 - Written - Bovy (IAS@MPIA)
+        Notes
+        -----
+        - 2012-08-09 - Written - Bovy (IAS@MPIA)
 
         """
         if mc:
@@ -2069,39 +1940,34 @@ class quasiisothermaldf(df):
     @physical_conversion("action", pop=True)
     def meanlz(self, R, z, nsigma=None, mc=True, nmc=10000, **kwargs):
         """
-        NAME:
+        Calculate the mean angular momentum by marginalizing over velocity.
 
-           meanlz
+        Parameters
+        ----------
+        R : float or Quantity
+            Radius at which to calculate this.
+        z : float or Quantity
+            Height at which to calculate this.
+        nsigma : float, optional
+            Number of sigma to integrate the velocities over.
+        mc : bool, optional
+            If True, calculate using Monte Carlo integration.
+        nmc : int, optional
+            If mc, use nmc samples.
+        **kwargs
+            scipy.integrate.tplquad kwargs epsabs and epsrel.
 
-        PURPOSE:
+        Returns
+        -------
+        float
+            Mean angular momentum.
 
-           calculate the mean angular momentum by marginalizing over velocity
-
-        INPUT:
-
-           R - radius at which to calculate this (can be Quantity)
-
-           z - height at which to calculate this (can be Quantity)
-
-        OPTIONAL INPUT:
-
-           nsigma - number of sigma to integrate the velocities over
-
-           scipy.integrate.tplquad kwargs epsabs and epsrel
-
-           mc= if True, calculate using Monte Carlo integration
-
-           nmc= if mc, use nmc samples
-
-        OUTPUT:
-
-           meanlz
-
-        HISTORY:
-
-           2012-08-09 - Written - Bovy (IAS@MPIA)
+        Notes
+        -----
+        - 2012-08-09 - Written - Bovy (IAS@MPIA)
 
         """
+
         if mc:
             surfmass, vrs, vts, vzs = self._vmomentdensity(
                 R,
@@ -2144,37 +2010,31 @@ class quasiisothermaldf(df):
     @physical_conversion("action", pop=True)
     def meanjz(self, R, z, nsigma=None, mc=True, nmc=10000, **kwargs):
         """
-        NAME:
+        Calculate the mean vertical action by marginalizing over velocity.
 
-           meanjz
+        Parameters
+        ----------
+        R : float or Quantity
+            Radius at which to calculate this.
+        z : float or Quantity
+            Height at which to calculate this.
+        nsigma : float, optional
+            Number of sigma to integrate the velocities over.
+        mc : bool, optional
+            If True, calculate using Monte Carlo integration.
+        nmc : int, optional
+            If mc, use nmc samples.
+        **kwargs : dict
+            scipy.integrate.tplquad kwargs epsabs and epsrel.
 
-        PURPOSE:
+        Returns
+        -------
+        float
+            Mean jz.
 
-           calculate the mean vertical action by marginalizing over velocity
-
-        INPUT:
-
-           R - radius at which to calculate this (can be Quantity)
-
-           z - height at which to calculate this (can be Quantity)
-
-        OPTIONAL INPUT:
-
-           nsigma - number of sigma to integrate the velocities over
-
-           scipy.integrate.tplquad kwargs epsabs and epsrel
-
-           mc= if True, calculate using Monte Carlo integration
-
-           nmc= if mc, use nmc samples
-
-        OUTPUT:
-
-           meanjz
-
-        HISTORY:
-
-           2012-08-09 - Written - Bovy (IAS@MPIA)
+        Notes
+        -----
+        - 2012-08-09 - Written - Bovy (IAS@MPIA)
 
         """
         if mc:
@@ -2218,30 +2078,25 @@ class quasiisothermaldf(df):
     @potential_physical_input
     def sampleV(self, R, z, n=1, **kwargs):
         """
-        NAME:
+        Sample a radial, azimuthal, and vertical velocity at R,z
 
-           sampleV
+        Parameters
+        ----------
+        R : float or Quantity
+            Galactocentric distance.
+        z : float or Quantity
+            Height.
+        n : int, optional
+            Number of distances to sample.
 
-        PURPOSE:
+        Returns
+        -------
+        list
+            List of samples.
 
-           sample a radial, azimuthal, and vertical velocity at R,z
-
-        INPUT:
-
-           R - Galactocentric distance (can be Quantity)
-
-           z - height (can be Quantity)
-
-           n= number of distances to sample
-
-        OUTPUT:
-
-           list of samples
-
-        HISTORY:
-
-           2012-12-17 - Written - Bovy (IAS)
-
+        Notes
+        -----
+        - 2012-12-17 - Written - Bovy (IAS@MPIA)
         """
         use_physical = kwargs.pop("use_physical", True)
         vo = kwargs.pop("vo", None)
@@ -2317,38 +2172,35 @@ class quasiisothermaldf(df):
         **kwargs
     ):
         """
-        NAME:
+        Sample radial, azimuthal, and vertical velocity at R,z using interpolation.
 
-            sampleV_interpolate
+        Parameters
+        ----------
+        R : numpy.ndarray or Quantity
+            Galactocentric distance.
+        z : numpy.ndarray or Quantity
+            Height.
+        R_pixel : float
+            The pixel size for creating the grid for interpolation (in natural units).
+        z_pixel : float
+            The pixel size for creating the grid for interpolation (in natural units).
+        num_std : float, optional
+            Number of standard deviation to be considered outliers sampled separately from interpolation.
+        R_min : float, optional
+            Minimum R value for the grid.
+        R_max : float, optional
+            Maximum R value for the grid.
+        z_max : float, optional
+            Maximum z value for the grid.
 
-        PURPOSE:
+        Returns
+        -------
+        numpy.ndarray
+            A numpy array containing the sampled velocity, (vR, vT, vz), where each row corresponds to the row of (R,z).
 
-            Given an array of R and z coordinates of stars, return the
-            positions and their radial, azimuthal, and vertical velocity.
-
-        INPUT:
-
-            R - array of Galactocentric distance (can be Quantity)
-
-            z - array of height (can be Quantity)
-
-            R_pixel, z_pixel= the pixel size for creating the grid for
-                   interpolation (in natural unit)
-
-            num_std= number of standard deviation to be considered outliers
-                      sampled separately from interpolation
-
-            R_min, R_max, z_max= optional edges of the grid
-
-        OUTPUT:
-
-            coord_v= a numpy array containing the sampled velocity, (vR, vT, vz),
-                     where each row correspond to the row of (R,z)
-
-        HISTORY:
-
-            2018-08-10 - Written - Samuel Wong (University of Toronto)
-
+        Notes
+        -----
+        - 2018-08-10 - Written - Samuel Wong (University of Toronto)
         """
         use_physical = kwargs.pop("use_physical", True)
         vo = kwargs.pop("vo", None)
@@ -2441,31 +2293,25 @@ class quasiisothermaldf(df):
 
     def _sampleV_preoptimized(self, R, z, maxVT):
         """
-        NAME:
+        Sample a radial, azimuthal, and vertical velocity at R,z.
 
-           _sampleV_preoptimized
+        Parameters
+        ----------
+        R : float or numpy.ndarray
+            Galactocentric distance.
+        z : float or numpy.ndarray
+            Height.
+        maxVT : numpy.ndarray
+            An array of pre-optimized maximum vT at corresponding R,z.
 
-        PURPOSE:
+        Returns
+        -------
+        numpy.ndarray
+            A numpy array containing the sampled velocity, (vR, vT, vz), where each row correspond to the row of (R,z).
 
-           sample a radial, azimuthal, and vertical velocity at R,z;
-           R,z can be an array of positions maxVT is already optimized
-
-        INPUT:
-
-           R - Galactocentric distance (can be Quantity)
-
-           z - height (can be Quantity)
-
-           maxVT - an array of pre-optimized maximum vT at corresponding R,z
-
-        OUTPUT:
-
-           a numpy array containing the sampled velocity, (vR, vT, vz),
-           where each row correspond to the row of (R,z)
-
-        HISTORY:
-
-           2018-08-09 - Written - Samuel Wong (University of Toronto)
+        Notes
+        -----
+        - 2018-08-10 - Written - Samuel Wong (University of Toronto)
 
         """
         length = numpy.size(R)
@@ -2518,37 +2364,33 @@ class quasiisothermaldf(df):
     @physical_conversion("phasespacedensityvelocity2", pop=True)
     def pvR(self, vR, R, z, gl=True, ngl=_DEFAULTNGL2, nsigma=4.0, vTmax=1.5):
         """
-        NAME:
+        Calculate the marginalized vR probability at this location (NOT normalized by the density).
 
-           pvR
+        Parameters
+        ----------
+        vR : float or Quantity
+            Radial velocity.
+        R : float or Quantity
+            Radius.
+        z : float or Quantity
+            Height.
+        gl : bool, optional
+            If True, use Gauss-Legendre integration.
+        ngl : int, optional
+            If gl, use ngl-th order Gauss-Legendre integration for each dimension.
+        nsigma : float, optional
+            Number of sigma to integrate the velocities over.
+        vTmax : float, optional
+            Sets integration limits to [0,vTmax] for integration over vT.
 
-        PURPOSE:
+        Returns
+        -------
+        float
+            p(vR,R,z).
 
-           calculate the marginalized vR probability at this location (NOT normalized by the density)
-
-        INPUT:
-
-           vR - radial velocity (can be Quantity)
-
-           R - radius (can be Quantity)
-
-           z - height (can be Quantity)
-
-           gl - use Gauss-Legendre integration (True, currently the only option)
-
-           ngl - order of Gauss-Legendre integration
-
-           nsigma - sets integration limits to [-1,+1]*nsigma*sigma_z(R) for integration over vz (default: 4)
-
-           vTmax - sets integration limits to [0,vTmax] for integration over vT (default: 1.5)
-
-        OUTPUT:
-
-           p(vR,R,z)
-
-        HISTORY:
-
-           2012-12-22 - Written - Bovy (IAS)
+        Notes
+        -----
+        - 2012-12-22 - Written - Bovy (IAS@MPIA)
 
         """
         sigmaz1 = self._sz * numpy.exp((self._refr - R) / self._hsz)
@@ -2614,36 +2456,32 @@ class quasiisothermaldf(df):
     @physical_conversion("phasespacedensityvelocity2", pop=True)
     def pvT(self, vT, R, z, gl=True, ngl=_DEFAULTNGL2, nsigma=4.0):
         """
-        NAME:
+        Calculate the marginalized vT probability at this location (NOT normalized by the density).
 
-           pvT
+        Parameters
+        ----------
+        vT : float or Quantity
+            Azimuthal velocity.
+        R : float or Quantity
+            Radius.
+        z : float or Quantity
+            Height.
+        gl : bool, optional
+            If True, use Gauss-Legendre integration.
+        ngl : int, optional
+            If gl, use ngl-th order Gauss-Legendre integration for each dimension.
+        nsigma : float, optional
+            Number of sigma to integrate the velocities over.
 
-        PURPOSE:
+        Returns
+        -------
+        float
+            p(vT,R,z).
 
-           calculate the marginalized vT probability at this location (NOT normalized by the density)
-
-        INPUT:
-
-           vT - rotational velocity (can be Quantity)
-
-           R - radius (can be Quantity)
-
-           z - height (can be Quantity)
-
-           gl - use Gauss-Legendre integration (True, currently the only option)
-
-           ngl - order of Gauss-Legendre integration
-
-           nsigma - sets integration limits to [-1,+1]*nsigma*sigma(R) for integration over vz and vR (default: 4)
-
-        OUTPUT:
-
-           p(vT,R,z)
-
-        HISTORY:
-
-           2012-12-22 - Written - Bovy (IAS)
-           2018-01-12 - Added Gauss-Legendre integration prefactor nsigma^2/4 - Trick (MPA)
+        Notes
+        -----
+        - 2012-12-22 - Written - Bovy (IAS@MPIA)
+        - 2018-01-12 - Added Gauss-Legendre integration prefactor nsigma^2/4 - Trick (MPA)
 
         """
         sigmaR1 = self._sr * numpy.exp((self._refr - R) / self._hsr)
@@ -2741,38 +2579,33 @@ class quasiisothermaldf(df):
         _sigmaR1=None,
     ):
         """
-        NAME:
+        Calculate the marginalized vz probability at this location (NOT normalized by the density).
 
-           pvz
+        Parameters
+        ----------
+        vz : float or Quantity
+            Vertical velocity.
+        R : float or Quantity
+            Radius.
+        z : float or Quantity
+            Height.
+        gl : bool, optional
+            If True, use Gauss-Legendre integration.
+        ngl : int, optional
+            If gl, use ngl-th order Gauss-Legendre integration for each dimension.
+        nsigma : float, optional
+            Number of sigma to integrate the velocities over.
+        vTmax : float, optional
+            Sets integration limits to [0,vTmax] for integration over vT.
 
-        PURPOSE:
+        Returns
+        -------
+        float
+            p(vz,R,z).
 
-           calculate the marginalized vz probability at this location (NOT normalized by the density)
-
-        INPUT:
-
-           vz - vertical velocity (can be Quantity)
-
-           R - radius (can be Quantity)
-
-           z - height (can be Quantity)
-
-           gl - use Gauss-Legendre integration (True, currently the only option)
-
-           ngl - order of Gauss-Legendre integration
-
-           nsigma - sets integration limits to [-1,+1]*nsigma*sigma_R(R) for integration over vR (default: 4)
-
-           vTmax - sets integration limits to [0,vTmax] for integration over vT (default: 1.5)
-
-        OUTPUT:
-
-           p(vz,R,z)
-
-        HISTORY:
-
-           2012-12-22 - Written - Bovy (IAS)
-
+        Notes
+        -----
+        - 2012-12-22 - Written - Bovy (IAS)
         """
         if _sigmaR1 is None:
             sigmaR1 = self._sr * numpy.exp((self._refr - R) / self._hsr)
@@ -2920,39 +2753,34 @@ class quasiisothermaldf(df):
     @physical_conversion("phasespacedensityvelocity", pop=True)
     def pvRvT(self, vR, vT, R, z, gl=True, ngl=_DEFAULTNGL2, nsigma=4.0):
         """
-        NAME:
+        Calculate the marginalized (vR,vT) probability at this location (NOT normalized by the density).
 
-           pvRvT
+        Parameters
+        ----------
+        vR : float or Quantity
+            Radial velocity.
+        vT : float or Quantity
+            Azimuthal velocity.
+        R : float or Quantity
+            Radius.
+        z : float or Quantity
+            Height.
+        gl : bool, optional
+            If True, use Gauss-Legendre integration.
+        ngl : int, optional
+            If gl, use ngl-th order Gauss-Legendre integration for each dimension.
+        nsigma : float, optional
+            Number of sigma to integrate the velocities over.
 
-        PURPOSE:
+        Returns
+        -------
+        float
+            p(vR,vT,R,z).
 
-           calculate the marginalized (vR,vT) probability at this location (NOT normalized by the density)
-
-        INPUT:
-
-           vR - radial velocity (can be Quantity)
-
-           vT - rotational velocity (can be Quantity)
-
-           R - radius (can be Quantity)
-
-           z - height (can be Quantity)
-
-           gl - use Gauss-Legendre integration (True, currently the only option)
-
-           ngl - order of Gauss-Legendre integration
-
-           nsigma - sets integration limits to [-1,+1]*nsigma*sigma_z(R) for integration over vz (default: 4)
-
-        OUTPUT:
-
-           p(vR,vT,R,z)
-
-        HISTORY:
-
-           2013-01-02 - Written - Bovy (IAS)
-           2018-01-12 - Added Gauss-Legendre integration prefactor nsigma/2 - Trick (MPA)
-
+        Notes
+        -----
+        - 2012-12-22 - Written - Bovy (IAS)
+        - 2018-01-12 - Added Gauss-Legendre integration prefactor nsigma/2 - Trick (MPA)
         """
         sigmaz1 = self._sz * numpy.exp((self._refr - R) / self._hsz)
         if gl:
@@ -3007,38 +2835,34 @@ class quasiisothermaldf(df):
     @physical_conversion("phasespacedensityvelocity", pop=True)
     def pvTvz(self, vT, vz, R, z, gl=True, ngl=_DEFAULTNGL2, nsigma=4.0):
         """
-        NAME:
+        Calculate the marginalized (vT,vz) probability at this location (NOT normalized by the density).
 
-           pvTvz
+        Parameters
+        ----------
+        vT : float or Quantity
+            Azimuthal velocity.
+        vz : float or Quantity
+            Vertical velocity.
+        R : float or Quantity
+            Radius.
+        z : float or Quantity
+            Height.
+        gl : bool, optional
+            If True, use Gauss-Legendre integration.
+        ngl : int, optional
+            If gl, use ngl-th order Gauss-Legendre integration for each dimension.
+        nsigma : float, optional
+            Number of sigma to integrate the velocities over.
 
-        PURPOSE:
+        Returns
+        -------
+        float or Quantity
+            p(vT,vz,R,z).
 
-           calculate the marginalized (vT,vz) probability at this location (NOT normalized by the density)
-
-        INPUT:
-
-           vT - rotational velocity (can be Quantity)
-
-           vz - vertical velocity (can be Quantity)
-
-           R - radius (can be Quantity)
-
-           z - height (can be Quantity)
-
-           gl - use Gauss-Legendre integration (True, currently the only option)
-
-           ngl - order of Gauss-Legendre integration
-
-           nsigma - sets integration limits to [-1,+1]*nsigma*sigma_R(R) for integration over vR (default: 4)
-
-        OUTPUT:
-
-           p(vT,vz,R,z)
-
-        HISTORY:
-
-           2012-12-22 - Written - Bovy (IAS)
-           2018-01-12 - Added Gauss-Legendre integration prefactor nsigma/2 - Trick (MPA)
+        Notes
+        -----
+        - 2012-12-22 - Written - Bovy (IAS)
+        - 2018-01-12 - Added Gauss-Legendre integration prefactor nsigma/2 - Trick (MPA)
 
         """
         sigmaR1 = self._sr * numpy.exp((self._refr - R) / self._hsr)
@@ -3094,39 +2918,34 @@ class quasiisothermaldf(df):
     @physical_conversion("phasespacedensityvelocity", pop=True)
     def pvRvz(self, vR, vz, R, z, gl=True, ngl=_DEFAULTNGL2, vTmax=1.5):
         """
-        NAME:
+        Calculate the marginalized (vR,vz) probability at this location (NOT normalized by the density).
 
-           pvR
+        Parameters
+        ----------
+        vR : float or Quantity
+            Radial velocity.
+        vz : float or Quantity
+            Vertical velocity.
+        R : float or Quantity
+            Radius.
+        z : float or Quantity
+            Height.
+        gl : bool, optional
+            If True, use Gauss-Legendre integration.
+        ngl : int, optional
+            If gl, use ngl-th order Gauss-Legendre integration for each dimension.
+        vTmax : float, optional
+            Sets integration limits to [0,vTmax] for integration over vT.
 
-        PURPOSE:
+        Returns
+        -------
+        float or Quantity
+            p(vR,vz,R,z).
 
-           calculate the marginalized (vR,vz) probability at this location (NOT normalized by the density)
-
-        INPUT:
-
-           vR - radial velocity (can be Quantity)
-
-           vz - vertical velocity (can be Quantity)
-
-           R - radius (can be Quantity)
-
-           z - height (can be Quantity)
-
-           gl - use Gauss-Legendre integration (True, currently the only option)
-
-           ngl - order of Gauss-Legendre integration
-
-           vTmax - sets integration limits to [0,vTmax] for integration over vT (default: 1.5)
-
-        OUTPUT:
-
-           p(vR,vz,R,z)
-
-        HISTORY:
-
-           2013-01-02 - Written - Bovy (IAS)
-           2018-01-12 - Added Gauss-Legendre integration prefactor vTmax/2 - Trick (MPA)
-
+        Notes
+        -----
+        - 2013-01-02 - Written - Bovy (IAS)
+        - 2018-01-12 - Added Gauss-Legendre integration prefactor vTmax/2 - Trick (MPA)
         """
         if gl:
             if ngl % 2 == 1:
@@ -3174,56 +2993,61 @@ class quasiisothermaldf(df):
 
     def _calc_epifreq(self, r):
         """
-        NAME:
-           _calc_epifreq
-        PURPOSE:
-           calculate the epicycle frequency at r
-        INPUT:
-           r - radius
-        OUTPUT:
-           kappa
-        HISTORY:
-           2012-07-25 - Written - Bovy (IAS@MPIA)
-        NOTE:
-           takes about 0.1 ms for a Miyamoto-Nagai potential
+        Calculate the epicycle frequency at r.
+
+        Parameters
+        ----------
+        r : float
+            Radius.
+
+        Returns
+        -------
+        float
+            Epicycle frequency.
+
+        Notes
+        -----
+        - 2012-07-25 - Written - Bovy (IAS@MPIA)
         """
         return potential.epifreq(self._pot, r)
 
     def _calc_verticalfreq(self, r):
         """
-        NAME:
-           _calc_verticalfreq
-        PURPOSE:
-           calculate the vertical frequency at r
-        INPUT:
-           r - radius
-        OUTPUT:
-           nu
-        HISTORY:
-           2012-07-25 - Written - Bovy (IAS@MPIA)
-        NOTE:
-           takes about 0.05 ms for a Miyamoto-Nagai potential
+        Calculate the vertical frequency at r.
+
+        Parameters
+        ----------
+        r : float
+            Radius.
+
+        Returns
+        -------
+        float
+            Vertical frequency.
+
+        Notes
+        -----
+        - 2012-07-25 - Written - Bovy (IAS@MPIA)
         """
         return potential.verticalfreq(self._pot, r)
 
     def _rg(self, lz):
         """
-        NAME:
-           _rg
-        PURPOSE:
-           calculate the radius of a circular orbit of Lz
-        INPUT:
-           lz - Angular momentum
-        OUTPUT:
-           radius
-        HISTORY:
-           2012-07-25 - Written - Bovy (IAS@MPIA)
-        NOTE:
-           seems to take about ~0.5 ms for a Miyamoto-Nagai potential;
-           ~0.75 ms for a MWPotential
-           about the same with or without interpolation of the rotation curve
+        Calculate the radius of a circular orbit of Lz.
 
-           Not sure what to do about negative lz...
+        Parameters
+        ----------
+        lz : float
+            Angular momentum.
+
+        Returns
+        -------
+        float
+            Radius.
+
+        Notes
+        -----
+        - 2012-07-25 - Written - Bovy (IAS@MPIA)
         """
         if isinstance(lz, numpy.ndarray):
             indx = (lz > self._precomputergLzmax) * (lz < self._precomputergLzmin)

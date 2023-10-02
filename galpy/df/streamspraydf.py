@@ -29,46 +29,39 @@ class streamspraydf(df):
         vo=None,
     ):
         """
-        NAME:
+        Initialize a stream spray DF model of a tidal stream
 
-           __init__
-        PURPOSE:
+        Parameters
+        ----------
+        progenitor_mass : float or Quantity
+            Mass of the progenitor.
+        progenitor : galpy.orbit.Orbit, optional
+            Progenitor orbit as Orbit instance (will be re-integrated, so don't bother integrating the orbit before).
+        pot : galpy.potential.Potential or list of such instances, optional
+            Potential for integrating orbits.
+        rtpot : galpy.potential.Potential or list of such instances, optional
+            Potential for calculating tidal radius and circular velocity (should generally be the same as pot, but sometimes you need to drop parts of the potential that don't allow the tidal radius / circular velocity to be computed, such as velocity-dependent forces; when using center, rtpot should be the relevant potential in the frame of the center, thus, also being different from pot).
+        tdisrupt : float or Quantity, optional
+            Time since start of disruption. Default is 5 Gyr.
+        leading : bool, optional
+            If True, model the leading part of the stream. If False, model the trailing part. Default is True.
+        center : galpy.orbit.Orbit, optional
+            Orbit instance that represents the center around which the progenitor is orbiting for the purpose of stream formation; allows for a stream to be generated from a progenitor orbiting a moving object, like a satellite galaxy. Integrated internally using centerpot.
+        centerpot : galpy.potential.Potential or list of such instances, optional
+            Potential for calculating the orbit of the center; this might be different from the potential that the progenitor is integrated in if, for example, dynamical friction is important for the orbit of the center (if it's a satellite).
+        meankvec : list or array, optional
+            Mean of the action-angle distribution. Default is [2.0, 0.0, 0.3, 0.0, 0.0, 0.0].
+        sigkvec : list or array, optional
+            Dispersion of the action-angle distribution. Default is [0.4, 0.0, 0.4, 0.5, 0.5, 0.0].
+        ro : float or Quantity, optional
+            Distance scale for translation into internal units (default from configuration file).
+        vo : float or Quantity, optional
+            Velocity scale for translation into internal units (default from configuration file).
 
-           Initialize a stream spray DF model of a tidal stream
-
-        INPUT:
-
-           progenitor_mass - mass of the progenitor (can be Quantity)
-
-           tdisrupt= (5 Gyr) time since start of disruption (can be Quantity)
-
-           leading= (True) if True, model the leading part of the stream
-                           if False, model the trailing part
-
-           progenitor= progenitor orbit as Orbit instance (will be re-integrated, so don't bother integrating the orbit before)
-
-           meankvec= (Fardal+2015-ish defaults)
-
-           sigkvec= (Fardal+2015-ish defaults)
-
-           pot = (None) potential for integrating orbits
-
-           rtpot = (pot) potential for calculating tidal radius and circular velocity (should generally be the same as pot, but sometimes you need to drop parts of the potential that don't allow the tidal radius / circular velocity to be computed, such as velocity-dependent forces; when using center, rtpot should be the relevant potential in the frame of the center, thus, also being different from pot)
-
-           center = (None) Orbit instance that represents the center around which the progenitor is orbiting for the purpose of stream formation; allows for a stream to be generated from a progenitor orbiting a moving object, like a satellite galaxy. Integrated internally using centerpot.
-
-           centerpot = (pot) potential for calculating the orbit of the center; this might be different from the potential that the progenitor is integrated in if, for example, dynamical friction is important for the orbit of the center (if it's a satellite).
-
-        OUTPUT:
-
-            Instance
-
-        HISTORY:
-
-           2018-07-31 - Written - Bovy (UofT)
-
-           2021-05-05 - Added center keyword - Yansong Qian (UofT)
-
+        Notes
+        -----
+        - 2018-07-31 - Written - Bovy (UofT)
+        - 2021-05-05 - Added center keyword - Yansong Qian (UofT)
         """
         df.__init__(self, ro=ro, vo=vo)
         self._progenitor_mass = conversion.parse_mass(
@@ -119,38 +112,28 @@ class streamspraydf(df):
 
     def sample(self, n, return_orbit=True, returndt=False, integrate=True):
         """
-        NAME:
+        Sample from the DF
 
-            sample
+        Parameters
+        ----------
+        n : int
+            Number of points to return.
+        return_orbit : bool, optional
+            If True, the output phase-space positions is an orbit.Orbit object. If False, the output is (R,vR,vT,z,vz,phi). Default is True.
+        returndt : bool, optional
+            If True, also return the time since the star was stripped. Default is False.
+        integrate : bool, optional
+            If True, integrate the orbits to the present time. If False, return positions at stripping (probably want to combine with returndt=True then to make sense of them!). Default is True.
 
-        PURPOSE:
+        Returns
+        -------
+        Orbit, numpy.ndarray, or tuple
+            Orbit instance or (R,vR,vT,z,vz,phi) of points on the stream in 6,N array (set of 6 Quantities when physical output is on); optionally the time is included as well. The ro/vo unit-conversion parameters and the zo/solarmotion parameters as well as whether physical outputs are on, match the settings of the progenitor Orbit given to the class initialization
 
-            sample from the DF
-
-        INPUT:
-
-            n - number of points to return
-
-            return_orbit= (True) If True, the output phase-space positions is an orbit.Orbit object, if False, the output is (R,vR,vT,z,vz,phi)
-
-            returndt= (False) if True, also return the time since the star was stripped
-
-            integrate= (True) if True, integrate the orbits to the present time, if False, return positions at stripping (probably want to combine with returndt=True then to make sense of them!)
-
-            xy= (False) if True, return Galactocentric rectangular coordinates
-
-            lb= (False) if True, return Galactic l,b,d,vlos,pmll,pmbb coordinates
-
-        OUTPUT:
-
-            Orbit instance or (R,vR,vT,z,vz,phi) of points on the stream in 6,N array (set of 6 Quantities when physical output is on); optionally the time is included as well. The ro/vo unit-conversion parameters and the zo/solarmotion parameters as well as whether physical outputs are on match the settings of the progenitor Orbit given to the class initialization
-
-        HISTORY:
-
-            2018-07-31 - Written - Bovy (UofT)
-
-            2022-05-18 - Made output Orbit ro/vo/zo/solarmotion/roSet/voSet match that of the progenitor orbit - Bovy (UofT)
-
+        Notes
+        -----
+        - 2018-07-31 - Written - Bovy (UofT)
+        - 2022-05-18 - Made output Orbit ro/vo/zo/solarmotion/roSet/voSet match that of the progenitor orbit - Bovy (UofT)
         """
         # First sample times
         dt = numpy.random.uniform(size=n) * self._tdisrupt

@@ -21,33 +21,26 @@ class eddingtondf(isotropicsphericaldf):
 
     def __init__(self, pot=None, denspot=None, rmax=1e4, scale=None, ro=None, vo=None):
         """
-        NAME:
+        Initialize an isotropic distribution function computed using the Eddington inversion.
 
-            __init__
+        Parameters
+        ----------
+        pot : Potential instance or list thereof
+            Represents the gravitational potential (assumed to be spherical).
+        denspot : Potential instance or list thereof, optional
+            Represents the density of the tracers (assumed to be spherical; if None, set equal to pot).
+        rmax : float or Quantity, optional
+            Maximum radius to consider. DF is cut off at E = Phi(rmax).
+        scale : float or Quantity, optional
+            Characteristic scale radius to aid sampling calculations. Optional and will also be overridden by value from pot if available.
+        ro : float or Quantity, optional
+            Distance scale for translation into internal units (default from configuration file).
+        vo : float or Quantity, optional
+            Velocity scale for translation into internal units (default from configuration file).
 
-        PURPOSE:
-
-            Initialize an isotropic distribution function computed using the Eddington inversion
-
-        INPUT:
-
-           pot= (None) Potential instance or list thereof that represents the gravitational potential (assumed to be spherical)
-
-           denspot= (None) Potential instance or list thereof that represent the density of the tracers (assumed to be spherical; if None, set equal to pot)
-
-           rmax= (None) maximum radius to consider (can be Quantity); DF is cut off at E = Phi(rmax)
-
-           scale= Characteristic scale radius to aid sampling calculations. Optionaland will also be overridden by value from pot if available.
-
-           ro=, vo= galpy unit parameters
-
-        OUTPUT:
-
-            None
-
-        HISTORY:
-
-            2021-02-04 - Written - Bovy (UofT)
+        Notes
+        -----
+        - 2021-02-04 - Written - Bovy (UofT)
 
         """
         isotropicsphericaldf.__init__(
@@ -90,25 +83,21 @@ class eddingtondf(isotropicsphericaldf):
 
     def fE(self, E):
         """
-        NAME:
+        Calculate the energy portion of a DF computed using the Eddington inversion
 
-            fE
+        Parameters
+        ----------
+        E : float or Quantity
+            The energy.
 
-        PURPOSE
+        Returns
+        -------
+        fE : ndarray
+            The value of the energy portion of the DF.
 
-            Calculate the energy portion of a DF computed using the Eddington inversion
-
-        INPUT:
-
-            E - The energy (can be Quantity)
-
-        OUTPUT:
-
-            fE - The value of the energy portion of the DF
-
-        HISTORY:
-
-            2021-02-04 - Written - Bovy (UofT)
+        Notes
+        -----
+        - 2021-02-04 - Written - Bovy (UofT)
         """
         Eint = conversion.parse_energy(E, vo=self._vo)
         out = numpy.zeros_like(Eint)

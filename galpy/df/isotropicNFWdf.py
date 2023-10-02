@@ -28,31 +28,24 @@ class isotropicNFWdf(isotropicsphericaldf):
 
     def __init__(self, pot=None, widrow=False, rmax=1e4, ro=None, vo=None):
         """
-        NAME:
+        Initialize an isotropic NFW distribution function
 
-            __init__
+        Parameters
+        ----------
+        pot : NFWPotential instance
+            NFW Potential instance
+        widrow : bool, optional
+            If True, use the approximate form from Widrow (2000), otherwise use improved fit that has <~1e-5 relative density errors
+        rmax : float or Quantity, optional
+            Maximum radius to consider; set to numpy.inf to evaluate NFW w/o cut-off
+        ro : float or Quantity, optional
+            Distance scale for translation into internal units (default from configuration file).
+        vo : float or Quantity, optional
+            Velocity scale for translation into internal units (default from configuration file).
 
-        PURPOSE:
-
-            Initialize an isotropic NFW distribution function
-
-        INPUT:
-
-           pot= (None) NFW Potential instance
-
-           widrow= (False) if True, use the approximate form from Widrow (2000), otherwise use improved fit that has <~1e-5 relative density errors
-
-           rmax= (1e4) maximum radius to consider (can be Quantity); set to numpy.inf to evaluate NFW w/o cut-off
-
-           ro=, vo= galpy unit parameters
-
-        OUTPUT:
-
-            None
-
-        HISTORY:
-
-            2021-02-01 - Written - Bovy (UofT)
+        Notes
+        -----
+        - 2021-02-01 - Written - Bovy (UofT)
 
         """
         assert isinstance(pot, NFWPotential), "pot= must be potential.NFWPotential"
@@ -66,25 +59,21 @@ class isotropicNFWdf(isotropicsphericaldf):
 
     def fE(self, E):
         """
-        NAME:
+        Calculate the energy portion of an isotropic NFW distribution function
 
-            fE
+        Parameters
+        ----------
+        E : float or Quantity
+            The energy.
 
-        PURPOSE
+        Returns
+        -------
+        ndarray
+            The value of the energy portion of the DF.
 
-            Calculate the energy portion of an isotropic NFW distribution function
-
-        INPUT:
-
-            E - The energy (can be Quantity)
-
-        OUTPUT:
-
-            fE - The value of the energy portion of the DF
-
-        HISTORY:
-
-            2021-02-01 - Written - Bovy (UofT)
+        Notes
+        -----
+        - 2021-02-01 - Written - Bovy (UofT)
         """
         Etilde = -conversion.parse_energy(E, vo=self._vo) / self._Etildemax
         out = numpy.zeros_like(Etilde)

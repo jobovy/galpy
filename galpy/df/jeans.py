@@ -17,32 +17,27 @@ _INVSQRTTWO = 1.0 / numpy.sqrt(2.0)
 @physical_conversion("velocity", pop=True)
 def sigmar(Pot, r, dens=None, beta=0.0):
     """
-    NAME:
+    Compute the radial velocity dispersion using the spherical Jeans equation
 
-       sigmar
+    Parameters
+    ----------
+    Pot : potential or list of potentials
+        Gravitational potential; evaluated at R=r/sqrt(2),z=r/sqrt(2), sphericity not checked.
+    r : float or Quantity
+        Galactocentric radius
+    dens : function, optional
+        tracer density profile (function of r); if None, the density is assumed to be that corresponding to the potential
+    beta : float or function, optional
+        anisotropy; can be a constant or a function of r
 
-    PURPOSE:
+    Returns
+    -------
+    float
+        sigma_r(r)
 
-       Compute the radial velocity dispersion using the spherical Jeans equation
-
-    INPUT:
-
-       Pot - potential or list of potentials (evaluated at R=r/sqrt(2),z=r/sqrt(2), sphericity not checked)
-
-       r - Galactocentric radius (can be Quantity)
-
-       dens= (None) tracer density profile (function of r); if None, the density is assumed to be that corresponding to the potential
-
-       beta= (0.) anisotropy; can be a constant or a function of r
-
-    OUTPUT:
-
-       sigma_r(r)
-
-    HISTORY:
-
-       2018-07-05 - Written - Bovy (UofT)
-
+    Notes
+    -----
+    - 2018-07-05 - Written - Bovy (UofT)
     """
     Pot = flatten_pot(Pot)
     if dens is None:
@@ -82,36 +77,31 @@ def sigmar(Pot, r, dens=None, beta=0.0):
 @physical_conversion("velocity", pop=True)
 def sigmalos(Pot, R, dens=None, surfdens=None, beta=0.0, sigma_r=None):
     """
-    NAME:
+    Compute the line-of-sight velocity dispersion using the spherical Jeans equation
 
-       sigmalos
+    Parameters
+    ----------
+    Pot : potential or list of potentials
+        Gravitational potential; evaluated at R=r/sqrt(2),z=r/sqrt(2), sphericity not checked.
+    R : float or Quantity
+        Galactocentric projected radius
+    dens : function, optional
+        tracer density profile (function of r); if None, the density is assumed to be that corresponding to the potential
+    surfdens : float or function, optional
+        tracer surface density profile (value at R or function of R); if None, the surface density is assumed to be that corresponding to the density
+    beta : float or function, optional
+        anisotropy; can be a constant or a function of r
+    sigma_r : float or function, optional
+        if given, the solution of the spherical Jeans equation sigma_r(r) (used instead of solving the Jeans equation as part of this routine)
 
-    PURPOSE:
+    Returns
+    -------
+    float
+        sigma_los(R)
 
-       Compute the line-of-sight velocity dispersion using the spherical Jeans equation
-
-    INPUT:
-
-       Pot - potential or list of potentials (evaluated at R=r/sqrt(2),z=r/sqrt(2), sphericity not checked)
-
-       R - Galactocentric projected radius (can be Quantity)
-
-       dens= (None) tracer density profile (function of r); if None, the density is assumed to be that corresponding to the potential
-
-       surfdens= (None) tracer surface density profile (value at R or function of R); if None, the surface density is assumed to be that corresponding to the density
-
-       beta= (0.) anisotropy; can be a constant or a function of r
-
-       sigma_r= (None) if given, the solution of the spherical Jeans equation sigma_r(r) (used instead of solving the Jeans equation as part of this routine)
-
-    OUTPUT:
-
-       sigma_los(R)
-
-    HISTORY:
-
-       2018-08-27 - Written - Bovy (UofT)
-
+    Notes
+    -----
+    - 2018-08-27 - Written - Bovy (UofT)
     """
     Pot = flatten_pot(Pot)
     if dens is None:

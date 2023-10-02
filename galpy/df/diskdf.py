@@ -70,28 +70,34 @@ class diskdf(df):
         **kwargs
     ):
         """
-        NAME:
-           __init__
-        PURPOSE:
-           Initialize a DF
-        INPUT:
-           dftype= 'dehnen' or 'corrected-dehnen', 'shu' or 'corrected-shu'
-           surfaceSigma - instance or class name of the target
-                      surface density and sigma_R profile
-                      (default: both exponential)
-           profileParams - parameters of the surface and sigma_R profile:
-                      (xD,xS,Sro) where
-                        xD - disk surface mass scalelength / Ro
-                        xS - disk velocity dispersion scalelength / Ro
-                        Sro - disk velocity dispersion at Ro (/vo)
-                        Directly given to the 'surfaceSigmaProfile class, so
-                        could be anything that class takes
-           beta - power-law index of the rotation curve
-           correct - correct the DF (i.e., DFcorrection kwargs are also given)
-           + DFcorrection kwargs (except for those already specified)
-        OUTPUT:
-        HISTORY:
-            2010-03-10 - Written - Bovy (NYU)
+        Initialize a DF
+
+        Parameters
+        ----------
+        dftype : str, optional
+            'dehnen' or 'corrected-dehnen', 'shu' or 'corrected-shu'
+        surfaceSigma : instance or class name of the target surface density and sigma_R profile, optional
+            (default: both exponential)
+        profileParams : tuple, optional
+            parameters of the surface and sigma_R profile: (xD,xS,Sro) where
+              * xD - disk surface mass scalelength / Ro
+              * xS - disk velocity dispersion scalelength / Ro
+              * Sro - disk velocity dispersion at Ro (/vo)
+            Directly given to the 'surfaceSigmaProfile class, so could be anything that class takes
+        beta : float, optional
+            power-law index of the rotation curve
+        correct : bool, optional
+            correct the DF (i.e., DFcorrection kwargs are also given)
+        ro : float or Quantity, optional
+            Distance scale for translation into internal units (default from configuration file).
+        vo : float or Quantity, optional
+            Velocity scale for translation into internal units (default from configuration file).
+        **kwargs : dict, optional
+            DFcorrection kwargs (except for those already specified)
+
+        Notes
+        -----
+        - 2010-03-10 - Written - Bovy (NYU)
         """
         df.__init__(self, ro=ro, vo=vo)
         self._dftype = dftype
@@ -137,47 +143,34 @@ class diskdf(df):
     @physical_conversion("phasespacedensity2d", pop=True)
     def __call__(self, *args, **kwargs):
         """
-        NAME:
+        Evaluate the distribution function
 
-           __call__
+        Parameters
+        ----------
+        *args : tuple
+            Either:
+                1) Orbit instance or list:
+                    a) Orbit instance alone: use initial condition
+                    b) Orbit instance + t: call the Orbit instance (for list, each instance is called at t)
+                2) E,L - energy (/vo^2; or can be Quantity) and angular momentun (/ro/vo; or can be Quantity)
+                3) array vxvv [3/4,nt] [must be in natural units /vo,/ro; use Orbit interface for physical-unit input]
+        marginalizeVperp : bool, optional
+            marginalize over perpendicular velocity (only supported with 1a) for single orbits above)
+        marginalizeVlos : bool, optional
+            marginalize over line-of-sight velocity (only supported with 1a) for single orbits above)
+        nsigma : float, optional
+            number of sigma to integrate over when marginalizing
+        **kwargs: dict, optional
+            scipy.integrate.quad keywords
 
-        PURPOSE:
+        Returns
+        -------
+        float or numpy.ndarray
+            value of DF
 
-           evaluate the distribution function
-
-        INPUT:
-
-           either an orbit instance, a list of such instances,  or E,Lz
-
-           1) Orbit instance or list:
-              a) Orbit instance alone: use initial condition
-              b) Orbit instance + t: call the Orbit instance (for list, each instance is called at t)
-
-           2)
-              E - energy (/vo^2; or can be Quantity)
-              L - angular momentun (/ro/vo; or can be Quantity)
-
-           3) array vxvv [3/4,nt] [must be in natural units /vo,/ro; use Orbit interface for physical-unit input)
-
-        KWARGS:
-
-           marginalizeVperp - marginalize over perpendicular velocity (only supported with 1a) for single orbits above)
-
-
-           marginalizeVlos - marginalize over line-of-sight velocity (only supported with 1a) for single orbits above)
-
-           nsigma= number of sigma to integrate over when marginalizing
-
-           +scipy.integrate.quad keywords
-
-        OUTPUT:
-
-           DF(orbit/E,L)
-
-        HISTORY:
-
-           2010-07-10 - Written - Bovy (NYU)
-
+        Notes
+        -----
+        - 2010-07-10 - Written - Bovy (NYU)
         """
         if isinstance(args[0], Orbit):
             if len(args[0]) > 1:
@@ -404,28 +397,23 @@ class diskdf(df):
     @physical_conversion("velocity2", pop=True)
     def targetSigma2(self, R, log=False):
         """
-        NAME:
+        Evaluate the target Sigma_R^2(R)
 
-           targetSigma2
+        Parameters
+        ----------
+        R : float or Quantity
+            Radius at which to evaluate.
+        log : bool, optional
+            If True, return the log (default: False).
 
-        PURPOSE:
+        Returns
+        -------
+        float
+            Target Sigma_R^2(R).
 
-           evaluate the target Sigma_R^2(R)
-
-        INPUT:
-
-            R - radius at which to evaluate (can be Quantity)
-
-        OUTPUT:
-
-           target Sigma_R^2(R)
-
-           log - if True, return the log (default: False)
-
-        HISTORY:
-
-           2010-03-28 - Written - Bovy (NYU)
-
+        Notes
+        -----
+        - 2010-03-28 - Written - Bovy (NYU)
         """
         return self._surfaceSigmaProfile.sigma2(R, log=log)
 
@@ -433,27 +421,23 @@ class diskdf(df):
     @physical_conversion("surfacedensity", pop=True)
     def targetSurfacemass(self, R, log=False):
         """
-        NAME:
+        Evaluate the target surface mass at R.
 
-           targetSurfacemass
+        Parameters
+        ----------
+        R : float or Quantity
+            Radius at which to evaluate.
+        log : bool, optional
+            If True, return the log (default: False).
 
-        PURPOSE:
+        Returns
+        -------
+        float or Quantity
+            Target surface mass at R.
 
-           evaluate the target surface mass at R
-
-        INPUT:
-
-           R - radius at which to evaluate (can be Quantity)
-
-           log - if True, return the log (default: False)
-
-        OUTPUT:
-
-           Sigma(R)
-
-        HISTORY:
-
-           2010-03-28 - Written - Bovy (NYU)
+        Notes
+        -----
+        - 2010-03-28 - Written - Bovy (NYU)
 
         """
         return self._surfaceSigmaProfile.surfacemass(R, log=log)
@@ -461,32 +445,27 @@ class diskdf(df):
     @physical_conversion("surfacedensitydistance", pop=True)
     def targetSurfacemassLOS(self, d, l, log=False, deg=True):
         """
-        NAME:
+        Evaluate the target surface mass along the line of sight given Galactic longitude and distance.
 
-            targetSurfacemassLOS
+        Parameters
+        ----------
+        d : float or Quantity
+            Distance along the line of sight.
+        l : float or Quantity
+            Galactic longitude in degrees, unless deg=False.
+        deg : bool, optional
+            If False, l is in radians. Default is True.
+        log : bool, optional
+            If True, return the logarithm of the surface mass. Default is False.
 
-        PURPOSE:
+        Returns
+        -------
+        float or Quantity
+            Surface mass times distance.
 
-            evaluate the target surface mass along the LOS given l and d
-
-        INPUT:
-
-            d - distance along the line of sight (can be Quantity)
-
-            l - Galactic longitude (in deg, unless deg=False; can be Quantity)
-
-            deg= if False, l is in radians
-
-            log - if True, return the log (default: False)
-
-        OUTPUT:
-
-            Sigma(d,l) x d
-
-        HISTORY:
-
-            2011-03-23 - Written - Bovy (NYU)
-
+        Notes
+        -----
+        - 2011-03-23 - Written - Bovy (NYU)
         """
         # Calculate R and phi
         if _APY_LOADED and isinstance(l, units.Quantity):
@@ -507,40 +486,33 @@ class diskdf(df):
         self, d, l, deg=True, target=True, romberg=False, nsigma=None, relative=None
     ):
         """
-        NAME:
+        Evaluate the surface mass along the line of sight (LOS) given Galactic longitude and distance.
 
-           surfacemassLOS
+        Parameters
+        ----------
+        d : float or Quantity
+            Distance along the line of sight.
+        l : float or Quantity
+            Galactic longitude (in deg, unless deg=False).
+        nsigma : float, optional
+            Number of sigma to integrate the velocities over.
+        target : bool, optional
+            If True, use target surfacemass (default).
+        romberg : bool, optional
+            If True, use a romberg integrator (default: False).
+        deg : bool, optional
+            If False, l is in radians.
+        relative : bool, optional
+            If True, return d.
 
-        PURPOSE:
+        Returns
+        -------
+        float
+            Sigma(d,l) x d
 
-           evaluate the surface mass along the LOS given l and d
-
-        INPUT:
-
-           d - distance along the line of sight (can be Quantity)
-
-           l - Galactic longitude (in deg, unless deg=False; can be Quantity)
-
-        OPTIONAL INPUT:
-
-           nsigma - number of sigma to integrate the velocities over
-
-        KEYWORDS:
-
-           target= if True, use target surfacemass (default)
-
-           romberg - if True, use a romberg integrator (default: False)
-
-           deg= if False, l is in radians
-
-        OUTPUT:
-
-           Sigma(d,l) x d
-
-        HISTORY:
-
-           2011-03-24 - Written - Bovy (NYU)
-
+        Notes
+        -----
+        - 2011-03-24 - Written - Bovy (NYU)
         """
         # Calculate R and phi
         if _APY_LOADED and isinstance(l, units.Quantity):
@@ -571,31 +543,27 @@ class diskdf(df):
     @physical_conversion("position", pop=True)
     def sampledSurfacemassLOS(self, l, n=1, maxd=None, target=True):
         """
-        NAME:
+        Sample a distance along the line of sight
 
-           sampledSurfacemassLOS
+        Parameters
+        ----------
+        l : float or Quantity
+            Galactic longitude.
+        n : int, optional
+            Number of distances to sample.
+        maxd : float or Quantity, optional
+            Maximum distance to consider (for the rejection sampling).
+        target : bool, optional
+            If True, sample from the 'target' surface mass density, rather than the actual surface mass density (default=True).
 
-        PURPOSE:
+        Returns
+        -------
+        list
+            List of samples.
 
-           sample a distance along the line of sight
-
-        INPUT:
-
-           l - Galactic longitude (in rad; can be Quantity)
-
-           n= number of distances to sample
-
-           maxd= maximum distance to consider (for the rejection sampling) (can be Quantity)
-
-           target= if True, sample from the 'target' surface mass density, rather than the actual surface mass density (default=True)
-
-        OUTPUT:
-
-           list of samples
-
-        HISTORY:
-
-           2011-03-24 - Written - Bovy (NYU)
+        Notes
+        -----
+        - 2011-03-24 - Written - Bovy (NYU)
 
         """
         # First calculate where the maximum is
@@ -640,36 +608,27 @@ class diskdf(df):
     @physical_conversion("velocity", pop=True)
     def sampleVRVT(self, R, n=1, nsigma=None, target=True):
         """
-        NAME:
+        Sample a radial and azimuthal velocity at R
 
-           sampleVRVT
+        Parameters
+        ----------
+        R : float or Quantity
+            Galactocentric distance.
+        n : int, optional
+            Number of distances to sample.
+        nsigma : float, optional
+            Number of sigma to rejection-sample on.
+        target : bool, optional
+            If True, sample using the 'target' sigma_R rather than the actual sigma_R (default=True).
 
-        PURPOSE:
+        Returns
+        -------
+        list
+            List of samples.
 
-           sample a radial and azimuthal velocity at R
-
-        INPUT:
-
-           R - Galactocentric distance (can be Quantity)
-
-           n= number of distances to sample
-
-           nsigma= number of sigma to rejection-sample on
-
-           target= if True, sample using the 'target' sigma_R rather than the actual sigma_R (default=True)
-
-        OUTPUT:
-
-           list of samples
-
-        BUGS:
-
-           should use the fact that vR and vT separate
-
-        HISTORY:
-
-           2011-03-24 - Written - Bovy (NYU)
-
+        Notes
+        -----
+        - 2011-03-24 - Written - Bovy (NYU)
         """
         # Determine where the max of the v-distribution is using asymmetric drift
         maxVR = 0.0
@@ -706,36 +665,34 @@ class diskdf(df):
         targetSigma2=True,
     ):
         """
-        NAME:
+        Sample along a given LOS
 
-           sampleLOS
+        Parameters
+        ----------
+        los : float or Quantity
+            Line of sight Galactic longitude.
+        n : int, optional
+            Number of distances to sample.
+        deg : bool, optional
+            If False, los is in radians.
+        maxd : float or Quantity, optional
+            Maximum distance to consider (for the rejection sampling).
+        nsigma : float, optional
+            Number of sigma to integrate the velocities over.
+        targetSurfmass : bool, optional
+            If True, use target surface mass (default=True).
+        targetSigma2 : bool, optional
+            If True, use target sigma_R^2 (default=True).
 
-        PURPOSE:
+        Returns
+        -------
+        list
+            List of Orbits sampled.
 
-           sample along a given LOS
-
-        INPUT:
-
-           los - line of sight (in deg, unless deg=False; can be Quantity)
-
-           n= number of desired samples
-
-           deg= los in degrees? (default=True)
-
-           targetSurfmass, targetSigma2= if True, use target surface mass and sigma2 profiles, respectively (there is not much point to doing the latter)
-                   (default=True)
-
-        OUTPUT:
-
-           returns list of Orbits
-
-        BUGS:
-           target=False uses target distribution for derivatives (this is a detail)
-
-        HISTORY:
-
-           2011-03-24 - Started  - Bovy (NYU)
-
+        Notes
+        -----
+        - target=False uses target distribution for derivatives (this is a detail)
+        - 2011-03-24 - Written - Bovy (NYU)
         """
         if _APY_LOADED and isinstance(los, units.Quantity):
             l = conversion.parse_angle(los)
@@ -767,26 +724,21 @@ class diskdf(df):
     @physical_conversion("velocity", pop=True)
     def asymmetricdrift(self, R):
         """
-        NAME:
+        Estimate the asymmetric drift (vc-mean-vphi) from an approximation to the Jeans equation.
 
-           asymmetricdrift
+        Parameters
+        ----------
+        R : float or Quantity
+            Radius at which to calculate the asymmetric drift.
 
-        PURPOSE:
+        Returns
+        -------
+        float
+            Asymmetric drift at R.
 
-           estimate the asymmetric drift (vc-mean-vphi) from an approximation to the Jeans equation
-
-        INPUT:
-
-           R - radius at which to calculate the asymmetric drift (can be Quantity)
-
-        OUTPUT:
-
-           asymmetric drift at R
-
-        HISTORY:
-
-           2011-04-02 - Written - Bovy (NYU)
-
+        Notes
+        -----
+        - 2011-04-02 - Written - Bovy (NYU).
         """
         sigmaR2 = self.targetSigma2(R, use_physical=False)
         return (
@@ -805,34 +757,27 @@ class diskdf(df):
     @physical_conversion("surfacedensity", pop=True)
     def surfacemass(self, R, romberg=False, nsigma=None, relative=False):
         """
-        NAME:
+        Calculate the surface-mass at R by marginalizing over velocity
 
-           surfacemass
+        Parameters
+        ----------
+        R : float or Quantity
+            Radius at which to calculate the surfacemass density.
+        romberg : bool, optional
+            If True, use a romberg integrator (default: False)
+        nsigma : float, optional
+            Number of sigma to integrate the velocities over
+        relative : bool, optional
+            If True, return the relative surface mass at R (default: False)
 
-        PURPOSE:
+        Returns
+        -------
+        float
+            Surface mass at R
 
-           calculate the surface-mass at R by marginalizing over velocity
-
-        INPUT:
-
-           R - radius at which to calculate the surfacemass density (can be Quantity)
-
-        OPTIONAL INPUT:
-
-           nsigma - number of sigma to integrate the velocities over
-
-        KEYWORDS:
-
-           romberg - if True, use a romberg integrator (default: False)
-
-        OUTPUT:
-
-           surface mass at R
-
-        HISTORY:
-
-           2010-03-XX - Written - Bovy (NYU)
-
+        Notes
+        -----
+        - 2011-03-XX - Bovy (NYU)
         """
         if nsigma == None:
             nsigma = _NSIGMA
@@ -891,34 +836,27 @@ class diskdf(df):
     @physical_conversion("velocity2surfacedensity", pop=True)
     def sigma2surfacemass(self, R, romberg=False, nsigma=None, relative=False):
         """
+        Calculate the product sigma_R^2 x surface-mass at R by marginalizing over velocity.
 
-        NAME:
+        Parameters
+        ----------
+        R : float or Quantity
+            Radius at which to calculate the sigma_R^2 x surfacemass density.
+        romberg : bool, optional
+            If True, use a romberg integrator (default: False).
+        nsigma : float, optional
+            Number of sigma to integrate the velocities over.
+        relative : bool, optional
+            If True, return the relative density (default: False).
 
-           sigma2surfacemass
+        Returns
+        -------
+        float
+            Sigma_R^2 x surface-mass at R.
 
-        PURPOSE:
-
-           calculate the product sigma_R^2 x surface-mass at R by marginalizing over velocity
-
-        INPUT:
-
-           R - radius at which to calculate the sigma_R^2 x surfacemass density (can be Quantity)
-
-        OPTIONAL INPUT:
-
-           nsigma - number of sigma to integrate the velocities over
-
-        KEYWORDS:
-
-           romberg - if True, use a romberg integrator (default: False)
-
-        OUTPUT:
-
-           sigma_R^2 x surface-mass at R
-
-        HISTORY:
-
-           2010-03-XX - Written - Bovy (NYU)
+        Notes
+        -----
+        - 2010-03-XX - Written - Bovy (NYU).
 
         """
         if nsigma == None:
@@ -976,41 +914,31 @@ class diskdf(df):
 
     def vmomentsurfacemass(self, *args, **kwargs):
         """
-        NAME:
+        Calculate the an arbitrary moment of the velocity distribution at R times the surfacmass
 
-           vmomentsurfacemass
+        Parameters
+        ----------
+        R: float or Quantity
+            Galactocentric radius at which to calculate the moment.
+        n: int
+            vR^n in the moment
+        m: int
+            vT^m in the moment
+        nsigma : int, optional
+            number of sigma to integrate the velocities over
+        romberg : bool, optional
+            If True, use a romberg integrator (default: False)
+        deriv : str, optional
+            Calculates derivative of the moment wrt R or phi (default: None)
 
-        PURPOSE:
+        Returns
+        -------
+        float or Quantity
+            <vR^n vT^m  x surface-mass> at R (no support for units)
 
-           calculate the an arbitrary moment of the velocity distribution
-           at R times the surfacmass
-
-        INPUT:
-
-           R - radius at which to calculate the moment (in natural units)
-
-           n - vR^n
-
-           m - vT^m
-
-        OPTIONAL INPUT:
-
-           nsigma - number of sigma to integrate the velocities over
-
-        KEYWORDS:
-
-           romberg - if True, use a romberg integrator (default: False)
-
-           deriv= None, 'R', or 'phi': calculates derivative of the moment wrt R or phi
-
-        OUTPUT:
-
-           <vR^n vT^m  x surface-mass> at R (no support for units)
-
-        HISTORY:
-
-           2011-03-30 - Written - Bovy (NYU)
-
+        Notes
+        -----
+        - 2011-03-30 - Written - Bovy (NYU)
         """
         use_physical = kwargs.pop("use_physical", True)
         ro = kwargs.pop("ro", None)
@@ -1155,40 +1083,29 @@ class diskdf(df):
     @physical_conversion("frequency-kmskpc", pop=True)
     def oortA(self, R, romberg=False, nsigma=None, phi=0.0):
         """
+        Calculate the Oort function A.
 
-        NAME:
+        Parameters
+        ----------
+        R : float or Quantity
+            Radius at which to calculate A.
+        phi : float, optional
+            Azimuth (default: 0.0).
+        nsigma : int, optional
+            Number of sigma to integrate the velocities over.
+        romberg : bool, optional
+            If True, use a romberg integrator (default: False).
 
-           oortA
+        Returns
+        -------
+        float or Quantity
+            Oort A at R.
 
-        PURPOSE:
-
-           calculate the Oort function A
-
-        INPUT:
-
-           R - radius at which to calculate A (can be Quantity)
-
-        OPTIONAL INPUT:
-
-           nsigma - number of sigma to integrate the velocities over
-
-        KEYWORDS:
-
-           romberg - if True, use a romberg integrator (default: False)
-
-        OUTPUT:
-
-           Oort A at R
-
-        HISTORY:
-
-           2011-04-19 - Written - Bovy (NYU)
-
-        BUGS:
-
-           could be made more efficient, e.g., surfacemass is calculated multiple times
-
+        Notes
+        -----
+        - 2011-04-19 - Written - Bovy (NYU)
         """
+        # Could be made more efficient, e.g., surfacemass is calculated multiple times.
         # 2A= meanvphi/R-dmeanvR/R/dphi-dmeanvphi/dR
         meanvphi = self.meanvT(
             R, romberg=romberg, nsigma=nsigma, phi=phi, use_physical=False
@@ -1210,39 +1127,29 @@ class diskdf(df):
     @physical_conversion("frequency-kmskpc", pop=True)
     def oortB(self, R, romberg=False, nsigma=None, phi=0.0):
         """
-        NAME:
+        Calculate the Oort function B.
 
-           oortB
+        Parameters
+        ----------
+        R : float
+            Radius at which to calculate B (can be Quantity).
+        romberg : bool, optional
+            If True, use a romberg integrator (default: False).
+        nsigma : float, optional
+            Number of sigma to integrate the velocities over.
+        phi : float, optional
+            Azimuth angle (in radians) at which to calculate B.
 
-        PURPOSE:
+        Returns
+        -------
+        float or Quantity
+            Oort B at R.
 
-           calculate the Oort function B
-
-        INPUT:
-
-           R - radius at which to calculate B (can be Quantity)
-
-        OPTIONAL INPUT:
-
-           nsigma - number of sigma to integrate the velocities over
-
-        KEYWORDS:
-
-           romberg - if True, use a romberg integrator (default: False)
-
-        OUTPUT:
-
-           Oort B at R
-
-        HISTORY:
-
-           2011-04-19 - Written - Bovy (NYU)
-
-        BUGS:
-
-           could be made more efficient, e.g., surfacemass is calculated multiple times
-
+        Notes
+        -----
+        - 2011-04-19 - Written - Bovy (NYU).
         """
+        # Could be made more efficient, e.g., surfacemass is calculated multiple times.
         # 2B= -meanvphi/R+dmeanvR/R/dphi-dmeanvphi/dR
         meanvphi = self.meanvT(
             R, romberg=romberg, nsigma=nsigma, phi=phi, use_physical=False
@@ -1264,40 +1171,30 @@ class diskdf(df):
     @physical_conversion("frequency-kmskpc", pop=True)
     def oortC(self, R, romberg=False, nsigma=None, phi=0.0):
         """
-        NAME:
+        Calculate the Oort function C.
 
-           oortC
+        Parameters
+        ----------
+        R : float or Quantity
+            Radius at which to calculate C (can be Quantity).
+        nsigma : int, optional
+            Number of sigma to integrate the velocities over.
+        romberg : bool, optional
+            If True, use a romberg integrator (default: False).
+        phi : float, optional
+            Azimuth (default: 0.0).
 
-        PURPOSE:
+        Returns
+        -------
+        float or Quantity
+            Oort C at R.
 
-           calculate the Oort function C
-
-        INPUT:
-
-           R - radius at which to calculate C (can be Quantity)
-
-        OPTIONAL INPUT:
-
-           nsigma - number of sigma to integrate the velocities over
-
-        KEYWORDS:
-
-           romberg - if True, use a romberg integrator (default: False)
-
-        OUTPUT:
-
-           Oort C at R
-
-        HISTORY:
-
-           2011-04-19 - Written - Bovy (NYU)
-
-        BUGS:
-
-           could be made more efficient, e.g., surfacemass is calculated multiple times
-           we know this is zero, but it is calculated anyway (bug or feature?)
-
+        Notes
+        -----
+        - 2011-04-19 - Written - Bovy (NYU)
         """
+        # - Could be made more efficient, e.g., surfacemass is calculated multiple times.
+        # - We know this is zero, but it is calculated anyway (bug or feature?).
         # 2C= -meanvR/R-dmeanvphi/R/dphi+dmeanvR/dR
         meanvr = self.meanvR(
             R, romberg=romberg, nsigma=nsigma, phi=phi, use_physical=False
@@ -1318,40 +1215,30 @@ class diskdf(df):
     @physical_conversion("frequency-kmskpc", pop=True)
     def oortK(self, R, romberg=False, nsigma=None, phi=0.0):
         """
-        NAME:
+        Calculate the Oort function K.
 
-           oortK
+        Parameters
+        ----------
+        R : float
+            Radius at which to calculate K (can be Quantity).
+        phi : float, optional
+            Azimuth angle (in radians) at which to calculate K.
+        nsigma : int, optional
+            Number of sigma to integrate the velocities over.
+        romberg : bool, optional
+            If True, use a romberg integrator (default: False).
 
-        PURPOSE:
+        Returns
+        -------
+        float or Quantity
+            Oort K at R.
 
-           calculate the Oort function K
-
-        INPUT:
-
-           R - radius at which to calculate K (can be Quantity)
-
-        OPTIONAL INPUT:
-
-           nsigma - number of sigma to integrate the velocities over
-
-        KEYWORDS:
-
-           romberg - if True, use a romberg integrator (default: False)
-
-        OUTPUT:
-
-           Oort K at R
-
-        HISTORY:
-
-           2011-04-19 - Written - Bovy (NYU)
-
-        BUGS:
-
-           could be made more efficient, e.g., surfacemass is calculated multiple times
-           we know this is zero, but it is calculated anyway (bug or feature?)
-
+        Notes
+        -----
+        - 2011-04-19 - Written - Bovy (NYU)
         """
+        # - Could be made more efficient, e.g., surfacemass is calculated multiple times.
+        # - We know this is zero, but it is calculated anyway (bug or feature?).
         # 2K= meanvR/R+dmeanvphi/R/dphi+dmeanvR/dR
         meanvr = self.meanvR(
             R, romberg=romberg, nsigma=nsigma, phi=phi, use_physical=False
@@ -1372,35 +1259,29 @@ class diskdf(df):
     @physical_conversion("velocity2", pop=True)
     def sigma2(self, R, romberg=False, nsigma=None, phi=0.0):
         """
-        NAME:
+        Calculate sigma_R^2 at R by marginalizing over velocity.
 
-           sigma2
+        Parameters
+        ----------
+        R : float
+            Radius at which to calculate sigma_R^2 density.
+        romberg : bool, optional
+            If True, use a romberg integrator (default: False).
+        nsigma : int, optional
+            Number of sigma to integrate the velocities over.
+        phi : float, optional
+            Azimuth angle at which to calculate sigma_R^2 density.
 
-        PURPOSE:
+        Returns
+        -------
+        float or Quantity
+            Sigma_R^2 at R.
 
-           calculate sigma_R^2 at R by marginalizing over velocity
-
-        INPUT:
-
-           R - radius at which to calculate sigma_R^2 density (can be Quantity)
-
-        OPTIONAL INPUT:
-
-           nsigma - number of sigma to integrate the velocities over
-
-        KEYWORDS:
-
-           romberg - if True, use a romberg integrator (default: False)
-
-        OUTPUT:
-
-           sigma_R^2 at R
-
-        HISTORY:
-
-           2010-03-XX - Written - Bovy (NYU)
-
+        Notes
+        -----
+        - 2010-03-XX - Written - Bovy (NYU)
         """
+
         return self.sigma2surfacemass(
             R, romberg, nsigma, use_physical=False
         ) / self.surfacemass(R, romberg, nsigma, use_physical=False)
@@ -1409,34 +1290,27 @@ class diskdf(df):
     @physical_conversion("velocity2", pop=True)
     def sigmaT2(self, R, romberg=False, nsigma=None, phi=0.0):
         """
+        Calculate sigma_T^2 at R by marginalizing over velocity
 
-        NAME:
+        Parameters
+        ----------
+        R : float
+            Radius at which to calculate sigma_T^2 (can be Quantity)
+        romberg : bool, optional
+            If True, use a romberg integrator (default: False)
+        nsigma : int, optional
+            Number of sigma to integrate the velocities over
+        phi : float, optional
+            Azimuth (default: 0.0)
 
-           sigmaT2
+        Returns
+        -------
+        float or Quantity
+            Sigma_T^2 at R
 
-        PURPOSE:
-
-           calculate sigma_T^2 at R by marginalizing over velocity
-
-        INPUT:
-
-           R - radius at which to calculate sigma_T^2 (can be Quantity)
-
-        OPTIONAL INPUT:
-
-           nsigma - number of sigma to integrate the velocities over
-
-        KEYWORDS:
-
-           romberg - if True, use a romberg integrator (default: False)
-
-        OUTPUT:
-
-           sigma_T^2 at R
-
-        HISTORY:
-
-           2011-03-30 - Written - Bovy (NYU)
+        Notes
+        -----
+        - 2011-03-30 - Written - Bovy (NYU)
 
         """
         surfmass = self.surfacemass(
@@ -1452,33 +1326,27 @@ class diskdf(df):
     @physical_conversion("velocity2", pop=True)
     def sigmaR2(self, R, romberg=False, nsigma=None, phi=0.0):
         """
-        NAME:
+        Calculate sigma_R^2 at R by marginalizing over velocity.
 
-           sigmaR2 (duplicate of sigma2 for consistency)
+        Parameters
+        ----------
+        R : float
+            Radius at which to calculate sigma_R^2.
+        romberg : bool, optional
+            If True, use a romberg integrator (default: False).
+        nsigma : int, optional
+            Number of sigma to integrate the velocities over.
+        phi : float, optional
+            Azimuth (default: 0.0).
 
-        PURPOSE:
+        Returns
+        -------
+        float or Quantity
+            Sigma_R^2 at R.
 
-           calculate sigma_R^2 at R by marginalizing over velocity
-
-        INPUT:
-
-           R - radius at which to calculate sigma_R^2 (can be Quantity)
-
-        OPTIONAL INPUT:
-
-           nsigma - number of sigma to integrate the velocities over
-
-        KEYWORDS:
-
-           romberg - if True, use a romberg integrator (default: False)
-
-        OUTPUT:
-
-           sigma_R^2 at R
-
-        HISTORY:
-
-           2011-03-30 - Written - Bovy (NYU)
+        Notes
+        -----
+        - 2011-03-30 - Written - Bovy (NYU).
 
         """
         return self.sigma2(R, romberg=romberg, nsigma=nsigma, use_physical=False)
@@ -1487,34 +1355,27 @@ class diskdf(df):
     @physical_conversion("velocity", pop=True)
     def meanvT(self, R, romberg=False, nsigma=None, phi=0.0):
         """
-        NAME:
+        Calculate the mean tangential velocity at a given radius by marginalizing over velocity.
 
-           meanvT
+        Parameters
+        ----------
+        R : float
+            Radius at which to calculate the mean tangential velocity.
+        romberg : bool, optional
+            If True, use a Romberg integrator. Default is False.
+        nsigma : float, optional
+            Number of sigma to integrate the velocities over.
+        phi : float, optional
+            Azimuth angle at which to calculate the mean tangential velocity.
 
-        PURPOSE:
+        Returns
+        -------
+        float or Quantity
+            The mean tangential velocity at the given radius.
 
-           calculate <vT> at R by marginalizing over velocity
-
-        INPUT:
-
-           R - radius at which to calculate <vT> (can be Quantity)
-
-        OPTIONAL INPUT:
-
-           nsigma - number of sigma to integrate the velocities over
-
-        KEYWORDS:
-
-           romberg - if True, use a romberg integrator (default: False)
-
-        OUTPUT:
-
-           <vT> at R
-
-        HISTORY:
-
-           2011-03-30 - Written - Bovy (NYU)
-
+        Notes
+        -----
+        - 2011-03-30 - Written - Bovy (NYU)
         """
         return self._vmomentsurfacemass(
             R, 0, 1, romberg=romberg, nsigma=nsigma
@@ -1524,35 +1385,29 @@ class diskdf(df):
     @physical_conversion("velocity", pop=True)
     def meanvR(self, R, romberg=False, nsigma=None, phi=0.0):
         """
-        NAME:
+        Calculate <vR> at R by marginalizing over velocity.
 
-           meanvR
+        Parameters
+        ----------
+        R : float
+            Radius at which to calculate <vR>.
+        romberg : bool, optional
+            If True, use a romberg integrator (default: False).
+        nsigma : float, optional
+            Number of sigma to integrate the velocities over.
+        phi : float, optional
+            Azimuth angle at which to calculate <vR>.
 
-        PURPOSE:
+        Returns
+        -------
+        float or Quantity
+            <vR> at R.
 
-           calculate <vR> at R by marginalizing over velocity
-
-        INPUT:
-
-           R - radius at which to calculate <vR> (can be Quantity)
-
-        OPTIONAL INPUT:
-
-           nsigma - number of sigma to integrate the velocities over
-
-        KEYWORDS:
-
-           romberg - if True, use a romberg integrator (default: False)
-
-        OUTPUT:
-
-           <vR> at R
-
-        HISTORY:
-
-           2011-03-30 - Written - Bovy (NYU)
-
+        Notes
+        -----
+        - 2011-03-30 - Written - Bovy (NYU).
         """
+
         return self._vmomentsurfacemass(
             R, 1, 0, romberg=romberg, nsigma=nsigma
         ) / self.surfacemass(R, romberg=romberg, nsigma=nsigma, use_physical=False)
@@ -1560,34 +1415,27 @@ class diskdf(df):
     @potential_physical_input
     def skewvT(self, R, romberg=False, nsigma=None, phi=0.0):
         """
-        NAME:
+        Calculate skew in vT at R by marginalizing over velocity
 
-           skewvT
+        Parameters
+        ----------
+        R : float
+            Radius at which to calculate <vR>
+        romberg : bool, optional
+            If True, use a romberg integrator (default: False)
+        nsigma : float, optional
+            Number of sigma to integrate the velocities over
+        phi : float, optional
+            Azimuth (default: 0.0)
 
-        PURPOSE:
+        Returns
+        -------
+        float
+            Skew in vT
 
-           calculate skew in vT at R by marginalizing over velocity
-
-        INPUT:
-
-           R - radius at which to calculate <vR> (can be Quantity)
-
-        OPTIONAL INPUT:
-
-           nsigma - number of sigma to integrate the velocities over
-
-        KEYWORDS:
-
-           romberg - if True, use a romberg integrator (default: False)
-
-        OUTPUT:
-
-           skewvT
-
-        HISTORY:
-
-           2011-12-07 - Written - Bovy (NYU)
-
+        Notes
+        -----
+        - 2011-12-07 - Written - Bovy (NYU)
         """
         surfmass = self.surfacemass(
             R, romberg=romberg, nsigma=nsigma, use_physical=False
@@ -1607,35 +1455,29 @@ class diskdf(df):
     @potential_physical_input
     def skewvR(self, R, romberg=False, nsigma=None, phi=0.0):
         """
-        NAME:
+        Calculate skew in vR at R by marginalizing over velocity.
 
-           skewvR
+        Parameters
+        ----------
+        R : float or Quantity
+            Radius at which to calculate <vR>.
+        romberg : bool, optional
+            If True, use a romberg integrator (default: False).
+        nsigma : float, optional
+            Number of sigma to integrate the velocities over.
+        phi : float, optional
+            Azimuth (in radians) at which to calculate the skew in vR.
 
-        PURPOSE:
+        Returns
+        -------
+        float
+            Skew in vR.
 
-           calculate skew in vR at R by marginalizing over velocity
-
-        INPUT:
-
-           R - radius at which to calculate <vR> (can be Quantity)
-
-        OPTIONAL INPUT:
-
-           nsigma - number of sigma to integrate the velocities over
-
-        KEYWORDS:
-
-           romberg - if True, use a romberg integrator (default: False)
-
-        OUTPUT:
-
-           skewvR
-
-        HISTORY:
-
-           2011-12-07 - Written - Bovy (NYU)
-
+        Notes
+        -----
+        - 2011-12-07 - Written - Bovy (NYU).
         """
+
         surfmass = self.surfacemass(
             R, romberg=romberg, nsigma=nsigma, use_physical=False
         )
@@ -1654,33 +1496,27 @@ class diskdf(df):
     @potential_physical_input
     def kurtosisvT(self, R, romberg=False, nsigma=None, phi=0.0):
         """
-        NAME:
+        Calculate excess kurtosis in vT at R by marginalizing over velocity
 
-           kurtosisvT
+        Parameters
+        ----------
+        R : float or Quantity
+            Radius at which to calculate <vR>
+        romberg : bool, optional
+            If True, use a romberg integrator (default: False)
+        nsigma : float, optional
+            Number of sigma to integrate the velocities over
+        phi : float, optional
+            (default: 0.0)
 
-        PURPOSE:
+        Returns
+        -------
+        float
+            kurtosisvT
 
-           calculate excess kurtosis in vT at R by marginalizing over velocity
-
-        INPUT:
-
-           R - radius at which to calculate <vR> (can be Quantity)
-
-        OPTIONAL INPUT:
-
-           nsigma - number of sigma to integrate the velocities over
-
-        KEYWORDS:
-
-           romberg - if True, use a romberg integrator (default: False)
-
-        OUTPUT:
-
-           kurtosisvT
-
-        HISTORY:
-
-           2011-12-07 - Written - Bovy (NYU)
+        Notes
+        -----
+        - 2011-12-07 - Written - Bovy (NYU)
 
         """
         surfmass = self.surfacemass(
@@ -1706,34 +1542,27 @@ class diskdf(df):
     @potential_physical_input
     def kurtosisvR(self, R, romberg=False, nsigma=None, phi=0.0):
         """
-        NAME:
+        Calculate excess kurtosis in vR at R by marginalizing over velocity
 
-           kurtosisvR
+        Parameters
+        ----------
+        R : float or Quantity
+            Radius at which to calculate <vR>
+        romberg : bool, optional
+            If True, use a romberg integrator (default: False)
+        nsigma : float, optional
+            Number of sigma to integrate the velocities over
+        phi : float or Quantity, optional
+            Azimuth (default: 0.0)
 
-        PURPOSE:
+        Returns
+        -------
+        float
+            KurtosisvR
 
-           calculate excess kurtosis in vR at R by marginalizing over velocity
-
-        INPUT:
-
-           R - radius at which to calculate <vR> (can be Quantity)
-
-        OPTIONAL INPUT:
-
-           nsigma - number of sigma to integrate the velocities over
-
-        KEYWORDS:
-
-           romberg - if True, use a romberg integrator (default: False)
-
-        OUTPUT:
-
-           kurtosisvR
-
-        HISTORY:
-
-           2011-12-07 - Written - Bovy (NYU)
-
+        Notes
+        -----
+        - 2011-12-07 - Written - Bovy (NYU)
         """
         surfmass = self.surfacemass(
             R, romberg=romberg, nsigma=nsigma, use_physical=False
@@ -1757,18 +1586,29 @@ class diskdf(df):
 
     def _ELtowRRapRperi(self, E, L):
         """
-        NAME:
-           _ELtowRRapRperi
-        PURPOSE:
-           calculate the radial frequency based on E,L, also return rap and
-           rperi
-        INPUT:
-           E - energy
-           L - angular momentum
-        OUTPUT:
-           wR(E.L)
-        HISTORY:
-           2010-07-11 - Written - Bovy (NYU)
+        Calculate the radial frequency based on energy and angular momentum and return the pericenter and apocenter radii.
+
+        Parameters
+        ----------
+        E : float
+            Energy.
+        L : float
+            Angular momentum.
+
+        Returns
+        -------
+        tuple
+            Tuple containing:
+            - wR(E.L) : float
+                Radial frequency.
+            - rap : float
+                Apocenter radius.
+            - rperi : float
+                Pericenter radius.
+
+        Notes
+        -----
+        - 2010-07-11 - Written - Bovy (NYU)
         """
         if self._beta == 0.0:
             xE = numpy.exp(E - 0.5)
@@ -1800,124 +1640,241 @@ class diskdf(df):
         maxd=None,
         target=True,
     ):
-        r"""
-        NAME:
+        """
+        Sample n*nphi points from this disk DF.
 
-           sample
+        Parameters
+        ----------
+        n : int, optional
+            Number of desired samples. Default is 1.
+        rrange : list, optional
+            If you only want samples in this rrange, set this keyword (only works when asking for an (RZ)Orbit).
+        returnROrbit : bool, optional
+            If True, return a planarROrbit instance: [R,vR,vT] (default).
+        returnOrbit : bool, optional
+            If True, return a planarOrbit instance (including phi).
+        nphi : float, optional
+            Number of azimuths to sample for each E,L.
+        los : float, optional
+            Line of sight sampling along this line of sight.
+        losdeg : bool, optional
+            If True, los is in degrees (default).
+        nsigma : int, optional
+            Number of sigma to rejection-sample on.
+        maxd : float, optional
+            Maximum distance to consider (for the rejection sampling).
+        target : bool, optional
+            If True, use target surface mass and sigma2 profiles (default).
 
-        PURPOSE:
+        Returns
+        -------
+        list
+            n*nphi list of [[E,Lz],...] or list of planar(R)Orbits.
+            CAUTION: lists of EL need to be post-processed to account for the
+                    \\kappa/\\omega_R discrepancy
 
-           sample n*nphi points from this DF
-
-        INPUT:
-
-           n - number of desired sample (specifying this rather than calling this routine n times is more efficient)
-
-           rrange - if you only want samples in this rrange, set this keyword (only works when asking for an (RZ)Orbit) (can be Quantity)
-
-           returnROrbit - if True, return a planarROrbit instance:
-                          [R,vR,vT] (default)
-
-           returnOrbit - if True, return a planarOrbit instance (including phi)
-
-           nphi - number of azimuths to sample for each E,L
-
-           los= line of sight sampling along this line of sight (can be Quantity)
-
-           losdeg= los in degrees? (default=True)
-
-           target= if True, use target surface mass and sigma2 profiles (default=True)
-
-           nsigma= number of sigma to rejection-sample on
-
-           maxd= maximum distance to consider (for the rejection sampling)
-
-        OUTPUT:
-
-           n*nphi list of [[E,Lz],...] or list of planar(R)Orbits
-
-           CAUTION: lists of EL need to be post-processed to account for the
-                    \kappa/\omega_R discrepancy
-
-        HISTORY:
-
-           2010-07-10 - Started  - Bovy (NYU)
+        Notes
+        -----
+        - 2010-07-10 - Started  - Bovy (NYU)
 
         """
         raise NotImplementedError("'sample' method for this disk df is not implemented")
 
     def _estimatemeanvR(self, R, phi=0.0, log=False):
         """
-        NAME:
-           _estimatemeanvR
-        PURPOSE:
-            quickly estimate meanvR (useful in evolveddiskdf where we
-            need an estimate of this but we do not want to spend too
-            much time on it)
-        INPUT:
-           R - radius at which to evaluate (/ro)
-           phi= azimuth (not used)
-        OUTPUT:
-           target Sigma_R^2(R)
-           log - if True, return the log (default: False)
-        HISTORY:
-           2010-03-28 - Written - Bovy (NYU)
+        Quickly estimate the mean radial velocity at a given radius R.
+
+        Parameters
+        ----------
+        R : float
+            Radius at which to evaluate (/ro).
+        phi : float, optional
+            Azimuth angle (not used).
+        log : bool, optional
+            If True, return the logarithm of the target Sigma_R^2(R).
+
+        Returns
+        -------
+        float
+            The target Sigma_R^2(R).
+
+        Notes
+        -----
+        - 2010-03-28 - Written - Bovy (NYU)
+
+        """
+        return 0.0
+
+    def _estimatemeanvR(self, R, phi=0.0, log=False):
+        """
+        Quickly estimate the mean radial velocity at a given radius.
+
+        Parameters
+        ----------
+        R : float
+            Radius at which to evaluate the mean radial velocity (/ro).
+        phi : float, optional
+            Azimuth angle (not used).
+        log : bool, optional
+            If True, return the logarithm of the target Sigma_R^2(R) (default: False).
+
+        Returns
+        -------
+        float
+            The estimated mean radial velocity.
+
+        Notes
+        -----
+        - 2010-03-28 - Written - Bovy (NYU)
+
+        """
+        return 0.0
+
+    def _estimatemeanvR(self, R, phi=0.0, log=False):
+        """
+        Quickly estimate the mean radial velocity at a given radius.
+
+        Parameters
+        ----------
+        R : float
+            Radius at which to evaluate the mean radial velocity. Given in natural units (/ro).
+        phi : float, optional
+            Azimuth angle. Not used.
+        log : bool, optional
+            If True, return the logarithm of the target Sigma_R^2(R). Default is False.
+
+        Returns
+        -------
+        float
+            The estimated mean radial velocity.
+
+        Notes
+        -----
+        - 2010-03-28 - Written - Bovy (NYU)
+
+        """
+        return 0.0
+
+    def _estimatemeanvR(self, R, phi=0.0, log=False):
+        """
+        Quickly estimate the mean radial velocity at a given radius R.
+
+        Parameters
+        ----------
+        R : float
+            Radius at which to evaluate the mean radial velocity. [galpy units]
+        phi : float, optional
+            Azimuth angle. Not used. (default: 0.0)
+        log : bool, optional
+            If True, return the logarithm of the target Sigma_R^2(R). (default: False)
+
+        Returns
+        -------
+        float
+            The estimated mean radial velocity at the given radius R.
+
+        Notes
+        -----
+        - 2010-03-28 - Written - Bovy (NYU)
+
+        """
+        return 0.0
+
+    def _estimatemeanvR(self, R, phi=0.0, log=False):
+        """
+        Quickly estimate the mean radial velocity at a given radius.
+
+        Parameters
+        ----------
+        R : float
+            Radius at which to evaluate the mean radial velocity (/ro).
+        phi : float, optional
+            Azimuth angle (not used).
+        log : bool, optional
+            If True, return the logarithm of the target Sigma_R^2(R) (default: False).
+
+        Returns
+        -------
+        float
+            The estimated mean radial velocity.
+
+        Notes
+        -----
+        - 2010-03-28 - Written - Bovy (NYU)
         """
         return 0.0
 
     def _estimatemeanvT(self, R, phi=0.0, log=False):
         """
-        NAME:
-           _estimatemeanvT
-        PURPOSE:
-            quickly estimate meanvR (useful in evolveddiskdf where we
-            need an estimate of this but we do not want to spend too
-            much time on it)
-        INPUT:
-           R - radius at which to evaluate (/ro)
-           phi= azimuth (not used)
-        OUTPUT:
-           target Sigma_R^2(R)
-        HISTORY:
-           2010-03-28 - Written - Bovy (NYU)
+        Quickly estimate the mean tangential velocity at a given radius.
+
+        Parameters
+        ----------
+        R : float
+            Radius at which to evaluate (/ro).
+        phi : float, optional
+            Azimuth angle (not used).
+        log : bool, optional
+            If True, return the logarithm of the estimate.
+
+        Returns
+        -------
+        float
+            The estimated mean tangential velocity.
+
+        Notes
+        -----
+        - 2010-03-28 - Written - Bovy (NYU)
+
         """
         return R**self._beta - self.asymmetricdrift(R, use_physical=False)
 
     def _estimateSigmaR2(self, R, phi=0.0, log=False):
         """
-        NAME:
-           _estimateSigmaR2
-        PURPOSE:
-            quickly estimate SigmaR2 (useful in evolveddiskdf where we
-            need an estimate of this but we do not want to spend too
-            much time on it)
-        INPUT:
-           R - radius at which to evaluate (/ro)
-           phi= azimuth (not used)
-        OUTPUT:
-           target Sigma_R^2(R)
-           log - if True, return the log (default: False)
-        HISTORY:
-           2010-03-28 - Written - Bovy (NYU)
+        Quickly estimate SigmaR2.
+
+        Parameters
+        ----------
+        R : float
+            Radius at which to evaluate (/ro).
+        phi : float, optional
+            Azimuth (not used).
+        log : bool, optional
+            If True, return the log (default: False).
+
+        Returns
+        -------
+        float
+            Target Sigma_R^2(R).
+
+        Notes
+        -----
+        - 2010-03-28 - Written - Bovy (NYU)
         """
         return self.targetSigma2(R, log=log, use_physical=False)
 
     def _estimateSigmaT2(self, R, phi=0.0, log=False):
         """
-        NAME:
-           _estimateSigmaT2
-        PURPOSE:
-            quickly estimate SigmaT2 (useful in evolveddiskdf where we
-            need an estimate of this but we do not want to spend too
-            much time on it)
-        INPUT:
-           R - radius at which to evaluate (/ro)
-           phi= azimuth (not used)
-        OUTPUT:
-           target Sigma_R^2(R)
-           log - if True, return the log (default: False)
-        HISTORY:
-           2010-03-28 - Written - Bovy (NYU)
+        Quickly estimate SigmaT2.
+
+        Parameters
+        ----------
+        R : float
+            Radius at which to evaluate (/ro).
+        phi : float, optional
+            Azimuth (not used).
+        log : bool, optional
+            If True, return the log (default: False).
+
+        Returns
+        -------
+        float
+            Target Sigma_R^2(R).
+
+        Notes
+        -----
+        - 2010-03-28 - Written - Bovy (NYU)
+
         """
         if log:
             return self.targetSigma2(R, log=log, use_physical=False) - 2.0 * numpylog(
@@ -1941,43 +1898,32 @@ class dehnendf(diskdf):
         **kwargs
     ):
         """
-        NAME:
-           __init__
-        PURPOSE:
-           Initialize a Dehnen 'new' DF
-        INPUT:
-           surfaceSigma - instance or class name of the target
-                      surface density and sigma_R profile
-                      (default: both exponential)
-           profileParams - parameters of the surface and sigma_R profile:
-                      (xD,xS,Sro) where
+        Initialize a Dehnen 'new' DF.
 
-                        xD - disk surface mass scalelength (can be Quantity)
+        Parameters
+        ----------
+        surfaceSigma : instance or class name of the target surface density and sigma_R profile, optional
+            Default: both exponential.
+        profileParams : tuple, optional
+            Parameters of the surface and sigma_R profile: (xD,xS,Sro) where:
+                * xD - disk surface mass scalelength (can be Quantity)
+                * xS - disk velocity dispersion scalelength (can be Quantity)
+                * Sro - disk velocity dispersion at Ro (can be Quantity)
+            Directly given to the 'surfaceSigmaProfile class, so could be anything that class takes.
+        beta : float, optional
+            Power-law index of the rotation curve.
+        correct : bool, optional
+            If True, correct the DF.
+        ro : float or Quantity, optional
+            Distance scale for translation into internal units (default from configuration file).
+        vo : float or Quantity, optional
+            Velocity scale for translation into internal units (default from configuration file).
+        **kwargs: dict, optional
+            DFcorrection kwargs (except for those already specified).
 
-                        xS - disk velocity dispersion scalelength (can be Quantity)
-
-                        Sro - disk velocity dispersion at Ro (can be Quantity)
-
-                        Directly given to the 'surfaceSigmaProfile class, so
-                        could be anything that class takes
-
-           beta - power-law index of the rotation curve
-
-           correct - if True, correct the DF
-
-           ro= distance from vantage point to GC (kpc; can be Quantity)
-
-           vo= circular velocity at ro (km/s; can be Quantity)
-
-           +DFcorrection kwargs (except for those already specified)
-
-        OUTPUT:
-
-           instance
-
-        HISTORY:
-
-            2010-03-10 - Written - Bovy (NYU)
+        Notes
+        -----
+        - 2010-03-10 - Written - Bovy (NYU)
 
         """
         return diskdf.__init__(
@@ -1992,18 +1938,28 @@ class dehnendf(diskdf):
 
     def eval(self, E, L, logSigmaR=0.0, logsigmaR2=0.0):
         """
-         NAME:
-            eval
-         PURPOSE:
-            evaluate the distribution function
-         INPUT:
-            E - energy (can be Quantity)
-            L - angular momentum (can be Quantity)
-        OUTPUT:
+        Evaluate the distribution function.
+
+        Parameters
+        ----------
+        E : float or Quantity
+            Energy.
+        L : float or Quantity
+            Angular momentum.
+        logSigmaR : float, optional
+            Logarithm of the radial velocity dispersion.
+        logsigmaR2 : float, optional
+            Logarithm of the square of the radial velocity dispersion.
+
+        Returns
+        -------
+        float
             DF(E,L)
-         HISTORY:
-            2010-03-10 - Written - Bovy (NYU)
-            2010-03-28 - Moved to dehnenDF - Bovy (NYU)
+
+        Notes
+        -----
+        - 2010-03-10 - Written - Bovy (NYU).
+        - 2010-03-28 - Moved to dehnenDF - Bovy (NYU).
         """
         if _PROFILE:  # pragma: no cover
             import time
@@ -2085,32 +2041,51 @@ class dehnendf(diskdf):
         maxd=None,
         **kwargs
     ):
-        r"""
-        NAME:
-           sample
-        PURPOSE:
-           sample n*nphi points from this DF
-        INPUT:
-           n - number of desired sample (specifying this rather than calling
-               this routine n times is more efficient)
-           rrange - if you only want samples in this rrange, set this keyword
-                    (only works when asking for an (RZ)Orbit
-           returnROrbit - if True, return a planarROrbit instance:
-                          [R,vR,vT] (default)
-           returnOrbit - if True, return a planarOrbit instance (including phi)
-           nphi - number of azimuths to sample for each E,L
-           los= if set, sample along this line of sight (deg) (assumes that the Sun is located at R=1,phi=0)
-           losdeg= if False, los is in radians (default=True)
-           targetSurfmass, targetSigma2= if True, use target surface mass and sigma2 profiles, respectively (there is not much point to doing the latter)
-                   (default=True)
-           nsigma= number of sigma to rejection-sample on
-           maxd= maximum distance to consider (for the rejection sampling)
-        OUTPUT:
-           n*nphi list of [[E,Lz],...] or list of planar(R)Orbits
-           CAUTION: lists of EL need to be post-processed to account for the
-                    \kappa/\omega_R discrepancy; EL not returned in physical units
-        HISTORY:
-           2010-07-10 - Started  - Bovy (NYU)
+        """
+        Sample n*nphi points from this DF.
+
+        Parameters
+        ----------
+        n : int, optional
+            Number of desired samples (specifying this rather than calling
+            this routine n times is more efficient). Default is 1.
+        rrange : list or tuple, optional
+            If you only want samples in this rrange, set this keyword
+            (only works when asking for an (RZ)Orbit). Default is None.
+        returnROrbit : bool, optional
+            If True, return a planarROrbit instance: [R,vR,vT] (default).
+            Default is True.
+        returnOrbit : bool, optional
+            If True, return a planarOrbit instance (including phi).
+            Default is False.
+        nphi : float, optional
+            Number of azimuths to sample for each E,L. Default is 1.0.
+        los : float or Quantity, optional
+            If set, sample along this line of sight (deg) (assumes that the Sun is located at R=1,phi=0).
+            Default is None.
+        losdeg : bool, optional
+            If False, los is in radians (default=True). Default is True.
+        nsigma : int, optional
+            Number of sigma to rejection-sample on. Default is None.
+        targetSurfmass : bool, optional
+            If True, use target surface mass profile. Default is True.
+        targetSigma2 : bool, optional
+            If True, use target sigma2 profile. Default is True.
+        maxd : float or Quantity, optional
+            Maximum distance to consider (for the rejection sampling). Default is None.
+        **kwargs : dict, optional
+            Additional keyword arguments.
+
+        Returns
+        -------
+        out : list
+            n*nphi list of [[E,Lz],...] or list of planar(R)Orbits.
+            CAUTION: lists of EL need to be post-processed to account for the
+            \\kappa/\\omega_R discrepancy; EL not returned in physical units.
+
+        Notes
+        -----
+        - 2010-07-10 - Started  - Bovy (NYU)
         """
         if not los is None:
             return self.sampleLOS(
@@ -2374,43 +2349,32 @@ class shudf(diskdf):
         **kwargs
     ):
         """
-        NAME:
-           __init__
-        PURPOSE:
-           Initialize a Shu DF
-        INPUT:
-           surfaceSigma - instance or class name of the target
-                      surface density and sigma_R profile
-                      (default: both exponential)
-           profileParams - parameters of the surface and sigma_R profile:
-                      (xD,xS,Sro) where
+        Initialize a Shu DF.
 
-                        xD - disk surface mass scalelength (can be Quantity)
+        Parameters
+        ----------
+        surfaceSigma : instance or class name of the target surface density and sigma_R profile, optional
+            Default: both exponential.
+        profileParams : tuple, optional
+            Parameters of the surface and sigma_R profile: (xD,xS,Sro) where
+                * xD - disk surface mass scalelength (can be Quantity)
+                * xS - disk velocity dispersion scalelength (can be Quantity)
+                * Sro - disk velocity dispersion at Ro (can be Quantity)
+            Directly given to the 'surfaceSigmaProfile class, so could be anything that class takes.
+        beta : float, optional
+            Power-law index of the rotation curve.
+        correct : bool, optional
+            If True, correct the DF.
+        ro : float or Quantity, optional
+            Distance scale for translation into internal units (default from configuration file).
+        vo : float or Quantity, optional
+            Velocity scale for translation into internal units (default from configuration file).
+        **kwargs: dict, optional
+            DFcorrection kwargs (except for those already specified).
 
-                        xS - disk velocity dispersion scalelength (can be Quantity)
-
-                        Sro - disk velocity dispersion at Ro (can be Quantity)
-
-                        Directly given to the 'surfaceSigmaProfile class, so
-                        could be anything that class takes
-
-           beta - power-law index of the rotation curve
-
-           correct - if True, correct the DF
-
-           ro= distance from vantage point to GC (kpc; can be Quantity)
-
-           vo= circular velocity at ro (km/s; can be Quantity)
-
-           +DFcorrection kwargs (except for those already specified)
-
-        OUTPUT:
-
-           instance
-
-        HISTORY:
-
-            2010-05-09 - Written - Bovy (NYU)
+        Notes
+        -----
+        - 2010-05-09 - Written - Bovy (NYU)
 
         """
         return diskdf.__init__(
@@ -2425,17 +2389,27 @@ class shudf(diskdf):
 
     def eval(self, E, L, logSigmaR=0.0, logsigmaR2=0.0):
         """
-         NAME:
-            eval
-         PURPOSE:
-            evaluate the distribution function
-         INPUT:
-            E - energy (/vo^2)
-            L - angular momentun (/ro/vo)
-        OUTPUT:
-            DF(E,L)
-         HISTORY:
-            2010-05-09 - Written - Bovy (NYU)
+        Evaluate the distribution function.
+
+        Parameters
+        ----------
+        E : float
+            Energy (/vo^2).
+        L : float
+            Angular momentum (/ro/vo).
+        logSigmaR : float, optional
+            Logarithm of the radial velocity dispersion squared.
+        logsigmaR2 : float, optional
+            Logarithm of the radial velocity dispersion squared.
+
+        Returns
+        -------
+        float
+            DF(E,L).
+
+        Notes
+        -----
+        - 2010-05-09 - Written - Bovy (NYU)
         """
         E = conversion.parse_energy(E, vo=self._vo)
         L = conversion.parse_angmom(L, ro=self._ro, vo=self._vo)
@@ -2484,32 +2458,51 @@ class shudf(diskdf):
         targetSigma2=True,
         **kwargs
     ):
-        r"""
-        NAME:
-           sample
-        PURPOSE:
-           sample n*nphi points from this DF
-        INPUT:
-           n - number of desired sample (specifying this rather than calling
-               this routine n times is more efficient)
-           rrange - if you only want samples in this rrange, set this keyword
-                    (only works when asking for an (RZ)Orbit
-           returnROrbit - if True, return a planarROrbit instance:
-                          [R,vR,vT] (default)
-           returnOrbit - if True, return a planarOrbit instance (including phi)
-           nphi - number of azimuths to sample for each E,L
-           los= if set, sample along this line of sight (deg) (assumes that the Sun is located at R=1,phi=0)
-           losdeg= if False, los is in radians (default=True)
-           targetSurfmass, targetSigma2= if True, use target surface mass and sigma2 profiles, respectively (there is not much point to doing the latter)
-                   (default=True)
-           nsigma= number of sigma to rejection-sample on
-           maxd= maximum distance to consider (for the rejection sampling)
-        OUTPUT:
-           n*nphi list of [[E,Lz],...] or list of planar(R)Orbits
-           CAUTION: lists of EL need to be post-processed to account for the
-                    \kappa/\omega_R discrepancy
-        HISTORY:
-           2010-07-10 - Started  - Bovy (NYU)
+        """
+        Sample n*nphi points from this DF.
+
+        Parameters
+        ----------
+        n : int, optional
+            Number of desired samples (specifying this rather than calling
+            this routine n times is more efficient). Default is 1.
+        rrange : list or tuple, optional
+            If you only want samples in this rrange, set this keyword
+            (only works when asking for an (RZ)Orbit). Default is None.
+        returnROrbit : bool, optional
+            If True, return a planarROrbit instance: [R,vR,vT] (default).
+            Default is True.
+        returnOrbit : bool, optional
+            If True, return a planarOrbit instance (including phi).
+            Default is False.
+        nphi : float, optional
+            Number of azimuths to sample for each E,L. Default is 1.0.
+        los : float or Quantity, optional
+            If set, sample along this line of sight (deg) (assumes that the Sun is located at R=1,phi=0).
+            Default is None.
+        losdeg : bool, optional
+            If False, los is in radians (default=True). Default is True.
+        nsigma : int, optional
+            Number of sigma to rejection-sample on. Default is None.
+        targetSurfmass : bool, optional
+            If True, use target surface mass profile. Default is True.
+        targetSigma2 : bool, optional
+            If True, use target sigma2 profile. Default is True.
+        maxd : float or Quantity, optional
+            Maximum distance to consider (for the rejection sampling). Default is None.
+        **kwargs : dict, optional
+            Additional keyword arguments.
+
+        Returns
+        -------
+        out : list
+            n*nphi list of [[E,Lz],...] or list of planar(R)Orbits.
+            CAUTION: lists of EL need to be post-processed to account for the
+            \\kappa/\\omega_R discrepancy; EL not returned in physical units.
+
+        Notes
+        -----
+        - 2010-07-10 - Started  - Bovy (NYU)
         """
         if not los is None:
             return self.sampleLOS(
@@ -2704,43 +2697,32 @@ class schwarzschilddf(shudf):
         **kwargs
     ):
         """
-        NAME:
-           __init__
-        PURPOSE:
-           Initialize a Schwarzschild DF
-        INPUT:
-           surfaceSigma - instance or class name of the target
-                      surface density and sigma_R profile
-                      (default: both exponential)
-           profileParams - parameters of the surface and sigma_R profile:
-                      (xD,xS,Sro) where
+        Initialize a Schwarzschild DF.
 
-                        xD - disk surface mass scalelength (can be Quantity)
+        Parameters
+        ----------
+        surfaceSigma : instance or class name of the target surface density and sigma_R profile, optional
+            (default: both exponential)
+        profileParams : tuple, optional
+            Parameters of the surface and sigma_R profile: (xD,xS,Sro) where
+                * xD - disk surface mass scalelength (can be Quantity)
+                * xS - disk velocity dispersion scalelength (can be Quantity)
+                * Sro - disk velocity dispersion at Ro (can be Quantity)
+            Directly given to the 'surfaceSigmaProfile class, so could be anything that class takes
+        beta : float, optional
+            Power-law index of the rotation curve
+        correct : bool, optional
+            If True, correct the DF
+        ro : float or Quantity, optional
+            Distance scale for translation into internal units (default from configuration file).
+        vo : float or Quantity, optional
+            Velocity scale for translation into internal units (default from configuration file).
+        **kwargs : dict, optional
+            DFcorrection kwargs (except for those already specified)
 
-                        xS - disk velocity dispersion scalelength (can be Quantity)
-
-                        Sro - disk velocity dispersion at Ro (can be Quantity)
-
-                        Directly given to the 'surfaceSigmaProfile class, so
-                        could be anything that class takes
-
-           beta - power-law index of the rotation curve
-
-           correct - if True, correct the DF
-
-           ro= distance from vantage point to GC (kpc; can be Quantity)
-
-           vo= circular velocity at ro (km/s; can be Quantity)
-
-           +DFcorrection kwargs (except for those already specified)
-
-        OUTPUT:
-
-           instance
-
-        HISTORY:
-
-            2017-09-17 - Written - Bovy (UofT)
+        Notes
+        -----
+        - 2017-09-17 - Written - Bovy (UofT)
 
         """
         # Schwarzschild == Shu w/ energy computed in epicycle approx.
@@ -2824,16 +2806,33 @@ def _oned_intFunc(x, twodfunc, gfun, hfun, tol, args):
 
 def bovy_dblquad(func, a, b, gfun, hfun, args=(), tol=1.48e-08):
     """
-    NAME:
-       bovy_dblquad
-    PURPOSE:
-       like scipy.integrate's dblquad, but using Romberg integration for the one-d integrals and using tol
-    INPUT:
-       same as scipy.integrate.dblquad except for tol and epsrel,epsabs
-    OUTPUT:
-       value
-    HISTORY:
-       2010-03-11 - Written - Bpvy (NYU)
+    Compute a double integral using Romberg integration for the one-dimensional integrals and a specified tolerance.
+
+    Parameters
+    ----------
+    func : callable
+        Function of two variables to integrate.
+    a : float
+        Lower limit of integration in the outer integral.
+    b : float
+        Upper limit of integration in the outer integral.
+    gfun : callable
+        Function of one variable that returns the lower limit of integration in the inner integral for a given value of the outer variable.
+    hfun : callable
+        Function of one variable that returns the upper limit of integration in the inner integral for a given value of the outer variable.
+    args : tuple, optional
+        Extra arguments to pass to the integrand function.
+    tol : float, optional
+        Desired absolute tolerance.
+
+    Returns
+    -------
+    float
+        The value of the double integral.
+
+    Notes
+    -----
+    - 2010-03-11 - Written - Bpvy (NYU)
     """
     return integrate.romberg(
         _oned_intFunc, a, b, args=(func, gfun, hfun, tol, args), tol=tol
@@ -2846,25 +2845,33 @@ class DFcorrection:
 
     def __init__(self, **kwargs):
         """
-        NAME:
-           __init__
-        PURPOSE:
-           initialize the corrections: set them, load them, or calculate
-           and save them
-        OPTIONAL INPUTS:
-           corrections - if Set, these are the corrections and they should
-                         be used as such
-           npoints - number of points from 0 to Rmax
-           rmax - correct up to this radius (/ro) (default: 5)
-           savedir - save the corrections in this directory
-           surfaceSigmaProfile - target surfacemass and sigma_R^2 instance
-           beta - power-law index of the rotation curve (when calculating)
-           dftype - classname of the DF
-           niter - number of iterations to perform to calculate the corrections
-           interp_k - 'k' keyword to give to InterpolatedUnivariateSpline
-        OUTPUT:
-        HISTORY:
-           2010-03-10 - Written - Bovy (NYU)
+        Initialize the corrections: set them, load them, or calculate and save them.
+
+        Parameters
+        ----------
+        corrections : numpy.ndarray, optional
+            If set, these are the corrections and they should be used as such.
+        npoints : int, optional
+            Number of points from 0 to Rmax.
+        rmax : float, optional
+            Correct up to this radius (/ro) (default: 5).
+        savedir : str, optional
+            Save the corrections in this directory.
+        surfaceSigmaProfile : object
+            Target surfacemass and sigma_R^2 instance.
+        beta : float, optional
+            Power-law index of the rotation curve (when calculating).
+        dftype : class, optional
+            Classname of the DF.
+        niter : int, optional
+            Number of iterations to perform to calculate the corrections.
+        interp_k : str, optional
+            'k' keyword to give to InterpolatedUnivariateSpline.
+
+        Notes
+        -----
+        - 2010-03-10 - Written - Bovy (NYU)
+
         """
         if not "surfaceSigmaProfile" in kwargs:
             raise DFcorrectionError("surfaceSigmaProfile not given")
@@ -2944,17 +2951,23 @@ class DFcorrection:
 
     def correct(self, R, log=False):
         """
-        NAME:
-           correct
-        PURPOSE:
-           calculate the correction in Sigma and sigma2 at R
-        INPUT:
-           R - Galactocentric radius(/ro)
-           log - if True, return the log of the correction
-        OUTPUT:
-           [Sigma correction, sigma2 correction]
-        HISTORY:
-           2010-03-10 - Written - Bovy (NYU)
+        Calculate the correction in Sigma and sigma2 at R.
+
+        Parameters
+        ----------
+        R : float
+            Galactocentric radius (/ro).
+        log : bool, optional
+            If True, return the log of the correction.
+
+        Returns
+        -------
+        tuple
+            (Sigma correction, sigma2 correction).
+
+        Notes
+        -----
+        - 2010-03-10 - Written - Bovy (NYU)
         """
         if isinstance(R, numpy.ndarray):
             out = numpy.empty((2, len(R)))
@@ -3007,17 +3020,21 @@ class DFcorrection:
 
     def derivLogcorrect(self, R):
         """
-        NAME:
-           derivLogcorrect
-        PURPOSE:
-           calculate the derivative of the log of the correction in Sigma
-           and sigma2 at R
-        INPUT:
-           R - Galactocentric radius(/ro)
-        OUTPUT:
-           [d log(Sigma correction)/dR, d log(sigma2 correction)/dR]
-        HISTORY:
-           2010-03-10 - Written - Bovy (NYU)
+        Calculate the derivative of the log of the correction in Sigma and sigma2 at R.
+
+        Parameters
+        ----------
+        R : float
+            Galactocentric radius(/ro)
+
+        Returns
+        -------
+        numpy.ndarray
+            [d log(Sigma correction)/dR, d log(sigma2 correction)/dR]
+
+        Notes
+        -----
+        - 2010-03-10 - Written - Bovy (NYU)
         """
         if R < _RMIN:
             out = numpy.array([self._surfaceDerivSmallR, self._sigma2DerivSmallR])
@@ -3103,17 +3120,30 @@ class DFcorrectionError(Exception):
 
 def vRvTRToEL(vR, vT, R, beta, dftype="dehnen"):
     """
-    NAME:
-       vRvTRToEL
-    PURPOSE:
-       calculate the energy and angular momentum
-    INPUT:
-       vR - radial velocity
-       vT - rotational velocity
-       R - Galactocentric radius
-    OUTPUT:
-    HISTORY:
-       2010-03-10 - Written - Bovy (NYU)
+    Calculate the energy and angular momentum.
+
+    Parameters
+    ----------
+    vR : float
+        Radial velocity.
+    vT : float
+        Rotational velocity.
+    R : float
+        Galactocentric radius.
+    beta : float
+        Parameter that determines the shape of the rotation curve.
+    dftype : str, optional
+        Type of disk distribution function. Default is "dehnen".
+
+    Returns
+    -------
+    tuple
+        Energy and angular momentum.
+
+    Notes
+    -----
+    - 2010-03-10 - Written - Bovy (NYU)
+
     """
     if dftype == "schwarzschild":
         # Compute E in the epicycle approximation
@@ -3136,17 +3166,24 @@ def vRvTRToEL(vR, vT, R, beta, dftype="dehnen"):
 
 def axipotential(R, beta=0.0):
     """
-    NAME:
-       axipotential
-    PURPOSE:
-       return the axisymmetric potential at R/Ro
-    INPUT:
-       R - Galactocentric radius
-       beta - rotation curve power-law
-    OUTPUT:
-       Pot(R)/vo**2.
-    HISTORY:
-       2010-03-01 - Written - Bovy (NYU)
+    Return the axisymmetric potential at R/Ro.
+
+    Parameters
+    ----------
+    R : float
+        Galactocentric radius.
+    beta : float, optional
+        Rotation curve power-law.
+
+    Returns
+    -------
+    float
+        Pot(R)/vo**2.
+
+    Notes
+    -----
+    - 2010-03-01 - Written - Bovy (NYU)
+
     """
     if beta == 0.0:
         if numpy.any(R == 0.0):
@@ -3162,20 +3199,26 @@ def axipotential(R, beta=0.0):
 
 def _ars_hx(x, args):
     """
-    NAME:
-       _ars_hx
-    PURPOSE:
-       h(x) for ARS sampling of the input surfacemass profile
-    INPUT:
-       x - R(/ro)
-       args= (surfaceSigma, dfcorr)
-          surfaceSigma - surfaceSigmaProfile instance
-          dfcorr - DFcorrection instance
-    OUTPUT:
-       log(x)+log surface(x) + log(correction)
-    HISTORY:
-       2010-07-11 - Written - Bovy (NYU)
+    h(x) for ARS sampling of the input surfacemass profile
+
+    Parameters
+    ----------
+    x : float
+        R(/ro)
+    args : tuple
+        surfaceSigma - surfaceSigmaProfile instance
+        dfcorr - DFcorrection instance
+
+    Returns
+    -------
+    float
+        log(x)+log surface(x) + log(correction)
+
+    Notes
+    -----
+    - 2010-07-11 - Written - Bovy (NYU)
     """
+
     surfaceSigma, dfcorr = args
     if dfcorr is None:
         return numpylog(x) + surfaceSigma.surfacemass(x, log=True)
@@ -3187,19 +3230,24 @@ def _ars_hx(x, args):
 
 def _ars_hpx(x, args):
     """
-    NAME:
-       _ars_hpx
-    PURPOSE:
-       h'(x) for ARS sampling of the input surfacemass profile
-    INPUT:
-       x - R(/ro)
-       args= (surfaceSigma, dfcorr)
-          surfaceSigma - surfaceSigmaProfile instance
-          dfcorr - DFcorrection instance
-    OUTPUT:
-       derivative of log(x)+log surface(x) + log(correction) wrt x
-    HISTORY:
-       2010-07-11 - Written - Bovy (NYU)
+    h'(x) for ARS sampling of the input surfacemass profile
+
+    Parameters
+    ----------
+    x : float
+        R(/ro)
+    args : tuple
+        surfaceSigma - surfaceSigmaProfile instance
+        dfcorr - DFcorrection instance
+
+    Returns
+    -------
+    float
+        derivative of log(x)+log surface(x) + log(correction) wrt x
+
+    Notes
+    -----
+    - 2010-07-11 - Written - Bovy (NYU)
     """
     surfaceSigma, dfcorr = args
     if dfcorr is None:

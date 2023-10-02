@@ -14,27 +14,22 @@ class constantbetaHernquistdf(_constantbetadf):
 
     def __init__(self, pot=None, beta=0, ro=None, vo=None):
         """
-        NAME:
+        Initialize a Hernquist DF with constant anisotropy.
 
-            __init__
+        Parameters
+        ----------
+        pot : HernquistPotential
+            Hernquist potential which determines the DF.
+        beta : float
+            Anisotropy parameter.
+        ro : float or Quantity, optional
+            Distance scale for translation into internal units (default from configuration file).
+        vo : float or Quantity, optional
+            Velocity scale for translation into internal units (default from configuration file).
 
-        PURPOSE:
-
-            Initialize a Hernquist DF with constant anisotropy
-
-        INPUT:
-
-            pot - Hernquist potential which determines the DF
-
-            beta - anisotropy parameter
-
-        OUTPUT:
-
-            None
-
-        HISTORY:
-
-            2020-07-22 - Written - Lane (UofT)
+        Notes
+        -----
+        - 2020-07-22 - Written - Lane (UofT)
         """
         assert isinstance(
             pot, HernquistPotential
@@ -56,25 +51,22 @@ class constantbetaHernquistdf(_constantbetadf):
 
     def fE(self, E):
         """
-        NAME:
+        Calculate the energy portion of a Hernquist distribution function
 
-            fE
+        Parameters
+        ----------
+        E : float, numpy.ndarray, or Quantity
+            The energy.
 
-        PURPOSE
+        Returns
+        -------
+        float or numpy.ndarray
+            The value of the energy portion of the DF
 
-            Calculate the energy portion of a Hernquist distribution function
+        Notes
+        -----
+        - 2020-07-22 - Written
 
-        INPUT:
-
-            E - The energy (can be Quantity)
-
-        OUTPUT:
-
-            fE - The value of the energy portion of the DF
-
-        HISTORY:
-
-            2020-07-22 - Written
         """
         Etilde = -numpy.atleast_1d(conversion.parse_energy(E, vo=self._vo) / self._psi0)
         # Handle potential E outside of bounds
