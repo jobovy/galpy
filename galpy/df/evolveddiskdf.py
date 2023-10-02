@@ -35,30 +35,20 @@ class evolveddiskdf(df):
 
     def __init__(self, initdf, pot, to=0.0):
         """
-        NAME:
+        Initialize the evolved disk distribution function.
 
-           __init__
+        Parameters
+        ----------
+        initdf : galpy.df.df instance
+            The distribution function at the start of the evolution (at to) (units are transferred).
+        pot : galpy.potential.Potential instance
+            Potential to integrate orbits in.
+        to : float or Quantity, optional
+            Initial time (time at which initdf is evaluated; orbits are integrated from current t back to to).
 
-        PURPOSE:
-
-           initialize
-
-        INPUT:
-
-           initdf - the df at the start of the evolution (at to) (units are transferred)
-
-           pot - potential to integrate orbits in
-
-           to= initial time (time at which initdf is evaluated; orbits are integrated from current t back to to) (can be Quantity)
-
-        OUTPUT:
-
-           instance
-
-        HISTORY:
-
-           2011-03-30 - Written - Bovy (NYU)
-
+        Notes
+        -----
+        - 2011-03-30 - Written - Bovy (NYU)
         """
         if initdf._roSet:
             ro = initdf._ro
@@ -76,44 +66,37 @@ class evolveddiskdf(df):
     @physical_conversion("phasespacedensity2d", pop=True)
     def __call__(self, *args, **kwargs):
         """
-        NAME:
+        Evaluate the distribution function
 
-           __call__
+        Parameters
+        ----------
+        *args : tuple
+            Either:
+                1) Orbit instance alone: use initial state and t=0
+                2) Orbit instance + t: Orbit instance *NOT* called (i.e., Orbit's initial condition is used, call Orbit yourself), t can be Quantity
+            If t is a list of t, DF is returned for each t, times must be in descending order and equally spaced (does not work with marginalize...)
+        marginalizeVperp : bool, optional
+            marginalize over perpendicular velocity (only supported with 1a) for single orbits above)
+        marginalizeVlos : bool, optional
+            marginalize over line-of-sight velocity (only supported with 1a) for single orbits above)
+        integrate_method : str, optional
+            orbit.integrate method argument
+        log : bool, optional
+            if True, return the log (not for deriv, bc that can be negative)
+        deriv : str, optional
+            None, 'R', or 'phi': calculates derivative of the moment wrt R or phi **not with the marginalize options**
+        **kwargs: dict, optional
+            scipy.integrate.quad keywords
 
-        PURPOSE:
+        Returns
+        -------
+        float or numpy.ndarray
+            value of DF
 
-           evaluate the distribution function
-
-        INPUT:
-
-           Orbit instance:
-
-              a) Orbit instance alone: use initial state and t=0
-
-              b) Orbit instance + t: Orbit instance *NOT* called (i.e., Orbit's initial condition is used, call Orbit yourself), t can be Quantity
-
-                 If t is a list of t, DF is returned for each t, times must be in descending order and equally spaced (does not work with marginalize...)
-
-           marginalizeVperp - marginalize over perpendicular velocity (only supported with 1a) above) + nsigma, +scipy.integrate.quad keywords
-
-           marginalizeVlos - marginalize over line-of-sight velocity (only supported with 1a) above) + nsigma, +scipy.integrate.quad keywords
-
-           log= if True, return the log (not for deriv, bc that can be negative)
-
-           integrate_method= method argument of orbit.integrate
-
-           deriv= None, 'R', or 'phi': calculates derivative of the moment wrt R or phi **not with the marginalize options**
-
-        OUTPUT:
-
-           DF(orbit,t)
-
-        HISTORY:
-
-           2011-03-30 - Written - Bovy (NYU)
-
-           2011-04-15 - Added list of times option - Bovy (NYU)
-
+        Notes
+        -----
+        - 2011-03-30 - Written - Bovy (NYU)
+        - 2011-04-15 - Added list of times option - Bovy (NYU)
         """
         integrate_method = kwargs.pop("integrate_method", "dopr54_c")
         # Must match Python fallback for non-C potentials here, bc odeint needs
@@ -460,60 +443,54 @@ class evolveddiskdf(df):
         deriv=None,
     ):
         """
-        NAME:
+        Calculate the an arbitrary moment of the velocity distribution at (R,phi) times the surfacmass
 
-           vmomentsurfacemass
+        Parameters
+        ----------
+        R : float
+            Radius at which to calculate the moment (in natural units).
+        phi : float, optional
+            Azimuth (rad unless deg=True).
+        n : int
+            vR^n.
+        m : int
+            vT^m.
+        t : float, optional
+            Time at which to evaluate the DF (can be a list or ndarray; if this is the case, list needs to be in descending order and equally spaced).
+        nsigma : float, optional
+            Number of sigma to integrate the velocities over (based on an estimate, so be generous, but not too generous).
+        deg : bool, optional
+            Azimuth is in degree (default=False).
+        epsrel : float, optional
+            scipy.integrate keyword (the integration calculates the ratio of this vmoment to that of the initial DF).
+        epsabs : float, optional
+            scipy.integrate keyword (the integration calculates the ratio of this vmoment to that of the initial DF).
+        grid : bool, optional
+            If set to True, build a grid and use that to evaluate integrals; if set to a grid-objects (such as returned by this procedure), use this grid; if this was created for a list of times, moments are calculated for each time.
+        gridpoints : int, optional
+            Number of points to use for the grid in 1D (default=101).
+        returnGrid : bool, optional
+            If True, return the grid object (default=False).
+        hierarchgrid : bool, optional
+            If True, use a hierarchical grid (default=False).
+        nlevels : int, optional
+            Number of hierarchical levels for the hierarchical grid.
+        print_progress : bool, optional
+            If True, print progress updates.
+        integrate_method : str, optional
+            orbit.integrate method argument.
+        deriv : str, optional
+            None, 'R', or 'phi': calculates derivative of the moment wrt R or phi **onnly with grid options**.
 
-        PURPOSE:
+        Returns
+        -------
+        float or numpy.ndarray
+            <vR^n vT^m  x surface-mass> at R,phi (no support for units).
 
-           calculate the an arbitrary moment of the velocity distribution at (R,phi) times the surfacmass
-
-        INPUT:
-
-           R - radius at which to calculate the moment (in natural units)
-
-           phi= azimuth (rad unless deg=True)
-
-           n - vR^n
-
-           m - vT^m
-
-           t= time at which to evaluate the DF (can be a list or ndarray; if this is the case, list needs to be in descending order and equally spaced)
-
-           nsigma - number of sigma to integrate the velocities over (based on an estimate, so be generous, but not too generous)
-
-           deg= azimuth is in degree (default=False)
-
-           epsrel, epsabs - scipy.integrate keywords (the integration calculates the ratio of this vmoment to that of the initial DF)
-
-           grid= if set to True, build a grid and use that to evaluate integrals; if set to a grid-objects (such as returned by this procedure), use this grid; if this was created for a list of times, moments are calculated for each time
-
-           gridpoints= number of points to use for the grid in 1D (default=101)
-
-           returnGrid= if True, return the grid object (default=False)
-
-           hierarchgrid= if True, use a hierarchical grid (default=False)
-
-           nlevels= number of hierarchical levels for the hierarchical grid
-
-           print_progress= if True, print progress updates
-
-           integrate_method= orbit.integrate method argument
-
-           deriv= None, 'R', or 'phi': calculates derivative of the moment wrt R or phi **onnly with grid options**
-
-        OUTPUT:
-
-           <vR^n vT^m  x surface-mass> at R,phi (no support for units)
-
-        COMMENT:
-
-           grid-based calculation is the only one that is heavily tested (although the test suite also tests the direct calculation)
-
-        HISTORY:
-
-           2011-03-30 - Written - Bovy (NYU)
-
+        Notes
+        -----
+        - grid-based calculation is the only one that is heavily tested (although the test suite also tests the direct calculation)
+        - 2011-03-30 - Written - Bovy (NYU)
         """
         # if we have already precalculated a grid, use that
         if not grid is None and isinstance(grid, evolveddiskdfGrid):
@@ -654,50 +631,53 @@ class evolveddiskdf(df):
         integrate_method="dopr54_c",
     ):
         """
-        NAME:
+        Calculate the vertex deviation of the velocity distribution at (R,phi)
 
-           vertexdev
+        Parameters
+        ----------
+        R : float
+            radius at which to calculate the moment (can be Quantity)
+        t : float, optional
+            time at which to evaluate the DF (can be a list or ndarray; if this is the case, list needs to be in descending order and equally spaced) (can be Quantity), by default 0.0
+        nsigma : float, optional
+            number of sigma to integrate the velocities over (based on an estimate, so be generous), by default None
+        deg : bool, optional
+            azimuth is in degree (default=False); do not set this when giving phi as a Quantity, by default False
+        epsrel : float, optional
+            scipy.integrate keywords (the integration calculates the ratio of this vmoment to that of the initial DF), by default 1.0e-02
+        epsabs : float, optional
+            scipy.integrate keywords (the integration calculates the ratio of this vmoment to that of the initial DF), by default 1.0e-05
+        phi : float, optional
+            azimuth (rad unless deg=True; can be Quantity), by default 0.0
+        grid : bool or evolveddiskdfGrid or evolveddiskdfHierarchicalGrid, optional
+            if set to True, build a grid and use that to evaluate integrals; if set to a grid-objects (such as returned by this procedure), use this grid, by default None
+        gridpoints : int, optional
+            number of points to use for the grid in 1D (default=101), by default 101
+        returnGrid : bool, optional
+            if True, return the grid object (default=False), by default False
+        sigmaR2 : float, optional
+            if set the vertex deviation is simply calculated using these, by default None
+        sigmaT2 : float, optional
+            if set the vertex deviation is simply calculated using these, by default None
+        sigmaRT : float, optional
+            if set the vertex deviation is simply calculated using these, by default None
+        surfacemass : None, optional
+            Not used, by default None
+        hierarchgrid : bool, optional
+            if True, use a hierarchical grid (default=False), by default False
+        nlevels : int, optional
+            number of hierarchical levels for the hierarchical grid, by default 2
+        integrate_method : str, optional
+            orbit.integrate method argument, by default "dopr54_c"
 
-        PURPOSE:
+        Returns
+        -------
+        float or tuple
+            vertex deviation in rad or tuple of vertex deviation in rad and grid object
 
-           calculate the vertex deviation of the velocity distribution at (R,phi)
-
-        INPUT:
-
-           R - radius at which to calculate the moment (can be Quantity)
-
-           phi= azimuth (rad unless deg=True; can be Quantity)
-
-           t= time at which to evaluate the DF (can be a list or ndarray; if this is the case, list needs to be in descending order and equally spaced) (can be Quantity)
-
-           sigmaR2, sigmaT2, sigmaRT= if set the vertex deviation is simply calculated using these
-
-           nsigma - number of sigma to integrate the velocities over (based on an estimate, so be generous)
-
-           deg= azimuth is in degree (default=False); do not set this when giving phi as a Quantity
-
-           epsrel, epsabs - scipy.integrate keywords (the integration calculates the ratio of this vmoment to that of the initial DF)
-
-           grid= if set to True, build a grid and use that to evaluate integrals; if set to a grid-objects (such as returned by this procedure), use this grid
-
-           gridpoints= number of points to use for the grid in 1D (default=101)
-
-           returnGrid= if True, return the grid object (default=False)
-
-           hierarchgrid= if True, use a hierarchical grid (default=False)
-
-           nlevels= number of hierarchical levels for the hierarchical grid
-
-           integrate_method= orbit.integrate method argument
-
-        OUTPUT:
-
-           vertex deviation in rad
-
-        HISTORY:
-
-           2011-03-31 - Written - Bovy (NYU)
-
+        Notes
+        -----
+        - 2011-03-31 - Written - Bovy (NYU)
         """
         # The following aren't actually the moments, but they are the moments
         # times the surface-mass density; that drops out
@@ -814,50 +794,47 @@ class evolveddiskdf(df):
         integrate_method="dopr54_c",
     ):
         """
-        NAME:
+        Calculate the mean vR of the velocity distribution at (R,phi)
 
-           meanvR
+        Parameters
+        ----------
+        R : float
+            radius at which to calculate the moment(/ro) (can be Quantity)
+        phi : float, optional
+            azimuth (rad unless deg=True; can be Quantity) (default=0.0)
+        t : float or array, optional
+            time at which to evaluate the DF (can be a list or ndarray; if this is the case, list needs to be in descending order and equally spaced) (can be Quantity) (default=0.0)
+        surfacemass : float, optional
+            if set use this pre-calculated surfacemass (default=None)
+        nsigma : float, optional
+            number of sigma to integrate the velocities over (based on an estimate, so be generous) (default=None)
+        deg : bool, optional
+            azimuth is in degree (default=False); do not set this when giving phi as a Quantity
+        epsrel : float, optional
+            scipy.integrate keywords (the integration calculates the ratio of this vmoment to that of the initial DF) (default=1.0e-02)
+        epsabs : float, optional
+            scipy.integrate keywords (the integration calculates the ratio of this vmoment to that of the initial DF) (default=1.0e-05)
+        grid : bool or evolveddiskdfGrid or evolveddiskdfHierarchicalGrid, optional
+            if set to True, build a grid and use that to evaluate integrals; if set to a grid-objects (such as returned by this procedure), use this grid (default=None)
+        gridpoints : int, optional
+            number of points to use for the grid in 1D (default=101)
+        returnGrid : bool, optional
+            if True, return the grid object (default=False)
+        hierarchgrid : bool, optional
+            if True, use a hierarchical grid (default=False)
+        nlevels : int, optional
+            number of hierarchical levels for the hierarchical grid (default=2)
+        integrate_method : str, optional
+            orbit.integrate method argument (default="dopr54_c")
 
-        PURPOSE:
+        Returns
+        -------
+        float or tuple
+            mean vR
 
-           calculate the mean vR of the velocity distribution at (R,phi)
-
-        INPUT:
-
-           R - radius at which to calculate the moment(/ro) (can be Quantity)
-
-           phi= azimuth (rad unless deg=True; can be Quantity)
-
-           t= time at which to evaluate the DF (can be a list or ndarray; if this is the case, list needs to be in descending order and equally spaced) (can be Quantity)
-
-           surfacemass= if set use this pre-calculated surfacemass
-
-           nsigma - number of sigma to integrate the velocities over (based on an estimate, so be generous)
-
-           deg= azimuth is in degree (default=False); do not set this when giving phi as a Quantity
-
-           epsrel, epsabs - scipy.integrate keywords (the integration calculates the ratio of this vmoment to that of the initial DF)
-
-           grid= if set to True, build a grid and use that to evaluate integrals; if set to a grid-objects (such as returned by this procedure), use this grid
-
-           gridpoints= number of points to use for the grid in 1D (default=101)
-
-           returnGrid= if True, return the grid object (default=False)
-
-           hierarchgrid= if True, use a hierarchical grid (default=False)
-
-           nlevels= number of hierarchical levels for the hierarchical grid
-
-           integrate_method= orbit.integrate method argument
-
-        OUTPUT:
-
-           mean vR
-
-        HISTORY:
-
-           2011-03-31 - Written - Bovy (NYU)
-
+        Notes
+        -----
+        -2011-03-31 - Written - Bovy (NYU)
         """
         if isinstance(grid, evolveddiskdfGrid) or isinstance(
             grid, evolveddiskdfHierarchicalGrid
@@ -966,50 +943,47 @@ class evolveddiskdf(df):
         integrate_method="dopr54_c",
     ):
         """
-        NAME:
+        Calculate the mean vT of the velocity distribution at (R,phi)
 
-           meanvT
+        Parameters
+        ----------
+        R : float
+            radius at which to calculate the moment(/ro) (can be Quantity)
+        phi : float, optional
+            azimuth (rad unless deg=True; can be Quantity) (default=0.0)
+        t : float or array, optional
+            time at which to evaluate the DF (can be a list or ndarray; if this is the case, list needs to be in descending order and equally spaced) (can be Quantity) (default=0.0)
+        surfacemass : float, optional
+            if set use this pre-calculated surfacemass (default=None)
+        nsigma : float, optional
+            number of sigma to integrate the velocities over (based on an estimate, so be generous) (default=None)
+        deg : bool, optional
+            azimuth is in degree (default=False); do not set this when giving phi as a Quantity
+        epsrel : float, optional
+            scipy.integrate keywords (the integration calculates the ratio of this vmoment to that of the initial DF) (default=1.0e-02)
+        epsabs : float, optional
+            scipy.integrate keywords (the integration calculates the ratio of this vmoment to that of the initial DF) (default=1.0e-05)
+        grid : bool or evolveddiskdfGrid or evolveddiskdfHierarchicalGrid, optional
+            if set to True, build a grid and use that to evaluate integrals; if set to a grid-objects (such as returned by this procedure), use this grid (default=None)
+        gridpoints : int, optional
+            number of points to use for the grid in 1D (default=101)
+        returnGrid : bool, optional
+            if True, return the grid object (default=False)
+        hierarchgrid : bool, optional
+            if True, use a hierarchical grid (default=False)
+        nlevels : int, optional
+            number of hierarchical levels for the hierarchical grid (default=2)
+        integrate_method : str, optional
+            orbit.integrate method argument (default="dopr54_c")
 
-        PURPOSE:
+        Returns
+        -------
+        float or tuple
+            mean vT
 
-           calculate the mean vT of the velocity distribution at (R,phi)
-
-        INPUT:
-
-           R - radius at which to calculate the moment (can be Quantity)
-
-           phi= azimuth (rad unless deg=True; can be Quantity)
-
-           t= time at which to evaluate the DF (can be a list or ndarray; if this is the case, list needs to be in descending order and equally spaced) (can be Quantity)
-
-           surfacemass= if set use this pre-calculated surfacemass
-
-           nsigma - number of sigma to integrate the velocities over (based on an estimate, so be generous)
-
-           deg= azimuth is in degree (default=False); do not set this when giving phi as a Quantity
-
-           epsrel, epsabs - scipy.integrate keywords (the integration calculates the ratio of this vmoment to that of the initial DF)
-
-           grid= if set to True, build a grid and use that to evaluate integrals; if set to a grid-objects (such as returned by this procedure), use this grid
-
-           gridpoints= number of points to use for the grid in 1D (default=101)
-
-           returnGrid= if True, return the grid object (default=False)
-
-           hierarchgrid= if True, use a hierarchical grid (default=False)
-
-           nlevels= number of hierarchical levels for the hierarchical grid
-
-           integrate_method= orbit.integrate method argument
-
-        OUTPUT:
-
-           mean vT
-
-        HISTORY:
-
-           2011-03-31 - Written - Bovy (NYU)
-
+        Notes
+        -----
+        -2011-03-31 - Written - Bovy (NYU)
         """
         if isinstance(grid, evolveddiskdfGrid) or isinstance(
             grid, evolveddiskdfHierarchicalGrid
@@ -1119,50 +1093,49 @@ class evolveddiskdf(df):
         integrate_method="dopr54_c",
     ):
         """
-        NAME:
+        Calculate the radial variance of the velocity distribution at (R,phi)
 
-           sigmaR2
+        Parameters
+        ----------
+        R : float
+            Radius at which to calculate the moment (can be Quantity)
+        t : float, optional
+            Time at which to evaluate the DF (can be a list or ndarray; if this is the case, list needs to be in descending order and equally spaced) (can be Quantity)
+        nsigma : float, optional
+            Number of sigma to integrate the velocities over (based on an estimate, so be generous)
+        deg : bool, optional
+            Azimuth is in degree (default=False); do not set this when giving phi as a Quantity
+        phi : float, optional
+            Azimuth (rad unless deg=True; can be Quantity)
+        epsrel : float, optional
+            Scipy.integrate keyword (the integration calculates the ratio of this vmoment to that of the initial DF)
+        epsabs : float, optional
+            Scipy.integrate keyword (the integration calculates the ratio of this vmoment to that of the initial DF)
+        grid : bool or evolveddiskdfGrid or evolveddiskdfHierarchicalGrid, optional
+            If set to True, build a grid and use that to evaluate integrals; if set to a grid-objects (such as returned by this procedure), use this grid
+        gridpoints : int, optional
+            Number of points to use for the grid in 1D (default=101)
+        returnGrid : bool, optional
+            If True, return the grid object (default=False)
+        surfacemass : float, optional
+            If set use this pre-calculated surfacemass
+        meanvR : float, optional
+            If set use this pre-calculated mean vR
+        hierarchgrid : bool, optional
+            If True, use a hierarchical grid (default=False)
+        nlevels : int, optional
+            Number of hierarchical levels for the hierarchical grid
+        integrate_method : str, optional
+            orbit.integrate method argument
 
-        PURPOSE:
+        Returns
+        -------
+        float or tuple
+            Variance of vR. If returnGrid is True, return a tuple with the variance of vR and the grid object.
 
-           calculate the radial variance of the velocity distribution at (R,phi)
-
-        INPUT:
-
-           R - radius at which to calculate the moment (can be Quantity)
-
-           phi= azimuth (rad unless deg=True; can be Quantity)
-
-           t= time at which to evaluate the DF (can be a list or ndarray; if this is the case, list needs to be in descending order and equally spaced) (can be Quantity)
-
-           surfacemass, meanvR= if set use this pre-calculated surfacemass and mean vR
-
-           nsigma - number of sigma to integrate the velocities over (based on an estimate, so be generous)
-
-           deg= azimuth is in degree (default=False); do not set this when giving phi as a Quantity
-
-           epsrel, epsabs - scipy.integrate keywords (the integration calculates the ratio of this vmoment to that of the initial DF)
-
-           grid= if set to True, build a grid and use that to evaluate integrals; if set to a grid-objects (such as returned by this procedure), use this grid
-
-           gridpoints= number of points to use for the grid in 1D (default=101)
-
-           returnGrid= if True, return the grid object (default=False)
-
-           hierarchgrid= if True, use a hierarchical grid (default=False)
-
-           nlevels= number of hierarchical levels for the hierarchical grid
-
-           integrate_method= orbit.integrate method argument
-
-        OUTPUT:
-
-           variance of vR
-
-        HISTORY:
-
-           2011-03-31 - Written - Bovy (NYU)
-
+        Notes
+        -----
+        - 2011-03-31 - Written - Bovy (NYU)
         """
         # The following aren't actually the moments, but they are the moments
         # times the surface-mass density
@@ -1297,50 +1270,49 @@ class evolveddiskdf(df):
         integrate_method="dopr54_c",
     ):
         """
-        NAME:
+        Calculate the rotational-velocity variance of the velocity distribution at (R,phi)
 
-           sigmaT2
+        Parameters
+        ----------
+        R : float
+            Radius at which to calculate the moment (can be Quantity)
+        phi : float, optional
+            Azimuth (rad unless deg=True; can be Quantity), by default 0.0
+        t : float or array, optional
+            Time at which to evaluate the DF (can be a list or ndarray; if this is the case, list needs to be in descending order and equally spaced) (can be Quantity), by default 0.0
+        surfacemass : float, optional
+            If set use this pre-calculated surfacemass and mean rotational velocity, by default None
+        meanvT : float, optional
+            If set use this pre-calculated surfacemass and mean rotational velocity, by default None
+        nsigma : float, optional
+            Number of sigma to integrate the velocities over (based on an estimate, so be generous), by default None
+        deg : bool, optional
+            Azimuth is in degree (default=False); do not set this when giving phi as a Quantity, by default False
+        epsrel : float, optional
+            Scipy.integrate keywords (the integration calculates the ratio of this vmoment to that of the initial DF), by default 1.0e-02
+        epsabs : float, optional
+            Scipy.integrate keywords (the integration calculates the ratio of this vmoment to that of the initial DF), by default 1.0e-05
+        grid : bool or evolveddiskdfGrid or evolveddiskdfHierarchicalGrid, optional
+            If set to True, build a grid and use that to evaluate integrals; if set to a grid-objects (such as returned by this procedure), use this grid, by default None
+        gridpoints : int, optional
+            Number of points to use for the grid in 1D (default=101), by default 101
+        returnGrid : bool, optional
+            If True, return the grid object (default=False), by default False
+        hierarchgrid : bool, optional
+            If True, use a hierarchical grid (default=False), by default False
+        nlevels : int, optional
+            Number of hierarchical levels for the hierarchical grid, by default 2
+        integrate_method : str, optional
+            orbit.integrate method argument, by default "dopr54_c"
 
-        PURPOSE:
+        Returns
+        -------
+        float or tuple
+            Variance of vT or tuple of variance of vT and grid object
 
-           calculate the rotational-velocity variance of the velocity distribution at (R,phi)
-
-        INPUT:
-
-           R - radius at which to calculate the moment (can be Quantity)
-
-           phi= azimuth (rad unless deg=True; can be Quantity)
-
-           t= time at which to evaluate the DF (can be a list or ndarray; if this is the case, list needs to be in descending order and equally spaced) (can be Quantity)
-
-           surfacemass, meanvT= if set use this pre-calculated surfacemass and mean rotational velocity
-
-           nsigma - number of sigma to integrate the velocities over (based on an estimate, so be generous)
-
-           deg= azimuth is in degree (default=False); do not set this when giving phi as a Quantity
-
-           epsrel, epsabs - scipy.integrate keywords (the integration calculates the ratio of this vmoment to that of the initial DF)
-
-           grid= if set to True, build a grid and use that to evaluate integrals; if set to a grid-objects (such as returned by this procedure), use this grid
-
-           gridpoints= number of points to use for the grid in 1D (default=101)
-
-           returnGrid= if True, return the grid object (default=False)
-
-           hierarchgrid= if True, use a hierarchical grid (default=False)
-
-           nlevels= number of hierarchical levels for the hierarchical grid
-
-           integrate_method= orbit.integrate method argument
-
-        OUTPUT:
-
-           variance of vT
-
-        HISTORY:
-
-           2011-03-31 - Written - Bovy (NYU)
-
+        Notes
+        -----
+        - 2011-03-31 - Written - Bovy (NYU)
         """
         if isinstance(grid, evolveddiskdfGrid) or isinstance(
             grid, evolveddiskdfHierarchicalGrid
@@ -1474,50 +1446,49 @@ class evolveddiskdf(df):
         integrate_method="dopr54_c",
     ):
         """
-        NAME:
+        Calculate the radial-rotational co-variance of the velocity distribution at (R,phi)
 
-           sigmaRT
+        Parameters
+        ----------
+        R : float
+            Radius at which to calculate the moment (can be Quantity)
+        phi : float, optional
+            Azimuth (rad unless deg=True; can be Quantity), by default 0.0
+        t : float or array, optional
+            Time at which to evaluate the DF (can be a list or ndarray; if this is the case, list needs to be in descending order and equally spaced) (can be Quantity), by default 0.0
+        surfacemass : float, optional
+            If set use this pre-calculated surfacemass and mean rotational velocity, by default None
+        meanvT : float, optional
+            If set use this pre-calculated surfacemass and mean rotational velocity, by default None
+        nsigma : float, optional
+            Number of sigma to integrate the velocities over (based on an estimate, so be generous), by default None
+        deg : bool, optional
+            Azimuth is in degree (default=False); do not set this when giving phi as a Quantity, by default False
+        epsrel : float, optional
+            Scipy.integrate keywords (the integration calculates the ratio of this vmoment to that of the initial DF), by default 1.0e-02
+        epsabs : float, optional
+            Scipy.integrate keywords (the integration calculates the ratio of this vmoment to that of the initial DF), by default 1.0e-05
+        grid : bool or evolveddiskdfGrid or evolveddiskdfHierarchicalGrid, optional
+            If set to True, build a grid and use that to evaluate integrals; if set to a grid-objects (such as returned by this procedure), use this grid, by default None
+        gridpoints : int, optional
+            Number of points to use for the grid in 1D (default=101), by default 101
+        returnGrid : bool, optional
+            If True, return the grid object (default=False), by default False
+        hierarchgrid : bool, optional
+            If True, use a hierarchical grid (default=False), by default False
+        nlevels : int, optional
+            Number of hierarchical levels for the hierarchical grid, by default 2
+        integrate_method : str, optional
+            orbit.integrate method argument, by default "dopr54_c"
 
-        PURPOSE:
+        Returns
+        -------
+        float or tuple
+            Covariance of vR and vT or tuple of covariance of vR and vT and grid object
 
-           calculate the radial-rotational co-variance of the velocity distribution at (R,phi)
-
-        INPUT:
-
-           R - radius at which to calculate the moment (can be Quantity)
-
-           phi= azimuth (rad unless deg=True; can be Quantity)
-
-           t= time at which to evaluate the DF (can be a list or ndarray; if this is the case, list needs to be in descending order and equally spaced) (can be Quantity)
-
-           surfacemass, meanvR, meavT= if set use this pre-calculated surfacemass and mean vR and vT
-
-           nsigma - number of sigma to integrate the velocities over (based on an estimate, so be generous)
-
-           deg= azimuth is in degree (default=False); do not set this when giving phi as a Quantity
-
-           epsrel, epsabs - scipy.integrate keywords (the integration calculates the ration of this vmoment to that of the initial DF)
-
-           grid= if set to True, build a grid and use that to evaluate integrals; if set to a grid-objects (such as returned by this procedure), use this grid
-
-           gridpoints= number of points to use for the grid in 1D (default=101)
-
-           returnGrid= if True, return the grid object (default=False)
-
-           hierarchgrid= if True, use a hierarchical grid (default=False)
-
-           nlevels= number of hierarchical levels for the hierarchical grid
-
-           integrate_method= orbit.integrate method argument
-
-        OUTPUT:
-
-           covariance of vR and vT
-
-        HISTORY:
-
-           2011-03-31 - Written - Bovy (NYU)
-
+        Notes
+        -----
+        - 2011-03-31 - Written - Bovy (NYU)
         """
         # The following aren't actually the moments, but they are the moments
         # times the surface-mass density
@@ -1675,54 +1646,57 @@ class evolveddiskdf(df):
         integrate_method="dopr54_c",
     ):
         """
-        NAME:
+        Calculate the Oort function A at (R,phi,t)
 
-           oortA
+        Parameters
+        ----------
+        R : float
+            Radius at which to calculate the moment (can be Quantity)
+        phi : float, optional
+            Azimuth (rad unless deg=True; can be Quantity), by default 0.0
+        t : float or array, optional
+            Time at which to evaluate the DF (can be a list or ndarray; if this is the case, list needs to be in descending order and equally spaced) (can be Quantity), by default 0.0
+        surfacemass : float, optional
+            If set use this pre-calculated surfacemass and mean rotational velocity, by default None
+        meanvT : float, optional
+            If set use this pre-calculated surfacemass and mean rotational velocity, by default None
+        nsigma : float, optional
+            Number of sigma to integrate the velocities over (based on an estimate, so be generous), by default None
+        deg : bool, optional
+            Azimuth is in degree (default=False); do not set this when giving phi as a Quantity, by default False
+        epsrel : float, optional
+            Scipy.integrate keywords (the integration calculates the ratio of this vmoment to that of the initial DF), by default 1.0e-02
+        epsabs : float, optional
+            Scipy.integrate keywords (the integration calculates the ratio of this vmoment to that of the initial DF), by default 1.0e-05
+        grid : bool or evolveddiskdfGrid or evolveddiskdfHierarchicalGrid, optional
+            If set to True, build a grid and use that to evaluate integrals; if set to a grid-objects (such as returned by this procedure), use this grid, by default None
+        gridpoints : int, optional
+            Number of points to use for the grid in 1D (default=101), by default 101
+        returnGrids : bool, optional
+            If True, return the grid objects (default=False), by default False
+        derivRGrid : bool or evolveddiskdfGrid or evolveddiskdfHierarchicalGrid, optional
+            If set to True, build a grid and use that to evaluate integrals of the derivatives of the DF; if set to a grid-objects (such as returned by this procedure), use this grid, by default None
+        derivphiGrid : bool or evolveddiskdfGrid or evolveddiskdfHierarchicalGrid, optional
+            If set to True, build a grid and use that to evaluate integrals of the derivatives of the DF; if set to a grid-objects (such as returned by this procedure), use this grid, by default None
+        derivGridpoints : int, optional
+            Number of points to use for the grid in 1D (default=101), by default 101
+        derivHierarchgrid : bool, optional
+            If True, use a hierarchical grid (default=False), by default False
+        hierarchgrid : bool, optional
+            If True, use a hierarchical grid (default=False), by default False
+        nlevels : int, optional
+            Number of hierarchical levels for the hierarchical grid, by default 2
+        integrate_method : str, optional
+            orbit.integrate method argument, by default "dopr54_c"
 
-        PURPOSE:
+        Returns
+        -------
+        float or tuple
+            Oort A at R,phi,t or tuple of Oort A at R,phi,t and grid objects
 
-           calculate the Oort function A at (R,phi,t)
-
-        INPUT:
-
-           R - radius at which to calculate A (can be Quantity)
-
-           phi= azimuth (rad unless deg=True; can be Quantity
-
-           t= time at which to evaluate the DF (can be a list or ndarray; if this is the case, list needs to be in descending order and equally spaced) (can be Quantity)
-
-           nsigma - number of sigma to integrate the velocities over (based on an estimate, so be generous)
-
-           deg= azimuth is in degree (default=False); do not set this when giving phi as a Quantity
-
-           epsrel, epsabs - scipy.integrate keywords
-
-           grid= if set to True, build a grid and use that to evaluate integrals; if set to a grid-objects (such as returned by this procedure), use this grid
-
-           derivRGrid, derivphiGrid= if set to True, build a grid and use that to evaluate integrals of the derivatives of the DF;if set to a grid-objects (such as returned by this procedure), use this grid
-
-           gridpoints= number of points to use for the grid in 1D (default=101)
-
-           derivGridpoints= number of points to use for the grid in 1D (default=101)
-
-           returnGrid= if True, return the grid objects (default=False)
-
-           hierarchgrid= if True, use a hierarchical grid (default=False)
-
-           derivHierarchgrid= if True, use a hierarchical grid (default=False)
-
-           nlevels= number of hierarchical levels for the hierarchical grid
-
-           integrate_method= orbit.integrate method argument
-
-        OUTPUT:
-
-           Oort A at R,phi,t
-
-        HISTORY:
-
-           2011-10-16 - Written - Bovy (NYU)
-
+        Notes
+        -----
+        - 2011-10-16 - Written - Bovy (NYU)
         """
         # First calculate the grids if they are not given
         if isinstance(grid, bool) and grid:
@@ -1975,54 +1949,57 @@ class evolveddiskdf(df):
         integrate_method="dopr54_c",
     ):
         """
-        NAME:
+        Calculate the Oort function B at (R,phi,t)
 
-           oortB
+        Parameters
+        ----------
+        R : float
+            Radius at which to calculate the moment (can be Quantity)
+        phi : float, optional
+            Azimuth (rad unless deg=True; can be Quantity), by default 0.0
+        t : float or array, optional
+            Time at which to evaluate the DF (can be a list or ndarray; if this is the case, list needs to be in descending order and equally spaced) (can be Quantity), by default 0.0
+        surfacemass : float, optional
+            If set use this pre-calculated surfacemass and mean rotational velocity, by default None
+        meanvT : float, optional
+            If set use this pre-calculated surfacemass and mean rotational velocity, by default None
+        nsigma : float, optional
+            Number of sigma to integrate the velocities over (based on an estimate, so be generous), by default None
+        deg : bool, optional
+            Azimuth is in degree (default=False); do not set this when giving phi as a Quantity, by default False
+        epsrel : float, optional
+            Scipy.integrate keywords (the integration calculates the ratio of this vmoment to that of the initial DF), by default 1.0e-02
+        epsabs : float, optional
+            Scipy.integrate keywords (the integration calculates the ratio of this vmoment to that of the initial DF), by default 1.0e-05
+        grid : bool or evolveddiskdfGrid or evolveddiskdfHierarchicalGrid, optional
+            If set to True, build a grid and use that to evaluate integrals; if set to a grid-objects (such as returned by this procedure), use this grid, by default None
+        gridpoints : int, optional
+            Number of points to use for the grid in 1D (default=101), by default 101
+        returnGrids : bool, optional
+            If True, return the grid objects (default=False), by default False
+        derivRGrid : bool or evolveddiskdfGrid or evolveddiskdfHierarchicalGrid, optional
+            If set to True, build a grid and use that to evaluate integrals of the derivatives of the DF; if set to a grid-objects (such as returned by this procedure), use this grid, by default None
+        derivphiGrid : bool or evolveddiskdfGrid or evolveddiskdfHierarchicalGrid, optional
+            If set to True, build a grid and use that to evaluate integrals of the derivatives of the DF; if set to a grid-objects (such as returned by this procedure), use this grid, by default None
+        derivGridpoints : int, optional
+            Number of points to use for the grid in 1D (default=101), by default 101
+        derivHierarchgrid : bool, optional
+            If True, use a hierarchical grid (default=False), by default False
+        hierarchgrid : bool, optional
+            If True, use a hierarchical grid (default=False), by default False
+        nlevels : int, optional
+            Number of hierarchical levels for the hierarchical grid, by default 2
+        integrate_method : str, optional
+            orbit.integrate method argument, by default "dopr54_c"
 
-        PURPOSE:
+        Returns
+        -------
+        float or tuple
+            Oort B at R,phi,t or tuple of Oort A at R,phi,t and grid objects
 
-           calculate the Oort function B at (R,phi,t)
-
-        INPUT:
-
-           R - radius at which to calculate B (can be Quantity)
-
-           phi= azimuth (rad unless deg=True; can be Quantity)
-
-           t= time at which to evaluate the DF (can be a list or ndarray; if this is the case, list needs to be in descending order and equally spaced) (can be Quantity)
-
-           nsigma - number of sigma to integrate the velocities over (based on an estimate, so be generous)
-
-           deg= azimuth is in degree (default=False); do not set this when giving phi as a Quantity
-
-           epsrel, epsabs - scipy.integrate keywords
-
-           grid= if set to True, build a grid and use that to evaluate integrals; if set to a grid-objects (such as returned by this procedure), use this grid
-
-           derivRGrid, derivphiGrid= if set to True, build a grid and use that to evaluat integrals of the derivatives of the DF: if set to a grid-objects (such as returned by this procedure), use this grid
-
-           gridpoints= number of points to use for the grid in 1D (default=101)
-
-           derivGridpoints= number of points to use for the grid in 1D (default=101)
-
-           returnGrid= if True, return the grid objects (default=False)
-
-           hierarchgrid= if True, use a hierarchical grid (default=False)
-
-           derivHierarchgrid= if True, use a hierarchical grid (default=False)
-
-           nlevels= number of hierarchical levels for the hierarchical grid
-
-           integrate_method= orbit.integrate method argument
-
-        OUTPUT:
-
-           Oort B at R,phi,t
-
-        HISTORY:
-
-           2011-10-16 - Written - Bovy (NYU)
-
+        Notes
+        -----
+        - 2011-10-16 - Written - Bovy (NYU)
         """
         # First calculate the grids if they are not given
         if isinstance(grid, bool) and grid:
@@ -2275,54 +2252,57 @@ class evolveddiskdf(df):
         integrate_method="dopr54_c",
     ):
         """
-        NAME:
+        Calculate the Oort function C at (R,phi,t)
 
-           oortC
+        Parameters
+        ----------
+        R : float
+            Radius at which to calculate the moment (can be Quantity)
+        phi : float, optional
+            Azimuth (rad unless deg=True; can be Quantity), by default 0.0
+        t : float or array, optional
+            Time at which to evaluate the DF (can be a list or ndarray; if this is the case, list needs to be in descending order and equally spaced) (can be Quantity), by default 0.0
+        surfacemass : float, optional
+            If set use this pre-calculated surfacemass and mean rotational velocity, by default None
+        meanvT : float, optional
+            If set use this pre-calculated surfacemass and mean rotational velocity, by default None
+        nsigma : float, optional
+            Number of sigma to integrate the velocities over (based on an estimate, so be generous), by default None
+        deg : bool, optional
+            Azimuth is in degree (default=False); do not set this when giving phi as a Quantity, by default False
+        epsrel : float, optional
+            Scipy.integrate keywords (the integration calculates the ratio of this vmoment to that of the initial DF), by default 1.0e-02
+        epsabs : float, optional
+            Scipy.integrate keywords (the integration calculates the ratio of this vmoment to that of the initial DF), by default 1.0e-05
+        grid : bool or evolveddiskdfGrid or evolveddiskdfHierarchicalGrid, optional
+            If set to True, build a grid and use that to evaluate integrals; if set to a grid-objects (such as returned by this procedure), use this grid, by default None
+        gridpoints : int, optional
+            Number of points to use for the grid in 1D (default=101), by default 101
+        returnGrids : bool, optional
+            If True, return the grid objects (default=False), by default False
+        derivRGrid : bool or evolveddiskdfGrid or evolveddiskdfHierarchicalGrid, optional
+            If set to True, build a grid and use that to evaluate integrals of the derivatives of the DF; if set to a grid-objects (such as returned by this procedure), use this grid, by default None
+        derivphiGrid : bool or evolveddiskdfGrid or evolveddiskdfHierarchicalGrid, optional
+            If set to True, build a grid and use that to evaluate integrals of the derivatives of the DF; if set to a grid-objects (such as returned by this procedure), use this grid, by default None
+        derivGridpoints : int, optional
+            Number of points to use for the grid in 1D (default=101), by default 101
+        derivHierarchgrid : bool, optional
+            If True, use a hierarchical grid (default=False), by default False
+        hierarchgrid : bool, optional
+            If True, use a hierarchical grid (default=False), by default False
+        nlevels : int, optional
+            Number of hierarchical levels for the hierarchical grid, by default 2
+        integrate_method : str, optional
+            orbit.integrate method argument, by default "dopr54_c"
 
-        PURPOSE:
+        Returns
+        -------
+        float or tuple
+            Oort C at R,phi,t or tuple of Oort A at R,phi,t and grid objects
 
-           calculate the Oort function C at (R,phi,t)
-
-        INPUT:
-
-           R - radius at which to calculate C (can be Quantity)
-
-           phi= azimuth (rad unless deg=True; can be Quantity)
-
-           t= time at which to evaluate the DF (can be a list or ndarray; if this is the case, list needs to be in descending order and equally spaced) (can be Quantity)
-
-           nsigma - number of sigma to integrate the velocities over (based on an estimate, so be generous)
-
-           deg= azimuth is in degree (default=False); do not set this when giving phi as a Quantity
-
-           epsrel, epsabs - scipy.integrate keywords
-
-           grid= if set to True, build a grid and use that to evaluate integrals; if set to a grid-objects (such as returned by this procedure), use this grid
-
-           derivRGrid, derivphiGrid= if set to True, build a grid and use that to evaluate integrals of the derivatives of the DF; if set to a grid-objects (such as returned by this procedure), use this grid
-
-           gridpoints= number of points to use for the grid in 1D (default=101)
-
-           derivGridpoints= number of points to use for the grid in 1D (default=101)
-
-           returnGrid= if True, return the grid objects (default=False)
-
-           hierarchgrid= if True, use a hierarchical grid (default=False)
-
-           derivHierarchgrid= if True, use a hierarchical grid (default=False)
-
-           nlevels= number of hierarchical levels for the hierarchical grid
-
-           integrate_method= orbit.integrate method argument
-
-        OUTPUT:
-
-           Oort C at R,phi,t
-
-        HISTORY:
-
-           2011-10-16 - Written - Bovy (NYU)
-
+        Notes
+        -----
+        - 2011-10-16 - Written - Bovy (NYU)
         """
         # First calculate the grids if they are not given
         if isinstance(grid, bool) and grid:
@@ -2575,54 +2555,57 @@ class evolveddiskdf(df):
         integrate_method="dopr54_c",
     ):
         """
-        NAME:
+        Calculate the Oort function K at (R,phi,t)
 
-           oortK
+        Parameters
+        ----------
+        R : float
+            Radius at which to calculate the moment (can be Quantity)
+        phi : float, optional
+            Azimuth (rad unless deg=True; can be Quantity), by default 0.0
+        t : float or array, optional
+            Time at which to evaluate the DF (can be a list or ndarray; if this is the case, list needs to be in descending order and equally spaced) (can be Quantity), by default 0.0
+        surfacemass : float, optional
+            If set use this pre-calculated surfacemass and mean rotational velocity, by default None
+        meanvT : float, optional
+            If set use this pre-calculated surfacemass and mean rotational velocity, by default None
+        nsigma : float, optional
+            Number of sigma to integrate the velocities over (based on an estimate, so be generous), by default None
+        deg : bool, optional
+            Azimuth is in degree (default=False); do not set this when giving phi as a Quantity, by default False
+        epsrel : float, optional
+            Scipy.integrate keywords (the integration calculates the ratio of this vmoment to that of the initial DF), by default 1.0e-02
+        epsabs : float, optional
+            Scipy.integrate keywords (the integration calculates the ratio of this vmoment to that of the initial DF), by default 1.0e-05
+        grid : bool or evolveddiskdfGrid or evolveddiskdfHierarchicalGrid, optional
+            If set to True, build a grid and use that to evaluate integrals; if set to a grid-objects (such as returned by this procedure), use this grid, by default None
+        gridpoints : int, optional
+            Number of points to use for the grid in 1D (default=101), by default 101
+        returnGrids : bool, optional
+            If True, return the grid objects (default=False), by default False
+        derivRGrid : bool or evolveddiskdfGrid or evolveddiskdfHierarchicalGrid, optional
+            If set to True, build a grid and use that to evaluate integrals of the derivatives of the DF; if set to a grid-objects (such as returned by this procedure), use this grid, by default None
+        derivphiGrid : bool or evolveddiskdfGrid or evolveddiskdfHierarchicalGrid, optional
+            If set to True, build a grid and use that to evaluate integrals of the derivatives of the DF; if set to a grid-objects (such as returned by this procedure), use this grid, by default None
+        derivGridpoints : int, optional
+            Number of points to use for the grid in 1D (default=101), by default 101
+        derivHierarchgrid : bool, optional
+            If True, use a hierarchical grid (default=False), by default False
+        hierarchgrid : bool, optional
+            If True, use a hierarchical grid (default=False), by default False
+        nlevels : int, optional
+            Number of hierarchical levels for the hierarchical grid, by default 2
+        integrate_method : str, optional
+            orbit.integrate method argument, by default "dopr54_c"
 
-        PURPOSE:
+        Returns
+        -------
+        float or tuple
+            Oort K at R,phi,t or tuple of Oort A at R,phi,t and grid objects
 
-           calculate the Oort function K at (R,phi,t)
-
-        INPUT:
-
-           R - radius at which to calculate K (can be Quantity)
-
-           phi= azimuth (rad unless deg=True; can be Quantity)
-
-           t= time at which to evaluate the DF (can be a list or ndarray; if this is the case, list needs to be in descending order and equally spaced) (can be Quantity)
-
-           nsigma - number of sigma to integrate the velocities over (based on an estimate, so be generous)
-
-           deg= azimuth is in degree (default=False); do not set this when giving phi as a Quantity
-
-           epsrel, epsabs - scipy.integrate keywords
-
-           grid= if set to True, build a grid and use that to evaluate integrals; if set to a grid-objects (such as returned by this procedure), use this grid
-
-           derivRGrid, derivphiGrid= if set to True, build a grid and use that to evaluate integrals of the derivatives of the DF; if set to a grid-objects (such as returned by this procedure), use this grid
-
-           gridpoints= number of points to use for the grid in 1D (default=101)
-
-           derivGridpoints= number of points to use for the grid in 1D (default=101)
-
-           returnGrid= if True, return the grid objects (default=False)
-
-           hierarchgrid= if True, use a hierarchical grid (default=False)
-
-           derivHierarchgrid= if True, use a hierarchical grid (default=False)
-
-           nlevels= number of hierarchical levels for the hierarchical grid
-
-           integrate_method= orbit.integrate method argument
-
-        OUTPUT:
-
-           Oort K at R,phi,t
-
-        HISTORY:
-
-           2011-10-16 - Written - Bovy (NYU)
-
+        Notes
+        -----
+        - 2011-10-16 - Written - Bovy (NYU)
         """
         # First calculate the grids if they are not given
         if isinstance(grid, bool) and grid:
@@ -3140,16 +3123,30 @@ class evolveddiskdfGrid:
 
     def plot(self, tt=0):
         """
-        NAME:
-           plot
-        PURPOSE:
-           plot the velocity distribution
-        INPUT:
-           t= optional time index
-        OUTPUT:
-           plot of velocity distribution to output device
-        HISTORY:
-           2011-06-27 - Written - Bovy (NYU)
+        Plot the velocity distribution.
+
+        Parameters
+        ----------
+        tt : int, optional
+            Time index. Default is 0.
+
+        Returns
+        -------
+        None
+
+        Other Parameters
+        ----------------
+        xrange : list
+            Range of vRgrid.
+        yrange : list
+            Range of vTgrid.
+        plotthis : array
+            Array to be plotted.
+
+        Notes
+        -----
+        - 2011-06-27 - Written - Bovy (NYU)
+
         """
         xrange = [self.vRgrid[0], self.vRgrid[len(self.vRgrid) - 1]]
         yrange = [self.vTgrid[0], self.vTgrid[len(self.vTgrid) - 1]]
@@ -3190,30 +3187,43 @@ class evolveddiskdfHierarchicalGrid:
         nlevelsTotal=None,
     ):
         """
-        NAME:
-            __init__
-        PURPOSE:
-            Initialize a hierarchical grid
-        INPUT:
-            edf - evolveddiskdf instance
-            R - Radius
-            phi- azimuth
-            nsigma - number of sigma to integrate over
-            t- time
-            sigmaR1 - radial dispersion
-            sigmaT1 - rotational-velocity dispersion
-            meanvR - mean of radial velocity
-            meanvT - mean of rotational velocity
-            gridpoints- number of gridpoints
-            nlevels- number of levels to build
-            deriv- None, 'R', or 'phi': calculates derivative of the moment wrt
-                  R or phi
-            upperdxdy= area element of previous hierarchical level
-            print_progress= if True, print progress on building the grid
-        OUTPUT:
-           object
-        HISTORY:
-           2011-04-21 - Written - Bovy (NYU)
+        Initialize a hierarchical grid
+
+        Parameters
+        ----------
+        edf : evolveddiskdf instance
+        R : float
+            Radius.
+        phi : float
+            Azimuth.
+        nsigma : int
+            Number of sigma to integrate over.
+        t : float
+            Time.
+        sigmaR1 : float
+            Radial dispersion.
+        sigmaT1 : float
+            Rotational-velocity dispersion.
+        meanvR : float
+            Mean of radial velocity.
+        meanvT : float
+            Mean of rotational velocity.
+        gridpoints : int
+            Number of gridpoints.
+        nlevels : int
+            Number of levels to build.
+        deriv : {None,'R','phi'}
+            Calculates derivative of the moment wrt R or phi.
+        upperdxdy : float, optional
+            Area element of previous hierarchical level. Default is None.
+        print_progress : bool, optional
+            If True, print progress on building the grid. Default is False.
+        nlevelsTotal : int, optional
+            Number of levels to build. Default is nlevels.
+
+        Notes
+        -----
+        - 2011-04-21 - Written - Bovy (NYU).
         """
         self.sigmaR1 = sigmaR1
         self.sigmaT1 = sigmaT1
@@ -3401,16 +3411,26 @@ class evolveddiskdfHierarchicalGrid:
 
     def plot(self, tt=0, vmax=None, aspect=None, extent=None):
         """
-        NAME:
-           plot
-        PURPOSE:
-           plot the velocity distribution
-        INPUT:
-           t= optional time index
-        OUTPUT:
-           plot of velocity distribution to output device
-        HISTORY:
-           2011-06-27 - Written - Bovy (NYU)
+        Plot the velocity distribution.
+
+        Parameters
+        ----------
+        tt : int, optional
+            Time index. Default is 0.
+        vmax : float, optional
+            Maximum value for the plot. Default is None.
+        aspect : float, optional
+            Aspect ratio of the plot. Default is None.
+        extent : list, optional
+            Extent of the plot. Default is None.
+
+        Returns
+        -------
+        None
+
+        Notes
+        -----
+        - 2011-06-27 - Written - Bovy (NYU).
         """
         if vmax is None:
             vmax = self.max(tt=tt) * 2.0

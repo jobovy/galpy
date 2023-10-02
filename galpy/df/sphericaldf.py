@@ -41,34 +41,26 @@ class sphericaldf(df):
 
     def __init__(self, pot=None, denspot=None, rmax=None, scale=None, ro=None, vo=None):
         """
-        NAME:
+        Initializes a spherical DF
 
-            __init__
+        Parameters
+        ----------
+        pot : Potential instance or list thereof
+            The potential. Default is None.
+        denspot : Potential instance or list thereof, optional
+            The potential that represents the density of the tracers (assumed to be spherical). If None, set equal to pot. Default is None.
+        rmax : float or Quantity, optional
+            The maximum radius to consider. DF is cut off at E = Phi(rmax). Default is None.
+        scale : float or Quantity, optional
+            The length-scale parameter to be used internally. Default is None.
+        ro : float or Quantity, optional
+            Distance scale for translation into internal units (default from configuration file).
+        vo : float or Quantity, optional
+            Velocity scale for translation into internal units (default from configuration file).
 
-        PURPOSE:
-
-            Initializes a spherical DF
-
-        INPUT:
-
-           pot= (None) Potential instance or list thereof
-
-           denspot= (None) Potential instance or list thereof that represent the density of the tracers (assumed to be spherical; if None, set equal to pot)
-
-           rmax= (None) maximum radius to consider (can be Quantity); DF is cut off at E = Phi(rmax)
-
-           scale= (None) length-scale parameter to be used internally
-
-           ro= ,vo= galpy unit parameters
-
-        OUTPUT:
-
-            None
-
-        HISTORY:
-
-            2020-07-22 - Written - Lane (UofT)
-
+        Notes
+        -----
+        - 2020-07-22 - Written - Lane (UofT)
         """
         df.__init__(self, ro=ro, vo=vo)
         if not conversion.physical_compatible(self, pot):
@@ -113,34 +105,24 @@ class sphericaldf(df):
     @physical_conversion("phasespacedensity", pop=True)
     def __call__(self, *args, **kwargs):
         """
-        NAME:
+        Evaluate the DF
 
-            __call__
-
-        PURPOSE:
-
-            return the DF
-
-        INPUT:
-
+        Parameters
+        ----------
+        *args: tuple
             Either:
+                a) (E,L,Lz): tuple of E and (optionally) L and (optionally) Lz. Each may be Quantity
+                b) R,vR,vT,z,vz,phi: cylindrical coordinates (can be Quantity)
+                c) Orbit instance: orbit.Orbit instance and if specific time then orbit.Orbit(t)
 
-                a) (E,L,Lz): tuple of E and (optionally) L and (optionally) Lz.
-                    Each may be Quantity
-
-                b) R,vR,vT,z,vz,phi:
-
-                c) Orbit instance: orbit.Orbit instance and if specific time
-                    then orbit.Orbit(t)
-
-        OUTPUT:
-
+        Returns
+        -------
+        ndarray or Quantity
             Value of DF
 
-        HISTORY:
-
-            2020-07-22 - Written - Lane (UofT)
-
+        Notes
+        -----
+        - 2020-07-22 - Written - Lane (UofT)
         """
         # Get E,L,Lz
         if len(args) == 1:
@@ -181,25 +163,21 @@ class sphericaldf(df):
     @physical_conversion("energydensity", pop=True)
     def dMdE(self, E):
         """
-        NAME:
+        Compute the differential energy distribution dM/dE: the amount of mass per unit energy
 
-            dMdE
+        Parameters
+        ----------
+        E : float or array_like
+            Energy; can be a Quantity
 
-        PURPOSE:
+        Returns
+        -------
+        float, numpy.ndarray, or Quantity
+            The differential energy distribution
 
-            Compute the differential energy distribution dM/dE: the amount of mass per unit energy
-
-        INPUT:
-
-            E - energy; can be a Quantity
-
-        OUTPUT:
-
-            dM/dE
-
-        HISTORY:
-
-            2023-05-23 - Written - Bovy (UofT)
+        Notes
+        -----
+        - 2023-05-23 - Written - Bovy (UofT)
 
         """
         return self._dMdE(
@@ -208,30 +186,25 @@ class sphericaldf(df):
 
     def vmomentdensity(self, r, n, m, **kwargs):
         """
-        NAME:
+        Calculate an arbitrary moment of the velocity distribution at r times the density.
 
-           vmomentdensity
+        Parameters
+        ----------
+        r : float
+            Spherical radius at which to calculate the moment.
+        n : float
+            vr^n, where vr = v x cos eta.
+        m : float
+            vt^m, where vt = v x sin eta.
 
-        PURPOSE:
+        Returns
+        -------
+        float or Quantity
+            <vr^n vt^m x density> at r.
 
-           calculate an arbitrary moment of the velocity distribution
-           at r times the density
-
-        INPUT:
-
-           r - spherical radius at which to calculate the moment
-
-           n - vr^n, where vr = v x cos eta
-
-           m - vt^m, where vt = v x sin eta
-
-        OUTPUT:
-
-           <vr^n vt^m x density> at r
-
-        HISTORY:
-
-            2020-09-04 - Written - Bovy (UofT)
+        Notes
+        -----
+        - 2020-09-04 - Written - Bovy (UofT)
         """
         r = conversion.parse_length(r, ro=self._ro)
         use_physical = kwargs.pop("use_physical", True)
@@ -281,25 +254,21 @@ class sphericaldf(df):
     @physical_conversion("velocity", pop=True)
     def sigmar(self, r):
         """
-        NAME:
+        Calculate the radial velocity dispersion at radius r.
 
-           sigmar
+        Parameters
+        ----------
+        r : float
+            Spherical radius at which to calculate the radial velocity dispersion.
 
-        PURPOSE:
+        Returns
+        -------
+        float or Quantity
+            The radial velocity dispersion at radius r.
 
-           calculate the radial velocity dispersion at radius r
-
-        INPUT:
-
-           r - spherical radius at which to calculate the radial velocity dispersion
-
-        OUTPUT:
-
-           sigma_r(r)
-
-        HISTORY:
-
-            2020-09-04 - Written - Bovy (UofT)
+        Notes
+        -----
+        - 2020-09-04 - Written - Bovy (UofT)
         """
         r = conversion.parse_length(r, ro=self._ro)
         return numpy.sqrt(self._vmomentdensity(r, 2, 0) / self._vmomentdensity(r, 0, 0))
@@ -307,50 +276,44 @@ class sphericaldf(df):
     @physical_conversion("velocity", pop=True)
     def sigmat(self, r):
         """
-        NAME:
+        Calculate the tangential velocity dispersion at radius r.
 
-           sigmar
+        Parameters
+        ----------
+        r : float
+            Spherical radius at which to calculate the tangential velocity dispersion.
 
-        PURPOSE:
+        Returns
+        -------
+        float or Quantity
+            The tangential velocity dispersion at radius r.
 
-           calculate the tangential velocity dispersion at radius r
+        Notes
+        -----
+        - 2020-09-04 - Written - Bovy (UofT)
 
-        INPUT:
-
-           r - spherical radius at which to calculate the tangential velocity dispersion
-
-        OUTPUT:
-
-           sigma_t(r)
-
-        HISTORY:
-
-            2020-09-04 - Written - Bovy (UofT)
         """
         r = conversion.parse_length(r, ro=self._ro)
         return numpy.sqrt(self._vmomentdensity(r, 0, 2) / self._vmomentdensity(r, 0, 0))
 
     def beta(self, r):
         """
-        NAME:
+        Calculate the anisotropy at radius r.
 
-           sigmar
+        Parameters
+        ----------
+        r : float
+            Spherical radius at which to calculate the anisotropy.
 
-        PURPOSE:
+        Returns
+        -------
+        float
+            Anisotropy at radius r.
 
-           calculate the anisotropy at radius r
+        Notes
+        -----
+        - 2020-09-04 - Written - Bovy (UofT)
 
-        INPUT:
-
-           r - spherical radius at which to calculate the anisotropy
-
-        OUTPUT:
-
-           beta(r)
-
-        HISTORY:
-
-            2020-09-04 - Written - Bovy (UofT)
         """
         r = conversion.parse_length(r, ro=self._ro)
         return 1.0 - self._vmomentdensity(r, 0, 2) / 2.0 / self._vmomentdensity(r, 2, 0)
@@ -358,45 +321,32 @@ class sphericaldf(df):
     ############################### SAMPLING THE DF################################
     def sample(self, R=None, z=None, phi=None, n=1, return_orbit=True, rmin=0.0):
         """
-        NAME:
+        Sample the DF
 
-            sample
+        Parameters
+        ----------
+        R : float, array_like, Quantity, or None, optional
+            If set, sample velocities at this radius. If array, sample velocities at these radii, ignoring n.
+        z : float, array_like, Quantity, or None, optional
+            If set, sample velocities at this height. If array, sample velocities at these heights, ignoring n.
+        phi : float, array_like, Quantity, or None, optional
+            If set, sample velocities at this azimuth. If array, sample velocities at these azimuths, ignoring n.
+        n : int, optional
+            Number of samples to generate. Default is 1.
+        return_orbit : bool, optional
+            If True, return an orbit.Orbit instance. If False, return a tuple of (R,vR,vT,z,vz,phi). Default is True.
+        rmin : float, Quantity, optional
+            Minimum radius at which to sample. Default is 0.
 
-        PURPOSE:
+        Returns
+        -------
+        orbit.Orbit instance or tuple
+            If return_orbit is True, an orbit.Orbit instance. Otherwise, a tuple of (R,vR,vT,z,vz,phi).
 
-            Return full 6D samples of the DF
-
-        INPUT:
-
-            R= cylindrical radius at which to generate samples (can be Quantity)
-
-            z= height at which to generate samples (can be Quantity)
-
-            phi= azimuth at which to generate samples (can be Quantity)
-
-            n= number of samples to generate
-
-            rmin= (0.) only sample r > rmin (can be Quantity)
-
-        OPTIONAL INPUT:
-
-            return_orbit= (True) If True output is an orbit.Orbit object, if False output is (R,vR,vT,z,vz,phi)
-
-        OUTPUT:
-
-            List of samples. Either vector (R,vR,vT,z,vz,phi) or orbit.Orbit; the (R,vR,vT,z,vz,phi) is either in internal units or is a set of Quantities
-
-        NOTES:
-
-            If R,z,phi are None then sample positions with CMF. If R,z,phi are
-            floats then sample n velocities at location. If array then sample
-            velocities at radii, ignoring n. phi can be None if R,z are set
-            by any above mechanism, will then sample phi for output.
-
-        HISTORY:
-
-            2020-07-22 - Written - Lane (UofT)
-
+        Notes
+        -----
+        - When specifying position, it is necessary to specify both R and z; if phi is not set in this case, it is sampled
+        - 2020-07-22 - Written - Lane (UofT)
         """
         rmin = conversion.parse_length(rmin, ro=self._ro)
         if hasattr(self, "_rmin_sampling") and rmin != self._rmin_sampling:
@@ -541,12 +491,6 @@ class sphericaldf(df):
 
     def _make_pvr_interpolator(self, r_a_start=-3, r_a_end=3, n_r_a=120, n_v_vesc=100):
         """
-        NAME:
-
-        _make_pvr_interpolator
-
-        PURPOSE:
-
         Calculate a grid of the velocity sampling function v^2*f(E) over many
         radii. The radii are fractional with respect to some scale radius
         which characteristically describes the size of the potential,
@@ -555,23 +499,25 @@ class sphericaldf(df):
         represents the inverse cumulative distribution at many radii. This
         allows for sampling of v/vesc given an input r/a
 
-        INPUT:
+        Parameters
+        ----------
+        r_a_start : float, optional
+            Radius grid start location in units of log10(r/a). Default is -3.
+        r_a_end : float, optional
+            Radius grid end location in units of log10(r/a). Default is 3.
+        n_r_a : int, optional
+            Number of radius grid points to use. Default is 120.
+        n_v_vesc : int, optional
+            Number of velocity grid points to use. Default is 100.
 
-            r_a_start= radius grid start location in units of log10(r/a)
+        Returns
+        -------
+        scipy.interpolate.RectBivariateSpline
+            Interpolator for v/vesc given an input r/a.
 
-            r_a_end= radius grid end location in units of log10(r/a)
-
-            n_r_a= number of radius grid points to use
-
-            n_v_vesc= number of velocity grid points to use
-
-        OUTPUT:
-
-            None (But sets self._v_vesc_pvr_interpolator)
-
-        HISTORY:
-
-            Written 2020-07-24 - James Lane (UofT)
+        Notes
+        -----
+        - 2020-07-24 - Written - Lane (UofT)
         """
         # Check that interpolated potential has appropriate grid range
         if (
@@ -640,30 +586,27 @@ class sphericaldf(df):
 
     def _setup_rphi_interpolator(self, r_a_min=1e-6, r_a_max=1e6, nra=10001):
         """
-        NAME:
-
-        _setup_rphi_interpolator
-
-        PURPOSE:
-
         Set up the interpolator for r(phi)
 
-        INPUT:
+        Parameters
+        ----------
+        r_a_min : float, optional
+            Minimum r/a. Default is 1e-6.
+        r_a_max : float, optional
+            Maximum r/a. Default is 1e6.
+        nra : int, optional
+            Number of points to use in the r/a grid. Default is 10001.
 
-            r_a_min= minimum r/a
+        Returns
+        -------
+        scipy.interpolate.InterpolatedUnivariateSpline
+            Interpolator for r(phi).
 
-            r_a_max= maximum r/a
-
-            nra= number of points to use in the r/a grid
-
-        OUTPUT:
-
-            _rphi_interpolator (scipy.interpolate.InterpolatedUnivariateSpline)
-
-        HISTORY:
-
-            Written 2023-02-23 - James Lane (UofT)
+        Notes
+        -----
+        - 2023-02-23 - Written - Lane (UofT)
         """
+
         r_a_values = numpy.concatenate(
             (numpy.array([0.0]), numpy.geomspace(r_a_min, r_a_max, nra))
         )
@@ -686,33 +629,27 @@ class isotropicsphericaldf(sphericaldf):
 
     def __init__(self, pot=None, denspot=None, rmax=None, scale=None, ro=None, vo=None):
         """
-        NAME:
+        Initialize an isotropic distribution function
 
-            __init__
+        Parameters
+        ----------
+        pot : Potential instance or list thereof
+            Default: None
+        denspot : Potential instance or list thereof that represent the density of the tracers (assumed to be spherical; if None, set equal to pot), optional
+            Default: None
+        rmax : float or Quantity, optional
+            Maximum radius to consider; DF is cut off at E = Phi(rmax)
+            Default: None
+        scale : float, optional
+            Scale parameter to be used internally
+        ro : float or Quantity, optional
+            Distance scale for translation into internal units (default from configuration file).
+        vo : float or Quantity, optional
+            Velocity scale for translation into internal units (default from configuration file).
 
-        PURPOSE:
-
-            Initialize an isotropic distribution function
-
-        INPUT:
-
-           pot= (None) Potential instance or list thereof
-
-           denspot= (None) Potential instance or list thereof that represent the density of the tracers (assumed to be spherical; if None, set equal to pot)
-
-           rmax= (None) maximum radius to consider (can be Quantity); DF is cut off at E = Phi(rmax)
-
-           scale= scale parameter to be used internally
-
-           ro=, vo= galpy unit parameters
-
-        OUTPUT:
-
-            None
-
-        HISTORY:
-
-            2020-09-02 - Written - Bovy (UofT)
+        Notes
+        -----
+        - 2020-09-02 - Written - Bovy (UofT)
 
         """
         sphericaldf.__init__(
@@ -721,25 +658,20 @@ class isotropicsphericaldf(sphericaldf):
 
     def _call_internal(self, *args):
         """
-        NAME:
+        Calculate the distribution function for an isotropic DF.
 
-            _call_internal
+        Parameters
+        ----------
+        *args : tuple of (E,L,Lz) with L and Lz optionalA
 
-        PURPOSE
+        Returns
+        -------
+        float
+            The distribution function evaluated at E.
 
-            Calculate the distribution function for an isotropic DF
-
-        INPUT:
-
-            E,L,Lz - The energy, angular momentum magnitude, and its z component (only E is used)
-
-        OUTPUT:
-
-            f(x,v) = f(E[x,v])
-
-        HISTORY:
-
-            2020-07 - Written - Lane (UofT)
+        Notes
+        -----
+        - 2020-07 - Written - Lane (UofT)
 
         """
         return self.fE(args[0])
@@ -811,33 +743,26 @@ class anisotropicsphericaldf(sphericaldf):
 
     def __init__(self, pot=None, denspot=None, rmax=None, scale=None, ro=None, vo=None):
         """
-        NAME:
+        Initialize an anisotropic distribution function
 
-            __init__
+        Parameters
+        ----------
+        pot : Potential instance or list thereof
+            The potential. Default: None.
+        denspot : Potential instance or list thereof, optional
+            The potential representing the density of the tracers (assumed to be spherical). If None, set equal to pot. Default: None.
+        rmax : float or Quantity, optional
+            Maximum radius to consider. DF is cut off at E = Phi(rmax). Default: None.
+        scale : float, optional
+            Length-scale parameter to be used internally. Default: None.
+        ro : float or Quantity, optional
+            Distance scale for translation into internal units (default from configuration file).
+        vo : float or Quantity, optional
+            Velocity scale for translation into internal units (default from configuration file).
 
-        PURPOSE:
-
-            Initialize an anisotropic distribution function
-
-        INPUT:
-
-           pot= (None) Potential instance or list thereof
-
-           denspot= (None) Potential instance or list thereof that represent the density of the tracers (assumed to be spherical; if None, set equal to pot)
-
-           rmax= (None) maximum radius to consider (can be Quantity); DF is cut off at E = Phi(rmax)
-
-           scale= (None) length-scale parameter to be used internally
-
-           ro= ,vo= galpy unit parameters
-
-        OUTPUT:
-
-            None
-
-        HISTORY:
-
-            2020-07-22 - Written - Lane (UofT)
+        Notes
+        -----
+        - 2020-07-22 - Written - Lane (UofT)
 
         """
         sphericaldf.__init__(

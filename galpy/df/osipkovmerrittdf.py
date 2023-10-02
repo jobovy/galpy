@@ -18,37 +18,28 @@ class _osipkovmerrittdf(anisotropicsphericaldf):
         self, pot=None, denspot=None, ra=1.4, rmax=None, scale=None, ro=None, vo=None
     ):
         """
-        NAME:
+        Initialize a DF with Osipkov-Merritt anisotropy.
 
-            __init__
+        Parameters
+        ----------
+        pot : Potential instance or list thereof, optional
+            Default: None
+        denspot : Potential instance or list thereof that represent the density of the tracers (assumed to be spherical; if None, set equal to pot), optional
+            Default: None
+        ra : float or Quantity, optional
+            Anisotropy radius. Default: 1.4
+        rmax : float or Quantity, optional
+            Maximum radius to consider; DF is cut off at E = Phi(rmax). Default: None
+        scale : float or Quantity, optional
+            Characteristic scale radius to aid sampling calculations. Not necessary, and will also be overridden by value from pot if available. Default: None
+        ro : float or Quantity, optional
+            Distance scale for translation into internal units (default from configuration file).
+        vo : float or Quantity, optional
+            Velocity scale for translation into internal units (default from configuration file).
 
-        PURPOSE:
-
-            Initialize a DF with Osipkov-Merritt anisotropy
-
-        INPUT:
-
-            pot= (None) Potential instance or list thereof
-
-            denspot= (None) Potential instance or list thereof that represent the density of the tracers (assumed to be spherical; if None, set equal to pot)
-
-            ra - anisotropy radius (can be a Quantity)
-
-           rmax= (None) maximum radius to consider (can be Quantity); DF is cut off at E = Phi(rmax)
-
-            scale - Characteristic scale radius to aid sampling calculations.
-                Not necessary, and will also be overridden by value from pot
-                if available.
-
-           ro=, vo= galpy unit parameters
-
-        OUTPUT:
-
-            None
-
-        HISTORY:
-
-            2020-11-12 - Written - Bovy (UofT)
+        Notes
+        -----
+        - 2020-11-12 - Written - Bovy (UofT)
 
         """
         anisotropicsphericaldf.__init__(
@@ -59,27 +50,23 @@ class _osipkovmerrittdf(anisotropicsphericaldf):
 
     def _call_internal(self, *args):
         """
-        NAME:
+        Evaluate the DF for an Osipkov-Merritt-anisotropy DF
 
-            _call_internal
+        Parameters
+        ----------
+        E : float
+            The energy
+        L : float
+            The angular momentum
 
-        PURPOSE:
+        Returns
+        -------
+        float
+            The value of the DF
 
-            Evaluate the DF for an Osipkov-Merritt-anisotropy DF
-
-        INPUT:
-
-            E - The energy
-
-            L - The angular momentum
-
-        OUTPUT:
-
-            fH - The value of the DF
-
-        HISTORY:
-
-            2020-11-12 - Written - Bovy (UofT)
+        Notes
+        -----
+        - 2020-11-12 - Written - Bovy (UofT)
 
         """
         E, L, _ = args
@@ -217,36 +204,28 @@ class osipkovmerrittdf(_osipkovmerrittdf):
         self, pot=None, denspot=None, ra=1.4, rmax=1e4, scale=None, ro=None, vo=None
     ):
         """
-        NAME:
+        Initialize a DF with Osipkov-Merritt anisotropy.
 
-            __init__
+        Parameters
+        ----------
+        pot : Potential instance or list thereof, optional
+            Default: None
+        denspot : Potential instance or list thereof that represent the density of the tracers (assumed to be spherical; if None, set equal to pot), optional
+            Default: None
+        ra : float or Quantity, optional
+            Anisotropy radius. Default: 1.4
+        rmax : float or Quantity, optional
+            Maximum radius to consider; DF is cut off at E = Phi(rmax). Default: None
+        scale : float or Quantity, optional
+            Characteristic scale radius to aid sampling calculations. Not necessary, and will also be overridden by value from pot if available. Default: None
+        ro : float or Quantity, optional
+            Distance scale for translation into internal units (default from configuration file).
+        vo : float or Quantity, optional
+            Velocity scale for translation into internal units (default from configuration file).
 
-        PURPOSE:
-
-            Initialize a DF with Osipkov-Merritt anisotropy
-
-        INPUT:
-
-            pot= (None) Potential instance or list thereof
-
-            denspot= (None) Potential instance or list thereof that represent the density of the tracers (assumed to be spherical; if None, set equal to pot)
-
-            ra - anisotropy radius (can be a Quantity)
-
-           rmax= (1e4) maximum radius to consider (can be Quantity); DF is cut off at E = Phi(rmax)
-
-           scale - Characteristic scale radius to aid sampling calculations. Optionaland will also be overridden by value from pot if available.
-
-           ro=, vo= galpy unit parameters
-
-        OUTPUT:
-
-            None
-
-        HISTORY:
-
-            2021-02-07 - Written - Bovy (UofT)
-
+        Notes
+        -----
+        - 2021-02-07 - Written - Bovy (UofT)
         """
         _osipkovmerrittdf.__init__(
             self, pot=pot, denspot=denspot, ra=ra, rmax=rmax, scale=scale, ro=ro, vo=vo
@@ -316,25 +295,21 @@ class osipkovmerrittdf(_osipkovmerrittdf):
 
     def fQ(self, Q):
         """
-        NAME:
+        Calculate the f(Q) portion of an Osipkov-Merritt Hernquist distribution function
 
-            fQ
+        Parameters
+        ----------
+        Q : float
+            The Osipkov-Merritt 'energy' E-L^2/[2ra^2]
 
-        PURPOSE
+        Returns
+        -------
+        float
+            The value of the f(Q) portion of the DF
 
-            Calculate the f(Q) portion of an Osipkov-Merritt Hernquist distribution function
-
-        INPUT:
-
-            Q - The Osipkov-Merritt 'energy' E-L^2/[2ra^2] (can be Quantity)
-
-        OUTPUT:
-
-            fQ - The value of the f(Q) portion of the DF
-
-        HISTORY:
-
-            2021-02-07 - Written - Bovy (UofT)
+        Notes
+        -----
+        - 2021-02-07 - Written - Bovy (UofT)
 
         """
         return self._edf.fE(-Q)

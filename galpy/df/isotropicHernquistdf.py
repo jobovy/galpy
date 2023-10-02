@@ -12,29 +12,20 @@ class isotropicHernquistdf(isotropicsphericaldf):
 
     def __init__(self, pot=None, ro=None, vo=None):
         """
-        NAME:
+        Initialize an isotropic Hernquist distribution function.
 
-            __init__
+        Parameters
+        ----------
+        pot : HernquistPotential instance
+            Hernquist potential instance.
+        ro : float or Quantity, optional
+            Distance scale for translation into internal units (default from configuration file).
+        vo : float or Quantity, optional
+            Velocity scale for translation into internal units (default from configuration file).
 
-        PURPOSE:
-
-            Initialize an isotropic Hernquist distribution function
-
-        INPUT:
-
-           pot= (None) Hernquist Potential instance
-
-
-           ro=, vo= galpy unit parameters
-
-        OUTPUT:
-
-            None
-
-        HISTORY:
-
-            2020-08-09 - Written - Lane (UofT)
-
+        Notes
+        -----
+        - 2020-08-09 - Written - Lane (UofT)
         """
         assert isinstance(
             pot, HernquistPotential
@@ -53,25 +44,21 @@ class isotropicHernquistdf(isotropicsphericaldf):
 
     def fE(self, E):
         """
-        NAME:
+        Calculate the energy portion of an isotropic Hernquist distribution function
 
-            fE
+        Parameters
+        ----------
+        E : float or Quantity
+            The energy.
 
-        PURPOSE
+        Returns
+        -------
+        numpy.ndarray
+            The value of the energy portion of the DF.
 
-            Calculate the energy portion of an isotropic Hernquist distribution function
-
-        INPUT:
-
-            E - The energy (can be Quantity)
-
-        OUTPUT:
-
-            fE - The value of the energy portion of the DF
-
-        HISTORY:
-
-            2020-08-09 - Written - James Lane (UofT)
+        Notes
+        -----
+        - 2020-08-09 - Written - James Lane (UofT)
         """
         Etilde = -numpy.atleast_1d(conversion.parse_energy(E, vo=self._vo) / self._psi0)
         # Handle E out of bounds

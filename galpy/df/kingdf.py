@@ -23,34 +23,26 @@ class kingdf(isotropicsphericaldf):
 
     def __init__(self, W0, M=1.0, rt=1.0, npt=1001, ro=None, vo=None):
         """
-        NAME:
+        Initialize a King DF
 
-           __init__
+        Parameters
+        ----------
+        W0 : float
+            Dimensionless central potential :math:`W_0 = \\Psi(0)/\\sigma^2` (in practice, needs to be :math:`\\lesssim 200`, where the DF is essentially isothermal).
+        M : float or Quantity, optional
+            Total mass.
+        rt : float or Quantity, optional
+            Tidal radius.
+        npt : int, optional
+            Number of points to use to solve for :math:`\\Psi(r)`.
+        ro : float or Quantity, optional
+            Distance scale for translation into internal units (default from configuration file).
+        vo : float or Quantity, optional
+            Velocity scale for translation into internal units (default from configuration file).
 
-        PURPOSE:
-
-           Initialize a King DF
-
-        INPUT:
-
-           W0 - dimensionless central potential W0 = Psi(0)/sigma^2 (in practice, needs to be <~ 200, where the DF is essentially isothermal)
-
-           M= (1.) total mass (can be a Quantity)
-
-           rt= (1.) tidal radius (can be a Quantity)
-
-           npt= (1001) number of points to use to solve for Psi(r)
-
-           ro=, vo= standard galpy unit scaling parameters
-
-        OUTPUT:
-
-           (none; sets up instance)
-
-        HISTORY:
-
-           2020-07-09 - Written - Bovy (UofT)
-
+        Notes
+        -----
+        - 2020-07-09 - Written - Bovy (UofT)
         """
         # Just run df init to set up unit-conversion parameters
         df.__init__(self, ro=ro, vo=vo)

@@ -18,28 +18,20 @@ class isotropicPlummerdf(isotropicsphericaldf):
 
     def __init__(self, pot=None, ro=None, vo=None):
         """
-        NAME:
+        Initialize an isotropic Plummer distribution function
 
-            __init__
+        Parameters
+        ----------
+        pot : Potential object
+            Plummer Potential instance
+        ro : float or Quantity, optional
+            Distance scale for translation into internal units (default from configuration file).
+        vo : float or Quantity, optional
+            Velocity scale for translation into internal units (default from configuration file).
 
-        PURPOSE:
-
-            Initialize an isotropic Plummer distribution function
-
-        INPUT:
-
-           pot= (None) Plummer Potential instance
-
-           ro=, vo= galpy unit parameters
-
-        OUTPUT:
-
-            None
-
-        HISTORY:
-
-            2020-10-01 - Written - Bovy (UofT)
-
+        Notes
+        -----
+        - 2020-10-01 - Written - Bovy (UofT).
         """
         assert isinstance(
             pot, PlummerPotential
@@ -58,25 +50,22 @@ class isotropicPlummerdf(isotropicsphericaldf):
 
     def fE(self, E):
         """
-        NAME:
+        Calculate the energy portion of an isotropic Plummer distribution function.
 
-            fE
+        Parameters
+        ----------
+        E : float or Quantity
+            The energy.
 
-        PURPOSE
+        Returns
+        -------
+        ndarray
+            The value of the energy portion of the DF.
 
-            Calculate the energy portion of an isotropic Plummer distribution function
+        Notes
+        -----
+        - 2020-10-01 - Written - Bovy (UofT)
 
-        INPUT:
-
-            E - The energy (can be Quantity)
-
-        OUTPUT:
-
-            fE - The value of the energy portion of the DF
-
-        HISTORY:
-
-            2020-10-01 - Written - Bovy (UofT)
         """
         Etilde = -conversion.parse_energy(E, vo=self._vo)
         out = numpy.zeros_like(Etilde)

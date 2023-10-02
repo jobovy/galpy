@@ -20,29 +20,22 @@ class osipkovmerrittHernquistdf(_osipkovmerrittdf):
 
     def __init__(self, pot=None, ra=1.4, ro=None, vo=None):
         """
-        NAME:
+        Initialize a Hernquist DF with Osipkov-Merritt anisotropy
 
-            __init__
+        Parameters
+        ----------
+        pot : potential.HernquistPotential
+            Hernquist potential which determines the DF
+        ra : float or Quantity, optional
+            Anisotropy radius
+        ro : float or Quantity, optional
+            Distance scale for translation into internal units (default from configuration file).
+        vo : float or Quantity, optional
+            Velocity scale for translation into internal units (default from configuration file).
 
-        PURPOSE:
-
-            Initialize a Hernquist DF with Osipkov-Merritt anisotropy
-
-        INPUT:
-
-            pot - Hernquist potential which determines the DF
-
-            ra - anisotropy radius (can be a Quantity)
-
-           ro=, vo= galpy unit parameters
-
-        OUTPUT:
-
-            None
-
-        HISTORY:
-
-            2020-11-12 - Written - Bovy (UofT)
+        Notes
+        -----
+        - 2020-11-12 - Written - Bovy (UofT)
         """
         assert isinstance(
             pot, HernquistPotential
@@ -62,26 +55,21 @@ class osipkovmerrittHernquistdf(_osipkovmerrittdf):
 
     def fQ(self, Q):
         """
-        NAME:
+        Calculate the f(Q) portion of an Osipkov-Merritt Hernquist distribution function
 
-            fQ
+        Parameters
+        ----------
+        Q : float or numpy.ndarray
+            The Osipkov-Merritt 'energy' E-L^2/[2ra^2] (can be Quantity)
 
-        PURPOSE
+        Returns
+        -------
+        float or numpy.ndarray
+            The value of the f(Q) portion of the DF
 
-            Calculate the f(Q) portion of an Osipkov-Merritt Hernquist distribution function
-
-        INPUT:
-
-            Q - The Osipkov-Merritt 'energy' E-L^2/[2ra^2] (can be Quantity)
-
-        OUTPUT:
-
-            fQ - The value of the f(Q) portion of the DF
-
-        HISTORY:
-
-            2020-11-12 - Written - Bovy (UofT)
-
+        Notes
+        -----
+        - 2020-11-12 - Written - Bovy (UofT)
         """
         Qtilde = numpy.atleast_1d(conversion.parse_energy(Q, vo=self._vo) / self._psi0)
         # Handle potential Q outside of bounds

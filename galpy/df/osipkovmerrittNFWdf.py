@@ -35,31 +35,24 @@ class osipkovmerrittNFWdf(_osipkovmerrittdf):
 
     def __init__(self, pot=None, ra=1.4, rmax=1e4, ro=None, vo=None):
         """
-        NAME:
+        Initialize a NFW DF with Osipkov-Merritt anisotropy
 
-            __init__
+        Parameters
+        ----------
+        pot : potential.NFWPotential
+            NFW potential which determines the DF
+        ra : float or Quantity, optional
+            Anisotropy radius
+        rmax : float or Quantity, optional
+            Maximum radius to consider (set to numpy.inf to evaluate NFW w/o cut-off)
+        ro : float or Quantity, optional
+            Distance scale for translation into internal units (default from configuration file).
+        vo : float or Quantity, optional
+            Velocity scale for translation into internal units (default from configuration file).
 
-        PURPOSE:
-
-            Initialize a NFW DF with Osipkov-Merritt anisotropy
-
-        INPUT:
-
-            pot - NFW potential which determines the DF
-
-            ra - anisotropy radius (can be a Quantity)
-
-           rmax= (1e4) maximum radius to consider (can be Quantity); set to numpy.inf to evaluate NFW w/o cut-off
-
-           ro=, vo= galpy unit parameters
-
-        OUTPUT:
-
-            None
-
-        HISTORY:
-
-            2020-11-12 - Written - Bovy (UofT)
+        Notes
+        -----
+        - 2020-11-12 - Written - Bovy (UofT)
         """
         assert isinstance(pot, NFWPotential), "pot= must be potential.NFWPotential"
         _osipkovmerrittdf.__init__(self, pot=pot, ra=ra, rmax=rmax, ro=ro, vo=vo)
@@ -74,25 +67,21 @@ class osipkovmerrittNFWdf(_osipkovmerrittdf):
 
     def fQ(self, Q):
         """
-        NAME:
+        Calculate the f(Q) portion of an Osipkov-Merritt NFW distribution function
 
-            fQ
+        Parameters
+        ----------
+        Q : float or Quantity
+            The Osipkov-Merritt 'energy' E-L^2/[2ra^2]
 
-        PURPOSE
+        Returns
+        -------
+        ndarray
+            The value of the f(Q) portion of the DF
 
-            Calculate the f(Q) portion of an Osipkov-Merritt NFW distribution function
-
-        INPUT:
-
-            Q - The Osipkov-Merritt 'energy' E-L^2/[2ra^2] (can be Quantity)
-
-        OUTPUT:
-
-            fQ - The value of the f(Q) portion of the DF
-
-        HISTORY:
-
-            2021-02-09 - Written - Bovy (UofT)
+        Notes
+        -----
+        - 2021-02-09 - Written - Bovy (UofT)
 
         """
         Qtilde = conversion.parse_energy(Q, vo=self._vo) / self._Qtildemax

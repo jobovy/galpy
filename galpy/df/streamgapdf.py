@@ -40,58 +40,105 @@ class streamgapdf(streamdf.streamdf):
 
     def __init__(self, *args, **kwargs):
         """
-        NAME:
+        Initialize the DF of a gap in a stellar stream
 
-           __init__
+        Parameters
+        ----------
+        sigv : float or Quantity
+            Radial velocity dispersion of the progenitor.
+        progenitor : galpy.orbit.Orbit
+            Progenitor orbit as Orbit instance (will be re-integrated, so don't bother integrating the orbit before).
+        pot : galpy.potential.Potential or list thereof, optional
+            Potential instance or list thereof.
+        aA : actionAngle instance
+            ActionAngle instance used to convert (x,v) to actions. Generally a actionAngleIsochroneApprox instance.
+        useTM : bool, optional
+            If set to an actionAngleTorus instance, use this to speed up calculations.
+        tdisrupt : float or Quantity, optional
+            Time since start of disruption (default: 5 Gyr).
+        sigMeanOffset : float, optional
+            Offset between the mean of the frequencies and the progenitor, in units of the largest eigenvalue of the frequency covariance matrix (along the largest eigenvector), should be positive; to model the trailing part, set leading=False (default: 6.0).
+        leading : bool, optional
+            If True, model the leading part of the stream; if False, model the trailing part (default: True).
+        sigangle : float or Quantity, optional
+            Estimate of the angle spread of the debris initially (default: sigv/122/[1km/s]=1.8sigv in natural coordinates).
+        deltaAngleTrack : float or Quantity, optional
+            Angle to estimate the stream track over (rad; or can be Quantity) (default: None).
+        nTrackChunks : int, optional
+            Number of chunks to divide the progenitor track in (default: floor(deltaAngleTrack/0.15)+1).
+        nTrackIterations : int, optional
+            Number of iterations to perform when establishing the track; each iteration starts from a previous approximation to the track in (x,v) and calculates a new track based on the deviation between the previous track and the desired track in action-angle coordinates; if not set, an appropriate value is determined based on the magnitude of the misalignment between stream and orbit, with larger numbers of iterations for larger misalignments (default: None).
+        progIsTrack : bool, optional
+            If True, then the progenitor (x,v) is actually the (x,v) of the stream track at zero angle separation; useful when initializing with an orbit fit; the progenitor's position will be calculated (default: False).
+        ro : float or Quantity, optional
+            Distance scale for translation into internal units (default from configuration file).
+        vo : float or Quantity, optional
+            Velocity scale for translation into internal units (default from configuration file).
+        Vnorm : float or Quantity, optional
+            Deprecated. Use vo instead (default: None).
+        Rnorm : float or Quantity, optional
+            Deprecated. Use ro instead (default: None).
+        R0 : float or Quantity, optional
+            Galactocentric radius of the Sun (kpc) (can be different from ro) (default: 8.0).
+        Zsun : float or Quantity, optional
+            Sun's height above the plane (kpc) (default: 0.0208).
+        vsun : array_like or Quantity, optional
+            Sun's motion in cylindrical coordinates (vR positive away from center) (can be Quantity array, but not a list of Quantities) (default: [-11.1, 8.0 * 30.24, 7.25]).
+        multi : int, optional
+            If set, use multi-processing (default: None).
+        interpTrack : bool, optional
+            Interpolate the stream track while setting up the instance (can be done by hand by calling self._interpolate_stream_track() and self._interpolate_stream_track_aA()) (default: _INTERPDURINGSETUP).
+        useInterp : bool, optional
+            Use interpolation by default when calculating approximated frequencies and angles (default: _USEINTERP).
+        nosetup : bool, optional
+            If True, don't setup the stream track and anything else that is expensive (default: False).
+        nospreadsetup : bool, optional
+            If True, don't setup the spread around the stream track (only for nosetup is False) (default: False).
+        approxConstTrackFreq : bool, optional
+            If True, approximate the stream assuming that the frequency is constant along the stream (only works with useTM, for which this leads to a significant speed-up) (default: False).
+        useTMHessian : bool, optional
+            If True, compute the basic Hessian dO/dJ_prog using TM; otherwise use aA (default: False).
+        custom_transform : array_like, optional
+            Matrix implementing the rotation from (ra,dec) to a custom set of sky coordinates (default: None).
+        impactb : float or Quantity, optional
+            Impact parameter (can be Quantity) (default: 1.0).
+        subhalovel : numpy.ndarray or Quantity, optional
+            Velocity of the subhalo shape=(3) (default: [0.0, 1.0, 0.0]).
+        timpact : float or Quantity, optional
+            Time since impact (can be Quantity) (default: 1.0).
+        impact_angle : float or Quantity, optional
+            Angle offset from progenitor at which the impact occurred (rad) (can be Quantity) (default: 1.0).
+        GM : float or Quantity, optional
+            Mass of the subhalo when using a Plummer or Hernquist model.
+        rs : float or Quantity, optional
+            Scale parameter of the subhalo when using a Plummer or Hernquist model.
+        hernquist : bool, optional
+            If True, use Hernquist kicks for GM/rs (default: False --> Plummer).
+        subhalopot : Potential or list thereof, optional
+            Gravitational potential of the subhalo (alternative to specifying GM and rs)
+        deltaAngleTrackImpact : float or Quantity, optional
+            Angle to estimate the stream track over to determine the effect of the impact [similar to deltaAngleTrack] (rad) (default: None).
+        nTrackChunksImpact : int, optional
+            Number of chunks to divide the progenitor track in near the impact [similar to nTrackChunks] (default: floor(deltaAngleTrack/0.15)+1).
+        nKickPoints : int, optional
+            Number of points along the stream to compute the kicks at (kicks are then interpolated); '30' chosen such that higherorderTrack can be set to False and get calculations accurate to > 99% (default: 30xnTrackChunksImpact).
+        nokicksetup : bool, optional
+            If True, only run as far as setting up the coordinate transformation at the time of impact (useful when using this in streampepperdf) (default: False).
+        spline_order : int, optional
+            Order of the spline to interpolate the kicks with (default: 3).
+        higherorderTrack : bool, optional
+            If True, calculate the track using higher-order terms (default: False).
+        nTrackChunks : int, optional
+            Number of chunks to divide the progenitor track into (default: 8).
+        interpTrack : bool, optional
+            If True, interpolate the track (default: True).
+        useInterp : bool, optional
+            If True, use the interpolated track to calculate actions and angles (default: True).
 
-        PURPOSE:
-
-           Initialize the DF of a gap in a stellar stream
-
-        INPUT:
-
-           streamdf args and kwargs
-
-           Subhalo and impact parameters:
-
-              impactb= impact parameter (can be Quantity)
-
-              subhalovel= velocity of the subhalo shape=(3) (can be Quantity)
-
-              timpact time since impact (can be Quantity)
-
-              impact_angle= angle offset from progenitor at which the impact occurred (rad) (can be Quantity)
-
-              Subhalo: specify either 1( mass and size of Plummer sphere or 2( general spherical-potential object (kick is numerically computed)
-
-                 1( GM= mass of the subhalo (can be Quantity)
-
-                    rs= size parameter of the subhalo (can be Quantity)
-
-                 2( subhalopot= galpy potential object or list thereof (should be spherical)
-
-                 3( hernquist= (False) if True, use Hernquist kicks for GM/rs
-
-           deltaAngleTrackImpact= (None) angle to estimate the stream track over to determine the effect of the impact [similar to deltaAngleTrack] (rad)
-
-           nTrackChunksImpact= (floor(deltaAngleTrack/0.15)+1) number of chunks to divide the progenitor track in near the impact [similar to nTrackChunks]
-
-           nKickPoints= (30xnTrackChunksImpact) number of points along the stream to compute the kicks at (kicks are then interpolated); '30' chosen such that higherorderTrack can be set to False and get calculations accurate to > 99%
-
-           nokicksetup= (False) if True, only run as far as setting up the coordinate transformation at the time of impact (useful when using this in streampepperdf)
-
-           spline_order= (3) order of the spline to interpolate the kicks with
-
-           higherorderTrack= (False) if True, calculate the track using higher-order terms
-
-        OUTPUT:
-
-           object
-
-        HISTORY:
-
-           2015-06-02 - Started - Bovy (IAS)
-
+        Notes
+        -----
+        - Parameters above up to impactb are streamdf parameters used to setup the underlying smooth stream.
+        - 2015-06-02 - Started - Bovy (IAS)
         """
         df.__init__(self, ro=kwargs.get("ro", None), vo=kwargs.get("vo", None))
         # Parse kwargs
@@ -171,27 +218,23 @@ class streamgapdf(streamdf.streamdf):
 
     def pOparapar(self, Opar, apar):
         """
-        NAME:
+        Return the probability of a given parallel (frequency,angle) offset pair.
 
-           pOparapar
+        Parameters
+        ----------
+        Opar : numpy.ndarray or Quantity
+            Parallel frequency offset.
+        apar : float or Quantity
+            Parallel angle offset along the stream.
 
-        PURPOSE:
+        Returns
+        -------
+        numpy.ndarray
+            Probability of a given parallel (frequency,angle) offset pair.
 
-           return the probability of a given parallel (frequency,angle) offset pair
-
-        INPUT:
-
-           Opar - parallel frequency offset (array) (can be Quantity)
-
-           apar - parallel angle offset along the stream (scalar) (can be Quantity)
-
-        OUTPUT:
-
-           p(Opar,apar)
-
-        HISTORY:
-
-           2015-11-17 - Written - Bovy (UofT)
+        Notes
+        -----
+        - 2015-11-17 - Written - Bovy (UofT).
 
         """
         Opar = conversion.parse_frequency(Opar, ro=self._ro, vo=self._vo)
@@ -360,25 +403,25 @@ class streamgapdf(streamdf.streamdf):
 
     def minOpar(self, dangle, tdisrupt=None, _return_raw=False):
         """
-        NAME:
+        Return the approximate minimum parallel frequency at a given angle
 
-           minOpar
+        Parameters
+        ----------
+        dangle : float
+            Parallel angle
+        tdisrupt : float, optional
+            Disruption time (default is the value passed at initialization)
+        _return_raw : bool, optional
+            If True, return the index of the minimum frequency and the value of the minimum frequency (default is False)
 
-        PURPOSE:
+        Returns
+        -------
+        float or tuple
+            Minimum frequency that gets to this parallel angle or a tuple with the index of the minimum frequency and the value of the minimum frequency
 
-           return the approximate minimum parallel frequency at a given angle
-
-        INPUT:
-
-           dangle - parallel angle
-
-        OUTPUT:
-
-           minimum frequency that gets to this parallel angle
-
-        HISTORY:
-
-           2015-12-28 - Written - Bovy (UofT)
+        Notes
+        -----
+        - 2015-12-28 - Written - Bovy (UofT)
 
         """
         if tdisrupt is None:
@@ -407,31 +450,29 @@ class streamgapdf(streamdf.streamdf):
         self, dangle, oned=False, tdisrupt=None, approx=True, higherorder=None
     ):
         """
-        NAME:
+        Calculate the mean frequency as a function of angle, assuming a uniform time distribution up to a maximum time.
 
-           meanOmega
+        Parameters
+        ----------
+        dangle : float
+            Angle offset.
+        oned : bool, optional
+            If True, return the 1D offset from the progenitor (along the direction of disruption). Default is False.
+        tdisrupt : float, optional
+            Maximum time. Default is None.
+        approx : bool, optional
+            If True, compute the mean Omega by direct integration of the spline representation. Default is True.
+        higherorder : object, optional
+            Higher-order spline terms in the approximate computation. Default is object-wide default higherorderTrack.
 
-        PURPOSE:
+        Returns
+        -------
+        float
+            Mean Omega.
 
-           calculate the mean frequency as a function of angle, assuming a uniform time distribution up to a maximum time
-
-        INPUT:
-
-           dangle - angle offset
-
-           oned= (False) if True, return the 1D offset from the progenitor (along the direction of disruption)
-
-           approx= (True) if True, compute the mean Omega by direct integration of the spline representation
-
-           higherorder= (object-wide default higherorderTrack) if True, include higher-order spline terms in the approximate computation
-
-        OUTPUT:
-
-           mean Omega
-
-        HISTORY:
-
-           2015-11-17 - Written - Bovy (UofT)
+        Notes
+        -----
+        - 2015-11-17 - Written - Bovy (UofT)
 
         """
         if higherorder is None:
@@ -1233,36 +1274,31 @@ class streamgapdf(streamdf.streamdf):
 
 def impulse_deltav_plummer(v, y, b, w, GM, rs):
     """
-    NAME:
+    Calculate the delta velocity to due an encounter with a Plummer sphere in the impulse approximation; allows for arbitrary velocity vectors, but y is input as the position along the stream
 
-       impulse_deltav_plummer
+    Parameters
+    ----------
+    v : numpy.ndarray
+        velocity of the stream (nstar,3)
+    y : numpy.ndarray
+        position along the stream (nstar)
+    b : float
+        impact parameter
+    w : numpy.ndarray
+        velocity of the Plummer sphere (3)
+    GM : float
+        mass of the Plummer sphere (in natural units)
+    rs : float
+        size of the Plummer sphere
 
-    PURPOSE:
+    Returns
+    -------
+    numpy.ndarray
+        velocity kick deltav (nstar,3)
 
-       calculate the delta velocity to due an encounter with a Plummer sphere in the impulse approximation; allows for arbitrary velocity vectors, but y is input as the position along the stream
-
-    INPUT:
-
-       v - velocity of the stream (nstar,3)
-
-       y - position along the stream (nstar)
-
-       b - impact parameter
-
-       w - velocity of the Plummer sphere (3)
-
-       GM - mass of the Plummer sphere (in natural units)
-
-       rs - size of the Plummer sphere
-
-    OUTPUT:
-
-       deltav (nstar,3)
-
-    HISTORY:
-
-       2015-04-30 - Written based on Erkal's expressions - Bovy (IAS)
-
+    Notes
+    -----
+    - 2015-04-30 - Written based on Erkal's expressions - Bovy (IAS)
     """
     if len(v.shape) == 1:
         v = numpy.reshape(v, (1, 3))
@@ -1307,40 +1343,35 @@ def impulse_deltav_plummer(v, y, b, w, GM, rs):
 
 def impulse_deltav_plummer_curvedstream(v, x, b, w, x0, v0, GM, rs):
     """
-    NAME:
+    Calculate the delta velocity to due an encounter with a Plummer sphere in the impulse approximation; allows for arbitrary velocity vectors, and arbitrary position along the stream
 
-       impulse_deltav_plummer_curvedstream
+    Parameters
+    ----------
+    v : numpy.ndarray
+        velocity of the stream (nstar,3)
+    x : numpy.ndarray
+        position along the stream (nstar,3)
+    b : float
+        impact parameter
+    w : numpy.ndarray
+        velocity of the Plummer sphere (3)
+    x0 : numpy.ndarray
+        point of closest approach
+    v0 : numpy.ndarray
+        velocity of point of closest approach
+    GM : float
+        mass of the Plummer sphere (in natural units)
+    rs : float
+        size of the Plummer sphere
 
-    PURPOSE:
+    Returns
+    -------
+    numpy.ndarray
+        velocity kick deltav (nstar,3)
 
-       calculate the delta velocity to due an encounter with a Plummer sphere in the impulse approximation; allows for arbitrary velocity vectors, and arbitrary position along the stream
-
-    INPUT:
-
-       v - velocity of the stream (nstar,3)
-
-       x - position along the stream (nstar,3)
-
-       b - impact parameter
-
-       w - velocity of the Plummer sphere (3)
-
-       x0 - point of closest approach
-
-       v0 - velocity of point of closest approach
-
-       GM - mass of the Plummer sphere (in natural units)
-
-       rs - size of the Plummer sphere
-
-    OUTPUT:
-
-       deltav (nstar,3)
-
-    HISTORY:
-
-       2015-05-04 - Written based on above - SANDERS
-
+    Notes
+    -----
+    - 2015-05-04 - Written based on above - Sanders (Cambridge)
     """
     if len(v.shape) == 1:
         v = numpy.reshape(v, (1, 3))
@@ -1373,35 +1404,31 @@ def HernquistX(s):
 
 def impulse_deltav_hernquist(v, y, b, w, GM, rs):
     """
-    NAME:
+    Calculate the delta velocity to due an encounter with a Hernquist sphere in the impulse approximation; allows for arbitrary velocity vectors, but y is input as the position along the stream
 
-       impulse_deltav_hernquist
+    Parameters
+    ----------
+    v : numpy.ndarray
+        velocity of the stream (nstar,3)
+    y : numpy.ndarray
+        position along the stream (nstar)
+    b : float
+        impact parameter
+    w : numpy.ndarray
+        velocity of the Hernquist sphere (3)
+    GM : float
+        mass of the Hernquist sphere (in natural units)
+    rs : float
+        size of the Hernquist sphere
 
-    PURPOSE:
+    Returns
+    -------
+    numpy.ndarray
+        velocity kick deltav (nstar,3)
 
-       calculate the delta velocity to due an encounter with a Hernquist sphere in the impulse approximation; allows for arbitrary velocity vectors, but y is input as the position along the stream
-
-    INPUT:
-
-       v - velocity of the stream (nstar,3)
-
-       y - position along the stream (nstar)
-
-       b - impact parameter
-
-       w - velocity of the Hernquist sphere (3)
-
-       GM - mass of the Hernquist sphere (in natural units)
-
-       rs - size of the Hernquist sphere
-
-    OUTPUT:
-
-       deltav (nstar,3)
-
-    HISTORY:
-
-       2015-08-13 SANDERS, using Wyn Evans calculation
+    Notes
+    -----
+    - 2015-08-13 - Written using Wyn Evans calculation - Sanders (Cambridge)
 
     """
     if len(v.shape) == 1:
@@ -1466,39 +1493,35 @@ def impulse_deltav_hernquist(v, y, b, w, GM, rs):
 
 def impulse_deltav_hernquist_curvedstream(v, x, b, w, x0, v0, GM, rs):
     """
-    NAME:
+    Calculate the delta velocity to due an encounter with a Hernquist sphere in the impulse approximation; allows for arbitrary velocity vectors, and arbitrary position along the stream
 
-       impulse_deltav_plummer_hernquist
+    Parameters
+    ----------
+    v : numpy.ndarray
+        velocity of the stream (nstar,3)
+    x : numpy.ndarray
+        position along the stream (nstar,3)
+    b : float
+        impact parameter
+    w : numpy.ndarray
+        velocity of the Hernquist sphere (3)
+    x0 : numpy.ndarray
+        point of closest approach
+    v0 : numpy.ndarray
+        velocity of point of closest approach
+    GM : float
+        mass of the Hernquist sphere (in natural units)
+    rs : float
+        size of the Hernquist sphere
 
-    PURPOSE:
+    Returns
+    -------
+    numpy.ndarray
+        velocity kick deltav (nstar,3)
 
-       calculate the delta velocity to due an encounter with a Hernquist sphere in the impulse approximation; allows for arbitrary velocity vectors, and arbitrary position along the stream
-
-    INPUT:
-
-       v - velocity of the stream (nstar,3)
-
-       x - position along the stream (nstar,3)
-
-       b - impact parameter
-
-       w - velocity of the Hernquist sphere (3)
-
-       x0 - point of closest approach
-
-       v0 - velocity of point of closest approach
-
-       GM - mass of the Hernquist sphere (in natural units)
-
-       rs - size of the Hernquist sphere
-
-    OUTPUT:
-
-       deltav (nstar,3)
-
-    HISTORY:
-
-       2015-08-13 - SANDERS, using Wyn Evans calculation
+    Notes
+    -----
+    - 2015-08-13 - Written using Wyn Evans calculation - Sanders (Cambridge)
 
     """
     if len(v.shape) == 1:
@@ -1538,37 +1561,30 @@ def _deltav_integrate(y, b, w, pot):
 
 def impulse_deltav_general(v, y, b, w, pot):
     """
-    NAME:
+    Calculate the delta velocity to due an encounter with a general spherical potential in the impulse approximation; allows for arbitrary velocity vectors, but y is input as the position along the stream
 
-       impulse_deltav_general
+    Parameters
+    ----------
+    v : numpy.ndarray
+        velocity of the stream (nstar,3)
+    y : numpy.ndarray
+        position along the stream (nstar)
+    b : float
+        impact parameter
+    w : numpy.ndarray
+        velocity of the subhalo (3)
+    pot : Potential object or list thereof
+        Potential object or list thereof (should be spherical)
 
+    Returns
+    -------
+    numpy.ndarray
+        velocity kick deltav (nstar,3)
 
-    PURPOSE:
-
-       calculate the delta velocity to due an encounter with a general spherical potential in the impulse approximation; allows for arbitrary velocity vectors, but y is input as the position along the stream
-
-    INPUT:
-
-       v - velocity of the stream (nstar,3)
-
-       y - position along the stream (nstar)
-
-       b - impact parameter
-
-       w - velocity of the subhalo (3)
-
-       pot - Potential object or list thereof (should be spherical)
-
-    OUTPUT:
-
-       deltav (nstar,3)
-
-    HISTORY:
-
-       2015-05-04 - SANDERS
-
-       2015-06-15 - Tweak to use galpy' potential objects - Bovy (IAS)
-
+    Notes
+    -----
+    - 2015-05-04 - Written - Sanders (Cambridge)
+    - 2015-06-15 - Tweak to use galpy' potential objects - Bovy (IAS)
     """
     pot = flatten_potential(pot)
     if len(v.shape) == 1:
@@ -1596,40 +1612,34 @@ def impulse_deltav_general(v, y, b, w, pot):
 
 def impulse_deltav_general_curvedstream(v, x, b, w, x0, v0, pot):
     """
-    NAME:
+    Calculate the delta velocity to due an encounter with a general spherical potential in the impulse approximation; allows for arbitrary velocity vectors, and arbitrary position along the stream
 
-       impulse_deltav_general_curvedstream
+    Parameters
+    ----------
+    v : numpy.ndarray
+        velocity of the stream (nstar,3)
+    x : numpy.ndarray
+        position along the stream (nstar,3)
+    b : float
+        impact parameter
+    w : numpy.ndarray
+        velocity of the subhalo (3)
+    x0 : numpy.ndarray
+        point of closest approach
+    v0 : numpy.ndarray
+        velocity of point of closest approach
+    pot : Potential object or list thereof
+        Potential object or list thereof (should be spherical)
 
-    PURPOSE:
+    Returns
+    -------
+    numpy.ndarray
+        velocity kick deltav (nstar,3)
 
-       calculate the delta velocity to due an encounter with a general spherical potential in the impulse approximation; allows for arbitrary velocity vectors and arbitrary shaped streams
-
-    INPUT:
-
-       v - velocity of the stream (nstar,3)
-
-       x - position along the stream (nstar,3)
-
-       b - impact parameter
-
-       w - velocity of the subhalo (3)
-
-       x0 - position of closest approach (3)
-
-       v0 - velocity of stream at closest approach (3)
-
-       pot - Potential object or list thereof (should be spherical)
-
-    OUTPUT:
-
-       deltav (nstar,3)
-
-    HISTORY:
-
-       2015-05-04 - SANDERS
-
-       2015-06-15 - Tweak to use galpy' potential objects - Bovy (IAS)
-
+    Notes
+    -----
+    - 2015-05-04 - Written - Sanders (Cambridge)
+    - 2015-06-15 - Tweak to use galpy' potential objects - Bovy (IAS)
     """
     pot = flatten_potential(pot)
     if len(v.shape) == 1:
@@ -1659,46 +1669,43 @@ def impulse_deltav_general_orbitintegration(
     integrate_method="symplec4_c",
 ):
     """
-    NAME:
+    Calculate the delta velocity to due an encounter with a general spherical potential NOT in the impulse approximation by integrating each particle in the underlying galactic potential; allows for arbitrary velocity vectors and arbitrary shaped streams.
 
-       impulse_deltav_general_orbitintegration
+    Parameters
+    ----------
+    v : numpy.ndarray
+        velocity of the stream (nstar,3)
+    x : numpy.ndarray
+        position along the stream (nstar,3)
+    b : float
+        impact parameter
+    w : numpy.ndarray
+        velocity of the subhalo (3)
+    x0 : numpy.ndarray
+        position of closest approach
+    v0 : numpy.ndarray
+        velocity of point of closest approach
+    pot : Potential object or list thereof
+        Potential object or list thereof (should be spherical)
+    tmax : float
+        maximum integration time
+    galpot : Potential object or list thereof
+        galpy Potential object or list thereof
+    tmaxfac : float
+        multiple of rs/fabs(w - v0) to use for time integration interval
+    nsamp : int
+        number of forward integration points
+    integrate_method : str
+        orbit integrator to use (see Orbit.integrate)
 
-    PURPOSE:
+    Returns
+    -------
+    numpy.ndarray
+        velocity kick deltav (nstar,3)
 
-       calculate the delta velocity to due an encounter with a general spherical potential NOT in the impulse approximation by integrating each particle in the underlying galactic potential; allows for arbitrary velocity vectors and arbitrary shaped streams.
-
-    INPUT:
-
-       v - velocity of the stream (nstar,3)
-
-       x - position along the stream (nstar,3)
-
-       b - impact parameter
-
-       w - velocity of the subhalo (3)
-
-       x0 - position of closest approach (3)
-
-       v0 - velocity of stream at closest approach (3)
-
-       pot - Potential object or list thereof (should be spherical)
-
-       tmax - maximum integration time
-
-       galpot - galpy Potential object or list thereof
-
-       nsamp(1000) - number of forward integration points
-
-       integrate_method= ('symplec4_c') orbit integrator to use (see Orbit.integrate)
-
-    OUTPUT:
-
-       deltav (nstar,3)
-
-    HISTORY:
-
-       2015-08-17 - SANDERS
-
+    Notes
+    -----
+    - 2015-08-17 - Written - Sanders (Cambridge)
     """
     galpot = flatten_potential(galpot)
     if len(v.shape) == 1:
@@ -1748,48 +1755,43 @@ def impulse_deltav_general_fullplummerintegration(
     integrate_method="symplec4_c",
 ):
     """
-    NAME:
+    Calculate the delta velocity to due an encounter with a moving Plummer sphere and galactic potential relative to just in galactic potential by integrating each particle in the underlying galactic potential; allows for arbitrary velocity vectors and arbitrary shaped streams.
 
-       impulse_deltav_general_fullplummerintegration
+    Parameters
+    ----------
+    v : numpy.ndarray
+        velocity of the stream (nstar,3)
+    x : numpy.ndarray
+        position along the stream (nstar,3)
+    b : float
+        impact parameter
+    w : numpy.ndarray
+        velocity of the subhalo (3)
+    x0 : numpy.ndarray
+        position of closest approach
+    v0 : numpy.ndarray
+        velocity of point of closest approach
+    galpot : Potential object or list thereof
+        galpy Potential object or list thereof
+    GM : float
+        mass of Plummer
+    rs : float
+        scale of Plummer
+    tmaxfac : float
+        multiple of rs/fabs(w - v0) to use for time integration interval
+    N : int
+        number of forward integration points
+    integrate_method : str
+        orbit integrator to use (see Orbit.integrate)
 
-    PURPOSE:
+    Returns
+    -------
+    numpy.ndarray
+        velocity kick deltav (nstar,3)
 
-       calculate the delta velocity to due an encounter with a moving Plummer sphere and galactic potential relative to just in galactic potential
-
-    INPUT:
-
-       v - velocity of the stream (nstar,3)
-
-       x - position along the stream (nstar,3)
-
-       b - impact parameter
-
-       w - velocity of the subhalo (3)
-
-       x0 - position of closest approach (3)
-
-       v0 - velocity of stream at closest approach (3)
-
-       galpot - Galaxy Potential object
-
-       GM - mass of Plummer
-
-       rs - scale of Plummer
-
-       tmaxfac(10) - multiple of rs/fabs(w - v0) to use for time integration interval
-
-       N(1000) - number of forward integration points
-
-       integrate_method('symplec4_c') - orbit integrator to use (see Orbit.integrate)
-
-    OUTPUT:
-
-       deltav (nstar,3)
-
-    HISTORY:
-
-       2015-08-18 - SANDERS
-
+    Notes
+    -----
+    - 2015-08-18 - Written - Sanders (Cambridge)
     """
     galpot = flatten_potential(galpot)
     if len(v.shape) == 1:
@@ -1854,38 +1856,35 @@ def _astream_integrand_z(t, y, v, b, w, b2, w2, wperp, wperp2, wpar, GSigma, rs2
 
 def impulse_deltav_plummerstream(v, y, b, w, GSigma, rs, tmin=None, tmax=None):
     """
-    NAME:
+    Calculate the delta velocity to due an encounter with a Plummer-softened stream in the impulse approximation; allows for arbitrary velocity vectors, but y is input as the position along the stream
 
-       impulse_deltav_plummerstream
+    Parameters
+    ----------
+    v : numpy.ndarray
+        velocity of the stream (nstar,3)
+    y : numpy.ndarray
+        position along the stream (nstar)
+    b : float
+        impact parameter
+    w : numpy.ndarray
+        velocity of the Plummer sphere (3)
+    GSigma : function
+        surface density of the Plummer-softened stream (in natural units); should be a function of time
+    rs : float
+        size of the Plummer sphere
+    tmin : float
+        minimum time to consider for GSigma (need to be set)
+    tmax : float
+        maximum time to consider for GSigma (need to be set)
 
-    PURPOSE:
+    Returns
+    -------
+    numpy.ndarray
+        velocity kick deltav (nstar,3)
 
-       calculate the delta velocity to due an encounter with a Plummer-softened stream in the impulse approximation; allows for arbitrary velocity vectors, but y is input as the position along the stream
-
-    INPUT:
-
-       v - velocity of the stream (nstar,3)
-
-       y - position along the stream (nstar)
-
-       b - impact parameter
-
-       w - velocity of the Plummer sphere (3)
-
-       GSigma - surface density of the Plummer-softened stream (in natural units); should be a function of time
-
-       rs - size of the Plummer sphere
-
-       tmin, tmax= (None) minimum and maximum time to consider for GSigma (need to be set)
-
-    OUTPUT:
-
-       deltav (nstar,3)
-
-    HISTORY:
-
-       2015-11-14 - Written - Bovy (UofT)
-
+    Notes
+    -----
+    - 2015-11-14 - Written - Bovy (UofT)
     """
     if len(v.shape) == 1:
         v = numpy.reshape(v, (1, 3))
@@ -2000,46 +1999,43 @@ def impulse_deltav_plummerstream_curvedstream(
     v, x, t, b, w, x0, v0, GSigma, rs, galpot, tmin=None, tmax=None
 ):
     """
-    NAME:
+    Calculate the delta velocity to due an encounter with a Plummer-softened stream in the impulse approximation; allows for arbitrary velocity vectors, and arbitrary position along the stream; velocities and positions are assumed to lie along an orbit
 
-       impulse_deltav_plummerstream_curvedstream
+    Parameters
+    ----------
+    v : numpy.ndarray
+        velocity of the stream (nstar,3)
+    x : numpy.ndarray
+        position along the stream (nstar,3)
+    t : numpy.ndarray
+        times at which (v,x) are reached, wrt the closest impact t=0 (nstar)
+    b : float
+        impact parameter
+    w : numpy.ndarray
+        velocity of the Plummer sphere (3)
+    x0 : numpy.ndarray
+        point of closest approach
+    v0 : numpy.ndarray
+        velocity of point of closest approach
+    GSigma : function
+        surface density of the Plummer-softened stream (in natural units); should be a function of time
+    rs : float
+        size of the Plummer sphere
+    galpot : Potential object or list thereof
+        galpy Potential object or list thereof
+    tmin : float
+        minimum time to consider for GSigma (need to be set)
+    tmax : float
+        maximum time to consider for GSigma (need to be set)
 
-    PURPOSE:
+    Returns
+    -------
+    numpy.ndarray
+        velocity kick deltav (nstar,3)
 
-       calculate the delta velocity to due an encounter with a Plummer sphere in the impulse approximation; allows for arbitrary velocity vectors, and arbitrary position along the stream; velocities and positions are assumed to lie along an orbit
-
-    INPUT:
-
-       v - velocity of the stream (nstar,3)
-
-       x - position along the stream (nstar,3)
-
-       t - times at which (v,x) are reached, wrt the closest impact t=0 (nstar)
-
-       b - impact parameter
-
-       w - velocity of the Plummer sphere (3)
-
-       x0 - point of closest approach
-
-       v0 - velocity of point of closest approach
-
-       GSigma - surface density of the Plummer-softened stream (in natural units); should be a function of time
-
-       rs - size of the Plummer sphere
-
-       galpot - galpy Potential object or list thereof
-
-       tmin, tmax= (None) minimum and maximum time to consider for GSigma
-
-    OUTPUT:
-
-       deltav (nstar,3)
-
-    HISTORY:
-
-       2015-11-20 - Written based on Plummer sphere above - Bovy (UofT)
-
+    Notes
+    -----
+    - 2015-11-14 - Written - Bovy (UofT)
     """
     galpot = flatten_potential(galpot)
     if len(v.shape) == 1:

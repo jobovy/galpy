@@ -7,16 +7,19 @@ class df:
 
     def __init__(self, ro=None, vo=None):
         """
-        NAME:
-           __init__
-        PURPOSE:
-           initialize a DF object
-        INPUT:
-           ro= (None) distance scale
-           vo= (None) velocity scale
-        OUTPUT:
-        HISTORY:
-           2016-02-28 - Written - Bovy (UofT)
+        Initialize a DF object.
+
+        Parameters
+        ----------
+        ro : float or Quantity, optional
+            Distance scale for translation into internal units (default from configuration file).
+        vo : float or Quantity, optional
+            Velocity scale for translation into internal units (default from configuration file).
+
+        Notes
+        -----
+        - 2016-02-28 - Written - Bovy (UofT)
+
         """
         # Parse ro and vo
         if ro is None:
@@ -41,25 +44,11 @@ class df:
 
     def turn_physical_off(self):
         """
-        NAME:
+        Turn off automatic returning of outputs in physical units.
 
-           turn_physical_off
-
-        PURPOSE:
-
-           turn off automatic returning of outputs in physical units
-
-        INPUT:
-
-           (none)
-
-        OUTPUT:
-
-           (none)
-
-        HISTORY:
-
-           2017-06-05 - Written - Bovy (UofT)
+        Notes
+        -----
+        - 2017-06-05 - Written - Bovy (UofT)
 
         """
         self._roSet = False
@@ -68,29 +57,19 @@ class df:
 
     def turn_physical_on(self, ro=None, vo=None):
         """
-        NAME:
+        Turn on automatic returning of outputs in physical units.
 
-           turn_physical_on
+        Parameters
+        ----------
+        ro : float or Quantity, optional
+            Reference distance (kpc). If False, don't turn it on.
+        vo : float or Quantity, optional
+            Reference velocity (km/s). If False, don't turn it on.
 
-        PURPOSE:
-
-           turn on automatic returning of outputs in physical units
-
-        INPUT:
-
-           ro= reference distance (kpc; can be Quantity)
-
-           vo= reference velocity (km/s; can be Quantity)
-
-        OUTPUT:
-
-           (none)
-
-        HISTORY:
-
-           2016-06-05 - Written - Bovy (UofT)
-
-           2020-04-22 - Don't turn on a parameter when it is False - Bovy (UofT)
+        Notes
+        -----
+        - 2016-06-05 - Written - Bovy (UofT)
+        - 2020-04-22 - Don't turn on a parameter when it is False - Bovy (UofT)
 
         """
         if not ro is False:
