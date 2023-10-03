@@ -489,7 +489,7 @@ class InterpSnapshotRZPotential(interpRZPotential):
                 )
 
             # do the same for the mixed radial-vertical component
-            if self._interpepifreq and self._interpverticalfreq:  # re-use this
+            if self._interpepifreq and self._interpverticalfreq:  # reuse this
                 Rzgrad = numpy.zeros(len(points_new))
                 for i, racc in enumerate(
                     rgrad_acc.reshape((len(rgrad_acc) // 2, 2, 3))

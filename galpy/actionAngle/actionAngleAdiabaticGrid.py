@@ -56,7 +56,7 @@ class actionAngleAdiabaticGrid(actionAngle):
 
            nEz=, nEr=, nLz, nR= grid size
 
-           numcores= number of cpus to use to parallellize
+           numcores= number of cpus to use to parallelize
 
            c= if True, use C to calculate actions
 

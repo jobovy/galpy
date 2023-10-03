@@ -430,7 +430,7 @@ The warm response is slightly smaller in amplitude
 although the numerical uncertainty in ``mvrwarm`` is large, because
 the grid is not sufficiently fine.
 
-We can then re-use this grid in calculations of other moments of
+We can then reuse this grid in calculations of other moments of
 the DF, e.g.,
 
 >>> print(edfcold.meanvT(0.9,phi=22.5,deg=True,t=0.,grid=gridcold))
@@ -468,7 +468,7 @@ A_{\mathrm{axi}}+0.05/(2\sqrt{2})` where :math:`A_{\mathrm{axi}} =
 >>> print(oortacold-(0.5/0.9+0.05/2./sqrt(2.)))
 # 0.0022613349141670236
 
-These grids can then be re-used for the other Oort functions, for
+These grids can then be reused for the other Oort functions, for
 example,
 
 >>> print(edfcold.oortB(0.9,phi=22.5,deg=True,t=0.,grid=gridcold,derivphiGrid=gridphicold,derivRGrid=gridrcold))

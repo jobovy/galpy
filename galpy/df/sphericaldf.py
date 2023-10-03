@@ -77,7 +77,7 @@ class sphericaldf(df):
             )
         phys = conversion.get_physical(pot, include_set=True)
         # if pot has physical units, transfer them (if already on, we know
-        # they are compaible)
+        # they are compatible)
         if phys["roSet"] and phys["voSet"]:
             self.turn_physical_on(ro=phys["ro"], vo=phys["vo"])
         if pot is None:  # pragma: no cover
@@ -731,7 +731,7 @@ class isotropicsphericaldf(sphericaldf):
 
         INPUT:
 
-            E,L,Lz - The energy, angular momemtum magnitude, and its z component (only E is used)
+            E,L,Lz - The energy, angular momentum magnitude, and its z component (only E is used)
 
         OUTPUT:
 

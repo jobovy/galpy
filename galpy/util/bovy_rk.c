@@ -313,7 +313,7 @@ void bovy_rk6_onestep(void (*func)(double t, double *q, double *a,
   //calculate k6
   func(tn+dt/2.,ynk,a,nargs,potentialArgs);
   for (ii=0; ii < dim; ii++) *(yn1+ii) -= 32.* dt * *(a+ii) / 120.;
-  for (ii=0; ii < dim; ii++) *(k5+ii)= dt * *(a+ii); //re-use k5 for k6
+  for (ii=0; ii < dim; ii++) *(k5+ii)= dt * *(a+ii); //reuse k5 for k6
   for (ii=0; ii < dim; ii++) *(ynk+ii)= *(yn+ii) + ( 9. * *(k1+ii)
 						     - 36. * *(k2+ii)
 						     +63.* *(k3+ii)

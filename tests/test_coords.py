@@ -3073,8 +3073,8 @@ def test_radec_to_custom_pal5():
     )
     xieta = coords.radec_to_custom(_RAPAL5, _DECPAL5, T=_TPAL5, degree=False)
 
-    def checkrng(x, xpct, dom, shft):
-        return numpy.fabs(((numpy.fabs(x - xpct) + shft) % dom) - shft)
+    def checkrng(x, xpct, dom, shift):
+        return numpy.fabs(((numpy.fabs(x - xpct) + shift) % dom) - shift)
 
     # 0 < xieta[0] < 2 * pi
     assert (
@@ -3231,8 +3231,8 @@ def test_custom_to_radec_pal5():  # FIXME COMPARE TO DOCUMENT
     )
     xieta = coords.custom_to_radec(_RAPAL5, _DECPAL5, T=_TPAL5.T, degree=False)
 
-    def checkrng(x, xpct, dom, shft):
-        return numpy.fabs(((numpy.fabs(x - xpct) + shft) % dom) - shft)
+    def checkrng(x, xpct, dom, shift):
+        return numpy.fabs(((numpy.fabs(x - xpct) + shift) % dom) - shift)
 
     # 0 < xieta[0] < 2 * pi
     assert (

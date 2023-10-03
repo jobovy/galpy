@@ -1460,7 +1460,7 @@ def test_vmomentdensity_diffinoutputs():
         )
         < 0.05
     ), "vmomentsurfmass w/ wrong glqeval input does not work"
-    # Test that we can re-use jr, etc.
+    # Test that we can reuse jr, etc.
     surfmass, jr, lz, jz = qdf.vmomentdensity(
         R, z, 0.0, 0.0, 0.0, gl=True, _return_actions=True
     )
@@ -1472,7 +1472,7 @@ def test_vmomentdensity_diffinoutputs():
             )
         )
         < 0.01
-    ), "surfacemass calculated from re-used actions does not agree with that before"
+    ), "surfacemass calculated from reused actions does not agree with that before"
     surfmass, jr, lz, jz, rg, kappa, nu, Omega = qdf.vmomentdensity(
         R, z, 0.0, 0.0, 0.0, gl=True, _return_actions=True, _return_freqs=True
     )
@@ -1498,7 +1498,7 @@ def test_vmomentdensity_diffinoutputs():
             )
         )
         < 0.01
-    ), "surfacemass calculated from re-used actions does not agree with that before"
+    ), "surfacemass calculated from reused actions does not agree with that before"
     # Some tests of mc=True
     surfmass, vrs, vts, vzs = qdf.vmomentdensity(
         R, z, 0.0, 0.0, 0.0, mc=True, gl=False, _rawgausssamples=True, _returnmc=True

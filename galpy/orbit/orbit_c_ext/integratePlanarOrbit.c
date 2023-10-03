@@ -876,7 +876,7 @@ void evalPlanarRectDeriv(double t, double *q, double *a,
 
 void evalPlanarSOSDerivx(double psi, double *q, double *a,
 		                 int nargs, struct potentialArg * potentialArgs){
-  // q= (y,vy,A,t,psi); to save operations, we re-use a first for the
+  // q= (y,vy,A,t,psi); to save operations, we reuse a first for the
   // rectForce then for the actual RHS
   // Note also that we keep track of psi in q+4, not in psi! This is
   // such that we can avoid having to convert psi to psi+psi0
@@ -910,7 +910,7 @@ void evalPlanarSOSDerivx(double psi, double *q, double *a,
 
 void evalPlanarSOSDerivy(double psi, double *q, double *a,
 		                 int nargs, struct potentialArg * potentialArgs){
-  // q= (x,vx,A,t,psi); to save operations, we re-use a first for the
+  // q= (x,vx,A,t,psi); to save operations, we reuse a first for the
   // rectForce then for the actual RHS
   // Note also that we keep track of psi in q+4, not in psi! This is
   // such that we can avoid having to convert psi to psi+psi0

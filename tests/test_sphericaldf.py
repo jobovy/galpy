@@ -1669,7 +1669,7 @@ def test_king_beta_directint():
 
 ############################### OSIPKOV-MERRITT DF ############################
 # For the following tests, we use a DehnenCoreSphericalPotential
-osipkovmerritt_dfs_selfconsist = None  # re-use in other tests
+osipkovmerritt_dfs_selfconsist = None  # reuse in other tests
 
 
 def test_osipkovmerritt_selfconsist_dehnencore_dens_spherically_symmetric():
@@ -1831,7 +1831,7 @@ def test_osipkovmerritt_selfconsist_dehnencore_Qoutofbounds():
 
 # For the following tests, we use a DehnenCoreSphericalPotential embedded in
 # an NFW halo
-osipkovmerritt_dfs_dehnencore_in_nfw = None  # re-use in other tests
+osipkovmerritt_dfs_dehnencore_in_nfw = None  # reuse in other tests
 
 
 def test_osipkovmerritt_dehnencore_in_nfw_dens_spherically_symmetric():
@@ -2028,7 +2028,7 @@ def test_constantbetadf_against_hernquist():
 
 
 # For the following tests, we use a DehnenCoreSphericalPotential
-constantbeta_dfs_selfconsist = None  # re-use in other tests
+constantbeta_dfs_selfconsist = None  # reuse in other tests
 
 
 @pytest.fixture(scope="module")
@@ -2268,7 +2268,7 @@ def test_constantbeta_selfconsist_dehnencore_rmin_inbounds(
 
 # For the following tests, we use a DehnenCoreSphericalPotential embedded in
 # an NFW halo
-constantbeta_dfs_dehnencore_in_nfw = None  # re-use in other tests
+constantbeta_dfs_dehnencore_in_nfw = None  # reuse in other tests
 
 
 def test_constantbeta_dehnencore_in_nfw_dens_spherically_symmetric():

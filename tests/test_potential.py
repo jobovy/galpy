@@ -7284,13 +7284,13 @@ def test_TimeDependentAmplitudeWrapperPotential_inputerrors():
         match="A= input to TimeDependentAmplitudeWrapperPotential should be a function",
     ):
         tp = TimeDependentAmplitudeWrapperPotential(pot=lp)
-    # TypeError when suppplying a function with no argument
+    # TypeError when supplying a function with no argument
     with pytest.raises(
         TypeError,
         match="A= input to TimeDependentAmplitudeWrapperPotential should be a function that can be called with a single parameter",
     ):
         tp = TimeDependentAmplitudeWrapperPotential(pot=lp, A=lambda: 1.0)
-    # TypeError when suppplying a function with more than 1 argument
+    # TypeError when supplying a function with more than 1 argument
     with pytest.raises(
         TypeError,
         match="A= input to TimeDependentAmplitudeWrapperPotential should be a function that can be called with a single parameter",

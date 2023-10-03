@@ -1590,7 +1590,7 @@ def _planarRectForce(x, pot, t=0.0, vx=None):
        x - current position
        t - current time
        pot - (list of) Potential instance(s)
-       vx = (None) if set, use this [vx,vy] when evalulating dissipative forces
+       vx = (None) if set, use this [vx,vy] when evaluating dissipative forces
     OUTPUT:
        force
     HISTORY:
