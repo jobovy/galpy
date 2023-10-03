@@ -2075,7 +2075,7 @@ class quasiisothermaldf(df):
 
         PURPOSE:
 
-           calculate the mean angular momemtum by marginalizing over velocity
+           calculate the mean angular momentum by marginalizing over velocity
 
         INPUT:
 

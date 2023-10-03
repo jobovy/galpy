@@ -1311,7 +1311,7 @@ def test_plot_grid():
         gridpoints=_GRIDPOINTS,
     )
     grid.plot()
-    # w/ list of tiems
+    # w/ list of times
     mvr, grid = edf.meanvR(
         0.9,
         t=[0.0, -2.5, -5.0, -7.5, -10.0],
@@ -1342,7 +1342,7 @@ def test_plot_hierarchgrid():
         gridpoints=_GRIDPOINTS,
     )
     grid.plot()
-    # w/ list of tiems
+    # w/ list of times
     mvr, grid = edf.meanvR(
         0.9,
         t=[0.0, -2.5, -5.0, -7.5, -10.0],

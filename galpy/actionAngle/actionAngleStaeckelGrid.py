@@ -55,7 +55,7 @@ class actionAngleStaeckelGrid(actionAngle):
 
            interpecc= (False) if True, also interpolate the approximate eccentricity, zmax, rperi, and rapo
 
-           numcores= number of cpus to use to parallellize
+           numcores= number of cpus to use to parallelize
 
            ro= distance from vantage point to GC (kpc; can be Quantity)
 

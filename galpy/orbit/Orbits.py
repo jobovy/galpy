@@ -2705,7 +2705,7 @@ class Orbit:
         return None
 
     def _setup_EccZmaxRperiRap(self, pot=None, **kwargs):
-        """Internal function to compute e,zmax,rperi,rap and cache it for re-use"""
+        """Internal function to compute e,zmax,rperi,rap and cache it for reuse"""
         self._setupaA(pot=pot, **kwargs)
         if hasattr(self, "_aA_ecc"):
             return None
@@ -2738,7 +2738,7 @@ class Orbit:
         return None
 
     def _setup_actionsFreqsAngles(self, pot=None, **kwargs):
-        """Internal function to compute the actions, frequencies, and angles and cache them for re-use"""
+        """Internal function to compute the actions, frequencies, and angles and cache them for reuse"""
         self._setupaA(pot=pot, **kwargs)
         if hasattr(self, "_aA_jr"):
             return None
@@ -2777,7 +2777,7 @@ class Orbit:
         return None
 
     def _setup_actions(self, pot=None, **kwargs):
-        """Internal function to compute the actions and cache them for re-use (used for methods that don't support frequencies and angles)"""
+        """Internal function to compute the actions and cache them for reuse (used for methods that don't support frequencies and angles)"""
         self._setupaA(pot=pot, **kwargs)
         # Caching effectively checked in _setup_actionsFreqsAngles, because always called first
         # if hasattr(self, "_aA_jr"):
