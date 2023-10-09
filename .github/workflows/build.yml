@@ -246,27 +246,8 @@ jobs:
       if: matrix.python-version == '3.12'
       run: |
          pip install --upgrade --upgrade-strategy eager --pre numpy scipy "matplotlib<3.8" numexpr setuptools "cython<1" pytest tqdm
-    - name: Install pynbody (3.12; ubuntu)
-      if: ${{ matrix.os == 'ubuntu-latest' && matrix.REQUIRES_PYNBODY && matrix.python-version == '3.12' }}
-      run: |
-         pip install --upgrade --upgrade-strategy eager --pre pytz tzdata
-         pip install --upgrade --upgrade-strategy eager --no-deps -i https://pypi.anaconda.org/scientific-python-nightly-wheels/simple pandas
-         sudo apt-get install libhdf5-dev
-         pip install --upgrade --upgrade-strategy eager --pre --no-binary=h5py git+https://github.com/h5py/h5py.git
-         pip install --upgrade --upgrade-strategy eager wheel
-         pip install --upgrade --upgrade-strategy eager --no-deps --pre git+https://github.com/pynbody/pynbody.git
-    - name: Install pynbody (3.12; macos)
-      if: ${{ matrix.os == 'macos-latest' && matrix.REQUIRES_PYNBODY && matrix.python-version == '3.12' }}
-      run: |
-         pip install --upgrade --upgrade-strategy eager --pre pytz tzdata
-         pip install --upgrade --upgrade-strategy eager --no-deps -i https://pypi.anaconda.org/scientific-python-nightly-wheels/simple pandas
-         brew install hdf5
-         export HDF5_DIR=$(brew --prefix hdf5)
-         pip install --upgrade --upgrade-strategy eager wheel
-         pip install --upgrade --upgrade-strategy eager --pre --no-deps --no-build-isolation --no-binary=h5py git+https://github.com/h5py/h5py.git
-         pip install --upgrade --upgrade-strategy eager --no-deps --pre git+https://github.com/pynbody/pynbody.git
     - name: Install pynbody
-      if: ${{ matrix.REQUIRES_PYNBODY && matrix.python-version != '3.12' }}
+      if: ${{ matrix.REQUIRES_PYNBODY }}
       run: |
          pip install --upgrade --upgrade-strategy eager h5py pandas pytz
          pip install --upgrade --upgrade-strategy eager wheel
