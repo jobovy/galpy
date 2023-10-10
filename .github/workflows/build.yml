@@ -248,6 +248,9 @@ jobs:
          pip install --upgrade --upgrade-strategy eager --pre numpy scipy "matplotlib<3.8" numexpr setuptools "cython<1" pytest tqdm
     - name: Install pynbody
       if: ${{ matrix.REQUIRES_PYNBODY }}
+      env:
+        CC: gcc-11
+        CXX: g++-11
       run: |
          pip install --upgrade --upgrade-strategy eager h5py pandas pytz
          pip install --upgrade --upgrade-strategy eager wheel
