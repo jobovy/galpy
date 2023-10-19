@@ -83,16 +83,20 @@ __orig__config__ = copy.deepcopy(__config__)
 # Set configuration variables on the fly
 def set_ro(ro):
     """
-    NAME:
-       set_ro
-    PURPOSE:
-       set the global configuration value of ro (distance scale)
-    INPUT:
-       ro - scale in kpc or astropy Quantity
-    OUTPUT:
-       (none)
-    HISTORY:
-       2016-01-05 - Written - Bovy (UofT)
+    Set the global configuration value of ro (distance scale)
+
+    Parameters
+    ----------
+    ro : float or astropy Quantity
+        Scale in kpc or astropy Quantity
+
+    Returns
+    -------
+    None
+
+    Notes
+    -----
+    - 2016-01-05 - Written - Bovy (UofT)
     """
     from ..util._optional_deps import _APY_LOADED
 
@@ -105,16 +109,20 @@ def set_ro(ro):
 
 def set_vo(vo):
     """
-    NAME:
-       set_vo
-    PURPOSE:
-       set the global configuration value of vo (velocity scale)
-    INPUT:
-       vo - scale in km/s or astropy Quantity
-    OUTPUT:
-       (none)
-    HISTORY:
-       2016-01-05 - Written - Bovy (UofT)
+    Set the global configuration value of vo (velocity scale)
+
+    Parameters
+    ----------
+    vo : float or astropy Quantity
+        Scale in km/s or astropy Quantity
+
+    Returns
+    -------
+    None
+
+    Notes
+    -----
+    - 2016-01-05 - Written - Bovy (UofT)
     """
     from ..util._optional_deps import _APY_LOADED
 

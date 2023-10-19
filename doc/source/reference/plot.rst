@@ -7,7 +7,7 @@ galpy.util.plot
 Various plotting routines:
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
    dens2d <plotdens2d.rst>
    end_print <plotendprint.rst>

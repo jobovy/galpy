@@ -8,7 +8,7 @@ Various coordinate transformation routines with fairly
 self-explanatory names:
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
    cov_dvrpmllbb_to_vxyz <coordscovdvrpmllbbtovxyz.rst>
    cov_galcenrect_to_galcencyl <coordscovgalcenrectgalcencyl.rst>

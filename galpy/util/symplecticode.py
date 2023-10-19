@@ -37,21 +37,31 @@ _MAX_DT_REDUCE = 10000.0
 
 def leapfrog(func, yo, t, args=(), rtol=1.49012e-12, atol=1.49012e-12):
     """
-    NAME:
-       leapfrog
-    PURPOSE:
-       leapfrog integrate an ode
-    INPUT:
-       func - force function of (y,*args)
-       yo - initial condition [q,p]
-       t - set of times at which one wants the result
-       rtol, atol
-    OUTPUT:
-       y : array, shape (len(y0), len(t))
-       Array containing the value of y for each desired time in t, \
-       with the initial value y0 in the first row.
-    HISTORY:
-       2011-02-02 - Written - Bovy (NYU)
+    Leapfrog integration of an ODE
+
+    Parameters
+    ----------
+    func : function
+        function of (y, *args)
+    yo : numpy.ndarray
+        initial condition [q,p]
+    t : numpy.ndarray
+        set of times at which one wants the result
+    args : tuple, optional
+        any extra arguments for func
+    rtol : float, optional
+        relative tolerance
+    atol : float, optional
+        absolute tolerance
+
+    Returns
+    -------
+    numpy.ndarray
+        Array containing the value of y for each desired time in t, with the initial value y0 in the first row.
+
+    Notes
+    -----
+    - 2011-02-02 - Written - Bovy (NYU)
     """
     # Initialize
     qo = yo[0 : len(yo) // 2]

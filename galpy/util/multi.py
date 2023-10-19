@@ -62,20 +62,30 @@ def worker(
     f, ii, chunk, out_q, err_q, lock, progressbar, iter_elapsed, tot_iter, pbar_proc
 ):
     """
-    A worker function that maps an input function over a
-    slice of the input iterable.
+    A worker function that maps an input function over a slice of the input iterable.
 
-    :param f  : callable function that accepts argument from iterable
-    :param ii  : process ID
-    :param chunk: slice of input iterable
-    :param out_q: thread-safe output queue
-    :param err_q: thread-safe queue to populate on exception
-    :param lock : thread-safe lock to protect a resource
-           ( useful in extending parallel_map() )
-    :param progressbar: if True, display a progress bar
-    :param iter_elapsed: shared-memory Value to track progress
-    :param tot_iter: total number of iterations (for progressbar)
-    :param pbar_proc: process to use to display the progressbar
+    Parameters
+    ----------
+    f : callable
+        function that accepts argument from iterable
+    ii : int
+        process ID
+    chunk : ?
+        slice of input iterable
+    out_q : ?
+        thread-safe output queue
+    err_q : ?
+        thread-safe queue to populate on exception
+    lock : ?
+        thread-safe lock to protect a resource ( useful in extending parallel_map() )
+    progressbar : bool
+        if True, display a progress bar
+    iter_elapsed : int
+        shared-memory Value to track progress
+    tot_iter : int
+        total number of iterations (for progressbar)
+    pbar_proc : ?
+        process to use to display the progressbar
     """
     vals = []
 
@@ -109,14 +119,18 @@ def worker(
 
 def run_tasks(procs, err_q, out_q, num):
     """
-    A function that executes populated processes and processes
-    the resultant array. Checks error queue for any exceptions.
+    A function that executes populated processes and processes the resultant array. Checks error queue for any exceptions.
 
-    :param procs: list of Process objects
-    :param out_q: thread-safe output queue
-    :param err_q: thread-safe queue to populate on exception
-    :param num : length of resultant array
-
+    Parameters
+    ----------
+    procs : list
+        list of Process objects
+    out_q : ?
+        thread-safe output queue
+    err_q : ?
+        thread-safe queue to populate on exception
+    num : int
+        length of resultant array
     """
     # function to terminate processes that are still running.
     die = lambda vals: [val.terminate() for val in vals if val.exitcode is None]
@@ -155,16 +169,18 @@ def run_tasks(procs, err_q, out_q, num):
 
 def parallel_map(function, sequence, numcores=None, progressbar=False):
     """
-    A parallelized version of the native Python map function that
-    utilizes the Python multiprocessing module to divide and
-    conquer sequence.
+    A parallelized version of the native Python map function that utilizes the Python multiprocessing module to divide and conquer sequence.
 
-    parallel_map does not yet support multiple argument sequences.
-
-    :param function: callable function that accepts argument from iterable
-    :param sequence: iterable sequence
-    :param numcores: number of cores to use
-    :param progressbar: if True, display a progressbar using tqdm
+    Parameters
+    ----------
+    function : callable
+        callable function that accepts argument from iterable
+    sequence : iterable
+        iterable sequence
+    numcores : int, optional
+        number of cores to use
+    progressbar : bool, optional
+        if True, display a progress bar
     """
     if not callable(function):
         raise TypeError("input function '%s' is not callable" % repr(function))
