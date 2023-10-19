@@ -134,25 +134,24 @@ def scalarDecorator(func):
 
 def degreeDecorator(inDegrees, outDegrees):
     """
-    NAME:
+    Decorator to transform angles from and to degrees if necessary
 
-       degreeDecorator
+    Parameters
+    ----------
+    inDegrees : list
+        List specifying indices of angle arguments (e.g., [0,1])
+    outDegrees : list
+        Same as inDegrees, but for function return
 
-    PURPOSE:
+    Returns
+    -------
+    function
+        Wrapped function
 
-       Decorator to transform angles from and to degrees if necessary
-
-    INPUT:
-
-       inDegrees - list specifying indices of angle arguments (e.g., [0,1])
-       outDegrees - list, same as inDegrees, but for function return
-
-    HISTORY:
-
-       ____-__-__ - Written - Bovy
-
-       2019-03-02 - speedup - Nathaniel Starkman (UofT)
-
+    Notes
+    -----
+    - ____-__-__ - Written - Bovy
+    - 2019-03-02 - speedup - Nathaniel Starkman (UofT)
     """
 
     # (modified) old degree decorator
@@ -180,38 +179,29 @@ def degreeDecorator(inDegrees, outDegrees):
 @degreeDecorator([0, 1], [0, 1])
 def radec_to_lb(ra, dec, degree=False, epoch=2000.0):
     """
-    NAME:
+    Transform from equatorial coordinates to Galactic coordinates
 
-       radec_to_lb
+    Parameters
+    ----------
+    ra : float or numpy.ndarray
+        Right ascension
+    dec : float or numpy.ndarray
+        Declination
+    degree : bool, optional
+        If True, ra and dec are given in degree and l and b will be as well
+    epoch : float, optional
+        Epoch of ra,dec (right now only 2000.0 and 1950.0 are supported when not using astropy's transformations internally; when internally using astropy's coordinate transformations, epoch can be None for ICRS, 'JXXXX' for FK5, and 'BXXXX' for FK4)
 
-    PURPOSE:
+    Returns
+    -------
+    tuple or numpy.ndarray
+        Galactic longitude and latitude
 
-       transform from equatorial coordinates to Galactic coordinates
-
-    INPUT:
-
-       ra - right ascension
-
-       dec - declination
-
-       degree - (Bool) if True, ra and dec are given in degree and l and b will be as well
-
-       epoch - epoch of ra,dec (right now only 2000.0 and 1950.0 are supported when not using astropy's transformations internally; when internally using astropy's coordinate transformations, epoch can be None for ICRS, 'JXXXX' for FK5, and 'BXXXX' for FK4)
-
-    OUTPUT:
-
-       l,b
-
-       For vector inputs [:,2]
-
-    HISTORY:
-
-       2009-11-12 - Written - Bovy (NYU)
-
-       2014-06-14 - Re-written w/ numpy functions for speed and w/ decorators for beauty - Bovy (IAS)
-
-       2016-05-13 - Added support for using astropy's coordinate transformations and for non-standard epochs - Bovy (UofT)
-
+    Notes
+    -----
+    - 2009-11-12 - Written - Bovy (NYU)
+    - 2014-06-14 - Re-written w/ numpy functions for speed and w/ decorators for beauty - Bovy (IAS)
+    - 2016-05-13 - Added support for using astropy's coordinate transformations and for non-standard epochs - Bovy (UofT)
     """
     if _APY_COORDS:
         epoch, frame = _parse_epoch_frame_apy(epoch)
@@ -265,38 +255,29 @@ def radec_to_lb(ra, dec, degree=False, epoch=2000.0):
 @degreeDecorator([0, 1], [0, 1])
 def lb_to_radec(l, b, degree=False, epoch=2000.0):
     """
-    NAME:
+    Transform from Galactic coordinates to equatorial coordinates
 
-       lb_to_radec
+    Parameters
+    ----------
+    l : float or numpy.ndarray
+        Galactic longitude
+    b : float or numpy.ndarray
+        Galactic latitude
+    degree : bool, optional
+        If True, l and b are given in degree and ra and dec will be as well
+    epoch : float, optional
+        Epoch of ra,dec (right now only 2000.0 and 1950.0 are supported when not using astropy's transformations internally; when internally using astropy's coordinate transformations, epoch can be None for ICRS, 'JXXXX' for FK5, and 'BXXXX' for FK4)
 
-    PURPOSE:
+    Returns
+    -------
+    tuple or numpy.ndarray
+        Right ascension and declination
 
-       transform from Galactic coordinates to equatorial coordinates
-
-    INPUT:
-
-       l - Galactic longitude
-
-       b - Galactic latitude
-
-       degree - (Bool) if True, l and b are given in degree and ra and dec will be as well
-
-       epoch - epoch of ra,dec (right now only 2000.0 and 1950.0 are supported when not using astropy's transformations internally; when internally using astropy's coordinate transformations, epoch can be None for ICRS, 'JXXXX' for FK5, and 'BXXXX' for FK4)
-
-    OUTPUT:
-
-       ra,dec
-
-       For vector inputs [:,2]
-
-    HISTORY:
-
-       2010-04-07 - Written - Bovy (NYU)
-
-       2014-06-14 - Re-written w/ numpy functions for speed and w/ decorators for beauty - Bovy (IAS)
-
-       2016-05-13 - Added support for using astropy's coordinate transformations and for non-standard epochs - Bovy (UofT)
-
+    Notes
+    -----
+    - 2010-04-07 - Written - Bovy (NYU)
+    - 2014-06-14 - Re-written w/ numpy functions for speed and w/ decorators for beauty - Bovy (IAS)
+    - 2016-05-13 - Added support for using astropy's coordinate transformations and for non-standard epochs - Bovy (UofT)
     """
     if _APY_COORDS:
         epoch, frame = _parse_epoch_frame_apy(epoch)
@@ -350,35 +331,28 @@ def lb_to_radec(l, b, degree=False, epoch=2000.0):
 @degreeDecorator([0, 1], [])
 def lbd_to_XYZ(l, b, d, degree=False):
     """
-    NAME:
+    Transform from spherical Galactic coordinates to rectangular Galactic coordinates (works with vector inputs)
 
-       lbd_to_XYZ
+    Parameters
+    ----------
+    l : float or numpy.ndarray
+        Galactic longitude (rad)
+    b : float or numpy.ndarray
+        Galactic latitude (rad)
+    d : float or numpy.ndarray
+        Distance (arbitrary units)
+    degree : bool, optional
+        If True, l and b are in degrees. Default is False.
 
-    PURPOSE:
+    Returns
+    -------
+    tuple or numpy.ndarray
+        [X,Y,Z] in whatever units d was in. For vector inputs [:,3]
 
-       transform from spherical Galactic coordinates to rectangular Galactic coordinates (works with vector inputs)
-
-    INPUT:
-
-       l - Galactic longitude (rad)
-
-       b - Galactic latitude (rad)
-
-       d - distance (arbitrary units)
-
-       degree - (bool) if True, l and b are in degrees
-
-    OUTPUT:
-
-       [X,Y,Z] in whatever units d was in
-
-       For vector inputs [:,3]
-
-    HISTORY:
-
-       2009-10-24- Written - Bovy (NYU)
-
-       2014-06-14 - Re-written w/ numpy functions for speed and w/ decorators for beauty - Bovy (IAS)
+    Notes
+    -----
+    - 2009-10-24 - Written - Bovy (NYU)
+    - 2014-06-14 - Re-written w/ numpy functions for speed and w/ decorators for beauty - Bovy (IAS)
 
     """
     # Whether to use degrees and scalar input is handled by decorators
@@ -393,38 +367,33 @@ def lbd_to_XYZ(l, b, d, degree=False):
 
 def rectgal_to_sphergal(X, Y, Z, vx, vy, vz, degree=False):
     """
-    NAME:
+    Transform phase-space coordinates in rectangular Galactic coordinates to spherical Galactic coordinates (can take vector inputs)
 
-       rectgal_to_sphergal
+    Parameters
+    ----------
+    X : float or numpy.ndarray
+        Component towards the Galactic Center (kpc)
+    Y : float or numpy.ndarray
+        Component in the direction of Galactic rotation (kpc)
+    Z : float or numpy.ndarray
+        Component towards the North Galactic Pole (kpc)
+    vx : float or numpy.ndarray
+        Velocity towards the Galactic Center (km/s)
+    vy : float or numpy.ndarray
+        Velocity in the direction of Galactic rotation (km/s)
+    vz : float or numpy.ndarray
+        Velocity towards the North Galactic Pole (km/s)
+    degree : bool, optional
+        If True, return l and b in degrees. Default is False.
 
-    PURPOSE:
+    Returns
+    -------
+    tuple or numpy.ndarray
+        [l,b,d,vr,pmll x cos(b),pmbb] in (rad,rad,kpc,km/s,mas/yr,mas/yr). For vector inputs [:,6]
 
-       transform phase-space coordinates in rectangular Galactic coordinates to spherical Galactic coordinates (can take vector inputs)
-
-    INPUT:
-
-       X - component towards the Galactic Center (kpc)
-
-       Y - component in the direction of Galactic rotation (kpc)
-
-       Z - component towards the North Galactic Pole (kpc)
-
-       vx - velocity towards the Galactic Center (km/s)
-
-       vy - velocity in the direction of Galactic rotation (km/s)
-
-       vz - velocity towards the North Galactic Pole (km/s)
-
-       degree - (Bool) if True, return l and b in degrees
-
-    OUTPUT:
-
-       (l,b,d,vr,pmll x cos(b),pmbb) in (rad,rad,kpc,km/s,mas/yr,mas/yr)
-
-    HISTORY:
-
-       2009-10-25 - Written - Bovy (NYU)
-
+    Notes
+    -----
+    - 2009-10-25 - Written - Bovy (NYU)
     """
     lbd = XYZ_to_lbd(X, Y, Z, degree=degree)
     vrpmllpmbb = vxvyvz_to_vrpmllpmbb(vx, vy, vz, X, Y, Z, XYZ=True)
@@ -441,38 +410,33 @@ def rectgal_to_sphergal(X, Y, Z, vx, vy, vz, degree=False):
 
 def sphergal_to_rectgal(l, b, d, vr, pmll, pmbb, degree=False):
     """
-    NAME:
+    Transform phase-space coordinates in spherical Galactic coordinates to rectangular Galactic coordinates (can take vector inputs)
 
-       sphergal_to_rectgal
+    Parameters
+    ----------
+    l : float or numpy.ndarray
+        Galactic longitude
+    b : float or numpy.ndarray
+        Galactic latitude
+    d : float or numpy.ndarray
+        Distance (kpc)
+    vr : float or numpy.ndarray
+        Line-of-sight velocity (km/s)
+    pmll : float or numpy.ndarray
+        Proper motion in the Galactic longitude direction (mu_l * cos(b)) (mas/yr)
+    pmbb : float or numpy.ndarray
+        Proper motion in the Galactic latitude (mas/yr)
+    degree : bool, optional
+        If True, l and b are in degrees. Default is False.
 
-    PURPOSE:
+    Returns
+    -------
+    tuple or numpy.ndarray
+        [X,Y,Z,vx,vy,vz] in (kpc,kpc,kpc,km/s,km/s,km/s). For vector inputs [:,6]
 
-       transform phase-space coordinates in spherical Galactic coordinates to rectangular Galactic coordinates (can take vector inputs)
-
-    INPUT:
-
-       l - Galactic longitude (rad)
-
-       b - Galactic latitude (rad)
-
-       d - distance (kpc)
-
-       vr - line-of-sight velocity (km/s)
-
-       pmll - proper motion in the Galactic longitude direction (mu_l*cos(b) ) (mas/yr)
-
-       pmbb - proper motion in the Galactic latitude (mas/yr)
-
-       degree - (bool) if True, l and b are in degrees
-
-    OUTPUT:
-
-       (X,Y,Z,vx,vy,vz) in (kpc,kpc,kpc,km/s,km/s,km/s)
-
-    HISTORY:
-
-       2009-10-25 - Written - Bovy (NYU)
-
+    Notes
+    -----
+    - 2009-10-25 - Written - Bovy (NYU)
     """
     XYZ = lbd_to_XYZ(l, b, d, degree=degree)
     vxvyvz = vrpmllpmbb_to_vxvyvz(vr, pmll, pmbb, l, b, d, XYZ=False, degree=degree)
@@ -489,44 +453,36 @@ def sphergal_to_rectgal(l, b, d, vr, pmll, pmbb, degree=False):
 @degreeDecorator([3, 4], [])
 def vrpmllpmbb_to_vxvyvz(vr, pmll, pmbb, l, b, d, XYZ=False, degree=False):
     """
-    NAME:
+    Transform velocities in the spherical Galactic coordinate frame to the rectangular Galactic coordinate frame (can take vector inputs)
 
-       vrpmllpmbb_to_vxvyvz
+    Parameters
+    ----------
+    vr : float or numpy.ndarray
+        Line-of-sight velocity (km/s)
+    pmll : float or numpy.ndarray
+        Proper motion in the Galactic longitude direction (mu_l * cos(b)) (mas/yr)
+    pmbb : float or numpy.ndarray
+        Proper motion in the Galactic latitude (mas/yr)
+    l : float or numpy.ndarray
+        Galactic longitude
+    b : float or numpy.ndarray
+        Galactic latitude
+    d : float or numpy.ndarray
+        Distance (kpc)
+    XYZ : bool, optional
+        If True, then l,b,d is actually X,Y,Z (rectangular Galactic coordinates). Default is False.
+    degree : bool, optional
+        If True, l and b are in degrees. Default is False.
 
-    PURPOSE:
+    Returns
+    -------
+    tuple or numpy.ndarray
+        [vx,vy,vz] in (km/s,km/s,km/s). For vector inputs [:,3]
 
-       Transform velocities in the spherical Galactic coordinate frame to the rectangular Galactic coordinate frame (can take vector inputs)
-
-    INPUT:
-
-       vr - line-of-sight velocity (km/s)
-
-       pmll - proper motion in the Galactic longitude (mu_l * cos(b))(mas/yr)
-
-       pmbb - proper motion in the Galactic latitude (mas/yr)
-
-       l - Galactic longitude
-
-       b - Galactic latitude
-
-       d - distance (kpc)
-
-       XYZ - (bool) If True, then l,b,d is actually X,Y,Z (rectangular Galactic coordinates)
-
-       degree - (bool) if True, l and b are in degrees
-
-    OUTPUT:
-
-       (vx,vy,vz) in (km/s,km/s,km/s)
-
-       For vector inputs [:,3]
-
-    HISTORY:
-
-       2009-10-24 - Written - Bovy (NYU)
-
-       2014-06-14 - Re-written w/ numpy functions for speed and w/ decorators for beauty - Bovy (IAS)
-
+    Notes
+    -----
+    - 2009-10-24 - Written - Bovy (NYU)
+    - 2014-06-14 - Re-written w/ numpy functions for speed and w/ decorators for beauty - Bovy (IAS)
     """
     # Whether to use degrees and scalar input is handled by decorators
     if XYZ:  # undo the incorrect conversion that the decorator did
@@ -560,44 +516,36 @@ def vrpmllpmbb_to_vxvyvz(vr, pmll, pmbb, l, b, d, XYZ=False, degree=False):
 @degreeDecorator([3, 4], [])
 def vxvyvz_to_vrpmllpmbb(vx, vy, vz, l, b, d, XYZ=False, degree=False):
     """
-    NAME:
+    Transform velocities in the rectangular Galactic coordinate frame to the spherical Galactic coordinate frame (can take vector inputs)
 
-       vxvyvz_to_vrpmllpmbb
+    Parameters
+    ----------
+    vx : float or numpy.ndarray
+        Velocity towards the Galactic Center (km/s)
+    vy : float or numpy.ndarray
+        Velocity in the direction of Galactic rotation (km/s)
+    vz : float or numpy.ndarray
+        Velocity towards the North Galactic Pole (km/s)
+    l : float or numpy.ndarray
+        Galactic longitude
+    b : float or numpy.ndarray
+        Galactic latitude
+    d : float or numpy.ndarray
+        Distance (kpc)
+    XYZ : bool, optional
+        If True, then l,b,d is actually X,Y,Z (rectangular Galactic coordinates). Default is False.
+    degree : bool, optional
+        If True, l and b are in degrees. Default is False.
 
-    PURPOSE:
+    Returns
+    -------
+    tuple or numpy.ndarray
+        [vr,pmll x cos(b),pmbb] in (km/s,mas/yr,mas/yr). For vector inputs [:,3]
 
-       Transform velocities in the rectangular Galactic coordinate frame to the spherical Galactic coordinate frame (can take vector inputs)
-
-    INPUT:
-
-       vx - velocity towards the Galactic Center (km/s)
-
-       vy - velocity in the direction of Galactic rotation (km/s)
-
-       vz - velocity towards the North Galactic Pole (km/s)
-
-       l - Galactic longitude
-
-       b - Galactic latitude
-
-       d - distance (kpc)
-
-       XYZ - (bool) If True, then l,b,d is actually X,Y,Z (rectangular Galactic coordinates)
-
-       degree - (bool) if True, l and b are in degrees
-
-    OUTPUT:
-
-       (vr,pmll x cos(b),pmbb) in (km/s,mas/yr,mas/yr); pmll = mu_l * cos(b)
-
-       For vector inputs [:,3]
-
-    HISTORY:
-
-       2009-10-24 - Written - Bovy (NYU)
-
-       2014-06-14 - Re-written w/ numpy functions for speed and w/ decorators for beauty - Bovy (IAS)
-
+    Notes
+    -----
+    - 2009-10-24 - Written - Bovy (NYU)
+    - 2014-06-14 - Re-written w/ numpy functions for speed and w/ decorators for beauty - Bovy (IAS)
     """
     # Whether to use degrees and scalar input is handled by decorators
     if XYZ:  # undo the incorrect conversion that the decorator did
@@ -628,36 +576,28 @@ def vxvyvz_to_vrpmllpmbb(vx, vy, vz, l, b, d, XYZ=False, degree=False):
 @degreeDecorator([], [0, 1])
 def XYZ_to_lbd(X, Y, Z, degree=False):
     """
-    NAME:
+    Transform from rectangular Galactic coordinates to spherical Galactic coordinates (works with vector inputs)
 
-       XYZ_to_lbd
+    Parameters
+    ----------
+    X : float or numpy.ndarray
+        Component towards the Galactic Center (in kpc; though this obviously does not matter))
+    Y : float or numpy.ndarray
+        Component in the direction of Galactic rotation (in kpc)
+    Z : float or numpy.ndarray
+        Component towards the North Galactic Pole (kpc)
+    degree : bool, optional
+        If True, return l and b in degrees (default is False)
 
-    PURPOSE:
+    Returns
+    -------
+    tuple or numpy.ndarray
+        [l,b,d] in (rad or degree,rad or degree,kpc); for vector inputs [:,3]
 
-       transform from rectangular Galactic coordinates to spherical Galactic coordinates (works with vector inputs)
-
-    INPUT:
-
-       X - component towards the Galactic Center (in kpc; though this obviously does not matter))
-
-       Y - component in the direction of Galactic rotation (in kpc)
-
-       Z - component towards the North Galactic Pole (kpc)
-
-       degree - (Bool) if True, return l and b in degrees
-
-    OUTPUT:
-
-       [l,b,d] in (rad or degree,rad or degree,kpc)
-
-       For vector inputs [:,3]
-
-    HISTORY:
-
-       2009-10-24 - Written - Bovy (NYU)
-
-       2014-06-14 - Re-written w/ numpy functions for speed and w/ decorators for beauty - Bovy (IAS)
-
+    Notes
+    -----
+    - 2009-10-24 - Written - Bovy (NYU)
+    - 2014-06-14 - Re-written w/ numpy functions for speed and w/ decorators for beauty - Bovy (IAS)
     """
     # Whether to use degrees and scalar input is handled by decorators
     d = numpy.sqrt(X**2.0 + Y**2.0 + Z**2.0)
@@ -675,38 +615,32 @@ def XYZ_to_lbd(X, Y, Z, degree=False):
 @degreeDecorator([2, 3], [])
 def pmrapmdec_to_pmllpmbb(pmra, pmdec, ra, dec, degree=False, epoch=2000.0):
     """
-    NAME:
+    Rotate proper motions in (ra,dec) into proper motions in (l,b)
 
-       pmrapmdec_to_pmllpmbb
+    Parameters
+    ----------
+    pmra : float or numpy.ndarray
+        Proper motion in ra (multiplied with cos(dec)) (mas/yr)
+    pmdec : float or numpy.ndarray
+        Proper motion in dec (mas/yr)
+    ra : float or numpy.ndarray
+        Right ascension
+    dec : float or numpy.ndarray
+        Declination
+    degree : bool, optional
+        If True, ra and dec are given in degrees (default=False)
+    epoch : float, optional
+        Epoch of ra,dec (right now only 2000.0 and 1950.0 are supported when not using astropy's transformations internally; when internally using astropy's coordinate transformations, epoch can be None for ICRS, 'JXXXX' for FK5, and 'BXXXX' for FK4)
 
-    PURPOSE:
+    Returns
+    -------
+    tuple or numpy.ndarray
+        [pmll x cos(b),pmbb] in (mas/yr,mas/yr). For vector inputs [:,2]
 
-       rotate proper motions in (ra,dec) into proper motions in (l,b)
-
-    INPUT:
-
-       pmra - proper motion in ra (multiplied with cos(dec)) [mas/yr]
-
-       pmdec - proper motion in dec [mas/yr]
-
-       ra - right ascension
-
-       dec - declination
-
-       degree - if True, ra and dec are given in degrees (default=False)
-
-       epoch - epoch of ra,dec (right now only 2000.0 and 1950.0 are supported when not using astropy's transformations internally; when internally using astropy's coordinate transformations, epoch can be None for ICRS, 'JXXXX' for FK5, and 'BXXXX' for FK4)
-
-    OUTPUT:
-
-       (pmll x cos(b),pmbb) for vector inputs [:,2]
-
-    HISTORY:
-
-       2010-04-07 - Written - Bovy (NYU)
-
-       2014-06-14 - Re-written w/ numpy functions for speed and w/ decorators for beauty - Bovy (IAS)
-
+    Notes
+    -----
+    - 2010-04-07 - Written - Bovy (NYU)
+    - 2014-06-14 - Re-written w/ numpy functions for speed and w/ decorators for beauty - Bovy (IAS)
     """
     theta, dec_ngp, ra_ngp = get_epoch_angles(epoch)
     # Whether to use degrees and scalar input is handled by decorators
@@ -735,38 +669,32 @@ def pmrapmdec_to_pmllpmbb(pmra, pmdec, ra, dec, degree=False, epoch=2000.0):
 @degreeDecorator([2, 3], [])
 def pmllpmbb_to_pmrapmdec(pmll, pmbb, l, b, degree=False, epoch=2000.0):
     """
-    NAME:
+    Rotate proper motions in (l,b) into proper motions in (ra,dec)
 
-       pmllpmbb_to_pmrapmdec
+    Parameters
+    ----------
+    pmll : float or numpy.ndarray
+        Proper motion in l (multiplied with cos(b)) (mas/yr)
+    pmbb : float or numpy.ndarray
+        Proper motion in b (mas/yr)
+    l : float or numpy.ndarray
+        Galactic longitude
+    b : float or numpy.ndarray
+        Galactic latitude
+    degree : bool, optional
+        If True, l and b are given in degrees (default=False)
+    epoch : float, optional
+        Epoch of ra,dec (right now only 2000.0 and 1950.0 are supported when not using astropy's transformations internally; when internally using astropy's coordinate transformations, epoch can be None for ICRS, 'JXXXX' for FK5, and 'BXXXX' for FK4)
 
-    PURPOSE:
+    Returns
+    -------
+    tuple or numpy.ndarray
+        [pmra x cos(dec),pmdec] in (mas/yr,mas/yr). For vector inputs [:,2]
 
-       rotate proper motions in (l,b) into proper motions in (ra,dec)
-
-    INPUT:
-
-       pmll - proper motion in l (multiplied with cos(b)) [mas/yr]
-
-       pmbb - proper motion in b [mas/yr]
-
-       l - Galactic longitude
-
-       b - Galactic latitude
-
-       degree - if True, l and b are given in degrees (default=False)
-
-       epoch - epoch of ra,dec (right now only 2000.0 and 1950.0 are supported when not using astropy's transformations internally; when internally using astropy's coordinate transformations, epoch can be None for ICRS, 'JXXXX' for FK5, and 'BXXXX' for FK4)
-
-    OUTPUT:
-
-       (pmra x cos(dec),pmdec), for vector inputs [:,2]
-
-    HISTORY:
-
-       2010-04-07 - Written - Bovy (NYU)
-
-       2014-06-14 - Re-written w/ numpy functions for speed and w/ decorators for beauty - Bovy (IAS)
-
+    Notes
+    -----
+    - 2010-04-07 - Written - Bovy (NYU)
+    - 2014-06-14 - Re-written w/ numpy functions for speed and w/ decorators for beauty - Bovy (IAS)
     """
     theta, dec_ngp, ra_ngp = get_epoch_angles(epoch)
     # Whether to use degrees and scalar input is handled by decorators
@@ -796,36 +724,30 @@ def pmllpmbb_to_pmrapmdec(pmll, pmbb, l, b, degree=False, epoch=2000.0):
 
 def cov_pmrapmdec_to_pmllpmbb(cov_pmradec, ra, dec, degree=False, epoch=2000.0):
     """
-    NAME:
+    Propagate the proper motions errors through the rotation from (ra,dec) to (l,b)
 
-       cov_pmrapmdec_to_pmllpmbb
+    Parameters
+    ----------
+    cov_pmradec : numpy.ndarray
+        Uncertainty covariance matrix of the proper motion in ra (multiplied with cos(dec)) and dec [2,2] or [:,2,2]
+    ra : float or numpy.ndarray
+        Right ascension
+    dec : float or numpy.ndarray
+        Declination
+    degree : bool, optional
+        If True, ra and dec are given in degrees (default=False)
+    epoch : float, optional
+        Epoch of ra,dec (right now only 2000.0 and 1950.0 are supported when not using astropy's transformations internally; when internally using astropy's coordinate transformations, epoch can be None for ICRS, 'JXXXX' for FK5, and 'BXXXX' for FK4)
 
-    PURPOSE:
+    Returns
+    -------
+    numpy.ndarray
+        covar_pmllbb [2,2] or [:,2,2] [pmll here is pmll x cos(b)]
 
-       propagate the proper motions errors through the rotation from (ra,dec) to (l,b)
-
-    INPUT:
-
-       covar_pmradec - uncertainty covariance matrix of the proper motion in ra (multiplied with cos(dec)) and dec [2,2] or [:,2,2]
-
-       ra - right ascension
-
-       dec - declination
-
-       degree - if True, ra and dec are given in degrees (default=False)
-
-       epoch - epoch of ra,dec (right now only 2000.0 and 1950.0 are supported when not using astropy's transformations internally; when internally using astropy's coordinate transformations, epoch can be None for ICRS, 'JXXXX' for FK5, and 'BXXXX' for FK4)
-
-    OUTPUT:
-
-       covar_pmllbb [2,2] or [:,2,2] [pmll here is pmll x cos(b)]
-
-    HISTORY:
-
-       2010-04-12 - Written - Bovy (NYU)
-
-       2020-09-21 - Adapted for array input - Mackereth (UofT)
-
+    Notes
+    -----
+    - 2010-04-12 - Written - Bovy (NYU)
+    - 2020-09-21 - Adapted for array input - Mackereth (UofT)
     """
     scalar = not hasattr(ra, "__iter__")
     if scalar:
@@ -871,48 +793,40 @@ def cov_dvrpmllbb_to_vxyz(
     d, e_d, e_vr, pmll, pmbb, cov_pmllbb, l, b, plx=False, degree=False
 ):
     """
-    NAME:
+    Propagate distance, radial velocity, and proper motion uncertainties to Galactic coordinates
 
-       cov_dvrpmllbb_to_vxyz
+    Parameters
+    ----------
+    d : float or numpy.ndarray
+        Distance [kpc, as/mas for plx]
+    e_d : float or numpy.ndarray
+        Distance uncertainty [kpc, [as/mas] for plx]
+    e_vr : float or numpy.ndarray
+        Low velocity uncertainty [km/s]
+    pmll : float or numpy.ndarray
+        Proper motion in l (*cos(b)) [ [as/mas]/yr ]
+    pmbb : float or numpy.ndarray
+        Proper motion in b [ [as/mas]/yr ]
+    cov_pmllbb : numpy.ndarray
+        Uncertainty covariance for proper motion [pmll is pmll x cos(b)] [:,2,2]
+    l : float or numpy.ndarray
+        Galactic longitude
+    b : float or numpy.ndarray
+        Galactic latitude
+    plx : bool, optional
+        If True, d is a parallax, and e_d is a parallax uncertainty (default=False)
+    degree : bool, optional
+        If True, l and b are given in degree (default=False)
 
-    PURPOSE:
+    Returns
+    -------
+    numpy.ndarray
+        cov(vx,vy,vz) [3,3] or [:,3,3]
 
-       propagate distance, radial velocity, and proper motion uncertainties to Galactic coordinates
-
-    INPUT:
-
-       d - distance [kpc, as/mas for plx]
-
-       e_d - distance uncertainty [kpc, [as/mas] for plx]
-
-       e_vr  - low velocity uncertainty [km/s]
-
-       pmll - proper motion in l (*cos(b)) [ [as/mas]/yr ]
-
-       pmbb - proper motion in b [ [as/mas]/yr ]
-
-       cov_pmllbb - uncertainty covariance for proper motion [pmll is pmll x cos(b)]
-
-       l - Galactic longitude
-
-       b - Galactic latitude
-
-    KEYWORDS:
-
-       plx - if True, d is a parallax, and e_d is a parallax uncertainty
-
-       degree - if True, l and b are given in degree
-
-    OUTPUT:
-
-       cov(vx,vy,vz) [3,3] or [:,3,3]
-
-    HISTORY:
-
-       2010-04-12 - Written - Bovy (NYU)
-
-       2020-09-21 - Adapted for array input - Mackereth (UofT)
-
+    Notes
+    -----
+    - 2010-04-12 - Written - Bovy (NYU)
+    - 2020-09-21 - Adapted for array input - Mackereth (UofT)
     """
     if plx:
         d = 1.0 / d
@@ -959,30 +873,28 @@ def cov_dvrpmllbb_to_vxyz(
 
 def cov_vxyz_to_galcencyl(cov_vxyz, phi, Xsun=1.0, Zsun=0.0):
     """
-    NAME:
+    Propagate uncertainties in vxyz to galactocentric cylindrical coordinates
 
-       cov_vxyz_to_galcencyl
+    Parameters
+    ----------
+    cov_vxyz : numpy.ndarray
+        Uncertainty covariance in U,V,W [3,3] or [:,3,3]
+    phi : float or numpy.ndarray
+        Angular position of star in Galactocentric cylindrical coords [rad]
+    Xsun : float, optional
+        Cylindrical distance to the GC (can be array of same length as R) [kpc]
+    Zsun : float, optional
+        Sun's height above the midplane (can be array of same length as R) [kpc]
 
-    PURPOSE:
+    Returns
+    -------
+    numpy.ndarray
+        cov(vR,vT,vz) [3,3] or [:,3,3]
 
-       propagate uncertainties in vxyz to galactocentric cylindrical coordinates
-
-    INPUT:
-
-       cov_vxyz - uncertainty covariance in U,V,W
-
-       phi - angular position of star in galactocentric cylindrical coords
-
-    OUTPUT:
-
-       cov(vR,vT,vz) [3,3]
-
-    HISTORY:
-
-       2018-03-22 - Written - Mackereth (LJMU)
-
-       2020-09-21- Moved to coords.py - Mackereth (UofT)
-
+    Notes
+    -----
+    - 2018-03-22 - Written - Mackereth (LJMU)
+    - 2020-09-21- Moved to coords.py - Mackereth (UofT)
     """
     cov_galcenrect = cov_vxyz_to_galcenrect(cov_vxyz, Xsun=Xsun, Zsun=Zsun)
     cov_galcencyl = cov_galcenrect_to_galcencyl(cov_galcenrect, phi)
@@ -991,28 +903,26 @@ def cov_vxyz_to_galcencyl(cov_vxyz, phi, Xsun=1.0, Zsun=0.0):
 
 def cov_vxyz_to_galcenrect(cov_vxyz, Xsun=1.0, Zsun=0.0):
     """
-    NAME:
+    Propagate uncertainties in vxyz to galactocentric rectangular coordinates
 
-       cov_vxyz_to_galcenrect
+    Parameters
+    ----------
+    cov_vxyz : numpy.ndarray
+        Uncertainty covariance in U,V,W [3,3] or [:,3,3]
+    Xsun : float, optional
+        Cylindrical distance to the GC (can be array of same length as R) [kpc]
+    Zsun : float, optional
+        Sun's height above the midplane (can be array of same length as R) [kpc]
 
-    PURPOSE:
+    Returns
+    -------
+    numpy.ndarray
+        cov(vx,vy,vz) [3,3] or [:,3,3]
 
-       propagate uncertainties in vxyz to galactocentric rectangular coordinates
-
-    INPUT:
-
-       cov_vxyz - uncertainty covariance in U,V,W
-
-    OUTPUT:
-
-       cov(vx,vy,vz) [3,3]
-
-    HISTORY:
-
-       2018-03-22 - Written - Mackereth (LJMU)
-
-       2020-09-21- Moved to coords.py - Mackereth (UofT)
-
+    Notes
+    -----
+    - 2018-03-22 - Written - Mackereth (LJMU)
+    - 2020-09-21- Moved to coords.py - Mackereth (UofT)
     """
     scalar = cov_vxyz.ndim < 3
     if scalar:
@@ -1032,28 +942,24 @@ def cov_vxyz_to_galcenrect(cov_vxyz, Xsun=1.0, Zsun=0.0):
 
 def cov_galcenrect_to_galcencyl(cov_galcenrect, phi):
     """
-    NAME:
+    Propagate uncertainties in galactocentric rectangular to galactocentric cylindrical coordinates
 
-       cov_galcenrect_to_galcencyl
+    Parameters
+    ----------
+    cov_galcenrect : numpy.ndarray
+        Uncertainty covariance in vx,vy,vz [3,3] or [:,3,3]
+    phi : float or numpy.ndarray
+        Angular position of star in Galactocentric cylindrical coords [rad]
 
-    PURPOSE:
+    Returns
+    -------
+    numpy.ndarray
+        cov(vR,vT,vz) [3,3] or [:,3,3]
 
-       propagate uncertainties in galactocentric rectangular to galactocentric cylindrical coordinates
-
-    INPUT:
-
-       cov_galcenrect - uncertainty covariance in Galactocentric rectangular coords
-
-    OUTPUT:
-
-       cov(vR,vT,vz) [3,3]
-
-    HISTORY:
-
-       2018-03-22 - Written - Mackereth (LJMU)
-
-       2020-09-21- Moved to coords.py - Mackereth (UofT)
-
+    Notes
+    -----
+    - 2018-03-22 - Written - Mackereth (LJMU)
+    - 2020-09-21- Moved to coords.py - Mackereth (UofT)
     """
     scalar = cov_galcenrect.ndim < 3
     if scalar:
@@ -1078,42 +984,37 @@ def cov_galcenrect_to_galcencyl(cov_galcenrect, phi):
 @scalarDecorator
 def XYZ_to_galcenrect(X, Y, Z, Xsun=1.0, Zsun=0.0, _extra_rot=True):
     """
-    NAME:
+    Transform XYZ coordinates (wrt Sun) to rectangular Galactocentric coordinates.
 
-       XYZ_to_galcenrect
+    Parameters
+    ----------
+    X : float or numpy.ndarray
+        X coordinate.
+    Y : float or numpy.ndarray
+        Y coordinate.
+    Z : float or numpy.ndarray
+        Z coordinate.
+    Xsun : float or numpy.ndarray, optional
+        Cylindrical distance to the Galactic center (default is 1.0).
+    Zsun : float or numpy.ndarray, optional
+        Sun's height above the midplane (default is 0.0).
+    _extra_rot : bool, optional
+        If True, perform an extra tiny rotation to align the Galactocentric coordinate frame with astropy's definition (default is True).
 
-    PURPOSE:
+    Returns
+    -------
+    numpy.ndarray
+        Containing:
+            * Xg : X coordinate in Galactocentric frame.
+            * Yg : Y coordinate in Galactocentric frame.
+            * Zg : Z coordinate in Galactocentric frame.
 
-       transform XYZ coordinates (wrt Sun) to rectangular Galactocentric coordinates
-
-    INPUT:
-
-       X - X
-
-       Y - Y
-
-       Z - Z
-
-       Xsun - cylindrical distance to the GC (can be array of same length as R)
-
-       Zsun - Sun's height above the midplane (can be array of same length as R)
-
-       _extra_rot= (True) if True, perform an extra tiny rotation to align the Galactocentric coordinate frame with astropy's definition
-
-    OUTPUT:
-
-       (Xg, Yg, Zg)
-
-    HISTORY:
-
-       2010-09-24 - Written - Bovy (NYU)
-
-       2016-05-12 - Edited to properly take into account the Sun's vertical position; dropped Ysun keyword - Bovy (UofT)
-
-       2018-04-18 - Tweaked to be consistent with astropy's Galactocentric frame - Bovy (UofT)
-
-       2023-07-23 - Allowed Xsun/Zsun to be arrays - Bovy (UofT)
-
+    Notes
+    -----
+    - 2010-09-24 - Written - Bovy (NYU)
+    - 2016-05-12 - Edited to properly take into account the Sun's vertical position; dropped Ysun keyword - Bovy (UofT)
+    - 2018-04-18 - Tweaked to be consistent with astropy's Galactocentric frame - Bovy (UofT)
+    - 2023-07-23 - Allowed Xsun/Zsun to be arrays - Bovy (UofT)
     """
     if _extra_rot:
         X, Y, Z = numpy.dot(galcen_extra_rot, numpy.array([X, Y, Z]))
@@ -1135,37 +1036,34 @@ def XYZ_to_galcenrect(X, Y, Z, Xsun=1.0, Zsun=0.0, _extra_rot=True):
 @scalarDecorator
 def galcenrect_to_XYZ(X, Y, Z, Xsun=1.0, Zsun=0.0, _extra_rot=True):
     """
-    NAME:
+    Transform rectangular Galactocentric to XYZ coordinates (wrt Sun) coordinates.
 
-       galcenrect_to_XYZ
+    Parameters
+    ----------
+    X : float or numpy.ndarray
+        Galactocentric rectangular coordinate.
+    Y : float or numpy.ndarray
+        Galactocentric rectangular coordinate.
+    Z : float or numpy.ndarray
+        Galactocentric rectangular coordinate.
+    Xsun : float or numpy.ndarray, optional
+        Cylindrical distance to the GC (can be array of same length as X).
+    Zsun : float or numpy.ndarray, optional
+        Sun's height above the midplane (can be array of same length as X).
+    _extra_rot : bool, optional
+        If True, perform an extra tiny rotation to align the Galactocentric coordinate frame with astropy's definition.
 
-    PURPOSE:
+    Returns
+    -------
+    numpy.ndarray
+        Containing (X,Y,Z)
 
-       transform rectangular Galactocentric to XYZ coordinates (wrt Sun) coordinates
-
-    INPUT:
-
-       X, Y, Z - Galactocentric rectangular coordinates
-
-       Xsun - cylindrical distance to the GC (can be array of same length as X)
-
-       Zsun - Sun's height above the midplane (can be array of same length as X)
-
-       _extra_rot= (True) if True, perform an extra tiny rotation to align the Galactocentric coordinate frame with astropy's definition
-
-    OUTPUT:
-
-       (X, Y, Z)
-
-    HISTORY:
-
-       2011-02-23 - Written - Bovy (NYU)
-
-       2016-05-12 - Edited to properly take into account the Sun's vertical position; dropped Ysun keyword - Bovy (UofT)
-
-       2017-10-24 - Allowed Xsun/Zsun to be arrays - Bovy (UofT)
-
-       2018-04-18 - Tweaked to be consistent with astropy's Galactocentric frame - Bovy (UofT)
+    Notes
+    -----
+    - 2011-02-23 - Written - Bovy (NYU)
+    - 2016-05-12 - Edited to properly take into account the Sun's vertical position; dropped Ysun keyword - Bovy (UofT)
+    - 2017-10-24 - Allowed Xsun/Zsun to be arrays - Bovy (UofT)
+    - 2018-04-18 - Tweaked to be consistent with astropy's Galactocentric frame - Bovy (UofT)
 
     """
     dgc = numpy.sqrt(Xsun**2.0 + Zsun**2.0)
@@ -1196,80 +1094,76 @@ def galcenrect_to_XYZ(X, Y, Z, Xsun=1.0, Zsun=0.0, _extra_rot=True):
 
 def rect_to_cyl(X, Y, Z):
     """
-    NAME:
+    Convert from rectangular to cylindrical coordinates
 
-       rect_to_cyl
+    Parameters
+    ----------
+    X : float or numpy.ndarray
+        X coordinate.
+    Y : float or numpy.ndarray
+        Y coordinate.
+    Z : float or numpy.ndarray
+        Z coordinate.
 
-    PURPOSE:
+    Returns
+    -------
+    numpy.ndarray
+        Containing (R,phi,z)
 
-       convert from rectangular to cylindrical coordinates
-
-    INPUT:
-
-       X, Y, Z - rectangular coordinates
-
-    OUTPUT:
-
-       R,phi,z
-
-    HISTORY:
-
-       2010-09-24 - Written - Bovy (NYU)
-
-       2019-06-21 - Changed such that phi in [-pi,pi] - Bovy (UofT)
-
+    Notes
+    -----
+    - 2010-09-24 - Written - Bovy (NYU)
+    - 2019-06-21 - Changed such that phi in [-pi,pi] - Bovy (UofT)
     """
     return (numpy.sqrt(X**2.0 + Y**2.0), numpy.arctan2(Y, X), Z)
 
 
 def cyl_to_rect(R, phi, Z):
     """
-    NAME:
+    Convert from cylindrical to rectangular coordinates
 
-       cyl_to_rect
+    Parameters
+    ----------
+    R : float or numpy.ndarray
+        Cylindrical R coordinate.
+    phi : float or numpy.ndarray
+        Cylindrical phi coordinate.
+    Z : float or numpy.ndarray
+        Cylindrical Z coordinate.
 
-    PURPOSE:
+    Returns
+    -------
+    numpy.ndarray
+        Containing (X,Y,Z)
 
-       convert from cylindrical to rectangular coordinates
-
-    INPUT:
-
-       R, phi, Z - cylindrical coordinates
-
-    OUTPUT:
-
-       X,Y,Z
-
-    HISTORY:
-
-       2011-02-23 - Written - Bovy (NYU)
-
+    Notes
+    -----
+    - 2011-02-23 - Written - Bovy (NYU)
     """
     return (R * numpy.cos(phi), R * numpy.sin(phi), Z)
 
 
 def cyl_to_spher(R, Z, phi):
     """
-    NAME:
+    Convert from cylindrical to spherical coordinates
 
-       cyl_to_spher
+    Parameters
+    ----------
+    R : float or numpy.ndarray
+        Cylindrical R coordinate.
+    Z : float or numpy.ndarray
+        Cylindrical Z coordinate.
+    phi : float or numpy.ndarray
+        Cylindrical phi coordinate.
 
-    PURPOSE:
+    Returns
+    -------
+    numpy.ndarray
+        Containing (r,theta,phi)
 
-       convert from cylindrical to spherical coordinates
-
-    INPUT:
-
-       R, Z, phi- cylindrical coordinates
-
-    OUTPUT:
-
-       R, theta, phi - spherical coordinates
-
-    HISTORY:
-
-       2016-05-16 - Written - Aladdin
-
+    Notes
+    -----
+    - 2016-05-16 - Written - Aladdin
     """
     theta = numpy.arctan2(R, Z)
     r = (R**2 + Z**2) ** 0.5
@@ -1278,26 +1172,25 @@ def cyl_to_spher(R, Z, phi):
 
 def spher_to_cyl(r, theta, phi):
     """
-    NAME:
+    Convert from spherical to cylindrical coordinates
 
-       spher_to_cyl
+    Parameters
+    ----------
+    r : float or numpy.ndarray
+        Spherical r coordinate.
+    theta : float or numpy.ndarray
+        Spherical theta coordinate.
+    phi : float or numpy.ndarray
+        Spherical phi coordinate.
 
-    PURPOSE:
+    Returns
+    -------
+    numpy.ndarray
+        Containing (R,z,phi)
 
-       convert from spherical to cylindrical coordinates
-
-    INPUT:
-
-       r, theta, phi - spherical coordinates
-
-    OUTPUT:
-
-       R, z, phi - spherical coordinates
-
-    HISTORY:
-
-       2016-05-20 - Written - Aladdin
-
+    Notes
+    -----
+    - 2016-05-20 - Written - Aladdin
     """
     R = r * numpy.sin(theta)
     z = r * numpy.cos(theta)
@@ -1307,38 +1200,32 @@ def spher_to_cyl(r, theta, phi):
 @scalarDecorator
 def XYZ_to_galcencyl(X, Y, Z, Xsun=1.0, Zsun=0.0, _extra_rot=True):
     """
-    NAME:
+    Transform XYZ coordinates (wrt Sun) to cylindrical Galactocentric coordinates
 
-       XYZ_to_galcencyl
+    Parameters
+    ----------
+    X : float or numpy.ndarray
+        X coordinate.
+    Y : float or numpy.ndarray
+        Y coordinate.
+    Z : float or numpy.ndarray
+        Z coordinate.
+    Xsun : float or numpy.ndarray, optional
+        Cylindrical distance to the GC (can be array of same length as R).
+    Zsun : float or numpy.ndarray, optional
+        Sun's height above the midplane (can be array of same length as R).
+    _extra_rot : bool, optional
+        If True, perform an extra tiny rotation to align the Galactocentric coordinate frame with astropy's definition.
 
-    PURPOSE:
+    Returns
+    -------
+    numpy.ndarray
+        Containing (R,phi,z)
 
-       transform XYZ coordinates (wrt Sun) to cylindrical Galactocentric coordinates
-
-    INPUT:
-
-       X - X
-
-       Y - Y
-
-       Z - Z
-
-       Xsun - cylindrical distance to the GC (can be array of same length as R)
-
-       Zsun - Sun's height above the midplane (can be array of same length as R)
-
-       _extra_rot= (True) if True, perform an extra tiny rotation to align the Galactocentric coordinate frame with astropy's definition
-
-    OUTPUT:
-
-       R,phi,z
-
-    HISTORY:
-
-       2010-09-24 - Written - Bovy (NYU)
-
-       2023-07-19 - Allowed Xsun/Zsun to be arrays - Bovy (UofT)
-
+    Notes
+    -----
+    - 2010-09-24 - Written - Bovy (NYU)
+    - 2023-07-19 - Allowed Xsun/Zsun to be arrays - Bovy (UofT)
     """
     XYZ = numpy.atleast_2d(
         XYZ_to_galcenrect(X, Y, Z, Xsun=Xsun, Zsun=Zsun, _extra_rot=_extra_rot)
@@ -1349,34 +1236,32 @@ def XYZ_to_galcencyl(X, Y, Z, Xsun=1.0, Zsun=0.0, _extra_rot=True):
 @scalarDecorator
 def galcencyl_to_XYZ(R, phi, Z, Xsun=1.0, Zsun=0.0, _extra_rot=True):
     """
-    NAME:
+    Transform cylindrical Galactocentric coordinates to XYZ coordinates (wrt Sun)
 
-       galcencyl_to_XYZ
+    Parameters
+    ----------
+    R : float or numpy.ndarray
+        Cylindrical R coordinate.
+    phi : float or numpy.ndarray
+        Cylindrical phi coordinate.
+    Z : float or numpy.ndarray
+        Cylindrical Z coordinate.
+    Xsun : float or numpy.ndarray, optional
+        Cylindrical distance to the GC (can be array of same length as R).
+    Zsun : float or numpy.ndarray, optional
+        Sun's height above the midplane (can be array of same length as R).
+    _extra_rot : bool, optional
+        If True, perform an extra tiny rotation to align the Galactocentric coordinate frame with astropy's definition.
 
-    PURPOSE:
+    Returns
+    -------
+    numpy.ndarray
+        Containing (X,Y,Z)
 
-       transform cylindrical Galactocentric coordinates to XYZ coordinates (wrt Sun)
-
-    INPUT:
-
-       R, phi, Z - Galactocentric cylindrical coordinates
-
-       Xsun - cylindrical distance to the GC (can be array of same length as R)
-
-       Zsun - Sun's height above the midplane (can be array of same length as R)
-
-       _extra_rot= (True) if True, perform an extra tiny rotation to align the Galactocentric coordinate frame with astropy's definition
-
-    OUTPUT:
-
-       X,Y,Z
-
-    HISTORY:
-
-       2011-02-23 - Written - Bovy (NYU)
-
-       2017-10-24 - Allowed Xsun/Zsun to be arrays - Bovy (UofT)
-
+    Notes
+    -----
+    - 2011-02-23 - Written - Bovy (NYU)
+    - 2017-10-24 - Allowed Xsun/Zsun to be arrays - Bovy (UofT)
     """
     Xr, Yr, Zr = cyl_to_rect(R, phi, Z)
     return galcenrect_to_XYZ(Xr, Yr, Zr, Xsun=Xsun, Zsun=Zsun, _extra_rot=_extra_rot)
@@ -1387,44 +1272,36 @@ def vxvyvz_to_galcenrect(
     vx, vy, vz, vsun=[0.0, 1.0, 0.0], Xsun=1.0, Zsun=0.0, _extra_rot=True
 ):
     """
-    NAME:
+    Transform velocities in XYZ coordinates (wrt Sun) to rectangular Galactocentric coordinates for velocities
 
-       vxvyvz_to_galcenrect
+    Parameters
+    ----------
+    vx : float or numpy.ndarray
+        U velocity.
+    vy : float or numpy.ndarray
+        V velocity.
+    vz : float or numpy.ndarray
+        W velocity.
+    vsun : float or numpy.ndarray, optional
+        Velocity of the Sun in the GC frame (can also be array of same length as vx; shape [3,N]).
+    Xsun : float or numpy.ndarray, optional
+        Cylindrical distance to the GC (can be array of same length as vXg).
+    Zsun : float or numpy.ndarray, optional
+        Sun's height above the midplane (can be array of same length as vXg).
+    _extra_rot : bool, optional
+        If True, perform an extra tiny rotation to align the Galactocentric coordinate frame with astropy's definition.
 
-    PURPOSE:
+    Returns
+    -------
+    numpy.ndarray
+        Containing (vx,vy,vz)
 
-       transform velocities in XYZ coordinates (wrt Sun) to rectangular Galactocentric coordinates for velocities
-
-    INPUT:
-
-       vx - U
-
-       vy - V
-
-       vz - W
-
-       vsun - velocity of the sun in the GC frame ndarray[3]  (can also be array of same length as vx; shape [3,N])
-
-       Xsun - cylindrical distance to the GC (can be array of same length as vXg)
-
-       Zsun - Sun's height above the midplane (can be array of same length as vXg)
-
-       _extra_rot= (True) if True, perform an extra tiny rotation to align the Galactocentric coordinate frame with astropy's definition
-
-    OUTPUT:
-
-       [:,3]= vXg, vYg, vZg
-
-    HISTORY:
-
-       2010-09-24 - Written - Bovy (NYU)
-
-       2016-05-12 - Edited to properly take into account the Sun's vertical position; dropped Ysun keyword - Bovy (UofT)
-
-       2018-04-18 - Tweaked to be consistent with astropy's Galactocentric frame - Bovy (UofT)
-
-       2023-07-23 - Allowed Xsun/Zsun/vsun to be arrays- Bovy (UofT)
-
+    Notes
+    -----
+    - 2010-09-24 - Written - Bovy (NYU)
+    - 2016-05-12 - Edited to properly take into account the Sun's vertical position; dropped Ysun keyword - Bovy (UofT)
+    - 2018-04-18 - Tweaked to be consistent with astropy's Galactocentric frame - Bovy (UofT)
+    - 2023-07-23 - Allowed Xsun/Zsun/vsun to be arrays- Bovy (UofT)
     """
     if _extra_rot:
         vx, vy, vz = numpy.dot(galcen_extra_rot, numpy.array([vx, vy, vz]))
@@ -1465,48 +1342,42 @@ def vxvyvz_to_galcencyl(
     _extra_rot=True,
 ):
     """
-    NAME:
+    Transform velocities in XYZ coordinates (wrt Sun) to cylindrical Galactocentric coordinates for velocities
 
-       vxvyvz_to_galcencyl
+    Parameters
+    ----------
+    vx : float or numpy.ndarray
+        U velocity.
+    vy : float or numpy.ndarray
+        V velocity.
+    vz : float or numpy.ndarray
+        W velocity.
+    X : float or numpy.ndarray
+        X in Galactocentric rectangular coordinates.
+    Y : float or numpy.ndarray
+        Y in Galactocentric rectangular coordinates.
+    Z : float or numpy.ndarray
+        Z in Galactocentric rectangular coordinates.
+    vsun : float or numpy.ndarray, optional
+        Velocity of the Sun in the GC frame (can also be array of same length as vx; shape [3,N]).
+    Xsun : float or numpy.ndarray, optional
+        Cylindrical distance to the GC (can be array of same length as vXg).
+    Zsun : float or numpy.ndarray, optional
+        Sun's height above the midplane (can be array of same length as vXg).
+    galcen : bool, optional
+        If True, then X,Y,Z are in cylindrical Galactocentric coordinates rather than rectangular coordinates.
+    _extra_rot : bool, optional
+        If True, perform an extra tiny rotation to align the Galactocentric coordinate frame with astropy's definition.
 
-    PURPOSE:
+    Returns
+    -------
+    numpy.ndarray
+        Containing (vR,vT,vz)
 
-       transform velocities in XYZ coordinates (wrt Sun) to cylindrical Galactocentric coordinates for velocities
-
-    INPUT:
-
-       vx - U
-
-       vy - V
-
-       vz - W
-
-       X - X in Galactocentric rectangular coordinates
-
-       Y - Y in Galactocentric rectangular coordinates
-
-       Z - Z in Galactocentric rectangular coordinates
-
-       vsun - velocity of the sun in the GC frame ndarray[3]  (can also be array of same length as vx; shape [3,N])
-
-       Xsun - cylindrical distance to the GC (can be array of same length as vXg)
-
-       Zsun - Sun's height above the midplane (can be array of same length as vXg)
-
-       galcen - if True, then X,Y,Z are in cylindrical Galactocentric coordinates rather than rectangular coordinates
-
-       _extra_rot= (True) if True, perform an extra tiny rotation to align the Galactocentric coordinate frame with astropy's definition
-
-    OUTPUT:
-
-       vRg, vTg, vZg
-
-    HISTORY:
-
-       2010-09-24 - Written - Bovy (NYU)
-
-       2023-07-19 - Allowed Xsun/Zsun/vsun to be arrays- Bovy (UofT)
-
+    Notes
+    -----
+    - 2010-09-24 - Written - Bovy (NYU)
+    - 2023-07-19 - Allowed Xsun/Zsun/vsun to be arrays- Bovy (UofT)
     """
     vxyz = vxvyvz_to_galcenrect(
         vx, vy, vz, vsun=vsun, Xsun=Xsun, Zsun=Zsun, _extra_rot=_extra_rot
@@ -1521,44 +1392,36 @@ def galcenrect_to_vxvyvz(
     vXg, vYg, vZg, vsun=[0.0, 1.0, 0.0], Xsun=1.0, Zsun=0.0, _extra_rot=True
 ):
     """
-    NAME:
+    Transform rectangular Galactocentric coordinates to XYZ coordinates (wrt Sun) for velocities
 
-       galcenrect_to_vxvyvz
+    Parameters
+    ----------
+    vXg : float or numpy.ndarray
+        Galactocentric x-velocity.
+    vYg : float or numpy.ndarray
+        Galactocentric y-velocity.
+    vZg : float or numpy.ndarray
+        Galactocentric z-velocity.
+    vsun : float or numpy.ndarray, optional
+        Velocity of the Sun in the GC frame (can also be array of same length as vXg; shape [3,N]).
+    Xsun : float or numpy.ndarray, optional
+        Cylindrical distance to the GC (can be array of same length as vXg).
+    Zsun : float or numpy.ndarray, optional
+        Sun's height above the midplane (can be array of same length as vXg).
+    _extra_rot : bool, optional
+        If True, perform an extra tiny rotation to align the Galactocentric coordinate frame with astropy's definition.
 
-    PURPOSE:
+    Returns
+    -------
+    numpy.ndarray
+        Containing (vx,vy,vz)
 
-       transform rectangular Galactocentric coordinates to XYZ coordinates (wrt Sun) for velocities
-
-    INPUT:
-
-       vXg - Galactocentric x-velocity
-
-       vYg - Galactocentric y-velocity
-
-       vZg - Galactocentric z-velocity
-
-       vsun - velocity of the sun in the GC frame ndarray[3] (can be array of same length as vXg; shape [3,N])
-
-       Xsun - cylindrical distance to the GC (can be array of same length as vXg)
-
-       Zsun - Sun's height above the midplane (can be array of same length as vXg)
-
-       _extra_rot= (True) if True, perform an extra tiny rotation to align the Galactocentric coordinate frame with astropy's definition
-
-    OUTPUT:
-
-       [:,3]= vx, vy, vz
-
-    HISTORY:
-
-       2011-02-24 - Written - Bovy (NYU)
-
-       2016-05-12 - Edited to properly take into account the Sun's vertical position; dropped Ysun keyword - Bovy (UofT)
-
-       2017-10-24 - Allowed vsun/Xsun/Zsun to be arrays - Bovy (UofT)
-
-       2018-04-18 - Tweaked to be consistent with astropy's Galactocentric frame - Bovy (UofT)
-
+    Notes
+    -----
+    - 2011-02-24 - Written - Bovy (NYU)
+    - 2016-05-12 - Edited to properly take into account the Sun's vertical position; dropped Ysun keyword - Bovy (UofT)
+    - 2017-10-24 - Allowed Xsun/Zsun/vsun to be arrays - Bovy (UofT)
+    - 2018-04-18 - Tweaked to be consistent with astropy's Galactocentric frame - Bovy (UofT)
     """
     dgc = numpy.sqrt(Xsun**2.0 + Zsun**2.0)
     costheta, sintheta = Xsun / dgc, Zsun / dgc
@@ -1588,41 +1451,36 @@ def galcencyl_to_vxvyvz(
     vR, vT, vZ, phi, vsun=[0.0, 1.0, 0.0], Xsun=1.0, Zsun=0.0, _extra_rot=True
 ):
     """
-    NAME:
+    Transform cylindrical Galactocentric coordinates to XYZ coordinates (wrt Sun) for velocities
 
-       galcencyl_to_vxvyvz
+    Parameters
+    ----------
+    vR : float or numpy.ndarray
+        Galactocentric radial velocity.
+    vT : float or numpy.ndarray
+        Galactocentric rotational velocity.
+    vZ : float or numpy.ndarray
+        Galactocentric vertical velocity.
+    phi : float or numpy.ndarray
+        Galactocentric azimuth.
+    vsun : float or numpy.ndarray, optional
+        Velocity of the Sun in the GC frame (can also be array of same length as vR; shape [3,N]).
+    Xsun : float or numpy.ndarray, optional
+        Cylindrical distance to the GC (can be array of same length as vR).
+    Zsun : float or numpy.ndarray, optional
+        Sun's height above the midplane (can be array of same length as vR).
+    _extra_rot : bool, optional
+        If True, perform an extra tiny rotation to align the Galactocentric coordinate frame with astropy's definition.
 
-    PURPOSE:
+    Parameters
+    ----------
+    numpy.ndarray
+        Containing (vx,vy,vz)
 
-       transform cylindrical Galactocentric coordinates to XYZ (wrt Sun) coordinates for velocities
-
-    INPUT:
-
-       vR - Galactocentric radial velocity
-
-       vT - Galactocentric rotational velocity
-
-       vZ - Galactocentric vertical velocity
-
-       phi - Galactocentric azimuth
-
-       vsun - velocity of the sun in the GC frame ndarray[3] (can be array of same length as vRg; shape [3,N])
-
-       Xsun - cylindrical distance to the GC (can be array of same length as vRg)
-
-       Zsun - Sun's height above the midplane (can be array of same length as vRg)
-
-       _extra_rot= (True) if True, perform an extra tiny rotation to align the Galactocentric coordinate frame with astropy's definition
-
-    OUTPUT:
-
-       vx,vy,vz
-
-    HISTORY:
-
-       2011-02-24 - Written - Bovy (NYU)
-
-       2017-10-24 - Allowed vsun/Xsun/Zsun to be arrays - Bovy (NYU)
+    Notes
+    -----
+    - 2011-02-24 - Written - Bovy (NYU)
+    - 2017-10-24 - Allowed vsun/Xsun/Zsun to be arrays - Bovy (NYU)
 
     """
     vXg, vYg, vZg = cyl_to_rect_vec(vR, vT, vZ, phi)
@@ -1633,34 +1491,32 @@ def galcencyl_to_vxvyvz(
 
 def cyl_to_spher_vec(vR, vT, vz, R, z):
     """
-    NAME:
+    Transform vectors from cylindrical to spherical coordinates. vtheta is positive from pole towards equator.
 
-       cyl_to_spher_vec
+    Parameters
+    ----------
+    vR : float or numpy.ndarray
+        Galactocentric cylindrical radial velocity
+    vT : float or numpy.ndarray
+        Galactocentric cylindrical rotational velocity
+    vz : float or numpy.ndarray
+        Galactocentric cylindrical vertical velocity
+    R : float or numpy.ndarray
+        Galactocentric cylindrical radius
+    z : float or numpy.ndarray
+        Galactocentric cylindrical height
 
-    PURPOSE:
+    Returns
+    -------
+    tuple
+        Containing:
+            * vr : Galactocentric spherical radial velocity
+            * vT : Galactocentric spherical rotational velocity
+            * vtheta : Galactocentric spherical polar velocity
 
-       transform vectors from cylindrical to spherical coordinates. vtheta is positive from pole towards equator.
-
-    INPUT:
-
-       vR - Galactocentric cylindrical radial velocity
-
-       vT - Galactocentric cylindrical rotational velocity
-
-       vz - Galactocentric cylindrical vertical velocity
-
-       R - Galactocentric cylindrical radius
-
-       z - Galactocentric cylindrical height
-
-    OUTPUT:
-
-       vr,vT,vtheta
-
-    HISTORY:
-
-       2020-07-01 - Written - James Lane (UofT)
-
+    Notes
+    -----
+    - 2020-07-01 - Written - James Lane (UofT)
     """
     r = numpy.sqrt(R**2.0 + z**2.0)
     vr = (R * vR + z * vz) / r
@@ -1670,71 +1526,65 @@ def cyl_to_spher_vec(vR, vT, vz, R, z):
 
 def spher_to_cyl_vec(vr, vT, vtheta, theta):
     """
-    NAME:
+    Transform vectors from spherical polar to cylindrical coordinates.
 
-       spher_to_cyl_vec
+    Parameters
+    ----------
+    vr : float or numpy.ndarray
+        Galactocentric spherical radial velocity
+    vT : float or numpy.ndarray
+        Galactocentric spherical azimuthal velocity
+    vtheta : float or numpy.ndarray
+        Galactocentric spherical polar velocity
+    theta : float or numpy.ndarray
+        Galactocentric spherical polar angle
 
-    PURPOSE:
+    Returns
+    -------
+    tuple
+        A tuple containing the Galactocentric cylindrical radial velocity, azimuthal velocity, and vertical velocity in that order.
 
-       transform vectors from spherical polar to cylindrical coordinates. vtheta is positive from pole towards equator, theta is 0 at pole
-
-    INPUT:
-
-       vr - Galactocentric spherical radial velocity
-
-       vT - Galactocentric spherical azimuthal velocity
-
-       vtheta - Galactocentric spherical polar velocity
-
-       theta - Galactocentric spherical polar angle
-
-    OUTPUT:
-
-       vR,vT,vz
-
-    HISTORY:
-
-       2020-07-01 - Written - James Lane (UofT)
-
+    Notes
+    -----
+    - 2020-07-01 - Written - James Lane (UofT)
     """
     vR = vr * numpy.sin(theta) + vtheta * numpy.cos(theta)
     vz = vr * numpy.cos(theta) - vtheta * numpy.sin(theta)
     return (vR, vT, vz)
 
 
+import numpy
+
+
 def rect_to_cyl_vec(vx, vy, vz, X, Y, Z, cyl=False):
     """
-    NAME:
+    Transform vectors from rectangular to cylindrical coordinates vectors.
 
-       rect_to_cyl_vec
+    Parameters
+    ----------
+    vx : float or numpy.ndarray
+        Velocity in the x-direction.
+    vy : float or numpy.ndarray
+        Velocity in the y-direction.
+    vz : float or numpy.ndarray
+        Velocity in the z-direction.
+    X : float or numpy.ndarray
+        X-coordinate.
+    Y : float or numpy.ndarray
+        Y-coordinate.
+    Z : float or numpy.ndarray
+        Z-coordinate.
+    cyl : bool, optional
+        If True, X, Y, Z are already cylindrical (i.e., [X,Y,Z] == [R,phi,Z]), by default False.
 
-    PURPOSE:
+    Returns
+    -------
+    tuple
+        Tuple containing vR, vT, vz.
 
-       transform vectors from rectangular to cylindrical coordinates vectors
-
-    INPUT:
-
-       vx -
-
-       vy -
-
-       vz -
-
-       X - X
-
-       Y - Y
-
-       Z - Z
-
-       cyl - if True, X,Y,Z are already cylindrical (i.e., [X,Y,Z] == [R,phi,Z])
-
-    OUTPUT:
-
-       vR,vT,vz
-
-    HISTORY:
-
-       2010-09-24 - Written - Bovy (NYU)
+    Notes
+    -----
+    - 2010-09-24 - Written - Bovy (NYU)
 
     """
     if not cyl:
@@ -1748,32 +1598,27 @@ def rect_to_cyl_vec(vx, vy, vz, X, Y, Z, cyl=False):
 
 def cyl_to_rect_vec(vr, vt, vz, phi):
     """
-    NAME:
+    Transform vectors from cylindrical to rectangular coordinate vectors.
 
-       cyl_to_rect_vec
+    Parameters
+    ----------
+    vr : float or numpy.ndarray
+        Radial velocity.
+    vt : float or numpy.ndarray
+        Rotational velocity.
+    vz : float or numpy.ndarray
+        Vertical velocity.
+    phi : float or numpy.ndarray
+        Azimuth.
 
-    PURPOSE:
+    Returns
+    -------
+    tuple
+        Rectangular coordinate vectors (vx, vy, vz).
 
-       transform vectors from cylindrical to rectangular coordinate vectors
-
-    INPUT:
-
-       vr - radial velocity
-
-       vt - rotational velocity
-
-       vz - vertical velocity
-
-       phi - azimuth
-
-    OUTPUT:
-
-       vx,vy,vz
-
-    HISTORY:
-
-       2011-02-24 - Written - Bovy (NYU)
-
+    Notes
+    -----
+    - 2011-02-24 - Written - Bovy (NYU)
     """
     vx = vr * numpy.cos(phi) - vt * numpy.sin(phi)
     vy = vr * numpy.sin(phi) + vt * numpy.cos(phi)
@@ -1782,32 +1627,31 @@ def cyl_to_rect_vec(vr, vt, vz, phi):
 
 def cyl_to_rect_jac(*args):
     """
-    NAME:
+    Calculate the Jacobian of the cylindrical to rectangular conversion
 
-       cyl_to_rect_jac
+    Parameters
+    ----------
+    R : float or numpy.ndarray
+        Cylindrical R coordinate.
+    phi : float or numpy.ndarray
+        Cylindrical phi coordinate.
+    Z : float or numpy.ndarray
+        Cylindrical Z coordinate.
+    vR : float or numpy.ndarray, optional
+        Cylindrical vR coordinate.
+    vT : float or numpy.ndarray, optional
+        Cylindrical vT coordinate.
+    vz : float or numpy.ndarray, optional
+        Cylindrical vz coordinate.
 
-    PURPOSE:
+    Returns
+    -------
+    numpy.ndarray
+        Jacobian of the cylindrical to rectangular conversion either just spatial or spatial+velocity.
 
-       calculate the Jacobian of the cylindrical to rectangular conversion
-
-    INPUT:
-
-       R, phi, Z- cylindrical coordinates
-
-       vR, vT, vZ- cylindrical velocities
-
-       if 6 inputs: R,vR,vT,z,vz,phi
-
-       if 3: R, phi, Z
-
-    OUTPUT:
-
-       jacobian d(rect)/d(cyl)
-
-    HISTORY:
-
-       2013-12-09 - Written - Bovy (IAS)
-
+    Notes
+    -----
+    - 2013-12-09 - Written - Bovy (IAS)
     """
     out = numpy.zeros((6, 6))
     if len(args) == 3:
@@ -1839,34 +1683,35 @@ def cyl_to_rect_jac(*args):
 
 def galcenrect_to_XYZ_jac(*args, **kwargs):
     """
-    NAME:
+    Calculate the Jacobian of the Galactocentric rectangular to Galactic coordinates
 
-       galcenrect_to_XYZ_jac
-    PURPOSE:
+    Parameters
+    ----------
+    X : float or numpy.ndarray
+        Galactocentric rectangular coordinate.
+    Y : float or numpy.ndarray
+        Galactocentric rectangular coordinate.
+    Z : float or numpy.ndarray
+        Galactocentric rectangular coordinate.
+    vX : float or numpy.ndarray, optional
+        Galactocentric rectangular velocity.
+    vY : float or numpy.ndarray, optional
+        Galactocentric rectangular velocity.
+    vZ : float or numpy.ndarray, optional
+        Galactocentric rectangular velocity.
+    Xsun : float or numpy.ndarray, optional
+        Cylindrical distance to the GC (can be array of same length as X).
+    Zsun : float or numpy.ndarray, optional
+        Sun's height above the midplane (can be array of same length as X).
 
-       calculate the Jacobian of the Galactocentric rectangular to Galactic coordinates
+    Returns
+    -------
+    numpy.ndarray
+        Jacobian of the Galactocentric rectangular to Galactic coordinates either just spatial or spatial+velocity.
 
-    INPUT:
-
-       X,Y,Z- Galactocentric rectangular coordinates
-
-       vX, vY, vZ- Galactocentric rectangular velocities
-
-       if 6 inputs: X,Y,Z,vX,vY,vZ
-
-       if 3: X,Y,Z
-
-       Xsun - cylindrical distance to the GC
-
-       Zsun - Sun's height above the midplane
-
-    OUTPUT:
-
-       jacobian d(galcen.)/d(Galactic)
-
-    HISTORY:
-
-       2013-12-09 - Written - Bovy (IAS)
+    Notes
+    -----
+    - 2013-12-09 - Written - Bovy (IAS)
 
     """
     Xsun = kwargs.get("Xsun", 1.0)
@@ -1888,34 +1733,33 @@ def galcenrect_to_XYZ_jac(*args, **kwargs):
 
 def lbd_to_XYZ_jac(*args, **kwargs):
     """
-    NAME:
+    Calculate the Jacobian of the Galactic spherical coordinates to Galactic rectangular coordinates transformation
 
-       lbd_to_XYZ_jac
+    Parameters
+    ----------
+    l : float or numpy.ndarray
+        Galactic longitude.
+    b : float or numpy.ndarray
+        Galactic latitude.
+    D : float or numpy.ndarray
+        Distance.
+    vlos : float or numpy.ndarray, optional
+        Line-of-sight velocity.
+    pmll : float or numpy.ndarray, optional
+        Proper motion in Galactic longitude.
+    pmbb : float or numpy.ndarray, optional
+        Proper motion in Galactic latitude.
+    degree : bool, optional
+        If True, l and b are in degrees rather than rad.
 
-    PURPOSE:
+    Returns
+    -------
+    numpy.ndarray
+        Jacobian of the Galactic spherical coordinates to Galactic rectangular coordinates transformation either just spatial or spatial+velocity.
 
-       calculate the Jacobian of the Galactic spherical coordinates to Galactic rectangular coordinates transformation
-
-    INPUT:
-
-       l,b,D- Galactic spherical coordinates
-
-       vlos,pmll,pmbb- Galactic spherical velocities (some as proper motions)
-
-       if 6 inputs: l,b,D,vlos,pmll x cos(b),pmbb
-
-       if 3: l,b,D
-
-       degree= (False) if True, l and b are in degrees
-
-    OUTPUT:
-
-       jacobian
-
-    HISTORY:
-
-       2013-12-09 - Written - Bovy (IAS)
-
+    Notes
+    -----
+    - 2013-12-09 - Written - Bovy (IAS)
     """
     out = numpy.zeros((6, 6))
     if len(args) == 3:
@@ -1967,36 +1811,29 @@ def lbd_to_XYZ_jac(*args, **kwargs):
 
 def dl_to_rphi_2d(d, l, degree=False, ro=1.0, phio=0.0):
     """
-    NAME:
+    Convert Galactic longitude and distance to Galactocentric radius and azimuth
 
-       dl_to_rphi_2d
+    Parameters
+    ----------
+    d : float or numpy.ndarray
+        Distance.
+    l : float or numpy.ndarray
+        Galactic longitude.
+    degree : bool, optional
+        If True, l is in degrees rather than rad, by default False.
+    ro : float, optional
+        Galactocentric radius of the observer, by default 1.0.
+    phio : float, optional
+        Galactocentric azimuth of the observer, by default 0.0.
 
-    PURPOSE:
+    Returns
+    -------
+    tuple
+        (R, phi); phi in degree if degree
 
-       convert Galactic longitude and distance to Galactocentric radius and azimuth
-
-    INPUT:
-
-       d - distance
-
-       l - Galactic longitude [rad/deg if degree]
-
-    KEYWORDS:
-
-       degree= (False): l is in degrees rather than rad
-
-       ro= (1) Galactocentric radius of the observer
-
-       phio= (0) Galactocentric azimuth of the observer [rad/deg if degree]
-
-    OUTPUT:
-
-       (R,phi); phi in degree if degree
-
-    HISTORY:
-
-       2012-01-04 - Written - Bovy (IAS)
-
+    Notes
+    -----
+    - 2012-01-04 - Written - Bovy (IAS)
     """
     scalarOut, listOut = False, False
     if isinstance(d, (int, float)):
@@ -2028,36 +1865,29 @@ def dl_to_rphi_2d(d, l, degree=False, ro=1.0, phio=0.0):
 
 def rphi_to_dl_2d(R, phi, degree=False, ro=1.0, phio=0.0):
     """
-    NAME:
+    Convert Galactocentric radius and azimuth to distance and Galactic longitude
 
-       rphi_to_dl_2d
+    Parameters
+    ----------
+    R : float or numpy.ndarray
+        Galactocentric radius.
+    phi : float or numpy.ndarray
+        Galactocentric azimuth.
+    degree : bool, optional
+        If True, phi is in degrees rather than rad, by default False.
+    ro : float, optional
+        Galactocentric radius of the observer, by default 1.0.
+    phio : float, optional
+        Galactocentric azimuth of the observer, by default 0.0.
 
-    PURPOSE:
+    Returns
+    -------
+    tuple
+        (d, l); phi in degree if degree
 
-       convert Galactocentric radius and azimuth to distance and Galactic longitude
-
-    INPUT:
-
-       R - Galactocentric radius
-
-       phi - Galactocentric azimuth [rad/deg if degree]
-
-    KEYWORDS:
-
-       degree= (False): phi is in degrees rather than rad
-
-       ro= (1) Galactocentric radius of the observer
-
-       phio= (0) Galactocentric azimuth of the observer [rad/deg if degree]
-
-    OUTPUT:
-
-       (d,l); phi in degree if degree
-
-    HISTORY:
-
-       2012-01-04 - Written - Bovy (IAS)
-
+    Notes
+    -----
+    - 2012-01-04 - Written - Bovy (IAS)
     """
     scalarOut, listOut = False, False
     if isinstance(R, (int, float)):
@@ -2087,35 +1917,33 @@ def rphi_to_dl_2d(R, phi, degree=False, ro=1.0, phio=0.0):
         return (d, l)
 
 
+import numpy
+
+
 def Rz_to_coshucosv(R, z, delta=1.0, oblate=False):
     """
-    NAME:
+    Calculate prolate confocal cosh(u) and cos(v) coordinates from R,z, and delta.
 
-       Rz_to_coshucosv
+    Parameters
+    ----------
+    R : float or numpy.ndarray
+        Radius.
+    z : float or numpy.ndarray
+        Height.
+    delta : float or numpy.ndarray, optional
+        Focus. Default is 1.0.
+    oblate : bool, optional
+        If True, compute oblate confocal coordinates instead of prolate. Default is False.
 
-    PURPOSE:
+    Returns
+    -------
+    tuple
+        Tuple containing cosh(u) and cos(v).
 
-       calculate prolate confocal cosh(u) and cos(v) coordinates from R,z, and delta
-
-    INPUT:
-
-       R - radius
-
-       z - height
-
-       delta= focus
-
-       oblate= (False) if True, compute oblate confocal coordinates instead of prolate
-    OUTPUT:
-
-       (cosh(u),cos(v))
-
-    HISTORY:
-
-       2012-11-27 - Written - Bovy (IAS)
-
-       2017-10-11 - Added oblate coordinates - Bovy (UofT)
-
+    Notes
+    -----
+    - 2012-11-27 - Written - Bovy (IAS)
+    - 2017-10-11 - Added oblate coordinates - Bovy (UofT)
     """
     if oblate:
         d12 = (R + delta) ** 2.0 + z**2.0
@@ -2130,35 +1958,33 @@ def Rz_to_coshucosv(R, z, delta=1.0, oblate=False):
     return (coshu, cosv)
 
 
+import numpy
+
+
 def Rz_to_uv(R, z, delta=1.0, oblate=False):
     """
-    NAME:
+    Calculate prolate or oblate confocal u and v coordinates from R, z, and delta.
 
-       Rz_to_uv
+    Parameters
+    ----------
+    R : float or numpy.ndarray
+        Radius.
+    z : float or numpy.ndarray
+        Height.
+    delta : float or numpy.ndarray, optional
+        Focus. Default is 1.0.
+    oblate : bool, optional
+        If True, compute oblate confocal coordinates instead of prolate. Default is False.
 
-    PURPOSE:
+    Returns
+    -------
+    tuple
+        (u, v)
 
-       calculate prolate or oblate confocal u and v coordinates from R,z, and delta
-
-    INPUT:
-
-       R - radius
-
-       z - height
-
-       delta= focus
-
-       oblate= (False) if True, compute oblate confocal coordinates instead of prolate
-
-    OUTPUT:
-
-       (u,v)
-
-    HISTORY:
-
-       2012-11-27 - Written - Bovy (IAS)
-
-       2017-10-11 - Added oblate coordinates - Bovy (UofT)
+    Notes
+    -----
+    - 2012-11-27 - Written - Bovy (IAS)
+    - 2017-10-11 - Added oblate coordinates - Bovy (UofT)
 
     """
     coshu, cosv = Rz_to_coshucosv(R, z, delta, oblate=oblate)
@@ -2167,35 +1993,33 @@ def Rz_to_uv(R, z, delta=1.0, oblate=False):
     return (u, v)
 
 
+import numpy
+
+
 def uv_to_Rz(u, v, delta=1.0, oblate=False):
     """
-    NAME:
+    Calculate R and z from prolate confocal u and v coordinates.
 
-       uv_to_Rz
+    Parameters
+    ----------
+    u : float or numpy.ndarray
+        Confocal u.
+    v : float or numpy.ndarray
+        Confocal v.
+    delta : float or numpy.ndarray, optional
+        Focus. Default is 1.0.
+    oblate : bool, optional
+        If True, compute oblate confocal coordinates instead of prolate. Default is False.
 
-    PURPOSE:
+    Returns
+    -------
+    tuple
+        (R, z)
 
-       calculate R and z from prolate confocal u and v coordinates
-
-    INPUT:
-
-       u - confocal u
-
-       v - confocal v
-
-       delta= focus
-
-       oblate= (False) if True, compute oblate confocal coordinates instead of prolate
-
-    OUTPUT:
-
-       (R,z)
-
-    HISTORY:
-
-       2012-11-27 - Written - Bovy (IAS)
-
-       2017-10-11 - Added oblate coordinates - Bovy (UofT)
+    Notes
+    -----
+    - 2012-11-27 - Written - Bovy (IAS)
+    - 2017-10-11 - Added oblate coordinates - Bovy (UofT)
 
     """
     if oblate:
@@ -2209,38 +2033,33 @@ def uv_to_Rz(u, v, delta=1.0, oblate=False):
 
 def vRvz_to_pupv(vR, vz, R, z, delta=1.0, oblate=False, uv=False):
     """
-    NAME:
+    Calculate momenta in prolate or oblate confocal u and v coordinates from cylindrical velocities vR,vz for a given focal length delta.
 
-       vRvz_to_pupv
+    Parameters
+    ----------
+    vR : float or numpy.ndarray
+        Radial velocity in cylindrical coordinates.
+    vz : float or numpy.ndarray
+        Vertical velocity in cylindrical coordinates.
+    R : float or numpy.ndarray
+        Radius.
+    z : float or numpy.ndarray
+        Height.
+    delta : float or numpy.ndarray, optional
+        Focus. Default is 1.0.
+    oblate : bool, optional
+        If True, compute oblate confocal coordinates instead of prolate. Default is False.
+    uv : bool, optional
+        If True, the given R,z are actually u,v. Default is False.
 
-    PURPOSE:
+    Returns
+    -------
+    tuple
+        (pu, pv)
 
-       calculate momenta in prolate or oblate confocal u and v coordinates from cylindrical velocities vR,vz for a given focal length delta
-
-    INPUT:
-
-       vR - radial velocity in cylindrical coordinates
-
-       vz - vertical velocity in cylindrical coordinates
-
-       R - radius
-
-       z - height
-
-       delta= focus
-
-       oblate= (False) if True, compute oblate confocal coordinates instead of prolate
-
-       uv= (False) if True, the given R,z are actually u,v
-
-    OUTPUT:
-
-       (pu,pv)
-
-    HISTORY:
-
-       2017-11-28 - Written - Bovy (UofT)
-
+    Notes
+    -----
+    - 2017-11-28 - Written - Bovy (UofT)
     """
     if not uv:
         u, v = Rz_to_uv(R, z, delta, oblate=oblate)
@@ -2265,37 +2084,31 @@ def vRvz_to_pupv(vR, vz, R, z, delta=1.0, oblate=False, uv=False):
 
 def pupv_to_vRvz(pu, pv, u, v, delta=1.0, oblate=False):
     """
-    NAME:
+    Calculate cylindrical vR and vz from momenta in prolate or oblate confocal u and v coordinates for a given focal length delta.
 
-       pupv_to_vRvz
+    Parameters
+    ----------
+    pu : float or numpy.ndarray
+        Momentum in u.
+    pv : float or numpy.ndarray
+        Momentum in v.
+    u : float or numpy.ndarray
+        Confocal u.
+    v : float or numpy.ndarray
+        Confocal v.
+    delta : float or numpy.ndarray, optional
+        Focus. Default is 1.0.
+    oblate : bool, optional
+        If True, compute oblate confocal coordinates instead of prolate. Default is False.
 
-    PURPOSE:
+    Returns
+    -------
+    tuple
+        (vR, vz)
 
-       calculate cylindrical vR and vz from momenta in prolate or oblate confocal u and v coordinates for a given focal length delta
-
-    INPUT:
-
-       pu - u momentum
-
-       pv - v momentum
-
-       u - u coordinate
-
-       v - v coordinate
-
-       delta= focus
-
-       oblate= (False) if True, compute oblate confocal coordinates instead of prolate
-
-
-    OUTPUT:
-
-       (vR,vz)
-
-    HISTORY:
-
-       2017-12-04 - Written - Bovy (UofT)
-
+    Notes
+    -----
+    - 2017-12-04 - Written - Bovy (UofT)
     """
     if oblate:
         denom = delta * (numpy.sinh(u) ** 2.0 + numpy.cos(v) ** 2.0)
@@ -2318,36 +2131,28 @@ def pupv_to_vRvz(pu, pv, u, v, delta=1.0, oblate=False):
 
 def Rz_to_lambdanu(R, z, ac=5.0, Delta=1.0):
     """
-    NAME:
+    Calculate the prolate spheroidal coordinates (lambda,nu) from galactocentric cylindrical coordinates (R,z) by solving eq. (2.2) in Dejonghe & de Zeeuw (1988a) for (lambda,nu).
 
-       Rz_to_lambdanu
+    Parameters
+    ----------
+    R : float
+        Galactocentric cylindrical radius
+    z : float
+        Vertical height
+    ac : float, optional
+        Axis ratio of the coordinate surfaces (a/c) = sqrt(-a) / sqrt(-g) (default: 5.)
+    Delta : float, optional
+        Focal distance that defines the spheroidal coordinate system (default: 1.)
+        Delta=sqrt(g-a)
 
-    PURPOSE:
+    Returns
+    -------
+    tuple
+        (lambda,nu)
 
-       calculate the prolate spheroidal coordinates (lambda,nu) from
-       galactocentric cylindrical coordinates (R,z)
-       by solving eq. (2.2) in Dejonghe & de Zeeuw (1988a) for (lambda,nu):
-            R^2 = (l+a) * (n+a) / (a-g)
-            z^2 = (l+g) * (n+g) / (g-a)
-            Delta^2 = g-a
-
-    INPUT:
-
-        R     - Galactocentric cylindrical radius
-        z     - vertical height
-        ac    - axis ratio of the coordinate surfaces
-                (a/c) = sqrt(-a) / sqrt(-g) (default: 5.)
-        Delta - focal distance that defines the spheroidal coordinate system (default: 1.)
-                Delta=sqrt(g-a)
-
-    OUTPUT:
-
-       (lambda,nu)
-
-    HISTORY:
-
-       2015-02-13 - Written - Trick (MPIA)
-
+    Notes
+    -----
+    - 2015-02-13 - Written - Trick (MPIA)
     """
     g = Delta**2 / (1.0 - ac**2)
     a = g - Delta**2
@@ -2367,31 +2172,27 @@ def Rz_to_lambdanu(R, z, ac=5.0, Delta=1.0):
 
 def Rz_to_lambdanu_jac(R, z, Delta=1.0):
     """
-    NAME:
+    Calculate the Jacobian of the cylindrical (R,z) to prolate spheroidal (lambda,nu) conversion.
 
-       Rz_to_lambdanu_jac
+    Parameters
+    ----------
+    R : float or array_like
+        Galactocentric cylindrical radius.
+    z : float or array_like
+        Vertical height.
+    Delta : float, optional
+        Focal distance that defines the spheroidal coordinate system (default: 1.). Delta=sqrt(g-a).
 
-    PURPOSE:
+    Returns
+    -------
+    ndarray
+        Jacobian d((lambda,nu))/d((R,z)).
 
-       calculate the Jacobian of the cylindrical (R,z) to prolate spheroidal
-       (lambda,nu) conversion
-
-    INPUT:
-
-        R     - Galactocentric cylindrical radius
-        z     - vertical height
-        Delta - focal distance that defines the spheroidal coordinate system (default: 1.)
-                Delta=sqrt(g-a)
-
-    OUTPUT:
-
-       jacobian d((lambda,nu))/d((R,z))
-
-    HISTORY:
-
-       2015-02-13 - Written - Trick (MPIA)
-
+    Notes
+    -----
+    - 2015-02-13 - Written - Trick (MPIA).
     """
+
     discr = (R**2 + z**2 - Delta**2) ** 2 + (4.0 * Delta**2 * R**2)
     dldR = R * (1.0 + (R**2 + z**2 + Delta**2) / numpy.sqrt(discr))
     dndR = R * (1.0 - (R**2 + z**2 + Delta**2) / numpy.sqrt(discr))
@@ -2411,30 +2212,26 @@ def Rz_to_lambdanu_jac(R, z, Delta=1.0):
 
 def Rz_to_lambdanu_hess(R, z, Delta=1.0):
     """
-    NAME:
+    Calculate the Hessian of the cylindrical (R,z) to prolate spheroidal (lambda,nu) conversion.
 
-       Rz_to_lambdanu_hess
+    Parameters
+    ----------
+    R : float
+        Galactocentric cylindrical radius.
+    z : float
+        Vertical height.
+    Delta : float, optional
+        Focal distance that defines the spheroidal coordinate system (default: 1.).
+        Delta=sqrt(g-a)
 
-    PURPOSE:
+    Returns
+    -------
+    ndarray
+        Hessian [d^2(lambda)/d(R,z)^2 , d^2(nu)/d(R,z)^2].
 
-       calculate the Hessian of the cylindrical (R,z) to prolate spheroidal
-       (lambda,nu) conversion
-
-    INPUT:
-
-        R     - Galactocentric cylindrical radius
-        z     - vertical height
-        Delta - focal distance that defines the spheroidal coordinate system (default: 1.)
-                Delta=sqrt(g-a)
-
-    OUTPUT:
-
-       hessian [d^2(lambda)/d(R,z)^2 , d^2(nu)/d(R,z)^2]
-
-    HISTORY:
-
-       2015-02-13 - Written - Trick (MPIA)
-
+    Notes
+    -----
+    - 2015-02-13 - Written - Trick (MPIA).
     """
     D = Delta
     R2 = R**2
@@ -2483,33 +2280,27 @@ def Rz_to_lambdanu_hess(R, z, Delta=1.0):
 
 def lambdanu_to_Rz(l, n, ac=5.0, Delta=1.0):
     """
-    NAME:
+    Calculate galactocentric cylindrical coordinates (R,z) from prolate spheroidal coordinates (lambda,nu).
 
-        lambdanu_to_Rz
+    Parameters
+    ----------
+    l : float
+        Prolate spheroidal coordinate lambda.
+    n : float
+        Prolate spheroidal coordinate nu.
+    ac : float, optional
+        Axis ratio of the coordinate surfaces (a/c) = sqrt(-a) / sqrt(-g) (default: 5.).
+    Delta : float, optional
+        Focal distance that defines the spheroidal coordinate system (default: 1.). Delta=sqrt(g-a)
 
-    PURPOSE:
-
-        calculate galactocentric cylindrical coordinates (R,z)
-        from prolate spheroidal coordinates (lambda,nu),
-        cf. eq. (2.2) in Dejonghe & de Zeeuw (1988a)
-
-    INPUT:
-
-        l     - prolate spheroidal coordinate lambda
-        n     - prolate spheroidal coordinate nu
-        ac    - axis ratio of the coordinate surfaces
-                (a/c) = sqrt(-a) / sqrt(-g) (default: 5.)
-        Delta - focal distance that defines the spheroidal coordinate system (default: 1.)
-                Delta=sqrt(g-a)
-
-    OUTPUT:
-
+    Returns
+    -------
+    tuple
         (R,z)
 
-    HISTORY:
-
-        2015-02-13 - Written - Trick (MPIA)
-
+    Notes
+    -----
+    - 2015-02-13 - Written - Trick (MPIA)
     """
     g = Delta**2 / (1.0 - ac**2)
     a = g - Delta**2
@@ -2534,38 +2325,29 @@ def lambdanu_to_Rz(l, n, ac=5.0, Delta=1.0):
 @degreeDecorator([0, 1], [0, 1])
 def radec_to_custom(ra, dec, T=None, degree=False):
     """
-    NAME:
+    Transform from equatorial coordinates to a custom set of sky coordinates
 
-       radec_to_custom
+    Parameters
+    ----------
+    ra : float or numpy.ndarray
+        Right ascension.
+    dec : float or numpy.ndarray
+        Declination.
+    T : numpy.ndarray, optional
+        Matrix defining the transformation: new_rect= T dot old_rect, where old_rect = [cos(dec)cos(ra),cos(dec)sin(ra),sin(dec)] and similar for new_rect.
+    degree : bool, optional
+        If True, ra and dec are given in degree and l and b will be as well.
 
-    PURPOSE:
+    Returns
+    -------
+    tuple
+        (custom longitude, custom latitude) (with longitude -180 to 180)
 
-       transform from equatorial coordinates to a custom set of sky coordinates
-
-    INPUT:
-
-       ra - right ascension
-
-       dec - declination
-
-       T= matrix defining the transformation: new_rect= T dot old_rect, where old_rect = [cos(dec)cos(ra),cos(dec)sin(ra),sin(dec)] and similar for new_rect
-
-       degree - (Bool) if True, ra and dec are given in degree and l and b will be as well
-
-    OUTPUT:
-
-       custom longitude, custom latitude (with longitude -180 to 180)
-
-       For vector inputs [:,2]
-
-    HISTORY:
-
-       2009-11-12 - Written - Bovy (NYU)
-
-       2014-06-14 - Re-written w/ numpy functions for speed and w/ decorators for beauty - Bovy (IAS)
-
-       2019-03-02 - adjusted angle ranges - Nathaniel (UofT)
-
+    Notes
+    -----
+    - 2009-11-12 - Written - Bovy (NYU)
+    - 2014-06-14 - Re-written w/ numpy functions for speed and w/ decorators for beauty - Bovy (IAS)
+    - 2019-03-02 - adjusted angle ranges - Nathaniel (UofT)
     """
     if T is None:
         raise ValueError("Must set T= for radec_to_custom")
@@ -2585,38 +2367,32 @@ def radec_to_custom(ra, dec, T=None, degree=False):
 @degreeDecorator([2, 3], [])
 def pmrapmdec_to_custom(pmra, pmdec, ra, dec, T=None, degree=False):
     """
-    NAME:
+    Rotate proper motions in (ra,dec) to proper motions in a custom set of sky coordinates (phi1,phi2)
 
-       pmrapmdec_to_custom
+    Parameters
+    ----------
+    pmra : float or numpy.ndarray
+        Proper motion in ra (multiplied with cos(dec)) [mas/yr].
+    pmdec : float or numpy.ndarray
+        Proper motion in dec [mas/yr].
+    ra : float or numpy.ndarray
+        Right ascension.
+    dec : float or numpy.ndarray
+        Declination.
+    T : numpy.ndarray, optional
+        Matrix defining the transformation: new_rect= T dot old_rect, where old_rect = [cos(dec)cos(ra),cos(dec)sin(ra),sin(dec)] and similar for new_rect.
+    degree : bool, optional
+        If True, ra and dec are given in degrees (default=False).
 
-    PURPOSE:
+    Returns
+    -------
+    tuple
+        (pmphi1 x cos(phi2),pmph2) for vector inputs [:,2]
 
-       rotate proper motions in (ra,dec) to proper motions in a custom set of sky coordinates (phi1,phi2)
-
-    INPUT:
-
-       pmra - proper motion in ra (multiplied with cos(dec)) [mas/yr]
-
-       pmdec - proper motion in dec [mas/yr]
-
-       ra - right ascension
-
-       dec - declination
-
-       T= matrix defining the transformation: new_rect= T dot old_rect, where old_rect = [cos(dec)cos(ra),cos(dec)sin(ra),sin(dec)] and similar for new_rect
-
-       degree= (False) if True, ra and dec are given in degrees (default=False)
-
-    OUTPUT:
-
-       (pmphi1 x cos(phi2),pmph2) for vector inputs [:,2]
-
-    HISTORY:
-
-       2016-10-24 - Written - Bovy (UofT/CCA)
-
-       2019-03-09 - uses custom_to_radec - Nathaniel Starkman (UofT)
-
+    Notes
+    -----
+    - 2016-10-24 - Written - Bovy (UofT/CCA)
+    - 2019-03-09 - uses custom_to_radec - Nathaniel Starkman (UofT)
     """
     if T is None:
         raise ValueError("Must set T= for pmrapmdec_to_custom")
@@ -2643,32 +2419,27 @@ def pmrapmdec_to_custom(pmra, pmdec, ra, dec, T=None, degree=False):
 
 def custom_to_radec(phi1, phi2, T=None, degree=False):
     """
-    NAME:
+    Rotate a custom set of sky coordinates (phi1,phi2) to (ra,dec) given the rotation matrix T for (ra,dec) -> (phi1,phi2)
 
-        custom_to_radec
+    Parameters
+    ----------
+    phi1 : float or numpy.ndarray
+        Custom sky coord.
+    phi2 : float or numpy.ndarray
+        Custom sky coord.
+    T : numpy.ndarray, optional
+        Matrix defining the transformation: new_rect= T dot old_rect, where old_rect = [cos(dec)cos(ra),cos(dec)sin(ra),sin(dec)] and similar for new_rect.
+    degree : bool, optional
+        If True, phi1 and phi2 are given in degrees (default=False).
 
-    PURPOSE:
+    Returns
+    -------
+    tuple
+        (ra,dec) for vector inputs [:,2]
 
-       rotate a custom set of sky coordinates (phi1, phi2) to (ra, dec)
-       given the rotation matrix T for (ra, dec) -> (phi1, phi2)
-
-    INPUT:
-
-        phi1 - custom sky coord
-
-        phi2 - custom sky coord
-
-        T - matrix defining the transformation (ra, dec) -> (phi1, phi2)
-
-        degree - default: False. If True, phi1 and phi2 in degrees
-
-    OUTPUT:
-
-        (ra, dec) for vector inputs [:, 2]
-
-    HISTORY:
-
-        2018-10-23 - Written - Nathaniel (UofT)
+    Notes
+    -----
+    - 2018-10-23 - Written - Starkman (UofT)
     """
     if T is None:
         raise ValueError("Must set T= for custom_to_radec")
@@ -2679,38 +2450,31 @@ def custom_to_radec(phi1, phi2, T=None, degree=False):
 
 def custom_to_pmrapmdec(pmphi1, pmphi2, phi1, phi2, T=None, degree=False):
     """
-    NAME:
+    Rotate proper motions in a custom set of sky coordinates (phi1,phi2) to (ra,dec) given the rotation matrix T for (ra,dec) -> (phi1,phi2)
 
-       custom_to_pmrapmdec
+    Parameters
+    ----------
+    pmphi1 : float or numpy.ndarray
+        Proper motion in phi1 (multiplied with cos(phi2)) [mas/yr].
+    pmphi2 : float or numpy.ndarray
+        Proper motion in phi2 [mas/yr].
+    phi1 : float or numpy.ndarray
+        Custom sky coord.
+    phi2 : float or numpy.ndarray
+        Custom sky coord.
+    T : numpy.ndarray, optional
+        Matrix defining the transformation: new_rect= T dot old_rect, where old_rect = [cos(dec)cos(ra),cos(dec)sin(ra),sin(dec)] and similar for new_rect.
+    degree : bool, optional
+        If True, phi1 and phi2 are given in degrees (default=False).
 
-    PURPOSE:
+    Returns
+    -------
+    tuple
+        (pmra x cos(dec), dec) for vector inputs [:,2]
 
-       rotate proper motions in a custom set of sky coordinates (phi1,phi2) to ICRS (ra,dec)
-
-    INPUT:
-
-       pmphi1 - proper motion in custom (multiplied with cos(phi2)) [mas/yr]
-
-       pmphi2 - proper motion in phi2 [mas/yr]
-
-       phi1 - custom longitude
-
-       phi2 - custom latitude
-
-       T= matrix defining the transformation in cartesian coordinates:
-          new_rect = T dot old_rect
-          where old_rect = [cos(dec)cos(ra), cos(dec)sin(ra), sin(dec)] and similar for new_rect
-
-       degree= (False) if True, phi1 and phi2 are given in degrees (default=False)
-
-    OUTPUT:
-
-       (pmra x cos(dec), dec) for vector inputs [:,2]
-
-    HISTORY:
-
-       2019-03-02 - Written - Nathaniel Starkman (UofT)
-
+    Notes
+    -----
+    - 2019-03-02 - Written - Nathaniel Starkman (UofT)
     """
     if T is None:
         raise ValueError("Must set T= for custom_to_pmrapmdec")
@@ -2719,31 +2483,28 @@ def custom_to_pmrapmdec(pmphi1, pmphi2, phi1, phi2, T=None, degree=False):
     )
 
 
+import numpy
+
+
 def get_epoch_angles(epoch=2000.0):
     """
-    NAME:
+    Get the angles relevant for the transformation from ra, dec to l,b for the given epoch.
 
-       get_epoch_angles
+    Parameters
+    ----------
+    epoch : float or str, optional
+        Epoch of ra,dec. Default is 2000.0. When internally using astropy's coordinate transformations, epoch can be None for ICRS, 'JXXXX' for FK5, and 'BXXXX' for FK4. For B1950 FK4 with no E aberration terms is assumed.
 
-    PURPOSE:
+    Returns
+    -------
+    tuple
+        Set of angles.
 
-       get the angles relevant for the transformation from ra, dec to l,b for the given epoch
-    INPUT:
-
-       epoch - epoch of ra,dec (right now only 2000.0 and 1950.0 are supported when not using astropy's transformations internally; when internally using astropy's coordinate transformations, epoch can be None for ICRS, 'JXXXX' for FK5, and 'BXXXX' for FK4 [but for B1950 FK4 with no E aberration terms is assumed... really, there's no reason to use B1950 in 2018 when using galpy...))
-
-    OUTPUT:
-
-       set of angles
-
-    HISTORY:
-
-       2010-04-07 - Written - Bovy (NYU)
-
-       2016-05-13 - Added support for using astropy's coordinate transformations and for non-standard epochs - Bovy (UofT)
-
-       2018-04-18 - Edited J2000 angles to be fully consistent with astropy - BOvy (UofT)
-
+    Notes
+    -----
+    - 2010-04-07 - Written - Bovy (NYU)
+    - 2016-05-13 - Added support for using astropy's coordinate transformations and for non-standard epochs - Bovy (UofT)
+    - 2018-04-18 - Edited J2000 angles to be fully consistent with astropy - Bovy (UofT)
     """
     if epoch == 2000.0:
         # Following astropy's definition here

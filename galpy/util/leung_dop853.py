@@ -552,40 +552,45 @@ def dop853(
     args=(),
 ):
     """
-    To computes the numerical solution of a system of first order ordinary differential equations y'=f(x,y).
-    It uses an explicit Runge-Kutta method of order 8(5,3) due to Dormand & Prince with step size control and dense output.
+    Solve a system of ordinary differential equations using the DOP853 method, an explicit Runge-Kutta method of order 8(5,3) due to Dormand & Prince with step size control and dense output.
 
-    Reference: E. Hairer, S.P. Norsett and G. Wanner, Solving ordinary differential equations I,
-    non-stiff problems, 2nd edition, Springer Series in Computational Mathematics, Springer-Verlag (1993).
+    Parameters
+    ----------
+    func : callable
+        function of the differential equation, usually take func([position, velocity], time) and return velocity, acceleration
+    x : float or ndarray
+        initial x, usually is [position, velocity]
+    t : ndarray
+        set of times at which one wants the result
+    hmax : float
+        Maximal step size, default 0. which will be internally as t[-1]-t[0]
+    h : float
+        Initial step size, default 0. which will be computed by the function hinit()
+    rtol : float or ndarray
+        Relative error tolerances, default 1e-8
+    atol : float or ndarray
+        Absolute error tolerances, default 1e-8
+    nmax : int
+        Maximum number of steps, default 1e8
+    safe : float
+        Safety factor in the step size prediction, default 0.9
+    beta : float
+        The "beta" for stabilized step size control (see section IV.2 of the reference). Larger values for beta (e.g.<= 0.1) make the step size control more stable. Default beta=0.
+    fac1, fac2 : float
+        Parameters for step size selection; the new step size is chosen subject to the restriction fac1 <= hnew/hold <= fac2
 
-    :param func: function of the differential equation, usually take func([position, velocity], time) and return velocity, acceleration
-    :type func: callable
-    :param x: initial x, usually is [position, velocity]
-    :type x: Union[float, ndarray]
-    :param t: set of times at which one wants the result
-    :type t: ndarray
-    :param hmax: Maximal step size, default 0. which will be internally as t[-1]-t[0]
-    :type hmax: float
-    :param h: Initial step size, default 0. which will be computed by the function hinit()
-    :type h: float
-    :param rtol: Relative error tolerances, default 1e-8
-    :type rtol: Union[float, ndarray]
-    :param atol: Absolute error tolerances, default 1e-8
-    :type atol: Union[float, ndarray]
-    :param nmax: Maximum number of steps, default 1e8
-    :type nmax: int
-    :param safe: Safety factor in the step size prediction, default 0.9
-    :type atol: float
-    :param beta: | The "beta" for stabilized step size control (see section IV.2 of the reference). Larger values for beta
-                 | (e.g.<= 0.1) make the step size control more stable. Default beta=0.
-    :type beta: float
-    :param fac1, fac2: Parameters for step size selection; the new step size is chosen subject to the restriction fac1 <= hnew/hold <= fac2
-    :type fac1, fac2: float
+    Returns
+    -------
+    ndarray
+        integrated result
 
-    :return: integrated result
-    :rtype: ndarray
+    Notes
+    -----
+    - 2018-11-23 - Written - Henry Leung (University of Toronto)
 
-    :History: 2018-Nov-23 - Written - Henry Leung (University of Toronto)
+    References
+    ----------
+    - E. Hairer, S.P. Norsett and G. Wanner, Solving ordinary differential equations I, non-stiff problems, 2nd edition, Springer Series in Computational Mathematics, Springer-Verlag (1993).
     """
     # initialization
     n = len(x)

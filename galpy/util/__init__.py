@@ -36,19 +36,28 @@ warnings.showwarning = _warning
 
 def save_pickles(savefilename, *args, **kwargs):
     """
-    NAME:
-       save_pickles
-    PURPOSE:
-       relatively safely save things to a pickle
-    INPUT:
-       savefilename - name of the file to save to; actual save operation will be performed on a temporary file and then that file will be shell mv'ed to savefilename
-       +things to pickle (as many as you want!)
-    OUTPUT:
-       none
-    HISTORY:
-       2010-? - Written - Bovy (NYU)
-       2011-08-23 - generalized and added to galpy.util - Bovy (NYU)
+    Save things to a pickle file.
+
+    Parameters
+    ----------
+    savefilename : str
+        Name of the file to save to; actual save operation will be performed on a temporary file and then that file will be shell mv'ed to savefilename.
+    *args : tuple
+        Things to pickle (as many as you want!).
+    **kwargs : dict
+        testKeyboardInterrupt : bool, optional
+            If True, raises KeyboardInterrupt to test if the function can handle it.
+
+    Returns
+    -------
+    None
+
+    Notes
+    -----
+    - 2010-? - Written - Bovy (NYU)
+    - 2011-08-23 - generalized and added to galpy.util - Bovy (NYU)
     """
+
     saving = True
     interrupted = False
     file, tmp_savefilename = tempfile.mkstemp()  # savefilename+'.tmp'
@@ -100,18 +109,25 @@ _TINY = 0.000000001
 
 def stable_cho_factor(x, tiny=_TINY):
     """
-    NAME:
-       stable_cho_factor
-    PURPOSE:
-       Stable version of the cholesky decomposition
-    INPUT:
-       x - (sc.array) positive definite matrix
-       tiny - (double) tiny number to add to the covariance matrix to make the decomposition stable (has a default)
-    OUTPUT:
-       (L,lowerFlag) - output from scipy.linalg.cho_factor for lower=True
-    REVISION HISTORY:
-       2009-09-25 - Written - Bovy (NYU)
+    Stable version of the cholesky decomposition
+
+    Parameters
+    ----------
+    x : numpy.ndarray
+        Positive definite matrix
+    tiny : float, optional
+        Tiny number to add to the covariance matrix to make the decomposition stable (has a default)
+
+    Returns
+    -------
+    tuple
+        (L, lowerFlag) - output from scipy.linalg.cho_factor for lower=True
+
+    Notes
+    -----
+    - 2009-09-25 - Written - Bovy (NYU)
     """
+
     return linalg.cho_factor(
         x + numpy.sum(numpy.diag(x)) * tiny * numpy.eye(x.shape[0]), lower=True
     )
@@ -119,19 +135,27 @@ def stable_cho_factor(x, tiny=_TINY):
 
 def fast_cholesky_invert(A, logdet=False, tiny=_TINY):
     """
-    NAME:
-       fast_cholesky_invert
-    PURPOSE:
-       invert a positive definite matrix by using its Cholesky decomposition
-    INPUT:
-       A - matrix to be inverted
-       logdet - (Bool) if True, return the logarithm of the determinant as well
-       tiny - (double) tiny number to add to the covariance matrix to make the decomposition stable (has a default)
-    OUTPUT:
-       A^{-1}
-    REVISION HISTORY:
-       2009-10-07 - Written - Bovy (NYU)
+    Invert a positive definite matrix by using its Cholesky decomposition.
+
+    Parameters
+    ----------
+    A : array_like
+        Matrix to be inverted.
+    logdet : bool, optional
+        If True, return the logarithm of the determinant as well.
+    tiny : float, optional
+        Tiny number to add to the covariance matrix to make the decomposition stable (has a default).
+
+    Returns
+    -------
+    numpy.ndarray or tuple
+        If logdet is False, the inverse of the input matrix. If logdet is True, the inverse and the logarithm of the determinant of the input matrix.
+
+    Notes
+    -----
+    - 2009-10-07 - Written - Bovy (NYU)
     """
+
     L = stable_cho_factor(A, tiny=tiny)
     if logdet:
         return (

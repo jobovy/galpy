@@ -4,7 +4,7 @@ galpy.util.config
 Configuration module
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
 
    setro <configsetro.rst>
    setvo <configsetvo.rst>

@@ -96,30 +96,18 @@ _DEFAULTNCNTR = 10
 
 def end_print(filename, **kwargs):
     """
-    NAME:
+    Save the current figure(s) to a file.
 
-       end_print
+    Parameters
+    ----------
+    filename : str
+        Filename for the plot (with extension).
+    **kwargs
+        Additional keyword arguments to pass to `pyplot.savefig`.
 
-    PURPOSE:
-
-       saves the current figure(s) to filename
-
-    INPUT:
-
-       filename - filename for plot (with extension)
-
-    OPTIONAL INPUTS:
-
-       format - file-format
-
-    OUTPUT:
-
-       (none)
-
-    HISTORY:
-
-       2009-12-23 - Written - Bovy (NYU)
-
+    Notes
+    -----
+    - 2009-12-23 - Written - Bovy (NYU)
     """
     if "format" in kwargs:
         pyplot.savefig(filename, **kwargs)
@@ -128,40 +116,35 @@ def end_print(filename, **kwargs):
     pyplot.close()
 
 
+import numpy
+from matplotlib import pyplot
+
+
 def hist(x, xlabel=None, ylabel=None, overplot=False, **kwargs):
     """
-    NAME:
+    Plot a histogram of the input array using matplotlib's hist function.
 
-       hist
+    Parameters
+    ----------
+    x : numpy.ndarray
+        Array to histogram.
+    xlabel : str, optional
+        x-axis label, LaTeX math mode, no $s needed.
+    ylabel : str, optional
+        y-axis label, LaTeX math mode, no $s needed.
+    overplot : bool, optional
+        If True, plot on top of the current figure.
+    **kwargs
+        All other keyword arguments are passed to ``pyplot.hist``.
 
-    PURPOSE:
+    Returns
+    -------
+    tuple
+        Output from ``pyplot.hist``
 
-       wrapper around matplotlib's hist function
-
-    INPUT:
-
-       x - array to histogram
-
-       xlabel - (raw string!) x-axis label, LaTeX math mode, no $s needed
-
-       ylabel - (raw string!) y-axis label, LaTeX math mode, no $s needed
-
-       yrange - set the y-axis range
-
-       +all pyplot.hist keywords
-
-    OUTPUT:
-       (from the matplotlib docs:
-       http://matplotlib.sourceforge.net/api/pyplot_api.html#matplotlib.pyplot.hist)
-
-       The return value is a tuple (n, bins, patches)
-       or ([n0, n1, ...], bins, [patches0, patches1,...])
-       if the input contains multiple data
-
-    HISTORY:
-
-       2009-12-23 - Written - Bovy (NYU)
-
+    Notes
+    -----
+    - 2009-12-23 - Written - Bovy (NYU)
     """
     if not overplot:
         pyplot.figure()
@@ -198,58 +181,67 @@ def hist(x, xlabel=None, ylabel=None, overplot=False, **kwargs):
 
 def plot(*args, **kwargs):
     """
-    NAME:
+    Wrapper around matplotlib's plot function.
 
-       plot
+    Parameters
+    ----------
+    *args:
+        Inputs to ``pyplot.plot``.
+    xlabel : str, optional
+        x-axis label, LaTeX math mode, no $s needed.
+    ylabel : str, optional
+        y-axis label, LaTeX math mode, no $s needed.
+    xrange : tuple, optional
+        x range to plot over.
+    yrange : tuple, optional
+        y range to plot over.
+    overplot : bool, optional
+        If True, plot on top of the current figure.
+    gcf : bool, optional
+        If True, do not start a new figure.
+    onedhists : bool, optional
+        If True, make one-d histograms on the sides.
+    onedhistcolor : str, optional
+        Histogram color.
+    onedhistfc : str, optional
+        Histogram fill color.
+    onedhistec : str, optional
+        Histogram edge color.
+    onedhistxnormed : bool, optional
+        If True, normalize the x-axis histogram.
+    onedhistynormed : bool, optional
+        If True, normalize the y-axis histogram.
+    onedhistxweights : numpy.ndarray, optional
+        Weights for the x-axis histogram.
+    onedhistyweights : numpy.ndarray, optional
+        Weights for the y-axis histogram.
+    bins : int, optional
+        Number of bins for the one-d histograms.
+    semilogx : bool, optional
+        If True, plot the x-axis on a log scale.
+    semilogy : bool, optional
+        If True, plot the y-axis on a log scale.
+    loglog : bool, optional
+        If True, plot both axes on a log scale.
+    scatter : bool, optional
+        If True, use ``pyplot.scatter`` instead of ``pyplot.plot``.
+    colorbar : bool, optional
+        If True, add a colorbar.
+    crange : tuple, optional
+        Range for the colorbar.
+    clabel : str, optional
+        Label for the colorbar.
+    **kwargs
+        All other keyword arguments are passed to ``pyplot.plot`` or ``pyplot.scatter``.
 
-    PURPOSE:
+    Returns
+    -------
+    tuple
+        Output from ``pyplot.plot``/``pyplot.scatter`` or 3 Axes instances if ``onedhists=True``.
 
-       wrapper around matplotlib's plot function
-
-    INPUT:
-
-       see http://matplotlib.sourceforge.net/api/pyplot_api.html#matplotlib.pyplot.plot
-
-       xlabel - (raw string!) x-axis label, LaTeX math mode, no $s needed
-
-       ylabel - (raw string!) y-axis label, LaTeX math mode, no $s needed
-
-       xrange
-
-       yrange
-
-       scatter= if True, use pyplot.scatter and its options etc.
-
-       colorbar= if True, and scatter==True, add colorbar
-
-       crange - range for colorbar of scatter==True
-
-       clabel= label for colorbar
-
-       overplot=True does not start a new figure and does not change the ranges and labels
-
-       gcf=True does not start a new figure (does change the ranges and labels)
-
-       onedhists - if True, make one-d histograms on the sides
-
-       onedhistcolor, onedhistfc, onedhistec
-
-       onedhistxnormed, onedhistynormed - normed keyword for one-d histograms
-
-       onedhistxweights, onedhistyweights - weights keyword for one-d histograms
-
-       bins= number of bins for onedhists
-
-       semilogx=, semilogy=, loglog= if True, plot logs
-
-    OUTPUT:
-
-       plot to output device, returns what pyplot.plot returns, or 3 Axes instances if onedhists=True
-
-    HISTORY:
-
-       2009-12-28 - Written - Bovy (NYU)
-
+    Notes
+    -----
+    - 2009-12-28 - Written - Bovy (NYU)
     """
     overplot = kwargs.pop("overplot", False)
     gcf = kwargs.pop("gcf", False)
@@ -412,34 +404,35 @@ def plot(*args, **kwargs):
 
 def plot3d(*args, **kwargs):
     """
-    NAME:
+    Wrapper around ``pyplot.plot`` for 3D plots, much like plot is a wrapper around ``pyplot.plot`` for 2D plots.
 
-       plot3d
+    Parameters
+    ----------
+    *args:
+        Inputs to ``pyplot.plot3d``.
+    xlabel : str, optional
+        x-axis label, LaTeX math mode, no $s needed.
+    ylabel : str, optional
+        y-axis label, LaTeX math mode, no $s needed.
+    zlabel : str, optional
+        z-axis label, LaTeX math mode, no $s needed.
+    xrange : tuple, optional
+        x range to plot over.
+    yrange : tuple, optional
+        y range to plot over.
+    zrange : tuple, optional
+        z range to plot over.
+    overplot : bool, optional
+        If True, plot on top of the current figure.
 
-    PURPOSE:
+    Returns
+    -------
+    tuple
+        Output from ``pyplot.plot3d``.
 
-       plot in 3d much as in 2d
-
-    INPUT:
-
-       see http://matplotlib.sourceforge.net/api/pyplot_api.html#matplotlib.pyplot.plot
-
-       xlabel - (raw string!) x-axis label, LaTeX math mode, no $s needed
-
-       ylabel - (raw string!) y-axis label, LaTeX math mode, no $s needed
-
-       xrange
-
-       yrange
-
-       overplot=True does not start a new figure
-
-    OUTPUT:
-
-    HISTORY:
-
-       2011-01-08 - Written - Bovy (NYU)
-
+    Notes
+    -----
+    - 2011-01-08 - Written - Bovy (NYU)
     """
     overplot = kwargs.pop("overplot", False)
     if not overplot:
@@ -509,76 +502,71 @@ def plot3d(*args, **kwargs):
 
 def dens2d(X, **kwargs):
     """
-    NAME:
+    Plot a 2d density with optional contours.
 
-       dens2d
+    Parameters
+    ----------
+    X : numpy.ndarray
+        The density to plot.
+    *args :
+        Arguments for ``pyplot.imshow``.
+    xlabel : str, optional
+        x-axis label, LaTeX math mode, no $s needed.
+    ylabel : str, optional
+        y-axis label, LaTeX math mode, no $s needed.
+    xrange : tuple, optional
+        x range to plot over.
+    yrange : tuple, optional
+        y range to plot over.
+    noaxes : bool, optional
+        If True, don't plot any axes.
+    overplot : bool, optional
+        If True, overplot.
+    gcf : bool, optional
+        If True, do not start a new figure.
+    colorbar : bool, optional
+        If True, add colorbar.
+    shrink : float, optional
+        Colorbar shrink factor.
+    conditional : bool, optional
+        Normalize each column separately (for probability densities, i.e., ``cntrmass=True``).
+    justcontours : bool, optional
+        If True, only draw contours.
+    contours : bool, optional
+        If True, draw contours (10 by default).
+    levels : numpy.ndarray, optional
+        Contour levels.
+    cntrmass : bool, optional
+        If True, the density is a probability and the levels are probability masses contained within the contour.
+    cntrcolors : str or list, optional
+        Colors for contours (single color or array).
+    cntrlabel : bool, optional
+        Label the contours.
+    cntrlw : float, optional
+        Linewidths for contour.
+    cntrls : str, optional
+        Linestyles for contour.
+    cntrlabelsize : float, optional
+        Size of contour labels.
+    cntrlabelcolors : str, optional
+        Color of contour labels.
+    cntrinline : bool, optional
+        If True, put contour labels inline with contour.
+    cntrSmooth : float, optional
+        Use ``ndimage.gaussian_filter`` to smooth before contouring.
+    retAxes : bool, optional
+        Return all Axes instances.
+    retCont : bool, optional
+        Return the contour instance.
 
-    PURPOSE:
+    Returns
+    -------
+    Axes or tuple
+        Plot to output device, Axes instances depending on input.
 
-       plot a 2d density with optional contours
-
-    INPUT:
-
-       first argument is the density
-
-       matplotlib.pyplot.imshow keywords (see http://matplotlib.sourceforge.net/api/axes_api.html#matplotlib.axes.Axes.imshow)
-
-       xlabel - (raw string!) x-axis label, LaTeX math mode, no $s needed
-
-       ylabel - (raw string!) y-axis label, LaTeX math mode, no $s needed
-
-       xrange
-
-       yrange
-
-       noaxes - don't plot any axes
-
-       overplot - if True, overplot
-
-       colorbar - if True, add colorbar
-
-       shrink= colorbar argument: shrink the colorbar by the factor (optional)
-
-       conditional - normalize each column separately (for probability densities, i.e., cntrmass=True)
-
-       gcf=True does not start a new figure (does change the ranges and labels)
-
-       Contours:
-
-       justcontours - if True, only draw contours
-
-       contours - if True, draw contours (10 by default)
-
-       levels - contour-levels
-
-       cntrmass - if True, the density is a probability and the levels are probability masses contained within the contour
-
-       cntrcolors - colors for contours (single color or array)
-
-       cntrlabel - label the contours
-
-       cntrlw, cntrls - linewidths and linestyles for contour
-
-       cntrlabelsize, cntrlabelcolors,cntrinline - contour arguments
-
-       cntrSmooth - use ndimage.gaussian_filter to smooth before contouring
-
-       onedhists - if True, make one-d histograms on the sides
-
-       onedhistcolor - histogram color
-
-       retAxes= return all Axes instances
-
-       retCont= return the contour instance
-
-    OUTPUT:
-
-       plot to output device, Axes instances depending on input
-
-    HISTORY:
-
-       2010-03-09 - Written - Bovy (NYU)
-
+    Notes
+    -----
+    - 2010-03-09 - Written - Bovy (NYU)
     """
     overplot = kwargs.pop("overplot", False)
     gcf = kwargs.pop("gcf", False)
@@ -775,42 +763,36 @@ def start_print(
     ytick_major_size=4,
 ):
     """
-    NAME:
+    Set up a figure for plotting.
 
-       start_print
+    Parameters
+    ----------
+    fig_width : float, optional
+        Width in inches. Default is 5.
+    fig_height : float, optional
+        Height in inches. Default is 5.
+    axes_labelsize : int, optional
+        Size of the axis-labels. Default is 16.
+    text_fontsize : int, optional
+        Font-size of the text (if any). Default is 11.
+    legend_fontsize : int, optional
+        Font-size of the legend (if any). Default is 12.
+    xtick_labelsize : int, optional
+        Size of the x-axis labels. Default is 10.
+    ytick_labelsize : int, optional
+        Size of the y-axis labels. Default is 10.
+    xtick_minor_size : int, optional
+        Size of the minor x-ticks. Default is 2.
+    ytick_minor_size : int, optional
+        Size of the minor y-ticks. Default is 2.
+    xtick_major_size : int, optional
+        Size of the major x-ticks. Default is 4.
+    ytick_major_size : int, optional
+        Size of the major y-ticks. Default is 4.
 
-    PURPOSE:
-
-       setup a figure for plotting
-
-    INPUT:
-
-       fig_width - width in inches
-
-       fig_height - height in inches
-
-       axes_labelsize - size of the axis-labels
-
-       text_fontsize - font-size of the text (if any)
-
-       legend_fontsize - font-size of the legend (if any)
-
-       xtick_labelsize - size of the x-axis labels
-
-       ytick_labelsize - size of the y-axis labels
-
-       xtick_minor_size - size of the minor x-ticks
-
-       ytick_minor_size - size of the minor y-ticks
-
-    OUTPUT:
-
-       (none)
-
-    HISTORY:
-
-       2009-12-23 - Written - Bovy (NYU)
-
+    Notes
+    -----
+    - 2009-12-23 - Written - Bovy (NYU).
     """
     fig_size = [fig_width, fig_height]
     params = {
@@ -837,41 +819,20 @@ def start_print(
 
 def text(*args, **kwargs):
     """
-    NAME:
+    Thin wrapper around matplotlib's text and annotate.
 
-       text
+    Parameters
+    ----------
+    *args :
+        See matplotlib's text
+        (http://matplotlib.sourceforge.net/api/pyplot_api.html#matplotlib.pyplot.text).
+    **kwargs :
+        'bottom_left=True', 'bottom_right=True', 'top_left=True', 'top_right=True', 'title=True'
+        to place the text in one of the corners or use it as the title.
 
-    PURPOSE:
-
-       thin wrapper around matplotlib's text and annotate
-
-       use keywords:
-
-          'bottom_left=True'
-
-          'bottom_right=True'
-
-          'top_left=True'
-
-          'top_right=True'
-
-          'title=True'
-
-       to place the text in one of the corners or use it as the title
-
-    INPUT:
-
-       see matplotlib's text
-          (http://matplotlib.sourceforge.net/api/pyplot_api.html#matplotlib.pyplot.text)
-
-    OUTPUT:
-
-       prints text on the current figure
-
-    HISTORY:
-
-       2010-01-26 - Written - Bovy (NYU)
-
+    Notes
+    -----
+    - 2010-01-26 - Written - Bovy (NYU)
     """
     if kwargs.pop("title", False):
         pyplot.annotate(
@@ -915,75 +876,85 @@ def text(*args, **kwargs):
 
 def scatterplot(x, y, *args, **kwargs):
     """
-    NAME:
+    Make a 'smart' scatterplot that is a density plot in high-density regions and a regular scatterplot for outliers.
 
-       scatterplot
+    Parameters
+    ----------
+    x : numpy.ndarray
+        x data.
+    y : numpy.ndarray
+        y data.
+    xlabel : str, optional
+        x-axis label, LaTeX math mode, no $s needed.
+    ylabel : str, optional
+        y-axis label, LaTeX math mode, no $s needed.
+    xrange : tuple, optional
+        x range to plot over.
+    yrange : tuple, optional
+        y range to plot over.
+    bins : int, optional
+        Number of bins to use in each dimension.
+    weights : numpy.ndarray, optional
+        Data-weights.
+    aspect : float, optional
+        Aspect ratio.
+    conditional : bool, optional
+        Normalize each column separately (for probability densities, i.e., ``cntrmass=True``).
+    overplot : bool, optional
+        If True, overplot.
+    gcf : bool, optional
+        Do not start a new figure (does change the ranges and labels).
+    contours : bool, optional
+        If False, don't plot contours.
+    justcontours : bool, optional
+        If True, only draw contours, no density.
+    cntrcolors : str or list, optional
+        Color of contours (can be array as for dens2d).
+    cntrlw : float, optional
+        Linewidths for contour.
+    cntrls : str, optional
+        Linestyles for contour.
+    cntrSmooth : float, optional
+        Use ``ndimage.gaussian_filter`` to smooth before contouring.
+    levels : numpy.ndarray, optional
+        Contour-levels; data points outside of the last level will be individually shown (so, e.g., if this list is descending, contours and data points will be overplotted).
+    onedhists : bool, optional
+        If True, make one-d histograms on the sides.
+    onedhistx : bool, optional
+        If True, make one-d histograms on the side of the x distribution.
+    onedhisty : bool, optional
+        If True, make one-d histograms on the side of the y distribution.
+    onedhistcolor : str, optional
+        Color of one-d histograms.
+    onedhistfc : str, optional
+        Facecolor of one-d histograms.
+    onedhistec : str, optional
+        Edgecolor of one-d histograms.
+    onedhistxnormed : bool, optional
+        Normed keyword for one-d histograms.
+    onedhistynormed : bool, optional
+        Normed keyword for one-d histograms.
+    onedhistxweights : numpy.ndarray, optional
+        Weights keyword for one-d histograms.
+    onedhistyweights : numpy.ndarray, optional
+        Weights keyword for one-d histograms.
+    cmap : matplotlib.colors.Colormap, optional
+        Colormap for density plot.
+    hist : numpy.ndarray, optional
+        You can supply the histogram of the data yourself, this can be useful if you want to censor the data, both need to be set and calculated using scipy.histogramdd with the given range.
+    edges : numpy.ndarray, optional
+        You can supply the histogram of the data yourself, this can be useful if you want to censor the data, both need to be set and calculated using scipy.histogramdd with the given range.
+    retAxes : bool, optional
+        Return all Axes instances.
 
-    PURPOSE:
+    Returns
+    -------
+    Axes or tuple
+        Plot to output device, Axes instance(s) or not, depending on input.
 
-       make a 'smart' scatterplot that is a density plot in high-density
-       regions and a regular scatterplot for outliers
-
-    INPUT:
-
-       x, y
-
-       xlabel - (raw string!) x-axis label, LaTeX math mode, no $s needed
-
-       ylabel - (raw string!) y-axis label, LaTeX math mode, no $s needed
-
-       xrange
-
-       yrange
-
-       bins - number of bins to use in each dimension
-
-       weights - data-weights
-
-       aspect - aspect ratio
-
-       conditional - normalize each column separately (for probability densities, i.e., cntrmass=True)
-
-       gcf=True does not start a new figure (does change the ranges and labels)
-
-       contours - if False, don't plot contours
-
-       justcontours - if True, only draw contours, no density
-
-       cntrcolors - color of contours (can be array as for dens2d)
-
-       cntrlw, cntrls - linewidths and linestyles for contour
-
-       cntrSmooth - use ndimage.gaussian_filter to smooth before contouring
-
-       levels - contour-levels; data points outside of the last level will be individually shown (so, e.g., if this list is descending, contours and data points will be overplotted)
-
-       onedhists - if True, make one-d histograms on the sides
-
-       onedhistx - if True, make one-d histograms on the side of the x distribution
-
-       onedhisty - if True, make one-d histograms on the side of the y distribution
-
-       onedhistcolor, onedhistfc, onedhistec
-
-       onedhistxnormed, onedhistynormed - normed keyword for one-d histograms
-
-       onedhistxweights, onedhistyweights - weights keyword for one-d histograms
-
-       cmap= cmap for density plot
-
-       hist= and edges= - you can supply the histogram of the data yourself, this can be useful if you want to censor the data, both need to be set and calculated using scipy.histogramdd with the given range
-
-       retAxes= return all Axes instances
-
-    OUTPUT:
-
-       plot to output device, Axes instance(s) or not, depending on input
-
-    HISTORY:
-
-       2010-04-15 - Written - Bovy (NYU)
-
+    Notes
+    -----
+    - 2010-04-15 - Written - Bovy (NYU)
     """
     xlabel = kwargs.pop("xlabel", None)
     ylabel = kwargs.pop("ylabel", None)
@@ -1198,28 +1169,18 @@ def scatterplot(x, y, *args, **kwargs):
 
 def _add_axislabels(xlabel, ylabel):
     """
-    NAME:
+    Add axis labels to the current figure.
 
-       _add_axislabels
+    Parameters
+    ----------
+    xlabel : str
+        x-axis label, LaTeX math mode, no $s needed.
+    ylabel : str
+        y-axis label, LaTeX math mode, no $s needed.
 
-    PURPOSE:
-
-       add axis labels to the current figure
-
-    INPUT:
-
-       xlabel - (raw string!) x-axis label, LaTeX math mode, no $s needed
-
-       ylabel - (raw string!) y-axis label, LaTeX math mode, no $s needed
-
-    OUTPUT:
-
-       (none; works on the current axes)
-
-    HISTORY:
-
-       2009-12-23 - Written - Bovy (NYU)
-
+    Notes
+    -----
+    = 2009-12-23 - Written - Bovy (NYU).
     """
     if xlabel != None:
         if xlabel[0] != "$":
@@ -1237,26 +1198,18 @@ def _add_axislabels(xlabel, ylabel):
 
 def _add_ticks(xticks=True, yticks=True):
     """
-    NAME:
+    Add minor axis ticks to a plot.
 
-       _add_ticks
+    Parameters
+    ----------
+    xticks : bool, optional
+        If True, add minor ticks to the x-axis. Default is True.
+    yticks : bool, optional
+        If True, add minor ticks to the y-axis. Default is True.
 
-    PURPOSE:
-
-       add minor axis ticks to a plot
-
-    INPUT:
-
-       (none; works on the current axes)
-
-    OUTPUT:
-
-       (none; works on the current axes)
-
-    HISTORY:
-
-       2009-12-23 - Written - Bovy (NYU)
-
+    Notes
+    -----
+    - 2009-12-23 - Written - Bovy (NYU)
     """
     ax = pyplot.gca()
     if xticks:

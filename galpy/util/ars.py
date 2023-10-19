@@ -34,42 +34,36 @@ import scipy.stats as stats
 
 
 def ars(domain, isDomainFinite, abcissae, hx, hpx, nsamples=1, hxparams=(), maxn=100):
-    """ars: Implementation of the Adaptive-Rejection Sampling
-    algorithm by Gilks & Wild (1992): Adaptive Rejection Sampling
-    for Gibbs Sampling, Applied Statistics, 41, 337
-    Based on Wild & Gilks (1993), Algorithm AS 287: Adaptive Rejection
-    Sampling from Log-concave Density Functions, Applied Statistics, 42, 701
+    """
+    Implementation of the Adaptive-Rejection Sampling algorithm by Gilks & Wild (1992): Adaptive Rejection Sampling for Gibbs Sampling, Applied Statistics, 41, 337. Based on Wild & Gilks (1993), Algorithm AS 287: Adaptive Rejection Sampling from Log-concave Density Functions, Applied Statistics, 42, 701
 
-    Input:
+    Parameters
+    ----------
+    domain : list or numpy.ndarray
+        [.,.] upper and lower limit to the domain
+    isDomainFinite : list or numpy.ndarray
+        [.,.] is there a lower/upper limit to the domain?
+    abcissae : list or numpy.ndarray
+        initial list of abcissae (must lie on either side of the peak in hx if the domain is unbounded)
+    hx : function
+        function that evaluates h(x) = ln g(x)
+    hpx : function
+        function that evaluates hp(x) =  d h(x) / d x
+    nsamples : int, optional
+        number of desired samples (default=1)
+    hxparams : tuple, optional
+        a tuple of parameters for h(x) and h'(x)
+    maxn : int, optional
+        maximum number of updates to the hull (default=100)
 
-       domain          - [.,.] upper and lower limit to the domain
+    Returns
+    -------
+    list
+        list with nsamples of samples from exp(h(x))
 
-       isDomainFinite  - [.,.] is there a lower/upper limit to the domain?
-
-       abcissae        - initial list of abcissae (must lie on either side of the peak in hx if the domain is unbounded
-
-       hx              - function that evaluates h(x) = ln g(x)
-
-       hpx             - function that evaluates hp(x) =  d h(x) / d x
-
-       nsamples        - (optional) number of desired samples (default=1)
-
-       hxparams        - (optional) a tuple of parameters for h(x) and h'(x)
-
-       maxn            - (optional) maximum number of updates to the hull (default=100)
-
-    Output:
-
-       list with nsamples of samples from exp(h(x))
-
-    External dependencies:
-
-       math
-       scipy
-       scipy.stats
-
-    History:
-       2009-05-21 - Written - Bovy (NYU)
+    Notes
+    -----
+    - 2009-05-21 - Written - Bovy (NYU)
     """
     # First set-up the upper and lower hulls
     hull = setup_hull(domain, isDomainFinite, abcissae, hx, hpx, hxparams)
@@ -85,30 +79,39 @@ def ars(domain, isDomainFinite, abcissae, hx, hpx, nsamples=1, hxparams=(), maxn
 
 
 def setup_hull(domain, isDomainFinite, abcissae, hx, hpx, hxparams):
-    """setup_hull: set up the upper and lower hull and everything that
-    comes with that
+    """
+    Set up the upper and lower hull and everything that comes with that
 
-    Input:
-       domain          - [.,.] upper and lower limit to the domain
-       isDomainFinite  - [.,.] is there a lower/upper limit to the domain?
-       abcissae        - initial list of abcissae (must lie on either side
-                         of the peak in hx if the domain is unbounded
-       hx              - function that evaluates h(x)
-       hpx             - function that evaluates hp(x)
-       hxparams        - tuple of parameters for h(x) and h'(x)
+    Parameters
+    ----------
+    domain : list or numpy.ndarray
+        [.,.] upper and lower limit to the domain
+    isDomainFinite : list or numpy.ndarray
+        [.,.] is there a lower/upper limit to the domain?
+    abcissae : list or numpy.ndarray
+        initial list of abcissae (must lie on either side of the peak in hx if the domain is unbounded)
+    hx : function
+        function that evaluates h(x)
+    hpx : function
+        function that evaluates hp(x)
+    hxparams : tuple
+        tuple of parameters for h(x) and h'(x)
 
-    Output:
-       list with:
-       [0]= c_u
-       [1]= xs
-       [2]= h(xs)
-       [3]= hp(xs)
-       [4]= zs
-       [5]= s_cum
-       [6]= hu(zi)
+    Returns
+    -------
+    list
+        list with:
+        [0]= c_u
+        [1]= xs
+        [2]= h(xs)
+        [3]= hp(xs)
+        [4]= zs
+        [5]= s_cum
+        [6]= hu(zi)
 
-    History:
-       2009-05-21 - Written - Bovy (NYU)
+    Notes
+    -----
+    - 2009-05-21 - Written - Bovy (NYU)
     """
     nx = len(abcissae)
     # Create the output arrays
@@ -176,25 +179,38 @@ def setup_hull(domain, isDomainFinite, abcissae, hx, hpx, hxparams):
 
 
 def sampleone(hull, hx, hpx, domain, isDomainFinite, maxn, nupdates, hxparams):
-    """sampleone: sample one point by ars
+    """
+    Sample one point by ars
 
-    Input:
-       hull            - the hull (see doc of setup_hull for definition)
-       hx              - function that evaluates h(x)
-       hpx             - function that evaluates hp(x)
-       domain          - [.,.] upper and lower limit to the domain
-       isDomainFinite  - [.,.] is there a lower/upper limit to the domain?
-       maxn            - maximum number of updates to the hull
-       nupdates        - number of updates to the hull that have occurred
-       hxparams        - tuple of parameters for h(x) and h'(x)
+    Parameters
+    ----------
+    hull : list
+        the hull (see doc of setup_hull for definition)
+    hx : function
+        function that evaluates h(x)
+    hpx : function
+        function that evaluates hp(x)
+    domain : list or numpy.ndarray
+        [.,.] upper and lower limit to the domain
+    isDomainFinite : list or numpy.ndarray
+        [.,.] is there a lower/upper limit to the domain?
+    maxn : int
+        maximum number of updates to the hull
+    nupdates : int
+        number of updates to the hull that have occurred
+    hxparams : tuple
+        tuple of parameters for h(x) and h'(x)
 
-    Output:
-       a sample
-       a new hull
-       nupdates
+    Returns
+    -------
+    list
+        [0]= a sample
+        [1]= a new hull
+        [2]= nupdates
 
-    History:
-       2009-05-21 - Written - Bovy (NYU)
+    Notes
+    -----
+    - 2009-05-21 - Written - Bovy (NYU)
     """
     thishull = hull
     noSampleYet = True
@@ -221,18 +237,26 @@ def sampleone(hull, hx, hpx, domain, isDomainFinite, maxn, nupdates, hxparams):
 
 
 def sample_hull(hull, domain, isDomainFinite):
-    """sample_hull: Sample the upper hull
+    """
+    Sample the upper hull
 
-    Input:
-       hull       - hull structure (see setup_hull for a definition of this)
-       domain          - [.,.] upper and lower limit to the domain
-       isDomainFinite  - [.,.] is there a lower/upper limit to the domain?
+    Parameters
+    ----------
+    hull : list
+        the hull (see doc of setup_hull for definition)
+    domain : list or numpy.ndarray
+        [.,.] upper and lower limit to the domain
+    isDomainFinite : list or numpy.ndarray
+        [.,.] is there a lower/upper limit to the domain?
 
-    Output:
-       a sample from the hull
+    Returns
+    -------
+    float
+        a sample from the hull
 
-    History:
-       2009-05-21 - Written - Bovy
+    Notes
+    -----
+    - 2009-05-21 - Written - Bovy (NYU)
     """
     u = stats.uniform.rvs()
     # Find largest zs[jj] such that scum[jj] < u
@@ -279,17 +303,24 @@ def sample_hull(hull, domain, isDomainFinite):
 
 
 def evaluate_hull(x, hull):
-    """evaluate_hull: evaluate h_u(x) and (optional) h_l(x)
+    """
+    Evaluate h_u(x) and (optional) h_l(x)
 
-    Input:
-       x     - abcissa
-       hull  - the hull (see setup_hull for a definition)
+    Parameters
+    ----------
+    x : float
+        abcissa
+    hull : list
+        the hull (see doc of setup_hull for definition)
 
-    Output:
-      hu(x) (optional), hl(x)
+    Returns
+    -------
+    float or tuple
+        hu(x) (optional), hl(x)
 
-    History:
-       2009-05-21 - Written - Bovy (NYU)
+    Notes
+    -----
+    - 2009-05-21 - Written - Bovy (NYU)
     """
     # Find in which [z_{i-1},z_i] interval x lies
     if x < hull[4][0]:
@@ -333,21 +364,32 @@ def evaluate_hull(x, hull):
 
 
 def update_hull(hull, newx, newhx, newhpx, domain, isDomainFinite):
-    """update_hull: update the hull with a new function evaluation
+    """
+    Update the hull with a new function evaluation
 
-    Input:
-       hull            - the current hull (see setup_hull for a definition)
-       newx            - a new abcissa
-       newhx           - h(newx)
-       newhpx          - hp(newx)
-       domain          - [.,.] upper and lower limit to the domain
-       isDomainFinite  - [.,.] is there a lower/upper limit to the domain?
+    Parameters
+    ----------
+    hull : list
+        the hull (see doc of setup_hull for definition)
+    newx : float
+        new abcissa
+    newhx : float
+        h(newx)
+    newhpx : float
+        hp(newx)
+    domain : list or numpy.ndarray
+        [.,.] upper and lower limit to the domain
+    isDomainFinite : list or numpy.ndarray
+        [.,.] is there a lower/upper limit to the domain?
 
-    Output:
-       newhull
+    Returns
+    -------
+    list
+        new hull
 
-    History:
-       2009-05-21 - Written - Bovy (NYU)
+    Notes
+    -----
+    - 2009-05-21 - Written - Bovy (NYU)
     """
     # BOVY: Perhaps add a check that newx is sufficiently far from any existing point
     # Find where newx fits in with the other xs

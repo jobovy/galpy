@@ -38,61 +38,53 @@ _TWOPI = 2.0 * m.pi
 
 def dens_in_criticaldens(vo, ro, H=70.0):
     """
-    NAME:
+    Convert density to units of the critical density.
 
-       dens_in_criticaldens
+    Parameters
+    ----------
+    vo : float
+        Velocity unit in km/s.
+    ro : float
+        Length unit in kpc.
+    H : float, optional
+        Hubble constant in km/s/Mpc. Default is 70.0.
 
-    PURPOSE:
+    Returns
+    -------
+    float
+        Conversion from units where vo=1. at ro=1. to units of the critical density.
 
-       convert density to units of the critical density
-
-    INPUT:
-
-       vo - velocity unit in km/s
-
-       ro - length unit in kpc
-
-       H= (default: 70) Hubble constant in km/s/Mpc
-
-    OUTPUT:
-
-       conversion from units where vo=1. at ro=1. to units of the critical density
-
-    HISTORY:
-
-       2014-01-28 - Written - Bovy (IAS)
+    Notes
+    -----
+    - 2014-01-28 - Written - Bovy (IAS)
 
     """
-    return vo**2.0 / ro**2.0 * 10.0**6.0 / H**2.0 * 8.0 * m.pi / 3.0
+    return vo**2.0 / ro**2.0 * 10.0**6.0 / H**2.0 * 8.0 * numpy.pi / 3.0
 
 
 def dens_in_meanmatterdens(vo, ro, H=70.0, Om=0.3):
     """
-    NAME:
+    Convert density to units of the mean matter density.
 
-       dens_in_meanmatterdens
+    Parameters
+    ----------
+    vo : float
+        Velocity unit in km/s.
+    ro : float
+        Length unit in kpc.
+    H : float, optional
+        Hubble constant in km/s/Mpc. Default is 70.0.
+    Om : float, optional
+        Omega matter. Default is 0.3.
 
-    PURPOSE:
+    Returns
+    -------
+    float
+        Conversion from units where vo=1. at ro=1. to units of the mean matter density.
 
-       convert density to units of the mean matter density
-
-    INPUT:
-
-       vo - velocity unit in km/s
-
-       ro - length unit in kpc
-
-       H= (default: 70) Hubble constant in km/s/Mpc
-
-       Om= (default: 0.3) Omega matter
-
-    OUTPUT:
-
-       conversion from units where vo=1. at ro=1. to units of the mean matter density
-
-    HISTORY:
-
-       2014-01-28 - Written - Bovy (IAS)
+    Notes
+    -----
+    - 2014-01-28 - Written - Bovy (IAS)
 
     """
     return dens_in_criticaldens(vo, ro, H=H) / Om
@@ -100,27 +92,23 @@ def dens_in_meanmatterdens(vo, ro, H=70.0, Om=0.3):
 
 def dens_in_gevcc(vo, ro):
     """
-    NAME:
+    Convert density to GeV / cm^3.
 
-       dens_in_gevcc
+    Parameters
+    ----------
+    vo : float
+        Velocity unit in km/s.
+    ro : float
+        Length unit in kpc.
 
-    PURPOSE:
+    Returns
+    -------
+    float
+        Conversion from units where vo=1. at ro=1. to GeV/cm^3.
 
-       convert density to GeV / cm^3
-
-    INPUT:
-
-       vo - velocity unit in km/s
-
-       ro - length unit in kpc
-
-    OUTPUT:
-
-       conversion from units where vo=1. at ro=1. to GeV/cm^3
-
-    HISTORY:
-
-       2014-06-16 - Written - Bovy (IAS)
+    Notes
+    -----
+    - 2014-06-16 - Written - Bovy (IAS)
 
     """
     return (
@@ -137,27 +125,23 @@ def dens_in_gevcc(vo, ro):
 
 def dens_in_msolpc3(vo, ro):
     """
-    NAME:
+    Convert density to Msolar / pc^3.
 
-       dens_in_msolpc3
+    Parameters
+    ----------
+    vo : float
+        Velocity unit in km/s.
+    ro : float
+        Length unit in kpc.
 
-    PURPOSE:
+    Returns
+    -------
+    float
+        Conversion from units where vo=1. at ro=1. to Msolar/pc^3.
 
-       convert density to Msolar / pc^3
-
-    INPUT:
-
-       vo - velocity unit in km/s
-
-       ro - length unit in kpc
-
-    OUTPUT:
-
-       conversion from units where vo=1. at ro=1. to Msolar/pc^3
-
-    HISTORY:
-
-       2013-09-01 - Written - Bovy (IAS)
+    Notes
+    -----
+    - 2013-09-01 - Written - Bovy (IAS)
 
     """
     return vo**2.0 / ro**2.0 / _G * 10.0**-6.0
@@ -165,27 +149,23 @@ def dens_in_msolpc3(vo, ro):
 
 def force_in_2piGmsolpc2(vo, ro):
     """
-    NAME:
+    Convert a force or acceleration to 2piG x Msolar / pc^2
 
-       force_in_2piGmsolpc2
+    Parameters
+    ----------
+    vo : float
+        Velocity unit in km/s
+    ro : float
+        Length unit in kpc
 
-    PURPOSE:
+    Returns
+    -------
+    float
+        Conversion from units where vo=1. at ro=1.
 
-       convert a force or acceleration to 2piG x Msolar / pc^2
-
-    INPUT:
-
-       vo - velocity unit in km/s
-
-       ro - length unit in kpc
-
-    OUTPUT:
-
-       conversion from units where vo=1. at ro=1.
-
-    HISTORY:
-
-       2013-09-01 - Written - Bovy (IAS)
+    Notes
+    -----
+    - 2013-09-01 - Written - Bovy (IAS)
 
     """
     return vo**2.0 / ro / _G * 10.0**-3.0 / _TWOPI
@@ -193,27 +173,23 @@ def force_in_2piGmsolpc2(vo, ro):
 
 def force_in_pcMyr2(vo, ro):
     """
-    NAME:
+    Convert a force or acceleration to pc/Myr^2.
 
-       force_in_pcMyr2
+    Parameters
+    ----------
+    vo : float
+        Velocity unit in km/s.
+    ro : float
+        Length unit in kpc.
 
-    PURPOSE:
+    Returns
+    -------
+    float
+        Conversion from units where vo=1. at ro=1.
 
-       convert a force or acceleration to pc/Myr^2
-
-    INPUT:
-
-       vo - velocity unit in km/s
-
-       ro - length unit in kpc
-
-    OUTPUT:
-
-       conversion from units where vo=1. at ro=1.
-
-    HISTORY:
-
-       2013-09-01 - Written - Bovy (IAS)
+    Notes
+    -----
+    - 2013-09-01 - Written - Bovy (IAS)
 
     """
     return vo**2.0 / ro * _kmsInPcMyr**2.0 * 10.0**-3.0
@@ -221,27 +197,23 @@ def force_in_pcMyr2(vo, ro):
 
 def force_in_kmsMyr(vo, ro):
     """
-    NAME:
+    Convert a force or acceleration to km/s/Myr.
 
-       force_in_kmsMyr
+    Parameters
+    ----------
+    vo : float
+        Velocity unit in km/s.
+    ro : float
+        Length unit in kpc.
 
-    PURPOSE:
+    Returns
+    -------
+    float
+        Conversion from units where vo=1. at ro=1.
 
-       convert a force or acceleration to km/s/Myr
-
-    INPUT:
-
-       vo - velocity unit in km/s
-
-       ro - length unit in kpc
-
-    OUTPUT:
-
-       conversion from units where vo=1. at ro=1.
-
-    HISTORY:
-
-       2013-09-01 - Written - Bovy (IAS)
+    Notes
+    -----
+    - 2013-09-01 - Written - Bovy (IAS)
 
     """
     return vo**2.0 / ro * _kmsInPcMyr * 10.0**-3.0
@@ -249,27 +221,23 @@ def force_in_kmsMyr(vo, ro):
 
 def force_in_10m13kms2(vo, ro):
     """
-    NAME:
+    Convert a force or acceleration to 10^(-13) km/s^2
 
-       force_in_10m13kms2
+    Parameters
+    ----------
+    vo : float
+        Velocity unit in km/s
+    ro : float
+        Length unit in kpc
 
-    PURPOSE:
+    Returns
+    -------
+    float
+        Conversion from units where vo=1. at ro=1.
 
-       convert a force or acceleration to 10^(-13) km/s^2
-
-    INPUT:
-
-       vo - velocity unit in km/s
-
-       ro - length unit in kpc
-
-    OUTPUT:
-
-       conversion from units where vo=1. at ro=1.
-
-    HISTORY:
-
-       2014-01-22 - Written - Bovy (IAS)
+    Notes
+    -----
+    - 2014-01-22 - Written - Bovy (IAS)
 
     """
     return vo**2.0 / ro * _kmsInPcMyr * 10.0**-3.0 / _MyrIn1013Sec
@@ -277,27 +245,23 @@ def force_in_10m13kms2(vo, ro):
 
 def freq_in_Gyr(vo, ro):
     """
-    NAME:
+    Convert a frequency to 1/Gyr.
 
-       freq_in_Gyr
+    Parameters
+    ----------
+    vo : float
+        Velocity unit in km/s.
+    ro : float
+        Length unit in kpc.
 
-    PURPOSE:
+    Returns
+    -------
+    float
+        Conversion from units where vo=1. at ro=1.
 
-       convert a frequency to 1/Gyr
-
-    INPUT:
-
-       vo - velocity unit in km/s
-
-       ro - length unit in kpc
-
-    OUTPUT:
-
-       conversion from units where vo=1. at ro=1.
-
-    HISTORY:
-
-       2013-09-01 - Written - Bovy (IAS)
+    Notes
+    -----
+    - 2013-09-01 - Written - Bovy (IAS)
 
     """
     return vo / ro * _kmsInPcMyr
@@ -305,27 +269,23 @@ def freq_in_Gyr(vo, ro):
 
 def freq_in_kmskpc(vo, ro):
     """
-    NAME:
+    Convert a frequency to km/s/kpc.
 
-       freq_in_kmskpc
+    Parameters
+    ----------
+    vo : float
+        Velocity unit in km/s.
+    ro : float
+        Length unit in kpc.
 
-    PURPOSE:
+    Returns
+    -------
+    float
+        Conversion from units where vo=1. at ro=1.
 
-       convert a frequency to km/s/kpc
-
-    INPUT:
-
-       vo - velocity unit in km/s
-
-       ro - length unit in kpc
-
-    OUTPUT:
-
-       conversion from units where vo=1. at ro=1.
-
-    HISTORY:
-
-       2013-09-01 - Written - Bovy (IAS)
+    Notes
+    -----
+    - 2013-09-01 - Written - Bovy (IAS)
 
     """
     return vo / ro
@@ -333,27 +293,23 @@ def freq_in_kmskpc(vo, ro):
 
 def surfdens_in_msolpc2(vo, ro):
     """
-    NAME:
+    Convert a surface density to Msolar / pc^2.
 
-       surfdens_in_msolpc2
+    Parameters
+    ----------
+    vo : float
+        Velocity unit in km/s.
+    ro : float
+        Length unit in kpc.
 
-    PURPOSE:
+    Returns
+    -------
+    float
+        Conversion from units where vo=1. at ro=1.
 
-       convert a surface density to Msolar / pc^2
-
-    INPUT:
-
-       vo - velocity unit in km/s
-
-       ro - length unit in kpc
-
-    OUTPUT:
-
-       conversion from units where vo=1. at ro=1.
-
-    HISTORY:
-
-       2013-09-01 - Written - Bovy (IAS)
+    Notes
+    -----
+    - 2013-09-01 - Written - Bovy (IAS)
 
     """
     return vo**2.0 / ro / _G * 10.0**-3.0
@@ -361,27 +317,23 @@ def surfdens_in_msolpc2(vo, ro):
 
 def mass_in_msol(vo, ro):
     """
-    NAME:
+    Convert a mass to Msolar.
 
-       mass_in_msol
+    Parameters
+    ----------
+    vo : float
+        Velocity unit in km/s.
+    ro : float
+        Length unit in kpc.
 
-    PURPOSE:
+    Returns
+    -------
+    float
+        Conversion from units where vo=1. at ro=1.
 
-       convert a mass to Msolar
-
-    INPUT:
-
-       vo - velocity unit in km/s
-
-       ro - length unit in kpc
-
-    OUTPUT:
-
-       conversion from units where vo=1. at ro=1.
-
-    HISTORY:
-
-       2013-09-01 - Written - Bovy (IAS)
+    Notes
+    -----
+    - 2013-09-01 - Written - Bovy (IAS)
 
     """
     return vo**2.0 * ro / _G * 10.0**3.0
@@ -389,27 +341,23 @@ def mass_in_msol(vo, ro):
 
 def mass_in_1010msol(vo, ro):
     """
-    NAME:
+    Convert a mass to 10^10 x Msolar.
 
-       mass_in_1010msol
+    Parameters
+    ----------
+    vo : float
+        Velocity unit in km/s.
+    ro : float
+        Length unit in kpc.
 
-    PURPOSE:
+    Returns
+    -------
+    float
+        Conversion from units where vo=1. at ro=1.
 
-       convert a mass to 10^10 x Msolar
-
-    INPUT:
-
-       vo - velocity unit in km/s
-
-       ro - length unit in kpc
-
-    OUTPUT:
-
-       conversion from units where vo=1. at ro=1.
-
-    HISTORY:
-
-       2013-09-01 - Written - Bovy (IAS)
+    Notes
+    -----
+    - 2013-09-01 - Written - Bovy (IAS)
 
     """
     return vo**2.0 * ro / _G * 10.0**-7.0
@@ -417,27 +365,23 @@ def mass_in_1010msol(vo, ro):
 
 def time_in_Gyr(vo, ro):
     """
-    NAME:
+    Convert a time to Gyr.
 
-       time_in_Gyr
+    Parameters
+    ----------
+    vo : float
+        Velocity unit in km/s.
+    ro : float
+        Length unit in kpc.
 
-    PURPOSE:
+    Returns
+    -------
+    float
+        Conversion from units where vo=1. at ro=1.
 
-       convert a time to Gyr
-
-    INPUT:
-
-       vo - velocity unit in km/s
-
-       ro - length unit in kpc
-
-    OUTPUT:
-
-       conversion from units where vo=1. at ro=1.
-
-    HISTORY:
-
-       2013-09-01 - Written - Bovy (IAS)
+    Notes
+    -----
+    - 2013-09-01 - Written - Bovy (IAS)
 
     """
     return ro / vo / _kmsInPcMyr
@@ -445,27 +389,23 @@ def time_in_Gyr(vo, ro):
 
 def velocity_in_kpcGyr(vo, ro):
     """
-    NAME:
+    Convert a velocity to kpc/Gyr.
 
-       velocity_in_kpcGyr
+    Parameters
+    ----------
+    vo : float
+        Velocity unit in km/s.
+    ro : float
+        Length unit in kpc.
 
-    PURPOSE:
+    Returns
+    -------
+    float
+        Conversion from units where vo=1. at ro=1.
 
-       convert a velocity to kpc/Gyr
-
-    INPUT:
-
-       vo - velocity unit in km/s
-
-       ro - length unit in kpc
-
-    OUTPUT:
-
-       conversion from units where vo=1. at ro=1.
-
-    HISTORY:
-
-       2014-12-19 - Written - Bovy (IAS)
+    Notes
+    -----
+    - 2014-12-19 - Written - Bovy (IAS)
 
     """
     return vo * _kmsInPcMyr
@@ -473,27 +413,23 @@ def velocity_in_kpcGyr(vo, ro):
 
 def get_physical(obj: Any, include_set: bool = False) -> dict:
     """
-    NAME:
+    Return the velocity and length units for converting between physical and internal units as a dictionary for any galpy object, so they can easily be fed to galpy routines.
 
-       get_physical
+    Parameters
+    ----------
+    obj : Any
+        A galpy object or list of such objects (e.g., a Potential, list of Potentials, Orbit, actionAngle instance, DF instance).
+    include_set : bool, optional
+        If True, also include roSet and voSet, flags of whether the unit is explicitly set in the object. Default is False.
 
-    PURPOSE:
+    Returns
+    -------
+    dict
+        A dictionary {'ro':length unit in kpc,'vo':velocity unit in km/s}; note that this routine will *always* return these conversion units, even if the obj you provide does not have units turned on.
 
-       return the velocity and length units for converting between physical and internal units as a dictionary for any galpy object, so they can easily be fed to galpy routines
-
-    INPUT:
-
-       obj - a galpy object or list of such objects (e.g., a Potential, list of Potentials, Orbit, actionAngle instance, DF instance)
-
-       include_set= (False) if True, also include roSet and voSet, flags of whether the unit is explicitly set in the object
-
-    OUTPUT:
-
-       Dictionary {'ro':length unit in kpc,'vo':velocity unit in km/s}; note that this routine will *always* return these conversion units, even if the obj you provide does not have units turned on
-
-    HISTORY:
-
-       2019-08-03 - Written - Bovy (UofT)
+    Notes
+    -----
+    - 2019-08-03 - Written - Bovy (UofT)
 
     """
     # Try flattening the object in case it's a nested list of Potentials
@@ -524,25 +460,21 @@ def get_physical(obj: Any, include_set: bool = False) -> dict:
 
 def extract_physical_kwargs(kwargs: dict) -> dict:
     """
-    NAME:
+    Extract the physical kwargs from a kwargs dictionary.
 
-       extract_physical_kwargs
+    Parameters
+    ----------
+    kwargs : dict
+        A dictionary of kwargs.
 
-    PURPOSE:
+    Returns
+    -------
+    dict
+        A dictionary with just the physical kwargs.
 
-       extract the physical kwargs from a kwargs dictionary
-
-    INPUT:
-
-       kwargs - a dictionary of kwargs
-
-    OUTPUT:
-
-       dictionary with just the physical kwargs
-
-    HISTORY:
-
-       2023-04-24 - Written - Bovy (UofT)
+    Notes
+    -----
+    - 2023-04-24 - Written - Bovy (UofT)
 
     """
     out = {}
@@ -554,27 +486,23 @@ def extract_physical_kwargs(kwargs: dict) -> dict:
 
 def physical_compatible(obj: Any, other_obj: Any) -> bool:
     """
-    NAME:
+    Test whether the velocity and length units for converting between physical and internal units are compatible for two galpy objects.
 
-       physical_compatible
+    Parameters
+    ----------
+    obj : galpy object or list of such objects
+        A galpy object or list of such objects (e.g., a Potential, list of Potentials, Orbit, actionAngle instance, DF instance)
+    other_obj : galpy object or list of such objects
+        Another galpy object or list of such objects (e.g., a Potential, list of Potentials, Orbit, actionAngle instance, DF instance)
 
-    PURPOSE:
+    Returns
+    -------
+    bool
+        True if the units are compatible, False if not (compatible means that the units are the same when they are set for both objects).
 
-       test whether the velocity and length units for converting between physical and internal units are compatible for two galpy objects
-
-    INPUT:
-
-       obj - a galpy object or list of such objects (e.g., a Potential, list of Potentials, Orbit, actionAngle instance, DF instance)
-
-       other_obj - another galpy object or list of such objects (e.g., a Potential, list of Potentials, Orbit, actionAngle instance, DF instance)
-
-    OUTPUT:
-
-       True if the units are compatible, False if not (compatible means that the units are the same when they are set for both objects)
-
-    HISTORY:
-
-       2020-04-22 - Written - Bovy (UofT)
+    Notes
+    -----
+    - 2020-04-22 - Written - Bovy (UofT)
 
     """
     if obj is None or other_obj is None:  # if one is None, just state compat
@@ -858,33 +786,28 @@ _voNecessary["energydensity"] = True
 # Determine whether or not outputs will be physical or not
 def physical_output(obj: Any, kwargs: dict, quantity: str) -> Tuple[bool, float, float]:
     """
-    NAME:
+    Determine whether or not outputs will be physical or not
 
-       physical_output
+    Parameters
+    ----------
+    obj : galpy object (or list in case of potentials)
+        galpy object.
+    kwargs : dict
+        Kwargs passed to the method.
+    quantity : str
+        Quantity to be returned.
 
-    PURPOSE:
+    Returns
+    -------
+    tuple
+        A tuple containing:
+            - boolean that indicates whether or not to use physical units.
+            - ro.
+            - vo.
 
-       Determine whether or not outputs will be physical or not
-
-    INPUT:
-
-       obj - galpy object (or list in case of potentials)
-
-       kwargs - kwargs passed to the method
-
-       quantity - quantity to be returned
-
-    OUTPUT:
-
-       (
-        boolean that indicates whether or not to use physical units,
-        ro,
-        vo
-       )
-
-    HISTORY:
-
-        2023-04-24 - Written - Bovy (UofT)
+    Notes
+    -----
+    - 2023-04-24 - Written - Bovy (UofT).
 
     """
     use_physical = kwargs.get("use_physical", True) and not kwargs.get("log", False)
