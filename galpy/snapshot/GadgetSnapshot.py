@@ -11,16 +11,17 @@ class GadgetSnapshot:
 
     def __init__(self, *args, **kwargs):
         """
-        NAME:
-           __init__
-        PURPOSE:
-           initialize a Gadget snapshot object
-        INPUT:
-           Initialize using:
-              1) filename
-        OUTPUT:
-        HISTORY:
-           2011-08-15 - Started - Bovy
+        Initialize a Gadget snapshot object.
+
+        Parameters
+        ----------
+        *args : str
+            Filename of the snapshot.
+
+        Notes
+        -----
+        - 2011-08-15 - Started - Bovy
+
         """
         if not _PYNBODYENABLED:
             raise ImportError("pynbody could not be loaded to read the gadget snapshot")
@@ -38,15 +39,11 @@ class GadgetSnapshot:
 
     def plot(self, *args, **kwargs):
         """
-        NAME:
-           plot
-        PURPOSE:
-           plot the snapshot
-        INPUT:
+        Plot the snapshot.
 
-        OUTPUT:
-        HISTORY:
-           2011-08-15 - Started - Bovy (NYU)
+        Notes
+        -----
+        - 2011-08-15 - Started - Bovy (NYU)
         """
         labeldict = {
             "t": r"$t$",

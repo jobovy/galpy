@@ -11,19 +11,20 @@ class Snapshot:
 
     def __init__(self, *args, **kwargs):
         """
-        NAME:
-           __init__
-        PURPOSE:
-           initialize a snapshot object
-        INPUT:
-           Initialize using:
-              1) list of orbits, list of masses (masses=)
-              Coming soon:
-              2) observations
-              3) DFs to draw from
-        OUTPUT:
-        HISTORY:
-           2011-02-02 - Started - Bovy
+        Initialize a snapshot object.
+
+        Parameters
+        ----------
+        *args : list
+            List of orbits, list of masses (masses=)
+        **kwargs : dict
+            Coming soon:
+            1) observations
+            2) DFs to draw from
+
+        Notes
+        -----
+        - 2011-02-02 - Started - Bovy
         """
         if isinstance(args[0], list) and isinstance(args[0][0], Orbit):
             self.orbits = args[0]
@@ -35,19 +36,29 @@ class Snapshot:
 
     def integrate(self, t, pot=None, method="test-particle", **kwargs):
         """
-        NAME:
-           integrate
-        PURPOSE:
-           integrate the snapshot in time
-        INPUT:
-           t - numpy.array of times to save the snapshots at (must start at 0)
-           pot= potential object or list of such objects (default=None)
-           method= method to use ('test-particle' or 'direct-python' for now)
-        OUTPUT:
-           list of snapshots at times t
-        HISTORY:
-           2011-02-02 - Written - Bovy (NYU)
+        Integrate the snapshot in time.
+
+        Parameters
+        ----------
+        t : numpy.ndarray
+            Times to save the snapshots at (must start at 0).
+        pot : object or list of objects, optional
+            Potential object(s) (default=None).
+        method : str, optional
+            Method to use ('test-particle' or 'direct-python' for now).
+        **kwargs
+            Additional keyword arguments to pass to the integration method.
+
+        Returns
+        -------
+        list
+            List of snapshots at times t.
+
+        Notes
+        -----
+        - 2011-02-02 - Written - Bovy (NYU)
         """
+
         if method.lower() == "test-particle":
             return self._integrate_test_particle(t, pot)
         elif method.lower() == "direct-python":
@@ -156,30 +167,27 @@ class Snapshot:
     # Plotting
     def plot(self, *args, **kwargs):
         """
-        NAME:
+        Plot the snapshot (with reasonable defaults)
 
-           plot
+        Parameters
+        ----------
+        d1 : str, optional
+            First dimension to plot ('x', 'y', 'R', 'vR', 'vT', 'z', 'vz', ...).
+        d2 : str, optional
+            Second dimension to plot.
+        *args : tuple
+            Matplotlib.plot inputs + galpy.util.plot.plot inputs.
+        **kwargs : dict
+            Matplotlib.plot inputs + galpy.util.plot.plot inputs.
 
-        PURPOSE:
+        Returns
+        -------
+        None
+            Sends plot to output device.
 
-           plot the snapshot (with reasonable defaults)
-
-        INPUT:
-
-           d1= first dimension to plot ('x', 'y', 'R', 'vR', 'vT', 'z', 'vz', ...)
-
-           d2= second dimension to plot
-
-           matplotlib.plot inputs+galpy.util.plot.plot inputs
-
-        OUTPUT:
-
-           sends plot to output device
-
-        HISTORY:
-
-           2011-02-06 - Written based on Orbit's plot
-
+        Notes
+        -----
+        - 2011-02-06 - Written based on Orbit's plot
         """
         labeldict = {
             "t": r"$t$",
@@ -274,31 +282,29 @@ class Snapshot:
 
     def plot3d(self, *args, **kwargs):
         """
-        NAME:
+        Plot the snapshot in 3D (with reasonable defaults)
 
-           plot3d
+        Parameters
+        ----------
+        d1 : str, optional
+            First dimension to plot ('x', 'y', 'R', 'vR', 'vT', 'z', 'vz', ...).
+        d2 : str, optional
+            Second dimension to plot.
+        d3 : str, optional
+            Third dimension to plot.
+        *args
+            Matplotlib.plot inputs+galpy.util.plot.plot3d inputs.
+        **kwargs
+            Matplotlib.plot inputs+galpy.util.plot.plot3d inputs.
 
-        PURPOSE:
+        Returns
+        -------
+        None
+            Sends plot to output device.
 
-           plot the snapshot in 3D (with reasonable defaults)
-
-        INPUT:
-
-           d1= first dimension to plot ('x', 'y', 'R', 'vR', 'vT', 'z', 'vz', ...)
-
-           d2= second dimension to plot
-
-           d3= third dimension to plot
-
-           matplotlib.plot inputs+galpy.util.plot.plot3d inputs
-
-        OUTPUT:
-
-           sends plot to output device
-
-        HISTORY:
-
-           2011-02-06 - Written based on Orbit's plot3d
+        Notes
+        -----
+        - 2011-02-06 - Written based on Orbit's plot3d
 
         """
         labeldict = {
