@@ -602,7 +602,9 @@ def integrateFullOrbit_c(
         return (result, err)
 
 
-def integrateFullOrbit_dxdv_c(pot, yo, dyo, t, int_method, rtol=None, atol=None):
+def integrateFullOrbit_dxdv_c(
+    pot, yo, dyo, t, int_method, rtol=None, atol=None
+):  # pragma: no cover because not included in v1, uncover when included
     """
     Integrate an ode for a planarOrbit+phase space volume dxdv.
 

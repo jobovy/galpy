@@ -116,10 +116,6 @@ def end_print(filename, **kwargs):
     pyplot.close()
 
 
-import numpy
-from matplotlib import pyplot
-
-
 def hist(x, xlabel=None, ylabel=None, overplot=False, **kwargs):
     """
     Plot a histogram of the input array using matplotlib's hist function.

@@ -918,80 +918,58 @@ class Potential(Force):
         ncontours=21,
         savefilename=None,
     ):
-        def plot(
-            self,
-            t=0.0,
-            rmin=0.0,
-            rmax=1.5,
-            nrs=21,
-            zmin=-0.5,
-            zmax=0.5,
-            nzs=21,
-            phi=None,
-            xy=False,
-            effective=False,
-            Lz=None,
-            justcontours=False,
-            savefilename=None,
-            xrange=None,
-            yrange=None,
-            levels=None,
-            cntrcolors=None,
-            ncontours=21,
-        ):
-            """
-            Plot the potential.
+        """
+        Plot the potential.
 
-            Parameters
-            ----------
-            t : float, optional
-                Time to plot potential at. Default is 0.0.
-            rmin : float or Quantity, optional
-                Minimum R. Default is 0.0.
-            rmax : float or Quantity, optional
-                Maximum R. Default is 1.5.
-            nrs : int, optional
-                Grid in R. Default is 21.
-            zmin : float or Quantity, optional
-                Minimum z. Default is -0.5.
-            zmax : float or Quantity, optional
-                Maximum z. Default is 0.5.
-            nzs : int, optional
-                Grid in z. Default is 21.
-            phi : float or Quantity, optional
-                Azimuth to use for non-axisymmetric potentials. Default is None.
-            xy : bool, optional
-                If True, plot the potential in X-Y. Default is False.
-            effective : bool, optional
-                If True, plot the effective potential Phi + Lz^2/2/R^2. Default is False.
-            Lz : float or Quantity, optional
-                Angular momentum to use for the effective potential when effective=True. Default is None.
-            justcontours : bool, optional
-                If True, just plot contours. Default is False.
-            savefilename : str, optional
-                Save to or restore from this savefile (pickle). Default is None.
-            xrange : list, optional
-                Can be specified independently from rmin, zmin, etc. Default is None.
-            yrange : list, optional
-                Can be specified independently from rmin, zmin, etc. Default is None.
-            levels : list, optional
-                Contours to plot. Default is None.
-            cntrcolors : str or list, optional
-                Colors of the contours (single color or array with length ncontours). Default is None.
-            ncontours : int, optional
-                Number of contours when levels is None. Default is 21.
+        Parameters
+        ----------
+        t : float, optional
+            Time to plot potential at. Default is 0.0.
+        rmin : float or Quantity, optional
+            Minimum R. Default is 0.0.
+        rmax : float or Quantity, optional
+            Maximum R. Default is 1.5.
+        nrs : int, optional
+            Grid in R. Default is 21.
+        zmin : float or Quantity, optional
+            Minimum z. Default is -0.5.
+        zmax : float or Quantity, optional
+            Maximum z. Default is 0.5.
+        nzs : int, optional
+            Grid in z. Default is 21.
+        phi : float or Quantity, optional
+            Azimuth to use for non-axisymmetric potentials. Default is None.
+        xy : bool, optional
+            If True, plot the potential in X-Y. Default is False.
+        effective : bool, optional
+            If True, plot the effective potential Phi + Lz^2/2/R^2. Default is False.
+        Lz : float or Quantity, optional
+            Angular momentum to use for the effective potential when effective=True. Default is None.
+        justcontours : bool, optional
+            If True, just plot contours. Default is False.
+        savefilename : str, optional
+            Save to or restore from this savefile (pickle). Default is None.
+        xrange : list, optional
+            Can be specified independently from rmin, zmin, etc. Default is None.
+        yrange : list, optional
+            Can be specified independently from rmin, zmin, etc. Default is None.
+        levels : list, optional
+            Contours to plot. Default is None.
+        cntrcolors : str or list, optional
+            Colors of the contours (single color or array with length ncontours). Default is None.
+        ncontours : int, optional
+            Number of contours when levels is None. Default is 21.
 
-            Returns
-            -------
-            galpy.util.plot.dens2d return value
+        Returns
+        -------
+        galpy.util.plot.dens2d return value
 
-            Notes
-            -----
-            - 2010-07-09 - Written - Bovy (NYU)
-            - 2014-04-08 - Added effective= - Bovy (IAS)
+        Notes
+        -----
+        - 2010-07-09 - Written - Bovy (NYU)
+        - 2014-04-08 - Added effective= - Bovy (IAS)
 
-            """
-
+        """
         if effective and xy:
             raise RuntimeError("xy and effective cannot be True at the same time")
         rmin = conversion.parse_length(rmin, ro=self._ro)

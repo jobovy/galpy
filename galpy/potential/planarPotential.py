@@ -291,7 +291,7 @@ class planarAxiPotential(planarPotential):
     def _phitorque(self, R, phi=0.0, t=0.0):
         return 0.0
 
-    def _phi2deriv(self, R, phi=0.0, t=0.0):
+    def _phi2deriv(self, R, phi=0.0, t=0.0):  # pragma: no cover
         """
         Evaluate the second azimuthal derivative for this potential.
 
@@ -316,7 +316,7 @@ class planarAxiPotential(planarPotential):
         """
         return 0.0
 
-    def _Rphideriv(self, R, phi=0.0, t=0.0):
+    def _Rphideriv(self, R, phi=0.0, t=0.0):  # pragma: no cover
         """
         Evaluate the radial+azimuthal derivative for this potential.
 

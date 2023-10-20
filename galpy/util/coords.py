@@ -1553,9 +1553,6 @@ def spher_to_cyl_vec(vr, vT, vtheta, theta):
     return (vR, vT, vz)
 
 
-import numpy
-
-
 def rect_to_cyl_vec(vx, vy, vz, X, Y, Z, cyl=False):
     """
     Transform vectors from rectangular to cylindrical coordinates vectors.
@@ -1917,9 +1914,6 @@ def rphi_to_dl_2d(R, phi, degree=False, ro=1.0, phio=0.0):
         return (d, l)
 
 
-import numpy
-
-
 def Rz_to_coshucosv(R, z, delta=1.0, oblate=False):
     """
     Calculate prolate confocal cosh(u) and cos(v) coordinates from R,z, and delta.
@@ -1958,9 +1952,6 @@ def Rz_to_coshucosv(R, z, delta=1.0, oblate=False):
     return (coshu, cosv)
 
 
-import numpy
-
-
 def Rz_to_uv(R, z, delta=1.0, oblate=False):
     """
     Calculate prolate or oblate confocal u and v coordinates from R, z, and delta.
@@ -1991,9 +1982,6 @@ def Rz_to_uv(R, z, delta=1.0, oblate=False):
     u = numpy.arccosh(coshu)
     v = numpy.arccos(cosv)
     return (u, v)
-
-
-import numpy
 
 
 def uv_to_Rz(u, v, delta=1.0, oblate=False):
@@ -2481,9 +2469,6 @@ def custom_to_pmrapmdec(pmphi1, pmphi2, phi1, phi2, T=None, degree=False):
     return pmrapmdec_to_custom(
         pmphi1, pmphi2, phi1, phi2, T=numpy.transpose(T), degree=degree  # T.T = inv(T)
     )
-
-
-import numpy
 
 
 def get_epoch_angles(epoch=2000.0):

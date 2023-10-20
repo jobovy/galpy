@@ -23,7 +23,7 @@ if _APY_LOADED:
 class planarForce:
     """Top-level class for any 2D force, conservative or dissipative"""
 
-    def __init__(self, amp, ro=None, vo=None):
+    def __init__(self, amp=1.0, ro=None, vo=None):
         """
         Initialize 2D Force.
 
