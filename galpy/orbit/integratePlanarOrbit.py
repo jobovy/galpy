@@ -657,28 +657,40 @@ def integratePlanarOrbit_c(
     pot, yo, t, int_method, rtol=None, atol=None, progressbar=True, dt=None
 ):
     """
-    NAME:
-       integratePlanarOrbit_c
-    PURPOSE:
-       C integrate an ode for a planarOrbit
-    INPUT:
-       pot - Potential or list of such instances
-       yo - initial condition [q,p], can be [N,4] or [4]
-       t - set of times at which one wants the result
-       int_method= 'leapfrog_c', 'rk4_c', 'rk6_c', 'symplec4_c', ...
-       rtol, atol
-       progressbar= (True) if True, display a tqdm progress bar when integrating multiple orbits (requires tqdm to be installed!)
-       dt= (None) force integrator to use this stepsize (default is to automatically determine one)
-   OUTPUT:
-       (y,err)
-       y : array, shape (len(y0),len(t),4)
-       Array containing the value of y for each desired time in t, \
-       with the initial value y0 in the first row.
-       err: error message, if not zero: 1 means maximum step reduction happened for adaptive integrators
-    HISTORY:
-       2011-10-03 - Written - Bovy (IAS)
-       2018-12-20 - Adapted to allow multiple objects - Bovy (UofT)
-       2022-04-12 - Add progressbar - Bovy (UofT)
+    Integrate an ode for a planarOrbit.
+
+    Parameters
+    ----------
+    pot : Potential or list of such instances
+    yo : numpy.ndarray
+        Initial condition [q,p], can be [N,4] or [4].
+    t : numpy.ndarray
+        Set of times at which one wants the result.
+    int_method : str
+        Integration method. Options are 'leapfrog_c', 'rk4_c', 'rk6_c', 'symplec4_c', ...
+    rtol : float, optional
+        Relative tolerance.
+    atol : float, optional
+        Absolute tolerance.
+    progressbar : bool, optional
+        If True, display a tqdm progress bar when integrating multiple orbits (requires tqdm to be installed!).
+    dt : float, optional
+        Force integrator to use this stepsize (default is to automatically determine one).
+
+    Returns
+    -------
+    tuple
+        (y,err)
+        y : array, shape (len(y0),len(t),4)
+            Array containing the value of y for each desired time in t, with the initial value y0 in the first row.
+        err : int
+            Error message, if not zero: 1 means maximum step reduction happened for adaptive integrators.
+
+    Notes
+    -----
+    - 2011-10-03 - Written - Bovy (IAS)
+    - 2018-12-20 - Adapted to allow multiple objects - Bovy (UofT)
+    - 2022-04-12 - Add progressbar - Bovy (UofT)
     """
     if len(yo.shape) == 1:
         single_obj = True
@@ -775,26 +787,39 @@ def integratePlanarOrbit_dxdv_c(
     pot, yo, dyo, t, int_method, rtol=None, atol=None, dt=None
 ):
     """
-    NAME:
-       integratePlanarOrbit_dxdv_c
-    PURPOSE:
-       C integrate an ode for a planarOrbit+phase space volume dxdv
-    INPUT:
-       pot - Potential or list of such instances
-       yo - initial condition [q,p]
-       dyo - initial condition [dq,dp]
-       t - set of times at which one wants the result
-       int_method= 'leapfrog_c', 'rk4_c', 'rk6_c', 'symplec4_c'
-       rtol, atol
-       dt= (None) force integrator to use this stepsize (default is to automatically determine one))
-    OUTPUT:
-       (y,err)
-       y,dy : array, shape (len(y0),len(t),8)
-       Array containing the value of y for each desired time in t, \
-       with the initial value y0 in the first row.
-       err: error message if not zero, 1: maximum step reduction happened for adaptive integrators
-    HISTORY:
-       2011-10-19 - Written - Bovy (IAS)
+    Integrate an ode for a planarOrbit+phase space volume dxdv
+
+    Parameters
+    ----------
+    pot : Potential or list of such instances
+    yo : numpy.ndarray
+        Initial condition [q,p]
+    dyo : numpy.ndarray
+        Initial condition [dq,dp]
+    t : numpy.ndarray
+        Set of times at which one wants the result
+    int_method : str
+        Integration method. One of 'leapfrog_c', 'rk4_c', 'rk6_c', 'symplec4_c'
+    rtol : float, optional
+        Relative tolerance. Default is None
+    atol : float, optional
+        Absolute tolerance. Default is None
+    dt : float, optional
+        Force integrator to use this stepsize (default is to automatically determine one)
+
+    Returns
+    -------
+    tuple
+        (y,err)
+        y,dy : array, shape (len(y0),len(t),8)
+        Array containing the value of y for each desired time in t, \
+        with the initial value y0 in the first row.
+        err: error message if not zero, 1: maximum step reduction happened for adaptive integrators
+
+    Notes
+    -----
+    - 2011-10-19 - Written - Bovy (IAS)
+
     """
     rtol, atol = _parse_tol(rtol, atol)
     npot, pot_type, pot_args, pot_tfuncs = _parse_pot(pot)
@@ -866,29 +891,42 @@ def integratePlanarOrbit(
     pot, yo, t, int_method, rtol=None, atol=None, numcores=1, progressbar=True, dt=None
 ):
     """
-    NAME:
-       integratePlanarOrbit
-    PURPOSE:
-       Integrate an ode for a planarOrbit
-    INPUT:
-       pot - Potential or list of such instances
-       yo - initial condition [q,p], shape [N,3] or [N,4]
-       t - set of times at which one wants the result
-       int_method= 'leapfrog', 'odeint', or 'dop853'
-       rtol, atol= tolerances (not always used...)
-       numcores= (1) number of cores to use for multi-processing
-       progressbar= (True) if True, display a tqdm progress bar when integrating multiple orbits (requires tqdm to be installed!)
-       dt= (None) force integrator to use this stepsize (default is to automatically determine one; only for C-based integrators!)
-    OUTPUT:
-       (y,err)
-       y : array, shape (N,len(t),3/4)
-       Array containing the value of y for each desired time in t, \
-       with the initial value y0 in the first row.
-       err: error message, always zero for now
-    HISTORY:
-       2010-07-20 - Written - Bovy (NYU)
-       2019-04-09 - Adapted to allow multiple objects and parallel mapping - Bovy (UofT)
-       2022-04-12 - Add progressbar - Bovy (UofT)
+    Integrate an ode for a planarOrbit
+
+    Parameters
+    ----------
+    pot : Potential or list of such instances
+    yo : numpy.ndarray
+        Initial condition [q,p], shape [N,3] or [N,4]
+    t : numpy.ndarray
+        Set of times at which one wants the result
+    int_method : str
+        Integration method. One of 'leapfrog', 'odeint', 'dop853'
+    rtol : float, optional
+        Relative tolerance. Default is None
+    atol : float, optional
+        Absolute tolerance. Default is None
+    numcores : int, optional
+        Number of cores to use for multi-processing
+    progressbar : bool, optional
+        If True, display a tqdm progress bar when integrating multiple orbits (requires tqdm to be installed!).
+    dt : float, optional
+        Force integrator to use this stepsize (default is to automatically determine one)
+
+    Returns
+    -------
+    tuple
+        (y,err)
+        y : array, shape (N,len(t),3/4)
+        Array containing the value of y for each desired time in t, \
+        with the initial value y0 in the first row.
+        err: error message, always zero for now
+
+    Notes
+    -----
+    - 2010-07-20 - Written - Bovy (NYU)
+    - 2019-04-09 - Adapted to allow multiple objects and parallel mapping - Bovy (UofT)
+    - 2022-04-12 - Add progressbar - Bovy (UofT)
     """
     nophi = False
     if not int_method.lower() == "dop853" and not int_method == "odeint":
@@ -1006,32 +1044,48 @@ def integratePlanarOrbit_dxdv(
     numcores=1,
 ):
     """
-    NAME:
-       integratePlanarOrbit_dxdv
-    PURPOSE:
-       Integrate an ode for a planarOrbit+phase space volume dxdv
-    INPUT:
-       pot - Potential or list of such instances
-       yo - initial condition [q,p], shape [N,4]
-       dyo - initial condition [dq,dp], shape [N,4]
-       t - set of times at which one wants the result
-       int_method= 'odeint', 'dop853', 'dopr54_c', 'rk4_c', 'rk6_c'
-       rectIn= (False) if True, input dyo is in rectangular coordinates
-       rectOut= (False) if True, output dyo is in rectangular coordinates
-       rtol, atol= tolerances (not always used...)
-       numcores= (1) number of cores to use for multi-processing
-       progressbar= (True) if True, display a tqdm progress bar when integrating multiple orbits (requires tqdm to be installed!)
-       dt= (None) force integrator to use this stepsize (default is to automatically determine one; only for C-based integrators)
-    OUTPUT:
-       (y,err)
-       y : array, shape (N,len(t),8)
-       Array containing the value of y for each desired time in t, \
-       with the initial value y0 in the first row.
-       err: error message, always zero for now
-    HISTORY:
-       2011-10-17 - Written - Bovy (IAS)
-       2019-05-21 - Adapted to allow multiple objects and parallel mapping - Bovy (UofT)
-       2022-04-12 - Add progressbar - Bovy (UofT)
+    Integrate an ode for a planarOrbit+phase space volume dxdv
+
+    Parameters
+    ----------
+    pot : Potential or list of such instances
+    yo : numpy.ndarray
+        Initial condition [q,p], shape [N,4]
+    dyo : numpy.ndarray
+        Initial condition [dq,dp], shape [N,4]
+    t : numpy.ndarray
+        Set of times at which one wants the result
+    int_method : str
+        Integration method. One of 'leapfrog', 'odeint', 'dop853'
+    rectIn : bool
+        If True, input dyo is in rectangular coordinates
+    rectOut : bool
+        If True, output dyo is in rectangular coordinates
+    rtol : float, optional
+        Relative tolerance. Default is None
+    atol : float, optional
+        Absolute tolerance. Default is None
+    progressbar : bool, optional
+        If True, display a tqdm progress bar when integrating multiple orbits (requires tqdm to be installed!).
+    dt : float, optional
+        Force integrator to use this stepsize (default is to automatically determine one)
+    numcores : int, optional
+        Number of cores to use for multi-processing
+
+    Returns
+    -------
+    tuple
+        (y,err)
+        y,dy : array, shape (N,len(t),8)
+        Array containing the value of y for each desired time in t, \
+        with the initial value y0 in the first row.
+        err: error message if not zero, 1: maximum step reduction happened for adaptive integrators
+
+    Notes
+    -----
+    - 2011-10-17 - Written - Bovy (IAS)
+    - 2019-05-21 - Adapted to allow multiple objects and parallel mapping - Bovy (UofT)
+    - 2022-04-12 - Add progressbar - Bovy (UofT)
     """
     # go to the rectangular frame
     this_yo = numpy.array(
@@ -1136,28 +1190,42 @@ def integratePlanarOrbit_sos_c(
     dpsi=None,
 ):
     """
-    NAME:
-       integratePlanarOrbit_sos_c
-    PURPOSE:
-       Integrate an ode for a PlanarOrbit for integrate_sos in C
-    INPUT:
-       pot - Potential or list of such instances
-       yo - initial condition [q,p], shape [N,5] or [N,6]
-       psi - set of increment angles at which one wants the result [increments wrt initial angle]
-       t0 - initial time
-       int_method= 'rk4_c', 'rk6_c', 'dopr54_c', or 'dop853_c'
-       surface= ('x') surface to use ('x' for finding x=0, vx>0; 'y' for finding y=0, vy>0)
-       rtol, atol= tolerances (not always used...)
-       progressbar= (True) if True, display a tqdm progress bar when integrating multiple orbits (requires tqdm to be installed!)
-       dpsi= (None) force integrator to use this stepsize (default is to automatically determine one; only for C-based integrators)
-    OUTPUT:
-       (y,err)
-       y : array, shape (N,len(psi),5) where the last of the last dimension is the time
-       Array containing the value of y for each desired angle in psi, \
-       with the initial value y0 in the first row.
-       err: error message, always zero for now
-    HISTORY:
-       2023-03-17 - Written based on integrateFullOrbit_sos_c - Bovy (UofT)
+    Integrate an ode for a PlanarOrbit for integrate_sos in C
+
+    Parameters
+    ----------
+    pot : Potential or list of such instances
+    yo : numpy.ndarray
+        Initial condition [q,p], shape [N,5] or [N,6]
+    psi : numpy.ndarray
+        Set of increment angles at which one wants the result [increments wrt initial angle]
+    t0 : float or numpy.ndarray
+        Initial time
+    int_method : str
+        'rk4_c', 'rk6_c', 'dopr54_c', or 'dop853_c'
+    surface : str, optional
+        Surface to use ('x' for finding x=0, vx>0; 'y' for finding y=0, vy>0), by default "x"
+    rtol : float, optional
+        Relative tolerance, by default None
+    atol : float, optional
+        Absolute tolerance, by default None
+    progressbar : bool, optional
+        If True, display a tqdm progress bar when integrating multiple orbits (requires tqdm to be installed!), by default True
+    dpsi : float, optional
+        Force integrator to use this stepsize (default is to automatically determine one; only for C-based integrators), by default None
+
+    Returns
+    -------
+    tuple
+        (y,err)
+        y : array, shape (N,len(psi),5) where the last of the last dimension is the time
+            Array containing the value of y for each desired angle in psi, with the initial value y0 in the first row.
+        err : int
+            Error message, always zero for now
+
+    Notes
+    -----
+    - 2023-03-17 - Written based on integrateFullOrbit_sos_c - Bovy (UofT)
     """
     if len(yo.shape) == 1:
         single_obj = True
@@ -1276,29 +1344,44 @@ def integratePlanarOrbit_sos(
     dpsi=None,
 ):
     """
-    NAME:
-       integratePlanarOrbit_sos
-    PURPOSE:
-       Integrate an ode for a PlanarOrbit for integrate_sos
-    INPUT:
-       pot - Potential or list of such instances
-       yo - initial condition [q,p], shape [N,5] or [N,6]
-       psi - set of increment angles at which one wants the result [increments wrt initial angle]
-       t0 - initial time
-       surface= ('x') surface to use ('x' for finding x=0, vx>0; 'y' for finding y=0, vy>0)
-       int_method= 'leapfrog', 'odeint', or 'dop853'
-       rtol, atol= tolerances (not always used...)
-       numcores= (1) number of cores to use for multi-processing
-       progressbar= (True) if True, display a tqdm progress bar when integrating multiple orbits (requires tqdm to be installed!)
-       dpsi= (None) force integrator to use this stepsize (default is to automatically determine one; only for C-based integrators)
-    OUTPUT:
-       (y,err)
-       y : array, shape (N,len(psi),4/5) where the last of the last dimension is the time
-       Array containing the value of y for each desired angle in psi, \
-       with the initial value y0 in the first row.
-       err: error message, always zero for now
-    HISTORY:
-       2023-03-24 - Written based on integrateFullOrbi_sos - Bovy (UofT)
+    Integrate an ode for a PlanarOrbit for integrate_sos
+
+    Parameters
+    ----------
+    pot : Potential or list of such instances
+    yo : numpy.ndarray
+        Initial condition [q,p], shape [N,5] or [N,6]
+    psi : numpy.ndarray
+        Set of increment angles at which one wants the result [increments wrt initial angle]
+    t0 : float or numpy.ndarray
+        Initial time
+    surface : str, optional
+        Surface to use ('x' for finding x=0, vx>0; 'y' for finding y=0, vy>0), by default "x"
+    int_method : str
+        Integration method to use. One of 'leapfrog', 'odeint', or 'dop853'
+    rtol : float, optional
+        Relative tolerance, by default None
+    atol : float, optional
+        Absolute tolerance, by default None
+    numcores : int, optional
+        Number of cores to use for multi-processing, by default 1
+    progressbar : bool, optional
+        If True, display a tqdm progress bar when integrating multiple orbits (requires tqdm to be installed!), by default True
+    dpsi : float, optional
+        Force integrator to use this stepsize (default is to automatically determine one; only for C-based integrators), by default None
+
+    Returns
+    -------
+    tuple
+        (y,err)
+        y : array, shape (N,len(psi),4/5) where the last of the last dimension is the time
+            Array containing the value of y for each desired angle in psi, with the initial value y0 in the first row.
+        err : int
+            Error message, always zero for now
+
+    Notes
+    -----
+    - 2023-03-24 - Written based on integrateFullOrbi_sos - Bovy (UofT)
     """
     if surface is None:
         surface = "x"
@@ -1408,40 +1491,54 @@ def integratePlanarOrbit_sos(
 
 def _planarREOM(y, t, pot, l2):
     """
-    NAME:
-       _planarREOM
-    PURPOSE:
-       implements the EOM, i.e., the right-hand side of the differential
-       equation, for integrating a planar Orbit assuming angular momentum
-       conservation
-    INPUT:
-       y - current phase-space position
-       t - current time
-       pot - (list of) Potential instance(s)
-       l2 - angular momentum squared
-    OUTPUT:
-       dy/dt
-    HISTORY:
-       2010-07-20 - Written - Bovy (NYU)
+    Implements the EOM, i.e., the right-hand side of the differential
+    equation, for integrating a planar Orbit assuming angular momentum
+    conservation.
+
+    Parameters
+    ----------
+    y : numpy.ndarray
+        Current phase-space position.
+    t : float
+        Current time.
+    pot : list of Potential instance(s)
+        Potential instance(s).
+    l2 : float
+        Angular momentum squared.
+
+    Returns
+    -------
+    numpy.ndarray
+        dy/dt.
+
+    Notes
+    -----
+    - 2010-07-20 - Written - Bovy (NYU)
     """
     return [y[1], l2 / y[0] ** 3.0 + _evaluateplanarRforces(pot, y[0], t=t)]
 
 
 def _planarEOM(y, t, pot):
     """
-    NAME:
-       _planarEOM
-    PURPOSE:
-       implements the EOM, i.e., the right-hand side of the differential
-       equation, for integrating a general planar Orbit
-    INPUT:
-       y - current phase-space position
-       t - current time
-       pot - (list of) Potential instance(s)
-    OUTPUT:
-       dy/dt
-    HISTORY:
-       2010-07-20 - Written - Bovy (NYU)
+    Implements the EOM, i.e., the right-hand side of the differential equation, for integrating a general planar Orbit
+
+    Parameters
+    ----------
+    y : numpy.ndarray
+        Current phase-space position
+    t : float
+        Current time
+    pot : (list of) Potential instance(s)
+
+    Returns
+    -------
+    numpy.ndarray
+        dy/dt
+
+    Notes
+    -----
+    - 2010-07-20 - Written - Bovy (NYU)
+
     """
     l2 = (y[0] ** 2.0 * y[3]) ** 2.0
     return [
@@ -1460,19 +1557,25 @@ def _planarEOM(y, t, pot):
 
 def _planarEOM_dxdv(x, t, pot):
     """
-    NAME:
-       _planarEOM_dxdv
-    PURPOSE:
-       implements the EOM, i.e., the right-hand side of the differential
-       equation, for integrating phase space differences, rectangular
-    INPUT:
-       x - current phase-space position
-       t - current time
-       pot - (list of) Potential instance(s)
-    OUTPUT:
-       dy/dt
-    HISTORY:
-       2011-10-18 - Written - Bovy (IAS)
+    Implements the EOM, i.e., the right-hand side of the differential
+    equation, for integrating phase space differences, rectangular
+
+    Parameters
+    ----------
+    x : numpy.ndarray
+        Current phase-space position
+    t : float
+        Current time
+    pot : (list of) Potential instance(s)
+
+    Returns
+    -------
+    numpy.ndarray
+        dy/dt
+
+    Notes
+    -----
+    - 2011-10-18 - Written - Bovy (IAS)
     """
     # x is rectangular so calculate R and phi
     R = numpy.sqrt(x[0] ** 2.0 + x[1] ** 2.0)
@@ -1532,19 +1635,25 @@ def _planarEOM_dxdv(x, t, pot):
 
 def _planarSOSEOMx(y, psi, pot):
     """
-    NAME:
-       _planarSOSEOMx
-    PURPOSE:
-       implements the EOM, i.e., the right-hand side of the differential
-       equation, for integrating a general planar Orbit in the SOS style
-    INPUT:
-       y - current phase-space position
-       psi - current angle
-       pot - (list of) Potential instance(s)
-    OUTPUT:
-       dy/dt
-    HISTORY:
-       2023-03-24 - Written - Bovy (UofT)
+    Implements the EOM, i.e., the right-hand side of the differential
+    equation, for integrating a general planar Orbit in the SOS style
+
+    Parameters
+    ----------
+    y : numpy.ndarray
+        Current phase-space position
+    psi : float
+        Current angle
+    pot : (list of) Potential instance(s)
+
+    Returns
+    -------
+    numpy.ndarray
+        dy/dt
+
+    Notes
+    -----
+    - 2023-03-24 - Written - Bovy (UofT)
     """
     # y = (y,vy,A,t)
     # Calculate x, vx
@@ -1557,20 +1666,28 @@ def _planarSOSEOMx(y, psi, pot):
 
 def _planarSOSEOMy(y, psi, pot):
     """
-    NAME:
-       _planarSOSEOMy
-    PURPOSE:
-       implements the EOM, i.e., the right-hand side of the differential
-       equation, for integrating a general planar Orbit in the SOS style
-    INPUT:
-       y - current phase-space position
-       psi - current angle
-       pot - (list of) Potential instance(s)
-    OUTPUT:
-       dy/dt
-    HISTORY:
-       2023-03-24 - Written - Bovy (UofT)
+    Implements the EOM, i.e., the right-hand side of the differential
+    equation, for integrating a general planar Orbit in the SOS style
+
+    Parameters
+    ----------
+    y : numpy.ndarray
+        Current phase-space position
+    psi : float
+        Current angle
+    pot : list of Potential instance(s)
+        Potential instance(s)
+
+    Returns
+    -------
+    numpy.ndarray
+        dy/dt
+
+    Notes
+    -----
+    - 2023-03-24 - Written - Bovy (UofT)
     """
+
     # y = (x,vx,A,t)
     # Calculate y
     sp, cp = numpy.sin(psi), numpy.cos(psi)
@@ -1582,19 +1699,28 @@ def _planarSOSEOMy(y, psi, pot):
 
 def _planarRectForce(x, pot, t=0.0, vx=None):
     """
-    NAME:
-       _planarRectForce
-    PURPOSE:
-       returns the planar force in the rectangular frame
-    INPUT:
-       x - current position
-       t - current time
-       pot - (list of) Potential instance(s)
-       vx = (None) if set, use this [vx,vy] when evaluating dissipative forces
-    OUTPUT:
-       force
-    HISTORY:
-       2011-02-02 - Written - Bovy (NYU)
+    Returns the planar force in the rectangular frame.
+
+    Parameters
+    ----------
+    x : numpy.ndarray
+        Current position.
+    t : float, optional
+        Current time (default is 0.0).
+    pot : list or Potential instance(s)
+        Potential instance(s).
+    vx : numpy.ndarray, optional
+        If set, use this [vx,vy] when evaluating dissipative forces (default is None).
+
+    Returns
+    -------
+    numpy.ndarray
+        Force.
+
+    Notes
+    -----
+    - 2011-02-02 - Written - Bovy (NYU)
+
     """
     # x is rectangular so calculate R and phi
     R = numpy.sqrt(x[0] ** 2.0 + x[1] ** 2.0)
