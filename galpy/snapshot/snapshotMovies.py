@@ -14,52 +14,34 @@ import galpy.util.plot as galpy_plot
 
 def snapshotToMovie(snap, filename, *args, **kwargs):
     """
-    NAME:
+    Turn a list of snapshots into a movie
 
-       snapshotToMovie
+    Parameters
+    ----------
+    snap : list
+        The snapshots
+    filename : str
+        Name of the file to save the movie to
+    framerate : int, optional
+        Frames per second (default is 25)
+    bitrate : int, optional
+        Bitrate (default is 1000)
+    thumbnail : bool, optional
+        Create thumbnail image (filename-extension+.jpg) (default is False)
+    thumbsize : int, optional
+        Size of thumbnail (default is 300)
+    *args
+        Arguments for Snapshot.plot
+    **kwargs
+        Keyword arguments for Snapshot.plot
 
-    PURPOSE:
+    Returns
+    -------
+    None
 
-       turn a list of snapshots into a movie
-
-    INPUT:
-
-       snap - the snapshots (list)
-
-       filename - name of the file to save the movie to
-
-       framerate= in fps
-
-       bitrate= ?
-
-       thumbnail=False : create thumbnail image (filename-extension+.jpg)
-
-       thumbsize= size of thumbnail
-
-       +Snapshot.plot args and kwargs
-
-    OUTPUT:
-
-       movie is saved to file
-
-    DEPENDENCIES:
-
-       this procedure uses ffmpeg and convert
-
-    BUGS:
-
-       matplotlib's 'Agg' backend has a memory leak that prevents it from
-       creating hundred's of figures. It is recommended to call
-
-       import matplotlib
-       matplotlib.use('PDF')
-
-       at the beginning of the movie creating script as the PDF backend does
-       not have the same memory leak.
-
-    HISTORY:
-
-       2011-02-06 - Written - Bovy (NYU)
+    Notes
+    -----
+    - 2011-02-06 - Written - Bovy (NYU)
 
     """
     if kwargs.has_key("tmpdir"):

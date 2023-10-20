@@ -10,18 +10,25 @@ import numpy
 
 def read(filename, ext=None, swapyz=False):
     """
-    NAME:
-       read
-    PURPOSE:
-       read a NEMO snapshot file consisting of mass,position,velocity
-    INPUT:
-       filename - name of the file
-       ext= if set, 'nemo' for NEMO binary format, otherwise assumed ASCII; if not set, gleaned from extension
-       swapyz= (False) if True, swap the y and z axes in the output (only for position and velocity)
-    OUTPUT:
-       snapshots [nbody,ndim,nt]
-    HISTORY:
-       2015-11-18 - Written - Bovy (UofT)
+    Read a NEMO snapshot file consisting of mass, position, velocity.
+
+    Parameters
+    ----------
+    filename : str
+        Name of the file.
+    ext : str, optional
+        If set, 'nemo' for NEMO binary format, otherwise assumed ASCII; if not set, gleaned from extension.
+    swapyz : bool, optional
+        If True, swap the y and z axes in the output (only for position and velocity).
+
+    Returns
+    -------
+    ndarray
+        Array of shape (nbody, ndim, nt).
+
+    Notes
+    -----
+    - 2015-11-18 - Written - Bovy (UofT).
     """
     if ext is None and filename.split(".")[-1] == "nemo":
         ext = "nemo"

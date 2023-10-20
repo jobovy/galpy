@@ -27,22 +27,33 @@ def direct_nbody(
     rtol=None,
 ):
     """
-    NAME:
-       direct_nbody
-    PURPOSE:
-       N-body code using direct summation for force evaluation
-    INPUT:
-       q - list of initial positions (numpy.ndarrays)
-       p - list of initial momenta (numpy.ndarrays)
-       m - list of masses
-       t - times at which output is desired
-       pot= external potential (galpy.potential or list of galpy.potentials)
-       softening_model=  type of softening to use ('plummer')
-       softening_length= (optional)
-    OUTPUT:
-       list of [q,p] at times t
-    HISTORY:
-       2011-02-03 - Written - Bovy (NYU)
+    N-body code using direct summation for force evaluation
+
+    Parameters
+    ----------
+    q : list
+        list of initial positions (numpy.ndarrays)
+    p : list
+        list of initial momenta (numpy.ndarrays)
+    m : list
+        list of masses
+    t : list
+        times at which output is desired
+    pot : galpy.potential or list of galpy.potentials, optional
+        external potential
+    softening_model : str, optional
+        type of softening to use ('plummer')
+    softening_length : float, optional
+        softening length
+
+    Parameters
+    ----------
+    list
+        list of [q,p] at times t
+
+    Notes
+    -----
+    - 2011-02-03 - Written - Bovy (NYU).
     """
     # Set up everything
     if softening_model.lower() == "plummer":
