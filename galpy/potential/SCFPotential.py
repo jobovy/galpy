@@ -437,16 +437,16 @@ class SCFPotential(Potential, NumericalPotentialDerivativesMixin):
         ----------
         funcTilde : function
             Must be _rhoTilde or _phiTilde.
-        R : array_like
+        R : numpy.ndarray
             Cylindrical Galactocentric radius.
-        z : array_like
+        z : numpy.ndarray
             Vertical height.
-        phi : array_like
+        phi : numpy.ndarray
             Azimuth.
 
         Returns
         -------
-        array_like
+        numpy.ndarray
             Density or potential evaluated at (R,z, phi).
 
         Notes
@@ -546,17 +546,17 @@ class SCFPotential(Potential, NumericalPotentialDerivativesMixin):
 
         Parameters
         ----------
-        dr_dx : array_like
+        dr_dx : numpy.ndarray
             The derivative of r with respect to the chosen variable x.
-        dtheta_dx : array_like
+        dtheta_dx : numpy.ndarray
             The derivative of theta with respect to the chosen variable x.
-        dphi_dx : array_like
+        dphi_dx : numpy.ndarray
             The derivative of phi with respect to the chosen variable x.
-        R : array_like
+        R : numpy.ndarray
             Cylindrical Galactocentric radius.
-        z : array_like
+        z : numpy.ndarray
             Vertical height.
-        phi : array_like
+        phi : numpy.ndarray
             Azimuth.
 
         Returns
@@ -715,11 +715,11 @@ def scf_compute_coeffs_spherical_nbody(pos, N, mass=1.0, a=1.0):
 
     Parameters
     ----------
-    pos : array_like
+    pos : numpy.ndarray
         Positions of particles in rectangular coordinates with shape [3,n]
     N : int
         Size of the Nth dimension of the expansion coefficients
-    mass : float or array_like, optional
+    mass : float or numpy.ndarray, optional
         Mass of particles (scalar or array with size n), by default 1.0
     a : float, optional
         Parameter used to scale the radius, by default 1.0
@@ -832,7 +832,7 @@ def scf_compute_coeffs_axi_nbody(pos, N, L, mass=1.0, a=1.0):
         Size of the Nth dimension of the expansion coefficients
     L : int
         Size of the Lth dimension of the expansion coefficients
-    mass : float or array_like, optional
+    mass : float or numpy.ndarray, optional
         Mass of particles (scalar or array with size n), by default 1.0
     a : float, optional
         Parameter used to scale the radius, by default 1.0
@@ -982,7 +982,7 @@ def scf_compute_coeffs_nbody(pos, N, L, mass=1.0, a=1.0):
         Size of the Nth dimension of the expansion coefficients
     L : int
         Size of the Lth and Mth dimension of the expansion coefficients
-    mass : float or array_like, optional
+    mass : float or numpy.ndarray, optional
         Mass of particles (scalar or array with size n), by default 1.0
     a : float, optional
         Parameter used to scale the radius, by default 1.0

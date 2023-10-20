@@ -22,7 +22,7 @@ def plotEscapecurve(Pot, *args, **kwargs):
     ----------
     Pot : Potential or list of Potential instances
         Potential(s) for which to plot the escape velocity curve.
-    Rrange : array_like or Quantity, optional
+    Rrange : numpy.ndarray or Quantity, optional
         Range in R to consider (can be Quantity).
     grid : int, optional
         Grid in R.
@@ -126,14 +126,14 @@ def calcEscapecurve(Pot, Rs, t=0.0):
     ----------
     Pot : Potential or list of Potential instances
         Potential or list of Potential instances.
-    Rs : array_like or Quantity
+    Rs : numpy.ndarray or Quantity
         Radius(i).
     t : float, optional
         Instantaneous time (default is 0.0).
 
     Returns
     -------
-    array_like or Quantity
+    numpy.ndarray or Quantity
         Array of v_esc.
 
     Raises
@@ -173,14 +173,14 @@ def vesc(Pot, R, t=0.0):
     ----------
     Pot : Potential or list of Potential instances
         Potential or list of Potential instances.
-    R : array_like or Quantity
+    R : numpy.ndarray or Quantity
         Galactocentric radius.
     t : float, optional
         Time (default is 0.0).
 
     Returns
     -------
-    array_like or Quantity
+    numpy.ndarray or Quantity
         Escape velocity.
 
     Notes

@@ -20,7 +20,7 @@ def plotRotcurve(Pot, *args, **kwargs):
     ----------
     Pot : Potential or list of Potential instances
         Potential instance or list of such instances.
-    Rrange : array_like or Quantity
+    Rrange : numpy.ndarray or Quantity
         Range in R to consider (needs to be in the units that you are plotting).
     grid : int, optional
         Number of grid points in R.
@@ -127,7 +127,7 @@ def calcRotcurve(Pot, Rs, phi=None, t=0.0):
     ----------
     Pot : Potential or list of Potential instances
         Potential instance or list of such instances.
-    Rs : array_like or float
+    Rs : numpy.ndarray or float
         Radius(i).
     phi : float or Quantity, optional
         Azimuth to use for non-axisymmetric potentials.
@@ -136,7 +136,7 @@ def calcRotcurve(Pot, Rs, phi=None, t=0.0):
 
     Returns
     -------
-    array_like
+    numpy.ndarray
         Array of circular rotation velocities.
 
     Notes

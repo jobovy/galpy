@@ -294,7 +294,7 @@ class Orbit:
 
         Parameters
         ----------
-        vxvv : array_like, optional
+        vxvv : numpy.ndarray, optional
             Initial conditions (must all have the same phase-space dimension); can be either:
 
             - astropy (>v3.0) SkyCoord with arbitrary shape, including velocities (note that this turns *on* physical output even if ro and vo are not given)
@@ -317,7 +317,7 @@ class Orbit:
             Circular velocity at ro (km/s; can be an array with the same shape as the Orbit itself).
         zo : float or Quantity, optional
             Offset toward the NGP of the Sun wrt the plane in kpc; default = 20.8 pc from Bennett & Bovy 2019). Can be an array with the same shape as the Orbit itself
-        solarmotion : str, array_like or Quantity, optional
+        solarmotion : str, numpy.ndarray or Quantity, optional
             'hogg' or 'dehnen', or 'schoenrich', or value in [-U,V,W] in km/s. Can be an array with the same shape as the Orbit itself
         radec : bool, optional
             If set, treat input as being in ICRS coordinates [ra,dec,d,mu_ra, mu_dec,vlos] in [deg,deg,kpc,mas/yr,mas/yr,km/s] (mu_ra = mu_ra * cos dec).
@@ -803,7 +803,7 @@ class Orbit:
             Circular velocity at ro (km/s; can be Quantity).
         zo : float or Quantity, optional
             Offset toward the NGP of the Sun wrt the plane in kpc; default = 20.8 pc from Bennett & Bovy 2019).
-        solarmotion : str, array_like or Quantity, optional
+        solarmotion : str, numpy.ndarray or Quantity, optional
             Solar motion. Can be 'hogg' or 'dehnen', or 'schoenrich', or value in [-U,V,W] in km/s.
 
         Returns
@@ -896,11 +896,11 @@ class Orbit:
 
         Parameters
         ----------
-        init_vxvv : array_like
+        init_vxvv : numpy.ndarray
             Initial guess for the fit (same representation [e.g.,radec=True] as vxvv data, except when customsky, then init_vxvv is assumed to be ra,dec).
-        vxvv : array_like
+        vxvv : numpy.ndarray
             [:,6] array of positions and velocities along the orbit (if not lb=True or radec=True, these need to be in natural units [/ro,/vo], cannot be Quantities).
-        vxvv_err : array_like, optional
+        vxvv_err : numpy.ndarray, optional
             [:,6] array of errors on positions and velocities along the orbit (if None, these are set to 0.01) (if not lb=True or radec=True, these need to be in natural units [/ro,/vo], cannot be Quantities).
         pot : Potential, DissipativeForce, or list of such instances, optional
             Gravitational field to integrate orbits in.
@@ -929,7 +929,7 @@ class Orbit:
             Circular velocity at ro (km/s; can be Quantity).
         zo : float or Quantity, optional
             Offset toward the NGP of the Sun wrt the plane in pc; default = 20.8 pc from Bennett & Bovy 2019).
-        solarmotion : str, array_like or Quantity, optional
+        solarmotion : str, numpy.ndarray or Quantity, optional
             'hogg' or 'dehnen', or 'schoenrich', or value in [-U,V,W] in km/s.
 
         disp : bool, optional
@@ -4115,7 +4115,7 @@ class Orbit:
         ----------
         t : numeric, numpy.ndarray or Quantity, optional
             Time at which to get the right ascension. Default is the initial time.
-        obs : array_like, Quantity or Orbit, optional
+        obs : numpy.ndarray, Quantity or Orbit, optional
             Position of observer (in kpc, arranged as [X,Y,Z]; default=object-wide default) OR Orbit object that corresponds to the orbit of the observer. Note that when Y is non-zero, the coordinate system is rotated around z such that Y'=0.
         ro : float or Quantity, optional
             Physical scale in kpc for distances to use to convert. Default is object-wide default.
@@ -4150,7 +4150,7 @@ class Orbit:
         ----------
         t : numeric, numpy.ndarray or Quantity, optional
             Time at which to get the declination. Default is the initial time.
-        obs : array_like, Quantity or Orbit, optional
+        obs : numpy.ndarray, Quantity or Orbit, optional
             Position of observer (in kpc, arranged as [X,Y,Z]; default=object-wide default) OR Orbit object that corresponds to the orbit of the observer. Note that when Y is non-zero, the coordinate system is rotated around z such that Y'=0.
         ro : float or Quantity, optional
             Physical scale in kpc for distances to use to convert. Default is object-wide default.
@@ -4185,7 +4185,7 @@ class Orbit:
         ----------
         t : numeric, numpy.ndarray or Quantity, optional
             Time at which to get the Galactic longitude. Default is the initial time.
-        obs : array_like, Quantity or Orbit, optional
+        obs : numpy.ndarray, Quantity or Orbit, optional
             Position of observer (in kpc, arranged as [X,Y,Z]; default=object-wide default) OR Orbit object that corresponds to the orbit of the observer. Note that when Y is non-zero, the coordinate system is rotated around z such that Y'=0.
         ro : float or Quantity, optional
             Physical scale in kpc for distances to use to convert. Default is object-wide default.
@@ -4220,7 +4220,7 @@ class Orbit:
         ----------
         t : numeric, numpy.ndarray or Quantity, optional
             Time at which to get the Galactic latitude. Default is the initial time.
-        obs : array_like, Quantity or Orbit, optional
+        obs : numpy.ndarray, Quantity or Orbit, optional
             Position of observer (in kpc, arranged as [X,Y,Z]; default=object-wide default) OR Orbit object that corresponds to the orbit of the observer. Note that when Y is non-zero, the coordinate system is rotated around z such that Y'=0.
         ro : float or Quantity, optional
             Physical scale in kpc for distances to use to convert. Default is object-wide default.
@@ -4255,7 +4255,7 @@ class Orbit:
         ----------
         t : numeric, numpy.ndarray or Quantity, optional
             Time at which to get the distance. Default is the initial time.
-        obs : array_like, Quantity or Orbit, optional
+        obs : numpy.ndarray, Quantity or Orbit, optional
             Position of observer (in kpc, arranged as [X,Y,Z]; default=object-wide default) OR Orbit object that corresponds to the orbit of the observer. Note that when Y is non-zero, the coordinate system is rotated around z such that Y'=0.
         ro : float or Quantity, optional
             Physical scale in kpc for distances to use to convert. Default is object-wide default.
@@ -4290,7 +4290,7 @@ class Orbit:
         ----------
         t : numeric, numpy.ndarray or Quantity, optional
             Time at which to get the proper motion. Default is the initial time.
-        obs : array_like, Quantity or Orbit, optional
+        obs : numpy.ndarray, Quantity or Orbit, optional
             Position and velocity of observer (in kpc and km/s, arranged as [X,Y,Z,vx,vy,vz]; default=object-wide default) OR Orbit object that corresponds to the orbit of the observer. Note that when Y is non-zero, the coordinate system is rotated around z such that Y'=0.
         ro : float or Quantity, optional
             Physical scale in kpc for distances to use to convert. Default is object-wide default.
@@ -4328,7 +4328,7 @@ class Orbit:
         ----------
         t : numeric, numpy.ndarray or Quantity, optional
             Time at which to get the proper motion. Default is the initial time.
-        obs : array_like, Quantity or Orbit, optional
+        obs : numpy.ndarray, Quantity or Orbit, optional
             Position and velocity of observer (in kpc and km/s, arranged as [X,Y,Z,vx,vy,vz]; default=object-wide default) OR Orbit object that corresponds to the orbit of the observer. Note that when Y is non-zero, the coordinate system is rotated around z such that Y'=0.
         ro : float or Quantity, optional
             Physical scale in kpc for distances to use to convert. Default is object-wide default.
@@ -4366,7 +4366,7 @@ class Orbit:
         ----------
         t : numeric, numpy.ndarray or Quantity, optional
             Time at which to get the proper motion. Default is the initial time.
-        obs : array_like, Quantity or Orbit, optional
+        obs : numpy.ndarray, Quantity or Orbit, optional
             Position and velocity of observer (in kpc and km/s, arranged as [X,Y,Z,vx,vy,vz]; default=object-wide default) OR Orbit object that corresponds to the orbit of the observer. Note that when Y is non-zero, the coordinate system is rotated around z such that Y'=0.
         ro : float or Quantity, optional
             Physical scale in kpc for distances to use to convert. Default is object-wide default.
@@ -4406,7 +4406,7 @@ class Orbit:
         ----------
         t : numeric, numpy.ndarray or Quantity, optional
             Time at which to get the proper motion. Default is the initial time.
-        obs : array_like, Quantity or Orbit, optional
+        obs : numpy.ndarray, Quantity or Orbit, optional
             Position and velocity of observer (in kpc and km/s, arranged as [X,Y,Z,vx,vy,vz]; default=object-wide default) OR Orbit object that corresponds to the orbit of the observer. Note that when Y is non-zero, the coordinate system is rotated around z such that Y'=0.
         ro : float or Quantity, optional
             Physical scale in kpc for distances to use to convert. Default is object-wide default.
@@ -4448,7 +4448,7 @@ class Orbit:
         ----------
         t : numeric, numpy.ndarray or Quantity, optional
             Time at which to get the line-of-sight velocity. Default is the initial time.
-        obs : array_like, Quantity or Orbit, optional
+        obs : numpy.ndarray, Quantity or Orbit, optional
             Position and velocity of observer (in kpc and km/s, arranged as [X,Y,Z,vx,vy,vz]; default=object-wide default) OR Orbit object that corresponds to the orbit of the observer. Note that when Y is non-zero, the coordinate system is rotated around z such that Y'=0.
         ro : float or Quantity, optional
             Physical scale in kpc for distances to use to convert. Default is object-wide default.
@@ -4487,7 +4487,7 @@ class Orbit:
         ----------
         t : numeric, numpy.ndarray or Quantity, optional
             Time at which to get vra. Default is the initial time.
-        obs : array_like, Quantity or Orbit, optional
+        obs : numpy.ndarray, Quantity or Orbit, optional
             Position and velocity of observer in the Galactocentric frame (in kpc and km/s) (default=object-wide default) OR Orbit object that corresponds to the orbit of the observer. Note that when Y is non-zero, the coordinate system is rotated around z such that Y'=0.
         ro : float or Quantity, optional
             Physical scale in kpc for distances to use to convert. Default is object-wide default.
@@ -4533,7 +4533,7 @@ class Orbit:
         ----------
         t : numeric, numpy.ndarray or Quantity, optional
             Time at which to get vdec. Default is the initial time.
-        obs : array_like, Quantity or Orbit, optional
+        obs : numpy.ndarray, Quantity or Orbit, optional
             Position and velocity of observer in the Galactocentric frame (in kpc and km/s) (default=object-wide default) OR Orbit object that corresponds to the orbit of the observer. Note that when Y is non-zero, the coordinate system is rotated around z such that Y'=0.
         ro : float or Quantity, optional
             Physical scale in kpc for distances to use to convert. Default is object-wide default.
@@ -4579,7 +4579,7 @@ class Orbit:
         ----------
         t : numeric, numpy.ndarray or Quantity, optional
             Time at which to get vll. Default is the initial time.
-        obs : array_like, Quantity or Orbit, optional
+        obs : numpy.ndarray, Quantity or Orbit, optional
             Position and velocity of observer in the Galactocentric frame (in kpc and km/s) (default=object-wide default) OR Orbit object that corresponds to the orbit of the observer. Note that when Y is non-zero, the coordinate system is rotated around z such that Y'=0.
         ro : float or Quantity, optional
             Physical scale in kpc for distances to use to convert. Default is object-wide default.
@@ -4625,7 +4625,7 @@ class Orbit:
         ----------
         t : numeric, numpy.ndarray or Quantity, optional
             Time at which to get vbb. Default is the initial time.
-        obs : array_like, Quantity or Orbit, optional
+        obs : numpy.ndarray, Quantity or Orbit, optional
             Position and velocity of observer in the Galactocentric frame (in kpc and km/s) (default=object-wide default) OR Orbit object that corresponds to the orbit of the observer. Note that when Y is non-zero, the coordinate system is rotated around z such that Y'=0.
         ro : float or Quantity, optional
             Physical scale in kpc for distances to use to convert. Default is object-wide default.
@@ -4672,7 +4672,7 @@ class Orbit:
         ----------
         t : numeric, numpy.ndarray or Quantity, optional
             Time at which to get X. Default is the initial time.
-        obs : array_like, Quantity or Orbit, optional
+        obs : numpy.ndarray, Quantity or Orbit, optional
             Position and velocity of observer in the Galactocentric frame (in kpc and km/s) (default=object-wide default) OR Orbit object that corresponds to the orbit of the observer. Note that when Y is non-zero, the coordinate system is rotated around z such that Y'=0.
         ro : float or Quantity, optional
             Physical scale in kpc for distances to use to convert. Default is object-wide default.
@@ -4707,7 +4707,7 @@ class Orbit:
         ----------
         t : numeric, numpy.ndarray or Quantity, optional
             Time at which to get Y. Default is the initial time.
-        obs : array_like, Quantity or Orbit, optional
+        obs : numpy.ndarray, Quantity or Orbit, optional
             Position and velocity of observer in the Galactocentric frame (in kpc and km/s) (default=object-wide default) OR Orbit object that corresponds to the orbit of the observer. Note that when Y is non-zero, the coordinate system is rotated around z such that Y'=0.
         ro : float or Quantity, optional
             Physical scale in kpc for distances to use to convert. Default is object-wide default.
@@ -4742,7 +4742,7 @@ class Orbit:
         ----------
         t : numeric, numpy.ndarray or Quantity, optional
             Time at which to get Z. Default is the initial time.
-        obs : array_like, Quantity or Orbit, optional
+        obs : numpy.ndarray, Quantity or Orbit, optional
             Position and velocity of observer in the Galactocentric frame (in kpc and km/s) (default=object-wide default) OR Orbit object that corresponds to the orbit of the observer. Note that when Y is non-zero, the coordinate system is rotated around z such that Y'=0.
         ro : float or Quantity, optional
             Physical scale in kpc for distances to use to convert. Default is object-wide default.
@@ -4777,7 +4777,7 @@ class Orbit:
         ----------
         t : numeric, numpy.ndarray or Quantity, optional
             Time at which to get U. Default is the initial time.
-        obs : array_like, Quantity or Orbit, optional
+        obs : numpy.ndarray, Quantity or Orbit, optional
             Position and velocity of observer in the Galactocentric frame (in kpc and km/s) (default=object-wide default) OR Orbit object that corresponds to the orbit of the observer. Note that when Y is non-zero, the coordinate system is rotated around z such that Y'=0.
         ro : float or Quantity, optional
             Physical scale in kpc for distances to use to convert. Default is object-wide default.
@@ -4815,7 +4815,7 @@ class Orbit:
         ----------
         t : numeric, numpy.ndarray or Quantity, optional
             Time at which to get V. Default is the initial time.
-        obs : array_like, Quantity or Orbit, optional
+        obs : numpy.ndarray, Quantity or Orbit, optional
             Position and velocity of observer in the Galactocentric frame (in kpc and km/s) (default=object-wide default) OR Orbit object that corresponds to the orbit of the observer. Note that when Y is non-zero, the coordinate system is rotated around z such that Y'=0.
         ro : float or Quantity, optional
             Physical scale in kpc for distances to use to convert. Default is object-wide default.
@@ -4853,7 +4853,7 @@ class Orbit:
         ----------
         t : numeric, numpy.ndarray or Quantity, optional
             Time at which to get W. Default is the initial time.
-        obs : array_like, Quantity or Orbit, optional
+        obs : numpy.ndarray, Quantity or Orbit, optional
             Position and velocity of observer in the Galactocentric frame (in kpc and km/s) (default=object-wide default) OR Orbit object that corresponds to the orbit of the observer. Note that when Y is non-zero, the coordinate system is rotated around z such that Y'=0.
         ro : float or Quantity, optional
             Physical scale in kpc for distances to use to convert. Default is object-wide default.
@@ -4890,7 +4890,7 @@ class Orbit:
         ----------
         t : numeric, numpy.ndarray or Quantity, optional
             Time at which to get the position. Default is the initial time.
-        obs : array_like, Quantity or Orbit, optional
+        obs : numpy.ndarray, Quantity or Orbit, optional
             Position and velocity of observer in the Galactocentric frame (in kpc and km/s; arranged as [x,y,z,vx,vy,vz]) (default=object-wide default) OR Orbit object that corresponds to the orbit of the observer.
             Note that when Y is non-zero, the coordinate system is rotated around z such that Y'=0.
         ro : float or Quantity, optional

@@ -2164,9 +2164,9 @@ def Rz_to_lambdanu_jac(R, z, Delta=1.0):
 
     Parameters
     ----------
-    R : float or array_like
+    R : float or numpy.ndarray
         Galactocentric cylindrical radius.
-    z : float or array_like
+    z : float or numpy.ndarray
         Vertical height.
     Delta : float, optional
         Focal distance that defines the spheroidal coordinate system (default: 1.). Delta=sqrt(g-a).

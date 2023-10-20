@@ -2151,7 +2151,7 @@ def evaluateRforces(Pot, R, z, phi=None, t=0.0, v=None):
         Azimuth (default: None).
     t : float or Quantity, optional
         Time (default: 0.0).
-    v : array_like or Quantity, optional
+    v : numpy.ndarray or Quantity, optional
         Current velocity in cylindrical coordinates. Required when including dissipative forces. Default is None.
 
     Returns
@@ -2218,7 +2218,7 @@ def evaluatephitorques(Pot, R, z, phi=None, t=0.0, v=None):
         Azimuth (default: None).
     t : float or Quantity, optional
         Time (default: 0.0).
-    v : array_like, optional
+    v : numpy.ndarray, optional
         Current velocity in cylindrical coordinates. Required when including dissipative forces. Default is None.
 
     Returns
@@ -2285,7 +2285,7 @@ def evaluatezforces(Pot, R, z, phi=None, t=0.0, v=None):
         Azimuth (default: None).
     t : float or Quantity, optional
         Time (default: 0.0).
-    v : array_like or Quantity, optional
+    v : numpy.ndarray or Quantity, optional
         Current velocity in cylindrical coordinates. Required when including dissipative forces. Default is None.
 
     Returns
@@ -2352,7 +2352,7 @@ def evaluaterforces(Pot, R, z, phi=None, t=0.0, v=None):
         Azimuth (default: None).
     t : float or Quantity, optional
         Time (default: 0.0).
-    v : array_like or Quantity, optional
+    v : numpy.ndarray or Quantity, optional
         Current velocity in cylindrical coordinates. Required when including dissipative forces. Default is None.
 
     Returns

@@ -152,13 +152,13 @@ def actionAngleStaeckel_calcu0(E, Lz, pot, delta):
 
     Parameters
     ----------
-    E : array_like
+    E : numpy.ndarray
         Energy.
-    Lz : array_like
+    Lz : numpy.ndarray
         Angular momentum.
     pot : Potential or list of such instances
         Potential or list of such instances.
-    delta : array_like
+    delta : numpy.ndarray
         Focal length of prolate spheroidal coordinates.
 
     Returns

@@ -1013,7 +1013,7 @@ def evaluateplanarRforces(Pot, R, phi=None, t=0.0, v=None):
         Azimuth (default: None).
     t : float or Quantity, optional
         Time (default: 0.0).
-    v : array_like or Quantity, optional
+    v : numpy.ndarray or Quantity, optional
         Current velocity in cylindrical coordinates (default: None).
         Required when including dissipative forces.
 
@@ -1086,7 +1086,7 @@ def evaluateplanarphitorques(Pot, R, phi=None, t=0.0, v=None):
         Azimuth (default: None)
     t : float or Quantity, optional
         Time (default: 0.0)
-    v : array_like or Quantity, optional
+    v : numpy.ndarray or Quantity, optional
         Current velocity in cylindrical coordinates (default: None)
         Required when including dissipative forces.
 

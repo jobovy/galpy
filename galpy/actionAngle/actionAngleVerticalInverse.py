@@ -1031,7 +1031,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
         ----------
         j : float
             Action
-        angle : array_like
+        angle : numpy.ndarray
             Angle
         Returns
         -------
@@ -1053,7 +1053,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
         ----------
         j : float
             Action.
-        angle : array_like
+        angle : numpy.ndarray
             Angle.
 
         Returns
@@ -1223,17 +1223,17 @@ def _anglea(xa, E, pot, omega, ptcoeffs, ptderivcoeffs, xmax, ptxmax, vsign=1.0)
 
     Parameters
     ----------
-    xa : array_like
+    xa : numpy.ndarray
         Position.
     E : float
         Energy.
     pot : Potential object
         The potential.
-    omega : array_like
+    omega : numpy.ndarray
         Harmonic-oscillator frequencies.
-    ptcoeffs : array_like
+    ptcoeffs : numpy.ndarray
         Coefficients of the polynomial point transformation.
-    ptderivcoeffs : array_like
+    ptderivcoeffs : numpy.ndarray
         Coefficients of the derivative of the polynomial point transformation.
     xmax : float
         Xmax of the true torus.
@@ -1283,19 +1283,19 @@ def _danglea(
 
     Parameters
     ----------
-    xa : array_like
+    xa : numpy.ndarray
         Position.
     E : float
         Energy.
     pot : Potential object
         The potential.
-    omega : array_like
+    omega : numpy.ndarray
         Harmonic-oscillator frequencies.
-    ptcoeffs : array_like
+    ptcoeffs : numpy.ndarray
         Coefficients of the polynomial point transformation.
-    ptderivcoeffs : array_like
+    ptderivcoeffs : numpy.ndarray
         Coefficients of the derivative of the polynomial point transformation.
-    ptderiv2coeffs : array_like
+    ptderiv2coeffs : numpy.ndarray
         Coefficients of the second derivative of the polynomial point transformation.
     xmax : float
         Xmax of the true torus.
@@ -1348,17 +1348,17 @@ def _ja(xa, E, pot, omega, ptcoeffs, ptderivcoeffs, xmax, ptxmax):
 
     Parameters
     ----------
-    xa : array_like
+    xa : numpy.ndarray
         position
-    E : array_like
+    E : numpy.ndarray
         Energy
     pot : Potential object
         the potential
-    omega : array_like
+    omega : numpy.ndarray
         harmonic-oscillator frequencies
-    ptcoeffs : array_like
+    ptcoeffs : numpy.ndarray
         coefficients of the polynomial point transformation
-    ptderivcoeffs : array_like
+    ptderivcoeffs : numpy.ndarray
         coefficients of the derivative of the polynomial point transformation
     xmax : float
         xmax of the true torus

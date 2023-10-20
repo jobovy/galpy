@@ -45,7 +45,7 @@ class planarDissipativeForce(planarForce):
             Azimuth. Default is 0.0.
         t : float or Quantity, optional
             Time. Default is 0.0.
-        v : array_like, optional
+        v : numpy.ndarray, optional
             2D cylindrical velocity. Default is None.
 
         Returns
@@ -85,7 +85,7 @@ class planarDissipativeForce(planarForce):
             Azimuth. Default is 0.0.
         t : float or Quantity, optional
             Time. Default is 0.0.
-        v : array_like, optional
+        v : numpy.ndarray, optional
             2D cylindrical velocity. Default is None.
 
         Returns
@@ -157,7 +157,7 @@ class planarDissipativeForceFromFullDissipativeForce(planarDissipativeForce):
             Azimuth (in radians). Default is 0.0.
         t : float, optional
             Time. Default is 0.0.
-        v : array_like, optional
+        v : numpy.ndarray, optional
             Velocity in cylindrical coordinates (vR, vT, vz). Default is None.
 
         Returns
@@ -186,7 +186,7 @@ class planarDissipativeForceFromFullDissipativeForce(planarDissipativeForce):
             Azimuth (in radians). Default is 0.0.
         t : float, optional
             Time. Default is 0.0.
-        v : array_like, optional
+        v : numpy.ndarray, optional
             Velocity in cylindrical coordinates (vR, vT, vz). Default is None.
 
         Returns

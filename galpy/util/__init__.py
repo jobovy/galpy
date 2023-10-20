@@ -139,7 +139,7 @@ def fast_cholesky_invert(A, logdet=False, tiny=_TINY):
 
     Parameters
     ----------
-    A : array_like
+    A : numpy.ndarray
         Matrix to be inverted.
     logdet : bool, optional
         If True, return the logarithm of the determinant as well.
