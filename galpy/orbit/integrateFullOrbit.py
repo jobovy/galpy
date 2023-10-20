@@ -1234,7 +1234,7 @@ def _rectForce(x, pot, t=0.0, vx=None):
         Current time (default is 0.0)
     pot : (list of) Potential instance(s)
         The potential (or list thereof) to evaluate the force for
-    vx : array_like, optional
+    vx : numpy.ndarray, optional
         If set, use this [vx,vy,vz] when evaluating dissipative forces (default is None)
 
     Returns

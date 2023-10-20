@@ -79,8 +79,8 @@ class actionAngleHarmonicInverse(actionAngleInverse):
         -------
         tuple
             Tuple containing:
-                - x (array_like): x-coordinate.
-                - vx (array_like): Velocity in x-direction.
+                - x (numpy.ndarray): x-coordinate.
+                - vx (numpy.ndarray): Velocity in x-direction.
                 - Omega (float): Frequency.
 
         Notes

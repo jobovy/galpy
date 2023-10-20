@@ -1493,9 +1493,9 @@ def estimateDeltaStaeckel(pot, R, z, no_median=False, delta0=1e-6):
     Parameters
     ----------
     pot : Potential instance or list thereof
-    R : float or array_like
+    R : float or numpy.ndarray
         coordinates
-    z : float or array_like
+    z : float or numpy.ndarray
         coordinates
     no_median : bool, optional
         if True, and input is array, return all calculated values of delta (useful for quickly estimating delta for many phase space points)

@@ -57,7 +57,7 @@ class DissipativeForce(Force):
             Azimuth. Default is 0.0.
         t : float or Quantity, optional
             Time. Default is 0.0.
-        v : array_like, optional
+        v : numpy.ndarray, optional
             3D velocity. Default is None.
 
         Returns
@@ -99,7 +99,7 @@ class DissipativeForce(Force):
             Azimuth. Default is 0.0.
         t : float or Quantity, optional
             Time. Default is 0.0.
-        v : array_like, optional
+        v : numpy.ndarray, optional
             3D velocity. Default is None.
 
         Returns
@@ -141,7 +141,7 @@ class DissipativeForce(Force):
             Azimuth. Default is 0.0.
         t : float or Quantity, optional
             Time. Default is 0.0.
-        v : array_like, optional
+        v : numpy.ndarray, optional
             3D velocity. Default is None.
 
         Returns

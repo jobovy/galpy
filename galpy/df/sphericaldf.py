@@ -167,7 +167,7 @@ class sphericaldf(df):
 
         Parameters
         ----------
-        E : float or array_like
+        E : float or numpy.ndarray
             Energy; can be a Quantity
 
         Returns
@@ -325,11 +325,11 @@ class sphericaldf(df):
 
         Parameters
         ----------
-        R : float, array_like, Quantity, or None, optional
+        R : float, numpy.ndarray, Quantity, or None, optional
             If set, sample velocities at this radius. If array, sample velocities at these radii, ignoring n.
-        z : float, array_like, Quantity, or None, optional
+        z : float, numpy.ndarray, Quantity, or None, optional
             If set, sample velocities at this height. If array, sample velocities at these heights, ignoring n.
-        phi : float, array_like, Quantity, or None, optional
+        phi : float, numpy.ndarray, Quantity, or None, optional
             If set, sample velocities at this azimuth. If array, sample velocities at these azimuths, ignoring n.
         n : int, optional
             Number of samples to generate. Default is 1.

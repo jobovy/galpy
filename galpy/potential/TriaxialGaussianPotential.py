@@ -50,7 +50,7 @@ class TriaxialGaussianPotential(EllipsoidalPotential):
             y-to-x axis ratio of the density.
         c : float, optional
             z-to-x axis ratio of the density.
-        zvec : array_like, optional
+        zvec : numpy.ndarray, optional
             If set, a unit vector that corresponds to the z axis.
         pa : float or Quantity, optional
             If set, the position angle of the x axis.

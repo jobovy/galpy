@@ -137,7 +137,7 @@ class streamdf(df):
             Galactocentric radius of the Sun (kpc) (can be different from ro) (default: 8.0).
         Zsun : float or Quantity, optional
             Sun's height above the plane (kpc) (default: 0.0208).
-        vsun : array_like or Quantity, optional
+        vsun : numpy.ndarray or Quantity, optional
             Sun's motion in cylindrical coordinates (vR positive away from center) (can be Quantity array, but not a list of Quantities) (default: [-11.1, 8.0 * 30.24, 7.25]).
         multi : int, optional
             If set, use multi-processing (default: None).
@@ -153,7 +153,7 @@ class streamdf(df):
             If True, approximate the stream assuming that the frequency is constant along the stream (only works with useTM, for which this leads to a significant speed-up) (default: False).
         useTMHessian : bool, optional
             If True, compute the basic Hessian dO/dJ_prog using TM; otherwise use aA (default: False).
-        custom_transform : array_like, optional
+        custom_transform : numpy.ndarray, optional
             Matrix implementing the rotation from (ra,dec) to a custom set of sky coordinates (default: None).
 
         Notes
@@ -3134,7 +3134,7 @@ class streamdf(df):
 
         Parameters
         ----------
-        xy : array_like
+        xy : numpy.ndarray
             Phase-space point [X,Y,Z,vX,vY,vZ]; the distribution of the dimensions set to None is returned.
         interp : bool, optional
             If True, use the interpolated stream track. Default is True.
@@ -3316,7 +3316,7 @@ class streamdf(df):
 
         Parameters
         ----------
-        xy : array_like
+        xy : numpy.ndarray
             Phase-space point [X,Y,Z,vX,vY,vZ]; the distribution of the dimensions set to None is returned.
         interp : bool, optional
             If True, use the interpolated stream track. Default is True.
