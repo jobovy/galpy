@@ -255,7 +255,7 @@ class EllipticalDiskPotential(planarPotential):
             * numpy.sin(2.0 * (phi - self._phib))
         )
 
-    def tform(self):
+    def tform(self):  # pragma: no cover
         """
         Return formation time of the perturbation.
 
