@@ -475,28 +475,41 @@ def integrateFullOrbit_c(
     pot, yo, t, int_method, rtol=None, atol=None, progressbar=True, dt=None
 ):
     """
-    NAME:
-       integrateFullOrbit_c
-    PURPOSE:
-       C integrate an ode for a FullOrbit
-    INPUT:
-       pot - Potential or list of such instances
-       yo - initial condition [q,p] , can be [N,6] or [6]
-       t - set of times at which one wants the result
-       int_method= 'leapfrog_c', 'rk4_c', 'rk6_c', 'symplec4_c'
-       rtol, atol
-       progressbar= (True) if True, display a tqdm progress bar when integrating multiple orbits (requires tqdm to be installed!)
-       dt= (None) force integrator to use this stepsize (default is to automatically determine one; only for C-based integrators)
-    OUTPUT:
-       (y,err)
-       y : array, shape (N,len(t),6)  or (len(t),6) if N = 1
-       Array containing the value of y for each desired time in t, \
-       with the initial value y0 in the first row.
-       err: error message, if not zero: 1 means maximum step reduction happened for adaptive integrators
-    HISTORY:
-       2011-11-13 - Written - Bovy (IAS)
-       2018-12-21 - Adapted to allow multiple objects - Bovy (UofT)
-       2022-04-12 - Add progressbar - Bovy (UofT)
+    Integrate an ode for a FullOrbit.
+
+    Parameters
+    ----------
+    pot : Potential or list of such instances
+        The potential (or list thereof) to evaluate the orbit in.
+    yo : numpy.ndarray
+        Initial condition [q,p], can be [N,6] or [6].
+    t : numpy.ndarray
+        Set of times at which one wants the result.
+    int_method : str
+        Integration method. One of 'leapfrog_c', 'rk4_c', 'rk6_c', 'symplec4_c'.
+    rtol : float, optional
+        Relative tolerance.
+    atol : float, optional
+        Absolute tolerance.
+    progressbar : bool, optional
+        If True, display a tqdm progress bar when integrating multiple orbits (requires tqdm to be installed!).
+    dt : float, optional
+        Force integrator to use this stepsize (default is to automatically determine one; only for C-based integrators).
+
+    Returns
+    -------
+    tuple
+        (y, err)
+        y : array, shape (N,len(t),6)  or (len(t),6) if N = 1
+            Array containing the value of y for each desired time in t, with the initial value y0 in the first row.
+        err : int or array of ints
+            Error message, if not zero: 1 means maximum step reduction happened for adaptive integrators.
+
+    Notes
+    -----
+    - 2011-11-13 - Written - Bovy (IAS)
+    - 2018-12-21 - Adapted to allow multiple objects - Bovy (UofT)
+    - 2022-04-12 - Add progressbar - Bovy (UofT)
     """
     if len(yo.shape) == 1:
         single_obj = True
@@ -589,29 +602,39 @@ def integrateFullOrbit_c(
         return (result, err)
 
 
-def integrateFullOrbit_dxdv_c(
-    pot, yo, dyo, t, int_method, rtol=None, atol=None
-):  # pragma: no cover because not included in v1, uncover when included
+def integrateFullOrbit_dxdv_c(pot, yo, dyo, t, int_method, rtol=None, atol=None):
     """
-    NAME:
-       integrateFullOrbit_dxdv_c
-    PURPOSE:
-       C integrate an ode for a planarOrbit+phase space volume dxdv
-    INPUT:
-       pot - Potential or list of such instances
-       yo - initial condition [q,p]
-       dyo - initial condition [dq,dp]
-       t - set of times at which one wants the result
-       int_method= 'leapfrog_c', 'rk4_c', 'rk6_c', 'symplec4_c'
-       rtol, atol
-    OUTPUT:
-       (y,err)
-       y : array, shape (len(y0), len(t))
-       Array containing the value of y for each desired time in t, \
-       with the initial value y0 in the first row.
-       err: error message if not zero, 1: maximum step reduction happened for adaptive integrators
-    HISTORY:
-       2011-11-13 - Written - Bovy (IAS)
+    Integrate an ode for a planarOrbit+phase space volume dxdv.
+
+    Parameters
+    ----------
+    pot : Potential or list of such instances
+        The potential (or list thereof) to evaluate the orbit in.
+    yo : numpy.ndarray
+        Initial condition [q,p].
+    dyo : numpy.ndarray
+        Initial condition [dq,dp].
+    t : numpy.ndarray
+        Set of times at which one wants the result.
+    int_method : str
+        Integration method. One of 'leapfrog_c', 'rk4_c', 'rk6_c', 'symplec4_c'.
+    rtol : float, optional
+        Relative tolerance.
+    atol : float, optional
+        Absolute tolerance.
+
+    Returns
+    -------
+    tuple
+        (y,err)
+        y : array, shape (len(y0), len(t))
+            Array containing the value of y for each desired time in t, with the initial value y0 in the first row.
+        err : int
+            Error message if not zero, 1: maximum step reduction happened for adaptive integrators.
+
+    Notes
+    -----
+    - 2011-11-13 - Written - Bovy (IAS)
     """
     rtol, atol = _parse_tol(rtol, atol)
     npot, pot_type, pot_args, pot_tfuncs = _parse_pot(pot)
@@ -679,29 +702,43 @@ def integrateFullOrbit(
     pot, yo, t, int_method, rtol=None, atol=None, numcores=1, progressbar=True, dt=None
 ):
     """
-    NAME:
-       integrateFullOrbit
-    PURPOSE:
-       Integrate an ode for a FullOrbit
-    INPUT:
-       pot - Potential or list of such instances
-       yo - initial condition [q,p], shape [N,5] or [N,6]
-       t - set of times at which one wants the result
-       int_method= 'leapfrog', 'odeint', or 'dop853'
-       rtol, atol= tolerances (not always used...)
-       numcores= (1) number of cores to use for multi-processing
-       progressbar= (True) if True, display a tqdm progress bar when integrating multiple orbits (requires tqdm to be installed!)
-       dt= (None) force integrator to use this stepsize (default is to automatically determine one; only for C-based integrators)
-    OUTPUT:
-       (y,err)
-       y : array, shape (N,len(t),5/6)
-       Array containing the value of y for each desired time in t, \
-       with the initial value y0 in the first row.
-       err: error message, always zero for now
-    HISTORY:
-       2010-08-01 - Written - Bovy (NYU)
-       2019-04-09 - Adapted to allow multiple objects and parallel mapping - Bovy (UofT)
-       2022-04-12 - Add progressbar - Bovy (UofT)
+    Integrate an ode for a FullOrbit
+
+    Parameters
+    ----------
+    pot : Potential or list of such instances
+        The potential (or list thereof) to evaluate the orbit in.
+    yo : numpy.ndarray
+        Initial condition [q,p], shape [N,5] or [N,6]
+    t : numpy.ndarray
+        Set of times at which one wants the result.
+    int_method : str
+        Integration method. One of 'leapfrog', 'odeint', 'dop853'.
+    rtol : float, optional
+        Relative tolerance.
+    atol : float, optional
+        Absolute tolerance.
+    numcores : int, optional
+        Number of cores to use for multi-processing.
+    progressbar : bool, optional
+        If True, display a tqdm progress bar when integrating multiple orbits (requires tqdm to be installed!).
+    dt : float, optional
+        Force integrator to use this stepsize (default is to automatically determine one; only for C-based integrators).
+
+    Returns
+    -------
+    tuple
+        (y,err)
+        y : array, shape (N,len(t),5/6)
+            Array containing the value of y for each desired time in t, with the initial value y0 in the first row.
+        err : int or array of ints
+            Error message, if not zero: 1 means maximum step reduction happened for adaptive integrators.
+
+    Notes
+    -----
+    - 2010-08-01 - Written - Bovy (NYU)
+    - 2019-04-09 - Adapted to allow multiple objects and parallel mapping - Bovy (UofT)
+    - 2022-04-12 - Add progressbar - Bovy (UofT)
     """
     nophi = False
     if not int_method.lower() == "dop853" and not int_method == "odeint":
@@ -811,27 +848,42 @@ def integrateFullOrbit_sos_c(
     pot, yo, psi, t0, int_method, rtol=None, atol=None, progressbar=True, dpsi=None
 ):
     """
-    NAME:
-       integrateFullOrbit_sos_c
-    PURPOSE:
-       Integrate an ode for a FullOrbit for integrate_sos in C
-    INPUT:
-       pot - Potential or list of such instances
-       yo - initial condition [q,p], shape [N,5] or [N,6]
-       psi - set of increment angles at which one wants the result [increments wrt initial angle]
-       t0 - initial time
-       int_method= 'rk4_c', 'rk6_c', 'dopr54_c', or 'dop853_c'
-       rtol, atol= tolerances (not always used...)
-       progressbar= (True) if True, display a tqdm progress bar when integrating multiple orbits (requires tqdm to be installed!)
-       dpsi= (None) force integrator to use this stepsize (default is to automatically determine one; only for C-based integrators)
-    OUTPUT:
-       (y,err)
-       y : array, shape (N,len(psi),7) where the last of the last dimension is the time
-       Array containing the value of y for each desired angle in psi, \
-       with the initial value y0 in the first row.
-       err: error message, always zero for now
-    HISTORY:
-       2023-03-17 - Written based on integrateFullOrbit_c - Bovy (UofT)
+    Integrate an ode for a FullOrbit for integrate_sos in C
+
+    Parameters
+    ----------
+    pot : Potential or list of such instances
+        The potential (or list thereof) to evaluate the orbit in.
+    yo : numpy.ndarray
+        initial condition [q,p]
+    psi : numpy.ndarray
+        set of increment angles at which one wants the result [increments wrt initial angle]
+    t0 : float or numpy.ndarray
+        initial time
+    int_method : str
+        'rk4_c', 'rk6_c', 'dopr54_c', or 'dop853_c'
+    rtol : float, optional
+        tolerances (not always used...)
+    atol : float, optional
+        tolerances (not always used...)
+    progressbar : bool, optional
+        if True, display a tqdm progress bar when integrating multiple orbits (requires tqdm to be installed!)
+    dpsi : float, optional
+        force integrator to use this stepsize (default is to automatically determine one; only for C-based integrators)
+
+    Returns
+    -------
+    tuple
+        (y,err)
+        y : array, shape (N,len(psi),7) where the last of the last dimension is the time
+            Array containing the value of y for each desired angle in psi, \
+            with the initial value y0 in the first row.
+        err : int
+            error message, always zero for now
+
+    Notes
+    -----
+    - 2023-03-17 - Written based on integrateFullOrbit_c - Bovy (UofT)
     """
     if len(yo.shape) == 1:
         single_obj = True
@@ -947,28 +999,44 @@ def integrateFullOrbit_sos(
     dpsi=None,
 ):
     """
-    NAME:
-       integrateFullOrbit_sos
-    PURPOSE:
-       Integrate an ode for a FullOrbit for integrate_sos
-    INPUT:
-       pot - Potential or list of such instances
-       yo - initial condition [q,p], shape [N,5] or [N,6]
-       psi - set of increment angles at which one wants the result [increments wrt initial angle]
-       t0 - initial time
-       int_method= 'leapfrog', 'odeint', or 'dop853'
-       rtol, atol= tolerances (not always used...)
-       numcores= (1) number of cores to use for multi-processing
-       progressbar= (True) if True, display a tqdm progress bar when integrating multiple orbits (requires tqdm to be installed!)
-       dpsi= (None) force integrator to use this stepsize (default is to automatically determine one; only for C-based integrators)
-    OUTPUT:
-       (y,err)
-       y : array, shape (N,len(psi),6/7) where the last of the last dimension is the time
-       Array containing the value of y for each desired angle in psi, \
-       with the initial value y0 in the first row.
-       err: error message, always zero for now
-    HISTORY:
-       2023-03-16 - Written based on integrateFullOrbit - Bovy (UofT)
+    Integrate an ode for a FullOrbit for integrate_sos
+
+    Parameters
+    ----------
+    pot : Potential or list of such instances
+        The potential (or list thereof) to evaluate the orbit in.
+    yo : numpy.ndarray
+        Initial condition [q,p], shape [N,5] or [N,6]
+    psi : numpy.ndarray
+        Set of increment angles at which one wants the result [increments wrt initial angle]
+    t0 : float or numpy.ndarray
+        Initial time
+    int_method : str
+        Integration method. One of 'leapfrog', 'odeint', or 'dop853'
+    rtol : float, optional
+        Relative tolerance. Default is None.
+    atol : float, optional
+        Absolute tolerance. Default is None.
+    numcores : int, optional
+        Number of cores to use for multi-processing. Default is 1.
+    progressbar : bool, optional
+        If True, display a tqdm progress bar when integrating multiple orbits (requires tqdm to be installed!). Default is True.
+    dpsi : float, optional
+        Force integrator to use this stepsize (default is to automatically determine one; only for C-based integrators). Default is None.
+
+    Returns
+    -------
+    tuple
+        (y,err)
+        y : array, shape (N,len(psi),6/7) where the last of the last dimension is the time
+            Array containing the value of y for each desired angle in psi, with the initial value y0 in the first row.
+        err : float
+            Error message, always zero for now
+
+    Notes
+    -----
+    - 2023-03-16 - Written based on integrateFullOrbit - Bovy (UofT)
+
     """
     nophi = False
     if len(yo[0]) == 5:
@@ -1048,20 +1116,27 @@ def integrateFullOrbit_sos(
 
 def _RZEOM(y, t, pot, l2):
     """
-    NAME:
-       _RZEOM
-    PURPOSE:
-       implements the EOM, i.e., the right-hand side of the differential
-       equation, for a 3D orbit assuming conservation of angular momentum
-    INPUT:
-       y - current phase-space position
-       t - current time
-       pot - (list of) Potential instance(s)
-       l2 - angular momentum squared
-    OUTPUT:
-       dy/dt
-    HISTORY:
-       2010-04-16 - Written - Bovy (NYU)
+    Implements the EOM, i.e., the right-hand side of the differential equation, for a 3D orbit assuming conservation of angular momentum.
+
+    Parameters
+    ----------
+    y : list or numpy.ndarray
+        Current phase-space position.
+    t : float
+        Current time.
+    pot : list of Potential instance(s)
+        Potential instance(s).
+    l2 : float
+        Angular momentum squared.
+
+    Returns
+    -------
+    list
+        Derivative of the phase-space position.
+
+    Notes
+    -----
+    - 2010-04-16 - Written - Bovy (NYU).
     """
     return [
         y[1],
@@ -1073,19 +1148,25 @@ def _RZEOM(y, t, pot, l2):
 
 def _EOM(y, t, pot):
     """
-    NAME:
-       _EOM
-    PURPOSE:
-       implements the EOM, i.e., the right-hand side of the differential
-       equation, for a 3D orbit
-    INPUT:
-       y - current phase-space position
-       t - current time
-       pot - (list of) Potential instance(s)
-    OUTPUT:
-       dy/dt
-    HISTORY:
-       2010-04-16 - Written - Bovy (NYU)
+    Implements the EOM, i.e., the right-hand side of the differential equation, for a 3D orbit.
+
+    Parameters
+    ----------
+    y : list or numpy.ndarray
+        Current phase-space position.
+    t : float
+        Current time.
+    pot : list of Potential instance(s)
+        Potential instance(s).
+
+    Returns
+    -------
+    list
+        Derivative of the phase-space position.
+
+    Notes
+    -----
+    - 2010-04-16 - Written - Bovy (NYU)
     """
     l2 = (y[0] ** 2.0 * y[3]) ** 2.0
     return [
@@ -1108,20 +1189,27 @@ def _EOM(y, t, pot):
 
 def _SOSEOM(y, psi, pot):
     """
-    NAME:
-       _SOSEOM
-    PURPOSE:
-       implements the EOM, i.e., the right-hand side of the differential
-       equation, for the SOS integration of a 3D orbit
-    INPUT:
-       y - current phase-space position
-       psi - current angle
-       pot - (list of) Potential instance(s)
-    OUTPUT:
-       dy/dpsi
-    HISTORY:
-       2023-03-16 - Written - Bovy (UofT)
+    Implements the EOM, i.e., the right-hand side of the differential equation, for the SOS integration of a 3D orbit
+
+    Parameters
+    ----------
+    y : numpy.ndarray
+        Current phase-space position
+    psi : float
+        Current angle
+    pot : list of Potential instance(s)
+        Potential instance(s)
+
+    Returns
+    -------
+    numpy.ndarray
+        dy/dpsi
+
+    Notes
+    -----
+    - 2023-03-16 - Written - Bovy (UofT)
     """
+
     # y = (x,vx,y,vy,A,t)
     # Calculate z, vz
     sp, cp = numpy.sin(psi), numpy.cos(psi)
@@ -1134,19 +1222,27 @@ def _SOSEOM(y, psi, pot):
 
 def _rectForce(x, pot, t=0.0, vx=None):
     """
-    NAME:
-       _rectForce
-    PURPOSE:
-       returns the force in the rectangular frame
-    INPUT:
-       x - current position
-       t - current time
-       pot - (list of) Potential instance(s)
-       vx = (None) if set, use this [vx,vy,vz] when evaluating dissipative forces
-    OUTPUT:
-       force
-    HISTORY:
-       2011-02-02 - Written - Bovy (NYU)
+    Returns the force in the rectangular frame
+
+    Parameters
+    ----------
+    x : numpy.ndarray
+        Current position
+    t : float, optional
+        Current time (default is 0.0)
+    pot : (list of) Potential instance(s)
+        The potential (or list thereof) to evaluate the force for
+    vx : array_like, optional
+        If set, use this [vx,vy,vz] when evaluating dissipative forces (default is None)
+
+    Returns
+    -------
+    numpy.ndarray
+        The force in the rectangular frame
+
+    Notes
+    -----
+    - 2011-02-02 - Written - Bovy (NYU)
     """
     # x is rectangular so calculate R and phi
     R = numpy.sqrt(x[0] ** 2.0 + x[1] ** 2.0)

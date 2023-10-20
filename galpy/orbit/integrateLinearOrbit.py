@@ -126,28 +126,38 @@ def integrateLinearOrbit_c(
     pot, yo, t, int_method, rtol=None, atol=None, progressbar=True, dt=None
 ):
     """
-    NAME:
-       integrateLinearOrbit_c
-    PURPOSE:
-       C integrate an ode for a LinearOrbit
-    INPUT:
-       pot - Potential or list of such instances
-       yo - initial condition [q,p], can be [N,2] or [2]
-       t - set of times at which one wants the result
-       int_method= 'leapfrog_c', 'rk4_c', 'rk6_c', 'symplec4_c'
-       rtol, atol
-       progressbar= (True) if True, display a tqdm progress bar when integrating multiple orbits (requires tqdm to be installed!)
-       dt= (None) force integrator to use this stepsize (default is to automatically determine one; only for C-based integrators)
-    OUTPUT:
-       (y,err)
-       y : array, shape (N,len(t),2) or (len(y0),len(t)) if N=1
-       Array containing the value of y for each desired time in t, \
-       with the initial value y0 in the first row.
-       err: error message, if not zero: 1 means maximum step reduction happened for adaptive integrators
-    HISTORY:
-       2018-10-06 - Written - Bovy (UofT)
-       2018-10-14 - Adapted to allow multiple orbits to be integrated at once - Bovy (UofT)
-       2022-04-12 - Add progressbar - Bovy (UofT)
+    C integrate an ode for a LinearOrbit
+
+    Parameters
+    ----------
+    pot : Potential or list of such instances
+    yo : numpy.ndarray
+        initial condition [q,p], shape [N,2] or [2]
+    t : numpy.ndarray
+        set of times at which one wants the result
+    int_method : str
+        integration method
+    rtol : float, optional
+        relative tolerance
+    atol : float, optional
+        absolute tolerance
+    progressbar : bool, optional
+        if True, display a tqdm progress bar
+    dt : float, optional
+        force integrator to use this stepsize (default is to automatically determine one; only for C-based integrators)
+
+    Returns
+    -------
+    tuple
+        (y,err)
+        y : Array containing the value of y for each desired time in t, with the initial value y0 in the first row.
+        err: error message, if not zero: 1 means maximum step reduction happened for adaptive integrators
+
+    Notes
+    -----
+    - 2018-10-06 - Written - Bovy (UofT)
+    - 2018-10-14 - Adapted to allow multiple orbits to be integrated at once - Bovy (UofT)
+    - 2022-04-12 - Add progressbar - Bovy (UofT)
     """
     if len(yo.shape) == 1:
         single_obj = True
@@ -245,29 +255,40 @@ def integrateLinearOrbit(
     pot, yo, t, int_method, rtol=None, atol=None, numcores=1, progressbar=True, dt=None
 ):
     """
-    NAME:
-       integrateLinearOrbit
-    PURPOSE:
-       Integrate an ode for a LinearOrbit
-    INPUT:
-       pot - Potential or list of such instances
-       yo - initial condition [q,p], shape [N,2]
-       t - set of times at which one wants the result
-       int_method= 'leapfrog', 'odeint', or 'dop853'
-       rtol, atol= tolerances (not always used...)
-       numcores= (1) number of cores to use for multi-processing
-       progressbar= (True) if True, display a tqdm progress bar when integrating multiple orbits (requires tqdm to be installed!)
-       dt= (None) force integrator to use this stepsize (default is to automatically determine one; only for C-based integrators)
-    OUTPUT:
-       (y,err)
-       y : array, shape (N,len(t),2)
-       Array containing the value of y for each desired time in t, \
-       with the initial value y0 in the first row.
-       err: error message, always zero for now
-    HISTORY:
-       2010-07-13- Written - Bovy (NYU)
-       2019-04-08 - Adapted to allow multiple orbits to be integrated at once and moved to integrateLinearOrbit.py - Bovy (UofT)
-       2022-04-12 - Add progressbar - Bovy (UofT)
+    Integrate an ode for a LinearOrbit
+
+    Parameters
+    ----------
+    pot : Potential or list of such instances
+    yo : numpy.ndarray
+        initial condition [q,p], shape [N,2] or [2]
+    t : numpy.ndarray
+        set of times at which one wants the result
+    int_method : str
+        integration method
+    rtol : float, optional
+        relative tolerance
+    atol : float, optional
+        absolute tolerance
+    numcores : int, optional
+        number of cores to use
+    progressbar : bool, optional
+        if True, display a tqdm progress bar
+    dt : float, optional
+        force integrator to use this stepsize (default is to automatically determine one; only for C-based integrators)
+
+    Returns
+    -------
+    tuple
+        (y,err)
+        y : Array containing the value of y for each desired time in t, with the initial value y0 in the first row.
+        err: error message, if not zero: 1 means maximum step reduction happened for adaptive integrators
+
+    Notes
+    -----
+    - 2010-07-13- Written - Bovy (NYU)
+    - 2019-04-08 - Adapted to allow multiple orbits to be integrated at once and moved to integrateLinearOrbit.py - Bovy (UofT)
+    - 2022-04-12 - Add progressbar - Bovy (UofT)
     """
     if int_method.lower() == "leapfrog":
         if rtol is None:
@@ -317,17 +338,25 @@ def integrateLinearOrbit(
 
 def _linearEOM(y, t, pot):
     """
-    NAME:
-       linearEOM
-    PURPOSE:
-       the one-dimensional equation-of-motion
-    INPUT:
-       y - current phase-space position
-       t - current time
-       pot - (list of) linearPotential instance(s)
-    OUTPUT:
-       dy/dt
-    HISTORY:
-       2010-07-13 - Bovy (NYU)
+    The one-dimensional equation-of-motion
+
+    Parameters
+    ----------
+    y : list or numpy.ndarray
+        Current phase-space position
+    t : float
+        Current time
+    pot : list
+        (list of) linearPotential instance(s)
+
+    Returns
+    -------
+    list
+        dy/dt
+
+    Notes
+    -----
+    - 2010-07-13 - Bovy (NYU)
+
     """
     return [y[1], _evaluatelinearForces(pot, y[0], t=t)]
