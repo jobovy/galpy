@@ -10,7 +10,7 @@ from .Force import Force
 class DissipativeForce(Force):
     """Top-level class for non-conservative forces (cannot be derived from a potential function)"""
 
-    def __init__(self, amp, ro=None, vo=None, amp_units=None):
+    def __init__(self, amp=1.0, ro=None, vo=None, amp_units=None):
         """
         Initialize a DissipativeForce object.
 

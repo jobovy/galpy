@@ -38,7 +38,7 @@ def plotEscapecurve(Pot, *args, **kwargs):
 
     Notes
     -----
-    - 2010-08-08: Written by Bovy (NYU).
+    - 2010-08-08 - Written by Bovy (NYU).
 
     """
     # Using physical units or not?

@@ -404,8 +404,8 @@ class Potential(Force):
 
         Notes
         -----
-        - 2018-08-19: Written by Bovy (UofT).
-        - 2021-04-19: Adjusted for non-z-symmetric densities by Bovy (UofT).
+        - 2018-08-19 - Written - Bovy (UofT).
+        - 2021-04-19 - Adjusted for non-z-symmetric densities by Bovy (UofT).
 
         """
         return integrate.quad(
@@ -742,7 +742,7 @@ class Potential(Force):
 
         Notes
         -----
-        - 2010-07-10: Written by Bovy (NYU)
+        - 2010-07-10 - Written - Bovy (NYU)
         """
         return self._phitorque_nodecorator(R, z, phi=phi, t=t)
 
@@ -816,7 +816,7 @@ class Potential(Force):
 
         Notes
         -----
-        - 2014-06-30: Written by Bovy (IAS)
+        - 2014-06-30 - Written - Bovy (IAS)
         """
         try:
             return self._amp * self._Rphideriv(R, z, phi=phi, t=t)
@@ -1101,7 +1101,7 @@ class Potential(Force):
 
         Notes
         -----
-        - 2014-01-05: Written - Bovy (IAS)
+        - 2014-01-05 - Written - Bovy (IAS)
 
         """
         return plotDensities(
@@ -1178,7 +1178,7 @@ class Potential(Force):
 
         Notes
         -----
-        - 2020-08-19: Written - Bovy (UofT)
+        - 2020-08-19 - Written - Bovy (UofT)
 
         """
         return plotSurfaceDensities(
@@ -1221,8 +1221,8 @@ class Potential(Force):
 
         Notes
         -----
-        - 2011-10-09: Written - Bovy (IAS)
-        - 2016-06-15: Added phi= keyword for non-axisymmetric potential - Bovy (UofT)
+        - 2011-10-09 - Written - Bovy (IAS)
+        - 2016-06-15 - Added phi= keyword for non-axisymmetric potential - Bovy (UofT)
 
         """
         return numpy.sqrt(R * -self.Rforce(R, 0.0, phi=phi, t=t, use_physical=False))
@@ -1249,8 +1249,8 @@ class Potential(Force):
 
         Notes
         -----
-        - 2013-01-08: Written - Bovy (IAS)
-        - 2016-06-28: Added phi= keyword for non-axisymmetric potential - Bovy (UofT)
+        - 2013-01-08 - Written - Bovy (IAS)
+        - 2016-06-28 - Added phi= keyword for non-axisymmetric potential - Bovy (UofT)
 
         """
         return (
@@ -1282,7 +1282,7 @@ class Potential(Force):
 
         Notes
         -----
-        - 2011-10-09: Written - Bovy (IAS)
+        - 2011-10-09 - Written - Bovy (IAS)
 
         """
         return numpy.sqrt(-self.Rforce(R, 0.0, t=t, use_physical=False) / R)
@@ -1307,7 +1307,7 @@ class Potential(Force):
 
         Notes
         -----
-        - 2011-10-09: Written - Bovy (IAS)
+        - 2011-10-09 - Written - Bovy (IAS)
 
         """
         return numpy.sqrt(
@@ -1335,7 +1335,7 @@ class Potential(Force):
 
         Notes
         -----
-        - 2012-07-25: Written - Bovy (IAS@MPIA)
+        - 2012-07-25 - Written - Bovy (IAS@MPIA)
 
         """
         return numpy.sqrt(self.z2deriv(R, 0.0, t=t, use_physical=False))
@@ -1365,7 +1365,7 @@ class Potential(Force):
 
         Notes
         -----
-        - 2011-10-09: Written - Bovy (IAS)
+        - 2011-10-09 - Written - Bovy (IAS)
 
         """
         OmegaP = conversion.parse_frequency(OmegaP, ro=self._ro, vo=self._vo)
@@ -1391,7 +1391,7 @@ class Potential(Force):
 
         Notes
         -----
-        - Written on 2011-10-09 by Bovy (IAS)
+        - 2011-10-09 - Written - Bovy (IAS)
 
         """
         return numpy.sqrt(
@@ -1421,7 +1421,7 @@ class Potential(Force):
 
         Notes
         -----
-        - 2012-07-30: Written - Bovy (IAS@MPIA)
+        - 2012-07-30 - Written - Bovy (IAS@MPIA)
         - An efficient way to call this function on many objects is provided as the Orbit method rguiding.
 
         See Also
@@ -1450,7 +1450,7 @@ class Potential(Force):
 
         Notes
         -----
-        - 2022-04-06: Written - Bovy (UofT)
+        - 2022-04-06 - Written - Bovy (UofT)
         - An efficient way to call this function on many objects is provided as the Orbit method rE.
 
         See Also
@@ -1479,7 +1479,7 @@ class Potential(Force):
 
         Notes
         -----
-        - 2022-04-06: Written by Bovy (UofT).
+        - 2022-04-06 - Written - Bovy (UofT).
 
         """
         E = conversion.parse_energy(E, ro=self._ro, vo=self._vo)
@@ -1507,7 +1507,7 @@ class Potential(Force):
 
         Notes
         -----
-        - 2012-09-13: Written - Bovy (IAS)
+        - 2012-09-13 - Written - Bovy (IAS)
 
         """
         return numpy.sqrt(
@@ -1540,7 +1540,7 @@ class Potential(Force):
 
         Notes
         -----
-        - 2013-05-31: Written - Bovy (IAS).
+        - 2013-05-31 - Written - Bovy (IAS).
 
         """
         if _APY_LOADED and isinstance(l, units.Quantity):
@@ -1577,7 +1577,7 @@ class Potential(Force):
 
         Notes
         -----
-        - 2010-07-10: Written - Bovy (NYU)
+        - 2010-07-10 - Written - Bovy (NYU)
         """
         return plotRotcurve(self, *args, **kwargs)
 
@@ -1603,7 +1603,7 @@ class Potential(Force):
 
         Notes
         -----
-        - 2010-08-08: Written - Bovy (NYU).
+        - 2010-08-08 - Written - Bovy (NYU).
 
         """
         return plotEscapecurve(self.toPlanar(), *args, **kwargs)
@@ -1638,7 +1638,7 @@ class Potential(Force):
 
         Notes
         -----
-        - 2014-04-03: Written - Bovy (IAS)
+        - 2014-04-03 - Written - Bovy (IAS)
 
         """
         if ro is None:
@@ -1675,7 +1675,7 @@ class Potential(Force):
 
         Notes
         -----
-        - 2014-12-18: Written - Bovy (IAS)
+        - 2014-12-18 - Written - Bovy (IAS)
 
         """
         try:
@@ -1703,7 +1703,7 @@ class Potential(Force):
 
         Notes
         -----
-        - 2014-12-18: Written - Bovy (IAS)
+        - 2014-12-18 - Written - Bovy (IAS)
 
         """
         try:
@@ -1740,7 +1740,7 @@ class Potential(Force):
 
         Notes
         -----
-        - 2018-03-21: Written - Webb (UofT)
+        - 2018-03-21 - Written - Webb (UofT)
         - The tidal radius is computed as
 
            .. math::
@@ -1785,7 +1785,7 @@ class Potential(Force):
 
         Notes
         -----
-        - 2018-03-21: Written - Webb (UofT)
+        - 2018-03-21 - Written - Webb (UofT)
 
         """
         if self.isNonAxi:
@@ -1867,7 +1867,7 @@ class Potential(Force):
 
         Notes
         -----
-        - 2020-08-20: Written - Bovy (UofT)
+        - 2020-08-20 - Written - Bovy (UofT)
 
         """
         return zvc(self, R, E, Lz, phi=phi, t=t, use_physical=False)
@@ -2819,7 +2819,7 @@ def plotPotentials(
 
     Notes
     -----
-    - 2010-07-09: Written by Bovy (NYU).
+    - 2010-07-09 - Written by Bovy (NYU).
 
     See Also
     --------
@@ -3810,7 +3810,7 @@ def flatten(Pot):
 
     Notes
     -----
-    - 2018-03-14: Written by Bovy (UofT).
+    - 2018-03-14 - Written - Bovy (UofT).
 
     """
     if isinstance(Pot, Potential):
