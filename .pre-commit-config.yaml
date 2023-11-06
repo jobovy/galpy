@@ -4,7 +4,7 @@ ci:
 
 repos:
 - repo: https://github.com/pre-commit/pre-commit-hooks
-  rev: v4.4.0
+  rev: v4.5.0
   hooks:
   - id: trailing-whitespace
   - id: end-of-file-fixer
@@ -12,7 +12,7 @@ repos:
   - id: check-executables-have-shebangs
   - id: check-yaml
 - repo: https://github.com/asottile/pyupgrade
-  rev: v3.14.0
+  rev: v3.15.0
   hooks:
   - id: pyupgrade
     args: [--py38-plus]
@@ -21,7 +21,7 @@ repos:
   hooks:
   - id: rst-backticks
 - repo: https://github.com/hadialqattan/pycln
-  rev: v2.2.2
+  rev: v2.3.0
   hooks:
     - id: pycln
 - repo: https://github.com/PyCQA/isort
@@ -36,6 +36,6 @@ repos:
       args: ["-L", "thisE,thise,mye,tE,te,hist,ro,sav,ccompiler,aas",
       "-x","doc/source/_static/try-galpy.js"]
 - repo: https://github.com/psf/black
-  rev: 23.9.1
+  rev: 23.10.1
   hooks:
     - id: black
