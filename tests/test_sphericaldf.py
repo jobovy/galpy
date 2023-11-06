@@ -3,7 +3,7 @@ import platform
 
 WIN32 = platform.system() == "Windows"
 if not WIN32:  # Enable 64bit for JAX
-    from jax.config import config
+    from jax import config
 
     config.update("jax_enable_x64", True)
 import numpy
