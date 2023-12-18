@@ -70,7 +70,7 @@ jobs:
         run: |
           GALPY_VERSION="$(awk '/^current_version/{print $NF}' .bumpversion.cfg)"
           for f in dist/*$GALPY_VERSION*; do sudo mv -i -- "$f" "${f//$GALPY_VERSION/latest}"; done
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: galpy-wheel-pyodide
           path: dist/*.whl
