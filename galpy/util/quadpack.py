@@ -30,7 +30,7 @@ def dblquad(func, a, b, gfun, hfun, args=(), epsabs=1.49e-8, epsrel=1.49e-8):
 
 # scipy adaptive Gaussian quadrature that was deprecated in 1.12.0 and associated
 # functions; same BSD-3 license as galpy
-class AccuracyWarning(Warning):  # pragma: no cover
+class AccuracyWarning(Warning):
     pass
 
 
@@ -64,7 +64,8 @@ def vectorize1(func, args=(), vec_func=False):
         def vfunc(x):
             return func(x, *args)
 
-    else:
+    else:  # pragma: no cover
+        # Don't cover because not used in galpy
 
         def vfunc(x):
             if numpy.isscalar(x):
@@ -120,8 +121,6 @@ def quadrature(
     err : float
         Difference between last two estimates of the integral.
     """
-    if not isinstance(args, tuple):
-        args = (args,)
     vfunc = vectorize1(func, args, vec_func=vec_func)
     val = numpy.inf
     err = numpy.inf
