@@ -138,3 +138,122 @@ def quadrature(
             AccuracyWarning,
         )
     return val, err
+
+
+# scipy Romberg quadrature that was deprecated in 1.12.0 and associated
+# functions; same BSD-3 license as galpy
+def _difftrap(function, interval, numtraps):
+    """
+    Perform part of the trapezoidal rule to integrate a function.
+    Assume that we had called difftrap with all lower powers-of-2
+    starting with 1. Calling difftrap only returns the summation
+    of the new ordinates. It does _not_ multiply by the width
+    of the trapezoids. This must be performed by the caller.
+        'function' is the function to evaluate (must accept vector arguments).
+        'interval' is a sequence with lower and upper limits
+                   of integration.
+        'numtraps' is the number of trapezoids to use (must be a
+                   power-of-2).
+    """
+    if numtraps == 1:
+        return 0.5 * (function(interval[0]) + function(interval[1]))
+    else:
+        numtosum = numtraps / 2
+        h = float(interval[1] - interval[0]) / numtosum
+        lox = interval[0] + 0.5 * h
+        points = lox + h * numpy.arange(numtosum)
+        s = numpy.sum(function(points), axis=0)
+        return s
+
+
+def _romberg_diff(b, c, k):
+    """
+    Compute the differences for the Romberg quadrature corrections.
+    See Forman Acton's "Real Computing Made Real," p 143.
+    """
+    tmp = 4.0**k
+    return (tmp * c - b) / (tmp - 1.0)
+
+
+def romberg(
+    function,
+    a,
+    b,
+    args=(),
+    tol=1.48e-8,
+    rtol=1.48e-8,
+    divmax=10,
+    vec_func=False,
+):
+    """
+    Romberg integration of a callable function or method.
+
+    Returns the integral of `function` (a function of one variable)
+    over the interval (`a`, `b`).
+
+    If `show` is 1, the triangular array of the intermediate results
+    will be printed. If `vec_func` is True (default is False), then
+    `function` is assumed to support vector arguments.
+
+    Parameters
+    ----------
+    function : callable
+        Function to be integrated.
+    a : float
+        Lower limit of integration.
+    b : float
+        Upper limit of integration.
+
+    Returns
+    -------
+    results : float
+        Result of the integration.
+
+    Other Parameters
+    ----------------
+    args : tuple, optional
+        Extra arguments to pass to function. Each element of `args` will
+        be passed as a single argument to `func`. Default is to pass no
+        extra arguments.
+    tol, rtol : float, optional
+        The desired absolute and relative tolerances. Defaults are 1.48e-8.
+    divmax : int, optional
+        Maximum order of extrapolation. Default is 10.
+    vec_func : bool, optional
+        Whether `func` handles arrays as arguments (i.e., whether it is a
+        "vector" function). Default is False.
+
+    References
+    ----------
+    .. [1] 'Romberg's method' https://en.wikipedia.org/wiki/Romberg%27s_method
+
+    """
+    if numpy.isinf(a) or numpy.isinf(b):  # pragma: no cover
+        raise ValueError("Romberg integration only available " "for finite limits.")
+    vfunc = vectorize1(function, args, vec_func=vec_func)
+    n = 1
+    interval = [a, b]
+    intrange = b - a
+    ordsum = _difftrap(vfunc, interval, n)
+    result = intrange * ordsum
+    resmat = [[result]]
+    err = numpy.inf
+    last_row = resmat[0]
+    for i in range(1, divmax + 1):
+        n *= 2
+        ordsum += _difftrap(vfunc, interval, n)
+        row = [intrange * ordsum / n]
+        for k in range(i):
+            row.append(_romberg_diff(last_row[k], row[k], k + 1))
+        result = row[i]
+        lastresult = last_row[i - 1]
+        err = abs(result - lastresult)
+        if err < tol or err < rtol * abs(result):
+            break
+        last_row = row
+    else:  # pragma: no cover
+        warnings.warn(
+            "divmax (%d) exceeded. Latest difference = %e" % (divmax, err),
+            AccuracyWarning,
+        )
+    return result

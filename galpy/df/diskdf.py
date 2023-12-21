@@ -32,7 +32,7 @@ from scipy import integrate, interpolate, optimize, stats
 from ..actionAngle import actionAngleAdiabatic
 from ..orbit import Orbit
 from ..potential import PowerSphericalPotential
-from ..util import conversion, save_pickles
+from ..util import conversion, quadpack, save_pickles
 from ..util.ars import ars
 from ..util.conversion import (
     _APY_LOADED,
@@ -2702,7 +2702,7 @@ def _oned_intFunc(x, twodfunc, gfun, hfun, tol, args):
     """Internal function for bovy_dblquad"""
     thisargs = copy.deepcopy(args)
     thisargs.insert(0, x)
-    return integrate.romberg(twodfunc, gfun(x), hfun(x), args=thisargs, tol=tol)
+    return quadpack.romberg(twodfunc, gfun(x), hfun(x), args=thisargs, tol=tol)
 
 
 def bovy_dblquad(func, a, b, gfun, hfun, args=(), tol=1.48e-08):
