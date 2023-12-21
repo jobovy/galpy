@@ -884,7 +884,7 @@ class actionAngleStaeckelSingle(actionAngle):
         Parameters
         ----------
         **kwargs : dict
-            scipy.integrate.quad keywords
+            scipy.integrate.quadrature keywords
 
         Returns
         -------

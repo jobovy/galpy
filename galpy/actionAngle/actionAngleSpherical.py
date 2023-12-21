@@ -18,6 +18,7 @@ from ..potential import _dim, epifreq, omegac, vcirc
 from ..potential.planarPotential import _evaluateplanarPotentials
 from ..potential.Potential import _evaluatePotentials
 from ..potential.Potential import flatten as flatten_potential
+from ..util import quadpack
 from .actionAngle import UnboundError, actionAngle
 
 _EPS = 10.0**-15.0
@@ -85,7 +86,7 @@ class actionAngleSpherical(actionAngle):
         fixed_quad: bool, optional
             if True, use n=10 fixed_quad integration
         **kwargs: dict, optional
-            scipy.integrate.quad or .fixed_quad keywords
+            scipy.integrate.quadrature or .fixed_quad keywords
 
         Returns
         -------
@@ -160,7 +161,7 @@ class actionAngleSpherical(actionAngle):
         fixed_quad: bool, optional
             if True, use n=10 fixed_quad integration
         **kwargs: dict, optional
-            scipy.integrate.quad or .fixed_quad keywords
+            scipy.integrate.quadrature or .fixed_quad keywords
 
         Returns
         -------
@@ -254,7 +255,7 @@ class actionAngleSpherical(actionAngle):
         fixed_quad: bool, optional
             if True, use n=10 fixed_quad integration
         **kwargs: dict, optional
-            scipy.integrate.quad or .fixed_quad keywords
+            scipy.integrate.quadrature or .fixed_quad keywords
 
         Returns
         -------
@@ -555,7 +556,7 @@ class actionAngleSpherical(actionAngle):
         Tr = 0.0
         if Rmean > rperi and not fixed_quad:
             Tr += numpy.array(
-                integrate.quad(
+                quadpack.quadrature(
                     _TrSphericalIntegrandSmall,
                     0.0,
                     numpy.sqrt(Rmean - rperi),
@@ -574,7 +575,7 @@ class actionAngleSpherical(actionAngle):
             )[0]
         if Rmean < rap and not fixed_quad:
             Tr += numpy.array(
-                integrate.quad(
+                quadpack.quadrature(
                     _TrSphericalIntegrandLarge,
                     0.0,
                     numpy.sqrt(rap - Rmean),
@@ -599,7 +600,7 @@ class actionAngleSpherical(actionAngle):
         I = 0.0
         if Rmean > rperi and not fixed_quad:
             I += numpy.array(
-                integrate.quad(
+                quadpack.quadrature(
                     _ISphericalIntegrandSmall,
                     0.0,
                     numpy.sqrt(Rmean - rperi),
@@ -618,7 +619,7 @@ class actionAngleSpherical(actionAngle):
             )[0]
         if Rmean < rap and not fixed_quad:
             I += numpy.array(
-                integrate.quad(
+                quadpack.quadrature(
                     _ISphericalIntegrandLarge,
                     0.0,
                     numpy.sqrt(rap - Rmean),
@@ -657,7 +658,7 @@ class actionAngleSpherical(actionAngle):
             if r > rperi and not fixed_quad:
                 wr = (
                     Or
-                    * integrate.quad(
+                    * quadpack.quadrature(
                         _TrSphericalIntegrandSmall,
                         0.0,
                         numpy.sqrt(r - rperi),
@@ -685,7 +686,7 @@ class actionAngleSpherical(actionAngle):
             if r < rap and not fixed_quad:
                 wr = (
                     Or
-                    * integrate.quad(
+                    * quadpack.quadrature(
                         _TrSphericalIntegrandLarge,
                         0.0,
                         numpy.sqrt(rap - r),
@@ -749,7 +750,7 @@ class actionAngleSpherical(actionAngle):
             if not fixed_quad:
                 wz = (
                     L
-                    * integrate.quad(
+                    * quadpack.quadrature(
                         _ISphericalIntegrandSmall,
                         0.0,
                         numpy.sqrt(r - rperi),
@@ -775,7 +776,7 @@ class actionAngleSpherical(actionAngle):
             if not fixed_quad:
                 wz = (
                     L
-                    * integrate.quad(
+                    * quadpack.quadrature(
                         _ISphericalIntegrandLarge,
                         0.0,
                         numpy.sqrt(rap - r),
