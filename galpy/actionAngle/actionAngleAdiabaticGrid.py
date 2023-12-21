@@ -289,7 +289,7 @@ class actionAngleAdiabaticGrid(actionAngle):
                 2) numpy.ndarray: [N] phase-space values for N objects (each can be a Quantity)
             b) Orbit instance: initial condition used if that's it, orbit(t) if there is a time given as well as the second argument
         **kwargs: dict, optional
-            scipy.integrate.quadrature keywords (used when directly evaluating a point off the grid)
+            scipy.integrate.quad keywords (used when directly evaluating a point off the grid)
 
         Returns
         -------
@@ -466,7 +466,7 @@ class actionAngleAdiabaticGrid(actionAngle):
                 b) Orbit instance: initial condition used if that's it, orbit(t)
                     if there is a time given as well
         **kwargs: dict
-            scipy.integrate.quadrature keywords
+            scipy.integrate.quad keywords
 
         Returns
         -------

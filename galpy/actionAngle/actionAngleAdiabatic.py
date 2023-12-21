@@ -94,7 +94,7 @@ class actionAngleAdiabatic(actionAngle):
         _justjr, _justjz: bool, optional
             If True, only calculate the radial or vertical action (internal use)
         **kwargs : dict
-            scipy.integrate.quadrature keywords
+            scipy.integrate.quad keywords
 
         Returns
         -------

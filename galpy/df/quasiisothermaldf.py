@@ -188,7 +188,7 @@ class quasiisothermaldf(df):
         _return_rgr: bool, optional
             If True, return the rg as well.
         kwargs: dict, optional
-            scipy.integrate.quadrature kwargs.
+            scipy.integrate.quad kwargs.
 
         Returns
         -------
