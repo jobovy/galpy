@@ -1737,7 +1737,7 @@ def impulse_deltav_general_orbitintegration(
     acc = (numpy.reshape(evaluateRforces(pot, r.flatten(), 0.0), (nstar, nsamp)) / r)[
         :, :, numpy.newaxis
     ] * X
-    return integrate.simps(acc, x=times, axis=1)
+    return integrate.simpson(acc, x=times, axis=1)
 
 
 def impulse_deltav_general_fullplummerintegration(
