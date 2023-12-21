@@ -6,7 +6,7 @@ from scipy import integrate, interpolate, special
 
 from ..potential import interpSphericalPotential
 from ..potential.Potential import _evaluatePotentials
-from ..util import conversion, galpyWarning
+from ..util import conversion, quadpack
 from ..util._optional_deps import _JAX_LOADED
 from .sphericaldf import anisotropicsphericaldf, sphericaldf
 
@@ -339,7 +339,7 @@ class constantbetadf(_constantbetadf):
             # at the lower end and infinity at the upper end
             out[indx] = numpy.array(
                 [
-                    integrate.quadrature(
+                    quadpack.quadrature(
                         lambda t: _fEintegrand_smallr(
                             t,
                             self._pot,
@@ -366,7 +366,7 @@ class constantbetadf(_constantbetadf):
             # 2nd half of the integral
             out[indx] += numpy.array(
                 [
-                    integrate.quadrature(
+                    quadpack.quadrature(
                         lambda t: _fEintegrand_larger(
                             t, self._pot, tE, self._gradfunc, self._alpha
                         ),
