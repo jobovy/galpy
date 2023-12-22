@@ -2733,9 +2733,9 @@ def bovy_dblquad(func, a, b, gfun, hfun, args=(), tol=1.48e-08):
 
     Notes
     -----
-    - 2010-03-11 - Written - Bpvy (NYU)
+    - 2010-03-11 - Written - Bovy (NYU)
     """
-    return integrate.romberg(
+    return quadpack.romberg(
         _oned_intFunc, a, b, args=(func, gfun, hfun, tol, args), tol=tol
     )
 
