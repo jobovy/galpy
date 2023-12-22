@@ -209,14 +209,13 @@ jobs:
             REQUIRES_NUMBA: false
             REQUIRES_JAX: false
     env:
-      PYTHON_COVREPORTS_VERSION: "3.11"
+      PYTHON_COVREPORTS_VERSION: "3.12"
     steps:
     - uses: actions/checkout@v4
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v5
       with:
         python-version: ${{ matrix.python-version }}
-        allow-prereleases: true
     - name: Install lcov
       if: matrix.os == 'ubuntu-latest'
       run: |
@@ -245,7 +244,7 @@ jobs:
     - name: Install Python dependencies (3.12)
       if: matrix.python-version == '3.12'
       run: |
-         pip install --upgrade --upgrade-strategy eager --pre numpy scipy "matplotlib<3.8" numexpr setuptools "cython<1" pytest tqdm
+         pip install --upgrade --upgrade-strategy eager numpy scipy matplotlib numexpr setuptools cython pytest tqdm
     - name: Install pynbody
       if: ${{ matrix.REQUIRES_PYNBODY }}
       env:
@@ -257,10 +256,10 @@ jobs:
          pip install --upgrade --upgrade-strategy eager pynbody
     - name: Install astropy
       if: ${{ matrix.REQUIRES_ASTROPY }}
-      run: pip install --pre astropy pyerfa
+      run: pip install astropy pyerfa
     - name: Install astroquery
       if: ${{ matrix.REQUIRES_ASTROQUERY }}
-      run: pip install --pre astroquery
+      run: pip install astroquery
     - name: Install numba
       if: ${{ matrix.REQUIRES_NUMBA }}
       run: |
@@ -270,7 +269,7 @@ jobs:
         pip install --upgrade --force-reinstall setuptools
     - name: Install JAX
       if: ${{ matrix.REQUIRES_JAX }}
-      run: pip install --pre jax jaxlib
+      run: pip install jax jaxlib
     - name: Install torus code
       env:
           TEST_FILES: ${{ matrix.TEST_FILES }}
