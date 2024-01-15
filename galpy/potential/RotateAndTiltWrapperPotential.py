@@ -65,6 +65,8 @@ class RotateAndTiltWrapperPotential(WrapperPotential):
             3D vector specifying the direction of the rotated z axis.
         offset : numpy.ndarray or Quantity, optional
             Static offset in Cartesian coordinates.
+        pot : Potential instance or list thereof
+            The Potential instance or list thereof to rotate and tilt.
         ro : float or Quantity, optional
             Distance scale for translation into internal units (default from configuration file).
         vo : float or Quantity, optional
