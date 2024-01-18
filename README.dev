@@ -24,22 +24,19 @@ set up your new potential (in the 'parse_leapFuncArgs_Full' function)
 6) Edit the code in orbit/integrateFullOrbit.py to set up your
 new potential
 
-7) Edit the code in actionAngle/actionAngle_c_ext/actionAngle.c to
-parse the new potential
-
-8) Finally, add 'self.hasC= True' to the initialization of the
+7) Finally, add 'self.hasC= True' to the initialization of the
 potential in question (after the initialization of the super class)
 
-9) It should work now!
+8) It should work now!
 
-10) If you implement the second derivatives of the potential necessary
+9) If you implement the second derivatives of the potential necessary
 to integrate phase-space volumes, also set self.hasC_dxdv=True to the
 initialization of the potential in question.
 
-11) If you add a potential that gets passed to C as a list, you need
+10) If you add a potential that gets passed to C as a list, you need
 to edit orbit/integrateLinearOrbit.py and
 orbit/orbit_c_ext/integrateLinearPotential.c to parse it properly (for
 regular 3D potentials this works out of the box).
 
-12) If you add a 1D potential, do the steps above, but for
+11) If you add a 1D potential, do the steps above, but for
 integrateLinearOrbit.*
