@@ -214,6 +214,7 @@ def test_forceAsDeriv_potential():
     pots.append("mockRotatedAndTiltedMWP14WrapperPotentialwInclination")
     pots.append("mockRotatedAndTiltedTriaxialLogHaloPotentialwInclination")
     pots.append("mockRotatedTiltedOffsetMWP14WrapperPotential")
+    pots.append("mockKuzminLikeWrapperPotential")
     pots.append("mockOffsetMWP14WrapperPotential")
     pots.append("mockTimeDependentAmplitudeWrapperPotential")
     rmpots = [
@@ -451,6 +452,7 @@ def test_2ndDeriv_potential():
     pots.append("mockRotatedTiltedOffsetMWP14WrapperPotential")
     pots.append("mockOffsetMWP14WrapperPotential")
     pots.append("mockTimeDependentAmplitudeWrapperPotential")
+    pots.append("mockKuzminLikeWrapperPotential")
     rmpots = [
         "Potential",
         "MWPotential",
@@ -809,6 +811,7 @@ def test_poisson_potential():
     pots.append("mockRotatedTiltedOffsetMWP14WrapperPotential")
     pots.append("mockOffsetMWP14WrapperPotential")
     pots.append("mockTimeDependentAmplitudeWrapperPotential")
+    pots.append("mockKuzminLikeWrapperPotential")
     rmpots = [
         "Potential",
         "MWPotential",
@@ -954,6 +957,7 @@ def test_poisson_surfdens_potential():
     pots.append("mockRotatedAndTiltedTriaxialLogHaloPotentialwInclination")
     pots.append("mockRotatedTiltedOffsetMWP14WrapperPotential")
     pots.append("mockOffsetMWP14WrapperPotential")
+    pots.append("mockKuzminLikeWrapperPotential")
     rmpots = [
         "Potential",
         "MWPotential",
@@ -1131,6 +1135,7 @@ def test_evaluateAndDerivs_potential():
     pots.append("mockRotatedTiltedOffsetMWP14WrapperPotential")
     pots.append("mockOffsetMWP14WrapperPotential")
     pots.append("mockTimeDependentAmplitudeWrapperPotential")
+    pots.append("mockKuzminLikeWrapperPotential")
     rmpots = [
         "Potential",
         "MWPotential",
@@ -1409,6 +1414,7 @@ def test_amp_mult_divide():
     pots.append("mockRotatedAndTiltedTriaxialLogHaloPotentialwInclination")
     pots.append("mockRotatedTiltedOffsetMWP14WrapperPotential")
     pots.append("mockOffsetMWP14WrapperPotential")
+    pots.append("mockKuzminLikeWrapperPotential")
     rmpots = [
         "Potential",
         "MWPotential",
@@ -1836,6 +1842,7 @@ def test_potential_at_zero():
     pots.append("mockRotatedAndTiltedTriaxialLogHaloPotentialwInclination")
     pots.append("mockRotatedTiltedOffsetMWP14WrapperPotential")
     pots.append("mockOffsetMWP14WrapperPotential")
+    pots.append("mockKuzminLikeWrapperPotential")
     rmpots = [
         "Potential",
         "MWPotential",
@@ -1987,6 +1994,7 @@ def test_potential_at_infinity():
     pots.append("mockRotatedAndTiltedTriaxialLogHaloPotentialwInclination")
     pots.append("mockRotatedTiltedOffsetMWP14WrapperPotential")
     pots.append("mockOffsetMWP14WrapperPotential")
+    pots.append("mockKuzminLikeWrapperPotential")
     rmpots = [
         "Potential",
         "MWPotential",
@@ -9056,6 +9064,7 @@ from galpy.potential import (
     CorotatingRotationWrapperPotential,
     DehnenSmoothWrapperPotential,
     GaussianAmplitudeWrapperPotential,
+    KuzminLikeWrapperPotential,
     RotateAndTiltWrapperPotential,
     SolidBodyRotationWrapperPotential,
     TimeDependentAmplitudeWrapperPotential,
@@ -9618,4 +9627,14 @@ class mockSmoothedLogarithmicHaloPotentialwTimeDependentAmplitudeWrapperPotentia
             amp=1.0,
             pot=potential.LogarithmicHaloPotential(normalize=1.0),
             A=dps._smooth,
+        )
+
+
+class mockKuzminLikeWrapperPotential(KuzminLikeWrapperPotential):
+    def __init__(self):
+        KuzminLikeWrapperPotential.__init__(
+            self,
+            pot=LogarithmicHaloPotential(normalize=1.0),
+            a=1.0,
+            b=0.1,
         )

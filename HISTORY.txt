@@ -1,6 +1,16 @@
 v1.9.2 (expected around 2024-03-01)
 ===================
 
+- Added KuzminLikeWrapperPotential, a potential wrapper that allows
+  one to make a Kuzmin-like or Miyamoto-Nagai-like potential out of any
+  spherical or axisymmetric potential (evaluated in the plane, i.e.,
+  treated as a spherical potential). Kuzmin-like potentials are obtained by
+  replacing the spherical radius r with \sqrt(R^2 + (a + |z|^2)), while
+  Miyamoto-Nagai-like potentials are obtained by replacing the spherical
+  radius with \sqrt(R^2 + (a + \\sqrt(z^2 + b^2))^2). The standard KuzminDiskPotential
+  and MiyamotoNagaiPotential are obtained by applying this procedure to a point-mass
+  potential and the Kuzmin/Miyamoto-Nagai-like potentials generalize this to any
+  spherical potential.
 
 v1.9.1 (2023-11-06)
 ===================

@@ -23,6 +23,7 @@ from . import (
     KingPotential,
     KuzminDiskPotential,
     KuzminKutuzovStaeckelPotential,
+    KuzminLikeWrapperPotential,
     LogarithmicHaloPotential,
     MiyamotoNagaiPotential,
     MN3ExponentialDiskPotential,
@@ -233,6 +234,7 @@ NullPotential = NullPotential.NullPotential
 TimeDependentAmplitudeWrapperPotential = (
     TimeDependentAmplitudeWrapperPotential.TimeDependentAmplitudeWrapperPotential
 )
+KuzminLikeWrapperPotential = KuzminLikeWrapperPotential.KuzminLikeWrapperPotential
 
 # MW potential models, now in galpy.potential.mwpotentials, but keep these two
 # for tests, backwards compatibility, and convenience
