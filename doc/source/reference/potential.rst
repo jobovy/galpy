@@ -597,5 +597,6 @@ Specific wrappers
    potentialcorotwrapper.rst
    potentialdehnensmoothwrapper.rst
    potentialgaussampwrapper.rst
+   potentialkuzminlikewrapper.rst
    potentialsolidbodyrotationwrapper.rst
    potentialrotateandtiltwrapper.rst
