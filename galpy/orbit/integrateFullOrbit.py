@@ -466,6 +466,17 @@ def _parse_pot(pot, potforactions=False, potfortorus=False):
             pot_tfuncs.extend(wrap_pot_tfuncs)
             pot_args.append(p._amp)
             pot_tfuncs.append(p._A)
+        elif isinstance(p, potential.KuzminLikeWrapperPotential):
+            pot_type.append(-10)
+            # Not sure how to easily avoid this duplication
+            wrap_npot, wrap_pot_type, wrap_pot_args, wrap_pot_tfuncs = _parse_pot(
+                p._pot, potforactions=potforactions, potfortorus=potfortorus
+            )
+            pot_args.append(wrap_npot)
+            pot_type.extend(wrap_pot_type)
+            pot_args.extend(wrap_pot_args)
+            pot_tfuncs.extend(wrap_pot_tfuncs)
+            pot_args.extend([p._amp, p._a, p._b2])
     pot_type = numpy.array(pot_type, dtype=numpy.int32, order="C")
     pot_args = numpy.array(pot_args, dtype=numpy.float64, order="C")
     return (npot, pot_type, pot_args, pot_tfuncs)

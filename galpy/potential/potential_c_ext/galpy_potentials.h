@@ -760,6 +760,15 @@ double TimeDependentAmplitudeWrapperPotentialPlanarphi2deriv(double,double,doubl
 						   struct potentialArg *);
 double TimeDependentAmplitudeWrapperPotentialPlanarRphideriv(double,double,double,
 						   struct potentialArg *);
+//KuzminLikeWrapperPotential
+double KuzminLikeWrapperPotentialEval(double,double,double,double,
+				      struct potentialArg *);
+double KuzminLikeWrapperPotentialRforce(double,double,double,double,
+					struct potentialArg *);
+double KuzminLikeWrapperPotentialzforce(double,double,double,double,
+				        struct potentialArg *);
+double KuzminLikeWrapperPotentialPlanarRforce(double,double,double,
+						struct potentialArg *);
 #ifdef __cplusplus
 }
 #endif

@@ -597,6 +597,14 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->ntfuncs= 1;
       potentialArgs->requiresVelocity= false;
       break;
+    case -10: // KuzminLikeWrapperPotential
+      potentialArgs->potentialEval= &KuzminLikeWrapperPotentialEval;
+      potentialArgs->Rforce= &KuzminLikeWrapperPotentialRforce;
+      potentialArgs->zforce= &KuzminLikeWrapperPotentialzforce;
+      potentialArgs->phitorque= &ZeroForce;
+      potentialArgs->nargs= 3;
+      potentialArgs->ntfuncs= 0;
+      potentialArgs->requiresVelocity= false;
     }
     int setupMovingObjectSplines = *(*pot_type-1) == -6 ? 1 : 0;
     int setupChandrasekharDynamicalFrictionSplines = *(*pot_type-1) == -7 ? 1 : 0;

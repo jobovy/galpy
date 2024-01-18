@@ -71,7 +71,7 @@ class KuzminLikeWrapperPotential(WrapperPotential):
             raise RuntimeError(
                 "KuzminLikeWrapperPotential only works for spherical or axisymmetric potentials"
             )
-        self.hasC = False
+        self.hasC = True
         self.hasC_dxdv = False
         self.isNonAxi = False
 
@@ -99,9 +99,7 @@ class KuzminLikeWrapperPotential(WrapperPotential):
             (
                 self._a**3.0 * self._b2
                 + 3.0 * self._a**2.0 * self._b2 * numpy.sqrt(self._b2 + z**2.0)
-                + self._a
-                * self._b**2.0
-                * (3.0 * self._b2 + R**2.0 + 3.0 * z**2.0)
+                + self._a * self._b2 * (3.0 * self._b2 + R**2.0 + 3.0 * z**2.0)
                 + (self._b2 + R**2.0) * (self._b2 + z**2.0) ** (1.5)
             )
             / (self._b2 + z**2.0) ** 1.5
@@ -109,10 +107,9 @@ class KuzminLikeWrapperPotential(WrapperPotential):
         )
 
     def _d2xidRdz(self, R, z):
-        return -(R * z * (self._a + numpy.sqrt(self._b**2.0 + z**2.0))) / (
-            numpy.sqrt(self._b**2.0 + z**2.0)
-            * ((self._a + numpy.sqrt(self._b**2.0 + z**2.0)) ** 2.0 + R**2.0)
-            ** 1.5
+        return -(R * z * (self._a + numpy.sqrt(self._b2 + z**2.0))) / (
+            numpy.sqrt(self._b2 + z**2.0)
+            * ((self._a + numpy.sqrt(self._b2 + z**2.0)) ** 2.0 + R**2.0) ** 1.5
         )
 
     def _evaluate(self, R, z, phi=0.0, t=0.0):
@@ -127,6 +124,9 @@ class KuzminLikeWrapperPotential(WrapperPotential):
         return _evaluateRforces(
             self._pot, self._xi(R, z), 0.0, phi=phi, t=t
         ) * self._dxidz(R, z)
+
+    def _phitorque(self, R, z, phi=0.0, t=0.0):
+        return 0.0
 
     def _R2deriv(self, R, z, phi=0.0, t=0.0):
         return evaluateR2derivs(
