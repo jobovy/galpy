@@ -555,6 +555,14 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
       potentialArgs->ntfuncs= 1;
       potentialArgs->requiresVelocity= false;
       break;
+    case -10: //KuzminLikeWrapperPotential
+      potentialArgs->potentialEval= &KuzminLikeWrapperPotentialEval;
+      potentialArgs->planarRforce= &KuzminLikeWrapperPotentialPlanarRforce;
+      potentialArgs->planarphitorque= &ZeroPlanarForce;
+      potentialArgs->nargs= 3;
+      potentialArgs->ntfuncs= 0;
+      potentialArgs->requiresVelocity= false;
+      break;
     }
     int setupSplines = *(*pot_type-1) == -6 ? 1 : 0;
     if ( *(*pot_type-1) < 0) { // Parse wrapped potential for wrappers

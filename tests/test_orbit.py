@@ -42,6 +42,7 @@ from test_potential import (
     mockFlatTrulyCorotatingRotationSpiralArmsPotential,
     mockFlatTrulyGaussianAmplitudeBarPotential,
     mockInterpSphericalPotential,
+    mockKuzminLikeWrapperPotential,
     mockMovingObjectLongIntPotential,
     mockRotatedAndTiltedMWP14WrapperPotential,
     mockRotatingFlatSpiralArmsPotential,
