@@ -734,6 +734,7 @@ def test_liouville_planar():
     pots.append("mockInterpSphericalPotential")
     pots.append("mockAdiabaticContractionMWP14WrapperPotential")
     pots.append("testNullPotential")
+    pots.append("mockKuzminLikeWrapperPotential")
     rmpots = [
         "Potential",
         "MWPotential",

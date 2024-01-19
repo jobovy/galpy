@@ -769,6 +769,9 @@ double KuzminLikeWrapperPotentialzforce(double,double,double,double,
 				        struct potentialArg *);
 double KuzminLikeWrapperPotentialPlanarRforce(double,double,double,
 						struct potentialArg *);
+double KuzminLikeWrapperPotentialPlanarR2deriv(double,double,double,
+						struct potentialArg *);
+
 #ifdef __cplusplus
 }
 #endif

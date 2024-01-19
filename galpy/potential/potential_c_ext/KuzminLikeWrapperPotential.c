@@ -1,4 +1,5 @@
 #include <math.h>
+#include <stdio.h>
 #include <galpy_potentials.h>
 // Helper functions
 double KuzminLikeWrapperPotential_xi(double R,double z,double a,double b2){
@@ -83,4 +84,28 @@ double KuzminLikeWrapperPotentialPlanarRforce(double R,double phi,double t,
     potentialArgs->nwrapped,
     potentialArgs->wrappedPotentialArg
   ) * KuzminLikeWrapperPotential_dxidR(R,0.0,a,b2);
+}
+double KuzminLikeWrapperPotentialPlanarR2deriv(double R,double phi,double t,
+						struct potentialArg * potentialArgs){
+  double * args= potentialArgs->args;
+  double amp= *args;
+  double a= *(args+1);
+  double b2= *(args+2);
+  //Calculate planarRforce
+  return amp * (
+    calcPlanarR2deriv(
+      KuzminLikeWrapperPotential_xi(R,0.0,a,b2),
+      0.0,
+      t,
+      potentialArgs->nwrapped,
+      potentialArgs->wrappedPotentialArg
+    ) * KuzminLikeWrapperPotential_dxidR(R,0.0,a,b2) * KuzminLikeWrapperPotential_dxidR(R,0.0,a,b2)
+    - calcPlanarRforce(
+      KuzminLikeWrapperPotential_xi(R,0.0,a,b2),
+      0.0,
+      t,
+      potentialArgs->nwrapped,
+      potentialArgs->wrappedPotentialArg
+    ) * KuzminLikeWrapperPotential_d2xidR2(R,0.0,a,b2)
+  );
 }
