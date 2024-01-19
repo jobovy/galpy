@@ -7322,6 +7322,94 @@ def test_TimeDependentAmplitudeWrapperPotential_inputerrors():
     return None
 
 
+def test_KuzminLikeWrapperPotential_against_KuzminDisk():
+    # Test that the KuzminLikeWrapperPotential applied to a KeplerPotential gives the
+    # same potential as the KuzminDiskPotential
+    from galpy.potential import (
+        KeplerPotential,
+        KuzminDiskPotential,
+        KuzminLikeWrapperPotential,
+    )
+
+    kp = KeplerPotential(amp=1.0)
+    kdp = KuzminDiskPotential(amp=1.0, a=1.3)
+    kwp = KuzminLikeWrapperPotential(pot=kp, a=1.3)
+    # Check that the potentials are the same in all ways
+    R, z = 1.1, 0.2
+    tol = 1e-10
+    assert (
+        numpy.fabs(kdp(R, z) - kwp(R, z)) < tol
+    ), "KuzminLikeWrapperPotential does not give the same potential as KuzminDiskPotential"
+    assert (
+        numpy.fabs(kdp.Rforce(R, z) - kwp.Rforce(R, z)) < tol
+    ), "KuzminLikeWrapperPotential does not give the same Rforce as KuzminDiskPotential"
+    assert (
+        numpy.fabs(kdp.zforce(R, z) - kwp.zforce(R, z)) < tol
+    ), "KuzminLikeWrapperPotential does not give the same zforce as KuzminDiskPotential"
+    assert (
+        numpy.fabs(kdp.R2deriv(R, z) - kwp.R2deriv(R, z)) < tol
+    ), "KuzminLikeWrapperPotential does not give the same R2deriv as KuzminDiskPotential"
+    assert (
+        numpy.fabs(kdp.z2deriv(R, z) - kwp.z2deriv(R, z)) < tol
+    ), "KuzminLikeWrapperPotential does not give the same z2deriv as KuzminDiskPotential"
+    assert (
+        numpy.fabs(kdp.Rzderiv(R, z) - kwp.Rzderiv(R, z)) < tol
+    ), "KuzminLikeWrapperPotential does not give the same Rzderiv as KuzminDiskPotential"
+    return None
+
+
+def test_KuzminLikeWrapperPotential_against_MiyamotoNagai():
+    # Test that the KuzminLikeWrapperPotential applied to a KeplerPotential with non-zero
+    # b gives the same potential as the MiyamotoNagaiPotential
+    from galpy.potential import (
+        KeplerPotential,
+        KuzminLikeWrapperPotential,
+        MiyamotoNagaiPotential,
+    )
+
+    kp = KeplerPotential(amp=1.0)
+    mnp = MiyamotoNagaiPotential(amp=1.0, a=1.3, b=0.2)
+    kwp = KuzminLikeWrapperPotential(pot=kp, a=1.3, b=0.2)
+    # Check that the potentials are the same in all ways
+    R, z = 1.1, 0.2
+    tol = 1e-10
+    assert (
+        numpy.fabs(mnp(R, z) - kwp(R, z)) < tol
+    ), "KuzminLikeWrapperPotential does not give the same potential as MiyamotoNagaiPotential"
+    assert (
+        numpy.fabs(mnp.Rforce(R, z) - kwp.Rforce(R, z)) < tol
+    ), "KuzminLikeWrapperPotential does not give the same Rforce as MiyamotoNagaiPotential"
+    assert (
+        numpy.fabs(mnp.zforce(R, z) - kwp.zforce(R, z)) < tol
+    ), "KuzminLikeWrapperPotential does not give the same zforce as MiyamotoNagaiPotential"
+    assert (
+        numpy.fabs(mnp.R2deriv(R, z) - kwp.R2deriv(R, z)) < tol
+    ), "KuzminLikeWrapperPotential does not give the same R2deriv as MiyamotoNagaiPotential"
+    assert (
+        numpy.fabs(mnp.z2deriv(R, z) - kwp.z2deriv(R, z)) < tol
+    ), "KuzminLikeWrapperPotential does not give the same z2deriv as MiyamotoNagaiPotential"
+    assert (
+        numpy.fabs(mnp.Rzderiv(R, z) - kwp.Rzderiv(R, z)) < tol
+    ), "KuzminLikeWrapperPotential does not give the same Rzderiv as MiyamotoNagaiPotential"
+    return None
+
+
+def test_KuzminLikeWrapperPotential_NonAxiError():
+    # Test that the KuzminLikeWrapperPotential applied to a non-axisymmetric potential
+    # raises a RuntimeError
+    from galpy.potential import KuzminLikeWrapperPotential, LogarithmicHaloPotential
+
+    with pytest.raises(RuntimeError) as excinfo:
+        kwp = KuzminLikeWrapperPotential(
+            pot=LogarithmicHaloPotential(q=0.8, b=0.9), a=1.3
+        )
+    assert (
+        "KuzminLikeWrapperPotential only works for spherical or axisymmetric potentials"
+        == excinfo.value.args[0]
+    )
+    return None
+
+
 def test_phiforce_deprecation():
     # Test that phiforce is being deprecated correctly for phitorque
     import warnings
