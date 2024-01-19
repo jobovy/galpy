@@ -3130,7 +3130,9 @@ def test_actionAngleStaeckel_conserved_actions_c():
         DiskSCFPotential,
         DoubleExponentialDiskPotential,
         FlattenedPowerPotential,
+        KeplerPotential,
         KuzminDiskPotential,
+        KuzminLikeWrapperPotential,
         MWPotential,
         PerfectEllipsoidPotential,
         PowerTriaxialPotential,
@@ -3170,6 +3172,7 @@ def test_actionAngleStaeckel_conserved_actions_c():
         PerfectEllipsoidPotential(normalize=1.0, c=0.98),
         TriaxialGaussianPotential(normalize=1.0, c=0.98),
         PowerTriaxialPotential(normalize=1.0, c=0.98),
+        KuzminLikeWrapperPotential(pot=KeplerPotential(normalize=1.0), a=0.7, b=0.01),
     ]
     for pot in pots:
         aAS = actionAngleStaeckel(pot=pot, c=True, delta=0.71)
@@ -3461,7 +3464,9 @@ def test_actionAngleStaeckel_conserved_EccZmaxRperiRap_c():
         DiskSCFPotential,
         DoubleExponentialDiskPotential,
         FlattenedPowerPotential,
+        KeplerPotential,
         KuzminDiskPotential,
+        KuzminLikeWrapperPotential,
         MWPotential,
         PerfectEllipsoidPotential,
         SCFPotential,
@@ -3497,6 +3502,7 @@ def test_actionAngleStaeckel_conserved_EccZmaxRperiRap_c():
         DiskSCFPotential(normalize=1.0),
         ip,
         PerfectEllipsoidPotential(normalize=1.0, c=0.98),
+        KuzminLikeWrapperPotential(pot=KeplerPotential(normalize=1.0), a=0.7, b=0.01),
     ]
     for pot in pots:
         aAS = actionAngleStaeckel(pot=pot, c=True, delta=0.71)
