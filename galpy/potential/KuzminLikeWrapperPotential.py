@@ -72,7 +72,7 @@ class KuzminLikeWrapperPotential(WrapperPotential):
                 "KuzminLikeWrapperPotential only works for spherical or axisymmetric potentials"
             )
         self.hasC = True
-        self.hasC_dxdv = False
+        self.hasC_dxdv = True
         self.isNonAxi = False
 
     def _xi(self, R, z):

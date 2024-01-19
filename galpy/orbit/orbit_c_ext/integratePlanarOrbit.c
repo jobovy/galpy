@@ -559,6 +559,9 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
       potentialArgs->potentialEval= &KuzminLikeWrapperPotentialEval;
       potentialArgs->planarRforce= &KuzminLikeWrapperPotentialPlanarRforce;
       potentialArgs->planarphitorque= &ZeroPlanarForce;
+      potentialArgs->planarR2deriv= &KuzminLikeWrapperPotentialPlanarR2deriv;
+      potentialArgs->planarphi2deriv= &ZeroPlanarForce;
+      potentialArgs->planarRphideriv= &ZeroPlanarForce;
       potentialArgs->nargs= 3;
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
