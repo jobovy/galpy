@@ -217,7 +217,7 @@ jobs:
          echo "CFLAGS=-I$(brew --prefix)/include" >> $GITHUB_ENV
          echo "LDFLAGS=-L$(brew --prefix)/lib" >> $GITHUB_ENV
          echo "LD_LIBRARY_PATH=$(brew --prefix)/lib" >> $GITHUB_ENV
-    - uses: actions/cache@v3
+    - uses: actions/cache@v4
       with:
         path: ~/.cache/pip
         key: ${{ runner.os }}-pip-${{ matrix.python-version }}-${{ hashFiles('.github/workflows/build.yml') }}-${{ matrix.REQUIRES_PYNBODY }}-${{ matrix.REQUIRES_ASTROPY }}-${{ matrix.REQUIRES_ASTROQUERY }}-${{ matrix.REQUIRES_NUMBA }}-${{ matrix.REQUIRES_JAX }}
