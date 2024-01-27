@@ -165,10 +165,9 @@ class streamspraydf(df):
             vxyzpt[:, 0], vxyzpt[:, 1], vxyzpt[:, 2], Rpt, phipt, Zpt, cyl=True
         )
         # Sample positions and velocities in the instantaneous frame
-        k = (
-            self._meankvec
-            + numpy.random.normal(size=n)[:, numpy.newaxis] * self._sigkvec
-        )
+        k = numpy.ndarray(shape=(n, 6))
+        for i in range(6):
+            k[:, i] = self._meankvec[i] + numpy.random.normal(size=n) * self._sigkvec[i]
         try:
             rtides = rtide(
                 self._rtpot,
