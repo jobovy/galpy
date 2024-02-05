@@ -38,8 +38,7 @@ def test_expSurfaceSigmaProfile_surfacemassDerivative():
         < 10.0**-8.0
     ), "expSurfaceSigmaProfile's surfacemassDerivative does not work as expected"
     assert (
-        numpy.fabs(essp.surfacemassDerivative(1.5, log=True) + 1.0 / 0.25)
-        < 10.0**-8.0
+        numpy.fabs(essp.surfacemassDerivative(1.5, log=True) + 1.0 / 0.25) < 10.0**-8.0
     ), "expSurfaceSigmaProfile's surfacemassDerivative does not work as expected"
     return None
 
@@ -744,16 +743,13 @@ def test_dehnendf_cold_powerrise_srst():
         profileParams=(0.3333333333333333, 1.0, 0.01), beta=beta, correct=False
     )
     assert (
-        numpy.fabs(df.sigmaR2(1.0) / df.sigmaT2(1.0) - 2.0 / (1.0 + beta))
-        < 10.0**-2.0
+        numpy.fabs(df.sigmaR2(1.0) / df.sigmaT2(1.0) - 2.0 / (1.0 + beta)) < 10.0**-2.0
     ), "sigma_R^2 / sigma_T^2 of cool dehnendf in a flat rotation curve is not close to expected at R=1"
     assert (
-        numpy.fabs(df.sigmaR2(0.5) / df.sigmaT2(0.5) - 2.0 / (1.0 + beta))
-        < 10.0**-2.0
+        numpy.fabs(df.sigmaR2(0.5) / df.sigmaT2(0.5) - 2.0 / (1.0 + beta)) < 10.0**-2.0
     ), "sigma_R^2 / sigma_T^2 of cool dehnendf in a flat rotation curve is not close to expected at R=1"
     assert (
-        numpy.fabs(df.sigmaR2(2.0) / df.sigmaT2(2.0) - 2.0 / (1.0 + beta))
-        < 10.0**-2.0
+        numpy.fabs(df.sigmaR2(2.0) / df.sigmaT2(2.0) - 2.0 / (1.0 + beta)) < 10.0**-2.0
     ), "sigma_R^2 / sigma_T^2 of cool dehnendf in a flat rotation curve is not close to expected at R=1"
     return None
 
@@ -765,16 +761,13 @@ def test_dehnendf_cold_powerfall_srst():
         profileParams=(0.3333333333333333, 1.0, 0.01), beta=beta, correct=False
     )
     assert (
-        numpy.fabs(df.sigmaR2(1.0) / df.sigmaT2(1.0) - 2.0 / (1.0 + beta))
-        < 10.0**-2.0
+        numpy.fabs(df.sigmaR2(1.0) / df.sigmaT2(1.0) - 2.0 / (1.0 + beta)) < 10.0**-2.0
     ), "sigma_R^2 / sigma_T^2 of cool dehnendf in a flat rotation curve is not close to expected at R=1"
     assert (
-        numpy.fabs(df.sigmaR2(0.5) / df.sigmaT2(0.5) - 2.0 / (1.0 + beta))
-        < 10.0**-2.0
+        numpy.fabs(df.sigmaR2(0.5) / df.sigmaT2(0.5) - 2.0 / (1.0 + beta)) < 10.0**-2.0
     ), "sigma_R^2 / sigma_T^2 of cool dehnendf in a flat rotation curve is not close to expected at R=1"
     assert (
-        numpy.fabs(df.sigmaR2(2.0) / df.sigmaT2(2.0) - 2.0 / (1.0 + beta))
-        < 10.0**-2.0
+        numpy.fabs(df.sigmaR2(2.0) / df.sigmaT2(2.0) - 2.0 / (1.0 + beta)) < 10.0**-2.0
     ), "sigma_R^2 / sigma_T^2 of cool dehnendf in a flat rotation curve is not close to expected at R=1"
     return None
 
@@ -1541,9 +1534,7 @@ def test_dehnendf_dlnfdRe_powerfall():
         numpy.log(dfc(numpy.array([R, vR + dvR, vT])))
         - numpy.log(dfc(numpy.array([R, vR, vT])))
     ) / dvR
-    dE = (
-        (vR + dvR) ** 2.0 / 2.0 + vT**2.0 / 2.0 + 1.0 / 2.0 / beta * R ** (2.0 * beta)
-    )
+    dE = (vR + dvR) ** 2.0 / 2.0 + vT**2.0 / 2.0 + 1.0 / 2.0 / beta * R ** (2.0 * beta)
     dRE = (2.0 * dE / (1.0 + 1.0 / beta)) ** (1.0 / 2.0 / beta)
     dRedvR = (dRE - RE) / dvR
     # dvT
@@ -1554,9 +1545,7 @@ def test_dehnendf_dlnfdRe_powerfall():
         numpy.log(dfc(numpy.array([R, vR, vT + dvT])))
         - numpy.log(dfc(numpy.array([R, vR, vT])))
     ) / dvT
-    dE = (
-        vR**2.0 / 2.0 + (vT + dvT) ** 2.0 / 2.0 + 1.0 / 2.0 / beta * R ** (2.0 * beta)
-    )
+    dE = vR**2.0 / 2.0 + (vT + dvT) ** 2.0 / 2.0 + 1.0 / 2.0 / beta * R ** (2.0 * beta)
     dRE = (2.0 * dE / (1.0 + 1.0 / beta)) ** (1.0 / 2.0 / beta)
     dRedvT = (dRE - RE) / dvT
     # Calculate dR/dRe etc. from matrix inversion
@@ -1597,9 +1586,7 @@ def test_dehnendf_dlnfdRe_powerrise():
         numpy.log(dfc(numpy.array([R, vR + dvR, vT])))
         - numpy.log(dfc(numpy.array([R, vR, vT])))
     ) / dvR
-    dE = (
-        (vR + dvR) ** 2.0 / 2.0 + vT**2.0 / 2.0 + 1.0 / 2.0 / beta * R ** (2.0 * beta)
-    )
+    dE = (vR + dvR) ** 2.0 / 2.0 + vT**2.0 / 2.0 + 1.0 / 2.0 / beta * R ** (2.0 * beta)
     dRE = (2.0 * dE / (1.0 + 1.0 / beta)) ** (1.0 / 2.0 / beta)
     dRedvR = (dRE - RE) / dvR
     # dvT
@@ -1610,9 +1597,7 @@ def test_dehnendf_dlnfdRe_powerrise():
         numpy.log(dfc(numpy.array([R, vR, vT + dvT])))
         - numpy.log(dfc(numpy.array([R, vR, vT])))
     ) / dvT
-    dE = (
-        vR**2.0 / 2.0 + (vT + dvT) ** 2.0 / 2.0 + 1.0 / 2.0 / beta * R ** (2.0 * beta)
-    )
+    dE = vR**2.0 / 2.0 + (vT + dvT) ** 2.0 / 2.0 + 1.0 / 2.0 / beta * R ** (2.0 * beta)
     dRE = (2.0 * dE / (1.0 + 1.0 / beta)) ** (1.0 / 2.0 / beta)
     dRedvT = (dRE - RE) / dvT
     # Calculate dR/dRe etc. from matrix inversion
@@ -1702,9 +1687,7 @@ def test_dehnendf_dlnfdl_powerfall():
         numpy.log(dfc(numpy.array([R, vR + dvR, vT])))
         - numpy.log(dfc(numpy.array([R, vR, vT])))
     ) / dvR
-    dE = (
-        (vR + dvR) ** 2.0 / 2.0 + vT**2.0 / 2.0 + 1.0 / 2.0 / beta * R ** (2.0 * beta)
-    )
+    dE = (vR + dvR) ** 2.0 / 2.0 + vT**2.0 / 2.0 + 1.0 / 2.0 / beta * R ** (2.0 * beta)
     dRE = (2.0 * dE / (1.0 + 1.0 / beta)) ** (1.0 / 2.0 / beta)
     dRedvR = (dRE - RE) / dvR
     # dvT
@@ -1715,9 +1698,7 @@ def test_dehnendf_dlnfdl_powerfall():
         numpy.log(dfc(numpy.array([R, vR, vT + dvT])))
         - numpy.log(dfc(numpy.array([R, vR, vT])))
     ) / dvT
-    dE = (
-        vR**2.0 / 2.0 + (vT + dvT) ** 2.0 / 2.0 + 1.0 / 2.0 / beta * R ** (2.0 * beta)
-    )
+    dE = vR**2.0 / 2.0 + (vT + dvT) ** 2.0 / 2.0 + 1.0 / 2.0 / beta * R ** (2.0 * beta)
     dRE = (2.0 * dE / (1.0 + 1.0 / beta)) ** (1.0 / 2.0 / beta)
     dRedvT = (dRE - RE) / dvT
     # Calculate dR/dl etc. from matrix inversion
@@ -1756,9 +1737,7 @@ def test_dehnendf_dlnfdl_powerrise():
         numpy.log(dfc(numpy.array([R, vR + dvR, vT])))
         - numpy.log(dfc(numpy.array([R, vR, vT])))
     ) / dvR
-    dE = (
-        (vR + dvR) ** 2.0 / 2.0 + vT**2.0 / 2.0 + 1.0 / 2.0 / beta * R ** (2.0 * beta)
-    )
+    dE = (vR + dvR) ** 2.0 / 2.0 + vT**2.0 / 2.0 + 1.0 / 2.0 / beta * R ** (2.0 * beta)
     dRE = (2.0 * dE / (1.0 + 1.0 / beta)) ** (1.0 / 2.0 / beta)
     dRedvR = (dRE - RE) / dvR
     # dvT
@@ -1769,9 +1748,7 @@ def test_dehnendf_dlnfdl_powerrise():
         numpy.log(dfc(numpy.array([R, vR, vT + dvT])))
         - numpy.log(dfc(numpy.array([R, vR, vT])))
     ) / dvT
-    dE = (
-        vR**2.0 / 2.0 + (vT + dvT) ** 2.0 / 2.0 + 1.0 / 2.0 / beta * R ** (2.0 * beta)
-    )
+    dE = vR**2.0 / 2.0 + (vT + dvT) ** 2.0 / 2.0 + 1.0 / 2.0 / beta * R ** (2.0 * beta)
     dRE = (2.0 * dE / (1.0 + 1.0 / beta)) ** (1.0 / 2.0 / beta)
     dRedvT = (dRE - RE) / dvT
     # Calculate dR/dl etc. from matrix inversion
@@ -2999,9 +2976,7 @@ def test_axipotential():
         < 10.0**-8
     ), "axipotential w/ beta=0.2 does not work as expected"
     assert (
-        numpy.fabs(
-            axipotential(numpy.array([0.5]), beta=-0.2) + 1.0 / 0.4 * 0.5**-0.4
-        )
+        numpy.fabs(axipotential(numpy.array([0.5]), beta=-0.2) + 1.0 / 0.4 * 0.5**-0.4)
         < 10.0**-8
     ), "axipotential w/ beta=0.2 does not work as expected"
     # special case of R=0 should go to _RMIN

@@ -189,9 +189,7 @@ def test_actionAngleVertical_conserved_freqs():
             (os - numpy.tile(numpy.mean(os), (len(times), 1)).T) / numpy.mean(os)
         )
     )
-    assert maxdo < 10.0**-4.0, "Frequency conservation fails at %g%%" % (
-        100.0 * maxdo
-    )
+    assert maxdo < 10.0**-4.0, "Frequency conservation fails at %g%%" % (100.0 * maxdo)
     return None
 
 
@@ -519,8 +517,7 @@ def test_actionAngleIsochrone_basic_freqs():
         100.0 * numpy.fabs((jos[4] - ip.omegac(1.0)) / ip.omegac(1.0))
     )
     assert (
-        numpy.fabs((jos[5] - ip.verticalfreq(1.0)) / ip.verticalfreq(1.0))
-        < 10.0**-12.0
+        numpy.fabs((jos[5] - ip.verticalfreq(1.0)) / ip.verticalfreq(1.0)) < 10.0**-12.0
     ), "Circular orbit in the isochrone potential does not have Oz=nu at %g%%" % (
         100.0 * numpy.fabs((jos[5] - ip.verticalfreq(1.0)) / ip.verticalfreq(1.0))
     )
@@ -536,8 +533,7 @@ def test_actionAngleIsochrone_basic_freqs():
         % (100.0 * numpy.fabs((jos[4] - ip.omegac(1.0)) / ip.omegac(1.0)))
     )
     assert (
-        numpy.fabs((jos[5] - ip.verticalfreq(1.0)) / ip.verticalfreq(1.0))
-        < 10.0**-2.0
+        numpy.fabs((jos[5] - ip.verticalfreq(1.0)) / ip.verticalfreq(1.0)) < 10.0**-2.0
     ), (
         "Close-to-circular orbit in the isochrone potential does not have Oz=nu at %g%%"
         % (100.0 * numpy.fabs((jos[5] - ip.verticalfreq(1.0)) / ip.verticalfreq(1.0)))
@@ -852,8 +848,7 @@ def test_actionAngleSpherical_basic_freqs():
         % (100.0 * numpy.fabs((jos[4] - lp.omegac(1.0)) / lp.omegac(1.0)))
     )
     assert (
-        numpy.fabs((jos[5] - lp.verticalfreq(1.0)) / lp.verticalfreq(1.0))
-        < 10.0**-12.0
+        numpy.fabs((jos[5] - lp.verticalfreq(1.0)) / lp.verticalfreq(1.0)) < 10.0**-12.0
     ), (
         "Circular orbit in the spherical LogarithmicHaloPotential does not have Oz=nu at %g%%"
         % (100.0 * numpy.fabs((jos[5] - lp.verticalfreq(1.0)) / lp.verticalfreq(1.0)))
@@ -870,8 +865,7 @@ def test_actionAngleSpherical_basic_freqs():
         % (100.0 * numpy.fabs((jos[4] - lp.omegac(1.0)) / lp.omegac(1.0)))
     )
     assert (
-        numpy.fabs((jos[5] - lp.verticalfreq(1.0)) / lp.verticalfreq(1.0))
-        < 10.0**-1.9
+        numpy.fabs((jos[5] - lp.verticalfreq(1.0)) / lp.verticalfreq(1.0)) < 10.0**-1.9
     ), (
         "Close-to-circular orbit in the spherical LogarithmicHaloPotential does not have Oz=nu at %g%%"
         % (100.0 * numpy.fabs((jos[5] - lp.verticalfreq(1.0)) / lp.verticalfreq(1.0)))
@@ -898,8 +892,7 @@ def test_actionAngleSpherical_basic_freqsAngles():
         % (100.0 * numpy.fabs((jos[4] - lp.omegac(1.0)) / lp.omegac(1.0)))
     )
     assert (
-        numpy.fabs((jos[5] - lp.verticalfreq(1.0)) / lp.verticalfreq(1.0))
-        < 10.0**-1.9
+        numpy.fabs((jos[5] - lp.verticalfreq(1.0)) / lp.verticalfreq(1.0)) < 10.0**-1.9
     ), (
         "Close-to-circular orbit in the spherical LogarithmicHaloPotential does not have Oz=nu at %g%%"
         % (100.0 * numpy.fabs((jos[5] - lp.verticalfreq(1.0)) / lp.verticalfreq(1.0)))
@@ -1335,14 +1328,12 @@ def test_actionAngleSpherical_smallr():
     o = Orbit([0.000000001, 0.0, ip.vcirc(0.000000001), 0.0, 0.0, 0.0])
     # Code should have rperi = 0
     assert (
-        numpy.fabs(o.rperi(analytic=True, pot=ip, type="spherical") - 0.0)
-        < 10.0**-10.0
+        numpy.fabs(o.rperi(analytic=True, pot=ip, type="spherical") - 0.0) < 10.0**-10.0
     ), "rperi is not 0 for very small r"
     # Orbit just outside rperi, very small r
     o = Orbit([0.000000001, 0.0001, ip.vcirc(0.000000001), 0.0, 0.0, 0.0])
     assert (
-        numpy.fabs(o.rperi(analytic=True, pot=ip, type="spherical") - 0.0)
-        < 10.0**-10.0
+        numpy.fabs(o.rperi(analytic=True, pot=ip, type="spherical") - 0.0) < 10.0**-10.0
     ), "rperi is not 0 for very small r"
     return None
 
@@ -6400,15 +6391,9 @@ def check_actionAngle_conserved_actions(
     maxdj = numpy.amax(
         numpy.fabs(js - numpy.tile(numpy.mean(js, axis=1), (len(times), 1)).T), axis=1
     ) / numpy.mean(js, axis=1)
-    assert maxdj[0] < 10.0**toljr, "Jr conservation fails at %g%%" % (
-        100.0 * maxdj[0]
-    )
-    assert maxdj[1] < 10.0**toljp, "Lz conservation fails at %g%%" % (
-        100.0 * maxdj[1]
-    )
-    assert maxdj[2] < 10.0**toljz, "Jz conservation fails at %g%%" % (
-        100.0 * maxdj[2]
-    )
+    assert maxdj[0] < 10.0**toljr, "Jr conservation fails at %g%%" % (100.0 * maxdj[0])
+    assert maxdj[1] < 10.0**toljp, "Lz conservation fails at %g%%" % (100.0 * maxdj[1])
+    assert maxdj[2] < 10.0**toljz, "Jz conservation fails at %g%%" % (100.0 * maxdj[2])
     return None
 
 

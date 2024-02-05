@@ -2650,9 +2650,7 @@ class streamdf(df):
             eigIndx = 1
         if simple:
             dt = self.meantdAngle(dangle, use_physical=False)
-            return numpy.sqrt(
-                self._sigangle2 + self._sortedSigOEig[eigIndx] * dt**2.0
-            )
+            return numpy.sqrt(self._sigangle2 + self._sortedSigOEig[eigIndx] * dt**2.0)
         aplow = numpy.amax(
             [
                 numpy.sqrt(self._sortedSigOEig[eigIndx]) * self._tdisrupt * 5.0,

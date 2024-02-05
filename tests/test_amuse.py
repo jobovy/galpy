@@ -62,9 +62,7 @@ def test_amuse_potential_with_physical():
     pot1 = potential.TwoPowerSphericalPotential(amp=amp, a=a, ro=ro, vo=vo)
     grho1 = pot1.dens(5 / ro, 2 / ro)
     grho1 = (
-        grho1.to_value(apy_u.solMass / apy_u.pc**3)
-        if hasattr(grho1, "unit")
-        else grho1
+        grho1.to_value(apy_u.solMass / apy_u.pc**3) if hasattr(grho1, "unit") else grho1
     )
     amuse_pot1 = to_amuse(pot1)
     arho1 = amuse_pot1.mass_density(x, y, z)
@@ -74,9 +72,7 @@ def test_amuse_potential_with_physical():
     pot2 = potential.TwoPowerSphericalPotential(amp=amp_u, a=a_u, ro=ro_u, vo=vo_u)
     grho2 = pot2.dens(5 * apy_u.kpc, 2 * apy_u.kpc)
     grho2 = (
-        grho2.to_value(apy_u.solMass / apy_u.pc**3)
-        if hasattr(grho2, "unit")
-        else grho2
+        grho2.to_value(apy_u.solMass / apy_u.pc**3) if hasattr(grho2, "unit") else grho2
     )
     amuse_pot2 = to_amuse(pot2)
     arho2 = amuse_pot2.mass_density(x, y, z)

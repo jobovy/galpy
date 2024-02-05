@@ -126,9 +126,7 @@ def test_sigmar_wlog_linbeta():
         numpy.fabs(
             numpy.array(
                 [
-                    jeans.sigmar(
-                        lp, r, beta=lambda x: -b * x, dens=lambda x: x**-gamma
-                    )
+                    jeans.sigmar(lp, r, beta=lambda x: -b * x, dens=lambda x: x**-gamma)
                     - numpy.sqrt(
                         special.gamma(-gamma)
                         * special.gammaincc(-gamma, 2 * b * r)
@@ -145,9 +143,7 @@ def test_sigmar_wlog_linbeta():
         numpy.fabs(
             numpy.array(
                 [
-                    jeans.sigmar(
-                        lp, r, beta=lambda x: -b * x, dens=lambda x: x**-gamma
-                    )
+                    jeans.sigmar(lp, r, beta=lambda x: -b * x, dens=lambda x: x**-gamma)
                     - numpy.sqrt(
                         special.gamma(-gamma)
                         * special.gammaincc(-gamma, 2 * b * r)

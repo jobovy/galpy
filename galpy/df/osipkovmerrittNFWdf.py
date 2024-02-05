@@ -59,9 +59,7 @@ class osipkovmerrittNFWdf(_osipkovmerrittdf):
         self._Qtildemax = pot._amp / pot.a
         self._Qtildemin = -pot(self._rmax, 0, use_physical=False) / self._Qtildemax
         self._a2overra2 = self._pot.a**2.0 / self._ra2
-        self._fQnorm = (
-            self._a2overra2 / (4.0 * numpy.pi) / pot.a**1.5 / pot._amp**0.5
-        )
+        self._fQnorm = self._a2overra2 / (4.0 * numpy.pi) / pot.a**1.5 / pot._amp**0.5
         # Initialize isotropic version to use as part of fQ
         self._idf = isotropicNFWdf(pot=pot, rmax=rmax, ro=ro, vo=vo)
 

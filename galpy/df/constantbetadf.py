@@ -384,9 +384,9 @@ def _fEintegrand_raw(r, pot, E, dmp1nudrmp1, alpha):
     out = numpy.zeros_like(r)  # Avoid JAX item assignment issues
     # print("r",r,dmp1nudrmp1(r),(_evaluatePotentials(pot,r,0)-E))
     out[:] = dmp1nudrmp1(r) / (_evaluatePotentials(pot, r, 0) - E) ** alpha
-    out[
-        True ^ numpy.isfinite(out)
-    ] = 0.0  # assume these are where denom is slightly neg.
+    out[True ^ numpy.isfinite(out)] = (
+        0.0  # assume these are where denom is slightly neg.
+    )
     return out
 
 

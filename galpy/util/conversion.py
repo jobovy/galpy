@@ -629,9 +629,7 @@ def parse_time(x, ro=None, vo=None):
 def parse_mass(x, ro=None, vo=None):
     try:
         return (
-            x.to(units.pc * units.km**2 / units.s**2).value
-            / mass_in_msol(vo, ro)
-            / _G
+            x.to(units.pc * units.km**2 / units.s**2).value / mass_in_msol(vo, ro) / _G
             if _APY_LOADED and isinstance(x, units.Quantity)
             else x
         )

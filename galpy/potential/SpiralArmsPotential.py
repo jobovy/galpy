@@ -465,8 +465,7 @@ class SpiralArmsPotential(Potential):
                                 + (
                                     self._ns
                                     * (
-                                        sin_ng
-                                        * (d2g_dR2 / Ks - dg_dR / Ks**2 * dKs_dR)
+                                        sin_ng * (d2g_dR2 / Ks - dg_dR / Ks**2 * dKs_dR)
                                         + dg_dR**2 / Ks * cos_ng * self._ns
                                     )
                                     + z
@@ -498,10 +497,7 @@ class SpiralArmsPotential(Potential):
                                             / Ks
                                             * ztanhzKB
                                             * (dKs_dR / Bs - dBs_dR / Bs**2 * Ks)
-                                            - (
-                                                d2Bs_dR2 / Ks
-                                                - dBs_dR * dKs_dR / Ks**2
-                                            )
+                                            - (d2Bs_dR2 / Ks - dBs_dR * dKs_dR / Ks**2)
                                             * log_sechzKB
                                         )
                                         + dBs_dR
@@ -514,15 +510,8 @@ class SpiralArmsPotential(Potential):
                                     + (
                                         (
                                             cos_ng
-                                            * (
-                                                d2Ks_dR2 / Ks**2
-                                                - 2 * dKs_dR**2 / Ks**3
-                                            )
-                                            - dKs_dR
-                                            / Ks**2
-                                            * sin_ng
-                                            * self._ns
-                                            * dg_dR
+                                            * (d2Ks_dR2 / Ks**2 - 2 * dKs_dR**2 / Ks**3)
+                                            - dKs_dR / Ks**2 * sin_ng * self._ns * dg_dR
                                         )
                                         + (
                                             cos_ng

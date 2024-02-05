@@ -40,12 +40,7 @@ class isotropicPlummerdf(isotropicsphericaldf):
         self._Etildemax = pot._amp / pot._b
         # /amp^4 instead of /amp^5 to make the DF that of mass density
         self._fEnorm = (
-            24.0
-            * numpy.sqrt(2.0)
-            / 7.0
-            / numpy.pi**3.0
-            * pot._b**2.0
-            / pot._amp**4.0
+            24.0 * numpy.sqrt(2.0) / 7.0 / numpy.pi**3.0 * pot._b**2.0 / pot._amp**4.0
         )
 
     def fE(self, E):

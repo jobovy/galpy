@@ -481,9 +481,7 @@ class SCFPotential(Potential, NumericalPotentialDerivativesMixin):
             raise AttributeError  # Hack to fall back to general
         # when integrating over spherical volume, all non-zero l,m vanish
         N = len(self._Acos)
-        return R**2.0 * numpy.sum(
-            self._Acos[:, 0, 0] * self._dphiTilde(R, N, 1)[:, 0]
-        )
+        return R**2.0 * numpy.sum(self._Acos[:, 0, 0] * self._dphiTilde(R, N, 1)[:, 0])
 
     def _evaluate(self, R, z, phi=0.0, t=0.0):
         if not self.isNonAxi and phi is None:
@@ -1130,9 +1128,9 @@ def scf_compute_coeffs(
     Nln = 0.5 * gammaln(l - m + 1) - 0.5 * gammaln(l + m + 1) - (2 * l) * numpy.log(2)
     NN = numpy.e ** (Nln)
 
-    NN[
-        numpy.where(NN == numpy.inf)
-    ] = 0  ## To account for the fact that m can't be bigger than l
+    NN[numpy.where(NN == numpy.inf)] = (
+        0  ## To account for the fact that m can't be bigger than l
+    )
 
     constants = NN * (2 * l + 1.0) ** 0.5
 

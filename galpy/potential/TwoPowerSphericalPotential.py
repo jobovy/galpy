@@ -905,9 +905,7 @@ class NFWPotential(TwoPowerSphericalPotential):
             raise ImportError(
                 "Making use of _rforce_jax function requires the google/jax library"
             )
-        return self._amp * (
-            1.0 / r / (self.a + r) - jnp.log(1.0 + r / self.a) / r**2.0
-        )
+        return self._amp * (1.0 / r / (self.a + r) - jnp.log(1.0 + r / self.a) / r**2.0)
 
     def _R2deriv(self, R, z, phi=0.0, t=0.0):
         Rz = R**2.0 + z**2.0

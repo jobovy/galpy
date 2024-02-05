@@ -392,10 +392,7 @@ class DiskSCFPotential(Potential):
                 4.0
                 * numpy.pi
                 * a
-                * (
-                    H(z) * R * z / r**2.0 * (d2s(r) - ds(r) / r)
-                    + ds(r) * dH(z) * R / r
-                )
+                * (H(z) * R * z / r**2.0 * (d2s(r) - ds(r) / r) + ds(r) * dH(z) * R / r)
             )
         return out
 

@@ -4171,10 +4171,7 @@ def zvc_range(Pot, E, Lz, phi=0.0, t=0.0):
     # Check whether a solution exists
     RLz = rl(Pot, Lz, t=t, use_physical=False)
     Rstart = RLz
-    if (
-        _evaluatePotentials(Pot, Rstart, 0.0, phi=phi, t=t) + Lz2over2 / Rstart**2.0
-        > E
-    ):
+    if _evaluatePotentials(Pot, Rstart, 0.0, phi=phi, t=t) + Lz2over2 / Rstart**2.0 > E:
         return numpy.array([numpy.nan, numpy.nan])
     # Find starting value for Rmin
     Rstartmin = 1e-8
@@ -4184,9 +4181,7 @@ def zvc_range(Pot, E, Lz, phi=0.0, t=0.0):
     ):
         Rstart /= 2.0
     Rmin = optimize.brentq(
-        lambda R: _evaluatePotentials(Pot, R, 0, phi=phi, t=t)
-        + Lz2over2 / R**2.0
-        - E,
+        lambda R: _evaluatePotentials(Pot, R, 0, phi=phi, t=t) + Lz2over2 / R**2.0 - E,
         Rstart,
         RLz,
     )
@@ -4199,9 +4194,7 @@ def zvc_range(Pot, E, Lz, phi=0.0, t=0.0):
     ):
         Rstart *= 2.0
     Rmax = optimize.brentq(
-        lambda R: _evaluatePotentials(Pot, R, 0, phi=phi, t=t)
-        + Lz2over2 / R**2.0
-        - E,
+        lambda R: _evaluatePotentials(Pot, R, 0, phi=phi, t=t) + Lz2over2 / R**2.0 - E,
         RLz,
         Rstart,
     )

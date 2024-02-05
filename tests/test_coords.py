@@ -1859,8 +1859,7 @@ def test_pmrapmdec_to_pmllpmbb():
     )
     assert (
         numpy.fabs(
-            numpy.sqrt(pmll**2.0 + pmbb**2.0)
-            - numpy.sqrt(pmra**2.0 + pmdec**2.0)
+            numpy.sqrt(pmll**2.0 + pmbb**2.0) - numpy.sqrt(pmra**2.0 + pmdec**2.0)
         )
         < 10.0**-10.0
     ), "pmrapmdec_to_pmllpmbb conversion did not work as expected"
@@ -1876,8 +1875,7 @@ def test_pmrapmdec_to_pmllpmbb():
     pmbb = pmllpmbb[:, 1]
     assert numpy.all(
         numpy.fabs(
-            numpy.sqrt(pmll**2.0 + pmbb**2.0)
-            - numpy.sqrt(pmra**2.0 + pmdec**2.0)
+            numpy.sqrt(pmll**2.0 + pmbb**2.0) - numpy.sqrt(pmra**2.0 + pmdec**2.0)
         )
         < 10.0**-10.0
     ), "pmrapmdec_to_pmllpmbb conversion did not work as expected close to the NGP"
@@ -1893,8 +1891,7 @@ def test_pmrapmdec_to_pmllpmbb():
     pmbb = pmllpmbb[:, 1]
     assert numpy.all(
         numpy.fabs(
-            numpy.sqrt(pmll**2.0 + pmbb**2.0)
-            - numpy.sqrt(pmra**2.0 + pmdec**2.0)
+            numpy.sqrt(pmll**2.0 + pmbb**2.0) - numpy.sqrt(pmra**2.0 + pmdec**2.0)
         )
         < 10.0**-10.0
     ), "pmrapmdec_to_pmllpmbb conversion did not work as expected for the NGP"
@@ -1906,8 +1903,7 @@ def test_pmrapmdec_to_pmllpmbb():
     )
     assert (
         numpy.fabs(
-            numpy.sqrt(pmll**2.0 + pmbb**2.0)
-            - numpy.sqrt(pmra**2.0 + pmdec**2.0)
+            numpy.sqrt(pmll**2.0 + pmbb**2.0) - numpy.sqrt(pmra**2.0 + pmdec**2.0)
         )
         < 10.0**-10.0
     ), "pmrapmdec_to_pmllpmbb conversion did not work as expected for the NCP"
@@ -1923,8 +1919,7 @@ def test_pmllpmbb_to_pmrapmdec():
     )
     assert (
         numpy.fabs(
-            numpy.sqrt(pmll**2.0 + pmbb**2.0)
-            - numpy.sqrt(pmra**2.0 + pmdec**2.0)
+            numpy.sqrt(pmll**2.0 + pmbb**2.0) - numpy.sqrt(pmra**2.0 + pmdec**2.0)
         )
         < 10.0**-10.0
     ), "pmllpmbb_to_pmrapmdec conversion did not work as expected for a random l,b"
@@ -1939,8 +1934,7 @@ def test_pmllpmbb_to_pmrapmdec():
     pmdec = pmrapmdec[:, 1]
     assert numpy.all(
         numpy.fabs(
-            numpy.sqrt(pmll**2.0 + pmbb**2.0)
-            - numpy.sqrt(pmra**2.0 + pmdec**2.0)
+            numpy.sqrt(pmll**2.0 + pmbb**2.0) - numpy.sqrt(pmra**2.0 + pmdec**2.0)
         )
         < 10.0**-10.0
     ), "pmllpmbb_to_pmrapmdec conversion did not work as expected close to the NGP"
@@ -1955,8 +1949,7 @@ def test_pmllpmbb_to_pmrapmdec():
     pmdec = pmrapmdec[:, 1]
     assert numpy.all(
         numpy.fabs(
-            numpy.sqrt(pmll**2.0 + pmbb**2.0)
-            - numpy.sqrt(pmra**2.0 + pmdec**2.0)
+            numpy.sqrt(pmll**2.0 + pmbb**2.0) - numpy.sqrt(pmra**2.0 + pmdec**2.0)
         )
         < 10.0**-10.0
     ), "pmllpmbb_to_pmrapmdec conversion did not work as expected at the NGP"
@@ -1969,8 +1962,7 @@ def test_pmllpmbb_to_pmrapmdec():
     )
     assert (
         numpy.fabs(
-            numpy.sqrt(pmll**2.0 + pmbb**2.0)
-            - numpy.sqrt(pmra**2.0 + pmdec**2.0)
+            numpy.sqrt(pmll**2.0 + pmbb**2.0) - numpy.sqrt(pmra**2.0 + pmdec**2.0)
         )
         < 10.0**-10.0
     ), "pmllpmbb_to_pmrapmdec conversion did not work as expected at the NCP"
@@ -2012,8 +2004,7 @@ def test_cov_pmradec_to_pmllbb():
         < 10.0**-10.0
     ), "cov_pmradec_to_pmllbb conversion did not work as expected"
     assert (
-        numpy.fabs(numpy.trace(cov_pmllpmbb) - numpy.trace(cov_pmrapmdec))
-        < 10.0**-10.0
+        numpy.fabs(numpy.trace(cov_pmllpmbb) - numpy.trace(cov_pmrapmdec)) < 10.0**-10.0
     ), "cov_pmradec_to_pmllbb conversion did not work as expected"
     # This is a random position, check that the conversion makes sense, arrays (using einsum)
     ra, dec = 132.25, -23.4
@@ -2773,29 +2764,19 @@ def test_cyl_to_spher_vec():
     assert (
         numpy.fabs(vtheta - 0) < 10.0**-8
     ), "cyl_to_spher_vec does not work as expected"
-    assert (
-        numpy.fabs(vT - 1.3) < 10.0**-8
-    ), "cyl_to_spher_vec does not work as expected"
+    assert numpy.fabs(vT - 1.3) < 10.0**-8, "cyl_to_spher_vec does not work as expected"
     vr, vT, vtheta = coords.cyl_to_spher_vec(-1.2, -0.7, -0.8, 1.0, 0.0)
-    assert (
-        numpy.fabs(vr + 1.2) < 10.0**-8
-    ), "cyl_to_spher_vec does not work as expected"
+    assert numpy.fabs(vr + 1.2) < 10.0**-8, "cyl_to_spher_vec does not work as expected"
     assert (
         numpy.fabs(vtheta - 0.8) < 10.0**-8
     ), "cyl_to_spher_vec does not work as expected"
-    assert (
-        numpy.fabs(vT + 0.7) < 10.0**-8
-    ), "cyl_to_spher_vec does not work as expected"
+    assert numpy.fabs(vT + 0.7) < 10.0**-8, "cyl_to_spher_vec does not work as expected"
     vr, vT, vtheta = coords.cyl_to_spher_vec(-1.2, -0.7, -0.8, 0.0, 1.0)
-    assert (
-        numpy.fabs(vr + 0.8) < 10.0**-8
-    ), "cyl_to_spher_vec does not work as expected"
+    assert numpy.fabs(vr + 0.8) < 10.0**-8, "cyl_to_spher_vec does not work as expected"
     assert (
         numpy.fabs(vtheta + 1.2) < 10.0**-8
     ), "cyl_to_spher_vec does not work as expected"
-    assert (
-        numpy.fabs(vT + 0.7) < 10.0**-8
-    ), "cyl_to_spher_vec does not work as expected"
+    assert numpy.fabs(vT + 0.7) < 10.0**-8, "cyl_to_spher_vec does not work as expected"
     return None
 
 
@@ -2805,32 +2786,16 @@ def test_spher_to_cyl_vec():
     assert (
         numpy.fabs(vR - 0.7 * 2**0.5) < 10.0**-8
     ), "spher_to_cyl_vec does not work as expected"
-    assert (
-        numpy.fabs(vT - 1.4) < 10.0**-8
-    ), "spher_to_cyl_vec does not work as expected"
-    assert (
-        numpy.fabs(vz - 0.0) < 10.0**-8
-    ), "spher_to_cyl_vec does not work as expected"
+    assert numpy.fabs(vT - 1.4) < 10.0**-8, "spher_to_cyl_vec does not work as expected"
+    assert numpy.fabs(vz - 0.0) < 10.0**-8, "spher_to_cyl_vec does not work as expected"
     vR, vT, vz = coords.spher_to_cyl_vec(0.5, -1.3, 0.7, 0.0)
-    assert (
-        numpy.fabs(vR - 0.7) < 10.0**-8
-    ), "spher_to_cyl_vec does not work as expected"
-    assert (
-        numpy.fabs(vT + 1.3) < 10.0**-8
-    ), "spher_to_cyl_vec does not work as expected"
-    assert (
-        numpy.fabs(vz - 0.5) < 10.0**-8
-    ), "spher_to_cyl_vec does not work as expected"
+    assert numpy.fabs(vR - 0.7) < 10.0**-8, "spher_to_cyl_vec does not work as expected"
+    assert numpy.fabs(vT + 1.3) < 10.0**-8, "spher_to_cyl_vec does not work as expected"
+    assert numpy.fabs(vz - 0.5) < 10.0**-8, "spher_to_cyl_vec does not work as expected"
     vR, vT, vz = coords.spher_to_cyl_vec(0.5, -1.3, 0.7, numpy.pi / 2.0)
-    assert (
-        numpy.fabs(vR - 0.5) < 10.0**-8
-    ), "spher_to_cyl_vec does not work as expected"
-    assert (
-        numpy.fabs(vT + 1.3) < 10.0**-8
-    ), "spher_to_cyl_vec does not work as expected"
-    assert (
-        numpy.fabs(vz + 0.7) < 10.0**-8
-    ), "spher_to_cyl_vec does not work as expected"
+    assert numpy.fabs(vR - 0.5) < 10.0**-8, "spher_to_cyl_vec does not work as expected"
+    assert numpy.fabs(vT + 1.3) < 10.0**-8, "spher_to_cyl_vec does not work as expected"
+    assert numpy.fabs(vz + 0.7) < 10.0**-8, "spher_to_cyl_vec does not work as expected"
     return None
 
 

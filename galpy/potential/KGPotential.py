@@ -56,11 +56,7 @@ class KGPotential(linearPotential):
                 pass
         if _APY_LOADED and isinstance(F, units.Quantity):
             try:
-                F = (
-                    F.to(units.km**2 / units.s**2 / units.kpc**2).value
-                    * ro**2
-                    / vo**2
-                )
+                F = F.to(units.km**2 / units.s**2 / units.kpc**2).value * ro**2 / vo**2
             except units.UnitConversionError:
                 raise units.UnitConversionError(
                     "Units for F not understood; should be density"
@@ -72,9 +68,7 @@ class KGPotential(linearPotential):
         self.hasC = True
 
     def _evaluate(self, x, t=0.0):
-        return (
-            self._K * (numpy.sqrt(x**2.0 + self._D2) - self._D) + self._F * x**2.0
-        )
+        return self._K * (numpy.sqrt(x**2.0 + self._D2) - self._D) + self._F * x**2.0
 
     def _force(self, x, t=0.0):
         return -x * (self._K / numpy.sqrt(x**2 + self._D2) + 2.0 * self._F)

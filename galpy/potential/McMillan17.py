@@ -91,9 +91,7 @@ McMillan_disk = DiskSCFPotential(
     ro=ro,
     vo=vo,
 )
-McMillan_halo = NFWPotential(
-    amp=rho0_halo * (4 * numpy.pi * rh**3), a=rh, ro=ro, vo=vo
-)
+McMillan_halo = NFWPotential(amp=rho0_halo * (4 * numpy.pi * rh**3), a=rh, ro=ro, vo=vo)
 # Go back to old floating-point warnings settings
 numpy.seterr(**old_error_settings)
 McMillan17 = McMillan_disk + McMillan_halo + McMillan_bulge

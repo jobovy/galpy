@@ -993,9 +993,9 @@ def test_poisson_surfdens_potential():
     tol = {}
     tol["default"] = -8.0
     tol["DoubleExponentialDiskPotential"] = -3.0  # these are more difficult
-    tol[
-        "SphericalShellPotential"
-    ] = -0  # Direct integration fails to deal with delta function!
+    tol["SphericalShellPotential"] = (
+        -0
+    )  # Direct integration fails to deal with delta function!
     # tol['SpiralArmsPotential']= -3 #these are more difficult
     # tol['rotatingSpiralArmsPotential']= -3
     # tol['specialSpiralArmsPotential']= -4
@@ -1228,9 +1228,7 @@ def test_evaluateAndDerivs_potential():
                         % p
                     )
                 else:
-                    assert (
-                        tevaldr2 - tr2deriv
-                    ) ** 2.0 / tevaldr2**2.0 < 10.0**ttol, (
+                    assert (tevaldr2 - tr2deriv) ** 2.0 / tevaldr2**2.0 < 10.0**ttol, (
                         "Calculation of 2nd radial derivative through _evaluate and R2deriv inconsistent for the %s potential"
                         % p
                     )
@@ -1248,9 +1246,7 @@ def test_evaluateAndDerivs_potential():
                     % p
                 )
             else:
-                assert (
-                    tevaldphi + tphitorque
-                ) ** 2.0 / tevaldphi**2.0 < 10.0**ttol, (
+                assert (tevaldphi + tphitorque) ** 2.0 / tevaldphi**2.0 < 10.0**ttol, (
                     "Calculation of azimuthal derivative through _evaluate and phitorque inconsistent for the %s potential"
                     % p
                 )
@@ -1627,8 +1623,7 @@ def test_potential_array_input():
                 ]
             )
             assert numpy.all(
-                numpy.fabs(tp.phi2deriv(rs, zs, phi=phis, t=ts) - tpevals)
-                < 10.0**-10.0
+                numpy.fabs(tp.phi2deriv(rs, zs, phi=phis, t=ts) - tpevals) < 10.0**-10.0
             ), f"{p} phi2deriv evaluation does not work as expected for array inputs"
         # Rzderiv
         if hasattr(tp, "_Rzderiv"):
@@ -1650,8 +1645,7 @@ def test_potential_array_input():
                 ]
             )
             assert numpy.all(
-                numpy.fabs(tp.Rphideriv(rs, zs, phi=phis, t=ts) - tpevals)
-                < 10.0**-10.0
+                numpy.fabs(tp.Rphideriv(rs, zs, phi=phis, t=ts) - tpevals) < 10.0**-10.0
             ), f"{p} Rphideriv evaluation does not work as expected for array inputs"
         # phizderiv
         if hasattr(tp, "_phizderiv"):
@@ -1662,8 +1656,7 @@ def test_potential_array_input():
                 ]
             )
             assert numpy.all(
-                numpy.fabs(tp.phizderiv(rs, zs, phi=phis, t=ts) - tpevals)
-                < 10.0**-10.0
+                numpy.fabs(tp.phizderiv(rs, zs, phi=phis, t=ts) - tpevals) < 10.0**-10.0
             ), f"{p} phizderiv evaluation does not work as expected for array inputs"
         # dens
         tpevals = numpy.array(
@@ -4059,9 +4052,7 @@ def test_McMillan17():
     ), "Mass within 50 kpc in McMillan17 does not agree with what it is supposed to be"
     # Mass of the bulge is slightly off
     assert (
-        numpy.fabs(
-            (McMillan17[2].mass(50.0 / 8.21, quantity=False)) / 10.0**9.0 - 9.23
-        )
+        numpy.fabs((McMillan17[2].mass(50.0 / 8.21, quantity=False)) / 10.0**9.0 - 9.23)
         < 4e-1
     ), "Bulge mass in McMillan17 does not agree with what it is supposed to be"
     # Mass in stars, compute bulge+disk and subtract what's supposed to be gas
@@ -4405,8 +4396,7 @@ def test_NFW_virialsetup_wrtmeanmatter():
     ), "NFWPotential virial setup's concentration does not work"
     assert (
         numpy.fabs(
-            mvir
-            - np.mvir(H=H, Om=Om, overdens=overdens, wrtcrit=wrtcrit) / 10.0**12.0
+            mvir - np.mvir(H=H, Om=Om, overdens=overdens, wrtcrit=wrtcrit) / 10.0**12.0
         )
         < 10.0**-6.0
     ), "NFWPotential virial setup's virial mass does not work"
@@ -4433,8 +4423,7 @@ def test_NFW_virialsetup_wrtcrit():
     ), "NFWPotential virial setup's concentration does not work"
     assert (
         numpy.fabs(
-            mvir
-            - np.mvir(H=H, Om=Om, overdens=overdens, wrtcrit=wrtcrit) / 10.0**12.0
+            mvir - np.mvir(H=H, Om=Om, overdens=overdens, wrtcrit=wrtcrit) / 10.0**12.0
         )
         < 10.0**-6.0
     ), "NFWPotential virial setup's virial mass does not work"
@@ -4815,12 +4804,8 @@ def test_nemoaccpars():
     vo /= 1.0227121655399913
     ap = np.nemo_accpars(vo, ro).split(",")
     assert numpy.fabs(float(ap[0]) - 0) < 10.0**-8.0, "NFW's NEMO accpars incorrect"
-    assert (
-        numpy.fabs(float(ap[1]) - 0.25) < 10.0**-8.0
-    ), "NFW's NEMO accpars incorrect"
-    assert (
-        numpy.fabs(float(ap[2]) - 12.0) < 10.0**-8.0
-    ), "NFW's NEMO accpars incorrect"
+    assert numpy.fabs(float(ap[1]) - 0.25) < 10.0**-8.0, "NFW's NEMO accpars incorrect"
+    assert numpy.fabs(float(ap[2]) - 12.0) < 10.0**-8.0, "NFW's NEMO accpars incorrect"
     # MN3ExponentialDiskPotential
     mn = potential.MN3ExponentialDiskPotential(normalize=1.0, hr=2.0, hz=0.5)
     vo, ro = 3.0, 4.0
@@ -4862,9 +4847,7 @@ def test_nemoaccpars():
     vo, ro = 7.0, 9.0
     vo /= 1.0227121655399913
     ap = pp.nemo_accpars(vo, ro).split(",")
-    assert (
-        numpy.fabs(float(ap[0]) - 0) < 10.0**-8.0
-    ), "Plummer's NEMO accpars incorrect"
+    assert numpy.fabs(float(ap[0]) - 0) < 10.0**-8.0, "Plummer's NEMO accpars incorrect"
     assert (
         numpy.fabs(float(ap[1]) - 1323.0) < 10.0**-5.0
     ), "Plummer's NEMO accpars incorrect"
@@ -6350,8 +6333,7 @@ def test_rtide():
     ), "Calculation of rtide in point-mass potential fails"
     # Also test function interface
     assert (
-        abs(1.0 - potential.rtide([lp], 1.0, 0.0, M=1.0) / 0.793700525984)
-        < 10.0**-12.0
+        abs(1.0 - potential.rtide([lp], 1.0, 0.0, M=1.0) / 0.793700525984) < 10.0**-12.0
     ), "Calculation of rtide in logarithmic potential fails"
     pmass = potential.PlummerPotential(b=0.0)
     assert (
@@ -6518,17 +6500,13 @@ def test_zvc_range():
     Rmin, Rmax = pot.zvc_range(E, Lz)
     assert (
         numpy.fabs(
-            potential.evaluatePotentials(pot, Rmin, 0.0)
-            + Lz**2.0 / 2.0 / Rmin**2.0
-            - E
+            potential.evaluatePotentials(pot, Rmin, 0.0) + Lz**2.0 / 2.0 / Rmin**2.0 - E
         )
         < 1e-8
     ), "zvc_range does not return radius at which Phi_eff(R,0) = E"
     assert (
         numpy.fabs(
-            potential.evaluatePotentials(pot, Rmax, 0.0)
-            + Lz**2.0 / 2.0 / Rmax**2.0
-            - E
+            potential.evaluatePotentials(pot, Rmax, 0.0) + Lz**2.0 / 2.0 / Rmax**2.0 - E
         )
         < 1e-8
     ), "zvc_range does not return radius at which Phi_eff(R,0) = E"

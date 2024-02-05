@@ -18,9 +18,9 @@ from . import actionAngleTorus_c
 from .actionAngleTorus_c import _ext_loaded as ext_loaded
 
 _autofit_errvals = {}
-_autofit_errvals[
-    -1
-] = "something wrong with input, usually bad starting values for the parameters"
+_autofit_errvals[-1] = (
+    "something wrong with input, usually bad starting values for the parameters"
+)
 _autofit_errvals[-2] = "Fit failed the goal by a factor <= 2"
 _autofit_errvals[-3] = "Fit failed the goal by more than 2"
 _autofit_errvals[-4] = "Fit aborted: serious problems occurred"

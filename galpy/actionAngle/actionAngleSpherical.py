@@ -807,9 +807,7 @@ class actionAngleSpherical(actionAngle):
 
 def _JrSphericalIntegrand(r, E, L, pot):
     """The J_r integrand"""
-    return numpy.sqrt(
-        2.0 * (E - _evaluateplanarPotentials(pot, r)) - L**2.0 / r**2.0
-    )
+    return numpy.sqrt(2.0 * (E - _evaluateplanarPotentials(pot, r)) - L**2.0 / r**2.0)
 
 
 def _TrSphericalIntegrandSmall(t, E, L, pot, rperi):

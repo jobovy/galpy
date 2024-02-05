@@ -732,10 +732,7 @@ class isotropicsphericaldf(sphericaldf):
                 * v**2.0
             )
         else:
-            return (
-                self.fE(_evaluatePotentials(self._pot, r, 0) + 0.5 * v**2.0)
-                * v**2.0
-            )
+            return self.fE(_evaluatePotentials(self._pot, r, 0) + 0.5 * v**2.0) * v**2.0
 
 
 class anisotropicsphericaldf(sphericaldf):

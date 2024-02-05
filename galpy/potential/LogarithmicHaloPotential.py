@@ -168,14 +168,10 @@ class LogarithmicHaloPotential(Potential):
         if self.isNonAxi:
             Rt2 = R**2.0 * (1.0 - self._1m1overb2 * numpy.sin(phi) ** 2.0)
             denom = 1.0 / (Rt2 + (z / self._q) ** 2.0 + self._core2)
-            return (
-                denom / self._q**2.0 - 2.0 * z**2.0 * denom**2.0 / self._q**4.0
-            )
+            return denom / self._q**2.0 - 2.0 * z**2.0 * denom**2.0 / self._q**4.0
         else:
             denom = 1.0 / (R**2.0 + (z / self._q) ** 2.0 + self._core2)
-            return (
-                denom / self._q**2.0 - 2.0 * z**2.0 * denom**2.0 / self._q**4.0
-            )
+            return denom / self._q**2.0 - 2.0 * z**2.0 * denom**2.0 / self._q**4.0
 
     def _Rzderiv(self, R, z, phi=0.0, t=0.0):
         if self.isNonAxi:
@@ -217,10 +213,7 @@ class LogarithmicHaloPotential(Potential):
             Rt2 = R**2.0 * (1.0 - self._1m1overb2 * numpy.sin(phi) ** 2.0)
             denom = 1.0 / (Rt2 + (z / self._q) ** 2.0 + self._core2)
             return (
-                -(denom - Rt2 * denom**2.0)
-                * R
-                * numpy.sin(2.0 * phi)
-                * self._1m1overb2
+                -(denom - Rt2 * denom**2.0) * R * numpy.sin(2.0 * phi) * self._1m1overb2
             )
         else:
             return 0.0

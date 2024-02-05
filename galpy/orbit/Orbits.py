@@ -219,9 +219,9 @@ def _update_keys_named_objects():
         # Format the keys of the known objects dictionary, first collections
         old_keys = list(_known_objects["_collections"].keys())
         for old_key in old_keys:
-            _known_objects["_collections"][
-                _named_objects_key_formatting(old_key)
-            ] = _known_objects["_collections"].pop(old_key)
+            _known_objects["_collections"][_named_objects_key_formatting(old_key)] = (
+                _known_objects["_collections"].pop(old_key)
+            )
         # Then the objects themselves
         old_keys = list(_known_objects.keys())
         old_keys.remove("_collections")
@@ -488,9 +488,7 @@ class Orbit:
             elif (
                 not vxvv.galcen_distance is None
                 and numpy.fabs(
-                    ro**2.0
-                    + zo**2.0
-                    - vxvv.galcen_distance.to(units.kpc).value ** 2.0
+                    ro**2.0 + zo**2.0 - vxvv.galcen_distance.to(units.kpc).value ** 2.0
                 )
                 > 1e-10
             ):
@@ -643,8 +641,7 @@ class Orbit:
                 / units.s
             )
             gc_frame = coordinates.Galactocentric(
-                galcen_distance=numpy.sqrt(self._ro**2.0 + self._zo**2.0)
-                * units.kpc,
+                galcen_distance=numpy.sqrt(self._ro**2.0 + self._zo**2.0) * units.kpc,
                 z_sun=self._zo * units.kpc,
                 galcen_v_sun=galcen_v_sun,
             )
@@ -2148,9 +2145,7 @@ class Orbit:
                             for jj in range(self.size)
                         ]
                     )
-                    + (
-                        thiso[1] ** 2.0 / 2.0 + thiso[2] ** 2.0 / 2.0 + vz**2.0 / 2.0
-                    ).T
+                    + (thiso[1] ** 2.0 / 2.0 + thiso[2] ** 2.0 / 2.0 + vz**2.0 / 2.0).T
                 )
         elif self.phasedim() == 6:
             z = kwargs.get("_z", 1.0) * thiso[3]  # For ER and Ez
@@ -2187,9 +2182,7 @@ class Orbit:
                             for jj in range(self.size)
                         ]
                     )
-                    + (
-                        thiso[1] ** 2.0 / 2.0 + thiso[2] ** 2.0 / 2.0 + vz**2.0 / 2.0
-                    ).T
+                    + (thiso[1] ** 2.0 / 2.0 + thiso[2] ** 2.0 / 2.0 + vz**2.0 / 2.0).T
                 )
         if onet:
             return out[:, 0]
@@ -8056,9 +8049,11 @@ def _parse_radec_kwargs(orb, kwargs, vel=False, dontpop=False, thiso=None):
     if isinstance(obs, list) and not thiso is None and thiso.shape[1] > orb.size:
         nt = thiso.shape[1] // orb.size
         obs = [
-            numpy.tile(obs[ii], nt)
-            if isinstance(obs[ii], numpy.ndarray) and obs[ii].ndim > 0
-            else obs[ii]
+            (
+                numpy.tile(obs[ii], nt)
+                if isinstance(obs[ii], numpy.ndarray) and obs[ii].ndim > 0
+                else obs[ii]
+            )
             for ii in range(len(obs))
         ]
         ro = numpy.tile(ro, nt) if isinstance(ro, numpy.ndarray) and ro.ndim > 0 else ro
