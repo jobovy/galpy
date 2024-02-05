@@ -1023,9 +1023,11 @@ def XYZ_to_galcenrect(X, Y, Z, Xsun=1.0, Zsun=0.0, _extra_rot=True):
     zero = numpy.zeros_like(costheta)
     one = numpy.ones_like(costheta)
     return numpy.einsum(
-        "ijk,jk->ik"
-        if isinstance(costheta, numpy.ndarray) and costheta.ndim > 0
-        else "ij,jk->ik",
+        (
+            "ijk,jk->ik"
+            if isinstance(costheta, numpy.ndarray) and costheta.ndim > 0
+            else "ij,jk->ik"
+        ),
         numpy.array(
             [[costheta, zero, -sintheta], [zero, one, zero], [sintheta, zero, costheta]]
         ),
@@ -1072,9 +1074,11 @@ def galcenrect_to_XYZ(X, Y, Z, Xsun=1.0, Zsun=0.0, _extra_rot=True):
     one = numpy.ones_like(costheta)
     out = (
         numpy.einsum(
-            "ijk,jk->ik"
-            if isinstance(costheta, numpy.ndarray) and costheta.ndim > 0
-            else "ij,jk->ik",
+            (
+                "ijk,jk->ik"
+                if isinstance(costheta, numpy.ndarray) and costheta.ndim > 0
+                else "ij,jk->ik"
+            ),
             numpy.array(
                 [
                     [-costheta, zero, -sintheta],
@@ -1311,9 +1315,11 @@ def vxvyvz_to_galcenrect(
     one = numpy.ones_like(costheta)
     return (
         numpy.einsum(
-            "ijk,jk->ik"
-            if isinstance(costheta, numpy.ndarray) and costheta.ndim > 0
-            else "ij,jk->ik",
+            (
+                "ijk,jk->ik"
+                if isinstance(costheta, numpy.ndarray) and costheta.ndim > 0
+                else "ij,jk->ik"
+            ),
             numpy.array(
                 [
                     [costheta, zero, -sintheta],
@@ -1428,9 +1434,11 @@ def galcenrect_to_vxvyvz(
     zero = numpy.zeros_like(costheta)
     one = numpy.ones_like(costheta)
     out = numpy.einsum(
-        "ijk,jk->ik"
-        if isinstance(costheta, numpy.ndarray) and costheta.ndim > 0
-        else "ij,jk->ik",
+        (
+            "ijk,jk->ik"
+            if isinstance(costheta, numpy.ndarray) and costheta.ndim > 0
+            else "ij,jk->ik"
+        ),
         numpy.array(
             [
                 [-costheta, zero, -sintheta],

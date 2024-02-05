@@ -2017,9 +2017,7 @@ def test_analytic_ecc_rperi_rap():
                     "Analytically computed pericenter radius does not agree with numerical estimate for potential %s and integrator %s"
                     % (p, integrator)
                 )
-                assert (
-                    o.rperi(ro=8.0) / 8.0 - trperi_analytic
-                ) ** 2.0 < 10.0**ttol, (
+                assert (o.rperi(ro=8.0) / 8.0 - trperi_analytic) ** 2.0 < 10.0**ttol, (
                     "Pericenter in physical coordinates does not agree with physical-scale times pericenter in normalized coordinates for potential %s and integrator %s"
                     % (p, integrator)
                 )
@@ -2095,9 +2093,7 @@ def test_analytic_ecc_rperi_rap():
                     "Analytically computed pericenter radius does not agree with numerical estimate for potential %s and integrator %s"
                     % (p, integrator)
                 )
-                assert (
-                    o.rperi(ro=8.0) / 8.0 - trperi_analytic
-                ) ** 2.0 < 10.0**ttol, (
+                assert (o.rperi(ro=8.0) / 8.0 - trperi_analytic) ** 2.0 < 10.0**ttol, (
                     "Pericenter in physical coordinates does not agree with physical-scale times pericenter in normalized coordinates for potential %s and integrator %s"
                     % (p, integrator)
                 )
@@ -2173,9 +2169,7 @@ def test_analytic_ecc_rperi_rap():
                     "Analytically computed pericenter radius does not agree with numerical estimate for potential %s and integrator %s"
                     % (p, integrator)
                 )
-                assert (
-                    o.rperi(ro=8.0) / 8.0 - trperi_analytic
-                ) ** 2.0 < 10.0**ttol, (
+                assert (o.rperi(ro=8.0) / 8.0 - trperi_analytic) ** 2.0 < 10.0**ttol, (
                     "Pericenter in physical coordinates does not agree with physical-scale times pericenter in normalized coordinates for potential %s and integrator %s"
                     % (p, integrator)
                 )
@@ -3406,12 +3400,7 @@ def test_orbit_setup():
         numpy.fabs(o.dist() - 0.0) < 10.0**-2.0
     ), "Orbit dist setup does not agree with o.dist()"  # because of tweak in the code to deal with at the Sun
     assert (
-        o.U() ** 2.0
-        + o.V() ** 2.0
-        + o.W() ** 2.0
-        - 10.0**2.0
-        - 20.0**2.0
-        - 30.0**2.0
+        o.U() ** 2.0 + o.V() ** 2.0 + o.W() ** 2.0 - 10.0**2.0 - 20.0**2.0 - 30.0**2.0
     ) < 10.0**-10.0, (
         "Velocity wrt the Sun when looking at Orbit at the Sun does not agree"
     )
@@ -5145,8 +5134,7 @@ def test_physical_output_on():
             ), "o.vz() output for Orbit setup with vo= does not work as expected when turned back on"
         # Test energies
         assert (
-            numpy.fabs(o.E(pot=lp) - o_orig.E(pot=lp, use_physical=True))
-            < 10.0**-10.0
+            numpy.fabs(o.E(pot=lp) - o_orig.E(pot=lp, use_physical=True)) < 10.0**-10.0
         ), "o.E() output for Orbit setup with vo= does not work as expected when turned back on"
         assert (
             numpy.fabs(o.Jacobi(pot=lp) - o_orig.Jacobi(pot=lp, use_physical=True))
@@ -5930,8 +5918,7 @@ def test_orbit_obs_Orbit_issue322():
     # The basic case, for a planar orbit
     o = Orbit([0.9, 0.1, 1.2, 0.0])
     assert (
-        numpy.fabs(o.helioX(obs=Orbit([1.0, 0.0, 0.0, 0.0]), ro=1.0) - 0.1)
-        < 10.0**-7.0
+        numpy.fabs(o.helioX(obs=Orbit([1.0, 0.0, 0.0, 0.0]), ro=1.0) - 0.1) < 10.0**-7.0
     ), "Relative position wrt the Sun from using obs= keyword does not work as expected"
     assert (
         numpy.fabs(o.helioY(obs=Orbit([1.0, 0.0, 0.0, 0.0]), ro=1.0)) < 10.0**-7.0
@@ -7082,8 +7069,7 @@ def test_orbit_method_inputvo_quantity():
         numpy.fabs(o.theta(vo=vo * units.km / units.s) - o.theta(vo=vo)) < 10.0**-8.0
     ), "Orbit method theta does not return the correct value when input vo is Quantity"
     assert (
-        numpy.fabs(o.vtheta(vo=vo * units.km / units.s) - o.vtheta(vo=vo))
-        < 10.0**-8.0
+        numpy.fabs(o.vtheta(vo=vo * units.km / units.s) - o.vtheta(vo=vo)) < 10.0**-8.0
     ), "Orbit method vtheta does not return the correct value when input vo is Quantity"
     assert (
         numpy.fabs(o.vr(vo=vo * units.km / units.s) - o.vr(vo=vo)) < 10.0**-8.0
@@ -7131,16 +7117,13 @@ def test_orbit_method_inputvo_quantity():
         numpy.fabs(o.vbb(vo=vo * units.km / units.s) - o.vbb(vo=vo)) < 10.0**-8.0
     ), "Orbit method vbb does not return the correct value when input vo is Quantity"
     assert (
-        numpy.fabs(o.helioX(vo=vo * units.km / units.s) - o.helioX(vo=vo))
-        < 10.0**-8.0
+        numpy.fabs(o.helioX(vo=vo * units.km / units.s) - o.helioX(vo=vo)) < 10.0**-8.0
     ), "Orbit method helioX does not return the correct value when input vo is Quantity"
     assert (
-        numpy.fabs(o.helioY(vo=vo * units.km / units.s) - o.helioY(vo=vo))
-        < 10.0**-8.0
+        numpy.fabs(o.helioY(vo=vo * units.km / units.s) - o.helioY(vo=vo)) < 10.0**-8.0
     ), "Orbit method helioY does not return the correct value when input vo is Quantity"
     assert (
-        numpy.fabs(o.helioZ(vo=vo * units.km / units.s) - o.helioZ(vo=vo))
-        < 10.0**-8.0
+        numpy.fabs(o.helioZ(vo=vo * units.km / units.s) - o.helioZ(vo=vo)) < 10.0**-8.0
     ), "Orbit method helioZ does not return the correct value when input vo is Quantity"
     assert (
         numpy.fabs(o.U(vo=vo * units.km / units.s) - o.U(vo=vo)) < 10.0**-8.0
@@ -7941,9 +7924,7 @@ def test_orbinterp_reset_integrate():
     assert (
         numpy.fabs(o.rperi() - op.rperi()) < 10.0**-10.0
     ), "Orbit rperi not reset correctly"
-    assert (
-        numpy.fabs(o.rap() - op.rap()) < 10.0**-10.0
-    ), "Orbit rap not reset correctly"
+    assert numpy.fabs(o.rap() - op.rap()) < 10.0**-10.0, "Orbit rap not reset correctly"
     assert numpy.fabs(o.e() - op.e()) < 10.0**-10.0, "Orbit e not reset correctly"
     return None
 
@@ -7985,9 +7966,7 @@ def test_orbinterp_reset_integrateSOS():
     assert (
         numpy.fabs(o.rperi() - op.rperi()) < 10.0**-10.0
     ), "Orbit rperi not reset correctly"
-    assert (
-        numpy.fabs(o.rap() - op.rap()) < 10.0**-10.0
-    ), "Orbit rap not reset correctly"
+    assert numpy.fabs(o.rap() - op.rap()) < 10.0**-10.0, "Orbit rap not reset correctly"
     assert numpy.fabs(o.e() - op.e()) < 10.0**-10.0, "Orbit e not reset correctly"
     return None
 
@@ -8029,9 +8008,7 @@ def test_orbinterp_reset_bruteSOS():
     assert (
         numpy.fabs(o.rperi() - op.rperi()) < 10.0**-10.0
     ), "Orbit rperi not reset correctly"
-    assert (
-        numpy.fabs(o.rap() - op.rap()) < 10.0**-10.0
-    ), "Orbit rap not reset correctly"
+    assert numpy.fabs(o.rap() - op.rap()) < 10.0**-10.0, "Orbit rap not reset correctly"
     assert numpy.fabs(o.e() - op.e()) < 10.0**-10.0, "Orbit e not reset correctly"
     return None
 
@@ -8065,9 +8042,7 @@ def test_orbinterp_reset_integratedxdv():
     assert (
         numpy.fabs(o.rperi() - op.rperi()) < 10.0**-10.0
     ), "Orbit rperi not reset correctly"
-    assert (
-        numpy.fabs(o.rap() - op.rap()) < 10.0**-10.0
-    ), "Orbit rap not reset correctly"
+    assert numpy.fabs(o.rap() - op.rap()) < 10.0**-10.0, "Orbit rap not reset correctly"
     assert numpy.fabs(o.e() - op.e()) < 10.0**-10.0, "Orbit e not reset correctly"
     return None
 

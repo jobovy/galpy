@@ -719,17 +719,13 @@ def test_lambdanu_to_Rz():
     z_true = numpy.sqrt((l + g) * (n + g) / (g - a))
     # test:
     rel_diff = numpy.fabs((R - R_true) / R_true) < 10.0**-8.0
-    abs_diff = (numpy.fabs(R - R_true) < 10.0**-6.0) * (
-        numpy.fabs(R_true) < 10.0**-6.0
-    )
+    abs_diff = (numpy.fabs(R - R_true) < 10.0**-6.0) * (numpy.fabs(R_true) < 10.0**-6.0)
     assert numpy.all(
         rel_diff + abs_diff
     ), "lambdanu_to_Rz conversion did not work as expected (R array)"
 
     rel_diff = numpy.fabs((z - z_true) / z_true) < 10.0**-8.0
-    abs_diff = (numpy.fabs(z - z_true) < 10.0**-6.0) * (
-        numpy.fabs(z_true) < 10.0**-6.0
-    )
+    abs_diff = (numpy.fabs(z - z_true) < 10.0**-6.0) * (numpy.fabs(z_true) < 10.0**-6.0)
     assert numpy.all(
         rel_diff + abs_diff
     ), "lambdanu_to_Rz conversion did not work as expected (z array)"

@@ -1782,9 +1782,7 @@ class diskdf(df):
                 self._gamma
             )
         else:
-            return (
-                self.targetSigma2(R, log=log, use_physical=False) / self._gamma**2.0
-            )
+            return self.targetSigma2(R, log=log, use_physical=False) / self._gamma**2.0
 
 
 class dehnendf(diskdf):

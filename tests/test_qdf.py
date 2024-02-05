@@ -1583,9 +1583,7 @@ def test_jmomentdensity_physical():
     assert (
         numpy.fabs(
             qdf.jmomentdensity(1.1, 0.1, 0, 0, 0, nmc=100000, ro=ro, vo=vo)
-            - qdf.jmomentdensity(1.1, 0.1, 0, 0, 0, nmc=100000)
-            / ro**3
-            * (ro * vo) ** 0
+            - qdf.jmomentdensity(1.1, 0.1, 0, 0, 0, nmc=100000) / ro**3 * (ro * vo) ** 0
         )
         < 10.0**-4.0
     ), "quasiisothermaldf method jmomentdensity does not return correct Quantity"
@@ -1594,9 +1592,7 @@ def test_jmomentdensity_physical():
             qdf.jmomentdensity(
                 1.1, 0.1, 1, 0, 0, nmc=100000, ro=ro, vo=vo, use_physical=True
             )
-            - qdf.jmomentdensity(1.1, 0.1, 1, 0, 0, nmc=100000)
-            / ro**3
-            * (ro * vo) ** 1
+            - qdf.jmomentdensity(1.1, 0.1, 1, 0, 0, nmc=100000) / ro**3 * (ro * vo) ** 1
         )
         < 10.0**-2.0
     ), "quasiisothermaldf method jmomentdensity does not return correct Quantity"

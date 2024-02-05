@@ -382,9 +382,7 @@ class streamgapdf(streamdf.streamdf):
         in the higher-order terms, recursively"""
         gaussxpolyInt = numpy.zeros((maxj, len(ul)))
         gaussxpolyInt[-1] = (
-            1.0
-            / numpy.sqrt(numpy.pi)
-            * (numpy.exp(-(ll**2.0)) - numpy.exp(-(ul**2.0)))
+            1.0 / numpy.sqrt(numpy.pi) * (numpy.exp(-(ll**2.0)) - numpy.exp(-(ul**2.0)))
         )
         gaussxpolyInt[-2] = 1.0 / numpy.sqrt(numpy.pi) * (
             numpy.exp(-(ll**2.0)) * ll - numpy.exp(-(ul**2.0)) * ul

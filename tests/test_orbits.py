@@ -5905,8 +5905,7 @@ def _check_energy_jacobi_angmom(os, list_os):
             ), "Evaluating Orbits L does not agree with Orbit"
         if os.dim() != 1:
             assert numpy.all(
-                numpy.fabs(os.Lz(times)[ii] / list_os[ii].Lz(times) - 1.0)
-                < 10.0**-10.0
+                numpy.fabs(os.Lz(times)[ii] / list_os[ii].Lz(times) - 1.0) < 10.0**-10.0
             ), "Evaluating Orbits Lz does not agree with Orbit"
         if os.phasedim() % 2 == 0 and os.dim() != 1:
             assert numpy.all(
@@ -8330,8 +8329,7 @@ def test_physical_output_on():
         ), "o.vz() output for Orbit setup with vo= does not work as expected when turned back on"
         # Test energies
         assert (
-            numpy.fabs(o.E(pot=lp) - o_orig.E(pot=lp, use_physical=True))
-            < 10.0**-10.0
+            numpy.fabs(o.E(pot=lp) - o_orig.E(pot=lp, use_physical=True)) < 10.0**-10.0
         ), "o.E() output for Orbit setup with vo= does not work as expected when turned back on"
         assert (
             numpy.fabs(o.Jacobi(pot=lp) - o_orig.Jacobi(pot=lp, use_physical=True))

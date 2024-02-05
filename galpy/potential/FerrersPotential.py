@@ -439,9 +439,7 @@ def _FracInt(x, y, z, a, b, c, tau, n):
     sqrt(tau+a)(tau+b)(tau+c))       tau+a     tau+b     tau+c
     """
     denom = numpy.sqrt((a + tau) * (b + tau) * (c + tau))
-    return (
-        1.0 - x**2 / (a + tau) - y**2 / (b + tau) - z**2 / (c + tau)
-    ) ** n / denom
+    return (1.0 - x**2 / (a + tau) - y**2 / (b + tau) - z**2 / (c + tau)) ** n / denom
 
 
 def lowerlim(x, y, z, a, b, c):

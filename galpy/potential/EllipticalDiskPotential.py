@@ -109,10 +109,7 @@ class EllipticalDiskPotential(planarPotential):
                 deltat = t - self._tform
                 xi = 2.0 * deltat / (self._tsteady - self._tform) - 1.0
                 smooth = (
-                    3.0 / 16.0 * xi**5.0
-                    - 5.0 / 8 * xi**3.0
-                    + 15.0 / 16.0 * xi
-                    + 0.5
+                    3.0 / 16.0 * xi**5.0 - 5.0 / 8 * xi**3.0 + 15.0 / 16.0 * xi + 0.5
                 )
             else:  # fully on
                 smooth = 1.0
@@ -135,10 +132,7 @@ class EllipticalDiskPotential(planarPotential):
                 deltat = t - self._tform
                 xi = 2.0 * deltat / (self._tsteady - self._tform) - 1.0
                 smooth = (
-                    3.0 / 16.0 * xi**5.0
-                    - 5.0 / 8 * xi**3.0
-                    + 15.0 / 16.0 * xi
-                    + 0.5
+                    3.0 / 16.0 * xi**5.0 - 5.0 / 8 * xi**3.0 + 15.0 / 16.0 * xi + 0.5
                 )
             else:  # fully on
                 smooth = 1.0
@@ -162,18 +156,13 @@ class EllipticalDiskPotential(planarPotential):
                 deltat = t - self._tform
                 xi = 2.0 * deltat / (self._tsteady - self._tform) - 1.0
                 smooth = (
-                    3.0 / 16.0 * xi**5.0
-                    - 5.0 / 8 * xi**3.0
-                    + 15.0 / 16.0 * xi
-                    + 0.5
+                    3.0 / 16.0 * xi**5.0 - 5.0 / 8 * xi**3.0 + 15.0 / 16.0 * xi + 0.5
                 )
             else:  # fully on
                 smooth = 1.0
         else:
             smooth = 1.0
-        return (
-            smooth * self._twophio * R**self._p * numpy.sin(2.0 * (phi - self._phib))
-        )
+        return smooth * self._twophio * R**self._p * numpy.sin(2.0 * (phi - self._phib))
 
     def _R2deriv(self, R, phi=0.0, t=0.0):
         # Calculate relevant time
@@ -184,10 +173,7 @@ class EllipticalDiskPotential(planarPotential):
                 deltat = t - self._tform
                 xi = 2.0 * deltat / (self._tsteady - self._tform) - 1.0
                 smooth = (
-                    3.0 / 16.0 * xi**5.0
-                    - 5.0 / 8 * xi**3.0
-                    + 15.0 / 16.0 * xi
-                    + 0.5
+                    3.0 / 16.0 * xi**5.0 - 5.0 / 8 * xi**3.0 + 15.0 / 16.0 * xi + 0.5
                 )
             else:  # fully on
                 smooth = 1.0
@@ -212,10 +198,7 @@ class EllipticalDiskPotential(planarPotential):
                 deltat = t - self._tform
                 xi = 2.0 * deltat / (self._tsteady - self._tform) - 1.0
                 smooth = (
-                    3.0 / 16.0 * xi**5.0
-                    - 5.0 / 8 * xi**3.0
-                    + 15.0 / 16.0 * xi
-                    + 0.5
+                    3.0 / 16.0 * xi**5.0 - 5.0 / 8 * xi**3.0 + 15.0 / 16.0 * xi + 0.5
                 )
             else:  # perturbation is fully on
                 smooth = 1.0
@@ -238,10 +221,7 @@ class EllipticalDiskPotential(planarPotential):
                 deltat = t - self._tform
                 xi = 2.0 * deltat / (self._tsteady - self._tform) - 1.0
                 smooth = (
-                    3.0 / 16.0 * xi**5.0
-                    - 5.0 / 8 * xi**3.0
-                    + 15.0 / 16.0 * xi
-                    + 0.5
+                    3.0 / 16.0 * xi**5.0 - 5.0 / 8 * xi**3.0 + 15.0 / 16.0 * xi + 0.5
                 )
             else:  # perturbation is fully on
                 smooth = 1.0

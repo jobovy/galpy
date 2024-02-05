@@ -128,11 +128,7 @@ class MiyamotoNagaiPotential(Potential):
                 * numpy.sqrt(self._b2 + z**2.0)
                 + (self._b2 + R**2.0 - 2.0 * z**2.0) * (self._b2 + z**2.0) ** 1.5
                 + self._a
-                * (
-                    3.0 * self._b2**2.0
-                    - 4.0 * z**4.0
-                    + self._b2 * (R**2.0 - z**2.0)
-                )
+                * (3.0 * self._b2**2.0 - 4.0 * z**4.0 + self._b2 * (R**2.0 - z**2.0))
             ) / ((self._b2 + z**2.0) ** 1.5 * (R**2.0 + asqrtbz**2.0) ** 2.5)
 
     def _Rzderiv(self, R, z, phi=0.0, t=0.0):
@@ -141,9 +137,7 @@ class MiyamotoNagaiPotential(Potential):
         if isinstance(R, float) and sqrtbz == asqrtbz:
             return -(3.0 * R * z / (R**2.0 + asqrtbz**2.0) ** 2.5)
         else:
-            return -(
-                3.0 * R * z * asqrtbz / sqrtbz / (R**2.0 + asqrtbz**2.0) ** 2.5
-            )
+            return -(3.0 * R * z * asqrtbz / sqrtbz / (R**2.0 + asqrtbz**2.0) ** 2.5)
 
     @kms_to_kpcGyrDecorator
     def _nemo_accpars(self, vo, ro):

@@ -102,10 +102,7 @@ class SteadyLogSpiralPotential(planarPotential):
                 deltat = t - self._tform
                 xi = 2.0 * deltat / (self._tsteady - self._tform) - 1.0
                 smooth = (
-                    3.0 / 16.0 * xi**5.0
-                    - 5.0 / 8 * xi**3.0
-                    + 15.0 / 16.0 * xi
-                    + 0.5
+                    3.0 / 16.0 * xi**5.0 - 5.0 / 8 * xi**3.0 + 15.0 / 16.0 * xi + 0.5
                 )
             else:  # spiral is fully on
                 smooth = 1.0
@@ -129,10 +126,7 @@ class SteadyLogSpiralPotential(planarPotential):
                 deltat = t - self._tform
                 xi = 2.0 * deltat / (self._tsteady - self._tform) - 1.0
                 smooth = (
-                    3.0 / 16.0 * xi**5.0
-                    - 5.0 / 8 * xi**3.0
-                    + 15.0 / 16.0 * xi
-                    + 0.5
+                    3.0 / 16.0 * xi**5.0 - 5.0 / 8 * xi**3.0 + 15.0 / 16.0 * xi + 0.5
                 )
             else:  # spiral is fully on
                 smooth = 1.0
@@ -156,10 +150,7 @@ class SteadyLogSpiralPotential(planarPotential):
                 deltat = t - self._tform
                 xi = 2.0 * deltat / (self._tsteady - self._tform) - 1.0
                 smooth = (
-                    3.0 / 16.0 * xi**5.0
-                    - 5.0 / 8 * xi**3.0
-                    + 15.0 / 16.0 * xi
-                    + 0.5
+                    3.0 / 16.0 * xi**5.0 - 5.0 / 8 * xi**3.0 + 15.0 / 16.0 * xi + 0.5
                 )
             else:  # spiral is fully on
                 smooth = 1.0

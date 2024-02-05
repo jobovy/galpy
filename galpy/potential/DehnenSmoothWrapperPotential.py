@@ -72,9 +72,7 @@ class DehnenSmoothWrapperPotential(parentWrapperPotential):
         elif t < self._tsteady:
             deltat = t - self._tform
             xi = 2.0 * deltat / (self._tsteady - self._tform) - 1.0
-            smooth = (
-                3.0 / 16.0 * xi**5.0 - 5.0 / 8 * xi**3.0 + 15.0 / 16.0 * xi + 0.5
-            )
+            smooth = 3.0 / 16.0 * xi**5.0 - 5.0 / 8 * xi**3.0 + 15.0 / 16.0 * xi + 0.5
         else:  # bar is fully on
             smooth = 1.0
         return smooth if self._grow else 1.0 - smooth

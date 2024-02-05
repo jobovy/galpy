@@ -65,8 +65,7 @@ class BurkertPotential(SphericalPotential):
             * (
                 -numpy.pi / x
                 + 2.0 * (1.0 / x + 1) * numpy.arctan(1 / x)
-                + (1.0 / x + 1)
-                * numpy.log((1.0 + 1.0 / x) ** 2.0 / (1.0 + 1 / x**2.0))
+                + (1.0 / x + 1) * numpy.log((1.0 + 1.0 / x) ** 2.0 / (1.0 + 1 / x**2.0))
                 + special.xlogy(2.0 / x, 1.0 + x**2.0)
             )
         )

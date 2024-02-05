@@ -70,9 +70,7 @@ class PlummerPotential(Potential):
         return -self._amp * r * (r**2.0 + self._b2) ** -1.5
 
     def _dens(self, R, z, phi=0.0, t=0.0):
-        return (
-            3.0 / 4.0 / numpy.pi * self._b2 * (R**2.0 + z**2.0 + self._b2) ** -2.5
-        )
+        return 3.0 / 4.0 / numpy.pi * self._b2 * (R**2.0 + z**2.0 + self._b2) ** -2.5
 
     def _surfdens(self, R, z, phi=0.0, t=0.0):
         Rb = R**2.0 + self._b2
@@ -87,14 +85,10 @@ class PlummerPotential(Potential):
         )
 
     def _R2deriv(self, R, z, phi=0.0, t=0.0):
-        return (self._b2 - 2.0 * R**2.0 + z**2.0) * (
-            R**2.0 + z**2.0 + self._b2
-        ) ** -2.5
+        return (self._b2 - 2.0 * R**2.0 + z**2.0) * (R**2.0 + z**2.0 + self._b2) ** -2.5
 
     def _z2deriv(self, R, z, phi=0.0, t=0.0):
-        return (self._b2 + R**2.0 - 2.0 * z**2.0) * (
-            R**2.0 + z**2.0 + self._b2
-        ) ** -2.5
+        return (self._b2 + R**2.0 - 2.0 * z**2.0) * (R**2.0 + z**2.0 + self._b2) ** -2.5
 
     def _Rzderiv(self, R, z, phi=0.0, t=0.0):
         return -3.0 * R * z * (R**2.0 + z**2.0 + self._b2) ** -2.5
@@ -117,10 +111,7 @@ class PlummerPotential(Potential):
             / 4.0
             / numpy.pi
             * self._b2
-            * (
-                (r**2.0 + self._b2) ** -3.5
-                - 7.0 * r**2.0 * (r**2 + self._b2) ** -4.5
-            )
+            * ((r**2.0 + self._b2) ** -3.5 - 7.0 * r**2.0 * (r**2 + self._b2) ** -4.5)
         )
 
     def _ddenstwobetadr(self, r, beta=0):

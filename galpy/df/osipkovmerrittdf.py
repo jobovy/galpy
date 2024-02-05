@@ -160,8 +160,7 @@ class _osipkovmerrittdf(anisotropicsphericaldf):
             )
         else:
             return (
-                self.fQ(-_evaluatePotentials(self._pot, r, 0) - 0.5 * v**2.0)
-                * v**2.0
+                self.fQ(-_evaluatePotentials(self._pot, r, 0) - 0.5 * v**2.0) * v**2.0
             )
 
     def _sample_v(self, r, eta, n=1):

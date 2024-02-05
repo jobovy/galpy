@@ -1237,10 +1237,7 @@ def calcELStaeckel(R, vR, vT, z, vz, pot, vc=1.0, ro=1.0):
 
     """
     return (
-        _evaluatePotentials(pot, R, z)
-        + vR**2.0 / 2.0
-        + vT**2.0 / 2.0
-        + vz**2.0 / 2.0,
+        _evaluatePotentials(pot, R, z) + vR**2.0 / 2.0 + vT**2.0 / 2.0 + vz**2.0 / 2.0,
         R * vT,
     )
 
@@ -1552,9 +1549,7 @@ def estimateDeltaStaeckel(pot, R, z, no_median=False, delta0=1e-6):
                 for ii in range(len(R))
             ]
         )
-        indx = (delta2 < delta0**2.0) * (
-            (delta2 > -(10.0**-10.0)) + pot_includes_scf
-        )
+        indx = (delta2 < delta0**2.0) * ((delta2 > -(10.0**-10.0)) + pot_includes_scf)
         delta2[indx] = delta0**2.0
         if not no_median:
             delta2 = numpy.median(delta2[True ^ numpy.isnan(delta2)])

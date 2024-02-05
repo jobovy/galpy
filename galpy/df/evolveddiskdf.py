@@ -2910,9 +2910,9 @@ class evolveddiskdf(df):
                         deriv=deriv,
                         use_physical=False,
                     )
-                    out.df[
-                        ii, jj, numpy.isnan(out.df[ii, jj, :])
-                    ] = 0.0  # BOVY: for now
+                    out.df[ii, jj, numpy.isnan(out.df[ii, jj, :])] = (
+                        0.0  # BOVY: for now
+                    )
             if print_progress:
                 sys.stdout.write("\n")  # pragma: no cover
         else:
@@ -3278,9 +3278,9 @@ class evolveddiskdfHierarchicalGrid:
                     self.df[ii, jj, :] = edf(
                         thiso, numpy.array(t).flatten(), deriv=deriv
                     )
-                    self.df[
-                        ii, jj, numpy.isnan(self.df[ii, jj, :])
-                    ] = 0.0  # BOVY: for now
+                    self.df[ii, jj, numpy.isnan(self.df[ii, jj, :])] = (
+                        0.0  # BOVY: for now
+                    )
                     # Multiply in area, somewhat tricky for edge objects
                     if upperdxdy is None or (
                         ii != 0
@@ -3401,9 +3401,7 @@ class evolveddiskdfHierarchicalGrid:
                 return numpy.array(out) + self.subgrid(n, m)
         else:
             # We already multiplied in the area
-            thislevel = numpy.dot(
-                self.vRgrid**n, numpy.dot(self.df, self.vTgrid**m)
-            )
+            thislevel = numpy.dot(self.vRgrid**n, numpy.dot(self.df, self.vTgrid**m))
             if self.subgrid is None:
                 return thislevel
             else:

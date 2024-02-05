@@ -430,11 +430,7 @@ def _forceInt(x, y, z, dens, b2, c2, i, glx=None, glw=None):
     def integrand(s):
         t = 1 / s**2.0 - 1.0
         return (
-            dens(
-                numpy.sqrt(
-                    x**2.0 / (1.0 + t) + y**2.0 / (b2 + t) + z**2.0 / (c2 + t)
-                )
-            )
+            dens(numpy.sqrt(x**2.0 / (1.0 + t) + y**2.0 / (b2 + t) + z**2.0 / (c2 + t)))
             * (
                 x / (1.0 + t) * (i == 0)
                 + y / (b2 + t) * (i == 1)

@@ -1204,11 +1204,7 @@ def test_linacc_constantacc_z():
     from scipy import special
 
     intaz = (
-        lambda t: 0.02
-        * t**2.0
-        / 2.0
-        * (special.erf(t) + 2.0)
-        / (special.erf(t) + 2.0)
+        lambda t: 0.02 * t**2.0 / 2.0 * (special.erf(t) + 2.0) / (special.erf(t) + 2.0)
     )
     framepot = potential.NonInertialFrameForce(a0=[0.0, 0.0, az])
     diskframepot = (

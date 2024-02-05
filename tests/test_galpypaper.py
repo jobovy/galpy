@@ -2,6 +2,7 @@
 
    isort:skip_file
 """
+
 import os
 import numpy
 import pytest
@@ -53,8 +54,7 @@ def test_units():
 
     print(conversion.force_in_pcMyr2(220.0, 8.0))  # pc/Myr^2
     assert (
-        numpy.fabs(conversion.force_in_pcMyr2(220.0, 8.0) - 6.32793804994)
-        < 10.0**-4.0
+        numpy.fabs(conversion.force_in_pcMyr2(220.0, 8.0) - 6.32793804994) < 10.0**-4.0
     ), "unit conversion has changed"
     print(conversion.dens_in_msolpc3(220.0, 8.0))  # Msolar/pc^3
     # Loosen tolerances including mass bc of 0.025% change in Msun in astropyv2
@@ -156,8 +156,7 @@ def test_potmethods():
     ), "potmethods has changed"
     dp.lindbladR(1.75, m="corotation")  # co-rotation resonance
     assert (
-        numpy.fabs(dp.lindbladR(1.75, m="corotation") - 0.540985051273488)
-        < 10.0**-4.0
+        numpy.fabs(dp.lindbladR(1.75, m="corotation") - 0.540985051273488) < 10.0**-4.0
     ), "potmethods has changed"
     return None
 
@@ -591,12 +590,10 @@ def test_diskdf():
         # Calculate the velocity dispersions
         numpy.sqrt(dfc.sigmaR2(0.9)), numpy.sqrt(dfc.sigmaT2(0.9))
         assert (
-            numpy.fabs(numpy.sqrt(dfc.sigmaR2(0.9)) - 0.22103383792719539)
-            < 10.0**-4.0
+            numpy.fabs(numpy.sqrt(dfc.sigmaR2(0.9)) - 0.22103383792719539) < 10.0**-4.0
         ), "diskdf does not behave as expected"
         assert (
-            numpy.fabs(numpy.sqrt(dfc.sigmaT2(0.9)) - 0.17613725303902811)
-            < 10.0**-4.0
+            numpy.fabs(numpy.sqrt(dfc.sigmaT2(0.9)) - 0.17613725303902811) < 10.0**-4.0
         ), "diskdf does not behave as expected"
         # Calculate the skew of the velocity distribution
         df.skewvR(0.9), df.skewvT(0.9)
