@@ -10,6 +10,7 @@ from .planarPotential import (
     planarPotential,
 )
 from .Potential import (
+    Force,
     Potential,
     _dim,
     _evaluatephitorques,
@@ -90,6 +91,19 @@ class WrapperPotential(Potential):
             return None  # Don't run __init__ at the end of setup
         Potential.__init__(self, amp=amp, ro=ro, vo=vo)
         self._pot = pot
+        # Check that we are not wrapping a non-potential Force object
+        if (
+            isinstance(self._pot, list)
+            and any(
+                [
+                    isinstance(p, Force) and not isinstance(p, Potential)
+                    for p in self._pot
+                ]
+            )
+        ) or (isinstance(self._pot, Force) and not isinstance(self._pot, Potential)):
+            raise RuntimeError(
+                "WrapperPotential cannot currently wrap non-Potential Force objects"
+            )
         self.isNonAxi = _isNonAxi(self._pot)
         # Check whether units are consistent between the wrapper and the
         # wrapped potential
