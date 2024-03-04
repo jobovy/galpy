@@ -5701,6 +5701,31 @@ def test_Wrapper_incompatibleunitserror():
     return None
 
 
+def test_Wrapper_Force_error():
+    # Test that applying a wrapper to a DissipativeForce does not currently work
+    def M(t):
+        return 1.0
+
+    # Initialize potentials and time-varying potentials
+    df = potential.ChandrasekharDynamicalFrictionForce(GMs=1.0)
+    with pytest.raises(RuntimeError) as excinfo:
+        df_wrap = potential.TimeDependentAmplitudeWrapperPotential(A=M, amp=1, pot=df)
+    assert (
+        "WrapperPotential cannot currently wrap non-Potential Force objects"
+        == excinfo.value.args[0]
+    )
+    # Also test for list
+    with pytest.raises(RuntimeError) as excinfo:
+        df_wrap = potential.TimeDependentAmplitudeWrapperPotential(
+            A=M, amp=1, pot=potential.MWPotential2014 + df
+        )
+    assert (
+        "WrapperPotential cannot currently wrap non-Potential Force objects"
+        == excinfo.value.args[0]
+    )
+    return None
+
+
 def test_WrapperPotential_unittransfer_3d():
     # Test that units are properly transferred between a potential and its
     # wrapper
