@@ -1,4 +1,4 @@
-v1.9.2 (expected around 2024-03-01)
+v1.9.2 (2024-03-04)
 ===================
 
 - Added KuzminLikeWrapperPotential, a potential wrapper that allows
