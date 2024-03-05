@@ -1,6 +1,7 @@
 v1.10.1 (expected around 2024-07-01)
 ===================
 
+- Switch to using Ruff as the code formatter.
 
 v1.9.2 (2024-03-04)
 ===================
