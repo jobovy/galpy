@@ -55,10 +55,10 @@ class KuzminDiskPotential(Potential):
         return None
 
     def _evaluate(self, R, z, phi=0.0, t=0.0):
-        return -self._denom(R, z) ** -0.5
+        return -(self._denom(R, z) ** -0.5)
 
     def _Rforce(self, R, z, phi=0.0, t=0.0):
-        return -self._denom(R, z) ** -1.5 * R
+        return -(self._denom(R, z) ** -1.5) * R
 
     def _zforce(self, R, z, phi=0.0, t=0.0):
         return -numpy.sign(z) * self._denom(R, z) ** -1.5 * (self._a + numpy.fabs(z))

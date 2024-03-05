@@ -686,19 +686,17 @@ def test_interpsnapshotKeplerpotential_Rzderiv():
     # Test, but give small |z| a less constraining
     for r in rs:
         for z in zs:
-            assert numpy.fabs(
-                (sp.Rzderiv(r, z) - kp.Rzderiv(r, z)) / kp.Rzderiv(r, z)
-            ) < 10.0**-4.0 * (
-                1.0 + 19.0 * (numpy.fabs(z) < 0.05)
+            assert (
+                numpy.fabs((sp.Rzderiv(r, z) - kp.Rzderiv(r, z)) / kp.Rzderiv(r, z))
+                < 10.0** -4.0 * (1.0 + 19.0 * (numpy.fabs(z) < 0.05))
             ), f"RZPot interpolation of Rzderiv w/ InterpSnapShotPotential of KeplerPotential fails at (R,z) = ({r:g},{z:g}) by {numpy.fabs((sp.Rzderiv(r,z)-kp.Rzderiv(r,z))/kp.Rzderiv(r,z)):g}; value is {kp.Rzderiv(r,z):g}"
     # This tests within the grid
     rs = numpy.linspace(0.01, 2.0, 10)[1:]
     zs = numpy.linspace(-0.2, 0.2, 20)
     for r in rs:
         for z in zs:
-            assert numpy.fabs(
-                (sp.Rzderiv(r, z) - kp.Rzderiv(r, z)) / kp.Rzderiv(r, z)
-            ) < 10.0**-4.0 * (
-                1.0 + 19.0 * (numpy.fabs(z) < 0.05)
+            assert (
+                numpy.fabs((sp.Rzderiv(r, z) - kp.Rzderiv(r, z)) / kp.Rzderiv(r, z))
+                < 10.0** -4.0 * (1.0 + 19.0 * (numpy.fabs(z) < 0.05))
             ), f"RZPot interpolation of Rzderiv w/ InterpSnapShotPotential of KeplerPotential fails at (R,z) = ({r:g},{z:g}) by {numpy.fabs((sp.Rzderiv(r,z)-kp.Rzderiv(r,z))/kp.Rzderiv(r,z)):g}"
     return None

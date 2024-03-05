@@ -77,7 +77,7 @@ class IsochronePotential(Potential):
         rb = numpy.sqrt(r2 + self.b2)
         return (
             -(
-                -self.b**3.0
+                -(self.b**3.0)
                 - self.b * z**2.0
                 + (2.0 * R**2.0 - z**2.0 - self.b**2.0) * rb
             )
@@ -90,7 +90,7 @@ class IsochronePotential(Potential):
         rb = numpy.sqrt(r2 + self.b2)
         return (
             -(
-                -self.b**3.0
+                -(self.b**3.0)
                 - self.b * R**2.0
                 - (R**2.0 - 2.0 * z**2.0 + self.b**2.0) * rb
             )

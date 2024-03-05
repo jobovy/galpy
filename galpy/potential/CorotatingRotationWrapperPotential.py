@@ -134,12 +134,6 @@ class CorotatingRotationWrapperPotential(parentWrapperPotential):
             self._pot, *args, **kwargs
         ) - self._wrap_pot_func("_phi2deriv")(
             self._pot, *args, **kwargs
-        ) * self._vpo * (
-            self._beta - 1.0
-        ) * args[
-            0
-        ] ** (
-            self._beta - 2.0
-        ) * (
+        ) * self._vpo * (self._beta - 1.0) * args[0] ** (self._beta - 2.0) * (
             kwargs.get("t", 0.0) - self._to
         )

@@ -37,7 +37,7 @@ class actionAngleStaeckelGrid(actionAngle):
         nLz=30,
         numcores=1,
         interpecc=False,
-        **kwargs
+        **kwargs,
     ):
         """
         Initialize an actionAngleStaeckelGrid object
@@ -507,7 +507,7 @@ class actionAngleStaeckelGrid(actionAngle):
                 numpy.array([vT]),
                 numpy.array([z]),
                 numpy.array([vz]),
-                **kwargs
+                **kwargs,
             )
             return (jr[0], Lz[0], jz[0])
         jr[jr < 0.0] = 0.0
@@ -746,7 +746,7 @@ class actionAngleStaeckelGrid(actionAngle):
                 numpy.array([vT]),
                 numpy.array([z]),
                 numpy.array([vz]),
-                **kwargs
+                **kwargs,
             )
             return (ecc[0], zmax[0], rperi[0], rap[0])
         ecc[ecc < 0.0] = 0.0

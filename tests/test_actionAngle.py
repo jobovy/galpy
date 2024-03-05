@@ -298,7 +298,7 @@ def test_actionAngleVertical_Harmonic_actions():
             return self._omega**2.0 * x**2.0 / 2.0
 
         def _force(self, x, t=0.0):
-            return -self._omega**2.0 * x
+            return -(self._omega**2.0) * x
 
     ipz = HO(omega=2.23)
     aAH = actionAngleHarmonic(omega=ipz._omega)
@@ -334,7 +334,7 @@ def test_actionAngleVertical_Harmonic_actionsFreqs():
             return self._omega**2.0 * x**2.0 / 2.0
 
         def _force(self, x, t=0.0):
-            return -self._omega**2.0 * x
+            return -(self._omega**2.0) * x
 
     ipz = HO(omega=2.23)
     aAH = actionAngleHarmonic(omega=ipz._omega)
@@ -375,7 +375,7 @@ def test_actionAngleVertical_Harmonic_actionsFreqsAngles():
             return self._omega**2.0 * x**2.0 / 2.0
 
         def _force(self, x, t=0.0):
-            return -self._omega**2.0 * x
+            return -(self._omega**2.0) * x
 
     ipz = HO(omega=2.236)
     aAH = actionAngleHarmonic(omega=ipz._omega)
@@ -506,15 +506,13 @@ def test_actionAngleIsochrone_basic_freqs():
     # circular orbit
     R, vR, vT, z, vz = 1.0, 0.0, 1.0, 0.0, 0.0
     jos = aAI.actionsFreqs(R, vR, vT, z, vz)
-    assert (
-        numpy.fabs((jos[3] - ip.epifreq(1.0)) / ip.epifreq(1.0)) < 10.0**-12.0
-    ), "Circular orbit in the isochrone potential does not have Or=kappa at %g%%" % (
-        100.0 * numpy.fabs((jos[3] - ip.epifreq(1.0)) / ip.epifreq(1.0))
+    assert numpy.fabs((jos[3] - ip.epifreq(1.0)) / ip.epifreq(1.0)) < 10.0**-12.0, (
+        "Circular orbit in the isochrone potential does not have Or=kappa at %g%%"
+        % (100.0 * numpy.fabs((jos[3] - ip.epifreq(1.0)) / ip.epifreq(1.0)))
     )
-    assert (
-        numpy.fabs((jos[4] - ip.omegac(1.0)) / ip.omegac(1.0)) < 10.0**-12.0
-    ), "Circular orbit in the isochrone potential does not have Op=Omega at %g%%" % (
-        100.0 * numpy.fabs((jos[4] - ip.omegac(1.0)) / ip.omegac(1.0))
+    assert numpy.fabs((jos[4] - ip.omegac(1.0)) / ip.omegac(1.0)) < 10.0**-12.0, (
+        "Circular orbit in the isochrone potential does not have Op=Omega at %g%%"
+        % (100.0 * numpy.fabs((jos[4] - ip.omegac(1.0)) / ip.omegac(1.0)))
     )
     assert (
         numpy.fabs((jos[5] - ip.verticalfreq(1.0)) / ip.verticalfreq(1.0)) < 10.0**-12.0
@@ -1202,21 +1200,18 @@ def test_actionAngleSpherical_otherIsochrone_actions():
     djr = numpy.fabs((ji[0] - jia[0]) / ji[0])
     dlz = numpy.fabs((ji[1] - jia[1]) / ji[1])
     djz = numpy.fabs((ji[2] - jia[2]) / ji[2])
-    assert (
-        djr < 10.0**-10.0
-    ), "actionAngleSpherical applied to isochrone potential fails for Jr at %g%%" % (
-        djr * 100.0
+    assert djr < 10.0**-10.0, (
+        "actionAngleSpherical applied to isochrone potential fails for Jr at %g%%"
+        % (djr * 100.0)
     )
     # Lz and Jz are easy, because ip is a spherical potential
-    assert (
-        dlz < 10.0**-10.0
-    ), "actionAngleSpherical applied to isochrone potential fails for Lz at %g%%" % (
-        dlz * 100.0
+    assert dlz < 10.0**-10.0, (
+        "actionAngleSpherical applied to isochrone potential fails for Lz at %g%%"
+        % (dlz * 100.0)
     )
-    assert (
-        djz < 10.0**-10.0
-    ), "actionAngleSpherical applied to isochrone potential fails for Jz at %g%%" % (
-        djz * 100.0
+    assert djz < 10.0**-10.0, (
+        "actionAngleSpherical applied to isochrone potential fails for Jz at %g%%"
+        % (djz * 100.0)
     )
     return None
 
@@ -1235,20 +1230,17 @@ def test_actionAngleSpherical_otherIsochrone_freqs():
     dOr = numpy.fabs((jiO[3] - jiaO[3]) / jiO[3])
     dOp = numpy.fabs((jiO[4] - jiaO[4]) / jiO[4])
     dOz = numpy.fabs((jiO[5] - jiaO[5]) / jiO[5])
-    assert (
-        dOr < 10.0**-6.0
-    ), "actionAngleSpherical applied to isochrone potential fails for Or at %g%%" % (
-        dOr * 100.0
+    assert dOr < 10.0**-6.0, (
+        "actionAngleSpherical applied to isochrone potential fails for Or at %g%%"
+        % (dOr * 100.0)
     )
-    assert (
-        dOp < 10.0**-6.0
-    ), "actionAngleSpherical applied to isochrone potential fails for Op at %g%%" % (
-        dOp * 100.0
+    assert dOp < 10.0**-6.0, (
+        "actionAngleSpherical applied to isochrone potential fails for Op at %g%%"
+        % (dOp * 100.0)
     )
-    assert (
-        dOz < 10.0**-6.0
-    ), "actionAngleSpherical applied to isochrone potential fails for Oz at %g%%" % (
-        dOz * 100.0
+    assert dOz < 10.0**-6.0, (
+        "actionAngleSpherical applied to isochrone potential fails for Oz at %g%%"
+        % (dOz * 100.0)
     )
     return None
 
@@ -1268,20 +1260,17 @@ def test_actionAngleSpherical_otherIsochrone_freqs_fixed_quad():
     dOr = numpy.fabs((jiO[3] - jiaO[3]) / jiO[3])
     dOp = numpy.fabs((jiO[4] - jiaO[4]) / jiO[4])
     dOz = numpy.fabs((jiO[5] - jiaO[5]) / jiO[5])
-    assert (
-        dOr < 10.0**-6.0
-    ), "actionAngleSpherical applied to isochrone potential fails for Or at %g%%" % (
-        dOr * 100.0
+    assert dOr < 10.0**-6.0, (
+        "actionAngleSpherical applied to isochrone potential fails for Or at %g%%"
+        % (dOr * 100.0)
     )
-    assert (
-        dOp < 10.0**-6.0
-    ), "actionAngleSpherical applied to isochrone potential fails for Op at %g%%" % (
-        dOp * 100.0
+    assert dOp < 10.0**-6.0, (
+        "actionAngleSpherical applied to isochrone potential fails for Op at %g%%"
+        % (dOp * 100.0)
     )
-    assert (
-        dOz < 10.0**-6.0
-    ), "actionAngleSpherical applied to isochrone potential fails for Oz at %g%%" % (
-        dOz * 100.0
+    assert dOz < 10.0**-6.0, (
+        "actionAngleSpherical applied to isochrone potential fails for Oz at %g%%"
+        % (dOz * 100.0)
     )
     return None
 
@@ -1300,20 +1289,17 @@ def test_actionAngleSpherical_otherIsochrone_angles():
     dar = numpy.fabs((jiO[6] - jiaO[6]) / jiO[6])
     dap = numpy.fabs((jiO[7] - jiaO[7]) / jiO[7])
     daz = numpy.fabs((jiO[8] - jiaO[8]) / jiO[8])
-    assert (
-        dar < 10.0**-6.0
-    ), "actionAngleSpherical applied to isochrone potential fails for ar at %g%%" % (
-        dar * 100.0
+    assert dar < 10.0**-6.0, (
+        "actionAngleSpherical applied to isochrone potential fails for ar at %g%%"
+        % (dar * 100.0)
     )
-    assert (
-        dap < 10.0**-6.0
-    ), "actionAngleSpherical applied to isochrone potential fails for ap at %g%%" % (
-        dap * 100.0
+    assert dap < 10.0**-6.0, (
+        "actionAngleSpherical applied to isochrone potential fails for ap at %g%%"
+        % (dap * 100.0)
     )
-    assert (
-        daz < 10.0**-6.0
-    ), "actionAngleSpherical applied to isochrone potential fails for az at %g%%" % (
-        daz * 100.0
+    assert daz < 10.0**-6.0, (
+        "actionAngleSpherical applied to isochrone potential fails for az at %g%%"
+        % (daz * 100.0)
     )
     return None
 
@@ -1776,21 +1762,18 @@ def test_actionAngleAdiabatic_Isochrone_actions():
     djr = numpy.fabs((ji[0] - jia[0]) / ji[0])
     dlz = numpy.fabs((ji[1] - jia[1]) / ji[1])
     djz = numpy.fabs((ji[2] - jia[2]) / ji[2])
-    assert (
-        djr < 10.0**-1.2
-    ), "actionAngleAdiabatic applied to isochrone potential fails for Jr at %f%%" % (
-        djr * 100.0
+    assert djr < 10.0**-1.2, (
+        "actionAngleAdiabatic applied to isochrone potential fails for Jr at %f%%"
+        % (djr * 100.0)
     )
     # Lz and Jz are easy, because ip is a spherical potential
-    assert (
-        dlz < 10.0**-10.0
-    ), "actionAngleAdiabatic applied to isochrone potential fails for Lz at %f%%" % (
-        dlz * 100.0
+    assert dlz < 10.0**-10.0, (
+        "actionAngleAdiabatic applied to isochrone potential fails for Lz at %f%%"
+        % (dlz * 100.0)
     )
-    assert (
-        djz < 10.0**-1.2
-    ), "actionAngleAdiabatic applied to isochrone potential fails for Jz at %f%%" % (
-        djz * 100.0
+    assert djz < 10.0**-1.2, (
+        "actionAngleAdiabatic applied to isochrone potential fails for Jz at %f%%"
+        % (djz * 100.0)
     )
     return None
 
@@ -1917,21 +1900,18 @@ def test_actionAngleAdiabaticGrid_Isochrone_actions():
     djr = numpy.fabs((ji[0] - jia[0]) / ji[0])
     dlz = numpy.fabs((ji[1] - jia[1]) / ji[1])
     djz = numpy.fabs((ji[2] - jia[2]) / ji[2])
-    assert (
-        djr < 10.0**-1.2
-    ), "actionAngleAdiabatic applied to isochrone potential fails for Jr at %f%%" % (
-        djr * 100.0
+    assert djr < 10.0**-1.2, (
+        "actionAngleAdiabatic applied to isochrone potential fails for Jr at %f%%"
+        % (djr * 100.0)
     )
     # Lz and Jz are easy, because ip is a spherical potential
-    assert (
-        dlz < 10.0**-10.0
-    ), "actionAngleAdiabatic applied to isochrone potential fails for Lz at %f%%" % (
-        dlz * 100.0
+    assert dlz < 10.0**-10.0, (
+        "actionAngleAdiabatic applied to isochrone potential fails for Lz at %f%%"
+        % (dlz * 100.0)
     )
-    assert (
-        djz < 10.0**-1.2
-    ), "actionAngleAdiabatic applied to isochrone potential fails for Jz at %f%%" % (
-        djz * 100.0
+    assert djz < 10.0**-1.2, (
+        "actionAngleAdiabatic applied to isochrone potential fails for Jz at %f%%"
+        % (djz * 100.0)
     )
     return None
 
@@ -2168,11 +2148,11 @@ def test_actionAngleStaeckel_actions_order():
     jrt, jpt, jzt = aAS(o, order=10000, fixed_quad=True)
     jr1, jp1, jz1 = aAS(o, order=5, fixed_quad=True)
     jr2, jp2, jz2 = aAS(o, order=50, fixed_quad=True)
-    assert numpy.fabs(jr1 - jrt) > numpy.fabs(
-        jr2 - jrt
+    assert (
+        numpy.fabs(jr1 - jrt) > numpy.fabs(jr2 - jrt)
     ), "Accuracy of actionAngleStaeckel does not increase with increasing order of integration"
-    assert numpy.fabs(jz1 - jzt) > numpy.fabs(
-        jz2 - jzt
+    assert (
+        numpy.fabs(jz1 - jzt) > numpy.fabs(jz2 - jzt)
     ), "Accuracy of actionAngleStaeckel does not increase with increasing order of integration"
     return None
 
@@ -2189,11 +2169,11 @@ def test_actionAngleStaeckel_actions_order_c():
     jrt, jpt, jzt = aAS(o, order=10000)
     jr1, jp1, jz1 = aAS(o, order=5)
     jr2, jp2, jz2 = aAS(o, order=50)
-    assert numpy.fabs(jr1 - jrt) > numpy.fabs(
-        jr2 - jrt
+    assert (
+        numpy.fabs(jr1 - jrt) > numpy.fabs(jr2 - jrt)
     ), "Accuracy of actionAngleStaeckel does not increase with increasing order of integration"
-    assert numpy.fabs(jz1 - jzt) > numpy.fabs(
-        jz2 - jzt
+    assert (
+        numpy.fabs(jz1 - jzt) > numpy.fabs(jz2 - jzt)
     ), "Accuracy of actionAngleStaeckel does not increase with increasing order of integration"
     return None
 
@@ -2486,20 +2466,20 @@ def test_actionAngleStaeckel_freqs_order_c():
     jrt, jpt, jzt, ort, opt, ozt = aAS.actionsFreqs(o, order=10000)
     jr1, jp1, jz1, or1, op1, oz1 = aAS.actionsFreqs(o, order=5)
     jr2, jp2, jz2, or2, op2, oz2 = aAS.actionsFreqs(o, order=50)
-    assert numpy.fabs(jr1 - jrt) > numpy.fabs(
-        jr2 - jrt
+    assert (
+        numpy.fabs(jr1 - jrt) > numpy.fabs(jr2 - jrt)
     ), "Accuracy of actionAngleStaeckel does not increase with increasing order of integration"
-    assert numpy.fabs(jz1 - jzt) > numpy.fabs(
-        jz2 - jzt
+    assert (
+        numpy.fabs(jz1 - jzt) > numpy.fabs(jz2 - jzt)
     ), "Accuracy of actionAngleStaeckel does not increase with increasing order of integration"
-    assert numpy.fabs(or1 - ort) > numpy.fabs(
-        or2 - ort
+    assert (
+        numpy.fabs(or1 - ort) > numpy.fabs(or2 - ort)
     ), "Accuracy of actionAngleStaeckel does not increase with increasing order of integration"
-    assert numpy.fabs(op1 - opt) > numpy.fabs(
-        op2 - opt
+    assert (
+        numpy.fabs(op1 - opt) > numpy.fabs(op2 - opt)
     ), "Accuracy of actionAngleStaeckel does not increase with increasing order of integration"
-    assert numpy.fabs(oz1 - ozt) > numpy.fabs(
-        oz2 - ozt
+    assert (
+        numpy.fabs(oz1 - ozt) > numpy.fabs(oz2 - ozt)
     ), "Accuracy of actionAngleStaeckel does not increase with increasing order of integration"
     return None
 
@@ -2555,29 +2535,29 @@ def test_actionAngleStaeckel_angles_order_c():
     jrt, jpt, jzt, ort, opt, ozt, art, apt, azt = aAS.actionsFreqsAngles(o, order=10000)
     jr1, jp1, jz1, or1, op1, oz1, ar1, ap1, az1 = aAS.actionsFreqsAngles(o, order=5)
     jr2, jp2, jz2, or2, op2, oz2, ar2, ap2, az2 = aAS.actionsFreqsAngles(o, order=50)
-    assert numpy.fabs(jr1 - jrt) > numpy.fabs(
-        jr2 - jrt
+    assert (
+        numpy.fabs(jr1 - jrt) > numpy.fabs(jr2 - jrt)
     ), "Accuracy of actionAngleStaeckel does not increase with increasing order of integration"
-    assert numpy.fabs(jz1 - jzt) > numpy.fabs(
-        jz2 - jzt
+    assert (
+        numpy.fabs(jz1 - jzt) > numpy.fabs(jz2 - jzt)
     ), "Accuracy of actionAngleStaeckel does not increase with increasing order of integration"
-    assert numpy.fabs(or1 - ort) > numpy.fabs(
-        or2 - ort
+    assert (
+        numpy.fabs(or1 - ort) > numpy.fabs(or2 - ort)
     ), "Accuracy of actionAngleStaeckel does not increase with increasing order of integration"
-    assert numpy.fabs(op1 - opt) > numpy.fabs(
-        op2 - opt
+    assert (
+        numpy.fabs(op1 - opt) > numpy.fabs(op2 - opt)
     ), "Accuracy of actionAngleStaeckel does not increase with increasing order of integration"
-    assert numpy.fabs(oz1 - ozt) > numpy.fabs(
-        oz2 - ozt
+    assert (
+        numpy.fabs(oz1 - ozt) > numpy.fabs(oz2 - ozt)
     ), "Accuracy of actionAngleStaeckel does not increase with increasing order of integration"
-    assert numpy.fabs(ar1 - art) > numpy.fabs(
-        ar2 - art
+    assert (
+        numpy.fabs(ar1 - art) > numpy.fabs(ar2 - art)
     ), "Accuracy of actionAngleStaeckel does not increase with increasing order of integration"
-    assert numpy.fabs(ap1 - apt) > numpy.fabs(
-        ap2 - apt
+    assert (
+        numpy.fabs(ap1 - apt) > numpy.fabs(ap2 - apt)
     ), "Accuracy of actionAngleStaeckel does not increase with increasing order of integration"
-    assert numpy.fabs(az1 - azt) > numpy.fabs(
-        az2 - azt
+    assert (
+        numpy.fabs(az1 - azt) > numpy.fabs(az2 - azt)
     ), "Accuracy of actionAngleStaeckel does not increase with increasing order of integration"
     return None
 
@@ -3522,21 +3502,18 @@ def test_actionAngleStaeckel_otherIsochrone_actions():
     djr = numpy.fabs((ji[0] - jia[0]) / ji[0])
     dlz = numpy.fabs((ji[1] - jia[1]) / ji[1])
     djz = numpy.fabs((ji[2] - jia[2]) / ji[2])
-    assert (
-        djr < 10.0**-3.0
-    ), "actionAngleStaeckel applied to isochrone potential fails for Jr at %f%%" % (
-        djr * 100.0
+    assert djr < 10.0**-3.0, (
+        "actionAngleStaeckel applied to isochrone potential fails for Jr at %f%%"
+        % (djr * 100.0)
     )
     # Lz and Jz are easy, because ip is a spherical potential
-    assert (
-        dlz < 10.0**-10.0
-    ), "actionAngleStaeckel applied to isochrone potential fails for Lz at %f%%" % (
-        dlz * 100.0
+    assert dlz < 10.0**-10.0, (
+        "actionAngleStaeckel applied to isochrone potential fails for Lz at %f%%"
+        % (dlz * 100.0)
     )
-    assert (
-        djz < 10.0**-3.0
-    ), "actionAngleStaeckel applied to isochrone potential fails for Jz at %f%%" % (
-        djz * 100.0
+    assert djz < 10.0**-3.0, (
+        "actionAngleStaeckel applied to isochrone potential fails for Jz at %f%%"
+        % (djz * 100.0)
     )
     return None
 
@@ -3559,21 +3536,18 @@ def test_actionAngleStaeckel_otherIsochrone_actions_fixed_quad():
     djr = numpy.fabs((ji[0] - jia[0]) / ji[0])[0]
     dlz = numpy.fabs((ji[1] - jia[1]) / ji[1])[0]
     djz = numpy.fabs((ji[2] - jia[2]) / ji[2])[0]
-    assert (
-        djr < 10.0**-3.0
-    ), "actionAngleStaeckel applied to isochrone potential fails for Jr at %f%%" % (
-        djr * 100.0
+    assert djr < 10.0**-3.0, (
+        "actionAngleStaeckel applied to isochrone potential fails for Jr at %f%%"
+        % (djr * 100.0)
     )
     # Lz and Jz are easy, because ip is a spherical potential
-    assert (
-        dlz < 10.0**-10.0
-    ), "actionAngleStaeckel applied to isochrone potential fails for Lz at %f%%" % (
-        dlz * 100.0
+    assert dlz < 10.0**-10.0, (
+        "actionAngleStaeckel applied to isochrone potential fails for Lz at %f%%"
+        % (dlz * 100.0)
     )
-    assert (
-        djz < 10.0**-3.0
-    ), "actionAngleStaeckel applied to isochrone potential fails for Jz at %f%%" % (
-        djz * 100.0
+    assert djz < 10.0**-3.0, (
+        "actionAngleStaeckel applied to isochrone potential fails for Jz at %f%%"
+        % (djz * 100.0)
     )
     return None
 
@@ -3596,21 +3570,18 @@ def test_actionAngleStaeckel_otherIsochrone_actions_c():
     djr = numpy.fabs((ji[0] - jia[0]) / ji[0])
     dlz = numpy.fabs((ji[1] - jia[1]) / ji[1])
     djz = numpy.fabs((ji[2] - jia[2]) / ji[2])
-    assert (
-        djr < 10.0**-3.0
-    ), "actionAngleStaeckel applied to isochrone potential fails for Jr at %f%%" % (
-        djr * 100.0
+    assert djr < 10.0**-3.0, (
+        "actionAngleStaeckel applied to isochrone potential fails for Jr at %f%%"
+        % (djr * 100.0)
     )
     # Lz and Jz are easy, because ip is a spherical potential
-    assert (
-        dlz < 10.0**-10.0
-    ), "actionAngleStaeckel applied to isochrone potential fails for Lz at %f%%" % (
-        dlz * 100.0
+    assert dlz < 10.0**-10.0, (
+        "actionAngleStaeckel applied to isochrone potential fails for Lz at %f%%"
+        % (dlz * 100.0)
     )
-    assert (
-        djz < 10.0**-3.0
-    ), "actionAngleStaeckel applied to isochrone potential fails for Jz at %f%%" % (
-        djz * 100.0
+    assert djz < 10.0**-3.0, (
+        "actionAngleStaeckel applied to isochrone potential fails for Jz at %f%%"
+        % (djz * 100.0)
     )
     return None
 
@@ -3629,20 +3600,17 @@ def test_actionAngleStaeckel_otherIsochrone_freqs():
     dOr = numpy.fabs((jiO[3] - jiaO[3]) / jiO[3])
     dOp = numpy.fabs((jiO[4] - jiaO[4]) / jiO[4])
     dOz = numpy.fabs((jiO[5] - jiaO[5]) / jiO[5])
-    assert (
-        dOr < 10.0**-5.0
-    ), "actionAngleStaeckel applied to isochrone potential fails for Or at %g%%" % (
-        dOr * 100.0
+    assert dOr < 10.0**-5.0, (
+        "actionAngleStaeckel applied to isochrone potential fails for Or at %g%%"
+        % (dOr * 100.0)
     )
-    assert (
-        dOp < 10.0**-5.0
-    ), "actionAngleStaeckel applied to isochrone potential fails for Op at %g%%" % (
-        dOp * 100.0
+    assert dOp < 10.0**-5.0, (
+        "actionAngleStaeckel applied to isochrone potential fails for Op at %g%%"
+        % (dOp * 100.0)
     )
-    assert (
-        dOz < 1.5 * 10.0**-4.0
-    ), "actionAngleStaeckel applied to isochrone potential fails for Oz at %g%%" % (
-        dOz * 100.0
+    assert dOz < 1.5 * 10.0**-4.0, (
+        "actionAngleStaeckel applied to isochrone potential fails for Oz at %g%%"
+        % (dOz * 100.0)
     )
     return None
 
@@ -3661,20 +3629,17 @@ def test_actionAngleStaeckel_otherIsochrone_angles():
     dar = numpy.fabs((jiO[6] - jiaO[6]) / jiO[6])
     dap = numpy.fabs((jiO[7] - jiaO[7]) / jiO[7])
     daz = numpy.fabs((jiO[8] - jiaO[8]) / jiO[8])
-    assert (
-        dar < 10.0**-4.0
-    ), "actionAngleStaeckel applied to isochrone potential fails for ar at %g%%" % (
-        dar * 100.0
+    assert dar < 10.0**-4.0, (
+        "actionAngleStaeckel applied to isochrone potential fails for ar at %g%%"
+        % (dar * 100.0)
     )
-    assert (
-        dap < 10.0**-6.0
-    ), "actionAngleStaeckel applied to isochrone potential fails for ap at %g%%" % (
-        dap * 100.0
+    assert dap < 10.0**-6.0, (
+        "actionAngleStaeckel applied to isochrone potential fails for ap at %g%%"
+        % (dap * 100.0)
     )
-    assert (
-        daz < 10.0**-4.0
-    ), "actionAngleStaeckel applied to isochrone potential fails for az at %g%%" % (
-        daz * 100.0
+    assert daz < 10.0**-4.0, (
+        "actionAngleStaeckel applied to isochrone potential fails for az at %g%%"
+        % (daz * 100.0)
     )
     return None
 
@@ -3834,21 +3799,18 @@ def test_actionAngleStaeckelGrid_Isochrone_actions():
     djr = numpy.fabs((ji[0] - jia[0]) / ji[0])
     dlz = numpy.fabs((ji[1] - jia[1]) / ji[1])
     djz = numpy.fabs((ji[2] - jia[2]) / ji[2])
-    assert (
-        djr < 10.0**-1.2
-    ), "actionAngleStaeckel applied to isochrone potential fails for Jr at %f%%" % (
-        djr * 100.0
+    assert djr < 10.0**-1.2, (
+        "actionAngleStaeckel applied to isochrone potential fails for Jr at %f%%"
+        % (djr * 100.0)
     )
     # Lz and Jz are easy, because ip is a spherical potential
-    assert (
-        dlz < 10.0**-10.0
-    ), "actionAngleStaeckel applied to isochrone potential fails for Lz at %f%%" % (
-        dlz * 100.0
+    assert dlz < 10.0**-10.0, (
+        "actionAngleStaeckel applied to isochrone potential fails for Lz at %f%%"
+        % (dlz * 100.0)
     )
-    assert (
-        djz < 10.0**-1.2
-    ), "actionAngleStaeckel applied to isochrone potential fails for Jz at %f%%" % (
-        djz * 100.0
+    assert djz < 10.0**-1.2, (
+        "actionAngleStaeckel applied to isochrone potential fails for Jz at %f%%"
+        % (djz * 100.0)
     )
     return None
 
@@ -4404,20 +4366,17 @@ def test_actionAngleIsochroneApprox_bovy14():
     maxdj = numpy.amax(
         numpy.fabs(js - numpy.tile(numpy.mean(js, axis=1), (len(times), 1)).T), axis=1
     ) / numpy.mean(js, axis=1)
-    assert (
-        maxdj[0] < 3.0 * 10.0**-2.0
-    ), "Jr conservation for the GD-1 like orbit of Bovy (2014) fails at %f%%" % (
-        100.0 * maxdj[0]
+    assert maxdj[0] < 3.0 * 10.0**-2.0, (
+        "Jr conservation for the GD-1 like orbit of Bovy (2014) fails at %f%%"
+        % (100.0 * maxdj[0])
     )
-    assert (
-        maxdj[1] < 10.0**-2.0
-    ), "Lz conservation for the GD-1 like orbit of Bovy (2014) fails at %f%%" % (
-        100.0 * maxdj[1]
+    assert maxdj[1] < 10.0**-2.0, (
+        "Lz conservation for the GD-1 like orbit of Bovy (2014) fails at %f%%"
+        % (100.0 * maxdj[1])
     )
-    assert (
-        maxdj[2] < 2.0 * 10.0**-2.0
-    ), "Jz conservation for the GD-1 like orbit of Bovy (2014) fails at %f%%" % (
-        100.0 * maxdj[2]
+    assert maxdj[2] < 2.0 * 10.0**-2.0, (
+        "Jz conservation for the GD-1 like orbit of Bovy (2014) fails at %f%%"
+        % (100.0 * maxdj[2])
     )
     return None
 
@@ -4748,8 +4707,8 @@ def test_orbit_interface_staeckel_PotentialErrors():
         pytest.fail(
             "TwoPowerSphericalPotentialNoR2deriv appears to now have second derivatives, means that it cannot be used to test exceptions based on not having the second derivatives any longer"
         )
-    assert "second derivatives" in str(
-        excinfo.value
+    assert (
+        "second derivatives" in str(excinfo.value)
     ), "Estimating delta for potential lacking second derivatives should have failed with a message about the lack of second derivatives"
     # Generic non-axi
     sp = SpiralArmsPotential()
@@ -4758,8 +4717,8 @@ def test_orbit_interface_staeckel_PotentialErrors():
         pytest.fail(
             "TwoPowerSphericalPotentialNoR2deriv appears to now have second derivatives, means that it cannot be used to test exceptions based on not having the second derivatives any longer"
         )
-    assert "not axisymmetric" in str(
-        excinfo.value
+    assert (
+        "not axisymmetric" in str(excinfo.value)
     ), "Estimating delta for a non-axi potential should have failed with a message about the fact that the potential is non-axisymmetric"
     return None
 
@@ -4794,8 +4753,8 @@ def test_orbits_interface_staeckel_PotentialErrors():
         pytest.fail(
             "TwoPowerSphericalPotentialNoR2deriv appears to now have second derivatives, means that it cannot be used to test exceptions based on not having the second derivatives any longer"
         )
-    assert "second derivatives" in str(
-        excinfo.value
+    assert (
+        "second derivatives" in str(excinfo.value)
     ), "Estimating delta for potential lacking second derivatives should have failed with a message about the lack of second derivatives"
     # Generic non-axi
     sp = SpiralArmsPotential()
@@ -4804,8 +4763,8 @@ def test_orbits_interface_staeckel_PotentialErrors():
         pytest.fail(
             "SpiralArms appears to now have second derivatives, means that it cannot be used to test exceptions based on not having the second derivatives any longer"
         )
-    assert "not axisymmetric" in str(
-        excinfo.value
+    assert (
+        "not axisymmetric" in str(excinfo.value)
     ), "Estimating delta for a non-axi potential should have failed with a message about the fact that the potential is non-axisymmetric"
     return None
 
@@ -5067,9 +5026,7 @@ def test_MWPotential_warning_adiabatic():
             )
             if raisedWarning:
                 break
-        assert (
-            raisedWarning
-        ), "actionAngleAdiabatic with MWPotential should have thrown a warning, but didn't"
+        assert raisedWarning, "actionAngleAdiabatic with MWPotential should have thrown a warning, but didn't"
     # Grid
     with warnings.catch_warnings(record=True) as w:
         warnings.simplefilter("always", galpyWarning)
@@ -5085,9 +5042,7 @@ def test_MWPotential_warning_adiabatic():
             )
             if raisedWarning:
                 break
-        assert (
-            raisedWarning
-        ), "actionAngleAdiabaticGrid with MWPotential should have thrown a warning, but didn't"
+        assert raisedWarning, "actionAngleAdiabaticGrid with MWPotential should have thrown a warning, but didn't"
     return None
 
 
@@ -5110,9 +5065,7 @@ def test_MWPotential_warning_staeckel():
             )
             if raisedWarning:
                 break
-        assert (
-            raisedWarning
-        ), "actionAngleStaeckel with MWPotential should have thrown a warning, but didn't"
+        assert raisedWarning, "actionAngleStaeckel with MWPotential should have thrown a warning, but didn't"
     # Grid
     with warnings.catch_warnings(record=True) as w:
         warnings.simplefilter("always", galpyWarning)
@@ -5126,9 +5079,7 @@ def test_MWPotential_warning_staeckel():
             )
             if raisedWarning:
                 break
-        assert (
-            raisedWarning
-        ), "actionAngleStaeckelGrid with MWPotential should have thrown a warning, but didn't"
+        assert raisedWarning, "actionAngleStaeckelGrid with MWPotential should have thrown a warning, but didn't"
     return None
 
 
@@ -5151,9 +5102,7 @@ def test_MWPotential_warning_isochroneapprox():
             )
             if raisedWarning:
                 break
-        assert (
-            raisedWarning
-        ), "actionAngleIsochroneApprox with MWPotential should have thrown a warning, but didn't"
+        assert raisedWarning, "actionAngleIsochroneApprox with MWPotential should have thrown a warning, but didn't"
     return None
 
 
@@ -6182,9 +6131,7 @@ def test_actionAngleVerticalInverse_convergence_warnings():
             )
             if raisedWarning:
                 break
-        assert (
-            raisedWarning
-        ), "actionAngleVerticalInverse for large energy should have raised convergence warning, but didn't"
+        assert raisedWarning, "actionAngleVerticalInverse for large energy should have raised convergence warning, but didn't"
         for wa in w:
             raisedWarning = (
                 str(wa.message)
@@ -6192,9 +6139,7 @@ def test_actionAngleVerticalInverse_convergence_warnings():
             )
             if raisedWarning:
                 break
-        assert (
-            raisedWarning
-        ), "actionAngleVerticalInverse for large energy should have raised convergence warning, but didn't"
+        assert raisedWarning, "actionAngleVerticalInverse for large energy should have raised convergence warning, but didn't"
     return None
 
 
@@ -6549,25 +6494,21 @@ def check_actionAngle_conserved_EccZmaxRperiRap(
         es, zmaxs, rperis, raps = aA.EccZmaxRperiRap(
             obs.R(times), obs.vR(times), obs.vT(times), obs.z(times), obs.vz(times)
         )
-    assert (
-        numpy.amax(numpy.fabs(es / numpy.mean(es) - 1)) < 10.0**tole
-    ), "Eccentricity conservation fails at %g%%" % (
-        100.0 * numpy.amax(numpy.fabs(es / numpy.mean(es) - 1))
+    assert numpy.amax(numpy.fabs(es / numpy.mean(es) - 1)) < 10.0**tole, (
+        "Eccentricity conservation fails at %g%%"
+        % (100.0 * numpy.amax(numpy.fabs(es / numpy.mean(es) - 1)))
     )
-    assert (
-        numpy.amax(numpy.fabs(zmaxs / numpy.mean(zmaxs) - 1)) < 10.0**tolzmax
-    ), "Zmax conservation fails at %g%%" % (
-        100.0 * numpy.amax(numpy.fabs(zmaxs / numpy.mean(zmaxs) - 1))
+    assert numpy.amax(numpy.fabs(zmaxs / numpy.mean(zmaxs) - 1)) < 10.0**tolzmax, (
+        "Zmax conservation fails at %g%%"
+        % (100.0 * numpy.amax(numpy.fabs(zmaxs / numpy.mean(zmaxs) - 1)))
     )
-    assert (
-        numpy.amax(numpy.fabs(rperis / numpy.mean(rperis) - 1)) < 10.0**tolrperi
-    ), "Rperi conservation fails at %g%%" % (
-        100.0 * numpy.amax(numpy.fabs(rperis / numpy.mean(rperis) - 1))
+    assert numpy.amax(numpy.fabs(rperis / numpy.mean(rperis) - 1)) < 10.0**tolrperi, (
+        "Rperi conservation fails at %g%%"
+        % (100.0 * numpy.amax(numpy.fabs(rperis / numpy.mean(rperis) - 1)))
     )
-    assert (
-        numpy.amax(numpy.fabs(raps / numpy.mean(raps) - 1)) < 10.0**tolrap
-    ), "Rap conservation fails at %g%%" % (
-        100.0 * numpy.amax(numpy.fabs(raps / numpy.mean(raps) - 1))
+    assert numpy.amax(numpy.fabs(raps / numpy.mean(raps) - 1)) < 10.0**tolrap, (
+        "Rap conservation fails at %g%%"
+        % (100.0 * numpy.amax(numpy.fabs(raps / numpy.mean(raps) - 1)))
     )
     return None
 

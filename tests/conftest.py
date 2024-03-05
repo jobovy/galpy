@@ -103,18 +103,18 @@ def pytest_generate_tests(metafunc):
         jactol["mockFlatDehnenBarPotential"] = -8.0  # these are more difficult
         jactol["mockFlatDehnenSmoothBarPotential"] = -8.0  # these are more difficult
         jactol["mockMovingObjectLongIntPotential"] = -8.0  # these are more difficult
-        jactol["mockSlowFlatEllipticalDiskPotential"] = (
-            -6.0
-        )  # these are more difficult (and also not quite conserved)
-        jactol["mockSlowFlatSteadyLogSpiralPotential"] = (
-            -8.0
-        )  # these are more difficult (and also not quite conserved)
-        jactol["mockSlowFlatDehnenSmoothBarPotential"] = (
-            -8.0
-        )  # these are more difficult (and also not quite conserved)
-        jactol["mockSlowFlatDecayingDehnenSmoothBarPotential"] = (
-            -8.0
-        )  # these are more difficult (and also not quite conserved)
+        jactol[
+            "mockSlowFlatEllipticalDiskPotential"
+        ] = -6.0  # these are more difficult (and also not quite conserved)
+        jactol[
+            "mockSlowFlatSteadyLogSpiralPotential"
+        ] = -8.0  # these are more difficult (and also not quite conserved)
+        jactol[
+            "mockSlowFlatDehnenSmoothBarPotential"
+        ] = -8.0  # these are more difficult (and also not quite conserved)
+        jactol[
+            "mockSlowFlatDecayingDehnenSmoothBarPotential"
+        ] = -8.0  # these are more difficult (and also not quite conserved)
         # Now generate all inputs and run tests
         tols = [tol[p] if p in tol else tol["default"] for p in pots]
         jactols = [jactol[p] if p in jactol else tol["default"] for p in pots]

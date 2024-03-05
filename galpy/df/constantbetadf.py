@@ -123,9 +123,9 @@ class _constantbetadf(anisotropicsphericaldf):
                 _evaluatePotentials(self._pot, r, 0) + 0.5 * v**2.0
             ) * v ** (2.0 - 2.0 * self._beta)
         else:
-            return self.fE(
-                _evaluatePotentials(self._pot, r, 0) + 0.5 * v**2.0
-            ) * v ** (2.0 - 2.0 * self._beta)
+            return self.fE(_evaluatePotentials(self._pot, r, 0) + 0.5 * v**2.0) * v ** (
+                2.0 - 2.0 * self._beta
+            )
 
     def _vmomentdensity(self, r, n, m):
         if m % 2 == 1 or n % 2 == 1:

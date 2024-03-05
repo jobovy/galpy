@@ -551,7 +551,9 @@ def test_mildnonaxi_vertexdev_grid():
     )
     assert (
         numpy.fabs(vdev) < 2.0 / 180.0 * numpy.pi
-    ), "vertexdev of evolveddiskdf for axisymmetric potential is not close to zero"  # 2 is pretty big, but the weak spiral creates that
+    ), (
+        "vertexdev of evolveddiskdf for axisymmetric potential is not close to zero"
+    )  # 2 is pretty big, but the weak spiral creates that
     vdev = edf.vertexdev(
         0.9, phi=0.2, integrate_method="rk6_c", grid=grid, gridpoints=_GRIDPOINTS
     )

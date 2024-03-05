@@ -60,7 +60,7 @@ class BurkertPotential(SphericalPotential):
         """Potential as a function of r and time"""
         x = r / self.a
         return (
-            -self.a**2.0
+            -(self.a**2.0)
             * numpy.pi
             * (
                 -numpy.pi / x

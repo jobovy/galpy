@@ -2440,7 +2440,10 @@ def custom_to_radec(phi1, phi2, T=None, degree=False):
     if T is None:
         raise ValueError("Must set T= for custom_to_radec")
     return radec_to_custom(
-        phi1, phi2, T=numpy.transpose(T), degree=degree  # T.T = inv(T)
+        phi1,
+        phi2,
+        T=numpy.transpose(T),
+        degree=degree,  # T.T = inv(T)
     )
 
 
@@ -2475,7 +2478,12 @@ def custom_to_pmrapmdec(pmphi1, pmphi2, phi1, phi2, T=None, degree=False):
     if T is None:
         raise ValueError("Must set T= for custom_to_pmrapmdec")
     return pmrapmdec_to_custom(
-        pmphi1, pmphi2, phi1, phi2, T=numpy.transpose(T), degree=degree  # T.T = inv(T)
+        pmphi1,
+        pmphi2,
+        phi1,
+        phi2,
+        T=numpy.transpose(T),
+        degree=degree,  # T.T = inv(T)
     )
 
 

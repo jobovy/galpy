@@ -2540,7 +2540,7 @@ def test_vRvz_to_pupv_oblate():
                 *coords.Rz_to_uv(R, z, delta=delta, oblate=True),
                 delta=delta,
                 oblate=True,
-                uv=True
+                uv=True,
             )[0]
         )
         < 10.0**-3.0
@@ -2554,7 +2554,7 @@ def test_vRvz_to_pupv_oblate():
                 *coords.Rz_to_uv(R, z, delta=delta, oblate=True),
                 delta=delta,
                 oblate=True,
-                uv=True
+                uv=True,
             )[1]
         )
         < 10.0**-3.0

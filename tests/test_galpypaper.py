@@ -1,6 +1,6 @@
-""" Test that all of the examples in the galpy paper run
+"""Test that all of the examples in the galpy paper run
 
-   isort:skip_file
+isort:skip_file
 """
 
 import os
@@ -237,9 +237,7 @@ def test_potentialAPIChange_warning():
             )
             if raisedWarning:
                 break
-        assert (
-            raisedWarning
-        ), "Importing galpy.potential does not raise warning about evaluatePotentials API change"
+        assert raisedWarning, "Importing galpy.potential does not raise warning about evaluatePotentials API change"
     return None
 
 
@@ -720,7 +718,10 @@ def test_qdf():
         numpy.fabs(df.estimate_hz(0.9, 0.02) - 0.064836202345657207) < 10.0**-4.0
     ), "qdf does not behave as expected"
     # Calculate the mean velocities
-    df.meanvR(0.9, 0.05), df.meanvT(0.9, 0.05),
+    (
+        df.meanvR(0.9, 0.05),
+        df.meanvT(0.9, 0.05),
+    )
     df.meanvz(0.9, 0.05)
     assert (
         numpy.fabs(df.meanvR(0.9, 0.05) - 3.8432265354618213e-18) < 10.0**-4.0

@@ -78,9 +78,9 @@ class MiyamotoNagaiPotential(Potential):
         sqrtbz = numpy.sqrt(self._b2 + z**2.0)
         asqrtbz = self._a + sqrtbz
         if isinstance(R, float) and sqrtbz == asqrtbz:
-            return -z / (
-                R**2.0 + (self._a + numpy.sqrt(z**2.0 + self._b2)) ** 2.0
-            ) ** (3.0 / 2.0)
+            return -z / (R**2.0 + (self._a + numpy.sqrt(z**2.0 + self._b2)) ** 2.0) ** (
+                3.0 / 2.0
+            )
         else:
             return (
                 -z
