@@ -116,7 +116,7 @@ copyright = f"2010 - {datetime.datetime.now().year}, Jo Bovy"
 # built documents.
 #
 # The short X.Y version.
-version = "1.9.2"
+version = "1.10.0.dev0"
 # The full version, including alpha/beta/rc tags.
 release = version
 on_rtd = os.environ.get("READTHEDOCS", None) == "True"
