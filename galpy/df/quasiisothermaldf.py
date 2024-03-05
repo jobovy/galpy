@@ -604,7 +604,7 @@ class quasiisothermaldf(df):
         _Omega=None,
         _sigmaR1=None,
         _sigmaz1=None,
-        **kwargs
+        **kwargs,
     ):
         """Non-physical version of vmomentdensity, otherwise the same"""
         if isinstance(R, numpy.ndarray):
@@ -621,7 +621,7 @@ class quasiisothermaldf(df):
                         nmc=nmc,
                         gl=gl,
                         ngl=ngl,
-                        **kwargs
+                        **kwargs,
                     )
                     for r, zz in zip(R, z)
                 ]
@@ -904,7 +904,7 @@ class quasiisothermaldf(df):
                     lambda x, y: 0.0,
                     lambda x, y: nsigma,
                     (R, z, self, sigmaR1, gamma, sigmaz1, n, m, o),
-                    **kwargs
+                    **kwargs,
                 )[0]
                 * sigmaR1 ** (2.0 + n + m)
                 * gamma ** (1.0 + m)
@@ -983,7 +983,7 @@ class quasiisothermaldf(df):
         _vrs=None,
         _vts=None,
         _vzs=None,
-        **kwargs
+        **kwargs,
     ):
         """Non-physical version of jmomentdensity, otherwise the same"""
         if nsigma == None:
@@ -1058,7 +1058,7 @@ class quasiisothermaldf(df):
                     lambda x, y: 0.0,
                     lambda x, y: nsigma,
                     (R, z, self, sigmaR1, gamma, sigmaz1, n, m, o),
-                    **kwargs
+                    **kwargs,
                 )[0]
                 * sigmaR1**2.0
                 * gamma
@@ -1154,7 +1154,7 @@ class quasiisothermaldf(df):
                 mc=mc,
                 nmc=nmc,
                 _returnmc=True,
-                **kwargs
+                **kwargs,
             )
             return (
                 self._vmomentdensity(
@@ -1170,7 +1170,7 @@ class quasiisothermaldf(df):
                     _vrs=vrs,
                     _vts=vts,
                     _vzs=vzs,
-                    **kwargs
+                    **kwargs,
                 )
                 / surfmass
             )
@@ -1239,7 +1239,7 @@ class quasiisothermaldf(df):
                 mc=mc,
                 nmc=nmc,
                 _returnmc=True,
-                **kwargs
+                **kwargs,
             )
             return (
                 self._vmomentdensity(
@@ -1255,7 +1255,7 @@ class quasiisothermaldf(df):
                     _vrs=vrs,
                     _vts=vts,
                     _vzs=vzs,
-                    **kwargs
+                    **kwargs,
                 )
                 / surfmass
             )
@@ -1322,7 +1322,7 @@ class quasiisothermaldf(df):
                 mc=mc,
                 nmc=nmc,
                 _returnmc=True,
-                **kwargs
+                **kwargs,
             )
             tsigmar2 = (
                 self._vmomentdensity(
@@ -1338,7 +1338,7 @@ class quasiisothermaldf(df):
                     _vrs=vrs,
                     _vts=vts,
                     _vzs=vzs,
-                    **kwargs
+                    **kwargs,
                 )
                 / surfmass
             )
@@ -1356,7 +1356,7 @@ class quasiisothermaldf(df):
                     _vrs=vrs,
                     _vts=vts,
                     _vzs=vzs,
-                    **kwargs
+                    **kwargs,
                 )
                 / surfmass
             )
@@ -1374,7 +1374,7 @@ class quasiisothermaldf(df):
                     _vrs=vrs,
                     _vts=vts,
                     _vzs=vzs,
-                    **kwargs
+                    **kwargs,
                 )
                 / surfmass
             )
@@ -1453,7 +1453,7 @@ class quasiisothermaldf(df):
                 mc=mc,
                 nmc=nmc,
                 _returnmc=True,
-                **kwargs
+                **kwargs,
             )
             return (
                 self._vmomentdensity(
@@ -1469,7 +1469,7 @@ class quasiisothermaldf(df):
                     _vrs=vrs,
                     _vts=vts,
                     _vzs=vzs,
-                    **kwargs
+                    **kwargs,
                 )
                 / surfmass
             )
@@ -1538,7 +1538,7 @@ class quasiisothermaldf(df):
                 mc=mc,
                 nmc=nmc,
                 _returnmc=True,
-                **kwargs
+                **kwargs,
             )
             return (
                 self._vmomentdensity(
@@ -1554,7 +1554,7 @@ class quasiisothermaldf(df):
                     _vrs=vrs,
                     _vts=vts,
                     _vzs=vzs,
-                    **kwargs
+                    **kwargs,
                 )
                 / surfmass
             )
@@ -1623,7 +1623,7 @@ class quasiisothermaldf(df):
                 mc=mc,
                 nmc=nmc,
                 _returnmc=True,
-                **kwargs
+                **kwargs,
             )
             return (
                 self._vmomentdensity(
@@ -1639,7 +1639,7 @@ class quasiisothermaldf(df):
                     _vrs=vrs,
                     _vts=vts,
                     _vzs=vzs,
-                    **kwargs
+                    **kwargs,
                 )
                 / surfmass
             )
@@ -1707,7 +1707,7 @@ class quasiisothermaldf(df):
                 mc=mc,
                 nmc=nmc,
                 _returnmc=True,
-                **kwargs
+                **kwargs,
             )
             return (
                 self._vmomentdensity(
@@ -1723,7 +1723,7 @@ class quasiisothermaldf(df):
                     _vrs=vrs,
                     _vts=vts,
                     _vzs=vzs,
-                    **kwargs
+                    **kwargs,
                 )
                 / surfmass
             )
@@ -1792,7 +1792,7 @@ class quasiisothermaldf(df):
                 mc=mc,
                 nmc=nmc,
                 _returnmc=True,
-                **kwargs
+                **kwargs,
             )
             mvt = (
                 self._vmomentdensity(
@@ -1808,7 +1808,7 @@ class quasiisothermaldf(df):
                     _vrs=vrs,
                     _vts=vts,
                     _vzs=vzs,
-                    **kwargs
+                    **kwargs,
                 )
                 / surfmass
             )
@@ -1826,7 +1826,7 @@ class quasiisothermaldf(df):
                     _vrs=vrs,
                     _vts=vts,
                     _vzs=vzs,
-                    **kwargs
+                    **kwargs,
                 )
                 / surfmass
                 - mvt**2.0
@@ -1909,7 +1909,7 @@ class quasiisothermaldf(df):
                 mc=mc,
                 nmc=nmc,
                 _returnmc=True,
-                **kwargs
+                **kwargs,
             )
             return (
                 self._jmomentdensity(
@@ -1925,7 +1925,7 @@ class quasiisothermaldf(df):
                     _vrs=vrs,
                     _vts=vts,
                     _vzs=vzs,
-                    **kwargs
+                    **kwargs,
                 )
                 / surfmass
             )
@@ -1979,7 +1979,7 @@ class quasiisothermaldf(df):
                 mc=mc,
                 nmc=nmc,
                 _returnmc=True,
-                **kwargs
+                **kwargs,
             )
             return (
                 self._jmomentdensity(
@@ -1995,7 +1995,7 @@ class quasiisothermaldf(df):
                     _vrs=vrs,
                     _vts=vts,
                     _vzs=vzs,
-                    **kwargs
+                    **kwargs,
                 )
                 / surfmass
             )
@@ -2048,7 +2048,7 @@ class quasiisothermaldf(df):
                 mc=mc,
                 nmc=nmc,
                 _returnmc=True,
-                **kwargs
+                **kwargs,
             )
             return (
                 self._jmomentdensity(
@@ -2064,7 +2064,7 @@ class quasiisothermaldf(df):
                     _vrs=vrs,
                     _vts=vts,
                     _vzs=vzs,
-                    **kwargs
+                    **kwargs,
                 )
                 / surfmass
             )
@@ -2169,7 +2169,7 @@ class quasiisothermaldf(df):
         R_min=None,
         R_max=None,
         z_max=None,
-        **kwargs
+        **kwargs,
     ):
         """
         Sample radial, azimuthal, and vertical velocity at R,z using interpolation.

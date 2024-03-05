@@ -3003,7 +3003,7 @@ class evolveddiskdf(df):
                         sigmaR1,
                         phi,
                     ),
-                    **kwargs
+                    **kwargs,
                 )[0]
                 / numpy.fabs(cosalphalos)
                 * sigmaR1
@@ -3027,7 +3027,7 @@ class evolveddiskdf(df):
                         sigmaR1,
                         phi,
                     ),
-                    **kwargs
+                    **kwargs,
                 )[0]
                 / numpy.fabs(sinalphalos)
                 * sigmaR1
@@ -3077,7 +3077,7 @@ class evolveddiskdf(df):
                         sigmaR1,
                         phi,
                     ),
-                    **kwargs
+                    **kwargs,
                 )[0]
                 / numpy.fabs(cosalphaperp)
                 * sigmaR1
@@ -3102,7 +3102,7 @@ class evolveddiskdf(df):
                         sigmaR1,
                         phi,
                     ),
-                    **kwargs
+                    **kwargs,
                 )[0]
                 / numpy.fabs(sinalphaperp)
                 * sigmaR1

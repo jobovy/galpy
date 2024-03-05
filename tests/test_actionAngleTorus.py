@@ -741,9 +741,7 @@ def test_actionAngleTorus_AutoFitWarning():
             )
             if raisedWarning:
                 break
-        assert (
-            raisedWarning
-        ), "actionAngleTorus with flattened LogarithmicHaloPotential and a particular orbit should have thrown a warning, but didn't"
+        assert raisedWarning, "actionAngleTorus with flattened LogarithmicHaloPotential and a particular orbit should have thrown a warning, but didn't"
     with warnings.catch_warnings(record=True) as w:
         warnings.simplefilter("always", galpyWarning)
         aAT.xvFreqs(jr, jp, jz, ar, ap, az)
@@ -756,9 +754,7 @@ def test_actionAngleTorus_AutoFitWarning():
             )
             if raisedWarning:
                 break
-        assert (
-            raisedWarning
-        ), "actionAngleTorus with flattened LogarithmicHaloPotential and a particular orbit should have thrown a warning, but didn't"
+        assert raisedWarning, "actionAngleTorus with flattened LogarithmicHaloPotential and a particular orbit should have thrown a warning, but didn't"
     with warnings.catch_warnings(record=True) as w:
         warnings.simplefilter("always", galpyWarning)
         aAT.Freqs(jr, jp, jz)
@@ -771,9 +767,7 @@ def test_actionAngleTorus_AutoFitWarning():
             )
             if raisedWarning:
                 break
-        assert (
-            raisedWarning
-        ), "actionAngleTorus with flattened LogarithmicHaloPotential and a particular orbit should have thrown a warning, but didn't"
+        assert raisedWarning, "actionAngleTorus with flattened LogarithmicHaloPotential and a particular orbit should have thrown a warning, but didn't"
     with warnings.catch_warnings(record=True) as w:
         warnings.simplefilter("always", galpyWarning)
         aAT.hessianFreqs(jr, jp, jz)
@@ -786,9 +780,7 @@ def test_actionAngleTorus_AutoFitWarning():
             )
             if raisedWarning:
                 break
-        assert (
-            raisedWarning
-        ), "actionAngleTorus with flattened LogarithmicHaloPotential and a particular orbit should have thrown a warning, but didn't"
+        assert raisedWarning, "actionAngleTorus with flattened LogarithmicHaloPotential and a particular orbit should have thrown a warning, but didn't"
     with warnings.catch_warnings(record=True) as w:
         warnings.simplefilter("always", galpyWarning)
         aAT.xvJacobianFreqs(jr, jp, jz, ar, ap, az)
@@ -801,9 +793,7 @@ def test_actionAngleTorus_AutoFitWarning():
             )
             if raisedWarning:
                 break
-        assert (
-            raisedWarning
-        ), "actionAngleTorus with flattened LogarithmicHaloPotential and a particular orbit should have thrown a warning, but didn't"
+        assert raisedWarning, "actionAngleTorus with flattened LogarithmicHaloPotential and a particular orbit should have thrown a warning, but didn't"
     return None
 
 

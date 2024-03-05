@@ -1668,7 +1668,9 @@ def test_interpolation_potential_epifreq_smalln():
             / potential.epifreq(potential.MWPotential, rs)
         )
         < 10.0**-2.0
-    ), "RZPot interpolation of epifreq w/ interpRZPotential fails for vector input"  # not as harsh, bc we don't have many points
+    ), (
+        "RZPot interpolation of epifreq w/ interpRZPotential fails for vector input"
+    )  # not as harsh, bc we don't have many points
     rzpot = potential.interpRZPotential(
         RZPot=potential.MWPotential,
         rgrid=(numpy.log(1.0), numpy.log(1.3), 3),
@@ -1683,7 +1685,9 @@ def test_interpolation_potential_epifreq_smalln():
             / potential.epifreq(potential.MWPotential, rs)
         )
         < 10.0**-2.0
-    ), "RZPot interpolation of epifreq w/ interpRZPotential fails for vector input"  # not as harsh, bc we don't have many points
+    ), (
+        "RZPot interpolation of epifreq w/ interpRZPotential fails for vector input"
+    )  # not as harsh, bc we don't have many points
     return None
 
 

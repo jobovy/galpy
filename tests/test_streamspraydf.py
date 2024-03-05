@@ -342,12 +342,8 @@ def test_sample_orbit_rovoetc():
         tdisrupt=4.5 / conversion.time_in_Gyr(vo, ro),
     )
     sam = spdf_bovy14.sample(n=10)
-    assert (
-        obs._roSet
-    ), "Test requires that ro be set for the progenitor orbit, but it appears not to have been set"
-    assert (
-        not obs._voSet
-    ), "Test requires that vo not be set for the progenitor orbit, but it appears to have been set"
+    assert obs._roSet, "Test requires that ro be set for the progenitor orbit, but it appears not to have been set"
+    assert not obs._voSet, "Test requires that vo not be set for the progenitor orbit, but it appears to have been set"
     assert (
         obs._roSet is sam._roSet
     ), "Sampled streamspraydf orbits do not have the same roSet as the progenitor orbit"
@@ -383,12 +379,8 @@ def test_sample_orbit_rovoetc():
         tdisrupt=4.5 / conversion.time_in_Gyr(vo, ro),
     )
     sam = spdf_bovy14.sample(n=10)
-    assert (
-        obs._voSet
-    ), "Test requires that vo be set for the progenitor orbit, but it appears not to have been set"
-    assert (
-        not obs._roSet
-    ), "Test requires that ro not be set for the progenitor orbit, but it appears to have been set"
+    assert obs._voSet, "Test requires that vo be set for the progenitor orbit, but it appears not to have been set"
+    assert not obs._roSet, "Test requires that ro not be set for the progenitor orbit, but it appears to have been set"
     assert (
         obs._roSet is sam._roSet
     ), "Sampled streamspraydf orbits do not have the same roSet as the progenitor orbit"

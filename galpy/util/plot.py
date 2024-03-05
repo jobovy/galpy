@@ -837,7 +837,7 @@ def text(*args, **kwargs):
             xycoords="axes fraction",
             horizontalalignment="center",
             verticalalignment="top",
-            **kwargs
+            **kwargs,
         )
     elif kwargs.pop("bottom_left", False):
         pyplot.annotate(args[0], (0.05, 0.05), xycoords="axes fraction", **kwargs)
@@ -847,7 +847,7 @@ def text(*args, **kwargs):
             (0.95, 0.05),
             xycoords="axes fraction",
             horizontalalignment="right",
-            **kwargs
+            **kwargs,
         )
     elif kwargs.pop("top_right", False):
         pyplot.annotate(
@@ -856,7 +856,7 @@ def text(*args, **kwargs):
             xycoords="axes fraction",
             horizontalalignment="right",
             verticalalignment="top",
-            **kwargs
+            **kwargs,
         )
     elif kwargs.pop("top_left", False):
         pyplot.annotate(
@@ -864,7 +864,7 @@ def text(*args, **kwargs):
             (0.05, 0.95),
             xycoords="axes fraction",
             verticalalignment="top",
-            **kwargs
+            **kwargs,
         )
     else:
         pyplot.text(*args, **kwargs)
@@ -1108,7 +1108,7 @@ def scatterplot(x, y, *args, **kwargs):
                     overplot=True,
                     color="%.2f" % (1.0 - w8[ii]),
                     *args,
-                    **kwargs
+                    **kwargs,
                 )
         else:
             plot(plotx, ploty, overplot=True, zorder=1, *args, **kwargs)

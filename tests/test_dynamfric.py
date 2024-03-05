@@ -263,7 +263,9 @@ def test_dynamfric_c():
             normalize=0.03, sigma=4.0, b=0.8, c=1.5, pa=3.0, zvec=[1.0, 0.0, 0.0]
         ),
         potential.SCFPotential(
-            Acos=numpy.array([[[1.0]]]), normalize=1.0, a=3.5  # same as Hernquist
+            Acos=numpy.array([[[1.0]]]),
+            normalize=1.0,
+            a=3.5,  # same as Hernquist
         ),
         potential.SCFPotential(
             Acos=numpy.array([[[1.0, 0.0], [0.3, 0.0]]]),  # nonaxi
@@ -387,7 +389,5 @@ def test_dynamfric_c_minr_warning():
             str(rec.message.args[0])
             == "Orbit integration with ChandrasekharDynamicalFrictionForce entered domain where r < minr and ChandrasekharDynamicalFrictionForce is turned off; initialize ChandrasekharDynamicalFrictionForce with a smaller minr to avoid this if you wish (but note that you want to turn it off close to the center for an object that sinks all the way to r=0, to avoid numerical instabilities)"
         )
-    assert (
-        raisedWarning
-    ), "Integrating an orbit that goes to r < minr with dynamical friction should have raised a warning, but didn't"
+    assert raisedWarning, "Integrating an orbit that goes to r < minr with dynamical friction should have raised a warning, but didn't"
     return None

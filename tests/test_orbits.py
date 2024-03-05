@@ -6557,11 +6557,11 @@ def test_flip():
             numpy.fabs(o._vo - of._vo) < 10.0**-15.0
         ), "o.flip() did not conserve physical scales and coordinate-transformation parameters"
         if ii == 4:
-            assert (o._zo is None) * (
-                of._zo is None
+            assert (
+                (o._zo is None) * (of._zo is None)
             ), "o.flip() did not conserve physical scales and coordinate-transformation parameters"
-            assert (o._solarmotion is None) * (
-                of._solarmotion is None
+            assert (
+                (o._solarmotion is None) * (of._solarmotion is None)
             ), "o.flip() did not conserve physical scales and coordinate-transformation parameters"
         else:
             assert (
@@ -6637,11 +6637,11 @@ def test_flip_inplace():
             numpy.fabs(o._vo - of._vo) < 10.0**-15.0
         ), "o.flip() did not conserve physical scales and coordinate-transformation parameters"
         if ii == 4:
-            assert (o._zo is None) * (
-                of._zo is None
+            assert (
+                (o._zo is None) * (of._zo is None)
             ), "o.flip() did not conserve physical scales and coordinate-transformation parameters"
-            assert (o._solarmotion is None) * (
-                of._solarmotion is None
+            assert (
+                (o._solarmotion is None) * (of._solarmotion is None)
             ), "o.flip() did not conserve physical scales and coordinate-transformation parameters"
         else:
             assert (
@@ -6730,11 +6730,11 @@ def test_flip_inplace_integrated():
             numpy.fabs(o._vo - of._vo) < 10.0**-15.0
         ), "o.flip() did not conserve physical scales and coordinate-transformation parameters"
         if ii == 4:
-            assert (o._zo is None) * (
-                of._zo is None
+            assert (
+                (o._zo is None) * (of._zo is None)
             ), "o.flip() did not conserve physical scales and coordinate-transformation parameters"
-            assert (o._solarmotion is None) * (
-                of._solarmotion is None
+            assert (
+                (o._solarmotion is None) * (of._solarmotion is None)
             ), "o.flip() did not conserve physical scales and coordinate-transformation parameters"
         else:
             assert (
@@ -6829,11 +6829,11 @@ def test_flip_inplace_integrated_evaluated():
             numpy.fabs(o._vo - of._vo) < 10.0**-15.0
         ), "o.flip() did not conserve physical scales and coordinate-transformation parameters"
         if ii == 4:
-            assert (o._zo is None) * (
-                of._zo is None
+            assert (
+                (o._zo is None) * (of._zo is None)
             ), "o.flip() did not conserve physical scales and coordinate-transformation parameters"
-            assert (o._solarmotion is None) * (
-                of._solarmotion is None
+            assert (
+                (o._solarmotion is None) * (of._solarmotion is None)
             ), "o.flip() did not conserve physical scales and coordinate-transformation parameters"
         else:
             assert (

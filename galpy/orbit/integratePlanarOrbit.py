@@ -560,9 +560,7 @@ def _parse_pot(pot):
                 or isinstance(p, planarPotentialFromRZPotential)
             )
             and isinstance(p._Pot, potential.RotateAndTiltWrapperPotential)
-        ) or isinstance(
-            p, potential.RotateAndTiltWrapperPotential
-        ):  # pragma: no cover
+        ) or isinstance(p, potential.RotateAndTiltWrapperPotential):  # pragma: no cover
             raise NotImplementedError(
                 "Planar orbit integration in C for RotateAndTiltWrapperPotential not implemented; please integrate an orbit with (z,vz) = (0,0) instead"
             )
@@ -656,7 +654,8 @@ def _prep_tfuncs(pot_tfuncs):
         pot_tfuncs = None  # NULL
     else:
         func_ctype = ctypes.CFUNCTYPE(
-            ctypes.c_double, ctypes.c_double  # Return type
+            ctypes.c_double,
+            ctypes.c_double,  # Return type
         )  # time
         try:  # using numba
             if not _NUMBA_LOADED:
@@ -1436,7 +1435,7 @@ def integratePlanarOrbit_sos(
                     this_vxvv,
                     t=psi + init_psi,
                     args=(pot,),
-                    **extra_kwargs
+                    **extra_kwargs,
                 )
                 # go back to the cylindrical frame
                 x = intOut[:, 2] * numpy.sin(psi + init_psi)
@@ -1461,7 +1460,7 @@ def integratePlanarOrbit_sos(
                     this_vxvv,
                     t=psi + init_psi,
                     args=(pot,),
-                    **extra_kwargs
+                    **extra_kwargs,
                 )
                 # go back to the cylindrical frame
                 x = intOut[:, 0]

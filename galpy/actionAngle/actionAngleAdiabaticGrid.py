@@ -37,7 +37,7 @@ class actionAngleAdiabaticGrid(actionAngle):
         nEr=31,
         nLz=31,
         numcores=1,
-        **kwargs
+        **kwargs,
     ):
         """
         Initialize an actionAngleAdiabaticGrid object
@@ -103,7 +103,7 @@ class actionAngleAdiabaticGrid(actionAngle):
                 numpy.ones(len(thisRs)),  # these two r dummies
                 numpy.zeros(len(thisRs)),
                 numpy.sqrt(2.0 * this * thisEzZmaxs),
-                **kwargs
+                **kwargs,
             )[2]
             jz = numpy.reshape(jz, (nR, nEz))
             jzEzzmax[0:nR] = jz[:, nEz - 1]
@@ -118,7 +118,7 @@ class actionAngleAdiabaticGrid(actionAngle):
                             0.0,
                             numpy.sqrt(2.0 * this[x] * thisEzZmaxs[x]),
                             _justjz=True,
-                            **kwargs
+                            **kwargs,
                         )[2]
                     ),
                     range(nR * nEz),
@@ -137,7 +137,7 @@ class actionAngleAdiabaticGrid(actionAngle):
                             0.0,
                             numpy.sqrt(2.0 * y[jj] * self._EzZmaxs[ii]),
                             _justjz=True,
-                            **kwargs
+                            **kwargs,
                         )[2][0]
                         if jj == nEz - 1:
                             jzEzzmax[ii] = jz[ii, jj]
@@ -204,7 +204,7 @@ class actionAngleAdiabaticGrid(actionAngle):
                 thisLzs / thisRL,
                 numpy.zeros(len(thisRL)),
                 numpy.zeros(len(thisRL)),
-                **kwargs
+                **kwargs,
             )[0]
             jr[:, 0:-1] = numpy.reshape(mjr, (nLz, nEr - 1))
             jrERRa[0:nLz] = jr[:, 0]
@@ -227,7 +227,7 @@ class actionAngleAdiabaticGrid(actionAngle):
                             0.0,
                             0.0,
                             _justjr=True,
-                            **kwargs
+                            **kwargs,
                         )[0]
                     ),
                     range((nEr - 1) * nLz),
@@ -256,7 +256,7 @@ class actionAngleAdiabaticGrid(actionAngle):
                                 0.0,
                                 0.0,
                                 _justjr=True,
-                                **kwargs
+                                **kwargs,
                             )[0][0]
                         except UnboundError:  # pragma: no cover
                             raise
@@ -338,7 +338,7 @@ class actionAngleAdiabaticGrid(actionAngle):
                     numpy.zeros(numpy.sum(indx)),
                     numpy.sqrt(2.0 * Ez[indx]),
                     _justjz=True,
-                    **kwargs
+                    **kwargs,
                 )[2]
         else:
             if (
@@ -360,7 +360,7 @@ class actionAngleAdiabaticGrid(actionAngle):
                     0.0,
                     numpy.sqrt(2.0 * Ez),
                     _justjz=True,
-                    **kwargs
+                    **kwargs,
                 )[2]
             else:
                 jz = (
@@ -405,7 +405,7 @@ class actionAngleAdiabaticGrid(actionAngle):
                     numpy.zeros(len(thisRL)),
                     numpy.zeros(len(thisRL)),
                     _justjr=True,
-                    **kwargs
+                    **kwargs,
                 )[0]
         else:
             if (ER - thisERRa) / (thisERRL - thisERRa) > 1.0 and (
@@ -445,7 +445,7 @@ class actionAngleAdiabaticGrid(actionAngle):
                     0.0,
                     0.0,
                     _justjr=True,
-                    **kwargs
+                    **kwargs,
                 )[0]
             else:
                 jr = (
@@ -498,7 +498,7 @@ class actionAngleAdiabaticGrid(actionAngle):
                 0.0,
                 numpy.sqrt(2.0 * Ez),
                 _justjz=True,
-                **kwargs
+                **kwargs,
             )[2]
         else:
             jz = (

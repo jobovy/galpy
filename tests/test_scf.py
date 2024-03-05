@@ -611,9 +611,7 @@ def test_FutureWarning_multid_indexing():
             )
             if raisedWarning:
                 break
-        assert (
-            not raisedWarning
-        ), "SCFPotential should not raise 'FutureWarning: Using a non-tuple sequence for multidimensional indexing is deprecated ...', but did"
+        assert not raisedWarning, "SCFPotential should not raise 'FutureWarning: Using a non-tuple sequence for multidimensional indexing is deprecated ...', but did"
     return None
 
 

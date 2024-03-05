@@ -16725,23 +16725,24 @@ def test_streamdf_method_inputAsQuantity():
         tdisrupt=4.5 / conversion.time_in_Gyr(220.0, 8.0),
         nosetup=True,
     )
-    assert numpy.fabs(
-        sdf_bovy14.subhalo_encounters(
-            venc=200.0 * units.km / units.s,
-            sigma=150.0 * units.km / units.s,
-            nsubhalo=38.35 / (4.0 * (25.0 * units.kpc) ** 3.0 * numpy.pi / 3.0),
-            bmax=1.0 * units.kpc,
-            yoon=False,
+    assert (
+        numpy.fabs(
+            sdf_bovy14.subhalo_encounters(
+                venc=200.0 * units.km / units.s,
+                sigma=150.0 * units.km / units.s,
+                nsubhalo=38.35 / (4.0 * (25.0 * units.kpc) ** 3.0 * numpy.pi / 3.0),
+                bmax=1.0 * units.kpc,
+                yoon=False,
+            )
+            - sdf_bovy14_nou.subhalo_encounters(
+                venc=200.0 / vo,
+                sigma=150.0 / vo,
+                nsubhalo=38.35 / (4.0 * 25.0**3.0 * numpy.pi / 3.0) * ro**3.0,
+                bmax=1.0 / ro,
+                yoon=False,
+            )
         )
-        - sdf_bovy14_nou.subhalo_encounters(
-            venc=200.0 / vo,
-            sigma=150.0 / vo,
-            nsubhalo=38.35 / (4.0 * 25.0**3.0 * numpy.pi / 3.0) * ro**3.0,
-            bmax=1.0 / ro,
-            yoon=False,
-        )
-    ) < 1e-6 * _NUMPY_1_22 + 1e-8 * (
-        1 - _NUMPY_1_22
+        < 1e-6 * _NUMPY_1_22 + 1e-8 * (1 - _NUMPY_1_22)
     ), "streamdf method subhalo_encounters with Quantity input does not return correct Quantity"
     assert numpy.fabs(
         sdf_bovy14.pOparapar(0.2 / units.Gyr, 30.0 * units.deg)
@@ -17800,12 +17801,8 @@ def test_orbitmethodswunits_quantity_issue326():
 
     o = Orbit([1.0, 0.1, 1.1, 0.1, 0.2, 0.0])
     # First make sure we're testing what we want to test
-    assert (
-        not o._roSet
-    ), "Test of whether or not Orbit methods that should always return a Quantity do so cannot run meaningfully when _roSet is True"
-    assert (
-        not o._voSet
-    ), "Test of whether or not Orbit methods that should always return a Quantity do so cannot run meaningfully when _voSet is True"
+    assert not o._roSet, "Test of whether or not Orbit methods that should always return a Quantity do so cannot run meaningfully when _roSet is True"
+    assert not o._voSet, "Test of whether or not Orbit methods that should always return a Quantity do so cannot run meaningfully when _voSet is True"
     # Then test methods
     assert isinstance(
         o.ra(), units.Quantity
@@ -17867,12 +17864,8 @@ def test_orbitmethodswunits_quantity_overrideusephysical_issue326():
 
     o = Orbit([1.0, 0.1, 1.1, 0.1, 0.2, 0.0])
     # First make sure we're testing what we want to test
-    assert (
-        not o._roSet
-    ), "Test of whether or not Orbit methods that should always return a Quantity do so cannot run meaningfully when _roSet is True"
-    assert (
-        not o._voSet
-    ), "Test of whether or not Orbit methods that should always return a Quantity do so cannot run meaningfully when _voSet is True"
+    assert not o._roSet, "Test of whether or not Orbit methods that should always return a Quantity do so cannot run meaningfully when _roSet is True"
+    assert not o._voSet, "Test of whether or not Orbit methods that should always return a Quantity do so cannot run meaningfully when _voSet is True"
     # Then test methods
     assert isinstance(
         o.ra(use_physical=False), units.Quantity

@@ -768,7 +768,7 @@ class actionAngleStaeckelSingle(actionAngle):
                         self._pot,
                     ),
                     n=order,
-                    **kwargs
+                    **kwargs,
                 )[0]
             )
         else:
@@ -793,7 +793,7 @@ class actionAngleStaeckelSingle(actionAngle):
                         self._potu0v0,
                         self._pot,
                     ),
-                    **kwargs
+                    **kwargs,
                 )[0]
             )
         return self._JR
@@ -847,7 +847,7 @@ class actionAngleStaeckelSingle(actionAngle):
                         self._pot,
                     ),
                     n=order,
-                    **kwargs
+                    **kwargs,
                 )[0]
             )
         else:
@@ -872,7 +872,7 @@ class actionAngleStaeckelSingle(actionAngle):
                         self._potupi2,
                         self._pot,
                     ),
-                    **kwargs
+                    **kwargs,
                 )[0]
             )
         return self._JZ

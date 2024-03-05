@@ -2634,9 +2634,7 @@ def test_eddington_interpolatedpotentials_rmin():
             str(rec.message.args[0])
             == "Interpolated potential grid rmin is larger than the rmin to be used for the v_vesc_interpolator grid. This may adversely affect the generated samples. Proceed with care!"
         )
-    assert (
-        raisedWarning
-    ), "Using an interpolated potential with rmin smaller than the rmin to be used for the v_vesc_interpolator grid should have raised a warning, but didn't"
+    assert raisedWarning, "Using an interpolated potential with rmin smaller than the rmin to be used for the v_vesc_interpolator grid should have raised a warning, but didn't"
 
 
 def test_eddington_interpolatedpotentials_rmax():
@@ -2654,9 +2652,7 @@ def test_eddington_interpolatedpotentials_rmax():
             str(rec.message.args[0])
             == "The interpolated potential's rmax is smaller than the DF's rmax"
         )
-    assert (
-        raisedWarning
-    ), "Using an interpolated potential with rmax smaller than the DF's rmax should have raised a warning, but didn't"
+    assert raisedWarning, "Using an interpolated potential with rmax smaller than the DF's rmax should have raised a warning, but didn't"
 
 
 ########################### TESTS OF ERRORS AND WARNINGS#######################
@@ -2713,9 +2709,7 @@ def test_anisotropic_hernquist_negdf():
             str(rec.message.args[0])
             == "The DF appears to have negative regions; we'll try to ignore these for sampling the DF, but this may adversely affect the generated samples. Proceed with care!"
         )
-    assert (
-        raisedWarning
-    ), "Using an anisotropic Hernquist DF that has negative parts should have raised a warning, but didn't"
+    assert raisedWarning, "Using an anisotropic Hernquist DF that has negative parts should have raised a warning, but didn't"
 
 
 ############################# TESTS OF UNIT HANDLING###########################

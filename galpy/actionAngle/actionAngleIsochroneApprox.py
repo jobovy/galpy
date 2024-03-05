@@ -547,7 +547,7 @@ class actionAngleIsochroneApprox(actionAngle):
                     vmax=2.0 * numpy.pi,
                     crange=[0.0, 2.0 * numpy.pi],
                     colorbar=True,
-                    **kwargs
+                    **kwargs,
                 )
             elif type == "lz":
                 if downsample:
@@ -572,7 +572,7 @@ class actionAngleIsochroneApprox(actionAngle):
                     vmax=2.0 * numpy.pi,
                     crange=[0.0, 2.0 * numpy.pi],
                     colorbar=True,
-                    **kwargs
+                    **kwargs,
                 )
             elif type == "jz":
                 if downsample:
@@ -597,7 +597,7 @@ class actionAngleIsochroneApprox(actionAngle):
                     vmax=2.0 * numpy.pi,
                     crange=[0.0, 2.0 * numpy.pi],
                     colorbar=True,
-                    **kwargs
+                    **kwargs,
                 )
         else:
             if deperiod:
@@ -658,7 +658,7 @@ class actionAngleIsochroneApprox(actionAngle):
                     vmax=vmax,
                     crange=crange,
                     colorbar=True,
-                    **kwargs
+                    **kwargs,
                 )
             elif type == "araphi":
                 if downsample:
@@ -685,7 +685,7 @@ class actionAngleIsochroneApprox(actionAngle):
                     vmax=vmax,
                     crange=crange,
                     colorbar=True,
-                    **kwargs
+                    **kwargs,
                 )
             elif type == "azaphi":
                 if downsample:
@@ -712,7 +712,7 @@ class actionAngleIsochroneApprox(actionAngle):
                     vmax=vmax,
                     crange=crange,
                     colorbar=True,
-                    **kwargs
+                    **kwargs,
                 )
         return None
 

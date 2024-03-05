@@ -183,34 +183,36 @@ def test_energy_jacobi_conservation(pot, ttol, tjactol, firstTest):
         if firstTest or "testMWPotential" in pot:
             # Some basic checking of the energy and Jacobi functions
             assert (
-                o.E(pot=None) - o.E(pot=tp)
-            ) ** 2.0 < 10.0**ttol, "Energy calculated with pot=None and pot=the Potential the orbit was integrated with do not agree"
+                (o.E(pot=None) - o.E(pot=tp)) ** 2.0 < 10.0** ttol
+            ), "Energy calculated with pot=None and pot=the Potential the orbit was integrated with do not agree"
             assert (
-                o.E() - o.E(0.0)
-            ) ** 2.0 < 10.0**ttol, (
-                "Energy calculated with o.E() and o.E(0.) do not agree"
-            )
+                (o.E() - o.E(0.0)) ** 2.0 < 10.0** ttol
+            ), "Energy calculated with o.E() and o.E(0.) do not agree"
             assert (
-                o.Jacobi(OmegaP=None) - o.Jacobi()
-            ) ** 2.0 < 10.0**ttol, (
-                "o.Jacobi calculated with OmegaP=None is not equal to o.Jacobi"
-            )
+                (o.Jacobi(OmegaP=None) - o.Jacobi()) ** 2.0 < 10.0** ttol
+            ), "o.Jacobi calculated with OmegaP=None is not equal to o.Jacobi"
             assert (
-                o.Jacobi(pot=None) - o.Jacobi(pot=tp)
-            ) ** 2.0 < 10.0**ttol, "o.Jacobi calculated with pot=None is not equal to o.Jacobi with pot=the Potential the orbit was integrated with do not agree"
+                (o.Jacobi(pot=None) - o.Jacobi(pot=tp)) ** 2.0 < 10.0** ttol
+            ), "o.Jacobi calculated with pot=None is not equal to o.Jacobi with pot=the Potential the orbit was integrated with do not agree"
             assert (
-                o.Jacobi(pot=None) - o.Jacobi(pot=[tp])
-            ) ** 2.0 < 10.0**ttol, "o.Jacobi calculated with pot=None is not equal to o.Jacobi with pot=[the Potential the orbit was integrated with] do not agree"
+                (o.Jacobi(pot=None) - o.Jacobi(pot=[tp])) ** 2.0 < 10.0** ttol
+            ), "o.Jacobi calculated with pot=None is not equal to o.Jacobi with pot=[the Potential the orbit was integrated with] do not agree"
             if not tp.isNonAxi:
                 assert (
-                    o.Jacobi(OmegaP=1.0) - o.Jacobi()
-                ) ** 2.0 < 10.0**ttol, "o.Jacobi calculated with OmegaP=1. for axisymmetric potential is not equal to o.Jacobi (OmegaP=1 is the default for potentials without a pattern speed"
+                    (o.Jacobi(OmegaP=1.0) - o.Jacobi()) ** 2.0 < 10.0** ttol
+                ), "o.Jacobi calculated with OmegaP=1. for axisymmetric potential is not equal to o.Jacobi (OmegaP=1 is the default for potentials without a pattern speed"
                 assert (
-                    o.Jacobi(OmegaP=[0.0, 0.0, 1.0]) - o.Jacobi(OmegaP=1.0)
-                ) ** 2.0 < 10.0**ttol, "o.Jacobi calculated with OmegaP=[0,0,1] for axisymmetric potential is not equal to o.Jacobi with OmegaP=1"
+                    (o.Jacobi(OmegaP=[0.0, 0.0, 1.0]) - o.Jacobi(OmegaP=1.0)) ** 2.0
+                    < 10.0** ttol
+                ), "o.Jacobi calculated with OmegaP=[0,0,1] for axisymmetric potential is not equal to o.Jacobi with OmegaP=1"
                 assert (
-                    o.Jacobi(OmegaP=numpy.array([0.0, 0.0, 1.0])) - o.Jacobi(OmegaP=1.0)
-                ) ** 2.0 < 10.0**ttol, "o.Jacobi calculated with OmegaP=[0,0,1] for axisymmetric potential is not equal to o.Jacobi with OmegaP=1"
+                    (
+                        o.Jacobi(OmegaP=numpy.array([0.0, 0.0, 1.0]))
+                        - o.Jacobi(OmegaP=1.0)
+                    )
+                    ** 2.0
+                    < 10.0** ttol
+                ), "o.Jacobi calculated with OmegaP=[0,0,1] for axisymmetric potential is not equal to o.Jacobi with OmegaP=1"
             o = setup_orbit_energy(tp, axi=False, henon="Henon" in pot)
             try:
                 o.E()
@@ -265,27 +267,23 @@ def test_energy_jacobi_conservation(pot, ttol, tjactol, firstTest):
             if firstTest or "MWPotential" in pot:
                 # Some basic checking of the energy function
                 assert (
-                    o.E(pot=None) - o.E(pot=tp)
-                ) ** 2.0 < 10.0**ttol, "Energy calculated with pot=None and pot=the Potential the orbit was integrated with do not agree"
+                    (o.E(pot=None) - o.E(pot=tp)) ** 2.0 < 10.0** ttol
+                ), "Energy calculated with pot=None and pot=the Potential the orbit was integrated with do not agree"
                 assert (
-                    o.E() - o.E(0.0)
-                ) ** 2.0 < 10.0**ttol, (
-                    "Energy calculated with o.E() and o.E(0.) do not agree"
-                )
+                    (o.E() - o.E(0.0)) ** 2.0 < 10.0** ttol
+                ), "Energy calculated with o.E() and o.E(0.) do not agree"
                 assert (
-                    o.Jacobi(OmegaP=None) - o.Jacobi()
-                ) ** 2.0 < 10.0**ttol, (
-                    "o.Jacobi calculated with OmegaP=None is not equal to o.Jacobi"
-                )
+                    (o.Jacobi(OmegaP=None) - o.Jacobi()) ** 2.0 < 10.0** ttol
+                ), "o.Jacobi calculated with OmegaP=None is not equal to o.Jacobi"
                 assert (
-                    o.Jacobi(pot=None) - o.Jacobi(pot=tp)
-                ) ** 2.0 < 10.0**ttol, "o.Jacobi calculated with pot=None is not equal to o.Jacobi with pot=the Potential the orbit was integrated with do not agree"
+                    (o.Jacobi(pot=None) - o.Jacobi(pot=tp)) ** 2.0 < 10.0** ttol
+                ), "o.Jacobi calculated with pot=None is not equal to o.Jacobi with pot=the Potential the orbit was integrated with do not agree"
                 assert (
-                    o.Jacobi(pot=None) - o.Jacobi(pot=[tp])
-                ) ** 2.0 < 10.0**ttol, "o.Jacobi calculated with pot=None is not equal to o.Jacobi with pot=the Potential the orbit was integrated with do not agree"
+                    (o.Jacobi(pot=None) - o.Jacobi(pot=[tp])) ** 2.0 < 10.0** ttol
+                ), "o.Jacobi calculated with pot=None is not equal to o.Jacobi with pot=the Potential the orbit was integrated with do not agree"
                 assert (
-                    o.Jacobi(OmegaP=1.0) - o.Jacobi()
-                ) ** 2.0 < 10.0**ttol, "o.Jacobi calculated with OmegaP=1. for axisymmetric potential is not equal to o.Jacobi (OmegaP=1 is the default for potentials without a pattern speed"
+                    (o.Jacobi(OmegaP=1.0) - o.Jacobi()) ** 2.0 < 10.0** ttol
+                ), "o.Jacobi calculated with OmegaP=1. for axisymmetric potential is not equal to o.Jacobi (OmegaP=1 is the default for potentials without a pattern speed"
                 o = setup_orbit_energy(tp, axi=True, henon="Henon" in pot)
                 try:
                     o.E()
@@ -340,30 +338,26 @@ def test_energy_jacobi_conservation(pot, ttol, tjactol, firstTest):
             if firstTest or "MWPotential" in pot:
                 # Some basic checking of the energy function
                 assert (
-                    o.E(pot=None) - o.E(pot=ptp)
-                ) ** 2.0 < 10.0**ttol, "Energy calculated with pot=None and pot=the planarPotential the orbit was integrated with do not agree for planarPotential"
+                    (o.E(pot=None) - o.E(pot=ptp)) ** 2.0 < 10.0** ttol
+                ), "Energy calculated with pot=None and pot=the planarPotential the orbit was integrated with do not agree for planarPotential"
                 assert (
-                    o.E(pot=None) - o.E(pot=tp)
-                ) ** 2.0 < 10.0**ttol, "Energy calculated with pot=None and pot=the Potential the orbit was integrated with do not agree for planarPotential"
+                    (o.E(pot=None) - o.E(pot=tp)) ** 2.0 < 10.0** ttol
+                ), "Energy calculated with pot=None and pot=the Potential the orbit was integrated with do not agree for planarPotential"
                 assert (
-                    o.E() - o.E(0.0)
-                ) ** 2.0 < 10.0**ttol, (
-                    "Energy calculated with o.E() and o.E(0.) do not agree"
-                )
+                    (o.E() - o.E(0.0)) ** 2.0 < 10.0** ttol
+                ), "Energy calculated with o.E() and o.E(0.) do not agree"
                 assert (
-                    o.Jacobi(OmegaP=None) - o.Jacobi()
-                ) ** 2.0 < 10.0**ttol, (
-                    "o.Jacobi calculated with OmegaP=None is not equal to o.Jacobi"
-                )
+                    (o.Jacobi(OmegaP=None) - o.Jacobi()) ** 2.0 < 10.0** ttol
+                ), "o.Jacobi calculated with OmegaP=None is not equal to o.Jacobi"
                 assert (
-                    o.Jacobi(pot=None) - o.Jacobi(pot=tp)
-                ) ** 2.0 < 10.0**ttol, "o.Jacobi calculated with pot=None is not equal to o.Jacobi with pot=the Potential the orbit was integrated with do not agree"
+                    (o.Jacobi(pot=None) - o.Jacobi(pot=tp)) ** 2.0 < 10.0** ttol
+                ), "o.Jacobi calculated with pot=None is not equal to o.Jacobi with pot=the Potential the orbit was integrated with do not agree"
                 assert (
-                    o.Jacobi(pot=None) - o.Jacobi(pot=[tp])
-                ) ** 2.0 < 10.0**ttol, "o.Jacobi calculated with pot=None is not equal to o.Jacobi with pot=the Potential the orbit was integrated with do not agree"
+                    (o.Jacobi(pot=None) - o.Jacobi(pot=[tp])) ** 2.0 < 10.0** ttol
+                ), "o.Jacobi calculated with pot=None is not equal to o.Jacobi with pot=the Potential the orbit was integrated with do not agree"
                 assert (
-                    o.Jacobi(OmegaP=1.0) - o.Jacobi()
-                ) ** 2.0 < 10.0**ttol, "o.Jacobi calculated with OmegaP=1. for axisymmetric potential is not equal to o.Jacobi (OmegaP=1 is the default for potentials without a pattern speed"
+                    (o.Jacobi(OmegaP=1.0) - o.Jacobi()) ** 2.0 < 10.0** ttol
+                ), "o.Jacobi calculated with OmegaP=1. for axisymmetric potential is not equal to o.Jacobi (OmegaP=1 is the default for potentials without a pattern speed"
                 o = setup_orbit_energy(ptp, axi=True)
                 try:
                     o.E()
@@ -413,30 +407,26 @@ def test_energy_jacobi_conservation(pot, ttol, tjactol, firstTest):
         if firstTest or "MWPotential" in pot:
             # Some basic checking of the energy function
             assert (
-                o.E(pot=None) - o.E(pot=ptp)
-            ) ** 2.0 < 10.0**ttol, "Energy calculated with pot=None and pot=the planarPotential the orbit was integrated with do not agree for planarPotential"
+                (o.E(pot=None) - o.E(pot=ptp)) ** 2.0 < 10.0** ttol
+            ), "Energy calculated with pot=None and pot=the planarPotential the orbit was integrated with do not agree for planarPotential"
             assert (
-                o.E(pot=None) - o.E(pot=tp)
-            ) ** 2.0 < 10.0**ttol, "Energy calculated with pot=None and pot=the Potential the orbit was integrated with do not agree for planarPotential"
+                (o.E(pot=None) - o.E(pot=tp)) ** 2.0 < 10.0** ttol
+            ), "Energy calculated with pot=None and pot=the Potential the orbit was integrated with do not agree for planarPotential"
             assert (
-                o.E() - o.E(0.0)
-            ) ** 2.0 < 10.0**ttol, (
-                "Energy calculated with o.E() and o.E(0.) do not agree"
-            )
+                (o.E() - o.E(0.0)) ** 2.0 < 10.0** ttol
+            ), "Energy calculated with o.E() and o.E(0.) do not agree"
             assert (
-                o.Jacobi(OmegaP=None) - o.Jacobi()
-            ) ** 2.0 < 10.0**ttol, (
-                "o.Jacobi calculated with OmegaP=None is not equal to o.Jacobi"
-            )
+                (o.Jacobi(OmegaP=None) - o.Jacobi()) ** 2.0 < 10.0** ttol
+            ), "o.Jacobi calculated with OmegaP=None is not equal to o.Jacobi"
             assert (
-                o.Jacobi(pot=None) - o.Jacobi(pot=tp)
-            ) ** 2.0 < 10.0**ttol, "o.Jacobi calculated with pot=None is not equal to o.Jacobi with pot=the Potential the orbit was integrated with do not agree"
+                (o.Jacobi(pot=None) - o.Jacobi(pot=tp)) ** 2.0 < 10.0** ttol
+            ), "o.Jacobi calculated with pot=None is not equal to o.Jacobi with pot=the Potential the orbit was integrated with do not agree"
             assert (
-                o.Jacobi(pot=None) - o.Jacobi(pot=[tp])
-            ) ** 2.0 < 10.0**ttol, "o.Jacobi calculated with pot=None is not equal to o.Jacobi with pot=the Potential the orbit was integrated with do not agree"
+                (o.Jacobi(pot=None) - o.Jacobi(pot=[tp])) ** 2.0 < 10.0** ttol
+            ), "o.Jacobi calculated with pot=None is not equal to o.Jacobi with pot=the Potential the orbit was integrated with do not agree"
             assert (
-                o.Jacobi(OmegaP=1.0) - o.Jacobi()
-            ) ** 2.0 < 10.0**ttol, "o.Jacobi calculated with OmegaP=1. for axisymmetric potential is not equal to o.Jacobi (OmegaP=1 is the default for potentials without a pattern speed"
+                (o.Jacobi(OmegaP=1.0) - o.Jacobi()) ** 2.0 < 10.0** ttol
+            ), "o.Jacobi calculated with OmegaP=1. for axisymmetric potential is not equal to o.Jacobi (OmegaP=1 is the default for potentials without a pattern speed"
             o = setup_orbit_energy(ptp, axi=False)
             try:
                 o.E()
@@ -597,13 +587,11 @@ def test_energy_conservation_linear(pot, ttol, firstTest):
         if firstTest or "testMWPotential" in pot or "linearMWPotential" in pot:
             # Some basic checking of the energy function
             assert (
-                o.E(pot=None) - o.E(pot=tp)
-            ) ** 2.0 < 10.0**ttol, "Energy calculated with pot=None and pot=the Potential the orbit was integrated with do not agree"
+                (o.E(pot=None) - o.E(pot=tp)) ** 2.0 < 10.0** ttol
+            ), "Energy calculated with pot=None and pot=the Potential the orbit was integrated with do not agree"
             assert (
-                o.E() - o.E(0.0)
-            ) ** 2.0 < 10.0**ttol, (
-                "Energy calculated with o.E() and o.E(0.) do not agree"
-            )
+                (o.E() - o.E(0.0)) ** 2.0 < 10.0** ttol
+            ), "Energy calculated with o.E() and o.E(0.) do not agree"
             o = setup_orbit_energy(tp, axi=False, henon="Henon" in pot)
             try:
                 o.E()
@@ -935,10 +923,8 @@ def test_integrate_SOS_3D():
         o.integrate_SOS(psis, pot, method=method)
         Es = o.E(o.t)
         assert (
-            numpy.std(Es) / numpy.mean(Es)
-        ) ** 2.0 < 10.0**-10, (
-            f"Energy is not conserved by integrate_sos for method={method}"
-        )
+            (numpy.std(Es) / numpy.mean(Es)) ** 2.0 < 10.0** -10
+        ), f"Energy is not conserved by integrate_sos for method={method}"
     return None
 
 
@@ -996,8 +982,8 @@ def test_integrate_SOS_2D():
             o.integrate_SOS(psis, pot, method=method)  # default is surface='x'
             Es = o.E(o.t)
             assert (
-                numpy.std(Es) / numpy.mean(Es)
-            ) ** 2.0 < 10.0**-10, f"Energy is not conserved by integrate_sos for method={method} and surface={surface}"
+                (numpy.std(Es) / numpy.mean(Es)) ** 2.0 < 10.0** -10
+            ), f"Energy is not conserved by integrate_sos for method={method} and surface={surface}"
     return None
 
 
@@ -3398,17 +3384,16 @@ def test_orbit_setup():
     o = Orbit([120.0, 60.0, 0.0, 10.0, 20.0, 30.0], uvw=True, lb=True, zo=0.0)
     assert (
         numpy.fabs(o.dist() - 0.0) < 10.0**-2.0
-    ), "Orbit dist setup does not agree with o.dist()"  # because of tweak in the code to deal with at the Sun
+    ), (
+        "Orbit dist setup does not agree with o.dist()"
+    )  # because of tweak in the code to deal with at the Sun
     assert (
-        o.U() ** 2.0 + o.V() ** 2.0 + o.W() ** 2.0 - 10.0**2.0 - 20.0**2.0 - 30.0**2.0
-    ) < 10.0**-10.0, (
-        "Velocity wrt the Sun when looking at Orbit at the Sun does not agree"
-    )
+        (o.U() ** 2.0 + o.V() ** 2.0 + o.W() ** 2.0 - 10.0**2.0 - 20.0**2.0 - 30.0**2.0)
+        < 10.0** -10.0
+    ), "Velocity wrt the Sun when looking at Orbit at the Sun does not agree"
     assert (
-        o.vlos() ** 2.0 - 10.0**2.0 - 20.0**2.0 - 30.0**2.0
-    ) < 10.0**-10.0, (
-        "Velocity wrt the Sun when looking at Orbit at the Sun does not agree"
-    )
+        (o.vlos() ** 2.0 - 10.0**2.0 - 20.0**2.0 - 30.0**2.0) < 10.0** -10.0
+    ), "Velocity wrt the Sun when looking at Orbit at the Sun does not agree"
     # lb w/ default and UVW
     o = Orbit([120.0, 60.0, 2.0, -10.0, 20.0, -25.0], lb=True, uvw=True)
     assert (
@@ -3733,9 +3718,7 @@ def test_orbit_setup_SkyCoord():
             str(rec.message.args[0])
             == "Orbit's initialization normalization ro and zo are incompatible with SkyCoord's galcen_distance (should have galcen_distance^2 = ro^2 + zo^2)"
         )
-    assert (
-        raisedWarning
-    ), "Orbit initialization with SkyCoord with galcen_distance incompatible with ro should have raised a warning, but didn't"
+    assert raisedWarning, "Orbit initialization with SkyCoord with galcen_distance incompatible with ro should have raised a warning, but didn't"
     # If ro and galcen_distance are both specified, don't warn if they *are* consistent (issue #370)
     c = apycoords.SkyCoord(
         ra=ra,
@@ -4093,11 +4076,11 @@ def test_flip():
             numpy.fabs(o._vo - of._vo) < 10.0**-15.0
         ), "o.flip() did not conserve physical scales and coordinate-transformation parameters"
         if ii == 4:
-            assert (o._zo is None) * (
-                of._zo is None
+            assert (
+                (o._zo is None) * (of._zo is None)
             ), "o.flip() did not conserve physical scales and coordinate-transformation parameters"
-            assert (o._solarmotion is None) * (
-                of._solarmotion is None
+            assert (
+                (o._solarmotion is None) * (of._solarmotion is None)
             ), "o.flip() did not conserve physical scales and coordinate-transformation parameters"
         else:
             assert (
@@ -4173,11 +4156,11 @@ def test_flip_inplace():
             numpy.fabs(o._vo - of._vo) < 10.0**-15.0
         ), "o.flip() did not conserve physical scales and coordinate-transformation parameters"
         if ii == 4:
-            assert (o._zo is None) * (
-                of._zo is None
+            assert (
+                (o._zo is None) * (of._zo is None)
             ), "o.flip() did not conserve physical scales and coordinate-transformation parameters"
-            assert (o._solarmotion is None) * (
-                of._solarmotion is None
+            assert (
+                (o._solarmotion is None) * (of._solarmotion is None)
             ), "o.flip() did not conserve physical scales and coordinate-transformation parameters"
         else:
             assert (
@@ -4266,11 +4249,11 @@ def test_flip_inplace_integrated():
             numpy.fabs(o._vo - of._vo) < 10.0**-15.0
         ), "o.flip() did not conserve physical scales and coordinate-transformation parameters"
         if ii == 4:
-            assert (o._zo is None) * (
-                of._zo is None
+            assert (
+                (o._zo is None) * (of._zo is None)
             ), "o.flip() did not conserve physical scales and coordinate-transformation parameters"
-            assert (o._solarmotion is None) * (
-                of._solarmotion is None
+            assert (
+                (o._solarmotion is None) * (of._solarmotion is None)
             ), "o.flip() did not conserve physical scales and coordinate-transformation parameters"
         else:
             assert (
@@ -4365,11 +4348,11 @@ def test_flip_inplace_integrated_evaluated():
             numpy.fabs(o._vo - of._vo) < 10.0**-15.0
         ), "o.flip() did not conserve physical scales and coordinate-transformation parameters"
         if ii == 4:
-            assert (o._zo is None) * (
-                of._zo is None
+            assert (
+                (o._zo is None) * (of._zo is None)
             ), "o.flip() did not conserve physical scales and coordinate-transformation parameters"
-            assert (o._solarmotion is None) * (
-                of._solarmotion is None
+            assert (
+                (o._solarmotion is None) * (of._solarmotion is None)
             ), "o.flip() did not conserve physical scales and coordinate-transformation parameters"
         else:
             assert (
@@ -4512,26 +4495,18 @@ def test_newOrbit():
     assert (
         numpy.fabs(nos[0].phi() - o.phi(ts[-2])) < 10.0**-10.0
     ), "New orbit formed from calling an old orbit does not have the correct phi"
-    assert not nos[
-        0
-    ]._roSet, (
-        "New orbit formed from calling an old orbit does not have the correct roSet"
-    )
-    assert not nos[
-        0
-    ]._roSet, (
-        "New orbit formed from calling an old orbit does not have the correct roSet"
-    )
-    assert not nos[
-        0
-    ]._voSet, (
-        "New orbit formed from calling an old orbit does not have the correct roSet"
-    )
-    assert not nos[
-        0
-    ]._voSet, (
-        "New orbit formed from calling an old orbit does not have the correct roSet"
-    )
+    assert (
+        not nos[0]._roSet
+    ), "New orbit formed from calling an old orbit does not have the correct roSet"
+    assert (
+        not nos[0]._roSet
+    ), "New orbit formed from calling an old orbit does not have the correct roSet"
+    assert (
+        not nos[0]._voSet
+    ), "New orbit formed from calling an old orbit does not have the correct roSet"
+    assert (
+        not nos[0]._voSet
+    ), "New orbit formed from calling an old orbit does not have the correct roSet"
     # Second t
     assert (
         numpy.fabs(nos[1].R() - o.R(ts[-1])) < 10.0**-10.0
@@ -4551,26 +4526,18 @@ def test_newOrbit():
     assert (
         numpy.fabs(nos[1].phi() - o.phi(ts[-1])) < 10.0**-10.0
     ), "New orbit formed from calling an old orbit does not have the correct phi"
-    assert not nos[
-        1
-    ]._roSet, (
-        "New orbit formed from calling an old orbit does not have the correct roSet"
-    )
-    assert not nos[
-        1
-    ]._roSet, (
-        "New orbit formed from calling an old orbit does not have the correct roSet"
-    )
-    assert not nos[
-        1
-    ]._voSet, (
-        "New orbit formed from calling an old orbit does not have the correct roSet"
-    )
-    assert not nos[
-        1
-    ]._voSet, (
-        "New orbit formed from calling an old orbit does not have the correct roSet"
-    )
+    assert (
+        not nos[1]._roSet
+    ), "New orbit formed from calling an old orbit does not have the correct roSet"
+    assert (
+        not nos[1]._roSet
+    ), "New orbit formed from calling an old orbit does not have the correct roSet"
+    assert (
+        not nos[1]._voSet
+    ), "New orbit formed from calling an old orbit does not have the correct roSet"
+    assert (
+        not nos[1]._voSet
+    ), "New orbit formed from calling an old orbit does not have the correct roSet"
     return None
 
 
@@ -4676,26 +4643,18 @@ def test_newOrbit_badinterpolation():
     assert (
         numpy.fabs(nos[0].phi() - o.phi(ts[-2])) < 10.0**-10.0
     ), "New orbit formed from calling an old orbit does not have the correct phi"
-    assert not nos[
-        0
-    ]._roSet, (
-        "New orbit formed from calling an old orbit does not have the correct roSet"
-    )
-    assert not nos[
-        0
-    ]._roSet, (
-        "New orbit formed from calling an old orbit does not have the correct roSet"
-    )
-    assert not nos[
-        0
-    ]._voSet, (
-        "New orbit formed from calling an old orbit does not have the correct roSet"
-    )
-    assert not nos[
-        0
-    ]._voSet, (
-        "New orbit formed from calling an old orbit does not have the correct roSet"
-    )
+    assert (
+        not nos[0]._roSet
+    ), "New orbit formed from calling an old orbit does not have the correct roSet"
+    assert (
+        not nos[0]._roSet
+    ), "New orbit formed from calling an old orbit does not have the correct roSet"
+    assert (
+        not nos[0]._voSet
+    ), "New orbit formed from calling an old orbit does not have the correct roSet"
+    assert (
+        not nos[0]._voSet
+    ), "New orbit formed from calling an old orbit does not have the correct roSet"
     # Second t
     assert (
         numpy.fabs(nos[1].R() - o.R(ts[-1])) < 10.0**-10.0
@@ -4715,26 +4674,18 @@ def test_newOrbit_badinterpolation():
     assert (
         numpy.fabs(nos[1].phi() - o.phi(ts[-1])) < 10.0**-10.0
     ), "New orbit formed from calling an old orbit does not have the correct phi"
-    assert not nos[
-        1
-    ]._roSet, (
-        "New orbit formed from calling an old orbit does not have the correct roSet"
-    )
-    assert not nos[
-        1
-    ]._roSet, (
-        "New orbit formed from calling an old orbit does not have the correct roSet"
-    )
-    assert not nos[
-        1
-    ]._voSet, (
-        "New orbit formed from calling an old orbit does not have the correct roSet"
-    )
-    assert not nos[
-        1
-    ]._voSet, (
-        "New orbit formed from calling an old orbit does not have the correct roSet"
-    )
+    assert (
+        not nos[1]._roSet
+    ), "New orbit formed from calling an old orbit does not have the correct roSet"
+    assert (
+        not nos[1]._roSet
+    ), "New orbit formed from calling an old orbit does not have the correct roSet"
+    assert (
+        not nos[1]._voSet
+    ), "New orbit formed from calling an old orbit does not have the correct roSet"
+    assert (
+        not nos[1]._voSet
+    ), "New orbit formed from calling an old orbit does not have the correct roSet"
     # Try point in between, shouldn't work
     try:
         no = o(0.6)
@@ -7420,9 +7371,7 @@ def test_orbitint_dissipativefallback():
                 str(rec.message.args[0])
                 == "Cannot use symplectic integration because some of the included forces are dissipative (using non-symplectic integrator odeint instead)"
             )
-        assert (
-            raisedWarning
-        ), "Orbit integration with symplectic integrator for dissipative force did not raise fallback warning"
+        assert raisedWarning, "Orbit integration with symplectic integrator for dissipative force did not raise fallback warning"
     return None
 
 

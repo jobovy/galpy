@@ -143,9 +143,7 @@ def test_progenitor_coordtransformparams():
             )
             if raisedWarning:
                 break
-        assert (
-            raisedWarning
-        ), "streamdf setup does not raise warning when progenitor's  ro is different from ro"
+        assert raisedWarning, "streamdf setup does not raise warning when progenitor's  ro is different from ro"
     # Test w/ diff R0
     with warnings.catch_warnings(record=True) as w:
         warnings.simplefilter("always", galpyWarning)
@@ -169,9 +167,7 @@ def test_progenitor_coordtransformparams():
             )
             if raisedWarning:
                 break
-        assert (
-            raisedWarning
-        ), "streamdf setup does not raise warning when progenitor's  ro is different from R0"
+        assert raisedWarning, "streamdf setup does not raise warning when progenitor's  ro is different from R0"
     # Test w/ diff Vnorm
     with warnings.catch_warnings(record=True) as w:
         warnings.simplefilter("always", galpyWarning)
@@ -197,9 +193,7 @@ def test_progenitor_coordtransformparams():
             )
             if raisedWarning:
                 break
-        assert (
-            raisedWarning
-        ), "streamdf setup does not raise warning when progenitor's  vo is different from vo"
+        assert raisedWarning, "streamdf setup does not raise warning when progenitor's  vo is different from vo"
     # Test w/ diff zo
     with warnings.catch_warnings(record=True) as w:
         warnings.simplefilter("always", galpyWarning)
@@ -226,9 +220,7 @@ def test_progenitor_coordtransformparams():
             )
             if raisedWarning:
                 break
-        assert (
-            raisedWarning
-        ), "streamdf setup does not raise warning when progenitor's  zo is different from Zsun"
+        assert raisedWarning, "streamdf setup does not raise warning when progenitor's  zo is different from Zsun"
     # Test w/ diff vsun
     with warnings.catch_warnings(record=True) as w:
         warnings.simplefilter("always", galpyWarning)
@@ -256,9 +248,7 @@ def test_progenitor_coordtransformparams():
             )
             if raisedWarning:
                 break
-        assert (
-            raisedWarning
-        ), "streamdf setup does not raise warning when progenitor's  solarmotion is different from vsun"
+        assert raisedWarning, "streamdf setup does not raise warning when progenitor's  solarmotion is different from vsun"
     return None
 
 
@@ -276,13 +266,11 @@ def test_bovy14_freqratio(bovy14_setup):
     sdf_bovy14 = bovy14_setup
     # Test the frequency ratio
     assert (
-        sdf_bovy14.freqEigvalRatio() - 30.0
-    ) ** 2.0 < 10.0**0.0, (
-        "streamdf model from Bovy (2014) does not give a frequency ratio of about 30"
-    )
+        (sdf_bovy14.freqEigvalRatio() - 30.0) ** 2.0 < 10.0** 0.0
+    ), "streamdf model from Bovy (2014) does not give a frequency ratio of about 30"
     assert (
-        sdf_bovy14.freqEigvalRatio(isotropic=True) - 34.0
-    ) ** 2.0 < 10.0**0.0, "streamdf model from Bovy (2014) does not give an isotropic frequency ratio of about 34"
+        (sdf_bovy14.freqEigvalRatio(isotropic=True) - 34.0) ** 2.0 < 10.0** 0.0
+    ), "streamdf model from Bovy (2014) does not give an isotropic frequency ratio of about 34"
     return None
 
 
@@ -291,11 +279,12 @@ def test_bovy14_misalignment(bovy14_setup):
     sdf_bovy14 = bovy14_setup
     # Test the misalignment
     assert (
-        sdf_bovy14.misalignment() / numpy.pi * 180.0 + 0.5
-    ) ** 2.0 < 10.0**-2.0, "streamdf model from Bovy (2014) does not give a misalighment of about -0.5 degree"
+        (sdf_bovy14.misalignment() / numpy.pi * 180.0 + 0.5) ** 2.0 < 10.0** -2.0
+    ), "streamdf model from Bovy (2014) does not give a misalighment of about -0.5 degree"
     assert (
-        sdf_bovy14.misalignment(isotropic=True) / numpy.pi * 180.0 - 1.3
-    ) ** 2.0 < 10.0**-2.0, "streamdf model from Bovy (2014) does not give an isotropic misalighment of about 1.3 degree"
+        (sdf_bovy14.misalignment(isotropic=True) / numpy.pi * 180.0 - 1.3) ** 2.0
+        < 10.0** -2.0
+    ), "streamdf model from Bovy (2014) does not give an isotropic misalighment of about 1.3 degree"
     return None
 
 
@@ -2810,11 +2799,12 @@ def check_closest_trackpoint(sdf, trackp, usev=False, xy=True, interp=True):
         xy=xy,
         usev=usev,
     )
-    assert (
-        indx == trackp
-    ), "Closest trackpoint to close to a trackpoint is not that trackpoint (%i,%i)" % (
-        indx,
-        trackp,
+    assert indx == trackp, (
+        "Closest trackpoint to close to a trackpoint is not that trackpoint (%i,%i)"
+        % (
+            indx,
+            trackp,
+        )
     )
     return None
 
