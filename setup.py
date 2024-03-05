@@ -286,7 +286,7 @@ class BuildExt(build_ext):
 setup(
     cmdclass=dict(build_ext=BuildExt),  # this to allow compiler check above
     name="galpy",
-    version="1.9.2.dev0",
+    version="1.9.2",
     description="Galactic Dynamics in python",
     author="Jo Bovy",
     author_email="bovy@astro.utoronto.ca",
