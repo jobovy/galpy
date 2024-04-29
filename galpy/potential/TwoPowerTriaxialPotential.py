@@ -126,7 +126,7 @@ class TwoPowerTriaxialPotential(EllipsoidalPotential):
         return None
 
     def _psi(self, m):
-        """\\psi(m) = -\\int_m^\\infty d m^2 \rho(m^2)"""
+        r"""\psi(m) = -\int_{m^2}^\infty d m'^2 \rho(m'^2)"""
         if self.twominusalpha == 0.0:
             return (
                 -2.0
