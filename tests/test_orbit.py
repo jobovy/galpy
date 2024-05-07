@@ -111,6 +111,7 @@ def test_energy_jacobi_conservation(pot, ttol, tjactol, firstTest):
         "rk6_c",
         "symplec4_c",
         "symplec6_c",
+        "ias15_c",
     ]
     try:
         tclass = getattr(potential, pot)
@@ -531,6 +532,7 @@ def test_energy_conservation_linear(pot, ttol, firstTest):
         "rk6_c",
         "symplec4_c",
         "symplec6_c",
+        "ias15_c",
     ]
     # Setup instance of potential
     try:
@@ -1151,6 +1153,7 @@ def test_eccentricity():
         "leapfrog",
         "leapfrog_c",
         "rk4_c",
+        "ias15_c",
         "rk6_c",
         "symplec4_c",
         "symplec6_c",
@@ -1328,6 +1331,7 @@ def test_pericenter():
         "rk6_c",
         "symplec4_c",
         "symplec6_c",
+        "ias15_c",
     ]
     # Grab all of the potentials
     pots = [
@@ -1501,6 +1505,7 @@ def test_apocenter():
         "rk6_c",
         "symplec4_c",
         "symplec6_c",
+        "ias15_c",
     ]
     # Grab all of the potentials
     pots = [
@@ -1675,6 +1680,7 @@ def test_zmax():
         "rk6_c",
         "symplec4_c",
         "symplec6_c",
+        "ias15_c",
     ]
     # Grab all of the potentials
     pots = [
@@ -1833,6 +1839,7 @@ def test_analytic_ecc_rperi_rap():
         "rk6_c",
         "symplec4_c",
         "symplec6_c",
+        "ias15_c",
     ]
     # Grab all of the potentials
     pots = [
@@ -2464,6 +2471,7 @@ def test_analytic_zmax():
         "rk6_c",
         "symplec4_c",
         "symplec6_c",
+        "ias15_c",
     ]
     # Grab all of the potentials
     pots = [
@@ -9470,6 +9478,7 @@ def test_integrate_negative_time():
         "symplec6_c",
         "dopr54_c",
         "dop853_c",
+        "ias15_c"
     ]
     # negative time to negative time
     times = numpy.linspace(-70.0, -30.0, 1001)
@@ -9506,6 +9515,7 @@ def test_integrate_backwards():
         "symplec6_c",
         "dopr54_c",
         "dop853_c",
+        "ias15_c"
     ]
     # negative time to negative time
     times = numpy.linspace(-30.0, -70.0, 1001)

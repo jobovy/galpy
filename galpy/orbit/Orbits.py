@@ -1287,6 +1287,7 @@ class Orbit:
             "rk6_c",
             "dopr54_c",
             "dop853_c",
+            "ias15_c"
         ]
         if no_symplec:
             symplec_methods = [

@@ -7,6 +7,7 @@
 #include <math.h>
 #include <bovy_symplecticode.h>
 #include <bovy_rk.h>
+#include <wez_ias15.h>
 #include <leung_dop853.h>
 #include <integrateFullOrbit.h>
 //Potentials
@@ -191,6 +192,11 @@ EXPORT void integrateLinearOrbit(int nobj,
     odeint_func= &dop853;
     odeint_deriv_func= &evalLinearDeriv;
     dim= 2;
+    break;
+  case 7: //ias15
+    odeint_func= &wez_ias15;
+    odeint_deriv_func= &evalLinearForce;
+    dim= 1;
     break;
   }
 #pragma omp parallel for schedule(dynamic,ORBITS_CHUNKSIZE) private(ii) num_threads(max_threads)
