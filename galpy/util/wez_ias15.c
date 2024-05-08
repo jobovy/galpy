@@ -252,6 +252,12 @@ void wez_ias15(void (*func)(double t, double *q, double *a, int nargs, struct po
   }
   
   long ndt= (long) (init_dt/dt);
+  int timestep_sign;
+  if(init_dt > 0){
+    timestep_sign = 1;
+  } else {
+    timestep_sign = -1;
+  }
 
   double to= *t;
   // Handle KeyboardInterrupt gracefully
@@ -277,13 +283,13 @@ void wez_ias15(void (*func)(double t, double *q, double *a, int nargs, struct po
     }
 
     //WHILE THERE IS TIME REMAINING, INTEGRATE A DYNAMIC TIMESTEP FORWARD AND SUBTRACT FROM THE TIME REMAINING
-    double time_remaining = init_dt;
-    
+    double time_remaining = fabs(init_dt);
+
     while(time_remaining > 0) {
       double to_temp;
-      double dt_temp; //keeping an extra dt variable in case I want to change my dynamic strategy, I take the min of time remaining and dt, so not sure how taking the time remaining might effect the next dynamic time step
-      if (time_remaining < dt){
-        dt_temp = time_remaining;
+      double dt_temp; 
+      if (time_remaining < fabs(dt)){
+        dt_temp = timestep_sign *  time_remaining;
       } else {
         dt_temp = dt;
       }
@@ -359,12 +365,12 @@ void wez_ias15(void (*func)(double t, double *q, double *a, int nargs, struct po
 
       double dt_required = dt_temp * pow(precision_parameter / (max_B6/max_a), 1.0/7.0);
 
-      if(dt_temp > dt_required){
+      if(fabs(dt_temp) > fabs(dt_required)){
         //rejected, try again with dt required
         dt = dt_required; 
       } else {
         //accepted, update position/velocity and do next timestep with dt required
-        time_remaining -= dt; //will eventually get negative as we stepped forward the minimum of dt and time_remaining
+        time_remaining -= fabs(dt); //will eventually get negative as we stepped forward the minimum of dt and time_remaining
         to = to_temp;
 
         update_position(x, x, v, dim, 1, dt_temp, Fs, Bs);
