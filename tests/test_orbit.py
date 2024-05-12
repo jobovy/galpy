@@ -9478,7 +9478,7 @@ def test_integrate_negative_time():
         "symplec6_c",
         "dopr54_c",
         "dop853_c",
-        "ias15_c"
+        "ias15_c",
     ]
     # negative time to negative time
     times = numpy.linspace(-70.0, -30.0, 1001)
@@ -9515,7 +9515,7 @@ def test_integrate_backwards():
         "symplec6_c",
         "dopr54_c",
         "dop853_c",
-        "ias15_c"
+        "ias15_c",
     ]
     # negative time to negative time
     times = numpy.linspace(-30.0, -70.0, 1001)

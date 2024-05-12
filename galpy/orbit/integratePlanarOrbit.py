@@ -619,7 +619,7 @@ def _parse_integrator(int_method):
     elif int_method.lower() == "dop853_c":
         int_method_c = 6
     elif int_method.lower() == "ias15_c":
-        int_method_c = 7 
+        int_method_c = 7
     else:
         int_method_c = 0
     return int_method_c

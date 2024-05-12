@@ -208,18 +208,18 @@ Usage:
 void wez_ias15(void (*func)(double t, double *q, double *a, int nargs, struct potentialArg * potentialArgs),
     int dim,
     double * yo,
-    int nt, 
-    double dt, 
+    int nt,
+    double dt,
     double *t,
-    int nargs, 
+    int nargs,
     struct potentialArg * potentialArgs,
-    double rtol, 
+    double rtol,
     double atol,
-    double *result, 
+    double *result,
     int * err){
   //Declare and initialize
   double *x= (double *) malloc ( dim * sizeof(double) );
-  double *v= (double *) malloc ( dim * sizeof(double) ); 
+  double *v= (double *) malloc ( dim * sizeof(double) );
   double *a= (double *) malloc ( dim * sizeof(double) );
   double *xs= (double *) malloc ( dim * sizeof(double) ); //x substep
 
@@ -238,7 +238,7 @@ void wez_ias15(void (*func)(double t, double *q, double *a, int nargs, struct po
 
   x-= dim;
   v-= dim;
-  
+
   double diff_G;
 
   save_ias15(dim, x, v, result);
@@ -248,9 +248,9 @@ void wez_ias15(void (*func)(double t, double *q, double *a, int nargs, struct po
   //Estimate necessary stepsize, use the returned time interval if the user does not provide
   double init_dt= (*(t+1))-(*t);
   if ( dt == -9999.99 ) {
-    dt = init_dt; 
+    dt = init_dt;
   }
-  
+
   long ndt= (long) (init_dt/dt);
   int timestep_sign;
   if(init_dt > 0){
@@ -287,7 +287,7 @@ void wez_ias15(void (*func)(double t, double *q, double *a, int nargs, struct po
 
     while(time_remaining > 0) {
       double to_temp;
-      double dt_temp; 
+      double dt_temp;
       if (time_remaining < fabs(dt)){
         dt_temp = timestep_sign *  time_remaining;
       } else {
@@ -304,7 +304,7 @@ void wez_ias15(void (*func)(double t, double *q, double *a, int nargs, struct po
 
       int iterations = 0;
       double integrator_error = integrator_error_threshold + 1; //init value above the threshold
-      while(true){ 
+      while(true){
         if(iterations == 12){
           //TODO: spit the dummy
           //printf("Iterations took over 12, break iteration, break iteration loop\n");
@@ -316,7 +316,7 @@ void wez_ias15(void (*func)(double t, double *q, double *a, int nargs, struct po
 
         //at start of each step reset xs
         for (int l=0; l < dim; l++) *(xs+l)= *(x+l);
-        
+
         double max_delta_B6 = 0.0; //also = max delta G
         double max_a = 0.0;
         for (int k=1; k < (order + 1); k++){
@@ -349,7 +349,7 @@ void wez_ias15(void (*func)(double t, double *q, double *a, int nargs, struct po
         iterations += 1;
       }
 
-      //global error strategy for timestep 
+      //global error strategy for timestep
       double max_B6 = 0.0;
       double max_a = 0.0;
       for (int i=0; i < dim; i++){
@@ -367,7 +367,7 @@ void wez_ias15(void (*func)(double t, double *q, double *a, int nargs, struct po
 
       if(fabs(dt_temp) > fabs(dt_required)){
         //rejected, try again with dt required
-        dt = dt_required; 
+        dt = dt_required;
       } else {
         //accepted, update position/velocity and do next timestep with dt required
         time_remaining -= fabs(dt); //will eventually get negative as we stepped forward the minimum of dt and time_remaining
@@ -376,9 +376,9 @@ void wez_ias15(void (*func)(double t, double *q, double *a, int nargs, struct po
         update_position(x, x, v, dim, 1, dt_temp, Fs, Bs);
         update_velocity(v, v, dim, 1, dt_temp, Fs , Bs);
         next_sequence_Bs(1, Bs, Es, BDs, dim);
-        
+
         //finally, update the next step
-        dt = dt_required; 
+        dt = dt_required;
       }
     }
 
@@ -405,36 +405,36 @@ void wez_ias15(void (*func)(double t, double *q, double *a, int nargs, struct po
 }
 
 void update_velocity(double *v, double *v1, int dim, double h_n, double T, double * Fs , double * Bs){
-     for (int ii=0; ii < dim; ii++){ 
-        *(v+ii) = *(v1+ii) + 
-        (h_n * T * 
-        (Fs[ii * (order + 1) + 0] + h_n * 
-        (Bs[ii * order + 0]/2 + h_n * 
-        (Bs[ii * order + 1]/3 + h_n * 
-        (Bs[ii * order + 2]/4 + h_n * 
-        (Bs[ii * order + 3]/5 + h_n * 
-        (Bs[ii * order + 4]/6 + h_n * 
-        (Bs[ii * order + 5]/7 + h_n * 
-        (Bs[ii * order + 6]/8 //+ h_n * 
+     for (int ii=0; ii < dim; ii++){
+        *(v+ii) = *(v1+ii) +
+        (h_n * T *
+        (Fs[ii * (order + 1) + 0] + h_n *
+        (Bs[ii * order + 0]/2 + h_n *
+        (Bs[ii * order + 1]/3 + h_n *
+        (Bs[ii * order + 2]/4 + h_n *
+        (Bs[ii * order + 3]/5 + h_n *
+        (Bs[ii * order + 4]/6 + h_n *
+        (Bs[ii * order + 5]/7 + h_n *
+        (Bs[ii * order + 6]/8 //+ h_n *
         //(Bs[ii * order + 7]/9
         )))))))));
      }
 }
-    
+
 
 void update_position(double *y, double *y1, double *v, int dim, double h_n, double T, double * Fs, double * Bs){
-    for (int ii=0; ii < dim; ii++){ 
-      *(y+ii) = *(y1+ii) +  
-        (*(v+ii) * h_n * T) + 
-        ((h_n * T)*(h_n * T)) * 
-        (Fs[ii * (order + 1) + 0]/2 + h_n * 
-        (Bs[ii * order + 0]/6 + h_n * 
-        (Bs[ii * order + 1]/12 + h_n * 
-        (Bs[ii * order + 2]/20 + h_n * 
-        (Bs[ii * order + 3]/30 + h_n * 
-        (Bs[ii * order + 4]/42 + h_n * 
-        (Bs[ii * order + 5]/56 + h_n * 
-        (Bs[ii * order + 6]/72 //+ h_n * 
+    for (int ii=0; ii < dim; ii++){
+      *(y+ii) = *(y1+ii) +
+        (*(v+ii) * h_n * T) +
+        ((h_n * T)*(h_n * T)) *
+        (Fs[ii * (order + 1) + 0]/2 + h_n *
+        (Bs[ii * order + 0]/6 + h_n *
+        (Bs[ii * order + 1]/12 + h_n *
+        (Bs[ii * order + 2]/20 + h_n *
+        (Bs[ii * order + 3]/30 + h_n *
+        (Bs[ii * order + 4]/42 + h_n *
+        (Bs[ii * order + 5]/56 + h_n *
+        (Bs[ii * order + 6]/72 //+ h_n *
         //(Bs[ii * order + 7]/90)
         ))))))));
     }
@@ -532,7 +532,7 @@ void update_Bs_from_Gs(int current_truncation_order, int i, double * Bs, double 
     Bs[j + 2] +=  diff_G * c_4_2;
     Bs[j + 3] +=  diff_G * c_4_3;
     Bs[j + 4] +=  diff_G;
-  } 
+  }
   if (current_truncation_order == 6){
     Bs[j    ] +=  diff_G * c_5_0;
     Bs[j + 1] +=  diff_G * c_5_1;
