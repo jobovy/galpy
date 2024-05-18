@@ -32,7 +32,13 @@ class RotateAndTiltWrapperPotential(WrapperPotential):
 
     * A rotation around the original z-axis (`galaxy_pa`), the `inclination`, and a rotation around the new z axis (`sky_pa`).
 
-    The second option allows one to specify the inclination and sky position angle (measured from North) in the usual manner in extragalactic observations.
+    The second option allows one to specify the inclination and sky position angle (measured from North) in the usual manner in extragalactic observations, that is, the relation between the observed coordinates :math:`(x',y',z')` and the intrinsic coordinates :math:`(x,y,z)` is given by
+
+    .. math::
+
+        \\begin{pmatrix} x \\\\ y \\\\ z \\end{pmatrix} = \\begin{pmatrix} \\phantom{-}\\cos(\\text{PA}_\\text{gal}) & \\sin(\\text{PA}_\\text{gal}) & 0 \\\\ -\\sin(\\text{PA}_\\text{gal}) & \\cos(\\text{PA}_\\text{gal}) & 0 \\\\ 0 & 0 & 1 \\end{pmatrix} \\begin{pmatrix} 1 & 0 & 0 \\\\ 0 & \\phantom{-}\\cos i & \\sin i \\\\ 0 & -\\sin i & \\cos i \\end{pmatrix} \\begin{pmatrix} \\sin(\\text{PA}_\\text{sky}) & -\\cos(\\text{PA}_\\text{sky}) & 0 \\\\ \\cos(\\text{PA}_\\text{sky}) & \\phantom{-}\\sin(\\text{PA}_\\text{sky}) & 0 \\\\ 0 & 0 & 1 \\end{pmatrix} \\begin{pmatrix} x' \\\\ y' \\\\ z' \\end{pmatrix}\\,,
+
+
     A final `offset` option allows one to apply a static offset in Cartesian coordinate space to be applied to the potential following the rotation and tilt.
     """
 
