@@ -157,7 +157,7 @@ def test_energy_jacobi_conservation(pot, ttol, tjactol, firstTest):
         ):
             assert (numpy.std(tEs) / numpy.mean(tEs)) ** 2.0 < 10.0**ttol, (
                 "Energy conservation during the orbit integration fails for potential %s and integrator %s by %g"
-                % (p, integrator, (numpy.std(tEs) / numpy.mean(tEs)))
+                % (pot, integrator, (numpy.std(tEs) / numpy.mean(tEs)))
             )
         # Jacobi
         if (
@@ -179,7 +179,7 @@ def test_energy_jacobi_conservation(pot, ttol, tjactol, firstTest):
         #            print(p, (numpy.std(tJacobis)/numpy.mean(tJacobis))**2.)
         assert (numpy.std(tJacobis) / numpy.mean(tJacobis)) ** 2.0 < 10.0**tjactol, (
             "Jacobi integral conservation during the orbit integration fails for potential %s and integrator %s at the %g level"
-            % (p, integrator, (numpy.std(tJacobis) / numpy.mean(tJacobis)) ** 2.0)
+            % (pot, integrator, (numpy.std(tJacobis) / numpy.mean(tJacobis)) ** 2.0)
         )
         if firstTest or "testMWPotential" in pot:
             # Some basic checking of the energy and Jacobi functions
@@ -255,7 +255,7 @@ def test_energy_jacobi_conservation(pot, ttol, tjactol, firstTest):
             #            print p, integrator, (numpy.std(tEs)/numpy.mean(tEs))**2.
             assert (numpy.std(tEs) / numpy.mean(tEs)) ** 2.0 < 10.0**ttol, (
                 "Energy conservation during the orbit integration fails for potential %s and integrator %s by %g"
-                % (p, integrator, (numpy.std(tEs) / numpy.mean(tEs)) ** 2.0)
+                % (pot, integrator, (numpy.std(tEs) / numpy.mean(tEs)) ** 2.0)
             )
             # Jacobi
             tJacobis = o.Jacobi(ttimes)
@@ -263,7 +263,7 @@ def test_energy_jacobi_conservation(pot, ttol, tjactol, firstTest):
                 numpy.std(tJacobis) / numpy.mean(tJacobis)
             ) ** 2.0 < 10.0**tjactol, (
                 "Jacobi integral conservation during the orbit integration fails for potential %s and integrator %s"
-                % (p, integrator)
+                % (pot, integrator)
             )
             if firstTest or "MWPotential" in pot:
                 # Some basic checking of the energy function
@@ -326,7 +326,7 @@ def test_energy_jacobi_conservation(pot, ttol, tjactol, firstTest):
             #                print(p, integrator, (numpy.std(tEs)/numpy.mean(tEs))**2.)
             assert (numpy.std(tEs) / numpy.mean(tEs)) ** 2.0 < 10.0**ttol, (
                 "Energy conservation during the orbit integration fails for potential %s and integrator %s"
-                % (p, integrator)
+                % (pot, integrator)
             )
             # Jacobi
             tJacobis = o.Jacobi(ttimes)
@@ -334,7 +334,7 @@ def test_energy_jacobi_conservation(pot, ttol, tjactol, firstTest):
                 numpy.std(tJacobis) / numpy.mean(tJacobis)
             ) ** 2.0 < 10.0**tjactol, (
                 "Jacobi integral conservation during the orbit integration fails for potential %s and integrator %s"
-                % (p, integrator)
+                % (pot, integrator)
             )
             if firstTest or "MWPotential" in pot:
                 # Some basic checking of the energy function
@@ -389,7 +389,7 @@ def test_energy_jacobi_conservation(pot, ttol, tjactol, firstTest):
         if not "Bar" in pot and not "Spiral" in pot:
             assert (numpy.std(tEs) / numpy.mean(tEs)) ** 2.0 < 10.0**ttol, (
                 "Energy conservation during the orbit integration fails for potential %s and integrator %s by %g"
-                % (p, integrator, (numpy.std(tEs) / numpy.mean(tEs)) ** 2.0)
+                % (pot, integrator, (numpy.std(tEs) / numpy.mean(tEs)) ** 2.0)
             )
         # Jacobi
         if (
@@ -403,7 +403,7 @@ def test_energy_jacobi_conservation(pot, ttol, tjactol, firstTest):
             tJacobis = o.Jacobi(ttimes)
         assert (numpy.std(tJacobis) / numpy.mean(tJacobis)) ** 2.0 < 10.0**tjactol, (
             "Jacobi integral conservation during the orbit integration fails by %g for potential %s and integrator %s"
-            % ((numpy.std(tJacobis) / numpy.mean(tJacobis)) ** 2.0, p, integrator)
+            % ((numpy.std(tJacobis) / numpy.mean(tJacobis)) ** 2.0, pot, integrator)
         )
         if firstTest or "MWPotential" in pot:
             # Some basic checking of the energy function
@@ -458,7 +458,7 @@ def test_energy_jacobi_conservation(pot, ttol, tjactol, firstTest):
             # print(p, integrator, (numpy.std(tEs)/numpy.mean(tEs))**2.)
             assert (numpy.std(tEs) / numpy.mean(tEs)) ** 2.0 < 10.0**ttol, (
                 "Energy conservation during the orbit integration fails for potential %s and integrator %s by %g"
-                % (p, integrator, (numpy.std(tEs) / numpy.mean(tEs)) ** 2.0)
+                % (pot, integrator, (numpy.std(tEs) / numpy.mean(tEs)) ** 2.0)
             )
             # Jacobi
             if (
@@ -474,7 +474,7 @@ def test_energy_jacobi_conservation(pot, ttol, tjactol, firstTest):
                 numpy.std(tJacobis) / numpy.mean(tJacobis)
             ) ** 2.0 < 10.0**tjactol, (
                 "Jacobi integral conservation during the orbit integration fails for potential %s and integrator %s"
-                % (p, integrator)
+                % (pot, integrator)
             )
         # Same for a planarPotential, track azimuth
         o = setup_orbit_energy(ptp, axi=False)
@@ -487,7 +487,7 @@ def test_energy_jacobi_conservation(pot, ttol, tjactol, firstTest):
         if not "Bar" in pot and not "Spiral" in pot:
             assert (numpy.std(tEs) / numpy.mean(tEs)) ** 2.0 < 10.0**ttol, (
                 "Energy conservation during the orbit integration fails for potential %s and integrator %s"
-                % (p, integrator)
+                % (pot, integrator)
             )
         # Jacobi
         if (
@@ -501,7 +501,7 @@ def test_energy_jacobi_conservation(pot, ttol, tjactol, firstTest):
             tJacobis = o.Jacobi(ttimes)
         assert (numpy.std(tJacobis) / numpy.mean(tJacobis)) ** 2.0 < 10.0**tjactol, (
             "Jacobi integral conservation during the orbit integration fails for potential %s and integrator %s"
-            % (p, integrator)
+            % (pot, integrator)
         )
         if _QUICKTEST and not (
             ("NFW" in pot and not tp.isNonAxi and "SCF" not in pot)
@@ -584,7 +584,7 @@ def test_energy_conservation_linear(pot, ttol, firstTest):
         ):
             assert (numpy.std(tEs) / numpy.mean(tEs)) ** 2.0 < 10.0**ttol, (
                 "Energy conservation during the orbit integration fails for potential %s and integrator %s by %g"
-                % (p, integrator, (numpy.std(tEs) / numpy.mean(tEs)))
+                % (pot, integrator, (numpy.std(tEs) / numpy.mean(tEs)))
             )
         if firstTest or "testMWPotential" in pot or "linearMWPotential" in pot:
             # Some basic checking of the energy function
