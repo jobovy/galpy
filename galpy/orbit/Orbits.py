@@ -4092,7 +4092,7 @@ class Orbit:
         if self.dim() != 3:
             raise AttributeError("Orbit must be 3D to use theta()")
         else:
-            return numpy.arctan2(thiso[0], thiso[3])
+            return numpy.arctan2(thiso[0], thiso[3]).T
 
     @physical_conversion("angle_deg")
     @shapeDecorator
