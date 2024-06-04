@@ -33,7 +33,7 @@ repos:
   rev: "v2.3.0"
   hooks:
     - id: codespell
-      args: ["-L", "thisE,thise,mye,tE,te,hist,ro,sav,ccompiler,aas",
+      args: ["-L", "thisE,thise,mye,tE,te,hist,ro,sav,ccompiler,aas,floatIn,dOmin",
       "-x","doc/source/_static/try-galpy.js"]
 - repo: https://github.com/astral-sh/ruff-pre-commit
   rev: v0.4.7
