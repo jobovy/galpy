@@ -2253,7 +2253,7 @@ def test_integrate_SOS_psiQuantity():
     ), "Orbit SOS integrated with psis specified as Quantity does not agree with Orbit integrated with time specified as array"
     assert numpy.all(
         numpy.fabs(o.z(o.t) - oc.z(oc.t)).value < 10.0**-8.0
-    ), "Orbit SOS ntegrated with psis specified as Quantity does not agree with Orbit integrated with time specified as array"
+    ), "Orbit SOS integrated with psis specified as Quantity does not agree with Orbit integrated with time specified as array"
     assert numpy.all(
         numpy.fabs(o.vx(o.t) - oc.vx(oc.t)).value < 10.0**-8.0
     ), "Orbit SOS integrated with psis specified as Quantity does not agree with Orbit integrated with time specified as array"

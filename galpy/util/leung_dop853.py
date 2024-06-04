@@ -241,7 +241,7 @@ def hinit(func, x, t, pos_neg, f0, iord, hmax, rtol, atol, args):
 
 def dense_output(t_current, t_old, h_current, rcont):
     """
-    Dense output function, basically extrapolatin
+    Dense output function, basically extrapolating
     """
     # initialization
     s = (t_current - t_old) / h_current
