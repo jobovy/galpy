@@ -238,6 +238,10 @@ void wez_ias15(void (*func)(double t, double *q, double *a, int nargs, struct po
 
   x-= dim;
   v-= dim;
+  
+  for(int i=0; i < (order * dim); i++){
+    Bs[i] = 0;
+  }
 
   double diff_G;
 
@@ -286,13 +290,15 @@ void wez_ias15(void (*func)(double t, double *q, double *a, int nargs, struct po
     double time_remaining = fabs(init_dt);
 
     while(time_remaining > 0) {
+      
       double to_temp;
       double dt_temp;
       if (time_remaining < fabs(dt)){
-        dt_temp = timestep_sign *  time_remaining;
+        dt_temp = timestep_sign * time_remaining;
       } else {
         dt_temp = dt;
       }
+
       to_temp = to + dt_temp;
 
       func(to_temp,x,a,nargs,potentialArgs);
@@ -322,6 +328,7 @@ void wez_ias15(void (*func)(double t, double *q, double *a, int nargs, struct po
         for (int k=1; k < (order + 1); k++){
             //update position, update force, update G, update B
             update_position(xs, x, v, dim, h[k], dt_temp, Fs, Bs);
+
             func(to_temp,xs,a,nargs,potentialArgs);
             for (int i=0; i < dim; i++){
               Fs[i * (order + 1) + k] = a[i];
@@ -363,7 +370,15 @@ void wez_ias15(void (*func)(double t, double *q, double *a, int nargs, struct po
         }
       };
 
-      double dt_required = dt_temp * pow(precision_parameter / (max_B6/max_a), 1.0/7.0);
+      //fix for inf values issue
+      double dt_required;
+      double correction_factor = pow(precision_parameter / (max_B6/max_a), 1.0/7.0);
+
+      if (isnormal(correction_factor)){
+        dt_required = dt_temp * correction_factor;
+      } else{
+        dt_required = dt_temp;
+      }
 
       if(fabs(dt_temp) > fabs(dt_required)){
         //rejected, try again with dt required
