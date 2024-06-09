@@ -238,7 +238,7 @@ void wez_ias15(void (*func)(double t, double *q, double *a, int nargs, struct po
 
   x-= dim;
   v-= dim;
-  
+
   for(int i=0; i < (order * dim); i++){
     Bs[i] = 0;
   }
@@ -290,7 +290,7 @@ void wez_ias15(void (*func)(double t, double *q, double *a, int nargs, struct po
     double time_remaining = fabs(init_dt);
 
     while(time_remaining > 0) {
-      
+
       double to_temp;
       double dt_temp;
       if (time_remaining < fabs(dt)){
