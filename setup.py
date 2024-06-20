@@ -15,9 +15,12 @@ WIN32 = platform.system() == "Windows"
 MACOS = platform.system() == "Darwin"
 # homebrew directory for MacOS is different on Intel and Apple Silicon
 try:
-    MACOS_BREW_PREFIX = subprocess.Popen(
-        ["brew", "--prefix"], stdout=subprocess.PIPE
-    ).communicate()[0].decode("utf-8").replace("\n", "")
+    MACOS_BREW_PREFIX = (
+        subprocess.Popen(["brew", "--prefix"], stdout=subprocess.PIPE)
+        .communicate()[0]
+        .decode("utf-8")
+        .replace("\n", "")
+    )
 except FileNotFoundError:
     # if not homebrew, set to empty string
     # the code should work without homebrew as well (users use conda or other package managers)
