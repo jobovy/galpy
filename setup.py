@@ -13,6 +13,16 @@ from setuptools.errors import PlatformError
 
 PY3 = sys.version > "3"
 WIN32 = platform.system() == "Windows"
+MACOS = platform.system() == "Darwin"
+# homebrew directory for MacOS is different on Intel and Apple Silicon
+try:
+    MACOS_BREW_PREFIX = subprocess.Popen(
+        ["brew", "--prefix"], stdout=subprocess.PIPE
+    ).communicate()[0].decode("utf-8").replace("\n", "")
+except FileNotFoundError:
+    # if not homebrew, set to empty string
+    # the code should work without homebrew as well (users use conda or other package managers)
+    MACOS_BREW_PREFIX = ""
 no_compiler = False  # Flag for cases where we are sure there is no compiler exists in user's system
 
 long_description = ""
@@ -41,7 +51,9 @@ galpy_c_libraries = ["m", "gsl", "gslcblas", "gomp"]
 if WIN32:
     # On Windows it's unnecessary and erroneous to include m
     galpy_c_libraries.remove("m")
+if WIN32 or MACOS:
     # Windows does not need 'gomp' whether compiled with OpenMP or not
+    # MacOS does not have 'gomp' library
     galpy_c_libraries.remove("gomp")
 
 # Option to use Intel compilers
@@ -68,12 +80,19 @@ except ValueError:
         extra_compile_args = ["-DNO_OMP"]
         galpy_c_libraries.remove("gomp")
     else:
-        extra_compile_args = ["-fopenmp" if not WIN32 else "/openmp"]
+        if WIN32:
+            extra_compile_args = ["/openmp"]
+        elif MACOS:
+            extra_compile_args = ["-Xclang=-fopenmp"]
+        else:
+            extra_compile_args = ["-fopenmp"]
 else:
     del sys.argv[openmp_pos]
     extra_compile_args = ["-DNO_OMP"]
-    if not WIN32:  # Because windows guarantee do not have 'gomp' in the list
+    try:  # remove gomp from libraries if it exists
         galpy_c_libraries.remove("gomp")
+    except ValueError:
+        pass
 
 # Option to track coverage
 try:
@@ -84,6 +103,8 @@ else:
     del sys.argv[coverage_pos]
     extra_compile_args.extend(["-O0", "--coverage", "-D USING_COVERAGE"])
     extra_link_args = ["--coverage"]
+if MACOS:
+    extra_link_args.append("-lomp")
 
 # Option to compile everything into a single extension
 try:
@@ -197,6 +218,12 @@ actionAngleTorus_include_dirs = [
     "galpy/potential/potential_c_ext",
 ]
 
+galpy_c_library_dirs = []
+if MACOS and MACOS_BREW_PREFIX != "" and "-Xclang=-fopenmp" in extra_compile_args:
+    galpy_c_library_dirs.append(f"{MACOS_BREW_PREFIX}/opt/libomp/lib")
+    galpy_c_include_dirs.append(f"{MACOS_BREW_PREFIX}/opt/libomp/include")
+    actionAngleTorus_include_dirs.append(f"{MACOS_BREW_PREFIX}/opt/libomp/include")
+
 if single_ext:  # add the code and libraries for the actionAngleTorus extensions
     if os.path.exists("galpy/actionAngle/actionAngleTorus_c_ext/torus/src"):
         galpy_c_src.extend(actionAngleTorus_c_src)
@@ -212,6 +239,7 @@ galpy_c = Extension(
     "libgalpy",
     sources=galpy_c_src,
     libraries=galpy_c_libraries,
+    library_dirs=galpy_c_library_dirs,
     include_dirs=galpy_c_include_dirs,
     extra_compile_args=extra_compile_args,
     extra_link_args=extra_link_args,
@@ -230,6 +258,7 @@ actionAngleTorus_c = Extension(
     "libgalpy_actionAngleTorus",
     sources=actionAngleTorus_c_src,
     libraries=galpy_c_libraries,
+    library_dirs=galpy_c_library_dirs,
     include_dirs=actionAngleTorus_include_dirs,
     extra_compile_args=extra_compile_args,
     extra_link_args=extra_link_args,

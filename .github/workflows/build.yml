@@ -226,10 +226,10 @@ jobs:
       if: matrix.os == 'ubuntu-latest'
       run: |
          sudo apt-get install libgsl-dev
-    - name: Install the GSL
+    - name: Install the GSL and OpenMP
       if: matrix.os == 'macos-12'
       run: |
-         brew install gsl
+         brew install gsl libomp
          echo "CFLAGS=-I$(brew --prefix)/include" >> $GITHUB_ENV
          echo "LDFLAGS=-L$(brew --prefix)/lib" >> $GITHUB_ENV
          echo "LD_LIBRARY_PATH=$(brew --prefix)/lib" >> $GITHUB_ENV
