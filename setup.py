@@ -1,4 +1,3 @@
-import distutils.ccompiler
 import glob
 import os
 import os.path
@@ -126,19 +125,6 @@ extra_compile_args.append("-D GSL_MAJOR_VERSION=%s" % (gsl_version[0]))
 
 # HACK for testing
 # gsl_version= ['0','0']
-
-# MSVC: inline does not exist (not C99!); default = not necessarily actual, but will have to do for now...
-# Note for the futureL could now get the actual compiler in the BuildExt class
-# below
-if distutils.ccompiler.get_default_compiler().lower() == "msvc":
-    extra_compile_args.append("-Dinline=__inline")
-    # only msvc compiler can be tested with initialize(), msvc is a default on windows
-    # check for 'msvc' not WIN32, user can use other compiler like 'mingw32', in such case compiler exists for them
-    try:
-        test_compiler = distutils.ccompiler.new_compiler()
-        test_compiler.initialize()  # try to initialize a test compiler to see if compiler presented
-    except PlatformError:  # this error will be raised if no compiler in the system
-        no_compiler = True
 
 # To properly export GSL symbols on Windows, need to defined GSL_DLL and WIN32
 if WIN32:
