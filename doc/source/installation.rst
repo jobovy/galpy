@@ -309,32 +309,6 @@ to install the pre-commit hooks. These will run automatically whenever you commi
 More esoteric installations
 ---------------------------
 
-Installing from source with Intel Compiler
-++++++++++++++++++++++++++++++++++++++++++
-
-Compiling galpy with an Intel Compiler can give significant
-performance improvements on 64-bit Intel CPUs. Moreover students can
-obtain a free copy of an Intel Compiler at `this link
-<https://software.intel.com/en-us/qualify-for-free-software/student>`__.
-
-To compile the galpy C extensions with the Intel Compiler on 64bit
-MacOS/Linux do, follow the instructions to compile from source for your platform
-in :ref:`detailed_installation` above, clone the repository or download the
-source code and then do::
-
-    python setup.py build_ext --inplace --compiler=intelem
-
-To compile the galpy C extensions with the Intel Compiler on 64bit
-Windows do::
-
-    python setup.py build_ext --inplace --compiler=intel64w
-
-Then you can simply install with::
-
-     python setup.py install
-
-or other similar installation commands.
-
 .. _install_tm:
 
 Installing the TorusMapper code
