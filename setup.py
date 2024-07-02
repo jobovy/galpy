@@ -234,6 +234,18 @@ def compiler_has_flag(compiler, flagname):
     return True
 
 
+# Test whether the compiler is clang, allowing for the fact that it's name might be gcc...
+def compiler_is_clang(compiler):
+    # Test whether the compiler is clang by running the compiler with the --version flag and checking whether the output contains "clang"
+    try:
+        output = subprocess.check_output(
+            [compiler.compiler[0], "--version"], stderr=subprocess.STDOUT
+        )
+    except (OSError, subprocess.CalledProcessError):
+        return False
+    return b"clang" in output
+
+
 # Now need to subclass BuildExt to access the compiler used and check flags
 class BuildExt(build_ext):
     def build_extensions(self):
@@ -243,9 +255,18 @@ class BuildExt(build_ext):
                 # only add flags which pass the flag_filter
                 extra_compile_args = []
                 libraries = ext.libraries
-                for flag in ext.extra_compile_args:
+                for flag in set(ext.extra_compile_args):
                     if compiler_has_flag(self.compiler, flag):
                         extra_compile_args.append(flag)
+                    elif compiler_is_clang(self.compiler) and flag == "-fopenmp":
+                        # clang does not support -fopenmp, but does support -Xclang -fopenmp
+                        extra_compile_args.append("-Xclang")
+                        extra_compile_args.append("-fopenmp")
+                        # Also adjust libraries as needed
+                        if "gomp" in libraries:
+                            libraries.remove("gomp")
+                        if "omp" not in libraries:
+                            libraries.append("omp")
                     elif flag == "-fopenmp" and "gomp" in libraries:
                         libraries.remove("gomp")
                 ext.extra_compile_args = extra_compile_args
