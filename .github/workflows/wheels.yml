@@ -75,7 +75,7 @@ jobs:
         env:
           CIBW_BUILD: ${{ matrix.python[0] }}-${{ matrix.buildplat[1] }}_${{ matrix.buildplat[2] }}
           CIBW_BUILD_VERBOSITY: 1
-          CIBW_BEFORE_BUILD_LINUX: yum -y install gsl-devel
+          CIBW_BEFORE_BUILD_LINUX: sed -i s/mirror.centos.org/vault.centos.org/g /etc/yum.repos.d/*.repo && sed -i s/^#.*baseurl=http/baseurl=http/g /etc/yum.repos.d/*.repo && yum -y install gsl-devel
           CIBW_ARCHS_MACOS: ${{ matrix.buildplat[2] }}
           CIBW_ENVIRONMENT_MACOS: "MACOSX_DEPLOYMENT_TARGET=10.13"
           CIBW_REPAIR_WHEEL_COMMAND_MACOS: >
