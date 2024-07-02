@@ -51,7 +51,7 @@ jobs:
           condarc: |
             channels:
               - conda-forge
-          create-args: gsl libopenblas==0.3.23
+          create-args: gsl
           cache-environment: true
           cache-environment-key: ${{ matrix.buildplat[1] }}-${{ matrix.buildplat[2] }}-${{ hashFiles('.github/workflows/wheels.yml') }}
       - name: Set GSL environment variables (Windows)
