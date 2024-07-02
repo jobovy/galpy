@@ -80,7 +80,7 @@ jobs:
           CIBW_ENVIRONMENT_MACOS: "MACOSX_DEPLOYMENT_TARGET=10.13"
           CIBW_REPAIR_WHEEL_COMMAND_MACOS: >
             DYLD_LIBRARY_PATH=$REPAIR_LIBRARY_PATH delocate-listdeps {wheel} &&
-            DYLD_LIBRARY_PATH=$REPAIR_LIBRARY_PATH delocate-wheel -v --require-archs {delocate_archs} -w {dest_dir} {wheel}
+            DYLD_LIBRARY_PATH=$REPAIR_LIBRARY_PATH delocate-wheel -v -e omp --require-archs {delocate_archs} -w {dest_dir} {wheel}
           CIBW_BEFORE_TEST: pip install pytest astropy
           CIBW_TEST_COMMAND: pytest -v {package}/tests/test_orbit.py -k "test_energy_jacobi_conservation and NFW"
       # Test that built wheels also work in a conda environment, setup environment, install wheel, and run test
