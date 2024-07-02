@@ -81,17 +81,51 @@ jobs:
           CIBW_REPAIR_WHEEL_COMMAND_MACOS: >
             DYLD_LIBRARY_PATH=$REPAIR_LIBRARY_PATH delocate-listdeps {wheel} &&
             DYLD_LIBRARY_PATH=$REPAIR_LIBRARY_PATH delocate-wheel -v --require-archs {delocate_archs} -w {dest_dir} {wheel}
-          CIBW_BEFORE_TEST: pip install pytest astropy
-          CIBW_TEST_COMMAND: pytest -v {package}/tests/test_orbit.py -k "test_energy_jacobi_conservation and NFW"
-      # Test that built wheels also work in a conda environment, setup environment, install wheel, and run test
-      - name: Setup test conda environment (Windows / Mac OS x86_64)
-        if: matrix.buildplat[1] == 'win' || matrix.buildplat[1] == 'macosx'
-        shell: bash -l {0}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.python[0] }}-${{ matrix.buildplat[1] }}_${{ matrix.buildplat[2] }}
+          path: ./wheelhouse/*.whl
+  test_wheels:
+    name: Test Python ${{ matrix.python[1] }} wheels on ${{ matrix.buildplat[2] }} ${{ matrix.buildplat[0] }}
+    runs-on: ${{ matrix.buildplat[0] }}
+    needs: build_wheels
+    strategy:
+        # Ensure that tests finish even if another fails
+        fail-fast: false
+        matrix:
+          buildplat:
+            - [ubuntu-22.04, manylinux, x86_64]
+            - [macos-12, macosx, x86_64]
+            - [macos-14, macosx, arm64]
+            - [windows-2019, win, amd64]
+          python:
+            - ["cp38","3.8"]
+            - ["cp39","3.9"]
+            - ["cp310","3.10"]
+            - ["cp311","3.11"]
+            - ["cp312","3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - run: mkdir wheelhouse
+      - uses: actions/download-artifact@v4
+        with:
+          name: ${{ matrix.python[0] }}-${{ matrix.buildplat[1] }}_${{ matrix.buildplat[2] }}
+          path: wheelhouse/
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python[1] }}
+      - name: Install wheel
+        shell: bash
+        run: python -m pip install `ls -d "$(pwd)"/wheelhouse/*.whl`
+      - name: Test built wheel in non-conda environment
+        shell: bash
+        working-directory: ${{ runner.temp }}
         run: |
-          micromamba env create -n test-wheel-conda -c conda-forge python=${{ matrix.python[1] }} numpy scipy matplotlib astropy pytest
-      - name: Setup test conda environment (Linux)
+          pip install astropy pytest
+          pytest -v $GITHUB_WORKSPACE/tests/test_orbit.py -k "test_energy_jacobi_conservation and NFW"
+      # Test that built wheels also work in a conda environment, setup environment, install wheel, and run test
+      - name: Setup test conda environment
         uses: mamba-org/setup-micromamba@v1
-        if: matrix.buildplat[1] == 'manylinux'
         with:
           environment-name: test-wheel-conda
           condarc: |
@@ -104,17 +138,13 @@ jobs:
         shell: bash -l {0}
         run: |
           micromamba activate test-wheel-conda
-          pip install ./wheelhouse/*.whl
+          python -m pip install `ls -d "$(pwd)"/wheelhouse/*.whl`
       - name: Test built wheel in conda environment
         shell: bash -l {0}
         working-directory: ${{ runner.temp }}
         run: |
           micromamba activate test-wheel-conda
           pytest -v $GITHUB_WORKSPACE/tests/test_orbit.py -k "test_energy_jacobi_conservation and NFW"
-      - uses: actions/upload-artifact@v4
-        with:
-          name: ${{ matrix.python[0] }}-${{ matrix.buildplat[1] }}_${{ matrix.buildplat[2] }}
-          path: ./wheelhouse/*.whl
   build_sdist:
     name: Build source directory for release
     if: github.event_name == 'release' && github.event.action == 'created'
@@ -141,7 +171,7 @@ jobs:
 # Deploy wheels and sdist to PyPI (upon release creation)
   deploy_pypi:
     name: Deploy to PyPI
-    needs: [build_wheels, build_sdist]
+    needs: [build_wheels, test_wheels, build_sdist]
     runs-on: ubuntu-latest
     permissions:
       id-token: write  # IMPORTANT: this permission is mandatory for trusted publishing
@@ -162,7 +192,7 @@ jobs:
 # Deploy wheels and sdist to AWS S3 (main)
   deploy_s3:
     name: Deploy to AWS S3
-    needs: build_wheels
+    needs: [build_wheels, test_wheels]
     runs-on: ubuntu-latest
     if: github.event_name != 'release' && github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     steps:
