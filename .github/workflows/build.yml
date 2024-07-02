@@ -226,13 +226,14 @@ jobs:
       if: matrix.os == 'ubuntu-latest'
       run: |
          sudo apt-get install libgsl-dev
-    - name: Install the GSL
+    - name: Install the GSL and OpenMP
       if: matrix.os == 'macos-12'
       run: |
-         brew install gsl
-         echo "CFLAGS=-I$(brew --prefix)/include" >> $GITHUB_ENV
-         echo "LDFLAGS=-L$(brew --prefix)/lib" >> $GITHUB_ENV
-         echo "LD_LIBRARY_PATH=$(brew --prefix)/lib" >> $GITHUB_ENV
+         brew install gsl libomp
+         brew info libomp
+         echo "CFLAGS=-I$(brew --prefix)/include -I/usr/local/opt/libomp/include" >> $GITHUB_ENV
+         echo "LDFLAGS=-L$(brew --prefix)/lib -L/usr/local/opt/libomp/lib" >> $GITHUB_ENV
+         echo "LD_LIBRARY_PATH=$(brew --prefix)/lib:/usr/local/opt/libomp/lib" >> $GITHUB_ENV
     - uses: actions/cache@v4
       with:
         path: ~/.cache/pip
