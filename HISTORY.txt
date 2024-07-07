@@ -1,5 +1,10 @@
-v1.10.1 (expected around 2024-07-01)
-===================
+v1.10.0 (2024-07-07)
+====================
+
+- Increased support for using OpenMP with clang and, in particular, added OpenMP support
+  in the released Mac wheels.
+
+- Removed explicit support for using Intel compilers.
 
 - Switch to using Ruff as the code formatter.
 
