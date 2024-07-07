@@ -54,8 +54,8 @@ Reverse transformations are discussed in
 We start by discussing the forward and reverse transformations for the two
 specific potentials: the isochrone and the harmonic potentals.
 
-**UPDATED IN v1.8.2** Action-angle coordinates for the isochrone/harmonic potentials
-+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+Action-angle coordinates for the isochrone/harmonic potentials
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 The harmonic and isochrone potentials are the only potentials for which all of
 the actions, frequencies, and angles can be calculated analytically and for
@@ -197,8 +197,8 @@ We can also reverse this using ``actionAngleHarmonicInverse``
 
 .. _aafwd:
 
-**UPDATED IN v1.8.2** Forward action-angle transformations (**x**, **v**) --> (**J**, **O**, **a**)
-+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+Forward action-angle transformations (**x**, **v**) --> (**J**, **O**, **a**)
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 Action-angle coordinates for spherical potentials
 --------------------------------------------------
@@ -861,8 +861,8 @@ which gives
 
 .. _aareverse:
 
-**UPDATED IN v1.8.2** Reverse action-angle transformations (**J**, **a**) --> (**x**, **v**, **O**)
-++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+Reverse action-angle transformations (**J**, **a**) --> (**x**, **v**, **O**)
++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 Reverse action-angle transformations for one-dimensional potentials
 ------------------------------------------------------------------

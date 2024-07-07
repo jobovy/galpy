@@ -1059,8 +1059,8 @@ same example as above
 
 .. _orbitsos:
 
-**NEW in v1.9** Surfaces of section
------------------------------------
+Surfaces of section
+-------------------
 
 ``galpy`` can compute surfaces of section for two- and three-dimensional
 orbits using a special integration method that exactly determines the
