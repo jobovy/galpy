@@ -917,6 +917,7 @@ class Potential(Force):
         cntrcolors=None,
         ncontours=21,
         savefilename=None,
+        **kwargs,
     ):
         """
         Plot the potential.
@@ -959,6 +960,8 @@ class Potential(Force):
             Colors of the contours (single color or array with length ncontours). Default is None.
         ncontours : int, optional
             Number of contours when levels is None. Default is 21.
+        **kwargs : dict, optional
+            Any additional keyword arguments are passed to `galpy.util.plot.dens2d`.
 
         Returns
         -------
@@ -968,6 +971,7 @@ class Potential(Force):
         -----
         - 2010-07-09 - Written - Bovy (NYU)
         - 2014-04-08 - Added effective= - Bovy (IAS)
+        - 2024-07-09 - Propagate other plotting keywords - Bovy (UofT)
 
         """
         if effective and xy:
@@ -981,7 +985,7 @@ class Potential(Force):
             xrange = [rmin, rmax]
         if yrange is None:
             yrange = [zmin, zmax]
-        if not savefilename is None and os.path.exists(savefilename):
+        if savefilename is not None and os.path.exists(savefilename):
             print("Restoring savefile " + savefilename + " ...")
             savefile = open(savefilename, "rb")
             potRz = pickle.load(savefile)
@@ -1012,7 +1016,7 @@ class Potential(Force):
             potRz[:, zs > zmax] = numpy.nan
             # Infinity is bad for plotting
             potRz[~numpy.isfinite(potRz)] = numpy.nan
-            if not savefilename == None:
+            if savefilename is not None:
                 print("Writing savefile " + savefilename + " ...")
                 savefile = open(savefilename, "wb")
                 pickle.dump(potRz, savefile)
@@ -1043,6 +1047,7 @@ class Potential(Force):
             justcontours=justcontours,
             levels=levels,
             cntrcolors=cntrcolors,
+            **kwargs,
         )
 
     def plotDensity(
@@ -2766,6 +2771,7 @@ def plotPotentials(
     justcontours=False,
     levels=None,
     cntrcolors=None,
+    **kwargs,
 ):
     """
     Plot a set of potentials.
@@ -2812,6 +2818,8 @@ def plotPotentials(
         Save to or restore from this savefile (pickle). Default is None.
     aspect : float, optional
         Aspect ratio of the plot. Default is None.
+    **kwargs : dict, optional
+            Any additional keyword arguments are passed to `galpy.util.plot.dens2d`.
 
     Returns
     -------
@@ -2820,6 +2828,7 @@ def plotPotentials(
     Notes
     -----
     - 2010-07-09 - Written by Bovy (NYU).
+    - 2024-07-09 - Propagate keyword arguments to `galpy.util.plot.dens2d` - Bovy (UofT)
 
     See Also
     --------
@@ -2838,7 +2847,7 @@ def plotPotentials(
         xrange = [rmin, rmax]
     if yrange is None:
         yrange = [zmin, zmax]
-    if not savefilename == None and os.path.exists(savefilename):
+    if savefilename is not None and os.path.exists(savefilename):
         print("Restoring savefile " + savefilename + " ...")
         savefile = open(savefilename, "rb")
         potRz = pickle.load(savefile)
@@ -2869,7 +2878,7 @@ def plotPotentials(
         potRz[:, zs > zmax] = numpy.nan
         # Infinity is bad for plotting
         potRz[~numpy.isfinite(potRz)] = numpy.nan
-        if not savefilename == None:
+        if savefilename is not None:
             print("Writing savefile " + savefilename + " ...")
             savefile = open(savefilename, "wb")
             pickle.dump(potRz, savefile)
@@ -2902,6 +2911,7 @@ def plotPotentials(
         justcontours=justcontours,
         levels=levels,
         cntrcolors=cntrcolors,
+        **kwargs,
     )
 
 
