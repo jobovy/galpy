@@ -61,7 +61,7 @@ def _detect_openmp_issue():
         _checked_openmp_issue = True
 
 
-def load_libgalpy(check_openmp_issue=True):
+def load_libgalpy(check_openmp_issue=sys.platform != "emscripten"):
     global _libgalpy
     global _libgalpy_loaded
     if _libgalpy_loaded is False or not _libgalpy is None:
