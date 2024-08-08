@@ -14,6 +14,7 @@
 #include <bovy_symplecticode.h>
 #include <leung_dop853.h>
 #include <bovy_rk.h>
+#include <wez_ias15.h>
 #include <integrateFullOrbit.h>
 //Potentials
 #include <galpy_potentials.h>
@@ -717,6 +718,11 @@ EXPORT void integrateFullOrbit(int nobj,
     odeint_deriv_func= &evalRectDeriv;
     dim= 6;
     break;
+  case 7: //ias15
+    odeint_func= &wez_ias15;
+    odeint_deriv_func= &evalRectForce;
+    dim= 3;
+    break;
   }
 #pragma omp parallel for schedule(dynamic,ORBITS_CHUNKSIZE) private(ii,jj) num_threads(max_threads)
   for (ii=0; ii < nobj; ii++) {
@@ -882,6 +888,11 @@ void integrateOrbit_dxdv(double *yo,
     odeint_func= &dop853;
     odeint_deriv_func= &evalRectDeriv_dxdv;
     dim= 12;
+    break;
+  case 7: //ias15
+    odeint_func= &wez_ias15;
+    odeint_deriv_func= &evalRectForce;
+    dim= 6;
     break;
   }
   odeint_func(odeint_deriv_func,dim,yo,nt,-9999.99,t,npot,potentialArgs,
