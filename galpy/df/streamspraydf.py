@@ -1,3 +1,5 @@
+import warnings
+
 import numpy
 
 from ..df.df import df
@@ -5,14 +7,14 @@ from ..orbit import Orbit
 from ..potential import evaluateRforces
 from ..potential import flatten as flatten_potential
 from ..potential import rtide
+from ..potential import MovingObjectPotential
 from ..util import _rotate_to_arbitrary_vector, conversion, coords
 from ..util._optional_deps import _APY_LOADED, _APY_UNITS
 
 if _APY_LOADED:
     from astropy import units
 
-
-class streamspraydf(df):
+class basestreamspraydf(df):
     def __init__(
         self,
         progenitor_mass,
@@ -23,8 +25,6 @@ class streamspraydf(df):
         leading=True,
         center=None,
         centerpot=None,
-        meankvec=[2.0, 0.0, 0.3, 0.0, 0.0, 0.0],
-        sigkvec=[0.4, 0.0, 0.4, 0.5, 0.5, 0.0],
         ro=None,
         vo=None,
     ):
@@ -49,10 +49,6 @@ class streamspraydf(df):
             Orbit instance that represents the center around which the progenitor is orbiting for the purpose of stream formation; allows for a stream to be generated from a progenitor orbiting a moving object, like a satellite galaxy. Integrated internally using centerpot.
         centerpot : galpy.potential.Potential or list of such instances, optional
             Potential for calculating the orbit of the center; this might be different from the potential that the progenitor is integrated in if, for example, dynamical friction is important for the orbit of the center (if it's a satellite).
-        meankvec : list or array, optional
-            Mean of the action-angle distribution. Default is [2.0, 0.0, 0.3, 0.0, 0.0, 0.0].
-        sigkvec : list or array, optional
-            Dispersion of the action-angle distribution. Default is [0.4, 0.0, 0.4, 0.5, 0.5, 0.0].
         ro : float or Quantity, optional
             Distance scale for translation into internal units (default from configuration file).
         vo : float or Quantity, optional
@@ -62,8 +58,9 @@ class streamspraydf(df):
         -----
         - 2018-07-31 - Written - Bovy (UofT)
         - 2021-05-05 - Added center keyword - Yansong Qian (UofT)
+        - 2024-08-11 - Generalized for more df - Yingtian Chen (UMich)
         """
-        df.__init__(self, ro=ro, vo=vo)
+        super().__init__(ro=ro, vo=vo)
         self._progenitor_mass = conversion.parse_mass(
             progenitor_mass, ro=self._ro, vo=self._vo
         )
@@ -78,21 +75,20 @@ class streamspraydf(df):
         self._rtpot = self._pot if rtpot is None else flatten_potential(rtpot)
         assert conversion.physical_compatible(
             self, self._pot
-        ), "Physical conversion for the potential is not consistent with that of the streamspraydf object being initialized"
+        ), "Physical conversion for the potential is not consistent with that of the basestreamspraydf object being initialized"
         assert conversion.physical_compatible(
             self, self._rtpot
-        ), "Physical conversion for the rt potential is not consistent with that of the streamspraydf object being initialized"
+        ), "Physical conversion for the rt potential is not consistent with that of the basestreamspraydf object being initialized"
         # Set up progenitor orbit
         assert conversion.physical_compatible(
             self, progenitor
-        ), "Physical conversion for the progenitor Orbit object is not consistent with that of the streamspraydf object being initialized"
+        ), "Physical conversion for the progenitor Orbit object is not consistent with that of the basestreamspraydf object being initialized"
         self._orig_progenitor = progenitor  # Store so we can use its ro/vo/etc.
         self._progenitor = progenitor()
         self._progenitor.turn_physical_off()
         self._progenitor_times = numpy.linspace(0.0, -self._tdisrupt, 10001)
         self._progenitor.integrate(self._progenitor_times, self._pot)
-        self._meankvec = numpy.array(meankvec)
-        self._sigkvec = numpy.array(sigkvec)
+        self._leading = leading
         # Set up center orbit if given
         if not center is None:
             self._centerpot = (
@@ -100,17 +96,15 @@ class streamspraydf(df):
             )
             assert conversion.physical_compatible(
                 self, self._centerpot
-            ), "Physical conversion for the center potential is not consistent with that of the streamspraydf object being initialized"
+            ), "Physical conversion for the center potential is not consistent with that of the basestreamspraydf object being initialized"
             self._center = center()
             self._center.turn_physical_off()
             self._center.integrate(self._progenitor_times, self._centerpot)
         else:
             self._center = None
-        if leading:
-            self._meankvec *= -1.0
         return None
 
-    def sample(self, n, return_orbit=True, returndt=False, integrate=True):
+    def sample(self, n, return_orbit=True, returndt=False, integrate=True, pot_prog=None):
         """
         Sample from the DF
 
@@ -124,6 +118,8 @@ class streamspraydf(df):
             If True, also return the time since the star was stripped. Default is False.
         integrate : bool, optional
             If True, integrate the orbits to the present time. If False, return positions at stripping (probably want to combine with returndt=True then to make sense of them!). Default is True.
+        pot_prog : galpy.potential.Potential or list of such instances, optional or None
+            Potential for the progenitor. Ignored if None.
 
         Returns
         -------
@@ -134,6 +130,7 @@ class streamspraydf(df):
         -----
         - 2018-07-31 - Written - Bovy (UofT)
         - 2022-05-18 - Made output Orbit ro/vo/zo/solarmotion/roSet/voSet match that of the progenitor orbit - Bovy (UofT)
+        - 2024-08-11 - Include the progenitor's potential - Yingtian Chen (Umich)
         """
         # First sample times
         dt = numpy.random.uniform(size=n) * self._tdisrupt
@@ -160,81 +157,13 @@ class streamspraydf(df):
         vxyzpt = numpy.einsum(
             "ijk,ik->ij", rot, numpy.array([centervx, centervy, centervz]).T
         )
-        Rpt, phipt, Zpt = coords.rect_to_cyl(xyzpt[:, 0], xyzpt[:, 1], xyzpt[:, 2])
-        vRpt, vTpt, vZpt = coords.rect_to_cyl_vec(
-            vxyzpt[:, 0], vxyzpt[:, 1], vxyzpt[:, 2], Rpt, phipt, Zpt, cyl=True
-        )
-        # Sample positions and velocities in the instantaneous frame
-        k = self._meankvec + numpy.random.normal(size=(n, 6)) * self._sigkvec
-        try:
-            rtides = rtide(
-                self._rtpot,
-                Rpt,
-                Zpt,
-                phi=phipt,
-                t=-dt,
-                M=self._progenitor_mass,
-                use_physical=False,
-            )
-            vcs = numpy.sqrt(
-                -Rpt
-                * evaluateRforces(
-                    self._rtpot, Rpt, Zpt, phi=phipt, t=-dt, use_physical=False
-                )
-            )
-        except (ValueError, TypeError):
-            rtides = numpy.array(
-                [
-                    rtide(
-                        self._rtpot,
-                        Rpt[ii],
-                        Zpt[ii],
-                        phi=phipt[ii],
-                        t=-dt[ii],
-                        M=self._progenitor_mass,
-                        use_physical=False,
-                    )
-                    for ii in range(len(Rpt))
-                ]
-            )
-            vcs = numpy.array(
-                [
-                    numpy.sqrt(
-                        -Rpt[ii]
-                        * evaluateRforces(
-                            self._rtpot,
-                            Rpt[ii],
-                            Zpt[ii],
-                            phi=phipt[ii],
-                            t=-dt[ii],
-                            use_physical=False,
-                        )
-                    )
-                    for ii in range(len(Rpt))
-                ]
-            )
-        rtides_as_frac = rtides / Rpt
-        RpZst = numpy.array(
-            [
-                Rpt + k[:, 0] * rtides,
-                phipt + k[:, 5] * rtides_as_frac,
-                k[:, 3] * rtides_as_frac,
-            ]
-        ).T
-        vRTZst = numpy.array(
-            [
-                vRpt * (1.0 + k[:, 1]),
-                vTpt + k[:, 2] * vcs * rtides_as_frac,
-                k[:, 4] * vcs * rtides_as_frac,
-            ]
-        ).T
-        # Now rotate these back to the galactocentric frame
-        xst, yst, zst = coords.cyl_to_rect(RpZst[:, 0], RpZst[:, 1], RpZst[:, 2])
-        vxst, vyst, vzst = coords.cyl_to_rect_vec(
-            vRTZst[:, 0], vRTZst[:, 1], vRTZst[:, 2], RpZst[:, 1]
-        )
+
+        # generate the initial conditions
+        xst, yst, zst, vxst, vyst, vzst = self.spray_df(xyzpt, vxyzpt, dt)
+
         xyzs = numpy.einsum("ijk,ik->ij", rot_inv, numpy.array([xst, yst, zst]).T)
         vxyzs = numpy.einsum("ijk,ik->ij", rot_inv, numpy.array([vxst, vyst, vzst]).T)
+
         absx = xyzs[:, 0]
         absy = xyzs[:, 1]
         absz = xyzs[:, 2]
@@ -255,9 +184,19 @@ class streamspraydf(df):
         out = numpy.empty((6, n))
         if integrate:
             # Now integrate the orbits
+            if pot_prog is None:
+                pot_tot = self._pot
+            else:
+                pot_traj = MovingObjectPotential(
+                    orbit=self._progenitor, 
+                    pot=pot_prog, 
+                    ro=self._ro, 
+                    vo=self._vo,
+                )
+                pot_tot = flatten_potential([self._pot, pot_traj])
             for ii in range(n):
                 o = Orbit([Rs[ii], vRs[ii], vTs[ii], Zs[ii], vZs[ii], phis[ii]])
-                o.integrate(numpy.linspace(-dt[ii], 0.0, 10001), self._pot)
+                o.integrate(numpy.linspace(-dt[ii], 0.0, 10001), pot_tot)
                 o = o(0.0)
                 out[:, ii] = [o.R(), o.vR(), o.vT(), o.z(), o.vz(), o.phi()]
         else:
@@ -355,3 +294,364 @@ class streamspraydf(df):
         rot = numpy.einsum("ijk,ikl->ijl", pa_rot, z_rot)
         rot_inv = numpy.einsum("ijk,ikl->ijl", z_rot_inv, pa_rot_inv)
         return (rot, rot_inv)
+
+    def spray_df(self, xyzpt, vxyzpt, dt):
+        """
+        Sample the positions and velocities around the progenitor
+        Must be implemented in a subclass
+
+        Parameters
+        ----------
+        xyzpt : array, shape (N,3)
+            Positions of progenitor in the progenitor coordinates.
+        vxyzpt : array, shape (N,3)
+            Velocities of progenitor in the progenitor coordinates.
+        dt : array, shape (N,)
+            Time of sampling.
+
+        Returns
+        -------
+        xst, yst, zst : array, shape (N,)
+            Positions of points on the stream in the progenitor coordinates.
+        vxst, vyst, vzst : array, shape (N,)
+            Velocities of points on the stream in the progenitor coordinates.
+        """
+        warnings.warn("Not implemented!", RuntimeWarning, stacklevel=1)
+        pass
+
+
+class chen24spraydf(basestreamspraydf):
+    def __init__(
+        self,
+        progenitor_mass,
+        progenitor=None,
+        pot=None,
+        rtpot=None,
+        tdisrupt=None,
+        leading=True,
+        center=None,
+        centerpot=None,
+        mean=None,
+        cov=None,
+        ro=None,
+        vo=None,
+    ):
+        """
+        Initialize a Chen+24 stream spray DF model of a tidal stream
+        https://ui.adsabs.harvard.edu/abs/2024arXiv240801496C/abstract
+
+        Parameters
+        ----------
+        progenitor_mass : float or Quantity
+            Mass of the progenitor.
+        progenitor : galpy.orbit.Orbit, optional
+            Progenitor orbit as Orbit instance (will be re-integrated, so don't bother integrating the orbit before).
+        pot : galpy.potential.Potential or list of such instances, optional
+            Potential for integrating orbits.
+        rtpot : galpy.potential.Potential or list of such instances, optional
+            Potential for calculating tidal radius and circular velocity (should generally be the same as pot, but sometimes you need to drop parts of the potential that don't allow the tidal radius / circular velocity to be computed, such as velocity-dependent forces; when using center, rtpot should be the relevant potential in the frame of the center, thus, also being different from pot).
+        tdisrupt : float or Quantity, optional
+            Time since start of disruption. Default is 5 Gyr.
+        leading : bool, optional
+            If True, model the leading part of the stream. If False, model the trailing part. Default is True.
+        center : galpy.orbit.Orbit, optional
+            Orbit instance that represents the center around which the progenitor is orbiting for the purpose of stream formation; allows for a stream to be generated from a progenitor orbiting a moving object, like a satellite galaxy. Integrated internally using centerpot.
+        centerpot : galpy.potential.Potential or list of such instances, optional
+            Potential for calculating the orbit of the center; this might be different from the potential that the progenitor is integrated in if, for example, dynamical friction is important for the orbit of the center (if it's a satellite).
+        meankvec : list or array, optional
+            Mean of the action-angle distribution. Default is [2.0, 0.0, 0.3, 0.0, 0.0, 0.0].
+        sigkvec : list or array, optional
+            Dispersion of the action-angle distribution. Default is [0.4, 0.0, 0.4, 0.5, 0.5, 0.0].
+        ro : float or Quantity, optional
+            Distance scale for translation into internal units (default from configuration file).
+        vo : float or Quantity, optional
+            Velocity scale for translation into internal units (default from configuration file).
+
+        Notes
+        -----
+        - 2024-08-11 - Written - Yingtian Chen (UMich)
+        """
+        super().__init__(
+            progenitor_mass=progenitor_mass,
+            progenitor=progenitor,
+            pot=pot,
+            rtpot=rtpot,
+            tdisrupt=tdisrupt,
+            leading=leading,
+            center=center,
+            centerpot=centerpot,
+            ro=ro,
+            vo=vo,
+        )
+        if mean is None:
+            self._mean = numpy.array([1.6, -30, 0, 1, 20, 0])
+        else:
+            self._mean = mean
+        if cov is None:
+            self._cov = numpy.array([
+                [0.1225,   0,   0, 0, -4.9,   0],
+                [     0, 529,   0, 0,    0,   0],
+                [     0,   0, 144, 0,    0,   0],
+                [     0,   0,   0, 0,    0,   0],
+                [  -4.9,   0,   0, 0,  400,   0],
+                [     0,   0,   0, 0,    0, 484],
+            ])
+        else:
+            self._cov = cov
+        return None
+        
+    def spray_df(self, xyzpt, vxyzpt, dt):
+        """
+        Sample the positions and velocities around the progenitor
+
+        Parameters
+        ----------
+        xyzpt : array, shape (N,3)
+            Positions of progenitor in the progenitor coordinates.
+        vxyzpt : array, shape (N,3)
+            Velocities of progenitor in the progenitor coordinates.
+        dt : array, shape (N,)
+            Time of sampling.
+
+        Returns
+        -------
+        xst, yst, zst : array, shape (N,)
+            Positions of points on the stream in the progenitor coordinates.
+        vxst, vyst, vzst : array, shape (N,)
+            Velocities of points on the stream in the progenitor coordinates.
+        """
+        Rpt, phipt, Zpt = coords.rect_to_cyl(xyzpt[:, 0], xyzpt[:, 1], xyzpt[:, 2])
+        vRpt, vTpt, vZpt = coords.rect_to_cyl_vec(
+            vxyzpt[:, 0], vxyzpt[:, 1], vxyzpt[:, 2], Rpt, phipt, Zpt, cyl=True
+        )
+        try:
+            rtides = rtide(
+                self._rtpot,
+                Rpt,
+                Zpt,
+                phi=phipt,
+                t=-dt,
+                M=self._progenitor_mass,
+                use_physical=False,
+            )
+        except (ValueError, TypeError):
+            rtides = numpy.array(
+                [
+                    rtide(
+                        self._rtpot,
+                        Rpt[ii],
+                        Zpt[ii],
+                        phi=phipt[ii],
+                        t=-dt[ii],
+                        M=self._progenitor_mass,
+                        use_physical=False,
+                    )
+                    for ii in range(len(Rpt))
+                ]
+            )
+
+        # Sample positions and velocities in the instantaneous frame
+        posvel = numpy.random.multivariate_normal(self._mean, self._cov, size=len(dt))
+        Dr = posvel[:, 0] * rtides
+        v_esc = numpy.sqrt(2 * self._progenitor_mass / Dr)
+        Dv = posvel[:, 3] * v_esc
+        if self._leading:
+            Dr *= -1.0
+            Dv *= -1.0
+
+        # convert degrees to radians
+        phi = posvel[:, 1] * numpy.pi / 180
+        theta = posvel[:, 2] * numpy.pi / 180
+        alpha = posvel[:, 4] * numpy.pi / 180
+        beta = posvel[:, 5] * numpy.pi / 180
+
+        xst = xyzpt[:,0] + Dr * numpy.cos(theta) * numpy.cos(phi)
+        yst = xyzpt[:,1] + Dr * numpy.cos(theta) * numpy.sin(phi)
+        zst = xyzpt[:,2] + Dr * numpy.sin(theta)
+        vxst = vxyzpt[:,0] + Dv * numpy.cos(beta) * numpy.cos(alpha)
+        vyst = vxyzpt[:,1] + Dv * numpy.cos(beta) * numpy.sin(alpha)
+        vzst = vxyzpt[:,2] + Dv * numpy.sin(beta)
+
+        return xst, yst, zst, vxst, vyst, vzst
+
+
+class fardal15spraydf(basestreamspraydf):
+    def __init__(
+        self,
+        progenitor_mass,
+        progenitor=None,
+        pot=None,
+        rtpot=None,
+        tdisrupt=None,
+        leading=True,
+        center=None,
+        centerpot=None,
+        meankvec=[2.0, 0.0, 0.3, 0.0, 0.0, 0.0],
+        sigkvec=[0.4, 0.0, 0.4, 0.5, 0.5, 0.0],
+        ro=None,
+        vo=None,
+    ):
+        """
+        Initialize a Fardal+15 stream spray DF model of a tidal stream
+        https://ui.adsabs.harvard.edu/abs/2014arXiv1410.1861F/abstract
+
+        Parameters
+        ----------
+        progenitor_mass : float or Quantity
+            Mass of the progenitor.
+        progenitor : galpy.orbit.Orbit, optional
+            Progenitor orbit as Orbit instance (will be re-integrated, so don't bother integrating the orbit before).
+        pot : galpy.potential.Potential or list of such instances, optional
+            Potential for integrating orbits.
+        rtpot : galpy.potential.Potential or list of such instances, optional
+            Potential for calculating tidal radius and circular velocity (should generally be the same as pot, but sometimes you need to drop parts of the potential that don't allow the tidal radius / circular velocity to be computed, such as velocity-dependent forces; when using center, rtpot should be the relevant potential in the frame of the center, thus, also being different from pot).
+        tdisrupt : float or Quantity, optional
+            Time since start of disruption. Default is 5 Gyr.
+        leading : bool, optional
+            If True, model the leading part of the stream. If False, model the trailing part. Default is True.
+        center : galpy.orbit.Orbit, optional
+            Orbit instance that represents the center around which the progenitor is orbiting for the purpose of stream formation; allows for a stream to be generated from a progenitor orbiting a moving object, like a satellite galaxy. Integrated internally using centerpot.
+        centerpot : galpy.potential.Potential or list of such instances, optional
+            Potential for calculating the orbit of the center; this might be different from the potential that the progenitor is integrated in if, for example, dynamical friction is important for the orbit of the center (if it's a satellite).
+        meankvec : list or array, optional
+            Mean of the action-angle distribution. Default is [2.0, 0.0, 0.3, 0.0, 0.0, 0.0].
+        sigkvec : list or array, optional
+            Dispersion of the action-angle distribution. Default is [0.4, 0.0, 0.4, 0.5, 0.5, 0.0].
+        ro : float or Quantity, optional
+            Distance scale for translation into internal units (default from configuration file).
+        vo : float or Quantity, optional
+            Velocity scale for translation into internal units (default from configuration file).
+
+        Notes
+        -----
+        - 2018-07-31 - Written - Bovy (UofT)
+        - 2021-05-05 - Added center keyword - Yansong Qian (UofT)
+        """
+        super().__init__(
+            progenitor_mass=progenitor_mass,
+            progenitor=progenitor,
+            pot=pot,
+            rtpot=rtpot,
+            tdisrupt=tdisrupt,
+            leading=leading,
+            center=center,
+            centerpot=centerpot,
+            ro=ro,
+            vo=vo,
+        )
+        self._meankvec = numpy.array(meankvec)
+        self._sigkvec = numpy.array(sigkvec)
+        if leading:
+            self._meankvec *= -1.0
+        return None
+        
+    def spray_df(self, xyzpt, vxyzpt, dt):
+        """
+        Sample the positions and velocities around the progenitor
+
+        Parameters
+        ----------
+        xyzpt : array, shape (N,3)
+            Positions of progenitor in the progenitor coordinates.
+        vxyzpt : array, shape (N,3)
+            Velocities of progenitor in the progenitor coordinates.
+        dt : array, shape (N,)
+            Time of sampling.
+
+        Returns
+        -------
+        xst, yst, zst : array, shape (N,)
+            Positions of points on the stream in the progenitor coordinates.
+        vxst, vyst, vzst : array, shape (N,)
+            Velocities of points on the stream in the progenitor coordinates.
+        """
+        Rpt, phipt, Zpt = coords.rect_to_cyl(xyzpt[:, 0], xyzpt[:, 1], xyzpt[:, 2])
+        vRpt, vTpt, vZpt = coords.rect_to_cyl_vec(
+            vxyzpt[:, 0], vxyzpt[:, 1], vxyzpt[:, 2], Rpt, phipt, Zpt, cyl=True
+        )
+        # Sample positions and velocities in the instantaneous frame
+        k = self._meankvec + numpy.random.normal(size=(len(dt), 6)) * self._sigkvec
+        try:
+            rtides = rtide(
+                self._rtpot,
+                Rpt,
+                Zpt,
+                phi=phipt,
+                t=-dt,
+                M=self._progenitor_mass,
+                use_physical=False,
+            )
+            vcs = numpy.sqrt(
+                -Rpt
+                * evaluateRforces(
+                    self._rtpot, Rpt, Zpt, phi=phipt, t=-dt, use_physical=False
+                )
+            )
+        except (ValueError, TypeError):
+            rtides = numpy.array(
+                [
+                    rtide(
+                        self._rtpot,
+                        Rpt[ii],
+                        Zpt[ii],
+                        phi=phipt[ii],
+                        t=-dt[ii],
+                        M=self._progenitor_mass,
+                        use_physical=False,
+                    )
+                    for ii in range(len(Rpt))
+                ]
+            )
+            vcs = numpy.array(
+                [
+                    numpy.sqrt(
+                        -Rpt[ii]
+                        * evaluateRforces(
+                            self._rtpot,
+                            Rpt[ii],
+                            Zpt[ii],
+                            phi=phipt[ii],
+                            t=-dt[ii],
+                            use_physical=False,
+                        )
+                    )
+                    for ii in range(len(Rpt))
+                ]
+            )
+        rtides_as_frac = rtides / Rpt
+        RpZst = numpy.array(
+            [
+                Rpt + k[:, 0] * rtides,
+                phipt + k[:, 5] * rtides_as_frac,
+                k[:, 3] * rtides_as_frac,
+            ]
+        ).T
+        vRTZst = numpy.array(
+            [
+                vRpt * (1.0 + k[:, 1]),
+                vTpt + k[:, 2] * vcs * rtides_as_frac,
+                k[:, 4] * vcs * rtides_as_frac,
+            ]
+        ).T
+        # Now rotate these back to the galactocentric frame
+        xst, yst, zst = coords.cyl_to_rect(RpZst[:, 0], RpZst[:, 1], RpZst[:, 2])
+        vxst, vyst, vzst = coords.cyl_to_rect_vec(
+            vRTZst[:, 0], vRTZst[:, 1], vRTZst[:, 2], RpZst[:, 1]
+        )
+
+        return xst, yst, zst, vxst, vyst, vzst
+
+
+class streamspraydf(fardal15spraydf):
+    def __init__(self, args, **kwargs):
+        """
+        For backward compatibility
+        """
+        super().__init__(args, **kwargs)
+        warnings.warn(
+            "Class `streamspraydf` will be deprecated in a later version. "
+            "Please use class `fardal15spraydf` for the Fardal+15 particle spray model.",
+            FutureWarning, 
+            stacklevel=1,
+        )
+        return None
