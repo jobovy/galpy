@@ -232,6 +232,7 @@ jobs:
          brew install gsl libomp
          brew info libomp
          echo "CFLAGS=-I$(brew --prefix)/include -I/usr/local/opt/libomp/include" >> $GITHUB_ENV
+         echo "CPPFLAGS=-I$(brew --prefix)/include -I/usr/local/opt/libomp/include" >> $GITHUB_ENV
          echo "LDFLAGS=-L$(brew --prefix)/lib -L/usr/local/opt/libomp/lib" >> $GITHUB_ENV
          echo "LD_LIBRARY_PATH=$(brew --prefix)/lib:/usr/local/opt/libomp/lib" >> $GITHUB_ENV
     - uses: actions/cache@v4
