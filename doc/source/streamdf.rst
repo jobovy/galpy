@@ -516,7 +516,7 @@ Particle-spray modeling of streams with ``fardal15spraydf``
 for generating tidal streams. ``chen24spraydf`` follows the method by
 `Chen et al. (2024)
 <https://ui.adsabs.harvard.edu/abs/2024arXiv240801496C/abstract>`__.
-``fardal15spraydf`` roughly follows the 
+``fardal15spraydf`` roughly follows the
 parametrization of `Fardal et al. (2015)
 <https://ui.adsabs.harvard.edu/abs/2015MNRAS.452..301F/abstract>`__. Full
 details on the ``galpy`` implementation are given in `Qian et al. (2022)
@@ -524,8 +524,8 @@ details on the ``galpy`` implementation are given in `Qian et al. (2022)
 we give a simple example of the ``fardal15spraydf`` method.
 
 .. note::
-   ``fardal15spraydf`` was previously known as ``streamspraydf`` before 
-   version ``v1.10.1``. While the old name is still supported for backward 
+   ``fardal15spraydf`` was previously known as ``streamspraydf`` before
+   version ``v1.10.1``. While the old name is still supported for backward
    compatibility, it is recommended to use the new name ``fardal15spraydf``.
 
 Like in the ``streamdf`` example above, we use the same orbit, potential, and
