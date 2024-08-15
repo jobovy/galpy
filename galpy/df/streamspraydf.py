@@ -360,10 +360,10 @@ class chen24spraydf(basestreamspraydf):
             Orbit instance that represents the center around which the progenitor is orbiting for the purpose of stream formation; allows for a stream to be generated from a progenitor orbiting a moving object, like a satellite galaxy. Integrated internally using centerpot.
         centerpot : galpy.potential.Potential or list of such instances, optional
             Potential for calculating the orbit of the center; this might be different from the potential that the progenitor is integrated in if, for example, dynamical friction is important for the orbit of the center (if it's a satellite).
-        meankvec : list or array, optional
-            Mean of the action-angle distribution. Default is [2.0, 0.0, 0.3, 0.0, 0.0, 0.0].
-        sigkvec : list or array, optional
-            Dispersion of the action-angle distribution. Default is [0.4, 0.0, 0.4, 0.5, 0.5, 0.0].
+        mean : None or array, shape (6,), optional
+            Means of the multivariate Gaussian distribution. If None, use the default values.
+        cov : None or array, shape (6,6), optional
+            Covariance of the multivariate Gaussian distribution. If None, use the default values.
         ro : float or Quantity, optional
             Distance scale for translation into internal units (default from configuration file).
         vo : float or Quantity, optional
