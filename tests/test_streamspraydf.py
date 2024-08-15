@@ -21,7 +21,7 @@ from galpy.util import coords
 
 
 def test_streamspraydf_deprecation():
-    # Check if the deprecating class raises the corret warning
+    # Check if the deprecating class raises the correct warning
     lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
     obs = Orbit(
         [1.56148083, 0.35081535, -1.15481504, 0.88719443, -0.47713334, 0.12019596]
