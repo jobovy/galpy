@@ -4,15 +4,15 @@ import numpy
 
 from ..df.df import df
 from ..orbit import Orbit
-from ..potential import evaluateRforces
+from ..potential import MovingObjectPotential, evaluateRforces
 from ..potential import flatten as flatten_potential
 from ..potential import rtide
-from ..potential import MovingObjectPotential
 from ..util import _rotate_to_arbitrary_vector, conversion, coords
 from ..util._optional_deps import _APY_LOADED, _APY_UNITS
 
 if _APY_LOADED:
     from astropy import units
+
 
 class basestreamspraydf(df):
     def __init__(
@@ -104,7 +104,9 @@ class basestreamspraydf(df):
             self._center = None
         return None
 
-    def sample(self, n, return_orbit=True, returndt=False, integrate=True, pot_prog=None):
+    def sample(
+        self, n, return_orbit=True, returndt=False, integrate=True, pot_prog=None
+    ):
         """
         Sample from the DF
 
@@ -188,9 +190,9 @@ class basestreamspraydf(df):
                 pot_tot = self._pot
             else:
                 pot_traj = MovingObjectPotential(
-                    orbit=self._progenitor, 
-                    pot=pot_prog, 
-                    ro=self._ro, 
+                    orbit=self._progenitor,
+                    pot=pot_prog,
+                    ro=self._ro,
                     vo=self._vo,
                 )
                 pot_tot = flatten_potential([self._pot, pot_traj])
@@ -388,18 +390,20 @@ class chen24spraydf(basestreamspraydf):
         else:
             self._mean = mean
         if cov is None:
-            self._cov = numpy.array([
-                [0.1225,   0,   0, 0, -4.9,   0],
-                [     0, 529,   0, 0,    0,   0],
-                [     0,   0, 144, 0,    0,   0],
-                [     0,   0,   0, 0,    0,   0],
-                [  -4.9,   0,   0, 0,  400,   0],
-                [     0,   0,   0, 0,    0, 484],
-            ])
+            self._cov = numpy.array(
+                [
+                    [0.1225, 0, 0, 0, -4.9, 0],
+                    [0, 529, 0, 0, 0, 0],
+                    [0, 0, 144, 0, 0, 0],
+                    [0, 0, 0, 0, 0, 0],
+                    [-4.9, 0, 0, 0, 400, 0],
+                    [0, 0, 0, 0, 0, 484],
+                ]
+            )
         else:
             self._cov = cov
         return None
-        
+
     def spray_df(self, xyzpt, vxyzpt, dt):
         """
         Sample the positions and velocities around the progenitor
@@ -465,12 +469,12 @@ class chen24spraydf(basestreamspraydf):
         alpha = posvel[:, 4] * numpy.pi / 180
         beta = posvel[:, 5] * numpy.pi / 180
 
-        xst = xyzpt[:,0] + Dr * numpy.cos(theta) * numpy.cos(phi)
-        yst = xyzpt[:,1] + Dr * numpy.cos(theta) * numpy.sin(phi)
-        zst = xyzpt[:,2] + Dr * numpy.sin(theta)
-        vxst = vxyzpt[:,0] + Dv * numpy.cos(beta) * numpy.cos(alpha)
-        vyst = vxyzpt[:,1] + Dv * numpy.cos(beta) * numpy.sin(alpha)
-        vzst = vxyzpt[:,2] + Dv * numpy.sin(beta)
+        xst = xyzpt[:, 0] + Dr * numpy.cos(theta) * numpy.cos(phi)
+        yst = xyzpt[:, 1] + Dr * numpy.cos(theta) * numpy.sin(phi)
+        zst = xyzpt[:, 2] + Dr * numpy.sin(theta)
+        vxst = vxyzpt[:, 0] + Dv * numpy.cos(beta) * numpy.cos(alpha)
+        vyst = vxyzpt[:, 1] + Dv * numpy.cos(beta) * numpy.sin(alpha)
+        vzst = vxyzpt[:, 2] + Dv * numpy.sin(beta)
 
         return xst, yst, zst, vxst, vyst, vzst
 
@@ -544,7 +548,7 @@ class fardal15spraydf(basestreamspraydf):
         if leading:
             self._meankvec *= -1.0
         return None
-        
+
     def spray_df(self, xyzpt, vxyzpt, dt):
         """
         Sample the positions and velocities around the progenitor
@@ -651,7 +655,7 @@ class streamspraydf(fardal15spraydf):
         warnings.warn(
             "Class `streamspraydf` will be deprecated in a later version. "
             "Please use class `fardal15spraydf` for the Fardal+15 particle spray model.",
-            FutureWarning, 
+            FutureWarning,
             stacklevel=1,
         )
         return None
