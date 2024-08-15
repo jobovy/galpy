@@ -13,6 +13,7 @@ from galpy.potential import (
     MovingObjectPotential,
     MWPotential2014,
     TriaxialNFWPotential,
+    PlummerPotential,
 )
 from galpy.util import conversion  # for unit conversions
 from galpy.util import coords
@@ -441,4 +442,30 @@ def test_sample_orbit_rovoetc():
         assert numpy.all(
             numpy.fabs(obs._solarmotion - sam._solarmotion) < 1e-10
         ), "Sampled streamspraydf orbits do not have the same solarmotion as the progenitor orbit"
+    return None
+
+
+def test_integrate_with_prog(setup_testStreamsprayAgainstStreamdf):
+    # Test integrating orbits with the progenitor's potential
+    # input progenitor
+    _, spdfs_bovy14 = setup_testStreamsprayAgainstStreamdf
+    for spdf_bovy14 in spdfs_bovy14:
+        # Without the progenitor's potential
+        numpy.random.seed(4)
+        RvR, dt = spdf_bovy14.sample(
+            n=100, return_orbit=False, returndt=True, integrate=True
+        )
+        # With the progenitor's potential, but set to zero-mass
+        numpy.random.seed(4)
+        pot_prog = PlummerPotential(0, 0)
+        RvR_withprog, dt_withprog = spdf_bovy14.sample(
+            n=100, return_orbit=False, returndt=True, integrate=True, pot_prog=pot_prog
+        )
+        # Should agree
+        assert (
+            numpy.amax(numpy.fabs(dt - dt_withprog)) < 1e-10
+        ), "Times not the same when sampling with and without prognitor's potential"
+        assert (
+            numpy.amax(numpy.fabs(RvR - RvR_withprog)) < 1e-7
+        ), "Phase-space points not the same when sampling with and without prognitor's potential"
     return None
