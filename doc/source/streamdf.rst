@@ -539,7 +539,7 @@ as a simple ``LogarithmicHaloPotential``):
 >>> o= Orbit([1.56148083,0.35081535,-1.15481504,0.88719443,-0.47713334,0.12019596])
 >>> lp= LogarithmicHaloPotential(normalize=1.,q=0.9)
 
-Then, we setup ``chen24spraydf`` and ``fardal15spraydf`` models for the leading 
+Then, we setup ``chen24spraydf`` and ``fardal15spraydf`` models for the leading
 and trailing arm of the stream:
 
 >>> from astropy import units
@@ -557,15 +557,15 @@ potential. Here, we use a Plummer potential for the prognenitor:
 >>> orbs_c24,dt_c24= spdf_c24.sample(n=300,returndt=True,integrate=True, pot_prog=pot_prog)
 >>> orbts_c24,dt_c24= spdft_c24.sample(n=300,returndt=True,integrate=True, pot_prog=pot_prog)
 
-which returns a ``galpy.orbit.Orbit`` instance with all 300 stars. Next, we 
+which returns a ``galpy.orbit.Orbit`` instance with all 300 stars. Next, we
 sample stars with ``fardal15spraydf`` without the progenitor's potential:
 
 >>> orbs_f15,dt= spdf_f15.sample(n=300,returndt=True,integrate=True)
 >>> orbts_f15,dt= spdft_f15.sample(n=300,returndt=True,integrate=True)
 
-We can plot the ``galpy.orbit.Orbit`` instance in :math:`Z` versus :math:`X` 
-and compare to Fig. 1 in Bovy (2014). First, we also integrate the orbit of the 
-progenitor forward and backward in time for a brief period to show its location 
+We can plot the ``galpy.orbit.Orbit`` instance in :math:`Z` versus :math:`X`
+and compare to Fig. 1 in Bovy (2014). First, we also integrate the orbit of the
+progenitor forward and backward in time for a brief period to show its location
 in the area of the stream:
 
 >>> ts= numpy.linspace(0.,3.,301)
@@ -590,7 +590,7 @@ which gives
 We can also compare to the track for this stream as predicted by ``streamdf``.
 For this, we first setup a similar ``streamdf`` model (they are not exactly
 the same, as ``streamdf`` uses a velocity dispersion to set the progenitor's
-mass, while ``fardal15spraydf`` and ``chen15spraydf`` uses the mass directly); 
+mass, while ``fardal15spraydf`` and ``chen15spraydf`` uses the mass directly);
 see the ``streamdf`` documentation for a full explanation of this code:
 
 >>> from galpy.actionAngle import actionAngleIsochroneApprox

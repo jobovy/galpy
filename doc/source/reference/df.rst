@@ -335,7 +335,7 @@ The distribution function of a tidal stream using a particle-spray technique
 ----------------------------------------------------------------------------
 
 Model from `Chen et al. (2024)
-<https://ui.adsabs.harvard.edu/abs/2024arXiv240801496C/abstract>`__ and 
+<https://ui.adsabs.harvard.edu/abs/2024arXiv240801496C/abstract>`__ and
 `Fardal et al. (2015)
 <https://ui.adsabs.harvard.edu/abs/2015MNRAS.452..301F/abstract>`__ with full
 details of the ``galpy`` implementation given in `Qian et al. (2022)
