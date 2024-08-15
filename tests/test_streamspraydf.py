@@ -12,8 +12,8 @@ from galpy.potential import (
     LogarithmicHaloPotential,
     MovingObjectPotential,
     MWPotential2014,
-    TriaxialNFWPotential,
     PlummerPotential,
+    TriaxialNFWPotential,
 )
 from galpy.util import conversion  # for unit conversions
 from galpy.util import coords
