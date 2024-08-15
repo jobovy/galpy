@@ -3,6 +3,11 @@ v1.10.1 (Expected around 2024-11-01)
 
 - Propagate general plotting keywords in Potential.plot/plotPotentials.
 
+- Added the generalized particle-spray model as galpy.df.basestreamspraydf with two 
+  subclasses: chen24spraydf and fadal15spraydf. Enabled integrating orbits of stream
+  particles with the progenitor's potential. Deprecating the old particle-spray 
+  model galpy.df.streamspraydf. 
+
 v1.10.0 (2024-07-07)
 ====================
 

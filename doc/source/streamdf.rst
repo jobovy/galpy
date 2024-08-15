@@ -509,16 +509,24 @@ for the difference in :math:`v_Y` as a function of unperturbed :math:`X`:
 
 .. _streamspray-tutorial:
 
-Particle-spray modeling of streams with ``streamspraydf``
+Particle-spray modeling of streams with ``fardal15spraydf``
 ---------------------------------------------------------
 
-``galpy`` also contains an implementation of the particle-spray method
-for generating tidal streams, roughly following the parametrization of
-`Fardal et al. (2015)
+``galpy`` also contains implementations of two particle-spray methods
+for generating tidal streams. ``chen24spraydf`` follows the method by
+`Chen et al. (2024)
+<https://ui.adsabs.harvard.edu/abs/2024arXiv240801496C/abstract>`__.
+``fardal15spraydf`` roughly follows the 
+parametrization of `Fardal et al. (2015)
 <https://ui.adsabs.harvard.edu/abs/2015MNRAS.452..301F/abstract>`__. Full
 details on the ``galpy`` implementation are given in `Qian et al. (2022)
 <https://ui.adsabs.harvard.edu/abs/2022MNRAS.511.2339Q/abstract>`__. Here,
-we give a simple example of the method.
+we give a simple example of the ``fardal15spraydf`` method.
+
+.. note::
+   ``fardal15spraydf`` was previously known as ``streamspraydf`` before 
+   version ``v1.10.1``. While the old name is still supported for backward 
+   compatibility, it is recommended to use the new name ``fardal15spraydf``.
 
 Like in the ``streamdf`` example above, we use the same orbit, potential, and
 cluster mass as in
@@ -531,13 +539,13 @@ as a simple ``LogarithmicHaloPotential``):
 >>> o= Orbit([1.56148083,0.35081535,-1.15481504,0.88719443,-0.47713334,0.12019596])
 >>> lp= LogarithmicHaloPotential(normalize=1.,q=0.9)
 
-Then, we setup ``streamspraydf`` models for the leading and trailing arm of
+Then, we setup ``fardal15spraydf`` models for the leading and trailing arm of
 the stream:
 
 >>> from astropy import units
->>> from galpy.df import streamspraydf
->>> spdf= streamspraydf(2*10.**4.*units.Msun,progenitor=o,pot=lp,tdisrupt=4.5*units.Gyr)
->>> spdft= streamspraydf(2*10.**4.*units.Msun,progenitor=o,pot=lp,leading=False,tdisrupt=4.5*units.Gyr)
+>>> from galpy.df import fardal15spraydf
+>>> spdf= fardal15spraydf(2*10.**4.*units.Msun,progenitor=o,pot=lp,tdisrupt=4.5*units.Gyr)
+>>> spdft= fardal15spraydf(2*10.**4.*units.Msun,progenitor=o,pot=lp,leading=False,tdisrupt=4.5*units.Gyr)
 
 To sample a set of 300 stars in both arms, we do
 
@@ -570,7 +578,7 @@ which gives
 We can also compare to the track for this stream as predicted by ``streamdf``.
 For this, we first setup a similar ``streamdf`` model (they are not exactly
 the same, as ``streamdf`` uses a velocity dispersion to set the progenitor's
-mass, while ``streamspraydf`` uses the mass directly); see the ``streamdf``
+mass, while ``fardal15spraydf`` uses the mass directly); see the ``streamdf``
 documentation for a full explanation of this code:
 
 >>> from galpy.actionAngle import actionAngleIsochroneApprox
@@ -597,12 +605,12 @@ This gives then
   :width: 600
 
 We see that the track from ``streamdf`` agrees very well with the location
-of the points sampled from ``streamspraydf``.
+of the points sampled from ``fardal15spraydf``.
 
-The ``streamspraydf`` ``sample`` function can also return the points at
+The ``fardal15spraydf`` ``sample`` function can also return the points at
 the time of stripping, that is, not integrated to the present time
 (when using ``integrate=False``); this can be useful for visualizing where
-stars get stripped from the progenitor. When initializing ``streamspraydf``,
+stars get stripped from the progenitor. When initializing ``fardal15spraydf``,
 you can also specify a different potential for computing the tidal radius
 and velocity distribution of the tidal debris, which can be useful when the
 overall potential contains pieces that are irrelevant for computing the tidal
