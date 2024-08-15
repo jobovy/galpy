@@ -4,7 +4,13 @@ import numpy
 import pytest
 
 from galpy.actionAngle import actionAngleIsochroneApprox
-from galpy.df import basestreamspraydf, chen24spraydf, fardal15spraydf, streamdf, streamspraydf
+from galpy.df import (
+    basestreamspraydf,
+    chen24spraydf,
+    fardal15spraydf,
+    streamdf,
+    streamspraydf,
+)
 from galpy.orbit import Orbit
 from galpy.potential import (
     ChandrasekharDynamicalFrictionForce,
@@ -522,12 +528,10 @@ def test_chen24spraydf_default_parameters():
                 [-4.9, 0, 0, 0, 400, 0],
                 [0, 0, 0, 0, 0, 484],
             ]
-        )
+        ),
     )
     numpy.random.seed(4)
-    RvR, dt = spdf.sample(
-        n=100, return_orbit=False, returndt=True, integrate=True
-    )
+    RvR, dt = spdf.sample(n=100, return_orbit=False, returndt=True, integrate=True)
     # Should agree
     assert (
         numpy.amax(numpy.fabs(dt_default - dt)) < 1e-10
