@@ -17503,7 +17503,7 @@ def test_streamgapdf_sample():
 
 def test_streamspraydf_setup_paramsAsQuantity():
     # Imports
-    from galpy.df import fardal15spraydf, chen24spraydf
+    from galpy.df import chen24spraydf, fardal15spraydf
     from galpy.orbit import Orbit
     from galpy.potential import LogarithmicHaloPotential
     from galpy.util import conversion  # for unit conversions
@@ -17535,14 +17535,15 @@ def test_streamspraydf_setup_paramsAsQuantity():
             numpy.fabs(sam.r(use_physical=False) - sam_nou.r(use_physical=False)) < 1e-8
         ), "Sample returned by streamspraydf.sample with with unit output is inconsistenty with the same sample sampled without unit output"
         assert numpy.all(
-            numpy.fabs(sam.vr(use_physical=False) - sam_nou.vr(use_physical=False)) < 1e-8
+            numpy.fabs(sam.vr(use_physical=False) - sam_nou.vr(use_physical=False))
+            < 1e-8
         ), "Sample returned by streamspraydf.sample with with unit output is inconsistenty with the same sample sampled without unit output"
     return None
 
 
 def test_streamspraydf_sample_orbit():
     from galpy import potential
-    from galpy.df import fardal15spraydf, chen24spraydf
+    from galpy.df import chen24spraydf, fardal15spraydf
     from galpy.orbit import Orbit
     from galpy.util import conversion
 
@@ -17576,14 +17577,15 @@ def test_streamspraydf_sample_orbit():
             numpy.fabs(sam.r(use_physical=False) - sam_nou.r(use_physical=False)) < 1e-8
         ), "Sample returned by streamspraydf.sample with with unit output is inconsistenty with the same sample sampled without unit output"
         assert numpy.all(
-            numpy.fabs(sam.vr(use_physical=False) - sam_nou.vr(use_physical=False)) < 1e-8
+            numpy.fabs(sam.vr(use_physical=False) - sam_nou.vr(use_physical=False))
+            < 1e-8
         ), "Sample returned by streamspraydf.sample with with unit output is inconsistenty with the same sample sampled without unit output"
     return None
 
 
 def test_streamspraydf_sample_RvR():
     from galpy import potential
-    from galpy.df import fardal15spraydf, chen24spraydf
+    from galpy.df import chen24spraydf, fardal15spraydf
     from galpy.orbit import Orbit
     from galpy.util import conversion
 

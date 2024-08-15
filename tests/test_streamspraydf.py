@@ -4,7 +4,7 @@ import numpy
 import pytest
 
 from galpy.actionAngle import actionAngleIsochroneApprox
-from galpy.df import streamdf, fardal15spraydf, chen24spraydf, streamspraydf
+from galpy.df import chen24spraydf, fardal15spraydf, streamdf, streamspraydf
 from galpy.orbit import Orbit
 from galpy.potential import (
     ChandrasekharDynamicalFrictionForce,
@@ -34,6 +34,7 @@ def test_streamspraydf_deprecation():
             pot=lp,
             tdisrupt=4.5 / conversion.time_in_Gyr(vo, ro),
         )
+
 
 # Setup both DFs
 @pytest.fixture(scope="module")
@@ -83,37 +84,47 @@ def test_sample_bovy14(setup_testStreamsprayAgainstStreamdf):
         indx = (RvR_sdf[3] > 4.0 / 8.0) * (RvR_sdf[3] < 5.0 / 8.0)
         # mean
         assert (
-            numpy.fabs(numpy.mean(RvR_sdf[0][indx]) - numpy.mean(RvR_spdf[0][indx])) < 6e-2
+            numpy.fabs(numpy.mean(RvR_sdf[0][indx]) - numpy.mean(RvR_spdf[0][indx]))
+            < 6e-2
         ), "streamdf and streamspraydf do not generate similar samples for the Bovy (2014) stream (mean)"
         assert (
-            numpy.fabs(numpy.mean(RvR_sdf[1][indx]) - numpy.mean(RvR_spdf[1][indx])) < 5e-2
+            numpy.fabs(numpy.mean(RvR_sdf[1][indx]) - numpy.mean(RvR_spdf[1][indx]))
+            < 5e-2
         ), "streamdf and streamspraydf do not generate similar samples for the Bovy (2014) stream (mean)"
         assert (
-            numpy.fabs(numpy.mean(RvR_sdf[2][indx]) - numpy.mean(RvR_spdf[2][indx])) < 5e-2
+            numpy.fabs(numpy.mean(RvR_sdf[2][indx]) - numpy.mean(RvR_spdf[2][indx]))
+            < 5e-2
         ), "streamdf and streamspraydf do not generate similar samples for the Bovy (2014) stream (mean)"
         assert (
-            numpy.fabs(numpy.mean(RvR_sdf[4][indx]) - numpy.mean(RvR_spdf[4][indx])) < 5e-2
+            numpy.fabs(numpy.mean(RvR_sdf[4][indx]) - numpy.mean(RvR_spdf[4][indx]))
+            < 5e-2
         ), "streamdf and streamspraydf do not generate similar samples for the Bovy (2014) stream (mean)"
         assert (
-            numpy.fabs(numpy.mean(RvR_sdf[5][indx]) - numpy.mean(RvR_spdf[5][indx])) < 1e-1
+            numpy.fabs(numpy.mean(RvR_sdf[5][indx]) - numpy.mean(RvR_spdf[5][indx]))
+            < 1e-1
         ), "streamdf and streamspraydf do not generate similar samples for the Bovy (2014) stream (mean)"
         # Another range in Z
         indx = (RvR_sdf[3] > 5.0 / 8.0) * (RvR_sdf[3] < 6.0 / 8.0)
         # mean
         assert (
-            numpy.fabs(numpy.mean(RvR_sdf[0][indx]) - numpy.mean(RvR_spdf[0][indx])) < 1e-1
+            numpy.fabs(numpy.mean(RvR_sdf[0][indx]) - numpy.mean(RvR_spdf[0][indx]))
+            < 1e-1
         ), "streamdf and streamspraydf do not generate similar samples for the Bovy (2014) stream (mean)"
         assert (
-            numpy.fabs(numpy.mean(RvR_sdf[1][indx]) - numpy.mean(RvR_spdf[1][indx])) < 3e-2
+            numpy.fabs(numpy.mean(RvR_sdf[1][indx]) - numpy.mean(RvR_spdf[1][indx]))
+            < 3e-2
         ), "streamdf and streamspraydf do not generate similar samples for the Bovy (2014) stream (mean)"
         assert (
-            numpy.fabs(numpy.mean(RvR_sdf[2][indx]) - numpy.mean(RvR_spdf[2][indx])) < 4e-2
+            numpy.fabs(numpy.mean(RvR_sdf[2][indx]) - numpy.mean(RvR_spdf[2][indx]))
+            < 4e-2
         ), "streamdf and streamspraydf do not generate similar samples for the Bovy (2014) stream (mean)"
         assert (
-            numpy.fabs(numpy.mean(RvR_sdf[4][indx]) - numpy.mean(RvR_spdf[4][indx])) < 3e-2
+            numpy.fabs(numpy.mean(RvR_sdf[4][indx]) - numpy.mean(RvR_spdf[4][indx]))
+            < 3e-2
         ), "streamdf and streamspraydf do not generate similar samples for the Bovy (2014) stream (mean)"
         assert (
-            numpy.fabs(numpy.mean(RvR_sdf[5][indx]) - numpy.mean(RvR_spdf[5][indx])) < 1e-1
+            numpy.fabs(numpy.mean(RvR_sdf[5][indx]) - numpy.mean(RvR_spdf[5][indx]))
+            < 1e-1
         ), "streamdf and streamspraydf do not generate similar samples for the Bovy (2014) stream (mean)"
     return None
 
@@ -132,13 +143,16 @@ def test_bovy14_sampleorbit(setup_testStreamsprayAgainstStreamdf):
         indx = (XvX_sdf[2] > 4.0 / 8.0) * (XvX_sdf[2] < 5.0 / 8.0)
         # mean
         assert (
-            numpy.fabs(numpy.mean(XvX_sdf[0][indx]) - numpy.mean(XvX_spdf.x()[indx])) < 6e-2
+            numpy.fabs(numpy.mean(XvX_sdf[0][indx]) - numpy.mean(XvX_spdf.x()[indx]))
+            < 6e-2
         ), "streamdf and streamspraydf do not generate similar samples for the Bovy (2014) stream (mean, xy)"
         assert (
-            numpy.fabs(numpy.mean(XvX_sdf[1][indx]) - numpy.mean(XvX_spdf.y()[indx])) < 2e-1
+            numpy.fabs(numpy.mean(XvX_sdf[1][indx]) - numpy.mean(XvX_spdf.y()[indx]))
+            < 2e-1
         ), "streamdf and streamspraydf do not generate similar samples for the Bovy (2014) stream (mean, xy)"
         assert (
-            numpy.fabs(numpy.mean(XvX_sdf[4][indx]) - numpy.mean(XvX_spdf.vy()[indx])) < 3e-2
+            numpy.fabs(numpy.mean(XvX_sdf[4][indx]) - numpy.mean(XvX_spdf.vy()[indx]))
+            < 3e-2
         ), "streamdf and streamspraydf do not generate similar samples for the Bovy (2014) stream (mean, xy)"
     return None
 
