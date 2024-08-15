@@ -521,7 +521,7 @@ parametrization of `Fardal et al. (2015)
 <https://ui.adsabs.harvard.edu/abs/2015MNRAS.452..301F/abstract>`__. Full
 details on the ``galpy`` implementation are given in `Qian et al. (2022)
 <https://ui.adsabs.harvard.edu/abs/2022MNRAS.511.2339Q/abstract>`__. Here,
-we give a simple example of the the two method.
+we give a simple example of the the two methods.
 
 .. note::
    ``fardal15spraydf`` was previously known as ``streamspraydf`` before
