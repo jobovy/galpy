@@ -509,8 +509,8 @@ for the difference in :math:`v_Y` as a function of unperturbed :math:`X`:
 
 .. _streamspray-tutorial:
 
-Particle-spray modeling of streams with ``fardal15spraydf``
----------------------------------------------------------
+Particle-spray modeling of streams
+----------------------------------
 
 ``galpy`` also contains implementations of two particle-spray methods
 for generating tidal streams. ``chen24spraydf`` follows the method by
