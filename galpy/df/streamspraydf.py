@@ -120,7 +120,7 @@ class basestreamspraydf(df):
             If True, also return the time since the star was stripped. Default is False.
         integrate : bool, optional
             If True, integrate the orbits to the present time. If False, return positions at stripping (probably want to combine with returndt=True then to make sense of them!). Default is True.
-        pot_prog : galpy.potential.Potential or list of such instances, optional or None
+        pot_prog : galpy.potential.Potential or list of such instances or None, optional
             Potential for the progenitor. Ignored if None.
 
         Returns
