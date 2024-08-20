@@ -540,30 +540,27 @@ as a simple ``LogarithmicHaloPotential``):
 >>> lp= LogarithmicHaloPotential(normalize=1.,q=0.9)
 
 Then, we setup ``chen24spraydf`` and ``fardal15spraydf`` models for the leading
-and trailing arm of the stream:
+and trailing arm of the stream. The ``chen24spraydf`` model requires integrating
+the orbits of stream stars with the progenitor's potential. Here, we use a
+Plummer potential for the prognenitor:
 
 >>> from astropy import units
 >>> from galpy.df import chen24spraydf, fardal15spraydf
->>> spdf_c24= chen24spraydf(2*10.**4.*units.Msun,progenitor=o,pot=lp,tdisrupt=4.5*units.Gyr)
->>> spdft_c24= chen24spraydf(2*10.**4.*units.Msun,progenitor=o,pot=lp,leading=False,tdisrupt=4.5*units.Gyr)
+>>> progpot = PlummerPotential(2*10.**4.*units.Msun, 4.*units.pc)
+>>> spdf_c24= chen24spraydf(2*10.**4.*units.Msun,progenitor=o,pot=lp,tdisrupt=4.5*units.Gyr, progpot=progpot)
+>>> spdft_c24= chen24spraydf(2*10.**4.*units.Msun,progenitor=o,pot=lp,leading=False,tdisrupt=4.5*units.Gyr, progpot=progpot)
 >>> spdf_f15= fardal15spraydf(2*10.**4.*units.Msun,progenitor=o,pot=lp,tdisrupt=4.5*units.Gyr)
 >>> spdft_f15= fardal15spraydf(2*10.**4.*units.Msun,progenitor=o,pot=lp,leading=False,tdisrupt=4.5*units.Gyr)
 
-First, we sample a set of 300 stars in both arms with ``chen24spraydf``. This
-model requires integrating the orbits of stream stars with the progenitor's
-potential. Here, we use a Plummer potential for the prognenitor:
+First, we sample a set of 300 stars in both arms:
 
->>> pot_prog = PlummerPotential(2*10.**4.*units.Msun, 4.*units.pc)
->>> orbs_c24,dt_c24= spdf_c24.sample(n=300,returndt=True,integrate=True, pot_prog=pot_prog)
->>> orbts_c24,dt_c24= spdft_c24.sample(n=300,returndt=True,integrate=True, pot_prog=pot_prog)
-
-which returns a ``galpy.orbit.Orbit`` instance with all 300 stars. Next, we
-sample stars with ``fardal15spraydf`` without the progenitor's potential:
-
+>>> orbs_c24,dt_c24= spdf_c24.sample(n=300,returndt=True,integrate=True)
+>>> orbts_c24,dt_c24= spdft_c24.sample(n=300,returndt=True,integrate=True)
 >>> orbs_f15,dt= spdf_f15.sample(n=300,returndt=True,integrate=True)
 >>> orbts_f15,dt= spdft_f15.sample(n=300,returndt=True,integrate=True)
 
-We can plot the ``galpy.orbit.Orbit`` instance in :math:`Z` versus :math:`X`
+which returns a ``galpy.orbit.Orbit`` instance with all 300 stars. We can plot
+the ``galpy.orbit.Orbit`` instance in :math:`Z` versus :math:`X`
 and compare to Fig. 1 in Bovy (2014). First, we also integrate the orbit of the
 progenitor forward and backward in time for a brief period to show its location
 in the area of the stream:

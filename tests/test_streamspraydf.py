@@ -51,7 +51,7 @@ def test_streamspraydf_deprecation():
         [1.56148083, 0.35081535, -1.15481504, 0.88719443, -0.47713334, 0.12019596]
     )
     ro, vo = 8.0, 220.0
-    with pytest.warns(FutureWarning):
+    with pytest.warns(DeprecationWarning):
         spdf = streamspraydf(
             2 * 10.0**4.0 / conversion.mass_in_msol(vo, ro),
             progenitor=obs,
@@ -518,15 +518,15 @@ def test_chen24spraydf_default_parameters():
         progenitor=obs,
         pot=lp,
         tdisrupt=4.5 / conversion.time_in_Gyr(vo, ro),
-        mean=numpy.array([1.6, -30.1, 0, 1, 20, 0]),
+        mean=numpy.array([1.6, -0.525344, 0, 1, 0.349066, 0]),
         cov=numpy.array(
             [
-                [0.1225, 0, 0, 0, -4.9, 0],
-                [0, 529, 0, 0, 0, 0],
-                [0, 0, 144, 0, 0, 0],
+                [0.1225, 0, 0, 0, -0.085521, 0],
+                [0, 0.161143, 0, 0, 0, 0],
+                [0, 0, 0.043865, 0, 0, 0],
                 [0, 0, 0, 0, 0, 0],
-                [-4.9, 0, 0, 0, 400, 0],
-                [0, 0, 0, 0, 0, 484],
+                [-0.085521, 0, 0, 0, 0.121847, 0],
+                [0, 0, 0, 0, 0, 0.147435],
             ]
         ),
     )
