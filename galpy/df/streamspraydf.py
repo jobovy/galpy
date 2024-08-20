@@ -112,7 +112,7 @@ class basestreamspraydf(df):
                 ro=self._ro,
                 vo=self._vo,
             )
-            self._pot = flatten_potential([self._pot, progtrajpot])
+            self._pot = self._pot + progtrajpot
 
         return None
 
@@ -295,7 +295,7 @@ class basestreamspraydf(df):
         rot_inv = numpy.einsum("ijk,ikl->ijl", z_rot_inv, pa_rot_inv)
         return (rot, rot_inv)
 
-    def _calc_rtide_vcs(self, Rpt, phipt, Zpt, dt):
+    def _calc_rtide(self, Rpt, phipt, Zpt, dt):
         try:
             rtides = rtide(
                 self._rtpot,
@@ -305,12 +305,6 @@ class basestreamspraydf(df):
                 t=-dt,
                 M=self._progenitor_mass,
                 use_physical=False,
-            )
-            vcs = numpy.sqrt(
-                -Rpt
-                * evaluateRforces(
-                    self._rtpot, Rpt, Zpt, phi=phipt, t=-dt, use_physical=False
-                )
             )
         except (ValueError, TypeError):
             rtides = numpy.array(
@@ -327,6 +321,17 @@ class basestreamspraydf(df):
                     for ii in range(len(Rpt))
                 ]
             )
+        return rtides
+
+    def _calc_vc(self, Rpt, phipt, Zpt, dt):
+        try:
+            vcs = numpy.sqrt(
+                -Rpt
+                * evaluateRforces(
+                    self._rtpot, Rpt, Zpt, phi=phipt, t=-dt, use_physical=False
+                )
+            )
+        except (ValueError, TypeError):
             vcs = numpy.array(
                 [
                     numpy.sqrt(
@@ -343,7 +348,7 @@ class basestreamspraydf(df):
                     for ii in range(len(Rpt))
                 ]
             )
-        return rtides, vcs
+        return vcs
 
     def spray_df(self, xyzpt, vxyzpt, dt):
         """
@@ -366,7 +371,7 @@ class basestreamspraydf(df):
         vxst, vyst, vzst : array, shape (N,)
             Velocities of points on the stream in the progenitor coordinates.
         """
-        warnings.warn("Not implemented!", RuntimeWarning, stacklevel=1)
+        warnings.warn("Not implemented!", NotImplementedError, stacklevel=1)
         pass
 
 
@@ -477,7 +482,7 @@ class chen24spraydf(basestreamspraydf):
             Velocities of points on the stream in the progenitor coordinates.
         """
         Rpt, phipt, Zpt = coords.rect_to_cyl(xyzpt[:, 0], xyzpt[:, 1], xyzpt[:, 2])
-        rtides, vcs = self._calc_rtide_vcs(Rpt, phipt, Zpt, dt)
+        rtides = self._calc_rtide(Rpt, phipt, Zpt, dt)
 
         # Sample positions and velocities in the instantaneous frame
         posvel = numpy.random.multivariate_normal(self._mean, self._cov, size=len(dt))
@@ -603,7 +608,8 @@ class fardal15spraydf(basestreamspraydf):
             Velocities of points on the stream in the progenitor coordinates.
         """
         Rpt, phipt, Zpt = coords.rect_to_cyl(xyzpt[:, 0], xyzpt[:, 1], xyzpt[:, 2])
-        rtides, vcs = self._calc_rtide_vcs(Rpt, phipt, Zpt, dt)
+        rtides = self._calc_rtide(Rpt, phipt, Zpt, dt)
+        vcs = self._calc_vc(Rpt, phipt, Zpt, dt)
         rtides_as_frac = rtides / Rpt
 
         vRpt, vTpt, vZpt = coords.rect_to_cyl_vec(

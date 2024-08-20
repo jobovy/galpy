@@ -4,13 +4,7 @@ import numpy
 import pytest
 
 from galpy.actionAngle import actionAngleIsochroneApprox
-from galpy.df import (
-    basestreamspraydf,
-    chen24spraydf,
-    fardal15spraydf,
-    streamdf,
-    streamspraydf,
-)
+from galpy.df import chen24spraydf, fardal15spraydf, streamdf, streamspraydf
 from galpy.orbit import Orbit
 from galpy.potential import (
     ChandrasekharDynamicalFrictionForce,
@@ -25,23 +19,6 @@ from galpy.util import conversion  # for unit conversions
 from galpy.util import coords
 
 ################################ Tests against streamdf ######################
-
-
-def test_basestreamspraydf_abstract_method():
-    # Check if the abstract method raises the correct warning
-    lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
-    obs = Orbit(
-        [1.56148083, 0.35081535, -1.15481504, 0.88719443, -0.47713334, 0.12019596]
-    )
-    ro, vo = 8.0, 220.0
-    spdf = basestreamspraydf(
-        2 * 10.0**4.0 / conversion.mass_in_msol(vo, ro),
-        progenitor=obs,
-        pot=lp,
-        tdisrupt=4.5 / conversion.time_in_Gyr(vo, ro),
-    )
-    with pytest.warns(RuntimeWarning):
-        spdf.spray_df(None, None, None)
 
 
 def test_streamspraydf_deprecation():
@@ -468,29 +445,41 @@ def test_sample_orbit_rovoetc():
     return None
 
 
-def test_integrate_with_prog(setup_testStreamsprayAgainstStreamdf):
+def test_integrate_with_prog():
     # Test integrating orbits with the progenitor's potential
-    # input progenitor
-    _, spdfs_bovy14 = setup_testStreamsprayAgainstStreamdf
-    for spdf_bovy14 in spdfs_bovy14:
-        # Without the progenitor's potential
-        numpy.random.seed(4)
-        RvR, dt = spdf_bovy14.sample(
-            n=100, return_orbit=False, returndt=True, integrate=True
-        )
-        # With the progenitor's potential, but set to zero-mass
-        numpy.random.seed(4)
-        pot_prog = PlummerPotential(0, 0)
-        RvR_withprog, dt_withprog = spdf_bovy14.sample(
-            n=100, return_orbit=False, returndt=True, integrate=True, pot_prog=pot_prog
-        )
-        # Should agree
-        assert (
-            numpy.amax(numpy.fabs(dt - dt_withprog)) < 1e-10
-        ), "Times not the same when sampling with and without prognitor's potential"
-        assert (
-            numpy.amax(numpy.fabs(RvR - RvR_withprog)) < 1e-7
-        ), "Phase-space points not the same when sampling with and without prognitor's potential"
+    lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
+    obs = Orbit(
+        [1.56148083, 0.35081535, -1.15481504, 0.88719443, -0.47713334, 0.12019596]
+    )
+    ro, vo = 8.0, 220.0
+    # Without the progenitor's potential
+    spdf = chen24spraydf(
+        2 * 10.0**4.0 / conversion.mass_in_msol(vo, ro),
+        progenitor=obs,
+        pot=lp,
+        tdisrupt=4.5 / conversion.time_in_Gyr(vo, ro),
+    )
+    numpy.random.seed(4)
+    RvR, dt = spdf.sample(n=100, return_orbit=False, returndt=True, integrate=True)
+    # With the progenitor's potential, but set to zero-mass
+    spdf = chen24spraydf(
+        2 * 10.0**4.0 / conversion.mass_in_msol(vo, ro),
+        progenitor=obs,
+        pot=lp,
+        tdisrupt=4.5 / conversion.time_in_Gyr(vo, ro),
+        progpot=PlummerPotential(0, 0),
+    )
+    numpy.random.seed(4)
+    RvR_withprog, dt_withprog = spdf.sample(
+        n=100, return_orbit=False, returndt=True, integrate=True
+    )
+    # Should agree
+    assert (
+        numpy.amax(numpy.fabs(dt - dt_withprog)) < 1e-10
+    ), "Times not the same when sampling with and without prognitor's potential"
+    assert (
+        numpy.amax(numpy.fabs(RvR - RvR_withprog)) < 1e-7
+    ), "Phase-space points not the same when sampling with and without prognitor's potential"
     return None
 
 
