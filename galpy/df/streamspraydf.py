@@ -371,8 +371,7 @@ class basestreamspraydf(df):
         vxst, vyst, vzst : array, shape (N,)
             Velocities of points on the stream in the progenitor coordinates.
         """
-        warnings.warn("Not implemented!", NotImplementedError, stacklevel=1)
-        pass
+        raise NotImplementedError
 
 
 class chen24spraydf(basestreamspraydf):
