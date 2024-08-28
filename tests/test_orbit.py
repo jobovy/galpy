@@ -8543,7 +8543,7 @@ def test_from_name_values():
     assert numpy.isclose(o.pmra(), 200.94), "PMRA of Vega does not match SIMBAD value"
     assert numpy.isclose(o.pmdec(), 286.23), "PMDec of Vega does not match SIMBAD value"
     assert numpy.isclose(
-        o.vlos(), -20.60
+        o.vlos(), -13.50
     ), "radial velocity of Vega does not match SIMBAD value"
 
     # test Lacaille 8760

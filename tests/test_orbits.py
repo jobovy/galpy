@@ -8496,7 +8496,7 @@ def test_from_name_values():
         o.pmdec(), [286.23, -1145.862]
     ), "PMDec of Vega/Lacaille 8760  does not match SIMBAD value"
     assert numpy.allclose(
-        o.vlos(), [-20.60, 20.56]
+        o.vlos(), [-13.50, 20.56]
     ), "radial velocity of Vega/Lacaille 8760  does not match SIMBAD value"
     # test Vega and Lacaille 8760, as a list
     o = Orbit.from_name(["Vega", "Lacaille 8760"])
@@ -8516,7 +8516,7 @@ def test_from_name_values():
         o.pmdec(), [286.23, -1145.862]
     ), "PMDec of Vega/Lacaille 8760  does not match SIMBAD value"
     assert numpy.allclose(
-        o.vlos(), [-20.60, 20.56]
+        o.vlos(), [-13.50, 20.56]
     ), "radial velocity of Vega/Lacaille 8760  does not match SIMBAD value"
     return None
 
