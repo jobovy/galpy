@@ -372,7 +372,8 @@ void wez_ias15(void (*func)(double t, double *q, double *a, int nargs, struct po
 
       //fix for inf values issue
       double dt_required;
-      double correction_factor = pow(precision_parameter / (max_B6/max_a), 1.0/7.0);
+      double correction_factor = sqrt7(precision_parameter / (max_B6/max_a));
+      //double correction_factor = pow(precision_parameter / (max_B6/max_a), 1.0/7.0);
 
       if (isnormal(correction_factor)){
         dt_required = dt_temp * correction_factor;
@@ -565,4 +566,24 @@ void update_Bs_from_Gs(int current_truncation_order, int i, double * Bs, double 
     Bs[j + 5] +=  diff_G * c_6_5;
     Bs[j + 6] +=  diff_G;
   }
+}
+
+static double sqrt7(double a){
+    // Without scaling, this is only accurate for arguments in [1e-7, 1e2]
+    // With scaling: [1e-14, 1e8]
+    double scale = 1;
+    while(a<1e-7 && isnormal(a)){
+        scale *= 0.1;
+        a *= 1e7;
+    }
+    while(a>1e2 && isnormal(a)){
+        scale *= 10;
+        a *= 1e-7;
+    }
+    double x = 1.;
+    for (int k=0; k<20;k++){  // A smaller number should be ok too.
+        double x6 = x*x*x*x*x*x;
+        x += (a/x6-x)/7.;
+    }
+    return x*scale;
 }

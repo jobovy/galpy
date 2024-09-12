@@ -67,6 +67,7 @@ void update_Gs_from_Bs(int, double *, double *);
 void update_Gs_from_Fs(int, int, double *, double * );
 void update_Bs_from_Gs(int, int, double *, double *, double);
 void next_sequence_Bs(double, double *, double *, double *, int);
+static double sqrt7(double);
 
 #ifdef __cplusplus
 }
