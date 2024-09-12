@@ -1,4 +1,3 @@
-import distutils.ccompiler
 import glob
 import os
 import os.path
@@ -42,22 +41,6 @@ if WIN32:
     # On Windows it's unnecessary and erroneous to include m
     galpy_c_libraries.remove("m")
     # Windows does not need 'gomp' whether compiled with OpenMP or not
-    galpy_c_libraries.remove("gomp")
-
-# Option to use Intel compilers
-try:
-    compiler_option_pos = ["--compiler=" in opt for opt in sys.argv].index(True)
-except ValueError:
-    use_intel_compiler = False
-else:
-    use_intel_compiler = "intel" in sys.argv[compiler_option_pos].split("=")[1]
-
-if use_intel_compiler and not WIN32:
-    import numpy.distutils.intelccompiler
-elif use_intel_compiler and WIN32:
-    import __intelcompiler
-
-if use_intel_compiler:  # OpenMP by default included for Intel, see #416
     galpy_c_libraries.remove("gomp")
 
 # Option to forego OpenMP
@@ -126,19 +109,6 @@ extra_compile_args.append("-D GSL_MAJOR_VERSION=%s" % (gsl_version[0]))
 
 # HACK for testing
 # gsl_version= ['0','0']
-
-# MSVC: inline does not exist (not C99!); default = not necessarily actual, but will have to do for now...
-# Note for the futureL could now get the actual compiler in the BuildExt class
-# below
-if distutils.ccompiler.get_default_compiler().lower() == "msvc":
-    extra_compile_args.append("-Dinline=__inline")
-    # only msvc compiler can be tested with initialize(), msvc is a default on windows
-    # check for 'msvc' not WIN32, user can use other compiler like 'mingw32', in such case compiler exists for them
-    try:
-        test_compiler = distutils.ccompiler.new_compiler()
-        test_compiler.initialize()  # try to initialize a test compiler to see if compiler presented
-    except PlatformError:  # this error will be raised if no compiler in the system
-        no_compiler = True
 
 # To properly export GSL symbols on Windows, need to defined GSL_DLL and WIN32
 if WIN32:
@@ -265,6 +235,18 @@ def compiler_has_flag(compiler, flagname):
     return True
 
 
+# Test whether the compiler is clang, allowing for the fact that it's name might be gcc...
+def compiler_is_clang(compiler):
+    # Test whether the compiler is clang by running the compiler with the --version flag and checking whether the output contains "clang"
+    try:
+        output = subprocess.check_output(
+            [compiler.compiler[0], "--version"], stderr=subprocess.STDOUT
+        )
+    except (OSError, subprocess.CalledProcessError):
+        return False
+    return b"clang" in output
+
+
 # Now need to subclass BuildExt to access the compiler used and check flags
 class BuildExt(build_ext):
     def build_extensions(self):
@@ -274,9 +256,18 @@ class BuildExt(build_ext):
                 # only add flags which pass the flag_filter
                 extra_compile_args = []
                 libraries = ext.libraries
-                for flag in ext.extra_compile_args:
+                for flag in set(ext.extra_compile_args):
                     if compiler_has_flag(self.compiler, flag):
                         extra_compile_args.append(flag)
+                    elif compiler_is_clang(self.compiler) and flag == "-fopenmp":
+                        # clang does not support -fopenmp, but does support -Xclang -fopenmp
+                        extra_compile_args.append("-Xclang")
+                        extra_compile_args.append("-fopenmp")
+                        # Also adjust libraries as needed
+                        if "gomp" in libraries:
+                            libraries.remove("gomp")
+                        if "omp" not in libraries:
+                            libraries.append("omp")
                     elif flag == "-fopenmp" and "gomp" in libraries:
                         libraries.remove("gomp")
                 ext.extra_compile_args = extra_compile_args
@@ -287,7 +278,7 @@ class BuildExt(build_ext):
 setup(
     cmdclass=dict(build_ext=BuildExt),  # this to allow compiler check above
     name="galpy",
-    version="1.10.0.dev0",
+    version="1.10.1.dev0",
     description="Galactic Dynamics in python",
     author="Jo Bovy",
     author_email="bovy@astro.utoronto.ca",
@@ -318,6 +309,7 @@ setup(
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
+        "Programming Language :: Python :: 3.12",
         "Environment :: WebAssembly :: Emscripten",
         "Topic :: Scientific/Engineering :: Astronomy",
         "Topic :: Scientific/Engineering :: Physics",

@@ -5,6 +5,32 @@ This page gives some of the key improvements in each galpy
 version. See the ``HISTORY.txt`` file in the galpy source for full
 details on what is new and different in each version.
 
+v1.10
++++++
+
+Version 1.10 is a largely incremental update to version 1.9, with a few new features,
+bug fixes, and small improvememts to the documentation. The major new additions are:
+
+* Added ``KuzminLikeWrapperPotential``, a potential wrapper that allows
+  one to make a Kuzmin-like or Miyamoto-Nagai-like potential out of any
+  spherical or axisymmetric potential (evaluated in the plane, i.e.,
+  treated as a spherical potential). Kuzmin-like potentials are obtained by
+  replacing the spherical radius r with :math:`\sqrt{R^2 + (a + |z|^2)}`, while
+  Miyamoto-Nagai-like potentials are obtained by replacing the spherical
+  radius with :math:`\sqrt{R^2 + (a + \sqrt{z^2 + b^2})^2}`. The standard KuzminDiskPotential
+  and MiyamotoNagaiPotential are obtained by applying this procedure to a point-mass
+  potential and the Kuzmin/Miyamoto-Nagai-like potentials generalize this to any
+  spherical potential.
+
+* Allow vector inputs of solar parameters to Orbit initialization: ``ro``, ``zo``, ``vo``,
+  and ``solarmotion``. Useful when sampling over the uncertainty in the solar
+  parameters.
+
+* Increased support for using OpenMP with clang and, in particular, added OpenMP support
+  in the released Mac wheels.
+
+* Converted all docstrings to numpy-style format with the help of GitHub Copilot.
+
 v1.9
 +++++
 

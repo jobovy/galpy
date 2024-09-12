@@ -6236,6 +6236,61 @@ def test_RotateAndTiltWrapper():
     ), "Wrapped + Offset and Internally rotated NFW potentials do not match when evaluated at the same point"
 
 
+def test_RotateAndTiltWrapper_pa_inclination_rotation_matrix():
+    # Test that the formula for the rotation matrix given in the documentation agrees with the code
+    def rotation_matrix_docs(galaxy_pa, inclination, sky_pa):
+        return numpy.dot(
+            numpy.array(
+                [
+                    [numpy.cos(galaxy_pa), numpy.sin(galaxy_pa), 0.0],
+                    [-numpy.sin(galaxy_pa), numpy.cos(galaxy_pa), 0.0],
+                    [0.0, 0.0, 1.0],
+                ]
+            ),
+            numpy.dot(
+                numpy.array(
+                    [
+                        [1.0, 0.0, 0.0],
+                        [0.0, numpy.cos(inclination), numpy.sin(inclination)],
+                        [0.0, -numpy.sin(inclination), numpy.cos(inclination)],
+                    ]
+                ),
+                numpy.array(
+                    [
+                        [numpy.sin(sky_pa), -numpy.cos(sky_pa), 0.0],
+                        [numpy.cos(sky_pa), numpy.sin(sky_pa), 0.0],
+                        [0.0, 0.0, 1],
+                    ]
+                ),
+            ),
+        )
+
+    galaxy_pa, inclination, sky_pa = 0.3, -0.2, 0.1
+    rtwp = potential.RotateAndTiltWrapperPotential(
+        pot=potential.MWPotential2014,
+        galaxy_pa=galaxy_pa,
+        inclination=inclination,
+        sky_pa=sky_pa,
+    )
+    assert numpy.all(
+        numpy.fabs(rtwp._rot - rotation_matrix_docs(galaxy_pa, inclination, sky_pa))
+        < 1e-10
+    ), "Rotation matrix in RotateAndTiltWrapperPotential does not agree with the formula in the documentation"
+
+    galaxy_pa, inclination, sky_pa = -0.3, 1.2, 2.1
+    rtwp = potential.RotateAndTiltWrapperPotential(
+        pot=potential.MWPotential2014,
+        galaxy_pa=galaxy_pa,
+        inclination=inclination,
+        sky_pa=sky_pa,
+    )
+    assert numpy.all(
+        numpy.fabs(rtwp._rot - rotation_matrix_docs(galaxy_pa, inclination, sky_pa))
+        < 1e-10
+    ), "Rotation matrix in RotateAndTiltWrapperPotential does not agree with the formula in the documentation"
+    return None
+
+
 def test_integration_RotateAndTiltWrapper():
     ## test a quick orbit integration to hit the C code (also test pure python)
     # two potentials, one offset

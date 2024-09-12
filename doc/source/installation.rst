@@ -21,11 +21,15 @@ TL;DR
 
     .. tab-item:: Mac
 
-        The recommended way to install is using ``pip``::
+        The recommended way to install in non-``conda`` environments (e.g., ``venv``) is using ``pip``::
 
             python -m pip install --only-binary galpy galpy
 
-        This should install a fully-working version of galpy for Python versions >=3.8. If this fails, please open an `issue <https://github.com/jobovy/galpy/issues/new?assignees=&labels=&template=bug_report.md&title=>`__ on the ``galpy`` GitHub page, making sure to specify your platform and Python version. Then read on at :ref:`detailed_installation` to learn how to install ``galpy`` when the above fails.
+        If you are using ``conda``, especially if you used it to install ``numpy``, the recommended way to install is using ``conda``::
+
+            conda install -c conda-forge gsl galpy
+
+        These should install a fully-working version of galpy for Python versions >=3.8. If this fails, please open an `issue <https://github.com/jobovy/galpy/issues/new?assignees=&labels=&template=bug_report.md&title=>`__ on the ``galpy`` GitHub page, making sure to specify your platform and Python version. Then read on at :ref:`detailed_installation` to learn how to install ``galpy`` when the above fails.
 
     .. tab-item:: Windows
 
@@ -140,25 +144,41 @@ If you are reading this, either the simple installation instructions at the top 
 
             python -m pip install --only-binary galpy galpy
 
-        Alternatively, you can install both the GSL and ``galpy`` using ``conda``::
+        However, if you are using ``conda`` and, particularly, if you used it to install
+        ``numpy``, issues can arise with multiple OpenMP runtimes and the best way to
+        avoid those is to install using ``conda``::
 
             conda install -c conda-forge gsl galpy
 
-        To compile ``galpy`` from source, you will first need to install the GSL. The
-        easiest way to do this is using `Homebrew <http://brew.sh/>`__ as::
+        To compile ``galpy`` from source, you will first need to install the GSL and OpenMP.
+        The easiest way to do this is using `Homebrew <http://brew.sh/>`__ as::
 
-            brew install gsl
+            brew install gsl libomp
 
-        Alternatively, you can use ``conda`` to install the GSL and use ``conda`` to
-        manage your Python environment. Install the GSL in your preferred environment
-        with::
+        Note that in order not to conflict with other OpenMP installations, the
+        ``Homebrew`` version of ``libomp`` is "keg-only" and you have to set the
+        environment variables to use it. You can do this by running::
 
-            conda install -c conda-forge gsl
+            export CFLAGS=-I$(brew --prefix)/include -I/usr/local/opt/libomp/include
+            export LDFLAGS=-L$(brew --prefix)/lib -L/usr/local/opt/libomp/lib
+            export LD_LIBRARY_PATH=$(brew --prefix)/lib:/usr/local/opt/libomp/lib
 
-        Once you have installed the GSL, compile ``galpy`` from source using::
+        Note that the exact paths may vary depending on your system (run
+        ``brew info libomp`` to get the correct paths).
+
+        Alternatively, you can use ``conda`` to install the GSL and OpenMP and use
+        ``conda`` to manage your Python environment. Install the GSL and OpenMP in your
+        preferred environment with::
+
+            conda install -c conda-forge gsl llvm-openmp
+
+        Then set the path and relevant environment variables using::
 
             export CFLAGS="$CFLAGS -I`gsl-config --prefix`/include"
             export LDFLAGS="$LDFLAGS -L`gsl-config --prefix`/lib"
+
+        Once you have installed the GSL and OpenMP, compile ``galpy`` from source using::
+
             python -m pip install --no-binary galpy galpy
 
         The commands in this section so far all install the latest release. If you want
@@ -175,8 +195,8 @@ If you are reading this, either the simple installation instructions at the top 
         workflows that should always be using the latest version of ``galpy``
         (e.g., to test your code against the latest development version).
 
-        If this doesn't work, follow the steps above to install the GSL, define the
-        relevant environment variables, and then install from source using::
+        If this doesn't work, follow the steps above to install the GSL and OpenMP,
+        define the relevant environment variables, and then install from source using::
 
             python -m pip install git+https://github.com/jobovy/galpy.git#egg=galpy
 
@@ -259,11 +279,9 @@ and then clone it to your local machine::
 
     git clone git@github.com:YOUR_GITHUB_USERNAME/galpy.git
 
-Then, install the GSL as described in the relevant :ref:`detailed_installation`
-section above. Once you have installed the GSL, compile ``galpy`` from source::
+Then, install the GSL and OpenMP as described in the relevant :ref:`detailed_installation`
+section above. Then compile ``galpy`` from source::
 
-    export CFLAGS="$CFLAGS -I`gsl-config --prefix`/include"
-    export LDFLAGS="$LDFLAGS -L`gsl-config --prefix`/lib"
     python -m pip install -e .
 
 Whenever you change the C code, you have to re-run the last command. Note that
@@ -308,32 +326,6 @@ to install the pre-commit hooks. These will run automatically whenever you commi
 
 More esoteric installations
 ---------------------------
-
-Installing from source with Intel Compiler
-++++++++++++++++++++++++++++++++++++++++++
-
-Compiling galpy with an Intel Compiler can give significant
-performance improvements on 64-bit Intel CPUs. Moreover students can
-obtain a free copy of an Intel Compiler at `this link
-<https://software.intel.com/en-us/qualify-for-free-software/student>`__.
-
-To compile the galpy C extensions with the Intel Compiler on 64bit
-MacOS/Linux do, follow the instructions to compile from source for your platform
-in :ref:`detailed_installation` above, clone the repository or download the
-source code and then do::
-
-    python setup.py build_ext --inplace --compiler=intelem
-
-To compile the galpy C extensions with the Intel Compiler on 64bit
-Windows do::
-
-    python setup.py build_ext --inplace --compiler=intel64w
-
-Then you can simply install with::
-
-     python setup.py install
-
-or other similar installation commands.
 
 .. _install_tm:
 
