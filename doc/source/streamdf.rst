@@ -509,16 +509,24 @@ for the difference in :math:`v_Y` as a function of unperturbed :math:`X`:
 
 .. _streamspray-tutorial:
 
-Particle-spray modeling of streams with ``streamspraydf``
----------------------------------------------------------
+Particle-spray modeling of streams
+----------------------------------
 
-``galpy`` also contains an implementation of the particle-spray method
-for generating tidal streams, roughly following the parametrization of
-`Fardal et al. (2015)
+``galpy`` also contains implementations of two particle-spray methods
+for generating tidal streams. ``chen24spraydf`` follows the method by
+`Chen et al. (2024)
+<https://ui.adsabs.harvard.edu/abs/2024arXiv240801496C/abstract>`__.
+``fardal15spraydf`` roughly follows the
+parametrization of `Fardal et al. (2015)
 <https://ui.adsabs.harvard.edu/abs/2015MNRAS.452..301F/abstract>`__. Full
 details on the ``galpy`` implementation are given in `Qian et al. (2022)
 <https://ui.adsabs.harvard.edu/abs/2022MNRAS.511.2339Q/abstract>`__. Here,
-we give a simple example of the method.
+we give a simple example of the the two methods.
+
+.. note::
+   ``fardal15spraydf`` was previously known as ``streamspraydf`` before
+   version ``v1.10.1``. While the old name is still supported  until ``v.1.11.0``
+   for backward compatibility, we recommend using the new name ``fardal15spraydf``.
 
 Like in the ``streamdf`` example above, we use the same orbit, potential, and
 cluster mass as in
@@ -531,24 +539,31 @@ as a simple ``LogarithmicHaloPotential``):
 >>> o= Orbit([1.56148083,0.35081535,-1.15481504,0.88719443,-0.47713334,0.12019596])
 >>> lp= LogarithmicHaloPotential(normalize=1.,q=0.9)
 
-Then, we setup ``streamspraydf`` models for the leading and trailing arm of
-the stream:
+Then, we setup ``chen24spraydf`` and ``fardal15spraydf`` models for the leading
+and trailing arm of the stream. The ``chen24spraydf`` model requires integrating
+the orbits of stream stars with the progenitor's potential. Here, we use a
+Plummer potential for the prognenitor:
 
 >>> from astropy import units
->>> from galpy.df import streamspraydf
->>> spdf= streamspraydf(2*10.**4.*units.Msun,progenitor=o,pot=lp,tdisrupt=4.5*units.Gyr)
->>> spdft= streamspraydf(2*10.**4.*units.Msun,progenitor=o,pot=lp,leading=False,tdisrupt=4.5*units.Gyr)
+>>> from galpy.df import chen24spraydf, fardal15spraydf
+>>> progpot = PlummerPotential(2*10.**4.*units.Msun, 4.*units.pc)
+>>> spdf_c24= chen24spraydf(2*10.**4.*units.Msun,progenitor=o,pot=lp,tdisrupt=4.5*units.Gyr, progpot=progpot)
+>>> spdft_c24= chen24spraydf(2*10.**4.*units.Msun,progenitor=o,pot=lp,leading=False,tdisrupt=4.5*units.Gyr, progpot=progpot)
+>>> spdf_f15= fardal15spraydf(2*10.**4.*units.Msun,progenitor=o,pot=lp,tdisrupt=4.5*units.Gyr)
+>>> spdft_f15= fardal15spraydf(2*10.**4.*units.Msun,progenitor=o,pot=lp,leading=False,tdisrupt=4.5*units.Gyr)
 
-To sample a set of 300 stars in both arms, we do
+First, we sample a set of 300 stars in both arms:
 
->>> orbs,dt= spdf.sample(n=300,returndt=True,integrate=True)
->>> orbts,dt= spdft.sample(n=300,returndt=True,integrate=True)
+>>> orbs_c24,dt_c24= spdf_c24.sample(n=300,returndt=True,integrate=True)
+>>> orbts_c24,dt_c24= spdft_c24.sample(n=300,returndt=True,integrate=True)
+>>> orbs_f15,dt= spdf_f15.sample(n=300,returndt=True,integrate=True)
+>>> orbts_f15,dt= spdft_f15.sample(n=300,returndt=True,integrate=True)
 
 which returns a ``galpy.orbit.Orbit`` instance with all 300 stars. We can plot
-these in :math:`Z` versus :math:`X` and compare to Fig. 1 in
-Bovy (2014). First, we also integrate the orbit of the progenitor forward
-and backward in time for a brief period to show its location in the area
-of the stream:
+the ``galpy.orbit.Orbit`` instance in :math:`Z` versus :math:`X`
+and compare to Fig. 1 in Bovy (2014). First, we also integrate the orbit of the
+progenitor forward and backward in time for a brief period to show its location
+in the area of the stream:
 
 >>> ts= numpy.linspace(0.,3.,301)
 >>> o.integrate(ts,lp)
@@ -559,19 +574,21 @@ Then we plot
 
 >>> o.plot(d1='x',d2='z',color='k',xrange=[0.,2.],yrange=[-0.1,1.45])
 >>> of.plot(d1='x',d2='z',overplot=True,color='k')
->>> plot(orbs.x(),orbs.z(),'r.')
->>> plot(orbts.x(),orbts.z(),'b.')
+>>> plot(orbs_c24.x(),orbs_c24.z(),'r.', alpha=0.5)
+>>> plot(orbts_c24.x(),orbts_c24.z(),'r.', alpha=0.5)
+>>> plot(orbs_f15.x(),orbs_f15.z(),'b.', alpha=0.5)
+>>> plot(orbts_f15.x(),orbts_f15.z(),'b.', alpha=0.5)
 
 which gives
 
-.. image:: images/streamspraydf-b14-xz.png
+.. image:: images/chen24spraydf-fardal15spraydf-b14-xz.png
   :width: 600
 
 We can also compare to the track for this stream as predicted by ``streamdf``.
 For this, we first setup a similar ``streamdf`` model (they are not exactly
 the same, as ``streamdf`` uses a velocity dispersion to set the progenitor's
-mass, while ``streamspraydf`` uses the mass directly); see the ``streamdf``
-documentation for a full explanation of this code:
+mass, while ``fardal15spraydf`` and ``chen15spraydf`` uses the mass directly);
+see the ``streamdf`` documentation for a full explanation of this code:
 
 >>> from galpy.actionAngle import actionAngleIsochroneApprox
 >>> from galpy.df import streamdf
@@ -586,23 +603,23 @@ Then, we can overplot the track predicted by ``streamdf``:
 
 >>> o.plot(d1='x',d2='z',color='k',xrange=[0.,2.],yrange=[-0.1,1.45])
 >>> of.plot(d1='x',d2='z',overplot=True,color='k')
->>> plot(orbs.x(),orbs.z(),'r.',alpha=0.1)
->>> plot(orbts.x(),orbts.z(),'b.',alpha=0.1)
+>>> plot(orbs_c24.x(),orbs_c24.z(),'r.',alpha=0.1)
+>>> plot(orbts_c24.x(),orbts_c24.z(),'r.',alpha=0.1)
 >>> sdf.plotTrack(d1='x',d2='z',interp=True,color='r',overplot=True,lw=1.)
 >>> sdft.plotTrack(d1='x',d2='z',interp=True,color='b',overplot=True,lw=1.)
 
 This gives then
 
-.. image:: images/streamspraydf-b14-xz-wstreamdf.png
+.. image:: images/chen24spraydf-b14-xz-wstreamdf.png
   :width: 600
 
 We see that the track from ``streamdf`` agrees very well with the location
-of the points sampled from ``streamspraydf``.
+of the points sampled from ``chen24spraydf``.
 
-The ``streamspraydf`` ``sample`` function can also return the points at
+The ``sample`` function can also return the points at
 the time of stripping, that is, not integrated to the present time
 (when using ``integrate=False``); this can be useful for visualizing where
-stars get stripped from the progenitor. When initializing ``streamspraydf``,
+stars get stripped from the progenitor. When initializing a particle-spray DF,
 you can also specify a different potential for computing the tidal radius
 and velocity distribution of the tidal debris, which can be useful when the
 overall potential contains pieces that are irrelevant for computing the tidal

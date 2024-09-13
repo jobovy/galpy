@@ -16421,7 +16421,7 @@ def test_sphericaldf_sample_outputunits():
     ), "Sample returned by sphericaldf.sample with with unit output is inconsistenty with the same sample sampled without unit output"
     assert numpy.all(
         numpy.fabs(sam[1].to_value(units.km / units.s) / vo - sam_nou[1]) < 1e-8
-    ), "Sample returned by streamspraydf.sample with with unit output is inconsistenty with the same sample sampled without unit output"
+    ), "Sample returned by sphericaldf.sample with with unit output is inconsistenty with the same sample sampled without unit output"
     assert numpy.all(
         numpy.fabs(sam[2].to_value(units.km / units.s) / vo - sam_nou[2]) < 1e-8
     ), "Sample returned by sphericaldf.sample with with unit output is inconsistenty with the same sample sampled without unit output"
@@ -17503,7 +17503,7 @@ def test_streamgapdf_sample():
 
 def test_streamspraydf_setup_paramsAsQuantity():
     # Imports
-    from galpy.df import streamspraydf
+    from galpy.df import chen24spraydf, fardal15spraydf
     from galpy.orbit import Orbit
     from galpy.potential import LogarithmicHaloPotential
     from galpy.util import conversion  # for unit conversions
@@ -17515,33 +17515,35 @@ def test_streamspraydf_setup_paramsAsQuantity():
     )
     Mass = 2 * 10.0**4.0 * units.Msun
     tdisrupt = 4.5 * units.Gyr
-    # Object with physical inputs off
-    spdf_bovy14_nou = streamspraydf(
-        Mass.to_value(units.Msun) / conversion.mass_in_msol(vo, ro),
-        progenitor=obs,
-        pot=lp,
-        tdisrupt=tdisrupt.to_value(units.Gyr) / conversion.time_in_Gyr(vo, ro),
-    )
-    # Object with physical on
-    spdf_bovy14 = streamspraydf(
-        Mass, progenitor=obs, pot=lp, tdisrupt=tdisrupt, ro=ro, vo=vo
-    )
-    numpy.random.seed(10)
-    sam = spdf_bovy14.sample(n=2)
-    numpy.random.seed(10)
-    sam_nou = spdf_bovy14_nou.sample(n=2)
-    assert numpy.all(
-        numpy.fabs(sam.r(use_physical=False) - sam_nou.r(use_physical=False)) < 1e-8
-    ), "Sample returned by streamspraydf.sample with with unit output is inconsistenty with the same sample sampled without unit output"
-    assert numpy.all(
-        numpy.fabs(sam.vr(use_physical=False) - sam_nou.vr(use_physical=False)) < 1e-8
-    ), "Sample returned by streamspraydf.sample with with unit output is inconsistenty with the same sample sampled without unit output"
+    for streamspraydf in [fardal15spraydf, chen24spraydf]:
+        # Object with physical inputs off
+        spdf_bovy14_nou = streamspraydf(
+            Mass.to_value(units.Msun) / conversion.mass_in_msol(vo, ro),
+            progenitor=obs,
+            pot=lp,
+            tdisrupt=tdisrupt.to_value(units.Gyr) / conversion.time_in_Gyr(vo, ro),
+        )
+        # Object with physical on
+        spdf_bovy14 = streamspraydf(
+            Mass, progenitor=obs, pot=lp, tdisrupt=tdisrupt, ro=ro, vo=vo
+        )
+        numpy.random.seed(10)
+        sam = spdf_bovy14.sample(n=2)
+        numpy.random.seed(10)
+        sam_nou = spdf_bovy14_nou.sample(n=2)
+        assert numpy.all(
+            numpy.fabs(sam.r(use_physical=False) - sam_nou.r(use_physical=False)) < 1e-8
+        ), "Sample returned by streamspraydf.sample with with unit output is inconsistenty with the same sample sampled without unit output"
+        assert numpy.all(
+            numpy.fabs(sam.vr(use_physical=False) - sam_nou.vr(use_physical=False))
+            < 1e-8
+        ), "Sample returned by streamspraydf.sample with with unit output is inconsistenty with the same sample sampled without unit output"
     return None
 
 
 def test_streamspraydf_sample_orbit():
     from galpy import potential
-    from galpy.df import streamspraydf
+    from galpy.df import chen24spraydf, fardal15spraydf
     from galpy.orbit import Orbit
     from galpy.util import conversion
 
@@ -17550,38 +17552,40 @@ def test_streamspraydf_sample_orbit():
     obs = Orbit(
         [1.56148083, 0.35081535, -1.15481504, 0.88719443, -0.47713334, 0.12019596]
     )
-    # Object with physical off
-    spdf_bovy14_nou = streamspraydf(
-        2 * 10.0**4.0 / conversion.mass_in_msol(vo, ro),
-        progenitor=obs,
-        pot=lp,
-        tdisrupt=4.5 / conversion.time_in_Gyr(vo, ro),
-    )
-    # Object with physical on
-    spdf_bovy14 = streamspraydf(
-        2 * 10.0**4.0 / conversion.mass_in_msol(vo, ro),
-        progenitor=obs,
-        pot=lp,
-        tdisrupt=4.5 / conversion.time_in_Gyr(vo, ro),
-        ro=ro,
-        vo=vo,
-    )
-    numpy.random.seed(10)
-    sam = spdf_bovy14.sample(n=2)
-    numpy.random.seed(10)
-    sam_nou = spdf_bovy14_nou.sample(n=2)
-    assert numpy.all(
-        numpy.fabs(sam.r(use_physical=False) - sam_nou.r(use_physical=False)) < 1e-8
-    ), "Sample returned by streamspraydf.sample with with unit output is inconsistenty with the same sample sampled without unit output"
-    assert numpy.all(
-        numpy.fabs(sam.vr(use_physical=False) - sam_nou.vr(use_physical=False)) < 1e-8
-    ), "Sample returned by streamspraydf.sample with with unit output is inconsistenty with the same sample sampled without unit output"
+    for streamspraydf in [fardal15spraydf, chen24spraydf]:
+        # Object with physical off
+        spdf_bovy14_nou = streamspraydf(
+            2 * 10.0**4.0 / conversion.mass_in_msol(vo, ro),
+            progenitor=obs,
+            pot=lp,
+            tdisrupt=4.5 / conversion.time_in_Gyr(vo, ro),
+        )
+        # Object with physical on
+        spdf_bovy14 = streamspraydf(
+            2 * 10.0**4.0 / conversion.mass_in_msol(vo, ro),
+            progenitor=obs,
+            pot=lp,
+            tdisrupt=4.5 / conversion.time_in_Gyr(vo, ro),
+            ro=ro,
+            vo=vo,
+        )
+        numpy.random.seed(10)
+        sam = spdf_bovy14.sample(n=2)
+        numpy.random.seed(10)
+        sam_nou = spdf_bovy14_nou.sample(n=2)
+        assert numpy.all(
+            numpy.fabs(sam.r(use_physical=False) - sam_nou.r(use_physical=False)) < 1e-8
+        ), "Sample returned by streamspraydf.sample with with unit output is inconsistenty with the same sample sampled without unit output"
+        assert numpy.all(
+            numpy.fabs(sam.vr(use_physical=False) - sam_nou.vr(use_physical=False))
+            < 1e-8
+        ), "Sample returned by streamspraydf.sample with with unit output is inconsistenty with the same sample sampled without unit output"
     return None
 
 
 def test_streamspraydf_sample_RvR():
     from galpy import potential
-    from galpy.df import streamspraydf
+    from galpy.df import chen24spraydf, fardal15spraydf
     from galpy.orbit import Orbit
     from galpy.util import conversion
 
@@ -17590,48 +17594,49 @@ def test_streamspraydf_sample_RvR():
     obs = Orbit(
         [1.56148083, 0.35081535, -1.15481504, 0.88719443, -0.47713334, 0.12019596]
     )
-    # Object with physical off
-    spdf_bovy14_nou = streamspraydf(
-        2 * 10.0**4.0 / conversion.mass_in_msol(vo, ro),
-        progenitor=obs,
-        pot=lp,
-        tdisrupt=4.5 / conversion.time_in_Gyr(vo, ro),
-    )
-    # Object with physical on
-    spdf_bovy14 = streamspraydf(
-        2 * 10.0**4.0 / conversion.mass_in_msol(vo, ro),
-        progenitor=obs,
-        pot=lp,
-        tdisrupt=4.5 / conversion.time_in_Gyr(vo, ro),
-        ro=ro,
-        vo=vo,
-    )
-    numpy.random.seed(10)
-    sam, dt = spdf_bovy14.sample(n=2, return_orbit=False, returndt=True)
-    numpy.random.seed(10)
-    sam_nou, dt_nou = spdf_bovy14_nou.sample(n=2, return_orbit=False, returndt=True)
-    assert numpy.all(
-        numpy.fabs(sam[0].to_value(units.kpc) / ro - sam_nou[0]) < 1e-8
-    ), "Sample returned by streamspraydf.sample with with unit output is inconsistenty with the same sample sampled without unit output"
-    assert numpy.all(
-        numpy.fabs(sam[1].to_value(units.km / units.s) / vo - sam_nou[1]) < 1e-8
-    ), "Sample returned by streamspraydf.sample with with unit output is inconsistenty with the same sample sampled without unit output"
-    assert numpy.all(
-        numpy.fabs(sam[2].to_value(units.km / units.s) / vo - sam_nou[2]) < 1e-8
-    ), "Sample returned by streamspraydf.sample with with unit output is inconsistenty with the same sample sampled without unit output"
-    assert numpy.all(
-        numpy.fabs(sam[3].to_value(units.kpc) / ro - sam_nou[3]) < 1e-8
-    ), "Sample returned by streamspraydf.sample with with unit output is inconsistenty with the same sample sampled without unit output"
-    assert numpy.all(
-        numpy.fabs(sam[4].to_value(units.km / units.s) / vo - sam_nou[4]) < 1e-8
-    ), "Sample returned by streamspraydf.sample with with unit output is inconsistenty with the same sample sampled without unit output"
-    assert numpy.all(
-        numpy.fabs(sam[5].to_value(units.rad) - sam_nou[5]) < 1e-8
-    ), "Sample returned by streamspraydf.sample with with unit output is inconsistenty with the same sample sampled without unit output"
-    assert numpy.all(
-        numpy.fabs(dt.to_value(units.Gyr) / conversion.time_in_Gyr(vo, ro) - dt_nou)
-        < 1e-8
-    ), "Sample returned by streamspraydf.sample with with unit output is inconsistenty with the same sample sampled without unit output"
+    for streamspraydf in [fardal15spraydf, chen24spraydf]:
+        # Object with physical off
+        spdf_bovy14_nou = streamspraydf(
+            2 * 10.0**4.0 / conversion.mass_in_msol(vo, ro),
+            progenitor=obs,
+            pot=lp,
+            tdisrupt=4.5 / conversion.time_in_Gyr(vo, ro),
+        )
+        # Object with physical on
+        spdf_bovy14 = streamspraydf(
+            2 * 10.0**4.0 / conversion.mass_in_msol(vo, ro),
+            progenitor=obs,
+            pot=lp,
+            tdisrupt=4.5 / conversion.time_in_Gyr(vo, ro),
+            ro=ro,
+            vo=vo,
+        )
+        numpy.random.seed(10)
+        sam, dt = spdf_bovy14.sample(n=2, return_orbit=False, returndt=True)
+        numpy.random.seed(10)
+        sam_nou, dt_nou = spdf_bovy14_nou.sample(n=2, return_orbit=False, returndt=True)
+        assert numpy.all(
+            numpy.fabs(sam[0].to_value(units.kpc) / ro - sam_nou[0]) < 1e-8
+        ), "Sample returned by streamspraydf.sample with with unit output is inconsistenty with the same sample sampled without unit output"
+        assert numpy.all(
+            numpy.fabs(sam[1].to_value(units.km / units.s) / vo - sam_nou[1]) < 1e-8
+        ), "Sample returned by streamspraydf.sample with with unit output is inconsistenty with the same sample sampled without unit output"
+        assert numpy.all(
+            numpy.fabs(sam[2].to_value(units.km / units.s) / vo - sam_nou[2]) < 1e-8
+        ), "Sample returned by streamspraydf.sample with with unit output is inconsistenty with the same sample sampled without unit output"
+        assert numpy.all(
+            numpy.fabs(sam[3].to_value(units.kpc) / ro - sam_nou[3]) < 1e-8
+        ), "Sample returned by streamspraydf.sample with with unit output is inconsistenty with the same sample sampled without unit output"
+        assert numpy.all(
+            numpy.fabs(sam[4].to_value(units.km / units.s) / vo - sam_nou[4]) < 1e-8
+        ), "Sample returned by streamspraydf.sample with with unit output is inconsistenty with the same sample sampled without unit output"
+        assert numpy.all(
+            numpy.fabs(sam[5].to_value(units.rad) - sam_nou[5]) < 1e-8
+        ), "Sample returned by streamspraydf.sample with with unit output is inconsistenty with the same sample sampled without unit output"
+        assert numpy.all(
+            numpy.fabs(dt.to_value(units.Gyr) / conversion.time_in_Gyr(vo, ro) - dt_nou)
+            < 1e-8
+        ), "Sample returned by streamspraydf.sample with with unit output is inconsistenty with the same sample sampled without unit output"
     return None
 
 

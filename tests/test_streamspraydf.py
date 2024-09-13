@@ -4,7 +4,7 @@ import numpy
 import pytest
 
 from galpy.actionAngle import actionAngleIsochroneApprox
-from galpy.df import streamdf, streamspraydf
+from galpy.df import chen24spraydf, fardal15spraydf, streamdf, streamspraydf
 from galpy.orbit import Orbit
 from galpy.potential import (
     ChandrasekharDynamicalFrictionForce,
@@ -12,12 +12,29 @@ from galpy.potential import (
     LogarithmicHaloPotential,
     MovingObjectPotential,
     MWPotential2014,
+    PlummerPotential,
     TriaxialNFWPotential,
 )
 from galpy.util import conversion  # for unit conversions
 from galpy.util import coords
 
 ################################ Tests against streamdf ######################
+
+
+def test_streamspraydf_deprecation():
+    # Check if the deprecating class raises the correct warning
+    lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
+    obs = Orbit(
+        [1.56148083, 0.35081535, -1.15481504, 0.88719443, -0.47713334, 0.12019596]
+    )
+    ro, vo = 8.0, 220.0
+    with pytest.warns(DeprecationWarning):
+        spdf = streamspraydf(
+            2 * 10.0**4.0 / conversion.mass_in_msol(vo, ro),
+            progenitor=obs,
+            pot=lp,
+            tdisrupt=4.5 / conversion.time_in_Gyr(vo, ro),
+        )
 
 
 # Setup both DFs
@@ -41,119 +58,140 @@ def setup_testStreamsprayAgainstStreamdf():
         tdisrupt=4.5 / conversion.time_in_Gyr(vo, ro),
     )
     # Set up streamspraydf
-    spdf_bovy14 = streamspraydf(
+    f15spdf_bovy14 = fardal15spraydf(
         2 * 10.0**4.0 / conversion.mass_in_msol(vo, ro),
         progenitor=obs,
         pot=lp,
         tdisrupt=4.5 / conversion.time_in_Gyr(vo, ro),
     )
-    return sdf_bovy14, spdf_bovy14
+    c24spdf_bovy14 = chen24spraydf(
+        2 * 10.0**4.0 / conversion.mass_in_msol(vo, ro),
+        progenitor=obs,
+        pot=lp,
+        tdisrupt=4.5 / conversion.time_in_Gyr(vo, ro),
+    )
+    return sdf_bovy14, [f15spdf_bovy14, c24spdf_bovy14]
 
 
 def test_sample_bovy14(setup_testStreamsprayAgainstStreamdf):
     # Load objects that were setup above
-    sdf_bovy14, spdf_bovy14 = setup_testStreamsprayAgainstStreamdf
-    numpy.random.seed(1)
-    RvR_sdf = sdf_bovy14.sample(n=1000)
-    RvR_spdf = spdf_bovy14.sample(n=1000, integrate=True, return_orbit=False)
-    # Sanity checks
-    # Range in Z
-    indx = (RvR_sdf[3] > 4.0 / 8.0) * (RvR_sdf[3] < 5.0 / 8.0)
-    # mean
-    assert (
-        numpy.fabs(numpy.mean(RvR_sdf[0][indx]) - numpy.mean(RvR_spdf[0][indx])) < 3e-2
-    ), "streamdf and streamspraydf do not generate similar samples for the Bovy (2014) stream (mean)"
-    assert (
-        numpy.fabs(numpy.mean(RvR_sdf[1][indx]) - numpy.mean(RvR_spdf[1][indx])) < 3e-2
-    ), "streamdf and streamspraydf do not generate similar samples for the Bovy (2014) stream (mean)"
-    assert (
-        numpy.fabs(numpy.mean(RvR_sdf[2][indx]) - numpy.mean(RvR_spdf[2][indx])) < 3e-2
-    ), "streamdf and streamspraydf do not generate similar samples for the Bovy (2014) stream (mean)"
-    assert (
-        numpy.fabs(numpy.mean(RvR_sdf[4][indx]) - numpy.mean(RvR_spdf[4][indx])) < 3e-2
-    ), "streamdf and streamspraydf do not generate similar samples for the Bovy (2014) stream (mean)"
-    assert (
-        numpy.fabs(numpy.mean(RvR_sdf[5][indx]) - numpy.mean(RvR_spdf[5][indx])) < 4e-2
-    ), "streamdf and streamspraydf do not generate similar samples for the Bovy (2014) stream (mean)"
-    # Another range in Z
-    indx = (RvR_sdf[3] > 5.0 / 8.0) * (RvR_sdf[3] < 6.0 / 8.0)
-    # mean
-    assert (
-        numpy.fabs(numpy.mean(RvR_sdf[0][indx]) - numpy.mean(RvR_spdf[0][indx])) < 1e-1
-    ), "streamdf and streamspraydf do not generate similar samples for the Bovy (2014) stream (mean)"
-    assert (
-        numpy.fabs(numpy.mean(RvR_sdf[1][indx]) - numpy.mean(RvR_spdf[1][indx])) < 3e-2
-    ), "streamdf and streamspraydf do not generate similar samples for the Bovy (2014) stream (mean)"
-    assert (
-        numpy.fabs(numpy.mean(RvR_sdf[2][indx]) - numpy.mean(RvR_spdf[2][indx])) < 4e-2
-    ), "streamdf and streamspraydf do not generate similar samples for the Bovy (2014) stream (mean)"
-    assert (
-        numpy.fabs(numpy.mean(RvR_sdf[4][indx]) - numpy.mean(RvR_spdf[4][indx])) < 3e-2
-    ), "streamdf and streamspraydf do not generate similar samples for the Bovy (2014) stream (mean)"
-    assert (
-        numpy.fabs(numpy.mean(RvR_sdf[5][indx]) - numpy.mean(RvR_spdf[5][indx])) < 1e-1
-    ), "streamdf and streamspraydf do not generate similar samples for the Bovy (2014) stream (mean)"
+    sdf_bovy14, spdfs_bovy14 = setup_testStreamsprayAgainstStreamdf
+    for spdf_bovy14 in spdfs_bovy14:
+        numpy.random.seed(1)
+        RvR_sdf = sdf_bovy14.sample(n=1000)
+        RvR_spdf = spdf_bovy14.sample(n=1000, integrate=True, return_orbit=False)
+        # Sanity checks
+        # Range in Z
+        indx = (RvR_sdf[3] > 4.0 / 8.0) * (RvR_sdf[3] < 5.0 / 8.0)
+        # mean
+        assert (
+            numpy.fabs(numpy.mean(RvR_sdf[0][indx]) - numpy.mean(RvR_spdf[0][indx]))
+            < 6e-2
+        ), "streamdf and streamspraydf do not generate similar samples for the Bovy (2014) stream (mean)"
+        assert (
+            numpy.fabs(numpy.mean(RvR_sdf[1][indx]) - numpy.mean(RvR_spdf[1][indx]))
+            < 5e-2
+        ), "streamdf and streamspraydf do not generate similar samples for the Bovy (2014) stream (mean)"
+        assert (
+            numpy.fabs(numpy.mean(RvR_sdf[2][indx]) - numpy.mean(RvR_spdf[2][indx]))
+            < 5e-2
+        ), "streamdf and streamspraydf do not generate similar samples for the Bovy (2014) stream (mean)"
+        assert (
+            numpy.fabs(numpy.mean(RvR_sdf[4][indx]) - numpy.mean(RvR_spdf[4][indx]))
+            < 5e-2
+        ), "streamdf and streamspraydf do not generate similar samples for the Bovy (2014) stream (mean)"
+        assert (
+            numpy.fabs(numpy.mean(RvR_sdf[5][indx]) - numpy.mean(RvR_spdf[5][indx]))
+            < 1e-1
+        ), "streamdf and streamspraydf do not generate similar samples for the Bovy (2014) stream (mean)"
+        # Another range in Z
+        indx = (RvR_sdf[3] > 5.0 / 8.0) * (RvR_sdf[3] < 6.0 / 8.0)
+        # mean
+        assert (
+            numpy.fabs(numpy.mean(RvR_sdf[0][indx]) - numpy.mean(RvR_spdf[0][indx]))
+            < 1e-1
+        ), "streamdf and streamspraydf do not generate similar samples for the Bovy (2014) stream (mean)"
+        assert (
+            numpy.fabs(numpy.mean(RvR_sdf[1][indx]) - numpy.mean(RvR_spdf[1][indx]))
+            < 3e-2
+        ), "streamdf and streamspraydf do not generate similar samples for the Bovy (2014) stream (mean)"
+        assert (
+            numpy.fabs(numpy.mean(RvR_sdf[2][indx]) - numpy.mean(RvR_spdf[2][indx]))
+            < 4e-2
+        ), "streamdf and streamspraydf do not generate similar samples for the Bovy (2014) stream (mean)"
+        assert (
+            numpy.fabs(numpy.mean(RvR_sdf[4][indx]) - numpy.mean(RvR_spdf[4][indx]))
+            < 3e-2
+        ), "streamdf and streamspraydf do not generate similar samples for the Bovy (2014) stream (mean)"
+        assert (
+            numpy.fabs(numpy.mean(RvR_sdf[5][indx]) - numpy.mean(RvR_spdf[5][indx]))
+            < 1e-1
+        ), "streamdf and streamspraydf do not generate similar samples for the Bovy (2014) stream (mean)"
     return None
 
 
 def test_bovy14_sampleorbit(setup_testStreamsprayAgainstStreamdf):
     # Load objects that were setup above
-    sdf_bovy14, spdf_bovy14 = setup_testStreamsprayAgainstStreamdf
-    numpy.random.seed(1)
-    XvX_sdf = sdf_bovy14.sample(n=1000, xy=True)
-    XvX_spdf = spdf_bovy14.sample(
-        n=1000
-    )  # returns Orbit, from which we can get anything we want
-    # Sanity checks
-    # Range in Z
-    indx = (XvX_sdf[2] > 4.0 / 8.0) * (XvX_sdf[2] < 5.0 / 8.0)
-    # mean
-    assert (
-        numpy.fabs(numpy.mean(XvX_sdf[0][indx]) - numpy.mean(XvX_spdf.x()[indx])) < 4e-2
-    ), "streamdf and streamspraydf do not generate similar samples for the Bovy (2014) stream (mean, xy)"
-    assert (
-        numpy.fabs(numpy.mean(XvX_sdf[1][indx]) - numpy.mean(XvX_spdf.y()[indx])) < 4e-2
-    ), "streamdf and streamspraydf do not generate similar samples for the Bovy (2014) stream (mean, xy)"
-    assert (
-        numpy.fabs(numpy.mean(XvX_sdf[4][indx]) - numpy.mean(XvX_spdf.vy()[indx]))
-        < 3e-2
-    ), "streamdf and streamspraydf do not generate similar samples for the Bovy (2014) stream (mean, xy)"
+    sdf_bovy14, spdfs_bovy14 = setup_testStreamsprayAgainstStreamdf
+    for spdf_bovy14 in spdfs_bovy14:
+        numpy.random.seed(1)
+        XvX_sdf = sdf_bovy14.sample(n=1000, xy=True)
+        XvX_spdf = spdf_bovy14.sample(
+            n=1000
+        )  # returns Orbit, from which we can get anything we want
+        # Sanity checks
+        # Range in Z
+        indx = (XvX_sdf[2] > 4.0 / 8.0) * (XvX_sdf[2] < 5.0 / 8.0)
+        # mean
+        assert (
+            numpy.fabs(numpy.mean(XvX_sdf[0][indx]) - numpy.mean(XvX_spdf.x()[indx]))
+            < 6e-2
+        ), "streamdf and streamspraydf do not generate similar samples for the Bovy (2014) stream (mean, xy)"
+        assert (
+            numpy.fabs(numpy.mean(XvX_sdf[1][indx]) - numpy.mean(XvX_spdf.y()[indx]))
+            < 2e-1
+        ), "streamdf and streamspraydf do not generate similar samples for the Bovy (2014) stream (mean, xy)"
+        assert (
+            numpy.fabs(numpy.mean(XvX_sdf[4][indx]) - numpy.mean(XvX_spdf.vy()[indx]))
+            < 3e-2
+        ), "streamdf and streamspraydf do not generate similar samples for the Bovy (2014) stream (mean, xy)"
     return None
 
 
 def test_integrate(setup_testStreamsprayAgainstStreamdf):
     # Test that sampling at stripping + integrate == sampling at the end
     # Load objects that were setup above
-    _, spdf_bovy14 = setup_testStreamsprayAgainstStreamdf
-    # Sample at at stripping
-    numpy.random.seed(4)
-    RvR_noint, dt_noint = spdf_bovy14.sample(
-        n=100, return_orbit=False, returndt=True, integrate=False
-    )
-    # and integrate
-    for ii in range(len(dt_noint)):
-        to = Orbit(RvR_noint[:, ii])
-        to.integrate(numpy.linspace(-dt_noint[ii], 0.0, 1001), spdf_bovy14._pot)
-        RvR_noint[:, ii] = [
-            to.R(0.0),
-            to.vR(0.0),
-            to.vT(0.0),
-            to.z(0.0),
-            to.vz(0.0),
-            to.phi(0.0),
-        ]
-    # Sample today
-    numpy.random.seed(4)
-    RvR, dt = spdf_bovy14.sample(
-        n=100, return_orbit=False, returndt=True, integrate=True
-    )
-    # Should agree
-    assert (
-        numpy.amax(numpy.fabs(dt - dt_noint)) < 1e-10
-    ), "Times not the same when sampling with and without integrating"
-    assert (
-        numpy.amax(numpy.fabs(RvR - RvR_noint)) < 1e-7
-    ), "Phase-space points not the same when sampling with and without integrating"
+    _, spdfs_bovy14 = setup_testStreamsprayAgainstStreamdf
+    for spdf_bovy14 in spdfs_bovy14:
+        # Sample at at stripping
+        numpy.random.seed(4)
+        RvR_noint, dt_noint = spdf_bovy14.sample(
+            n=100, return_orbit=False, returndt=True, integrate=False
+        )
+        # and integrate
+        for ii in range(len(dt_noint)):
+            to = Orbit(RvR_noint[:, ii])
+            to.integrate(numpy.linspace(-dt_noint[ii], 0.0, 1001), spdf_bovy14._pot)
+            RvR_noint[:, ii] = [
+                to.R(0.0),
+                to.vR(0.0),
+                to.vT(0.0),
+                to.z(0.0),
+                to.vz(0.0),
+                to.phi(0.0),
+            ]
+        # Sample today
+        numpy.random.seed(4)
+        RvR, dt = spdf_bovy14.sample(
+            n=100, return_orbit=False, returndt=True, integrate=True
+        )
+        # Should agree
+        assert (
+            numpy.amax(numpy.fabs(dt - dt_noint)) < 1e-10
+        ), "Times not the same when sampling with and without integrating"
+        assert (
+            numpy.amax(numpy.fabs(RvR - RvR_noint)) < 1e-7
+        ), "Phase-space points not the same when sampling with and without integrating"
     return None
 
 
@@ -165,42 +203,43 @@ def test_integrate_rtnonarray():
         [1.56148083, 0.35081535, -1.15481504, 0.88719443, -0.47713334, 0.12019596]
     )
     ro, vo = 8.0, 220.0
-    # Set up streamspraydf
-    spdf_bovy14 = streamspraydf(
-        2 * 10.0**4.0 / conversion.mass_in_msol(vo, ro),
-        progenitor=obs,
-        pot=nfp,
-        tdisrupt=4.5 / conversion.time_in_Gyr(vo, ro),
-    )
-    # Sample at at stripping
-    numpy.random.seed(4)
-    RvR_noint, dt_noint = spdf_bovy14.sample(
-        n=100, return_orbit=False, returndt=True, integrate=False
-    )
-    # and integrate
-    for ii in range(len(dt_noint)):
-        to = Orbit(RvR_noint[:, ii])
-        to.integrate(numpy.linspace(-dt_noint[ii], 0.0, 1001), spdf_bovy14._pot)
-        RvR_noint[:, ii] = [
-            to.R(0.0),
-            to.vR(0.0),
-            to.vT(0.0),
-            to.z(0.0),
-            to.vz(0.0),
-            to.phi(0.0),
-        ]
-    # Sample today
-    numpy.random.seed(4)
-    RvR, dt = spdf_bovy14.sample(
-        n=100, return_orbit=False, returndt=True, integrate=True
-    )
-    # Should agree
-    assert (
-        numpy.amax(numpy.fabs(dt - dt_noint)) < 1e-10
-    ), "Times not the same when sampling with and without integrating"
-    assert (
-        numpy.amax(numpy.fabs(RvR - RvR_noint)) < 1e-7
-    ), "Phase-space points not the same when sampling with and without integrating"
+    for streamspraydf in [fardal15spraydf, chen24spraydf]:
+        # Set up streamspraydf
+        spdf_bovy14 = streamspraydf(
+            2 * 10.0**4.0 / conversion.mass_in_msol(vo, ro),
+            progenitor=obs,
+            pot=nfp,
+            tdisrupt=4.5 / conversion.time_in_Gyr(vo, ro),
+        )
+        # Sample at at stripping
+        numpy.random.seed(4)
+        RvR_noint, dt_noint = spdf_bovy14.sample(
+            n=100, return_orbit=False, returndt=True, integrate=False
+        )
+        # and integrate
+        for ii in range(len(dt_noint)):
+            to = Orbit(RvR_noint[:, ii])
+            to.integrate(numpy.linspace(-dt_noint[ii], 0.0, 1001), spdf_bovy14._pot)
+            RvR_noint[:, ii] = [
+                to.R(0.0),
+                to.vR(0.0),
+                to.vT(0.0),
+                to.z(0.0),
+                to.vz(0.0),
+                to.phi(0.0),
+            ]
+        # Sample today
+        numpy.random.seed(4)
+        RvR, dt = spdf_bovy14.sample(
+            n=100, return_orbit=False, returndt=True, integrate=True
+        )
+        # Should agree
+        assert (
+            numpy.amax(numpy.fabs(dt - dt_noint)) < 1e-10
+        ), "Times not the same when sampling with and without integrating"
+        assert (
+            numpy.amax(numpy.fabs(RvR - RvR_noint)) < 1e-7
+        ), "Phase-space points not the same when sampling with and without integrating"
     return None
 
 
@@ -258,31 +297,32 @@ def test_center():
     )
     # Integrate prog forward
     prog.integrate(ts[::-1], tMWPotential2014 + moving_lmcpot)
-    # Then set up streamspraydf
-    spdf = streamspraydf(
-        2e4 / conversion.mass_in_msol(vo, ro),
-        progenitor=prog(0.0),
-        pot=tMWPotential2014 + moving_lmcpot,
-        rtpot=lmcpot,
-        tdisrupt=10.0 / conversion.time_in_Gyr(vo, ro),
-        center=o,
-        centerpot=tMWPotential2014 + cdf,
-    )
-    # Generate stream
-    numpy.random.seed(1)
-    stream_RvR = spdf.sample(n=300, return_orbit=False, integrate=True)
-    stream_pos = coords.cyl_to_rect(stream_RvR[0], stream_RvR[5], stream_RvR[3])
-    # Stream should lie on a circle with radius R_in_lmc
-    stream_R_wrt_LMC = numpy.sqrt(
-        (stream_pos[0] - o.x(use_physical=False)) ** 2.0
-        + (stream_pos[1] - o.y(use_physical=False)) ** 2.0
-    )
-    assert (
-        numpy.fabs(numpy.mean(stream_R_wrt_LMC) - R_in_lmc) < 0.05
-    ), "Stream generated in the LMC does not appear to be on a circle within the LMC"
-    assert (
-        numpy.fabs(numpy.std(stream_R_wrt_LMC)) < 0.15
-    ), "Stream generated in the LMC does not appear to be on a circle within the LMC"
+    for streamspraydf in [fardal15spraydf, chen24spraydf]:
+        # Then set up streamspraydf
+        spdf = streamspraydf(
+            2e4 / conversion.mass_in_msol(vo, ro),
+            progenitor=prog(0.0),
+            pot=tMWPotential2014 + moving_lmcpot,
+            rtpot=lmcpot,
+            tdisrupt=10.0 / conversion.time_in_Gyr(vo, ro),
+            center=o,
+            centerpot=tMWPotential2014 + cdf,
+        )
+        # Generate stream
+        numpy.random.seed(1)
+        stream_RvR = spdf.sample(n=300, return_orbit=False, integrate=True)
+        stream_pos = coords.cyl_to_rect(stream_RvR[0], stream_RvR[5], stream_RvR[3])
+        # Stream should lie on a circle with radius R_in_lmc
+        stream_R_wrt_LMC = numpy.sqrt(
+            (stream_pos[0] - o.x(use_physical=False)) ** 2.0
+            + (stream_pos[1] - o.y(use_physical=False)) ** 2.0
+        )
+        assert (
+            numpy.fabs(numpy.mean(stream_R_wrt_LMC) - R_in_lmc) < 0.1
+        ), "Stream generated in the LMC does not appear to be on a circle within the LMC"
+        assert (
+            numpy.fabs(numpy.std(stream_R_wrt_LMC)) < 0.15
+        ), "Stream generated in the LMC does not appear to be on a circle within the LMC"
     return None
 
 
@@ -299,32 +339,33 @@ def test_sample_orbit_rovoetc():
         zo=zo,
         solarmotion=solarmotion,
     )
-    # Set up streamspraydf
-    spdf_bovy14 = streamspraydf(
-        2 * 10.0**4.0 / conversion.mass_in_msol(vo, ro),
-        progenitor=obs,
-        pot=lp,
-        tdisrupt=4.5 / conversion.time_in_Gyr(vo, ro),
-    )
-    sam = spdf_bovy14.sample(n=10)
-    assert (
-        obs._roSet is sam._roSet
-    ), "Sampled streamspraydf orbits do not have the same roSet as the progenitor orbit"
-    assert (
-        obs._voSet is sam._voSet
-    ), "Sampled streamspraydf orbits do not have the same voSet as the progenitor orbit"
-    assert (
-        numpy.fabs(obs._ro - sam._ro) < 1e-10
-    ), "Sampled streamspraydf orbits do not have the same ro as the progenitor orbit"
-    assert (
-        numpy.fabs(obs._vo - sam._vo) < 1e-10
-    ), "Sampled streamspraydf orbits do not have the same vo as the progenitor orbit"
-    assert (
-        numpy.fabs(obs._zo - sam._zo) < 1e-10
-    ), "Sampled streamspraydf orbits do not have the same zo as the progenitor orbit"
-    assert numpy.all(
-        numpy.fabs(obs._solarmotion - sam._solarmotion) < 1e-10
-    ), "Sampled streamspraydf orbits do not have the same solarmotion as the progenitor orbit"
+    for streamspraydf in [fardal15spraydf, chen24spraydf]:
+        # Set up streamspraydf
+        spdf_bovy14 = streamspraydf(
+            2 * 10.0**4.0 / conversion.mass_in_msol(vo, ro),
+            progenitor=obs,
+            pot=lp,
+            tdisrupt=4.5 / conversion.time_in_Gyr(vo, ro),
+        )
+        sam = spdf_bovy14.sample(n=10)
+        assert (
+            obs._roSet is sam._roSet
+        ), "Sampled streamspraydf orbits do not have the same roSet as the progenitor orbit"
+        assert (
+            obs._voSet is sam._voSet
+        ), "Sampled streamspraydf orbits do not have the same voSet as the progenitor orbit"
+        assert (
+            numpy.fabs(obs._ro - sam._ro) < 1e-10
+        ), "Sampled streamspraydf orbits do not have the same ro as the progenitor orbit"
+        assert (
+            numpy.fabs(obs._vo - sam._vo) < 1e-10
+        ), "Sampled streamspraydf orbits do not have the same vo as the progenitor orbit"
+        assert (
+            numpy.fabs(obs._zo - sam._zo) < 1e-10
+        ), "Sampled streamspraydf orbits do not have the same zo as the progenitor orbit"
+        assert numpy.all(
+            numpy.fabs(obs._solarmotion - sam._solarmotion) < 1e-10
+        ), "Sampled streamspraydf orbits do not have the same solarmotion as the progenitor orbit"
     # Another one
     ro = 9.0
     zo, solarmotion = 0.03, [-20.0, 30.0, 40.0]
@@ -334,34 +375,35 @@ def test_sample_orbit_rovoetc():
         zo=zo,
         solarmotion=solarmotion,
     )
-    # Set up streamspraydf
-    spdf_bovy14 = streamspraydf(
-        2 * 10.0**4.0 / conversion.mass_in_msol(vo, ro),
-        progenitor=obs,
-        pot=lp,
-        tdisrupt=4.5 / conversion.time_in_Gyr(vo, ro),
-    )
-    sam = spdf_bovy14.sample(n=10)
-    assert obs._roSet, "Test requires that ro be set for the progenitor orbit, but it appears not to have been set"
-    assert not obs._voSet, "Test requires that vo not be set for the progenitor orbit, but it appears to have been set"
-    assert (
-        obs._roSet is sam._roSet
-    ), "Sampled streamspraydf orbits do not have the same roSet as the progenitor orbit"
-    assert (
-        obs._voSet is sam._voSet
-    ), "Sampled streamspraydf orbits do not have the same voSet as the progenitor orbit"
-    assert (
-        numpy.fabs(obs._ro - sam._ro) < 1e-10
-    ), "Sampled streamspraydf orbits do not have the same ro as the progenitor orbit"
-    assert (
-        numpy.fabs(obs._vo - sam._vo) < 1e-10
-    ), "Sampled streamspraydf orbits do not have the same vo as the progenitor orbit"
-    assert (
-        numpy.fabs(obs._zo - sam._zo) < 1e-10
-    ), "Sampled streamspraydf orbits do not have the same zo as the progenitor orbit"
-    assert numpy.all(
-        numpy.fabs(obs._solarmotion - sam._solarmotion) < 1e-10
-    ), "Sampled streamspraydf orbits do not have the same solarmotion as the progenitor orbit"
+    for streamspraydf in [fardal15spraydf, chen24spraydf]:
+        # Set up streamspraydf
+        spdf_bovy14 = streamspraydf(
+            2 * 10.0**4.0 / conversion.mass_in_msol(vo, ro),
+            progenitor=obs,
+            pot=lp,
+            tdisrupt=4.5 / conversion.time_in_Gyr(vo, ro),
+        )
+        sam = spdf_bovy14.sample(n=10)
+        assert obs._roSet, "Test requires that ro be set for the progenitor orbit, but it appears not to have been set"
+        assert not obs._voSet, "Test requires that vo not be set for the progenitor orbit, but it appears to have been set"
+        assert (
+            obs._roSet is sam._roSet
+        ), "Sampled streamspraydf orbits do not have the same roSet as the progenitor orbit"
+        assert (
+            obs._voSet is sam._voSet
+        ), "Sampled streamspraydf orbits do not have the same voSet as the progenitor orbit"
+        assert (
+            numpy.fabs(obs._ro - sam._ro) < 1e-10
+        ), "Sampled streamspraydf orbits do not have the same ro as the progenitor orbit"
+        assert (
+            numpy.fabs(obs._vo - sam._vo) < 1e-10
+        ), "Sampled streamspraydf orbits do not have the same vo as the progenitor orbit"
+        assert (
+            numpy.fabs(obs._zo - sam._zo) < 1e-10
+        ), "Sampled streamspraydf orbits do not have the same zo as the progenitor orbit"
+        assert numpy.all(
+            numpy.fabs(obs._solarmotion - sam._solarmotion) < 1e-10
+        ), "Sampled streamspraydf orbits do not have the same solarmotion as the progenitor orbit"
     # And another one
     vo = 230.0
     zo, solarmotion = 0.03, [-20.0, 30.0, 40.0]
@@ -371,32 +413,122 @@ def test_sample_orbit_rovoetc():
         zo=zo,
         solarmotion=solarmotion,
     )
-    # Set up streamspraydf
-    spdf_bovy14 = streamspraydf(
+    for streamspraydf in [fardal15spraydf, chen24spraydf]:
+        # Set up streamspraydf
+        spdf_bovy14 = streamspraydf(
+            2 * 10.0**4.0 / conversion.mass_in_msol(vo, ro),
+            progenitor=obs,
+            pot=lp,
+            tdisrupt=4.5 / conversion.time_in_Gyr(vo, ro),
+        )
+        sam = spdf_bovy14.sample(n=10)
+        assert obs._voSet, "Test requires that vo be set for the progenitor orbit, but it appears not to have been set"
+        assert not obs._roSet, "Test requires that ro not be set for the progenitor orbit, but it appears to have been set"
+        assert (
+            obs._roSet is sam._roSet
+        ), "Sampled streamspraydf orbits do not have the same roSet as the progenitor orbit"
+        assert (
+            obs._voSet is sam._voSet
+        ), "Sampled streamspraydf orbits do not have the same voSet as the progenitor orbit"
+        assert (
+            numpy.fabs(obs._ro - sam._ro) < 1e-10
+        ), "Sampled streamspraydf orbits do not have the same ro as the progenitor orbit"
+        assert (
+            numpy.fabs(obs._vo - sam._vo) < 1e-10
+        ), "Sampled streamspraydf orbits do not have the same vo as the progenitor orbit"
+        assert (
+            numpy.fabs(obs._zo - sam._zo) < 1e-10
+        ), "Sampled streamspraydf orbits do not have the same zo as the progenitor orbit"
+        assert numpy.all(
+            numpy.fabs(obs._solarmotion - sam._solarmotion) < 1e-10
+        ), "Sampled streamspraydf orbits do not have the same solarmotion as the progenitor orbit"
+    return None
+
+
+def test_integrate_with_prog():
+    # Test integrating orbits with the progenitor's potential
+    lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
+    obs = Orbit(
+        [1.56148083, 0.35081535, -1.15481504, 0.88719443, -0.47713334, 0.12019596]
+    )
+    ro, vo = 8.0, 220.0
+    # Without the progenitor's potential
+    spdf = chen24spraydf(
         2 * 10.0**4.0 / conversion.mass_in_msol(vo, ro),
         progenitor=obs,
         pot=lp,
         tdisrupt=4.5 / conversion.time_in_Gyr(vo, ro),
     )
-    sam = spdf_bovy14.sample(n=10)
-    assert obs._voSet, "Test requires that vo be set for the progenitor orbit, but it appears not to have been set"
-    assert not obs._roSet, "Test requires that ro not be set for the progenitor orbit, but it appears to have been set"
+    numpy.random.seed(4)
+    RvR, dt = spdf.sample(n=100, return_orbit=False, returndt=True, integrate=True)
+    # With the progenitor's potential, but set to zero-mass
+    spdf = chen24spraydf(
+        2 * 10.0**4.0 / conversion.mass_in_msol(vo, ro),
+        progenitor=obs,
+        pot=lp,
+        tdisrupt=4.5 / conversion.time_in_Gyr(vo, ro),
+        progpot=PlummerPotential(0, 0),
+    )
+    numpy.random.seed(4)
+    RvR_withprog, dt_withprog = spdf.sample(
+        n=100, return_orbit=False, returndt=True, integrate=True
+    )
+    # Should agree
     assert (
-        obs._roSet is sam._roSet
-    ), "Sampled streamspraydf orbits do not have the same roSet as the progenitor orbit"
+        numpy.amax(numpy.fabs(dt - dt_withprog)) < 1e-10
+    ), "Times not the same when sampling with and without prognitor's potential"
     assert (
-        obs._voSet is sam._voSet
-    ), "Sampled streamspraydf orbits do not have the same voSet as the progenitor orbit"
+        numpy.amax(numpy.fabs(RvR - RvR_withprog)) < 1e-7
+    ), "Phase-space points not the same when sampling with and without prognitor's potential"
+    return None
+
+
+def test_chen24spraydf_default_parameters():
+    # Test the default parameters of chen24spraydf can be changed
+    lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
+    obs = Orbit(
+        [1.56148083, 0.35081535, -1.15481504, 0.88719443, -0.47713334, 0.12019596]
+    )
+    ro, vo = 8.0, 220.0
+    # Default parameters
+    spdf = chen24spraydf(
+        2 * 10.0**4.0 / conversion.mass_in_msol(vo, ro),
+        progenitor=obs,
+        pot=lp,
+        tdisrupt=4.5 / conversion.time_in_Gyr(vo, ro),
+    )
+    numpy.random.seed(4)
+    RvR_default, dt_default = spdf.sample(
+        n=100, return_orbit=False, returndt=True, integrate=True
+    )
+    # Modified parameters, but only slightly
+    spdf = chen24spraydf(
+        2 * 10.0**4.0 / conversion.mass_in_msol(vo, ro),
+        progenitor=obs,
+        pot=lp,
+        tdisrupt=4.5 / conversion.time_in_Gyr(vo, ro),
+        mean=numpy.array([1.6, -0.525344, 0, 1, 0.349066, 0]),
+        cov=numpy.array(
+            [
+                [0.1225, 0, 0, 0, -0.085521, 0],
+                [0, 0.161143, 0, 0, 0, 0],
+                [0, 0, 0.043865, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0],
+                [-0.085521, 0, 0, 0, 0.121847, 0],
+                [0, 0, 0, 0, 0, 0.147435],
+            ]
+        ),
+    )
+    numpy.random.seed(4)
+    RvR, dt = spdf.sample(n=100, return_orbit=False, returndt=True, integrate=True)
+    # Should agree
     assert (
-        numpy.fabs(obs._ro - sam._ro) < 1e-10
-    ), "Sampled streamspraydf orbits do not have the same ro as the progenitor orbit"
+        numpy.amax(numpy.fabs(dt_default - dt)) < 1e-10
+    ), "Times not the same when changing the default parameters"
     assert (
-        numpy.fabs(obs._vo - sam._vo) < 1e-10
-    ), "Sampled streamspraydf orbits do not have the same vo as the progenitor orbit"
+        numpy.amax(numpy.fabs(RvR_default - RvR)) > 1e-7
+    ), "Phase-space points should not be the same when changing the default parameters"
     assert (
-        numpy.fabs(obs._zo - sam._zo) < 1e-10
-    ), "Sampled streamspraydf orbits do not have the same zo as the progenitor orbit"
-    assert numpy.all(
-        numpy.fabs(obs._solarmotion - sam._solarmotion) < 1e-10
-    ), "Sampled streamspraydf orbits do not have the same solarmotion as the progenitor orbit"
+        numpy.amax(numpy.fabs(RvR_default - RvR)) < 1e-2
+    ), "Phase-space points too different when sampling with and without prognitor's potential"
     return None

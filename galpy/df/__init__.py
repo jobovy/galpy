@@ -66,4 +66,6 @@ isotropicNFWdf = isotropicNFWdf.isotropicNFWdf
 osipkovmerrittdf = osipkovmerrittdf.osipkovmerrittdf
 osipkovmerrittNFWdf = osipkovmerrittNFWdf.osipkovmerrittNFWdf
 constantbetadf = constantbetadf.constantbetadf
+chen24spraydf = streamspraydf.chen24spraydf
+fardal15spraydf = streamspraydf.fardal15spraydf
 streamspraydf = streamspraydf.streamspraydf
