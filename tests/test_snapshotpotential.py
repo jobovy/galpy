@@ -493,6 +493,7 @@ def test_interpsnapshotKeplerPotential_normalize_units():
     s["mass"] = 4.0
     s["eps"] = 0.0
     s["pos"].units = "kpc"
+    s["eps"].units = "kpc"
     s["vel"].units = "km s**-1"
     sp = potential.InterpSnapshotRZPotential(
         s,
