@@ -5,7 +5,7 @@ from os import system
 import numpy
 from scipy import interpolate
 
-from ..util._optional_deps import _PYNBODY_LOADED
+from ..util._optional_deps import _PYNBODY_GE_20, _PYNBODY_LOADED
 from .interpRZPotential import (
     calc_2dsplinecoeffs_c,
     interpRZPotential,
@@ -16,7 +16,11 @@ from .Potential import Potential
 
 if _PYNBODY_LOADED:
     import pynbody
-    from pynbody import gravity
+
+    if _PYNBODY_GE_20:  # pragma: no cover
+        from pynbody import gravity as pynbody_gravity_calc
+    else:
+        from pynbody.gravity import calc as pynbody_gravity_calc
     from pynbody.units import NoUnit
 
 
@@ -111,7 +115,7 @@ class SnapshotRZPotential(Potential):
                 ).T
 
             points_new = points.reshape(points.size // 3, 3)
-            pot, acc = gravity.calc.direct(
+            pot, acc = pynbody_gravity_calc.direct(
                 self._s, points_new, num_threads=self._num_threads
             )
 
@@ -393,7 +397,7 @@ class InterpSnapshotRZPotential(interpRZPotential):
 
         else:
             if self._interpPot:
-                pot, acc = gravity.calc.direct(
+                pot, acc = pynbody_gravity_calc.direct(
                     self._s, points_new, num_threads=self._numcores
                 )
 
@@ -426,7 +430,7 @@ class InterpSnapshotRZPotential(interpRZPotential):
 
             # first get the accelerations
             if self._interpverticalfreq:
-                zgrad_pot, zgrad_acc = gravity.calc.direct(
+                zgrad_pot, zgrad_acc = pynbody_gravity_calc.direct(
                     self._s, zgrad_points, num_threads=self._numcores
                 )
                 # each point from the points used above for pot and acc is straddled by
@@ -452,7 +456,7 @@ class InterpSnapshotRZPotential(interpRZPotential):
 
             # do the same for the radial component
             if self._interpepifreq:
-                rgrad_pot, rgrad_acc = gravity.calc.direct(
+                rgrad_pot, rgrad_acc = pynbody_gravity_calc.direct(
                     self._s, rgrad_points, num_threads=self._numcores
                 )
                 rgrad = numpy.zeros(len(points_new))

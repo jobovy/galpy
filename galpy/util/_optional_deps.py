@@ -1,4 +1,5 @@
 # Central place to process optional dependencies
+from packaging.version import Version
 from packaging.version import parse as parse_version
 
 # astropy
@@ -62,7 +63,12 @@ except ImportError:
 
 # pynbody
 _PYNBODY_LOADED = True
+_PYNBODY_GE_20 = None
 try:
     import pynbody
 except ImportError:  # pragma: no cover
     _PYNBODY_LOADED = False
+else:
+    _PYNBODY_GE_20 = Version(
+        parse_version(pynbody.__version__).base_version
+    ) >= Version("2.0.0")
