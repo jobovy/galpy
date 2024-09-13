@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - main
+      - python-3.13-wheels
     paths:
       - '**'
       - '!*'
