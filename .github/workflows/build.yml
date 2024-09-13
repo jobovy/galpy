@@ -268,7 +268,7 @@ jobs:
          pip install --upgrade --upgrade-strategy eager wheel
          pip install --upgrade --upgrade-strategy eager --no-deps --pre git+https://github.com/pynbody/pynbody.git
     - name: Install pynbody (3.13; macos)
-      if: ${{ matrix.os == 'macos-latest' && matrix.REQUIRES_PYNBODY && matrix.python-version == '3.13.0-rc.2' }}
+      if: ${{ matrix.os == 'macos-12' && matrix.REQUIRES_PYNBODY && matrix.python-version == '3.13.0-rc.2' }}
       run: |
          pip install --upgrade --upgrade-strategy eager --pre pytz tzdata
          pip install --upgrade --upgrade-strategy eager --no-deps --pre -i https://pypi.anaconda.org/scientific-python-nightly-wheels/simple pandas
