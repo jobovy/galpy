@@ -209,7 +209,7 @@ jobs:
             REQUIRES_NUMBA: false
             REQUIRES_JAX: false
           - os: macos-12
-            python-version: "3.12"
+            python-version: "3.13.0-rc.2"
             TEST_FILES: tests/test_orbit.py -k test_energy_jacobi_conservation
             REQUIRES_PYNBODY: true
             REQUIRES_ASTROPY: true
@@ -217,7 +217,7 @@ jobs:
             REQUIRES_NUMBA: false
             REQUIRES_JAX: false
           - os: macos-12
-            python-version: "3.12"
+            python-version: "3.13.0-rc.2"
             TEST_FILES: tests/test_orbit.py tests/test_orbits.py -k 'not test_energy_jacobi_conservation'
             REQUIRES_PYNBODY: true
             REQUIRES_ASTROPY: true
