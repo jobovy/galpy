@@ -392,8 +392,8 @@ class chen24spraydf(basestreamspraydf):
         vo=None,
     ):
         """
-        Initialize a Chen+24 stream spray DF model of a tidal stream
-        https://ui.adsabs.harvard.edu/abs/2024arXiv240801496C/abstract
+        Initialize a `Chen et al. (2024) <https://ui.adsabs.harvard.edu/abs/2024arXiv240801496C/abstract>`_ stream spray DF model of a tidal stream.
+
 
         Parameters
         ----------
@@ -530,8 +530,8 @@ class fardal15spraydf(basestreamspraydf):
         vo=None,
     ):
         """
-        Initialize a Fardal+15 stream spray DF model of a tidal stream
-        https://ui.adsabs.harvard.edu/abs/2014arXiv1410.1861F/abstract
+        Initialize a `Fardal et al. (2015) <https://ui.adsabs.harvard.edu/abs/2014arXiv1410.1861F/abstract>`_ stream spray DF model of a tidal stream.
+
 
         Parameters
         ----------

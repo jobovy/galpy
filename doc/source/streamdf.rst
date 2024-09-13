@@ -525,8 +525,8 @@ we give a simple example of the the two methods.
 
 .. note::
    ``fardal15spraydf`` was previously known as ``streamspraydf`` before
-   version ``v1.10.1``. While the old name is still supported for backward
-   compatibility, it is recommended to use the new name ``fardal15spraydf``.
+   version ``v1.10.1``. While the old name is still supported  until ``v.1.11.0``
+   for backward compatibility, we recommend using the new name ``fardal15spraydf``.
 
 Like in the ``streamdf`` example above, we use the same orbit, potential, and
 cluster mass as in

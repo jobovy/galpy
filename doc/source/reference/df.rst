@@ -348,5 +348,13 @@ General instance routines
 .. toctree::
    :maxdepth: 1
 
-   __init__ <streamspraydf.rst>
    sample <streamspraydfsample.rst>
+
+Specific particle-spray models
++++++++++++++++++++++++++++++++
+
+.. toctree::
+   :maxdepth: 1
+
+   Chen et al. (2024) <streamspraydfchen24.rst>
+   Fardal et al. (2015) <streamspraydffardal15.rst>
