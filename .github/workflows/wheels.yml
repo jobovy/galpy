@@ -45,7 +45,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install GSL (Windows / Mac OS x86_64)
-        uses: mamba-org/setup-micromamba@v1
+        uses: mamba-org/setup-micromamba@v2
         if: matrix.buildplat[1] == 'win' || matrix.buildplat[1] == 'macosx'
         with:
           environment-name: gsl
@@ -117,7 +117,7 @@ jobs:
           python-version: ${{ matrix.python[1] }}
           allow-prereleases: true
       - name: Install GSL (Windows)
-        uses: mamba-org/setup-micromamba@v1
+        uses: mamba-org/setup-micromamba@v2
         if: matrix.buildplat[1] == 'win'
         with:
           environment-name: gsl
@@ -146,7 +146,7 @@ jobs:
       # Test that built wheels also work in a conda environment, setup environment, install wheel, and run test
       - name: Setup test conda environment (Linux / Mac OS)
         if: matrix.buildplat[1] != 'win'
-        uses: mamba-org/setup-micromamba@v1
+        uses: mamba-org/setup-micromamba@v2
         with:
           environment-name: test-wheel-conda
           condarc: |
