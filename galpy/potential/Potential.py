@@ -974,79 +974,26 @@ class Potential(Force):
         - 2024-07-09 - Propagate other plotting keywords - Bovy (UofT)
 
         """
-        if effective and xy:
-            raise RuntimeError("xy and effective cannot be True at the same time")
-        rmin = conversion.parse_length(rmin, ro=self._ro)
-        rmax = conversion.parse_length(rmax, ro=self._ro)
-        zmin = conversion.parse_length(zmin, ro=self._ro)
-        zmax = conversion.parse_length(zmax, ro=self._ro)
-        Lz = conversion.parse_angmom(Lz, ro=self._ro, vo=self._vo)
-        if xrange is None:
-            xrange = [rmin, rmax]
-        if yrange is None:
-            yrange = [zmin, zmax]
-        if savefilename is not None and os.path.exists(savefilename):
-            print("Restoring savefile " + savefilename + " ...")
-            savefile = open(savefilename, "rb")
-            potRz = pickle.load(savefile)
-            Rs = pickle.load(savefile)
-            zs = pickle.load(savefile)
-            savefile.close()
-        else:
-            if effective and Lz is None:
-                raise RuntimeError("When effective=True, you need to specify Lz=")
-            Rs = numpy.linspace(xrange[0], xrange[1], nrs)
-            zs = numpy.linspace(yrange[0], yrange[1], nzs)
-            potRz = numpy.zeros((nrs, nzs))
-            for ii in range(nrs):
-                for jj in range(nzs):
-                    if xy:
-                        R, phi, z = coords.rect_to_cyl(Rs[ii], zs[jj], 0.0)
-                    else:
-                        R, z = Rs[ii], zs[jj]
-                    potRz[ii, jj] = evaluatePotentials(
-                        self, R, z, t=t, phi=phi, use_physical=False
-                    )
-                if effective:
-                    potRz[ii, :] += 0.5 * Lz**2 / Rs[ii] ** 2.0
-            # Don't plot outside of the desired range
-            potRz[Rs < rmin, :] = numpy.nan
-            potRz[Rs > rmax, :] = numpy.nan
-            potRz[:, zs < zmin] = numpy.nan
-            potRz[:, zs > zmax] = numpy.nan
-            # Infinity is bad for plotting
-            potRz[~numpy.isfinite(potRz)] = numpy.nan
-            if savefilename is not None:
-                print("Writing savefile " + savefilename + " ...")
-                savefile = open(savefilename, "wb")
-                pickle.dump(potRz, savefile)
-                pickle.dump(Rs, savefile)
-                pickle.dump(zs, savefile)
-                savefile.close()
-        if xy:
-            xlabel = r"$x/R_0$"
-            ylabel = r"$y/R_0$"
-        else:
-            xlabel = r"$R/R_0$"
-            ylabel = r"$z/R_0$"
-        if levels is None:
-            levels = numpy.linspace(numpy.nanmin(potRz), numpy.nanmax(potRz), ncontours)
-        if cntrcolors is None:
-            cntrcolors = "k"
-        return plot.dens2d(
-            potRz.T,
-            origin="lower",
-            cmap="gist_gray",
-            contours=True,
-            xlabel=xlabel,
-            ylabel=ylabel,
+        return plotPotentials(
+            self,
+            t=t,
+            rmin=rmin,
+            rmax=rmax,
+            nrs=nrs,
+            zmin=zmin,
+            zmax=zmax,
+            nzs=nzs,
+            phi=phi,
+            xy=xy,
+            effective=effective,
+            Lz=Lz,
             xrange=xrange,
             yrange=yrange,
-            aspect=0.75 * (rmax - rmin) / (zmax - zmin),
-            cntrls="-",
             justcontours=justcontours,
             levels=levels,
             cntrcolors=cntrcolors,
+            ncontours=ncontours,
+            savefilename=savefilename,
             **kwargs,
         )
 
@@ -2829,6 +2776,7 @@ def plotPotentials(
     -----
     - 2010-07-09 - Written by Bovy (NYU).
     - 2024-07-09 - Propagate keyword arguments to `galpy.util.plot.dens2d` - Bovy (UofT)
+    - 2024-10-08 - Allow plotting in physical coordinates - Bovy (UofT)
 
     See Also
     --------
@@ -2838,15 +2786,32 @@ def plotPotentials(
     if effective and xy:
         raise RuntimeError("xy and effective cannot be True at the same time")
     Pot = flatten(Pot)
-    rmin = conversion.parse_length(rmin, **get_physical(Pot))
-    rmax = conversion.parse_length(rmax, **get_physical(Pot))
-    zmin = conversion.parse_length(zmin, **get_physical(Pot))
-    zmax = conversion.parse_length(zmax, **get_physical(Pot))
-    Lz = conversion.parse_angmom(Lz, **get_physical(Pot))
+    physical_kwargs = conversion.extract_physical_kwargs(kwargs)
+    use_physical, ro, vo = conversion.physical_output(Pot, physical_kwargs, "density")
+    if ro is None:
+        ro = get_physical(Pot)["ro"]
+    if vo is None:
+        vo = get_physical(Pot)["vo"]
+    physical_kwargs["quantity"] = False  # make sure to not use quantity output
+    rmin = conversion.parse_length(rmin, ro=ro)
+    rmax = conversion.parse_length(rmax, ro=ro)
+    zmin = conversion.parse_length(zmin, ro=ro)
+    zmax = conversion.parse_length(zmax, ro=ro)
+    Lz = conversion.parse_angmom(Lz, ro=ro, vo=vo)
     if xrange is None:
         xrange = [rmin, rmax]
+    else:
+        xrange = [
+            conversion.parse_length(xrange[0], ro=ro),
+            conversion.parse_length(xrange[1], ro=ro),
+        ]
     if yrange is None:
         yrange = [zmin, zmax]
+    else:
+        yrange = [
+            conversion.parse_length(yrange[0], ro=ro),
+            conversion.parse_length(yrange[1], ro=ro),
+        ]
     if savefilename is not None and os.path.exists(savefilename):
         print("Restoring savefile " + savefilename + " ...")
         savefile = open(savefilename, "rb")
@@ -2888,11 +2853,19 @@ def plotPotentials(
     if aspect is None:
         aspect = 0.75 * (rmax - rmin) / (zmax - zmin)
     if xy:
-        xlabel = r"$x/R_0$"
-        ylabel = r"$y/R_0$"
+        xlabel = r"$x"
+        ylabel = r"$y"
     else:
-        xlabel = r"$R/R_0$"
-        ylabel = r"$z/R_0$"
+        xlabel = r"$R"
+        ylabel = r"$z"
+    if use_physical:
+        xlabel += r"\,(\mathrm{kpc})$"
+        ylabel += r"\,(\mathrm{kpc})$"
+        xrange = [xrange[0] * ro, xrange[1] * ro]
+        yrange = [yrange[0] * ro, yrange[1] * ro]
+    else:
+        xlabel += "/R_0$"
+        ylabel += "/R_0$"
     if levels is None:
         levels = numpy.linspace(numpy.nanmin(potRz), numpy.nanmax(potRz), ncontours)
     if cntrcolors is None:
