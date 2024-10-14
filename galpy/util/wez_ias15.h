@@ -70,8 +70,8 @@ static inline void save_ias15(int dim, double *x_steps, double *v_steps, double 
 
   gsl_interp_accel *acc_v = gsl_interp_accel_alloc();
   gsl_spline *spline_v = gsl_spline_alloc(gsl_interp_cspline, (steps + 1));
-  
-  for (ii=0; ii < dim; ii++){  
+
+  for (ii=0; ii < dim; ii++){
     memcpy(x_steps_short, &x_steps[ii * (maxsteps + 1)], (steps + 1) * sizeof(double));
     memcpy(v_steps_short, &v_steps[ii * (maxsteps + 1)], (steps + 1) * sizeof(double));
 
