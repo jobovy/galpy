@@ -37,7 +37,7 @@ POSSIBILITY OF SUCH DAMAGE.
 #include "signal.h"
 
 const double integrator_error_threshold = 1e-16; //e_deltab from paper
-const double precision_parameter = 0.028; //e_b from paper
+const double precision_parameter = 1e-9; //e_b from paper
 const int order = 7;
 
 const double h[8] = {
@@ -229,8 +229,13 @@ void wez_ias15(void (*func)(double t, double *q, double *a, int nargs, struct po
   double *Gs= (double *) malloc ( (order * dim) * sizeof(double) );
   double *Fs= (double *) malloc ( ((order + 1) * dim) * sizeof(double) );
 
-  int ii, jj, kk;
+  int maxsteps = nt; // as an initial value, we don't know how many steps we will take
+  double *x_steps = (double *) malloc ( dim * (maxsteps + 1) * sizeof(double) ); //storing the result before interpolation
+  double *v_steps = (double *) malloc ( dim * (maxsteps + 1) * sizeof(double) ); //storing the result before interpolation
+  double *t_steps = (double *) malloc ( (maxsteps + 1) * sizeof(double) ); //storing the result before interpolation
 
+  int ii, jj, kk;
+  printf("DO THE IAS15 INTEGRATION...\n");
   for (ii=0; ii < dim; ii++) {
     *x++= *(yo+ii);
     *v++= *(yo+dim+ii);
@@ -245,24 +250,24 @@ void wez_ias15(void (*func)(double t, double *q, double *a, int nargs, struct po
 
   double diff_G;
 
-  save_ias15(dim, x, v, result);
-  result+= 2 * dim;
+  //save_ias15(dim, x, v, result);
+  //result+= 2 * dim;
+
   *err= 0;
 
   //Estimate necessary stepsize, use the returned time interval if the user does not provide
   double init_dt= (*(t+1))-(*t);
   if ( dt == -9999.99 ) {
-    dt = init_dt;
+    dt = init_dt; //Note in this case of dynamic timestepping, this makes little difference
   }
 
-  long ndt= (long) (init_dt/dt);
   int timestep_sign;
   if(init_dt > 0){
     timestep_sign = 1;
   } else {
     timestep_sign = -1;
   }
-
+  
   double to= *t;
   // Handle KeyboardInterrupt gracefully
 #ifndef _WIN32
@@ -273,7 +278,13 @@ void wez_ias15(void (*func)(double t, double *q, double *a, int nargs, struct po
 #else
     if (SetConsoleCtrlHandler(CtrlHandler, TRUE)) {}
 #endif
-  for (ii=0; ii < (nt-1); ii++){
+  //WHILE THERE IS TIME REMAINING, INTEGRATE A DYNAMIC TIMESTEP FORWARD AND SUBTRACT FROM THE TIME REMAINING
+  double time_remaining = nt * dt;
+  int steps = 0;
+
+  save_dummy_ias15(dim, x, v, 0.0, x_steps, v_steps, t_steps, steps, maxsteps);
+
+  while(time_remaining > 0) {
     if ( interrupted ) {
       *err= -10;
       interrupted= 0; // need to reset, bc library and vars stay in memory
@@ -286,121 +297,174 @@ void wez_ias15(void (*func)(double t, double *q, double *a, int nargs, struct po
 // LCOV_EXCL_STOP
     }
 
-    //WHILE THERE IS TIME REMAINING, INTEGRATE A DYNAMIC TIMESTEP FORWARD AND SUBTRACT FROM THE TIME REMAINING
-    double time_remaining = fabs(init_dt);
-
-    while(time_remaining > 0) {
-
-      double to_temp;
-      double dt_temp;
-      if (time_remaining < fabs(dt)){
-        dt_temp = timestep_sign * time_remaining;
-      } else {
-        dt_temp = dt;
-      }
-
-      to_temp = to + dt_temp;
-
-      func(to_temp,x,a,nargs,potentialArgs);
-      for (int i=0; i < dim; i++){
-        Fs[i * (order + 1)] = a[i];
-      }
-      //update G from B
-      update_Gs_from_Bs(dim, Gs, Bs);
-
-      int iterations = 0;
-      double integrator_error = integrator_error_threshold + 1; //init value above the threshold
-      while(true){
-        if(iterations == 12){
-          //TODO: spit the dummy
-          //printf("Iterations took over 12, break iteration, break iteration loop\n");
-          break;
-        }
-        if (integrator_error < integrator_error_threshold){
-          break;
-        }
-
-        //at start of each step reset xs
-        for (int l=0; l < dim; l++) *(xs+l)= *(x+l);
-
-        double max_delta_B6 = 0.0; //also = max delta G
-        double max_a = 0.0;
-        for (int k=1; k < (order + 1); k++){
-            //update position, update force, update G, update B
-            update_position(xs, x, v, dim, h[k], dt_temp, Fs, Bs);
-
-            func(to_temp,xs,a,nargs,potentialArgs);
-            for (int i=0; i < dim; i++){
-              Fs[i * (order + 1) + k] = a[i];
-
-              diff_G = Gs[i * order + (k-1)];
-              update_Gs_from_Fs(k, i, Gs, Fs);
-              diff_G = Gs[i * order + (k-1)] - diff_G;
-
-              update_Bs_from_Gs(k, i, Bs, Gs, diff_G);
-
-              if (k == order){ //on last step, update max delta B6 and a, using "global" strategy in paper.
-                double abs_delta_B6 = fabs(diff_G);
-                double abs_a = fabs(Fs[i * (order + 1)]); //accel at beginning of step
-                if (abs_delta_B6 > max_delta_B6){
-                  max_delta_B6 = abs_delta_B6;
-                }
-                if (abs_a > max_a){
-                  max_a = abs_a;
-                }
-              }
-          }
-        }
-
-        integrator_error = max_delta_B6/max_a;
-        iterations += 1;
-      }
-
-      //global error strategy for timestep
-      double max_B6 = 0.0;
-      double max_a = 0.0;
-      for (int i=0; i < dim; i++){
-        double abs_B6 = fabs(Bs[i * order + 6]);
-        double abs_a = fabs(Fs[i * (order + 1)]);
-        if (abs_B6 > max_B6){
-          max_B6 = abs_B6;
-        }
-        if (abs_a > max_a){
-          max_a = abs_a;
-        }
-      };
-
-      //fix for inf values issue
-      double dt_required;
-      double correction_factor = sqrt7(precision_parameter / (max_B6/max_a));
-      //double correction_factor = pow(precision_parameter / (max_B6/max_a), 1.0/7.0);
-
-      if (isnormal(correction_factor)){
-        dt_required = dt_temp * correction_factor;
-      } else{
-        dt_required = dt_temp;
-      }
-
-      if(fabs(dt_temp) > fabs(dt_required)){
-        //rejected, try again with dt required
-        dt = dt_required;
-      } else {
-        //accepted, update position/velocity and do next timestep with dt required
-        time_remaining -= fabs(dt); //will eventually get negative as we stepped forward the minimum of dt and time_remaining
-        to = to_temp;
-
-        update_position(x, x, v, dim, 1, dt_temp, Fs, Bs);
-        update_velocity(v, v, dim, 1, dt_temp, Fs , Bs);
-        next_sequence_Bs(1, Bs, Es, BDs, dim);
-
-        //finally, update the next step
-        dt = dt_required;
-      }
+    double to_temp;
+    double dt_temp;
+    if (time_remaining < fabs(dt)){
+      //dt_temp = timestep_sign * time_remaining;
+      dt_temp = dt;
+    } else {
+      dt_temp = dt;
     }
 
-    save_ias15(dim, x, v, result);
-    result+= 2 * dim;
+    to_temp = to + dt_temp;
+
+    func(to_temp,x,a,nargs,potentialArgs);
+    for (int i=0; i < dim; i++){
+      Fs[i * (order + 1)] = a[i];
+    }
+    //update G from B
+    update_Gs_from_Bs(dim, Gs, Bs);
+
+    int iterations = 0;
+    double integrator_error = integrator_error_threshold + 1; //init value above the threshold
+    while(true){
+      if(iterations == 12){
+        //TODO: spit the dummy
+        printf("Iterations took over 12, break iteration, break iteration loop\n");
+        break;
+      }
+      if (integrator_error < integrator_error_threshold){
+        break;
+      }
+
+      //at start of each step reset xs
+      for (int l=0; l < dim; l++) *(xs+l)= *(x+l);
+
+      double max_delta_B6 = 0.0; //also = max delta G
+      double max_a = 0.0;
+      for (int k=1; k < (order + 1); k++){
+          //update position, update force, update G, update B
+          update_position(xs, x, v, dim, h[k], dt_temp, Fs, Bs);
+
+          func(to_temp,xs,a,nargs,potentialArgs);
+          for (int i=0; i < dim; i++){
+            Fs[i * (order + 1) + k] = a[i];
+
+            diff_G = Gs[i * order + (k-1)];
+            update_Gs_from_Fs(k, i, Gs, Fs);
+            diff_G = Gs[i * order + (k-1)] - diff_G;
+
+            update_Bs_from_Gs(k, i, Bs, Gs, diff_G);
+
+            if (k == order){ //on last step, update max delta B6 and a, using "global" strategy in paper.
+              double abs_delta_B6 = fabs(diff_G);
+              double abs_a = fabs(Fs[i * (order + 1)]); //accel at beginning of step
+              if (abs_delta_B6 > max_delta_B6){
+                max_delta_B6 = abs_delta_B6;
+              }
+              if (abs_a > max_a){
+                max_a = abs_a;
+              }
+            }
+        }
+      }
+
+      integrator_error = max_delta_B6/max_a;
+      iterations += 1;
+    }
+
+    //global error strategy for timestep
+    double max_B6 = 0.0;
+    double max_a = 0.0;
+    for (int i=0; i < dim; i++){
+      double abs_B6 = fabs(Bs[i * order + 6]);
+      double abs_a = fabs(Fs[i * (order + 1)]);
+      if (abs_B6 > max_B6){
+        max_B6 = abs_B6;
+      }
+      if (abs_a > max_a){
+        max_a = abs_a;
+      }
+    };
+
+    //fix for inf values issue
+    double dt_required;
+    double correction_factor = seventhroot(precision_parameter / (max_B6/max_a));
+    //double correction_factor = pow(precision_parameter / (max_B6/max_a), 1.0/7.0);
+
+    printf("MAXA %f\n", max_a);
+    printf("MAXB6 %f\n", max_B6);
+    printf("CORRECTION FACTOR %f\n", correction_factor);
+
+    printf("OLD DT %f\n", dt_temp);
+    if (isnormal(correction_factor)){
+      dt_required = dt_temp * correction_factor;
+    } else{
+      dt_required = dt_temp;
+    }
+
+    printf("NEW DT %f\n", dt_required);
+    if(fabs(dt_temp) > fabs(dt_required)){
+      printf("REJECTED TRY AGAIN...\n");
+      //rejected, try again with dt required
+      dt = dt_required;
+    } else {
+      //accepted, update position/velocity and do next timestep with dt required
+      time_remaining -= fabs(dt); //will eventually get negative as we stepped forward the minimum of dt and time_remaining
+      to = to_temp;
+
+      update_position(x, x, v, dim, 1, dt_temp, Fs, Bs);
+      update_velocity(v, v, dim, 1, dt_temp, Fs , Bs);
+      next_sequence_Bs(1, Bs, Es, BDs, dim);
+
+      //save_ias15(dim, x, v, result);
+      //result+= 2 * dim;
+
+      steps += 1;
+      
+      if(steps > maxsteps){ //dynamic arrays must be increased
+        printf("...RESIZING ARRAY...\n");
+        //break;
+        printf("MAXSTEPS: %d\n", maxsteps);
+
+        double *x_steps_new = (double *) malloc ( dim * (2 * maxsteps + 1) * sizeof(double) );
+        double *v_steps_new = (double *) malloc ( dim * (2 * maxsteps + 1) * sizeof(double) );
+        double *t_steps_new = (double *) malloc ( (2 * maxsteps + 1) * sizeof(double) );
+        
+        for(int k = 0; k < steps; k += 1){
+          t_steps_new[k] = t_steps[k];
+          for(ii = 0; ii < dim; ii += 1){
+            x_steps_new[ii * (2 * maxsteps + 1) + k] = x_steps[ii * (maxsteps + 1) + k];
+            v_steps_new[ii * (2 * maxsteps + 1) + k] = v_steps[ii * (maxsteps + 1) + k];
+          }
+          //printf("%f\n", t_steps[k]);
+          //printf("%f\n", t_steps[k]);
+        }
+        maxsteps *= 2;
+        printf("NEW MAXSTEPS: %d\n", maxsteps);
+        free(x_steps);
+        free(v_steps);
+        free(t_steps);
+        x_steps = x_steps_new;
+        v_steps = v_steps_new;
+        t_steps = t_steps_new;
+      }
+      
+      //printf("END OF STEP: %d\n", steps);
+      //printf("STEP SIZE: %f\n", fabs(dt));
+      save_dummy_ias15(dim, x, v, t_steps[steps - 1] + fabs(dt), x_steps, v_steps, t_steps, steps, maxsteps);
+      //finally, update the next step
+      
+      dt = dt_required;
+      //dt = 0.028;
+    }
   }
+  
+  printf("We have max %d steps\n", maxsteps);
+  printf("We have taken: %d steps\n", steps);
+  
+  double *t_steps_short = (double *) malloc ( (steps + 1) * sizeof(double) );
+  //t_steps = realloc(t_steps, (steps + 1) * sizeof(double));
+
+  //printf("=============\n");
+  for(int k = 0; k <= steps; k += 1){
+    t_steps_short[k] = t_steps[k];
+    //printf("%f\n", t_steps[k]);
+    //printf("%f\n", t_steps[k]);
+  }
+  //printf("-------------\n");
+  //run the interpolation over each stored dimension
+  save_ias15(dim, x_steps, v_steps, t_steps_short, maxsteps, steps, nt, fabs(init_dt), result);
   // Back to default handler
 #ifndef _WIN32
   action.sa_handler= SIG_DFL;
@@ -412,11 +476,17 @@ void wez_ias15(void (*func)(double t, double *q, double *a, int nargs, struct po
   free(a);
   free(xs);
 
+  //printf("AAA\n");
   free(Fs);
   free(Gs);
   free(Bs);
   free(Es);
   free(BDs);
+  //printf("BBB\n");
+  free(x_steps);
+  free(v_steps);
+  free(t_steps);
+  free(t_steps_short);
   //We're done
 }
 
@@ -568,7 +638,7 @@ void update_Bs_from_Gs(int current_truncation_order, int i, double * Bs, double 
   }
 }
 
-static double sqrt7(double a){
+static double seventhroot(double a){
     // Without scaling, this is only accurate for arguments in [1e-7, 1e2]
     // With scaling: [1e-14, 1e8]
     double scale = 1;
