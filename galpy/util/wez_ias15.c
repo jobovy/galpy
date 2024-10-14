@@ -267,7 +267,7 @@ void wez_ias15(void (*func)(double t, double *q, double *a, int nargs, struct po
   } else {
     timestep_sign = -1;
   }
-  
+
   double to= *t;
   // Handle KeyboardInterrupt gracefully
 #ifndef _WIN32
@@ -411,7 +411,7 @@ void wez_ias15(void (*func)(double t, double *q, double *a, int nargs, struct po
       //result+= 2 * dim;
 
       steps += 1;
-      
+
       if(steps > maxsteps){ //dynamic arrays must be increased
         printf("...RESIZING ARRAY...\n");
         //break;
@@ -420,7 +420,7 @@ void wez_ias15(void (*func)(double t, double *q, double *a, int nargs, struct po
         double *x_steps_new = (double *) malloc ( dim * (2 * maxsteps + 1) * sizeof(double) );
         double *v_steps_new = (double *) malloc ( dim * (2 * maxsteps + 1) * sizeof(double) );
         double *t_steps_new = (double *) malloc ( (2 * maxsteps + 1) * sizeof(double) );
-        
+
         for(int k = 0; k < steps; k += 1){
           t_steps_new[k] = t_steps[k];
           for(ii = 0; ii < dim; ii += 1){
@@ -439,20 +439,20 @@ void wez_ias15(void (*func)(double t, double *q, double *a, int nargs, struct po
         v_steps = v_steps_new;
         t_steps = t_steps_new;
       }
-      
+
       //printf("END OF STEP: %d\n", steps);
       //printf("STEP SIZE: %f\n", fabs(dt));
       save_dummy_ias15(dim, x, v, t_steps[steps - 1] + fabs(dt), x_steps, v_steps, t_steps, steps, maxsteps);
       //finally, update the next step
-      
+
       dt = dt_required;
       //dt = 0.028;
     }
   }
-  
+
   printf("We have max %d steps\n", maxsteps);
   printf("We have taken: %d steps\n", steps);
-  
+
   double *t_steps_short = (double *) malloc ( (steps + 1) * sizeof(double) );
   //t_steps = realloc(t_steps, (steps + 1) * sizeof(double));
 
