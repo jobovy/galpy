@@ -222,6 +222,7 @@ void wez_ias15(void (*func)(double t, double *q, double *a, int nargs, struct po
   double *v= (double *) malloc ( dim * sizeof(double) );
   double *a= (double *) malloc ( dim * sizeof(double) );
   double *xs= (double *) malloc ( dim * sizeof(double) ); //x substep
+  double *vs= (double *) malloc ( dim * sizeof(double) ); //v substep
 
   double *Bs= (double *) malloc ( (order * dim) * sizeof(double) );
   double *Es= (double *) malloc ( (order * dim) * sizeof(double) );
@@ -229,13 +230,10 @@ void wez_ias15(void (*func)(double t, double *q, double *a, int nargs, struct po
   double *Gs= (double *) malloc ( (order * dim) * sizeof(double) );
   double *Fs= (double *) malloc ( ((order + 1) * dim) * sizeof(double) );
 
-  int maxsteps = nt; // as an initial value, we don't know how many steps we will take
-  double *x_steps = (double *) malloc ( dim * (maxsteps + 1) * sizeof(double) ); //storing the result before interpolation
-  double *v_steps = (double *) malloc ( dim * (maxsteps + 1) * sizeof(double) ); //storing the result before interpolation
-  double *t_steps = (double *) malloc ( (maxsteps + 1) * sizeof(double) ); //storing the result before interpolation
+  double hs; 
 
   int ii, jj, kk;
-  printf("DO THE IAS15 INTEGRATION...\n");
+  
   for (ii=0; ii < dim; ii++) {
     *x++= *(yo+ii);
     *v++= *(yo+dim+ii);
@@ -250,8 +248,8 @@ void wez_ias15(void (*func)(double t, double *q, double *a, int nargs, struct po
 
   double diff_G;
 
-  //save_ias15(dim, x, v, result);
-  //result+= 2 * dim;
+  save_ias15(dim, x, v, result);
+  result+= 2 * dim;
 
   *err= 0;
 
@@ -280,9 +278,7 @@ void wez_ias15(void (*func)(double t, double *q, double *a, int nargs, struct po
 #endif
   //WHILE THERE IS TIME REMAINING, INTEGRATE A DYNAMIC TIMESTEP FORWARD AND SUBTRACT FROM THE TIME REMAINING
   double time_remaining = nt * dt;
-  int steps = 0;
-
-  save_dummy_ias15(dim, x, v, 0.0, x_steps, v_steps, t_steps, steps, maxsteps);
+  int steps = 1;
 
   while(time_remaining > 0) {
     if ( interrupted ) {
@@ -328,7 +324,7 @@ void wez_ias15(void (*func)(double t, double *q, double *a, int nargs, struct po
       }
 
       //at start of each step reset xs
-      for (int l=0; l < dim; l++) *(xs+l)= *(x+l);
+      //for (int l=0; l < dim; l++) *(xs+l)= *(x+l);
 
       double max_delta_B6 = 0.0; //also = max delta G
       double max_a = 0.0;
@@ -380,91 +376,36 @@ void wez_ias15(void (*func)(double t, double *q, double *a, int nargs, struct po
     //fix for inf values issue
     double dt_required;
     double correction_factor = seventhroot(precision_parameter / (max_B6/max_a));
-    //double correction_factor = pow(precision_parameter / (max_B6/max_a), 1.0/7.0);
 
-    printf("MAXA %f\n", max_a);
-    printf("MAXB6 %f\n", max_B6);
-    printf("CORRECTION FACTOR %f\n", correction_factor);
-
-    printf("OLD DT %f\n", dt_temp);
-    if (isnormal(correction_factor)){
-      dt_required = dt_temp * correction_factor;
-    } else{
-      dt_required = dt_temp;
-    }
-
-    printf("NEW DT %f\n", dt_required);
     if(fabs(dt_temp) > fabs(dt_required)){
-      printf("REJECTED TRY AGAIN...\n");
       //rejected, try again with dt required
       dt = dt_required;
     } else {
       //accepted, update position/velocity and do next timestep with dt required
       time_remaining -= fabs(dt); //will eventually get negative as we stepped forward the minimum of dt and time_remaining
-      to = to_temp;
+      
+      //estimate the function over the interval for any points in the t array
+      while(fabs(to) < fabs(t[steps]) && fabs(t[steps]) <= fabs(to_temp) && steps < nt){
+        hs = (fabs(t[steps]) - fabs(to))/(fabs(to_temp) - fabs(to));
+
+        update_position(xs, x, v, dim, hs, dt_temp, Fs, Bs);
+        update_velocity(vs, v, dim, hs, dt_temp, Fs, Bs);
+
+        save_ias15(dim, xs, vs, result);
+        result+= 2 * dim;
+
+        steps += 1;
+      }
 
       update_position(x, x, v, dim, 1, dt_temp, Fs, Bs);
       update_velocity(v, v, dim, 1, dt_temp, Fs , Bs);
       next_sequence_Bs(1, Bs, Es, BDs, dim);
 
-      //save_ias15(dim, x, v, result);
-      //result+= 2 * dim;
-
-      steps += 1;
-
-      if(steps > maxsteps){ //dynamic arrays must be increased
-        printf("...RESIZING ARRAY...\n");
-        //break;
-        printf("MAXSTEPS: %d\n", maxsteps);
-
-        double *x_steps_new = (double *) malloc ( dim * (2 * maxsteps + 1) * sizeof(double) );
-        double *v_steps_new = (double *) malloc ( dim * (2 * maxsteps + 1) * sizeof(double) );
-        double *t_steps_new = (double *) malloc ( (2 * maxsteps + 1) * sizeof(double) );
-
-        for(int k = 0; k < steps; k += 1){
-          t_steps_new[k] = t_steps[k];
-          for(ii = 0; ii < dim; ii += 1){
-            x_steps_new[ii * (2 * maxsteps + 1) + k] = x_steps[ii * (maxsteps + 1) + k];
-            v_steps_new[ii * (2 * maxsteps + 1) + k] = v_steps[ii * (maxsteps + 1) + k];
-          }
-          //printf("%f\n", t_steps[k]);
-          //printf("%f\n", t_steps[k]);
-        }
-        maxsteps *= 2;
-        printf("NEW MAXSTEPS: %d\n", maxsteps);
-        free(x_steps);
-        free(v_steps);
-        free(t_steps);
-        x_steps = x_steps_new;
-        v_steps = v_steps_new;
-        t_steps = t_steps_new;
-      }
-
-      //printf("END OF STEP: %d\n", steps);
-      //printf("STEP SIZE: %f\n", fabs(dt));
-      save_dummy_ias15(dim, x, v, t_steps[steps - 1] + fabs(dt), x_steps, v_steps, t_steps, steps, maxsteps);
-      //finally, update the next step
-
+      to = to_temp;
       dt = dt_required;
       //dt = 0.028;
     }
   }
-
-  printf("We have max %d steps\n", maxsteps);
-  printf("We have taken: %d steps\n", steps);
-
-  double *t_steps_short = (double *) malloc ( (steps + 1) * sizeof(double) );
-  //t_steps = realloc(t_steps, (steps + 1) * sizeof(double));
-
-  //printf("=============\n");
-  for(int k = 0; k <= steps; k += 1){
-    t_steps_short[k] = t_steps[k];
-    //printf("%f\n", t_steps[k]);
-    //printf("%f\n", t_steps[k]);
-  }
-  //printf("-------------\n");
-  //run the interpolation over each stored dimension
-  save_ias15(dim, x_steps, v_steps, t_steps_short, maxsteps, steps, nt, fabs(init_dt), result);
   // Back to default handler
 #ifndef _WIN32
   action.sa_handler= SIG_DFL;
@@ -475,19 +416,12 @@ void wez_ias15(void (*func)(double t, double *q, double *a, int nargs, struct po
   free(v);
   free(a);
   free(xs);
-
-  //printf("AAA\n");
+  free(vs);
   free(Fs);
   free(Gs);
   free(Bs);
   free(Es);
   free(BDs);
-  //printf("BBB\n");
-  free(x_steps);
-  free(v_steps);
-  free(t_steps);
-  free(t_steps_short);
-  //We're done
 }
 
 void update_velocity(double *v, double *v1, int dim, double h_n, double T, double * Fs , double * Bs){
