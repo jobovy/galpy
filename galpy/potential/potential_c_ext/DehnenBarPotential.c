@@ -74,7 +74,7 @@ double DehnenBarPotentialphitorque(double R,double z,double phi,double t,
   smooth= dehnenBarSmooth(t,tform,tsteady);
   r2= R * R + z * z;
   r= sqrt( r2 );
-  if ( R <= rb )
+  if ( r <= rb )
     return 2.*amp*smooth*sin(2.*(phi-omegab*t-barphi))*(pow(r/rb,3.)-2.)\
       *R*R/r2;
   else
