@@ -230,10 +230,10 @@ void wez_ias15(void (*func)(double t, double *q, double *a, int nargs, struct po
   double *Gs= (double *) malloc ( (order * dim) * sizeof(double) );
   double *Fs= (double *) malloc ( ((order + 1) * dim) * sizeof(double) );
 
-  double hs; 
+  double hs;
 
   int ii, jj, kk;
-  
+
   for (ii=0; ii < dim; ii++) {
     *x++= *(yo+ii);
     *v++= *(yo+dim+ii);
@@ -385,7 +385,7 @@ void wez_ias15(void (*func)(double t, double *q, double *a, int nargs, struct po
     } else {
       //accepted, update position/velocity and do next timestep with dt required
       time_remaining -= fabs(dt); //will eventually get negative as we stepped forward the minimum of dt and time_remaining
-      
+
       //estimate the function over the interval for any points in the t array
       while(fabs(to) < fabs(t[steps]) && fabs(t[steps]) <= fabs(to_temp) && steps < nt){
         hs = (fabs(t[steps]) - fabs(to))/(fabs(to_temp) - fabs(to));
