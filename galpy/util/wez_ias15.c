@@ -244,6 +244,13 @@ void wez_ias15(void (*func)(double t, double *q, double *a, int nargs, struct po
 
   for(int i=0; i < (order * dim); i++){
     Bs[i] = 0;
+    Es[i] = 0;
+    BDs[i] = 0;
+    Gs[i] = 0;
+  }
+
+  for(int i=0; i < (order + 1 * dim); i++){
+    Fs[i] = 0;
   }
 
   double diff_G;
@@ -295,12 +302,7 @@ void wez_ias15(void (*func)(double t, double *q, double *a, int nargs, struct po
 
     double to_temp;
     double dt_temp;
-    if (time_remaining < fabs(dt)){
-      //dt_temp = timestep_sign * time_remaining;
-      dt_temp = dt;
-    } else {
-      dt_temp = dt;
-    }
+    dt_temp = dt;
 
     to_temp = to + dt_temp;
 
@@ -316,7 +318,7 @@ void wez_ias15(void (*func)(double t, double *q, double *a, int nargs, struct po
     while(true){
       if(iterations == 12){
         //TODO: spit the dummy
-        printf("Iterations took over 12, break iteration, break iteration loop\n");
+        //printf("Iterations took over 12, break iteration, break iteration loop\n");
         break;
       }
       if (integrator_error < integrator_error_threshold){
@@ -403,7 +405,6 @@ void wez_ias15(void (*func)(double t, double *q, double *a, int nargs, struct po
 
       to = to_temp;
       dt = dt_required;
-      //dt = 0.028;
     }
   }
   // Back to default handler
