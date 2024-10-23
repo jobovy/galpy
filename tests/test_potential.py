@@ -7734,6 +7734,19 @@ def test_InterpSnapshotRZPotential_pickling():
     return None
 
 
+# Test that the King potential goes as -GM/r at r > rt
+def test_king_potential_beyond_tidal():
+    mass = 3.0
+    kp = potential.KingPotential(W0=6.0, rt=2.0, M=mass)
+    r = numpy.linspace(2.1, 10.0, 1001)
+    # Accuracy is limited because of the numerical solution of the King ODE and
+    # the fact that interpSphericalPotential doesn't directly use the solved W potential
+    assert numpy.all(
+        numpy.fabs(kp(r, 0.0) / mass * r + 1.0) < 1e-3
+    ), "King potential does not go as GM/r at r > rt"
+    return None
+
+
 # Test that trying to plot a potential with xy=True and effective=True raises a RuntimeError
 def test_plotting_xy_effective_error():
     # First a single potential

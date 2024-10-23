@@ -138,7 +138,7 @@ class _scalefreekingdf:
             ],
             [0.0, rbreak],
             [self.W0, 0.0],
-            method="LSODA",
+            method="DOP853",
             t_eval=r[: npt // 2],
         )
         W[: npt // 2] = sol.y[0]
@@ -155,7 +155,7 @@ class _scalefreekingdf:
             ],
             [sol.y[0, -1], 0.0],
             [rbreak, sol.y[1, -1]],
-            method="LSODA",
+            method="DOP853",
             t_eval=W[npt // 2 - 1 :],
         )
         r[npt // 2 - 1 :] = sol.y[0]
@@ -171,18 +171,7 @@ class _scalefreekingdf:
         # Interpolate solution
         self._W_from_r = interpolate.InterpolatedUnivariateSpline(self._r, self._W, k=3)
         # Compute the cumulative mass and store the total mass
-        mass_shells = numpy.array(
-            [
-                integrate.quad(lambda r: _FOURPI * r**2 * self.dens(r), rlo, rhi)[0]
-                for rlo, rhi in zip(r[:-1], r[1:])
-            ]
-        )
-        self._cumul_mass = numpy.hstack(
-            (
-                integrate.quad(lambda r: _FOURPI * r**2 * self.dens(r), 0.0, r[0])[0],
-                numpy.cumsum(mass_shells),
-            )
-        )
+        self._cumul_mass = -self._dWdr * self._r**2.0
         self.mass = self._cumul_mass[-1]
         return None
 
