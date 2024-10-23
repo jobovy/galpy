@@ -81,7 +81,7 @@ class kingdf(isotropicsphericaldf):
         self._icmf = interpolate.InterpolatedUnivariateSpline(
             self._mass_scale * self._scalefree_kdf._cumul_mass / self.M,
             self._radius_scale * self._scalefree_kdf._r,
-            k=3,
+            k=1,
         )
         # Setup velocity DF interpolator for velocity sampling here
         self._rmin_sampling = 0.0

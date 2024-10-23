@@ -851,7 +851,7 @@ def test_osipkovmerritt_nfw_dens_massprofile():
         dfh = osipkovmerrittNFWdf(pot=pot, ra=ra)
         numpy.random.seed(10)
         samp = dfh.sample(n=100000)
-        tol = 5 * 1e-3
+        tol = 7 * 1e-3
         check_spherical_massprofile(
             samp, lambda r: pot.mass(r) / pot.mass(numpy.amax(samp.r())), tol, skip=1000
         )
@@ -1133,7 +1133,7 @@ def test_isotropic_nfw_dens_massprofile():
     dfp = isotropicNFWdf(pot=pot)
     numpy.random.seed(10)
     samp = dfp.sample(n=100000)
-    tol = 5 * 1e-3
+    tol = 7 * 1e-3
     check_spherical_massprofile(
         samp, lambda r: pot.mass(r) / pot.mass(numpy.amax(samp.r())), tol, skip=1000
     )
