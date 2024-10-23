@@ -68,7 +68,7 @@ class KingPotential(interpSphericalPotential):
             / radius_scale**2.0
             * numpy.interp(r / radius_scale, sfkdf._r, sfkdf._dWdr),
             rgrid=sfkdf._r * radius_scale,
-            Phi0=-W0 * mass_scale / radius_scale,
+            Phi0=-W0 * mass_scale / radius_scale - M / rt,
             ro=ro,
             vo=vo,
         )
