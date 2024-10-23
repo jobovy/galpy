@@ -454,7 +454,7 @@ class sphericaldf(df):
         if numpy.isinf(self._rmax):
             xis = numpy.append(xis, 1)
             ms = numpy.append(ms, 1)
-        return scipy.interpolate.InterpolatedUnivariateSpline(ms, xis, k=3)
+        return scipy.interpolate.InterpolatedUnivariateSpline(ms, xis, k=1)
 
     def _sample_position_angles(self, n=1):
         """Generate spherical angle samples"""
