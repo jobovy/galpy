@@ -170,8 +170,13 @@ class _scalefreekingdf:
         self.c = numpy.log10(self.rt / self.r0)
         # Interpolate solution
         self._W_from_r = interpolate.InterpolatedUnivariateSpline(self._r, self._W, k=3)
-        # Compute the cumulative mass and store the total mass
+        # Compute the cumulative mass and store the total mass, adjust small decreases to zero
         self._cumul_mass = -self._dWdr * self._r**2.0
+        for ii in range(1, npt):
+            if self._cumul_mass[ii] < self._cumul_mass[ii - 1]:
+                self._cumul_mass[ii] = (
+                    self._cumul_mass[ii - 1] + 2.0 * numpy.finfo(float).eps
+                )
         self.mass = self._cumul_mass[-1]
         return None
 
