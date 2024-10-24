@@ -132,7 +132,9 @@ def sigmalos(Pot, R, dens=None, surfdens=None, beta=0.0, sigma_r=None):
     else:
         call_beta = lambda x: beta
     if sigma_r is None:
-        call_sigma_r = lambda r: sigmar(Pot, r, dens=dens, beta=beta)
+        call_sigma_r = lambda r: sigmar(
+            Pot, r, dens=dens, beta=beta, use_physical=False
+        )
     elif not callable(sigma_r):
         call_sigma_r = lambda x: sigma_r
     else:

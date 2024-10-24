@@ -17798,6 +17798,87 @@ def test_jeans_sigmar_inputAsQuantity():
     return None
 
 
+def test_jeans_sigmar_PotentialInputWithQuantities():
+    from galpy.df import jeans
+    from galpy.potential import PlummerPotential
+
+    pp = PlummerPotential(1693 * units.solMass, b=100 * units.pc)
+    pp_nounits = PlummerPotential(1693 * units.solMass, b=100 * units.pc)
+    pp_nounits.turn_physical_off()
+    ro, vo = 8.5, 240.0
+    assert (
+        numpy.fabs(
+            jeans.sigmar(pp, 1.0 * units.pc, ro=ro, vo=vo).to_value(units.km / units.s)
+            - jeans.sigmar(pp_nounits, 1e-3 / ro) * vo
+        )
+        < 10.0**-8.0
+    ), "jeans.sigmar does not return correct Quantity"
+    return None
+
+
+def test_jeans_sigmalos_returntype():
+    from galpy.df import jeans
+    from galpy.potential import LogarithmicHaloPotential
+
+    lp = LogarithmicHaloPotential(normalize=1.0, q=1.0)
+    ro, vo = 8.5, 240.0
+    assert isinstance(
+        jeans.sigmalos(lp, 2.0, ro=ro, vo=vo), units.Quantity
+    ), "jeans.sigmalos does not return Quantity when it should"
+    return None
+
+
+def test_jeans_sigmalos_returnunit():
+    from galpy.df import jeans
+    from galpy.potential import LogarithmicHaloPotential
+
+    lp = LogarithmicHaloPotential(normalize=1.0, q=1.0)
+    ro, vo = 8.5, 240.0
+    try:
+        jeans.sigmalos(lp, 2.0, ro=ro, vo=vo).to(units.km / units.s)
+    except units.UnitConversionError:
+        raise AssertionError(
+            "jeans.sigmalos does not return Quantity with the right units"
+        )
+    return None
+
+
+def test_jeans_sigmalos_value():
+    from galpy.df import jeans
+    from galpy.potential import LogarithmicHaloPotential
+
+    lp = LogarithmicHaloPotential(normalize=1.0, q=1.0)
+    ro, vo = 8.5, 240.0
+    assert (
+        numpy.fabs(
+            jeans.sigmalos(lp, 2.0, ro=ro, vo=vo).to(units.km / units.s).value
+            - jeans.sigmalos(lp, 2.0) * vo
+        )
+        < 10.0**-8.0
+    ), "jeans.sigmalos does not return correct Quantity"
+    return None
+
+
+def test_jeans_sigmalos_PotentialInputWithQuantities():
+    from galpy.df import jeans
+    from galpy.potential import PlummerPotential
+
+    pp = PlummerPotential(1693 * units.solMass, b=100 * units.pc)
+    pp_nounits = PlummerPotential(1693 * units.solMass, b=100 * units.pc)
+    pp_nounits.turn_physical_off()
+    ro, vo = 8.5, 240.0
+    assert (
+        numpy.fabs(
+            jeans.sigmalos(pp, 1.0 * units.pc, ro=ro, vo=vo).to_value(
+                units.km / units.s
+            )
+            - jeans.sigmalos(pp_nounits, 1e-3 / ro) * vo
+        )
+        < 10.0**-8.0
+    ), "jeans.sigmalos does not return correct Quantity"
+    return None
+
+
 def test_orbitmethodswunits_quantity_issue326():
     # Methods that *always* return a number with implied units
     # (like Orbit.dist), should return always return a Quantity when
