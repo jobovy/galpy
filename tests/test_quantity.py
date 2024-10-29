@@ -16516,6 +16516,35 @@ def test_kingdf_setup_wunits():
     return None
 
 
+def test_sphericaldf_densitymatch_issue677():
+    from astropy import units
+
+    from galpy.df import isotropicPlummerdf
+    from galpy.potential import PlummerPotential
+    from galpy.util import conversion
+
+    # First check that when not using unit-full output, the density of the
+    # PlummerPotential matches that of the Plummer DF
+    potential = PlummerPotential(amp=1e5, b=10.0)
+    df = isotropicPlummerdf(pot=potential)
+    assert (
+        numpy.fabs(
+            potential.dens(0.0, 0.0, 0.0) / df.vmomentdensity(0.0, 0.0, 0.0) - 1.0
+        )
+        < 1e-8
+    ), "Density of PlummerPotential does not match that of isotropicPlummerdf"
+    # Then check that they continue to match when using unit-full output
+    potential = PlummerPotential(amp=1e5 * units.Msun, b=10.0)
+    df = isotropicPlummerdf(pot=potential)
+    assert (
+        numpy.fabs(
+            potential.dens(0.0, 0.0, 0.0) / df.vmomentdensity(0.0, 0.0, 0.0) - 1.0
+        )
+        < 1e-8
+    ), "Density of PlummerPotential does not match that of isotropicPlummerdf when returning Quantities"
+    return None
+
+
 def test_streamdf_method_returntype():
     # Imports
     from galpy.actionAngle import actionAngleIsochroneApprox
