@@ -102,7 +102,7 @@ class sphericaldf(df):
             )
 
     ############################## EVALUATING THE DF###############################
-    @physical_conversion("phasespacedensity", pop=True)
+    @physical_conversion("massphasespacedensity", pop=True)
     def __call__(self, *args, **kwargs):
         """
         Evaluate the DF
@@ -123,6 +123,7 @@ class sphericaldf(df):
         Notes
         -----
         - 2020-07-22 - Written - Lane (UofT)
+        - 2024-10-29 - Fixed to return mass/phase-space volume units for physical-unit output - Bovy (UofT)
         """
         # Get E,L,Lz
         if len(args) == 1:
@@ -160,7 +161,7 @@ class sphericaldf(df):
             )
         )
 
-    @physical_conversion("energydensity", pop=True)
+    @physical_conversion("massenergydensity", pop=True)
     def dMdE(self, E):
         """
         Compute the differential energy distribution dM/dE: the amount of mass per unit energy
@@ -216,10 +217,10 @@ class sphericaldf(df):
         if vo is None and hasattr(self, "_voSet") and self._voSet:
             vo = self._vo
         vo = conversion.parse_velocity_kms(vo)
-        if use_physical and not vo is None and not ro is None:
-            fac = vo ** (n + m) / ro**3
+        if use_physical and vo is not None and ro is not None:
+            fac = conversion.mass_in_msol(vo, ro) * vo ** (n + m) / ro**3
             if _optional_deps._APY_UNITS:
-                u = 1 / units.kpc**3 * (units.km / units.s) ** (n + m)
+                u = units.Msun / units.kpc**3 * (units.km / units.s) ** (n + m)
             out = self._vmomentdensity(r, n, m)
             if _optional_deps._APY_UNITS:
                 return units.Quantity(out * fac, unit=u)
