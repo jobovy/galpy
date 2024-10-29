@@ -766,7 +766,8 @@ _roNecessary = {
     "phasespacedensity2d": True,
     "phasespacedensityvelocity": True,
     "phasespacedensityvelocity2": True,
-    "energydensity": False,
+    "massphasespacedensity": True,
+    "massenergydensity": False,
     "dimensionless": False,
 }
 _voNecessary = copy.copy(_roNecessary)
@@ -778,7 +779,7 @@ _voNecessary["velocity"] = True
 _voNecessary["velocity2"] = True
 _voNecessary["velocity_kms"] = True
 _voNecessary["energy"] = True
-_voNecessary["energydensity"] = True
+_voNecessary["massenergydensity"] = True
 
 
 # Determine whether or not outputs will be physical or not
@@ -980,10 +981,14 @@ def physical_conversion(quantity, pop=False):
                     fac = 1.0 / vo / ro**3.0
                     if _apy_units:
                         u = 1 / (units.km / units.s) / units.kpc**3
-                elif quantity.lower() == "energydensity":
-                    fac = 1.0 / vo**2.0
+                elif quantity.lower() == "massphasespacedensity":
+                    fac = mass_in_msol(vo, ro) / vo**3.0 / ro**3.0
                     if _apy_units:
-                        u = 1 / (units.km / units.s) ** 2
+                        u = units.Msun / (units.km / units.s) ** 3 / units.kpc**3
+                elif quantity.lower() == "massenergydensity":
+                    fac = mass_in_msol(vo, ro) / vo**2.0
+                    if _apy_units:
+                        u = units.Msun / (units.km / units.s) ** 2
                 elif quantity.lower() == "dimensionless":
                     fac = 1.0
                     if _apy_units:

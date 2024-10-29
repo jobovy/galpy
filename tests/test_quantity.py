@@ -16038,63 +16038,67 @@ def test_sphericaldf_method_returnunit():
     dfa = constantbetaHernquistdf(pot=pot, beta=-0.2)
     o = Orbit([1.1, 0.1, 1.1, 0.1, 0.03, 0.4])
     try:
-        dfh(o).to(1 / units.kpc**3 / (units.km / units.s) ** 3)
+        dfh(o).to(units.Msun / units.kpc**3 / (units.km / units.s) ** 3)
     except units.UnitConversionError:
         raise AssertionError(
             "sphericaldf method __call__ does not return Quantity with the right units"
         )
     try:
-        dfh((o.E(pot=pot),)).to(1 / units.kpc**3 / (units.km / units.s) ** 3)
+        dfh((o.E(pot=pot),)).to(units.Msun / units.kpc**3 / (units.km / units.s) ** 3)
     except units.UnitConversionError:
         raise AssertionError(
             "sphericaldf method __call__ does not return Quantity with the right units"
         )
     try:
         dfh(o.R(), o.vR(), o.vT(), o.z(), o.vz(), o.phi()).to(
-            1 / units.kpc**3 / (units.km / units.s) ** 3
+            units.Msun / units.kpc**3 / (units.km / units.s) ** 3
         )
     except units.UnitConversionError:
         raise AssertionError(
             "sphericaldf method __call__ does not return Quantity with the right units"
         )
     try:
-        dfh.dMdE(o.E(pot=pot)).to(1 / (units.km / units.s) ** 2)
+        dfh.dMdE(o.E(pot=pot)).to(units.Msun / (units.km / units.s) ** 2)
     except units.UnitConversionError:
         raise AssertionError(
             "sphericaldf method dMdE does not return Quantity with the right units"
         )
     try:
-        dfh.vmomentdensity(1.1, 0, 0).to(1 / units.kpc**3)
+        dfh.vmomentdensity(1.1, 0, 0).to(units.Msun / units.kpc**3)
     except units.UnitConversionError:
         raise AssertionError(
             "sphericaldf method vmomentdensity does not return Quantity with the right units"
         )
     try:
-        dfa.vmomentdensity(1.1, 0, 0).to(1 / units.kpc**3)
+        dfa.vmomentdensity(1.1, 0, 0).to(units.Msun / units.kpc**3)
     except units.UnitConversionError:
         raise AssertionError(
             "sphericaldf method vmomentdensity does not return Quantity with the right units"
         )
     try:
-        dfh.vmomentdensity(1.1, 1, 0).to(1 / units.kpc**3 * units.km / units.s)
+        dfh.vmomentdensity(1.1, 1, 0).to(units.Msun / units.kpc**3 * units.km / units.s)
     except units.UnitConversionError:
         raise AssertionError(
             "sphericaldf method vmomentdensity does not return Quantity with the right units"
         )
     try:
-        dfa.vmomentdensity(1.1, 1, 0).to(1 / units.kpc**3 * units.km / units.s)
+        dfa.vmomentdensity(1.1, 1, 0).to(units.Msun / units.kpc**3 * units.km / units.s)
     except units.UnitConversionError:
         raise AssertionError(
             "sphericaldf method vmomentdensity does not return Quantity with the right units"
         )
     try:
-        dfh.vmomentdensity(1.1, 0, 2).to(1 / units.kpc**3 * units.km**2 / units.s**2)
+        dfh.vmomentdensity(1.1, 0, 2).to(
+            units.Msun / units.kpc**3 * units.km**2 / units.s**2
+        )
     except units.UnitConversionError:
         raise AssertionError(
             "sphericaldf method vmomentdensity does not return Quantity with the right units"
         )
     try:
-        dfa.vmomentdensity(1.1, 0, 2).to(1 / units.kpc**3 * units.km**2 / units.s**2)
+        dfa.vmomentdensity(1.1, 0, 2).to(
+            units.Msun / units.kpc**3 * units.km**2 / units.s**2
+        )
     except units.UnitConversionError:
         raise AssertionError(
             "sphericaldf method vmomentdensity does not return Quantity with the right units"
@@ -16118,6 +16122,7 @@ def test_sphericaldf_method_value():
     from galpy import potential
     from galpy.df import constantbetaHernquistdf, isotropicHernquistdf
     from galpy.orbit import Orbit
+    from galpy.util import conversion
 
     ro, vo = 8.0, 220.0
     pot = potential.HernquistPotential(amp=2.0, a=1.3)
@@ -16128,63 +16133,78 @@ def test_sphericaldf_method_value():
     o = Orbit([1.1, 0.1, 1.1, 0.1, 0.03, 0.4])
     assert (
         numpy.fabs(
-            dfh(o).to(1 / units.kpc**3 / (units.km / units.s) ** 3).value
-            - dfh_nou(o) / ro**3 / vo**3
+            dfh(o).to(units.Msun / units.kpc**3 / (units.km / units.s) ** 3).value
+            - dfh_nou(o) * conversion.mass_in_msol(vo, ro) / ro**3 / vo**3
         )
         < 10.0**-8.0
     ), "sphericaldf method __call__ does not return correct Quantity"
     assert (
         numpy.fabs(
-            dfh((o.E(pot=pot),)).to(1 / units.kpc**3 / (units.km / units.s) ** 3).value
-            - dfh_nou((o.E(pot=pot),)) / ro**3 / vo**3
+            dfh((o.E(pot=pot),))
+            .to(units.Msun / units.kpc**3 / (units.km / units.s) ** 3)
+            .value
+            - dfh_nou((o.E(pot=pot),)) * conversion.mass_in_msol(vo, ro) / ro**3 / vo**3
         )
         < 10.0**-8.0
     ), "sphericaldf method __call__ does not return correct Quantity"
     assert (
         numpy.fabs(
             dfh(o.R(), o.vR(), o.vT(), o.z(), o.vz(), o.phi())
-            .to(1 / units.kpc**3 / (units.km / units.s) ** 3)
+            .to(units.Msun / units.kpc**3 / (units.km / units.s) ** 3)
             .value
-            - dfh_nou(o.R(), o.vR(), o.vT(), o.z(), o.vz(), o.phi()) / ro**3 / vo**3
+            - dfh_nou(o.R(), o.vR(), o.vT(), o.z(), o.vz(), o.phi())
+            * conversion.mass_in_msol(vo, ro)
+            / ro**3
+            / vo**3
         )
         < 10.0**-8.0
     ), "sphericaldf method __call__ does not return correct Quantity"
     assert (
         numpy.fabs(
-            dfh.dMdE(o.E(pot=pot)).to(1 / (units.km / units.s) ** 2).value
-            - dfh_nou.dMdE(o.E(pot=pot)) / vo**2
+            dfh.dMdE(o.E(pot=pot)).to(units.Msun / (units.km / units.s) ** 2).value
+            - dfh_nou.dMdE(o.E(pot=pot)) * conversion.mass_in_msol(vo, ro) / vo**2
         )
         < 10.0**-8.0
     ), "sphericaldf method dMdE does not return correct Quantity"
     assert (
         numpy.fabs(
-            dfh.vmomentdensity(1.1, 0, 0).to(1 / units.kpc**3).value
-            - dfh_nou.vmomentdensity(1.1, 0, 0) / ro**3
+            dfh.vmomentdensity(1.1, 0, 0).to(units.Msun / units.kpc**3).value
+            - dfh_nou.vmomentdensity(1.1, 0, 0)
+            * conversion.mass_in_msol(vo, ro)
+            / ro**3
         )
         < 10.0**-8.0
     ), "sphericaldf method vmomentdensity does not return correct Quantity"
     assert (
         numpy.fabs(
-            dfa.vmomentdensity(1.1, 0, 0).to(1 / units.kpc**3).value
-            - dfa_nou.vmomentdensity(1.1, 0, 0) / ro**3
+            dfa.vmomentdensity(1.1, 0, 0).to(units.Msun / units.kpc**3).value
+            - dfa_nou.vmomentdensity(1.1, 0, 0)
+            * conversion.mass_in_msol(vo, ro)
+            / ro**3
         )
         < 10.0**-8.0
     ), "sphericaldf method vmomentdensity does not return correct Quantity"
     assert (
         numpy.fabs(
             dfh.vmomentdensity(1.1, 1, 0)
-            .to(1 / units.kpc**3 * units.km / units.s)
+            .to(units.Msun / units.kpc**3 * units.km / units.s)
             .value
-            - dfh_nou.vmomentdensity(1.1, 1, 0) * vo / ro**3
+            - dfh_nou.vmomentdensity(1.1, 1, 0)
+            * conversion.mass_in_msol(vo, ro)
+            * vo
+            / ro**3
         )
         < 10.0**-8.0
     ), "sphericaldf method vmomentdensity does not return correct Quantity"
     assert (
         numpy.fabs(
             dfa.vmomentdensity(1.1, 1, 0)
-            .to(1 / units.kpc**3 * units.km / units.s)
+            .to(units.Msun / units.kpc**3 * units.km / units.s)
             .value
-            - dfa_nou.vmomentdensity(1.1, 1, 0) * vo / ro**3
+            - dfa_nou.vmomentdensity(1.1, 1, 0)
+            * conversion.mass_in_msol(vo, ro)
+            * vo
+            / ro**3
         )
         < 10.0**-8.0
     ), "sphericaldf method vmomentdensity does not return correct Quantity"
@@ -16195,7 +16215,10 @@ def test_sphericaldf_method_value():
     assert (
         numpy.fabs(
             dfh.vmomentdensity(1.1, 0, 2)
-            - dfh_nou.vmomentdensity(1.1, 0, 2) * vo**2 / ro**3
+            - dfh_nou.vmomentdensity(1.1, 0, 2)
+            * conversion.mass_in_msol(vo, ro)
+            * vo**2
+            / ro**3
         )
         < 10.0**-8.0
     ), "sphericaldf method vmomentdensity does not return correct Quantity"
@@ -16203,18 +16226,24 @@ def test_sphericaldf_method_value():
     assert (
         numpy.fabs(
             dfh.vmomentdensity(1.1, 0, 2)
-            .to(1 / units.kpc**3 * units.km**2 / units.s**2)
+            .to(units.Msun / units.kpc**3 * units.km**2 / units.s**2)
             .value
-            - dfh_nou.vmomentdensity(1.1, 0, 2) * vo**2 / ro**3
+            - dfh_nou.vmomentdensity(1.1, 0, 2)
+            * conversion.mass_in_msol(vo, ro)
+            * vo**2
+            / ro**3
         )
         < 10.0**-8.0
     ), "sphericaldf method vmomentdensity does not return correct Quantity"
     assert (
         numpy.fabs(
             dfa.vmomentdensity(1.1, 0, 2)
-            .to(1 / units.kpc**3 * units.km**2 / units.s**2)
+            .to(units.Msun / units.kpc**3 * units.km**2 / units.s**2)
             .value
-            - dfa_nou.vmomentdensity(1.1, 0, 2) * vo**2 / ro**3
+            - dfa_nou.vmomentdensity(1.1, 0, 2)
+            * conversion.mass_in_msol(vo, ro)
+            * vo**2
+            / ro**3
         )
         < 10.0**-8.0
     ), "sphericaldf method vmomentdensity does not return correct Quantity"
@@ -16237,6 +16266,7 @@ def test_sphericaldf_method_inputAsQuantity():
     from galpy import potential
     from galpy.df import constantbetaHernquistdf, isotropicHernquistdf
     from galpy.orbit import Orbit
+    from galpy.util import conversion
 
     ro, vo = 8.0, 220.0
     pot = potential.HernquistPotential(amp=2.0, a=1.3)
@@ -16247,15 +16277,20 @@ def test_sphericaldf_method_inputAsQuantity():
     o = Orbit([1.1, 0.1, 1.1, 0.1, 0.03, 0.4], ro=ro, vo=vo)
     assert (
         numpy.fabs(
-            dfh((o.E(pot=pot),)).to(1 / units.kpc**3 / (units.km / units.s) ** 3).value
-            - dfh_nou((o.E(pot=pot, use_physical=False),)) / ro**3 / vo**3
+            dfh((o.E(pot=pot),))
+            .to(units.Msun / units.kpc**3 / (units.km / units.s) ** 3)
+            .value
+            - dfh_nou((o.E(pot=pot, use_physical=False),))
+            * conversion.mass_in_msol(vo, ro)
+            / ro**3
+            / vo**3
         )
         < 10.0**-8.0
     ), "sphericaldf method __call__ does not return correct Quantity"
     assert (
         numpy.fabs(
             dfh(o.R(), o.vR(), o.vT(), o.z(), o.vz(), o.phi())
-            .to(1 / units.kpc**3 / (units.km / units.s) ** 3)
+            .to(units.Msun / units.kpc**3 / (units.km / units.s) ** 3)
             .value
             - dfh_nou(
                 o.R(use_physical=False),
@@ -16265,6 +16300,7 @@ def test_sphericaldf_method_inputAsQuantity():
                 o.vz(use_physical=False),
                 o.phi(use_physical=False),
             )
+            * conversion.mass_in_msol(vo, ro)
             / ro**3
             / vo**3
         )
@@ -16272,24 +16308,32 @@ def test_sphericaldf_method_inputAsQuantity():
     ), "sphericaldf method __call__ does not return correct Quantity"
     assert (
         numpy.fabs(
-            dfh.dMdE(o.E(pot=pot)).to(1 / (units.km / units.s) ** 2).value
-            - dfh_nou.dMdE(o.E(pot=pot, use_physical=False)) / vo**2
+            dfh.dMdE(o.E(pot=pot)).to(units.Msun / (units.km / units.s) ** 2).value
+            - dfh_nou.dMdE(o.E(pot=pot, use_physical=False))
+            * conversion.mass_in_msol(vo, ro)
+            / vo**2
         )
         < 10.0**-8.0
     ), "sphericaldf method dMdE does not return correct Quantity"
     assert (
         numpy.fabs(
-            dfh.vmomentdensity(1.1 * ro * units.kpc, 0, 0).to(1 / units.kpc**3).value
-            - dfh_nou.vmomentdensity(1.1, 0, 0) / ro**3
+            dfh.vmomentdensity(1.1 * ro * units.kpc, 0, 0)
+            .to(units.Msun / units.kpc**3)
+            .value
+            - dfh_nou.vmomentdensity(1.1, 0, 0)
+            * conversion.mass_in_msol(vo, ro)
+            / ro**3
         )
         < 10.0**-8.0
     ), "sphericaldf method vmomentdensity does not return correct Quantity"
     assert (
         numpy.fabs(
             dfa.vmomentdensity(1.1 * ro * units.kpc, 0, 0, ro=ro * units.kpc)
-            .to(1 / units.kpc**3)
+            .to(units.Msun / units.kpc**3)
             .value
-            - dfa_nou.vmomentdensity(1.1, 0, 0) / ro**3
+            - dfa_nou.vmomentdensity(1.1, 0, 0)
+            * conversion.mass_in_msol(vo, ro)
+            / ro**3
         )
         < 10.0**-8.0
     ), "sphericaldf method vmomentdensity does not return correct Quantity"
@@ -16298,36 +16342,48 @@ def test_sphericaldf_method_inputAsQuantity():
             dfh.vmomentdensity(
                 1.1 * ro * units.kpc, 1, 0, ro=ro, vo=vo * units.km / units.s
             )
-            .to(1 / units.kpc**3 * units.km / units.s)
+            .to(units.Msun / units.kpc**3 * units.km / units.s)
             .value
-            - dfh_nou.vmomentdensity(1.1, 1, 0) * vo / ro**3
+            - dfh_nou.vmomentdensity(1.1, 1, 0)
+            * conversion.mass_in_msol(vo, ro)
+            * vo
+            / ro**3
         )
         < 10.0**-8.0
     ), "sphericaldf method vmomentdensity does not return correct Quantity"
     assert (
         numpy.fabs(
             dfa.vmomentdensity(1.1 * ro * units.kpc, 1, 0, vo=vo * units.km / units.s)
-            .to(1 / units.kpc**3 * units.km / units.s)
+            .to(units.Msun / units.kpc**3 * units.km / units.s)
             .value
-            - dfa_nou.vmomentdensity(1.1, 1, 0) * vo / ro**3
+            - dfa_nou.vmomentdensity(1.1, 1, 0)
+            * conversion.mass_in_msol(vo, ro)
+            * vo
+            / ro**3
         )
         < 10.0**-8.0
     ), "sphericaldf method vmomentdensity does not return correct Quantity"
     assert (
         numpy.fabs(
             dfh.vmomentdensity(1.1 * ro * units.kpc, 0, 2)
-            .to(1 / units.kpc**3 * units.km**2 / units.s**2)
+            .to(units.Msun / units.kpc**3 * units.km**2 / units.s**2)
             .value
-            - dfh_nou.vmomentdensity(1.1, 0, 2) * vo**2 / ro**3
+            - dfh_nou.vmomentdensity(1.1, 0, 2)
+            * conversion.mass_in_msol(vo, ro)
+            * vo**2
+            / ro**3
         )
         < 10.0**-8.0
     ), "sphericaldf method vmomentdensity does not return correct Quantity"
     assert (
         numpy.fabs(
             dfa.vmomentdensity(1.1 * ro * units.kpc, 0, 2)
-            .to(1 / units.kpc**3 * units.km**2 / units.s**2)
+            .to(units.Msun / units.kpc**3 * units.km**2 / units.s**2)
             .value
-            - dfa_nou.vmomentdensity(1.1, 0, 2) * vo**2 / ro**3
+            - dfa_nou.vmomentdensity(1.1, 0, 2)
+            * conversion.mass_in_msol(vo, ro)
+            * vo**2
+            / ro**3
         )
         < 10.0**-8.0
     ), "sphericaldf method vmomentdensity does not return correct Quantity"
