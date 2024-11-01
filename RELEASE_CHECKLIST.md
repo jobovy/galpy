@@ -16,9 +16,7 @@
 
 - [ ] (Optional check) Push it to testpypi: ``twine upload -r pypitest dist/*`` and can test with ``pip install -i https://testpypi.python.org/pypi galpy``
 
-- [ ] Tag new version with ``git tag vVERSION``
-
-- [ ] Push new tag with ``git push --tags``
+- [ ] Tag new version and push it with ``git tag v`python -c "import galpy; print(galpy.__version__)"` && git push --tags``
 
 - [ ] Create new release on GitHub for this tag, with all of the links and a brief summary of major updates. Creating the release on GitHub will automatically build the source distribution and binary wheels using GitHub Actions and upload these to PyPI!
 
