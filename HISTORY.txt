@@ -1,4 +1,4 @@
-v1.10.1 (Expected around 2024-11-01)
+v1.10.1 (2024-11-01)
 ====================
 
 - Propagate general plotting keywords in Potential.plot/plotPotentials. Also allow
