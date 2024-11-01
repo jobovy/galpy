@@ -7747,6 +7747,27 @@ def test_king_potential_beyond_tidal():
     return None
 
 
+def test_dehnen_bar_python_c_consistency():
+    ## test a quick orbit integration to ensure C and python Dehnen bar potentials are consistent
+    ## (context: there had been a bug where r was used instead of R in the C implementation)
+    diskp = potential.MiyamotoNagaiPotential(amp=10.0, a=0.5, b=0.03, normalize=False)
+    barp = potential.DehnenBarPotential(
+        omegab=0.0, rb=0.5, Af=200.0, barphi=0.0, tform=-10000, tsteady=0
+    )
+    pot = [diskp, barp]
+    # initialize orbits to be integrated
+    orb_p = orbit.Orbit(vxvv=[0.2, 2.0, 0.0, 1, 0.0, 2.0], ro=8.0)
+    orb_c = orbit.Orbit(vxvv=[0.2, 2.0, 0.0, 1, 0.0, 2.0], ro=8.0)
+    # integrate one in Python and one in C
+    ts = numpy.linspace(0.0, 1.0, 100) * 0.3
+    orb_p.integrate(ts, pot=pot, method="dop853")
+    orb_c.integrate(ts, pot=pot, method="dop853_c")
+    # check equal
+    assert numpy.all(
+        numpy.fabs(orb_p.E(ts) / orb_c.E(ts) - 1.0) < 10.0**-10
+    ), "C orbit integration in a Dehnen bar potential does not work as expected"
+
+
 # Test that trying to plot a potential with xy=True and effective=True raises a RuntimeError
 def test_plotting_xy_effective_error():
     # First a single potential
