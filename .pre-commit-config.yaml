@@ -4,7 +4,7 @@ ci:
 
 repos:
 - repo: https://github.com/pre-commit/pre-commit-hooks
-  rev: v4.6.0
+  rev: v5.0.0
   hooks:
   - id: trailing-whitespace
   - id: end-of-file-fixer
@@ -12,7 +12,7 @@ repos:
   - id: check-executables-have-shebangs
   - id: check-yaml
 - repo: https://github.com/asottile/pyupgrade
-  rev: v3.17.0
+  rev: v3.19.0
   hooks:
   - id: pyupgrade
     args: [--py38-plus]
@@ -36,6 +36,6 @@ repos:
       args: ["-L", "thisE,thise,mye,tE,te,hist,ro,sav,ccompiler,aas,floatIn,dOmin",
       "-x","doc/source/_static/try-galpy.js"]
 - repo: https://github.com/astral-sh/ruff-pre-commit
-  rev: v0.6.3
+  rev: v0.7.2
   hooks:
     - id: ruff-format
