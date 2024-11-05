@@ -282,7 +282,7 @@ jobs:
     - name: Install package
       if: ${{ startsWith( matrix.os , 'macos' ) }}
       run: |
-        python -m pip install -v .
+        python setup.py install
     - name: Special config
       env:
           TEST_FILES: ${{ matrix.TEST_FILES }}
