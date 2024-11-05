@@ -281,11 +281,9 @@ jobs:
         python setup.py develop --single_ext
     - name: Build wheel for Mac install
       if: ${{ startsWith( matrix.os , 'macos' ) }}
-      uses: pypa/cibuildwheel@v2.21
-      env:
-        CIBW_BUILD: cp`sed 's/\.//g' <<< ${{ matrix.python-version }}`-*
-        CIBW_BUILD_VERBOSITY: 1
-        CIBW_ENVIRONMENT_MACOS: "MACOSX_DEPLOYMENT_TARGET=10.13"
+      run: |
+        python -m pip install cibuildwheel
+        python -m cibuildwheel --output-dir wheelhouse
     - name: Install package (Mac)
       if: ${{ startsWith( matrix.os , 'macos' ) }}
       run: |
