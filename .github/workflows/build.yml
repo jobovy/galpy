@@ -318,8 +318,8 @@ jobs:
           TEST_FILES: ${{ matrix.TEST_FILES }}
           REQUIRES_ASTROPY : ${{ matrix.REQUIRES_ASTROPY }}
       run: |
-        pip install coverage
-        pip install pytest-cov
+        # pip install coverage
+        # pip install pytest-cov
         # Turn astropy deprecation warnings into errors as well if astropy
         if $REQUIRES_ASTROPY; then export PYTEST_ADDOPTS="-W error::astropy.utils.exceptions.AstropyDeprecationWarning"; else export PYTEST_ADDOPTS=""; fi
         export TQDM_DEPRECATION="-W ignore:\"datetime.datetime.utcfromtimestamp() is deprecated and scheduled for removal in a future version.\":DeprecationWarning -W ignore:\"datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC\":DeprecationWarning"
