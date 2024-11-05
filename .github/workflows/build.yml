@@ -283,7 +283,7 @@ jobs:
       if: ${{ startsWith( matrix.os , 'macos' ) }}
       uses: pypa/cibuildwheel@v2.21
       env:
-        CIBW_BUILD: ${{ matrix.python-version }}-*
+        CIBW_BUILD: cp`sed 's/\.//g' <<< ${{ matrix.python-version }}`-*
         CIBW_BUILD_VERBOSITY: 1
         CIBW_ENVIRONMENT_MACOS: "MACOSX_DEPLOYMENT_TARGET=10.13"
     - name: Install package (Mac)
