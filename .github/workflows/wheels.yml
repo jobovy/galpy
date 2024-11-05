@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - main
+      - upgrade-mac-runner
     paths:
       - '**'
       - '!*'
