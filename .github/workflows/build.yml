@@ -287,7 +287,6 @@ jobs:
       if: ${{ startsWith( matrix.os , 'macos' ) }}
       env:
         CIBW_ENVIRONMENT_MACOS: "MACOSX_DEPLOYMENT_TARGET=10.13"
-        CIBW_REPAIR_WHEEL_COMMAND_MACOS: ""
       run: |
         python -m pip install cibuildwheel
         python -m cibuildwheel --output-dir wheelhouse
