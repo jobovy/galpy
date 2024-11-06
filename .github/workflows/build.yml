@@ -192,7 +192,7 @@ jobs:
             REQUIRES_ASTROQUERY: true
             REQUIRES_NUMBA: false
             REQUIRES_JAX: false
-          - os: macos-12
+          - os: macos-13
             python-version: "3.12"
             TEST_FILES: tests/test_orbit.py -k test_energy_jacobi_conservation
             REQUIRES_PYNBODY: true
@@ -200,7 +200,7 @@ jobs:
             REQUIRES_ASTROQUERY: true
             REQUIRES_NUMBA: false
             REQUIRES_JAX: false
-          - os: macos-12
+          - os: macos-13
             python-version: "3.12"
             TEST_FILES: tests/test_orbit.py tests/test_orbits.py -k 'not test_energy_jacobi_conservation'
             REQUIRES_PYNBODY: true
@@ -227,7 +227,7 @@ jobs:
       run: |
          sudo apt-get install libgsl-dev
     - name: Install the GSL and OpenMP
-      if: matrix.os == 'macos-12'
+      if: matrix.os == 'macos-13'
       run: |
          brew install gsl libomp
          brew info libomp
@@ -280,7 +280,7 @@ jobs:
         python setup.py build_ext --no-openmp --coverage --single_ext --inplace
         python setup.py develop --single_ext
     - name: Install package
-      if: matrix.os == 'macos-12'
+      if: matrix.os == 'macos-13'
       run: |
         python -m pip install -v .
     - name: Special config
