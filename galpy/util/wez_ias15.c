@@ -266,13 +266,6 @@ void wez_ias15(void (*func)(double t, double *q, double *a, int nargs, struct po
     dt = init_dt; //Note in this case of dynamic timestepping, this makes little difference
   }
 
-  int timestep_sign;
-  if(init_dt > 0){
-    timestep_sign = 1;
-  } else {
-    timestep_sign = -1;
-  }
-
   double to= *t;
   // Handle KeyboardInterrupt gracefully
 #ifndef _WIN32
@@ -284,7 +277,7 @@ void wez_ias15(void (*func)(double t, double *q, double *a, int nargs, struct po
     if (SetConsoleCtrlHandler(CtrlHandler, TRUE)) {}
 #endif
   //WHILE THERE IS TIME REMAINING, INTEGRATE A DYNAMIC TIMESTEP FORWARD AND SUBTRACT FROM THE TIME REMAINING
-  double time_remaining = nt * dt;
+  double time_remaining = fabs(nt * dt);
   int steps = 1;
 
   while(time_remaining > 0) {
@@ -385,19 +378,36 @@ void wez_ias15(void (*func)(double t, double *q, double *a, int nargs, struct po
     } else {
       //accepted, update position/velocity and do next timestep with dt required
       time_remaining -= fabs(dt); //will eventually get negative as we stepped forward the minimum of dt and time_remaining
+      
+      if (init_dt > 0){
+        //estimate the function over the interval for any points in the t array
+        while(to < t[steps] && t[steps] <= to_temp && steps < nt){
+          //hs = (fabs(t[steps]) - fabs(to))/(fabs(to_temp) - fabs(to));
+          hs = (fabs(t[steps] - to))/(fabs(to_temp - to));
 
-      //estimate the function over the interval for any points in the t array
-      while(fabs(to) < fabs(t[steps]) && fabs(t[steps]) <= fabs(to_temp) && steps < nt){
-        hs = (fabs(t[steps]) - fabs(to))/(fabs(to_temp) - fabs(to));
+          update_position(xs, x, v, dim, hs, dt_temp, Fs, Bs);
+          update_velocity(vs, v, dim, hs, dt_temp, Fs, Bs);
 
-        update_position(xs, x, v, dim, hs, dt_temp, Fs, Bs);
-        update_velocity(vs, v, dim, hs, dt_temp, Fs, Bs);
+          save_ias15(dim, xs, vs, result);
+          result+= 2 * dim;
 
-        save_ias15(dim, xs, vs, result);
-        result+= 2 * dim;
+          steps += 1;
+        }  
+      } else {
+        //estimate the function over the interval for any points in the t array
+        while(to > t[steps] && t[steps] >= to_temp && steps < nt){
+          hs = (fabs(t[steps] - to))/(fabs(to_temp - to));
 
-        steps += 1;
+          update_position(xs, x, v, dim, hs, dt_temp, Fs, Bs);
+          update_velocity(vs, v, dim, hs, dt_temp, Fs, Bs);
+
+          save_ias15(dim, xs, vs, result);
+          result+= 2 * dim;
+
+          steps += 1;
+        }
       }
+      
 
       update_position(x, x, v, dim, 1, dt_temp, Fs, Bs);
       update_velocity(v, v, dim, 1, dt_temp, Fs , Bs);
