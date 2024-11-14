@@ -5299,6 +5299,7 @@ def test_orbitfit():
 
 def test_orbitfit_potinput():
     from galpy.orbit import Orbit
+    from galpy.potential import PotentialError
 
     lp = potential.LogarithmicHaloPotential(normalize=1.0, q=0.9)
     o = Orbit([0.8, 0.3, 1.3, 0.4, 0.2, 2.0])
@@ -5310,10 +5311,10 @@ def test_orbitfit_potinput():
     of = o()
     try:
         Orbit.from_fit(o.vxvv[0], vxvv, pot=None, tintJ=1.5)
-    except AttributeError:
+    except PotentialError:
         pass
     else:
-        raise AssertionError("Orbit fit w/o potential does not raise AttributeError")
+        raise AssertionError("Orbit fit w/o potential does not raise PotentialError")
     # Now give a potential to of
     of = Orbit.from_fit(o.vxvv[0], vxvv, pot=lp, tintJ=1.5)
     assert numpy.all(

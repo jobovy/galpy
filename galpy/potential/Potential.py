@@ -107,6 +107,7 @@ class Potential(Force):
         self.dim = 3
         self.isRZ = True
         self.isNonAxi = False
+        self.isDissipative = False
         self.hasC = False
         self.hasC_dxdv = False
         self.hasC_dens = False
@@ -1894,29 +1895,25 @@ def evaluatePotentials(Pot, R, z, phi=None, t=0.0, dR=0, dphi=0):
     - 2010-04-16 - Written - Bovy (NYU)
 
     """
-    return _evaluatePotentials(Pot, R, z, phi=phi, t=t, dR=dR, dphi=dphi)
-
-
-def _evaluatePotentials(Pot, R, z, phi=None, t=0.0, dR=0, dphi=0):
-    """Raw, undecorated function for internal use"""
     nonAxi = _isNonAxi(Pot)
     if nonAxi and phi is None:
         raise PotentialError(
             "The (list of) Potential instances is non-axisymmetric, but you did not provide phi"
         )
+    return _evaluatePotentials(Pot, R, z, phi=phi, t=t, dR=dR, dphi=dphi)
+
+
+def _evaluatePotentials(Pot, R, z, phi=None, t=0.0, dR=0, dphi=0):
+    """Raw, undecorated function for internal use"""
     isList = isinstance(Pot, list)
     if isList:
         out = 0.0
         for pot in Pot:
-            if not isinstance(pot, DissipativeForce):
+            if not pot.isDissipative:
                 out += pot._call_nodecorator(R, z, phi=phi, t=t, dR=dR, dphi=dphi)
         return out
-    elif isinstance(Pot, Potential):
+    elif not Pot.isDissipative:
         return Pot._call_nodecorator(R, z, phi=phi, t=t, dR=dR, dphi=dphi)
-    else:  # pragma: no cover
-        raise PotentialError(
-            "Input to 'evaluatePotentials' is neither a Potential-instance or a list of such instances"
-        )
 
 
 @potential_positional_arg
@@ -1961,18 +1958,14 @@ def evaluateDensities(Pot, R, z, phi=None, t=0.0, forcepoisson=False):
     if isList:
         out = 0.0
         for pot in Pot:
-            if not isinstance(pot, DissipativeForce):
+            if not pot.isDissipative:
                 out += pot.dens(
                     R, z, phi=phi, t=t, forcepoisson=forcepoisson, use_physical=False
                 )
         return out
-    elif isinstance(Pot, Potential):
+    elif not Pot.isDissipative:
         return Pot.dens(
             R, z, phi=phi, t=t, forcepoisson=forcepoisson, use_physical=False
-        )
-    else:  # pragma: no cover
-        raise PotentialError(
-            "Input to 'evaluateDensities' is neither a Potential-instance or a list of such instances"
         )
 
 
@@ -2017,18 +2010,14 @@ def evaluateSurfaceDensities(Pot, R, z, phi=None, t=0.0, forcepoisson=False):
     if isList:
         out = 0.0
         for pot in Pot:
-            if not isinstance(pot, DissipativeForce):
+            if not pot.isDissipative:
                 out += pot.surfdens(
                     R, z, phi=phi, t=t, forcepoisson=forcepoisson, use_physical=False
                 )
         return out
-    elif isinstance(Pot, Potential):
+    elif not Pot.isDissipative:
         return Pot.surfdens(
             R, z, phi=phi, t=t, forcepoisson=forcepoisson, use_physical=False
-        )
-    else:  # pragma: no cover
-        raise PotentialError(
-            "Input to 'evaluateSurfaceDensities' is neither a Potential-instance or a list of such instances"
         )
 
 
@@ -2073,15 +2062,11 @@ def mass(Pot, R, z=None, t=0.0, forceint=False):
     if isList:
         out = 0.0
         for pot in Pot:
-            if not isinstance(pot, DissipativeForce):
+            if not pot.isDissipative:
                 out += pot.mass(R, z=z, t=t, forceint=forceint, use_physical=False)
         return out
-    elif isinstance(Pot, Potential):
+    elif not Pot.isDissipative:
         return Pot.mass(R, z=z, t=t, forceint=forceint, use_physical=False)
-    else:  # pragma: no cover
-        raise PotentialError(
-            "Input to 'mass' is neither a Potential-instance or a list of such instances"
-        )
 
 
 @potential_positional_arg
@@ -2117,12 +2102,6 @@ def evaluateRforces(Pot, R, z, phi=None, t=0.0, v=None):
     - 2018-03-16 - Added velocity input for dissipative forces - Bovy (UofT)
 
     """
-    return _evaluateRforces(Pot, R, z, phi=phi, t=t, v=v)
-
-
-def _evaluateRforces(Pot, R, z, phi=None, t=0.0, v=None):
-    """Raw, undecorated function for internal use"""
-    isList = isinstance(Pot, list)
     nonAxi = _isNonAxi(Pot)
     if nonAxi and phi is None:
         raise PotentialError(
@@ -2133,22 +2112,24 @@ def _evaluateRforces(Pot, R, z, phi=None, t=0.0, v=None):
         raise PotentialError(
             "The (list of) Potential instances includes dissipative components, but you did not provide the 3D velocity (required for dissipative forces)"
         )
+    return _evaluateRforces(Pot, R, z, phi=phi, t=t, v=v)
+
+
+def _evaluateRforces(Pot, R, z, phi=None, t=0.0, v=None):
+    """Raw, undecorated function for internal use"""
+    isList = isinstance(Pot, list)
     if isList:
         out = 0.0
         for pot in Pot:
-            if isinstance(pot, DissipativeForce):
+            if pot.isDissipative:
                 out += pot._Rforce_nodecorator(R, z, phi=phi, t=t, v=v)
             else:
                 out += pot._Rforce_nodecorator(R, z, phi=phi, t=t)
         return out
-    elif isinstance(Pot, Potential):
-        return Pot._Rforce_nodecorator(R, z, phi=phi, t=t)
-    elif isinstance(Pot, DissipativeForce):
+    elif Pot.isDissipative:
         return Pot._Rforce_nodecorator(R, z, phi=phi, t=t, v=v)
-    else:  # pragma: no cover
-        raise PotentialError(
-            "Input to 'evaluateRforces' is neither a Potential-instance, DissipativeForce-instance or a list of such instances"
-        )
+    else:
+        return Pot._Rforce_nodecorator(R, z, phi=phi, t=t)
 
 
 @potential_positional_arg
@@ -2184,12 +2165,6 @@ def evaluatephitorques(Pot, R, z, phi=None, t=0.0, v=None):
     - 2018-03-16 - Added velocity input for dissipative forces - Bovy (UofT)
 
     """
-    return _evaluatephitorques(Pot, R, z, phi=phi, t=t, v=v)
-
-
-def _evaluatephitorques(Pot, R, z, phi=None, t=0.0, v=None):
-    """Raw, undecorated function for internal use"""
-    isList = isinstance(Pot, list)
     nonAxi = _isNonAxi(Pot)
     if nonAxi and phi is None:
         raise PotentialError(
@@ -2200,22 +2175,24 @@ def _evaluatephitorques(Pot, R, z, phi=None, t=0.0, v=None):
         raise PotentialError(
             "The (list of) Potential instances includes dissipative, but you did not provide the 3D velocity (required for dissipative forces"
         )
+    return _evaluatephitorques(Pot, R, z, phi=phi, t=t, v=v)
+
+
+def _evaluatephitorques(Pot, R, z, phi=None, t=0.0, v=None):
+    """Raw, undecorated function for internal use"""
+    isList = isinstance(Pot, list)
     if isList:
         out = 0.0
         for pot in Pot:
-            if isinstance(pot, DissipativeForce):
+            if pot.isDissipative:
                 out += pot._phitorque_nodecorator(R, z, phi=phi, t=t, v=v)
             else:
                 out += pot._phitorque_nodecorator(R, z, phi=phi, t=t)
         return out
-    elif isinstance(Pot, Potential):
-        return Pot._phitorque_nodecorator(R, z, phi=phi, t=t)
-    elif isinstance(Pot, DissipativeForce):
+    elif Pot.isDissipative:
         return Pot._phitorque_nodecorator(R, z, phi=phi, t=t, v=v)
-    else:  # pragma: no cover
-        raise PotentialError(
-            "Input to 'evaluatephitorques' is neither a Potential-instance, DissipativeForce-instance or a list of such instances"
-        )
+    else:
+        return Pot._phitorque_nodecorator(R, z, phi=phi, t=t)
 
 
 @potential_positional_arg
@@ -2251,12 +2228,6 @@ def evaluatezforces(Pot, R, z, phi=None, t=0.0, v=None):
     - 2018-03-16 - Added velocity input for dissipative forces - Bovy (UofT)
 
     """
-    return _evaluatezforces(Pot, R, z, phi=phi, t=t, v=v)
-
-
-def _evaluatezforces(Pot, R, z, phi=None, t=0.0, v=None):
-    """Raw, undecorated function for internal use"""
-    isList = isinstance(Pot, list)
     nonAxi = _isNonAxi(Pot)
     if nonAxi and phi is None:
         raise PotentialError(
@@ -2267,22 +2238,24 @@ def _evaluatezforces(Pot, R, z, phi=None, t=0.0, v=None):
         raise PotentialError(
             "The (list of) Potential instances includes dissipative, but you did not provide the 3D velocity (required for dissipative forces"
         )
+    return _evaluatezforces(Pot, R, z, phi=phi, t=t, v=v)
+
+
+def _evaluatezforces(Pot, R, z, phi=None, t=0.0, v=None):
+    """Raw, undecorated function for internal use"""
+    isList = isinstance(Pot, list)
     if isList:
         out = 0.0
         for pot in Pot:
-            if isinstance(pot, DissipativeForce):
+            if pot.isDissipative:
                 out += pot._zforce_nodecorator(R, z, phi=phi, t=t, v=v)
             else:
                 out += pot._zforce_nodecorator(R, z, phi=phi, t=t)
         return out
-    elif isinstance(Pot, Potential):
-        return Pot._zforce_nodecorator(R, z, phi=phi, t=t)
-    elif isinstance(Pot, DissipativeForce):
+    elif Pot.isDissipative:
         return Pot._zforce_nodecorator(R, z, phi=phi, t=t, v=v)
-    else:  # pragma: no cover
-        raise PotentialError(
-            "Input to 'evaluatezforces' is neither a Potential-instance, DissipativeForce-instance or a list of such instances"
-        )
+    else:
+        return Pot._zforce_nodecorator(R, z, phi=phi, t=t)
 
 
 @potential_positional_arg
@@ -2331,19 +2304,15 @@ def evaluaterforces(Pot, R, z, phi=None, t=0.0, v=None):
     if isList:
         out = 0.0
         for pot in Pot:
-            if isinstance(pot, DissipativeForce):
+            if pot.isDissipative:
                 out += pot.rforce(R, z, phi=phi, t=t, v=v, use_physical=False)
             else:
                 out += pot.rforce(R, z, phi=phi, t=t, use_physical=False)
         return out
-    elif isinstance(Pot, Potential):
-        return Pot.rforce(R, z, phi=phi, t=t, use_physical=False)
-    elif isinstance(Pot, DissipativeForce):
+    elif Pot.isDissipative:
         return Pot.rforce(R, z, phi=phi, t=t, v=v, use_physical=False)
-    else:  # pragma: no cover
-        raise PotentialError(
-            "Input to 'evaluaterforces' is neither a Potential-instance or a list of such instances"
-        )
+    else:
+        return Pot.rforce(R, z, phi=phi, t=t, use_physical=False)
 
 
 @potential_positional_arg
@@ -2385,15 +2354,11 @@ def evaluateR2derivs(Pot, R, z, phi=None, t=0.0):
     if isList:
         out = 0.0
         for pot in Pot:
-            if not isinstance(pot, DissipativeForce):
+            if not pot.isDissipative:
                 out += pot.R2deriv(R, z, phi=phi, t=t, use_physical=False)
         return out
-    elif isinstance(Pot, Potential):
+    elif not Pot.isDissipative:
         return Pot.R2deriv(R, z, phi=phi, t=t, use_physical=False)
-    else:  # pragma: no cover
-        raise PotentialError(
-            "Input to 'evaluateR2derivs' is neither a Potential-instance or a list of such instances"
-        )
 
 
 @potential_positional_arg
@@ -2435,15 +2400,11 @@ def evaluatez2derivs(Pot, R, z, phi=None, t=0.0):
     if isList:
         out = 0.0
         for pot in Pot:
-            if not isinstance(pot, DissipativeForce):
+            if not pot.isDissipative:
                 out += pot.z2deriv(R, z, phi=phi, t=t, use_physical=False)
         return out
-    elif isinstance(Pot, Potential):
+    elif not Pot.isDissipative:
         return Pot.z2deriv(R, z, phi=phi, t=t, use_physical=False)
-    else:  # pragma: no cover
-        raise PotentialError(
-            "Input to 'evaluatez2derivs' is neither a Potential-instance or a list of such instances"
-        )
 
 
 @potential_positional_arg
@@ -2485,15 +2446,11 @@ def evaluateRzderivs(Pot, R, z, phi=None, t=0.0):
     if isList:
         out = 0.0
         for pot in Pot:
-            if not isinstance(pot, DissipativeForce):
+            if not pot.isDissipative:
                 out += pot.Rzderiv(R, z, phi=phi, t=t, use_physical=False)
         return out
-    elif isinstance(Pot, Potential):
+    elif not Pot.isDissipative:
         return Pot.Rzderiv(R, z, phi=phi, t=t, use_physical=False)
-    else:  # pragma: no cover
-        raise PotentialError(
-            "Input to 'evaluateRzderivs' is neither a Potential-instance or a list of such instances"
-        )
 
 
 @potential_positional_arg
@@ -2535,15 +2492,11 @@ def evaluatephi2derivs(Pot, R, z, phi=None, t=0.0):
     if isList:
         out = 0.0
         for pot in Pot:
-            if not isinstance(pot, DissipativeForce):
+            if not pot.isDissipative:
                 out += pot.phi2deriv(R, z, phi=phi, t=t, use_physical=False)
         return out
-    elif isinstance(Pot, Potential):
+    elif not Pot.isDissipative:
         return Pot.phi2deriv(R, z, phi=phi, t=t, use_physical=False)
-    else:  # pragma: no cover
-        raise PotentialError(
-            "Input to 'evaluatephi2derivs' is neither a Potential-instance or a list of such instances"
-        )
 
 
 @potential_positional_arg
@@ -2585,15 +2538,11 @@ def evaluateRphiderivs(Pot, R, z, phi=None, t=0.0):
     if isList:
         out = 0.0
         for pot in Pot:
-            if not isinstance(pot, DissipativeForce):
+            if not pot.isDissipative:
                 out += pot.Rphideriv(R, z, phi=phi, t=t, use_physical=False)
         return out
-    elif isinstance(Pot, Potential):
+    elif not Pot.isDissipative:
         return Pot.Rphideriv(R, z, phi=phi, t=t, use_physical=False)
-    else:  # pragma: no cover
-        raise PotentialError(
-            "Input to 'evaluateRphiderivs' is neither a Potential-instance or a list of such instances"
-        )
 
 
 @potential_positional_arg
@@ -2635,15 +2584,11 @@ def evaluatephizderivs(Pot, R, z, phi=None, t=0.0):
     if isList:
         out = 0.0
         for pot in Pot:
-            if not isinstance(pot, DissipativeForce):
+            if not pot.isDissipative:
                 out += pot.phizderiv(R, z, phi=phi, t=t, use_physical=False)
         return out
-    elif isinstance(Pot, Potential):
+    elif not Pot.isDissipative:
         return Pot.phizderiv(R, z, phi=phi, t=t, use_physical=False)
-    else:  # pragma: no cover
-        raise PotentialError(
-            "Input to 'evaluatephizderivs' is neither a Potential-instance or a list of such instances"
-        )
 
 
 @potential_positional_arg
@@ -2685,15 +2630,11 @@ def evaluater2derivs(Pot, R, z, phi=None, t=0.0):
     if isList:
         out = 0.0
         for pot in Pot:
-            if not isinstance(pot, DissipativeForce):
+            if not pot.isDissipative:
                 out += pot.r2deriv(R, z, phi=phi, t=t, use_physical=False)
         return out
-    elif isinstance(Pot, Potential):
+    elif not Pot.isDissipative:
         return Pot.r2deriv(R, z, phi=phi, t=t, use_physical=False)
-    else:  # pragma: no cover
-        raise PotentialError(
-            "Input to 'evaluater2derivs' is neither a Potential-instance or a list of such instances"
-        )
 
 
 @potential_positional_arg
@@ -3904,7 +3845,12 @@ def _isNonAxi(Pot):
         isAxis = [not _isNonAxi(p) for p in Pot]
         nonAxi = not numpy.prod(numpy.array(isAxis))
     else:
-        nonAxi = Pot.isNonAxi
+        try:
+            nonAxi = Pot.isNonAxi
+        except AttributeError:
+            raise PotentialError(
+                "'isNonAxi' attribute has not been set for this potential"
+            )
     return nonAxi
 
 

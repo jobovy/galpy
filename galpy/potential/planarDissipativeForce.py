@@ -30,6 +30,7 @@ class planarDissipativeForce(planarForce):
         - 2023-05-29 - Started - Bovy (UofT)
         """
         planarForce.__init__(self, amp=amp, ro=ro, vo=vo)
+        self.isDissipative = True
 
     @potential_physical_input
     @physical_conversion("force", pop=True)
