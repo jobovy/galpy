@@ -76,17 +76,22 @@ def leapfrog(func, yo, t, args=(), rtol=1.49012e-12, atol=1.49012e-12):
     # Integrate
     to = t[0]
     for ii in range(1, len(t)):
-        for jj in range(ndt):  # loop over number of sub-intervals
-            # This could be made faster by combining the drifts
-            # drift
-            q12 = leapfrog_leapq(qo, po, dt / 2.0)
+        # initial half drift
+        q12 = leapfrog_leapq(qo, po, dt / 2.0)
+        for jj in range(ndt - 1):  # loop over number of sub-intervals
             # kick
             force = func(q12, *args, t=to + dt / 2)
             po = leapfrog_leapp(po, dt, force)
-            # drift
-            qo = leapfrog_leapq(q12, po, dt / 2.0)
+            # full drift to next half step
+            q12 = leapfrog_leapq(q12, po, dt)
             # Get ready for next
             to += dt
+        # last kick and half drift to arrive at final step
+        force = func(q12, *args, t=to + dt / 2)
+        po = leapfrog_leapp(po, dt, force)
+        qo = leapfrog_leapq(q12, po, dt / 2)
+        to += dt
+
         out[ii, 0 : len(yo) // 2] = qo
         out[ii, len(yo) // 2 : len(yo)] = po
     return out
