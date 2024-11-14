@@ -20,6 +20,7 @@ class linearPotential:
     def __init__(self, amp=1.0, ro=None, vo=None):
         self._amp = amp
         self.dim = 1
+        self.isDissipative = False
         self.isRZ = False
         self.hasC = False
         self.hasC_dxdv = False

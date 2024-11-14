@@ -37,6 +37,7 @@ class DissipativeForce(Force):
         Force.__init__(self, amp=amp, ro=ro, vo=vo, amp_units=amp_units)
         self.dim = 3
         self.isNonAxi = True  # Default: are non-axisymmetric
+        self.isDissipative = True
         self.hasC = False
         self.hasC_dxdv = False
         self.hasC_dens = False
@@ -189,20 +190,19 @@ def _isDissipative(obj):
     - 2023-05-29 - Adjusted to also take planarDissipativeForces into account - Bovy (UofT)
 
     """
-    from .planarDissipativeForce import planarDissipativeForce
-    from .Potential import flatten
+    from .Potential import PotentialError, flatten
 
     obj = flatten(obj)
     isList = isinstance(obj, list)
-    if isList:
-        isCons = [
-            not isinstance(p, DissipativeForce)
-            and not isinstance(p, planarDissipativeForce)
-            for p in obj
-        ]
-        nonCons = not numpy.prod(numpy.array(isCons))
-    else:
-        nonCons = isinstance(obj, DissipativeForce) or isinstance(
-            obj, planarDissipativeForce
+    try:
+        if isList:
+            isCons = [not p.isDissipative for p in obj]
+            nonCons = not numpy.prod(numpy.array(isCons))
+        else:
+            nonCons = obj.isDissipative
+    except AttributeError:
+        raise PotentialError(
+            "'isDissipative' attribute has not been set for this potential/force"
         )
+
     return nonCons

@@ -28,10 +28,12 @@ from ..potential import (
     verticalfreq,
 )
 from ..potential.Potential import (
+    PotentialError,
     _check_c,
     _evaluatePotentials,
     _evaluateRforces,
     _evaluatezforces,
+    _isNonAxi,
 )
 from ..potential.Potential import flatten as flatten_potential
 from ..util import coords  # for prolate confocal transforms
@@ -1511,7 +1513,12 @@ def estimateDeltaStaeckel(pot, R, z, no_median=False, delta0=1e-6):
     - 2022-09-14 - Deal with numerical issues with SCF/DiskSCFPotentials - Bovy (UofT)
     - 2022-09-15 - Add delta0 - Bovy (UofT)
     """
+
     pot = flatten_potential(pot)
+    if _isNonAxi(pot):
+        raise PotentialError(
+            "Calling estimateDeltaStaeckel with non-axisymmetric potentials is not supported"
+        )
     # We'll special-case delta<0 when the potential includes SCF/DiskSCF components
     pot_includes_scf = (
         numpy.any(

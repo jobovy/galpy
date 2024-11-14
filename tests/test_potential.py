@@ -5303,6 +5303,23 @@ def test_nonaxierror_function():
     return None
 
 
+# Test that _isNonAxi raises a PotentialError if input is missing an isNonAxi attribute
+def test_nonaxi_missingattr():
+    # Check that giving an object that is not a list or Potential instance produces an error
+    with pytest.raises(potential.PotentialError) as excinfo:
+        _ = _isNonAxi("something else")
+    # Check that given a list of objects that are not a Potential instances gives an error
+    with pytest.raises(potential.PotentialError) as excinfo:
+        _ = _isNonAxi([3, 4, 45])
+    # Check that using an a actual potential w/o nonaxi attribute gives an error
+    pot = potential.Potential()
+    del pot.isNonAxi
+    with pytest.raises(potential.PotentialError) as excinfo:
+        _ = _isNonAxi(pot)
+    with pytest.raises(potential.PotentialError) as excinfo:
+        _ = _isNonAxi([pot, pot, pot])
+
+
 def test_SoftenedNeedleBarPotential_density():
     # Some simple tests of the density of the SoftenedNeedleBarPotential
     # For a spherical softening kernel, density should be symmetric to y/z

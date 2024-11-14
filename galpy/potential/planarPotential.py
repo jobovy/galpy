@@ -29,6 +29,7 @@ class planarPotential(planarForce):
 
     def __init__(self, amp=1.0, ro=None, vo=None):
         planarForce.__init__(self, amp=amp, ro=ro, vo=vo)
+        self.isDissipative = False
 
     @potential_physical_input
     @physical_conversion("energy", pop=True)
@@ -965,28 +966,28 @@ def evaluateplanarPotentials(Pot, R, phi=None, t=0.0, dR=0, dphi=0):
     - 2010-07-13 - Written - Bovy (NYU)
 
     """
-    return _evaluateplanarPotentials(Pot, R, phi=phi, t=t, dR=dR, dphi=dphi)
-
-
-def _evaluateplanarPotentials(Pot, R, phi=None, t=0.0, dR=0, dphi=0):
     from .Potential import _isNonAxi
 
-    isList = isinstance(Pot, list)
     nonAxi = _isNonAxi(Pot)
     if nonAxi and phi is None:
         raise PotentialError(
             "The (list of) planarPotential instances is non-axisymmetric, but you did not provide phi"
         )
+    return _evaluateplanarPotentials(Pot, R, phi=phi, t=t, dR=dR, dphi=dphi)
+
+
+def _evaluateplanarPotentials(Pot, R, phi=None, t=0.0, dR=0, dphi=0):
+    isList = isinstance(Pot, list)
     if isList and numpy.all([isinstance(p, planarPotential) for p in Pot]):
         sum = 0.0
         for pot in Pot:
-            if nonAxi:
+            if pot.isNonAxi:
                 sum += pot._call_nodecorator(R, phi=phi, t=t, dR=dR, dphi=dphi)
             else:
                 sum += pot._call_nodecorator(R, t=t, dR=dR, dphi=dphi)
         return sum
     elif isinstance(Pot, planarPotential):
-        if nonAxi:
+        if Pot.isNonAxi:
             return Pot._call_nodecorator(R, phi=phi, t=t, dR=dR, dphi=dphi)
         else:
             return Pot._call_nodecorator(R, t=t, dR=dR, dphi=dphi)
@@ -1028,14 +1029,8 @@ def evaluateplanarRforces(Pot, R, phi=None, t=0.0, v=None):
     - 2023-05-29 - Added velocity input for dissipative forces - Bovy (UofT)
 
     """
-    return _evaluateplanarRforces(Pot, R, phi=phi, t=t, v=v)
-
-
-def _evaluateplanarRforces(Pot, R, phi=None, t=0.0, v=None):
-    """Raw, undecorated function for internal use"""
     from .Potential import _isNonAxi
 
-    isList = isinstance(Pot, list)
     nonAxi = _isNonAxi(Pot)
     if nonAxi and phi is None:
         raise PotentialError(
@@ -1046,20 +1041,26 @@ def _evaluateplanarRforces(Pot, R, phi=None, t=0.0, v=None):
         raise PotentialError(
             "The (list of) planarForce instances includes dissipative components, but you did not provide the 2D velocity (required for dissipative forces)"
         )
+    return _evaluateplanarRforces(Pot, R, phi=phi, t=t, v=v)
+
+
+def _evaluateplanarRforces(Pot, R, phi=None, t=0.0, v=None):
+    """Raw, undecorated function for internal use"""
+    isList = isinstance(Pot, list)
     if isinstance(Pot, list) and numpy.all([isinstance(p, planarForce) for p in Pot]):
         sum = 0.0
         for pot in Pot:
-            if _isDissipative(pot):
+            if pot.isDissipative:
                 sum += pot._Rforce_nodecorator(R, phi=phi, t=t, v=v)
-            elif nonAxi:
+            elif pot.isNonAxi:
                 sum += pot._Rforce_nodecorator(R, phi=phi, t=t)
             else:
                 sum += pot._Rforce_nodecorator(R, t=t)
         return sum
-    elif dissipative:
+    elif not isList and Pot.isDissipative:
         return Pot._Rforce_nodecorator(R, phi=phi, t=t, v=v)
     elif isinstance(Pot, planarPotential):
-        if nonAxi:
+        if Pot.isNonAxi:
             return Pot._Rforce_nodecorator(R, phi=phi, t=t)
         else:
             return Pot._Rforce_nodecorator(R, t=t)
@@ -1101,13 +1102,8 @@ def evaluateplanarphitorques(Pot, R, phi=None, t=0.0, v=None):
     - 2023-05-29 - Added velocity input for dissipative forces - Bovy (UofT)
 
     """
-    return _evaluateplanarphitorques(Pot, R, phi=phi, t=t, v=v)
-
-
-def _evaluateplanarphitorques(Pot, R, phi=None, t=0.0, v=None):
     from .Potential import _isNonAxi
 
-    isList = isinstance(Pot, list)
     nonAxi = _isNonAxi(Pot)
     if nonAxi and phi is None:
         raise PotentialError(
@@ -1118,20 +1114,25 @@ def _evaluateplanarphitorques(Pot, R, phi=None, t=0.0, v=None):
         raise PotentialError(
             "The (list of) planarForce instances includes dissipative components, but you did not provide the 2D velocity (required for dissipative forces)"
         )
+    return _evaluateplanarphitorques(Pot, R, phi=phi, t=t, v=v)
+
+
+def _evaluateplanarphitorques(Pot, R, phi=None, t=0.0, v=None):
+    isList = isinstance(Pot, list)
     if isinstance(Pot, list) and numpy.all([isinstance(p, planarForce) for p in Pot]):
         sum = 0.0
         for pot in Pot:
-            if _isDissipative(pot):
+            if pot.isDissipative:
                 sum += pot._phitorque_nodecorator(R, phi=phi, t=t, v=v)
-            elif nonAxi:
+            elif pot.isNonAxi:
                 sum += pot._phitorque_nodecorator(R, phi=phi, t=t)
             else:
                 sum += pot._phitorque_nodecorator(R, t=t)
         return sum
-    elif dissipative:
+    elif not isList and Pot.isDissipative:
         return Pot._phitorque_nodecorator(R, phi=phi, t=t, v=v)
     elif isinstance(Pot, planarPotential):
-        if nonAxi:
+        if Pot.isNonAxi:
             return Pot._phitorque_nodecorator(R, phi=phi, t=t)
         else:
             return Pot._phitorque_nodecorator(R, t=t)
