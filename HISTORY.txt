@@ -1,7 +1,14 @@
 v1.10.2 (expected around 2025-03-01)
 ====================
 
-Nothing yet!
+ - Combine the drift calculations in the Python leapfrog integrator (#365).
+
+ - Move the checks for non-axisymmetric and dissipative potentials from internal to
+   public potential/force evaluation functions (e.g., from _evaluate[Potentials,
+   Rforces, phitorques, zforces] to evaluate[Potentials, Rforces, phitorques, zforces])
+   for performance improvements.
+
+ - Add an isDissipative attribute to force classes.
 
 v1.10.1 (2024-11-01)
 ====================
