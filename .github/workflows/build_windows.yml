@@ -102,7 +102,7 @@ jobs:
             REQUIRES_PYNBODY: false
             REQUIRES_ASTROPY: false
             REQUIRES_ASTROQUERY: false
-            REQUIRES_NUMBA: false
+            REQUIRES_NUMBA: true
             REQUIRES_JAX: false
           - os: windows-latest
             python-version: "3.12"
