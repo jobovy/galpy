@@ -369,8 +369,8 @@ void wez_ias15(void (*func)(double t, double *q, double *a, int nargs, struct po
     };
 
     //fix for inf values issue
-    double dt_required;
     double correction_factor = seventhroot(precision_parameter / (max_B6/max_a));
+    double dt_required = dt_temp * correction_factor;
 
     if(fabs(dt_temp) > fabs(dt_required)){
       //rejected, try again with dt required
