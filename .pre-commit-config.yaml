@@ -36,6 +36,6 @@ repos:
       args: ["-L", "thisE,thise,mye,tE,te,hist,ro,sav,ccompiler,aas,floatIn,dOmin",
       "-x","doc/source/_static/try-galpy.js"]
 - repo: https://github.com/astral-sh/ruff-pre-commit
-  rev: v0.7.2
+  rev: v0.8.1
   hooks:
     - id: ruff-format
