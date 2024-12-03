@@ -323,7 +323,7 @@ azimuth. We then integrate the orbit for a set of times ``ts``
 
 >>> import numpy
 >>> ts= numpy.linspace(0,100,10000)
->>> o.integrate(ts,mp,method='odeint')
+>>> o.integrate(ts,mp)
 
 .. TIP::
    Like for the Miyamoto-Nagai example in the section above, the Orbit and integration times can also be specified in physical units, e.g., ``o= Orbit([8.*units.kpc,22.*units.km/units.s,242.*units.km/units.s.0.*units.pc,20.*units.km/s])`` and ``ts= numpy.linspace(0.,10.,10000)*units.Gyr``
@@ -362,7 +362,7 @@ When we integrate for much longer we see how the orbit fills up a
 torus (this could take a minute)
 
 >>> ts= numpy.linspace(0,1000,10000)
->>> o.integrate(ts,mp,method='odeint')
+>>> o.integrate(ts,mp)
 >>> o.plot()
 
 .. image:: images/mp-long-orbit-integration.png
