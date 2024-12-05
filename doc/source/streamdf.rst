@@ -26,7 +26,7 @@ Milky Way:
 .. raw:: html
 
    <video width="600" height="400" controls>
-     <source src="http://astro.utoronto.ca/~bovy/streams/gd1-sim/gd1_evol_orbplane_comov.mpg" type="video/mp4">
+     <source src="https://www.astro.utoronto.ca/~bovy/streams/gd1-sim-mp4/gd1_evol_orbplane_comov.mp4" type="video/mp4">
    </video>
 
 The blue line is the orbit of the progenitor cluster and the black
@@ -43,7 +43,7 @@ generation of the stream in action space
 .. raw:: html
 
    <video width="600" height="400" controls>
-     <source src="http://astro.utoronto.ca/~bovy/streams/gd1-sim/gd1_evol_aai_jrjzlz_debris.mpg" type="video/mp4">
+     <source src="https://www.astro.utoronto.ca/~bovy/streams/gd1-sim-mp4/gd1_evol_aai_jrjzlz_debris.mp4" type="video/mp4">
    </video>
 
 The color-coding gives the angular momentum :math:`J_\phi` and the
@@ -53,7 +53,7 @@ move slightly because of small errors in the action calculation (these
 are correlated, so the cloud of points moves coherently because of
 calculation errors). The same movie that also shows the actions of
 stars in the cluster can be found `here
-<http://astro.utoronto.ca/~bovy/streams/gd1-sim/gd1_evol_aai_jrjzlz.mpg>`_. This
+<https://www.astro.utoronto.ca/~bovy/streams/gd1-sim-mp4/gd1_evol_aai_jrjzlz.mp4>`_. This
 shows that the actions of stars in the cluster are not conserved
 (because the self-gravity of the cluster is important), but that the
 actions of stream members freeze once they are stripped. The angle
@@ -63,7 +63,7 @@ linearly with time, which is shown in the following movie:
 .. raw:: html
 
    <video width="600" height="400" controls>
-     <source src="http://astro.utoronto.ca/~bovy/streams/gd1-sim/gd1_evol_aai_arazap.mpg" type="video/mp4">
+     <source src="https://www.astro.utoronto.ca/~bovy/streams/gd1-sim-mp4/gd1_evol_aai_arazap.mp4" type="video/mp4">
    </video>
 
 where the radial and vertical angle difference with respect to the
@@ -81,7 +81,7 @@ by the time at which they were removed from the progenitor cluster.
 .. raw:: html
 
    <video width="600" height="400" controls>
-     <source src="http://astro.utoronto.ca/~bovy/streams/gd1-sim/gd1_evol_aai_oparapar.mpg" type="video/mp4">
+     <source src="https://www.astro.utoronto.ca/~bovy/streams/gd1-sim-mp4/gd1_evol_aai_oparapar.mp4" type="video/mp4">
    </video>
 
 It is clear that disruption happens in bursts (at pericenter passages)
