@@ -42,6 +42,7 @@ from ..util._optional_deps import (
     _APY_GE_31,
     _APY_LOADED,
     _APY_UNITS,
+    _AQ_GT_47,
     _ASTROQUERY_LOADED,
     _NUMEXPR_LOADED,
 )
@@ -7471,9 +7472,14 @@ def _from_name_oneobject(name, obs):
     # Make sure to make an HTTPS request so this code works in the browser
     simbad.SIMBAD_URL = simbad.SIMBAD_URL.replace("http://", "https://")
     simbad.add_votable_fields(
-        "ra(d)", "dec(d)", "pmra", "pmdec", "rv_value", "plx", "distance"
+        "ra" if _AQ_GT_47 else "ra(d)",
+        "dec" if _AQ_GT_47 else "dec(d)",
+        "pmra",
+        "pmdec",
+        "rvz_radvel" if _AQ_GT_47 else "rv_value",
     )
-    simbad.remove_votable_fields("main_id", "coordinates")
+    if not _AQ_GT_47:
+        simbad.add_votable_fields("plx", "distance")
     # query SIMBAD for the named object
     try:
         simbad_table = simbad.query_object(name)
@@ -7481,25 +7487,56 @@ def _from_name_oneobject(name, obs):
         raise OSError("failed to connect to SIMBAD")
     if not simbad_table:
         raise ValueError(f"failed to find {name} in SIMBAD")
-    # check that the necessary coordinates have been found
-    missing = simbad_table.mask
-    if any(missing["RA_d", "DEC_d", "PMRA", "PMDEC", "RV_VALUE"][0]) or all(
-        missing["PLX_VALUE", "Distance_distance"][0]
-    ):
-        raise ValueError(
-            "failed to find some coordinates for {} in " "SIMBAD".format(name)
-        )
-    ra, dec, pmra, pmdec, vlos = simbad_table[
-        "RA_d", "DEC_d", "PMRA", "PMDEC", "RV_VALUE"
-    ][0]
-    # get a distance value
-    if not missing["PLX_VALUE"][0]:
-        dist = 1.0 / simbad_table["PLX_VALUE"][0]
+    if _AQ_GT_47:
+        # check that the necessary coordinates have been found
+        missing = simbad_table.mask
+        if any(missing["ra", "dec", "pmra", "pmdec", "rvz_radvel"][0]):
+            raise ValueError(
+                "failed to find some coordinates for {} in " "SIMBAD".format(name)
+            )
+        ra, dec, pmra, pmdec, vlos = simbad_table[
+            "ra", "dec", "pmra", "pmdec", "rvz_radvel"
+        ][0]
+        # get a distance value
+        simbad.add_votable_fields("plx_value")
+        simbad_table = simbad.query_object(name)
+        if not simbad_table or (
+            hasattr(simbad_table["plx_value"][0], "mask")
+            and simbad_table["plx_value"][0].mask
+        ):  # No parallax, try to find a distance
+            simbad.reset_votable_fields()
+            simbad.add_votable_fields("mesdistance")
+            simbad_table = simbad.query_object(name)
+            if not simbad_table or (
+                hasattr(simbad_table["mesdistance.dist"][0], "mask")
+                and simbad_table["mesdistance.dist"][0].mask
+            ):  # pragma: no cover
+                # I can't find an example of a case without both a plx and a distance, but with a pmra and pmdec
+                raise ValueError(f"Failed to find a distance for {name} in SIMBAD")
+            dist = simbad_table["mesdistance.dist"][0]
+        else:
+            dist = 1.0 / simbad_table["plx_value"][0]
     else:
-        dist_str = (
-            str(simbad_table["Distance_distance"][0]) + simbad_table["Distance_unit"][0]
-        )
-        dist = units.Quantity(dist_str).to(units.kpc).value
+        # check that the necessary coordinates have been found
+        missing = simbad_table.mask
+        if any(missing["RA_d", "DEC_d", "PMRA", "PMDEC", "RV_VALUE"][0]) or all(
+            missing["PLX_VALUE", "Distance_distance"][0]
+        ):
+            raise ValueError(
+                "failed to find some coordinates for {} in " "SIMBAD".format(name)
+            )
+        ra, dec, pmra, pmdec, vlos = simbad_table[
+            "RA_d", "DEC_d", "PMRA", "PMDEC", "RV_VALUE"
+        ][0]
+        # get a distance value
+        if not missing["PLX_VALUE"][0]:
+            dist = 1.0 / simbad_table["PLX_VALUE"][0]
+        else:
+            dist_str = (
+                str(simbad_table["Distance_distance"][0])
+                + simbad_table["Distance_unit"][0]
+            )
+            dist = units.Quantity(dist_str).to(units.kpc).value
     return [ra, dec, dist, pmra, pmdec, vlos]
 
 
