@@ -251,9 +251,12 @@ jobs:
     - name: Install astropy
       if: ${{ matrix.REQUIRES_ASTROPY }}
       run: pip install astropy pyerfa
-    - name: Install astroquery
-      if: ${{ matrix.REQUIRES_ASTROQUERY }}
+    - name: Install astroquery (latest release)
+      if: ${{ matrix.REQUIRES_ASTROQUERY && endsWith(matrix.TEST_FILES,'-k test_energy_jacobi_conservation') }}
       run: pip install astroquery
+    - name: Install astroquery (bleeding edge)
+      if: ${{ matrix.REQUIRES_ASTROQUERY && contains(matrix.TEST_FILES,'not test_energy_jacobi_conservation') }}
+      run: pip install --pre astroquery
     - name: Install numba
       if: ${{ matrix.REQUIRES_NUMBA }}
       run: |

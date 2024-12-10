@@ -28,10 +28,15 @@ except ImportError:
 
 # astroquery
 _ASTROQUERY_LOADED = True
+_AQ_GT_47 = None
 try:
     from astroquery.simbad import Simbad
 except ImportError:
     _ASTROQUERY_LOADED = False
+else:
+    import astroquery
+
+    _AQ_GT_47 = parse_version(astroquery.__version__) > parse_version("0.4.7")
 
 # numexpr
 _NUMEXPR_LOADED = True
