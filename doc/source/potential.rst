@@ -681,38 +681,36 @@ potential. These can be setup in ``galpy`` using an
 ``interpRZPotential`` described above and that can be used in the same
 manner. To illustrate its use we will make use of one of ``pynbody``'s
 example snapshots, ``g15784``. This snapshot is used `here
-<http://pynbody.github.io/pynbody/tutorials/snapshot_manipulation.html>`_
-to illustrate ``pynbody``'s use. Please follow the instructions there
-on how to download this snapshot.
+<https://pynbody.readthedocs.io/latest/tutorials/quickstart.html>`_
+to illustrate ``pynbody``'s use, and can be downloaded using the instructions
+there or directly from `Zenodo <https://zenodo.org/records/12687409>`_.
 
 Once you have downloaded the ``pynbody`` testdata, we can load this
 snapshot using
 
->>> s = pynbody.load('testdata/g15784.lr.01024.gz')
+>>> s = pynbody.load('g15784.lr.01024.gz')
 
 (please adjust the path according to where you downloaded the
 ``pynbody`` testdata). We get the main galaxy in this snapshot, center
 the simulation on it, and align the galaxy face-on using
 
 >>> h = s.halos()
->>> h1 = h[1]
->>> pynbody.analysis.halo.center(h1,mode='hyb')
->>> pynbody.analysis.angmom.faceon(h1, cen=(0,0,0),mode='ssc')
+>>> h0 = h[0]
+>>> pynbody.analysis.faceon(h0)
 
 we also convert the simulation to physical units, but set ``G=1`` by
 doing the following
 
 >>> s.physical_units()
 >>> from galpy.util.conversion import _G
->>> g= pynbody.array.SimArray(_G/1000.)
->>> g.units= 'kpc Msol**-1 km**2 s**-2 G**-1'
->>> s._arrays['mass']= s._arrays['mass']*g
+>>> s['mass'] *= _G/1000
+>>> s['mass'].units= 'kpc km**2 s**-2 G**-1'
 
 We can now load an interpolated version of this snapshot's potential
 into ``galpy`` using
 
 >>> from galpy.potential import InterpSnapshotRZPotential
->>> spi= InterpSnapshotRZPotential(h1,rgrid=(numpy.log(0.01),numpy.log(20.),101),logR=True,zgrid=(0.,10.,101),interpPot=True,zsym=True)
+>>> spi= InterpSnapshotRZPotential(h0,rgrid=(numpy.log(0.01),numpy.log(20.),101),logR=True,zgrid=(0.,10.,101),interpPot=True,zsym=True)
 
 where we further assume that the potential is symmetric around the
 mid-plane (`z=0`). This instantiation will take about ten to fiteen
@@ -725,9 +723,9 @@ we get the following:
 
 .. image:: images/spi-rotcurve-phys.png
 
-This can be compared to the rotation curve calculated by ``pynbody``,
+This can be compared to the rotation curve calculated via direct force summation by ``pynbody``,
 see `here
-<http://pynbody.github.io/pynbody/tutorials/snapshot_manipulation.html>`_.
+<https://pynbody.readthedocs.io/latest/tutorials/profile.html#rotation-curves>`_.
 
 Because ``galpy`` works best in a system of *natural units* as
 explained in :ref:`Units in galpy <units>`, we will convert this
