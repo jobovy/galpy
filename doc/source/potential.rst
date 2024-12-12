@@ -701,10 +701,7 @@ the simulation on it, and align the galaxy face-on using
 we also convert the simulation to physical units, but set ``G=1`` by
 doing the following
 
->>> s.physical_units()
->>> from galpy.util.conversion import _G
->>> s['mass'] *= _G/1000
->>> s['mass'].units= 'kpc km**2 s**-2 G**-1'
+>>> s.physical_units(mass='kpc km**2 s**-2 G**-1')
 
 We can now load an interpolated version of this snapshot's potential
 into ``galpy`` using
