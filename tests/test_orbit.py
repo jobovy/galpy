@@ -7187,6 +7187,7 @@ def test_orbit_c_sigint_full():
         "rk6_c",
         "symplec4_c",
         "symplec6_c",
+        "ias15_c",
     ]
     scriptpath = "orbitint4sigint.py"
     if not "tests" in os.getcwd():
@@ -7238,6 +7239,7 @@ def test_orbit_c_sigint_planar():
         "rk6_c",
         "symplec4_c",
         "symplec6_c",
+        "ias15_c",
     ]
     scriptpath = "orbitint4sigint.py"
     if not "tests" in os.getcwd():
@@ -7286,6 +7288,7 @@ def test_orbit_c_sigint_planardxdv():
         "rk4_c",
         "rk6_c",
         "dop853_c",
+        "ias15_c",
     ]
     scriptpath = "orbitint4sigint.py"
     if not "tests" in os.getcwd():
