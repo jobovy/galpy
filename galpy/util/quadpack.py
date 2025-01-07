@@ -5,7 +5,6 @@ import warnings
 
 import numpy
 from scipy.integrate import fixed_quad, quad
-from scipy.integrate._quadrature import vectorize1
 
 
 def _infunc(x, func, gfun, hfun, more_args, epsrel, epsabs):
