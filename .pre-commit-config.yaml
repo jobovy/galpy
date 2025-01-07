@@ -12,7 +12,7 @@ repos:
   - id: check-executables-have-shebangs
   - id: check-yaml
 - repo: https://github.com/asottile/pyupgrade
-  rev: v3.19.0
+  rev: v3.19.1
   hooks:
   - id: pyupgrade
     args: [--py38-plus]
@@ -21,7 +21,7 @@ repos:
   hooks:
   - id: rst-backticks
 - repo: https://github.com/hadialqattan/pycln
-  rev: v2.4.0
+  rev: v2.5.0
   hooks:
     - id: pycln
 - repo: https://github.com/PyCQA/isort
@@ -36,6 +36,6 @@ repos:
       args: ["-L", "thisE,thise,mye,tE,te,hist,ro,sav,ccompiler,aas,floatIn,dOmin",
       "-x","doc/source/_static/try-galpy.js"]
 - repo: https://github.com/astral-sh/ruff-pre-commit
-  rev: v0.8.1
+  rev: v0.8.6
   hooks:
     - id: ruff-format
