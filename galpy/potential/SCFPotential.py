@@ -1,9 +1,17 @@
 import hashlib
 
 import numpy
+import scipy
 from numpy.polynomial.legendre import leggauss
+from packaging.version import parse as parse_version
 from scipy import integrate
-from scipy.special import gamma, gammaln, lpmn
+from scipy.special import gamma, gammaln
+
+_SCIPY_VERSION = parse_version(scipy.__version__)
+if _SCIPY_VERSION < parse_version("1.15"):  # pragma: no cover
+    from scipy.special import lpmn
+else:
+    from scipy.special import assoc_legendre_p_all
 
 from ..util import conversion, coords
 from ..util._optional_deps import _APY_LOADED
@@ -412,7 +420,17 @@ class SCFPotential(Potential, NumericalPotentialDerivativesMixin):
         N, L, M = Acos.shape
         r, theta, phi = coords.cyl_to_spher(R, z, phi)
 
-        PP = lpmn(M - 1, L - 1, numpy.cos(theta))[0].T  ##Get the Legendre polynomials
+        ## Get the Legendre polynomials
+        if _SCIPY_VERSION < parse_version("1.15"):  # pragma: no cover
+            PP = lpmn(M - 1, L - 1, numpy.cos(theta))[0].T
+        else:
+            PP = numpy.swapaxes(
+                assoc_legendre_p_all(L - 1, M - 1, numpy.cos(theta), branch_cut=2)[
+                    0, :, :M
+                ],
+                0,
+                1,
+            ).T
         func_tilde = funcTilde(r, N, L)  ## Tilde of the function of interest
 
         func = numpy.zeros(
@@ -515,9 +533,15 @@ class SCFPotential(Potential, NumericalPotentialDerivativesMixin):
             dPhi_dphi = self._cached_dPhi_dphi
 
         else:
-            PP, dPP = lpmn(
-                M - 1, L - 1, numpy.cos(theta)
-            )  ##Get the Legendre polynomials
+            ## Get the Legendre polynomials
+            if _SCIPY_VERSION < parse_version("1.15"):  # pragma: no cover
+                PP, dPP = lpmn(M - 1, L - 1, numpy.cos(theta))
+            else:
+                PP, dPP = assoc_legendre_p_all(
+                    L - 1, M - 1, numpy.cos(theta), branch_cut=2, diff_n=1
+                )
+                PP = numpy.swapaxes(PP[:, :M], 0, 1)
+                dPP = numpy.swapaxes(dPP[:, :M], 0, 1)
             PP = PP.T[None, :, :]
             dPP = dPP.T[None, :, :]
             phi_tilde = self._phiTilde(r, N, L)[:, :, numpy.newaxis]
@@ -924,14 +948,13 @@ def scf_compute_coeffs_axi(dens, N, L, a=1.0, radial_order=None, costheta_order=
         r = _xiToR(xi, a)
         R = r * numpy.sqrt(1 - costheta**2.0)
         z = r * costheta
-        Legandre = lpmn(0, L - 1, costheta)[0].T[numpy.newaxis, :, 0]
+        if _SCIPY_VERSION < parse_version("1.15"):  # pragma: no cover
+            PP = lpmn(0, L - 1, costheta)[0].T[numpy.newaxis, :, 0]
+        else:
+            PP = assoc_legendre_p_all(L - 1, 0, costheta, branch_cut=2)[0].T
         dV = (1.0 + xi) ** 2.0 * numpy.power(1.0 - xi, -4.0)
         phi_nl = (
-            a**3
-            * (1.0 + xi) ** l
-            * (1.0 - xi) ** (l + 1.0)
-            * _C(xi, N, L)[:, :]
-            * Legandre
+            a**3 * (1.0 + xi) ** l * (1.0 - xi) ** (l + 1.0) * _C(xi, N, L)[:, :] * PP
         )
         param[0] = R
         param[1] = z
@@ -1089,7 +1112,14 @@ def scf_compute_coeffs(
         r = _xiToR(xi, a)
         R = r * numpy.sqrt(1 - costheta**2.0)
         z = r * costheta
-        Legandre = lpmn(L - 1, L - 1, costheta)[0].T[numpy.newaxis, :, :]
+        if _SCIPY_VERSION < parse_version("1.15"):  # pragma: no cover
+            PP = lpmn(L - 1, L - 1, costheta)[0].T[numpy.newaxis, :, :]
+        else:
+            PP = numpy.swapaxes(
+                assoc_legendre_p_all(L - 1, L - 1, costheta, branch_cut=2)[0][:, :L],
+                0,
+                1,
+            ).T[numpy.newaxis, :, :]
         dV = (1.0 + xi) ** 2.0 * numpy.power(1.0 - xi, -4.0)
 
         phi_nl = (
@@ -1097,7 +1127,7 @@ def scf_compute_coeffs(
             * (1.0 + xi) ** l
             * (1.0 - xi) ** (l + 1.0)
             * _C(xi, N, L)[:, :, numpy.newaxis]
-            * Legandre
+            * PP
         )
 
         return (
