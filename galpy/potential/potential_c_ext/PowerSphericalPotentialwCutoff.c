@@ -7,7 +7,7 @@
 //PowerSphericalPotentialwCutoff
 //3  arguments: amp, alpha, rc
 double mass(double r2,double alpha, double rc){
-  return 2. * M_PI * pow ( rc , 3. - alpha ) * ( gsl_sf_gamma ( 1.5 - 0.5 * alpha ) - gsl_sf_gamma_inc ( 1.5 - 0.5 * alpha , r2 / rc / rc ) );
+  return 2. * M_PI * pow ( rc , 3. - alpha ) * ( gsl_sf_gamma ( 1.5 - 0.5 * alpha ) * gsl_sf_gamma_inc_P ( 1.5 - 0.5 * alpha , r2 / rc / rc ) );
 }
 double PowerSphericalPotentialwCutoffEval(double R,double Z, double phi,
 					  double t,
