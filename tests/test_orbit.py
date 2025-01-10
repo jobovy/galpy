@@ -7283,13 +7283,7 @@ def test_orbit_c_sigint_planar():
 
 # Test that orbit integration in C gets interrupted by SIGINT (CTRL-C)
 def test_orbit_c_sigint_planardxdv():
-    integrators = [
-        "dopr54_c",
-        "rk4_c",
-        "rk6_c",
-        "dop853_c",
-        "ias15_c",
-    ]
+    integrators = ["dopr54_c", "rk4_c", "rk6_c", "dop853_c"]
     scriptpath = "orbitint4sigint.py"
     if not "tests" in os.getcwd():
         scriptpath = os.path.join("tests", scriptpath)

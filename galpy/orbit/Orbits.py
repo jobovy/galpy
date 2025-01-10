@@ -1295,6 +1295,7 @@ class Orbit:
                 "leapfrog_c",
                 "symplec4_c",
                 "symplec6_c",
+                "ias15_c",  # practically speaking, ias15 has the same limitations as symplectic integrators in galpy
             ]
             [valid_methods.remove(symplec_method) for symplec_method in symplec_methods]
         if method.lower() not in valid_methods:
@@ -1577,7 +1578,7 @@ class Orbit:
             Surface to punch through (this has no effect in 3D, where the surface is always z=0, but in 2D it can be 'x' or 'y' for x=0 or y=0).
         t0 : float or Quantity, optional
             Initial time.
-        method : {'odeint', 'dop853_c', 'dop853', 'rk4_c', 'rk6_c', 'dop54_c', 'ias15_c'}, optional
+        method : {'odeint', 'dop853_c', 'dop853', 'rk4_c', 'rk6_c', 'dop54_c'}, optional
             Integration method to use. Default is 'dop853_c'. See Notes for more information.
         progressbar : bool, optional
             If True, display a tqdm progress bar when integrating multiple orbits (requires tqdm to be installed!).
@@ -1601,7 +1602,6 @@ class Orbit:
           -  'dopr54_c' for a 5-4 Dormand-Prince integrator in C
           -  'dop853' for a 8-5-3 Dormand-Prince integrator in Python
           -  'dop853_c' for a 8-5-3 Dormand-Prince integrator in C
-          -  'ias15_c' for an adaptive 15th order integrator using Gauß-Radau quadrature (see IAS15 paper) in C
 
         - 2023-03-16 - Written - Bovy (UofT)
 
@@ -1754,7 +1754,6 @@ class Orbit:
           -  'dopr54_c' for a 5-4 Dormand-Prince integrator in C
           -  'dop853' for a 8-5-3 Dormand-Prince integrator in Python
           -  'dop853_c' for a 8-5-3 Dormand-Prince integrator in C
-          -  'ias15_c' for an adaptive 15th order integrator using Gauß-Radau quadrature (see IAS15 paper) in C
 
         - 2011-10-17 - Written - Bovy (IAS)
         - 2014-06-29 - Added rectIn and rectOut - Bovy (IAS)
@@ -4968,7 +4967,7 @@ class Orbit:
         ----------------
         t0 : float or Quantity, optional
             Time of the initial condition. Default is 0.
-        method : {'odeint', 'dop853_c', 'dop853', 'rk4_c', 'rk6_c', 'dop54_c', 'ias15_c'}, optional
+        method : {'odeint', 'dop853_c', 'dop853', 'rk4_c', 'rk6_c', 'dop54_c'}, optional
             Integration method. Default is 'dop853_c'. See Notes for more information.
         skip : int, optional
             For non-adaptive integrators, the number of basic steps to take between crossings (these are further refined in the code, but only up to a maximum refinement, so you can use skip to get finer integration in cases where more accuracy is needed). Default is 100.
@@ -4994,7 +4993,6 @@ class Orbit:
           -  'dopr54_c' for a 5-4 Dormand-Prince integrator in C
           -  'dop853' for a 8-5-3 Dormand-Prince integrator in Python
           -  'dop853_c' for a 8-5-3 Dormand-Prince integrator in C
-          -  'ias15_c' for an adaptive 15th order integrator using Gauß-Radau quadrature (see IAS15 paper) in C
 
 
         - 2023-03-16 - Written - Bovy (UofT)
@@ -5773,7 +5771,7 @@ class Orbit:
             Surface to punch through (this has no effect in 3D, where the surface is always z=0, but in 2D it can be 'x' or 'y' for x=0 or y=0). The default is None.
         t0 : float or Quantity, optional
             Time of the initial condition. The default is 0.0.
-        method : {'odeint', 'dop853_c', 'dop853', 'dop54_c', 'rk4_c', 'rk6_c', 'ias15_c'}, optional
+        method : {'odeint', 'dop853_c', 'dop853', 'dop54_c', 'rk4_c', 'rk6_c'}, optional
             Method to integrate the orbit. The default is 'dop853_c'.
         skip : int, optional
             For non-adaptive integrators, the number of basic steps to take between crossings (these are further refined in the code, but only up to a maximum refinement, so you can use skip to get finer integration in cases where more accuracy is needed). The default is 100.
