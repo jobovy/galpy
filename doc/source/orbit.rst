@@ -1016,8 +1016,8 @@ the ``orbit.integrate`` method. Currently available integrators are
 * dop853_c
 * ias15_c
 
-which are Runge-Kutta, Dormand-Prince methods and the IAS15 
-integrator in `Rein & Spiegel (2014) <https://doi.org/10.1093/mnras/stu2164>`_. 
+which are Runge-Kutta, Dormand-Prince methods and the IAS15
+integrator in `Rein & Spiegel (2014) <https://doi.org/10.1093/mnras/stu2164>`_.
 There are also a number of symplectic integrators available
 
 * leapfrog_c
@@ -1047,7 +1047,7 @@ which are speedy and reliable. For example, compare
 >>> timeit(o.integrate(ts,mp,method='dop853_c'))
 # 4.65 ms ± 86.8 µs per loop (mean ± std. dev. of 7 runs, 100 loops each)
 
-The ``ias15_c`` method uses adaptive timestepping under the hood, and 
+The ``ias15_c`` method uses adaptive timestepping under the hood, and
 can be used in cases where very high precision is required.
 
 If the C extensions are unavailable for some reason, I recommend using
