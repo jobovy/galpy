@@ -1743,7 +1743,7 @@ class Orbit:
 
         Notes
         -----
-        - Possible integration methods are:
+        - Possible integration methods are the non-symplectic ones in galpy:
 
           - 'odeint' for scipy's odeint
           -  'rk4_c' for a 4th-order Runge-Kutta integrator in C
@@ -1761,22 +1761,7 @@ class Orbit:
             raise AttributeError(
                 "integrate_dxdv is only implemented for 4D (planar) orbits"
             )
-        if method.lower() not in [
-            "odeint",
-            "dop853",
-            "rk4_c",
-            "rk6_c",
-            "dopr54_c",
-            "dop853_c",
-        ]:
-            if "leapfrog" in method.lower() or "symplec" in method.lower():
-                raise ValueError(
-                    f"{method:s} is not a valid `method for integrate_dxdv, because symplectic integrators cannot be used`"
-                )
-            else:
-                raise ValueError(
-                    f"{method:s} is not a valid `method for integrate_dxdv`"
-                )
+        self.check_integrator(method, no_symplec=True)
         pot = flatten_potential(pot)
         _check_potential_dim(self, pot)
         _check_consistent_units(self, pot)
