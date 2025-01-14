@@ -310,8 +310,7 @@ void wez_ias15(void (*func)(double t, double *q, double *a, int nargs, struct po
     double integrator_error = integrator_error_threshold + 1; //init value above the threshold
     while(true){
       if(iterations == 12){
-        //TODO: spit the dummy
-        //printf("Iterations took over 12, break iteration, break iteration loop\n");
+        //See paper for dynamic vs static treatment of predictor–corrector loop.
         break;
       }
       if (integrator_error < integrator_error_threshold){
