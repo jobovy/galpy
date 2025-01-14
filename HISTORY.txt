@@ -1,6 +1,8 @@
 v1.10.2 (expected around 2025-03-01)
 ====================
 
+ - Implemented the IAS15 integrator of Rein & Spiegel 2015.
+
  - Combine the drift calculations in the Python leapfrog integrator (#365).
 
  - Move the checks for non-axisymmetric and dissipative potentials from internal to

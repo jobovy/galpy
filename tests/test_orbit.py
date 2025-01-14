@@ -111,6 +111,7 @@ def test_energy_jacobi_conservation(pot, ttol, tjactol, firstTest):
         "rk6_c",
         "symplec4_c",
         "symplec6_c",
+        "ias15_c",
     ]
     try:
         tclass = getattr(potential, pot)
@@ -156,7 +157,7 @@ def test_energy_jacobi_conservation(pot, ttol, tjactol, firstTest):
         ):
             assert (numpy.std(tEs) / numpy.mean(tEs)) ** 2.0 < 10.0**ttol, (
                 "Energy conservation during the orbit integration fails for potential %s and integrator %s by %g"
-                % (p, integrator, (numpy.std(tEs) / numpy.mean(tEs)))
+                % (pot, integrator, (numpy.std(tEs) / numpy.mean(tEs)))
             )
         # Jacobi
         if (
@@ -178,7 +179,7 @@ def test_energy_jacobi_conservation(pot, ttol, tjactol, firstTest):
         #            print(p, (numpy.std(tJacobis)/numpy.mean(tJacobis))**2.)
         assert (numpy.std(tJacobis) / numpy.mean(tJacobis)) ** 2.0 < 10.0**tjactol, (
             "Jacobi integral conservation during the orbit integration fails for potential %s and integrator %s at the %g level"
-            % (p, integrator, (numpy.std(tJacobis) / numpy.mean(tJacobis)) ** 2.0)
+            % (pot, integrator, (numpy.std(tJacobis) / numpy.mean(tJacobis)) ** 2.0)
         )
         if firstTest or "testMWPotential" in pot:
             # Some basic checking of the energy and Jacobi functions
@@ -254,7 +255,7 @@ def test_energy_jacobi_conservation(pot, ttol, tjactol, firstTest):
             #            print p, integrator, (numpy.std(tEs)/numpy.mean(tEs))**2.
             assert (numpy.std(tEs) / numpy.mean(tEs)) ** 2.0 < 10.0**ttol, (
                 "Energy conservation during the orbit integration fails for potential %s and integrator %s by %g"
-                % (p, integrator, (numpy.std(tEs) / numpy.mean(tEs)) ** 2.0)
+                % (pot, integrator, (numpy.std(tEs) / numpy.mean(tEs)) ** 2.0)
             )
             # Jacobi
             tJacobis = o.Jacobi(ttimes)
@@ -262,7 +263,7 @@ def test_energy_jacobi_conservation(pot, ttol, tjactol, firstTest):
                 numpy.std(tJacobis) / numpy.mean(tJacobis)
             ) ** 2.0 < 10.0**tjactol, (
                 "Jacobi integral conservation during the orbit integration fails for potential %s and integrator %s"
-                % (p, integrator)
+                % (pot, integrator)
             )
             if firstTest or "MWPotential" in pot:
                 # Some basic checking of the energy function
@@ -325,7 +326,7 @@ def test_energy_jacobi_conservation(pot, ttol, tjactol, firstTest):
             #                print(p, integrator, (numpy.std(tEs)/numpy.mean(tEs))**2.)
             assert (numpy.std(tEs) / numpy.mean(tEs)) ** 2.0 < 10.0**ttol, (
                 "Energy conservation during the orbit integration fails for potential %s and integrator %s"
-                % (p, integrator)
+                % (pot, integrator)
             )
             # Jacobi
             tJacobis = o.Jacobi(ttimes)
@@ -333,7 +334,7 @@ def test_energy_jacobi_conservation(pot, ttol, tjactol, firstTest):
                 numpy.std(tJacobis) / numpy.mean(tJacobis)
             ) ** 2.0 < 10.0**tjactol, (
                 "Jacobi integral conservation during the orbit integration fails for potential %s and integrator %s"
-                % (p, integrator)
+                % (pot, integrator)
             )
             if firstTest or "MWPotential" in pot:
                 # Some basic checking of the energy function
@@ -388,7 +389,7 @@ def test_energy_jacobi_conservation(pot, ttol, tjactol, firstTest):
         if not "Bar" in pot and not "Spiral" in pot:
             assert (numpy.std(tEs) / numpy.mean(tEs)) ** 2.0 < 10.0**ttol, (
                 "Energy conservation during the orbit integration fails for potential %s and integrator %s by %g"
-                % (p, integrator, (numpy.std(tEs) / numpy.mean(tEs)) ** 2.0)
+                % (pot, integrator, (numpy.std(tEs) / numpy.mean(tEs)) ** 2.0)
             )
         # Jacobi
         if (
@@ -402,7 +403,7 @@ def test_energy_jacobi_conservation(pot, ttol, tjactol, firstTest):
             tJacobis = o.Jacobi(ttimes)
         assert (numpy.std(tJacobis) / numpy.mean(tJacobis)) ** 2.0 < 10.0**tjactol, (
             "Jacobi integral conservation during the orbit integration fails by %g for potential %s and integrator %s"
-            % ((numpy.std(tJacobis) / numpy.mean(tJacobis)) ** 2.0, p, integrator)
+            % ((numpy.std(tJacobis) / numpy.mean(tJacobis)) ** 2.0, pot, integrator)
         )
         if firstTest or "MWPotential" in pot:
             # Some basic checking of the energy function
@@ -457,7 +458,7 @@ def test_energy_jacobi_conservation(pot, ttol, tjactol, firstTest):
             # print(p, integrator, (numpy.std(tEs)/numpy.mean(tEs))**2.)
             assert (numpy.std(tEs) / numpy.mean(tEs)) ** 2.0 < 10.0**ttol, (
                 "Energy conservation during the orbit integration fails for potential %s and integrator %s by %g"
-                % (p, integrator, (numpy.std(tEs) / numpy.mean(tEs)) ** 2.0)
+                % (pot, integrator, (numpy.std(tEs) / numpy.mean(tEs)) ** 2.0)
             )
             # Jacobi
             if (
@@ -473,7 +474,7 @@ def test_energy_jacobi_conservation(pot, ttol, tjactol, firstTest):
                 numpy.std(tJacobis) / numpy.mean(tJacobis)
             ) ** 2.0 < 10.0**tjactol, (
                 "Jacobi integral conservation during the orbit integration fails for potential %s and integrator %s"
-                % (p, integrator)
+                % (pot, integrator)
             )
         # Same for a planarPotential, track azimuth
         o = setup_orbit_energy(ptp, axi=False)
@@ -486,7 +487,7 @@ def test_energy_jacobi_conservation(pot, ttol, tjactol, firstTest):
         if not "Bar" in pot and not "Spiral" in pot:
             assert (numpy.std(tEs) / numpy.mean(tEs)) ** 2.0 < 10.0**ttol, (
                 "Energy conservation during the orbit integration fails for potential %s and integrator %s"
-                % (p, integrator)
+                % (pot, integrator)
             )
         # Jacobi
         if (
@@ -500,7 +501,7 @@ def test_energy_jacobi_conservation(pot, ttol, tjactol, firstTest):
             tJacobis = o.Jacobi(ttimes)
         assert (numpy.std(tJacobis) / numpy.mean(tJacobis)) ** 2.0 < 10.0**tjactol, (
             "Jacobi integral conservation during the orbit integration fails for potential %s and integrator %s"
-            % (p, integrator)
+            % (pot, integrator)
         )
         if _QUICKTEST and not (
             ("NFW" in pot and not tp.isNonAxi and "SCF" not in pot)
@@ -531,6 +532,7 @@ def test_energy_conservation_linear(pot, ttol, firstTest):
         "rk6_c",
         "symplec4_c",
         "symplec6_c",
+        "ias15_c",
     ]
     # Setup instance of potential
     try:
@@ -582,7 +584,7 @@ def test_energy_conservation_linear(pot, ttol, firstTest):
         ):
             assert (numpy.std(tEs) / numpy.mean(tEs)) ** 2.0 < 10.0**ttol, (
                 "Energy conservation during the orbit integration fails for potential %s and integrator %s by %g"
-                % (p, integrator, (numpy.std(tEs) / numpy.mean(tEs)))
+                % (pot, integrator, (numpy.std(tEs) / numpy.mean(tEs)))
             )
         if firstTest or "testMWPotential" in pot or "linearMWPotential" in pot:
             # Some basic checking of the energy function
@@ -1151,6 +1153,7 @@ def test_eccentricity():
         "leapfrog",
         "leapfrog_c",
         "rk4_c",
+        "ias15_c",
         "rk6_c",
         "symplec4_c",
         "symplec6_c",
@@ -1328,6 +1331,7 @@ def test_pericenter():
         "rk6_c",
         "symplec4_c",
         "symplec6_c",
+        "ias15_c",
     ]
     # Grab all of the potentials
     pots = [
@@ -1501,6 +1505,7 @@ def test_apocenter():
         "rk6_c",
         "symplec4_c",
         "symplec6_c",
+        "ias15_c",
     ]
     # Grab all of the potentials
     pots = [
@@ -1675,6 +1680,7 @@ def test_zmax():
         "rk6_c",
         "symplec4_c",
         "symplec6_c",
+        "ias15_c",
     ]
     # Grab all of the potentials
     pots = [
@@ -1833,6 +1839,7 @@ def test_analytic_ecc_rperi_rap():
         "rk6_c",
         "symplec4_c",
         "symplec6_c",
+        "ias15_c",
     ]
     # Grab all of the potentials
     pots = [
@@ -2464,6 +2471,7 @@ def test_analytic_zmax():
         "rk6_c",
         "symplec4_c",
         "symplec6_c",
+        "ias15_c",
     ]
     # Grab all of the potentials
     pots = [
@@ -7179,6 +7187,7 @@ def test_orbit_c_sigint_full():
         "rk6_c",
         "symplec4_c",
         "symplec6_c",
+        "ias15_c",
     ]
     scriptpath = "orbitint4sigint.py"
     if not "tests" in os.getcwd():
@@ -7230,6 +7239,7 @@ def test_orbit_c_sigint_planar():
         "rk6_c",
         "symplec4_c",
         "symplec6_c",
+        "ias15_c",
     ]
     scriptpath = "orbitint4sigint.py"
     if not "tests" in os.getcwd():
@@ -7273,12 +7283,7 @@ def test_orbit_c_sigint_planar():
 
 # Test that orbit integration in C gets interrupted by SIGINT (CTRL-C)
 def test_orbit_c_sigint_planardxdv():
-    integrators = [
-        "dopr54_c",
-        "rk4_c",
-        "rk6_c",
-        "dop853_c",
-    ]
+    integrators = ["dopr54_c", "rk4_c", "rk6_c", "dop853_c"]
     scriptpath = "orbitint4sigint.py"
     if not "tests" in os.getcwd():
         scriptpath = os.path.join("tests", scriptpath)
@@ -9470,6 +9475,7 @@ def test_integrate_negative_time():
         "symplec6_c",
         "dopr54_c",
         "dop853_c",
+        "ias15_c",
     ]
     # negative time to negative time
     times = numpy.linspace(-70.0, -30.0, 1001)
@@ -9506,6 +9512,7 @@ def test_integrate_backwards():
         "symplec6_c",
         "dopr54_c",
         "dop853_c",
+        "ias15_c",
     ]
     # negative time to negative time
     times = numpy.linspace(-30.0, -70.0, 1001)

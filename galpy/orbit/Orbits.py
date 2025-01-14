@@ -1287,6 +1287,7 @@ class Orbit:
             "rk6_c",
             "dopr54_c",
             "dop853_c",
+            "ias15_c",
         ]
         if no_symplec:
             symplec_methods = [
@@ -1294,6 +1295,7 @@ class Orbit:
                 "leapfrog_c",
                 "symplec4_c",
                 "symplec6_c",
+                "ias15_c",  # practically speaking, ias15 has the same limitations as symplectic integrators in galpy
             ]
             [valid_methods.remove(symplec_method) for symplec_method in symplec_methods]
         if method.lower() not in valid_methods:
@@ -1385,6 +1387,7 @@ class Orbit:
           -  'dopr54_c' for a 5-4 Dormand-Prince integrator in C
           -  'dop853' for a 8-5-3 Dormand-Prince integrator in Python
           -  'dop853_c' for a 8-5-3 Dormand-Prince integrator in C
+          -  'ias15_c' for an adaptive 15th order integrator using Gauß-Radau quadrature (see IAS15 paper) in C
 
         - 2018-10-13 - Written as parallel_map applied to regular Orbit integration - Mathew Bub (UofT)
         - 2018-12-26 - Written to use OpenMP C implementation - Bovy (UofT)
@@ -5153,6 +5156,7 @@ class Orbit:
           -  'dopr54_c' for a 5-4 Dormand-Prince integrator in C
           -  'dop853' for a 8-5-3 Dormand-Prince integrator in Python
           -  'dop853_c' for a 8-5-3 Dormand-Prince integrator in C
+          -  'ias15_c' for an adaptive 15th order integrator using Gauß-Radau quadrature (see IAS15 paper) in C
 
         - 2023-05-31 - Written - Bovy (UofT)
 
@@ -5895,6 +5899,7 @@ class Orbit:
           -  'dopr54_c' for a 5-4 Dormand-Prince integrator in C
           -  'dop853' for a 8-5-3 Dormand-Prince integrator in Python
           -  'dop853_c' for a 8-5-3 Dormand-Prince integrator in C
+          -  'ias15_c' for an adaptive 15th order integrator using Gauß-Radau quadrature (see IAS15 paper) in C
 
         - 2023-05-31 - Written - Bovy (UofT)
 
