@@ -7468,7 +7468,7 @@ def _from_name_oneobject(name, obs):
         "pmdec",
         "rvz_radvel" if _AQ_GT_47 else "rv_value",
     )
-    if not _AQ_GT_47:
+    if not _AQ_GT_47:  # pragma: no cover
         simbad.add_votable_fields("plx", "distance")
     # query SIMBAD for the named object
     try:
@@ -7506,7 +7506,7 @@ def _from_name_oneobject(name, obs):
             dist = simbad_table["mesdistance.dist"][0]
         else:
             dist = 1.0 / simbad_table["plx_value"][0]
-    else:
+    else:  # pragma: no cover
         # check that the necessary coordinates have been found
         missing = simbad_table.mask
         if any(missing["RA_d", "DEC_d", "PMRA", "PMDEC", "RV_VALUE"][0]) or all(
