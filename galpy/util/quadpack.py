@@ -228,7 +228,7 @@ def romberg(
 
     """
     if numpy.isinf(a) or numpy.isinf(b):  # pragma: no cover
-        raise ValueError("Romberg integration only available " "for finite limits.")
+        raise ValueError("Romberg integration only available for finite limits.")
     vfunc = vectorize1(function, args, vec_func=vec_func)
     n = 1
     interval = [a, b]

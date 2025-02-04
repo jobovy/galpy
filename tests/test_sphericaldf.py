@@ -75,9 +75,9 @@ def test_isotropic_hernquist_singler_is_atsingler():
     dfh = isotropicHernquistdf(pot=pot)
     numpy.random.seed(10)
     samp = dfh.sample(R=1.3, z=0.0, n=100000)
-    assert numpy.all(
-        numpy.fabs(samp.r() - 1.3) < 1e-8
-    ), "Sampling a spherical distribution function at a single r does not produce orbits at a single r"
+    assert numpy.all(numpy.fabs(samp.r() - 1.3) < 1e-8), (
+        "Sampling a spherical distribution function at a single r does not produce orbits at a single r"
+    )
     return None
 
 
@@ -102,9 +102,9 @@ def test_isotropic_hernquist_singlerphi_is_atsinglephi():
     dfh = isotropicHernquistdf(pot=pot)
     numpy.random.seed(10)
     samp = dfh.sample(R=1.3, z=0.0, phi=numpy.pi - 0.3, n=100000)
-    assert numpy.all(
-        numpy.fabs(samp.phi() - numpy.pi + 0.3) < 1e-8
-    ), "Sampling a spherical distribution function at a single r and phi oes not produce orbits at a single phi"
+    assert numpy.all(numpy.fabs(samp.phi() - numpy.pi + 0.3) < 1e-8), (
+        "Sampling a spherical distribution function at a single r and phi oes not produce orbits at a single phi"
+    )
     return None
 
 
@@ -116,18 +116,18 @@ def test_isotropic_hernquist_givenr_are_atgivenr():
     theta = numpy.random.uniform(size=len(r)) * numpy.pi
     # n should be ignored in the following
     samp = dfh.sample(R=r * numpy.sin(theta), z=r * numpy.cos(theta), n=100000)
-    assert len(samp) == len(
-        r
-    ), "Length of sample with given r array is not equal to length of r"
-    assert numpy.all(
-        numpy.fabs(samp.r() - r) < 1e-8
-    ), "Sampling a spherical distribution function at given r does not produce orbits at these given r"
-    assert numpy.all(
-        numpy.fabs(samp.R() - r * numpy.sin(theta)) < 1e-8
-    ), "Sampling a spherical distribution function at given R does not produce orbits at these given R"
-    assert numpy.all(
-        numpy.fabs(samp.z() - r * numpy.cos(theta)) < 1e-8
-    ), "Sampling a spherical distribution function at given z does not produce orbits at these given z"
+    assert len(samp) == len(r), (
+        "Length of sample with given r array is not equal to length of r"
+    )
+    assert numpy.all(numpy.fabs(samp.r() - r) < 1e-8), (
+        "Sampling a spherical distribution function at given r does not produce orbits at these given r"
+    )
+    assert numpy.all(numpy.fabs(samp.R() - r * numpy.sin(theta)) < 1e-8), (
+        "Sampling a spherical distribution function at given R does not produce orbits at these given R"
+    )
+    assert numpy.all(numpy.fabs(samp.z() - r * numpy.cos(theta)) < 1e-8), (
+        "Sampling a spherical distribution function at given z does not produce orbits at these given z"
+    )
     return None
 
 
@@ -262,12 +262,12 @@ def test_isotropic_hernquist_beta_directint():
 def test_isotropic_hernquist_energyoutofbounds():
     pot = potential.HernquistPotential(amp=2.3, a=1.3)
     dfh = isotropicHernquistdf(pot=pot)
-    assert numpy.all(
-        numpy.fabs(dfh((numpy.arange(0.1, 10.0, 0.1),))) < 1e-8
-    ), "Evaluating the isotropic Hernquist DF at E > 0 does not give zero"
-    assert numpy.all(
-        numpy.fabs(dfh((pot(0, 0) - 1e-4,))) < 1e-8
-    ), "Evaluating the isotropic Hernquist DF at E < -GM/a does not give zero"
+    assert numpy.all(numpy.fabs(dfh((numpy.arange(0.1, 10.0, 0.1),))) < 1e-8), (
+        "Evaluating the isotropic Hernquist DF at E > 0 does not give zero"
+    )
+    assert numpy.all(numpy.fabs(dfh((pot(0, 0) - 1e-4,))) < 1e-8), (
+        "Evaluating the isotropic Hernquist DF at E < -GM/a does not give zero"
+    )
     return None
 
 
@@ -280,24 +280,24 @@ def test_isotropic_hernquist_phasespacesamples_vs_orbitsamples():
     # Reset seed such that we should get the same
     numpy.random.seed(10)
     samp_RvR = dfh.sample(n=1000, return_orbit=False)
-    assert numpy.all(
-        numpy.fabs(samp_orbits.R() - samp_RvR[0]) < 1e-8
-    ), "Sampling R,vR,... from spherical DF does not give the same as sampling equivalent orbits"
-    assert numpy.all(
-        numpy.fabs(samp_orbits.vR() - samp_RvR[1]) < 1e-8
-    ), "Sampling R,vR,... from spherical DF does not give the same as sampling equivalent orbits"
-    assert numpy.all(
-        numpy.fabs(samp_orbits.vT() - samp_RvR[2]) < 1e-8
-    ), "Sampling R,vR,... from spherical DF does not give the same as sampling equivalent orbits"
-    assert numpy.all(
-        numpy.fabs(samp_orbits.z() - samp_RvR[3]) < 1e-8
-    ), "Sampling R,vR,... from spherical DF does not give the same as sampling equivalent orbits"
-    assert numpy.all(
-        numpy.fabs(samp_orbits.vz() - samp_RvR[4]) < 1e-8
-    ), "Sampling R,vR,... from spherical DF does not give the same as sampling equivalent orbits"
-    assert numpy.all(
-        numpy.fabs(samp_orbits.phi() - samp_RvR[5]) < 1e-8
-    ), "Sampling R,vR,... from spherical DF does not give the same as sampling equivalent orbits"
+    assert numpy.all(numpy.fabs(samp_orbits.R() - samp_RvR[0]) < 1e-8), (
+        "Sampling R,vR,... from spherical DF does not give the same as sampling equivalent orbits"
+    )
+    assert numpy.all(numpy.fabs(samp_orbits.vR() - samp_RvR[1]) < 1e-8), (
+        "Sampling R,vR,... from spherical DF does not give the same as sampling equivalent orbits"
+    )
+    assert numpy.all(numpy.fabs(samp_orbits.vT() - samp_RvR[2]) < 1e-8), (
+        "Sampling R,vR,... from spherical DF does not give the same as sampling equivalent orbits"
+    )
+    assert numpy.all(numpy.fabs(samp_orbits.z() - samp_RvR[3]) < 1e-8), (
+        "Sampling R,vR,... from spherical DF does not give the same as sampling equivalent orbits"
+    )
+    assert numpy.all(numpy.fabs(samp_orbits.vz() - samp_RvR[4]) < 1e-8), (
+        "Sampling R,vR,... from spherical DF does not give the same as sampling equivalent orbits"
+    )
+    assert numpy.all(numpy.fabs(samp_orbits.phi() - samp_RvR[5]) < 1e-8), (
+        "Sampling R,vR,... from spherical DF does not give the same as sampling equivalent orbits"
+    )
     return None
 
 
@@ -315,7 +315,9 @@ def test_isotropic_hernquist_diffcalls():
             - dfh((pot(R, z) + 0.5 * (vR**2.0 + vT**2.0 + vz**2.0),))
         )
         < 1e-8
-    ), "Calling the isotropic Hernquist DF with R,vR,... or E[R,vR,...] does not give the same answer"
+    ), (
+        "Calling the isotropic Hernquist DF with R,vR,... or E[R,vR,...] does not give the same answer"
+    )
     # Also L
     assert (
         numpy.fabs(
@@ -328,12 +330,16 @@ def test_isotropic_hernquist_diffcalls():
             )
         )
         < 1e-8
-    ), "Calling the isotropic Hernquist DF with R,vR,... or E[R,vR,...] does not give the same answer"
+    ), (
+        "Calling the isotropic Hernquist DF with R,vR,... or E[R,vR,...] does not give the same answer"
+    )
     # Also as orbit
     assert (
         numpy.fabs(dfh(R, vR, vT, z, vz, phi) - dfh(Orbit([R, vR, vT, z, vz, phi])))
         < 1e-8
-    ), "Calling the isotropic Hernquist DF with R,vR,... or E[R,vR,...] does not give the same answer"
+    ), (
+        "Calling the isotropic Hernquist DF with R,vR,... or E[R,vR,...] does not give the same answer"
+    )
     return None
 
 
@@ -515,9 +521,9 @@ def test_anisotropic_hernquist_dMdE_betap05():
         return 4.0 * numpy.pi**3.0 * rE**2.0 * dfh.fE(E)
 
     E = numpy.linspace(0.99 * pot(0, 0), pot(numpy.inf, 0) + 1e-6, 1001)
-    assert numpy.all(
-        numpy.fabs(dMdE_betap05_analytic(E, dfh) - dfh.dMdE(E)) < tol
-    ), "Anisotropic Hernquist DF dMdE for beta=0.5 does not agree with analytic expression"
+    assert numpy.all(numpy.fabs(dMdE_betap05_analytic(E, dfh) - dfh.dMdE(E)) < tol), (
+        "Anisotropic Hernquist DF dMdE for beta=0.5 does not agree with analytic expression"
+    )
     return None
 
 
@@ -526,12 +532,12 @@ def test_anisotropic_hernquist_energyoutofbounds():
     betas = [-0.7, -0.5, -0.4, 0.0, 0.3, 0.5]
     for beta in betas:
         dfh = constantbetaHernquistdf(pot=pot, beta=beta)
-        assert numpy.all(
-            numpy.fabs(dfh((numpy.arange(0.1, 10.0, 0.1), 1.1))) < 1e-8
-        ), "Evaluating the anisotropic Hernquist DF at E > 0 does not give zero"
-        assert numpy.all(
-            numpy.fabs(dfh((pot(0, 0) - 1e-4, 1.1))) < 1e-8
-        ), "Evaluating the anisotropic Hernquist DF at E < -GM/a does not give zero"
+        assert numpy.all(numpy.fabs(dfh((numpy.arange(0.1, 10.0, 0.1), 1.1))) < 1e-8), (
+            "Evaluating the anisotropic Hernquist DF at E > 0 does not give zero"
+        )
+        assert numpy.all(numpy.fabs(dfh((pot(0, 0) - 1e-4, 1.1))) < 1e-8), (
+            "Evaluating the anisotropic Hernquist DF at E < -GM/a does not give zero"
+        )
     return None
 
 
@@ -558,12 +564,16 @@ def test_anisotropic_hernquist_diffcalls():
                 )
             )
             < 1e-8
-        ), "Calling the anisotropic Hernquist DF with R,vR,... or E[R,vR,...] does not give the same answer"
+        ), (
+            "Calling the anisotropic Hernquist DF with R,vR,... or E[R,vR,...] does not give the same answer"
+        )
         # Also as orbit
         assert (
             numpy.fabs(dfh(R, vR, vT, z, vz, phi) - dfh(Orbit([R, vR, vT, z, vz, phi])))
             < 1e-8
-        ), "Calling the anisotropic Hernquist DF with R,vR,... or E[R,vR,...] does not give the same answer"
+        ), (
+            "Calling the anisotropic Hernquist DF with R,vR,... or E[R,vR,...] does not give the same answer"
+        )
     return None
 
 
@@ -774,16 +784,16 @@ def test_osipkovmerritt_hernquist_Qoutofbounds():
     ras = [0.3, 2.3, 5.7]
     for ra in ras:
         dfh = osipkovmerrittHernquistdf(pot=pot, ra=ra)
-        assert numpy.all(
-            numpy.fabs(dfh((numpy.arange(0.1, 10.0, 0.1), 1.1))) < 1e-8
-        ), "Evaluating the Osipkov-Merritt Hernquist DF at E > 0 does not give zero"
+        assert numpy.all(numpy.fabs(dfh((numpy.arange(0.1, 10.0, 0.1), 1.1))) < 1e-8), (
+            "Evaluating the Osipkov-Merritt Hernquist DF at E > 0 does not give zero"
+        )
         # The next one is not actually a physical orbit...
-        assert numpy.all(
-            numpy.fabs(dfh((pot(0, 0) - 1e-1, 0.1))) < 1e-8
-        ), "Evaluating the Osipkov-Merritt Hernquist DF at E < -GM/a does not give zero"
-        assert numpy.all(
-            numpy.fabs(dfh((-1e-4, 1.1))) < 1e-8
-        ), "Evaluating the Osipkov-Merritt Hernquist DF at Q < 0 does not give zero"
+        assert numpy.all(numpy.fabs(dfh((pot(0, 0) - 1e-1, 0.1))) < 1e-8), (
+            "Evaluating the Osipkov-Merritt Hernquist DF at E < -GM/a does not give zero"
+        )
+        assert numpy.all(numpy.fabs(dfh((-1e-4, 1.1))) < 1e-8), (
+            "Evaluating the Osipkov-Merritt Hernquist DF at Q < 0 does not give zero"
+        )
     return None
 
 
@@ -810,12 +820,16 @@ def test_osipkovmerritt_hernquist_diffcalls():
                 )
             )
             < 1e-8
-        ), "Calling the Osipkov-Merritt anisotropic Hernquist DF with R,vR,... or E[R,vR,...] does not give the same answer"
+        ), (
+            "Calling the Osipkov-Merritt anisotropic Hernquist DF with R,vR,... or E[R,vR,...] does not give the same answer"
+        )
         # Also as orbit
         assert (
             numpy.fabs(dfh(R, vR, vT, z, vz, phi) - dfh(Orbit([R, vR, vT, z, vz, phi])))
             < 1e-8
-        ), "Calling the Osipkov-Merritt isotropic Hernquist DF with R,vR,... or E[R,vR,...] does not give the same answer"
+        ), (
+            "Calling the Osipkov-Merritt isotropic Hernquist DF with R,vR,... or E[R,vR,...] does not give the same answer"
+        )
     return None
 
 
@@ -968,16 +982,16 @@ def test_osipkovmerritt_nfw_Qoutofbounds():
     ras = [2.3, 5.7]
     for ra in ras:
         dfh = osipkovmerrittNFWdf(pot=pot, ra=ra)
-        assert numpy.all(
-            numpy.fabs(dfh((numpy.arange(0.1, 10.0, 0.1), 1.1))) < 1e-8
-        ), "Evaluating the Osipkov-Merritt NFW DF at E > 0 does not give zero"
+        assert numpy.all(numpy.fabs(dfh((numpy.arange(0.1, 10.0, 0.1), 1.1))) < 1e-8), (
+            "Evaluating the Osipkov-Merritt NFW DF at E > 0 does not give zero"
+        )
         # The next one is not actually a physical orbit...
-        assert numpy.all(
-            numpy.fabs(dfh((pot(0, 0) - 1e-1, 0.1))) < 1e-8
-        ), "Evaluating the Osipkov-Merritt NFW DF at E < -GM/a does not give zero"
-        assert numpy.all(
-            numpy.fabs(dfh((-1e-4, 1.1))) < 1e-8
-        ), "Evaluating the Osipkov-Merritt NFW DF at Q < 0 does not give zero"
+        assert numpy.all(numpy.fabs(dfh((pot(0, 0) - 1e-1, 0.1))) < 1e-8), (
+            "Evaluating the Osipkov-Merritt NFW DF at E < -GM/a does not give zero"
+        )
+        assert numpy.all(numpy.fabs(dfh((-1e-4, 1.1))) < 1e-8), (
+            "Evaluating the Osipkov-Merritt NFW DF at Q < 0 does not give zero"
+        )
     return None
 
 
@@ -1096,12 +1110,12 @@ def test_isotropic_plummer_dMdE_integral():
 def test_isotropic_plummer_energyoutofbounds():
     pot = potential.PlummerPotential(amp=2.3, b=1.3)
     dfp = isotropicPlummerdf(pot=pot)
-    assert numpy.all(
-        numpy.fabs(dfp((numpy.arange(0.1, 10.0, 0.1), 1.1))) < 1e-8
-    ), "Evaluating the isotropic Plummer DF at E > 0 does not give zero"
-    assert numpy.all(
-        numpy.fabs(dfp((pot(0, 0) - 1e-4, 1.1))) < 1e-8
-    ), "Evaluating the isotropic Plummer DF at E < Phi(0) does not give zero"
+    assert numpy.all(numpy.fabs(dfp((numpy.arange(0.1, 10.0, 0.1), 1.1))) < 1e-8), (
+        "Evaluating the isotropic Plummer DF at E > 0 does not give zero"
+    )
+    assert numpy.all(numpy.fabs(dfp((pot(0, 0) - 1e-4, 1.1))) < 1e-8), (
+        "Evaluating the isotropic Plummer DF at E < Phi(0) does not give zero"
+    )
     return None
 
 
@@ -1211,12 +1225,12 @@ def test_isotropic_nfw_beta_directint():
 def test_isotropic_nfw_energyoutofbounds():
     pot = potential.NFWPotential(amp=2.3, a=1.3)
     dfp = isotropicNFWdf(pot=pot)
-    assert numpy.all(
-        numpy.fabs(dfp((numpy.arange(0.1, 10.0, 0.1), 1.1))) < 1e-8
-    ), "Evaluating the isotropic NFW DF at E > 0 does not give zero"
-    assert numpy.all(
-        numpy.fabs(dfp((pot(0, 0) - 1e-4, 1.1))) < 1e-8
-    ), "Evaluating the isotropic NFW DF at E < Phi(0) does not give zero"
+    assert numpy.all(numpy.fabs(dfp((numpy.arange(0.1, 10.0, 0.1), 1.1))) < 1e-8), (
+        "Evaluating the isotropic NFW DF at E > 0 does not give zero"
+    )
+    assert numpy.all(numpy.fabs(dfp((pot(0, 0) - 1e-4, 1.1))) < 1e-8), (
+        "Evaluating the isotropic NFW DF at E < Phi(0) does not give zero"
+    )
     return None
 
 
@@ -1226,9 +1240,9 @@ def test_isotropic_nfw_widrow_against_improved():
     dfp = isotropicNFWdf(pot=pot)
     dfpw = isotropicNFWdf(pot=pot, widrow=True)
     Es = numpy.linspace(-dfp._Etildemax * 0.999, 0, 101, endpoint=False)
-    assert numpy.all(
-        numpy.fabs(1.0 - dfp.fE(Es) / dfpw.fE(Es)) < 1e-2
-    ), "isotropic NFW with widrow=True does not agree on f(E) with widrow=False"
+    assert numpy.all(numpy.fabs(1.0 - dfp.fE(Es) / dfpw.fE(Es)) < 1e-2), (
+        "isotropic NFW with widrow=True does not agree on f(E) with widrow=False"
+    )
     return None
 
 
@@ -1343,12 +1357,12 @@ def test_isotropic_eddington_selfconsist_dehnencore_beta_directint():
 def test_isotropic_eddington_selfconsist_dehnencore_energyoutofbounds():
     pot = potential.DehnenCoreSphericalPotential(amp=2.5, a=1.15)
     dfp = eddingtondf(pot=pot)
-    assert numpy.all(
-        numpy.fabs(dfp((numpy.arange(0.1, 10.0, 0.1), 1.1))) < 1e-8
-    ), "Evaluating the eddington DF at E > 0 does not give zero"
-    assert numpy.all(
-        numpy.fabs(dfp((pot(0, 0) - 1e-4, 1.1))) < 1e-8
-    ), "Evaluating the isotropic NFW DF at E < Phi(0) does not give zero"
+    assert numpy.all(numpy.fabs(dfp((numpy.arange(0.1, 10.0, 0.1), 1.1))) < 1e-8), (
+        "Evaluating the eddington DF at E > 0 does not give zero"
+    )
+    assert numpy.all(numpy.fabs(dfp((pot(0, 0) - 1e-4, 1.1))) < 1e-8), (
+        "Evaluating the isotropic NFW DF at E < Phi(0) does not give zero"
+    )
     return None
 
 
@@ -1486,12 +1500,12 @@ def test_isotropic_eddington_dehnencore_in_nfw_energyoutofbounds():
     pot = potential.NFWPotential(amp=2.3, a=1.3)
     denspot = potential.DehnenCoreSphericalPotential(amp=2.5, a=1.15)
     dfp = eddingtondf(pot=pot, denspot=denspot)
-    assert numpy.all(
-        numpy.fabs(dfp((numpy.arange(0.1, 10.0, 0.1), 1.1))) < 1e-8
-    ), "Evaluating the isotropic NFW DF at E > 0 does not give zero"
-    assert numpy.all(
-        numpy.fabs(dfp((pot(0, 0) - 1e-4, 1.1))) < 1e-8
-    ), "Evaluating the isotropic NFW DF at E < Phi(0) does not give zero"
+    assert numpy.all(numpy.fabs(dfp((numpy.arange(0.1, 10.0, 0.1), 1.1))) < 1e-8), (
+        "Evaluating the isotropic NFW DF at E > 0 does not give zero"
+    )
+    assert numpy.all(numpy.fabs(dfp((pot(0, 0) - 1e-4, 1.1))) < 1e-8), (
+        "Evaluating the isotropic NFW DF at E < Phi(0) does not give zero"
+    )
     return None
 
 
@@ -1524,9 +1538,9 @@ def test_eddington_hernquist_dMdE():
     Emin = pot(0.0, 0.0)
     Emax = pot(numpy.inf, 0.0)
     E = numpy.linspace(0.99 * Emin, Emax - 0.001, 1001)
-    assert numpy.all(
-        numpy.fabs(dfe.dMdE(E) / dfi.dMdE(E) - 1.0) < 1e-4
-    ), "dMdE for isotropic Hernquist DF does not agree with exact solution"
+    assert numpy.all(numpy.fabs(dfe.dMdE(E) / dfi.dMdE(E) - 1.0) < 1e-4), (
+        "dMdE for isotropic Hernquist DF does not agree with exact solution"
+    )
     return None
 
 
@@ -1816,16 +1830,16 @@ def test_osipkovmerritt_selfconsist_dehnencore_Qoutofbounds():
     pot = potential.DehnenCoreSphericalPotential(amp=2.5, a=1.15)
     ras = [2.3, 5.7]
     for ra, dfh in zip(ras, osipkovmerritt_dfs_selfconsist):
-        assert numpy.all(
-            numpy.fabs(dfh((numpy.arange(0.1, 10.0, 0.1), 1.1))) < 1e-8
-        ), "Evaluating the Osipkov-Merritt DF at E > 0 does not give zero"
+        assert numpy.all(numpy.fabs(dfh((numpy.arange(0.1, 10.0, 0.1), 1.1))) < 1e-8), (
+            "Evaluating the Osipkov-Merritt DF at E > 0 does not give zero"
+        )
         # The next one is not actually a physical orbit...
-        assert numpy.all(
-            numpy.fabs(dfh((pot(0, 0) - 1e-1, 0.1))) < 1e-8
-        ), "Evaluating the Osipkov-Merritt DF at E < -GM/a does not give zero"
-        assert numpy.all(
-            numpy.fabs(dfh((-1e-4, 1.1))) < 1e-8
-        ), "Evaluating the Osipkov-Merritt DF at Q < 0 does not give zero"
+        assert numpy.all(numpy.fabs(dfh((pot(0, 0) - 1e-1, 0.1))) < 1e-8), (
+            "Evaluating the Osipkov-Merritt DF at E < -GM/a does not give zero"
+        )
+        assert numpy.all(numpy.fabs(dfh((-1e-4, 1.1))) < 1e-8), (
+            "Evaluating the Osipkov-Merritt DF at Q < 0 does not give zero"
+        )
     return None
 
 
@@ -1996,16 +2010,16 @@ def test_osipkovmerritt_dehnencore_in_nfw_Qoutofbounds():
     denspot = potential.DehnenCoreSphericalPotential(amp=2.5, a=1.15)
     ras = [2.3, 5.7]
     for ra, dfh in zip(ras, osipkovmerritt_dfs_dehnencore_in_nfw):
-        assert numpy.all(
-            numpy.fabs(dfh((numpy.arange(0.1, 10.0, 0.1), 1.1))) < 1e-8
-        ), "Evaluating the Osipkov-Merritt DF at E > 0 does not give zero"
+        assert numpy.all(numpy.fabs(dfh((numpy.arange(0.1, 10.0, 0.1), 1.1))) < 1e-8), (
+            "Evaluating the Osipkov-Merritt DF at E > 0 does not give zero"
+        )
         # The next one is not actually a physical orbit...
-        assert numpy.all(
-            numpy.fabs(dfh((pot(0, 0) - 1e-1, 0.1))) < 1e-8
-        ), "Evaluating the Osipkov-Merritt DF at E < -GM/a does not give zero"
-        assert numpy.all(
-            numpy.fabs(dfh((-1e-4, 1.1))) < 1e-8
-        ), "Evaluating the Osipkov-Merritt DF at Q < 0 does not give zero"
+        assert numpy.all(numpy.fabs(dfh((pot(0, 0) - 1e-1, 0.1))) < 1e-8), (
+            "Evaluating the Osipkov-Merritt DF at E < -GM/a does not give zero"
+        )
+        assert numpy.all(numpy.fabs(dfh((-1e-4, 1.1))) < 1e-8), (
+            "Evaluating the Osipkov-Merritt DF at Q < 0 does not give zero"
+        )
     return None
 
 
@@ -2023,7 +2037,9 @@ def test_constantbetadf_against_hernquist():
         R, vR, vT, z, vz, phi = 1.1, 0.3, 0.2, 0.9, -0.2, 2.4
         assert (
             numpy.fabs(dfh(R, vR, vT, z, vz, phi) - cdfh(R, vR, vT, z, vz, phi)) < 1e-5
-        ), "constantbetadf version of Hernquist does not agree with constantbetaHernquistdf"
+        ), (
+            "constantbetadf version of Hernquist does not agree with constantbetaHernquistdf"
+        )
     return None
 
 
@@ -2234,16 +2250,16 @@ def test_constantbeta_selfconsist_dehnencore_Qoutofbounds(
     twobetas = [-1]
     constantbeta_dfs_selfconsist = setup_constantbeta_dfs_selfconsist
     for twobeta, dfh in zip(twobetas, constantbeta_dfs_selfconsist):
-        assert numpy.all(
-            numpy.fabs(dfh((numpy.arange(0.1, 10.0, 0.1), 1.1))) < 1e-8
-        ), "Evaluating the constant-beta DF at E > 0 does not give zero"
+        assert numpy.all(numpy.fabs(dfh((numpy.arange(0.1, 10.0, 0.1), 1.1))) < 1e-8), (
+            "Evaluating the constant-beta DF at E > 0 does not give zero"
+        )
         # The next one is not actually a physical orbit...
-        assert numpy.all(
-            numpy.fabs(dfh((pot(0, 0) - 1e-1, 0.1))) < 1e-8
-        ), "Evaluating the constant-beta DF at E < -GM/a does not give zero"
-        assert numpy.all(
-            numpy.fabs(dfh((-1e-4, 1.1))) < 1e-8
-        ), "Evaluating the constantbeta DF at Q < 0 does not give zero"
+        assert numpy.all(numpy.fabs(dfh((pot(0, 0) - 1e-1, 0.1))) < 1e-8), (
+            "Evaluating the constant-beta DF at E < -GM/a does not give zero"
+        )
+        assert numpy.all(numpy.fabs(dfh((-1e-4, 1.1))) < 1e-8), (
+            "Evaluating the constantbeta DF at Q < 0 does not give zero"
+        )
     return None
 
 
@@ -2377,16 +2393,16 @@ def test_constantbeta_dehnencore_in_nfw_Qoutofbounds():
     denspot = potential.DehnenCoreSphericalPotential(amp=2.5, a=1.15)
     betas = [0.25]
     for beta, dfh in zip(betas, constantbeta_dfs_dehnencore_in_nfw):
-        assert numpy.all(
-            numpy.fabs(dfh((numpy.arange(0.1, 10.0, 0.1), 1.1))) < 1e-8
-        ), "Evaluating the constantbeta DF at E > 0 does not give zero"
+        assert numpy.all(numpy.fabs(dfh((numpy.arange(0.1, 10.0, 0.1), 1.1))) < 1e-8), (
+            "Evaluating the constantbeta DF at E > 0 does not give zero"
+        )
         # The next one is not actually a physical orbit...
-        assert numpy.all(
-            numpy.fabs(dfh((pot(0, 0) - 1e-1, 0.1))) < 1e-8
-        ), "Evaluating the constantbeta DF at E < -GM/a does not give zero"
-        assert numpy.all(
-            numpy.fabs(dfh((-1e-4, 1.1))) < 1e-8
-        ), "Evaluating the constantbeta DF at Q < 0 does not give zero"
+        assert numpy.all(numpy.fabs(dfh((pot(0, 0) - 1e-1, 0.1))) < 1e-8), (
+            "Evaluating the constantbeta DF at E < -GM/a does not give zero"
+        )
+        assert numpy.all(numpy.fabs(dfh((-1e-4, 1.1))) < 1e-8), (
+            "Evaluating the constantbeta DF at Q < 0 does not give zero"
+        )
     return None
 
 
@@ -2615,7 +2631,9 @@ def test_constantbeta_interpolatedpotentials_beta_lt_neg05():
     assert (
         str(excinfo.value)
         == "constantbetadf with beta < -0.5 is not supported for use with interpSphericalPotential."
-    ), "Error message when beta < -0.5 while using interpSphericalPotential is incorrect"
+    ), (
+        "Error message when beta < -0.5 while using interpSphericalPotential is incorrect"
+    )
 
 
 def test_eddington_interpolatedpotentials_rmin():
@@ -2634,7 +2652,9 @@ def test_eddington_interpolatedpotentials_rmin():
             str(rec.message.args[0])
             == "Interpolated potential grid rmin is larger than the rmin to be used for the v_vesc_interpolator grid. This may adversely affect the generated samples. Proceed with care!"
         )
-    assert raisedWarning, "Using an interpolated potential with rmin smaller than the rmin to be used for the v_vesc_interpolator grid should have raised a warning, but didn't"
+    assert raisedWarning, (
+        "Using an interpolated potential with rmin smaller than the rmin to be used for the v_vesc_interpolator grid should have raised a warning, but didn't"
+    )
 
 
 def test_eddington_interpolatedpotentials_rmax():
@@ -2652,7 +2672,9 @@ def test_eddington_interpolatedpotentials_rmax():
             str(rec.message.args[0])
             == "The interpolated potential's rmax is smaller than the DF's rmax"
         )
-    assert raisedWarning, "Using an interpolated potential with rmax smaller than the DF's rmax should have raised a warning, but didn't"
+    assert raisedWarning, (
+        "Using an interpolated potential with rmax smaller than the DF's rmax should have raised a warning, but didn't"
+    )
 
 
 ########################### TESTS OF ERRORS AND WARNINGS#######################
@@ -2661,9 +2683,9 @@ def test_eddington_interpolatedpotentials_rmax():
 def test_isotropic_hernquist_nopot():
     with pytest.raises(AssertionError) as excinfo:
         dfh = isotropicHernquistdf()
-    assert (
-        str(excinfo.value) == "pot= must be potential.HernquistPotential"
-    ), "Error message when not supplying the potential is incorrect"
+    assert str(excinfo.value) == "pot= must be potential.HernquistPotential", (
+        "Error message when not supplying the potential is incorrect"
+    )
     return None
 
 
@@ -2671,18 +2693,18 @@ def test_isotropic_hernquist_wrongpot():
     pot = potential.JaffePotential(amp=2.0, a=1.3)
     with pytest.raises(AssertionError) as excinfo:
         dfh = isotropicHernquistdf(pot=pot)
-    assert (
-        str(excinfo.value) == "pot= must be potential.HernquistPotential"
-    ), "Error message when not supplying the potential is incorrect"
+    assert str(excinfo.value) == "pot= must be potential.HernquistPotential", (
+        "Error message when not supplying the potential is incorrect"
+    )
     return None
 
 
 def test_anisotropic_hernquist_nopot():
     with pytest.raises(AssertionError) as excinfo:
         dfh = constantbetaHernquistdf()
-    assert (
-        str(excinfo.value) == "pot= must be potential.HernquistPotential"
-    ), "Error message when not supplying the potential is incorrect"
+    assert str(excinfo.value) == "pot= must be potential.HernquistPotential", (
+        "Error message when not supplying the potential is incorrect"
+    )
     return None
 
 
@@ -2690,9 +2712,9 @@ def test_anisotropic_hernquist_wrongpot():
     pot = potential.JaffePotential(amp=2.0, a=1.3)
     with pytest.raises(AssertionError) as excinfo:
         dfh = constantbetaHernquistdf(pot=pot)
-    assert (
-        str(excinfo.value) == "pot= must be potential.HernquistPotential"
-    ), "Error message when not supplying the potential is incorrect"
+    assert str(excinfo.value) == "pot= must be potential.HernquistPotential", (
+        "Error message when not supplying the potential is incorrect"
+    )
     return None
 
 
@@ -2709,7 +2731,9 @@ def test_anisotropic_hernquist_negdf():
             str(rec.message.args[0])
             == "The DF appears to have negative regions; we'll try to ignore these for sampling the DF, but this may adversely affect the generated samples. Proceed with care!"
         )
-    assert raisedWarning, "Using an anisotropic Hernquist DF that has negative parts should have raised a warning, but didn't"
+    assert raisedWarning, (
+        "Using an anisotropic Hernquist DF that has negative parts should have raised a warning, but didn't"
+    )
 
 
 ############################# TESTS OF UNIT HANDLING###########################
@@ -2753,28 +2777,28 @@ def test_isotropic_hernquist_unittransfer():
     pot = potential.HernquistPotential(amp=2.0, a=1.3, ro=ro, vo=vo)
     dfh = isotropicHernquistdf(pot=pot)
     phys = conversion.get_physical(dfh, include_set=True)
-    assert phys[
-        "roSet"
-    ], "sphericaldf's ro not set when that of the underlying potential is set"
-    assert phys[
-        "voSet"
-    ], "sphericaldf's vo not set when that of the underlying potential is set"
-    assert (
-        numpy.fabs(phys["ro"] - ro) < 1e-8
-    ), "Potential's unit system not correctly transferred to sphericaldf's"
-    assert (
-        numpy.fabs(phys["vo"] - vo) < 1e-8
-    ), "Potential's unit system not correctly transferred to sphericaldf's"
+    assert phys["roSet"], (
+        "sphericaldf's ro not set when that of the underlying potential is set"
+    )
+    assert phys["voSet"], (
+        "sphericaldf's vo not set when that of the underlying potential is set"
+    )
+    assert numpy.fabs(phys["ro"] - ro) < 1e-8, (
+        "Potential's unit system not correctly transferred to sphericaldf's"
+    )
+    assert numpy.fabs(phys["vo"] - vo) < 1e-8, (
+        "Potential's unit system not correctly transferred to sphericaldf's"
+    )
     # Following should not be on
     pot = potential.HernquistPotential(amp=2.0, a=1.3)
     dfh = isotropicHernquistdf(pot=pot)
     phys = conversion.get_physical(dfh, include_set=True)
-    assert not phys[
-        "roSet"
-    ], "sphericaldf's ro set when that of the underlying potential is not set"
-    assert not phys[
-        "voSet"
-    ], "sphericaldf's vo set when that of the underlying potential is not set"
+    assert not phys["roSet"], (
+        "sphericaldf's ro set when that of the underlying potential is not set"
+    )
+    assert not phys["voSet"], (
+        "sphericaldf's vo set when that of the underlying potential is not set"
+    )
     return None
 
 
@@ -2786,12 +2810,12 @@ def test_isotropic_hernquist_unitsofsamples():
     pot = potential.HernquistPotential(amp=2.0, a=1.3, ro=ro, vo=vo)
     dfh = isotropicHernquistdf(pot=pot)
     samp = dfh.sample(n=100)
-    assert conversion.get_physical(samp, include_set=True)[
-        "roSet"
-    ], "Orbit samples from spherical DF with units on do not have units on"
-    assert conversion.get_physical(samp, include_set=True)[
-        "voSet"
-    ], "Orbit samples from spherical DF with units on do not have units on"
+    assert conversion.get_physical(samp, include_set=True)["roSet"], (
+        "Orbit samples from spherical DF with units on do not have units on"
+    )
+    assert conversion.get_physical(samp, include_set=True)["voSet"], (
+        "Orbit samples from spherical DF with units on do not have units on"
+    )
     assert (
         numpy.fabs(conversion.get_physical(samp, include_set=True)["ro"] - ro) < 1e-8
     ), "Orbit samples from spherical DF with units on do not have correct ro"
@@ -2802,12 +2826,12 @@ def test_isotropic_hernquist_unitsofsamples():
     pot = potential.HernquistPotential(amp=2.0, a=1.3)
     dfh = isotropicHernquistdf(pot=pot)
     samp = dfh.sample(n=100)
-    assert not conversion.get_physical(samp, include_set=True)[
-        "roSet"
-    ], "Orbit samples from spherical DF with units off do not have units off"
-    assert not conversion.get_physical(samp, include_set=True)[
-        "voSet"
-    ], "Orbit samples from spherical DF with units off do not have units off"
+    assert not conversion.get_physical(samp, include_set=True)["roSet"], (
+        "Orbit samples from spherical DF with units off do not have units off"
+    )
+    assert not conversion.get_physical(samp, include_set=True)["voSet"], (
+        "Orbit samples from spherical DF with units off do not have units off"
+    )
     return None
 
 
@@ -2823,7 +2847,9 @@ def check_spherical_symmetry(samp, l, m, tol):
             - (l == 0) * (m == 0)
         )
         < tol
-    ), f"Sample does not appear to be spherically symmetric, fails spherical harmonics test for (l,m) = ({l},{m})"
+    ), (
+        f"Sample does not appear to be spherically symmetric, fails spherical harmonics test for (l,m) = ({l},{m})"
+    )
     return None
 
 
@@ -2831,9 +2857,9 @@ def check_azimuthal_symmetry(samp, m, tol):
     """Check for spherical symmetry by Monte Carlo integration of the
     spherical harmonic Y_lm over the sample, should be zero unless l=m=0"""
     thetas, phis = numpy.arctan2(samp.R(), samp.z()), samp.phi()
-    assert (
-        numpy.fabs(numpy.sum(numpy.cos(m * phis)) / samp.size - (m == 0)) < tol
-    ), f"Sample does not appear to be azimuthally symmetric, fails Fourier test for m = {m}"
+    assert numpy.fabs(numpy.sum(numpy.cos(m * phis)) / samp.size - (m == 0)) < tol, (
+        f"Sample does not appear to be azimuthally symmetric, fails Fourier test for m = {m}"
+    )
     return None
 
 
@@ -2845,9 +2871,9 @@ def check_spherical_massprofile(samp, mass_profile, tol, skip=100):
     cumul_mass = numpy.linspace(0.0, 1.0, len(rs))
     for ii in range(len(rs) // skip - 1):
         indx = (ii + 1) * skip
-        assert (
-            numpy.fabs(cumul_mass[indx] - mass_profile(cumul_rs[indx])) < tol
-        ), "Mass profile of samples does not agree with analytical one"
+        assert numpy.fabs(cumul_mass[indx] - mass_profile(cumul_rs[indx])) < tol, (
+            "Mass profile of samples does not agree with analytical one"
+        )
     return None
 
 
@@ -2880,7 +2906,9 @@ def check_sigmar_against_jeans(
                 samp_sigr[ii] / jeans.sigmar(pot, br, beta=beta, dens=dens) - 1.0
             )
             < tol
-        ), "sigma_r(r) from samples does not agree with that obtained from the Jeans equation"
+        ), (
+            "sigma_r(r) from samples does not agree with that obtained from the Jeans equation"
+        )
     return None
 
 
@@ -2923,9 +2951,9 @@ def check_beta(samp, pot, tol, beta=0.0, rmin=None, rmax=None, bins=31):
         beta_func = lambda r: beta
     else:
         beta_func = beta
-    assert numpy.all(
-        numpy.fabs(samp_beta - beta_func(brs)) < tol
-    ), f"beta(r) from samples does not agree with the expected value for beta = {beta}"
+    assert numpy.all(numpy.fabs(samp_beta - beta_func(brs)) < tol), (
+        f"beta(r) from samples does not agree with the expected value for beta = {beta}"
+    )
     return None
 
 
@@ -2935,9 +2963,9 @@ def check_dens_directint(dfi, pot, tol, dens, rmin=None, rmax=None, bins=31):
     rs = numpy.linspace(rmin, rmax, bins)
     intdens = numpy.array([dfi.vmomentdensity(r, 0, 0) for r in rs])
     expdens = numpy.array([dens(r) for r in rs])
-    assert numpy.all(
-        numpy.fabs(intdens / expdens - 1.0) < tol
-    ), "Density from direct integration is not equal to the expected value"
+    assert numpy.all(numpy.fabs(intdens / expdens - 1.0) < tol), (
+        "Density from direct integration is not equal to the expected value"
+    )
     return None
 
 
@@ -2948,9 +2976,9 @@ def check_meanvr_directint(dfi, pot, tol, beta=0.0, rmin=None, rmax=None, bins=3
     intmvr = numpy.array(
         [dfi.vmomentdensity(r, 1, 0) / dfi.vmomentdensity(r, 0, 0) for r in rs]
     )
-    assert numpy.all(
-        numpy.fabs(intmvr) < tol
-    ), "mean v_r(r) from direct integration is not zero"
+    assert numpy.all(numpy.fabs(intmvr) < tol), (
+        "mean v_r(r) from direct integration is not zero"
+    )
     return None
 
 
@@ -2964,9 +2992,9 @@ def check_sigmar_against_jeans_directint(
     jeanssr = numpy.array(
         [jeans.sigmar(pot, r, beta=beta, dens=dens, use_physical=False) for r in rs]
     )
-    assert numpy.all(
-        numpy.fabs(intsr / jeanssr - 1) < tol
-    ), "sigma_r(r) from direct integration does not agree with that obtained from the Jeans equation"
+    assert numpy.all(numpy.fabs(intsr / jeanssr - 1) < tol), (
+        "sigma_r(r) from direct integration does not agree with that obtained from the Jeans equation"
+    )
     return None
 
 
@@ -2991,9 +3019,9 @@ def check_sigmar_against_jeans_directint_forcevmoment(
     jeanssr = numpy.array(
         [jeans.sigmar(pot, r, beta=beta, use_physical=False) for r in rs]
     )
-    assert numpy.all(
-        numpy.fabs(intsr / jeanssr - 1) < tol
-    ), "sigma_r(r) from direct integration does not agree with that obtained from the Jeans equation"
+    assert numpy.all(numpy.fabs(intsr / jeanssr - 1) < tol), (
+        "sigma_r(r) from direct integration does not agree with that obtained from the Jeans equation"
+    )
     return None
 
 
@@ -3006,9 +3034,9 @@ def check_beta_directint(dfi, tol, beta=0.0, rmin=None, rmax=None, bins=31):
         beta_func = lambda r: beta
     else:
         beta_func = beta
-    assert numpy.all(
-        numpy.fabs(intbeta - beta_func(rs)) < tol
-    ), "beta(r) from direct integration does not agree with the expected value"
+    assert numpy.all(numpy.fabs(intbeta - beta_func(rs)) < tol), (
+        "beta(r) from direct integration does not agree with the expected value"
+    )
     return None
 
 
@@ -3021,5 +3049,7 @@ def check_dMdE_integral(dfi, tol, Emax=None):
     assert (
         numpy.fabs(integrate.quad(lambda E: dfi.dMdE(E), Emin, Emax)[0] - total_mass)
         < tol
-    ), f"Integral of dMdE over all energies does not equal total mass for potential {dfi._pot.__class__.__name__}"
+    ), (
+        f"Integral of dMdE over all energies does not equal total mass for potential {dfi._pot.__class__.__name__}"
+    )
     return None

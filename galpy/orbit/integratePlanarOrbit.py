@@ -640,7 +640,7 @@ def _parse_tol(rtol, atol):
 
 
 def _parse_scf_pot(p, extra_amp=1.0):
-    # Stand-alone parser for SCF, bc re-used
+    # Stand-alone parser for SCF, bc reused
     isNonAxi = p.isNonAxi
     pot_args = [p._a, isNonAxi]
     pot_args.extend(p._Acos.shape)

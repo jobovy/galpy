@@ -633,16 +633,16 @@ def test_estimateDelta():
     for ii in range(len(ts)):
         deltas_estimate[ii] = estimateDeltaStaeckel(pot, o.R(ts[ii]), o.z(ts[ii]))
 
-    assert numpy.all(
-        numpy.fabs(deltas_estimate - Delta) < 10.0**-8
-    ), "Focal length Delta estimated along the orbit is not constant."
+    assert numpy.all(numpy.fabs(deltas_estimate - Delta) < 10.0**-8), (
+        "Focal length Delta estimated along the orbit is not constant."
+    )
 
     # for all time steps together:
     delta_estimate = estimateDeltaStaeckel(pot, o.R(ts), o.z(ts))
 
-    assert (
-        numpy.fabs(delta_estimate - Delta) < 10.0**-8
-    ), "Focal length Delta estimated from the orbit is not the same as the input focal length."
+    assert numpy.fabs(delta_estimate - Delta) < 10.0**-8, (
+        "Focal length Delta estimated from the orbit is not the same as the input focal length."
+    )
 
     return None
 
@@ -668,17 +668,17 @@ def test_actionConservation():
     aAS = actionAngleStaeckel(pot=pot, delta=Delta, c=True)
     jrs, lzs, jzs = aAS(o.R(ts), o.vR(ts), o.vT(ts), o.z(ts), o.vz(ts))
 
-    assert numpy.all(
-        numpy.fabs(jrs - jrs[0]) < 10.0**-8.0
-    ), "Radial action is not conserved along orbit."
+    assert numpy.all(numpy.fabs(jrs - jrs[0]) < 10.0**-8.0), (
+        "Radial action is not conserved along orbit."
+    )
 
-    assert numpy.all(
-        numpy.fabs(lzs - lzs[0]) < 10.0**-8.0
-    ), "Angular momentum is not conserved along orbit."
+    assert numpy.all(numpy.fabs(lzs - lzs[0]) < 10.0**-8.0), (
+        "Angular momentum is not conserved along orbit."
+    )
 
-    assert numpy.all(
-        numpy.fabs(jzs - jzs[0]) < 10.0**-8.0
-    ), "Vertical action is not conserved along orbit."
+    assert numpy.all(numpy.fabs(jzs - jzs[0]) < 10.0**-8.0), (
+        "Vertical action is not conserved along orbit."
+    )
 
     return None
 
@@ -702,12 +702,12 @@ def test_lambdanu_to_Rz():
     R_true = numpy.sqrt((l + a) * (n + a) / (a - g))
     z_true = numpy.sqrt((l + g) * (n + g) / (g - a))
     # test:
-    assert (
-        numpy.fabs(R - R_true) < 10.0**-10.0
-    ), "lambdanu_to_Rz conversion did not work as expected (R)"
-    assert (
-        numpy.fabs(z - z_true) < 10.0**-10.0
-    ), "lambdanu_to_Rz conversion did not work as expected (z)"
+    assert numpy.fabs(R - R_true) < 10.0**-10.0, (
+        "lambdanu_to_Rz conversion did not work as expected (R)"
+    )
+    assert numpy.fabs(z - z_true) < 10.0**-10.0, (
+        "lambdanu_to_Rz conversion did not work as expected (z)"
+    )
 
     # _____Also test for arrays_____
     # coordinate transformation:
@@ -720,15 +720,15 @@ def test_lambdanu_to_Rz():
     # test:
     rel_diff = numpy.fabs((R - R_true) / R_true) < 10.0**-8.0
     abs_diff = (numpy.fabs(R - R_true) < 10.0**-6.0) * (numpy.fabs(R_true) < 10.0**-6.0)
-    assert numpy.all(
-        rel_diff + abs_diff
-    ), "lambdanu_to_Rz conversion did not work as expected (R array)"
+    assert numpy.all(rel_diff + abs_diff), (
+        "lambdanu_to_Rz conversion did not work as expected (R array)"
+    )
 
     rel_diff = numpy.fabs((z - z_true) / z_true) < 10.0**-8.0
     abs_diff = (numpy.fabs(z - z_true) < 10.0**-6.0) * (numpy.fabs(z_true) < 10.0**-6.0)
-    assert numpy.all(
-        rel_diff + abs_diff
-    ), "lambdanu_to_Rz conversion did not work as expected (z array)"
+    assert numpy.all(rel_diff + abs_diff), (
+        "lambdanu_to_Rz conversion did not work as expected (z array)"
+    )
     return None
 
 
@@ -747,12 +747,12 @@ def test_Rz_to_lambdanu():
         *coords.lambdanu_to_Rz(l, n, ac=ac, Delta=Delta), ac=ac, Delta=Delta
     )
     # test:
-    assert (
-        numpy.fabs(lt - l) < 10.0**-10.0
-    ), "Rz_to_lambdanu conversion did not work as expected (l)"
-    assert (
-        numpy.fabs(nt - n) < 10.0**-10.0
-    ), "Rz_to_lambdanu conversion did not work as expected (n)"
+    assert numpy.fabs(lt - l) < 10.0**-10.0, (
+        "Rz_to_lambdanu conversion did not work as expected (l)"
+    )
+    assert numpy.fabs(nt - n) < 10.0**-10.0, (
+        "Rz_to_lambdanu conversion did not work as expected (n)"
+    )
 
     # ___Also test for arrays___
     l = numpy.array([2.0, 10.0, 20.0, 0.0])
@@ -760,12 +760,12 @@ def test_Rz_to_lambdanu():
     lt, nt = coords.Rz_to_lambdanu(
         *coords.lambdanu_to_Rz(l, n, ac=ac, Delta=Delta), ac=ac, Delta=Delta
     )
-    assert numpy.all(
-        numpy.fabs(lt - l) < 10.0**-10.0
-    ), "Rz_to_lambdanu conversion did not work as expected (l array)"
-    assert numpy.all(
-        numpy.fabs(nt - n) < 10.0**-10.0
-    ), "Rz_to_lambdanu conversion did not work as expected (n array)"
+    assert numpy.all(numpy.fabs(lt - l) < 10.0**-10.0), (
+        "Rz_to_lambdanu conversion did not work as expected (l array)"
+    )
+    assert numpy.all(numpy.fabs(nt - n) < 10.0**-10.0), (
+        "Rz_to_lambdanu conversion did not work as expected (n array)"
+    )
     return None
 
 
@@ -785,12 +785,12 @@ def test_Rz_to_lambdanu_r2lt0():
         *coords.lambdanu_to_Rz(l, n, ac=ac, Delta=Delta), ac=ac, Delta=Delta
     )
     # test:
-    assert (
-        numpy.fabs(lt - l) < 10.0**-8.0
-    ), "Rz_to_lambdanu conversion did not work as expected (l)"
-    assert (
-        numpy.fabs(nt - n) < 10.0**-8.0
-    ), "Rz_to_lambdanu conversion did not work as expected (n)"
+    assert numpy.fabs(lt - l) < 10.0**-8.0, (
+        "Rz_to_lambdanu conversion did not work as expected (l)"
+    )
+    assert numpy.fabs(nt - n) < 10.0**-8.0, (
+        "Rz_to_lambdanu conversion did not work as expected (n)"
+    )
 
     # ___Also test for arrays___
     l = numpy.array([2.0, 10.0, 20.0, 0.0])
@@ -798,12 +798,12 @@ def test_Rz_to_lambdanu_r2lt0():
     lt, nt = coords.Rz_to_lambdanu(
         *coords.lambdanu_to_Rz(l, n, ac=ac, Delta=Delta), ac=ac, Delta=Delta
     )
-    assert numpy.all(
-        numpy.fabs(lt - l) < 10.0**-8.0
-    ), "Rz_to_lambdanu conversion did not work as expected (l array)"
-    assert numpy.all(
-        numpy.fabs(nt - n) < 10.0**-8.0
-    ), "Rz_to_lambdanu conversion did not work as expected (n array)"
+    assert numpy.all(numpy.fabs(lt - l) < 10.0**-8.0), (
+        "Rz_to_lambdanu conversion did not work as expected (l array)"
+    )
+    assert numpy.all(numpy.fabs(nt - n) < 10.0**-8.0), (
+        "Rz_to_lambdanu conversion did not work as expected (n array)"
+    )
     return None
 
 
@@ -841,18 +841,18 @@ def test_Rz_to_lambdanu_jac():
         - coords.Rz_to_lambdanu(R, z, ac=ac, Delta=Delta)[1]
     ) / dR
     jac = coords.Rz_to_lambdanu_jac(R, z, Delta=Delta)
-    assert (
-        numpy.fabs(num_deriv_lR - jac[0, 0]) < 10.0**-6.0
-    ), "jacobian d((lambda,nu))/d((R,z)) fails for (dl/dR)"
-    assert (
-        numpy.fabs(num_deriv_nR - jac[1, 0]) < 10.0**-6.0
-    ), "jacobian d((lambda,nu))/d((R,z)) fails for (dn/dR)"
-    assert (
-        numpy.fabs(num_deriv_lz - jac[0, 1]) < 10.0**-6.0
-    ), "jacobian d((lambda,nu))/d((R,z)) fails for (dl/dz)"
-    assert (
-        numpy.fabs(num_deriv_nz - jac[1, 1]) < 10.0**-6.0
-    ), "jacobian d((lambda,nu))/d((R,z)) fails for (dn/dz)"
+    assert numpy.fabs(num_deriv_lR - jac[0, 0]) < 10.0**-6.0, (
+        "jacobian d((lambda,nu))/d((R,z)) fails for (dl/dR)"
+    )
+    assert numpy.fabs(num_deriv_nR - jac[1, 0]) < 10.0**-6.0, (
+        "jacobian d((lambda,nu))/d((R,z)) fails for (dn/dR)"
+    )
+    assert numpy.fabs(num_deriv_lz - jac[0, 1]) < 10.0**-6.0, (
+        "jacobian d((lambda,nu))/d((R,z)) fails for (dl/dz)"
+    )
+    assert numpy.fabs(num_deriv_nz - jac[1, 1]) < 10.0**-6.0, (
+        "jacobian d((lambda,nu))/d((R,z)) fails for (dn/dz)"
+    )
 
     # ___Also test for arrays___
     R = numpy.arange(1, 4) * 0.5
@@ -882,18 +882,18 @@ def test_Rz_to_lambdanu_jac():
         - coords.Rz_to_lambdanu(R, z, ac=ac, Delta=Delta)[1]
     ) / dR
     jac = coords.Rz_to_lambdanu_jac(R, z, Delta=Delta)
-    assert numpy.all(
-        numpy.fabs(num_deriv_lR - jac[0, 0]) < 10.0**-6.0
-    ), "jacobian d((lambda,nu))/d((R,z)) fails for (dl/dR)"
-    assert numpy.all(
-        numpy.fabs(num_deriv_nR - jac[1, 0]) < 10.0**-6.0
-    ), "jacobian d((lambda,nu))/d((R,z)) fails for (dn/dR)"
-    assert numpy.all(
-        numpy.fabs(num_deriv_lz - jac[0, 1]) < 10.0**-6.0
-    ), "jacobian d((lambda,nu))/d((R,z)) fails for (dl/dz)"
-    assert numpy.all(
-        numpy.fabs(num_deriv_nz - jac[1, 1]) < 10.0**-6.0
-    ), "jacobian d((lambda,nu))/d((R,z)) fails for (dn/dz)"
+    assert numpy.all(numpy.fabs(num_deriv_lR - jac[0, 0]) < 10.0**-6.0), (
+        "jacobian d((lambda,nu))/d((R,z)) fails for (dl/dR)"
+    )
+    assert numpy.all(numpy.fabs(num_deriv_nR - jac[1, 0]) < 10.0**-6.0), (
+        "jacobian d((lambda,nu))/d((R,z)) fails for (dn/dR)"
+    )
+    assert numpy.all(numpy.fabs(num_deriv_lz - jac[0, 1]) < 10.0**-6.0), (
+        "jacobian d((lambda,nu))/d((R,z)) fails for (dl/dz)"
+    )
+    assert numpy.all(numpy.fabs(num_deriv_nz - jac[1, 1]) < 10.0**-6.0), (
+        "jacobian d((lambda,nu))/d((R,z)) fails for (dn/dz)"
+    )
     return None
 
 
@@ -955,24 +955,24 @@ def test_Rz_to_lambdanu_hess():
         / 4.0
     )
     hess = coords.Rz_to_lambdanu_hess(R, z, Delta=Delta)
-    assert (
-        numpy.fabs(num_deriv_llRR - hess[0, 0, 0]) < 10.0**-4.0
-    ), "hessian [d^2(lambda)/d(R,z)^2 , d^2(nu)/d(R,z)^2] fails for (dl/dR)"
-    assert (
-        numpy.fabs(num_deriv_llRz - hess[0, 0, 1]) < 10.0**-4.0
-    ), "hessian [d^2(lambda)/d(R,z)^2 , d^2(nu)/d(R,z)^2] fails for (dn/dR)"
-    assert (
-        numpy.fabs(num_deriv_nnRR - hess[1, 0, 0]) < 10.0**-4.0
-    ), "hessian [d^2(lambda)/d(R,z)^2 , d^2(nu)/d(R,z)^2] fails for (dn/dR)"
-    assert (
-        numpy.fabs(num_deriv_llzz - hess[0, 1, 1]) < 10.0**-4.0
-    ), "hessian [d^2(lambda)/d(R,z)^2 , d^2(nu)/d(R,z)^2] fails for (dl/dz)"
-    assert (
-        numpy.fabs(num_deriv_nnRz - hess[1, 0, 1]) < 10.0**-4.0
-    ), "hessian [d^2(lambda)/d(R,z)^2 , d^2(nu)/d(R,z)^2] fails for (dn/dz)"
-    assert (
-        numpy.fabs(num_deriv_nnzz - hess[1, 1, 1]) < 10.0**-4.0
-    ), "hessian [d^2(lambda)/d(R,z)^2 , d^2(nu)/d(R,z)^2] fails for (dn/dz)"
+    assert numpy.fabs(num_deriv_llRR - hess[0, 0, 0]) < 10.0**-4.0, (
+        "hessian [d^2(lambda)/d(R,z)^2 , d^2(nu)/d(R,z)^2] fails for (dl/dR)"
+    )
+    assert numpy.fabs(num_deriv_llRz - hess[0, 0, 1]) < 10.0**-4.0, (
+        "hessian [d^2(lambda)/d(R,z)^2 , d^2(nu)/d(R,z)^2] fails for (dn/dR)"
+    )
+    assert numpy.fabs(num_deriv_nnRR - hess[1, 0, 0]) < 10.0**-4.0, (
+        "hessian [d^2(lambda)/d(R,z)^2 , d^2(nu)/d(R,z)^2] fails for (dn/dR)"
+    )
+    assert numpy.fabs(num_deriv_llzz - hess[0, 1, 1]) < 10.0**-4.0, (
+        "hessian [d^2(lambda)/d(R,z)^2 , d^2(nu)/d(R,z)^2] fails for (dl/dz)"
+    )
+    assert numpy.fabs(num_deriv_nnRz - hess[1, 0, 1]) < 10.0**-4.0, (
+        "hessian [d^2(lambda)/d(R,z)^2 , d^2(nu)/d(R,z)^2] fails for (dn/dz)"
+    )
+    assert numpy.fabs(num_deriv_nnzz - hess[1, 1, 1]) < 10.0**-4.0, (
+        "hessian [d^2(lambda)/d(R,z)^2 , d^2(nu)/d(R,z)^2] fails for (dn/dz)"
+    )
 
     # ___Also test for arrays___
     R = numpy.arange(1, 4) * 0.5
@@ -1026,23 +1026,23 @@ def test_Rz_to_lambdanu_hess():
         / 4.0
     )
     hess = coords.Rz_to_lambdanu_hess(R, z, Delta=Delta)
-    assert numpy.all(
-        numpy.fabs(num_deriv_llRR - hess[0, 0, 0]) < 10.0**-4.0
-    ), "hessian [d^2(lambda)/d(R,z)^2 , d^2(nu)/d(R,z)^2] fails for (dl/dR)"
-    assert numpy.all(
-        numpy.fabs(num_deriv_llRz - hess[0, 0, 1]) < 10.0**-4.0
-    ), "hessian [d^2(lambda)/d(R,z)^2 , d^2(nu)/d(R,z)^2] fails for (dn/dR)"
-    assert numpy.all(
-        numpy.fabs(num_deriv_nnRR - hess[1, 0, 0]) < 10.0**-4.0
-    ), "hessian [d^2(lambda)/d(R,z)^2 , d^2(nu)/d(R,z)^2] fails for (dn/dR)"
-    assert numpy.all(
-        numpy.fabs(num_deriv_llzz - hess[0, 1, 1]) < 10.0**-4.0
-    ), "hessian [d^2(lambda)/d(R,z)^2 , d^2(nu)/d(R,z)^2] fails for (dl/dz)"
-    assert numpy.all(
-        numpy.fabs(num_deriv_nnRz - hess[1, 0, 1]) < 10.0**-4.0
-    ), "hessian [d^2(lambda)/d(R,z)^2 , d^2(nu)/d(R,z)^2] fails for (dn/dz)"
-    assert numpy.all(
-        numpy.fabs(num_deriv_nnzz - hess[1, 1, 1]) < 10.0**-4.0
-    ), "hessian [d^2(lambda)/d(R,z)^2 , d^2(nu)/d(R,z)^2] fails for (dn/dz)"
+    assert numpy.all(numpy.fabs(num_deriv_llRR - hess[0, 0, 0]) < 10.0**-4.0), (
+        "hessian [d^2(lambda)/d(R,z)^2 , d^2(nu)/d(R,z)^2] fails for (dl/dR)"
+    )
+    assert numpy.all(numpy.fabs(num_deriv_llRz - hess[0, 0, 1]) < 10.0**-4.0), (
+        "hessian [d^2(lambda)/d(R,z)^2 , d^2(nu)/d(R,z)^2] fails for (dn/dR)"
+    )
+    assert numpy.all(numpy.fabs(num_deriv_nnRR - hess[1, 0, 0]) < 10.0**-4.0), (
+        "hessian [d^2(lambda)/d(R,z)^2 , d^2(nu)/d(R,z)^2] fails for (dn/dR)"
+    )
+    assert numpy.all(numpy.fabs(num_deriv_llzz - hess[0, 1, 1]) < 10.0**-4.0), (
+        "hessian [d^2(lambda)/d(R,z)^2 , d^2(nu)/d(R,z)^2] fails for (dl/dz)"
+    )
+    assert numpy.all(numpy.fabs(num_deriv_nnRz - hess[1, 0, 1]) < 10.0**-4.0), (
+        "hessian [d^2(lambda)/d(R,z)^2 , d^2(nu)/d(R,z)^2] fails for (dn/dz)"
+    )
+    assert numpy.all(numpy.fabs(num_deriv_nnzz - hess[1, 1, 1]) < 10.0**-4.0), (
+        "hessian [d^2(lambda)/d(R,z)^2 , d^2(nu)/d(R,z)^2] fails for (dn/dz)"
+    )
 
     return None

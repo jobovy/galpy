@@ -14,7 +14,7 @@ class osipkovmerrittHernquistdf(_osipkovmerrittdf):
 
         \\beta(r) = \\frac{1}{1+r_a^2/r^2}
 
-    with :math:`r_a` the anistropy radius.
+    with :math:`r_a` the anisotropy radius.
 
     """
 
@@ -37,9 +37,9 @@ class osipkovmerrittHernquistdf(_osipkovmerrittdf):
         -----
         - 2020-11-12 - Written - Bovy (UofT)
         """
-        assert isinstance(
-            pot, HernquistPotential
-        ), "pot= must be potential.HernquistPotential"
+        assert isinstance(pot, HernquistPotential), (
+            "pot= must be potential.HernquistPotential"
+        )
         _osipkovmerrittdf.__init__(self, pot=pot, ra=ra, ro=ro, vo=vo)
         self._psi0 = -evaluatePotentials(self._pot, 0, 0, use_physical=False)
         self._GMa = self._psi0 * self._pot.a**2.0
