@@ -32,7 +32,11 @@ from ..potential import (
     evaluatePotentials,
 )
 from ..potential import flatten as flatten_potential
-from ..potential import rE, rl, toPlanarPotential
+from ..potential import (
+    rE,
+    rl,
+    toPlanarPotential,
+)
 from ..potential.DissipativeForce import _isDissipative
 from ..potential.Potential import _check_c
 from ..util import conversion, coords, galpyWarning, galpyWarningVerbose, plot
@@ -816,7 +820,7 @@ class Orbit:
 
         """
         if not _APY_LOADED:  # pragma: no cover
-            raise ImportError("astropy needs to be installed to use " "Orbit.from_name")
+            raise ImportError("astropy needs to be installed to use Orbit.from_name")
         _load_named_objects()
         _update_keys_named_objects()
         # Stack coordinate-transform parameters, so they can be changed...
@@ -1697,7 +1701,9 @@ class Orbit:
             (numpy.roll(self.t, -1, axis=1) - self.t)[:, :-1]
             * (numpy.roll(self._psi.T, -1, axis=0) - self._psi.T)[:-1].T
             > 0.0
-        ), "SOS integration failed (time does not monotonically increase with increasing psi)"
+        ), (
+            "SOS integration failed (time does not monotonically increase with increasing psi)"
+        )
         return None
 
     def integrate_dxdv(
@@ -5624,7 +5630,7 @@ class Orbit:
             and not "yrange" in kwargs
             and not kwargs.get("overplot", False)
         )
-        labels = kwargs.pop("label", [f"Orbit {ii+1}" for ii in range(self.size)])
+        labels = kwargs.pop("label", [f"Orbit {ii + 1}" for ii in range(self.size)])
         if self.size == 1 and isinstance(labels, str):
             labels = [labels]
         # Plot
@@ -5825,7 +5831,7 @@ class Orbit:
             and not "yrange" in kwargs
             and not kwargs.get("overplot", False)
         )
-        labels = kwargs.pop("label", [f"Orbit {ii+1}" for ii in range(self.size)])
+        labels = kwargs.pop("label", [f"Orbit {ii + 1}" for ii in range(self.size)])
         if self.size == 1 and isinstance(labels, str):
             labels = [labels]
         # Plot
@@ -5939,7 +5945,7 @@ class Orbit:
             and not "yrange" in kwargs
             and not kwargs.get("overplot", False)
         )
-        labels = kwargs.pop("label", [f"Orbit {ii+1}" for ii in range(self.size)])
+        labels = kwargs.pop("label", [f"Orbit {ii + 1}" for ii in range(self.size)])
         if self.size == 1 and isinstance(labels, str):
             labels = [labels]
         # Plot
@@ -6333,7 +6339,7 @@ class Orbit:
                     names[ii], xlabels[0], ylabels[0], tlabel
                 ),
             )
-            traces_cumul += f""",trace{str(2*ii+1)},trace{str(2*ii+2)}"""
+            traces_cumul += f""",trace{str(2 * ii + 1)},trace{str(2 * ii + 2)}"""
         x_data_list = """"""
         y_data_list = """"""
         t_data_list = """"""
@@ -6350,8 +6356,8 @@ class Orbit:
                 t_data_list += (
                     """data.time.slice(trace_slice_begin,trace_slice_end), """
                 )
-                trace_num_10_list += f"""{str(2*jj*self.size + 2 * ii + 1 - 1)}, """
-                trace_num_20_list += f"""{str(2*jj*self.size + 2 * ii + 2 - 1)}, """
+                trace_num_10_list += f"""{str(2 * jj * self.size + 2 * ii + 1 - 1)}, """
+                trace_num_20_list += f"""{str(2 * jj * self.size + 2 * ii + 2 - 1)}, """
         # Additional traces for additional plots
         if len(d1s) > 1:
             setup_trace2 = """
@@ -6397,7 +6403,9 @@ class Orbit:
                     names[0], xlabels[1], ylabels[1], tlabel
                 ),
             )
-            traces_cumul += f""",trace{str(2*self.size+1)},trace{str(2*self.size+2)}"""
+            traces_cumul += (
+                f""",trace{str(2 * self.size + 1)},trace{str(2 * self.size + 2)}"""
+            )
             for ii in range(1, self.size):
                 setup_trace2 += """
     let trace{trace_num_1}= {{
@@ -6445,7 +6453,7 @@ class Orbit:
                         names[ii], xlabels[1], ylabels[1], tlabel
                     ),
                 )
-                traces_cumul += f""",trace{str(2*self.size+2*ii+1)},trace{str(2*self.size+2*ii+2)}"""
+                traces_cumul += f""",trace{str(2 * self.size + 2 * ii + 1)},trace{str(2 * self.size + 2 * ii + 2)}"""
         else:  # else for "if there is a 2nd panel"
             setup_trace2 = """
     let traces= [{traces_cumul}];
@@ -6494,7 +6502,9 @@ class Orbit:
                     names[0], xlabels[2], ylabels[2], tlabel
                 ),
             )
-            traces_cumul += f""",trace{str(4*self.size+1)},trace{str(4*self.size+2)}"""
+            traces_cumul += (
+                f""",trace{str(4 * self.size + 1)},trace{str(4 * self.size + 2)}"""
+            )
             for ii in range(1, self.size):
                 setup_trace3 += """
     let trace{trace_num_1}= {{
@@ -6544,7 +6554,7 @@ class Orbit:
                         names[ii], xlabels[2], ylabels[0], tlabel
                     ),
                 )
-                traces_cumul += f""",trace{str(4*self.size+2*ii+1)},trace{str(4*self.size+2*ii+2)}"""
+                traces_cumul += f""",trace{str(4 * self.size + 2 * ii + 1)},trace{str(4 * self.size + 2 * ii + 2)}"""
             setup_trace3 += """
             let traces= [{traces_cumul}];
             """.format(traces_cumul=traces_cumul)
@@ -7080,8 +7090,8 @@ if ( typeof window.require == 'undefined' ) {{
         if not is_kpc:
             mw_bg_surface_scale /= self._ro
         mw_bg_surface = f"""let mw_bg = {{
-            x: {json.dumps((numpy.linspace(-1, 1, 50)*mw_bg_surface_scale).tolist())},
-            y: {json.dumps((numpy.linspace(-1, 1, 50)*mw_bg_surface_scale).tolist())},
+            x: {json.dumps((numpy.linspace(-1, 1, 50) * mw_bg_surface_scale).tolist())},
+            y: {json.dumps((numpy.linspace(-1, 1, 50) * mw_bg_surface_scale).tolist())},
             z: {json.dumps((numpy.zeros((50, 50))).tolist())},
             colorscale: [[0.0,"rgba(0, 0, 0, 1)"],[0.09090909090909091,"rgba(16, 16, 16, 1)"],[0.18181818181818182,"rgba(38, 38, 38, 0.9)"],[0.2727272727272727,"rgba(59, 59, 59, 0.8)"],[0.36363636363636365,"rgba(81, 80, 80, 0.7)"],[0.45454545454545453,"rgba(102, 101, 101, 0.6)"],[0.5454545454545454,"rgba(124, 123, 122, 0.5)"],[0.6363636363636364,"rgba(146, 146, 145, 0.4)"],[0.7272727272727273,"rgba(171, 171, 170, 0.3)"],[0.8181818181818182,"rgba(197, 197, 195, 0.2)"],[0.9090909090909091,"rgba(224, 224, 223, 0.1)"],[1.0,"rgba(254, 254, 253, 0.05)"]],
             surfacecolor: [
@@ -7188,7 +7198,7 @@ if ( typeof window.require == 'undefined' ) {{
                     names[ii], xlabels[0], ylabels[0], zlabels[0], tlabel
                 ),
             )
-            traces_cumul += f""",trace{str(2*ii+1)},trace{str(2*ii+2)}"""
+            traces_cumul += f""",trace{str(2 * ii + 1)},trace{str(2 * ii + 2)}"""
         x_data_list = """"""
         y_data_list = """"""
         z_data_list = """"""
@@ -7213,8 +7223,8 @@ if ( typeof window.require == 'undefined' ) {{
                 t_data_list += (
                     """data.time.slice(trace_slice_begin,trace_slice_end), """
                 )
-                trace_num_10_list += f"""{str(2*jj*self.size + 2 * ii + 1 - 1)}, """
-                trace_num_20_list += f"""{str(2*jj*self.size + 2 * ii + 2 - 1)}, """
+                trace_num_10_list += f"""{str(2 * jj * self.size + 2 * ii + 1 - 1)}, """
+                trace_num_20_list += f"""{str(2 * jj * self.size + 2 * ii + 2 - 1)}, """
         return HTML(
             """
     <style>
@@ -7481,9 +7491,7 @@ def _from_name_oneobject(name, obs):
         # check that the necessary coordinates have been found
         missing = simbad_table.mask
         if any(missing["ra", "dec", "pmra", "pmdec", "rvz_radvel"][0]):
-            raise ValueError(
-                "failed to find some coordinates for {} in " "SIMBAD".format(name)
-            )
+            raise ValueError(f"failed to find some coordinates for {name} in SIMBAD")
         ra, dec, pmra, pmdec, vlos = simbad_table[
             "ra", "dec", "pmra", "pmdec", "rvz_radvel"
         ][0]
@@ -7512,9 +7520,7 @@ def _from_name_oneobject(name, obs):
         if any(missing["RA_d", "DEC_d", "PMRA", "PMDEC", "RV_VALUE"][0]) or all(
             missing["PLX_VALUE", "Distance_distance"][0]
         ):
-            raise ValueError(
-                "failed to find some coordinates for {} in " "SIMBAD".format(name)
-            )
+            raise ValueError(f"failed to find some coordinates for {name} in SIMBAD")
         ra, dec, pmra, pmdec, vlos = simbad_table[
             "RA_d", "DEC_d", "PMRA", "PMDEC", "RV_VALUE"
         ][0]
@@ -8118,6 +8124,6 @@ def _check_potential_dim(orb, pot):
 def _check_consistent_units(orb, pot):
     if pot is None:
         return None
-    assert physical_compatible(
-        orb, pot
-    ), "Physical conversion for the Orbit object is not consistent with that of the Potential given to it"
+    assert physical_compatible(orb, pot), (
+        "Physical conversion for the Orbit object is not consistent with that of the Potential given to it"
+    )

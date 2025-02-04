@@ -129,7 +129,7 @@ Other user-facing improvements and additions are
   *  Renamed ``phiforce`` --> ``phitorque`` everywhere (including
      ``potential.evaluatephiforces`` and ``potential.evaluateplanarphiforces``), such
      that the method's name actually reflect what it returns (a torque, not a force).
-     ``phiforce`` will be fully removed in version 1.9 and may later be re-used
+     ``phiforce`` will be fully removed in version 1.9 and may later be reused
      for the actual phi component of the force, so switch to the new name now.
 
   * Added ``SCFPotential.from_density`` to directly initialize an ``SCFPotential``

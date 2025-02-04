@@ -33,12 +33,12 @@ def test_lsrframe_scalaromegaz():
         o_ys = o.R(ts) * numpy.sin(o.phi(ts) - omega * ts)
         op_xs = op.x(ts)
         op_ys = op.y(ts)
-        assert (
-            numpy.amax(numpy.fabs(o_xs - op_xs)) < tol
-        ), f"Integrating an orbit in the rotating LSR frame does not agree with the equivalent orbit in the inertial frame for integration method {method}"
-        assert (
-            numpy.amax(numpy.fabs(o_ys - op_ys)) < tol
-        ), f"Integrating an orbit in the rotating LSR frame does not agree with the equivalent orbit in the inertial frame for integration method {method}"
+        assert numpy.amax(numpy.fabs(o_xs - op_xs)) < tol, (
+            f"Integrating an orbit in the rotating LSR frame does not agree with the equivalent orbit in the inertial frame for integration method {method}"
+        )
+        assert numpy.amax(numpy.fabs(o_ys - op_ys)) < tol, (
+            f"Integrating an orbit in the rotating LSR frame does not agree with the equivalent orbit in the inertial frame for integration method {method}"
+        )
 
     check_orbit(method="odeint", tol=1e-6)
     check_orbit(method="dop853_c", tol=1e-9)
@@ -71,12 +71,12 @@ def test_lsrframe_scalaromegaz_2d():
         o_ys = o.R(ts) * numpy.sin(o.phi(ts) - omega * ts)
         op_xs = op.x(ts)
         op_ys = op.y(ts)
-        assert (
-            numpy.amax(numpy.fabs(o_xs - op_xs)) < tol
-        ), f"Integrating an orbit in the rotating LSR frame does not agree with the equivalent orbit in the inertial frame for integration method {method}"
-        assert (
-            numpy.amax(numpy.fabs(o_ys - op_ys)) < tol
-        ), f"Integrating an orbit in the rotating LSR frame does not agree with the equivalent orbit in the inertial frame for integration method {method}"
+        assert numpy.amax(numpy.fabs(o_xs - op_xs)) < tol, (
+            f"Integrating an orbit in the rotating LSR frame does not agree with the equivalent orbit in the inertial frame for integration method {method}"
+        )
+        assert numpy.amax(numpy.fabs(o_ys - op_ys)) < tol, (
+            f"Integrating an orbit in the rotating LSR frame does not agree with the equivalent orbit in the inertial frame for integration method {method}"
+        )
 
     check_orbit(method="odeint", tol=1e-6)
     check_orbit(method="dop853_c", tol=1e-9)
@@ -109,12 +109,12 @@ def test_lsrframe_vecomegaz():
         o_ys = o.R(ts) * numpy.sin(o.phi(ts) - omega * ts)
         op_xs = op.x(ts)
         op_ys = op.y(ts)
-        assert (
-            numpy.amax(numpy.fabs(o_xs - op_xs)) < tol
-        ), f"Integrating an orbit in the rotating LSR frame does not agree with the equivalent orbit in the inertial frame for method {method}"
-        assert (
-            numpy.amax(numpy.fabs(o_ys - op_ys)) < tol
-        ), f"Integrating an orbit in the rotating LSR frame does not agree with the equivalent orbit in the inertial frame for method {method}"
+        assert numpy.amax(numpy.fabs(o_xs - op_xs)) < tol, (
+            f"Integrating an orbit in the rotating LSR frame does not agree with the equivalent orbit in the inertial frame for method {method}"
+        )
+        assert numpy.amax(numpy.fabs(o_ys - op_ys)) < tol, (
+            f"Integrating an orbit in the rotating LSR frame does not agree with the equivalent orbit in the inertial frame for method {method}"
+        )
 
     check_orbit(method="odeint", tol=1e-6)
     check_orbit(method="dop853_c", tol=1e-9)
@@ -147,12 +147,12 @@ def test_lsrframe_vecomegaz_2d():
         o_ys = o.R(ts) * numpy.sin(o.phi(ts) - omega * ts)
         op_xs = op.x(ts)
         op_ys = op.y(ts)
-        assert (
-            numpy.amax(numpy.fabs(o_xs - op_xs)) < tol
-        ), f"Integrating an orbit in the rotating LSR frame does not agree with the equivalent orbit in the inertial frame for method {method}"
-        assert (
-            numpy.amax(numpy.fabs(o_ys - op_ys)) < tol
-        ), f"Integrating an orbit in the rotating LSR frame does not agree with the equivalent orbit in the inertial frame for method {method}"
+        assert numpy.amax(numpy.fabs(o_xs - op_xs)) < tol, (
+            f"Integrating an orbit in the rotating LSR frame does not agree with the equivalent orbit in the inertial frame for method {method}"
+        )
+        assert numpy.amax(numpy.fabs(o_ys - op_ys)) < tol, (
+            f"Integrating an orbit in the rotating LSR frame does not agree with the equivalent orbit in the inertial frame for method {method}"
+        )
 
     check_orbit(method="odeint", tol=1e-6)
     check_orbit(method="dop853_c", tol=1e-9)
@@ -184,12 +184,12 @@ def test_accellsrframe_scalaromegaz():
         o_ys = o.R(ts) * numpy.sin(o.phi(ts) - omega * ts - omegadot * ts**2.0 / 2.0)
         op_xs = op.x(ts)
         op_ys = op.y(ts)
-        assert (
-            numpy.amax(numpy.fabs(o_xs - op_xs)) < tol
-        ), f"Integrating an orbit in the acceleratingly-rotating LSR frame does not agree with the equivalent orbit in the inertial frame for method {method}"
-        assert (
-            numpy.amax(numpy.fabs(o_ys - op_ys)) < tol
-        ), f"Integrating an orbit in the acceleratingly-rotating LSR frame does not agree with the equivalent orbit in the inertial frame for method {method}"
+        assert numpy.amax(numpy.fabs(o_xs - op_xs)) < tol, (
+            f"Integrating an orbit in the acceleratingly-rotating LSR frame does not agree with the equivalent orbit in the inertial frame for method {method}"
+        )
+        assert numpy.amax(numpy.fabs(o_ys - op_ys)) < tol, (
+            f"Integrating an orbit in the acceleratingly-rotating LSR frame does not agree with the equivalent orbit in the inertial frame for method {method}"
+        )
 
     check_orbit(method="odeint", tol=1e-6)
     check_orbit(method="dop853_c", tol=1e-9)
@@ -221,12 +221,12 @@ def test_accellsrframe_scalaromegaz_2d():
         o_ys = o.R(ts) * numpy.sin(o.phi(ts) - omega * ts - omegadot * ts**2.0 / 2.0)
         op_xs = op.x(ts)
         op_ys = op.y(ts)
-        assert (
-            numpy.amax(numpy.fabs(o_xs - op_xs)) < tol
-        ), f"Integrating an orbit in the acceleratingly-rotating LSR frame does not agree with the equivalent orbit in the inertial frame for method {method}"
-        assert (
-            numpy.amax(numpy.fabs(o_ys - op_ys)) < tol
-        ), f"Integrating an orbit in the acceleratingly-rotating LSR frame does not agree with the equivalent orbit in the inertial frame for method {method}"
+        assert numpy.amax(numpy.fabs(o_xs - op_xs)) < tol, (
+            f"Integrating an orbit in the acceleratingly-rotating LSR frame does not agree with the equivalent orbit in the inertial frame for method {method}"
+        )
+        assert numpy.amax(numpy.fabs(o_ys - op_ys)) < tol, (
+            f"Integrating an orbit in the acceleratingly-rotating LSR frame does not agree with the equivalent orbit in the inertial frame for method {method}"
+        )
 
     check_orbit(method="odeint", tol=1e-6)
     check_orbit(method="dop853_c", tol=1e-9)
@@ -260,12 +260,12 @@ def test_accellsrframe_vecomegaz():
         o_ys = o.R(ts) * numpy.sin(o.phi(ts) - omega * ts - omegadot * ts**2.0 / 2.0)
         op_xs = op.x(ts)
         op_ys = op.y(ts)
-        assert (
-            numpy.amax(numpy.fabs(o_xs - op_xs)) < tol
-        ), f"Integrating an orbit in the acceleratingly-rotating LSR frame does not agree with the equivalent orbit in the inertial frame for method {method}"
-        assert (
-            numpy.amax(numpy.fabs(o_ys - op_ys)) < tol
-        ), f"Integrating an orbit in the acceleratingly-rotating LSR frame does not agree with the equivalent orbit in the inertial frame for method {method}"
+        assert numpy.amax(numpy.fabs(o_xs - op_xs)) < tol, (
+            f"Integrating an orbit in the acceleratingly-rotating LSR frame does not agree with the equivalent orbit in the inertial frame for method {method}"
+        )
+        assert numpy.amax(numpy.fabs(o_ys - op_ys)) < tol, (
+            f"Integrating an orbit in the acceleratingly-rotating LSR frame does not agree with the equivalent orbit in the inertial frame for method {method}"
+        )
 
     check_orbit(method="odeint", tol=1e-6)
     check_orbit(method="dop853_c", tol=1e-9)
@@ -299,12 +299,12 @@ def test_accellsrframe_vecomegaz_2d():
         o_ys = o.R(ts) * numpy.sin(o.phi(ts) - omega * ts - omegadot * ts**2.0 / 2.0)
         op_xs = op.x(ts)
         op_ys = op.y(ts)
-        assert (
-            numpy.amax(numpy.fabs(o_xs - op_xs)) < tol
-        ), f"Integrating an orbit in the acceleratingly-rotating LSR frame does not agree with the equivalent orbit in the inertial frame for method {method}"
-        assert (
-            numpy.amax(numpy.fabs(o_ys - op_ys)) < tol
-        ), f"Integrating an orbit in the acceleratingly-rotating LSR frame does not agree with the equivalent orbit in the inertial frame for method {method}"
+        assert numpy.amax(numpy.fabs(o_xs - op_xs)) < tol, (
+            f"Integrating an orbit in the acceleratingly-rotating LSR frame does not agree with the equivalent orbit in the inertial frame for method {method}"
+        )
+        assert numpy.amax(numpy.fabs(o_ys - op_ys)) < tol, (
+            f"Integrating an orbit in the acceleratingly-rotating LSR frame does not agree with the equivalent orbit in the inertial frame for method {method}"
+        )
 
     check_orbit(method="odeint", tol=1e-6)
     check_orbit(method="dop853_c", tol=1e-9)
@@ -338,12 +338,12 @@ def test_accellsrframe_funcomegaz():
         o_ys = o.R(ts) * numpy.sin(o.phi(ts) - omega * ts - omegadot * ts**2.0 / 2.0)
         op_xs = op.x(ts)
         op_ys = op.y(ts)
-        assert (
-            numpy.amax(numpy.fabs(o_xs - op_xs)) < tol
-        ), f"Integrating an orbit in the acceleratingly-rotating LSR frame does not agree with the equivalent orbit in the inertial frame for method {method}"
-        assert (
-            numpy.amax(numpy.fabs(o_ys - op_ys)) < tol
-        ), f"Integrating an orbit in the acceleratingly-rotating LSR frame does not agree with the equivalent orbit in the inertial frame for method {method}"
+        assert numpy.amax(numpy.fabs(o_xs - op_xs)) < tol, (
+            f"Integrating an orbit in the acceleratingly-rotating LSR frame does not agree with the equivalent orbit in the inertial frame for method {method}"
+        )
+        assert numpy.amax(numpy.fabs(o_ys - op_ys)) < tol, (
+            f"Integrating an orbit in the acceleratingly-rotating LSR frame does not agree with the equivalent orbit in the inertial frame for method {method}"
+        )
 
     check_orbit(method="odeint", tol=1e-6)
     check_orbit(method="dop853_c", tol=1e-9)
@@ -377,12 +377,12 @@ def test_accellsrframe_funcomegaz_2d():
         o_ys = o.R(ts) * numpy.sin(o.phi(ts) - omega * ts - omegadot * ts**2.0 / 2.0)
         op_xs = op.x(ts)
         op_ys = op.y(ts)
-        assert (
-            numpy.amax(numpy.fabs(o_xs - op_xs)) < tol
-        ), f"Integrating an orbit in the acceleratingly-rotating LSR frame does not agree with the equivalent orbit in the inertial frame for method {method}"
-        assert (
-            numpy.amax(numpy.fabs(o_ys - op_ys)) < tol
-        ), f"Integrating an orbit in the acceleratingly-rotating LSR frame does not agree with the equivalent orbit in the inertial frame for method {method}"
+        assert numpy.amax(numpy.fabs(o_xs - op_xs)) < tol, (
+            f"Integrating an orbit in the acceleratingly-rotating LSR frame does not agree with the equivalent orbit in the inertial frame for method {method}"
+        )
+        assert numpy.amax(numpy.fabs(o_ys - op_ys)) < tol, (
+            f"Integrating an orbit in the acceleratingly-rotating LSR frame does not agree with the equivalent orbit in the inertial frame for method {method}"
+        )
 
     check_orbit(method="odeint", tol=1e-6)
     check_orbit(method="dop853_c", tol=1e-9)
@@ -416,12 +416,12 @@ def test_accellsrframe_vecfuncomegaz():
         o_ys = o.R(ts) * numpy.sin(o.phi(ts) - omega * ts - omegadot * ts**2.0 / 2.0)
         op_xs = op.x(ts)
         op_ys = op.y(ts)
-        assert (
-            numpy.amax(numpy.fabs(o_xs - op_xs)) < tol
-        ), f"Integrating an orbit in the acceleratingly-rotating LSR frame does not agree with the equivalent orbit in the inertial frame for method {method}"
-        assert (
-            numpy.amax(numpy.fabs(o_ys - op_ys)) < tol
-        ), f"Integrating an orbit in the acceleratingly-rotating LSR frame does not agree with the equivalent orbit in the inertial frame for method {method}"
+        assert numpy.amax(numpy.fabs(o_xs - op_xs)) < tol, (
+            f"Integrating an orbit in the acceleratingly-rotating LSR frame does not agree with the equivalent orbit in the inertial frame for method {method}"
+        )
+        assert numpy.amax(numpy.fabs(o_ys - op_ys)) < tol, (
+            f"Integrating an orbit in the acceleratingly-rotating LSR frame does not agree with the equivalent orbit in the inertial frame for method {method}"
+        )
 
     check_orbit(method="odeint", tol=1e-6)
     check_orbit(method="dop853_c", tol=1e-9)
@@ -455,12 +455,12 @@ def test_accellsrframe_vecfuncomegaz_2D():
         o_ys = o.R(ts) * numpy.sin(o.phi(ts) - omega * ts - omegadot * ts**2.0 / 2.0)
         op_xs = op.x(ts)
         op_ys = op.y(ts)
-        assert (
-            numpy.amax(numpy.fabs(o_xs - op_xs)) < tol
-        ), f"Integrating an orbit in the acceleratingly-rotating LSR frame does not agree with the equivalent orbit in the inertial frame for method {method}"
-        assert (
-            numpy.amax(numpy.fabs(o_ys - op_ys)) < tol
-        ), f"Integrating an orbit in the acceleratingly-rotating LSR frame does not agree with the equivalent orbit in the inertial frame for method {method}"
+        assert numpy.amax(numpy.fabs(o_xs - op_xs)) < tol, (
+            f"Integrating an orbit in the acceleratingly-rotating LSR frame does not agree with the equivalent orbit in the inertial frame for method {method}"
+        )
+        assert numpy.amax(numpy.fabs(o_ys - op_ys)) < tol, (
+            f"Integrating an orbit in the acceleratingly-rotating LSR frame does not agree with the equivalent orbit in the inertial frame for method {method}"
+        )
 
     check_orbit(method="odeint", tol=1e-6)
     check_orbit(method="dop853_c", tol=1e-9)
@@ -542,24 +542,24 @@ def test_arbitraryaxisrotation_nullpotential():
             op_vRs.append(vRTz[0])
             op_vTs.append(vRTz[1])
             op_vzs.append(vRTz[2])
-        assert (
-            numpy.amax(numpy.fabs(o_xs - op_xs)) < tol
-        ), f"Integrating an orbit in a rotating frame around an arbitrary axis does not agree with the equivalent orbit in the inertial frame for method {method}"
-        assert (
-            numpy.amax(numpy.fabs(o_ys - op_ys)) < tol
-        ), f"Integrating an orbit in a rotating frame around an arbitrary axis does not agree with the equivalent orbit in the inertial frame for method {method}"
-        assert (
-            numpy.amax(numpy.fabs(o_zs - op_zs)) < tol
-        ), f"Integrating an orbit in a rotating frame around an arbitrary axis does not agree with the equivalent orbit in the inertial frame for method {method}"
-        assert (
-            numpy.amax(numpy.fabs(o_vRs - op_vRs)) < tol
-        ), f"Integrating an orbit in a rotating frame around an arbitrary axis does not agree with the equivalent orbit in the inertial frame for method {method}"
-        assert (
-            numpy.amax(numpy.fabs(o_vTs - op_vTs)) < tol
-        ), f"Integrating an orbit in a rotating frame around an arbitrary axis does not agree with the equivalent orbit in the inertial frame for method {method}"
-        assert (
-            numpy.amax(numpy.fabs(o_vzs - op_vzs)) < tol
-        ), f"Integrating an orbit in a rotating frame around an arbitrary axis does not agree with the equivalent orbit in the inertial frame for method {method}"
+        assert numpy.amax(numpy.fabs(o_xs - op_xs)) < tol, (
+            f"Integrating an orbit in a rotating frame around an arbitrary axis does not agree with the equivalent orbit in the inertial frame for method {method}"
+        )
+        assert numpy.amax(numpy.fabs(o_ys - op_ys)) < tol, (
+            f"Integrating an orbit in a rotating frame around an arbitrary axis does not agree with the equivalent orbit in the inertial frame for method {method}"
+        )
+        assert numpy.amax(numpy.fabs(o_zs - op_zs)) < tol, (
+            f"Integrating an orbit in a rotating frame around an arbitrary axis does not agree with the equivalent orbit in the inertial frame for method {method}"
+        )
+        assert numpy.amax(numpy.fabs(o_vRs - op_vRs)) < tol, (
+            f"Integrating an orbit in a rotating frame around an arbitrary axis does not agree with the equivalent orbit in the inertial frame for method {method}"
+        )
+        assert numpy.amax(numpy.fabs(o_vTs - op_vTs)) < tol, (
+            f"Integrating an orbit in a rotating frame around an arbitrary axis does not agree with the equivalent orbit in the inertial frame for method {method}"
+        )
+        assert numpy.amax(numpy.fabs(o_vzs - op_vzs)) < tol, (
+            f"Integrating an orbit in a rotating frame around an arbitrary axis does not agree with the equivalent orbit in the inertial frame for method {method}"
+        )
 
     check_orbit(zvec=[0.0, 1.0, 1.0], omega=1.3, method="odeint", tol=1e-5)
     check_orbit(zvec=[2.0, 0.0, 1.0], omega=-1.1, method="dop853", tol=1e-4)
@@ -644,24 +644,24 @@ def test_arbitraryaxisrotation():
             op_vRs.append(vRTz[0])
             op_vTs.append(vRTz[1])
             op_vzs.append(vRTz[2])
-        assert (
-            numpy.amax(numpy.fabs(o_xs - op_xs)) < tol
-        ), f"Integrating an orbit in a rotating frame around an arbitrary axis does not agree with the equivalent orbit in the inertial frame for method {method}"
-        assert (
-            numpy.amax(numpy.fabs(o_ys - op_ys)) < tol
-        ), f"Integrating an orbit in a rotating frame around an arbitrary axis does not agree with the equivalent orbit in the inertial frame for method {method}"
-        assert (
-            numpy.amax(numpy.fabs(o_zs - op_zs)) < tol
-        ), f"Integrating an orbit in a rotating frame around an arbitrary axis does not agree with the equivalent orbit in the inertial frame for method {method}"
-        assert (
-            numpy.amax(numpy.fabs(o_vRs - op_vRs)) < tol
-        ), f"Integrating an orbit in a rotating frame around an arbitrary axis does not agree with the equivalent orbit in the inertial frame for method {method}"
-        assert (
-            numpy.amax(numpy.fabs(o_vTs - op_vTs)) < tol
-        ), f"Integrating an orbit in a rotating frame around an arbitrary axis does not agree with the equivalent orbit in the inertial frame for method {method}"
-        assert (
-            numpy.amax(numpy.fabs(o_vzs - op_vzs)) < tol
-        ), f"Integrating an orbit in a rotating frame around an arbitrary axis does not agree with the equivalent orbit in the inertial frame for method {method}"
+        assert numpy.amax(numpy.fabs(o_xs - op_xs)) < tol, (
+            f"Integrating an orbit in a rotating frame around an arbitrary axis does not agree with the equivalent orbit in the inertial frame for method {method}"
+        )
+        assert numpy.amax(numpy.fabs(o_ys - op_ys)) < tol, (
+            f"Integrating an orbit in a rotating frame around an arbitrary axis does not agree with the equivalent orbit in the inertial frame for method {method}"
+        )
+        assert numpy.amax(numpy.fabs(o_zs - op_zs)) < tol, (
+            f"Integrating an orbit in a rotating frame around an arbitrary axis does not agree with the equivalent orbit in the inertial frame for method {method}"
+        )
+        assert numpy.amax(numpy.fabs(o_vRs - op_vRs)) < tol, (
+            f"Integrating an orbit in a rotating frame around an arbitrary axis does not agree with the equivalent orbit in the inertial frame for method {method}"
+        )
+        assert numpy.amax(numpy.fabs(o_vTs - op_vTs)) < tol, (
+            f"Integrating an orbit in a rotating frame around an arbitrary axis does not agree with the equivalent orbit in the inertial frame for method {method}"
+        )
+        assert numpy.amax(numpy.fabs(o_vzs - op_vzs)) < tol, (
+            f"Integrating an orbit in a rotating frame around an arbitrary axis does not agree with the equivalent orbit in the inertial frame for method {method}"
+        )
 
     check_orbit(zvec=[0.0, 1.0, 1.0], omega=1.3, method="odeint", tol=1e-5)
     check_orbit(zvec=[2.0, 0.0, 1.0], omega=-1.1, method="dop853", tol=1e-4)
@@ -762,24 +762,24 @@ def test_arbitraryaxisrotation_omegadot_nullpotential():
             op_vRs.append(vRTz[0])
             op_vTs.append(vRTz[1])
             op_vzs.append(vRTz[2])
-        assert (
-            numpy.amax(numpy.fabs(o_xs - op_xs)) < tol
-        ), f"Integrating an orbit in a rotating frame around an arbitrary axis does not agree with the equivalent orbit in the inertial frame for method {method}"
-        assert (
-            numpy.amax(numpy.fabs(o_ys - op_ys)) < tol
-        ), f"Integrating an orbit in a rotating frame around an arbitrary axis does not agree with the equivalent orbit in the inertial frame for method {method}"
-        assert (
-            numpy.amax(numpy.fabs(o_zs - op_zs)) < tol
-        ), f"Integrating an orbit in a rotating frame around an arbitrary axis does not agree with the equivalent orbit in the inertial frame for method {method}"
-        assert (
-            numpy.amax(numpy.fabs(o_vRs - op_vRs)) < tol
-        ), f"Integrating an orbit in a rotating frame around an arbitrary axis does not agree with the equivalent orbit in the inertial frame for method {method}"
-        assert (
-            numpy.amax(numpy.fabs(o_vTs - op_vTs)) < tol
-        ), f"Integrating an orbit in a rotating frame around an arbitrary axis does not agree with the equivalent orbit in the inertial frame for method {method}"
-        assert (
-            numpy.amax(numpy.fabs(o_vzs - op_vzs)) < tol
-        ), f"Integrating an orbit in a rotating frame around an arbitrary axis does not agree with the equivalent orbit in the inertial frame for method {method}"
+        assert numpy.amax(numpy.fabs(o_xs - op_xs)) < tol, (
+            f"Integrating an orbit in a rotating frame around an arbitrary axis does not agree with the equivalent orbit in the inertial frame for method {method}"
+        )
+        assert numpy.amax(numpy.fabs(o_ys - op_ys)) < tol, (
+            f"Integrating an orbit in a rotating frame around an arbitrary axis does not agree with the equivalent orbit in the inertial frame for method {method}"
+        )
+        assert numpy.amax(numpy.fabs(o_zs - op_zs)) < tol, (
+            f"Integrating an orbit in a rotating frame around an arbitrary axis does not agree with the equivalent orbit in the inertial frame for method {method}"
+        )
+        assert numpy.amax(numpy.fabs(o_vRs - op_vRs)) < tol, (
+            f"Integrating an orbit in a rotating frame around an arbitrary axis does not agree with the equivalent orbit in the inertial frame for method {method}"
+        )
+        assert numpy.amax(numpy.fabs(o_vTs - op_vTs)) < tol, (
+            f"Integrating an orbit in a rotating frame around an arbitrary axis does not agree with the equivalent orbit in the inertial frame for method {method}"
+        )
+        assert numpy.amax(numpy.fabs(o_vzs - op_vzs)) < tol, (
+            f"Integrating an orbit in a rotating frame around an arbitrary axis does not agree with the equivalent orbit in the inertial frame for method {method}"
+        )
 
     check_orbit(zvec=[0.0, 1.0, 1.0], omega=1.3, method="odeint", tol=1e-5)
     check_orbit(zvec=[2.0, 0.0, 1.0], omega=-1.1, method="dop853", tol=1e-4)
@@ -882,24 +882,24 @@ def test_arbitraryaxisrotation_omegadot():
             op_vRs.append(vRTz[0])
             op_vTs.append(vRTz[1])
             op_vzs.append(vRTz[2])
-        assert (
-            numpy.amax(numpy.fabs(o_xs - op_xs)) < tol
-        ), f"Integrating an orbit in a rotating frame around an arbitrary axis does not agree with the equivalent orbit in the inertial frame for method {method}"
-        assert (
-            numpy.amax(numpy.fabs(o_ys - op_ys)) < tol
-        ), f"Integrating an orbit in a rotating frame around an arbitrary axis does not agree with the equivalent orbit in the inertial frame for method {method}"
-        assert (
-            numpy.amax(numpy.fabs(o_zs - op_zs)) < tol
-        ), f"Integrating an orbit in a rotating frame around an arbitrary axis does not agree with the equivalent orbit in the inertial frame for method {method}"
-        assert (
-            numpy.amax(numpy.fabs(o_vRs - op_vRs)) < tol
-        ), f"Integrating an orbit in a rotating frame around an arbitrary axis does not agree with the equivalent orbit in the inertial frame for method {method}"
-        assert (
-            numpy.amax(numpy.fabs(o_vTs - op_vTs)) < tol
-        ), f"Integrating an orbit in a rotating frame around an arbitrary axis does not agree with the equivalent orbit in the inertial frame for method {method}"
-        assert (
-            numpy.amax(numpy.fabs(o_vzs - op_vzs)) < tol
-        ), f"Integrating an orbit in a rotating frame around an arbitrary axis does not agree with the equivalent orbit in the inertial frame for method {method}"
+        assert numpy.amax(numpy.fabs(o_xs - op_xs)) < tol, (
+            f"Integrating an orbit in a rotating frame around an arbitrary axis does not agree with the equivalent orbit in the inertial frame for method {method}"
+        )
+        assert numpy.amax(numpy.fabs(o_ys - op_ys)) < tol, (
+            f"Integrating an orbit in a rotating frame around an arbitrary axis does not agree with the equivalent orbit in the inertial frame for method {method}"
+        )
+        assert numpy.amax(numpy.fabs(o_zs - op_zs)) < tol, (
+            f"Integrating an orbit in a rotating frame around an arbitrary axis does not agree with the equivalent orbit in the inertial frame for method {method}"
+        )
+        assert numpy.amax(numpy.fabs(o_vRs - op_vRs)) < tol, (
+            f"Integrating an orbit in a rotating frame around an arbitrary axis does not agree with the equivalent orbit in the inertial frame for method {method}"
+        )
+        assert numpy.amax(numpy.fabs(o_vTs - op_vTs)) < tol, (
+            f"Integrating an orbit in a rotating frame around an arbitrary axis does not agree with the equivalent orbit in the inertial frame for method {method}"
+        )
+        assert numpy.amax(numpy.fabs(o_vzs - op_vzs)) < tol, (
+            f"Integrating an orbit in a rotating frame around an arbitrary axis does not agree with the equivalent orbit in the inertial frame for method {method}"
+        )
 
     check_orbit(zvec=[2.0, 0.0, 1.0], omega=-1.1, method="dop853", tol=1e-5)
     return None
@@ -1020,24 +1020,24 @@ def test_arbitraryaxisrotation_omegafunc_nullpotential():
             op_vRs.append(vRTz[0])
             op_vTs.append(vRTz[1])
             op_vzs.append(vRTz[2])
-        assert (
-            numpy.amax(numpy.fabs(o_xs - op_xs)) < tol
-        ), f"Integrating an orbit in a rotating frame around an arbitrary axis does not agree with the equivalent orbit in the inertial frame for method {method}"
-        assert (
-            numpy.amax(numpy.fabs(o_ys - op_ys)) < tol
-        ), f"Integrating an orbit in a rotating frame around an arbitrary axis does not agree with the equivalent orbit in the inertial frame for method {method}"
-        assert (
-            numpy.amax(numpy.fabs(o_zs - op_zs)) < tol
-        ), f"Integrating an orbit in a rotating frame around an arbitrary axis does not agree with the equivalent orbit in the inertial frame for method {method}"
-        assert (
-            numpy.amax(numpy.fabs(o_vRs - op_vRs)) < tol
-        ), f"Integrating an orbit in a rotating frame around an arbitrary axis does not agree with the equivalent orbit in the inertial frame for method {method}"
-        assert (
-            numpy.amax(numpy.fabs(o_vTs - op_vTs)) < tol
-        ), f"Integrating an orbit in a rotating frame around an arbitrary axis does not agree with the equivalent orbit in the inertial frame for method {method}"
-        assert (
-            numpy.amax(numpy.fabs(o_vzs - op_vzs)) < tol
-        ), f"Integrating an orbit in a rotating frame around an arbitrary axis does not agree with the equivalent orbit in the inertial frame for method {method}"
+        assert numpy.amax(numpy.fabs(o_xs - op_xs)) < tol, (
+            f"Integrating an orbit in a rotating frame around an arbitrary axis does not agree with the equivalent orbit in the inertial frame for method {method}"
+        )
+        assert numpy.amax(numpy.fabs(o_ys - op_ys)) < tol, (
+            f"Integrating an orbit in a rotating frame around an arbitrary axis does not agree with the equivalent orbit in the inertial frame for method {method}"
+        )
+        assert numpy.amax(numpy.fabs(o_zs - op_zs)) < tol, (
+            f"Integrating an orbit in a rotating frame around an arbitrary axis does not agree with the equivalent orbit in the inertial frame for method {method}"
+        )
+        assert numpy.amax(numpy.fabs(o_vRs - op_vRs)) < tol, (
+            f"Integrating an orbit in a rotating frame around an arbitrary axis does not agree with the equivalent orbit in the inertial frame for method {method}"
+        )
+        assert numpy.amax(numpy.fabs(o_vTs - op_vTs)) < tol, (
+            f"Integrating an orbit in a rotating frame around an arbitrary axis does not agree with the equivalent orbit in the inertial frame for method {method}"
+        )
+        assert numpy.amax(numpy.fabs(o_vzs - op_vzs)) < tol, (
+            f"Integrating an orbit in a rotating frame around an arbitrary axis does not agree with the equivalent orbit in the inertial frame for method {method}"
+        )
 
     check_orbit(zvec=[0.0, 1.0, 1.0], omega=1.3, method="odeint", tol=1e-5)
     check_orbit(zvec=[2.0, 0.0, 1.0], omega=-1.1, method="dop853", tol=1e-4)
@@ -1168,24 +1168,24 @@ def test_arbitraryaxisrotation_omegafunc():
             op_vRs.append(vRTz[0])
             op_vTs.append(vRTz[1])
             op_vzs.append(vRTz[2])
-        assert (
-            numpy.amax(numpy.fabs(o_xs - op_xs)) < tol
-        ), f"Integrating an orbit in a rotating frame around an arbitrary axis does not agree with the equivalent orbit in the inertial frame for method {method}"
-        assert (
-            numpy.amax(numpy.fabs(o_ys - op_ys)) < tol
-        ), f"Integrating an orbit in a rotating frame around an arbitrary axis does not agree with the equivalent orbit in the inertial frame for method {method}"
-        assert (
-            numpy.amax(numpy.fabs(o_zs - op_zs)) < tol
-        ), f"Integrating an orbit in a rotating frame around an arbitrary axis does not agree with the equivalent orbit in the inertial frame for method {method}"
-        assert (
-            numpy.amax(numpy.fabs(o_vRs - op_vRs)) < tol
-        ), f"Integrating an orbit in a rotating frame around an arbitrary axis does not agree with the equivalent orbit in the inertial frame for method {method}"
-        assert (
-            numpy.amax(numpy.fabs(o_vTs - op_vTs)) < tol
-        ), f"Integrating an orbit in a rotating frame around an arbitrary axis does not agree with the equivalent orbit in the inertial frame for method {method}"
-        assert (
-            numpy.amax(numpy.fabs(o_vzs - op_vzs)) < tol
-        ), f"Integrating an orbit in a rotating frame around an arbitrary axis does not agree with the equivalent orbit in the inertial frame for method {method}"
+        assert numpy.amax(numpy.fabs(o_xs - op_xs)) < tol, (
+            f"Integrating an orbit in a rotating frame around an arbitrary axis does not agree with the equivalent orbit in the inertial frame for method {method}"
+        )
+        assert numpy.amax(numpy.fabs(o_ys - op_ys)) < tol, (
+            f"Integrating an orbit in a rotating frame around an arbitrary axis does not agree with the equivalent orbit in the inertial frame for method {method}"
+        )
+        assert numpy.amax(numpy.fabs(o_zs - op_zs)) < tol, (
+            f"Integrating an orbit in a rotating frame around an arbitrary axis does not agree with the equivalent orbit in the inertial frame for method {method}"
+        )
+        assert numpy.amax(numpy.fabs(o_vRs - op_vRs)) < tol, (
+            f"Integrating an orbit in a rotating frame around an arbitrary axis does not agree with the equivalent orbit in the inertial frame for method {method}"
+        )
+        assert numpy.amax(numpy.fabs(o_vTs - op_vTs)) < tol, (
+            f"Integrating an orbit in a rotating frame around an arbitrary axis does not agree with the equivalent orbit in the inertial frame for method {method}"
+        )
+        assert numpy.amax(numpy.fabs(o_vzs - op_vzs)) < tol, (
+            f"Integrating an orbit in a rotating frame around an arbitrary axis does not agree with the equivalent orbit in the inertial frame for method {method}"
+        )
 
     check_orbit(zvec=[2.0, 0.0, 1.0], omega=-1.1, method="dop853", tol=1e-5)
     return None
@@ -1230,15 +1230,15 @@ def test_linacc_constantacc_z():
         op_xs = op.x(ts)
         op_ys = op.y(ts)
         op_zs = op.z(ts) + intaz(ts)
-        assert (
-            numpy.amax(numpy.fabs(o_xs - op_xs)) < tol
-        ), f"Integrating an orbit in a linearly-accelerating frame with constant acceleration does not agree with the equivalent orbit in the inertial frame for method {method}"
-        assert (
-            numpy.amax(numpy.fabs(o_ys - op_ys)) < tol
-        ), f"Integrating an orbit in a linearly-accelerating frame with constant acceleration does not agree with the equivalent orbit in the inertial frame for method {method}"
-        assert (
-            numpy.amax(numpy.fabs(o_zs - op_zs)) < tol
-        ), f"Integrating an orbit in a linearly-accelerating frame with constant acceleration does not agree with the equivalent orbit in the inertial frame for method {method}"
+        assert numpy.amax(numpy.fabs(o_xs - op_xs)) < tol, (
+            f"Integrating an orbit in a linearly-accelerating frame with constant acceleration does not agree with the equivalent orbit in the inertial frame for method {method}"
+        )
+        assert numpy.amax(numpy.fabs(o_ys - op_ys)) < tol, (
+            f"Integrating an orbit in a linearly-accelerating frame with constant acceleration does not agree with the equivalent orbit in the inertial frame for method {method}"
+        )
+        assert numpy.amax(numpy.fabs(o_zs - op_zs)) < tol, (
+            f"Integrating an orbit in a linearly-accelerating frame with constant acceleration does not agree with the equivalent orbit in the inertial frame for method {method}"
+        )
 
     check_orbit(method="odeint", tol=1e-9)
     check_orbit(method="dop853", tol=1e-9)
@@ -1278,12 +1278,12 @@ def test_linacc_constantacc_x_2d():
         o_ys = o.y(ts)
         op_xs = op.x(ts) + intax(ts)
         op_ys = op.y(ts)
-        assert (
-            numpy.amax(numpy.fabs(o_xs - op_xs)) < tol
-        ), f"Integrating an orbit in a linearly-accelerating frame with constant acceleration does not agree with the equivalent orbit in the inertial frame for method {method}"
-        assert (
-            numpy.amax(numpy.fabs(o_ys - op_ys)) < tol
-        ), f"Integrating an orbit in a linearly-accelerating frame with constant acceleration does not agree with the equivalent orbit in the inertial frame for method {method}"
+        assert numpy.amax(numpy.fabs(o_xs - op_xs)) < tol, (
+            f"Integrating an orbit in a linearly-accelerating frame with constant acceleration does not agree with the equivalent orbit in the inertial frame for method {method}"
+        )
+        assert numpy.amax(numpy.fabs(o_ys - op_ys)) < tol, (
+            f"Integrating an orbit in a linearly-accelerating frame with constant acceleration does not agree with the equivalent orbit in the inertial frame for method {method}"
+        )
 
     check_orbit(method="odeint", tol=1e-5)
     check_orbit(method="dop853", tol=1e-9)
@@ -1326,15 +1326,15 @@ def test_linacc_constantacc_xyz():
         op_xs = op.x(ts) + inta[0](ts)
         op_ys = op.y(ts) + inta[1](ts)
         op_zs = op.z(ts) + inta[2](ts)
-        assert (
-            numpy.amax(numpy.fabs(o_xs - op_xs)) < tol
-        ), f"Integrating an orbit in a linearly-accelerating frame with constant acceleration does not agree with the equivalent orbit in the inertial frame for method {method}"
-        assert (
-            numpy.amax(numpy.fabs(o_ys - op_ys)) < tol
-        ), f"Integrating an orbit in a linearly-accelerating frame with constant acceleration does not agree with the equivalent orbit in the inertial frame for method {method}"
-        assert (
-            numpy.amax(numpy.fabs(o_zs - op_zs)) < tol
-        ), f"Integrating an orbit in a linearly-accelerating frame with constant acceleration does not agree with the equivalent orbit in the inertial frame for method {method}"
+        assert numpy.amax(numpy.fabs(o_xs - op_xs)) < tol, (
+            f"Integrating an orbit in a linearly-accelerating frame with constant acceleration does not agree with the equivalent orbit in the inertial frame for method {method}"
+        )
+        assert numpy.amax(numpy.fabs(o_ys - op_ys)) < tol, (
+            f"Integrating an orbit in a linearly-accelerating frame with constant acceleration does not agree with the equivalent orbit in the inertial frame for method {method}"
+        )
+        assert numpy.amax(numpy.fabs(o_zs - op_zs)) < tol, (
+            f"Integrating an orbit in a linearly-accelerating frame with constant acceleration does not agree with the equivalent orbit in the inertial frame for method {method}"
+        )
 
     check_orbit(method="odeint", tol=1e-5)
     check_orbit(method="dop853", tol=1e-9)
@@ -1376,15 +1376,15 @@ def test_linacc_changingacc_z():
         op_xs = op.x(ts)
         op_ys = op.y(ts)
         op_zs = op.z(ts) + intaz(ts)
-        assert (
-            numpy.amax(numpy.fabs(o_xs - op_xs)) < tol
-        ), f"Integrating an orbit in a linearly-accelerating frame with constant acceleration does not agree with the equivalent orbit in the inertial frame for method {method}"
-        assert (
-            numpy.amax(numpy.fabs(o_ys - op_ys)) < tol
-        ), f"Integrating an orbit in a linearly-accelerating frame with constant acceleration does not agree with the equivalent orbit in the inertial frame for method {method}"
-        assert (
-            numpy.amax(numpy.fabs(o_zs - op_zs)) < tol
-        ), f"Integrating an orbit in a linearly-accelerating frame with constant acceleration does not agree with the equivalent orbit in the inertial frame for method {method}"
+        assert numpy.amax(numpy.fabs(o_xs - op_xs)) < tol, (
+            f"Integrating an orbit in a linearly-accelerating frame with constant acceleration does not agree with the equivalent orbit in the inertial frame for method {method}"
+        )
+        assert numpy.amax(numpy.fabs(o_ys - op_ys)) < tol, (
+            f"Integrating an orbit in a linearly-accelerating frame with constant acceleration does not agree with the equivalent orbit in the inertial frame for method {method}"
+        )
+        assert numpy.amax(numpy.fabs(o_zs - op_zs)) < tol, (
+            f"Integrating an orbit in a linearly-accelerating frame with constant acceleration does not agree with the equivalent orbit in the inertial frame for method {method}"
+        )
 
     check_orbit(method="odeint", tol=1e-9)
     check_orbit(method="dop853", tol=1e-9)
@@ -1431,15 +1431,15 @@ def test_linacc_changingacc_xyz():
         op_xs = op.x(ts) + inta[0](ts)
         op_ys = op.y(ts) + inta[1](ts)
         op_zs = op.z(ts) + inta[2](ts)
-        assert (
-            numpy.amax(numpy.fabs(o_xs - op_xs)) < tol
-        ), f"Integrating an orbit in a linearly-accelerating frame with constant acceleration does not agree with the equivalent orbit in the inertial frame for method {method}"
-        assert (
-            numpy.amax(numpy.fabs(o_ys - op_ys)) < tol
-        ), f"Integrating an orbit in a linearly-accelerating frame with constant acceleration does not agree with the equivalent orbit in the inertial frame for method {method}"
-        assert (
-            numpy.amax(numpy.fabs(o_zs - op_zs)) < tol
-        ), f"Integrating an orbit in a linearly-accelerating frame with constant acceleration does not agree with the equivalent orbit in the inertial frame for method {method}"
+        assert numpy.amax(numpy.fabs(o_xs - op_xs)) < tol, (
+            f"Integrating an orbit in a linearly-accelerating frame with constant acceleration does not agree with the equivalent orbit in the inertial frame for method {method}"
+        )
+        assert numpy.amax(numpy.fabs(o_ys - op_ys)) < tol, (
+            f"Integrating an orbit in a linearly-accelerating frame with constant acceleration does not agree with the equivalent orbit in the inertial frame for method {method}"
+        )
+        assert numpy.amax(numpy.fabs(o_zs - op_zs)) < tol, (
+            f"Integrating an orbit in a linearly-accelerating frame with constant acceleration does not agree with the equivalent orbit in the inertial frame for method {method}"
+        )
 
     check_orbit(method="odeint", tol=1e-5)
     check_orbit(method="dop853", tol=1e-9)
@@ -1518,24 +1518,24 @@ def test_linacc_changingacc_xyz_accellsrframe_scalaromegaz():
         )
         vTp += omega * Rp + omegadot * ts * Rp
         op_vxs, op_vys, _ = coords.cyl_to_rect_vec(vRp, vTp, op_vzs, phi=phip)
-        assert (
-            numpy.amax(numpy.fabs(o_xs - op_xs)) < tol
-        ), f"Integrating an orbit in a linearly-accelerating, acceleratingly-rotating frame with constant acceleration does not agree with the equivalent orbit in the inertial frame for method {method}"
-        assert (
-            numpy.amax(numpy.fabs(o_ys - op_ys)) < tol
-        ), f"Integrating an orbit in a linearly-accelerating, acceleratingly-rotating frame with constant acceleration does not agree with the equivalent orbit in the inertial frame for method {method}"
-        assert (
-            numpy.amax(numpy.fabs(o_zs - op_zs)) < tol
-        ), f"Integrating an orbit in a linearly-accelerating, acceleratingly-rotating frame with constant acceleration does not agree with the equivalent orbit in the inertial frame for method {method}"
-        assert (
-            numpy.amax(numpy.fabs(o_vxs - op_vxs)) < tol
-        ), f"Integrating an orbit in a linearly-accelerating, acceleratingly-rotating frame with constant acceleration does not agree with the equivalent orbit in the inertial frame for method {method}"
-        assert (
-            numpy.amax(numpy.fabs(o_vys - op_vys)) < tol
-        ), f"Integrating an orbit in a linearly-accelerating, acceleratingly-rotating frame with constant acceleration does not agree with the equivalent orbit in the inertial frame for method {method}"
-        assert (
-            numpy.amax(numpy.fabs(o_vzs - op_vzs)) < tol
-        ), f"Integrating an orbit in a linearly-accelerating, acceleratingly-rotating frame with constant acceleration does not agree with the equivalent orbit in the inertial frame for method {method}"
+        assert numpy.amax(numpy.fabs(o_xs - op_xs)) < tol, (
+            f"Integrating an orbit in a linearly-accelerating, acceleratingly-rotating frame with constant acceleration does not agree with the equivalent orbit in the inertial frame for method {method}"
+        )
+        assert numpy.amax(numpy.fabs(o_ys - op_ys)) < tol, (
+            f"Integrating an orbit in a linearly-accelerating, acceleratingly-rotating frame with constant acceleration does not agree with the equivalent orbit in the inertial frame for method {method}"
+        )
+        assert numpy.amax(numpy.fabs(o_zs - op_zs)) < tol, (
+            f"Integrating an orbit in a linearly-accelerating, acceleratingly-rotating frame with constant acceleration does not agree with the equivalent orbit in the inertial frame for method {method}"
+        )
+        assert numpy.amax(numpy.fabs(o_vxs - op_vxs)) < tol, (
+            f"Integrating an orbit in a linearly-accelerating, acceleratingly-rotating frame with constant acceleration does not agree with the equivalent orbit in the inertial frame for method {method}"
+        )
+        assert numpy.amax(numpy.fabs(o_vys - op_vys)) < tol, (
+            f"Integrating an orbit in a linearly-accelerating, acceleratingly-rotating frame with constant acceleration does not agree with the equivalent orbit in the inertial frame for method {method}"
+        )
+        assert numpy.amax(numpy.fabs(o_vzs - op_vzs)) < tol, (
+            f"Integrating an orbit in a linearly-accelerating, acceleratingly-rotating frame with constant acceleration does not agree with the equivalent orbit in the inertial frame for method {method}"
+        )
 
     check_orbit(method="odeint", tol=1e-5)
     check_orbit(method="dop853", tol=1e-9)
@@ -1618,24 +1618,24 @@ def test_linacc_changingacc_xyz_accellsrframe_vecomegaz():
         )
         vTp += omega * Rp + omegadot * ts * Rp
         op_vxs, op_vys, _ = coords.cyl_to_rect_vec(vRp, vTp, op_vzs, phi=phip)
-        assert (
-            numpy.amax(numpy.fabs(o_xs - op_xs)) < tol
-        ), f"Integrating an orbit in a linearly-accelerating, acceleratingly-rotating frame with constant acceleration does not agree with the equivalent orbit in the inertial frame for method {method}"
-        assert (
-            numpy.amax(numpy.fabs(o_ys - op_ys)) < tol
-        ), f"Integrating an orbit in a linearly-accelerating, acceleratingly-rotating frame with constant acceleration does not agree with the equivalent orbit in the inertial frame for method {method}"
-        assert (
-            numpy.amax(numpy.fabs(o_zs - op_zs)) < tol
-        ), f"Integrating an orbit in a linearly-accelerating, acceleratingly-rotating frame with constant acceleration does not agree with the equivalent orbit in the inertial frame for method {method}"
-        assert (
-            numpy.amax(numpy.fabs(o_vxs - op_vxs)) < tol
-        ), f"Integrating an orbit in a linearly-accelerating, acceleratingly-rotating frame with constant acceleration does not agree with the equivalent orbit in the inertial frame for method {method}"
-        assert (
-            numpy.amax(numpy.fabs(o_vys - op_vys)) < tol
-        ), f"Integrating an orbit in a linearly-accelerating, acceleratingly-rotating frame with constant acceleration does not agree with the equivalent orbit in the inertial frame for method {method}"
-        assert (
-            numpy.amax(numpy.fabs(o_vzs - op_vzs)) < tol
-        ), f"Integrating an orbit in a linearly-accelerating, acceleratingly-rotating frame with constant acceleration does not agree with the equivalent orbit in the inertial frame for method {method}"
+        assert numpy.amax(numpy.fabs(o_xs - op_xs)) < tol, (
+            f"Integrating an orbit in a linearly-accelerating, acceleratingly-rotating frame with constant acceleration does not agree with the equivalent orbit in the inertial frame for method {method}"
+        )
+        assert numpy.amax(numpy.fabs(o_ys - op_ys)) < tol, (
+            f"Integrating an orbit in a linearly-accelerating, acceleratingly-rotating frame with constant acceleration does not agree with the equivalent orbit in the inertial frame for method {method}"
+        )
+        assert numpy.amax(numpy.fabs(o_zs - op_zs)) < tol, (
+            f"Integrating an orbit in a linearly-accelerating, acceleratingly-rotating frame with constant acceleration does not agree with the equivalent orbit in the inertial frame for method {method}"
+        )
+        assert numpy.amax(numpy.fabs(o_vxs - op_vxs)) < tol, (
+            f"Integrating an orbit in a linearly-accelerating, acceleratingly-rotating frame with constant acceleration does not agree with the equivalent orbit in the inertial frame for method {method}"
+        )
+        assert numpy.amax(numpy.fabs(o_vys - op_vys)) < tol, (
+            f"Integrating an orbit in a linearly-accelerating, acceleratingly-rotating frame with constant acceleration does not agree with the equivalent orbit in the inertial frame for method {method}"
+        )
+        assert numpy.amax(numpy.fabs(o_vzs - op_vzs)) < tol, (
+            f"Integrating an orbit in a linearly-accelerating, acceleratingly-rotating frame with constant acceleration does not agree with the equivalent orbit in the inertial frame for method {method}"
+        )
 
     check_orbit(method="odeint", tol=1e-5)
     check_orbit(method="dop853", tol=1e-9)
@@ -1721,24 +1721,24 @@ def test_linacc_changingacc_xyz_accellsrframe_scalarfuncomegaz():
         )
         vTp += omega * Rp + omegadot * ts * Rp + omegadotdot * ts**2.0 / 2.0 * Rp
         op_vxs, op_vys, _ = coords.cyl_to_rect_vec(vRp, vTp, op_vzs, phi=phip)
-        assert (
-            numpy.amax(numpy.fabs(o_xs - op_xs)) < tol
-        ), f"Integrating an orbit in a linearly-accelerating, acceleratingly-rotating frame with constant acceleration does not agree with the equivalent orbit in the inertial frame for method {method}"
-        assert (
-            numpy.amax(numpy.fabs(o_ys - op_ys)) < tol
-        ), f"Integrating an orbit in a linearly-accelerating, acceleratingly-rotating frame with constant acceleration does not agree with the equivalent orbit in the inertial frame for method {method}"
-        assert (
-            numpy.amax(numpy.fabs(o_zs - op_zs)) < tol
-        ), f"Integrating an orbit in a linearly-accelerating, acceleratingly-rotating frame with constant acceleration does not agree with the equivalent orbit in the inertial frame for method {method}"
-        assert (
-            numpy.amax(numpy.fabs(o_vxs - op_vxs)) < tol
-        ), f"Integrating an orbit in a linearly-accelerating, acceleratingly-rotating frame with constant acceleration does not agree with the equivalent orbit in the inertial frame for method {method}"
-        assert (
-            numpy.amax(numpy.fabs(o_vys - op_vys)) < tol
-        ), f"Integrating an orbit in a linearly-accelerating, acceleratingly-rotating frame with constant acceleration does not agree with the equivalent orbit in the inertial frame for method {method}"
-        assert (
-            numpy.amax(numpy.fabs(o_vzs - op_vzs)) < tol
-        ), f"Integrating an orbit in a linearly-accelerating, acceleratingly-rotating frame with constant acceleration does not agree with the equivalent orbit in the inertial frame for method {method}"
+        assert numpy.amax(numpy.fabs(o_xs - op_xs)) < tol, (
+            f"Integrating an orbit in a linearly-accelerating, acceleratingly-rotating frame with constant acceleration does not agree with the equivalent orbit in the inertial frame for method {method}"
+        )
+        assert numpy.amax(numpy.fabs(o_ys - op_ys)) < tol, (
+            f"Integrating an orbit in a linearly-accelerating, acceleratingly-rotating frame with constant acceleration does not agree with the equivalent orbit in the inertial frame for method {method}"
+        )
+        assert numpy.amax(numpy.fabs(o_zs - op_zs)) < tol, (
+            f"Integrating an orbit in a linearly-accelerating, acceleratingly-rotating frame with constant acceleration does not agree with the equivalent orbit in the inertial frame for method {method}"
+        )
+        assert numpy.amax(numpy.fabs(o_vxs - op_vxs)) < tol, (
+            f"Integrating an orbit in a linearly-accelerating, acceleratingly-rotating frame with constant acceleration does not agree with the equivalent orbit in the inertial frame for method {method}"
+        )
+        assert numpy.amax(numpy.fabs(o_vys - op_vys)) < tol, (
+            f"Integrating an orbit in a linearly-accelerating, acceleratingly-rotating frame with constant acceleration does not agree with the equivalent orbit in the inertial frame for method {method}"
+        )
+        assert numpy.amax(numpy.fabs(o_vzs - op_vzs)) < tol, (
+            f"Integrating an orbit in a linearly-accelerating, acceleratingly-rotating frame with constant acceleration does not agree with the equivalent orbit in the inertial frame for method {method}"
+        )
 
     check_orbit(method="odeint", tol=1e-5)
     check_orbit(method="dop853", tol=1e-9)
@@ -1828,24 +1828,24 @@ def test_linacc_changingacc_xyz_accellsrframe_funcomegaz():
         )
         vTp += omega * Rp + omegadot * ts * Rp + omegadotdot * ts**2.0 / 2.0 * Rp
         op_vxs, op_vys, _ = coords.cyl_to_rect_vec(vRp, vTp, op_vzs, phi=phip)
-        assert (
-            numpy.amax(numpy.fabs(o_xs - op_xs)) < tol
-        ), f"Integrating an orbit in a linearly-accelerating, acceleratingly-rotating frame with constant acceleration does not agree with the equivalent orbit in the inertial frame for method {method}"
-        assert (
-            numpy.amax(numpy.fabs(o_ys - op_ys)) < tol
-        ), f"Integrating an orbit in a linearly-accelerating, acceleratingly-rotating frame with constant acceleration does not agree with the equivalent orbit in the inertial frame for method {method}"
-        assert (
-            numpy.amax(numpy.fabs(o_zs - op_zs)) < tol
-        ), f"Integrating an orbit in a linearly-accelerating, acceleratingly-rotating frame with constant acceleration does not agree with the equivalent orbit in the inertial frame for method {method}"
-        assert (
-            numpy.amax(numpy.fabs(o_vxs - op_vxs)) < tol
-        ), f"Integrating an orbit in a linearly-accelerating, acceleratingly-rotating frame with constant acceleration does not agree with the equivalent orbit in the inertial frame for method {method}"
-        assert (
-            numpy.amax(numpy.fabs(o_vys - op_vys)) < tol
-        ), f"Integrating an orbit in a linearly-accelerating, acceleratingly-rotating frame with constant acceleration does not agree with the equivalent orbit in the inertial frame for method {method}"
-        assert (
-            numpy.amax(numpy.fabs(o_vzs - op_vzs)) < tol
-        ), f"Integrating an orbit in a linearly-accelerating, acceleratingly-rotating frame with constant acceleration does not agree with the equivalent orbit in the inertial frame for method {method}"
+        assert numpy.amax(numpy.fabs(o_xs - op_xs)) < tol, (
+            f"Integrating an orbit in a linearly-accelerating, acceleratingly-rotating frame with constant acceleration does not agree with the equivalent orbit in the inertial frame for method {method}"
+        )
+        assert numpy.amax(numpy.fabs(o_ys - op_ys)) < tol, (
+            f"Integrating an orbit in a linearly-accelerating, acceleratingly-rotating frame with constant acceleration does not agree with the equivalent orbit in the inertial frame for method {method}"
+        )
+        assert numpy.amax(numpy.fabs(o_zs - op_zs)) < tol, (
+            f"Integrating an orbit in a linearly-accelerating, acceleratingly-rotating frame with constant acceleration does not agree with the equivalent orbit in the inertial frame for method {method}"
+        )
+        assert numpy.amax(numpy.fabs(o_vxs - op_vxs)) < tol, (
+            f"Integrating an orbit in a linearly-accelerating, acceleratingly-rotating frame with constant acceleration does not agree with the equivalent orbit in the inertial frame for method {method}"
+        )
+        assert numpy.amax(numpy.fabs(o_vys - op_vys)) < tol, (
+            f"Integrating an orbit in a linearly-accelerating, acceleratingly-rotating frame with constant acceleration does not agree with the equivalent orbit in the inertial frame for method {method}"
+        )
+        assert numpy.amax(numpy.fabs(o_vzs - op_vzs)) < tol, (
+            f"Integrating an orbit in a linearly-accelerating, acceleratingly-rotating frame with constant acceleration does not agree with the equivalent orbit in the inertial frame for method {method}"
+        )
 
     check_orbit(method="odeint", tol=1e-5)
     check_orbit(method="dop853", tol=1e-9)
@@ -1895,24 +1895,24 @@ def test_python_vs_c_arbitraryaxisrotation():
             ),
             method=c_method,
         )
-        assert (
-            numpy.amax(numpy.fabs(o.x(ts) - op.x(ts))) < tol
-        ), f"Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {py_method} and {c_method}"
-        assert (
-            numpy.amax(numpy.fabs(o.y(ts) - op.y(ts))) < tol
-        ), f"Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {py_method} and {c_method}"
-        assert (
-            numpy.amax(numpy.fabs(o.z(ts) - op.z(ts))) < tol
-        ), f"Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {py_method} and {c_method}"
-        assert (
-            numpy.amax(numpy.fabs(o.vx(ts) - op.vx(ts))) < tol
-        ), f"Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {py_method} and {c_method}"
-        assert (
-            numpy.amax(numpy.fabs(o.vy(ts) - op.vy(ts))) < tol
-        ), f"Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {py_method} and {c_method}"
-        assert (
-            numpy.amax(numpy.fabs(o.vz(ts) - op.vz(ts))) < tol
-        ), f"Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {py_method} and {c_method}"
+        assert numpy.amax(numpy.fabs(o.x(ts) - op.x(ts))) < tol, (
+            f"Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {py_method} and {c_method}"
+        )
+        assert numpy.amax(numpy.fabs(o.y(ts) - op.y(ts))) < tol, (
+            f"Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {py_method} and {c_method}"
+        )
+        assert numpy.amax(numpy.fabs(o.z(ts) - op.z(ts))) < tol, (
+            f"Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {py_method} and {c_method}"
+        )
+        assert numpy.amax(numpy.fabs(o.vx(ts) - op.vx(ts))) < tol, (
+            f"Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {py_method} and {c_method}"
+        )
+        assert numpy.amax(numpy.fabs(o.vy(ts) - op.vy(ts))) < tol, (
+            f"Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {py_method} and {c_method}"
+        )
+        assert numpy.amax(numpy.fabs(o.vz(ts) - op.vz(ts))) < tol, (
+            f"Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {py_method} and {c_method}"
+        )
         return None
 
     check_orbit()
@@ -1967,24 +1967,24 @@ def test_python_vs_c_arbitraryaxisrotation_omegadot():
             method=c_method,
         )
         # Compare
-        assert (
-            numpy.amax(numpy.fabs(o.x(ts) - op.x(ts))) < tol
-        ), f"Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {py_method} and {c_method}"
-        assert (
-            numpy.amax(numpy.fabs(o.y(ts) - op.y(ts))) < tol
-        ), f"Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {py_method} and {c_method}"
-        assert (
-            numpy.amax(numpy.fabs(o.z(ts) - op.z(ts))) < tol
-        ), f"Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {py_method} and {c_method}"
-        assert (
-            numpy.amax(numpy.fabs(o.vx(ts) - op.vx(ts))) < tol
-        ), f"Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {py_method} and {c_method}"
-        assert (
-            numpy.amax(numpy.fabs(o.vy(ts) - op.vy(ts))) < tol
-        ), f"Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {py_method} and {c_method}"
-        assert (
-            numpy.amax(numpy.fabs(o.vz(ts) - op.vz(ts))) < tol
-        ), f"Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {py_method} and {c_method}"
+        assert numpy.amax(numpy.fabs(o.x(ts) - op.x(ts))) < tol, (
+            f"Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {py_method} and {c_method}"
+        )
+        assert numpy.amax(numpy.fabs(o.y(ts) - op.y(ts))) < tol, (
+            f"Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {py_method} and {c_method}"
+        )
+        assert numpy.amax(numpy.fabs(o.z(ts) - op.z(ts))) < tol, (
+            f"Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {py_method} and {c_method}"
+        )
+        assert numpy.amax(numpy.fabs(o.vx(ts) - op.vx(ts))) < tol, (
+            f"Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {py_method} and {c_method}"
+        )
+        assert numpy.amax(numpy.fabs(o.vy(ts) - op.vy(ts))) < tol, (
+            f"Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {py_method} and {c_method}"
+        )
+        assert numpy.amax(numpy.fabs(o.vz(ts) - op.vz(ts))) < tol, (
+            f"Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {py_method} and {c_method}"
+        )
         return None
 
     check_orbit(tol=1e-8)
@@ -2069,24 +2069,24 @@ def test_python_vs_c_arbitraryaxisrotation_funcomega():
             method=c_method,
         )
         # Compare
-        assert (
-            numpy.amax(numpy.fabs(o.x(ts) - op.x(ts))) < tol
-        ), f"Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {py_method} and {c_method}"
-        assert (
-            numpy.amax(numpy.fabs(o.y(ts) - op.y(ts))) < tol
-        ), f"Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {py_method} and {c_method}"
-        assert (
-            numpy.amax(numpy.fabs(o.z(ts) - op.z(ts))) < tol
-        ), f"Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {py_method} and {c_method}"
-        assert (
-            numpy.amax(numpy.fabs(o.vx(ts) - op.vx(ts))) < tol
-        ), f"Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {py_method} and {c_method}"
-        assert (
-            numpy.amax(numpy.fabs(o.vy(ts) - op.vy(ts))) < tol
-        ), f"Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {py_method} and {c_method}"
-        assert (
-            numpy.amax(numpy.fabs(o.vz(ts) - op.vz(ts))) < tol
-        ), f"Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {py_method} and {c_method}"
+        assert numpy.amax(numpy.fabs(o.x(ts) - op.x(ts))) < tol, (
+            f"Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {py_method} and {c_method}"
+        )
+        assert numpy.amax(numpy.fabs(o.y(ts) - op.y(ts))) < tol, (
+            f"Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {py_method} and {c_method}"
+        )
+        assert numpy.amax(numpy.fabs(o.z(ts) - op.z(ts))) < tol, (
+            f"Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {py_method} and {c_method}"
+        )
+        assert numpy.amax(numpy.fabs(o.vx(ts) - op.vx(ts))) < tol, (
+            f"Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {py_method} and {c_method}"
+        )
+        assert numpy.amax(numpy.fabs(o.vy(ts) - op.vy(ts))) < tol, (
+            f"Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {py_method} and {c_method}"
+        )
+        assert numpy.amax(numpy.fabs(o.vz(ts) - op.vz(ts))) < tol, (
+            f"Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {py_method} and {c_method}"
+        )
         return None
 
     check_orbit(tol=1e-8)
@@ -2121,24 +2121,24 @@ def test_python_vs_c_linacc_changingacc_xyz():
         op = o()
         op.integrate(ts, diskpot + framepot, method=c_method)
         # Compare
-        assert (
-            numpy.amax(numpy.fabs(o.x(ts) - op.x(ts))) < tol
-        ), f"Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {py_method} and {c_method}"
-        assert (
-            numpy.amax(numpy.fabs(o.y(ts) - op.y(ts))) < tol
-        ), f"Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {py_method} and {c_method}"
-        assert (
-            numpy.amax(numpy.fabs(o.z(ts) - op.z(ts))) < tol
-        ), f"Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {py_method} and {c_method}"
-        assert (
-            numpy.amax(numpy.fabs(o.vx(ts) - op.vx(ts))) < tol
-        ), f"Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {py_method} and {c_method}"
-        assert (
-            numpy.amax(numpy.fabs(o.vy(ts) - op.vy(ts))) < tol
-        ), f"Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {py_method} and {c_method}"
-        assert (
-            numpy.amax(numpy.fabs(o.vz(ts) - op.vz(ts))) < tol
-        ), f"Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {py_method} and {c_method}"
+        assert numpy.amax(numpy.fabs(o.x(ts) - op.x(ts))) < tol, (
+            f"Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {py_method} and {c_method}"
+        )
+        assert numpy.amax(numpy.fabs(o.y(ts) - op.y(ts))) < tol, (
+            f"Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {py_method} and {c_method}"
+        )
+        assert numpy.amax(numpy.fabs(o.z(ts) - op.z(ts))) < tol, (
+            f"Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {py_method} and {c_method}"
+        )
+        assert numpy.amax(numpy.fabs(o.vx(ts) - op.vx(ts))) < tol, (
+            f"Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {py_method} and {c_method}"
+        )
+        assert numpy.amax(numpy.fabs(o.vy(ts) - op.vy(ts))) < tol, (
+            f"Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {py_method} and {c_method}"
+        )
+        assert numpy.amax(numpy.fabs(o.vz(ts) - op.vz(ts))) < tol, (
+            f"Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {py_method} and {c_method}"
+        )
         return None
 
     check_orbit(tol=1e-10)
@@ -2182,24 +2182,24 @@ def test_python_vs_c_linacc_changingacc_xyz_accellsrframe_scalaromegaz():
         # In C
         op = o()
         op.integrate(ts, diskpot + framepot, method=c_method)
-        assert (
-            numpy.amax(numpy.fabs(o.x(ts) - op.x(ts))) < tol
-        ), f"Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {py_method} and {c_method}"
-        assert (
-            numpy.amax(numpy.fabs(o.y(ts) - op.y(ts))) < tol
-        ), f"Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {py_method} and {c_method}"
-        assert (
-            numpy.amax(numpy.fabs(o.z(ts) - op.z(ts))) < tol
-        ), f"Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {py_method} and {c_method}"
-        assert (
-            numpy.amax(numpy.fabs(o.vx(ts) - op.vx(ts))) < tol
-        ), f"Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {py_method} and {c_method}"
-        assert (
-            numpy.amax(numpy.fabs(o.vy(ts) - op.vy(ts))) < tol
-        ), f"Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {py_method} and {c_method}"
-        assert (
-            numpy.amax(numpy.fabs(o.vz(ts) - op.vz(ts))) < tol
-        ), f"Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {py_method} and {c_method}"
+        assert numpy.amax(numpy.fabs(o.x(ts) - op.x(ts))) < tol, (
+            f"Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {py_method} and {c_method}"
+        )
+        assert numpy.amax(numpy.fabs(o.y(ts) - op.y(ts))) < tol, (
+            f"Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {py_method} and {c_method}"
+        )
+        assert numpy.amax(numpy.fabs(o.z(ts) - op.z(ts))) < tol, (
+            f"Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {py_method} and {c_method}"
+        )
+        assert numpy.amax(numpy.fabs(o.vx(ts) - op.vx(ts))) < tol, (
+            f"Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {py_method} and {c_method}"
+        )
+        assert numpy.amax(numpy.fabs(o.vy(ts) - op.vy(ts))) < tol, (
+            f"Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {py_method} and {c_method}"
+        )
+        assert numpy.amax(numpy.fabs(o.vz(ts) - op.vz(ts))) < tol, (
+            f"Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {py_method} and {c_method}"
+        )
         return None
 
     check_orbit()
@@ -2243,18 +2243,18 @@ def test_python_vs_c_linacc_changingacc_xyz_accellsrframe_scalaromegaz_2d():
         # In C
         op = o()
         op.integrate(ts, diskpot + framepot, method=c_method)
-        assert (
-            numpy.amax(numpy.fabs(o.x(ts) - op.x(ts))) < tol
-        ), f"Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {py_method} and {c_method}"
-        assert (
-            numpy.amax(numpy.fabs(o.y(ts) - op.y(ts))) < tol
-        ), f"Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {py_method} and {c_method}"
-        assert (
-            numpy.amax(numpy.fabs(o.vx(ts) - op.vx(ts))) < tol
-        ), f"Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {py_method} and {c_method}"
-        assert (
-            numpy.amax(numpy.fabs(o.vy(ts) - op.vy(ts))) < tol
-        ), f"Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {py_method} and {c_method}"
+        assert numpy.amax(numpy.fabs(o.x(ts) - op.x(ts))) < tol, (
+            f"Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {py_method} and {c_method}"
+        )
+        assert numpy.amax(numpy.fabs(o.y(ts) - op.y(ts))) < tol, (
+            f"Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {py_method} and {c_method}"
+        )
+        assert numpy.amax(numpy.fabs(o.vx(ts) - op.vx(ts))) < tol, (
+            f"Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {py_method} and {c_method}"
+        )
+        assert numpy.amax(numpy.fabs(o.vy(ts) - op.vy(ts))) < tol, (
+            f"Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {py_method} and {c_method}"
+        )
         return None
 
     check_orbit()
@@ -2302,24 +2302,24 @@ def test_python_vs_c_linacc_changingacc_xyz_accellsrframe_vecomegaz():
         # In C
         op = o()
         op.integrate(ts, diskpot + framepot, method=c_method)
-        assert (
-            numpy.amax(numpy.fabs(o.x(ts) - op.x(ts))) < tol
-        ), f"Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {py_method} and {c_method}"
-        assert (
-            numpy.amax(numpy.fabs(o.y(ts) - op.y(ts))) < tol
-        ), f"Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {py_method} and {c_method}"
-        assert (
-            numpy.amax(numpy.fabs(o.z(ts) - op.z(ts))) < tol
-        ), f"Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {py_method} and {c_method}"
-        assert (
-            numpy.amax(numpy.fabs(o.vx(ts) - op.vx(ts))) < tol
-        ), f"Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {py_method} and {c_method}"
-        assert (
-            numpy.amax(numpy.fabs(o.vy(ts) - op.vy(ts))) < tol
-        ), f"Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {py_method} and {c_method}"
-        assert (
-            numpy.amax(numpy.fabs(o.vz(ts) - op.vz(ts))) < tol
-        ), f"Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {py_method} and {c_method}"
+        assert numpy.amax(numpy.fabs(o.x(ts) - op.x(ts))) < tol, (
+            f"Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {py_method} and {c_method}"
+        )
+        assert numpy.amax(numpy.fabs(o.y(ts) - op.y(ts))) < tol, (
+            f"Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {py_method} and {c_method}"
+        )
+        assert numpy.amax(numpy.fabs(o.z(ts) - op.z(ts))) < tol, (
+            f"Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {py_method} and {c_method}"
+        )
+        assert numpy.amax(numpy.fabs(o.vx(ts) - op.vx(ts))) < tol, (
+            f"Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {py_method} and {c_method}"
+        )
+        assert numpy.amax(numpy.fabs(o.vy(ts) - op.vy(ts))) < tol, (
+            f"Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {py_method} and {c_method}"
+        )
+        assert numpy.amax(numpy.fabs(o.vz(ts) - op.vz(ts))) < tol, (
+            f"Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {py_method} and {c_method}"
+        )
         return None
 
     check_orbit()
@@ -2366,24 +2366,24 @@ def test_python_vs_c_linacc_changingacc_xyz_accellsrframe_scalarfuncomegaz():
         # In C
         op = o()
         op.integrate(ts, diskpot + framepot, method=c_method)
-        assert (
-            numpy.amax(numpy.fabs(o.x(ts) - op.x(ts))) < tol
-        ), f"Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {py_method} and {c_method}"
-        assert (
-            numpy.amax(numpy.fabs(o.y(ts) - op.y(ts))) < tol
-        ), f"Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {py_method} and {c_method}"
-        assert (
-            numpy.amax(numpy.fabs(o.z(ts) - op.z(ts))) < tol
-        ), f"Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {py_method} and {c_method}"
-        assert (
-            numpy.amax(numpy.fabs(o.vx(ts) - op.vx(ts))) < tol
-        ), f"Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {py_method} and {c_method}"
-        assert (
-            numpy.amax(numpy.fabs(o.vy(ts) - op.vy(ts))) < tol
-        ), f"Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {py_method} and {c_method}"
-        assert (
-            numpy.amax(numpy.fabs(o.vz(ts) - op.vz(ts))) < tol
-        ), f"Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {py_method} and {c_method}"
+        assert numpy.amax(numpy.fabs(o.x(ts) - op.x(ts))) < tol, (
+            f"Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {py_method} and {c_method}"
+        )
+        assert numpy.amax(numpy.fabs(o.y(ts) - op.y(ts))) < tol, (
+            f"Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {py_method} and {c_method}"
+        )
+        assert numpy.amax(numpy.fabs(o.z(ts) - op.z(ts))) < tol, (
+            f"Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {py_method} and {c_method}"
+        )
+        assert numpy.amax(numpy.fabs(o.vx(ts) - op.vx(ts))) < tol, (
+            f"Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {py_method} and {c_method}"
+        )
+        assert numpy.amax(numpy.fabs(o.vy(ts) - op.vy(ts))) < tol, (
+            f"Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {py_method} and {c_method}"
+        )
+        assert numpy.amax(numpy.fabs(o.vz(ts) - op.vz(ts))) < tol, (
+            f"Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {py_method} and {c_method}"
+        )
         return None
 
     check_orbit()
@@ -2434,24 +2434,24 @@ def test_python_vs_c_linacc_changingacc_xyz_accellsrframe_vecomegaz():
         # In C
         op = o()
         op.integrate(ts, diskpot + framepot, method=c_method)
-        assert (
-            numpy.amax(numpy.fabs(o.x(ts) - op.x(ts))) < tol
-        ), f"Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {py_method} and {c_method}"
-        assert (
-            numpy.amax(numpy.fabs(o.y(ts) - op.y(ts))) < tol
-        ), f"Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {py_method} and {c_method}"
-        assert (
-            numpy.amax(numpy.fabs(o.z(ts) - op.z(ts))) < tol
-        ), f"Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {py_method} and {c_method}"
-        assert (
-            numpy.amax(numpy.fabs(o.vx(ts) - op.vx(ts))) < tol
-        ), f"Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {py_method} and {c_method}"
-        assert (
-            numpy.amax(numpy.fabs(o.vy(ts) - op.vy(ts))) < tol
-        ), f"Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {py_method} and {c_method}"
-        assert (
-            numpy.amax(numpy.fabs(o.vz(ts) - op.vz(ts))) < tol
-        ), f"Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {py_method} and {c_method}"
+        assert numpy.amax(numpy.fabs(o.x(ts) - op.x(ts))) < tol, (
+            f"Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {py_method} and {c_method}"
+        )
+        assert numpy.amax(numpy.fabs(o.y(ts) - op.y(ts))) < tol, (
+            f"Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {py_method} and {c_method}"
+        )
+        assert numpy.amax(numpy.fabs(o.z(ts) - op.z(ts))) < tol, (
+            f"Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {py_method} and {c_method}"
+        )
+        assert numpy.amax(numpy.fabs(o.vx(ts) - op.vx(ts))) < tol, (
+            f"Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {py_method} and {c_method}"
+        )
+        assert numpy.amax(numpy.fabs(o.vy(ts) - op.vy(ts))) < tol, (
+            f"Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {py_method} and {c_method}"
+        )
+        assert numpy.amax(numpy.fabs(o.vz(ts) - op.vz(ts))) < tol, (
+            f"Integrating an orbit in a rotating frame in Python does not agree with integrating the same orbit in C; using methods {py_method} and {c_method}"
+        )
         return None
 
     check_orbit()

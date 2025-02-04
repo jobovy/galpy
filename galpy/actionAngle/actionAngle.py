@@ -78,15 +78,15 @@ class actionAngle(metaclass=MetaActionAngle):
 
     def _check_consistent_units(self):
         """Internal function to check that the set of units for this object is consistent with that for the potential"""
-        assert physical_compatible(
-            self, self._pot
-        ), "Physical conversion for the actionAngle object is not consistent with that of the Potential given to it"
+        assert physical_compatible(self, self._pot), (
+            "Physical conversion for the actionAngle object is not consistent with that of the Potential given to it"
+        )
 
     def _check_consistent_units_orbitInput(self, orb):
         """Internal function to check that the set of units for this object is consistent with that for an input orbit"""
-        assert physical_compatible(
-            self, orb
-        ), "Physical conversion for the actionAngle object is not consistent with that of the Orbit given to it"
+        assert physical_compatible(self, orb), (
+            "Physical conversion for the actionAngle object is not consistent with that of the Orbit given to it"
+        )
 
     def turn_physical_off(self):
         """

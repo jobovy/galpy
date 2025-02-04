@@ -114,21 +114,21 @@ def testAxi_phiIsNone():
     z = 0
     phi = 1.1
     scf = SCFPotential()
-    assert scf(R, z, None) == scf(
-        R, z, phi
-    ), "The axisymmetric potential does not work at phi=None"
-    assert scf.dens(R, z, None) == scf.dens(
-        R, z, phi
-    ), "The axisymmetric density does not work at phi=None"
-    assert scf.Rforce(R, z, None) == scf.Rforce(
-        R, z, phi
-    ), "The axisymmetric Rforce does not work at phi=None"
-    assert scf.zforce(R, z, None) == scf.zforce(
-        R, z, phi
-    ), "The axisymmetric zforce does not work at phi=None"
-    assert scf.phitorque(R, z, None) == scf.phitorque(
-        R, z, phi
-    ), "The axisymmetric phitorque does not work at phi=None"
+    assert scf(R, z, None) == scf(R, z, phi), (
+        "The axisymmetric potential does not work at phi=None"
+    )
+    assert scf.dens(R, z, None) == scf.dens(R, z, phi), (
+        "The axisymmetric density does not work at phi=None"
+    )
+    assert scf.Rforce(R, z, None) == scf.Rforce(R, z, phi), (
+        "The axisymmetric Rforce does not work at phi=None"
+    )
+    assert scf.zforce(R, z, None) == scf.zforce(R, z, phi), (
+        "The axisymmetric zforce does not work at phi=None"
+    )
+    assert scf.phitorque(R, z, None) == scf.phitorque(R, z, phi), (
+        "The axisymmetric phitorque does not work at phi=None"
+    )
 
 
 ##Tests user inputs as arrays
@@ -165,9 +165,9 @@ def testArrayBroadcasting():
 def test_scf_compute_spherical_hernquist():
     Acos, Asin = potential.scf_compute_coeffs_spherical(sphericalHernquistDensity, 10)
     spherical_coeffsTest(Acos, Asin)
-    assert (
-        numpy.fabs(Acos[0, 0, 0] - 1.0) < EPS
-    ), f"Acos(n=0,l=0,m=0) = 1 fails. Found to be Acos(n=0,l=0,m=0) = {Acos[0,0,0]}"
+    assert numpy.fabs(Acos[0, 0, 0] - 1.0) < EPS, (
+        f"Acos(n=0,l=0,m=0) = 1 fails. Found to be Acos(n=0,l=0,m=0) = {Acos[0, 0, 0]}"
+    )
     assert numpy.all(numpy.fabs(Acos[1:, 0, 0]) < EPS), "Acos(n>0,l=0,m=0) = 0 fails."
 
 
@@ -175,12 +175,12 @@ def test_scf_compute_spherical_hernquist():
 def test_scf_compute_spherical_zeeuw():
     Acos, Asin = potential.scf_compute_coeffs_spherical(rho_Zeeuw, 10)
     spherical_coeffsTest(Acos, Asin)
-    assert (
-        numpy.fabs(Acos[0, 0, 0] - 2 * 3.0 / 4) < EPS
-    ), f"Acos(n=0,l=0,m=0) = 3/2 fails. Found to be Acos(n=0,l=0,m=0) = {Acos[0,0,0]}"
-    assert (
-        numpy.fabs(Acos[1, 0, 0] - 2 * 1.0 / 12) < EPS
-    ), f"Acos(n=1,l=0,m=0) = 1/6 fails. Found to be Acos(n=0,l=0,m=0) = {Acos[0,0,0]}"
+    assert numpy.fabs(Acos[0, 0, 0] - 2 * 3.0 / 4) < EPS, (
+        f"Acos(n=0,l=0,m=0) = 3/2 fails. Found to be Acos(n=0,l=0,m=0) = {Acos[0, 0, 0]}"
+    )
+    assert numpy.fabs(Acos[1, 0, 0] - 2 * 1.0 / 12) < EPS, (
+        f"Acos(n=1,l=0,m=0) = 1/6 fails. Found to be Acos(n=0,l=0,m=0) = {Acos[0, 0, 0]}"
+    )
     assert numpy.all(numpy.fabs(Acos[2:, 0, 0]) < EPS), "Acos(n>1,l=0,m=0) = 0 fails."
 
 
@@ -207,19 +207,21 @@ def test_scf_compute_axi_density1():
             assert (
                 numpy.fabs(numerically_calculated[n, l] - analytically_calculated[n, l])
                 < EPS
-            ), f"Acos(n={n},l={l},0) = {numerically_calculated[n,l]}, whereas it was analytically calculated to be {analytically_calculated[n,l]}"
+            ), (
+                f"Acos(n={n},l={l},0) = {numerically_calculated[n, l]}, whereas it was analytically calculated to be {analytically_calculated[n, l]}"
+            )
     # Checks that A at l != 0,1,2 are always zero
     assert numpy.all(numpy.fabs(A[0][:, 3:, 0]) < 1e-10), "Acos(n,l>2,m=0) = 0 fails."
 
     # Checks that A at n odd is always zero
-    assert numpy.all(
-        numpy.fabs(A[0][1::2, :, 0]) < 1e-10
-    ), "Acos(n odd,l,m=0) = 0 fails."
+    assert numpy.all(numpy.fabs(A[0][1::2, :, 0]) < 1e-10), (
+        "Acos(n odd,l,m=0) = 0 fails."
+    )
 
     # Checks that A = 0 when n != 0 and l = 0
-    assert numpy.all(
-        numpy.fabs(A[0][1:, 0, 0]) < 1e-10
-    ), "Acos(n > 1,l=0,m=0) = 0 fails."
+    assert numpy.all(numpy.fabs(A[0][1:, 0, 0]) < 1e-10), (
+        "Acos(n > 1,l=0,m=0) = 0 fails."
+    )
 
 
 ##Tests that the numerically calculated results from axi_density2 matches with the analytic results
@@ -249,15 +251,17 @@ def test_scf_compute_axi_density2():
             assert (
                 numpy.fabs(numerically_calculated[n, l] - analytically_calculated[n, l])
                 < EPS
-            ), f"Acos(n={n},l={l},0) = {numerically_calculated[n,l]}, whereas it was analytically calculated to be {analytically_calculated[n,l]}"
+            ), (
+                f"Acos(n={n},l={l},0) = {numerically_calculated[n, l]}, whereas it was analytically calculated to be {analytically_calculated[n, l]}"
+            )
 
     # Checks that A at l != 0,1,2 are always zero
     assert numpy.all(numpy.fabs(A[0][:, 3:, 0]) < 1e-10), "Acos(n,l>2,m=0) = 0 fails."
 
     # Checks that A = 0 when n = 2,4,..,2*n and l = 0
-    assert numpy.all(
-        numpy.fabs(A[0][2::2, 0, 0]) < 1e-10
-    ), "Acos(n > 1,l = 0,m=0) = 0 fails."
+    assert numpy.all(numpy.fabs(A[0][2::2, 0, 0]) < 1e-10), (
+        "Acos(n > 1,l = 0,m=0) = 0 fails."
+    )
 
 
 ## Tests how nbody calculation compares to density calculation for scf_compute_coeff in the spherical case
@@ -417,9 +421,9 @@ def test_nfw_sphericalOrder():
     Acos, Asin = potential.scf_compute_coeffs_spherical(rho_NFW, 10)
     Acos2, Asin2 = potential.scf_compute_coeffs_spherical(rho_NFW, 10, radial_order=50)
 
-    assert numpy.all(
-        numpy.fabs(Acos - Acos2) < EPS
-    ), "Increasing the radial order fails for scf_compute_coeffs_spherical"
+    assert numpy.all(numpy.fabs(Acos - Acos2) < EPS), (
+        "Increasing the radial order fails for scf_compute_coeffs_spherical"
+    )
 
 
 ##Tests radial and costheta order from scf_compute_coeffs_axi
@@ -429,9 +433,9 @@ def test_axi_density1_axiOrder():
         axi_density1, 10, 10, radial_order=50, costheta_order=50
     )
 
-    assert numpy.all(
-        numpy.fabs(Acos - Acos2) < 1e-10
-    ), "Increasing the radial and costheta order fails for scf_compute_coeffs_axi"
+    assert numpy.all(numpy.fabs(Acos - Acos2) < 1e-10), (
+        "Increasing the radial and costheta order fails for scf_compute_coeffs_axi"
+    )
 
 
 ##Tests radial, costheta and phi order from scf_compute_coeffs
@@ -440,13 +444,13 @@ def test_density1_Order():
     Acos2, Asin2 = potential.scf_compute_coeffs(
         density1, 5, 5, radial_order=19, costheta_order=19, phi_order=19
     )
-    assert numpy.all(
-        numpy.fabs(Acos - Acos2) < 1e-3
-    ), "Increasing the radial, costheta, and phi order fails for Acos from scf_compute_coeffs"
+    assert numpy.all(numpy.fabs(Acos - Acos2) < 1e-3), (
+        "Increasing the radial, costheta, and phi order fails for Acos from scf_compute_coeffs"
+    )
 
-    assert numpy.all(
-        numpy.fabs(Asin - Asin) < EPS
-    ), "Increasing the radial, costheta, and phi order fails for Asin from scf_compute_coeffs"
+    assert numpy.all(numpy.fabs(Asin - Asin) < EPS), (
+        "Increasing the radial, costheta, and phi order fails for Asin from scf_compute_coeffs"
+    )
 
 
 ## Tests whether scf_compute_axi reduces to scf_compute_spherical for the Hernquist Potential
@@ -611,7 +615,9 @@ def test_FutureWarning_multid_indexing():
             )
             if raisedWarning:
                 break
-        assert not raisedWarning, "SCFPotential should not raise 'FutureWarning: Using a non-tuple sequence for multidimensional indexing is deprecated ...', but did"
+        assert not raisedWarning, (
+            "SCFPotential should not raise 'FutureWarning: Using a non-tuple sequence for multidimensional indexing is deprecated ...', but did"
+        )
     return None
 
 
@@ -630,7 +636,9 @@ def test_physical_dens_spherical():
             / hp.dens(rs, 0.0, use_physical=False)
         )
         < 1e-10
-    ), "SCF density does not agree with input density when calculated with physical density"
+    ), (
+        "SCF density does not agree with input density when calculated with physical density"
+    )
     return None
 
 
@@ -649,7 +657,9 @@ def test_physical_dens_axi():
             / hp.dens(rs, 0.0, use_physical=False)
         )
         < 1e-10
-    ), "SCF density does not agree with input density when calculated with physical density"
+    ), (
+        "SCF density does not agree with input density when calculated with physical density"
+    )
     return None
 
 
@@ -668,7 +678,9 @@ def test_physical_dens():
             / hp.dens(rs, 0.0, use_physical=False)
         )
         < 1e-10
-    ), "SCF density does not agree with input density when calculated with physical density"
+    ), (
+        "SCF density does not agree with input density when calculated with physical density"
+    )
     return None
 
 
@@ -804,9 +816,9 @@ def compareFunctions(
 ##General function that tests whether coefficients for a spherical density has the expected property
 def spherical_coeffsTest(Acos, Asin, eps=EPS):
     ## We expect Asin to be zero
-    assert Asin is None or numpy.all(
-        numpy.fabs(Asin) < eps
-    ), "Confirming Asin = 0 fails"
+    assert Asin is None or numpy.all(numpy.fabs(Asin) < eps), (
+        "Confirming Asin = 0 fails"
+    )
     ## We expect that the only non-zero values occur at (n,l=0,m=0)
     assert numpy.all(numpy.fabs(Acos[:, 1:, :]) < eps) and numpy.all(
         numpy.fabs(Acos[:, :, 1:]) < eps
@@ -816,13 +828,13 @@ def spherical_coeffsTest(Acos, Asin, eps=EPS):
 ##General function that tests whether coefficients for an axi symmetric density has the expected property
 def axi_coeffsTest(Acos, Asin):
     ## We expect Asin to be zero
-    assert Asin is None or numpy.all(
-        numpy.fabs(Asin) < EPS
-    ), "Confirming Asin = 0 fails"
+    assert Asin is None or numpy.all(numpy.fabs(Asin) < EPS), (
+        "Confirming Asin = 0 fails"
+    )
     ## We expect that the only non-zero values occur at (n,l,m=0)
-    assert numpy.all(
-        numpy.fabs(Acos[:, :, 1:]) < EPS
-    ), "Non Zero value found outside (n,l,m) = (n,0,0)"
+    assert numpy.all(numpy.fabs(Acos[:, :, 1:]) < EPS), (
+        "Non Zero value found outside (n,l,m) = (n,0,0)"
+    )
 
 
 ## Tests whether the coefficients of a spherical density computed using the scf_compute_coeffs_axi reduces to
@@ -833,9 +845,9 @@ def axi_reducesto_spherical(Aspherical, Aaxi, potentialName):
 
     spherical_coeffsTest(Acos_a, Asin_a, eps=1e-10)
     n = min(Acos_s.shape[0], Acos_a.shape[0])
-    assert numpy.all(
-        numpy.fabs(Acos_s[:n, 0, 0] - Acos_a[:n, 0, 0]) < EPS
-    ), f"The axi symmetric Acos(n,l=0,m=0) does not reduce to the spherical Acos(n,l=0,m=0) for {potentialName}"
+    assert numpy.all(numpy.fabs(Acos_s[:n, 0, 0] - Acos_a[:n, 0, 0]) < EPS), (
+        f"The axi symmetric Acos(n,l=0,m=0) does not reduce to the spherical Acos(n,l=0,m=0) for {potentialName}"
+    )
 
 
 ## Tests whether the coefficients of a spherical density computed using the scf_compute_coeffs reduces to
@@ -846,9 +858,9 @@ def reducesto_spherical(Aspherical, A, potentialName):
 
     spherical_coeffsTest(Acos, Asin, eps=1e-10)
     n = min(Acos_s.shape[0], Acos.shape[0])
-    assert numpy.all(
-        numpy.fabs(Acos_s[:n, 0, 0] - Acos[:n, 0, 0]) < EPS
-    ), f"Acos(n,l=0,m=0) as generated by scf_compute_coeffs does not reduce to the spherical Acos(n,l=0,m=0) for {potentialName}"
+    assert numpy.all(numpy.fabs(Acos_s[:n, 0, 0] - Acos[:n, 0, 0]) < EPS), (
+        f"Acos(n,l=0,m=0) as generated by scf_compute_coeffs does not reduce to the spherical Acos(n,l=0,m=0) for {potentialName}"
+    )
 
 
 ## Hernquist potential as a function of r

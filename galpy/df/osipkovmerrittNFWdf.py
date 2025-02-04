@@ -29,7 +29,7 @@ class osipkovmerrittNFWdf(_osipkovmerrittdf):
 
         \\beta(r) = \\frac{1}{1+r_a^2/r^2}
 
-    with :math:`r_a` the anistropy radius.
+    with :math:`r_a` the anisotropy radius.
 
     """
 

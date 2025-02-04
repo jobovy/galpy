@@ -196,7 +196,7 @@ class MN3ExponentialDiskPotential(Potential):
             if ii > 0:
                 out += "#"
             ampl = self._amp * self._mn3[ii]._amp * vo**2.0 * ro
-            out += f"0,{ampl},{self._mn3[ii]._a*ro},{self._mn3[ii]._b*ro}"
+            out += f"0,{ampl},{self._mn3[ii]._a * ro},{self._mn3[ii]._b * ro}"
         return out
 
 
