@@ -1342,6 +1342,16 @@ class Orbit:
             )
         return method
 
+    @staticmethod
+    def _check_array_evenlyspaced(t, method):  # for ODE integrators
+        if method in ["odeint", "dop853", "dop853_c"]:
+            return True
+        else:
+            diffs = numpy.diff(t, axis=-1)
+            return numpy.all(
+                numpy.isclose(diffs, numpy.expand_dims(diffs[..., 0], axis=-1))
+            )
+
     def integrate(
         self,
         t,
@@ -1358,7 +1368,7 @@ class Orbit:
         Parameters
         ----------
         t : list, numpy.ndarray or Quantity
-            List of equispaced times at which to compute the orbit. The initial condition is t[0].
+            List of equispaced times at which to compute the orbit. The initial condition is t[0]. (note that for method='odeint', method='dop853', and method='dop853_c', the time array can be non-equispaced).
         pot : Potential, DissipativeForce or list of such instances
             Gravitational field to integrate the orbit in.
         method : str, optional
@@ -1406,8 +1416,15 @@ class Orbit:
             t = conversion.parse_time(t, ro=self._ro, vo=self._vo)
         else:
             self._integrate_t_asQuantity = False
+        # Check that t is evenly spaced if not using odeint
+        if not self._check_array_evenlyspaced(t, method):
+            raise ValueError(
+                f"Input time array must be equally spaced for method {method}, use method='dop853_c', method='dop853', or method='odeint' instead for non-equispaced time arrays"
+            )
+
         if _APY_LOADED and not dt is None and isinstance(dt, units.Quantity):
             dt = conversion.parse_time(dt, ro=self._ro, vo=self._vo)
+
         from ..potential import MWPotential
 
         if pot == MWPotential:
@@ -1575,7 +1592,7 @@ class Orbit:
         Parameters
         ----------
         psi : list, numpy.ndarray or Quantity
-            Equispaced list of increment angles over which to integrate [increments wrt initial angle].
+            Equispaced list of increment angles over which to integrate [increments wrt initial angle].  (note that for method='odeint', method='dop853', and method='dop853_c', the psi array can be non-equispaced).
         pot : Potential, DissipativeForce or list of such instances
             Gravitational field to integrate the orbit in.
         surface : str, optional
@@ -1619,6 +1636,11 @@ class Orbit:
         # Parse psi
         if _APY_LOADED and isinstance(psi, units.Quantity):
             psi = conversion.parse_angle(psi)
+        # Check that psi is evenly spaced
+        if not self._check_array_evenlyspaced(psi, method):
+            raise ValueError(
+                f"Input psi array must be equally spaced for method {method}, use method='dop853_c', method='dop853', or method='odeint' instead for non-equispaced psi arrays"
+            )
         if _APY_LOADED and isinstance(t0, units.Quantity):
             t0 = conversion.parse_time(t0, ro=self._ro, vo=self._vo)
         self._integrate_t_asQuantity = False
@@ -1727,7 +1749,7 @@ class Orbit:
         dxdv : numpy.ndarray
             Initial conditions for the orbit in cylindrical or rectangular coordinates. The shape of the array should be (\*input_shape, 4).
         t : list, numpy.ndarray or Quantity
-            List of equispaced times at which to compute the orbit. The initial condition is t[0].
+            List of equispaced times at which to compute the orbit. The initial condition is t[0].  (note that for method='odeint', method='dop853', and method='dop853_c', the time array can be non-equispaced).
         pot : Potential, DissipativeForce or list of such instances
             Gravitational field to integrate the orbit in.
         method : str, optional
@@ -1780,6 +1802,11 @@ class Orbit:
             t = conversion.parse_time(t, ro=self._ro, vo=self._vo)
         else:
             self._integrate_t_asQuantity = False
+        # Check that t is evenly spaced
+        if not self._check_array_evenlyspaced(t, method):
+            raise ValueError(
+                f"Input time array must be equally spaced for method {method}, use method='dop853_c', method='dop853', or method='odeint' instead for non-equispaced time arrays"
+            )
         if not dt is None:
             dt = conversion.parse_time(dt, ro=self._ro, vo=self._vo)
         # Parse dxdv
