@@ -8075,6 +8075,91 @@ def test_orbinterp_reset_integratedxdv():
     return None
 
 
+# Test that an error is raised when integration time array is not equally spaced (see #700)
+def test_integrate_notevenlyspaced_issue700():
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential2014
+
+    times = numpy.concatenate(
+        [numpy.linspace(0, 10, 21), numpy.linspace(12.0, 50.0, 20)]
+    )
+    orb = Orbit()
+    # Test that the correct error is raised when the time array is not equally spaced
+    with pytest.raises(ValueError) as excinfo:
+        orb.integrate(times, MWPotential2014, method="symplec6_c")
+    assert (
+        str(excinfo.value)
+        == "Input time array must be equally spaced for method symplec6_c, use method='dop853_c', method='dop853', or method='odeint' instead for non-equispaced time arrays"
+    ), "Input time array must be equally spaced error not raised"
+    # Also test backwards integration
+    with pytest.raises(ValueError) as excinfo:
+        orb.integrate(-times, MWPotential2014, method="symplec6_c")
+    assert (
+        str(excinfo.value)
+        == "Input time array must be equally spaced for method symplec6_c, use method='dop853_c', method='dop853', or method='odeint' instead for non-equispaced time arrays"
+    ), "Input time array must be equally spaced error not raised"
+    # Also test integrate_dxdv
+    with pytest.raises(ValueError) as excinfo:
+        orb.toPlanar().integrate_dxdv(None, times, MWPotential2014, method="dopr54_c")
+    assert (
+        str(excinfo.value)
+        == "Input time array must be equally spaced for method dopr54_c, use method='dop853_c', method='dop853', or method='odeint' instead for non-equispaced time arrays"
+    ), "Input time array must be equally spaced error not raised"
+    # Also test integrateSOS, just use times for psi...
+    with pytest.raises(ValueError) as excinfo:
+        orb.integrate_SOS(times, MWPotential2014, method="dopr54_c")
+    assert (
+        str(excinfo.value)
+        == "Input psi array must be equally spaced for method dopr54_c, use method='dop853_c', method='dop853', or method='odeint' instead for non-equispaced psi arrays"
+    ), "Input time array must be equally spaced error not raised"
+    return None
+
+
+# Test that integrators that should be fine with unevenly-spaced times are fine with it
+def test_integrate_notevenlyspaced_ok():
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential2014
+
+    time_1 = numpy.linspace(0, 50.0, 1001)
+    time_2 = numpy.concatenate(
+        [numpy.linspace(0, 20.0, 1001), numpy.linspace(20.02, 50.0, 1001)]
+    )
+    for integrator in ["odeint", "dop853", "dop853_c"]:
+        o_1 = Orbit()
+        o_1.integrate(time_1, MWPotential2014, method=integrator)
+        o_2 = Orbit()
+        o_2.integrate(time_2, MWPotential2014, method=integrator)
+        assert numpy.all(numpy.fabs(o_1.R(time_1) - o_2.R(time_1)) < 10.0**-5.0), (
+            "Integration with unevenly-spaced times does not work"
+        )
+        assert numpy.all(numpy.fabs(o_1.vR(time_1) - o_2.vR(time_1)) < 10.0**-4.0), (
+            "Integration with unevenly-spaced times does not work"
+        )
+        assert numpy.all(numpy.fabs(o_1.vT(time_1) - o_2.vT(time_1)) < 10.0**-4.0), (
+            "Integration with unevenly-spaced times does not work"
+        )
+    for integrator in [
+        "leapfrog",
+        "leapfrog_c",
+        "symplec4_c",
+        "symplec6_c",
+        "rk4_c",
+        "rk6_c",
+        "dopr54_c",
+        "ias15_c",
+    ]:
+        o_1 = Orbit()
+        o_1.integrate(time_1, MWPotential2014, method=integrator)
+        o_2 = Orbit()
+        with pytest.raises(ValueError) as excinfo:
+            o_2.integrate(time_2, MWPotential2014, method=integrator)
+        assert (
+            str(excinfo.value)
+            == f"Input time array must be equally spaced for method {integrator}, use method='dop853_c', method='dop853', or method='odeint' instead for non-equispaced time arrays"
+        ), f"Input time array must be equally spaced for method{integrator}"
+    return None
+
+
 def test_linear_plotting():
     from galpy.orbit import Orbit
     from galpy.potential.verticalPotential import RZToverticalPotential
