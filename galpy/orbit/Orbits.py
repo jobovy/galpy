@@ -38,6 +38,7 @@ from ..potential import (
     toPlanarPotential,
 )
 from ..potential.DissipativeForce import _isDissipative
+from ..potential.plotEscapecurve import _INF
 from ..potential.Potential import _check_c
 from ..util import conversion, coords, galpyWarning, galpyWarningVerbose, plot
 from ..util._optional_deps import (
@@ -2601,6 +2602,26 @@ class Orbit:
             self._aA = actionAngle.actionAngleSpherical(pot=self._aAPot, **kwargs)
         return None
 
+    def _unbound_indx_and_aAkwargs(self):
+        """Internal function to compute the index of unbound orbits"""
+        if self.dim() == 2:
+            Einf = evaluateplanarPotentials(
+                toPlanarPotential(self._aAPot), _INF, use_physical=False
+            )
+        elif self.dim() == 3:
+            Einf = evaluatePotentials(self._aAPot, _INF, 0.0, use_physical=False)
+        if numpy.isnan(Einf):
+            Einf = numpy.inf  # Just try to proceed as best as possible, don't make assumptions about the potential
+        indx = self.E(pot=self._aAPot, use_physical=False, dontreshape=True) < Einf
+        if hasattr(self._aA, "_delta"):
+            if hasattr(self._aA._delta, "__len__"):
+                aAkwargs = {"delta": self._aA._delta[indx]}
+            else:
+                aAkwargs = {"delta": self._aA._delta}
+        else:
+            aAkwargs = {}
+        return indx, aAkwargs
+
     def _setup_EccZmaxRperiRap(self, pot=None, **kwargs):
         """Internal function to compute e,zmax,rperi,rap and cache it for reuse"""
         self._setupaA(pot=pot, **kwargs)
@@ -2619,19 +2640,34 @@ class Orbit:
             tz = numpy.zeros(self.size)
             tvz = numpy.zeros(self.size)
         # self.dim() == 1 error caught by _setupaA
+        # Exclude unbound orbits (aAkwargs deals with delta processing)
+        indx, aAkwargs = self._unbound_indx_and_aAkwargs()
         (
             self._aA_ecc,
             self._aA_zmax,
             self._aA_rperi,
             self._aA_rap,
-        ) = self._aA.EccZmaxRperiRap(
-            self.R(use_physical=False, dontreshape=True),
-            self.vR(use_physical=False, dontreshape=True),
-            self.vT(use_physical=False, dontreshape=True),
-            tz,
-            tvz,
-            use_physical=False,
+        ) = (
+            numpy.zeros_like(self.R(use_physical=False, dontreshape=True)) + numpy.nan,
+            numpy.zeros_like(self.R(use_physical=False, dontreshape=True)) + numpy.nan,
+            numpy.zeros_like(self.R(use_physical=False, dontreshape=True)) + numpy.nan,
+            numpy.zeros_like(self.R(use_physical=False, dontreshape=True)) + numpy.nan,
         )
+        if numpy.sum(indx) > 0:
+            (
+                self._aA_ecc[indx],
+                self._aA_zmax[indx],
+                self._aA_rperi[indx],
+                self._aA_rap[indx],
+            ) = self._aA.EccZmaxRperiRap(
+                self.R(use_physical=False, dontreshape=True)[indx],
+                self.vR(use_physical=False, dontreshape=True)[indx],
+                self.vT(use_physical=False, dontreshape=True)[indx],
+                tz[indx],
+                tvz[indx],
+                use_physical=False,
+                **aAkwargs,
+            )
         return None
 
     def _setup_actionsFreqsAngles(self, pot=None, **kwargs):
@@ -2652,6 +2688,8 @@ class Orbit:
             tz = numpy.zeros(self.size)
             tvz = numpy.zeros(self.size)
         # self.dim() == 1 error caught by _setupaA
+        # Exclude unbound orbits (aAkwargs deals with delta processing)
+        indx, aAkwargs = self._unbound_indx_and_aAkwargs()
         (
             self._aA_jr,
             self._aA_jp,
@@ -2662,15 +2700,38 @@ class Orbit:
             self._aA_wr,
             self._aA_wp,
             self._aA_wz,
-        ) = self._aA.actionsFreqsAngles(
-            self.R(use_physical=False, dontreshape=True),
-            self.vR(use_physical=False, dontreshape=True),
-            self.vT(use_physical=False, dontreshape=True),
-            tz,
-            tvz,
-            self.phi(use_physical=False, dontreshape=True),
-            use_physical=False,
+        ) = (
+            numpy.zeros_like(self.R(use_physical=False, dontreshape=True)) + numpy.nan,
+            numpy.zeros_like(self.R(use_physical=False, dontreshape=True)) + numpy.nan,
+            numpy.zeros_like(self.R(use_physical=False, dontreshape=True)) + numpy.nan,
+            numpy.zeros_like(self.R(use_physical=False, dontreshape=True)) + numpy.nan,
+            numpy.zeros_like(self.R(use_physical=False, dontreshape=True)) + numpy.nan,
+            numpy.zeros_like(self.R(use_physical=False, dontreshape=True)) + numpy.nan,
+            numpy.zeros_like(self.R(use_physical=False, dontreshape=True)) + numpy.nan,
+            numpy.zeros_like(self.R(use_physical=False, dontreshape=True)) + numpy.nan,
+            numpy.zeros_like(self.R(use_physical=False, dontreshape=True)) + numpy.nan,
         )
+        if numpy.sum(indx) > 0:
+            (
+                self._aA_jr[indx],
+                self._aA_jp[indx],
+                self._aA_jz[indx],
+                self._aA_Or[indx],
+                self._aA_Op[indx],
+                self._aA_Oz[indx],
+                self._aA_wr[indx],
+                self._aA_wp[indx],
+                self._aA_wz[indx],
+            ) = self._aA.actionsFreqsAngles(
+                self.R(use_physical=False, dontreshape=True)[indx],
+                self.vR(use_physical=False, dontreshape=True)[indx],
+                self.vT(use_physical=False, dontreshape=True)[indx],
+                tz[indx],
+                tvz[indx],
+                self.phi(use_physical=False, dontreshape=True)[indx],
+                use_physical=False,
+                **aAkwargs,
+            )
         return None
 
     def _setup_actions(self, pot=None, **kwargs):
@@ -2694,15 +2755,28 @@ class Orbit:
         #    tz = numpy.zeros(self.size)
         #    tvz = numpy.zeros(self.size)
         # self.dim() == 1 error caught by _setupaA
-        self._aA_jr, self._aA_jp, self._aA_jz = self._aA(
-            self.R(use_physical=False, dontreshape=True),
-            self.vR(use_physical=False, dontreshape=True),
-            self.vT(use_physical=False, dontreshape=True),
-            tz,
-            tvz,
-            self.phi(use_physical=False, dontreshape=True),
-            use_physical=False,
+        # Exclude unbound orbits
+        indx, aAkwargs = self._unbound_indx_and_aAkwargs()
+        (
+            self._aA_jr,
+            self._aA_jp,
+            self._aA_jz,
+        ) = (
+            numpy.zeros_like(self.R(use_physical=False, dontreshape=True)) + numpy.nan,
+            numpy.zeros_like(self.R(use_physical=False, dontreshape=True)) + numpy.nan,
+            numpy.zeros_like(self.R(use_physical=False, dontreshape=True)) + numpy.nan,
         )
+        if numpy.sum(indx) > 0:
+            self._aA_jr[indx], self._aA_jp[indx], self._aA_jz[indx] = self._aA(
+                self.R(use_physical=False, dontreshape=True)[indx],
+                self.vR(use_physical=False, dontreshape=True)[indx],
+                self.vT(use_physical=False, dontreshape=True)[indx],
+                tz[indx],
+                tvz[indx],
+                self.phi(use_physical=False, dontreshape=True)[indx],
+                use_physical=False,
+                **aAkwargs,
+            )
         return None
 
     @shapeDecorator
