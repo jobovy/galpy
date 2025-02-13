@@ -83,7 +83,7 @@ class AnySphericalPotential(SphericalPotential):
             lambda r: 4.0
             * numpy.pi
             * integrate.quad(
-                lambda a: a**2 * self._rawdens(a), 0, numpy.atleast_1d(r)[0]
+                lambda a: a**2 * self._rawdens(a), 0, numpy.atleast_1d(r).flatten()[0]
             )[0]
         )
         # The potential at zero, try to figure out whether it's finite
@@ -125,7 +125,9 @@ class AnySphericalPotential(SphericalPotential):
                 - 4.0
                 * numpy.pi
                 * integrate.quad(
-                    lambda a: self._rawdens(a) * a, numpy.atleast_1d(r)[0], numpy.inf
+                    lambda a: self._rawdens(a) * a,
+                    numpy.atleast_1d(r).flatten()[0],
+                    numpy.inf,
                 )[0]
             )
 
