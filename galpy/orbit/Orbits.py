@@ -478,6 +478,46 @@ class Orbit:
                 raise ImportError(
                     "Orbit initialization using an astropy SkyCoord requires astropy >3.0"
                 )
+            # Print warning when SkyCoord doesn't come with values for galcen_distance, z_sun, and galcen_v_sun (issue #709)
+            if (
+                vxvv.z_sun is None
+                or vxvv.galcen_distance is None
+                or vxvv.galcen_v_sun is None
+            ):
+                apy_coordframe_warning = "Supplied SkyCoord does not contain ("
+                apy_coordframe_warning_keywords = ""
+                print_apy_coordframe_warning = 0
+                print_apy_coordframe_warning_dict = {
+                    "are": "is",
+                    "these": "this",
+                    "were": "was",
+                    "values": "value",
+                }
+                if vxvv.galcen_distance is None and ro is None:
+                    apy_coordframe_warning += "galcen_distance, "
+                    apy_coordframe_warning_keywords += "ro, "
+                    print_apy_coordframe_warning += 1
+                if vxvv.z_sun is None and zo is None:
+                    apy_coordframe_warning += "z_sun, "
+                    apy_coordframe_warning_keywords += "zo, "
+                    print_apy_coordframe_warning += 1
+                if vxvv.galcen_v_sun is None and solarmotion is None:
+                    apy_coordframe_warning += "galcen_v_sun, "
+                    apy_coordframe_warning_keywords += "vo, solarmotion, "
+                    print_apy_coordframe_warning += 1
+                if print_apy_coordframe_warning:
+                    if print_apy_coordframe_warning > 1:
+                        print_apy_coordframe_warning_dict = {
+                            "are": "are",
+                            "these": "these",
+                            "were": "were",
+                            "values": "values",
+                        }
+                    warnings.warn(
+                        apy_coordframe_warning[:-2]
+                        + f") and {print_apy_coordframe_warning_dict['these']} {print_apy_coordframe_warning_dict['were']} not explicitly set in the Orbit initialization using the keywords ({apy_coordframe_warning_keywords[:-2]}); {print_apy_coordframe_warning_dict['these']} {print_apy_coordframe_warning_dict['are']} required for Orbit initialization; proceeding with default {print_apy_coordframe_warning_dict['values']}",
+                        galpyWarning,
+                    )
             if zo is None and not vxvv.z_sun is None:
                 zo = vxvv.z_sun.to(units.kpc).value
             elif not vxvv.z_sun is None:
