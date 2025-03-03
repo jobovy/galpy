@@ -9722,3 +9722,184 @@ def test_call_internal_kwargs():
         "Orbit._call_internal(t0) and Orbit._call_internal(t=t0) return different results"
     )
     return None
+
+
+def test_apy_sunkeywords_not_supplied():
+    # Test for issues #709: print warning when a SkyCoord is used to initialize an
+    # Orbit object, but the Sun's position and velocity are not specified through
+    # galcen_distance, galcen_v_sun, and z_sun
+    from astropy import units as u
+    from astropy.coordinates import SkyCoord
+
+    from galpy.orbit import Orbit
+
+    # Just missing galcen_distance
+    vxvv = SkyCoord(
+        ra=1 * u.deg,
+        dec=1 * u.deg,
+        distance=20.8 * u.pc,
+        pm_ra_cosdec=0.0 * u.mas / u.yr,
+        pm_dec=0.0 * u.mas / u.yr,
+        radial_velocity=0.0 * u.km / u.s,
+        # galcen_distance=8.3 * u.kpc,
+        z_sun=0.025 * u.kpc,
+        galcen_v_sun=[-11.1, 220.0, 7.25] * u.km / u.s,
+    )
+    with pytest.warns(galpyWarning) as record:
+        o = Orbit(vxvv)
+    raisedWarning = False
+    for rec in record:
+        # check that the message matches
+        raisedWarning += (
+            str(rec.message.args[0])
+            == "Supplied SkyCoord does not contain (galcen_distance) and this was not explicitly set in the Orbit initialization using the keywords (ro); this is required for Orbit initialization; proceeding with default value"
+        )
+    assert raisedWarning, (
+        "Orbit initialization without galcen_distance should have thrown a warning, but didn't"
+    )
+    # Just missing z_sun
+    vxvv = SkyCoord(
+        ra=1 * u.deg,
+        dec=1 * u.deg,
+        distance=20.8 * u.pc,
+        pm_ra_cosdec=0.0 * u.mas / u.yr,
+        pm_dec=0.0 * u.mas / u.yr,
+        radial_velocity=0.0 * u.km / u.s,
+        galcen_distance=8.3 * u.kpc,
+        # z_sun=0.025 * u.kpc,
+        galcen_v_sun=[-11.1, 220.0, 7.25] * u.km / u.s,
+    )
+    with pytest.warns(galpyWarning) as record:
+        o = Orbit(vxvv)
+    raisedWarning = False
+    for rec in record:
+        # check that the message matches
+        raisedWarning += (
+            str(rec.message.args[0])
+            == "Supplied SkyCoord does not contain (z_sun) and this was not explicitly set in the Orbit initialization using the keywords (zo); this is required for Orbit initialization; proceeding with default value"
+        )
+    assert raisedWarning, (
+        "Orbit initialization without z_sun should have thrown a warning, but didn't"
+    )
+    # Just missing galcen_v_sun
+    vxvv = SkyCoord(
+        ra=1 * u.deg,
+        dec=1 * u.deg,
+        distance=20.8 * u.pc,
+        pm_ra_cosdec=0.0 * u.mas / u.yr,
+        pm_dec=0.0 * u.mas / u.yr,
+        radial_velocity=0.0 * u.km / u.s,
+        galcen_distance=8.3 * u.kpc,
+        z_sun=0.025 * u.kpc,
+        # galcen_v_sun=[-11.1, 220.0, 7.25] * u.km / u.s,
+    )
+    with pytest.warns(galpyWarning) as record:
+        o = Orbit(vxvv)
+    raisedWarning = False
+    for rec in record:
+        # check that the message matches
+        raisedWarning += (
+            str(rec.message.args[0])
+            == "Supplied SkyCoord does not contain (galcen_v_sun) and this was not explicitly set in the Orbit initialization using the keywords (vo, solarmotion); this is required for Orbit initialization; proceeding with default value"
+        )
+    assert raisedWarning, (
+        "Orbit initialization without galcen_v_sun should have thrown a warning, but didn't"
+    )
+    # Missing galcen_distance and z_sun
+    vxvv = SkyCoord(
+        ra=1 * u.deg,
+        dec=1 * u.deg,
+        distance=20.8 * u.pc,
+        pm_ra_cosdec=0.0 * u.mas / u.yr,
+        pm_dec=0.0 * u.mas / u.yr,
+        radial_velocity=0.0 * u.km / u.s,
+        # galcen_distance=8.3 * u.kpc,
+        # z_sun=0.025 * u.kpc,
+        galcen_v_sun=[-11.1, 220.0, 7.25] * u.km / u.s,
+    )
+    with pytest.warns(galpyWarning) as record:
+        o = Orbit(vxvv)
+    raisedWarning = False
+    for rec in record:
+        # check that the message matches
+        raisedWarning += (
+            str(rec.message.args[0])
+            == "Supplied SkyCoord does not contain (galcen_distance, z_sun) and these were not explicitly set in the Orbit initialization using the keywords (ro, zo); these are required for Orbit initialization; proceeding with default values"
+        )
+    assert raisedWarning, (
+        "Orbit initialization without galcen_distance and z_sun should have thrown a warning, but didn't"
+    )
+    # Missing galcen_distance and galcen_v_sun
+    vxvv = SkyCoord(
+        ra=1 * u.deg,
+        dec=1 * u.deg,
+        distance=20.8 * u.pc,
+        pm_ra_cosdec=0.0 * u.mas / u.yr,
+        pm_dec=0.0 * u.mas / u.yr,
+        radial_velocity=0.0 * u.km / u.s,
+        # galcen_distance=8.3 * u.kpc,
+        z_sun=0.025 * u.kpc,
+        # galcen_v_sun=[-11.1, 220.0, 7.25] * u.km / u.s,
+    )
+    with pytest.warns(galpyWarning) as record:
+        o = Orbit(vxvv)
+    raisedWarning = False
+    for rec in record:
+        # check that the message matches
+        raisedWarning += (
+            str(rec.message.args[0])
+            == "Supplied SkyCoord does not contain (galcen_distance, galcen_v_sun) and these were not explicitly set in the Orbit initialization using the keywords (ro, vo, solarmotion); these are required for Orbit initialization; proceeding with default values"
+        )
+    assert raisedWarning, (
+        "Orbit initialization without galcen_distance and galcen_v_sun should have thrown a warning, but didn't"
+    )
+    # Missing z_sun and galcen_v_sun
+    vxvv = SkyCoord(
+        ra=1 * u.deg,
+        dec=1 * u.deg,
+        distance=20.8 * u.pc,
+        pm_ra_cosdec=0.0 * u.mas / u.yr,
+        pm_dec=0.0 * u.mas / u.yr,
+        radial_velocity=0.0 * u.km / u.s,
+        galcen_distance=8.3 * u.kpc,
+        # z_sun=0.025 * u.kpc,
+        # galcen_v_sun=[-11.1, 220.0, 7.25] * u.km / u.s,
+    )
+    with pytest.warns(galpyWarning) as record:
+        o = Orbit(vxvv)
+    raisedWarning = False
+    for rec in record:
+        # check that the message matches
+        raisedWarning += (
+            str(rec.message.args[0])
+            == "Supplied SkyCoord does not contain (z_sun, galcen_v_sun) and these were not explicitly set in the Orbit initialization using the keywords (zo, vo, solarmotion); these are required for Orbit initialization; proceeding with default values"
+        )
+    assert raisedWarning, (
+        "Orbit initialization without z_sun and galcen_v_sun should have thrown a warning, but didn't"
+    )
+    # Missing all: galcen_distance, z_sun, galcen_v_sun
+    vxvv = SkyCoord(
+        ra=1 * u.deg,
+        dec=1 * u.deg,
+        distance=20.8 * u.pc,
+        pm_ra_cosdec=0.0 * u.mas / u.yr,
+        pm_dec=0.0 * u.mas / u.yr,
+        radial_velocity=0.0 * u.km / u.s,
+        # galcen_distance=8.3 * u.kpc,
+        # z_sun=0.025 * u.kpc,
+        # galcen_v_sun=[-11.1, 220.0, 7.25] * u.km / u.s,
+    )
+    with pytest.warns(galpyWarning) as record:
+        o = Orbit(vxvv)
+    raisedWarning = False
+    for rec in record:
+        # check that the message matches
+        raisedWarning += (
+            str(rec.message.args[0])
+            == "Supplied SkyCoord does not contain (galcen_distance, z_sun, galcen_v_sun) and these were not explicitly set in the Orbit initialization using the keywords (ro, zo, vo, solarmotion); these are required for Orbit initialization; proceeding with default values"
+        )
+    assert raisedWarning, (
+        "Orbit initialization without galcen_distance, z_sun, and galcen_v_sun should have thrown a warning, but didn't"
+    )
+
+    return None
