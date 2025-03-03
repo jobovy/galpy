@@ -1,16 +1,26 @@
-v1.10.2 (expected around 2025-03-01)
+v1.10.2 (2025-03-03)
 ====================
 
  - Implemented the IAS15 integrator of Rein & Spiegel 2015.
 
- - Combine the drift calculations in the Python leapfrog integrator (#365).
+ - Speed-up the C implementation of PowerSphericalPotentialwCutoff (#706).
+
+ - Combine the drift calculations in the Python leapfrog integrator for a small
+   speed-up (#690).
+
+- Clarify the use of non-equispaced time arrays in orbit integration (#711).
+
+- Fix the handling of unbound orbits in the Orbit action-angle interface (#712).
 
  - Move the checks for non-axisymmetric and dissipative potentials from internal to
    public potential/force evaluation functions (e.g., from _evaluate[Potentials,
    Rforces, phitorques, zforces] to evaluate[Potentials, Rforces, phitorques, zforces])
    for performance improvements.
 
- - Add an isDissipative attribute to force classes.
+- Add an isDissipative attribute to force classes.
+
+- Print warning when initializing an Orbit with a SkyCoord that does not have the Sun's
+  positional and velocity parameters set (#715).
 
 v1.10.1 (2024-11-01)
 ====================
