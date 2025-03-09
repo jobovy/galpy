@@ -198,14 +198,14 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
       break;
-    case 15: //PowerSphericalPotentialwCutoff, 3 arguments
+    case 15: //PowerSphericalPotentialwCutoff, 5 arguments
       potentialArgs->potentialEval= &PowerSphericalPotentialwCutoffEval;
       potentialArgs->planarRforce= &PowerSphericalPotentialwCutoffPlanarRforce;
       potentialArgs->planarphitorque= &ZeroPlanarForce;
       potentialArgs->planarR2deriv= &PowerSphericalPotentialwCutoffPlanarR2deriv;
       potentialArgs->planarphi2deriv= &ZeroPlanarForce;
       potentialArgs->planarRphideriv= &ZeroPlanarForce;
-      potentialArgs->nargs= 3;
+      potentialArgs->nargs= 5;
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
       break;
