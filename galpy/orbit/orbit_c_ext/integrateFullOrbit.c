@@ -234,7 +234,7 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
       break;
-    case 15: //PowerSphericalwCutoffPotential, 3 arguments
+    case 15: //PowerSphericalwCutoffPotential, 5 arguments
       potentialArgs->potentialEval= &PowerSphericalPotentialwCutoffEval;
       potentialArgs->Rforce= &PowerSphericalPotentialwCutoffRforce;
       potentialArgs->zforce= &PowerSphericalPotentialwCutoffzforce;
@@ -243,7 +243,7 @@ void parse_leapFuncArgs_Full(int npot,
       //potentialArgs->R2deriv= &PowerSphericalPotentialR2deriv;
       //potentialArgs->planarphi2deriv= &ZeroForce;
       //potentialArgs->planarRphideriv= &ZeroForce;
-      potentialArgs->nargs= 3;
+      potentialArgs->nargs= 5;
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
       break;

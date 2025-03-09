@@ -138,6 +138,7 @@ def _parse_pot(pot, potforactions=False, potfortorus=False):
         elif isinstance(p, potential.PowerSphericalPotentialwCutoff):
             pot_type.append(15)
             pot_args.extend([p._amp, p.alpha, p.rc])
+            pot_args.extend([0.0, 0.0])  # for caching
         elif isinstance(p, potential.MN3ExponentialDiskPotential):
             # Three Miyamoto-Nagai disks
             npot += 2
