@@ -72,9 +72,9 @@ double PowerSphericalPotentialwCutoffPlanarR2deriv(double R,double phi,
 						   struct potentialArg * potentialArgs){
   double * args= potentialArgs->args;
   //Get args
-  double amp= *args++;
-  double alpha= *args++;
-  double rc= *args;
+  double amp= *args;
+  double alpha= *(args + 1);
+  double rc= *(args + 2);
   //Radius
   double r2= R*R;
   //Calculate R2deriv
