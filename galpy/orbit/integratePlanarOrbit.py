@@ -191,6 +191,7 @@ def _parse_pot(pot):
         ):
             pot_type.append(15)
             pot_args.extend([p._Pot._amp, p._Pot.alpha, p._Pot.rc])
+            pot_args.extend([0.0, 0.0])  # for caching
         elif isinstance(p, planarPotentialFromRZPotential) and isinstance(
             p._Pot, potential.MN3ExponentialDiskPotential
         ):
