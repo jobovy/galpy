@@ -29,11 +29,11 @@ with open("README.md") as dfile:
             long_description += line
         previous_line = line
 
-# Parse options; current options
-# --no-openmp: compile without OpenMP support
-# --coverage: compile with gcov support
-# --compiler= set the compiler by hand
-# --single_ext: compile all of the C code into a single extension (just for testing, do not use this)
+# Parse options that now have to be passed as environment variables; current options
+# GALPY_COMPILE_NO_OPENMP=1: compile without OpenMP support
+# GALPY_COMPILE_COVERAGE=1: compile with gcov support
+# GALPY_COMPILE_SINGLE_EXT=1: compile all of the C code into a single extension (just for testing, do not use this)
+# GALPY_COMPILE_NO_EXT=1: do not compile any C extensions (just for testing, do not use this)
 
 galpy_c_libraries = ["m", "gsl", "gslcblas", "gomp"]
 
@@ -44,47 +44,26 @@ if WIN32:
     galpy_c_libraries.remove("gomp")
 
 # Option to forego OpenMP
-try:
-    openmp_pos = sys.argv.index("--no-openmp")
-except ValueError:
-    if "PYODIDE" in os.environ:
-        extra_compile_args = ["-DNO_OMP"]
-        galpy_c_libraries.remove("gomp")
-    else:
-        extra_compile_args = ["-fopenmp" if not WIN32 else "/openmp"]
-else:
-    del sys.argv[openmp_pos]
+_NO_OPENMP = os.environ.get("GALPY_COMPILE_NO_OPENMP", "0") == "1"
+if _NO_OPENMP or "PYODIDE" in os.environ:
     extra_compile_args = ["-DNO_OMP"]
-    if not WIN32:  # Because windows guarantee do not have 'gomp' in the list
+    if not WIN32:  # Because on Windows guaranteed to not have 'gomp' in the list
         galpy_c_libraries.remove("gomp")
+else:
+    extra_compile_args = ["-fopenmp" if not WIN32 else "/openmp"]
 
 # Option to track coverage
-try:
-    coverage_pos = sys.argv.index("--coverage")
-except ValueError:
-    extra_link_args = []
-else:
-    del sys.argv[coverage_pos]
+if os.environ.get("GALPY_COMPILE_COVERAGE", "0") == "1":
     extra_compile_args.extend(["-O0", "--coverage", "-D USING_COVERAGE"])
     extra_link_args = ["--coverage"]
+else:
+    extra_link_args = []
 
 # Option to compile everything into a single extension
-try:
-    single_ext_pos = sys.argv.index("--single_ext")
-except ValueError:
-    single_ext = False
-else:
-    del sys.argv[single_ext_pos]
-    single_ext = True
+single_ext = os.environ.get("GALPY_COMPILE_SINGLE_EXT", "0") == "1"
 
 # Option to not compile any extension
-try:
-    no_ext_pos = sys.argv.index("--no_ext")
-except ValueError:
-    no_ext = False
-else:
-    del sys.argv[no_ext_pos]
-    no_ext = True
+no_ext = os.environ.get("GALPY_COMPILE_NO_EXT", "0") == "1"
 
 # code to check the GSL version; list cmd w/ shell=True only works on Windows
 # (https://docs.python.org/3/library/subprocess.html#converting-argument-sequence)

@@ -295,9 +295,13 @@ jobs:
          fi
     - name: Install package
       if: matrix.os == 'ubuntu-latest'
+      env:
+        GALPY_COMPILE_NO_OPENMP: 1
+        GALPY_COMPILE_COVERAGE: 1
+        GALPY_COMPILE_SINGLE_EXT: 1
       run: |
-        python setup.py build_ext --no-openmp --coverage --single_ext --inplace
-        python setup.py develop --single_ext
+        python -m pip install --no-build-isolation -ve .
+        python setup.py build_ext --inplace
     - name: Install package
       if: matrix.os == 'macos-13'
       run: |
