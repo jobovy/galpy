@@ -536,14 +536,14 @@ I'm having issues with OpenMP
 
 galpy uses `OpenMP <http://www.openmp.org/>`_ to parallelize various
 of the computations done in C. galpy can be installed without OpenMP
-by specifying the option ``--no-openmp`` when running the installation
-commands above::
+by setting the environment variable ``GALPY_COMPILE_NO_OPENMP=1`` before
+running the installation commands above::
 
-	   pip install . --install-option="--no-openmp"
+	   export GALPY_COMPILE_NO_OPENMP=1 && pip install .
 
 or when using pip as follows::
 
-    pip install -U --no-deps --install-option="--no-openmp" git+https://github.com/jobovy/galpy.git#egg=galpy
+    export GALPY_COMPILE_NO_OPENMP=1 && pip install -U --no-deps git+https://github.com/jobovy/galpy.git#egg=galpy
 
 This might be useful if one is using the
 ``clang`` compiler, which is the new default on macs with OS X (>=
@@ -558,7 +558,7 @@ If you get these errors, you can use the commands given above to
 install without OpenMP, or specify to use ``gcc`` by specifying the
 ``CC`` and ``LDSHARED`` environment variables to use ``gcc``. Note that recent
 versions of ``galpy`` attempt to automatically detect OpenMP support, so using
-``--no-openmp`` should not typically be necessary even on Macs.
+``GALPY_COMPILE_NO_OPENMP`` should not typically be necessary even on Macs.
 
 .. _configfile:
 
