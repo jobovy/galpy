@@ -108,7 +108,9 @@ class TwoPowerSphericalPotential(Potential):
                 / (self.alpha - 2.0)
             )
         else:
-            r = numpy.sqrt(R**2.0 + z**2.0) + 1e-11  # avoid division by zero and numerical instability of the hyp2f1 function
+            r = (
+                numpy.sqrt(R**2.0 + z**2.0) + 1e-11
+            )  # avoid division by zero and numerical instability of the hyp2f1 function
             return (
                 special.gamma(self.beta - 3.0)
                 * (
