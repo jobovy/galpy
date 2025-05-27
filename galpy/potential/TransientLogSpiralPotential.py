@@ -4,10 +4,13 @@
 import numpy
 from ..util import conversion
 from .planarPotential import planarPotential
-_degtorad= numpy.pi/180.
+
+_degtorad = numpy.pi / 180.0
+
+
 class TransientLogSpiralPotential(planarPotential):
     """Class that implements a steady-state spiral potential
-    
+
     .. math::
 
         \\Phi(R,\\phi) = \\frac{\\mathrm{amp}(t)}{\\alpha}\\,\\cos\\left(\\alpha\\,\\ln R - m\\,(\\phi-\\Omega_s\\,t-\\gamma)\\right)
@@ -19,9 +22,21 @@ class TransientLogSpiralPotential(planarPotential):
         \\mathrm{amp}(t) = \\mathrm{amp}\\,\\times A\\,\\exp\\left(-\\frac{[t-t_0]^2}{2\\,\\sigma^2}\\right)
 
     """
-    def __init__(self,amp=1.,omegas=0.65,A=-0.035,
-                 alpha=-7.,m=2,gamma=numpy.pi/4.,p=None,
-                 sigma=1.,to=0.,ro=None,vo=None):
+
+    def __init__(
+        self,
+        amp=1.0,
+        omegas=0.65,
+        A=-0.035,
+        alpha=-7.0,
+        m=2,
+        gamma=numpy.pi / 4.0,
+        p=None,
+        sigma=1.0,
+        to=0.0,
+        ro=None,
+        vo=None,
+    ):
         """
         NAME:
 
@@ -29,7 +44,7 @@ class TransientLogSpiralPotential(planarPotential):
 
         PURPOSE:
 
-           initialize a transient logarithmic spiral potential localized 
+           initialize a transient logarithmic spiral potential localized
            around to
 
         INPUT:
@@ -38,23 +53,23 @@ class TransientLogSpiralPotential(planarPotential):
            1., A below)
 
            gamma - angle between sun-GC line and the line connecting the peak of the spiral pattern at the Solar radius (in rad; default=45 degree; can be Quantity)
-        
+
            A - amplitude (alpha*potential-amplitude; default=0.035; can be Quantity)
 
            omegas= - pattern speed (default=0.65; can be Quantity)
 
            m= number of arms
-           
+
            to= time at which the spiral peaks (can be Quantity)
 
            sigma= "spiral duration" (sigma in Gaussian amplitude; can be Quantity)
-           
+
            Either provide:
 
               a) alpha=
-               
+
               b) p= pitch angle (rad; can be Quantity)
-              
+
         OUTPUT:
 
            (none)
@@ -64,26 +79,26 @@ class TransientLogSpiralPotential(planarPotential):
            2011-03-27 - Started - Bovy (NYU)
 
         """
-        planarPotential.__init__(self,amp=amp,ro=ro,vo=vo)
-        gamma= conversion.parse_angle(gamma)
-        p= conversion.parse_angle(p)
-        A= conversion.parse_energy(A,vo=self._vo)
-        omegas= conversion.parse_frequency(omegas,ro=self._ro,vo=self._vo)
-        to= conversion.parse_time(to,ro=self._ro,vo=self._vo)
-        sigma= conversion.parse_time(sigma,ro=self._ro,vo=self._vo)
-        self._omegas= omegas
-        self._A= A
-        self._m= m
-        self._gamma= gamma
-        self._to= to
-        self._sigma2= sigma**2.
+        planarPotential.__init__(self, amp=amp, ro=ro, vo=vo)
+        gamma = conversion.parse_angle(gamma)
+        p = conversion.parse_angle(p)
+        A = conversion.parse_energy(A, vo=self._vo)
+        omegas = conversion.parse_frequency(omegas, ro=self._ro, vo=self._vo)
+        to = conversion.parse_time(to, ro=self._ro, vo=self._vo)
+        sigma = conversion.parse_time(sigma, ro=self._ro, vo=self._vo)
+        self._omegas = omegas
+        self._A = A
+        self._m = m
+        self._gamma = gamma
+        self._to = to
+        self._sigma2 = sigma**2.0
         if not p is None:
-            self._alpha= self._m/numpy.tan(p)
+            self._alpha = self._m / numpy.tan(p)
         else:
-            self._alpha= alpha
-        self.hasC= True
+            self._alpha = alpha
+        self.hasC = True
 
-    def _evaluate(self,R,phi=0.,t=0.):
+    def _evaluate(self, R, phi=0.0, t=0.0):
         """
         NAME:
            _evaluate
@@ -98,11 +113,17 @@ class TransientLogSpiralPotential(planarPotential):
         HISTORY:
            2011-03-27 - Started - Bovy (NYU)
         """
-        return self._A*numpy.exp(-(t-self._to)**2./2./self._sigma2)\
-            /self._alpha*numpy.cos(self._alpha*numpy.log(R)
-                                  -self._m*(phi-self._omegas*t-self._gamma))
+        return (
+            self._A
+            * numpy.exp(-((t - self._to) ** 2.0) / 2.0 / self._sigma2)
+            / self._alpha
+            * numpy.cos(
+                self._alpha * numpy.log(R)
+                - self._m * (phi - self._omegas * t - self._gamma)
+            )
+        )
 
-    def _Rforce(self,R,phi=0.,t=0.):
+    def _Rforce(self, R, phi=0.0, t=0.0):
         """
         NAME:
            _Rforce
@@ -117,11 +138,17 @@ class TransientLogSpiralPotential(planarPotential):
         HISTORY:
            2010-11-24 - Written - Bovy (NYU)
         """
-        return self._A*numpy.exp(-(t-self._to)**2./2./self._sigma2)\
-            /R*numpy.sin(self._alpha*numpy.log(R)
-                        -self._m*(phi-self._omegas*t-self._gamma))
-    
-    def _phitorque(self,R,phi=0.,t=0.):
+        return (
+            self._A
+            * numpy.exp(-((t - self._to) ** 2.0) / 2.0 / self._sigma2)
+            / R
+            * numpy.sin(
+                self._alpha * numpy.log(R)
+                - self._m * (phi - self._omegas * t - self._gamma)
+            )
+        )
+
+    def _phitorque(self, R, phi=0.0, t=0.0):
         """
         NAME:
            _phitorque
@@ -136,10 +163,16 @@ class TransientLogSpiralPotential(planarPotential):
         HISTORY:
            2010-11-24 - Written - Bovy (NYU)
         """
-        return -self._A*numpy.exp(-(t-self._to)**2./2./self._sigma2)\
-            /self._alpha*self._m*numpy.sin(self._alpha*numpy.log(R)
-                                          -self._m*(phi-self._omegas*t
-                                                    -self._gamma))
+        return (
+            -self._A
+            * numpy.exp(-((t - self._to) ** 2.0) / 2.0 / self._sigma2)
+            / self._alpha
+            * self._m
+            * numpy.sin(
+                self._alpha * numpy.log(R)
+                - self._m * (phi - self._omegas * t - self._gamma)
+            )
+        )
 
     def OmegaP(self):
         """

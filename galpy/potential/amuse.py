@@ -5,14 +5,17 @@ from amuse.units.quantities import ScalarQuantity
 from amuse.support.literature import LiteratureReferencesMixIn
 from .. import potential
 from ..util import conversion
+
+
 class galpy_profile(LiteratureReferencesMixIn):
     """
     User-defined potential from galpy
-    
+
     .. [#] Bovy, J, 2015, galpy: A Python Library for Galactic Dynamics, Astrophys. J. Supp. 216, 29 [2015ApJS..216...29B]
-    
+
     """
-    def __init__(self,pot,t = 0.,tgalpy = 0.,ro=8,vo=220.,reverse=False):
+
+    def __init__(self, pot, t=0.0, tgalpy=0.0, ro=8, vo=220.0, reverse=False):
         """
         NAME:
 
@@ -44,25 +47,26 @@ class galpy_profile(LiteratureReferencesMixIn):
 
         """
         LiteratureReferencesMixIn.__init__(self)
-        self.pot= pot
-        self.ro= ro
-        self.vo= vo
-        self.reverse= reverse
-        #Initialize model time
-        if isinstance(t,ScalarQuantity):
-            self.model_time= t
+        self.pot = pot
+        self.ro = ro
+        self.vo = vo
+        self.reverse = reverse
+        # Initialize model time
+        if isinstance(t, ScalarQuantity):
+            self.model_time = t
         else:
-            self.model_time= \
-                t*conversion.time_in_Gyr(ro=self.ro,vo=self.vo) \
-                | units.Gyr
-        #Initialize galpy time
-        if isinstance(tgalpy,ScalarQuantity):
-            self.tgalpy= tgalpy.value_in(units.Gyr)\
-                /conversion.time_in_Gyr(ro=self.ro,vo=self.vo)
+            self.model_time = (
+                t * conversion.time_in_Gyr(ro=self.ro, vo=self.vo) | units.Gyr
+            )
+        # Initialize galpy time
+        if isinstance(tgalpy, ScalarQuantity):
+            self.tgalpy = tgalpy.value_in(units.Gyr) / conversion.time_in_Gyr(
+                ro=self.ro, vo=self.vo
+            )
         else:
-            self.tgalpy= tgalpy
+            self.tgalpy = tgalpy
 
-    def evolve_model(self,time):
+    def evolve_model(self, time):
         """
         NAME:
            evolve_model
@@ -75,16 +79,18 @@ class galpy_profile(LiteratureReferencesMixIn):
         HISTORY:
            2019-08-12 - Written - Webb (UofT)
         """
-        dt= time-self.model_time
-        self.model_time= time  
+        dt = time - self.model_time
+        self.model_time = time
         if self.reverse:
-            self.tgalpy-= dt.value_in(units.Gyr)\
-                /conversion.time_in_Gyr(ro=self.ro,vo=self.vo)
+            self.tgalpy -= dt.value_in(units.Gyr) / conversion.time_in_Gyr(
+                ro=self.ro, vo=self.vo
+            )
         else:
-            self.tgalpy+= dt.value_in(units.Gyr)\
-                /conversion.time_in_Gyr(ro=self.ro,vo=self.vo)
+            self.tgalpy += dt.value_in(units.Gyr) / conversion.time_in_Gyr(
+                ro=self.ro, vo=self.vo
+            )
 
-    def get_potential_at_point(self,eps,x,y,z):
+    def get_potential_at_point(self, eps, x, y, z):
         """
         NAME:
            get_potential_at_point
@@ -99,16 +105,22 @@ class galpy_profile(LiteratureReferencesMixIn):
            2019-08-12 - Written - Webb (UofT)
            2019-11-06 - added physical compatibility - Starkman (UofT)
         """
-        R= numpy.sqrt(x.value_in(units.kpc)**2.+y.value_in(units.kpc)**2.)
-        zed= z.value_in(units.kpc)
-        phi= numpy.arctan2(y.value_in(units.kpc),x.value_in(units.kpc))
-        res= potential.evaluatePotentials(self.pot,R/self.ro,zed/self.ro,
-                                          phi=phi,t=self.tgalpy,
-                                          ro=self.ro,vo=self.vo,
-                                          use_physical=False)
+        R = numpy.sqrt(x.value_in(units.kpc) ** 2.0 + y.value_in(units.kpc) ** 2.0)
+        zed = z.value_in(units.kpc)
+        phi = numpy.arctan2(y.value_in(units.kpc), x.value_in(units.kpc))
+        res = potential.evaluatePotentials(
+            self.pot,
+            R / self.ro,
+            zed / self.ro,
+            phi=phi,
+            t=self.tgalpy,
+            ro=self.ro,
+            vo=self.vo,
+            use_physical=False,
+        )
         return res * self.vo**2 | units.kms**2
 
-    def get_gravity_at_point(self,eps,x,y,z):
+    def get_gravity_at_point(self, eps, x, y, z):
         """
         NAME:
            get_gravity_at_point
@@ -123,34 +135,49 @@ class galpy_profile(LiteratureReferencesMixIn):
            2019-08-12 - Written - Webb (UofT)
            2019-11-06 - added physical compatibility - Starkman (UofT)
         """
-        R= numpy.sqrt(x.value_in(units.kpc)**2.+y.value_in(units.kpc)**2.)
-        zed= z.value_in(units.kpc)
-        phi= numpy.arctan2(y.value_in(units.kpc),x.value_in(units.kpc))
+        R = numpy.sqrt(x.value_in(units.kpc) ** 2.0 + y.value_in(units.kpc) ** 2.0)
+        zed = z.value_in(units.kpc)
+        phi = numpy.arctan2(y.value_in(units.kpc), x.value_in(units.kpc))
         # Cylindrical force
-        Rforce= potential.evaluateRforces(self.pot,R/self.ro,zed/self.ro,
-                                          phi=phi,t=self.tgalpy,
-                                          use_physical=False)
-        phitorque= potential.evaluatephitorques(self.pot,R/self.ro,zed/self.ro,
-                                              phi=phi,t=self.tgalpy,
-                                              use_physical=False)\
-                                              /(R/self.ro)
-        zforce=potential.evaluatezforces(self.pot,R/self.ro,zed/self.ro,
-                                         phi=phi,t=self.tgalpy,
-                                         use_physical=False)
+        Rforce = potential.evaluateRforces(
+            self.pot,
+            R / self.ro,
+            zed / self.ro,
+            phi=phi,
+            t=self.tgalpy,
+            use_physical=False,
+        )
+        phitorque = potential.evaluatephitorques(
+            self.pot,
+            R / self.ro,
+            zed / self.ro,
+            phi=phi,
+            t=self.tgalpy,
+            use_physical=False,
+        ) / (R / self.ro)
+        zforce = potential.evaluatezforces(
+            self.pot,
+            R / self.ro,
+            zed / self.ro,
+            phi=phi,
+            t=self.tgalpy,
+            use_physical=False,
+        )
         # Convert cylindrical force --> rectangular
-        cp, sp= numpy.cos(phi), numpy.sin(phi)
-        ax= (Rforce*cp - phitorque*sp)\
-            *conversion.force_in_kmsMyr(ro=self.ro,vo=self.vo) \
+        cp, sp = numpy.cos(phi), numpy.sin(phi)
+        ax = (Rforce * cp - phitorque * sp) * conversion.force_in_kmsMyr(
+            ro=self.ro, vo=self.vo
+        ) | units.kms / units.Myr
+        ay = (Rforce * sp + phitorque * cp) * conversion.force_in_kmsMyr(
+            ro=self.ro, vo=self.vo
+        ) | units.kms / units.Myr
+        az = (
+            zforce * conversion.force_in_kmsMyr(ro=self.ro, vo=self.vo)
             | units.kms / units.Myr
-        ay= (Rforce*sp + phitorque*cp)\
-            *conversion.force_in_kmsMyr(ro=self.ro,vo=self.vo) \
-            | units.kms / units.Myr
-        az= zforce\
-            *conversion.force_in_kmsMyr(ro=self.ro,vo=self.vo) \
-            | units.kms / units.Myr
-        return ax,ay,az
+        )
+        return ax, ay, az
 
-    def mass_density(self,x,y,z):
+    def mass_density(self, x, y, z):
         """
         NAME:
            mass_density
@@ -165,17 +192,22 @@ class galpy_profile(LiteratureReferencesMixIn):
            2019-08-12 - Written - Webb (UofT)
            2019-11-06 - added physical compatibility - Starkman (UofT)
         """
-        R= numpy.sqrt(x.value_in(units.kpc)**2.+y.value_in(units.kpc)**2.)
-        zed= z.value_in(units.kpc)
-        phi= numpy.arctan2(y.value_in(units.kpc),x.value_in(units.kpc))
-        res= (potential.evaluateDensities(self.pot,R/self.ro,zed/self.ro,
-                                          phi=phi,t=self.tgalpy,
-                                          ro=self.ro,vo=self.vo,
-                                          use_physical=False) *
-              conversion.dens_in_msolpc3(self.vo,self.ro))
+        R = numpy.sqrt(x.value_in(units.kpc) ** 2.0 + y.value_in(units.kpc) ** 2.0)
+        zed = z.value_in(units.kpc)
+        phi = numpy.arctan2(y.value_in(units.kpc), x.value_in(units.kpc))
+        res = potential.evaluateDensities(
+            self.pot,
+            R / self.ro,
+            zed / self.ro,
+            phi=phi,
+            t=self.tgalpy,
+            ro=self.ro,
+            vo=self.vo,
+            use_physical=False,
+        ) * conversion.dens_in_msolpc3(self.vo, self.ro)
         return res | units.MSun / units.parsec**3
 
-    def circular_velocity(self,r):
+    def circular_velocity(self, r):
         """
         NAME:
            circular_velocity
@@ -189,12 +221,18 @@ class galpy_profile(LiteratureReferencesMixIn):
            2019-08-12 - Written - Webb (UofT)
            2019-11-06 - added physical compatibility - Starkman (UofT)
         """
-        res= potential.vcirc(self.pot,r.value_in(units.kpc)/self.ro,phi=0,
-                             t=self.tgalpy,ro=self.ro,vo=self.vo,
-                             use_physical=False)
+        res = potential.vcirc(
+            self.pot,
+            r.value_in(units.kpc) / self.ro,
+            phi=0,
+            t=self.tgalpy,
+            ro=self.ro,
+            vo=self.vo,
+            use_physical=False,
+        )
         return res * self.vo | units.kms
 
-    def enclosed_mass(self,r):
+    def enclosed_mass(self, r):
         """
         NAME:
            enclosed_mass
@@ -208,11 +246,19 @@ class galpy_profile(LiteratureReferencesMixIn):
            2019-08-12 - Written - Webb (UofT)
            2019-11-06 - added physical compatibility - Starkman (UofT)
         """
-        vc= potential.vcirc(self.pot,r.value_in(units.kpc)/self.ro,phi=0,
-                            t=self.tgalpy,ro=self.ro,vo=self.vo,
-                            use_physical=False) * self.vo
-        return (vc**2.)*r.value_in(units.parsec)/conversion._G \
-            | units.MSun
+        vc = (
+            potential.vcirc(
+                self.pot,
+                r.value_in(units.kpc) / self.ro,
+                phi=0,
+                t=self.tgalpy,
+                ro=self.ro,
+                vo=self.vo,
+                use_physical=False,
+            )
+            * self.vo
+        )
+        return (vc**2.0) * r.value_in(units.parsec) / conversion._G | units.MSun
 
     def stop(self):
         """

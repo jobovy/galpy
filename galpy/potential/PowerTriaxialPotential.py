@@ -11,6 +11,8 @@
 import numpy
 from ..util import conversion
 from .EllipsoidalPotential import EllipsoidalPotential
+
+
 class PowerTriaxialPotential(EllipsoidalPotential):
     """Class that implements triaxial potentials that are derived from power-law density models (including an elliptical power law)
 
@@ -20,9 +22,21 @@ class PowerTriaxialPotential(EllipsoidalPotential):
 
     where :math:`m^2 = x^2+y^2/b^2+z^2/c^2`.
     """
-    def __init__(self,amp=1.,alpha=1.,r1=1.,b=1.,c=1.,
-                 zvec=None,pa=None,glorder=50,
-                 normalize=False,ro=None,vo=None):
+
+    def __init__(
+        self,
+        amp=1.0,
+        alpha=1.0,
+        r1=1.0,
+        b=1.0,
+        c=1.0,
+        zvec=None,
+        pa=None,
+        glorder=50,
+        normalize=False,
+        ro=None,
+        vo=None,
+    ):
         """
         NAME:
 
@@ -61,33 +75,42 @@ class PowerTriaxialPotential(EllipsoidalPotential):
            2021-05-07 - Started - Bovy (UofT)
 
         """
-        EllipsoidalPotential.__init__(self,amp=amp,b=b,c=c,
-                                      zvec=zvec,pa=pa,glorder=glorder,
-                                      ro=ro,vo=vo,amp_units='mass')
-        r1= conversion.parse_length(r1,ro=self._ro)
-        self.alpha= alpha
+        EllipsoidalPotential.__init__(
+            self,
+            amp=amp,
+            b=b,
+            c=c,
+            zvec=zvec,
+            pa=pa,
+            glorder=glorder,
+            ro=ro,
+            vo=vo,
+            amp_units="mass",
+        )
+        r1 = conversion.parse_length(r1, ro=self._ro)
+        self.alpha = alpha
         # Back to old definition
-        if self.alpha != 3.:
-            self._amp*= r1**(self.alpha-3.)*4.*numpy.pi/(3.-self.alpha)
+        if self.alpha != 3.0:
+            self._amp *= r1 ** (self.alpha - 3.0) * 4.0 * numpy.pi / (3.0 - self.alpha)
         # Multiply in constants
-        self._amp*= (3.-self.alpha)/4./numpy.pi
-        if normalize or \
-                (isinstance(normalize,(int,float)) \
-                     and not isinstance(normalize,bool)): #pragma: no cover
+        self._amp *= (3.0 - self.alpha) / 4.0 / numpy.pi
+        if normalize or (
+            isinstance(normalize, (int, float)) and not isinstance(normalize, bool)
+        ):  # pragma: no cover
             self.normalize(normalize)
-        self.hasC= not self._glorder is None
-        self.hasC_dxdv= False
-        self.hasC_dens= self.hasC # works if mdens is defined, necessary for hasC
+        self.hasC = not self._glorder is None
+        self.hasC_dxdv = False
+        self.hasC_dens = self.hasC  # works if mdens is defined, necessary for hasC
         return None
 
-    def _psi(self,m):
+    def _psi(self, m):
         """\\psi(m) = -\\int_m^\\infty d m^2 \rho(m^2)"""
-        return 2./(2.-self.alpha)*m**(2.-self.alpha)
+        return 2.0 / (2.0 - self.alpha) * m ** (2.0 - self.alpha)
 
-    def _mdens(self,m):
+    def _mdens(self, m):
         """Density as a function of m"""
         return m**-self.alpha
 
-    def _mdens_deriv(self,m):
+    def _mdens_deriv(self, m):
         """Derivative of the density as a function of m"""
-        return -self.alpha*m**-(1.+self.alpha)
+        return -self.alpha * m ** -(1.0 + self.alpha)

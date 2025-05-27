@@ -45,11 +45,11 @@
 #
 ##############################################################################
 #############################################################################
-#Copyright (c) 2010 - 2020, Jo Bovy
-#All rights reserved.
+# Copyright (c) 2010 - 2020, Jo Bovy
+# All rights reserved.
 #
-#Redistribution and use in source and binary forms, with or without
-#modification, are permitted provided that the following conditions are met:
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
 #
 #   Redistributions of source code must retain the above copyright notice,
 #      this list of conditions and the following disclaimer.
@@ -59,72 +59,80 @@
 #   The name of the author may not be used to endorse or promote products
 #      derived from this software without specific prior written permission.
 #
-#THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-#"AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-#LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-#A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
-#HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
-#INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-#BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS
-#OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED
-#AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
-#LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY
-#WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-#POSSIBILITY OF SUCH DAMAGE.
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+# "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+# LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+# A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+# HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+# INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+# BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS
+# OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED
+# AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+# LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY
+# WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+# POSSIBILITY OF SUCH DAMAGE.
 #############################################################################
 from functools import wraps
 import numpy
 from ..util import _rotate_to_arbitrary_vector
 from ..util.config import __config__
-_APY_COORDS= __config__.getboolean('astropy','astropy-coords')
-_APY_LOADED= True
+
+_APY_COORDS = __config__.getboolean("astropy", "astropy-coords")
+_APY_LOADED = True
 try:
     import astropy.coordinates as apycoords
     from astropy import units
 except ImportError:
-    _APY_LOADED= False
-_APY_COORDS*= _APY_LOADED
-_DEGTORAD= numpy.pi/180.
+    _APY_LOADED = False
+_APY_COORDS *= _APY_LOADED
+_DEGTORAD = numpy.pi / 180.0
 if _APY_LOADED:
-    _K= (1.*units.mas/units.yr).to(units.km/units.s/units.kpc,
-                                   equivalencies=units.dimensionless_angles())\
-                                   .value
+    _K = (
+        (1.0 * units.mas / units.yr)
+        .to(units.km / units.s / units.kpc, equivalencies=units.dimensionless_angles())
+        .value
+    )
 else:
-    _K=4.74047
+    _K = 4.74047
 # numpy 1.14 einsum bug causes astropy conversions to fail in py2.7 -> turn off
 if _APY_COORDS:
-    ra, dec= numpy.array([192.25*_DEGTORAD]), numpy.array([27.4*_DEGTORAD])
-    c= apycoords.SkyCoord(ra*units.rad,dec*units.rad,
-                          equinox='B1950',frame='fk4')
+    ra, dec = numpy.array([192.25 * _DEGTORAD]), numpy.array([27.4 * _DEGTORAD])
+    c = apycoords.SkyCoord(
+        ra * units.rad, dec * units.rad, equinox="B1950", frame="fk4"
+    )
     # This conversion fails bc of einsum bug
     try:
-        c= c.transform_to(apycoords.Galactic)
-    except TypeError: # pragma: no cover
-        _APY_COORDS= False
+        c = c.transform_to(apycoords.Galactic)
+    except TypeError:  # pragma: no cover
+        _APY_COORDS = False
+
+
 def scalarDecorator(func):
     """Decorator to return scalar outputs as a set"""
+
     @wraps(func)
-    def scalar_wrapper(*args,**kwargs):
+    def scalar_wrapper(*args, **kwargs):
         if numpy.array(args[0]).shape == ():
-            scalarOut= True
-            newargs= ()
+            scalarOut = True
+            newargs = ()
             for ii in range(len(args)):
-                newargs= newargs+(numpy.array([args[ii]]),)
-            args= newargs
+                newargs = newargs + (numpy.array([args[ii]]),)
+            args = newargs
         else:
-            scalarOut= False
-        result= func(*args,**kwargs)
+            scalarOut = False
+        result = func(*args, **kwargs)
         if scalarOut:
-            out= ()
+            out = ()
             for ii in range(result.shape[1]):
-                out= out+(result[0,ii],)
+                out = out + (result[0, ii],)
             return out
         else:
             return result
+
     return scalar_wrapper
 
 
-def degreeDecorator(inDegrees,outDegrees):
+def degreeDecorator(inDegrees, outDegrees):
     """
     NAME:
 
@@ -146,26 +154,31 @@ def degreeDecorator(inDegrees,outDegrees):
        2019-03-02 - speedup - Nathaniel Starkman (UofT)
 
     """
+
     # (modified) old degree decorator
     def wrapper(func):
         @wraps(func)
         def wrapped(*args, **kwargs):
-            isdeg = kwargs.get('degree', False)
+            isdeg = kwargs.get("degree", False)
             if isdeg:
-                args = [arg * numpy.pi / 180 if i in inDegrees else arg
-                        for i, arg in enumerate(args)]
+                args = [
+                    arg * numpy.pi / 180 if i in inDegrees else arg
+                    for i, arg in enumerate(args)
+                ]
             out = func(*args, **kwargs)
             if isdeg:
                 for i in outDegrees:
-                    out[:, i] *= 180. / numpy.pi
+                    out[:, i] *= 180.0 / numpy.pi
             return out
+
         return wrapped
+
     return wrapper
 
 
 @scalarDecorator
-@degreeDecorator([0,1],[0,1])
-def radec_to_lb(ra,dec,degree=False,epoch=2000.0):
+@degreeDecorator([0, 1], [0, 1])
+def radec_to_lb(ra, dec, degree=False, epoch=2000.0):
     """
     NAME:
 
@@ -201,30 +214,56 @@ def radec_to_lb(ra,dec,degree=False,epoch=2000.0):
 
     """
     if _APY_COORDS:
-        epoch, frame= _parse_epoch_frame_apy(epoch)
-        c= apycoords.SkyCoord(ra*units.rad,dec*units.rad,
-                              equinox=epoch,frame=frame)
-        c= c.transform_to(apycoords.Galactic)
-        return numpy.array([c.l.to(units.rad).value,c.b.to(units.rad).value]).T
-    #First calculate the transformation matrix T
-    theta,dec_ngp,ra_ngp= get_epoch_angles(epoch)
-    T= numpy.dot(numpy.array([[numpy.cos(theta),numpy.sin(theta),0.],[numpy.sin(theta),-numpy.cos(theta),0.],[0.,0.,1.]]),numpy.dot(numpy.array([[-numpy.sin(dec_ngp),0.,numpy.cos(dec_ngp)],[0.,1.,0.],[numpy.cos(dec_ngp),0.,numpy.sin(dec_ngp)]]),numpy.array([[numpy.cos(ra_ngp),numpy.sin(ra_ngp),0.],[-numpy.sin(ra_ngp),numpy.cos(ra_ngp),0.],[0.,0.,1.]])))
-    #Whether to use degrees and scalar input is handled by decorators
-    XYZ= numpy.array([numpy.cos(dec)*numpy.cos(ra),
-                   numpy.cos(dec)*numpy.sin(ra),
-                   numpy.sin(dec)])
-    galXYZ= numpy.dot(T,XYZ)
-    galXYZ[2][galXYZ[2] > 1.]= 1.
-    galXYZ[2][galXYZ[2] < -1.]= -1.
-    b= numpy.arcsin(galXYZ[2])
-    l= numpy.arctan2(galXYZ[1]/numpy.cos(b),galXYZ[0]/numpy.cos(b))
-    l[l<0.]+= 2.*numpy.pi
-    out= numpy.array([l,b])
+        epoch, frame = _parse_epoch_frame_apy(epoch)
+        c = apycoords.SkyCoord(
+            ra * units.rad, dec * units.rad, equinox=epoch, frame=frame
+        )
+        c = c.transform_to(apycoords.Galactic)
+        return numpy.array([c.l.to(units.rad).value, c.b.to(units.rad).value]).T
+    # First calculate the transformation matrix T
+    theta, dec_ngp, ra_ngp = get_epoch_angles(epoch)
+    T = numpy.dot(
+        numpy.array(
+            [
+                [numpy.cos(theta), numpy.sin(theta), 0.0],
+                [numpy.sin(theta), -numpy.cos(theta), 0.0],
+                [0.0, 0.0, 1.0],
+            ]
+        ),
+        numpy.dot(
+            numpy.array(
+                [
+                    [-numpy.sin(dec_ngp), 0.0, numpy.cos(dec_ngp)],
+                    [0.0, 1.0, 0.0],
+                    [numpy.cos(dec_ngp), 0.0, numpy.sin(dec_ngp)],
+                ]
+            ),
+            numpy.array(
+                [
+                    [numpy.cos(ra_ngp), numpy.sin(ra_ngp), 0.0],
+                    [-numpy.sin(ra_ngp), numpy.cos(ra_ngp), 0.0],
+                    [0.0, 0.0, 1.0],
+                ]
+            ),
+        ),
+    )
+    # Whether to use degrees and scalar input is handled by decorators
+    XYZ = numpy.array(
+        [numpy.cos(dec) * numpy.cos(ra), numpy.cos(dec) * numpy.sin(ra), numpy.sin(dec)]
+    )
+    galXYZ = numpy.dot(T, XYZ)
+    galXYZ[2][galXYZ[2] > 1.0] = 1.0
+    galXYZ[2][galXYZ[2] < -1.0] = -1.0
+    b = numpy.arcsin(galXYZ[2])
+    l = numpy.arctan2(galXYZ[1] / numpy.cos(b), galXYZ[0] / numpy.cos(b))
+    l[l < 0.0] += 2.0 * numpy.pi
+    out = numpy.array([l, b])
     return out.T
 
+
 @scalarDecorator
-@degreeDecorator([0,1],[0,1])
-def lb_to_radec(l,b,degree=False,epoch=2000.0):
+@degreeDecorator([0, 1], [0, 1])
+def lb_to_radec(l, b, degree=False, epoch=2000.0):
     """
     NAME:
 
@@ -260,31 +299,56 @@ def lb_to_radec(l,b,degree=False,epoch=2000.0):
 
     """
     if _APY_COORDS:
-        epoch, frame= _parse_epoch_frame_apy(epoch)
-        c= apycoords.SkyCoord(l*units.rad,b*units.rad,frame='galactic')
-        if not epoch is None and 'J' in epoch:
-            c= c.transform_to(apycoords.FK5(equinox=epoch))
-        elif not epoch is None and 'B' in epoch:
-            c= c.transform_to(apycoords.FK4(equinox=epoch))
+        epoch, frame = _parse_epoch_frame_apy(epoch)
+        c = apycoords.SkyCoord(l * units.rad, b * units.rad, frame="galactic")
+        if not epoch is None and "J" in epoch:
+            c = c.transform_to(apycoords.FK5(equinox=epoch))
+        elif not epoch is None and "B" in epoch:
+            c = c.transform_to(apycoords.FK4(equinox=epoch))
         else:
-            c= c.transform_to(apycoords.ICRS)
-        return numpy.array([c.ra.to(units.rad).value,c.dec.to(units.rad).value]).T
-    #First calculate the transformation matrix T'
-    theta,dec_ngp,ra_ngp= get_epoch_angles(epoch)
-    T= numpy.dot(numpy.array([[numpy.cos(ra_ngp),-numpy.sin(ra_ngp),0.],[numpy.sin(ra_ngp),numpy.cos(ra_ngp),0.],[0.,0.,1.]]),numpy.dot(numpy.array([[-numpy.sin(dec_ngp),0.,numpy.cos(dec_ngp)],[0.,1.,0.],[numpy.cos(dec_ngp),0.,numpy.sin(dec_ngp)]]),numpy.array([[numpy.cos(theta),numpy.sin(theta),0.],[numpy.sin(theta),-numpy.cos(theta),0.],[0.,0.,1.]])))
-    #Whether to use degrees and scalar input is handled by decorators
-    XYZ= numpy.array([numpy.cos(b)*numpy.cos(l),
-                   numpy.cos(b)*numpy.sin(l),
-                   numpy.sin(b)])
-    eqXYZ= numpy.dot(T,XYZ)
-    dec= numpy.arcsin(eqXYZ[2])
-    ra= numpy.arctan2(eqXYZ[1],eqXYZ[0])
-    ra[ra<0.]+= 2.*numpy.pi
-    return numpy.array([ra,dec]).T
+            c = c.transform_to(apycoords.ICRS)
+        return numpy.array([c.ra.to(units.rad).value, c.dec.to(units.rad).value]).T
+    # First calculate the transformation matrix T'
+    theta, dec_ngp, ra_ngp = get_epoch_angles(epoch)
+    T = numpy.dot(
+        numpy.array(
+            [
+                [numpy.cos(ra_ngp), -numpy.sin(ra_ngp), 0.0],
+                [numpy.sin(ra_ngp), numpy.cos(ra_ngp), 0.0],
+                [0.0, 0.0, 1.0],
+            ]
+        ),
+        numpy.dot(
+            numpy.array(
+                [
+                    [-numpy.sin(dec_ngp), 0.0, numpy.cos(dec_ngp)],
+                    [0.0, 1.0, 0.0],
+                    [numpy.cos(dec_ngp), 0.0, numpy.sin(dec_ngp)],
+                ]
+            ),
+            numpy.array(
+                [
+                    [numpy.cos(theta), numpy.sin(theta), 0.0],
+                    [numpy.sin(theta), -numpy.cos(theta), 0.0],
+                    [0.0, 0.0, 1.0],
+                ]
+            ),
+        ),
+    )
+    # Whether to use degrees and scalar input is handled by decorators
+    XYZ = numpy.array(
+        [numpy.cos(b) * numpy.cos(l), numpy.cos(b) * numpy.sin(l), numpy.sin(b)]
+    )
+    eqXYZ = numpy.dot(T, XYZ)
+    dec = numpy.arcsin(eqXYZ[2])
+    ra = numpy.arctan2(eqXYZ[1], eqXYZ[0])
+    ra[ra < 0.0] += 2.0 * numpy.pi
+    return numpy.array([ra, dec]).T
+
 
 @scalarDecorator
-@degreeDecorator([0,1],[])
-def lbd_to_XYZ(l,b,d,degree=False):
+@degreeDecorator([0, 1], [])
+def lbd_to_XYZ(l, b, d, degree=False):
     """
     NAME:
 
@@ -317,12 +381,17 @@ def lbd_to_XYZ(l,b,d,degree=False):
        2014-06-14 - Re-written w/ numpy functions for speed and w/ decorators for beauty - Bovy (IAS)
 
     """
-    #Whether to use degrees and scalar input is handled by decorators
-    return numpy.array([d*numpy.cos(b)*numpy.cos(l),
-                     d*numpy.cos(b)*numpy.sin(l),
-                     d*numpy.sin(b)]).T
+    # Whether to use degrees and scalar input is handled by decorators
+    return numpy.array(
+        [
+            d * numpy.cos(b) * numpy.cos(l),
+            d * numpy.cos(b) * numpy.sin(l),
+            d * numpy.sin(b),
+        ]
+    ).T
 
-def rectgal_to_sphergal(X,Y,Z,vx,vy,vz,degree=False):
+
+def rectgal_to_sphergal(X, Y, Z, vx, vy, vz, degree=False):
     """
     NAME:
 
@@ -357,17 +426,20 @@ def rectgal_to_sphergal(X,Y,Z,vx,vy,vz,degree=False):
        2009-10-25 - Written - Bovy (NYU)
 
     """
-    lbd= XYZ_to_lbd(X,Y,Z,degree=degree)
-    vrpmllpmbb= vxvyvz_to_vrpmllpmbb(vx,vy,vz,X,Y,Z,XYZ=True)
+    lbd = XYZ_to_lbd(X, Y, Z, degree=degree)
+    vrpmllpmbb = vxvyvz_to_vrpmllpmbb(vx, vy, vz, X, Y, Z, XYZ=True)
     if numpy.array(X).shape == ():
-        return numpy.array([lbd[0],lbd[1],lbd[2],vrpmllpmbb[0],vrpmllpmbb[1],vrpmllpmbb[2]])
+        return numpy.array(
+            [lbd[0], lbd[1], lbd[2], vrpmllpmbb[0], vrpmllpmbb[1], vrpmllpmbb[2]]
+        )
     else:
-        out=numpy.zeros((len(X),6))
-        out[:,0:3]= lbd
-        out[:,3:6]= vrpmllpmbb
+        out = numpy.zeros((len(X), 6))
+        out[:, 0:3] = lbd
+        out[:, 3:6] = vrpmllpmbb
         return out
 
-def sphergal_to_rectgal(l,b,d,vr,pmll,pmbb,degree=False):
+
+def sphergal_to_rectgal(l, b, d, vr, pmll, pmbb, degree=False):
     """
     NAME:
 
@@ -402,19 +474,20 @@ def sphergal_to_rectgal(l,b,d,vr,pmll,pmbb,degree=False):
        2009-10-25 - Written - Bovy (NYU)
 
     """
-    XYZ= lbd_to_XYZ(l,b,d,degree=degree)
-    vxvyvz= vrpmllpmbb_to_vxvyvz(vr,pmll,pmbb,l,b,d,XYZ=False,degree=degree)
+    XYZ = lbd_to_XYZ(l, b, d, degree=degree)
+    vxvyvz = vrpmllpmbb_to_vxvyvz(vr, pmll, pmbb, l, b, d, XYZ=False, degree=degree)
     if numpy.array(l).shape == ():
-        return numpy.array([XYZ[0],XYZ[1],XYZ[2],vxvyvz[0],vxvyvz[1],vxvyvz[2]])
+        return numpy.array([XYZ[0], XYZ[1], XYZ[2], vxvyvz[0], vxvyvz[1], vxvyvz[2]])
     else:
-        out=numpy.zeros((len(l),6))
-        out[:,0:3]= XYZ
-        out[:,3:6]= vxvyvz
+        out = numpy.zeros((len(l), 6))
+        out[:, 0:3] = XYZ
+        out[:, 3:6] = vxvyvz
         return out
 
+
 @scalarDecorator
-@degreeDecorator([3,4],[])
-def vrpmllpmbb_to_vxvyvz(vr,pmll,pmbb,l,b,d,XYZ=False,degree=False):
+@degreeDecorator([3, 4], [])
+def vrpmllpmbb_to_vxvyvz(vr, pmll, pmbb, l, b, d, XYZ=False, degree=False):
     """
     NAME:
 
@@ -455,32 +528,37 @@ def vrpmllpmbb_to_vxvyvz(vr,pmll,pmbb,l,b,d,XYZ=False,degree=False):
        2014-06-14 - Re-written w/ numpy functions for speed and w/ decorators for beauty - Bovy (IAS)
 
     """
-    #Whether to use degrees and scalar input is handled by decorators
-    if XYZ: #undo the incorrect conversion that the decorator did
+    # Whether to use degrees and scalar input is handled by decorators
+    if XYZ:  # undo the incorrect conversion that the decorator did
         if degree:
-            l*= 180./numpy.pi
-            b*= 180./numpy.pi
-        lbd= XYZ_to_lbd(l,b,d,degree=False)
-        l= lbd[:,0]
-        b= lbd[:,1]
-        d= lbd[:,2]
-    R=numpy.zeros((3,3,len(l)))
-    R[0,0]= numpy.cos(l)*numpy.cos(b)
-    R[1,0]= -numpy.sin(l)
-    R[2,0]= -numpy.cos(l)*numpy.sin(b)
-    R[0,1]= numpy.sin(l)*numpy.cos(b)
-    R[1,1]= numpy.cos(l)
-    R[2,1]= -numpy.sin(l)*numpy.sin(b)
-    R[0,2]= numpy.sin(b)
-    R[2,2]= numpy.cos(b)
-    invr= numpy.array([[vr,vr,vr],
-                    [d*pmll*_K,d*pmll*_K,d*pmll*_K],
-                    [d*pmbb*_K,d*pmbb*_K,d*pmbb*_K]])
-    return (R.T*invr.T).sum(-1)
+            l *= 180.0 / numpy.pi
+            b *= 180.0 / numpy.pi
+        lbd = XYZ_to_lbd(l, b, d, degree=False)
+        l = lbd[:, 0]
+        b = lbd[:, 1]
+        d = lbd[:, 2]
+    R = numpy.zeros((3, 3, len(l)))
+    R[0, 0] = numpy.cos(l) * numpy.cos(b)
+    R[1, 0] = -numpy.sin(l)
+    R[2, 0] = -numpy.cos(l) * numpy.sin(b)
+    R[0, 1] = numpy.sin(l) * numpy.cos(b)
+    R[1, 1] = numpy.cos(l)
+    R[2, 1] = -numpy.sin(l) * numpy.sin(b)
+    R[0, 2] = numpy.sin(b)
+    R[2, 2] = numpy.cos(b)
+    invr = numpy.array(
+        [
+            [vr, vr, vr],
+            [d * pmll * _K, d * pmll * _K, d * pmll * _K],
+            [d * pmbb * _K, d * pmbb * _K, d * pmbb * _K],
+        ]
+    )
+    return (R.T * invr.T).sum(-1)
+
 
 @scalarDecorator
-@degreeDecorator([3,4],[])
-def vxvyvz_to_vrpmllpmbb(vx,vy,vz,l,b,d,XYZ=False,degree=False):
+@degreeDecorator([3, 4], [])
+def vxvyvz_to_vrpmllpmbb(vx, vy, vz, l, b, d, XYZ=False, degree=False):
     """
     NAME:
 
@@ -521,35 +599,34 @@ def vxvyvz_to_vrpmllpmbb(vx,vy,vz,l,b,d,XYZ=False,degree=False):
        2014-06-14 - Re-written w/ numpy functions for speed and w/ decorators for beauty - Bovy (IAS)
 
     """
-    #Whether to use degrees and scalar input is handled by decorators
-    if XYZ: #undo the incorrect conversion that the decorator did
+    # Whether to use degrees and scalar input is handled by decorators
+    if XYZ:  # undo the incorrect conversion that the decorator did
         if degree:
-            l*= 180./numpy.pi
-            b*= 180./numpy.pi
-        lbd= XYZ_to_lbd(l,b,d,degree=False)
-        l= lbd[:,0]
-        b= lbd[:,1]
-        d= lbd[:,2]
-    R=numpy.zeros((3,3,len(l)))
-    R[0,0]= numpy.cos(l)*numpy.cos(b)
-    R[0,1]= -numpy.sin(l)
-    R[0,2]= -numpy.cos(l)*numpy.sin(b)
-    R[1,0]= numpy.sin(l)*numpy.cos(b)
-    R[1,1]= numpy.cos(l)
-    R[1,2]= -numpy.sin(l)*numpy.sin(b)
-    R[2,0]= numpy.sin(b)
-    R[2,2]= numpy.cos(b)
-    invxyz= numpy.array([[vx,vx,vx],
-                    [vy,vy,vy],
-                    [vz,vz,vz]])
-    vrvlvb= (R.T*invxyz.T).sum(-1)
-    vrvlvb[:,1]/= d*_K
-    vrvlvb[:,2]/= d*_K
+            l *= 180.0 / numpy.pi
+            b *= 180.0 / numpy.pi
+        lbd = XYZ_to_lbd(l, b, d, degree=False)
+        l = lbd[:, 0]
+        b = lbd[:, 1]
+        d = lbd[:, 2]
+    R = numpy.zeros((3, 3, len(l)))
+    R[0, 0] = numpy.cos(l) * numpy.cos(b)
+    R[0, 1] = -numpy.sin(l)
+    R[0, 2] = -numpy.cos(l) * numpy.sin(b)
+    R[1, 0] = numpy.sin(l) * numpy.cos(b)
+    R[1, 1] = numpy.cos(l)
+    R[1, 2] = -numpy.sin(l) * numpy.sin(b)
+    R[2, 0] = numpy.sin(b)
+    R[2, 2] = numpy.cos(b)
+    invxyz = numpy.array([[vx, vx, vx], [vy, vy, vy], [vz, vz, vz]])
+    vrvlvb = (R.T * invxyz.T).sum(-1)
+    vrvlvb[:, 1] /= d * _K
+    vrvlvb[:, 2] /= d * _K
     return vrvlvb
 
+
 @scalarDecorator
-@degreeDecorator([],[0,1])
-def XYZ_to_lbd(X,Y,Z,degree=False):
+@degreeDecorator([], [0, 1])
+def XYZ_to_lbd(X, Y, Z, degree=False):
     """
     NAME:
 
@@ -582,20 +659,21 @@ def XYZ_to_lbd(X,Y,Z,degree=False):
        2014-06-14 - Re-written w/ numpy functions for speed and w/ decorators for beauty - Bovy (IAS)
 
     """
-    #Whether to use degrees and scalar input is handled by decorators
-    d= numpy.sqrt(X**2.+Y**2.+Z**2.)
-    b= numpy.arcsin(Z/d)
-    l= numpy.arctan2(Y,X)
-    l[l<0.]+= 2.*numpy.pi
-    out= numpy.empty((len(d),3))
-    out[:,0]= l
-    out[:,1]= b
-    out[:,2]= d
+    # Whether to use degrees and scalar input is handled by decorators
+    d = numpy.sqrt(X**2.0 + Y**2.0 + Z**2.0)
+    b = numpy.arcsin(Z / d)
+    l = numpy.arctan2(Y, X)
+    l[l < 0.0] += 2.0 * numpy.pi
+    out = numpy.empty((len(d), 3))
+    out[:, 0] = l
+    out[:, 1] = b
+    out[:, 2] = d
     return out
 
+
 @scalarDecorator
-@degreeDecorator([2,3],[])
-def pmrapmdec_to_pmllpmbb(pmra,pmdec,ra,dec,degree=False,epoch=2000.0):
+@degreeDecorator([2, 3], [])
+def pmrapmdec_to_pmllpmbb(pmra, pmdec, ra, dec, degree=False, epoch=2000.0):
     """
     NAME:
 
@@ -630,29 +708,32 @@ def pmrapmdec_to_pmllpmbb(pmra,pmdec,ra,dec,degree=False,epoch=2000.0):
        2014-06-14 - Re-written w/ numpy functions for speed and w/ decorators for beauty - Bovy (IAS)
 
     """
-    theta,dec_ngp,ra_ngp= get_epoch_angles(epoch)
-    #Whether to use degrees and scalar input is handled by decorators
-    dec[dec == dec_ngp]+= 10.**-16 #deal w/ pole.
-    sindec_ngp= numpy.sin(dec_ngp)
-    cosdec_ngp= numpy.cos(dec_ngp)
-    sindec= numpy.sin(dec)
-    cosdec= numpy.cos(dec)
-    sinrarangp= numpy.sin(ra-ra_ngp)
-    cosrarangp= numpy.cos(ra-ra_ngp)
-    #These were replaced by Poleski (2013)'s equivalent form that is better at the poles
-    #cosphi= (sindec_ngp-sindec*sinb)/cosdec/cosb
-    #sinphi= sinrarangp*cosdec_ngp/cosb
-    cosphi= sindec_ngp*cosdec-cosdec_ngp*sindec*cosrarangp
-    sinphi= sinrarangp*cosdec_ngp
-    norm= numpy.sqrt(cosphi**2.+sinphi**2.)
-    cosphi/= norm
-    sinphi/= norm
-    return (numpy.array([[cosphi,-sinphi],[sinphi,cosphi]]).T\
-                *numpy.array([[pmra,pmra],[pmdec,pmdec]]).T).sum(-1)
+    theta, dec_ngp, ra_ngp = get_epoch_angles(epoch)
+    # Whether to use degrees and scalar input is handled by decorators
+    dec[dec == dec_ngp] += 10.0**-16  # deal w/ pole.
+    sindec_ngp = numpy.sin(dec_ngp)
+    cosdec_ngp = numpy.cos(dec_ngp)
+    sindec = numpy.sin(dec)
+    cosdec = numpy.cos(dec)
+    sinrarangp = numpy.sin(ra - ra_ngp)
+    cosrarangp = numpy.cos(ra - ra_ngp)
+    # These were replaced by Poleski (2013)'s equivalent form that is better at the poles
+    # cosphi= (sindec_ngp-sindec*sinb)/cosdec/cosb
+    # sinphi= sinrarangp*cosdec_ngp/cosb
+    cosphi = sindec_ngp * cosdec - cosdec_ngp * sindec * cosrarangp
+    sinphi = sinrarangp * cosdec_ngp
+    norm = numpy.sqrt(cosphi**2.0 + sinphi**2.0)
+    cosphi /= norm
+    sinphi /= norm
+    return (
+        numpy.array([[cosphi, -sinphi], [sinphi, cosphi]]).T
+        * numpy.array([[pmra, pmra], [pmdec, pmdec]]).T
+    ).sum(-1)
+
 
 @scalarDecorator
-@degreeDecorator([2,3],[])
-def pmllpmbb_to_pmrapmdec(pmll,pmbb,l,b,degree=False,epoch=2000.0):
+@degreeDecorator([2, 3], [])
+def pmllpmbb_to_pmrapmdec(pmll, pmbb, l, b, degree=False, epoch=2000.0):
     """
     NAME:
 
@@ -687,30 +768,33 @@ def pmllpmbb_to_pmrapmdec(pmll,pmbb,l,b,degree=False,epoch=2000.0):
        2014-06-14 - Re-written w/ numpy functions for speed and w/ decorators for beauty - Bovy (IAS)
 
     """
-    theta,dec_ngp,ra_ngp= get_epoch_angles(epoch)
-    #Whether to use degrees and scalar input is handled by decorators
-    radec = lb_to_radec(l,b,degree=False,epoch=epoch)
-    ra= radec[:,0]
-    dec= radec[:,1]
-    dec[dec == dec_ngp]+= 10.**-16 #deal w/ pole.
-    sindec_ngp= numpy.sin(dec_ngp)
-    cosdec_ngp= numpy.cos(dec_ngp)
-    sindec= numpy.sin(dec)
-    cosdec= numpy.cos(dec)
-    sinrarangp= numpy.sin(ra-ra_ngp)
-    cosrarangp= numpy.cos(ra-ra_ngp)
-    #These were replaced by Poleski (2013)'s equivalent form that is better at the poles
-    #cosphi= (sindec_ngp-sindec*sinb)/cosdec/cosb
-    #sinphi= sinrarangp*cosdec_ngp/cosb
-    cosphi= sindec_ngp*cosdec-cosdec_ngp*sindec*cosrarangp
-    sinphi= sinrarangp*cosdec_ngp
-    norm= numpy.sqrt(cosphi**2.+sinphi**2.)
-    cosphi/= norm
-    sinphi/= norm
-    return (numpy.array([[cosphi,sinphi],[-sinphi,cosphi]]).T\
-                *numpy.array([[pmll,pmll],[pmbb,pmbb]]).T).sum(-1)
+    theta, dec_ngp, ra_ngp = get_epoch_angles(epoch)
+    # Whether to use degrees and scalar input is handled by decorators
+    radec = lb_to_radec(l, b, degree=False, epoch=epoch)
+    ra = radec[:, 0]
+    dec = radec[:, 1]
+    dec[dec == dec_ngp] += 10.0**-16  # deal w/ pole.
+    sindec_ngp = numpy.sin(dec_ngp)
+    cosdec_ngp = numpy.cos(dec_ngp)
+    sindec = numpy.sin(dec)
+    cosdec = numpy.cos(dec)
+    sinrarangp = numpy.sin(ra - ra_ngp)
+    cosrarangp = numpy.cos(ra - ra_ngp)
+    # These were replaced by Poleski (2013)'s equivalent form that is better at the poles
+    # cosphi= (sindec_ngp-sindec*sinb)/cosdec/cosb
+    # sinphi= sinrarangp*cosdec_ngp/cosb
+    cosphi = sindec_ngp * cosdec - cosdec_ngp * sindec * cosrarangp
+    sinphi = sinrarangp * cosdec_ngp
+    norm = numpy.sqrt(cosphi**2.0 + sinphi**2.0)
+    cosphi /= norm
+    sinphi /= norm
+    return (
+        numpy.array([[cosphi, sinphi], [-sinphi, cosphi]]).T
+        * numpy.array([[pmll, pmll], [pmbb, pmbb]]).T
+    ).sum(-1)
 
-def cov_pmrapmdec_to_pmllpmbb(cov_pmradec,ra,dec,degree=False,epoch=2000.0):
+
+def cov_pmrapmdec_to_pmllpmbb(cov_pmradec, ra, dec, degree=False, epoch=2000.0):
     """
     NAME:
 
@@ -743,46 +827,49 @@ def cov_pmrapmdec_to_pmllpmbb(cov_pmradec,ra,dec,degree=False,epoch=2000.0):
        2020-09-21 - Adapted for array input - Mackereth (UofT)
 
     """
-    scalar= not hasattr(ra, '__iter__')
+    scalar = not hasattr(ra, "__iter__")
     if scalar:
-        cov_pmradec= cov_pmradec[numpy.newaxis,:,:]
-    theta,dec_ngp,ra_ngp= get_epoch_angles(epoch)
+        cov_pmradec = cov_pmradec[numpy.newaxis, :, :]
+    theta, dec_ngp, ra_ngp = get_epoch_angles(epoch)
     if degree:
-        sindec_ngp= numpy.sin(dec_ngp)
-        cosdec_ngp= numpy.cos(dec_ngp)
-        sindec= numpy.sin(dec*_DEGTORAD)
-        cosdec= numpy.cos(dec*_DEGTORAD)
-        sinrarangp= numpy.sin(ra*_DEGTORAD-ra_ngp)
-        cosrarangp= numpy.cos(ra*_DEGTORAD-ra_ngp)
+        sindec_ngp = numpy.sin(dec_ngp)
+        cosdec_ngp = numpy.cos(dec_ngp)
+        sindec = numpy.sin(dec * _DEGTORAD)
+        cosdec = numpy.cos(dec * _DEGTORAD)
+        sinrarangp = numpy.sin(ra * _DEGTORAD - ra_ngp)
+        cosrarangp = numpy.cos(ra * _DEGTORAD - ra_ngp)
     else:
-        sindec_ngp= numpy.sin(dec_ngp)
-        cosdec_ngp= numpy.cos(dec_ngp)
-        sindec= numpy.sin(dec)
-        cosdec= numpy.cos(dec)
-        sinrarangp= numpy.sin(ra-ra_ngp)
-        cosrarangp= numpy.cos(ra-ra_ngp)
-    #These were replaced by Poleski (2013)'s equivalent form that is better at the poles
-    #cosphi= (sindec_ngp-sindec*sinb)/cosdec/cosb
-    #sinphi= sinrarangp*cosdec_ngp/cosb
-    cosphi= sindec_ngp*cosdec-cosdec_ngp*sindec*cosrarangp
-    sinphi= sinrarangp*cosdec_ngp
-    norm= numpy.sqrt(cosphi**2.+sinphi**2.)
-    cosphi/= norm
-    sinphi/= norm
-    P = numpy.zeros([len(cov_pmradec),2,2])
-    P[:,0,0] = cosphi
-    P[:,0,1] = sinphi
-    P[:,1,0] = -sinphi
-    P[:,1,1] = cosphi
-    out= numpy.einsum('aij,ajk->aik',P,
-                     numpy.einsum('aij,jka->aik',cov_pmradec,P.T))
+        sindec_ngp = numpy.sin(dec_ngp)
+        cosdec_ngp = numpy.cos(dec_ngp)
+        sindec = numpy.sin(dec)
+        cosdec = numpy.cos(dec)
+        sinrarangp = numpy.sin(ra - ra_ngp)
+        cosrarangp = numpy.cos(ra - ra_ngp)
+    # These were replaced by Poleski (2013)'s equivalent form that is better at the poles
+    # cosphi= (sindec_ngp-sindec*sinb)/cosdec/cosb
+    # sinphi= sinrarangp*cosdec_ngp/cosb
+    cosphi = sindec_ngp * cosdec - cosdec_ngp * sindec * cosrarangp
+    sinphi = sinrarangp * cosdec_ngp
+    norm = numpy.sqrt(cosphi**2.0 + sinphi**2.0)
+    cosphi /= norm
+    sinphi /= norm
+    P = numpy.zeros([len(cov_pmradec), 2, 2])
+    P[:, 0, 0] = cosphi
+    P[:, 0, 1] = sinphi
+    P[:, 1, 0] = -sinphi
+    P[:, 1, 1] = cosphi
+    out = numpy.einsum(
+        "aij,ajk->aik", P, numpy.einsum("aij,jka->aik", cov_pmradec, P.T)
+    )
     if scalar:
         return out[0]
     else:
         return out
 
-def cov_dvrpmllbb_to_vxyz(d,e_d,e_vr,pmll,pmbb,cov_pmllbb,l,b,
-                          plx=False,degree=False):
+
+def cov_dvrpmllbb_to_vxyz(
+    d, e_d, e_vr, pmll, pmbb, cov_pmllbb, l, b, plx=False, degree=False
+):
     """
     NAME:
 
@@ -828,48 +915,49 @@ def cov_dvrpmllbb_to_vxyz(d,e_d,e_vr,pmll,pmbb,cov_pmllbb,l,b,
 
     """
     if plx:
-        d= 1./d
-        e_d*= d**2.
+        d = 1.0 / d
+        e_d *= d**2.0
     if degree:
-        l*= _DEGTORAD
-        b*= _DEGTORAD
-    scalar= not hasattr(d,'__iter__')
+        l *= _DEGTORAD
+        b *= _DEGTORAD
+    scalar = not hasattr(d, "__iter__")
     if scalar:
-        cov_pmllbb= cov_pmllbb[numpy.newaxis,:,:]
-    ndata= len(cov_pmllbb)
-    M = numpy.zeros((ndata,2,3))
-    M[:,0,0] = pmll
-    M[:,1,0] = pmbb
-    M[:,0,1] = d
-    M[:,1,2] = d
-    M= _K*M
-    cov_dpmllbb= numpy.zeros((ndata,3,3))
-    cov_dpmllbb[:,0,0]= e_d**2.
-    cov_dpmllbb[:,1:3,1:3]= cov_pmllbb
-    cov_vlvb= numpy.einsum('aij,ajk->aik',M,
-                           numpy.einsum('aij,jka->aik',cov_dpmllbb,M.T))
+        cov_pmllbb = cov_pmllbb[numpy.newaxis, :, :]
+    ndata = len(cov_pmllbb)
+    M = numpy.zeros((ndata, 2, 3))
+    M[:, 0, 0] = pmll
+    M[:, 1, 0] = pmbb
+    M[:, 0, 1] = d
+    M[:, 1, 2] = d
+    M = _K * M
+    cov_dpmllbb = numpy.zeros((ndata, 3, 3))
+    cov_dpmllbb[:, 0, 0] = e_d**2.0
+    cov_dpmllbb[:, 1:3, 1:3] = cov_pmllbb
+    cov_vlvb = numpy.einsum(
+        "aij,ajk->aik", M, numpy.einsum("aij,jka->aik", cov_dpmllbb, M.T)
+    )
     if scalar:
-        cov_vlvb= cov_vlvb[0]
-    cov_vrvlvb= numpy.zeros((ndata,3,3))
-    cov_vrvlvb[:,0,0]= e_vr**2.
-    cov_vrvlvb[:,1:3,1:3]= cov_vlvb
-    R = numpy.zeros((ndata,3,3))
-    R[:,0,0] = numpy.cos(l)*numpy.cos(b)
-    R[:,0,1] = numpy.sin(l)*numpy.cos(b)
-    R[:,0,2] =  numpy.sin(b)
-    R[:,1,0] = -numpy.sin(l)
-    R[:,1,1] = numpy.cos(l)
-    R[:,2,0] = -numpy.cos(l)*numpy.sin(b)
-    R[:,2,1] = -numpy.sin(l)*numpy.sin(b)
-    R[:,2,2] =  numpy.cos(b)
-    out= numpy.einsum('ija,ajk->aik',R.T,
-                      numpy.einsum('aij,ajk->aik',cov_vrvlvb,R))
+        cov_vlvb = cov_vlvb[0]
+    cov_vrvlvb = numpy.zeros((ndata, 3, 3))
+    cov_vrvlvb[:, 0, 0] = e_vr**2.0
+    cov_vrvlvb[:, 1:3, 1:3] = cov_vlvb
+    R = numpy.zeros((ndata, 3, 3))
+    R[:, 0, 0] = numpy.cos(l) * numpy.cos(b)
+    R[:, 0, 1] = numpy.sin(l) * numpy.cos(b)
+    R[:, 0, 2] = numpy.sin(b)
+    R[:, 1, 0] = -numpy.sin(l)
+    R[:, 1, 1] = numpy.cos(l)
+    R[:, 2, 0] = -numpy.cos(l) * numpy.sin(b)
+    R[:, 2, 1] = -numpy.sin(l) * numpy.sin(b)
+    R[:, 2, 2] = numpy.cos(b)
+    out = numpy.einsum("ija,ajk->aik", R.T, numpy.einsum("aij,ajk->aik", cov_vrvlvb, R))
     if scalar:
         return out[0]
     else:
         return out
 
-def cov_vxyz_to_galcencyl(cov_vxyz, phi, Xsun=1., Zsun=0.):
+
+def cov_vxyz_to_galcencyl(cov_vxyz, phi, Xsun=1.0, Zsun=0.0):
     """
     NAME:
 
@@ -900,7 +988,8 @@ def cov_vxyz_to_galcencyl(cov_vxyz, phi, Xsun=1., Zsun=0.):
     cov_galcencyl = cov_galcenrect_to_galcencyl(cov_galcenrect, phi)
     return cov_galcencyl
 
-def cov_vxyz_to_galcenrect(cov_vxyz,Xsun=1.,Zsun=0.):
+
+def cov_vxyz_to_galcenrect(cov_vxyz, Xsun=1.0, Zsun=0.0):
     """
     NAME:
 
@@ -925,21 +1014,21 @@ def cov_vxyz_to_galcenrect(cov_vxyz,Xsun=1.,Zsun=0.):
        2020-09-21- Moved to coords.py - Mackereth (UofT)
 
     """
-    scalar= cov_vxyz.ndim < 3
+    scalar = cov_vxyz.ndim < 3
     if scalar:
-        cov_vxyz= cov_vxyz[numpy.newaxis,:,:]
-    dgc= numpy.sqrt(Xsun**2.+Zsun**2.)
-    costheta, sintheta= Xsun/dgc, Zsun/dgc
-    R = numpy.array([[costheta,0.,-sintheta],
-                  [0.,1.,0.],
-                  [sintheta,0.,costheta]])
-    R = numpy.ones([len(cov_vxyz),3,3])*R
-    out= numpy.einsum('ija,ajk->aik',R.T,
-                      numpy.einsum('aij,ajk->aik',cov_vxyz,R))
+        cov_vxyz = cov_vxyz[numpy.newaxis, :, :]
+    dgc = numpy.sqrt(Xsun**2.0 + Zsun**2.0)
+    costheta, sintheta = Xsun / dgc, Zsun / dgc
+    R = numpy.array(
+        [[costheta, 0.0, -sintheta], [0.0, 1.0, 0.0], [sintheta, 0.0, costheta]]
+    )
+    R = numpy.ones([len(cov_vxyz), 3, 3]) * R
+    out = numpy.einsum("ija,ajk->aik", R.T, numpy.einsum("aij,ajk->aik", cov_vxyz, R))
     if scalar:
         return out[0]
     else:
         return out
+
 
 def cov_galcenrect_to_galcencyl(cov_galcenrect, phi):
     """
@@ -966,26 +1055,28 @@ def cov_galcenrect_to_galcencyl(cov_galcenrect, phi):
        2020-09-21- Moved to coords.py - Mackereth (UofT)
 
     """
-    scalar= cov_galcenrect.ndim < 3
+    scalar = cov_galcenrect.ndim < 3
     if scalar:
-        cov_galcenrect= cov_galcenrect[numpy.newaxis,:,:]
+        cov_galcenrect = cov_galcenrect[numpy.newaxis, :, :]
     cosphi = numpy.cos(phi)
     sinphi = numpy.sin(phi)
-    R = numpy.zeros([len(cov_galcenrect),3,3])
-    R[:,0,0] = cosphi
-    R[:,0,1] = sinphi
-    R[:,1,0] = -sinphi
-    R[:,1,1] = cosphi
-    R[:,2,2] = 1.
-    out= numpy.einsum('aij,ajk->aik',R,
-                      numpy.einsum('aij,jka->aik',cov_galcenrect,R.T))
+    R = numpy.zeros([len(cov_galcenrect), 3, 3])
+    R[:, 0, 0] = cosphi
+    R[:, 0, 1] = sinphi
+    R[:, 1, 0] = -sinphi
+    R[:, 1, 1] = cosphi
+    R[:, 2, 2] = 1.0
+    out = numpy.einsum(
+        "aij,ajk->aik", R, numpy.einsum("aij,jka->aik", cov_galcenrect, R.T)
+    )
     if scalar:
         return out[0]
     else:
         return out
 
+
 @scalarDecorator
-def XYZ_to_galcenrect(X,Y,Z,Xsun=1.,Zsun=0.,_extra_rot=True):
+def XYZ_to_galcenrect(X, Y, Z, Xsun=1.0, Zsun=0.0, _extra_rot=True):
     """
     NAME:
 
@@ -1023,16 +1114,19 @@ def XYZ_to_galcenrect(X,Y,Z,Xsun=1.,Zsun=0.,_extra_rot=True):
 
     """
     if _extra_rot:
-        X,Y,Z= numpy.dot(galcen_extra_rot,numpy.array([X,Y,Z]))
-    dgc= numpy.sqrt(Xsun**2.+Zsun**2.)
-    costheta, sintheta= Xsun/dgc, Zsun/dgc
-    return numpy.dot(numpy.array([[costheta,0.,-sintheta],
-                            [0.,1.,0.],
-                            [sintheta,0.,costheta]]),
-                  numpy.array([-X+dgc,Y,numpy.sign(Xsun)*Z])).T
+        X, Y, Z = numpy.dot(galcen_extra_rot, numpy.array([X, Y, Z]))
+    dgc = numpy.sqrt(Xsun**2.0 + Zsun**2.0)
+    costheta, sintheta = Xsun / dgc, Zsun / dgc
+    return numpy.dot(
+        numpy.array(
+            [[costheta, 0.0, -sintheta], [0.0, 1.0, 0.0], [sintheta, 0.0, costheta]]
+        ),
+        numpy.array([-X + dgc, Y, numpy.sign(Xsun) * Z]),
+    ).T
+
 
 @scalarDecorator
-def galcenrect_to_XYZ(X,Y,Z,Xsun=1.,Zsun=0.,_extra_rot=True):
+def galcenrect_to_XYZ(X, Y, Z, Xsun=1.0, Zsun=0.0, _extra_rot=True):
     """
     NAME:
 
@@ -1067,29 +1161,42 @@ def galcenrect_to_XYZ(X,Y,Z,Xsun=1.,Zsun=0.,_extra_rot=True):
        2018-04-18 - Tweaked to be consistent with astropy's Galactocentric frame - Bovy (UofT)
 
     """
-    dgc= numpy.sqrt(Xsun**2.+Zsun**2.)
-    costheta, sintheta= Xsun/dgc, Zsun/dgc
-    if isinstance(Xsun,numpy.ndarray):
-        zero= numpy.zeros(len(Xsun))
-        one= numpy.ones(len(Xsun))
-        Carr= numpy.rollaxis(numpy.array([[-costheta,zero,-sintheta],
-                                    [zero,one,zero],
-                                    [-numpy.sign(Xsun)*sintheta,zero,
-                                      numpy.sign(Xsun)*costheta]]),2)
-        out= ((Carr*numpy.array([[X,X,X],[Y,Y,Y],[Z,Z,Z]]).T).sum(-1)
-                 +numpy.array([dgc,zero,zero]).T)
+    dgc = numpy.sqrt(Xsun**2.0 + Zsun**2.0)
+    costheta, sintheta = Xsun / dgc, Zsun / dgc
+    if isinstance(Xsun, numpy.ndarray):
+        zero = numpy.zeros(len(Xsun))
+        one = numpy.ones(len(Xsun))
+        Carr = numpy.rollaxis(
+            numpy.array(
+                [
+                    [-costheta, zero, -sintheta],
+                    [zero, one, zero],
+                    [-numpy.sign(Xsun) * sintheta, zero, numpy.sign(Xsun) * costheta],
+                ]
+            ),
+            2,
+        )
+        out = (Carr * numpy.array([[X, X, X], [Y, Y, Y], [Z, Z, Z]]).T).sum(
+            -1
+        ) + numpy.array([dgc, zero, zero]).T
     else:
-        out= numpy.dot(numpy.array([[-costheta,0.,-sintheta],
-                              [0.,1.,0.],
-                              [-numpy.sign(Xsun)*sintheta,0.,
-                                numpy.sign(Xsun)*costheta]]),
-                    numpy.array([X,Y,Z])).T+numpy.array([dgc,0.,0.])
+        out = numpy.dot(
+            numpy.array(
+                [
+                    [-costheta, 0.0, -sintheta],
+                    [0.0, 1.0, 0.0],
+                    [-numpy.sign(Xsun) * sintheta, 0.0, numpy.sign(Xsun) * costheta],
+                ]
+            ),
+            numpy.array([X, Y, Z]),
+        ).T + numpy.array([dgc, 0.0, 0.0])
     if _extra_rot:
-        return numpy.dot(galcen_extra_rot.T,out.T).T
+        return numpy.dot(galcen_extra_rot.T, out.T).T
     else:
         return out
 
-def rect_to_cyl(X,Y,Z):
+
+def rect_to_cyl(X, Y, Z):
     """
     NAME:
 
@@ -1114,9 +1221,10 @@ def rect_to_cyl(X,Y,Z):
        2019-06-21 - Changed such that phi in [-pi,pi] - Bovy (UofT)
 
     """
-    return (numpy.sqrt(X**2.+Y**2.),numpy.arctan2(Y,X),Z)
+    return (numpy.sqrt(X**2.0 + Y**2.0), numpy.arctan2(Y, X), Z)
 
-def cyl_to_rect(R,phi,Z):
+
+def cyl_to_rect(R, phi, Z):
     """
     NAME:
 
@@ -1139,9 +1247,10 @@ def cyl_to_rect(R,phi,Z):
        2011-02-23 - Written - Bovy (NYU)
 
     """
-    return (R*numpy.cos(phi),R*numpy.sin(phi),Z)
+    return (R * numpy.cos(phi), R * numpy.sin(phi), Z)
 
-def cyl_to_spher(R,Z, phi):
+
+def cyl_to_spher(R, Z, phi):
     """
     NAME:
 
@@ -1165,8 +1274,9 @@ def cyl_to_spher(R,Z, phi):
 
     """
     theta = numpy.arctan2(R, Z)
-    r = (R**2 + Z**2)**.5
-    return (r,theta, phi)
+    r = (R**2 + Z**2) ** 0.5
+    return (r, theta, phi)
+
 
 def spher_to_cyl(r, theta, phi):
     """
@@ -1191,12 +1301,13 @@ def spher_to_cyl(r, theta, phi):
        2016-05-20 - Written - Aladdin
 
     """
-    R = r*numpy.sin(theta)
-    z = r*numpy.cos(theta)
-    return (R,z, phi)
+    R = r * numpy.sin(theta)
+    z = r * numpy.cos(theta)
+    return (R, z, phi)
+
 
 @scalarDecorator
-def XYZ_to_galcencyl(X,Y,Z,Xsun=1.,Zsun=0.,_extra_rot=True):
+def XYZ_to_galcencyl(X, Y, Z, Xsun=1.0, Zsun=0.0, _extra_rot=True):
     """
     NAME:
 
@@ -1229,12 +1340,14 @@ def XYZ_to_galcencyl(X,Y,Z,Xsun=1.,Zsun=0.,_extra_rot=True):
        2010-09-24 - Written - Bovy (NYU)
 
     """
-    XYZ= numpy.atleast_2d(XYZ_to_galcenrect(X,Y,Z,Xsun=Xsun,Zsun=Zsun,
-                                         _extra_rot=_extra_rot))
-    return numpy.array(rect_to_cyl(XYZ[:,0],XYZ[:,1],XYZ[:,2])).T
+    XYZ = numpy.atleast_2d(
+        XYZ_to_galcenrect(X, Y, Z, Xsun=Xsun, Zsun=Zsun, _extra_rot=_extra_rot)
+    )
+    return numpy.array(rect_to_cyl(XYZ[:, 0], XYZ[:, 1], XYZ[:, 2])).T
+
 
 @scalarDecorator
-def galcencyl_to_XYZ(R,phi,Z,Xsun=1.,Zsun=0.,_extra_rot=True):
+def galcencyl_to_XYZ(R, phi, Z, Xsun=1.0, Zsun=0.0, _extra_rot=True):
     """
     NAME:
 
@@ -1265,13 +1378,14 @@ def galcencyl_to_XYZ(R,phi,Z,Xsun=1.,Zsun=0.,_extra_rot=True):
        2017-10-24 - Allowed Xsun/Zsun to be arrays - Bovy (UofT)
 
     """
-    Xr,Yr,Zr= cyl_to_rect(R,phi,Z)
-    return galcenrect_to_XYZ(Xr,Yr,Zr,Xsun=Xsun,Zsun=Zsun,
-                             _extra_rot=_extra_rot)
+    Xr, Yr, Zr = cyl_to_rect(R, phi, Z)
+    return galcenrect_to_XYZ(Xr, Yr, Zr, Xsun=Xsun, Zsun=Zsun, _extra_rot=_extra_rot)
+
 
 @scalarDecorator
-def vxvyvz_to_galcenrect(vx,vy,vz,vsun=[0.,1.,0.],Xsun=1.,Zsun=0.,
-                         _extra_rot=True):
+def vxvyvz_to_galcenrect(
+    vx, vy, vz, vsun=[0.0, 1.0, 0.0], Xsun=1.0, Zsun=0.0, _extra_rot=True
+):
     """
     NAME:
 
@@ -1311,17 +1425,31 @@ def vxvyvz_to_galcenrect(vx,vy,vz,vsun=[0.,1.,0.],Xsun=1.,Zsun=0.,
 
     """
     if _extra_rot:
-        vx,vy,vz= numpy.dot(galcen_extra_rot,numpy.array([vx,vy,vz]))
-    dgc= numpy.sqrt(Xsun**2.+Zsun**2.)
-    costheta, sintheta= Xsun/dgc, Zsun/dgc
-    return numpy.dot(numpy.array([[costheta,0.,-sintheta],
-                            [0.,1.,0.],
-                            [sintheta,0.,costheta]]),
-                  numpy.array([-vx,vy,numpy.sign(Xsun)*vz])).T+numpy.array(vsun)
+        vx, vy, vz = numpy.dot(galcen_extra_rot, numpy.array([vx, vy, vz]))
+    dgc = numpy.sqrt(Xsun**2.0 + Zsun**2.0)
+    costheta, sintheta = Xsun / dgc, Zsun / dgc
+    return numpy.dot(
+        numpy.array(
+            [[costheta, 0.0, -sintheta], [0.0, 1.0, 0.0], [sintheta, 0.0, costheta]]
+        ),
+        numpy.array([-vx, vy, numpy.sign(Xsun) * vz]),
+    ).T + numpy.array(vsun)
+
 
 @scalarDecorator
-def vxvyvz_to_galcencyl(vx,vy,vz,X,Y,Z,vsun=[0.,1.,0.],Xsun=1.,Zsun=0.,
-                        galcen=False,_extra_rot=True):
+def vxvyvz_to_galcencyl(
+    vx,
+    vy,
+    vz,
+    X,
+    Y,
+    Z,
+    vsun=[0.0, 1.0, 0.0],
+    Xsun=1.0,
+    Zsun=0.0,
+    galcen=False,
+    _extra_rot=True,
+):
     """
     NAME:
 
@@ -1364,14 +1492,18 @@ def vxvyvz_to_galcencyl(vx,vy,vz,X,Y,Z,vsun=[0.,1.,0.],Xsun=1.,Zsun=0.,
        2010-09-24 - Written - Bovy (NYU)
 
     """
-    vxyz= vxvyvz_to_galcenrect(vx,vy,vz,vsun=vsun,Xsun=Xsun,Zsun=Zsun,
-                               _extra_rot=_extra_rot)
-    return numpy.array(\
-        rect_to_cyl_vec(vxyz[:,0],vxyz[:,1],vxyz[:,2],X,Y,Z,cyl=galcen)).T
+    vxyz = vxvyvz_to_galcenrect(
+        vx, vy, vz, vsun=vsun, Xsun=Xsun, Zsun=Zsun, _extra_rot=_extra_rot
+    )
+    return numpy.array(
+        rect_to_cyl_vec(vxyz[:, 0], vxyz[:, 1], vxyz[:, 2], X, Y, Z, cyl=galcen)
+    ).T
+
 
 @scalarDecorator
-def galcenrect_to_vxvyvz(vXg,vYg,vZg,vsun=[0.,1.,0.],Xsun=1.,Zsun=0.,
-                         _extra_rot=True):
+def galcenrect_to_vxvyvz(
+    vXg, vYg, vZg, vsun=[0.0, 1.0, 0.0], Xsun=1.0, Zsun=0.0, _extra_rot=True
+):
     """
     NAME:
 
@@ -1412,33 +1544,52 @@ def galcenrect_to_vxvyvz(vXg,vYg,vZg,vsun=[0.,1.,0.],Xsun=1.,Zsun=0.,
        2018-04-18 - Tweaked to be consistent with astropy's Galactocentric frame - Bovy (UofT)
 
     """
-    dgc= numpy.sqrt(Xsun**2.+Zsun**2.)
-    costheta, sintheta= Xsun/dgc, Zsun/dgc
-    if isinstance(Xsun,numpy.ndarray):
-        zero= numpy.zeros(len(Xsun))
-        one= numpy.ones(len(Xsun))
-        Carr= numpy.rollaxis(numpy.array([[-costheta,zero,-sintheta],
-                                    [zero,one,zero],
-                                    [-numpy.sign(Xsun)*sintheta,zero,
-                                      numpy.sign(Xsun)*costheta]]),2)
-        out= ((Carr
-               *numpy.array([[vXg-vsun[0],vXg-vsun[0],vXg-vsun[0]],
-                          [vYg-vsun[1],vYg-vsun[1],vYg-vsun[1]],
-                          [vZg-vsun[2],vZg-vsun[2],vZg-vsun[2]]]).T).sum(-1))
+    dgc = numpy.sqrt(Xsun**2.0 + Zsun**2.0)
+    costheta, sintheta = Xsun / dgc, Zsun / dgc
+    if isinstance(Xsun, numpy.ndarray):
+        zero = numpy.zeros(len(Xsun))
+        one = numpy.ones(len(Xsun))
+        Carr = numpy.rollaxis(
+            numpy.array(
+                [
+                    [-costheta, zero, -sintheta],
+                    [zero, one, zero],
+                    [-numpy.sign(Xsun) * sintheta, zero, numpy.sign(Xsun) * costheta],
+                ]
+            ),
+            2,
+        )
+        out = (
+            Carr
+            * numpy.array(
+                [
+                    [vXg - vsun[0], vXg - vsun[0], vXg - vsun[0]],
+                    [vYg - vsun[1], vYg - vsun[1], vYg - vsun[1]],
+                    [vZg - vsun[2], vZg - vsun[2], vZg - vsun[2]],
+                ]
+            ).T
+        ).sum(-1)
     else:
-        out= numpy.dot(numpy.array([[-costheta,0.,-sintheta],
-                              [0.,1.,0.],
-                              [-numpy.sign(Xsun)*sintheta,0.,
-                                numpy.sign(Xsun)*costheta]]),
-                    numpy.array([vXg-vsun[0],vYg-vsun[1],vZg-vsun[2]])).T
+        out = numpy.dot(
+            numpy.array(
+                [
+                    [-costheta, 0.0, -sintheta],
+                    [0.0, 1.0, 0.0],
+                    [-numpy.sign(Xsun) * sintheta, 0.0, numpy.sign(Xsun) * costheta],
+                ]
+            ),
+            numpy.array([vXg - vsun[0], vYg - vsun[1], vZg - vsun[2]]),
+        ).T
     if _extra_rot:
-        return numpy.dot(galcen_extra_rot.T,out.T).T
+        return numpy.dot(galcen_extra_rot.T, out.T).T
     else:
         return out
 
+
 @scalarDecorator
-def galcencyl_to_vxvyvz(vR,vT,vZ,phi,vsun=[0.,1.,0.],Xsun=1.,Zsun=0.,
-                        _extra_rot=True):
+def galcencyl_to_vxvyvz(
+    vR, vT, vZ, phi, vsun=[0.0, 1.0, 0.0], Xsun=1.0, Zsun=0.0, _extra_rot=True
+):
     """
     NAME:
 
@@ -1477,11 +1628,13 @@ def galcencyl_to_vxvyvz(vR,vT,vZ,phi,vsun=[0.,1.,0.],Xsun=1.,Zsun=0.,
        2017-10-24 - Allowed vsun/Xsun/Zsun to be arrays - Bovy (NYU)
 
     """
-    vXg, vYg, vZg= cyl_to_rect_vec(vR,vT,vZ,phi)
-    return galcenrect_to_vxvyvz(vXg,vYg,vZg,vsun=vsun,Xsun=Xsun,Zsun=Zsun,
-                                _extra_rot=_extra_rot)
+    vXg, vYg, vZg = cyl_to_rect_vec(vR, vT, vZ, phi)
+    return galcenrect_to_vxvyvz(
+        vXg, vYg, vZg, vsun=vsun, Xsun=Xsun, Zsun=Zsun, _extra_rot=_extra_rot
+    )
 
-def cyl_to_spher_vec(vR,vT,vz,R,z):
+
+def cyl_to_spher_vec(vR, vT, vz, R, z):
     """
     NAME:
 
@@ -1512,12 +1665,13 @@ def cyl_to_spher_vec(vR,vT,vz,R,z):
        2020-07-01 - Written - James Lane (UofT)
 
     """
-    r = numpy.sqrt(R**2.+z**2.)
-    vr = (R*vR + z*vz)/r
-    vtheta = (z*vR - R*vz)/r
-    return (vr,vT,vtheta)
+    r = numpy.sqrt(R**2.0 + z**2.0)
+    vr = (R * vR + z * vz) / r
+    vtheta = (z * vR - R * vz) / r
+    return (vr, vT, vtheta)
 
-def spher_to_cyl_vec(vr,vT,vtheta,theta):
+
+def spher_to_cyl_vec(vr, vT, vtheta, theta):
     """
     NAME:
 
@@ -1546,11 +1700,12 @@ def spher_to_cyl_vec(vr,vT,vtheta,theta):
        2020-07-01 - Written - James Lane (UofT)
 
     """
-    vR = vr*numpy.sin(theta) + vtheta*numpy.cos(theta)
-    vz = vr*numpy.cos(theta) - vtheta*numpy.sin(theta)
-    return (vR,vT,vz)
+    vR = vr * numpy.sin(theta) + vtheta * numpy.cos(theta)
+    vz = vr * numpy.cos(theta) - vtheta * numpy.sin(theta)
+    return (vR, vT, vz)
 
-def rect_to_cyl_vec(vx,vy,vz,X,Y,Z,cyl=False):
+
+def rect_to_cyl_vec(vx, vy, vz, X, Y, Z, cyl=False):
     """
     NAME:
 
@@ -1586,14 +1741,15 @@ def rect_to_cyl_vec(vx,vy,vz,X,Y,Z,cyl=False):
 
     """
     if not cyl:
-        R,phi,Z= rect_to_cyl(X,Y,Z)
+        R, phi, Z = rect_to_cyl(X, Y, Z)
     else:
-        phi= Y
-    vr=+vx*numpy.cos(phi)+vy*numpy.sin(phi)
-    vt= -vx*numpy.sin(phi)+vy*numpy.cos(phi)
-    return (vr,vt,vz)
+        phi = Y
+    vr = +vx * numpy.cos(phi) + vy * numpy.sin(phi)
+    vt = -vx * numpy.sin(phi) + vy * numpy.cos(phi)
+    return (vr, vt, vz)
 
-def cyl_to_rect_vec(vr,vt,vz,phi):
+
+def cyl_to_rect_vec(vr, vt, vz, phi):
     """
     NAME:
 
@@ -1622,9 +1778,10 @@ def cyl_to_rect_vec(vr,vt,vz,phi):
        2011-02-24 - Written - Bovy (NYU)
 
     """
-    vx= vr*numpy.cos(phi)-vt*numpy.sin(phi)
-    vy= vr*numpy.sin(phi)+vt*numpy.cos(phi)
-    return (vx,vy,vz)
+    vx = vr * numpy.cos(phi) - vt * numpy.sin(phi)
+    vy = vr * numpy.sin(phi) + vt * numpy.cos(phi)
+    return (vx, vy, vz)
+
 
 def cyl_to_rect_jac(*args):
     """
@@ -1655,34 +1812,35 @@ def cyl_to_rect_jac(*args):
        2013-12-09 - Written - Bovy (IAS)
 
     """
-    out= numpy.zeros((6,6))
+    out = numpy.zeros((6, 6))
     if len(args) == 3:
-        R, phi, Z= args
-        vR, vT, vZ= 0., 0., 0.
-        outIndx= numpy.array([True,False,False,True,False,True],dtype='bool')
+        R, phi, Z = args
+        vR, vT, vZ = 0.0, 0.0, 0.0
+        outIndx = numpy.array([True, False, False, True, False, True], dtype="bool")
     elif len(args) == 6:
-        R, vR, vT, Z, vZ, phi= args
-        outIndx= numpy.ones(6,dtype='bool')
-    cp= numpy.cos(phi)
-    sp= numpy.sin(phi)
-    out[0,0]= cp
-    out[0,5]= -R*sp
-    out[1,0]= sp
-    out[1,5]= R*cp
-    out[2,3]= 1.
-    out[3,1]= cp
-    out[3,2]= -sp
-    out[3,5]= -vT*cp-vR*sp
-    out[4,1]= sp
-    out[4,2]= cp
-    out[4,5]= -vT*sp+vR*cp
-    out[5,4]= 1.
+        R, vR, vT, Z, vZ, phi = args
+        outIndx = numpy.ones(6, dtype="bool")
+    cp = numpy.cos(phi)
+    sp = numpy.sin(phi)
+    out[0, 0] = cp
+    out[0, 5] = -R * sp
+    out[1, 0] = sp
+    out[1, 5] = R * cp
+    out[2, 3] = 1.0
+    out[3, 1] = cp
+    out[3, 2] = -sp
+    out[3, 5] = -vT * cp - vR * sp
+    out[4, 1] = sp
+    out[4, 2] = cp
+    out[4, 5] = -vT * sp + vR * cp
+    out[5, 4] = 1.0
     if len(args) == 3:
-        out= out[:3,outIndx]
-        out[:,[1,2]]= out[:,[2,1]]
+        out = out[:3, outIndx]
+        out[:, [1, 2]] = out[:, [2, 1]]
     return out
 
-def galcenrect_to_XYZ_jac(*args,**kwargs):
+
+def galcenrect_to_XYZ_jac(*args, **kwargs):
     """
     NAME:
 
@@ -1714,24 +1872,26 @@ def galcenrect_to_XYZ_jac(*args,**kwargs):
        2013-12-09 - Written - Bovy (IAS)
 
     """
-    Xsun= kwargs.get('Xsun',1.)
-    dgc= numpy.sqrt(Xsun**2.+kwargs.get('Zsun',0.)**2.)
-    costheta, sintheta= Xsun/dgc, kwargs.get('Zsun',0.)/dgc
-    out= numpy.zeros((6,6))
-    out[0,0]= -costheta
-    out[0,2]= -sintheta
-    out[1,1]= 1.
-    out[2,0]= -numpy.sign(Xsun)*sintheta
-    out[2,2]= numpy.sign(Xsun)*costheta
-    if len(args) == 3: return out[:3,:3]
-    out[3,3]= -costheta
-    out[3,5]= -sintheta
-    out[4,4]= 1.
-    out[5,3]= -numpy.sign(Xsun)*sintheta
-    out[5,5]= numpy.sign(Xsun)*costheta
+    Xsun = kwargs.get("Xsun", 1.0)
+    dgc = numpy.sqrt(Xsun**2.0 + kwargs.get("Zsun", 0.0) ** 2.0)
+    costheta, sintheta = Xsun / dgc, kwargs.get("Zsun", 0.0) / dgc
+    out = numpy.zeros((6, 6))
+    out[0, 0] = -costheta
+    out[0, 2] = -sintheta
+    out[1, 1] = 1.0
+    out[2, 0] = -numpy.sign(Xsun) * sintheta
+    out[2, 2] = numpy.sign(Xsun) * costheta
+    if len(args) == 3:
+        return out[:3, :3]
+    out[3, 3] = -costheta
+    out[3, 5] = -sintheta
+    out[4, 4] = 1.0
+    out[5, 3] = -numpy.sign(Xsun) * sintheta
+    out[5, 5] = numpy.sign(Xsun) * costheta
     return out
 
-def lbd_to_XYZ_jac(*args,**kwargs):
+
+def lbd_to_XYZ_jac(*args, **kwargs):
     """
     NAME:
 
@@ -1762,54 +1922,55 @@ def lbd_to_XYZ_jac(*args,**kwargs):
        2013-12-09 - Written - Bovy (IAS)
 
     """
-    out= numpy.zeros((6,6))
+    out = numpy.zeros((6, 6))
     if len(args) == 3:
-        l,b,D= args
-        vlos, pmll, pmbb= 0., 0., 0.
+        l, b, D = args
+        vlos, pmll, pmbb = 0.0, 0.0, 0.0
     elif len(args) == 6:
-        l,b,D,vlos,pmll,pmbb= args
-    if kwargs.get('degree',False):
-        l*= _DEGTORAD
-        b*= _DEGTORAD
-    cl= numpy.cos(l)
-    sl= numpy.sin(l)
-    cb= numpy.cos(b)
-    sb= numpy.sin(b)
-    out[0,0]= -D*cb*sl
-    out[0,1]= -D*sb*cl
-    out[0,2]= cb*cl
-    out[1,0]= D*cb*cl
-    out[1,1]= -D*sb*sl
-    out[1,2]= cb*sl
-    out[2,1]= D*cb
-    out[2,2]= sb
+        l, b, D, vlos, pmll, pmbb = args
+    if kwargs.get("degree", False):
+        l *= _DEGTORAD
+        b *= _DEGTORAD
+    cl = numpy.cos(l)
+    sl = numpy.sin(l)
+    cb = numpy.cos(b)
+    sb = numpy.sin(b)
+    out[0, 0] = -D * cb * sl
+    out[0, 1] = -D * sb * cl
+    out[0, 2] = cb * cl
+    out[1, 0] = D * cb * cl
+    out[1, 1] = -D * sb * sl
+    out[1, 2] = cb * sl
+    out[2, 1] = D * cb
+    out[2, 2] = sb
     if len(args) == 3:
-        if kwargs.get('degree',False):
-            out[:,0]*= _DEGTORAD
-            out[:,1]*= _DEGTORAD
-        return out[:3,:3]
-    out[3,0]= -sl*cb*vlos-cl*_K*D*pmll+sb*sl*_K*D*pmbb
-    out[3,1]= -cl*sb*vlos-cb*cl*_K*D*pmbb
-    out[3,2]= -sl*_K*pmll-sb*cl*_K*pmbb
-    out[3,3]= cl*cb
-    out[3,4]= -sl*_K*D
-    out[3,5]= -cl*sb*_K*D
-    out[4,0]= cl*cb*vlos-sl*_K*D*pmll-cl*sb*_K*D*pmbb
-    out[4,1]= -sl*sb*vlos-sl*cb*_K*D*pmbb
-    out[4,2]= cl*_K*pmll-sl*sb*_K*pmbb
-    out[4,3]= sl*cb
-    out[4,4]= cl*_K*D
-    out[4,5]= -sl*sb*_K*D
-    out[5,1]= cb*vlos-sb*_K*D*pmbb
-    out[5,2]= cb*_K*pmbb
-    out[5,3]= sb
-    out[5,5]= cb*_K*D
-    if kwargs.get('degree',False):
-        out[:,0]*= _DEGTORAD
-        out[:,1]*= _DEGTORAD
+        if kwargs.get("degree", False):
+            out[:, 0] *= _DEGTORAD
+            out[:, 1] *= _DEGTORAD
+        return out[:3, :3]
+    out[3, 0] = -sl * cb * vlos - cl * _K * D * pmll + sb * sl * _K * D * pmbb
+    out[3, 1] = -cl * sb * vlos - cb * cl * _K * D * pmbb
+    out[3, 2] = -sl * _K * pmll - sb * cl * _K * pmbb
+    out[3, 3] = cl * cb
+    out[3, 4] = -sl * _K * D
+    out[3, 5] = -cl * sb * _K * D
+    out[4, 0] = cl * cb * vlos - sl * _K * D * pmll - cl * sb * _K * D * pmbb
+    out[4, 1] = -sl * sb * vlos - sl * cb * _K * D * pmbb
+    out[4, 2] = cl * _K * pmll - sl * sb * _K * pmbb
+    out[4, 3] = sl * cb
+    out[4, 4] = cl * _K * D
+    out[4, 5] = -sl * sb * _K * D
+    out[5, 1] = cb * vlos - sb * _K * D * pmbb
+    out[5, 2] = cb * _K * pmbb
+    out[5, 3] = sb
+    out[5, 5] = cb * _K * D
+    if kwargs.get("degree", False):
+        out[:, 0] *= _DEGTORAD
+        out[:, 1] *= _DEGTORAD
     return out
 
-def dl_to_rphi_2d(d,l,degree=False,ro=1.,phio=0.):
+
+def dl_to_rphi_2d(d, l, degree=False, ro=1.0, phio=0.0):
     """
     NAME:
 
@@ -1842,34 +2003,35 @@ def dl_to_rphi_2d(d,l,degree=False,ro=1.,phio=0.):
        2012-01-04 - Written - Bovy (IAS)
 
     """
-    scalarOut, listOut= False, False
-    if isinstance(d,(int,float)):
-        d= numpy.array([d])
-        scalarOut= True
-    elif isinstance(d,list):
-        d= numpy.array(d)
-        listOut= True
-    if isinstance(l,(int,float)):
-        l= numpy.array([l])
-    elif isinstance(l,list):
-        l= numpy.array(l)
+    scalarOut, listOut = False, False
+    if isinstance(d, (int, float)):
+        d = numpy.array([d])
+        scalarOut = True
+    elif isinstance(d, list):
+        d = numpy.array(d)
+        listOut = True
+    if isinstance(l, (int, float)):
+        l = numpy.array([l])
+    elif isinstance(l, list):
+        l = numpy.array(l)
     if degree:
-        l*= _DEGTORAD
-    R= numpy.sqrt(ro**2.+d**2.-2.*d*ro*numpy.cos(l))
-    phi= numpy.arcsin(d/R*numpy.sin(l))
-    indx= (ro/numpy.cos(l) < d)*(numpy.cos(l) > 0.)
-    phi[indx]= numpy.pi-numpy.arcsin(d[indx]/R[indx]*numpy.sin(l[indx]))
+        l *= _DEGTORAD
+    R = numpy.sqrt(ro**2.0 + d**2.0 - 2.0 * d * ro * numpy.cos(l))
+    phi = numpy.arcsin(d / R * numpy.sin(l))
+    indx = (ro / numpy.cos(l) < d) * (numpy.cos(l) > 0.0)
+    phi[indx] = numpy.pi - numpy.arcsin(d[indx] / R[indx] * numpy.sin(l[indx]))
     if degree:
-        phi/= _DEGTORAD
-    phi+= phio
+        phi /= _DEGTORAD
+    phi += phio
     if scalarOut:
-        return (R[0],phi[0])
+        return (R[0], phi[0])
     elif listOut:
-        return (list(R),list(phi))
+        return (list(R), list(phi))
     else:
-        return (R,phi)
+        return (R, phi)
 
-def rphi_to_dl_2d(R,phi,degree=False,ro=1.,phio=0.):
+
+def rphi_to_dl_2d(R, phi, degree=False, ro=1.0, phio=0.0):
     """
     NAME:
 
@@ -1902,34 +2064,35 @@ def rphi_to_dl_2d(R,phi,degree=False,ro=1.,phio=0.):
        2012-01-04 - Written - Bovy (IAS)
 
     """
-    scalarOut, listOut= False, False
-    if isinstance(R,(int,float)):
-        R= numpy.array([R])
-        scalarOut= True
-    elif isinstance(R,list):
-        R= numpy.array(R)
-        listOut= True
-    if isinstance(phi,(int,float)):
-        phi= numpy.array([phi])
-    elif isinstance(phi,list):
-        phi= numpy.array(phi)
-    phi-= phio
+    scalarOut, listOut = False, False
+    if isinstance(R, (int, float)):
+        R = numpy.array([R])
+        scalarOut = True
+    elif isinstance(R, list):
+        R = numpy.array(R)
+        listOut = True
+    if isinstance(phi, (int, float)):
+        phi = numpy.array([phi])
+    elif isinstance(phi, list):
+        phi = numpy.array(phi)
+    phi -= phio
     if degree:
-        phi*= _DEGTORAD
-    d= numpy.sqrt(R**2.+ro**2.-2.*R*ro*numpy.cos(phi))
-    l= numpy.arcsin(R/d*numpy.sin(phi))
-    indx= (ro/numpy.cos(phi) < R)*(numpy.cos(phi) > 0.)
-    l[indx]= numpy.pi-numpy.arcsin(R[indx]/d[indx]*numpy.sin(phi[indx]))
+        phi *= _DEGTORAD
+    d = numpy.sqrt(R**2.0 + ro**2.0 - 2.0 * R * ro * numpy.cos(phi))
+    l = numpy.arcsin(R / d * numpy.sin(phi))
+    indx = (ro / numpy.cos(phi) < R) * (numpy.cos(phi) > 0.0)
+    l[indx] = numpy.pi - numpy.arcsin(R[indx] / d[indx] * numpy.sin(phi[indx]))
     if degree:
-        l/= _DEGTORAD
+        l /= _DEGTORAD
     if scalarOut:
-        return (d[0],l[0])
+        return (d[0], l[0])
     elif listOut:
-        return (list(d),list(l))
+        return (list(d), list(l))
     else:
-        return (d,l)
+        return (d, l)
 
-def Rz_to_coshucosv(R,z,delta=1.,oblate=False):
+
+def Rz_to_coshucosv(R, z, delta=1.0, oblate=False):
     """
     NAME:
 
@@ -1960,18 +2123,19 @@ def Rz_to_coshucosv(R,z,delta=1.,oblate=False):
 
     """
     if oblate:
-        d12= (R+delta)**2.+z**2.
-        d22= (R-delta)**2.+z**2.
+        d12 = (R + delta) ** 2.0 + z**2.0
+        d22 = (R - delta) ** 2.0 + z**2.0
     else:
-        d12= (z+delta)**2.+R**2.
-        d22= (z-delta)**2.+R**2.
-    coshu= 0.5/delta*(numpy.sqrt(d12)+numpy.sqrt(d22))
-    cosv=  0.5/delta*(numpy.sqrt(d12)-numpy.sqrt(d22))
-    if oblate: # cosv is currently really sinv
-        cosv= numpy.sqrt(1.-cosv**2.)
-    return (coshu,cosv)
+        d12 = (z + delta) ** 2.0 + R**2.0
+        d22 = (z - delta) ** 2.0 + R**2.0
+    coshu = 0.5 / delta * (numpy.sqrt(d12) + numpy.sqrt(d22))
+    cosv = 0.5 / delta * (numpy.sqrt(d12) - numpy.sqrt(d22))
+    if oblate:  # cosv is currently really sinv
+        cosv = numpy.sqrt(1.0 - cosv**2.0)
+    return (coshu, cosv)
 
-def Rz_to_uv(R,z,delta=1.,oblate=False):
+
+def Rz_to_uv(R, z, delta=1.0, oblate=False):
     """
     NAME:
 
@@ -2002,12 +2166,13 @@ def Rz_to_uv(R,z,delta=1.,oblate=False):
        2017-10-11 - Added oblate coordinates - Bovy (UofT)
 
     """
-    coshu, cosv= Rz_to_coshucosv(R,z,delta,oblate=oblate)
-    u= numpy.arccosh(coshu)
-    v= numpy.arccos(cosv)
-    return (u,v)
+    coshu, cosv = Rz_to_coshucosv(R, z, delta, oblate=oblate)
+    u = numpy.arccosh(coshu)
+    v = numpy.arccos(cosv)
+    return (u, v)
 
-def uv_to_Rz(u,v,delta=1.,oblate=False):
+
+def uv_to_Rz(u, v, delta=1.0, oblate=False):
     """
     NAME:
 
@@ -2039,14 +2204,15 @@ def uv_to_Rz(u,v,delta=1.,oblate=False):
 
     """
     if oblate:
-        R= delta*numpy.cosh(u)*numpy.sin(v)
-        z= delta*numpy.sinh(u)*numpy.cos(v)
+        R = delta * numpy.cosh(u) * numpy.sin(v)
+        z = delta * numpy.sinh(u) * numpy.cos(v)
     else:
-        R= delta*numpy.sinh(u)*numpy.sin(v)
-        z= delta*numpy.cosh(u)*numpy.cos(v)
-    return (R,z)
+        R = delta * numpy.sinh(u) * numpy.sin(v)
+        z = delta * numpy.cosh(u) * numpy.cos(v)
+    return (R, z)
 
-def vRvz_to_pupv(vR,vz,R,z,delta=1.,oblate=False,uv=False):
+
+def vRvz_to_pupv(vR, vz, R, z, delta=1.0, oblate=False, uv=False):
     """
     NAME:
 
@@ -2082,18 +2248,27 @@ def vRvz_to_pupv(vR,vz,R,z,delta=1.,oblate=False,uv=False):
 
     """
     if not uv:
-        u,v= Rz_to_uv(R,z,delta,oblate=oblate)
+        u, v = Rz_to_uv(R, z, delta, oblate=oblate)
     else:
-        u,v= R,z
+        u, v = R, z
     if oblate:
-        pu= delta*(vR*numpy.sinh(u)*numpy.sin(v)+vz*numpy.cosh(u)*numpy.cos(v))
-        pv= delta*(vR*numpy.cosh(u)*numpy.cos(v)-vz*numpy.sinh(u)*numpy.sin(v))
+        pu = delta * (
+            vR * numpy.sinh(u) * numpy.sin(v) + vz * numpy.cosh(u) * numpy.cos(v)
+        )
+        pv = delta * (
+            vR * numpy.cosh(u) * numpy.cos(v) - vz * numpy.sinh(u) * numpy.sin(v)
+        )
     else:
-        pu= delta*(vR*numpy.cosh(u)*numpy.sin(v)+vz*numpy.sinh(u)*numpy.cos(v))
-        pv= delta*(vR*numpy.sinh(u)*numpy.cos(v)-vz*numpy.cosh(u)*numpy.sin(v))
-    return (pu,pv)
+        pu = delta * (
+            vR * numpy.cosh(u) * numpy.sin(v) + vz * numpy.sinh(u) * numpy.cos(v)
+        )
+        pv = delta * (
+            vR * numpy.sinh(u) * numpy.cos(v) - vz * numpy.cosh(u) * numpy.sin(v)
+        )
+    return (pu, pv)
 
-def pupv_to_vRvz(pu,pv,u,v,delta=1.,oblate=False):
+
+def pupv_to_vRvz(pu, pv, u, v, delta=1.0, oblate=False):
     """
     NAME:
 
@@ -2128,16 +2303,25 @@ def pupv_to_vRvz(pu,pv,u,v,delta=1.,oblate=False):
 
     """
     if oblate:
-        denom= delta*(numpy.sinh(u)**2.+numpy.cos(v)**2.)
-        vR= (pu*numpy.sinh(u)*numpy.sin(v)+pv*numpy.cosh(u)*numpy.cos(v))/denom
-        vz= (pu*numpy.cosh(u)*numpy.cos(v)-pv*numpy.sinh(u)*numpy.sin(v))/denom
+        denom = delta * (numpy.sinh(u) ** 2.0 + numpy.cos(v) ** 2.0)
+        vR = (
+            pu * numpy.sinh(u) * numpy.sin(v) + pv * numpy.cosh(u) * numpy.cos(v)
+        ) / denom
+        vz = (
+            pu * numpy.cosh(u) * numpy.cos(v) - pv * numpy.sinh(u) * numpy.sin(v)
+        ) / denom
     else:
-        denom= delta*(numpy.sinh(u)**2.+numpy.sin(v)**2.)
-        vR= (pu*numpy.cosh(u)*numpy.sin(v)+pv*numpy.sinh(u)*numpy.cos(v))/denom
-        vz= (pu*numpy.sinh(u)*numpy.cos(v)-pv*numpy.cosh(u)*numpy.sin(v))/denom
-    return (vR,vz)
+        denom = delta * (numpy.sinh(u) ** 2.0 + numpy.sin(v) ** 2.0)
+        vR = (
+            pu * numpy.cosh(u) * numpy.sin(v) + pv * numpy.sinh(u) * numpy.cos(v)
+        ) / denom
+        vz = (
+            pu * numpy.sinh(u) * numpy.cos(v) - pv * numpy.cosh(u) * numpy.sin(v)
+        ) / denom
+    return (vR, vz)
 
-def Rz_to_lambdanu(R,z,ac=5.,Delta=1.):
+
+def Rz_to_lambdanu(R, z, ac=5.0, Delta=1.0):
     """
     NAME:
 
@@ -2170,22 +2354,25 @@ def Rz_to_lambdanu(R,z,ac=5.,Delta=1.):
        2015-02-13 - Written - Trick (MPIA)
 
     """
-    g = Delta**2 / (1.-ac**2)
+    g = Delta**2 / (1.0 - ac**2)
     a = g - Delta**2
-    term  =  R**2 + z**2 - a - g
-    discr = (R**2 + z**2 - Delta**2)**2 + (4. * Delta**2 * R**2)
+    term = R**2 + z**2 - a - g
+    discr = (R**2 + z**2 - Delta**2) ** 2 + (4.0 * Delta**2 * R**2)
     l = 0.5 * (term + numpy.sqrt(discr))
     n = 0.5 * (term - numpy.sqrt(discr))
-    if isinstance(z,float) and z == 0.:
+    if isinstance(z, float) and z == 0.0:
         l = R**2 - a
         n = -g
-    elif isinstance(z,numpy.ndarray) and numpy.sum(z == 0.) > 0:
-        if isinstance(R,float):      l[z==0.] = R**2 - a
-        if isinstance(R,numpy.ndarray): l[z==0.] = R[z==0.]**2 - a
-        n[z==0.] = -g
-    return (l,n)
+    elif isinstance(z, numpy.ndarray) and numpy.sum(z == 0.0) > 0:
+        if isinstance(R, float):
+            l[z == 0.0] = R**2 - a
+        if isinstance(R, numpy.ndarray):
+            l[z == 0.0] = R[z == 0.0] ** 2 - a
+        n[z == 0.0] = -g
+    return (l, n)
 
-def Rz_to_lambdanu_jac(R,z,Delta=1.):
+
+def Rz_to_lambdanu_jac(R, z, Delta=1.0):
     """
     NAME:
 
@@ -2212,23 +2399,28 @@ def Rz_to_lambdanu_jac(R,z,Delta=1.):
        2015-02-13 - Written - Trick (MPIA)
 
     """
-    discr =           (R**2 + z**2 - Delta**2)**2 + (4. * Delta**2 * R**2)
-    dldR  = R * (1. + (R**2 + z**2 + Delta**2) / numpy.sqrt(discr))
-    dndR  = R * (1. - (R**2 + z**2 + Delta**2) / numpy.sqrt(discr))
-    dldz  = z * (1. + (R**2 + z**2 - Delta**2) / numpy.sqrt(discr))
-    dndz  = z * (1. - (R**2 + z**2 - Delta**2) / numpy.sqrt(discr))
+    discr = (R**2 + z**2 - Delta**2) ** 2 + (4.0 * Delta**2 * R**2)
+    dldR = R * (1.0 + (R**2 + z**2 + Delta**2) / numpy.sqrt(discr))
+    dndR = R * (1.0 - (R**2 + z**2 + Delta**2) / numpy.sqrt(discr))
+    dldz = z * (1.0 + (R**2 + z**2 - Delta**2) / numpy.sqrt(discr))
+    dndz = z * (1.0 - (R**2 + z**2 - Delta**2) / numpy.sqrt(discr))
     dim = 1
-    if   isinstance(R,numpy.ndarray): dim = len(R)
-    elif isinstance(z,numpy.ndarray): dim = len(z)
-    jac      = numpy.zeros((2,2,dim))
-    jac[0,0,:] = dldR
-    jac[0,1,:] = dldz
-    jac[1,0,:] = dndR
-    jac[1,1,:] = dndz
-    if dim == 1: return jac[:,:,0]
-    else:        return jac
+    if isinstance(R, numpy.ndarray):
+        dim = len(R)
+    elif isinstance(z, numpy.ndarray):
+        dim = len(z)
+    jac = numpy.zeros((2, 2, dim))
+    jac[0, 0, :] = dldR
+    jac[0, 1, :] = dldz
+    jac[1, 0, :] = dndR
+    jac[1, 1, :] = dndz
+    if dim == 1:
+        return jac[:, :, 0]
+    else:
+        return jac
 
-def Rz_to_lambdanu_hess(R,z,Delta=1.):
+
+def Rz_to_lambdanu_hess(R, z, Delta=1.0):
     """
     NAME:
 
@@ -2255,35 +2447,56 @@ def Rz_to_lambdanu_hess(R,z,Delta=1.):
        2015-02-13 - Written - Trick (MPIA)
 
     """
-    D       = Delta
-    R2      = R**2
-    z2      = z**2
-    D2      = D**2
-    discr   = (R2 + z2 - D2)**2 + (4. * D2 * R2)
-    d2ldR2  = 1. + (3.*R2+   z2+D2)/discr**0.5 - (2.*R2*(R2+z2+D2)**2)/discr**1.5
-    d2ndR2  = 1. - (3.*R2+   z2+D2)/discr**0.5 + (2.*R2*(R2+z2+D2)**2)/discr**1.5
-    d2ldz2  = 1. + (   R2+3.*z2-D2)/discr**0.5 - (2.*z2*(R2+z2-D2)**2)/discr**1.5
-    d2ndz2  = 1. - (   R2+3.*z2-D2)/discr**0.5 + (2.*z2*(R2+z2-D2)**2)/discr**1.5
-    d2ldRdz = 2.*R*z/discr**0.5 * ( 1. - ((R2+z2)**2-D**4)/discr)
-    d2ndRdz = 2.*R*z/discr**0.5 * (-1. + ((R2+z2)**2-D**4)/discr)
+    D = Delta
+    R2 = R**2
+    z2 = z**2
+    D2 = D**2
+    discr = (R2 + z2 - D2) ** 2 + (4.0 * D2 * R2)
+    d2ldR2 = (
+        1.0
+        + (3.0 * R2 + z2 + D2) / discr**0.5
+        - (2.0 * R2 * (R2 + z2 + D2) ** 2) / discr**1.5
+    )
+    d2ndR2 = (
+        1.0
+        - (3.0 * R2 + z2 + D2) / discr**0.5
+        + (2.0 * R2 * (R2 + z2 + D2) ** 2) / discr**1.5
+    )
+    d2ldz2 = (
+        1.0
+        + (R2 + 3.0 * z2 - D2) / discr**0.5
+        - (2.0 * z2 * (R2 + z2 - D2) ** 2) / discr**1.5
+    )
+    d2ndz2 = (
+        1.0
+        - (R2 + 3.0 * z2 - D2) / discr**0.5
+        + (2.0 * z2 * (R2 + z2 - D2) ** 2) / discr**1.5
+    )
+    d2ldRdz = 2.0 * R * z / discr**0.5 * (1.0 - ((R2 + z2) ** 2 - D**4) / discr)
+    d2ndRdz = 2.0 * R * z / discr**0.5 * (-1.0 + ((R2 + z2) ** 2 - D**4) / discr)
     dim = 1
-    if   isinstance(R,numpy.ndarray): dim = len(R)
-    elif isinstance(z,numpy.ndarray): dim = len(z)
-    hess    = numpy.zeros((2,2,2,dim))
-    #Hessian for lambda:
-    hess[0,0,0,:] = d2ldR2
-    hess[0,0,1,:] = d2ldRdz
-    hess[0,1,0,:] = d2ldRdz
-    hess[0,1,1,:] = d2ldz2
-    #Hessian for nu:
-    hess[1,0,0,:] = d2ndR2
-    hess[1,0,1,:] = d2ndRdz
-    hess[1,1,0,:] = d2ndRdz
-    hess[1,1,1,:] = d2ndz2
-    if dim == 1: return hess[:,:,:,0]
-    else:        return hess
+    if isinstance(R, numpy.ndarray):
+        dim = len(R)
+    elif isinstance(z, numpy.ndarray):
+        dim = len(z)
+    hess = numpy.zeros((2, 2, 2, dim))
+    # Hessian for lambda:
+    hess[0, 0, 0, :] = d2ldR2
+    hess[0, 0, 1, :] = d2ldRdz
+    hess[0, 1, 0, :] = d2ldRdz
+    hess[0, 1, 1, :] = d2ldz2
+    # Hessian for nu:
+    hess[1, 0, 0, :] = d2ndR2
+    hess[1, 0, 1, :] = d2ndRdz
+    hess[1, 1, 0, :] = d2ndRdz
+    hess[1, 1, 1, :] = d2ndz2
+    if dim == 1:
+        return hess[:, :, :, 0]
+    else:
+        return hess
 
-def lambdanu_to_Rz(l,n,ac=5.,Delta=1.):
+
+def lambdanu_to_Rz(l, n, ac=5.0, Delta=1.0):
     """
     NAME:
 
@@ -2313,24 +2526,28 @@ def lambdanu_to_Rz(l,n,ac=5.,Delta=1.):
         2015-02-13 - Written - Trick (MPIA)
 
     """
-    g = Delta**2 / (1.-ac**2)
+    g = Delta**2 / (1.0 - ac**2)
     a = g - Delta**2
     r2 = (l + a) * (n + a) / (a - g)
     z2 = (l + g) * (n + g) / (g - a)
-    index = (r2 < 0.) * ((n+a) > 0.) * ((n+a) < 1e-10)
+    index = (r2 < 0.0) * ((n + a) > 0.0) * ((n + a) < 1e-10)
     if numpy.any(index):
-        if isinstance(r2,numpy.ndarray): r2[index] = 0.
-        else:                         r2        = 0.
-    index = (z2 < 0.) * ((n+g) < 0.) * ((n+g) > -1e-10)
+        if isinstance(r2, numpy.ndarray):
+            r2[index] = 0.0
+        else:
+            r2 = 0.0
+    index = (z2 < 0.0) * ((n + g) < 0.0) * ((n + g) > -1e-10)
     if numpy.any(index):
-        if isinstance(z2,numpy.ndarray): z2[index] = 0.
-        else:                         z2        = 0.
-    return (numpy.sqrt(r2),numpy.sqrt(z2))
+        if isinstance(z2, numpy.ndarray):
+            z2[index] = 0.0
+        else:
+            z2 = 0.0
+    return (numpy.sqrt(r2), numpy.sqrt(z2))
 
 
 @scalarDecorator
-@degreeDecorator([0,1],[0,1])
-def radec_to_custom(ra,dec,T=None,degree=False):
+@degreeDecorator([0, 1], [0, 1])
+def radec_to_custom(ra, dec, T=None, degree=False):
     """
     NAME:
 
@@ -2365,22 +2582,23 @@ def radec_to_custom(ra,dec,T=None,degree=False):
        2019-03-02 - adjusted angle ranges - Nathaniel (UofT)
 
     """
-    if T is None: raise ValueError("Must set T= for radec_to_custom")
-    #Whether to use degrees and scalar input is handled by decorators
-    XYZ= numpy.array([numpy.cos(dec)*numpy.cos(ra),
-                   numpy.cos(dec)*numpy.sin(ra),
-                   numpy.sin(dec)])
-    galXYZ= numpy.dot(T,XYZ)
-    b= numpy.arcsin(galXYZ[2])  # [-pi/2, pi/2]
-    l= numpy.arctan2(galXYZ[1], galXYZ[0])
-    l[l<0] += 2 * numpy.pi  # fix range to [0, 2 pi]
-    out= numpy.array([l,b])
+    if T is None:
+        raise ValueError("Must set T= for radec_to_custom")
+    # Whether to use degrees and scalar input is handled by decorators
+    XYZ = numpy.array(
+        [numpy.cos(dec) * numpy.cos(ra), numpy.cos(dec) * numpy.sin(ra), numpy.sin(dec)]
+    )
+    galXYZ = numpy.dot(T, XYZ)
+    b = numpy.arcsin(galXYZ[2])  # [-pi/2, pi/2]
+    l = numpy.arctan2(galXYZ[1], galXYZ[0])
+    l[l < 0] += 2 * numpy.pi  # fix range to [0, 2 pi]
+    out = numpy.array([l, b])
     return out.T
 
 
 @scalarDecorator
-@degreeDecorator([2,3],[])
-def pmrapmdec_to_custom(pmra,pmdec,ra,dec,T=None,degree=False):
+@degreeDecorator([2, 3], [])
+def pmrapmdec_to_custom(pmra, pmdec, ra, dec, T=None, degree=False):
     """
     NAME:
 
@@ -2415,27 +2633,30 @@ def pmrapmdec_to_custom(pmra,pmdec,ra,dec,T=None,degree=False):
        2019-03-09 - uses custom_to_radec - Nathaniel Starkman (UofT)
 
     """
-    if T is None: raise ValueError("Must set T= for pmrapmdec_to_custom")
+    if T is None:
+        raise ValueError("Must set T= for pmrapmdec_to_custom")
     # Need to figure out ra_ngp and dec_ngp for this custom set of sky coords
-    ra_ngp, dec_ngp= custom_to_radec(0., numpy.pi/2, T=T)
-    #Whether to use degrees and scalar input is handled by decorators
-    dec[dec == dec_ngp]+= 10.**-16 #deal w/ pole.
-    sindec_ngp= numpy.sin(dec_ngp)
-    cosdec_ngp= numpy.cos(dec_ngp)
-    sindec= numpy.sin(dec)
-    cosdec= numpy.cos(dec)
-    sinrarangp= numpy.sin(ra-ra_ngp)
-    cosrarangp= numpy.cos(ra-ra_ngp)
-    cosphi= sindec_ngp*cosdec-cosdec_ngp*sindec*cosrarangp
-    sinphi= sinrarangp*cosdec_ngp
-    norm= numpy.sqrt(cosphi**2.+sinphi**2.)
-    cosphi/= norm
-    sinphi/= norm
-    return (numpy.array([[cosphi,-sinphi],[sinphi,cosphi]]).T\
-                *numpy.array([[pmra,pmra],[pmdec,pmdec]]).T).sum(-1)
+    ra_ngp, dec_ngp = custom_to_radec(0.0, numpy.pi / 2, T=T)
+    # Whether to use degrees and scalar input is handled by decorators
+    dec[dec == dec_ngp] += 10.0**-16  # deal w/ pole.
+    sindec_ngp = numpy.sin(dec_ngp)
+    cosdec_ngp = numpy.cos(dec_ngp)
+    sindec = numpy.sin(dec)
+    cosdec = numpy.cos(dec)
+    sinrarangp = numpy.sin(ra - ra_ngp)
+    cosrarangp = numpy.cos(ra - ra_ngp)
+    cosphi = sindec_ngp * cosdec - cosdec_ngp * sindec * cosrarangp
+    sinphi = sinrarangp * cosdec_ngp
+    norm = numpy.sqrt(cosphi**2.0 + sinphi**2.0)
+    cosphi /= norm
+    sinphi /= norm
+    return (
+        numpy.array([[cosphi, -sinphi], [sinphi, cosphi]]).T
+        * numpy.array([[pmra, pmra], [pmdec, pmdec]]).T
+    ).sum(-1)
 
 
-def custom_to_radec(phi1,phi2,T=None,degree=False):
+def custom_to_radec(phi1, phi2, T=None, degree=False):
     """
     NAME:
 
@@ -2464,13 +2685,17 @@ def custom_to_radec(phi1,phi2,T=None,degree=False):
 
         2018-10-23 - Written - Nathaniel (UofT)
     """
-    if T is None: raise ValueError("Must set T= for custom_to_radec")
-    return radec_to_custom(phi1, phi2,
-                           T=numpy.transpose(T),  # T.T = inv(T)
-                           degree=degree)
+    if T is None:
+        raise ValueError("Must set T= for custom_to_radec")
+    return radec_to_custom(
+        phi1,
+        phi2,
+        T=numpy.transpose(T),  # T.T = inv(T)
+        degree=degree,
+    )
 
 
-def custom_to_pmrapmdec(pmphi1,pmphi2,phi1,phi2,T=None,degree=False):
+def custom_to_pmrapmdec(pmphi1, pmphi2, phi1, phi2, T=None, degree=False):
     """
     NAME:
 
@@ -2505,10 +2730,16 @@ def custom_to_pmrapmdec(pmphi1,pmphi2,phi1,phi2,T=None,degree=False):
        2019-03-02 - Written - Nathaniel Starkman (UofT)
 
     """
-    if T is None: raise ValueError("Must set T= for custom_to_pmrapmdec")
-    return pmrapmdec_to_custom(pmphi1, pmphi2, phi1, phi2,
-                               T=numpy.transpose(T),  # T.T = inv(T)
-                               degree=degree)
+    if T is None:
+        raise ValueError("Must set T= for custom_to_pmrapmdec")
+    return pmrapmdec_to_custom(
+        pmphi1,
+        pmphi2,
+        phi1,
+        phi2,
+        T=numpy.transpose(T),  # T.T = inv(T)
+        degree=degree,
+    )
 
 
 def get_epoch_angles(epoch=2000.0):
@@ -2539,60 +2770,71 @@ def get_epoch_angles(epoch=2000.0):
     """
     if epoch == 2000.0:
         # Following astropy's definition here
-        theta= 122.9319185680026/180.*numpy.pi
-        dec_ngp= 27.12825118085622/180.*numpy.pi
-        ra_ngp= 192.8594812065348/180.*numpy.pi
+        theta = 122.9319185680026 / 180.0 * numpy.pi
+        dec_ngp = 27.12825118085622 / 180.0 * numpy.pi
+        ra_ngp = 192.8594812065348 / 180.0 * numpy.pi
     elif epoch == 1950.0:
-        theta= 123./180.*numpy.pi
-        dec_ngp= 27.4/180.*numpy.pi
-        ra_ngp= 192.25/180.*numpy.pi
-    elif epoch == None: # obtained below
-        theta= theta_icrs
-        dec_ngp= dec_ngp_icrs
-        ra_ngp= ra_ngp_icrs
+        theta = 123.0 / 180.0 * numpy.pi
+        dec_ngp = 27.4 / 180.0 * numpy.pi
+        ra_ngp = 192.25 / 180.0 * numpy.pi
+    elif epoch == None:  # obtained below
+        theta = theta_icrs
+        dec_ngp = dec_ngp_icrs
+        ra_ngp = ra_ngp_icrs
     elif _APY_LOADED:
         # Use astropy to get the angles
-        epoch, frame= _parse_epoch_frame_apy(epoch)
-        c= apycoords.SkyCoord(180.*units.deg,90.*units.deg,
-                              frame=frame,equinox=epoch)
-        c= c.transform_to(apycoords.Galactic)
-        theta= c.l.to(units.rad).value
-        c= apycoords.SkyCoord(180.*units.deg,90.*units.deg,
-                              frame='galactic')
-        if not epoch is None and 'J' in epoch:
-            c= c.transform_to(apycoords.FK5(equinox=epoch))
-        elif not epoch is None and 'B' in epoch:
-            c= c.transform_to(apycoords.FK4(equinox=epoch))
-        else: # pragma: no cover
-            raise ValueError('epoch input not understood; should be None for ICRS, JXXXX, or BXXXX')
-        dec_ngp= c.dec.to(units.rad).value
-        ra_ngp= c.ra.to(units.rad).value
+        epoch, frame = _parse_epoch_frame_apy(epoch)
+        c = apycoords.SkyCoord(
+            180.0 * units.deg, 90.0 * units.deg, frame=frame, equinox=epoch
+        )
+        c = c.transform_to(apycoords.Galactic)
+        theta = c.l.to(units.rad).value
+        c = apycoords.SkyCoord(180.0 * units.deg, 90.0 * units.deg, frame="galactic")
+        if not epoch is None and "J" in epoch:
+            c = c.transform_to(apycoords.FK5(equinox=epoch))
+        elif not epoch is None and "B" in epoch:
+            c = c.transform_to(apycoords.FK4(equinox=epoch))
+        else:  # pragma: no cover
+            raise ValueError(
+                "epoch input not understood; should be None for ICRS, JXXXX, or BXXXX"
+            )
+        dec_ngp = c.dec.to(units.rad).value
+        ra_ngp = c.ra.to(units.rad).value
     else:
-        raise OSError("Only epochs 1950 and 2000 are supported if you don't have astropy")
-    return (theta,dec_ngp,ra_ngp)
+        raise OSError(
+            "Only epochs 1950 and 2000 are supported if you don't have astropy"
+        )
+    return (theta, dec_ngp, ra_ngp)
+
 
 # Get ICRS angles once when astropy is installed
 if _APY_LOADED:
-    c= apycoords.SkyCoord(180.*units.deg,90.*units.deg,frame='icrs')
-    c= c.transform_to(apycoords.Galactic)
-    theta_icrs= c.l.to(units.rad).value
-    c= apycoords.SkyCoord(180.*units.deg,90.*units.deg,
-                          frame='galactic')
-    c= c.transform_to(apycoords.ICRS)
-    dec_ngp_icrs= c.dec.to(units.rad).value
-    ra_ngp_icrs= c.ra.to(units.rad).value
+    c = apycoords.SkyCoord(180.0 * units.deg, 90.0 * units.deg, frame="icrs")
+    c = c.transform_to(apycoords.Galactic)
+    theta_icrs = c.l.to(units.rad).value
+    c = apycoords.SkyCoord(180.0 * units.deg, 90.0 * units.deg, frame="galactic")
+    c = c.transform_to(apycoords.ICRS)
+    dec_ngp_icrs = c.dec.to(units.rad).value
+    ra_ngp_icrs = c.ra.to(units.rad).value
 else:
-    theta_icrs= 2.1455668515225916
-    dec_ngp_icrs= 0.4734773249532947
-    ra_ngp_icrs= 3.366032882941063
+    theta_icrs = 2.1455668515225916
+    dec_ngp_icrs = 0.4734773249532947
+    ra_ngp_icrs = 3.366032882941063
+
 
 def _parse_epoch_frame_apy(epoch):
-    if epoch == 2000.0 or epoch == '2000': epoch= 'J2000'
-    elif epoch == 1950.0 or epoch == '1950': epoch= 'B1950'
-    if not epoch is None and 'J' in epoch: frame= 'fk5'
-    elif not epoch is None and 'B' in epoch: frame= 'fk4'
-    else: frame= 'icrs'
-    return (epoch,frame)
+    if epoch == 2000.0 or epoch == "2000":
+        epoch = "J2000"
+    elif epoch == 1950.0 or epoch == "1950":
+        epoch = "B1950"
+    if not epoch is None and "J" in epoch:
+        frame = "fk5"
+    elif not epoch is None and "B" in epoch:
+        frame = "fk4"
+    else:
+        frame = "icrs"
+    return (epoch, frame)
+
 
 # Matrix to rotate to the astropy Galactocentric frame: astropy's
 # Galactocentric frame is slightly off from the one that we get by simply
@@ -2600,35 +2842,65 @@ def _parse_epoch_frame_apy(epoch):
 # Bovy (2011) maps NGP --> (0,0,1), astropy to (v. small, v. small, 1-v. small)
 # so we rotate Bovy (2011) such that we agree; for that we compute what NGP
 # goes to using astropy's transformations
-theta,dec_ngp,ra_ngp= get_epoch_angles(None) # None = ICRS, basis for astropy
-dec_gc,ra_gc= -28.936175/180.*numpy.pi,266.4051/180.*numpy.pi # from apy def.
-eta= 58.5986320306/180.*numpy.pi # astropy 'roll' angle
-gc_vec= numpy.array(\
-    [numpy.cos(theta)*(-numpy.sin(dec_ngp)*numpy.cos(dec_gc)*numpy.cos(ra_gc-ra_ngp)
-                     +numpy.cos(dec_ngp)*numpy.sin(dec_gc))
-     +numpy.sin(theta)*numpy.cos(dec_gc)*numpy.sin(ra_gc-ra_ngp),
-     numpy.sin(theta)*(-numpy.sin(dec_ngp)*numpy.cos(dec_gc)*numpy.cos(ra_gc-ra_ngp)
-                     +numpy.cos(dec_ngp)*numpy.sin(dec_gc))
-    -numpy.cos(theta)*numpy.cos(dec_gc)*numpy.sin(ra_gc-ra_ngp),
-     numpy.cos(dec_ngp)*numpy.cos(dec_gc)*numpy.cos(ra_gc-ra_ngp)
-     +numpy.sin(dec_ngp)*numpy.sin(dec_gc)])
-galcen_extra_rot1= _rotate_to_arbitrary_vector(numpy.atleast_2d(gc_vec),
-                                               numpy.array([1.,0.,0.]),
-                                               inv=False,_dontcutsmall=True)[0]
-ngp_vec= numpy.dot(galcen_extra_rot1,numpy.array(\
-    [-numpy.cos(dec_gc)*numpy.cos(dec_ngp)*numpy.cos(ra_ngp-ra_gc)
-      -numpy.sin(dec_gc)*numpy.sin(dec_ngp),
-      numpy.cos(eta)*numpy.cos(dec_ngp)*numpy.sin(ra_ngp-ra_gc)
-      +numpy.sin(eta)*(-numpy.sin(dec_gc)*numpy.cos(dec_ngp)*numpy.cos(ra_ngp-ra_gc)
-                     +numpy.cos(dec_gc)*numpy.sin(dec_ngp)),
-      -numpy.sin(eta)*numpy.cos(dec_ngp)*numpy.sin(ra_ngp-ra_gc)
-      +numpy.cos(eta)*(-numpy.sin(dec_gc)*numpy.cos(dec_ngp)*numpy.cos(ra_ngp-ra_gc)
-                     +numpy.cos(dec_gc)*numpy.sin(dec_ngp))]))
-galcen_extra_rot2= _rotate_to_arbitrary_vector(numpy.atleast_2d(ngp_vec),
-                                               numpy.array([0.,0.,1.]),
-                                               inv=True,_dontcutsmall=True)[0]
+theta, dec_ngp, ra_ngp = get_epoch_angles(None)  # None = ICRS, basis for astropy
+dec_gc, ra_gc = (
+    -28.936175 / 180.0 * numpy.pi,
+    266.4051 / 180.0 * numpy.pi,
+)  # from apy def.
+eta = 58.5986320306 / 180.0 * numpy.pi  # astropy 'roll' angle
+gc_vec = numpy.array(
+    [
+        numpy.cos(theta)
+        * (
+            -numpy.sin(dec_ngp) * numpy.cos(dec_gc) * numpy.cos(ra_gc - ra_ngp)
+            + numpy.cos(dec_ngp) * numpy.sin(dec_gc)
+        )
+        + numpy.sin(theta) * numpy.cos(dec_gc) * numpy.sin(ra_gc - ra_ngp),
+        numpy.sin(theta)
+        * (
+            -numpy.sin(dec_ngp) * numpy.cos(dec_gc) * numpy.cos(ra_gc - ra_ngp)
+            + numpy.cos(dec_ngp) * numpy.sin(dec_gc)
+        )
+        - numpy.cos(theta) * numpy.cos(dec_gc) * numpy.sin(ra_gc - ra_ngp),
+        numpy.cos(dec_ngp) * numpy.cos(dec_gc) * numpy.cos(ra_gc - ra_ngp)
+        + numpy.sin(dec_ngp) * numpy.sin(dec_gc),
+    ]
+)
+galcen_extra_rot1 = _rotate_to_arbitrary_vector(
+    numpy.atleast_2d(gc_vec),
+    numpy.array([1.0, 0.0, 0.0]),
+    inv=False,
+    _dontcutsmall=True,
+)[0]
+ngp_vec = numpy.dot(
+    galcen_extra_rot1,
+    numpy.array(
+        [
+            -numpy.cos(dec_gc) * numpy.cos(dec_ngp) * numpy.cos(ra_ngp - ra_gc)
+            - numpy.sin(dec_gc) * numpy.sin(dec_ngp),
+            numpy.cos(eta) * numpy.cos(dec_ngp) * numpy.sin(ra_ngp - ra_gc)
+            + numpy.sin(eta)
+            * (
+                -numpy.sin(dec_gc) * numpy.cos(dec_ngp) * numpy.cos(ra_ngp - ra_gc)
+                + numpy.cos(dec_gc) * numpy.sin(dec_ngp)
+            ),
+            -numpy.sin(eta) * numpy.cos(dec_ngp) * numpy.sin(ra_ngp - ra_gc)
+            + numpy.cos(eta)
+            * (
+                -numpy.sin(dec_gc) * numpy.cos(dec_ngp) * numpy.cos(ra_ngp - ra_gc)
+                + numpy.cos(dec_gc) * numpy.sin(dec_ngp)
+            ),
+        ]
+    ),
+)
+galcen_extra_rot2 = _rotate_to_arbitrary_vector(
+    numpy.atleast_2d(ngp_vec),
+    numpy.array([0.0, 0.0, 1.0]),
+    inv=True,
+    _dontcutsmall=True,
+)[0]
 # Leave x axis alone, because in place by rot1
-galcen_extra_rot2[0,0]= 1.
-galcen_extra_rot2[0,1:]= 0.
-galcen_extra_rot2[1:,0]= 0.
-galcen_extra_rot= numpy.dot(galcen_extra_rot2,galcen_extra_rot1)
+galcen_extra_rot2[0, 0] = 1.0
+galcen_extra_rot2[0, 1:] = 0.0
+galcen_extra_rot2[1:, 0] = 0.0
+galcen_extra_rot = numpy.dot(galcen_extra_rot2, galcen_extra_rot1)

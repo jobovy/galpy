@@ -4,9 +4,9 @@ from . import snapshotMovies
 #
 # Functions
 #
-snapshotToMovie= snapshotMovies.snapshotToMovie
+snapshotToMovie = snapshotMovies.snapshotToMovie
 
 #
 # Classes
 #
-Snapshot= Snapshot.Snapshot
+Snapshot = Snapshot.Snapshot

@@ -13,34 +13,34 @@ from . import actionAngleHarmonic
 from . import actionAngleHarmonicInverse
 from . import actionAngleVertical
 from . import actionAngleVerticalInverse
+
 #
 # Exceptions
 #
-UnboundError= actionAngle.UnboundError
+UnboundError = actionAngle.UnboundError
 
 #
 # Functions
 #
-estimateDeltaStaeckel= actionAngleStaeckel.estimateDeltaStaeckel
-estimateBIsochrone= actionAngleIsochroneApprox.estimateBIsochrone
-dePeriod= actionAngleIsochroneApprox.dePeriod
+estimateDeltaStaeckel = actionAngleStaeckel.estimateDeltaStaeckel
+estimateBIsochrone = actionAngleIsochroneApprox.estimateBIsochrone
+dePeriod = actionAngleIsochroneApprox.dePeriod
 #
 # Classes
 #
-actionAngle= actionAngle.actionAngle
-actionAngleInverse= actionAngleInverse.actionAngleInverse
-actionAngleAdiabatic= actionAngleAdiabatic.actionAngleAdiabatic
-actionAngleAdiabaticGrid= actionAngleAdiabaticGrid.actionAngleAdiabaticGrid
-actionAngleStaeckelSingle= actionAngleStaeckel.actionAngleStaeckelSingle
-actionAngleStaeckel= actionAngleStaeckel.actionAngleStaeckel
-actionAngleStaeckelGrid= actionAngleStaeckelGrid.actionAngleStaeckelGrid
-actionAngleIsochrone= actionAngleIsochrone.actionAngleIsochrone
-actionAngleIsochroneApprox=\
-    actionAngleIsochroneApprox.actionAngleIsochroneApprox
-actionAngleSpherical= actionAngleSpherical.actionAngleSpherical
-actionAngleTorus= actionAngleTorus.actionAngleTorus
-actionAngleIsochroneInverse= actionAngleIsochroneInverse.actionAngleIsochroneInverse
-actionAngleHarmonic= actionAngleHarmonic.actionAngleHarmonic
-actionAngleHarmonicInverse= actionAngleHarmonicInverse.actionAngleHarmonicInverse
-actionAngleVertical= actionAngleVertical.actionAngleVertical
-actionAngleVerticalInverse= actionAngleVerticalInverse.actionAngleVerticalInverse
+actionAngle = actionAngle.actionAngle
+actionAngleInverse = actionAngleInverse.actionAngleInverse
+actionAngleAdiabatic = actionAngleAdiabatic.actionAngleAdiabatic
+actionAngleAdiabaticGrid = actionAngleAdiabaticGrid.actionAngleAdiabaticGrid
+actionAngleStaeckelSingle = actionAngleStaeckel.actionAngleStaeckelSingle
+actionAngleStaeckel = actionAngleStaeckel.actionAngleStaeckel
+actionAngleStaeckelGrid = actionAngleStaeckelGrid.actionAngleStaeckelGrid
+actionAngleIsochrone = actionAngleIsochrone.actionAngleIsochrone
+actionAngleIsochroneApprox = actionAngleIsochroneApprox.actionAngleIsochroneApprox
+actionAngleSpherical = actionAngleSpherical.actionAngleSpherical
+actionAngleTorus = actionAngleTorus.actionAngleTorus
+actionAngleIsochroneInverse = actionAngleIsochroneInverse.actionAngleIsochroneInverse
+actionAngleHarmonic = actionAngleHarmonic.actionAngleHarmonic
+actionAngleHarmonicInverse = actionAngleHarmonicInverse.actionAngleHarmonicInverse
+actionAngleVertical = actionAngleVertical.actionAngleVertical
+actionAngleVerticalInverse = actionAngleVerticalInverse.actionAngleVerticalInverse

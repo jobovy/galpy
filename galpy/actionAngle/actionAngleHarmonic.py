@@ -14,9 +14,12 @@
 import numpy
 from .actionAngle import actionAngle
 from ..util import conversion
+
+
 class actionAngleHarmonic(actionAngle):
     """Action-angle formalism for the one-dimensional harmonic oscillator"""
-    def __init__(self,*args,**kwargs):
+
+    def __init__(self, *args, **kwargs):
         """
         NAME:
 
@@ -35,7 +38,7 @@ class actionAngleHarmonic(actionAngle):
            vo= circular velocity at ro (km/s; can be Quantity)
 
         OUTPUT:
-        
+
            instance
 
         HISTORY:
@@ -43,15 +46,15 @@ class actionAngleHarmonic(actionAngle):
            2018-04-08 - Written - Bovy (Uoft)
 
         """
-        actionAngle.__init__(self,
-                             ro=kwargs.get('ro',None),vo=kwargs.get('vo',None))
-        if not 'omega' in kwargs: #pragma: no cover
+        actionAngle.__init__(self, ro=kwargs.get("ro", None), vo=kwargs.get("vo", None))
+        if not "omega" in kwargs:  # pragma: no cover
             raise OSError("Must specify omega= for actionAngleHarmonic")
-        self._omega= conversion.parse_frequency(kwargs.get('omega'),
-                                                ro=self._ro,vo=self._vo)
+        self._omega = conversion.parse_frequency(
+            kwargs.get("omega"), ro=self._ro, vo=self._vo
+        )
         return None
-    
-    def _evaluate(self,*args,**kwargs):
+
+    def _evaluate(self, *args, **kwargs):
         """
         NAME:
            __call__ (_evaluate)
@@ -67,13 +70,13 @@ class actionAngleHarmonic(actionAngle):
         HISTORY:
            2018-04-08 - Written - Bovy (UofT)
         """
-        if len(args) == 2: # x,vx
-            x,vx= args
-            return (vx**2./self._omega+self._omega*x**2.)/2.
-        else: # pragma: no cover
-            raise ValueError('actionAngleHarmonic __call__ input not understood')
+        if len(args) == 2:  # x,vx
+            x, vx = args
+            return (vx**2.0 / self._omega + self._omega * x**2.0) / 2.0
+        else:  # pragma: no cover
+            raise ValueError("actionAngleHarmonic __call__ input not understood")
 
-    def _actionsFreqs(self,*args,**kwargs):
+    def _actionsFreqs(self, *args, **kwargs):
         """
         NAME:
            actionsFreqs (_actionsFreqs)
@@ -89,14 +92,16 @@ class actionAngleHarmonic(actionAngle):
         HISTORY:
            2018-04-08 - Written - Bovy (UofT)
         """
-        if len(args) == 2: # x,vx
-            x,vx= args
-            return ((vx**2./self._omega+self._omega*x**2.)/2.,
-                    self._omega*numpy.ones_like(x))
-        else: # pragma: no cover
-            raise ValueError('actionAngleHarmonic __call__ input not understood')
+        if len(args) == 2:  # x,vx
+            x, vx = args
+            return (
+                (vx**2.0 / self._omega + self._omega * x**2.0) / 2.0,
+                self._omega * numpy.ones_like(x),
+            )
+        else:  # pragma: no cover
+            raise ValueError("actionAngleHarmonic __call__ input not understood")
 
-    def _actionsFreqsAngles(self,*args,**kwargs):
+    def _actionsFreqsAngles(self, *args, **kwargs):
         """
         NAME:
            actionsFreqsAngles (_actionsFreqsAngles)
@@ -112,10 +117,12 @@ class actionAngleHarmonic(actionAngle):
         HISTORY:
            2018-04-08 - Written - Bovy (UofT)
         """
-        if len(args) == 2: # x,vx
-            x,vx= args
-            return ((vx**2./self._omega+self._omega*x**2.)/2.,
-                    self._omega*numpy.ones_like(x),
-                    numpy.arctan2(self._omega*x,vx))
-        else: # pragma: no cover
-            raise ValueError('actionAngleHarmonic __call__ input not understood')
+        if len(args) == 2:  # x,vx
+            x, vx = args
+            return (
+                (vx**2.0 / self._omega + self._omega * x**2.0) / 2.0,
+                self._omega * numpy.ones_like(x),
+                numpy.arctan2(self._omega * x, vx),
+            )
+        else:  # pragma: no cover
+            raise ValueError("actionAngleHarmonic __call__ input not understood")

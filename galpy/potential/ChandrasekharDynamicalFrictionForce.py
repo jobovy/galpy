@@ -1,5 +1,5 @@
 ###############################################################################
-#   ChandrasekharDynamicalFrictionForce: Class that implements the 
+#   ChandrasekharDynamicalFrictionForce: Class that implements the
 #                                        Chandrasekhar dynamical friction
 ###############################################################################
 import copy
@@ -10,8 +10,11 @@ from ..util import conversion
 from .DissipativeForce import DissipativeForce
 from .Potential import evaluateDensities, _check_c
 from .Potential import flatten as flatten_pot
-_INVSQRTTWO= 1./numpy.sqrt(2.)
-_INVSQRTPI= 1./numpy.sqrt(numpy.pi)
+
+_INVSQRTTWO = 1.0 / numpy.sqrt(2.0)
+_INVSQRTPI = 1.0 / numpy.sqrt(numpy.pi)
+
+
 class ChandrasekharDynamicalFrictionForce(DissipativeForce):
     """Class that implements the Chandrasekhar dynamical friction force
 
@@ -29,10 +32,22 @@ class ChandrasekharDynamicalFrictionForce(DissipativeForce):
     where :math:`\\gamma` is a constant. This :math:`\\gamma` should be the absolute value of the logarithmic slope of the density :math:`\\gamma = |\\mathrm{d} \\ln \\rho / \\mathrm{d} \\ln r|`, although for :math:`\\gamma<1` it is advisable to set :math:`\\gamma=1`. Implementation here roughly follows `2016MNRAS.463..858P <http://adsabs.harvard.edu/abs/2016MNRAS.463..858P>`__ and earlier work.
 
     """
-    def __init__(self,amp=1.,GMs=.1,gamma=1.,rhm=0.,
-                 dens=None,sigmar=None,
-                 const_lnLambda=False,minr=0.0001,maxr=25.,nr=501,
-                 ro=None,vo=None):
+
+    def __init__(
+        self,
+        amp=1.0,
+        GMs=0.1,
+        gamma=1.0,
+        rhm=0.0,
+        dens=None,
+        sigmar=None,
+        const_lnLambda=False,
+        minr=0.0001,
+        maxr=25.0,
+        nr=501,
+        ro=None,
+        vo=None,
+    ):
         """
         NAME:
 
@@ -81,80 +96,93 @@ class ChandrasekharDynamicalFrictionForce(DissipativeForce):
            2018-07-23 - Calculate sigmar from the Jeans equation and interpolate it; allow GMs and rhm to be set on the fly - Bovy (UofT)
 
         """
-        DissipativeForce.__init__(self,amp=amp*GMs,ro=ro,vo=vo,
-                                  amp_units='mass')
-        rhm= conversion.parse_length(rhm,ro=self._ro)
-        minr= conversion.parse_length(minr,ro=self._ro)
-        maxr= conversion.parse_length(maxr,ro=self._ro)
-        self._gamma= gamma
-        self._ms= self._amp/amp # from handling in __init__ above, should be ms in galpy units
-        self._rhm= rhm
-        self._minr= minr
-        self._maxr= maxr
-        self._dens_kwarg= dens # for pickling
-        self._sigmar_kwarg= sigmar # for pickling
+        DissipativeForce.__init__(self, amp=amp * GMs, ro=ro, vo=vo, amp_units="mass")
+        rhm = conversion.parse_length(rhm, ro=self._ro)
+        minr = conversion.parse_length(minr, ro=self._ro)
+        maxr = conversion.parse_length(maxr, ro=self._ro)
+        self._gamma = gamma
+        self._ms = (
+            self._amp / amp
+        )  # from handling in __init__ above, should be ms in galpy units
+        self._rhm = rhm
+        self._minr = minr
+        self._maxr = maxr
+        self._dens_kwarg = dens  # for pickling
+        self._sigmar_kwarg = sigmar  # for pickling
         # Parse density
         if dens is None:
             from .LogarithmicHaloPotential import LogarithmicHaloPotential
-            dens= LogarithmicHaloPotential(normalize=1.,q=1.)
-            if sigmar is None: # we know this solution!
-                sigmar= lambda x: _INVSQRTTWO
-        dens= flatten_pot(dens)
-        self._dens_pot= dens
-        self._dens=\
-            lambda R,z,phi=0.,t=0.: evaluateDensities(self._dens_pot,
-                                                      R,z,phi=phi,t=t,
-                                                      use_physical=False)
+
+            dens = LogarithmicHaloPotential(normalize=1.0, q=1.0)
+            if sigmar is None:  # we know this solution!
+                sigmar = lambda x: _INVSQRTTWO
+        dens = flatten_pot(dens)
+        self._dens_pot = dens
+        self._dens = lambda R, z, phi=0.0, t=0.0: evaluateDensities(
+            self._dens_pot, R, z, phi=phi, t=t, use_physical=False
+        )
         if sigmar is None:
             from ..df import jeans
-            sigmar= lambda x: jeans.sigmar(self._dens_pot,x,beta=0.,
-                                           use_physical=False)
-        self._sigmar_rs_4interp= numpy.linspace(self._minr,self._maxr,nr)
-        self._sigmars_4interp= numpy.array([sigmar(x) 
-                                            for x in self._sigmar_rs_4interp])
+
+            sigmar = lambda x: jeans.sigmar(
+                self._dens_pot, x, beta=0.0, use_physical=False
+            )
+        self._sigmar_rs_4interp = numpy.linspace(self._minr, self._maxr, nr)
+        self._sigmars_4interp = numpy.array(
+            [sigmar(x) for x in self._sigmar_rs_4interp]
+        )
         if numpy.any(numpy.isnan(self._sigmars_4interp)):
             # Check for case where density is zero, in that case, just
             # paint in the nearest neighbor for the interpolation
             # (doesn't matter in the end, because force = 0 when dens = 0)
-            nanrs_indx= numpy.isnan(self._sigmars_4interp)
-            if numpy.all(numpy.array([self._dens(r*_INVSQRTTWO,r*_INVSQRTTWO)
-                                      for r in 
-                                      self._sigmar_rs_4interp[nanrs_indx]]) 
-                         == 0.):
-                self._sigmars_4interp[nanrs_indx]= interpolate.interp1d(\
-                    self._sigmar_rs_4interp[True^nanrs_indx],
-                    self._sigmars_4interp[True^nanrs_indx],
-                    kind="nearest",fill_value="extrapolate")\
-                        (self._sigmar_rs_4interp[nanrs_indx])
-        self.sigmar_orig= sigmar
-        self.sigmar= interpolate.InterpolatedUnivariateSpline(\
-            self._sigmar_rs_4interp,self._sigmars_4interp,k=3)
+            nanrs_indx = numpy.isnan(self._sigmars_4interp)
+            if numpy.all(
+                numpy.array(
+                    [
+                        self._dens(r * _INVSQRTTWO, r * _INVSQRTTWO)
+                        for r in self._sigmar_rs_4interp[nanrs_indx]
+                    ]
+                )
+                == 0.0
+            ):
+                self._sigmars_4interp[nanrs_indx] = interpolate.interp1d(
+                    self._sigmar_rs_4interp[True ^ nanrs_indx],
+                    self._sigmars_4interp[True ^ nanrs_indx],
+                    kind="nearest",
+                    fill_value="extrapolate",
+                )(self._sigmar_rs_4interp[nanrs_indx])
+        self.sigmar_orig = sigmar
+        self.sigmar = interpolate.InterpolatedUnivariateSpline(
+            self._sigmar_rs_4interp, self._sigmars_4interp, k=3
+        )
         if const_lnLambda:
-            self._lnLambda= const_lnLambda
+            self._lnLambda = const_lnLambda
         else:
-            self._lnLambda= False
-        self._amp*= 4.*numpy.pi
-        self._force_hash= None
-        self.hasC= _check_c(self._dens_pot,dens=True)
+            self._lnLambda = False
+        self._amp *= 4.0 * numpy.pi
+        self._force_hash = None
+        self.hasC = _check_c(self._dens_pot, dens=True)
         return None
 
-    def GMs(self,gms):
-        gms= conversion.parse_mass(gms,ro=self._ro,vo=self._vo)
-        self._amp*= gms/self._ms
-        self._ms= gms
+    def GMs(self, gms):
+        gms = conversion.parse_mass(gms, ro=self._ro, vo=self._vo)
+        self._amp *= gms / self._ms
+        self._ms = gms
         # Reset the hash
-        self._force_hash= None
+        self._force_hash = None
         return None
-    GMs= property(None,GMs)
 
-    def rhm(self,new_rhm):
-        self._rhm= conversion.parse_length(new_rhm,ro=self._ro)
+    GMs = property(None, GMs)
+
+    def rhm(self, new_rhm):
+        self._rhm = conversion.parse_length(new_rhm, ro=self._ro)
         # Reset the hash
-        self._force_hash= None
+        self._force_hash = None
         return None
-    rhm= property(None,rhm)        
-    
-    def lnLambda(self,r,v):
+
+    rhm = property(None, rhm)
+
+    def lnLambda(self, r, v):
         """
         NAME:
            lnLambda
@@ -169,34 +197,34 @@ class ChandrasekharDynamicalFrictionForce(DissipativeForce):
            2018-03-18 - Started - Bovy (UofT)
         """
         if self._lnLambda:
-            lnLambda= self._lnLambda
+            lnLambda = self._lnLambda
         else:
-            GMvs= self._ms/v**2.
+            GMvs = self._ms / v**2.0
             if GMvs < self._rhm:
-                Lambda= r/self._gamma/self._rhm
+                Lambda = r / self._gamma / self._rhm
             else:
-                Lambda= r/self._gamma/GMvs
-            lnLambda= 0.5*numpy.log(1.+Lambda**2.) 
+                Lambda = r / self._gamma / GMvs
+            lnLambda = 0.5 * numpy.log(1.0 + Lambda**2.0)
         return lnLambda
 
-    def _calc_force(self,R,phi,z,v,t):
-        r= numpy.sqrt(R**2.+z**2.)
+    def _calc_force(self, R, phi, z, v, t):
+        r = numpy.sqrt(R**2.0 + z**2.0)
         if r < self._minr:
-            self._cached_force= 0.
+            self._cached_force = 0.0
         else:
-            vs= numpy.sqrt(v[0]**2.+v[1]**2.+v[2]**2.)
+            vs = numpy.sqrt(v[0] ** 2.0 + v[1] ** 2.0 + v[2] ** 2.0)
             if r > self._maxr:
-                sr= self.sigmar_orig(r)
+                sr = self.sigmar_orig(r)
             else:
-                sr= self.sigmar(r)
-            X= vs*_INVSQRTTWO/sr
-            Xfactor= special.erf(X)-2.*X*_INVSQRTPI*numpy.exp(-X**2.)
-            lnLambda= self.lnLambda(r,vs)
-            self._cached_force=\
-                -self._dens(R,z,phi=phi,t=t)/vs**3.\
-                *Xfactor*lnLambda
+                sr = self.sigmar(r)
+            X = vs * _INVSQRTTWO / sr
+            Xfactor = special.erf(X) - 2.0 * X * _INVSQRTPI * numpy.exp(-(X**2.0))
+            lnLambda = self.lnLambda(r, vs)
+            self._cached_force = (
+                -self._dens(R, z, phi=phi, t=t) / vs**3.0 * Xfactor * lnLambda
+            )
 
-    def _Rforce(self,R,z,phi=0.,t=0.,v=None):
+    def _Rforce(self, R, z, phi=0.0, t=0.0, v=None):
         """
         NAME:
            _Rforce
@@ -213,13 +241,14 @@ class ChandrasekharDynamicalFrictionForce(DissipativeForce):
         HISTORY:
            2018-03-18 - Started - Bovy (UofT)
         """
-        new_hash= hashlib.md5(numpy.array([R,phi,z,v[0],v[1],v[2],t]))\
-            .hexdigest()
+        new_hash = hashlib.md5(
+            numpy.array([R, phi, z, v[0], v[1], v[2], t])
+        ).hexdigest()
         if new_hash != self._force_hash:
-            self._calc_force(R,phi,z,v,t)
-        return self._cached_force*v[0]
+            self._calc_force(R, phi, z, v, t)
+        return self._cached_force * v[0]
 
-    def _phitorque(self,R,z,phi=0.,t=0.,v=None):
+    def _phitorque(self, R, z, phi=0.0, t=0.0, v=None):
         """
         NAME:
            _phitorque
@@ -236,13 +265,14 @@ class ChandrasekharDynamicalFrictionForce(DissipativeForce):
         HISTORY:
            2018-03-18 - Started - Bovy (UofT)
         """
-        new_hash= hashlib.md5(numpy.array([R,phi,z,v[0],v[1],v[2],t]))\
-            .hexdigest()
+        new_hash = hashlib.md5(
+            numpy.array([R, phi, z, v[0], v[1], v[2], t])
+        ).hexdigest()
         if new_hash != self._force_hash:
-            self._calc_force(R,phi,z,v,t)
-        return self._cached_force*v[1]*R
+            self._calc_force(R, phi, z, v, t)
+        return self._cached_force * v[1] * R
 
-    def _zforce(self,R,z,phi=0.,t=0.,v=None):
+    def _zforce(self, R, z, phi=0.0, t=0.0, v=None):
         """
         NAME:
            _zforce
@@ -259,36 +289,38 @@ class ChandrasekharDynamicalFrictionForce(DissipativeForce):
         HISTORY:
            2018-03-18 - Started - Bovy (UofT)
         """
-        new_hash= hashlib.md5(numpy.array([R,phi,z,v[0],v[1],v[2],t]))\
-            .hexdigest()
+        new_hash = hashlib.md5(
+            numpy.array([R, phi, z, v[0], v[1], v[2], t])
+        ).hexdigest()
         if new_hash != self._force_hash:
-            self._calc_force(R,phi,z,v,t)
-        return self._cached_force*v[2]
+            self._calc_force(R, phi, z, v, t)
+        return self._cached_force * v[2]
 
     # Pickling functions
     def __getstate__(self):
-        pdict= copy.copy(self.__dict__)
+        pdict = copy.copy(self.__dict__)
         # rm lambda function
-        del pdict['_dens']
+        del pdict["_dens"]
         if self._sigmar_kwarg is None:
             # because an object set up with sigmar = user-provided function
             # cannot typically be picked, disallow this explicitly
             # (so if it can, everything should be fine; if not, pickling error)
-            del pdict['sigmar_orig']
+            del pdict["sigmar_orig"]
         return pdict
 
-    def __setstate__(self,pdict):
-        self.__dict__= pdict
+    def __setstate__(self, pdict):
+        self.__dict__ = pdict
         # Re-setup _dens
-        self._dens=\
-            lambda R,z,phi=0.,t=0.: evaluateDensities(self._dens_pot,
-                                                      R,z,phi=phi,t=t,
-                                                      use_physical=False)
+        self._dens = lambda R, z, phi=0.0, t=0.0: evaluateDensities(
+            self._dens_pot, R, z, phi=phi, t=t, use_physical=False
+        )
         # Re-setup sigmar_orig
         if self._dens_kwarg is None and self._sigmar_kwarg is None:
-            self.sigmar_orig= lambda x: _INVSQRTTWO
+            self.sigmar_orig = lambda x: _INVSQRTTWO
         else:
             from ..df import jeans
-            self.sigmar_orig= lambda x: jeans.sigmar(self._dens_pot,x,beta=0.,
-                                                     use_physical=False)
+
+            self.sigmar_orig = lambda x: jeans.sigmar(
+                self._dens_pot, x, beta=0.0, use_physical=False
+            )
         return None

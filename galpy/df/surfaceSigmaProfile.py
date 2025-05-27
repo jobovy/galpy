@@ -1,17 +1,20 @@
 ###############################################################################
-#   surfaceSigmaProfile: classes that implement different surface-mass and 
+#   surfaceSigmaProfile: classes that implement different surface-mass and
 #                        radial velocity dispersion profiles
-# 
+#
 #   Includes the following:
-#      surfaceSigmaProfile - top-level class that represents a surface 
+#      surfaceSigmaProfile - top-level class that represents a surface
 #                            density profile and a sigma_R profile
 #      expSurfaceSigmaProfile - class that represents an exponential surface
-#                               density profile and an exponential sigma_R 
+#                               density profile and an exponential sigma_R
 #                               profile
 ###############################################################################
 import numpy
+
+
 class surfaceSigmaProfile:
     """Class that contains the surface density and sigma_R^2 profile"""
+
     def __init__(self):
         """Place holder for implementations of this class"""
         return None
@@ -21,7 +24,7 @@ class surfaceSigmaProfile:
         NAME:
            formatStringParams
         PURPOSE:
-           when writing the parameters of this profile, what 
+           when writing the parameters of this profile, what
            format-strings to use?
            This function defaults to '%6.4f' for each parameter in self._params
         INPUT:
@@ -30,9 +33,9 @@ class surfaceSigmaProfile:
         HISTORY:
            2010-03-28 - Written - Bovy (NYU)
         """
-        out= []
+        out = []
         for param in self._params:
-            out.append('%6.4f')
+            out.append("%6.4f")
         return out
 
     def outputParams(self):
@@ -49,7 +52,7 @@ class surfaceSigmaProfile:
         """
         return tuple(self._params)
 
-    def surfacemass(self,R,log=False):
+    def surfacemass(self, R, log=False):
         """
         NAME:
            surfacemass
@@ -63,9 +66,11 @@ class surfaceSigmaProfile:
         HISTORY:
            2010-03-26 - Written - Bovy (NYU)
         """
-        raise NotImplementedError("'surfacemass' function not implemented for this surfaceSigmaProfile class")
+        raise NotImplementedError(
+            "'surfacemass' function not implemented for this surfaceSigmaProfile class"
+        )
 
-    def sigma2(self,R,log=False):
+    def sigma2(self, R, log=False):
         """
         NAME:
            sigma2
@@ -79,11 +84,15 @@ class surfaceSigmaProfile:
         HISTORY:
            2010-03-26 - Written - Bovy (NYU)
         """
-        raise NotImplementedError("'sigma2' function not implemented for this surfaceSigmaProfile class")
-        
+        raise NotImplementedError(
+            "'sigma2' function not implemented for this surfaceSigmaProfile class"
+        )
+
+
 class expSurfaceSigmaProfile(surfaceSigmaProfile):
     """Exponential surface density and sigma_R^2 class"""
-    def __init__(self,params=(1./3.,1.0,0.2)):
+
+    def __init__(self, params=(1.0 / 3.0, 1.0, 0.2)):
         """
         NAME:
            __init__
@@ -97,9 +106,9 @@ class expSurfaceSigmaProfile(surfaceSigmaProfile):
            2010-03-26 - Written - Bovy (NYU)
         """
         surfaceSigmaProfile.__init__(self)
-        self._params= params
+        self._params = params
 
-    def surfacemass(self,R,log=False):
+    def surfacemass(self, R, log=False):
         """
         NAME:
            surfacemass
@@ -114,11 +123,11 @@ class expSurfaceSigmaProfile(surfaceSigmaProfile):
            2010-03-26 - Written - Bovy (NYU)
         """
         if log:
-            return -R/self._params[0]
+            return -R / self._params[0]
         else:
-            return numpy.exp(-R/self._params[0])
+            return numpy.exp(-R / self._params[0])
 
-    def surfacemassDerivative(self,R,log=False):
+    def surfacemassDerivative(self, R, log=False):
         """
         NAME:
            surfacemassDerivative
@@ -133,11 +142,11 @@ class expSurfaceSigmaProfile(surfaceSigmaProfile):
            2010-03-26 - Written - Bovy (NYU)
         """
         if log:
-            return -1./self._params[0]
+            return -1.0 / self._params[0]
         else:
-            return -numpy.exp(-R/self._params[0])/self._params[0]
+            return -numpy.exp(-R / self._params[0]) / self._params[0]
 
-    def sigma2(self,R,log=False):
+    def sigma2(self, R, log=False):
         """
         NAME:
            sigma2
@@ -152,11 +161,13 @@ class expSurfaceSigmaProfile(surfaceSigmaProfile):
            2010-03-26 - Written - Bovy (NYU)
         """
         if log:
-            return 2.*numpy.log(self._params[2])-2.*(R-1.)/self._params[1]
+            return 2.0 * numpy.log(self._params[2]) - 2.0 * (R - 1.0) / self._params[1]
         else:
-            return self._params[2]**2.*numpy.exp(-2.*(R-1.)/self._params[1])
+            return self._params[2] ** 2.0 * numpy.exp(
+                -2.0 * (R - 1.0) / self._params[1]
+            )
 
-    def sigma2Derivative(self,R,log=False):
+    def sigma2Derivative(self, R, log=False):
         """
         NAME:
            sigmaDerivative
@@ -171,7 +182,10 @@ class expSurfaceSigmaProfile(surfaceSigmaProfile):
            2011-03-24 - Written - Bovy (NYU)
         """
         if log:
-            return -2./self._params[1]
+            return -2.0 / self._params[1]
         else:
-            return self._params[2]**2.*numpy.exp(-2.*(R-1.)/self._params[1])\
-                *(-2./self._params[1])
+            return (
+                self._params[2] ** 2.0
+                * numpy.exp(-2.0 * (R - 1.0) / self._params[1])
+                * (-2.0 / self._params[1])
+            )

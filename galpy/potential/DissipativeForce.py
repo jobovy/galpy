@@ -3,11 +3,13 @@
 ###############################################################################
 import numpy
 from .Force import Force
-from ..util.conversion import physical_conversion, \
-    potential_physical_input
+from ..util.conversion import physical_conversion, potential_physical_input
+
+
 class DissipativeForce(Force):
     """Top-level class for non-conservative forces (cannot be derived from a potential function)"""
-    def __init__(self,amp=1.,ro=None,vo=None,amp_units=None):
+
+    def __init__(self, amp=1.0, ro=None, vo=None, amp_units=None):
         """
         NAME:
            __init__
@@ -18,16 +20,16 @@ class DissipativeForce(Force):
         HISTORY:
            2018-03-16 - Started - Bovy (UofT)
         """
-        Force.__init__(self,amp=amp,ro=ro,vo=vo,amp_units=amp_units)
-        self.dim= 3
-        self.isNonAxi= True # Default: are non-axisymmetric
-        self.hasC= False
-        self.hasC_dxdv= False
-        self.hasC_dens= False
+        Force.__init__(self, amp=amp, ro=ro, vo=vo, amp_units=amp_units)
+        self.dim = 3
+        self.isNonAxi = True  # Default: are non-axisymmetric
+        self.hasC = False
+        self.hasC_dxdv = False
+        self.hasC_dens = False
 
     @potential_physical_input
-    @physical_conversion('force',pop=True)
-    def Rforce(self,R,z,phi=0.,t=0.,v=None):
+    @physical_conversion("force", pop=True)
+    def Rforce(self, R, z, phi=0.0, t=0.0, v=None):
         """
         NAME:
 
@@ -58,20 +60,23 @@ class DissipativeForce(Force):
            2018-03-18 - Written - Bovy (UofT)
 
         """
-        return self._Rforce_nodecorator(R,z,phi=phi,t=t,v=v)
+        return self._Rforce_nodecorator(R, z, phi=phi, t=t, v=v)
 
-    def _Rforce_nodecorator(self,R,z,phi=0.,t=0.,v=None):
+    def _Rforce_nodecorator(self, R, z, phi=0.0, t=0.0, v=None):
         # Separate, so it can be used during orbit integration
         try:
-            return self._amp*self._Rforce(R,z,phi=phi,t=t,v=v)
-        except AttributeError: #pragma: no cover
+            return self._amp * self._Rforce(R, z, phi=phi, t=t, v=v)
+        except AttributeError:  # pragma: no cover
             raise
             from .Potential import PotentialError
-            raise PotentialError("'_Rforce' function not implemented for this DissipativeForce")
-        
+
+            raise PotentialError(
+                "'_Rforce' function not implemented for this DissipativeForce"
+            )
+
     @potential_physical_input
-    @physical_conversion('force',pop=True)
-    def zforce(self,R,z,phi=0.,t=0.,v=None):
+    @physical_conversion("force", pop=True)
+    def zforce(self, R, z, phi=0.0, t=0.0, v=None):
         """
         NAME:
 
@@ -102,19 +107,22 @@ class DissipativeForce(Force):
            2018-03-16 - Written - Bovy (UofT)
 
         """
-        return self._zforce_nodecorator(R,z,phi=phi,t=t,v=v)
+        return self._zforce_nodecorator(R, z, phi=phi, t=t, v=v)
 
-    def _zforce_nodecorator(self,R,z,phi=0.,t=0.,v=None):
+    def _zforce_nodecorator(self, R, z, phi=0.0, t=0.0, v=None):
         # Separate, so it can be used during orbit integration
         try:
-            return self._amp*self._zforce(R,z,phi=phi,t=t,v=v)
-        except AttributeError: #pragma: no cover
+            return self._amp * self._zforce(R, z, phi=phi, t=t, v=v)
+        except AttributeError:  # pragma: no cover
             from .Potential import PotentialError
-            raise PotentialError("'_zforce' function not implemented for this DissipativeForce")
+
+            raise PotentialError(
+                "'_zforce' function not implemented for this DissipativeForce"
+            )
 
     @potential_physical_input
-    @physical_conversion('force',pop=True)
-    def phitorque(self,R,z,phi=0.,t=0.,v=None):
+    @physical_conversion("force", pop=True)
+    def phitorque(self, R, z, phi=0.0, t=0.0, v=None):
         """
         NAME:
 
@@ -145,17 +153,21 @@ class DissipativeForce(Force):
            2018-03-16 - Written - Bovy (UofT)
 
         """
-        return self._phitorque_nodecorator(R,z,phi=phi,t=t,v=v)
+        return self._phitorque_nodecorator(R, z, phi=phi, t=t, v=v)
 
-    def _phitorque_nodecorator(self,R,z,phi=0.,t=0.,v=None):
+    def _phitorque_nodecorator(self, R, z, phi=0.0, t=0.0, v=None):
         # Separate, so it can be used during orbit integration
         try:
-            return self._amp*self._phitorque(R,z,phi=phi,t=t,v=v)
-        except AttributeError: #pragma: no cover
+            return self._amp * self._phitorque(R, z, phi=phi, t=t, v=v)
+        except AttributeError:  # pragma: no cover
             if self.isNonAxi:
                 from .Potential import PotentialError
-                raise PotentialError("'_phitorque' function not implemented for this DissipativeForce")
-            return 0.
+
+                raise PotentialError(
+                    "'_phitorque' function not implemented for this DissipativeForce"
+                )
+            return 0.0
+
 
 def _isDissipative(obj):
     """
@@ -181,12 +193,12 @@ def _isDissipative(obj):
 
     """
     from .Potential import flatten
-    obj= flatten(obj)
-    isList= isinstance(obj,list)
-    if isList:
-        isCons= [not isinstance(p,DissipativeForce) for p in obj]
-        nonCons= not numpy.prod(numpy.array(isCons))
-    else:
-        nonCons= isinstance(obj,DissipativeForce)
-    return nonCons
 
+    obj = flatten(obj)
+    isList = isinstance(obj, list)
+    if isList:
+        isCons = [not isinstance(p, DissipativeForce) for p in obj]
+        nonCons = not numpy.prod(numpy.array(isCons))
+    else:
+        nonCons = isinstance(obj, DissipativeForce)
+    return nonCons

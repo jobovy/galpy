@@ -3,16 +3,19 @@
 #
 #      class: actionAngleHarmonicInverse
 #
-#             Calculate (x,v) coordinates for the harmonic oscillator from 
+#             Calculate (x,v) coordinates for the harmonic oscillator from
 #             given actions-angle coordinates
 #
 ###############################################################################
 import numpy
 from .actionAngleInverse import actionAngleInverse
 from ..util import conversion
+
+
 class actionAngleHarmonicInverse(actionAngleInverse):
     """Inverse action-angle formalism for the one-dimensional harmonic oscillator"""
-    def __init__(self,*args,**kwargs):
+
+    def __init__(self, *args, **kwargs):
         """
         NAME:
 
@@ -31,7 +34,7 @@ class actionAngleHarmonicInverse(actionAngleInverse):
            vo= circular velocity at ro (km/s; can be Quantity)
 
         OUTPUT:
-        
+
            instance
 
         HISTORY:
@@ -39,15 +42,16 @@ class actionAngleHarmonicInverse(actionAngleInverse):
            2018-04-08 - Started - Bovy (UofT)
 
         """
-        actionAngleInverse.__init__(self,*args,**kwargs)
-        if not 'omega' in kwargs: #pragma: no cover
+        actionAngleInverse.__init__(self, *args, **kwargs)
+        if not "omega" in kwargs:  # pragma: no cover
             raise OSError("Must specify omega= for actionAngleHarmonic")
-        omega= conversion.parse_frequency(kwargs.get('omega'),
-                                          ro=self._ro,vo=self._vo)
-        self._omega= omega
+        omega = conversion.parse_frequency(
+            kwargs.get("omega"), ro=self._ro, vo=self._vo
+        )
+        self._omega = omega
         return None
-    
-    def _evaluate(self,j,angle,**kwargs):
+
+    def _evaluate(self, j, angle, **kwargs):
         """
         NAME:
 
@@ -72,9 +76,9 @@ class actionAngleHarmonicInverse(actionAngleInverse):
            2018-04-08 - Written - Bovy (UofT)
 
         """
-        return self._xvFreqs(j,angle,**kwargs)[:2]
-        
-    def _xvFreqs(self,j,angle,**kwargs):
+        return self._xvFreqs(j, angle, **kwargs)[:2]
+
+    def _xvFreqs(self, j, angle, **kwargs):
         """
         NAME:
 
@@ -99,12 +103,12 @@ class actionAngleHarmonicInverse(actionAngleInverse):
            2018-04-08 - Written - Bovy (UofT)
 
         """
-        amp= numpy.sqrt(2.*j/self._omega)
-        x= amp*numpy.sin(angle)
-        vx= amp*self._omega*numpy.cos(angle)
-        return (x,vx,self._omega)
-        
-    def _Freqs(self,j,**kwargs):
+        amp = numpy.sqrt(2.0 * j / self._omega)
+        x = amp * numpy.sin(angle)
+        vx = amp * self._omega * numpy.cos(angle)
+        return (x, vx, self._omega)
+
+    def _Freqs(self, j, **kwargs):
         """
         NAME:
 

@@ -2,10 +2,12 @@ import os
 import pickle
 import numpy
 from ..util import plot, conversion
-from ..util.conversion import physical_conversion,\
-    potential_physical_input
-_INF= 10**12.
-def plotEscapecurve(Pot,*args,**kwargs):
+from ..util.conversion import physical_conversion, potential_physical_input
+
+_INF = 10**12.0
+
+
+def plotEscapecurve(Pot, *args, **kwargs):
     """
     NAME:
 
@@ -38,81 +40,89 @@ def plotEscapecurve(Pot,*args,**kwargs):
 
     """
     # Using physical units or not?
-    if isinstance(Pot,list):
-        potro= Pot[0]._ro
-        roSet= Pot[0]._roSet
-        potvo= Pot[0]._vo
-        voSet= Pot[0]._voSet
+    if isinstance(Pot, list):
+        potro = Pot[0]._ro
+        roSet = Pot[0]._roSet
+        potvo = Pot[0]._vo
+        voSet = Pot[0]._voSet
     else:
-        potro= Pot._ro
-        roSet= Pot._roSet
-        potvo= Pot._vo
-        voSet= Pot._voSet
-    if (kwargs.get('use_physical',False) \
-            and kwargs.get('ro',roSet) and kwargs.get('vo',voSet)) or \
-            (not 'use_physical' in kwargs \
-                 and kwargs.get('ro',roSet) and kwargs.get('vo',voSet)):
-        use_physical= True
-        potro= kwargs.get('ro',potro)
-        potvo= kwargs.get('vo',potvo)
-        xlabel= r'$R\,(\mathrm{kpc})$'
-        ylabel= r"$v_e(R)\,(\mathrm{km\,s}^{-1})$"
-        Rrange= kwargs.pop('Rrange',[0.01*potro,5.*potro])
+        potro = Pot._ro
+        roSet = Pot._roSet
+        potvo = Pot._vo
+        voSet = Pot._voSet
+    if (
+        kwargs.get("use_physical", False)
+        and kwargs.get("ro", roSet)
+        and kwargs.get("vo", voSet)
+    ) or (
+        not "use_physical" in kwargs
+        and kwargs.get("ro", roSet)
+        and kwargs.get("vo", voSet)
+    ):
+        use_physical = True
+        potro = kwargs.get("ro", potro)
+        potvo = kwargs.get("vo", potvo)
+        xlabel = r"$R\,(\mathrm{kpc})$"
+        ylabel = r"$v_e(R)\,(\mathrm{km\,s}^{-1})$"
+        Rrange = kwargs.pop("Rrange", [0.01 * potro, 5.0 * potro])
     else:
-        use_physical= False
-        xlabel= r"$R/R_0$"
-        ylabel= r"$v_e(R)/v_c(R_0)$"
-        Rrange= kwargs.pop('Rrange',[0.01,5.])
+        use_physical = False
+        xlabel = r"$R/R_0$"
+        ylabel = r"$v_e(R)/v_c(R_0)$"
+        Rrange = kwargs.pop("Rrange", [0.01, 5.0])
     # Parse ro
-    potro= conversion.parse_length_kpc(potro)
-    potvo= conversion.parse_velocity_kms(potvo)
-    Rrange[0]= conversion.parse_length_kpc(Rrange[0])
-    Rrange[1]= conversion.parse_length_kpc(Rrange[1])
+    potro = conversion.parse_length_kpc(potro)
+    potvo = conversion.parse_velocity_kms(potvo)
+    Rrange[0] = conversion.parse_length_kpc(Rrange[0])
+    Rrange[1] = conversion.parse_length_kpc(Rrange[1])
     if use_physical:
-        Rrange[0]/= potro
-        Rrange[1]/= potro
-    grid= kwargs.pop('grid',1001)
-    savefilename= kwargs.pop('savefilename',None)
+        Rrange[0] /= potro
+        Rrange[1] /= potro
+    grid = kwargs.pop("grid", 1001)
+    savefilename = kwargs.pop("savefilename", None)
     if not savefilename == None and os.path.exists(savefilename):
-        print("Restoring savefile "+savefilename+" ...")
-        savefile= open(savefilename,'rb')
-        esccurve= pickle.load(savefile)
-        Rs= pickle.load(savefile)
+        print("Restoring savefile " + savefilename + " ...")
+        savefile = open(savefilename, "rb")
+        esccurve = pickle.load(savefile)
+        Rs = pickle.load(savefile)
         savefile.close()
     else:
-        Rs= numpy.linspace(Rrange[0],Rrange[1],grid)
-        esccurve= calcEscapecurve(Pot,Rs)
+        Rs = numpy.linspace(Rrange[0], Rrange[1], grid)
+        esccurve = calcEscapecurve(Pot, Rs)
         if not savefilename == None:
-            print("Writing savefile "+savefilename+" ...")
-            savefile= open(savefilename,'wb')
-            pickle.dump(esccurve,savefile)
-            pickle.dump(Rs,savefile)
+            print("Writing savefile " + savefilename + " ...")
+            savefile = open(savefilename, "wb")
+            pickle.dump(esccurve, savefile)
+            pickle.dump(Rs, savefile)
             savefile.close()
     if use_physical:
-        Rs*= potro
-        esccurve*= potvo
-        Rrange[0]*= potro
-        Rrange[1]*= potro
-    if not 'xlabel' in kwargs:
-        kwargs['xlabel']= xlabel
-    if not 'ylabel' in kwargs:
-        kwargs['ylabel']= ylabel
-    if not 'xrange' in kwargs:
-        kwargs['xrange']= Rrange
-    if not 'yrange' in kwargs:
-        kwargs['yrange']=\
-            [0.,1.2*numpy.amax(esccurve[True^numpy.isnan(esccurve)])]
-    kwargs.pop('ro',None)
-    kwargs.pop('vo',None)
-    kwargs.pop('use_physical',None)
-    return plot.plot(Rs,esccurve,*args,**kwargs)
+        Rs *= potro
+        esccurve *= potvo
+        Rrange[0] *= potro
+        Rrange[1] *= potro
+    if not "xlabel" in kwargs:
+        kwargs["xlabel"] = xlabel
+    if not "ylabel" in kwargs:
+        kwargs["ylabel"] = ylabel
+    if not "xrange" in kwargs:
+        kwargs["xrange"] = Rrange
+    if not "yrange" in kwargs:
+        kwargs["yrange"] = [
+            0.0,
+            1.2 * numpy.amax(esccurve[True ^ numpy.isnan(esccurve)]),
+        ]
+    kwargs.pop("ro", None)
+    kwargs.pop("vo", None)
+    kwargs.pop("use_physical", None)
+    return plot.plot(Rs, esccurve, *args, **kwargs)
 
-def calcEscapecurve(Pot,Rs,t=0.):
+
+def calcEscapecurve(Pot, Rs, t=0.0):
     """
     NAME:
        calcEscapecurve
     PURPOSE:
-       calculate the escape velocity curve for this potential (in the 
+       calculate the escape velocity curve for this potential (in the
        z=0 plane for non-spherical potentials)
     INPUT:
        Pot - Potential or list of Potential instances
@@ -126,23 +136,26 @@ def calcEscapecurve(Pot,Rs,t=0.):
     HISTORY:
        2011-04-16 - Written - Bovy (NYU)
     """
-    isList= isinstance(Pot,list)
-    isNonAxi= ((isList and Pot[0].isNonAxi) or (not isList and Pot.isNonAxi))
+    isList = isinstance(Pot, list)
+    isNonAxi = (isList and Pot[0].isNonAxi) or (not isList and Pot.isNonAxi)
     if isNonAxi:
-        raise AttributeError("Escape velocity curve plotting for non-axisymmetric potentials is not currently supported")
+        raise AttributeError(
+            "Escape velocity curve plotting for non-axisymmetric potentials is not currently supported"
+        )
     try:
-        grid= len(Rs)
+        grid = len(Rs)
     except TypeError:
-        grid=1
-        Rs= numpy.array([Rs])
-    esccurve= numpy.zeros(grid)
+        grid = 1
+        Rs = numpy.array([Rs])
+    esccurve = numpy.zeros(grid)
     for ii in range(grid):
-        esccurve[ii]= vesc(Pot,Rs[ii],t=t,use_physical=False)
+        esccurve[ii] = vesc(Pot, Rs[ii], t=t, use_physical=False)
     return esccurve
 
+
 @potential_physical_input
-@physical_conversion('velocity',pop=True)
-def vesc(Pot,R,t=0.):
+@physical_conversion("velocity", pop=True)
+def vesc(Pot, R, t=0.0):
     """
 
     NAME:
@@ -172,10 +185,23 @@ def vesc(Pot,R,t=0.):
     """
     from ..potential import evaluateplanarPotentials
     from ..potential import PotentialError
+
     try:
-        return numpy.sqrt(2.*(evaluateplanarPotentials(Pot,_INF,t=t,use_physical=False)-evaluateplanarPotentials(Pot,R,t=t,use_physical=False)))
+        return numpy.sqrt(
+            2.0
+            * (
+                evaluateplanarPotentials(Pot, _INF, t=t, use_physical=False)
+                - evaluateplanarPotentials(Pot, R, t=t, use_physical=False)
+            )
+        )
     except PotentialError:
         from ..potential import RZToplanarPotential
-        Pot= RZToplanarPotential(Pot)
-        return numpy.sqrt(2.*(evaluateplanarPotentials(Pot,_INF,t=t,use_physical=False)-evaluateplanarPotentials(Pot,R,t=t,use_physical=False)))
-        
+
+        Pot = RZToplanarPotential(Pot)
+        return numpy.sqrt(
+            2.0
+            * (
+                evaluateplanarPotentials(Pot, _INF, t=t, use_physical=False)
+                - evaluateplanarPotentials(Pot, R, t=t, use_physical=False)
+            )
+        )

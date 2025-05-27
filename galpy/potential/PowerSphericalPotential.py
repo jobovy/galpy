@@ -1,5 +1,5 @@
 ###############################################################################
-#   PowerSphericalPotential.py: General class for potentials derived from 
+#   PowerSphericalPotential.py: General class for potentials derived from
 #                               densities with two power-laws
 #
 #                                     amp
@@ -10,6 +10,8 @@ import numpy
 from scipy import special
 from ..util import conversion
 from .Potential import Potential
+
+
 class PowerSphericalPotential(Potential):
     """Class that implements spherical potentials that are derived from power-law density models
 
@@ -18,8 +20,8 @@ class PowerSphericalPotential(Potential):
         \\rho(r) = \\frac{\\mathrm{amp}}{r_1^3}\\,\\left(\\frac{r_1}{r}\\right)^{\\alpha}
 
     """
-    def __init__(self,amp=1.,alpha=1.,normalize=False,r1=1.,
-                 ro=None,vo=None):
+
+    def __init__(self, amp=1.0, alpha=1.0, normalize=False, r1=1.0, ro=None, vo=None):
         """
         NAME:
 
@@ -50,21 +52,21 @@ class PowerSphericalPotential(Potential):
            2010-07-10 - Written - Bovy (NYU)
 
         """
-        Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='mass')
-        r1= conversion.parse_length(r1,ro=self._ro)
-        self.alpha= alpha
+        Potential.__init__(self, amp=amp, ro=ro, vo=vo, amp_units="mass")
+        r1 = conversion.parse_length(r1, ro=self._ro)
+        self.alpha = alpha
         # Back to old definition
-        if self.alpha != 3.:
-            self._amp*= r1**(self.alpha-3.)*4.*numpy.pi/(3.-self.alpha)
-        if normalize or \
-                (isinstance(normalize,(int,float)) \
-                     and not isinstance(normalize,bool)):
+        if self.alpha != 3.0:
+            self._amp *= r1 ** (self.alpha - 3.0) * 4.0 * numpy.pi / (3.0 - self.alpha)
+        if normalize or (
+            isinstance(normalize, (int, float)) and not isinstance(normalize, bool)
+        ):
             self.normalize(normalize)
-        self.hasC= True
-        self.hasC_dxdv= True
-        self.hasC_dens= True
+        self.hasC = True
+        self.hasC_dxdv = True
+        self.hasC_dens = True
 
-    def _evaluate(self,R,z,phi=0.,t=0.):
+    def _evaluate(self, R, z, phi=0.0, t=0.0):
         """
         NAME:
            _evaluate
@@ -80,18 +82,18 @@ class PowerSphericalPotential(Potential):
         HISTORY:
            2010-07-10 - Started - Bovy (NYU)
         """
-        r2= R**2.+z**2.
-        if self.alpha == 2.:
-            return numpy.log(r2)/2. 
-        elif isinstance(r2,(float,int)) and r2 == 0 and self.alpha > 2:
+        r2 = R**2.0 + z**2.0
+        if self.alpha == 2.0:
+            return numpy.log(r2) / 2.0
+        elif isinstance(r2, (float, int)) and r2 == 0 and self.alpha > 2:
             return -numpy.inf
         else:
-            out= -r2**(1.-self.alpha/2.)/(self.alpha-2.)
-            if isinstance(r2,numpy.ndarray) and self.alpha > 2:
-                out[r2 == 0]= -numpy.inf
-            return out                
+            out = -(r2 ** (1.0 - self.alpha / 2.0)) / (self.alpha - 2.0)
+            if isinstance(r2, numpy.ndarray) and self.alpha > 2:
+                out[r2 == 0] = -numpy.inf
+            return out
 
-    def _Rforce(self,R,z,phi=0.,t=0.):
+    def _Rforce(self, R, z, phi=0.0, t=0.0):
         """
         NAME:
            _Rforce
@@ -107,9 +109,9 @@ class PowerSphericalPotential(Potential):
         HISTORY:
            2010-07-10 - Written - Bovy (NYU)
         """
-        return -R/(R**2.+z**2.)**(self.alpha/2.)
+        return -R / (R**2.0 + z**2.0) ** (self.alpha / 2.0)
 
-    def _zforce(self,R,z,phi=0.,t=0.):
+    def _zforce(self, R, z, phi=0.0, t=0.0):
         """
         NAME:
            _zforce
@@ -125,9 +127,9 @@ class PowerSphericalPotential(Potential):
         HISTORY:
            2010-07-10 - Written - Bovy (NYU)
         """
-        return -z/(R**2.+z**2.)**(self.alpha/2.)
+        return -z / (R**2.0 + z**2.0) ** (self.alpha / 2.0)
 
-    def _rforce_jax(self,r):
+    def _rforce_jax(self, r):
         """
         NAME:
            _rforce_jax
@@ -141,9 +143,9 @@ class PowerSphericalPotential(Potential):
            2021-02-14 - Written - Bovy (UofT)
         """
         # No need for actual JAX!
-        return -self._amp/r**(self.alpha-1.)
+        return -self._amp / r ** (self.alpha - 1.0)
 
-    def _R2deriv(self,R,z,phi=0.,t=0.):
+    def _R2deriv(self, R, z, phi=0.0, t=0.0):
         """
         NAME:
            _Rderiv
@@ -159,10 +161,11 @@ class PowerSphericalPotential(Potential):
         HISTORY:
            2011-10-09 - Written - Bovy (NYU)
         """
-        return 1./(R**2.+z**2.)**(self.alpha/2.)\
-            -self.alpha*R**2./(R**2.+z**2.)**(self.alpha/2.+1.)
+        return 1.0 / (R**2.0 + z**2.0) ** (self.alpha / 2.0) - self.alpha * R**2.0 / (
+            R**2.0 + z**2.0
+        ) ** (self.alpha / 2.0 + 1.0)
 
-    def _z2deriv(self,R,z,phi=0.,t=0.):
+    def _z2deriv(self, R, z, phi=0.0, t=0.0):
         """
         NAME:
            _z2deriv
@@ -178,9 +181,9 @@ class PowerSphericalPotential(Potential):
         HISTORY:
            2012-07-26 - Written - Bovy (IAS@MPIA)
         """
-        return self._R2deriv(z,R) #Spherical potential
+        return self._R2deriv(z, R)  # Spherical potential
 
-    def _Rzderiv(self,R,z,phi=0.,t=0.):
+    def _Rzderiv(self, R, z, phi=0.0, t=0.0):
         """
         NAME:
            _Rzderiv
@@ -196,9 +199,9 @@ class PowerSphericalPotential(Potential):
         HISTORY:
            2013-08-28 - Written - Bovy (IAs)
         """
-        return -self.alpha*R*z*(R**2.+z**2.)**(-1.-self.alpha/2.)
+        return -self.alpha * R * z * (R**2.0 + z**2.0) ** (-1.0 - self.alpha / 2.0)
 
-    def _dens(self,R,z,phi=0.,t=0.):
+    def _dens(self, R, z, phi=0.0, t=0.0):
         """
         NAME:
            _dens
@@ -214,10 +217,10 @@ class PowerSphericalPotential(Potential):
         HISTORY:
            2013-01-09 - Written - Bovy (IAS)
         """
-        r= numpy.sqrt(R**2.+z**2.)
-        return (3.-self.alpha)/4./numpy.pi/r**self.alpha
+        r = numpy.sqrt(R**2.0 + z**2.0)
+        return (3.0 - self.alpha) / 4.0 / numpy.pi / r**self.alpha
 
-    def _ddensdr(self,r,t=0.):
+    def _ddensdr(self, r, t=0.0):
         """
         NAME:
            _ddensdr
@@ -231,10 +234,16 @@ class PowerSphericalPotential(Potential):
         HISTORY:
            2021-02-25 - Written - Bovy (UofT)
         """
-        return -self._amp\
-            *self.alpha*(3.-self.alpha)/4./numpy.pi/r**(self.alpha+1.)
+        return (
+            -self._amp
+            * self.alpha
+            * (3.0 - self.alpha)
+            / 4.0
+            / numpy.pi
+            / r ** (self.alpha + 1.0)
+        )
 
-    def _d2densdr2(self,r,t=0.):
+    def _d2densdr2(self, r, t=0.0):
         """
         NAME:
            _d2densdr2
@@ -248,10 +257,17 @@ class PowerSphericalPotential(Potential):
         HISTORY:
            2021-02-25 - Written - Bovy (UofT)
         """
-        return self._amp*(self.alpha+1.)*self.alpha\
-            *(3.-self.alpha)/4./numpy.pi/r**(self.alpha+2.)
+        return (
+            self._amp
+            * (self.alpha + 1.0)
+            * self.alpha
+            * (3.0 - self.alpha)
+            / 4.0
+            / numpy.pi
+            / r ** (self.alpha + 2.0)
+        )
 
-    def _ddenstwobetadr(self,r,beta=0):
+    def _ddenstwobetadr(self, r, beta=0):
         """
         NAME:
            _ddenstwobetadr
@@ -265,10 +281,16 @@ class PowerSphericalPotential(Potential):
         HISTORY:
            2021-02-14 - Written - Bovy (UofT)
         """
-        return -self._amp*(self.alpha-2.*beta)\
-            *(3.-self.alpha)/4./numpy.pi/r**(self.alpha+1.-2.*beta)
-    
-    def _surfdens(self,R,z,phi=0.,t=0.):
+        return (
+            -self._amp
+            * (self.alpha - 2.0 * beta)
+            * (3.0 - self.alpha)
+            / 4.0
+            / numpy.pi
+            / r ** (self.alpha + 1.0 - 2.0 * beta)
+        )
+
+    def _surfdens(self, R, z, phi=0.0, t=0.0):
         """
         NAME:
            _surfdens
@@ -284,8 +306,15 @@ class PowerSphericalPotential(Potential):
         HISTORY:
            2018-08-19 - Written - Bovy (UofT)
         """
-        return (3.-self.alpha)/2./numpy.pi*z*R**-self.alpha\
-            *special.hyp2f1(0.5,self.alpha/2.,1.5,-(z/R)**2)
+        return (
+            (3.0 - self.alpha)
+            / 2.0
+            / numpy.pi
+            * z
+            * R**-self.alpha
+            * special.hyp2f1(0.5, self.alpha / 2.0, 1.5, -((z / R) ** 2))
+        )
+
 
 class KeplerPotential(PowerSphericalPotential):
     """Class that implements the Kepler (point mass) potential
@@ -296,8 +325,8 @@ class KeplerPotential(PowerSphericalPotential):
 
     with :math:`\\mathrm{amp} = GM` the mass.
     """
-    def __init__(self,amp=1.,normalize=False,
-                 ro=None,vo=None):
+
+    def __init__(self, amp=1.0, normalize=False, ro=None, vo=None):
         """
         NAME:
 
@@ -326,10 +355,11 @@ class KeplerPotential(PowerSphericalPotential):
            2010-07-10 - Written - Bovy (NYU)
 
         """
-        PowerSphericalPotential.__init__(self,amp=amp,normalize=normalize,
-                                         alpha=3.,ro=ro,vo=vo)
+        PowerSphericalPotential.__init__(
+            self, amp=amp, normalize=normalize, alpha=3.0, ro=ro, vo=vo
+        )
 
-    def _mass(self,R,z=None,t=0.):
+    def _mass(self, R, z=None, t=0.0):
         """
         NAME:
            _mass
@@ -344,4 +374,4 @@ class KeplerPotential(PowerSphericalPotential):
         HISTORY:
            2014-07-02 - Written - Bovy (IAS)
         """
-        return 1.
+        return 1.0

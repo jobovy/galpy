@@ -13,9 +13,12 @@ import numpy
 from scipy import optimize, integrate
 from .actionAngle import actionAngle
 from ..potential.linearPotential import evaluatelinearPotentials
+
+
 class actionAngleVertical(actionAngle):
     """Action-angle formalism for one-dimensional potentials (or of the vertical potential in a galactic disk in the adiabatic approximation, hence the name)"""
-    def __init__(self,*args,**kwargs):
+
+    def __init__(self, *args, **kwargs):
         """
         NAME:
 
@@ -28,29 +31,28 @@ class actionAngleVertical(actionAngle):
         INPUT:
 
            pot= potential or list of potentials (planarPotentials)
-           
+
            ro= distance from vantage point to GC (kpc; can be Quantity)
 
            vo= circular velocity at ro (km/s; can be Quantity)
 
         OUTPUT:
-        
+
            instance
 
         HISTORY:
 
            2012-06-01 - Written - Bovy (IAS)
-           
+
            2018-05-19 - Conformed to the general actionAngle framework - Bovy (UofT)
 
         """
-        actionAngle.__init__(self,
-                             ro=kwargs.get('ro',None),vo=kwargs.get('vo',None))
-        if not 'pot' in kwargs: #pragma: no cover
+        actionAngle.__init__(self, ro=kwargs.get("ro", None), vo=kwargs.get("vo", None))
+        if not "pot" in kwargs:  # pragma: no cover
             raise OSError("Must specify pot= for actionAngleVertical")
-        if not 'pot' in kwargs: #pragma: no cover
+        if not "pot" in kwargs:  # pragma: no cover
             raise OSError("Must specify pot= for actionAngleVertical")
-        self._pot= kwargs['pot']
+        self._pot = kwargs["pot"]
         return None
         """
         self._parse_eval_args(*args,_noOrbUnitsCheck=True,**kwargs)
@@ -60,7 +62,7 @@ class actionAngleVertical(actionAngle):
         return None
         """
 
-    def _evaluate(self,*args,**kwargs):
+    def _evaluate(self, *args, **kwargs):
         """
         NAME:
            __call__ (_evaluate)
@@ -76,30 +78,42 @@ class actionAngleVertical(actionAngle):
         HISTORY:
            2018-05-19 - Written based on re-write of existing code - Bovy (UofT)
         """
-        if len(args) == 2: # x,vx
-            x,vx= args
-            if isinstance(x,float):
-                x= numpy.array([x])
-                vx= numpy.array([vx])
-            J= numpy.empty(len(x))
+        if len(args) == 2:  # x,vx
+            x, vx = args
+            if isinstance(x, float):
+                x = numpy.array([x])
+                vx = numpy.array([vx])
+            J = numpy.empty(len(x))
             for ii in range(len(x)):
-                E= vx[ii]**2./2.\
-                    +evaluatelinearPotentials(self._pot,x[ii],
-                                              use_physical=False)
-                xmax= self.calcxmax(x[ii],vx[ii],E)
+                E = vx[ii] ** 2.0 / 2.0 + evaluatelinearPotentials(
+                    self._pot, x[ii], use_physical=False
+                )
+                xmax = self.calcxmax(x[ii], vx[ii], E)
                 if xmax == -9999.99:
-                    J[ii]= 9999.99
+                    J[ii] = 9999.99
                 else:
-                    J[ii]= 2.*integrate.quad(\
-                        lambda xi: numpy.sqrt(2.*(E\
-                              -evaluatelinearPotentials(self._pot,xi,
-                                                        use_physical=False))),
-                        0.,xmax)[0]/numpy.pi
+                    J[ii] = (
+                        2.0
+                        * integrate.quad(
+                            lambda xi: numpy.sqrt(
+                                2.0
+                                * (
+                                    E
+                                    - evaluatelinearPotentials(
+                                        self._pot, xi, use_physical=False
+                                    )
+                                )
+                            ),
+                            0.0,
+                            xmax,
+                        )[0]
+                        / numpy.pi
+                    )
             return J
-        else: # pragma: no cover
-            raise ValueError('actionAngleVertical __call__ input not understood')
+        else:  # pragma: no cover
+            raise ValueError("actionAngleVertical __call__ input not understood")
 
-    def _actionsFreqs(self,*args,**kwargs):
+    def _actionsFreqs(self, *args, **kwargs):
         """
         NAME:
            actionsFreqs (_actionsFreqs)
@@ -115,39 +129,64 @@ class actionAngleVertical(actionAngle):
         HISTORY:
            2018-05-19 - Written based on re-write of existing code - Bovy (UofT)
         """
-        if len(args) == 2: # x,vx
-            x,vx= args
-            if isinstance(x,float):
-                x= numpy.array([x])
-                vx= numpy.array([vx])
-            J= numpy.empty(len(x))
-            Omega= numpy.empty(len(x))
+        if len(args) == 2:  # x,vx
+            x, vx = args
+            if isinstance(x, float):
+                x = numpy.array([x])
+                vx = numpy.array([vx])
+            J = numpy.empty(len(x))
+            Omega = numpy.empty(len(x))
             for ii in range(len(x)):
-                E= vx[ii]**2./2.\
-                    +evaluatelinearPotentials(self._pot,x[ii],
-                                              use_physical=False)
-                xmax= self.calcxmax(x[ii],vx[ii],E)
+                E = vx[ii] ** 2.0 / 2.0 + evaluatelinearPotentials(
+                    self._pot, x[ii], use_physical=False
+                )
+                xmax = self.calcxmax(x[ii], vx[ii], E)
                 if xmax == -9999.99:
-                    J[ii]= 9999.99
-                    Omega[ii]= 9999.99
+                    J[ii] = 9999.99
+                    Omega[ii] = 9999.99
                 else:
-                    J[ii]= 2.*integrate.quad(\
-                        lambda xi: numpy.sqrt(2.*(E\
-                                       -evaluatelinearPotentials(self._pot,xi,
-                                                         use_physical=False))),
-                        0.,xmax,)[0]/numpy.pi
+                    J[ii] = (
+                        2.0
+                        * integrate.quad(
+                            lambda xi: numpy.sqrt(
+                                2.0
+                                * (
+                                    E
+                                    - evaluatelinearPotentials(
+                                        self._pot, xi, use_physical=False
+                                    )
+                                )
+                            ),
+                            0.0,
+                            xmax,
+                        )[0]
+                        / numpy.pi
+                    )
                     # Transformed x = xmax-t^2 for singularity
-                    Omega[ii]= numpy.pi/2./integrate.quad(\
-                        lambda t: 2.*t/numpy.sqrt(2.*(E\
-                                       -evaluatelinearPotentials(self._pot,
-                                                                 xmax-t**2.,
-                                                         use_physical=False))),
-                        0,numpy.sqrt(xmax))[0]
-            return (J,Omega)
-        else: # pragma: no cover
-            raise ValueError('actionAngleVertical actionsFreqs input not understood')
+                    Omega[ii] = (
+                        numpy.pi
+                        / 2.0
+                        / integrate.quad(
+                            lambda t: 2.0
+                            * t
+                            / numpy.sqrt(
+                                2.0
+                                * (
+                                    E
+                                    - evaluatelinearPotentials(
+                                        self._pot, xmax - t**2.0, use_physical=False
+                                    )
+                                )
+                            ),
+                            0,
+                            numpy.sqrt(xmax),
+                        )[0]
+                    )
+            return (J, Omega)
+        else:  # pragma: no cover
+            raise ValueError("actionAngleVertical actionsFreqs input not understood")
 
-    def _actionsFreqsAngles(self,*args,**kwargs):
+    def _actionsFreqsAngles(self, *args, **kwargs):
         """
         NAME:
            actionsFreqsAngles (_actionsFreqsAngles)
@@ -163,49 +202,87 @@ class actionAngleVertical(actionAngle):
         HISTORY:
            2018-05-19 - Written based on re-write of existing code - Bovy (UofT)
         """
-        if len(args) == 2: # x,vx
-            x,vx= args
-            if isinstance(x,float):
-                x= numpy.array([x])
-                vx= numpy.array([vx])
-            J= numpy.empty(len(x))
-            Omega= numpy.empty(len(x))
-            angle= numpy.empty(len(x))
+        if len(args) == 2:  # x,vx
+            x, vx = args
+            if isinstance(x, float):
+                x = numpy.array([x])
+                vx = numpy.array([vx])
+            J = numpy.empty(len(x))
+            Omega = numpy.empty(len(x))
+            angle = numpy.empty(len(x))
             for ii in range(len(x)):
-                E= vx[ii]**2./2.\
-                    +evaluatelinearPotentials(self._pot,x[ii],
-                                              use_physical=False)
-                xmax= self.calcxmax(x[ii],vx[ii],E)
+                E = vx[ii] ** 2.0 / 2.0 + evaluatelinearPotentials(
+                    self._pot, x[ii], use_physical=False
+                )
+                xmax = self.calcxmax(x[ii], vx[ii], E)
                 if xmax == -9999.99:
-                    J[ii]= 9999.99
-                    Omega[ii]= 9999.99
-                    angle[ii]= 9999.99
+                    J[ii] = 9999.99
+                    Omega[ii] = 9999.99
+                    angle[ii] = 9999.99
                 else:
-                    J[ii]= 2.*integrate.quad(\
-                        lambda xi: numpy.sqrt(2.*(E\
-                                       -evaluatelinearPotentials(self._pot,xi,
-                                                         use_physical=False))),
-                        0.,xmax)[0]/numpy.pi
-                    Omega[ii]= numpy.pi/2./integrate.quad(\
-                        lambda t: 2.*t/numpy.sqrt(2.*(E\
-                                       -evaluatelinearPotentials(self._pot,
-                                                                 xmax-t**2.,
-                                                         use_physical=False))),
-                        0,numpy.sqrt(xmax))[0]
-                    angle[ii]= integrate.quad(\
-                        lambda xi: 1./numpy.sqrt(2.*(E\
-                                       -evaluatelinearPotentials(self._pot,xi,
-                                                         use_physical=False))),
-                                        0,numpy.fabs(x[ii]))[0]
-            angle*= Omega
-            angle[(x >= 0.)*(vx < 0.)]= numpy.pi-angle[(x >= 0.)*(vx < 0.)]
-            angle[(x < 0.)*(vx <= 0.)]= numpy.pi+angle[(x < 0.)*(vx <= 0.)]
-            angle[(x < 0.)*(vx > 0.)]= 2.*numpy.pi-angle[(x < 0.)*(vx > 0.)]
-            return (J,Omega,angle % (2.*numpy.pi))
-        else: # pragma: no cover
-            raise ValueError('actionAngleVertical actionsFreqsAngles input not understood')
+                    J[ii] = (
+                        2.0
+                        * integrate.quad(
+                            lambda xi: numpy.sqrt(
+                                2.0
+                                * (
+                                    E
+                                    - evaluatelinearPotentials(
+                                        self._pot, xi, use_physical=False
+                                    )
+                                )
+                            ),
+                            0.0,
+                            xmax,
+                        )[0]
+                        / numpy.pi
+                    )
+                    Omega[ii] = (
+                        numpy.pi
+                        / 2.0
+                        / integrate.quad(
+                            lambda t: 2.0
+                            * t
+                            / numpy.sqrt(
+                                2.0
+                                * (
+                                    E
+                                    - evaluatelinearPotentials(
+                                        self._pot, xmax - t**2.0, use_physical=False
+                                    )
+                                )
+                            ),
+                            0,
+                            numpy.sqrt(xmax),
+                        )[0]
+                    )
+                    angle[ii] = integrate.quad(
+                        lambda xi: 1.0
+                        / numpy.sqrt(
+                            2.0
+                            * (
+                                E
+                                - evaluatelinearPotentials(
+                                    self._pot, xi, use_physical=False
+                                )
+                            )
+                        ),
+                        0,
+                        numpy.fabs(x[ii]),
+                    )[0]
+            angle *= Omega
+            angle[(x >= 0.0) * (vx < 0.0)] = numpy.pi - angle[(x >= 0.0) * (vx < 0.0)]
+            angle[(x < 0.0) * (vx <= 0.0)] = numpy.pi + angle[(x < 0.0) * (vx <= 0.0)]
+            angle[(x < 0.0) * (vx > 0.0)] = (
+                2.0 * numpy.pi - angle[(x < 0.0) * (vx > 0.0)]
+            )
+            return (J, Omega, angle % (2.0 * numpy.pi))
+        else:  # pragma: no cover
+            raise ValueError(
+                "actionAngleVertical actionsFreqsAngles input not understood"
+            )
 
-    def calcxmax(self,x,vx,E=None):
+    def calcxmax(self, x, vx, E=None):
         """
         NAME:
            calcxmax
@@ -221,28 +298,36 @@ class actionAngleVertical(actionAngle):
            2018-05-19 - Re-written for new framework - Bovy (UofT)
         """
         if E is None:
-            E= E= vx**2./2.\
-                +evaluatelinearPotentials(self._pot,x,use_physical=False)
-        if vx == 0.: #We are exactly at the maximum height
-            xmax= numpy.fabs(x)
+            E = E = vx**2.0 / 2.0 + evaluatelinearPotentials(
+                self._pot, x, use_physical=False
+            )
+        if vx == 0.0:  # We are exactly at the maximum height
+            xmax = numpy.fabs(x)
         else:
-            xstart= x
+            xstart = x
             try:
-                if x == 0.: xend= 0.00001
-                else: xend= 2.*numpy.fabs(x)
-                while (E-evaluatelinearPotentials(self._pot,xend,
-                                                  use_physical=False)) > 0.:
-                    xend*= 2.
-                    if xend > 100.: #pragma: no cover
+                if x == 0.0:
+                    xend = 0.00001
+                else:
+                    xend = 2.0 * numpy.fabs(x)
+                while (
+                    E - evaluatelinearPotentials(self._pot, xend, use_physical=False)
+                ) > 0.0:
+                    xend *= 2.0
+                    if xend > 100.0:  # pragma: no cover
                         raise OverflowError
-            except OverflowError: #pragma: no cover
-                xmax= -9999.99
+            except OverflowError:  # pragma: no cover
+                xmax = -9999.99
             else:
-                xmax= optimize.brentq(\
-                    lambda xm: E-evaluatelinearPotentials(self._pot,xm,
-                                                          use_physical=False),
-                    xstart,xend,xtol=1e-14)
-                while (E-evaluatelinearPotentials(self._pot,xmax,
-                                                          use_physical=False)) < 0:
-                    xmax-= 1e-14
+                xmax = optimize.brentq(
+                    lambda xm: E
+                    - evaluatelinearPotentials(self._pot, xm, use_physical=False),
+                    xstart,
+                    xend,
+                    xtol=1e-14,
+                )
+                while (
+                    E - evaluatelinearPotentials(self._pot, xmax, use_physical=False)
+                ) < 0:
+                    xmax -= 1e-14
         return xmax

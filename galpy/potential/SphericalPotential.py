@@ -1,24 +1,27 @@
 ###############################################################################
-#   SphericalPotential.py: base class for potentials corresponding to 
+#   SphericalPotential.py: base class for potentials corresponding to
 #                          spherical density profiles
 ###############################################################################
 import numpy
 from scipy import integrate
 from .Potential import Potential
+
+
 class SphericalPotential(Potential):
     """Base class for spherical potentials.
 
-Implement a specific spherical density distribution with this form by inheriting from this class and defining functions:
+    Implement a specific spherical density distribution with this form by inheriting from this class and defining functions:
 
-* ``_revaluate(self,r,t=0.)``: the potential as a function of ``r`` and time;
+    * ``_revaluate(self,r,t=0.)``: the potential as a function of ``r`` and time;
 
-* ``_rforce(self,r,t=0.)``: the radial force as a function of ``r`` and time;
+    * ``_rforce(self,r,t=0.)``: the radial force as a function of ``r`` and time;
 
-* ``_r2deriv(self,r,t=0.)``: the second radial derivative of the potential as a function of ``r`` and time;
+    * ``_r2deriv(self,r,t=0.)``: the second radial derivative of the potential as a function of ``r`` and time;
 
-* ``_rdens(self,r,t=0.)``: the density as a function of ``r`` and time (if *not* implemented, calculated using the Poisson equation).
+    * ``_rdens(self,r,t=0.)``: the density as a function of ``r`` and time (if *not* implemented, calculated using the Poisson equation).
     """
-    def __init__(self,amp=1.,ro=None,vo=None,amp_units=None):
+
+    def __init__(self, amp=1.0, ro=None, vo=None, amp_units=None):
         """
         NAME:
 
@@ -45,14 +48,14 @@ Implement a specific spherical density distribution with this form by inheriting
            2020-03-30 - Written - Bovy (UofT)
 
         """
-        Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units=amp_units)
+        Potential.__init__(self, amp=amp, ro=ro, vo=vo, amp_units=amp_units)
         return None
 
-    def _rdens(self,r,t=0.):
+    def _rdens(self, r, t=0.0):
         """Implement using the Poisson equation in case this isn't implemented"""
-        return (self._r2deriv(r,t=t)-2.*self._rforce(r,t=t)/r)/4./numpy.pi
-    
-    def _evaluate(self,R,z,phi=0.,t=0.):
+        return (self._r2deriv(r, t=t) - 2.0 * self._rforce(r, t=t) / r) / 4.0 / numpy.pi
+
+    def _evaluate(self, R, z, phi=0.0, t=0.0):
         """
         NAME:
            _evaluate
@@ -68,10 +71,10 @@ Implement a specific spherical density distribution with this form by inheriting
         HISTORY:
            2020-03-30 - Written - Bovy (UofT)
         """
-        r= numpy.sqrt(R**2.+z**2.)
-        return self._revaluate(r,t=t)
+        r = numpy.sqrt(R**2.0 + z**2.0)
+        return self._revaluate(r, t=t)
 
-    def _Rforce(self,R,z,phi=0.,t=0.):
+    def _Rforce(self, R, z, phi=0.0, t=0.0):
         """
         NAME:
            _Rforce
@@ -87,10 +90,10 @@ Implement a specific spherical density distribution with this form by inheriting
         HISTORY:
            2020-03-30 - Written - Bovy (UofT)
         """
-        r= numpy.sqrt(R**2.+z**2.)
-        return self._rforce(r,t=t)*R/r
+        r = numpy.sqrt(R**2.0 + z**2.0)
+        return self._rforce(r, t=t) * R / r
 
-    def _zforce(self,R,z,phi=0.,t=0.):
+    def _zforce(self, R, z, phi=0.0, t=0.0):
         """
         NAME:
            _zforce
@@ -106,10 +109,10 @@ Implement a specific spherical density distribution with this form by inheriting
         HISTORY:
            2020-03-30 - Written - Bovy (UofT)
         """
-        r= numpy.sqrt(R**2.+z**2.)
-        return self._rforce(r,t=t)*z/r
+        r = numpy.sqrt(R**2.0 + z**2.0)
+        return self._rforce(r, t=t) * z / r
 
-    def _R2deriv(self,R,z,phi=0.,t=0.):
+    def _R2deriv(self, R, z, phi=0.0, t=0.0):
         """
         NAME:
            _R2deriv
@@ -125,10 +128,13 @@ Implement a specific spherical density distribution with this form by inheriting
         HISTORY:
            2020-03-30 - Written - Bovy (UofT)
         """
-        r= numpy.sqrt(R**2.+z**2.)
-        return self._r2deriv(r,t=t)*R**2./r**2.-self._rforce(r,t=t)*z**2./r**3.
+        r = numpy.sqrt(R**2.0 + z**2.0)
+        return (
+            self._r2deriv(r, t=t) * R**2.0 / r**2.0
+            - self._rforce(r, t=t) * z**2.0 / r**3.0
+        )
 
-    def _z2deriv(self,R,z,phi=0.,t=0.):
+    def _z2deriv(self, R, z, phi=0.0, t=0.0):
         """
         NAME:
            _z2deriv
@@ -144,10 +150,13 @@ Implement a specific spherical density distribution with this form by inheriting
         HISTORY:
            2020-03-30 - Written - Bovy (UofT)
         """
-        r= numpy.sqrt(R**2.+z**2.)
-        return self._r2deriv(r,t=t)*z**2./r**2.-self._rforce(r,t=t)*R**2./r**3.
+        r = numpy.sqrt(R**2.0 + z**2.0)
+        return (
+            self._r2deriv(r, t=t) * z**2.0 / r**2.0
+            - self._rforce(r, t=t) * R**2.0 / r**3.0
+        )
 
-    def _Rzderiv(self,R,z,phi=0.,t=0.):
+    def _Rzderiv(self, R, z, phi=0.0, t=0.0):
         """
         NAME:
            _Rzderiv
@@ -163,29 +172,32 @@ Implement a specific spherical density distribution with this form by inheriting
         HISTORY:
            2020-03-30 - Written - Bovy (UofT)
         """
-        r= numpy.sqrt(R**2.+z**2.)
-        return self._r2deriv(r,t=t)*R*z/r**2.+self._rforce(r,t=t)*R*z/r**3.
+        r = numpy.sqrt(R**2.0 + z**2.0)
+        return (
+            self._r2deriv(r, t=t) * R * z / r**2.0
+            + self._rforce(r, t=t) * R * z / r**3.0
+        )
 
-    def _dens(self,R,z,phi=0.,t=0.):
+    def _dens(self, R, z, phi=0.0, t=0.0):
         """
-        NAME:
-           _dens
-        PURPOSE:
-           evaluate the density for this potential
-        INPUT:
-           R - Galactocentric cylindrical radius
-           z - vertical height
-           phi - azimuth
-           t - time
-        OUTPUT:
-           the density
-       HISTORY:
-           2020-03-30 - Written - Bovy (UofT)
+         NAME:
+            _dens
+         PURPOSE:
+            evaluate the density for this potential
+         INPUT:
+            R - Galactocentric cylindrical radius
+            z - vertical height
+            phi - azimuth
+            t - time
+         OUTPUT:
+            the density
+        HISTORY:
+            2020-03-30 - Written - Bovy (UofT)
         """
-        r= numpy.sqrt(R**2.+z**2.)
-        return self._rdens(r,t=t)
+        r = numpy.sqrt(R**2.0 + z**2.0)
+        return self._rdens(r, t=t)
 
-    def _mass(self,R,z=None,t=0.):
+    def _mass(self, R, z=None, t=0.0):
         """
         NAME:
            _mass
@@ -200,6 +212,7 @@ Implement a specific spherical density distribution with this form by inheriting
         HISTORY:
            2021-03-15 - Written - Bovy (UofT)
         """
-        if z is not None: raise AttributeError # use general implementation
-        R= numpy.float64(R) # Avoid indexing issues
-        return -R**2.*self._rforce(R,t=t)
+        if z is not None:
+            raise AttributeError  # use general implementation
+        R = numpy.float64(R)  # Avoid indexing issues
+        return -(R**2.0) * self._rforce(R, t=t)

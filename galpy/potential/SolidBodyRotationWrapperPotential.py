@@ -5,8 +5,10 @@
 ###############################################################################
 from .WrapperPotential import parentWrapperPotential
 from ..util import conversion
+
+
 class SolidBodyRotationWrapperPotential(parentWrapperPotential):
-    """Potential wrapper class that implements solid-body rotation around the z-axis. Can be used to make a bar or other perturbation rotate. The potential is rotated by replacing 
+    """Potential wrapper class that implements solid-body rotation around the z-axis. Can be used to make a bar or other perturbation rotate. The potential is rotated by replacing
 
     .. math::
 
@@ -14,7 +16,8 @@ class SolidBodyRotationWrapperPotential(parentWrapperPotential):
 
     with :math:`\\Omega` the fixed pattern speed and :math:`\\mathrm{pa}` the position angle at :math:`t=0`.
     """
-    def __init__(self,amp=1.,pot=None,omega=1.,pa=0.,ro=None,vo=None):
+
+    def __init__(self, amp=1.0, pot=None, omega=1.0, pa=0.0, ro=None, vo=None):
         """
         NAME:
 
@@ -43,12 +46,12 @@ class SolidBodyRotationWrapperPotential(parentWrapperPotential):
            2017-08-22 - Started - Bovy (UofT)
 
         """
-        omega= conversion.parse_frequency(omega,ro=self._ro,vo=self._vo)
-        pa= conversion.parse_angle(pa)
-        self._omega= omega
-        self._pa= pa
-        self.hasC= True
-        self.hasC_dxdv= True
+        omega = conversion.parse_frequency(omega, ro=self._ro, vo=self._vo)
+        pa = conversion.parse_angle(pa)
+        self._omega = omega
+        self._pa = pa
+        self.hasC = True
+        self.hasC_dxdv = True
 
     def OmegaP(self):
         """
@@ -65,7 +68,8 @@ class SolidBodyRotationWrapperPotential(parentWrapperPotential):
         """
         return self._omega
 
-    def _wrap(self,attribute,*args,**kwargs):
-        kwargs['phi']= \
-            kwargs.get('phi',0.)-self._omega*kwargs.get('t',0.)-self._pa
-        return self._wrap_pot_func(attribute)(self._pot,*args,**kwargs)
+    def _wrap(self, attribute, *args, **kwargs):
+        kwargs["phi"] = (
+            kwargs.get("phi", 0.0) - self._omega * kwargs.get("t", 0.0) - self._pa
+        )
+        return self._wrap_pot_func(attribute)(self._pot, *args, **kwargs)

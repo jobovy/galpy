@@ -1,5 +1,5 @@
 ###############################################################################
-#   FlattenedPowerPotential.py: Power-law potential that is flattened in the 
+#   FlattenedPowerPotential.py: Power-law potential that is flattened in the
 #                               potential (NOT the density)
 #
 #                                     amp
@@ -9,7 +9,10 @@
 import numpy
 from ..util import conversion
 from .Potential import Potential
-_CORE=10**-8
+
+_CORE = 10**-8
+
+
 class FlattenedPowerPotential(Potential):
     """Class that implements a power-law potential that is flattened in the potential (NOT the density)
 
@@ -22,8 +25,18 @@ class FlattenedPowerPotential(Potential):
     See Figure 1 in `Evans (1994) <http://adsabs.harvard.edu/abs/1994MNRAS.267..333E>`_ for combinations of alpha and q that correspond to positive densities
 
     """
-    def __init__(self,amp=1.,alpha=0.5,q=0.9,core=_CORE,normalize=False,r1=1.,
-                 ro=None,vo=None):
+
+    def __init__(
+        self,
+        amp=1.0,
+        alpha=0.5,
+        q=0.9,
+        core=_CORE,
+        normalize=False,
+        r1=1.0,
+        ro=None,
+        vo=None,
+    ):
         """
         NAME:
 
@@ -58,23 +71,23 @@ class FlattenedPowerPotential(Potential):
            2013-01-09 - Written - Bovy (IAS)
 
         """
-        Potential.__init__(self,amp=amp,ro=ro,vo=vo,amp_units='velocity2')
-        core= conversion.parse_length(core,ro=self._ro)
-        r1= conversion.parse_length(r1,ro=self._ro)
-        self.alpha= alpha
-        self.q2= q**2.
-        self.core2= core**2.
+        Potential.__init__(self, amp=amp, ro=ro, vo=vo, amp_units="velocity2")
+        core = conversion.parse_length(core, ro=self._ro)
+        r1 = conversion.parse_length(r1, ro=self._ro)
+        self.alpha = alpha
+        self.q2 = q**2.0
+        self.core2 = core**2.0
         # Back to old definition
-        self._amp*= r1**self.alpha
-        if normalize or \
-                (isinstance(normalize,(int,float)) \
-                     and not isinstance(normalize,bool)): #pragma: no cover
+        self._amp *= r1**self.alpha
+        if normalize or (
+            isinstance(normalize, (int, float)) and not isinstance(normalize, bool)
+        ):  # pragma: no cover
             self.normalize(normalize)
-        self.hasC= True
-        self.hasC_dxdv= True
-        self.hasC_dens= True
+        self.hasC = True
+        self.hasC_dxdv = True
+        self.hasC_dens = True
 
-    def _evaluate(self,R,z,phi=0.,t=0.):
+    def _evaluate(self, R, z, phi=0.0, t=0.0):
         """
         NAME:
            _evaluate
@@ -90,13 +103,13 @@ class FlattenedPowerPotential(Potential):
         HISTORY:
            2013-01-09 - Started - Bovy (IAS)
         """
-        if self.alpha == 0.:
-            return 1./2.*numpy.log(R**2.+z**2./self.q2+self.core2)
+        if self.alpha == 0.0:
+            return 1.0 / 2.0 * numpy.log(R**2.0 + z**2.0 / self.q2 + self.core2)
         else:
-            m2= self.core2+R**2.+z**2./self.q2
-            return -m2**(-self.alpha/2.)/self.alpha
+            m2 = self.core2 + R**2.0 + z**2.0 / self.q2
+            return -(m2 ** (-self.alpha / 2.0)) / self.alpha
 
-    def _Rforce(self,R,z,phi=0.,t=0.):
+    def _Rforce(self, R, z, phi=0.0, t=0.0):
         """
         NAME:
            _Rforce
@@ -112,13 +125,13 @@ class FlattenedPowerPotential(Potential):
         HISTORY:
            2010-07-10 - Written - Bovy (NYU)
         """
-        if self.alpha == 0.:
-            return -R/(R**2.+z**2./self.q2+self.core2)
+        if self.alpha == 0.0:
+            return -R / (R**2.0 + z**2.0 / self.q2 + self.core2)
         else:
-            m2= self.core2+R**2.+z**2./self.q2
-            return -m2**(-self.alpha/2.-1.)*R
+            m2 = self.core2 + R**2.0 + z**2.0 / self.q2
+            return -(m2 ** (-self.alpha / 2.0 - 1.0)) * R
 
-    def _zforce(self,R,z,phi=0.,t=0.):
+    def _zforce(self, R, z, phi=0.0, t=0.0):
         """
         NAME:
            _zforce
@@ -134,13 +147,13 @@ class FlattenedPowerPotential(Potential):
         HISTORY:
            2010-07-10 - Written - Bovy (NYU)
         """
-        if self.alpha == 0.:
-            return -z/self.q2/(R**2.+z**2./self.q2+self.core2)
+        if self.alpha == 0.0:
+            return -z / self.q2 / (R**2.0 + z**2.0 / self.q2 + self.core2)
         else:
-            m2= self.core2+R**2.+z**2./self.q2
-            return -m2**(-self.alpha/2.-1.)*z/self.q2
+            m2 = self.core2 + R**2.0 + z**2.0 / self.q2
+            return -(m2 ** (-self.alpha / 2.0 - 1.0)) * z / self.q2
 
-    def _R2deriv(self,R,z,phi=0.,t=0.):
+    def _R2deriv(self, R, z, phi=0.0, t=0.0):
         """
         NAME:
            _Rderiv
@@ -156,14 +169,16 @@ class FlattenedPowerPotential(Potential):
         HISTORY:
            2011-10-09 - Written - Bovy (NYU)
         """
-        if self.alpha == 0.:
-            denom= 1./(R**2.+z**2./self.q2+self.core2)
-            return denom-2.*R**2.*denom**2.
+        if self.alpha == 0.0:
+            denom = 1.0 / (R**2.0 + z**2.0 / self.q2 + self.core2)
+            return denom - 2.0 * R**2.0 * denom**2.0
         else:
-            m2= self.core2+R**2.+z**2./self.q2
-            return -m2**(-self.alpha/2.-1.)*((self.alpha+2)*R**2./m2-1.)
+            m2 = self.core2 + R**2.0 + z**2.0 / self.q2
+            return -(m2 ** (-self.alpha / 2.0 - 1.0)) * (
+                (self.alpha + 2) * R**2.0 / m2 - 1.0
+            )
 
-    def _z2deriv(self,R,z,phi=0.,t=0.):
+    def _z2deriv(self, R, z, phi=0.0, t=0.0):
         """
         NAME:
            _z2deriv
@@ -179,14 +194,19 @@ class FlattenedPowerPotential(Potential):
         HISTORY:
            2012-07-26 - Written - Bovy (IAS@MPIA)
         """
-        if self.alpha == 0.:
-            denom= 1./(R**2.+z**2./self.q2+self.core2)
-            return denom/self.q2-2.*z**2.*denom**2./self.q2**2.
+        if self.alpha == 0.0:
+            denom = 1.0 / (R**2.0 + z**2.0 / self.q2 + self.core2)
+            return denom / self.q2 - 2.0 * z**2.0 * denom**2.0 / self.q2**2.0
         else:
-            m2= self.core2+R**2.+z**2./self.q2
-            return -1./self.q2*m2**(-self.alpha/2.-1.)*((self.alpha+2)*z**2./m2/self.q2-1.)
+            m2 = self.core2 + R**2.0 + z**2.0 / self.q2
+            return (
+                -1.0
+                / self.q2
+                * m2 ** (-self.alpha / 2.0 - 1.0)
+                * ((self.alpha + 2) * z**2.0 / m2 / self.q2 - 1.0)
+            )
 
-    def _dens(self,R,z,phi=0.,t=0.):
+    def _dens(self, R, z, phi=0.0, t=0.0):
         """
         NAME:
            _dens
@@ -202,10 +222,30 @@ class FlattenedPowerPotential(Potential):
         HISTORY:
            2013-01-09 - Written - Bovy (IAS)
         """
-        if self.alpha == 0.:
-            return 1./4./numpy.pi/self.q2*((2.*self.q2+1.)*self.core2+R**2.\
-                                       +(2.-1./self.q2)*z**2.)/\
-                                       (R**2.+z**2./self.q2+self.core2)**2.
+        if self.alpha == 0.0:
+            return (
+                1.0
+                / 4.0
+                / numpy.pi
+                / self.q2
+                * (
+                    (2.0 * self.q2 + 1.0) * self.core2
+                    + R**2.0
+                    + (2.0 - 1.0 / self.q2) * z**2.0
+                )
+                / (R**2.0 + z**2.0 / self.q2 + self.core2) ** 2.0
+            )
         else:
-            m2= self.core2+R**2.+z**2./self.q2
-            return 1./self.q2*(self.core2*(1.+2.*self.q2)+R**2.*(1.-self.alpha*self.q2)+z**2.*(2.-(1.+self.alpha)/self.q2))*m2**(-self.alpha/2.-2.)/4./numpy.pi
+            m2 = self.core2 + R**2.0 + z**2.0 / self.q2
+            return (
+                1.0
+                / self.q2
+                * (
+                    self.core2 * (1.0 + 2.0 * self.q2)
+                    + R**2.0 * (1.0 - self.alpha * self.q2)
+                    + z**2.0 * (2.0 - (1.0 + self.alpha) / self.q2)
+                )
+                * m2 ** (-self.alpha / 2.0 - 2.0)
+                / 4.0
+                / numpy.pi
+            )
