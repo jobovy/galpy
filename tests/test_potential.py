@@ -40,6 +40,7 @@ def test_normalize_potential():
     pots.append("HernquistTwoPowerSphericalPotential")
     pots.append("JaffeTwoPowerSphericalPotential")
     pots.append("NFWTwoPowerSphericalPotential")
+    pots.append('CoreNFWTwoPowerSphericalPotential')
     pots.append("specialMiyamotoNagaiPotential")
     pots.append("specialPowerSphericalPotential")
     pots.append("specialFlattenedPowerPotential")
@@ -139,6 +140,7 @@ def test_forceAsDeriv_potential():
     pots.append("HernquistTwoPowerSphericalPotential")
     pots.append("JaffeTwoPowerSphericalPotential")
     pots.append("NFWTwoPowerSphericalPotential")
+    pots.append('CoreNFWTwoPowerSphericalPotential')
     pots.append("specialMiyamotoNagaiPotential")
     pots.append("specialMN3ExponentialDiskPotentialPD")
     pots.append("specialMN3ExponentialDiskPotentialSECH")
@@ -392,6 +394,7 @@ def test_2ndDeriv_potential():
     pots.append("HernquistTwoPowerSphericalPotential")
     pots.append("JaffeTwoPowerSphericalPotential")
     pots.append("NFWTwoPowerSphericalPotential")
+    pots.append('CoreNFWTwoPowerSphericalPotential')
     pots.append("specialMiyamotoNagaiPotential")
     pots.append("specialMN3ExponentialDiskPotentialPD")
     pots.append("specialMN3ExponentialDiskPotentialSECH")
@@ -644,6 +647,8 @@ def test_2ndDeriv_potential():
                         continue  # Not implemented, or badly defined
                     if p == "NFWTwoPowerSphericalPotential":
                         continue  # Not implemented, or badly defined
+                    if p == "CoreNFWTwoPowerSphericalPotential":
+                        continue  # Not implemented, or badly defined
                     # Excluding KuzminDiskPotential at z = 0
                     if p == "KuzminDiskPotential" and Zs[jj] == 0:
                         continue
@@ -783,6 +788,7 @@ def test_poisson_potential():
     pots.append("HernquistTwoPowerSphericalPotential")
     pots.append("JaffeTwoPowerSphericalPotential")
     pots.append("NFWTwoPowerSphericalPotential")
+    pots.append('CoreNFWTwoPowerSphericalPotential')
     pots.append("specialMiyamotoNagaiPotential")
     pots.append("specialMN3ExponentialDiskPotentialPD")
     pots.append("specialMN3ExponentialDiskPotentialSECH")
@@ -932,6 +938,7 @@ def test_poisson_surfdens_potential():
     pots.append('HernquistTwoPowerSphericalPotential')
     pots.append('JaffeTwoPowerSphericalPotential')
     pots.append('NFWTwoPowerSphericalPotential')
+    pots.append('CoreNFWTwoPowerSphericalPotential')
     pots.append('specialMiyamotoNagaiPotential')
     pots.append('specialMN3ExponentialDiskPotentialPD')
     pots.append('specialMN3ExponentialDiskPotentialSECH')
@@ -1090,6 +1097,7 @@ def test_evaluateAndDerivs_potential():
     pots.append("HernquistTwoPowerSphericalPotential")
     pots.append("JaffeTwoPowerSphericalPotential")
     pots.append("NFWTwoPowerSphericalPotential")
+    pots.append('CoreNFWTwoPowerSphericalPotential')
     pots.append("specialMiyamotoNagaiPotential")
     pots.append("specialMN3ExponentialDiskPotentialPD")
     pots.append("specialMN3ExponentialDiskPotentialSECH")
@@ -1348,6 +1356,7 @@ def test_amp_mult_divide():
     pots.append("HernquistTwoPowerSphericalPotential")
     pots.append("JaffeTwoPowerSphericalPotential")
     pots.append("NFWTwoPowerSphericalPotential")
+    pots.append('CoreNFWTwoPowerSphericalPotential')
     pots.append("specialMiyamotoNagaiPotential")
     pots.append("specialMN3ExponentialDiskPotentialPD")
     pots.append("specialMN3ExponentialDiskPotentialSECH")
@@ -1803,12 +1812,13 @@ def test_potential_at_zero():
             and not "toVertical" in p
         )
     ]
-    # pots.append('specialTwoPowerSphericalPotential')
-    # pots.append('DehnenTwoPowerSphericalPotential')
-    # pots.append('DehnenCoreTwoPowerSphericalPotential')
-    # pots.append('HernquistTwoPowerSphericalPotential')
-    # pots.append('JaffeTwoPowerSphericalPotential')
-    # pots.append('NFWTwoPowerSphericalPotential') # Difficult, and who cares?
+    pots.append('specialTwoPowerSphericalPotential')
+    pots.append('DehnenTwoPowerSphericalPotential')
+    pots.append('DehnenCoreTwoPowerSphericalPotential')
+    pots.append('HernquistTwoPowerSphericalPotential')
+    pots.append('JaffeTwoPowerSphericalPotential')
+    pots.append('NFWTwoPowerSphericalPotential')
+    pots.append('CoreNFWTwoPowerSphericalPotential')
     pots.append("specialMiyamotoNagaiPotential")
     pots.append("specialMN3ExponentialDiskPotentialPD")
     pots.append("specialMN3ExponentialDiskPotentialSECH")
@@ -1961,6 +1971,7 @@ def test_potential_at_infinity():
     pots.append("HernquistTwoPowerSphericalPotential")
     pots.append("JaffeTwoPowerSphericalPotential")
     # pots.append('NFWTwoPowerSphericalPotential') # Difficult, and who cares?
+    # pots.append('CoreNFWTwoPowerSphericalPotential')
     pots.append("specialMiyamotoNagaiPotential")
     pots.append("specialMN3ExponentialDiskPotentialPD")
     pots.append("specialMN3ExponentialDiskPotentialSECH")
@@ -8303,6 +8314,11 @@ class JaffeTwoPowerSphericalPotential(TwoPowerSphericalPotential):
 class NFWTwoPowerSphericalPotential(TwoPowerSphericalPotential):
     def __init__(self):
         TwoPowerSphericalPotential.__init__(self, amp=1.0, a=5.0, alpha=1.0, beta=3.0)
+        return None
+
+class CoreNFWTwoPowerSphericalPotential(TwoPowerSphericalPotential):
+    def __init__(self):
+        TwoPowerSphericalPotential.__init__(self, amp=1.0, a=5.0, alpha=0.0, beta=3.0)
         return None
 
 

@@ -95,9 +95,8 @@ class TwoPowerSphericalPotential(Potential):
             return (
                 (1.0 / self.a)
                 * (
-                    r
-                    - self.a
-                    * (r / self.a) ** (3.0 - self.alpha)
+                    1
+                    - (r / self.a) ** (2.0 - self.alpha)
                     / (3.0 - self.alpha)
                     * special.hyp2f1(
                         3.0 - self.alpha,
@@ -107,10 +106,9 @@ class TwoPowerSphericalPotential(Potential):
                     )
                 )
                 / (self.alpha - 2.0)
-                / r
             )
         else:
-            r = numpy.sqrt(R**2.0 + z**2.0)
+            r = numpy.sqrt(R**2.0 + z**2.0) + 1e-11  # avoid division by zero and numerical instability of the hyp2f1 function
             return (
                 special.gamma(self.beta - 3.0)
                 * (
