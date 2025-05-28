@@ -272,7 +272,7 @@ setup(
         "": ["README.md", "README.dev", "LICENSE", "AUTHORS.rst"],
     },
     include_package_data=True,
-    python_requires=">=3.8",
+    python_requires=">=3.9",
     install_requires=["packaging", "numpy>=1.7", "scipy", "matplotlib"],
     extras_require={
         "docs": ["sphinxext-opengraph", "sphinx-design", "markupsafe==2.0.1"]
@@ -284,7 +284,6 @@ setup(
         "License :: OSI Approved :: BSD License",
         "Operating System :: OS Independent",
         "Programming Language :: C",
-        "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",

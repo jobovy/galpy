@@ -1,7 +1,7 @@
 v1.11.0 (expected around 2025-07-01)
 ====================
 
-Nothing yet!
+- Removed support for Python 3.8 (which has reached its end of life in Oct 2024).
 
 v1.10.2 (2025-03-03)
 ====================

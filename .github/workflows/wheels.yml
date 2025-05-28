@@ -36,7 +36,6 @@ jobs:
         - [macos-14, macosx, arm64]
         - [windows-2019, win, amd64]
         python:
-        - ["cp38","3.8"]
         - ["cp39","3.9"]
         - ["cp310","3.10"]
         - ["cp311","3.11"]
@@ -100,7 +99,6 @@ jobs:
             - [macos-14, macosx, arm64]
             - [windows-2019, win, amd64]
           python:
-            - ["cp38","3.8"]
             - ["cp39","3.9"]
             - ["cp310","3.10"]
             - ["cp311","3.11"]
