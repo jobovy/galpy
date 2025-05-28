@@ -51,7 +51,7 @@ double CosmphiDiskPotentialR2deriv(double R,double phi,double t,
       * cos( m * phi - mphib);
   else
     return amp * p * ( p - 1) * mphio / m * pow(R,p-2.) * cos(m * phi - mphib);
-} 
+}
 double CosmphiDiskPotentialphi2deriv(double R,double phi,double t,
 				      struct potentialArg * potentialArgs){
   double * args= potentialArgs->args;
@@ -69,7 +69,7 @@ double CosmphiDiskPotentialphi2deriv(double R,double phi,double t,
       * cos( m * phi-mphib);
   else
     return - amp * m * mphio * pow(R,p) * cos( m * phi - mphib );
-} 
+}
 double CosmphiDiskPotentialRphideriv(double R,double phi,double t,
 				      struct potentialArg * potentialArgs){
   double * args= potentialArgs->args;
@@ -85,4 +85,4 @@ double CosmphiDiskPotentialRphideriv(double R,double phi,double t,
     return - amp * p * mphio / m * rb2p / pow(R,p+1) * sin( m * phi-mphib);
   else
     return - amp * p * mphio * pow(R,p-1.) * sin( m * phi - mphib );
-} 
+}

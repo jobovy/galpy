@@ -8,27 +8,28 @@
 #
 ###############################################################################
 import copy
-import numpy
 import warnings
-from numpy.polynomial import polynomial, chebyshev
-from scipy import optimize, interpolate
-from matplotlib import pyplot, gridspec, cm
+
+import numpy
+from matplotlib import cm, gridspec, pyplot
 from matplotlib.ticker import NullFormatter
-from ..util import bovy_plot, galpyWarning
+from numpy.polynomial import chebyshev, polynomial
+from scipy import interpolate, optimize
+
 from ..potential import (
     IsochronePotential,
-    vcirc,
     dvcircdR,
-    rl,
     evaluatePotentials,
     evaluateRforces,
+    rl,
+    vcirc,
 )
 from ..potential.Potential import _evaluatePotentials
-from .actionAngleIsochrone import actionAngleIsochrone
+from ..util import bovy_plot, galpyWarning
+from .actionAngleInverse import actionAngleInverse
+from .actionAngleIsochrone import _actionAngleIsochroneHelper, actionAngleIsochrone
 from .actionAngleIsochroneInverse import actionAngleIsochroneInverse
 from .actionAngleSpherical import actionAngleSpherical
-from .actionAngleInverse import actionAngleInverse
-from .actionAngleIsochrone import _actionAngleIsochroneHelper
 
 _APY_LOADED = True
 try:
@@ -112,7 +113,7 @@ class actionAngleSphericalInverse(actionAngleInverse):
         """
         # actionAngleInverse.__init__(self,*args,**kwargs)
         if pot is None:  # pragma: no cover
-            raise IOError("Must specify pot= for actionAngleSphericalInverse")
+            raise OSError("Must specify pot= for actionAngleSphericalInverse")
         self._pot = pot
         self._aAS = actionAngleSpherical(pot=self._pot)
         # Determine gridding options
@@ -738,9 +739,7 @@ class actionAngleSphericalInverse(actionAngleInverse):
                             self._maxiter
                         )
                         + " for energies:"
-                        + "".join(
-                            " {:g}".format(k) for k in sorted(set(Egrid[unconv]))
-                        ),
+                        + "".join(f" {k:g}" for k in sorted(set(Egrid[unconv]))),
                         galpyWarning,
                     )
                     break
@@ -1028,8 +1027,8 @@ class actionAngleSphericalInverse(actionAngleInverse):
                 ymin = numpy.amax([numpy.amin(y[numpy.isfinite(y)]), 1e-17])
                 ymax = numpy.amax(y[numpy.isfinite(y)])
             if len(Es) < minn_for_cmap:
-                label = r"$E, L = {:g}, {:g}$".format(E, L)
-                color = "C{}".format(ii)
+                label = rf"$E, L = {E:g}, {L:g}$"
+                color = f"C{ii}"
             else:
                 label = None
                 color = cm.plasma((E - Es[0]) / (Es[-1] - Es[0]))
@@ -1060,8 +1059,8 @@ class actionAngleSphericalInverse(actionAngleInverse):
                 ymin = numpy.amax([numpy.amin(y[numpy.isfinite(y)]), 1e-17])
                 ymax = numpy.amax(y[numpy.isfinite(y)])
             if len(Es) < minn_for_cmap:
-                label = r"$E, L = {:g}, {:g}$".format(E, L)
-                color = "C{}".format(ii)
+                label = rf"$E, L = {E:g}, {L:g}$"
+                color = f"C{ii}"
             else:
                 label = None
                 color = cm.plasma((E - Es[0]) / (Es[-1] - Es[0]))
@@ -1092,8 +1091,8 @@ class actionAngleSphericalInverse(actionAngleInverse):
                 ymin = numpy.amax([numpy.amin(y[numpy.isfinite(y)]), 1e-17])
                 ymax = numpy.amax(y[numpy.isfinite(y)])
             if len(Es) < minn_for_cmap:
-                label = r"$E, L = {:g}, {:g}$".format(E, L)
-                color = "C{}".format(ii)
+                label = rf"$E, L = {E:g}, {L:g}$"
+                color = f"C{ii}"
             else:
                 label = None
                 color = cm.plasma((E - Es[0]) / (Es[-1] - Es[0]))
@@ -1456,9 +1455,7 @@ class actionAngleSphericalInverse(actionAngleInverse):
                             self._maxiter
                         )
                         + " for radial angles:"
-                        + "".join(
-                            " {:g}".format(k) for k in sorted(set(angler[unconv]))
-                        ),
+                        + "".join(f" {k:g}" for k in sorted(set(angler[unconv]))),
                         galpyWarning,
                     )
                     break
@@ -1628,7 +1625,7 @@ class actionAngleSphericalInverseSingle(actionAngleInverse):
 
         """
         if pot is None:  # pragma: no cover
-            raise IOError("Must specify pot= for actionAngleSphericalInverse")
+            raise OSError("Must specify pot= for actionAngleSphericalInverse")
         self._pot = pot
         self._E = E
         self._L = L

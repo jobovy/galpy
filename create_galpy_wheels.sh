@@ -6,9 +6,9 @@ source ~/.bash_profile
 PYTHON_VERSIONS=("3.8" "3.9" "3.10")
 GALPY_VERSION=1.7.2
 
-rm -rf galpy-wheels-output 
+rm -rf galpy-wheels-output
 mkdir galpy-wheels-output
-# Loop over the entire thing to make sure nothing gets re-used
+# Loop over the entire thing to make sure nothing gets reused
 for PYTHON_VERSION in "${PYTHON_VERSIONS[@]}"; do
     git clone https://github.com/jobovy/galpy.git galpy-wheels
     cd galpy-wheels

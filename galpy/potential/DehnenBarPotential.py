@@ -2,6 +2,7 @@
 #   DehnenBarPotential: Dehnen (2000)'s bar potential
 ###############################################################################
 import numpy
+
 from ..util import conversion
 from .Potential import Potential
 
@@ -24,7 +25,7 @@ class DehnenBarPotential(Potential):
 
         A_b(t) = A_f\\,\\left(\\frac{3}{16}\\xi^5-\\frac{5}{8}\\xi^3+\\frac{15}{16}\\xi+\\frac{1}{2}\\right)\\,, \\xi = 2\\frac{t/T_b-t_\\mathrm{form}}{T_\\mathrm{steady}}-1\\,,\\ \\mathrm{if}\\ t_\\mathrm{form} \\leq \\frac{t}{T_b} \\leq t_\\mathrm{form}+T_\\mathrm{steady}
 
-    and 
+    and
 
     .. math::
 

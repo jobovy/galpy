@@ -8,9 +8,11 @@
 #       m^2 = x^2 + y^2/b^2 + z^2/c^2
 ########################################################################
 import hashlib
+
 import numpy
 from scipy import integrate
 from scipy.special import gamma
+
 from ..util import conversion, coords
 from .Potential import Potential
 
@@ -520,7 +522,7 @@ class FerrersPotential(Potential):
 
 
 def _potInt(x, y, z, a2, b2, c2, n):
-    """Integral involed in the potential at (x,y,z)
+    """Integral involved in the potential at (x,y,z)
     integrates 1/A B^(n+1) where
     A = sqrt((tau+a)(tau+b)(tau+c)) and B = (1-x^2/(tau+a)-y^2/(tau+b)-z^2/(tau+c))
     from lambda to infty with respect to tau.

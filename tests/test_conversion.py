@@ -1,4 +1,5 @@
 import numpy
+
 from galpy.util import conversion
 
 
@@ -363,10 +364,9 @@ def test_velocity_in_kpcGyr():
 
 def test_get_physical():
     # Test that the get_physical function returns the right scaling parameters
-    from galpy.util.conversion import get_physical
-
     # Potential and variations thereof
-    from galpy.potential import MWPotential2014, DehnenBarPotential
+    from galpy.potential import DehnenBarPotential, MWPotential2014
+    from galpy.util.conversion import get_physical
 
     dp = DehnenBarPotential
     assert numpy.fabs(get_physical(MWPotential2014[0]).get("ro") - 8.0) < 1e-10, (
@@ -468,8 +468,8 @@ def test_get_physical():
 
 def test_physical_compatible_potential():
     # Test that physical_compatible acts as expected
-    from galpy.util.conversion import physical_compatible
     from galpy.potential import HernquistPotential
+    from galpy.util.conversion import physical_compatible
 
     # Set up potentials for all possible cases
     pot_default_phys = HernquistPotential(amp=0.55, a=2.0, ro=8.0, vo=220.0)
@@ -587,11 +587,11 @@ def test_physical_compatible_potential():
 def test_physical_compatible_combos():
     # Test that physical_compatible acts as expected for combinations of
     # different types of objects
-    from galpy.util.conversion import physical_compatible
-    from galpy.potential import HernquistPotential
-    from galpy.orbit import Orbit
     from galpy.actionAngle import actionAngleSpherical
     from galpy.df import quasiisothermaldf
+    from galpy.orbit import Orbit
+    from galpy.potential import HernquistPotential
+    from galpy.util.conversion import physical_compatible
 
     # Set up different objects for possible cases
     # Potentials

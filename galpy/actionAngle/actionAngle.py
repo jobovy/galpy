@@ -1,11 +1,13 @@
-import types
 import copy
+import types
+
 import numpy
+
 from ..util import config, conversion
 from ..util.conversion import (
-    physical_conversion_actionAngle,
     actionAngle_physical_input,
     physical_compatible,
+    physical_conversion_actionAngle,
 )
 
 

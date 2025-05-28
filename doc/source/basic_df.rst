@@ -210,10 +210,10 @@ and the same for the velocity-dispersion profile
 
 .. image:: images/testSigmaCorrections_sigma0_0.5.png
 
-galpy will automatically save any new corrections that you calculate. 
+galpy will automatically save any new corrections that you calculate.
 
 All of the methods for an uncorrected disk DF can be used for the
-corrected DFs as well. For example, the velocity dispersion is now 
+corrected DFs as well. For example, the velocity dispersion is now
 
 >>> numpy.sqrt(dfc.sigmaR2(1.))
 # 0.19999985069451526
@@ -431,7 +431,7 @@ The warm response is slightly smaller in amplitude
 although the numerical uncertainty in ``mvrwarm`` is large, because
 the grid is not sufficiently fine.
 
-We can then re-use this grid in calculations of other moments of
+We can then reuse this grid in calculations of other moments of
 the DF, e.g.,
 
 >>> print(edfcold.meanvT(0.9,phi=22.5,deg=True,t=0.,grid=gridcold))
@@ -469,7 +469,7 @@ A_{\mathrm{axi}}+0.05/(2\sqrt{2})` where :math:`A_{\mathrm{axi}} =
 >>> print(oortacold-(0.5/0.9+0.05/2./sqrt(2.)))
 # 0.0022613349141670236
 
-These grids can then be re-used for the other Oort functions, for
+These grids can then be reused for the other Oort functions, for
 example,
 
 >>> print(edfcold.oortB(0.9,phi=22.5,deg=True,t=0.,grid=gridcold,derivphiGrid=gridphicold,derivRGrid=gridrcold))
@@ -501,7 +501,7 @@ which returns
 The shift of the smooth DF here is much smaller than the velocity
 dispersion.
 
-Example: The Hercules stream in the Solar neighborhood as a result of the Galactic bar 
+Example: The Hercules stream in the Solar neighborhood as a result of the Galactic bar
 ---------------------------------------------------------------------------------------
 .. _hercules:
 

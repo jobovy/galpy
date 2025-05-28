@@ -4,11 +4,13 @@
 ###############################################################################
 import copy
 import hashlib
+
 import numpy
-from scipy import special, interpolate
+from scipy import interpolate, special
+
 from ..util import conversion
 from .DissipativeForce import DissipativeForce
-from .Potential import evaluateDensities, _check_c
+from .Potential import _check_c, evaluateDensities
 from .Potential import flatten as flatten_pot
 
 _INVSQRTTWO = 1.0 / numpy.sqrt(2.0)

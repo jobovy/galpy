@@ -185,7 +185,7 @@ def sampleone(hull, hx, hpx, domain, isDomainFinite, maxn, nupdates, hxparams):
        domain          - [.,.] upper and lower limit to the domain
        isDomainFinite  - [.,.] is there a lower/upper limit to the domain?
        maxn            - maximum number of updates to the hull
-       nupdates        - number of updates to the hull that have occured
+       nupdates        - number of updates to the hull that have occurred
        hxparams        - tuple of parameters for h(x) and h'(x)
 
     Output:

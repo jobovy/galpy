@@ -1,13 +1,16 @@
 # _____import packages_____
-from galpy.potential import KuzminKutuzovStaeckelPotential
-from galpy.potential import evaluatePotentials, evaluateRforces, evaluateDensities
-from galpy.actionAngle import estimateDeltaStaeckel
-from galpy.actionAngle import actionAngleStaeckel
-from galpy.orbit import Orbit
-from galpy.util import coords
 import numpy
 import scipy
-import math
+
+from galpy.actionAngle import actionAngleStaeckel, estimateDeltaStaeckel
+from galpy.orbit import Orbit
+from galpy.potential import (
+    KuzminKutuzovStaeckelPotential,
+    evaluateDensities,
+    evaluatePotentials,
+    evaluateRforces,
+)
+from galpy.util import coords
 
 
 # Test whether circular velocity calculation works
@@ -556,7 +559,7 @@ def test_density():
 # -----------------------------------------------------------------------------
 
 
-# test wheter the orbit integration in C and Python are the same
+# test whether the orbit integration in C and Python are the same
 def test_orbitIntegrationC():
     # _____initialize some KKSPot_____
     Delta = 1.0
@@ -952,22 +955,22 @@ def test_Rz_to_lambdanu_hess():
     )
     hess = coords.Rz_to_lambdanu_hess(R, z, Delta=Delta)
     assert numpy.fabs(num_deriv_llRR - hess[0, 0, 0]) < 10.0**-4.0, (
-        "hessian [d^2(lamda)/d(R,z)^2 , d^2(nu)/d(R,z)^2] fails for (dl/dR)"
+        "hessian [d^2(lambda)/d(R,z)^2 , d^2(nu)/d(R,z)^2] fails for (dl/dR)"
     )
     assert numpy.fabs(num_deriv_llRz - hess[0, 0, 1]) < 10.0**-4.0, (
-        "hessian [d^2(lamda)/d(R,z)^2 , d^2(nu)/d(R,z)^2] fails for (dn/dR)"
+        "hessian [d^2(lambda)/d(R,z)^2 , d^2(nu)/d(R,z)^2] fails for (dn/dR)"
     )
     assert numpy.fabs(num_deriv_nnRR - hess[1, 0, 0]) < 10.0**-4.0, (
-        "hessian [d^2(lamda)/d(R,z)^2 , d^2(nu)/d(R,z)^2] fails for (dn/dR)"
+        "hessian [d^2(lambda)/d(R,z)^2 , d^2(nu)/d(R,z)^2] fails for (dn/dR)"
     )
     assert numpy.fabs(num_deriv_llzz - hess[0, 1, 1]) < 10.0**-4.0, (
-        "hessian [d^2(lamda)/d(R,z)^2 , d^2(nu)/d(R,z)^2] fails for (dl/dz)"
+        "hessian [d^2(lambda)/d(R,z)^2 , d^2(nu)/d(R,z)^2] fails for (dl/dz)"
     )
     assert numpy.fabs(num_deriv_nnRz - hess[1, 0, 1]) < 10.0**-4.0, (
-        "hessian [d^2(lamda)/d(R,z)^2 , d^2(nu)/d(R,z)^2] fails for (dn/dz)"
+        "hessian [d^2(lambda)/d(R,z)^2 , d^2(nu)/d(R,z)^2] fails for (dn/dz)"
     )
     assert numpy.fabs(num_deriv_nnzz - hess[1, 1, 1]) < 10.0**-4.0, (
-        "hessian [d^2(lamda)/d(R,z)^2 , d^2(nu)/d(R,z)^2] fails for (dn/dz)"
+        "hessian [d^2(lambda)/d(R,z)^2 , d^2(nu)/d(R,z)^2] fails for (dn/dz)"
     )
 
     # ___Also test for arrays___
@@ -1023,22 +1026,22 @@ def test_Rz_to_lambdanu_hess():
     )
     hess = coords.Rz_to_lambdanu_hess(R, z, Delta=Delta)
     assert numpy.all(numpy.fabs(num_deriv_llRR - hess[0, 0, 0]) < 10.0**-4.0), (
-        "hessian [d^2(lamda)/d(R,z)^2 , d^2(nu)/d(R,z)^2] fails for (dl/dR)"
+        "hessian [d^2(lambda)/d(R,z)^2 , d^2(nu)/d(R,z)^2] fails for (dl/dR)"
     )
     assert numpy.all(numpy.fabs(num_deriv_llRz - hess[0, 0, 1]) < 10.0**-4.0), (
-        "hessian [d^2(lamda)/d(R,z)^2 , d^2(nu)/d(R,z)^2] fails for (dn/dR)"
+        "hessian [d^2(lambda)/d(R,z)^2 , d^2(nu)/d(R,z)^2] fails for (dn/dR)"
     )
     assert numpy.all(numpy.fabs(num_deriv_nnRR - hess[1, 0, 0]) < 10.0**-4.0), (
-        "hessian [d^2(lamda)/d(R,z)^2 , d^2(nu)/d(R,z)^2] fails for (dn/dR)"
+        "hessian [d^2(lambda)/d(R,z)^2 , d^2(nu)/d(R,z)^2] fails for (dn/dR)"
     )
     assert numpy.all(numpy.fabs(num_deriv_llzz - hess[0, 1, 1]) < 10.0**-4.0), (
-        "hessian [d^2(lamda)/d(R,z)^2 , d^2(nu)/d(R,z)^2] fails for (dl/dz)"
+        "hessian [d^2(lambda)/d(R,z)^2 , d^2(nu)/d(R,z)^2] fails for (dl/dz)"
     )
     assert numpy.all(numpy.fabs(num_deriv_nnRz - hess[1, 0, 1]) < 10.0**-4.0), (
-        "hessian [d^2(lamda)/d(R,z)^2 , d^2(nu)/d(R,z)^2] fails for (dn/dz)"
+        "hessian [d^2(lambda)/d(R,z)^2 , d^2(nu)/d(R,z)^2] fails for (dn/dz)"
     )
     assert numpy.all(numpy.fabs(num_deriv_nnzz - hess[1, 1, 1]) < 10.0**-4.0), (
-        "hessian [d^2(lamda)/d(R,z)^2 , d^2(nu)/d(R,z)^2] fails for (dn/dz)"
+        "hessian [d^2(lambda)/d(R,z)^2 , d^2(nu)/d(R,z)^2] fails for (dn/dz)"
     )
 
     return None

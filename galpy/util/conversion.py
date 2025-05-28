@@ -4,16 +4,16 @@
 #             units
 #
 ###############################################################################
-from functools import wraps
-import warnings
 import copy
 import math as m
+from functools import wraps
+
 from ..util.config import __config__
 
 _APY_UNITS = __config__.getboolean("astropy", "astropy-units")
 _APY_LOADED = True
 try:
-    from astropy import units, constants
+    from astropy import constants, units
 except ImportError:
     _APY_UNITS = False
     _APY_LOADED = False
@@ -495,8 +495,9 @@ def get_physical(obj, include_set=False):
 
     """
     # Try flattening the object in case it's a nested list of Potentials
+    from ..potential import Force
     from ..potential import flatten as flatten_pot
-    from ..potential import Force, planarPotential, linearPotential
+    from ..potential import linearPotential, planarPotential
 
     try:
         new_obj = flatten_pot(obj)

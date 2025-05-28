@@ -45,20 +45,19 @@
 # POSSIBILITY OF SUCH DAMAGE.
 #############################################################################
 import re
-from pkg_resources import parse_version
-import numpy
-from scipy import special
-from scipy import interpolate
-from scipy import ndimage
+
+import matplotlib
+import matplotlib.cm as cm
 import matplotlib.pyplot as pyplot
 import matplotlib.ticker as ticker
-import matplotlib.cm as cm
-import matplotlib
+import numpy
 from matplotlib import rc
-from matplotlib.ticker import NullFormatter
 from matplotlib.projections import PolarAxes, register_projection
+from matplotlib.ticker import NullFormatter
 from matplotlib.transforms import Affine2D, Bbox, IdentityTransform
 from mpl_toolkits.mplot3d import Axes3D  # Necessary for 3D plotting (projection = '3d')
+from pkg_resources import parse_version
+from scipy import interpolate, ndimage, special
 
 _MPL_VERSION = parse_version(matplotlib.__version__)
 from ..util.config import __config__

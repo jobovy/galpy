@@ -1,12 +1,15 @@
 # Functions to turn snapshots into movies
+import math as m
+import os
+import os.path
 import re
-import os, os.path
-import tempfile
 import shutil
 import subprocess
-import math as m
-import galpy.util.plot as galpy_plot
+import tempfile
+
 from Snapshot import *
+
+import galpy.util.plot as galpy_plot
 
 
 def snapshotToMovie(snap, filename, *args, **kwargs):

@@ -2,8 +2,9 @@
 #   DissipativeForce.py: top-level class for non-conservative forces
 ###############################################################################
 import numpy
-from .Force import Force
+
 from ..util.conversion import physical_conversion, potential_physical_input
+from .Force import Force
 
 
 class DissipativeForce(Force):

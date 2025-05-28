@@ -1,8 +1,10 @@
 import os
 import sys
-import pytest
 import warnings
+
 import numpy
+import pytest
+
 from galpy.util import galpyWarning
 
 _TRAVIS = bool(os.getenv("TRAVIS"))
@@ -14,9 +16,9 @@ warnings.simplefilter("always", galpyWarning)
 # Test the actions of an actionAngleHarmonic
 def test_actionAngleHarmonic_conserved_actions():
     # Create harmonic oscillator potential as isochrone w/ large b --> 1D
-    from galpy.potential import IsochronePotential
     from galpy.actionAngle import actionAngleHarmonic
     from galpy.orbit import Orbit
+    from galpy.potential import IsochronePotential
 
     ip = IsochronePotential(normalize=5.0, b=10000.0)
     ipz = ip.toVertical(1.2)
@@ -38,10 +40,9 @@ def test_actionAngleHarmonic_conserved_actions():
 
 # Test that the angles of an actionAngleHarmonic increase linearly
 def test_actionAngleHarmonic_linear_angles():
-    from galpy.potential import IsochronePotential
-    from galpy.actionAngle import actionAngleHarmonic
+    from galpy.actionAngle import actionAngleHarmonic, dePeriod
     from galpy.orbit import Orbit
-    from galpy.actionAngle import dePeriod
+    from galpy.potential import IsochronePotential
 
     ip = IsochronePotential(normalize=5.0, b=10000.0)
     ipz = ip.toVertical(1.2)
@@ -89,8 +90,8 @@ def test_actionAngleHarmonic_linear_angles():
 
 # Test physical output for actionAngleHarmonic
 def test_physical_harmonic():
-    from galpy.potential import IsochronePotential
     from galpy.actionAngle import actionAngleHarmonic
+    from galpy.potential import IsochronePotential
     from galpy.util import conversion
 
     ro, vo = 7.0, 230.0
@@ -157,9 +158,9 @@ def test_physical_harmonic():
 # Test the actions of an actionAngleVertical
 def test_actionAngleVertical_conserved_actions():
     # Use an isothermal disk potential
-    from galpy.potential import IsothermalDiskPotential
     from galpy.actionAngle import actionAngleVertical
     from galpy.orbit import Orbit
+    from galpy.potential import IsothermalDiskPotential
 
     isopot = IsothermalDiskPotential(amp=1.0, sigma=0.5)
     aAV = actionAngleVertical(pot=isopot)
@@ -180,9 +181,9 @@ def test_actionAngleVertical_conserved_actions():
 # Test the frequencies of an actionAngleVertical
 def test_actionAngleVertical_conserved_freqs():
     # Use an isothermal disk potential
-    from galpy.potential import IsothermalDiskPotential
     from galpy.actionAngle import actionAngleVertical
     from galpy.orbit import Orbit
+    from galpy.potential import IsothermalDiskPotential
 
     isopot = IsothermalDiskPotential(amp=1.0, sigma=0.5)
     aAV = actionAngleVertical(pot=isopot)
@@ -208,10 +209,9 @@ def test_actionAngleVertical_conserved_freqs():
 
 # Test that the angles of an actionAngleVertical increase linearly
 def test_actionAngleVertical_linear_angles():
-    from galpy.potential import IsothermalDiskPotential
-    from galpy.actionAngle import actionAngleVertical
+    from galpy.actionAngle import actionAngleVertical, dePeriod
     from galpy.orbit import Orbit
-    from galpy.actionAngle import dePeriod
+    from galpy.potential import IsothermalDiskPotential
 
     isopot = IsothermalDiskPotential(amp=1.0, sigma=0.5)
     aAV = actionAngleVertical(pot=isopot)
@@ -255,9 +255,9 @@ def test_actionAngleVertical_linear_angles():
 
 # Test actionAngleVertical against actionAngleHarmonic for HO
 def test_actionAngleVertical_Harmonic_actions():
-    from galpy.potential import linearPotential
     from galpy.actionAngle import actionAngleHarmonic, actionAngleVertical
     from galpy.orbit import Orbit
+    from galpy.potential import linearPotential
 
     # Stop-gap until we implement a proper 1D (or 3D) HO potential,
     # limit of taking Isochrone leads to 1e-7 fluctuations in the potential
@@ -291,9 +291,9 @@ def test_actionAngleVertical_Harmonic_actions():
 
 
 def test_actionAngleVertical_Harmonic_actionsFreqs():
-    from galpy.potential import linearPotential
     from galpy.actionAngle import actionAngleHarmonic, actionAngleVertical
     from galpy.orbit import Orbit
+    from galpy.potential import linearPotential
 
     # Stop-gap until we implement a proper 1D (or 3D) HO potential,
     # limit of taking Isochrone leads to 1e-7 fluctuations in the potential
@@ -332,9 +332,9 @@ def test_actionAngleVertical_Harmonic_actionsFreqs():
 
 
 def test_actionAngleVertical_Harmonic_actionsFreqsAngles():
-    from galpy.potential import linearPotential
     from galpy.actionAngle import actionAngleHarmonic, actionAngleVertical
     from galpy.orbit import Orbit
+    from galpy.potential import linearPotential
 
     # Stop-gap until we implement a proper 1D (or 3D) HO potential,
     # limit of taking Isochrone leads to 1e-7 fluctuations in the potential
@@ -357,8 +357,8 @@ def test_actionAngleVertical_Harmonic_actionsFreqsAngles():
     ntimes = 101
     times = numpy.linspace(0.0, 20.0, ntimes)
     obs.integrate(times, ipz)
-    js, os, ans = aAH.actionsFreqsAngles(obs.x(times), obs.vx(times))
-    jsv, osv, ansv = aAV.actionsFreqsAngles(obs.x(times), obs.vx(times))
+    js, os, angs = aAH.actionsFreqsAngles(obs.x(times), obs.vx(times))
+    jsv, osv, angsv = aAV.actionsFreqsAngles(obs.x(times), obs.vx(times))
     maxdj = numpy.amax(numpy.fabs((js - jsv) / js))
     assert maxdj < 10.0**-10.0, (
         "Actions of harmonic oscillator computed using actionAngleVertical do not agree with those computed using actionAngleHarmonic at %g%%"
@@ -370,7 +370,7 @@ def test_actionAngleVertical_Harmonic_actionsFreqsAngles():
         % (100.0 * maxdo)
     )
     maxda = numpy.amax(
-        numpy.fabs(((ans - ansv) + numpy.pi) % (2.0 * numpy.pi) - numpy.pi)
+        numpy.fabs(((angs - angsv) + numpy.pi) % (2.0 * numpy.pi) - numpy.pi)
     )
     assert maxda < 10.0**-10.0, (
         "Angles of harmonic oscillator computed using actionAngleVertical do not agree with those computed using actionAngleHarmonic at %g%%"
@@ -381,8 +381,8 @@ def test_actionAngleVertical_Harmonic_actionsFreqsAngles():
 
 # Test physical output for actionAngleVertical
 def test_physical_vertical():
-    from galpy.potential import IsothermalDiskPotential
     from galpy.actionAngle import actionAngleVertical
+    from galpy.potential import IsothermalDiskPotential
     from galpy.util import bovy_conversion
 
     ro, vo = 7.0, 230.0
@@ -481,9 +481,9 @@ def test_actionAngleIsochrone_basic_actions():
 
 # Basic sanity checking of the actionAngleIsochrone actions
 def test_actionAngleIsochrone_basic_freqs():
-    from galpy.potential import IsochronePotential
     from galpy.actionAngle import actionAngleIsochrone
     from galpy.orbit import Orbit
+    from galpy.potential import IsochronePotential
 
     ip = IsochronePotential(normalize=1.0, b=1.2)
     aAI = actionAngleIsochrone(ip=ip)
@@ -526,9 +526,9 @@ def test_actionAngleIsochrone_basic_freqs():
 # Test that EccZmaxRperiRap for an IsochronePotential are correctly computed
 # by comparing to a numerical orbit integration
 def test_actionAngleIsochrone_EccZmaxRperiRap_againstOrbit():
-    from galpy.potential import IsochronePotential
-    from galpy.orbit import Orbit
     from galpy.actionAngle import actionAngleIsochrone
+    from galpy.orbit import Orbit
+    from galpy.potential import IsochronePotential
 
     ip = IsochronePotential(normalize=1.0, b=1.2)
     aAI = actionAngleIsochrone(ip=ip)
@@ -573,9 +573,9 @@ def test_actionAngleIsochrone_EccZmaxRperiRap_againstOrbit():
 # Test that EccZmaxRperiRap for an IsochronePotential are correctly computed
 # by comparing to a numerical orbit integration for a Kepler potential
 def test_actionAngleIsochrone_EccZmaxRperiRap_againstOrbit_kepler():
-    from galpy.potential import IsochronePotential
-    from galpy.orbit import Orbit
     from galpy.actionAngle import actionAngleIsochrone
+    from galpy.orbit import Orbit
+    from galpy.potential import IsochronePotential
 
     ip = IsochronePotential(normalize=1.0, b=0)
     aAI = actionAngleIsochrone(ip=ip)
@@ -598,9 +598,9 @@ def test_actionAngleIsochrone_EccZmaxRperiRap_againstOrbit_kepler():
 
 # Test the actions of an actionAngleIsochrone
 def test_actionAngleIsochrone_conserved_actions():
-    from galpy.potential import IsochronePotential
     from galpy.actionAngle import actionAngleIsochrone
     from galpy.orbit import Orbit
+    from galpy.potential import IsochronePotential
 
     ip = IsochronePotential(normalize=1.0, b=1.2)
     aAI = actionAngleIsochrone(ip=ip)
@@ -616,9 +616,9 @@ def test_actionAngleIsochrone_conserved_actions():
 
 # Test that the angles of an actionAngleIsochrone increase linearly
 def test_actionAngleIsochrone_linear_angles():
-    from galpy.potential import IsochronePotential
     from galpy.actionAngle import actionAngleIsochrone
     from galpy.orbit import Orbit
+    from galpy.potential import IsochronePotential
 
     ip = IsochronePotential(normalize=1.0, b=1.2)
     aAI = actionAngleIsochrone(ip=ip)
@@ -640,9 +640,9 @@ def test_actionAngleIsochrone_linear_angles():
 # orbit in the mid-plane (non-inclined; has potential issues, because the
 # the ascending node is not well defined)
 def test_actionAngleIsochrone_noninclinedorbit_linear_angles():
-    from galpy.potential import IsochronePotential
     from galpy.actionAngle import actionAngleIsochrone
     from galpy.orbit import Orbit
+    from galpy.potential import IsochronePotential
 
     ip = IsochronePotential(normalize=1.0, b=1.2)
     aAI = actionAngleIsochrone(ip=ip)
@@ -661,9 +661,9 @@ def test_actionAngleIsochrone_noninclinedorbit_linear_angles():
 
 
 def test_actionAngleIsochrone_almostnoninclinedorbit_linear_angles():
-    from galpy.potential import IsochronePotential
     from galpy.actionAngle import actionAngleIsochrone
     from galpy.orbit import Orbit
+    from galpy.potential import IsochronePotential
 
     ip = IsochronePotential(normalize=1.0, b=1.2)
     aAI = actionAngleIsochrone(ip=ip)
@@ -684,9 +684,9 @@ def test_actionAngleIsochrone_almostnoninclinedorbit_linear_angles():
 
 # Test that the Kelperian limit of the isochrone actions/angles works
 def test_actionAngleIsochrone_kepler_actions():
-    from galpy.potential import IsochronePotential
     from galpy.actionAngle import actionAngleIsochrone
     from galpy.orbit import Orbit
+    from galpy.potential import IsochronePotential
 
     ip = IsochronePotential(normalize=1.0, b=0.0)
     aAI = actionAngleIsochrone(ip=ip)
@@ -717,9 +717,9 @@ def test_actionAngleIsochrone_kepler_actions():
 
 
 def test_actionAngleIsochrone_kepler_freqs():
-    from galpy.potential import IsochronePotential
     from galpy.actionAngle import actionAngleIsochrone
     from galpy.orbit import Orbit
+    from galpy.potential import IsochronePotential
 
     ip = IsochronePotential(normalize=1.0, b=0.0)
     aAI = actionAngleIsochrone(ip=ip)
@@ -749,9 +749,9 @@ def test_actionAngleIsochrone_kepler_freqs():
 
 
 def test_actionAngleIsochrone_kepler_angles():
-    from galpy.potential import IsochronePotential
     from galpy.actionAngle import actionAngleIsochrone
     from galpy.orbit import Orbit
+    from galpy.potential import IsochronePotential
 
     ip = IsochronePotential(normalize=1.0, b=0.0)
     aAI = actionAngleIsochrone(ip=ip)
@@ -812,9 +812,9 @@ def test_actionAngleSpherical_basic_actions():
 
 # Basic sanity checking of the actionAngleSpherical actions
 def test_actionAngleSpherical_basic_freqs():
-    from galpy.potential import LogarithmicHaloPotential
     from galpy.actionAngle import actionAngleSpherical
     from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential
 
     lp = LogarithmicHaloPotential(normalize=1.0, q=1.0)
     aAS = actionAngleSpherical(pot=[lp])
@@ -856,9 +856,9 @@ def test_actionAngleSpherical_basic_freqs():
 
 # Basic sanity checking of the actionAngleSpherical actions
 def test_actionAngleSpherical_basic_freqsAngles():
-    from galpy.potential import LogarithmicHaloPotential
     from galpy.actionAngle import actionAngleSpherical
     from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential
 
     lp = LogarithmicHaloPotential(normalize=1.0, q=1.0)
     aAS = actionAngleSpherical(pot=lp)
@@ -885,9 +885,9 @@ def test_actionAngleSpherical_basic_freqsAngles():
 # Test that EccZmaxRperiRap for a spherical potential are correctly computed
 # by comparing to a numerical orbit integration
 def test_actionAngleSpherical_EccZmaxRperiRap_againstOrbit():
-    from galpy.potential import LogarithmicHaloPotential
-    from galpy.orbit import Orbit
     from galpy.actionAngle import actionAngleSpherical
+    from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential
 
     lp = LogarithmicHaloPotential(normalize=1.0, q=1.0)
     aAS = actionAngleSpherical(pot=lp)
@@ -947,9 +947,9 @@ def test_actionAngleSpherical_conserved_actions():
 
 # Test the actions of an actionAngleSpherical
 def test_actionAngleSpherical_conserved_actions_fixed_quad():
-    from galpy.potential import LogarithmicHaloPotential
     from galpy.actionAngle import actionAngleSpherical
     from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential
 
     lp = LogarithmicHaloPotential(normalize=1.0, q=1.0)
     aAS = actionAngleSpherical(pot=lp)
@@ -969,9 +969,9 @@ def test_actionAngleSpherical_conserved_actions_fixed_quad():
 
 # Test that the angles of an actionAngleIsochrone increase linearly
 def test_actionAngleSpherical_linear_angles():
-    from galpy.potential import LogarithmicHaloPotential
     from galpy.actionAngle import actionAngleSpherical
     from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential
 
     lp = LogarithmicHaloPotential(normalize=1.0, q=1.0)
     aAS = actionAngleSpherical(pot=lp)
@@ -1015,9 +1015,9 @@ def test_actionAngleSpherical_linear_angles():
 
 # Test that the angles of an actionAngleIsochrone increase linearly
 def test_actionAngleSpherical_linear_angles_fixed_quad():
-    from galpy.potential import LogarithmicHaloPotential
     from galpy.actionAngle import actionAngleSpherical
     from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential
 
     lp = LogarithmicHaloPotential(normalize=1.0, q=1.0)
     aAS = actionAngleSpherical(pot=lp)
@@ -1065,9 +1065,9 @@ def test_actionAngleSpherical_linear_angles_fixed_quad():
 # orbit in the mid-plane (non-inclined; has potential issues, because the
 # the ascending node is not well defined)
 def test_actionAngleSpherical_noninclinedorbit_linear_angles():
-    from galpy.potential import LogarithmicHaloPotential
     from galpy.actionAngle import actionAngleSpherical
     from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential
 
     lp = LogarithmicHaloPotential(normalize=1.0, q=1.0)
     aAS = actionAngleSpherical(pot=lp)
@@ -1110,9 +1110,9 @@ def test_actionAngleSpherical_noninclinedorbit_linear_angles():
 
 
 def test_actionAngleSpherical_almostnoninclinedorbit_linear_angles():
-    from galpy.potential import LogarithmicHaloPotential
     from galpy.actionAngle import actionAngleSpherical
     from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential
 
     lp = LogarithmicHaloPotential(normalize=1.0, q=1.0)
     aAS = actionAngleSpherical(pot=lp)
@@ -1157,9 +1157,9 @@ def test_actionAngleSpherical_almostnoninclinedorbit_linear_angles():
 
 # Test the conservation of ecc, zmax, rperi, rap of an actionAngleSpherical
 def test_actionAngleSpherical_conserved_EccZmaxRperiRap_ecc():
-    from galpy.potential import NFWPotential
     from galpy.actionAngle import actionAngleSpherical
     from galpy.orbit import Orbit
+    from galpy.potential import NFWPotential
 
     np = NFWPotential(normalize=1.0, a=2.0)
     aAS = actionAngleSpherical(pot=np)
@@ -1172,8 +1172,8 @@ def test_actionAngleSpherical_conserved_EccZmaxRperiRap_ecc():
 
 # Test the actionAngleSpherical against an isochrone potential: actions
 def test_actionAngleSpherical_otherIsochrone_actions():
+    from galpy.actionAngle import actionAngleIsochrone, actionAngleSpherical
     from galpy.potential import IsochronePotential
-    from galpy.actionAngle import actionAngleSpherical, actionAngleIsochrone
 
     ip = IsochronePotential(normalize=1.0, b=1.2)
     aAI = actionAngleIsochrone(ip=ip)
@@ -1202,8 +1202,8 @@ def test_actionAngleSpherical_otherIsochrone_actions():
 
 # Test the actionAngleSpherical against an isochrone potential: frequencies
 def test_actionAngleSpherical_otherIsochrone_freqs():
+    from galpy.actionAngle import actionAngleIsochrone, actionAngleSpherical
     from galpy.potential import IsochronePotential
-    from galpy.actionAngle import actionAngleSpherical, actionAngleIsochrone
 
     ip = IsochronePotential(normalize=1.0, b=1.2)
     aAI = actionAngleIsochrone(ip=ip)
@@ -1231,9 +1231,9 @@ def test_actionAngleSpherical_otherIsochrone_freqs():
 
 # Test the actionAngleSpherical against an isochrone potential: frequencies
 def test_actionAngleSpherical_otherIsochrone_freqs_fixed_quad():
-    from galpy.potential import IsochronePotential
-    from galpy.actionAngle import actionAngleSpherical, actionAngleIsochrone
+    from galpy.actionAngle import actionAngleIsochrone, actionAngleSpherical
     from galpy.orbit import Orbit
+    from galpy.potential import IsochronePotential
 
     ip = IsochronePotential(normalize=1.0, b=1.2)
     aAI = actionAngleIsochrone(ip=ip)
@@ -1261,8 +1261,8 @@ def test_actionAngleSpherical_otherIsochrone_freqs_fixed_quad():
 
 # Test the actionAngleSpherical against an isochrone potential: angles
 def test_actionAngleSpherical_otherIsochrone_angles():
+    from galpy.actionAngle import actionAngleIsochrone, actionAngleSpherical
     from galpy.potential import IsochronePotential
-    from galpy.actionAngle import actionAngleSpherical, actionAngleIsochrone
 
     ip = IsochronePotential(normalize=1.0, b=1.2)
     aAI = actionAngleIsochrone(ip=ip)
@@ -1524,8 +1524,8 @@ def test_actionAngleAdiabatic_basic_EccZmaxRperiRap_gamma0():
 # Basic sanity checking of the actionAngleAdiabatic ecc, zmax, rperi, rap calc.
 def test_actionAngleAdiabatic_basic_EccZmaxRperiRap_gamma_c():
     from galpy.actionAngle import actionAngleAdiabatic
-    from galpy.potential import MWPotential
     from galpy.orbit import Orbit
+    from galpy.potential import MWPotential
 
     aAA = actionAngleAdiabatic(pot=MWPotential, gamma=1.0, c=True)
     # circular orbit
@@ -1551,9 +1551,9 @@ def test_actionAngleAdiabatic_basic_EccZmaxRperiRap_gamma_c():
 
 # Test the actions of an actionAngleAdiabatic
 def test_actionAngleAdiabatic_conserved_actions():
-    from galpy.potential import MWPotential
     from galpy.actionAngle import actionAngleAdiabatic
     from galpy.orbit import Orbit
+    from galpy.potential import MWPotential
 
     aAA = actionAngleAdiabatic(pot=MWPotential, c=False)
     obs = Orbit([1.05, 0.02, 1.05, 0.03, 0.0])
@@ -1565,9 +1565,9 @@ def test_actionAngleAdiabatic_conserved_actions():
 
 # Test the actions of an actionAngleAdiabatic
 def test_actionAngleAdiabatic_conserved_actions_c():
-    from galpy.potential import MWPotential
     from galpy.actionAngle import actionAngleAdiabatic
     from galpy.orbit import Orbit
+    from galpy.potential import MWPotential
 
     obs = Orbit([1.05, 0.02, 1.05, 0.03, 0.0])
     aAA = actionAngleAdiabatic(pot=MWPotential, c=True)
@@ -1579,9 +1579,9 @@ def test_actionAngleAdiabatic_conserved_actions_c():
 
 # Test the actions of an actionAngleAdiabatic, single pot
 def test_actionAngleAdiabatic_conserved_actions_singlepot():
-    from galpy.potential import MiyamotoNagaiPotential
     from galpy.actionAngle import actionAngleAdiabatic
     from galpy.orbit import Orbit
+    from galpy.potential import MiyamotoNagaiPotential
 
     mp = MiyamotoNagaiPotential(normalize=1.0)
     obs = Orbit([1.05, 0.02, 1.05, 0.03, 0.0, 2.0])
@@ -1594,9 +1594,9 @@ def test_actionAngleAdiabatic_conserved_actions_singlepot():
 
 # Test the actions of an actionAngleAdiabatic, single pot, C
 def test_actionAngleAdiabatic_conserved_actions_singlepot_c():
-    from galpy.potential import MiyamotoNagaiPotential
     from galpy.actionAngle import actionAngleAdiabatic
     from galpy.orbit import Orbit
+    from galpy.potential import MiyamotoNagaiPotential
 
     mp = MiyamotoNagaiPotential(normalize=1.0)
     obs = Orbit([1.05, 0.02, 1.05, 0.03, 0.0, 2.0])
@@ -1609,9 +1609,9 @@ def test_actionAngleAdiabatic_conserved_actions_singlepot_c():
 
 # Test the actions of an actionAngleAdiabatic, interpolated pot
 def test_actionAngleAdiabatic_conserved_actions_interppot_c():
-    from galpy.potential import MWPotential, interpRZPotential
     from galpy.actionAngle import actionAngleAdiabatic
     from galpy.orbit import Orbit
+    from galpy.potential import MWPotential, interpRZPotential
 
     ip = interpRZPotential(
         RZPot=MWPotential,
@@ -1632,9 +1632,9 @@ def test_actionAngleAdiabatic_conserved_actions_interppot_c():
 
 # Test the conservation of ecc, zmax, rperi, rap of an actionAngleAdiabatic
 def test_actionAngleAdiabatic_conserved_EccZmaxRperiRap():
-    from galpy.potential import MWPotential
     from galpy.actionAngle import actionAngleAdiabatic
     from galpy.orbit import Orbit
+    from galpy.potential import MWPotential
 
     aAA = actionAngleAdiabatic(pot=MWPotential, c=False, gamma=1.0)
     obs = Orbit([1.05, 0.02, 1.05, 0.03, 0.0, 0.0])
@@ -1646,9 +1646,9 @@ def test_actionAngleAdiabatic_conserved_EccZmaxRperiRap():
 
 # Test the conservation of ecc, zmax, rperi, rap of an actionAngleAdiabatic
 def test_actionAngleAdiabatic_conserved_EccZmaxRperiRap_ecc():
-    from galpy.potential import MWPotential
     from galpy.actionAngle import actionAngleAdiabatic
     from galpy.orbit import Orbit
+    from galpy.potential import MWPotential
 
     aAA = actionAngleAdiabatic(pot=MWPotential, c=False, gamma=1.0)
     obs = Orbit([1.1, 0.2, 1.3, 0.1, 0.0, 2.0])
@@ -1660,9 +1660,9 @@ def test_actionAngleAdiabatic_conserved_EccZmaxRperiRap_ecc():
 
 # Test the conservation of ecc, zmax, rperi, rap of an actionAngleAdiabatic
 def test_actionAngleAdiabatic_conserved_EccZmaxRperiRap_singlepot_c():
-    from galpy.potential import MiyamotoNagaiPotential
     from galpy.actionAngle import actionAngleAdiabatic
     from galpy.orbit import Orbit
+    from galpy.potential import MiyamotoNagaiPotential
 
     mp = MiyamotoNagaiPotential(normalize=1.0)
     obs = Orbit([1.05, 0.02, 1.05, 0.03, 0.0, 2.0])
@@ -1675,9 +1675,9 @@ def test_actionAngleAdiabatic_conserved_EccZmaxRperiRap_singlepot_c():
 
 # Test the conservation of ecc, zmax, rperi, rap of an actionAngleAdiabatic
 def test_actionAngleAdiabatic_conserved_EccZmaxRperiRa_interppot_c():
-    from galpy.potential import MWPotential, interpRZPotential
     from galpy.actionAngle import actionAngleAdiabatic
     from galpy.orbit import Orbit
+    from galpy.potential import MWPotential, interpRZPotential
 
     ip = interpRZPotential(
         RZPot=MWPotential,
@@ -1700,8 +1700,8 @@ def test_actionAngleAdiabatic_conserved_EccZmaxRperiRa_interppot_c():
 
 # Test the actionAngleAdiabatic against an isochrone potential: actions
 def test_actionAngleAdiabatic_Isochrone_actions():
-    from galpy.potential import IsochronePotential
     from galpy.actionAngle import actionAngleAdiabatic, actionAngleIsochrone
+    from galpy.potential import IsochronePotential
 
     ip = IsochronePotential(normalize=1.0, b=1.2)
     aAI = actionAngleIsochrone(ip=ip)
@@ -1792,7 +1792,7 @@ def test_actionAngleAdiabaticGrid_basic_actions_c():
 
 # actionAngleAdiabaticGrid actions outside the grid
 def test_actionAngleAdiabaticGrid_outsidegrid_c():
-    from galpy.actionAngle import actionAngleAdiabaticGrid, actionAngleAdiabatic
+    from galpy.actionAngle import actionAngleAdiabatic, actionAngleAdiabaticGrid
     from galpy.potential import MWPotential
 
     aA = actionAngleAdiabatic(pot=MWPotential, c=True)
@@ -1824,9 +1824,9 @@ def test_actionAngleAdiabaticGrid_outsidegrid_c():
 
 # Test the actions of an actionAngleAdiabatic
 def test_actionAngleAdiabaticGrid_conserved_actions_c():
-    from galpy.potential import MWPotential
     from galpy.actionAngle import actionAngleAdiabaticGrid
     from galpy.orbit import Orbit
+    from galpy.potential import MWPotential
 
     obs = Orbit([1.05, 0.02, 1.05, 0.03, 0.0])
     aAA = actionAngleAdiabaticGrid(pot=MWPotential, c=True)
@@ -1838,8 +1838,8 @@ def test_actionAngleAdiabaticGrid_conserved_actions_c():
 
 # Test the actionAngleAdiabatic against an isochrone potential: actions
 def test_actionAngleAdiabaticGrid_Isochrone_actions():
-    from galpy.potential import IsochronePotential
     from galpy.actionAngle import actionAngleAdiabaticGrid, actionAngleIsochrone
+    from galpy.potential import IsochronePotential
 
     ip = IsochronePotential(normalize=1.0, b=1.2)
     aAI = actionAngleIsochrone(ip=ip)
@@ -2087,9 +2087,9 @@ def test_actionAngleStaeckel_zerolz_actions_c():
 
 # Check that precision increases with increasing Gauss-Legendre order
 def test_actionAngleStaeckel_actions_order():
-    from galpy.potential import KuzminKutuzovStaeckelPotential
-    from galpy.orbit import Orbit
     from galpy.actionAngle import actionAngleStaeckel
+    from galpy.orbit import Orbit
+    from galpy.potential import KuzminKutuzovStaeckelPotential
 
     kksp = KuzminKutuzovStaeckelPotential(normalize=1.0, ac=4.0, Delta=1.4)
     o = Orbit([1.0, 0.5, 1.1, 0.2, -0.3, 0.4])
@@ -2108,9 +2108,9 @@ def test_actionAngleStaeckel_actions_order():
 
 
 def test_actionAngleStaeckel_actions_order_c():
-    from galpy.potential import KuzminKutuzovStaeckelPotential
-    from galpy.orbit import Orbit
     from galpy.actionAngle import actionAngleStaeckel
+    from galpy.orbit import Orbit
+    from galpy.potential import KuzminKutuzovStaeckelPotential
 
     kksp = KuzminKutuzovStaeckelPotential(normalize=1.0, ac=4.0, Delta=1.4)
     o = Orbit([1.0, 0.5, 1.1, 0.2, -0.3, 0.4])
@@ -2131,8 +2131,8 @@ def test_actionAngleStaeckel_actions_order_c():
 # Basic sanity checking of the actionAngleStaeckel frequencies
 def test_actionAngleStaeckel_basic_freqs_c():
     from galpy.actionAngle import actionAngleStaeckel
-    from galpy.potential import MWPotential, epifreq, omegac, verticalfreq
     from galpy.orbit import Orbit
+    from galpy.potential import MWPotential, epifreq, omegac, verticalfreq
 
     aAS = actionAngleStaeckel(pot=MWPotential, delta=0.71, c=True)
     # circular orbit
@@ -2225,8 +2225,8 @@ def test_actionAngleStaeckel_basic_freqs_c():
 # Basic sanity checking of the actionAngleStaeckel actions
 def test_actionAngleStaeckel_basic_freqsAngles():
     from galpy.actionAngle import actionAngleStaeckel
-    from galpy.potential import MWPotential, epifreq, omegac, verticalfreq
     from galpy.orbit import Orbit
+    from galpy.potential import MWPotential, epifreq, omegac, verticalfreq
 
     aAS = actionAngleStaeckel(pot=MWPotential, delta=0.71, c=True)
     # v. close-to-circular orbit
@@ -2263,8 +2263,8 @@ def test_actionAngleStaeckel_basic_freqsAngles():
 # Basic sanity checking of the actionAngleStaeckel frequencies
 def test_actionAngleStaeckel_basic_freqs_c_u0():
     from galpy.actionAngle import actionAngleStaeckel
-    from galpy.potential import MWPotential, epifreq, omegac, verticalfreq
     from galpy.orbit import Orbit
+    from galpy.potential import MWPotential, epifreq, omegac, verticalfreq
 
     aAS = actionAngleStaeckel(pot=MWPotential, delta=0.71, c=True, useu0=True)
     # circular orbit
@@ -2329,14 +2329,14 @@ def test_actionAngleStaeckel_basic_freqs_c_u0():
 # Basic sanity checking of the actionAngleStaeckel actions
 def test_actionAngleStaeckel_basic_freqs_u0():
     from galpy.actionAngle import actionAngleStaeckel
+    from galpy.orbit import Orbit
     from galpy.potential import (
         MWPotential,
         epifreq,
+        interpRZPotential,
         omegac,
         verticalfreq,
-        interpRZPotential,
     )
-    from galpy.orbit import Orbit
 
     ip = interpRZPotential(
         RZPot=MWPotential,
@@ -2405,9 +2405,9 @@ def test_actionAngleStaeckel_unboundr_freqs_c():
 
 # Check that precision increases with increasing Gauss-Legendre order
 def test_actionAngleStaeckel_freqs_order_c():
-    from galpy.potential import KuzminKutuzovStaeckelPotential
-    from galpy.orbit import Orbit
     from galpy.actionAngle import actionAngleStaeckel
+    from galpy.orbit import Orbit
+    from galpy.potential import KuzminKutuzovStaeckelPotential
 
     kksp = KuzminKutuzovStaeckelPotential(normalize=1.0, ac=4.0, Delta=1.4)
     o = Orbit([1.0, 0.5, 1.1, 0.2, -0.3, 0.4])
@@ -2474,9 +2474,9 @@ def test_actionAngleStaeckel_circular_angles_c():
 
 # Check that precision increases with increasing Gauss-Legendre order
 def test_actionAngleStaeckel_angles_order_c():
-    from galpy.potential import KuzminKutuzovStaeckelPotential
-    from galpy.orbit import Orbit
     from galpy.actionAngle import actionAngleStaeckel
+    from galpy.orbit import Orbit
+    from galpy.potential import KuzminKutuzovStaeckelPotential
 
     kksp = KuzminKutuzovStaeckelPotential(normalize=1.0, ac=4.0, Delta=1.4)
     o = Orbit([1.0, 0.5, 1.1, 0.2, -0.3, 0.4])
@@ -2587,8 +2587,8 @@ def test_actionAngleStaeckel_basic_EccZmaxRperiRap_u0():
 # Basic sanity checking of the actionAngleStaeckel ecc, zmax, rperi, rap calc.
 def test_actionAngleStaeckel_basic_EccZmaxRperiRap_u0_c():
     from galpy.actionAngle import actionAngleStaeckel
-    from galpy.potential import MWPotential
     from galpy.orbit import Orbit
+    from galpy.potential import MWPotential
 
     aAS = actionAngleStaeckel(pot=MWPotential, delta=0.71, c=True, useu0=True)
     # circular orbit
@@ -2614,9 +2614,9 @@ def test_actionAngleStaeckel_basic_EccZmaxRperiRap_u0_c():
 
 # Test that using different delta for different phase-space points works
 def test_actionAngleStaeckel_indivdelta_actions():
-    from galpy.potential import MWPotential2014
-    from galpy.orbit import Orbit
     from galpy.actionAngle import actionAngleStaeckel
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential2014
 
     # Briefly integrate orbit to get multiple points
     o = Orbit([1.0, 0.1, 1.1, 0.0, 0.25, 1.0])
@@ -2639,16 +2639,16 @@ def test_actionAngleStaeckel_indivdelta_actions():
     )
     # Check that they agree as expected
     assert numpy.fabs(jr0[0] - jri[0]) < 1e-10, (
-        "Radial action computed with invidual delta does not agree with that computed using the fixed orbit-wide default"
+        "Radial action computed with individual delta does not agree with that computed using the fixed orbit-wide default"
     )
     assert numpy.fabs(jr1[1] - jri[1]) < 1e-10, (
-        "Radial action computed with invidual delta does not agree with that computed using the fixed orbit-wide default"
+        "Radial action computed with individual delta does not agree with that computed using the fixed orbit-wide default"
     )
     assert numpy.fabs(jz0[0] - jzi[0]) < 1e-10, (
-        "Vertical action computed with invidual delta does not agree with that computed using the fixed orbit-wide default"
+        "Vertical action computed with individual delta does not agree with that computed using the fixed orbit-wide default"
     )
     assert numpy.fabs(jz1[1] - jzi[1]) < 1e-10, (
-        "Vertical action computed with invidual delta does not agree with that computed using the fixed orbit-wide default"
+        "Vertical action computed with individual delta does not agree with that computed using the fixed orbit-wide default"
     )
     return None
 
@@ -2656,9 +2656,9 @@ def test_actionAngleStaeckel_indivdelta_actions():
 # Test that no_median option for estimateDeltaStaeckel returns the same results as when
 # individual values are calculated separately
 def test_estimateDeltaStaeckel_no_median():
-    from galpy.potential import MWPotential2014
-    from galpy.orbit import Orbit
     from galpy.actionAngle import estimateDeltaStaeckel
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential2014
 
     # Briefly integrate orbit to get multiple points
     o = Orbit([1.0, 0.1, 1.1, 0.001, 0.25, 1.0])
@@ -2683,9 +2683,9 @@ def test_estimateDeltaStaeckel_no_median():
 
 
 def test_actionAngleStaeckel_indivdelta_actions_c():
-    from galpy.potential import MWPotential2014
-    from galpy.orbit import Orbit
     from galpy.actionAngle import actionAngleStaeckel
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential2014
 
     # Briefly integrate orbit to get multiple points
     o = Orbit([1.0, 0.1, 1.1, 0.0, 0.25, 1.0])
@@ -2708,24 +2708,24 @@ def test_actionAngleStaeckel_indivdelta_actions_c():
     )
     # Check that they agree as expected
     assert numpy.fabs(jr0[0] - jri[0]) < 1e-10, (
-        "Radial action computed with invidual delta does not agree with that computed using the fixed orbit-wide default"
+        "Radial action computed with individual delta does not agree with that computed using the fixed orbit-wide default"
     )
     assert numpy.fabs(jr1[1] - jri[1]) < 1e-10, (
-        "Radial action computed with invidual delta does not agree with that computed using the fixed orbit-wide default"
+        "Radial action computed with individual delta does not agree with that computed using the fixed orbit-wide default"
     )
     assert numpy.fabs(jz0[0] - jzi[0]) < 1e-10, (
-        "Vertical action computed with invidual delta does not agree with that computed using the fixed orbit-wide default"
+        "Vertical action computed with individual delta does not agree with that computed using the fixed orbit-wide default"
     )
     assert numpy.fabs(jz1[1] - jzi[1]) < 1e-10, (
-        "Vertical action computed with invidual delta does not agree with that computed using the fixed orbit-wide default"
+        "Vertical action computed with individual delta does not agree with that computed using the fixed orbit-wide default"
     )
     return None
 
 
 def test_actionAngleStaeckel_indivdelta_freqs_c():
-    from galpy.potential import MWPotential2014
-    from galpy.orbit import Orbit
     from galpy.actionAngle import actionAngleStaeckel
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential2014
 
     # Briefly integrate orbit to get multiple points
     o = Orbit([1.0, 0.1, 1.1, 0.0, 0.25, 1.0])
@@ -2764,42 +2764,42 @@ def test_actionAngleStaeckel_indivdelta_freqs_c():
     )
     # Check that they agree as expected
     assert numpy.fabs(jr0[0] - jri[0]) < 1e-10, (
-        "Radial action computed with invidual delta does not agree with that computed using the fixed orbit-wide default"
+        "Radial action computed with individual delta does not agree with that computed using the fixed orbit-wide default"
     )
     assert numpy.fabs(jr1[1] - jri[1]) < 1e-10, (
-        "Radial action computed with invidual delta does not agree with that computed using the fixed orbit-wide default"
+        "Radial action computed with individual delta does not agree with that computed using the fixed orbit-wide default"
     )
     assert numpy.fabs(jz0[0] - jzi[0]) < 1e-10, (
-        "Vertical action computed with invidual delta does not agree with that computed using the fixed orbit-wide default"
+        "Vertical action computed with individual delta does not agree with that computed using the fixed orbit-wide default"
     )
     assert numpy.fabs(jz1[1] - jzi[1]) < 1e-10, (
-        "Vertical action computed with invidual delta does not agree with that computed using the fixed orbit-wide default"
+        "Vertical action computed with individual delta does not agree with that computed using the fixed orbit-wide default"
     )
     assert numpy.fabs(or0[0] - ori[0]) < 1e-10, (
-        "Radial frequencyaction computed with invidual delta does not agree with that computed using the fixed orbit-wide default"
+        "Radial frequencyaction computed with individual delta does not agree with that computed using the fixed orbit-wide default"
     )
     assert numpy.fabs(or1[1] - ori[1]) < 1e-10, (
-        "Radial frequency computed with invidual delta does not agree with that computed using the fixed orbit-wide default"
+        "Radial frequency computed with individual delta does not agree with that computed using the fixed orbit-wide default"
     )
     assert numpy.fabs(op0[0] - opi[0]) < 1e-10, (
-        "Azimuthal computed with invidual delta does not agree with that computed using the fixed orbit-wide default"
+        "Azimuthal computed with individual delta does not agree with that computed using the fixed orbit-wide default"
     )
     assert numpy.fabs(op1[1] - opi[1]) < 1e-10, (
-        "Azimuthal computed with invidual delta does not agree with that computed using the fixed orbit-wide default"
+        "Azimuthal computed with individual delta does not agree with that computed using the fixed orbit-wide default"
     )
     assert numpy.fabs(oz0[0] - ozi[0]) < 1e-10, (
-        "Azimuthal frequency computed with invidual delta does not agree with that computed using the fixed orbit-wide default"
+        "Azimuthal frequency computed with individual delta does not agree with that computed using the fixed orbit-wide default"
     )
     assert numpy.fabs(oz1[1] - ozi[1]) < 1e-10, (
-        "Vertical frequency computed with invidual delta does not agree with that computed using the fixed orbit-wide default"
+        "Vertical frequency computed with individual delta does not agree with that computed using the fixed orbit-wide default"
     )
     return None
 
 
 def test_actionAngleStaeckel_indivdelta_angles_c():
-    from galpy.potential import MWPotential2014
-    from galpy.orbit import Orbit
     from galpy.actionAngle import actionAngleStaeckel
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential2014
 
     # Briefly integrate orbit to get multiple points
     o = Orbit([1.0, 0.1, 1.1, 0.0, 0.25, 1.0])
@@ -2838,60 +2838,60 @@ def test_actionAngleStaeckel_indivdelta_angles_c():
     )
     # Check that they agree as expected
     assert numpy.fabs(jr0[0] - jri[0]) < 1e-10, (
-        "Radial action computed with invidual delta does not agree with that computed using the fixed orbit-wide default"
+        "Radial action computed with individual delta does not agree with that computed using the fixed orbit-wide default"
     )
     assert numpy.fabs(jr1[1] - jri[1]) < 1e-10, (
-        "Radial action computed with invidual delta does not agree with that computed using the fixed orbit-wide default"
+        "Radial action computed with individual delta does not agree with that computed using the fixed orbit-wide default"
     )
     assert numpy.fabs(jz0[0] - jzi[0]) < 1e-10, (
-        "Vertical action computed with invidual delta does not agree with that computed using the fixed orbit-wide default"
+        "Vertical action computed with individual delta does not agree with that computed using the fixed orbit-wide default"
     )
     assert numpy.fabs(jz1[1] - jzi[1]) < 1e-10, (
-        "Vertical action computed with invidual delta does not agree with that computed using the fixed orbit-wide default"
+        "Vertical action computed with individual delta does not agree with that computed using the fixed orbit-wide default"
     )
     assert numpy.fabs(or0[0] - ori[0]) < 1e-10, (
-        "Radial frequencyaction computed with invidual delta does not agree with that computed using the fixed orbit-wide default"
+        "Radial frequencyaction computed with individual delta does not agree with that computed using the fixed orbit-wide default"
     )
     assert numpy.fabs(or1[1] - ori[1]) < 1e-10, (
-        "Radial frequency computed with invidual delta does not agree with that computed using the fixed orbit-wide default"
+        "Radial frequency computed with individual delta does not agree with that computed using the fixed orbit-wide default"
     )
     assert numpy.fabs(op0[0] - opi[0]) < 1e-10, (
-        "Azimuthal computed with invidual delta does not agree with that computed using the fixed orbit-wide default"
+        "Azimuthal computed with individual delta does not agree with that computed using the fixed orbit-wide default"
     )
     assert numpy.fabs(op1[1] - opi[1]) < 1e-10, (
-        "Azimuthal computed with invidual delta does not agree with that computed using the fixed orbit-wide default"
+        "Azimuthal computed with individual delta does not agree with that computed using the fixed orbit-wide default"
     )
     assert numpy.fabs(oz0[0] - ozi[0]) < 1e-10, (
-        "Azimuthal frequency computed with invidual delta does not agree with that computed using the fixed orbit-wide default"
+        "Azimuthal frequency computed with individual delta does not agree with that computed using the fixed orbit-wide default"
     )
     assert numpy.fabs(oz1[1] - ozi[1]) < 1e-10, (
-        "Vertical frequency computed with invidual delta does not agree with that computed using the fixed orbit-wide default"
+        "Vertical frequency computed with individual delta does not agree with that computed using the fixed orbit-wide default"
     )
     assert numpy.fabs(ar0[0] - ari[0]) < 1e-10, (
-        "Radial frequencyaction computed with invidual delta does not agree with that computed using the fixed orbit-wide default"
+        "Radial frequencyaction computed with individual delta does not agree with that computed using the fixed orbit-wide default"
     )
     assert numpy.fabs(ar1[1] - ari[1]) < 1e-10, (
-        "Radial frequency computed with invidual delta does not agree with that computed using the fixed orbit-wide default"
+        "Radial frequency computed with individual delta does not agree with that computed using the fixed orbit-wide default"
     )
     assert numpy.fabs(ap0[0] - api[0]) < 1e-10, (
-        "Azimuthal computed with invidual delta does not agree with that computed using the fixed orbit-wide default"
+        "Azimuthal computed with individual delta does not agree with that computed using the fixed orbit-wide default"
     )
     assert numpy.fabs(ap1[1] - api[1]) < 1e-10, (
-        "Azimuthal computed with invidual delta does not agree with that computed using the fixed orbit-wide default"
+        "Azimuthal computed with individual delta does not agree with that computed using the fixed orbit-wide default"
     )
     assert numpy.fabs(az0[0] - azi[0]) < 1e-10, (
-        "Azimuthal frequency computed with invidual delta does not agree with that computed using the fixed orbit-wide default"
+        "Azimuthal frequency computed with individual delta does not agree with that computed using the fixed orbit-wide default"
     )
     assert numpy.fabs(az1[1] - azi[1]) < 1e-10, (
-        "Vertical frequency computed with invidual delta does not agree with that computed using the fixed orbit-wide default"
+        "Vertical frequency computed with individual delta does not agree with that computed using the fixed orbit-wide default"
     )
     return None
 
 
 def test_actionAngleStaeckel_indivdelta_EccZmaxRperiRap():
-    from galpy.potential import MWPotential2014
-    from galpy.orbit import Orbit
     from galpy.actionAngle import actionAngleStaeckel
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential2014
 
     # Briefly integrate orbit to get multiple points
     o = Orbit([1.0, 0.1, 1.1, 0.0, 0.25, 1.0])
@@ -2914,36 +2914,36 @@ def test_actionAngleStaeckel_indivdelta_EccZmaxRperiRap():
     )
     # Check that they agree as expected
     assert numpy.fabs(e0[0] - ei[0]) < 1e-10, (
-        "Eccentricity computed with invidual delta does not agree with that computed using the fixed orbit-wide default"
+        "Eccentricity computed with individual delta does not agree with that computed using the fixed orbit-wide default"
     )
     assert numpy.fabs(e1[1] - ei[1]) < 1e-10, (
-        "Eccentricity computed with invidual delta does not agree with that computed using the fixed orbit-wide default"
+        "Eccentricity computed with individual delta does not agree with that computed using the fixed orbit-wide default"
     )
     assert numpy.fabs(z0[0] - zi[0]) < 1e-10, (
-        "Zmax computed with invidual delta does not agree with that computed using the fixed orbit-wide default"
+        "Zmax computed with individual delta does not agree with that computed using the fixed orbit-wide default"
     )
     assert numpy.fabs(z1[1] - zi[1]) < 1e-10, (
-        "Zmax computed with invidual delta does not agree with that computed using the fixed orbit-wide default"
+        "Zmax computed with individual delta does not agree with that computed using the fixed orbit-wide default"
     )
     assert numpy.fabs(rp0[0] - rpi[0]) < 1e-10, (
-        "Pericenter computed with invidual delta does not agree with that computed using the fixed orbit-wide default"
+        "Pericenter computed with individual delta does not agree with that computed using the fixed orbit-wide default"
     )
     assert numpy.fabs(rp1[1] - rpi[1]) < 1e-10, (
-        "Pericenter computed with invidual delta does not agree with that computed using the fixed orbit-wide default"
+        "Pericenter computed with individual delta does not agree with that computed using the fixed orbit-wide default"
     )
     assert numpy.fabs(ra0[0] - rai[0]) < 1e-10, (
-        "Apocenter computed with invidual delta does not agree with that computed using the fixed orbit-wide default"
+        "Apocenter computed with individual delta does not agree with that computed using the fixed orbit-wide default"
     )
     assert numpy.fabs(ra1[1] - rai[1]) < 1e-10, (
-        "Apocenter computed with invidual delta does not agree with that computed using the fixed orbit-wide default"
+        "Apocenter computed with individual delta does not agree with that computed using the fixed orbit-wide default"
     )
     return None
 
 
 def test_actionAngleStaeckel_indivdelta_EccZmaxRperiRap_c():
-    from galpy.potential import MWPotential2014
-    from galpy.orbit import Orbit
     from galpy.actionAngle import actionAngleStaeckel
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential2014
 
     # Briefly integrate orbit to get multiple points
     o = Orbit([1.0, 0.1, 1.1, 0.0, 0.25, 1.0])
@@ -2966,37 +2966,37 @@ def test_actionAngleStaeckel_indivdelta_EccZmaxRperiRap_c():
     )
     # Check that they agree as expected
     assert numpy.fabs(e0[0] - ei[0]) < 1e-10, (
-        "Eccentricity computed with invidual delta does not agree with that computed using the fixed orbit-wide default"
+        "Eccentricity computed with individual delta does not agree with that computed using the fixed orbit-wide default"
     )
     assert numpy.fabs(e1[1] - ei[1]) < 1e-10, (
-        "Eccentricity computed with invidual delta does not agree with that computed using the fixed orbit-wide default"
+        "Eccentricity computed with individual delta does not agree with that computed using the fixed orbit-wide default"
     )
     assert numpy.fabs(z0[0] - zi[0]) < 1e-10, (
-        "Zmax computed with invidual delta does not agree with that computed using the fixed orbit-wide default"
+        "Zmax computed with individual delta does not agree with that computed using the fixed orbit-wide default"
     )
     assert numpy.fabs(z1[1] - zi[1]) < 1e-10, (
-        "Zmax computed with invidual delta does not agree with that computed using the fixed orbit-wide default"
+        "Zmax computed with individual delta does not agree with that computed using the fixed orbit-wide default"
     )
     assert numpy.fabs(rp0[0] - rpi[0]) < 1e-10, (
-        "Pericenter computed with invidual delta does not agree with that computed using the fixed orbit-wide default"
+        "Pericenter computed with individual delta does not agree with that computed using the fixed orbit-wide default"
     )
     assert numpy.fabs(rp1[1] - rpi[1]) < 1e-10, (
-        "Pericenter computed with invidual delta does not agree with that computed using the fixed orbit-wide default"
+        "Pericenter computed with individual delta does not agree with that computed using the fixed orbit-wide default"
     )
     assert numpy.fabs(ra0[0] - rai[0]) < 1e-10, (
-        "Apocenter computed with invidual delta does not agree with that computed using the fixed orbit-wide default"
+        "Apocenter computed with individual delta does not agree with that computed using the fixed orbit-wide default"
     )
     assert numpy.fabs(ra1[1] - rai[1]) < 1e-10, (
-        "Apocenter computed with invidual delta does not agree with that computed using the fixed orbit-wide default"
+        "Apocenter computed with individual delta does not agree with that computed using the fixed orbit-wide default"
     )
     return None
 
 
 # Test the actions of an actionAngleStaeckel
 def test_actionAngleStaeckel_conserved_actions():
-    from galpy.potential import MWPotential
     from galpy.actionAngle import actionAngleStaeckel
     from galpy.orbit import Orbit
+    from galpy.potential import MWPotential
 
     aAS = actionAngleStaeckel(pot=MWPotential, c=False, delta=0.71)
     obs = Orbit([1.05, 0.02, 1.05, 0.03, 0.0])
@@ -3008,9 +3008,9 @@ def test_actionAngleStaeckel_conserved_actions():
 
 # Test the actions of an actionAngleStaeckel, more eccentric orbit
 def test_actionAngleStaeckel_conserved_actions_ecc():
-    from galpy.potential import MWPotential
     from galpy.actionAngle import actionAngleStaeckel
     from galpy.orbit import Orbit
+    from galpy.potential import MWPotential
 
     aAS = actionAngleStaeckel(pot=MWPotential, c=False, delta=0.71)
     obs = Orbit([1.1, 0.2, 1.3, 0.3, 0.0])
@@ -3022,24 +3022,24 @@ def test_actionAngleStaeckel_conserved_actions_ecc():
 
 # Test the actions of an actionAngleStaeckel
 def test_actionAngleStaeckel_conserved_actions_c():
-    from galpy.potential import (
-        MWPotential,
-        DoubleExponentialDiskPotential,
-        FlattenedPowerPotential,
-        interpRZPotential,
-        KuzminDiskPotential,
-        TriaxialHernquistPotential,
-        TriaxialJaffePotential,
-        TriaxialNFWPotential,
-        SCFPotential,
-        DiskSCFPotential,
-        PerfectEllipsoidPotential,
-        TriaxialGaussianPotential,
-        PowerTriaxialPotential,
-    )
     from galpy.actionAngle import actionAngleStaeckel
     from galpy.orbit import Orbit
     from galpy.orbit.Orbits import ext_loaded
+    from galpy.potential import (
+        DiskSCFPotential,
+        DoubleExponentialDiskPotential,
+        FlattenedPowerPotential,
+        KuzminDiskPotential,
+        MWPotential,
+        PerfectEllipsoidPotential,
+        PowerTriaxialPotential,
+        SCFPotential,
+        TriaxialGaussianPotential,
+        TriaxialHernquistPotential,
+        TriaxialJaffePotential,
+        TriaxialNFWPotential,
+        interpRZPotential,
+    )
 
     ip = interpRZPotential(
         RZPot=MWPotential,
@@ -3086,9 +3086,9 @@ def test_actionAngleStaeckel_conserved_actions_c():
 
 # Test the actions of an actionAngleStaeckel, for a dblexp disk far away from the center
 def test_actionAngleStaeckel_conserved_actions_c_specialdblexp():
-    from galpy.potential import DoubleExponentialDiskPotential
     from galpy.actionAngle import actionAngleStaeckel
     from galpy.orbit import Orbit
+    from galpy.potential import DoubleExponentialDiskPotential
 
     pot = DoubleExponentialDiskPotential(normalize=1.0)
     aAS = actionAngleStaeckel(pot=pot, c=True, delta=0.01)
@@ -3102,17 +3102,18 @@ def test_actionAngleStaeckel_conserved_actions_c_specialdblexp():
 
 # Test the actions of an actionAngleStaeckel
 def test_actionAngleStaeckel_wSpherical_conserved_actions_c():
+    from test_potential import (
+        mockGaussianAmplitudeSmoothedLogarithmicHaloPotential,
+        mockSCFZeeuwPotential,
+        mockSmoothedLogarithmicHaloPotential,
+        mockSmoothedLogarithmicHaloPotentialwTimeDependentAmplitudeWrapperPotential,
+        mockSphericalSoftenedNeedleBarPotential,
+    )
+
     from galpy import potential
     from galpy.actionAngle import actionAngleStaeckel
     from galpy.orbit import Orbit
     from galpy.orbit.Orbits import ext_loaded
-    from test_potential import (
-        mockSCFZeeuwPotential,
-        mockSphericalSoftenedNeedleBarPotential,
-        mockSmoothedLogarithmicHaloPotential,
-        mockGaussianAmplitudeSmoothedLogarithmicHaloPotential,
-        mockSmoothedLogarithmicHaloPotentialwTimeDependentAmplitudeWrapperPotential,
-    )
 
     lp = potential.LogarithmicHaloPotential(normalize=1.0, q=1.0)
     lpb = potential.LogarithmicHaloPotential(normalize=1.0, q=1.0, b=1.0)  # same |^
@@ -3182,10 +3183,10 @@ def test_actionAngleStaeckel_wSpherical_conserved_actions_c():
 
 # Test the actions of an actionAngleStaeckel
 def test_actionAngleStaeckel_conserved_actions_fixed_quad():
-    from galpy.potential import MWPotential
     from galpy.actionAngle import actionAngleStaeckel
     from galpy.orbit import Orbit
     from galpy.orbit.Orbits import ext_loaded
+    from galpy.potential import MWPotential
 
     aAS = actionAngleStaeckel(pot=MWPotential, c=False, delta=0.71)
     obs = Orbit([1.05, 0.02, 1.05, 0.03, 0.0, 2.0])
@@ -3218,9 +3219,9 @@ def test_actionAngleStaeckel_conserved_actions_fixed_quad():
 
 # Test that the angles of an actionAngleStaeckel increase linearly
 def test_actionAngleStaeckel_linear_angles():
-    from galpy.potential import MWPotential
     from galpy.actionAngle import actionAngleStaeckel
     from galpy.orbit import Orbit
+    from galpy.potential import MWPotential
 
     aAS = actionAngleStaeckel(pot=MWPotential, delta=0.71, c=True)
     obs = Orbit([1.05, 0.02, 1.05, 0.03, 0.0, 2.0])
@@ -3244,9 +3245,9 @@ def test_actionAngleStaeckel_linear_angles():
 
 # Test that the angles of an actionAngleStaeckel increase linearly, interppot
 def test_actionAngleStaeckel_linear_angles_interppot():
-    from galpy.potential import MWPotential, interpRZPotential
     from galpy.actionAngle import actionAngleStaeckel
     from galpy.orbit import Orbit
+    from galpy.potential import MWPotential, interpRZPotential
 
     ip = interpRZPotential(
         RZPot=MWPotential,
@@ -3281,9 +3282,9 @@ def test_actionAngleStaeckel_linear_angles_interppot():
 
 # Test that the angles of an actionAngleStaeckel increase linearly
 def test_actionAngleStaeckel_linear_angles_u0():
-    from galpy.potential import MWPotential
     from galpy.actionAngle import actionAngleStaeckel
     from galpy.orbit import Orbit
+    from galpy.potential import MWPotential
 
     aAS = actionAngleStaeckel(pot=MWPotential, delta=0.71, c=True, useu0=True)
     obs = Orbit([1.05, 0.02, 1.05, 0.03, 0.0, 2.0])
@@ -3324,9 +3325,9 @@ def test_actionAngleStaeckel_linear_angles_u0():
 
 # Test the conservation of ecc, zmax, rperi, rap of an actionAngleStaeckel
 def test_actionAngleStaeckel_conserved_EccZmaxRperiRap():
-    from galpy.potential import MWPotential
     from galpy.actionAngle import actionAngleStaeckel
     from galpy.orbit import Orbit
+    from galpy.potential import MWPotential
 
     aAS = actionAngleStaeckel(pot=MWPotential, c=False, delta=0.71)
     obs = Orbit([1.05, 0.02, 1.05, 0.03, 0.0, 0.0])
@@ -3338,9 +3339,9 @@ def test_actionAngleStaeckel_conserved_EccZmaxRperiRap():
 
 # Test the conservation of ecc, zmax, rperi, rap of an actionAngleStaeckel
 def test_actionAngleStaeckel_conserved_EccZmaxRperiRap_ecc():
-    from galpy.potential import MWPotential
     from galpy.actionAngle import actionAngleStaeckel
     from galpy.orbit import Orbit
+    from galpy.potential import MWPotential
 
     aAS = actionAngleStaeckel(pot=MWPotential, c=False, delta=0.71)
     obs = Orbit([1.1, 0.2, 1.3, 0.3, 0.0, 2.0])
@@ -3352,22 +3353,22 @@ def test_actionAngleStaeckel_conserved_EccZmaxRperiRap_ecc():
 
 # Test the conservation of ecc, zmax, rperi, rap of an actionAngleStaeckel
 def test_actionAngleStaeckel_conserved_EccZmaxRperiRap_c():
-    from galpy.potential import (
-        MWPotential,
-        DoubleExponentialDiskPotential,
-        FlattenedPowerPotential,
-        interpRZPotential,
-        KuzminDiskPotential,
-        TriaxialHernquistPotential,
-        TriaxialJaffePotential,
-        TriaxialNFWPotential,
-        SCFPotential,
-        DiskSCFPotential,
-        PerfectEllipsoidPotential,
-    )
     from galpy.actionAngle import actionAngleStaeckel
     from galpy.orbit import Orbit
     from galpy.orbit.Orbits import ext_loaded
+    from galpy.potential import (
+        DiskSCFPotential,
+        DoubleExponentialDiskPotential,
+        FlattenedPowerPotential,
+        KuzminDiskPotential,
+        MWPotential,
+        PerfectEllipsoidPotential,
+        SCFPotential,
+        TriaxialHernquistPotential,
+        TriaxialJaffePotential,
+        TriaxialNFWPotential,
+        interpRZPotential,
+    )
 
     ip = interpRZPotential(
         RZPot=MWPotential,
@@ -3407,12 +3408,12 @@ def test_actionAngleStaeckel_conserved_EccZmaxRperiRap_c():
 
 # Test the actionAngleStaeckel against an isochrone potential: actions
 def test_actionAngleStaeckel_otherIsochrone_actions():
-    from galpy.potential import IsochronePotential
     from galpy.actionAngle import (
-        actionAngleStaeckel,
         actionAngleIsochrone,
+        actionAngleStaeckel,
         estimateDeltaStaeckel,
     )
+    from galpy.potential import IsochronePotential
 
     ip = IsochronePotential(normalize=1.0, b=1.2)
     aAI = actionAngleIsochrone(ip=ip)
@@ -3441,12 +3442,12 @@ def test_actionAngleStaeckel_otherIsochrone_actions():
 
 # Test the actionAngleStaeckel against an isochrone potential: actions
 def test_actionAngleStaeckel_otherIsochrone_actions_fixed_quad():
-    from galpy.potential import IsochronePotential
     from galpy.actionAngle import (
-        actionAngleStaeckel,
         actionAngleIsochrone,
+        actionAngleStaeckel,
         estimateDeltaStaeckel,
     )
+    from galpy.potential import IsochronePotential
 
     ip = IsochronePotential(normalize=1.0, b=1.2)
     aAI = actionAngleIsochrone(ip=ip)
@@ -3475,12 +3476,12 @@ def test_actionAngleStaeckel_otherIsochrone_actions_fixed_quad():
 
 # Test the actionAngleStaeckel against an isochrone potential: actions
 def test_actionAngleStaeckel_otherIsochrone_actions_c():
-    from galpy.potential import IsochronePotential
     from galpy.actionAngle import (
-        actionAngleStaeckel,
         actionAngleIsochrone,
+        actionAngleStaeckel,
         estimateDeltaStaeckel,
     )
+    from galpy.potential import IsochronePotential
 
     ip = IsochronePotential(normalize=1.0, b=1.2)
     aAI = actionAngleIsochrone(ip=ip)
@@ -3509,8 +3510,8 @@ def test_actionAngleStaeckel_otherIsochrone_actions_c():
 
 # Test the actionAngleStaeckel against an isochrone potential: frequencies
 def test_actionAngleStaeckel_otherIsochrone_freqs():
+    from galpy.actionAngle import actionAngleIsochrone, actionAngleStaeckel
     from galpy.potential import IsochronePotential
-    from galpy.actionAngle import actionAngleStaeckel, actionAngleIsochrone
 
     ip = IsochronePotential(normalize=1.0, b=1.2)
     aAI = actionAngleIsochrone(ip=ip)
@@ -3538,8 +3539,8 @@ def test_actionAngleStaeckel_otherIsochrone_freqs():
 
 # Test the actionAngleStaeckel against an isochrone potential: angles
 def test_actionAngleStaeckel_otherIsochrone_angles():
+    from galpy.actionAngle import actionAngleIsochrone, actionAngleStaeckel
     from galpy.potential import IsochronePotential
-    from galpy.actionAngle import actionAngleStaeckel, actionAngleIsochrone
 
     ip = IsochronePotential(normalize=1.0, b=1.2)
     aAI = actionAngleIsochrone(ip=ip)
@@ -3656,9 +3657,9 @@ def test_actionAngleStaeckelGrid_basic_actions_c():
 
 # Test the actions of an actionAngleStaeckel
 def test_actionAngleStaeckelGrid_conserved_actions_c():
-    from galpy.potential import MWPotential
     from galpy.actionAngle import actionAngleStaeckelGrid
     from galpy.orbit import Orbit
+    from galpy.potential import MWPotential
 
     obs = Orbit([1.05, 0.02, 1.05, 0.03, 0.0])
     aAA = actionAngleStaeckelGrid(pot=MWPotential, delta=0.71, c=True)
@@ -3670,8 +3671,8 @@ def test_actionAngleStaeckelGrid_conserved_actions_c():
 
 # Test the setup of an actionAngleStaeckelGrid
 def test_actionAngleStaeckelGrid_setuperrs():
-    from galpy.potential import MWPotential
     from galpy.actionAngle import actionAngleStaeckelGrid
+    from galpy.potential import MWPotential
 
     try:
         aAA = actionAngleStaeckelGrid()
@@ -3690,8 +3691,8 @@ def test_actionAngleStaeckelGrid_setuperrs():
 
 # Test the actionAngleStaeckel against an isochrone potential: actions
 def test_actionAngleStaeckelGrid_Isochrone_actions():
+    from galpy.actionAngle import actionAngleIsochrone, actionAngleStaeckelGrid
     from galpy.potential import IsochronePotential
-    from galpy.actionAngle import actionAngleStaeckelGrid, actionAngleIsochrone
 
     ip = IsochronePotential(normalize=1.0, b=1.2)
     aAI = actionAngleIsochrone(ip=ip)
@@ -3721,8 +3722,8 @@ def test_actionAngleStaeckelGrid_Isochrone_actions():
 # Basic sanity checking of the actionAngleStaeckelGrid eccentricity etc.
 def test_actionAngleStaeckelGrid_basic_EccZmaxRperiRap_c():
     from galpy.actionAngle import actionAngleStaeckelGrid
-    from galpy.potential import MWPotential, interpRZPotential
     from galpy.orbit import Orbit
+    from galpy.potential import MWPotential, interpRZPotential
 
     rzpot = interpRZPotential(
         RZPot=MWPotential,
@@ -3776,9 +3777,9 @@ def test_actionAngleStaeckelGrid_basic_EccZmaxRperiRap_c():
 
 # Test the actions of an actionAngleStaeckel
 def test_actionAngleStaeckelGrid_conserved_EccZmaxRperiRap_c():
-    from galpy.potential import MWPotential
     from galpy.actionAngle import actionAngleStaeckelGrid
     from galpy.orbit import Orbit
+    from galpy.potential import MWPotential
 
     obs = Orbit([1.05, 0.02, 1.05, 0.03, 0.0, 2.0])
     aAA = actionAngleStaeckelGrid(pot=MWPotential, delta=0.71, c=True, interpecc=True)
@@ -3790,9 +3791,9 @@ def test_actionAngleStaeckelGrid_conserved_EccZmaxRperiRap_c():
 
 # Test the actionAngleIsochroneApprox against an isochrone potential: actions
 def test_actionAngleIsochroneApprox_otherIsochrone_actions():
-    from galpy.potential import IsochronePotential
-    from galpy.actionAngle import actionAngleIsochroneApprox, actionAngleIsochrone
+    from galpy.actionAngle import actionAngleIsochrone, actionAngleIsochroneApprox
     from galpy.orbit.Orbits import ext_loaded
+    from galpy.potential import IsochronePotential
 
     ip = IsochronePotential(normalize=1.0, b=1.2)
     aAI = actionAngleIsochrone(ip=ip)
@@ -3827,8 +3828,8 @@ def test_actionAngleIsochroneApprox_otherIsochrone_actions():
 
 # Test the actionAngleIsochroneApprox against an isochrone potential: frequencies
 def test_actionAngleIsochroneApprox_otherIsochrone_freqs():
+    from galpy.actionAngle import actionAngleIsochrone, actionAngleIsochroneApprox
     from galpy.potential import IsochronePotential
-    from galpy.actionAngle import actionAngleIsochroneApprox, actionAngleIsochrone
 
     ip = IsochronePotential(normalize=1.0, b=1.2)
     aAI = actionAngleIsochrone(ip=ip)
@@ -3873,8 +3874,8 @@ def test_actionAngleIsochroneApprox_otherIsochrone_freqs():
 
 # Test the actionAngleIsochroneApprox against an isochrone potential: angles
 def test_actionAngleIsochroneApprox_otherIsochrone_angles():
+    from galpy.actionAngle import actionAngleIsochrone, actionAngleIsochroneApprox
     from galpy.potential import IsochronePotential
-    from galpy.actionAngle import actionAngleIsochroneApprox, actionAngleIsochrone
 
     ip = IsochronePotential(normalize=1.0, b=1.2)
     aAI = actionAngleIsochrone(ip=ip)
@@ -3919,9 +3920,9 @@ def test_actionAngleIsochroneApprox_otherIsochrone_angles():
 
 # Test the actionAngleIsochroneApprox against an isochrone potential: actions, cumul
 def test_actionAngleIsochroneApprox_otherIsochrone_actions_cumul():
-    from galpy.potential import IsochronePotential
-    from galpy.actionAngle import actionAngleIsochroneApprox, actionAngleIsochrone
+    from galpy.actionAngle import actionAngleIsochrone, actionAngleIsochroneApprox
     from galpy.orbit.Orbits import ext_loaded
+    from galpy.potential import IsochronePotential
 
     ip = IsochronePotential(normalize=1.0, b=1.2)
     aAI = actionAngleIsochrone(ip=ip)
@@ -3951,8 +3952,8 @@ def test_actionAngleIsochroneApprox_otherIsochrone_actions_cumul():
 
 # Test the actionAngleIsochroneApprox against an isochrone potential: actions; planarOrbit
 def test_actionAngleIsochroneApprox_otherIsochrone_planarOrbit_actions():
+    from galpy.actionAngle import actionAngleIsochrone, actionAngleIsochroneApprox
     from galpy.potential import IsochronePotential
-    from galpy.actionAngle import actionAngleIsochroneApprox, actionAngleIsochrone
 
     ip = IsochronePotential(normalize=1.0, b=1.2)
     aAI = actionAngleIsochrone(ip=ip)
@@ -3976,9 +3977,9 @@ def test_actionAngleIsochroneApprox_otherIsochrone_planarOrbit_actions():
 
 # Test the actionAngleIsochroneApprox against an isochrone potential: actions; integrated planarOrbit
 def test_actionAngleIsochroneApprox_otherIsochrone_planarOrbit_integratedOrbit_actions():
-    from galpy.potential import IsochronePotential
-    from galpy.actionAngle import actionAngleIsochroneApprox, actionAngleIsochrone
+    from galpy.actionAngle import actionAngleIsochrone, actionAngleIsochroneApprox
     from galpy.orbit import Orbit
+    from galpy.potential import IsochronePotential
 
     ip = IsochronePotential(normalize=1.0, b=1.2)
     aAI = actionAngleIsochrone(ip=ip)
@@ -4005,10 +4006,10 @@ def test_actionAngleIsochroneApprox_otherIsochrone_planarOrbit_integratedOrbit_a
 
 # Test the actionAngleIsochroneApprox against an isochrone potential: actions; for an integrated orbit
 def test_actionAngleIsochroneApprox_otherIsochrone_integratedOrbit_actions():
-    from galpy.potential import IsochronePotential
-    from galpy.actionAngle import actionAngleIsochroneApprox, actionAngleIsochrone
-    from galpy.orbit.Orbits import ext_loaded
+    from galpy.actionAngle import actionAngleIsochrone, actionAngleIsochroneApprox
     from galpy.orbit import Orbit
+    from galpy.orbit.Orbits import ext_loaded
+    from galpy.potential import IsochronePotential
 
     ip = IsochronePotential(normalize=1.0, b=1.2)
     aAI = actionAngleIsochrone(ip=ip)
@@ -4047,9 +4048,9 @@ def test_actionAngleIsochroneApprox_otherIsochrone_integratedOrbit_actions():
 
 # Test the actionAngleIsochroneApprox against an isochrone potential: frequencies; for an integrated orbit
 def test_actionAngleIsochroneApprox_otherIsochrone_integratedOrbit_freqs():
-    from galpy.potential import IsochronePotential
-    from galpy.actionAngle import actionAngleIsochroneApprox, actionAngleIsochrone
+    from galpy.actionAngle import actionAngleIsochrone, actionAngleIsochroneApprox
     from galpy.orbit import Orbit
+    from galpy.potential import IsochronePotential
 
     ip = IsochronePotential(normalize=1.0, b=1.2)
     aAI = actionAngleIsochrone(ip=ip)
@@ -4098,9 +4099,9 @@ def test_actionAngleIsochroneApprox_otherIsochrone_integratedOrbit_freqs():
 
 # Test the actionAngleIsochroneApprox against an isochrone potential: angles; for an integrated orbit
 def test_actionAngleIsochroneApprox_otherIsochrone_integratedOrbit_angles():
-    from galpy.potential import IsochronePotential
-    from galpy.actionAngle import actionAngleIsochroneApprox, actionAngleIsochrone
+    from galpy.actionAngle import actionAngleIsochrone, actionAngleIsochroneApprox
     from galpy.orbit import Orbit
+    from galpy.potential import IsochronePotential
 
     ip = IsochronePotential(normalize=1.0, b=1.2)
     aAI = actionAngleIsochrone(ip=ip)
@@ -4147,11 +4148,11 @@ def test_actionAngleIsochroneApprox_otherIsochrone_integratedOrbit_angles():
     return None
 
 
-# Check that actionAngleIsochroneApprox gives the same answer for different setups
+# Check that actionAngleIsochroneApprox gives the same angswer for different setups
 def test_actionAngleIsochroneApprox_diffsetups():
-    from galpy.potential import LogarithmicHaloPotential, IsochronePotential
-    from galpy.actionAngle import actionAngleIsochroneApprox, actionAngleIsochrone
+    from galpy.actionAngle import actionAngleIsochrone, actionAngleIsochroneApprox
     from galpy.orbit import Orbit
+    from galpy.potential import IsochronePotential, LogarithmicHaloPotential
 
     lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
     # Different setups
@@ -4205,11 +4206,11 @@ def test_actionAngleIsochroneApprox_diffsetups():
     return None
 
 
-# Check that actionAngleIsochroneApprox gives the same answer w/ and w/o firstFlip
+# Check that actionAngleIsochroneApprox gives the same angswer w/ and w/o firstFlip
 def test_actionAngleIsochroneApprox_firstFlip():
-    from galpy.potential import LogarithmicHaloPotential, IsochronePotential
-    from galpy.actionAngle import actionAngleIsochroneApprox, actionAngleIsochrone
+    from galpy.actionAngle import actionAngleIsochrone, actionAngleIsochroneApprox
     from galpy.orbit import Orbit
+    from galpy.potential import IsochronePotential, LogarithmicHaloPotential
 
     lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
     aAI = actionAngleIsochroneApprox(pot=lp, b=0.8)
@@ -4247,9 +4248,9 @@ def test_actionAngleIsochroneApprox_firstFlip():
 
 # Test the actionAngleIsochroneApprox used in Bovy (2014)
 def test_actionAngleIsochroneApprox_bovy14():
-    from galpy.potential import LogarithmicHaloPotential
     from galpy.actionAngle import actionAngleIsochroneApprox
     from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential
 
     lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
     aAI = actionAngleIsochroneApprox(pot=lp, b=0.8)
@@ -4286,9 +4287,9 @@ def test_actionAngleIsochroneApprox_bovy14():
 
 # Test the actionAngleIsochroneApprox for a triaxial potential
 def test_actionAngleIsochroneApprox_triaxialnfw_conserved_actions():
-    from galpy.potential import TriaxialNFWPotential
     from galpy.actionAngle import actionAngleIsochroneApprox
     from galpy.orbit import Orbit
+    from galpy.potential import TriaxialNFWPotential
 
     tnp = TriaxialNFWPotential(b=0.9, c=0.8, normalize=1.0)
     aAI = actionAngleIsochroneApprox(pot=tnp, b=0.8, tintJ=200.0)
@@ -4300,9 +4301,9 @@ def test_actionAngleIsochroneApprox_triaxialnfw_conserved_actions():
 
 
 def test_actionAngleIsochroneApprox_triaxialnfw_linear_angles():
-    from galpy.potential import TriaxialNFWPotential
     from galpy.actionAngle import actionAngleIsochroneApprox
     from galpy.orbit import Orbit
+    from galpy.potential import TriaxialNFWPotential
 
     tnp = TriaxialNFWPotential(b=0.9, c=0.8, normalize=1.0)
     aAI = actionAngleIsochroneApprox(pot=tnp, b=0.8, tintJ=200.0)
@@ -4328,9 +4329,9 @@ def test_actionAngleIsochroneApprox_triaxialnfw_linear_angles():
 
 
 def test_actionAngleIsochroneApprox_plotting():
-    from galpy.potential import LogarithmicHaloPotential
     from galpy.actionAngle import actionAngleIsochroneApprox
     from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential
 
     lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
     aAI = actionAngleIsochroneApprox(pot=lp, b=0.8)
@@ -4371,9 +4372,9 @@ def test_actionAngleIsochroneApprox_plotting():
 
 # Test the Orbit interface
 def test_orbit_interface_spherical():
-    from galpy.potential import LogarithmicHaloPotential, NFWPotential
-    from galpy.orbit import Orbit
     from galpy.actionAngle import actionAngleSpherical
+    from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential, NFWPotential
 
     lp = LogarithmicHaloPotential(normalize=1.0, q=1.0)
     obs = Orbit([1.0, 0.2, 1.5, 0.3, 0.1, 2.0])
@@ -4529,9 +4530,9 @@ def test_orbit_interface_spherical():
 
 # Test the Orbit interface for actionAngleStaeckel
 def test_orbit_interface_staeckel():
-    from galpy.potential import MWPotential
-    from galpy.orbit import Orbit
     from galpy.actionAngle import actionAngleStaeckel
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential
 
     obs = Orbit([1.05, 0.02, 1.05, 0.03, 0.0, 2.0])
     aAS = actionAngleStaeckel(pot=MWPotential, delta=0.71)
@@ -4559,9 +4560,9 @@ def test_orbit_interface_staeckel():
 
 # Further tests of the Orbit interface for actionAngleStaeckel
 def test_orbit_interface_staeckel_defaultdelta():
-    from galpy.potential import MWPotential2014
-    from galpy.orbit import Orbit
     from galpy.actionAngle import actionAngleStaeckel, estimateDeltaStaeckel
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential2014
 
     obs = Orbit([1.05, 0.02, 1.05, 0.03, 0.0, 2.0])
     est_delta = estimateDeltaStaeckel(MWPotential2014, obs.R(), obs.z())
@@ -4595,9 +4596,12 @@ def test_orbit_interface_staeckel_defaultdelta():
 
 def test_orbit_interface_staeckel_PotentialErrors():
     # staeckel approx. w/ automatic delta should fail if delta cannot be found
-    from galpy.potential import TwoPowerSphericalPotential, SpiralArmsPotential
-    from galpy.potential import PotentialError
     from galpy.orbit import Orbit
+    from galpy.potential import (
+        PotentialError,
+        SpiralArmsPotential,
+        TwoPowerSphericalPotential,
+    )
 
     obs = Orbit([1.05, 0.02, 1.05, 0.03, 0.0, 2.0])
 
@@ -4610,13 +4614,13 @@ def test_orbit_interface_staeckel_PotentialErrors():
     with pytest.raises(PotentialError) as excinfo:
         dummy = tp.R2deriv(1.0, 0.1)
         pytest.fail(
-            "TwoPowerSphericalPotentialNoR2deriv appears to now have second derivatives, means that it cannot be used to test exceptions based on not having the second derivatives any longer"
+            "TwoPowerSphericalPotentialNoR2deriv appears to now have second derivatives, meangs that it cannot be used to test exceptions based on not having the second derivatives any longer"
         )
     # Now check that estimating delta fails
     with pytest.raises(PotentialError) as excinfo:
         obs.jr(pot=tp, type="staeckel")
         pytest.fail(
-            "TwoPowerSphericalPotentialNoR2deriv appears to now have second derivatives, means that it cannot be used to test exceptions based on not having the second derivatives any longer"
+            "TwoPowerSphericalPotentialNoR2deriv appears to now have second derivatives, meangs that it cannot be used to test exceptions based on not having the second derivatives any longer"
         )
     assert "second derivatives" in str(excinfo.value), (
         "Estimating delta for potential lacking second derivatives should have failed with a message about the lack of second derivatives"
@@ -4626,7 +4630,7 @@ def test_orbit_interface_staeckel_PotentialErrors():
     with pytest.raises(PotentialError) as excinfo:
         obs.jr(pot=sp, type="staeckel")
         pytest.fail(
-            "TwoPowerSphericalPotentialNoR2deriv appears to now have second derivatives, means that it cannot be used to test exceptions based on not having the second derivatives any longer"
+            "TwoPowerSphericalPotentialNoR2deriv appears to now have second derivatives, meangs that it cannot be used to test exceptions based on not having the second derivatives any longer"
         )
     assert "not axisymmetric" in str(excinfo.value), (
         "Estimating delta for a non-axi potential should have failed with a message about the fact that the potential is non-axisymmetric"
@@ -4636,9 +4640,12 @@ def test_orbit_interface_staeckel_PotentialErrors():
 
 def test_orbits_interface_staeckel_PotentialErrors():
     # staeckel approx. w/ automatic delta should fail if delta cannot be found
-    from galpy.potential import TwoPowerSphericalPotential, SpiralArmsPotential
-    from galpy.potential import PotentialError
     from galpy.orbit import Orbit
+    from galpy.potential import (
+        PotentialError,
+        SpiralArmsPotential,
+        TwoPowerSphericalPotential,
+    )
 
     obs = Orbit(
         [[1.05, 0.02, 1.05, 0.03, 0.0, 2.0], [1.15, -0.02, 1.02, -0.03, 0.0, 2.0]]
@@ -4653,13 +4660,13 @@ def test_orbits_interface_staeckel_PotentialErrors():
     with pytest.raises(PotentialError) as excinfo:
         dummy = tp.R2deriv(1.0, 0.1)
         pytest.fail(
-            "TwoPowerSphericalPotentialNoR2deriv appears to now have second derivatives, means that it cannot be used to test exceptions based on not having the second derivatives any longer"
+            "TwoPowerSphericalPotentialNoR2deriv appears to now have second derivatives, meangs that it cannot be used to test exceptions based on not having the second derivatives any longer"
         )
     # Now check that estimating delta fails
     with pytest.raises(PotentialError) as excinfo:
         obs.jr(pot=tp, type="staeckel")
         pytest.fail(
-            "TwoPowerSphericalPotentialNoR2deriv appears to now have second derivatives, means that it cannot be used to test exceptions based on not having the second derivatives any longer"
+            "TwoPowerSphericalPotentialNoR2deriv appears to now have second derivatives, meangs that it cannot be used to test exceptions based on not having the second derivatives any longer"
         )
     assert "second derivatives" in str(excinfo.value), (
         "Estimating delta for potential lacking second derivatives should have failed with a message about the lack of second derivatives"
@@ -4669,7 +4676,7 @@ def test_orbits_interface_staeckel_PotentialErrors():
     with pytest.raises(PotentialError) as excinfo:
         obs.jr(pot=sp, type="staeckel")
         pytest.fail(
-            "SpiralArms appears to now have second derivatives, means that it cannot be used to test exceptions based on not having the second derivatives any longer"
+            "SpiralArms appears to now have second derivatives, meangs that it cannot be used to test exceptions based on not having the second derivatives any longer"
         )
     assert "not axisymmetric" in str(excinfo.value), (
         "Estimating delta for a non-axi potential should have failed with a message about the fact that the potential is non-axisymmetric"
@@ -4679,9 +4686,9 @@ def test_orbits_interface_staeckel_PotentialErrors():
 
 # Test the Orbit interface for actionAngleAdiabatic
 def test_orbit_interface_adiabatic():
-    from galpy.potential import MWPotential
-    from galpy.orbit import Orbit
     from galpy.actionAngle import actionAngleAdiabatic
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential
 
     obs = Orbit([1.05, 0.02, 1.05, 0.03, 0.0, 2.0])
     aAS = actionAngleAdiabatic(pot=MWPotential)
@@ -4703,9 +4710,9 @@ def test_orbit_interface_adiabatic():
 
 def test_orbit_interface_adiabatic_2d():
     # Test with 2D orbit
-    from galpy.potential import MWPotential
-    from galpy.orbit import Orbit
     from galpy.actionAngle import actionAngleAdiabatic
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential
 
     obs = Orbit([1.05, 0.02, 1.05, 2.0])
     aAS = actionAngleAdiabatic(pot=MWPotential)
@@ -4726,9 +4733,9 @@ def test_orbit_interface_adiabatic_2d():
 
 
 def test_orbit_interface_actionAngleIsochroneApprox():
-    from galpy.potential import MWPotential
-    from galpy.orbit import Orbit
     from galpy.actionAngle import actionAngleIsochroneApprox
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential
 
     obs = Orbit([1.05, 0.02, 1.05, 0.03, 0.0, 2.0])
     aAS = actionAngleIsochroneApprox(pot=MWPotential, b=0.8)
@@ -4775,8 +4782,8 @@ def test_orbit_interface_actionAngleIsochroneApprox():
 
 # Test physical output for actionAngleStaeckel
 def test_physical_staeckel():
-    from galpy.potential import MWPotential
     from galpy.actionAngle import actionAngleStaeckel
+    from galpy.potential import MWPotential
     from galpy.util import conversion
 
     ro, vo = 7.0, 230.0
@@ -4847,9 +4854,9 @@ def test_physical_staeckel():
 
 # Test the b estimation
 def test_estimateBIsochrone():
-    from galpy.potential import IsochronePotential
     from galpy.actionAngle import estimateBIsochrone
     from galpy.orbit import Orbit
+    from galpy.potential import IsochronePotential
 
     ip = IsochronePotential(normalize=1.0, b=1.2)
     o = Orbit([1.1, 0.3, 1.2, 0.2, 0.5, 2.0])
@@ -4864,9 +4871,9 @@ def test_estimateBIsochrone():
 
 # Test the focal delta estimation
 def test_estimateDeltaStaeckel():
-    from galpy.potential import MWPotential
     from galpy.actionAngle import estimateDeltaStaeckel
     from galpy.orbit import Orbit
+    from galpy.potential import MWPotential
 
     o = Orbit([1.1, 0.05, 1.1, 0.05, 0.0, 2.0])
     times = numpy.linspace(0.0, 100.0, 1001)
@@ -4880,9 +4887,9 @@ def test_estimateDeltaStaeckel():
 
 # Test the focal delta estimation
 def test_estimateDeltaStaeckel_spherical():
-    from galpy.potential import LogarithmicHaloPotential
     from galpy.actionAngle import estimateDeltaStaeckel
     from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential
 
     o = Orbit([1.1, 0.05, 1.1, 0.05, 0.0, 2.0])
     times = numpy.linspace(0.0, 100.0, 1001)
@@ -5011,8 +5018,8 @@ def test_MWPotential_warning_isochroneapprox():
 
 # Test of the fix to issue 361
 def test_actionAngleAdiabatic_issue361():
-    from galpy.potential import MWPotential2014
     from galpy import actionAngle
+    from galpy.potential import MWPotential2014
 
     aA_adi = actionAngle.actionAngleAdiabatic(pot=MWPotential2014, c=True)
     R = 8.7007 / 8.0
@@ -5029,9 +5036,9 @@ def test_actionAngleAdiabatic_issue361():
 
 # Test that evaluating actionAngle with multi-dimensional orbit doesn't work
 def test_actionAngle_orbitInput_multid_error():
-    from galpy.potential import MWPotential2014
-    from galpy.orbit import Orbit
     from galpy.actionAngle import actionAngleStaeckel
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential2014
 
     orbits = Orbit(
         numpy.array(
@@ -5054,9 +5061,9 @@ def test_actionAngle_orbitInput_multid_error():
 # Test that actionAngleHarmonicInverse is the inverse of actionAngleHarmonic
 def test_actionAngleHarmonicInverse_wrtHarmonic():
     # Create harmonic oscillator potential as isochrone w/ large b --> 1D
-    from galpy.potential import IsochronePotential
     from galpy.actionAngle import actionAngleHarmonic, actionAngleHarmonicInverse
     from galpy.orbit import Orbit
+    from galpy.potential import IsochronePotential
 
     ip = IsochronePotential(normalize=5.0, b=10000.0)
     ipz = ip.toVertical(1.2)
@@ -5085,8 +5092,8 @@ def test_actionAngleHarmonicInverse_wrtHarmonic():
 
 def test_actionAngleHarmonicInverse_freqs_wrtHarmonic():
     # Create harmonic oscillator potential as isochrone w/ large b --> 1D
-    from galpy.potential import IsochronePotential
     from galpy.actionAngle import actionAngleHarmonic, actionAngleHarmonicInverse
+    from galpy.potential import IsochronePotential
 
     ip = IsochronePotential(normalize=5.0, b=10000.0)
     # Omega = sqrt(4piG density / 3)
@@ -5110,9 +5117,9 @@ def test_actionAngleHarmonicInverse_freqs_wrtHarmonic():
 # Test that orbit from actionAngleHarmonicInverse is the same as an integrated orbit
 def test_actionAngleHarmonicInverse_orbit():
     # Create harmonic oscillator potential as isochrone w/ large b --> 1D
-    from galpy.potential import IsochronePotential
     from galpy.actionAngle import actionAngleHarmonicInverse
     from galpy.orbit import Orbit
+    from galpy.potential import IsochronePotential
 
     ip = IsochronePotential(normalize=5.0, b=10000.0)
     ipz = ip.toVertical(1.2)
@@ -5146,8 +5153,8 @@ def test_actionAngleHarmonicInverse_orbit():
 # Test physical output for actionAngleHarmonicInverse
 def test_physical_actionAngleHarmonicInverse():
     # Create harmonic oscillator potential as isochrone w/ large b --> 1D
-    from galpy.potential import IsochronePotential
     from galpy.actionAngle import actionAngleHarmonicInverse
+    from galpy.potential import IsochronePotential
     from galpy.util import conversion
 
     ip = IsochronePotential(normalize=5.0, b=10000.0)
@@ -5187,8 +5194,8 @@ def test_physical_actionAngleHarmonicInverse():
 # Test that actionAngleIsochroneInverse is the inverse of actionAngleIsochrone
 def test_actionAngleIsochroneInverse_wrtIsochrone():
     from galpy.actionAngle import actionAngleIsochrone, actionAngleIsochroneInverse
-    from galpy.potential import IsochronePotential
     from galpy.orbit import Orbit
+    from galpy.potential import IsochronePotential
 
     ip = IsochronePotential(normalize=2.0, b=1.5)
     aAI = actionAngleIsochrone(ip=ip)
@@ -5219,8 +5226,8 @@ def test_actionAngleIsochroneInverse_wrtIsochrone():
 # in actionAngleIsochrone
 def test_actionAngleIsochroneInverse_wrtIsochrone_noninclinedorbit():
     from galpy.actionAngle import actionAngleIsochrone, actionAngleIsochroneInverse
-    from galpy.potential import IsochronePotential
     from galpy.orbit import Orbit
+    from galpy.potential import IsochronePotential
 
     ip = IsochronePotential(normalize=2.0, b=1.5)
     aAI = actionAngleIsochrone(ip=ip)
@@ -5247,7 +5254,7 @@ def test_actionAngleIsochroneInverse_wrtIsochrone_noninclinedorbit():
 # Basic sanity checking: close-to-circular orbit should have freq. = epicycle freq.
 def test_actionAngleIsochroneInverse_basic_freqs():
     from galpy.actionAngle import actionAngleIsochroneInverse
-    from galpy.potential import epifreq, omegac, verticalfreq, rl, IsochronePotential
+    from galpy.potential import IsochronePotential, epifreq, omegac, rl, verticalfreq
 
     jr = 10.0**-6.0
     jz = 10.0**-6.0
@@ -5329,8 +5336,8 @@ def test_actionAngleIsochroneInverse_orbit():
     from galpy.actionAngle.actionAngleIsochroneInverse import (
         actionAngleIsochroneInverse,
     )
-    from galpy.potential import IsochronePotential
     from galpy.orbit import Orbit
+    from galpy.potential import IsochronePotential
 
     # Set up instance
     ip = IsochronePotential(normalize=1.03, b=1.2)
@@ -5379,8 +5386,8 @@ def test_actionAngleIsochroneInverse_orbit():
 
 # Test physical output for actionAngleIsochroneInverse
 def test_physical_actionAngleIsochroneInverse():
-    from galpy.potential import IsochronePotential
     from galpy.actionAngle import actionAngleIsochroneInverse
+    from galpy.potential import IsochronePotential
     from galpy.util import conversion
 
     ro, vo = 7.0, 230.0
@@ -5434,8 +5441,8 @@ def test_physical_actionAngleIsochroneInverse():
 
 # Test that computing actionAngle coordinates in C for a NullPotential leads to an error
 def test_nullpotential_error():
-    from galpy.potential import NullPotential
     from galpy.actionAngle import actionAngleStaeckel
+    from galpy.potential import NullPotential
 
     np = NullPotential()
     aAS = actionAngleStaeckel(pot=np, delta=1.0)

@@ -5,10 +5,12 @@
 #                                   2015
 ###############################################################################
 import warnings
+
 import numpy
-from ..util import galpyWarning, conversion
-from .Potential import Potential, kms_to_kpcGyrDecorator
+
+from ..util import conversion, galpyWarning
 from .MiyamotoNagaiPotential import MiyamotoNagaiPotential
+from .Potential import Potential, kms_to_kpcGyrDecorator
 
 
 class MN3ExponentialDiskPotential(Potential):

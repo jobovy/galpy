@@ -1,17 +1,19 @@
 import copy
-import pytest
+
 import numpy
+import pytest
+
+from galpy.actionAngle import actionAngleIsochroneApprox
 from galpy.df import streamdf, streamspraydf
 from galpy.orbit import Orbit
 from galpy.potential import (
-    LogarithmicHaloPotential,
-    MWPotential2014,
-    MovingObjectPotential,
     ChandrasekharDynamicalFrictionForce,
     HernquistPotential,
+    LogarithmicHaloPotential,
+    MovingObjectPotential,
+    MWPotential2014,
     TriaxialNFWPotential,
 )
-from galpy.actionAngle import actionAngleIsochroneApprox
 from galpy.util import conversion  # for unit conversions
 from galpy.util import coords
 

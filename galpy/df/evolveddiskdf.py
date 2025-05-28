@@ -9,20 +9,21 @@
 _NSIGMA = 4.0
 _NTS = 1000
 _PROFILE = False
-import sys
 import copy
+import sys
 import time as time_module
 import warnings
+
 import numpy
 from scipy import integrate
-from ..util import galpyWarning
+
 from ..orbit import Orbit
 from ..potential import calcRotcurve
-from .df import df
 from ..potential.Potential import _check_c
+from ..util import galpyWarning, plot
+from ..util.conversion import parse_time, physical_conversion, potential_physical_input
 from ..util.quadpack import dblquad
-from ..util import plot
-from ..util.conversion import physical_conversion, potential_physical_input, parse_time
+from .df import df
 
 _DEGTORAD = numpy.pi / 180.0
 _RADTODEG = 180.0 / numpy.pi

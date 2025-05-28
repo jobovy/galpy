@@ -57,7 +57,7 @@ require(['Plotly'], function (Plotly) {
   hovermode: 'closest',
   showlegend: false,
 };
-  let numPerFrame= 5;    
+  let numPerFrame= 5;
   let cnt= 1;
   let interval;
   let trace_slice_len;
@@ -65,7 +65,7 @@ require(['Plotly'], function (Plotly) {
   let trace_slice_end;
 
   setup_trace();
-  
+
   $('.controlbutton button').click(function() {
     let button_type= this.parentNode.id;
     if ( button_type === 'galpy-dsxcbevvvmpaywqsiauyuefp-play' ) {
@@ -85,24 +85,24 @@ require(['Plotly'], function (Plotly) {
     else if ( button_type === 'galpy-dsxcbevvvmpaywqsiauyuefp-replay' ) {
       cnt= 1;
       try { // doesn't exist if animation has already ended
-        
-        
+
+
         Plotly.deleteTraces('galpy-dsxcbevvvmpaywqsiauyuefp',1);
       }
       catch (err) {
       }
       Plotly.deleteTraces('galpy-dsxcbevvvmpaywqsiauyuefp',0);
-      
-      
+
+
       clearInterval(interval);
       setup_trace();
       interval= animate_trace();
     }
   });
-    
+
   function setup_trace() {
     let trace1= {
-      x: data.x.slice(0,numPerFrame), 
+      x: data.x.slice(0,numPerFrame),
       y: data.y.slice(0,numPerFrame),
       mode: 'lines',
       line: {
@@ -113,7 +113,7 @@ require(['Plotly'], function (Plotly) {
     };
 
    let trace2= {
-     x: data.x.slice(0,numPerFrame), 
+     x: data.x.slice(0,numPerFrame),
      y: data.y.slice(0,numPerFrame),
      mode: 'lines',
      line: {
@@ -123,18 +123,18 @@ require(['Plotly'], function (Plotly) {
        },
      };
 
-    
+
     let traces= [trace1,trace2];
 
 
-    
+
 
     Plotly.plot('galpy-dsxcbevvvmpaywqsiauyuefp',traces,layout);
   }
 
   function animate_trace() {
     return setInterval(function() {
-      // Make sure narrow and thick trace end in the same 
+      // Make sure narrow and thick trace end in the same
       // and the highlighted length has constant length
       trace_slice_len= Math.floor(numPerFrame);
       if ( trace_slice_len < 1) trace_slice_len= 1;
@@ -146,18 +146,18 @@ require(['Plotly'], function (Plotly) {
       }, [0]);
       trace_slice_begin-= trace_slice_len;
       trace2= {
-        x: [data.x.slice(trace_slice_begin,trace_slice_end)], 
+        x: [data.x.slice(trace_slice_begin,trace_slice_end)],
         y: [data.y.slice(trace_slice_begin,trace_slice_end)],
       };
       Plotly.restyle('galpy-dsxcbevvvmpaywqsiauyuefp',trace2,[1]);
 
-      
-      
+
+
       cnt+= 1;
       if(cnt*numPerFrame+trace_slice_len > data.x.length/1) {
           clearInterval(interval);
-          
-          
+
+
           Plotly.deleteTraces('galpy-dsxcbevvvmpaywqsiauyuefp',1);
       }
     }, 30);

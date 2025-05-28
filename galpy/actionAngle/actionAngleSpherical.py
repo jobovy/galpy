@@ -10,13 +10,15 @@
 #
 ###############################################################################
 import copy
+
 import numpy
 from scipy import integrate, optimize
-from ..potential import vcirc, epifreq, omegac, _dim
+
+from ..potential import _dim, epifreq, omegac, vcirc
+from ..potential.planarPotential import _evaluateplanarPotentials
 from ..potential.Potential import _evaluatePotentials
 from ..potential.Potential import flatten as flatten_potential
-from ..potential.planarPotential import _evaluateplanarPotentials
-from .actionAngle import actionAngle, UnboundError
+from .actionAngle import UnboundError, actionAngle
 
 _EPS = 10.0**-15.0
 

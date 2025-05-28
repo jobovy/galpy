@@ -14,25 +14,27 @@
 #      function _R2deriv(self,R,z,phi) return d2 Phi dR2
 ###############################################################################
 
-import os, os.path
+import os
+import os.path
 import pickle
-from functools import wraps
 import warnings
+from functools import wraps
+
 import numpy
-from scipy import optimize, integrate
-from ..util import plot, coords, conversion
+from scipy import integrate, optimize
+
+from ..util import conversion, coords, galpyWarning, plot
 from ..util.conversion import (
-    velocity_in_kpcGyr,
-    physical_conversion,
-    potential_physical_input,
     freq_in_Gyr,
     get_physical,
+    physical_conversion,
+    potential_physical_input,
+    velocity_in_kpcGyr,
 )
-from ..util import galpyWarning
-from .plotRotcurve import plotRotcurve, vcirc
-from .plotEscapecurve import _INF, plotEscapecurve
 from .DissipativeForce import DissipativeForce, _isDissipative
-from .Force import Force, _APY_LOADED
+from .Force import _APY_LOADED, Force
+from .plotEscapecurve import _INF, plotEscapecurve
+from .plotRotcurve import plotRotcurve, vcirc
 
 if _APY_LOADED:
     from astropy import units
@@ -753,7 +755,7 @@ class Potential(Force):
 
     def phiforce(self, R, z, phi=0.0, t=0.0):
         warnings.warn(
-            "phiforce has been renamed phitorque, because it has always really been a torque (per unit mass); please switch to the new method name, because the old name will be removed in v1.9 and may be re-used for the actual phi force component",
+            "phiforce has been renamed phitorque, because it has always really been a torque (per unit mass); please switch to the new method name, because the old name will be removed in v1.9 and may be reused for the actual phi force component",
             FutureWarning,
         )
         return self.phitorque(R, z, phi=phi, t=t)
@@ -2415,7 +2417,7 @@ def _evaluateRforces(Pot, R, z, phi=None, t=0.0, v=None):
 
 def evaluatephiforces(Pot, R, z, phi=None, t=0.0, v=None):
     warnings.warn(
-        "evaluatephiforces has been renamed evaluatephitorques, because it has always really been a torque (per unit mass); please switch to the new method name, because the old name will be removed in v1.9 and may be re-used for the actual phi force component",
+        "evaluatephiforces has been renamed evaluatephitorques, because it has always really been a torque (per unit mass); please switch to the new method name, because the old name will be removed in v1.9 and may be reused for the actual phi force component",
         FutureWarning,
     )
     return evaluatephitorques(Pot, R, z, phi=phi, t=t, v=v)
@@ -3410,8 +3412,11 @@ def epifreq(Pot, R, t=0.0):
 
     if isinstance(Pot, (Potential, planarPotential)):
         return Pot.epifreq(R, t=t, use_physical=False)
-    from ..potential import evaluateplanarRforces, evaluateplanarR2derivs
-    from ..potential import PotentialError
+    from ..potential import (
+        PotentialError,
+        evaluateplanarR2derivs,
+        evaluateplanarRforces,
+    )
 
     try:
         return numpy.sqrt(
@@ -3901,7 +3906,7 @@ def nemo_accpars(Pot, vo, ro):
 
     OUTPUT:
 
-       accpars string in the corrct format to give to accpars
+       accpars string in the correct format to give to accpars
 
     HISTORY:
 
@@ -4111,7 +4116,7 @@ def _check_c(Pot, dxdv=False, dens=False):
 
     """
     Pot = flatten(Pot)
-    from ..potential import planarPotential, linearPotential
+    from ..potential import linearPotential, planarPotential
 
     if dxdv:
         hasC_attr = "hasC_dxdv"
@@ -4155,7 +4160,7 @@ def _dim(Pot):
 
        2016-04-19 - Written - Bovy (UofT)
     """
-    from ..potential import planarPotential, linearPotential
+    from ..potential import linearPotential, planarPotential
 
     if isinstance(Pot, list):
         return numpy.amin(numpy.array([_dim(p) for p in Pot], dtype="int"))

@@ -3,6 +3,7 @@
 #                               self-gravitating isothermal disk
 ###############################################################################
 import numpy
+
 from ..util import conversion
 from .linearPotential import linearPotential
 

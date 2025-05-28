@@ -40,7 +40,7 @@ extern "C"
     // set up Torus
     Torus *T;
     T= new(std::nothrow) Torus;
-    
+
     // set up potential
     Potential *Phi;
     //Phi = new(std::nothrow) LogPotential(1.,0.8,0.,0.);
@@ -75,7 +75,7 @@ extern "C"
 				double * pot_args,
         tfuncs_type_arr pot_tfuncs,
 				double tol,
-				double * R, double * vR, double * vT, 
+				double * R, double * vR, double * vT,
 				double * z, double * vz, double * phi,
 				double * Omegar,double * Omegaphi,double * Omegaz,
 				int * flag)
@@ -83,7 +83,7 @@ extern "C"
     // set up Torus
     Torus *T;
     T= new(std::nothrow) Torus;
-    
+
     // set up potential
     Potential *Phi;
     //Phi = new(std::nothrow) LogPotential(1.,0.8,0.,0.);
@@ -147,7 +147,7 @@ extern "C"
     // set up Torus
     Torus *T;
     T= new(std::nothrow) Torus;
-    
+
     // set up potential
     Potential *Phi;
     //Phi = new(std::nothrow) LogPotential(1.,0.8,0.,0.);
@@ -187,7 +187,7 @@ extern "C"
     cleanup(T,Phi,npot,actionAngleArgs);
   }
   // Calculate Jacobian and frequencies
-  void actionAngleTorus_jacobianFreqs(double jr,double jphi, 
+  void actionAngleTorus_jacobianFreqs(double jr,double jphi,
 				      double jz,int na,double * angler,
 				      double * anglephi, double * anglez,
 				      int npot,
@@ -196,7 +196,7 @@ extern "C"
               tfuncs_type_arr pot_tfuncs,
 				      double tol,
 				      double indJ,
-				      double * R, double * vR, double * vT, 
+				      double * R, double * vR, double * vT,
 				      double * z, double * vz, double * phi,
 				      double * dxvOdJaT,
 				      double * dOdJT,
@@ -210,7 +210,7 @@ extern "C"
     // set up Torus
     Torus *T;
     T= new(std::nothrow) Torus;
-    
+
     // set up potential
     Potential *Phi;
     struct potentialArg * actionAngleArgs= (struct potentialArg *) malloc ( npot * sizeof (struct potentialArg) );

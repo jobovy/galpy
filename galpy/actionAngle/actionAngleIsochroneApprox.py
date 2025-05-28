@@ -15,16 +15,17 @@
 #
 ###############################################################################
 import warnings
+
 import numpy
 from numpy import linalg
 from scipy import optimize
-from ..potential import dvcircdR, vcirc, _isNonAxi
+
+from ..potential import IsochronePotential, MWPotential, _isNonAxi, dvcircdR, vcirc
 from ..potential.Potential import flatten as flatten_potential
-from .actionAngleIsochrone import actionAngleIsochrone
-from .actionAngle import actionAngle
-from ..potential import IsochronePotential, MWPotential
-from ..util import plot, galpyWarning, conversion
+from ..util import conversion, galpyWarning, plot
 from ..util.conversion import physical_conversion, potential_physical_input, time_in_Gyr
+from .actionAngle import actionAngle
+from .actionAngleIsochrone import actionAngleIsochrone
 
 _TWOPI = 2.0 * numpy.pi
 _ANGLETOL = 0.02  # tolerance for deciding whether full angle range is covered

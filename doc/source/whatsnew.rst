@@ -124,7 +124,7 @@ Other additions and changes include:
     <api_aa_isochroneinv>`) and for the one-dimensional harmonic
     oscillator (in :ref:`actionAngleHarmonicInverse
     <api_aa_harminv>`). Also added the action-angle calculation for
-    the harmonic oscilator in :ref:`actionAngleHarmonic
+    the harmonic oscillator in :ref:`actionAngleHarmonic
     <api_aa_harm>`. Why yes, I have been playing around with the
     TorusMapper a bit!
 
@@ -177,8 +177,8 @@ This version mainly consists of changes to the internal functioning of
     shared-object library ``libgalpy``.
 
   * Binary wheels are now automatically built for Windows, Mac, and
-    most major Linux distributions upon every push to the ``master`` 
-    (now ``main``) branch and these are automatically uploaded to PyPI 
+    most major Linux distributions upon every push to the ``master``
+    (now ``main``) branch and these are automatically uploaded to PyPI
     upon release. See the :ref:`Installation Instructions <installation>`
     for more info. Binary wheels on Windows are also built for every
     push on AppVeyor, see the :ref:`Windows installation instructions
@@ -225,19 +225,19 @@ This version will be the last to support Python 2.7 as this version of Python is
 
   * `IsothermalDiskPotential <reference/potentialisodisk.html>`__: The one-dimensional potential of an isothermal self-gravitating disk (sech^2 profile).
 
-  * `NumericalPotentialDerivativesMixin <reference/potentialnumericalpotentialderivsmixin.html>`__: a Mixin class to add numerically-computed forces and second derivatives to any Potential class, allowing new potentials to be implmented quickly by only implementing the potential itself and obtaining all forces and second derivatives numerically.
+  * `NumericalPotentialDerivativesMixin <reference/potentialnumericalpotentialderivsmixin.html>`__: a Mixin class to add numerically-computed forces and second derivatives to any Potential class, allowing new potentials to be implemented quickly by only implementing the potential itself and obtaining all forces and second derivatives numerically.
 
   * `DehnenSmoothWrapperPotential <reference/potentialdehnensmoothwrapper.html>`__: Can now decay rather than grow a potential by setting ``decay=True``.
 
   * Added support to combine Potential instances or lists thereof through the addition operator. E.g., ``pot= pot1+pot2+pot3`` to create the combined potential of the three component potentials (pot1,pot2,pot3). Each of these components can be a combined potential itself. As before, combined potentials are simply lists of potentials, so this is simply an alternative (and perhaps more intuitive) way to create these lists.
 
-  * Added support to adjust the amplitude of a Potential instance through multiplication of the instance by a number or through division by a numer. E.g., ``pot= 2.*pot1`` returns a Potential instance that is the same as pot1, except that the amplitude is twice larger. Similarly, ``pot= pot1/2.`` decreases the amplitude by a factor of two. This is useful, for example, to quickly change the mass of a potential. Only works for Potential instances, not for lists of Potential instances.
+  * Added support to adjust the amplitude of a Potential instance through multiplication of the instance by a number or through division by a number. E.g., ``pot= 2.*pot1`` returns a Potential instance that is the same as pot1, except that the amplitude is twice larger. Similarly, ``pot= pot1/2.`` decreases the amplitude by a factor of two. This is useful, for example, to quickly change the mass of a potential. Only works for Potential instances, not for lists of Potential instances.
 
 * New or improved ``galpy.orbit.Orbit`` functionality and methods:
 
   * Added support for 1D orbit integration in C.
 
-  * Added support to plot arbitrary combinations of the basic Orbit attributes by giving them as an expresion (e.g., ``orb.plot(d2='vR*R/r+vz*z/r')``); requires the `numexpr <https://github.com/pydata/numexpr>`__ package.
+  * Added support to plot arbitrary combinations of the basic Orbit attributes by giving them as an expression (e.g., ``orb.plot(d2='vR*R/r+vz*z/r')``); requires the `numexpr <https://github.com/pydata/numexpr>`__ package.
 
   * Switched default Sun's vertical height zo parameter for Orbit initialization to be the value of 20.8 pc from `Bennett & Bovy (2019) <http://adsabs.harvard.edu/abs/2019MNRAS.482.1417B>`__.
 
@@ -341,8 +341,8 @@ v1.3
 
 * ``actionAngleStaeckel`` upgrades:
 
-  * ``actionAngleStaeckel`` methods now allow for different focal lengths delta for different phase-space points and for the order of the Gauss-Legendre integration to be specified (default: 10, which is good enough when using actionAngleStaeckel to compute approximate actions etc. for an axisymmetric potential). 
-  * Added an option to the estimateDeltaStaeckel function to facilitate the return of an estimated delta parameter at every phase space point passed, rather than returning a median of the estimate at each point. 
+  * ``actionAngleStaeckel`` methods now allow for different focal lengths delta for different phase-space points and for the order of the Gauss-Legendre integration to be specified (default: 10, which is good enough when using actionAngleStaeckel to compute approximate actions etc. for an axisymmetric potential).
+  * Added an option to the estimateDeltaStaeckel function to facilitate the return of an estimated delta parameter at every phase space point passed, rather than returning a median of the estimate at each point.
 
 * `galpy.df.schwarzschilddf <reference/dfschwarzschild.html>`__:the simple Schwarzschild distribution function for a razor-thin disk (useful for teaching).
 

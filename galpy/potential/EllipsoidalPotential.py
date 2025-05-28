@@ -9,10 +9,11 @@
 #
 ###############################################################################
 import hashlib
+
 import numpy
 from scipy import integrate
-from ..util import coords, conversion
-from ..util import _rotate_to_arbitrary_vector
+
+from ..util import _rotate_to_arbitrary_vector, conversion, coords
 from .Potential import Potential, check_potential_inputs_not_arrays
 
 

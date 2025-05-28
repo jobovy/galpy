@@ -1,10 +1,11 @@
 # Class that implements isotropic spherical DFs computed using the Eddington
 # formula
 import numpy
-from scipy import interpolate, integrate
-from ..util import conversion
+from scipy import integrate, interpolate
+
 from ..potential import evaluateR2derivs
 from ..potential.Potential import _evaluatePotentials, _evaluateRforces
+from ..util import conversion
 from .sphericaldf import isotropicsphericaldf, sphericaldf
 
 

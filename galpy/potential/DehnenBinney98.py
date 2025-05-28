@@ -1,10 +1,13 @@
 # Dehnen & Binney (1998) potentials: models 1 through 4
 import numpy
-from ..potential import TwoPowerTriaxialPotential
-from ..potential import DiskSCFPotential
-from ..potential import SCFPotential
-from ..potential import scf_compute_coeffs_axi
-from ..potential import mwpot_helpers
+
+from ..potential import (
+    DiskSCFPotential,
+    SCFPotential,
+    TwoPowerTriaxialPotential,
+    mwpot_helpers,
+    scf_compute_coeffs_axi,
+)
 from ..util import conversion
 
 # Unit normalization, all models have R0 = 8 kpc

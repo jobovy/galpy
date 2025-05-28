@@ -68,7 +68,7 @@ This is *not* the recommended Milky-Way-like potential in
 
 ``MWPotential2014`` has a more realistic bulge model and is actually
 fit to various dynamical constraints on the Milky Way (see
-:ref:`here <potential-mw>` and the ``galpy`` paper). 
+:ref:`here <potential-mw>` and the ``galpy`` paper).
 
 .. _units:
 
@@ -301,7 +301,7 @@ Physical output can also be turned off on a method-by-method or function-by-func
 	 # 0.61692726624127459 # in natural units
 
 Further examples of specifying inputs with units will be given
-throughout the documentation.	
+throughout the documentation.
 
 Orbit integration
 -----------------

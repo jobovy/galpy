@@ -2,6 +2,7 @@
 #   TransientLogSpiralPotential: a transient spiral potential
 ###############################################################################
 import numpy
+
 from ..util import conversion
 from .planarPotential import planarPotential
 

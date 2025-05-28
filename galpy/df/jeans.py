@@ -1,6 +1,7 @@
 # jeans.py: utilities related to the Jeans equations
 import numpy
 from scipy import integrate
+
 from ..potential.Potential import (
     evaluateDensities,
     evaluaterforces,

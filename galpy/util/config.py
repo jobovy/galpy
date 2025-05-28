@@ -1,6 +1,7 @@
-import os, os.path
-import copy
 import configparser
+import copy
+import os
+import os.path
 
 _APY_LOADED = True
 try:

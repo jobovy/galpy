@@ -2,6 +2,7 @@
 #   HenonHeilesPotential: the Henon-Heiles (1964) potential
 ###############################################################################
 import numpy
+
 from .planarPotential import planarPotential
 
 

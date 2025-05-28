@@ -9,6 +9,7 @@
 ###############################################################################
 import numpy
 from scipy import special
+
 from ..util import conversion
 from .EllipsoidalPotential import EllipsoidalPotential
 

@@ -1,14 +1,16 @@
-from os import system
 import hashlib
+from os import system
+
 import numpy
 from scipy import interpolate
-from .Potential import Potential
+
 from .interpRZPotential import (
-    scalarVectorDecorator,
-    zsymDecorator,
     calc_2dsplinecoeffs_c,
     interpRZPotential,
+    scalarVectorDecorator,
+    zsymDecorator,
 )
+from .Potential import Potential
 
 try:
     import pynbody
@@ -217,7 +219,7 @@ class InterpSnapshotRZPotential(interpRZPotential):
                 "The InterpSnapRZShotPotential class is designed to work with pynbody snapshots, which cannot be loaded (probably because it is not installed) -- obtain from pynbody.github.io"
             )
 
-        # inititalize using the base class
+        # initialize using the base class
         Potential.__init__(self, amp=1.0, ro=ro, vo=vo)
 
         # other properties
@@ -251,7 +253,7 @@ class InterpSnapshotRZPotential(interpRZPotential):
         self._interpzforce = self._interpPot
         self._interpvcirc = self._interpPot
 
-        # these require additional calculations so set them seperately
+        # these require additional calculations so set them separately
         self._interpepifreq = interpepifreq
         self._interpverticalfreq = interpverticalfreq
 
@@ -489,7 +491,7 @@ class InterpSnapshotRZPotential(interpRZPotential):
                 )
 
             # do the same for the mixed radial-vertical component
-            if self._interpepifreq and self._interpverticalfreq:  # re-use this
+            if self._interpepifreq and self._interpverticalfreq:  # reuse this
                 Rzgrad = numpy.zeros(len(points_new))
                 for i, racc in enumerate(
                     rgrad_acc.reshape((len(rgrad_acc) // 2, 2, 3))

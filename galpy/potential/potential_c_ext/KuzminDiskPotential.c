@@ -57,4 +57,3 @@ double KuzminDiskPotentialPlanarR2deriv(double R,double phi,
   double denom=R*R+a*a;
   return amp * (-pow(denom,-1.5) + 3*R*R*pow(denom, -2.5));
 }
-

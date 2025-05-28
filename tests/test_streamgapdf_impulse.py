@@ -97,7 +97,7 @@ def test_impulse_deltav_plummer_curved_subhalo_perpendicular():
 
 # Test general impulse vs. Plummer
 def test_impulse_deltav_general():
-    from galpy.df import impulse_deltav_plummer, impulse_deltav_general
+    from galpy.df import impulse_deltav_general, impulse_deltav_plummer
     from galpy.potential import PlummerPotential
 
     tol = -10.0
@@ -140,8 +140,8 @@ def test_impulse_deltav_general():
 # Test general impulse vs. Plummer for curved stream
 def test_impulse_deltav_general_curved():
     from galpy.df import (
-        impulse_deltav_plummer_curvedstream,
         impulse_deltav_general_curvedstream,
+        impulse_deltav_plummer_curvedstream,
     )
     from galpy.potential import PlummerPotential
 
@@ -202,7 +202,7 @@ def test_impulse_deltav_general_curved():
 
 # Test general impulse vs. Hernquist
 def test_impulse_deltav_general_hernquist():
-    from galpy.df import impulse_deltav_hernquist, impulse_deltav_general
+    from galpy.df import impulse_deltav_general, impulse_deltav_hernquist
     from galpy.potential import HernquistPotential
 
     GM = 1.5
@@ -248,8 +248,8 @@ def test_impulse_deltav_general_hernquist():
 # Test general impulse vs. Hernquist for curved stream
 def test_impulse_deltav_general_curved_hernquist():
     from galpy.df import (
-        impulse_deltav_hernquist_curvedstream,
         impulse_deltav_general_curvedstream,
+        impulse_deltav_hernquist_curvedstream,
     )
     from galpy.potential import HernquistPotential
 
@@ -331,8 +331,8 @@ def test_hernquistX_unity():
 # Test general impulse vs. full orbit integration for zero force
 def test_impulse_deltav_general_orbit_zeroforce():
     from galpy.df import (
-        impulse_deltav_plummer_curvedstream,
         impulse_deltav_general_orbitintegration,
+        impulse_deltav_plummer_curvedstream,
     )
     from galpy.potential import PlummerPotential
 
@@ -381,8 +381,8 @@ def test_impulse_deltav_general_orbit_zeroforce():
 # Test general impulse vs. full stream and halo integration for zero force
 def test_impulse_deltav_general_fullintegration_zeroforce():
     from galpy.df import (
-        impulse_deltav_plummer_curvedstream,
         impulse_deltav_general_fullplummerintegration,
+        impulse_deltav_plummer_curvedstream,
     )
 
     tol = -3.0
@@ -443,10 +443,10 @@ def test_impulse_deltav_general_fullintegration_zeroforce():
 # Test general impulse vs. full stream and halo integration for fast encounter
 def test_impulse_deltav_general_fullintegration_fastencounter():
     from galpy.df import (
-        impulse_deltav_general_orbitintegration,
         impulse_deltav_general_fullplummerintegration,
+        impulse_deltav_general_orbitintegration,
     )
-    from galpy.potential import PlummerPotential, LogarithmicHaloPotential
+    from galpy.potential import LogarithmicHaloPotential, PlummerPotential
 
     tol = -2.0
     GM = 1.5
@@ -552,12 +552,12 @@ def test_impulse_deltav_plummerstream_tmaxerror():
 # Test the Plummer curved calculation for a perpendicular stream impact:
 # short impact should be the same as a Plummer-sphere impact
 def test_impulse_deltav_plummerstream_curved_subhalo_perpendicular():
-    from galpy.util import conversion
-    from galpy.potential import LogarithmicHaloPotential
     from galpy.df import (
         impulse_deltav_plummer_curvedstream,
         impulse_deltav_plummerstream_curvedstream,
     )
+    from galpy.potential import LogarithmicHaloPotential
+    from galpy.util import conversion
 
     R0, V0 = 8.0, 220.0
     lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)

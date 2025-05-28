@@ -5,8 +5,9 @@
 ###############################################################################
 import numpy
 from scipy import integrate, special
-from .Potential import Potential, check_potential_inputs_not_arrays, _APY_LOADED
+
 from ..util import conversion
+from .Potential import _APY_LOADED, Potential, check_potential_inputs_not_arrays
 
 if _APY_LOADED:
     from astropy import units

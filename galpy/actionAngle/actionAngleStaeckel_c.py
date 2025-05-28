@@ -1,9 +1,10 @@
 import ctypes
 import ctypes.util
+
 import numpy
 from numpy.ctypeslib import ndpointer
-from ..util import coords
-from ..util import _load_extension_libs
+
+from ..util import _load_extension_libs, coords
 
 _lib, _ext_loaded = _load_extension_libs.load_libgalpy()
 
@@ -23,7 +24,7 @@ def actionAngleStaeckel_c(pot, delta, R, vR, vT, z, vz, u0=None, order=10):
     OUTPUT:
        (jr,jz,err)
        jr,jz : array, shape (len(R))
-       err - non-zero if error occured
+       err - non-zero if error occurred
     HISTORY:
        2012-12-01 - Written - Bovy (IAS)
     """
@@ -141,7 +142,7 @@ def actionAngleStaeckel_calcu0(E, Lz, pot, delta):
     OUTPUT:
        (u0,err)
        u0 : array, shape (len(E))
-       err - non-zero if error occured
+       err - non-zero if error occurred
     HISTORY:
        2012-12-03 - Written - Bovy (IAS)
     """
@@ -230,7 +231,7 @@ def actionAngleFreqStaeckel_c(pot, delta, R, vR, vT, z, vz, u0=None, order=10):
     OUTPUT:
        (jr,jz,Omegar,Omegaphi,Omegaz,err)
        jr,jz,Omegar,Omegaphi,Omegaz : array, shape (len(R))
-       err - non-zero if error occured
+       err - non-zero if error occurred
     HISTORY:
        2013-08-23 - Written - Bovy (IAS)
     """
@@ -365,7 +366,7 @@ def actionAngleFreqAngleStaeckel_c(
     OUTPUT:
        (jr,jz,Omegar,Omegaphi,Omegaz,Angler,Anglephi,Anglez,err)
        jr,jz,Omegar,Omegaphi,Omegaz,Angler,Anglephi,Anglez : array, shape (len(R))
-       err - non-zero if error occured
+       err - non-zero if error occurred
     HISTORY:
        2013-08-27 - Written - Bovy (IAS)
     """
@@ -513,7 +514,7 @@ def actionAngleUminUmaxVminStaeckel_c(pot, delta, R, vR, vT, z, vz, u0=None):
     OUTPUT:
        (umin,umax,vmin,err)
        umin,umax,vmin : array, shape (len(R))
-       err - non-zero if error occured
+       err - non-zero if error occurred
     HISTORY:
        2017-12-12 - Written - Bovy (UofT)
     """

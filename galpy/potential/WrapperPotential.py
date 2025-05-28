@@ -1,25 +1,27 @@
 ###############################################################################
 #   WrapperPotential.py: Super-class for wrapper potentials
 ###############################################################################
-from .Potential import Potential, _isNonAxi, _dim
-from .planarPotential import planarPotential
-from .Potential import (
-    _evaluatePotentials,
-    _evaluateRforces,
-    _evaluatephitorques,
-    _evaluatezforces,
-    evaluateR2derivs,
-    evaluatez2derivs,
-    evaluateRzderivs,
-    evaluateDensities,
-)
+from ..util.conversion import get_physical, physical_compatible
 from .planarPotential import (
+    _evaluateplanarphitorques,
     _evaluateplanarPotentials,
     _evaluateplanarRforces,
-    _evaluateplanarphitorques,
     evaluateplanarR2derivs,
+    planarPotential,
 )
-from ..util.conversion import physical_compatible, get_physical
+from .Potential import (
+    Potential,
+    _dim,
+    _evaluatephitorques,
+    _evaluatePotentials,
+    _evaluateRforces,
+    _evaluatezforces,
+    _isNonAxi,
+    evaluateDensities,
+    evaluateR2derivs,
+    evaluateRzderivs,
+    evaluatez2derivs,
+)
 
 
 def _new_obj(cls, kwargs, args):
@@ -108,7 +110,7 @@ class WrapperPotential(Potential):
         return (
             Potential.__repr__(self)
             + ", wrapper of"
-            + "".join(["\n\t{}".format(s) for s in wrapped_repr.split("\n")])
+            + "".join([f"\n\t{s}" for s in wrapped_repr.split("\n")])
         )
 
     def __getattr__(self, attribute):
@@ -226,7 +228,7 @@ class planarWrapperPotential(planarPotential):
         return (
             Potential.__repr__(self)
             + ", wrapper of"
-            + "".join(["\n\t{}".format(s) for s in wrapped_repr.split("\n")])
+            + "".join([f"\n\t{s}" for s in wrapped_repr.split("\n")])
         )
 
     def __getattr__(self, attribute):

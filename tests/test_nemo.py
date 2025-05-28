@@ -1,9 +1,11 @@
 # Test consistency between galpy and NEMO
 import os
-import numpy
 import subprocess
-from galpy.orbit import Orbit
+
+import numpy
+
 from galpy import potential
+from galpy.orbit import Orbit
 from galpy.util import conversion
 
 

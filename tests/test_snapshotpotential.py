@@ -1,6 +1,7 @@
 ################ TESTS OF THE SNAPSHOTPOTENTIAL CLASS AND RELATED #############
 import numpy
 import pynbody
+
 from galpy import potential
 
 

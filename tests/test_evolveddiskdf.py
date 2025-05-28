@@ -1,14 +1,15 @@
 # Tests of the evolveddiskdf module
 import numpy
-from galpy.df import evolveddiskdf, dehnendf
+
+from galpy.df import dehnendf, evolveddiskdf
 from galpy.potential import (
+    EllipticalDiskPotential,
     LogarithmicHaloPotential,
     SteadyLogSpiralPotential,
-    EllipticalDiskPotential,
 )
 
 _GRIDPOINTS = 31
-# globals to save the results from previous calculations to be re-used, pre-setting them allows one to skip tests
+# globals to save the results from previous calculations to be reused, pre-setting them allows one to skip tests
 _maxi_surfacemass = 0.0672746475968
 _maxi_meanvr = -0.000517132979969
 _maxi_meanvt = 0.913328340109
@@ -246,7 +247,7 @@ def test_mildnonaxi_meanvt_hierarchgrid_tlist():
 
 
 def test_mildnonaxi_meanvt_grid_rmEstimates():
-    # Test vmomentsurfacemass w/o having the _estimateX functions in the intial DF
+    # Test vmomentsurfacemass w/o having the _estimateX functions in the initial DF
     class fakeDehnen(dehnendf):  # class that removes the _estimate functions
         def __init__(self, *args, **kwargs):
             dehnendf.__init__(self, *args, **kwargs)
@@ -1226,7 +1227,7 @@ def test_plot_grid():
         gridpoints=_GRIDPOINTS,
     )
     grid.plot()
-    # w/ list of tiems
+    # w/ list of times
     mvr, grid = edf.meanvR(
         0.9,
         t=[0.0, -2.5, -5.0, -7.5, -10.0],
@@ -1257,7 +1258,7 @@ def test_plot_hierarchgrid():
         gridpoints=_GRIDPOINTS,
     )
     grid.plot()
-    # w/ list of tiems
+    # w/ list of times
     mvr, grid = edf.meanvR(
         0.9,
         t=[0.0, -2.5, -5.0, -7.5, -10.0],

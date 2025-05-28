@@ -11,15 +11,15 @@
 #
 ###############################################################################
 import numpy
-from scipy import interpolate, optimize, ndimage
-from . import actionAngleStaeckel
-from .actionAngle import actionAngle
-from . import actionAngleStaeckel_c
-from .actionAngleStaeckel_c import _ext_loaded as ext_loaded
+from scipy import interpolate, ndimage, optimize
+
 from .. import potential
 from ..potential.Potential import _evaluatePotentials
 from ..potential.Potential import flatten as flatten_potential
-from ..util import multi, coords, conversion
+from ..util import conversion, coords, multi
+from . import actionAngleStaeckel, actionAngleStaeckel_c
+from .actionAngle import actionAngle
+from .actionAngleStaeckel_c import _ext_loaded as ext_loaded
 
 _PRINTOUTSIDEGRID = False
 
@@ -55,7 +55,7 @@ class actionAngleStaeckelGrid(actionAngle):
 
            interpecc= (False) if True, also interpolate the approximate eccentricity, zmax, rperi, and rapo
 
-           numcores= number of cpus to use to parallellize
+           numcores= number of cpus to use to parallelize
 
            ro= distance from vantage point to GC (kpc; can be Quantity)
 
@@ -132,10 +132,10 @@ class actionAngleStaeckelGrid(actionAngle):
         thisLzs = (numpy.tile(self._Lzs, (nE, 1)).T).flatten()
         thisERL = (numpy.tile(self._ERL, (nE, 1)).T).flatten()
         thisERa = (numpy.tile(self._ERa, (nE, 1)).T).flatten()
-        thisy = (numpy.tile(y, (nLz, 1))).flatten()
+        this_y = (numpy.tile(y, (nLz, 1))).flatten()
         thisE = _invEfunc(
             _Efunc(thisERa, thisERL)
-            + thisy * (_Efunc(thisERL, thisERL) - _Efunc(thisERa, thisERL)),
+            + this_y * (_Efunc(thisERL, thisERL) - _Efunc(thisERa, thisERL)),
             thisERL,
         )
         if isinstance(self._pot, potential.interpRZPotential) and hasattr(
@@ -200,7 +200,7 @@ class actionAngleStaeckelGrid(actionAngle):
             tmpaA = actionAngleStaeckel.actionAngleStaeckel(
                 pot=self._pot._origPot, delta=self._delta, c=self._c
             )
-            mjr[indx], dum, mjz[indx] = tmpaA(
+            mjr[indx], _, mjz[indx] = tmpaA(
                 thisR[indx],  # R
                 thisv[indx] * numpy.cos(thispsi[indx]),  # vR
                 thisLzs[indx] / thisR[indx],  # vT

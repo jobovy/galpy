@@ -1,17 +1,18 @@
 # Direct force summation N-body code
 import numpy as nu
 from numpy import linalg
-from galpy.util import symplecticode
+
+from galpy.potential.linearPotential import evaluatelinearForces
+from galpy.potential.planarPotential import (
+    evaluateplanarphitorques,
+    evaluateplanarRforces,
+)
 from galpy.potential.Potential import (
+    evaluatephitorques,
     evaluateRforces,
     evaluatezforces,
-    evaluatephitorques,
 )
-from galpy.potential.planarPotential import (
-    evaluateplanarRforces,
-    evaluateplanarphitorques,
-)
-from galpy.potential.linearPotential import evaluatelinearForces
+from galpy.util import symplecticode
 
 
 def direct_nbody(

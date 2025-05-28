@@ -1,5 +1,5 @@
-from ..util.conversion import physical_compatible
 from ..util import config, conversion
+from ..util.conversion import physical_compatible
 
 
 class df:

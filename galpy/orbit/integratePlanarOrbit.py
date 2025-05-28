@@ -1,7 +1,8 @@
 import ctypes
 import ctypes.util
-from numpy.ctypeslib import ndpointer
+
 import numpy
+from numpy.ctypeslib import ndpointer
 from scipy import integrate
 
 _TQDM_LOADED = True
@@ -11,24 +12,21 @@ except ImportError:  # pragma: no cover
     _TQDM_LOADED = False
 _NUMBA_LOADED = True
 try:
-    from numba import types, cfunc
+    from numba import cfunc, types
 except ImportError:
     _NUMBA_LOADED = False
 from .. import potential
 from ..potential.planarPotential import (
+    _evaluateplanarphitorques,
+    _evaluateplanarPotentials,
+    _evaluateplanarRforces,
     planarPotentialFromFullPotential,
     planarPotentialFromRZPotential,
 )
-from ..potential.planarPotential import (
-    _evaluateplanarRforces,
-    _evaluateplanarphitorques,
-    _evaluateplanarPotentials,
-)
 from ..potential.WrapperPotential import parentWrapperPotential
-from ..util.multi import parallel_map
+from ..util import _load_extension_libs, symplecticode
 from ..util.leung_dop853 import dop853
-from ..util import symplecticode
-from ..util import _load_extension_libs
+from ..util.multi import parallel_map
 
 _lib, _ext_loaded = _load_extension_libs.load_libgalpy()
 
@@ -575,7 +573,7 @@ def _parse_tol(rtol, atol):
 
 
 def _parse_scf_pot(p, extra_amp=1.0):
-    # Stand-alone parser for SCF, bc re-used
+    # Stand-alone parser for SCF, bc reused
     isNonAxi = p.isNonAxi
     pot_args = [p._a, isNonAxi]
     pot_args.extend(p._Acos.shape)

@@ -1,8 +1,9 @@
 # Class that implements the anisotropic spherical Hernquist DF with radially
 # varying anisotropy of the Osipkov-Merritt type
 import numpy
+
+from ..potential import HernquistPotential, evaluatePotentials
 from ..util import conversion
-from ..potential import evaluatePotentials, HernquistPotential
 from .osipkovmerrittdf import _osipkovmerrittdf
 
 
@@ -13,7 +14,7 @@ class osipkovmerrittHernquistdf(_osipkovmerrittdf):
 
         \\beta(r) = \\frac{1}{1+r_a^2/r^2}
 
-    with :math:`r_a` the anistropy radius.
+    with :math:`r_a` the anisotropy radius.
 
     """
 

@@ -14,20 +14,22 @@
 #       * _call_internal(self,*args,**kwargs): which returns the DF as a
 #                                              function of (E,L,Lz)
 #       * _sample_eta(self,r,n=1): to sample the velocity angle at r
-#       * _p_v_at_r(self,v,r): whcih returns p(v|r)
+#       * _p_v_at_r(self,v,r): which returns p(v|r)
 #     constantbetadf is an example of this
 #
 import warnings
+
 import numpy
 import scipy.interpolate
 from scipy import integrate, special
-from .df import df
+
+from ..orbit import Orbit
 from ..potential import mass
 from ..potential.Potential import _evaluatePotentials
-from ..potential.SCFPotential import _xiToR, _RToxi
-from ..orbit import Orbit
+from ..potential.SCFPotential import _RToxi, _xiToR
 from ..util import conversion, galpyWarning
 from ..util.conversion import physical_conversion
+from .df import df
 
 if conversion._APY_LOADED:
     from astropy import units
@@ -74,7 +76,7 @@ class sphericaldf(df):
             )
         phys = conversion.get_physical(pot, include_set=True)
         # if pot has physical units, transfer them (if already on, we know
-        # they are compaible)
+        # they are compatible)
         if phys["roSet"] and phys["voSet"]:
             self.turn_physical_on(ro=phys["ro"], vo=phys["vo"])
         if pot is None:  # pragma: no cover
@@ -625,7 +627,7 @@ class isotropicsphericaldf(sphericaldf):
 
         INPUT:
 
-            E,L,Lz - The energy, angular momemtum magnitude, and its z component (only E is used)
+            E,L,Lz - The energy, angular momentum magnitude, and its z component (only E is used)
 
         OUTPUT:
 

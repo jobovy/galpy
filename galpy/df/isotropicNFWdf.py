@@ -1,7 +1,8 @@
 # Class that implements isotropic spherical NFW DF
 import numpy
-from ..util import conversion
+
 from ..potential import NFWPotential
+from ..util import conversion
 from .sphericaldf import isotropicsphericaldf
 
 # Coefficients of the improved analytical approximation that JB made

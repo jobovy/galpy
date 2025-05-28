@@ -1,29 +1,30 @@
 # A 'Binney' quasi-isothermal DF
-import warnings
 import hashlib
+import warnings
+
 import numpy
-from scipy import optimize, interpolate, integrate
-from .. import potential
-from .. import actionAngle
+from scipy import integrate, interpolate, optimize
+
+from .. import actionAngle, potential
 from ..actionAngle import actionAngleIsochrone
+from ..orbit import Orbit
 from ..potential import IsochronePotential
 from ..potential import flatten as flatten_potential
-from ..orbit import Orbit
-from .df import df
 from ..util import galpyWarning
 from ..util.conversion import (
+    _APY_LOADED,
+    _APY_UNITS,
+    actionAngle_physical_input,
+    parse_angmom,
+    parse_length,
+    parse_length_kpc,
+    parse_velocity,
+    parse_velocity_kms,
+    physical_compatible,
     physical_conversion,
     potential_physical_input,
-    actionAngle_physical_input,
-    _APY_UNITS,
-    physical_compatible,
-    parse_length,
-    parse_velocity,
-    parse_angmom,
-    parse_length_kpc,
-    parse_velocity_kms,
-    _APY_LOADED,
 )
+from .df import df
 
 if _APY_LOADED:
     from astropy import units
@@ -2073,7 +2074,7 @@ class quasiisothermaldf(df):
 
         PURPOSE:
 
-           calculate the mean angular momemtum by marginalizing over velocity
+           calculate the mean angular momentum by marginalizing over velocity
 
         INPUT:
 
@@ -2365,7 +2366,7 @@ class quasiisothermaldf(df):
         if z_max is None:
             z_max = numpy.amin([numpy.mean(z) + num_std * numpy.std(z), numpy.amax(z)])
         z_min = 0.0  # Always start grid at z=0 for stars close to plane
-        # Separate the coodinates into outliers and normal points
+        # Separate the coordinates into outliers and normal points
         # Define outliers as points outside of grid
         mask = numpy.any([R < R_min, R > R_max, z > z_max], axis=0)
         outliers_R = R[mask]
@@ -2395,7 +2396,7 @@ class quasiisothermaldf(df):
             Rv, zv = numpy.meshgrid(R_linspace, z_linspace)
             grid = numpy.dstack((Rv, zv))  # This grid stores (R,z) coordinate
             # Grid is a 3 dimensional array since it stores pairs of values, but
-            # grid max vT is a 2 dimensinal array
+            # grid max vT is a 2 dimensional array
             grid_max_vT = numpy.empty((grid.shape[0], grid.shape[1]))
             # Optimize max_vT on the grid
             for i in range(z_number):
@@ -2473,7 +2474,7 @@ class quasiisothermaldf(df):
         maxVz = numpy.zeros(length)
         logmaxVD = self(R, maxVR, maxVT, z, maxVz, log=True, use_physical=False)
         # Now rejection-sample
-        # Intiialize boolean index of position remaining to be sampled
+        # Initialize boolean index of position remaining to be sampled
         remain_indx = numpy.full(length, True)
         while numpy.any(remain_indx):
             nmore = numpy.sum(remain_indx)

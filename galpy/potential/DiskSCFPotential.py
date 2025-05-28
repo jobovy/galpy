@@ -1,10 +1,11 @@
 ###############################################################################
 #   DiskSCFPotential.py: Potential expansion for disk+halo potentials
 ###############################################################################
-from pkg_resources import parse_version
 import copy
+
 import numpy
 import scipy
+from pkg_resources import parse_version
 
 _SCIPY_VERSION = parse_version(scipy.__version__)
 if _SCIPY_VERSION < parse_version("0.10"):  # pragma: no cover
@@ -13,10 +14,12 @@ elif _SCIPY_VERSION < parse_version("0.19"):  # pragma: no cover
     from scipy.misc import logsumexp
 else:
     from scipy.special import logsumexp
+
 from scipy import integrate
+
 from ..util import conversion
 from .Potential import Potential
-from .SCFPotential import SCFPotential, scf_compute_coeffs_axi, scf_compute_coeffs
+from .SCFPotential import SCFPotential, scf_compute_coeffs, scf_compute_coeffs_axi
 
 
 class DiskSCFPotential(Potential):

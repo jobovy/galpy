@@ -1,8 +1,9 @@
 # Class that implements isotropic spherical Hernquist DF
 # computed using the Eddington formula
 import numpy
+
+from ..potential import HernquistPotential, evaluatePotentials
 from ..util import conversion
-from ..potential import evaluatePotentials, HernquistPotential
 from .sphericaldf import isotropicsphericaldf
 
 

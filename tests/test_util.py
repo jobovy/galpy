@@ -4,8 +4,9 @@ import numpy
 
 def test_save_pickles():
     import os
-    import tempfile
     import pickle
+    import tempfile
+
     from galpy.util import save_pickles
 
     savethis = numpy.linspace(0.0, 100.0, 1001)

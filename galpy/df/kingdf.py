@@ -1,6 +1,7 @@
 # Class that represents a King DF
 import numpy
-from scipy import special, integrate, interpolate
+from scipy import integrate, interpolate, special
+
 from ..util import conversion
 from .df import df
 from .sphericaldf import isotropicsphericaldf

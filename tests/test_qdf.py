@@ -1,10 +1,11 @@
 # Tests of the quasiisothermaldf module
 import numpy
 
-# fiducial setup uses these
-from galpy.potential import MWPotential, vcirc, omegac, epifreq, verticalfreq
 from galpy.actionAngle import actionAngleAdiabatic, actionAngleStaeckel
 from galpy.df import quasiisothermaldf
+
+# fiducial setup uses these
+from galpy.potential import MWPotential, epifreq, omegac, vcirc, verticalfreq
 
 aAA = actionAngleAdiabatic(pot=MWPotential, c=True)
 aAS = actionAngleStaeckel(pot=MWPotential, c=True, delta=0.5)
@@ -609,6 +610,7 @@ def test_estimate_hz():
         1.0 / 4.0, 0.2, 0.1, 1.0, 1.0, pot=MWPotential, aA=aAS, cutcounter=True
     )
     from scipy import integrate
+
     from galpy.potential import evaluateDensities
 
     expec_hz = (
@@ -1237,8 +1239,8 @@ def test_setup_diffsetups():
             "qdf setup w/ aA potential different from pot= did not raise exception"
         )
     # qdf setup with an actionAngleIsochrone instance (issue #190)
-    from galpy.potential import IsochronePotential
     from galpy.actionAngle import actionAngleIsochrone
+    from galpy.potential import IsochronePotential
 
     ip = IsochronePotential(normalize=1.0, b=2.0)
     try:
@@ -1442,7 +1444,7 @@ def test_vmomentdensity_diffinoutputs():
         )
         < 0.05
     ), "vmomentsurfmass w/ wrong glqeval input does not work"
-    # Test that we can re-use jr, etc.
+    # Test that we can reuse jr, etc.
     surfmass, jr, lz, jz = qdf.vmomentdensity(
         R, z, 0.0, 0.0, 0.0, gl=True, _return_actions=True
     )
@@ -1454,7 +1456,7 @@ def test_vmomentdensity_diffinoutputs():
             )
         )
         < 0.01
-    ), "surfacemass calculated from re-used actions does not agree with that before"
+    ), "surfacemass calculated from reused actions does not agree with that before"
     surfmass, jr, lz, jz, rg, kappa, nu, Omega = qdf.vmomentdensity(
         R, z, 0.0, 0.0, 0.0, gl=True, _return_actions=True, _return_freqs=True
     )
@@ -1480,7 +1482,7 @@ def test_vmomentdensity_diffinoutputs():
             )
         )
         < 0.01
-    ), "surfacemass calculated from re-used actions does not agree with that before"
+    ), "surfacemass calculated from reused actions does not agree with that before"
     # Some tests of mc=True
     surfmass, vrs, vts, vzs = qdf.vmomentdensity(
         R, z, 0.0, 0.0, 0.0, mc=True, gl=False, _rawgausssamples=True, _returnmc=True
@@ -1594,7 +1596,7 @@ def test_pvz_diffinoutput():
     qdf = quasiisothermaldf(
         1.0 / 4.0, 0.2, 0.1, 1.0, 1.0, pot=MWPotential, aA=aAS, cutcounter=True
     )
-    # test re-using the actions
+    # test reusing the actions
     R, z = 0.8, 0.1
     tpvz, jr, lz, jz = qdf.pvz(0.1, R, z, _return_actions=True)
     assert (
@@ -1602,8 +1604,8 @@ def test_pvz_diffinoutput():
             numpy.log(qdf.pvz(0.1, R, z, _jr=jr, _lz=lz, _jz=jz)) - numpy.log(tpvz)
         )
         < 0.001
-    ), "qdf.pvz does not return the same result when re-using the actions"
-    # test re-using the frequencies
+    ), "qdf.pvz does not return the same result when reusing the actions"
+    # test reusing the frequencies
     tpvz, rg, kappa, nu, Omega = qdf.pvz(0.1, R, z, _return_freqs=True)
     assert (
         numpy.fabs(
@@ -1611,8 +1613,8 @@ def test_pvz_diffinoutput():
             - numpy.log(tpvz)
         )
         < 0.001
-    ), "qdf.pvz does not return the same result when re-using the frequencies"
-    # test re-using the actions and the frequencies
+    ), "qdf.pvz does not return the same result when reusing the frequencies"
+    # test reusing the actions and the frequencies
     tpvz, jr, lz, jz, rg, kappa, nu, Omega = qdf.pvz(
         0.1, R, z, _return_actions=True, _return_freqs=True
     )
@@ -1636,7 +1638,7 @@ def test_pvz_diffinoutput():
         )
         < 0.001
     ), (
-        "qdf.pvz does not return the same result when re-using the actions and the frequencies"
+        "qdf.pvz does not return the same result when reusing the actions and the frequencies"
     )
     return None
 

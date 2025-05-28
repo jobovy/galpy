@@ -21,10 +21,10 @@ extern double	cubic_bspline_2d_interpol
 	//double	*p;
 	long	x_index[4], y_index[4];
 	double	x_weight[4], y_weight[4];
-		
+
 	double	interpolated;
 	double	w/*, w2, w4, t, t0, t1*/;
-	
+
 	long	width2 = 2L * width - 2L, height2 = 2L * height - 2L;
 	long	i, j, k;
 
@@ -49,7 +49,7 @@ extern double	cubic_bspline_2d_interpol
 	y_weight[3] = (1.0 / 6.0) * w * w * w;
 	y_weight[0] = (1.0 / 6.0) + (1.0 / 2.0) * w * (w - 1.0) - y_weight[3];
 	y_weight[2] = w + y_weight[0] - 2.0 * y_weight[3];
-	y_weight[1] = 1.0 - y_weight[0] - y_weight[2] - y_weight[3];		
+	y_weight[1] = 1.0 - y_weight[0] - y_weight[2] - y_weight[3];
 
 	/* apply the mirror boundary conditions */
     for (k = 0L; k <= spline_degree; k++)
@@ -83,7 +83,7 @@ extern double	cubic_bspline_2d_interpol
 	        interpolated += coeffs[x_index[i]*height+y_index[j]] * x_weight[i] * y_weight[j];
 	    }
     }
-    
+
 	return(interpolated);
 }
 // LCOV_EXCL_START
@@ -103,10 +103,10 @@ extern double	cubic_bspline_2d_interpol_dx
 	//double	*p;
 	long	x_index[3], y_index[4];
 	double	x_weight[3], y_weight[4];
-		
+
 	double	interpolated;
 	double	w/*, w2, w4, t, t0, t1*/;
-	
+
 	long	width2 = 2L * width - 2L, height2 = 2L * height - 2L;
 	long	i, j, k;
 
@@ -121,7 +121,7 @@ extern double	cubic_bspline_2d_interpol_dx
 		    x_index[k] = i++;
 		}
 		y_index[k] = j++;
-		
+
 	}
 
 	/* compute the interpolation weights */
@@ -135,7 +135,7 @@ extern double	cubic_bspline_2d_interpol_dx
 	y_weight[3] = (1.0 / 6.0) * w * w * w;
 	y_weight[0] = (1.0 / 6.0) + (1.0 / 2.0) * w * (w - 1.0) - y_weight[3];
 	y_weight[2] = w + y_weight[0] - 2.0 * y_weight[3];
-	y_weight[1] = 1.0 - y_weight[0] - y_weight[2] - y_weight[3];		
+	y_weight[1] = 1.0 - y_weight[0] - y_weight[2] - y_weight[3];
 
 	/* apply the mirror boundary conditions */
     for (k = 0L; k <= spline_degree; k++)
@@ -148,7 +148,7 @@ extern double	cubic_bspline_2d_interpol_dx
                 x_index[k] = width2 - x_index[k];
             }
         }
-        
+
         y_index[k] = (height == 1L) ? (0L) : ((y_index[k] < 0L) ?(-y_index[k] - height2 * ((-y_index[k]) / height2)) : (y_index[k] - height2 * (y_index[k] / height2)));
         if (height <= y_index[k])
         {
@@ -166,7 +166,7 @@ extern double	cubic_bspline_2d_interpol_dx
 		}
 		interpolated += y_weight[j] * w;
 	}*/
-	
+
 	for(i=0L; i<spline_degree; i++)
 	{
 	    for(j=0L; j<=spline_degree; j++)
@@ -194,10 +194,10 @@ extern double	cubic_bspline_2d_interpol_dy
 	//double	*p;
 	long	x_index[4], y_index[3];
 	double	x_weight[4], y_weight[3];
-		
+
 	double	interpolated;
 	double	w/*, w2, w4, t, t0, t1*/;
-	
+
 	long	width2 = 2L * width - 2L, height2 = 2L * height - 2L;
 	long	i, j, k;
 
@@ -211,8 +211,8 @@ extern double	cubic_bspline_2d_interpol_dy
 	    if(k<spline_degree)
 	    {
 		    y_index[k] = j++;
-		}		
-		
+		}
+
 	}
 
 	/* compute the interpolation weights */
@@ -231,13 +231,13 @@ extern double	cubic_bspline_2d_interpol_dy
 	/* apply the mirror boundary conditions */
     for (k = 0L; k <= spline_degree; k++)
     {
-        
+
         x_index[k] = (width == 1L) ? (0L) : ((x_index[k] < 0L) ? (-x_index[k] - width2 * ((-x_index[k]) / width2)) : (x_index[k] - width2 * (x_index[k] / width2)));
         if (width <= x_index[k])
         {
             x_index[k] = width2 - x_index[k];
         }
-        
+
         if(k<spline_degree)
         {
             y_index[k] = (height == 1L) ? (0L) : ((y_index[k] < 0L) ?(-y_index[k] - height2 * ((-y_index[k]) / height2)) : (y_index[k] - height2 * (y_index[k] / height2)));
@@ -258,7 +258,7 @@ extern double	cubic_bspline_2d_interpol_dy
 		}
 		interpolated += y_weight[j] * w;
 	}*/
-	
+
 	for(i=0L; i<=spline_degree; i++)
 	{
 	    for(j=0L; j<spline_degree; j++)

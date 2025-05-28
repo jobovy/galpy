@@ -17,27 +17,30 @@ _RMIN = 10.0**-10.0
 _MAXD_REJECTLOS = 4.0
 _PROFILE = False
 import copy
-import os, os.path
+import os
+import os.path
 import pickle
+
 import numpy
 import scipy
 
 numpylog = numpy.lib.scimath.log  # somehow, this code produces log(negative), which scipy (now numpy.lib.scimath.log) implements as log(|negative|) + i pi while numpy gives NaN and we want the scipy behavior; not sure where the log(negative) comes from though! I think it's for sigma=0 DFs (this test fails with numpy.log) where the DF eval has a log(~zero) that can be slightly negative because of numerical precision issues
-from scipy import integrate, interpolate, stats, optimize
-from .surfaceSigmaProfile import surfaceSigmaProfile, expSurfaceSigmaProfile
+from scipy import integrate, interpolate, optimize, stats
+
+from ..actionAngle import actionAngleAdiabatic
 from ..orbit import Orbit
+from ..potential import PowerSphericalPotential
+from ..util import conversion, save_pickles
 from ..util.ars import ars
-from ..util import save_pickles, conversion
 from ..util.conversion import (
+    _APY_LOADED,
+    _APY_UNITS,
     physical_conversion,
     potential_physical_input,
-    _APY_UNITS,
-    _APY_LOADED,
     surfdens_in_msolpc2,
 )
-from ..potential import PowerSphericalPotential
-from ..actionAngle import actionAngleAdiabatic
 from .df import df
+from .surfaceSigmaProfile import expSurfaceSigmaProfile, surfaceSigmaProfile
 
 if _APY_LOADED:
     from astropy import units
@@ -2237,7 +2240,7 @@ class dehnendf(diskdf):
             out = out[0 : int(n * nphi)]
         if kwargs.get("use_physical", True) and self._roSet and self._voSet:
             if isinstance(out[0], Orbit):
-                dum = [o.turn_physical_on(ro=self._ro, vo=self._vo) for o in out]
+                dummy = [o.turn_physical_on(ro=self._ro, vo=self._vo) for o in out]
         return out
 
     def _dlnfdR(self, R, vR, vT):
@@ -2625,7 +2628,7 @@ class shudf(diskdf):
             out = out[0 : int(n * nphi)]
         if kwargs.get("use_physical", True) and self._roSet and self._voSet:
             if isinstance(out[0], Orbit):
-                dum = [o.turn_physical_on(ro=self._ro, vo=self._vo) for o in out]
+                dummy = [o.turn_physical_on(ro=self._ro, vo=self._vo) for o in out]
         return out
 
     def _dlnfdR(self, R, vR, vT):

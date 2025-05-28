@@ -7,6 +7,7 @@
 ###############################################################################
 import numpy
 from scipy import special
+
 from ..util import conversion
 from .Potential import Potential, kms_to_kpcGyrDecorator
 
@@ -400,4 +401,4 @@ class PowerSphericalPotentialwCutoff(Potential):
 
         """
         ampl = self._amp * vo**2.0 * ro ** (self.alpha - 2.0)
-        return "0,{},{},{}".format(ampl, self.alpha, self.rc * ro)
+        return f"0,{ampl},{self.alpha},{self.rc * ro}"

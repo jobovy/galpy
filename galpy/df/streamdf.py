@@ -2,10 +2,11 @@
 import copy
 import multiprocessing
 import warnings
-from pkg_resources import parse_version
+
 import numpy
 import scipy
-from scipy import special, interpolate, integrate, optimize
+from pkg_resources import parse_version
+from scipy import integrate, interpolate, optimize, special
 
 _SCIPY_VERSION = parse_version(scipy.__version__)
 if _SCIPY_VERSION < parse_version("0.10"):  # pragma: no cover
@@ -14,21 +15,22 @@ elif _SCIPY_VERSION < parse_version("0.19"):  # pragma: no cover
     from scipy.misc import logsumexp
 else:
     from scipy.special import logsumexp
+
+from ..actionAngle.actionAngleIsochroneApprox import dePeriod
 from ..orbit import Orbit
-from .df import df
+from ..potential import flatten as flatten_potential
 from ..util import (
+    ars,
+    conversion,
     coords,
     fast_cholesky_invert,
-    conversion,
+    galpyWarning,
     multi,
     plot,
     stable_cho_factor,
-    ars,
 )
-from ..util.conversion import physical_conversion, _APY_UNITS, _APY_LOADED
-from ..actionAngle.actionAngleIsochroneApprox import dePeriod
-from ..potential import flatten as flatten_potential
-from ..util import galpyWarning
+from ..util.conversion import _APY_LOADED, _APY_UNITS, physical_conversion
+from .df import df
 
 if _APY_LOADED:
     from astropy import units

@@ -6,23 +6,24 @@ if not WIN32:  # Enable 64bit for JAX
     from jax.config import config
 
     config.update("jax_enable_x64", True)
-import pytest
 import numpy
+import pytest
 from scipy import special
+
 from galpy import potential
 from galpy.df import (
-    isotropicHernquistdf,
-    constantbetaHernquistdf,
-    kingdf,
-    isotropicPlummerdf,
-    osipkovmerrittHernquistdf,
-    isotropicNFWdf,
-    eddingtondf,
-    osipkovmerrittdf,
-    osipkovmerrittNFWdf,
     constantbetadf,
+    constantbetaHernquistdf,
+    eddingtondf,
+    isotropicHernquistdf,
+    isotropicNFWdf,
+    isotropicPlummerdf,
+    jeans,
+    kingdf,
+    osipkovmerrittdf,
+    osipkovmerrittHernquistdf,
+    osipkovmerrittNFWdf,
 )
-from galpy.df import jeans
 
 
 ############################# ISOTROPIC HERNQUIST DF ##########################
@@ -1528,7 +1529,7 @@ def test_king_beta_directint():
 
 ############################### OSIPKOV-MERRITT DF ############################
 # For the following tests, we use a DehnenCoreSphericalPotential
-osipkovmerritt_dfs_selfconsist = None  # re-use in other tests
+osipkovmerritt_dfs_selfconsist = None  # reuse in other tests
 
 
 def test_osipkovmerritt_selfconsist_dehnencore_dens_spherically_symmetric():
@@ -1690,7 +1691,7 @@ def test_osipkovmerritt_selfconsist_dehnencore_Qoutofbounds():
 
 # For the following tests, we use a DehnenCoreSphericalPotential embedded in
 # an NFW halo
-osipkovmerritt_dfs_dehnencore_in_nfw = None  # re-use in other tests
+osipkovmerritt_dfs_dehnencore_in_nfw = None  # reuse in other tests
 
 
 def test_osipkovmerritt_dehnencore_in_nfw_dens_spherically_symmetric():
@@ -1889,7 +1890,7 @@ def test_constantbetadf_against_hernquist():
 
 
 # For the following tests, we use a DehnenCoreSphericalPotential
-constantbeta_dfs_selfconsist = None  # re-use in other tests
+constantbeta_dfs_selfconsist = None  # reuse in other tests
 
 
 def test_constantbeta_selfconsist_dehnencore_dens_spherically_symmetric():
@@ -2082,7 +2083,7 @@ def test_constantbeta_selfconsist_dehnencore_rmin_inbounds():
 
 # For the following tests, we use a DehnenCoreSphericalPotential embedded in
 # an NFW halo
-constantbeta_dfs_dehnencore_in_nfw = None  # re-use in other tests
+constantbeta_dfs_dehnencore_in_nfw = None  # reuse in other tests
 
 
 def test_constantbeta_dehnencore_in_nfw_dens_spherically_symmetric():
@@ -2399,7 +2400,7 @@ def test_eddington_pot_denspot_incompatibleunits():
     return None
 
 
-# Test that the unit system is correctly transfered
+# Test that the unit system is correctly transferred
 def test_isotropic_hernquist_unittransfer():
     from galpy.util import conversion
 
@@ -2414,10 +2415,10 @@ def test_isotropic_hernquist_unittransfer():
         "sphericaldf's vo not set when that of the underlying potential is set"
     )
     assert numpy.fabs(phys["ro"] - ro) < 1e-8, (
-        "Potential's unit system not correctly transfered to sphericaldf's"
+        "Potential's unit system not correctly transferred to sphericaldf's"
     )
     assert numpy.fabs(phys["vo"] - vo) < 1e-8, (
-        "Potential's unit system not correctly transfered to sphericaldf's"
+        "Potential's unit system not correctly transferred to sphericaldf's"
     )
     # Following should not be on
     pot = potential.HernquistPotential(amp=2.0, a=1.3)

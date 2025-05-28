@@ -1,12 +1,12 @@
 ############################TESTS ON POTENTIALS################################
 import os
-import sys
+
 import numpy
-from galpy import potential
-from galpy import df
+
+from galpy import df, potential
+from galpy.orbit import Orbit
 from galpy.potential import SCFPotential
 from galpy.util import coords
-from galpy.orbit import Orbit
 
 _TRAVIS = bool(os.getenv("TRAVIS"))
 

@@ -3,7 +3,7 @@ name: Build Mac OS X & Windows wheels and upload to PyPI upon release
 # Update on every push and PR to main, and upon release creation
 on:
   push:
-    branches:    
+    branches:
       - main
     paths:
       - '**'
@@ -32,7 +32,7 @@ jobs:
     steps:
       # check-out this repository
       - uses: actions/checkout@v3
-      # Install micro-mamba, as specificed by this repository's environment.yml
+      # Install micro-mamba, as specified by this repository's environment.yml
       - uses: mamba-org/provision-with-micromamba@main
         with:
           environment-name: galpywheels
@@ -81,7 +81,7 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2      
+      - uses: actions/checkout@v2
       - run: |
           mkdir tmp_wheelhouse
           mkdir wheelhouse

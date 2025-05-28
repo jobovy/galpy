@@ -7,6 +7,7 @@
 #                                   m^\alpha
 ###############################################################################
 import numpy
+
 from ..util import conversion
 from .Potential import Potential
 

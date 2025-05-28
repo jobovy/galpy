@@ -12,8 +12,9 @@
 #
 ###############################################################################
 import numpy
-from .actionAngle import actionAngle
+
 from ..util import conversion
+from .actionAngle import actionAngle
 
 
 class actionAngleHarmonic(actionAngle):

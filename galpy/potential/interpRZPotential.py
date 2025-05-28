@@ -2,13 +2,14 @@ import copy
 import ctypes
 import ctypes.util
 from functools import wraps
+
 import numpy
 from numpy.ctypeslib import ndpointer
 from scipy import interpolate
-from ..util import multi
-from .Potential import Potential
+
+from ..util import _load_extension_libs, multi
 from ..util.conversion import physical_conversion
-from ..util import _load_extension_libs
+from .Potential import Potential
 
 _DEBUG = False
 

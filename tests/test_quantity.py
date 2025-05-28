@@ -1,6 +1,7 @@
 # Make sure to set configuration, needs to be before any galpy imports
-from pkg_resources import parse_version
 import pytest
+from pkg_resources import parse_version
+
 from galpy.util import config
 
 config.__config__.set("astropy", "astropy-units", "True")
@@ -10,7 +11,7 @@ _NUMPY_VERSION = parse_version(numpy.__version__)
 _NUMPY_1_22 = (_NUMPY_VERSION > parse_version("1.21")) * (
     _NUMPY_VERSION < parse_version("1.23")
 )  # For testing 1.22 precision issues
-from astropy import units, constants
+from astropy import constants, units
 
 sdf_sanders15 = None  # so we can set this up and then use in other tests
 sdf_sanders15_nou = None  # so we can set this up and then use in other tests
@@ -1858,10 +1859,11 @@ def test_orbit_method_value_turnquantityoff():
 
 
 def test_integrate_timeAsQuantity():
+    import copy
+
     from galpy.orbit import Orbit
     from galpy.potential import MWPotential
     from galpy.util import conversion
-    import copy
 
     ro, vo = 8.0, 200.0
     o = Orbit(
@@ -1905,10 +1907,11 @@ def test_integrate_timeAsQuantity():
 
 
 def test_integrate_timeAsQuantity_Myr():
+    import copy
+
     from galpy.orbit import Orbit
     from galpy.potential import MWPotential
     from galpy.util import conversion
-    import copy
 
     ro, vo = 8.0, 200.0
     o = Orbit(
@@ -1952,10 +1955,11 @@ def test_integrate_timeAsQuantity_Myr():
 
 
 def test_integrate_dtimeAsQuantity():
+    import copy
+
     from galpy.orbit import Orbit
     from galpy.potential import MWPotential
     from galpy.util import conversion
-    import copy
 
     ro, vo = 8.0, 200.0
     o = Orbit(
@@ -2002,10 +2006,11 @@ def test_integrate_dtimeAsQuantity():
 
 
 def test_integrate_dxdv_timeAsQuantity():
+    import copy
+
     from galpy.orbit import Orbit
     from galpy.potential import MWPotential
     from galpy.util import conversion
-    import copy
 
     ro, vo = 8.0, 200.0
     o = Orbit(
@@ -2036,10 +2041,11 @@ def test_integrate_dxdv_timeAsQuantity():
 
 
 def test_integrate_dxdv_timeAsQuantity_Myr():
+    import copy
+
     from galpy.orbit import Orbit
     from galpy.potential import MWPotential
     from galpy.util import conversion
-    import copy
 
     ro, vo = 8.0, 200.0
     o = Orbit(
@@ -3482,10 +3488,11 @@ def test_orbits_method_value_turnquantityoff():
 
 
 def test_integrate_orbits_timeAsQuantity():
+    import copy
+
     from galpy.orbit import Orbit
     from galpy.potential import MWPotential
     from galpy.util import conversion
-    import copy
 
     ro, vo = 8.0, 200.0
     o = Orbit(
@@ -3587,10 +3594,11 @@ def test_integrate_orbits_timeAsQuantity():
 
 
 def test_orbits_integrate_timeAsQuantity_Myr():
+    import copy
+
     from galpy.orbit import Orbit
     from galpy.potential import MWPotential
     from galpy.util import conversion
-    import copy
 
     ro, vo = 8.0, 200.0
     o = Orbit(
@@ -3692,10 +3700,11 @@ def test_orbits_integrate_timeAsQuantity_Myr():
 
 
 def test_orbits_integrate_dtimeAsQuantity():
+    import copy
+
     from galpy.orbit import Orbit
     from galpy.potential import MWPotential
     from galpy.util import conversion
-    import copy
 
     ro, vo = 8.0, 200.0
     o = Orbit(
@@ -3849,8 +3858,8 @@ def test_orbits_inconsistentPotentialUnits_error():
 
 
 def test_orbit_method_inputAsQuantity():
-    from galpy.orbit import Orbit
     from galpy import potential
+    from galpy.orbit import Orbit
 
     ro, vo = 7.0, 210.0
     o = Orbit(
@@ -4759,8 +4768,8 @@ def test_linearPotential_method_value():
 
 
 def test_potential_function_returntype():
-    from galpy.potential import PlummerPotential
     from galpy import potential
+    from galpy.potential import PlummerPotential
 
     pot = [PlummerPotential(normalize=True, ro=8.0, vo=220.0)]
     assert isinstance(potential.evaluatePotentials(pot, 1.1, 0.1), units.Quantity), (
@@ -4857,8 +4866,8 @@ def test_potential_function_returntype():
 
 
 def test_planarPotential_function_returntype():
-    from galpy.potential import PlummerPotential
     from galpy import potential
+    from galpy.potential import PlummerPotential
 
     pot = [PlummerPotential(normalize=True, ro=8.0, vo=220.0).toPlanar()]
     assert isinstance(potential.evaluateplanarPotentials(pot, 1.1), units.Quantity), (
@@ -4895,8 +4904,8 @@ def test_planarPotential_function_returntype():
 
 
 def test_linearPotential_function_returntype():
-    from galpy.potential import PlummerPotential
     from galpy import potential
+    from galpy.potential import PlummerPotential
 
     pot = [PlummerPotential(normalize=True, ro=8.0, vo=220.0).toVertical(1.1)]
     assert isinstance(potential.evaluatelinearPotentials(pot, 1.1), units.Quantity), (
@@ -4909,8 +4918,8 @@ def test_linearPotential_function_returntype():
 
 
 def test_potential_function_returnunit():
-    from galpy.potential import PlummerPotential
     from galpy import potential
+    from galpy.potential import PlummerPotential
 
     pot = [PlummerPotential(normalize=True, ro=8.0, vo=220.0)]
     try:
@@ -5091,8 +5100,8 @@ def test_potential_function_returnunit():
 
 
 def test_planarPotential_function_returnunit():
-    from galpy.potential import PlummerPotential, LopsidedDiskPotential
     from galpy import potential
+    from galpy.potential import LopsidedDiskPotential, PlummerPotential
 
     pot = [
         PlummerPotential(normalize=True, ro=8.0, vo=220.0).toPlanar(),
@@ -5161,8 +5170,8 @@ def test_planarPotential_function_returnunit():
 
 
 def test_linearPotential_function_returnunit():
-    from galpy.potential import KGPotential
     from galpy import potential
+    from galpy.potential import KGPotential
 
     pot = [KGPotential(ro=8.0 * units.kpc, vo=220.0 * units.km / units.s)]
     try:
@@ -5181,8 +5190,8 @@ def test_linearPotential_function_returnunit():
 
 
 def test_potential_function_value():
-    from galpy.potential import PlummerPotential
     from galpy import potential
+    from galpy.potential import PlummerPotential
     from galpy.util import conversion
 
     ro, vo = 8.0, 220.0
@@ -5419,8 +5428,8 @@ def test_potential_function_value():
 
 
 def test_planarPotential_function_value():
-    from galpy.potential import PlummerPotential
     from galpy import potential
+    from galpy.potential import PlummerPotential
     from galpy.util import conversion
 
     ro, vo = 8.0, 220.0
@@ -5494,8 +5503,8 @@ def test_planarPotential_function_value():
 
 
 def test_linearPotential_function_value():
-    from galpy.potential import PlummerPotential
     from galpy import potential
+    from galpy.potential import PlummerPotential
     from galpy.util import conversion
 
     ro, vo = 8.0, 220.0
@@ -6335,8 +6344,8 @@ def test_planarPotential_method_inputAsQuantity_Raskwarg():
 
 
 def test_linearPotential_method_inputAsQuantity():
-    from galpy.potential import PlummerPotential, SpiralArmsPotential
     from galpy import potential
+    from galpy.potential import PlummerPotential, SpiralArmsPotential
     from galpy.util import conversion
 
     ro, vo = 8.0 * units.kpc, 220.0 * units.km / units.s
@@ -6384,8 +6393,8 @@ def test_linearPotential_method_inputAsQuantity():
 
 
 def test_linearPotential_method_inputAsQuantity_xaskwarg():
-    from galpy.potential import PlummerPotential, SpiralArmsPotential
     from galpy import potential
+    from galpy.potential import PlummerPotential, SpiralArmsPotential
     from galpy.util import conversion
 
     ro, vo = 8.0 * units.kpc, 220.0 * units.km / units.s
@@ -6506,9 +6515,9 @@ def test_dissipativeforce_method_inputAsQuantity():
 
 
 def test_potential_function_inputAsQuantity():
+    from galpy import potential
     from galpy.potential import PlummerPotential
     from galpy.util import conversion
-    from galpy import potential
 
     ro, vo = 8.0 * units.kpc, 220.0
     pot = [PlummerPotential(normalize=True, ro=ro, vo=vo)]
@@ -6922,9 +6931,9 @@ def test_potential_function_inputAsQuantity():
 
 
 def test_potential_function_inputAsQuantity_Rzaskwargs():
+    from galpy import potential
     from galpy.potential import PlummerPotential
     from galpy.util import conversion
-    from galpy import potential
 
     ro, vo = 8.0 * units.kpc, 220.0
     pot = [PlummerPotential(normalize=True, ro=ro, vo=vo)]
@@ -7224,9 +7233,9 @@ def test_potential_function_inputAsQuantity_Rzaskwargs():
 
 
 def test_dissipativeforce_function_inputAsQuantity():
+    from galpy import potential
     from galpy.potential import ChandrasekharDynamicalFrictionForce
     from galpy.util import conversion
-    from galpy import potential
 
     ro, vo = 8.0 * units.kpc, 220.0
     pot = ChandrasekharDynamicalFrictionForce(GMs=0.1, rhm=1.2 / 8.0, ro=ro, vo=vo)
@@ -7310,8 +7319,8 @@ def test_dissipativeforce_function_inputAsQuantity():
 
 
 def test_planarPotential_function_inputAsQuantity():
-    from galpy.potential import PlummerPotential
     from galpy import potential
+    from galpy.potential import PlummerPotential
 
     ro, vo = 8.0 * units.kpc, 220.0
     pot = [PlummerPotential(normalize=True, ro=ro, vo=vo).toPlanar()]
@@ -7376,8 +7385,8 @@ def test_planarPotential_function_inputAsQuantity():
 
 
 def test_planarPotential_function_inputAsQuantity_Raskwarg():
-    from galpy.potential import PlummerPotential
     from galpy import potential
+    from galpy.potential import PlummerPotential
 
     ro, vo = 8.0 * units.kpc, 220.0
     pot = [PlummerPotential(normalize=True, ro=ro, vo=vo).toPlanar()]
@@ -7442,8 +7451,8 @@ def test_planarPotential_function_inputAsQuantity_Raskwarg():
 
 
 def test_linearPotential_function_inputAsQuantity():
-    from galpy.potential import PlummerPotential, SpiralArmsPotential
     from galpy import potential
+    from galpy.potential import PlummerPotential, SpiralArmsPotential
 
     ro, vo = 8.0 * units.kpc, 220.0
     pot = [PlummerPotential(normalize=True, ro=ro, vo=vo).toVertical(1.1 * ro)]
@@ -7491,8 +7500,8 @@ def test_linearPotential_function_inputAsQuantity():
 
 
 def test_linearPotential_function_inputAsQuantity_xaskwarg():
-    from galpy.potential import PlummerPotential, SpiralArmsPotential
     from galpy import potential
+    from galpy.potential import PlummerPotential, SpiralArmsPotential
 
     ro, vo = 8.0 * units.kpc, 220.0
     pot = [PlummerPotential(normalize=True, ro=ro, vo=vo).toVertical(1.1 * ro)]
@@ -7540,8 +7549,8 @@ def test_linearPotential_function_inputAsQuantity_xaskwarg():
 
 
 def test_plotting_inputAsQuantity():
-    from galpy.potential import PlummerPotential
     from galpy import potential
+    from galpy.potential import PlummerPotential
 
     ro, vo = 8.0 * units.kpc, 220.0
     pot = PlummerPotential(normalize=True, ro=ro, vo=vo)
@@ -10756,16 +10765,16 @@ def test_SCFPotential_from_density():
 
 def test_actionAngle_method_returntype():
     from galpy.actionAngle import (
-        actionAngleIsochrone,
-        actionAngleSpherical,
         actionAngleAdiabatic,
-        actionAngleStaeckel,
-        actionAngleIsochroneApprox,
-        actionAngleIsochroneInverse,
         actionAngleHarmonic,
         actionAngleHarmonicInverse,
+        actionAngleIsochrone,
+        actionAngleIsochroneApprox,
+        actionAngleIsochroneInverse,
+        actionAngleSpherical,
+        actionAngleStaeckel,
     )
-    from galpy.potential import PlummerPotential, MWPotential, IsochronePotential
+    from galpy.potential import IsochronePotential, MWPotential, PlummerPotential
 
     # actionAngleHarmonic
     ip = IsochronePotential(normalize=5.0, b=10000.0)
@@ -10925,16 +10934,16 @@ def test_actionAngle_method_returntype():
 
 def test_actionAngle_method_returnunit():
     from galpy.actionAngle import (
-        actionAngleIsochrone,
-        actionAngleSpherical,
         actionAngleAdiabatic,
-        actionAngleStaeckel,
-        actionAngleIsochroneApprox,
-        actionAngleIsochroneInverse,
         actionAngleHarmonic,
         actionAngleHarmonicInverse,
+        actionAngleIsochrone,
+        actionAngleIsochroneApprox,
+        actionAngleIsochroneInverse,
+        actionAngleSpherical,
+        actionAngleStaeckel,
     )
-    from galpy.potential import PlummerPotential, MWPotential, IsochronePotential
+    from galpy.potential import IsochronePotential, MWPotential, PlummerPotential
 
     # actionAngleHarmonic
     ip = IsochronePotential(normalize=5.0, b=10000.0)
@@ -11315,16 +11324,16 @@ def test_actionAngle_method_returnunit():
 
 def test_actionAngle_method_value():
     from galpy.actionAngle import (
-        actionAngleIsochrone,
-        actionAngleSpherical,
         actionAngleAdiabatic,
-        actionAngleStaeckel,
-        actionAngleIsochroneApprox,
-        actionAngleIsochroneInverse,
         actionAngleHarmonic,
         actionAngleHarmonicInverse,
+        actionAngleIsochrone,
+        actionAngleIsochroneApprox,
+        actionAngleIsochroneInverse,
+        actionAngleSpherical,
+        actionAngleStaeckel,
     )
-    from galpy.potential import PlummerPotential, MWPotential, IsochronePotential
+    from galpy.potential import IsochronePotential, MWPotential, PlummerPotential
     from galpy.util import conversion
 
     ro, vo = 9.0, 230.0
@@ -11911,16 +11920,16 @@ def test_actionAngle_method_value():
 
 def test_actionAngle_setup_roAsQuantity():
     from galpy.actionAngle import (
-        actionAngleIsochrone,
-        actionAngleSpherical,
         actionAngleAdiabatic,
-        actionAngleStaeckel,
-        actionAngleIsochroneApprox,
-        actionAngleIsochroneInverse,
         actionAngleHarmonic,
         actionAngleHarmonicInverse,
+        actionAngleIsochrone,
+        actionAngleIsochroneApprox,
+        actionAngleIsochroneInverse,
+        actionAngleSpherical,
+        actionAngleStaeckel,
     )
-    from galpy.potential import PlummerPotential, MWPotential, IsochronePotential
+    from galpy.potential import IsochronePotential, MWPotential, PlummerPotential
 
     # actionAngleHarmonicc
     ip = IsochronePotential(normalize=5.0, b=10000.0)
@@ -11974,16 +11983,16 @@ def test_actionAngle_setup_roAsQuantity():
 
 def test_actionAngle_setup_roAsQuantity_oddunits():
     from galpy.actionAngle import (
-        actionAngleIsochrone,
-        actionAngleSpherical,
         actionAngleAdiabatic,
-        actionAngleStaeckel,
-        actionAngleIsochroneApprox,
-        actionAngleIsochroneInverse,
         actionAngleHarmonic,
         actionAngleHarmonicInverse,
+        actionAngleIsochrone,
+        actionAngleIsochroneApprox,
+        actionAngleIsochroneInverse,
+        actionAngleSpherical,
+        actionAngleStaeckel,
     )
-    from galpy.potential import PlummerPotential, MWPotential, IsochronePotential
+    from galpy.potential import IsochronePotential, MWPotential, PlummerPotential
 
     # actionAngleHarmonic
     ip = IsochronePotential(normalize=5.0, b=10000.0)
@@ -12037,16 +12046,16 @@ def test_actionAngle_setup_roAsQuantity_oddunits():
 
 def test_actionAngle_setup_voAsQuantity():
     from galpy.actionAngle import (
-        actionAngleIsochrone,
-        actionAngleSpherical,
         actionAngleAdiabatic,
-        actionAngleStaeckel,
-        actionAngleIsochroneApprox,
-        actionAngleIsochroneInverse,
         actionAngleHarmonic,
         actionAngleHarmonicInverse,
+        actionAngleIsochrone,
+        actionAngleIsochroneApprox,
+        actionAngleIsochroneInverse,
+        actionAngleSpherical,
+        actionAngleStaeckel,
     )
-    from galpy.potential import PlummerPotential, MWPotential, IsochronePotential
+    from galpy.potential import IsochronePotential, MWPotential, PlummerPotential
 
     # actionAngleHarmonic
     ip = IsochronePotential(normalize=5.0, b=10000.0)
@@ -12104,16 +12113,16 @@ def test_actionAngle_setup_voAsQuantity():
 
 def test_actionAngle_setup_voAsQuantity_oddunits():
     from galpy.actionAngle import (
-        actionAngleIsochrone,
-        actionAngleSpherical,
         actionAngleAdiabatic,
-        actionAngleStaeckel,
-        actionAngleIsochroneApprox,
-        actionAngleIsochroneInverse,
         actionAngleHarmonic,
         actionAngleHarmonicInverse,
+        actionAngleIsochrone,
+        actionAngleIsochroneApprox,
+        actionAngleIsochroneInverse,
+        actionAngleSpherical,
+        actionAngleStaeckel,
     )
-    from galpy.potential import PlummerPotential, MWPotential, IsochronePotential
+    from galpy.potential import IsochronePotential, MWPotential, PlummerPotential
 
     # actionAngleHarmonic
     ip = IsochronePotential(normalize=5.0, b=10000.0)
@@ -12375,16 +12384,16 @@ def test_actionAngleIsochroneApprix_setup_tintJ_units():
 
 def test_actionAngle_method_inputAsQuantity():
     from galpy.actionAngle import (
-        actionAngleIsochrone,
-        actionAngleSpherical,
         actionAngleAdiabatic,
-        actionAngleStaeckel,
-        actionAngleIsochroneApprox,
-        actionAngleIsochroneInverse,
         actionAngleHarmonic,
         actionAngleHarmonicInverse,
+        actionAngleIsochrone,
+        actionAngleIsochroneApprox,
+        actionAngleIsochroneInverse,
+        actionAngleSpherical,
+        actionAngleStaeckel,
     )
-    from galpy.potential import PlummerPotential, MWPotential, IsochronePotential
+    from galpy.potential import IsochronePotential, MWPotential, PlummerPotential
 
     ro, vo = 9.0, 230.0
     # actionAngleHarmonic
@@ -13075,9 +13084,9 @@ def test_actionAngle_method_inputAsQuantity():
 
 
 def test_actionAngleIsochroneApprox_method_ts_units():
-    from galpy.potential import IsochronePotential
     from galpy.actionAngle import actionAngleIsochroneApprox
     from galpy.orbit import Orbit
+    from galpy.potential import IsochronePotential
     from galpy.util import conversion
 
     ip = IsochronePotential(normalize=1.0, b=1.2)
@@ -13112,14 +13121,14 @@ def test_actionAngleIsochroneApprox_method_ts_units():
 
 def test_actionAngle_inconsistentPotentialUnits_error():
     from galpy.actionAngle import (
-        actionAngleIsochrone,
-        actionAngleSpherical,
         actionAngleAdiabatic,
-        actionAngleStaeckel,
+        actionAngleIsochrone,
         actionAngleIsochroneApprox,
         actionAngleIsochroneInverse,
+        actionAngleSpherical,
+        actionAngleStaeckel,
     )
-    from galpy.potential import PlummerPotential, IsochronePotential
+    from galpy.potential import IsochronePotential, PlummerPotential
 
     # actionAngleIsochrone
     pot = IsochronePotential(normalize=1.0, ro=7.0, vo=220.0)
@@ -13168,14 +13177,14 @@ def test_actionAngle_inconsistentPotentialUnits_error():
 
 def test_actionAngle_inconsistentOrbitUnits_error():
     from galpy.actionAngle import (
-        actionAngleIsochrone,
-        actionAngleSpherical,
         actionAngleAdiabatic,
-        actionAngleStaeckel,
+        actionAngleIsochrone,
         actionAngleIsochroneApprox,
+        actionAngleSpherical,
+        actionAngleStaeckel,
     )
-    from galpy.potential import PlummerPotential, IsochronePotential
     from galpy.orbit import Orbit
+    from galpy.potential import IsochronePotential, PlummerPotential
 
     # actionAngleIsochrone
     pot = IsochronePotential(normalize=1)
@@ -13310,8 +13319,8 @@ def test_actionAngleInverse_input_wrongunits():
 
 
 def test_estimateDeltaStaeckel_method_returntype():
-    from galpy.potential import MiyamotoNagaiPotential
     from galpy.actionAngle import estimateDeltaStaeckel
+    from galpy.potential import MiyamotoNagaiPotential
 
     pot = MiyamotoNagaiPotential(normalize=True, ro=8.0, vo=220.0)
     assert isinstance(estimateDeltaStaeckel(pot, 1.1, 0.1), units.Quantity), (
@@ -13325,8 +13334,8 @@ def test_estimateDeltaStaeckel_method_returntype():
 
 
 def test_estimateDeltaStaeckel_method_returnunit():
-    from galpy.potential import MiyamotoNagaiPotential
     from galpy.actionAngle import estimateDeltaStaeckel
+    from galpy.potential import MiyamotoNagaiPotential
 
     pot = MiyamotoNagaiPotential(normalize=True, ro=8.0, vo=220.0)
     try:
@@ -13347,8 +13356,8 @@ def test_estimateDeltaStaeckel_method_returnunit():
 
 
 def test_estimateDeltaStaeckel_method_value():
-    from galpy.potential import MiyamotoNagaiPotential
     from galpy.actionAngle import estimateDeltaStaeckel
+    from galpy.potential import MiyamotoNagaiPotential
 
     ro, vo = 9.0, 230.0
     pot = MiyamotoNagaiPotential(normalize=True, ro=ro, vo=vo)
@@ -13375,8 +13384,8 @@ def test_estimateDeltaStaeckel_method_value():
 
 
 def test_estimateBIsochrone_method_returntype():
-    from galpy.potential import MiyamotoNagaiPotential
     from galpy.actionAngle import estimateBIsochrone
+    from galpy.potential import MiyamotoNagaiPotential
 
     pot = MiyamotoNagaiPotential(normalize=True, ro=8.0, vo=220.0)
     assert isinstance(estimateBIsochrone(pot, 1.1, 0.1), units.Quantity), (
@@ -13391,8 +13400,8 @@ def test_estimateBIsochrone_method_returntype():
 
 
 def test_estimateBIsochrone_method_returnunit():
-    from galpy.potential import MiyamotoNagaiPotential
     from galpy.actionAngle import estimateBIsochrone
+    from galpy.potential import MiyamotoNagaiPotential
 
     pot = MiyamotoNagaiPotential(normalize=True, ro=8.0, vo=220.0)
     try:
@@ -13414,8 +13423,8 @@ def test_estimateBIsochrone_method_returnunit():
 
 
 def test_estimateBIsochrone_method_value():
-    from galpy.potential import MiyamotoNagaiPotential
     from galpy.actionAngle import estimateBIsochrone
+    from galpy.potential import MiyamotoNagaiPotential
 
     ro, vo = 9.0, 230.0
     pot = MiyamotoNagaiPotential(normalize=True, ro=ro, vo=vo)
@@ -14243,7 +14252,7 @@ def test_diskdf_setup_profileAsQuantity():
 
 def test_evolveddiskdf_method_returntype():
     from galpy.df import dehnendf
-    from galpy.potential import LogarithmicHaloPotential, EllipticalDiskPotential
+    from galpy.potential import EllipticalDiskPotential, LogarithmicHaloPotential
 
     lp = LogarithmicHaloPotential(normalize=1.0)
     ep = EllipticalDiskPotential(
@@ -14331,7 +14340,7 @@ def test_evolveddiskdf_method_returntype():
 
 def test_evolveddiskdf_method_returnunit():
     from galpy.df import dehnendf
-    from galpy.potential import LogarithmicHaloPotential, EllipticalDiskPotential
+    from galpy.potential import EllipticalDiskPotential, LogarithmicHaloPotential
 
     lp = LogarithmicHaloPotential(normalize=1.0)
     ep = EllipticalDiskPotential(
@@ -14457,9 +14466,9 @@ def test_evolveddiskdf_method_returnunit():
 
 
 def test_evolveddiskdf_method_value():
-    from galpy.util import conversion
     from galpy.df import dehnendf
-    from galpy.potential import LogarithmicHaloPotential, EllipticalDiskPotential
+    from galpy.potential import EllipticalDiskPotential, LogarithmicHaloPotential
+    from galpy.util import conversion
 
     lp = LogarithmicHaloPotential(normalize=1.0)
     ep = EllipticalDiskPotential(
@@ -14645,9 +14654,9 @@ def test_evolveddiskdf_method_value():
 
 def test_evolveddiskdf_method_inputAsQuantity():
     # Those that use the decorator
-    from galpy.util import conversion
     from galpy.df import dehnendf
-    from galpy.potential import LogarithmicHaloPotential, EllipticalDiskPotential
+    from galpy.potential import EllipticalDiskPotential, LogarithmicHaloPotential
+    from galpy.util import conversion
 
     lp = LogarithmicHaloPotential(normalize=1.0)
     ep = EllipticalDiskPotential(
@@ -14836,9 +14845,9 @@ def test_evolveddiskdf_method_inputAsQuantity():
 
 
 def test_evolveddiskdf_method_inputAsQuantity_special():
-    from galpy.util import conversion
     from galpy.df import dehnendf
-    from galpy.potential import LogarithmicHaloPotential, EllipticalDiskPotential
+    from galpy.potential import EllipticalDiskPotential, LogarithmicHaloPotential
+    from galpy.util import conversion
 
     lp = LogarithmicHaloPotential(normalize=1.0)
     ep = EllipticalDiskPotential(
@@ -14869,7 +14878,7 @@ def test_evolveddiskdf_method_inputAsQuantity_special():
 
 def test_evolveddiskdf_setup_roAsQuantity():
     from galpy.df import dehnendf
-    from galpy.potential import LogarithmicHaloPotential, EllipticalDiskPotential
+    from galpy.potential import EllipticalDiskPotential, LogarithmicHaloPotential
 
     lp = LogarithmicHaloPotential(normalize=1.0)
     ep = EllipticalDiskPotential(
@@ -14890,7 +14899,7 @@ def test_evolveddiskdf_setup_roAsQuantity():
 
 def test_evolveddiskdf_setup_roAsQuantity_oddunits():
     from galpy.df import dehnendf
-    from galpy.potential import LogarithmicHaloPotential, EllipticalDiskPotential
+    from galpy.potential import EllipticalDiskPotential, LogarithmicHaloPotential
 
     lp = LogarithmicHaloPotential(normalize=1.0)
     ep = EllipticalDiskPotential(
@@ -14911,7 +14920,7 @@ def test_evolveddiskdf_setup_roAsQuantity_oddunits():
 
 def test_evolveddiskdf_setup_voAsQuantity():
     from galpy.df import dehnendf
-    from galpy.potential import LogarithmicHaloPotential, EllipticalDiskPotential
+    from galpy.potential import EllipticalDiskPotential, LogarithmicHaloPotential
 
     lp = LogarithmicHaloPotential(normalize=1.0)
     ep = EllipticalDiskPotential(
@@ -14932,7 +14941,7 @@ def test_evolveddiskdf_setup_voAsQuantity():
 
 def test_evolveddiskdf_setup_voAsQuantity_oddunits():
     from galpy.df import dehnendf
-    from galpy.potential import LogarithmicHaloPotential, EllipticalDiskPotential
+    from galpy.potential import EllipticalDiskPotential, LogarithmicHaloPotential
 
     lp = LogarithmicHaloPotential(normalize=1.0)
     ep = EllipticalDiskPotential(
@@ -14953,9 +14962,9 @@ def test_evolveddiskdf_setup_voAsQuantity_oddunits():
 
 
 def test_evolveddiskdf_setup_toAsQuantity():
-    from galpy.util import conversion
     from galpy.df import dehnendf
-    from galpy.potential import LogarithmicHaloPotential, EllipticalDiskPotential
+    from galpy.potential import EllipticalDiskPotential, LogarithmicHaloPotential
+    from galpy.util import conversion
 
     lp = LogarithmicHaloPotential(normalize=1.0)
     ep = EllipticalDiskPotential(
@@ -14973,10 +14982,10 @@ def test_evolveddiskdf_setup_toAsQuantity():
 
 
 def test_quasiisothermaldf_method_returntype():
-    from galpy.potential import MWPotential
     from galpy.actionAngle import actionAngleAdiabatic
     from galpy.df import quasiisothermaldf
     from galpy.orbit import Orbit
+    from galpy.potential import MWPotential
 
     aA = actionAngleAdiabatic(pot=MWPotential, c=True)
     qdf = quasiisothermaldf(
@@ -15112,10 +15121,10 @@ def test_quasiisothermaldf_method_returntype():
 
 
 def test_quasiisothermaldf_method_returnunit():
-    from galpy.potential import MWPotential
     from galpy.actionAngle import actionAngleAdiabatic
     from galpy.df import quasiisothermaldf
     from galpy.orbit import Orbit
+    from galpy.potential import MWPotential
 
     aA = actionAngleAdiabatic(pot=MWPotential, c=True)
     qdf = quasiisothermaldf(
@@ -15337,10 +15346,10 @@ def test_quasiisothermaldf_method_returnunit():
 
 
 def test_quasiisothermaldf_method_value():
-    from galpy.potential import MWPotential
     from galpy.actionAngle import actionAngleAdiabatic
     from galpy.df import quasiisothermaldf
     from galpy.orbit import Orbit
+    from galpy.potential import MWPotential
 
     aA = actionAngleAdiabatic(pot=MWPotential, c=True)
     ro, vo = 9.0, 210.0
@@ -15651,9 +15660,9 @@ def test_quasiisothermaldf_method_value():
 
 
 def test_quasiisothermaldf_sample():
-    from galpy.potential import MWPotential
     from galpy.actionAngle import actionAngleAdiabatic
     from galpy.df import quasiisothermaldf
+    from galpy.potential import MWPotential
 
     aA = actionAngleAdiabatic(pot=MWPotential, c=True)
     ro, vo = 9.0, 210.0
@@ -15696,9 +15705,9 @@ def test_quasiisothermaldf_sample():
 
 
 def test_quasiisothermaldf_interpolate_sample():
-    from galpy.potential import MWPotential
     from galpy.actionAngle import actionAngleAdiabatic
     from galpy.df import quasiisothermaldf
+    from galpy.potential import MWPotential
 
     aA = actionAngleAdiabatic(pot=MWPotential, c=True)
     ro, vo = 9.0, 210.0
@@ -15744,9 +15753,9 @@ def test_quasiisothermaldf_interpolate_sample():
 
 def test_quasiisothermaldf_method_inputAsQuantity():
     # Those that use the decorator
-    from galpy.potential import MWPotential
     from galpy.actionAngle import actionAngleAdiabatic
     from galpy.df import quasiisothermaldf
+    from galpy.potential import MWPotential
 
     aA = actionAngleAdiabatic(pot=MWPotential, c=True)
     ro, vo = 9.0, 210.0
@@ -16008,9 +16017,9 @@ def test_quasiisothermaldf_method_inputAsQuantity():
 
 
 def test_quasiisothermaldf_method_inputAsQuantity_special():
-    from galpy.potential import MWPotential
     from galpy.actionAngle import actionAngleAdiabatic
     from galpy.df import quasiisothermaldf
+    from galpy.potential import MWPotential
 
     aA = actionAngleAdiabatic(pot=MWPotential, c=True)
     ro, vo = 9.0, 210.0
@@ -16048,9 +16057,9 @@ def test_quasiisothermaldf_method_inputAsQuantity_special():
 
 
 def test_quasiisothermaldf_setup_roAsQuantity():
-    from galpy.potential import MWPotential
     from galpy.actionAngle import actionAngleAdiabatic
     from galpy.df import quasiisothermaldf
+    from galpy.potential import MWPotential
 
     aA = actionAngleAdiabatic(pot=MWPotential, c=True)
     ro = 9.0
@@ -16072,9 +16081,9 @@ def test_quasiisothermaldf_setup_roAsQuantity():
 
 
 def test_quasiisothermaldf_setup_roAsQuantity_oddunits():
-    from galpy.potential import MWPotential
     from galpy.actionAngle import actionAngleAdiabatic
     from galpy.df import quasiisothermaldf
+    from galpy.potential import MWPotential
 
     aA = actionAngleAdiabatic(pot=MWPotential, c=True)
     ro = 9000.0
@@ -16096,9 +16105,9 @@ def test_quasiisothermaldf_setup_roAsQuantity_oddunits():
 
 
 def test_quasiisothermaldf_setup_voAsQuantity():
-    from galpy.potential import MWPotential
     from galpy.actionAngle import actionAngleAdiabatic
     from galpy.df import quasiisothermaldf
+    from galpy.potential import MWPotential
 
     aA = actionAngleAdiabatic(pot=MWPotential, c=True)
     vo = 230.0
@@ -16120,9 +16129,9 @@ def test_quasiisothermaldf_setup_voAsQuantity():
 
 
 def test_quasiisothermaldf_setup_voAsQuantity_oddunits():
-    from galpy.potential import MWPotential
     from galpy.actionAngle import actionAngleAdiabatic
     from galpy.df import quasiisothermaldf
+    from galpy.potential import MWPotential
 
     aA = actionAngleAdiabatic(pot=MWPotential, c=True)
     vo = 230.0
@@ -16145,10 +16154,10 @@ def test_quasiisothermaldf_setup_voAsQuantity_oddunits():
 
 
 def test_test_quasiisothermaldf_setup_profileAsQuantity():
-    from galpy.potential import MWPotential
     from galpy.actionAngle import actionAngleAdiabatic
     from galpy.df import quasiisothermaldf
     from galpy.orbit import Orbit
+    from galpy.potential import MWPotential
 
     aA = actionAngleAdiabatic(pot=MWPotential, c=True)
     ro, vo = 7.0, 250.0
@@ -16184,10 +16193,10 @@ def test_test_quasiisothermaldf_setup_profileAsQuantity():
 
 
 def test_test_quasiisothermaldf_setup_refrloAsQuantity():
-    from galpy.potential import MWPotential
     from galpy.actionAngle import actionAngleAdiabatic
     from galpy.df import quasiisothermaldf
     from galpy.orbit import Orbit
+    from galpy.potential import MWPotential
 
     aA = actionAngleAdiabatic(pot=MWPotential, c=True)
     ro, vo = 7.0, 250.0
@@ -16216,7 +16225,7 @@ def test_test_quasiisothermaldf_setup_refrloAsQuantity():
 
 def test_sphericaldf_method_returntype():
     from galpy import potential
-    from galpy.df import isotropicHernquistdf, constantbetaHernquistdf
+    from galpy.df import constantbetaHernquistdf, isotropicHernquistdf
     from galpy.orbit import Orbit
 
     pot = potential.HernquistPotential(amp=2.0, a=1.3, ro=8.0, vo=220.0)
@@ -16265,7 +16274,7 @@ def test_sphericaldf_method_returntype():
 
 def test_sphericaldf_method_returnunit():
     from galpy import potential
-    from galpy.df import isotropicHernquistdf, constantbetaHernquistdf
+    from galpy.df import constantbetaHernquistdf, isotropicHernquistdf
     from galpy.orbit import Orbit
 
     pot = potential.HernquistPotential(amp=2.0, a=1.3, ro=8.0, vo=220.0)
@@ -16345,7 +16354,7 @@ def test_sphericaldf_method_returnunit():
 
 def test_sphericaldf_method_value():
     from galpy import potential
-    from galpy.df import isotropicHernquistdf, constantbetaHernquistdf
+    from galpy.df import constantbetaHernquistdf, isotropicHernquistdf
     from galpy.orbit import Orbit
 
     ro, vo = 8.0, 220.0
@@ -16457,7 +16466,7 @@ def test_sphericaldf_method_value():
 
 def test_sphericaldf_method_inputAsQuantity():
     from galpy import potential
-    from galpy.df import isotropicHernquistdf, constantbetaHernquistdf
+    from galpy.df import constantbetaHernquistdf, isotropicHernquistdf
     from galpy.orbit import Orbit
 
     ro, vo = 8.0, 220.0
@@ -16622,8 +16631,8 @@ def test_sphericaldf_sample():
 
 
 def test_kingdf_setup_wunits():
-    from galpy.util import conversion
     from galpy.df import kingdf
+    from galpy.util import conversion
 
     ro, vo = 9.0, 210.0
     dfk = kingdf(W0=3.0, M=4 * 1e4 * units.Msun, rt=10.0 * units.pc, ro=ro, vo=vo)
@@ -16648,10 +16657,10 @@ def test_kingdf_setup_wunits():
 
 def test_streamdf_method_returntype():
     # Imports
+    from galpy.actionAngle import actionAngleIsochroneApprox
     from galpy.df import streamdf
     from galpy.orbit import Orbit
     from galpy.potential import LogarithmicHaloPotential
-    from galpy.actionAngle import actionAngleIsochroneApprox
     from galpy.util import conversion  # for unit conversions
 
     lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
@@ -16702,10 +16711,10 @@ def test_streamdf_method_returntype():
 
 def test_streamdf_method_returnunit():
     # Imports
+    from galpy.actionAngle import actionAngleIsochroneApprox
     from galpy.df import streamdf
     from galpy.orbit import Orbit
     from galpy.potential import LogarithmicHaloPotential
-    from galpy.actionAngle import actionAngleIsochroneApprox
     from galpy.util import conversion  # for unit conversions
 
     lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
@@ -16780,10 +16789,10 @@ def test_streamdf_method_returnunit():
 
 def test_streamdf_method_value():
     # Imports
+    from galpy.actionAngle import actionAngleIsochroneApprox
     from galpy.df import streamdf
     from galpy.orbit import Orbit
     from galpy.potential import LogarithmicHaloPotential
-    from galpy.actionAngle import actionAngleIsochroneApprox
     from galpy.util import conversion  # for unit conversions
 
     lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
@@ -16876,10 +16885,10 @@ def test_streamdf_method_value():
 
 def test_streamdf_method_inputAsQuantity():
     # Imports
+    from galpy.actionAngle import actionAngleIsochroneApprox
     from galpy.df import streamdf
     from galpy.orbit import Orbit
     from galpy.potential import LogarithmicHaloPotential
-    from galpy.actionAngle import actionAngleIsochroneApprox
     from galpy.util import conversion  # for unit conversions
 
     lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
@@ -16942,10 +16951,10 @@ def test_streamdf_method_inputAsQuantity():
 
 def test_streamdf_sample():
     # Imports
+    from galpy.actionAngle import actionAngleIsochroneApprox
     from galpy.df import streamdf
     from galpy.orbit import Orbit
     from galpy.potential import LogarithmicHaloPotential
-    from galpy.actionAngle import actionAngleIsochroneApprox
     from galpy.util import conversion  # for unit conversions
 
     lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
@@ -17005,10 +17014,10 @@ def test_streamdf_sample():
 
 def test_streamdf_setup_roAsQuantity():
     # Imports
+    from galpy.actionAngle import actionAngleIsochroneApprox
     from galpy.df import streamdf
     from galpy.orbit import Orbit
     from galpy.potential import LogarithmicHaloPotential
-    from galpy.actionAngle import actionAngleIsochroneApprox
     from galpy.util import conversion  # for unit conversions
 
     lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
@@ -17037,10 +17046,10 @@ def test_streamdf_setup_roAsQuantity():
 
 def test_streamdf_setup_roAsQuantity_oddunits():
     # Imports
+    from galpy.actionAngle import actionAngleIsochroneApprox
     from galpy.df import streamdf
     from galpy.orbit import Orbit
     from galpy.potential import LogarithmicHaloPotential
-    from galpy.actionAngle import actionAngleIsochroneApprox
     from galpy.util import conversion  # for unit conversions
 
     lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
@@ -17069,10 +17078,10 @@ def test_streamdf_setup_roAsQuantity_oddunits():
 
 def test_streamdf_setup_voAsQuantity():
     # Imports
+    from galpy.actionAngle import actionAngleIsochroneApprox
     from galpy.df import streamdf
     from galpy.orbit import Orbit
     from galpy.potential import LogarithmicHaloPotential
-    from galpy.actionAngle import actionAngleIsochroneApprox
     from galpy.util import conversion  # for unit conversions
 
     lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
@@ -17101,10 +17110,10 @@ def test_streamdf_setup_voAsQuantity():
 
 def test_streamdf_setup_voAsQuantity_oddunits():
     # Imports
+    from galpy.actionAngle import actionAngleIsochroneApprox
     from galpy.df import streamdf
     from galpy.orbit import Orbit
     from galpy.potential import LogarithmicHaloPotential
-    from galpy.actionAngle import actionAngleIsochroneApprox
     from galpy.util import conversion  # for unit conversions
 
     lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
@@ -17134,10 +17143,10 @@ def test_streamdf_setup_voAsQuantity_oddunits():
 
 def test_streamdf_setup_paramsAsQuantity():
     # Imports
+    from galpy.actionAngle import actionAngleIsochroneApprox
     from galpy.df import streamdf
     from galpy.orbit import Orbit
     from galpy.potential import LogarithmicHaloPotential
-    from galpy.actionAngle import actionAngleIsochroneApprox
     from galpy.util import conversion  # for unit conversions
 
     lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
@@ -17179,10 +17188,10 @@ def test_streamdf_setup_paramsAsQuantity():
 
 def test_streamdf_setup_coordtransformparamsAsQuantity():
     # Imports
+    from galpy.actionAngle import actionAngleIsochroneApprox
     from galpy.df import streamdf
     from galpy.orbit import Orbit
     from galpy.potential import LogarithmicHaloPotential
-    from galpy.actionAngle import actionAngleIsochroneApprox
     from galpy.util import conversion  # for unit conversions
 
     lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
@@ -17257,14 +17266,15 @@ def test_streamdf_setup_coordtransformparamsAsQuantity():
 
 def test_streamdf_RnormWarning():
     import warnings
-    from galpy.util import galpyWarning
+
+    from galpy.actionAngle import actionAngleIsochroneApprox
 
     # Imports
     from galpy.df import streamdf
     from galpy.orbit import Orbit
     from galpy.potential import LogarithmicHaloPotential
-    from galpy.actionAngle import actionAngleIsochroneApprox
     from galpy.util import conversion  # for unit conversions
+    from galpy.util import galpyWarning
 
     lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
     aAI = actionAngleIsochroneApprox(pot=lp, b=0.8)
@@ -17300,14 +17310,15 @@ def test_streamdf_RnormWarning():
 
 def test_streamdf_VnormWarning():
     import warnings
-    from galpy.util import galpyWarning
+
+    from galpy.actionAngle import actionAngleIsochroneApprox
 
     # Imports
     from galpy.df import streamdf
     from galpy.orbit import Orbit
     from galpy.potential import LogarithmicHaloPotential
-    from galpy.actionAngle import actionAngleIsochroneApprox
     from galpy.util import conversion  # for unit conversions
+    from galpy.util import galpyWarning
 
     lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
     aAI = actionAngleIsochroneApprox(pot=lp, b=0.8)
@@ -17343,10 +17354,10 @@ def test_streamdf_VnormWarning():
 
 def test_streamgapdf_method_returntype():
     # Imports
+    from galpy.actionAngle import actionAngleIsochroneApprox
     from galpy.df import streamgapdf
     from galpy.orbit import Orbit
     from galpy.potential import LogarithmicHaloPotential
-    from galpy.actionAngle import actionAngleIsochroneApprox
     from galpy.util import conversion  # for unit conversions
 
     lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
@@ -17846,10 +17857,10 @@ def test_streamspraydf_sample_RvR():
 
 
 def test_df_inconsistentPotentialUnits_error():
-    from galpy.df import quasiisothermaldf, streamdf
-    from galpy.potential import LogarithmicHaloPotential
-    from galpy.orbit import Orbit
     from galpy.actionAngle import actionAngleAdiabatic
+    from galpy.df import quasiisothermaldf, streamdf
+    from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential
 
     ro, vo = 9.0, 220.0
     # quasiisothermaldf

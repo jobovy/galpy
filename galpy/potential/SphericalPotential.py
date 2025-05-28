@@ -4,6 +4,7 @@
 ###############################################################################
 import numpy
 from scipy import integrate
+
 from .Potential import Potential
 
 

@@ -1,13 +1,14 @@
-from pkg_resources import parse_version
 import numpy
+from pkg_resources import parse_version
 
 _NUMPY_VERSION = parse_version(numpy.__version__)
 _NUMPY_1_22 = (_NUMPY_VERSION > parse_version("1.21")) * (
     _NUMPY_VERSION < parse_version("1.23")
 )
-from galpy.util import coords
-import pytest
 import astropy
+import pytest
+
+from galpy.util import coords
 
 _APY3 = astropy.__version__ > "3"
 
@@ -445,8 +446,8 @@ def test_lb_to_radec_apy_icrs():
 
 def test_radec_to_lb_galpyvsastropy():
     # Test that galpy's radec_to_lb agrees with astropy's
-    from astropy.coordinates import SkyCoord
     import astropy.units as u
+    from astropy.coordinates import SkyCoord
 
     _turn_off_apy(keep_loaded=True)
     ra, dec = 33.0, -20.0
@@ -468,8 +469,8 @@ def test_radec_to_lb_galpyvsastropy():
 
 def test_radec_to_lb__1950_galpyvsastropy():
     # Test that galpy's radec_to_lb agrees with astropy's
-    from astropy.coordinates import SkyCoord
     import astropy.units as u
+    from astropy.coordinates import SkyCoord
 
     _turn_off_apy(keep_loaded=True)
     ra, dec = 33.0, -20.0
@@ -766,8 +767,8 @@ def test_XYZ_to_galcenrect_negXsun():
 
 def test_lbd_to_galcenrect_galpyvsastropy():
     # Test that galpy's transformations agree with astropy's
-    from astropy.coordinates import SkyCoord, Galactocentric
     import astropy.units as u
+    from astropy.coordinates import Galactocentric, SkyCoord
 
     _turn_off_apy()
     l, b, d = 32.0, -12.0, 3.0
@@ -819,8 +820,8 @@ def test_lbd_to_galcenrect_galpyvsastropy():
 
 def test_lbd_to_galcencyl_galpyvsastropy():
     # Test that galpy's transformations agree with astropy's
-    from astropy.coordinates import SkyCoord, Galactocentric
     import astropy.units as u
+    from astropy.coordinates import Galactocentric, SkyCoord
 
     _turn_off_apy()
     l, b, d = 32.0, -12.0, 3.0
@@ -1142,8 +1143,8 @@ def test_vrpmllpmbb_to_galcenrect_galpyvsastropy():
     if not _APY3:
         return None
     # Test that galpy's transformations agree with astropy's
-    from astropy.coordinates import SkyCoord, Galactocentric, CartesianDifferential
     import astropy.units as u
+    from astropy.coordinates import CartesianDifferential, Galactocentric, SkyCoord
 
     _turn_off_apy()
     l, b, d = 32.0, -12.0, 3.0
@@ -1258,8 +1259,8 @@ def test_vrpmllpmbb_to_galcencyl_galpyvsastropy():
     if not _APY3:
         return None
     # Test that galpy's transformations agree with astropy's
-    from astropy.coordinates import SkyCoord, Galactocentric, CartesianDifferential
     import astropy.units as u
+    from astropy.coordinates import CartesianDifferential, Galactocentric, SkyCoord
 
     _turn_off_apy()
     l, b, d = 32.0, -12.0, 3.0
@@ -1866,9 +1867,9 @@ def test_cov_dvrpmllbb_to_vxyz():
             * numpy.sqrt((e_d / d) ** 2.0 + (10.0 / pmll) ** 2.0)
         )
         < 10.0**-8.0
-    ), "cov_dvrpmllbb_to_vxyz coversion did not work as expected"
+    ), "cov_dvrpmllbb_to_vxyz conversion did not work as expected"
     assert numpy.fabs(numpy.sqrt(cov_vxvyvz[1, 1]) - e_vr) < 10.0**-10.0, (
-        "cov_dvrpmllbb_to_vxyz coversion did not work as expected"
+        "cov_dvrpmllbb_to_vxyz conversion did not work as expected"
     )
     assert (
         numpy.fabs(
@@ -1879,7 +1880,7 @@ def test_cov_dvrpmllbb_to_vxyz():
             * numpy.sqrt((e_d / d) ** 2.0 + (20.0 / pmbb) ** 2.0)
         )
         < 10.0**-8.0
-    ), "cov_dvrpmllbb_to_vxyz coversion did not work as expected"
+    ), "cov_dvrpmllbb_to_vxyz conversion did not work as expected"
     # Another one
     l, b, d = 180.0, 0.0, 1.0 / 2.0
     e_d, e_vr = 0.05, 2.0
@@ -1898,7 +1899,7 @@ def test_cov_dvrpmllbb_to_vxyz():
         plx=True,
     )
     assert numpy.fabs(numpy.sqrt(cov_vxvyvz[0, 0]) - e_vr) < 10.0**-8.0, (
-        "cov_dvrpmllbb_to_vxyz coversion did not work as expected"
+        "cov_dvrpmllbb_to_vxyz conversion did not work as expected"
     )
     assert (
         numpy.fabs(
@@ -1910,7 +1911,7 @@ def test_cov_dvrpmllbb_to_vxyz():
             * numpy.sqrt((e_d / d) ** 2.0 + (10.0 / pmll) ** 2.0)
         )
         < 10.0**-8.0
-    ), "cov_dvrpmllbb_to_vxyz coversion did not work as expected"
+    ), "cov_dvrpmllbb_to_vxyz conversion did not work as expected"
     assert (
         numpy.fabs(
             numpy.sqrt(cov_vxvyvz[2, 2])
@@ -1921,7 +1922,7 @@ def test_cov_dvrpmllbb_to_vxyz():
             * numpy.sqrt((e_d / d) ** 2.0 + (20.0 / pmbb) ** 2.0)
         )
         < 10.0**-8.0
-    ), "cov_dvrpmllbb_to_vxyz coversion did not work as expected"
+    ), "cov_dvrpmllbb_to_vxyz conversion did not work as expected"
     # Another one, w/ arrays (using einsum)
     l, b, d = 90.0, 90.0, 2.0
     e_d, e_vr = 0.2, 2.0
@@ -1953,7 +1954,7 @@ def test_cov_dvrpmllbb_to_vxyz():
                 * numpy.sqrt((e_d / d) ** 2.0 + (10.0 / pmll) ** 2.0)
             )
             < 10.0**-8.0
-        ), "cov_dvrpmllbb_to_vxyz coversion did not work as expected"
+        ), "cov_dvrpmllbb_to_vxyz conversion did not work as expected"
         assert (
             numpy.fabs(
                 numpy.sqrt(cov_vxvyvz[ii, 1, 1])
@@ -1963,9 +1964,9 @@ def test_cov_dvrpmllbb_to_vxyz():
                 * numpy.sqrt((e_d / d) ** 2.0 + (20.0 / pmbb) ** 2.0)
             )
             < 10.0**-8.0
-        ), "cov_dvrpmllbb_to_vxyz coversion did not work as expected"
+        ), "cov_dvrpmllbb_to_vxyz conversion did not work as expected"
         assert numpy.fabs(numpy.sqrt(cov_vxvyvz[ii, 2, 2]) - e_vr) < 10.0**-10.0, (
-            "cov_dvrpmllbb_to_vxyz coversion did not work as expected"
+            "cov_dvrpmllbb_to_vxyz conversion did not work as expected"
         )
 
     return None
@@ -2865,8 +2866,8 @@ def test_radec_to_custom_pal5():
     )
     xieta = coords.radec_to_custom(_RAPAL5, _DECPAL5, T=_TPAL5, degree=False)
 
-    def checkrng(x, xpct, dom, shft):
-        return numpy.fabs(((numpy.fabs(x - xpct) + shft) % dom) - shft)
+    def checkrng(x, xpct, dom, shift):
+        return numpy.fabs(((numpy.fabs(x - xpct) + shift) % dom) - shift)
 
     # 0 < xieta[0] < 2 * pi
     assert checkrng(xieta[0], 0, 2 * numpy.pi, 0) < 1e-8, (
@@ -3023,8 +3024,8 @@ def test_custom_to_radec_pal5():  # FIXME COMPARE TO DOCUMENT
     )
     xieta = coords.custom_to_radec(_RAPAL5, _DECPAL5, T=_TPAL5.T, degree=False)
 
-    def checkrng(x, xpct, dom, shft):
-        return numpy.fabs(((numpy.fabs(x - xpct) + shft) % dom) - shft)
+    def checkrng(x, xpct, dom, shift):
+        return numpy.fabs(((numpy.fabs(x - xpct) + shift) % dom) - shift)
 
     # 0 < xieta[0] < 2 * pi
     assert checkrng(xieta[0], 0, 2 * numpy.pi, 0) < 1e-8, (

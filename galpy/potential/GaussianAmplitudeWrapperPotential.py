@@ -3,8 +3,9 @@
 #                                         of a potential with a Gaussian
 ###############################################################################
 import numpy
-from .WrapperPotential import parentWrapperPotential
+
 from ..util import conversion
+from .WrapperPotential import parentWrapperPotential
 
 
 class GaussianAmplitudeWrapperPotential(parentWrapperPotential):

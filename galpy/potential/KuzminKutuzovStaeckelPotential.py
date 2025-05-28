@@ -7,8 +7,10 @@
 #                        \sqrt{lambda} + \sqrt{nu}
 ###############################################################################
 import numpy
+
+from ..util import conversion  # for prolate spherical coordinate transforms
+from ..util import coords
 from .Potential import Potential
-from ..util import conversion, coords  # for prolate spherical coordinate transforms
 
 
 class KuzminKutuzovStaeckelPotential(Potential):
@@ -270,9 +272,9 @@ class KuzminKutuzovStaeckelPotential(Potential):
         HISTORY:
             2015-02-15 - Written - Trick (MPIA)
         """
-        numer = -3.0 * numpy.sqrt(l) - numpy.sqrt(n)
+        numerator = -3.0 * numpy.sqrt(l) - numpy.sqrt(n)
         denom = 4.0 * l**1.5 * (numpy.sqrt(l) + numpy.sqrt(n)) ** 3
-        return numer / denom
+        return numerator / denom
 
     def _n2deriv(self, l, n):
         """
@@ -288,9 +290,9 @@ class KuzminKutuzovStaeckelPotential(Potential):
         HISTORY:
             2015-02-15 - Written - Trick (MPIA)
         """
-        numer = -numpy.sqrt(l) - 3.0 * numpy.sqrt(n)
+        numerator = -numpy.sqrt(l) - 3.0 * numpy.sqrt(n)
         denom = 4.0 * n**1.5 * (numpy.sqrt(l) + numpy.sqrt(n)) ** 3
-        return numer / denom
+        return numerator / denom
 
     def _lnderiv(self, l, n):
         """

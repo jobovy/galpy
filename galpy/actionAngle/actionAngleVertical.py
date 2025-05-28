@@ -10,9 +10,10 @@
 #             calcxmax
 ###############################################################################
 import numpy
-from scipy import optimize, integrate
-from .actionAngle import actionAngle
+from scipy import integrate, optimize
+
 from ..potential.linearPotential import evaluatelinearPotentials
+from .actionAngle import actionAngle
 
 
 class actionAngleVertical(actionAngle):

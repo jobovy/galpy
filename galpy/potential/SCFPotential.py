@@ -1,10 +1,11 @@
 import hashlib
+
 import numpy
 from numpy.polynomial.legendre import leggauss
 from scipy import integrate
-from scipy.special import lpmn
-from scipy.special import gammaln, gamma
-from ..util import coords, conversion
+from scipy.special import gamma, gammaln, lpmn
+
+from ..util import conversion, coords
 from ..util.conversion import _APY_LOADED
 from .Potential import Potential
 
@@ -1226,7 +1227,7 @@ def scf_compute_coeffs(
     NN = numpy.e ** (Nln)
 
     NN[numpy.where(NN == numpy.inf)] = (
-        0  ## To account for the fact that m cant be bigger than l
+        0  ## To account for the fact that m can't be bigger than l
     )
 
     constants = NN * (2 * l + 1.0) ** 0.5

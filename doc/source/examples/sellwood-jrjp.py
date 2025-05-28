@@ -1,12 +1,15 @@
+import csv
+import os
+import os.path
 import re
 import sys
-import os, os.path
-import numpy as nu
-import csv
+
 import cPickle as pickle
-from galpy.util import plot
-from galpy.potential import LogarithmicHaloPotential, PowerSphericalPotential
+import numpy as nu
+
 from galpy.orbit import Orbit
+from galpy.potential import LogarithmicHaloPotential, PowerSphericalPotential
+from galpy.util import plot
 
 _degtorad = nu.pi / 180.0
 
@@ -49,9 +52,7 @@ def calcj(rotcurve):
     else:
         dialect = csv.excel
         dialect.skipinitialspace = True
-        reader = csv.reader(
-            open("../data/gcs.tsv", "r"), delimiter="|", dialect=dialect
-        )
+        reader = csv.reader(open("../data/gcs.tsv"), delimiter="|", dialect=dialect)
         vxvs = []
         es = []
         zmaxs = []

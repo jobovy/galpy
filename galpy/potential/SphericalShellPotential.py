@@ -3,6 +3,7 @@
 #                               spherical shell
 ###############################################################################
 import numpy
+
 from ..util import conversion
 from .SphericalPotential import SphericalPotential
 

@@ -3,8 +3,8 @@
 #                                         with a fixed pattern speed, around
 #                                         the z axis
 ###############################################################################
-from .WrapperPotential import parentWrapperPotential
 from ..util import conversion
+from .WrapperPotential import parentWrapperPotential
 
 
 class SolidBodyRotationWrapperPotential(parentWrapperPotential):

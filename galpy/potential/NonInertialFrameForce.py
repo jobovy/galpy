@@ -3,10 +3,12 @@
 #                          present when integrating orbits in a non-intertial
 #                          frame
 ###############################################################################
+import hashlib
+
 import numpy
 import numpy.linalg
-import hashlib
-from ..util import coords, conversion
+
+from ..util import conversion, coords
 from .DissipativeForce import DissipativeForce
 
 

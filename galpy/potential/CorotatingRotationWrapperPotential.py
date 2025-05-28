@@ -3,8 +3,8 @@
 #                                          with a fixed R x pattern speed,
 #                                          around the z axis
 ###############################################################################
-from .WrapperPotential import parentWrapperPotential
 from ..util import conversion
+from .WrapperPotential import parentWrapperPotential
 
 
 class CorotatingRotationWrapperPotential(parentWrapperPotential):

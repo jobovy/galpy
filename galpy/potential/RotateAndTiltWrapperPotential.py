@@ -3,24 +3,23 @@
 #   of a potential
 ###############################################################################
 import numpy
+
+from ..util import _rotate_to_arbitrary_vector, conversion, coords
 from .Potential import (
-    check_potential_inputs_not_arrays,
+    _evaluatephitorques,
     _evaluatePotentials,
     _evaluateRforces,
     _evaluatezforces,
-    _evaluatephitorques,
+    check_potential_inputs_not_arrays,
     evaluateDensities,
-    evaluateR2derivs,
-    evaluatez2derivs,
     evaluatephi2derivs,
-    evaluateRzderivs,
-    evaluateRphiderivs,
     evaluatephizderivs,
+    evaluateR2derivs,
+    evaluateRphiderivs,
+    evaluateRzderivs,
+    evaluatez2derivs,
 )
 from .WrapperPotential import WrapperPotential
-from ..util import conversion
-from ..util import _rotate_to_arbitrary_vector
-from ..util import coords
 
 
 # Only implement 3D wrapper

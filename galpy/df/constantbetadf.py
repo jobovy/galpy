@@ -1,9 +1,10 @@
 # Class that implements DFs of the form f(E,L) = L^{-2\beta} f(E) with constant
 # beta anisotropy parameter
 import numpy
-from scipy import interpolate, integrate, special
-from ..util import conversion
+from scipy import integrate, interpolate, special
+
 from ..potential.Potential import _evaluatePotentials
+from ..util import conversion
 from .sphericaldf import anisotropicsphericaldf, sphericaldf
 
 

@@ -1,4 +1,5 @@
 import numpy
+
 from ..util import conversion
 from ..util.conversion import _APY_LOADED
 from .linearPotential import linearPotential

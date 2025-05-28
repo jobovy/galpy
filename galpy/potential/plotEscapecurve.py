@@ -1,7 +1,9 @@
 import os
 import pickle
+
 import numpy
-from ..util import plot, conversion
+
+from ..util import conversion, plot
 from ..util.conversion import physical_conversion, potential_physical_input
 
 _INF = 10**12.0
@@ -183,8 +185,7 @@ def vesc(Pot, R, t=0.0):
        2011-10-09 - Written - Bovy (IAS)
 
     """
-    from ..potential import evaluateplanarPotentials
-    from ..potential import PotentialError
+    from ..potential import PotentialError, evaluateplanarPotentials
 
     try:
         return numpy.sqrt(

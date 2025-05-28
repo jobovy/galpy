@@ -3,9 +3,10 @@
 ###################3###################3###################3##################
 import numpy
 from scipy import interpolate
+
+from ..util.conversion import get_physical, physical_compatible
+from .Potential import _evaluatePotentials, _evaluateRforces
 from .SphericalPotential import SphericalPotential
-from .Potential import _evaluateRforces, _evaluatePotentials
-from ..util.conversion import physical_compatible, get_physical
 
 
 class interpSphericalPotential(SphericalPotential):

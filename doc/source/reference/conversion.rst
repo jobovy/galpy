@@ -6,7 +6,7 @@ galpy.util.conversion
 Utility functions that provide conversions between galpy's *natural*
 units and *physical* units. These can be used to translate galpy
 outputs in natural coordinates to physical units by multiplying with
-the appropriate function. 
+the appropriate function.
 
 These could also be used to figure out the conversion between
 different units. For example, if you want to know how many
@@ -51,4 +51,4 @@ Conversion functions:
    mass_in_msol <conversionmass_in_msol.rst>
    mass_in_1010msol <conversionmass_in_1010msol.rst>
    time_in_Gyr <conversiontime_in_Gyr.rst>
-   velocity_in_kpcGyr <conversionvelocity_in_kpcGyr.rst>   
+   velocity_in_kpcGyr <conversionvelocity_in_kpcGyr.rst>

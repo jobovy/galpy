@@ -21,7 +21,7 @@ def test_df_import():
 
 def test_util_import():
     import galpy.util
+    import galpy.util.conversion
+    import galpy.util.coords
     import galpy.util.multi
     import galpy.util.plot
-    import galpy.util.coords
-    import galpy.util.conversion

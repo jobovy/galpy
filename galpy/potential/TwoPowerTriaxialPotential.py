@@ -12,6 +12,7 @@
 ###############################################################################
 import numpy
 from scipy import special
+
 from ..util import conversion
 from .EllipsoidalPotential import EllipsoidalPotential
 
@@ -589,7 +590,7 @@ class TriaxialNFWPotential(EllipsoidalPotential):
         else:
             from ..potential import NFWPotential
 
-            dum = NFWPotential(
+            dummy = NFWPotential(
                 mvir=mvir,
                 conc=conc,
                 ro=self._ro,
@@ -599,8 +600,8 @@ class TriaxialNFWPotential(EllipsoidalPotential):
                 wrtcrit=wrtcrit,
                 overdens=overdens,
             )
-            self.a = dum.a
-            self._amp = dum._amp
+            self.a = dummy.a
+            self._amp = dummy._amp
         self._scale = self.a
         self.hasC = not self._glorder is None
         self.hasC_dxdv = False

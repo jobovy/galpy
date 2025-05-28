@@ -205,7 +205,7 @@ objects. Many of the most computationally-intense methods have been
 parallelized (orbit integration; analytic eccentricity, zmax,
 etc. calculation; action-angle calculations) and some other methods
 switch to more efficient algorithms for larger numbers of objects
-(e.g., ``rguiding``, ``rE``, ``LcE``). 
+(e.g., ``rguiding``, ``rE``, ``LcE``).
 
 All of the methods for initializing ``Orbit`` instances above work for
 multiple objects. Specifically, the initial conditions can be:
@@ -219,7 +219,7 @@ multiple objects. Specifically, the initial conditions can be:
    * Quantity arrays arranged as in the first bullet above (so things like [R,vR,vT,z,vz,phi], where R, vR, ... can be arbitrary shape Quantity arrays)
    * list of Quantities (so things like [R1,vR1,..,], where R1, vR1, ... are scalar Quantities
    * None: assumed to be the Sun; if None occurs in a list it is assumed to be the Sun *and all other items in the list are assumed to be [ra,dec,...]*; cannot be combined with Quantity lists
-   * lists of scalar phase-space coordinates arranged as in the first bullet above (so things like [R,vR,...] where R,vR are scalars in internal units  
+   * lists of scalar phase-space coordinates arranged as in the first bullet above (so things like [R,vR,...] where R,vR are scalars in internal units
 
 .. TIP::
    For multiple object initialization using an array or SkyCoord, arbitrary input shapes are supported.
@@ -242,7 +242,7 @@ and with a SkyCoord:
 >>> pmdecs= 20.*(2.*numpy.random.uniform(size=nrand)-1.)*20.*u.mas/u.yr
 >>> vloss= 200.*(2.*numpy.random.uniform(size=nrand)-1.)*u.km/u.s
 # Without any custom coordinate-transformation parameters
->>> co= SkyCoord(ra=ras,dec=decs,distance=dists, 
+>>> co= SkyCoord(ra=ras,dec=decs,distance=dists,
                  pm_ra_cosdec=pmras,pm_dec=pmdecs,
                  radial_velocity=vloss,
                  frame='icrs')
@@ -385,8 +385,8 @@ Similarly, 'MW satellite galaxies' loads all of the Milky-Way satellite galaxies
 # 40
 >>> print(o.name)
 # ['AquariusII', 'BootesI', 'BootesII', 'CanesVenaticiI', 'CanesVenaticiII', 'Carina',
-   'CarinaII', 'CarinaIII', 'ComaBerenices', 'CraterII', 'Draco', 'DracoII', 'EridanusII', 
-   'Fornax', 'GrusI', 'Hercules', 'HorologiumI', 'HydraII', 'HydrusI', 'LeoI', 'LeoII', 
+   'CarinaII', 'CarinaIII', 'ComaBerenices', 'CraterII', 'Draco', 'DracoII', 'EridanusII',
+   'Fornax', 'GrusI', 'Hercules', 'HorologiumI', 'HydraII', 'HydrusI', 'LeoI', 'LeoII',
    'LeoIV', 'LeoV', 'LMC', 'PhoenixI', 'PiscesII', 'ReticulumII', 'Sgr', 'Sculptor',
    'Segue1', 'Segue2', 'SMC', 'Sextans', 'TriangulumII', 'TucanaII', 'TucanaIII',
    'UrsaMajorI', 'UrsaMajorII', 'UrsaMinor', 'Willman1']
@@ -421,11 +421,11 @@ al. (2010) <https://ui.adsabs.harvard.edu/abs/2010ApJ...711.1157B>`__
 and they represent the positions and planets on April 1, 2009. To load
 the solar system do:
 
->>> o= Orbit.from_name('solar system') 
+>>> o= Orbit.from_name('solar system')
 
 Giving for example:
 
->>> print(o.name) 
+>>> print(o.name)
 # ['Mercury', 'Venus', 'Earth', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune']
 
 You can then, for example, integrate the solar system for 10 years as follows
@@ -443,7 +443,7 @@ which gives
 .. image:: images/orbit-fromname-solarsyst.png
    :scale: 75 %
 
-Note that, as usual, physical outputs are in kpc, leading to very small numbers! 
+Note that, as usual, physical outputs are in kpc, leading to very small numbers!
 
 .. TIP::
    Setting up an ``Orbit`` instance *without* arguments will return an Orbit instance representing the Sun: ``o= Orbit()``. This instance has physical units *turned on by default*, so methods will return outputs in physical units unless you ``o.turn_physical_off()``.
@@ -482,7 +482,7 @@ velocity scale ``vo=``, then Orbit plots and outputs will use physical
 coordinates (currently, times, positions, and velocities)
 
 >>> op= Orbit([1.,0.1,1.1,0.,0.1,0.],ro=8.,vo=220.) #Use Vc=220 km/s at R= 8 kpc as the normalization
->>> op.integrate(ts,lp) 
+>>> op.integrate(ts,lp)
 
 An ``Orbit`` instance containing multiple objects can be integrated in
 the same way and the orbit integration will be performed in parallel
@@ -510,22 +510,22 @@ this can be overwritten). A simple example is
 Orbit integration in non-inertial frames
 -----------------------------------------
 
-The default assumption in ``galpy`` is that the frame that an orbit is 
-integrated in is an inertial one. However, ``galpy`` also supports 
-orbit integration in non-inertial frames that are rotating or whose 
-center is accelerating (or a combination of the two). When a frame is 
-not an inertial frame, fictitious forces such as the centrifugal 
-and Coriolis forces need to be taken into account. ``galpy`` implements 
-all of the necessary forces as part of the 
+The default assumption in ``galpy`` is that the frame that an orbit is
+integrated in is an inertial one. However, ``galpy`` also supports
+orbit integration in non-inertial frames that are rotating or whose
+center is accelerating (or a combination of the two). When a frame is
+not an inertial frame, fictitious forces such as the centrifugal
+and Coriolis forces need to be taken into account. ``galpy`` implements
+all of the necessary forces as part of the
 :ref:`NonInertialFrameForce <noninertialframe_potential>` class. objects
-of this class are instantiated with arbitrary three-dimensional rotation 
-frequencies (and their time derivative) and/or arbitrary three-dimensional 
-acceleration of the origin. The class documentation linked to above 
-provides full mathematical details on the rotation and acceleration 
+of this class are instantiated with arbitrary three-dimensional rotation
+frequencies (and their time derivative) and/or arbitrary three-dimensional
+acceleration of the origin. The class documentation linked to above
+provides full mathematical details on the rotation and acceleration
 of the non-inertial frame.
 
-We can then, for example, integrate the orbit of the Sun in the LSR frame, 
-that is, the frame that is corotating with that of the circular orbit 
+We can then, for example, integrate the orbit of the Sun in the LSR frame,
+that is, the frame that is corotating with that of the circular orbit
 at the location of the Sun. To do this for ``MWPotential2014``, do
 
 >>> from galpy.potential import MWPotential2014, NonInertialFrameForce
@@ -542,7 +542,7 @@ which gives
 .. image:: images/orbit-noninert-sunlsr-internal.png
    :scale: 50 %
 
-we can compare this to integrating the orbit in the inertial frame and 
+we can compare this to integrating the orbit in the inertial frame and
 displaying it in the non-inertial LSR frame as follows:
 
 >>> o.plot(d1='x',d2='y') # Repeat plot from above
@@ -556,7 +556,7 @@ which gives
 .. image:: images/orbit-noninert-sunlsr-internal-compare.png
    :scale: 50 %
 
-We can also do all of the above in physical units, in which case the 
+We can also do all of the above in physical units, in which case the
 first example above becomes
 
 >>> from galpy.potential import MWPotential2014, NonInertialFrameForce
@@ -571,19 +571,19 @@ first example above becomes
 >>> o.integrate(ts,MWPotential2014+nip)
 >>> o.plot(d1='x',d2='y')
 
-We can also provide the ``Omega=`` frequency as an arbitrary function of time. 
-In this case, the frequency must be returned in internal units and the input 
-time of this function must be in internal units as well (use the routines in 
-:ref:`galpy.util.conversion <bovyconversion>` for converting from physical to 
-internal units; you need to *divide* by these to go from physical to internal). 
+We can also provide the ``Omega=`` frequency as an arbitrary function of time.
+In this case, the frequency must be returned in internal units and the input
+time of this function must be in internal units as well (use the routines in
+:ref:`galpy.util.conversion <bovyconversion>` for converting from physical to
+internal units; you need to *divide* by these to go from physical to internal).
 For the example above, this would amount to setting
 
 >>> nip= NonInertialFrameForce(Omega=lambda t: 1.,Omegadot=lambda t: 0.)
 
-Note that when we supply ``Omega`` as a function, it is necessary to specify 
+Note that when we supply ``Omega`` as a function, it is necessary to specify
 its time derivative as well as ``Omegadot`` (all again in internal units).
 
-We give an example of having the origin of the non-inertial frame accelerate 
+We give an example of having the origin of the non-inertial frame accelerate
 in the :ref:`orbit-example-barycentric-acceleration-LMC` section below.
 
 Displaying the orbit
@@ -594,7 +594,7 @@ After integrating the orbit, it can be displayed by using the
 is called depend on the dimensionality of the orbit: in 3D the (R,z)
 projection of the orbit is shown; in 2D either (X,Y) is plotted if the
 azimuth is tracked and (R,vR) is shown otherwise; in 1D (x,vx) is
-shown. E.g., for the example given above at the start of the 
+shown. E.g., for the example given above at the start of the
 :ref:`orbintegration` section above,
 
 >>> o.plot()
@@ -611,7 +611,7 @@ velocity scales associated with it, we get the following
 .. image:: images/lp-orbit-integration-physical.png
 
 If we call ``op.plot(use_physical=False)``, the quantities will be
-displayed in natural galpy coordinates. 
+displayed in natural galpy coordinates.
 
 Plotting an ``Orbit`` instance that consists of multiple objects plots
 all objects at once, e.g.,
@@ -621,10 +621,10 @@ all objects at once, e.g.,
 gives
 
 .. image:: images/lp-orbits-integration.png
-	:scale: 80 % 
+	:scale: 80 %
 
 Other projections of the orbit can be displayed by specifying the
-quantities to plot. E.g., 
+quantities to plot. E.g.,
 
 >>> o.plot(d1='x',d2='y')
 
@@ -739,7 +739,7 @@ which gives
 If you want to embed the animation in a webpage, you can obtain the necessary HTML using the ``_repr_html_()`` function of the IPython.core.display.HTML object returned by ``animate``. By default, the HTML includes the entire orbit's data, but ``animate`` also has an option to store the orbit in a separate ``JSON`` file that will then be loaded by the output HTML code.
 
 ``animate`` also works in principle for ``Orbit`` instances containing multiple objects, but in practice the resulting animation is very slow once more than a few orbits/projections are used.
-   
+
 Orbit characterization
 ----------------------
 
@@ -780,12 +780,12 @@ that the orbit was integrated in, or in another potential:
 where ``mp`` is the Miyamoto-Nagai potential of :ref:`Introduction:
 Rotation curves <rotcurves>`.
 
-Many other quantities characterizing the orbit can be calculated as well, 
-for example, orbital actions, frequencies, and angles (see 
-:ref:`this section <aaorbit>`), the guiding-center radius ``rguiding``, 
-and the radius ``rE`` and angular momentum ``LcE`` of the circular orbit 
-with the same energy as the Orbit instance. See the 
-:ref:`Orbit API page <orbit-api>` for a full list of quantities that can 
+Many other quantities characterizing the orbit can be calculated as well,
+for example, orbital actions, frequencies, and angles (see
+:ref:`this section <aaorbit>`), the guiding-center radius ``rguiding``,
+and the radius ``rE`` and angular momentum ``LcE`` of the circular orbit
+with the same energy as the Orbit instance. See the
+:ref:`Orbit API page <orbit-api>` for a full list of quantities that can
 accessed for any ``Orbit`` instance.
 
 For the Orbit ``op`` that was initialized above with a distance scale
@@ -824,7 +824,7 @@ parameters as demonstrated in `Mackereth & Bovy (2018)
 <http://adsabs.harvard.edu/abs/2018PASP..130k4501M>`__ via the
 Staeckel approximation (originally used by `Binney (2012)
 <http://adsabs.harvard.edu/abs/2012MNRAS.426.1324B>`_ for the
-appoximation of actions in axisymmetric potentials), without
+approximation of actions in axisymmetric potentials), without
 performing any orbit integration.  The method uses the geometry of the
 orbit tori to estimate the orbit parameters. After initialising an
 ``Orbit`` instance, the method is applied by specifying
@@ -901,7 +901,7 @@ varies along the orbit, and comparing to the calculation using the
 orbit integration, we see that the estimation good job
 
 .. image:: images/lp-orbit-integration-et.png
-	:scale: 40 % 
+	:scale: 40 %
 
 Accessing the raw orbit
 -----------------------
@@ -948,7 +948,7 @@ For ``Orbit`` instances that contain multiple objects, the functions
 above return arrays with the shape of the Orbit.
 
 We can also initialize an ``Orbit`` instance using the phase-space
-position of another ``Orbit`` instance evaulated at time t. For
+position of another ``Orbit`` instance evaluated at time t. For
 example,
 
 >>> newOrbit= o(10.)
@@ -1061,7 +1061,7 @@ defined by the orbit integration from time zero to the final time
 
 >>> tjac= numpy.linalg.det(numpy.array([dx,dy,dvx,dvy]))
 
-This determinant should be equal to one 
+This determinant should be equal to one
 
 >>> print(tjac)
 # 0.999999991189
@@ -1094,7 +1094,7 @@ stars compiled by Dierickx et al. (`2010arXiv1009.1616D
 <http://vizier.cfa.harvard.edu/viz-bin/Cat?cat=J%2FApJ%2F725%2FL186&target=http&>`_.
 Downloading the table and the ReadMe will allow you to read in the
 data using ``astropy.io.ascii`` like so
- 
+
 >>> from astropy.io import ascii
 >>> dierickx = ascii.read('table2.dat', readme='ReadMe')
 >>> vxvv = numpy.dstack([dierickx['RAdeg'], dierickx['DEdeg'], dierickx['Dist']/1e3, dierickx['pmRA'], dierickx['pmDE'], dierickx['HRV']])[0]
@@ -1142,9 +1142,9 @@ A script that calculates and plots everything can be downloaded
 
     python dierickx_eccentricities.py ../path/to/folder
 
-specifiying the location you want to put the plots and data.
+specifying the location you want to put the plots and data.
 
-Alternatively - one can transform the observed coordinates into spherical coordinates and perform 
+Alternatively - one can transform the observed coordinates into spherical coordinates and perform
 the estimations in one batch using the ``actionAngle`` interface, which takes considerably less time:
 
 >>> from galpy import actionAngle
@@ -1282,36 +1282,36 @@ dynamical friction will inevitably lead to the merger of the LMC with
 the Milky Way.
 
 .. WARNING::
-   When using dynamical friction, if the radius gets very small, the integration sometimes becomes very erroneous, which can lead to a big, unphysical kick (even though we turn off friction at very small radii); this is the reason why we have limited the future integration to 9 Gyr in the example above. When using dynamical friction, inspect the full orbit to make sure to catch whether a merger has happened. 
+   When using dynamical friction, if the radius gets very small, the integration sometimes becomes very erroneous, which can lead to a big, unphysical kick (even though we turn off friction at very small radii); this is the reason why we have limited the future integration to 9 Gyr in the example above. When using dynamical friction, inspect the full orbit to make sure to catch whether a merger has happened.
 
 .. _orbit-example-barycentric-acceleration-LMC:
 
 Example: Including the Milky Way center's barycentric acceleration due to the Large Magellanic Cloud in orbit integrations
 ---------------------------------------------------------------------------------------------------------------------------
 
-Observations over the last few decades have revealed that the Large Magellanic 
-Cloud (LMC) is so massive that it pulls the center of the Milky Way towards it to a 
-non-vanishing degree. This implies that the Galactocentric reference frame is 
-not an inertial reference frame and that orbit integrations should take the 
-fictitious forces due to the frame's acceleration into account. In this example, 
+Observations over the last few decades have revealed that the Large Magellanic
+Cloud (LMC) is so massive that it pulls the center of the Milky Way towards it to a
+non-vanishing degree. This implies that the Galactocentric reference frame is
+not an inertial reference frame and that orbit integrations should take the
+fictitious forces due to the frame's acceleration into account. In this example,
 we demonstrate how this can be done in ``galpy`` in a simplified manner.
 
-To take the Galactocentric frame's acceleration into account, we use the 
-:ref:`NonInertialFrameForce <noninertialframe_potential>`. This ``Force`` 
-class requires one to input the acceleration of the origin of the 
-non-inertial reference frame, so we first need to determine that. To do this 
-properly, one would have to run some sort of *N*-body simulation of the 
-LMC's infall into the Milky Way. To avoid doing that, for the purpose of this 
-simple illustration, we will make the following approximation. We will first 
-compute the orbit of the LMC in the Milky Way, assuming that the Milky Way 
-remains at rest (and is thus an inertial frame), and then we will compute 
-the acceleration of the origin induced by the pull from the LMC along this 
-orbit. Because the effect of the LMC is rather small, this is a decent 
+To take the Galactocentric frame's acceleration into account, we use the
+:ref:`NonInertialFrameForce <noninertialframe_potential>`. This ``Force``
+class requires one to input the acceleration of the origin of the
+non-inertial reference frame, so we first need to determine that. To do this
+properly, one would have to run some sort of *N*-body simulation of the
+LMC's infall into the Milky Way. To avoid doing that, for the purpose of this
+simple illustration, we will make the following approximation. We will first
+compute the orbit of the LMC in the Milky Way, assuming that the Milky Way
+remains at rest (and is thus an inertial frame), and then we will compute
+the acceleration of the origin induced by the pull from the LMC along this
+orbit. Because the effect of the LMC is rather small, this is a decent
 approximation.
 
-We therefore start by computing the orbit of the LMC in the past like in the 
-previous example in section :ref:`orbit-example-LMC-dynfric`. We repeat the 
-code here for convenience (we choose again to increase the halo mass in 
+We therefore start by computing the orbit of the LMC in the past like in the
+previous example in section :ref:`orbit-example-LMC-dynfric`. We repeat the
+code here for convenience (we choose again to increase the halo mass in
 ``MWPotential2014`` by 50% and we choose the heaviest LMC for this example)
 
 >>> import numpy
@@ -1325,10 +1325,10 @@ code here for convenience (we choose again to increase the halo mass in
 >>> ts= numpy.linspace(0.,-10.,1001)*units.Gyr
 >>> o.integrate(ts,MWPotential2014+cdf)
 
-We then define functions giving the acceleration of the origin due to the 
-gravitational pull from the LMC. To do this, we define a ``MovingObjectPotential`` 
-for the orbiting LMC and then evaluate its forces in rectangular coordinates. We'll 
-model the LMC as a ``HernquistPotential``, with mass and half-mass radius consistent 
+We then define functions giving the acceleration of the origin due to the
+gravitational pull from the LMC. To do this, we define a ``MovingObjectPotential``
+for the orbiting LMC and then evaluate its forces in rectangular coordinates. We'll
+model the LMC as a ``HernquistPotential``, with mass and half-mass radius consistent
 with what we used in the dynamical friction above):
 
 >>> from galpy.potential import HernquistPotential, MovingObjectPotential
@@ -1336,15 +1336,15 @@ with what we used in the dynamical friction above):
                                a=5.*units.kpc/(1.+numpy.sqrt(2.))) #rhm = (1+sqrt(2)) a
 >>> moving_lmcpot= MovingObjectPotential(o,pot=lmcpot)
 
-and then we define the functions giving the acceleration of the origin. This is 
-slightly tricky, because there are currently no pre-defined functions giving the 
-force in rectangular coordinates and because evaluating forces at the origin is 
-numerically unstable due to ``galpy``'s use of cylindrical coordinates internally. 
-So we will put the origin at a small offset to avoid the numerical issues at the 
-origin and define the rectangular forces ourselves. By placing the origin at 
+and then we define the functions giving the acceleration of the origin. This is
+slightly tricky, because there are currently no pre-defined functions giving the
+force in rectangular coordinates and because evaluating forces at the origin is
+numerically unstable due to ``galpy``'s use of cylindrical coordinates internally.
+So we will put the origin at a small offset to avoid the numerical issues at the
+origin and define the rectangular forces ourselves. By placing the origin at
 :math:`\phi=0`, the rectangular forces are simple:
 
->>> from galpy.potential import (evaluateRforces, evaluatephitorques, 
+>>> from galpy.potential import (evaluateRforces, evaluatephitorques,
                                  evaluatezforces)
 >>> loc_origin= 1e-4 # Small offset in R to avoid numerical issues
 >>> ax= lambda t: evaluateRforces(moving_lmcpot,loc_origin,0.,phi=0.,t=t,
@@ -1354,8 +1354,8 @@ origin and define the rectangular forces ourselves. By placing the origin at
 >>> az= lambda t: evaluatezforces(moving_lmcpot,loc_origin,0.,phi=0.,t=t,
                                   use_physical=False)
 
-Directly using these accelerations in the ``NonInertialFrameForce`` is very 
-slow (because they have to be evaluated *a lot* during orbit integration), 
+Directly using these accelerations in the ``NonInertialFrameForce`` is very
+slow (because they have to be evaluated *a lot* during orbit integration),
 so we build interpolated versions to speed things up:
 
 >>> t_intunits= o.time(use_physical=False)[::-1] # need to reverse the order for interp
@@ -1365,25 +1365,25 @@ so we build interpolated versions to speed things up:
 >>> ay_int= lambda t: numpy.interp(t,t_intunits,ay4int)
 >>> az4int= numpy.array([az(t) for t in t_intunits])
 >>> az_int= lambda t: numpy.interp(t,t_intunits,az4int)
-   
-Note that we use ``numpy.interp`` here as the interpolation function, 
-because if `numba <https://numba.pydata.org/>`__ is installed, ``galpy`` 
-will automatically use it to try to build fast, C versions of the functions 
-of time in ``NonInertialFrameForce``. For this, ``numba`` must be able to 
-compile the function and it can do this for ``numpy.interp`` (but not for 
+
+Note that we use ``numpy.interp`` here as the interpolation function,
+because if `numba <https://numba.pydata.org/>`__ is installed, ``galpy``
+will automatically use it to try to build fast, C versions of the functions
+of time in ``NonInertialFrameForce``. For this, ``numba`` must be able to
+compile the function and it can do this for ``numpy.interp`` (but not for
 ``scipy`` interpolation functions).
 
-With these functions defined, we can then set up the ``NonInertialFrameForce`` 
+With these functions defined, we can then set up the ``NonInertialFrameForce``
 with this acceleration of the origin
 
 >>> from galpy.potential import NonInertialFrameForce
 >>> nip= NonInertialFrameForce(a0=[ax_int,ay_int,az_int])
 
-As an example, let's compute the past orbit of the Sun with and without taking 
-the acceration of the origin into account. We'll look at how the x position 
-changes in time. When taking the acceleration of the origin into account, 
-it is important to also include the acceleration due to LMC itself. Without it, 
-the potential is inconsistent, e.g., the origin itself would move in the frame 
+As an example, let's compute the past orbit of the Sun with and without taking
+the acceration of the origin into account. We'll look at how the x position
+changes in time. When taking the acceleration of the origin into account,
+it is important to also include the acceleration due to LMC itself. Without it,
+the potential is inconsistent, e.g., the origin itself would move in the frame
 in which it is supposed to be at rest!
 
 >>> sunts= numpy.linspace(0.,-3.,301)*units.Gyr
@@ -1400,13 +1400,13 @@ This gives
 .. image:: images/mwp14-lmcacc-sun.png
    :scale: 60 %
 
-We see that there is essentially no difference. This is because the 
-acceleration of the origin due to the LMC is much smaller than the 
-acceleration felt by the Sun during its orbit from the Milky Way *and* the Sun 
-is so close to the Galactic center relative to the LMC that much of the 
-acceleration of the origin is cancelled by the attraction to the LMC (which 
-at the center are equal in magnitude and opposite in sign). However, if we look 
-at a dwarf galaxy orbiting far in the halo, we do notice small differences. For 
+We see that there is essentially no difference. This is because the
+acceleration of the origin due to the LMC is much smaller than the
+acceleration felt by the Sun during its orbit from the Milky Way *and* the Sun
+is so close to the Galactic center relative to the LMC that much of the
+acceleration of the origin is cancelled by the attraction to the LMC (which
+at the center are equal in magnitude and opposite in sign). However, if we look
+at a dwarf galaxy orbiting far in the halo, we do notice small differences. For
 example, let's look at the orbit of Fornax over the past 10 Gyr
 
 >>> fornaxts= numpy.linspace(0.,-10.,101)*units.Gyr
@@ -1424,21 +1424,21 @@ This gives
 .. image:: images/mwp14-lmcacc-fornax.png
    :scale: 60 %
 
-Now we see that there are significant differences in the past orbit 
-when we take the acceleration of the Galactocentric reference frame 
-into account. The reason that the orbit changes abruptly at :math:`-8\,\mathrm{Gyr}` 
-is because the LMC has a previous pericenter passage then in the orbit that 
-we calculated for it, leading to a significant fictitious acceleration force 
+Now we see that there are significant differences in the past orbit
+when we take the acceleration of the Galactocentric reference frame
+into account. The reason that the orbit changes abruptly at :math:`-8\,\mathrm{Gyr}`
+is because the LMC has a previous pericenter passage then in the orbit that
+we calculated for it, leading to a significant fictitious acceleration force
 at that time. Whether this is correct is of course highly uncertain.
 
-To check whether the acceleration of the Milky Way's origin that we 
-obtained using the simple approximation above is realistic, we can, 
-for example, compare to the results shown in Figure 10 of 
-`Vasiliev et al. (2021) <https://ui.adsabs.harvard.edu/abs/2021MNRAS.501.2279V/abstract>`__. 
-This figure displays the displacement of the Milky Way's origin and 
-its velocity as a function of time, and also the fictitious force 
-induced by the acceleration of the origin (this is minus the acceleration). 
-To compute these quantities for the model above, we simply integrate the 
+To check whether the acceleration of the Milky Way's origin that we
+obtained using the simple approximation above is realistic, we can,
+for example, compare to the results shown in Figure 10 of
+`Vasiliev et al. (2021) <https://ui.adsabs.harvard.edu/abs/2021MNRAS.501.2279V/abstract>`__.
+This figure displays the displacement of the Milky Way's origin and
+its velocity as a function of time, and also the fictitious force
+induced by the acceleration of the origin (this is minus the acceleration).
+To compute these quantities for the model above, we simply integrate the
 acceleration (starting 3 Gyr ago like Vasiliev et al.):
 
 >>> from scipy import integrate
@@ -1488,8 +1488,8 @@ and we obtain
 .. image:: images/mwp14-lmcacc-displacement-etc.png
    :scale: 60 %
 
-The main trends and magnitudes in this figure are the same as those 
-in figure 10 of Vasiliev et al., so the acceleration of the origin that 
-we computed here is reasonable. Note that Vasiliev et al. use a different 
-LMC mass and that other aspects of their modeling differ (like the Milky Way's 
+The main trends and magnitudes in this figure are the same as those
+in figure 10 of Vasiliev et al., so the acceleration of the origin that
+we computed here is reasonable. Note that Vasiliev et al. use a different
+LMC mass and that other aspects of their modeling differ (like the Milky Way's
 potential), so we don't expect an exact match.

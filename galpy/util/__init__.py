@@ -1,10 +1,12 @@
 import os
-import shutil
-import warnings
-import tempfile
 import pickle
+import shutil
+import tempfile
+import warnings
+
 import numpy
 import scipy.linalg as linalg
+
 from ..util.config import __config__
 
 _SHOW_WARNINGS = __config__.getboolean("warnings", "verbose")

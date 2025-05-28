@@ -1,13 +1,16 @@
 # Cautun (2020) potential
 # Thanks to Thomas Callingham (Durham University, UK) which implemented the potential within galpy
 import numpy
-from ..potential import NFWPotential
-from ..potential import DiskSCFPotential
-from ..potential import SCFPotential
-from ..potential import PowerSphericalPotentialwCutoff
-from ..potential import AdiabaticContractionWrapperPotential
-from ..potential import scf_compute_coeffs_axi
-from ..potential import mwpot_helpers
+
+from ..potential import (
+    AdiabaticContractionWrapperPotential,
+    DiskSCFPotential,
+    NFWPotential,
+    PowerSphericalPotentialwCutoff,
+    SCFPotential,
+    mwpot_helpers,
+    scf_compute_coeffs_axi,
+)
 from ..util import conversion
 
 # Suppress the numpy floating-point warnings that this code generates...

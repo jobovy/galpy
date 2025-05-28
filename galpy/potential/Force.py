@@ -4,14 +4,15 @@
 #
 ###############################################################################
 import copy
+
 import numpy
-from ..util import config
-from ..util import conversion
+
+from ..util import config, conversion
 from ..util.conversion import (
+    _APY_LOADED,
+    physical_compatible,
     physical_conversion,
     potential_physical_input,
-    physical_compatible,
-    _APY_LOADED,
 )
 
 if _APY_LOADED:

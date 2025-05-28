@@ -1,10 +1,11 @@
 # Tests of the quasiisothermaldf module
 import numpy
 
-# fiducial setup uses these
-from galpy.potential import MWPotential, vcirc, omegac, epifreq, verticalfreq
 from galpy.actionAngle import actionAngleAdiabatic, actionAngleStaeckel
 from galpy.df import quasiisothermaldf
+
+# fiducial setup uses these
+from galpy.potential import MWPotential, epifreq, omegac, vcirc, verticalfreq
 
 aAA = actionAngleAdiabatic(pot=MWPotential, c=True)
 aAS = actionAngleStaeckel(pot=MWPotential, c=True, delta=0.5)

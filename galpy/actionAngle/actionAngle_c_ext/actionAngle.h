@@ -17,8 +17,8 @@ extern "C" {
   Macro for dealing with potentially unused variables due to OpenMP
  */
 /* If we're not using GNU C, elide __attribute__ if it doesn't exist*/
-#ifndef __has_attribute      // Compatibility with non-clang compilers. 
-#define __has_attribute(x) 0  
+#ifndef __has_attribute      // Compatibility with non-clang compilers.
+#define __has_attribute(x) 0
 #endif
 #if defined(__GNUC__) || __has_attribute(unused)
 #  define UNUSED __attribute__((unused))

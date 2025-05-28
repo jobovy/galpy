@@ -1,9 +1,10 @@
 # _load_extension_libs.py: centralized place to load the C extensions
+import ctypes
+import distutils.sysconfig as sysconfig
 import os
 import sys
-import distutils.sysconfig as sysconfig
 import warnings
-import ctypes
+
 from ..util import galpyWarning, galpyWarningVerbose
 
 PY3 = sys.version > "3"

@@ -16,14 +16,14 @@ double HenonHeilesPotentialR2deriv(double R,double phi,double t,
 				      struct potentialArg * potentialArgs){
   double * args= potentialArgs->args;
   return *args * ( 1. + 2. * R * sin( 3. * phi ) );
-} 
+}
 double HenonHeilesPotentialphi2deriv(double R,double phi,double t,
 					struct potentialArg * potentialArgs){
   double * args= potentialArgs->args;
   return - 3. * *args * pow(R,3.) * sin( 3. * phi );
-} 
+}
 double HenonHeilesPotentialRphideriv(double R,double phi,double t,
 					struct potentialArg * potentialArgs){
   double * args= potentialArgs->args;
   return 3. * *args * R * R * cos( 3. * phi );
-} 
+}

@@ -8,9 +8,10 @@ import numpy
 from scipy import integrate
 from scipy.interpolate import interp1d
 from scipy.optimize import fixed_point
+
+from ..util import conversion
 from .Force import Force
 from .interpSphericalPotential import interpSphericalPotential
-from ..util import conversion
 
 
 # Note: not actually implemented as a WrapperPotential!
@@ -107,9 +108,7 @@ class AdiabaticContractionWrapperPotential(interpSphericalPotential):
         elif method.lower() == "blumenthal":
             new_rforce = _contraction_Blumenthal1986(rgrid, dm_mass, baryon_mass, f_bar)
         else:  # pragma: no cover
-            raise ValueError(
-                "Adiabatic contraction method '{}' not recognized".format(method)
-            )
+            raise ValueError(f"Adiabatic contraction method '{method}' not recognized")
         # Add central point
         rgrid = numpy.concatenate(([0.0], rgrid))
         new_rforce = numpy.concatenate(([0.0], new_rforce))

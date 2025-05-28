@@ -1,64 +1,67 @@
 import warnings
-from . import Force
-from . import Potential
-from . import planarPotential
-from . import linearPotential
-from . import verticalPotential
-from . import MiyamotoNagaiPotential
-from . import IsochronePotential
-from . import LogarithmicHaloPotential
-from . import DoubleExponentialDiskPotential
-from . import PowerSphericalPotential
-from . import PowerSphericalPotentialwCutoff
-from . import TwoPowerSphericalPotential
-from . import plotRotcurve
-from . import plotEscapecurve
-from . import KGPotential
-from . import interpRZPotential
-from . import DehnenBarPotential
-from . import SteadyLogSpiralPotential
-from . import TransientLogSpiralPotential
-from . import MovingObjectPotential
-from . import EllipticalDiskPotential
-from . import CosmphiDiskPotential
-from . import RazorThinExponentialDiskPotential
-from . import FlattenedPowerPotential
-from . import SnapshotRZPotential
-from . import BurkertPotential
-from . import MN3ExponentialDiskPotential
-from . import KuzminKutuzovStaeckelPotential
-from . import PlummerPotential
-from . import PseudoIsothermalPotential
-from . import KuzminDiskPotential
-from . import TwoPowerTriaxialPotential
-from . import FerrersPotential
-from . import SCFPotential
-from . import SoftenedNeedleBarPotential
-from . import DiskSCFPotential
-from . import SpiralArmsPotential
-from . import HenonHeilesPotential
-from . import DehnenSmoothWrapperPotential
-from . import SolidBodyRotationWrapperPotential
-from . import CorotatingRotationWrapperPotential
-from . import GaussianAmplitudeWrapperPotential
-from . import RotateAndTiltWrapperPotential
-from . import ChandrasekharDynamicalFrictionForce
-from . import SphericalShellPotential
-from . import RingPotential
-from . import PerfectEllipsoidPotential
-from . import IsothermalDiskPotential
-from . import NumericalPotentialDerivativesMixin
-from . import HomogeneousSpherePotential
-from . import interpSphericalPotential
-from . import TriaxialGaussianPotential
-from . import KingPotential
-from . import AnyAxisymmetricRazorThinDiskPotential
-from . import AnySphericalPotential
-from . import AdiabaticContractionWrapperPotential
-from . import PowerTriaxialPotential
-from . import NonInertialFrameForce
-from . import NullPotential
-from . import TimeDependentAmplitudeWrapperPotential
+
+from . import (
+    AdiabaticContractionWrapperPotential,
+    AnyAxisymmetricRazorThinDiskPotential,
+    AnySphericalPotential,
+    BurkertPotential,
+    ChandrasekharDynamicalFrictionForce,
+    CorotatingRotationWrapperPotential,
+    CosmphiDiskPotential,
+    DehnenBarPotential,
+    DehnenSmoothWrapperPotential,
+    DiskSCFPotential,
+    DoubleExponentialDiskPotential,
+    EllipticalDiskPotential,
+    FerrersPotential,
+    FlattenedPowerPotential,
+    Force,
+    GaussianAmplitudeWrapperPotential,
+    HenonHeilesPotential,
+    HomogeneousSpherePotential,
+    IsochronePotential,
+    IsothermalDiskPotential,
+    KGPotential,
+    KingPotential,
+    KuzminDiskPotential,
+    KuzminKutuzovStaeckelPotential,
+    LogarithmicHaloPotential,
+    MiyamotoNagaiPotential,
+    MN3ExponentialDiskPotential,
+    MovingObjectPotential,
+    NonInertialFrameForce,
+    NullPotential,
+    NumericalPotentialDerivativesMixin,
+    PerfectEllipsoidPotential,
+    PlummerPotential,
+    Potential,
+    PowerSphericalPotential,
+    PowerSphericalPotentialwCutoff,
+    PowerTriaxialPotential,
+    PseudoIsothermalPotential,
+    RazorThinExponentialDiskPotential,
+    RingPotential,
+    RotateAndTiltWrapperPotential,
+    SCFPotential,
+    SnapshotRZPotential,
+    SoftenedNeedleBarPotential,
+    SolidBodyRotationWrapperPotential,
+    SphericalShellPotential,
+    SpiralArmsPotential,
+    SteadyLogSpiralPotential,
+    TimeDependentAmplitudeWrapperPotential,
+    TransientLogSpiralPotential,
+    TriaxialGaussianPotential,
+    TwoPowerSphericalPotential,
+    TwoPowerTriaxialPotential,
+    interpRZPotential,
+    interpSphericalPotential,
+    linearPotential,
+    planarPotential,
+    plotEscapecurve,
+    plotRotcurve,
+    verticalPotential,
+)
 
 #
 # Functions

@@ -1,9 +1,10 @@
 import platform
 
 WIN32 = platform.system() == "Windows"
-import pytest
 import numpy
-from scipy import interpolate, integrate
+import pytest
+from scipy import integrate, interpolate
+
 from galpy.util import coords
 
 sdf_bovy14 = None  # so we can set this up and then use in other tests
@@ -12,10 +13,10 @@ sdft_bovy14 = None  # so we can set this up and then use in other tests, trailin
 
 def test_progenitor_coordtransformparams():
     # Test related to #189: test that the streamdf setup throws a warning when the given coordinate transformation parameters differ from those of the given progenitor orbit
+    from galpy.actionAngle import actionAngleIsochroneApprox
     from galpy.df import streamdf
     from galpy.orbit import Orbit
     from galpy.potential import LogarithmicHaloPotential
-    from galpy.actionAngle import actionAngleIsochroneApprox
     from galpy.util import conversion  # for unit conversions
     from galpy.util import galpyWarning
 
@@ -179,10 +180,10 @@ def test_progenitor_coordtransformparams():
 # sanity checked
 def test_bovy14_setup():
     # Imports
+    from galpy.actionAngle import actionAngleIsochroneApprox
     from galpy.df import streamdf
     from galpy.orbit import Orbit
     from galpy.potential import LogarithmicHaloPotential
-    from galpy.actionAngle import actionAngleIsochroneApprox
     from galpy.util import conversion  # for unit conversions
 
     lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
@@ -1837,10 +1838,10 @@ def test_subhalo_encounters_venc_yoon():
 
 def test_bovy14_oppositetrailing_setup():
     # Imports
+    from galpy.actionAngle import actionAngleIsochroneApprox
     from galpy.df import streamdf
     from galpy.orbit import Orbit
     from galpy.potential import LogarithmicHaloPotential
-    from galpy.actionAngle import actionAngleIsochroneApprox
     from galpy.util import conversion  # for unit conversions
 
     lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
@@ -1900,9 +1901,9 @@ def test_bovy14_oppositetrailing_setup():
 
 
 def test_calcaAJac():
+    from galpy.actionAngle import actionAngleIsochroneApprox
     from galpy.df.streamdf import calcaAJac
     from galpy.potential import LogarithmicHaloPotential
-    from galpy.actionAngle import actionAngleIsochroneApprox
 
     lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
     aAI = actionAngleIsochroneApprox(pot=lp, b=0.8)
@@ -1972,9 +1973,9 @@ def test_calcaAJac():
 
 
 def test_calcaAJacLB():
+    from galpy.actionAngle import actionAngleIsochroneApprox
     from galpy.df.streamdf import calcaAJac
     from galpy.potential import LogarithmicHaloPotential
-    from galpy.actionAngle import actionAngleIsochroneApprox
 
     lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
     aAI = actionAngleIsochroneApprox(pot=lp, b=0.8)
@@ -2066,10 +2067,10 @@ def test_plotting():
 
 def test_2ndsetup():
     # Test related to #195: when we re-do the setup with the same progenitor, we should get the same
+    from galpy.actionAngle import actionAngleIsochroneApprox
     from galpy.df import streamdf
     from galpy.orbit import Orbit
     from galpy.potential import LogarithmicHaloPotential
-    from galpy.actionAngle import actionAngleIsochroneApprox
     from galpy.util import conversion  # for unit conversions
 
     lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
@@ -2143,10 +2144,10 @@ def test_bovy14_trackaa():
 def test_fardalpot_trackaa():
     # Test that the explicitly-calculated frequencies along the track are close to those that the track is based on (Fardal test, #194); used to fail for the potential suggested by Fardal
     # First setup this specific streamdf instance
+    from galpy.actionAngle import actionAngleIsochroneApprox
     from galpy.df import streamdf
     from galpy.orbit import Orbit
-    from galpy.potential import IsochronePotential, FlattenedPowerPotential
-    from galpy.actionAngle import actionAngleIsochroneApprox
+    from galpy.potential import FlattenedPowerPotential, IsochronePotential
     from galpy.util import conversion  # for unit conversions
 
     # test nested list of potentials
@@ -2203,10 +2204,10 @@ def test_fardalpot_trackaa():
 def test_fardalwmwpot_trackaa():
     # Test that the explicitly-calculated frequencies along the track are close to those that the track is based on (Fardal test, #194)
     # First setup this specific streamdf instance
+    from galpy.actionAngle import actionAngleIsochroneApprox
     from galpy.df import streamdf
     from galpy.orbit import Orbit
     from galpy.potential import MWPotential2014
-    from galpy.actionAngle import actionAngleIsochroneApprox
     from galpy.util import conversion  # for unit conversions
 
     aAI = actionAngleIsochroneApprox(pot=MWPotential2014, b=0.6)
@@ -2259,10 +2260,10 @@ def test_fardalwmwpot_trackaa():
 def test_setup_progIsTrack():
     # Test that setting up with progIsTrack=True gives a track that is very close to the given progenitor, such that it works as it should
     # Imports
+    from galpy.actionAngle import actionAngleIsochroneApprox
     from galpy.df import streamdf
     from galpy.orbit import Orbit
     from galpy.potential import LogarithmicHaloPotential
-    from galpy.actionAngle import actionAngleIsochroneApprox
     from galpy.util import conversion  # for unit conversions
 
     lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
@@ -2305,10 +2306,10 @@ def test_bovy14_useTM_poterror():
     # Test that setting up the stream model with useTM, but a different
     # actionAngleTorus potential raises a IOError
     # Imports
+    from galpy.actionAngle import actionAngleIsochroneApprox, actionAngleTorus
     from galpy.df import streamdf
     from galpy.orbit import Orbit
     from galpy.potential import LogarithmicHaloPotential
-    from galpy.actionAngle import actionAngleIsochroneApprox, actionAngleTorus
     from galpy.util import conversion  # for unit conversions
 
     lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
@@ -2339,10 +2340,11 @@ def test_bovy14_useTM():
     # Test that setting up with useTM is very close to the Bovy (2014) setup
     # Imports
     from scipy import interpolate
+
+    from galpy.actionAngle import actionAngleIsochroneApprox, actionAngleTorus
     from galpy.df import streamdf
     from galpy.orbit import Orbit
     from galpy.potential import LogarithmicHaloPotential
-    from galpy.actionAngle import actionAngleIsochroneApprox, actionAngleTorus
     from galpy.util import conversion  # for unit conversions
 
     lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
@@ -2410,10 +2412,11 @@ def test_bovy14_useTM_useTMHessian():
     # Test that setting up with useTM is very close to the Bovy (2014) setup
     # Imports
     from scipy import interpolate
+
+    from galpy.actionAngle import actionAngleIsochroneApprox, actionAngleTorus
     from galpy.df import streamdf
     from galpy.orbit import Orbit
     from galpy.potential import LogarithmicHaloPotential
-    from galpy.actionAngle import actionAngleIsochroneApprox, actionAngleTorus
     from galpy.util import conversion  # for unit conversions
 
     lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
@@ -2497,10 +2500,11 @@ def test_bovy14_useTM_approxConstTrackFreq():
     # Test that setting up with useTM is very close to the Bovy (2014) setup
     # Imports
     from scipy import interpolate
+
+    from galpy.actionAngle import actionAngleIsochroneApprox, actionAngleTorus
     from galpy.df import streamdf
     from galpy.orbit import Orbit
     from galpy.potential import LogarithmicHaloPotential
-    from galpy.actionAngle import actionAngleIsochroneApprox, actionAngleTorus
     from galpy.util import conversion  # for unit conversions
 
     lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)

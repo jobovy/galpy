@@ -3,9 +3,11 @@
 #                                  bar potential from Long & Murali (1992)
 ###############################################################################
 import hashlib
+
 import numpy
+
+from ..util import conversion, coords
 from .Potential import Potential
-from ..util import coords, conversion
 
 
 class SoftenedNeedleBarPotential(Potential):

@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 #
 # galpy documentation build configuration file, created by
 # sphinx-quickstart on Sun Jul 11 15:58:27 2010.
@@ -11,8 +10,8 @@
 # All configuration values have a default; values that are commented out
 # serve to show the default.
 
-import sys, os
 import datetime
+import os
 
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
@@ -44,7 +43,7 @@ master_doc = "index"
 
 # General information about the project.
 project = "galpy"
-copyright = "2010 - {}, Jo Bovy".format(datetime.datetime.now().year)
+copyright = f"2010 - {datetime.datetime.now().year}, Jo Bovy"
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the

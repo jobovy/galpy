@@ -1,5 +1,6 @@
 # Test that all of the examples in the galpy paper run
 import os
+
 import numpy
 import pytest
 
@@ -35,10 +36,10 @@ def test_overview():
 
 def test_import():
     import galpy
-    import galpy.potential
-    import galpy.orbit
     import galpy.actionAngle
     import galpy.df
+    import galpy.orbit
+    import galpy.potential
     import galpy.util
 
     return None
@@ -219,6 +220,7 @@ def test_potentialAPIChange_warning():
     # Test that a warning is displayed about the API change for evaluatePotentials etc. functions from what is given in the galpy paper
     # Turn warnings into errors to test for them
     import warnings
+
     from galpy.util import galpyWarning
 
     with warnings.catch_warnings(record=True) as w:
@@ -241,9 +243,10 @@ def test_potentialAPIChange_warning():
 
 def test_orbitint():
     import numpy
+
+    from galpy.orbit import Orbit
     from galpy.potential import MWPotential2014
     from galpy.potential import evaluatePotentials as evalPot
-    from galpy.orbit import Orbit
 
     E, Lz = -1.25, 0.6
     o1 = Orbit(
@@ -379,9 +382,10 @@ def test_orbsetup():
 def test_surfacesection():
     # Preliminary code
     import numpy
+
+    from galpy.orbit import Orbit
     from galpy.potential import MWPotential2014
     from galpy.potential import evaluatePotentials as evalPot
-    from galpy.orbit import Orbit
 
     E, Lz = -1.25, 0.6
     o1 = Orbit(
@@ -440,9 +444,9 @@ def test_surfacesection():
 
 
 def test_adinvariance():
-    from galpy.potential import IsochronePotential
-    from galpy.orbit import Orbit
     from galpy.actionAngle import actionAngleIsochrone
+    from galpy.orbit import Orbit
+    from galpy.potential import IsochronePotential
 
     # Initialize two different IsochronePotentials
     ip1 = IsochronePotential(normalize=1.0, b=1.0)
@@ -657,9 +661,9 @@ def test_oort():
 
 
 def test_qdf():
+    from galpy.actionAngle import actionAngleStaeckel
     from galpy.df import quasiisothermaldf
     from galpy.potential import MWPotential2014
-    from galpy.actionAngle import actionAngleStaeckel
 
     # Setup actionAngle instance for action calcs
     aAS = actionAngleStaeckel(pot=MWPotential2014, delta=0.45, c=True)

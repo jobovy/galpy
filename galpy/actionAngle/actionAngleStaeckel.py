@@ -12,30 +12,32 @@
 ###############################################################################
 import copy
 import warnings
+
 import numpy
-from scipy import optimize, integrate
+from scipy import integrate, optimize
+
 from ..potential import (
-    evaluateR2derivs,
-    evaluatez2derivs,
-    evaluateRzderivs,
+    MWPotential,
     epifreq,
+    evaluateR2derivs,
+    evaluateRzderivs,
+    evaluatez2derivs,
     omegac,
     verticalfreq,
-    MWPotential,
 )
 from ..potential.Potential import (
+    _check_c,
     _evaluatePotentials,
     _evaluateRforces,
     _evaluatezforces,
 )
 from ..potential.Potential import flatten as flatten_potential
 from ..util import coords  # for prolate confocal transforms
-from ..util import galpyWarning, conversion
+from ..util import conversion, galpyWarning
 from ..util.conversion import physical_conversion, potential_physical_input
-from .actionAngle import actionAngle, UnboundError
 from . import actionAngleStaeckel_c
+from .actionAngle import UnboundError, actionAngle
 from .actionAngleStaeckel_c import _ext_loaded as ext_loaded
-from ..potential.Potential import _check_c
 
 
 class actionAngleStaeckel(actionAngle):
@@ -284,7 +286,7 @@ class actionAngleStaeckel(actionAngle):
                     self._pot, delta, R, vR, vT, z, vz, u0=u0, order=order
                 )
             )
-            # Adjustements for close-to-circular orbits
+            # Adjustments for close-to-circular orbits
             indx = numpy.isnan(Omegar) * (jr < 10.0**-3.0) + numpy.isnan(Omegaz) * (
                 jz < 10.0**-3.0
             )  # Close-to-circular and close-to-the-plane orbits
@@ -389,7 +391,7 @@ class actionAngleStaeckel(actionAngle):
                     self._pot, delta, R, vR, vT, z, vz, phi, u0=u0, order=order
                 )
             )
-            # Adjustements for close-to-circular orbits
+            # Adjustments for close-to-circular orbits
             indx = numpy.isnan(Omegar) * (jr < 10.0**-3.0) + numpy.isnan(Omegaz) * (
                 jz < 10.0**-3.0
             )  # Close-to-circular and close-to-the-plane orbits

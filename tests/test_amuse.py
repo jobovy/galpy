@@ -1,16 +1,14 @@
 # Test consistency between galpy and amuse
 import numpy
-from galpy.orbit import Orbit
-from galpy import potential
-from galpy.util import conversion
-
-from galpy.potential import to_amuse
-
-from amuse.lab import *
 from amuse.couple import bridge
 from amuse.datamodel import Particles
-
+from amuse.lab import *
 from astropy import units as apy_u
+
+from galpy import potential
+from galpy.orbit import Orbit
+from galpy.potential import to_amuse
+from galpy.util import conversion
 
 
 def test_amuse_potential_with_physical():

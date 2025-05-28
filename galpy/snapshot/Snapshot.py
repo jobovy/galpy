@@ -1,8 +1,9 @@
 import numpy as nu
+from directnbody import direct_nbody
+
 from galpy.orbit import Orbit
 from galpy.potential.planarPotential import RZToplanarPotential
 from galpy.util import plot
-from directnbody import direct_nbody
 
 
 class Snapshot:

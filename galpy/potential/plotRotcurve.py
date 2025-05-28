@@ -1,7 +1,9 @@
 import os
 import pickle
+
 import numpy
-from ..util import plot, conversion
+
+from ..util import conversion, plot
 from ..util.conversion import physical_conversion, potential_physical_input
 
 
@@ -194,8 +196,7 @@ def vcirc(Pot, R, phi=None, t=0.0):
        2016-06-15 - Added phi= keyword for non-axisymmetric potential - Bovy (UofT)
 
     """
-    from ..potential import evaluateplanarRforces
-    from ..potential import PotentialError
+    from ..potential import PotentialError, evaluateplanarRforces
 
     try:
         return numpy.sqrt(
@@ -244,8 +245,11 @@ def dvcircdR(Pot, R, phi=None, t=0.0):
        2016-06-28 - Added phi= keyword for non-axisymmetric potential - Bovy (UofT)
 
     """
-    from ..potential import evaluateplanarRforces, evaluateplanarR2derivs
-    from ..potential import PotentialError
+    from ..potential import (
+        PotentialError,
+        evaluateplanarR2derivs,
+        evaluateplanarRforces,
+    )
 
     tvc = vcirc(Pot, R, phi=phi, t=t, use_physical=False)
     try:

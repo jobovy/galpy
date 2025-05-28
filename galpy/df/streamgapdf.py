@@ -1,19 +1,20 @@
 # The DF of a gap in a tidal stream
-from functools import wraps
 import copy
-import warnings
 import multiprocessing
+import warnings
+from functools import wraps
+
 import numpy
 from scipy import integrate, interpolate, special
-from ..util import galpyWarning, coords, multi, conversion
-from ..util import _rotate_to_arbitrary_vector
+
 from ..orbit import Orbit
-from ..potential import evaluateRforces, MovingObjectPotential, PlummerPotential
-from .df import df
+from ..potential import MovingObjectPotential, PlummerPotential, evaluateRforces
+from ..potential import flatten as flatten_potential
+from ..util import _rotate_to_arbitrary_vector, conversion, coords, galpyWarning, multi
 from ..util.conversion import physical_conversion
 from . import streamdf
+from .df import df
 from .streamdf import _determine_stream_track_single
-from ..potential import flatten as flatten_potential
 
 
 def impact_check_range(func):
@@ -335,7 +336,7 @@ class streamgapdf(streamdf.streamdf):
             return numpy.sum(gaussxpolyInt[:, : lowbindx + 1])
 
     def _densMoments_approx_higherorder_gaussxpolyInts(self, ll, ul, maxj):
-        """Calculate all of the polynomial x Gaussian integrals occuring
+        """Calculate all of the polynomial x Gaussian integrals occurring
         in the higher-order terms, recursively"""
         gaussxpolyInt = numpy.zeros((maxj, len(ul)))
         gaussxpolyInt[-1] = (

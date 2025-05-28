@@ -1,10 +1,11 @@
 # Class that implements the anisotropic spherical Hernquist DF with constant
 # beta parameter
 import numpy
-import scipy.special
 import scipy.integrate
+import scipy.special
+
+from ..potential import HernquistPotential, evaluatePotentials
 from ..util import conversion
-from ..potential import evaluatePotentials, HernquistPotential
 from .constantbetadf import _constantbetadf
 
 

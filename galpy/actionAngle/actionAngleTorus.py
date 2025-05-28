@@ -7,13 +7,15 @@
 #
 ###############################################################################
 import warnings
+
 import numpy
+
 from ..potential import MWPotential, _isNonAxi
+from ..potential.Potential import _check_c
+from ..potential.Potential import flatten as flatten_potential
 from ..util import galpyWarning
 from . import actionAngleTorus_c
 from .actionAngleTorus_c import _ext_loaded as ext_loaded
-from ..potential.Potential import _check_c
-from ..potential.Potential import flatten as flatten_potential
 
 _autofit_errvals = {}
 _autofit_errvals[-1] = (
@@ -21,7 +23,7 @@ _autofit_errvals[-1] = (
 )
 _autofit_errvals[-2] = "Fit failed the goal by a factor <= 2"
 _autofit_errvals[-3] = "Fit failed the goal by more than 2"
-_autofit_errvals[-4] = "Fit aborted: serious problems occured"
+_autofit_errvals[-4] = "Fit aborted: serious problems occurred"
 
 
 class actionAngleTorus:

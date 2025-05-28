@@ -1,9 +1,11 @@
-from galpy.potential import SpiralArmsPotential as spiral
+import unittest
+
 import numpy as np
 from numpy import pi
 from numpy.testing import assert_allclose
 from scipy.misc import derivative as deriv
-import unittest
+
+from galpy.potential import SpiralArmsPotential as spiral
 
 
 class TestSpiralArmsPotential(unittest.TestCase):

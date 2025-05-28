@@ -3,18 +3,20 @@
 #                             a moving object
 ###############################################################################
 import copy
+
 import numpy
+
+from .PlummerPotential import PlummerPotential
 from .Potential import (
     Potential,
+    _check_c,
     _isNonAxi,
-    flatten,
+    evaluateDensities,
     evaluatePotentials,
     evaluateRforces,
     evaluatezforces,
-    evaluateDensities,
-    _check_c,
+    flatten,
 )
-from .PlummerPotential import PlummerPotential
 
 
 class MovingObjectPotential(Potential):

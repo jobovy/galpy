@@ -14,4 +14,4 @@ all: $(LIBDIR)/PowSphwCut.so
 $(LIBDIR)/PowSphwCut.so: PowSphwCut.cc
 	$(CXX) -o $@ $< \
 	$(MAKECFLAGS) $(MAKELDFLAGS) $(LINKOPTIONS) \
-	-march=native -Wall -Wno-unknown-pragmas -fPIC 
+	-march=native -Wall -Wno-unknown-pragmas -fPIC

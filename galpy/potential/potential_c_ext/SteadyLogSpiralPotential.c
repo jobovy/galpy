@@ -53,6 +53,6 @@ double SteadyLogSpiralPotentialphitorque(double R,double phi,double t,
   double gamma= *args++;
   //Calculate Rforce
   smooth= dehnenSpiralSmooth(t,tform,tsteady);
-  return -amp * smooth * A / alpha * m * 
+  return -amp * smooth * A / alpha * m *
     sin(alpha * log(R) - m * (phi-omegas*t-gamma));
 }

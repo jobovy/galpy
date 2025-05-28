@@ -13,10 +13,12 @@
 ###############################################################################
 import copy
 import warnings
+
 import numpy
-from .actionAngle import actionAngle
+
 from ..potential import IsochronePotential
-from ..util import galpyWarning, conversion
+from ..util import conversion, galpyWarning
+from .actionAngle import actionAngle
 
 
 class actionAngleIsochrone(actionAngle):
@@ -389,7 +391,7 @@ class actionAngleIsochrone(actionAngle):
             )
 
 
-class _actionAngleIsochroneHelper(object):
+class _actionAngleIsochroneHelper:
     """Simplified version of the actionAngleIsochrone transformations, for use in actionAngleSphericalInverse"""
 
     def __init__(self, *args, **kwargs):
@@ -416,11 +418,11 @@ class _actionAngleIsochroneHelper(object):
 
         """
         if not "ip" in kwargs:  # pragma: no cover
-            raise IOError("Must specify ip= for _actionAngleIsochroneHelper")
+            raise OSError("Must specify ip= for _actionAngleIsochroneHelper")
         else:
             ip = kwargs["ip"]
             if not isinstance(ip, IsochronePotential):  # pragma: no cover
-                raise IOError(
+                raise OSError(
                     "'Provided ip= does not appear to be an instance of an IsochronePotential"
                 )
             # Check the units
@@ -440,7 +442,7 @@ class _actionAngleIsochroneHelper(object):
            vr2 - radial velocity squared
            L - angular momentum
            vrneg= (False) True if vr is negative
-           reuse= (False) if True, re-use all relevant quantities for computing the radial angle that were computed prviously as part of danglerdr_constant_L)
+           reuse= (False) if True, reuse all relevant quantities for computing the radial angle that were computed prviously as part of danglerdr_constant_L)
         OUTPUT:
            radial angle
         HISTORY:
@@ -522,7 +524,7 @@ class _actionAngleIsochroneHelper(object):
 
     def Jr(self, E, L):
         return self.amp / numpy.sqrt(-2.0 * E) - 0.5 * (
-            L + numpy.sqrt((L * L + 4.0 * self.amp * self.b))
+            L + numpy.sqrt(L * L + 4.0 * self.amp * self.b)
         )
 
     def Or(self, E):

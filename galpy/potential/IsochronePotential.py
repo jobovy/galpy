@@ -6,6 +6,7 @@
 #                                   b + sqrt{b^2+r^2}
 ###############################################################################
 import numpy
+
 from ..util import conversion
 from .Potential import Potential
 

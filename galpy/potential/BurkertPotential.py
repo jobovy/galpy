@@ -3,8 +3,9 @@
 ###############################################################################
 import numpy
 from scipy import special
-from .SphericalPotential import SphericalPotential
+
 from ..util import conversion
+from .SphericalPotential import SphericalPotential
 
 
 class BurkertPotential(SphericalPotential):

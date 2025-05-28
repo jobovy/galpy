@@ -3,9 +3,11 @@
 #                            potential Phi(r) = vc**2 ln(r)
 ###############################################################################
 import warnings
+
 import numpy
+
+from ..util import conversion, galpyWarning
 from .Potential import Potential, kms_to_kpcGyrDecorator
-from ..util import galpyWarning, conversion
 
 _CORE = 10**-8
 

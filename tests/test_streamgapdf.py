@@ -1,8 +1,8 @@
 # Tests of streamgapdf implementation, impulse tests moved to
 # test_streamgapdf_impulse.py
 import numpy
-from scipy import integrate
 import pytest
+from scipy import integrate
 
 sdf_sanders15 = None  # so we can set this up and then use in other tests
 sdf_sanders15_unp = None  # so we can set this up and then use in other tests
@@ -15,10 +15,10 @@ sdfl_sanders15_unp = None  # so we can set this up and then use in other tests
 def test_setupimpact_error():
     numpy.random.seed(1)
     # Imports
+    from galpy.actionAngle import actionAngleIsochroneApprox
     from galpy.df import streamgapdf
     from galpy.orbit import Orbit
     from galpy.potential import LogarithmicHaloPotential
-    from galpy.actionAngle import actionAngleIsochroneApprox
     from galpy.util import conversion  # for unit conversions
 
     lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
@@ -36,7 +36,7 @@ def test_setupimpact_error():
     V0, R0 = 220.0, 8.0
     sigv = 0.365 * (10.0 / 2.0) ** (1.0 / 3.0)  # km/s
     with pytest.raises(IOError) as excinfo:
-        dum = streamgapdf(
+        dummy = streamgapdf(
             sigv / V0,
             progenitor=prog_unp_peri,
             pot=lp,
@@ -62,10 +62,10 @@ def test_setupimpact_error():
 
 def test_leadingwtrailingimpact_error():
     # Imports
+    from galpy.actionAngle import actionAngleIsochroneApprox
     from galpy.df import streamgapdf
     from galpy.orbit import Orbit
     from galpy.potential import LogarithmicHaloPotential
-    from galpy.actionAngle import actionAngleIsochroneApprox
     from galpy.util import conversion  # for unit conversions
 
     lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
@@ -83,7 +83,7 @@ def test_leadingwtrailingimpact_error():
     V0, R0 = 220.0, 8.0
     sigv = 0.365 * (10.0 / 2.0) ** (1.0 / 3.0)  # km/s
     with pytest.raises(ValueError) as excinfo:
-        dum = streamgapdf(
+        dummy = streamgapdf(
             sigv / V0,
             progenitor=prog_unp_peri,
             pot=lp,
@@ -107,10 +107,10 @@ def test_leadingwtrailingimpact_error():
 
 def test_trailingwleadingimpact_error():
     # Imports
+    from galpy.actionAngle import actionAngleIsochroneApprox
     from galpy.df import streamgapdf
     from galpy.orbit import Orbit
     from galpy.potential import LogarithmicHaloPotential
-    from galpy.actionAngle import actionAngleIsochroneApprox
     from galpy.util import conversion  # for unit conversions
 
     lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
@@ -128,7 +128,7 @@ def test_trailingwleadingimpact_error():
     V0, R0 = 220.0, 8.0
     sigv = 0.365 * (10.0 / 2.0) ** (1.0 / 3.0)  # km/s
     with pytest.raises(ValueError) as excinfo:
-        dum = streamgapdf(
+        dummy = streamgapdf(
             sigv / V0,
             progenitor=prog_unp_peri,
             pot=lp,
@@ -153,10 +153,10 @@ def test_trailingwleadingimpact_error():
 # Exact setup from Section 5 of Sanders, Bovy, and Erkal (2015); should reproduce those results (which have been checked against a simulation)
 def test_sanders15_setup():
     # Imports
+    from galpy.actionAngle import actionAngleIsochroneApprox
     from galpy.df import streamdf, streamgapdf
     from galpy.orbit import Orbit
     from galpy.potential import LogarithmicHaloPotential
-    from galpy.actionAngle import actionAngleIsochroneApprox
     from galpy.util import conversion  # for unit conversions
 
     lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
@@ -217,10 +217,10 @@ def test_sanders15_setup():
 
 def test_sanders15_leading_setup():
     # Imports
+    from galpy.actionAngle import actionAngleIsochroneApprox
     from galpy.df import streamdf, streamgapdf
     from galpy.orbit import Orbit
     from galpy.potential import LogarithmicHaloPotential, PlummerPotential
-    from galpy.actionAngle import actionAngleIsochroneApprox
     from galpy.util import conversion  # for unit conversions
 
     lp = LogarithmicHaloPotential(normalize=1.0, q=0.9)
@@ -243,6 +243,7 @@ def test_sanders15_leading_setup():
         amp=10.0**-2.0 / conversion.mass_in_1010msol(V0, R0), b=0.625 / R0
     )
     import warnings
+
     from galpy.util import galpyWarning
 
     with warnings.catch_warnings(record=True) as w:
@@ -700,10 +701,10 @@ def test_sample():
         * (xv_mock_per[:, 0] * sdf_sanders15._ro < -1.5)
     )
     assert numpy.fabs(ingap / float(edgegap) - 0.015 / 0.05) < 0.05, (
-        "gap density versus edge of the gap is incorect"
+        "gap density versus edge of the gap is incorrect"
     )
     assert numpy.fabs(ingap / float(outgap) - 0.015 / 0.02) < 0.2, (
-        "gap density versus outside of the gap is incorect"
+        "gap density versus outside of the gap is incorrect"
     )
     # Test track of the stream
     tIndx = (

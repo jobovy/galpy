@@ -1,14 +1,17 @@
-import os, os.path
 import copy
+import os
+import os.path
 import pickle
+
 import numpy
-from ..util import plot, conversion, config
-from .Potential import PotentialError, flatten
+
+from ..util import config, conversion, plot
 from ..util.conversion import (
+    physical_compatible,
     physical_conversion,
     potential_physical_input,
-    physical_compatible,
 )
+from .Potential import PotentialError, flatten
 
 
 class linearPotential:

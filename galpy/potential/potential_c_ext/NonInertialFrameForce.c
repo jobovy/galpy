@@ -114,7 +114,7 @@ void NonInertialFrameForcexyzforces_xyz(double R,double z,double phi,double t,
         v0x= (*(*(potentialArgs->tfuncs+6)))(t);
         v0y= (*(*(potentialArgs->tfuncs+7)))(t);
         v0z= (*(*(potentialArgs->tfuncs+8)))(t);
-        // Re-use variable
+        // Reuse variable
         Omegatimesvecx= Omegax * x0x + Omegay * x0y + Omegaz * x0z;
         *Fx+=  2. * ( Omegaz * v0y - Omegay * v0z ) + Omega2 * x0x - Omegax * Omegatimesvecx;
         *Fy+= -2. * ( Omegaz * v0x - Omegax * v0z ) + Omega2 * x0y - Omegay * Omegatimesvecx;

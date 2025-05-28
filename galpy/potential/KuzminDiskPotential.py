@@ -6,6 +6,7 @@
 #                            \sqrt{R^2 + (a + |z|)^2}
 ###############################################################################
 import numpy
+
 from ..util import conversion
 from .Potential import Potential
 

@@ -1,10 +1,11 @@
 # Class that implements the anisotropic spherical NFW DF with radially
 # varying anisotropy of the Osipkov-Merritt type
 import numpy
-from ..util import conversion
+
 from ..potential import NFWPotential
-from .osipkovmerrittdf import _osipkovmerrittdf
+from ..util import conversion
 from .isotropicNFWdf import isotropicNFWdf
+from .osipkovmerrittdf import _osipkovmerrittdf
 
 _COEFFS = numpy.array(
     [
@@ -28,7 +29,7 @@ class osipkovmerrittNFWdf(_osipkovmerrittdf):
 
         \\beta(r) = \\frac{1}{1+r_a^2/r^2}
 
-    with :math:`r_a` the anistropy radius.
+    with :math:`r_a` the anisotropy radius.
 
     """
 

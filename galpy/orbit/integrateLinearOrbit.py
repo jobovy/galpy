@@ -1,22 +1,23 @@
 import ctypes
 import ctypes.util
-from numpy.ctypeslib import ndpointer
+
 import numpy
+from numpy.ctypeslib import ndpointer
 from scipy import integrate
+
 from .. import potential
+from ..potential.linearPotential import _evaluatelinearForces
+from ..potential.verticalPotential import verticalPotential
+from ..util import _load_extension_libs, symplecticode
+from ..util.leung_dop853 import dop853
 from ..util.multi import parallel_map
+from .integrateFullOrbit import _parse_pot as _parse_pot_full
 from .integratePlanarOrbit import (
+    _TQDM_LOADED,
     _parse_integrator,
     _parse_tol,
     _prep_tfuncs,
-    _TQDM_LOADED,
 )
-from .integrateFullOrbit import _parse_pot as _parse_pot_full
-from ..potential.linearPotential import _evaluatelinearForces
-from ..potential.verticalPotential import verticalPotential
-from ..util.leung_dop853 import dop853
-from ..util import symplecticode
-from ..util import _load_extension_libs
 
 if _TQDM_LOADED:
     import tqdm

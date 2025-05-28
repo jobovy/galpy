@@ -12,12 +12,13 @@
 ###############################################################################
 import numpy
 from scipy import interpolate
-from .actionAngleAdiabatic import actionAngleAdiabatic
-from .actionAngle import actionAngle, UnboundError
+
 from .. import potential
 from ..potential.Potential import _evaluatePotentials
 from ..potential.Potential import flatten as flatten_potential
 from ..util import multi
+from .actionAngle import UnboundError, actionAngle
+from .actionAngleAdiabatic import actionAngleAdiabatic
 
 _PRINTOUTSIDEGRID = False
 
@@ -55,7 +56,7 @@ class actionAngleAdiabaticGrid(actionAngle):
 
            nEz=, nEr=, nLz, nR= grid size
 
-           numcores= number of cpus to use to parallellize
+           numcores= number of cpus to use to parallelize
 
            c= if True, use C to calculate actions
 
@@ -98,14 +99,14 @@ class actionAngleAdiabaticGrid(actionAngle):
         jzEzzmax = numpy.zeros(nR)
         thisRs = (numpy.tile(self._Rs, (nEz, 1)).T).flatten()
         thisEzZmaxs = (numpy.tile(self._EzZmaxs, (nEz, 1)).T).flatten()
-        thisy = (numpy.tile(y, (nR, 1))).flatten()
+        this_y = (numpy.tile(y, (nR, 1))).flatten()
         if self._c:
             jz = self._aA(
                 thisRs,
                 numpy.zeros(len(thisRs)),
                 numpy.ones(len(thisRs)),  # these two r dummies
                 numpy.zeros(len(thisRs)),
-                numpy.sqrt(2.0 * thisy * thisEzZmaxs),
+                numpy.sqrt(2.0 * this_y * thisEzZmaxs),
                 **kwargs,
             )[2]
             jz = numpy.reshape(jz, (nR, nEz))
@@ -119,7 +120,7 @@ class actionAngleAdiabaticGrid(actionAngle):
                             0.0,
                             1.0,  # these two r dummies
                             0.0,
-                            numpy.sqrt(2.0 * thisy[x] * thisEzZmaxs[x]),
+                            numpy.sqrt(2.0 * this_y[x] * thisEzZmaxs[x]),
                             _justjz=True,
                             **kwargs,
                         )[2]
@@ -189,7 +190,7 @@ class actionAngleAdiabaticGrid(actionAngle):
         thisLzs = (numpy.tile(self._Lzs, (nEr - 1, 1)).T).flatten()
         thisERRL = (numpy.tile(self._ERRL, (nEr - 1, 1)).T).flatten()
         thisERRa = (numpy.tile(self._ERRa, (nEr - 1, 1)).T).flatten()
-        thisy = (numpy.tile(y[0:-1], (nLz, 1))).flatten()
+        this_y = (numpy.tile(y[0:-1], (nLz, 1))).flatten()
         if self._c:
             mjr = self._aA(
                 thisRL,
@@ -197,7 +198,7 @@ class actionAngleAdiabaticGrid(actionAngle):
                     2.0
                     * (
                         thisERRa
-                        + thisy * (thisERRL - thisERRa)
+                        + this_y * (thisERRL - thisERRa)
                         - _evaluatePotentials(
                             self._pot, thisRL, numpy.zeros((nEr - 1) * nLz)
                         )
@@ -221,7 +222,7 @@ class actionAngleAdiabaticGrid(actionAngle):
                                 2.0
                                 * (
                                     thisERRa[x]
-                                    + thisy[x] * (thisERRL[x] - thisERRa[x])
+                                    + this_y[x] * (thisERRL[x] - thisERRa[x])
                                     - _evaluatePotentials(self._pot, thisRL[x], 0.0)
                                 )
                                 - thisLzs[x] ** 2.0 / thisRL[x] ** 2.0

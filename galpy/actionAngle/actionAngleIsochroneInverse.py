@@ -9,8 +9,9 @@
 ###############################################################################
 import numpy
 from scipy import optimize
-from ..util import conversion
+
 from ..potential import IsochronePotential
+from ..util import conversion
 from .actionAngleInverse import actionAngleInverse
 
 

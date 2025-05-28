@@ -1,11 +1,12 @@
 # Class that implements anisotropic DFs of the Osipkov-Merritt type
 import numpy
-from scipy import integrate, special, interpolate
-from ..util import conversion
+from scipy import integrate, interpolate, special
+
 from ..potential import evaluateDensities
 from ..potential.Potential import _evaluatePotentials
-from .sphericaldf import anisotropicsphericaldf, sphericaldf
+from ..util import conversion
 from .eddingtondf import eddingtondf
+from .sphericaldf import anisotropicsphericaldf, sphericaldf
 
 
 # This is the general Osipkov-Merritt superclass, implementation of general
@@ -150,7 +151,7 @@ class osipkovmerrittdf(_osipkovmerrittdf):
 
         \\beta(r) = \\frac{1}{1+r_a^2/r^2}
 
-    with :math:`r_a` the anistropy radius for arbitrary combinations of potential and density profile."""
+    with :math:`r_a` the anisotropy radius for arbitrary combinations of potential and density profile."""
 
     def __init__(
         self, pot=None, denspot=None, ra=1.4, rmax=1e4, scale=None, ro=None, vo=None

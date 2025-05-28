@@ -1,12 +1,15 @@
 # galpy.potential.mwpotentials: Milky-Way-like potentials and tools for
 # working with MW-like potentials (bars, spirals, ...)
-import sys
-import os
 import copy
-from . import HernquistPotential
-from . import MiyamotoNagaiPotential
-from . import NFWPotential
-from . import PowerSphericalPotentialwCutoff
+import os
+import sys
+
+from . import (
+    HernquistPotential,
+    MiyamotoNagaiPotential,
+    NFWPotential,
+    PowerSphericalPotentialwCutoff,
+)
 
 ############################ MILKY WAY MODELS #################################
 # galpy's first version of a MW-like potential, kept for backwards
@@ -159,7 +162,7 @@ class _ExpensivePotentials:
             # In Py3 you can just do 'return globals()[name]', but not in Py2
             return self.__globals__[name]
         except:  # pragma: no cover
-            raise AttributeError("'module' object has no attribute '{}'".format(name))
+            raise AttributeError(f"'module' object has no attribute '{name}'")
 
 
 __all__ = ["MWPotential2014"]

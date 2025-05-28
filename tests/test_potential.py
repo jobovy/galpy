@@ -3,8 +3,8 @@ import os
 import sys
 
 PY3 = sys.version > "3"
-import pytest
 import numpy
+import pytest
 from scipy import optimize
 
 try:
@@ -13,10 +13,8 @@ try:
     _PYNBODY_LOADED = True
 except ImportError:
     _PYNBODY_LOADED = False
-from galpy import potential
-from galpy import orbit
-from galpy.util import coords
-from galpy.util import _rotate_to_arbitrary_vector
+from galpy import orbit, potential
+from galpy.util import _rotate_to_arbitrary_vector, coords
 
 _TRAVIS = bool(os.getenv("TRAVIS"))
 
@@ -1725,21 +1723,21 @@ def test_potential_array_input():
         )
         assert numpy.all(
             numpy.fabs(tp(rs, zs, phi=phis, t=ts) - tpevals) < 10.0**-10.0
-        ), "{} evaluation does not work as expected for array inputs".format(p)
+        ), f"{p} evaluation does not work as expected for array inputs"
         # Rforce
         tpevals = numpy.array(
             [tp.Rforce(r, z, phi=phi, t=t) for (r, z, phi, t) in zip(rs, zs, phis, ts)]
         )
         assert numpy.all(
             numpy.fabs(tp.Rforce(rs, zs, phi=phis, t=ts) - tpevals) < 10.0**-10.0
-        ), "{} Rforce evaluation does not work as expected for array inputs".format(p)
+        ), f"{p} Rforce evaluation does not work as expected for array inputs"
         # zforce
         tpevals = numpy.array(
             [tp.zforce(r, z, phi=phi, t=t) for (r, z, phi, t) in zip(rs, zs, phis, ts)]
         )
         assert numpy.all(
             numpy.fabs(tp.zforce(rs, zs, phi=phis, t=ts) - tpevals) < 10.0**-10.0
-        ), "{} zforce evaluation does not work as expected for array inputs".format(p)
+        ), f"{p} zforce evaluation does not work as expected for array inputs"
         # phitorque
         tpevals = numpy.array(
             [
@@ -1749,7 +1747,7 @@ def test_potential_array_input():
         )
         assert numpy.all(
             numpy.fabs(tp.phitorque(rs, zs, phi=phis, t=ts) - tpevals) < 10.0**-10.0
-        ), "{} zforce evaluation does not work as expected for array inputs".format(p)
+        ), f"{p} zforce evaluation does not work as expected for array inputs"
         # R2deriv
         if hasattr(tp, "_R2deriv"):
             tpevals = numpy.array(
@@ -1848,7 +1846,7 @@ def test_potential_array_input():
         )
         assert numpy.all(
             numpy.fabs(tp.dens(rs, zs, phi=phis, t=ts) - tpevals) < 10.0**-10.0
-        ), "{} dens evaluation does not work as expected for array inputs".format(p)
+        ), f"{p} dens evaluation does not work as expected for array inputs"
     return None
 
 
@@ -2082,7 +2080,7 @@ def test_potential_at_zero():
             tp.normalize(1.0)
         assert not numpy.isnan(
             potential.evaluatePotentials(tp, 0, 0, phi=0.0, t=0.0)
-        ), "Potential {} evaluated at zero gave NaN".format(p)
+        ), f"Potential {p} evaluated at zero gave NaN"
         # Also for arrays
         if (
             p == "FerrersPotential"
@@ -2107,7 +2105,7 @@ def test_potential_at_zero():
                     tp, numpy.zeros(4), numpy.zeros(4), phi=0.0, t=0.0
                 )
             )
-        ), "Potential {} evaluated at zero gave NaN".format(p)
+        ), f"Potential {p} evaluated at zero gave NaN"
     return None
 
 
@@ -2230,10 +2228,10 @@ def test_potential_at_infinity():
             tp.normalize(1.0)
         assert not numpy.isnan(
             potential.evaluatePotentials(tp, numpy.inf, 0, phi=0.0, t=0.0)
-        ), "Potential {} evaluated at infinity gave NaN".format(p)
+        ), f"Potential {p} evaluated at infinity gave NaN"
         assert not numpy.isnan(
             potential.evaluatePotentials(tp, _INF, 0, phi=0.0, t=0.0)
-        ), "Potential {} evaluated at vesc _INF gave NaN".format(p)
+        ), f"Potential {p} evaluated at vesc _INF gave NaN"
         # Also for arrays
         if (
             p == "HomogeneousSpherePotential"
@@ -2257,14 +2255,14 @@ def test_potential_at_infinity():
                     tp, numpy.inf * numpy.ones(4), numpy.zeros(4), phi=0.0, t=0.0
                 )
             )
-        ), "Potential {} evaluated at infinity gave NaN".format(p)
+        ), f"Potential {p} evaluated at infinity gave NaN"
         assert not numpy.any(
             numpy.isnan(
                 potential.evaluatePotentials(
                     tp, _INF * numpy.ones(4), numpy.zeros(4), phi=0.0, t=0.0
                 )
             )
-        ), "Potential {} evaluated at vesc _INF gave NaN".format(p)
+        ), f"Potential {p} evaluated at vesc _INF gave NaN"
     return None
 
 
@@ -3684,7 +3682,7 @@ def test_DehnenBar_special():
     # if _TRAVIS: return None
     # Test that array input works
     dp = potential.DehnenBarPotential()
-    # Test frmo rs < rb through to rs > rb
+    # Test from rs < rb through to rs > rb
     rs = numpy.linspace(0.1 * dp._rb, 2.11 * dp._rb)
     zs = numpy.ones_like(rs) * 0.1
     phis = numpy.ones_like(rs) * 0.1
@@ -4014,7 +4012,7 @@ def test_MWPotential2014():
         "MWPotential2014's disk scale length is incorrect"
     )
     assert numpy.fabs(pot[1]._b - 0.28 / R0) < 10.0**-14.0, (
-        "MWPotential2014's disk scale heigth is incorrect"
+        "MWPotential2014's disk scale height is incorrect"
     )
     assert numpy.fabs(pot[1].Rforce(1.0, 0.0) + 0.60) < 10.0**-14.0, (
         "MWPotential2014's disk amplitude is incorrect"
@@ -4689,8 +4687,8 @@ def test_LinShuReductionFactor():
     from galpy.potential import (
         LinShuReductionFactor,
         LogarithmicHaloPotential,
-        omegac,
         epifreq,
+        omegac,
     )
 
     lp = LogarithmicHaloPotential(normalize=1.0)  # work in flat rotation curve
@@ -5011,6 +5009,7 @@ def test_MN3ExponentialDiskPotential_inputs():
     # Warning when b/Rd > 3 or (b/Rd > 1.35 and posdens)
     # Turn warnings into errors to test for them
     import warnings
+
     from galpy.util import galpyWarning
 
     with warnings.catch_warnings(record=True) as w:
@@ -5726,8 +5725,8 @@ def test_WrapperPotential_dims():
     # Test that WrapperPotentials get assigned to Potential/planarPotential
     # correctly, based on input pot=
     from galpy.potential.WrapperPotential import (
-        parentWrapperPotential,
         WrapperPotential,
+        parentWrapperPotential,
         planarWrapperPotential,
     )
 
@@ -5812,10 +5811,10 @@ def test_WrapperPotential_unittransfer_3d():
     assert hpw_phys["roSet"], "ro not set when wrapping a potential with ro set"
     assert hpw_phys["voSet"], "vo not set when wrapping a potential with vo set"
     assert numpy.fabs(hpw_phys["ro"] - ro) < 1e-10, (
-        "ro not properly tranferred to wrapper when wrapping a potential with ro set"
+        "ro not properly transferred to wrapper when wrapping a potential with ro set"
     )
     assert numpy.fabs(hpw_phys["vo"] - vo) < 1e-10, (
-        "vo not properly tranferred to wrapper when wrapping a potential with vo set"
+        "vo not properly transferred to wrapper when wrapping a potential with vo set"
     )
     # Just set ro
     hp = potential.HernquistPotential(amp=0.55, a=1.3, ro=ro)
@@ -5824,7 +5823,7 @@ def test_WrapperPotential_unittransfer_3d():
     assert hpw_phys["roSet"], "ro not set when wrapping a potential with ro set"
     assert not hpw_phys["voSet"], "vo not set when wrapping a potential with vo set"
     assert numpy.fabs(hpw_phys["ro"] - ro) < 1e-10, (
-        "ro not properly tranferred to wrapper when wrapping a potential with ro set"
+        "ro not properly transferred to wrapper when wrapping a potential with ro set"
     )
     # Just set vo
     hp = potential.HernquistPotential(amp=0.55, a=1.3, vo=vo)
@@ -5833,7 +5832,7 @@ def test_WrapperPotential_unittransfer_3d():
     assert not hpw_phys["roSet"], "ro not set when wrapping a potential with ro set"
     assert hpw_phys["voSet"], "vo not set when wrapping a potential with vo set"
     assert numpy.fabs(hpw_phys["vo"] - vo) < 1e-10, (
-        "vo not properly tranferred to wrapper when wrapping a potential with vo set"
+        "vo not properly transferred to wrapper when wrapping a potential with vo set"
     )
     return None
 
@@ -5850,10 +5849,10 @@ def test_WrapperPotential_unittransfer_2d():
     assert hpw_phys["roSet"], "ro not set when wrapping a potential with ro set"
     assert hpw_phys["voSet"], "vo not set when wrapping a potential with vo set"
     assert numpy.fabs(hpw_phys["ro"] - ro) < 1e-10, (
-        "ro not properly tranferred to wrapper when wrapping a potential with ro set"
+        "ro not properly transferred to wrapper when wrapping a potential with ro set"
     )
     assert numpy.fabs(hpw_phys["vo"] - vo) < 1e-10, (
-        "vo not properly tranferred to wrapper when wrapping a potential with vo set"
+        "vo not properly transferred to wrapper when wrapping a potential with vo set"
     )
     # Just set ro
     hp = potential.HernquistPotential(amp=0.55, a=1.3, ro=ro).toPlanar()
@@ -5862,7 +5861,7 @@ def test_WrapperPotential_unittransfer_2d():
     assert hpw_phys["roSet"], "ro not set when wrapping a potential with ro set"
     assert not hpw_phys["voSet"], "vo not set when wrapping a potential with vo set"
     assert numpy.fabs(hpw_phys["ro"] - ro) < 1e-10, (
-        "ro not properly tranferred to wrapper when wrapping a potential with ro set"
+        "ro not properly transferred to wrapper when wrapping a potential with ro set"
     )
     # Just set vo
     hp = potential.HernquistPotential(amp=0.55, a=1.3, vo=vo).toPlanar()
@@ -5871,13 +5870,14 @@ def test_WrapperPotential_unittransfer_2d():
     assert not hpw_phys["roSet"], "ro not set when wrapping a potential with ro set"
     assert hpw_phys["voSet"], "vo not set when wrapping a potential with vo set"
     assert numpy.fabs(hpw_phys["vo"] - vo) < 1e-10, (
-        "vo not properly tranferred to wrapper when wrapping a potential with vo set"
+        "vo not properly transferred to wrapper when wrapping a potential with vo set"
     )
     return None
 
 
 def test_WrapperPotential_serialization():
     import pickle
+
     from galpy.potential.WrapperPotential import WrapperPotential
 
     dp = potential.DehnenBarPotential()
@@ -6003,7 +6003,7 @@ def test_dissipative_noVelocityError():
 def test_RingPotential_correctPotentialIntegral():
     # Test that the RingPotential's potential is correct, by comparing it to a
     # direct integral solution of the Poisson equation
-    from scipy import special, integrate
+    from scipy import integrate, special
 
     # Direct solution
     def pot(R, z, amp=1.0, a=0.75):
@@ -6338,7 +6338,7 @@ def test_rtide():
     # Test that rtide is being calculated properly in select potentials
     lp = potential.LogarithmicHaloPotential()
     assert abs(1.0 - lp.rtide(1.0, 0.0, M=1.0) / 0.793700525984) < 10.0**-12.0, (
-        "Calculation of rtide in logaritmic potential fails"
+        "Calculation of rtide in logarithmic potential fails"
     )
     pmass = potential.PlummerPotential(b=0.0)
     assert abs(1.0 - pmass.rtide(1.0, 0.0, M=1.0) / 0.693361274351) < 10.0**-12.0, (
@@ -6347,7 +6347,7 @@ def test_rtide():
     # Also test function interface
     assert (
         abs(1.0 - potential.rtide([lp], 1.0, 0.0, M=1.0) / 0.793700525984) < 10.0**-12.0
-    ), "Calculation of rtide in logaritmic potential fails"
+    ), "Calculation of rtide in logarithmic potential fails"
     pmass = potential.PlummerPotential(b=0.0)
     assert (
         abs(1.0 - potential.rtide([pmass], 1.0, 0.0, M=1.0) / 0.693361274351)
@@ -7323,13 +7323,13 @@ def test_TimeDependentAmplitudeWrapperPotential_inputerrors():
         match="A= input to TimeDependentAmplitudeWrapperPotential should be a function",
     ):
         tp = TimeDependentAmplitudeWrapperPotential(pot=lp)
-    # TypeError when suppplying a function with no argument
+    # TypeError when supplying a function with no argument
     with pytest.raises(
         TypeError,
         match="A= input to TimeDependentAmplitudeWrapperPotential should be a function that can be called with a single parameter",
     ):
         tp = TimeDependentAmplitudeWrapperPotential(pot=lp, A=lambda: 1.0)
-    # TypeError when suppplying a function with more than 1 argument
+    # TypeError when supplying a function with more than 1 argument
     with pytest.raises(
         TypeError,
         match="A= input to TimeDependentAmplitudeWrapperPotential should be a function that can be called with a single parameter",
@@ -7386,7 +7386,7 @@ def test_phiforce_deprecation():
         for wa in w:
             raisedWarning = (
                 str(wa.message)
-                == "phiforce has been renamed phitorque, because it has always really been a torque (per unit mass); please switch to the new method name, because the old name will be removed in v1.9 and may be re-used for the actual phi force component"
+                == "phiforce has been renamed phitorque, because it has always really been a torque (per unit mass); please switch to the new method name, because the old name will be removed in v1.9 and may be reused for the actual phi force component"
             )
             if raisedWarning:
                 break
@@ -7410,7 +7410,7 @@ def test_phiforce_deprecation():
         for wa in w:
             raisedWarning = (
                 str(wa.message)
-                == "evaluatephiforces has been renamed evaluatephitorques, because it has always really been a torque (per unit mass); please switch to the new method name, because the old name will be removed in v1.9 and may be re-used for the actual phi force component"
+                == "evaluatephiforces has been renamed evaluatephitorques, because it has always really been a torque (per unit mass); please switch to the new method name, because the old name will be removed in v1.9 and may be reused for the actual phi force component"
             )
             if raisedWarning:
                 break
@@ -7450,7 +7450,7 @@ def test_phiforce_deprecation_2d():
         for wa in w:
             raisedWarning = (
                 str(wa.message)
-                == "phiforce has been renamed phitorque, because it has always really been a torque (per unit mass); please switch to the new method name, because the old name will be removed in v1.9 and may be re-used for the actual phi force component"
+                == "phiforce has been renamed phitorque, because it has always really been a torque (per unit mass); please switch to the new method name, because the old name will be removed in v1.9 and may be reused for the actual phi force component"
             )
             if raisedWarning:
                 break
@@ -7474,7 +7474,7 @@ def test_phiforce_deprecation_2d():
         for wa in w:
             raisedWarning = (
                 str(wa.message)
-                == "evaluateplanarphiforces has been renamed evaluateplanarphitorques, because it has always really been a torque (per unit mass); please switch to the new method name, because the old name will be removed in v1.9 and may be re-used for the actual phi force component"
+                == "evaluateplanarphiforces has been renamed evaluateplanarphitorques, because it has always really been a torque (per unit mass); please switch to the new method name, because the old name will be removed in v1.9 and may be reused for the actual phi force component"
             )
             if raisedWarning:
                 break
@@ -7799,24 +7799,24 @@ def test_plotting():
 # Classes for testing Integer TwoSphericalPotential and for testing special
 # cases of some other potentials
 from galpy.potential import (
-    TwoPowerSphericalPotential,
-    MiyamotoNagaiPotential,
-    PowerSphericalPotential,
-    interpRZPotential,
-    MWPotential,
-    FlattenedPowerPotential,
-    MN3ExponentialDiskPotential,
-    TriaxialHernquistPotential,
-    TriaxialNFWPotential,
-    TriaxialJaffePotential,
-    TwoPowerTriaxialPotential,
     BurkertPotential,
-    SoftenedNeedleBarPotential,
-    FerrersPotential,
     DiskSCFPotential,
-    SpiralArmsPotential,
+    FerrersPotential,
+    FlattenedPowerPotential,
     LogarithmicHaloPotential,
+    MiyamotoNagaiPotential,
+    MN3ExponentialDiskPotential,
+    MWPotential,
     NullPotential,
+    PowerSphericalPotential,
+    SoftenedNeedleBarPotential,
+    SpiralArmsPotential,
+    TriaxialHernquistPotential,
+    TriaxialJaffePotential,
+    TriaxialNFWPotential,
+    TwoPowerSphericalPotential,
+    TwoPowerTriaxialPotential,
+    interpRZPotential,
 )
 
 
@@ -8219,12 +8219,12 @@ class mockInterpSnapshotRZPotential(potential.InterpSnapshotRZPotential):
 # Some special cases of 2D, non-axisymmetric potentials, to make sure they
 # are covered; need 3 to capture all of the transient behavior
 from galpy.potential import (
-    DehnenBarPotential,
     CosmphiDiskPotential,
+    DehnenBarPotential,
     EllipticalDiskPotential,
+    HenonHeilesPotential,
     SteadyLogSpiralPotential,
     TransientLogSpiralPotential,
-    HenonHeilesPotential,
 )
 
 
@@ -8476,24 +8476,22 @@ class mockInterpSphericalPotentialwForce(potential.interpSphericalPotential):
 # Class to test potentials given as lists, st we can use their methods as class.
 from galpy.potential import (
     Potential,
-    evaluatePotentials,
-    evaluateRforces,
-    evaluatezforces,
-    evaluatephitorques,
-    evaluateR2derivs,
-    evaluatez2derivs,
-    evaluateRzderivs,
-    evaluateDensities,
     _isNonAxi,
-    evaluateSurfaceDensities,
+    evaluateDensities,
+    evaluatephitorques,
     evaluatephizderivs,
-)
-from galpy.potential import (
-    planarPotential,
-    evaluateplanarPotentials,
-    evaluateplanarRforces,
     evaluateplanarphitorques,
+    evaluateplanarPotentials,
     evaluateplanarR2derivs,
+    evaluateplanarRforces,
+    evaluatePotentials,
+    evaluateR2derivs,
+    evaluateRforces,
+    evaluateRzderivs,
+    evaluateSurfaceDensities,
+    evaluatez2derivs,
+    evaluatezforces,
+    planarPotential,
 )
 
 
@@ -8799,10 +8797,10 @@ class mockSpecialRotatingFlatSpiralArmsPotential(testMWPotential):
 
 # Class to test lists of linearPotentials
 from galpy.potential import (
-    linearPotential,
-    evaluatelinearPotentials,
-    evaluatelinearForces,
     RZToverticalPotential,
+    evaluatelinearForces,
+    evaluatelinearPotentials,
+    linearPotential,
 )
 
 
@@ -8904,12 +8902,12 @@ class mockMovingObjectLongIntPotential(mockMovingObjectPotential):
 
 # Classes to test wrappers
 from galpy.potential import (
-    DehnenSmoothWrapperPotential,
-    SolidBodyRotationWrapperPotential,
-    CorotatingRotationWrapperPotential,
-    GaussianAmplitudeWrapperPotential,
     AdiabaticContractionWrapperPotential,
+    CorotatingRotationWrapperPotential,
+    DehnenSmoothWrapperPotential,
+    GaussianAmplitudeWrapperPotential,
     RotateAndTiltWrapperPotential,
+    SolidBodyRotationWrapperPotential,
     TimeDependentAmplitudeWrapperPotential,
 )
 from galpy.potential.WrapperPotential import parentWrapperPotential

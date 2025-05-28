@@ -1,9 +1,11 @@
 # Tests of dynamical friction implementation
-import pytest
 import sys
+
+import pytest
 
 PY3 = sys.version > "3"
 import numpy
+
 from galpy import potential
 
 
@@ -14,8 +16,8 @@ def test_ChandrasekharDynamicalFrictionForce_constLambda():
     # with velocity dispersion sigma and for constant Lambda:
     # r_final^2 - r_initial^2 = -0.604 ln(Lambda) GM/sigma t
     # (e.g., B&T08, p. 648)
-    from galpy.util import conversion
     from galpy.orbit import Orbit
+    from galpy.util import conversion
 
     ro, vo = 8.0, 220.0
     # Parameters
@@ -46,8 +48,8 @@ def test_ChandrasekharDynamicalFrictionForce_varLambda():
     # the variable lambda
     # Also tests that giving an axisymmetric list of potentials for the
     # density works
-    from galpy.util import conversion
     from galpy.orbit import Orbit
+    from galpy.util import conversion
 
     ro, vo = 8.0, 220.0
     # Parameters
@@ -138,6 +140,7 @@ def test_ChandrasekharDynamicalFrictionForce_pickling():
     # Test that ChandrasekharDynamicalFrictionForce objects can/cannot be
     # pickled as expected
     import pickle
+
     from galpy.util import conversion
 
     ro, vo = 8.0, 220.0
@@ -218,9 +221,10 @@ def test_ChandrasekharDynamicalFrictionForce_pickling():
 # tested below; put here because a test of many potentials)
 def test_dynamfric_c():
     import copy
+
     from galpy.orbit import Orbit
-    from galpy.potential.Potential import _check_c
     from galpy.potential.mwpotentials import McMillan17
+    from galpy.potential.Potential import _check_c
 
     # Basic parameters for the test
     times = numpy.linspace(0.0, -100.0, 1001)  # ~3 Gyr at the Solar circle

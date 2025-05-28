@@ -5,10 +5,10 @@
 //      The C implementation of DiskSCFPotential uses the fact that
 //      (a) the SCF part of the potential can be gotten directly from the SCF
 //          implementation
-//      (b) the approximation part can be written as a sum over pairs 
+//      (b) the approximation part can be written as a sum over pairs
 //          [Sigma_i(R),h_i(z)]
 //      Thus, this file only implements the potential and forces coming from
-//      a single of the approximation pairs; the entire potential is obtained 
+//      a single of the approximation pairs; the entire potential is obtained
 //      by summing all of these (by treating them as separate instances of the
 //      potential) and adding the SCF; this is all handled through the parsing
 //      of the potential in the Python code.
@@ -165,7 +165,7 @@ double DiskSCFPotentialDens(double R,double Z, double phi,
   double * hz_args= args+1+nsigma_args;
   //Calculate Rforce
   double r= sqrt( R * R + Z * Z );
-  return M_1_PI / 4. * (Sigma(r,Sigma_args) * hz(Z,hz_args) 
+  return M_1_PI / 4. * (Sigma(r,Sigma_args) * hz(Z,hz_args)
 			+ d2SigmadR2(r,Sigma_args) * Hz(Z,hz_args)
 			+ 2. / r * dSigmadR(r,Sigma_args)	\
 			    * ( Hz(Z,hz_args) + Z * dHzdz(Z,hz_args) ) );

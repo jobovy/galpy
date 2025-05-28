@@ -1,7 +1,7 @@
 /***************************************************************************//**\file galpyPot.h
-\brief Contains class galpyPotential. 
+\brief Contains class galpyPotential.
 General interface to galpy potentials
-									     
+
 *                                                                              *
 * galpyPot.h                                                                   *
 *                                                                              *
@@ -36,7 +36,7 @@ class galpyPotential : public Potential {
 inline galpyPotential::galpyPotential(int na,
 				      struct potentialArg * inPotentialArgs) :
 		      nargs(na), potentialArgs(inPotentialArgs)
-{ 
+{
 
 }
 

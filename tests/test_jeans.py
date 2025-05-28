@@ -1,5 +1,6 @@
 # Tests of the galpy.df.jeans module: Jeans equations
 import numpy
+
 from galpy.df import jeans
 
 
@@ -133,6 +134,7 @@ def test_sigmar_wlog_linbeta():
     # for log halo, dens ~ r^-gamma, and beta = -b x r -->
     # sigmar = vc sqrt( scipy.special.gamma(-gamma)*scipy.special.gammaincc(-gamma,2*b*r)/[(2*b*r)**-gamma*exp(-2*b*r)]
     from scipy import special
+
     from galpy.potential import LogarithmicHaloPotential
 
     lp = LogarithmicHaloPotential(normalize=1.0, q=1.0)

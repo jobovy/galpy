@@ -1,4 +1,5 @@
 import numpy
+
 from galpy import potential
 
 

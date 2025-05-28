@@ -1,12 +1,14 @@
 __version__ = "1.7.3.dev0"
 # Check whether a new version is available
-import sys
 import datetime
-import subprocess
-import platform
 import http.client
+import platform
+import subprocess
+import sys
+
 from pkg_resources import parse_version
-from .util.config import __config__, __orig__config__, write_config, configfilename
+
+from .util.config import __config__, __orig__config__, configfilename, write_config
 
 
 def latest_pypi_version(name):
@@ -28,7 +30,7 @@ def latest_pypi_version(name):
     try:  # Wrap everything in try/except to avoid any issues with connections
         latest_version = str(
             subprocess.run(
-                [sys.executable, "-m", "pip", "install", "{}==random".format(name)],
+                [sys.executable, "-m", "pip", "install", f"{name}==random"],
                 capture_output=True,
                 text=True,
             )

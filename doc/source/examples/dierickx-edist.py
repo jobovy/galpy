@@ -1,17 +1,18 @@
-import sys
-import os, os.path
-import math as m
-import numpy as nu
 import csv
+import os
+import os.path
+
 import cPickle as pickle
-from galpy.util import plot
-from galpy.potential import (
-    MiyamotoNagaiPotential,
-    HernquistPotential,
-    NFWPotential,
-    LogarithmicHaloPotential,
-)
+import numpy as nu
+
 from galpy.orbit import Orbit
+from galpy.potential import (
+    HernquistPotential,
+    LogarithmicHaloPotential,
+    MiyamotoNagaiPotential,
+    NFWPotential,
+)
+from galpy.util import plot
 
 _degtorad = nu.pi / 180.0
 
@@ -28,7 +29,7 @@ def calc_es():
         dialect = csv.excel
         dialect.skipinitialspace = True
         reader = csv.reader(
-            open("../data/Dierickx-etal-tab2.txt", "r"), delimiter=" ", dialect=dialect
+            open("../data/Dierickx-etal-tab2.txt"), delimiter=" ", dialect=dialect
         )
         vxvs = []
         es = []

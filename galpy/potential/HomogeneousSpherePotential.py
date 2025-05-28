@@ -2,6 +2,7 @@
 #   HomogeneousSpherePotential.py: The potential of a homogeneous sphere
 ###############################################################################
 import numpy
+
 from ..util import conversion
 from .Potential import Potential
 

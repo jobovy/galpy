@@ -3,23 +3,25 @@
 #
 #      class: actionAngleVerticalInverse
 #
-#             Calculate (x,v) coordinates for a one-dimensional potental
+#             Calculate (x,v) coordinates for a one-dimensional potential
 #             given actions-angle coordinates
 #
 ###############################################################################
 import copy
-import numpy
 import warnings
-from numpy.polynomial import polynomial, chebyshev
-from scipy import interpolate, ndimage, optimize
-from matplotlib import pyplot, gridspec, cm
+
+import numpy
+from matplotlib import cm, gridspec, pyplot
 from matplotlib.ticker import NullFormatter
-from ..potential import evaluatelinearPotentials, evaluatelinearForces
+from numpy.polynomial import chebyshev, polynomial
+from scipy import interpolate, ndimage, optimize
+
+from ..potential import evaluatelinearForces, evaluatelinearPotentials
 from ..util import bovy_plot, galpyWarning
 from .actionAngleHarmonic import actionAngleHarmonic
 from .actionAngleHarmonicInverse import actionAngleHarmonicInverse
-from .actionAngleVertical import actionAngleVertical
 from .actionAngleInverse import actionAngleInverse
+from .actionAngleVertical import actionAngleVertical
 
 
 class actionAngleVerticalInverse(actionAngleInverse):
@@ -74,7 +76,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
         """
         # actionAngleInverse.__init__(self,*args,**kwargs)
         if pot is None:  # pragma: no cover
-            raise IOError("Must specify pot= for actionAngleVerticalInverse")
+            raise OSError("Must specify pot= for actionAngleVerticalInverse")
         self._pot = pot
         self._aAV = actionAngleVertical(pot=self._pot)
         # Compute action, frequency, and xmax for each energy
@@ -427,9 +429,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
                             self._maxiter
                         )
                         + " for energies:"
-                        + "".join(
-                            " {:g}".format(k) for k in sorted(set(Egrid[unconv]))
-                        ),
+                        + "".join(f" {k:g}" for k in sorted(set(Egrid[unconv]))),
                         galpyWarning,
                     )
                     break
@@ -646,8 +646,8 @@ class actionAngleVerticalInverse(actionAngleInverse):
                 ymin = numpy.amax([numpy.amin(y[numpy.isfinite(y)]), 1e-17])
                 ymax = numpy.amax(y[numpy.isfinite(y)])
             if len(Es) < minn_for_cmap:
-                label = r"$E = {:g}$".format(E)
-                color = "C{}".format(ii)
+                label = rf"$E = {E:g}$"
+                color = f"C{ii}"
             else:
                 label = None
                 color = cm.plasma((E - Es[0]) / (Es[-1] - Es[0]))
@@ -678,8 +678,8 @@ class actionAngleVerticalInverse(actionAngleInverse):
                 ymin = numpy.amax([numpy.amin(y[numpy.isfinite(y)]), 1e-17])
                 ymax = numpy.amax(y[numpy.isfinite(y)])
             if len(Es) < minn_for_cmap:
-                label = r"$E = {:g}$".format(E)
-                color = "C{}".format(ii)
+                label = rf"$E = {E:g}$"
+                color = f"C{ii}"
             else:
                 label = None
                 color = cm.plasma((E - Es[0]) / (Es[-1] - Es[0]))
@@ -1154,9 +1154,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
                             self._maxiter
                         )
                         + " for angles:"
-                        + "".join(
-                            " {:g}".format(k) for k in sorted(set(angle[unconv]))
-                        ),
+                        + "".join(f" {k:g}" for k in sorted(set(angle[unconv]))),
                         galpyWarning,
                     )
                     break

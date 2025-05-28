@@ -1,27 +1,27 @@
-import warnings
 import ctypes
 import ctypes.util
-from numpy.ctypeslib import ndpointer
+import warnings
+
 import numpy
+from numpy.ctypeslib import ndpointer
 from scipy import integrate
+
 from .. import potential
-from ..util import galpyWarning
 from ..potential.Potential import (
+    _evaluatephitorques,
     _evaluateRforces,
     _evaluatezforces,
-    _evaluatephitorques,
 )
-from .integratePlanarOrbit import (
-    _parse_integrator,
-    _parse_tol,
-    _parse_scf_pot,
-    _prep_tfuncs,
-    _TQDM_LOADED,
-)
-from ..util.multi import parallel_map
+from ..util import _load_extension_libs, galpyWarning, symplecticode
 from ..util.leung_dop853 import dop853
-from ..util import symplecticode
-from ..util import _load_extension_libs
+from ..util.multi import parallel_map
+from .integratePlanarOrbit import (
+    _TQDM_LOADED,
+    _parse_integrator,
+    _parse_scf_pot,
+    _parse_tol,
+    _prep_tfuncs,
+)
 
 if _TQDM_LOADED:
     import tqdm

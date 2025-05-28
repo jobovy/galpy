@@ -1,10 +1,13 @@
 # Milky-Way mass models from Irrgang et al. (2013)
 import numpy
-from ..potential import PlummerPotential
-from ..potential import MiyamotoNagaiPotential
-from ..potential import SCFPotential
-from ..potential import NFWPotential
-from ..potential import scf_compute_coeffs_spherical
+
+from ..potential import (
+    MiyamotoNagaiPotential,
+    NFWPotential,
+    PlummerPotential,
+    SCFPotential,
+    scf_compute_coeffs_spherical,
+)
 from ..util import conversion
 
 # Their mass unit

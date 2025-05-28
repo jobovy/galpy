@@ -1,9 +1,10 @@
 import numpy
+
+from ..util import conversion
+from .DissipativeForce import _isDissipative
 from .linearPotential import linearPotential
 from .planarPotential import planarPotential
-from .Potential import PotentialError, Potential, flatten
-from .DissipativeForce import _isDissipative
-from ..util import conversion
+from .Potential import Potential, PotentialError, flatten
 
 
 class verticalPotential(linearPotential):

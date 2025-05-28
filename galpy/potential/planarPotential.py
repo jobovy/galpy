@@ -1,19 +1,21 @@
-import os
 import copy
+import os
 import pickle
 import warnings
+
 import numpy
 from scipy import integrate
-from ..util import plot, config, conversion
+
+from ..util import config, conversion, plot
 from ..util.conversion import (
+    physical_compatible,
     physical_conversion,
     potential_physical_input,
-    physical_compatible,
 )
-from .Potential import Potential, PotentialError, lindbladR, flatten
 from .DissipativeForce import _isDissipative
-from .plotRotcurve import plotRotcurve
 from .plotEscapecurve import _INF, plotEscapecurve
+from .plotRotcurve import plotRotcurve
+from .Potential import Potential, PotentialError, flatten, lindbladR
 
 
 class planarPotential:
@@ -298,7 +300,7 @@ class planarPotential:
 
     def phiforce(self, R, phi=0.0, t=0.0):
         warnings.warn(
-            "phiforce has been renamed phitorque, because it has always really been a torque (per unit mass); please switch to the new method name, because the old name will be removed in v1.9 and may be re-used for the actual phi force component",
+            "phiforce has been renamed phitorque, because it has always really been a torque (per unit mass); please switch to the new method name, because the old name will be removed in v1.9 and may be reused for the actual phi force component",
             FutureWarning,
         )
         return self.phitorque(R, phi=phi, t=t)
@@ -1209,7 +1211,7 @@ def _evaluateplanarRforces(Pot, R, phi=None, t=0.0):
 
 def evaluateplanarphiforces(Pot, R, phi=None, t=0.0):
     warnings.warn(
-        "evaluateplanarphiforces has been renamed evaluateplanarphitorques, because it has always really been a torque (per unit mass); please switch to the new method name, because the old name will be removed in v1.9 and may be re-used for the actual phi force component",
+        "evaluateplanarphiforces has been renamed evaluateplanarphitorques, because it has always really been a torque (per unit mass); please switch to the new method name, because the old name will be removed in v1.9 and may be reused for the actual phi force component",
         FutureWarning,
     )
     return evaluateplanarphitorques(Pot, R, phi=phi, t=t)
@@ -1379,7 +1381,7 @@ def LinShuReductionFactor(
 
     """
     axiPot = flatten(axiPot)
-    from ..potential import omegac, epifreq
+    from ..potential import epifreq, omegac
 
     if nonaxiPot is None and (OmegaP is None or k is None or m is None):
         raise OSError(

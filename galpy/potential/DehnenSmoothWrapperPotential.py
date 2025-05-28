@@ -1,8 +1,8 @@
 ###############################################################################
 #   DehnenSmoothWrapperPotential.py: Wrapper to smoothly grow a potential
 ###############################################################################
-from .WrapperPotential import parentWrapperPotential
 from ..util import conversion
+from .WrapperPotential import parentWrapperPotential
 
 
 class DehnenSmoothWrapperPotential(parentWrapperPotential):

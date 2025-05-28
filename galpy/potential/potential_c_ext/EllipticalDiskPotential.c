@@ -33,7 +33,7 @@ double EllipticalDiskPotentialRforce(double R,double phi,double t,
   double phib= *args;
   //Calculate Rforce
   smooth= EllipticalDiskSmooth(t,tform,tsteady);
-  return -amp * smooth * p * twophio / 2. * pow(R,p-1.) 
+  return -amp * smooth * p * twophio / 2. * pow(R,p-1.)
     * cos( 2. * (phi - phib));
 }
 double EllipticalDiskPotentialphitorque(double R,double phi,double t,
@@ -50,7 +50,7 @@ double EllipticalDiskPotentialphitorque(double R,double phi,double t,
   double phib= *args;
   //Calculate phitorque
   smooth= EllipticalDiskSmooth(t,tform,tsteady);
-  return amp * smooth * twophio * pow(R,p) 
+  return amp * smooth * twophio * pow(R,p)
     * sin( 2. * (phi-phib));
 }
 double EllipticalDiskPotentialR2deriv(double R,double phi,double t,
@@ -69,7 +69,7 @@ double EllipticalDiskPotentialR2deriv(double R,double phi,double t,
   smooth= EllipticalDiskSmooth(t,tform,tsteady);
   return amp * smooth * p * ( p - 1) * twophio / 2. * pow(R,p-2.)
     * cos( 2. * ( phi - phib ) );
-} 
+}
 double EllipticalDiskPotentialphi2deriv(double R,double phi,double t,
 					struct potentialArg * potentialArgs){
   double * args= potentialArgs->args;
@@ -86,7 +86,7 @@ double EllipticalDiskPotentialphi2deriv(double R,double phi,double t,
   smooth= EllipticalDiskSmooth(t,tform,tsteady);
   return - 2. * amp * smooth * twophio * pow(R,p)
     * cos( 2. * ( phi - phib ) );
-} 
+}
 double EllipticalDiskPotentialRphideriv(double R,double phi,double t,
 					struct potentialArg * potentialArgs){
   double * args= potentialArgs->args;
@@ -103,4 +103,4 @@ double EllipticalDiskPotentialRphideriv(double R,double phi,double t,
   smooth= EllipticalDiskSmooth(t,tform,tsteady);
   return - amp * smooth * p * twophio * pow(R,p-1.)
     * sin( 2. * ( phi - phib ) );
-} 
+}

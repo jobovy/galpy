@@ -6,6 +6,7 @@
 ###############################################################################
 import numpy
 from scipy import special
+
 from ..util import conversion
 from .Potential import Potential, check_potential_inputs_not_arrays
 

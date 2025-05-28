@@ -1,10 +1,11 @@
 import numpy
-from ..orbit import Orbit
+
 from ..df.df import df
+from ..orbit import Orbit
+from ..potential import evaluateRforces
 from ..potential import flatten as flatten_potential
-from ..potential import rtide, evaluateRforces
-from ..util import _rotate_to_arbitrary_vector
-from ..util import coords, conversion
+from ..potential import rtide
+from ..util import _rotate_to_arbitrary_vector, conversion, coords
 
 _APY_LOADED = conversion._APY_LOADED
 if _APY_LOADED:

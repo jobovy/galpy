@@ -5,15 +5,15 @@
 Copyright (c) 2011, Jo Bovy
 All rights reserved.
 
-Redistribution and use in source and binary forms, with or without 
+Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:
 
-   Redistributions of source code must retain the above copyright notice, 
+   Redistributions of source code must retain the above copyright notice,
       this list of conditions and the following disclaimer.
-   Redistributions in binary form must reproduce the above copyright notice, 
-      this list of conditions and the following disclaimer in the 
+   Redistributions in binary form must reproduce the above copyright notice,
+      this list of conditions and the following disclaimer in the
       documentation and/or other materials provided with the distribution.
-   The name of the author may not be used to endorse or promote products 
+   The name of the author may not be used to endorse or promote products
       derived from this software without specific prior written permission.
 
 THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
@@ -311,7 +311,7 @@ void bovy_rk6_onestep(void (*func)(double t, double *q, double *a,
   //calculate k6
   func(tn+dt/2.,ynk,a,nargs,potentialArgs);
   for (ii=0; ii < dim; ii++) *(yn1+ii) -= 32.* dt * *(a+ii) / 120.;
-  for (ii=0; ii < dim; ii++) *(k5+ii)= dt * *(a+ii); //re-use k5 for k6
+  for (ii=0; ii < dim; ii++) *(k5+ii)= dt * *(a+ii); //reuse k5 for k6
   for (ii=0; ii < dim; ii++) *(ynk+ii)= *(yn+ii) + ( 9. * *(k1+ii)
 						     - 36. * *(k2+ii)
 						     +63.* *(k3+ii)
@@ -355,7 +355,7 @@ double rk4_estimate_step(void (*func)(double t, double *y, double *a,int nargs, 
   //dt*= 2.;
   while ( err > 1. ){
     //dt/= 2.;
-    //copy initial codition
+    //copy initial condition
     for (ii=0; ii < dim; ii++) *(yn+ii)= *(yo+ii);
     for (ii=0; ii < dim; ii++) *(y1+ii)= *(yo+ii);
     for (ii=0; ii < dim; ii++) *(y21+ii)= *(yo+ii);
@@ -428,7 +428,7 @@ double rk6_estimate_step(void (*func)(double t, double *y, double *a,int nargs, 
   //dt*= 2.;
   while ( err > 1. ){
     //dt/= 2.;
-    //copy initial codition
+    //copy initial condition
     for (ii=0; ii < dim; ii++) *(yn+ii)= *(yo+ii);
     for (ii=0; ii < dim; ii++) *(y1+ii)= *(yo+ii);
     for (ii=0; ii < dim; ii++) *(y21+ii)= *(yo+ii);
@@ -592,10 +592,10 @@ void bovy_dopr54_onestep(void (*func)(double t, double *y, double *a,int nargs, 
   double init_to= *to;
   unsigned char accept;
   //printf("%f,%f\n",*to,init_to+dt);
-  while ( ( dt >= 0. && *to < (init_to+dt)) 
+  while ( ( dt >= 0. && *to < (init_to+dt))
 	  || ( dt < 0. && *to > (init_to+dt)) ) {
     accept= 0;
-    if ( init_dt_one/ *dt_one > _MAX_STEPREDUCE 
+    if ( init_dt_one/ *dt_one > _MAX_STEPREDUCE
 	 || *dt_one != *dt_one) { // check for NaN
       *dt_one= init_dt_one/_MAX_STEPREDUCE;
       accept= 1;
@@ -604,7 +604,7 @@ void bovy_dopr54_onestep(void (*func)(double t, double *y, double *a,int nargs, 
     if ( dt >= 0. && *dt_one > (init_to+dt - *to) )
       *dt_one= (init_to + dt - *to);
     if ( dt < 0. && *dt_one < (init_to+dt - *to) )
-      *dt_one = (init_to + dt - *to); 
+      *dt_one = (init_to + dt - *to);
     *dt_one= bovy_dopr54_actualstep(func,dim,yo,*dt_one,to,nargs,potentialArgs,
 				    rtol,atol,
 				    a1,a,k1,k2,k3,k4,k5,k6,yn1,yerr,ynk,
@@ -674,7 +674,7 @@ double bovy_dopr54_actualstep(void (*func)(double t, double *y, double *a,int na
   func(*to+c2*dt,ynk,a,nargs,potentialArgs);
   for (ii=0; ii < dim; ii++){
     *(k2+ii)= dt * *(a+ii);
-    *(ynk+ii)= *(yo+ii) + a31 * *(k1+ii) 
+    *(ynk+ii)= *(yo+ii) + a31 * *(k1+ii)
       + a32 * *(k2+ii);
   }
   //calculate k3
@@ -683,7 +683,7 @@ double bovy_dopr54_actualstep(void (*func)(double t, double *y, double *a,int na
     *(k3+ii)= dt * *(a+ii);
     *(yn1+ii) += b3* *(k3+ii);
     *(yerr+ii) += be3* *(k3+ii);
-    *(ynk+ii)= *(yo+ii) + a41 * *(k1+ii) 
+    *(ynk+ii)= *(yo+ii) + a41 * *(k1+ii)
       + a42 * *(k2+ii) + a43 * *(k3+ii);
   }
   //calculate k4
@@ -692,7 +692,7 @@ double bovy_dopr54_actualstep(void (*func)(double t, double *y, double *a,int na
     *(k4+ii)= dt * *(a+ii);
     *(yn1+ii) += b4* *(k4+ii);
     *(yerr+ii) += be4* *(k4+ii);
-    *(ynk+ii)= *(yo+ii) + a51 * *(k1+ii) 
+    *(ynk+ii)= *(yo+ii) + a51 * *(k1+ii)
       + a52 * *(k2+ii) + a53 * *(k3+ii)
       + a54 * *(k4+ii);
   }
@@ -702,7 +702,7 @@ double bovy_dopr54_actualstep(void (*func)(double t, double *y, double *a,int na
     *(k5+ii)= dt * *(a+ii);
     *(yn1+ii) += b5* *(k5+ii);
     *(yerr+ii) += be5* *(k5+ii);
-    *(ynk+ii)= *(yo+ii) + a61 * *(k1+ii) 
+    *(ynk+ii)= *(yo+ii) + a61 * *(k1+ii)
       + a62 * *(k2+ii) + a63 * *(k3+ii)
       + a64 * *(k4+ii) + a65 * *(k5+ii);
   }
@@ -712,7 +712,7 @@ double bovy_dopr54_actualstep(void (*func)(double t, double *y, double *a,int na
     *(k6+ii)= dt * *(a+ii);
     *(yn1+ii) += b6* *(k6+ii);
     *(yerr+ii) += be6* *(k6+ii);
-    *(ynk+ii)= *(yo+ii) + a71 * *(k1+ii) 
+    *(ynk+ii)= *(yo+ii) + a71 * *(k1+ii)
       + a73 * *(k3+ii) //a72=0
       + a74 * *(k4+ii) + a75 * *(k5+ii)
       + a76 * *(k6+ii);
@@ -731,7 +731,7 @@ double bovy_dopr54_actualstep(void (*func)(double t, double *y, double *a,int na
   double s= log(exp(atol-c)+exp(rtol*max_val-c))+c;
   //Norm
   double err= 0.;
-  for (ii=0; ii < dim; ii++) 
+  for (ii=0; ii < dim; ii++)
     err+= exp(2.*log(fabs(*(yerr+ii)))-2.* s);
   err= sqrt(err/dim);
   double corr= 0.85*pow(err,-.2);

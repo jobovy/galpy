@@ -2,17 +2,18 @@ import os
 import sys
 
 _PY3 = sys.version > "3"
-import json
 import copy
+import json
 import string
+import warnings
 from functools import wraps
 from random import choice
 from string import ascii_lowercase
-from pkg_resources import parse_version
-import warnings
+
 import numpy
-from scipy import interpolate, optimize
 import scipy
+from pkg_resources import parse_version
+from scipy import interpolate, optimize
 
 _SCIPY_VERSION = parse_version(scipy.__version__)
 if _SCIPY_VERSION < parse_version("0.10"):  # pragma: no cover
@@ -21,35 +22,33 @@ elif _SCIPY_VERSION < parse_version("0.19"):  # pragma: no cover
     from scipy.misc import logsumexp
 else:
     from scipy.special import logsumexp
-from ..util import galpyWarning, galpyWarningVerbose
-from ..util.conversion import physical_conversion, physical_compatible
-from ..util.coords import _K
-from ..util import coords
-from ..util import plot
-from ..util import conversion
-from ..util.conversion import _APY_LOADED
+
 from ..potential import (
-    toPlanarPotential,
+    LcE,
     PotentialError,
-    evaluatePotentials,
-    evaluateplanarPotentials,
+    _isNonAxi,
     evaluatelinearPotentials,
+    evaluateplanarPotentials,
+    evaluatePotentials,
 )
 from ..potential import flatten as flatten_potential
-from ..potential.Potential import _check_c
-from ..potential import rl, rE, LcE, _isNonAxi
+from ..potential import rE, rl, toPlanarPotential
 from ..potential.DissipativeForce import _isDissipative
+from ..potential.Potential import _check_c
+from ..util import conversion, coords, galpyWarning, galpyWarningVerbose, plot
+from ..util.conversion import _APY_LOADED, physical_compatible, physical_conversion
+from ..util.coords import _K
+from .integrateFullOrbit import integrateFullOrbit, integrateFullOrbit_c
 from .integrateLinearOrbit import (
-    integrateLinearOrbit_c,
     _ext_loaded,
     integrateLinearOrbit,
+    integrateLinearOrbit_c,
 )
 from .integratePlanarOrbit import (
-    integratePlanarOrbit_c,
     integratePlanarOrbit,
+    integratePlanarOrbit_c,
     integratePlanarOrbit_dxdv,
 )
-from .integrateFullOrbit import integrateFullOrbit_c, integrateFullOrbit
 
 ext_loaded = _ext_loaded
 _APY_COORD_LOADED = True
@@ -62,8 +61,8 @@ if _APY_LOADED:
     from astropy import units
 # Separate like this, because coordinates don't work in Pyodide astropy (2/25/22)
 if _APY_COORD_LOADED:
-    from astropy import coordinates
     import astropy
+    from astropy import coordinates
 
     _APY3 = parse_version(astropy.__version__) > parse_version("3")
     _APY_GE_31 = parse_version(astropy.__version__) > parse_version("3.0.5")
@@ -831,7 +830,7 @@ class Orbit:
 
                lb= if True, input vxvv and vxvv are [long,lat,d,mu_ll, mu_bb,vlos] in [deg,deg,kpc,mas/yr,mas/yr,km/s] (mu_ll = mu_ll * cos lat); the attributes of the current Orbit are used to convert between these coordinates and Galactocentric coordinates
 
-               customsky= if True, input vxvv and vxvv_err are [custom long,custom lat,d,mu_customll, mu_custombb,vlos] in [deg,deg,kpc,mas/yr,mas/yr,km/s] (mu_ll = mu_ll * cos lat) where custom longitude and custom latitude are a custom set of sky coordinates (e.g., ecliptic) and the proper motions are also expressed in these coordinats; you need to provide the functions lb_to_customsky and pmllpmbb_to_customsky to convert to the custom sky coordinates (these should have the same inputs and outputs as lb_to_radec and pmllpmbb_to_pmrapmdec); the attributes of the current Orbit are used to convert between these coordinates and Galactocentric coordinates
+               customsky= if True, input vxvv and vxvv_err are [custom long,custom lat,d,mu_customll, mu_custombb,vlos] in [deg,deg,kpc,mas/yr,mas/yr,km/s] (mu_ll = mu_ll * cos lat) where custom longitude and custom latitude are a custom set of sky coordinates (e.g., ecliptic) and the proper motions are also expressed in these coordinates; you need to provide the functions lb_to_customsky and pmllpmbb_to_customsky to convert to the custom sky coordinates (these should have the same inputs and outputs as lb_to_radec and pmllpmbb_to_pmrapmdec); the attributes of the current Orbit are used to convert between these coordinates and Galactocentric coordinates
 
                obs=[X,Y,Z,vx,vy,vz] - (optional) position and velocity of observer
                                       (in kpc and km/s; entries can be Quantity) (default=Object-wide default)
@@ -1307,7 +1306,7 @@ class Orbit:
             "dopr54_c",
             "dop853_c",
         ]:
-            raise ValueError("{:s} is not a valid `method`".format(method))
+            raise ValueError(f"{method:s} is not a valid `method`")
         pot = flatten_potential(pot)
         _check_potential_dim(self, pot)
         _check_consistent_units(self, pot)
@@ -1581,7 +1580,7 @@ class Orbit:
                 )
             else:
                 raise ValueError(
-                    "{:s} is not a valid `method for integrate_dxdv`".format(method)
+                    f"{method:s} is not a valid `method for integrate_dxdv`"
                 )
         pot = flatten_potential(pot)
         _check_potential_dim(self, pot)
@@ -2415,7 +2414,7 @@ class Orbit:
         return None
 
     def _setup_EccZmaxRperiRap(self, pot=None, **kwargs):
-        """Internal function to compute e,zmax,rperi,rap and cache it for re-use"""
+        """Internal function to compute e,zmax,rperi,rap and cache it for reuse"""
         self._setupaA(pot=pot, **kwargs)
         if hasattr(self, "_aA_ecc"):
             return None
@@ -2445,7 +2444,7 @@ class Orbit:
         return None
 
     def _setup_actionsFreqsAngles(self, pot=None, **kwargs):
-        """Internal function to compute the actions, frequencies, and angles and cache them for re-use"""
+        """Internal function to compute the actions, frequencies, and angles and cache them for reuse"""
         self._setupaA(pot=pot, **kwargs)
         if hasattr(self, "_aA_jr"):
             return None
@@ -2484,7 +2483,7 @@ class Orbit:
         return None
 
     def _setup_actions(self, pot=None, **kwargs):
-        """Internal function to compute the actions and cache them for re-use (used for methods that don't support frequencies and angles)"""
+        """Internal function to compute the actions and cache them for reuse (used for methods that don't support frequencies and angles)"""
         self._setupaA(pot=pot, **kwargs)
         if hasattr(self, "_aA_jr"):
             return None
@@ -5487,16 +5486,14 @@ class Orbit:
             and not "yrange" in kwargs
             and not kwargs.get("overplot", False)
         )
-        labels = kwargs.pop(
-            "label", ["Orbit {}".format(ii + 1) for ii in range(self.size)]
-        )
+        labels = kwargs.pop("label", [f"Orbit {ii + 1}" for ii in range(self.size)])
         if self.size == 1 and isinstance(labels, str):
             labels = [labels]
         # Plot
         if not "xlabel" in kwargs:
-            kwargs["xlabel"] = labeldict.get(d1, r"${}$".format(d1))
+            kwargs["xlabel"] = labeldict.get(d1, rf"${d1}$")
         if not "ylabel" in kwargs:
-            kwargs["ylabel"] = labeldict.get(d2, r"${}$".format(d2))
+            kwargs["ylabel"] = labeldict.get(d2, rf"${d2}$")
         for ii, (tx, ty) in enumerate(zip(x, y)):
             kwargs["label"] = labels[ii]
             line2d = plot.plot(tx, ty, *args, **kwargs)[0]
@@ -5550,7 +5547,7 @@ class Orbit:
 
            2017-11-28 - Allow arbitrary functions of time to be plotted - Bovy (UofT)
 
-           2019-04-13 - Adapated for multiple orbits - Bovy (UofT)
+           2019-04-13 - Adapted for multiple orbits - Bovy (UofT)
 
         """
         if (kwargs.get("use_physical", False) and kwargs.get("ro", self._roSet)) or (
@@ -5651,11 +5648,11 @@ class Orbit:
         )
         # Plot
         if not "xlabel" in kwargs:
-            kwargs["xlabel"] = labeldict.get(d1, r"${}$".format(d1))
+            kwargs["xlabel"] = labeldict.get(d1, rf"${d1}$")
         if not "ylabel" in kwargs:
-            kwargs["ylabel"] = labeldict.get(d2, r"${}$".format(d2))
+            kwargs["ylabel"] = labeldict.get(d2, rf"${d2}$")
         if not "zlabel" in kwargs:
-            kwargs["zlabel"] = labeldict.get(d3, r"${}$".format(d3))
+            kwargs["zlabel"] = labeldict.get(d3, rf"${d3}$")
         for tx, ty, tz in zip(x, y, z):
             line3d = plot.plot3d(tx, ty, tz, *args, **kwargs)[0]
             kwargs["overplot"] = True
@@ -5863,7 +5860,7 @@ class Orbit:
         json_filename = kwargs.pop("json_filename", None)
         if json_filename is None:
             jd = json.dumps(jsonDict)
-            json_code = """  let data= JSON.parse('{jd}');""".format(jd=jd)
+            json_code = f"""  let data= JSON.parse('{jd}');"""
             close_json_code = ""
         else:
             with open(json_filename, "w") as jfile:
@@ -5944,7 +5941,7 @@ class Orbit:
         # First plot
         setup_trace1 = """
     let trace1= {{
-      x: data.x1_0.slice(0,numPerFrame), 
+      x: data.x1_0.slice(0,numPerFrame),
       y: data.y1_0.slice(0,numPerFrame),
       mode: 'lines',
       line: {{
@@ -5955,7 +5952,7 @@ class Orbit:
     }};
 
     let trace2= {{
-      x: data.x1_0.slice(0,numPerFrame), 
+      x: data.x1_0.slice(0,numPerFrame),
       y: data.y1_0.slice(0,numPerFrame),
       mode: 'lines',
       line: {{
@@ -5967,9 +5964,9 @@ class Orbit:
 """.format(line_color=line_colors[0])
         traces_cumul = """trace1,trace2"""
         for ii in range(1, self.size):
-            setup_trace1 += """            
+            setup_trace1 += """
     let trace{trace_num_1}= {{
-      x: data.x1_{trace_indx}.slice(0,numPerFrame), 
+      x: data.x1_{trace_indx}.slice(0,numPerFrame),
       y: data.y1_{trace_indx}.slice(0,numPerFrame),
       mode: 'lines',
       line: {{
@@ -5980,7 +5977,7 @@ class Orbit:
     }};
 
     let trace{trace_num_2}= {{
-      x: data.x1_{trace_indx}.slice(0,numPerFrame), 
+      x: data.x1_{trace_indx}.slice(0,numPerFrame),
       y: data.y1_{trace_indx}.slice(0,numPerFrame),
       mode: 'lines',
       line: {{
@@ -6033,7 +6030,7 @@ class Orbit:
     }};
 
     let trace{trace_num_2}= {{
-      x: data.x2_0.slice(0,numPerFrame), 
+      x: data.x2_0.slice(0,numPerFrame),
       y: data.y2_0.slice(0,numPerFrame),
       xaxis: 'x2',
       yaxis: 'y2',
@@ -6068,7 +6065,7 @@ class Orbit:
     }};
 
     let trace{trace_num_2}= {{
-      x: data.x2_{trace_indx}.slice(0,numPerFrame), 
+      x: data.x2_{trace_indx}.slice(0,numPerFrame),
       y: data.y2_{trace_indx}.slice(0,numPerFrame),
       xaxis: 'x2',
       yaxis: 'y2',
@@ -6109,7 +6106,7 @@ class Orbit:
     }};
 
     let trace{trace_num_2}= {{
-      x: data.x3_0.slice(0,numPerFrame), 
+      x: data.x3_0.slice(0,numPerFrame),
       y: data.y3_0.slice(0,numPerFrame),
       xaxis: 'x3',
       yaxis: 'y3',
@@ -6144,7 +6141,7 @@ class Orbit:
     }};
 
     let trace{trace_num_2}= {{
-      x: data.x3_{trace_indx}.slice(0,numPerFrame), 
+      x: data.x3_{trace_indx}.slice(0,numPerFrame),
       y: data.y3_{trace_indx}.slice(0,numPerFrame),
       xaxis: 'x3',
       yaxis: 'y3',
@@ -6231,7 +6228,7 @@ require.config({{
 require(['Plotly'], function (Plotly) {{
 {json_code}
   let layout = {layout};
-  let numPerFrame= 5;    
+  let numPerFrame= 5;
   let cnt= 1;
   let interval;
   let trace_slice_len;
@@ -6239,7 +6236,7 @@ require(['Plotly'], function (Plotly) {{
   let trace_slice_end;
 
   setup_trace();
-  
+
   $('.controlbutton button').click(function() {{
     let button_type= this.parentNode.id;
     if ( button_type === '{divid}-play' ) {{
@@ -6269,7 +6266,7 @@ require(['Plotly'], function (Plotly) {{
       interval= animate_trace();
     }}
   }});
-    
+
   function setup_trace() {{
     {setup_trace1}
 
@@ -6282,7 +6279,7 @@ require(['Plotly'], function (Plotly) {{
 
   function animate_trace() {{
     return setInterval(function() {{
-      // Make sure narrow and thick trace end in the same 
+      // Make sure narrow and thick trace end in the same
       // and the highlighted length has constant length
       trace_slice_len= Math.floor(numPerFrame);
       if ( trace_slice_len < 1) trace_slice_len= 1;
@@ -6390,15 +6387,13 @@ def _from_name_oneobject(name, obs):
     except OSError:  # pragma: no cover
         raise OSError("failed to connect to SIMBAD")
     if not simbad_table:
-        raise ValueError("failed to find {} in SIMBAD".format(name))
+        raise ValueError(f"failed to find {name} in SIMBAD")
     # check that the necessary coordinates have been found
     missing = simbad_table.mask
     if any(missing["RA_d", "DEC_d", "PMRA", "PMDEC", "RV_VALUE"][0]) or all(
         missing["PLX_VALUE", "Distance_distance"][0]
     ):
-        raise ValueError(
-            "failed to find some coordinates for {} in SIMBAD".format(name)
-        )
+        raise ValueError(f"failed to find some coordinates for {name} in SIMBAD")
     ra, dec, pmra, pmdec, vlos = simbad_table[
         "RA_d", "DEC_d", "PMRA", "PMDEC", "RV_VALUE"
     ][0]
@@ -6436,7 +6431,7 @@ def _fit_orbit(
     coords._APY_COORDS_ORIG = coords._APY_COORDS
     coords._APY_COORDS = False
     # Import here, because otherwise there is an infinite loop of imports
-    from ..actionAngle import actionAngleIsochroneApprox, actionAngle
+    from ..actionAngle import actionAngle, actionAngleIsochroneApprox
 
     # Mock this up, bc we want to use its orbit-integration routines
     class mockActionAngleIsochroneApprox(actionAngleIsochroneApprox):

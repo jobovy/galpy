@@ -1,15 +1,16 @@
-from setuptools import setup
-from distutils.core import Extension
-from distutils.command.build_ext import build_ext as build_ext
-import sys
-import distutils.sysconfig as sysconfig
 import distutils.ccompiler
-from distutils.errors import DistutilsPlatformError
-import os, os.path
+import distutils.sysconfig as sysconfig
+import glob
+import os
+import os.path
 import platform
 import subprocess
-import glob
+import sys
+from distutils.command.build_ext import build_ext as build_ext
+from distutils.core import Extension
+from distutils.errors import DistutilsPlatformError
 
+from setuptools import setup
 
 PY3 = sys.version > "3"
 WIN32 = platform.system() == "Windows"

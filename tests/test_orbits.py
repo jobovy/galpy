@@ -1,10 +1,11 @@
 ##########################TESTS ON MULTIPLE ORBITS#############################
-import numpy
-import astropy.units as u
-import astropy.coordinates as apycoords
-import pytest
-from galpy import potential
 import astropy
+import astropy.coordinates as apycoords
+import astropy.units as u
+import numpy
+import pytest
+
+from galpy import potential
 
 _APY3 = astropy.__version__ > "3"
 
@@ -1426,8 +1427,8 @@ def test_slice_integratedorbit_wrapperpot_367():
     # a wrapper potential (from Ted Mackereth)
     from galpy.orbit import Orbit
     from galpy.potential import (
-        DehnenSmoothWrapperPotential,
         DehnenBarPotential,
+        DehnenSmoothWrapperPotential,
         LogarithmicHaloPotential,
     )
 
@@ -1756,15 +1757,15 @@ def test_orbits_stringsolarmotion():
     orbits = Orbit(orbits_list, solarmotion="hogg")
     assert numpy.all(
         numpy.fabs(orbits._solarmotion - numpy.array([-10.1, 4.0, 6.7])) < 1e-10
-    ), "String solarmotion not parsed correcty"
+    ), "String solarmotion not parsed correctly"
     return None
 
 
 def test_orbits_dim_2dPot_3dOrb():
     # Test that orbit integration throws an error when using a potential that
     # is lower dimensional than the orbit (using ~Plevne's example)
-    from galpy.util import conversion
     from galpy.orbit import Orbit
+    from galpy.util import conversion
 
     b_p = potential.PowerSphericalPotentialwCutoff(
         alpha=1.8, rc=1.9 / 8.0, normalize=0.05
@@ -1792,8 +1793,8 @@ def test_orbits_dim_2dPot_3dOrb():
 def test_orbit_dim_1dPot_3dOrb():
     # Test that orbit integration throws an error when using a potential that
     # is lower dimensional than the orbit, for a 1D potential
-    from galpy.util import conversion
     from galpy.orbit import Orbit
+    from galpy.util import conversion
 
     b_p = potential.PowerSphericalPotentialwCutoff(
         alpha=1.8, rc=1.9 / 8.0, normalize=0.05
@@ -4351,7 +4352,7 @@ def test_output_specialshapes():
 
 
 def test_call_issue256():
-    # Same as for Orbit instances: non-integrated orbit with t=/=0 should return eror
+    # Same as for Orbit instances: non-integrated orbit with t=/=0 should return error
     from galpy.orbit import Orbit
 
     o = Orbit(vxvv=[[5.0, -1.0, 0.8, 3, -0.1, 0]])
@@ -4404,10 +4405,10 @@ def test_energy_jacobi_angmom():
 def _check_energy_jacobi_angmom(os, list_os):
     nrand = len(os)
     from galpy.potential import (
-        MWPotential2014,
-        SpiralArmsPotential,
         DehnenBarPotential,
         DoubleExponentialDiskPotential,
+        MWPotential2014,
+        SpiralArmsPotential,
     )
 
     sp = SpiralArmsPotential()
@@ -4671,10 +4672,11 @@ def test_angmom_errors():
 # Test whether Orbits evaluation methods sound warning when called with
 # unitless time when orbit is integrated with unitfull times
 def test_orbits_method_integrate_t_asQuantity_warning():
-    from galpy.potential import MWPotential2014
-    from galpy.orbit import Orbit
     from astropy import units
     from test_orbit import check_integrate_t_asQuantity_warning
+
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential2014
 
     # Setup and integrate orbit
     ts = numpy.linspace(0.0, 10.0, 1001) * units.Gyr
@@ -4999,9 +5001,9 @@ def test_plotting():
 
 
 def test_integrate_method_warning():
-    """Test Orbits.integrate raises an error if method is unvalid"""
-    from galpy.potential import MWPotential2014
+    """Test Orbits.integrate raises an error if method is invalid"""
     from galpy.orbit import Orbit
+    from galpy.potential import MWPotential2014
 
     o = Orbit(
         [
@@ -5017,6 +5019,7 @@ def test_integrate_method_warning():
 # Test that fallback onto Python integrators works for Orbits
 def test_integrate_Cfallback_symplec():
     from test_potential import BurkertPotentialNoC
+
     from galpy.orbit import Orbit
 
     times = numpy.linspace(0.0, 10.0, 1001)
@@ -5058,6 +5061,7 @@ def test_integrate_Cfallback_symplec():
 
 def test_integrate_Cfallback_nonsymplec():
     from test_potential import BurkertPotentialNoC
+
     from galpy.orbit import Orbit
 
     times = numpy.linspace(0.0, 10.0, 1001)
@@ -5434,7 +5438,7 @@ def test_flip_inplace_integrated_evaluated():
             o.integrate(ts, llp)
             of.integrate(ts, llp)
         # Evaluate, make sure it is at an interpolated time!
-        dum = of.R(0.52)
+        dummy = of.R(0.52)
         # Now flip
         of.flip(inplace=True)
         # Just check one time, allows code duplication!
@@ -6633,8 +6637,8 @@ def test_actionsFreqsAngles_output_shape():
 # Test that the delta parameter is properly dealt with when using the staeckel
 # approximation: when it changes, need to re-do the aA calcs.
 def test_actionsFreqsAngles_staeckeldelta():
-    from galpy.potential import MWPotential2014
     from galpy.orbit import Orbit
+    from galpy.potential import MWPotential2014
 
     os = Orbit([None, None])  # Just twice the Sun!
     # First with delta
@@ -6659,8 +6663,8 @@ def test_actionsFreqsAngles_staeckeldelta():
 # Test that actionAngleStaeckel for a spherical potential is the same
 # as actionAngleSpherical
 def test_actionsFreqsAngles_staeckeldeltaequalzero():
-    from galpy.potential import LogarithmicHaloPotential
     from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential
 
     os = Orbit([None, None])  # Just twice the Sun!
     lp = LogarithmicHaloPotential(normalize=1.0)
@@ -6724,8 +6728,8 @@ def test_actionsFreqsAngles_staeckeldeltaequalzero():
 # Test that the b / ip parameters are properly dealt with when using the
 # isochroneapprox approximation: when they change, need to re-do the aA calcs.
 def test_actionsFreqsAngles_isochroneapproxb():
-    from galpy.potential import MWPotential2014, IsochronePotential
     from galpy.orbit import Orbit
+    from galpy.potential import IsochronePotential, MWPotential2014
 
     os = Orbit([None, None])  # Just twice the Sun!
     # First with one b
@@ -6773,8 +6777,8 @@ def test_ChandrasekharDynamicalFrictionForce_constLambda():
     # with velocity dispersion sigma and for constant Lambda:
     # r_final^2 - r_initial^2 = -0.604 ln(Lambda) GM/sigma t
     # (e.g., B&T08, p. 648)
-    from galpy.util import conversion
     from galpy.orbit import Orbit
+    from galpy.util import conversion
 
     ro, vo = 8.0, 220.0
     # Parameters
@@ -7091,9 +7095,10 @@ def test_physical_output_off():
 # Check that the routines that should return physical coordinates are turned
 # back on by turn_physical_on
 def test_physical_output_on():
+    from astropy import units
+
     from galpy.orbit import Orbit
     from galpy.potential import LogarithmicHaloPotential
-    from astropy import units
 
     lp = LogarithmicHaloPotential(normalize=1.0)
     o = Orbit()
@@ -7247,6 +7252,7 @@ def test_physical_output_on():
 # Test that Orbits can be pickled
 def test_pickling():
     import pickle
+
     from galpy.orbit import Orbit
 
     # Just test most common setup: 3D, 6 phase-D

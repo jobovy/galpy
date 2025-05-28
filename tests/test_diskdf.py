@@ -1,9 +1,11 @@
 # Tests of the diskdf module: distribution functions from Dehnen (1999)
 import os
+
 import numpy
-from scipy import stats
-from galpy.df import dehnendf, shudf, schwarzschilddf
 import pytest
+from scipy import stats
+
+from galpy.df import dehnendf, schwarzschilddf, shudf
 
 _FEWERLONGINTEGRALS = True
 # So we can reuse the following
@@ -2884,7 +2886,7 @@ def test_DFcorrection_setup():
         os.remove(dfc._corr._createSavefilename(2))
     except:
         raise AssertionError("removing DFcorrection's savefile did not work")
-    # Also explicily setup a DFcorrection, to test for other stuff
+    # Also explicitly setup a DFcorrection, to test for other stuff
     from galpy.df import DFcorrection
     from galpy.df.diskdf import DFcorrectionError
 
@@ -3020,7 +3022,7 @@ def test_shudf_flat_DFcorrection_cleanup():
 
 
 def test_axipotential():
-    from galpy.df.diskdf import axipotential, _RMIN
+    from galpy.df.diskdf import _RMIN, axipotential
 
     assert (
         numpy.fabs(axipotential(numpy.array([0.5]), beta=0.0) - numpy.log(0.5))

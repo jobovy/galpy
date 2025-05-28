@@ -1,5 +1,7 @@
 import sys
+
 import numpy
+
 from galpy.orbit import Orbit
 from galpy.potential import MiyamotoNagaiPotential
 

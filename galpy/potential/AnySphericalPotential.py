@@ -3,9 +3,10 @@
 ###############################################################################
 import numpy
 from scipy import integrate
-from .SphericalPotential import SphericalPotential
-from .Force import _APY_LOADED
+
 from ..util import conversion
+from .Force import _APY_LOADED
+from .SphericalPotential import SphericalPotential
 
 if _APY_LOADED:
     from astropy import units

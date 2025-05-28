@@ -1,7 +1,8 @@
 # Class that implements isotropic spherical Plummer DF
 import numpy
-from ..util import conversion
+
 from ..potential import PlummerPotential
+from ..util import conversion
 from .sphericaldf import isotropicsphericaldf
 
 

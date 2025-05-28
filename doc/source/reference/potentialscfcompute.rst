@@ -6,7 +6,7 @@ Note: This function computes Acos and Asin as defined in `Hernquist & Ostriker (
 
 For a given :math:`\rho(R, z, \phi)` we can compute :math:`Acos` and :math:`Asin` through the following equation
 
-.. math:: \begin{bmatrix}   Acos \\ Asin \end{bmatrix}_{nlm} =  \frac{4 a^3}{I_{nl}} \int_{\xi=0}^{\infty}\int_{\cos(\theta)=-1}^{1}\int_{\phi=0}^{2\pi} (1 + \xi)^{2} (1 - \xi)^{-4}  \rho(R, z, \phi) \Phi_{nlm}(\xi, \cos(\theta), \phi) d\phi d\cos(\theta) d\xi 
+.. math:: \begin{bmatrix}   Acos \\ Asin \end{bmatrix}_{nlm} =  \frac{4 a^3}{I_{nl}} \int_{\xi=0}^{\infty}\int_{\cos(\theta)=-1}^{1}\int_{\phi=0}^{2\pi} (1 + \xi)^{2} (1 - \xi)^{-4}  \rho(R, z, \phi) \Phi_{nlm}(\xi, \cos(\theta), \phi) d\phi d\cos(\theta) d\xi
 
 Where
 
@@ -23,4 +23,3 @@ Also note :math:`\xi = \frac{r - a}{r + a}` , and :math:`n`, :math:`l` and :math
 
 
 .. autofunction:: galpy.potential.scf_compute_coeffs
-

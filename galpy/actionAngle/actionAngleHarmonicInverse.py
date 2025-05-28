@@ -8,8 +8,9 @@
 #
 ###############################################################################
 import numpy
-from .actionAngleInverse import actionAngleInverse
+
 from ..util import conversion
+from .actionAngleInverse import actionAngleInverse
 
 
 class actionAngleHarmonicInverse(actionAngleInverse):

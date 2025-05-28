@@ -6,6 +6,7 @@
 #                                             \sqrt(R^2+(a+\sqrt(z^2+b^2))^2)
 ###############################################################################
 import numpy
+
 from ..util import conversion
 from .Potential import Potential, kms_to_kpcGyrDecorator
 
@@ -274,4 +275,4 @@ class MiyamotoNagaiPotential(Potential):
 
         """
         ampl = self._amp * vo**2.0 * ro
-        return "0,{},{},{}".format(ampl, self._a * ro, self._b * ro)
+        return f"0,{ampl},{self._a * ro},{self._b * ro}"

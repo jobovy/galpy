@@ -2,6 +2,7 @@
 #   SteadyLogSpiralPotential: a steady-state spiral potential
 ###############################################################################
 import numpy
+
 from ..util import conversion
 from .planarPotential import planarPotential
 

@@ -1,22 +1,25 @@
-import os, os.path
+import os
+import os.path
+import pickle
+import shutil
 import subprocess
-from astropy.io import fits, ascii
-from astropy import units
-import numpy as np
-from optparse import OptionParser
 import sys
 import tempfile
 from ftplib import FTP
-import shutil
-import pickle
-from tqdm import tqdm
-from galpy.potential import LogarithmicHaloPotential
-from galpy.potential import evaluatePotentials as evalPot
-from galpy.orbit import Orbit
-from galpy.actionAngle import estimateDeltaStaeckel, actionAngleStaeckel, UnboundError
-from galpy.util import coords
+from optparse import OptionParser
+
 import matplotlib.pyplot as plt
 import numpy
+import numpy as np
+from astropy import units
+from astropy.io import ascii, fits
+from tqdm import tqdm
+
+from galpy.actionAngle import UnboundError, actionAngleStaeckel, estimateDeltaStaeckel
+from galpy.orbit import Orbit
+from galpy.potential import LogarithmicHaloPotential
+from galpy.potential import evaluatePotentials as evalPot
+from galpy.util import coords
 
 _ERASESTR = (
     "                                                                                "
@@ -165,7 +168,7 @@ def _download_file_vizier(cat, filePath, catalogname="catalog.dat"):
             if not downloading:  # Assume KeyboardInterrupt
                 raise
             elif ntries > _MAX_NTRIES:
-                raise IOError(
+                raise OSError(
                     "File %s does not appear to exist on the server ..."
                     % (os.path.basename(filePath))
                 )

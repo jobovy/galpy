@@ -1,11 +1,14 @@
 # McMillan (2017) potential as first implemented in the galpy framework by
 # Mackereth & Bovy (2018)
 import numpy
-from ..potential import NFWPotential
-from ..potential import DiskSCFPotential
-from ..potential import SCFPotential
-from ..potential import scf_compute_coeffs_axi
-from ..potential import mwpot_helpers
+
+from ..potential import (
+    DiskSCFPotential,
+    NFWPotential,
+    SCFPotential,
+    mwpot_helpers,
+    scf_compute_coeffs_axi,
+)
 from ..util import conversion
 
 # Suppress the numpy floating-point warnings that this code generates...
