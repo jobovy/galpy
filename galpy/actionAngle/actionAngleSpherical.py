@@ -531,7 +531,9 @@ class actionAngleSpherical(actionAngle):
             rend = _rapRperiAxiFindStart(
                 r, E, L, self._2dpot, rap=True, startsign=startsign
             )
-            rap = optimize.brentq(_rapRperiAxiEq, r, rend, (E, L, self._2dpot))
+            rap = optimize.brentq(
+                _rapRperiAxiEq, r, rend, (E, L, self._2dpot), xtol=1e-16
+            )
         return (rperi, rap)
 
     def _calc_jr(self, rperi, rap, E, L, fixed_quad, **kwargs):
@@ -650,7 +652,7 @@ class actionAngleSpherical(actionAngle):
     def _calc_long_asc(self, z, R, vtheta, phi, Lz, L):
         i = numpy.arccos(Lz / L)
         sinu = z / R / numpy.tan(i)
-        pindx = (sinu > 1.0) * (sinu < (1.0 + 10.0**-7.0))
+        pindx = (sinu > 1.0) * numpy.isfinite(sinu)
         sinu[pindx] = 1.0
         pindx = (sinu < -1.0) * numpy.isfinite(sinu)
         sinu[pindx] = -1.0
