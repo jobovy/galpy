@@ -131,6 +131,7 @@ class actionAngleIsochroneInverse(actionAngleInverse):
         -----
         - 2017-11-15 - Written - Bovy (UofT).
         """
+        jr = numpy.atleast_1d(jr)
         L = jz + numpy.fabs(jphi)  # total angular momentum
         L2 = L**2.0
         sqrtfourbkL2 = numpy.sqrt(L2 + 4.0 * self.b * self.amp)
@@ -147,18 +148,20 @@ class actionAngleIsochroneInverse(actionAngleInverse):
         anglephi = numpy.atleast_1d(anglephi)
         anglez = numpy.atleast_1d(anglez)
         eta = numpy.empty(len(angler))
+        aeoverab = a * e / ab
         for ii, ar in enumerate(angler):
+            taeoverab = aeoverab[ii * (len(jr) > 1)]  # sometimes jr is an array...
             try:
                 eta[ii] = optimize.newton(
-                    lambda x: x - a * e / ab * numpy.sin(x) - ar,
+                    lambda x: x - taeoverab * numpy.sin(x) - ar,
                     0.0,
-                    lambda x: 1 - a * e / ab * numpy.cos(x),
+                    lambda x: 1 - taeoverab * numpy.cos(x),
                 )
             except RuntimeError:
                 # Newton-Raphson did not converge, this has to work,
                 # bc 0 <= ra < 2pi the following start x have different signs
                 eta[ii] = optimize.brentq(
-                    lambda x: x - a * e / ab * numpy.sin(x) - ar, 0.0, 2.0 * numpy.pi
+                    lambda x: x - taeoverab * numpy.sin(x) - ar, 0.0, 2.0 * numpy.pi
                 )
         coseta = numpy.cos(eta)
         r = a * numpy.sqrt((1.0 - e * coseta) * (1.0 - e * coseta + 2.0 * self.b / a))
@@ -174,16 +177,16 @@ class actionAngleIsochroneInverse(actionAngleInverse):
         Lambdaeta = tan11 + L / sqrtfourbkL2 * tan12
         psi = anglez - omegaz / omegar * angler + Lambdaeta
         lowerl = numpy.sqrt(1.0 - jphi**2.0 / L2)
-        sintheta = numpy.sin(psi) * lowerl
-        costheta = numpy.sqrt(1.0 - sintheta**2.0)
-        vtheta = L * lowerl * numpy.cos(psi) / costheta / r
-        R = r * costheta
-        z = r * sintheta
-        vR = vr * costheta - vtheta * sintheta
-        vz = vr * sintheta + vtheta * costheta
-        sinu = sintheta / costheta * jphi / L / lowerl
+        costheta = numpy.sin(psi) * lowerl
+        sintheta = numpy.sqrt(1.0 - costheta**2.0)
+        vtheta = -L * lowerl * numpy.cos(psi) / sintheta / r
+        R = r * sintheta
+        z = r * costheta
+        vR = vr * sintheta + vtheta * costheta
+        vz = vr * costheta - vtheta * sintheta
+        sinu = costheta / sintheta * jphi / L / lowerl
         u = numpy.arcsin(sinu)
-        u[vtheta < 0.0] = numpy.pi - u[vtheta < 0.0]
+        u[vtheta > 0.0] = numpy.pi - u[vtheta > 0.0]
         phi = anglephi - numpy.sign(jphi) * anglez + u
         # For non-inclined orbits, phi == psi
         phi[True ^ numpy.isfinite(phi)] = psi[True ^ numpy.isfinite(phi)]
