@@ -385,3 +385,222 @@ class actionAngleIsochrone(actionAngle):
                 rperi,
                 rap,
             )
+
+
+class _actionAngleIsochroneHelper:
+    """Simplified version of the actionAngleIsochrone transformations, for use in actionAngleSphericalInverse"""
+
+    def __init__(self, *args, **kwargs):
+        """
+        NAME:
+
+           __init__
+
+        PURPOSE:
+
+           initialize an _actionAngleIsochroneHelper object
+
+        INPUT:
+
+           ip= instance of a IsochronePotential
+
+        OUTPUT:
+
+           instance
+
+        HISTORY:
+
+           2017-11-30 - Written - Bovy (UofT)
+
+        """
+        if not "ip" in kwargs:  # pragma: no cover
+            raise OSError("Must specify ip= for _actionAngleIsochroneHelper")
+        else:
+            ip = kwargs["ip"]
+            if not isinstance(ip, IsochronePotential):  # pragma: no cover
+                raise OSError(
+                    "'Provided ip= does not appear to be an instance of an IsochronePotential"
+                )
+            # Check the units
+            self.b = ip.b
+            self.amp = ip._amp
+        self._ip = ip
+        return None
+
+    def angler(self, r, vr2, L, reuse=False, vrneg=False):
+        """
+        NAME:
+           angler
+        PURPOSE:
+           calculate the radial angle
+        INPUT:
+           r - radius
+           vr2 - radial velocity squared
+           L - angular momentum
+           vrneg= (False) True if vr is negative
+           reuse= (False) if True, reuse all relevant quantities for computing the radial angle that were computed prviously as part of danglerdr_constant_L)
+        OUTPUT:
+           radial angle
+        HISTORY:
+           2017-11-30 - Written - Bovy (UofT)
+        """
+        if reuse:
+            return (
+                self._eta - self._e * self._c / (self._c + self.b) * self._sineta
+            ) % (2.0 * numpy.pi)
+        E = self._ip(r, 0.0) + vr2 / 2.0 + L**2.0 / 2.0 / r**2.0
+        # if E > 0.: return -1.
+        c = -self.amp / 2.0 / E - self.b
+        e2 = 1.0 - L * L / self.amp / c * (1.0 + self.b / c)
+        e = numpy.sqrt(e2)
+        if isinstance(self.b, numpy.ndarray):
+            s = 1.0 + numpy.sqrt(1.0 + r * r / self.b**2.0)
+            coseta = 1 / e * (1.0 - self.b / c * (s - 2.0))
+            pindx = self.b == 0.0
+            coseta[pindx] = 1 / e[pindx] * (1.0 - r[pindx] / c[pindx])
+        else:
+            if self.b == 0.0:
+                coseta = 1 / e * (1.0 - r / c)
+            else:
+                s = 1.0 + numpy.sqrt(1.0 + r * r / self.b**2.0)
+                coseta = 1 / e * (1.0 - self.b / c * (s - 2.0))
+        pindx = coseta > 1.0
+        coseta[pindx] = 1.0
+        pindx = coseta < -1.0
+        coseta[pindx] = -1.0
+        eta = numpy.arccos(coseta)
+        if vrneg:
+            eta = 2.0 * numpy.pi - eta
+        angler = (eta - e * c / (c + self.b) * numpy.sin(eta)) % (2.0 * numpy.pi)
+        angler[E > 0.0] = -1.0
+        return angler
+
+    def danglerdr_constant_L(self, r, vr2, L, dEdr, vrneg=False):
+        """Function used in actionAngleSphericalInverse when finding r at which angler has a particular value on the isochrone torus"""
+        E = self._ip(r, 0.0) + vr2 / 2.0 + L**2.0 / 2.0 / r**2.0
+        L2 = L**2.0
+        self._c = -self.amp / 2.0 / E - self.b
+        L2overampc = L2 / self.amp / self._c
+        e2 = 1.0 - L2overampc * (1.0 + self.b / self._c)
+        self._e = numpy.sqrt(e2)
+        if isinstance(self.b, numpy.ndarray):
+            s = 1.0 + numpy.sqrt(1.0 + r * r / self.b**2.0)
+            coseta = 1 / self._e * (1.0 - self.b / self._c * (s - 2.0))
+            pindx = self.b == 0.0
+            coseta[pindx] = 1 / self._e[pindx] * (1.0 - r[pindx] / self._c[pindx])
+        else:
+            if self.b == 0.0:
+                coseta = 1 / self._e * (1.0 - r / self._c)
+            else:
+                s = 1.0 + numpy.sqrt(1.0 + r * r / self.b**2.0)
+                coseta = 1 / self._e * (1.0 - self.b / self._c * (s - 2.0))
+        pindx = coseta > 1.0
+        coseta[pindx] = 1.0
+        pindx = coseta < -1.0
+        coseta[pindx] = -1.0
+        self._eta = numpy.arccos(coseta)
+        if vrneg:
+            self._eta = 2.0 * numpy.pi - self._eta
+        self._sineta = numpy.sin(self._eta)
+        L2overampc *= (1.0 + 2.0 * self.b / self._c) / (
+            2.0 * self._e
+        )  # from now on need L2/(2GM c e)
+        dcdr = self.amp / 2.0 / E**2.0 * dEdr
+        dsdrtimesb = r / numpy.sqrt(r**2.0 + self.b**2.0)
+        detadr = (dsdrtimesb + (coseta * (self._e + L2overampc) - 1.0) * dcdr) / (
+            self._e * self._c * self._sineta
+        )
+        return (
+            detadr * (1.0 - self._e * self._c * coseta / (self._c + self.b))
+            - self._sineta
+            / (self._c + self.b)
+            * (self._e * self.b / (self._c + self.b) + L2overampc)
+            * dcdr
+        )
+
+    def Jr(self, E, L):
+        return self.amp / numpy.sqrt(-2.0 * E) - 0.5 * (
+            L + numpy.sqrt(L * L + 4.0 * self.amp * self.b)
+        )
+
+    def Or(self, E):
+        return (-2.0 * E) ** 1.5 / self.amp
+
+    def rperirap(self, E, L2):
+        if self.b == 0:
+            a = -self.amp / 2.0 / E
+            me2 = L2 / self.amp / a
+            e = numpy.sqrt(1.0 - me2)
+            rperi = a * (1.0 - e)
+            rap = a * (1.0 + e)
+        else:
+            smin = (
+                0.5
+                * (
+                    (2.0 * E - self.amp / self.b)
+                    + numpy.sqrt(
+                        (2.0 * E - self.amp / self.b) ** 2.0
+                        + 2.0 * E * (4.0 * self.amp / self.b + L2 / self.b**2.0)
+                    )
+                )
+                / E
+            )
+            smax = 2.0 - self.amp / E / self.b - smin
+            rperi = smin * numpy.sqrt(1.0 - 2.0 / smin) * self.b
+            rap = smax * numpy.sqrt(1.0 - 2.0 / smax) * self.b
+        return (rperi, rap)
+
+    def drdEL_constant_angler(self, r, vr2, E, L, dEdr, dEdL, vrneg=False):
+        """Function used in actionAngleSphericalInverse to determine dEA/dE and dEA/dL: derivative of the radius r wrt E and L necessary to have constant angler"""
+        L2 = L**2.0
+        c = -self.amp / 2.0 / E - self.b
+        e2 = 1.0 - L2 / self.amp / c * (1.0 + self.b / c)
+        e = numpy.sqrt(e2)
+        if isinstance(self.b, numpy.ndarray):
+            s = 1.0 + numpy.sqrt(1.0 + r * r / self.b**2.0)
+            coseta = 1 / e * (1.0 - self.b / c * (s - 2.0))
+            pindx = self.b == 0.0
+            coseta[pindx] = 1 / e[pindx] * (1.0 - r[pindx] / c[pindx])
+        else:
+            if self.b == 0.0:
+                coseta = 1 / e * (1.0 - r / c)
+            else:
+                s = 1.0 + numpy.sqrt(1.0 + r * r / self.b**2.0)
+                coseta = 1 / e * (1.0 - self.b / c * (s - 2.0))
+        pindx = coseta > 1.0
+        coseta[pindx] = 1.0
+        pindx = coseta < -1.0
+        coseta[pindx] = -1.0
+        eta = numpy.arccos(coseta)
+        if vrneg:
+            eta = 2.0 * numpy.pi - eta
+        sineta = numpy.sin(eta)
+        bcmecce = self.b + c - e * c * coseta
+        c2e2ob = c**2.0 * sineta**2.0 / self.b
+        dcdLfac = (1.0 - e * coseta) / self.b + e2 * c2e2ob / bcmecce * (
+            1.0 / c - 1.0 / (self.b + c)
+        )
+        dcdLoverdEdL = self.amp / 2.0 / E**2.0
+        dcdLoverdrdL = dcdLoverdEdL * dEdr
+        dedLfac = -c * coseta / e / self.b + c2e2ob / bcmecce
+        L2o2GMc2etc = L2 / 2.0 / self.amp / c**2.0 * (1.0 + 2.0 * self.b / c)
+        numfordrdE = (
+            dcdLfac * self.amp / 2.0 / E** 2.0
+            + dedLfac * L2 / 4.0 / c** 2.0 / E** 2 * (1.0 + 2.0 * self.b / c)
+        )
+        return (
+            numfordrdE / (r / self.b**2.0 / (s - 1.0) - numfordrdE * dEdr),
+            (
+                -dedLfac
+                * (
+                    L / self.amp / c * (1.0 + self.b / c)
+                    - L2o2GMc2etc * dcdLoverdEdL * dEdL
+                )
+                + dcdLfac * dcdLoverdEdL * dEdL
+            )
+            / (
+                r / self.b**2.0 / (s - 1.0)
+                - dcdLfac * dcdLoverdrdL
+                - dedLfac * L2o2GMc2etc * dcdLoverdrdL
+            ),
+        )
