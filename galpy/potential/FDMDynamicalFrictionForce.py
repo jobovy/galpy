@@ -46,7 +46,7 @@ class FDMDynamicalFrictionForce(ChandrasekharDynamicalFrictionForce):
             * self._ro
             * self._vo
         )
-        
+
         self._minkr = 0.0005
         self._maxkr = 300
         self._nkr = 1000
