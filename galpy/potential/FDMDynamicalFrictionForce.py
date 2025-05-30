@@ -5,7 +5,7 @@ from astropy.constants import c, hbar
 from scipy import interpolate
 from scipy.integrate import quad
 
-from galpy.potential import ChandrasekharDynamicalFrictionForce
+from . ChandrasekharDynamicalFrictionForce import ChandrasekharDynamicalFrictionForce
 
 
 class FDMDynamicalFrictionForce(ChandrasekharDynamicalFrictionForce):
