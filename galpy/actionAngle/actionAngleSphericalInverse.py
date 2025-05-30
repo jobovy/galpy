@@ -25,7 +25,8 @@ from ..potential import (
     vcirc,
 )
 from ..potential.Potential import _evaluatePotentials
-from ..util import bovy_plot, galpyWarning
+from ..util import galpyWarning
+from ..util import plot as galpy_plot
 from .actionAngleInverse import actionAngleInverse
 from .actionAngleIsochrone import _actionAngleIsochroneHelper, actionAngleIsochrone
 from .actionAngleIsochroneInverse import actionAngleIsochroneInverse
@@ -804,7 +805,7 @@ class actionAngleSphericalInverse(actionAngleInverse):
             gs = overplot  # confusingly, we overload the meaning of overplot
         # mapping of thetaa --> r
         pyplot.subplot(gs[0])
-        bovy_plot.bovy_plot(
+        galpy_plot.plot(
             self._thetaa,
             self._rgrid[indx],
             color="k",
@@ -857,7 +858,7 @@ class actionAngleSphericalInverse(actionAngleInverse):
                 self._pt_rap[indx] * one,
                 vrneg=True,
             )
-            bovy_plot.bovy_plot(
+            galpy_plot.plot(
                 self._thetaa,
                 ((thetaa_out - self._thetaa + numpy.pi) % (2.0 * numpy.pi)) - numpy.pi,
                 color="k",
@@ -867,7 +868,7 @@ class actionAngleSphericalInverse(actionAngleInverse):
             )
         # Recovery of the nSn from J_r^A(theta_r^A) behavior
         pyplot.subplot(gs[1])
-        bovy_plot.bovy_plot(
+        galpy_plot.plot(
             self._thetaa,
             self._jra[indx],
             color="k",
@@ -885,7 +886,7 @@ class actionAngleSphericalInverse(actionAngleInverse):
             pyplot.gca().xaxis.set_major_formatter(NullFormatter())
         if not overplot:
             pyplot.subplot(gs[5])
-            bovy_plot.bovy_plot(
+            galpy_plot.plot(
                 self._thetaa,
                 numpy.array(
                     [
@@ -903,7 +904,7 @@ class actionAngleSphericalInverse(actionAngleInverse):
             )
         # Recovery of the dSndJr from dJ_r^A/dJ_r(theta^A) behavior
         pyplot.subplot(gs[2])
-        bovy_plot.bovy_plot(
+        galpy_plot.plot(
             self._thetaa,
             self._djradjr[indx],
             color="k",
@@ -917,7 +918,7 @@ class actionAngleSphericalInverse(actionAngleInverse):
             pyplot.gca().xaxis.set_major_formatter(NullFormatter())
         if not overplot:
             pyplot.subplot(gs[6])
-            bovy_plot.bovy_plot(
+            galpy_plot.plot(
                 self._thetaa,
                 numpy.array(
                     [
@@ -939,7 +940,7 @@ class actionAngleSphericalInverse(actionAngleInverse):
             )
         # Recovery of the dSndL from dJ_r^A/dL(theta^A) behavior
         pyplot.subplot(gs[3])
-        bovy_plot.bovy_plot(
+        galpy_plot.plot(
             self._thetaa,
             (
                 self._djradLish[indx]
@@ -956,7 +957,7 @@ class actionAngleSphericalInverse(actionAngleInverse):
             pyplot.gca().xaxis.set_major_formatter(NullFormatter())
         if not overplot:
             pyplot.subplot(gs[7])
-            bovy_plot.bovy_plot(
+            galpy_plot.plot(
                 self._thetaa,
                 numpy.array(
                     [
@@ -1031,7 +1032,7 @@ class actionAngleSphericalInverse(actionAngleInverse):
                 label = None
                 color = cm.plasma((E - Es[0]) / (Es[-1] - Es[0]))
             pyplot.subplot(gs[0])
-            bovy_plot.bovy_plot(
+            galpy_plot.plot(
                 numpy.fabs(self._nforSn),
                 y,
                 yrange=[ymin, ymax],
@@ -1063,7 +1064,7 @@ class actionAngleSphericalInverse(actionAngleInverse):
                 label = None
                 color = cm.plasma((E - Es[0]) / (Es[-1] - Es[0]))
             pyplot.subplot(gs[1])
-            bovy_plot.bovy_plot(
+            galpy_plot.plot(
                 numpy.fabs(self._nforSn),
                 y,
                 yrange=[ymin, ymax],
@@ -1095,7 +1096,7 @@ class actionAngleSphericalInverse(actionAngleInverse):
                 label = None
                 color = cm.plasma((E - Es[0]) / (Es[-1] - Es[0]))
             pyplot.subplot(gs[2])
-            bovy_plot.bovy_plot(
+            galpy_plot.plot(
                 numpy.fabs(self._nforSn),
                 y,
                 yrange=[ymin, ymax],
@@ -1172,7 +1173,7 @@ class actionAngleSphericalInverse(actionAngleInverse):
         )
         # First plot orbit in r,vr
         pyplot.subplot(1, 2 - orbit_only, 1)
-        line2d = bovy_plot.bovy_plot(
+        line2d = galpy_plot.plot(
             r, vr, xlabel=r"$r$", ylabel=r"$v_r$", gcf=True, ls=ls, lw=3.0
         )[0]
         if xrange is None:
@@ -1226,7 +1227,7 @@ class actionAngleSphericalInverse(actionAngleInverse):
             + evaluatePotentials(self._pot, r, numpy.zeros_like(r))
         ) / E - 1.0
         ymin, ymax = numpy.amin(Eorbit), numpy.amax(Eorbit)
-        bovy_plot.bovy_plot(
+        galpy_plot.plot(
             tar,
             Eorbit,
             xrange=[0.0, 2.0 * numpy.pi],
