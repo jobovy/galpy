@@ -11,6 +11,7 @@ from . import (
     DiskSCFPotential,
     DoubleExponentialDiskPotential,
     EllipticalDiskPotential,
+    FDMDynamicalFrictionForce,
     FerrersPotential,
     FlattenedPowerPotential,
     Force,
@@ -195,6 +196,9 @@ SpiralArmsPotential = SpiralArmsPotential.SpiralArmsPotential
 HenonHeilesPotential = HenonHeilesPotential.HenonHeilesPotential
 ChandrasekharDynamicalFrictionForce = (
     ChandrasekharDynamicalFrictionForce.ChandrasekharDynamicalFrictionForce
+)
+FDMDynamicalFrictionForce = (
+    FDMDynamicalFrictionForce.FDMDynamicalFrictionForce
 )
 SphericalShellPotential = SphericalShellPotential.SphericalShellPotential
 RingPotential = RingPotential.RingPotential
