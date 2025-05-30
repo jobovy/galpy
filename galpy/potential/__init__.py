@@ -197,9 +197,7 @@ HenonHeilesPotential = HenonHeilesPotential.HenonHeilesPotential
 ChandrasekharDynamicalFrictionForce = (
     ChandrasekharDynamicalFrictionForce.ChandrasekharDynamicalFrictionForce
 )
-FDMDynamicalFrictionForce = (
-    FDMDynamicalFrictionForce.FDMDynamicalFrictionForce
-)
+FDMDynamicalFrictionForce = FDMDynamicalFrictionForce.FDMDynamicalFrictionForce
 SphericalShellPotential = SphericalShellPotential.SphericalShellPotential
 RingPotential = RingPotential.RingPotential
 PerfectEllipsoidPotential = PerfectEllipsoidPotential.PerfectEllipsoidPotential
