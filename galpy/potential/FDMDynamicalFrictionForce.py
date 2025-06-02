@@ -60,6 +60,7 @@ class FDMDynamicalFrictionForce(ChandrasekharDynamicalFrictionForce):
         self._integral_kr = interpolate.InterpolatedUnivariateSpline(
             self._kr_4interp, self._integral_kr_4interp, k=3
         )
+        # hasC set in ChandrasekharDynamicalFrictionForce.__init__
 
     def FDMfactor(self, r, vs):
         """
