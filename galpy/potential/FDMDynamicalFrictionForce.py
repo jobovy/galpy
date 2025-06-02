@@ -1,10 +1,9 @@
-import astropy.units as u
 import numpy as np
 import scipy.special as sp
-from astropy.constants import c, hbar
 from scipy import interpolate
 from scipy.integrate import quad
 
+from ..util import conversion
 from .ChandrasekharDynamicalFrictionForce import ChandrasekharDynamicalFrictionForce
 
 
@@ -15,7 +14,7 @@ class FDMDynamicalFrictionForce(ChandrasekharDynamicalFrictionForce):
         GMs=0.1,
         gamma=1.0,
         rhm=0.0,
-        m=1e-22 * u.eV,
+        m=1e-99,  # roughly 1e-22 eV
         dens=None,
         sigmar=None,
         const_lnLambda=False,
@@ -42,9 +41,10 @@ class FDMDynamicalFrictionForce(ChandrasekharDynamicalFrictionForce):
         )
 
         self._mhbar = (
-            (m / (hbar * c**2)).to(1 / (u.kpc * (u.km / u.s))).value
-            * self._ro
-            * self._vo
+            conversion.parse_mass(m, ro=self._ro, vo=self._vo)
+            / conversion._GHBARINKM3S3KPC2
+            * self._ro**2
+            * self._vo**3
         )
 
         self._minkr = 0.0005
