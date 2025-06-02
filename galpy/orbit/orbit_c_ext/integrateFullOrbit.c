@@ -606,6 +606,7 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->nargs= 3;
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
+      break;
     case -11: //FDMDynamicalFrictionForce
       potentialArgs->RforceVelocity= &FDMDynamicalFrictionForceRforce;
       potentialArgs->zforceVelocity= &FDMDynamicalFrictionForcezforce;
