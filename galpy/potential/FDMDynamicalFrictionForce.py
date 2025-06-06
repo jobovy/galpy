@@ -1,7 +1,5 @@
 import numpy as np
 import scipy.special as sp
-from scipy import interpolate
-from scipy.integrate import quad
 
 from ..util import conversion
 from .ChandrasekharDynamicalFrictionForce import ChandrasekharDynamicalFrictionForce
@@ -46,20 +44,6 @@ class FDMDynamicalFrictionForce(ChandrasekharDynamicalFrictionForce):
             * self._ro**2
             * self._vo**3
         )
-
-        self._minkr = 0.0005
-        self._maxkr = 300
-        self._nkr = 1000
-        self._kr_4interp = np.linspace(self._minkr, self._maxkr, self._nkr)
-        self._integral_kr_4interp = np.array(
-            [
-                quad(lambda t: (1 - np.cos(t)) / t, 0, 2 * kr_i, limit=200)[0]
-                for kr_i in self._kr_4interp
-            ]
-        )
-        self._integral_kr = interpolate.InterpolatedUnivariateSpline(
-            self._kr_4interp, self._integral_kr_4interp, k=3
-        )
         # hasC set in ChandrasekharDynamicalFrictionForce.__init__
 
     def FDMfactor(self, r, vs):
@@ -79,13 +63,10 @@ class FDMDynamicalFrictionForce(ChandrasekharDynamicalFrictionForce):
         if self._lnLambda:
             return self._lnLambda
         else:
-            kr = self.krValue(r, vs)
+            kr = 2 * self.krValue(r, vs)
+            I = -sp.sici(kr)[1] + np.log(kr) + 0.5772156649015329
 
-            if kr > self._maxkr:
-                I = self._integral_kr(self._maxkr)
-            else:
-                I = self._integral_kr(kr)
-            return I + (np.sin(2 * kr) / (2 * kr)) - 1
+            return I + (np.sin(kr) / (kr)) - 1
 
     def ChandraFactor(self, r, vs):
         """
