@@ -10,6 +10,46 @@ from galpy import potential
 from galpy.util import galpyWarning
 
 
+def test_FDMDynamicalFrictionForce_central_limit():
+    # test that FDM dynamical friction in the central limit (i.e. when kr << 1)
+    # agrees with analytical solutions for circular orbits in logarithmic potentials
+    # assuming a constant velocity
+    # r_pred = r0 * exp(- 0.5 * G * M_obj * vcirc * (m/hbar)**2 / 3 * t)
+
+    from galpy.orbit import Orbit
+    from galpy.util import conversion
+
+    ro, vo = 8.0, 220.0
+    # Parameters
+    GMs = 10.0**6.0 / conversion.mass_in_msol(vo, ro)
+    r0 = 0.001
+    vc = 1.0
+    m = 1e-99
+    mhbar = (
+        conversion.parse_mass(m, ro=ro, vo=vo)
+        / conversion._GHBARINKM3S3KPC2
+        * ro**2
+        * vo**3
+    )
+
+    tau_pred = 3 / (GMs * vc * (mhbar) ** 2)  # analytical orbital time
+    t = numpy.linspace(0.0, 2 * tau_pred, 1001)
+    r_pred = r0 * numpy.exp(-t / tau_pred)  # analytical solution
+
+    from galpy.potential import FDMDynamicalFrictionForce, LogarithmicHaloPotential
+
+    Loghalo = LogarithmicHaloPotential(normalize=1.0)
+    o = Orbit([r0, 0.0, vc, 0.0, 0.0, 0.0])
+    fdf = FDMDynamicalFrictionForce(GMs=GMs, dens=Loghalo, m=m)
+    o.integrate(t, Loghalo + fdf, method="dop853_c")
+
+    # Compare to analytical solution
+    assert numpy.mean(numpy.fabs(o.r(t) - r_pred)) / r0 < 0.01, (
+        "FDMDynamicalFrictionForce in the central limit does not agree with analytical solution for circular orbits in logarithmic potentials"
+    )
+    return None
+
+
 def test_FDMDynamicalFrictionForce_classicalregime():
     # test that FDM dynamical friction in the classical regime (i.e. when kr >>1)
     # agrees with Chandrasekhar dynamical friction
