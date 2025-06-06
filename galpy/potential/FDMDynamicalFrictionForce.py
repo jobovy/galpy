@@ -1,4 +1,4 @@
-import numpy as np
+import numpy
 import scipy.special as sp
 
 from ..util import conversion
@@ -64,9 +64,9 @@ class FDMDynamicalFrictionForce(ChandrasekharDynamicalFrictionForce):
             return self._lnLambda
         else:
             kr = 2 * self.krValue(r, vs)
-            I = -sp.sici(kr)[1] + np.log(kr) + numpy.euler_gamma
+            I = -sp.sici(kr)[1] + numpy.log(kr) + numpy.euler_gamma
 
-            return I + (np.sin(kr) / (kr)) - 1
+            return I + (numpy.sin(kr) / (kr)) - 1
 
     def ChandraFactor(self, r, vs):
         """
@@ -87,8 +87,10 @@ class FDMDynamicalFrictionForce(ChandrasekharDynamicalFrictionForce):
             sr = self.sigmar_orig(r)
         else:
             sr = self.sigmar(r)
-        X = vs / (np.sqrt(2) * sr)
-        Xfactor = sp.erf(X) - 2.0 * X * (1 / np.sqrt(np.pi)) * np.exp(-(X**2.0))
+        X = vs / (numpy.sqrt(2) * sr)
+        Xfactor = sp.erf(X) - 2.0 * X * (1 / numpy.sqrt(numpy.pi)) * numpy.exp(
+            -(X**2.0)
+        )
         lnLambda = self.lnLambda(r, vs)
 
         return lnLambda * Xfactor
@@ -111,11 +113,11 @@ class FDMDynamicalFrictionForce(ChandrasekharDynamicalFrictionForce):
         return self._mhbar * v * r
 
     def _calc_force(self, R, phi, z, v, t):
-        r = np.sqrt(R**2.0 + z**2.0)
+        r = numpy.sqrt(R**2.0 + z**2.0)
         if r < self._minr:
             self._cached_force = 0.0
         else:
-            vs = np.sqrt(v[0] ** 2.0 + v[1] ** 2.0 + v[2] ** 2.0)
+            vs = numpy.sqrt(v[0] ** 2.0 + v[1] ** 2.0 + v[2] ** 2.0)
             self._C_cdm = self.ChandraFactor(r, vs)
             self._C_fdm = self.FDMfactor(r, vs)
 
