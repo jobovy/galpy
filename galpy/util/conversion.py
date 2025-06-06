@@ -18,20 +18,28 @@ from ..util.config import __config__
 
 if not _APY_LOADED:
     _G = 4.302 * 10.0**-3.0  # pc / Msolar (km/s)^2
+    _GHBARINKM3S3KPC2 = 7.39232061031874987759e-93  # kpc^2 km^3 / s^3
     _kmsInPcMyr = 1.0227121655399913
     _PCIN10p18CM = 3.08567758  # 10^18 cm
     _CIN10p5KMS = 2.99792458  # 10^5 km/s
     _MSOLAR10p30KG = 1.9891  # 10^30 kg
     _EVIN10m19J = 1.60217657  # 10^-19 J
+    _JIN10p10KM2S2Msun = 5.02914421587004215814e-47  # 10^10 Msun km^2/s^2
 else:
     from astropy import constants, units
 
     _G = constants.G.to(units.pc / units.Msun * units.km**2 / units.s**2).value
+    _GHBARINKM3S3KPC2 = (
+        (constants.G * constants.hbar).to(units.kpc**2 * units.km**3 / units.s**3).value
+    )
     _kmsInPcMyr = (units.km / units.s).to(units.pc / units.Myr)
     _PCIN10p18CM = units.pc.to(units.cm) / 10.0**18.0  # 10^18 cm
     _CIN10p5KMS = constants.c.to(units.km / units.s).value / 10.0**5.0  # 10^5 km/s
     _MSOLAR10p30KG = units.Msun.to(units.kg) / 10.0**30.0  # 10^30 kg
     _EVIN10m19J = units.eV.to(units.J) * 10.0**19.0  # 10^-19 J
+    _JIN10p10KM2S2Msun = (
+        units.J.to(units.km**2 / units.s**2 * units.Msun) / 10.0**10.0
+    )  # 10^10 Msun km^2/s^2
 _MyrIn1013Sec = 3.65242198 * 0.24 * 3.6  # use tropical year, like for pms
 _TWOPI = 2.0 * m.pi
 
@@ -634,7 +642,21 @@ def parse_mass(x, ro=None, vo=None):
             else x
         )
     except units.UnitConversionError:
-        pass
+        # Also try whether we're dealing with E = m c^2
+        try:
+            return (
+                x.to(units.J).value
+                * _JIN10p10KM2S2Msun
+                / _CIN10p5KMS**2
+                * _G
+                / ro
+                / vo**2
+                / 1e3
+                if _APY_LOADED and isinstance(x, units.Quantity)
+                else x
+            )
+        except units.UnitConversionError:
+            pass
     return (
         x.to(1e10 * units.Msun).value / mass_in_1010msol(vo, ro)
         if _APY_LOADED and isinstance(x, units.Quantity)
