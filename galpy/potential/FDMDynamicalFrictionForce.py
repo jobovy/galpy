@@ -64,7 +64,7 @@ class FDMDynamicalFrictionForce(ChandrasekharDynamicalFrictionForce):
             return self._lnLambda
         else:
             kr = 2 * self.krValue(r, vs)
-            I = -sp.sici(kr)[1] + np.log(kr) + 0.5772156649015329
+            I = -sp.sici(kr)[1] + np.log(kr) + numpy.euler_gamma
 
             return I + (np.sin(kr) / (kr)) - 1
 
