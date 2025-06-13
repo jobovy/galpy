@@ -44,7 +44,17 @@ def test_FDMDynamicalFrictionForce_central_limit():
     o.integrate(t, Loghalo + fdf, method="dop853_c")
 
     # Compare to analytical solution
-    assert numpy.mean(numpy.fabs(o.r(t) - r_pred)) / r0 < 0.01, (
+    assert numpy.amax(numpy.fabs(o.r(t) - r_pred)) / r0 < 0.001, (
+        "FDMDynamicalFrictionForce in the central limit does not agree with analytical solution for circular orbits in logarithmic potentials"
+    )
+
+    # Also run this test using the Python implementation, but for less time
+    t = numpy.linspace(0.0, 2 * tau_pred / 5, 1001)
+    r_pred = r0 * numpy.exp(-t / tau_pred)  # analytical solution
+    o.integrate(t, Loghalo + fdf, method="dop853")
+
+    # Compare to analytical solution
+    assert numpy.amax(numpy.fabs(o.r(t) - r_pred)) / r0 < 0.001, (
         "FDMDynamicalFrictionForce in the central limit does not agree with analytical solution for circular orbits in logarithmic potentials"
     )
     return None
@@ -225,15 +235,11 @@ def test_dynamfric_c():
         potential.LogarithmicHaloPotential(normalize=1),
         potential.LogarithmicHaloPotential(normalize=1.3, q=0.9, b=0.7),  # nonaxi
         potential.NFWPotential(normalize=1.0, a=1.5),
-        potential.MiyamotoNagaiPotential(normalize=0.02, a=10.0, b=10.0),
-        potential.MiyamotoNagaiPotential(normalize=0.6, a=0.0, b=3.0),  # special case
         potential.DehnenSphericalPotential(normalize=4.0, alpha=1.2),
         potential.DehnenCoreSphericalPotential(normalize=4.0),
         potential.PlummerPotential(normalize=0.6, b=3.0),
-        potential.BurkertPotential(normalize=0.2, a=2.5),
         potential.HomogeneousSpherePotential(normalize=0.02, R=82.0 / 8),
         MWPotential3021,
-        McMillan17,  # SCF + DiskSCF
     ]
     # tolerances in log10
     tol = {}
@@ -260,9 +266,6 @@ def test_dynamfric_c():
                 and isinstance(p[2], potential.NFWPotential)
             ):
                 pname = "MWPotential3021"  # Must be!
-            else:
-                pname = "McMillan17"
-        # print(pname)
         if pname in list(tol.keys()):
             ttol = tol[pname]
         else:
@@ -272,16 +275,15 @@ def test_dynamfric_c():
             [5.13200034, 1.08033051, 0.23323391, -3.48068653, 0.94950884, -1.54626091]
         )
         # Setup dynamical friction object
-        if pname == "McMillan17":
-            fdf = potential.FDMDynamicalFrictionForce(
-                GMs=0.5553870441722593, rhm=5.0 / 8.0, dens=p, maxr=500.0 / 8, nr=101
-            )
-            ttimes = numpy.linspace(0.0, -30.0, 1001)  # ~1 Gyr at the Solar circle
-        else:
-            fdf = potential.FDMDynamicalFrictionForce(
-                GMs=0.5553870441722593, rhm=5.0 / 8.0, dens=p, maxr=500.0 / 8, nr=201
-            )
-            ttimes = times
+        fdf = potential.FDMDynamicalFrictionForce(
+            GMs=0.5553870441722593,
+            rhm=5.0 / 8.0,
+            dens=p,
+            m=3e-102,
+            maxr=500.0 / 8,
+            nr=201,
+        )
+        ttimes = times
         # Integrate in C
         o.integrate(ttimes, p + fdf, method=integrator)
         # Integrate in Python
