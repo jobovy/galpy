@@ -41,13 +41,6 @@ class FDMDynamicalFrictionForce(ChandrasekharDynamicalFrictionForce):
 
     Since the FDM coefficient :math:`C_\mathrm{FDM}(kr)` has an asymptotic behavior, we must use the classical coefficient :math:`C_\mathrm{CDM}` as a cutoff whenever :math:`C_\mathrm{FDM}(kr) > C_\mathrm{CDM}`, because it would mean that we are in the classical regime.
 
-    Notes
-    ----------
-    2025-05-30: Started (A.Szpilfidel)
-
-    References
-    ----------
-    .. [1] Hui et al. (2017), https://arxiv.org/pdf/1610.08297
     """
 
     def __init__(
@@ -102,7 +95,8 @@ class FDMDynamicalFrictionForce(ChandrasekharDynamicalFrictionForce):
             Velocity scale for translation into internal units (default from configuration file).
 
         Notes
-        -----
+        ----------
+        2025-05-30: Started (A.Szpilfidel)
 
         References
         ----------
