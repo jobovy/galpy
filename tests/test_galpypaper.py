@@ -19,21 +19,21 @@ def test_overview():
 
     aA = actionAngleSpherical(pot=np)
     js = aA(o)
-    assert numpy.fabs((js[0] - 0.00980542) / js[0]) < 10.0**-3.0, (
-        "Action calculation in the overview section has changed"
-    )
-    assert numpy.fabs((js[1] - 1.1) / js[0]) < 10.0**-3.0, (
-        "Action calculation in the overview section has changed"
-    )
-    assert numpy.fabs((js[2] - 0.00553155) / js[0]) < 10.0**-3.0, (
-        "Action calculation in the overview section has changed"
-    )
+    assert (
+        numpy.fabs((js[0] - 0.00980542) / js[0]) < 10.0**-3.0
+    ), "Action calculation in the overview section has changed"
+    assert (
+        numpy.fabs((js[1] - 1.1) / js[0]) < 10.0**-3.0
+    ), "Action calculation in the overview section has changed"
+    assert (
+        numpy.fabs((js[2] - 0.00553155) / js[0]) < 10.0**-3.0
+    ), "Action calculation in the overview section has changed"
     from galpy.df import quasiisothermaldf
 
     qdf = quasiisothermaldf(1.0 / 3.0, 0.2, 0.1, 1.0, 1.0, pot=np, aA=aA)
-    assert numpy.fabs((qdf(o) - 61.57476085) / 61.57476085) < 10.0**-3.0, (
-        "qdf calculation in the overview section has changed"
-    )
+    assert (
+        numpy.fabs((qdf(o) - 61.57476085) / 61.57476085) < 10.0**-3.0
+    ), "qdf calculation in the overview section has changed"
     return None
 
 
@@ -94,66 +94,66 @@ def test_potmethods():
 
     dp = DoubleExponentialDiskPotential(normalize=1.0, hr=3.0 / 8.0, hz=0.3 / 8.0)
     dp(1.0, 0.1)  # The potential itself at R=1., z=0.1
-    assert numpy.fabs(dp(1.0, 0.1) + 1.1037196286636572) < 10.0**-4.0, (
-        "potmethods has changed"
-    )
+    assert (
+        numpy.fabs(dp(1.0, 0.1) + 1.1037196286636572) < 10.0**-4.0
+    ), "potmethods has changed"
     dp.Rforce(1.0, 0.1)  # The radial force
-    assert numpy.fabs(dp.Rforce(1.0, 0.1) + 0.9147659436328015) < 10.0**-4.0, (
-        "potmethods has changed"
-    )
+    assert (
+        numpy.fabs(dp.Rforce(1.0, 0.1) + 0.9147659436328015) < 10.0**-4.0
+    ), "potmethods has changed"
     dp.zforce(1.0, 0.1)  # The vertical force
-    assert numpy.fabs(dp.zforce(1.0, 0.1) + 0.50056789703079607) < 10.0**-4.0, (
-        "potmethods has changed"
-    )
+    assert (
+        numpy.fabs(dp.zforce(1.0, 0.1) + 0.50056789703079607) < 10.0**-4.0
+    ), "potmethods has changed"
     dp.R2deriv(1.0, 0.1)  # The second radial derivative
     # Loosened tolerance, because new (more precise) calculation differs by 3e-4
-    assert numpy.fabs(dp.R2deriv(1.0, 0.1) + 1.0189440730205248) < 3 * 10.0**-4.0, (
-        "potmethods has changed"
-    )
+    assert (
+        numpy.fabs(dp.R2deriv(1.0, 0.1) + 1.0189440730205248) < 3 * 10.0**-4.0
+    ), "potmethods has changed"
     dp.z2deriv(1.0, 0.1)  # The second vertical derivative
     # Loosened tolerance, because new (more precise) calculation differs by 4e-4
-    assert numpy.fabs(dp.z2deriv(1.0, 0.1) - 1.0648350937842703) < 4 * 10.0**-4.0, (
-        "potmethods has changed"
-    )
+    assert (
+        numpy.fabs(dp.z2deriv(1.0, 0.1) - 1.0648350937842703) < 4 * 10.0**-4.0
+    ), "potmethods has changed"
     dp.Rzderiv(1.0, 0.1)  # The mixed radial,vertical derivative
-    assert numpy.fabs(dp.Rzderiv(1.0, 0.1) + 1.1872449759212851) < 10.0**-4.0, (
-        "potmethods has changed"
-    )
+    assert (
+        numpy.fabs(dp.Rzderiv(1.0, 0.1) + 1.1872449759212851) < 10.0**-4.0
+    ), "potmethods has changed"
     dp.dens(1.0, 0.1)  # The density
-    assert numpy.fabs(dp.dens(1.0, 0.1) - 0.076502355610946121) < 10.0**-4.0, (
-        "potmethods has changed"
-    )
+    assert (
+        numpy.fabs(dp.dens(1.0, 0.1) - 0.076502355610946121) < 10.0**-4.0
+    ), "potmethods has changed"
     dp.dens(1.0, 0.1, forcepoisson=True)  # Using Poisson's eqn.
     assert (
         numpy.fabs(dp.dens(1.0, 0.1, forcepoisson=True) - 0.076446652249682681)
         < 10.0**-4.0
     ), "potmethods has changed"
     dp.mass(1.0, 0.1)  # The mass
-    assert numpy.fabs(dp.mass(1.0, 0.1) - 0.7281629803939751) < 10.0**-4.0, (
-        "potmethods has changed"
-    )
+    assert (
+        numpy.fabs(dp.mass(1.0, 0.1) - 0.7281629803939751) < 10.0**-4.0
+    ), "potmethods has changed"
     dp.vcirc(1.0)  # The circular velocity at R=1.
-    assert numpy.fabs(dp.vcirc(1.0) - 1.0) < 10.0**-4.0, (
-        "potmethods has changed"
-    )  # By definition, because of normalize=1.
+    assert (
+        numpy.fabs(dp.vcirc(1.0) - 1.0) < 10.0**-4.0
+    ), "potmethods has changed"  # By definition, because of normalize=1.
     dp.omegac(1.0)  # The rotational frequency
-    assert numpy.fabs(dp.omegac(1.0) - 1.0) < 10.0**-4.0, (
-        "potmethods has changed"
-    )  # Also because of normalize=1.
+    assert (
+        numpy.fabs(dp.omegac(1.0) - 1.0) < 10.0**-4.0
+    ), "potmethods has changed"  # Also because of normalize=1.
     dp.epifreq(1.0)  # The epicycle frequency
     # Loosened tolerance, because new (more precise) calculation differs by 1e-3
-    assert numpy.fabs(dp.epifreq(1.0) - 1.3301123099210266) < 2 * 10.0**-3.0, (
-        "potmethods has changed"
-    )
+    assert (
+        numpy.fabs(dp.epifreq(1.0) - 1.3301123099210266) < 2 * 10.0**-3.0
+    ), "potmethods has changed"
     dp.verticalfreq(1.0)  # The vertical frequency
     # Loosened tolerance, because new (more precise) calculation differs by 1e-3
-    assert numpy.fabs(dp.verticalfreq(1.0) - 3.7510872575640293) < 10.0**-3.0, (
-        "potmethods has changed"
-    )
+    assert (
+        numpy.fabs(dp.verticalfreq(1.0) - 3.7510872575640293) < 10.0**-3.0
+    ), "potmethods has changed"
     dp.flattening(1.0, 0.1)  # The flattening (see caption)
-    assert numpy.fabs(dp.flattening(1.0, 0.1) - 0.42748757564198159) < 10.0**-4.0, (
-        "potmethods has changed"
-    )
+    assert (
+        numpy.fabs(dp.flattening(1.0, 0.1) - 0.42748757564198159) < 10.0**-4.0
+    ), "potmethods has changed"
     dp.lindbladR(1.75, m="corotation")  # co-rotation resonance
     assert (
         numpy.fabs(dp.lindbladR(1.75, m="corotation") - 0.540985051273488) < 10.0**-4.0
@@ -237,9 +237,9 @@ def test_potentialAPIChange_warning():
             )
             if raisedWarning:
                 break
-        assert raisedWarning, (
-            "Importing galpy.potential does not raise warning about evaluatePotentials API change"
-        )
+        assert (
+            raisedWarning
+        ), "Importing galpy.potential does not raise warning about evaluatePotentials API change"
     return None
 
 
@@ -298,9 +298,9 @@ def test_orbmethods():
     times = numpy.linspace(0.0, 10.0, 1001)  # Output times
     o.integrate(times, MWPotential2014)  # Integrate
     o.E()  # Energy
-    assert numpy.fabs(o.E() + 1.2547650648697966) < 10.0**-5.0, (
-        "Orbit method does not work as expected"
-    )
+    assert (
+        numpy.fabs(o.E() + 1.2547650648697966) < 10.0**-5.0
+    ), "Orbit method does not work as expected"
     o.L()  # Angular momentum
     assert numpy.all(
         numpy.fabs(o.L() - numpy.array([[0.0, -0.16, 0.6]])) < 10.0**-5.0
@@ -310,50 +310,50 @@ def test_orbmethods():
         numpy.fabs(o.Jacobi(OmegaP=0.65) - numpy.array([-1.64476506])) < 10.0**-5.0
     ), "Orbit method does not work as expected"
     o.ER(times[-1]), o.Ez(times[-1])  # Rad. and vert. E at end
-    assert numpy.fabs(o.ER(times[-1]) + 1.27601734263047) < 10.0**-5.0, (
-        "Orbit method does not work as expected"
-    )
-    assert numpy.fabs(o.Ez(times[-1]) - 0.021252201847851909) < 10.0**-5.0, (
-        "Orbit method does not work as expected"
-    )
+    assert (
+        numpy.fabs(o.ER(times[-1]) + 1.27601734263047) < 10.0**-5.0
+    ), "Orbit method does not work as expected"
+    assert (
+        numpy.fabs(o.Ez(times[-1]) - 0.021252201847851909) < 10.0**-5.0
+    ), "Orbit method does not work as expected"
     o.rperi(), o.rap(), o.zmax()  # Peri-/apocenter r, max. |z|
-    assert numpy.fabs(o.rperi() - 0.44231993168097) < 10.0**-5.0, (
-        "Orbit method does not work as expected"
-    )
-    assert numpy.fabs(o.rap() - 0.87769030382105) < 10.0**-5.0, (
-        "Orbit method does not work as expected"
-    )
-    assert numpy.fabs(o.zmax() - 0.077452357289016) < 10.0**-5.0, (
-        "Orbit method does not work as expected"
-    )
+    assert (
+        numpy.fabs(o.rperi() - 0.44231993168097) < 10.0**-5.0
+    ), "Orbit method does not work as expected"
+    assert (
+        numpy.fabs(o.rap() - 0.87769030382105) < 10.0**-5.0
+    ), "Orbit method does not work as expected"
+    assert (
+        numpy.fabs(o.zmax() - 0.077452357289016) < 10.0**-5.0
+    ), "Orbit method does not work as expected"
     o.e()  # eccentricity (rap-rperi)/(rap+rperi)
-    assert numpy.fabs(o.e() - 0.32982348199330563) < 10.0**-5.0, (
-        "Orbit method does not work as expected"
-    )
+    assert (
+        numpy.fabs(o.e() - 0.32982348199330563) < 10.0**-5.0
+    ), "Orbit method does not work as expected"
     o.R(2.0, ro=8.0)  # Cylindrical radius at time 2. in kpc
-    assert numpy.fabs(o.R(2.0, ro=8.0) - 3.5470772876920007) < 10.0**-3.0, (
-        "Orbit method does not work as expected"
-    )
+    assert (
+        numpy.fabs(o.R(2.0, ro=8.0) - 3.5470772876920007) < 10.0**-3.0
+    ), "Orbit method does not work as expected"
     o.vR(5.0, vo=220.0)  # Cyl. rad. velocity at time 5. in km/s
-    assert numpy.fabs(o.vR(5.0, vo=220.0) - 45.202530965094553) < 10.0**-3.0, (
-        "Orbit method does not work as expected"
-    )
+    assert (
+        numpy.fabs(o.vR(5.0, vo=220.0) - 45.202530965094553) < 10.0**-3.0
+    ), "Orbit method does not work as expected"
     o.ra(1.0), o.dec(1.0)  # RA and Dec at t=1. (default settings)
     # 5/12/2016: test weakened, because improved galcen<->heliocen
     #            transformation has changed these, but still close
-    assert numpy.fabs(o.ra(1.0) - numpy.array([288.19277])) < 10.0**-1.0, (
-        "Orbit method does not work as expected"
-    )
-    assert numpy.fabs(o.dec(1.0) - numpy.array([18.98069155])) < 10.0**-1.0, (
-        "Orbit method does not work as expected"
-    )
+    assert (
+        numpy.fabs(o.ra(1.0) - numpy.array([288.19277])) < 10.0**-1.0
+    ), "Orbit method does not work as expected"
+    assert (
+        numpy.fabs(o.dec(1.0) - numpy.array([18.98069155])) < 10.0**-1.0
+    ), "Orbit method does not work as expected"
     o.jr(type="adiabatic"), o.jz()  # R/z actions (ad. approx.)
-    assert numpy.fabs(o.jr(type="adiabatic") - 0.05285302231137586) < 10.0**-3.0, (
-        "Orbit method does not work as expected"
-    )
-    assert numpy.fabs(o.jz() - 0.006637988850751242) < 10.0**-3.0, (
-        "Orbit method does not work as expected"
-    )
+    assert (
+        numpy.fabs(o.jr(type="adiabatic") - 0.05285302231137586) < 10.0**-3.0
+    ), "Orbit method does not work as expected"
+    assert (
+        numpy.fabs(o.jz() - 0.006637988850751242) < 10.0**-3.0
+    ), "Orbit method does not work as expected"
     # Rad. period w/ Staeckel approximation w/ focal length 0.5,
     o.Tr(type="staeckel", delta=0.5, ro=8.0, vo=220.0)  # in Gyr
     assert (
@@ -470,51 +470,51 @@ def test_adinvariance():
     o3.plot(d1="x", d2="y", overplot=True, color="r")
     # Now we calculate energy, maximum height, and mean radius
     print(o1.E(pot=ip1), (o1.rperi() + o1.rap()) / 2, o1.zmax())
-    assert numpy.fabs(o1.E(pot=ip1) + 2.79921356237) < 10.0**-4.0, (
-        "Energy in the adiabatic invariance test is different"
-    )
-    assert numpy.fabs((o1.rperi() + o1.rap()) / 2 - 1.07854158141) < 10.0**-4.0, (
-        "mean radius in the adiabatic invariance test is different"
-    )
-    assert numpy.fabs(o1.zmax() - 0.106331362938) < 10.0**-4.0, (
-        "zmax in the adiabatic invariance test is different"
-    )
+    assert (
+        numpy.fabs(o1.E(pot=ip1) + 2.79921356237) < 10.0**-4.0
+    ), "Energy in the adiabatic invariance test is different"
+    assert (
+        numpy.fabs((o1.rperi() + o1.rap()) / 2 - 1.07854158141) < 10.0**-4.0
+    ), "mean radius in the adiabatic invariance test is different"
+    assert (
+        numpy.fabs(o1.zmax() - 0.106331362938) < 10.0**-4.0
+    ), "zmax in the adiabatic invariance test is different"
     print(o3.E(pot=ip2), (o3.rperi() + o3.rap()) / 2, o3.zmax())
-    assert numpy.fabs(o3.E(pot=ip2) + 1.19677002624) < 10.0**-4.0, (
-        "Energy in the adiabatic invariance test is different"
-    )
-    assert numpy.fabs((o3.rperi() + o3.rap()) / 2 - 1.39962036137) < 10.0**-4.0, (
-        "mean radius in the adiabatic invariance test is different"
-    )
-    assert numpy.fabs(o3.zmax() - 0.138364269321) < 10.0**-4.0, (
-        "zmax in the adiabatic invariance test is different"
-    )
+    assert (
+        numpy.fabs(o3.E(pot=ip2) + 1.19677002624) < 10.0**-4.0
+    ), "Energy in the adiabatic invariance test is different"
+    assert (
+        numpy.fabs((o3.rperi() + o3.rap()) / 2 - 1.39962036137) < 10.0**-4.0
+    ), "mean radius in the adiabatic invariance test is different"
+    assert (
+        numpy.fabs(o3.zmax() - 0.138364269321) < 10.0**-4.0
+    ), "zmax in the adiabatic invariance test is different"
     # The orbit has clearly moved to larger radii,
     # the actions are however conserved from beginning to end
     aAI1 = actionAngleIsochrone(ip=ip1)
     print(aAI1(o1))
     js = aAI1(o1)
-    assert numpy.fabs(js[0] - numpy.array([0.00773779])) < 10.0**-4.0, (
-        "action in the adiabatic invariance test is different"
-    )
-    assert numpy.fabs(js[1] - numpy.array([1.1])) < 10.0**-4.0, (
-        "action in the adiabatic invariance test is different"
-    )
-    assert numpy.fabs(js[2] - numpy.array([0.0045361])) < 10.0**-4.0, (
-        "action in the adiabatic invariance test is different"
-    )
+    assert (
+        numpy.fabs(js[0] - numpy.array([0.00773779])) < 10.0**-4.0
+    ), "action in the adiabatic invariance test is different"
+    assert (
+        numpy.fabs(js[1] - numpy.array([1.1])) < 10.0**-4.0
+    ), "action in the adiabatic invariance test is different"
+    assert (
+        numpy.fabs(js[2] - numpy.array([0.0045361])) < 10.0**-4.0
+    ), "action in the adiabatic invariance test is different"
     aAI2 = actionAngleIsochrone(ip=ip2)
     print(aAI2(o3))
     js = aAI2(o3)
-    assert numpy.fabs(js[0] - numpy.array([0.00773812])) < 10.0**-4.0, (
-        "action in the adiabatic invariance test is different"
-    )
-    assert numpy.fabs(js[1] - numpy.array([1.1])) < 10.0**-4.0, (
-        "action in the adiabatic invariance test is different"
-    )
-    assert numpy.fabs(js[2] - numpy.array([0.0045361])) < 10.0**-4.0, (
-        "action in the adiabatic invariance test is different"
-    )
+    assert (
+        numpy.fabs(js[0] - numpy.array([0.00773812])) < 10.0**-4.0
+    ), "action in the adiabatic invariance test is different"
+    assert (
+        numpy.fabs(js[1] - numpy.array([1.1])) < 10.0**-4.0
+    ), "action in the adiabatic invariance test is different"
+    assert (
+        numpy.fabs(js[2] - numpy.array([0.0045361])) < 10.0**-4.0
+    ), "action in the adiabatic invariance test is different"
     return None
 
 
@@ -581,12 +581,12 @@ def test_diskdf():
         ), "diskdf does not behave as expected"
         # Calculate the mean velocities
         df.meanvR(0.9), df.meanvT(0.9)
-        assert numpy.fabs(df.meanvR(0.9)) < 10.0**-4.0, (
-            "diskdf does not behave as expected"
-        )
-        assert numpy.fabs(df.meanvT(0.9) - 0.91144428051168291) < 10.0**-4.0, (
-            "diskdf does not behave as expected"
-        )
+        assert (
+            numpy.fabs(df.meanvR(0.9)) < 10.0**-4.0
+        ), "diskdf does not behave as expected"
+        assert (
+            numpy.fabs(df.meanvT(0.9) - 0.91144428051168291) < 10.0**-4.0
+        ), "diskdf does not behave as expected"
         # Calculate the velocity dispersions
         numpy.sqrt(dfc.sigmaR2(0.9)), numpy.sqrt(dfc.sigmaT2(0.9))
         assert (
@@ -597,20 +597,20 @@ def test_diskdf():
         ), "diskdf does not behave as expected"
         # Calculate the skew of the velocity distribution
         df.skewvR(0.9), df.skewvT(0.9)
-        assert numpy.fabs(df.skewvR(0.9)) < 10.0**-4.0, (
-            "diskdf does not behave as expected"
-        )
-        assert numpy.fabs(df.skewvT(0.9) + 0.47331638366025863) < 10.0**-4.0, (
-            "diskdf does not behave as expected"
-        )
+        assert (
+            numpy.fabs(df.skewvR(0.9)) < 10.0**-4.0
+        ), "diskdf does not behave as expected"
+        assert (
+            numpy.fabs(df.skewvT(0.9) + 0.47331638366025863) < 10.0**-4.0
+        ), "diskdf does not behave as expected"
         # Calculate the kurtosis of the velocity distribution
         df.kurtosisvR(0.9), df.kurtosisvT(0.9)
-        assert numpy.fabs(df.kurtosisvR(0.9) + 0.13561300880237059) < 10.0**-4.0, (
-            "diskdf does not behave as expected"
-        )
-        assert numpy.fabs(df.kurtosisvT(0.9) - 0.12612702099300721) < 10.0**-4.0, (
-            "diskdf does not behave as expected"
-        )
+        assert (
+            numpy.fabs(df.kurtosisvR(0.9) + 0.13561300880237059) < 10.0**-4.0
+        ), "diskdf does not behave as expected"
+        assert (
+            numpy.fabs(df.kurtosisvT(0.9) - 0.12612702099300721) < 10.0**-4.0
+        ), "diskdf does not behave as expected"
         # Calculate a higher-order moment of the velocity DF
         df.vmomentsurfacemass(1.0, 6.0, 2.0) / df.surfacemass(1.0)
         assert (
@@ -622,18 +622,18 @@ def test_diskdf():
         ), "diskdf does not behave as expected"
         # Calculate the Oort functions
         dfc.oortA(1.0), dfc.oortB(1.0), dfc.oortC(1.0), dfc.oortK(1.0)
-        assert numpy.fabs(dfc.oortA(1.0) - 0.40958989067012197) < 10.0**-4.0, (
-            "diskdf does not behave as expected"
-        )
-        assert numpy.fabs(dfc.oortB(1.0) + 0.49396172114486514) < 10.0**-4.0, (
-            "diskdf does not behave as expected"
-        )
-        assert numpy.fabs(dfc.oortC(1.0)) < 10.0**-4.0, (
-            "diskdf does not behave as expected"
-        )
-        assert numpy.fabs(dfc.oortK(1.0)) < 10.0**-4.0, (
-            "diskdf does not behave as expected"
-        )
+        assert (
+            numpy.fabs(dfc.oortA(1.0) - 0.40958989067012197) < 10.0**-4.0
+        ), "diskdf does not behave as expected"
+        assert (
+            numpy.fabs(dfc.oortB(1.0) + 0.49396172114486514) < 10.0**-4.0
+        ), "diskdf does not behave as expected"
+        assert (
+            numpy.fabs(dfc.oortC(1.0)) < 10.0**-4.0
+        ), "diskdf does not behave as expected"
+        assert (
+            numpy.fabs(dfc.oortK(1.0)) < 10.0**-4.0
+        ), "diskdf does not behave as expected"
     # Sample Orbits from the DF, returns list of Orbits
     numpy.random.seed(1)
     os = dfc.sample(n=100, returnOrbit=True, nphi=1)
@@ -696,51 +696,51 @@ def test_qdf():
     #      to account for the correct Gauss-Legendre integration normalization.
     # Evaluate DF marginalized over vR,vT
     df.pvz(0.02, 0.9, 0.05)
-    assert numpy.fabs(df.pvz(0.02, 0.9, 0.05) - 50.949586235238172) < 10.0**-4.0, (
-        "qdf does not behave as expected"
-    )
+    assert (
+        numpy.fabs(df.pvz(0.02, 0.9, 0.05) - 50.949586235238172) < 10.0**-4.0
+    ), "qdf does not behave as expected"
     # Calculate the density
     df.density(0.9, 0.05)
-    assert numpy.fabs(df.density(0.9, 0.05) - 12.73725936526167) < 10.0**-4.0, (
-        "qdf does not behave as expected"
-    )
+    assert (
+        numpy.fabs(df.density(0.9, 0.05) - 12.73725936526167) < 10.0**-4.0
+    ), "qdf does not behave as expected"
     # Estimate the DF's actual density scale length at z=0
     df.estimate_hr(0.9, 0.0)
-    assert numpy.fabs(df.estimate_hr(0.9, 0.0) - 0.322420336223) < 10.0**-2.0, (
-        "qdf does not behave as expected"
-    )
+    assert (
+        numpy.fabs(df.estimate_hr(0.9, 0.0) - 0.322420336223) < 10.0**-2.0
+    ), "qdf does not behave as expected"
     # Estimate the DF's actual surface-density scale length
     df.estimate_hr(0.9, None)
-    assert numpy.fabs(df.estimate_hr(0.9, None) - 0.38059909132766462) < 10.0**-4.0, (
-        "qdf does not behave as expected"
-    )
+    assert (
+        numpy.fabs(df.estimate_hr(0.9, None) - 0.38059909132766462) < 10.0**-4.0
+    ), "qdf does not behave as expected"
     # Estimate the DF's density scale height
     df.estimate_hz(0.9, 0.02)
-    assert numpy.fabs(df.estimate_hz(0.9, 0.02) - 0.064836202345657207) < 10.0**-4.0, (
-        "qdf does not behave as expected"
-    )
+    assert (
+        numpy.fabs(df.estimate_hz(0.9, 0.02) - 0.064836202345657207) < 10.0**-4.0
+    ), "qdf does not behave as expected"
     # Calculate the mean velocities
     (
         df.meanvR(0.9, 0.05),
         df.meanvT(0.9, 0.05),
     )
     df.meanvz(0.9, 0.05)
-    assert numpy.fabs(df.meanvR(0.9, 0.05) - 3.8432265354618213e-18) < 10.0**-4.0, (
-        "qdf does not behave as expected"
-    )
-    assert numpy.fabs(df.meanvT(0.9, 0.05) - 0.90840425173325279) < 10.0**-4.0, (
-        "qdf does not behave as expected"
-    )
-    assert numpy.fabs(df.meanvz(0.9, 0.05) + 4.3579787517991084e-19) < 10.0**-4.0, (
-        "qdf does not behave as expected"
-    )
+    assert (
+        numpy.fabs(df.meanvR(0.9, 0.05) - 3.8432265354618213e-18) < 10.0**-4.0
+    ), "qdf does not behave as expected"
+    assert (
+        numpy.fabs(df.meanvT(0.9, 0.05) - 0.90840425173325279) < 10.0**-4.0
+    ), "qdf does not behave as expected"
+    assert (
+        numpy.fabs(df.meanvz(0.9, 0.05) + 4.3579787517991084e-19) < 10.0**-4.0
+    ), "qdf does not behave as expected"
     # Calculate the velocity dispersions
     from numpy import sqrt
 
     sqrt(df.sigmaR2(0.9, 0.05)), sqrt(df.sigmaz2(0.9, 0.05))
-    assert numpy.fabs(sqrt(df.sigmaR2(0.9, 0.05)) - 0.22695537077102387) < 10.0**-4.0, (
-        "qdf does not behave as expected"
-    )
+    assert (
+        numpy.fabs(sqrt(df.sigmaR2(0.9, 0.05)) - 0.22695537077102387) < 10.0**-4.0
+    ), "qdf does not behave as expected"
     assert (
         numpy.fabs(sqrt(df.sigmaz2(0.9, 0.05)) - 0.094215523962105044) < 10.0**-4.0
     ), "qdf does not behave as expected"
@@ -788,22 +788,22 @@ def test_coords():
     # 5/12/2016: test weakened, because improved galcen<->heliocen
     #            transformation has changed these, but still close
     print(R, phi, z, vR, vT, vz)
-    assert numpy.fabs(R - 12.51328515156942) < 10.0**-1.0, (
-        "Coordinate transformation has changed"
-    )
-    assert numpy.fabs(phi - 0.12177409073433249) < 10.0**-1.0, (
-        "Coordinate transformation has changed"
-    )
-    assert numpy.fabs(z - 7.1241282354856228) < 10.0**-1.0, (
-        "Coordinate transformation has changed"
-    )
-    assert numpy.fabs(vR - 78.961682923035966) < 10.0**-1.0, (
-        "Coordinate transformation has changed"
-    )
-    assert numpy.fabs(vT + 241.49247772351964) < 10.0**-1.0, (
-        "Coordinate transformation has changed"
-    )
-    assert numpy.fabs(vz + 102.83965442188689) < 10.0**-1.0, (
-        "Coordinate transformation has changed"
-    )
+    assert (
+        numpy.fabs(R - 12.51328515156942) < 10.0**-1.0
+    ), "Coordinate transformation has changed"
+    assert (
+        numpy.fabs(phi - 0.12177409073433249) < 10.0**-1.0
+    ), "Coordinate transformation has changed"
+    assert (
+        numpy.fabs(z - 7.1241282354856228) < 10.0**-1.0
+    ), "Coordinate transformation has changed"
+    assert (
+        numpy.fabs(vR - 78.961682923035966) < 10.0**-1.0
+    ), "Coordinate transformation has changed"
+    assert (
+        numpy.fabs(vT + 241.49247772351964) < 10.0**-1.0
+    ), "Coordinate transformation has changed"
+    assert (
+        numpy.fabs(vz + 102.83965442188689) < 10.0**-1.0
+    ), "Coordinate transformation has changed"
     return None

@@ -26,9 +26,9 @@ def test_radec_to_lb_ngp():
     lb = coords.radec_to_lb(
         ra / 180.0 * numpy.pi, dec / 180.0 * numpy.pi, degree=False, epoch=1950.0
     )
-    assert numpy.fabs(lb[1] - numpy.pi / 2.0) < 10.0**-7.0, (
-        "Galactic latitude of the NGP given in ra,dec is not pi/2"
-    )
+    assert (
+        numpy.fabs(lb[1] - numpy.pi / 2.0) < 10.0**-7.0
+    ), "Galactic latitude of the NGP given in ra,dec is not pi/2"
     _turn_on_apy()
     assert coords._APY_LOADED, "_APY_LOADED should be True, but isn't"
     return None
@@ -41,16 +41,16 @@ def test_radec_to_lb_ngp_apyangles():
     ra, dec = 192.25, 27.4
     assert coords._APY_LOADED, "_APY_LOADED should be True, but isn't"
     lb = coords.radec_to_lb(ra, dec, degree=True, epoch="B1950")
-    assert numpy.fabs(lb[1] - 90.0) < 10.0**-4.0, (
-        "Galactic latitude of the NGP given in ra,dec is not 90"
-    )
+    assert (
+        numpy.fabs(lb[1] - 90.0) < 10.0**-4.0
+    ), "Galactic latitude of the NGP given in ra,dec is not 90"
     # Also test this for degree=False
     lb = coords.radec_to_lb(
         ra / 180.0 * numpy.pi, dec / 180.0 * numpy.pi, degree=False, epoch="B1950"
     )
-    assert numpy.fabs(lb[1] - numpy.pi / 2.0) < 10.0**-4.0, (
-        "Galactic latitude of the NGP given in ra,dec is not pi/2"
-    )
+    assert (
+        numpy.fabs(lb[1] - numpy.pi / 2.0) < 10.0**-4.0
+    ), "Galactic latitude of the NGP given in ra,dec is not pi/2"
     _turn_on_apy()
     return None
 
@@ -59,16 +59,16 @@ def test_radec_to_lb_ngp_apy():
     # Test that the NGP is at b=90, using astropy's coordinate transformations
     ra, dec = 192.25, 27.4
     lb = coords.radec_to_lb(ra, dec, degree=True, epoch=1950.0)
-    assert numpy.fabs(lb[1] - 90.0) < 10.0**-4.0, (
-        "Galactic latitude of the NGP given in ra,dec is not 90"
-    )
+    assert (
+        numpy.fabs(lb[1] - 90.0) < 10.0**-4.0
+    ), "Galactic latitude of the NGP given in ra,dec is not 90"
     # Also test this for degree=False
     lb = coords.radec_to_lb(
         ra / 180.0 * numpy.pi, dec / 180.0 * numpy.pi, degree=False, epoch=1950.0
     )
-    assert numpy.fabs(lb[1] - numpy.pi / 2.0) < 10.0**-4.0, (
-        "Galactic latitude of the NGP given in ra,dec is not pi/2"
-    )
+    assert (
+        numpy.fabs(lb[1] - numpy.pi / 2.0) < 10.0**-4.0
+    ), "Galactic latitude of the NGP given in ra,dec is not pi/2"
     return None
 
 
@@ -77,16 +77,16 @@ def test_radec_to_lb_ngp_j2000():
     # Test that the NGP is at b=90
     ra, dec = 192.8594812065348, 27.12825118085622
     lb = coords.radec_to_lb(ra, dec, degree=True, epoch=2000.0)
-    assert numpy.fabs(lb[1] - 90.0) < 10.0**-8.0, (
-        "Galactic latitude of the NGP given in ra,dec is not 90"
-    )
+    assert (
+        numpy.fabs(lb[1] - 90.0) < 10.0**-8.0
+    ), "Galactic latitude of the NGP given in ra,dec is not 90"
     # Also test this for degree=False
     lb = coords.radec_to_lb(
         ra / 180.0 * numpy.pi, dec / 180.0 * numpy.pi, degree=False, epoch=2000.0
     )
-    assert numpy.fabs(lb[1] - numpy.pi / 2.0) < 10.0**-8.0, (
-        "Galactic latitude of the NGP given in ra,dec is not pi/2"
-    )
+    assert (
+        numpy.fabs(lb[1] - numpy.pi / 2.0) < 10.0**-8.0
+    ), "Galactic latitude of the NGP given in ra,dec is not pi/2"
     _turn_on_apy()
     return None
 
@@ -95,16 +95,16 @@ def test_radec_to_lb_ngp_j2000_apy():
     # Test that the NGP is at b=90
     ra, dec = 192.8594812065348, 27.12825118085622
     lb = coords.radec_to_lb(ra, dec, degree=True, epoch=2000.0)
-    assert numpy.fabs(lb[1] - 90.0) < 10.0**-4.0, (
-        "Galactic latitude of the NGP given in ra,dec is not 90"
-    )
+    assert (
+        numpy.fabs(lb[1] - 90.0) < 10.0**-4.0
+    ), "Galactic latitude of the NGP given in ra,dec is not 90"
     # Also test this for degree=False
     lb = coords.radec_to_lb(
         ra / 180.0 * numpy.pi, dec / 180.0 * numpy.pi, degree=False, epoch=2000.0
     )
-    assert numpy.fabs(lb[1] - numpy.pi / 2.0) < 10.0**-4.0, (
-        "Galactic latitude of the NGP given in ra,dec is not pi/2"
-    )
+    assert (
+        numpy.fabs(lb[1] - numpy.pi / 2.0) < 10.0**-4.0
+    ), "Galactic latitude of the NGP given in ra,dec is not pi/2"
     return None
 
 
@@ -114,16 +114,16 @@ def test_radec_to_lb_ngp_j2000_apyangles():
     # Test that the NGP is at b=90
     ra, dec = 192.8594812065348, 27.12825118085622
     lb = coords.radec_to_lb(ra, dec, degree=True, epoch="J2000")
-    assert numpy.fabs(lb[1] - 90.0) < 10.0**-4.0, (
-        "Galactic latitude of the NGP given in ra,dec is not 90"
-    )
+    assert (
+        numpy.fabs(lb[1] - 90.0) < 10.0**-4.0
+    ), "Galactic latitude of the NGP given in ra,dec is not 90"
     # Also test this for degree=False
     lb = coords.radec_to_lb(
         ra / 180.0 * numpy.pi, dec / 180.0 * numpy.pi, degree=False, epoch="J2000"
     )
-    assert numpy.fabs(lb[1] - numpy.pi / 2.0) < 10.0**-4.0, (
-        "Galactic latitude of the NGP given in ra,dec is not pi/2"
-    )
+    assert (
+        numpy.fabs(lb[1] - numpy.pi / 2.0) < 10.0**-4.0
+    ), "Galactic latitude of the NGP given in ra,dec is not pi/2"
     _turn_on_apy()
     return None
 
@@ -134,16 +134,16 @@ def test_radec_to_lb_ngp_j2000_apyangles_icrs():
     # Test that the NGP is at b=90
     ra, dec = 192.8594812065348, 27.12825118085622
     lb = coords.radec_to_lb(ra, dec, degree=True, epoch=None)
-    assert numpy.fabs(lb[1] - 90.0) < 10.0**-4.0, (
-        "Galactic latitude of the NGP given in ra,dec is not 90"
-    )
+    assert (
+        numpy.fabs(lb[1] - 90.0) < 10.0**-4.0
+    ), "Galactic latitude of the NGP given in ra,dec is not 90"
     # Also test this for degree=False
     lb = coords.radec_to_lb(
         ra / 180.0 * numpy.pi, dec / 180.0 * numpy.pi, degree=False, epoch=None
     )
-    assert numpy.fabs(lb[1] - numpy.pi / 2.0) < 10.0**-4.0, (
-        "Galactic latitude of the NGP given in ra,dec is not pi/2"
-    )
+    assert (
+        numpy.fabs(lb[1] - numpy.pi / 2.0) < 10.0**-4.0
+    ), "Galactic latitude of the NGP given in ra,dec is not pi/2"
     _turn_on_apy()
     return None
 
@@ -161,9 +161,9 @@ def test_radec_to_lb_sgp():
     lb = coords.radec_to_lb(
         ra / 180.0 * numpy.pi, dec / 180.0 * numpy.pi, degree=False, epoch=1950.0
     )
-    assert numpy.fabs(lb[1] + numpy.pi / 2.0) < 10.0**-7.0, (
-        "Galactic latitude of the SGP given in ra,dec is not pi/2"
-    )
+    assert (
+        numpy.fabs(lb[1] + numpy.pi / 2.0) < 10.0**-7.0
+    ), "Galactic latitude of the SGP given in ra,dec is not pi/2"
     _turn_on_apy()
     return None
 
@@ -173,16 +173,16 @@ def test_radec_to_lb_ncp():
     _turn_off_apy()
     ra, dec = 180.0, 90.0
     lb = coords.radec_to_lb(ra, dec, degree=True, epoch=1950.0)
-    assert numpy.fabs(lb[0] - 123.0) < 10.0**-8.0, (
-        "Galactic longitude of the NCP given in ra,dec is not 123"
-    )
+    assert (
+        numpy.fabs(lb[0] - 123.0) < 10.0**-8.0
+    ), "Galactic longitude of the NCP given in ra,dec is not 123"
     # Also test this for degree=False
     lb = coords.radec_to_lb(
         ra / 180.0 * numpy.pi, dec / 180.0 * numpy.pi, degree=False, epoch=1950.0
     )
-    assert numpy.fabs(lb[0] - 123.0 / 180.0 * numpy.pi) < 10.0**-8.0, (
-        "Galactic longitude of the NCP given in ra,dec is not 123"
-    )
+    assert (
+        numpy.fabs(lb[0] - 123.0 / 180.0 * numpy.pi) < 10.0**-8.0
+    ), "Galactic longitude of the NCP given in ra,dec is not 123"
     # Also test the latter for vector inputs
     os = numpy.ones(2)
     lb = coords.radec_to_lb(
@@ -191,9 +191,9 @@ def test_radec_to_lb_ncp():
         degree=False,
         epoch=1950.0,
     )
-    assert numpy.all(numpy.fabs(lb[:, 0] - 123.0 / 180.0 * numpy.pi) < 10.0**-8.0), (
-        "Galactic longitude of the NCP given in ra,dec is not 123"
-    )
+    assert numpy.all(
+        numpy.fabs(lb[:, 0] - 123.0 / 180.0 * numpy.pi) < 10.0**-8.0
+    ), "Galactic longitude of the NCP given in ra,dec is not 123"
     _turn_on_apy()
     return None
 
@@ -202,9 +202,9 @@ def test_radec_to_lb_ncp_apyangles():
     _turn_off_apy(keep_loaded=True)
     ra, dec = 180.0, 90.0
     lb = coords.radec_to_lb(ra, dec, degree=True, epoch="B1950")
-    assert numpy.fabs(lb[0] - 123.0) < 10.0**-4.0, (
-        "Galactic longitude of the NCP given in ra,dec is not 123"
-    )
+    assert (
+        numpy.fabs(lb[0] - 123.0) < 10.0**-4.0
+    ), "Galactic longitude of the NCP given in ra,dec is not 123"
     _turn_on_apy()
     return None
 
@@ -214,16 +214,16 @@ def test_radec_to_lb_ncp_j2000():
     _turn_off_apy()
     ra, dec = 180.0, 90.0
     lb = coords.radec_to_lb(ra, dec, degree=True, epoch=2000.0)
-    assert numpy.fabs(lb[0] - 122.9319185680026) < 10.0**-8.0, (
-        "Galactic longitude of the NCP given in ra,dec is not 122.9319185680026"
-    )
+    assert (
+        numpy.fabs(lb[0] - 122.9319185680026) < 10.0**-8.0
+    ), "Galactic longitude of the NCP given in ra,dec is not 122.9319185680026"
     # Also test this for degree=False
     lb = coords.radec_to_lb(
         ra / 180.0 * numpy.pi, dec / 180.0 * numpy.pi, degree=False, epoch=2000.0
     )
-    assert numpy.fabs(lb[0] - 122.9319185680026 / 180.0 * numpy.pi) < 10.0**-8.0, (
-        "Galactic longitude of the NCP given in ra,dec is not 122.9319185680026"
-    )
+    assert (
+        numpy.fabs(lb[0] - 122.9319185680026 / 180.0 * numpy.pi) < 10.0**-8.0
+    ), "Galactic longitude of the NCP given in ra,dec is not 122.9319185680026"
     # Also test the latter for vector inputs
     os = numpy.ones(2)
     lb = coords.radec_to_lb(
@@ -243,9 +243,9 @@ def test_radec_to_lb_ncp_j2000_apyangles():
     _turn_off_apy(keep_loaded=True)
     ra, dec = 180.0, 90.0
     lb = coords.radec_to_lb(ra, dec, degree=True, epoch="J2000")
-    assert numpy.fabs(lb[0] - 122.9319185680026) < 10.0**-4.0, (
-        "Galactic longitude of the NCP given in ra,dec is not 122.9319185680026"
-    )
+    assert (
+        numpy.fabs(lb[0] - 122.9319185680026) < 10.0**-4.0
+    ), "Galactic longitude of the NCP given in ra,dec is not 122.9319185680026"
     _turn_on_apy()
     return None
 
@@ -292,23 +292,23 @@ def test_lb_to_radec():
     ra, dec = 120, 60.0
     lb = coords.radec_to_lb(ra, dec, degree=True, epoch=2000.0)
     rat, dect = coords.lb_to_radec(lb[0], lb[1], degree=True, epoch=2000.0)
-    assert numpy.fabs(ra - rat) < 10.0**-10.0, (
-        "lb_to_radec is not the inverse of radec_to_lb"
-    )
-    assert numpy.fabs(dec - dect) < 10.0**-10.0, (
-        "lb_to_radec is not the inverse of radec_to_lb"
-    )
+    assert (
+        numpy.fabs(ra - rat) < 10.0**-10.0
+    ), "lb_to_radec is not the inverse of radec_to_lb"
+    assert (
+        numpy.fabs(dec - dect) < 10.0**-10.0
+    ), "lb_to_radec is not the inverse of radec_to_lb"
     # Also test this for degree=False
     lb = coords.radec_to_lb(
         ra / 180.0 * numpy.pi, dec / 180.0 * numpy.pi, degree=False, epoch=2000.0
     )
     rat, dect = coords.lb_to_radec(lb[0], lb[1], degree=False, epoch=2000.0)
-    assert numpy.fabs(ra / 180.0 * numpy.pi - rat) < 10.0**-10.0, (
-        "lb_to_radec is not the inverse of radec_to_lb"
-    )
-    assert numpy.fabs(dec / 180.0 * numpy.pi - dect) < 10.0**-10.0, (
-        "lb_to_radec is not the inverse of radec_to_lb"
-    )
+    assert (
+        numpy.fabs(ra / 180.0 * numpy.pi - rat) < 10.0**-10.0
+    ), "lb_to_radec is not the inverse of radec_to_lb"
+    assert (
+        numpy.fabs(dec / 180.0 * numpy.pi - dect) < 10.0**-10.0
+    ), "lb_to_radec is not the inverse of radec_to_lb"
     # And also test this for arrays
     os = numpy.ones(2)
     lb = coords.radec_to_lb(
@@ -320,22 +320,22 @@ def test_lb_to_radec():
     ratdect = coords.lb_to_radec(lb[:, 0], lb[:, 1], degree=False, epoch=2000.0)
     rat = ratdect[:, 0]
     dect = ratdect[:, 1]
-    assert numpy.all(numpy.fabs(ra / 180.0 * numpy.pi - rat) < 10.0**-10.0), (
-        "lb_to_radec is not the inverse of radec_to_lb"
-    )
-    assert numpy.all(numpy.fabs(dec / 180.0 * numpy.pi - dect) < 10.0**-10.0), (
-        "lb_to_radec is not the inverse of radec_to_lb"
-    )
+    assert numpy.all(
+        numpy.fabs(ra / 180.0 * numpy.pi - rat) < 10.0**-10.0
+    ), "lb_to_radec is not the inverse of radec_to_lb"
+    assert numpy.all(
+        numpy.fabs(dec / 180.0 * numpy.pi - dect) < 10.0**-10.0
+    ), "lb_to_radec is not the inverse of radec_to_lb"
     # Also test for a negative l
     l, b = 240.0, 60.0
     ra, dec = coords.lb_to_radec(l, b, degree=True)
     lt, bt = coords.radec_to_lb(ra, dec, degree=True)
-    assert numpy.fabs(lt - l) < 10.0**-10.0, (
-        "lb_to_radec is not the inverse of radec_to_lb"
-    )
-    assert numpy.fabs(bt - b) < 10.0**-10.0, (
-        "lb_to_radec is not the inverse of radec_to_lb"
-    )
+    assert (
+        numpy.fabs(lt - l) < 10.0**-10.0
+    ), "lb_to_radec is not the inverse of radec_to_lb"
+    assert (
+        numpy.fabs(bt - b) < 10.0**-10.0
+    ), "lb_to_radec is not the inverse of radec_to_lb"
     _turn_on_apy()
     return None
 
@@ -345,23 +345,23 @@ def test_lb_to_radec_apy():
     ra, dec = 120, 60.0
     lb = coords.radec_to_lb(ra, dec, degree=True, epoch=2000.0)
     rat, dect = coords.lb_to_radec(lb[0], lb[1], degree=True, epoch=2000.0)
-    assert numpy.fabs(ra - rat) < 10.0**-10.0, (
-        "lb_to_radec is not the inverse of radec_to_lb"
-    )
-    assert numpy.fabs(dec - dect) < 10.0**-10.0, (
-        "lb_to_radec is not the inverse of radec_to_lb"
-    )
+    assert (
+        numpy.fabs(ra - rat) < 10.0**-10.0
+    ), "lb_to_radec is not the inverse of radec_to_lb"
+    assert (
+        numpy.fabs(dec - dect) < 10.0**-10.0
+    ), "lb_to_radec is not the inverse of radec_to_lb"
     # Also test this for degree=False
     lb = coords.radec_to_lb(
         ra / 180.0 * numpy.pi, dec / 180.0 * numpy.pi, degree=False, epoch=2000.0
     )
     rat, dect = coords.lb_to_radec(lb[0], lb[1], degree=False, epoch=2000.0)
-    assert numpy.fabs(ra / 180.0 * numpy.pi - rat) < 10.0**-10.0, (
-        "lb_to_radec is not the inverse of radec_to_lb"
-    )
-    assert numpy.fabs(dec / 180.0 * numpy.pi - dect) < 10.0**-10.0, (
-        "lb_to_radec is not the inverse of radec_to_lb"
-    )
+    assert (
+        numpy.fabs(ra / 180.0 * numpy.pi - rat) < 10.0**-10.0
+    ), "lb_to_radec is not the inverse of radec_to_lb"
+    assert (
+        numpy.fabs(dec / 180.0 * numpy.pi - dect) < 10.0**-10.0
+    ), "lb_to_radec is not the inverse of radec_to_lb"
     # And also test this for arrays
     os = numpy.ones(2)
     lb = coords.radec_to_lb(
@@ -373,22 +373,22 @@ def test_lb_to_radec_apy():
     ratdect = coords.lb_to_radec(lb[:, 0], lb[:, 1], degree=False, epoch=2000.0)
     rat = ratdect[:, 0]
     dect = ratdect[:, 1]
-    assert numpy.all(numpy.fabs(ra / 180.0 * numpy.pi - rat) < 10.0**-10.0), (
-        "lb_to_radec is not the inverse of radec_to_lb"
-    )
-    assert numpy.all(numpy.fabs(dec / 180.0 * numpy.pi - dect) < 10.0**-10.0), (
-        "lb_to_radec is not the inverse of radec_to_lb"
-    )
+    assert numpy.all(
+        numpy.fabs(ra / 180.0 * numpy.pi - rat) < 10.0**-10.0
+    ), "lb_to_radec is not the inverse of radec_to_lb"
+    assert numpy.all(
+        numpy.fabs(dec / 180.0 * numpy.pi - dect) < 10.0**-10.0
+    ), "lb_to_radec is not the inverse of radec_to_lb"
     # Also test for a negative l
     l, b = 240.0, 60.0
     ra, dec = coords.lb_to_radec(l, b, degree=True)
     lt, bt = coords.radec_to_lb(ra, dec, degree=True)
-    assert numpy.fabs(lt - l) < 10.0**-10.0, (
-        "lb_to_radec is not the inverse of radec_to_lb"
-    )
-    assert numpy.fabs(bt - b) < 10.0**-10.0, (
-        "lb_to_radec is not the inverse of radec_to_lb"
-    )
+    assert (
+        numpy.fabs(lt - l) < 10.0**-10.0
+    ), "lb_to_radec is not the inverse of radec_to_lb"
+    assert (
+        numpy.fabs(bt - b) < 10.0**-10.0
+    ), "lb_to_radec is not the inverse of radec_to_lb"
     return None
 
 
@@ -397,23 +397,23 @@ def test_lb_to_radec_apy_icrs():
     ra, dec = 120, 60.0
     lb = coords.radec_to_lb(ra, dec, degree=True, epoch=None)
     rat, dect = coords.lb_to_radec(lb[0], lb[1], degree=True, epoch=None)
-    assert numpy.fabs(ra - rat) < 10.0**-10.0, (
-        "lb_to_radec is not the inverse of radec_to_lb"
-    )
-    assert numpy.fabs(dec - dect) < 10.0**-10.0, (
-        "lb_to_radec is not the inverse of radec_to_lb"
-    )
+    assert (
+        numpy.fabs(ra - rat) < 10.0**-10.0
+    ), "lb_to_radec is not the inverse of radec_to_lb"
+    assert (
+        numpy.fabs(dec - dect) < 10.0**-10.0
+    ), "lb_to_radec is not the inverse of radec_to_lb"
     # Also test this for degree=False
     lb = coords.radec_to_lb(
         ra / 180.0 * numpy.pi, dec / 180.0 * numpy.pi, degree=False, epoch=None
     )
     rat, dect = coords.lb_to_radec(lb[0], lb[1], degree=False, epoch=None)
-    assert numpy.fabs(ra / 180.0 * numpy.pi - rat) < 10.0**-10.0, (
-        "lb_to_radec is not the inverse of radec_to_lb"
-    )
-    assert numpy.fabs(dec / 180.0 * numpy.pi - dect) < 10.0**-10.0, (
-        "lb_to_radec is not the inverse of radec_to_lb"
-    )
+    assert (
+        numpy.fabs(ra / 180.0 * numpy.pi - rat) < 10.0**-10.0
+    ), "lb_to_radec is not the inverse of radec_to_lb"
+    assert (
+        numpy.fabs(dec / 180.0 * numpy.pi - dect) < 10.0**-10.0
+    ), "lb_to_radec is not the inverse of radec_to_lb"
     # And also test this for arrays
     os = numpy.ones(2)
     lb = coords.radec_to_lb(
@@ -425,22 +425,22 @@ def test_lb_to_radec_apy_icrs():
     ratdect = coords.lb_to_radec(lb[:, 0], lb[:, 1], degree=False, epoch=None)
     rat = ratdect[:, 0]
     dect = ratdect[:, 1]
-    assert numpy.all(numpy.fabs(ra / 180.0 * numpy.pi - rat) < 10.0**-10.0), (
-        "lb_to_radec is not the inverse of radec_to_lb"
-    )
-    assert numpy.all(numpy.fabs(dec / 180.0 * numpy.pi - dect) < 10.0**-10.0), (
-        "lb_to_radec is not the inverse of radec_to_lb"
-    )
+    assert numpy.all(
+        numpy.fabs(ra / 180.0 * numpy.pi - rat) < 10.0**-10.0
+    ), "lb_to_radec is not the inverse of radec_to_lb"
+    assert numpy.all(
+        numpy.fabs(dec / 180.0 * numpy.pi - dect) < 10.0**-10.0
+    ), "lb_to_radec is not the inverse of radec_to_lb"
     # Also test for a negative l
     l, b = 240.0, 60.0
     ra, dec = coords.lb_to_radec(l, b, degree=True)
     lt, bt = coords.radec_to_lb(ra, dec, degree=True)
-    assert numpy.fabs(lt - l) < 10.0**-10.0, (
-        "lb_to_radec is not the inverse of radec_to_lb"
-    )
-    assert numpy.fabs(bt - b) < 10.0**-10.0, (
-        "lb_to_radec is not the inverse of radec_to_lb"
-    )
+    assert (
+        numpy.fabs(lt - l) < 10.0**-10.0
+    ), "lb_to_radec is not the inverse of radec_to_lb"
+    assert (
+        numpy.fabs(bt - b) < 10.0**-10.0
+    ), "lb_to_radec is not the inverse of radec_to_lb"
     return None
 
 
@@ -457,12 +457,12 @@ def test_radec_to_lb_galpyvsastropy():
     c = SkyCoord(ra=ra * u.deg, dec=dec * u.deg, frame="fk5", equinox="J2000")
     c = c.transform_to("galactic")
     lla, bba = c.l.to(u.deg).value, c.b.to(u.deg).value
-    assert numpy.fabs(lg - lla) < 1e-12, (
-        "radec_to_lb using galpy's own transformations does not agree with astropy's"
-    )
-    assert numpy.fabs(bg - bba) < 1e-12, (
-        "radec_to_lb using galpy's own transformations does not agree with astropy's"
-    )
+    assert (
+        numpy.fabs(lg - lla) < 1e-12
+    ), "radec_to_lb using galpy's own transformations does not agree with astropy's"
+    assert (
+        numpy.fabs(bg - bba) < 1e-12
+    ), "radec_to_lb using galpy's own transformations does not agree with astropy's"
     _turn_on_apy()
     return None
 
@@ -480,12 +480,12 @@ def test_radec_to_lb__1950_galpyvsastropy():
     c = SkyCoord(ra=ra * u.deg, dec=dec * u.deg, frame="fk4noeterms", equinox="B1950")
     c = c.transform_to("galactic")
     lla, bba = c.l.to(u.deg).value, c.b.to(u.deg).value
-    assert numpy.fabs(lg - lla) < 1e-12, (
-        "radec_to_lb using galpy's own transformations does not agree with astropy's"
-    )
-    assert numpy.fabs(bg - bba) < 1e-12, (
-        "radec_to_lb using galpy's own transformations does not agree with astropy's"
-    )
+    assert (
+        numpy.fabs(lg - lla) < 1e-12
+    ), "radec_to_lb using galpy's own transformations does not agree with astropy's"
+    assert (
+        numpy.fabs(bg - bba) < 1e-12
+    ), "radec_to_lb using galpy's own transformations does not agree with astropy's"
     _turn_on_apy()
     return None
 
@@ -494,40 +494,40 @@ def test_radec_to_lb__1950_galpyvsastropy():
 def test_lbd_to_XYZ():
     l, b, d = 90.0, 30.0, 1.0
     XYZ = coords.lbd_to_XYZ(l, b, d, degree=True)
-    assert numpy.fabs(XYZ[0]) < 10.0**-10.0, (
-        "lbd_to_XYZ conversion does not work as expected"
-    )
-    assert numpy.fabs(XYZ[1] - numpy.sqrt(3.0) / 2.0) < 10.0**-10.0, (
-        "lbd_to_XYZ conversion does not work as expected"
-    )
-    assert numpy.fabs(XYZ[2] - 0.5) < 10.0**-10.0, (
-        "lbd_to_XYZ conversion does not work as expected"
-    )
+    assert (
+        numpy.fabs(XYZ[0]) < 10.0**-10.0
+    ), "lbd_to_XYZ conversion does not work as expected"
+    assert (
+        numpy.fabs(XYZ[1] - numpy.sqrt(3.0) / 2.0) < 10.0**-10.0
+    ), "lbd_to_XYZ conversion does not work as expected"
+    assert (
+        numpy.fabs(XYZ[2] - 0.5) < 10.0**-10.0
+    ), "lbd_to_XYZ conversion does not work as expected"
     # Also test for degree=False
     XYZ = coords.lbd_to_XYZ(l / 180.0 * numpy.pi, b / 180.0 * numpy.pi, d, degree=False)
-    assert numpy.fabs(XYZ[0]) < 10.0**-10.0, (
-        "lbd_to_XYZ conversion does not work as expected"
-    )
-    assert numpy.fabs(XYZ[1] - numpy.sqrt(3.0) / 2.0) < 10.0**-10.0, (
-        "lbd_to_XYZ conversion does not work as expected"
-    )
-    assert numpy.fabs(XYZ[2] - 0.5) < 10.0**-10.0, (
-        "lbd_to_XYZ conversion does not work as expected"
-    )
+    assert (
+        numpy.fabs(XYZ[0]) < 10.0**-10.0
+    ), "lbd_to_XYZ conversion does not work as expected"
+    assert (
+        numpy.fabs(XYZ[1] - numpy.sqrt(3.0) / 2.0) < 10.0**-10.0
+    ), "lbd_to_XYZ conversion does not work as expected"
+    assert (
+        numpy.fabs(XYZ[2] - 0.5) < 10.0**-10.0
+    ), "lbd_to_XYZ conversion does not work as expected"
     # Also test for arrays
     os = numpy.ones(2)
     XYZ = coords.lbd_to_XYZ(
         os * l / 180.0 * numpy.pi, os * b / 180.0 * numpy.pi, os * d, degree=False
     )
-    assert numpy.all(numpy.fabs(XYZ[:, 0]) < 10.0**-10.0), (
-        "lbd_to_XYZ conversion does not work as expected"
-    )
-    assert numpy.all(numpy.fabs(XYZ[:, 1] - numpy.sqrt(3.0) / 2.0) < 10.0**-10.0), (
-        "lbd_to_XYZ conversion does not work as expected"
-    )
-    assert numpy.all(numpy.fabs(XYZ[:, 2] - 0.5) < 10.0**-10.0), (
-        "lbd_to_XYZ conversion does not work as expected"
-    )
+    assert numpy.all(
+        numpy.fabs(XYZ[:, 0]) < 10.0**-10.0
+    ), "lbd_to_XYZ conversion does not work as expected"
+    assert numpy.all(
+        numpy.fabs(XYZ[:, 1] - numpy.sqrt(3.0) / 2.0) < 10.0**-10.0
+    ), "lbd_to_XYZ conversion does not work as expected"
+    assert numpy.all(
+        numpy.fabs(XYZ[:, 2] - 0.5) < 10.0**-10.0
+    ), "lbd_to_XYZ conversion does not work as expected"
     return None
 
 
@@ -536,42 +536,42 @@ def test_XYZ_to_lbd():
     l, b, d = 90.0, 30.0, 1.0
     XYZ = coords.lbd_to_XYZ(l, b, d, degree=True)
     lt, bt, dt = coords.XYZ_to_lbd(XYZ[0], XYZ[1], XYZ[2], degree=True)
-    assert numpy.fabs(lt - l) < 10.0**-10.0, (
-        "XYZ_to_lbd conversion does not work as expected"
-    )
-    assert numpy.fabs(bt - b) < 10.0**-10.0, (
-        "XYZ_to_lbd conversion does not work as expected"
-    )
-    assert numpy.fabs(dt - d) < 10.0**-10.0, (
-        "XYZ_to_lbd conversion does not work as expected"
-    )
+    assert (
+        numpy.fabs(lt - l) < 10.0**-10.0
+    ), "XYZ_to_lbd conversion does not work as expected"
+    assert (
+        numpy.fabs(bt - b) < 10.0**-10.0
+    ), "XYZ_to_lbd conversion does not work as expected"
+    assert (
+        numpy.fabs(dt - d) < 10.0**-10.0
+    ), "XYZ_to_lbd conversion does not work as expected"
     # Also test for degree=False
     XYZ = coords.lbd_to_XYZ(l / 180.0 * numpy.pi, b / 180.0 * numpy.pi, d, degree=False)
     lt, bt, dt = coords.XYZ_to_lbd(XYZ[0], XYZ[1], XYZ[2], degree=False)
-    assert numpy.fabs(lt - l / 180.0 * numpy.pi) < 10.0**-10.0, (
-        "XYZ_to_lbd conversion does not work as expected"
-    )
-    assert numpy.fabs(bt - b / 180.0 * numpy.pi) < 10.0**-10.0, (
-        "XYZ_to_lbd conversion does not work as expected"
-    )
-    assert numpy.fabs(dt - d) < 10.0**-10.0, (
-        "XYZ_to_lbd conversion does not work as expected"
-    )
+    assert (
+        numpy.fabs(lt - l / 180.0 * numpy.pi) < 10.0**-10.0
+    ), "XYZ_to_lbd conversion does not work as expected"
+    assert (
+        numpy.fabs(bt - b / 180.0 * numpy.pi) < 10.0**-10.0
+    ), "XYZ_to_lbd conversion does not work as expected"
+    assert (
+        numpy.fabs(dt - d) < 10.0**-10.0
+    ), "XYZ_to_lbd conversion does not work as expected"
     # Also test for arrays
     os = numpy.ones(2)
     XYZ = coords.lbd_to_XYZ(
         os * l / 180.0 * numpy.pi, os * b / 180.0 * numpy.pi, os * d, degree=False
     )
     lbdt = coords.XYZ_to_lbd(XYZ[:, 0], XYZ[:, 1], XYZ[:, 2], degree=False)
-    assert numpy.all(numpy.fabs(lbdt[:, 0] - l / 180.0 * numpy.pi) < 10.0**-10.0), (
-        "XYZ_to_lbd conversion does not work as expected"
-    )
-    assert numpy.all(numpy.fabs(lbdt[:, 1] - b / 180.0 * numpy.pi) < 10.0**-10.0), (
-        "XYZ_to_lbd conversion does not work as expected"
-    )
-    assert numpy.all(numpy.fabs(lbdt[:, 2] - d) < 10.0**-10.0), (
-        "XYZ_to_lbd conversion does not work as expected"
-    )
+    assert numpy.all(
+        numpy.fabs(lbdt[:, 0] - l / 180.0 * numpy.pi) < 10.0**-10.0
+    ), "XYZ_to_lbd conversion does not work as expected"
+    assert numpy.all(
+        numpy.fabs(lbdt[:, 1] - b / 180.0 * numpy.pi) < 10.0**-10.0
+    ), "XYZ_to_lbd conversion does not work as expected"
+    assert numpy.all(
+        numpy.fabs(lbdt[:, 2] - d) < 10.0**-10.0
+    ), "XYZ_to_lbd conversion does not work as expected"
     return None
 
 
@@ -581,15 +581,15 @@ def test_vrpmllpmbb_to_vxvyvz():
     vxvyvz = coords.vrpmllpmbb_to_vxvyvz(
         vr, pmll, pmbb, l, b, d, degree=True, XYZ=False
     )
-    assert numpy.fabs(vxvyvz[0] + 20.0) < 10.0**-9.0, (
-        "vrpmllpmbb_to_vxvyvz conversion did not work as expected"
-    )
-    assert numpy.fabs(vxvyvz[1] - 10.0) < 10.0**-9.0, (
-        "vrpmllpmbb_to_vxvyvz conversion did not work as expected"
-    )
-    assert numpy.fabs(vxvyvz[2] + 10.0) < 10.0**-9.0, (
-        "vrpmllpmbb_to_vxvyvz conversion did not work as expected"
-    )
+    assert (
+        numpy.fabs(vxvyvz[0] + 20.0) < 10.0**-9.0
+    ), "vrpmllpmbb_to_vxvyvz conversion did not work as expected"
+    assert (
+        numpy.fabs(vxvyvz[1] - 10.0) < 10.0**-9.0
+    ), "vrpmllpmbb_to_vxvyvz conversion did not work as expected"
+    assert (
+        numpy.fabs(vxvyvz[2] + 10.0) < 10.0**-9.0
+    ), "vrpmllpmbb_to_vxvyvz conversion did not work as expected"
     vxvyvz = coords.vrpmllpmbb_to_vxvyvz(
         vr,
         pmll,
@@ -600,51 +600,51 @@ def test_vrpmllpmbb_to_vxvyvz():
         degree=False,
         XYZ=False,
     )
-    assert numpy.fabs(vxvyvz[0] + 20.0) < 10.0**-9.0, (
-        "vrpmllpmbb_to_vxvyvz conversion did not work as expected"
-    )
-    assert numpy.fabs(vxvyvz[1] - 10.0) < 10.0**-9.0, (
-        "vrpmllpmbb_to_vxvyvz conversion did not work as expected"
-    )
-    assert numpy.fabs(vxvyvz[2] + 10.0) < 10.0**-9.0, (
-        "vrpmllpmbb_to_vxvyvz conversion did not work as expected"
-    )
+    assert (
+        numpy.fabs(vxvyvz[0] + 20.0) < 10.0**-9.0
+    ), "vrpmllpmbb_to_vxvyvz conversion did not work as expected"
+    assert (
+        numpy.fabs(vxvyvz[1] - 10.0) < 10.0**-9.0
+    ), "vrpmllpmbb_to_vxvyvz conversion did not work as expected"
+    assert (
+        numpy.fabs(vxvyvz[2] + 10.0) < 10.0**-9.0
+    ), "vrpmllpmbb_to_vxvyvz conversion did not work as expected"
     vxvyvz = coords.vrpmllpmbb_to_vxvyvz(vr, pmll, pmbb, 0.0, 1, 0.0, XYZ=True)
-    assert numpy.fabs(vxvyvz[0] + 20.0) < 10.0**-9.0, (
-        "vrpmllpmbb_to_vxvyvz conversion did not work as expected"
-    )
-    assert numpy.fabs(vxvyvz[1] - 10.0) < 10.0**-9.0, (
-        "vrpmllpmbb_to_vxvyvz conversion did not work as expected"
-    )
-    assert numpy.fabs(vxvyvz[2] + 10.0) < 10.0**-9.0, (
-        "vrpmllpmbb_to_vxvyvz conversion did not work as expected"
-    )
+    assert (
+        numpy.fabs(vxvyvz[0] + 20.0) < 10.0**-9.0
+    ), "vrpmllpmbb_to_vxvyvz conversion did not work as expected"
+    assert (
+        numpy.fabs(vxvyvz[1] - 10.0) < 10.0**-9.0
+    ), "vrpmllpmbb_to_vxvyvz conversion did not work as expected"
+    assert (
+        numpy.fabs(vxvyvz[2] + 10.0) < 10.0**-9.0
+    ), "vrpmllpmbb_to_vxvyvz conversion did not work as expected"
     vxvyvz = coords.vrpmllpmbb_to_vxvyvz(
         vr, pmll, pmbb, 0.0, 1, 0.0, XYZ=True, degree=True
     )
-    assert numpy.fabs(vxvyvz[0] + 20.0) < 10.0**-9.0, (
-        "vrpmllpmbb_to_vxvyvz conversion did not work as expected"
-    )
-    assert numpy.fabs(vxvyvz[1] - 10.0) < 10.0**-9.0, (
-        "vrpmllpmbb_to_vxvyvz conversion did not work as expected"
-    )
-    assert numpy.fabs(vxvyvz[2] + 10.0) < 10.0**-9.0, (
-        "vrpmllpmbb_to_vxvyvz conversion did not work as expected"
-    )
+    assert (
+        numpy.fabs(vxvyvz[0] + 20.0) < 10.0**-9.0
+    ), "vrpmllpmbb_to_vxvyvz conversion did not work as expected"
+    assert (
+        numpy.fabs(vxvyvz[1] - 10.0) < 10.0**-9.0
+    ), "vrpmllpmbb_to_vxvyvz conversion did not work as expected"
+    assert (
+        numpy.fabs(vxvyvz[2] + 10.0) < 10.0**-9.0
+    ), "vrpmllpmbb_to_vxvyvz conversion did not work as expected"
     # Also test for arrays
     os = numpy.ones(2)
     vxvyvz = coords.vrpmllpmbb_to_vxvyvz(
         os * vr, os * pmll, os * pmbb, os * l, os * b, os * d, degree=True, XYZ=False
     )
-    assert numpy.all(numpy.fabs(vxvyvz[:, 0] + 20.0) < 10.0**-9.0), (
-        "vrpmllpmbb_to_vxvyvz conversion did not work as expected"
-    )
-    assert numpy.all(numpy.fabs(vxvyvz[:, 1] - 10.0) < 10.0**-9.0), (
-        "vrpmllpmbb_to_vxvyvz conversion did not work as expected"
-    )
-    assert numpy.all(numpy.fabs(vxvyvz[:, 2] + 10.0) < 10.0**-9.0), (
-        "vrpmllpmbb_to_vxvyvz conversion did not work as expected"
-    )
+    assert numpy.all(
+        numpy.fabs(vxvyvz[:, 0] + 20.0) < 10.0**-9.0
+    ), "vrpmllpmbb_to_vxvyvz conversion did not work as expected"
+    assert numpy.all(
+        numpy.fabs(vxvyvz[:, 1] - 10.0) < 10.0**-9.0
+    ), "vrpmllpmbb_to_vxvyvz conversion did not work as expected"
+    assert numpy.all(
+        numpy.fabs(vxvyvz[:, 2] + 10.0) < 10.0**-9.0
+    ), "vrpmllpmbb_to_vxvyvz conversion did not work as expected"
     return None
 
 
@@ -652,52 +652,52 @@ def test_vxvyvz_to_vrpmllpmbb():
     vx, vy, vz = -20.0 * 4.740470463496208, 10.0, -10.0 * 4.740470463496208
     X, Y, Z = 0.0, 1.0, 0.0
     vrpmllpmbb = coords.vxvyvz_to_vrpmllpmbb(vx, vy, vz, X, Y, Z, XYZ=True)
-    assert numpy.fabs(vrpmllpmbb[0] - 10.0) < 10.0**-9.0, (
-        "vxvyvz_to_vrpmllpmbb conversion did not work as expected"
-    )
-    assert numpy.fabs(vrpmllpmbb[1] - 20.0) < 10.0**-9.0, (
-        "vxvyvz_to_vrpmllpmbb conversion did not work as expected"
-    )
-    assert numpy.fabs(vrpmllpmbb[2] + 10.0) < 10.0**-9.0, (
-        "vxvyvz_to_vrpmllpmbb conversion did not work as expected"
-    )
+    assert (
+        numpy.fabs(vrpmllpmbb[0] - 10.0) < 10.0**-9.0
+    ), "vxvyvz_to_vrpmllpmbb conversion did not work as expected"
+    assert (
+        numpy.fabs(vrpmllpmbb[1] - 20.0) < 10.0**-9.0
+    ), "vxvyvz_to_vrpmllpmbb conversion did not work as expected"
+    assert (
+        numpy.fabs(vrpmllpmbb[2] + 10.0) < 10.0**-9.0
+    ), "vxvyvz_to_vrpmllpmbb conversion did not work as expected"
     # also try with degree=True (that shouldn't fail!)
     vrpmllpmbb = coords.vxvyvz_to_vrpmllpmbb(vx, vy, vz, X, Y, Z, XYZ=True, degree=True)
-    assert numpy.fabs(vrpmllpmbb[0] - 10.0) < 10.0**-9.0, (
-        "vxvyvz_to_vrpmllpmbb conversion did not work as expected"
-    )
-    assert numpy.fabs(vrpmllpmbb[1] - 20.0) < 10.0**-9.0, (
-        "vxvyvz_to_vrpmllpmbb conversion did not work as expected"
-    )
-    assert numpy.fabs(vrpmllpmbb[2] + 10.0) < 10.0**-9.0, (
-        "vxvyvz_to_vrpmllpmbb conversion did not work as expected"
-    )
+    assert (
+        numpy.fabs(vrpmllpmbb[0] - 10.0) < 10.0**-9.0
+    ), "vxvyvz_to_vrpmllpmbb conversion did not work as expected"
+    assert (
+        numpy.fabs(vrpmllpmbb[1] - 20.0) < 10.0**-9.0
+    ), "vxvyvz_to_vrpmllpmbb conversion did not work as expected"
+    assert (
+        numpy.fabs(vrpmllpmbb[2] + 10.0) < 10.0**-9.0
+    ), "vxvyvz_to_vrpmllpmbb conversion did not work as expected"
     # also for lbd
     vrpmllpmbb = coords.vxvyvz_to_vrpmllpmbb(
         vx, vy, vz, 90.0, 0.0, 1.0, XYZ=False, degree=True
     )
-    assert numpy.fabs(vrpmllpmbb[0] - 10.0) < 10.0**-9.0, (
-        "vxvyvz_to_vrpmllpmbb conversion did not work as expected"
-    )
-    assert numpy.fabs(vrpmllpmbb[1] - 20.0) < 10.0**-9.0, (
-        "vxvyvz_to_vrpmllpmbb conversion did not work as expected"
-    )
-    assert numpy.fabs(vrpmllpmbb[2] + 10.0) < 10.0**-9.0, (
-        "vxvyvz_to_vrpmllpmbb conversion did not work as expected"
-    )
+    assert (
+        numpy.fabs(vrpmllpmbb[0] - 10.0) < 10.0**-9.0
+    ), "vxvyvz_to_vrpmllpmbb conversion did not work as expected"
+    assert (
+        numpy.fabs(vrpmllpmbb[1] - 20.0) < 10.0**-9.0
+    ), "vxvyvz_to_vrpmllpmbb conversion did not work as expected"
+    assert (
+        numpy.fabs(vrpmllpmbb[2] + 10.0) < 10.0**-9.0
+    ), "vxvyvz_to_vrpmllpmbb conversion did not work as expected"
     # also for lbd, not in degree
     vrpmllpmbb = coords.vxvyvz_to_vrpmllpmbb(
         vx, vy, vz, numpy.pi / 2.0, 0.0, 1.0, XYZ=False, degree=False
     )
-    assert numpy.fabs(vrpmllpmbb[0] - 10.0) < 10.0**-9.0, (
-        "vxvyvz_to_vrpmllpmbb conversion did not work as expected"
-    )
-    assert numpy.fabs(vrpmllpmbb[1] - 20.0) < 10.0**-9.0, (
-        "vxvyvz_to_vrpmllpmbb conversion did not work as expected"
-    )
-    assert numpy.fabs(vrpmllpmbb[2] + 10.0) < 10.0**-9.0, (
-        "vxvyvz_to_vrpmllpmbb conversion did not work as expected"
-    )
+    assert (
+        numpy.fabs(vrpmllpmbb[0] - 10.0) < 10.0**-9.0
+    ), "vxvyvz_to_vrpmllpmbb conversion did not work as expected"
+    assert (
+        numpy.fabs(vrpmllpmbb[1] - 20.0) < 10.0**-9.0
+    ), "vxvyvz_to_vrpmllpmbb conversion did not work as expected"
+    assert (
+        numpy.fabs(vrpmllpmbb[2] + 10.0) < 10.0**-9.0
+    ), "vxvyvz_to_vrpmllpmbb conversion did not work as expected"
     # and for arrays
     os = numpy.ones(2)
     vrpmllpmbb = coords.vxvyvz_to_vrpmllpmbb(
@@ -710,42 +710,42 @@ def test_vxvyvz_to_vrpmllpmbb():
         XYZ=False,
         degree=False,
     )
-    assert numpy.all(numpy.fabs(vrpmllpmbb[:, 0] - 10.0) < 10.0**-9.0), (
-        "vxvyvz_to_vrpmllpmbb conversion did not work as expected"
-    )
-    assert numpy.all(numpy.fabs(vrpmllpmbb[:, 1] - 20.0) < 10.0**-9.0), (
-        "vxvyvz_to_vrpmllpmbb conversion did not work as expected"
-    )
-    assert numpy.all(numpy.fabs(vrpmllpmbb[:, 2] + 10.0) < 10.0**-10.0), (
-        "vxvyvz_to_vrpmllpmbb conversion did not work as expected"
-    )
+    assert numpy.all(
+        numpy.fabs(vrpmllpmbb[:, 0] - 10.0) < 10.0**-9.0
+    ), "vxvyvz_to_vrpmllpmbb conversion did not work as expected"
+    assert numpy.all(
+        numpy.fabs(vrpmllpmbb[:, 1] - 20.0) < 10.0**-9.0
+    ), "vxvyvz_to_vrpmllpmbb conversion did not work as expected"
+    assert numpy.all(
+        numpy.fabs(vrpmllpmbb[:, 2] + 10.0) < 10.0**-10.0
+    ), "vxvyvz_to_vrpmllpmbb conversion did not work as expected"
     return None
 
 
 def test_XYZ_to_galcenrect():
     X, Y, Z = 1.0, 3.0, -2.0
     gcXYZ = coords.XYZ_to_galcenrect(X, Y, Z, Xsun=1.0, Zsun=0.0)
-    assert numpy.fabs(gcXYZ[0]) < 10.0**-5.0, (
-        "XYZ_to_galcenrect conversion did not work as expected"
-    )
-    assert numpy.fabs(gcXYZ[1] - 3.0) < 10.0**-5.0, (
-        "XYZ_to_galcenrect conversion did not work as expected"
-    )
-    assert numpy.fabs(gcXYZ[2] + 2.0) < 10.0**-5.0, (
-        "XYZ_to_galcenrect conversion did not work as expected"
-    )
+    assert (
+        numpy.fabs(gcXYZ[0]) < 10.0**-5.0
+    ), "XYZ_to_galcenrect conversion did not work as expected"
+    assert (
+        numpy.fabs(gcXYZ[1] - 3.0) < 10.0**-5.0
+    ), "XYZ_to_galcenrect conversion did not work as expected"
+    assert (
+        numpy.fabs(gcXYZ[2] + 2.0) < 10.0**-5.0
+    ), "XYZ_to_galcenrect conversion did not work as expected"
     # Another test
     X, Y, Z = -1.0, 3.0, -2.0
     gcXYZ = coords.XYZ_to_galcenrect(X, Y, Z, Xsun=1.0, Zsun=0.0)
-    assert numpy.fabs(gcXYZ[0] - 2.0) < 10.0**-5.0, (
-        "XYZ_to_galcenrect conversion did not work as expected"
-    )
-    assert numpy.fabs(gcXYZ[1] - 3.0) < 10.0**-5.0, (
-        "XYZ_to_galcenrect conversion did not work as expected"
-    )
-    assert numpy.fabs(gcXYZ[2] + 2.0) < 10.0**-5.0, (
-        "XYZ_to_galcenrect conversion did not work as expected"
-    )
+    assert (
+        numpy.fabs(gcXYZ[0] - 2.0) < 10.0**-5.0
+    ), "XYZ_to_galcenrect conversion did not work as expected"
+    assert (
+        numpy.fabs(gcXYZ[1] - 3.0) < 10.0**-5.0
+    ), "XYZ_to_galcenrect conversion did not work as expected"
+    assert (
+        numpy.fabs(gcXYZ[2] + 2.0) < 10.0**-5.0
+    ), "XYZ_to_galcenrect conversion did not work as expected"
     return None
 
 
@@ -754,15 +754,15 @@ def test_XYZ_to_galcenrect_negXsun():
     X, Y, Z = 0.3, 2.1, -1.2
     gcXYZ = coords.XYZ_to_galcenrect(X, Y, Z, Xsun=1.2, Zsun=0.2)
     gcXYZn = coords.XYZ_to_galcenrect(X, Y, Z, Xsun=-1.2, Zsun=0.2)
-    assert numpy.fabs(gcXYZ[0] + gcXYZn[0]) < 10.0**-10.0, (
-        "XYZ_to_galcenrect conversion did not work as expected for negative Xsun"
-    )
-    assert numpy.fabs(gcXYZ[1] - gcXYZn[1]) < 10.0**-10.0, (
-        "XYZ_to_galcenrect conversion did not work as expected for negative Xsun"
-    )
-    assert numpy.fabs(gcXYZ[2] - gcXYZn[2]) < 10.0**-10.0, (
-        "XYZ_to_galcenrect conversion did not work as expected for negative Xsun"
-    )
+    assert (
+        numpy.fabs(gcXYZ[0] + gcXYZn[0]) < 10.0**-10.0
+    ), "XYZ_to_galcenrect conversion did not work as expected for negative Xsun"
+    assert (
+        numpy.fabs(gcXYZ[1] - gcXYZn[1]) < 10.0**-10.0
+    ), "XYZ_to_galcenrect conversion did not work as expected for negative Xsun"
+    assert (
+        numpy.fabs(gcXYZ[2] - gcXYZn[2]) < 10.0**-10.0
+    ), "XYZ_to_galcenrect conversion did not work as expected for negative Xsun"
 
 
 def test_XYZ_to_galcenrect_vecSun():
@@ -774,15 +774,15 @@ def test_XYZ_to_galcenrect_vecSun():
     gcXYZ = coords.XYZ_to_galcenrect(
         X, Y, Z, Xsun=numpy.array([1.0, -2.0]), Zsun=numpy.array([0.0, 0.0])
     )
-    assert numpy.all(numpy.fabs(gcXYZ[:, 0]) < 10.0**-5.0), (
-        "XYZ_to_galcenrect conversion did not work as expected"
-    )
-    assert numpy.all(numpy.fabs(gcXYZ[:, 1] - 3.0) < 10.0**-5.0), (
-        "XYZ_to_galcenrect conversion did not work as expected"
-    )
-    assert numpy.all(numpy.fabs(gcXYZ[:, 2] + 2.0) < 10.0**-5.0), (
-        "XYZ_to_galcenrect conversion did not work as expected"
-    )
+    assert numpy.all(
+        numpy.fabs(gcXYZ[:, 0]) < 10.0**-5.0
+    ), "XYZ_to_galcenrect conversion did not work as expected"
+    assert numpy.all(
+        numpy.fabs(gcXYZ[:, 1] - 3.0) < 10.0**-5.0
+    ), "XYZ_to_galcenrect conversion did not work as expected"
+    assert numpy.all(
+        numpy.fabs(gcXYZ[:, 2] + 2.0) < 10.0**-5.0
+    ), "XYZ_to_galcenrect conversion did not work as expected"
     return None
 
 
@@ -804,15 +804,15 @@ def test_lbd_to_galcenrect_galpyvsastropy():
     )
     c = c.transform_to(gc_frame)
     # galpy is left-handed, astropy right-handed
-    assert numpy.fabs(gcXYZ[0] + c.x.to(u.kpc).value) < 10.0**-10.0, (
-        "lbd to galcenrect conversion using galpy's methods does not agree with astropy"
-    )
-    assert numpy.fabs(gcXYZ[1] - c.y.to(u.kpc).value) < 10.0**-10.0, (
-        "lbd to galcenrect conversion using galpy's methods does not agree with astropy"
-    )
-    assert numpy.fabs(gcXYZ[2] - c.z.to(u.kpc).value) < 10.0**-9.5, (
-        "lbd to galcenrect conversion using galpy's methods does not agree with astropy"
-    )
+    assert (
+        numpy.fabs(gcXYZ[0] + c.x.to(u.kpc).value) < 10.0**-10.0
+    ), "lbd to galcenrect conversion using galpy's methods does not agree with astropy"
+    assert (
+        numpy.fabs(gcXYZ[1] - c.y.to(u.kpc).value) < 10.0**-10.0
+    ), "lbd to galcenrect conversion using galpy's methods does not agree with astropy"
+    assert (
+        numpy.fabs(gcXYZ[2] - c.z.to(u.kpc).value) < 10.0**-9.5
+    ), "lbd to galcenrect conversion using galpy's methods does not agree with astropy"
     # Also with negative Xsun
     l, b, d = 32.0, -12.0, 3.0
     Zsun = 0.025
@@ -826,15 +826,15 @@ def test_lbd_to_galcenrect_galpyvsastropy():
     )
     c = c.transform_to(gc_frame)
     # galpy is now right-handed, astropy right-handed
-    assert numpy.fabs(gcXYZ[0] - c.x.to(u.kpc).value) < 10.0**-10.0, (
-        "lbd to galcenrect conversion using galpy's methods does not agree with astropy"
-    )
-    assert numpy.fabs(gcXYZ[1] - c.y.to(u.kpc).value) < 10.0**-10.0, (
-        "lbd to galcenrect conversion using galpy's methods does not agree with astropy"
-    )
-    assert numpy.fabs(gcXYZ[2] - c.z.to(u.kpc).value) < 10.0**-9.5, (
-        "lbd to galcenrect conversion using galpy's methods does not agree with astropy"
-    )
+    assert (
+        numpy.fabs(gcXYZ[0] - c.x.to(u.kpc).value) < 10.0**-10.0
+    ), "lbd to galcenrect conversion using galpy's methods does not agree with astropy"
+    assert (
+        numpy.fabs(gcXYZ[1] - c.y.to(u.kpc).value) < 10.0**-10.0
+    ), "lbd to galcenrect conversion using galpy's methods does not agree with astropy"
+    assert (
+        numpy.fabs(gcXYZ[2] - c.z.to(u.kpc).value) < 10.0**-9.5
+    ), "lbd to galcenrect conversion using galpy's methods does not agree with astropy"
     _turn_on_apy()
     return None
 
@@ -858,15 +858,15 @@ def test_lbd_to_galcencyl_galpyvsastropy():
     c = c.transform_to(gc_frame)
     c.representation_type = "cylindrical"
     # galpy is left-handed, astropy right-handed
-    assert numpy.fabs(gcRpZ[0] - c.rho.to(u.kpc).value) < 10.0**-10.0, (
-        "lbd to galcencyl conversion using galpy's methods does not agree with astropy"
-    )
-    assert numpy.fabs(gcRpZ[1] - numpy.pi + c.phi.to(u.rad).value) < 10.0**-10.0, (
-        "lbd to galcencyl conversion using galpy's methods does not agree with astropy"
-    )
-    assert numpy.fabs(gcRpZ[2] - c.z.to(u.kpc).value) < 10.0**-9.5, (
-        "lbd to galcencyl conversion using galpy's methods does not agree with astropy"
-    )
+    assert (
+        numpy.fabs(gcRpZ[0] - c.rho.to(u.kpc).value) < 10.0**-10.0
+    ), "lbd to galcencyl conversion using galpy's methods does not agree with astropy"
+    assert (
+        numpy.fabs(gcRpZ[1] - numpy.pi + c.phi.to(u.rad).value) < 10.0**-10.0
+    ), "lbd to galcencyl conversion using galpy's methods does not agree with astropy"
+    assert (
+        numpy.fabs(gcRpZ[2] - c.z.to(u.kpc).value) < 10.0**-9.5
+    ), "lbd to galcencyl conversion using galpy's methods does not agree with astropy"
     # Also with negative Xsun
     l, b, d = 32.0, -12.0, 3.0
     Zsun = 0.025
@@ -881,15 +881,15 @@ def test_lbd_to_galcencyl_galpyvsastropy():
     c = c.transform_to(gc_frame)
     c.representation_type = "cylindrical"
     # galpy is now right-handed, astropy right-handed
-    assert numpy.fabs(gcRpZ[0] - c.rho.to(u.kpc).value) < 10.0**-10.0, (
-        "lbd to galcencyl conversion using galpy's methods does not agree with astropy"
-    )
-    assert numpy.fabs(gcRpZ[1] - c.phi.to(u.rad).value) < 10.0**-10.0, (
-        "lbd to galcencyl conversion using galpy's methods does not agree with astropy"
-    )
-    assert numpy.fabs(gcRpZ[2] - c.z.to(u.kpc).value) < 10.0**-9.5, (
-        "lbd to galcencyl conversion using galpy's methods does not agree with astropy"
-    )
+    assert (
+        numpy.fabs(gcRpZ[0] - c.rho.to(u.kpc).value) < 10.0**-10.0
+    ), "lbd to galcencyl conversion using galpy's methods does not agree with astropy"
+    assert (
+        numpy.fabs(gcRpZ[1] - c.phi.to(u.rad).value) < 10.0**-10.0
+    ), "lbd to galcencyl conversion using galpy's methods does not agree with astropy"
+    assert (
+        numpy.fabs(gcRpZ[2] - c.z.to(u.kpc).value) < 10.0**-9.5
+    ), "lbd to galcencyl conversion using galpy's methods does not agree with astropy"
     _turn_on_apy()
     return None
 
@@ -898,70 +898,70 @@ def test_galcenrect_to_XYZ_negXsun():
     gcX, gcY, gcZ = -1.0, 4.0, 2.0
     XYZ = numpy.array(coords.galcenrect_to_XYZ(gcX, gcY, gcZ, Xsun=1.0, Zsun=0.2))
     XYZn = numpy.array(coords.galcenrect_to_XYZ(-gcX, gcY, gcZ, Xsun=-1.0, Zsun=0.2))
-    assert numpy.all(numpy.fabs(XYZ - XYZn) < 10.0**-10.0), (
-        "galcenrect_to_XYZ conversion did not work as expected for negative Xsun"
-    )
+    assert numpy.all(
+        numpy.fabs(XYZ - XYZn) < 10.0**-10.0
+    ), "galcenrect_to_XYZ conversion did not work as expected for negative Xsun"
     return None
 
 
 def test_galcenrect_to_XYZ():
     gcX, gcY, gcZ = -1.0, 4.0, 2.0
     XYZ = coords.galcenrect_to_XYZ(gcX, gcY, gcZ, Xsun=1.0, Zsun=0.0)
-    assert numpy.fabs(XYZ[0] - 2.0) < 10.0**-5.0, (
-        "galcenrect_to_XYZ conversion did not work as expected"
-    )
-    assert numpy.fabs(XYZ[1] - 4.0) < 10.0**-5.0, (
-        "galcenrect_to_XYZ conversion did not work as expected"
-    )
-    assert numpy.fabs(XYZ[2] - 2.0) < 10.0**-5.0, (
-        "galcenrect_to_XYZ conversion did not work as expected"
-    )
+    assert (
+        numpy.fabs(XYZ[0] - 2.0) < 10.0**-5.0
+    ), "galcenrect_to_XYZ conversion did not work as expected"
+    assert (
+        numpy.fabs(XYZ[1] - 4.0) < 10.0**-5.0
+    ), "galcenrect_to_XYZ conversion did not work as expected"
+    assert (
+        numpy.fabs(XYZ[2] - 2.0) < 10.0**-5.0
+    ), "galcenrect_to_XYZ conversion did not work as expected"
     # Also for arrays
     s = numpy.arange(2) + 1
     XYZ = coords.galcenrect_to_XYZ(gcX * s, gcY * s, gcZ * s, Xsun=1.0, Zsun=0.0)
-    assert numpy.fabs(XYZ[0, 0] - 2.0) < 10.0**-5.0, (
-        "galcenrect_to_XYZ conversion did not work as expected"
-    )
-    assert numpy.fabs(XYZ[0, 1] - 4.0) < 10.0**-5.0, (
-        "galcenrect_to_XYZ conversion did not work as expected"
-    )
-    assert numpy.fabs(XYZ[0, 2] - 2.0) < 10.0**-5.0, (
-        "galcenrect_to_XYZ conversion did not work as expected"
-    )
+    assert (
+        numpy.fabs(XYZ[0, 0] - 2.0) < 10.0**-5.0
+    ), "galcenrect_to_XYZ conversion did not work as expected"
+    assert (
+        numpy.fabs(XYZ[0, 1] - 4.0) < 10.0**-5.0
+    ), "galcenrect_to_XYZ conversion did not work as expected"
+    assert (
+        numpy.fabs(XYZ[0, 2] - 2.0) < 10.0**-5.0
+    ), "galcenrect_to_XYZ conversion did not work as expected"
     # Check 2nd one
-    assert numpy.fabs(XYZ[1, 0] - 3.0) < 10.0**-5.0, (
-        "galcenrect_to_XYZ conversion did not work as expected"
-    )
-    assert numpy.fabs(XYZ[1, 1] - 8.0) < 10.0**-5.0, (
-        "galcenrect_to_XYZ conversion did not work as expected"
-    )
-    assert numpy.fabs(XYZ[1, 2] - 4.0) < 10.0**-4.7, (
-        "galcenrect_to_XYZ conversion did not work as expected"
-    )
+    assert (
+        numpy.fabs(XYZ[1, 0] - 3.0) < 10.0**-5.0
+    ), "galcenrect_to_XYZ conversion did not work as expected"
+    assert (
+        numpy.fabs(XYZ[1, 1] - 8.0) < 10.0**-5.0
+    ), "galcenrect_to_XYZ conversion did not work as expected"
+    assert (
+        numpy.fabs(XYZ[1, 2] - 4.0) < 10.0**-4.7
+    ), "galcenrect_to_XYZ conversion did not work as expected"
     # Also for arrays with Xsun/Zsun also arrays
     s = numpy.arange(2) + 1
     XYZ = coords.galcenrect_to_XYZ(
         gcX * s, gcY * s, gcZ * s, Xsun=1.0 * s, Zsun=0.0 * s
     )
-    assert numpy.fabs(XYZ[0, 0] - 2.0) < 10.0**-5.0, (
-        "galcenrect_to_XYZ conversion did not work as expected"
-    )
-    assert numpy.fabs(XYZ[0, 1] - 4.0) < 10.0**-5.0, (
-        "galcenrect_to_XYZ conversion did not work as expected"
-    )
-    assert numpy.fabs(XYZ[0, 2] - 2.0) < 10.0**-5.0, (
-        "galcenrect_to_XYZ conversion did not work as expected"
-    )
+    assert (
+        numpy.fabs(XYZ[0, 0] - 2.0) < 10.0**-5.0
+    ), "galcenrect_to_XYZ conversion did not work as expected"
+    assert (
+        numpy.fabs(XYZ[0, 1] - 4.0) < 10.0**-5.0
+    ), "galcenrect_to_XYZ conversion did not work as expected"
+    assert (
+        numpy.fabs(XYZ[0, 2] - 2.0) < 10.0**-5.0
+    ), "galcenrect_to_XYZ conversion did not work as expected"
     # Check 2nd one
-    assert numpy.fabs(XYZ[1, 0] - 4.0) < 10.0**-5.0, (
-        "galcenrect_to_XYZ conversion did not work as expected"
-    )
-    assert numpy.fabs(XYZ[1, 1] - 8.0) < 10.0**-5.0, (
-        "galcenrect_to_XYZ conversion did not work as expected"
-    )
-    assert numpy.fabs(XYZ[1, 2] - 4.0) < 10.0**-4.7, (
-        "galcenrect_to_XYZ conversion did not work as expected"
-    )
+    assert (
+        numpy.fabs(XYZ[1, 0] - 4.0) < 10.0**-5.0
+    ), "galcenrect_to_XYZ conversion did not work as expected"
+    assert (
+        numpy.fabs(XYZ[1, 1] - 8.0) < 10.0**-5.0
+    ), "galcenrect_to_XYZ conversion did not work as expected"
+    assert (
+        numpy.fabs(XYZ[1, 2] - 4.0) < 10.0**-4.7
+    ), "galcenrect_to_XYZ conversion did not work as expected"
     return None
 
 
@@ -972,42 +972,42 @@ def test_galcenrect_to_XYZ_asInverse():
     Xt, Yt, Zt = coords.galcenrect_to_XYZ(
         gcXYZ[0], gcXYZ[1], gcXYZ[2], Xsun=1.0, Zsun=0.1
     )
-    assert numpy.fabs(X - Xt) < 1e-14, (
-        "galcenrect_to_XYZ is not the exact inverse of XYZ_to_galcenrect"
-    )
-    assert numpy.fabs(Y - Yt) < 1e-14, (
-        "galcenrect_to_XYZ is not the exact inverse of XYZ_to_galcenrect"
-    )
-    assert numpy.fabs(Z - Zt) < 1e-14, (
-        "galcenrect_to_XYZ is not the exact inverse of XYZ_to_galcenrect"
-    )
+    assert (
+        numpy.fabs(X - Xt) < 1e-14
+    ), "galcenrect_to_XYZ is not the exact inverse of XYZ_to_galcenrect"
+    assert (
+        numpy.fabs(Y - Yt) < 1e-14
+    ), "galcenrect_to_XYZ is not the exact inverse of XYZ_to_galcenrect"
+    assert (
+        numpy.fabs(Z - Zt) < 1e-14
+    ), "galcenrect_to_XYZ is not the exact inverse of XYZ_to_galcenrect"
     return None
 
 
 def test_XYZ_to_galcencyl():
     X, Y, Z = 5.0, 4.0, -2.0
     gcRpZ = coords.XYZ_to_galcencyl(X, Y, Z, Xsun=8.0, Zsun=0.0)
-    assert numpy.fabs(gcRpZ[0] - 5.0) < 10.0**-5.0, (
-        "XYZ_to_galcencyl conversion did not work as expected"
-    )
-    assert numpy.fabs(gcRpZ[1] - numpy.arctan(4.0 / 3.0)) < 10.0**-5.0, (
-        "XYZ_to_galcencyl conversion did not work as expected"
-    )
-    assert numpy.fabs(gcRpZ[2] + 2.0) < 10.0**-4.8, (
-        "XYZ_to_galcencyl conversion did not work as expected"
-    )
+    assert (
+        numpy.fabs(gcRpZ[0] - 5.0) < 10.0**-5.0
+    ), "XYZ_to_galcencyl conversion did not work as expected"
+    assert (
+        numpy.fabs(gcRpZ[1] - numpy.arctan(4.0 / 3.0)) < 10.0**-5.0
+    ), "XYZ_to_galcencyl conversion did not work as expected"
+    assert (
+        numpy.fabs(gcRpZ[2] + 2.0) < 10.0**-4.8
+    ), "XYZ_to_galcencyl conversion did not work as expected"
     # Another X
     X, Y, Z = 11.0, 4.0, -2.0
     gcRpZ = coords.XYZ_to_galcencyl(X, Y, Z, Xsun=8.0, Zsun=0.0)
-    assert numpy.fabs(gcRpZ[0] - 5.0) < 10.0**-5.0, (
-        "XYZ_to_galcencyl conversion did not work as expected"
-    )
-    assert numpy.fabs(gcRpZ[1] - numpy.pi + numpy.arctan(4.0 / 3.0)) < 10.0**-5.0, (
-        "XYZ_to_galcencyl conversion did not work as expected"
-    )
-    assert numpy.fabs(gcRpZ[2] + 2.0) < 10.0**-4.6, (
-        "XYZ_to_galcencyl conversion did not work as expected"
-    )
+    assert (
+        numpy.fabs(gcRpZ[0] - 5.0) < 10.0**-5.0
+    ), "XYZ_to_galcencyl conversion did not work as expected"
+    assert (
+        numpy.fabs(gcRpZ[1] - numpy.pi + numpy.arctan(4.0 / 3.0)) < 10.0**-5.0
+    ), "XYZ_to_galcencyl conversion did not work as expected"
+    assert (
+        numpy.fabs(gcRpZ[2] + 2.0) < 10.0**-4.6
+    ), "XYZ_to_galcencyl conversion did not work as expected"
     return None
 
 
@@ -1020,74 +1020,74 @@ def test_XYZ_to_galcencyl_vecSun():
     gcRpZ = coords.XYZ_to_galcencyl(
         X, Y, Z, Xsun=numpy.array([8.0, 7.0]), Zsun=numpy.array([0.0, 0.0])
     )
-    assert numpy.all(numpy.fabs(gcRpZ[:, 0] - 5.0) < 10.0**-5.0), (
-        "XYZ_to_galcencyl conversion did not work as expected"
-    )
-    assert numpy.all(numpy.fabs(gcRpZ[:, 1] - numpy.arctan(4.0 / 3.0)) < 10.0**-5.0), (
-        "XYZ_to_galcencyl conversion did not work as expected"
-    )
-    assert numpy.all(numpy.fabs(gcRpZ[:, 2] + 2.0) < 10.0**-4.8), (
-        "XYZ_to_galcencyl conversion did not work as expected"
-    )
+    assert numpy.all(
+        numpy.fabs(gcRpZ[:, 0] - 5.0) < 10.0**-5.0
+    ), "XYZ_to_galcencyl conversion did not work as expected"
+    assert numpy.all(
+        numpy.fabs(gcRpZ[:, 1] - numpy.arctan(4.0 / 3.0)) < 10.0**-5.0
+    ), "XYZ_to_galcencyl conversion did not work as expected"
+    assert numpy.all(
+        numpy.fabs(gcRpZ[:, 2] + 2.0) < 10.0**-4.8
+    ), "XYZ_to_galcencyl conversion did not work as expected"
     return None
 
 
 def test_galcencyl_to_XYZ():
     gcR, gcp, gcZ = 5.0, numpy.arctan(4.0 / 3.0), 2.0
     XYZ = coords.galcencyl_to_XYZ(gcR, gcp, gcZ, Xsun=8.0, Zsun=0.0)
-    assert numpy.fabs(XYZ[0] - 5.0) < 10.0**-5.0, (
-        "galcencyl_to_XYZ conversion did not work as expected"
-    )
-    assert numpy.fabs(XYZ[1] - 4.0) < 10.0**-5.0, (
-        "galcencyl_to_XYZ conversion did not work as expected"
-    )
-    assert numpy.fabs(XYZ[2] - 2.0) < 10.0**-4.7, (
-        "galcencyl_to_XYZ conversion did not work as expected"
-    )
+    assert (
+        numpy.fabs(XYZ[0] - 5.0) < 10.0**-5.0
+    ), "galcencyl_to_XYZ conversion did not work as expected"
+    assert (
+        numpy.fabs(XYZ[1] - 4.0) < 10.0**-5.0
+    ), "galcencyl_to_XYZ conversion did not work as expected"
+    assert (
+        numpy.fabs(XYZ[2] - 2.0) < 10.0**-4.7
+    ), "galcencyl_to_XYZ conversion did not work as expected"
     # Also for arrays
     s = numpy.arange(2) + 1
     XYZ = coords.galcencyl_to_XYZ(gcR * s, gcp * s, gcZ * s, Xsun=8.0, Zsun=0.0)
-    assert numpy.fabs(XYZ[0, 0] - 5.0) < 10.0**-5.0, (
-        "galcencyl_to_XYZ conversion did not work as expected"
-    )
-    assert numpy.fabs(XYZ[0, 1] - 4.0) < 10.0**-5.0, (
-        "galcencyl_to_XYZ conversion did not work as expected"
-    )
-    assert numpy.fabs(XYZ[0, 2] - 2.0) < 10.0**-4.7, (
-        "galcencyl_to_XYZ conversion did not work as expected"
-    )
+    assert (
+        numpy.fabs(XYZ[0, 0] - 5.0) < 10.0**-5.0
+    ), "galcencyl_to_XYZ conversion did not work as expected"
+    assert (
+        numpy.fabs(XYZ[0, 1] - 4.0) < 10.0**-5.0
+    ), "galcencyl_to_XYZ conversion did not work as expected"
+    assert (
+        numpy.fabs(XYZ[0, 2] - 2.0) < 10.0**-4.7
+    ), "galcencyl_to_XYZ conversion did not work as expected"
     # Also test the second one
-    assert numpy.fabs(XYZ[1, 0] - 10.8) < 10.0**-5.0, (
-        "galcencyl_to_XYZ conversion did not work as expected"
-    )
-    assert numpy.fabs(XYZ[1, 1] - 9.6) < 10.0**-4.7, (
-        "galcencyl_to_XYZ conversion did not work as expected"
-    )
-    assert numpy.fabs(XYZ[1, 2] - 4.0) < 10.0**-4.5, (
-        "galcencyl_to_XYZ conversion did not work as expected"
-    )
+    assert (
+        numpy.fabs(XYZ[1, 0] - 10.8) < 10.0**-5.0
+    ), "galcencyl_to_XYZ conversion did not work as expected"
+    assert (
+        numpy.fabs(XYZ[1, 1] - 9.6) < 10.0**-4.7
+    ), "galcencyl_to_XYZ conversion did not work as expected"
+    assert (
+        numpy.fabs(XYZ[1, 2] - 4.0) < 10.0**-4.5
+    ), "galcencyl_to_XYZ conversion did not work as expected"
     # Also for arrays where Xsun/Zsun are also arrays
     s = numpy.arange(2) + 1
     XYZ = coords.galcencyl_to_XYZ(gcR * s, gcp * s, gcZ * s, Xsun=8.0 * s, Zsun=0.0 * s)
-    assert numpy.fabs(XYZ[0, 0] - 5.0) < 10.0**-5.0, (
-        "galcencyl_to_XYZ conversion did not work as expected"
-    )
-    assert numpy.fabs(XYZ[0, 1] - 4.0) < 10.0**-5.0, (
-        "galcencyl_to_XYZ conversion did not work as expected"
-    )
-    assert numpy.fabs(XYZ[0, 2] - 2.0) < 10.0**-4.7, (
-        "galcencyl_to_XYZ conversion did not work as expected"
-    )
+    assert (
+        numpy.fabs(XYZ[0, 0] - 5.0) < 10.0**-5.0
+    ), "galcencyl_to_XYZ conversion did not work as expected"
+    assert (
+        numpy.fabs(XYZ[0, 1] - 4.0) < 10.0**-5.0
+    ), "galcencyl_to_XYZ conversion did not work as expected"
+    assert (
+        numpy.fabs(XYZ[0, 2] - 2.0) < 10.0**-4.7
+    ), "galcencyl_to_XYZ conversion did not work as expected"
     # Also test the second one
-    assert numpy.fabs(XYZ[1, 0] - 18.8) < 10.0**-5.0, (
-        "galcencyl_to_XYZ conversion did not work as expected"
-    )
-    assert numpy.fabs(XYZ[1, 1] - 9.6) < 10.0**-4.5, (
-        "galcencyl_to_XYZ conversion did not work as expected"
-    )
-    assert numpy.fabs(XYZ[1, 2] - 4.0) < 10.0**-4.0, (
-        "galcencyl_to_XYZ conversion did not work as expected"
-    )
+    assert (
+        numpy.fabs(XYZ[1, 0] - 18.8) < 10.0**-5.0
+    ), "galcencyl_to_XYZ conversion did not work as expected"
+    assert (
+        numpy.fabs(XYZ[1, 1] - 9.6) < 10.0**-4.5
+    ), "galcencyl_to_XYZ conversion did not work as expected"
+    assert (
+        numpy.fabs(XYZ[1, 2] - 4.0) < 10.0**-4.0
+    ), "galcencyl_to_XYZ conversion did not work as expected"
     return None
 
 
@@ -1098,15 +1098,15 @@ def test_galcencyl_to_XYZ_asInverse():
     Xt, Yt, Zt = coords.galcencyl_to_XYZ(
         gcRpZ[0], gcRpZ[1], gcRpZ[2], Xsun=1.0, Zsun=0.1
     )
-    assert numpy.fabs(X - Xt) < 1e-14, (
-        "galcencyl_to_XYZ is not the exact inverse of XYZ_to_galcencyl"
-    )
-    assert numpy.fabs(Y - Yt) < 1e-14, (
-        "galcencyl_to_XYZ is not the exact inverse of XYZ_to_galcencyl"
-    )
-    assert numpy.fabs(Z - Zt) < 1e-14, (
-        "galcencyl_to_XYZ is not the exact inverse of XYZ_to_galcencyl"
-    )
+    assert (
+        numpy.fabs(X - Xt) < 1e-14
+    ), "galcencyl_to_XYZ is not the exact inverse of XYZ_to_galcencyl"
+    assert (
+        numpy.fabs(Y - Yt) < 1e-14
+    ), "galcencyl_to_XYZ is not the exact inverse of XYZ_to_galcencyl"
+    assert (
+        numpy.fabs(Z - Zt) < 1e-14
+    ), "galcencyl_to_XYZ is not the exact inverse of XYZ_to_galcencyl"
     # Also for arrays where Xsun/Zsun are also arrays
     s = numpy.arange(2) + 1
     gcRpZ1 = coords.XYZ_to_galcencyl(
@@ -1123,40 +1123,40 @@ def test_galcencyl_to_XYZ_asInverse():
         Zsun=0.1 * s,
     )
     # first one
-    assert numpy.fabs(XYZt[0, 0] - Xt) < 1e-14, (
-        "galcencyl_to_XYZ is not the exact inverse of XYZ_to_galcencyl"
-    )
-    assert numpy.fabs(XYZt[0, 1] - Yt) < 1e-14, (
-        "galcencyl_to_XYZ is not the exact inverse of XYZ_to_galcencyl"
-    )
-    assert numpy.fabs(XYZt[0, 2] - Zt) < 1e-14, (
-        "galcencyl_to_XYZ is not the exact inverse of XYZ_to_galcencyl"
-    )
+    assert (
+        numpy.fabs(XYZt[0, 0] - Xt) < 1e-14
+    ), "galcencyl_to_XYZ is not the exact inverse of XYZ_to_galcencyl"
+    assert (
+        numpy.fabs(XYZt[0, 1] - Yt) < 1e-14
+    ), "galcencyl_to_XYZ is not the exact inverse of XYZ_to_galcencyl"
+    assert (
+        numpy.fabs(XYZt[0, 2] - Zt) < 1e-14
+    ), "galcencyl_to_XYZ is not the exact inverse of XYZ_to_galcencyl"
     # second one
-    assert numpy.fabs(XYZt[1, 0] - Xt * s[1]) < 1e-14, (
-        "galcencyl_to_XYZ is not the exact inverse of XYZ_to_galcencyl"
-    )
-    assert numpy.fabs(XYZt[1, 1] - Yt * s[1]) < 1e-14, (
-        "galcencyl_to_XYZ is not the exact inverse of XYZ_to_galcencyl"
-    )
-    assert numpy.fabs(XYZt[1, 2] - Zt * s[1]) < 1e-14, (
-        "galcencyl_to_XYZ is not the exact inverse of XYZ_to_galcencyl"
-    )
+    assert (
+        numpy.fabs(XYZt[1, 0] - Xt * s[1]) < 1e-14
+    ), "galcencyl_to_XYZ is not the exact inverse of XYZ_to_galcencyl"
+    assert (
+        numpy.fabs(XYZt[1, 1] - Yt * s[1]) < 1e-14
+    ), "galcencyl_to_XYZ is not the exact inverse of XYZ_to_galcencyl"
+    assert (
+        numpy.fabs(XYZt[1, 2] - Zt * s[1]) < 1e-14
+    ), "galcencyl_to_XYZ is not the exact inverse of XYZ_to_galcencyl"
     return None
 
 
 def test_vxvyvz_to_galcenrect():
     vx, vy, vz = 10.0, -20.0, 30
     vgc = coords.vxvyvz_to_galcenrect(vx, vy, vz, vsun=[-5.0, 10.0, 5.0])
-    assert numpy.fabs(vgc[0] + 15.0) < 10.0**-4.0, (
-        "vxvyvz_to_galcenrect conversion did not work as expected"
-    )
-    assert numpy.fabs(vgc[1] + 10.0) < 10.0**-4.0, (
-        "vxvyvz_to_galcenrect conversion did not work as expected"
-    )
-    assert numpy.fabs(vgc[2] - 35.0) < 10.0**-4.0, (
-        "vxvyvz_to_galcenrect conversion did not work as expected"
-    )
+    assert (
+        numpy.fabs(vgc[0] + 15.0) < 10.0**-4.0
+    ), "vxvyvz_to_galcenrect conversion did not work as expected"
+    assert (
+        numpy.fabs(vgc[1] + 10.0) < 10.0**-4.0
+    ), "vxvyvz_to_galcenrect conversion did not work as expected"
+    assert (
+        numpy.fabs(vgc[2] - 35.0) < 10.0**-4.0
+    ), "vxvyvz_to_galcenrect conversion did not work as expected"
     return None
 
 
@@ -1168,15 +1168,15 @@ def test_vxvyvz_to_galcenrect_negXsun():
     vgcn = coords.vxvyvz_to_galcenrect(
         vx, vy, vz, vsun=[5.0, 10.0, 5.0], Xsun=-1.1, Zsun=0.2
     )
-    assert numpy.fabs(vgc[0] + vgcn[0]) < 10.0**-4.0, (
-        "vxvyvz_to_galcenrect conversion did not work as expected for negative Xsun"
-    )
-    assert numpy.fabs(vgc[1] - vgcn[1]) < 10.0**-4.0, (
-        "vxvyvz_to_galcenrect conversion did not work as expected for negative Xsun"
-    )
-    assert numpy.fabs(vgc[2] - vgcn[2]) < 10.0**-4.0, (
-        "vxvyvz_to_galcenrect conversion did not work as expected for negative Xsun"
-    )
+    assert (
+        numpy.fabs(vgc[0] + vgcn[0]) < 10.0**-4.0
+    ), "vxvyvz_to_galcenrect conversion did not work as expected for negative Xsun"
+    assert (
+        numpy.fabs(vgc[1] - vgcn[1]) < 10.0**-4.0
+    ), "vxvyvz_to_galcenrect conversion did not work as expected for negative Xsun"
+    assert (
+        numpy.fabs(vgc[2] - vgcn[2]) < 10.0**-4.0
+    ), "vxvyvz_to_galcenrect conversion did not work as expected for negative Xsun"
     return None
 
 
@@ -1194,15 +1194,15 @@ def test_vxvyvz_to_galcenrect_vecXsun():
         Xsun=numpy.array([1.1, 1.0]),
         Zsun=numpy.array([0.0, 0.0]),
     )
-    assert numpy.all(numpy.fabs(vgc[:, 0] + 15.0) < 10.0**-4.0), (
-        "vxvyvz_to_galcenrect conversion did not work as expected"
-    )
-    assert numpy.all(numpy.fabs(vgc[:, 1] + 10.0) < 10.0**-4.0), (
-        "vxvyvz_to_galcenrect conversion did not work as expected"
-    )
-    assert numpy.all(numpy.fabs(vgc[:, 2] - 35.0) < 10.0**-4.0), (
-        "vxvyvz_to_galcenrect conversion did not work as expected"
-    )
+    assert numpy.all(
+        numpy.fabs(vgc[:, 0] + 15.0) < 10.0**-4.0
+    ), "vxvyvz_to_galcenrect conversion did not work as expected"
+    assert numpy.all(
+        numpy.fabs(vgc[:, 1] + 10.0) < 10.0**-4.0
+    ), "vxvyvz_to_galcenrect conversion did not work as expected"
+    assert numpy.all(
+        numpy.fabs(vgc[:, 2] - 35.0) < 10.0**-4.0
+    ), "vxvyvz_to_galcenrect conversion did not work as expected"
     return None
 
 
@@ -1215,15 +1215,15 @@ def test_vxvyvz_to_galcenrect_vecvsun():
     vgc = coords.vxvyvz_to_galcenrect(
         vx, vy, vz, vsun=numpy.array([[-5.0, 10.0, 5.0], [-10.0, 0.0, 10.0]]).T
     )
-    assert numpy.all(numpy.fabs(vgc[:, 0] + 15.0) < 10.0**-4.0), (
-        "vxvyvz_to_galcenrect conversion did not work as expected"
-    )
-    assert numpy.all(numpy.fabs(vgc[:, 1] + 10.0) < 10.0**-4.0), (
-        "vxvyvz_to_galcenrect conversion did not work as expected"
-    )
-    assert numpy.all(numpy.fabs(vgc[:, 2] - 35.0) < 10.0**-4.0), (
-        "vxvyvz_to_galcenrect conversion did not work as expected"
-    )
+    assert numpy.all(
+        numpy.fabs(vgc[:, 0] + 15.0) < 10.0**-4.0
+    ), "vxvyvz_to_galcenrect conversion did not work as expected"
+    assert numpy.all(
+        numpy.fabs(vgc[:, 1] + 10.0) < 10.0**-4.0
+    ), "vxvyvz_to_galcenrect conversion did not work as expected"
+    assert numpy.all(
+        numpy.fabs(vgc[:, 2] - 35.0) < 10.0**-4.0
+    ), "vxvyvz_to_galcenrect conversion did not work as expected"
     return None
 
 
@@ -1241,15 +1241,15 @@ def test_vxvyvz_to_galcenrect_vecXsunvsun():
         Zsun=numpy.array([0.0, 0.0]),
         vsun=numpy.array([[-5.0, 10.0, 5.0], [-10.0, 0.0, 10.0]]).T,
     )
-    assert numpy.all(numpy.fabs(vgc[:, 0] + 15.0) < 10.0**-4.0), (
-        "vxvyvz_to_galcenrect conversion did not work as expected"
-    )
-    assert numpy.all(numpy.fabs(vgc[:, 1] + 10.0) < 10.0**-4.0), (
-        "vxvyvz_to_galcenrect conversion did not work as expected"
-    )
-    assert numpy.all(numpy.fabs(vgc[:, 2] - 35.0) < 10.0**-4.0), (
-        "vxvyvz_to_galcenrect conversion did not work as expected"
-    )
+    assert numpy.all(
+        numpy.fabs(vgc[:, 0] + 15.0) < 10.0**-4.0
+    ), "vxvyvz_to_galcenrect conversion did not work as expected"
+    assert numpy.all(
+        numpy.fabs(vgc[:, 1] + 10.0) < 10.0**-4.0
+    ), "vxvyvz_to_galcenrect conversion did not work as expected"
+    assert numpy.all(
+        numpy.fabs(vgc[:, 2] - 35.0) < 10.0**-4.0
+    ), "vxvyvz_to_galcenrect conversion did not work as expected"
     return None
 
 
@@ -1290,15 +1290,15 @@ def test_vrpmllpmbb_to_galcenrect_galpyvsastropy():
     c = c.transform_to(gc_frame)
     c.representation_type = "cartesian"
     # galpy is left-handed, astropy right-handed
-    assert numpy.fabs(vXYZg[0] + c.v_x.to(u.km / u.s).value) < 10.0**-8.0, (
-        "vrpmllpmbblbd to galcenrect conversion using galpy's methods does not agree with astropy"
-    )
-    assert numpy.fabs(vXYZg[1] - c.v_y.to(u.km / u.s).value) < 10.0**-8.0, (
-        "vrpmllpmbb to galcenrect conversion using galpy's methods does not agree with astropy"
-    )
-    assert numpy.fabs(vXYZg[2] - c.v_z.to(u.km / u.s).value) < 10.0**-8.0, (
-        "vrpmllpmbb to galcenrect conversion using galpy's methods does not agree with astropy"
-    )
+    assert (
+        numpy.fabs(vXYZg[0] + c.v_x.to(u.km / u.s).value) < 10.0**-8.0
+    ), "vrpmllpmbblbd to galcenrect conversion using galpy's methods does not agree with astropy"
+    assert (
+        numpy.fabs(vXYZg[1] - c.v_y.to(u.km / u.s).value) < 10.0**-8.0
+    ), "vrpmllpmbb to galcenrect conversion using galpy's methods does not agree with astropy"
+    assert (
+        numpy.fabs(vXYZg[2] - c.v_z.to(u.km / u.s).value) < 10.0**-8.0
+    ), "vrpmllpmbb to galcenrect conversion using galpy's methods does not agree with astropy"
     # Also with negative Xsun
     l, b, d = 32.0, -12.0, 3.0
     Zsun = 0.025
@@ -1327,15 +1327,15 @@ def test_vrpmllpmbb_to_galcenrect_galpyvsastropy():
     c = c.transform_to(gc_frame)
     c.representation_type = "cartesian"
     # galpy is now right-handed, astropy right-handed
-    assert numpy.fabs(vXYZg[0] - c.v_x.to(u.km / u.s).value) < 10.0**-8.0, (
-        "vrpmllpmbblbd to galcenrect conversion using galpy's methods does not agree with astropy"
-    )
-    assert numpy.fabs(vXYZg[1] - c.v_y.to(u.km / u.s).value) < 10.0**-8.0, (
-        "vrpmllpmbb to galcenrect conversion using galpy's methods does not agree with astropy"
-    )
-    assert numpy.fabs(vXYZg[2] - c.v_z.to(u.km / u.s).value) < 10.0**-8.0, (
-        "vrpmllpmbb to galcenrect conversion using galpy's methods does not agree with astropy"
-    )
+    assert (
+        numpy.fabs(vXYZg[0] - c.v_x.to(u.km / u.s).value) < 10.0**-8.0
+    ), "vrpmllpmbblbd to galcenrect conversion using galpy's methods does not agree with astropy"
+    assert (
+        numpy.fabs(vXYZg[1] - c.v_y.to(u.km / u.s).value) < 10.0**-8.0
+    ), "vrpmllpmbb to galcenrect conversion using galpy's methods does not agree with astropy"
+    assert (
+        numpy.fabs(vXYZg[2] - c.v_z.to(u.km / u.s).value) < 10.0**-8.0
+    ), "vrpmllpmbb to galcenrect conversion using galpy's methods does not agree with astropy"
     _turn_on_apy()
     return None
 
@@ -1344,28 +1344,28 @@ def test_vxvyvz_to_galcencyl():
     X, Y, Z = 3.0, 4.0, 2.0
     vx, vy, vz = 10.0, -20.0, 30
     vgc = coords.vxvyvz_to_galcencyl(vx, vy, vz, X, Y, Z, vsun=[-5.0, 10.0, 5.0])
-    assert numpy.fabs(vgc[0] + 17.0) < 10.0**-4.0, (
-        "vxvyvz_to_galcenrect conversion did not work as expected"
-    )
-    assert numpy.fabs(vgc[1] - 6.0) < 10.0**-4.0, (
-        "vxvyvz_to_galcenrect conversion did not work as expected"
-    )
-    assert numpy.fabs(vgc[2] - 35.0) < 10.0**-4.0, (
-        "vxvyvz_to_galcenrect conversion did not work as expected"
-    )
+    assert (
+        numpy.fabs(vgc[0] + 17.0) < 10.0**-4.0
+    ), "vxvyvz_to_galcenrect conversion did not work as expected"
+    assert (
+        numpy.fabs(vgc[1] - 6.0) < 10.0**-4.0
+    ), "vxvyvz_to_galcenrect conversion did not work as expected"
+    assert (
+        numpy.fabs(vgc[2] - 35.0) < 10.0**-4.0
+    ), "vxvyvz_to_galcenrect conversion did not work as expected"
     # with galcen=True
     vgc = coords.vxvyvz_to_galcencyl(
         vx, vy, vz, 5.0, numpy.arctan(4.0 / 3.0), Z, vsun=[-5.0, 10.0, 5.0], galcen=True
     )
-    assert numpy.fabs(vgc[0] + 17.0) < 10.0**-4.0, (
-        "vxvyvz_to_galcenrect conversion did not work as expected"
-    )
-    assert numpy.fabs(vgc[1] - 6.0) < 10.0**-4.0, (
-        "vxvyvz_to_galcenrect conversion did not work as expected"
-    )
-    assert numpy.fabs(vgc[2] - 35.0) < 10.0**-4.0, (
-        "vxvyvz_to_galcenrect conversion did not work as expected"
-    )
+    assert (
+        numpy.fabs(vgc[0] + 17.0) < 10.0**-4.0
+    ), "vxvyvz_to_galcenrect conversion did not work as expected"
+    assert (
+        numpy.fabs(vgc[1] - 6.0) < 10.0**-4.0
+    ), "vxvyvz_to_galcenrect conversion did not work as expected"
+    assert (
+        numpy.fabs(vgc[2] - 35.0) < 10.0**-4.0
+    ), "vxvyvz_to_galcenrect conversion did not work as expected"
     return None
 
 
@@ -1410,9 +1410,9 @@ def test_vrpmllpmbb_to_galcencyl_galpyvsastropy():
     c = c.transform_to(gc_frame)
     c.representation_type = "cylindrical"
     # galpy is left-handed, astropy right-handed
-    assert numpy.fabs(vRTZg[0] - c.d_rho.to(u.km / u.s).value) < 10.0**-8.0, (
-        "vrpmllpmbblbd to galcencyl conversion using galpy's methods does not agree with astropy"
-    )
+    assert (
+        numpy.fabs(vRTZg[0] - c.d_rho.to(u.km / u.s).value) < 10.0**-8.0
+    ), "vrpmllpmbblbd to galcencyl conversion using galpy's methods does not agree with astropy"
     assert (
         numpy.fabs(
             vRTZg[1]
@@ -1421,12 +1421,10 @@ def test_vrpmllpmbb_to_galcencyl_galpyvsastropy():
             .value
         )
         < 10.0**-8.0
-    ), (
-        "vrpmllpmbb to galcencyl conversion using galpy's methods does not agree with astropy"
-    )
-    assert numpy.fabs(vRTZg[2] - c.d_z.to(u.km / u.s).value) < 10.0**-8.0, (
-        "vrpmllpmbb to galcencyl conversion using galpy's methods does not agree with astropy"
-    )
+    ), "vrpmllpmbb to galcencyl conversion using galpy's methods does not agree with astropy"
+    assert (
+        numpy.fabs(vRTZg[2] - c.d_z.to(u.km / u.s).value) < 10.0**-8.0
+    ), "vrpmllpmbb to galcencyl conversion using galpy's methods does not agree with astropy"
     # Also with negative Xsun
     l, b, d = 32.0, -12.0, 3.0
     Zsun = 0.025
@@ -1459,9 +1457,9 @@ def test_vrpmllpmbb_to_galcencyl_galpyvsastropy():
     c = c.transform_to(gc_frame)
     c.representation_type = "cylindrical"
     # galpy is left-handed, astropy right-handed
-    assert numpy.fabs(vRTZg[0] - c.d_rho.to(u.km / u.s).value) < 10.0**-8.0, (
-        "vrpmllpmbblbd to galcencyl conversion using galpy's methods does not agree with astropy"
-    )
+    assert (
+        numpy.fabs(vRTZg[0] - c.d_rho.to(u.km / u.s).value) < 10.0**-8.0
+    ), "vrpmllpmbblbd to galcencyl conversion using galpy's methods does not agree with astropy"
     assert (
         numpy.fabs(
             vRTZg[1]
@@ -1470,12 +1468,10 @@ def test_vrpmllpmbb_to_galcencyl_galpyvsastropy():
             .value
         )
         < 10.0**-8.0
-    ), (
-        "vrpmllpmbb to galcencyl conversion using galpy's methods does not agree with astropy"
-    )
-    assert numpy.fabs(vRTZg[2] - c.d_z.to(u.km / u.s).value) < 10.0**-8.0, (
-        "vrpmllpmbb to galcencyl conversion using galpy's methods does not agree with astropy"
-    )
+    ), "vrpmllpmbb to galcencyl conversion using galpy's methods does not agree with astropy"
+    assert (
+        numpy.fabs(vRTZg[2] - c.d_z.to(u.km / u.s).value) < 10.0**-8.0
+    ), "vrpmllpmbb to galcencyl conversion using galpy's methods does not agree with astropy"
     _turn_on_apy()
     return None
 
@@ -1483,29 +1479,29 @@ def test_vrpmllpmbb_to_galcencyl_galpyvsastropy():
 def test_galcenrect_to_vxvyvz():
     vxg, vyg, vzg = -15.0, -10.0, 35.0
     vxyz = coords.galcenrect_to_vxvyvz(vxg, vyg, vzg, vsun=[-5.0, 10.0, 5.0])
-    assert numpy.fabs(vxyz[0] - 10.0) < 10.0**-4.0, (
-        "galcenrect_to_vxvyvz conversion did not work as expected"
-    )
-    assert numpy.fabs(vxyz[1] + 20.0) < 10.0**-4.0, (
-        "galcenrect_to_vxvyvz conversion did not work as expected"
-    )
-    assert numpy.fabs(vxyz[2] - 30.0) < 10.0**-4.0, (
-        "galcenrect_to_vxvyvz conversion did not work as expected"
-    )
+    assert (
+        numpy.fabs(vxyz[0] - 10.0) < 10.0**-4.0
+    ), "galcenrect_to_vxvyvz conversion did not work as expected"
+    assert (
+        numpy.fabs(vxyz[1] + 20.0) < 10.0**-4.0
+    ), "galcenrect_to_vxvyvz conversion did not work as expected"
+    assert (
+        numpy.fabs(vxyz[2] - 30.0) < 10.0**-4.0
+    ), "galcenrect_to_vxvyvz conversion did not work as expected"
     # Also for arrays
     os = numpy.ones(2)
     vxyz = coords.galcenrect_to_vxvyvz(
         os * vxg, os * vyg, os * vzg, vsun=[-5.0, 10.0, 5.0]
     )
-    assert numpy.all(numpy.fabs(vxyz[:, 0] - 10.0) < 10.0**-4.0), (
-        "galcenrect_to_vxvyvz conversion did not work as expected"
-    )
-    assert numpy.all(numpy.fabs(vxyz[:, 1] + 20.0) < 10.0**-4.0), (
-        "galcenrect_to_vxvyvz conversion did not work as expected"
-    )
-    assert numpy.all(numpy.fabs(vxyz[:, 2] - 30.0) < 10.0**-4.0), (
-        "galcenrect_to_vxvyvz conversion did not work as expected"
-    )
+    assert numpy.all(
+        numpy.fabs(vxyz[:, 0] - 10.0) < 10.0**-4.0
+    ), "galcenrect_to_vxvyvz conversion did not work as expected"
+    assert numpy.all(
+        numpy.fabs(vxyz[:, 1] + 20.0) < 10.0**-4.0
+    ), "galcenrect_to_vxvyvz conversion did not work as expected"
+    assert numpy.all(
+        numpy.fabs(vxyz[:, 2] - 30.0) < 10.0**-4.0
+    ), "galcenrect_to_vxvyvz conversion did not work as expected"
     return None
 
 
@@ -1517,9 +1513,9 @@ def test_galcenrect_to_vxvyvz_negXsun():
     vxyzn = coords.galcenrect_to_vxvyvz(
         -vxg, vyg, vzg, vsun=[5.0, 10.0, 5.0], Xsun=-1.1, Zsun=0.2
     )
-    assert numpy.all(numpy.fabs(numpy.array(vxyz) - numpy.array(vxyzn)) < 10.0**-4.0), (
-        "galcenrect_to_vxvyvz conversion did not work as expected"
-    )
+    assert numpy.all(
+        numpy.fabs(numpy.array(vxyz) - numpy.array(vxyzn)) < 10.0**-4.0
+    ), "galcenrect_to_vxvyvz conversion did not work as expected"
     return None
 
 
@@ -1528,15 +1524,15 @@ def test_galcenrect_to_vxvyvz_asInverse():
     vx, vy, vz = -15.0, -10.0, 35.0
     vxg, vyg, vzg = coords.vxvyvz_to_galcenrect(vx, vy, vz, vsun=[-5.0, 10.0, 5.0])
     vxt, vyt, vzt = coords.galcenrect_to_vxvyvz(vxg, vyg, vzg, vsun=[-5.0, 10.0, 5.0])
-    assert numpy.fabs(vx - vxt) < 10.0**-14.0, (
-        "galcenrect_to_vxvyvz is not the inverse of vxvyvz_to_galcenrect"
-    )
-    assert numpy.fabs(vy - vyt) < 10.0**-14.0, (
-        "galcenrect_to_vxvyvz is not the inverse of vxvyvz_to_galcenrect"
-    )
-    assert numpy.fabs(vz - vzt) < 10.0**-14.0, (
-        "galcenrect_to_vxvyvz is not the inverse of vxvyvz_to_galcenrect"
-    )
+    assert (
+        numpy.fabs(vx - vxt) < 10.0**-14.0
+    ), "galcenrect_to_vxvyvz is not the inverse of vxvyvz_to_galcenrect"
+    assert (
+        numpy.fabs(vy - vyt) < 10.0**-14.0
+    ), "galcenrect_to_vxvyvz is not the inverse of vxvyvz_to_galcenrect"
+    assert (
+        numpy.fabs(vz - vzt) < 10.0**-14.0
+    ), "galcenrect_to_vxvyvz is not the inverse of vxvyvz_to_galcenrect"
     # Also for arrays
     os = numpy.ones(2)
     vxyzg = coords.vxvyvz_to_galcenrect(
@@ -1545,15 +1541,15 @@ def test_galcenrect_to_vxvyvz_asInverse():
     vxyzt = coords.galcenrect_to_vxvyvz(
         vxyzg[:, 0], vxyzg[:, 1], vxyzg[:, 2], vsun=[-5.0, 10.0, 5.0]
     )
-    assert numpy.all(numpy.fabs(vxyzt[:, 0] - vx * os) < 10.0**-10.0), (
-        "galcenrect_to_vxvyvz is not the inverse of vxvyvz_to_galcenrect"
-    )
-    assert numpy.all(numpy.fabs(vxyzt[:, 1] - vy * os) < 10.0**-10.0), (
-        "galcenrect_to_vxvyvz is not the inverse of vxvyvz_to_galcenrect"
-    )
-    assert numpy.all(numpy.fabs(vxyzt[:, 2] - vz * os) < 10.0**-10.0), (
-        "galcenrect_to_vxvyvz is not the inverse of vxvyvz_to_galcenrect"
-    )
+    assert numpy.all(
+        numpy.fabs(vxyzt[:, 0] - vx * os) < 10.0**-10.0
+    ), "galcenrect_to_vxvyvz is not the inverse of vxvyvz_to_galcenrect"
+    assert numpy.all(
+        numpy.fabs(vxyzt[:, 1] - vy * os) < 10.0**-10.0
+    ), "galcenrect_to_vxvyvz is not the inverse of vxvyvz_to_galcenrect"
+    assert numpy.all(
+        numpy.fabs(vxyzt[:, 2] - vz * os) < 10.0**-10.0
+    ), "galcenrect_to_vxvyvz is not the inverse of vxvyvz_to_galcenrect"
     return None
 
 
@@ -1571,15 +1567,15 @@ def test_galcenrect_to_vxvyvz_vecXsun():
         Xsun=numpy.array([1.1, 1.0]),
         Zsun=numpy.array([0.0, 0.0]),
     )
-    assert numpy.all(numpy.fabs(vxyz[:, 0] - 10.0) < 10.0**-4.0), (
-        "galcenrect_to_vxvyvz conversion did not work as expected"
-    )
-    assert numpy.all(numpy.fabs(vxyz[:, 1] + 20.0) < 10.0**-4.0), (
-        "galcenrect_to_vxvyvz conversion did not work as expected"
-    )
-    assert numpy.all(numpy.fabs(vxyz[:, 2] - 30.0) < 10.0**-4.0), (
-        "galcenrect_to_vxvyvz conversion did not work as expected"
-    )
+    assert numpy.all(
+        numpy.fabs(vxyz[:, 0] - 10.0) < 10.0**-4.0
+    ), "galcenrect_to_vxvyvz conversion did not work as expected"
+    assert numpy.all(
+        numpy.fabs(vxyz[:, 1] + 20.0) < 10.0**-4.0
+    ), "galcenrect_to_vxvyvz conversion did not work as expected"
+    assert numpy.all(
+        numpy.fabs(vxyz[:, 2] - 30.0) < 10.0**-4.0
+    ), "galcenrect_to_vxvyvz conversion did not work as expected"
     return None
 
 
@@ -1592,15 +1588,15 @@ def test_galcenrect_to_vxvyvz_vecvsun():
     vxyz = coords.galcenrect_to_vxvyvz(
         vxg, vyg, vzg, vsun=numpy.array([[-5.0, 10.0, 5.0], [5.0, 0.0, 2.5]]).T
     )
-    assert numpy.all(numpy.fabs(vxyz[:, 0] - 10.0) < 10.0**-4.0), (
-        "galcenrect_to_vxvyvz conversion did not work as expected"
-    )
-    assert numpy.all(numpy.fabs(vxyz[:, 1] + 20.0) < 10.0**-4.0), (
-        "galcenrect_to_vxvyvz conversion did not work as expected"
-    )
-    assert numpy.all(numpy.fabs(vxyz[:, 2] - 30.0) < 10.0**-4.0), (
-        "galcenrect_to_vxvyvz conversion did not work as expected"
-    )
+    assert numpy.all(
+        numpy.fabs(vxyz[:, 0] - 10.0) < 10.0**-4.0
+    ), "galcenrect_to_vxvyvz conversion did not work as expected"
+    assert numpy.all(
+        numpy.fabs(vxyz[:, 1] + 20.0) < 10.0**-4.0
+    ), "galcenrect_to_vxvyvz conversion did not work as expected"
+    assert numpy.all(
+        numpy.fabs(vxyz[:, 2] - 30.0) < 10.0**-4.0
+    ), "galcenrect_to_vxvyvz conversion did not work as expected"
     return None
 
 
@@ -1618,15 +1614,15 @@ def test_galcenrect_to_vxvyvz_vecXsunvsun():
         Xsun=numpy.array([1.1, 1.0]),
         Zsun=numpy.array([0.0, 0.0]),
     )
-    assert numpy.all(numpy.fabs(vxyz[:, 0] - 10.0) < 10.0**-4.0), (
-        "galcenrect_to_vxvyvz conversion did not work as expected"
-    )
-    assert numpy.all(numpy.fabs(vxyz[:, 1] + 20.0) < 10.0**-4.0), (
-        "galcenrect_to_vxvyvz conversion did not work as expected"
-    )
-    assert numpy.all(numpy.fabs(vxyz[:, 2] - 30.0) < 10.0**-4.0), (
-        "galcenrect_to_vxvyvz conversion did not work as expected"
-    )
+    assert numpy.all(
+        numpy.fabs(vxyz[:, 0] - 10.0) < 10.0**-4.0
+    ), "galcenrect_to_vxvyvz conversion did not work as expected"
+    assert numpy.all(
+        numpy.fabs(vxyz[:, 1] + 20.0) < 10.0**-4.0
+    ), "galcenrect_to_vxvyvz conversion did not work as expected"
+    assert numpy.all(
+        numpy.fabs(vxyz[:, 2] - 30.0) < 10.0**-4.0
+    ), "galcenrect_to_vxvyvz conversion did not work as expected"
     return None
 
 
@@ -1634,15 +1630,15 @@ def test_galcencyl_to_vxvyvz():
     vr, vp, vz = -17.0, 6.0, 35.0
     phi = numpy.arctan(4.0 / 3.0)
     vxyz = coords.galcencyl_to_vxvyvz(vr, vp, vz, phi, vsun=[-5.0, 10.0, 5.0])
-    assert numpy.fabs(vxyz[0] - 10.0) < 10.0**-4.0, (
-        "galcenrect_to_vxvyvz conversion did not work as expected"
-    )
-    assert numpy.fabs(vxyz[1] + 20.0) < 10.0**-4.0, (
-        "galcenrect_to_vxvyvz conversion did not work as expected"
-    )
-    assert numpy.fabs(vxyz[2] - 30.0) < 10.0**-4.0, (
-        "galcenrect_to_vxvyvz conversion did not work as expected"
-    )
+    assert (
+        numpy.fabs(vxyz[0] - 10.0) < 10.0**-4.0
+    ), "galcenrect_to_vxvyvz conversion did not work as expected"
+    assert (
+        numpy.fabs(vxyz[1] + 20.0) < 10.0**-4.0
+    ), "galcenrect_to_vxvyvz conversion did not work as expected"
+    assert (
+        numpy.fabs(vxyz[2] - 30.0) < 10.0**-4.0
+    ), "galcenrect_to_vxvyvz conversion did not work as expected"
     return None
 
 
@@ -1656,15 +1652,15 @@ def test_galcencyl_to_vxvyvz_asInverse():
     vxt, vyt, vzt = coords.galcencyl_to_vxvyvz(
         vrg, vtg, vzg, phi, vsun=[-5.0, 10.0, 5.0]
     )
-    assert numpy.fabs(vx - vxt) < 10.0**-14.0, (
-        "galcencyl_to_vxvyvz is not the inverse of vxvyvz_to_galcencyl"
-    )
-    assert numpy.fabs(vy - vyt) < 10.0**-14.0, (
-        "galcencyl_to_vxvyvz is not the inverse of vxvyvz_to_galcencyl"
-    )
-    assert numpy.fabs(vz - vzt) < 10.0**-14.0, (
-        "galcencyl_to_vxvyvz is not the inverse of vxvyvz_to_galcencyl"
-    )
+    assert (
+        numpy.fabs(vx - vxt) < 10.0**-14.0
+    ), "galcencyl_to_vxvyvz is not the inverse of vxvyvz_to_galcencyl"
+    assert (
+        numpy.fabs(vy - vyt) < 10.0**-14.0
+    ), "galcencyl_to_vxvyvz is not the inverse of vxvyvz_to_galcencyl"
+    assert (
+        numpy.fabs(vz - vzt) < 10.0**-14.0
+    ), "galcencyl_to_vxvyvz is not the inverse of vxvyvz_to_galcencyl"
     # Also for arrays
     os = numpy.ones(2)
     vx, vy, vz = -15.0, -10.0, 35.0
@@ -1682,15 +1678,15 @@ def test_galcencyl_to_vxvyvz_asInverse():
     vxyzt = coords.galcencyl_to_vxvyvz(
         vrtzg[:, 0], vrtzg[:, 1], vrtzg[:, 2], phi * os, vsun=[-5.0, 10.0, 5.0]
     )
-    assert numpy.all(numpy.fabs(vxyzt[:, 0] - vx * os) < 10.0**-10.0), (
-        "galcencyl_to_vxvyvz is not the inverse of vxvyvz_to_galcencyl"
-    )
-    assert numpy.all(numpy.fabs(vxyzt[:, 1] - vy * os) < 10.0**-10.0), (
-        "galcencyl_to_vxvyvz is not the inverse of vxvyvz_to_galcencyl"
-    )
-    assert numpy.all(numpy.fabs(vxyzt[:, 2] - vz * os) < 10.0**-10.0), (
-        "galcencyl_to_vxvyvz is not the inverse of vxvyvz_to_galcencyl"
-    )
+    assert numpy.all(
+        numpy.fabs(vxyzt[:, 0] - vx * os) < 10.0**-10.0
+    ), "galcencyl_to_vxvyvz is not the inverse of vxvyvz_to_galcencyl"
+    assert numpy.all(
+        numpy.fabs(vxyzt[:, 1] - vy * os) < 10.0**-10.0
+    ), "galcencyl_to_vxvyvz is not the inverse of vxvyvz_to_galcencyl"
+    assert numpy.all(
+        numpy.fabs(vxyzt[:, 2] - vz * os) < 10.0**-10.0
+    ), "galcencyl_to_vxvyvz is not the inverse of vxvyvz_to_galcencyl"
     return None
 
 
@@ -1700,46 +1696,46 @@ def test_sphergal_to_rectgal():
     X, Y, Z, vx, vy, vz = coords.sphergal_to_rectgal(
         l, b, d, vr, pmll, pmbb, degree=True
     )
-    assert numpy.fabs(X - 0.0) < 10.0**-9.0, (
-        "sphergal_to_rectgal conversion did not work as expected"
-    )
-    assert numpy.fabs(Y - 1.0) < 10.0**-9.0, (
-        "sphergal_to_rectgal conversion did not work as expected"
-    )
-    assert numpy.fabs(Z - 0.0) < 10.0**-9.0, (
-        "sphergal_to_rectgal conversion did not work as expected"
-    )
-    assert numpy.fabs(vx - 20.0) < 10.0**-9.0, (
-        "sphergal_to_rectgal conversion did not work as expected"
-    )
-    assert numpy.fabs(vy - 10.0) < 10.0**-9.0, (
-        "sphergal_to_rectgal conversion did not work as expected"
-    )
-    assert numpy.fabs(vz - 30.0) < 10.0**-9.0, (
-        "sphergal_to_rectgal conversion did not work as expected"
-    )
+    assert (
+        numpy.fabs(X - 0.0) < 10.0**-9.0
+    ), "sphergal_to_rectgal conversion did not work as expected"
+    assert (
+        numpy.fabs(Y - 1.0) < 10.0**-9.0
+    ), "sphergal_to_rectgal conversion did not work as expected"
+    assert (
+        numpy.fabs(Z - 0.0) < 10.0**-9.0
+    ), "sphergal_to_rectgal conversion did not work as expected"
+    assert (
+        numpy.fabs(vx - 20.0) < 10.0**-9.0
+    ), "sphergal_to_rectgal conversion did not work as expected"
+    assert (
+        numpy.fabs(vy - 10.0) < 10.0**-9.0
+    ), "sphergal_to_rectgal conversion did not work as expected"
+    assert (
+        numpy.fabs(vz - 30.0) < 10.0**-9.0
+    ), "sphergal_to_rectgal conversion did not work as expected"
     # Also test for degree=False
     X, Y, Z, vx, vy, vz = coords.sphergal_to_rectgal(
         l / 180.0 * numpy.pi, b / 180.0 * numpy.pi, d, vr, pmll, pmbb, degree=False
     )
-    assert numpy.fabs(X - 0.0) < 10.0**-9.0, (
-        "sphergal_to_rectgal conversion did not work as expected"
-    )
-    assert numpy.fabs(Y - 1.0) < 10.0**-9.0, (
-        "sphergal_to_rectgal conversion did not work as expected"
-    )
-    assert numpy.fabs(Z - 0.0) < 10.0**-9.0, (
-        "sphergal_to_rectgal conversion did not work as expected"
-    )
-    assert numpy.fabs(vx - 20.0) < 10.0**-9.0, (
-        "sphergal_to_rectgal conversion did not work as expected"
-    )
-    assert numpy.fabs(vy - 10.0) < 10.0**-9.0, (
-        "sphergal_to_rectgal conversion did not work as expected"
-    )
-    assert numpy.fabs(vz - 30.0) < 10.0**-9.0, (
-        "sphergal_to_rectgal conversion did not work as expected"
-    )
+    assert (
+        numpy.fabs(X - 0.0) < 10.0**-9.0
+    ), "sphergal_to_rectgal conversion did not work as expected"
+    assert (
+        numpy.fabs(Y - 1.0) < 10.0**-9.0
+    ), "sphergal_to_rectgal conversion did not work as expected"
+    assert (
+        numpy.fabs(Z - 0.0) < 10.0**-9.0
+    ), "sphergal_to_rectgal conversion did not work as expected"
+    assert (
+        numpy.fabs(vx - 20.0) < 10.0**-9.0
+    ), "sphergal_to_rectgal conversion did not work as expected"
+    assert (
+        numpy.fabs(vy - 10.0) < 10.0**-9.0
+    ), "sphergal_to_rectgal conversion did not work as expected"
+    assert (
+        numpy.fabs(vz - 30.0) < 10.0**-9.0
+    ), "sphergal_to_rectgal conversion did not work as expected"
     # Also test for arrays
     os = numpy.ones(2)
     XYZvxvyvz = coords.sphergal_to_rectgal(
@@ -1751,24 +1747,24 @@ def test_sphergal_to_rectgal():
     vx = XYZvxvyvz[:, 3]
     vy = XYZvxvyvz[:, 4]
     vz = XYZvxvyvz[:, 5]
-    assert numpy.all(numpy.fabs(X - 0.0) < 10.0**-9.0), (
-        "sphergal_to_rectgal conversion did not work as expected"
-    )
-    assert numpy.all(numpy.fabs(Y - 1.0) < 10.0**-9.0), (
-        "sphergal_to_rectgal conversion did not work as expected"
-    )
-    assert numpy.all(numpy.fabs(Z - 0.0) < 10.0**-9.0), (
-        "sphergal_to_rectgal conversion did not work as expected"
-    )
-    assert numpy.all(numpy.fabs(vx - 20.0) < 10.0**-9.0), (
-        "sphergal_to_rectgal conversion did not work as expected"
-    )
-    assert numpy.all(numpy.fabs(vy - 10.0) < 10.0**-9.0), (
-        "sphergal_to_rectgal conversion did not work as expected"
-    )
-    assert numpy.all(numpy.fabs(vz - 30.0) < 10.0**-9.0), (
-        "sphergal_to_rectgal conversion did not work as expected"
-    )
+    assert numpy.all(
+        numpy.fabs(X - 0.0) < 10.0**-9.0
+    ), "sphergal_to_rectgal conversion did not work as expected"
+    assert numpy.all(
+        numpy.fabs(Y - 1.0) < 10.0**-9.0
+    ), "sphergal_to_rectgal conversion did not work as expected"
+    assert numpy.all(
+        numpy.fabs(Z - 0.0) < 10.0**-9.0
+    ), "sphergal_to_rectgal conversion did not work as expected"
+    assert numpy.all(
+        numpy.fabs(vx - 20.0) < 10.0**-9.0
+    ), "sphergal_to_rectgal conversion did not work as expected"
+    assert numpy.all(
+        numpy.fabs(vy - 10.0) < 10.0**-9.0
+    ), "sphergal_to_rectgal conversion did not work as expected"
+    assert numpy.all(
+        numpy.fabs(vz - 30.0) < 10.0**-9.0
+    ), "sphergal_to_rectgal conversion did not work as expected"
     return None
 
 
@@ -1782,46 +1778,46 @@ def test_rectgal_to_sphergal():
     lt, bt, dt, vrt, pmllt, pmbbt = coords.rectgal_to_sphergal(
         X, Y, Z, vx, vy, vz, degree=True
     )
-    assert numpy.fabs(lt - l) < 10.0**-10.0, (
-        "rectgal_to_sphergal conversion did not work as expected"
-    )
-    assert numpy.fabs(bt - b) < 10.0**-10.0, (
-        "rectgal_to_sphergal conversion did not work as expected"
-    )
-    assert numpy.fabs(dt - d) < 10.0**-10.0, (
-        "rectgal_to_sphergal conversion did not work as expected"
-    )
-    assert numpy.fabs(vrt - vr) < 10.0**-10.0, (
-        "rectgal_to_sphergal conversion did not work as expected"
-    )
-    assert numpy.fabs(pmllt - pmll) < 10.0**-10.0, (
-        "rectgal_to_sphergal conversion did not work as expected"
-    )
-    assert numpy.fabs(pmbbt - pmbb) < 10.0**-10.0, (
-        "rectgal_to_sphergal conversion did not work as expected"
-    )
+    assert (
+        numpy.fabs(lt - l) < 10.0**-10.0
+    ), "rectgal_to_sphergal conversion did not work as expected"
+    assert (
+        numpy.fabs(bt - b) < 10.0**-10.0
+    ), "rectgal_to_sphergal conversion did not work as expected"
+    assert (
+        numpy.fabs(dt - d) < 10.0**-10.0
+    ), "rectgal_to_sphergal conversion did not work as expected"
+    assert (
+        numpy.fabs(vrt - vr) < 10.0**-10.0
+    ), "rectgal_to_sphergal conversion did not work as expected"
+    assert (
+        numpy.fabs(pmllt - pmll) < 10.0**-10.0
+    ), "rectgal_to_sphergal conversion did not work as expected"
+    assert (
+        numpy.fabs(pmbbt - pmbb) < 10.0**-10.0
+    ), "rectgal_to_sphergal conversion did not work as expected"
     # Also test for degree=False
     lt, bt, dt, vrt, pmllt, pmbbt = coords.rectgal_to_sphergal(
         X, Y, Z, vx, vy, vz, degree=False
     )
-    assert numpy.fabs(lt - l / 180.0 * numpy.pi) < 10.0**-10.0, (
-        "rectgal_to_sphergal conversion did not work as expected"
-    )
-    assert numpy.fabs(bt - b / 180.0 * numpy.pi) < 10.0**-10.0, (
-        "rectgal_to_sphergal conversion did not work as expected"
-    )
-    assert numpy.fabs(dt - d) < 10.0**-10.0, (
-        "rectgal_to_sphergal conversion did not work as expected"
-    )
-    assert numpy.fabs(vrt - vr) < 10.0**-10.0, (
-        "rectgal_to_sphergal conversion did not work as expected"
-    )
-    assert numpy.fabs(pmllt - pmll) < 10.0**-10.0, (
-        "rectgal_to_sphergal conversion did not work as expected"
-    )
-    assert numpy.fabs(pmbbt - pmbb) < 10.0**-10.0, (
-        "rectgal_to_sphergal conversion did not work as expected"
-    )
+    assert (
+        numpy.fabs(lt - l / 180.0 * numpy.pi) < 10.0**-10.0
+    ), "rectgal_to_sphergal conversion did not work as expected"
+    assert (
+        numpy.fabs(bt - b / 180.0 * numpy.pi) < 10.0**-10.0
+    ), "rectgal_to_sphergal conversion did not work as expected"
+    assert (
+        numpy.fabs(dt - d) < 10.0**-10.0
+    ), "rectgal_to_sphergal conversion did not work as expected"
+    assert (
+        numpy.fabs(vrt - vr) < 10.0**-10.0
+    ), "rectgal_to_sphergal conversion did not work as expected"
+    assert (
+        numpy.fabs(pmllt - pmll) < 10.0**-10.0
+    ), "rectgal_to_sphergal conversion did not work as expected"
+    assert (
+        numpy.fabs(pmbbt - pmbb) < 10.0**-10.0
+    ), "rectgal_to_sphergal conversion did not work as expected"
     # Also test for arrays
     os = numpy.ones(2)
     lbdvrpmllpmbbt = coords.rectgal_to_sphergal(
@@ -1833,24 +1829,24 @@ def test_rectgal_to_sphergal():
     vrt = lbdvrpmllpmbbt[:, 3]
     pmllt = lbdvrpmllpmbbt[:, 4]
     pmbbt = lbdvrpmllpmbbt[:, 5]
-    assert numpy.all(numpy.fabs(lt - l) < 10.0**-10.0), (
-        "rectgal_to_sphergal conversion did not work as expected"
-    )
-    assert numpy.all(numpy.fabs(bt - b) < 10.0**-10.0), (
-        "rectgal_to_sphergal conversion did not work as expected"
-    )
-    assert numpy.all(numpy.fabs(dt - d) < 10.0**-10.0), (
-        "rectgal_to_sphergal conversion did not work as expected"
-    )
-    assert numpy.all(numpy.fabs(vrt - vr) < 10.0**-10.0), (
-        "rectgal_to_sphergal conversion did not work as expected"
-    )
-    assert numpy.all(numpy.fabs(pmllt - pmll) < 10.0**-10.0), (
-        "rectgal_to_sphergal conversion did not work as expected"
-    )
-    assert numpy.all(numpy.fabs(pmbbt - pmbb) < 10.0**-10.0), (
-        "rectgal_to_sphergal conversion did not work as expected"
-    )
+    assert numpy.all(
+        numpy.fabs(lt - l) < 10.0**-10.0
+    ), "rectgal_to_sphergal conversion did not work as expected"
+    assert numpy.all(
+        numpy.fabs(bt - b) < 10.0**-10.0
+    ), "rectgal_to_sphergal conversion did not work as expected"
+    assert numpy.all(
+        numpy.fabs(dt - d) < 10.0**-10.0
+    ), "rectgal_to_sphergal conversion did not work as expected"
+    assert numpy.all(
+        numpy.fabs(vrt - vr) < 10.0**-10.0
+    ), "rectgal_to_sphergal conversion did not work as expected"
+    assert numpy.all(
+        numpy.fabs(pmllt - pmll) < 10.0**-10.0
+    ), "rectgal_to_sphergal conversion did not work as expected"
+    assert numpy.all(
+        numpy.fabs(pmbbt - pmbb) < 10.0**-10.0
+    ), "rectgal_to_sphergal conversion did not work as expected"
     return None
 
 
@@ -1981,18 +1977,18 @@ def test_cov_pmradec_to_pmllbb():
         cov_pmrapmdec, ra, dec, degree=True, epoch=1950.0
     )
 
-    assert numpy.fabs(cov_pmllpmbb[0, 0] - 100.0) < 10.0**-10.0, (
-        "cov_pmradec_to_pmllbb conversion did not work as expected"
-    )
-    assert numpy.fabs(cov_pmllpmbb[0, 1] - 100.0) < 10.0**-10.0, (
-        "cov_pmradec_to_pmllbb conversion did not work as expected"
-    )
-    assert numpy.fabs(cov_pmllpmbb[1, 0] - 100.0) < 10.0**-10.0, (
-        "cov_pmradec_to_pmllbb conversion did not work as expected"
-    )
-    assert numpy.fabs(cov_pmllpmbb[1, 1] - 400.0) < 10.0**-10.0, (
-        "cov_pmradec_to_pmllbb conversion did not work as expected"
-    )
+    assert (
+        numpy.fabs(cov_pmllpmbb[0, 0] - 100.0) < 10.0**-10.0
+    ), "cov_pmradec_to_pmllbb conversion did not work as expected"
+    assert (
+        numpy.fabs(cov_pmllpmbb[0, 1] - 100.0) < 10.0**-10.0
+    ), "cov_pmradec_to_pmllbb conversion did not work as expected"
+    assert (
+        numpy.fabs(cov_pmllpmbb[1, 0] - 100.0) < 10.0**-10.0
+    ), "cov_pmradec_to_pmllbb conversion did not work as expected"
+    assert (
+        numpy.fabs(cov_pmllpmbb[1, 1] - 400.0) < 10.0**-10.0
+    ), "cov_pmradec_to_pmllbb conversion did not work as expected"
     # This is a random position, check that the conversion makes sense
     ra, dec = 132.25, -23.4
     cov_pmrapmdec = numpy.array([[100.0, 100.0], [100.0, 400.0]])
@@ -2056,9 +2052,9 @@ def test_cov_dvrpmllbb_to_vxyz():
         )
         < 10.0**-8.0
     ), "cov_dvrpmllbb_to_vxyz conversion did not work as expected"
-    assert numpy.fabs(numpy.sqrt(cov_vxvyvz[1, 1]) - e_vr) < 10.0**-10.0, (
-        "cov_dvrpmllbb_to_vxyz conversion did not work as expected"
-    )
+    assert (
+        numpy.fabs(numpy.sqrt(cov_vxvyvz[1, 1]) - e_vr) < 10.0**-10.0
+    ), "cov_dvrpmllbb_to_vxyz conversion did not work as expected"
     assert (
         numpy.fabs(
             numpy.sqrt(cov_vxvyvz[2, 2])
@@ -2086,9 +2082,9 @@ def test_cov_dvrpmllbb_to_vxyz():
         degree=False,
         plx=True,
     )
-    assert numpy.fabs(numpy.sqrt(cov_vxvyvz[0, 0]) - e_vr) < 10.0**-8.0, (
-        "cov_dvrpmllbb_to_vxyz conversion did not work as expected"
-    )
+    assert (
+        numpy.fabs(numpy.sqrt(cov_vxvyvz[0, 0]) - e_vr) < 10.0**-8.0
+    ), "cov_dvrpmllbb_to_vxyz conversion did not work as expected"
     assert (
         numpy.fabs(
             numpy.sqrt(cov_vxvyvz[1, 1])
@@ -2153,9 +2149,9 @@ def test_cov_dvrpmllbb_to_vxyz():
             )
             < 10.0**-8.0
         ), "cov_dvrpmllbb_to_vxyz conversion did not work as expected"
-        assert numpy.fabs(numpy.sqrt(cov_vxvyvz[ii, 2, 2]) - e_vr) < 10.0**-10.0, (
-            "cov_dvrpmllbb_to_vxyz conversion did not work as expected"
-        )
+        assert (
+            numpy.fabs(numpy.sqrt(cov_vxvyvz[ii, 2, 2]) - e_vr) < 10.0**-10.0
+        ), "cov_dvrpmllbb_to_vxyz conversion did not work as expected"
 
     return None
 
@@ -2165,18 +2161,18 @@ def test_cov_vxyz_to_galcencyl():
     cov_vxyz = numpy.array([[1.0, 1.0, 1.0], [1.0, 1.0, 1.0], [1.0, 1.0, 1.0]])
     phi = numpy.pi
     cov_galcencyl = coords.cov_vxyz_to_galcencyl(cov_vxyz, phi)
-    assert (cov_galcencyl[0, 2] + 1 < 10.0**-8).all(), (
-        "cov_vxyz_to_galcencyl conversion did not work as expected"
-    )
-    assert (cov_galcencyl[1, 2] + 1 < 10.0**-8).all(), (
-        "cov_vxyz_to_galcencyl conversion did not work as expected"
-    )
-    assert (cov_galcencyl[2, 0] + 1 < 10.0**-8).all(), (
-        "cov_vxyz_to_galcencyl conversion did not work as expected"
-    )
-    assert (cov_galcencyl[2, 1] + 1 < 10.0**-8).all(), (
-        "cov_vxyz_to_galcencyl conversion did not work as expected"
-    )
+    assert (
+        cov_galcencyl[0, 2] + 1 < 10.0**-8
+    ).all(), "cov_vxyz_to_galcencyl conversion did not work as expected"
+    assert (
+        cov_galcencyl[1, 2] + 1 < 10.0**-8
+    ).all(), "cov_vxyz_to_galcencyl conversion did not work as expected"
+    assert (
+        cov_galcencyl[2, 0] + 1 < 10.0**-8
+    ).all(), "cov_vxyz_to_galcencyl conversion did not work as expected"
+    assert (
+        cov_galcencyl[2, 1] + 1 < 10.0**-8
+    ).all(), "cov_vxyz_to_galcencyl conversion did not work as expected"
     # try an array
     cov_vxyz = numpy.array(
         [
@@ -2186,18 +2182,18 @@ def test_cov_vxyz_to_galcencyl():
     )
     phis = [0.0, numpy.pi]
     cov_galcencyl = coords.cov_vxyz_to_galcencyl(cov_vxyz, phis)
-    assert (cov_galcencyl[1, 0, 2] + 1 < 10.0**-8).all(), (
-        "cov_vxyz_to_galcencyl conversion did not work as expected"
-    )
-    assert (cov_galcencyl[1, 1, 2] + 1 < 10.0**-8).all(), (
-        "cov_vxyz_to_galcencyl conversion did not work as expected"
-    )
-    assert (cov_galcencyl[1, 2, 0] + 1 < 10.0**-8).all(), (
-        "cov_vxyz_to_galcencyl conversion did not work as expected"
-    )
-    assert (cov_galcencyl[1, 2, 1] + 1 < 10.0**-8).all(), (
-        "cov_vxyz_to_galcencyl conversion did not work as expected"
-    )
+    assert (
+        cov_galcencyl[1, 0, 2] + 1 < 10.0**-8
+    ).all(), "cov_vxyz_to_galcencyl conversion did not work as expected"
+    assert (
+        cov_galcencyl[1, 1, 2] + 1 < 10.0**-8
+    ).all(), "cov_vxyz_to_galcencyl conversion did not work as expected"
+    assert (
+        cov_galcencyl[1, 2, 0] + 1 < 10.0**-8
+    ).all(), "cov_vxyz_to_galcencyl conversion did not work as expected"
+    assert (
+        cov_galcencyl[1, 2, 1] + 1 < 10.0**-8
+    ).all(), "cov_vxyz_to_galcencyl conversion did not work as expected"
     assert (cov_galcencyl[0] - 1.0 < 10**-8).all()
 
 
@@ -2206,35 +2202,35 @@ def test_dl_to_rphi_2d():
     l = numpy.arcsin(0.75)
     d = 6.0 / numpy.tan(l)
     r, phi = coords.dl_to_rphi_2d(d, l, degree=False, ro=8.0, phio=0.0)
-    assert numpy.fabs(r - 6.0) < 10.0**-10.0, (
-        "dl_to_rphi_2d conversion did not work as expected"
-    )
-    assert numpy.fabs(phi - numpy.arccos(0.75)) < 10.0**-10.0, (
-        "dl_to_rphi_2d conversion did not work as expected"
-    )
+    assert (
+        numpy.fabs(r - 6.0) < 10.0**-10.0
+    ), "dl_to_rphi_2d conversion did not work as expected"
+    assert (
+        numpy.fabs(phi - numpy.arccos(0.75)) < 10.0**-10.0
+    ), "dl_to_rphi_2d conversion did not work as expected"
     # This is a different point
     d, l = 2.0, 45.0
     r, phi = coords.dl_to_rphi_2d(
         d, l, degree=True, ro=2.0 * numpy.sqrt(2.0), phio=10.0
     )
-    assert numpy.fabs(r - 2.0) < 10.0**-10.0, (
-        "dl_to_rphi_2d conversion did not work as expected"
-    )
-    assert numpy.fabs(phi - 55.0) < 10.0**-10.0, (
-        "dl_to_rphi_2d conversion did not work as expected"
-    )
+    assert (
+        numpy.fabs(r - 2.0) < 10.0**-10.0
+    ), "dl_to_rphi_2d conversion did not work as expected"
+    assert (
+        numpy.fabs(phi - 55.0) < 10.0**-10.0
+    ), "dl_to_rphi_2d conversion did not work as expected"
     # This is a different point, for array
     d, l = 2.0, 45.0
     os = numpy.ones(2)
     r, phi = coords.dl_to_rphi_2d(
         os * d, os * l, degree=True, ro=2.0 * numpy.sqrt(2.0), phio=0.0
     )
-    assert numpy.all(numpy.fabs(r - 2.0) < 10.0**-10.0), (
-        "dl_to_rphi_2d conversion did not work as expected"
-    )
-    assert numpy.all(numpy.fabs(phi - 45.0) < 10.0**-10.0), (
-        "dl_to_rphi_2d conversion did not work as expected"
-    )
+    assert numpy.all(
+        numpy.fabs(r - 2.0) < 10.0**-10.0
+    ), "dl_to_rphi_2d conversion did not work as expected"
+    assert numpy.all(
+        numpy.fabs(phi - 45.0) < 10.0**-10.0
+    ), "dl_to_rphi_2d conversion did not work as expected"
     # This is a different point, for list (which I support for some reason)
     d, l = 2.0, 45.0
     r, phi = coords.dl_to_rphi_2d(
@@ -2242,12 +2238,12 @@ def test_dl_to_rphi_2d():
     )
     r = numpy.array(r)
     phi = numpy.array(phi)
-    assert numpy.all(numpy.fabs(r - 2.0) < 10.0**-10.0), (
-        "dl_to_rphi_2d conversion did not work as expected"
-    )
-    assert numpy.all(numpy.fabs(phi - 45.0) < 10.0**-10.0), (
-        "dl_to_rphi_2d conversion did not work as expected"
-    )
+    assert numpy.all(
+        numpy.fabs(r - 2.0) < 10.0**-10.0
+    ), "dl_to_rphi_2d conversion did not work as expected"
+    assert numpy.all(
+        numpy.fabs(phi - 45.0) < 10.0**-10.0
+    ), "dl_to_rphi_2d conversion did not work as expected"
     return None
 
 
@@ -2257,35 +2253,35 @@ def test_rphi_to_dl_2d():
     d, l = coords.rphi_to_dl_2d(r, phi, degree=False, ro=8.0, phio=0.0)
     l = numpy.arcsin(0.75)
     d = 6.0 / numpy.tan(l)
-    assert numpy.fabs(d - 6.0 / numpy.tan(numpy.arcsin(0.75))) < 10.0**-10.0, (
-        "dl_to_rphi_2d conversion did not work as expected"
-    )
-    assert numpy.fabs(l - numpy.arcsin(0.75)) < 10.0**-10.0, (
-        "rphi_to_dl_2d conversion did not work as expected"
-    )
+    assert (
+        numpy.fabs(d - 6.0 / numpy.tan(numpy.arcsin(0.75))) < 10.0**-10.0
+    ), "dl_to_rphi_2d conversion did not work as expected"
+    assert (
+        numpy.fabs(l - numpy.arcsin(0.75)) < 10.0**-10.0
+    ), "rphi_to_dl_2d conversion did not work as expected"
     # This is another point
     r, phi = 2.0, 55.0
     d, l = coords.rphi_to_dl_2d(
         r, phi, degree=True, ro=2.0 * numpy.sqrt(2.0), phio=10.0
     )
-    assert numpy.fabs(d - 2.0) < 10.0**-10.0, (
-        "rphi_to_dl_2d conversion did not work as expected"
-    )
-    assert numpy.fabs(l - 45.0) < 10.0**-10.0, (
-        "rphi_to_dl_2d conversion did not work as expected"
-    )
+    assert (
+        numpy.fabs(d - 2.0) < 10.0**-10.0
+    ), "rphi_to_dl_2d conversion did not work as expected"
+    assert (
+        numpy.fabs(l - 45.0) < 10.0**-10.0
+    ), "rphi_to_dl_2d conversion did not work as expected"
     # This is another point, for arrays
     r, phi = 2.0, 45.0
     os = numpy.ones(2)
     d, l = coords.rphi_to_dl_2d(
         os * r, os * phi, degree=True, ro=2.0 * numpy.sqrt(2.0), phio=0.0
     )
-    assert numpy.all(numpy.fabs(d - 2.0) < 10.0**-10.0), (
-        "rphi_to_dl_2d conversion did not work as expected"
-    )
-    assert numpy.all(numpy.fabs(l - 45.0) < 10.0**-10.0), (
-        "rphi_to_dl_2d conversion did not work as expected"
-    )
+    assert numpy.all(
+        numpy.fabs(d - 2.0) < 10.0**-10.0
+    ), "rphi_to_dl_2d conversion did not work as expected"
+    assert numpy.all(
+        numpy.fabs(l - 45.0) < 10.0**-10.0
+    ), "rphi_to_dl_2d conversion did not work as expected"
     # This is another point, for lists, which for some reason I support
     r, phi = 2.0, 45.0
     d, l = coords.rphi_to_dl_2d(
@@ -2293,54 +2289,54 @@ def test_rphi_to_dl_2d():
     )
     d = numpy.array(d)
     l = numpy.array(l)
-    assert numpy.all(numpy.fabs(d - 2.0) < 10.0**-10.0), (
-        "rphi_to_dl_2d conversion did not work as expected"
-    )
-    assert numpy.all(numpy.fabs(l - 45.0) < 10.0**-10.0), (
-        "rphi_to_dl_2d conversion did not work as expected"
-    )
+    assert numpy.all(
+        numpy.fabs(d - 2.0) < 10.0**-10.0
+    ), "rphi_to_dl_2d conversion did not work as expected"
+    assert numpy.all(
+        numpy.fabs(l - 45.0) < 10.0**-10.0
+    ), "rphi_to_dl_2d conversion did not work as expected"
     return None
 
 
 def test_uv_to_Rz():
     u, v = numpy.arccosh(5.0 / 3.0), numpy.pi / 6.0
     R, z = coords.uv_to_Rz(u, v, delta=3.0)
-    assert numpy.fabs(R - 2.0) < 10.0**-10.0, (
-        "uv_to_Rz conversion did not work as expected"
-    )
-    assert numpy.fabs(z - 2.5 * numpy.sqrt(3.0)) < 10.0**-10.0, (
-        "uv_to_Rz conversion did not work as expected"
-    )
+    assert (
+        numpy.fabs(R - 2.0) < 10.0**-10.0
+    ), "uv_to_Rz conversion did not work as expected"
+    assert (
+        numpy.fabs(z - 2.5 * numpy.sqrt(3.0)) < 10.0**-10.0
+    ), "uv_to_Rz conversion did not work as expected"
     # Also test for arrays
     os = numpy.ones(2)
     R, z = coords.uv_to_Rz(os * u, os * v, delta=3.0)
-    assert numpy.all(numpy.fabs(R - 2.0) < 10.0**-10.0), (
-        "uv_to_Rz conversion did not work as expected"
-    )
-    assert numpy.all(numpy.fabs(z - 2.5 * numpy.sqrt(3.0)) < 10.0**-10.0), (
-        "uv_to_Rz conversion did not work as expected"
-    )
+    assert numpy.all(
+        numpy.fabs(R - 2.0) < 10.0**-10.0
+    ), "uv_to_Rz conversion did not work as expected"
+    assert numpy.all(
+        numpy.fabs(z - 2.5 * numpy.sqrt(3.0)) < 10.0**-10.0
+    ), "uv_to_Rz conversion did not work as expected"
     return None
 
 
 def test_Rz_to_uv():
     u, v = numpy.arccosh(5.0 / 3.0), numpy.pi / 6.0
     ut, vt = coords.Rz_to_uv(*coords.uv_to_Rz(u, v, delta=3.0), delta=3.0)
-    assert numpy.fabs(ut - u) < 10.0**-10.0, (
-        "Rz_to_uvz conversion did not work as expected"
-    )
-    assert numpy.fabs(vt - v) < 10.0**-10.0, (
-        "Rz_to_uv conversion did not work as expected"
-    )
+    assert (
+        numpy.fabs(ut - u) < 10.0**-10.0
+    ), "Rz_to_uvz conversion did not work as expected"
+    assert (
+        numpy.fabs(vt - v) < 10.0**-10.0
+    ), "Rz_to_uv conversion did not work as expected"
     # Also test for arrays
     os = numpy.ones(2)
     ut, vt = coords.Rz_to_uv(*coords.uv_to_Rz(u * os, v * os, delta=3.0), delta=3.0)
-    assert numpy.all(numpy.fabs(ut - u) < 10.0**-10.0), (
-        "Rz_to_uvz conversion did not work as expected"
-    )
-    assert numpy.all(numpy.fabs(vt - v) < 10.0**-10.0), (
-        "Rz_to_uv conversion did not work as expected"
-    )
+    assert numpy.all(
+        numpy.fabs(ut - u) < 10.0**-10.0
+    ), "Rz_to_uvz conversion did not work as expected"
+    assert numpy.all(
+        numpy.fabs(vt - v) < 10.0**-10.0
+    ), "Rz_to_uv conversion did not work as expected"
     return None
 
 
@@ -2348,42 +2344,42 @@ def test_Rz_to_coshucosv():
     u, v = numpy.arccosh(5.0 / 3.0), numpy.pi / 3.0
     R, z = coords.uv_to_Rz(u, v, delta=3.0)
     coshu, cosv = coords.Rz_to_coshucosv(R, z, delta=3.0)
-    assert numpy.fabs(coshu - 5.0 / 3.0) < 10.0**-10.0, (
-        "Rz_to_coshucosv conversion did notwork as expected"
-    )
-    assert numpy.fabs(cosv - 0.5) < 10.0**-10.0, (
-        "Rz_to_coshucosv conversion did notwork as expected"
-    )
+    assert (
+        numpy.fabs(coshu - 5.0 / 3.0) < 10.0**-10.0
+    ), "Rz_to_coshucosv conversion did notwork as expected"
+    assert (
+        numpy.fabs(cosv - 0.5) < 10.0**-10.0
+    ), "Rz_to_coshucosv conversion did notwork as expected"
     # Also test for arrays
     os = numpy.ones(2)
     coshu, cosv = coords.Rz_to_coshucosv(R * os, z * os, delta=3.0)
-    assert numpy.all(numpy.fabs(coshu - 5.0 / 3.0) < 10.0**-10.0), (
-        "Rz_to_coshucosv conversion did notwork as expected"
-    )
-    assert numpy.all(numpy.fabs(cosv - 0.5) < 10.0**-10.0), (
-        "Rz_to_coshucosv conversion did notwork as expected"
-    )
+    assert numpy.all(
+        numpy.fabs(coshu - 5.0 / 3.0) < 10.0**-10.0
+    ), "Rz_to_coshucosv conversion did notwork as expected"
+    assert numpy.all(
+        numpy.fabs(cosv - 0.5) < 10.0**-10.0
+    ), "Rz_to_coshucosv conversion did notwork as expected"
     return None
 
 
 def test_uv_to_Rz_oblate():
     u, v = numpy.arccosh(5.0 / 3.0), numpy.pi / 6.0
     R, z = coords.uv_to_Rz(u, v, delta=3.0, oblate=True)
-    assert numpy.fabs(R - 2.5) < 10.0**-10.0, (
-        "uv_to_Rz conversion did not work as expected"
-    )
-    assert numpy.fabs(z - 2.0 * numpy.sqrt(3.0)) < 10.0**-10.0, (
-        "uv_to_Rz conversion did not work as expected"
-    )
+    assert (
+        numpy.fabs(R - 2.5) < 10.0**-10.0
+    ), "uv_to_Rz conversion did not work as expected"
+    assert (
+        numpy.fabs(z - 2.0 * numpy.sqrt(3.0)) < 10.0**-10.0
+    ), "uv_to_Rz conversion did not work as expected"
     # Also test for arrays
     os = numpy.ones(2)
     R, z = coords.uv_to_Rz(os * u, os * v, delta=3.0, oblate=True)
-    assert numpy.all(numpy.fabs(R - 2.5) < 10.0**-10.0), (
-        "uv_to_Rz conversion did not work as expected"
-    )
-    assert numpy.all(numpy.fabs(z - 2.0 * numpy.sqrt(3.0)) < 10.0**-10.0), (
-        "uv_to_Rz conversion did not work as expected"
-    )
+    assert numpy.all(
+        numpy.fabs(R - 2.5) < 10.0**-10.0
+    ), "uv_to_Rz conversion did not work as expected"
+    assert numpy.all(
+        numpy.fabs(z - 2.0 * numpy.sqrt(3.0)) < 10.0**-10.0
+    ), "uv_to_Rz conversion did not work as expected"
     return None
 
 
@@ -2392,23 +2388,23 @@ def test_Rz_to_uv_oblate():
     ut, vt = coords.Rz_to_uv(
         *coords.uv_to_Rz(u, v, delta=3.0, oblate=True), delta=3.0, oblate=True
     )
-    assert numpy.fabs(ut - u) < 10.0**-10.0, (
-        "Rz_to_uvz conversion did not work as expected"
-    )
-    assert numpy.fabs(vt - v) < 10.0**-10.0, (
-        "Rz_to_uv conversion did not work as expected"
-    )
+    assert (
+        numpy.fabs(ut - u) < 10.0**-10.0
+    ), "Rz_to_uvz conversion did not work as expected"
+    assert (
+        numpy.fabs(vt - v) < 10.0**-10.0
+    ), "Rz_to_uv conversion did not work as expected"
     # Also test for arrays
     os = numpy.ones(2)
     ut, vt = coords.Rz_to_uv(
         *coords.uv_to_Rz(u * os, v * os, delta=3.0, oblate=True), delta=3.0, oblate=True
     )
-    assert numpy.all(numpy.fabs(ut - u) < 10.0**-10.0), (
-        "Rz_to_uvz conversion did not work as expected"
-    )
-    assert numpy.all(numpy.fabs(vt - v) < 10.0**-10.0), (
-        "Rz_to_uv conversion did not work as expected"
-    )
+    assert numpy.all(
+        numpy.fabs(ut - u) < 10.0**-10.0
+    ), "Rz_to_uvz conversion did not work as expected"
+    assert numpy.all(
+        numpy.fabs(vt - v) < 10.0**-10.0
+    ), "Rz_to_uv conversion did not work as expected"
     return None
 
 
@@ -2416,21 +2412,21 @@ def test_Rz_to_coshucosv_oblate():
     u, v = numpy.arccosh(5.0 / 3.0), numpy.pi / 3.0
     R, z = coords.uv_to_Rz(u, v, delta=3.0, oblate=True)
     coshu, cosv = coords.Rz_to_coshucosv(R, z, delta=3.0, oblate=True)
-    assert numpy.fabs(coshu - 5.0 / 3.0) < 10.0**-10.0, (
-        "Rz_to_coshucosv conversion did notwork as expected"
-    )
-    assert numpy.fabs(cosv - 0.5) < 10.0**-10.0, (
-        "Rz_to_coshucosv conversion did notwork as expected"
-    )
+    assert (
+        numpy.fabs(coshu - 5.0 / 3.0) < 10.0**-10.0
+    ), "Rz_to_coshucosv conversion did notwork as expected"
+    assert (
+        numpy.fabs(cosv - 0.5) < 10.0**-10.0
+    ), "Rz_to_coshucosv conversion did notwork as expected"
     # Also test for arrays
     os = numpy.ones(2)
     coshu, cosv = coords.Rz_to_coshucosv(R * os, z * os, delta=3.0, oblate=True)
-    assert numpy.all(numpy.fabs(coshu - 5.0 / 3.0) < 10.0**-10.0), (
-        "Rz_to_coshucosv conversion did notwork as expected"
-    )
-    assert numpy.all(numpy.fabs(cosv - 0.5) < 10.0**-10.0), (
-        "Rz_to_coshucosv conversion did notwork as expected"
-    )
+    assert numpy.all(
+        numpy.fabs(coshu - 5.0 / 3.0) < 10.0**-10.0
+    ), "Rz_to_coshucosv conversion did notwork as expected"
+    assert numpy.all(
+        numpy.fabs(cosv - 0.5) < 10.0**-10.0
+    ), "Rz_to_coshucosv conversion did notwork as expected"
     return None
 
 
@@ -2502,17 +2498,13 @@ def test_vRvz_to_pupv_oblate():
             coords.vRvz_to_pupv(vR, vz, R, z, delta=delta, oblate=True)[0] - delta * vz
         )
         < 10.0**-3.0
-    ), (
-        "vRvz_to_pupv at small R,z does not behave as expected for oblate spheroidal coordinates"
-    )
+    ), "vRvz_to_pupv at small R,z does not behave as expected for oblate spheroidal coordinates"
     assert (
         numpy.fabs(
             coords.vRvz_to_pupv(vR, vz, R, z, delta=delta, oblate=True)[1] - delta * vR
         )
         < 10.0**-3.0
-    ), (
-        "vRvz_to_pupv at small R,z does not behave as expected for oblate spheroidal coordinates"
-    )
+    ), "vRvz_to_pupv at small R,z does not behave as expected for oblate spheroidal coordinates"
     # At R,z >> Delta --> p_u ~ r v_r, p_v ~ r v_theta, spherical velocities
     delta = 0.5
     R, z = delta * 100.0, delta * 300.0
@@ -2528,17 +2520,13 @@ def test_vRvz_to_pupv_oblate():
             coords.vRvz_to_pupv(vR, vz, R, z, delta=delta, oblate=True)[0] - r * vr
         )
         < 10.0**-3.0
-    ), (
-        "vRvz_to_pupv at large R,z does not behave as expected for oblate spheroidal coordinates"
-    )
+    ), "vRvz_to_pupv at large R,z does not behave as expected for oblate spheroidal coordinates"
     assert (
         numpy.fabs(
             coords.vRvz_to_pupv(vR, vz, R, z, delta=delta, oblate=True)[1] - r * vt
         )
         < 10.0**-3.0
-    ), (
-        "vRvz_to_pupv at large R,z does not behave as expected for oblate spheroidal coordinates"
-    )
+    ), "vRvz_to_pupv at large R,z does not behave as expected for oblate spheroidal coordinates"
     # Also check that it does not matter whether we give R,z or u,v
     delta = 0.5
     R, z = delta * 2.0, delta / 3.0
@@ -2556,9 +2544,7 @@ def test_vRvz_to_pupv_oblate():
             )[0]
         )
         < 10.0**-3.0
-    ), (
-        "vRvz_to_pupv with and without pre-computed u,v do not agree for oblate spheroidal coordinates"
-    )
+    ), "vRvz_to_pupv with and without pre-computed u,v do not agree for oblate spheroidal coordinates"
     assert (
         numpy.fabs(
             coords.vRvz_to_pupv(vR, vz, R, z, delta=delta, oblate=True)[1]
@@ -2572,9 +2558,7 @@ def test_vRvz_to_pupv_oblate():
             )[1]
         )
         < 10.0**-3.0
-    ), (
-        "vRvz_to_pupv with and without pre-computed u,v do not agree for oblate spheroidal coordinates"
-    )
+    ), "vRvz_to_pupv with and without pre-computed u,v do not agree for oblate spheroidal coordinates"
     return None
 
 
@@ -2585,24 +2569,24 @@ def test_pupv_to_vRvz():
     vR, vz = 0.2, -0.5
     u, v = coords.Rz_to_uv(R, z, delta=delta)
     pu, pv = coords.vRvz_to_pupv(vR, vz, R, z, delta=delta)
-    assert numpy.fabs(coords.pupv_to_vRvz(pu, pv, u, v, delta=delta)[0] - vR) < 1e-8, (
-        "pupv_to_vRvz is not the inverse of vRvz_to_pupv"
-    )
-    assert numpy.fabs(coords.pupv_to_vRvz(pu, pv, u, v, delta=delta)[1] - vz) < 1e-8, (
-        "pupv_to_vRvz is not the inverse of vRvz_to_pupv"
-    )
+    assert (
+        numpy.fabs(coords.pupv_to_vRvz(pu, pv, u, v, delta=delta)[0] - vR) < 1e-8
+    ), "pupv_to_vRvz is not the inverse of vRvz_to_pupv"
+    assert (
+        numpy.fabs(coords.pupv_to_vRvz(pu, pv, u, v, delta=delta)[1] - vz) < 1e-8
+    ), "pupv_to_vRvz is not the inverse of vRvz_to_pupv"
     # Another one
     delta = 1.5
     R, z = delta * 2.0, -delta / 3.0
     vR, vz = -0.2, 0.5
     u, v = coords.Rz_to_uv(R, z, delta=delta)
     pu, pv = coords.vRvz_to_pupv(vR, vz, R, z, delta=delta)
-    assert numpy.fabs(coords.pupv_to_vRvz(pu, pv, u, v, delta=delta)[0] - vR) < 1e-8, (
-        "pupv_to_vRvz is not the inverse of vRvz_to_pupv"
-    )
-    assert numpy.fabs(coords.pupv_to_vRvz(pu, pv, u, v, delta=delta)[1] - vz) < 1e-8, (
-        "pupv_to_vRvz is not the inverse of vRvz_to_pupv"
-    )
+    assert (
+        numpy.fabs(coords.pupv_to_vRvz(pu, pv, u, v, delta=delta)[0] - vR) < 1e-8
+    ), "pupv_to_vRvz is not the inverse of vRvz_to_pupv"
+    assert (
+        numpy.fabs(coords.pupv_to_vRvz(pu, pv, u, v, delta=delta)[1] - vz) < 1e-8
+    ), "pupv_to_vRvz is not the inverse of vRvz_to_pupv"
     return None
 
 
@@ -2642,112 +2626,112 @@ def test_lbd_to_XYZ_jac():
     # Just position
     l, b, d = 180.0, 30.0, 2.0
     jac = coords.lbd_to_XYZ_jac(l, b, d, degree=True)
-    assert numpy.fabs(jac[0, 0] - 0.0) < 10.0**-10.0, (
-        "lbd_to_XYZ_jac calculation did not work as expected"
-    )
-    assert numpy.fabs(jac[0, 1] - numpy.pi / 180.0) < 10.0**-10.0, (
-        "lbd_to_XYZ_jac calculation did not work as expected"
-    )
-    assert numpy.fabs(jac[0, 2] + numpy.sqrt(3.0) / 2.0) < 10.0**-10.0, (
-        "lbd_to_XYZ_jac calculation did not work as expected"
-    )
-    assert numpy.fabs(jac[1, 0] + numpy.sqrt(3.0) * numpy.pi / 180.0) < 10.0**-10.0, (
-        "lbd_to_XYZ_jac calculation did not work as expected"
-    )
-    assert numpy.fabs(jac[1, 1] - 0.0) < 10.0**-10.0, (
-        "lbd_to_XYZ_jac calculation did not work as expected"
-    )
-    assert numpy.fabs(jac[1, 2] - 0.0) < 10.0**-10.0, (
-        "lbd_to_XYZ_jac calculation did not work as expected"
-    )
-    assert numpy.fabs(jac[2, 0] - 0.0) < 10.0**-10.0, (
-        "lbd_to_XYZ_jac calculation did not work as expected"
-    )
-    assert numpy.fabs(jac[2, 1] - numpy.sqrt(3.0) * numpy.pi / 180.0) < 10.0**-10.0, (
-        "lbd_to_XYZ_jac calculation did not work as expected"
-    )
-    assert numpy.fabs(jac[2, 2] - 0.5) < 10.0**-10.0, (
-        "lbd_to_XYZ_jac calculation did not work as expected"
-    )
+    assert (
+        numpy.fabs(jac[0, 0] - 0.0) < 10.0**-10.0
+    ), "lbd_to_XYZ_jac calculation did not work as expected"
+    assert (
+        numpy.fabs(jac[0, 1] - numpy.pi / 180.0) < 10.0**-10.0
+    ), "lbd_to_XYZ_jac calculation did not work as expected"
+    assert (
+        numpy.fabs(jac[0, 2] + numpy.sqrt(3.0) / 2.0) < 10.0**-10.0
+    ), "lbd_to_XYZ_jac calculation did not work as expected"
+    assert (
+        numpy.fabs(jac[1, 0] + numpy.sqrt(3.0) * numpy.pi / 180.0) < 10.0**-10.0
+    ), "lbd_to_XYZ_jac calculation did not work as expected"
+    assert (
+        numpy.fabs(jac[1, 1] - 0.0) < 10.0**-10.0
+    ), "lbd_to_XYZ_jac calculation did not work as expected"
+    assert (
+        numpy.fabs(jac[1, 2] - 0.0) < 10.0**-10.0
+    ), "lbd_to_XYZ_jac calculation did not work as expected"
+    assert (
+        numpy.fabs(jac[2, 0] - 0.0) < 10.0**-10.0
+    ), "lbd_to_XYZ_jac calculation did not work as expected"
+    assert (
+        numpy.fabs(jac[2, 1] - numpy.sqrt(3.0) * numpy.pi / 180.0) < 10.0**-10.0
+    ), "lbd_to_XYZ_jac calculation did not work as expected"
+    assert (
+        numpy.fabs(jac[2, 2] - 0.5) < 10.0**-10.0
+    ), "lbd_to_XYZ_jac calculation did not work as expected"
     # 6D
     l, b, d = 3.0 * numpy.pi / 2.0, numpy.pi / 6.0, 2.0
     vr, pmll, pmbb = 10.0, 20.0, -30.0
     jac = coords.lbd_to_XYZ_jac(l, b, d, vr, pmll, pmbb, degree=False)
-    assert numpy.fabs(jac[0, 0] - numpy.sqrt(3.0)) < 10.0**-9.0, (
-        "lbd_to_XYZ_jac calculation did not work as expected"
-    )
-    assert numpy.fabs(jac[0, 1] - 0.0) < 10.0**-9.0, (
-        "lbd_to_XYZ_jac calculation did not work as expected"
-    )
-    assert numpy.fabs(jac[0, 2] - 0.0) < 10.0**-9.0, (
-        "lbd_to_XYZ_jac calculation did not work as expected"
-    )
-    assert numpy.fabs(jac[1, 0] - 0.0) < 10.0**-9.0, (
-        "lbd_to_XYZ_jac calculation did not work as expected"
-    )
-    assert numpy.fabs(jac[1, 1] - 1.0) < 10.0**-9.0, (
-        "lbd_to_XYZ_jac calculation did not work as expected"
-    )
-    assert numpy.fabs(jac[1, 2] + numpy.sqrt(3.0) / 2.0) < 10.0**-9.0, (
-        "lbd_to_XYZ_jac calculation did not work as expected"
-    )
-    assert numpy.fabs(jac[2, 0] - 0.0) < 10.0**-9.0, (
-        "lbd_to_XYZ_jac calculation did not work as expected"
-    )
-    assert numpy.fabs(jac[2, 1] - numpy.sqrt(3.0)) < 10.0**-9.0, (
-        "lbd_to_XYZ_jac calculation did not work as expected"
-    )
-    assert numpy.fabs(jac[2, 2] - 0.5) < 10.0**-9.0, (
-        "lbd_to_XYZ_jac calculation did not work as expected"
-    )
-    assert numpy.all(numpy.fabs(jac[:3, 3:]) < 10.0**-9.0), (
-        "lbd_to_XYZ_jac calculation did not work as expected"
-    )
+    assert (
+        numpy.fabs(jac[0, 0] - numpy.sqrt(3.0)) < 10.0**-9.0
+    ), "lbd_to_XYZ_jac calculation did not work as expected"
+    assert (
+        numpy.fabs(jac[0, 1] - 0.0) < 10.0**-9.0
+    ), "lbd_to_XYZ_jac calculation did not work as expected"
+    assert (
+        numpy.fabs(jac[0, 2] - 0.0) < 10.0**-9.0
+    ), "lbd_to_XYZ_jac calculation did not work as expected"
+    assert (
+        numpy.fabs(jac[1, 0] - 0.0) < 10.0**-9.0
+    ), "lbd_to_XYZ_jac calculation did not work as expected"
+    assert (
+        numpy.fabs(jac[1, 1] - 1.0) < 10.0**-9.0
+    ), "lbd_to_XYZ_jac calculation did not work as expected"
+    assert (
+        numpy.fabs(jac[1, 2] + numpy.sqrt(3.0) / 2.0) < 10.0**-9.0
+    ), "lbd_to_XYZ_jac calculation did not work as expected"
+    assert (
+        numpy.fabs(jac[2, 0] - 0.0) < 10.0**-9.0
+    ), "lbd_to_XYZ_jac calculation did not work as expected"
+    assert (
+        numpy.fabs(jac[2, 1] - numpy.sqrt(3.0)) < 10.0**-9.0
+    ), "lbd_to_XYZ_jac calculation did not work as expected"
+    assert (
+        numpy.fabs(jac[2, 2] - 0.5) < 10.0**-9.0
+    ), "lbd_to_XYZ_jac calculation did not work as expected"
+    assert numpy.all(
+        numpy.fabs(jac[:3, 3:]) < 10.0**-9.0
+    ), "lbd_to_XYZ_jac calculation did not work as expected"
     assert (
         numpy.fabs(
             jac[3, 0] - numpy.sqrt(3.0) / 2.0 * vr + 0.5 * pmbb * d * 4.740470463496208
         )
         < 10.0**-8.0
     ), "lbd_to_XYZ_jac calculation did not work as expected"
-    assert numpy.fabs(jac[3, 1] - 0.0) < 10.0**-9.0, (
-        "lbd_to_XYZ_jac calculation did not work as expected"
-    )
-    assert numpy.fabs(jac[3, 2] - pmll * 4.740470463496208) < 10.0**-9.0, (
-        "lbd_to_XYZ_jac calculation did not work as expected"
-    )
-    assert numpy.fabs(jac[3, 3] - 0.0) < 10.0**-9.0, (
-        "lbd_to_XYZ_jac calculation did not work as expected"
-    )
-    assert numpy.fabs(jac[3, 4] - d * 4.740470463496208) < 10.0**-9.0, (
-        "lbd_to_XYZ_jac calculation did not work as expected"
-    )
-    assert numpy.fabs(jac[3, 5] - 0.0) < 10.0**-9.0, (
-        "lbd_to_XYZ_jac calculation did not work as expected"
-    )
-    assert numpy.fabs(jac[4, 0] - pmll * d * 4.740470463496208) < 10.0**-8.0, (
-        "lbd_to_XYZ_jac calculation did not work as expected"
-    )
+    assert (
+        numpy.fabs(jac[3, 1] - 0.0) < 10.0**-9.0
+    ), "lbd_to_XYZ_jac calculation did not work as expected"
+    assert (
+        numpy.fabs(jac[3, 2] - pmll * 4.740470463496208) < 10.0**-9.0
+    ), "lbd_to_XYZ_jac calculation did not work as expected"
+    assert (
+        numpy.fabs(jac[3, 3] - 0.0) < 10.0**-9.0
+    ), "lbd_to_XYZ_jac calculation did not work as expected"
+    assert (
+        numpy.fabs(jac[3, 4] - d * 4.740470463496208) < 10.0**-9.0
+    ), "lbd_to_XYZ_jac calculation did not work as expected"
+    assert (
+        numpy.fabs(jac[3, 5] - 0.0) < 10.0**-9.0
+    ), "lbd_to_XYZ_jac calculation did not work as expected"
+    assert (
+        numpy.fabs(jac[4, 0] - pmll * d * 4.740470463496208) < 10.0**-8.0
+    ), "lbd_to_XYZ_jac calculation did not work as expected"
     assert (
         numpy.fabs(
             jac[4, 1] - vr / 2.0 - numpy.sqrt(3.0) / 2.0 * d * pmbb * 4.740470463496208
         )
         < 10.0**-8.0
     ), "lbd_to_XYZ_jac calculation did not work as expected"
-    assert numpy.fabs(jac[4, 2] - 0.5 * 4.740470463496208 * pmbb) < 10.0**-9.0, (
-        "lbd_to_XYZ_jac calculation did not work as expected"
-    )
-    assert numpy.fabs(jac[4, 3] + numpy.sqrt(3.0) / 2.0) < 10.0**-9.0, (
-        "lbd_to_XYZ_jac calculation did not work as expected"
-    )
-    assert numpy.fabs(jac[4, 4] - 0.0) < 10.0**-9.0, (
-        "lbd_to_XYZ_jac calculation did not work as expected"
-    )
-    assert numpy.fabs(jac[4, 5] - 4.740470463496208) < 10.0**-9.0, (
-        "lbd_to_XYZ_jac calculation did not work as expected"
-    )
-    assert numpy.fabs(jac[5, 0] - 0.0) < 10.0**-9.0, (
-        "lbd_to_XYZ_jac calculation did not work as expected"
-    )
+    assert (
+        numpy.fabs(jac[4, 2] - 0.5 * 4.740470463496208 * pmbb) < 10.0**-9.0
+    ), "lbd_to_XYZ_jac calculation did not work as expected"
+    assert (
+        numpy.fabs(jac[4, 3] + numpy.sqrt(3.0) / 2.0) < 10.0**-9.0
+    ), "lbd_to_XYZ_jac calculation did not work as expected"
+    assert (
+        numpy.fabs(jac[4, 4] - 0.0) < 10.0**-9.0
+    ), "lbd_to_XYZ_jac calculation did not work as expected"
+    assert (
+        numpy.fabs(jac[4, 5] - 4.740470463496208) < 10.0**-9.0
+    ), "lbd_to_XYZ_jac calculation did not work as expected"
+    assert (
+        numpy.fabs(jac[5, 0] - 0.0) < 10.0**-9.0
+    ), "lbd_to_XYZ_jac calculation did not work as expected"
     assert (
         numpy.fabs(
             jac[5, 1] + 0.5 * d * 4.740470463496208 * pmbb - numpy.sqrt(3.0) / 2.0 * vr
@@ -2758,12 +2742,12 @@ def test_lbd_to_XYZ_jac():
         numpy.fabs(jac[5, 2] - numpy.sqrt(3.0) / 2.0 * 4.740470463496208 * pmbb)
         < 10.0**-9.0
     ), "lbd_to_XYZ_jac calculation did not work as expected"
-    assert numpy.fabs(jac[5, 3] - 0.5) < 10.0**-9.0, (
-        "lbd_to_XYZ_jac calculation did not work as expected"
-    )
-    assert numpy.fabs(jac[5, 4] - 0.0) < 10.0**-9.0, (
-        "lbd_to_XYZ_jac calculation did not work as expected"
-    )
+    assert (
+        numpy.fabs(jac[5, 3] - 0.5) < 10.0**-9.0
+    ), "lbd_to_XYZ_jac calculation did not work as expected"
+    assert (
+        numpy.fabs(jac[5, 4] - 0.0) < 10.0**-9.0
+    ), "lbd_to_XYZ_jac calculation did not work as expected"
     assert (
         numpy.fabs(jac[5, 5] - numpy.sqrt(3.0) / 2.0 * d * 4.740470463496208)
         < 10.0**-9.0
@@ -2774,24 +2758,24 @@ def test_lbd_to_XYZ_jac():
 def test_cyl_to_spher_vec():
     # Test 45 degrees, disk plane, & polar location
     vr, vT, vtheta = coords.cyl_to_spher_vec(0.6, 1.3, 0.6, 1.0, 1.0)
-    assert numpy.fabs(vr - 0.6 * 2**0.5) < 10.0**-8, (
-        "cyl_to_spher_vec does not work as expected"
-    )
-    assert numpy.fabs(vtheta - 0) < 10.0**-8, (
-        "cyl_to_spher_vec does not work as expected"
-    )
+    assert (
+        numpy.fabs(vr - 0.6 * 2**0.5) < 10.0**-8
+    ), "cyl_to_spher_vec does not work as expected"
+    assert (
+        numpy.fabs(vtheta - 0) < 10.0**-8
+    ), "cyl_to_spher_vec does not work as expected"
     assert numpy.fabs(vT - 1.3) < 10.0**-8, "cyl_to_spher_vec does not work as expected"
     vr, vT, vtheta = coords.cyl_to_spher_vec(-1.2, -0.7, -0.8, 1.0, 0.0)
     assert numpy.fabs(vr + 1.2) < 10.0**-8, "cyl_to_spher_vec does not work as expected"
-    assert numpy.fabs(vtheta - 0.8) < 10.0**-8, (
-        "cyl_to_spher_vec does not work as expected"
-    )
+    assert (
+        numpy.fabs(vtheta - 0.8) < 10.0**-8
+    ), "cyl_to_spher_vec does not work as expected"
     assert numpy.fabs(vT + 0.7) < 10.0**-8, "cyl_to_spher_vec does not work as expected"
     vr, vT, vtheta = coords.cyl_to_spher_vec(-1.2, -0.7, -0.8, 0.0, 1.0)
     assert numpy.fabs(vr + 0.8) < 10.0**-8, "cyl_to_spher_vec does not work as expected"
-    assert numpy.fabs(vtheta + 1.2) < 10.0**-8, (
-        "cyl_to_spher_vec does not work as expected"
-    )
+    assert (
+        numpy.fabs(vtheta + 1.2) < 10.0**-8
+    ), "cyl_to_spher_vec does not work as expected"
     assert numpy.fabs(vT + 0.7) < 10.0**-8, "cyl_to_spher_vec does not work as expected"
     return None
 
@@ -2799,9 +2783,9 @@ def test_cyl_to_spher_vec():
 def test_spher_to_cyl_vec():
     # Test 45 degrees, disk plane, & polar location
     vR, vT, vz = coords.spher_to_cyl_vec(0.7, 1.4, 0.7, numpy.pi / 4.0)
-    assert numpy.fabs(vR - 0.7 * 2**0.5) < 10.0**-8, (
-        "spher_to_cyl_vec does not work as expected"
-    )
+    assert (
+        numpy.fabs(vR - 0.7 * 2**0.5) < 10.0**-8
+    ), "spher_to_cyl_vec does not work as expected"
     assert numpy.fabs(vT - 1.4) < 10.0**-8, "spher_to_cyl_vec does not work as expected"
     assert numpy.fabs(vz - 0.0) < 10.0**-8, "spher_to_cyl_vec does not work as expected"
     vR, vT, vz = coords.spher_to_cyl_vec(0.5, -1.3, 0.7, 0.0)
@@ -2818,20 +2802,20 @@ def test_spher_to_cyl_vec():
 def test_cyl_to_spher():
     # Just a few quick tests
     r, t, p = coords.cyl_to_spher(1.2, 3.2, 1.0)
-    assert numpy.fabs(r**2.0 - 1.2**2.0 - 3.2**2.0) < 10.0**-8.0, (
-        "cyl_to_spher does not work as expected"
-    )
-    assert numpy.fabs(r * numpy.cos(t) - 3.2) < 10.0**-8.0, (
-        "cyl_to_spher does not work as expected"
-    )
+    assert (
+        numpy.fabs(r**2.0 - 1.2**2.0 - 3.2**2.0) < 10.0**-8.0
+    ), "cyl_to_spher does not work as expected"
+    assert (
+        numpy.fabs(r * numpy.cos(t) - 3.2) < 10.0**-8.0
+    ), "cyl_to_spher does not work as expected"
     assert numpy.fabs(p - 1.0) < 10.0**-8.0, "cyl_to_spher does not work as expected"
     r, t, p = coords.cyl_to_spher(1.2, -3.2, 4.0)
-    assert numpy.fabs(r**2.0 - 1.2**2.0 - 3.2**2.0) < 10.0**-8.0, (
-        "cyl_to_spher does not work as expected"
-    )
-    assert numpy.fabs(r * numpy.cos(t) + 3.2) < 10.0**-8.0, (
-        "cyl_to_spher does not work as expected"
-    )
+    assert (
+        numpy.fabs(r**2.0 - 1.2**2.0 - 3.2**2.0) < 10.0**-8.0
+    ), "cyl_to_spher does not work as expected"
+    assert (
+        numpy.fabs(r * numpy.cos(t) + 3.2) < 10.0**-8.0
+    ), "cyl_to_spher does not work as expected"
     assert numpy.fabs(p - 4.0) < 10.0**-8.0, "cyl_to_spher does not work as expected"
     return None
 
@@ -2853,117 +2837,117 @@ def test_cyl_to_rect_jac():
     # Just position
     R, phi, Z = 2.0, numpy.pi, 1.0
     jac = coords.cyl_to_rect_jac(R, phi, Z)
-    assert numpy.fabs(numpy.linalg.det(jac) - R) < 10.0**-10.0, (
-        "cyl_to_rect_jac calculation did not work as expected"
-    )
-    assert numpy.fabs(jac[0, 0] + 1.0) < 10.0**-10.0, (
-        "cyl_to_rect_jac calculation did not work as expected"
-    )
-    assert numpy.fabs(jac[0, 1] - 0.0) < 10.0**-10.0, (
-        "cyl_to_rect_jac calculation did not work as expected"
-    )
-    assert numpy.fabs(jac[0, 2] - 0.0) < 10.0**-10.0, (
-        "cyl_to_rect_jac calculation did not work as expected"
-    )
-    assert numpy.fabs(jac[1, 0] - 0.0) < 10.0**-10.0, (
-        "cyl_to_rect_jac calculation did not work as expected"
-    )
-    assert numpy.fabs(jac[1, 1] + 2.0) < 10.0**-10.0, (
-        "cyl_to_rect_jac calculation did not work as expected"
-    )
-    assert numpy.fabs(jac[1, 2] - 0.0) < 10.0**-10.0, (
-        "cyl_to_rect_jac calculation did not work as expected"
-    )
-    assert numpy.fabs(jac[2, 0] - 0.0) < 10.0**-10.0, (
-        "cyl_to_rect_jac calculation did not work as expected"
-    )
-    assert numpy.fabs(jac[2, 1] - 0.0) < 10.0**-10.0, (
-        "cyl_to_rect_jac calculation did not work as expected"
-    )
-    assert numpy.fabs(jac[2, 2] - 1.0) < 10.0**-10.0, (
-        "cyl_to_rect_jac calculation did not work as expected"
-    )
+    assert (
+        numpy.fabs(numpy.linalg.det(jac) - R) < 10.0**-10.0
+    ), "cyl_to_rect_jac calculation did not work as expected"
+    assert (
+        numpy.fabs(jac[0, 0] + 1.0) < 10.0**-10.0
+    ), "cyl_to_rect_jac calculation did not work as expected"
+    assert (
+        numpy.fabs(jac[0, 1] - 0.0) < 10.0**-10.0
+    ), "cyl_to_rect_jac calculation did not work as expected"
+    assert (
+        numpy.fabs(jac[0, 2] - 0.0) < 10.0**-10.0
+    ), "cyl_to_rect_jac calculation did not work as expected"
+    assert (
+        numpy.fabs(jac[1, 0] - 0.0) < 10.0**-10.0
+    ), "cyl_to_rect_jac calculation did not work as expected"
+    assert (
+        numpy.fabs(jac[1, 1] + 2.0) < 10.0**-10.0
+    ), "cyl_to_rect_jac calculation did not work as expected"
+    assert (
+        numpy.fabs(jac[1, 2] - 0.0) < 10.0**-10.0
+    ), "cyl_to_rect_jac calculation did not work as expected"
+    assert (
+        numpy.fabs(jac[2, 0] - 0.0) < 10.0**-10.0
+    ), "cyl_to_rect_jac calculation did not work as expected"
+    assert (
+        numpy.fabs(jac[2, 1] - 0.0) < 10.0**-10.0
+    ), "cyl_to_rect_jac calculation did not work as expected"
+    assert (
+        numpy.fabs(jac[2, 2] - 1.0) < 10.0**-10.0
+    ), "cyl_to_rect_jac calculation did not work as expected"
     # 6D
     R, phi, Z = 2.0, numpy.pi, 1.0
     vR, vT, vZ = 1.0, 2.0, 3.0
     jac = coords.cyl_to_rect_jac(R, vR, vT, Z, vZ, phi)
     vindx = numpy.array([False, True, True, False, True, False], dtype="bool")
-    assert numpy.fabs(numpy.linalg.det(jac) - R) < 10.0**-10.0, (
-        "cyl_to_rect_jac calculation did not work as expected"
-    )
-    assert numpy.fabs(jac[0, 0] + 1.0) < 10.0**-10.0, (
-        "cyl_to_rect_jac calculation did not work as expected"
-    )
-    assert numpy.fabs(jac[0, 5] - 0.0) < 10.0**-10.0, (
-        "cyl_to_rect_jac calculation did not work as expected"
-    )
-    assert numpy.fabs(jac[0, 3] - 0.0) < 10.0**-10.0, (
-        "cyl_to_rect_jac calculation did not work as expected"
-    )
-    assert numpy.all(numpy.fabs(jac[0, vindx]) < 10.0**-10.0), (
-        "cyl_to_rect_jac calculation did not work as expected"
-    )
-    assert numpy.fabs(jac[1, 0] - 0.0) < 10.0**-10.0, (
-        "cyl_to_rect_jac calculation did not work as expected"
-    )
-    assert numpy.fabs(jac[1, 5] + 2.0) < 10.0**-10.0, (
-        "cyl_to_rect_jac calculation did not work as expected"
-    )
-    assert numpy.fabs(jac[1, 3] - 0.0) < 10.0**-10.0, (
-        "cyl_to_rect_jac calculation did not work as expected"
-    )
-    assert numpy.all(numpy.fabs(jac[1, vindx]) < 10.0**-10.0), (
-        "cyl_to_rect_jac calculation did not work as expected"
-    )
-    assert numpy.fabs(jac[2, 0] - 0.0) < 10.0**-10.0, (
-        "cyl_to_rect_jac calculation did not work as expected"
-    )
-    assert numpy.fabs(jac[2, 5] - 0.0) < 10.0**-10.0, (
-        "cyl_to_rect_jac calculation did not work as expected"
-    )
-    assert numpy.fabs(jac[2, 3] - 1.0) < 10.0**-10.0, (
-        "cyl_to_rect_jac calculation did not work as expected"
-    )
-    assert numpy.all(numpy.fabs(jac[2, vindx]) < 10.0**-10.0), (
-        "cyl_to_rect_jac calculation did not work as expected"
-    )
+    assert (
+        numpy.fabs(numpy.linalg.det(jac) - R) < 10.0**-10.0
+    ), "cyl_to_rect_jac calculation did not work as expected"
+    assert (
+        numpy.fabs(jac[0, 0] + 1.0) < 10.0**-10.0
+    ), "cyl_to_rect_jac calculation did not work as expected"
+    assert (
+        numpy.fabs(jac[0, 5] - 0.0) < 10.0**-10.0
+    ), "cyl_to_rect_jac calculation did not work as expected"
+    assert (
+        numpy.fabs(jac[0, 3] - 0.0) < 10.0**-10.0
+    ), "cyl_to_rect_jac calculation did not work as expected"
+    assert numpy.all(
+        numpy.fabs(jac[0, vindx]) < 10.0**-10.0
+    ), "cyl_to_rect_jac calculation did not work as expected"
+    assert (
+        numpy.fabs(jac[1, 0] - 0.0) < 10.0**-10.0
+    ), "cyl_to_rect_jac calculation did not work as expected"
+    assert (
+        numpy.fabs(jac[1, 5] + 2.0) < 10.0**-10.0
+    ), "cyl_to_rect_jac calculation did not work as expected"
+    assert (
+        numpy.fabs(jac[1, 3] - 0.0) < 10.0**-10.0
+    ), "cyl_to_rect_jac calculation did not work as expected"
+    assert numpy.all(
+        numpy.fabs(jac[1, vindx]) < 10.0**-10.0
+    ), "cyl_to_rect_jac calculation did not work as expected"
+    assert (
+        numpy.fabs(jac[2, 0] - 0.0) < 10.0**-10.0
+    ), "cyl_to_rect_jac calculation did not work as expected"
+    assert (
+        numpy.fabs(jac[2, 5] - 0.0) < 10.0**-10.0
+    ), "cyl_to_rect_jac calculation did not work as expected"
+    assert (
+        numpy.fabs(jac[2, 3] - 1.0) < 10.0**-10.0
+    ), "cyl_to_rect_jac calculation did not work as expected"
+    assert numpy.all(
+        numpy.fabs(jac[2, vindx]) < 10.0**-10.0
+    ), "cyl_to_rect_jac calculation did not work as expected"
     # Velocities
-    assert numpy.fabs(jac[3, 0] - 0.0) < 10.0**-10.0, (
-        "cyl_to_rect_jac calculation did not work as expected"
-    )
-    assert numpy.fabs(jac[3, 1] + 1.0) < 10.0**-10.0, (
-        "cyl_to_rect_jac calculation did not work as expected"
-    )
-    assert numpy.fabs(jac[3, 2] - 0.0) < 10.0**-10.0, (
-        "cyl_to_rect_jac calculation did not work as expected"
-    )
-    assert numpy.fabs(jac[3, 3] - 0.0) < 10.0**-10.0, (
-        "cyl_to_rect_jac calculation did not work as expected"
-    )
-    assert numpy.fabs(jac[3, 4] - 0.0) < 10.0**-10.0, (
-        "cyl_to_rect_jac calculation did not work as expected"
-    )
-    assert numpy.fabs(jac[3, 5] - 2.0) < 10.0**-10.0, (
-        "cyl_to_rect_jac calculation did not work as expected"
-    )
-    assert numpy.fabs(jac[4, 0] - 0.0) < 10.0**-10.0, (
-        "cyl_to_rect_jac calculation did not work as expected"
-    )
-    assert numpy.fabs(jac[4, 1] - 0.0) < 10.0**-10.0, (
-        "cyl_to_rect_jac calculation did not work as expected"
-    )
-    assert numpy.fabs(jac[4, 2] + 1.0) < 10.0**-10.0, (
-        "cyl_to_rect_jac calculation did not work as expected"
-    )
-    assert numpy.fabs(jac[4, 3] - 0.0) < 10.0**-10.0, (
-        "cyl_to_rect_jac calculation did not work as expected"
-    )
-    assert numpy.fabs(jac[4, 4] - 0.0) < 10.0**-10.0, (
-        "cyl_to_rect_jac calculation did not work as expected"
-    )
-    assert numpy.fabs(jac[4, 5] + 1.0) < 10.0**-10.0, (
-        "cyl_to_rect_jac calculation did not work as expected"
-    )
+    assert (
+        numpy.fabs(jac[3, 0] - 0.0) < 10.0**-10.0
+    ), "cyl_to_rect_jac calculation did not work as expected"
+    assert (
+        numpy.fabs(jac[3, 1] + 1.0) < 10.0**-10.0
+    ), "cyl_to_rect_jac calculation did not work as expected"
+    assert (
+        numpy.fabs(jac[3, 2] - 0.0) < 10.0**-10.0
+    ), "cyl_to_rect_jac calculation did not work as expected"
+    assert (
+        numpy.fabs(jac[3, 3] - 0.0) < 10.0**-10.0
+    ), "cyl_to_rect_jac calculation did not work as expected"
+    assert (
+        numpy.fabs(jac[3, 4] - 0.0) < 10.0**-10.0
+    ), "cyl_to_rect_jac calculation did not work as expected"
+    assert (
+        numpy.fabs(jac[3, 5] - 2.0) < 10.0**-10.0
+    ), "cyl_to_rect_jac calculation did not work as expected"
+    assert (
+        numpy.fabs(jac[4, 0] - 0.0) < 10.0**-10.0
+    ), "cyl_to_rect_jac calculation did not work as expected"
+    assert (
+        numpy.fabs(jac[4, 1] - 0.0) < 10.0**-10.0
+    ), "cyl_to_rect_jac calculation did not work as expected"
+    assert (
+        numpy.fabs(jac[4, 2] + 1.0) < 10.0**-10.0
+    ), "cyl_to_rect_jac calculation did not work as expected"
+    assert (
+        numpy.fabs(jac[4, 3] - 0.0) < 10.0**-10.0
+    ), "cyl_to_rect_jac calculation did not work as expected"
+    assert (
+        numpy.fabs(jac[4, 4] - 0.0) < 10.0**-10.0
+    ), "cyl_to_rect_jac calculation did not work as expected"
+    assert (
+        numpy.fabs(jac[4, 5] + 1.0) < 10.0**-10.0
+    ), "cyl_to_rect_jac calculation did not work as expected"
     assert numpy.all(
         numpy.fabs(
             jac[5, numpy.array([True, True, True, True, False, True], dtype="bool")]
@@ -2971,9 +2955,9 @@ def test_cyl_to_rect_jac():
         )
         < 10.0**-10.0
     ), "cyl_to_rect_jac calculation did not work as expected"
-    assert numpy.fabs(jac[5, 4] - 1.0) < 10.0**-10.0, (
-        "cyl_to_rect_jac calculation did not work as expected"
-    )
+    assert (
+        numpy.fabs(jac[5, 4] - 1.0) < 10.0**-10.0
+    ), "cyl_to_rect_jac calculation did not work as expected"
     return None
 
 
@@ -3015,19 +2999,19 @@ def test_radec_to_custom_againstlb():
     )
     lb_direct = coords.radec_to_lb(ra, dec, degree=True)
     lb_custom = coords.radec_to_custom(ra, dec, T=T.T, degree=True)
-    assert numpy.fabs(lb_direct[0] - lb_custom[0]) < 10.0**-8.0, (
-        "radec_to_custom for transformation to l,b does not work properly"
-    )
-    assert numpy.fabs(lb_direct[1] - lb_custom[1]) < 10.0**-8.0, (
-        "radec_to_custom for transformation to l,b does not work properly"
-    )
+    assert (
+        numpy.fabs(lb_direct[0] - lb_custom[0]) < 10.0**-8.0
+    ), "radec_to_custom for transformation to l,b does not work properly"
+    assert (
+        numpy.fabs(lb_direct[1] - lb_custom[1]) < 10.0**-8.0
+    ), "radec_to_custom for transformation to l,b does not work properly"
     # Array
     s = numpy.arange(2)
     lb_direct = coords.radec_to_lb(ra * s, dec * s, degree=True)
     lb_custom = coords.radec_to_custom(ra * s, dec * s, T=T.T, degree=True)
-    assert numpy.all(numpy.fabs(lb_direct - lb_custom) < 10.0**-8.0), (
-        "radec_to_custom for transformation to l,b does not work properly"
-    )
+    assert numpy.all(
+        numpy.fabs(lb_direct - lb_custom) < 10.0**-8.0
+    ), "radec_to_custom for transformation to l,b does not work properly"
     _turn_on_apy()
     return None
 
@@ -3058,20 +3042,20 @@ def test_radec_to_custom_pal5():
         return numpy.fabs(((numpy.fabs(x - xpct) + shift) % dom) - shift)
 
     # 0 < xieta[0] < 2 * pi
-    assert checkrng(xieta[0], 0, 2 * numpy.pi, 0) < 1e-8, (
-        "radec_to_custom does not work properly for Pal 5 transformation"
-    )
-    assert checkrng(xieta[1], 0, numpy.pi, numpy.pi / 2) < 1e-8, (
-        "radec_to_custom does not work properly for Pal 5 transformation"
-    )
+    assert (
+        checkrng(xieta[0], 0, 2 * numpy.pi, 0) < 1e-8
+    ), "radec_to_custom does not work properly for Pal 5 transformation"
+    assert (
+        checkrng(xieta[1], 0, numpy.pi, numpy.pi / 2) < 1e-8
+    ), "radec_to_custom does not work properly for Pal 5 transformation"
     # One more, rough estimate based on visual inspection of plot
     xieta = coords.radec_to_custom(240.0, 6.0, T=_TPAL5, degree=True)
-    assert checkrng(xieta[0], 11.0, 2 * numpy.pi, 0) < 0.2, (
-        "radec_to_custom does not work properly for Pal 5 transformation"
-    )
-    assert checkrng(xieta[1], 6.0, numpy.pi, numpy.pi / 2) < 0.2, (
-        "radec_to_custom does not work properly for Pal 5 transformation"
-    )
+    assert (
+        checkrng(xieta[0], 11.0, 2 * numpy.pi, 0) < 0.2
+    ), "radec_to_custom does not work properly for Pal 5 transformation"
+    assert (
+        checkrng(xieta[1], 6.0, numpy.pi, numpy.pi / 2) < 0.2
+    ), "radec_to_custom does not work properly for Pal 5 transformation"
     return None
 
 
@@ -3114,12 +3098,12 @@ def test_pmrapmdec_to_custom_againstlb():
     )
     pmlb_direct = coords.pmrapmdec_to_pmllpmbb(pmra, pmdec, ra, dec, degree=True)
     pmlb_custom = coords.pmrapmdec_to_custom(pmra, pmdec, ra, dec, T=T.T, degree=True)
-    assert numpy.fabs(pmlb_direct[0] - pmlb_custom[0]) < 10.0**-8.0, (
-        "pmrapmdec_to_custom for transformation to pml,pmb does not work properly"
-    )
-    assert numpy.fabs(pmlb_direct[1] - pmlb_custom[1]) < 10.0**-8.0, (
-        "pmrapmdec_to_custom for transformation to pml,pmb does not work properly"
-    )
+    assert (
+        numpy.fabs(pmlb_direct[0] - pmlb_custom[0]) < 10.0**-8.0
+    ), "pmrapmdec_to_custom for transformation to pml,pmb does not work properly"
+    assert (
+        numpy.fabs(pmlb_direct[1] - pmlb_custom[1]) < 10.0**-8.0
+    ), "pmrapmdec_to_custom for transformation to pml,pmb does not work properly"
     # Array
     s = numpy.arange(2)
     pmlb_direct = coords.pmrapmdec_to_pmllpmbb(
@@ -3128,9 +3112,9 @@ def test_pmrapmdec_to_custom_againstlb():
     pmlb_custom = coords.pmrapmdec_to_custom(
         pmra * s, pmdec * s, ra * s, dec * s, T=T.T, degree=True
     )
-    assert numpy.all(numpy.fabs(pmlb_direct - pmlb_custom) < 10.0**-8.0), (
-        "pmrapmdec_to_custom for transformation to pml,pmb does not work properly"
-    )
+    assert numpy.all(
+        numpy.fabs(pmlb_direct - pmlb_custom) < 10.0**-8.0
+    ), "pmrapmdec_to_custom for transformation to pml,pmb does not work properly"
     _turn_on_apy()
     return None
 
@@ -3173,19 +3157,19 @@ def test_custom_to_radec_againstlb():  # FIXME COMPARE TO DOCUMENT
     )
     lb_direct = coords.radec_to_lb(ra, dec, degree=True)
     lb_custom = coords.custom_to_radec(ra, dec, T=T, degree=True)
-    assert numpy.fabs(lb_direct[0] - lb_custom[0]) < 10.0**-8.0, (
-        "custom_to_radec for transformation to l,b does not work properly"
-    )
-    assert numpy.fabs(lb_direct[1] - lb_custom[1]) < 10.0**-8.0, (
-        "custom_to_radec for transformation to l,b does not work properly"
-    )
+    assert (
+        numpy.fabs(lb_direct[0] - lb_custom[0]) < 10.0**-8.0
+    ), "custom_to_radec for transformation to l,b does not work properly"
+    assert (
+        numpy.fabs(lb_direct[1] - lb_custom[1]) < 10.0**-8.0
+    ), "custom_to_radec for transformation to l,b does not work properly"
     # Array
     s = numpy.arange(2)
     lb_direct = coords.radec_to_lb(ra * s, dec * s, degree=True)
     lb_custom = coords.custom_to_radec(ra * s, dec * s, T=T, degree=True)
-    assert numpy.all(numpy.fabs(lb_direct - lb_custom) < 10.0**-8.0), (
-        "radec_to_custom for transformation to l,b does not work properly"
-    )
+    assert numpy.all(
+        numpy.fabs(lb_direct - lb_custom) < 10.0**-8.0
+    ), "radec_to_custom for transformation to l,b does not work properly"
     _turn_on_apy()
     return None
 
@@ -3216,20 +3200,20 @@ def test_custom_to_radec_pal5():  # FIXME COMPARE TO DOCUMENT
         return numpy.fabs(((numpy.fabs(x - xpct) + shift) % dom) - shift)
 
     # 0 < xieta[0] < 2 * pi
-    assert checkrng(xieta[0], 0, 2 * numpy.pi, 0) < 1e-8, (
-        "custom_to_radec does not work properly for Pal 5 transformation"
-    )
-    assert checkrng(xieta[1], 0, numpy.pi, numpy.pi / 2) < 1e-8, (
-        "custom_to_radec does not work properly for Pal 5 transformation"
-    )
+    assert (
+        checkrng(xieta[0], 0, 2 * numpy.pi, 0) < 1e-8
+    ), "custom_to_radec does not work properly for Pal 5 transformation"
+    assert (
+        checkrng(xieta[1], 0, numpy.pi, numpy.pi / 2) < 1e-8
+    ), "custom_to_radec does not work properly for Pal 5 transformation"
     # One more, rough estimate based on visual inspection of plot
     xieta = coords.custom_to_radec(240.0, 6.0, T=_TPAL5.T, degree=True)
-    assert checkrng(xieta[0], 11.0, 2 * numpy.pi, 0) < 0.2, (
-        "custom_to_radec does not work properly for Pal 5 transformation"
-    )
-    assert checkrng(xieta[1], 6.0, numpy.pi, numpy.pi / 2) < 0.2, (
-        "custom_to_radec does not work properly for Pal 5 transformation"
-    )
+    assert (
+        checkrng(xieta[0], 11.0, 2 * numpy.pi, 0) < 0.2
+    ), "custom_to_radec does not work properly for Pal 5 transformation"
+    assert (
+        checkrng(xieta[1], 6.0, numpy.pi, numpy.pi / 2) < 0.2
+    ), "custom_to_radec does not work properly for Pal 5 transformation"
     return None
 
 
@@ -3273,12 +3257,12 @@ def test_custom_to_pmrapmdec_againstlb():
     pmlb_direct = coords.pmrapmdec_to_pmllpmbb(pmra, pmdec, ra, dec, degree=True)
     pmlb_custom = coords.custom_to_pmrapmdec(pmra, pmdec, ra, dec, T=T, degree=True)
 
-    assert numpy.fabs(pmlb_direct[0] - pmlb_custom[0]) < 10.0**-8.0, (
-        "custom_to_pmrapmdec for transformation to pml,pmb does not work properly"
-    )
-    assert numpy.fabs(pmlb_direct[1] - pmlb_custom[1]) < 10.0**-8.0, (
-        "custom_to_pmrapmdec for transformation to pml,pmb does not work properly"
-    )
+    assert (
+        numpy.fabs(pmlb_direct[0] - pmlb_custom[0]) < 10.0**-8.0
+    ), "custom_to_pmrapmdec for transformation to pml,pmb does not work properly"
+    assert (
+        numpy.fabs(pmlb_direct[1] - pmlb_custom[1]) < 10.0**-8.0
+    ), "custom_to_pmrapmdec for transformation to pml,pmb does not work properly"
     # Array
     s = numpy.arange(2)
     pmlb_direct = coords.pmrapmdec_to_pmllpmbb(
@@ -3287,9 +3271,9 @@ def test_custom_to_pmrapmdec_againstlb():
     pmlb_custom = coords.custom_to_pmrapmdec(
         pmra * s, pmdec * s, ra * s, dec * s, T=T, degree=True
     )
-    assert numpy.all(numpy.fabs(pmlb_direct - pmlb_custom) < 10.0**-8.0), (
-        "custom_to_pmrapmdec for transformation to pml,pmb does not work properly"
-    )
+    assert numpy.all(
+        numpy.fabs(pmlb_direct - pmlb_custom) < 10.0**-8.0
+    ), "custom_to_pmrapmdec for transformation to pml,pmb does not work properly"
     _turn_on_apy()
     return None
 

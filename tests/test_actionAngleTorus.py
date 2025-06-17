@@ -33,63 +33,63 @@ def test_actionAngleTorus_basic():
     anglephi = numpy.linspace(0.0, 2.0 * numpy.pi, 101) + 1.0
     anglez = numpy.linspace(0.0, 2.0 * numpy.pi, 101) + 2.0
     RvR = aAT(jr, jphi, jz, angler, anglephi, anglez).T
-    assert numpy.all(numpy.fabs(RvR[0] - rl(MWPotential, jphi)) < 10.0**tol), (
-        "circular orbit does not have constant radius for actionAngleTorus"
-    )
-    assert numpy.all(numpy.fabs(RvR[1]) < 10.0**tol), (
-        "circular orbit does not have zero radial velocity for actionAngleTorus"
-    )
+    assert numpy.all(
+        numpy.fabs(RvR[0] - rl(MWPotential, jphi)) < 10.0**tol
+    ), "circular orbit does not have constant radius for actionAngleTorus"
+    assert numpy.all(
+        numpy.fabs(RvR[1]) < 10.0**tol
+    ), "circular orbit does not have zero radial velocity for actionAngleTorus"
     assert numpy.all(
         numpy.fabs(RvR[2] - vcirc(MWPotential, rl(MWPotential, jphi))) < 10.0**tol
     ), "circular orbit does not have constant vT=vc for actionAngleTorus"
-    assert numpy.all(numpy.fabs(RvR[3]) < 10.0**tol), (
-        "circular orbit does not have zero vertical height for actionAngleTorus"
-    )
-    assert numpy.all(numpy.fabs(RvR[4]) < 10.0**tol), (
-        "circular orbit does not have zero vertical velocity for actionAngleTorus"
-    )
+    assert numpy.all(
+        numpy.fabs(RvR[3]) < 10.0**tol
+    ), "circular orbit does not have zero vertical height for actionAngleTorus"
+    assert numpy.all(
+        numpy.fabs(RvR[4]) < 10.0**tol
+    ), "circular orbit does not have zero vertical velocity for actionAngleTorus"
     # at Lz=1.5, using Plummer
     tol = -3.25
     pp = PlummerPotential(normalize=1.0)
     aAT = actionAngleTorus(pot=pp)
     jphi = 1.5
     RvR = aAT(jr, jphi, jz, angler, anglephi, anglez).T
-    assert numpy.all(numpy.fabs(RvR[0] - rl(pp, jphi)) < 10.0**tol), (
-        "circular orbit does not have constant radius for actionAngleTorus"
-    )
-    assert numpy.all(numpy.fabs(RvR[1]) < 10.0**tol), (
-        "circular orbit does not have zero radial velocity for actionAngleTorus"
-    )
-    assert numpy.all(numpy.fabs(RvR[2] - vcirc(pp, rl(pp, jphi))) < 10.0**tol), (
-        "circular orbit does not have constant vT=vc for actionAngleTorus"
-    )
-    assert numpy.all(numpy.fabs(RvR[3]) < 10.0**tol), (
-        "circular orbit does not have zero vertical height for actionAngleTorus"
-    )
-    assert numpy.all(numpy.fabs(RvR[4]) < 10.0**tol), (
-        "circular orbit does not have zero vertical velocity for actionAngleTorus"
-    )
+    assert numpy.all(
+        numpy.fabs(RvR[0] - rl(pp, jphi)) < 10.0**tol
+    ), "circular orbit does not have constant radius for actionAngleTorus"
+    assert numpy.all(
+        numpy.fabs(RvR[1]) < 10.0**tol
+    ), "circular orbit does not have zero radial velocity for actionAngleTorus"
+    assert numpy.all(
+        numpy.fabs(RvR[2] - vcirc(pp, rl(pp, jphi))) < 10.0**tol
+    ), "circular orbit does not have constant vT=vc for actionAngleTorus"
+    assert numpy.all(
+        numpy.fabs(RvR[3]) < 10.0**tol
+    ), "circular orbit does not have zero vertical height for actionAngleTorus"
+    assert numpy.all(
+        numpy.fabs(RvR[4]) < 10.0**tol
+    ), "circular orbit does not have zero vertical velocity for actionAngleTorus"
     # at Lz=0.5, using FlattenedPowerPotential
     tol = -4.0
     fp = FlattenedPowerPotential(normalize=1.0)
     aAT = actionAngleTorus(pot=fp)
     jphi = 0.5
     RvR = aAT(jr, jphi, jz, angler, anglephi, anglez).T
-    assert numpy.all(numpy.fabs(RvR[0] - rl(fp, jphi)) < 10.0**tol), (
-        "circular orbit does not have constant radius for actionAngleTorus"
-    )
-    assert numpy.all(numpy.fabs(RvR[1]) < 10.0**tol), (
-        "circular orbit does not have zero radial velocity for actionAngleTorus"
-    )
-    assert numpy.all(numpy.fabs(RvR[2] - vcirc(fp, rl(fp, jphi))) < 10.0**tol), (
-        "circular orbit does not have constant vT=vc for actionAngleTorus"
-    )
-    assert numpy.all(numpy.fabs(RvR[3]) < 10.0**tol), (
-        "circular orbit does not have zero vertical height for actionAngleTorus"
-    )
-    assert numpy.all(numpy.fabs(RvR[4]) < 10.0**tol), (
-        "circular orbit does not have zero vertical velocity for actionAngleTorus"
-    )
+    assert numpy.all(
+        numpy.fabs(RvR[0] - rl(fp, jphi)) < 10.0**tol
+    ), "circular orbit does not have constant radius for actionAngleTorus"
+    assert numpy.all(
+        numpy.fabs(RvR[1]) < 10.0**tol
+    ), "circular orbit does not have zero radial velocity for actionAngleTorus"
+    assert numpy.all(
+        numpy.fabs(RvR[2] - vcirc(fp, rl(fp, jphi))) < 10.0**tol
+    ), "circular orbit does not have constant vT=vc for actionAngleTorus"
+    assert numpy.all(
+        numpy.fabs(RvR[3]) < 10.0**tol
+    ), "circular orbit does not have zero vertical height for actionAngleTorus"
+    assert numpy.all(
+        numpy.fabs(RvR[4]) < 10.0**tol
+    ), "circular orbit does not have zero vertical velocity for actionAngleTorus"
     return None
 
 
@@ -114,44 +114,44 @@ def test_actionAngleTorus_basic_freqs():
     # at Lz=1
     jphi = 1.0
     om = aAT.Freqs(jr, jphi, jz)
-    assert numpy.fabs((om[0] - epifreq(jp, rl(jp, jphi))) / om[0]) < 10.0**tol, (
-        "Close-to-circular orbit does not have Or=kappa for actionAngleTorus"
-    )
-    assert numpy.fabs((om[1] - omegac(jp, rl(jp, jphi))) / om[1]) < 10.0**tol, (
-        "Close-to-circular orbit does not have Ophi=omega for actionAngleTorus"
-    )
-    assert numpy.fabs((om[2] - verticalfreq(jp, rl(jp, jphi))) / om[2]) < 10.0**tol, (
-        "Close-to-circular orbit does not have Oz=nu for actionAngleTorus"
-    )
+    assert (
+        numpy.fabs((om[0] - epifreq(jp, rl(jp, jphi))) / om[0]) < 10.0**tol
+    ), "Close-to-circular orbit does not have Or=kappa for actionAngleTorus"
+    assert (
+        numpy.fabs((om[1] - omegac(jp, rl(jp, jphi))) / om[1]) < 10.0**tol
+    ), "Close-to-circular orbit does not have Ophi=omega for actionAngleTorus"
+    assert (
+        numpy.fabs((om[2] - verticalfreq(jp, rl(jp, jphi))) / om[2]) < 10.0**tol
+    ), "Close-to-circular orbit does not have Oz=nu for actionAngleTorus"
     # at Lz=1.5, w/ different potential
     pp = PowerSphericalPotential(normalize=1.0)
     aAT = actionAngleTorus(pot=pp)
     jphi = 1.5
     om = aAT.Freqs(jr, jphi, jz)
-    assert numpy.fabs((om[0] - epifreq(pp, rl(pp, jphi))) / om[0]) < 10.0**tol, (
-        "Close-to-circular orbit does not have Or=kappa for actionAngleTorus"
-    )
-    assert numpy.fabs((om[1] - omegac(pp, rl(pp, jphi))) / om[1]) < 10.0**tol, (
-        "Close-to-circular orbit does not have Ophi=omega for actionAngleTorus"
-    )
-    assert numpy.fabs((om[2] - verticalfreq(pp, rl(pp, jphi))) / om[2]) < 10.0**tol, (
-        "Close-to-circular orbit does not have Oz=nu for actionAngleTorus"
-    )
+    assert (
+        numpy.fabs((om[0] - epifreq(pp, rl(pp, jphi))) / om[0]) < 10.0**tol
+    ), "Close-to-circular orbit does not have Or=kappa for actionAngleTorus"
+    assert (
+        numpy.fabs((om[1] - omegac(pp, rl(pp, jphi))) / om[1]) < 10.0**tol
+    ), "Close-to-circular orbit does not have Ophi=omega for actionAngleTorus"
+    assert (
+        numpy.fabs((om[2] - verticalfreq(pp, rl(pp, jphi))) / om[2]) < 10.0**tol
+    ), "Close-to-circular orbit does not have Oz=nu for actionAngleTorus"
     # at Lz=0.5, w/ different potential
     tol = -2.5  # appears more difficult
     hp = HernquistPotential(normalize=1.0)
     aAT = actionAngleTorus(pot=hp)
     jphi = 0.5
     om = aAT.Freqs(jr, jphi, jz)
-    assert numpy.fabs((om[0] - epifreq(hp, rl(hp, jphi))) / om[0]) < 10.0**tol, (
-        "Close-to-circular orbit does not have Or=kappa for actionAngleTorus"
-    )
-    assert numpy.fabs((om[1] - omegac(hp, rl(hp, jphi))) / om[1]) < 10.0**tol, (
-        "Close-to-circular orbit does not have Ophi=omega for actionAngleTorus"
-    )
-    assert numpy.fabs((om[2] - verticalfreq(hp, rl(hp, jphi))) / om[2]) < 10.0**tol, (
-        "Close-to-circular orbit does not have Oz=nu for actionAngleTorus"
-    )
+    assert (
+        numpy.fabs((om[0] - epifreq(hp, rl(hp, jphi))) / om[0]) < 10.0**tol
+    ), "Close-to-circular orbit does not have Or=kappa for actionAngleTorus"
+    assert (
+        numpy.fabs((om[1] - omegac(hp, rl(hp, jphi))) / om[1]) < 10.0**tol
+    ), "Close-to-circular orbit does not have Ophi=omega for actionAngleTorus"
+    assert (
+        numpy.fabs((om[2] - verticalfreq(hp, rl(hp, jphi))) / om[2]) < 10.0**tol
+    ), "Close-to-circular orbit does not have Oz=nu for actionAngleTorus"
     return None
 
 
@@ -190,21 +190,21 @@ def test_actionAngleTorus_orbit():
     orb.integrate(ts, MWPotential2014)
     # Compare
     tol = -3.0
-    assert numpy.all(numpy.fabs(orb.R(ts) - RvR[0]) < 10.0**tol), (
-        "Integrated orbit does not agree with torus orbit in R"
-    )
-    assert numpy.all(numpy.fabs(orb.vR(ts) - RvR[1]) < 10.0**tol), (
-        "Integrated orbit does not agree with torus orbit in vR"
-    )
-    assert numpy.all(numpy.fabs(orb.vT(ts) - RvR[2]) < 10.0**tol), (
-        "Integrated orbit does not agree with torus orbit in vT"
-    )
-    assert numpy.all(numpy.fabs(orb.z(ts) - RvR[3]) < 10.0**tol), (
-        "Integrated orbit does not agree with torus orbit in z"
-    )
-    assert numpy.all(numpy.fabs(orb.vz(ts) - RvR[4]) < 10.0**tol), (
-        "Integrated orbit does not agree with torus orbit in vz"
-    )
+    assert numpy.all(
+        numpy.fabs(orb.R(ts) - RvR[0]) < 10.0**tol
+    ), "Integrated orbit does not agree with torus orbit in R"
+    assert numpy.all(
+        numpy.fabs(orb.vR(ts) - RvR[1]) < 10.0**tol
+    ), "Integrated orbit does not agree with torus orbit in vR"
+    assert numpy.all(
+        numpy.fabs(orb.vT(ts) - RvR[2]) < 10.0**tol
+    ), "Integrated orbit does not agree with torus orbit in vT"
+    assert numpy.all(
+        numpy.fabs(orb.z(ts) - RvR[3]) < 10.0**tol
+    ), "Integrated orbit does not agree with torus orbit in z"
+    assert numpy.all(
+        numpy.fabs(orb.vz(ts) - RvR[4]) < 10.0**tol
+    ), "Integrated orbit does not agree with torus orbit in vz"
     assert numpy.all(
         numpy.fabs((orb.phi(ts) - RvR[5] + numpy.pi) % (2.0 * numpy.pi) - numpy.pi)
         < 10.0**tol
@@ -234,15 +234,15 @@ def test_actionAngleTorus_interppot_freqs():
     jr, jphi, jz = 0.05, 1.1, 0.02
     om = aAT.Freqs(jr, jphi, jz)
     omi = aATi.Freqs(jr, jphi, jz)
-    assert numpy.fabs((om[0] - omi[0]) / om[0]) < 0.2, (
-        "Radial frequency computed using the torus machine does not agree between potential and interpolated potential"
-    )
-    assert numpy.fabs((om[1] - omi[1]) / om[1]) < 0.2, (
-        "Azimuthal frequency computed using the torus machine does not agree between potential and interpolated potential"
-    )
-    assert numpy.fabs((om[2] - omi[2]) / om[2]) < 0.8, (
-        "Vertical frequency computed using the torus machine does not agree between potential and interpolated potential"
-    )
+    assert (
+        numpy.fabs((om[0] - omi[0]) / om[0]) < 0.2
+    ), "Radial frequency computed using the torus machine does not agree between potential and interpolated potential"
+    assert (
+        numpy.fabs((om[1] - omi[1]) / om[1]) < 0.2
+    ), "Azimuthal frequency computed using the torus machine does not agree between potential and interpolated potential"
+    assert (
+        numpy.fabs((om[2] - omi[2]) / om[2]) < 0.8
+    ), "Vertical frequency computed using the torus machine does not agree between potential and interpolated potential"
     return None
 
 
@@ -551,9 +551,9 @@ def test_actionAngleTorus_hessian_symm():
     aAT = actionAngleTorus(pot=MWPotential2014)
     jr, jphi, jz = 0.075, 1.1, 0.05
     h = aAT.hessianFreqs(jr, jphi, jz, tol=0.0001, nosym=True)[0]
-    assert numpy.all(numpy.fabs((h - h.T) / h) < 0.03), (
-        "actionAngleTorus Hessian is not symmetric"
-    )
+    assert numpy.all(
+        numpy.fabs((h - h.T) / h) < 0.03
+    ), "actionAngleTorus Hessian is not symmetric"
     return None
 
 
@@ -569,9 +569,9 @@ def test_actionAngleTorus_hessian_linear():
     do_fromhessian = numpy.dot(h, dj)
     O = numpy.array(aAT.Freqs(jr, jphi, jz)[:3])
     do = numpy.array(aAT.Freqs(jr + dj[0], jphi + dj[1], jz + dj[2])[:3]) - O
-    assert numpy.all(numpy.fabs((do_fromhessian - do) / O) < 0.001), (
-        "actionAngleTorus Hessian does not return good approximation to dO/dJ"
-    )
+    assert numpy.all(
+        numpy.fabs((do_fromhessian - do) / O) < 0.001
+    ), "actionAngleTorus Hessian does not return good approximation to dO/dJ"
     return None
 
 
@@ -605,9 +605,7 @@ def test_actionAngleTorus_jacobian_hessian():
     )[2]
     assert numpy.all(
         numpy.fabs(numpy.array(freqO) - numpy.array(hessO)) < 10.0**-8.0
-    ), (
-        "actionAngleTorus methods hessianFreqs and xvJacobianFreqs return different Hessians"
-    )
+    ), "actionAngleTorus methods hessianFreqs and xvJacobianFreqs return different Hessians"
     return None
 
 
@@ -642,14 +640,10 @@ def test_actionAngleTorus_jacobian_detone():
     jf = aAT.xvJacobianFreqs(jr, jphi, jz, angler, anglephi, anglez)
     assert (
         numpy.fabs(jf[0][0, 0] * numpy.fabs(numpy.linalg.det(jf[1][0])) - 1) < 0.01
-    ), (
-        "Jacobian returned by actionAngleTorus method xvJacobianFreqs does not have the expected determinant"
-    )
+    ), "Jacobian returned by actionAngleTorus method xvJacobianFreqs does not have the expected determinant"
     assert (
         numpy.fabs(jf[0][1, 0] * numpy.fabs(numpy.linalg.det(jf[1][1])) - 1) < 0.01
-    ), (
-        "Jacobian returned by actionAngleTorus method xvJacobianFreqs does not have the expected determinant"
-    )
+    ), "Jacobian returned by actionAngleTorus method xvJacobianFreqs does not have the expected determinant"
     return None
 
 
@@ -675,9 +669,9 @@ def test_actionAngleTorus_jacobian_linear():
         anglez + dja[5],
     )
     xv_fromjac = xv + numpy.dot(jf[1], dja)
-    assert numpy.all(numpy.fabs((xv_fromjac - xv_direct) / xv_direct) < 0.01), (
-        "Jacobian returned by actionAngleTorus method xvJacobianFreqs does not appear to be correct"
-    )
+    assert numpy.all(
+        numpy.fabs((xv_fromjac - xv_direct) / xv_direct) < 0.01
+    ), "Jacobian returned by actionAngleTorus method xvJacobianFreqs does not appear to be correct"
     return None
 
 
@@ -747,9 +741,9 @@ def test_actionAngleTorus_AutoFitWarning():
             )
             if raisedWarning:
                 break
-        assert raisedWarning, (
-            "actionAngleTorus with flattened LogarithmicHaloPotential and a particular orbit should have thrown a warning, but didn't"
-        )
+        assert (
+            raisedWarning
+        ), "actionAngleTorus with flattened LogarithmicHaloPotential and a particular orbit should have thrown a warning, but didn't"
     with warnings.catch_warnings(record=True) as w:
         warnings.simplefilter("always", galpyWarning)
         aAT.xvFreqs(jr, jp, jz, ar, ap, az)
@@ -762,9 +756,9 @@ def test_actionAngleTorus_AutoFitWarning():
             )
             if raisedWarning:
                 break
-        assert raisedWarning, (
-            "actionAngleTorus with flattened LogarithmicHaloPotential and a particular orbit should have thrown a warning, but didn't"
-        )
+        assert (
+            raisedWarning
+        ), "actionAngleTorus with flattened LogarithmicHaloPotential and a particular orbit should have thrown a warning, but didn't"
     with warnings.catch_warnings(record=True) as w:
         warnings.simplefilter("always", galpyWarning)
         aAT.Freqs(jr, jp, jz)
@@ -777,9 +771,9 @@ def test_actionAngleTorus_AutoFitWarning():
             )
             if raisedWarning:
                 break
-        assert raisedWarning, (
-            "actionAngleTorus with flattened LogarithmicHaloPotential and a particular orbit should have thrown a warning, but didn't"
-        )
+        assert (
+            raisedWarning
+        ), "actionAngleTorus with flattened LogarithmicHaloPotential and a particular orbit should have thrown a warning, but didn't"
     with warnings.catch_warnings(record=True) as w:
         warnings.simplefilter("always", galpyWarning)
         aAT.hessianFreqs(jr, jp, jz)
@@ -792,9 +786,9 @@ def test_actionAngleTorus_AutoFitWarning():
             )
             if raisedWarning:
                 break
-        assert raisedWarning, (
-            "actionAngleTorus with flattened LogarithmicHaloPotential and a particular orbit should have thrown a warning, but didn't"
-        )
+        assert (
+            raisedWarning
+        ), "actionAngleTorus with flattened LogarithmicHaloPotential and a particular orbit should have thrown a warning, but didn't"
     with warnings.catch_warnings(record=True) as w:
         warnings.simplefilter("always", galpyWarning)
         aAT.xvJacobianFreqs(jr, jp, jz, ar, ap, az)
@@ -807,9 +801,9 @@ def test_actionAngleTorus_AutoFitWarning():
             )
             if raisedWarning:
                 break
-        assert raisedWarning, (
-            "actionAngleTorus with flattened LogarithmicHaloPotential and a particular orbit should have thrown a warning, but didn't"
-        )
+        assert (
+            raisedWarning
+        ), "actionAngleTorus with flattened LogarithmicHaloPotential and a particular orbit should have thrown a warning, but didn't"
     return None
 
 
@@ -841,7 +835,7 @@ def test_load_library():
 
     first_lib = load_libgalpy_actionAngleTorus()[0]
     second_lib = load_libgalpy_actionAngleTorus()[0]
-    assert first_lib == second_lib, (
-        "libgalpy_actionAngleTorus loaded second time is not the same as first time"
-    )
+    assert (
+        first_lib == second_lib
+    ), "libgalpy_actionAngleTorus loaded second time is not the same as first time"
     return None

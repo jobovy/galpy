@@ -133,9 +133,9 @@ def setup_sanders15_leading():
             )
             if raisedWarning:
                 break
-        assert raisedWarning, (
-            "deltaAngleTrackImpact warning not raised when it should have been"
-        )
+        assert (
+            raisedWarning
+        ), "deltaAngleTrackImpact warning not raised when it should have been"
     # Also setup the unperturbed model
     sdfl_sanders15_unp = streamdf(
         sigv / V0,
@@ -298,9 +298,9 @@ def test_sanders15_setup(setup_sanders15_trailing):
     # Load the streamgapdf objects
     sdf_sanders15, sdf_sanders15_unp = setup_sanders15_trailing
     assert not sdf_sanders15 is None, "sanders15 streamgapdf setup did not work"
-    assert not sdf_sanders15_unp is None, (
-        "sanders15 unperturbed streamdf setup did not work"
-    )
+    assert (
+        not sdf_sanders15_unp is None
+    ), "sanders15 unperturbed streamdf setup did not work"
     return None
 
 
@@ -308,9 +308,9 @@ def test_sanders15_leading_setup(setup_sanders15_leading):
     # Load the streamgapdf objects
     sdfl_sanders15, sdfl_sanders15_unp = setup_sanders15_leading
     assert not sdfl_sanders15 is None, "sanders15 trailing streamdf setup did not work"
-    assert not sdfl_sanders15_unp is None, (
-        "sanders15 unperturbed streamdf setup did not work"
-    )
+    assert (
+        not sdfl_sanders15_unp is None
+    ), "sanders15 unperturbed streamdf setup did not work"
     return None
 
 
@@ -332,9 +332,9 @@ def test_nTrackChunks(setup_sanders15_trailing):
 def test_deltaAngleTrackImpact(setup_sanders15_trailing):
     # Load the streamgapdf objects
     sdf_sanders15, sdf_sanders15_unp = setup_sanders15_trailing
-    assert numpy.fabs(sdf_sanders15._deltaAngleTrackImpact - 4.31) < 0.01, (
-        "deltaAngleTrackImpact should have been ~4.31"
-    )
+    assert (
+        numpy.fabs(sdf_sanders15._deltaAngleTrackImpact - 4.31) < 0.01
+    ), "deltaAngleTrackImpact should have been ~4.31"
     return None
 
 
@@ -349,51 +349,35 @@ def test_trackNearImpact(setup_sanders15_trailing):
     ), "14th point along track near the impact is not near 14.5 kpc"
     assert (
         numpy.fabs(sdf_sanders15._gap_ObsTrack[14, 1] * sdf_sanders15._vo - 80) < 3.0
-    ), (
-        "Point along the track near impact near R=14.5 does not have the correct radial velocity"
-    )
+    ), "Point along the track near impact near R=14.5 does not have the correct radial velocity"
     assert (
         numpy.fabs(sdf_sanders15._gap_ObsTrack[14, 2] * sdf_sanders15._vo - 220.0) < 3.0
-    ), (
-        "Point along the track near impact near R=14.5 does not have the correct tangential velocity"
-    )
+    ), "Point along the track near impact near R=14.5 does not have the correct tangential velocity"
     assert (
         numpy.fabs(sdf_sanders15._gap_ObsTrack[14, 3] * sdf_sanders15._ro - 0.0) < 1.0
-    ), (
-        "Point along the track near impact near R=14.5 does not have the correct vertical height"
-    )
+    ), "Point along the track near impact near R=14.5 does not have the correct vertical height"
     assert (
         numpy.fabs(sdf_sanders15._gap_ObsTrack[14, 4] * sdf_sanders15._vo - 200.0) < 5.0
-    ), (
-        "Point along the track near impact near R=14.5 does not have the correct vertical velocity"
-    )
+    ), "Point along the track near impact near R=14.5 does not have the correct vertical velocity"
     # Another one!
     assert (
         numpy.fabs(sdf_sanders15._gap_ObsTrack[27, 0] * sdf_sanders15._ro - 16.25) < 0.2
     ), "27th point along track near the impact is not near 16.25 kpc"
     assert (
         numpy.fabs(sdf_sanders15._gap_ObsTrack[27, 1] * sdf_sanders15._vo + 130) < 3.0
-    ), (
-        "Point along the track near impact near R=16.25 does not have the correct radial velocity"
-    )
+    ), "Point along the track near impact near R=16.25 does not have the correct radial velocity"
     assert (
         numpy.fabs(sdf_sanders15._gap_ObsTrack[27, 2] * sdf_sanders15._vo - 200.0) < 3.0
-    ), (
-        "Point along the track near impact near R=16.25 does not have the correct tangential velocity"
-    )
+    ), "Point along the track near impact near R=16.25 does not have the correct tangential velocity"
     assert (
         numpy.fabs(sdf_sanders15._gap_ObsTrack[27, 3] * sdf_sanders15._ro + 12.0) < 1.0
-    ), (
-        "Point along the track near impact near R=16.25 does not have the correct vertical height"
-    )
+    ), "Point along the track near impact near R=16.25 does not have the correct vertical height"
     assert (
         numpy.fabs(sdf_sanders15._gap_ObsTrack[27, 4] * sdf_sanders15._vo - 25.0) < 5.0
-    ), (
-        "Point along the track near impact near R=16.25 does not have the correct vertical velocity"
-    )
-    assert numpy.fabs(sdf_sanders15._gap_ObsTrack[27, 5] - 1.2) < 0.2, (
-        "Point along the track near impact near R=16.25 does not have the correct azimuth"
-    )
+    ), "Point along the track near impact near R=16.25 does not have the correct vertical velocity"
+    assert (
+        numpy.fabs(sdf_sanders15._gap_ObsTrack[27, 5] - 1.2) < 0.2
+    ), "Point along the track near impact near R=16.25 does not have the correct azimuth"
     return None
 
 
@@ -627,44 +611,44 @@ def test_interpKickdO(setup_sanders15_trailing):
     # Bunch of spot checks at some interesting angles
     # Impact angle
     theta = sdf_sanders15._impact_angle
-    assert numpy.fabs(sdf_sanders15._kick_interpdOpar(theta) * freqConv) < 10.0**-4.0, (
-        "Frequency kick at the impact point is not zero"
-    )
+    assert (
+        numpy.fabs(sdf_sanders15._kick_interpdOpar(theta) * freqConv) < 10.0**-4.0
+    ), "Frequency kick at the impact point is not zero"
     assert (
         numpy.fabs(sdf_sanders15._kick_interpdOperp0(theta) * freqConv) < 10.0**-4.0
     ), "Frequency kick at the impact point is not zero"
     assert (
         numpy.fabs(sdf_sanders15._kick_interpdOperp1(theta) * freqConv) < 10.0**-4.0
     ), "Frequency kick at the impact point is not zero"
-    assert numpy.fabs(sdf_sanders15._kick_interpdOr(theta) * freqConv) < 10.0**-4.0, (
-        "Frequency kick at the impact point is not zero"
-    )
-    assert numpy.fabs(sdf_sanders15._kick_interpdOp(theta) * freqConv) < 10.0**-4.0, (
-        "Frequency kick at the impact point is not zero"
-    )
-    assert numpy.fabs(sdf_sanders15._kick_interpdOz(theta) * freqConv) < 10.0**-4.0, (
-        "Frequency kick at the impact point is not zero"
-    )
+    assert (
+        numpy.fabs(sdf_sanders15._kick_interpdOr(theta) * freqConv) < 10.0**-4.0
+    ), "Frequency kick at the impact point is not zero"
+    assert (
+        numpy.fabs(sdf_sanders15._kick_interpdOp(theta) * freqConv) < 10.0**-4.0
+    ), "Frequency kick at the impact point is not zero"
+    assert (
+        numpy.fabs(sdf_sanders15._kick_interpdOz(theta) * freqConv) < 10.0**-4.0
+    ), "Frequency kick at the impact point is not zero"
     # random one
     theta = sdf_sanders15._impact_angle - 0.25
     assert (
         numpy.fabs(sdf_sanders15._kick_interpdOpar(theta) * freqConv + 0.07) < 0.002
     ), "Frequency kick near the impact point is not zero"
-    assert numpy.fabs(sdf_sanders15._kick_interpdOperp0(theta) * freqConv) < 0.002, (
-        "Frequency kick near the impact point is not zero"
-    )
-    assert numpy.fabs(sdf_sanders15._kick_interpdOperp1(theta) * freqConv) < 0.003, (
-        "Frequency kick near the impact point is not zero"
-    )
-    assert numpy.fabs(sdf_sanders15._kick_interpdOr(theta) * freqConv - 0.05) < 0.01, (
-        "Frequency kick near the impact point is not zero"
-    )
-    assert numpy.fabs(sdf_sanders15._kick_interpdOp(theta) * freqConv - 0.035) < 0.01, (
-        "Frequency kick near the impact point is not zero"
-    )
-    assert numpy.fabs(sdf_sanders15._kick_interpdOz(theta) * freqConv - 0.04) < 0.01, (
-        "Frequency kick near the impact point is not zero"
-    )
+    assert (
+        numpy.fabs(sdf_sanders15._kick_interpdOperp0(theta) * freqConv) < 0.002
+    ), "Frequency kick near the impact point is not zero"
+    assert (
+        numpy.fabs(sdf_sanders15._kick_interpdOperp1(theta) * freqConv) < 0.003
+    ), "Frequency kick near the impact point is not zero"
+    assert (
+        numpy.fabs(sdf_sanders15._kick_interpdOr(theta) * freqConv - 0.05) < 0.01
+    ), "Frequency kick near the impact point is not zero"
+    assert (
+        numpy.fabs(sdf_sanders15._kick_interpdOp(theta) * freqConv - 0.035) < 0.01
+    ), "Frequency kick near the impact point is not zero"
+    assert (
+        numpy.fabs(sdf_sanders15._kick_interpdOz(theta) * freqConv - 0.04) < 0.01
+    ), "Frequency kick near the impact point is not zero"
     # One beyond ._deltaAngleTrackImpact
     theta = sdf_sanders15._deltaAngleTrackImpact + 0.1
     assert (
@@ -676,24 +660,24 @@ def test_interpKickdO(setup_sanders15_trailing):
     assert (
         numpy.fabs(sdf_sanders15._kick_interpdOperp1(theta) * freqConv) < 10.0**-16.0
     ), "Frequency kick beyond ._deltaAngleTrackImpact is not zero"
-    assert numpy.fabs(sdf_sanders15._kick_interpdOr(theta) * freqConv) < 10.0**-16.0, (
-        "Frequency kick beyond ._deltaAngleTrackImpact is not zero"
-    )
-    assert numpy.fabs(sdf_sanders15._kick_interpdOp(theta) * freqConv) < 10.0**-16.0, (
-        "Frequency kick beyond ._deltaAngleTrackImpact is not zero"
-    )
-    assert numpy.fabs(sdf_sanders15._kick_interpdOz(theta) * freqConv) < 10.0**-16.0, (
-        "Frequency kick beyond ._deltaAngleTrackImpact is not zero"
-    )
-    assert numpy.fabs(sdf_sanders15._kick_interpdar(theta)) < 10.0**-16.0, (
-        "Angle kick beyond ._deltaAngleTrackImpact is not zero"
-    )
-    assert numpy.fabs(sdf_sanders15._kick_interpdap(theta)) < 10.0**-16.0, (
-        "Angle kick beyond ._deltaAngleTrackImpact is not zero"
-    )
-    assert numpy.fabs(sdf_sanders15._kick_interpdaz(theta)) < 10.0**-16.0, (
-        "Angle kick beyond ._deltaAngleTrackImpact is not zero"
-    )
+    assert (
+        numpy.fabs(sdf_sanders15._kick_interpdOr(theta) * freqConv) < 10.0**-16.0
+    ), "Frequency kick beyond ._deltaAngleTrackImpact is not zero"
+    assert (
+        numpy.fabs(sdf_sanders15._kick_interpdOp(theta) * freqConv) < 10.0**-16.0
+    ), "Frequency kick beyond ._deltaAngleTrackImpact is not zero"
+    assert (
+        numpy.fabs(sdf_sanders15._kick_interpdOz(theta) * freqConv) < 10.0**-16.0
+    ), "Frequency kick beyond ._deltaAngleTrackImpact is not zero"
+    assert (
+        numpy.fabs(sdf_sanders15._kick_interpdar(theta)) < 10.0**-16.0
+    ), "Angle kick beyond ._deltaAngleTrackImpact is not zero"
+    assert (
+        numpy.fabs(sdf_sanders15._kick_interpdap(theta)) < 10.0**-16.0
+    ), "Angle kick beyond ._deltaAngleTrackImpact is not zero"
+    assert (
+        numpy.fabs(sdf_sanders15._kick_interpdaz(theta)) < 10.0**-16.0
+    ), "Angle kick beyond ._deltaAngleTrackImpact is not zero"
     return None
 
 
@@ -707,9 +691,7 @@ def test_interpKickda(setup_sanders15_trailing):
         * numpy.fabs(
             sdf_sanders15._kick_interpdOr(thetas) / sdf_sanders15._progenitor_Omegar
         )
-    ), (
-        "Interpolated angle kick not everywhere smaller than the frequency kick after one period"
-    )
+    ), "Interpolated angle kick not everywhere smaller than the frequency kick after one period"
     return None
 
 
@@ -732,12 +714,12 @@ def test_sample(setup_sanders15_trailing):
         (xv_mock_per[:, 0] * sdf_sanders15._ro > -2.5)
         * (xv_mock_per[:, 0] * sdf_sanders15._ro < -1.5)
     )
-    assert numpy.fabs(ingap / float(edgegap) - 0.015 / 0.05) < 0.05, (
-        "gap density versus edge of the gap is incorrect"
-    )
-    assert numpy.fabs(ingap / float(outgap) - 0.015 / 0.02) < 0.2, (
-        "gap density versus outside of the gap is incorrect"
-    )
+    assert (
+        numpy.fabs(ingap / float(edgegap) - 0.015 / 0.05) < 0.05
+    ), "gap density versus edge of the gap is incorrect"
+    assert (
+        numpy.fabs(ingap / float(outgap) - 0.015 / 0.02) < 0.2
+    ), "gap density versus outside of the gap is incorrect"
     # Test track of the stream
     tIndx = (
         (xv_mock_per[:, 0] * sdf_sanders15._ro > 4.0)
@@ -922,9 +904,7 @@ def test_pOparapar(setup_sanders15_trailing):
             - sdf_sanders15.density_par(2.6) / sdf_sanders15.density_par(0.3)
         )
         < 10.0**-4.0
-    ), (
-        "density from integrating pOparapar not equal to that from density_par for Sanders15 stream"
-    )
+    ), "density from integrating pOparapar not equal to that from density_par for Sanders15 stream"
     return None
 
 
@@ -1092,9 +1072,9 @@ def test_hernquist(setup_sanders15_trailing):
             sdf_sanders15._kick_interpolatedThetasTrack - sdf_sanders15._impact_angle
         )
     )
-    assert numpy.all(numpy.fabs(hernquist_kicks[tIndx] * sdf_sanders15._vo) < 0.4), (
-        "Kick near the impact point not close to zero for Hernquist"
-    )
+    assert numpy.all(
+        numpy.fabs(hernquist_kicks[tIndx] * sdf_sanders15._vo) < 0.4
+    ), "Kick near the impact point not close to zero for Hernquist"
     # The peak, size and location
     # Peak should be slightly less (guessed these correct!)
     assert (
@@ -1144,9 +1124,9 @@ def test_hernquist(setup_sanders15_trailing):
             - 1.5
         )
     )
-    assert numpy.all(numpy.fabs(hernquist_kicks[tIndx] * sdf_sanders15._vo) < 0.3), (
-        "Kick far the impact point not close to zero"
-    )
+    assert numpy.all(
+        numpy.fabs(hernquist_kicks[tIndx] * sdf_sanders15._vo) < 0.3
+    ), "Kick far the impact point not close to zero"
     return None
 
 
@@ -1180,78 +1160,78 @@ def test_rotate_to_arbitrary_vector():
     v = numpy.array([[1.0, 0.0, 0.0]])
     # Rotate to 90 deg off
     ma = _rotate_to_arbitrary_vector(v, [0, 1.0, 0])
-    assert numpy.fabs(ma[0, 0, 1] + 1.0) < 10.0**tol, (
-        "Rotation matrix to 90 deg off incorrect"
-    )
-    assert numpy.fabs(ma[0, 1, 0] - 1.0) < 10.0**tol, (
-        "Rotation matrix to 90 deg off incorrect"
-    )
-    assert numpy.fabs(ma[0, 2, 2] - 1.0) < 10.0**tol, (
-        "Rotation matrix to 90 deg off incorrect"
-    )
-    assert numpy.fabs(ma[0, 0, 0]) < 10.0**tol, (
-        "Rotation matrix to 90 deg off incorrect"
-    )
-    assert numpy.fabs(ma[0, 0, 2]) < 10.0**tol, (
-        "Rotation matrix to 90 deg off incorrect"
-    )
-    assert numpy.fabs(ma[0, 1, 1]) < 10.0**tol, (
-        "Rotation matrix to 90 deg off incorrect"
-    )
-    assert numpy.fabs(ma[0, 1, 2]) < 10.0**tol, (
-        "Rotation matrix to 90 deg off incorrect"
-    )
-    assert numpy.fabs(ma[0, 2, 0]) < 10.0**tol, (
-        "Rotation matrix to 90 deg off incorrect"
-    )
-    assert numpy.fabs(ma[0, 2, 1]) < 10.0**tol, (
-        "Rotation matrix to 90 deg off incorrect"
-    )
+    assert (
+        numpy.fabs(ma[0, 0, 1] + 1.0) < 10.0**tol
+    ), "Rotation matrix to 90 deg off incorrect"
+    assert (
+        numpy.fabs(ma[0, 1, 0] - 1.0) < 10.0**tol
+    ), "Rotation matrix to 90 deg off incorrect"
+    assert (
+        numpy.fabs(ma[0, 2, 2] - 1.0) < 10.0**tol
+    ), "Rotation matrix to 90 deg off incorrect"
+    assert (
+        numpy.fabs(ma[0, 0, 0]) < 10.0**tol
+    ), "Rotation matrix to 90 deg off incorrect"
+    assert (
+        numpy.fabs(ma[0, 0, 2]) < 10.0**tol
+    ), "Rotation matrix to 90 deg off incorrect"
+    assert (
+        numpy.fabs(ma[0, 1, 1]) < 10.0**tol
+    ), "Rotation matrix to 90 deg off incorrect"
+    assert (
+        numpy.fabs(ma[0, 1, 2]) < 10.0**tol
+    ), "Rotation matrix to 90 deg off incorrect"
+    assert (
+        numpy.fabs(ma[0, 2, 0]) < 10.0**tol
+    ), "Rotation matrix to 90 deg off incorrect"
+    assert (
+        numpy.fabs(ma[0, 2, 1]) < 10.0**tol
+    ), "Rotation matrix to 90 deg off incorrect"
     # Rotate to 90 deg off
     ma = _rotate_to_arbitrary_vector(v, [0, 0, 1.0])
-    assert numpy.fabs(ma[0, 0, 2] + 1.0) < 10.0**tol, (
-        "Rotation matrix to 90 deg off incorrect"
-    )
-    assert numpy.fabs(ma[0, 2, 0] - 1.0) < 10.0**tol, (
-        "Rotation matrix to 90 deg off incorrect"
-    )
-    assert numpy.fabs(ma[0, 1, 1] - 1.0) < 10.0**tol, (
-        "Rotation matrix to 90 deg off incorrect"
-    )
-    assert numpy.fabs(ma[0, 0, 0]) < 10.0**tol, (
-        "Rotation matrix to 90 deg off incorrect"
-    )
-    assert numpy.fabs(ma[0, 0, 1]) < 10.0**tol, (
-        "Rotation matrix to 90 deg off incorrect"
-    )
-    assert numpy.fabs(ma[0, 2, 2]) < 10.0**tol, (
-        "Rotation matrix to 90 deg off incorrect"
-    )
-    assert numpy.fabs(ma[0, 2, 1]) < 10.0**tol, (
-        "Rotation matrix to 90 deg off incorrect"
-    )
-    assert numpy.fabs(ma[0, 1, 0]) < 10.0**tol, (
-        "Rotation matrix to 90 deg off incorrect"
-    )
-    assert numpy.fabs(ma[0, 1, 2]) < 10.0**tol, (
-        "Rotation matrix to 90 deg off incorrect"
-    )
+    assert (
+        numpy.fabs(ma[0, 0, 2] + 1.0) < 10.0**tol
+    ), "Rotation matrix to 90 deg off incorrect"
+    assert (
+        numpy.fabs(ma[0, 2, 0] - 1.0) < 10.0**tol
+    ), "Rotation matrix to 90 deg off incorrect"
+    assert (
+        numpy.fabs(ma[0, 1, 1] - 1.0) < 10.0**tol
+    ), "Rotation matrix to 90 deg off incorrect"
+    assert (
+        numpy.fabs(ma[0, 0, 0]) < 10.0**tol
+    ), "Rotation matrix to 90 deg off incorrect"
+    assert (
+        numpy.fabs(ma[0, 0, 1]) < 10.0**tol
+    ), "Rotation matrix to 90 deg off incorrect"
+    assert (
+        numpy.fabs(ma[0, 2, 2]) < 10.0**tol
+    ), "Rotation matrix to 90 deg off incorrect"
+    assert (
+        numpy.fabs(ma[0, 2, 1]) < 10.0**tol
+    ), "Rotation matrix to 90 deg off incorrect"
+    assert (
+        numpy.fabs(ma[0, 1, 0]) < 10.0**tol
+    ), "Rotation matrix to 90 deg off incorrect"
+    assert (
+        numpy.fabs(ma[0, 1, 2]) < 10.0**tol
+    ), "Rotation matrix to 90 deg off incorrect"
     # Rotate to same should be unit matrix
     ma = _rotate_to_arbitrary_vector(v, v[0])
-    assert numpy.all(numpy.fabs(numpy.diag(ma[0]) - 1.0) < 10.0**tol), (
-        "Rotation matrix to same vector is not unity"
-    )
-    assert numpy.fabs(numpy.sum(ma**2.0) - 3.0) < 10.0**tol, (
-        "Rotation matrix to same vector is not unity"
-    )
+    assert numpy.all(
+        numpy.fabs(numpy.diag(ma[0]) - 1.0) < 10.0**tol
+    ), "Rotation matrix to same vector is not unity"
+    assert (
+        numpy.fabs(numpy.sum(ma**2.0) - 3.0) < 10.0**tol
+    ), "Rotation matrix to same vector is not unity"
     # Rotate to -same should be -unit matrix
     ma = _rotate_to_arbitrary_vector(v, -v[0])
-    assert numpy.all(numpy.fabs(numpy.diag(ma[0]) + 1.0) < 10.0**tol), (
-        "Rotation matrix to minus same vector is not minus unity"
-    )
-    assert numpy.fabs(numpy.sum(ma**2.0) - 3.0) < 10.0**tol, (
-        "Rotation matrix to minus same vector is not minus unity"
-    )
+    assert numpy.all(
+        numpy.fabs(numpy.diag(ma[0]) + 1.0) < 10.0**tol
+    ), "Rotation matrix to minus same vector is not minus unity"
+    assert (
+        numpy.fabs(numpy.sum(ma**2.0) - 3.0) < 10.0**tol
+    ), "Rotation matrix to minus same vector is not minus unity"
     return None
 
 
@@ -1263,61 +1243,61 @@ def test_rotate_to_arbitrary_vector_multi():
     v = numpy.array([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]])
     # Rotate to 90 deg off
     ma = _rotate_to_arbitrary_vector(v, [0, 0, 1.0])
-    assert numpy.fabs(ma[0, 0, 2] + 1.0) < 10.0**tol, (
-        "Rotation matrix to 90 deg off incorrect"
-    )
-    assert numpy.fabs(ma[0, 2, 0] - 1.0) < 10.0**tol, (
-        "Rotation matrix to 90 deg off incorrect"
-    )
-    assert numpy.fabs(ma[0, 1, 1] - 1.0) < 10.0**tol, (
-        "Rotation matrix to 90 deg off incorrect"
-    )
-    assert numpy.fabs(ma[0, 0, 0]) < 10.0**tol, (
-        "Rotation matrix to 90 deg off incorrect"
-    )
-    assert numpy.fabs(ma[0, 0, 1]) < 10.0**tol, (
-        "Rotation matrix to 90 deg off incorrect"
-    )
-    assert numpy.fabs(ma[0, 2, 2]) < 10.0**tol, (
-        "Rotation matrix to 90 deg off incorrect"
-    )
-    assert numpy.fabs(ma[0, 2, 1]) < 10.0**tol, (
-        "Rotation matrix to 90 deg off incorrect"
-    )
-    assert numpy.fabs(ma[0, 1, 0]) < 10.0**tol, (
-        "Rotation matrix to 90 deg off incorrect"
-    )
-    assert numpy.fabs(ma[0, 1, 2]) < 10.0**tol, (
-        "Rotation matrix to 90 deg off incorrect"
-    )
+    assert (
+        numpy.fabs(ma[0, 0, 2] + 1.0) < 10.0**tol
+    ), "Rotation matrix to 90 deg off incorrect"
+    assert (
+        numpy.fabs(ma[0, 2, 0] - 1.0) < 10.0**tol
+    ), "Rotation matrix to 90 deg off incorrect"
+    assert (
+        numpy.fabs(ma[0, 1, 1] - 1.0) < 10.0**tol
+    ), "Rotation matrix to 90 deg off incorrect"
+    assert (
+        numpy.fabs(ma[0, 0, 0]) < 10.0**tol
+    ), "Rotation matrix to 90 deg off incorrect"
+    assert (
+        numpy.fabs(ma[0, 0, 1]) < 10.0**tol
+    ), "Rotation matrix to 90 deg off incorrect"
+    assert (
+        numpy.fabs(ma[0, 2, 2]) < 10.0**tol
+    ), "Rotation matrix to 90 deg off incorrect"
+    assert (
+        numpy.fabs(ma[0, 2, 1]) < 10.0**tol
+    ), "Rotation matrix to 90 deg off incorrect"
+    assert (
+        numpy.fabs(ma[0, 1, 0]) < 10.0**tol
+    ), "Rotation matrix to 90 deg off incorrect"
+    assert (
+        numpy.fabs(ma[0, 1, 2]) < 10.0**tol
+    ), "Rotation matrix to 90 deg off incorrect"
     # 2nd
-    assert numpy.fabs(ma[1, 1, 2] + 1.0) < 10.0**tol, (
-        "Rotation matrix to 90 deg off incorrect"
-    )
-    assert numpy.fabs(ma[1, 2, 1] - 1.0) < 10.0**tol, (
-        "Rotation matrix to 90 deg off incorrect"
-    )
-    assert numpy.fabs(ma[1, 0, 0] - 1.0) < 10.0**tol, (
-        "Rotation matrix to 90 deg off incorrect"
-    )
-    assert numpy.fabs(ma[1, 0, 1]) < 10.0**tol, (
-        "Rotation matrix to 90 deg off incorrect"
-    )
-    assert numpy.fabs(ma[1, 0, 2]) < 10.0**tol, (
-        "Rotation matrix to 90 deg off incorrect"
-    )
-    assert numpy.fabs(ma[1, 1, 0]) < 10.0**tol, (
-        "Rotation matrix to 90 deg off incorrect"
-    )
-    assert numpy.fabs(ma[1, 1, 1]) < 10.0**tol, (
-        "Rotation matrix to 90 deg off incorrect"
-    )
-    assert numpy.fabs(ma[1, 2, 0]) < 10.0**tol, (
-        "Rotation matrix to 90 deg off incorrect"
-    )
-    assert numpy.fabs(ma[1, 2, 2]) < 10.0**tol, (
-        "Rotation matrix to 90 deg off incorrect"
-    )
+    assert (
+        numpy.fabs(ma[1, 1, 2] + 1.0) < 10.0**tol
+    ), "Rotation matrix to 90 deg off incorrect"
+    assert (
+        numpy.fabs(ma[1, 2, 1] - 1.0) < 10.0**tol
+    ), "Rotation matrix to 90 deg off incorrect"
+    assert (
+        numpy.fabs(ma[1, 0, 0] - 1.0) < 10.0**tol
+    ), "Rotation matrix to 90 deg off incorrect"
+    assert (
+        numpy.fabs(ma[1, 0, 1]) < 10.0**tol
+    ), "Rotation matrix to 90 deg off incorrect"
+    assert (
+        numpy.fabs(ma[1, 0, 2]) < 10.0**tol
+    ), "Rotation matrix to 90 deg off incorrect"
+    assert (
+        numpy.fabs(ma[1, 1, 0]) < 10.0**tol
+    ), "Rotation matrix to 90 deg off incorrect"
+    assert (
+        numpy.fabs(ma[1, 1, 1]) < 10.0**tol
+    ), "Rotation matrix to 90 deg off incorrect"
+    assert (
+        numpy.fabs(ma[1, 2, 0]) < 10.0**tol
+    ), "Rotation matrix to 90 deg off incorrect"
+    assert (
+        numpy.fabs(ma[1, 2, 2]) < 10.0**tol
+    ), "Rotation matrix to 90 deg off incorrect"
     return None
 
 
@@ -1333,9 +1313,9 @@ def test_rotate_to_arbitrary_vector_inverse():
     ma = _rotate_to_arbitrary_vector(v, a)
     ma_inv = _rotate_to_arbitrary_vector(v, a, inv=True)
     ma = numpy.dot(ma[0], ma_inv[0])
-    assert numpy.all(numpy.fabs(ma - numpy.eye(3)) < 10.0**tol), (
-        "Inverse rotation matrix incorrect"
-    )
+    assert numpy.all(
+        numpy.fabs(ma - numpy.eye(3)) < 10.0**tol
+    ), "Inverse rotation matrix incorrect"
     return None
 
 
@@ -1347,30 +1327,30 @@ def test_rotation_vy():
     v = numpy.array([[1.0, 0.0, 0.0]])
     # Rotate to 90 deg off
     ma = _rotation_vy(v)
-    assert numpy.fabs(ma[0, 0, 1] + 1.0) < 10.0**tol, (
-        "Rotation matrix to 90 deg off incorrect"
-    )
-    assert numpy.fabs(ma[0, 1, 0] - 1.0) < 10.0**tol, (
-        "Rotation matrix to 90 deg off incorrect"
-    )
-    assert numpy.fabs(ma[0, 2, 2] - 1.0) < 10.0**tol, (
-        "Rotation matrix to 90 deg off incorrect"
-    )
-    assert numpy.fabs(ma[0, 0, 0]) < 10.0**tol, (
-        "Rotation matrix to 90 deg off incorrect"
-    )
-    assert numpy.fabs(ma[0, 0, 2]) < 10.0**tol, (
-        "Rotation matrix to 90 deg off incorrect"
-    )
-    assert numpy.fabs(ma[0, 1, 1]) < 10.0**tol, (
-        "Rotation matrix to 90 deg off incorrect"
-    )
-    assert numpy.fabs(ma[0, 1, 2]) < 10.0**tol, (
-        "Rotation matrix to 90 deg off incorrect"
-    )
-    assert numpy.fabs(ma[0, 2, 0]) < 10.0**tol, (
-        "Rotation matrix to 90 deg off incorrect"
-    )
-    assert numpy.fabs(ma[0, 2, 1]) < 10.0**tol, (
-        "Rotation matrix to 90 deg off incorrect"
-    )
+    assert (
+        numpy.fabs(ma[0, 0, 1] + 1.0) < 10.0**tol
+    ), "Rotation matrix to 90 deg off incorrect"
+    assert (
+        numpy.fabs(ma[0, 1, 0] - 1.0) < 10.0**tol
+    ), "Rotation matrix to 90 deg off incorrect"
+    assert (
+        numpy.fabs(ma[0, 2, 2] - 1.0) < 10.0**tol
+    ), "Rotation matrix to 90 deg off incorrect"
+    assert (
+        numpy.fabs(ma[0, 0, 0]) < 10.0**tol
+    ), "Rotation matrix to 90 deg off incorrect"
+    assert (
+        numpy.fabs(ma[0, 0, 2]) < 10.0**tol
+    ), "Rotation matrix to 90 deg off incorrect"
+    assert (
+        numpy.fabs(ma[0, 1, 1]) < 10.0**tol
+    ), "Rotation matrix to 90 deg off incorrect"
+    assert (
+        numpy.fabs(ma[0, 1, 2]) < 10.0**tol
+    ), "Rotation matrix to 90 deg off incorrect"
+    assert (
+        numpy.fabs(ma[0, 2, 0]) < 10.0**tol
+    ), "Rotation matrix to 90 deg off incorrect"
+    assert (
+        numpy.fabs(ma[0, 2, 1]) < 10.0**tol
+    ), "Rotation matrix to 90 deg off incorrect"

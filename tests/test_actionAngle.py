@@ -80,9 +80,7 @@ def test_actionAngleHarmonic_linear_angles():
             )
         )
         < 1e-100
-    ), (
-        "Frequency returned by actionsFreqs not equal to that returned by actionsFreqsAngles"
-    )
+    ), "Frequency returned by actionsFreqs not equal to that returned by actionsFreqsAngles"
     return None
 
 
@@ -102,27 +100,23 @@ def test_physical_harmonic():
         omega=numpy.sqrt(4.0 * numpy.pi * ip.dens(1.2, 0.0) / 3.0)
     )
     # __call__
-    assert numpy.fabs(aAH(-0.1, 0.1) - aAHnu(-0.1, 0.1) * ro * vo) < 10.0**-8.0, (
-        "actionAngle function __call__ does not return Quantity with the right value for actionAngleHarmonic"
-    )
+    assert (
+        numpy.fabs(aAH(-0.1, 0.1) - aAHnu(-0.1, 0.1) * ro * vo) < 10.0**-8.0
+    ), "actionAngle function __call__ does not return Quantity with the right value for actionAngleHarmonic"
     # actionsFreqs
     assert (
         numpy.fabs(
             aAH.actionsFreqs(0.2, 0.1)[0] - aAHnu.actionsFreqs(0.2, 0.1)[0] * ro * vo
         )
         < 10.0**-8.0
-    ), (
-        "actionAngle function actionsFreqs does not return Quantity with the right value for actionAngleHarmonic"
-    )
+    ), "actionAngle function actionsFreqs does not return Quantity with the right value for actionAngleHarmonic"
     assert (
         numpy.fabs(
             aAH.actionsFreqs(0.2, 0.1)[1]
             - aAHnu.actionsFreqs(0.2, 0.1)[1] * conversion.freq_in_Gyr(vo, ro)
         )
         < 10.0**-8.0
-    ), (
-        "actionAngle function actionsFreqs does not return Quantity with the right value for actionAngleHarmonic"
-    )
+    ), "actionAngle function actionsFreqs does not return Quantity with the right value for actionAngleHarmonic"
     # actionsFreqsAngles
     assert (
         numpy.fabs(
@@ -130,26 +124,20 @@ def test_physical_harmonic():
             - aAHnu.actionsFreqsAngles(0.2, 0.1)[0] * ro * vo
         )
         < 10.0**-8.0
-    ), (
-        "actionAngle function actionsFreqsAngles does not return Quantity with the right value for actionAngleHarmonic"
-    )
+    ), "actionAngle function actionsFreqsAngles does not return Quantity with the right value for actionAngleHarmonic"
     assert (
         numpy.fabs(
             aAH.actionsFreqsAngles(0.2, 0.1)[1]
             - aAHnu.actionsFreqsAngles(0.2, 0.1)[1] * conversion.freq_in_Gyr(vo, ro)
         )
         < 10.0**-8.0
-    ), (
-        "actionAngle function actionsFreqsAngles does not return Quantity with the right value for actionAngleHarmonic"
-    )
+    ), "actionAngle function actionsFreqsAngles does not return Quantity with the right value for actionAngleHarmonic"
     assert (
         numpy.fabs(
             aAH.actionsFreqsAngles(0.2, 0.1)[2] - aAHnu.actionsFreqsAngles(0.2, 0.1)[2]
         )
         < 10.0**-8.0
-    ), (
-        "actionAngle function actionsFreqsAngles does not return Quantity with the right value for actionAngleHarmonic"
-    )
+    ), "actionAngle function actionsFreqsAngles does not return Quantity with the right value for actionAngleHarmonic"
     return None
 
 
@@ -245,9 +233,7 @@ def test_actionAngleVertical_linear_angles():
             )
         )
         < 1e-100
-    ), (
-        "Frequency returned by actionsFreqs not equal to that returned by actionsFreqsAngles"
-    )
+    ), "Frequency returned by actionsFreqs not equal to that returned by actionsFreqsAngles"
     return None
 
 
@@ -269,15 +255,15 @@ def test_actionAngleVertical_unbound():
             - evaluatelinearPotentials(mwp14_v, 0.0)
         )
     )
-    assert numpy.fabs(aAV(0.0, vesc + 1e-4) - 9999.99) < 10.0**-8.0, (
-        "actionAngleVertical does not return J=9999.99 for unbound orbits"
-    )
-    assert numpy.fabs(aAV.actionsFreqs(0.0, vesc + 1e-4)[0] - 9999.99) < 10.0**-8.0, (
-        "actionAngleVertical does not return J=9999.99 for unbound orbits"
-    )
-    assert numpy.fabs(aAV.actionsFreqs(0.0, vesc + 1e-4)[1] - 9999.99) < 10.0**-8.0, (
-        "actionAngleVertical does not return O=9999.99 for unbound orbits"
-    )
+    assert (
+        numpy.fabs(aAV(0.0, vesc + 1e-4) - 9999.99) < 10.0**-8.0
+    ), "actionAngleVertical does not return J=9999.99 for unbound orbits"
+    assert (
+        numpy.fabs(aAV.actionsFreqs(0.0, vesc + 1e-4)[0] - 9999.99) < 10.0**-8.0
+    ), "actionAngleVertical does not return J=9999.99 for unbound orbits"
+    assert (
+        numpy.fabs(aAV.actionsFreqs(0.0, vesc + 1e-4)[1] - 9999.99) < 10.0**-8.0
+    ), "actionAngleVertical does not return O=9999.99 for unbound orbits"
     assert (
         numpy.fabs(aAV.actionsFreqsAngles(0.0, vesc + 1e-4)[0] - 9999.99) < 10.0**-8.0
     ), "actionAngleVertical does not return J=9999.99 for unbound orbits"
@@ -432,27 +418,23 @@ def test_physical_vertical():
     aAV = actionAngleVertical(pot=isopot, ro=ro, vo=vo)
     aAVnu = actionAngleVertical(pot=isopot)
     # __call__
-    assert numpy.fabs(aAV(-0.1, 0.1) - aAVnu(-0.1, 0.1) * ro * vo) < 10.0**-8.0, (
-        "actionAngle function __call__ does not return Quantity with the right value for actionAngleVertical"
-    )
+    assert (
+        numpy.fabs(aAV(-0.1, 0.1) - aAVnu(-0.1, 0.1) * ro * vo) < 10.0**-8.0
+    ), "actionAngle function __call__ does not return Quantity with the right value for actionAngleVertical"
     # actionsFreqs
     assert (
         numpy.fabs(
             aAV.actionsFreqs(0.2, 0.1)[0] - aAVnu.actionsFreqs(0.2, 0.1)[0] * ro * vo
         )
         < 10.0**-8.0
-    ), (
-        "actionAngle function actionsFreqs does not return Quantity with the right value for actionAngleVertical"
-    )
+    ), "actionAngle function actionsFreqs does not return Quantity with the right value for actionAngleVertical"
     assert (
         numpy.fabs(
             aAV.actionsFreqs(0.2, 0.1)[1]
             - aAVnu.actionsFreqs(0.2, 0.1)[1] * conversion.freq_in_Gyr(vo, ro)
         )
         < 10.0**-8.0
-    ), (
-        "actionAngle function actionsFreqs does not return Quantity with the right value for actionAngleVertical"
-    )
+    ), "actionAngle function actionsFreqs does not return Quantity with the right value for actionAngleVertical"
     # actionsFreqsAngles
     assert (
         numpy.fabs(
@@ -460,26 +442,20 @@ def test_physical_vertical():
             - aAVnu.actionsFreqsAngles(0.2, 0.1)[0] * ro * vo
         )
         < 10.0**-8.0
-    ), (
-        "actionAngle function actionsFreqsAngles does not return Quantity with the right value for actionAngleVertical"
-    )
+    ), "actionAngle function actionsFreqsAngles does not return Quantity with the right value for actionAngleVertical"
     assert (
         numpy.fabs(
             aAV.actionsFreqsAngles(0.2, 0.1)[1]
             - aAVnu.actionsFreqsAngles(0.2, 0.1)[1] * conversion.freq_in_Gyr(vo, ro)
         )
         < 10.0**-8.0
-    ), (
-        "actionAngle function actionsFreqsAngles does not return Quantity with the right value for actionAngleVertical"
-    )
+    ), "actionAngle function actionsFreqsAngles does not return Quantity with the right value for actionAngleVertical"
     assert (
         numpy.fabs(
             aAV.actionsFreqsAngles(0.2, 0.1)[2] - aAVnu.actionsFreqsAngles(0.2, 0.1)[2]
         )
         < 10.0**-8.0
-    ), (
-        "actionAngle function actionsFreqsAngles does not return Quantity with the right value for actionAngleVertical"
-    )
+    ), "actionAngle function actionsFreqsAngles does not return Quantity with the right value for actionAngleVertical"
     return None
 
 
@@ -492,30 +468,30 @@ def test_actionAngleIsochrone_basic_actions():
     # circular orbit
     R, vR, vT, z, vz = 1.0, 0.0, 1.0, 0.0, 0.0
     js = aAI(R, vR, vT, z, vz)
-    assert numpy.fabs(js[0]) < 10.0**-16.0, (
-        "Circular orbit in the isochrone potential does not have Jr=0"
-    )
-    assert numpy.fabs(js[2]) < 10.0**-16.0, (
-        "Circular orbit in the isochrone potential does not have Jz=0"
-    )
+    assert (
+        numpy.fabs(js[0]) < 10.0**-16.0
+    ), "Circular orbit in the isochrone potential does not have Jr=0"
+    assert (
+        numpy.fabs(js[2]) < 10.0**-16.0
+    ), "Circular orbit in the isochrone potential does not have Jz=0"
     # Close-to-circular orbit
     R, vR, vT, z, vz = 1.01, 0.01, 1.0, 0.01, 0.01
     js = aAI(Orbit([R, vR, vT, z, vz]))
-    assert numpy.fabs(js[0]) < 10.0**-4.0, (
-        "Close-to-circular orbit in the isochrone potential does not have small Jr"
-    )
-    assert numpy.fabs(js[2]) < 10.0**-4.0, (
-        "Close-to-circular orbit in the isochrone potential does not have small Jz"
-    )
+    assert (
+        numpy.fabs(js[0]) < 10.0**-4.0
+    ), "Close-to-circular orbit in the isochrone potential does not have small Jr"
+    assert (
+        numpy.fabs(js[2]) < 10.0**-4.0
+    ), "Close-to-circular orbit in the isochrone potential does not have small Jz"
     # Close-to-circular orbit, called with time
     R, vR, vT, z, vz = 1.01, 0.01, 1.0, 0.01, 0.01
     js = aAI(Orbit([R, vR, vT, z, vz]), 0.0)
-    assert numpy.fabs(js[0]) < 10.0**-4.0, (
-        "Close-to-circular orbit in the isochrone potential does not have small Jr"
-    )
-    assert numpy.fabs(js[2]) < 10.0**-4.0, (
-        "Close-to-circular orbit in the isochrone potential does not have small Jz"
-    )
+    assert (
+        numpy.fabs(js[0]) < 10.0**-4.0
+    ), "Close-to-circular orbit in the isochrone potential does not have small Jr"
+    assert (
+        numpy.fabs(js[2]) < 10.0**-4.0
+    ), "Close-to-circular orbit in the isochrone potential does not have small Jz"
     return None
 
 
@@ -530,13 +506,15 @@ def test_actionAngleIsochrone_basic_freqs():
     # circular orbit
     R, vR, vT, z, vz = 1.0, 0.0, 1.0, 0.0, 0.0
     jos = aAI.actionsFreqs(R, vR, vT, z, vz)
-    assert numpy.fabs((jos[3] - ip.epifreq(1.0)) / ip.epifreq(1.0)) < 10.0**-12.0, (
-        "Circular orbit in the isochrone potential does not have Or=kappa at %g%%"
-        % (100.0 * numpy.fabs((jos[3] - ip.epifreq(1.0)) / ip.epifreq(1.0)))
+    assert (
+        numpy.fabs((jos[3] - ip.epifreq(1.0)) / ip.epifreq(1.0)) < 10.0**-12.0
+    ), "Circular orbit in the isochrone potential does not have Or=kappa at %g%%" % (
+        100.0 * numpy.fabs((jos[3] - ip.epifreq(1.0)) / ip.epifreq(1.0))
     )
-    assert numpy.fabs((jos[4] - ip.omegac(1.0)) / ip.omegac(1.0)) < 10.0**-12.0, (
-        "Circular orbit in the isochrone potential does not have Op=Omega at %g%%"
-        % (100.0 * numpy.fabs((jos[4] - ip.omegac(1.0)) / ip.omegac(1.0)))
+    assert (
+        numpy.fabs((jos[4] - ip.omegac(1.0)) / ip.omegac(1.0)) < 10.0**-12.0
+    ), "Circular orbit in the isochrone potential does not have Op=Omega at %g%%" % (
+        100.0 * numpy.fabs((jos[4] - ip.omegac(1.0)) / ip.omegac(1.0))
     )
     assert (
         numpy.fabs((jos[5] - ip.verticalfreq(1.0)) / ip.verticalfreq(1.0)) < 10.0**-12.0
@@ -576,18 +554,18 @@ def test_actionAngleIsochrone_EccZmaxRperiRap_againstOrbit():
     ecc, zmax, rperi, rap = aAI.EccZmaxRperiRap(o)
     ts = numpy.linspace(0.0, 100.0, 100001)
     o.integrate(ts, ip)
-    assert numpy.fabs(ecc - o.e()) < 1e-10, (
-        "Analytically calculated eccentricity does not agree with numerically calculated one for an IsochronePotential"
-    )
-    assert numpy.fabs(zmax - o.zmax()) < 1e-5, (
-        "Analytically calculated zmax does not agree with numerically calculated one for an IsochronePotential"
-    )
-    assert numpy.fabs(rperi - o.rperi()) < 1e-10, (
-        "Analytically calculated rperi does not agree with numerically calculated one for an IsochronePotential"
-    )
-    assert numpy.fabs(rap - o.rap()) < 1e-10, (
-        "Analytically calculated rap does not agree with numerically calculated one for an IsochronePotential"
-    )
+    assert (
+        numpy.fabs(ecc - o.e()) < 1e-10
+    ), "Analytically calculated eccentricity does not agree with numerically calculated one for an IsochronePotential"
+    assert (
+        numpy.fabs(zmax - o.zmax()) < 1e-5
+    ), "Analytically calculated zmax does not agree with numerically calculated one for an IsochronePotential"
+    assert (
+        numpy.fabs(rperi - o.rperi()) < 1e-10
+    ), "Analytically calculated rperi does not agree with numerically calculated one for an IsochronePotential"
+    assert (
+        numpy.fabs(rap - o.rap()) < 1e-10
+    ), "Analytically calculated rap does not agree with numerically calculated one for an IsochronePotential"
     # Another one
     o = Orbit([1.0, 0.1, 1.1, 0.2, -0.3, 0.0])
     ecc, zmax, rperi, rap = aAI.EccZmaxRperiRap(
@@ -595,18 +573,18 @@ def test_actionAngleIsochrone_EccZmaxRperiRap_againstOrbit():
     )
     ts = numpy.linspace(0.0, 100.0, 100001)
     o.integrate(ts, ip)
-    assert numpy.fabs(ecc - o.e()) < 1e-10, (
-        "Analytically calculated eccentricity does not agree with numerically calculated one for an IsochronePotential"
-    )
-    assert numpy.fabs(zmax - o.zmax()) < 1e-3, (
-        "Analytically calculated zmax does not agree with numerically calculated one for an IsochronePotential"
-    )
-    assert numpy.fabs(rperi - o.rperi()) < 1e-10, (
-        "Analytically calculated rperi does not agree with numerically calculated one for an IsochronePotential"
-    )
-    assert numpy.fabs(rap - o.rap()) < 1e-10, (
-        "Analytically calculated rap does not agree with numerically calculated one for an IsochronePotential"
-    )
+    assert (
+        numpy.fabs(ecc - o.e()) < 1e-10
+    ), "Analytically calculated eccentricity does not agree with numerically calculated one for an IsochronePotential"
+    assert (
+        numpy.fabs(zmax - o.zmax()) < 1e-3
+    ), "Analytically calculated zmax does not agree with numerically calculated one for an IsochronePotential"
+    assert (
+        numpy.fabs(rperi - o.rperi()) < 1e-10
+    ), "Analytically calculated rperi does not agree with numerically calculated one for an IsochronePotential"
+    assert (
+        numpy.fabs(rap - o.rap()) < 1e-10
+    ), "Analytically calculated rap does not agree with numerically calculated one for an IsochronePotential"
     return None
 
 
@@ -623,16 +601,16 @@ def test_actionAngleIsochrone_EccZmaxRperiRap_againstOrbit_kepler():
     ecc, zmax, rperi, rap = aAI.EccZmaxRperiRap(o.R(), o.vR(), o.vT(), o.z(), o.vz())
     ts = numpy.linspace(0.0, 100.0, 100001)
     o.integrate(ts, ip)
-    assert numpy.fabs(ecc - o.e()) < 1e-10, (
-        "Analytically calculated eccentricity does not agree with numerically calculated one for an IsochronePotential"
-    )
+    assert (
+        numpy.fabs(ecc - o.e()) < 1e-10
+    ), "Analytically calculated eccentricity does not agree with numerically calculated one for an IsochronePotential"
     # Don't do zmax, because zmax for Kepler is approximate
-    assert numpy.fabs(rperi - o.rperi()) < 1e-10, (
-        "Analytically calculated rperi does not agree with numerically calculated one for an IsochronePotential"
-    )
-    assert numpy.fabs(rap - o.rap()) < 1e-10, (
-        "Analytically calculated rap does not agree with numerically calculated one for an IsochronePotential"
-    )
+    assert (
+        numpy.fabs(rperi - o.rperi()) < 1e-10
+    ), "Analytically calculated rperi does not agree with numerically calculated one for an IsochronePotential"
+    assert (
+        numpy.fabs(rap - o.rap()) < 1e-10
+    ), "Analytically calculated rap does not agree with numerically calculated one for an IsochronePotential"
     return None
 
 
@@ -744,12 +722,12 @@ def test_actionAngleIsochrone_kepler_actions():
     jc = ip._amp / numpy.sqrt(-2.0 * obs.E())
     L = numpy.sqrt(numpy.sum(obs.L() ** 2.0))
     # Jr = Jc-L
-    assert numpy.all(numpy.fabs(jrs - (jc - L)) < 10.0**-5.0), (
-        "Radial action for the Kepler potential not correct"
-    )
-    assert numpy.all(numpy.fabs(jps - obs.R() * obs.vT()) < 10.0**-10.0), (
-        "Azimuthal action for the Kepler potential not correct"
-    )
+    assert numpy.all(
+        numpy.fabs(jrs - (jc - L)) < 10.0**-5.0
+    ), "Radial action for the Kepler potential not correct"
+    assert numpy.all(
+        numpy.fabs(jps - obs.R() * obs.vT()) < 10.0**-10.0
+    ), "Azimuthal action for the Kepler potential not correct"
     assert numpy.all(
         numpy.fabs(jzs - (L - numpy.fabs(obs.R() * obs.vT()))) < 10.0**-10.0
     ), "Vertical action for the Kepler potential not correct"
@@ -776,12 +754,12 @@ def test_actionAngleIsochrone_kepler_freqs():
     )
     jc = ip._amp / numpy.sqrt(-2.0 * obs.E())
     oc = ip._amp**2.0 / jc**3.0  # (BT08 eqn. E4)
-    assert numpy.all(numpy.fabs(ors - oc) < 10.0**-10.0), (
-        "Radial frequency for the Kepler potential not correct"
-    )
-    assert numpy.all(numpy.fabs(ops - oc) < 10.0**-10.0), (
-        "Azimuthal frequency for the Kepler potential not correct"
-    )
+    assert numpy.all(
+        numpy.fabs(ors - oc) < 10.0**-10.0
+    ), "Radial frequency for the Kepler potential not correct"
+    assert numpy.all(
+        numpy.fabs(ops - oc) < 10.0**-10.0
+    ), "Azimuthal frequency for the Kepler potential not correct"
     assert numpy.all(
         numpy.fabs(ozs - numpy.sign(obs.R() * obs.vT()) * oc) < 10.0**-10.0
     ), "Vertical frequency for the Kepler potential not correct"
@@ -809,15 +787,15 @@ def test_actionAngleIsochrone_kepler_angles():
     jc = ip._amp / numpy.sqrt(-2.0 * obs.E())
     oc = ip._amp**2.0 / jc**3.0  # (BT08 eqn. E4)
     # theta_r = Or x times + theta_r,0
-    assert numpy.all(numpy.fabs(ars - oc * times - ars[0]) < 10.0**-10.0), (
-        "Radial angle for the Kepler potential not correct"
-    )
-    assert numpy.all(numpy.fabs(aps - oc * times - aps[0]) < 10.0**-10.0), (
-        "Azimuthal angle for the Kepler potential not correct"
-    )
-    assert numpy.all(numpy.fabs(azs - oc * times - azs[0]) < 10.0**-10.0), (
-        "Vertical angle for the Kepler potential not correct"
-    )
+    assert numpy.all(
+        numpy.fabs(ars - oc * times - ars[0]) < 10.0**-10.0
+    ), "Radial angle for the Kepler potential not correct"
+    assert numpy.all(
+        numpy.fabs(aps - oc * times - aps[0]) < 10.0**-10.0
+    ), "Azimuthal angle for the Kepler potential not correct"
+    assert numpy.all(
+        numpy.fabs(azs - oc * times - azs[0]) < 10.0**-10.0
+    ), "Vertical angle for the Kepler potential not correct"
     return None
 
 
@@ -832,21 +810,21 @@ def test_actionAngleSpherical_basic_actions():
     # circular orbit
     R, vR, vT, z, vz = 1.0, 0.0, 1.0, 0.0, 0.0
     js = aAS(Orbit([R, vR, vT]))
-    assert numpy.fabs(js[0]) < 10.0**-16.0, (
-        "Circular orbit in the spherical LogarithmicHaloPotential does not have Jr=0"
-    )
-    assert numpy.fabs(js[2]) < 10.0**-16.0, (
-        "Circular orbit in the spherical LogarithmicHaloPotential does not have Jz=0"
-    )
+    assert (
+        numpy.fabs(js[0]) < 10.0**-16.0
+    ), "Circular orbit in the spherical LogarithmicHaloPotential does not have Jr=0"
+    assert (
+        numpy.fabs(js[2]) < 10.0**-16.0
+    ), "Circular orbit in the spherical LogarithmicHaloPotential does not have Jz=0"
     # Close-to-circular orbit
     R, vR, vT, z, vz = 1.01, 0.01, 1.0, 0.01, 0.01
     js = aAS(Orbit([R, vR, vT, z, vz]))
-    assert numpy.fabs(js[0]) < 10.0**-4.0, (
-        "Close-to-circular orbit in the spherical LogarithmicHaloPotential does not have small Jr"
-    )
-    assert numpy.fabs(js[2]) < 10.0**-4.0, (
-        "Close-to-circular orbit in the spherical LogarithmicHaloPotential does not have small Jz"
-    )
+    assert (
+        numpy.fabs(js[0]) < 10.0**-4.0
+    ), "Close-to-circular orbit in the spherical LogarithmicHaloPotential does not have small Jr"
+    assert (
+        numpy.fabs(js[2]) < 10.0**-4.0
+    ), "Close-to-circular orbit in the spherical LogarithmicHaloPotential does not have small Jz"
     return None
 
 
@@ -935,35 +913,35 @@ def test_actionAngleSpherical_EccZmaxRperiRap_againstOrbit():
     ecc, zmax, rperi, rap = aAS.EccZmaxRperiRap(o)
     ts = numpy.linspace(0.0, 100.0, 100001)
     o.integrate(ts, lp)
-    assert numpy.fabs(ecc - o.e()) < 1e-9, (
-        "Analytically calculated eccentricity does not agree with numerically calculated one for a spherical potential"
-    )
-    assert numpy.fabs(zmax - o.zmax()) < 1e-4, (
-        "Analytically calculated zmax does not agree with numerically calculated one for a spherical potential"
-    )
-    assert numpy.fabs(rperi - o.rperi()) < 1e-8, (
-        "Analytically calculated rperi does not agree with numerically calculated one for a spherical potential"
-    )
-    assert numpy.fabs(rap - o.rap()) < 1e-8, (
-        "Analytically calculated rap does not agree with numerically calculated one for a spherical potential"
-    )
+    assert (
+        numpy.fabs(ecc - o.e()) < 1e-9
+    ), "Analytically calculated eccentricity does not agree with numerically calculated one for a spherical potential"
+    assert (
+        numpy.fabs(zmax - o.zmax()) < 1e-4
+    ), "Analytically calculated zmax does not agree with numerically calculated one for a spherical potential"
+    assert (
+        numpy.fabs(rperi - o.rperi()) < 1e-8
+    ), "Analytically calculated rperi does not agree with numerically calculated one for a spherical potential"
+    assert (
+        numpy.fabs(rap - o.rap()) < 1e-8
+    ), "Analytically calculated rap does not agree with numerically calculated one for a spherical potential"
     # Another one
     o = Orbit([1.0, 0.1, 1.1, 0.2, -0.3, 0.0])
     ecc, zmax, rperi, rap = aAS.EccZmaxRperiRap(o.R(), o.vR(), o.vT(), o.z(), o.vz())
     ts = numpy.linspace(0.0, 100.0, 100001)
     o.integrate(ts, lp)
-    assert numpy.fabs(ecc - o.e()) < 1e-9, (
-        "Analytically calculated eccentricity does not agree with numerically calculated one for a spherical potential"
-    )
-    assert numpy.fabs(zmax - o.zmax()) < 1e-3, (
-        "Analytically calculated zmax does not agree with numerically calculated one for a spherical potential"
-    )
-    assert numpy.fabs(rperi - o.rperi()) < 1e-8, (
-        "Analytically calculated rperi does not agree with numerically calculated one for a spherical potential"
-    )
-    assert numpy.fabs(rap - o.rap()) < 1e-8, (
-        "Analytically calculated rap does not agree with numerically calculated one for a spherical potential"
-    )
+    assert (
+        numpy.fabs(ecc - o.e()) < 1e-9
+    ), "Analytically calculated eccentricity does not agree with numerically calculated one for a spherical potential"
+    assert (
+        numpy.fabs(zmax - o.zmax()) < 1e-3
+    ), "Analytically calculated zmax does not agree with numerically calculated one for a spherical potential"
+    assert (
+        numpy.fabs(rperi - o.rperi()) < 1e-8
+    ), "Analytically calculated rperi does not agree with numerically calculated one for a spherical potential"
+    assert (
+        numpy.fabs(rap - o.rap()) < 1e-8
+    ), "Analytically calculated rap does not agree with numerically calculated one for a spherical potential"
     return None
 
 
@@ -1224,18 +1202,21 @@ def test_actionAngleSpherical_otherIsochrone_actions():
     djr = numpy.fabs((ji[0] - jia[0]) / ji[0])
     dlz = numpy.fabs((ji[1] - jia[1]) / ji[1])
     djz = numpy.fabs((ji[2] - jia[2]) / ji[2])
-    assert djr < 10.0**-10.0, (
-        "actionAngleSpherical applied to isochrone potential fails for Jr at %g%%"
-        % (djr * 100.0)
+    assert (
+        djr < 10.0**-10.0
+    ), "actionAngleSpherical applied to isochrone potential fails for Jr at %g%%" % (
+        djr * 100.0
     )
     # Lz and Jz are easy, because ip is a spherical potential
-    assert dlz < 10.0**-10.0, (
-        "actionAngleSpherical applied to isochrone potential fails for Lz at %g%%"
-        % (dlz * 100.0)
+    assert (
+        dlz < 10.0**-10.0
+    ), "actionAngleSpherical applied to isochrone potential fails for Lz at %g%%" % (
+        dlz * 100.0
     )
-    assert djz < 10.0**-10.0, (
-        "actionAngleSpherical applied to isochrone potential fails for Jz at %g%%"
-        % (djz * 100.0)
+    assert (
+        djz < 10.0**-10.0
+    ), "actionAngleSpherical applied to isochrone potential fails for Jz at %g%%" % (
+        djz * 100.0
     )
     return None
 
@@ -1254,17 +1235,20 @@ def test_actionAngleSpherical_otherIsochrone_freqs():
     dOr = numpy.fabs((jiO[3] - jiaO[3]) / jiO[3])
     dOp = numpy.fabs((jiO[4] - jiaO[4]) / jiO[4])
     dOz = numpy.fabs((jiO[5] - jiaO[5]) / jiO[5])
-    assert dOr < 10.0**-6.0, (
-        "actionAngleSpherical applied to isochrone potential fails for Or at %g%%"
-        % (dOr * 100.0)
+    assert (
+        dOr < 10.0**-6.0
+    ), "actionAngleSpherical applied to isochrone potential fails for Or at %g%%" % (
+        dOr * 100.0
     )
-    assert dOp < 10.0**-6.0, (
-        "actionAngleSpherical applied to isochrone potential fails for Op at %g%%"
-        % (dOp * 100.0)
+    assert (
+        dOp < 10.0**-6.0
+    ), "actionAngleSpherical applied to isochrone potential fails for Op at %g%%" % (
+        dOp * 100.0
     )
-    assert dOz < 10.0**-6.0, (
-        "actionAngleSpherical applied to isochrone potential fails for Oz at %g%%"
-        % (dOz * 100.0)
+    assert (
+        dOz < 10.0**-6.0
+    ), "actionAngleSpherical applied to isochrone potential fails for Oz at %g%%" % (
+        dOz * 100.0
     )
     return None
 
@@ -1284,17 +1268,20 @@ def test_actionAngleSpherical_otherIsochrone_freqs_fixed_quad():
     dOr = numpy.fabs((jiO[3] - jiaO[3]) / jiO[3])
     dOp = numpy.fabs((jiO[4] - jiaO[4]) / jiO[4])
     dOz = numpy.fabs((jiO[5] - jiaO[5]) / jiO[5])
-    assert dOr < 10.0**-6.0, (
-        "actionAngleSpherical applied to isochrone potential fails for Or at %g%%"
-        % (dOr * 100.0)
+    assert (
+        dOr < 10.0**-6.0
+    ), "actionAngleSpherical applied to isochrone potential fails for Or at %g%%" % (
+        dOr * 100.0
     )
-    assert dOp < 10.0**-6.0, (
-        "actionAngleSpherical applied to isochrone potential fails for Op at %g%%"
-        % (dOp * 100.0)
+    assert (
+        dOp < 10.0**-6.0
+    ), "actionAngleSpherical applied to isochrone potential fails for Op at %g%%" % (
+        dOp * 100.0
     )
-    assert dOz < 10.0**-6.0, (
-        "actionAngleSpherical applied to isochrone potential fails for Oz at %g%%"
-        % (dOz * 100.0)
+    assert (
+        dOz < 10.0**-6.0
+    ), "actionAngleSpherical applied to isochrone potential fails for Oz at %g%%" % (
+        dOz * 100.0
     )
     return None
 
@@ -1313,17 +1300,20 @@ def test_actionAngleSpherical_otherIsochrone_angles():
     dar = numpy.fabs((jiO[6] - jiaO[6]) / jiO[6])
     dap = numpy.fabs((jiO[7] - jiaO[7]) / jiO[7])
     daz = numpy.fabs((jiO[8] - jiaO[8]) / jiO[8])
-    assert dar < 10.0**-6.0, (
-        "actionAngleSpherical applied to isochrone potential fails for ar at %g%%"
-        % (dar * 100.0)
+    assert (
+        dar < 10.0**-6.0
+    ), "actionAngleSpherical applied to isochrone potential fails for ar at %g%%" % (
+        dar * 100.0
     )
-    assert dap < 10.0**-6.0, (
-        "actionAngleSpherical applied to isochrone potential fails for ap at %g%%"
-        % (dap * 100.0)
+    assert (
+        dap < 10.0**-6.0
+    ), "actionAngleSpherical applied to isochrone potential fails for ap at %g%%" % (
+        dap * 100.0
     )
-    assert daz < 10.0**-6.0, (
-        "actionAngleSpherical applied to isochrone potential fails for az at %g%%"
-        % (daz * 100.0)
+    assert (
+        daz < 10.0**-6.0
+    ), "actionAngleSpherical applied to isochrone potential fails for az at %g%%" % (
+        daz * 100.0
     )
     return None
 
@@ -1356,9 +1346,9 @@ def test_actionAngleSpherical_angler_at_pericenter():
     ip = IsochronePotential()
     o = Orbit([1.0, 0.0, ip.vcirc(1.0) * 2.1, 0.0, 0.0, 0.0])
     # Radial angle wr should be zero
-    assert numpy.fabs(o.wr(analytic=True, pot=ip, type="spherical")) < 10.0**-10.0, (
-        "angler is not 0 at pericenter"
-    )
+    assert (
+        numpy.fabs(o.wr(analytic=True, pot=ip, type="spherical")) < 10.0**-10.0
+    ), "angler is not 0 at pericenter"
     return None
 
 
@@ -1372,39 +1362,39 @@ def test_actionAngleAdiabatic_basic_actions():
     # circular orbit
     R, vR, vT, phi = 1.0, 0.0, 1.0, 2.0
     js = aAA(Orbit([R, vR, vT, phi]))
-    assert numpy.fabs(js[0]) < 10.0**-16.0, (
-        "Circular orbit in the MWPotential does not have Jr=0"
-    )
-    assert numpy.fabs(js[2]) < 10.0**-16.0, (
-        "Circular orbit in the MWPotential does not have Jz=0"
-    )
+    assert (
+        numpy.fabs(js[0]) < 10.0**-16.0
+    ), "Circular orbit in the MWPotential does not have Jr=0"
+    assert (
+        numpy.fabs(js[2]) < 10.0**-16.0
+    ), "Circular orbit in the MWPotential does not have Jz=0"
     # Close-to-circular orbit
     R, vR, vT, z, vz = 1.01, 0.01, 1.0, 0.01, 0.01
     js = aAA(Orbit([R, vR, vT, z, vz]))
-    assert numpy.fabs(js[0]) < 10.0**-4.0, (
-        "Close-to-circular orbit in the MWPotential does not have small Jr"
-    )
-    assert numpy.fabs(js[2]) < 10.0**-3.0, (
-        "Close-to-circular orbit in the MWPotentialspherical LogarithmicHalo does not have small Jz"
-    )
+    assert (
+        numpy.fabs(js[0]) < 10.0**-4.0
+    ), "Close-to-circular orbit in the MWPotential does not have small Jr"
+    assert (
+        numpy.fabs(js[2]) < 10.0**-3.0
+    ), "Close-to-circular orbit in the MWPotentialspherical LogarithmicHalo does not have small Jz"
     # Another close-to-circular orbit
     R, vR, vT, z, vz = 1.0, 0.0, 0.99, 0.0, 0.0
     js = aAA(Orbit([R, vR, vT, z, vz]))
-    assert numpy.fabs(js[0]) < 10.0**-4.0, (
-        "Close-to-circular orbit in the MWPotential does not have small Jr"
-    )
-    assert numpy.fabs(js[2]) < 10.0**-3.0, (
-        "Close-to-circular orbit in the MWPotentialspherical LogarithmicHalo does not have small Jz"
-    )
+    assert (
+        numpy.fabs(js[0]) < 10.0**-4.0
+    ), "Close-to-circular orbit in the MWPotential does not have small Jr"
+    assert (
+        numpy.fabs(js[2]) < 10.0**-3.0
+    ), "Close-to-circular orbit in the MWPotentialspherical LogarithmicHalo does not have small Jz"
     # Another close-to-circular orbit
     R, vR, vT, z, vz = 1.0, 0.0, 1.01, 0.0, 0.0
     js = aAA(Orbit([R, vR, vT, z, vz]))
-    assert numpy.fabs(js[0]) < 10.0**-4.0, (
-        "Close-to-circular orbit in the MWPotential does not have small Jr"
-    )
-    assert numpy.fabs(js[2]) < 10.0**-3.0, (
-        "Close-to-circular orbit in the MWPotentialspherical LogarithmicHalo does not have small Jz"
-    )
+    assert (
+        numpy.fabs(js[0]) < 10.0**-4.0
+    ), "Close-to-circular orbit in the MWPotential does not have small Jr"
+    assert (
+        numpy.fabs(js[2]) < 10.0**-3.0
+    ), "Close-to-circular orbit in the MWPotentialspherical LogarithmicHalo does not have small Jz"
     return None
 
 
@@ -1418,39 +1408,39 @@ def test_actionAngleAdiabatic_basic_actions_gamma0():
     # circular orbit
     R, vR, vT, phi = 1.0, 0.0, 1.0, 2.0
     js = aAA(Orbit([R, vR, vT, phi]))
-    assert numpy.fabs(js[0]) < 10.0**-16.0, (
-        "Circular orbit in the MWPotential does not have Jr=0"
-    )
-    assert numpy.fabs(js[2]) < 10.0**-16.0, (
-        "Circular orbit in the MWPotential does not have Jz=0"
-    )
+    assert (
+        numpy.fabs(js[0]) < 10.0**-16.0
+    ), "Circular orbit in the MWPotential does not have Jr=0"
+    assert (
+        numpy.fabs(js[2]) < 10.0**-16.0
+    ), "Circular orbit in the MWPotential does not have Jz=0"
     # Close-to-circular orbit
     R, vR, vT, z, vz = 1.01, 0.01, 1.0, 0.01, 0.01
     js = aAA(Orbit([R, vR, vT, z, vz]))
-    assert numpy.fabs(js[0]) < 10.0**-4.0, (
-        "Close-to-circular orbit in the MWPotential does not have small Jr"
-    )
-    assert numpy.fabs(js[2]) < 10.0**-3.0, (
-        "Close-to-circular orbit in the MWPotentialspherical LogarithmicHalo does not have small Jz"
-    )
+    assert (
+        numpy.fabs(js[0]) < 10.0**-4.0
+    ), "Close-to-circular orbit in the MWPotential does not have small Jr"
+    assert (
+        numpy.fabs(js[2]) < 10.0**-3.0
+    ), "Close-to-circular orbit in the MWPotentialspherical LogarithmicHalo does not have small Jz"
     # Another close-to-circular orbit
     R, vR, vT, z, vz = 1.0, 0.0, 0.99, 0.0, 0.0
     js = aAA(Orbit([R, vR, vT, z, vz]))
-    assert numpy.fabs(js[0]) < 10.0**-4.0, (
-        "Close-to-circular orbit in the MWPotential does not have small Jr"
-    )
-    assert numpy.fabs(js[2]) < 10.0**-3.0, (
-        "Close-to-circular orbit in the MWPotentialspherical LogarithmicHalo does not have small Jz"
-    )
+    assert (
+        numpy.fabs(js[0]) < 10.0**-4.0
+    ), "Close-to-circular orbit in the MWPotential does not have small Jr"
+    assert (
+        numpy.fabs(js[2]) < 10.0**-3.0
+    ), "Close-to-circular orbit in the MWPotentialspherical LogarithmicHalo does not have small Jz"
     # Another close-to-circular orbit
     R, vR, vT, z, vz = 1.0, 0.0, 1.01, 0.0, 0.0
     js = aAA(Orbit([R, vR, vT, z, vz]))
-    assert numpy.fabs(js[0]) < 10.0**-4.0, (
-        "Close-to-circular orbit in the MWPotential does not have small Jr"
-    )
-    assert numpy.fabs(js[2]) < 10.0**-3.0, (
-        "Close-to-circular orbit in the MWPotentialspherical LogarithmicHalo does not have small Jz"
-    )
+    assert (
+        numpy.fabs(js[0]) < 10.0**-4.0
+    ), "Close-to-circular orbit in the MWPotential does not have small Jr"
+    assert (
+        numpy.fabs(js[2]) < 10.0**-3.0
+    ), "Close-to-circular orbit in the MWPotentialspherical LogarithmicHalo does not have small Jz"
     return None
 
 
@@ -1465,21 +1455,21 @@ def test_actionAngleAdiabatic_basic_actions_c():
     # circular orbit
     R, vR, vT, z, vz = 1.0, 0.0, 1.0, 0.0, 0.0
     js = aAA(R, vR, vT, z, vz)
-    assert numpy.fabs(js[0]) < 10.0**-16.0, (
-        "Circular orbit in the MWPotential does not have Jr=0"
-    )
-    assert numpy.fabs(js[2]) < 10.0**-16.0, (
-        "Circular orbit in the MWPotential does not have Jz=0"
-    )
+    assert (
+        numpy.fabs(js[0]) < 10.0**-16.0
+    ), "Circular orbit in the MWPotential does not have Jr=0"
+    assert (
+        numpy.fabs(js[2]) < 10.0**-16.0
+    ), "Circular orbit in the MWPotential does not have Jz=0"
     # Close-to-circular orbit
     R, vR, vT, z, vz = 1.01, 0.01, 1.0, 0.01, 0.01
     js = aAA(Orbit([R, vR, vT, z, vz]))
-    assert numpy.fabs(js[0]) < 10.0**-4.0, (
-        "Close-to-circular orbit in the MWPotential does not have small Jr"
-    )
-    assert numpy.fabs(js[2]) < 10.0**-3.0, (
-        "Close-to-circular orbit in the MWPotentialspherical LogarithmicHalo does not have small Jz"
-    )
+    assert (
+        numpy.fabs(js[0]) < 10.0**-4.0
+    ), "Close-to-circular orbit in the MWPotential does not have small Jr"
+    assert (
+        numpy.fabs(js[2]) < 10.0**-3.0
+    ), "Close-to-circular orbit in the MWPotentialspherical LogarithmicHalo does not have small Jz"
 
 
 # Basic sanity checking of the actionAngleAdiabatic actions
@@ -1491,9 +1481,9 @@ def test_actionAngleAdiabatic_unboundz_actions_c():
     # Unbound in z, so jz should be very large
     R, vR, vT, z, vz = 1.0, 0.0, 1.0, 0.0, 10.0
     js = aAA(R, vR, vT, z, vz)
-    assert js[2] > 1000.0, (
-        "Unbound orbit in z in the MWPotential does not have large Jz"
-    )
+    assert (
+        js[2] > 1000.0
+    ), "Unbound orbit in z in the MWPotential does not have large Jz"
     return None
 
 
@@ -1508,17 +1498,17 @@ def test_actionAngleAdiabatic_zerolz_actions_c():
     js = aAA(R, vR, vT, z, vz)
     R, vR, vT, z, vz = 1.0, 0.0, 0.0000001, 0.0, 0.0
     js2 = aAA(R, vR, vT, z, vz)
-    assert numpy.fabs(js[0] - js2[0]) < 10.0**-6.0, (
-        "Orbit with zero angular momentum does not have the correct Jr"
-    )
+    assert (
+        numpy.fabs(js[0] - js2[0]) < 10.0**-6.0
+    ), "Orbit with zero angular momentum does not have the correct Jr"
     # Zero angular momentum, so rperi=0, but should have finite jr
     R, vR, vT, z, vz = 1.0, -0.5, 0.0, 0.0, 0.0
     js = aAA(R, vR, vT, z, vz)
     R, vR, vT, z, vz = 1.0, -0.5, 0.0000001, 0.0, 0.0
     js2 = aAA(R, vR, vT, z, vz)
-    assert numpy.fabs(js[0] - js2[0]) < 10.0**-6.0, (
-        "Orbit with zero angular momentum does not have the correct Jr"
-    )
+    assert (
+        numpy.fabs(js[0] - js2[0]) < 10.0**-6.0
+    ), "Orbit with zero angular momentum does not have the correct Jr"
     return None
 
 
@@ -1531,39 +1521,39 @@ def test_actionAngleAdiabatic_basic_EccZmaxRperiRap():
     # circular orbit
     R, vR, vT, z, vz = 1.0, 0.0, 1.0, 0.0, 0.0
     te, tzmax, _, _ = aAA.EccZmaxRperiRap(R, vR, vT, z, vz)
-    assert numpy.fabs(te) < 10.0**-16.0, (
-        "Circular orbit in the MWPotential does not have e=0"
-    )
-    assert numpy.fabs(tzmax) < 10.0**-16.0, (
-        "Circular orbit in the MWPotential does not have zmax=0"
-    )
+    assert (
+        numpy.fabs(te) < 10.0**-16.0
+    ), "Circular orbit in the MWPotential does not have e=0"
+    assert (
+        numpy.fabs(tzmax) < 10.0**-16.0
+    ), "Circular orbit in the MWPotential does not have zmax=0"
     # Close-to-circular orbit
     R, vR, vT, z, vz = 1.01, 0.01, 1.0, 0.01, 0.01
     te, tzmax, _, _ = aAA.EccZmaxRperiRap(R, vR, vT, z, vz)
-    assert numpy.fabs(te) < 10.0**-2.0, (
-        "Close-to-circular orbit in the MWPotential does not have small eccentricity"
-    )
-    assert numpy.fabs(tzmax) < 2.0 * 10.0**-2.0, (
-        "Close-to-circular orbit in the MWPotential does not have small zmax"
-    )
+    assert (
+        numpy.fabs(te) < 10.0**-2.0
+    ), "Close-to-circular orbit in the MWPotential does not have small eccentricity"
+    assert (
+        numpy.fabs(tzmax) < 2.0 * 10.0**-2.0
+    ), "Close-to-circular orbit in the MWPotential does not have small zmax"
     # Another close-to-circular orbit
     R, vR, vT, z, vz = 1.0, 0.0, 0.99, 0.0, 0.0
     te, tzmax, _, _ = aAA.EccZmaxRperiRap(R, vR, vT, z, vz)
-    assert numpy.fabs(te) < 10.0**-2.0, (
-        "Close-to-circular orbit in the MWPotential does not have small eccentricity"
-    )
-    assert numpy.fabs(tzmax) < 2.0 * 10.0**-2.0, (
-        "Close-to-circular orbit in the MWPotential does not have small zmax"
-    )
+    assert (
+        numpy.fabs(te) < 10.0**-2.0
+    ), "Close-to-circular orbit in the MWPotential does not have small eccentricity"
+    assert (
+        numpy.fabs(tzmax) < 2.0 * 10.0**-2.0
+    ), "Close-to-circular orbit in the MWPotential does not have small zmax"
     # Another close-to-circular orbit
     R, vR, vT, z, vz = 1.0, 0.0, 1.0, 0.01, 0.0
     te, tzmax, _, _ = aAA.EccZmaxRperiRap(R, vR, vT, z, vz)
-    assert numpy.fabs(te) < 10.0**-2.0, (
-        "Close-to-circular orbit in the MWPotential does not have small eccentricity"
-    )
-    assert numpy.fabs(tzmax) < 2.0 * 10.0**-2.0, (
-        "Close-to-circular orbit in the MWPotential does not have small zmax"
-    )
+    assert (
+        numpy.fabs(te) < 10.0**-2.0
+    ), "Close-to-circular orbit in the MWPotential does not have small eccentricity"
+    assert (
+        numpy.fabs(tzmax) < 2.0 * 10.0**-2.0
+    ), "Close-to-circular orbit in the MWPotential does not have small zmax"
     return None
 
 
@@ -1577,21 +1567,21 @@ def test_actionAngleAdiabatic_basic_EccZmaxRperiRap_gamma0():
     # circular orbit
     R, vR, vT, z, vz = 1.0, 0.0, 1.0, 0.0, 0.0
     te, tzmax, _, _ = aAA.EccZmaxRperiRap(R, vR, vT, z, vz)
-    assert numpy.fabs(te) < 10.0**-16.0, (
-        "Circular orbit in the MWPotential does not have e=0"
-    )
-    assert numpy.fabs(tzmax) < 10.0**-16.0, (
-        "Circular orbit in the MWPotential does not have zmax=0"
-    )
+    assert (
+        numpy.fabs(te) < 10.0**-16.0
+    ), "Circular orbit in the MWPotential does not have e=0"
+    assert (
+        numpy.fabs(tzmax) < 10.0**-16.0
+    ), "Circular orbit in the MWPotential does not have zmax=0"
     # Close-to-circular orbit
     R, vR, vT, z, vz = 1.01, 0.01, 1.0, 0.01, 0.01
     te, tzmax, _, _ = aAA.EccZmaxRperiRap(R, vR, vT, z, vz)
-    assert numpy.fabs(te) < 10.0**-2.0, (
-        "Close-to-circular orbit in the MWPotential does not have small eccentricity"
-    )
-    assert numpy.fabs(tzmax) < 2.0 * 10.0**-2.0, (
-        "Close-to-circular orbit in the MWPotential does not have small zmax"
-    )
+    assert (
+        numpy.fabs(te) < 10.0**-2.0
+    ), "Close-to-circular orbit in the MWPotential does not have small eccentricity"
+    assert (
+        numpy.fabs(tzmax) < 2.0 * 10.0**-2.0
+    ), "Close-to-circular orbit in the MWPotential does not have small zmax"
     return None
 
 
@@ -1605,21 +1595,21 @@ def test_actionAngleAdiabatic_basic_EccZmaxRperiRap_gamma_c():
     # circular orbit
     R, vR, vT, z, vz, phi = 1.0, 0.0, 1.0, 0.0, 0.0, 2.0
     te, tzmax, _, _ = aAA.EccZmaxRperiRap(Orbit([R, vR, vT, z, vz, phi]))
-    assert numpy.fabs(te) < 10.0**-16.0, (
-        "Circular orbit in the MWPotential does not have e=0"
-    )
-    assert numpy.fabs(tzmax) < 10.0**-16.0, (
-        "Circular orbit in the MWPotential does not have zmax=0"
-    )
+    assert (
+        numpy.fabs(te) < 10.0**-16.0
+    ), "Circular orbit in the MWPotential does not have e=0"
+    assert (
+        numpy.fabs(tzmax) < 10.0**-16.0
+    ), "Circular orbit in the MWPotential does not have zmax=0"
     # Close-to-circular orbit
     R, vR, vT, z, vz, phi = 1.01, 0.01, 1.0, 0.01, 0.01, 2.0
     te, tzmax, _, _ = aAA.EccZmaxRperiRap(R, vR, vT, z, vz, phi)
-    assert numpy.fabs(te) < 10.0**-2.0, (
-        "Close-to-circular orbit in the MWPotential does not have small eccentricity"
-    )
-    assert numpy.fabs(tzmax) < 2.0 * 10.0**-2.0, (
-        "Close-to-circular orbit in the MWPotential does not have small zmax"
-    )
+    assert (
+        numpy.fabs(te) < 10.0**-2.0
+    ), "Close-to-circular orbit in the MWPotential does not have small eccentricity"
+    assert (
+        numpy.fabs(tzmax) < 2.0 * 10.0**-2.0
+    ), "Close-to-circular orbit in the MWPotential does not have small zmax"
     return None
 
 
@@ -1786,18 +1776,21 @@ def test_actionAngleAdiabatic_Isochrone_actions():
     djr = numpy.fabs((ji[0] - jia[0]) / ji[0])
     dlz = numpy.fabs((ji[1] - jia[1]) / ji[1])
     djz = numpy.fabs((ji[2] - jia[2]) / ji[2])
-    assert djr < 10.0**-1.2, (
-        "actionAngleAdiabatic applied to isochrone potential fails for Jr at %f%%"
-        % (djr * 100.0)
+    assert (
+        djr < 10.0**-1.2
+    ), "actionAngleAdiabatic applied to isochrone potential fails for Jr at %f%%" % (
+        djr * 100.0
     )
     # Lz and Jz are easy, because ip is a spherical potential
-    assert dlz < 10.0**-10.0, (
-        "actionAngleAdiabatic applied to isochrone potential fails for Lz at %f%%"
-        % (dlz * 100.0)
+    assert (
+        dlz < 10.0**-10.0
+    ), "actionAngleAdiabatic applied to isochrone potential fails for Lz at %f%%" % (
+        dlz * 100.0
     )
-    assert djz < 10.0**-1.2, (
-        "actionAngleAdiabatic applied to isochrone potential fails for Jz at %f%%"
-        % (djz * 100.0)
+    assert (
+        djz < 10.0**-1.2
+    ), "actionAngleAdiabatic applied to isochrone potential fails for Jz at %f%%" % (
+        djz * 100.0
     )
     return None
 
@@ -1812,23 +1805,23 @@ def test_actionAngleAdiabaticGrid_basicAndConserved_actions():
     # circular orbit
     R, vR, vT, z, vz = 1.0, 0.0, 1.0, 0.0, 0.0
     js = aAA(R, vR, vT, z, vz, 0.0)
-    assert numpy.fabs(js[0]) < 10.0**-16.0, (
-        "Circular orbit in the MWPotential does not have Jr=0"
-    )
-    assert numpy.fabs(aAA.Jz(R, vR, vT, z, vz, 0.0)) < 10.0**-16.0, (
-        "Circular orbit in the MWPotential does not have Jz=0"
-    )
+    assert (
+        numpy.fabs(js[0]) < 10.0**-16.0
+    ), "Circular orbit in the MWPotential does not have Jr=0"
+    assert (
+        numpy.fabs(aAA.Jz(R, vR, vT, z, vz, 0.0)) < 10.0**-16.0
+    ), "Circular orbit in the MWPotential does not have Jz=0"
     # setup w/ multi
     aAA = actionAngleAdiabaticGrid(pot=MWPotential, gamma=1.0, c=False, numcores=2)
     # Close-to-circular orbit
     R, vR, vT, z, vz = 1.01, 0.01, 1.0, 0.01, 0.01
     js = aAA(Orbit([R, vR, vT, z, vz]))
-    assert numpy.fabs(js[0]) < 10.0**-4.0, (
-        "Close-to-circular orbit in the MWPotential does not have small Jr"
-    )
-    assert numpy.fabs(js[2]) < 10.0**-3.0, (
-        "Close-to-circular orbit in the MWPotentialspherical LogarithmicHalo does not have small Jz"
-    )
+    assert (
+        numpy.fabs(js[0]) < 10.0**-4.0
+    ), "Close-to-circular orbit in the MWPotential does not have small Jr"
+    assert (
+        numpy.fabs(js[2]) < 10.0**-3.0
+    ), "Close-to-circular orbit in the MWPotentialspherical LogarithmicHalo does not have small Jz"
     # Check that actions are conserved along the orbit
     obs = Orbit([1.05, 0.02, 1.05, 0.03, 0.0])
     check_actionAngle_conserved_actions(
@@ -1847,21 +1840,21 @@ def test_actionAngleAdiabaticGrid_basic_actions_c():
     # circular orbit
     R, vR, vT, z, vz = 1.0, 0.0, 1.0, 0.0, 0.0
     js = aAA(R, vR, vT, z, vz)
-    assert numpy.fabs(js[0]) < 10.0**-16.0, (
-        "Circular orbit in the MWPotential does not have Jr=0"
-    )
-    assert numpy.fabs(js[2]) < 10.0**-16.0, (
-        "Circular orbit in the MWPotential does not have Jz=0"
-    )
+    assert (
+        numpy.fabs(js[0]) < 10.0**-16.0
+    ), "Circular orbit in the MWPotential does not have Jr=0"
+    assert (
+        numpy.fabs(js[2]) < 10.0**-16.0
+    ), "Circular orbit in the MWPotential does not have Jz=0"
     # Close-to-circular orbit
     R, vR, vT, z, vz = 1.01, 0.01, 1.0, 0.01, 0.01
     js = aAA(Orbit([R, vR, vT, z, vz]))
-    assert numpy.fabs(js[0]) < 10.0**-4.0, (
-        "Close-to-circular orbit in the MWPotential does not have small Jr"
-    )
-    assert numpy.fabs(js[2]) < 10.0**-3.0, (
-        "Close-to-circular orbit in the MWPotentialspherical LogarithmicHalo does not have small Jz"
-    )
+    assert (
+        numpy.fabs(js[0]) < 10.0**-4.0
+    ), "Close-to-circular orbit in the MWPotential does not have small Jr"
+    assert (
+        numpy.fabs(js[2]) < 10.0**-3.0
+    ), "Close-to-circular orbit in the MWPotentialspherical LogarithmicHalo does not have small Jz"
 
 
 # actionAngleAdiabaticGrid actions outside the grid
@@ -1874,25 +1867,25 @@ def test_actionAngleAdiabaticGrid_outsidegrid_c():
     R, vR, vT, z, vz, phi = 3.0, 0.1, 1.0, 0.1, 0.1, 2.0
     js = aA(R, vR, vT, z, vz, phi)
     jsa = aAA(R, vR, vT, z, vz, phi)
-    assert numpy.fabs(js[0] - jsa[0]) < 10.0**-8.0, (
-        "actionAngleAdiabaticGrid evaluation outside of the grid fails"
-    )
-    assert numpy.fabs(js[2] - jsa[2]) < 10.0**-8.0, (
-        "actionAngleAdiabaticGrid evaluation outside of the grid fails"
-    )
-    assert numpy.fabs(js[2] - aAA.Jz(R, vR, vT, z, vz, phi)) < 10.0**-8.0, (
-        "actionAngleAdiabaticGrid evaluation outside of the grid fails"
-    )
+    assert (
+        numpy.fabs(js[0] - jsa[0]) < 10.0**-8.0
+    ), "actionAngleAdiabaticGrid evaluation outside of the grid fails"
+    assert (
+        numpy.fabs(js[2] - jsa[2]) < 10.0**-8.0
+    ), "actionAngleAdiabaticGrid evaluation outside of the grid fails"
+    assert (
+        numpy.fabs(js[2] - aAA.Jz(R, vR, vT, z, vz, phi)) < 10.0**-8.0
+    ), "actionAngleAdiabaticGrid evaluation outside of the grid fails"
     # Also for array
     s = numpy.ones(2)
     js = aA(R, vR, vT, z, vz, phi)
     jsa = aAA(R * s, vR * s, vT * s, z * s, vz * s, phi * s)
-    assert numpy.all(numpy.fabs(js[0] - jsa[0]) < 10.0**-8.0), (
-        "actionAngleAdiabaticGrid evaluation outside of the grid fails"
-    )
-    assert numpy.all(numpy.fabs(js[2] - jsa[2]) < 10.0**-8.0), (
-        "actionAngleAdiabaticGrid evaluation outside of the grid fails"
-    )
+    assert numpy.all(
+        numpy.fabs(js[0] - jsa[0]) < 10.0**-8.0
+    ), "actionAngleAdiabaticGrid evaluation outside of the grid fails"
+    assert numpy.all(
+        numpy.fabs(js[2] - jsa[2]) < 10.0**-8.0
+    ), "actionAngleAdiabaticGrid evaluation outside of the grid fails"
     return None
 
 
@@ -1924,18 +1917,21 @@ def test_actionAngleAdiabaticGrid_Isochrone_actions():
     djr = numpy.fabs((ji[0] - jia[0]) / ji[0])
     dlz = numpy.fabs((ji[1] - jia[1]) / ji[1])
     djz = numpy.fabs((ji[2] - jia[2]) / ji[2])
-    assert djr < 10.0**-1.2, (
-        "actionAngleAdiabatic applied to isochrone potential fails for Jr at %f%%"
-        % (djr * 100.0)
+    assert (
+        djr < 10.0**-1.2
+    ), "actionAngleAdiabatic applied to isochrone potential fails for Jr at %f%%" % (
+        djr * 100.0
     )
     # Lz and Jz are easy, because ip is a spherical potential
-    assert dlz < 10.0**-10.0, (
-        "actionAngleAdiabatic applied to isochrone potential fails for Lz at %f%%"
-        % (dlz * 100.0)
+    assert (
+        dlz < 10.0**-10.0
+    ), "actionAngleAdiabatic applied to isochrone potential fails for Lz at %f%%" % (
+        dlz * 100.0
     )
-    assert djz < 10.0**-1.2, (
-        "actionAngleAdiabatic applied to isochrone potential fails for Jz at %f%%"
-        % (djz * 100.0)
+    assert (
+        djz < 10.0**-1.2
+    ), "actionAngleAdiabatic applied to isochrone potential fails for Jz at %f%%" % (
+        djz * 100.0
     )
     return None
 
@@ -1950,39 +1946,39 @@ def test_actionAngleStaeckel_basic_actions():
     # circular orbit
     R, vR, vT, z, vz = 1.0, 0.0, 1.0, 0.0, 0.0
     js = aAS(R, vR, vT, z, vz)
-    assert numpy.fabs(js[0][0]) < 10.0**-16.0, (
-        "Circular orbit in the MWPotential does not have Jr=0"
-    )
-    assert numpy.fabs(js[2][0]) < 10.0**-16.0, (
-        "Circular orbit in the MWPotential does not have Jz=0"
-    )
+    assert (
+        numpy.fabs(js[0][0]) < 10.0**-16.0
+    ), "Circular orbit in the MWPotential does not have Jr=0"
+    assert (
+        numpy.fabs(js[2][0]) < 10.0**-16.0
+    ), "Circular orbit in the MWPotential does not have Jz=0"
     # Close-to-circular orbit
     R, vR, vT, z, vz = 1.01, 0.01, 1.0, 0.01, 0.01
     js = aAS(Orbit([R, vR, vT, z, vz]))
-    assert numpy.fabs(js[0]) < 10.0**-4.0, (
-        "Close-to-circular orbit in the MWPotential does not have small Jr"
-    )
-    assert numpy.fabs(js[2]) < 2.0 * 10.0**-4.0, (
-        "Close-to-circular orbit in the MWPotential does not have small Jz"
-    )
+    assert (
+        numpy.fabs(js[0]) < 10.0**-4.0
+    ), "Close-to-circular orbit in the MWPotential does not have small Jr"
+    assert (
+        numpy.fabs(js[2]) < 2.0 * 10.0**-4.0
+    ), "Close-to-circular orbit in the MWPotential does not have small Jz"
     # Another close-to-circular orbit
     R, vR, vT, z, vz = 1.0, 0.0, 0.99, 0.0, 0.0
     js = aAS(Orbit([R, vR, vT, z, vz]))
-    assert numpy.fabs(js[0]) < 10.0**-4.0, (
-        "Close-to-circular orbit in the MWPotential does not have small Jr"
-    )
-    assert numpy.fabs(js[2]) < 2.0 * 10.0**-4.0, (
-        "Close-to-circular orbit in the MWPotential does not have small Jz"
-    )
+    assert (
+        numpy.fabs(js[0]) < 10.0**-4.0
+    ), "Close-to-circular orbit in the MWPotential does not have small Jr"
+    assert (
+        numpy.fabs(js[2]) < 2.0 * 10.0**-4.0
+    ), "Close-to-circular orbit in the MWPotential does not have small Jz"
     # Another close-to-circular orbit
     R, vR, vT, z, vz = 1.0, 0.0, 1.0, 0.01, 0.0
     js = aAS(Orbit([R, vR, vT, z, vz]))
-    assert numpy.fabs(js[0]) < 10.0**-4.0, (
-        "Close-to-circular orbit in the MWPotential does not have small Jr"
-    )
-    assert numpy.fabs(js[2]) < 2.0 * 10.0**-4.0, (
-        "Close-to-circular orbit in the MWPotential does not have small Jz"
-    )
+    assert (
+        numpy.fabs(js[0]) < 10.0**-4.0
+    ), "Close-to-circular orbit in the MWPotential does not have small Jr"
+    assert (
+        numpy.fabs(js[2]) < 2.0 * 10.0**-4.0
+    ), "Close-to-circular orbit in the MWPotential does not have small Jz"
     return None
 
 
@@ -1999,21 +1995,21 @@ def test_actionAngleStaeckel_basic_actions_u0():
     # circular orbit
     R, vR, vT, z, vz = 1.0, 0.0, 1.0, 0.0, 0.0
     js = aAS(R, vR, vT, z, vz)
-    assert numpy.fabs(js[0][0]) < 10.0**-16.0, (
-        "Circular orbit in the MWPotential does not have Jr=0"
-    )
-    assert numpy.fabs(js[2][0]) < 10.0**-16.0, (
-        "Circular orbit in the MWPotential does not have Jz=0"
-    )
+    assert (
+        numpy.fabs(js[0][0]) < 10.0**-16.0
+    ), "Circular orbit in the MWPotential does not have Jr=0"
+    assert (
+        numpy.fabs(js[2][0]) < 10.0**-16.0
+    ), "Circular orbit in the MWPotential does not have Jz=0"
     # Close-to-circular orbit
     R, vR, vT, z, vz = 1.01, 0.01, 1.0, 0.01, 0.01
     js = aAS(Orbit([R, vR, vT, z, vz]))
-    assert numpy.fabs(js[0]) < 10.0**-4.0, (
-        "Close-to-circular orbit in the MWPotential does not have small Jr"
-    )
-    assert numpy.fabs(js[2]) < 2.0 * 10.0**-4.0, (
-        "Close-to-circular orbit in the MWPotential does not have small Jz"
-    )
+    assert (
+        numpy.fabs(js[0]) < 10.0**-4.0
+    ), "Close-to-circular orbit in the MWPotential does not have small Jr"
+    assert (
+        numpy.fabs(js[2]) < 2.0 * 10.0**-4.0
+    ), "Close-to-circular orbit in the MWPotential does not have small Jz"
     return None
 
 
@@ -2030,21 +2026,21 @@ def test_actionAngleStaeckel_basic_actions_u0_c():
     # circular orbit
     R, vR, vT, z, vz = 1.0, 0.0, 1.0, 0.0, 0.0
     js = aAS(R, vR, vT, z, vz)
-    assert numpy.fabs(js[0][0]) < 10.0**-16.0, (
-        "Circular orbit in the MWPotential does not have Jr=0"
-    )
-    assert numpy.fabs(js[2][0]) < 10.0**-16.0, (
-        "Circular orbit in the MWPotential does not have Jz=0"
-    )
+    assert (
+        numpy.fabs(js[0][0]) < 10.0**-16.0
+    ), "Circular orbit in the MWPotential does not have Jr=0"
+    assert (
+        numpy.fabs(js[2][0]) < 10.0**-16.0
+    ), "Circular orbit in the MWPotential does not have Jz=0"
     # Close-to-circular orbit
     R, vR, vT, z, vz = 1.01, 0.01, 1.0, 0.01, 0.01
     js = aAS(Orbit([R, vR, vT, z, vz]), u0=1.15)
-    assert numpy.fabs(js[0]) < 10.0**-4.0, (
-        "Close-to-circular orbit in the MWPotential does not have small Jr"
-    )
-    assert numpy.fabs(js[2]) < 2.0 * 10.0**-4.0, (
-        "Close-to-circular orbit in the MWPotential does not have small Jz"
-    )
+    assert (
+        numpy.fabs(js[0]) < 10.0**-4.0
+    ), "Close-to-circular orbit in the MWPotential does not have small Jr"
+    assert (
+        numpy.fabs(js[2]) < 2.0 * 10.0**-4.0
+    ), "Close-to-circular orbit in the MWPotential does not have small Jz"
     return None
 
 
@@ -2067,21 +2063,21 @@ def test_actionAngleStaeckel_basic_actions_u0_interppot_c():
     # circular orbit
     R, vR, vT, z, vz = 1.0, 0.0, 1.0, 0.0, 0.0
     js = aAS(R, vR, vT, z, vz)
-    assert numpy.fabs(js[0][0]) < 10.0**-12.0, (
-        "Circular orbit in the MWPotential does not have Jr=0"
-    )
-    assert numpy.fabs(js[2][0]) < 10.0**-16.0, (
-        "Circular orbit in the MWPotential does not have Jz=0"
-    )
+    assert (
+        numpy.fabs(js[0][0]) < 10.0**-12.0
+    ), "Circular orbit in the MWPotential does not have Jr=0"
+    assert (
+        numpy.fabs(js[2][0]) < 10.0**-16.0
+    ), "Circular orbit in the MWPotential does not have Jz=0"
     # Close-to-circular orbit
     R, vR, vT, z, vz = 1.01, 0.01, 1.0, 0.01, 0.01
     js = aAS(Orbit([R, vR, vT, z, vz]))
-    assert numpy.fabs(js[0]) < 10.0**-4.0, (
-        "Close-to-circular orbit in the MWPotential does not have small Jr"
-    )
-    assert numpy.fabs(js[2]) < 2.0 * 10.0**-4.0, (
-        "Close-to-circular orbit in the MWPotential does not have small Jz"
-    )
+    assert (
+        numpy.fabs(js[0]) < 10.0**-4.0
+    ), "Close-to-circular orbit in the MWPotential does not have small Jr"
+    assert (
+        numpy.fabs(js[2]) < 2.0 * 10.0**-4.0
+    ), "Close-to-circular orbit in the MWPotential does not have small Jz"
     return None
 
 
@@ -2095,21 +2091,21 @@ def test_actionAngleStaeckel_basic_actions_c():
     # circular orbit
     R, vR, vT, z, vz = 1.0, 0.0, 1.0, 0.0, 0.0
     js = aAS(R, vR, vT, z, vz)
-    assert numpy.fabs(js[0]) < 10.0**-16.0, (
-        "Circular orbit in the MWPotential does not have Jr=0"
-    )
-    assert numpy.fabs(js[2]) < 10.0**-16.0, (
-        "Circular orbit in the MWPotential does not have Jz=0"
-    )
+    assert (
+        numpy.fabs(js[0]) < 10.0**-16.0
+    ), "Circular orbit in the MWPotential does not have Jr=0"
+    assert (
+        numpy.fabs(js[2]) < 10.0**-16.0
+    ), "Circular orbit in the MWPotential does not have Jz=0"
     # Close-to-circular orbit
     R, vR, vT, z, vz = 1.01, 0.01, 1.0, 0.01, 0.01
     js = aAS(Orbit([R, vR, vT, z, vz]))
-    assert numpy.fabs(js[0]) < 10.0**-4.0, (
-        "Close-to-circular orbit in the MWPotential does not have small Jr"
-    )
-    assert numpy.fabs(js[2]) < 2.0 * 10.0**-4.0, (
-        "Close-to-circular orbit in the MWPotential does not have small Jz"
-    )
+    assert (
+        numpy.fabs(js[0]) < 10.0**-4.0
+    ), "Close-to-circular orbit in the MWPotential does not have small Jr"
+    assert (
+        numpy.fabs(js[2]) < 2.0 * 10.0**-4.0
+    ), "Close-to-circular orbit in the MWPotential does not have small Jz"
     return None
 
 
@@ -2122,15 +2118,15 @@ def test_actionAngleStaeckel_unboundr_actions_c():
     # Unbound orbit, shouldn't fail
     R, vR, vT, z, vz = 1.0, 0.0, 10.0, 0.1, 0.0
     js = aAS(R, vR, vT, z, vz)
-    assert js[0] > 1000.0, (
-        "Unbound in R orbit in the MWPotential does not have large Jr"
-    )
+    assert (
+        js[0] > 1000.0
+    ), "Unbound in R orbit in the MWPotential does not have large Jr"
     # Another unbound orbit, shouldn't fail
     R, vR, vT, z, vz = 1.0, 0.1, 10.0, 0.1, 0.0
     js = aAS(R, vR, vT, z, vz)
-    assert js[0] > 1000.0, (
-        "Unbound in R orbit in the MWPotential does not have large Jr"
-    )
+    assert (
+        js[0] > 1000.0
+    ), "Unbound in R orbit in the MWPotential does not have large Jr"
     return None
 
 
@@ -2145,17 +2141,17 @@ def test_actionAngleStaeckel_zerolz_actions_c():
     js = aAS(R, vR, vT, z, vz)
     R, vR, vT, z, vz = 1.0, 0.0, 0.0000001, 0.0, 0.0
     js2 = aAS(R, vR, vT, z, vz)
-    assert numpy.fabs(js[0] - js2[0]) < 10.0**-6.0, (
-        "Orbit with zero angular momentum does not have the correct Jr"
-    )
+    assert (
+        numpy.fabs(js[0] - js2[0]) < 10.0**-6.0
+    ), "Orbit with zero angular momentum does not have the correct Jr"
     # Zero angular momentum, so rperi=0, but should have finite jr
     R, vR, vT, z, vz = 1.0, -0.5, 0.0, 0.0, 0.0
     js = aAS(R, vR, vT, z, vz)
     R, vR, vT, z, vz = 1.0, -0.5, 0.0000001, 0.0, 0.0
     js2 = aAS(R, vR, vT, z, vz)
-    assert numpy.fabs(js[0] - js2[0]) < 10.0**-6.0, (
-        "Orbit with zero angular momentum does not have the correct Jr"
-    )
+    assert (
+        numpy.fabs(js[0] - js2[0]) < 10.0**-6.0
+    ), "Orbit with zero angular momentum does not have the correct Jr"
     return None
 
 
@@ -2172,12 +2168,12 @@ def test_actionAngleStaeckel_actions_order():
     jrt, jpt, jzt = aAS(o, order=10000, fixed_quad=True)
     jr1, jp1, jz1 = aAS(o, order=5, fixed_quad=True)
     jr2, jp2, jz2 = aAS(o, order=50, fixed_quad=True)
-    assert numpy.fabs(jr1 - jrt) > numpy.fabs(jr2 - jrt), (
-        "Accuracy of actionAngleStaeckel does not increase with increasing order of integration"
-    )
-    assert numpy.fabs(jz1 - jzt) > numpy.fabs(jz2 - jzt), (
-        "Accuracy of actionAngleStaeckel does not increase with increasing order of integration"
-    )
+    assert numpy.fabs(jr1 - jrt) > numpy.fabs(
+        jr2 - jrt
+    ), "Accuracy of actionAngleStaeckel does not increase with increasing order of integration"
+    assert numpy.fabs(jz1 - jzt) > numpy.fabs(
+        jz2 - jzt
+    ), "Accuracy of actionAngleStaeckel does not increase with increasing order of integration"
     return None
 
 
@@ -2193,12 +2189,12 @@ def test_actionAngleStaeckel_actions_order_c():
     jrt, jpt, jzt = aAS(o, order=10000)
     jr1, jp1, jz1 = aAS(o, order=5)
     jr2, jp2, jz2 = aAS(o, order=50)
-    assert numpy.fabs(jr1 - jrt) > numpy.fabs(jr2 - jrt), (
-        "Accuracy of actionAngleStaeckel does not increase with increasing order of integration"
-    )
-    assert numpy.fabs(jz1 - jzt) > numpy.fabs(jz2 - jzt), (
-        "Accuracy of actionAngleStaeckel does not increase with increasing order of integration"
-    )
+    assert numpy.fabs(jr1 - jrt) > numpy.fabs(
+        jr2 - jrt
+    ), "Accuracy of actionAngleStaeckel does not increase with increasing order of integration"
+    assert numpy.fabs(jz1 - jzt) > numpy.fabs(
+        jz2 - jzt
+    ), "Accuracy of actionAngleStaeckel does not increase with increasing order of integration"
     return None
 
 
@@ -2462,18 +2458,18 @@ def test_actionAngleStaeckel_unboundr_freqs_c():
     # Unbound orbit, shouldn't fail
     R, vR, vT, z, vz = 1.0, 0.1, 10.0, 0.1, 0.0
     js = aAS.actionsFreqs(R, vR, vT, z, vz)
-    assert js[0] > 1000.0, (
-        "Unbound in R orbit in the MWPotential does not have large Jr"
-    )
-    assert js[3] > 1000.0, (
-        "Unbound in R orbit in the MWPotential does not have large Or"
-    )
-    assert js[4] > 1000.0, (
-        "Unbound in R orbit in the MWPotential does not have large Op"
-    )
-    assert js[5] > 1000.0, (
-        "Unbound in R orbit in the MWPotential does not have large Oz"
-    )
+    assert (
+        js[0] > 1000.0
+    ), "Unbound in R orbit in the MWPotential does not have large Jr"
+    assert (
+        js[3] > 1000.0
+    ), "Unbound in R orbit in the MWPotential does not have large Or"
+    assert (
+        js[4] > 1000.0
+    ), "Unbound in R orbit in the MWPotential does not have large Op"
+    assert (
+        js[5] > 1000.0
+    ), "Unbound in R orbit in the MWPotential does not have large Oz"
     return None
 
 
@@ -2490,21 +2486,21 @@ def test_actionAngleStaeckel_freqs_order_c():
     jrt, jpt, jzt, ort, opt, ozt = aAS.actionsFreqs(o, order=10000)
     jr1, jp1, jz1, or1, op1, oz1 = aAS.actionsFreqs(o, order=5)
     jr2, jp2, jz2, or2, op2, oz2 = aAS.actionsFreqs(o, order=50)
-    assert numpy.fabs(jr1 - jrt) > numpy.fabs(jr2 - jrt), (
-        "Accuracy of actionAngleStaeckel does not increase with increasing order of integration"
-    )
-    assert numpy.fabs(jz1 - jzt) > numpy.fabs(jz2 - jzt), (
-        "Accuracy of actionAngleStaeckel does not increase with increasing order of integration"
-    )
-    assert numpy.fabs(or1 - ort) > numpy.fabs(or2 - ort), (
-        "Accuracy of actionAngleStaeckel does not increase with increasing order of integration"
-    )
-    assert numpy.fabs(op1 - opt) > numpy.fabs(op2 - opt), (
-        "Accuracy of actionAngleStaeckel does not increase with increasing order of integration"
-    )
-    assert numpy.fabs(oz1 - ozt) > numpy.fabs(oz2 - ozt), (
-        "Accuracy of actionAngleStaeckel does not increase with increasing order of integration"
-    )
+    assert numpy.fabs(jr1 - jrt) > numpy.fabs(
+        jr2 - jrt
+    ), "Accuracy of actionAngleStaeckel does not increase with increasing order of integration"
+    assert numpy.fabs(jz1 - jzt) > numpy.fabs(
+        jz2 - jzt
+    ), "Accuracy of actionAngleStaeckel does not increase with increasing order of integration"
+    assert numpy.fabs(or1 - ort) > numpy.fabs(
+        or2 - ort
+    ), "Accuracy of actionAngleStaeckel does not increase with increasing order of integration"
+    assert numpy.fabs(op1 - opt) > numpy.fabs(
+        op2 - opt
+    ), "Accuracy of actionAngleStaeckel does not increase with increasing order of integration"
+    assert numpy.fabs(oz1 - ozt) > numpy.fabs(
+        oz2 - ozt
+    ), "Accuracy of actionAngleStaeckel does not increase with increasing order of integration"
     return None
 
 
@@ -2517,18 +2513,18 @@ def test_actionAngleStaeckel_unboundr_angles_c():
     # Unbound orbit, shouldn't fail
     R, vR, vT, z, vz, phi = 1.0, 0.1, 10.0, 0.1, 0.0, 0.0
     js = aAS.actionsFreqsAngles(R, vR, vT, z, vz, phi)
-    assert js[0] > 1000.0, (
-        "Unbound in R orbit in the MWPotential does not have large Jr"
-    )
-    assert js[6] > 1000.0, (
-        "Unbound in R orbit in the MWPotential does not have large ar"
-    )
-    assert js[7] > 1000.0, (
-        "Unbound in R orbit in the MWPotential does not have large ap"
-    )
-    assert js[8] > 1000.0, (
-        "Unbound in R orbit in the MWPotential does not have large az"
-    )
+    assert (
+        js[0] > 1000.0
+    ), "Unbound in R orbit in the MWPotential does not have large Jr"
+    assert (
+        js[6] > 1000.0
+    ), "Unbound in R orbit in the MWPotential does not have large ar"
+    assert (
+        js[7] > 1000.0
+    ), "Unbound in R orbit in the MWPotential does not have large ap"
+    assert (
+        js[8] > 1000.0
+    ), "Unbound in R orbit in the MWPotential does not have large az"
     return None
 
 
@@ -2559,30 +2555,30 @@ def test_actionAngleStaeckel_angles_order_c():
     jrt, jpt, jzt, ort, opt, ozt, art, apt, azt = aAS.actionsFreqsAngles(o, order=10000)
     jr1, jp1, jz1, or1, op1, oz1, ar1, ap1, az1 = aAS.actionsFreqsAngles(o, order=5)
     jr2, jp2, jz2, or2, op2, oz2, ar2, ap2, az2 = aAS.actionsFreqsAngles(o, order=50)
-    assert numpy.fabs(jr1 - jrt) > numpy.fabs(jr2 - jrt), (
-        "Accuracy of actionAngleStaeckel does not increase with increasing order of integration"
-    )
-    assert numpy.fabs(jz1 - jzt) > numpy.fabs(jz2 - jzt), (
-        "Accuracy of actionAngleStaeckel does not increase with increasing order of integration"
-    )
-    assert numpy.fabs(or1 - ort) > numpy.fabs(or2 - ort), (
-        "Accuracy of actionAngleStaeckel does not increase with increasing order of integration"
-    )
-    assert numpy.fabs(op1 - opt) > numpy.fabs(op2 - opt), (
-        "Accuracy of actionAngleStaeckel does not increase with increasing order of integration"
-    )
-    assert numpy.fabs(oz1 - ozt) > numpy.fabs(oz2 - ozt), (
-        "Accuracy of actionAngleStaeckel does not increase with increasing order of integration"
-    )
-    assert numpy.fabs(ar1 - art) > numpy.fabs(ar2 - art), (
-        "Accuracy of actionAngleStaeckel does not increase with increasing order of integration"
-    )
-    assert numpy.fabs(ap1 - apt) > numpy.fabs(ap2 - apt), (
-        "Accuracy of actionAngleStaeckel does not increase with increasing order of integration"
-    )
-    assert numpy.fabs(az1 - azt) > numpy.fabs(az2 - azt), (
-        "Accuracy of actionAngleStaeckel does not increase with increasing order of integration"
-    )
+    assert numpy.fabs(jr1 - jrt) > numpy.fabs(
+        jr2 - jrt
+    ), "Accuracy of actionAngleStaeckel does not increase with increasing order of integration"
+    assert numpy.fabs(jz1 - jzt) > numpy.fabs(
+        jz2 - jzt
+    ), "Accuracy of actionAngleStaeckel does not increase with increasing order of integration"
+    assert numpy.fabs(or1 - ort) > numpy.fabs(
+        or2 - ort
+    ), "Accuracy of actionAngleStaeckel does not increase with increasing order of integration"
+    assert numpy.fabs(op1 - opt) > numpy.fabs(
+        op2 - opt
+    ), "Accuracy of actionAngleStaeckel does not increase with increasing order of integration"
+    assert numpy.fabs(oz1 - ozt) > numpy.fabs(
+        oz2 - ozt
+    ), "Accuracy of actionAngleStaeckel does not increase with increasing order of integration"
+    assert numpy.fabs(ar1 - art) > numpy.fabs(
+        ar2 - art
+    ), "Accuracy of actionAngleStaeckel does not increase with increasing order of integration"
+    assert numpy.fabs(ap1 - apt) > numpy.fabs(
+        ap2 - apt
+    ), "Accuracy of actionAngleStaeckel does not increase with increasing order of integration"
+    assert numpy.fabs(az1 - azt) > numpy.fabs(
+        az2 - azt
+    ), "Accuracy of actionAngleStaeckel does not increase with increasing order of integration"
     return None
 
 
@@ -2595,39 +2591,39 @@ def test_actionAngleStaeckel_basic_EccZmaxRperiRap():
     # circular orbit
     R, vR, vT, z, vz = 1.0, 0.0, 1.0, 0.0, 0.0
     te, tzmax, _, _ = aAS.EccZmaxRperiRap(R, vR, vT, z, vz)
-    assert numpy.fabs(te) < 10.0**-16.0, (
-        "Circular orbit in the MWPotential does not have e=0"
-    )
-    assert numpy.fabs(tzmax) < 10.0**-16.0, (
-        "Circular orbit in the MWPotential does not have zmax=0"
-    )
+    assert (
+        numpy.fabs(te) < 10.0**-16.0
+    ), "Circular orbit in the MWPotential does not have e=0"
+    assert (
+        numpy.fabs(tzmax) < 10.0**-16.0
+    ), "Circular orbit in the MWPotential does not have zmax=0"
     # Close-to-circular orbit
     R, vR, vT, z, vz = 1.01, 0.01, 1.0, 0.01, 0.01
     te, tzmax, _, _ = aAS.EccZmaxRperiRap(R, vR, vT, z, vz)
-    assert numpy.fabs(te) < 10.0**-2.0, (
-        "Close-to-circular orbit in the MWPotential does not have small eccentricity"
-    )
-    assert numpy.fabs(tzmax) < 2.0 * 10.0**-2.0, (
-        "Close-to-circular orbit in the MWPotential does not have small zmax"
-    )
+    assert (
+        numpy.fabs(te) < 10.0**-2.0
+    ), "Close-to-circular orbit in the MWPotential does not have small eccentricity"
+    assert (
+        numpy.fabs(tzmax) < 2.0 * 10.0**-2.0
+    ), "Close-to-circular orbit in the MWPotential does not have small zmax"
     # Another close-to-circular orbit
     R, vR, vT, z, vz = 1.0, 0.0, 0.99, 0.0, 0.0
     te, tzmax, _, _ = aAS.EccZmaxRperiRap(R, vR, vT, z, vz)
-    assert numpy.fabs(te) < 10.0**-2.0, (
-        "Close-to-circular orbit in the MWPotential does not have small eccentricity"
-    )
-    assert numpy.fabs(tzmax) < 2.0 * 10.0**-2.0, (
-        "Close-to-circular orbit in the MWPotential does not have small zmax"
-    )
+    assert (
+        numpy.fabs(te) < 10.0**-2.0
+    ), "Close-to-circular orbit in the MWPotential does not have small eccentricity"
+    assert (
+        numpy.fabs(tzmax) < 2.0 * 10.0**-2.0
+    ), "Close-to-circular orbit in the MWPotential does not have small zmax"
     # Another close-to-circular orbit
     R, vR, vT, z, vz = 1.0, 0.0, 1.0, 0.01, 0.0
     te, tzmax, _, _ = aAS.EccZmaxRperiRap(R, vR, vT, z, vz)
-    assert numpy.fabs(te) < 10.0**-2.0, (
-        "Close-to-circular orbit in the MWPotential does not have small eccentricity"
-    )
-    assert numpy.fabs(tzmax) < 2.0 * 10.0**-2.0, (
-        "Close-to-circular orbit in the MWPotential does not have small zmax"
-    )
+    assert (
+        numpy.fabs(te) < 10.0**-2.0
+    ), "Close-to-circular orbit in the MWPotential does not have small eccentricity"
+    assert (
+        numpy.fabs(tzmax) < 2.0 * 10.0**-2.0
+    ), "Close-to-circular orbit in the MWPotential does not have small zmax"
     return None
 
 
@@ -2640,21 +2636,21 @@ def test_actionAngleStaeckel_basic_EccZmaxRperiRap_u0():
     # circular orbit
     R, vR, vT, z, vz = 1.0, 0.0, 1.0, 0.0, 0.0
     te, tzmax, _, _ = aAS.EccZmaxRperiRap(R, vR, vT, z, vz)
-    assert numpy.fabs(te) < 10.0**-16.0, (
-        "Circular orbit in the MWPotential does not have e=0"
-    )
-    assert numpy.fabs(tzmax) < 10.0**-16.0, (
-        "Circular orbit in the MWPotential does not have zmax=0"
-    )
+    assert (
+        numpy.fabs(te) < 10.0**-16.0
+    ), "Circular orbit in the MWPotential does not have e=0"
+    assert (
+        numpy.fabs(tzmax) < 10.0**-16.0
+    ), "Circular orbit in the MWPotential does not have zmax=0"
     # Close-to-circular orbit
     R, vR, vT, z, vz = 1.01, 0.01, 1.0, 0.01, 0.01
     te, tzmax, _, _ = aAS.EccZmaxRperiRap(R, vR, vT, z, vz)
-    assert numpy.fabs(te) < 10.0**-2.0, (
-        "Close-to-circular orbit in the MWPotential does not have small eccentricity"
-    )
-    assert numpy.fabs(tzmax) < 2.0 * 10.0**-2.0, (
-        "Close-to-circular orbit in the MWPotential does not have small zmax"
-    )
+    assert (
+        numpy.fabs(te) < 10.0**-2.0
+    ), "Close-to-circular orbit in the MWPotential does not have small eccentricity"
+    assert (
+        numpy.fabs(tzmax) < 2.0 * 10.0**-2.0
+    ), "Close-to-circular orbit in the MWPotential does not have small zmax"
     return None
 
 
@@ -2668,21 +2664,21 @@ def test_actionAngleStaeckel_basic_EccZmaxRperiRap_u0_c():
     # circular orbit
     R, vR, vT, z, vz = 1.0, 0.0, 1.0, 0.0, 0.0
     te, tzmax, _, _ = aAS.EccZmaxRperiRap(Orbit([R, vR, vT, z, vz]))
-    assert numpy.fabs(te) < 10.0**-16.0, (
-        "Circular orbit in the MWPotential does not have e=0"
-    )
-    assert numpy.fabs(tzmax) < 10.0**-16.0, (
-        "Circular orbit in the MWPotential does not have zmax=0"
-    )
+    assert (
+        numpy.fabs(te) < 10.0**-16.0
+    ), "Circular orbit in the MWPotential does not have e=0"
+    assert (
+        numpy.fabs(tzmax) < 10.0**-16.0
+    ), "Circular orbit in the MWPotential does not have zmax=0"
     # Close-to-circular orbit
     R, vR, vT, z, vz = 1.01, 0.01, 1.0, 0.01, 0.01
     te, tzmax, _, _ = aAS.EccZmaxRperiRap(R, vR, vT, z, vz, u0=1.15)
-    assert numpy.fabs(te) < 10.0**-2.0, (
-        "Close-to-circular orbit in the MWPotential does not have small eccentricity"
-    )
-    assert numpy.fabs(tzmax) < 2.0 * 10.0**-2.0, (
-        "Close-to-circular orbit in the MWPotential does not have small zmax"
-    )
+    assert (
+        numpy.fabs(te) < 10.0**-2.0
+    ), "Close-to-circular orbit in the MWPotential does not have small eccentricity"
+    assert (
+        numpy.fabs(tzmax) < 2.0 * 10.0**-2.0
+    ), "Close-to-circular orbit in the MWPotential does not have small zmax"
     return None
 
 
@@ -2712,18 +2708,18 @@ def test_actionAngleStaeckel_indivdelta_actions():
         o.R(ts[:2]), o.vR(ts[:2]), o.vT(ts[:2]), o.z(ts[:2]), o.vz(ts[:2]), delta=deltas
     )
     # Check that they agree as expected
-    assert numpy.fabs(jr0[0] - jri[0]) < 1e-10, (
-        "Radial action computed with individual delta does not agree with that computed using the fixed orbit-wide default"
-    )
-    assert numpy.fabs(jr1[1] - jri[1]) < 1e-10, (
-        "Radial action computed with individual delta does not agree with that computed using the fixed orbit-wide default"
-    )
-    assert numpy.fabs(jz0[0] - jzi[0]) < 1e-10, (
-        "Vertical action computed with individual delta does not agree with that computed using the fixed orbit-wide default"
-    )
-    assert numpy.fabs(jz1[1] - jzi[1]) < 1e-10, (
-        "Vertical action computed with individual delta does not agree with that computed using the fixed orbit-wide default"
-    )
+    assert (
+        numpy.fabs(jr0[0] - jri[0]) < 1e-10
+    ), "Radial action computed with individual delta does not agree with that computed using the fixed orbit-wide default"
+    assert (
+        numpy.fabs(jr1[1] - jri[1]) < 1e-10
+    ), "Radial action computed with individual delta does not agree with that computed using the fixed orbit-wide default"
+    assert (
+        numpy.fabs(jz0[0] - jzi[0]) < 1e-10
+    ), "Vertical action computed with individual delta does not agree with that computed using the fixed orbit-wide default"
+    assert (
+        numpy.fabs(jz1[1] - jzi[1]) < 1e-10
+    ), "Vertical action computed with individual delta does not agree with that computed using the fixed orbit-wide default"
     return None
 
 
@@ -2750,9 +2746,9 @@ def test_estimateDeltaStaeckel_no_median():
         ]
     )
     # check that values agree
-    assert (numpy.fabs(nomed - indiv) < 1e-10).all(), (
-        "no_median option returns different values to individual Delta estimation"
-    )
+    assert (
+        numpy.fabs(nomed - indiv) < 1e-10
+    ).all(), "no_median option returns different values to individual Delta estimation"
     return None
 
 
@@ -2767,15 +2763,15 @@ def test_estimateDeltaStaeckel_z_is_0():
     for r in rs:
         delta0 = estimateDeltaStaeckel(MWPotential2014, r, 0.0)
         deltasmall = estimateDeltaStaeckel(MWPotential2014, r, 5e-4)
-        assert numpy.fabs(delta0 - deltasmall) < 1e-3, (
-            "Delta computed with z=0 does not agree with that computed for small z"
-        )
+        assert (
+            numpy.fabs(delta0 - deltasmall) < 1e-3
+        ), "Delta computed with z=0 does not agree with that computed for small z"
     # And an array
     delta0 = estimateDeltaStaeckel(MWPotential2014, rs, numpy.zeros(n))
     deltasmall = estimateDeltaStaeckel(MWPotential2014, rs, 5e-4 * numpy.ones(n))
-    assert numpy.all(numpy.fabs(delta0 - deltasmall) < 1e-3), (
-        "Delta computed with array of z=0 does not agree with that computed for array of small z"
-    )
+    assert numpy.all(
+        numpy.fabs(delta0 - deltasmall) < 1e-3
+    ), "Delta computed with array of z=0 does not agree with that computed for array of small z"
 
 
 def test_actionAngleStaeckel_indivdelta_actions_c():
@@ -2803,18 +2799,18 @@ def test_actionAngleStaeckel_indivdelta_actions_c():
         o.R(ts[:2]), o.vR(ts[:2]), o.vT(ts[:2]), o.z(ts[:2]), o.vz(ts[:2]), delta=deltas
     )
     # Check that they agree as expected
-    assert numpy.fabs(jr0[0] - jri[0]) < 1e-10, (
-        "Radial action computed with individual delta does not agree with that computed using the fixed orbit-wide default"
-    )
-    assert numpy.fabs(jr1[1] - jri[1]) < 1e-10, (
-        "Radial action computed with individual delta does not agree with that computed using the fixed orbit-wide default"
-    )
-    assert numpy.fabs(jz0[0] - jzi[0]) < 1e-10, (
-        "Vertical action computed with individual delta does not agree with that computed using the fixed orbit-wide default"
-    )
-    assert numpy.fabs(jz1[1] - jzi[1]) < 1e-10, (
-        "Vertical action computed with individual delta does not agree with that computed using the fixed orbit-wide default"
-    )
+    assert (
+        numpy.fabs(jr0[0] - jri[0]) < 1e-10
+    ), "Radial action computed with individual delta does not agree with that computed using the fixed orbit-wide default"
+    assert (
+        numpy.fabs(jr1[1] - jri[1]) < 1e-10
+    ), "Radial action computed with individual delta does not agree with that computed using the fixed orbit-wide default"
+    assert (
+        numpy.fabs(jz0[0] - jzi[0]) < 1e-10
+    ), "Vertical action computed with individual delta does not agree with that computed using the fixed orbit-wide default"
+    assert (
+        numpy.fabs(jz1[1] - jzi[1]) < 1e-10
+    ), "Vertical action computed with individual delta does not agree with that computed using the fixed orbit-wide default"
     return None
 
 
@@ -2859,36 +2855,36 @@ def test_actionAngleStaeckel_indivdelta_freqs_c():
         delta=deltas,
     )
     # Check that they agree as expected
-    assert numpy.fabs(jr0[0] - jri[0]) < 1e-10, (
-        "Radial action computed with individual delta does not agree with that computed using the fixed orbit-wide default"
-    )
-    assert numpy.fabs(jr1[1] - jri[1]) < 1e-10, (
-        "Radial action computed with individual delta does not agree with that computed using the fixed orbit-wide default"
-    )
-    assert numpy.fabs(jz0[0] - jzi[0]) < 1e-10, (
-        "Vertical action computed with individual delta does not agree with that computed using the fixed orbit-wide default"
-    )
-    assert numpy.fabs(jz1[1] - jzi[1]) < 1e-10, (
-        "Vertical action computed with individual delta does not agree with that computed using the fixed orbit-wide default"
-    )
-    assert numpy.fabs(or0[0] - ori[0]) < 1e-10, (
-        "Radial frequencyaction computed with individual delta does not agree with that computed using the fixed orbit-wide default"
-    )
-    assert numpy.fabs(or1[1] - ori[1]) < 1e-10, (
-        "Radial frequency computed with individual delta does not agree with that computed using the fixed orbit-wide default"
-    )
-    assert numpy.fabs(op0[0] - opi[0]) < 1e-10, (
-        "Azimuthal computed with individual delta does not agree with that computed using the fixed orbit-wide default"
-    )
-    assert numpy.fabs(op1[1] - opi[1]) < 1e-10, (
-        "Azimuthal computed with individual delta does not agree with that computed using the fixed orbit-wide default"
-    )
-    assert numpy.fabs(oz0[0] - ozi[0]) < 1e-10, (
-        "Azimuthal frequency computed with individual delta does not agree with that computed using the fixed orbit-wide default"
-    )
-    assert numpy.fabs(oz1[1] - ozi[1]) < 1e-10, (
-        "Vertical frequency computed with individual delta does not agree with that computed using the fixed orbit-wide default"
-    )
+    assert (
+        numpy.fabs(jr0[0] - jri[0]) < 1e-10
+    ), "Radial action computed with individual delta does not agree with that computed using the fixed orbit-wide default"
+    assert (
+        numpy.fabs(jr1[1] - jri[1]) < 1e-10
+    ), "Radial action computed with individual delta does not agree with that computed using the fixed orbit-wide default"
+    assert (
+        numpy.fabs(jz0[0] - jzi[0]) < 1e-10
+    ), "Vertical action computed with individual delta does not agree with that computed using the fixed orbit-wide default"
+    assert (
+        numpy.fabs(jz1[1] - jzi[1]) < 1e-10
+    ), "Vertical action computed with individual delta does not agree with that computed using the fixed orbit-wide default"
+    assert (
+        numpy.fabs(or0[0] - ori[0]) < 1e-10
+    ), "Radial frequencyaction computed with individual delta does not agree with that computed using the fixed orbit-wide default"
+    assert (
+        numpy.fabs(or1[1] - ori[1]) < 1e-10
+    ), "Radial frequency computed with individual delta does not agree with that computed using the fixed orbit-wide default"
+    assert (
+        numpy.fabs(op0[0] - opi[0]) < 1e-10
+    ), "Azimuthal computed with individual delta does not agree with that computed using the fixed orbit-wide default"
+    assert (
+        numpy.fabs(op1[1] - opi[1]) < 1e-10
+    ), "Azimuthal computed with individual delta does not agree with that computed using the fixed orbit-wide default"
+    assert (
+        numpy.fabs(oz0[0] - ozi[0]) < 1e-10
+    ), "Azimuthal frequency computed with individual delta does not agree with that computed using the fixed orbit-wide default"
+    assert (
+        numpy.fabs(oz1[1] - ozi[1]) < 1e-10
+    ), "Vertical frequency computed with individual delta does not agree with that computed using the fixed orbit-wide default"
     return None
 
 
@@ -2933,54 +2929,54 @@ def test_actionAngleStaeckel_indivdelta_angles_c():
         delta=deltas,
     )
     # Check that they agree as expected
-    assert numpy.fabs(jr0[0] - jri[0]) < 1e-10, (
-        "Radial action computed with individual delta does not agree with that computed using the fixed orbit-wide default"
-    )
-    assert numpy.fabs(jr1[1] - jri[1]) < 1e-10, (
-        "Radial action computed with individual delta does not agree with that computed using the fixed orbit-wide default"
-    )
-    assert numpy.fabs(jz0[0] - jzi[0]) < 1e-10, (
-        "Vertical action computed with individual delta does not agree with that computed using the fixed orbit-wide default"
-    )
-    assert numpy.fabs(jz1[1] - jzi[1]) < 1e-10, (
-        "Vertical action computed with individual delta does not agree with that computed using the fixed orbit-wide default"
-    )
-    assert numpy.fabs(or0[0] - ori[0]) < 1e-10, (
-        "Radial frequencyaction computed with individual delta does not agree with that computed using the fixed orbit-wide default"
-    )
-    assert numpy.fabs(or1[1] - ori[1]) < 1e-10, (
-        "Radial frequency computed with individual delta does not agree with that computed using the fixed orbit-wide default"
-    )
-    assert numpy.fabs(op0[0] - opi[0]) < 1e-10, (
-        "Azimuthal computed with individual delta does not agree with that computed using the fixed orbit-wide default"
-    )
-    assert numpy.fabs(op1[1] - opi[1]) < 1e-10, (
-        "Azimuthal computed with individual delta does not agree with that computed using the fixed orbit-wide default"
-    )
-    assert numpy.fabs(oz0[0] - ozi[0]) < 1e-10, (
-        "Azimuthal frequency computed with individual delta does not agree with that computed using the fixed orbit-wide default"
-    )
-    assert numpy.fabs(oz1[1] - ozi[1]) < 1e-10, (
-        "Vertical frequency computed with individual delta does not agree with that computed using the fixed orbit-wide default"
-    )
-    assert numpy.fabs(ar0[0] - ari[0]) < 1e-10, (
-        "Radial frequencyaction computed with individual delta does not agree with that computed using the fixed orbit-wide default"
-    )
-    assert numpy.fabs(ar1[1] - ari[1]) < 1e-10, (
-        "Radial frequency computed with individual delta does not agree with that computed using the fixed orbit-wide default"
-    )
-    assert numpy.fabs(ap0[0] - api[0]) < 1e-10, (
-        "Azimuthal computed with individual delta does not agree with that computed using the fixed orbit-wide default"
-    )
-    assert numpy.fabs(ap1[1] - api[1]) < 1e-10, (
-        "Azimuthal computed with individual delta does not agree with that computed using the fixed orbit-wide default"
-    )
-    assert numpy.fabs(az0[0] - azi[0]) < 1e-10, (
-        "Azimuthal frequency computed with individual delta does not agree with that computed using the fixed orbit-wide default"
-    )
-    assert numpy.fabs(az1[1] - azi[1]) < 1e-10, (
-        "Vertical frequency computed with individual delta does not agree with that computed using the fixed orbit-wide default"
-    )
+    assert (
+        numpy.fabs(jr0[0] - jri[0]) < 1e-10
+    ), "Radial action computed with individual delta does not agree with that computed using the fixed orbit-wide default"
+    assert (
+        numpy.fabs(jr1[1] - jri[1]) < 1e-10
+    ), "Radial action computed with individual delta does not agree with that computed using the fixed orbit-wide default"
+    assert (
+        numpy.fabs(jz0[0] - jzi[0]) < 1e-10
+    ), "Vertical action computed with individual delta does not agree with that computed using the fixed orbit-wide default"
+    assert (
+        numpy.fabs(jz1[1] - jzi[1]) < 1e-10
+    ), "Vertical action computed with individual delta does not agree with that computed using the fixed orbit-wide default"
+    assert (
+        numpy.fabs(or0[0] - ori[0]) < 1e-10
+    ), "Radial frequencyaction computed with individual delta does not agree with that computed using the fixed orbit-wide default"
+    assert (
+        numpy.fabs(or1[1] - ori[1]) < 1e-10
+    ), "Radial frequency computed with individual delta does not agree with that computed using the fixed orbit-wide default"
+    assert (
+        numpy.fabs(op0[0] - opi[0]) < 1e-10
+    ), "Azimuthal computed with individual delta does not agree with that computed using the fixed orbit-wide default"
+    assert (
+        numpy.fabs(op1[1] - opi[1]) < 1e-10
+    ), "Azimuthal computed with individual delta does not agree with that computed using the fixed orbit-wide default"
+    assert (
+        numpy.fabs(oz0[0] - ozi[0]) < 1e-10
+    ), "Azimuthal frequency computed with individual delta does not agree with that computed using the fixed orbit-wide default"
+    assert (
+        numpy.fabs(oz1[1] - ozi[1]) < 1e-10
+    ), "Vertical frequency computed with individual delta does not agree with that computed using the fixed orbit-wide default"
+    assert (
+        numpy.fabs(ar0[0] - ari[0]) < 1e-10
+    ), "Radial frequencyaction computed with individual delta does not agree with that computed using the fixed orbit-wide default"
+    assert (
+        numpy.fabs(ar1[1] - ari[1]) < 1e-10
+    ), "Radial frequency computed with individual delta does not agree with that computed using the fixed orbit-wide default"
+    assert (
+        numpy.fabs(ap0[0] - api[0]) < 1e-10
+    ), "Azimuthal computed with individual delta does not agree with that computed using the fixed orbit-wide default"
+    assert (
+        numpy.fabs(ap1[1] - api[1]) < 1e-10
+    ), "Azimuthal computed with individual delta does not agree with that computed using the fixed orbit-wide default"
+    assert (
+        numpy.fabs(az0[0] - azi[0]) < 1e-10
+    ), "Azimuthal frequency computed with individual delta does not agree with that computed using the fixed orbit-wide default"
+    assert (
+        numpy.fabs(az1[1] - azi[1]) < 1e-10
+    ), "Vertical frequency computed with individual delta does not agree with that computed using the fixed orbit-wide default"
     return None
 
 
@@ -3009,30 +3005,30 @@ def test_actionAngleStaeckel_indivdelta_EccZmaxRperiRap():
         o.R(ts[:2]), o.vR(ts[:2]), o.vT(ts[:2]), o.z(ts[:2]), o.vz(ts[:2]), delta=deltas
     )
     # Check that they agree as expected
-    assert numpy.fabs(e0[0] - ei[0]) < 1e-10, (
-        "Eccentricity computed with individual delta does not agree with that computed using the fixed orbit-wide default"
-    )
-    assert numpy.fabs(e1[1] - ei[1]) < 1e-10, (
-        "Eccentricity computed with individual delta does not agree with that computed using the fixed orbit-wide default"
-    )
-    assert numpy.fabs(z0[0] - zi[0]) < 1e-10, (
-        "Zmax computed with individual delta does not agree with that computed using the fixed orbit-wide default"
-    )
-    assert numpy.fabs(z1[1] - zi[1]) < 1e-10, (
-        "Zmax computed with individual delta does not agree with that computed using the fixed orbit-wide default"
-    )
-    assert numpy.fabs(rp0[0] - rpi[0]) < 1e-10, (
-        "Pericenter computed with individual delta does not agree with that computed using the fixed orbit-wide default"
-    )
-    assert numpy.fabs(rp1[1] - rpi[1]) < 1e-10, (
-        "Pericenter computed with individual delta does not agree with that computed using the fixed orbit-wide default"
-    )
-    assert numpy.fabs(ra0[0] - rai[0]) < 1e-10, (
-        "Apocenter computed with individual delta does not agree with that computed using the fixed orbit-wide default"
-    )
-    assert numpy.fabs(ra1[1] - rai[1]) < 1e-10, (
-        "Apocenter computed with individual delta does not agree with that computed using the fixed orbit-wide default"
-    )
+    assert (
+        numpy.fabs(e0[0] - ei[0]) < 1e-10
+    ), "Eccentricity computed with individual delta does not agree with that computed using the fixed orbit-wide default"
+    assert (
+        numpy.fabs(e1[1] - ei[1]) < 1e-10
+    ), "Eccentricity computed with individual delta does not agree with that computed using the fixed orbit-wide default"
+    assert (
+        numpy.fabs(z0[0] - zi[0]) < 1e-10
+    ), "Zmax computed with individual delta does not agree with that computed using the fixed orbit-wide default"
+    assert (
+        numpy.fabs(z1[1] - zi[1]) < 1e-10
+    ), "Zmax computed with individual delta does not agree with that computed using the fixed orbit-wide default"
+    assert (
+        numpy.fabs(rp0[0] - rpi[0]) < 1e-10
+    ), "Pericenter computed with individual delta does not agree with that computed using the fixed orbit-wide default"
+    assert (
+        numpy.fabs(rp1[1] - rpi[1]) < 1e-10
+    ), "Pericenter computed with individual delta does not agree with that computed using the fixed orbit-wide default"
+    assert (
+        numpy.fabs(ra0[0] - rai[0]) < 1e-10
+    ), "Apocenter computed with individual delta does not agree with that computed using the fixed orbit-wide default"
+    assert (
+        numpy.fabs(ra1[1] - rai[1]) < 1e-10
+    ), "Apocenter computed with individual delta does not agree with that computed using the fixed orbit-wide default"
     return None
 
 
@@ -3061,30 +3057,30 @@ def test_actionAngleStaeckel_indivdelta_EccZmaxRperiRap_c():
         o.R(ts[:2]), o.vR(ts[:2]), o.vT(ts[:2]), o.z(ts[:2]), o.vz(ts[:2]), delta=deltas
     )
     # Check that they agree as expected
-    assert numpy.fabs(e0[0] - ei[0]) < 1e-10, (
-        "Eccentricity computed with individual delta does not agree with that computed using the fixed orbit-wide default"
-    )
-    assert numpy.fabs(e1[1] - ei[1]) < 1e-10, (
-        "Eccentricity computed with individual delta does not agree with that computed using the fixed orbit-wide default"
-    )
-    assert numpy.fabs(z0[0] - zi[0]) < 1e-10, (
-        "Zmax computed with individual delta does not agree with that computed using the fixed orbit-wide default"
-    )
-    assert numpy.fabs(z1[1] - zi[1]) < 1e-10, (
-        "Zmax computed with individual delta does not agree with that computed using the fixed orbit-wide default"
-    )
-    assert numpy.fabs(rp0[0] - rpi[0]) < 1e-10, (
-        "Pericenter computed with individual delta does not agree with that computed using the fixed orbit-wide default"
-    )
-    assert numpy.fabs(rp1[1] - rpi[1]) < 1e-10, (
-        "Pericenter computed with individual delta does not agree with that computed using the fixed orbit-wide default"
-    )
-    assert numpy.fabs(ra0[0] - rai[0]) < 1e-10, (
-        "Apocenter computed with individual delta does not agree with that computed using the fixed orbit-wide default"
-    )
-    assert numpy.fabs(ra1[1] - rai[1]) < 1e-10, (
-        "Apocenter computed with individual delta does not agree with that computed using the fixed orbit-wide default"
-    )
+    assert (
+        numpy.fabs(e0[0] - ei[0]) < 1e-10
+    ), "Eccentricity computed with individual delta does not agree with that computed using the fixed orbit-wide default"
+    assert (
+        numpy.fabs(e1[1] - ei[1]) < 1e-10
+    ), "Eccentricity computed with individual delta does not agree with that computed using the fixed orbit-wide default"
+    assert (
+        numpy.fabs(z0[0] - zi[0]) < 1e-10
+    ), "Zmax computed with individual delta does not agree with that computed using the fixed orbit-wide default"
+    assert (
+        numpy.fabs(z1[1] - zi[1]) < 1e-10
+    ), "Zmax computed with individual delta does not agree with that computed using the fixed orbit-wide default"
+    assert (
+        numpy.fabs(rp0[0] - rpi[0]) < 1e-10
+    ), "Pericenter computed with individual delta does not agree with that computed using the fixed orbit-wide default"
+    assert (
+        numpy.fabs(rp1[1] - rpi[1]) < 1e-10
+    ), "Pericenter computed with individual delta does not agree with that computed using the fixed orbit-wide default"
+    assert (
+        numpy.fabs(ra0[0] - rai[0]) < 1e-10
+    ), "Apocenter computed with individual delta does not agree with that computed using the fixed orbit-wide default"
+    assert (
+        numpy.fabs(ra1[1] - rai[1]) < 1e-10
+    ), "Apocenter computed with individual delta does not agree with that computed using the fixed orbit-wide default"
     return None
 
 
@@ -3526,18 +3522,21 @@ def test_actionAngleStaeckel_otherIsochrone_actions():
     djr = numpy.fabs((ji[0] - jia[0]) / ji[0])
     dlz = numpy.fabs((ji[1] - jia[1]) / ji[1])
     djz = numpy.fabs((ji[2] - jia[2]) / ji[2])
-    assert djr < 10.0**-3.0, (
-        "actionAngleStaeckel applied to isochrone potential fails for Jr at %f%%"
-        % (djr * 100.0)
+    assert (
+        djr < 10.0**-3.0
+    ), "actionAngleStaeckel applied to isochrone potential fails for Jr at %f%%" % (
+        djr * 100.0
     )
     # Lz and Jz are easy, because ip is a spherical potential
-    assert dlz < 10.0**-10.0, (
-        "actionAngleStaeckel applied to isochrone potential fails for Lz at %f%%"
-        % (dlz * 100.0)
+    assert (
+        dlz < 10.0**-10.0
+    ), "actionAngleStaeckel applied to isochrone potential fails for Lz at %f%%" % (
+        dlz * 100.0
     )
-    assert djz < 10.0**-3.0, (
-        "actionAngleStaeckel applied to isochrone potential fails for Jz at %f%%"
-        % (djz * 100.0)
+    assert (
+        djz < 10.0**-3.0
+    ), "actionAngleStaeckel applied to isochrone potential fails for Jz at %f%%" % (
+        djz * 100.0
     )
     return None
 
@@ -3560,18 +3559,21 @@ def test_actionAngleStaeckel_otherIsochrone_actions_fixed_quad():
     djr = numpy.fabs((ji[0] - jia[0]) / ji[0])[0]
     dlz = numpy.fabs((ji[1] - jia[1]) / ji[1])[0]
     djz = numpy.fabs((ji[2] - jia[2]) / ji[2])[0]
-    assert djr < 10.0**-3.0, (
-        "actionAngleStaeckel applied to isochrone potential fails for Jr at %f%%"
-        % (djr * 100.0)
+    assert (
+        djr < 10.0**-3.0
+    ), "actionAngleStaeckel applied to isochrone potential fails for Jr at %f%%" % (
+        djr * 100.0
     )
     # Lz and Jz are easy, because ip is a spherical potential
-    assert dlz < 10.0**-10.0, (
-        "actionAngleStaeckel applied to isochrone potential fails for Lz at %f%%"
-        % (dlz * 100.0)
+    assert (
+        dlz < 10.0**-10.0
+    ), "actionAngleStaeckel applied to isochrone potential fails for Lz at %f%%" % (
+        dlz * 100.0
     )
-    assert djz < 10.0**-3.0, (
-        "actionAngleStaeckel applied to isochrone potential fails for Jz at %f%%"
-        % (djz * 100.0)
+    assert (
+        djz < 10.0**-3.0
+    ), "actionAngleStaeckel applied to isochrone potential fails for Jz at %f%%" % (
+        djz * 100.0
     )
     return None
 
@@ -3594,18 +3596,21 @@ def test_actionAngleStaeckel_otherIsochrone_actions_c():
     djr = numpy.fabs((ji[0] - jia[0]) / ji[0])
     dlz = numpy.fabs((ji[1] - jia[1]) / ji[1])
     djz = numpy.fabs((ji[2] - jia[2]) / ji[2])
-    assert djr < 10.0**-3.0, (
-        "actionAngleStaeckel applied to isochrone potential fails for Jr at %f%%"
-        % (djr * 100.0)
+    assert (
+        djr < 10.0**-3.0
+    ), "actionAngleStaeckel applied to isochrone potential fails for Jr at %f%%" % (
+        djr * 100.0
     )
     # Lz and Jz are easy, because ip is a spherical potential
-    assert dlz < 10.0**-10.0, (
-        "actionAngleStaeckel applied to isochrone potential fails for Lz at %f%%"
-        % (dlz * 100.0)
+    assert (
+        dlz < 10.0**-10.0
+    ), "actionAngleStaeckel applied to isochrone potential fails for Lz at %f%%" % (
+        dlz * 100.0
     )
-    assert djz < 10.0**-3.0, (
-        "actionAngleStaeckel applied to isochrone potential fails for Jz at %f%%"
-        % (djz * 100.0)
+    assert (
+        djz < 10.0**-3.0
+    ), "actionAngleStaeckel applied to isochrone potential fails for Jz at %f%%" % (
+        djz * 100.0
     )
     return None
 
@@ -3624,17 +3629,20 @@ def test_actionAngleStaeckel_otherIsochrone_freqs():
     dOr = numpy.fabs((jiO[3] - jiaO[3]) / jiO[3])
     dOp = numpy.fabs((jiO[4] - jiaO[4]) / jiO[4])
     dOz = numpy.fabs((jiO[5] - jiaO[5]) / jiO[5])
-    assert dOr < 10.0**-5.0, (
-        "actionAngleStaeckel applied to isochrone potential fails for Or at %g%%"
-        % (dOr * 100.0)
+    assert (
+        dOr < 10.0**-5.0
+    ), "actionAngleStaeckel applied to isochrone potential fails for Or at %g%%" % (
+        dOr * 100.0
     )
-    assert dOp < 10.0**-5.0, (
-        "actionAngleStaeckel applied to isochrone potential fails for Op at %g%%"
-        % (dOp * 100.0)
+    assert (
+        dOp < 10.0**-5.0
+    ), "actionAngleStaeckel applied to isochrone potential fails for Op at %g%%" % (
+        dOp * 100.0
     )
-    assert dOz < 1.5 * 10.0**-4.0, (
-        "actionAngleStaeckel applied to isochrone potential fails for Oz at %g%%"
-        % (dOz * 100.0)
+    assert (
+        dOz < 1.5 * 10.0**-4.0
+    ), "actionAngleStaeckel applied to isochrone potential fails for Oz at %g%%" % (
+        dOz * 100.0
     )
     return None
 
@@ -3653,17 +3661,20 @@ def test_actionAngleStaeckel_otherIsochrone_angles():
     dar = numpy.fabs((jiO[6] - jiaO[6]) / jiO[6])
     dap = numpy.fabs((jiO[7] - jiaO[7]) / jiO[7])
     daz = numpy.fabs((jiO[8] - jiaO[8]) / jiO[8])
-    assert dar < 10.0**-4.0, (
-        "actionAngleStaeckel applied to isochrone potential fails for ar at %g%%"
-        % (dar * 100.0)
+    assert (
+        dar < 10.0**-4.0
+    ), "actionAngleStaeckel applied to isochrone potential fails for ar at %g%%" % (
+        dar * 100.0
     )
-    assert dap < 10.0**-6.0, (
-        "actionAngleStaeckel applied to isochrone potential fails for ap at %g%%"
-        % (dap * 100.0)
+    assert (
+        dap < 10.0**-6.0
+    ), "actionAngleStaeckel applied to isochrone potential fails for ap at %g%%" % (
+        dap * 100.0
     )
-    assert daz < 10.0**-4.0, (
-        "actionAngleStaeckel applied to isochrone potential fails for az at %g%%"
-        % (daz * 100.0)
+    assert (
+        daz < 10.0**-4.0
+    ), "actionAngleStaeckel applied to isochrone potential fails for az at %g%%" % (
+        daz * 100.0
     )
     return None
 
@@ -3680,9 +3691,9 @@ def test_actionAngleStaeckel_smallu():
     o = Orbit([rmin, 0.0, vcirc(MWPotential2014, rmin) / 20, 1e-8, 0.0])
     ezrpra = aAS.EccZmaxRperiRap(o)
     # Check that rperi is close to zero
-    assert numpy.fabs(ezrpra[2]) < 1e-8, (
-        "actionAngleStaeckel at very small u does not give rperi=0"
-    )
+    assert (
+        numpy.fabs(ezrpra[2]) < 1e-8
+    ), "actionAngleStaeckel at very small u does not give rperi=0"
     return None
 
 
@@ -3697,35 +3708,35 @@ def test_actionAngleStaeckelGrid_basicAndConserved_actions():
     )
     # circular orbit
     R, vR, vT, z, vz = 1.0, 0.0, 1.0, 0.0, 0.0
-    assert numpy.fabs(aAA.JR(R, vR, vT, z, vz, 0.0)) < 10.0**-16.0, (
-        "Circular orbit in the MWPotential does not have Jr=0"
-    )
-    assert numpy.fabs(aAA.Jz(R, vR, vT, z, vz, 0.0)) < 10.0**-16.0, (
-        "Circular orbit in the MWPotential does not have Jz=0"
-    )
+    assert (
+        numpy.fabs(aAA.JR(R, vR, vT, z, vz, 0.0)) < 10.0**-16.0
+    ), "Circular orbit in the MWPotential does not have Jr=0"
+    assert (
+        numpy.fabs(aAA.Jz(R, vR, vT, z, vz, 0.0)) < 10.0**-16.0
+    ), "Circular orbit in the MWPotential does not have Jz=0"
     te, tzmax, _, _ = aAA.EccZmaxRperiRap(R, vR, vT, z, vz)
-    assert numpy.fabs(te) < 10.0**-16.0, (
-        "Circular orbit in the MWPotential does not have e=0"
-    )
-    assert numpy.fabs(tzmax) < 10.0**-16.0, (
-        "Circular orbit in the MWPotential does not have zmax=0"
-    )
+    assert (
+        numpy.fabs(te) < 10.0**-16.0
+    ), "Circular orbit in the MWPotential does not have e=0"
+    assert (
+        numpy.fabs(tzmax) < 10.0**-16.0
+    ), "Circular orbit in the MWPotential does not have zmax=0"
     # Close-to-circular orbit
     R, vR, vT, z, vz = 1.01, 0.01, 1.0, 0.01, 0.01
     js = aAA(Orbit([R, vR, vT, z, vz]))
-    assert numpy.fabs(js[0]) < 10.0**-4.0, (
-        "Close-to-circular orbit in the MWPotential does not have small Jr"
-    )
-    assert numpy.fabs(js[2]) < 10.0**-3.0, (
-        "Close-to-circular orbit in the MWPotential does not have small Jz"
-    )
+    assert (
+        numpy.fabs(js[0]) < 10.0**-4.0
+    ), "Close-to-circular orbit in the MWPotential does not have small Jr"
+    assert (
+        numpy.fabs(js[2]) < 10.0**-3.0
+    ), "Close-to-circular orbit in the MWPotential does not have small Jz"
     te, tzmax, _, _ = aAA.EccZmaxRperiRap(R, vR, vT, z, vz)
-    assert numpy.fabs(te) < 10.0**-2.0, (
-        "Close-to-circular orbit in the MWPotential does not have small eccentricity"
-    )
-    assert numpy.fabs(tzmax) < 2.0 * 10.0**-2.0, (
-        "Close-to-circular orbit in the MWPotential does not have small zmax"
-    )
+    assert (
+        numpy.fabs(te) < 10.0**-2.0
+    ), "Close-to-circular orbit in the MWPotential does not have small eccentricity"
+    assert (
+        numpy.fabs(tzmax) < 2.0 * 10.0**-2.0
+    ), "Close-to-circular orbit in the MWPotential does not have small zmax"
     # Check that actions are conserved along the orbit
     obs = Orbit([1.05, 0.02, 1.05, 0.03, 0.0])
     check_actionAngle_conserved_actions(
@@ -3758,21 +3769,21 @@ def test_actionAngleStaeckelGrid_basic_actions_c():
     # circular orbit
     R, vR, vT, z, vz = 1.0, 0.0, 1.0, 0.0, 0.0
     js = aAA(R, vR, vT, z, vz)
-    assert numpy.fabs(js[0]) < 10.0**-8.0, (
-        "Circular orbit in the MWPotential does not have Jr=0"
-    )
-    assert numpy.fabs(js[2]) < 10.0**-8.0, (
-        "Circular orbit in the MWPotential does not have Jz=0"
-    )
+    assert (
+        numpy.fabs(js[0]) < 10.0**-8.0
+    ), "Circular orbit in the MWPotential does not have Jr=0"
+    assert (
+        numpy.fabs(js[2]) < 10.0**-8.0
+    ), "Circular orbit in the MWPotential does not have Jz=0"
     # Close-to-circular orbit
     R, vR, vT, z, vz = 1.01, 0.01, 1.0, 0.01, 0.01
     js = aAA(Orbit([R, vR, vT, z, vz]))
-    assert numpy.fabs(js[0]) < 10.0**-4.0, (
-        "Close-to-circular orbit in the MWPotential does not have small Jr"
-    )
-    assert numpy.fabs(js[2]) < 10.0**-3.0, (
-        "Close-to-circular orbit in the MWPotentialspherical LogarithmicHalo does not have small Jz"
-    )
+    assert (
+        numpy.fabs(js[0]) < 10.0**-4.0
+    ), "Close-to-circular orbit in the MWPotential does not have small Jr"
+    assert (
+        numpy.fabs(js[2]) < 10.0**-3.0
+    ), "Close-to-circular orbit in the MWPotentialspherical LogarithmicHalo does not have small Jz"
 
 
 # Test the actions of an actionAngleStaeckel
@@ -3823,18 +3834,21 @@ def test_actionAngleStaeckelGrid_Isochrone_actions():
     djr = numpy.fabs((ji[0] - jia[0]) / ji[0])
     dlz = numpy.fabs((ji[1] - jia[1]) / ji[1])
     djz = numpy.fabs((ji[2] - jia[2]) / ji[2])
-    assert djr < 10.0**-1.2, (
-        "actionAngleStaeckel applied to isochrone potential fails for Jr at %f%%"
-        % (djr * 100.0)
+    assert (
+        djr < 10.0**-1.2
+    ), "actionAngleStaeckel applied to isochrone potential fails for Jr at %f%%" % (
+        djr * 100.0
     )
     # Lz and Jz are easy, because ip is a spherical potential
-    assert dlz < 10.0**-10.0, (
-        "actionAngleStaeckel applied to isochrone potential fails for Lz at %f%%"
-        % (dlz * 100.0)
+    assert (
+        dlz < 10.0**-10.0
+    ), "actionAngleStaeckel applied to isochrone potential fails for Lz at %f%%" % (
+        dlz * 100.0
     )
-    assert djz < 10.0**-1.2, (
-        "actionAngleStaeckel applied to isochrone potential fails for Jz at %f%%"
-        % (djz * 100.0)
+    assert (
+        djz < 10.0**-1.2
+    ), "actionAngleStaeckel applied to isochrone potential fails for Jz at %f%%" % (
+        djz * 100.0
     )
     return None
 
@@ -3859,39 +3873,39 @@ def test_actionAngleStaeckelGrid_basic_EccZmaxRperiRap_c():
     # circular orbit
     R, vR, vT, z, vz = 1.0, 0.0, 1.0, 0.0, 0.0
     te, tzmax, _, _ = aAA.EccZmaxRperiRap(R, vR, vT, z, vz)
-    assert numpy.fabs(te) < 10.0**-16.0, (
-        "Circular orbit in the MWPotential does not have e=0"
-    )
-    assert numpy.fabs(tzmax) < 10.0**-16.0, (
-        "Circular orbit in the MWPotential does not have zmax=0"
-    )
+    assert (
+        numpy.fabs(te) < 10.0**-16.0
+    ), "Circular orbit in the MWPotential does not have e=0"
+    assert (
+        numpy.fabs(tzmax) < 10.0**-16.0
+    ), "Circular orbit in the MWPotential does not have zmax=0"
     # Close-to-circular orbit
     R, vR, vT, z, vz = 1.01, 0.01, 1.0, 0.01, 0.01
     te, tzmax, _, _ = aAA.EccZmaxRperiRap(R, vR, vT, z, vz)
-    assert numpy.fabs(te) < 10.0**-2.0, (
-        "Close-to-circular orbit in the MWPotential does not have small eccentricity"
-    )
-    assert numpy.fabs(tzmax) < 2.0 * 10.0**-2.0, (
-        "Close-to-circular orbit in the MWPotential does not have small zmax"
-    )
+    assert (
+        numpy.fabs(te) < 10.0**-2.0
+    ), "Close-to-circular orbit in the MWPotential does not have small eccentricity"
+    assert (
+        numpy.fabs(tzmax) < 2.0 * 10.0**-2.0
+    ), "Close-to-circular orbit in the MWPotential does not have small zmax"
     # Another close-to-circular orbit
     R, vR, vT, z, vz = 1.0, 0.0, 0.99, 0.0, 0.0
     te, tzmax, _, _ = aAA.EccZmaxRperiRap(R, vR, vT, z, vz)
-    assert numpy.fabs(te) < 10.0**-2.0, (
-        "Close-to-circular orbit in the MWPotential does not have small eccentricity"
-    )
-    assert numpy.fabs(tzmax) < 2.0 * 10.0**-2.0, (
-        "Close-to-circular orbit in the MWPotential does not have small zmax"
-    )
+    assert (
+        numpy.fabs(te) < 10.0**-2.0
+    ), "Close-to-circular orbit in the MWPotential does not have small eccentricity"
+    assert (
+        numpy.fabs(tzmax) < 2.0 * 10.0**-2.0
+    ), "Close-to-circular orbit in the MWPotential does not have small zmax"
     # Another close-to-circular orbit
     R, vR, vT, z, vz = 1.0, 0.0, 1.0, 0.01, 0.0
     te, tzmax, _, _ = aAA.EccZmaxRperiRap(Orbit([R, vR, vT, z, vz]))
-    assert numpy.fabs(te) < 10.0**-2.0, (
-        "Close-to-circular orbit in the MWPotential does not have small eccentricity"
-    )
-    assert numpy.fabs(tzmax) < 2.0 * 10.0**-2.0, (
-        "Close-to-circular orbit in the MWPotential does not have small zmax"
-    )
+    assert (
+        numpy.fabs(te) < 10.0**-2.0
+    ), "Close-to-circular orbit in the MWPotential does not have small eccentricity"
+    assert (
+        numpy.fabs(tzmax) < 2.0 * 10.0**-2.0
+    ), "Close-to-circular orbit in the MWPotential does not have small zmax"
     return None
 
 
@@ -4301,12 +4315,12 @@ def test_actionAngleIsochroneApprox_diffsetups():
         list(aAI.actionsFreqsAngles(obs(), _firstFlip=True))
     ).flatten()
     # Check that they are the same
-    assert numpy.amax(numpy.fabs((acfs - acfsip) / acfs)) < 10.0**-15.0, (
-        "actionAngleIsochroneApprox calculated w/ b= and ip= set to the equivalent IsochronePotential do not agree"
-    )
-    assert numpy.amax(numpy.fabs((acfs - acfsaAIip) / acfs)) < 10.0**-15.0, (
-        "actionAngleIsochroneApprox calculated w/ b= and aAI= set to the equivalent IsochronePotential do not agree"
-    )
+    assert (
+        numpy.amax(numpy.fabs((acfs - acfsip) / acfs)) < 10.0**-15.0
+    ), "actionAngleIsochroneApprox calculated w/ b= and ip= set to the equivalent IsochronePotential do not agree"
+    assert (
+        numpy.amax(numpy.fabs((acfs - acfsaAIip) / acfs)) < 10.0**-15.0
+    ), "actionAngleIsochroneApprox calculated w/ b= and aAI= set to the equivalent IsochronePotential do not agree"
     assert numpy.amax(numpy.fabs((acfs - acfsrk6) / acfs)) < 10.0**-8.0, (
         "actionAngleIsochroneApprox calculated w/ integrate_method=dopr54_c and rk6_c do not agree at %g%%"
         % (100.0 * numpy.amax(numpy.fabs((acfs - acfsrk6) / acfs)))
@@ -4390,17 +4404,20 @@ def test_actionAngleIsochroneApprox_bovy14():
     maxdj = numpy.amax(
         numpy.fabs(js - numpy.tile(numpy.mean(js, axis=1), (len(times), 1)).T), axis=1
     ) / numpy.mean(js, axis=1)
-    assert maxdj[0] < 3.0 * 10.0**-2.0, (
-        "Jr conservation for the GD-1 like orbit of Bovy (2014) fails at %f%%"
-        % (100.0 * maxdj[0])
+    assert (
+        maxdj[0] < 3.0 * 10.0**-2.0
+    ), "Jr conservation for the GD-1 like orbit of Bovy (2014) fails at %f%%" % (
+        100.0 * maxdj[0]
     )
-    assert maxdj[1] < 10.0**-2.0, (
-        "Lz conservation for the GD-1 like orbit of Bovy (2014) fails at %f%%"
-        % (100.0 * maxdj[1])
+    assert (
+        maxdj[1] < 10.0**-2.0
+    ), "Lz conservation for the GD-1 like orbit of Bovy (2014) fails at %f%%" % (
+        100.0 * maxdj[1]
     )
-    assert maxdj[2] < 2.0 * 10.0**-2.0, (
-        "Jz conservation for the GD-1 like orbit of Bovy (2014) fails at %f%%"
-        % (100.0 * maxdj[2])
+    assert (
+        maxdj[2] < 2.0 * 10.0**-2.0
+    ), "Jz conservation for the GD-1 like orbit of Bovy (2014) fails at %f%%" % (
+        100.0 * maxdj[2]
     )
     return None
 
@@ -4528,9 +4545,9 @@ def test_orbit_interface_spherical():
         ]
     )
     maxdev = numpy.amax(numpy.abs(acfs - acfso))
-    assert maxdev < 10.0**-16.0, (
-        "Orbit interface for actionAngleSpherical does not return the same as actionAngle interface"
-    )
+    assert (
+        maxdev < 10.0**-16.0
+    ), "Orbit interface for actionAngleSpherical does not return the same as actionAngle interface"
     assert (
         numpy.abs(obs.Tr(pot=lp, type=type) - 2.0 * numpy.pi / acfs[3]) < 10.0**-16.0
     ), "Orbit.Tr does not agree with actionAngleSpherical frequency"
@@ -4568,9 +4585,9 @@ def test_orbit_interface_spherical():
         ]
     )
     maxdev = numpy.amax(numpy.abs(acfs - acfso))
-    assert maxdev < 10.0**-16.0, (
-        "Orbit interface for actionAngleSpherical does not return the same as actionAngle interface"
-    )
+    assert (
+        maxdev < 10.0**-16.0
+    ), "Orbit interface for actionAngleSpherical does not return the same as actionAngle interface"
     # Directly test _resetaA --> deprecated
     # assert obs._orb._resetaA(pot=lp), 'OrbitTop._resetaA does not return True when resetting the actionAngle instance'
     # Test that unit conversions to physical units are handled correctly
@@ -4593,61 +4610,47 @@ def test_orbit_interface_spherical():
         ]
     )
     maxdev = numpy.amax(numpy.abs(acfs - acfso))
-    assert maxdev < 10.0**-9.0, (
-        "Orbit interface for actionAngleSpherical does not return the same as actionAngle interface when using physical coordinates"
-    )
+    assert (
+        maxdev < 10.0**-9.0
+    ), "Orbit interface for actionAngleSpherical does not return the same as actionAngle interface when using physical coordinates"
     assert (
         numpy.abs(
             obs.Tr(pot=lp, type=type) / ro * vo * 1.0227121655399913
             - 2.0 * numpy.pi / acfs[3]
         )
         < 10.0**-8.0
-    ), (
-        "Orbit.Tr does not agree with actionAngleSpherical frequency when using physical coordinates"
-    )
+    ), "Orbit.Tr does not agree with actionAngleSpherical frequency when using physical coordinates"
     assert (
         numpy.abs(
             obs.Tp(pot=lp, type=type) / ro * vo * 1.0227121655399913
             - 2.0 * numpy.pi / acfs[4]
         )
         < 10.0**-8.0
-    ), (
-        "Orbit.Tp does not agree with actionAngleSpherical frequency when using physical coordinates"
-    )
+    ), "Orbit.Tp does not agree with actionAngleSpherical frequency when using physical coordinates"
     assert (
         numpy.abs(
             obs.Tz(pot=lp, type=type) / ro * vo * 1.0227121655399913
             - 2.0 * numpy.pi / acfs[5]
         )
         < 10.0**-8.0
-    ), (
-        "Orbit.Tz does not agree with actionAngleSpherical frequency when using physical coordinates"
-    )
+    ), "Orbit.Tz does not agree with actionAngleSpherical frequency when using physical coordinates"
     assert (
         numpy.abs(obs.TrTp(pot=lp, type=type) - acfs[4] / acfs[3] * numpy.pi)
         < 10.0**-8.0
-    ), (
-        "Orbit.TrTp does not agree with actionAngleSpherical frequency when using physical coordinates"
-    )
+    ), "Orbit.TrTp does not agree with actionAngleSpherical frequency when using physical coordinates"
     # Test frequency in km/s/kpc
     assert (
         numpy.abs(obs.Or(pot=lp, type=type, kmskpc=True) / vo * ro - acfs[3])
         < 10.0**-8.0
-    ), (
-        "Orbit.Or does not agree with actionAngleSpherical frequency when using physical coordinates with km/s/kpc"
-    )
+    ), "Orbit.Or does not agree with actionAngleSpherical frequency when using physical coordinates with km/s/kpc"
     assert (
         numpy.abs(obs.Op(pot=lp, type=type, kmskpc=True) / vo * ro - acfs[4])
         < 10.0**-8.0
-    ), (
-        "Orbit.Op does not agree with actionAngleSpherical frequency when using physical coordinates with km/s/kpc"
-    )
+    ), "Orbit.Op does not agree with actionAngleSpherical frequency when using physical coordinates with km/s/kpc"
     assert (
         numpy.abs(obs.Oz(pot=lp, type=type, kmskpc=True) / vo * ro - acfs[5])
         < 10.0**-8.0
-    ), (
-        "Orbit.Oz does not agree with actionAngleSpherical frequency when using physical coordinates with km/s/kpc"
-    )
+    ), "Orbit.Oz does not agree with actionAngleSpherical frequency when using physical coordinates with km/s/kpc"
     return None
 
 
@@ -4675,9 +4678,9 @@ def test_orbit_interface_staeckel():
         ]
     )
     maxdev = numpy.amax(numpy.abs(acfs - acfso))
-    assert maxdev < 10.0**-16.0, (
-        "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface"
-    )
+    assert (
+        maxdev < 10.0**-16.0
+    ), "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface"
     return None
 
 
@@ -4691,9 +4694,9 @@ def test_orbit_interface_staeckel_defaultdelta():
     est_delta = estimateDeltaStaeckel(MWPotential2014, obs.R(), obs.z())
     # Just need to trigger delta estimation in orbit
     jr_orb = obs.jr(pot=MWPotential2014, type="staeckel")
-    assert numpy.fabs(est_delta - obs._aA._delta) < 1e-10, (
-        "Directly estimated delta does not agree with Orbit-interface-estimated delta"
-    )
+    assert (
+        numpy.fabs(est_delta - obs._aA._delta) < 1e-10
+    ), "Directly estimated delta does not agree with Orbit-interface-estimated delta"
     aAS = actionAngleStaeckel(pot=MWPotential2014, delta=est_delta)
     acfs = numpy.array(list(aAS.actionsFreqsAngles(obs))).reshape(9)
     type = "staeckel"
@@ -4711,9 +4714,9 @@ def test_orbit_interface_staeckel_defaultdelta():
         ]
     )
     maxdev = numpy.amax(numpy.abs(acfs - acfso))
-    assert maxdev < 10.0**-16.0, (
-        "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface"
-    )
+    assert (
+        maxdev < 10.0**-16.0
+    ), "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface"
     return None
 
 
@@ -4745,9 +4748,9 @@ def test_orbit_interface_staeckel_PotentialErrors():
         pytest.fail(
             "TwoPowerSphericalPotentialNoR2deriv appears to now have second derivatives, means that it cannot be used to test exceptions based on not having the second derivatives any longer"
         )
-    assert "second derivatives" in str(excinfo.value), (
-        "Estimating delta for potential lacking second derivatives should have failed with a message about the lack of second derivatives"
-    )
+    assert "second derivatives" in str(
+        excinfo.value
+    ), "Estimating delta for potential lacking second derivatives should have failed with a message about the lack of second derivatives"
     # Generic non-axi
     sp = SpiralArmsPotential()
     with pytest.raises(PotentialError) as excinfo:
@@ -4755,9 +4758,9 @@ def test_orbit_interface_staeckel_PotentialErrors():
         pytest.fail(
             "TwoPowerSphericalPotentialNoR2deriv appears to now have second derivatives, means that it cannot be used to test exceptions based on not having the second derivatives any longer"
         )
-    assert "not axisymmetric" in str(excinfo.value), (
-        "Estimating delta for a non-axi potential should have failed with a message about the fact that the potential is non-axisymmetric"
-    )
+    assert "not axisymmetric" in str(
+        excinfo.value
+    ), "Estimating delta for a non-axi potential should have failed with a message about the fact that the potential is non-axisymmetric"
     return None
 
 
@@ -4791,9 +4794,9 @@ def test_orbits_interface_staeckel_PotentialErrors():
         pytest.fail(
             "TwoPowerSphericalPotentialNoR2deriv appears to now have second derivatives, means that it cannot be used to test exceptions based on not having the second derivatives any longer"
         )
-    assert "second derivatives" in str(excinfo.value), (
-        "Estimating delta for potential lacking second derivatives should have failed with a message about the lack of second derivatives"
-    )
+    assert "second derivatives" in str(
+        excinfo.value
+    ), "Estimating delta for potential lacking second derivatives should have failed with a message about the lack of second derivatives"
     # Generic non-axi
     sp = SpiralArmsPotential()
     with pytest.raises(PotentialError) as excinfo:
@@ -4801,9 +4804,9 @@ def test_orbits_interface_staeckel_PotentialErrors():
         pytest.fail(
             "SpiralArms appears to now have second derivatives, means that it cannot be used to test exceptions based on not having the second derivatives any longer"
         )
-    assert "not axisymmetric" in str(excinfo.value), (
-        "Estimating delta for a non-axi potential should have failed with a message about the fact that the potential is non-axisymmetric"
-    )
+    assert "not axisymmetric" in str(
+        excinfo.value
+    ), "Estimating delta for a non-axi potential should have failed with a message about the fact that the potential is non-axisymmetric"
     return None
 
 
@@ -4825,9 +4828,9 @@ def test_orbit_interface_adiabatic():
         ]
     )
     maxdev = numpy.amax(numpy.abs(acfs - acfso))
-    assert maxdev < 10.0**-16.0, (
-        "Orbit interface for actionAngleAdiabatic does not return the same as actionAngle interface"
-    )
+    assert (
+        maxdev < 10.0**-16.0
+    ), "Orbit interface for actionAngleAdiabatic does not return the same as actionAngle interface"
     return None
 
 
@@ -4849,9 +4852,9 @@ def test_orbit_interface_adiabatic_2d():
         ]
     )
     maxdev = numpy.amax(numpy.abs(acfs - acfso))
-    assert maxdev < 10.0**-16.0, (
-        "Orbit interface for actionAngleAdiabatic does not return the same as actionAngle interface"
-    )
+    assert (
+        maxdev < 10.0**-16.0
+    ), "Orbit interface for actionAngleAdiabatic does not return the same as actionAngle interface"
     return None
 
 
@@ -4873,9 +4876,9 @@ def test_orbit_interface_adiabatic_2d_2dpot():
         ]
     )
     maxdev = numpy.amax(numpy.abs(acfs - acfso))
-    assert maxdev < 10.0**-16.0, (
-        "Orbit interface for actionAngleAdiabatic does not return the same as actionAngle interface"
-    )
+    assert (
+        maxdev < 10.0**-16.0
+    ), "Orbit interface for actionAngleAdiabatic does not return the same as actionAngle interface"
     return None
 
 
@@ -4903,9 +4906,9 @@ def test_orbit_interface_actionAngleIsochroneApprox():
         ]
     )
     maxdev = numpy.amax(numpy.abs(acfs - acfso))
-    assert maxdev < 10.0**-13.0, (
-        "Orbit interface for actionAngleIsochroneApprox does not return the same as actionAngle interface"
-    )
+    assert (
+        maxdev < 10.0**-13.0
+    ), "Orbit interface for actionAngleIsochroneApprox does not return the same as actionAngle interface"
     assert (
         numpy.abs(obs.Tr(pot=MWPotential, type=type, b=0.8) - 2.0 * numpy.pi / acfso[3])
         < 10.0**-13.0
@@ -4946,48 +4949,48 @@ def test_orbit_interface_unbound_simple_adiabatic_noc():
         obs.rperi(pot=MWPotential2014, type="adiabatic", analytic=True, c=False),
         obs.rap(pot=MWPotential2014, type="adiabatic", analytic=True, c=False),
     )
-    assert numpy.fabs(jr[0] - aAAnoc(obs[0])[0]) < 10.0**-10.0, (
-        "Orbit interface for actionAngleAdiabatic does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
-    )
-    assert numpy.fabs(jp[0] - aAAnoc(obs[0])[1]) < 10.0**-10.0, (
-        "Orbit interface for actionAngleAdiabatic does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
-    )
-    assert numpy.fabs(jz[0] - aAAnoc(obs[0])[2]) < 10.0**-10.0, (
-        "Orbit interface for actionAngleAdiabatic does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
-    )
-    assert numpy.fabs(e[0] - aAAnoc.EccZmaxRperiRap(obs[0])[0]) < 10.0**-10.0, (
-        "Orbit interface for actionAngleAdiabatic does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
-    )
-    assert numpy.fabs(zmax[0] - aAAnoc.EccZmaxRperiRap(obs[0])[1]) < 10.0**-10.0, (
-        "Orbit interface for actionAngleAdiabatic does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
-    )
-    assert numpy.fabs(rperi[0] - aAAnoc.EccZmaxRperiRap(obs[0])[2]) < 10.0**-10.0, (
-        "Orbit interface for actionAngleAdiabatic does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
-    )
-    assert numpy.fabs(rap[0] - aAAnoc.EccZmaxRperiRap(obs[0])[3]) < 10.0**-10.0, (
-        "Orbit interface for actionAngleAdiabatic does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
-    )
-    assert numpy.all(numpy.isnan(jr[1])), (
-        "Orbit interface for actionAngleAdiabatic does not return NaN for unbound orbit in a collection with an unbound orbit"
-    )
-    assert numpy.all(numpy.isnan(jp[1])), (
-        "Orbit interface for actionAngleAdiabatic does not return NaN for unbound orbit in a collection with an unbound orbit"
-    )
-    assert numpy.all(numpy.isnan(jz[1])), (
-        "Orbit interface for actionAngleAdiabatic does not return NaN for unbound orbit in a collection with an unbound orbit"
-    )
-    assert numpy.all(numpy.isnan(e[1])), (
-        "Orbit interface for actionAngleAdiabatic does not return NaN for unbound orbit in a collection with an unbound orbit"
-    )
-    assert numpy.all(numpy.isnan(zmax[1])), (
-        "Orbit interface for actionAngleAdiabatic does not return NaN for unbound orbit in a collection with an unbound orbit"
-    )
-    assert numpy.all(numpy.isnan(rperi[1])), (
-        "Orbit interface for actionAngleAdiabatic does not return NaN for unbound orbit in a collection with an unbound orbit"
-    )
-    assert numpy.all(numpy.isnan(rap[1])), (
-        "Orbit interface for actionAngleAdiabatic does not return NaN for unbound orbit in a collection with an unbound orbit"
-    )
+    assert (
+        numpy.fabs(jr[0] - aAAnoc(obs[0])[0]) < 10.0**-10.0
+    ), "Orbit interface for actionAngleAdiabatic does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
+    assert (
+        numpy.fabs(jp[0] - aAAnoc(obs[0])[1]) < 10.0**-10.0
+    ), "Orbit interface for actionAngleAdiabatic does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
+    assert (
+        numpy.fabs(jz[0] - aAAnoc(obs[0])[2]) < 10.0**-10.0
+    ), "Orbit interface for actionAngleAdiabatic does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
+    assert (
+        numpy.fabs(e[0] - aAAnoc.EccZmaxRperiRap(obs[0])[0]) < 10.0**-10.0
+    ), "Orbit interface for actionAngleAdiabatic does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
+    assert (
+        numpy.fabs(zmax[0] - aAAnoc.EccZmaxRperiRap(obs[0])[1]) < 10.0**-10.0
+    ), "Orbit interface for actionAngleAdiabatic does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
+    assert (
+        numpy.fabs(rperi[0] - aAAnoc.EccZmaxRperiRap(obs[0])[2]) < 10.0**-10.0
+    ), "Orbit interface for actionAngleAdiabatic does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
+    assert (
+        numpy.fabs(rap[0] - aAAnoc.EccZmaxRperiRap(obs[0])[3]) < 10.0**-10.0
+    ), "Orbit interface for actionAngleAdiabatic does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
+    assert numpy.all(
+        numpy.isnan(jr[1])
+    ), "Orbit interface for actionAngleAdiabatic does not return NaN for unbound orbit in a collection with an unbound orbit"
+    assert numpy.all(
+        numpy.isnan(jp[1])
+    ), "Orbit interface for actionAngleAdiabatic does not return NaN for unbound orbit in a collection with an unbound orbit"
+    assert numpy.all(
+        numpy.isnan(jz[1])
+    ), "Orbit interface for actionAngleAdiabatic does not return NaN for unbound orbit in a collection with an unbound orbit"
+    assert numpy.all(
+        numpy.isnan(e[1])
+    ), "Orbit interface for actionAngleAdiabatic does not return NaN for unbound orbit in a collection with an unbound orbit"
+    assert numpy.all(
+        numpy.isnan(zmax[1])
+    ), "Orbit interface for actionAngleAdiabatic does not return NaN for unbound orbit in a collection with an unbound orbit"
+    assert numpy.all(
+        numpy.isnan(rperi[1])
+    ), "Orbit interface for actionAngleAdiabatic does not return NaN for unbound orbit in a collection with an unbound orbit"
+    assert numpy.all(
+        numpy.isnan(rap[1])
+    ), "Orbit interface for actionAngleAdiabatic does not return NaN for unbound orbit in a collection with an unbound orbit"
     return None
 
 
@@ -5010,48 +5013,48 @@ def test_orbit_interface_unbound_simple_adiabatic_c():
         obs.rperi(pot=MWPotential2014, type="adiabatic", analytic=True, c=True),
         obs.rap(pot=MWPotential2014, type="adiabatic", analytic=True, c=True),
     )
-    assert numpy.fabs(jr[0] - aAAc(obs[0])[0]) < 10.0**-10.0, (
-        "Orbit interface for actionAngleAdiabatic does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
-    )
-    assert numpy.fabs(jp[0] - aAAc(obs[0])[1]) < 10.0**-10.0, (
-        "Orbit interface for actionAngleAdiabatic does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
-    )
-    assert numpy.fabs(jz[0] - aAAc(obs[0])[2]) < 10.0**-10.0, (
-        "Orbit interface for actionAngleAdiabatic does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
-    )
-    assert numpy.fabs(e[0] - aAAc.EccZmaxRperiRap(obs[0])[0]) < 10.0**-10.0, (
-        "Orbit interface for actionAngleAdiabatic does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
-    )
-    assert numpy.fabs(zmax[0] - aAAc.EccZmaxRperiRap(obs[0])[1]) < 10.0**-10.0, (
-        "Orbit interface for actionAngleAdiabatic does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
-    )
-    assert numpy.fabs(rperi[0] - aAAc.EccZmaxRperiRap(obs[0])[2]) < 10.0**-10.0, (
-        "Orbit interface for actionAngleAdiabatic does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
-    )
-    assert numpy.fabs(rap[0] - aAAc.EccZmaxRperiRap(obs[0])[3]) < 10.0**-10.0, (
-        "Orbit interface for actionAngleAdiabatic does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
-    )
-    assert numpy.all(numpy.isnan(jr[1])), (
-        "Orbit interface for actionAngleAdiabatic does not return NaN for unbound orbit in a collection with an unbound orbit"
-    )
-    assert numpy.all(numpy.isnan(jp[1])), (
-        "Orbit interface for actionAngleAdiabatic does not return NaN for unbound orbit in a collection with an unbound orbit"
-    )
-    assert numpy.all(numpy.isnan(jz[1])), (
-        "Orbit interface for actionAngleAdiabatic does not return NaN for unbound orbit in a collection with an unbound orbit"
-    )
-    assert numpy.all(numpy.isnan(e[1])), (
-        "Orbit interface for actionAngleAdiabatic does not return NaN for unbound orbit in a collection with an unbound orbit"
-    )
-    assert numpy.all(numpy.isnan(zmax[1])), (
-        "Orbit interface for actionAngleAdiabatic does not return NaN for unbound orbit in a collection with an unbound orbit"
-    )
-    assert numpy.all(numpy.isnan(rperi[1])), (
-        "Orbit interface for actionAngleAdiabatic does not return NaN for unbound orbit in a collection with an unbound orbit"
-    )
-    assert numpy.all(numpy.isnan(rap[1])), (
-        "Orbit interface for actionAngleAdiabatic does not return NaN for unbound orbit in a collection with an unbound orbit"
-    )
+    assert (
+        numpy.fabs(jr[0] - aAAc(obs[0])[0]) < 10.0**-10.0
+    ), "Orbit interface for actionAngleAdiabatic does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
+    assert (
+        numpy.fabs(jp[0] - aAAc(obs[0])[1]) < 10.0**-10.0
+    ), "Orbit interface for actionAngleAdiabatic does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
+    assert (
+        numpy.fabs(jz[0] - aAAc(obs[0])[2]) < 10.0**-10.0
+    ), "Orbit interface for actionAngleAdiabatic does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
+    assert (
+        numpy.fabs(e[0] - aAAc.EccZmaxRperiRap(obs[0])[0]) < 10.0**-10.0
+    ), "Orbit interface for actionAngleAdiabatic does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
+    assert (
+        numpy.fabs(zmax[0] - aAAc.EccZmaxRperiRap(obs[0])[1]) < 10.0**-10.0
+    ), "Orbit interface for actionAngleAdiabatic does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
+    assert (
+        numpy.fabs(rperi[0] - aAAc.EccZmaxRperiRap(obs[0])[2]) < 10.0**-10.0
+    ), "Orbit interface for actionAngleAdiabatic does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
+    assert (
+        numpy.fabs(rap[0] - aAAc.EccZmaxRperiRap(obs[0])[3]) < 10.0**-10.0
+    ), "Orbit interface for actionAngleAdiabatic does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
+    assert numpy.all(
+        numpy.isnan(jr[1])
+    ), "Orbit interface for actionAngleAdiabatic does not return NaN for unbound orbit in a collection with an unbound orbit"
+    assert numpy.all(
+        numpy.isnan(jp[1])
+    ), "Orbit interface for actionAngleAdiabatic does not return NaN for unbound orbit in a collection with an unbound orbit"
+    assert numpy.all(
+        numpy.isnan(jz[1])
+    ), "Orbit interface for actionAngleAdiabatic does not return NaN for unbound orbit in a collection with an unbound orbit"
+    assert numpy.all(
+        numpy.isnan(e[1])
+    ), "Orbit interface for actionAngleAdiabatic does not return NaN for unbound orbit in a collection with an unbound orbit"
+    assert numpy.all(
+        numpy.isnan(zmax[1])
+    ), "Orbit interface for actionAngleAdiabatic does not return NaN for unbound orbit in a collection with an unbound orbit"
+    assert numpy.all(
+        numpy.isnan(rperi[1])
+    ), "Orbit interface for actionAngleAdiabatic does not return NaN for unbound orbit in a collection with an unbound orbit"
+    assert numpy.all(
+        numpy.isnan(rap[1])
+    ), "Orbit interface for actionAngleAdiabatic does not return NaN for unbound orbit in a collection with an unbound orbit"
     return None
 
 
@@ -5080,48 +5083,48 @@ def test_orbit_interface_unbound_simple_staeckel_noc():
             pot=MWPotential2014, type="staeckel", delta=0.71, analytic=True, c=False
         ),
     )
-    assert numpy.fabs(jr[0] - aASnoc(obs[0])[0]) < 10.0**-10.0, (
-        "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
-    )
-    assert numpy.fabs(jp[0] - aASnoc(obs[0])[1]) < 10.0**-10.0, (
-        "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
-    )
-    assert numpy.fabs(jz[0] - aASnoc(obs[0])[2]) < 10.0**-10.0, (
-        "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
-    )
-    assert numpy.fabs(e[0] - aASnoc.EccZmaxRperiRap(obs[0])[0]) < 10.0**-10.0, (
-        "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
-    )
-    assert numpy.fabs(zmax[0] - aASnoc.EccZmaxRperiRap(obs[0])[1]) < 10.0**-10.0, (
-        "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
-    )
-    assert numpy.fabs(rperi[0] - aASnoc.EccZmaxRperiRap(obs[0])[2]) < 10.0**-10.0, (
-        "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
-    )
-    assert numpy.fabs(rap[0] - aASnoc.EccZmaxRperiRap(obs[0])[3]) < 10.0**-10.0, (
-        "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
-    )
-    assert numpy.all(numpy.isnan(jr[1])), (
-        "Orbit interface for actionAngleStaeckel does not return NaN for unbound orbit in a collection with an unbound orbit"
-    )
-    assert numpy.all(numpy.isnan(jp[1])), (
-        "Orbit interface for actionAngleStaeckel does not return NaN for unbound orbit in a collection with an unbound orbit"
-    )
-    assert numpy.all(numpy.isnan(jz[1])), (
-        "Orbit interface for actionAngleStaeckel does not return NaN for unbound orbit in a collection with an unbound orbit"
-    )
-    assert numpy.all(numpy.isnan(e[1])), (
-        "Orbit interface for actionAngleStaeckel does not return NaN for unbound orbit in a collection with an unbound orbit"
-    )
-    assert numpy.all(numpy.isnan(zmax[1])), (
-        "Orbit interface for actionAngleStaeckel does not return NaN for unbound orbit in a collection with an unbound orbit"
-    )
-    assert numpy.all(numpy.isnan(rperi[1])), (
-        "Orbit interface for actionAngleStaeckel does not return NaN for unbound orbit in a collection with an unbound orbit"
-    )
-    assert numpy.all(numpy.isnan(rap[1])), (
-        "Orbit interface for actionAngleStaeckel does not return NaN for unbound orbit in a collection with an unbound orbit"
-    )
+    assert (
+        numpy.fabs(jr[0] - aASnoc(obs[0])[0]) < 10.0**-10.0
+    ), "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
+    assert (
+        numpy.fabs(jp[0] - aASnoc(obs[0])[1]) < 10.0**-10.0
+    ), "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
+    assert (
+        numpy.fabs(jz[0] - aASnoc(obs[0])[2]) < 10.0**-10.0
+    ), "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
+    assert (
+        numpy.fabs(e[0] - aASnoc.EccZmaxRperiRap(obs[0])[0]) < 10.0**-10.0
+    ), "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
+    assert (
+        numpy.fabs(zmax[0] - aASnoc.EccZmaxRperiRap(obs[0])[1]) < 10.0**-10.0
+    ), "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
+    assert (
+        numpy.fabs(rperi[0] - aASnoc.EccZmaxRperiRap(obs[0])[2]) < 10.0**-10.0
+    ), "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
+    assert (
+        numpy.fabs(rap[0] - aASnoc.EccZmaxRperiRap(obs[0])[3]) < 10.0**-10.0
+    ), "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
+    assert numpy.all(
+        numpy.isnan(jr[1])
+    ), "Orbit interface for actionAngleStaeckel does not return NaN for unbound orbit in a collection with an unbound orbit"
+    assert numpy.all(
+        numpy.isnan(jp[1])
+    ), "Orbit interface for actionAngleStaeckel does not return NaN for unbound orbit in a collection with an unbound orbit"
+    assert numpy.all(
+        numpy.isnan(jz[1])
+    ), "Orbit interface for actionAngleStaeckel does not return NaN for unbound orbit in a collection with an unbound orbit"
+    assert numpy.all(
+        numpy.isnan(e[1])
+    ), "Orbit interface for actionAngleStaeckel does not return NaN for unbound orbit in a collection with an unbound orbit"
+    assert numpy.all(
+        numpy.isnan(zmax[1])
+    ), "Orbit interface for actionAngleStaeckel does not return NaN for unbound orbit in a collection with an unbound orbit"
+    assert numpy.all(
+        numpy.isnan(rperi[1])
+    ), "Orbit interface for actionAngleStaeckel does not return NaN for unbound orbit in a collection with an unbound orbit"
+    assert numpy.all(
+        numpy.isnan(rap[1])
+    ), "Orbit interface for actionAngleStaeckel does not return NaN for unbound orbit in a collection with an unbound orbit"
     return None
 
 
@@ -5156,72 +5159,72 @@ def test_orbit_interface_unbound_simple_staeckel_c():
             pot=MWPotential2014, type="staeckel", delta=0.71, analytic=True, c=True
         ),
     )
-    assert numpy.fabs(jr[0] - aASc(obs[0])[0]) < 10.0**-10.0, (
-        "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
-    )
-    assert numpy.fabs(jp[0] - aASc(obs[0])[1]) < 10.0**-10.0, (
-        "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
-    )
-    assert numpy.fabs(jz[0] - aASc(obs[0])[2]) < 10.0**-10.0, (
-        "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
-    )
-    assert numpy.fabs(omr[0] - aASc.actionsFreqs(obs[0])[3]) < 10.0**-10.0, (
-        "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
-    )
-    assert numpy.fabs(omp[0] - aASc.actionsFreqs(obs[0])[4]) < 10.0**-10.0, (
-        "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
-    )
-    assert numpy.fabs(omz[0] - aASc.actionsFreqs(obs[0])[5]) < 10.0**-10.0, (
-        "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
-    )
-    assert numpy.fabs(wr[0] - aASc.actionsFreqsAngles(obs[0])[6]) < 10.0**-10.0, (
-        "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
-    )
-    assert numpy.fabs(wp[0] - aASc.actionsFreqsAngles(obs[0])[7]) < 10.0**-10.0, (
-        "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
-    )
-    assert numpy.fabs(wz[0] - aASc.actionsFreqsAngles(obs[0])[8]) < 10.0**-10.0, (
-        "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
-    )
-    assert numpy.fabs(e[0] - aASc.EccZmaxRperiRap(obs[0])[0]) < 10.0**-10.0, (
-        "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
-    )
-    assert numpy.fabs(zmax[0] - aASc.EccZmaxRperiRap(obs[0])[1]) < 10.0**-10.0, (
-        "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
-    )
-    assert numpy.fabs(rperi[0] - aASc.EccZmaxRperiRap(obs[0])[2]) < 10.0**-10.0, (
-        "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
-    )
-    assert numpy.fabs(rap[0] - aASc.EccZmaxRperiRap(obs[0])[3]) < 10.0**-10.0, (
-        "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
-    )
-    assert numpy.all(numpy.isnan(jr[1])), (
-        "Orbit interface for actionAngleStaeckel does not return NaN for unbound orbit in a collection with an unbound orbit"
-    )
-    assert numpy.all(numpy.isnan(jp[1])), (
-        "Orbit interface for actionAngleStaeckel does not return NaN for unbound orbit in a collection with an unbound orbit"
-    )
-    assert numpy.all(numpy.isnan(jz[1])), (
-        "Orbit interface for actionAngleStaeckel does not return NaN for unbound orbit in a collection with an unbound orbit"
-    )
-    assert numpy.all(numpy.isnan(omr[1])), (
-        "Orbit interface for actionAngleStaeckel does not return NaN for unbound orbit in a collection with an unbound orbit"
-    )
-    assert numpy.all(numpy.isnan(omp[1])), (
-        "Orbit interface for actionAngleStaeckel does not return NaN for unbound orbit in a collection with an unbound orbit"
-    )
-    assert numpy.all(numpy.isnan(omz[1])), (
-        "Orbit interface for actionAngleStaeckel does not return NaN for unbound orbit in a collection with an unbound orbit"
-    )
-    assert numpy.all(numpy.isnan(wr[1])), (
-        "Orbit interface for actionAngleStaeckel does not return NaN for unbound orbit in a collection with an unbound orbit"
-    )
-    assert numpy.all(numpy.isnan(wp[1])), (
-        "Orbit interface for actionAngleStaeckel does not return NaN for unbound orbit in a collection with an unbound orbit"
-    )
-    assert numpy.all(numpy.isnan(wz[1])), (
-        "Orbit interface for actionAngleStaeckel does not return NaN for unbound orbit in a collection with an unbound orbit"
-    )
+    assert (
+        numpy.fabs(jr[0] - aASc(obs[0])[0]) < 10.0**-10.0
+    ), "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
+    assert (
+        numpy.fabs(jp[0] - aASc(obs[0])[1]) < 10.0**-10.0
+    ), "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
+    assert (
+        numpy.fabs(jz[0] - aASc(obs[0])[2]) < 10.0**-10.0
+    ), "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
+    assert (
+        numpy.fabs(omr[0] - aASc.actionsFreqs(obs[0])[3]) < 10.0**-10.0
+    ), "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
+    assert (
+        numpy.fabs(omp[0] - aASc.actionsFreqs(obs[0])[4]) < 10.0**-10.0
+    ), "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
+    assert (
+        numpy.fabs(omz[0] - aASc.actionsFreqs(obs[0])[5]) < 10.0**-10.0
+    ), "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
+    assert (
+        numpy.fabs(wr[0] - aASc.actionsFreqsAngles(obs[0])[6]) < 10.0**-10.0
+    ), "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
+    assert (
+        numpy.fabs(wp[0] - aASc.actionsFreqsAngles(obs[0])[7]) < 10.0**-10.0
+    ), "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
+    assert (
+        numpy.fabs(wz[0] - aASc.actionsFreqsAngles(obs[0])[8]) < 10.0**-10.0
+    ), "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
+    assert (
+        numpy.fabs(e[0] - aASc.EccZmaxRperiRap(obs[0])[0]) < 10.0**-10.0
+    ), "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
+    assert (
+        numpy.fabs(zmax[0] - aASc.EccZmaxRperiRap(obs[0])[1]) < 10.0**-10.0
+    ), "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
+    assert (
+        numpy.fabs(rperi[0] - aASc.EccZmaxRperiRap(obs[0])[2]) < 10.0**-10.0
+    ), "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
+    assert (
+        numpy.fabs(rap[0] - aASc.EccZmaxRperiRap(obs[0])[3]) < 10.0**-10.0
+    ), "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
+    assert numpy.all(
+        numpy.isnan(jr[1])
+    ), "Orbit interface for actionAngleStaeckel does not return NaN for unbound orbit in a collection with an unbound orbit"
+    assert numpy.all(
+        numpy.isnan(jp[1])
+    ), "Orbit interface for actionAngleStaeckel does not return NaN for unbound orbit in a collection with an unbound orbit"
+    assert numpy.all(
+        numpy.isnan(jz[1])
+    ), "Orbit interface for actionAngleStaeckel does not return NaN for unbound orbit in a collection with an unbound orbit"
+    assert numpy.all(
+        numpy.isnan(omr[1])
+    ), "Orbit interface for actionAngleStaeckel does not return NaN for unbound orbit in a collection with an unbound orbit"
+    assert numpy.all(
+        numpy.isnan(omp[1])
+    ), "Orbit interface for actionAngleStaeckel does not return NaN for unbound orbit in a collection with an unbound orbit"
+    assert numpy.all(
+        numpy.isnan(omz[1])
+    ), "Orbit interface for actionAngleStaeckel does not return NaN for unbound orbit in a collection with an unbound orbit"
+    assert numpy.all(
+        numpy.isnan(wr[1])
+    ), "Orbit interface for actionAngleStaeckel does not return NaN for unbound orbit in a collection with an unbound orbit"
+    assert numpy.all(
+        numpy.isnan(wp[1])
+    ), "Orbit interface for actionAngleStaeckel does not return NaN for unbound orbit in a collection with an unbound orbit"
+    assert numpy.all(
+        numpy.isnan(wz[1])
+    ), "Orbit interface for actionAngleStaeckel does not return NaN for unbound orbit in a collection with an unbound orbit"
     return None
 
 
@@ -5239,24 +5242,24 @@ def test_orbit_interface_unbound_simple_2d_adiabatic():
         obs.jp(pot=MWPotential2014, type="adiabatic"),
         obs.jz(pot=MWPotential2014, type="adiabatic"),
     )
-    assert numpy.fabs(jr[0] - aAS(obs[0])[0]) < 10.0**-10.0, (
-        "Orbit interface for actionAngleAdiabatic does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
-    )
-    assert numpy.fabs(jp[0] - aAS(obs[0])[1]) < 10.0**-10.0, (
-        "Orbit interface for actionAngleAdiabatic does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
-    )
-    assert numpy.fabs(jz[0] - aAS(obs[0])[2]) < 10.0**-10.0, (
-        "Orbit interface for actionAngleAdiabatic does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
-    )
-    assert numpy.all(numpy.isnan(jr[1])), (
-        "Orbit interface for actionAngleAdiabatic does not return NaN for unbound orbit in a collection with an unbound orbit"
-    )
-    assert numpy.all(numpy.isnan(jp[1])), (
-        "Orbit interface for actionAngleAdiabatic does not return NaN for unbound orbit in a collection with an unbound orbit"
-    )
-    assert numpy.all(numpy.isnan(jz[1])), (
-        "Orbit interface for actionAngleAdiabatic does not return NaN for unbound orbit in a collection with an unbound orbit"
-    )
+    assert (
+        numpy.fabs(jr[0] - aAS(obs[0])[0]) < 10.0**-10.0
+    ), "Orbit interface for actionAngleAdiabatic does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
+    assert (
+        numpy.fabs(jp[0] - aAS(obs[0])[1]) < 10.0**-10.0
+    ), "Orbit interface for actionAngleAdiabatic does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
+    assert (
+        numpy.fabs(jz[0] - aAS(obs[0])[2]) < 10.0**-10.0
+    ), "Orbit interface for actionAngleAdiabatic does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
+    assert numpy.all(
+        numpy.isnan(jr[1])
+    ), "Orbit interface for actionAngleAdiabatic does not return NaN for unbound orbit in a collection with an unbound orbit"
+    assert numpy.all(
+        numpy.isnan(jp[1])
+    ), "Orbit interface for actionAngleAdiabatic does not return NaN for unbound orbit in a collection with an unbound orbit"
+    assert numpy.all(
+        numpy.isnan(jz[1])
+    ), "Orbit interface for actionAngleAdiabatic does not return NaN for unbound orbit in a collection with an unbound orbit"
     return None
 
 
@@ -5274,24 +5277,24 @@ def test_orbit_interface_unbound_simple_2d_staeckel():
         obs.jp(pot=MWPotential2014, type="staeckel", delta=0.71),
         obs.jz(pot=MWPotential2014, type="staeckel", delta=0.71),
     )
-    assert numpy.fabs(jr[0] - aAS(obs[0])[0]) < 10.0**-10.0, (
-        "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
-    )
-    assert numpy.fabs(jp[0] - aAS(obs[0])[1]) < 10.0**-10.0, (
-        "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
-    )
-    assert numpy.fabs(jz[0] - aAS(obs[0])[2]) < 10.0**-10.0, (
-        "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
-    )
-    assert numpy.all(numpy.isnan(jr[1])), (
-        "Orbit interface for actionAngleStaeckel does not return NaN for unbound orbit in a collection with an unbound orbit"
-    )
-    assert numpy.all(numpy.isnan(jp[1])), (
-        "Orbit interface for actionAngleStaeckel does not return NaN for unbound orbit in a collection with an unbound orbit"
-    )
-    assert numpy.all(numpy.isnan(jz[1])), (
-        "Orbit interface for actionAngleStaeckel does not return NaN for unbound orbit in a collection with an unbound orbit"
-    )
+    assert (
+        numpy.fabs(jr[0] - aAS(obs[0])[0]) < 10.0**-10.0
+    ), "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
+    assert (
+        numpy.fabs(jp[0] - aAS(obs[0])[1]) < 10.0**-10.0
+    ), "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
+    assert (
+        numpy.fabs(jz[0] - aAS(obs[0])[2]) < 10.0**-10.0
+    ), "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
+    assert numpy.all(
+        numpy.isnan(jr[1])
+    ), "Orbit interface for actionAngleStaeckel does not return NaN for unbound orbit in a collection with an unbound orbit"
+    assert numpy.all(
+        numpy.isnan(jp[1])
+    ), "Orbit interface for actionAngleStaeckel does not return NaN for unbound orbit in a collection with an unbound orbit"
+    assert numpy.all(
+        numpy.isnan(jz[1])
+    ), "Orbit interface for actionAngleStaeckel does not return NaN for unbound orbit in a collection with an unbound orbit"
     return None
 
 
@@ -5329,56 +5332,48 @@ def test_orbit_interface_unbound_complexshape_adiabatic():
         obs.rperi(pot=MWPotential2014, type="adiabatic", analytic=True),
         obs.rap(pot=MWPotential2014, type="adiabatic", analytic=True),
     )
-    assert numpy.all(numpy.fabs(jr[:, 0] - aAA(obs[:, 0])[0]) < 10.0**-10.0), (
-        "Orbit interface for actionAngleAdiabatic does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
-    )
-    assert numpy.all(numpy.fabs(jp[:, 0] - aAA(obs[:, 0])[1]) < 10.0**-10.0), (
-        "Orbit interface for actionAngleAdiabatic does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
-    )
-    assert numpy.all(numpy.fabs(jz[:, 0] - aAA(obs[:, 0])[2]) < 10.0**-10.0), (
-        "Orbit interface for actionAngleAdiabatic does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
-    )
+    assert numpy.all(
+        numpy.fabs(jr[:, 0] - aAA(obs[:, 0])[0]) < 10.0**-10.0
+    ), "Orbit interface for actionAngleAdiabatic does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
+    assert numpy.all(
+        numpy.fabs(jp[:, 0] - aAA(obs[:, 0])[1]) < 10.0**-10.0
+    ), "Orbit interface for actionAngleAdiabatic does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
+    assert numpy.all(
+        numpy.fabs(jz[:, 0] - aAA(obs[:, 0])[2]) < 10.0**-10.0
+    ), "Orbit interface for actionAngleAdiabatic does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
     assert numpy.all(
         numpy.fabs(e[:, 0] - aAA.EccZmaxRperiRap(obs[:, 0])[0]) < 10.0**-10.0
-    ), (
-        "Orbit interface for actionAngleAdiabatic does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
-    )
+    ), "Orbit interface for actionAngleAdiabatic does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
     assert numpy.all(
         numpy.fabs(zmax[:, 0] - aAA.EccZmaxRperiRap(obs[:, 0])[1]) < 10.0**-10.0
-    ), (
-        "Orbit interface for actionAngleAdiabatic does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
-    )
+    ), "Orbit interface for actionAngleAdiabatic does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
     assert numpy.all(
         numpy.fabs(rperi[:, 0] - aAA.EccZmaxRperiRap(obs[:, 0])[2]) < 10.0**-10.0
-    ), (
-        "Orbit interface for actionAngleAdiabatic does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
-    )
+    ), "Orbit interface for actionAngleAdiabatic does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
     assert numpy.all(
         numpy.fabs(rap[:, 0] - aAA.EccZmaxRperiRap(obs[:, 0])[3]) < 10.0**-10.0
-    ), (
-        "Orbit interface for actionAngleAdiabatic does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
-    )
-    assert numpy.all(numpy.isnan(jr[:, 1])), (
-        "Orbit interface for actionAngleAdiabatic does not return NaN for unbound orbit in a collection with an unbound orbit"
-    )
-    assert numpy.all(numpy.isnan(jp[:, 1])), (
-        "Orbit interface for actionAngleAdiabatic does not return NaN for unbound orbit in a collection with an unbound orbit"
-    )
-    assert numpy.all(numpy.isnan(jz[:, 1])), (
-        "Orbit interface for actionAngleAdiabatic does not return NaN for unbound orbit in a collection with an unbound orbit"
-    )
-    assert numpy.all(numpy.isnan(e[:, 1])), (
-        "Orbit interface for actionAngleAdiabatic does not return NaN for unbound orbit in a collection with an unbound orbit"
-    )
-    assert numpy.all(numpy.isnan(zmax[:, 1])), (
-        "Orbit interface for actionAngleAdiabatic does not return NaN for unbound orbit in a collection with an unbound orbit"
-    )
-    assert numpy.all(numpy.isnan(rperi[:, 1])), (
-        "Orbit interface for actionAngleAdiabatic does not return NaN for unbound orbit in a collection with an unbound orbit"
-    )
-    assert numpy.all(numpy.isnan(rap[:, 1])), (
-        "Orbit interface for actionAngleAdiabatic does not return NaN for unbound orbit in a collection with an unbound orbit"
-    )
+    ), "Orbit interface for actionAngleAdiabatic does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
+    assert numpy.all(
+        numpy.isnan(jr[:, 1])
+    ), "Orbit interface for actionAngleAdiabatic does not return NaN for unbound orbit in a collection with an unbound orbit"
+    assert numpy.all(
+        numpy.isnan(jp[:, 1])
+    ), "Orbit interface for actionAngleAdiabatic does not return NaN for unbound orbit in a collection with an unbound orbit"
+    assert numpy.all(
+        numpy.isnan(jz[:, 1])
+    ), "Orbit interface for actionAngleAdiabatic does not return NaN for unbound orbit in a collection with an unbound orbit"
+    assert numpy.all(
+        numpy.isnan(e[:, 1])
+    ), "Orbit interface for actionAngleAdiabatic does not return NaN for unbound orbit in a collection with an unbound orbit"
+    assert numpy.all(
+        numpy.isnan(zmax[:, 1])
+    ), "Orbit interface for actionAngleAdiabatic does not return NaN for unbound orbit in a collection with an unbound orbit"
+    assert numpy.all(
+        numpy.isnan(rperi[:, 1])
+    ), "Orbit interface for actionAngleAdiabatic does not return NaN for unbound orbit in a collection with an unbound orbit"
+    assert numpy.all(
+        numpy.isnan(rap[:, 1])
+    ), "Orbit interface for actionAngleAdiabatic does not return NaN for unbound orbit in a collection with an unbound orbit"
     return None
 
 
@@ -5422,74 +5417,54 @@ def test_orbit_interface_unbound_complexshape_staeckel():
         obs.rperi(pot=MWPotential2014, type="staeckel", delta=0.71, analytic=True),
         obs.rap(pot=MWPotential2014, type="staeckel", delta=0.71, analytic=True),
     )
-    assert numpy.all(numpy.fabs(jr[:, 0] - aAS(obs[:, 0])[0]) < 10.0**-10.0), (
-        "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
-    )
-    assert numpy.all(numpy.fabs(jp[:, 0] - aAS(obs[:, 0])[1]) < 10.0**-10.0), (
-        "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
-    )
-    assert numpy.all(numpy.fabs(jz[:, 0] - aAS(obs[:, 0])[2]) < 10.0**-10.0), (
-        "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
-    )
+    assert numpy.all(
+        numpy.fabs(jr[:, 0] - aAS(obs[:, 0])[0]) < 10.0**-10.0
+    ), "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
+    assert numpy.all(
+        numpy.fabs(jp[:, 0] - aAS(obs[:, 0])[1]) < 10.0**-10.0
+    ), "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
+    assert numpy.all(
+        numpy.fabs(jz[:, 0] - aAS(obs[:, 0])[2]) < 10.0**-10.0
+    ), "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
     assert numpy.all(
         numpy.fabs(omr[:, 0] - aAS.actionsFreqs(obs[:, 0])[3]) < 10.0**-10.0
-    ), (
-        "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
-    )
+    ), "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
     assert numpy.all(
         numpy.fabs(omp[:, 0] - aAS.actionsFreqs(obs[:, 0])[4]) < 10.0**-10.0
-    ), (
-        "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
-    )
+    ), "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
     assert numpy.all(
         numpy.fabs(omz[:, 0] - aAS.actionsFreqs(obs[:, 0])[5]) < 10.0**-10.0
-    ), (
-        "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
-    )
+    ), "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
     assert numpy.all(
         numpy.fabs(wr[:, 0] - aAS.actionsFreqsAngles(obs[:, 0])[6]) < 10.0**-10.0
-    ), (
-        "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
-    )
+    ), "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
     assert numpy.all(
         numpy.fabs(wp[:, 0] - aAS.actionsFreqsAngles(obs[:, 0])[7]) < 10.0**-10.0
-    ), (
-        "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
-    )
+    ), "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
     assert numpy.all(
         numpy.fabs(wz[:, 0] - aAS.actionsFreqsAngles(obs[:, 0])[8]) < 10.0**-10.0
-    ), (
-        "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
-    )
+    ), "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
     assert numpy.all(
         numpy.fabs(e[:, 0] - aAS.EccZmaxRperiRap(obs[:, 0])[0]) < 10.0**-10.0
-    ), (
-        "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
-    )
+    ), "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
     assert numpy.all(
         numpy.fabs(zmax[:, 0] - aAS.EccZmaxRperiRap(obs[:, 0])[1]) < 10.0**-10.0
-    ), (
-        "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
-    )
+    ), "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
     assert numpy.all(
         numpy.fabs(rperi[:, 0] - aAS.EccZmaxRperiRap(obs[:, 0])[2]) < 10.0**-10.0
-    ), (
-        "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
-    )
+    ), "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
     assert numpy.all(
         numpy.fabs(rap[:, 0] - aAS.EccZmaxRperiRap(obs[:, 0])[3]) < 10.0**-10.0
-    ), (
-        "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
-    )
-    assert numpy.all(numpy.isnan(jr[:, 1])), (
-        "Orbit interface for actionAngleStaeckel does not return NaN for unbound orbit in a collection with an unbound orbit"
-    )
-    assert numpy.all(numpy.isnan(jp[:, 1])), (
-        "Orbit interface for actionAngleStaeckel does not return NaN for unbound orbit in a collection with an unbound orbit"
-    )
-    assert numpy.all(numpy.isnan(jz[:, 1])), (
-        "Orbit interface for actionAngleStaeckel does not return NaN for unbound orbit in a collection with an unbound orbit"
-    )
+    ), "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
+    assert numpy.all(
+        numpy.isnan(jr[:, 1])
+    ), "Orbit interface for actionAngleStaeckel does not return NaN for unbound orbit in a collection with an unbound orbit"
+    assert numpy.all(
+        numpy.isnan(jp[:, 1])
+    ), "Orbit interface for actionAngleStaeckel does not return NaN for unbound orbit in a collection with an unbound orbit"
+    assert numpy.all(
+        numpy.isnan(jz[:, 1])
+    ), "Orbit interface for actionAngleStaeckel does not return NaN for unbound orbit in a collection with an unbound orbit"
     return None
 
 
@@ -5540,117 +5515,91 @@ def test_orbit_interface_unbound_staeckeldelta_handling():
     assert numpy.all(
         numpy.fabs(jr[:, 0] - aAS(obs[:, 0], delta=obs._aA._delta[bound_indx])[0])
         < 10.0**-10.0
-    ), (
-        "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
-    )
+    ), "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
     assert numpy.all(
         numpy.fabs(jp[:, 0] - aAS(obs[:, 0], delta=obs._aA._delta[bound_indx])[1])
         < 10.0**-10.0
-    ), (
-        "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
-    )
+    ), "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
     assert numpy.all(
         numpy.fabs(jz[:, 0] - aAS(obs[:, 0], delta=obs._aA._delta[bound_indx])[2])
         < 10.0**-10.0
-    ), (
-        "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
-    )
+    ), "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
     assert numpy.all(
         numpy.fabs(
             omr[:, 0] - aAS.actionsFreqs(obs[:, 0], delta=obs._aA._delta[bound_indx])[3]
         )
         < 10.0**-10.0
-    ), (
-        "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
-    )
+    ), "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
     assert numpy.all(
         numpy.fabs(
             omp[:, 0] - aAS.actionsFreqs(obs[:, 0], delta=obs._aA._delta[bound_indx])[4]
         )
         < 10.0**-10.0
-    ), (
-        "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
-    )
+    ), "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
     assert numpy.all(
         numpy.fabs(
             omz[:, 0] - aAS.actionsFreqs(obs[:, 0], delta=obs._aA._delta[bound_indx])[5]
         )
         < 10.0**-10.0
-    ), (
-        "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
-    )
+    ), "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
     assert numpy.all(
         numpy.fabs(
             wr[:, 0]
             - aAS.actionsFreqsAngles(obs[:, 0], delta=obs._aA._delta[bound_indx])[6]
         )
         < 10.0**-10.0
-    ), (
-        "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
-    )
+    ), "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
     assert numpy.all(
         numpy.fabs(
             wp[:, 0]
             - aAS.actionsFreqsAngles(obs[:, 0], delta=obs._aA._delta[bound_indx])[7]
         )
         < 10.0**-10.0
-    ), (
-        "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
-    )
+    ), "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
     assert numpy.all(
         numpy.fabs(
             wz[:, 0]
             - aAS.actionsFreqsAngles(obs[:, 0], delta=obs._aA._delta[bound_indx])[8]
         )
         < 10.0**-10.0
-    ), (
-        "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
-    )
+    ), "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
     assert numpy.all(
         numpy.fabs(
             e[:, 0]
             - aAS.EccZmaxRperiRap(obs[:, 0], delta=obs._aA._delta[bound_indx])[0]
         )
         < 10.0**-10.0
-    ), (
-        "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
-    )
+    ), "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
     assert numpy.all(
         numpy.fabs(
             zmax[:, 0]
             - aAS.EccZmaxRperiRap(obs[:, 0], delta=obs._aA._delta[bound_indx])[1]
         )
         < 10.0**-10.0
-    ), (
-        "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
-    )
+    ), "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
     assert numpy.all(
         numpy.fabs(
             rperi[:, 0]
             - aAS.EccZmaxRperiRap(obs[:, 0], delta=obs._aA._delta[bound_indx])[2]
         )
         < 10.0**-10.0
-    ), (
-        "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
-    )
+    ), "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
     assert numpy.all(
         numpy.fabs(
             rap[:, 0]
             - aAS.EccZmaxRperiRap(obs[:, 0], delta=obs._aA._delta[bound_indx])[3]
         )
         < 10.0**-10.0
-    ), (
-        "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
-    )
-    assert numpy.all(numpy.isnan(jr[:, 1])), (
-        "Orbit interface for actionAngleStaeckel does not return NaN for unbound orbit in a collection with an unbound orbit"
-    )
-    assert numpy.all(numpy.isnan(jp[:, 1])), (
-        "Orbit interface for actionAngleStaeckel does not return NaN for unbound orbit in a collection with an unbound orbit"
-    )
-    assert numpy.all(numpy.isnan(jz[:, 1])), (
-        "Orbit interface for actionAngleStaeckel does not return NaN for unbound orbit in a collection with an unbound orbit"
-    )
+    ), "Orbit interface for actionAngleStaeckel does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
+    assert numpy.all(
+        numpy.isnan(jr[:, 1])
+    ), "Orbit interface for actionAngleStaeckel does not return NaN for unbound orbit in a collection with an unbound orbit"
+    assert numpy.all(
+        numpy.isnan(jp[:, 1])
+    ), "Orbit interface for actionAngleStaeckel does not return NaN for unbound orbit in a collection with an unbound orbit"
+    assert numpy.all(
+        numpy.isnan(jz[:, 1])
+    ), "Orbit interface for actionAngleStaeckel does not return NaN for unbound orbit in a collection with an unbound orbit"
     return None
 
 
@@ -5678,9 +5627,7 @@ def test_physical_staeckel():
                 - aAnu.actionsFreqs(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii] * ro * vo
             )
             < 10.0**-8.0
-        ), (
-            "actionAngle function actionsFreqs does not return Quantity with the right value"
-        )
+        ), "actionAngle function actionsFreqs does not return Quantity with the right value"
     for ii in range(3, 6):
         assert (
             numpy.fabs(
@@ -5689,9 +5636,7 @@ def test_physical_staeckel():
                 * conversion.freq_in_Gyr(vo, ro)
             )
             < 10.0**-8.0
-        ), (
-            "actionAngle function actionsFreqs does not return Quantity with the right value"
-        )
+        ), "actionAngle function actionsFreqs does not return Quantity with the right value"
     for ii in range(3):
         assert (
             numpy.fabs(
@@ -5699,9 +5644,7 @@ def test_physical_staeckel():
                 - aAnu.actionsFreqsAngles(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii] * ro * vo
             )
             < 10.0**-8.0
-        ), (
-            "actionAngle function actionsFreqsAngles does not return Quantity with the right value"
-        )
+        ), "actionAngle function actionsFreqsAngles does not return Quantity with the right value"
     for ii in range(3, 6):
         assert (
             numpy.fabs(
@@ -5710,9 +5653,7 @@ def test_physical_staeckel():
                 * conversion.freq_in_Gyr(vo, ro)
             )
             < 10.0**-8.0
-        ), (
-            "actionAngle function actionsFreqsAngles does not return Quantity with the right value"
-        )
+        ), "actionAngle function actionsFreqsAngles does not return Quantity with the right value"
     for ii in range(6, 9):
         assert (
             numpy.fabs(
@@ -5720,9 +5661,7 @@ def test_physical_staeckel():
                 - aAnu.actionsFreqsAngles(1.1, 0.1, 1.1, 0.1, 0.2, 0.0)[ii]
             )
             < 10.0**-8.0
-        ), (
-            "actionAngle function actionsFreqsAngles does not return Quantity with the right value"
-        )
+        ), "actionAngle function actionsFreqsAngles does not return Quantity with the right value"
     return None
 
 
@@ -5737,9 +5676,9 @@ def test_estimateBIsochrone():
     times = numpy.linspace(0.0, 100.0, 1001)
     o.integrate(times, ip)
     bmin, bmed, bmax = estimateBIsochrone(ip, o.R(times), o.z(times))
-    assert numpy.fabs(bmed - 1.2) < 10.0**-15.0, (
-        "Estimated scale parameter b when estimateBIsochrone is applied to an IsochronePotential is wrong"
-    )
+    assert (
+        numpy.fabs(bmed - 1.2) < 10.0**-15.0
+    ), "Estimated scale parameter b when estimateBIsochrone is applied to an IsochronePotential is wrong"
     return None
 
 
@@ -5753,9 +5692,9 @@ def test_estimateDeltaStaeckel():
     times = numpy.linspace(0.0, 100.0, 1001)
     o.integrate(times, MWPotential)
     delta = estimateDeltaStaeckel(MWPotential, o.R(times), o.z(times))
-    assert numpy.fabs(delta - 0.71) < 10.0**-3.0, (
-        "Estimated focal parameter delta when estimateDeltaStaeckel is applied to the MWPotential is wrong"
-    )
+    assert (
+        numpy.fabs(delta - 0.71) < 10.0**-3.0
+    ), "Estimated focal parameter delta when estimateDeltaStaeckel is applied to the MWPotential is wrong"
     return None
 
 
@@ -5771,13 +5710,13 @@ def test_estimateDeltaStaeckel_spherical():
     o.integrate(times, lp)
     # Need to set delta0=0 so spherical actualluy returns 0
     delta = estimateDeltaStaeckel(lp, o.R(), o.z(), delta0=0.0)
-    assert numpy.fabs(delta) < 10.0**-6.0, (
-        "Estimated focal parameter delta when estimateDeltaStaeckel is applied to a spherical potential is wrong"
-    )
+    assert (
+        numpy.fabs(delta) < 10.0**-6.0
+    ), "Estimated focal parameter delta when estimateDeltaStaeckel is applied to a spherical potential is wrong"
     delta = estimateDeltaStaeckel(lp, o.R(times), o.z(times), delta0=0.0)
-    assert numpy.fabs(delta) < 10.0**-16.0, (
-        "Estimated focal parameter delta when estimateDeltaStaeckel is applied to a spherical potential is wrong"
-    )
+    assert (
+        numpy.fabs(delta) < 10.0**-16.0
+    ), "Estimated focal parameter delta when estimateDeltaStaeckel is applied to a spherical potential is wrong"
     return None
 
 
@@ -5801,9 +5740,9 @@ def test_MWPotential_warning_adiabatic():
             )
             if raisedWarning:
                 break
-        assert raisedWarning, (
-            "actionAngleAdiabatic with MWPotential should have thrown a warning, but didn't"
-        )
+        assert (
+            raisedWarning
+        ), "actionAngleAdiabatic with MWPotential should have thrown a warning, but didn't"
     # Grid
     with warnings.catch_warnings(record=True) as w:
         warnings.simplefilter("always", galpyWarning)
@@ -5819,9 +5758,9 @@ def test_MWPotential_warning_adiabatic():
             )
             if raisedWarning:
                 break
-        assert raisedWarning, (
-            "actionAngleAdiabaticGrid with MWPotential should have thrown a warning, but didn't"
-        )
+        assert (
+            raisedWarning
+        ), "actionAngleAdiabaticGrid with MWPotential should have thrown a warning, but didn't"
     return None
 
 
@@ -5844,9 +5783,9 @@ def test_MWPotential_warning_staeckel():
             )
             if raisedWarning:
                 break
-        assert raisedWarning, (
-            "actionAngleStaeckel with MWPotential should have thrown a warning, but didn't"
-        )
+        assert (
+            raisedWarning
+        ), "actionAngleStaeckel with MWPotential should have thrown a warning, but didn't"
     # Grid
     with warnings.catch_warnings(record=True) as w:
         warnings.simplefilter("always", galpyWarning)
@@ -5860,9 +5799,9 @@ def test_MWPotential_warning_staeckel():
             )
             if raisedWarning:
                 break
-        assert raisedWarning, (
-            "actionAngleStaeckelGrid with MWPotential should have thrown a warning, but didn't"
-        )
+        assert (
+            raisedWarning
+        ), "actionAngleStaeckelGrid with MWPotential should have thrown a warning, but didn't"
     return None
 
 
@@ -5885,9 +5824,9 @@ def test_MWPotential_warning_isochroneapprox():
             )
             if raisedWarning:
                 break
-        assert raisedWarning, (
-            "actionAngleIsochroneApprox with MWPotential should have thrown a warning, but didn't"
-        )
+        assert (
+            raisedWarning
+        ), "actionAngleIsochroneApprox with MWPotential should have thrown a warning, but didn't"
     return None
 
 
@@ -5901,9 +5840,9 @@ def test_actionAngleAdiabatic_issue361():
     vT = 188.5 / 220.0
     jr_good, _, _ = aA_adi(R, -0.1 / 220.0, vT, 0, 0)
     jr_bad, _, _ = aA_adi(R, -0.09 / 220.0, vT, 0, 0)
-    assert numpy.fabs(jr_good - jr_bad) < 1e-6, (
-        f"Nearby JR for orbit near apocenter disagree too much, likely because one completely fails: Jr_good = {jr_good}, Jr_bad = {jr_bad}"
-    )
+    assert (
+        numpy.fabs(jr_good - jr_bad) < 1e-6
+    ), f"Nearby JR for orbit near apocenter disagree too much, likely because one completely fails: Jr_good = {jr_good}, Jr_bad = {jr_bad}"
     return None
 
 
@@ -5954,12 +5893,12 @@ def test_actionAngleHarmonicInverse_wrtHarmonic():
     obs.integrate(times, ipz)
     j, _, a = aAH.actionsFreqsAngles(obs.x(times), obs.vx(times))
     xi, vxi = aAHI(numpy.median(j), a)
-    assert numpy.amax(numpy.fabs(obs.x(times) - xi)) < 10.0**-6.0, (
-        "actionAngleHarmonicInverse is not the inverse of actionAngleHarmonic for an example orbit"
-    )
-    assert numpy.amax(numpy.fabs(obs.vx(times) - vxi)) < 10.0**-6.0, (
-        "actionAngleHarmonicInverse is not the inverse of actionAngleHarmonic for an example orbit"
-    )
+    assert (
+        numpy.amax(numpy.fabs(obs.x(times) - xi)) < 10.0**-6.0
+    ), "actionAngleHarmonicInverse is not the inverse of actionAngleHarmonic for an example orbit"
+    assert (
+        numpy.amax(numpy.fabs(obs.vx(times) - vxi)) < 10.0**-6.0
+    ), "actionAngleHarmonicInverse is not the inverse of actionAngleHarmonic for an example orbit"
     return None
 
 
@@ -5981,9 +5920,9 @@ def test_actionAngleHarmonicInverse_freqs_wrtHarmonic():
     Om = aAHI.Freqs(j)
     # Compute frequency with actionAngleHarmonic
     _, Omi = aAH.actionsFreqs(*aAHI(j, 0.0))
-    assert numpy.fabs((Om - Omi) / Om) < 10.0**tol, (
-        "Frequency computed using actionAngleHarmonicInverse does not agree with that computed by actionAngleHarmonic"
-    )
+    assert (
+        numpy.fabs((Om - Omi) / Om) < 10.0**tol
+    ), "Frequency computed using actionAngleHarmonicInverse does not agree with that computed by actionAngleHarmonic"
     return None
 
 
@@ -6014,12 +5953,12 @@ def test_actionAngleHarmonicInverse_orbit():
     orb.integrate(ts, ipz, method="dopr54_c")
     # Compare
     tol = -7.0
-    assert numpy.all(numpy.fabs(orb.x(ts) - xv[0]) < 10.0**tol), (
-        "Integrated orbit does not agree with actionAngleHarmmonicInverse orbit in x"
-    )
-    assert numpy.all(numpy.fabs(orb.vx(ts) - xv[1]) < 10.0**tol), (
-        "Integrated orbit does not agree with actionAngleHarmmonicInverse orbit in v"
-    )
+    assert numpy.all(
+        numpy.fabs(orb.x(ts) - xv[0]) < 10.0**tol
+    ), "Integrated orbit does not agree with actionAngleHarmmonicInverse orbit in x"
+    assert numpy.all(
+        numpy.fabs(orb.vx(ts) - xv[1]) < 10.0**tol
+    ), "Integrated orbit does not agree with actionAngleHarmmonicInverse orbit in v"
     return None
 
 
@@ -6043,9 +5982,7 @@ def test_physical_actionAngleHarmonicInverse():
         assert (
             numpy.fabs(aAHI(0.1, -0.2)[ii] - aAHInu(0.1, -0.2)[ii] * correct_fac[ii])
             < 10.0**-8.0
-        ), (
-            "actionAngleInverse function __call__ does not return Quantity with the right value"
-        )
+        ), "actionAngleInverse function __call__ does not return Quantity with the right value"
     correct_fac = [ro, vo, conversion.freq_in_Gyr(vo, ro)]
     for ii in range(3):
         assert (
@@ -6054,9 +5991,7 @@ def test_physical_actionAngleHarmonicInverse():
                 - aAHInu.xvFreqs(0.1, -0.2)[ii] * correct_fac[ii]
             )
             < 10.0**-8.0
-        ), (
-            "actionAngleInverse function xvFreqs does not return Quantity with the right value"
-        )
+        ), "actionAngleInverse function xvFreqs does not return Quantity with the right value"
     assert (
         numpy.fabs(aAHI.Freqs(0.1) - aAHInu.Freqs(0.1) * conversion.freq_in_Gyr(vo, ro))
         < 10.0**-8.0
@@ -6137,29 +6072,29 @@ def test_actionAngleIsochroneInverse_basic_freqs():
     # at Lz=1
     jphi = 1.0
     om = aAII.Freqs(jr, jphi, jz)
-    assert numpy.fabs((om[0] - epifreq(ip, rl(ip, jphi))) / om[0]) < 10.0**tol, (
-        "Close-to-circular orbit does not have Or=kappa for actionAngleTorus"
-    )
-    assert numpy.fabs((om[1] - omegac(ip, rl(ip, jphi))) / om[1]) < 10.0**tol, (
-        "Close-to-circular orbit does not have Ophi=omega for actionAngleTorus"
-    )
-    assert numpy.fabs((om[2] - verticalfreq(ip, rl(ip, jphi))) / om[2]) < 10.0**tol, (
-        "Close-to-circular orbit does not have Oz=nu for actionAngleTorus"
-    )
+    assert (
+        numpy.fabs((om[0] - epifreq(ip, rl(ip, jphi))) / om[0]) < 10.0**tol
+    ), "Close-to-circular orbit does not have Or=kappa for actionAngleTorus"
+    assert (
+        numpy.fabs((om[1] - omegac(ip, rl(ip, jphi))) / om[1]) < 10.0**tol
+    ), "Close-to-circular orbit does not have Ophi=omega for actionAngleTorus"
+    assert (
+        numpy.fabs((om[2] - verticalfreq(ip, rl(ip, jphi))) / om[2]) < 10.0**tol
+    ), "Close-to-circular orbit does not have Oz=nu for actionAngleTorus"
     # at Lz=1.5, w/ different potential normalization
     ip = IsochronePotential(normalize=1.2)
     aAII = actionAngleIsochroneInverse(ip=ip)
     jphi = 1.5
     om = aAII.Freqs(jr, jphi, jz)
-    assert numpy.fabs((om[0] - epifreq(ip, rl(ip, jphi))) / om[0]) < 10.0**tol, (
-        "Close-to-circular orbit does not have Or=kappa for actionAngleTorus"
-    )
-    assert numpy.fabs((om[1] - omegac(ip, rl(ip, jphi))) / om[1]) < 10.0**tol, (
-        "Close-to-circular orbit does not have Ophi=omega for actionAngleTorus"
-    )
-    assert numpy.fabs((om[2] - verticalfreq(ip, rl(ip, jphi))) / om[2]) < 10.0**tol, (
-        "Close-to-circular orbit does not have Oz=nu for actionAngleTorus"
-    )
+    assert (
+        numpy.fabs((om[0] - epifreq(ip, rl(ip, jphi))) / om[0]) < 10.0**tol
+    ), "Close-to-circular orbit does not have Or=kappa for actionAngleTorus"
+    assert (
+        numpy.fabs((om[1] - omegac(ip, rl(ip, jphi))) / om[1]) < 10.0**tol
+    ), "Close-to-circular orbit does not have Ophi=omega for actionAngleTorus"
+    assert (
+        numpy.fabs((om[2] - verticalfreq(ip, rl(ip, jphi))) / om[2]) < 10.0**tol
+    ), "Close-to-circular orbit does not have Oz=nu for actionAngleTorus"
     return None
 
 
@@ -6178,29 +6113,29 @@ def test_actionAngleIsochroneInverse_freqs_wrtIsochrone():
     Or, Op, Oz = aAII.Freqs(jr, jphi, jz)
     # Compute frequency with actionAngleIsochrone
     _, _, _, Ori, Opi, Ozi = aAI.actionsFreqs(*aAII(jr, jphi, jz, 0.0, 1.0, 2.0)[:6])
-    assert numpy.fabs((Or - Ori) / Or) < 10.0**tol, (
-        "Radial frequency computed using actionAngleIsochroneInverse does not agree with that computed by actionAngleIsochrone"
-    )
-    assert numpy.fabs((Op - Opi) / Op) < 10.0**tol, (
-        "Azimuthal frequency computed using actionAngleIsochroneInverse does not agree with that computed by actionAngleIsochrone"
-    )
-    assert numpy.fabs((Oz - Ozi) / Oz) < 10.0**tol, (
-        "Vertical frequency computed using actionAngleIsochroneInverse does not agree with that computed by actionAngleIsochrone"
-    )
+    assert (
+        numpy.fabs((Or - Ori) / Or) < 10.0**tol
+    ), "Radial frequency computed using actionAngleIsochroneInverse does not agree with that computed by actionAngleIsochrone"
+    assert (
+        numpy.fabs((Op - Opi) / Op) < 10.0**tol
+    ), "Azimuthal frequency computed using actionAngleIsochroneInverse does not agree with that computed by actionAngleIsochrone"
+    assert (
+        numpy.fabs((Oz - Ozi) / Oz) < 10.0**tol
+    ), "Vertical frequency computed using actionAngleIsochroneInverse does not agree with that computed by actionAngleIsochrone"
     # at Lz=1.5
     jphi = 1.51
     Or, Op, Oz = aAII.Freqs(jr, jphi, jz)
     # Compute frequency with actionAngleIsochrone
     _, _, _, Ori, Opi, Ozi = aAI.actionsFreqs(*aAII(jr, jphi, jz, 0.0, 1.0, 2.0)[:6])
-    assert numpy.fabs((Or - Ori) / Or) < 10.0**tol, (
-        "Radial frequency computed using actionAngleIsochroneInverse does not agree with that computed by actionAngleIsochrone"
-    )
-    assert numpy.fabs((Op - Opi) / Op) < 10.0**tol, (
-        "Azimuthal frequency computed using actionAngleIsochroneInverse does not agree with that computed by actionAngleIsochrone"
-    )
-    assert numpy.fabs((Oz - Ozi) / Oz) < 10.0**tol, (
-        "Vertical frequency computed using actionAngleIsochroneInverse does not agree with that computed by actionAngleIsochrone"
-    )
+    assert (
+        numpy.fabs((Or - Ori) / Or) < 10.0**tol
+    ), "Radial frequency computed using actionAngleIsochroneInverse does not agree with that computed by actionAngleIsochrone"
+    assert (
+        numpy.fabs((Op - Opi) / Op) < 10.0**tol
+    ), "Azimuthal frequency computed using actionAngleIsochroneInverse does not agree with that computed by actionAngleIsochrone"
+    assert (
+        numpy.fabs((Oz - Ozi) / Oz) < 10.0**tol
+    ), "Vertical frequency computed using actionAngleIsochroneInverse does not agree with that computed by actionAngleIsochrone"
     return None
 
 
@@ -6235,21 +6170,21 @@ def test_actionAngleIsochroneInverse_orbit():
     orb.integrate(ts, ip)
     # Compare
     tol = -3.0
-    assert numpy.all(numpy.fabs(orb.R(ts) - RvR[0]) < 10.0**tol), (
-        "Integrated orbit does not agree with torus orbit in R"
-    )
-    assert numpy.all(numpy.fabs(orb.vR(ts) - RvR[1]) < 10.0**tol), (
-        "Integrated orbit does not agree with torus orbit in vR"
-    )
-    assert numpy.all(numpy.fabs(orb.vT(ts) - RvR[2]) < 10.0**tol), (
-        "Integrated orbit does not agree with torus orbit in vT"
-    )
-    assert numpy.all(numpy.fabs(orb.z(ts) - RvR[3]) < 10.0**tol), (
-        "Integrated orbit does not agree with torus orbit in z"
-    )
-    assert numpy.all(numpy.fabs(orb.vz(ts) - RvR[4]) < 10.0**tol), (
-        "Integrated orbit does not agree with torus orbit in vz"
-    )
+    assert numpy.all(
+        numpy.fabs(orb.R(ts) - RvR[0]) < 10.0**tol
+    ), "Integrated orbit does not agree with torus orbit in R"
+    assert numpy.all(
+        numpy.fabs(orb.vR(ts) - RvR[1]) < 10.0**tol
+    ), "Integrated orbit does not agree with torus orbit in vR"
+    assert numpy.all(
+        numpy.fabs(orb.vT(ts) - RvR[2]) < 10.0**tol
+    ), "Integrated orbit does not agree with torus orbit in vT"
+    assert numpy.all(
+        numpy.fabs(orb.z(ts) - RvR[3]) < 10.0**tol
+    ), "Integrated orbit does not agree with torus orbit in z"
+    assert numpy.all(
+        numpy.fabs(orb.vz(ts) - RvR[4]) < 10.0**tol
+    ), "Integrated orbit does not agree with torus orbit in vz"
     assert numpy.all(
         numpy.fabs((orb.phi(ts) - RvR[5] + numpy.pi) % (2.0 * numpy.pi) - numpy.pi)
         < 10.0**tol
@@ -6275,9 +6210,7 @@ def test_physical_actionAngleIsochroneInverse():
                 - aAIInu(0.1, 1.1, 0.1, 0.1, 0.2, 0.0)[ii] * correct_fac[ii]
             )
             < 10.0**-8.0
-        ), (
-            "actionAngleInverse function __call__ does not return Quantity with the right value"
-        )
+        ), "actionAngleInverse function __call__ does not return Quantity with the right value"
     correct_fac = [
         ro,
         vo,
@@ -6296,9 +6229,7 @@ def test_physical_actionAngleIsochroneInverse():
                 - aAIInu.xvFreqs(0.1, 1.1, 0.1, 0.1, 0.2, 0.0)[ii] * correct_fac[ii]
             )
             < 10.0**-8.0
-        ), (
-            "actionAngleInverse function xvFreqs does not return Quantity with the right value"
-        )
+        ), "actionAngleInverse function xvFreqs does not return Quantity with the right value"
     for ii in range(3):
         assert (
             numpy.fabs(
@@ -6306,9 +6237,7 @@ def test_physical_actionAngleIsochroneInverse():
                 - aAIInu.Freqs(0.1, 1.1, 0.1)[ii] * conversion.freq_in_Gyr(vo, ro)
             )
             < 10.0**-8.0
-        ), (
-            "actionAngleInverse function Freqs does not return Quantity with the right value"
-        )
+        ), "actionAngleInverse function Freqs does not return Quantity with the right value"
     return None
 
 
@@ -6331,12 +6260,12 @@ def test_actionAngleVerticalInverse_wrtVertical():
         pot=isopot, nta=4 * 128, Es=[obs.E()], use_pointtransform=False
     )
     xi, vxi = aAVI(aAVI.J(obs.E()), a)
-    assert numpy.amax(numpy.fabs(obs.x(times) - xi)) < 10.0**-6.0, (
-        "actionAngleVerticalInverse is not the inverse of actionAngleVertical for an example orbit"
-    )
-    assert numpy.amax(numpy.fabs(obs.vx(times) - vxi)) < 10.0**-6.0, (
-        "actionAngleVerticalInverse is not the inverse of actionAngleVertical for an example orbit"
-    )
+    assert (
+        numpy.amax(numpy.fabs(obs.x(times) - xi)) < 10.0**-6.0
+    ), "actionAngleVerticalInverse is not the inverse of actionAngleVertical for an example orbit"
+    assert (
+        numpy.amax(numpy.fabs(obs.vx(times) - vxi)) < 10.0**-6.0
+    ), "actionAngleVerticalInverse is not the inverse of actionAngleVertical for an example orbit"
     return None
 
 
@@ -6356,9 +6285,9 @@ def test_actionAngleVerticalInverse_freqs_wrtVertical():
     Om = aAVI.Freqs(aAVI.J(obs.E(pot=isopot)))
     # Compute frequency with actionAngleHarmonic
     _, Omi = aAV.actionsFreqs(*aAVI(aAVI.J(obs.E(pot=isopot)), 0.0))
-    assert numpy.fabs((Om - Omi) / Om) < 10.0**tol, (
-        "Frequency computed using actionAngleVerticalInverse does not agree with that computed by actionAngleVertical"
-    )
+    assert (
+        numpy.fabs((Om - Omi) / Om) < 10.0**tol
+    ), "Frequency computed using actionAngleVerticalInverse does not agree with that computed by actionAngleVertical"
     return None
 
 
@@ -6378,21 +6307,21 @@ def test_actionAngleVerticalInverse_orbit():
     x, v = aAVI(aAVI.J(1.0), ta)
     # Compute energy and check whether it's conserved
     E = evaluatelinearPotentials(isopot, x) + v**2.0 / 2.0
-    assert numpy.std(E) / numpy.mean(E) < 1e-10, (
-        "Energy is not conserved along the actionAngleVerticalInverse torus for the IsothermalDiskPotential when using a point transform"
-    )
+    assert (
+        numpy.std(E) / numpy.mean(E) < 1e-10
+    ), "Energy is not conserved along the actionAngleVerticalInverse torus for the IsothermalDiskPotential when using a point transform"
     # Now traverse the orbit at the frequency rate and check against orbit integration
     Om = aAVI.Freqs(aAVI.J(1.0))
     ts = numpy.linspace(0.0, 2.0 * numpy.pi / Om, 1001)
     x, v = aAVI(aAVI.J(1.0), Om * ts)
     orb = Orbit([x[0], v[0]])
     orb.integrate(ts, isopot)
-    assert numpy.amax(numpy.fabs(orb.x(ts) - x)) < 1e-8, (
-        "Position does not agree with that of the integrated orbit along the torus of the IsothermalDiskPotential when using a point transform"
-    )
-    assert numpy.amax(numpy.fabs(orb.vx(ts) - v)) < 1e-8, (
-        "Velocity does not agree with that of the integrated orbit along the torus of the IsothermalDiskPotential when using a point transform"
-    )
+    assert (
+        numpy.amax(numpy.fabs(orb.x(ts) - x)) < 1e-8
+    ), "Position does not agree with that of the integrated orbit along the torus of the IsothermalDiskPotential when using a point transform"
+    assert (
+        numpy.amax(numpy.fabs(orb.vx(ts) - v)) < 1e-8
+    ), "Velocity does not agree with that of the integrated orbit along the torus of the IsothermalDiskPotential when using a point transform"
     return None
 
 
@@ -6416,12 +6345,12 @@ def test_actionAngleVerticalInverse_wrtVertical_pointtransform():
         pot=isopot, nta=4 * 128, Es=[obs.E()], use_pointtransform=True
     )
     xi, vxi = aAVI(aAVI.J(obs.E()), a)
-    assert numpy.amax(numpy.fabs(obs.x(times) - xi)) < 10.0**-6.0, (
-        "actionAngleVerticalInverse is not the inverse of actionAngleVertical for an example orbit when using a point transform"
-    )
-    assert numpy.amax(numpy.fabs(obs.vx(times) - vxi)) < 10.0**-6.0, (
-        "actionAngleVerticalInverse is not the inverse of actionAngleVertical for an example orbit when using a point transform"
-    )
+    assert (
+        numpy.amax(numpy.fabs(obs.x(times) - xi)) < 10.0**-6.0
+    ), "actionAngleVerticalInverse is not the inverse of actionAngleVertical for an example orbit when using a point transform"
+    assert (
+        numpy.amax(numpy.fabs(obs.vx(times) - vxi)) < 10.0**-6.0
+    ), "actionAngleVerticalInverse is not the inverse of actionAngleVertical for an example orbit when using a point transform"
     return None
 
 
@@ -6441,9 +6370,9 @@ def test_actionAngleVerticalInverse_freqs_wrtVertical_pointtransform():
     Om = aAVI.Freqs(aAVI.J(obs.E(pot=isopot)))
     # Compute frequency with actionAngleHarmonic
     _, Omi = aAV.actionsFreqs(*aAVI(aAVI.J(obs.E(pot=isopot)), 0.0))
-    assert numpy.fabs((Om - Omi) / Om) < 10.0**tol, (
-        "Frequency computed using actionAngleVerticalInverse does not agree with that computed by actionAngleVertical when using a point transform"
-    )
+    assert (
+        numpy.fabs((Om - Omi) / Om) < 10.0**tol
+    ), "Frequency computed using actionAngleVerticalInverse does not agree with that computed by actionAngleVertical when using a point transform"
     return None
 
 
@@ -6464,21 +6393,21 @@ def test_actionAngleVerticalInverse_orbit_pointtransform():
     x, v = aAVI(aAVI.J(1.0), ta)
     # Compute energy and check whether it's conserved
     E = evaluatelinearPotentials(isopot, x) + v**2.0 / 2.0
-    assert numpy.std(E) / numpy.mean(E) < 1e-10, (
-        "Energy is not conserved along the actionAngleVerticalInverse torus for the IsothermalDiskPotential when using a point transform"
-    )
+    assert (
+        numpy.std(E) / numpy.mean(E) < 1e-10
+    ), "Energy is not conserved along the actionAngleVerticalInverse torus for the IsothermalDiskPotential when using a point transform"
     # Now traverse the orbit at the frequency rate and check against orbit integration
     Om = aAVI.Freqs(aAVI.J(1.0))
     ts = numpy.linspace(0.0, 2.0 * numpy.pi / Om, 1001)
     x, v = aAVI(aAVI.J(1.0), Om * ts)
     orb = Orbit([x[0], v[0]])
     orb.integrate(ts, isopot)
-    assert numpy.amax(numpy.fabs(orb.x(ts) - x)) < 1e-8, (
-        "Position does not agree with that of the integrated orbit along the torus of the IsothermalDiskPotential when using a point transform"
-    )
-    assert numpy.amax(numpy.fabs(orb.vx(ts) - v)) < 1e-8, (
-        "Velocity does not agree with that of the integrated orbit along the torus of the IsothermalDiskPotential when using a point transform"
-    )
+    assert (
+        numpy.amax(numpy.fabs(orb.x(ts) - x)) < 1e-8
+    ), "Position does not agree with that of the integrated orbit along the torus of the IsothermalDiskPotential when using a point transform"
+    assert (
+        numpy.amax(numpy.fabs(orb.vx(ts) - v)) < 1e-8
+    ), "Velocity does not agree with that of the integrated orbit along the torus of the IsothermalDiskPotential when using a point transform"
     return None
 
 
@@ -6502,12 +6431,12 @@ def test_actionAngleVerticalInverse_wrtVertical_bisect():
         pot=isopot, nta=4 * 128, Es=[obs.E()], use_pointtransform=False, bisect=True
     )
     xi, vxi = aAVI(aAVI.J(obs.E()), a)
-    assert numpy.amax(numpy.fabs(obs.x(times) - xi)) < 10.0**-6.0, (
-        "actionAngleVerticalInverse is not the inverse of actionAngleVertical for an example orbit when using bisection"
-    )
-    assert numpy.amax(numpy.fabs(obs.vx(times) - vxi)) < 10.0**-6.0, (
-        "actionAngleVerticalInverse is not the inverse of actionAngleVertical for an example orbit when using bisection"
-    )
+    assert (
+        numpy.amax(numpy.fabs(obs.x(times) - xi)) < 10.0**-6.0
+    ), "actionAngleVerticalInverse is not the inverse of actionAngleVertical for an example orbit when using bisection"
+    assert (
+        numpy.amax(numpy.fabs(obs.vx(times) - vxi)) < 10.0**-6.0
+    ), "actionAngleVerticalInverse is not the inverse of actionAngleVertical for an example orbit when using bisection"
     return None
 
 
@@ -6531,9 +6460,9 @@ def test_actionAngleVerticalInverse_freqs_wrtVertical_bisect():
     Om = aAVI.Freqs(aAVI.J(obs.E(pot=isopot)))
     # Compute frequency with actionAngleHarmonic
     _, Omi = aAV.actionsFreqs(*aAVI(aAVI.J(obs.E(pot=isopot)), 0.0))
-    assert numpy.fabs((Om - Omi) / Om) < 10.0**tol, (
-        "Frequency computed using actionAngleVerticalInverse does not agree with that computed by actionAngleVertical when using bisection"
-    )
+    assert (
+        numpy.fabs((Om - Omi) / Om) < 10.0**tol
+    ), "Frequency computed using actionAngleVerticalInverse does not agree with that computed by actionAngleVertical when using bisection"
     return None
 
 
@@ -6557,21 +6486,21 @@ def test_actionAngleVerticalInverse_orbit_bisect():
     x, v = aAVI(aAVI.J(1.0), ta)
     # Compute energy and check whether it's conserved
     E = evaluatelinearPotentials(isopot, x) + v**2.0 / 2.0
-    assert numpy.std(E) / numpy.mean(E) < 1e-10, (
-        "Energy is not conserved along the actionAngleVerticalInverse torus for the IsothermalDiskPotential when using bisection"
-    )
+    assert (
+        numpy.std(E) / numpy.mean(E) < 1e-10
+    ), "Energy is not conserved along the actionAngleVerticalInverse torus for the IsothermalDiskPotential when using bisection"
     # Now traverse the orbit at the frequency rate and check against orbit integration
     Om = aAVI.Freqs(aAVI.J(1.0))
     ts = numpy.linspace(0.0, 2.0 * numpy.pi / Om, 1001)
     x, v = aAVI(aAVI.J(1.0), Om * ts)
     orb = Orbit([x[0], v[0]])
     orb.integrate(ts, isopot)
-    assert numpy.amax(numpy.fabs(orb.x(ts) - x)) < 1e-8, (
-        "Position does not agree with that of the integrated orbit along the torus of the IsothermalDiskPotential when using bisection"
-    )
-    assert numpy.amax(numpy.fabs(orb.vx(ts) - v)) < 1e-8, (
-        "Velocity does not agree with that of the integrated orbit along the torus of the IsothermalDiskPotential when using bisection"
-    )
+    assert (
+        numpy.amax(numpy.fabs(orb.x(ts) - x)) < 1e-8
+    ), "Position does not agree with that of the integrated orbit along the torus of the IsothermalDiskPotential when using bisection"
+    assert (
+        numpy.amax(numpy.fabs(orb.vx(ts) - v)) < 1e-8
+    ), "Velocity does not agree with that of the integrated orbit along the torus of the IsothermalDiskPotential when using bisection"
     return None
 
 
@@ -6595,12 +6524,12 @@ def test_actionAngleVerticalInverse_wrtVertical_pointtransform_bisect():
         pot=isopot, nta=4 * 128, Es=[obs.E()], use_pointtransform=True, bisect=True
     )
     xi, vxi = aAVI(aAVI.J(obs.E()), a)
-    assert numpy.amax(numpy.fabs(obs.x(times) - xi)) < 10.0**-6.0, (
-        "actionAngleVerticalInverse is not the inverse of actionAngleVertical for an example orbit when using bisection and a point transformation"
-    )
-    assert numpy.amax(numpy.fabs(obs.vx(times) - vxi)) < 10.0**-6.0, (
-        "actionAngleVerticalInverse is not the inverse of actionAngleVertical for an example orbit when using bisection and a point transformation"
-    )
+    assert (
+        numpy.amax(numpy.fabs(obs.x(times) - xi)) < 10.0**-6.0
+    ), "actionAngleVerticalInverse is not the inverse of actionAngleVertical for an example orbit when using bisection and a point transformation"
+    assert (
+        numpy.amax(numpy.fabs(obs.vx(times) - vxi)) < 10.0**-6.0
+    ), "actionAngleVerticalInverse is not the inverse of actionAngleVertical for an example orbit when using bisection and a point transformation"
     return None
 
 
@@ -6624,9 +6553,9 @@ def test_actionAngleVerticalInverse_freqs_wrtVertical_pointtransform_bisect():
     Om = aAVI.Freqs(aAVI.J(obs.E(pot=isopot)))
     # Compute frequency with actionAngleHarmonic
     _, Omi = aAV.actionsFreqs(*aAVI(aAVI.J(obs.E(pot=isopot)), 0.0))
-    assert numpy.fabs((Om - Omi) / Om) < 10.0**tol, (
-        "Frequency computed using actionAngleVerticalInverse does not agree with that computed by actionAngleVertical when using bisection and a point transformation"
-    )
+    assert (
+        numpy.fabs((Om - Omi) / Om) < 10.0**tol
+    ), "Frequency computed using actionAngleVerticalInverse does not agree with that computed by actionAngleVertical when using bisection and a point transformation"
     return None
 
 
@@ -6651,21 +6580,21 @@ def test_actionAngleVerticalInverse_orbit_pointtransform_bisect():
     x, v = aAVI(aAVI.J(1.0), ta)
     # Compute energy and check whether it's conserved
     E = evaluatelinearPotentials(isopot, x) + v**2.0 / 2.0
-    assert numpy.std(E) / numpy.mean(E) < 1e-10, (
-        "Energy is not conserved along the actionAngleVerticalInverse torus for the IsothermalDiskPotential when using bisection and a point transformation"
-    )
+    assert (
+        numpy.std(E) / numpy.mean(E) < 1e-10
+    ), "Energy is not conserved along the actionAngleVerticalInverse torus for the IsothermalDiskPotential when using bisection and a point transformation"
     # Now traverse the orbit at the frequency rate and check against orbit integration
     Om = aAVI.Freqs(aAVI.J(1.0))
     ts = numpy.linspace(0.0, 2.0 * numpy.pi / Om, 1001)
     x, v = aAVI(aAVI.J(1.0), Om * ts)
     orb = Orbit([x[0], v[0]])
     orb.integrate(ts, isopot)
-    assert numpy.amax(numpy.fabs(orb.x(ts) - x)) < 1e-8, (
-        "Position does not agree with that of the integrated orbit along the torus of the IsothermalDiskPotential when using bisection and a point transformation"
-    )
-    assert numpy.amax(numpy.fabs(orb.vx(ts) - v)) < 1e-8, (
-        "Velocity does not agree with that of the integrated orbit along the torus of the IsothermalDiskPotential when using bisection and a point transformation"
-    )
+    assert (
+        numpy.amax(numpy.fabs(orb.x(ts) - x)) < 1e-8
+    ), "Position does not agree with that of the integrated orbit along the torus of the IsothermalDiskPotential when using bisection and a point transformation"
+    assert (
+        numpy.amax(numpy.fabs(orb.vx(ts) - v)) < 1e-8
+    ), "Velocity does not agree with that of the integrated orbit along the torus of the IsothermalDiskPotential when using bisection and a point transformation"
     return None
 
 
@@ -6720,12 +6649,12 @@ def test_actionAngleVerticalInverse_wrtVertical_interpolation(
     obs.integrate(times, isopot)
     j, _, a = aAV.actionsFreqsAngles(obs.x(times), obs.vx(times))
     xi, vxi = aAVI(aAVI.J(obs.E()), a)
-    assert numpy.amax(numpy.fabs(obs.x(times) - xi)) < 10.0**-6.0, (
-        "actionAngleVerticalInverse is not the inverse of actionAngleVertical for an example orbit when using interpolation"
-    )
-    assert numpy.amax(numpy.fabs(obs.vx(times) - vxi)) < 10.0**-6.0, (
-        "actionAngleVerticalInverse is not the inverse of actionAngleVertical for an example orbit when using interpolation"
-    )
+    assert (
+        numpy.amax(numpy.fabs(obs.x(times) - xi)) < 10.0**-6.0
+    ), "actionAngleVerticalInverse is not the inverse of actionAngleVertical for an example orbit when using interpolation"
+    assert (
+        numpy.amax(numpy.fabs(obs.vx(times) - vxi)) < 10.0**-6.0
+    ), "actionAngleVerticalInverse is not the inverse of actionAngleVertical for an example orbit when using interpolation"
     return None
 
 
@@ -6744,9 +6673,9 @@ def test_actionAngleVerticalInverse_freqs_wrtVertical_interpolation(
     Om = aAVI.Freqs(aAVI.J(obs.E(pot=isopot)))
     # Compute frequency with actionAngleHarmonic
     _, Omi = aAV.actionsFreqs(*aAVI(aAVI.J(obs.E(pot=isopot)), 0.0))
-    assert numpy.fabs((Om - Omi) / Om) < 10.0**tol, (
-        "Frequency computed using actionAngleVerticalInverse does not agree with that computed by actionAngleVertical when using interpolation"
-    )
+    assert (
+        numpy.fabs((Om - Omi) / Om) < 10.0**tol
+    ), "Frequency computed using actionAngleVerticalInverse does not agree with that computed by actionAngleVertical when using interpolation"
     return None
 
 
@@ -6764,21 +6693,21 @@ def test_actionAngleVerticalInverse_orbit_interpolation(
     x, v = aAVI(aAVI.J(Ei), ta)
     # Compute energy and check whether it's conserved
     E = evaluatelinearPotentials(isopot, x) + v**2.0 / 2.0
-    assert numpy.std(E) / numpy.mean(E) < 1e-10, (
-        "Energy is not conserved along the actionAngleVerticalInverse torus for the IsothermalDiskPotential when using interpolation"
-    )
+    assert (
+        numpy.std(E) / numpy.mean(E) < 1e-10
+    ), "Energy is not conserved along the actionAngleVerticalInverse torus for the IsothermalDiskPotential when using interpolation"
     # Now traverse the orbit at the frequency rate and check against orbit integration
     Om = aAVI.Freqs(aAVI.J(Ei))
     ts = numpy.linspace(0.0, 2.0 * numpy.pi / Om, 1001)
     x, v = aAVI(aAVI.J(Ei), Om * ts)
     orb = Orbit([x[0], v[0]])
     orb.integrate(ts, isopot)
-    assert numpy.amax(numpy.fabs(orb.x(ts) - x)) < 1e-8, (
-        "Position does not agree with that of the integrated orbit along the torus of the IsothermalDiskPotential when using interpolation"
-    )
-    assert numpy.amax(numpy.fabs(orb.vx(ts) - v)) < 1e-8, (
-        "Velocity does not agree with that of the integrated orbit along the torus of the IsothermalDiskPotential when using interpolation"
-    )
+    assert (
+        numpy.amax(numpy.fabs(orb.x(ts) - x)) < 1e-8
+    ), "Position does not agree with that of the integrated orbit along the torus of the IsothermalDiskPotential when using interpolation"
+    assert (
+        numpy.amax(numpy.fabs(orb.vx(ts) - v)) < 1e-8
+    ), "Velocity does not agree with that of the integrated orbit along the torus of the IsothermalDiskPotential when using interpolation"
     return None
 
 
@@ -6798,12 +6727,12 @@ def test_actionAngleVerticalInverse_wrtVertical_interpolation_pointtransform(
     obs.integrate(times, isopot)
     j, _, a = aAV.actionsFreqsAngles(obs.x(times), obs.vx(times))
     xi, vxi = aAVI(aAVI.J(obs.E()), a)
-    assert numpy.amax(numpy.fabs(obs.x(times) - xi)) < 10.0**-6.0, (
-        "actionAngleVerticalInverse is not the inverse of actionAngleVertical for an example orbit when using interpolation and a point transformation"
-    )
-    assert numpy.amax(numpy.fabs(obs.vx(times) - vxi)) < 10.0**-6.0, (
-        "actionAngleVerticalInverse is not the inverse of actionAngleVertical for an example orbit when using interpolation and a point transformation"
-    )
+    assert (
+        numpy.amax(numpy.fabs(obs.x(times) - xi)) < 10.0**-6.0
+    ), "actionAngleVerticalInverse is not the inverse of actionAngleVertical for an example orbit when using interpolation and a point transformation"
+    assert (
+        numpy.amax(numpy.fabs(obs.vx(times) - vxi)) < 10.0**-6.0
+    ), "actionAngleVerticalInverse is not the inverse of actionAngleVertical for an example orbit when using interpolation and a point transformation"
     return None
 
 
@@ -6822,9 +6751,9 @@ def test_actionAngleVerticalInverse_freqs_wrtVertical_interpolation_pointtransfo
     Om = aAVI.Freqs(aAVI.J(obs.E(pot=isopot)))
     # Compute frequency with actionAngleHarmonic
     _, Omi = aAV.actionsFreqs(*aAVI(aAVI.J(obs.E(pot=isopot)), 0.0))
-    assert numpy.fabs((Om - Omi) / Om) < 10.0**tol, (
-        "Frequency computed using actionAngleVerticalInverse does not agree with that computed by actionAngleVertical when using interpolation and a point transformation"
-    )
+    assert (
+        numpy.fabs((Om - Omi) / Om) < 10.0**tol
+    ), "Frequency computed using actionAngleVerticalInverse does not agree with that computed by actionAngleVertical when using interpolation and a point transformation"
     return None
 
 
@@ -6842,21 +6771,21 @@ def test_actionAngleVerticalInverse_orbit_interpolation_pointtransform(
     x, v = aAVI(aAVI.J(Ei), ta)
     # Compute energy and check whether it's conserved
     E = evaluatelinearPotentials(isopot, x) + v**2.0 / 2.0
-    assert numpy.std(E) / numpy.mean(E) < 1e-8, (
-        "Energy is not conserved along the actionAngleVerticalInverse torus for the IsothermalDiskPotential when using interpolation and a point transformation"
-    )
+    assert (
+        numpy.std(E) / numpy.mean(E) < 1e-8
+    ), "Energy is not conserved along the actionAngleVerticalInverse torus for the IsothermalDiskPotential when using interpolation and a point transformation"
     # Now traverse the orbit at the frequency rate and check against orbit integration
     Om = aAVI.Freqs(aAVI.J(Ei))
     ts = numpy.linspace(0.0, 2.0 * numpy.pi / Om, 1001)
     x, v = aAVI(aAVI.J(Ei), Om * ts)
     orb = Orbit([x[0], v[0]])
     orb.integrate(ts, isopot)
-    assert numpy.amax(numpy.fabs(orb.x(ts) - x)) < 1e-7, (
-        "Position does not agree with that of the integrated orbit along the torus of the IsothermalDiskPotential when using interpolation and a point transformation"
-    )
-    assert numpy.amax(numpy.fabs(orb.vx(ts) - v)) < 1e-7, (
-        "Velocity does not agree with that of the integrated orbit along the torus of the IsothermalDiskPotential when using interpolation and a point transformation"
-    )
+    assert (
+        numpy.amax(numpy.fabs(orb.x(ts) - x)) < 1e-7
+    ), "Position does not agree with that of the integrated orbit along the torus of the IsothermalDiskPotential when using interpolation and a point transformation"
+    assert (
+        numpy.amax(numpy.fabs(orb.vx(ts) - v)) < 1e-7
+    ), "Velocity does not agree with that of the integrated orbit along the torus of the IsothermalDiskPotential when using interpolation and a point transformation"
     return None
 
 
@@ -6926,9 +6855,9 @@ def test_actionAngleVerticalInverse_convergence_warnings():
             )
             if raisedWarning:
                 break
-        assert raisedWarning, (
-            "actionAngleVerticalInverse for large energy should have raised convergence warning, but didn't"
-        )
+        assert (
+            raisedWarning
+        ), "actionAngleVerticalInverse for large energy should have raised convergence warning, but didn't"
         for wa in w:
             raisedWarning = (
                 str(wa.message)
@@ -6936,9 +6865,9 @@ def test_actionAngleVerticalInverse_convergence_warnings():
             )
             if raisedWarning:
                 break
-        assert raisedWarning, (
-            "actionAngleVerticalInverse for large energy should have raised convergence warning, but didn't"
-        )
+        assert (
+            raisedWarning
+        ), "actionAngleVerticalInverse for large energy should have raised convergence warning, but didn't"
     return None
 
 
@@ -7071,29 +7000,27 @@ def check_actionAngleIsochroneInverse_wrtIsochrone(
     Ri, vRi, vTi, zi, vzi, phii = aAII(
         numpy.median(jr), numpy.median(jp), numpy.median(jz), ar, ap, az
     )
-    assert numpy.amax(numpy.fabs(obs.R(times) - Ri)) < 10.0**tol, (
-        "actionAngleIsochroneInverse is not the inverse of actionAngleIsochrone for an example orbit"
-    )
+    assert (
+        numpy.amax(numpy.fabs(obs.R(times) - Ri)) < 10.0**tol
+    ), "actionAngleIsochroneInverse is not the inverse of actionAngleIsochrone for an example orbit"
     assert (
         numpy.amax(
             numpy.fabs((obs.phi(times) - phii + numpy.pi) % (2.0 * numpy.pi) - numpy.pi)
         )
         < 10.0**tol
-    ), (
-        "actionAngleIsochroneInverse is not the inverse of actionAngleIsochrone for an example orbit"
-    )
-    assert numpy.amax(numpy.fabs(obs.z(times) - zi)) < 10.0**tol, (
-        "actionAngleIsochroneInverse is not the inverse of actionAngleIsochrone for an example orbit"
-    )
-    assert numpy.amax(numpy.fabs(obs.vR(times) - vRi)) < 10.0**tol, (
-        "actionAngleIsochroneInverse is not the inverse of actionAngleIsochrone for an example orbit"
-    )
-    assert numpy.amax(numpy.fabs(obs.vT(times) - vTi)) < 10.0**tol, (
-        "actionAngleIsochroneInverse is not the inverse of actionAngleIsochrone for an example orbit"
-    )
-    assert numpy.amax(numpy.fabs(obs.vz(times) - vzi)) < 10.0**tol, (
-        "actionAngleIsochroneInverse is not the inverse of actionAngleIsochrone for an example orbit"
-    )
+    ), "actionAngleIsochroneInverse is not the inverse of actionAngleIsochrone for an example orbit"
+    assert (
+        numpy.amax(numpy.fabs(obs.z(times) - zi)) < 10.0**tol
+    ), "actionAngleIsochroneInverse is not the inverse of actionAngleIsochrone for an example orbit"
+    assert (
+        numpy.amax(numpy.fabs(obs.vR(times) - vRi)) < 10.0**tol
+    ), "actionAngleIsochroneInverse is not the inverse of actionAngleIsochrone for an example orbit"
+    assert (
+        numpy.amax(numpy.fabs(obs.vT(times) - vTi)) < 10.0**tol
+    ), "actionAngleIsochroneInverse is not the inverse of actionAngleIsochrone for an example orbit"
+    assert (
+        numpy.amax(numpy.fabs(obs.vz(times) - vzi)) < 10.0**tol
+    ), "actionAngleIsochroneInverse is not the inverse of actionAngleIsochrone for an example orbit"
     return None
 
 
@@ -7295,21 +7222,25 @@ def check_actionAngle_conserved_EccZmaxRperiRap(
         es, zmaxs, rperis, raps = aA.EccZmaxRperiRap(
             obs.R(times), obs.vR(times), obs.vT(times), obs.z(times), obs.vz(times)
         )
-    assert numpy.amax(numpy.fabs(es / numpy.mean(es) - 1)) < 10.0**tole, (
-        "Eccentricity conservation fails at %g%%"
-        % (100.0 * numpy.amax(numpy.fabs(es / numpy.mean(es) - 1)))
+    assert (
+        numpy.amax(numpy.fabs(es / numpy.mean(es) - 1)) < 10.0**tole
+    ), "Eccentricity conservation fails at %g%%" % (
+        100.0 * numpy.amax(numpy.fabs(es / numpy.mean(es) - 1))
     )
-    assert numpy.amax(numpy.fabs(zmaxs / numpy.mean(zmaxs) - 1)) < 10.0**tolzmax, (
-        "Zmax conservation fails at %g%%"
-        % (100.0 * numpy.amax(numpy.fabs(zmaxs / numpy.mean(zmaxs) - 1)))
+    assert (
+        numpy.amax(numpy.fabs(zmaxs / numpy.mean(zmaxs) - 1)) < 10.0**tolzmax
+    ), "Zmax conservation fails at %g%%" % (
+        100.0 * numpy.amax(numpy.fabs(zmaxs / numpy.mean(zmaxs) - 1))
     )
-    assert numpy.amax(numpy.fabs(rperis / numpy.mean(rperis) - 1)) < 10.0**tolrperi, (
-        "Rperi conservation fails at %g%%"
-        % (100.0 * numpy.amax(numpy.fabs(rperis / numpy.mean(rperis) - 1)))
+    assert (
+        numpy.amax(numpy.fabs(rperis / numpy.mean(rperis) - 1)) < 10.0**tolrperi
+    ), "Rperi conservation fails at %g%%" % (
+        100.0 * numpy.amax(numpy.fabs(rperis / numpy.mean(rperis) - 1))
     )
-    assert numpy.amax(numpy.fabs(raps / numpy.mean(raps) - 1)) < 10.0**tolrap, (
-        "Rap conservation fails at %g%%"
-        % (100.0 * numpy.amax(numpy.fabs(raps / numpy.mean(raps) - 1)))
+    assert (
+        numpy.amax(numpy.fabs(raps / numpy.mean(raps) - 1)) < 10.0**tolrap
+    ), "Rap conservation fails at %g%%" % (
+        100.0 * numpy.amax(numpy.fabs(raps / numpy.mean(raps) - 1))
     )
     return None
 

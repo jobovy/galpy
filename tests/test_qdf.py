@@ -16,16 +16,16 @@ def test_meanvR_adiabatic_gl():
         1.0 / 4.0, 0.2, 0.1, 1.0, 1.0, pot=MWPotential, aA=aAA, cutcounter=True
     )
     # In the mid-plane
-    assert numpy.fabs(qdf.meanvR(0.9, 0.0, gl=True)) < 0.01, (
-        "qdf's meanvr is not equal to zero for adiabatic approx."
-    )
+    assert (
+        numpy.fabs(qdf.meanvR(0.9, 0.0, gl=True)) < 0.01
+    ), "qdf's meanvr is not equal to zero for adiabatic approx."
     # higher up
-    assert numpy.fabs(qdf.meanvR(0.9, 0.2, gl=True)) < 0.01, (
-        "qdf's meanvr is not equal to zero for adiabatic approx."
-    )
-    assert numpy.fabs(qdf.meanvR(0.9, -0.25, gl=True)) < 0.01, (
-        "qdf's meanvr is not equal to zero for adiabatic approx."
-    )
+    assert (
+        numpy.fabs(qdf.meanvR(0.9, 0.2, gl=True)) < 0.01
+    ), "qdf's meanvr is not equal to zero for adiabatic approx."
+    assert (
+        numpy.fabs(qdf.meanvR(0.9, -0.25, gl=True)) < 0.01
+    ), "qdf's meanvr is not equal to zero for adiabatic approx."
     return None
 
 
@@ -43,16 +43,16 @@ def test_meanvR_adiabatic_mc():
         cutcounter=True,
     )
     # In the mid-plane
-    assert numpy.fabs(qdf.meanvR(0.9, 0.0, mc=True)) < 0.01, (
-        "qdf's meanvr is not equal to zero for adiabatic approx."
-    )
+    assert (
+        numpy.fabs(qdf.meanvR(0.9, 0.0, mc=True)) < 0.01
+    ), "qdf's meanvr is not equal to zero for adiabatic approx."
     # higher up
-    assert numpy.fabs(qdf.meanvR(0.9, 0.2, mc=True)) < 0.05, (
-        "qdf's meanvr is not equal to zero for adiabatic approx."
-    )
-    assert numpy.fabs(qdf.meanvR(0.9, -0.25, mc=True)) < 0.05, (
-        "qdf's meanvr is not equal to zero for adiabatic approx."
-    )
+    assert (
+        numpy.fabs(qdf.meanvR(0.9, 0.2, mc=True)) < 0.05
+    ), "qdf's meanvr is not equal to zero for adiabatic approx."
+    assert (
+        numpy.fabs(qdf.meanvR(0.9, -0.25, mc=True)) < 0.05
+    ), "qdf's meanvr is not equal to zero for adiabatic approx."
     return None
 
 
@@ -61,9 +61,9 @@ def test_meanvR_adiabatic_gl_center():
         1.0 / 4.0, 0.2, 0.1, 1.0, 1.0, pot=MWPotential, aA=aAA, cutcounter=True
     )
     # In the mid-plane
-    assert numpy.fabs(qdf.meanvR(0.001, 0.0, gl=True)) < 0.01, (
-        "qdf's meanvr is not equal to zero for adiabatic approx."
-    )
+    assert (
+        numpy.fabs(qdf.meanvR(0.001, 0.0, gl=True)) < 0.01
+    ), "qdf's meanvr is not equal to zero for adiabatic approx."
     return None
 
 
@@ -72,16 +72,16 @@ def test_meanvR_staeckel_gl():
         1.0 / 4.0, 0.2, 0.1, 1.0, 1.0, pot=MWPotential, aA=aAS, cutcounter=True
     )
     # In the mid-plane
-    assert numpy.fabs(qdf.meanvR(0.9, 0.0, gl=True)) < 0.01, (
-        "qdf's meanvr is not equal to zero for staeckel approx."
-    )
+    assert (
+        numpy.fabs(qdf.meanvR(0.9, 0.0, gl=True)) < 0.01
+    ), "qdf's meanvr is not equal to zero for staeckel approx."
     # higher up
-    assert numpy.fabs(qdf.meanvR(0.9, 0.2, gl=True)) < 0.01, (
-        "qdf's meanvr is not equal to zero for staeckel approx."
-    )
-    assert numpy.fabs(qdf.meanvR(0.9, -0.25, gl=True)) < 0.01, (
-        "qdf's meanvr is not equal to zero for staeckel approx."
-    )
+    assert (
+        numpy.fabs(qdf.meanvR(0.9, 0.2, gl=True)) < 0.01
+    ), "qdf's meanvr is not equal to zero for staeckel approx."
+    assert (
+        numpy.fabs(qdf.meanvR(0.9, -0.25, gl=True)) < 0.01
+    ), "qdf's meanvr is not equal to zero for staeckel approx."
     return None
 
 
@@ -91,16 +91,16 @@ def test_meanvR_staeckel_mc():
         1.0 / 4.0, 0.2, 0.1, 1.0, 1.0, pot=MWPotential, aA=aAS, cutcounter=True
     )
     # In the mid-plane
-    assert numpy.fabs(qdf.meanvR(0.9, 0.0, mc=True)) < 0.01, (
-        "qdf's meanvr is not equal to zero for staeckel approx."
-    )
+    assert (
+        numpy.fabs(qdf.meanvR(0.9, 0.0, mc=True)) < 0.01
+    ), "qdf's meanvr is not equal to zero for staeckel approx."
     # higher up
-    assert numpy.fabs(qdf.meanvR(0.9, 0.2, mc=True)) < 0.05, (
-        "qdf's meanvr is not equal to zero for staeckel approx."
-    )
-    assert numpy.fabs(qdf.meanvR(0.9, -0.25, mc=True)) < 0.05, (
-        "qdf's meanvr is not equal to zero for staeckel approx."
-    )
+    assert (
+        numpy.fabs(qdf.meanvR(0.9, 0.2, mc=True)) < 0.05
+    ), "qdf's meanvr is not equal to zero for staeckel approx."
+    assert (
+        numpy.fabs(qdf.meanvR(0.9, -0.25, mc=True)) < 0.05
+    ), "qdf's meanvr is not equal to zero for staeckel approx."
     return None
 
 
@@ -113,19 +113,19 @@ def test_meanvT_adiabatic_gl():
     dfc = dehnendf(profileParams=(1.0 / 4.0, 1.0, 0.2), beta=0.0, correct=False)
     # In the mid-plane
     vtp9 = qdf.meanvT(0.9, 0.0, gl=True)
-    assert numpy.fabs(vtp9 - dfc.meanvT(0.9)) < 0.05, (
-        "qdf's meanvT is not close to that of dehnendf"
-    )
-    assert vtp9 < vcirc(MWPotential, 0.9), (
-        "qdf's meanvT is not less than the circular velocity (which we expect)"
-    )
+    assert (
+        numpy.fabs(vtp9 - dfc.meanvT(0.9)) < 0.05
+    ), "qdf's meanvT is not close to that of dehnendf"
+    assert vtp9 < vcirc(
+        MWPotential, 0.9
+    ), "qdf's meanvT is not less than the circular velocity (which we expect)"
     # higher up
-    assert qdf.meanvR(0.9, 0.2, gl=True) < vtp9, (
-        "qdf's meanvT above the plane is not less than in the plane (which we expect)"
-    )
-    assert qdf.meanvR(0.9, -0.25, gl=True) < vtp9, (
-        "qdf's meanvT above the plane is not less than in the plane (which we expect)"
-    )
+    assert (
+        qdf.meanvR(0.9, 0.2, gl=True) < vtp9
+    ), "qdf's meanvT above the plane is not less than in the plane (which we expect)"
+    assert (
+        qdf.meanvR(0.9, -0.25, gl=True) < vtp9
+    ), "qdf's meanvT above the plane is not less than in the plane (which we expect)"
     return None
 
 
@@ -139,19 +139,19 @@ def test_meanvT_adiabatic_mc():
     dfc = dehnendf(profileParams=(1.0 / 4.0, 1.0, 0.2), beta=0.0, correct=False)
     # In the mid-plane
     vtp9 = qdf.meanvT(0.9, 0.0, mc=True)
-    assert numpy.fabs(vtp9 - dfc.meanvT(0.9)) < 0.05, (
-        "qdf's meanvT is not close to that of dehnendf"
-    )
-    assert vtp9 < vcirc(MWPotential, 0.9), (
-        "qdf's meanvT is not less than the circular velocity (which we expect)"
-    )
+    assert (
+        numpy.fabs(vtp9 - dfc.meanvT(0.9)) < 0.05
+    ), "qdf's meanvT is not close to that of dehnendf"
+    assert vtp9 < vcirc(
+        MWPotential, 0.9
+    ), "qdf's meanvT is not less than the circular velocity (which we expect)"
     # higher up
-    assert qdf.meanvR(0.9, 0.2, mc=True) < vtp9, (
-        "qdf's meanvT above the plane is not less than in the plane (which we expect)"
-    )
-    assert qdf.meanvR(0.9, -0.25, mc=True) < vtp9, (
-        "qdf's meanvT above the plane is not less than in the plane (which we expect)"
-    )
+    assert (
+        qdf.meanvR(0.9, 0.2, mc=True) < vtp9
+    ), "qdf's meanvT above the plane is not less than in the plane (which we expect)"
+    assert (
+        qdf.meanvR(0.9, -0.25, mc=True) < vtp9
+    ), "qdf's meanvT above the plane is not less than in the plane (which we expect)"
     return None
 
 
@@ -164,19 +164,19 @@ def test_meanvT_staeckel_gl():
     dfc = dehnendf(profileParams=(1.0 / 4.0, 1.0, 0.2), beta=0.0, correct=False)
     # In the mid-plane
     vtp9 = qdf.meanvT(0.9, 0.0, gl=True)
-    assert numpy.fabs(vtp9 - dfc.meanvT(0.9)) < 0.05, (
-        "qdf's meanvT is not close to that of dehnendf"
-    )
-    assert vtp9 < vcirc(MWPotential, 0.9), (
-        "qdf's meanvT is not less than the circular velocity (which we expect)"
-    )
+    assert (
+        numpy.fabs(vtp9 - dfc.meanvT(0.9)) < 0.05
+    ), "qdf's meanvT is not close to that of dehnendf"
+    assert vtp9 < vcirc(
+        MWPotential, 0.9
+    ), "qdf's meanvT is not less than the circular velocity (which we expect)"
     # higher up
-    assert qdf.meanvR(0.9, 0.2, gl=True) < vtp9, (
-        "qdf's meanvT above the plane is not less than in the plane (which we expect)"
-    )
-    assert qdf.meanvR(0.9, -0.25, gl=True) < vtp9, (
-        "qdf's meanvT above the plane is not less than in the plane (which we expect)"
-    )
+    assert (
+        qdf.meanvR(0.9, 0.2, gl=True) < vtp9
+    ), "qdf's meanvT above the plane is not less than in the plane (which we expect)"
+    assert (
+        qdf.meanvR(0.9, -0.25, gl=True) < vtp9
+    ), "qdf's meanvT above the plane is not less than in the plane (which we expect)"
     return None
 
 
@@ -190,19 +190,19 @@ def test_meanvT_staeckel_mc():
     dfc = dehnendf(profileParams=(1.0 / 4.0, 1.0, 0.2), beta=0.0, correct=False)
     # In the mid-plane
     vtp9 = qdf.meanvT(0.9, 0.0, mc=True)
-    assert numpy.fabs(vtp9 - dfc.meanvT(0.9)) < 0.05, (
-        "qdf's meanvT is not close to that of dehnendf"
-    )
-    assert vtp9 < vcirc(MWPotential, 0.9), (
-        "qdf's meanvT is not less than the circular velocity (which we expect)"
-    )
+    assert (
+        numpy.fabs(vtp9 - dfc.meanvT(0.9)) < 0.05
+    ), "qdf's meanvT is not close to that of dehnendf"
+    assert vtp9 < vcirc(
+        MWPotential, 0.9
+    ), "qdf's meanvT is not less than the circular velocity (which we expect)"
     # higher up
-    assert qdf.meanvR(0.9, 0.2, mc=True) < vtp9, (
-        "qdf's meanvT above the plane is not less than in the plane (which we expect)"
-    )
-    assert qdf.meanvR(0.9, -0.25, mc=True) < vtp9, (
-        "qdf's meanvT above the plane is not less than in the plane (which we expect)"
-    )
+    assert (
+        qdf.meanvR(0.9, 0.2, mc=True) < vtp9
+    ), "qdf's meanvT above the plane is not less than in the plane (which we expect)"
+    assert (
+        qdf.meanvR(0.9, -0.25, mc=True) < vtp9
+    ), "qdf's meanvT above the plane is not less than in the plane (which we expect)"
     return None
 
 
@@ -211,16 +211,16 @@ def test_meanvz_adiabatic_gl():
         1.0 / 4.0, 0.2, 0.1, 1.0, 1.0, pot=MWPotential, aA=aAA, cutcounter=True
     )
     # In the mid-plane
-    assert numpy.fabs(qdf.meanvz(0.9, 0.0, gl=True)) < 0.01, (
-        "qdf's meanvr is not equal to zero for adiabatic approx."
-    )
+    assert (
+        numpy.fabs(qdf.meanvz(0.9, 0.0, gl=True)) < 0.01
+    ), "qdf's meanvr is not equal to zero for adiabatic approx."
     # higher up
-    assert numpy.fabs(qdf.meanvz(0.9, 0.2, gl=True)) < 0.01, (
-        "qdf's meanvr is not equal to zero for adiabatic approx."
-    )
-    assert numpy.fabs(qdf.meanvz(0.9, -0.25, gl=True)) < 0.01, (
-        "qdf's meanvr is not equal to zero for adiabatic approx."
-    )
+    assert (
+        numpy.fabs(qdf.meanvz(0.9, 0.2, gl=True)) < 0.01
+    ), "qdf's meanvr is not equal to zero for adiabatic approx."
+    assert (
+        numpy.fabs(qdf.meanvz(0.9, -0.25, gl=True)) < 0.01
+    ), "qdf's meanvr is not equal to zero for adiabatic approx."
     return None
 
 
@@ -230,16 +230,16 @@ def test_meanvz_adiabatic_mc():
         1.0 / 4.0, 0.2, 0.1, 1.0, 1.0, pot=MWPotential, aA=aAA, cutcounter=True
     )
     # In the mid-plane
-    assert numpy.fabs(qdf.meanvz(0.9, 0.0, mc=True)) < 0.01, (
-        "qdf's meanvr is not equal to zero for adiabatic approx."
-    )
+    assert (
+        numpy.fabs(qdf.meanvz(0.9, 0.0, mc=True)) < 0.01
+    ), "qdf's meanvr is not equal to zero for adiabatic approx."
     # higher up
-    assert numpy.fabs(qdf.meanvz(0.9, 0.2, mc=True)) < 0.05, (
-        "qdf's meanvr is not equal to zero for adiabatic approx."
-    )
-    assert numpy.fabs(qdf.meanvz(0.9, -0.25, mc=True)) < 0.05, (
-        "qdf's meanvr is not equal to zero for adiabatic approx."
-    )
+    assert (
+        numpy.fabs(qdf.meanvz(0.9, 0.2, mc=True)) < 0.05
+    ), "qdf's meanvr is not equal to zero for adiabatic approx."
+    assert (
+        numpy.fabs(qdf.meanvz(0.9, -0.25, mc=True)) < 0.05
+    ), "qdf's meanvr is not equal to zero for adiabatic approx."
     return None
 
 
@@ -248,16 +248,16 @@ def test_meanvz_staeckel_gl():
         1.0 / 4.0, 0.2, 0.1, 1.0, 1.0, pot=MWPotential, aA=aAS, cutcounter=True
     )
     # In the mid-plane
-    assert numpy.fabs(qdf.meanvz(0.9, 0.0, gl=True)) < 0.01, (
-        "qdf's meanvr is not equal to zero for staeckel approx."
-    )
+    assert (
+        numpy.fabs(qdf.meanvz(0.9, 0.0, gl=True)) < 0.01
+    ), "qdf's meanvr is not equal to zero for staeckel approx."
     # higher up
-    assert numpy.fabs(qdf.meanvz(0.9, 0.2, gl=True)) < 0.01, (
-        "qdf's meanvr is not equal to zero for staeckel approx."
-    )
-    assert numpy.fabs(qdf.meanvz(0.9, -0.25, gl=True)) < 0.01, (
-        "qdf's meanvr is not equal to zero for staeckel approx."
-    )
+    assert (
+        numpy.fabs(qdf.meanvz(0.9, 0.2, gl=True)) < 0.01
+    ), "qdf's meanvr is not equal to zero for staeckel approx."
+    assert (
+        numpy.fabs(qdf.meanvz(0.9, -0.25, gl=True)) < 0.01
+    ), "qdf's meanvr is not equal to zero for staeckel approx."
     return None
 
 
@@ -267,16 +267,16 @@ def test_meanvz_staeckel_mc():
         1.0 / 4.0, 0.2, 0.1, 1.0, 1.0, pot=MWPotential, aA=aAS, cutcounter=True
     )
     # In the mid-plane
-    assert numpy.fabs(qdf.meanvz(0.9, 0.0, mc=True)) < 0.01, (
-        "qdf's meanvr is not equal to zero for staeckel approx."
-    )
+    assert (
+        numpy.fabs(qdf.meanvz(0.9, 0.0, mc=True)) < 0.01
+    ), "qdf's meanvr is not equal to zero for staeckel approx."
     # higher up
-    assert numpy.fabs(qdf.meanvz(0.9, 0.2, mc=True)) < 0.05, (
-        "qdf's meanvr is not equal to zero for staeckel approx."
-    )
-    assert numpy.fabs(qdf.meanvz(0.9, -0.25, mc=True)) < 0.05, (
-        "qdf's meanvr is not equal to zero for staeckel approx."
-    )
+    assert (
+        numpy.fabs(qdf.meanvz(0.9, 0.2, mc=True)) < 0.05
+    ), "qdf's meanvr is not equal to zero for staeckel approx."
+    assert (
+        numpy.fabs(qdf.meanvz(0.9, -0.25, mc=True)) < 0.05
+    ), "qdf's meanvr is not equal to zero for staeckel approx."
     return None
 
 
@@ -352,9 +352,7 @@ def test_sigmat_staeckel_gl():
             + 2.0 * numpy.log(gamma)
         )
         < 0.3
-    ), (
-        "qdf's sigmaT2/sigmaR2 deviates more than expected from input for staeckel approx."
-    )
+    ), "qdf's sigmaT2/sigmaR2 deviates more than expected from input for staeckel approx."
     # higher up
     assert (
         numpy.fabs(
@@ -362,9 +360,7 @@ def test_sigmat_staeckel_gl():
             + 2.0 * numpy.log(gamma)
         )
         < 0.3
-    ), (
-        "qdf's sigmaT2/sigmaR2 deviates more than expected from input for staeckel approx."
-    )
+    ), "qdf's sigmaT2/sigmaR2 deviates more than expected from input for staeckel approx."
     return None
 
 
@@ -381,9 +377,7 @@ def test_sigmat_staeckel_mc():
             + 2.0 * numpy.log(gamma)
         )
         < 0.3
-    ), (
-        "qdf's sigmaT2/sigmaR2 deviates more than expected from input for staeckel approx."
-    )
+    ), "qdf's sigmaT2/sigmaR2 deviates more than expected from input for staeckel approx."
     # higher up
     assert (
         numpy.fabs(
@@ -391,9 +385,7 @@ def test_sigmat_staeckel_mc():
             + 2.0 * numpy.log(gamma)
         )
         < 0.3
-    ), (
-        "qdf's sigmaT2/sigmaR2 deviates more than expected from input for staeckel approx."
-    )
+    ), "qdf's sigmaT2/sigmaR2 deviates more than expected from input for staeckel approx."
     return None
 
 
@@ -477,9 +469,9 @@ def test_sigmarz_adiabatic_gl():
         1.0 / 4.0, 0.2, 0.1, 1.0, 1.0, pot=MWPotential, aA=aAA, cutcounter=True
     )
     # In the mid-plane, should be zero
-    assert numpy.fabs(qdf.sigmaRz(0.9, 0.0, gl=True)) < 0.05, (
-        "qdf's sigmaRz deviates more than expected from zero in the mid-plane for adiabatic approx."
-    )
+    assert (
+        numpy.fabs(qdf.sigmaRz(0.9, 0.0, gl=True)) < 0.05
+    ), "qdf's sigmaRz deviates more than expected from zero in the mid-plane for adiabatic approx."
     return None
 
 
@@ -489,9 +481,9 @@ def test_sigmarz_adiabatic_mc():
         1.0 / 4.0, 0.2, 0.1, 1.0, 1.0, pot=MWPotential, aA=aAA, cutcounter=True
     )
     # In the mid-plane, should be zero
-    assert numpy.fabs(qdf.sigmaRz(0.9, 0.0, mc=True)) < 0.05, (
-        "qdf's sigmaRz deviates more than expected from zero in the mid-plane for adiabatic approx."
-    )
+    assert (
+        numpy.fabs(qdf.sigmaRz(0.9, 0.0, mc=True)) < 0.05
+    ), "qdf's sigmaRz deviates more than expected from zero in the mid-plane for adiabatic approx."
     return None
 
 
@@ -500,9 +492,9 @@ def test_sigmarz_staeckel_gl():
         1.0 / 4.0, 0.2, 0.1, 1.0, 1.0, pot=MWPotential, aA=aAS, cutcounter=True
     )
     # In the mid-plane, should be zero
-    assert numpy.fabs(qdf.sigmaRz(0.9, 0.0, gl=True)) < 0.05, (
-        "qdf's sigmaRz deviates more than expected from zero in the mid-plane for staeckel approx."
-    )
+    assert (
+        numpy.fabs(qdf.sigmaRz(0.9, 0.0, gl=True)) < 0.05
+    ), "qdf's sigmaRz deviates more than expected from zero in the mid-plane for staeckel approx."
     return None
 
 
@@ -512,9 +504,9 @@ def test_sigmarz_staeckel_mc():
         1.0 / 4.0, 0.2, 0.1, 1.0, 1.0, pot=MWPotential, aA=aAS, cutcounter=True
     )
     # In the mid-plane, should be zero
-    assert numpy.fabs(qdf.sigmaRz(0.9, 0.0, mc=True)) < 0.05, (
-        "qdf's sigmaRz deviates more than expected from zero in the mid-plane for staeckel approx."
-    )
+    assert (
+        numpy.fabs(qdf.sigmaRz(0.9, 0.0, mc=True)) < 0.05
+    ), "qdf's sigmaRz deviates more than expected from zero in the mid-plane for staeckel approx."
     return None
 
 
@@ -523,15 +515,15 @@ def test_tilt_adiabatic_gl():
         1.0 / 4.0, 0.2, 0.1, 1.0, 1.0, pot=MWPotential, aA=aAA, cutcounter=True
     )
     # should be zero everywhere
-    assert numpy.fabs(qdf.tilt(0.9, 0.0, gl=True)) < 0.05 / 180.0 * numpy.pi, (
-        "qdf's tilt deviates more than expected from zero for adiabatic approx."
-    )
-    assert numpy.fabs(qdf.tilt(0.9, 0.2, gl=True)) < 0.05 / 180.0 * numpy.pi, (
-        "qdf's tilt deviates more than expected from zero for adiabatic approx."
-    )
-    assert numpy.fabs(qdf.tilt(0.9, -0.25, gl=True)) < 0.05 / 180.0 * numpy.pi, (
-        "qdf's tilt deviates more than expected from zero for adiabatic approx."
-    )
+    assert (
+        numpy.fabs(qdf.tilt(0.9, 0.0, gl=True)) < 0.05 / 180.0 * numpy.pi
+    ), "qdf's tilt deviates more than expected from zero for adiabatic approx."
+    assert (
+        numpy.fabs(qdf.tilt(0.9, 0.2, gl=True)) < 0.05 / 180.0 * numpy.pi
+    ), "qdf's tilt deviates more than expected from zero for adiabatic approx."
+    assert (
+        numpy.fabs(qdf.tilt(0.9, -0.25, gl=True)) < 0.05 / 180.0 * numpy.pi
+    ), "qdf's tilt deviates more than expected from zero for adiabatic approx."
     return None
 
 
@@ -541,15 +533,15 @@ def test_tilt_adiabatic_mc():
         1.0 / 4.0, 0.2, 0.1, 1.0, 1.0, pot=MWPotential, aA=aAA, cutcounter=True
     )
     # should be zero everywhere
-    assert numpy.fabs(qdf.tilt(0.9, 0.0, mc=True)) < 0.05 / 180.0 * numpy.pi, (
-        "qdf's tilt deviates more than expected from zero for adiabatic approx."
-    )
-    assert numpy.fabs(qdf.tilt(0.9, 0.2, mc=True)) < 0.05 / 180.0 * numpy.pi, (
-        "qdf's tilt deviates more than expected from zero for adiabatic approx."
-    )
-    assert numpy.fabs(qdf.tilt(0.9, -0.25, mc=True)) < 0.05 / 180.0 * numpy.pi, (
-        "qdf's tilt deviates more than expected from zero for adiabatic approx."
-    )
+    assert (
+        numpy.fabs(qdf.tilt(0.9, 0.0, mc=True)) < 0.05 / 180.0 * numpy.pi
+    ), "qdf's tilt deviates more than expected from zero for adiabatic approx."
+    assert (
+        numpy.fabs(qdf.tilt(0.9, 0.2, mc=True)) < 0.05 / 180.0 * numpy.pi
+    ), "qdf's tilt deviates more than expected from zero for adiabatic approx."
+    assert (
+        numpy.fabs(qdf.tilt(0.9, -0.25, mc=True)) < 0.05 / 180.0 * numpy.pi
+    ), "qdf's tilt deviates more than expected from zero for adiabatic approx."
     return None
 
 
@@ -558,9 +550,9 @@ def test_tilt_staeckel_gl():
         1.0 / 4.0, 0.2, 0.1, 1.0, 1.0, pot=MWPotential, aA=aAS, cutcounter=True
     )
     # should be zero in the mid-plane and roughly toward the GC elsewhere
-    assert numpy.fabs(qdf.tilt(0.9, 0.0, gl=True)) < 0.05 / 180.0 * numpy.pi, (
-        "qdf's tilt deviates more than expected from zero in the mid-plane for staeckel approx."
-    )
+    assert (
+        numpy.fabs(qdf.tilt(0.9, 0.0, gl=True)) < 0.05 / 180.0 * numpy.pi
+    ), "qdf's tilt deviates more than expected from zero in the mid-plane for staeckel approx."
     assert (
         numpy.fabs(qdf.tilt(0.9, 0.1, gl=True) - numpy.arctan(0.1 / 0.9))
         < 2.0 / 180.0 * numpy.pi
@@ -582,9 +574,9 @@ def test_tilt_staeckel_mc():
         1.0 / 4.0, 0.2, 0.1, 1.0, 1.0, pot=MWPotential, aA=aAS, cutcounter=True
     )
     # should be zero in the mid-plane and roughly toward the GC elsewhere
-    assert numpy.fabs(qdf.tilt(0.9, 0.0, mc=True)) < 1.0 / 180.0 * numpy.pi, (
-        "qdf's tilt deviates more than expected from zero in the mid-plane for staeckel approx."
-    )  # this is tough
+    assert (
+        numpy.fabs(qdf.tilt(0.9, 0.0, mc=True)) < 1.0 / 180.0 * numpy.pi
+    ), "qdf's tilt deviates more than expected from zero in the mid-plane for staeckel approx."  # this is tough
     assert (
         numpy.fabs(qdf.tilt(0.9, 0.1, mc=True) - numpy.arctan(0.1 / 0.9))
         < 3.0 / 180.0 * numpy.pi
@@ -596,16 +588,16 @@ def test_estimate_hr():
     qdf = quasiisothermaldf(
         1.0 / 4.0, 0.2, 0.1, 1.0, 1.0, pot=MWPotential, aA=aAS, cutcounter=True
     )
-    assert numpy.fabs((qdf.estimate_hr(0.9, z=0.0) - 0.25) / 0.25) < 0.1, (
-        "estimated scale length deviates more from input scale length than expected"
-    )
+    assert (
+        numpy.fabs((qdf.estimate_hr(0.9, z=0.0) - 0.25) / 0.25) < 0.1
+    ), "estimated scale length deviates more from input scale length than expected"
     # Another one
     qdf = quasiisothermaldf(
         1.0 / 2.0, 0.2, 0.1, 1.0, 1.0, pot=MWPotential, aA=aAS, cutcounter=True
     )
-    assert numpy.fabs((qdf.estimate_hr(0.9, z=None) - 0.5) / 0.5) < 0.15, (
-        "estimated scale length deviates more from input scale length than expected"
-    )
+    assert (
+        numpy.fabs((qdf.estimate_hr(0.9, z=None) - 0.5) / 0.5) < 0.15
+    ), "estimated scale length deviates more from input scale length than expected"
     # Another one
     qdf = quasiisothermaldf(
         1.0, 0.2, 0.1, 1.0, 1.0, pot=MWPotential, aA=aAS, cutcounter=True
@@ -633,12 +625,12 @@ def test_estimate_hz():
         / 2.0
         / numpy.pi
     )
-    assert numpy.fabs((qdf.estimate_hz(0.9, z=0.125) - expec_hz) / expec_hz) < 0.1, (
-        "estimated scale height not as expected"
-    )
-    assert qdf.estimate_hz(0.9, z=0.0) > 1.0, (
-        "estimated scale height at z=0 not very large"
-    )
+    assert (
+        numpy.fabs((qdf.estimate_hz(0.9, z=0.125) - expec_hz) / expec_hz) < 0.1
+    ), "estimated scale height not as expected"
+    assert (
+        qdf.estimate_hz(0.9, z=0.0) > 1.0
+    ), "estimated scale height at z=0 not very large"
     # Another one
     qdf = quasiisothermaldf(
         1.0 / 4.0, 0.3, 0.2, 1.0, 1.0, pot=MWPotential, aA=aAS, cutcounter=True
@@ -652,9 +644,9 @@ def test_estimate_hz():
         / 2.0
         / numpy.pi
     )
-    assert numpy.fabs((qdf.estimate_hz(0.9, z=0.125) - expec_hz) / expec_hz) < 0.15, (
-        "estimated scale height not as expected"
-    )
+    assert (
+        numpy.fabs((qdf.estimate_hz(0.9, z=0.125) - expec_hz) / expec_hz) < 0.15
+    ), "estimated scale height not as expected"
     return None
 
 
@@ -662,16 +654,16 @@ def test_estimate_hsr():
     qdf = quasiisothermaldf(
         1.0 / 4.0, 0.2, 0.1, 1.0, 1.0, pot=MWPotential, aA=aAS, cutcounter=True
     )
-    assert numpy.fabs((qdf.estimate_hsr(0.9, z=0.0) - 1.0) / 1.0) < 0.25, (
-        "estimated radial-dispersion scale length deviates more from input scale length than expected"
-    )
+    assert (
+        numpy.fabs((qdf.estimate_hsr(0.9, z=0.0) - 1.0) / 1.0) < 0.25
+    ), "estimated radial-dispersion scale length deviates more from input scale length than expected"
     # Another one
     qdf = quasiisothermaldf(
         1.0 / 2.0, 0.2, 0.1, 2.0, 1.0, pot=MWPotential, aA=aAS, cutcounter=True
     )
-    assert numpy.fabs((qdf.estimate_hsr(0.9, z=0.05) - 2.0) / 2.0) < 0.25, (
-        "estimated radial-dispersion scale length deviates more from input scale length than expected"
-    )
+    assert (
+        numpy.fabs((qdf.estimate_hsr(0.9, z=0.05) - 2.0) / 2.0) < 0.25
+    ), "estimated radial-dispersion scale length deviates more from input scale length than expected"
     return None
 
 
@@ -679,16 +671,16 @@ def test_estimate_hsz():
     qdf = quasiisothermaldf(
         1.0 / 4.0, 0.2, 0.1, 1.0, 1.0, pot=MWPotential, aA=aAS, cutcounter=True
     )
-    assert numpy.fabs((qdf.estimate_hsz(0.9, z=0.0) - 1.0) / 1.0) < 0.25, (
-        "estimated vertical-dispersion scale length deviates more from input scale length than expected"
-    )
+    assert (
+        numpy.fabs((qdf.estimate_hsz(0.9, z=0.0) - 1.0) / 1.0) < 0.25
+    ), "estimated vertical-dispersion scale length deviates more from input scale length than expected"
     # Another one
     qdf = quasiisothermaldf(
         1.0 / 2.0, 0.2, 0.1, 1.0, 2.0, pot=MWPotential, aA=aAS, cutcounter=True
     )
-    assert numpy.fabs((qdf.estimate_hsz(0.9, z=0.05) - 2.0) / 2.0) < 0.25, (
-        "estimated vertical-dispersion scale length deviates more from input scale length than expected"
-    )
+    assert (
+        numpy.fabs((qdf.estimate_hsz(0.9, z=0.05) - 2.0) / 2.0) < 0.25
+    ), "estimated vertical-dispersion scale length deviates more from input scale length than expected"
     return None
 
 
@@ -723,9 +715,9 @@ def test_meanjr_center():
     qdf = quasiisothermaldf(
         1.0 / 4.0, 0.2, 0.1, 1.0, 1.0, pot=MWPotential, aA=aAS, cutcounter=True
     )
-    assert not numpy.isnan(qdf.meanjr(0.001, 0.0, mc=True)), (
-        "meanjr at the center is NaN"
-    )
+    assert not numpy.isnan(
+        qdf.meanjr(0.001, 0.0, mc=True)
+    ), "meanjr at the center is NaN"
     return None
 
 
@@ -790,9 +782,9 @@ def test_sampleV():
         < 0.05
     ), "sampleV vR stddev is not equal to sigmaR"
     # test vT
-    assert numpy.fabs(numpy.mean(samples[:, 1] - qdf.meanvT(0.8, 0.1))) < 0.015, (
-        "sampleV vT mean is not equal to meanvT"
-    )
+    assert (
+        numpy.fabs(numpy.mean(samples[:, 1] - qdf.meanvT(0.8, 0.1))) < 0.015
+    ), "sampleV vT mean is not equal to meanvT"
     assert (
         numpy.fabs(
             numpy.log(numpy.std(samples[:, 1])) - 0.5 * numpy.log(qdf.sigmaT2(0.8, 0.1))
@@ -819,9 +811,9 @@ def test_sampleV_physical():
     vo = 225.0
     samples = qdf.sampleV(0.8, 0.1, n=1000, vo=vo)
     # test vR
-    assert numpy.fabs(numpy.mean(samples[:, 0])) < 0.02 * vo, (
-        "sampleV vR mean is not zero"
-    )
+    assert (
+        numpy.fabs(numpy.mean(samples[:, 0])) < 0.02 * vo
+    ), "sampleV vR mean is not zero"
     assert (
         numpy.fabs(
             numpy.log(numpy.std(samples[:, 0]))
@@ -841,9 +833,9 @@ def test_sampleV_physical():
         < 0.05
     ), "sampleV vT stddev is not equal to sigmaT"
     # test vz
-    assert numpy.fabs(numpy.mean(samples[:, 2])) < 0.01 * vo, (
-        "sampleV vz mean is not zero"
-    )
+    assert (
+        numpy.fabs(numpy.mean(samples[:, 2])) < 0.01 * vo
+    ), "sampleV vz mean is not zero"
     assert (
         numpy.fabs(
             numpy.log(numpy.std(samples[:, 2]))
@@ -880,9 +872,9 @@ def test_sampleV_interpolate():
         )
         samples = samples[1000:2000, :]
         # test vR
-        assert numpy.fabs(numpy.mean(samples[:, 0])) < 0.02, (
-            "sampleV interpolate vR mean is not zero"
-        )
+        assert (
+            numpy.fabs(numpy.mean(samples[:, 0])) < 0.02
+        ), "sampleV interpolate vR mean is not zero"
         assert (
             numpy.fabs(
                 numpy.log(numpy.std(samples[:, 0]))
@@ -891,9 +883,9 @@ def test_sampleV_interpolate():
             < 0.05
         ), "sampleV interpolate vR stddev is not equal to sigmaR"
         # test vT
-        assert numpy.fabs(numpy.mean(samples[:, 1] - qdf.meanvT(0.8, 0.1))) < 0.015, (
-            "sampleV interpolate vT mean is not equal to meanvT"
-        )
+        assert (
+            numpy.fabs(numpy.mean(samples[:, 1] - qdf.meanvT(0.8, 0.1))) < 0.015
+        ), "sampleV interpolate vT mean is not equal to meanvT"
         assert (
             numpy.fabs(
                 numpy.log(numpy.std(samples[:, 1]))
@@ -902,9 +894,9 @@ def test_sampleV_interpolate():
             < 0.05
         ), "sampleV interpolate vT stddev is not equal to sigmaT"
         # test vz
-        assert numpy.fabs(numpy.mean(samples[:, 2])) < 0.01, (
-            "sampleV interpolate vz mean is not zero"
-        )
+        assert (
+            numpy.fabs(numpy.mean(samples[:, 2])) < 0.01
+        ), "sampleV interpolate vz mean is not zero"
         assert (
             numpy.fabs(
                 numpy.log(numpy.std(samples[:, 2]))
@@ -931,13 +923,13 @@ def test_sampleV_interpolate():
     hash3 = qdf._maxVT_hash
     ip3 = qdf._maxVT_ip
     assert hash1 == hash2, "sampleV interpolate hash is changed unexpectedly"
-    assert ip1 == ip2, (
-        "sampleV interpolate interpolation object is changed unexpectedly"
-    )
+    assert (
+        ip1 == ip2
+    ), "sampleV interpolate interpolation object is changed unexpectedly"
     assert hash3 != hash2, "sampleV interpolate hash did not changed as expected"
-    assert ip3 != ip2, (
-        "sampleV interpolate interpolation object did not changed as expected"
-    )
+    assert (
+        ip3 != ip2
+    ), "sampleV interpolate interpolation object did not changed as expected"
     # test user-specified grid edges
     # since num_std is set so high, the extra outlier of (8,5) is not covered
     # by it. So in order for this function to run in a reasonable time, it must
@@ -967,9 +959,9 @@ def test_sampleV_interpolate():
         z_pixel=0.07,
         vo=vo,
     )
-    assert numpy.all(numpy.fabs(pos - neg) / vo < 10.0**-8.0), (
-        "sampleV interpolate absolute value of z is incorrect"
-    )
+    assert numpy.all(
+        numpy.fabs(pos - neg) / vo < 10.0**-8.0
+    ), "sampleV interpolate absolute value of z is incorrect"
     return None
 
 
@@ -983,12 +975,12 @@ def test_pvR_adiabatic():
     pvR = numpy.array([qdf.pvR(vr, R, z) for vr in vRs])
     mvR = numpy.sum(vRs * pvR) / numpy.sum(pvR)
     svR = numpy.sqrt(numpy.sum(vRs**2.0 * pvR) / numpy.sum(pvR) - mvR**2.0)
-    assert numpy.fabs(mvR) < 0.01, (
-        "mean vR calculated from pvR not equal to zero for adiabatic actions"
-    )
-    assert numpy.fabs(numpy.log(svR) - 0.5 * numpy.log(qdf.sigmaR2(R, z))) < 0.01, (
-        "sigma vR calculated from pvR not equal to that from sigmaR2 for adiabatic actions"
-    )
+    assert (
+        numpy.fabs(mvR) < 0.01
+    ), "mean vR calculated from pvR not equal to zero for adiabatic actions"
+    assert (
+        numpy.fabs(numpy.log(svR) - 0.5 * numpy.log(qdf.sigmaR2(R, z))) < 0.01
+    ), "sigma vR calculated from pvR not equal to that from sigmaR2 for adiabatic actions"
     return None
 
 
@@ -1002,12 +994,12 @@ def test_pvR_staeckel():
     pvR = numpy.array([qdf.pvR(vr, R, z) for vr in vRs])
     mvR = numpy.sum(vRs * pvR) / numpy.sum(pvR)
     svR = numpy.sqrt(numpy.sum(vRs**2.0 * pvR) / numpy.sum(pvR) - mvR**2.0)
-    assert numpy.fabs(mvR) < 0.01, (
-        "mean vR calculated from pvR not equal to zero for staeckel actions"
-    )
-    assert numpy.fabs(numpy.log(svR) - 0.5 * numpy.log(qdf.sigmaR2(R, z))) < 0.01, (
-        "sigma vR calculated from pvR not equal to that from sigmaR2 for staeckel actions"
-    )
+    assert (
+        numpy.fabs(mvR) < 0.01
+    ), "mean vR calculated from pvR not equal to zero for staeckel actions"
+    assert (
+        numpy.fabs(numpy.log(svR) - 0.5 * numpy.log(qdf.sigmaR2(R, z))) < 0.01
+    ), "sigma vR calculated from pvR not equal to that from sigmaR2 for staeckel actions"
     return None
 
 
@@ -1022,22 +1014,22 @@ def test_pvR_staeckel_diffngl():
     pvR = numpy.array([qdf.pvR(vr, R, z, ngl=10) for vr in vRs])
     mvR = numpy.sum(vRs * pvR) / numpy.sum(pvR)
     svR = numpy.sqrt(numpy.sum(vRs**2.0 * pvR) / numpy.sum(pvR) - mvR**2.0)
-    assert numpy.fabs(mvR) < 0.01, (
-        "mean vR calculated from pvR not equal to zero for staeckel actions"
-    )
-    assert numpy.fabs(numpy.log(svR) - 0.5 * numpy.log(qdf.sigmaR2(R, z))) < 0.01, (
-        "sigma vR calculated from pvR not equal to that from sigmaR2 for staeckel actions"
-    )
+    assert (
+        numpy.fabs(mvR) < 0.01
+    ), "mean vR calculated from pvR not equal to zero for staeckel actions"
+    assert (
+        numpy.fabs(numpy.log(svR) - 0.5 * numpy.log(qdf.sigmaR2(R, z))) < 0.01
+    ), "sigma vR calculated from pvR not equal to that from sigmaR2 for staeckel actions"
     # ngl=40
     pvR = numpy.array([qdf.pvR(vr, R, z, ngl=40) for vr in vRs])
     mvR = numpy.sum(vRs * pvR) / numpy.sum(pvR)
     svR = numpy.sqrt(numpy.sum(vRs**2.0 * pvR) / numpy.sum(pvR) - mvR**2.0)
-    assert numpy.fabs(mvR) < 0.01, (
-        "mean vR calculated from pvR not equal to zero for staeckel actions"
-    )
-    assert numpy.fabs(numpy.log(svR) - 0.5 * numpy.log(qdf.sigmaR2(R, z))) < 0.01, (
-        "sigma vR calculated from pvR not equal to that from sigmaR2 for staeckel actions"
-    )
+    assert (
+        numpy.fabs(mvR) < 0.01
+    ), "mean vR calculated from pvR not equal to zero for staeckel actions"
+    assert (
+        numpy.fabs(numpy.log(svR) - 0.5 * numpy.log(qdf.sigmaR2(R, z))) < 0.01
+    ), "sigma vR calculated from pvR not equal to that from sigmaR2 for staeckel actions"
     # ngl=11, shouldn't work
     try:
         pvR = numpy.array([qdf.pvR(vr, R, z, ngl=11) for vr in vRs])
@@ -1058,12 +1050,12 @@ def test_pvT_adiabatic():
     pvT = numpy.array([qdf.pvT(vt, R, z) for vt in vTs])
     mvT = numpy.sum(vTs * pvT) / numpy.sum(pvT)
     svT = numpy.sqrt(numpy.sum(vTs**2.0 * pvT) / numpy.sum(pvT) - mvT**2.0)
-    assert numpy.fabs(mvT - qdf.meanvT(R, z)) < 0.01, (
-        "mean vT calculated from pvT not equal to zero for adiabatic actions"
-    )
-    assert numpy.fabs(numpy.log(svT) - 0.5 * numpy.log(qdf.sigmaT2(R, z))) < 0.01, (
-        "sigma vT calculated from pvT not equal to that from sigmaT2 for adiabatic actions"
-    )
+    assert (
+        numpy.fabs(mvT - qdf.meanvT(R, z)) < 0.01
+    ), "mean vT calculated from pvT not equal to zero for adiabatic actions"
+    assert (
+        numpy.fabs(numpy.log(svT) - 0.5 * numpy.log(qdf.sigmaT2(R, z))) < 0.01
+    ), "sigma vT calculated from pvT not equal to that from sigmaT2 for adiabatic actions"
     return None
 
 
@@ -1077,12 +1069,12 @@ def test_pvT_staeckel():
     pvT = numpy.array([qdf.pvT(vt, R, z) for vt in vTs])
     mvT = numpy.sum(vTs * pvT) / numpy.sum(pvT)
     svT = numpy.sqrt(numpy.sum(vTs**2.0 * pvT) / numpy.sum(pvT) - mvT**2.0)
-    assert numpy.fabs(mvT - qdf.meanvT(R, z)) < 0.01, (
-        "mean vT calculated from pvT not equal to zero for staeckel actions"
-    )
-    assert numpy.fabs(numpy.log(svT) - 0.5 * numpy.log(qdf.sigmaT2(R, z))) < 0.01, (
-        "sigma vT calculated from pvT not equal to that from sigmaT2 for staeckel actions"
-    )
+    assert (
+        numpy.fabs(mvT - qdf.meanvT(R, z)) < 0.01
+    ), "mean vT calculated from pvT not equal to zero for staeckel actions"
+    assert (
+        numpy.fabs(numpy.log(svT) - 0.5 * numpy.log(qdf.sigmaT2(R, z))) < 0.01
+    ), "sigma vT calculated from pvT not equal to that from sigmaT2 for staeckel actions"
     return None
 
 
@@ -1097,22 +1089,22 @@ def test_pvT_staeckel_diffngl():
     pvT = numpy.array([qdf.pvT(vt, R, z, ngl=10) for vt in vTs])
     mvT = numpy.sum(vTs * pvT) / numpy.sum(pvT)
     svT = numpy.sqrt(numpy.sum(vTs**2.0 * pvT) / numpy.sum(pvT) - mvT**2.0)
-    assert numpy.fabs(mvT - qdf.meanvT(R, z)) < 0.01, (
-        "mean vT calculated from pvT not equal to zero for staeckel actions"
-    )
-    assert numpy.fabs(numpy.log(svT) - 0.5 * numpy.log(qdf.sigmaT2(R, z))) < 0.01, (
-        "sigma vT calculated from pvT not equal to that from sigmaT2 for staeckel actions"
-    )
+    assert (
+        numpy.fabs(mvT - qdf.meanvT(R, z)) < 0.01
+    ), "mean vT calculated from pvT not equal to zero for staeckel actions"
+    assert (
+        numpy.fabs(numpy.log(svT) - 0.5 * numpy.log(qdf.sigmaT2(R, z))) < 0.01
+    ), "sigma vT calculated from pvT not equal to that from sigmaT2 for staeckel actions"
     # ngl=40
     pvT = numpy.array([qdf.pvT(vt, R, z, ngl=40) for vt in vTs])
     mvT = numpy.sum(vTs * pvT) / numpy.sum(pvT)
     svT = numpy.sqrt(numpy.sum(vTs**2.0 * pvT) / numpy.sum(pvT) - mvT**2.0)
-    assert numpy.fabs(mvT - qdf.meanvT(R, z)) < 0.01, (
-        "mean vT calculated from pvT not equal to zero for staeckel actions"
-    )
-    assert numpy.fabs(numpy.log(svT) - 0.5 * numpy.log(qdf.sigmaT2(R, z))) < 0.01, (
-        "sigma vT calculated from pvT not equal to that from sigmaT2 for staeckel actions"
-    )
+    assert (
+        numpy.fabs(mvT - qdf.meanvT(R, z)) < 0.01
+    ), "mean vT calculated from pvT not equal to zero for staeckel actions"
+    assert (
+        numpy.fabs(numpy.log(svT) - 0.5 * numpy.log(qdf.sigmaT2(R, z))) < 0.01
+    ), "sigma vT calculated from pvT not equal to that from sigmaT2 for staeckel actions"
     # ngl=11, shouldn't work
     try:
         pvT = numpy.array([qdf.pvT(vt, R, z, ngl=11) for vt in vTs])
@@ -1133,12 +1125,12 @@ def test_pvz_adiabatic():
     pvz = numpy.array([qdf.pvz(vz, R, z) for vz in vzs])
     mvz = numpy.sum(vzs * pvz) / numpy.sum(pvz)
     svz = numpy.sqrt(numpy.sum(vzs**2.0 * pvz) / numpy.sum(pvz) - mvz**2.0)
-    assert numpy.fabs(mvz) < 0.01, (
-        "mean vz calculated from pvz not equal to zero for adiabatic actions"
-    )
-    assert numpy.fabs(numpy.log(svz) - 0.5 * numpy.log(qdf.sigmaz2(R, z))) < 0.01, (
-        "sigma vz calculated from pvz not equal to that from sigmaz2 for adiabatic actions"
-    )
+    assert (
+        numpy.fabs(mvz) < 0.01
+    ), "mean vz calculated from pvz not equal to zero for adiabatic actions"
+    assert (
+        numpy.fabs(numpy.log(svz) - 0.5 * numpy.log(qdf.sigmaz2(R, z))) < 0.01
+    ), "sigma vz calculated from pvz not equal to that from sigmaz2 for adiabatic actions"
     return None
 
 
@@ -1152,24 +1144,24 @@ def test_pvz_staeckel():
     pvz = numpy.array([qdf.pvz(vz, R, z) for vz in vzs])
     mvz = numpy.sum(vzs * pvz) / numpy.sum(pvz)
     svz = numpy.sqrt(numpy.sum(vzs**2.0 * pvz) / numpy.sum(pvz) - mvz**2.0)
-    assert numpy.fabs(mvz) < 0.01, (
-        "mean vz calculated from pvz not equal to zero for staeckel actions"
-    )
-    assert numpy.fabs(numpy.log(svz) - 0.5 * numpy.log(qdf.sigmaz2(R, z))) < 0.01, (
-        "sigma vz calculated from pvz not equal to that from sigmaz2 for staeckel actions"
-    )
+    assert (
+        numpy.fabs(mvz) < 0.01
+    ), "mean vz calculated from pvz not equal to zero for staeckel actions"
+    assert (
+        numpy.fabs(numpy.log(svz) - 0.5 * numpy.log(qdf.sigmaz2(R, z))) < 0.01
+    ), "sigma vz calculated from pvz not equal to that from sigmaz2 for staeckel actions"
     # same w/ explicit sigmaR input
     pvz = numpy.array(
         [qdf.pvz(vz, R, z, _sigmaR1=0.95 * numpy.sqrt(qdf.sigmaR2(R, z))) for vz in vzs]
     )
     mvz = numpy.sum(vzs * pvz) / numpy.sum(pvz)
     svz = numpy.sqrt(numpy.sum(vzs**2.0 * pvz) / numpy.sum(pvz) - mvz**2.0)
-    assert numpy.fabs(mvz) < 0.01, (
-        "mean vz calculated from pvz not equal to zero for staeckel actions"
-    )
-    assert numpy.fabs(numpy.log(svz) - 0.5 * numpy.log(qdf.sigmaz2(R, z))) < 0.01, (
-        "sigma vz calculated from pvz not equal to that from sigmaz2 for staeckel actions"
-    )
+    assert (
+        numpy.fabs(mvz) < 0.01
+    ), "mean vz calculated from pvz not equal to zero for staeckel actions"
+    assert (
+        numpy.fabs(numpy.log(svz) - 0.5 * numpy.log(qdf.sigmaz2(R, z))) < 0.01
+    ), "sigma vz calculated from pvz not equal to that from sigmaz2 for staeckel actions"
     return None
 
 
@@ -1184,22 +1176,22 @@ def test_pvz_staeckel_diffngl():
     pvz = numpy.array([qdf.pvz(vz, R, z, ngl=10) for vz in vzs])
     mvz = numpy.sum(vzs * pvz) / numpy.sum(pvz)
     svz = numpy.sqrt(numpy.sum(vzs**2.0 * pvz) / numpy.sum(pvz) - mvz**2.0)
-    assert numpy.fabs(mvz) < 0.01, (
-        "mean vz calculated from pvz not equal to zero for staeckel actions"
-    )
-    assert numpy.fabs(numpy.log(svz) - 0.5 * numpy.log(qdf.sigmaz2(R, z))) < 0.01, (
-        "sigma vz calculated from pvz not equal to that from sigmaz2 for staeckel actions"
-    )
+    assert (
+        numpy.fabs(mvz) < 0.01
+    ), "mean vz calculated from pvz not equal to zero for staeckel actions"
+    assert (
+        numpy.fabs(numpy.log(svz) - 0.5 * numpy.log(qdf.sigmaz2(R, z))) < 0.01
+    ), "sigma vz calculated from pvz not equal to that from sigmaz2 for staeckel actions"
     # ngl=40
     pvz = numpy.array([qdf.pvz(vz, R, z, ngl=40) for vz in vzs])
     mvz = numpy.sum(vzs * pvz) / numpy.sum(pvz)
     svz = numpy.sqrt(numpy.sum(vzs**2.0 * pvz) / numpy.sum(pvz) - mvz**2.0)
-    assert numpy.fabs(mvz) < 0.01, (
-        "mean vz calculated from pvz not equal to zero for staeckel actions"
-    )
-    assert numpy.fabs(numpy.log(svz) - 0.5 * numpy.log(qdf.sigmaz2(R, z))) < 0.01, (
-        "sigma vz calculated from pvz not equal to that from sigmaz2 for staeckel actions"
-    )
+    assert (
+        numpy.fabs(mvz) < 0.01
+    ), "mean vz calculated from pvz not equal to zero for staeckel actions"
+    assert (
+        numpy.fabs(numpy.log(svz) - 0.5 * numpy.log(qdf.sigmaz2(R, z))) < 0.01
+    ), "sigma vz calculated from pvz not equal to that from sigmaz2 for staeckel actions"
     # ngl=11, shouldn't work
     try:
         pvz = numpy.array([qdf.pvz(vz, R, z, ngl=11) for vz in vzs])
@@ -1218,9 +1210,7 @@ def test_pvz_staeckel_arrayin():
     pvz = qdf.pvz(0.05 * numpy.ones(2), R * numpy.ones(2), z * numpy.ones(2))
     assert numpy.all(
         numpy.fabs(numpy.log(pvz) - numpy.log(qdf.pvz(0.05, R, z))) < 10.0**-10.0
-    ), (
-        "pvz calculated with R and z array input does not equal to calculated with scalar input"
-    )
+    ), "pvz calculated with R and z array input does not equal to calculated with scalar input"
     return None
 
 
@@ -1323,9 +1313,9 @@ def test_setup_diffsetups():
         cutcounter=True,
         _precomputerg=False,
     )
-    assert numpy.fabs(qdf._rg(1.1) - qdfnpc._rg(1.1)) < 10.0**-5.0, (
-        "rg calculated from qdf instance w/ precomputerg set is not the same as that computed from an instance w/o it set"
-    )
+    assert (
+        numpy.fabs(qdf._rg(1.1) - qdfnpc._rg(1.1)) < 10.0**-5.0
+    ), "rg calculated from qdf instance w/ precomputerg set is not the same as that computed from an instance w/o it set"
 
 
 def test_call_diffinoutputs():
@@ -1357,19 +1347,19 @@ def test_call_diffinoutputs():
     ), "qdf calls w/ rg, and frequencies specified and w/ not specified do not agrees"
     # Also test _return_actions
     val, jr, lz, jz = qdf(0.9, 0.1, 0.95, 0.1, 0.08, _return_actions=True)
-    assert numpy.fabs(val - qdf((jr, lz, jz))) < 10.0**-8.0, (
-        "qdf call w/ R,vR,... and actions specified do not agree"
-    )
+    assert (
+        numpy.fabs(val - qdf((jr, lz, jz))) < 10.0**-8.0
+    ), "qdf call w/ R,vR,... and actions specified do not agree"
     acs = aAS(0.9, 0.1, 0.95, 0.1, 0.08)
-    assert numpy.fabs(acs[0] - jr) < 10.0**-8.0, (
-        "direct calculation of jr and that returned from qdf.__call__ does not agree"
-    )
-    assert numpy.fabs(acs[1] - lz) < 10.0**-8.0, (
-        "direct calculation of lz and that returned from qdf.__call__ does not agree"
-    )
-    assert numpy.fabs(acs[2] - jz) < 10.0**-8.0, (
-        "direct calculation of jz and that returned from qdf.__call__ does not agree"
-    )
+    assert (
+        numpy.fabs(acs[0] - jr) < 10.0**-8.0
+    ), "direct calculation of jr and that returned from qdf.__call__ does not agree"
+    assert (
+        numpy.fabs(acs[1] - lz) < 10.0**-8.0
+    ), "direct calculation of lz and that returned from qdf.__call__ does not agree"
+    assert (
+        numpy.fabs(acs[2] - jz) < 10.0**-8.0
+    ), "direct calculation of jz and that returned from qdf.__call__ does not agree"
     # Test unbound orbits
     # Find unbound orbit, new qdf s.t. we can get UnboundError (only with
     taAS = actionAngleStaeckel(pot=MWPotential, c=False, delta=0.5)
@@ -1385,17 +1375,17 @@ def test_call_diffinoutputs():
     else:
         print(acs)
         raise AssertionError("Test orbit in qdf that is supposed to be unbound is not")
-    assert qdfnc(0.9, 10.0, -20.0, 0.1, 10.0) < 10.0**-10.0, (
-        "unbound orbit does not return qdf equal to zero"
-    )
-    assert qdfnc(0.9, 10.0, -20.0, 0.1, 10.0, log=True) < -10.0 * numpy.log(10.0), (
-        "unbound orbit does not return qdf equal to zero"
-    )
+    assert (
+        qdfnc(0.9, 10.0, -20.0, 0.1, 10.0) < 10.0**-10.0
+    ), "unbound orbit does not return qdf equal to zero"
+    assert qdfnc(0.9, 10.0, -20.0, 0.1, 10.0, log=True) < -10.0 * numpy.log(
+        10.0
+    ), "unbound orbit does not return qdf equal to zero"
 
     # Test negative lz
-    assert qdf((0.03, -0.1, 0.02)) < 10.0**-8.0, (
-        "qdf w/ cutcounter=True and negative lz does not return 0"
-    )
+    assert (
+        qdf((0.03, -0.1, 0.02)) < 10.0**-8.0
+    ), "qdf w/ cutcounter=True and negative lz does not return 0"
     assert (
         qdf((0.03, -0.1, 0.02), log=True)
         <= numpy.finfo(numpy.dtype(numpy.float64)).min + 1.0
@@ -1533,9 +1523,7 @@ def test_vmomentdensity_diffinoutputs():
             )
         )
         < 0.0001
-    ), (
-        "qdf.vmomentdensity w/ rawgausssamples and mc=True does not agree with that w/o rawgausssamples"
-    )
+    ), "qdf.vmomentdensity w/ rawgausssamples and mc=True does not agree with that w/o rawgausssamples"
     return None
 
 
@@ -1552,18 +1540,14 @@ def test_vmomentdensity_physical():
             - qdf.vmomentdensity(R, z, 0, 0, 0, gl=True, ngl=12) / ro**3
         )
         < 10.0**-8.0
-    ), (
-        "vmomentdensity with use_physical does not correspond to vmomentdensity without physical"
-    )
+    ), "vmomentdensity with use_physical does not correspond to vmomentdensity without physical"
     assert (
         numpy.fabs(
             qdf.vmomentdensity(R, z, 0, 1, 0, gl=True, ngl=12, ro=ro, vo=vo)
             - qdf.vmomentdensity(R, z, 0, 1, 0, gl=True, ngl=12) * vo / ro**3
         )
         < 10.0**-8.0
-    ), (
-        "vmomentdensity with use_physical does not correspond to vmomentdensity without physical"
-    )
+    ), "vmomentdensity with use_physical does not correspond to vmomentdensity without physical"
     return None
 
 
@@ -1586,9 +1570,7 @@ def test_jmomentdensity_diffinoutputs():
             )
         )
         < 0.0001
-    ), (
-        "qdf.jmomentdensity w/ rawgausssamples and mc=True does not agree with that w/o rawgausssamples"
-    )
+    ), "qdf.jmomentdensity w/ rawgausssamples and mc=True does not agree with that w/o rawgausssamples"
     return None
 
 
@@ -1663,9 +1645,7 @@ def test_pvz_diffinoutput():
             - numpy.log(tpvz)
         )
         < 0.001
-    ), (
-        "qdf.pvz does not return the same result when reusing the actions and the frequencies"
-    )
+    ), "qdf.pvz does not return the same result when reusing the actions and the frequencies"
     return None
 
 
@@ -1680,7 +1660,7 @@ def test_meanjz_noaac_issue300():
     qdf = quasiisothermaldf(
         hr, sr, sz, hsr, hsz, pot=MWPotential, aA=taA, cutcounter=True
     )
-    assert numpy.fabs(qdf.meanjz(1.0, 0.125, nmc=100) - 0.0157468008111) < 0.01, (
-        "Mean Jz computed using MC with Python actionAngleAdiabatic integration fails"
-    )
+    assert (
+        numpy.fabs(qdf.meanjz(1.0, 0.125, nmc=100) - 0.0157468008111) < 0.01
+    ), "Mean Jz computed using MC with Python actionAngleAdiabatic integration fails"
     return None
