@@ -373,9 +373,9 @@ def _potInt(x, y, z, a2, b2, c2, n):
     def integrand(tau):
         return _FracInt(x, y, z, a2, b2, c2, tau, n + 1)
 
-    return integrate.quad(integrand, lowerlim(x**2, y**2, z**2, a2, b2, c2), numpy.inf)[
-        0
-    ]
+    return integrate.quad(
+        integrand, lowerlim(x**2, y**2, z**2, a2, b2, c2), numpy.inf
+    )[0]
 
 
 def _forceInt(x, y, z, a2, b2, c2, n, i):
@@ -427,9 +427,9 @@ def _2ndDerivInt(x, y, z, a2, b2, c2, n, i, j):
                 tau + coef2
             ) ** 2 + _FracInt(x, y, z, a2, b2, c2, tau, n) * (-2.0 / (tau + coef2))
 
-    return integrate.quad(integrand, lowerlim(x**2, y**2, z**2, a2, b2, c2), numpy.inf)[
-        0
-    ]
+    return integrate.quad(
+        integrand, lowerlim(x**2, y**2, z**2, a2, b2, c2), numpy.inf
+    )[0]
 
 
 def _FracInt(x, y, z, a, b, c, tau, n):

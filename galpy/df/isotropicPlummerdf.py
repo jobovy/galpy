@@ -33,9 +33,9 @@ class isotropicPlummerdf(isotropicsphericaldf):
         -----
         - 2020-10-01 - Written - Bovy (UofT).
         """
-        assert isinstance(pot, PlummerPotential), (
-            "pot= must be potential.PlummerPotential"
-        )
+        assert isinstance(
+            pot, PlummerPotential
+        ), "pot= must be potential.PlummerPotential"
         isotropicsphericaldf.__init__(self, pot=pot, ro=ro, vo=vo)
         self._Etildemax = pot._amp / pot._b
         # /amp^4 instead of /amp^5 to make the DF that of mass density

@@ -1119,7 +1119,9 @@ class Orbit:
                 Gravitational field to use. Default is the gravitational field used to integrate the orbit.
             normed : bool, optional
                 if set, plot {quant}(t)/{quant}(0) rather than {quant}(t)
-            """.format(quant=name.split("plot")[1])
+            """.format(
+                    quant=name.split("plot")[1]
+                )
             else:
                 Estring = ""
             _plot.__doc__ = """Plot {quant}(t) along the orbit.
@@ -1148,7 +1150,9 @@ class Orbit:
             -----
             - 2019-04-13 - Written - Bovy (UofT)
 
-            """.format(quant=name.split("plot")[1], Estring=Estring)
+            """.format(
+                quant=name.split("plot")[1], Estring=Estring
+            )
             return _plot
         else:
             raise AttributeError(
@@ -1764,9 +1768,7 @@ class Orbit:
             (numpy.roll(self.t, -1, axis=1) - self.t)[:, :-1]
             * (numpy.roll(self._psi.T, -1, axis=0) - self._psi.T)[:-1].T
             > 0.0
-        ), (
-            "SOS integration failed (time does not monotonically increase with increasing psi)"
-        )
+        ), "SOS integration failed (time does not monotonically increase with increasing psi)"
         return None
 
     def integrate_dxdv(
@@ -2651,7 +2653,9 @@ class Orbit:
         elif self.dim() == 3:
             Einf = evaluatePotentials(self._aAPot, _INF, 0.0, use_physical=False)
         if numpy.isnan(Einf):
-            Einf = numpy.inf  # Just try to proceed as best as possible, don't make assumptions about the potential
+            Einf = (
+                numpy.inf
+            )  # Just try to proceed as best as possible, don't make assumptions about the potential
         indx = self.E(pot=self._aAPot, use_physical=False, dontreshape=True) < Einf
         if hasattr(self._aA, "_delta"):
             if hasattr(self._aA._delta, "__len__"):
@@ -6369,18 +6373,14 @@ class Orbit:
   margin: {{t: 20}},
   hovermode: 'closest',
   showlegend: false,
-""".format(xlabel=xlabels[0], ylabel=ylabels[0], xmin=xmin[0], xmax=xmax[0])
+""".format(
+            xlabel=xlabels[0], ylabel=ylabels[0], xmin=xmin[0], xmax=xmax[0]
+        )
         hovertemplate = (
-            lambda name,
-            xlabel,
-            ylabel,
-            tlabel: f"""'<b>{name}</b>' + '<br><b>{xlabel}</b>: %{{x:.2f}}' + '<br><b>{ylabel}</b>: %{{y:.2f}}' + '<br><b>{tlabel}</b>: %{{customdata:.2f}}'"""
+            lambda name, xlabel, ylabel, tlabel: f"""'<b>{name}</b>' + '<br><b>{xlabel}</b>: %{{x:.2f}}' + '<br><b>{ylabel}</b>: %{{y:.2f}}' + '<br><b>{tlabel}</b>: %{{customdata:.2f}}'"""
         )
         hovertemplate_current = (
-            lambda name,
-            xlabel,
-            ylabel,
-            tlabel: f"""'<b>{name} (Current location)</b>' + '<br><b>{xlabel}</b>: %{{x:.2f}}' + '<br><b>{ylabel}</b>: %{{y:.2f}}' + '<br><b>{tlabel}</b>: %{{customdata:.2f}}'"""
+            lambda name, xlabel, ylabel, tlabel: f"""'<b>{name} (Current location)</b>' + '<br><b>{xlabel}</b>: %{{x:.2f}}' + '<br><b>{ylabel}</b>: %{{y:.2f}}' + '<br><b>{tlabel}</b>: %{{customdata:.2f}}'"""
         )
         for ii in range(1, nplots):
             layout += """  xaxis{idx}: {{
@@ -6598,7 +6598,9 @@ class Orbit:
         else:  # else for "if there is a 2nd panel"
             setup_trace2 = """
     let traces= [{traces_cumul}];
-""".format(traces_cumul=traces_cumul)
+""".format(
+                traces_cumul=traces_cumul
+            )
         if len(d1s) > 2:
             setup_trace3 = """
     let trace{trace_num_1}= {{
@@ -6698,11 +6700,15 @@ class Orbit:
                 traces_cumul += f""",trace{str(4 * self.size + 2 * ii + 1)},trace{str(4 * self.size + 2 * ii + 2)}"""
             setup_trace3 += """
             let traces= [{traces_cumul}];
-            """.format(traces_cumul=traces_cumul)
+            """.format(
+                traces_cumul=traces_cumul
+            )
         elif len(d1s) > 1:  # elif for "if there is a 3rd panel
             setup_trace3 = """
     let traces= [{traces_cumul}];
-""".format(traces_cumul=traces_cumul)
+""".format(
+                traces_cumul=traces_cumul
+            )
         else:  # else for "if there is a 3rd or 2nd panel" (don't think we can get here!)
             setup_trace3 = ""
         return HTML(
@@ -7143,18 +7149,10 @@ if ( typeof window.require == 'undefined' ) {{
                 ]
             )
         hovertemplate = (
-            lambda name,
-            xlabel,
-            ylabel,
-            zlabel,
-            tlabel: f"""'<b>{name}</b>' + '<br><b>{xlabel}</b>: %{{x:.2f}}' + '<br><b>{ylabel}</b>: %{{y:.2f}}' + '<br><b>{zlabel}</b>: %{{z:.2f}}' + '<br><b>{tlabel}</b>: %{{customdata:.2f}}'"""
+            lambda name, xlabel, ylabel, zlabel, tlabel: f"""'<b>{name}</b>' + '<br><b>{xlabel}</b>: %{{x:.2f}}' + '<br><b>{ylabel}</b>: %{{y:.2f}}' + '<br><b>{zlabel}</b>: %{{z:.2f}}' + '<br><b>{tlabel}</b>: %{{customdata:.2f}}'"""
         )
         hovertemplate_current = (
-            lambda name,
-            xlabel,
-            ylabel,
-            zlabel,
-            tlabel: f"""'<b>{name} (Current location)</b>' + '<br><b>{xlabel}</b>: %{{x:.2f}}' + '<br><b>{ylabel}</b>: %{{y:.2f}}' + '<br><b>{zlabel}</b>: %{{z:.2f}}' + '<br><b>{tlabel}</b>: %{{customdata:.2f}}'"""
+            lambda name, xlabel, ylabel, zlabel, tlabel: f"""'<b>{name} (Current location)</b>' + '<br><b>{xlabel}</b>: %{{x:.2f}}' + '<br><b>{ylabel}</b>: %{{y:.2f}}' + '<br><b>{zlabel}</b>: %{{z:.2f}}' + '<br><b>{tlabel}</b>: %{{customdata:.2f}}'"""
         )
         layout = """{{
             scene:{{
@@ -8265,6 +8263,6 @@ def _check_potential_dim(orb, pot):
 def _check_consistent_units(orb, pot):
     if pot is None:
         return None
-    assert physical_compatible(orb, pot), (
-        "Physical conversion for the Orbit object is not consistent with that of the Potential given to it"
-    )
+    assert physical_compatible(
+        orb, pot
+    ), "Physical conversion for the Orbit object is not consistent with that of the Potential given to it"

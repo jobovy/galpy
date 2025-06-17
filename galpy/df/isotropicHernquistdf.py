@@ -27,9 +27,9 @@ class isotropicHernquistdf(isotropicsphericaldf):
         -----
         - 2020-08-09 - Written - Lane (UofT)
         """
-        assert isinstance(pot, HernquistPotential), (
-            "pot= must be potential.HernquistPotential"
-        )
+        assert isinstance(
+            pot, HernquistPotential
+        ), "pot= must be potential.HernquistPotential"
         isotropicsphericaldf.__init__(self, pot=pot, ro=ro, vo=vo)
         self._psi0 = -evaluatePotentials(self._pot, 0, 0, use_physical=False)
         self._GMa = self._psi0 * self._pot.a**2.0

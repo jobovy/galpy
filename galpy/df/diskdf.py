@@ -24,7 +24,9 @@ import pickle
 import numpy
 import scipy
 
-numpylog = numpy.lib.scimath.log  # somehow, this code produces log(negative), which scipy (now numpy.lib.scimath.log) implements as log(|negative|) + i pi while numpy gives NaN and we want the scipy behavior; not sure where the log(negative) comes from though! I think it's for sigma=0 DFs (this test fails with numpy.log) where the DF eval has a log(~zero) that can be slightly negative because of numerical precision issues
+numpylog = (
+    numpy.lib.scimath.log
+)  # somehow, this code produces log(negative), which scipy (now numpy.lib.scimath.log) implements as log(|negative|) + i pi while numpy gives NaN and we want the scipy behavior; not sure where the log(negative) comes from though! I think it's for sigma=0 DFs (this test fails with numpy.log) where the DF eval has a log(~zero) that can be slightly negative because of numerical precision issues
 from scipy import integrate, interpolate, optimize, stats
 
 from ..actionAngle import actionAngleAdiabatic
@@ -1533,9 +1535,9 @@ class diskdf(df):
             self._vmomentsurfacemass(R, 0, 4, romberg=romberg, nsigma=nsigma) / surfmass
         )
         s2 = vt2 - vt**2.0
-        return (vt4 - 4.0 * vt * vt3 + 6.0 * vt**2.0 * vt2 - 3.0 * vt**4.0) * s2 ** (
-            -2.0
-        ) - 3.0
+        return (
+            vt4 - 4.0 * vt * vt3 + 6.0 * vt**2.0 * vt2 - 3.0 * vt**4.0
+        ) * s2 ** (-2.0) - 3.0
 
     @potential_physical_input
     def kurtosisvR(self, R, romberg=False, nsigma=None, phi=0.0):
@@ -1578,9 +1580,9 @@ class diskdf(df):
             self._vmomentsurfacemass(R, 4, 0, romberg=romberg, nsigma=nsigma) / surfmass
         )
         s2 = vr2 - vr**2.0
-        return (vr4 - 4.0 * vr * vr3 + 6.0 * vr**2.0 * vr2 - 3.0 * vr**4.0) * s2 ** (
-            -2.0
-        ) - 3.0
+        return (
+            vr4 - 4.0 * vr * vr3 + 6.0 * vr**2.0 * vr2 - 3.0 * vr**4.0
+        ) * s2 ** (-2.0) - 3.0
 
     def _ELtowRRapRperi(self, E, L):
         """

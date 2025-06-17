@@ -133,18 +133,24 @@ class KuzminLikeWrapperPotential(WrapperPotential):
             self._pot, self._xi(R, z), 0.0, phi=phi, t=t
         ) * self._dxidR(R, z) ** 2.0 - _evaluateRforces(
             self._pot, self._xi(R, z), 0.0, phi=phi, t=t
-        ) * self._d2xidR2(R, z)
+        ) * self._d2xidR2(
+            R, z
+        )
 
     def _z2deriv(self, R, z, phi=0.0, t=0.0):
         return evaluateR2derivs(
             self._pot, self._xi(R, z), 0.0, phi=phi, t=t
         ) * self._dxidz(R, z) ** 2.0 - _evaluateRforces(
             self._pot, self._xi(R, z), 0.0, phi=phi, t=t
-        ) * self._d2xidz2(R, z)
+        ) * self._d2xidz2(
+            R, z
+        )
 
     def _Rzderiv(self, R, z, phi=0.0, t=0.0):
         return evaluateR2derivs(
             self._pot, self._xi(R, z), 0.0, phi=phi, t=t
         ) * self._dxidR(R, z) * self._dxidz(R, z) - _evaluateRforces(
             self._pot, self._xi(R, z), 0.0, phi=phi, t=t
-        ) * self._d2xidRdz(R, z)
+        ) * self._d2xidRdz(
+            R, z
+        )

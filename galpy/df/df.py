@@ -38,9 +38,9 @@ class df:
 
     def _check_consistent_units(self):
         """Internal function to check that the set of units for this object is consistent with that for the potential"""
-        assert physical_compatible(self, self._pot), (
-            "Physical conversion for the DF object is not consistent with that of the Potential given to it"
-        )
+        assert physical_compatible(
+            self, self._pot
+        ), "Physical conversion for the DF object is not consistent with that of the Potential given to it"
 
     def turn_physical_off(self):
         """

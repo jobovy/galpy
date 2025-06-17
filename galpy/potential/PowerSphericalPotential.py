@@ -191,9 +191,9 @@ class PowerSphericalPotential(Potential):
         -----
         - 2011-10-09 - Written - Bovy (NYU)
         """
-        return 1.0 / (R**2.0 + z**2.0) ** (self.alpha / 2.0) - self.alpha * R**2.0 / (
-            R**2.0 + z**2.0
-        ) ** (self.alpha / 2.0 + 1.0)
+        return 1.0 / (R**2.0 + z**2.0) ** (
+            self.alpha / 2.0
+        ) - self.alpha * R**2.0 / (R**2.0 + z**2.0) ** (self.alpha / 2.0 + 1.0)
 
     def _z2deriv(self, R, z, phi=0.0, t=0.0):
         """

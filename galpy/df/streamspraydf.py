@@ -76,16 +76,16 @@ class basestreamspraydf(df):
             raise OSError("pot= must be set")
         self._pot = flatten_potential(pot)
         self._rtpot = self._pot if rtpot is None else flatten_potential(rtpot)
-        assert conversion.physical_compatible(self, self._pot), (
-            "Physical conversion for the potential is not consistent with that of the basestreamspraydf object being initialized"
-        )
-        assert conversion.physical_compatible(self, self._rtpot), (
-            "Physical conversion for the rt potential is not consistent with that of the basestreamspraydf object being initialized"
-        )
+        assert conversion.physical_compatible(
+            self, self._pot
+        ), "Physical conversion for the potential is not consistent with that of the basestreamspraydf object being initialized"
+        assert conversion.physical_compatible(
+            self, self._rtpot
+        ), "Physical conversion for the rt potential is not consistent with that of the basestreamspraydf object being initialized"
         # Set up progenitor orbit
-        assert conversion.physical_compatible(self, progenitor), (
-            "Physical conversion for the progenitor Orbit object is not consistent with that of the basestreamspraydf object being initialized"
-        )
+        assert conversion.physical_compatible(
+            self, progenitor
+        ), "Physical conversion for the progenitor Orbit object is not consistent with that of the basestreamspraydf object being initialized"
         self._orig_progenitor = progenitor  # Store so we can use its ro/vo/etc.
         self._progenitor = progenitor()
         self._progenitor.turn_physical_off()
@@ -97,9 +97,9 @@ class basestreamspraydf(df):
             self._centerpot = (
                 self._pot if centerpot is None else flatten_potential(centerpot)
             )
-            assert conversion.physical_compatible(self, self._centerpot), (
-                "Physical conversion for the center potential is not consistent with that of the basestreamspraydf object being initialized"
-            )
+            assert conversion.physical_compatible(
+                self, self._centerpot
+            ), "Physical conversion for the center potential is not consistent with that of the basestreamspraydf object being initialized"
             self._center = center()
             self._center.turn_physical_off()
             self._center.integrate(self._progenitor_times, self._centerpot)
