@@ -37,9 +37,9 @@ def test_ChandrasekharDynamicalFrictionForce_constLambda():
     r_pred = numpy.sqrt(
         o.r() ** 2.0 - 0.604 * const_lnLambda * GMs * numpy.sqrt(2.0) * dt
     )
-    assert (
-        numpy.fabs(r_pred - o.r(ts[-1])) < 0.01
-    ), "ChandrasekharDynamicalFrictionForce with constant lnLambda for circular orbits does not agree with analytical prediction"
+    assert numpy.fabs(r_pred - o.r(ts[-1])) < 0.01, (
+        "ChandrasekharDynamicalFrictionForce with constant lnLambda for circular orbits does not agree with analytical prediction"
+    )
     return None
 
 
@@ -84,9 +84,9 @@ def test_ChandrasekharDynamicalFrictionForce_varLambda():
     )
     oc = o()
     oc.integrate(ts, [potential.MWPotential2014, cdfc], method="odeint")
-    assert (
-        numpy.fabs(oc.r(ts[-1]) - o.r(ts[-1])) < 0.05
-    ), "ChandrasekharDynamicalFrictionForce with variable lnLambda for a short radial range is not close to the calculation using a constant lnLambda"
+    assert numpy.fabs(oc.r(ts[-1]) - o.r(ts[-1])) < 0.05, (
+        "ChandrasekharDynamicalFrictionForce with variable lnLambda for a short radial range is not close to the calculation using a constant lnLambda"
+    )
     return None
 
 
@@ -121,19 +121,19 @@ def test_ChandrasekharDynamicalFrictionForce_evaloutsideminrmaxr():
     )
     v = [0.1, 0.0, 0.0]
     # r < minr
-    assert (
-        numpy.fabs(cdf.Rforce(0.1, 0.0, v=v)) < 1e-16
-    ), "potential.ChandrasekharDynamicalFrictionForce at r < minr not equal to zero"
-    assert (
-        numpy.fabs(cdf.zforce(0.1, 0.0, v=v)) < 1e-16
-    ), "potential.ChandrasekharDynamicalFrictionForce at r < minr not equal to zero"
+    assert numpy.fabs(cdf.Rforce(0.1, 0.0, v=v)) < 1e-16, (
+        "potential.ChandrasekharDynamicalFrictionForce at r < minr not equal to zero"
+    )
+    assert numpy.fabs(cdf.zforce(0.1, 0.0, v=v)) < 1e-16, (
+        "potential.ChandrasekharDynamicalFrictionForce at r < minr not equal to zero"
+    )
     # r > maxr
-    assert (
-        numpy.fabs(cdf.Rforce(3.0, 0.0, v=v) - cdf2.Rforce(3.0, 0.0, v=v)) < 1e-10
-    ), "potential.ChandrasekharDynamicalFrictionForce at r > maxr not as expected"
-    assert (
-        numpy.fabs(cdf.zforce(3.0, 0.0, v=v) - cdf2.zforce(3.0, 0.0, v=v)) < 1e-10
-    ), "potential.ChandrasekharDynamicalFrictionForce at r > maxr not as expected"
+    assert numpy.fabs(cdf.Rforce(3.0, 0.0, v=v) - cdf2.Rforce(3.0, 0.0, v=v)) < 1e-10, (
+        "potential.ChandrasekharDynamicalFrictionForce at r > maxr not as expected"
+    )
+    assert numpy.fabs(cdf.zforce(3.0, 0.0, v=v) - cdf2.zforce(3.0, 0.0, v=v)) < 1e-10, (
+        "potential.ChandrasekharDynamicalFrictionForce at r > maxr not as expected"
+    )
     return None
 
 
@@ -161,14 +161,18 @@ def test_ChandrasekharDynamicalFrictionForce_pickling():
             - cdfu.Rforce(1.0, 0.2, v=[1.0, 1.0, 0.0])
         )
         < 1e-10
-    ), "Pickling of ChandrasekharDynamicalFrictionForce object does not work as expected"
+    ), (
+        "Pickling of ChandrasekharDynamicalFrictionForce object does not work as expected"
+    )
     assert (
         numpy.fabs(
             cdf.zforce(2.0, -0.2, v=[1.0, 1.0, 0.0])
             - cdfu.zforce(2.0, -0.2, v=[1.0, 1.0, 0.0])
         )
         < 1e-10
-    ), "Pickling of ChandrasekharDynamicalFrictionForce object does not work as expected"
+    ), (
+        "Pickling of ChandrasekharDynamicalFrictionForce object does not work as expected"
+    )
     # Not providing dens = Logarithmic should also work
     cdf = potential.ChandrasekharDynamicalFrictionForce(
         GMs=GMs, rhm=0.125, minr=0.5, maxr=2.0
@@ -182,14 +186,18 @@ def test_ChandrasekharDynamicalFrictionForce_pickling():
             - cdfu.Rforce(1.0, 0.2, v=[1.0, 1.0, 0.0])
         )
         < 1e-10
-    ), "Pickling of ChandrasekharDynamicalFrictionForce object does not work as expected"
+    ), (
+        "Pickling of ChandrasekharDynamicalFrictionForce object does not work as expected"
+    )
     assert (
         numpy.fabs(
             cdf.zforce(2.0, -0.2, v=[1.0, 1.0, 0.0])
             - cdfu.zforce(2.0, -0.2, v=[1.0, 1.0, 0.0])
         )
         < 1e-10
-    ), "Pickling of ChandrasekharDynamicalFrictionForce object does not work as expected"
+    ), (
+        "Pickling of ChandrasekharDynamicalFrictionForce object does not work as expected"
+    )
 
     # Providing sigmar as a lambda function gives AttributeError
     sigmar = lambda r: 1.0 / r
@@ -329,9 +337,9 @@ def test_dynamfric_c():
         op = o()
         op.integrate(ttimes, p + cdf, method=py_integrator)
         # Compare r (most important)
-        assert (
-            numpy.amax(numpy.fabs(o.r(ttimes) - op.r(ttimes))) < 10**ttol
-        ), f"Dynamical friction in C does not agree with dynamical friction in Python for potential {pname}"
+        assert numpy.amax(numpy.fabs(o.r(ttimes) - op.r(ttimes))) < 10**ttol, (
+            f"Dynamical friction in C does not agree with dynamical friction in Python for potential {pname}"
+        )
     return None
 
 
@@ -360,9 +368,9 @@ def test_dynamfric_c_minr():
     op = o()
     op.integrate(times, pot, method=integrator)
     # Compare r (most important)
-    assert (
-        numpy.amax(numpy.fabs(o.r(times) - op.r(times))) < 10**-8.0
-    ), "Dynamical friction in C does not properly use minr"
+    assert numpy.amax(numpy.fabs(o.r(times) - op.r(times))) < 10**-8.0, (
+        "Dynamical friction in C does not properly use minr"
+    )
     return None
 
 
@@ -389,7 +397,7 @@ def test_dynamfric_c_minr_warning():
             str(rec.message.args[0])
             == "Orbit integration with ChandrasekharDynamicalFrictionForce entered domain where r < minr and ChandrasekharDynamicalFrictionForce is turned off; initialize ChandrasekharDynamicalFrictionForce with a smaller minr to avoid this if you wish (but note that you want to turn it off close to the center for an object that sinks all the way to r=0, to avoid numerical instabilities)"
         )
-    assert (
-        raisedWarning
-    ), "Integrating an orbit that goes to r < minr with dynamical friction should have raised a warning, but didn't"
+    assert raisedWarning, (
+        "Integrating an orbit that goes to r < minr with dynamical friction should have raised a warning, but didn't"
+    )
     return None

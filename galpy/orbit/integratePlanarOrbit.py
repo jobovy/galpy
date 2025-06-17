@@ -560,9 +560,7 @@ def _parse_pot(pot):
                 or isinstance(p, planarPotentialFromRZPotential)
             )
             and isinstance(p._Pot, potential.RotateAndTiltWrapperPotential)
-        ) or isinstance(
-            p, potential.RotateAndTiltWrapperPotential
-        ):  # pragma: no cover
+        ) or isinstance(p, potential.RotateAndTiltWrapperPotential):  # pragma: no cover
             raise NotImplementedError(
                 "Planar orbit integration in C for RotateAndTiltWrapperPotential not implemented; please integrate an orbit with (z,vz) = (0,0) instead"
             )

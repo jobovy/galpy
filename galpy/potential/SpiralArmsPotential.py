@@ -95,12 +95,8 @@ class SpiralArmsPotential(Potential):
         Rs = conversion.parse_length(Rs, ro=self._ro)
         H = conversion.parse_length(H, ro=self._ro)
         omega = conversion.parse_frequency(omega, ro=self._ro, vo=self._vo)
-        self._N = (
-            -N
-        )  # trick to flip to left handed coordinate system; flips sign for phi and phi_ref, but also alpha.
-        self._alpha = (
-            -alpha
-        )  # we don't want sign for alpha to change, so flip alpha. (see eqn. 3 in the paper)
+        self._N = -N  # trick to flip to left handed coordinate system; flips sign for phi and phi_ref, but also alpha.
+        self._alpha = -alpha  # we don't want sign for alpha to change, so flip alpha. (see eqn. 3 in the paper)
         self._sin_alpha = numpy.sin(-alpha)
         self._tan_alpha = numpy.tan(-alpha)
         self._r_ref = r_ref

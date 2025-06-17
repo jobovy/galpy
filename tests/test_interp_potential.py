@@ -54,7 +54,9 @@ def test_interpolation_potential():
                     / potential.evaluatePotentials(potential.MWPotential, r, z)
                 )
                 < 10.0**-10.0
-            ), f"RZPot interpolation w/ interpRZPotential fails at (R,z) = ({r:g},{z:g})"
+            ), (
+                f"RZPot interpolation w/ interpRZPotential fails at (R,z) = ({r:g},{z:g})"
+            )
     # This tests within the grid
     rs = numpy.linspace(0.01, 2.0, 20)
     zs = numpy.linspace(-0.2, 0.2, 40)
@@ -69,7 +71,9 @@ def test_interpolation_potential():
                     / potential.evaluatePotentials(potential.MWPotential, r, z)
                 )
                 < 10.0**-6.0
-            ), f"RZPot interpolation w/ interpRZPotential fails at (R,z) = ({r:g},{z:g})"
+            ), (
+                f"RZPot interpolation w/ interpRZPotential fails at (R,z) = ({r:g},{z:g})"
+            )
     # Test all at the same time to use vector evaluation
     mr, mz = numpy.meshgrid(rs, zs)
     mr = mr.flatten()
@@ -154,7 +158,9 @@ def test_interpolation_potential():
             / potential.evaluatePotentials(potential.MWPotential, mr, mz)
         )
         < 2.0 * 10.0**-6.0
-    ), "RZPot interpolation w/ interpRZPotential fails for vector input w/o zsym and w/ logR"
+    ), (
+        "RZPot interpolation w/ interpRZPotential fails for vector input w/o zsym and w/ logR"
+    )
     return None
 
 
@@ -250,7 +256,9 @@ def test_interpolation_potential_c():
             / potential.evaluatePotentials(potential.MWPotential, mr, mz)
         )
         < 2.0 * 10.0**-6.0
-    ), "RZPot interpolation w/ interpRZPotential fails for vector input, using C, w/o zsym"
+    ), (
+        "RZPot interpolation w/ interpRZPotential fails for vector input, using C, w/o zsym"
+    )
     # now with logR
     rzpot = potential.interpRZPotential(
         RZPot=potential.MWPotential,
@@ -275,7 +283,9 @@ def test_interpolation_potential_c():
             / potential.evaluatePotentials(potential.MWPotential, mr, mz)
         )
         < 10.0**-6.0
-    ), "RZPot interpolation w/ interpRZPotential fails for vector input, using C, w/ logR"
+    ), (
+        "RZPot interpolation w/ interpRZPotential fails for vector input, using C, w/ logR"
+    )
     # now with logR and w/o zsym
     rzpot = potential.interpRZPotential(
         RZPot=potential.MWPotential,
@@ -300,7 +310,9 @@ def test_interpolation_potential_c():
             / potential.evaluatePotentials(potential.MWPotential, mr, mz)
         )
         < 2.0 * 10.0**-6.0
-    ), "RZPot interpolation w/ interpRZPotential fails for vector input, using C, w/ logR, and w/o zsym"
+    ), (
+        "RZPot interpolation w/ interpRZPotential fails for vector input, using C, w/ logR, and w/o zsym"
+    )
     return None
 
 
@@ -403,9 +415,9 @@ def test_interpolation_potential_use_c():
         zsym=True,
         use_c=True,
     )
-    assert numpy.all(
-        numpy.fabs(rzpot._potGrid - rzpot_c._potGrid) < 10.0**-14.0
-    ), "Potential interpolation grid calculated with use_c does not agree with that calculated in python"
+    assert numpy.all(numpy.fabs(rzpot._potGrid - rzpot_c._potGrid) < 10.0**-14.0), (
+        "Potential interpolation grid calculated with use_c does not agree with that calculated in python"
+    )
     return None
 
 
@@ -432,7 +444,9 @@ def test_interpolation_potential_outsidegrid():
                     / potential.evaluatePotentials(potential.MWPotential, r, z)
                 )
                 < 10.0**-10.0
-            ), f"RZPot interpolation w/ interpRZPotential fails outside the grid at (R,z) = ({r:g},{z:g})"
+            ), (
+                f"RZPot interpolation w/ interpRZPotential fails outside the grid at (R,z) = ({r:g},{z:g})"
+            )
     return None
 
 
@@ -460,7 +474,9 @@ def test_interpolation_potential_outsidegrid_c():
                     / potential.evaluatePotentials(potential.MWPotential, r, z)
                 )
                 < 10.0**-10.0
-            ), f"RZPot interpolation w/ interpRZPotential fails outside the grid at (R,z) = ({r:g},{z:g})"
+            ), (
+                f"RZPot interpolation w/ interpRZPotential fails outside the grid at (R,z) = ({r:g},{z:g})"
+            )
     return None
 
 
@@ -486,7 +502,9 @@ def test_interpolation_potential_notinterpolated():
                     / potential.evaluatePotentials(potential.MWPotential, r, z)
                 )
                 < 10.0**-10.0
-            ), f"RZPot interpolation w/ interpRZPotential fails when the potential was not interpolated at (R,z) = ({r:g},{z:g})"
+            ), (
+                f"RZPot interpolation w/ interpRZPotential fails when the potential was not interpolated at (R,z) = ({r:g},{z:g})"
+            )
     return None
 
 
@@ -516,7 +534,9 @@ def test_interpolation_potential_force():
                     / potential.evaluateRforces(potential.MWPotential, r, z)
                 )
                 < 10.0**-10.0
-            ), f"RZPot interpolation of Rforce w/ interpRZPotential fails at (R,z) = ({r:g},{z:g})"
+            ), (
+                f"RZPot interpolation of Rforce w/ interpRZPotential fails at (R,z) = ({r:g},{z:g})"
+            )
             assert (
                 numpy.fabs(
                     (
@@ -526,7 +546,9 @@ def test_interpolation_potential_force():
                     / potential.evaluateRforces(potential.MWPotential, r, z)
                 )
                 < 10.0**-10.0
-            ), f"RZPot interpolation of zforce w/ interpRZPotential fails at (R,z) = ({r:g},{z:g})"
+            ), (
+                f"RZPot interpolation of zforce w/ interpRZPotential fails at (R,z) = ({r:g},{z:g})"
+            )
     # This tests within the grid
     rs = numpy.linspace(0.01, 2.0, 20)
     zs = numpy.linspace(-0.2, 0.2, 40)
@@ -539,9 +561,9 @@ def test_interpolation_potential_force():
                 )
                 / potential.evaluateRforces(potential.MWPotential, r, z)
             )
-            assert (
-                rforcediff < 10.0**-5.0
-            ), f"RZPot interpolation of Rforce w/ interpRZPotential fails at (R,z) = ({r:g},{z:g}) by {rforcediff:g}"
+            assert rforcediff < 10.0**-5.0, (
+                f"RZPot interpolation of Rforce w/ interpRZPotential fails at (R,z) = ({r:g},{z:g}) by {rforcediff:g}"
+            )
             zforcediff = numpy.fabs(
                 (
                     rzpot.zforce(r, z)
@@ -549,9 +571,9 @@ def test_interpolation_potential_force():
                 )
                 / potential.evaluatezforces(potential.MWPotential, r, z)
             )
-            assert (
-                zforcediff < 5.0 * 10.0**-5.0
-            ), f"RZPot interpolation of zforce w/ interpRZPotential fails at (R,z) = ({r:g},{z:g}) by {zforcediff:g}"
+            assert zforcediff < 5.0 * 10.0**-5.0, (
+                f"RZPot interpolation of zforce w/ interpRZPotential fails at (R,z) = ({r:g},{z:g}) by {zforcediff:g}"
+            )
     # Test all at the same time to use vector evaluation
     mr, mz = numpy.meshgrid(rs, zs)
     mr = mr.flatten()
@@ -599,7 +621,9 @@ def test_interpolation_potential_force():
             / potential.evaluateRforces(potential.MWPotential, mr, mz)
         )
         < 10.0**-5.0
-    ), "RZPot interpolation of Rforce w/ interpRZPotential fails for vector input, w/ logR"
+    ), (
+        "RZPot interpolation of Rforce w/ interpRZPotential fails for vector input, w/ logR"
+    )
     assert numpy.all(
         numpy.fabs(
             (
@@ -609,7 +633,9 @@ def test_interpolation_potential_force():
             / potential.evaluatezforces(potential.MWPotential, mr, mz)
         )
         < 10.0**-5.0
-    ), "RZPot interpolation of zforce w/ interpRZPotential fails for vector input, w/ logR"
+    ), (
+        "RZPot interpolation of zforce w/ interpRZPotential fails for vector input, w/ logR"
+    )
     # Test the interpolation of the potential, w/o zsym
     rzpot = potential.interpRZPotential(
         RZPot=potential.MWPotential,
@@ -634,7 +660,9 @@ def test_interpolation_potential_force():
             / potential.evaluateRforces(potential.MWPotential, mr, mz)
         )
         < 4.0 * 10.0**-5.0
-    ), "RZPot interpolation of Rforce w/ interpRZPotential fails for vector input, w/o zsym"
+    ), (
+        "RZPot interpolation of Rforce w/ interpRZPotential fails for vector input, w/o zsym"
+    )
     assert numpy.all(
         numpy.fabs(
             (
@@ -644,7 +672,9 @@ def test_interpolation_potential_force():
             / potential.evaluatezforces(potential.MWPotential, mr, mz)
         )
         < 4.0 * 10.0**-5.0
-    ), "RZPot interpolation of zforce w/ interpRZPotential fails for vector input, w/o zsym"
+    ), (
+        "RZPot interpolation of zforce w/ interpRZPotential fails for vector input, w/o zsym"
+    )
     # Test the interpolation of the potential, w/o zsym and with logR
     rzpot = potential.interpRZPotential(
         RZPot=potential.MWPotential,
@@ -669,7 +699,9 @@ def test_interpolation_potential_force():
             / potential.evaluateRforces(potential.MWPotential, mr, mz)
         )
         < 2.0 * 10.0**-5.0
-    ), "RZPot interpolation of Rforce w/ interpRZPotential fails for vector input w/o zsym and w/ logR"
+    ), (
+        "RZPot interpolation of Rforce w/ interpRZPotential fails for vector input w/o zsym and w/ logR"
+    )
     assert numpy.all(
         numpy.fabs(
             (
@@ -679,7 +711,9 @@ def test_interpolation_potential_force():
             / potential.evaluatezforces(potential.MWPotential, mr, mz)
         )
         < 2.0 * 10.0**-5.0
-    ), "RZPot interpolation of zforce w/ interpRZPotential fails for vector input w/o zsym and w/ logR"
+    ), (
+        "RZPot interpolation of zforce w/ interpRZPotential fails for vector input w/o zsym and w/ logR"
+    )
     return None
 
 
@@ -711,7 +745,9 @@ def test_interpolation_potential_force_diffinputs():
             )
         )
         < 10.0**-5.0
-    ), "RZPot interpolation of of Rforce w/ interpRZPotential fails for vector R and scalar Z"
+    ), (
+        "RZPot interpolation of of Rforce w/ interpRZPotential fails for vector R and scalar Z"
+    )
     assert numpy.all(
         numpy.fabs(
             (
@@ -725,7 +761,9 @@ def test_interpolation_potential_force_diffinputs():
             )
         )
         < 10.0**-5.0
-    ), "RZPot interpolation of of zforce w/ interpRZPotential fails for vector R and scalar Z"
+    ), (
+        "RZPot interpolation of of zforce w/ interpRZPotential fails for vector R and scalar Z"
+    )
     # R scalar, z vector
     assert numpy.all(
         numpy.fabs(
@@ -786,7 +824,9 @@ def test_interpolation_potential_force_c():
             / potential.evaluateRforces(potential.MWPotential, mr, mz)
         )
         < 10.0**-5.0
-    ), "RZPot interpolation of Rforce w/ interpRZPotential fails for vector input, using C"
+    ), (
+        "RZPot interpolation of Rforce w/ interpRZPotential fails for vector input, using C"
+    )
     assert numpy.all(
         numpy.fabs(
             (
@@ -796,7 +836,9 @@ def test_interpolation_potential_force_c():
             / potential.evaluatezforces(potential.MWPotential, mr, mz)
         )
         < 2.0 * 10.0**-5.0
-    ), "RZPot interpolation of zforce w/ interpRZPotential fails for vector input, using C"
+    ), (
+        "RZPot interpolation of zforce w/ interpRZPotential fails for vector input, using C"
+    )
     # now w/o zsym
     rzpot = potential.interpRZPotential(
         RZPot=potential.MWPotential,
@@ -821,7 +863,9 @@ def test_interpolation_potential_force_c():
             / potential.evaluateRforces(potential.MWPotential, mr, mz)
         )
         < 2.0 * 10.0**-5.0
-    ), "RZPot interpolation of Rforce w/ interpRZPotential fails for vector input, using C, w/o zsym"
+    ), (
+        "RZPot interpolation of Rforce w/ interpRZPotential fails for vector input, using C, w/o zsym"
+    )
     assert numpy.all(
         numpy.fabs(
             (
@@ -831,7 +875,9 @@ def test_interpolation_potential_force_c():
             / potential.evaluatezforces(potential.MWPotential, mr, mz)
         )
         < 2.0 * 10.0**-5.0
-    ), "RZPot interpolation of zforce w/ interpRZPotential fails for vector input, using C, w/o zsym"
+    ), (
+        "RZPot interpolation of zforce w/ interpRZPotential fails for vector input, using C, w/o zsym"
+    )
     # now with logR
     rzpot = potential.interpRZPotential(
         RZPot=potential.MWPotential,
@@ -857,7 +903,9 @@ def test_interpolation_potential_force_c():
             / potential.evaluateRforces(potential.MWPotential, mr, mz)
         )
         < 10.0**-5.0
-    ), "RZPot interpolation Rforcew/ interpRZPotential fails for vector input, using C, w/ logR"
+    ), (
+        "RZPot interpolation Rforcew/ interpRZPotential fails for vector input, using C, w/ logR"
+    )
     assert numpy.all(
         numpy.fabs(
             (
@@ -867,7 +915,9 @@ def test_interpolation_potential_force_c():
             / potential.evaluatezforces(potential.MWPotential, mr, mz)
         )
         < 10.0**-5.0
-    ), "RZPot interpolation zforcew/ interpRZPotential fails for vector input, using C, w/ logR"
+    ), (
+        "RZPot interpolation zforcew/ interpRZPotential fails for vector input, using C, w/ logR"
+    )
     # now with logR and w/o zsym
     rzpot = potential.interpRZPotential(
         RZPot=potential.MWPotential,
@@ -893,7 +943,9 @@ def test_interpolation_potential_force_c():
             / potential.evaluateRforces(potential.MWPotential, mr, mz)
         )
         < 2.0 * 10.0**-5.0
-    ), "RZPot interpolation of Rforce w/ interpRZPotential fails for vector input, using C, w/ logR, and w/o zsym"
+    ), (
+        "RZPot interpolation of Rforce w/ interpRZPotential fails for vector input, using C, w/ logR, and w/o zsym"
+    )
     assert numpy.all(
         numpy.fabs(
             (
@@ -903,7 +955,9 @@ def test_interpolation_potential_force_c():
             / potential.evaluatezforces(potential.MWPotential, mr, mz)
         )
         < 2.0 * 10.0**-5.0
-    ), "RZPot interpolation of zforce w/ interpRZPotential fails for vector input, using C, w/ logR, and w/o zsym"
+    ), (
+        "RZPot interpolation of zforce w/ interpRZPotential fails for vector input, using C, w/ logR, and w/o zsym"
+    )
     return None
 
 
@@ -933,7 +987,9 @@ def test_interpolation_potential_force_c_vdiffgridsizes():
             / potential.evaluateRforces(potential.MWPotential, mr, mz)
         )
         < 10.0**-6.0
-    ), "RZPot interpolation of Rforce w/ interpRZPotential fails for vector input, using C"
+    ), (
+        "RZPot interpolation of Rforce w/ interpRZPotential fails for vector input, using C"
+    )
     assert numpy.all(
         numpy.fabs(
             (
@@ -943,7 +999,9 @@ def test_interpolation_potential_force_c_vdiffgridsizes():
             / potential.evaluatezforces(potential.MWPotential, mr, mz)
         )
         < 10.0**-6.0
-    ), "RZPot interpolation of zforce w/ interpRZPotential fails for vector input, using C"
+    ), (
+        "RZPot interpolation of zforce w/ interpRZPotential fails for vector input, using C"
+    )
     return None
 
 
@@ -971,10 +1029,14 @@ def test_interpolation_potential_force_use_c():
     )
     assert numpy.all(
         numpy.fabs(rzpot._rforceGrid - rzpot_c._rforceGrid) < 10.0**-13.0
-    ), f"Potential interpolation grid of Rforce  calculated with use_c does not agree with that calculated in python, max diff = {numpy.amax(numpy.fabs(rzpot._rforceGrid - rzpot_c._rforceGrid))}"
+    ), (
+        f"Potential interpolation grid of Rforce  calculated with use_c does not agree with that calculated in python, max diff = {numpy.amax(numpy.fabs(rzpot._rforceGrid - rzpot_c._rforceGrid))}"
+    )
     assert numpy.all(
         numpy.fabs(rzpot._zforceGrid - rzpot_c._zforceGrid) < 10.0**-13.0
-    ), f"Potential interpolation grid of zforce  calculated with use_c does not agree with that calculated in python, max diff = {numpy.amax(numpy.fabs(rzpot._zforceGrid - rzpot_c._zforceGrid))}"
+    ), (
+        f"Potential interpolation grid of zforce  calculated with use_c does not agree with that calculated in python, max diff = {numpy.amax(numpy.fabs(rzpot._zforceGrid - rzpot_c._zforceGrid))}"
+    )
     return None
 
 
@@ -1002,7 +1064,9 @@ def test_interpolation_potential_force_outsidegrid():
                     / potential.evaluateRforces(potential.MWPotential, r, z)
                 )
                 < 10.0**-10.0
-            ), f"RZPot interpolation of Rforce w/ interpRZPotential fails outside the grid at (R,z) = ({r:g},{z:g})"
+            ), (
+                f"RZPot interpolation of Rforce w/ interpRZPotential fails outside the grid at (R,z) = ({r:g},{z:g})"
+            )
             assert (
                 numpy.fabs(
                     (
@@ -1012,7 +1076,9 @@ def test_interpolation_potential_force_outsidegrid():
                     / potential.evaluatezforces(potential.MWPotential, r, z)
                 )
                 < 10.0**-10.0
-            ), f"RZPot interpolation of zforce w/ interpRZPotential fails outside the grid at (R,z) = ({r:g},{z:g})"
+            ), (
+                f"RZPot interpolation of zforce w/ interpRZPotential fails outside the grid at (R,z) = ({r:g},{z:g})"
+            )
     return None
 
 
@@ -1041,7 +1107,9 @@ def test_interpolation_potential_force_outsidegrid_c():
                     / potential.evaluateRforces(potential.MWPotential, r, z)
                 )
                 < 10.0**-10.0
-            ), f"RZPot interpolation of Rforce w/ interpRZPotential fails outside the grid at (R,z) = ({r:g},{z:g})"
+            ), (
+                f"RZPot interpolation of Rforce w/ interpRZPotential fails outside the grid at (R,z) = ({r:g},{z:g})"
+            )
             assert (
                 numpy.fabs(
                     (
@@ -1051,7 +1119,9 @@ def test_interpolation_potential_force_outsidegrid_c():
                     / potential.evaluatezforces(potential.MWPotential, r, z)
                 )
                 < 10.0**-10.0
-            ), f"RZPot interpolation of zforce w/ interpRZPotential fails outside the grid at (R,z) = ({r:g},{z:g})"
+            ), (
+                f"RZPot interpolation of zforce w/ interpRZPotential fails outside the grid at (R,z) = ({r:g},{z:g})"
+            )
     return None
 
 
@@ -1078,7 +1148,9 @@ def test_interpolation_potential_force_notinterpolated():
                     / potential.evaluateRforces(potential.MWPotential, r, z)
                 )
                 < 10.0**-10.0
-            ), f"RZPot interpolation of Rforce w/ interpRZPotential fails when the potential was not interpolated at (R,z) = ({r:g},{z:g})"
+            ), (
+                f"RZPot interpolation of Rforce w/ interpRZPotential fails when the potential was not interpolated at (R,z) = ({r:g},{z:g})"
+            )
             assert (
                 numpy.fabs(
                     (
@@ -1088,7 +1160,9 @@ def test_interpolation_potential_force_notinterpolated():
                     / potential.evaluatezforces(potential.MWPotential, r, z)
                 )
                 < 10.0**-10.0
-            ), f"RZPot interpolation of zforce w/ interpRZPotential fails when the potential was not interpolated at (R,z) = ({r:g},{z:g})"
+            ), (
+                f"RZPot interpolation of zforce w/ interpRZPotential fails when the potential was not interpolated at (R,z) = ({r:g},{z:g})"
+            )
     return None
 
 
@@ -1116,7 +1190,9 @@ def test_interpolation_potential_rzderiv():
             / potential.evaluateRzderivs(potential.MWPotential, mr, mz)
         )
         < 10.0**-10.0
-    ), "RZPot interpolation of Rzderiv (which is not an interpolation at all) w/ interpRZPotential fails for vector input"
+    ), (
+        "RZPot interpolation of Rzderiv (which is not an interpolation at all) w/ interpRZPotential fails for vector input"
+    )
     return None
 
 
@@ -1143,9 +1219,9 @@ def test_interpolation_potential_dens():
                 )
                 / potential.evaluateDensities(potential.MWPotential, r, z)
             )
-            assert (
-                densdiff < 10.0**-10.0
-            ), f"RZPot interpolation of density of density w/ interpRZPotential fails at (R,z) = ({r:g},{z:g}) by {densdiff:g}"
+            assert densdiff < 10.0**-10.0, (
+                f"RZPot interpolation of density of density w/ interpRZPotential fails at (R,z) = ({r:g},{z:g}) by {densdiff:g}"
+            )
     # This tests within the grid
     rs = numpy.linspace(0.01, 2.0, 20)
     zs = numpy.linspace(-0.2, 0.2, 40)
@@ -1158,9 +1234,9 @@ def test_interpolation_potential_dens():
                 )
                 / potential.evaluateDensities(potential.MWPotential, r, z)
             )
-            assert (
-                densdiff < 4.0 * 10.0**-6.0
-            ), f"RZPot interpolation of density w/ interpRZPotential fails at (R,z) = ({r:g},{z:g}) by {densdiff:g}"
+            assert densdiff < 4.0 * 10.0**-6.0, (
+                f"RZPot interpolation of density w/ interpRZPotential fails at (R,z) = ({r:g},{z:g}) by {densdiff:g}"
+            )
     # Test all at the same time to use vector evaluation
     mr, mz = numpy.meshgrid(rs, zs)
     mr = mr.flatten()
@@ -1197,7 +1273,9 @@ def test_interpolation_potential_dens():
             / potential.evaluateDensities(potential.MWPotential, mr, mz)
         )
         < 4.0 * 10.0**-6.0
-    ), "RZPot interpolation of density w/ interpRZPotential fails for vector input, w/ logR"
+    ), (
+        "RZPot interpolation of density w/ interpRZPotential fails for vector input, w/ logR"
+    )
     # Test the interpolation of the potential, w/o zsym
     rzpot = potential.interpRZPotential(
         RZPot=potential.MWPotential,
@@ -1221,7 +1299,9 @@ def test_interpolation_potential_dens():
             / potential.evaluateDensities(potential.MWPotential, mr, mz)
         )
         < 4.0 * 10.0**-6.0
-    ), "RZPot interpolation of density w/ interpRZPotential fails for vector input, w/o zsym"
+    ), (
+        "RZPot interpolation of density w/ interpRZPotential fails for vector input, w/o zsym"
+    )
     # Test the interpolation of the potential, w/o zsym and with logR
     rzpot = potential.interpRZPotential(
         RZPot=potential.MWPotential,
@@ -1245,7 +1325,9 @@ def test_interpolation_potential_dens():
             / potential.evaluateDensities(potential.MWPotential, mr, mz)
         )
         < 4.0 * 10.0**-6.0
-    ), "RZPot interpolation of density w/ interpRZPotential fails for vector input w/o zsym and w/ logR"
+    ), (
+        "RZPot interpolation of density w/ interpRZPotential fails for vector input w/o zsym and w/ logR"
+    )
     return None
 
 
@@ -1276,7 +1358,9 @@ def test_interpolation_potential_dens_diffinputs():
             )
         )
         < 4.0 * 10.0**-6.0
-    ), "RZPot interpolation of the density w/ interpRZPotential fails for vector R and scalar Z"
+    ), (
+        "RZPot interpolation of the density w/ interpRZPotential fails for vector R and scalar Z"
+    )
     # R scalar, z vector
     assert numpy.all(
         numpy.fabs(
@@ -1291,7 +1375,9 @@ def test_interpolation_potential_dens_diffinputs():
             )
         )
         < 4.0 * 10.0**-6.0
-    ), "RZPot interpolation of the density w/ interpRZPotential fails for vector R and scalar Z"
+    ), (
+        "RZPot interpolation of the density w/ interpRZPotential fails for vector R and scalar Z"
+    )
     return None
 
 
@@ -1318,7 +1404,9 @@ def test_interpolation_potential_dens_outsidegrid():
                     / potential.evaluateDensities(potential.MWPotential, r, z)
                 )
                 < 10.0**-10.0
-            ), f"RZPot interpolation of the density w/ interpRZPotential fails outside the grid at (R,z) = ({r:g},{z:g})"
+            ), (
+                f"RZPot interpolation of the density w/ interpRZPotential fails outside the grid at (R,z) = ({r:g},{z:g})"
+            )
     return None
 
 
@@ -1344,7 +1432,9 @@ def test_interpolation_potential_density_notinterpolated():
                     / potential.evaluateDensities(potential.MWPotential, r, z)
                 )
                 < 10.0**-10.0
-            ), f"RZPot interpolation of the density w/ interpRZPotential fails when the potential was not interpolated at (R,z) = ({r:g},{z:g})"
+            ), (
+                f"RZPot interpolation of the density w/ interpRZPotential fails when the potential was not interpolated at (R,z) = ({r:g},{z:g})"
+            )
     return None
 
 
@@ -1375,9 +1465,9 @@ def test_interpolation_potential_vcirc():
             (rzpot.vcirc(r) - potential.vcirc(potential.MWPotential, r))
             / potential.vcirc(potential.MWPotential, r)
         )
-        assert (
-            vcdiff < 10.0**-6.0
-        ), f"RZPot interpolation of vcirc w/ interpRZPotential fails at R = {r:g} by {vcdiff:g}"
+        assert vcdiff < 10.0**-6.0, (
+            f"RZPot interpolation of vcirc w/ interpRZPotential fails at R = {r:g} by {vcdiff:g}"
+        )
     # Test all at the same time to use vector evaluation
     assert numpy.all(
         numpy.fabs(
@@ -1401,7 +1491,9 @@ def test_interpolation_potential_vcirc():
             / potential.vcirc(potential.MWPotential, rs)
         )
         < 10.0**-6.0
-    ), "RZPot interpolation of vcirc w/ interpRZPotential fails for vector input, w/ logR"
+    ), (
+        "RZPot interpolation of vcirc w/ interpRZPotential fails for vector input, w/ logR"
+    )
     # Test the interpolation of the potential, with numcores
     rzpot = potential.interpRZPotential(
         RZPot=potential.MWPotential,
@@ -1437,9 +1529,9 @@ def test_interpolation_potential_vcirc_outsidegrid():
             (rzpot.vcirc(r) - potential.vcirc(potential.MWPotential, r))
             / potential.vcirc(potential.MWPotential, r)
         )
-        assert (
-            vcdiff < 10.0**-10.0
-        ), f"RZPot interpolation w/ interpRZPotential fails outside the grid at R = {r:g} by {vcdiff:g}"
+        assert vcdiff < 10.0**-10.0, (
+            f"RZPot interpolation w/ interpRZPotential fails outside the grid at R = {r:g} by {vcdiff:g}"
+        )
     return None
 
 
@@ -1457,9 +1549,9 @@ def test_interpolation_potential_vcirc_notinterpolated():
             (rzpot.vcirc(r) - potential.vcirc(potential.MWPotential, r))
             / potential.vcirc(potential.MWPotential, r)
         )
-        assert (
-            vcdiff < 10.0**-10.0
-        ), f"RZPot interpolation w/ interpRZPotential fails when the potential was not interpolated at R = {r:g} by {vcdiff:g}"
+        assert vcdiff < 10.0**-10.0, (
+            f"RZPot interpolation w/ interpRZPotential fails when the potential was not interpolated at R = {r:g} by {vcdiff:g}"
+        )
     return None
 
 
@@ -1490,9 +1582,9 @@ def test_interpolation_potential_dvcircdR():
             (rzpot.dvcircdR(r) - potential.dvcircdR(potential.MWPotential, r))
             / potential.dvcircdR(potential.MWPotential, r)
         )
-        assert (
-            dvcdrdiff < 10.0**-5.0
-        ), f"RZPot interpolation of dvcircdR w/ interpRZPotential fails at R = {r:g} by {dvcdrdiff:g}"
+        assert dvcdrdiff < 10.0**-5.0, (
+            f"RZPot interpolation of dvcircdR w/ interpRZPotential fails at R = {r:g} by {dvcdrdiff:g}"
+        )
     # Test all at the same time to use vector evaluation
     assert numpy.all(
         numpy.fabs(
@@ -1516,7 +1608,9 @@ def test_interpolation_potential_dvcircdR():
             / potential.dvcircdR(potential.MWPotential, rs)
         )
         < 10.0**-5.0
-    ), "RZPot interpolation of dvcircdR w/ interpRZPotential fails for vector input, w/ logR"
+    ), (
+        "RZPot interpolation of dvcircdR w/ interpRZPotential fails for vector input, w/ logR"
+    )
     # Test the interpolation of the potential, with numcores
     rzpot = potential.interpRZPotential(
         RZPot=potential.MWPotential,
@@ -1552,9 +1646,9 @@ def test_interpolation_potential_dvcircdR_outsidegrid():
             (rzpot.dvcircdR(r) - potential.dvcircdR(potential.MWPotential, r))
             / potential.dvcircdR(potential.MWPotential, r)
         )
-        assert (
-            dvcdrdiff < 10.0**-10.0
-        ), f"RZPot interpolation w/ interpRZPotential fails outside the grid at R = {r:g} by {dvcdrdiff:g}"
+        assert dvcdrdiff < 10.0**-10.0, (
+            f"RZPot interpolation w/ interpRZPotential fails outside the grid at R = {r:g} by {dvcdrdiff:g}"
+        )
     return None
 
 
@@ -1572,9 +1666,9 @@ def test_interpolation_potential_dvcircdR_notinterpolated():
             (rzpot.dvcircdR(r) - potential.dvcircdR(potential.MWPotential, r))
             / potential.dvcircdR(potential.MWPotential, r)
         )
-        assert (
-            dvcdrdiff < 10.0**-10.0
-        ), f"RZPot interpolation w/ interpRZPotential fails when the potential was not interpolated at R = {r:g} by {dvcdrdiff:g}"
+        assert dvcdrdiff < 10.0**-10.0, (
+            f"RZPot interpolation w/ interpRZPotential fails when the potential was not interpolated at R = {r:g} by {dvcdrdiff:g}"
+        )
     return None
 
 
@@ -1605,9 +1699,9 @@ def test_interpolation_potential_epifreq():
             (rzpot.epifreq(r) - potential.epifreq(potential.MWPotential, r))
             / potential.epifreq(potential.MWPotential, r)
         )
-        assert (
-            epidiff < 10.0**-5.0
-        ), f"RZPot interpolation of epifreq w/ interpRZPotential fails at R = {r:g} by {epidiff:g}"
+        assert epidiff < 10.0**-5.0, (
+            f"RZPot interpolation of epifreq w/ interpRZPotential fails at R = {r:g} by {epidiff:g}"
+        )
     # Test all at the same time to use vector evaluation
     assert numpy.all(
         numpy.fabs(
@@ -1631,7 +1725,9 @@ def test_interpolation_potential_epifreq():
             / potential.epifreq(potential.MWPotential, rs)
         )
         < 10.0**-5.0
-    ), "RZPot interpolation of epifreq w/ interpRZPotential fails for vector input, w/ logR"
+    ), (
+        "RZPot interpolation of epifreq w/ interpRZPotential fails for vector input, w/ logR"
+    )
     # Test the interpolation of the potential, with numcores
     rzpot = potential.interpRZPotential(
         RZPot=potential.MWPotential,
@@ -1668,7 +1764,9 @@ def test_interpolation_potential_epifreq_smalln():
             / potential.epifreq(potential.MWPotential, rs)
         )
         < 10.0**-2.0
-    ), "RZPot interpolation of epifreq w/ interpRZPotential fails for vector input"  # not as harsh, bc we don't have many points
+    ), (
+        "RZPot interpolation of epifreq w/ interpRZPotential fails for vector input"
+    )  # not as harsh, bc we don't have many points
     rzpot = potential.interpRZPotential(
         RZPot=potential.MWPotential,
         rgrid=(numpy.log(1.0), numpy.log(1.3), 3),
@@ -1683,7 +1781,9 @@ def test_interpolation_potential_epifreq_smalln():
             / potential.epifreq(potential.MWPotential, rs)
         )
         < 10.0**-2.0
-    ), "RZPot interpolation of epifreq w/ interpRZPotential fails for vector input"  # not as harsh, bc we don't have many points
+    ), (
+        "RZPot interpolation of epifreq w/ interpRZPotential fails for vector input"
+    )  # not as harsh, bc we don't have many points
     return None
 
 
@@ -1702,9 +1802,9 @@ def test_interpolation_potential_epifreq_outsidegrid():
             (rzpot.epifreq(r) - potential.epifreq(potential.MWPotential, r))
             / potential.epifreq(potential.MWPotential, r)
         )
-        assert (
-            epidiff < 10.0**-10.0
-        ), f"RZPot interpolation w/ interpRZPotential fails outside the grid at R = {r:g} by {epidiff:g}"
+        assert epidiff < 10.0**-10.0, (
+            f"RZPot interpolation w/ interpRZPotential fails outside the grid at R = {r:g} by {epidiff:g}"
+        )
     return None
 
 
@@ -1722,9 +1822,9 @@ def test_interpolation_potential_epifreq_notinterpolated():
             (rzpot.epifreq(r) - potential.epifreq(potential.MWPotential, r))
             / potential.epifreq(potential.MWPotential, r)
         )
-        assert (
-            epidiff < 10.0**-10.0
-        ), f"RZPot interpolation w/ interpRZPotential fails when the potential was not interpolated at R = {r:g} by {epidiff:g}"
+        assert epidiff < 10.0**-10.0, (
+            f"RZPot interpolation w/ interpRZPotential fails when the potential was not interpolated at R = {r:g} by {epidiff:g}"
+        )
     return None
 
 
@@ -1761,9 +1861,9 @@ def test_interpolation_potential_verticalfreq():
             (rzpot.verticalfreq(r) - potential.verticalfreq(potential.MWPotential, r))
             / potential.verticalfreq(potential.MWPotential, r)
         )
-        assert (
-            vfdiff < 10.0**-5.0
-        ), f"RZPot interpolation of verticalfreq w/ interpRZPotential fails at R = {r:g} by {vfdiff:g}"
+        assert vfdiff < 10.0**-5.0, (
+            f"RZPot interpolation of verticalfreq w/ interpRZPotential fails at R = {r:g} by {vfdiff:g}"
+        )
     # Test all at the same time to use vector evaluation
     assert numpy.all(
         numpy.fabs(
@@ -1787,7 +1887,9 @@ def test_interpolation_potential_verticalfreq():
             / potential.verticalfreq(potential.MWPotential, rs)
         )
         < 10.0**-5.0
-    ), "RZPot interpolation of verticalfreq w/ interpRZPotential fails for vector input, w/ logR"
+    ), (
+        "RZPot interpolation of verticalfreq w/ interpRZPotential fails for vector input, w/ logR"
+    )
     # Test the interpolation of the potential, with numcores
     rzpot = potential.interpRZPotential(
         RZPot=potential.MWPotential,
@@ -1823,9 +1925,9 @@ def test_interpolation_potential_verticalfreq_outsidegrid():
             (rzpot.verticalfreq(r) - potential.verticalfreq(potential.MWPotential, r))
             / potential.verticalfreq(potential.MWPotential, r)
         )
-        assert (
-            vfdiff < 10.0**-10.0
-        ), f"RZPot interpolation w/ interpRZPotential fails outside the grid at R = {r:g} by {vfdiff:g}"
+        assert vfdiff < 10.0**-10.0, (
+            f"RZPot interpolation w/ interpRZPotential fails outside the grid at R = {r:g} by {vfdiff:g}"
+        )
     return None
 
 
@@ -1843,7 +1945,7 @@ def test_interpolation_potential_verticalfreq_notinterpolated():
             (rzpot.verticalfreq(r) - potential.verticalfreq(potential.MWPotential, r))
             / potential.verticalfreq(potential.MWPotential, r)
         )
-        assert (
-            vfdiff < 10.0**-10.0
-        ), f"RZPot interpolation w/ interpRZPotential fails when the potential was not interpolated at R = {r:g} by {vfdiff:g}"
+        assert vfdiff < 10.0**-10.0, (
+            f"RZPot interpolation w/ interpRZPotential fails when the potential was not interpolated at R = {r:g} by {vfdiff:g}"
+        )
     return None
