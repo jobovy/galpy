@@ -1,0 +1,40 @@
+name: Code Quality Checks
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "**/*.py"
+      - ".github/workflows/quality.yml"
+  pull_request:
+    branches:
+      - main
+    paths-ignore:
+      - "doc/**"
+      - "tests/**"
+
+jobs:
+  quality:
+    name: Lint with black on Python ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version:
+          - "3.9"
+          - "3.10"
+          - "3.11"
+          - "3.12"
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install black
+      - name: Run black
+        run: black --check .
