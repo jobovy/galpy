@@ -90,7 +90,7 @@ jobs:
             REQUIRES_JAX: false
           - os: ubuntu-latest
             python-version: "3.13"
-            TEST_FILES: tests/test_jeans.py tests/test_dynamfric.py
+            TEST_FILES: tests/test_jeans.py tests/test_dynamfric.py tests/test_FDMdynamfric.py
             REQUIRES_PYNBODY: false
             REQUIRES_ASTROPY: false
             REQUIRES_ASTROQUERY: false
