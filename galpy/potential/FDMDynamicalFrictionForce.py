@@ -190,7 +190,7 @@ class FDMDynamicalFrictionForce(ChandrasekharDynamicalFrictionForce):
             C = numpy.interp(
                 kr,
                 [M_sigma / 2, 2 * M_sigma],
-                [C_fdm, numpy.log(2 * kr / M_sigma) * Xfactor],
+                [C_fdm, C_fdm_dispersion],
             )
 
         # If the FDM factor is larger than the classical one, we use the classical one
