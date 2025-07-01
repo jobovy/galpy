@@ -96,11 +96,12 @@ class FDMDynamicalFrictionForce(ChandrasekharDynamicalFrictionForce):
 
         Notes
         ----------
-        2025-05-30: Started (A.Szpilfidel)
+        2025-05-30: Started (A.Szpilfidel, P.Boldrini, J.Bovy)
 
         References
         ----------
         .. [1] Hui and al. (2017) (https://arxiv.org/pdf/1610.08297)
+        .. [2] Lancaster and al. (2019) (https://arxiv.org/pdf/1909.06381)
         """
         ChandrasekharDynamicalFrictionForce.__init__(
             self,
@@ -126,55 +127,6 @@ class FDMDynamicalFrictionForce(ChandrasekharDynamicalFrictionForce):
         )
         # hasC set in ChandrasekharDynamicalFrictionForce.__init__
 
-    def FDMfactor(self, r, vs):
-        """
-        Evaluate the FDM dynamical friction factor.
-        Parameters
-        ----------
-        r : float
-            Spherical radius (natural units).
-        vs : float
-            Current velocity in cylindrical coordinates (natural units).
-        Returns
-        -------
-        FDMfactor : float
-            FDM dynamical friction factor.
-        """
-        if self._const_FDMfactor:
-            return self._const_FDMfactor
-        else:
-            kr = 2 * self.krValue(r, vs)
-            I = -sp.sici(kr)[1] + numpy.log(kr) + numpy.euler_gamma
-
-            return I + (numpy.sin(kr) / (kr)) - 1
-
-    def ChandraFactor(self, r, vs):
-        """
-        Evaluate the classical dynamical friction factor.
-        Parameters
-        ----------
-        r : float
-            Spherical radius (natural units).
-        vs : float
-            Current velocity in cylindrical coordinates (natural units).
-        Returns
-        -------
-        ChandraFactor : float
-            Classical dynamical friction factor.
-        """
-
-        if r > self._maxr:
-            sr = self.sigmar_orig(r)
-        else:
-            sr = self.sigmar(r)
-        X = vs / (numpy.sqrt(2) * sr)
-        Xfactor = sp.erf(X) - 2.0 * X * (1 / numpy.sqrt(numpy.pi)) * numpy.exp(
-            -(X**2.0)
-        )
-        lnLambda = self.lnLambda(r, vs)
-
-        return lnLambda * Xfactor
-
     def krValue(self, r, v):
         """
         Evaluate the dimensionless kr parameter kr = mrv / hbar.
@@ -192,20 +144,67 @@ class FDMDynamicalFrictionForce(ChandrasekharDynamicalFrictionForce):
         """
         return self._mhbar * v * r
 
+    def M_sigma(self, r, v):
+        """
+        Evaluate the classical Mach number M_sigma = v / sigma(r).
+        """
+        if r > self._maxr:
+            sigma = self.sigmar_orig(r)
+        else:
+            sigma = self.sigmar(r)
+        return v / sigma
+
+    def frictionFactor(self, r, vs):
+        if r > self._maxr:
+            sr = self.sigmar_orig(r)
+        else:
+            sr = self.sigmar(r)
+        X = vs / (numpy.sqrt(2) * sr)
+        Xfactor = sp.erf(X) - 2.0 * X * (1 / numpy.sqrt(numpy.pi)) * numpy.exp(
+            -(X**2.0)
+        )
+        lnLambda = self.lnLambda(r, vs)  # Coulomb logarithm
+        kr = self.krValue(r, vs)  # dimensionless kr parameter
+        M_sigma = self.M_sigma(r, vs)  # classical Mach number
+
+        # Classical dynamical friction coefficient
+        C_cdm = lnLambda * Xfactor
+
+        # FDM zero-velocity dynamical friction coefficient
+        cosine_integral = -sp.sici(2 * kr)[1] + numpy.log(2 * kr) + numpy.euler_gamma
+        C_fdm = cosine_integral + (numpy.sin(2 * kr) / (2 * kr)) - 1
+
+        # FDM dispersion regime coefficient
+        C_fdm_dispersion = numpy.log(2 * kr / M_sigma) * Xfactor
+
+        if kr > 2 * M_sigma:
+            # FDM dispersion regime
+            C = C_fdm_dispersion
+
+        if kr < M_sigma / 2:
+            # FDM zero-velocity regime
+            C = C_fdm
+
+        else:
+            # intermediate regime between zero-velocity and dispersion regimes
+            C = numpy.interp(
+                kr,
+                [M_sigma / 2, 2 * M_sigma],
+                [C_fdm, numpy.log(2 * kr / M_sigma) * Xfactor],
+            )
+
+        # If the FDM factor is larger than the classical one, we use the classical one
+        if C < C_cdm:
+            return C
+        else:
+            return C_cdm
+
     def _calc_force(self, R, phi, z, v, t):
         r = numpy.sqrt(R**2.0 + z**2.0)
         if r < self._minr:
             self._cached_force = 0.0
         else:
             vs = numpy.sqrt(v[0] ** 2.0 + v[1] ** 2.0 + v[2] ** 2.0)
-            self._C_cdm = self.ChandraFactor(r, vs)
-            self._C_fdm = self.FDMfactor(r, vs)
+            self._C = self.frictionFactor(r, vs)
 
-            if self._C_fdm < self._C_cdm:
-                self._cached_force = (
-                    -self._dens(R, z, phi=phi, t=t) / vs**3.0 * self._C_fdm
-                )
-            else:
-                self._cached_force = (
-                    -self._dens(R, z, phi=phi, t=t) / vs**3.0 * self._C_cdm
-                )
+            self._cached_force = -self._dens(R, z, phi=phi, t=t) / vs**3.0 * self._C
