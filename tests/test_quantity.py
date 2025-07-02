@@ -10046,9 +10046,7 @@ def test_potential_paramunits():
             - pot_nounits(4.0, 0.0, phi=1.0, use_physical=False)
         )
         < 10.0**-8.0
-    ), (
-        "potential.AnySphericalPotential w/ parameters w/ units does not behave as expected"
-    )
+    ), "AnySphericalPotential w/ parameters w/ units does not behave as expected"
     # AnySphericalPotential, r in dens also has units
     pot = potential.AnySphericalPotential(
         dens=lambda r: 0.64
@@ -10070,9 +10068,7 @@ def test_potential_paramunits():
             - pot_nounits(4.0, 0.0, phi=1.0, use_physical=False)
         )
         < 10.0**-8.0
-    ), (
-        "AnyAxisymmetricRazorThinDiskPotential w/ parameters w/ units does not behave as expected"
-    )
+    ), "AnySphericalPotential w/ parameters w/ units does not behave as expected"
     # AnySphericalPotential, r in dens only has units
     pot = potential.AnySphericalPotential(
         dens=lambda r: 0.64 / (r / ro / units.kpc) / (1 + r / ro / units.kpc) ** 3,
@@ -10089,9 +10085,7 @@ def test_potential_paramunits():
             - pot_nounits(4.0, 0.0, phi=1.0, use_physical=False)
         )
         < 10.0**-8.0
-    ), (
-        "AnyAxisymmetricRazorThinDiskPotential w/ parameters w/ units does not behave as expected"
-    )
+    ), "AnySphericalPotential w/ parameters w/ units does not behave as expected"
     # If you add one here, don't base it on ChandrasekharDynamicalFrictionForce!!
     # RotateAndTiltWrapperPotential, zvec, pa
     wrappot = potential.TriaxialNFWPotential(amp=1.0, a=3.0, b=0.7, c=0.5)
@@ -10933,6 +10927,30 @@ def test_interpRZPotential_vo():
         "vo not correctly propagated to interpRZPotential"
     )
     assert not ip._voSet, "voSet not correctly propagated to interpRZPotential"
+    return None
+
+
+def test_anyaxisymmetricrazorpotential_unitson():
+    # Test that AnyAxisymmetricRazorPotential returns outputs with units when the
+    # input surface density has units (this is the consistent behavior with other
+    # potentials); see #724
+    from galpy import potential
+
+    expdisk = potential.RazorThinExponentialDiskPotential(
+        amp=1e10 * units.Msun / units.kpc**2, hr=1 * units.kpc
+    )
+    diskpot = potential.AnyAxisymmetricRazorThinDiskPotential(
+        surfdens=lambda R: numpy.exp(-R / (1 * units.kpc)) * units.Msun / units.kpc**2,
+        amp=1e10,
+    )
+    assert isinstance(diskpot(6 * units.kpc, 100.0 * units.pc), units.Quantity), (
+        "AnyAxisymmetricRazorThinDiskPotential does not return outputs with units when the input surface density has units"
+    )
+    assert numpy.fabs(
+        (1.0 - expdisk.vcirc(6 * units.kpc) / diskpot.vcirc(6 * units.kpc)) < 1e-10
+    ), (
+        "AnyAxisymmetricRazorThinDiskPotential does not return outputs with units when the input surface density has units"
+    )
     return None
 
 
