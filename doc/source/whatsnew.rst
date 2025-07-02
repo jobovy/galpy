@@ -5,6 +5,28 @@ This page gives some of the key improvements in each galpy
 version. See the ``HISTORY.txt`` file in the galpy source for full
 details on what is new and different in each version.
 
+v1.11
++++++
+
+Version 1.11 contains a few major additions and many bug fixes and small incremental
+improvements. The major new additions are:
+
+* The addition of the IAS15 orbit integrator from `Rein & Spiegel (2014)
+  <https://ui.adsabs.harvard.edu/abs/2015MNRAS.446.1424R/abstract>`__ by J. F.
+  Weatherall. IAS15 is a fast orbit integrator that uses adaptive
+  timestepping under the hood, and can be used in cases where very high precision is
+  required during orbit integration.
+
+* The addition of the particle-spray technique from `Chen et al. (2024)
+  <https://ui.adsabs.harvard.edu/abs/2025ApJS..276...32C/abstract>`__ to generate mock stellar
+  streams. This technique is implemented in the new ``chen24spraydf`` class, with the
+  older Fardal et al. (2015) implementation now renamed to ``fardal15spraydf``.
+
+* Improvements to the efficiency of evaluating the ``PowerSphericalPotentialwCutoff``
+  forces by James Grimmett that lead to significant speed-ups for orbit integration in
+  ``MWPotential2014``, especially for orbits near the Galactic center.
+
+
 v1.10
 +++++
 
