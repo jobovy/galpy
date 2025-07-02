@@ -1,7 +1,18 @@
-v1.11.0 (expected around 2025-07-01)
+v1.11.0 (2025-07-02)
 ====================
 
 - Removed support for Python 3.8 (which has reached its end of life in Oct 2024).
+
+- Implement caching of PowerSphericalPotentialwCutoff to speed up evaluation of
+  the forces during orbit integration.
+
+- Turn physical units on when surface density input to AnyAxisymmetricRazorThinDiskPotential
+  is given in physical units.
+
+- Allow TwoPowerSphericalPotential to be evaluated at r=0 (#729).
+
+- Switch to controlling compilation options through environment variables to be
+  more compatible with modern pip/setup.py standards.
 
 v1.10.2 (2025-03-03)
 ====================
