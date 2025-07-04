@@ -275,6 +275,7 @@ Dissipative forces
 .. toctree::
    :maxdepth: 1
 
+   potentialfdmdynfric.rst
    potentialchandrasekhardynfric.rst
 
 Fictitious forces in non-inertial frames
