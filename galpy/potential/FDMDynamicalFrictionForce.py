@@ -61,7 +61,7 @@ class FDMDynamicalFrictionForce(ChandrasekharDynamicalFrictionForce):
         vo=None,
     ):
         """
-        Initialize a FDM Dynamical Friction force [1]_.
+        Initialize a FDM Dynamical Friction force [1]_[2]_.
 
         Parameters
         ----------
@@ -181,7 +181,7 @@ class FDMDynamicalFrictionForce(ChandrasekharDynamicalFrictionForce):
             # FDM dispersion regime
             C = C_fdm_dispersion
 
-        if kr < M_sigma / 2:
+        elif kr < M_sigma / 2:
             # FDM zero-velocity regime
             C = C_fdm
 

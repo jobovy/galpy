@@ -18,8 +18,8 @@ double FDMDynamicalFrictionForceFDMvsCDM(double R,double z,
 						    struct potentialArg * potentialArgs,
 						    double vR,double vT,
 						    double vz){
-  double FDMfactor, CDMfactor;
-  double kr, sr, d_ind, X, Xfactor, GMvs;
+  double FDMfactor, CDMfactor, C_fdm, C_fdm_disp;
+  double kr, sr, d_ind, X, Xfactor, GMvs, M_sigma, mu;
   double * args= potentialArgs->args;
   //Get args
   double amp= *args;
@@ -42,7 +42,8 @@ double FDMDynamicalFrictionForceFDMvsCDM(double R,double z,
       lnLambda= 0.5 * log ( 1. + r2 / gamma2 / GMvs / GMvs );
     // FDMfactor
     kr = 2.0 * mhbar * v * r;
-    FDMfactor = M_EULER + log ( kr ) - gsl_sf_Ci(kr) + sin (kr) / (kr) - 1.0;
+    C_fdm = M_EULER + log ( kr ) - gsl_sf_Ci(kr) + sin (kr) / (kr) - 1.0;
+
     // CDMfactor
     d_ind= (r-ro)/(rf-ro);
     d_ind= d_ind <  0 ? 0. : ( d_ind > 1 ? 1. : d_ind);
@@ -50,6 +51,23 @@ double FDMDynamicalFrictionForceFDMvsCDM(double R,double z,
     X= M_SQRT1_2 * v / sr;
     Xfactor= erf ( X ) - M_2_SQRTPI * X * exp ( - X * X );
     CDMfactor = lnLambda * Xfactor;
+
+    M_sigma = v/sr;
+    C_fdm_disp = log(kr/M_sigma)*Xfactor;
+
+
+    if(kr<M_sigma)
+    {
+      FDMfactor = C_fdm;
+    }
+    else if(kr>4* M_sigma)
+    {
+      FDMfactor = C_fdm_disp;
+    } else {
+      mu = (2*M_sigma - kr/2)/(2*M_sigma-M_sigma/2);
+      FDMfactor = mu * C_fdm + (1-mu) * C_fdm_disp;
+    }
+
   } else {
     FDMfactor = lnLambda;
   }
