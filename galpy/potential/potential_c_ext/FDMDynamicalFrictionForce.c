@@ -42,7 +42,7 @@ double FDMDynamicalFrictionForceFDMvsCDM(double R,double z,
       lnLambda= 0.5 * log ( 1. + r2 / gamma2 / GMvs / GMvs );
     // FDMfactor
     kr = 2.0 * mhbar * v * r;
-    C_fdm = M_EULER + log ( kr ) - gsl_sf_Ci(kr) + sin (kr) / (kr) - 1.0;
+
 
     // CDMfactor
     d_ind= (r-ro)/(rf-ro);
@@ -51,19 +51,22 @@ double FDMDynamicalFrictionForceFDMvsCDM(double R,double z,
     X= M_SQRT1_2 * v / sr;
     Xfactor= erf ( X ) - M_2_SQRTPI * X * exp ( - X * X );
     CDMfactor = lnLambda * Xfactor;
-
     M_sigma = v/sr;
-    C_fdm_disp = log(kr/M_sigma)*Xfactor;
 
 
     if(kr<M_sigma)
     {
-      FDMfactor = C_fdm;
+      FDMfactor = M_EULER + log ( kr ) - gsl_sf_Ci(kr) + sin (kr) / (kr) - 1.0;
     }
     else if(kr>4* M_sigma)
     {
-      FDMfactor = C_fdm_disp;
+      FDMfactor = log(kr/M_sigma)*Xfactor;
     } else {
+      // Intermediate regime between zero-velocity and dispersion regimes
+      // Re-evaluating FDM zero-velocity regime at kr = M_sigma/2 and FDM dispersion regime at kr = 2 * M_sigma
+      C_fdm = M_EULER + log ( M_sigma ) - gsl_sf_Ci( M_sigma ) + sin ( M_sigma ) / ( M_sigma ) - 1.0;
+      C_fdm_disp = log( 4.0 ) * Xfactor;
+      // Interpolating between zero-velocity and dispersion regimes
       mu = (2*M_sigma - kr/2)/(2*M_sigma-M_sigma/2);
       FDMfactor = mu * C_fdm + (1-mu) * C_fdm_disp;
     }

@@ -170,27 +170,26 @@ class FDMDynamicalFrictionForce(ChandrasekharDynamicalFrictionForce):
         # Classical dynamical friction coefficient
         C_cdm = lnLambda * Xfactor
 
-        # FDM zero-velocity dynamical friction coefficient
-        cosine_integral = -sp.sici(2 * kr)[1] + numpy.log(2 * kr) + numpy.euler_gamma
-        C_fdm = cosine_integral + (numpy.sin(2 * kr) / (2 * kr)) - 1
-
-        # FDM dispersion regime coefficient
-        C_fdm_dispersion = numpy.log(2 * kr / M_sigma) * Xfactor
-
         if kr > 2 * M_sigma:
-            # FDM dispersion regime
-            C = C_fdm_dispersion
+            # FDM dispersion regime coefficient
+            C = numpy.log(2 * kr / M_sigma) * Xfactor
 
         elif kr < M_sigma / 2:
-            # FDM zero-velocity regime
-            C = C_fdm
+            # FDM zero-velocity dynamical friction coefficient
+            cosine_integral = (
+                -sp.sici(2 * kr)[1] + numpy.log(2 * kr) + numpy.euler_gamma
+            )
+            C = cosine_integral + (numpy.sin(2 * kr) / (2 * kr)) - 1
 
         else:
             # intermediate regime between zero-velocity and dispersion regimes
+            # recompute FDM zero-velocity regime at kr = M_sigma/2
+            cosine_integral = (
+                -sp.sici(M_sigma)[1] + numpy.log(M_sigma) + numpy.euler_gamma
+            )
+            C_fdm = cosine_integral + (numpy.sin(M_sigma) / (M_sigma)) - 1
             C = numpy.interp(
-                kr,
-                [M_sigma / 2, 2 * M_sigma],
-                [C_fdm, C_fdm_dispersion],
+                kr, [M_sigma / 2, 2 * M_sigma], [C_fdm, numpy.log(4.0) * Xfactor]
             )
 
         # If the FDM factor is larger than the classical one, we use the classical one
@@ -205,6 +204,11 @@ class FDMDynamicalFrictionForce(ChandrasekharDynamicalFrictionForce):
             self._cached_force = 0.0
         else:
             vs = numpy.sqrt(v[0] ** 2.0 + v[1] ** 2.0 + v[2] ** 2.0)
-            self._C = self.frictionFactor(r, vs)
+
+            if self._const_FDMfactor:
+                # Use constant FDM factor
+                self._C = self._const_FDMfactor
+            else:
+                self._C = self.frictionFactor(r, vs)
 
             self._cached_force = -self._dens(R, z, phi=phi, t=t) / vs**3.0 * self._C
