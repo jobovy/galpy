@@ -19,22 +19,22 @@ class FDMDynamicalFrictionForce(ChandrasekharDynamicalFrictionForce):
 
     1. **Zero-velocity regime**: for :math:`kr < M_\sigma / 2`, where :math:`M_\sigma = v / \sigma(r)` is the classical Mach number, the coefficient is given by
 
-    .. math::
+       .. math::
 
-        C_\mathrm{FDM}(kr) = \mathrm{Cin}(2kr) + \frac{\sin(2kr)}{2kr} - 1
+           C_\mathrm{FDM}(kr) = \mathrm{Cin}(2kr) + \frac{\sin(2kr)}{2kr} - 1
 
-    with
+       with
 
-    .. math::
+       .. math::
 
-        \mathrm{Cin}(z) = \int_0^z \frac{1 - \cos(t)}{t} \, \mathrm{d}t
+           \mathrm{Cin}(z) = \int_0^z \frac{1 - \cos(t)}{t} \, \mathrm{d}t
 
     2. **Dispersion regime**: for :math:`kr > 2 M_\sigma`, the coefficient is given by
 
-    .. math::
-        C_\mathrm{FDM}(kr) = \ln\left(\frac{2kr}{M_\sigma}\right) \left[ \mathrm{erf}(X) - \frac{2X}{\sqrt{\pi}} \exp(-X^2) \right]
+       .. math::
+           C_\mathrm{FDM}(kr) = \ln\left(\frac{2kr}{M_\sigma}\right) \left[ \mathrm{erf}(X) - \frac{2X}{\sqrt{\pi}} \exp(-X^2) \right]
 
-    where :math:`X = \frac{v}{\sqrt{2} \sigma(r)}`.
+       where :math:`X = \frac{v}{\sqrt{2} \sigma(r)}`.
 
     3. **Intermediate regime**: for :math:`M_\sigma / 2 < kr < 2 M_\sigma`, the coefficient is given by linear interpolation between the zero-velocity and dispersion regimes.
 
@@ -42,7 +42,7 @@ class FDMDynamicalFrictionForce(ChandrasekharDynamicalFrictionForce):
 
     .. math::
 
-        C_\mathrm{CDM} = \ln \Lambda \left[ \mathrm{erf}(X) - \frac{2X}{\sqrt{\pi}} \exp(-X^2) \right]
+        C_\mathrm{CDM} = {\ln[ 1+\Lambda^2]\over 2} \left[ \mathrm{erf}(X) - \frac{2X}{\sqrt{\pi}} \exp(-X^2) \right]
 
     See also
     --------
