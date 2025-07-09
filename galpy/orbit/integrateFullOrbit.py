@@ -461,8 +461,8 @@ def _parse_pot(pot, potforactions=False, potfortorus=False):
             pot_args.extend(
                 [p._sigmar_rs_4interp[0], p._sigmar_rs_4interp[-1]]
             )  # r_0, r_f
-            pot_args.append(
-                p._mhbar
+            pot_args.extend(
+                [p._mhbar, -1 if not p._const_FDMfactor else p._const_FDMfactor]
             )  # Any additional FDM arguments must be added here, because r_0 and r_f need to stay in the same place for the C spline transfer to work
         elif isinstance(
             p, potential.ChandrasekharDynamicalFrictionForce

@@ -30,19 +30,23 @@ double FDMDynamicalFrictionForceFDMvsCDM(double R,double z,
   double ro= *(args+14);
   double rf= *(args+15);
   double mhbar= *(args+16);
+  double const_FDMfactor= *(args+17);
   double r= sqrt( r2 );
   double v2=  vR * vR + vT * vT + vz * vz;
   double v= sqrt( v2 );
   // Constant or variable Lambda
-  if ( lnLambda < 0 ) {
+  if ( const_FDMfactor < 0 ) {
     GMvs= ms/v/v;
-    if ( GMvs < rhm )
-      lnLambda= 0.5 * log ( 1. + r2 / gamma2 / rhm / rhm );
-    else
-      lnLambda= 0.5 * log ( 1. + r2 / gamma2 / GMvs / GMvs );
+    if ( lnLambda < 0 ) {
+      // lnLambda is constant
+      if ( GMvs < rhm )
+        lnLambda= 0.5 * log ( 1. + r2 / gamma2 / rhm / rhm );
+      else
+        lnLambda= 0.5 * log ( 1. + r2 / gamma2 / GMvs / GMvs );
+    }
+
     // FDMfactor
     kr = 2.0 * mhbar * v * r;
-
 
     // CDMfactor
     d_ind= (r-ro)/(rf-ro);
@@ -51,15 +55,16 @@ double FDMDynamicalFrictionForceFDMvsCDM(double R,double z,
     X= M_SQRT1_2 * v / sr;
     Xfactor= erf ( X ) - M_2_SQRTPI * X * exp ( - X * X );
     CDMfactor = lnLambda * Xfactor;
-    M_sigma = v/sr;
 
+    M_sigma = v/sr; // Mach number
 
     if(kr<M_sigma)
-    {
+    { // Zero-dispersion regime
       FDMfactor = M_EULER + log ( kr ) - gsl_sf_Ci(kr) + sin (kr) / (kr) - 1.0;
     }
     else if(kr>4* M_sigma)
     {
+      // Dispersion regime
       FDMfactor = log(kr/M_sigma)*Xfactor;
     } else {
       // Intermediate regime between zero-velocity and dispersion regimes
@@ -72,7 +77,7 @@ double FDMDynamicalFrictionForceFDMvsCDM(double R,double z,
     }
 
   } else {
-    FDMfactor = lnLambda;
+    FDMfactor = const_FDMfactor;
   }
   return FDMfactor / CDMfactor;
 }
