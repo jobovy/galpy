@@ -15,7 +15,8 @@ class FDMDynamicalFrictionForce(ChandrasekharDynamicalFrictionForce):
 
         \vec{F}_\mathrm{FDM} = -\frac{4\pi\mathcal{G}^2 M_\mathrm{obj}^2 \rho}{v^3} C_\mathrm{FDM}(kr) \vec{v}
 
-    where the coefficient :math:`C_\mathrm{FDM}(kr)` depends on :math:`kr = \frac{m v r}{\hbar}` and is given by
+    where the coefficient :math:`C_\mathrm{FDM}(kr)` depends on :math:`kr = \frac{m v r}{\hbar}`. There are three regimes for the coefficient, depending on the value of :math:`kr`:
+    1. **Zero-velocity regime**: for :math:`kr < M_\sigma / 2`, where :math:`M_\sigma = v / \sigma(r)` is the classical Mach number, the coefficient is given by
 
     .. math::
 
@@ -27,7 +28,16 @@ class FDMDynamicalFrictionForce(ChandrasekharDynamicalFrictionForce):
 
         \mathrm{Cin}(z) = \int_0^z \frac{1 - \cos(t)}{t} \, \mathrm{d}t
 
-    For comparison, the classical (CDM) coefficient is
+    2. **Dispersion regime**: for :math:`kr > 2 M_\sigma`, the coefficient is given by
+
+    .. math::
+        C_\mathrm{FDM}(kr) = \ln\left(\frac{2kr}{M_\sigma}\right) \left[ \mathrm{erf}(X) - \frac{2X}{\sqrt{\pi}} \exp(-X^2) \right]
+
+    where :math:`X = \frac{v}{\sqrt{2} \sigma(r)}`.
+
+    3. **Intermediate regime**: for :math:`M_\sigma / 2 < kr < 2 M_\sigma`, the coefficient is given by linear interpolation between the zero-velocity and dispersion regimes.
+
+    If the FDM coefficient :math:`C_\mathrm{FDM}(kr)` is larger than the classical coefficient :math:`C_\mathrm{CDM}`, we use the classical coefficient as a cutoff, because it means that we are in the classical regime. The classical coefficient is given by:
 
     .. math::
 
@@ -37,9 +47,6 @@ class FDMDynamicalFrictionForce(ChandrasekharDynamicalFrictionForce):
     --------
     :class:`.ChandrasekharDynamicalFrictionForce`
         For the implementation and documentation of the classical Chandrasekhar dynamical friction force (CDM case).
-
-
-    Since the FDM coefficient :math:`C_\mathrm{FDM}(kr)` has an asymptotic behavior, we must use the classical coefficient :math:`C_\mathrm{CDM}` as a cutoff whenever :math:`C_\mathrm{FDM}(kr) > C_\mathrm{CDM}`, because it would mean that we are in the classical regime.
 
     """
 
