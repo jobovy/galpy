@@ -35,27 +35,25 @@ double FDMDynamicalFrictionForceFDMvsCDM(double R,double z,
   double v2=  vR * vR + vT * vT + vz * vz;
   double v= sqrt( v2 );
   // Constant or variable Lambda
+  GMvs= ms/v/v;
+  if ( lnLambda < 0 ) {
+    // lnLambda is constant
+    if ( GMvs < rhm )
+      lnLambda= 0.5 * log ( 1. + r2 / gamma2 / rhm / rhm );
+    else
+      lnLambda= 0.5 * log ( 1. + r2 / gamma2 / GMvs / GMvs );
+  }
+  // CDMfactor
+  d_ind= (r-ro)/(rf-ro);
+  d_ind= d_ind <  0 ? 0. : ( d_ind > 1 ? 1. : d_ind);
+  sr= gsl_spline_eval(*potentialArgs->spline1d,d_ind,*potentialArgs->acc1d);
+  X= M_SQRT1_2 * v / sr;
+  Xfactor= erf ( X ) - M_2_SQRTPI * X * exp ( - X * X );
+  CDMfactor = lnLambda * Xfactor;
+
+  // Constant or variable FDMfactor
   if ( const_FDMfactor < 0 ) {
-    GMvs= ms/v/v;
-    if ( lnLambda < 0 ) {
-      // lnLambda is constant
-      if ( GMvs < rhm )
-        lnLambda= 0.5 * log ( 1. + r2 / gamma2 / rhm / rhm );
-      else
-        lnLambda= 0.5 * log ( 1. + r2 / gamma2 / GMvs / GMvs );
-    }
-
-    // FDMfactor
     kr = 2.0 * mhbar * v * r;
-
-    // CDMfactor
-    d_ind= (r-ro)/(rf-ro);
-    d_ind= d_ind <  0 ? 0. : ( d_ind > 1 ? 1. : d_ind);
-    sr= gsl_spline_eval(*potentialArgs->spline1d,d_ind,*potentialArgs->acc1d);
-    X= M_SQRT1_2 * v / sr;
-    Xfactor= erf ( X ) - M_2_SQRTPI * X * exp ( - X * X );
-    CDMfactor = lnLambda * Xfactor;
-
     M_sigma = v/sr; // Mach number
 
     if(kr<M_sigma)
@@ -93,9 +91,11 @@ double FDMDynamicalFrictionForceAmplitude(double R,double z,
   forceAmplitude = ChandrasekharDynamicalFrictionForceAmplitude(R,z,phi,t,r2,
                             potentialArgs->wrappedPotentialArg,vR,vT,vz);
   // Now compute the relative CDM vs FDM force amplitude
+  double const_FDMfactor= *(args+17);
   FDMvsCDMamplitude = FDMDynamicalFrictionForceFDMvsCDM(R,z,phi,t,r2,
          potentialArgs,vR,vT,vz);
-  if ( FDMvsCDMamplitude < 1.)
+  fflush(stdout);
+  if ( FDMvsCDMamplitude < 1. || const_FDMfactor >= 0 ) // Always apply FDM factor if constant
     forceAmplitude *= FDMvsCDMamplitude;
   // Caching
   *(args + 1)= R;

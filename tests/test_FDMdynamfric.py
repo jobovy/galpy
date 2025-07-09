@@ -114,6 +114,60 @@ def test_FDMDynamicalFrictionForce_const_FDMfactor():
     return None
 
 
+def test_FDMDynamicalFrictionForce_const_FDMfactor_c():
+    # test that FDM dynamical friction with a constant FDM factor
+    # agrees with the analytical solution for circular orbits in logarithmic potentials
+    # assuming a constant velocity
+    # r_pred = np.sqrt(-2*GMs*const_FDMfactor*t/vc + r0**2)
+
+    from scipy import special as sp
+
+    from galpy.orbit import Orbit
+    from galpy.util import conversion
+
+    ro, vo = 8.0, 220.0
+    # Parameters
+    GMs = 10.0**6.0 / conversion.mass_in_msol(vo, ro)
+    r0 = 0.2
+    vc = 1.0
+    m = 1e-99
+    mhbar = (
+        conversion.parse_mass(m, ro=ro, vo=vo)
+        / conversion._GHBARINKM3S3KPC2
+        * ro**2
+        * vo**3
+    )
+    const_kr = mhbar * r0 * vc
+    const_FDMfactor = (
+        -sp.sici(const_kr)[1]
+        + numpy.log(const_kr)
+        + numpy.euler_gamma
+        + (numpy.sin(const_kr) / (const_kr))
+        - 1
+    )
+    tau_pred = vc * r0**2 / (2 * GMs * const_FDMfactor)  # analytical orbital time
+    t = numpy.linspace(0.0, 0.99 * tau_pred, 1001)
+    r_pred = numpy.sqrt(
+        -2 * GMs * const_FDMfactor * t / vc + r0**2
+    )  # analytical solution
+
+    from galpy.potential import FDMDynamicalFrictionForce, LogarithmicHaloPotential
+
+    Loghalo = LogarithmicHaloPotential(normalize=1.0)
+
+    o = Orbit([r0, 0.0, vc, 0.0, 0.0, 0.0])
+    fdf = FDMDynamicalFrictionForce(
+        GMs=GMs, dens=Loghalo, m=m, const_FDMfactor=const_FDMfactor
+    )
+    o.integrate(t, Loghalo + fdf, method="dop853_c")
+
+    # Compare to analytical solution
+    assert numpy.amax(numpy.fabs(o.r(t) - r_pred)) / r0 < 0.001, (
+        "FDMDynamicalFrictionForce with constant FDM factor does not agree with analytical solution for circular orbits in logarithmic potentials"
+    )
+    return None
+
+
 def test_FDMDynamicalFrictionForce_classicalregime():
     # test that FDM dynamical friction in the classical regime (i.e. when kr >>1)
     # agrees with Chandrasekhar dynamical friction
