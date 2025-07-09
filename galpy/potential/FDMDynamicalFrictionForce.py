@@ -69,7 +69,7 @@ class FDMDynamicalFrictionForce(ChandrasekharDynamicalFrictionForce):
         vo=None,
     ):
         """
-        Initialize a FDM Dynamical Friction force [1]_.
+        Initialize a FDM Dynamical Friction force [1]_, [2]_.
 
         Parameters
         ----------
@@ -104,11 +104,12 @@ class FDMDynamicalFrictionForce(ChandrasekharDynamicalFrictionForce):
 
         Notes
         ----------
-        2025-05-30: Started (A.Szpilfidel)
+        2025-05-30: Started (A. Szpilfidel, P. Boldrini, J. Bovy)
 
         References
         ----------
-        .. [1] Hui and al. (2017) (https://arxiv.org/pdf/1610.08297)
+        .. [1] Hui et al. (2017), "Ultralight scalars as cosmological dark matter", arXiv:1610.08297 [astro-ph.CO]. https://arxiv.org/abs/1610.08297
+        .. [2] Lancaster et al. (2020), "Dynamical friction in fuzzy dark matter", arXiv:1909.06381 [astro-ph.GA]. https://arxiv.org/abs/1909.06381
         """
         ChandrasekharDynamicalFrictionForce.__init__(
             self,
