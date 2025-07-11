@@ -411,7 +411,62 @@ def _parse_pot(pot, potforactions=False, potfortorus=False):
             pot_args.extend(p._orb.z(p._orb.t, use_physical=False))
             pot_args.extend([p._amp])
             pot_args.extend([p._orb.t[0], p._orb.t[-1]])  # t_0, t_f
-        elif isinstance(p, potential.ChandrasekharDynamicalFrictionForce):
+        # Note that this one is out of pot_type order because it's closely associated
+        # with ChandrasekharDynamicalFrictionForce and its a subclass, so needs to be
+        # caught first
+        elif isinstance(p, potential.FDMDynamicalFrictionForce):
+            pot_type.append(-11)
+            # Manually wrap the instance as a ChandrasekharDynamicalFrictionForce
+            pot_args.append(1)
+            pot_type.append(-7)  # Wrapping as ChandrasekharDynamicalFrictionForce
+            wrap_npot, wrap_pot_type, wrap_pot_args, wrap_pot_tfuncs = _parse_pot(
+                p._dens_pot, potforactions=potforactions, potfortorus=potfortorus
+            )
+            pot_args.append(wrap_npot)
+            pot_type.extend(wrap_pot_type)
+            pot_args.extend(wrap_pot_args)
+            pot_tfuncs.extend(wrap_pot_tfuncs)
+            pot_args.extend([len(p._sigmar_rs_4interp)])
+            pot_args.extend(p._sigmar_rs_4interp)
+            pot_args.extend(p._sigmars_4interp)
+            pot_args.extend([p._amp])
+            pot_args.extend([-1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])  # for caching
+            pot_args.extend(
+                [
+                    p._ms,
+                    p._rhm,
+                    p._gamma**2.0,
+                    -1 if not p._lnLambda else p._lnLambda,
+                    p._minr**2.0,
+                ]
+            )
+            pot_args.extend(
+                [p._sigmar_rs_4interp[0], p._sigmar_rs_4interp[-1]]
+            )  # r_0, r_f
+            # Now we wrap the FDM part, which repeats a lot of the above, because we need it separately in C
+            pot_args.extend([len(p._sigmar_rs_4interp)])
+            pot_args.extend(p._sigmar_rs_4interp)
+            pot_args.extend(p._sigmars_4interp)
+            pot_args.extend([p._amp])
+            pot_args.extend([-1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])  # for caching
+            pot_args.extend(
+                [
+                    p._ms,
+                    p._rhm,
+                    p._gamma**2.0,
+                    -1 if not p._lnLambda else p._lnLambda,
+                    p._minr**2.0,
+                ]
+            )
+            pot_args.extend(
+                [p._sigmar_rs_4interp[0], p._sigmar_rs_4interp[-1]]
+            )  # r_0, r_f
+            pot_args.extend(
+                [p._mhbar, -1 if not p._const_FDMfactor else p._const_FDMfactor]
+            )  # Any additional FDM arguments must be added here, because r_0 and r_f need to stay in the same place for the C spline transfer to work
+        elif isinstance(
+            p, potential.ChandrasekharDynamicalFrictionForce
+        ):  # not isinstance(p, potential.FDMDynamicalFrictionForce):
             pot_type.append(-7)
             wrap_npot, wrap_pot_type, wrap_pot_args, wrap_pot_tfuncs = _parse_pot(
                 p._dens_pot, potforactions=potforactions, potfortorus=potfortorus

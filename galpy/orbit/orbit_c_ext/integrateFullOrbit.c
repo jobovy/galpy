@@ -606,9 +606,19 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->nargs= 3;
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
+      break;
+    case -11: //FDMDynamicalFrictionForce
+      potentialArgs->RforceVelocity= &FDMDynamicalFrictionForceRforce;
+      potentialArgs->zforceVelocity= &FDMDynamicalFrictionForcezforce;
+      potentialArgs->phitorqueVelocity= &FDMDynamicalFrictionForcephitorque;
+      potentialArgs->nargs= 18;
+      potentialArgs->ntfuncs= 0;
+      potentialArgs->requiresVelocity= true;
+      break;
     }
     int setupMovingObjectSplines = *(*pot_type-1) == -6 ? 1 : 0;
-    int setupChandrasekharDynamicalFrictionSplines = *(*pot_type-1) == -7 ? 1 : 0;
+    // Need to set up the same sigma_r spline for both Chandrasekhar and FDM dynamical friction
+    int setupChandrasekharDynamicalFrictionSplines = (*(*pot_type-1) == -7 || *(*pot_type-1) == -11) ? 1 : 0;
     if ( *(*pot_type-1) < 0 ) { // Parse wrapped potential for wrappers
       potentialArgs->nwrapped= (int) *(*pot_args)++;
       potentialArgs->wrappedPotentialArg= \
@@ -620,7 +630,7 @@ void parse_leapFuncArgs_Full(int npot,
     }
     if (setupMovingObjectSplines)
       initMovingObjectSplines(potentialArgs, pot_args);
-    if (setupChandrasekharDynamicalFrictionSplines)
+    if (setupChandrasekharDynamicalFrictionSplines )
       initChandrasekharDynamicalFrictionSplines(potentialArgs,pot_args);
     // Now load each potential's parameters
     potentialArgs->args= (double *) malloc( potentialArgs->nargs * sizeof(double));
