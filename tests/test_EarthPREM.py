@@ -142,10 +142,15 @@ pot = EarthPREMPotential()
 # print(pot._rforce_sym(r=1000.0))
 # print(pot._rforce_sym(r=0.00001))
 
-print('pot._r2deriv')
-print(pot._r2deriv(r=1000.0))
-print(pot._r2deriv(r=0.0000001))
+# print('pot._r2deriv')
+# print(pot._r2deriv(r=1000.0))
+# print(pot._r2deriv(r=0.0000001))
 
-print('pot._r2deriv_sym')
-print(pot._r2deriv_sym(r=1000.0))
-print(pot._r2deriv_sym(r=0.0000001))
+# print('pot._r2deriv_sym')
+# print(pot._r2deriv_sym(r=1000.0))
+# print(pot._r2deriv_sym(r=0.0000001))
+
+def test_rawmass():
+    pot = EarthPREMPotential()
+    print(pot._mass(R=pot.R))
+    assert pot._mass(R=0.) == 0

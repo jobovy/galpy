@@ -1,16 +1,18 @@
 ###############################################################################
-#   ?????????.py: The potential of Earth
+#   EarthPREMPotentialpy: The potential of Earth
 ###############################################################################
 import numpy
 
 from ..util import conversion
 from ..util._optional_deps import _SYMPY_LOADED
+
 # from .Potential import Potential
-from .AnySphericalPotential import AnySphericalPotential
-# from .AnySphericalPotential_Symbolic import AnySphericalPotential_Symbolic
+from .SymbolicSphericalPotential import SymbolicSphericalPotential
+
 if _SYMPY_LOADED:
     import sympy
-    from sympy import symbols, integrate, Piecewise, pi, latex , sqrt
+    from sympy import symbols, integrate, Piecewise, pi, latex, sqrt
+
 
 def earth_PREM_density(radius_km):
     # Use the coefficients of the polynomials describing the Preliminary Reference Earth Model (PREM) to find out density.
@@ -70,21 +72,20 @@ def earth_PREM_density(radius_km):
         return density_crust(x)
     elif radius_km <= 6371.0:
         return density_ocean(x)
-    else: 
+    else:
         return 0.0
 
+
 def earth_PREM_density_sym():
-    # R_sym, z_sym = sympy.symbols('R z')
-    # r2 = R_sym**2.0 + z_sym**2.0
-    # r_sym = sympy.sqrt(r2)
-    r_sym = sympy.Symbol('r', real=True, positive=True)
-    # R = sympy.symbols('r', real=True, positive=True)
+    r_sym = sympy.Symbol("r", real=True, positive=True)
     EARTH_RADIUS_KM = 6371.0  # Earth's radius in km
     x = r_sym / EARTH_RADIUS_KM
- 
     dens_sym = sympy.Piecewise(
-        (13.0885 - 8.8381*x**2, r_sym < 1221.5),
-        (12.5815 - 1.2638*x - 3.6426*x**2 - 5.5281*x**3, (r_sym >= 1221.5) & (r_sym < 3480.0)),
+        (13.0885 - 8.8381 * x**2, r_sym < 1221.5),
+        (
+            12.5815 - 1.2638 * x - 3.6426 * x**2 - 5.5281 * x**3,
+            (r_sym >= 1221.5) & (r_sym < 3480.0),
+        ),
         # (7.9565 - 6.4761*x + 5.5283*x**2 - 3.0807*x**3, (r_sym >= 3480.0) & (r_sym < 5701.0)),
         # (5.3197 - 1.4836*x, (r_sym >= 5701.0) & (r_sym < 5771.0)),
         # (11.2494 - 8.0298*x, (r_sym >= 5771.0) & (r_sym < 5971.0)),
@@ -92,11 +93,12 @@ def earth_PREM_density_sym():
         # (2.6910 + 0.6924*x, (r_sym >= 6151.0) & (r_sym < 6346.6)),
         # (2.6910 + 0.6924*x, (r_sym >= 6346.6) & (r_sym < 6356.0)),
         # (2.6, r_sym >= 6356.0),
-        (0, True)  # for r > 6371.0 and safety
+        (0, True),  # for r > 6371.0 and safety
     )
     return dens_sym, r_sym
 
-class EarthPREMPotential(AnySphericalPotential):
+
+class EarthPREMPotential(SymbolicSphericalPotential):
     r"""Class that implements the Earth potential following the Preliminary reference Earth model (PREM). 
     The potential is given by
 
@@ -124,14 +126,14 @@ class EarthPREMPotential(AnySphericalPotential):
 
     def __init__(self, amp=1.0, R=6371e3, normalize=False, ro=None, vo=None):
         """
-        Initialize ..................................................................
+        Initialize the gravitational potential of earth.
 
         Parameters
         ----------
         amp : float or Quantity, optional
             Amplitude to be applied to the potential. Can be a Quantity with units of mass density or Gxmass density.
         R : float or Quantity, optional
-            Earth radius 6,371,000 m. 
+            Earth radius 6,371,000 m.
         normalize : bool or float, optional
             If True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
         ro : float or Quantity, optional
@@ -141,27 +143,32 @@ class EarthPREMPotential(AnySphericalPotential):
 
         Notes
         -----
-        - 2019-12-20 - Written - Bovy (UofT)
+        - 2025-07-23 - Written - Yuzhe Zhang (Uni Mainz)
         """
-
-        AnySphericalPotential.__init__(self, amp=amp, dens=earth_PREM_density, normalize=normalize,ro=ro, vo=vo)
+        dens_sym, r_sym = earth_PREM_density_sym()
+        SymbolicSphericalPotential.__init__(
+            self,
+            amp=amp,
+            dens_sym=dens_sym,
+            ro=ro,
+            vo=vo,
+        )
         R = conversion.parse_length(R, ro=self._ro)
         self.R = R
         self._R2 = self.R**2.0
         self._R3 = self.R**3.0
-        if normalize or (
-            isinstance(normalize, (int, float)) and not isinstance(normalize, bool)
-        ):  # pragma: no cover
-            self.normalize(normalize)
-        self.dens_sym, self.r_sym = earth_PREM_density_sym()  # , self.R_sym, self.z_sym
-        # Compute enclosed mass symbolically
-        integrand = 4 * sympy.pi * self.r_sym**2 * self.dens_sym
-        M_r = sympy.integrate(integrand, (self.r_sym, 0, self.r_sym), conds='none')
-        self._rawmass_sym = M_r.simplify()
-        # get the potential
-        # r_prime = sympy.symbols('r_prime', real=True, positive=True)
-        integrand = self._rawmass_sym / self.r_sym**2
-        self.Phi = sympy.integrate(integrand, (self.r_sym, self.r_sym, 0))
+        # if normalize or (
+        #     isinstance(normalize, (int, float)) and not isinstance(normalize, bool)
+        # ):  # pragma: no cover
+        #     self.normalize(normalize)
+        # # Compute enclosed mass symbolically
+        # integrand = 4 * sympy.pi * self.r_sym**2 * self.dens_sym
+        # M_r = sympy.integrate(integrand, (self.r_sym, 0, self.r_sym), conds="none")
+        # self._rawmass_sym = M_r.simplify()
+        # # get the potential
+        # # r_prime = sympy.symbols('r_prime', real=True, positive=True)
+        # integrand = self._rawmass_sym / self.r_sym**2
+        # self.Phi = sympy.integrate(integrand, (self.r_sym, self.r_sym, 0))
 
         self.hasC = False
         self.hasC_dxdv = False
@@ -215,14 +222,14 @@ class EarthPREMPotential(AnySphericalPotential):
             return 1.5 / numpy.pi
         else:
             return 0.0
-        
-    def _rforce_sym(self, r, t=0.0):
-        return -self._rawmass_sym.evalf(subs={self.r_sym: r}) / r**2
 
-    def _r2deriv_sym(self, r, t=0.0):
-        # Directly compute the second derivative
-        d2Phi_dr2 = sympy.diff(self.Phi, self.r_sym, 2)
-        return d2Phi_dr2.evalf(subs={self.r_sym: r})
+    # def _rforce_sym(self, r, t=0.0):
+    #     return -self._rawmass_sym.evalf(subs={self.r_sym: r}) / r**2
+
+    # def _r2deriv_sym(self, r, t=0.0):
+    #     # Directly compute the second derivative
+    #     d2Phi_dr2 = sympy.diff(self.Phi, self.r_sym, 2)
+    #     return d2Phi_dr2.evalf(subs={self.r_sym: r})
 
 
 # if __name__ == "__main__":

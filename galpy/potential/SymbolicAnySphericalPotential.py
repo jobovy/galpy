@@ -7,13 +7,13 @@ from scipy import integrate
 
 from ..util import conversion
 from ..util._optional_deps import _APY_LOADED
-from .SphericalPotential_Symbolic import SphericalPotential_Symbolic
+from .SymbolicSphericalPotential import SymbolicSphericalPotential
 
 if _APY_LOADED:
     from astropy import units
 
 
-class AnySphericalPotential_Symbolic(SphericalPotential_Symbolic):
+class AnySphericalPotential_Symbolic(SymbolicSphericalPotential):
     """Class that implements the potential of an arbitrary spherical density distribution :math:`\\rho(r)`"""
 
     def __init__(
@@ -45,7 +45,7 @@ class AnySphericalPotential_Symbolic(SphericalPotential_Symbolic):
         - 2021-01-05 - Written - Bovy (UofT)
 
         """
-        SphericalPotential_Symbolic.__init__(self, amp=amp, ro=ro, vo=vo)
+        SymbolicSphericalPotential.__init__(self, amp=amp, ro=ro, vo=vo)
         # Parse density: does it have units? does it expect them?
         if _APY_LOADED:
             _dens_unit_input = False

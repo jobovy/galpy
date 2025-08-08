@@ -6,23 +6,20 @@ import numpy
 from scipy import integrate
 
 from .Potential import Potential
+from ..util._optional_deps import _SYMPY_LOADED
+
+if _SYMPY_LOADED:
+    import sympy
+    from sympy import symbols, integrate, Piecewise, pi, latex, sqrt
 
 
-class SphericalPotential_Symbolic(Potential):
-    """Base class for spherical potentials..................................
+class SymbolicSphericalPotential(Potential):
+    """Base class for symbolic spherical potentials.
 
-    Implement a specific spherical density distribution with this form by inheriting from this class and defining functions:
-
-    * ``_revaluate(self,r,t=0.)``: the potential as a function of ``r`` and time;
-
-    * ``_rforce(self,r,t=0.)``: the radial force as a function of ``r`` and time;
-
-    * ``_r2deriv(self,r,t=0.)``: the second radial derivative of the potential as a function of ``r`` and time;
-
-    * ``_rdens(self,r,t=0.)``: the density as a function of ``r`` and time (if *not* implemented, calculated using the Poisson equation).
+    Implement a specific spherical density distribution by specifying the density function.
     """
 
-    def __init__(self, amp=1.0, ro=None, vo=None, amp_units=None):
+    def __init__(self, dens_sym=None, amp=1.0, ro=None, vo=None, amp_units=None):
         """
         Initialize a spherical potential.
 
@@ -39,17 +36,32 @@ class SphericalPotential_Symbolic(Potential):
 
         Notes
         -----
-        - 2020-03-30 - Written - Bovy (UofT)
+        - 2025-07-23 - Written - Yuzhe Zhang (Uni Mainz)
 
         """
         Potential.__init__(self, amp=amp, ro=ro, vo=vo, amp_units=amp_units)
+        self.r_sym = sympy.Symbol("r_sym")
+        self.dens_sym = dens_sym
+        # Compute enclosed mass symbolically
+        integrand = 4 * sympy.pi * self.r_sym**2 * self.dens_sym
+        M_r = sympy.integrate(integrand, (self.r_sym, 0, self.r_sym), conds="none")
+        self.rawMass_sym = M_r.simplify()
+        del integrand
+
+        # get the potential
+        # r_prime = sympy.symbols('r_prime', real=True, positive=True)
+        integrand = self.rawMass_sym / self.r_sym**2
+        self.Phi = sympy.integrate(integrand, (self.r_sym, self.r_sym, 0))
+        del integrand
+
         return None
 
     def _rdens(self, r, t=0.0):
-        """
-        nooooooooooooooo
-        Implement using the Poisson equation in case this isn't implemented"""
-        return (self._r2deriv(r, t=t) - 2.0 * self._rforce(r, t=t) / r) / 4.0 / numpy.pi
+        """Returns the density at a given radius r (in km)"""
+        density_expr = self.dens_sym.subs({self.r_sym: r})
+
+        # Evaluate the expression to get a numerical value
+        return float(density_expr)
 
     def _evaluate(self, R, z, phi=0.0, t=0.0):
         r = numpy.sqrt(R**2.0 + z**2.0)
@@ -92,4 +104,12 @@ class SphericalPotential_Symbolic(Potential):
         if z is not None:
             raise AttributeError  # use general implementation
         R = numpy.float64(R)  # Avoid indexing issues
-        return -(R**2.0) * self._rforce(R, t=t)
+        return self.rawMass_sym.subs({self.r_sym: R})
+
+    def _rforce_sym(self, r, t=0.0):
+        return -self._rawmass_sym.evalf(subs={self.r_sym: r}) / r**2
+
+    def _r2deriv_sym(self, r, t=0.0):
+        # Directly compute the second derivative
+        d2Phi_dr2 = sympy.diff(self.Phi, self.r_sym, 2)
+        return d2Phi_dr2.evalf(subs={self.r_sym: r})
