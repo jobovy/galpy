@@ -60,6 +60,9 @@ class SymbolicSphericalPotential(Potential):
         # Compute the potential symbolically
         self.Phi = -self.rawMass_sym / self.r
 
+        # second derivative determined by sympy.diff
+        self.d2Phidr2 = sympy.diff(self.Phi, self.r, 2)
+
         return None
 
     def _revaluate(self, r: float, t: float = 0.0):
@@ -82,10 +85,7 @@ class SymbolicSphericalPotential(Potential):
         #     + 2.0 * sympy.diff(pot.rawMass_sym, pot.r, 1) / pot.r**2.0
         #     - 2 * pot.rawMass_sym / pot.r**3.0
         # )
-
-        # second derivative determined by sympy.diff
-        expr = sympy.diff(self.Phi, self.r, 2)
-        return float(expr.evalf(subs={self.r: r}))
+        return float(self.d2Phidr2.evalf(subs={self.r: r}))
 
     def _rdens(self, r: float, t: float = 0.0):
         """Returns the density at a given radius r and time t"""

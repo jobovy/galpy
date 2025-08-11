@@ -11,6 +11,7 @@ if curdir not in sys.path:
 
 
 import numpy
+import time
 
 # import matplotlib.pyplot as plt
 
@@ -127,13 +128,19 @@ def test_r2deriv():
         # print(f"r = {r} km")
         # print(f"r2deriv_num = {r2deriv_num}")
         # print(f"pot._r2deriv(r=r) = {pot._r2deriv(r=r)}")
+
+        t0 = time.time()
+        for i in range(100):
+            val = pot._r2deriv(r=r)
+        t1 = time.time()
+        print(f"Symbolic calculation time: {(t1 - t0) / 100:.6f} s")
         assert (
             numpy.fabs(pot._r2deriv(r=r) - r2deriv_num) <= 0.1
         ), f"Calculated potential at (R={r:.2e}, z=0) is not right. "
 
 
-# if __name__ == "__main__":
+if __name__ == "__main__":
     # test_density()
     # test_enclosed_mass()
     # test_potential()
-    # test_r2deriv()
+    test_r2deriv()
