@@ -43,12 +43,12 @@ def earth_PREM_mass_sym_direct():
     # r = sp.Symbol("R", positive=True)
     r = sp.Symbol("r", positive=True)
     integrand = 4 * sp.pi * r**2 * dens_sym
-    return sp.integrate(integrand, (r, 0, r))
+    return sp.integrate(integrand, (r, 0, r)).simplify()
 
 
 
 if __name__ == "__main__":
-    R_val = 6371  # test radius in km
+    r_val = 6371  # test radius in km
 
     # --- Direct method timing ---
     t0 = time.time()
@@ -76,9 +76,11 @@ if __name__ == "__main__":
     # value = eval_with_min(M_pieceWise_expr, 6371, R)
     print(f"earth mass found: {value:.2e} g")
     print(f"time test {sym_to_num(M_direct_expr, r, 6371, t, 0)}")
-    Phi = M_direct_expr
+    Phi = -M_direct_expr/r
     d2Phi_dr2 = sympy.diff(Phi, r, 2)
-    for R_val in [0, 1000, 6370]:
-        print(d2Phi_dr2.evalf(subs={r: R_val}))
+    for r_val in [0.1, 1000, 6370]:
+        print(f"radius {r_val} km")
+        print(Phi.evalf(subs={r: r_val}))
+        print(d2Phi_dr2.evalf(subs={r: r_val}))
 
 
