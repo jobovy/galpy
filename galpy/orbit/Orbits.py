@@ -1559,6 +1559,7 @@ class Orbit:
         # or if using interpSphericalPotential and r < rmin or r > rmax
         from ..potential import (
             ChandrasekharDynamicalFrictionForce,
+            FDMDynamicalFrictionForce,
             interpSphericalPotential,
         )
 
@@ -1583,6 +1584,31 @@ class Orbit:
                     """ChandrasekharDynamicalFrictionForce is """
                     """turned off; initialize """
                     """ChandrasekharDynamicalFrictionForce with a """
+                    """smaller minr to avoid this if you wish """
+                    """(but note that you want to turn it off """
+                    """close to the center for an object that """
+                    """sinks all the way to r=0, to avoid """
+                    """numerical instabilities)""",
+                    galpyWarning,
+                )
+        if numpy.any(
+            [isinstance(p, FDMDynamicalFrictionForce) for p in flatten_potential([pot])]
+        ):  # make sure pot=list
+            lpot = flatten_potential([pot])
+            cdf_indx = numpy.arange(len(lpot))[
+                numpy.array(
+                    [isinstance(p, FDMDynamicalFrictionForce) for p in lpot],
+                    dtype="bool",
+                )
+            ][0]
+            if numpy.any(self.r(self.t, use_physical=False) < lpot[cdf_indx]._minr):
+                warnings.warn(
+                    """Orbit integration with """
+                    """FDMDynamicalFrictionForce """
+                    """entered domain where r < minr and """
+                    """FDMDynamicalFrictionForce is """
+                    """turned off; initialize """
+                    """FDMDynamicalFrictionForce with a """
                     """smaller minr to avoid this if you wish """
                     """(but note that you want to turn it off """
                     """close to the center for an object that """

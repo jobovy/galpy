@@ -79,6 +79,11 @@ class AnyAxisymmetricRazorThinDiskPotential(Potential):
                 self._sdens = lambda R: conversion.parse_surfdens(
                     surfdens(R), ro=self._ro, vo=self._vo
                 )
+            if _sdens_unit_output:
+                # When sdens (like other potential's amplitude) gives outputs in units,
+                # turn on physical output
+                self._roSet = True
+                self._voSet = True
         if not hasattr(self, "_sdens"):  # unitless
             self._sdens = surfdens
         # The potential at zero, in case it's asked for

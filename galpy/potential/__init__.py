@@ -12,6 +12,7 @@ from . import (
     DoubleExponentialDiskPotential,
     EarthPREMPotential,
     EllipticalDiskPotential,
+    FDMDynamicalFrictionForce,
     FerrersPotential,
     FlattenedPowerPotential,
     Force,
@@ -197,6 +198,7 @@ HenonHeilesPotential = HenonHeilesPotential.HenonHeilesPotential
 ChandrasekharDynamicalFrictionForce = (
     ChandrasekharDynamicalFrictionForce.ChandrasekharDynamicalFrictionForce
 )
+FDMDynamicalFrictionForce = FDMDynamicalFrictionForce.FDMDynamicalFrictionForce
 SphericalShellPotential = SphericalShellPotential.SphericalShellPotential
 RingPotential = RingPotential.RingPotential
 PerfectEllipsoidPotential = PerfectEllipsoidPotential.PerfectEllipsoidPotential

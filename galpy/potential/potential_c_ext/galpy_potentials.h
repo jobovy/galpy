@@ -741,6 +741,19 @@ double ChandrasekharDynamicalFrictionForcephitorque(double,double,double,double,
 double ChandrasekharDynamicalFrictionForcezforce(double,double,double,double,
 						 struct potentialArg *,
 						 double,double,double);
+double ChandrasekharDynamicalFrictionForceAmplitude(double,double,double,double,
+						    double,struct potentialArg *,double,double,double);
+//FDMDynamicalFrictionForce, takes vR,vT,vZ,
+//needs ChandrasekharDynamicalFrictionForceAmplitude from above
+double FDMDynamicalFrictionForceRforce(double,double,double,double,
+						 struct potentialArg *,
+						 double,double,double);
+double FDMDynamicalFrictionForcephitorque(double,double,double,double,
+						   struct potentialArg *,
+						   double,double,double);
+double FDMDynamicalFrictionForcezforce(double,double,double,double,
+						 struct potentialArg *,
+						 double,double,double);
 //TimeDependentAmplitudeWrapperPotential
 double TimeDependentAmplitudeWrapperPotentialEval(double,double,double,double,
 				      struct potentialArg *);
