@@ -5355,9 +5355,9 @@ class Orbit:
             Number of cores to use for Python-based multiprocessing (pure Python or using force_map=True); default = OMP_NUM_THREADS, by default _NUMCORES.
         force_map : bool, optional
             If True, force use of Python-based multiprocessing (not recommended), by default False.
-        rtol : flow, optional
+        rtol : float, optional
             Relative tolerance. Default is None.
-        atol : flow, optional
+        atol : float, optional
             Absolute. Default is None.
 
         Returns
