@@ -10,18 +10,17 @@
 # if curdir not in sys.path:
 #     sys.path.insert(0, curdir)
 
-import numpy
 import time
 
-import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
-
+import matplotlib.pyplot as plt
+import numpy
 import sympy
 
-from galpy.potential.SymbolicSphericalPotential import SymbolicSphericalPotential
 from galpy.potential import EarthPREMPotential
 from galpy.potential.EarthPREMPotential import EARTH_RADIUS_KM
 from galpy.potential.HomogeneousSpherePotential import HomogeneousSpherePotential
+from galpy.potential.SymbolicSphericalPotential import SymbolicSphericalPotential
 
 
 def test_density():
@@ -77,10 +76,10 @@ def test_potential():
     potential_EARTH_RADIUS = -938296455.2451564
     potential_10EARTH_RADIUS = -93829645.52451564
     pot_vals = [potential_EARTH_RADIUS, potential_10EARTH_RADIUS]
-    for i, r in enumerate(r_vals) :
-        assert (
-            numpy.fabs(pot._evaluate(R=r, z=0) - pot_vals[i]) <= 1
-        ), f"Calculated potential at (R={r:.2e}, z=0) is not right. "
+    for i, r in enumerate(r_vals):
+        assert numpy.fabs(pot._evaluate(R=r, z=0) - pot_vals[i]) <= 1, (
+            f"Calculated potential at (R={r:.2e}, z=0) is not right. "
+        )
 
 
 # def test_r2deriv():

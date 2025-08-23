@@ -4,8 +4,8 @@
 ###############################################################################
 import numpy
 
-from .Potential import Potential
 from ..util._optional_deps import _SYMPY_LOADED
+from .Potential import Potential
 
 if _SYMPY_LOADED:
     import sympy
@@ -16,7 +16,7 @@ class SymbolicSphericalPotential(Potential):
     Base class for symbolic spherical potentials.
 
     Implement a specific spherical density distribution by specifying the (symbolic) density function.
-    P.S. Only supports time-independent potential at the moment. 
+    P.S. Only supports time-independent potential at the moment.
     """
 
     def __init__(self, dens=None, amp=1.0, ro=None, vo=None, amp_units=None):
