@@ -76,6 +76,8 @@ class EarthPREMPotential(SymbolicSphericalPotential):
             1.020, & 6368.0 \le r \le 6371.0 \quad \text{(Ocean)}
             \end{cases}
         \]
+    where x = r / earth radius. 
+    By default, the unit of length is km, and the unit of density is g/cm^3. 
     """
 
     def __init__(self, amp=1.0, R=None, normalize=False, ro=None, vo=None):
