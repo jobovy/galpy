@@ -16,6 +16,7 @@ class SymbolicSphericalPotential(Potential):
     Base class for symbolic spherical potentials.
 
     Implement a specific spherical density distribution by specifying the (symbolic) density function.
+    P.S. Only supports time-independent potential at the moment. 
     """
 
     def __init__(self, dens=None, amp=1.0, ro=None, vo=None, amp_units=None):
@@ -68,17 +69,7 @@ class SymbolicSphericalPotential(Potential):
 
     def _r2deriv(self, r: float, t: float = 0.0):
         """Returns the second radial derivative of the potential at a given radius r and time t"""
-        # obtained analytically from the relation
-        # if    dΦ/dr = M(r) / r
-        # then  d²Φ/dr² = M''(r) / r - 2 M' / r² + 2 M(r) / r³
-        #       d²Φ/dr² = M''(r) / r - 4π ρ(r) + 2 M(r) / r³
-        # using the enclosed mass M(r) and density ρ(r) directly
-        # expr = (
-        #     -sympy.diff(pot.rawMass, pot.r, 2) / pot.r
-        #     + 2.0 * sympy.diff(pot.rawMass, pot.r, 1) / pot.r**2.0
-        #     - 2 * pot.rawMass / pot.r**3.0
-        # )
-        # or use the d2Phidr2 obtained by sympy.diff
+        # use the d2Phidr2 obtained by sympy.diff
         return float(self.d2Phidr2.evalf(subs={self.r: r}))
 
     def _rdens(self, r: float, t: float = 0.0):
