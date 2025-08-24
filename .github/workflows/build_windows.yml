@@ -214,6 +214,7 @@ jobs:
       uses: actions/setup-python@v6
       with:
         python-version: ${{ matrix.python-version }}
+        allow-prereleases: true
     # Cache both conda and pip, conda done by setup-micromamba
     - uses: actions/cache@v4
       with:
