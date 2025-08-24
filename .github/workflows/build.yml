@@ -264,7 +264,7 @@ jobs:
       run: |
          sudo apt-get install libhdf5-dev
          pip install --upgrade --upgrade-strategy eager --pre --no-binary=h5py git+https://github.com/h5py/h5py.git
-         pip install --upgrade --upgrade-strategy eager wheel certify
+         pip install --upgrade --upgrade-strategy eager wheel certifi
          pip install --upgrade --upgrade-strategy eager --no-deps --pre git+https://github.com/pynbody/pynbody.git
     - name: Install pynbody (3.14; macos)
       if: ${{ matrix.os == 'macos-latest' && matrix.REQUIRES_PYNBODY && matrix.python-version == '3.14' }}
