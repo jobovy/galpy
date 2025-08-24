@@ -273,7 +273,7 @@ jobs:
          export HDF5_DIR=$(brew --prefix hdf5)
          pip install --upgrade --upgrade-strategy eager wheel certifi
          pip install --upgrade --upgrade-strategy eager --pre --no-deps --no-build-isolation --no-binary=h5py git+https://github.com/h5py/h5py.git
-         pip install --upgrade --upgrade-strategy eager --no-deps --pre git+https://github.com/pynbody/pynbody.git
+         CC=gcc-11 CXX=g++-11 pip install --upgrade --upgrade-strategy eager --no-deps --pre git+https://github.com/pynbody/pynbody.git
     - name: Install pynbody
       if: ${{ matrix.REQUIRES_PYNBODY && matrix.python-version != '3.14' }}
       run: |
