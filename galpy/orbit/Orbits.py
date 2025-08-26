@@ -1403,7 +1403,7 @@ class Orbit:
         numcores=_NUMCORES,
         force_map=False,
         rtol=None,
-        atol=None
+        atol=None,
     ):
         """
         Integrate the orbit instance with multiprocessing.
@@ -1506,7 +1506,7 @@ class Orbit:
                     numcores=numcores,
                     dt=dt,
                     rtol=rtol,
-                    atol=atol
+                    atol=atol,
                 )
             elif self.dim() == 2:
                 out, msg = integratePlanarOrbit(
@@ -1518,7 +1518,7 @@ class Orbit:
                     numcores=numcores,
                     dt=dt,
                     rtol=rtol,
-                    atol=atol
+                    atol=atol,
                 )
             else:
                 out, msg = integrateFullOrbit(
@@ -1530,7 +1530,7 @@ class Orbit:
                     numcores=numcores,
                     dt=dt,
                     rtol=rtol,
-                    atol=atol
+                    atol=atol,
                 )
 
         else:
@@ -1546,7 +1546,7 @@ class Orbit:
                     progressbar=progressbar,
                     dt=dt,
                     rtol=rtol,
-                    atol=atol
+                    atol=atol,
                 )
             else:
                 if self.phasedim() == 3 or self.phasedim() == 5:
@@ -1558,11 +1558,25 @@ class Orbit:
                     vxvvs = numpy.copy(self.vxvv)
                 if self.dim() == 2:
                     out, msg = integratePlanarOrbit_c(
-                        self._pot, vxvvs, t, method, progressbar=progressbar, dt=dt, rtol=rtol, atol=atol
+                        self._pot,
+                        vxvvs,
+                        t,
+                        method,
+                        progressbar=progressbar,
+                        dt=dt,
+                        rtol=rtol,
+                        atol=atol,
                     )
                 else:
                     out, msg = integrateFullOrbit_c(
-                        self._pot, vxvvs, t, method, progressbar=progressbar, dt=dt, rtol=rtol, atol=atol
+                        self._pot,
+                        vxvvs,
+                        t,
+                        method,
+                        progressbar=progressbar,
+                        dt=dt,
+                        rtol=rtol,
+                        atol=atol,
                     )
 
                 if self.phasedim() == 3 or self.phasedim() == 5:
@@ -1668,7 +1682,7 @@ class Orbit:
         numcores=_NUMCORES,
         force_map=False,
         rtol=None,
-        atol=None
+        atol=None,
     ):
         """
         Integrate this Orbit instance using an independent variable suitable to creating surfaces-of-section.
@@ -1763,7 +1777,7 @@ class Orbit:
                     progressbar=progressbar,
                     numcores=numcores,
                     rtol=rtol,
-                    atol=atol
+                    atol=atol,
                 )
             else:
                 out, msg = integrateFullOrbit_sos(
@@ -1775,7 +1789,7 @@ class Orbit:
                     progressbar=progressbar,
                     numcores=numcores,
                     rtol=rtol,
-                    atol=atol
+                    atol=atol,
                 )
         else:
             warnings.warn(
@@ -1798,11 +1812,18 @@ class Orbit:
                     surface=surface,
                     progressbar=progressbar,
                     rtol=rtol,
-                    atol=atol
+                    atol=atol,
                 )
             else:
                 out, msg = integrateFullOrbit_sos_c(
-                    self._pot, vxvvs, self._psi, t0, method, progressbar=progressbar, rtol=rtol, atol=atol
+                    self._pot,
+                    vxvvs,
+                    self._psi,
+                    t0,
+                    method,
+                    progressbar=progressbar,
+                    rtol=rtol,
+                    atol=atol,
                 )
 
             if self.phasedim() == 3 or self.phasedim() == 5:
@@ -1835,7 +1856,7 @@ class Orbit:
         rectIn=False,
         rectOut=False,
         rtol=None,
-        atol=None
+        atol=None,
     ):
         r"""
         Integrate the orbit and a small area of phase space.
@@ -1956,7 +1977,7 @@ class Orbit:
                     numcores=numcores,
                     dt=dt,
                     rtol=rtol,
-                    atol=atol
+                    atol=atol,
                 )
         # Store orbit internally
         self.orbit_dxdv = out
@@ -5277,7 +5298,7 @@ class Orbit:
                 numcores=numcores,
                 force_map=force_map,
                 rtol=rtol,
-                atol=atol
+                atol=atol,
             )
             old_vxvv = self.vxvv
             self.vxvv = self.orbit[:, -1]
@@ -5298,7 +5319,7 @@ class Orbit:
             numcores=numcores,
             force_map=force_map,
             rtol=rtol,
-            atol= atol
+            atol=atol,
         )
         self.t = self.t[:, ::iskip]
         self.orbit = self.orbit[:, ::iskip]
@@ -5333,7 +5354,7 @@ class Orbit:
         numcores=_NUMCORES,
         force_map=False,
         rtol=None,
-        atol=None
+        atol=None,
     ):
         """
         Calculate the surface of section of the orbit using a brute-force integration approach.
@@ -5399,7 +5420,7 @@ class Orbit:
             numcores=numcores,
             force_map=force_map,
             rtol=rtol,
-            atol=atol
+            atol=atol,
         )
         # Find the crossings
         if self.dim() == 3:
@@ -6145,7 +6166,13 @@ class Orbit:
 
         """
         x, y = self.bruteSOS(
-            t, pot, surface=surface, method=method, progressbar=progressbar, rtol=rtol, atol=atol
+            t,
+            pot,
+            surface=surface,
+            method=method,
+            progressbar=progressbar,
+            rtol=rtol,
+            atol=atol,
         )
         return self._base_plotSOS(x, y, surface, *args, **kwargs)
 
