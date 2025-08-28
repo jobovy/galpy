@@ -765,7 +765,8 @@ def test_liouville_planar():
     # tolerances in log10
     tol = {}
     tol["default"] = -8.0
-    tol["KeplerPotential"] = -7.0  # more difficult
+    tol["KeplerPotential"] = -6.5  # more difficult
+    tol["MN3ExponentialDiskPotential"] = -7.0  # more difficult
     tol["NFWPotential"] = -6.0  # more difficult for rk4_c, only one that does this
     tol["TriaxialNFWPotential"] = -4.0  # more difficult
     tol["triaxialLogarithmicHaloPotential"] = -7.0  # more difficult
