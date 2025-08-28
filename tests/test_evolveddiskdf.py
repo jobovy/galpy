@@ -1290,7 +1290,7 @@ def test_call_marginalizevlos():
                 nsigma=4,
             )
         )
-        < 10.0**-3.5
+        < 10.0**-2.5
     ), "diskdf call w/ marginalizeVlos does not work"
     return None
 

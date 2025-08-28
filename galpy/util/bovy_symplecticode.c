@@ -578,20 +578,20 @@ double leapfrog_estimate_step(void (*func)(double t, double *q, double *a,int na
   double *scale= (double *) malloc ( 2 * dim * sizeof(double) );
   int ii;
   //find maximum values
-  max_val_q= fabs(*qo);
+  max_val_q= log(fabs(*qo));
   for (ii=1; ii < dim; ii++)
-    if ( fabs(*(qo+ii)) > max_val_q )
-      max_val_q= fabs(*(qo+ii));
-  max_val_p= fabs(*po);
+    if ( log(fabs(*(qo+ii))) > max_val_q )
+      max_val_q= log(fabs(*(qo+ii)));
+  max_val_p= log(fabs(*po));
   for (ii=1; ii < dim; ii++)
-    if ( fabs(*(po+ii)) > max_val_p )
-      max_val_p= fabs(*(po+ii));
+    if ( log(fabs(*(po+ii))) > max_val_p )
+      max_val_p= log(fabs(*(po+ii)));
   //set up scale
-  double c= fmax(atol, rtol * max_val_q);
-  double s= log(exp(atol-c)+exp(rtol*max_val_q-c))+c;
+  double c= fmax(atol, rtol + max_val_q);
+  double s= log(exp(atol-c)+exp(rtol + max_val_q-c))+c;
   for (ii=0; ii < dim; ii++) *(scale+ii)= s;
-  c= fmax(atol, rtol * max_val_p);
-  s= log(exp(atol-c)+exp(rtol*max_val_p-c))+c;
+  c= fmax(atol, rtol + max_val_p);
+  s= log(exp(atol-c)+exp(rtol + max_val_p-c))+c;
   for (ii=0; ii < dim; ii++) *(scale+ii+dim)= s;
   //find good dt
   dt*= 2.;
@@ -663,20 +663,20 @@ double symplec4_estimate_step(void (*func)(double t, double *q, double *a,int na
   double *scale= (double *) malloc ( 2 * dim * sizeof(double) );
   int ii;
   //find maximum values
-  max_val_q= fabs(*qo);
+  max_val_q= log(fabs(*qo));
   for (ii=1; ii < dim; ii++)
-    if ( fabs(*(qo+ii)) > max_val_q )
-      max_val_q= fabs(*(qo+ii));
-  max_val_p= fabs(*po);
+    if ( log(fabs(*(qo+ii))) > max_val_q )
+      max_val_q= log(fabs(*(qo+ii)));
+  max_val_p= log(fabs(*po));
   for (ii=1; ii < dim; ii++)
-    if ( fabs(*(po+ii)) > max_val_p )
-      max_val_p= fabs(*(po+ii));
+    if ( log(fabs(*(po+ii))) > max_val_p )
+      max_val_p= log(fabs(*(po+ii)));
   //set up scale
-  double c= fmax(atol, rtol * max_val_q);
-  double s= log(exp(atol-c)+exp(rtol*max_val_q-c))+c;
+  double c= fmax(atol, rtol + max_val_q);
+  double s= log(exp(atol-c)+exp(rtol + max_val_q-c))+c;
   for (ii=0; ii < dim; ii++) *(scale+ii)= s;
-  c= fmax(atol, rtol * max_val_p);
-  s= log(exp(atol-c)+exp(rtol*max_val_p-c))+c;
+  c= fmax(atol, rtol + max_val_p);
+  s= log(exp(atol-c)+exp(rtol + max_val_p-c))+c;
   for (ii=0; ii < dim; ii++) *(scale+ii+dim)= s;
   //find good dt
   dt*= 2.;
@@ -816,20 +816,20 @@ double symplec6_estimate_step(void (*func)(double t, double *q, double *a,int na
   double *scale= (double *) malloc ( 2 * dim * sizeof(double) );
   int ii;
   //find maximum values
-  max_val_q= fabs(*qo);
+  max_val_q= log(fabs(*qo));
   for (ii=1; ii < dim; ii++)
-    if ( fabs(*(qo+ii)) > max_val_q )
-      max_val_q= fabs(*(qo+ii));
-  max_val_p= fabs(*po);
+    if ( log(fabs(*(qo+ii))) > max_val_q )
+      max_val_q= log(fabs(*(qo+ii)));
+  max_val_p= log(fabs(*po));
   for (ii=1; ii < dim; ii++)
-    if ( fabs(*(po+ii)) > max_val_p )
-      max_val_p= fabs(*(po+ii));
+    if ( log(fabs(*(po+ii))) > max_val_p )
+      max_val_p= log(fabs(*(po+ii)));
   //set up scale
-  double c= fmax(atol, rtol * max_val_q);
-  double s= log(exp(atol-c)+exp(rtol*max_val_q-c))+c;
+  double c= fmax(atol, rtol + max_val_q);
+  double s= log(exp(atol-c)+exp(rtol + max_val_q-c))+c;
   for (ii=0; ii < dim; ii++) *(scale+ii)= s;
-  c= fmax(atol, rtol * max_val_p);
-  s= log(exp(atol-c)+exp(rtol*max_val_p-c))+c;
+  c= fmax(atol, rtol + max_val_p);
+  s= log(exp(atol-c)+exp(rtol + max_val_p-c))+c;
   for (ii=0; ii < dim; ii++) *(scale+ii+dim)= s;
   //find good dt
   dt*= 2.;

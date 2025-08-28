@@ -345,13 +345,13 @@ double rk4_estimate_step(void (*func)(double t, double *y, double *a,int nargs, 
   double *scale= (double *) malloc ( dim * sizeof(double) );
   int ii;
   //find maximum values
-  max_val= fabs(*yo);
+  max_val= log(fabs(*yo));
   for (ii=1; ii < dim; ii++)
-    if ( fabs(*(yo+ii)) > max_val )
-      max_val= fabs(*(yo+ii));
+    if ( log(fabs(*(yo+ii))) > max_val )
+      max_val= log(fabs(*(yo+ii)));
   //set up scale
-  double c= fmax(atol, rtol * max_val);
-  double s= log(exp(atol-c)+exp(rtol*max_val-c))+c;
+  double c= fmax(atol, rtol + max_val);
+  double s= log(exp(atol-c)+exp(rtol + max_val-c))+c;
   for (ii=0; ii < dim; ii++) *(scale+ii)= s;
   //find good dt
   //dt*= 2.;
@@ -418,13 +418,13 @@ double rk6_estimate_step(void (*func)(double t, double *y, double *a,int nargs, 
   double *scale= (double *) malloc ( dim * sizeof(double) );
   int ii;
   //find maximum values
-  max_val= fabs(*yo);
+  max_val= log(fabs(*yo));
   for (ii=1; ii < dim; ii++)
-    if ( fabs(*(yo+ii)) > max_val )
-      max_val= fabs(*(yo+ii));
+    if ( log(fabs(*(yo+ii))) > max_val )
+      max_val= log(fabs(*(yo+ii)));
   //set up scale
-  double c= fmax(atol, rtol * max_val);
-  double s= log(exp(atol-c)+exp(rtol*max_val-c))+c;
+  double c= fmax(atol, rtol + max_val);
+  double s= log(exp(atol-c)+exp(rtol + max_val-c))+c;
   for (ii=0; ii < dim; ii++) *(scale+ii)= s;
   //find good dt
   //dt*= 2.;
@@ -725,13 +725,13 @@ double bovy_dopr54_actualstep(void (*func)(double t, double *y, double *a,int na
   for (ii=0; ii < dim; ii++) *(yerr+ii) += be7 * dt * *(a+ii);
   //yn1 is proposed new value
   //find maximum values
-  double max_val= fabs(*yo);
+  double max_val= log(fabs(*yo));
   for (ii=1; ii < dim; ii++)
-    if ( fabs(*(yo+ii)) > max_val )
-      max_val= fabs(*(yo+ii));
+    if ( log(fabs(*(yo+ii))) > max_val )
+      max_val= log(fabs(*(yo+ii)));
   //set up scale
-  double c= fmax(atol, rtol * max_val);
-  double s= log(exp(atol-c)+exp(rtol*max_val-c))+c;
+  double c= fmax(atol, rtol + max_val);
+  double s= log(exp(atol-c)+exp(rtol + max_val-c))+c;
   //Norm
   double err= 0.;
   for (ii=0; ii < dim; ii++)
