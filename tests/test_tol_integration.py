@@ -10,6 +10,8 @@ from galpy import orbit, potential
 # test is passed if the difference in the orbital reconstruction is not exactly zero for all sampling points and
 # if the orbital energy loss is smaller for the more precise rtol/atol orbit reconstruction
 def test_2d_tol_integration():
+    from galpy import orbit
+
     ttol_vec = [1e-12, 1e-6]
     times = numpy.linspace(
         0.0, 10.0, 250
@@ -42,7 +44,7 @@ def test_2d_tol_integration():
     ):  # loop over all possible integration algorithms
         for cnt_tol in numpy.arange(len(ttol_vec)):
             # initialise a test orbit with few rounds, integrate trajectory, append to list of orbits
-            o = orbit.Orbit([1.0, 0.1, 0.8])
+            o = orbit.Orbit([1.0, 0.1, 0.8])  # Orbit([R, vR, vT])
             o.integrate(
                 times,
                 pot,
