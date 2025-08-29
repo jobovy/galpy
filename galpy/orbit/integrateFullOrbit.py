@@ -854,10 +854,10 @@ def integrateFullOrbit(
             rtol = 1e-8
         if int_method.lower() == "dop853":
             integrator = dop853
-            extra_kwargs = {}
+            extra_kwargs = {"rtol": rtol, "atol": atol}
         else:
             integrator = integrate.odeint
-            extra_kwargs = {"rtol": rtol}
+            extra_kwargs = {"rtol": rtol, "atol": atol}
         if len(yo[0]) == 5:
 
             def integrate_for_map(vxvv):

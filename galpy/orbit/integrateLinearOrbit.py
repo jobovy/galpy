@@ -305,16 +305,22 @@ def integrateLinearOrbit(
     elif int_method.lower() == "dop853":
         if rtol is None:
             rtol = 1e-8
+            atol = 1e-8
 
         def integrate_for_map(vxvv):
-            return dop853(func=_linearEOM, x=vxvv, t=t, args=(pot,))
+            return dop853(
+                func=_linearEOM, x=vxvv, t=t, args=(pot,), rtol=rtol, atol=atol
+            )
 
     elif int_method.lower() == "odeint":
         if rtol is None:
             rtol = 1e-8
+            atol = 1e-8
 
         def integrate_for_map(vxvv):
-            return integrate.odeint(_linearEOM, vxvv, t, args=(pot,), rtol=rtol)
+            return integrate.odeint(
+                _linearEOM, vxvv, t, args=(pot,), rtol=rtol, atol=atol
+            )
 
     else:  # Assume we are forcing parallel_mapping of a C integrator...
 
