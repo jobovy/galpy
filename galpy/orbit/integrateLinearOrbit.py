@@ -330,9 +330,9 @@ def integrateLinearOrbit(
     else:  # Assume we are forcing parallel_mapping of a C integrator...
 
         def integrate_for_map(vxvv):
-            return integrateLinearOrbit_c(pot, numpy.copy(vxvv), t, int_method, dt=dt)[
-                0
-            ]
+            return integrateLinearOrbit_c(
+                pot, numpy.copy(vxvv), t, int_method, dt=dt, rtol=rtol, atol=atol
+            )[0]
 
     if len(yo) == 1:  # Can't map a single value...
         return numpy.atleast_3d(integrate_for_map(yo[0]).T).T, 0

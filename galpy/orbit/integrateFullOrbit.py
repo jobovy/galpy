@@ -818,6 +818,8 @@ def integrateFullOrbit(
     if int_method.lower() == "leapfrog":
         if rtol is None:
             rtol = 1e-8
+        if atol is None:
+            atol = 1e-8
 
         def integrate_for_map(vxvv):
             # go to the rectangular frame
@@ -833,7 +835,7 @@ def integrateFullOrbit(
             )
             # integrate
             out = symplecticode.leapfrog(
-                _rectForce, this_vxvv, t, args=(pot,), rtol=rtol
+                _rectForce, this_vxvv, t, args=(pot,), rtol=rtol, atol=atol
             )
             # go back to the cylindrical frame
             R = numpy.sqrt(out[:, 0] ** 2.0 + out[:, 1] ** 2.0)
@@ -852,7 +854,9 @@ def integrateFullOrbit(
     elif int_method.lower() == "dop853" or int_method.lower() == "odeint":
         if rtol is None:
             rtol = 1e-8
+        if atol is None:
             atol = 1e-8
+
         if int_method.lower() == "dop853":
             integrator = dop853
             extra_kwargs = {"rtol": rtol, "atol": atol}
@@ -882,7 +886,7 @@ def integrateFullOrbit(
             def integrate_for_map(vxvv):
                 vphi = vxvv[2] / vxvv[0]
                 init = [vxvv[0], vxvv[1], vxvv[5], vphi, vxvv[3], vxvv[4]]
-                intOut = integrator(_EOM, init, t=t, args=(pot,))
+                intOut = integrator(_EOM, init, t=t, args=(pot,), rtol=rtol, atol=atol)
                 out = numpy.zeros((len(t), 6))
                 out[:, 0] = intOut[:, 0]
                 out[:, 1] = intOut[:, 1]
@@ -899,7 +903,9 @@ def integrateFullOrbit(
     else:  # Assume we are forcing parallel_mapping of a C integrator...
 
         def integrate_for_map(vxvv):
-            return integrateFullOrbit_c(pot, numpy.copy(vxvv), t, int_method, dt=dt)[0]
+            return integrateFullOrbit_c(
+                pot, numpy.copy(vxvv), t, int_method, dt=dt, rtol=rtol, atol=atol
+            )[0]
 
     if len(yo) == 1:  # Can't map a single value...
         out = numpy.atleast_3d(integrate_for_map(yo[0]).T).T
