@@ -311,7 +311,13 @@ that match a pattern, e.g.,::
 
     pytest -vxs tests/test_coords.py -k "ngp"
 
-to run all tests in ``test_coords.py`` that have ``ngp`` in their name.
+to run all tests in ``test_coords.py`` that have ``ngp`` in their name. Note that tests
+assume that you are using the default :ref:`configuration file <configfile>`; if you
+have a custom configuration at ``$HOME/.galpyrc``, you can simply add the default
+configuration file to the ``galpy/`` directory in which you run the tests, to use the
+default configuration for the tests, while keeping your custom configuration
+otherwise intact (see the :ref:`configuration file section below <configfile>` for
+more info).
 
 ``galpy`` uses `pre-commit <https://pre-commit.com/>`__ to run a number of
 pre-commit checks on the code. To install pre-commit, do::
