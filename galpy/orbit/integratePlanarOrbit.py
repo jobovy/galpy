@@ -954,6 +954,8 @@ def integratePlanarOrbit(
     if int_method.lower() == "leapfrog":
         if rtol is None:
             rtol = 1e-8
+        if atol is None:
+            atol = 1e-8
 
         def integrate_for_map(vxvv):
             # go to the rectangular frame
@@ -967,7 +969,7 @@ def integratePlanarOrbit(
             )
             # integrate
             tmp_out = symplecticode.leapfrog(
-                _planarRectForce, this_vxvv, t, args=(pot,), rtol=rtol
+                _planarRectForce, this_vxvv, t, args=(pot,), rtol=rtol, atol=atol
             )
             # go back to the cylindrical frame
             R = numpy.sqrt(tmp_out[:, 0] ** 2.0 + tmp_out[:, 1] ** 2.0)
@@ -985,7 +987,9 @@ def integratePlanarOrbit(
     elif int_method.lower() == "dop853" or int_method.lower() == "odeint":
         if rtol is None:
             rtol = 1e-8
-        # atol = 1e-8
+        if atol is None:
+            atol = 1e-8
+
         if int_method.lower() == "dop853":
             integrator = dop853
             extra_kwargs = {"rtol": rtol, "atol": atol}
@@ -1137,6 +1141,9 @@ def integratePlanarOrbit_dxdv(
     if int_method.lower() == "dop853" or int_method.lower() == "odeint":
         if rtol is None:
             rtol = 1e-8
+        if atol is None:
+            atol = 1e-8
+
         if int_method.lower() == "dop853":
             integrator = dop853
             extra_kwargs = {}
@@ -1411,9 +1418,12 @@ def integratePlanarOrbit_sos(
     if not "_c" in int_method:
         if rtol is None:
             rtol = 1e-8
+        if atol is None:
+            atol = 1e-8
+
         if int_method.lower() == "dop853":
             integrator = dop853
-            extra_kwargs = {}
+            extra_kwargs = {"rtol": rtol}
         else:
             integrator = integrate.odeint
             extra_kwargs = {"rtol": rtol}

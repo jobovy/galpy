@@ -852,6 +852,7 @@ def integrateFullOrbit(
     elif int_method.lower() == "dop853" or int_method.lower() == "odeint":
         if rtol is None:
             rtol = 1e-8
+            atol = 1e-8
         if int_method.lower() == "dop853":
             integrator = dop853
             extra_kwargs = {"rtol": rtol, "atol": atol}
