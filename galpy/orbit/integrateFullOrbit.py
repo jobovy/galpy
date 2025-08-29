@@ -1121,13 +1121,15 @@ def integrateFullOrbit_sos(
         yo = numpy.pad(yo, ((0, 0), (0, 1)), "constant", constant_values=0)
     if not "_c" in int_method:
         if rtol is None:
-            rtol = 1e-8
+            rtol = 1e-12
+        if atol is None:
+            atol = 1e-12
         if int_method.lower() == "dop853":
             integrator = dop853
-            extra_kwargs = {}
+            extra_kwargs = {"rtol": rtol, "atol": atol}
         else:
             integrator = integrate.odeint
-            extra_kwargs = {"rtol": rtol}
+            extra_kwargs = {"rtol": rtol, "atol": atol}
 
         def integrate_for_map(vxvv, psi, t0):
             # go to the transformed plane: (x,vx,y,vy,A,t)
