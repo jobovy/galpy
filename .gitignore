@@ -50,6 +50,7 @@ galpy/df/data/dfcorrection*.sav
 build/
 dist/
 galpy.egg-info/
+.idea/
 
 # Editors' dotfiles #
 #####################
