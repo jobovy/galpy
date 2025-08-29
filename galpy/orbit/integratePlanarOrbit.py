@@ -953,9 +953,9 @@ def integratePlanarOrbit(
             yo = numpy.pad(yo, ((0, 0), (0, 1)), "constant", constant_values=0)
     if int_method.lower() == "leapfrog":
         if rtol is None:
-            rtol = 1e-8
+            rtol = 1e-12
         if atol is None:
-            atol = 1e-8
+            atol = 1e-12
 
         def integrate_for_map(vxvv):
             # go to the rectangular frame
@@ -986,9 +986,9 @@ def integratePlanarOrbit(
 
     elif int_method.lower() == "dop853" or int_method.lower() == "odeint":
         if rtol is None:
-            rtol = 1e-8
+            rtol = 1e-12
         if atol is None:
-            atol = 1e-8
+            atol = 1e-12
 
         if int_method.lower() == "dop853":
             integrator = dop853
@@ -1140,9 +1140,9 @@ def integratePlanarOrbit_dxdv(
     this_yo = numpy.hstack((this_yo, this_dyo))
     if int_method.lower() == "dop853" or int_method.lower() == "odeint":
         if rtol is None:
-            rtol = 1e-8
+            rtol = 1e-12
         if atol is None:
-            atol = 1e-8
+            atol = 1e-12
 
         if int_method.lower() == "dop853":
             integrator = dop853
@@ -1417,9 +1417,9 @@ def integratePlanarOrbit_sos(
         yo = numpy.pad(yo, ((0, 0), (0, 1)), "constant", constant_values=0)
     if not "_c" in int_method:
         if rtol is None:
-            rtol = 1e-8
+            rtol = 1e-12
         if atol is None:
-            atol = 1e-8
+            atol = 1e-12
 
         if int_method.lower() == "dop853":
             integrator = dop853
