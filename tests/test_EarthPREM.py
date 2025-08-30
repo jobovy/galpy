@@ -161,7 +161,7 @@ def plot_earthPotential_num_sym():
             linestyle="--",
         )
         ax_dens.set_xlabel("radius (km)")
-        ax_dens.set_ylabel(f"Denisty (g/cm^3)")
+        ax_dens.set_ylabel(f"Density (g/cm^3)")
 
         #############################################################################
         # put a mark of script information on the figure
@@ -221,7 +221,7 @@ def plot_earthPotential_num_sym():
         )
 
         ax_dens.set_xlabel("R")
-        ax_dens.set_ylabel(f"Denisty (z={z_val})")
+        ax_dens.set_ylabel(f"Density (z={z_val})")
 
         ax_pot.plot(
             R_vals,
@@ -377,7 +377,7 @@ def plot_HomogeneousSpherePotential():
         )
 
         ax_dens.set_xlabel("R")
-        ax_dens.set_ylabel("Denisty")
+        ax_dens.set_ylabel("Density")
 
         ax_pot.plot(
             R_vals,
@@ -454,7 +454,7 @@ def plot_HomogeneousSpherePotential():
 
 def plot_homoSphere_by_num_and_sym():
     """
-    plot properities of a homogeneous sphere by numeric and symbolic methods
+    plot properties of a homogeneous sphere by numeric and symbolic methods
     """
     ballRadius = 1.1
     amp = 1
@@ -523,7 +523,7 @@ def plot_homoSphere_by_num_and_sym():
         )
 
         ax_dens.set_xlabel("R")
-        ax_dens.set_ylabel(f"Denisty (z={z_val})")
+        ax_dens.set_ylabel(f"Density (z={z_val})")
 
         ax_pot.plot(
             R_vals,
