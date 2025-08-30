@@ -11,7 +11,7 @@ if _SYMPY_LOADED:
     import sympy
 
 
-class SymbolicSphericalPotential(Potential):
+class SymbolicSphericalPotential(SphericalPotential):
     """
     Base class for symbolic spherical potentials.
 
