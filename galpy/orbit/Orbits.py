@@ -1764,6 +1764,7 @@ class Orbit:
         self._pot = thispot
         method = self._check_method_c_compatible(method, self._pot)
         method = self._check_method_dissipative_compatible(method, self._pot)
+
         # Implementation with parallel_map in Python
         if not "_c" in method or not ext_loaded or force_map:
             if self.dim() == 2:

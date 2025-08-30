@@ -939,6 +939,8 @@ def test_SOS_3D():
             method=method,
             ncross=500 if "_c" in method else 20,
             force_map="rk" in method,
+            rtol=1e-8,
+            atol=1e-8,
         )
         zs = o.z(o.t)
         vzs = o.vz(o.t)
@@ -999,6 +1001,8 @@ def test_SOS_2Dx():
             ncross=500 if "_c" in method else 20,
             force_map="rk" in method,
             surface="x",
+            rtol=1e-8,
+            atol=1e-8,
         )
         xs = o.x(o.t)
         vxs = o.vx(o.t)
@@ -1022,6 +1026,8 @@ def test_SOS_2Dy():
             ncross=500 if "_c" in method else 20,
             force_map="rk" in method,
             surface="y",
+            rtol=1e-8,
+            atol=1e-8,
         )
         ys = o.y(o.t)
         vys = o.vy(o.t)
