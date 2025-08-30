@@ -11,6 +11,7 @@ from . import (
     DiskSCFPotential,
     DoubleExponentialDiskPotential,
     EarthPREMPotential,
+    SymbolicSphericalPotential,
     EllipticalDiskPotential,
     FDMDynamicalFrictionForce,
     FerrersPotential,
