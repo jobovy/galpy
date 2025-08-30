@@ -10,6 +10,7 @@ from . import (
     DehnenSmoothWrapperPotential,
     DiskSCFPotential,
     DoubleExponentialDiskPotential,
+    EarthPREMPotential,
     EllipticalDiskPotential,
     FDMDynamicalFrictionForce,
     FerrersPotential,
@@ -49,6 +50,7 @@ from . import (
     SphericalShellPotential,
     SpiralArmsPotential,
     SteadyLogSpiralPotential,
+    SymbolicSphericalPotential,
     TimeDependentAmplitudeWrapperPotential,
     TransientLogSpiralPotential,
     TriaxialGaussianPotential,
@@ -213,6 +215,8 @@ AnyAxisymmetricRazorThinDiskPotential = (
     AnyAxisymmetricRazorThinDiskPotential.AnyAxisymmetricRazorThinDiskPotential
 )
 AnySphericalPotential = AnySphericalPotential.AnySphericalPotential
+EarthPREMPotential = EarthPREMPotential.EarthPREMPotential
+SymbolicSphericalPotential = SymbolicSphericalPotential.SymbolicSphericalPotential
 # Wrappers
 DehnenSmoothWrapperPotential = DehnenSmoothWrapperPotential.DehnenSmoothWrapperPotential
 SolidBodyRotationWrapperPotential = (
