@@ -216,7 +216,7 @@ AnyAxisymmetricRazorThinDiskPotential = (
 )
 AnySphericalPotential = AnySphericalPotential.AnySphericalPotential
 EarthPREMPotential = EarthPREMPotential.EarthPREMPotential
-SymbolicSphericalPotential = SymbolicSphericalPotential. SymbolicSphericalPotential
+SymbolicSphericalPotential = SymbolicSphericalPotential.SymbolicSphericalPotential
 # Wrappers
 DehnenSmoothWrapperPotential = DehnenSmoothWrapperPotential.DehnenSmoothWrapperPotential
 SolidBodyRotationWrapperPotential = (
