@@ -5,7 +5,7 @@
 import numpy
 
 from ..util._optional_deps import _SYMPY_LOADED
-from .Potential import Potential
+from .Potential import SphericalPotential
 
 if _SYMPY_LOADED:
     import sympy
