@@ -75,4 +75,3 @@ class SymbolicSphericalPotential(SphericalPotential):
     def _rdens(self, r: float, t: float = 0.0):
         """Returns the density at a given radius r and time t"""
         return float(self.dens.evalf(subs={self.r: r}))
-
