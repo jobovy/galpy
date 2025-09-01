@@ -4,7 +4,7 @@ ci:
 
 repos:
 - repo: https://github.com/pre-commit/pre-commit-hooks
-  rev: v5.0.0
+  rev: v6.0.0
   hooks:
   - id: trailing-whitespace
   - id: end-of-file-fixer
@@ -36,6 +36,6 @@ repos:
       args: ["-L", "thisE,thise,mye,tE,te,hist,ro,sav,ccompiler,aas,floatIn,dOmin,indx",
       "-x","doc/source/_static/try-galpy.js"]
 - repo: https://github.com/astral-sh/ruff-pre-commit
-  rev: v0.12.7
+  rev: v0.12.11
   hooks:
     - id: ruff-format
