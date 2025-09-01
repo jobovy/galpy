@@ -939,8 +939,6 @@ def test_SOS_3D():
             method=method,
             ncross=500 if "_c" in method else 20,
             force_map="rk" in method,
-            rtol=1e-8,
-            atol=1e-8,
         )
         zs = o.z(o.t)
         vzs = o.vz(o.t)
@@ -1001,8 +999,6 @@ def test_SOS_2Dx():
             ncross=500 if "_c" in method else 20,
             force_map="rk" in method,
             surface="x",
-            rtol=1e-8,
-            atol=1e-8,
         )
         xs = o.x(o.t)
         vxs = o.vx(o.t)
@@ -1026,8 +1022,6 @@ def test_SOS_2Dy():
             ncross=500 if "_c" in method else 20,
             force_map="rk" in method,
             surface="y",
-            rtol=1e-8,
-            atol=1e-8,
         )
         ys = o.y(o.t)
         vys = o.vy(o.t)
@@ -1384,8 +1378,6 @@ def test_pericenter():
     # tolerances in log10
     tol = {}
     tol["default"] = -16.0
-    rtol = 1e-8
-    atol = 1e-8
     #    tol['DoubleExponentialDiskPotential']= -6. #these are more difficult
     #    tol['NFWPotential']= -12. #these are more difficult
     firstTest = True
@@ -1422,9 +1414,9 @@ def test_pericenter():
                         "o.rperi() before the orbit was integrated did not throw an AttributeError"
                     )
             if isinstance(tp, testplanarMWPotential) or isinstance(tp, testMWPotential):
-                o.integrate(times, tp._potlist, method=integrator, rtol=rtol, atol=atol)
+                o.integrate(times, tp._potlist, method=integrator)
             else:
-                o.integrate(times, tp, method=integrator, rtol=rtol, atol=atol)
+                o.integrate(times, tp, method=integrator)
             tperi = o.rperi()
             #               print p, integrator, tperi
             assert (tperi - o.R()) ** 2.0 < 10.0**ttol, (
@@ -1442,7 +1434,7 @@ def test_pericenter():
                     raise AssertionError(
                         "o.rperi() before the orbit was integrated did not throw an AttributeError"
                     )
-            o.integrate(times, tp, method=integrator, rtol=rtol, atol=atol)
+            o.integrate(times, tp, method=integrator)
             tperi = o.rperi()
             #            print p, integrator, tperi
             assert (tperi - o.R()) ** 2.0 < 10.0**ttol, (
@@ -1464,7 +1456,7 @@ def test_pericenter():
                     raise AssertionError(
                         "o.rperi() before the orbit was integrated did not throw an AttributeError"
                     )
-            o.integrate(times, ptp, method=integrator, rtol=rtol, atol=atol)
+            o.integrate(times, ptp, method=integrator)
             tperi = o.rperi()
             #            print p, integrator, tperi
             assert (tperi - o.R()) ** 2.0 < 10.0**ttol, (
@@ -1483,7 +1475,7 @@ def test_pericenter():
                         "o.rperi() before the orbit was integrated did not throw an AttributeError"
                     )
                 firstTest = False
-            o.integrate(times, ptp, method=integrator, rtol=rtol, atol=atol)
+            o.integrate(times, ptp, method=integrator)
             tperi = o.rperi()
             #            print p, integrator, tperi
             assert (tperi - o.R()) ** 2.0 < 10.0**ttol, (
@@ -1563,8 +1555,6 @@ def test_apocenter():
     tol["FlattenedPowerPotential"] = -14.0  # these are more difficult
     #    tol['DoubleExponentialDiskPotential']= -6. #these are more difficult
     #    tol['NFWPotential']= -12. #these are more difficult
-    rtol = 1e-8
-    atol = 1e-8
     firstTest = True
     for p in pots:
         # Setup instance of potential
@@ -1599,9 +1589,9 @@ def test_apocenter():
                         "o.rap() before the orbit was integrated did not throw an AttributeError"
                     )
             if isinstance(tp, testplanarMWPotential) or isinstance(tp, testMWPotential):
-                o.integrate(times, tp._potlist, method=integrator, rtol=rtol, atol=atol)
+                o.integrate(times, tp._potlist, method=integrator)
             else:
-                o.integrate(times, tp, method=integrator, rtol=rtol, atol=atol)
+                o.integrate(times, tp, method=integrator)
             tapo = o.rap()
             # print p, integrator, tapo, (tapo-o.R())**2.
             assert (tapo - o.R()) ** 2.0 < 10.0**ttol, (
@@ -1619,7 +1609,7 @@ def test_apocenter():
                     raise AssertionError(
                         "o.rap() before the orbit was integrated did not throw an AttributeError"
                     )
-            o.integrate(times, tp, method=integrator, rtol=rtol, atol=atol)
+            o.integrate(times, tp, method=integrator)
             tapo = o.rap()
             #            print p, integrator, tapo
             assert (tapo - o.R()) ** 2.0 < 10.0**ttol, (
@@ -1641,7 +1631,7 @@ def test_apocenter():
                     raise AssertionError(
                         "o.rap() before the orbit was integrated did not throw an AttributeError"
                     )
-            o.integrate(times, ptp, method=integrator, rtol=rtol, atol=atol)
+            o.integrate(times, ptp, method=integrator)
             tapo = o.rap()
             #            print p, integrator, tapo
             assert (tapo - o.R()) ** 2.0 < 10.0**ttol, (
@@ -1660,7 +1650,7 @@ def test_apocenter():
                         "o.rap() before the orbit was integrated did not throw an AttributeError"
                     )
                 firstTest = False
-            o.integrate(times, ptp, method=integrator, rtol=rtol, atol=atol)
+            o.integrate(times, ptp, method=integrator)
             tapo = o.rap()
             #            print p, integrator, tapo
             assert (tapo - o.R()) ** 2.0 < 10.0**ttol, (

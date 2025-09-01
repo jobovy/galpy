@@ -985,12 +985,11 @@ def integratePlanarOrbit(
             return out
 
     elif int_method.lower() == "dop853" or int_method.lower() == "odeint":
-        if rtol is None:
-            rtol = 1e-12
-        if atol is None:
-            atol = 1e-12
-
         if int_method.lower() == "dop853":
+            if rtol is None:
+                rtol = 1e-12
+            if atol is None:
+                atol = 1e-12
             integrator = dop853
             extra_kwargs = {"rtol": rtol, "atol": atol}
         else:
@@ -1139,12 +1138,11 @@ def integratePlanarOrbit_dxdv(
         this_dyo = dyo
     this_yo = numpy.hstack((this_yo, this_dyo))
     if int_method.lower() == "dop853" or int_method.lower() == "odeint":
-        if rtol is None:
-            rtol = 1e-12
-        if atol is None:
-            atol = 1e-12
-
         if int_method.lower() == "dop853":
+            if rtol is None:
+                rtol = 1e-12
+            if atol is None:
+                atol = 1e-12
             integrator = dop853
             extra_kwargs = {"rtol": rtol, "atol": atol}
         else:
@@ -1416,12 +1414,11 @@ def integratePlanarOrbit_sos(
         # We hack this by putting in a dummy phi=0
         yo = numpy.pad(yo, ((0, 0), (0, 1)), "constant", constant_values=0)
     if not "_c" in int_method:
-        if rtol is None:
-            rtol = 1e-12
-        if atol is None:
-            atol = 1e-12
-
         if int_method.lower() == "dop853":
+            if rtol is None:
+                rtol = 1e-12
+            if atol is None:
+                atol = 1e-12
             integrator = dop853
             extra_kwargs = {"rtol": rtol, "atol": atol}
         else:

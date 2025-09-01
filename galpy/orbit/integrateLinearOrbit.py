@@ -317,10 +317,6 @@ def integrateLinearOrbit(
             )
 
     elif int_method.lower() == "odeint":
-        if rtol is None:
-            rtol = 1e-12
-        if atol is None:
-            atol = 1e-12
 
         def integrate_for_map(vxvv):
             return integrate.odeint(
