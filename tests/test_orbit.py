@@ -9906,9 +9906,73 @@ def test_apy_sunkeywords_not_supplied():
     return None
 
 
-# Test run for two different rtol/atol values for 2d orbit integration on a Kepler pot. for all algorithms available
+# Test runs for two different rtol/atol values for 1d, 2d and 3d orbit integration on a Kepler pot. for all algorithms available
 # test is passed if the difference in the orbital reconstruction is not exactly zero for all sampling points and
 # if the orbital energy loss is smaller for the more precise rtol/atol orbit reconstruction
+def test_1d_tol_integration():
+    from galpy import orbit
+
+    ttol_vec = [1e-12, 1e-6]
+    times = numpy.linspace(
+        0.0, 10.0, 250
+    )  # with this time stepping, rk6_c and symplec6_c results will not be affected by changes in rtol/atol
+    integrators = [
+        "dopr54_c",
+        "odeint",
+        "dop853",
+        "dop853_c",
+        "leapfrog",
+        "leapfrog_c",
+        "rk4_c",
+        "rk6_c",
+        "symplec4_c",
+        "symplec6_c",
+    ]
+    # only use the simplest normalised KeplerPotential
+    pot = potential.KeplerPotential(amp=1.0, normalize=True).toVertical(1.0)
+    for integrator in integrators:
+        o_list = []
+        for cnt_tol in numpy.arange(len(ttol_vec)):
+            # initialise a test orbit with few rounds, integrate trajectory, append to list of orbits
+            o = orbit.Orbit([1.0, 0.8])  # Orbit([R, vR])
+            o.integrate(
+                times,
+                pot,
+                method=integrator,
+                rtol=ttol_vec[cnt_tol],
+                atol=ttol_vec[cnt_tol],
+            )
+            o_list.append(o)
+
+        # make test for differing reconstruction precision and energy loss along the orbits
+        Delta_r = numpy.sum(numpy.abs(o_list[0].r(times) - o_list[1].r(times)))
+        Delta_E = numpy.sum(numpy.abs(o_list[0].E(times) - o_list[1].E(times)))
+
+        # if special integrators yield same reconstructions
+        if integrator == "rk6_c" or integrator == "symplec6_c":
+            assert Delta_r == 0.0, (
+                f"{integrator} orbit integration is unexpectedly sensitive to rtol/atol - position difference"
+            )
+            assert Delta_E == 0.0, (
+                f"{integrator} orbit integration is unexpectedly sensitive to rtol/atol - energy difference"
+            )
+        else:  # for all other integration routines check that differences are moderate as expected
+            assert Delta_r > 0.0, (
+                f"{integrator} orbit integration unexpectedly not sensitive to rtol/atol - position difference"
+            )
+            assert Delta_r < 0.1, (
+                f"{integrator} orbit integration has worse than expected reconstruction precision - position difference"
+            )
+            assert Delta_E > 0.0, (
+                f"{integrator} orbit integration unexpectedly not sensitive to rtol/atol - energy difference"
+            )
+            assert Delta_E < 0.1, (
+                f"{integrator} orbit integration has worse than expected reconstruction precision - energy difference"
+            )
+
+    return None
+
+
 def test_2d_tol_integration():
     from galpy import orbit
 
@@ -9950,6 +10014,72 @@ def test_2d_tol_integration():
 
         # if special integrators yield same reconstructions
         if integrator == "rk6_c":
+            assert Delta_r == 0.0, (
+                f"{integrator} orbit integration is unexpectedly sensitive to rtol/atol - position difference"
+            )
+            assert Delta_E == 0.0, (
+                f"{integrator} orbit integration is unexpectedly sensitive to rtol/atol - energy difference"
+            )
+        else:  # for all other integration routines check that differences are moderate as expected
+            assert Delta_r > 0.0, (
+                f"{integrator} orbit integration unexpectedly not sensitive to rtol/atol - position difference"
+            )
+            assert Delta_r < 0.1, (
+                f"{integrator} orbit integration has worse than expected reconstruction precision - position difference"
+            )
+            assert Delta_E > 0.0, (
+                f"{integrator} orbit integration unexpectedly not sensitive to rtol/atol - energy difference"
+            )
+            assert Delta_E < 0.1, (
+                f"{integrator} orbit integration has worse than expected reconstruction precision - energy difference"
+            )
+
+    return None
+
+
+def test_3d_tol_integration():
+    from galpy import orbit
+
+    ttol_vec = [1e-12, 1e-6]
+    times = numpy.linspace(
+        0.0, 2.1, 250
+    )  # with this time stepping, rk6_c and symplec6_c results will not be affected by changes in rtol/atol
+    integrators = [
+        "dopr54_c",
+        "odeint",
+        "dop853",
+        "dop853_c",
+        "leapfrog",
+        "leapfrog_c",
+        "rk4_c",
+        "rk6_c",
+        "symplec4_c",
+        "symplec6_c",
+    ]
+    # only use the simplest normalised KeplerPotential
+    pot = potential.KeplerPotential(amp=1.0, normalize=True)
+    for integrator in integrators:
+        o_list = []
+        for cnt_tol in numpy.arange(len(ttol_vec)):
+            # initialise a test orbit with few rounds, integrate trajectory, append to list of orbits
+            o = orbit.Orbit(
+                [1.0, 0.8, 0.1, 0.03, 0.17, 0.0]
+            )  # Orbit([R, vR, vT, z, vZ, phi])
+            o.integrate(
+                times,
+                pot,
+                method=integrator,
+                rtol=ttol_vec[cnt_tol],
+                atol=ttol_vec[cnt_tol],
+            )
+            o_list.append(o)
+
+        # make test for differing reconstruction precision and energy loss along the orbits
+        Delta_r = numpy.sum(numpy.abs(o_list[0].r(times) - o_list[1].r(times)))
+        Delta_E = numpy.sum(numpy.abs(o_list[0].E(times) - o_list[1].E(times)))
+
+        # if special integrators yield same reconstructions
+        if integrator == "rk6_c" or integrator == "symplec6_c":
             assert Delta_r == 0.0, (
                 f"{integrator} orbit integration is unexpectedly sensitive to rtol/atol - position difference"
             )
