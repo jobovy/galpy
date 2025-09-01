@@ -1041,9 +1041,7 @@ def test_arbitraryaxisrotation_omegafunc_nullpotential():
 
     check_orbit(zvec=[0.0, 1.0, 1.0], omega=1.3, method="odeint", tol=1e-5)
     check_orbit(zvec=[2.0, 0.0, 1.0], omega=-1.1, method="dop853", tol=1e-4)
-    check_orbit(
-        zvec=[2.0, 3.0, 1.0], omega=0.9, method="dop853_c", tol=1e-5
-    )  # Lower tol, because diff integrators for inertial and non-inertial, bc wrapper not implemented in C
+    check_orbit(zvec=[2.0, 3.0, 1.0], omega=0.9, method="dop853_c", tol=1e-4)
     return None
 
 
