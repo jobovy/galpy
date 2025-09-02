@@ -292,9 +292,9 @@ def integrateLinearOrbit(
     """
     if int_method.lower() == "leapfrog":
         if rtol is None:
-            rtol = 1e-12
+            rtol = 1e-8
         if atol is None:
-            atol = 1e-12
+            atol = 1e-8
 
         def integrate_for_map(vxvv):
             return symplecticode.leapfrog(
