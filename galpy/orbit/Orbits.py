@@ -1402,6 +1402,8 @@ class Orbit:
         dt=None,
         numcores=_NUMCORES,
         force_map=False,
+        rtol=None,
+        atol=None,
     ):
         """
         Integrate the orbit instance with multiprocessing.
@@ -1422,6 +1424,10 @@ class Orbit:
             Number of cores to use for Python-based multiprocessing (pure Python or using force_map=True). Default is OMP_NUM_THREADS.
         force_map : bool, optional
             If True, force use of Python-based multiprocessing (not recommended). Default is False.
+        rtol : float, optional
+            Relative tolerance. Default is None.
+        atol : float, optional
+            Absolute tolerance. Default is None.
 
         Returns
         -------
@@ -1499,6 +1505,8 @@ class Orbit:
                     progressbar=progressbar,
                     numcores=numcores,
                     dt=dt,
+                    rtol=rtol,
+                    atol=atol,
                 )
             elif self.dim() == 2:
                 out, msg = integratePlanarOrbit(
@@ -1509,6 +1517,8 @@ class Orbit:
                     progressbar=progressbar,
                     numcores=numcores,
                     dt=dt,
+                    rtol=rtol,
+                    atol=atol,
                 )
             else:
                 out, msg = integrateFullOrbit(
@@ -1519,7 +1529,10 @@ class Orbit:
                     progressbar=progressbar,
                     numcores=numcores,
                     dt=dt,
+                    rtol=rtol,
+                    atol=atol,
                 )
+
         else:
             warnings.warn(
                 "Using C implementation to integrate orbits", galpyWarningVerbose
@@ -1532,6 +1545,8 @@ class Orbit:
                     method,
                     progressbar=progressbar,
                     dt=dt,
+                    rtol=rtol,
+                    atol=atol,
                 )
             else:
                 if self.phasedim() == 3 or self.phasedim() == 5:
@@ -1543,11 +1558,25 @@ class Orbit:
                     vxvvs = numpy.copy(self.vxvv)
                 if self.dim() == 2:
                     out, msg = integratePlanarOrbit_c(
-                        self._pot, vxvvs, t, method, progressbar=progressbar, dt=dt
+                        self._pot,
+                        vxvvs,
+                        t,
+                        method,
+                        progressbar=progressbar,
+                        dt=dt,
+                        rtol=rtol,
+                        atol=atol,
                     )
                 else:
                     out, msg = integrateFullOrbit_c(
-                        self._pot, vxvvs, t, method, progressbar=progressbar, dt=dt
+                        self._pot,
+                        vxvvs,
+                        t,
+                        method,
+                        progressbar=progressbar,
+                        dt=dt,
+                        rtol=rtol,
+                        atol=atol,
                     )
 
                 if self.phasedim() == 3 or self.phasedim() == 5:
@@ -1652,6 +1681,8 @@ class Orbit:
         progressbar=True,
         numcores=_NUMCORES,
         force_map=False,
+        rtol=None,
+        atol=None,
     ):
         """
         Integrate this Orbit instance using an independent variable suitable to creating surfaces-of-section.
@@ -1674,6 +1705,10 @@ class Orbit:
             Number of cores to use for Python-based multiprocessing (pure Python or using force_map=True); default = OMP_NUM_THREADS.
         force_map : bool, optional
             If True, force use of Python-based multiprocessing (not recommended).
+        rtol : float, optional
+            Relative tolerance. Default is None.
+        atol : float, optional
+            Absolute tolerance. Default is None.
 
         Returns
         -------
@@ -1729,6 +1764,7 @@ class Orbit:
         self._pot = thispot
         method = self._check_method_c_compatible(method, self._pot)
         method = self._check_method_dissipative_compatible(method, self._pot)
+
         # Implementation with parallel_map in Python
         if not "_c" in method or not ext_loaded or force_map:
             if self.dim() == 2:
@@ -1741,6 +1777,8 @@ class Orbit:
                     surface=surface,
                     progressbar=progressbar,
                     numcores=numcores,
+                    rtol=rtol,
+                    atol=atol,
                 )
             else:
                 out, msg = integrateFullOrbit_sos(
@@ -1751,6 +1789,8 @@ class Orbit:
                     method,
                     progressbar=progressbar,
                     numcores=numcores,
+                    rtol=rtol,
+                    atol=atol,
                 )
         else:
             warnings.warn(
@@ -1772,10 +1812,19 @@ class Orbit:
                     method,
                     surface=surface,
                     progressbar=progressbar,
+                    rtol=rtol,
+                    atol=atol,
                 )
             else:
                 out, msg = integrateFullOrbit_sos_c(
-                    self._pot, vxvvs, self._psi, t0, method, progressbar=progressbar
+                    self._pot,
+                    vxvvs,
+                    self._psi,
+                    t0,
+                    method,
+                    progressbar=progressbar,
+                    rtol=rtol,
+                    atol=atol,
                 )
 
             if self.phasedim() == 3 or self.phasedim() == 5:
@@ -1807,6 +1856,8 @@ class Orbit:
         force_map=False,
         rectIn=False,
         rectOut=False,
+        rtol=None,
+        atol=None,
     ):
         r"""
         Integrate the orbit and a small area of phase space.
@@ -1833,6 +1884,10 @@ class Orbit:
             If True, input dxdv is in rectangular coordinates. Default is False.
         rectOut : bool, optional
             If True, output dxdv (that in orbit_dxdv) is in rectangular coordinates. Default is False.
+        rtol : float, optional
+            Relative tolerance. Default is None.
+        atol : float, optional
+            Absolute tolerance. Default is None.
 
         Returns
         -------
@@ -1922,6 +1977,8 @@ class Orbit:
                     progressbar=progressbar,
                     numcores=numcores,
                     dt=dt,
+                    rtol=rtol,
+                    atol=atol,
                 )
         # Store orbit internally
         self.orbit_dxdv = out
@@ -5122,6 +5179,8 @@ class Orbit:
         progressbar=True,
         numcores=_NUMCORES,
         force_map=False,
+        rtol=None,
+        atol=None,
         **kwargs,
     ):
         """
@@ -5150,6 +5209,10 @@ class Orbit:
             Number of cores to use for Python-based multiprocessing (pure Python or using force_map=True). Default is OMP_NUM_THREADS.
         force_map : bool, optional
             If True, force use of Python-based multiprocessing (not recommended). Default is False.
+        rtol : float, optional
+            Relative tolerance. Default is None.
+        atol : float, optional
+            Absolute tolerance. Default is None.
 
         Returns
         -------
@@ -5235,6 +5298,8 @@ class Orbit:
                 progressbar=progressbar,
                 numcores=numcores,
                 force_map=force_map,
+                rtol=rtol,
+                atol=atol,
             )
             old_vxvv = self.vxvv
             self.vxvv = self.orbit[:, -1]
@@ -5254,6 +5319,8 @@ class Orbit:
             progressbar=progressbar,
             numcores=numcores,
             force_map=force_map,
+            rtol=rtol,
+            atol=atol,
         )
         self.t = self.t[:, ::iskip]
         self.orbit = self.orbit[:, ::iskip]
@@ -5287,6 +5354,8 @@ class Orbit:
         progressbar=True,
         numcores=_NUMCORES,
         force_map=False,
+        rtol=None,
+        atol=None,
     ):
         """
         Calculate the surface of section of the orbit using a brute-force integration approach.
@@ -5309,6 +5378,10 @@ class Orbit:
             Number of cores to use for Python-based multiprocessing (pure Python or using force_map=True); default = OMP_NUM_THREADS, by default _NUMCORES.
         force_map : bool, optional
             If True, force use of Python-based multiprocessing (not recommended), by default False.
+        rtol : float, optional
+            Relative tolerance. Default is None.
+        atol : float, optional
+            Absolute. Default is None.
 
         Returns
         -------
@@ -5347,6 +5420,8 @@ class Orbit:
             dt=dt,
             numcores=numcores,
             force_map=force_map,
+            rtol=rtol,
+            atol=atol,
         )
         # Find the crossings
         if self.dim() == 3:
@@ -5929,6 +6004,8 @@ class Orbit:
         method="dop853_c",
         skip=100,
         progressbar=True,
+        rtol=None,
+        atol=None,
         **kwargs,
     ):
         """
@@ -5950,6 +6027,10 @@ class Orbit:
             For non-adaptive integrators, the number of basic steps to take between crossings (these are further refined in the code, but only up to a maximum refinement, so you can use skip to get finer integration in cases where more accuracy is needed). The default is 100.
         progressbar : bool, optional
             If True, display a tqdm progress bar when integrating multiple orbits (requires tqdm to be installed!). The default is True.
+        rtol : float, optional
+            Relative tolerance. Default is None.
+        atol : float, optional
+            Absolute tolerance. Default is None.
         *args : optional
             Additional arguments to pass to galpy.util.plot.plot.
         **kwargs : optional
@@ -5985,6 +6066,8 @@ class Orbit:
             method=method,
             skip=skip,
             progressbar=progressbar,
+            rtol=rtol,
+            atol=atol,
             **kwargs,
         )
         x = numpy.atleast_2d(x)
@@ -6027,6 +6110,8 @@ class Orbit:
         surface=None,
         method="dop853_c",
         progressbar=True,
+        rtol=None,
+        atol=None,
         **kwargs,
     ):
         """
@@ -6044,6 +6129,10 @@ class Orbit:
             Integration method to use. Default is 'dop853_c'. See Notes for more information.
         progressbar : bool, optional
             If True, display a tqdm progress bar when integrating multiple orbits (requires tqdm to be installed!) (default is True).
+        rtol : float, optional
+            Relative tolerance. Default is None.
+        atol : float, optional
+            Absolute tolerance. Default is None.
         *args : optional
             Additional arguments to pass to galpy.util.plot.plot.
         **kwargs : dict
@@ -6078,7 +6167,13 @@ class Orbit:
 
         """
         x, y = self.bruteSOS(
-            t, pot, surface=surface, method=method, progressbar=progressbar
+            t,
+            pot,
+            surface=surface,
+            method=method,
+            progressbar=progressbar,
+            rtol=rtol,
+            atol=atol,
         )
         return self._base_plotSOS(x, y, surface, *args, **kwargs)
 

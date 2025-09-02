@@ -293,6 +293,8 @@ def integrateLinearOrbit(
     if int_method.lower() == "leapfrog":
         if rtol is None:
             rtol = 1e-8
+        if atol is None:
+            atol = 1e-8
 
         def integrate_for_map(vxvv):
             return symplecticode.leapfrog(
@@ -300,28 +302,33 @@ def integrateLinearOrbit(
                 numpy.array(vxvv),
                 t,
                 rtol=rtol,
+                atol=atol,
             )
 
     elif int_method.lower() == "dop853":
         if rtol is None:
-            rtol = 1e-8
+            rtol = 1e-12
+        if atol is None:
+            atol = 1e-12
 
         def integrate_for_map(vxvv):
-            return dop853(func=_linearEOM, x=vxvv, t=t, args=(pot,))
+            return dop853(
+                func=_linearEOM, x=vxvv, t=t, args=(pot,), rtol=rtol, atol=atol
+            )
 
     elif int_method.lower() == "odeint":
-        if rtol is None:
-            rtol = 1e-8
 
         def integrate_for_map(vxvv):
-            return integrate.odeint(_linearEOM, vxvv, t, args=(pot,), rtol=rtol)
+            return integrate.odeint(
+                _linearEOM, vxvv, t, args=(pot,), rtol=rtol, atol=atol
+            )
 
     else:  # Assume we are forcing parallel_mapping of a C integrator...
 
         def integrate_for_map(vxvv):
-            return integrateLinearOrbit_c(pot, numpy.copy(vxvv), t, int_method, dt=dt)[
-                0
-            ]
+            return integrateLinearOrbit_c(
+                pot, numpy.copy(vxvv), t, int_method, dt=dt, rtol=rtol, atol=atol
+            )[0]
 
     if len(yo) == 1:  # Can't map a single value...
         return numpy.atleast_3d(integrate_for_map(yo[0]).T).T, 0

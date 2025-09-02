@@ -954,6 +954,8 @@ def integratePlanarOrbit(
     if int_method.lower() == "leapfrog":
         if rtol is None:
             rtol = 1e-8
+        if atol is None:
+            atol = 1e-8
 
         def integrate_for_map(vxvv):
             # go to the rectangular frame
@@ -967,7 +969,7 @@ def integratePlanarOrbit(
             )
             # integrate
             tmp_out = symplecticode.leapfrog(
-                _planarRectForce, this_vxvv, t, args=(pot,), rtol=rtol
+                _planarRectForce, this_vxvv, t, args=(pot,), rtol=rtol, atol=atol
             )
             # go back to the cylindrical frame
             R = numpy.sqrt(tmp_out[:, 0] ** 2.0 + tmp_out[:, 1] ** 2.0)
@@ -983,14 +985,16 @@ def integratePlanarOrbit(
             return out
 
     elif int_method.lower() == "dop853" or int_method.lower() == "odeint":
-        if rtol is None:
-            rtol = 1e-8
         if int_method.lower() == "dop853":
+            if rtol is None:
+                rtol = 1e-12
+            if atol is None:
+                atol = 1e-12
             integrator = dop853
-            extra_kwargs = {}
+            extra_kwargs = {"rtol": rtol, "atol": atol}
         else:
             integrator = integrate.odeint
-            extra_kwargs = {"rtol": rtol}
+            extra_kwargs = {"rtol": rtol, "atol": atol}
         if len(yo[0]) == 3:
 
             def integrate_for_map(vxvv):
@@ -1029,9 +1033,9 @@ def integratePlanarOrbit(
     else:  # Assume we are forcing parallel_mapping of a C integrator...
 
         def integrate_for_map(vxvv):
-            return integratePlanarOrbit_c(pot, numpy.copy(vxvv), t, int_method, dt=dt)[
-                0
-            ]
+            return integratePlanarOrbit_c(
+                pot, numpy.copy(vxvv), t, int_method, dt=dt, rtol=rtol, atol=atol
+            )[0]
 
     if len(yo) == 1:  # Can't map a single value...
         out = numpy.atleast_3d(integrate_for_map(yo[0]).T).T
@@ -1134,14 +1138,16 @@ def integratePlanarOrbit_dxdv(
         this_dyo = dyo
     this_yo = numpy.hstack((this_yo, this_dyo))
     if int_method.lower() == "dop853" or int_method.lower() == "odeint":
-        if rtol is None:
-            rtol = 1e-8
         if int_method.lower() == "dop853":
+            if rtol is None:
+                rtol = 1e-12
+            if atol is None:
+                atol = 1e-12
             integrator = dop853
-            extra_kwargs = {}
+            extra_kwargs = {"rtol": rtol, "atol": atol}
         else:
             integrator = integrate.odeint
-            extra_kwargs = {"rtol": rtol}
+            extra_kwargs = {"rtol": rtol, "atol": atol}
 
         def integrate_for_map(vxvv):
             return integrator(_planarEOM_dxdv, vxvv, t=t, args=(pot,), **extra_kwargs)
@@ -1408,14 +1414,16 @@ def integratePlanarOrbit_sos(
         # We hack this by putting in a dummy phi=0
         yo = numpy.pad(yo, ((0, 0), (0, 1)), "constant", constant_values=0)
     if not "_c" in int_method:
-        if rtol is None:
-            rtol = 1e-8
         if int_method.lower() == "dop853":
+            if rtol is None:
+                rtol = 1e-12
+            if atol is None:
+                atol = 1e-12
             integrator = dop853
-            extra_kwargs = {}
+            extra_kwargs = {"rtol": rtol, "atol": atol}
         else:
             integrator = integrate.odeint
-            extra_kwargs = {"rtol": rtol}
+            extra_kwargs = {"rtol": rtol, "atol": atol}
 
         def integrate_for_map(vxvv, psi, t0):
             # go to the transformed plane: (A,t,y,vy) or (x,vx,A,t)
@@ -1481,7 +1489,15 @@ def integratePlanarOrbit_sos(
 
         def integrate_for_map(vxvv, psi, t0):
             return integratePlanarOrbit_sos_c(
-                pot, numpy.copy(vxvv), psi, t0, int_method, surface=surface, dpsi=dpsi
+                pot,
+                numpy.copy(vxvv),
+                psi,
+                t0,
+                int_method,
+                surface=surface,
+                dpsi=dpsi,
+                rtol=rtol,
+                atol=atol,
             )[0]
 
     if len(yo) == 1:  # Can't map a single value...
