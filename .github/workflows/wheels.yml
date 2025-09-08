@@ -112,7 +112,7 @@ jobs:
         with:
           name: ${{ matrix.python[0] }}-${{ matrix.buildplat[1] }}_${{ matrix.buildplat[2] }}
           path: wheelhouse/
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python[1] }}
           allow-prereleases: true
@@ -182,7 +182,7 @@ jobs:
       - uses: actions/checkout@v5
       # Setup python
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: 3.x
       # Install the GSL (necessary to properly include the C files)
