@@ -39,7 +39,7 @@ class SymbolicSphericalPotential(SphericalPotential):
         - 2025-08-10 - Written - Yuzhe Zhang (Uni Mainz)
 
         """
-        Potential.__init__(self, amp=amp, ro=ro, vo=vo, amp_units=amp_units)
+        SphericalPotential.__init__(self, amp=amp, ro=ro, vo=vo, amp_units=amp_units)
 
         self.dens, self.r = dens()
         # Compute enclosed mass symbolically
