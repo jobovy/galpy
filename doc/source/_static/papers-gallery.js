@@ -5,7 +5,7 @@ $(document).ready(function() {
     .done(function(data) {
     // First update the number of papers using galpy listed on the page
     let paperSpan= document.getElementById("span-number-of-papers-using-galpy");
-    paperSpan.innerHTML= (Math.floor((Object.keys(data).length-1)/50)*50).toFixed(0);
+    paperSpan.innerHTML= (Math.floor((Object.keys(data).length-1)/200)*200).toFixed(0);
     // randomize array to create random starting point, https://stackoverflow.com/a/56448185/10195320
       function shuffle(obj){
         // new obj to return
