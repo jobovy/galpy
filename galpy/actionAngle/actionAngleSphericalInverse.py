@@ -236,7 +236,7 @@ class actionAngleSphericalInverse(actionAngleInverse):
         self._isoaainv = actionAngleIsochroneInverse(ip=self._ip)
         if use_pointtransform and pt_deg > 1:
             self._setup_pointtransform(pt_deg, pt_nra)
-        elif False:
+        elif True:
             # Setup identity point transformation
             self._pt_deg = 1
             self._pt_nra = pt_nra
@@ -391,6 +391,7 @@ class actionAngleSphericalInverse(actionAngleInverse):
             )
             ** 2.0
         )
+        Etilde = -numpy.sqrt(-Etilde2)
 
         isoaa_helper = _actionAngleIsochroneHelper(ip=self._ip)
         self._pt_rperi, self._pt_rap = isoaa_helper.rperirap(Etilde, self._L2)
@@ -490,9 +491,21 @@ class actionAngleSphericalInverse(actionAngleInverse):
 
             ccoeffs = numpy.zeros(pt_deg + 1)
             ccoeffs[1] = 1.0
-            # ccoeffs[3]= -numpy.sum(polynomial.polyder(numpy.hstack(([0.,0.,],coeffs)))[1:])
-            # ccoeffs[2]= -numpy.sum(coeffs)-ccoeffs[3]
-            # ccoeffs[4::]= coeffs
+            ccoeffs[3] = -numpy.sum(
+                polynomial.polyder(
+                    numpy.hstack(
+                        (
+                            [
+                                0.0,
+                                0.0,
+                            ],
+                            coeffs,
+                        )
+                    )
+                )[1:]
+            )
+            ccoeffs[2] = -numpy.sum(coeffs) - ccoeffs[3]
+            ccoeffs[4::] = coeffs
             """
             ccoeffs= numpy.zeros(pt_deg+1)
             ccoeffs[1]= 1.
@@ -500,11 +513,11 @@ class actionAngleSphericalInverse(actionAngleInverse):
             ccoeffs/= chebyshev.chebval(1,ccoeffs)# map exact [0,1] --> [0,1]
             """
 
-            print("WARNING: FIXING PT TO LINEAR")
+            # print("WARNING: FIXING PT TO LINEAR")
 
             coeffs = ccoeffs
 
-            pt = polynomial.Polynomial(coeffs)
+            # pt = polynomial.Polynomial(coeffs)
 
             # Store point transformation as simple polynomial
             """
@@ -1207,6 +1220,7 @@ class actionAngleSphericalInverse(actionAngleInverse):
                 levels=10.0
                 ** numpy.linspace(numpy.log10(tJr) - 1.0, numpy.log10(tJr) + 1.0, 11),
             )
+            """
             pyplot.contour(
                 rr[0],
                 vrr[:, 0],
@@ -1217,6 +1231,7 @@ class actionAngleSphericalInverse(actionAngleInverse):
                     numpy.pi / 6.0, 2.0 * numpy.pi - numpy.pi / 6.0, 11
                 ),
             )
+            """
         if not point or orbit_only:
             return None
         # Then plot energy
