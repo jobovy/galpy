@@ -1893,6 +1893,7 @@ def test_analytic_ecc_rperi_rap():
     tol["default"] = -10.0
     tol["NFWPotential"] = -9.0  # these are more difficult
     tol["PlummerPotential"] = -9.0  # these are more difficult
+    tol["EinastoPotential"] = -9.0  # these are more difficult
     tol["DoubleExponentialDiskPotential"] = -6.0  # these are more difficult
     tol["RazorThinExponentialDiskPotential"] = -8.0  # these are more difficult
     tol["IsochronePotential"] = -6.0  # these are more difficult

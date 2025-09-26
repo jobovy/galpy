@@ -351,6 +351,9 @@ def _parse_pot(pot, potforactions=False, potfortorus=False):
                     )
         elif isinstance(p, potential.NullPotential):
             pot_type.append(40)
+        elif isinstance(p, potential.EinastoPotential):
+            pot_type.append(41)
+            pot_args.extend([p._amp, p.h, p.n])
             # No arguments, zero forces
         ############################## WRAPPERS ###############################
         elif isinstance(p, potential.DehnenSmoothWrapperPotential):
