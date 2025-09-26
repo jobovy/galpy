@@ -8,7 +8,8 @@ print("Current directory:", curdir)
 
 # Insert into sys.path if not already there
 if curdir not in sys.path:
-    sys.path.insert(0, curdir)
+    print(sys.path)
+    # sys.path.insert(0, curdir)
 
 import numpy
 
