@@ -5,7 +5,7 @@
 import numpy
 
 from ..util._optional_deps import _SYMPY_LOADED
-from .Potential import SphericalPotential
+from .SphericalPotential import SphericalPotential
 
 if _SYMPY_LOADED:
     import sympy
@@ -40,8 +40,8 @@ class SymbolicSphericalPotential(SphericalPotential):
 
         """
         SphericalPotential.__init__(self, amp=amp, ro=ro, vo=vo, amp_units=amp_units)
-
-        self.dens, self.r = dens()
+        self.r = sympy.Symbol("r", real=True)
+        self.dens = dens
         # Compute enclosed mass symbolically
         integrand = 4 * sympy.pi * self.r**2 * self.dens
         M_r = sympy.integrate(integrand, (self.r, 0, self.r))
