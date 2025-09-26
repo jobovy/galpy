@@ -614,6 +614,11 @@ double interpSphericalPotentialrevaluate(double,double,struct potentialArg *);
 double interpSphericalPotentialrforce(double,double,struct potentialArg *);
 double interpSphericalPotentialr2deriv(double,double,struct potentialArg *);
 double interpSphericalPotentialrdens(double,double,struct potentialArg *);
+//EinastoPotential: uses SphericalPotential, only need revaluate, rforce, r2deriv
+double EinastoPotentialrevaluate(double,double,struct potentialArg *);
+double EinastoPotentialrforce(double,double,struct potentialArg *);
+double EinastoPotentialr2deriv(double,double,struct potentialArg *);
+double EinastoPotentialrdens(double,double,struct potentialArg *);
 
 //TriaxialGaussian: uses EllipsoidalPotential, only need psi, dens, densDeriv
 double TriaxialGaussianPotentialpsi(double,double *);
