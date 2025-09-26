@@ -650,7 +650,7 @@ class HernquistPotential(DehnenSphericalPotential):
 
         """
         GM = self._amp * vo**2.0 * ro / 2.0
-        return f"0,1,{GM},{self.a*ro},0"
+        return f"0,1,{GM},{self.a * ro},0"
 
 
 class JaffePotential(DehnenSphericalPotential):
@@ -1089,4 +1089,4 @@ class NFWPotential(TwoPowerSphericalPotential):
         vmax = numpy.sqrt(
             ampl / self.a / ro * 0.2162165954
         )  # Take that factor directly from gyrfalcon
-        return f"0,{self.a*ro},{vmax}"
+        return f"0,{self.a * ro},{vmax}"

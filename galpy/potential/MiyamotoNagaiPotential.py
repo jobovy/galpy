@@ -142,4 +142,4 @@ class MiyamotoNagaiPotential(Potential):
     @kms_to_kpcGyrDecorator
     def _nemo_accpars(self, vo, ro):
         ampl = self._amp * vo**2.0 * ro
-        return f"0,{ampl},{self._a*ro},{self._b*ro}"
+        return f"0,{ampl},{self._a * ro},{self._b * ro}"

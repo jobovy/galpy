@@ -229,4 +229,4 @@ class PowerSphericalPotentialwCutoff(Potential):
     @kms_to_kpcGyrDecorator
     def _nemo_accpars(self, vo, ro):
         ampl = self._amp * vo**2.0 * ro ** (self.alpha - 2.0)
-        return f"0,{ampl},{self.alpha},{self.rc*ro}"
+        return f"0,{ampl},{self.alpha},{self.rc * ro}"

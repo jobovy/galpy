@@ -196,7 +196,7 @@ class osipkovmerrittdf(_osipkovmerrittdf):
 
         \\beta(r) = \\frac{1}{1+r_a^2/r^2}
 
-    with :math:`r_a` the anistropy radius for arbitrary combinations of potential and density profile.
+    with :math:`r_a` the anisotropy radius for arbitrary combinations of potential and density profile.
     """
 
     def __init__(

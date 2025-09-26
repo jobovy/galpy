@@ -87,46 +87,66 @@ def test_sample_bovy14(setup_testStreamsprayAgainstStreamdf):
         assert (
             numpy.fabs(numpy.mean(RvR_sdf[0][indx]) - numpy.mean(RvR_spdf[0][indx]))
             < 6e-2
-        ), "streamdf and streamspraydf do not generate similar samples for the Bovy (2014) stream (mean)"
+        ), (
+            "streamdf and streamspraydf do not generate similar samples for the Bovy (2014) stream (mean)"
+        )
         assert (
             numpy.fabs(numpy.mean(RvR_sdf[1][indx]) - numpy.mean(RvR_spdf[1][indx]))
             < 5e-2
-        ), "streamdf and streamspraydf do not generate similar samples for the Bovy (2014) stream (mean)"
+        ), (
+            "streamdf and streamspraydf do not generate similar samples for the Bovy (2014) stream (mean)"
+        )
         assert (
             numpy.fabs(numpy.mean(RvR_sdf[2][indx]) - numpy.mean(RvR_spdf[2][indx]))
             < 5e-2
-        ), "streamdf and streamspraydf do not generate similar samples for the Bovy (2014) stream (mean)"
+        ), (
+            "streamdf and streamspraydf do not generate similar samples for the Bovy (2014) stream (mean)"
+        )
         assert (
             numpy.fabs(numpy.mean(RvR_sdf[4][indx]) - numpy.mean(RvR_spdf[4][indx]))
             < 5e-2
-        ), "streamdf and streamspraydf do not generate similar samples for the Bovy (2014) stream (mean)"
+        ), (
+            "streamdf and streamspraydf do not generate similar samples for the Bovy (2014) stream (mean)"
+        )
         assert (
             numpy.fabs(numpy.mean(RvR_sdf[5][indx]) - numpy.mean(RvR_spdf[5][indx]))
             < 1e-1
-        ), "streamdf and streamspraydf do not generate similar samples for the Bovy (2014) stream (mean)"
+        ), (
+            "streamdf and streamspraydf do not generate similar samples for the Bovy (2014) stream (mean)"
+        )
         # Another range in Z
         indx = (RvR_sdf[3] > 5.0 / 8.0) * (RvR_sdf[3] < 6.0 / 8.0)
         # mean
         assert (
             numpy.fabs(numpy.mean(RvR_sdf[0][indx]) - numpy.mean(RvR_spdf[0][indx]))
             < 1e-1
-        ), "streamdf and streamspraydf do not generate similar samples for the Bovy (2014) stream (mean)"
+        ), (
+            "streamdf and streamspraydf do not generate similar samples for the Bovy (2014) stream (mean)"
+        )
         assert (
             numpy.fabs(numpy.mean(RvR_sdf[1][indx]) - numpy.mean(RvR_spdf[1][indx]))
             < 3e-2
-        ), "streamdf and streamspraydf do not generate similar samples for the Bovy (2014) stream (mean)"
+        ), (
+            "streamdf and streamspraydf do not generate similar samples for the Bovy (2014) stream (mean)"
+        )
         assert (
             numpy.fabs(numpy.mean(RvR_sdf[2][indx]) - numpy.mean(RvR_spdf[2][indx]))
             < 4e-2
-        ), "streamdf and streamspraydf do not generate similar samples for the Bovy (2014) stream (mean)"
+        ), (
+            "streamdf and streamspraydf do not generate similar samples for the Bovy (2014) stream (mean)"
+        )
         assert (
             numpy.fabs(numpy.mean(RvR_sdf[4][indx]) - numpy.mean(RvR_spdf[4][indx]))
             < 3e-2
-        ), "streamdf and streamspraydf do not generate similar samples for the Bovy (2014) stream (mean)"
+        ), (
+            "streamdf and streamspraydf do not generate similar samples for the Bovy (2014) stream (mean)"
+        )
         assert (
             numpy.fabs(numpy.mean(RvR_sdf[5][indx]) - numpy.mean(RvR_spdf[5][indx]))
             < 1e-1
-        ), "streamdf and streamspraydf do not generate similar samples for the Bovy (2014) stream (mean)"
+        ), (
+            "streamdf and streamspraydf do not generate similar samples for the Bovy (2014) stream (mean)"
+        )
     return None
 
 
@@ -146,15 +166,21 @@ def test_bovy14_sampleorbit(setup_testStreamsprayAgainstStreamdf):
         assert (
             numpy.fabs(numpy.mean(XvX_sdf[0][indx]) - numpy.mean(XvX_spdf.x()[indx]))
             < 6e-2
-        ), "streamdf and streamspraydf do not generate similar samples for the Bovy (2014) stream (mean, xy)"
+        ), (
+            "streamdf and streamspraydf do not generate similar samples for the Bovy (2014) stream (mean, xy)"
+        )
         assert (
             numpy.fabs(numpy.mean(XvX_sdf[1][indx]) - numpy.mean(XvX_spdf.y()[indx]))
             < 2e-1
-        ), "streamdf and streamspraydf do not generate similar samples for the Bovy (2014) stream (mean, xy)"
+        ), (
+            "streamdf and streamspraydf do not generate similar samples for the Bovy (2014) stream (mean, xy)"
+        )
         assert (
             numpy.fabs(numpy.mean(XvX_sdf[4][indx]) - numpy.mean(XvX_spdf.vy()[indx]))
             < 3e-2
-        ), "streamdf and streamspraydf do not generate similar samples for the Bovy (2014) stream (mean, xy)"
+        ), (
+            "streamdf and streamspraydf do not generate similar samples for the Bovy (2014) stream (mean, xy)"
+        )
     return None
 
 
@@ -186,12 +212,12 @@ def test_integrate(setup_testStreamsprayAgainstStreamdf):
             n=100, return_orbit=False, returndt=True, integrate=True
         )
         # Should agree
-        assert (
-            numpy.amax(numpy.fabs(dt - dt_noint)) < 1e-10
-        ), "Times not the same when sampling with and without integrating"
-        assert (
-            numpy.amax(numpy.fabs(RvR - RvR_noint)) < 1e-7
-        ), "Phase-space points not the same when sampling with and without integrating"
+        assert numpy.amax(numpy.fabs(dt - dt_noint)) < 1e-10, (
+            "Times not the same when sampling with and without integrating"
+        )
+        assert numpy.amax(numpy.fabs(RvR - RvR_noint)) < 1e-7, (
+            "Phase-space points not the same when sampling with and without integrating"
+        )
     return None
 
 
@@ -234,12 +260,12 @@ def test_integrate_rtnonarray():
             n=100, return_orbit=False, returndt=True, integrate=True
         )
         # Should agree
-        assert (
-            numpy.amax(numpy.fabs(dt - dt_noint)) < 1e-10
-        ), "Times not the same when sampling with and without integrating"
-        assert (
-            numpy.amax(numpy.fabs(RvR - RvR_noint)) < 1e-7
-        ), "Phase-space points not the same when sampling with and without integrating"
+        assert numpy.amax(numpy.fabs(dt - dt_noint)) < 1e-10, (
+            "Times not the same when sampling with and without integrating"
+        )
+        assert numpy.amax(numpy.fabs(RvR - RvR_noint)) < 1e-7, (
+            "Phase-space points not the same when sampling with and without integrating"
+        )
     return None
 
 
@@ -317,12 +343,12 @@ def test_center():
             (stream_pos[0] - o.x(use_physical=False)) ** 2.0
             + (stream_pos[1] - o.y(use_physical=False)) ** 2.0
         )
-        assert (
-            numpy.fabs(numpy.mean(stream_R_wrt_LMC) - R_in_lmc) < 0.1
-        ), "Stream generated in the LMC does not appear to be on a circle within the LMC"
-        assert (
-            numpy.fabs(numpy.std(stream_R_wrt_LMC)) < 0.15
-        ), "Stream generated in the LMC does not appear to be on a circle within the LMC"
+        assert numpy.fabs(numpy.mean(stream_R_wrt_LMC) - R_in_lmc) < 0.1, (
+            "Stream generated in the LMC does not appear to be on a circle within the LMC"
+        )
+        assert numpy.fabs(numpy.std(stream_R_wrt_LMC)) < 0.15, (
+            "Stream generated in the LMC does not appear to be on a circle within the LMC"
+        )
     return None
 
 
@@ -348,24 +374,24 @@ def test_sample_orbit_rovoetc():
             tdisrupt=4.5 / conversion.time_in_Gyr(vo, ro),
         )
         sam = spdf_bovy14.sample(n=10)
-        assert (
-            obs._roSet is sam._roSet
-        ), "Sampled streamspraydf orbits do not have the same roSet as the progenitor orbit"
-        assert (
-            obs._voSet is sam._voSet
-        ), "Sampled streamspraydf orbits do not have the same voSet as the progenitor orbit"
-        assert (
-            numpy.fabs(obs._ro - sam._ro) < 1e-10
-        ), "Sampled streamspraydf orbits do not have the same ro as the progenitor orbit"
-        assert (
-            numpy.fabs(obs._vo - sam._vo) < 1e-10
-        ), "Sampled streamspraydf orbits do not have the same vo as the progenitor orbit"
-        assert (
-            numpy.fabs(obs._zo - sam._zo) < 1e-10
-        ), "Sampled streamspraydf orbits do not have the same zo as the progenitor orbit"
-        assert numpy.all(
-            numpy.fabs(obs._solarmotion - sam._solarmotion) < 1e-10
-        ), "Sampled streamspraydf orbits do not have the same solarmotion as the progenitor orbit"
+        assert obs._roSet is sam._roSet, (
+            "Sampled streamspraydf orbits do not have the same roSet as the progenitor orbit"
+        )
+        assert obs._voSet is sam._voSet, (
+            "Sampled streamspraydf orbits do not have the same voSet as the progenitor orbit"
+        )
+        assert numpy.fabs(obs._ro - sam._ro) < 1e-10, (
+            "Sampled streamspraydf orbits do not have the same ro as the progenitor orbit"
+        )
+        assert numpy.fabs(obs._vo - sam._vo) < 1e-10, (
+            "Sampled streamspraydf orbits do not have the same vo as the progenitor orbit"
+        )
+        assert numpy.fabs(obs._zo - sam._zo) < 1e-10, (
+            "Sampled streamspraydf orbits do not have the same zo as the progenitor orbit"
+        )
+        assert numpy.all(numpy.fabs(obs._solarmotion - sam._solarmotion) < 1e-10), (
+            "Sampled streamspraydf orbits do not have the same solarmotion as the progenitor orbit"
+        )
     # Another one
     ro = 9.0
     zo, solarmotion = 0.03, [-20.0, 30.0, 40.0]
@@ -384,26 +410,30 @@ def test_sample_orbit_rovoetc():
             tdisrupt=4.5 / conversion.time_in_Gyr(vo, ro),
         )
         sam = spdf_bovy14.sample(n=10)
-        assert obs._roSet, "Test requires that ro be set for the progenitor orbit, but it appears not to have been set"
-        assert not obs._voSet, "Test requires that vo not be set for the progenitor orbit, but it appears to have been set"
-        assert (
-            obs._roSet is sam._roSet
-        ), "Sampled streamspraydf orbits do not have the same roSet as the progenitor orbit"
-        assert (
-            obs._voSet is sam._voSet
-        ), "Sampled streamspraydf orbits do not have the same voSet as the progenitor orbit"
-        assert (
-            numpy.fabs(obs._ro - sam._ro) < 1e-10
-        ), "Sampled streamspraydf orbits do not have the same ro as the progenitor orbit"
-        assert (
-            numpy.fabs(obs._vo - sam._vo) < 1e-10
-        ), "Sampled streamspraydf orbits do not have the same vo as the progenitor orbit"
-        assert (
-            numpy.fabs(obs._zo - sam._zo) < 1e-10
-        ), "Sampled streamspraydf orbits do not have the same zo as the progenitor orbit"
-        assert numpy.all(
-            numpy.fabs(obs._solarmotion - sam._solarmotion) < 1e-10
-        ), "Sampled streamspraydf orbits do not have the same solarmotion as the progenitor orbit"
+        assert obs._roSet, (
+            "Test requires that ro be set for the progenitor orbit, but it appears not to have been set"
+        )
+        assert not obs._voSet, (
+            "Test requires that vo not be set for the progenitor orbit, but it appears to have been set"
+        )
+        assert obs._roSet is sam._roSet, (
+            "Sampled streamspraydf orbits do not have the same roSet as the progenitor orbit"
+        )
+        assert obs._voSet is sam._voSet, (
+            "Sampled streamspraydf orbits do not have the same voSet as the progenitor orbit"
+        )
+        assert numpy.fabs(obs._ro - sam._ro) < 1e-10, (
+            "Sampled streamspraydf orbits do not have the same ro as the progenitor orbit"
+        )
+        assert numpy.fabs(obs._vo - sam._vo) < 1e-10, (
+            "Sampled streamspraydf orbits do not have the same vo as the progenitor orbit"
+        )
+        assert numpy.fabs(obs._zo - sam._zo) < 1e-10, (
+            "Sampled streamspraydf orbits do not have the same zo as the progenitor orbit"
+        )
+        assert numpy.all(numpy.fabs(obs._solarmotion - sam._solarmotion) < 1e-10), (
+            "Sampled streamspraydf orbits do not have the same solarmotion as the progenitor orbit"
+        )
     # And another one
     vo = 230.0
     zo, solarmotion = 0.03, [-20.0, 30.0, 40.0]
@@ -422,26 +452,30 @@ def test_sample_orbit_rovoetc():
             tdisrupt=4.5 / conversion.time_in_Gyr(vo, ro),
         )
         sam = spdf_bovy14.sample(n=10)
-        assert obs._voSet, "Test requires that vo be set for the progenitor orbit, but it appears not to have been set"
-        assert not obs._roSet, "Test requires that ro not be set for the progenitor orbit, but it appears to have been set"
-        assert (
-            obs._roSet is sam._roSet
-        ), "Sampled streamspraydf orbits do not have the same roSet as the progenitor orbit"
-        assert (
-            obs._voSet is sam._voSet
-        ), "Sampled streamspraydf orbits do not have the same voSet as the progenitor orbit"
-        assert (
-            numpy.fabs(obs._ro - sam._ro) < 1e-10
-        ), "Sampled streamspraydf orbits do not have the same ro as the progenitor orbit"
-        assert (
-            numpy.fabs(obs._vo - sam._vo) < 1e-10
-        ), "Sampled streamspraydf orbits do not have the same vo as the progenitor orbit"
-        assert (
-            numpy.fabs(obs._zo - sam._zo) < 1e-10
-        ), "Sampled streamspraydf orbits do not have the same zo as the progenitor orbit"
-        assert numpy.all(
-            numpy.fabs(obs._solarmotion - sam._solarmotion) < 1e-10
-        ), "Sampled streamspraydf orbits do not have the same solarmotion as the progenitor orbit"
+        assert obs._voSet, (
+            "Test requires that vo be set for the progenitor orbit, but it appears not to have been set"
+        )
+        assert not obs._roSet, (
+            "Test requires that ro not be set for the progenitor orbit, but it appears to have been set"
+        )
+        assert obs._roSet is sam._roSet, (
+            "Sampled streamspraydf orbits do not have the same roSet as the progenitor orbit"
+        )
+        assert obs._voSet is sam._voSet, (
+            "Sampled streamspraydf orbits do not have the same voSet as the progenitor orbit"
+        )
+        assert numpy.fabs(obs._ro - sam._ro) < 1e-10, (
+            "Sampled streamspraydf orbits do not have the same ro as the progenitor orbit"
+        )
+        assert numpy.fabs(obs._vo - sam._vo) < 1e-10, (
+            "Sampled streamspraydf orbits do not have the same vo as the progenitor orbit"
+        )
+        assert numpy.fabs(obs._zo - sam._zo) < 1e-10, (
+            "Sampled streamspraydf orbits do not have the same zo as the progenitor orbit"
+        )
+        assert numpy.all(numpy.fabs(obs._solarmotion - sam._solarmotion) < 1e-10), (
+            "Sampled streamspraydf orbits do not have the same solarmotion as the progenitor orbit"
+        )
     return None
 
 
@@ -474,12 +508,12 @@ def test_integrate_with_prog():
         n=100, return_orbit=False, returndt=True, integrate=True
     )
     # Should agree
-    assert (
-        numpy.amax(numpy.fabs(dt - dt_withprog)) < 1e-10
-    ), "Times not the same when sampling with and without prognitor's potential"
-    assert (
-        numpy.amax(numpy.fabs(RvR - RvR_withprog)) < 1e-7
-    ), "Phase-space points not the same when sampling with and without prognitor's potential"
+    assert numpy.amax(numpy.fabs(dt - dt_withprog)) < 1e-10, (
+        "Times not the same when sampling with and without prognitor's potential"
+    )
+    assert numpy.amax(numpy.fabs(RvR - RvR_withprog)) < 1e-7, (
+        "Phase-space points not the same when sampling with and without prognitor's potential"
+    )
     return None
 
 
@@ -522,13 +556,13 @@ def test_chen24spraydf_default_parameters():
     numpy.random.seed(4)
     RvR, dt = spdf.sample(n=100, return_orbit=False, returndt=True, integrate=True)
     # Should agree
-    assert (
-        numpy.amax(numpy.fabs(dt_default - dt)) < 1e-10
-    ), "Times not the same when changing the default parameters"
-    assert (
-        numpy.amax(numpy.fabs(RvR_default - RvR)) > 1e-7
-    ), "Phase-space points should not be the same when changing the default parameters"
-    assert (
-        numpy.amax(numpy.fabs(RvR_default - RvR)) < 1e-2
-    ), "Phase-space points too different when sampling with and without prognitor's potential"
+    assert numpy.amax(numpy.fabs(dt_default - dt)) < 1e-10, (
+        "Times not the same when changing the default parameters"
+    )
+    assert numpy.amax(numpy.fabs(RvR_default - RvR)) > 1e-7, (
+        "Phase-space points should not be the same when changing the default parameters"
+    )
+    assert numpy.amax(numpy.fabs(RvR_default - RvR)) < 1e-2, (
+        "Phase-space points too different when sampling with and without prognitor's potential"
+    )
     return None

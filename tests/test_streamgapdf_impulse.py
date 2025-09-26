@@ -67,9 +67,9 @@ def test_impulse_deltav_plummer_curved_subhalo_perpendicular():
         4.0,
     )
     # Should be equal
-    assert numpy.all(
-        numpy.fabs(kick - curved_kick) < 10.0**tol
-    ), "curved Plummer kick does not agree with straight kick for straight track"
+    assert numpy.all(numpy.fabs(kick - curved_kick) < 10.0**tol), (
+        "curved Plummer kick does not agree with straight kick for straight track"
+    )
     # Same for a bunch of positions
     v = numpy.zeros((100, 3))
     v[:, 0] = 3.4
@@ -89,9 +89,9 @@ def test_impulse_deltav_plummer_curved_subhalo_perpendicular():
         4.0,
     )
     # Should be equal
-    assert numpy.all(
-        numpy.fabs(kick - curved_kick) < 10.0**tol
-    ), "curved Plummer kick does not agree with straight kick for straight track"
+    assert numpy.all(numpy.fabs(kick - curved_kick) < 10.0**tol), (
+        "curved Plummer kick does not agree with straight kick for straight track"
+    )
     return None
 
 
@@ -117,9 +117,9 @@ def test_impulse_deltav_general():
         numpy.array([0.0, numpy.pi / 2.0, 0.0]),
         pp,
     )
-    assert numpy.all(
-        numpy.fabs(kick - general_kick) < 10.0**tol
-    ), "general kick calculation does not agree with Plummer calculation for a Plummer potential"
+    assert numpy.all(numpy.fabs(kick - general_kick) < 10.0**tol), (
+        "general kick calculation does not agree with Plummer calculation for a Plummer potential"
+    )
     # Same for a bunch of positions
     v = numpy.zeros((100, 3))
     v[:, 0] = 3.4
@@ -131,9 +131,9 @@ def test_impulse_deltav_general():
     general_kick = impulse_deltav_general(
         v, xpos, 3.0, numpy.array([0.0, numpy.pi / 2.0, 0.0]), pp
     )
-    assert numpy.all(
-        numpy.fabs(kick - general_kick) < 10.0**tol
-    ), "general kick calculation does not agree with Plummer calculation for a Plummer potential"
+    assert numpy.all(numpy.fabs(kick - general_kick) < 10.0**tol), (
+        "general kick calculation does not agree with Plummer calculation for a Plummer potential"
+    )
     return None
 
 
@@ -166,9 +166,9 @@ def test_impulse_deltav_general_curved():
         numpy.array([3.4, 0.0, 0.0]),
         pp,
     )
-    assert numpy.all(
-        numpy.fabs(kick - general_kick) < 10.0**tol
-    ), "general kick calculation does not agree with Plummer calculation for a Plummer potential, for curved stream"
+    assert numpy.all(numpy.fabs(kick - general_kick) < 10.0**tol), (
+        "general kick calculation does not agree with Plummer calculation for a Plummer potential, for curved stream"
+    )
     # Same for a bunch of positions
     v = numpy.zeros((100, 3))
     v[:, 0] = 3.4
@@ -194,9 +194,9 @@ def test_impulse_deltav_general_curved():
         numpy.array([3.4, 0.0, 0.0]),
         pp,
     )
-    assert numpy.all(
-        numpy.fabs(kick - general_kick) < 10.0**tol
-    ), "general kick calculation does not agree with Plummer calculation for a Plummer potential, for curved stream"
+    assert numpy.all(numpy.fabs(kick - general_kick) < 10.0**tol), (
+        "general kick calculation does not agree with Plummer calculation for a Plummer potential, for curved stream"
+    )
     return None
 
 
@@ -224,9 +224,9 @@ def test_impulse_deltav_general_hernquist():
         numpy.array([0.0, numpy.pi / 2.0, 0.0]),
         pp,
     )
-    assert numpy.all(
-        numpy.fabs(kick - general_kick) < 10.0**tol
-    ), "general kick calculation does not agree with Hernquist calculation for a Hernquist potential"
+    assert numpy.all(numpy.fabs(kick - general_kick) < 10.0**tol), (
+        "general kick calculation does not agree with Hernquist calculation for a Hernquist potential"
+    )
     # Same for a bunch of positions
     GM = numpy.pi
     v = numpy.zeros((100, 3))
@@ -239,9 +239,9 @@ def test_impulse_deltav_general_hernquist():
     general_kick = impulse_deltav_general(
         v, xpos, 3.0, numpy.array([0.0, numpy.pi / 2.0, 0.0]), pp
     )
-    assert numpy.all(
-        numpy.fabs(kick - general_kick) < 10.0**tol
-    ), "general kick calculation does not agree with Hernquist calculation for a Hernquist potential"
+    assert numpy.all(numpy.fabs(kick - general_kick) < 10.0**tol), (
+        "general kick calculation does not agree with Hernquist calculation for a Hernquist potential"
+    )
     return None
 
 
@@ -276,9 +276,9 @@ def test_impulse_deltav_general_curved_hernquist():
         numpy.array([3.4, 0.0, 0.0]),
         pp,
     )
-    assert numpy.all(
-        numpy.fabs(kick - general_kick) < 10.0**tol
-    ), "general kick calculation does not agree with Hernquist calculation for a Hernquist potential, for curved stream"
+    assert numpy.all(numpy.fabs(kick - general_kick) < 10.0**tol), (
+        "general kick calculation does not agree with Hernquist calculation for a Hernquist potential, for curved stream"
+    )
     # Same for a bunch of positions
     GM = numpy.pi
     v = numpy.zeros((100, 3))
@@ -305,9 +305,9 @@ def test_impulse_deltav_general_curved_hernquist():
         numpy.array([3.4, 0.0, 0.0]),
         pp,
     )
-    assert numpy.all(
-        numpy.fabs(kick - general_kick) < 10.0**tol
-    ), "general kick calculation does not agree with Hernquist calculation for a Hernquist potential, for curved stream"
+    assert numpy.all(numpy.fabs(kick - general_kick) < 10.0**tol), (
+        "general kick calculation does not agree with Hernquist calculation for a Hernquist potential, for curved stream"
+    )
     return None
 
 
@@ -322,9 +322,9 @@ def test_hernquistX_negative():
 def test_hernquistX_unity():
     from galpy.df.streamgapdf import HernquistX
 
-    assert (
-        HernquistX(1.0) == 1.0
-    ), "Hernquist X function not returning 1 with argument 1"
+    assert HernquistX(1.0) == 1.0, (
+        "Hernquist X function not returning 1 with argument 1"
+    )
     return None
 
 
@@ -351,9 +351,9 @@ def test_impulse_deltav_general_orbit_zeroforce():
     orbit_kick = impulse_deltav_general_orbitintegration(
         v0, x0, 3.0, w, x0, v0, pp, maxt, galpot
     )
-    assert numpy.all(
-        numpy.fabs(orbit_kick - plummer_kick) < 10.0**tol
-    ), "general kick with acceleration calculation does not agree with Plummer calculation for a Plummer potential, for straight"
+    assert numpy.all(numpy.fabs(orbit_kick - plummer_kick) < 10.0**tol), (
+        "general kick with acceleration calculation does not agree with Plummer calculation for a Plummer potential, for straight"
+    )
     # Same for a bunch of positions
     tol = -5.0
     pp = PlummerPotential(amp=numpy.pi, b=numpy.exp(1.0))
@@ -372,9 +372,9 @@ def test_impulse_deltav_general_orbit_zeroforce():
     orbit_kick = impulse_deltav_general_orbitintegration(
         V, Xc, 3.0, w, x0, v0, pp, maxt, galpot
     )
-    assert numpy.all(
-        numpy.fabs(orbit_kick - plummer_kick) < 10.0**tol
-    ), "general kick calculation does not agree with Plummer calculation for a Plummer potential, for curved stream"
+    assert numpy.all(numpy.fabs(orbit_kick - plummer_kick) < 10.0**tol), (
+        "general kick calculation does not agree with Plummer calculation for a Plummer potential, for curved stream"
+    )
     return None
 
 
@@ -401,10 +401,14 @@ def test_impulse_deltav_general_fullintegration_zeroforce():
     nzeroIndx = numpy.fabs(plummer_kick) > 10.0**tol
     assert numpy.all(
         numpy.fabs((orbit_kick - plummer_kick) / plummer_kick)[nzeroIndx] < 10.0**tol
-    ), "general kick with acceleration calculation does not agree with Plummer calculation for a Plummer potential, for straight"
+    ), (
+        "general kick with acceleration calculation does not agree with Plummer calculation for a Plummer potential, for straight"
+    )
     assert numpy.all(
         numpy.fabs(orbit_kick - plummer_kick)[True ^ nzeroIndx] < 10.0**tol
-    ), "general kick with acceleration calculation does not agree with Plummer calculation for a Plummer potential, for straight"
+    ), (
+        "general kick with acceleration calculation does not agree with Plummer calculation for a Plummer potential, for straight"
+    )
     # Same for a bunch of positions
     tol = -2.5
     GM = numpy.pi
@@ -425,10 +429,14 @@ def test_impulse_deltav_general_fullintegration_zeroforce():
     nzeroIndx = numpy.fabs(plummer_kick) > 10.0**tol
     assert numpy.all(
         numpy.fabs((orbit_kick - plummer_kick) / plummer_kick)[nzeroIndx] < 10.0**tol
-    ), "full stream+halo integration calculation does not agree with Plummer calculation for a Plummer potential, for curved stream"
+    ), (
+        "full stream+halo integration calculation does not agree with Plummer calculation for a Plummer potential, for curved stream"
+    )
     assert numpy.all(
         numpy.fabs(orbit_kick - plummer_kick)[True ^ nzeroIndx] < 10.0**tol
-    ), "full stream+halo integration calculation does not agree with Plummer calculation for a Plummer potential, for curved stream"
+    ), (
+        "full stream+halo integration calculation does not agree with Plummer calculation for a Plummer potential, for curved stream"
+    )
     return None
 
 
@@ -455,12 +463,12 @@ def test_impulse_deltav_general_fullintegration_fastencounter():
         v0, x0, 3.0, w, x0, v0, lp, GM, rs, tmaxfac=10.0, N=1000
     )
     # Kick should be in the X direction
-    assert (
-        numpy.fabs((orbit_kick - full_kick) / full_kick)[0, 0] < 10.0**tol
-    ), "Acceleration kick does not agree with full-orbit-integration kick for fast encounter"
-    assert numpy.all(
-        numpy.fabs(orbit_kick - full_kick)[0, 1:] < 10.0**tol
-    ), "Acceleration kick does not agree with full-orbit-integration kick for fast encounter"
+    assert numpy.fabs((orbit_kick - full_kick) / full_kick)[0, 0] < 10.0**tol, (
+        "Acceleration kick does not agree with full-orbit-integration kick for fast encounter"
+    )
+    assert numpy.all(numpy.fabs(orbit_kick - full_kick)[0, 1:] < 10.0**tol), (
+        "Acceleration kick does not agree with full-orbit-integration kick for fast encounter"
+    )
     return None
 
 
@@ -504,7 +512,9 @@ def test_impulse_deltav_plummerstream():
         (numpy.fabs((kick - stream_kick) / kick) < 10.0**tol)
         * (numpy.fabs(kick) >= 10**-4.0)
         + (numpy.fabs(kick - stream_kick) < 10**tol) * (numpy.fabs(kick) < 10**-4.0)
-    ), f"Short stream impulse kick calculation does not agree with Plummer calculation by rel: {numpy.amax(numpy.fabs((kick-stream_kick)/kick)[numpy.fabs(kick) >= 10**-4.]):g}, abs: {numpy.amax(numpy.fabs(kick-stream_kick)[numpy.fabs(kick) < 10**-3.]):g}"
+    ), (
+        f"Short stream impulse kick calculation does not agree with Plummer calculation by rel: {numpy.amax(numpy.fabs((kick - stream_kick) / kick)[numpy.fabs(kick) >= 10**-4.0]):g}, abs: {numpy.amax(numpy.fabs(kick - stream_kick)[numpy.fabs(kick) < 10**-3.0]):g}"
+    )
 
 
 def test_impulse_deltav_plummerstream_tmaxerror():

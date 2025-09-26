@@ -143,7 +143,9 @@ def test_progenitor_coordtransformparams():
             )
             if raisedWarning:
                 break
-        assert raisedWarning, "streamdf setup does not raise warning when progenitor's  ro is different from ro"
+        assert raisedWarning, (
+            "streamdf setup does not raise warning when progenitor's  ro is different from ro"
+        )
     # Test w/ diff R0
     with warnings.catch_warnings(record=True) as w:
         warnings.simplefilter("always", galpyWarning)
@@ -167,7 +169,9 @@ def test_progenitor_coordtransformparams():
             )
             if raisedWarning:
                 break
-        assert raisedWarning, "streamdf setup does not raise warning when progenitor's  ro is different from R0"
+        assert raisedWarning, (
+            "streamdf setup does not raise warning when progenitor's  ro is different from R0"
+        )
     # Test w/ diff Vnorm
     with warnings.catch_warnings(record=True) as w:
         warnings.simplefilter("always", galpyWarning)
@@ -193,7 +197,9 @@ def test_progenitor_coordtransformparams():
             )
             if raisedWarning:
                 break
-        assert raisedWarning, "streamdf setup does not raise warning when progenitor's  vo is different from vo"
+        assert raisedWarning, (
+            "streamdf setup does not raise warning when progenitor's  vo is different from vo"
+        )
     # Test w/ diff zo
     with warnings.catch_warnings(record=True) as w:
         warnings.simplefilter("always", galpyWarning)
@@ -220,7 +226,9 @@ def test_progenitor_coordtransformparams():
             )
             if raisedWarning:
                 break
-        assert raisedWarning, "streamdf setup does not raise warning when progenitor's  zo is different from Zsun"
+        assert raisedWarning, (
+            "streamdf setup does not raise warning when progenitor's  zo is different from Zsun"
+        )
     # Test w/ diff vsun
     with warnings.catch_warnings(record=True) as w:
         warnings.simplefilter("always", galpyWarning)
@@ -248,7 +256,9 @@ def test_progenitor_coordtransformparams():
             )
             if raisedWarning:
                 break
-        assert raisedWarning, "streamdf setup does not raise warning when progenitor's  solarmotion is different from vsun"
+        assert raisedWarning, (
+            "streamdf setup does not raise warning when progenitor's  solarmotion is different from vsun"
+        )
     return None
 
 
@@ -265,12 +275,12 @@ def test_bovy14_freqratio(bovy14_setup):
     # Load the streamdf object
     sdf_bovy14 = bovy14_setup
     # Test the frequency ratio
-    assert (
-        (sdf_bovy14.freqEigvalRatio() - 30.0) ** 2.0 < 10.0** 0.0
-    ), "streamdf model from Bovy (2014) does not give a frequency ratio of about 30"
-    assert (
-        (sdf_bovy14.freqEigvalRatio(isotropic=True) - 34.0) ** 2.0 < 10.0** 0.0
-    ), "streamdf model from Bovy (2014) does not give an isotropic frequency ratio of about 34"
+    assert (sdf_bovy14.freqEigvalRatio() - 30.0) ** 2.0 < 10.0**0.0, (
+        "streamdf model from Bovy (2014) does not give a frequency ratio of about 30"
+    )
+    assert (sdf_bovy14.freqEigvalRatio(isotropic=True) - 34.0) ** 2.0 < 10.0**0.0, (
+        "streamdf model from Bovy (2014) does not give an isotropic frequency ratio of about 34"
+    )
     return None
 
 
@@ -278,13 +288,14 @@ def test_bovy14_misalignment(bovy14_setup):
     # Load the streamdf object
     sdf_bovy14 = bovy14_setup
     # Test the misalignment
+    assert (sdf_bovy14.misalignment() / numpy.pi * 180.0 + 0.5) ** 2.0 < 10.0**-2.0, (
+        "streamdf model from Bovy (2014) does not give a misalighment of about -0.5 degree"
+    )
     assert (
-        (sdf_bovy14.misalignment() / numpy.pi * 180.0 + 0.5) ** 2.0 < 10.0** -2.0
-    ), "streamdf model from Bovy (2014) does not give a misalighment of about -0.5 degree"
-    assert (
-        (sdf_bovy14.misalignment(isotropic=True) / numpy.pi * 180.0 - 1.3) ** 2.0
-        < 10.0** -2.0
-    ), "streamdf model from Bovy (2014) does not give an isotropic misalighment of about 1.3 degree"
+        sdf_bovy14.misalignment(isotropic=True) / numpy.pi * 180.0 - 1.3
+    ) ** 2.0 < 10.0**-2.0, (
+        "streamdf model from Bovy (2014) does not give an isotropic misalighment of about 1.3 degree"
+    )
     return None
 
 
@@ -331,18 +342,18 @@ def test_bovy14_track_spread(bovy14_setup):
     check_track_spread(sdf_bovy14, "dist", "vlos", 0.5, 5.0)
     check_track_spread(sdf_bovy14, "pmll", "pmbb", 0.5, 0.5)
     # These should all exist, so return None
-    assert (
-        sdf_bovy14._interpolate_stream_track() is None
-    ), "_interpolate_stream_track does not return None, even though it should be set up"
-    assert (
-        sdf_bovy14._interpolate_stream_track_aA() is None
-    ), "_interpolate_stream_track_aA does not return None, even though it should be set up"
+    assert sdf_bovy14._interpolate_stream_track() is None, (
+        "_interpolate_stream_track does not return None, even though it should be set up"
+    )
+    assert sdf_bovy14._interpolate_stream_track_aA() is None, (
+        "_interpolate_stream_track_aA does not return None, even though it should be set up"
+    )
     delattr(sdf_bovy14, "_interpolatedObsTrackAA")
     delattr(sdf_bovy14, "_interpolatedThetasTrack")
     # Re-build
-    assert (
-        sdf_bovy14._interpolate_stream_track_aA() is None
-    ), "Re-building interpolated AA track does not return None"
+    assert sdf_bovy14._interpolate_stream_track_aA() is None, (
+        "Re-building interpolated AA track does not return None"
+    )
     return None
 
 
@@ -401,7 +412,9 @@ def test_pOparapar(bovy14_setup):
             dens_fromOpar_half / dens_frompOpar_close - sdf_bovy14.density_par(1.1)
         )
         < 10.0**-4.0
-    ), "density from integrating pOparapar not equal to that from density_par for Bovy14 stream"
+    ), (
+        "density from integrating pOparapar not equal to that from density_par for Bovy14 stream"
+    )
     return None
 
 
@@ -418,15 +431,15 @@ def test_density_par(bovy14_setup):
     # Load the streamdf object
     sdf_bovy14 = bovy14_setup
     # Test that the density is close to 1 close to the progenitor and close to zero far from the progenitor
-    assert (
-        numpy.fabs(sdf_bovy14.density_par(0.1) - 1.0) < 10.0**-2.0
-    ), "density near progenitor not close to 1 for Bovy14 stream"
-    assert (
-        numpy.fabs(sdf_bovy14.density_par(0.5) - 1.0) < 10.0**-2.0
-    ), "density near progenitor not close to 1 for Bovy14 stream"
-    assert (
-        numpy.fabs(sdf_bovy14.density_par(1.8) - 0.0) < 10.0**-2.0
-    ), "density far progenitor not close to 0 for Bovy14 stream"
+    assert numpy.fabs(sdf_bovy14.density_par(0.1) - 1.0) < 10.0**-2.0, (
+        "density near progenitor not close to 1 for Bovy14 stream"
+    )
+    assert numpy.fabs(sdf_bovy14.density_par(0.5) - 1.0) < 10.0**-2.0, (
+        "density near progenitor not close to 1 for Bovy14 stream"
+    )
+    assert numpy.fabs(sdf_bovy14.density_par(1.8) - 0.0) < 10.0**-2.0, (
+        "density far progenitor not close to 0 for Bovy14 stream"
+    )
     return None
 
 
@@ -603,9 +616,9 @@ def test_density_ll_wsampling(bovy14_setup):
     dens2 = float(numpy.sum((LB[0] > ll(apar2)) * (LB[0] < ll(apar2) + 2.0)))
     dens1_calc = sdf_bovy14.density_par(apar1, coord="ll")
     dens2_calc = sdf_bovy14.density_par(apar2, coord="ll")
-    assert (
-        numpy.fabs(dens1 / dens2 - dens1_calc / dens2_calc) < 0.1
-    ), "density in ll computed using density_par does not agree with density from random sample"
+    assert numpy.fabs(dens1 / dens2 - dens1_calc / dens2_calc) < 0.1, (
+        "density in ll computed using density_par does not agree with density from random sample"
+    )
     return None
 
 
@@ -755,12 +768,12 @@ def test_meanOmega_oned(bovy14_setup):
     # Load the streamdf object
     sdf_bovy14 = bovy14_setup
     # Test that meanOmega is close to constant and the mean Omega close to the progenitor
-    assert (
-        numpy.fabs(sdf_bovy14.meanOmega(0.1, oned=True)) < 10.0**-2.0
-    ), "One-dimensional meanOmega near progenitor not close to zero for Bovy14 stream"
-    assert (
-        numpy.fabs(sdf_bovy14.meanOmega(0.5, oned=True)) < 10.0**-2.0
-    ), "Oned-dimensional meanOmega near progenitor not close to zero for Bovy14 stream"
+    assert numpy.fabs(sdf_bovy14.meanOmega(0.1, oned=True)) < 10.0**-2.0, (
+        "One-dimensional meanOmega near progenitor not close to zero for Bovy14 stream"
+    )
+    assert numpy.fabs(sdf_bovy14.meanOmega(0.5, oned=True)) < 10.0**-2.0, (
+        "Oned-dimensional meanOmega near progenitor not close to zero for Bovy14 stream"
+    )
     return None
 
 
@@ -778,15 +791,15 @@ def test_sigOmega_small(bovy14_setup):
     # Load the streamdf object
     sdf_bovy14 = bovy14_setup
     # Test that sigOmega is smaller than the total spread
-    assert sdf_bovy14.sigOmega(0.1) < numpy.sqrt(
-        sdf_bovy14._sortedSigOEig[2]
-    ), "sigOmega near progenitor not smaller than the total Omega spread"
-    assert sdf_bovy14.sigOmega(0.5) < numpy.sqrt(
-        sdf_bovy14._sortedSigOEig[2]
-    ), "sigOmega near progenitor not smaller than the total Omega spread"
-    assert sdf_bovy14.sigOmega(1.2) < numpy.sqrt(
-        sdf_bovy14._sortedSigOEig[2]
-    ), "sigOmega near progenitor not smaller than the total Omega spread"
+    assert sdf_bovy14.sigOmega(0.1) < numpy.sqrt(sdf_bovy14._sortedSigOEig[2]), (
+        "sigOmega near progenitor not smaller than the total Omega spread"
+    )
+    assert sdf_bovy14.sigOmega(0.5) < numpy.sqrt(sdf_bovy14._sortedSigOEig[2]), (
+        "sigOmega near progenitor not smaller than the total Omega spread"
+    )
+    assert sdf_bovy14.sigOmega(1.2) < numpy.sqrt(sdf_bovy14._sortedSigOEig[2]), (
+        "sigOmega near progenitor not smaller than the total Omega spread"
+    )
     return None
 
 
@@ -808,9 +821,9 @@ def test_meantdAngle(bovy14_setup):
         )
         < 10.0**-0.9
     ), "mean td close to the progenitor is not dangle/dO"
-    assert (
-        numpy.fabs(sdf_bovy14.meantdAngle(0.0) - 0.0) < 10.0**-0.9
-    ), "mean td at the progenitor is not 0"
+    assert numpy.fabs(sdf_bovy14.meantdAngle(0.0) - 0.0) < 10.0**-0.9, (
+        "mean td at the progenitor is not 0"
+    )
     assert (
         numpy.fabs(sdf_bovy14.meantdAngle(10.0) - sdf_bovy14._tdisrupt) < 10.0**-0.9
     ), "mean td far from the progenitor is not tdisrupt"
@@ -821,16 +834,16 @@ def test_sigtdAngle(bovy14_setup):
     # Load the streamdf object
     sdf_bovy14 = bovy14_setup
     # Test that the sigma of td for a given angle is small
-    assert (
-        sdf_bovy14.sigtdAngle(0.1) < 0.2 * 0.1 / sdf_bovy14._meandO
-    ), "sigma of td close to the progenitor is not small"
-    assert (
-        sdf_bovy14.sigtdAngle(0.5) > 0.2 * 0.1 / sdf_bovy14._meandO
-    ), "sigma of td in the middle of the stream is not large"
+    assert sdf_bovy14.sigtdAngle(0.1) < 0.2 * 0.1 / sdf_bovy14._meandO, (
+        "sigma of td close to the progenitor is not small"
+    )
+    assert sdf_bovy14.sigtdAngle(0.5) > 0.2 * 0.1 / sdf_bovy14._meandO, (
+        "sigma of td in the middle of the stream is not large"
+    )
     # Spread at the progenitor should be zero
-    assert (
-        sdf_bovy14.sigtdAngle(0.0) < 1e-5
-    ), "sigma of td at the progenitor is not zero"
+    assert sdf_bovy14.sigtdAngle(0.0) < 1e-5, (
+        "sigma of td at the progenitor is not zero"
+    )
     return None
 
 
@@ -866,7 +879,9 @@ def test_ptdAngle(bovy14_setup):
             / sdf_bovy14.meantdAngle(da)
         )
         < 10.0**-2.0
-    ), "mean td at angle 0.2 calculated with Riemann sum does not agree with that calculated by meantdAngle"
+    ), (
+        "mean td at angle 0.2 calculated with Riemann sum does not agree with that calculated by meantdAngle"
+    )
     assert (
         numpy.fabs(
             (
@@ -879,7 +894,9 @@ def test_ptdAngle(bovy14_setup):
             / sdf_bovy14.sigtdAngle(da)
         )
         < 10.0**-1.5
-    ), "sig td at angle 0.2 calculated with Riemann sum does not agree with that calculated by meantdAngle"
+    ), (
+        "sig td at angle 0.2 calculated with Riemann sum does not agree with that calculated by meantdAngle"
+    )
     return None
 
 
@@ -888,26 +905,26 @@ def test_meanangledAngle(bovy14_setup):
     sdf_bovy14 = bovy14_setup
     # Test that the mean perpendicular angle at a given angle is zero
     da = 0.1
-    assert (
-        numpy.fabs(sdf_bovy14.meanangledAngle(da, smallest=False)) < 10.0**-2
-    ), "mean perpendicular angle not zero"
-    assert (
-        numpy.fabs(sdf_bovy14.meanangledAngle(da, smallest=True)) < 10.0**-2
-    ), "mean perpendicular angle not zero"
+    assert numpy.fabs(sdf_bovy14.meanangledAngle(da, smallest=False)) < 10.0**-2, (
+        "mean perpendicular angle not zero"
+    )
+    assert numpy.fabs(sdf_bovy14.meanangledAngle(da, smallest=True)) < 10.0**-2, (
+        "mean perpendicular angle not zero"
+    )
     da = 1.1
-    assert (
-        numpy.fabs(sdf_bovy14.meanangledAngle(da, smallest=False)) < 10.0**-2
-    ), "mean perpendicular angle not zero"
-    assert (
-        numpy.fabs(sdf_bovy14.meanangledAngle(da, smallest=True)) < 10.0**-2
-    ), "mean perpendicular angle not zero"
+    assert numpy.fabs(sdf_bovy14.meanangledAngle(da, smallest=False)) < 10.0**-2, (
+        "mean perpendicular angle not zero"
+    )
+    assert numpy.fabs(sdf_bovy14.meanangledAngle(da, smallest=True)) < 10.0**-2, (
+        "mean perpendicular angle not zero"
+    )
     da = 0.0
-    assert (
-        numpy.fabs(sdf_bovy14.meanangledAngle(da, smallest=False)) < 10.0**-2
-    ), "mean perpendicular angle not zero"
-    assert (
-        numpy.fabs(sdf_bovy14.meanangledAngle(da, smallest=True)) < 10.0**-2
-    ), "mean perpendicular angle not zero"
+    assert numpy.fabs(sdf_bovy14.meanangledAngle(da, smallest=False)) < 10.0**-2, (
+        "mean perpendicular angle not zero"
+    )
+    assert numpy.fabs(sdf_bovy14.meanangledAngle(da, smallest=True)) < 10.0**-2, (
+        "mean perpendicular angle not zero"
+    )
     return None
 
 
@@ -996,7 +1013,9 @@ def test_pangledAngle(bovy14_setup):
     ).flatten()
     assert (
         numpy.fabs(numpy.sum(dangles * pdangles) / numpy.sum(pdangles)) < 10.0**-2.0
-    ), "mean calculated using Riemann sum of pangledAngle does not agree with actual mean"
+    ), (
+        "mean calculated using Riemann sum of pangledAngle does not agree with actual mean"
+    )
     acsig = sdf_bovy14.sigangledAngle(
         da, assumeZeroMean=True, smallest=False, simple=False
     )
@@ -1009,7 +1028,9 @@ def test_pangledAngle(bovy14_setup):
             / acsig
         )
         < 10.0**-2.0
-    ), "sigma calculated using Riemann sum of pangledAngle does not agree with actual sigma"
+    ), (
+        "sigma calculated using Riemann sum of pangledAngle does not agree with actual sigma"
+    )
     # also for smallest
     pdangles = (
         numpy.array(
@@ -1018,7 +1039,9 @@ def test_pangledAngle(bovy14_setup):
     ).flatten()
     assert (
         numpy.fabs(numpy.sum(dangles * pdangles) / numpy.sum(pdangles)) < 10.0**-2.0
-    ), "mean calculated using Riemann sum of pangledAngle does not agree with actual mean"
+    ), (
+        "mean calculated using Riemann sum of pangledAngle does not agree with actual mean"
+    )
     acsig = sdf_bovy14.sigangledAngle(
         da, assumeZeroMean=True, smallest=True, simple=False
     )
@@ -1031,7 +1054,9 @@ def test_pangledAngle(bovy14_setup):
             / acsig
         )
         < 10.0**-1.95
-    ), "sigma calculated using Riemann sum of pangledAngle does not agree with actual sigma"
+    ), (
+        "sigma calculated using Riemann sum of pangledAngle does not agree with actual sigma"
+    )
     return None
 
 
@@ -1439,9 +1464,9 @@ def test_bovy14_callMargXZ(bovy14_setup):
     ps = numpy.exp(logps)
     ps /= numpy.sum(ps) * (xs[1] - xs[0]) * 8.0
     # Test that the mean is close to the approximation
-    assert (
-        numpy.fabs(numpy.sum(xs * ps) / numpy.sum(ps) - meanp[0]) < 10.0**-2.0
-    ), "mean of full PDF calculation does not agree with Gaussian approximation to the level at which this is expected for p(X|Z)"
+    assert numpy.fabs(numpy.sum(xs * ps) / numpy.sum(ps) - meanp[0]) < 10.0**-2.0, (
+        "mean of full PDF calculation does not agree with Gaussian approximation to the level at which this is expected for p(X|Z)"
+    )
     assert (
         numpy.fabs(
             numpy.sqrt(
@@ -1451,7 +1476,9 @@ def test_bovy14_callMargXZ(bovy14_setup):
             - numpy.sqrt(varp[0, 0])
         )
         < 10.0**-2.0
-    ), "sigma of full PDF calculation does not agree with Gaussian approximation to the level at which this is expected for p(X|Z)"
+    ), (
+        "sigma of full PDF calculation does not agree with Gaussian approximation to the level at which this is expected for p(X|Z)"
+    )
     # Test that the mean is close to the approximation, when explicitly setting sigma and ngl
     logps = numpy.array(
         [
@@ -1463,9 +1490,9 @@ def test_bovy14_callMargXZ(bovy14_setup):
     )
     ps = numpy.exp(logps)
     ps /= numpy.sum(ps) * (xs[1] - xs[0]) * 8.0
-    assert (
-        numpy.fabs(numpy.sum(xs * ps) / numpy.sum(ps) - meanp[0]) < 10.0**-2.0
-    ), "mean of full PDF calculation does not agree with Gaussian approximation to the level at which this is expected for p(X|Z)"
+    assert numpy.fabs(numpy.sum(xs * ps) / numpy.sum(ps) - meanp[0]) < 10.0**-2.0, (
+        "mean of full PDF calculation does not agree with Gaussian approximation to the level at which this is expected for p(X|Z)"
+    )
     assert (
         numpy.fabs(
             numpy.sqrt(
@@ -1475,7 +1502,9 @@ def test_bovy14_callMargXZ(bovy14_setup):
             - numpy.sqrt(varp[0, 0])
         )
         < 10.0**-2.0
-    ), "sigma of full PDF calculation does not agree with Gaussian approximation to the level at which this is expected for p(X|Z)"
+    ), (
+        "sigma of full PDF calculation does not agree with Gaussian approximation to the level at which this is expected for p(X|Z)"
+    )
     return None
 
 
@@ -1494,9 +1523,9 @@ def test_bovy14_callMargDPMLL(bovy14_setup):
     ps = numpy.exp(logps)
     ps /= numpy.sum(ps) * (xs[1] - xs[0])
     # Test that the mean is close to the approximation
-    assert (
-        numpy.fabs(numpy.sum(xs * ps) / numpy.sum(ps) - meanp[1]) < 10.0**-2.0
-    ), "mean of full PDF calculation does not agree with Gaussian approximation to the level at which this is expected for p(D|pmll)"
+    assert numpy.fabs(numpy.sum(xs * ps) / numpy.sum(ps) - meanp[1]) < 10.0**-2.0, (
+        "mean of full PDF calculation does not agree with Gaussian approximation to the level at which this is expected for p(D|pmll)"
+    )
     assert (
         numpy.fabs(
             numpy.sqrt(
@@ -1506,7 +1535,9 @@ def test_bovy14_callMargDPMLL(bovy14_setup):
             - numpy.sqrt(varp[1, 1])
         )
         < 10.0**-1.0
-    ), "sigma of full PDF calculation does not agree with Gaussian approximation to the level at which this is expected for p(D|pmll)"
+    ), (
+        "sigma of full PDF calculation does not agree with Gaussian approximation to the level at which this is expected for p(D|pmll)"
+    )
     # Test options
     assert (
         numpy.fabs(
@@ -1575,9 +1606,9 @@ def test_bovy14_callMargVLOSPMBB(bovy14_setup):
     ps = numpy.exp(logps - numpy.amax(logps))
     ps /= numpy.sum(ps) * (xs[1] - xs[0])
     # Test that the mean is close to the approximation
-    assert (
-        numpy.fabs(numpy.sum(xs * ps) / numpy.sum(ps) - meanp[3]) < 5.0
-    ), "mean of full PDF calculation does not agree with Gaussian approximation to the level at which this is expected for p(D|pmll)"
+    assert numpy.fabs(numpy.sum(xs * ps) / numpy.sum(ps) - meanp[3]) < 5.0, (
+        "mean of full PDF calculation does not agree with Gaussian approximation to the level at which this is expected for p(D|pmll)"
+    )
     return None
 
 
@@ -1676,9 +1707,9 @@ def test_bovy14_sample(bovy14_setup):
         )
         < 10.0**-2.0
     ), "Sample track does not lie in the same location as the track"
-    assert (
-        numpy.fabs(meanp[4] - numpy.mean(RvR[4][indx])) < 10.0**-2.0
-    ), "Sample track does not lie in the same location as the track"
+    assert numpy.fabs(meanp[4] - numpy.mean(RvR[4][indx])) < 10.0**-2.0, (
+        "Sample track does not lie in the same location as the track"
+    )
     # variance, use smaller range
     RvR = sdf_bovy14.sample(n=10000)
     indx = (RvR[3] > 4.4 / 8.0) * (RvR[3] < 4.6 / 8.0)
@@ -1700,15 +1731,15 @@ def test_bovy14_sampleXY(bovy14_setup):
     indx = (XvX[2] > 4.0 / 8.0) * (XvX[2] < 5.0 / 8.0)
     meanp, varp = sdf_bovy14.gaussApprox([None, None, 4.5 / 8.0, None, None, None])
     # mean
-    assert (
-        numpy.fabs(meanp[0] - numpy.mean(XvX[0][indx])) < 10.0**-2.0
-    ), "Sample track does not lie in the same location as the track"
-    assert (
-        numpy.fabs(meanp[1] - numpy.mean(XvX[1][indx])) < 10.0**-2.0
-    ), "Sample track does not lie in the same location as the track"
-    assert (
-        numpy.fabs(meanp[3] - numpy.mean(XvX[4][indx])) < 10.0**-2.0
-    ), "Sample track does not lie in the same location as the track"
+    assert numpy.fabs(meanp[0] - numpy.mean(XvX[0][indx])) < 10.0**-2.0, (
+        "Sample track does not lie in the same location as the track"
+    )
+    assert numpy.fabs(meanp[1] - numpy.mean(XvX[1][indx])) < 10.0**-2.0, (
+        "Sample track does not lie in the same location as the track"
+    )
+    assert numpy.fabs(meanp[3] - numpy.mean(XvX[4][indx])) < 10.0**-2.0, (
+        "Sample track does not lie in the same location as the track"
+    )
     # variance, use smaller range
     XvX = sdf_bovy14.sample(n=10000)
     indx = (XvX[3] > 4.4 / 8.0) * (XvX[3] < 4.6 / 8.0)
@@ -1730,15 +1761,15 @@ def test_bovy14_sampleLB(bovy14_setup):
     indx = (LB[0] > 212.5) * (LB[0] < 217.5)
     meanp, varp = sdf_bovy14.gaussApprox([215, None, None, None, None, None], lb=True)
     # mean
-    assert (
-        numpy.fabs((meanp[0] - numpy.mean(LB[1][indx])) / meanp[0]) < 10.0**-2.0
-    ), "Sample track does not lie in the same location as the track"
-    assert (
-        numpy.fabs((meanp[1] - numpy.mean(LB[2][indx])) / meanp[1]) < 10.0**-2.0
-    ), "Sample track does not lie in the same location as the track"
-    assert (
-        numpy.fabs((meanp[3] - numpy.mean(LB[4][indx])) / meanp[3]) < 10.0**-2.0
-    ), "Sample track does not lie in the same location as the track"
+    assert numpy.fabs((meanp[0] - numpy.mean(LB[1][indx])) / meanp[0]) < 10.0**-2.0, (
+        "Sample track does not lie in the same location as the track"
+    )
+    assert numpy.fabs((meanp[1] - numpy.mean(LB[2][indx])) / meanp[1]) < 10.0**-2.0, (
+        "Sample track does not lie in the same location as the track"
+    )
+    assert numpy.fabs((meanp[3] - numpy.mean(LB[4][indx])) / meanp[3]) < 10.0**-2.0, (
+        "Sample track does not lie in the same location as the track"
+    )
     # variance, use smaller range
     LB = sdf_bovy14.sample(n=10000, lb=True)
     indx = (LB[0] > 214.0) * (LB[0] < 216.0)
@@ -1757,9 +1788,9 @@ def test_bovy14_sampleA(bovy14_setup):
     AA = sdf_bovy14.sample(n=1000, returnaAdt=True)
     # Sanity checks
     indx = (AA[0][0] > 0.5625) * (AA[0][0] < 0.563)
-    assert (
-        numpy.fabs(numpy.mean(AA[0][2][indx]) - 0.42525) < 10.0**-1.0
-    ), "Sample's vertical frequency at given radial frequency is not as expected"
+    assert numpy.fabs(numpy.mean(AA[0][2][indx]) - 0.42525) < 10.0**-1.0, (
+        "Sample's vertical frequency at given radial frequency is not as expected"
+    )
     # Sanity check w/ time
     AA = sdf_bovy14.sample(n=10000, returnaAdt=True)
     daperp = numpy.sqrt(
@@ -2065,9 +2096,9 @@ def test_calcaAJac():
         0.12019596,
     )
     jac = calcaAJac([R, vR, vT, z, vz, phi], aAI, dxv=10**-8.0 * numpy.ones(6))
-    assert (
-        numpy.fabs((numpy.fabs(numpy.linalg.det(jac)) - R) / R) < 10.0**-2.0
-    ), "Determinant of (x,v) -> (J,theta) transformation is not equal to 1"
+    assert numpy.fabs((numpy.fabs(numpy.linalg.det(jac)) - R) / R) < 10.0**-2.0, (
+        "Determinant of (x,v) -> (J,theta) transformation is not equal to 1"
+    )
     # Now w/ frequencies
     jac = calcaAJac(
         [R, vR, vT, z, vz, phi],
@@ -2082,9 +2113,9 @@ def test_calcaAJac():
         ),
         :,
     ]
-    assert (
-        numpy.fabs((numpy.fabs(numpy.linalg.det(Jajac)) - R) / R) < 10.0**-2.0
-    ), "Determinant of (x,v) -> (J,theta) transformation is not equal to 1, when calculated with actionsFreqsAngles"
+    assert numpy.fabs((numpy.fabs(numpy.linalg.det(Jajac)) - R) / R) < 10.0**-2.0, (
+        "Determinant of (x,v) -> (J,theta) transformation is not equal to 1, when calculated with actionsFreqsAngles"
+    )
     # extract (O,theta)
     Oajac = jac[
         numpy.array(
@@ -2115,7 +2146,9 @@ def test_calcaAJac():
             / numpy.fabs(numpy.linalg.det(OJjac))
         )
         < 10.0**-2.0
-    ), "Determinant of (x,v) -> (O,theta) is not equal to that calculated w/ actionsFreqsAngles"
+    ), (
+        "Determinant of (x,v) -> (O,theta) is not equal to that calculated w/ actionsFreqsAngles"
+    )
     return None
 
 
@@ -2251,12 +2284,14 @@ def test_2ndsetup():
         tdisrupt=4.5 / conversion.time_in_Gyr(220.0, 8.0),
         nosetup=True,
     )  # won't look at track
-    assert (
-        numpy.fabs(sdf_bovy14.misalignment() - rsdf_bovy14.misalignment()) < 0.01
-    ), "misalignment not the same when setting up the same streamdf w/ a previously used progenitor"
+    assert numpy.fabs(sdf_bovy14.misalignment() - rsdf_bovy14.misalignment()) < 0.01, (
+        "misalignment not the same when setting up the same streamdf w/ a previously used progenitor"
+    )
     assert (
         numpy.fabs(sdf_bovy14.freqEigvalRatio() - rsdf_bovy14.freqEigvalRatio()) < 0.01
-    ), "freqEigvalRatio not the same when setting up the same streamdf w/ a previously used progenitor"
+    ), (
+        "freqEigvalRatio not the same when setting up the same streamdf w/ a previously used progenitor"
+    )
     return None
 
 
@@ -2281,11 +2316,15 @@ def test_bovy14_trackaa(bovy14_setup):
             / (aastream[0, :3] - sdf_bovy14._progenitor_Omega)
         )
         < 0.05
-    ), "Explicitly calculated frequencies along the track do not agree with the frequencies on which the track is based for bovy14 setup"
+    ), (
+        "Explicitly calculated frequencies along the track do not agree with the frequencies on which the track is based for bovy14 setup"
+    )
     # angles
     assert numpy.all(
         numpy.fabs((aastream[:, 3:] - aastream_expl[:, 3:]) / 2.0 / numpy.pi) < 0.001
-    ), "Explicitly calculated angles along the track do not agree with the angles on which the track is based for bovy14 setup"
+    ), (
+        "Explicitly calculated angles along the track do not agree with the angles on which the track is based for bovy14 setup"
+    )
     return None
 
 
@@ -2316,9 +2355,9 @@ def test_fardalpot_trackaa():
         tdisrupt=4.5 / conversion.time_in_Gyr(220.0, 8.0),
     )
     # First test that the misalignment is indeed large
-    assert (
-        numpy.fabs(sdf_fardal.misalignment() / numpy.pi * 180.0) > 4.0
-    ), "misalignment in Fardal test is not large"
+    assert numpy.fabs(sdf_fardal.misalignment() / numpy.pi * 180.0) > 4.0, (
+        "misalignment in Fardal test is not large"
+    )
     # Now run the test
     aastream = sdf_fardal._ObsTrackAA  # freqs and angles that the track is based on
     RvR = sdf_fardal._ObsTrack  # the track in R,vR,...
@@ -2337,11 +2376,15 @@ def test_fardalpot_trackaa():
             / (aastream[0, :3] - sdf_fardal._progenitor_Omega)
         )
         < 0.05
-    ), "Explicitly calculated frequencies along the track do not agree with the frequencies on which the track is based for Fardal setup"
+    ), (
+        "Explicitly calculated frequencies along the track do not agree with the frequencies on which the track is based for Fardal setup"
+    )
     # angles
     assert numpy.all(
         numpy.fabs((aastream[:, 3:] - aastream_expl[:, 3:]) / 2.0 / numpy.pi) < 0.001
-    ), "Explicitly calculated angles along the track do not agree with the angles on which the track is based for Fardal setup"
+    ), (
+        "Explicitly calculated angles along the track do not agree with the angles on which the track is based for Fardal setup"
+    )
     return None
 
 
@@ -2368,9 +2411,9 @@ def test_fardalwmwpot_trackaa():
         tdisrupt=4.5 / conversion.time_in_Gyr(220.0, 8.0),
     )
     # First test that the misalignment is indeed large
-    assert (
-        numpy.fabs(sdf_fardal.misalignment() / numpy.pi * 180.0) > 1.0
-    ), "misalignment in Fardal test is not large enough"
+    assert numpy.fabs(sdf_fardal.misalignment() / numpy.pi * 180.0) > 1.0, (
+        "misalignment in Fardal test is not large enough"
+    )
     # Now run the test
     aastream = sdf_fardal._ObsTrackAA  # freqs and angles that the track is based on
     RvR = sdf_fardal._ObsTrack  # the track in R,vR,...
@@ -2389,11 +2432,15 @@ def test_fardalwmwpot_trackaa():
             / (aastream[0, :3] - sdf_fardal._progenitor_Omega)
         )
         < 0.05
-    ), "Explicitly calculated frequencies along the track do not agree with the frequencies on which the track is based for Fardal setup"
+    ), (
+        "Explicitly calculated frequencies along the track do not agree with the frequencies on which the track is based for Fardal setup"
+    )
     # angles
     assert numpy.all(
         numpy.fabs((aastream[:, 3:] - aastream_expl[:, 3:]) / 2.0 / numpy.pi) < 0.001
-    ), "Explicitly calculated angles along the track do not agree with the angles on which the track is based for Fardal setup"
+    ), (
+        "Explicitly calculated angles along the track do not agree with the angles on which the track is based for Fardal setup"
+    )
     return None
 
 
@@ -2424,9 +2471,9 @@ def test_setup_progIsTrack():
         tdisrupt=4.5 / conversion.time_in_Gyr(220.0, 8.0),
         progIsTrack=True,
     )
-    assert numpy.all(
-        numpy.fabs(obs.vxvv[0] - sdfp._ObsTrack[0, :]) < 10.0**-3.0
-    ), "streamdf setup with progIsTrack does not return a track that is close to the given orbit at the start"
+    assert numpy.all(numpy.fabs(obs.vxvv[0] - sdfp._ObsTrack[0, :]) < 10.0**-3.0), (
+        "streamdf setup with progIsTrack does not return a track that is close to the given orbit at the start"
+    )
     # Integrate the orbit a little bit and test at a further point
     obs.integrate(numpy.linspace(0.0, 2.0, 10001), lp)
     indx = numpy.argmin(numpy.fabs(sdfp._interpolatedObsTrack[:, 0] - 1.75))
@@ -2434,7 +2481,9 @@ def test_setup_progIsTrack():
     assert numpy.all(
         numpy.fabs(sdfp._interpolatedObsTrack[indx, :5] - obs.orbit[0, oindx, :5])
         < 10.0**-2.0
-    ), "streamdf setup with progIsTrack does not return a track that is close to the given orbit somewhat further from the start"
+    ), (
+        "streamdf setup with progIsTrack does not return a track that is close to the given orbit somewhat further from the start"
+    )
     return None
 
 
@@ -2540,7 +2589,9 @@ def test_bovy14_useTM(bovy14_setup):
             - sdf_bovy14._interpolatedObsTrackLB[:, 3]
         )
         < 0.6
-    ), "stream track computed with useTM not close to that without in line-of-sight velocity"
+    ), (
+        "stream track computed with useTM not close to that without in line-of-sight velocity"
+    )
     return None
 
 
@@ -2614,7 +2665,9 @@ def test_bovy14_useTM_useTMHessian(bovy14_setup):
             - sdf_bovy14._interpolatedObsTrackLB[cindx, 2]
         )
         < 0.2
-    ), "stream track computed with useTM and useTMHessian not close to that without in distance"
+    ), (
+        "stream track computed with useTM and useTMHessian not close to that without in distance"
+    )
     interpV = interpolate.InterpolatedUnivariateSpline(
         sdftm._interpolatedObsTrackLB[sindx, 0],
         sdftm._interpolatedObsTrackLB[sindx, 3],
@@ -2626,7 +2679,9 @@ def test_bovy14_useTM_useTMHessian(bovy14_setup):
             - sdf_bovy14._interpolatedObsTrackLB[cindx, 3]
         )
         < 4.0
-    ), "stream track computed with useTM and useTMHessian not close to that without in line-of-sight velocity"
+    ), (
+        "stream track computed with useTM and useTMHessian not close to that without in line-of-sight velocity"
+    )
     return None
 
 
@@ -2677,7 +2732,9 @@ def test_bovy14_useTM_approxConstTrackFreq(bovy14_setup):
             - sdf_bovy14._interpolatedObsTrackLB[cindx, 1]
         )
         < 0.1
-    ), "stream track computed with useTM and approxConstTrackFreq not close to that without in b"
+    ), (
+        "stream track computed with useTM and approxConstTrackFreq not close to that without in b"
+    )
     interpD = interpolate.InterpolatedUnivariateSpline(
         sdftm._interpolatedObsTrackLB[sindx, 0],
         sdftm._interpolatedObsTrackLB[sindx, 2],
@@ -2689,7 +2746,9 @@ def test_bovy14_useTM_approxConstTrackFreq(bovy14_setup):
             - sdf_bovy14._interpolatedObsTrackLB[cindx, 2]
         )
         < 0.04
-    ), "stream track computed with useTM and approxConstTrackFreq not close to that without in distance"
+    ), (
+        "stream track computed with useTM and approxConstTrackFreq not close to that without in distance"
+    )
     interpV = interpolate.InterpolatedUnivariateSpline(
         sdftm._interpolatedObsTrackLB[sindx, 0],
         sdftm._interpolatedObsTrackLB[sindx, 3],
@@ -2701,7 +2760,9 @@ def test_bovy14_useTM_approxConstTrackFreq(bovy14_setup):
             - sdf_bovy14._interpolatedObsTrackLB[cindx, 3]
         )
         < 0.6
-    ), "stream track computed with useTM and approxConstTrackFreq not close to that without in line-of-sight velocity"
+    ), (
+        "stream track computed with useTM and approxConstTrackFreq not close to that without in line-of-sight velocity"
+    )
     return None
 
 
@@ -2725,21 +2786,21 @@ def check_track_prog_diff(sdf, d1, d2, tol, phys=False):
     # Interpolate progenitor, st we can put it on the same grid as the stream
     interpProgZ = interpolate.InterpolatedUnivariateSpline(progR, progZ, k=3)
     maxdevZ = numpy.amax(numpy.fabs(interpProgZ(trackR) - trackZ))
-    assert (
-        maxdevZ < tol
-    ), f"Stream track deviates more from progenitor track in {d2} vs. {d1} than expected; max. deviation = {maxdevZ:f}"
+    assert maxdevZ < tol, (
+        f"Stream track deviates more from progenitor track in {d2} vs. {d1} than expected; max. deviation = {maxdevZ:f}"
+    )
     return None
 
 
 def check_track_spread(sdf, d1, d2, tol1, tol2, phys=False, interp=True):
     # Check that the spread around the track is small
     addx, addy = sdf._parse_track_spread(d1, d2, interp=interp, phys=phys)
-    assert (
-        numpy.amax(addx) < tol1
-    ), f"Stream track spread is larger in {d1} than expected; max. deviation = {numpy.amax(addx):f}"
-    assert (
-        numpy.amax(addy) < tol2
-    ), f"Stream track spread is larger in {d2} than expected; max. deviation = {numpy.amax(addy):f}"
+    assert numpy.amax(addx) < tol1, (
+        f"Stream track spread is larger in {d1} than expected; max. deviation = {numpy.amax(addx):f}"
+    )
+    assert numpy.amax(addy) < tol2, (
+        f"Stream track spread is larger in {d2} than expected; max. deviation = {numpy.amax(addy):f}"
+    )
     return None
 
 
@@ -2861,9 +2922,9 @@ def check_closest_trackpointLB(sdf, trackp, usev=False, interp=True):
     indx = sdf.find_closest_trackpointLB(
         R, vR, vT, z, vz, phi, interp=interp, usev=usev
     )
-    assert (
-        indx == trackp
-    ), "Closest trackpoint to a trackpoint is not that trackpoint in LB"
+    assert indx == trackp, (
+        "Closest trackpoint to a trackpoint is not that trackpoint in LB"
+    )
     # Same test for a slight offset
     doff = 10.0**-5.0
     if not R is None:
@@ -2902,9 +2963,9 @@ def check_closest_trackpointaA(sdf, trackp, interp=True):
     vz = RvR[4]
     phi = RvR[5]
     indx = sdf._find_closest_trackpointaA(R, vR, vT, z, vz, phi, interp=interp)
-    assert (
-        indx == trackp
-    ), "Closest trackpoint to a trackpoint is not that trackpoint for AA"
+    assert indx == trackp, (
+        "Closest trackpoint to a trackpoint is not that trackpoint for AA"
+    )
     # Same test for a slight offset
     doff = 10.0**-5.0
     indx = sdf._find_closest_trackpointaA(
@@ -2934,18 +2995,18 @@ def check_approxaA_inv(sdf, tol, R, vR, vT, z, vz, phi, interp=True):
         "R after _approxaA and _approxaAInv does not agree with initial R; relative difference = %g"
         % (numpy.fabs((RvR[0] - R) / R))
     )
-    assert (
-        numpy.fabs((RvR[1] - vR) / vR) < 10.0**tol
-    ), "vR after _approxaA and _approxaAInv does not agree with initial vR"
-    assert (
-        numpy.fabs((RvR[2] - vT) / vT) < 10.0**tol
-    ), "vT after _approxaA and _approxaAInv does not agree with initial vT"
-    assert (
-        numpy.fabs((RvR[3] - z) / z) < 10.0**tol
-    ), "z after _approxaA and _approxaAInv does not agree with initial z"
-    assert (
-        numpy.fabs((RvR[4] - vz) / vz) < 10.0**tol
-    ), "vz after _approxaA and _approxaAInv does not agree with initial vz"
+    assert numpy.fabs((RvR[1] - vR) / vR) < 10.0**tol, (
+        "vR after _approxaA and _approxaAInv does not agree with initial vR"
+    )
+    assert numpy.fabs((RvR[2] - vT) / vT) < 10.0**tol, (
+        "vT after _approxaA and _approxaAInv does not agree with initial vT"
+    )
+    assert numpy.fabs((RvR[3] - z) / z) < 10.0**tol, (
+        "z after _approxaA and _approxaAInv does not agree with initial z"
+    )
+    assert numpy.fabs((RvR[4] - vz) / vz) < 10.0**tol, (
+        "vz after _approxaA and _approxaAInv does not agree with initial vz"
+    )
     assert numpy.fabs((RvR[5] - phi) / numpy.pi) < 10.0**tol, (
         "phi after _approxaA and _approxaAInv does not agree with initial phi; relative difference = %g"
         % (numpy.fabs((RvR[5] - phi) / phi))

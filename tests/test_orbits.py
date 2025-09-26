@@ -17,168 +17,168 @@ def test_initialization_vxvv():
     # 1D
     vxvvs = [[1.0, 0.1], [0.1, 3.0]]
     orbits = Orbit(vxvvs)
-    assert (
-        orbits.dim() == 1
-    ), "Orbits initialization with vxvv in 1D does not work as expected"
-    assert (
-        orbits.phasedim() == 2
-    ), "Orbits initialization with vxvv in 1D does not work as expected"
-    assert (
-        numpy.fabs(orbits.x()[0] - 1.0) < 1e-10
-    ), "Orbits initialization with vxvv in 1D does not work as expected"
-    assert (
-        numpy.fabs(orbits.x()[1] - 0.1) < 1e-10
-    ), "Orbits initialization with vxvv in 1D does not work as expected"
-    assert (
-        numpy.fabs(orbits.vx()[0] - 0.1) < 1e-10
-    ), "Orbits initialization with vxvv in 1D does not work as expected"
-    assert (
-        numpy.fabs(orbits.vx()[1] - 3.0) < 1e-10
-    ), "Orbits initialization with vxvv in 1D does not work as expected"
+    assert orbits.dim() == 1, (
+        "Orbits initialization with vxvv in 1D does not work as expected"
+    )
+    assert orbits.phasedim() == 2, (
+        "Orbits initialization with vxvv in 1D does not work as expected"
+    )
+    assert numpy.fabs(orbits.x()[0] - 1.0) < 1e-10, (
+        "Orbits initialization with vxvv in 1D does not work as expected"
+    )
+    assert numpy.fabs(orbits.x()[1] - 0.1) < 1e-10, (
+        "Orbits initialization with vxvv in 1D does not work as expected"
+    )
+    assert numpy.fabs(orbits.vx()[0] - 0.1) < 1e-10, (
+        "Orbits initialization with vxvv in 1D does not work as expected"
+    )
+    assert numpy.fabs(orbits.vx()[1] - 3.0) < 1e-10, (
+        "Orbits initialization with vxvv in 1D does not work as expected"
+    )
     # 2D, 3 phase-D
     vxvvs = [[1.0, 0.1, 1.0], [0.1, 3.0, 1.1]]
     orbits = Orbit(vxvvs)
-    assert (
-        orbits.dim() == 2
-    ), "Orbits initialization with vxvv in 2D, 3 phase-D does not work as expected"
-    assert (
-        orbits.phasedim() == 3
-    ), "Orbits initialization with vxvv in 2D, 3 phase-D does not work as expected"
-    assert (
-        numpy.fabs(orbits.R()[0] - 1.0) < 1e-10
-    ), "Orbits initialization with vxvv in 2D, 3 phase-D does not work as expected"
-    assert (
-        numpy.fabs(orbits.R()[1] - 0.1) < 1e-10
-    ), "Orbits initialization with vxvv in 2D, 3 phase-D does not work as expected"
-    assert (
-        numpy.fabs(orbits.vR()[0] - 0.1) < 1e-10
-    ), "Orbits initialization with vxvv in 2D, 3 phase-D does not work as expected"
-    assert (
-        numpy.fabs(orbits.vR()[1] - 3.0) < 1e-10
-    ), "Orbits initialization with vxvv in 2D, 3 phase-D does not work as expected"
-    assert (
-        numpy.fabs(orbits.vT()[0] - 1.0) < 1e-10
-    ), "Orbits initialization with vxvv in 2D, 3 phase-D does not work as expected"
-    assert (
-        numpy.fabs(orbits.vT()[1] - 1.1) < 1e-10
-    ), "Orbits initialization with vxvv in 2D, 3 phase-D does not work as expected"
+    assert orbits.dim() == 2, (
+        "Orbits initialization with vxvv in 2D, 3 phase-D does not work as expected"
+    )
+    assert orbits.phasedim() == 3, (
+        "Orbits initialization with vxvv in 2D, 3 phase-D does not work as expected"
+    )
+    assert numpy.fabs(orbits.R()[0] - 1.0) < 1e-10, (
+        "Orbits initialization with vxvv in 2D, 3 phase-D does not work as expected"
+    )
+    assert numpy.fabs(orbits.R()[1] - 0.1) < 1e-10, (
+        "Orbits initialization with vxvv in 2D, 3 phase-D does not work as expected"
+    )
+    assert numpy.fabs(orbits.vR()[0] - 0.1) < 1e-10, (
+        "Orbits initialization with vxvv in 2D, 3 phase-D does not work as expected"
+    )
+    assert numpy.fabs(orbits.vR()[1] - 3.0) < 1e-10, (
+        "Orbits initialization with vxvv in 2D, 3 phase-D does not work as expected"
+    )
+    assert numpy.fabs(orbits.vT()[0] - 1.0) < 1e-10, (
+        "Orbits initialization with vxvv in 2D, 3 phase-D does not work as expected"
+    )
+    assert numpy.fabs(orbits.vT()[1] - 1.1) < 1e-10, (
+        "Orbits initialization with vxvv in 2D, 3 phase-D does not work as expected"
+    )
     # 2D, 4 phase-D
     vxvvs = [[1.0, 0.1, 1.0, 1.5], [0.1, 3.0, 1.1, 2.0]]
     orbits = Orbit(vxvvs)
-    assert (
-        orbits.dim() == 2
-    ), "Orbits initialization with vxvv 2D, 4 phase-D does not work as expected"
-    assert (
-        orbits.phasedim() == 4
-    ), "Orbits initialization with vxvv 2D, 4 phase-D does not work as expected"
-    assert (
-        numpy.fabs(orbits.R()[0] - 1.0) < 1e-10
-    ), "Orbits initialization with vxvv 2D, 4 phase-D does not work as expected"
-    assert (
-        numpy.fabs(orbits.R()[1] - 0.1) < 1e-10
-    ), "Orbits initialization with vxvv 2D, 4 phase-D does not work as expected"
-    assert (
-        numpy.fabs(orbits.vR()[0] - 0.1) < 1e-10
-    ), "Orbits initialization with vxvv 2D, 4 phase-D does not work as expected"
-    assert (
-        numpy.fabs(orbits.vR()[1] - 3.0) < 1e-10
-    ), "Orbits initialization with vxvv 2D, 4 phase-D does not work as expected"
-    assert (
-        numpy.fabs(orbits.vT()[0] - 1.0) < 1e-10
-    ), "Orbits initialization with vxvv 2D, 4 phase-D does not work as expected"
-    assert (
-        numpy.fabs(orbits.vT()[1] - 1.1) < 1e-10
-    ), "Orbits initialization with vxvv 2D, 4 phase-D does not work as expected"
-    assert (
-        numpy.fabs(orbits.phi()[0] - 1.5) < 1e-10
-    ), "Orbits initialization with vxvv 2D, 4 phase-D does not work as expected"
-    assert (
-        numpy.fabs(orbits.phi()[1] - 2.0) < 1e-10
-    ), "Orbits initialization with vxvv 2D, 4 phase-D does not work as expected"
+    assert orbits.dim() == 2, (
+        "Orbits initialization with vxvv 2D, 4 phase-D does not work as expected"
+    )
+    assert orbits.phasedim() == 4, (
+        "Orbits initialization with vxvv 2D, 4 phase-D does not work as expected"
+    )
+    assert numpy.fabs(orbits.R()[0] - 1.0) < 1e-10, (
+        "Orbits initialization with vxvv 2D, 4 phase-D does not work as expected"
+    )
+    assert numpy.fabs(orbits.R()[1] - 0.1) < 1e-10, (
+        "Orbits initialization with vxvv 2D, 4 phase-D does not work as expected"
+    )
+    assert numpy.fabs(orbits.vR()[0] - 0.1) < 1e-10, (
+        "Orbits initialization with vxvv 2D, 4 phase-D does not work as expected"
+    )
+    assert numpy.fabs(orbits.vR()[1] - 3.0) < 1e-10, (
+        "Orbits initialization with vxvv 2D, 4 phase-D does not work as expected"
+    )
+    assert numpy.fabs(orbits.vT()[0] - 1.0) < 1e-10, (
+        "Orbits initialization with vxvv 2D, 4 phase-D does not work as expected"
+    )
+    assert numpy.fabs(orbits.vT()[1] - 1.1) < 1e-10, (
+        "Orbits initialization with vxvv 2D, 4 phase-D does not work as expected"
+    )
+    assert numpy.fabs(orbits.phi()[0] - 1.5) < 1e-10, (
+        "Orbits initialization with vxvv 2D, 4 phase-D does not work as expected"
+    )
+    assert numpy.fabs(orbits.phi()[1] - 2.0) < 1e-10, (
+        "Orbits initialization with vxvv 2D, 4 phase-D does not work as expected"
+    )
     # 3D, 5 phase-D
     vxvvs = [[1.0, 0.1, 1.0, 0.1, -0.2], [0.1, 3.0, 1.1, -0.3, 0.4]]
     orbits = Orbit(vxvvs)
-    assert (
-        orbits.dim() == 3
-    ), "Orbits initialization with vxvv 3D, 5 phase-D does not work as expected"
-    assert (
-        orbits.phasedim() == 5
-    ), "Orbits initialization with vxvv 3D, 5 phase-D does not work as expected"
-    assert (
-        numpy.fabs(orbits.R()[0] - 1.0) < 1e-10
-    ), "Orbits initialization with vxvv 3D, 5 phase-D does not work as expected"
-    assert (
-        numpy.fabs(orbits.R()[1] - 0.1) < 1e-10
-    ), "Orbits initialization with vxvv 3D, 5 phase-D does not work as expected"
-    assert (
-        numpy.fabs(orbits.vR()[0] - 0.1) < 1e-10
-    ), "Orbits initialization with vxvv 3D, 5 phase-D does not work as expected"
-    assert (
-        numpy.fabs(orbits.vR()[1] - 3.0) < 1e-10
-    ), "Orbits initialization with vxvv 3D, 5 phase-D does not work as expected"
-    assert (
-        numpy.fabs(orbits.vT()[0] - 1.0) < 1e-10
-    ), "Orbits initialization with vxvv 3D, 5 phase-D does not work as expected"
-    assert (
-        numpy.fabs(orbits.vT()[1] - 1.1) < 1e-10
-    ), "Orbits initialization with vxvv 3D, 5 phase-D does not work as expected"
-    assert (
-        numpy.fabs(orbits.z()[0] - 0.1) < 1e-10
-    ), "Orbits initialization with vxvv 3D, 5 phase-D does not work as expected"
-    assert (
-        numpy.fabs(orbits.z()[1] + 0.3) < 1e-10
-    ), "Orbits initialization with vxvv 3D, 5 phase-D does not work as expected"
-    assert (
-        numpy.fabs(orbits.vz()[0] + 0.2) < 1e-10
-    ), "Orbits initialization with vxvv 3D, 5 phase-D does not work as expected"
-    assert (
-        numpy.fabs(orbits.vz()[1] - 0.4) < 1e-10
-    ), "Orbits initialization with vxvv 3D, 5 phase-D does not work as expected"
+    assert orbits.dim() == 3, (
+        "Orbits initialization with vxvv 3D, 5 phase-D does not work as expected"
+    )
+    assert orbits.phasedim() == 5, (
+        "Orbits initialization with vxvv 3D, 5 phase-D does not work as expected"
+    )
+    assert numpy.fabs(orbits.R()[0] - 1.0) < 1e-10, (
+        "Orbits initialization with vxvv 3D, 5 phase-D does not work as expected"
+    )
+    assert numpy.fabs(orbits.R()[1] - 0.1) < 1e-10, (
+        "Orbits initialization with vxvv 3D, 5 phase-D does not work as expected"
+    )
+    assert numpy.fabs(orbits.vR()[0] - 0.1) < 1e-10, (
+        "Orbits initialization with vxvv 3D, 5 phase-D does not work as expected"
+    )
+    assert numpy.fabs(orbits.vR()[1] - 3.0) < 1e-10, (
+        "Orbits initialization with vxvv 3D, 5 phase-D does not work as expected"
+    )
+    assert numpy.fabs(orbits.vT()[0] - 1.0) < 1e-10, (
+        "Orbits initialization with vxvv 3D, 5 phase-D does not work as expected"
+    )
+    assert numpy.fabs(orbits.vT()[1] - 1.1) < 1e-10, (
+        "Orbits initialization with vxvv 3D, 5 phase-D does not work as expected"
+    )
+    assert numpy.fabs(orbits.z()[0] - 0.1) < 1e-10, (
+        "Orbits initialization with vxvv 3D, 5 phase-D does not work as expected"
+    )
+    assert numpy.fabs(orbits.z()[1] + 0.3) < 1e-10, (
+        "Orbits initialization with vxvv 3D, 5 phase-D does not work as expected"
+    )
+    assert numpy.fabs(orbits.vz()[0] + 0.2) < 1e-10, (
+        "Orbits initialization with vxvv 3D, 5 phase-D does not work as expected"
+    )
+    assert numpy.fabs(orbits.vz()[1] - 0.4) < 1e-10, (
+        "Orbits initialization with vxvv 3D, 5 phase-D does not work as expected"
+    )
     # 3D, 6 phase-D
     vxvvs = [[1.0, 0.1, 1.0, 0.1, -0.2, 1.5], [0.1, 3.0, 1.1, -0.3, 0.4, 2.0]]
     orbits = Orbit(vxvvs)
-    assert (
-        orbits.dim() == 3
-    ), "Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected"
-    assert (
-        orbits.phasedim() == 6
-    ), "Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected"
-    assert (
-        numpy.fabs(orbits.R()[0] - 1.0) < 1e-10
-    ), "Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected"
-    assert (
-        numpy.fabs(orbits.R()[1] - 0.1) < 1e-10
-    ), "Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected"
-    assert (
-        numpy.fabs(orbits.vR()[0] - 0.1) < 1e-10
-    ), "Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected"
-    assert (
-        numpy.fabs(orbits.vR()[1] - 3.0) < 1e-10
-    ), "Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected"
-    assert (
-        numpy.fabs(orbits.vT()[0] - 1.0) < 1e-10
-    ), "Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected"
-    assert (
-        numpy.fabs(orbits.vT()[1] - 1.1) < 1e-10
-    ), "Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected"
-    assert (
-        numpy.fabs(orbits.z()[0] - 0.1) < 1e-10
-    ), "Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected"
-    assert (
-        numpy.fabs(orbits.z()[1] + 0.3) < 1e-10
-    ), "Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected"
-    assert (
-        numpy.fabs(orbits.vz()[0] + 0.2) < 1e-10
-    ), "Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected"
-    assert (
-        numpy.fabs(orbits.vz()[1] - 0.4) < 1e-10
-    ), "Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected"
-    assert (
-        numpy.fabs(orbits.phi()[0] - 1.5) < 1e-10
-    ), "Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected"
-    assert (
-        numpy.fabs(orbits.phi()[1] - 2.0) < 1e-10
-    ), "Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected"
+    assert orbits.dim() == 3, (
+        "Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected"
+    )
+    assert orbits.phasedim() == 6, (
+        "Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected"
+    )
+    assert numpy.fabs(orbits.R()[0] - 1.0) < 1e-10, (
+        "Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected"
+    )
+    assert numpy.fabs(orbits.R()[1] - 0.1) < 1e-10, (
+        "Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected"
+    )
+    assert numpy.fabs(orbits.vR()[0] - 0.1) < 1e-10, (
+        "Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected"
+    )
+    assert numpy.fabs(orbits.vR()[1] - 3.0) < 1e-10, (
+        "Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected"
+    )
+    assert numpy.fabs(orbits.vT()[0] - 1.0) < 1e-10, (
+        "Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected"
+    )
+    assert numpy.fabs(orbits.vT()[1] - 1.1) < 1e-10, (
+        "Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected"
+    )
+    assert numpy.fabs(orbits.z()[0] - 0.1) < 1e-10, (
+        "Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected"
+    )
+    assert numpy.fabs(orbits.z()[1] + 0.3) < 1e-10, (
+        "Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected"
+    )
+    assert numpy.fabs(orbits.vz()[0] + 0.2) < 1e-10, (
+        "Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected"
+    )
+    assert numpy.fabs(orbits.vz()[1] - 0.4) < 1e-10, (
+        "Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected"
+    )
+    assert numpy.fabs(orbits.phi()[0] - 1.5) < 1e-10, (
+        "Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected"
+    )
+    assert numpy.fabs(orbits.phi()[1] - 2.0) < 1e-10, (
+        "Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected"
+    )
     return None
 
 
@@ -207,51 +207,51 @@ def test_initialization_SkyCoord():
         frame="icrs",
     )
     orbits = Orbit(co)
-    assert (
-        orbits.dim() == 3
-    ), "Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected"
-    assert (
-        orbits.phasedim() == 6
-    ), "Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected"
+    assert orbits.dim() == 3, (
+        "Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected"
+    )
+    assert orbits.phasedim() == 6, (
+        "Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected"
+    )
     for ii in range(nrand):
         to = Orbit(co[ii])
-        assert (
-            numpy.fabs(orbits.R()[ii] - to.R()) < 1e-10
-        ), "Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected"
-        assert (
-            numpy.fabs(orbits.vR()[ii] - to.vR()) < 1e-10
-        ), "Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected"
-        assert (
-            numpy.fabs(orbits.vT()[ii] - to.vT()) < 1e-10
-        ), "Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected"
-        assert (
-            numpy.fabs(orbits.z()[ii] - to.z()) < 1e-10
-        ), "Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected"
-        assert (
-            numpy.fabs(orbits.vz()[ii] - to.vz()) < 1e-10
-        ), "Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected"
-        assert (
-            numpy.fabs(orbits.phi()[ii] - to.phi()) < 1e-10
-        ), "Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected"
+        assert numpy.fabs(orbits.R()[ii] - to.R()) < 1e-10, (
+            "Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected"
+        )
+        assert numpy.fabs(orbits.vR()[ii] - to.vR()) < 1e-10, (
+            "Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected"
+        )
+        assert numpy.fabs(orbits.vT()[ii] - to.vT()) < 1e-10, (
+            "Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected"
+        )
+        assert numpy.fabs(orbits.z()[ii] - to.z()) < 1e-10, (
+            "Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected"
+        )
+        assert numpy.fabs(orbits.vz()[ii] - to.vz()) < 1e-10, (
+            "Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected"
+        )
+        assert numpy.fabs(orbits.phi()[ii] - to.phi()) < 1e-10, (
+            "Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected"
+        )
     # Also test list of Quantities
     orbits = Orbit([ras, decs, dists, pmras, pmdecs, vloss], radec=True)
     for ii in range(nrand):
         to = Orbit(co[ii])
-        assert (
-            numpy.fabs((orbits.R()[ii] - to.R()) / to.R()) < 1e-7
-        ), "Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected"
-        assert (
-            numpy.fabs((orbits.vR()[ii] - to.vR()) / to.vR()) < 1e-7
-        ), "Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected"
-        assert (
-            numpy.fabs((orbits.vT()[ii] - to.vT()) / to.vT()) < 1e-7
-        ), "Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected"
-        assert (
-            numpy.fabs((orbits.z()[ii] - to.z()) / to.z()) < 1e-7
-        ), "Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected"
-        assert (
-            numpy.fabs((orbits.vz()[ii] - to.vz()) / to.vz()) < 1e-7
-        ), "Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected"
+        assert numpy.fabs((orbits.R()[ii] - to.R()) / to.R()) < 1e-7, (
+            "Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected"
+        )
+        assert numpy.fabs((orbits.vR()[ii] - to.vR()) / to.vR()) < 1e-7, (
+            "Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected"
+        )
+        assert numpy.fabs((orbits.vT()[ii] - to.vT()) / to.vT()) < 1e-7, (
+            "Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected"
+        )
+        assert numpy.fabs((orbits.z()[ii] - to.z()) / to.z()) < 1e-7, (
+            "Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected"
+        )
+        assert numpy.fabs((orbits.vz()[ii] - to.vz()) / to.vz()) < 1e-7, (
+            "Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected"
+        )
         assert (
             numpy.fabs(
                 ((orbits.phi()[ii] - to.phi() + numpy.pi) % (2.0 * numpy.pi)) - numpy.pi
@@ -273,32 +273,32 @@ def test_initialization_SkyCoord():
         galcen_v_sun=v_sun,
     )
     orbits = Orbit(co)
-    assert (
-        orbits.dim() == 3
-    ), "Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected"
-    assert (
-        orbits.phasedim() == 6
-    ), "Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected"
+    assert orbits.dim() == 3, (
+        "Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected"
+    )
+    assert orbits.phasedim() == 6, (
+        "Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected"
+    )
     for ii in range(nrand):
         to = Orbit(co[ii])
-        assert (
-            numpy.fabs(orbits.R()[ii] - to.R()) < 1e-10
-        ), "Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected"
-        assert (
-            numpy.fabs(orbits.vR()[ii] - to.vR()) < 1e-10
-        ), "Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected"
-        assert (
-            numpy.fabs(orbits.vT()[ii] - to.vT()) < 1e-10
-        ), "Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected"
-        assert (
-            numpy.fabs(orbits.z()[ii] - to.z()) < 1e-10
-        ), "Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected"
-        assert (
-            numpy.fabs(orbits.vz()[ii] - to.vz()) < 1e-10
-        ), "Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected"
-        assert (
-            numpy.fabs(orbits.phi()[ii] - to.phi()) < 1e-10
-        ), "Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected"
+        assert numpy.fabs(orbits.R()[ii] - to.R()) < 1e-10, (
+            "Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected"
+        )
+        assert numpy.fabs(orbits.vR()[ii] - to.vR()) < 1e-10, (
+            "Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected"
+        )
+        assert numpy.fabs(orbits.vT()[ii] - to.vT()) < 1e-10, (
+            "Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected"
+        )
+        assert numpy.fabs(orbits.z()[ii] - to.z()) < 1e-10, (
+            "Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected"
+        )
+        assert numpy.fabs(orbits.vz()[ii] - to.vz()) < 1e-10, (
+            "Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected"
+        )
+        assert numpy.fabs(orbits.phi()[ii] - to.phi()) < 1e-10, (
+            "Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected"
+        )
     return None
 
 
@@ -319,21 +319,21 @@ def test_initialization_list_of_arrays():
         to = Orbit(
             [ras[ii], decs[ii], dists[ii], pmras[ii], pmdecs[ii], vloss[ii]], radec=True
         )
-        assert (
-            numpy.fabs((orbits.R()[ii] - to.R()) / to.R()) < 1e-9
-        ), "Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected"
-        assert (
-            numpy.fabs((orbits.vR()[ii] - to.vR()) / to.vR()) < 1e-9
-        ), "Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected"
-        assert (
-            numpy.fabs((orbits.vT()[ii] - to.vT()) / to.vT()) < 1e-7
-        ), "Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected"
-        assert (
-            numpy.fabs((orbits.z()[ii] - to.z()) / to.z()) < 1e-9
-        ), "Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected"
-        assert (
-            numpy.fabs((orbits.vz()[ii] - to.vz()) / to.vz()) < 1e-9
-        ), "Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected"
+        assert numpy.fabs((orbits.R()[ii] - to.R()) / to.R()) < 1e-9, (
+            "Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected"
+        )
+        assert numpy.fabs((orbits.vR()[ii] - to.vR()) / to.vR()) < 1e-9, (
+            "Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected"
+        )
+        assert numpy.fabs((orbits.vT()[ii] - to.vT()) / to.vT()) < 1e-7, (
+            "Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected"
+        )
+        assert numpy.fabs((orbits.z()[ii] - to.z()) / to.z()) < 1e-9, (
+            "Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected"
+        )
+        assert numpy.fabs((orbits.vz()[ii] - to.vz()) / to.vz()) < 1e-9, (
+            "Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected"
+        )
         assert (
             numpy.fabs(
                 ((orbits.phi()[ii] - to.phi() + numpy.pi) % (2.0 * numpy.pi)) - numpy.pi
@@ -344,21 +344,21 @@ def test_initialization_list_of_arrays():
     orbits = Orbit([ras, decs, dists, pmras, pmdecs, vloss])
     for ii in range(nrand):
         to = Orbit([ras[ii], decs[ii], dists[ii], pmras[ii], pmdecs[ii], vloss[ii]])
-        assert (
-            numpy.fabs((orbits.R()[ii] - to.R()) / to.R()) < 1e-9
-        ), "Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected"
-        assert (
-            numpy.fabs((orbits.vR()[ii] - to.vR()) / to.vR()) < 1e-9
-        ), "Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected"
-        assert (
-            numpy.fabs((orbits.vT()[ii] - to.vT()) / to.vT()) < 1e-7
-        ), "Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected"
-        assert (
-            numpy.fabs((orbits.z()[ii] - to.z()) / to.z()) < 1e-9
-        ), "Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected"
-        assert (
-            numpy.fabs((orbits.vz()[ii] - to.vz()) / to.vz()) < 1e-9
-        ), "Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected"
+        assert numpy.fabs((orbits.R()[ii] - to.R()) / to.R()) < 1e-9, (
+            "Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected"
+        )
+        assert numpy.fabs((orbits.vR()[ii] - to.vR()) / to.vR()) < 1e-9, (
+            "Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected"
+        )
+        assert numpy.fabs((orbits.vT()[ii] - to.vT()) / to.vT()) < 1e-7, (
+            "Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected"
+        )
+        assert numpy.fabs((orbits.z()[ii] - to.z()) / to.z()) < 1e-9, (
+            "Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected"
+        )
+        assert numpy.fabs((orbits.vz()[ii] - to.vz()) / to.vz()) < 1e-9, (
+            "Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected"
+        )
         assert (
             numpy.fabs(
                 ((orbits.phi()[ii] - to.phi() + numpy.pi) % (2.0 * numpy.pi)) - numpy.pi
@@ -390,21 +390,21 @@ def test_initialization_diffro():
             ro=ros[ii],
             radec=True,
         )
-        assert (
-            numpy.fabs((all_orbs.R()[ii] - orb.R()) / orb.R()) < 1e-7
-        ), "Orbits initialization with array of ro does not work as expected"
-        assert (
-            numpy.fabs((all_orbs.vR()[ii] - orb.vR()) / orb.vR()) < 1e-7
-        ), "Orbits initialization with array of ro does not work as expected"
-        assert (
-            numpy.fabs((all_orbs.vT()[ii] - orb.vT()) / orb.vT()) < 1e-7
-        ), "Orbits initialization with array of ro does not work as expected"
-        assert (
-            numpy.fabs((all_orbs.z()[ii] - orb.z()) / orb.z()) < 1e-7
-        ), "Orbits initialization with array of ro does not work as expected"
-        assert (
-            numpy.fabs((all_orbs.vz()[ii] - orb.vz()) / orb.vz()) < 1e-7
-        ), "Orbits initialization with array of ro does not work as expected"
+        assert numpy.fabs((all_orbs.R()[ii] - orb.R()) / orb.R()) < 1e-7, (
+            "Orbits initialization with array of ro does not work as expected"
+        )
+        assert numpy.fabs((all_orbs.vR()[ii] - orb.vR()) / orb.vR()) < 1e-7, (
+            "Orbits initialization with array of ro does not work as expected"
+        )
+        assert numpy.fabs((all_orbs.vT()[ii] - orb.vT()) / orb.vT()) < 1e-7, (
+            "Orbits initialization with array of ro does not work as expected"
+        )
+        assert numpy.fabs((all_orbs.z()[ii] - orb.z()) / orb.z()) < 1e-7, (
+            "Orbits initialization with array of ro does not work as expected"
+        )
+        assert numpy.fabs((all_orbs.vz()[ii] - orb.vz()) / orb.vz()) < 1e-7, (
+            "Orbits initialization with array of ro does not work as expected"
+        )
         assert (
             numpy.fabs(
                 ((all_orbs.phi()[ii] - orb.phi() + numpy.pi) % (2.0 * numpy.pi))
@@ -413,24 +413,24 @@ def test_initialization_diffro():
             < 1e-7
         ), "Orbits initialization with array of ro does not work as expected"
         # Also some observed values like ra, dec, ...
-        assert (
-            numpy.fabs((all_orbs.ra()[ii] - orb.ra()) / orb.ra()) < 1e-7
-        ), "Orbits initialization with array of ro does not work as expected"
-        assert (
-            numpy.fabs((all_orbs.dec()[ii] - orb.dec()) / orb.dec()) < 1e-7
-        ), "Orbits initialization with array of ro does not work as expected"
-        assert (
-            numpy.fabs((all_orbs.dist()[ii] - orb.dist()) / orb.dist()) < 1e-7
-        ), "Orbits initialization with array of ro does not work as expected"
-        assert (
-            numpy.fabs((all_orbs.pmra()[ii] - orb.pmra()) / orb.pmra()) < 1e-7
-        ), "Orbits initialization with array of ro does not work as expected"
-        assert (
-            numpy.fabs((all_orbs.pmdec()[ii] - orb.pmdec()) / orb.pmdec()) < 1e-7
-        ), "Orbits initialization with array of ro does not work as expected"
-        assert (
-            numpy.fabs((all_orbs.vlos()[ii] - orb.vlos()) / orb.vlos()) < 1e-7
-        ), "Orbits initialization with array of ro does not work as expected"
+        assert numpy.fabs((all_orbs.ra()[ii] - orb.ra()) / orb.ra()) < 1e-7, (
+            "Orbits initialization with array of ro does not work as expected"
+        )
+        assert numpy.fabs((all_orbs.dec()[ii] - orb.dec()) / orb.dec()) < 1e-7, (
+            "Orbits initialization with array of ro does not work as expected"
+        )
+        assert numpy.fabs((all_orbs.dist()[ii] - orb.dist()) / orb.dist()) < 1e-7, (
+            "Orbits initialization with array of ro does not work as expected"
+        )
+        assert numpy.fabs((all_orbs.pmra()[ii] - orb.pmra()) / orb.pmra()) < 1e-7, (
+            "Orbits initialization with array of ro does not work as expected"
+        )
+        assert numpy.fabs((all_orbs.pmdec()[ii] - orb.pmdec()) / orb.pmdec()) < 1e-7, (
+            "Orbits initialization with array of ro does not work as expected"
+        )
+        assert numpy.fabs((all_orbs.vlos()[ii] - orb.vlos()) / orb.vlos()) < 1e-7, (
+            "Orbits initialization with array of ro does not work as expected"
+        )
     return None
 
 
@@ -456,21 +456,21 @@ def test_initialization_diffzo():
             zo=zos[ii],
             radec=True,
         )
-        assert (
-            numpy.fabs((all_orbs.R()[ii] - orb.R()) / orb.R()) < 1e-7
-        ), "Orbits initialization with array of zo does not work as expected"
-        assert (
-            numpy.fabs((all_orbs.vR()[ii] - orb.vR()) / orb.vR()) < 1e-7
-        ), "Orbits initialization with array of zo does not work as expected"
-        assert (
-            numpy.fabs((all_orbs.vT()[ii] - orb.vT()) / orb.vT()) < 1e-7
-        ), "Orbits initialization with array of zo does not work as expected"
-        assert (
-            numpy.fabs((all_orbs.z()[ii] - orb.z()) / orb.z()) < 1e-7
-        ), "Orbits initialization with array of zo does not work as expected"
-        assert (
-            numpy.fabs((all_orbs.vz()[ii] - orb.vz()) / orb.vz()) < 1e-7
-        ), "Orbits initialization with array of zo does not work as expected"
+        assert numpy.fabs((all_orbs.R()[ii] - orb.R()) / orb.R()) < 1e-7, (
+            "Orbits initialization with array of zo does not work as expected"
+        )
+        assert numpy.fabs((all_orbs.vR()[ii] - orb.vR()) / orb.vR()) < 1e-7, (
+            "Orbits initialization with array of zo does not work as expected"
+        )
+        assert numpy.fabs((all_orbs.vT()[ii] - orb.vT()) / orb.vT()) < 1e-7, (
+            "Orbits initialization with array of zo does not work as expected"
+        )
+        assert numpy.fabs((all_orbs.z()[ii] - orb.z()) / orb.z()) < 1e-7, (
+            "Orbits initialization with array of zo does not work as expected"
+        )
+        assert numpy.fabs((all_orbs.vz()[ii] - orb.vz()) / orb.vz()) < 1e-7, (
+            "Orbits initialization with array of zo does not work as expected"
+        )
         assert (
             numpy.fabs(
                 ((all_orbs.phi()[ii] - orb.phi() + numpy.pi) % (2.0 * numpy.pi))
@@ -479,24 +479,24 @@ def test_initialization_diffzo():
             < 1e-7
         ), "Orbits initialization with array of zo does not work as expected"
         # Also some observed values like ra, dec, ...
-        assert (
-            numpy.fabs((all_orbs.ra()[ii] - orb.ra()) / orb.ra()) < 1e-7
-        ), "Orbits initialization with array of zo does not work as expected"
-        assert (
-            numpy.fabs((all_orbs.dec()[ii] - orb.dec()) / orb.dec()) < 1e-7
-        ), "Orbits initialization with array of zo does not work as expected"
-        assert (
-            numpy.fabs((all_orbs.dist()[ii] - orb.dist()) / orb.dist()) < 1e-7
-        ), "Orbits initialization with array of zo does not work as expected"
-        assert (
-            numpy.fabs((all_orbs.pmra()[ii] - orb.pmra()) / orb.pmra()) < 1e-7
-        ), "Orbits initialization with array of zo does not work as expected"
-        assert (
-            numpy.fabs((all_orbs.pmdec()[ii] - orb.pmdec()) / orb.pmdec()) < 1e-7
-        ), "Orbits initialization with array of zo does not work as expected"
-        assert (
-            numpy.fabs((all_orbs.vlos()[ii] - orb.vlos()) / orb.vlos()) < 1e-7
-        ), "Orbits initialization with array of zo does not work as expected"
+        assert numpy.fabs((all_orbs.ra()[ii] - orb.ra()) / orb.ra()) < 1e-7, (
+            "Orbits initialization with array of zo does not work as expected"
+        )
+        assert numpy.fabs((all_orbs.dec()[ii] - orb.dec()) / orb.dec()) < 1e-7, (
+            "Orbits initialization with array of zo does not work as expected"
+        )
+        assert numpy.fabs((all_orbs.dist()[ii] - orb.dist()) / orb.dist()) < 1e-7, (
+            "Orbits initialization with array of zo does not work as expected"
+        )
+        assert numpy.fabs((all_orbs.pmra()[ii] - orb.pmra()) / orb.pmra()) < 1e-7, (
+            "Orbits initialization with array of zo does not work as expected"
+        )
+        assert numpy.fabs((all_orbs.pmdec()[ii] - orb.pmdec()) / orb.pmdec()) < 1e-7, (
+            "Orbits initialization with array of zo does not work as expected"
+        )
+        assert numpy.fabs((all_orbs.vlos()[ii] - orb.vlos()) / orb.vlos()) < 1e-7, (
+            "Orbits initialization with array of zo does not work as expected"
+        )
     return None
 
 
@@ -522,21 +522,21 @@ def test_initialization_diffvo():
             vo=vos[ii],
             radec=True,
         )
-        assert (
-            numpy.fabs((all_orbs.R()[ii] - orb.R()) / orb.R()) < 1e-7
-        ), "Orbits initialization with single vo does not work as expected"
-        assert (
-            numpy.fabs((all_orbs.vR()[ii] - orb.vR()) / orb.vR()) < 1e-7
-        ), "Orbits initialization with single vo does not work as expected"
-        assert (
-            numpy.fabs((all_orbs.vT()[ii] - orb.vT()) / orb.vT()) < 1e-7
-        ), "Orbits initialization with single vo does not work as expected"
-        assert (
-            numpy.fabs((all_orbs.z()[ii] - orb.z()) / orb.z()) < 1e-7
-        ), "Orbits initialization with single vo does not work as expected"
-        assert (
-            numpy.fabs((all_orbs.vz()[ii] - orb.vz()) / orb.vz()) < 1e-7
-        ), "Orbits initialization with single vo does not work as expected"
+        assert numpy.fabs((all_orbs.R()[ii] - orb.R()) / orb.R()) < 1e-7, (
+            "Orbits initialization with single vo does not work as expected"
+        )
+        assert numpy.fabs((all_orbs.vR()[ii] - orb.vR()) / orb.vR()) < 1e-7, (
+            "Orbits initialization with single vo does not work as expected"
+        )
+        assert numpy.fabs((all_orbs.vT()[ii] - orb.vT()) / orb.vT()) < 1e-7, (
+            "Orbits initialization with single vo does not work as expected"
+        )
+        assert numpy.fabs((all_orbs.z()[ii] - orb.z()) / orb.z()) < 1e-7, (
+            "Orbits initialization with single vo does not work as expected"
+        )
+        assert numpy.fabs((all_orbs.vz()[ii] - orb.vz()) / orb.vz()) < 1e-7, (
+            "Orbits initialization with single vo does not work as expected"
+        )
         assert (
             numpy.fabs(
                 ((all_orbs.phi()[ii] - orb.phi() + numpy.pi) % (2.0 * numpy.pi))
@@ -545,24 +545,24 @@ def test_initialization_diffvo():
             < 1e-7
         ), "Orbits initialization with single vo does not work as expected"
         # Also some observed values like ra, dec, ...
-        assert (
-            numpy.fabs((all_orbs.ra()[ii] - orb.ra()) / orb.ra()) < 1e-7
-        ), "Orbits initialization with single vo does not work as expected"
-        assert (
-            numpy.fabs((all_orbs.dec()[ii] - orb.dec()) / orb.dec()) < 1e-7
-        ), "Orbits initialization with single vo does not work as expected"
-        assert (
-            numpy.fabs((all_orbs.dist()[ii] - orb.dist()) / orb.dist()) < 1e-7
-        ), "Orbits initialization with single vo does not work as expected"
-        assert (
-            numpy.fabs((all_orbs.pmra()[ii] - orb.pmra()) / orb.pmra()) < 1e-7
-        ), "Orbits initialization with single vo does not work as expected"
-        assert (
-            numpy.fabs((all_orbs.pmdec()[ii] - orb.pmdec()) / orb.pmdec()) < 1e-7
-        ), "Orbits initialization with single vo does not work as expected"
-        assert (
-            numpy.fabs((all_orbs.vlos()[ii] - orb.vlos()) / orb.vlos()) < 1e-7
-        ), "Orbits initialization with single vo does not work as expected"
+        assert numpy.fabs((all_orbs.ra()[ii] - orb.ra()) / orb.ra()) < 1e-7, (
+            "Orbits initialization with single vo does not work as expected"
+        )
+        assert numpy.fabs((all_orbs.dec()[ii] - orb.dec()) / orb.dec()) < 1e-7, (
+            "Orbits initialization with single vo does not work as expected"
+        )
+        assert numpy.fabs((all_orbs.dist()[ii] - orb.dist()) / orb.dist()) < 1e-7, (
+            "Orbits initialization with single vo does not work as expected"
+        )
+        assert numpy.fabs((all_orbs.pmra()[ii] - orb.pmra()) / orb.pmra()) < 1e-7, (
+            "Orbits initialization with single vo does not work as expected"
+        )
+        assert numpy.fabs((all_orbs.pmdec()[ii] - orb.pmdec()) / orb.pmdec()) < 1e-7, (
+            "Orbits initialization with single vo does not work as expected"
+        )
+        assert numpy.fabs((all_orbs.vlos()[ii] - orb.vlos()) / orb.vlos()) < 1e-7, (
+            "Orbits initialization with single vo does not work as expected"
+        )
     return None
 
 
@@ -592,21 +592,21 @@ def test_initialization_diffsolarmotion():
             solarmotion=solarmotions[:, ii],
             radec=True,
         )
-        assert (
-            numpy.fabs((all_orbs.R()[ii] - orb.R()) / orb.R()) < 1e-7
-        ), "Orbits initialization with array of solarmotion does not work as expected"
-        assert (
-            numpy.fabs((all_orbs.vR()[ii] - orb.vR()) / orb.vR()) < 1e-7
-        ), "Orbits initialization with array of solarmotion does not work as expected"
-        assert (
-            numpy.fabs((all_orbs.vT()[ii] - orb.vT()) / orb.vT()) < 1e-7
-        ), "Orbits initialization with array of solarmotion does not work as expected"
-        assert (
-            numpy.fabs((all_orbs.z()[ii] - orb.z()) / orb.z()) < 1e-7
-        ), "Orbits initialization with array of solarmotion does not work as expected"
-        assert (
-            numpy.fabs((all_orbs.vz()[ii] - orb.vz()) / orb.vz()) < 1e-7
-        ), "Orbits initialization with array of solarmotion does not work as expected"
+        assert numpy.fabs((all_orbs.R()[ii] - orb.R()) / orb.R()) < 1e-7, (
+            "Orbits initialization with array of solarmotion does not work as expected"
+        )
+        assert numpy.fabs((all_orbs.vR()[ii] - orb.vR()) / orb.vR()) < 1e-7, (
+            "Orbits initialization with array of solarmotion does not work as expected"
+        )
+        assert numpy.fabs((all_orbs.vT()[ii] - orb.vT()) / orb.vT()) < 1e-7, (
+            "Orbits initialization with array of solarmotion does not work as expected"
+        )
+        assert numpy.fabs((all_orbs.z()[ii] - orb.z()) / orb.z()) < 1e-7, (
+            "Orbits initialization with array of solarmotion does not work as expected"
+        )
+        assert numpy.fabs((all_orbs.vz()[ii] - orb.vz()) / orb.vz()) < 1e-7, (
+            "Orbits initialization with array of solarmotion does not work as expected"
+        )
         assert (
             numpy.fabs(
                 ((all_orbs.phi()[ii] - orb.phi() + numpy.pi) % (2.0 * numpy.pi))
@@ -615,24 +615,24 @@ def test_initialization_diffsolarmotion():
             < 1e-7
         ), "Orbits initialization with array of solarmotion does not work as expected"
         # Also some observed values like ra, dec, ...
-        assert (
-            numpy.fabs((all_orbs.ra()[ii] - orb.ra()) / orb.ra()) < 1e-7
-        ), "Orbits initialization with array of solarmotion does not work as expected"
-        assert (
-            numpy.fabs((all_orbs.dec()[ii] - orb.dec()) / orb.dec()) < 1e-7
-        ), "Orbits initialization with array of solarmotion does not work as expected"
-        assert (
-            numpy.fabs((all_orbs.dist()[ii] - orb.dist()) / orb.dist()) < 1e-7
-        ), "Orbits initialization with array of solarmotion does not work as expected"
-        assert (
-            numpy.fabs((all_orbs.pmra()[ii] - orb.pmra()) / orb.pmra()) < 1e-7
-        ), "Orbits initialization with array of solarmotion does not work as expected"
-        assert (
-            numpy.fabs((all_orbs.pmdec()[ii] - orb.pmdec()) / orb.pmdec()) < 1e-7
-        ), "Orbits initialization with array of solarmotion does not work as expected"
-        assert (
-            numpy.fabs((all_orbs.vlos()[ii] - orb.vlos()) / orb.vlos()) < 1e-7
-        ), "Orbits initialization with array of solarmotion does not work as expected"
+        assert numpy.fabs((all_orbs.ra()[ii] - orb.ra()) / orb.ra()) < 1e-7, (
+            "Orbits initialization with array of solarmotion does not work as expected"
+        )
+        assert numpy.fabs((all_orbs.dec()[ii] - orb.dec()) / orb.dec()) < 1e-7, (
+            "Orbits initialization with array of solarmotion does not work as expected"
+        )
+        assert numpy.fabs((all_orbs.dist()[ii] - orb.dist()) / orb.dist()) < 1e-7, (
+            "Orbits initialization with array of solarmotion does not work as expected"
+        )
+        assert numpy.fabs((all_orbs.pmra()[ii] - orb.pmra()) / orb.pmra()) < 1e-7, (
+            "Orbits initialization with array of solarmotion does not work as expected"
+        )
+        assert numpy.fabs((all_orbs.pmdec()[ii] - orb.pmdec()) / orb.pmdec()) < 1e-7, (
+            "Orbits initialization with array of solarmotion does not work as expected"
+        )
+        assert numpy.fabs((all_orbs.vlos()[ii] - orb.vlos()) / orb.vlos()) < 1e-7, (
+            "Orbits initialization with array of solarmotion does not work as expected"
+        )
     return None
 
 
@@ -673,21 +673,21 @@ def test_initialization_allsolarparams():
             solarmotion=solarmotions[:, ii],
             radec=True,
         )
-        assert (
-            numpy.fabs((all_orbs.R()[ii] - orb.R()) / orb.R()) < 1e-7
-        ), "Orbits initialization with all parameters does not work as expected"
-        assert (
-            numpy.fabs((all_orbs.vR()[ii] - orb.vR()) / orb.vR()) < 1e-7
-        ), "Orbits initialization with all parameters does not work as expected"
-        assert (
-            numpy.fabs((all_orbs.vT()[ii] - orb.vT()) / orb.vT()) < 1e-7
-        ), "Orbits initialization with all parameters does not work as expected"
-        assert (
-            numpy.fabs((all_orbs.z()[ii] - orb.z()) / orb.z()) < 1e-7
-        ), "Orbits initialization with all parameters does not work as expected"
-        assert (
-            numpy.fabs((all_orbs.vz()[ii] - orb.vz()) / orb.vz()) < 1e-7
-        ), "Orbits initialization with all parameters does not work as expected"
+        assert numpy.fabs((all_orbs.R()[ii] - orb.R()) / orb.R()) < 1e-7, (
+            "Orbits initialization with all parameters does not work as expected"
+        )
+        assert numpy.fabs((all_orbs.vR()[ii] - orb.vR()) / orb.vR()) < 1e-7, (
+            "Orbits initialization with all parameters does not work as expected"
+        )
+        assert numpy.fabs((all_orbs.vT()[ii] - orb.vT()) / orb.vT()) < 1e-7, (
+            "Orbits initialization with all parameters does not work as expected"
+        )
+        assert numpy.fabs((all_orbs.z()[ii] - orb.z()) / orb.z()) < 1e-7, (
+            "Orbits initialization with all parameters does not work as expected"
+        )
+        assert numpy.fabs((all_orbs.vz()[ii] - orb.vz()) / orb.vz()) < 1e-7, (
+            "Orbits initialization with all parameters does not work as expected"
+        )
         assert (
             numpy.fabs(
                 ((all_orbs.phi()[ii] - orb.phi() + numpy.pi) % (2.0 * numpy.pi))
@@ -696,24 +696,24 @@ def test_initialization_allsolarparams():
             < 1e-7
         ), "Orbits initialization with all parameters does not work as expected"
         # Also some observed values like ra, dec, ...
-        assert (
-            numpy.fabs((all_orbs.ra()[ii] - orb.ra()) / orb.ra()) < 1e-7
-        ), "Orbits initialization with all parameters does not work as expected"
-        assert (
-            numpy.fabs((all_orbs.dec()[ii] - orb.dec()) / orb.dec()) < 1e-7
-        ), "Orbits initialization with all parameters does not work as expected"
-        assert (
-            numpy.fabs((all_orbs.dist()[ii] - orb.dist()) / orb.dist()) < 1e-7
-        ), "Orbits initialization with all parameters does not work as expected"
-        assert (
-            numpy.fabs((all_orbs.pmra()[ii] - orb.pmra()) / orb.pmra()) < 1e-7
-        ), "Orbits initialization with all parameters does not work as expected"
-        assert (
-            numpy.fabs((all_orbs.pmdec()[ii] - orb.pmdec()) / orb.pmdec()) < 1e-7
-        ), "Orbits initialization with all parameters does not work as expected"
-        assert (
-            numpy.fabs((all_orbs.vlos()[ii] - orb.vlos()) / orb.vlos()) < 1e-7
-        ), "Orbits initialization with all parameters does not work as expected"
+        assert numpy.fabs((all_orbs.ra()[ii] - orb.ra()) / orb.ra()) < 1e-7, (
+            "Orbits initialization with all parameters does not work as expected"
+        )
+        assert numpy.fabs((all_orbs.dec()[ii] - orb.dec()) / orb.dec()) < 1e-7, (
+            "Orbits initialization with all parameters does not work as expected"
+        )
+        assert numpy.fabs((all_orbs.dist()[ii] - orb.dist()) / orb.dist()) < 1e-7, (
+            "Orbits initialization with all parameters does not work as expected"
+        )
+        assert numpy.fabs((all_orbs.pmra()[ii] - orb.pmra()) / orb.pmra()) < 1e-7, (
+            "Orbits initialization with all parameters does not work as expected"
+        )
+        assert numpy.fabs((all_orbs.pmdec()[ii] - orb.pmdec()) / orb.pmdec()) < 1e-7, (
+            "Orbits initialization with all parameters does not work as expected"
+        )
+        assert numpy.fabs((all_orbs.vlos()[ii] - orb.vlos()) / orb.vlos()) < 1e-7, (
+            "Orbits initialization with all parameters does not work as expected"
+        )
     return None
 
 
@@ -767,7 +767,9 @@ def test_initialization_diffsolarparams_shape_error():
     assert (
         excinfo.value.args[0]
         == "solarmotion must have the shape [3,...] where the ... matches the shape of the input orbits for an array of orbits"
-    ), "Orbits initialization with wrong shape for solarmotion does not raise correct error"
+    ), (
+        "Orbits initialization with wrong shape for solarmotion does not raise correct error"
+    )
 
     return None
 
@@ -797,11 +799,15 @@ def test_integration_1d():
         assert (
             numpy.amax(numpy.fabs(orbits_list[ii].x(times) - orbits.x(times)[ii]))
             < 1e-10
-        ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        ), (
+            "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        )
         assert (
             numpy.amax(numpy.fabs(orbits_list[ii].vx(times) - orbits.vx(times)[ii]))
             < 1e-10
-        ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        ), (
+            "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        )
     return None
 
 
@@ -826,31 +832,45 @@ def test_integration_2d():
         assert (
             numpy.amax(numpy.fabs(orbits_list[ii].x(times) - orbits.x(times)[ii]))
             < 1e-10
-        ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        ), (
+            "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        )
         assert (
             numpy.amax(numpy.fabs(orbits_list[ii].vx(times) - orbits.vx(times)[ii]))
             < 1e-10
-        ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        ), (
+            "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        )
         assert (
             numpy.amax(numpy.fabs(orbits_list[ii].y(times) - orbits.y(times)[ii]))
             < 1e-10
-        ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        ), (
+            "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        )
         assert (
             numpy.amax(numpy.fabs(orbits_list[ii].vy(times) - orbits.vy(times)[ii]))
             < 1e-10
-        ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        ), (
+            "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        )
         assert (
             numpy.amax(numpy.fabs(orbits_list[ii].R(times) - orbits.R(times)[ii]))
             < 1e-10
-        ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        ), (
+            "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        )
         assert (
             numpy.amax(numpy.fabs(orbits_list[ii].vR(times) - orbits.vR(times)[ii]))
             < 1e-10
-        ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        ), (
+            "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        )
         assert (
             numpy.amax(numpy.fabs(orbits_list[ii].vT(times) - orbits.vT(times)[ii]))
             < 1e-10
-        ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        ), (
+            "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        )
         assert (
             numpy.amax(
                 numpy.fabs(
@@ -862,7 +882,9 @@ def test_integration_2d():
                 )
             )
             < 1e-10
-        ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        ), (
+            "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        )
     return None
 
 
@@ -888,15 +910,21 @@ def test_integration_p3d():
         assert (
             numpy.amax(numpy.fabs(orbits_list[ii].R(times) - orbits.R(times)[ii]))
             < 1e-10
-        ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        ), (
+            "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        )
         assert (
             numpy.amax(numpy.fabs(orbits_list[ii].vR(times) - orbits.vR(times)[ii]))
             < 1e-10
-        ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        ), (
+            "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        )
         assert (
             numpy.amax(numpy.fabs(orbits_list[ii].vT(times) - orbits.vT(times)[ii]))
             < 1e-10
-        ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        ), (
+            "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        )
     return None
 
 
@@ -921,39 +949,57 @@ def test_integration_3d():
         assert (
             numpy.amax(numpy.fabs(orbits_list[ii].x(times) - orbits.x(times)[ii]))
             < 1e-10
-        ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        ), (
+            "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        )
         assert (
             numpy.amax(numpy.fabs(orbits_list[ii].vx(times) - orbits.vx(times)[ii]))
             < 1e-10
-        ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        ), (
+            "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        )
         assert (
             numpy.amax(numpy.fabs(orbits_list[ii].y(times) - orbits.y(times)[ii]))
             < 1e-10
-        ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        ), (
+            "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        )
         assert (
             numpy.amax(numpy.fabs(orbits_list[ii].vy(times) - orbits.vy(times)[ii]))
             < 1e-10
-        ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        ), (
+            "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        )
         assert (
             numpy.amax(numpy.fabs(orbits_list[ii].z(times) - orbits.z(times)[ii]))
             < 1e-10
-        ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        ), (
+            "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        )
         assert (
             numpy.amax(numpy.fabs(orbits_list[ii].vz(times) - orbits.vz(times)[ii]))
             < 1e-10
-        ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        ), (
+            "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        )
         assert (
             numpy.amax(numpy.fabs(orbits_list[ii].R(times) - orbits.R(times)[ii]))
             < 1e-10
-        ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        ), (
+            "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        )
         assert (
             numpy.amax(numpy.fabs(orbits_list[ii].vR(times) - orbits.vR(times)[ii]))
             < 1e-10
-        ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        ), (
+            "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        )
         assert (
             numpy.amax(numpy.fabs(orbits_list[ii].vT(times) - orbits.vT(times)[ii]))
             < 1e-10
-        ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        ), (
+            "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        )
         assert (
             numpy.amax(
                 numpy.fabs(
@@ -968,7 +1014,9 @@ def test_integration_3d():
                 )
             )
             < 1e-10
-        ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        ), (
+            "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        )
     return None
 
 
@@ -994,23 +1042,33 @@ def test_integration_p5d():
         assert (
             numpy.amax(numpy.fabs(orbits_list[ii].z(times) - orbits.z(times)[ii]))
             < 1e-10
-        ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        ), (
+            "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        )
         assert (
             numpy.amax(numpy.fabs(orbits_list[ii].vz(times) - orbits.vz(times)[ii]))
             < 1e-10
-        ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        ), (
+            "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        )
         assert (
             numpy.amax(numpy.fabs(orbits_list[ii].R(times) - orbits.R(times)[ii]))
             < 1e-10
-        ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        ), (
+            "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        )
         assert (
             numpy.amax(numpy.fabs(orbits_list[ii].vR(times) - orbits.vR(times)[ii]))
             < 1e-10
-        ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        ), (
+            "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        )
         assert (
             numpy.amax(numpy.fabs(orbits_list[ii].vT(times) - orbits.vT(times)[ii]))
             < 1e-10
-        ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        ), (
+            "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        )
     return None
 
 
@@ -1785,11 +1843,15 @@ def test_integration_forcemap_1d():
         assert (
             numpy.amax(numpy.fabs(orbits_list[ii].x(times) - orbits.x(times)[ii]))
             < 1e-10
-        ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        ), (
+            "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        )
         assert (
             numpy.amax(numpy.fabs(orbits_list[ii].vx(times) - orbits.vx(times)[ii]))
             < 1e-10
-        ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        ), (
+            "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        )
     return None
 
 
@@ -1813,31 +1875,45 @@ def test_integration_forcemap_2d():
         assert (
             numpy.amax(numpy.fabs(orbits_list[ii].x(times) - orbits.x(times)[ii]))
             < 1e-10
-        ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        ), (
+            "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        )
         assert (
             numpy.amax(numpy.fabs(orbits_list[ii].vx(times) - orbits.vx(times)[ii]))
             < 1e-10
-        ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        ), (
+            "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        )
         assert (
             numpy.amax(numpy.fabs(orbits_list[ii].y(times) - orbits.y(times)[ii]))
             < 1e-10
-        ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        ), (
+            "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        )
         assert (
             numpy.amax(numpy.fabs(orbits_list[ii].vy(times) - orbits.vy(times)[ii]))
             < 1e-10
-        ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        ), (
+            "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        )
         assert (
             numpy.amax(numpy.fabs(orbits_list[ii].R(times) - orbits.R(times)[ii]))
             < 1e-10
-        ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        ), (
+            "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        )
         assert (
             numpy.amax(numpy.fabs(orbits_list[ii].vR(times) - orbits.vR(times)[ii]))
             < 1e-10
-        ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        ), (
+            "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        )
         assert (
             numpy.amax(numpy.fabs(orbits_list[ii].vT(times) - orbits.vT(times)[ii]))
             < 1e-10
-        ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        ), (
+            "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        )
         assert (
             numpy.amax(
                 numpy.fabs(
@@ -1852,7 +1928,9 @@ def test_integration_forcemap_2d():
                 )
             )
             < 1e-10
-        ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        ), (
+            "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        )
     return None
 
 
@@ -1876,39 +1954,57 @@ def test_integration_forcemap_3d():
         assert (
             numpy.amax(numpy.fabs(orbits_list[ii].x(times) - orbits.x(times)[ii]))
             < 1e-10
-        ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        ), (
+            "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        )
         assert (
             numpy.amax(numpy.fabs(orbits_list[ii].vx(times) - orbits.vx(times)[ii]))
             < 1e-10
-        ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        ), (
+            "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        )
         assert (
             numpy.amax(numpy.fabs(orbits_list[ii].y(times) - orbits.y(times)[ii]))
             < 1e-10
-        ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        ), (
+            "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        )
         assert (
             numpy.amax(numpy.fabs(orbits_list[ii].vy(times) - orbits.vy(times)[ii]))
             < 1e-10
-        ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        ), (
+            "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        )
         assert (
             numpy.amax(numpy.fabs(orbits_list[ii].z(times) - orbits.z(times)[ii]))
             < 1e-10
-        ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        ), (
+            "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        )
         assert (
             numpy.amax(numpy.fabs(orbits_list[ii].vz(times) - orbits.vz(times)[ii]))
             < 1e-10
-        ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        ), (
+            "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        )
         assert (
             numpy.amax(numpy.fabs(orbits_list[ii].R(times) - orbits.R(times)[ii]))
             < 1e-10
-        ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        ), (
+            "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        )
         assert (
             numpy.amax(numpy.fabs(orbits_list[ii].vR(times) - orbits.vR(times)[ii]))
             < 1e-10
-        ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        ), (
+            "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        )
         assert (
             numpy.amax(numpy.fabs(orbits_list[ii].vT(times) - orbits.vT(times)[ii]))
             < 1e-10
-        ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        ), (
+            "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        )
         assert (
             numpy.amax(
                 numpy.fabs(
@@ -1923,7 +2019,9 @@ def test_integration_forcemap_3d():
                 )
             )
             < 1e-10
-        ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        ), (
+            "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        )
     return None
 
 
@@ -1954,7 +2052,9 @@ def test_integration_dxdv_2d():
             )
         )
         < 1e-8
-    ), "Integration of the phase-space volume of multiple orbits as Orbits does not agree with integrating the phase-space volume of multiple orbits"
+    ), (
+        "Integration of the phase-space volume of multiple orbits as Orbits does not agree with integrating the phase-space volume of multiple orbits"
+    )
     # Python integration
     integrator = "odeint"
     orbits.integrate_dxdv(dxdv, times, lp, method=integrator)
@@ -1969,7 +2069,9 @@ def test_integration_dxdv_2d():
             )
         )
         < 1e-8
-    ), "Integration of the phase-space volume of multiple orbits as Orbits does not agree with integrating the phase-space volume of multiple orbits"
+    ), (
+        "Integration of the phase-space volume of multiple orbits as Orbits does not agree with integrating the phase-space volume of multiple orbits"
+    )
     return None
 
 
@@ -2000,7 +2102,9 @@ def test_integration_dxdv_2d_rectInOut():
             )
         )
         < 1e-8
-    ), "Integration of the phase-space volume of multiple orbits as Orbits does not agree with integrating the phase-space volume of multiple orbits"
+    ), (
+        "Integration of the phase-space volume of multiple orbits as Orbits does not agree with integrating the phase-space volume of multiple orbits"
+    )
     # Python integration
     integrator = "odeint"
     orbits.integrate_dxdv(dxdv, times, lp, method=integrator, rectIn=True, rectOut=True)
@@ -2015,7 +2119,9 @@ def test_integration_dxdv_2d_rectInOut():
             )
         )
         < 1e-8
-    ), "Integration of the phase-space volume of multiple orbits as Orbits does not agree with integrating the phase-space volume of multiple orbits"
+    ), (
+        "Integration of the phase-space volume of multiple orbits as Orbits does not agree with integrating the phase-space volume of multiple orbits"
+    )
     return None
 
 
@@ -2041,12 +2147,12 @@ def test_SOS_3D():
         )
         zs = orbits.z(orbits.t)
         vzs = orbits.vz(orbits.t)
-        assert (
-            numpy.fabs(zs) < 10.0**-6.0
-        ).all(), f"z on SOS is not zero for integrate_sos for method={method}"
-        assert (
-            vzs > 0.0
-        ).all(), f"vz on SOS is not positive for integrate_sos for method={method}"
+        assert (numpy.fabs(zs) < 10.0**-6.0).all(), (
+            f"z on SOS is not zero for integrate_sos for method={method}"
+        )
+        assert (vzs > 0.0).all(), (
+            f"vz on SOS is not positive for integrate_sos for method={method}"
+        )
     return None
 
 
@@ -2073,12 +2179,12 @@ def test_SOS_2Dx():
         )
         xs = orbits.x(orbits.t)
         vxs = orbits.vx(orbits.t)
-        assert (
-            numpy.fabs(xs) < 10.0**-6.0
-        ).all(), f"x on SOS is not zero for integrate_sos for method={method}"
-        assert (
-            vxs > 0.0
-        ).all(), f"vx on SOS is not positive for integrate_sos for method={method}"
+        assert (numpy.fabs(xs) < 10.0**-6.0).all(), (
+            f"x on SOS is not zero for integrate_sos for method={method}"
+        )
+        assert (vxs > 0.0).all(), (
+            f"vx on SOS is not positive for integrate_sos for method={method}"
+        )
     return None
 
 
@@ -2105,12 +2211,12 @@ def test_SOS_2Dy():
         )
         ys = orbits.y(orbits.t)
         vys = orbits.vy(orbits.t)
-        assert (
-            numpy.fabs(ys) < 10.0**-6.0
-        ).all(), f"y on SOS is not zero for integrate_sos for method={method}"
-        assert (
-            vys > 0.0
-        ).all(), f"vy on SOS is not positive for integrate_sos for method={method}"
+        assert (numpy.fabs(ys) < 10.0**-6.0).all(), (
+            f"y on SOS is not zero for integrate_sos for method={method}"
+        )
+        assert (vys > 0.0).all(), (
+            f"vy on SOS is not positive for integrate_sos for method={method}"
+        )
     return None
 
 
@@ -2149,12 +2255,12 @@ def test_bruteSOS_3D():
         )
         zs = orbits.z(orbits.t)
         vzs = orbits.vz(orbits.t)
-        assert (
-            numpy.fabs(zs[~numpy.isnan(zs)]) < 10.0**-3.0
-        ).all(), f"z on bruteSOS is not zero for bruteSOS for method={method}"
-        assert (
-            vzs[~numpy.isnan(zs)] > 0.0
-        ).all(), f"vz on bruteSOS is not positive for bruteSOS for method={method}"
+        assert (numpy.fabs(zs[~numpy.isnan(zs)]) < 10.0**-3.0).all(), (
+            f"z on bruteSOS is not zero for bruteSOS for method={method}"
+        )
+        assert (vzs[~numpy.isnan(zs)] > 0.0).all(), (
+            f"vz on bruteSOS is not positive for bruteSOS for method={method}"
+        )
     return None
 
 
@@ -2180,12 +2286,12 @@ def test_bruteSOS_2Dx():
         )
         xs = orbits.x(orbits.t)
         vxs = orbits.vx(orbits.t)
-        assert (
-            numpy.fabs(xs[~numpy.isnan(xs)]) < 10.0**-3.0
-        ).all(), f"x on SOS is not zero for bruteSOS for method={method}"
-        assert (
-            vxs[~numpy.isnan(xs)] > 0.0
-        ).all(), f"vx on SOS is not zero for bruteSOS for method={method}"
+        assert (numpy.fabs(xs[~numpy.isnan(xs)]) < 10.0**-3.0).all(), (
+            f"x on SOS is not zero for bruteSOS for method={method}"
+        )
+        assert (vxs[~numpy.isnan(xs)] > 0.0).all(), (
+            f"vx on SOS is not zero for bruteSOS for method={method}"
+        )
     return None
 
 
@@ -2211,12 +2317,12 @@ def test_bruteSOS_2Dy():
         )
         ys = orbits.y(orbits.t)
         vys = orbits.vy(orbits.t)
-        assert (
-            numpy.fabs(ys[~numpy.isnan(ys)]) < 10.0**-3.0
-        ).all(), f"y on SOS is not zero for bruteSOS for method={method}"
-        assert (
-            vys[~numpy.isnan(ys)] > 0.0
-        ).all(), f"vy on SOS is not zero for bruteSOS for method={method}"
+        assert (numpy.fabs(ys[~numpy.isnan(ys)]) < 10.0**-3.0).all(), (
+            f"y on SOS is not zero for bruteSOS for method={method}"
+        )
+        assert (vys[~numpy.isnan(ys)] > 0.0).all(), (
+            f"vy on SOS is not zero for bruteSOS for method={method}"
+        )
     return None
 
 
@@ -2236,31 +2342,49 @@ def test_slice_singleobject():
     for ii in indices:
         assert (
             numpy.amax(numpy.fabs(orbits[ii].x(times) - orbits.x(times)[ii])) < 1e-10
-        ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        ), (
+            "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        )
         assert (
             numpy.amax(numpy.fabs(orbits[ii].vx(times) - orbits.vx(times)[ii])) < 1e-10
-        ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        ), (
+            "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        )
         assert (
             numpy.amax(numpy.fabs(orbits[ii].y(times) - orbits.y(times)[ii])) < 1e-10
-        ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        ), (
+            "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        )
         assert (
             numpy.amax(numpy.fabs(orbits[ii].vy(times) - orbits.vy(times)[ii])) < 1e-10
-        ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        ), (
+            "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        )
         assert (
             numpy.amax(numpy.fabs(orbits[ii].z(times) - orbits.z(times)[ii])) < 1e-10
-        ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        ), (
+            "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        )
         assert (
             numpy.amax(numpy.fabs(orbits[ii].vz(times) - orbits.vz(times)[ii])) < 1e-10
-        ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        ), (
+            "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        )
         assert (
             numpy.amax(numpy.fabs(orbits[ii].R(times) - orbits.R(times)[ii])) < 1e-10
-        ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        ), (
+            "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        )
         assert (
             numpy.amax(numpy.fabs(orbits[ii].vR(times) - orbits.vR(times)[ii])) < 1e-10
-        ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        ), (
+            "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        )
         assert (
             numpy.amax(numpy.fabs(orbits[ii].vT(times) - orbits.vT(times)[ii])) < 1e-10
-        ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        ), (
+            "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        )
         assert (
             numpy.amax(
                 numpy.fabs(
@@ -2272,7 +2396,9 @@ def test_slice_singleobject():
                 )
             )
             < 1e-10
-        ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        ), (
+            "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        )
     return None
 
 
@@ -2294,35 +2420,55 @@ def test_slice_multipleobjects():
     for ii in range(3):
         assert (
             numpy.amax(numpy.fabs(orbits_slice.x()[ii] - orbits.x()[ii + 1])) < 1e-10
-        ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        ), (
+            "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        )
         assert (
             numpy.amax(numpy.fabs(orbits_slice.vx()[ii] - orbits.vx()[ii + 1])) < 1e-10
-        ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        ), (
+            "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        )
         assert (
             numpy.amax(numpy.fabs(orbits_slice.y()[ii] - orbits.y()[ii + 1])) < 1e-10
-        ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        ), (
+            "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        )
         assert (
             numpy.amax(numpy.fabs(orbits_slice.vy()[ii] - orbits.vy()[ii + 1])) < 1e-10
-        ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        ), (
+            "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        )
         assert (
             numpy.amax(numpy.fabs(orbits_slice.z()[ii] - orbits.z()[ii + 1])) < 1e-10
-        ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        ), (
+            "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        )
         assert (
             numpy.amax(numpy.fabs(orbits_slice.vz()[ii] - orbits.vz()[ii + 1])) < 1e-10
-        ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        ), (
+            "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        )
         assert (
             numpy.amax(numpy.fabs(orbits_slice.R()[ii] - orbits.R()[ii + 1])) < 1e-10
-        ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        ), (
+            "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        )
         assert (
             numpy.amax(numpy.fabs(orbits_slice.vR()[ii] - orbits.vR()[ii + 1])) < 1e-10
-        ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        ), (
+            "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        )
         assert (
             numpy.amax(numpy.fabs(orbits_slice.vT()[ii] - orbits.vT()[ii + 1])) < 1e-10
-        ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        ), (
+            "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        )
         assert (
             numpy.amax(numpy.fabs(orbits_slice.phi()[ii] - orbits.phi()[ii + 1]))
             < 1e-10
-        ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        ), (
+            "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        )
     # After integration
     orbits.integrate(times, potential.MWPotential2014)
     orbits_slice = orbits[1:4]
@@ -2330,55 +2476,75 @@ def test_slice_multipleobjects():
         assert (
             numpy.amax(numpy.fabs(orbits_slice.x(times)[ii] - orbits.x(times)[ii + 1]))
             < 1e-10
-        ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        ), (
+            "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        )
         assert (
             numpy.amax(
                 numpy.fabs(orbits_slice.vx(times)[ii] - orbits.vx(times)[ii + 1])
             )
             < 1e-10
-        ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        ), (
+            "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        )
         assert (
             numpy.amax(numpy.fabs(orbits_slice.y(times)[ii] - orbits.y(times)[ii + 1]))
             < 1e-10
-        ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        ), (
+            "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        )
         assert (
             numpy.amax(
                 numpy.fabs(orbits_slice.vy(times)[ii] - orbits.vy(times)[ii + 1])
             )
             < 1e-10
-        ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        ), (
+            "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        )
         assert (
             numpy.amax(numpy.fabs(orbits_slice.z(times)[ii] - orbits.z(times)[ii + 1]))
             < 1e-10
-        ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        ), (
+            "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        )
         assert (
             numpy.amax(
                 numpy.fabs(orbits_slice.vz(times)[ii] - orbits.vz(times)[ii + 1])
             )
             < 1e-10
-        ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        ), (
+            "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        )
         assert (
             numpy.amax(numpy.fabs(orbits_slice.R(times)[ii] - orbits.R(times)[ii + 1]))
             < 1e-10
-        ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        ), (
+            "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        )
         assert (
             numpy.amax(
                 numpy.fabs(orbits_slice.vR(times)[ii] - orbits.vR(times)[ii + 1])
             )
             < 1e-10
-        ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        ), (
+            "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        )
         assert (
             numpy.amax(
                 numpy.fabs(orbits_slice.vT(times)[ii] - orbits.vT(times)[ii + 1])
             )
             < 1e-10
-        ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        ), (
+            "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        )
         assert (
             numpy.amax(
                 numpy.fabs(orbits_slice.phi(times)[ii] - orbits.phi(times)[ii + 1])
             )
             < 1e-10
-        ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        ), (
+            "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        )
     return None
 
 
@@ -2402,31 +2568,49 @@ def test_slice_singleobject_multidim():
     for ii in indices:
         assert (
             numpy.amax(numpy.fabs(orbits[ii].x(times) - orbits.x(times)[ii])) < 1e-10
-        ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        ), (
+            "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        )
         assert (
             numpy.amax(numpy.fabs(orbits[ii].vx(times) - orbits.vx(times)[ii])) < 1e-10
-        ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        ), (
+            "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        )
         assert (
             numpy.amax(numpy.fabs(orbits[ii].y(times) - orbits.y(times)[ii])) < 1e-10
-        ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        ), (
+            "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        )
         assert (
             numpy.amax(numpy.fabs(orbits[ii].vy(times) - orbits.vy(times)[ii])) < 1e-10
-        ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        ), (
+            "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        )
         assert (
             numpy.amax(numpy.fabs(orbits[ii].z(times) - orbits.z(times)[ii])) < 1e-10
-        ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        ), (
+            "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        )
         assert (
             numpy.amax(numpy.fabs(orbits[ii].vz(times) - orbits.vz(times)[ii])) < 1e-10
-        ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        ), (
+            "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        )
         assert (
             numpy.amax(numpy.fabs(orbits[ii].R(times) - orbits.R(times)[ii])) < 1e-10
-        ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        ), (
+            "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        )
         assert (
             numpy.amax(numpy.fabs(orbits[ii].vR(times) - orbits.vR(times)[ii])) < 1e-10
-        ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        ), (
+            "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        )
         assert (
             numpy.amax(numpy.fabs(orbits[ii].vT(times) - orbits.vT(times)[ii])) < 1e-10
-        ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        ), (
+            "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        )
         assert (
             numpy.amax(
                 numpy.fabs(
@@ -2438,7 +2622,9 @@ def test_slice_singleobject_multidim():
                 )
             )
             < 1e-10
-        ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        ), (
+            "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        )
     return None
 
 
@@ -2469,7 +2655,9 @@ def test_slice_multipleobjects_multidim():
                         )
                     )
                     < 1e-10
-                ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+                ), (
+                    "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+                )
                 assert (
                     numpy.amax(
                         numpy.fabs(
@@ -2477,7 +2665,9 @@ def test_slice_multipleobjects_multidim():
                         )
                     )
                     < 1e-10
-                ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+                ), (
+                    "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+                )
                 assert (
                     numpy.amax(
                         numpy.fabs(
@@ -2485,7 +2675,9 @@ def test_slice_multipleobjects_multidim():
                         )
                     )
                     < 1e-10
-                ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+                ), (
+                    "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+                )
                 assert (
                     numpy.amax(
                         numpy.fabs(
@@ -2493,7 +2685,9 @@ def test_slice_multipleobjects_multidim():
                         )
                     )
                     < 1e-10
-                ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+                ), (
+                    "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+                )
                 assert (
                     numpy.amax(
                         numpy.fabs(
@@ -2501,7 +2695,9 @@ def test_slice_multipleobjects_multidim():
                         )
                     )
                     < 1e-10
-                ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+                ), (
+                    "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+                )
                 assert (
                     numpy.amax(
                         numpy.fabs(
@@ -2509,7 +2705,9 @@ def test_slice_multipleobjects_multidim():
                         )
                     )
                     < 1e-10
-                ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+                ), (
+                    "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+                )
                 assert (
                     numpy.amax(
                         numpy.fabs(
@@ -2517,7 +2715,9 @@ def test_slice_multipleobjects_multidim():
                         )
                     )
                     < 1e-10
-                ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+                ), (
+                    "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+                )
                 assert (
                     numpy.amax(
                         numpy.fabs(
@@ -2525,7 +2725,9 @@ def test_slice_multipleobjects_multidim():
                         )
                     )
                     < 1e-10
-                ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+                ), (
+                    "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+                )
                 assert (
                     numpy.amax(
                         numpy.fabs(
@@ -2533,7 +2735,9 @@ def test_slice_multipleobjects_multidim():
                         )
                     )
                     < 1e-10
-                ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+                ), (
+                    "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+                )
                 assert (
                     numpy.amax(
                         numpy.fabs(
@@ -2541,7 +2745,9 @@ def test_slice_multipleobjects_multidim():
                         )
                     )
                     < 1e-10
-                ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+                ), (
+                    "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+                )
     # After integration
     orbits.integrate(times, potential.MWPotential2014)
     orbits_slice = orbits[1:4, 0, :2]
@@ -2556,7 +2762,9 @@ def test_slice_multipleobjects_multidim():
                         )
                     )
                     < 1e-10
-                ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+                ), (
+                    "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+                )
                 assert (
                     numpy.amax(
                         numpy.fabs(
@@ -2565,7 +2773,9 @@ def test_slice_multipleobjects_multidim():
                         )
                     )
                     < 1e-10
-                ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+                ), (
+                    "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+                )
                 assert (
                     numpy.amax(
                         numpy.fabs(
@@ -2574,7 +2784,9 @@ def test_slice_multipleobjects_multidim():
                         )
                     )
                     < 1e-10
-                ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+                ), (
+                    "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+                )
                 assert (
                     numpy.amax(
                         numpy.fabs(
@@ -2583,7 +2795,9 @@ def test_slice_multipleobjects_multidim():
                         )
                     )
                     < 1e-10
-                ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+                ), (
+                    "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+                )
                 assert (
                     numpy.amax(
                         numpy.fabs(
@@ -2592,7 +2806,9 @@ def test_slice_multipleobjects_multidim():
                         )
                     )
                     < 1e-10
-                ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+                ), (
+                    "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+                )
                 assert (
                     numpy.amax(
                         numpy.fabs(
@@ -2601,7 +2817,9 @@ def test_slice_multipleobjects_multidim():
                         )
                     )
                     < 1e-10
-                ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+                ), (
+                    "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+                )
                 assert (
                     numpy.amax(
                         numpy.fabs(
@@ -2610,7 +2828,9 @@ def test_slice_multipleobjects_multidim():
                         )
                     )
                     < 1e-10
-                ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+                ), (
+                    "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+                )
                 assert (
                     numpy.amax(
                         numpy.fabs(
@@ -2619,7 +2839,9 @@ def test_slice_multipleobjects_multidim():
                         )
                     )
                     < 1e-10
-                ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+                ), (
+                    "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+                )
                 assert (
                     numpy.amax(
                         numpy.fabs(
@@ -2628,7 +2850,9 @@ def test_slice_multipleobjects_multidim():
                         )
                     )
                     < 1e-10
-                ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+                ), (
+                    "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+                )
                 assert (
                     numpy.amax(
                         numpy.fabs(
@@ -2637,7 +2861,9 @@ def test_slice_multipleobjects_multidim():
                         )
                     )
                     < 1e-10
-                ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+                ), (
+                    "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+                )
     return None
 
 
@@ -2683,9 +2909,9 @@ def test_slice_integratedorbit_wrapperpot_367():
     times = numpy.linspace(0.0, 100.0, 3000)
     os.integrate(times, pot)
     # This failed in #367
-    assert (
-        not os[0] is None
-    ), "Slicing an integrated Orbits instance with a WrapperPotential does not work"
+    assert not os[0] is None, (
+        "Slicing an integrated Orbits instance with a WrapperPotential does not work"
+    )
     return None
 
 
@@ -2706,64 +2932,66 @@ def test_slice_physical_issue385():
         vo=230.0,
         solarmotion=[-11.1, 24.0, 7.25],
     )
-    assert (
-        orbits._roSet
-    ), "Test Orbit instance that was supposed to have physical output turned does not"
-    assert (
-        orbits._voSet
-    ), "Test Orbit instance that was supposed to have physical output turned does not"
-    assert (
-        numpy.fabs(orbits._ro - 9.0) < 1e-10
-    ), "Test Orbit instance that was supposed to have physical output turned does not have the right ro"
-    assert (
-        numpy.fabs(orbits._vo - 230.0) < 1e-10
-    ), "Test Orbit instance that was supposed to have physical output turned does not have the right vo"
+    assert orbits._roSet, (
+        "Test Orbit instance that was supposed to have physical output turned does not"
+    )
+    assert orbits._voSet, (
+        "Test Orbit instance that was supposed to have physical output turned does not"
+    )
+    assert numpy.fabs(orbits._ro - 9.0) < 1e-10, (
+        "Test Orbit instance that was supposed to have physical output turned does not have the right ro"
+    )
+    assert numpy.fabs(orbits._vo - 230.0) < 1e-10, (
+        "Test Orbit instance that was supposed to have physical output turned does not have the right vo"
+    )
     for ii in range(orbits.size):
-        assert orbits[
-            ii
-        ]._roSet, "Sliced Orbit instance that was supposed to have physical output turned does not"
-        assert orbits[
-            ii
-        ]._voSet, "Sliced Orbit instance that was supposed to have physical output turned does not"
-        assert (
-            numpy.fabs(orbits[ii]._ro - 9.0) < 1e-10
-        ), "Sliced Orbit instance that was supposed to have physical output turned does not have the right ro"
-        assert (
-            numpy.fabs(orbits[ii]._vo - 230.0) < 1e-10
-        ), "Sliced Orbit instance that was supposed to have physical output turned does not have the right vo"
-        assert (
-            numpy.fabs(orbits[ii]._zo - orbits._zo) < 1e-10
-        ), "Sliced Orbit instance that was supposed to have physical output turned does not have the right zo"
+        assert orbits[ii]._roSet, (
+            "Sliced Orbit instance that was supposed to have physical output turned does not"
+        )
+        assert orbits[ii]._voSet, (
+            "Sliced Orbit instance that was supposed to have physical output turned does not"
+        )
+        assert numpy.fabs(orbits[ii]._ro - 9.0) < 1e-10, (
+            "Sliced Orbit instance that was supposed to have physical output turned does not have the right ro"
+        )
+        assert numpy.fabs(orbits[ii]._vo - 230.0) < 1e-10, (
+            "Sliced Orbit instance that was supposed to have physical output turned does not have the right vo"
+        )
+        assert numpy.fabs(orbits[ii]._zo - orbits._zo) < 1e-10, (
+            "Sliced Orbit instance that was supposed to have physical output turned does not have the right zo"
+        )
         assert numpy.all(
             numpy.fabs(orbits[ii]._solarmotion - orbits._solarmotion) < 1e-10
-        ), "Sliced Orbit instance that was supposed to have physical output turned does not have the right zo"
-        assert (
-            numpy.amax(numpy.fabs(orbits[ii].x() - orbits.x()[ii])) < 1e-10
-        ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
-        assert (
-            numpy.amax(numpy.fabs(orbits[ii].vx() - orbits.vx()[ii])) < 1e-10
-        ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
-        assert (
-            numpy.amax(numpy.fabs(orbits[ii].y() - orbits.y()[ii])) < 1e-10
-        ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
-        assert (
-            numpy.amax(numpy.fabs(orbits[ii].vy() - orbits.vy()[ii])) < 1e-10
-        ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
-        assert (
-            numpy.amax(numpy.fabs(orbits[ii].z() - orbits.z()[ii])) < 1e-10
-        ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
-        assert (
-            numpy.amax(numpy.fabs(orbits[ii].vz() - orbits.vz()[ii])) < 1e-10
-        ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
-        assert (
-            numpy.amax(numpy.fabs(orbits[ii].R() - orbits.R()[ii])) < 1e-10
-        ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
-        assert (
-            numpy.amax(numpy.fabs(orbits[ii].vR() - orbits.vR()[ii])) < 1e-10
-        ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
-        assert (
-            numpy.amax(numpy.fabs(orbits[ii].vT() - orbits.vT()[ii])) < 1e-10
-        ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        ), (
+            "Sliced Orbit instance that was supposed to have physical output turned does not have the right zo"
+        )
+        assert numpy.amax(numpy.fabs(orbits[ii].x() - orbits.x()[ii])) < 1e-10, (
+            "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        )
+        assert numpy.amax(numpy.fabs(orbits[ii].vx() - orbits.vx()[ii])) < 1e-10, (
+            "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        )
+        assert numpy.amax(numpy.fabs(orbits[ii].y() - orbits.y()[ii])) < 1e-10, (
+            "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        )
+        assert numpy.amax(numpy.fabs(orbits[ii].vy() - orbits.vy()[ii])) < 1e-10, (
+            "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        )
+        assert numpy.amax(numpy.fabs(orbits[ii].z() - orbits.z()[ii])) < 1e-10, (
+            "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        )
+        assert numpy.amax(numpy.fabs(orbits[ii].vz() - orbits.vz()[ii])) < 1e-10, (
+            "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        )
+        assert numpy.amax(numpy.fabs(orbits[ii].R() - orbits.R()[ii])) < 1e-10, (
+            "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        )
+        assert numpy.amax(numpy.fabs(orbits[ii].vR() - orbits.vR()[ii])) < 1e-10, (
+            "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        )
+        assert numpy.amax(numpy.fabs(orbits[ii].vT() - orbits.vT()[ii])) < 1e-10, (
+            "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        )
         assert (
             numpy.amax(
                 numpy.fabs(
@@ -2775,7 +3003,9 @@ def test_slice_physical_issue385():
                 )
             )
             < 1e-10
-        ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        ), (
+            "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        )
     return None
 
 
@@ -2795,22 +3025,22 @@ def test_slice_indivtimes():
     pot = potential.MWPotential2014
     orbits.SOS(pot, t0=numpy.arange(len(orbits)))
     # First check that we actually have individual times
-    assert (
-        len(orbits.t.shape) >= len(orbits.orbit.shape) - 1
-    ), "Test should be using individual time arrays, but a single time array was found"
+    assert len(orbits.t.shape) >= len(orbits.orbit.shape) - 1, (
+        "Test should be using individual time arrays, but a single time array was found"
+    )
     # Now slice single and multiple
-    assert numpy.all(
-        orbits[0].t == orbits.t[0]
-    ), "Individually sliced orbit with individual time arrays does not produce the correct time array in the slice"
-    assert numpy.all(
-        orbits[1].t == orbits.t[1]
-    ), "Individually sliced orbit with individual time arrays does not produce the correct time array in the slice"
-    assert numpy.all(
-        orbits[:2].t == orbits.t[:2]
-    ), "Multiply-sliced orbit with individual time arrays does not produce the correct time array in the slice"
-    assert numpy.all(
-        orbits[1:4].t == orbits.t[1:4]
-    ), "Multiply-sliced orbit with individual time arrays does not produce the correct time array in the slice"
+    assert numpy.all(orbits[0].t == orbits.t[0]), (
+        "Individually sliced orbit with individual time arrays does not produce the correct time array in the slice"
+    )
+    assert numpy.all(orbits[1].t == orbits.t[1]), (
+        "Individually sliced orbit with individual time arrays does not produce the correct time array in the slice"
+    )
+    assert numpy.all(orbits[:2].t == orbits.t[:2]), (
+        "Multiply-sliced orbit with individual time arrays does not produce the correct time array in the slice"
+    )
+    assert numpy.all(orbits[1:4].t == orbits.t[1:4]), (
+        "Multiply-sliced orbit with individual time arrays does not produce the correct time array in the slice"
+    )
     return None
 
 
@@ -2988,12 +3218,12 @@ def test_orbits_consistentro():
     ]
     orbits = Orbit(orbits_list)
     # Check that ro is taken correctly
-    assert (
-        numpy.fabs(orbits._ro - orbits_list[0]._ro) < 1e-10
-    ), "Orbits' ro not correctly taken from input list of Orbit instances"
-    assert (
-        orbits._roSet
-    ), "Orbits' ro not correctly taken from input list of Orbit instances"
+    assert numpy.fabs(orbits._ro - orbits_list[0]._ro) < 1e-10, (
+        "Orbits' ro not correctly taken from input list of Orbit instances"
+    )
+    assert orbits._roSet, (
+        "Orbits' ro not correctly taken from input list of Orbit instances"
+    )
     # Check that consistency of ros is enforced
     with pytest.raises(RuntimeError) as excinfo:
         orbits = Orbit(orbits_list, ro=6.0)
@@ -3017,12 +3247,12 @@ def test_orbits_consistentvo():
     ]
     orbits = Orbit(orbits_list)
     # Check that vo is taken correctly
-    assert (
-        numpy.fabs(orbits._vo - orbits_list[0]._vo) < 1e-10
-    ), "Orbits' vo not correctly taken from input list of Orbit instances"
-    assert (
-        orbits._voSet
-    ), "Orbits' vo not correctly taken from input list of Orbit instances"
+    assert numpy.fabs(orbits._vo - orbits_list[0]._vo) < 1e-10, (
+        "Orbits' vo not correctly taken from input list of Orbit instances"
+    )
+    assert orbits._voSet, (
+        "Orbits' vo not correctly taken from input list of Orbit instances"
+    )
     # Check that consistency of vos is enforced
     with pytest.raises(RuntimeError) as excinfo:
         orbits = Orbit(orbits_list, vo=210.0)
@@ -3046,9 +3276,9 @@ def test_orbits_consistentzo():
     ]
     orbits = Orbit(orbits_list)
     # Check that zo is taken correctly
-    assert (
-        numpy.fabs(orbits._zo - orbits_list[0]._zo) < 1e-10
-    ), "Orbits' zo not correctly taken from input list of Orbit instances"
+    assert numpy.fabs(orbits._zo - orbits_list[0]._zo) < 1e-10, (
+        "Orbits' zo not correctly taken from input list of Orbit instances"
+    )
     # Check that consistency of zos is enforced
     with pytest.raises(RuntimeError) as excinfo:
         orbits = Orbit(orbits_list, zo=0.045)
@@ -3231,27 +3461,27 @@ def test_coordinate_interpolation():
     # Before integration
     for ii in range(nrand):
         # .time is special, just a single array
-        assert numpy.all(
-            numpy.fabs(os.time() - list_os[ii].time()) < 1e-10
-        ), "Evaluating Orbits time does not agree with Orbit"
-        assert numpy.all(
-            numpy.fabs(os.R()[ii] - list_os[ii].R()) < 1e-10
-        ), "Evaluating Orbits R does not agree with Orbit"
-        assert numpy.all(
-            numpy.fabs(os.r()[ii] - list_os[ii].r()) < 1e-10
-        ), "Evaluating Orbits r does not agree with Orbit"
-        assert numpy.all(
-            numpy.fabs(os.vR()[ii] - list_os[ii].vR()) < 1e-10
-        ), "Evaluating Orbits vR does not agree with Orbit"
-        assert numpy.all(
-            numpy.fabs(os.vT()[ii] - list_os[ii].vT()) < 1e-10
-        ), "Evaluating Orbits vT does not agree with Orbit"
-        assert numpy.all(
-            numpy.fabs(os.z()[ii] - list_os[ii].z()) < 1e-10
-        ), "Evaluating Orbits z does not agree with Orbit"
-        assert numpy.all(
-            numpy.fabs(os.vz()[ii] - list_os[ii].vz()) < 1e-10
-        ), "Evaluating Orbits vz does not agree with Orbit"
+        assert numpy.all(numpy.fabs(os.time() - list_os[ii].time()) < 1e-10), (
+            "Evaluating Orbits time does not agree with Orbit"
+        )
+        assert numpy.all(numpy.fabs(os.R()[ii] - list_os[ii].R()) < 1e-10), (
+            "Evaluating Orbits R does not agree with Orbit"
+        )
+        assert numpy.all(numpy.fabs(os.r()[ii] - list_os[ii].r()) < 1e-10), (
+            "Evaluating Orbits r does not agree with Orbit"
+        )
+        assert numpy.all(numpy.fabs(os.vR()[ii] - list_os[ii].vR()) < 1e-10), (
+            "Evaluating Orbits vR does not agree with Orbit"
+        )
+        assert numpy.all(numpy.fabs(os.vT()[ii] - list_os[ii].vT()) < 1e-10), (
+            "Evaluating Orbits vT does not agree with Orbit"
+        )
+        assert numpy.all(numpy.fabs(os.z()[ii] - list_os[ii].z()) < 1e-10), (
+            "Evaluating Orbits z does not agree with Orbit"
+        )
+        assert numpy.all(numpy.fabs(os.vz()[ii] - list_os[ii].vz()) < 1e-10), (
+            "Evaluating Orbits vz does not agree with Orbit"
+        )
         assert numpy.all(
             numpy.fabs(
                 ((os.phi()[ii] - list_os[ii].phi() + numpy.pi) % (2.0 * numpy.pi))
@@ -3259,81 +3489,81 @@ def test_coordinate_interpolation():
             )
             < 1e-10
         ), "Evaluating Orbits phi does not agree with Orbit"
-        assert numpy.all(
-            numpy.fabs(os.x()[ii] - list_os[ii].x()) < 1e-10
-        ), "Evaluating Orbits x does not agree with Orbit"
-        assert numpy.all(
-            numpy.fabs(os.y()[ii] - list_os[ii].y()) < 1e-10
-        ), "Evaluating Orbits y does not agree with Orbit"
-        assert numpy.all(
-            numpy.fabs(os.vx()[ii] - list_os[ii].vx()) < 1e-10
-        ), "Evaluating Orbits vx does not agree with Orbit"
-        assert numpy.all(
-            numpy.fabs(os.vy()[ii] - list_os[ii].vy()) < 1e-10
-        ), "Evaluating Orbits vy does not agree with Orbit"
-        assert numpy.all(
-            numpy.fabs(os.vphi()[ii] - list_os[ii].vphi()) < 1e-10
-        ), "Evaluating Orbits vphi does not agree with Orbit"
-        assert numpy.all(
-            numpy.fabs(os.ra()[ii] - list_os[ii].ra()) < 1e-10
-        ), "Evaluating Orbits ra  does not agree with Orbit"
-        assert numpy.all(
-            numpy.fabs(os.dec()[ii] - list_os[ii].dec()) < 1e-10
-        ), "Evaluating Orbits dec does not agree with Orbit"
-        assert numpy.all(
-            numpy.fabs(os.dist()[ii] - list_os[ii].dist()) < 1e-10
-        ), "Evaluating Orbits dist does not agree with Orbit"
-        assert numpy.all(
-            numpy.fabs(os.ll()[ii] - list_os[ii].ll()) < 1e-10
-        ), "Evaluating Orbits ll does not agree with Orbit"
-        assert numpy.all(
-            numpy.fabs(os.bb()[ii] - list_os[ii].bb()) < 1e-10
-        ), "Evaluating Orbits bb  does not agree with Orbit"
-        assert numpy.all(
-            numpy.fabs(os.pmra()[ii] - list_os[ii].pmra()) < 1e-10
-        ), "Evaluating Orbits pmra does not agree with Orbit"
-        assert numpy.all(
-            numpy.fabs(os.pmdec()[ii] - list_os[ii].pmdec()) < 1e-10
-        ), "Evaluating Orbits pmdec does not agree with Orbit"
-        assert numpy.all(
-            numpy.fabs(os.pmll()[ii] - list_os[ii].pmll()) < 1e-10
-        ), "Evaluating Orbits pmll does not agree with Orbit"
-        assert numpy.all(
-            numpy.fabs(os.pmbb()[ii] - list_os[ii].pmbb()) < 1e-10
-        ), "Evaluating Orbits pmbb does not agree with Orbit"
-        assert numpy.all(
-            numpy.fabs(os.vra()[ii] - list_os[ii].vra()) < 1e-10
-        ), "Evaluating Orbits vra does not agree with Orbit"
-        assert numpy.all(
-            numpy.fabs(os.vdec()[ii] - list_os[ii].vdec()) < 1e-10
-        ), "Evaluating Orbits vdec does not agree with Orbit"
-        assert numpy.all(
-            numpy.fabs(os.vll()[ii] - list_os[ii].vll()) < 1e-10
-        ), "Evaluating Orbits vll does not agree with Orbit"
-        assert numpy.all(
-            numpy.fabs(os.vbb()[ii] - list_os[ii].vbb()) < 1e-10
-        ), "Evaluating Orbits vbb does not agree with Orbit"
-        assert numpy.all(
-            numpy.fabs(os.vlos()[ii] - list_os[ii].vlos()) < 1e-10
-        ), "Evaluating Orbits vlos does not agree with Orbit"
-        assert numpy.all(
-            numpy.fabs(os.helioX()[ii] - list_os[ii].helioX()) < 1e-10
-        ), "Evaluating Orbits helioX does not agree with Orbit"
-        assert numpy.all(
-            numpy.fabs(os.helioY()[ii] - list_os[ii].helioY()) < 1e-10
-        ), "Evaluating Orbits helioY does not agree with Orbit"
-        assert numpy.all(
-            numpy.fabs(os.helioZ()[ii] - list_os[ii].helioZ()) < 1e-10
-        ), "Evaluating Orbits helioZ does not agree with Orbit"
-        assert numpy.all(
-            numpy.fabs(os.U()[ii] - list_os[ii].U()) < 1e-10
-        ), "Evaluating Orbits U does not agree with Orbit"
-        assert numpy.all(
-            numpy.fabs(os.V()[ii] - list_os[ii].V()) < 1e-10
-        ), "Evaluating Orbits V does not agree with Orbit"
-        assert numpy.all(
-            numpy.fabs(os.W()[ii] - list_os[ii].W()) < 1e-10
-        ), "Evaluating Orbits W does not agree with Orbit"
+        assert numpy.all(numpy.fabs(os.x()[ii] - list_os[ii].x()) < 1e-10), (
+            "Evaluating Orbits x does not agree with Orbit"
+        )
+        assert numpy.all(numpy.fabs(os.y()[ii] - list_os[ii].y()) < 1e-10), (
+            "Evaluating Orbits y does not agree with Orbit"
+        )
+        assert numpy.all(numpy.fabs(os.vx()[ii] - list_os[ii].vx()) < 1e-10), (
+            "Evaluating Orbits vx does not agree with Orbit"
+        )
+        assert numpy.all(numpy.fabs(os.vy()[ii] - list_os[ii].vy()) < 1e-10), (
+            "Evaluating Orbits vy does not agree with Orbit"
+        )
+        assert numpy.all(numpy.fabs(os.vphi()[ii] - list_os[ii].vphi()) < 1e-10), (
+            "Evaluating Orbits vphi does not agree with Orbit"
+        )
+        assert numpy.all(numpy.fabs(os.ra()[ii] - list_os[ii].ra()) < 1e-10), (
+            "Evaluating Orbits ra  does not agree with Orbit"
+        )
+        assert numpy.all(numpy.fabs(os.dec()[ii] - list_os[ii].dec()) < 1e-10), (
+            "Evaluating Orbits dec does not agree with Orbit"
+        )
+        assert numpy.all(numpy.fabs(os.dist()[ii] - list_os[ii].dist()) < 1e-10), (
+            "Evaluating Orbits dist does not agree with Orbit"
+        )
+        assert numpy.all(numpy.fabs(os.ll()[ii] - list_os[ii].ll()) < 1e-10), (
+            "Evaluating Orbits ll does not agree with Orbit"
+        )
+        assert numpy.all(numpy.fabs(os.bb()[ii] - list_os[ii].bb()) < 1e-10), (
+            "Evaluating Orbits bb  does not agree with Orbit"
+        )
+        assert numpy.all(numpy.fabs(os.pmra()[ii] - list_os[ii].pmra()) < 1e-10), (
+            "Evaluating Orbits pmra does not agree with Orbit"
+        )
+        assert numpy.all(numpy.fabs(os.pmdec()[ii] - list_os[ii].pmdec()) < 1e-10), (
+            "Evaluating Orbits pmdec does not agree with Orbit"
+        )
+        assert numpy.all(numpy.fabs(os.pmll()[ii] - list_os[ii].pmll()) < 1e-10), (
+            "Evaluating Orbits pmll does not agree with Orbit"
+        )
+        assert numpy.all(numpy.fabs(os.pmbb()[ii] - list_os[ii].pmbb()) < 1e-10), (
+            "Evaluating Orbits pmbb does not agree with Orbit"
+        )
+        assert numpy.all(numpy.fabs(os.vra()[ii] - list_os[ii].vra()) < 1e-10), (
+            "Evaluating Orbits vra does not agree with Orbit"
+        )
+        assert numpy.all(numpy.fabs(os.vdec()[ii] - list_os[ii].vdec()) < 1e-10), (
+            "Evaluating Orbits vdec does not agree with Orbit"
+        )
+        assert numpy.all(numpy.fabs(os.vll()[ii] - list_os[ii].vll()) < 1e-10), (
+            "Evaluating Orbits vll does not agree with Orbit"
+        )
+        assert numpy.all(numpy.fabs(os.vbb()[ii] - list_os[ii].vbb()) < 1e-10), (
+            "Evaluating Orbits vbb does not agree with Orbit"
+        )
+        assert numpy.all(numpy.fabs(os.vlos()[ii] - list_os[ii].vlos()) < 1e-10), (
+            "Evaluating Orbits vlos does not agree with Orbit"
+        )
+        assert numpy.all(numpy.fabs(os.helioX()[ii] - list_os[ii].helioX()) < 1e-10), (
+            "Evaluating Orbits helioX does not agree with Orbit"
+        )
+        assert numpy.all(numpy.fabs(os.helioY()[ii] - list_os[ii].helioY()) < 1e-10), (
+            "Evaluating Orbits helioY does not agree with Orbit"
+        )
+        assert numpy.all(numpy.fabs(os.helioZ()[ii] - list_os[ii].helioZ()) < 1e-10), (
+            "Evaluating Orbits helioZ does not agree with Orbit"
+        )
+        assert numpy.all(numpy.fabs(os.U()[ii] - list_os[ii].U()) < 1e-10), (
+            "Evaluating Orbits U does not agree with Orbit"
+        )
+        assert numpy.all(numpy.fabs(os.V()[ii] - list_os[ii].V()) < 1e-10), (
+            "Evaluating Orbits V does not agree with Orbit"
+        )
+        assert numpy.all(numpy.fabs(os.W()[ii] - list_os[ii].W()) < 1e-10), (
+            "Evaluating Orbits W does not agree with Orbit"
+        )
         assert numpy.all(
             numpy.fabs(os.SkyCoord().ra[ii] - list_os[ii].SkyCoord().ra).to(u.deg).value
             < 1e-10
@@ -3384,21 +3614,21 @@ def test_coordinate_interpolation():
         assert numpy.all(
             numpy.fabs(os.time(times) - list_os[ii].time(times)) < 1e-10
         ), "Evaluating Orbits time does not agree with Orbit"
-        assert numpy.all(
-            numpy.fabs(os.R(times)[ii] - list_os[ii].R(times)) < 1e-10
-        ), "Evaluating Orbits R does not agree with Orbit"
-        assert numpy.all(
-            numpy.fabs(os.r(times)[ii] - list_os[ii].r(times)) < 1e-10
-        ), "Evaluating Orbits r does not agree with Orbit"
+        assert numpy.all(numpy.fabs(os.R(times)[ii] - list_os[ii].R(times)) < 1e-10), (
+            "Evaluating Orbits R does not agree with Orbit"
+        )
+        assert numpy.all(numpy.fabs(os.r(times)[ii] - list_os[ii].r(times)) < 1e-10), (
+            "Evaluating Orbits r does not agree with Orbit"
+        )
         assert numpy.all(
             numpy.fabs(os.vR(times)[ii] - list_os[ii].vR(times)) < 1e-10
         ), "Evaluating Orbits vR does not agree with Orbit"
         assert numpy.all(
             numpy.fabs(os.vT(times)[ii] - list_os[ii].vT(times)) < 1e-10
         ), "Evaluating Orbits vT does not agree with Orbit"
-        assert numpy.all(
-            numpy.fabs(os.z(times)[ii] - list_os[ii].z(times)) < 1e-10
-        ), "Evaluating Orbits z does not agree with Orbit"
+        assert numpy.all(numpy.fabs(os.z(times)[ii] - list_os[ii].z(times)) < 1e-10), (
+            "Evaluating Orbits z does not agree with Orbit"
+        )
         assert numpy.all(
             numpy.fabs(os.vz(times)[ii] - list_os[ii].vz(times)) < 1e-10
         ), "Evaluating Orbits vz does not agree with Orbit"
@@ -3412,12 +3642,12 @@ def test_coordinate_interpolation():
             )
             < 1e-10
         ), "Evaluating Orbits phi does not agree with Orbit"
-        assert numpy.all(
-            numpy.fabs(os.x(times)[ii] - list_os[ii].x(times)) < 1e-10
-        ), "Evaluating Orbits x does not agree with Orbit"
-        assert numpy.all(
-            numpy.fabs(os.y(times)[ii] - list_os[ii].y(times)) < 1e-10
-        ), "Evaluating Orbits y does not agree with Orbit"
+        assert numpy.all(numpy.fabs(os.x(times)[ii] - list_os[ii].x(times)) < 1e-10), (
+            "Evaluating Orbits x does not agree with Orbit"
+        )
+        assert numpy.all(numpy.fabs(os.y(times)[ii] - list_os[ii].y(times)) < 1e-10), (
+            "Evaluating Orbits y does not agree with Orbit"
+        )
         assert numpy.all(
             numpy.fabs(os.vx(times)[ii] - list_os[ii].vx(times)) < 1e-10
         ), "Evaluating Orbits vx does not agree with Orbit"
@@ -3478,15 +3708,15 @@ def test_coordinate_interpolation():
         assert numpy.all(
             numpy.fabs(os.helioZ(times)[ii] - list_os[ii].helioZ(times)) < 1e-10
         ), "Evaluating Orbits helioZ does not agree with Orbit"
-        assert numpy.all(
-            numpy.fabs(os.U(times)[ii] - list_os[ii].U(times)) < 1e-10
-        ), "Evaluating Orbits U does not agree with Orbit"
-        assert numpy.all(
-            numpy.fabs(os.V(times)[ii] - list_os[ii].V(times)) < 1e-10
-        ), "Evaluating Orbits V does not agree with Orbit"
-        assert numpy.all(
-            numpy.fabs(os.W(times)[ii] - list_os[ii].W(times)) < 1e-10
-        ), "Evaluating Orbits W does not agree with Orbit"
+        assert numpy.all(numpy.fabs(os.U(times)[ii] - list_os[ii].U(times)) < 1e-10), (
+            "Evaluating Orbits U does not agree with Orbit"
+        )
+        assert numpy.all(numpy.fabs(os.V(times)[ii] - list_os[ii].V(times)) < 1e-10), (
+            "Evaluating Orbits V does not agree with Orbit"
+        )
+        assert numpy.all(numpy.fabs(os.W(times)[ii] - list_os[ii].W(times)) < 1e-10), (
+            "Evaluating Orbits W does not agree with Orbit"
+        )
         assert numpy.all(
             numpy.fabs(os.SkyCoord(times).ra[ii] - list_os[ii].SkyCoord(times).ra)
             .to(u.deg)
@@ -4010,48 +4240,48 @@ def test_coordinate_interpolation_5d():
     ]
     # Before integration
     for ii in range(nrand):
-        assert numpy.all(
-            numpy.fabs(os.R()[ii] - list_os[ii].R()) < 1e-10
-        ), "Evaluating Orbits R does not agree with Orbit"
-        assert numpy.all(
-            numpy.fabs(os.r()[ii] - list_os[ii].r()) < 1e-10
-        ), "Evaluating Orbits r does not agree with Orbit"
-        assert numpy.all(
-            numpy.fabs(os.vR()[ii] - list_os[ii].vR()) < 1e-10
-        ), "Evaluating Orbits vR does not agree with Orbit"
-        assert numpy.all(
-            numpy.fabs(os.vT()[ii] - list_os[ii].vT()) < 1e-10
-        ), "Evaluating Orbits vT does not agree with Orbit"
-        assert numpy.all(
-            numpy.fabs(os.z()[ii] - list_os[ii].z()) < 1e-10
-        ), "Evaluating Orbits z does not agree with Orbit"
-        assert numpy.all(
-            numpy.fabs(os.vz()[ii] - list_os[ii].vz()) < 1e-10
-        ), "Evaluating Orbits vz does not agree with Orbit"
-        assert numpy.all(
-            numpy.fabs(os.vphi()[ii] - list_os[ii].vphi()) < 1e-10
-        ), "Evaluating Orbits vphi does not agree with Orbit"
+        assert numpy.all(numpy.fabs(os.R()[ii] - list_os[ii].R()) < 1e-10), (
+            "Evaluating Orbits R does not agree with Orbit"
+        )
+        assert numpy.all(numpy.fabs(os.r()[ii] - list_os[ii].r()) < 1e-10), (
+            "Evaluating Orbits r does not agree with Orbit"
+        )
+        assert numpy.all(numpy.fabs(os.vR()[ii] - list_os[ii].vR()) < 1e-10), (
+            "Evaluating Orbits vR does not agree with Orbit"
+        )
+        assert numpy.all(numpy.fabs(os.vT()[ii] - list_os[ii].vT()) < 1e-10), (
+            "Evaluating Orbits vT does not agree with Orbit"
+        )
+        assert numpy.all(numpy.fabs(os.z()[ii] - list_os[ii].z()) < 1e-10), (
+            "Evaluating Orbits z does not agree with Orbit"
+        )
+        assert numpy.all(numpy.fabs(os.vz()[ii] - list_os[ii].vz()) < 1e-10), (
+            "Evaluating Orbits vz does not agree with Orbit"
+        )
+        assert numpy.all(numpy.fabs(os.vphi()[ii] - list_os[ii].vphi()) < 1e-10), (
+            "Evaluating Orbits vphi does not agree with Orbit"
+        )
     # Integrate all
     times = numpy.linspace(0.0, 10.0, 1001)
     os.integrate(times, MWPotential2014)
     [o.integrate(times, MWPotential2014) for o in list_os]
     # Test exact times of integration
     for ii in range(nrand):
-        assert numpy.all(
-            numpy.fabs(os.R(times)[ii] - list_os[ii].R(times)) < 1e-10
-        ), "Evaluating Orbits R does not agree with Orbit"
-        assert numpy.all(
-            numpy.fabs(os.r(times)[ii] - list_os[ii].r(times)) < 1e-10
-        ), "Evaluating Orbits r does not agree with Orbit"
+        assert numpy.all(numpy.fabs(os.R(times)[ii] - list_os[ii].R(times)) < 1e-10), (
+            "Evaluating Orbits R does not agree with Orbit"
+        )
+        assert numpy.all(numpy.fabs(os.r(times)[ii] - list_os[ii].r(times)) < 1e-10), (
+            "Evaluating Orbits r does not agree with Orbit"
+        )
         assert numpy.all(
             numpy.fabs(os.vR(times)[ii] - list_os[ii].vR(times)) < 1e-10
         ), "Evaluating Orbits vR does not agree with Orbit"
         assert numpy.all(
             numpy.fabs(os.vT(times)[ii] - list_os[ii].vT(times)) < 1e-10
         ), "Evaluating Orbits vT does not agree with Orbit"
-        assert numpy.all(
-            numpy.fabs(os.z(times)[ii] - list_os[ii].z(times)) < 1e-10
-        ), "Evaluating Orbits z does not agree with Orbit"
+        assert numpy.all(numpy.fabs(os.z(times)[ii] - list_os[ii].z(times)) < 1e-10), (
+            "Evaluating Orbits z does not agree with Orbit"
+        )
         assert numpy.all(
             numpy.fabs(os.vz(times)[ii] - list_os[ii].vz(times)) < 1e-10
         ), "Evaluating Orbits vz does not agree with Orbit"
@@ -4147,36 +4377,36 @@ def test_coordinate_interpolation_4d():
     list_os = [Orbit([R, vR, vT, phi]) for R, vR, vT, phi in zip(Rs, vRs, vTs, phis)]
     # Before integration
     for ii in range(nrand):
-        assert numpy.all(
-            numpy.fabs(os.R()[ii] - list_os[ii].R()) < 1e-10
-        ), "Evaluating Orbits R does not agree with Orbit"
-        assert numpy.all(
-            numpy.fabs(os.r()[ii] - list_os[ii].r()) < 1e-10
-        ), "Evaluating Orbits r does not agree with Orbit"
-        assert numpy.all(
-            numpy.fabs(os.vR()[ii] - list_os[ii].vR()) < 1e-10
-        ), "Evaluating Orbits vR does not agree with Orbit"
-        assert numpy.all(
-            numpy.fabs(os.vT()[ii] - list_os[ii].vT()) < 1e-10
-        ), "Evaluating Orbits vT does not agree with Orbit"
-        assert numpy.all(
-            numpy.fabs(os.phi()[ii] - list_os[ii].phi()) < 1e-10
-        ), "Evaluating Orbits phi does not agree with Orbit"
-        assert numpy.all(
-            numpy.fabs(os.vphi()[ii] - list_os[ii].vphi()) < 1e-10
-        ), "Evaluating Orbits vphi does not agree with Orbit"
+        assert numpy.all(numpy.fabs(os.R()[ii] - list_os[ii].R()) < 1e-10), (
+            "Evaluating Orbits R does not agree with Orbit"
+        )
+        assert numpy.all(numpy.fabs(os.r()[ii] - list_os[ii].r()) < 1e-10), (
+            "Evaluating Orbits r does not agree with Orbit"
+        )
+        assert numpy.all(numpy.fabs(os.vR()[ii] - list_os[ii].vR()) < 1e-10), (
+            "Evaluating Orbits vR does not agree with Orbit"
+        )
+        assert numpy.all(numpy.fabs(os.vT()[ii] - list_os[ii].vT()) < 1e-10), (
+            "Evaluating Orbits vT does not agree with Orbit"
+        )
+        assert numpy.all(numpy.fabs(os.phi()[ii] - list_os[ii].phi()) < 1e-10), (
+            "Evaluating Orbits phi does not agree with Orbit"
+        )
+        assert numpy.all(numpy.fabs(os.vphi()[ii] - list_os[ii].vphi()) < 1e-10), (
+            "Evaluating Orbits vphi does not agree with Orbit"
+        )
     # Integrate all
     times = numpy.linspace(0.0, 10.0, 1001)
     os.integrate(times, MWPotential2014)
     [o.integrate(times, MWPotential2014) for o in list_os]
     # Test exact times of integration
     for ii in range(nrand):
-        assert numpy.all(
-            numpy.fabs(os.R(times)[ii] - list_os[ii].R(times)) < 1e-10
-        ), "Evaluating Orbits R does not agree with Orbit"
-        assert numpy.all(
-            numpy.fabs(os.r(times)[ii] - list_os[ii].r(times)) < 1e-10
-        ), "Evaluating Orbits r does not agree with Orbit"
+        assert numpy.all(numpy.fabs(os.R(times)[ii] - list_os[ii].R(times)) < 1e-10), (
+            "Evaluating Orbits R does not agree with Orbit"
+        )
+        assert numpy.all(numpy.fabs(os.r(times)[ii] - list_os[ii].r(times)) < 1e-10), (
+            "Evaluating Orbits r does not agree with Orbit"
+        )
         assert numpy.all(
             numpy.fabs(os.vR(times)[ii] - list_os[ii].vR(times)) < 1e-10
         ), "Evaluating Orbits vR does not agree with Orbit"
@@ -4270,33 +4500,33 @@ def test_coordinate_interpolation_3d():
     list_os = [Orbit([R, vR, vT]) for R, vR, vT in zip(Rs, vRs, vTs)]
     # Before integration
     for ii in range(nrand):
-        assert numpy.all(
-            numpy.fabs(os.R()[ii] - list_os[ii].R()) < 1e-10
-        ), "Evaluating Orbits R does not agree with Orbit"
-        assert numpy.all(
-            numpy.fabs(os.r()[ii] - list_os[ii].r()) < 1e-10
-        ), "Evaluating Orbits r does not agree with Orbit"
-        assert numpy.all(
-            numpy.fabs(os.vR()[ii] - list_os[ii].vR()) < 1e-10
-        ), "Evaluating Orbits vR does not agree with Orbit"
-        assert numpy.all(
-            numpy.fabs(os.vT()[ii] - list_os[ii].vT()) < 1e-10
-        ), "Evaluating Orbits vT does not agree with Orbit"
-        assert numpy.all(
-            numpy.fabs(os.vphi()[ii] - list_os[ii].vphi()) < 1e-10
-        ), "Evaluating Orbits vphi does not agree with Orbit"
+        assert numpy.all(numpy.fabs(os.R()[ii] - list_os[ii].R()) < 1e-10), (
+            "Evaluating Orbits R does not agree with Orbit"
+        )
+        assert numpy.all(numpy.fabs(os.r()[ii] - list_os[ii].r()) < 1e-10), (
+            "Evaluating Orbits r does not agree with Orbit"
+        )
+        assert numpy.all(numpy.fabs(os.vR()[ii] - list_os[ii].vR()) < 1e-10), (
+            "Evaluating Orbits vR does not agree with Orbit"
+        )
+        assert numpy.all(numpy.fabs(os.vT()[ii] - list_os[ii].vT()) < 1e-10), (
+            "Evaluating Orbits vT does not agree with Orbit"
+        )
+        assert numpy.all(numpy.fabs(os.vphi()[ii] - list_os[ii].vphi()) < 1e-10), (
+            "Evaluating Orbits vphi does not agree with Orbit"
+        )
     # Integrate all
     times = numpy.linspace(0.0, 10.0, 1001)
     os.integrate(times, MWPotential2014)
     [o.integrate(times, MWPotential2014) for o in list_os]
     # Test exact times of integration
     for ii in range(nrand):
-        assert numpy.all(
-            numpy.fabs(os.R(times)[ii] - list_os[ii].R(times)) < 1e-10
-        ), "Evaluating Orbits R does not agree with Orbit"
-        assert numpy.all(
-            numpy.fabs(os.r(times)[ii] - list_os[ii].r(times)) < 1e-10
-        ), "Evaluating Orbits r does not agree with Orbit"
+        assert numpy.all(numpy.fabs(os.R(times)[ii] - list_os[ii].R(times)) < 1e-10), (
+            "Evaluating Orbits R does not agree with Orbit"
+        )
+        assert numpy.all(numpy.fabs(os.r(times)[ii] - list_os[ii].r(times)) < 1e-10), (
+            "Evaluating Orbits r does not agree with Orbit"
+        )
         assert numpy.all(
             numpy.fabs(os.vR(times)[ii] - list_os[ii].vR(times)) < 1e-10
         ), "Evaluating Orbits vR does not agree with Orbit"
@@ -4384,21 +4614,21 @@ def test_coordinate_interpolation_2d():
     list_os = [Orbit([z, vz]) for z, vz in zip(zs, vzs)]
     # Before integration
     for ii in range(nrand):
-        assert numpy.all(
-            numpy.fabs(os.x()[ii] - list_os[ii].x()) < 1e-10
-        ), "Evaluating Orbits x does not agree with Orbit"
-        assert numpy.all(
-            numpy.fabs(os.vx()[ii] - list_os[ii].vx()) < 1e-10
-        ), "Evaluating Orbits vx does not agree with Orbit"
+        assert numpy.all(numpy.fabs(os.x()[ii] - list_os[ii].x()) < 1e-10), (
+            "Evaluating Orbits x does not agree with Orbit"
+        )
+        assert numpy.all(numpy.fabs(os.vx()[ii] - list_os[ii].vx()) < 1e-10), (
+            "Evaluating Orbits vx does not agree with Orbit"
+        )
     # Integrate all
     times = numpy.linspace(0.0, 10.0, 1001)
     os.integrate(times, MWPotential2014)
     [o.integrate(times, MWPotential2014) for o in list_os]
     # Test exact times of integration
     for ii in range(nrand):
-        assert numpy.all(
-            numpy.fabs(os.x(times)[ii] - list_os[ii].x(times)) < 1e-10
-        ), "Evaluating Orbits x does not agree with Orbit"
+        assert numpy.all(numpy.fabs(os.x(times)[ii] - list_os[ii].x(times)) < 1e-10), (
+            "Evaluating Orbits x does not agree with Orbit"
+        )
         assert numpy.all(
             numpy.fabs(os.vx(times)[ii] - list_os[ii].vx(times)) < 1e-10
         ), "Evaluating Orbits vx does not agree with Orbit"
@@ -4485,27 +4715,27 @@ def test_coordinate_interpolation_oneorbit():
     # Before integration
     for ii in range(nrand):
         # .time is special, just a single array
-        assert numpy.all(
-            numpy.fabs(os.time() - list_os[ii].time()) < 1e-10
-        ), "Evaluating Orbits time does not agree with Orbit"
-        assert numpy.all(
-            numpy.fabs(os.R()[ii] - list_os[ii].R()) < 1e-10
-        ), "Evaluating Orbits R does not agree with Orbit"
-        assert numpy.all(
-            numpy.fabs(os.r()[ii] - list_os[ii].r()) < 1e-10
-        ), "Evaluating Orbits r does not agree with Orbit"
-        assert numpy.all(
-            numpy.fabs(os.vR()[ii] - list_os[ii].vR()) < 1e-10
-        ), "Evaluating Orbits vR does not agree with Orbit"
-        assert numpy.all(
-            numpy.fabs(os.vT()[ii] - list_os[ii].vT()) < 1e-10
-        ), "Evaluating Orbits vT does not agree with Orbit"
-        assert numpy.all(
-            numpy.fabs(os.z()[ii] - list_os[ii].z()) < 1e-10
-        ), "Evaluating Orbits z does not agree with Orbit"
-        assert numpy.all(
-            numpy.fabs(os.vz()[ii] - list_os[ii].vz()) < 1e-10
-        ), "Evaluating Orbits vz does not agree with Orbit"
+        assert numpy.all(numpy.fabs(os.time() - list_os[ii].time()) < 1e-10), (
+            "Evaluating Orbits time does not agree with Orbit"
+        )
+        assert numpy.all(numpy.fabs(os.R()[ii] - list_os[ii].R()) < 1e-10), (
+            "Evaluating Orbits R does not agree with Orbit"
+        )
+        assert numpy.all(numpy.fabs(os.r()[ii] - list_os[ii].r()) < 1e-10), (
+            "Evaluating Orbits r does not agree with Orbit"
+        )
+        assert numpy.all(numpy.fabs(os.vR()[ii] - list_os[ii].vR()) < 1e-10), (
+            "Evaluating Orbits vR does not agree with Orbit"
+        )
+        assert numpy.all(numpy.fabs(os.vT()[ii] - list_os[ii].vT()) < 1e-10), (
+            "Evaluating Orbits vT does not agree with Orbit"
+        )
+        assert numpy.all(numpy.fabs(os.z()[ii] - list_os[ii].z()) < 1e-10), (
+            "Evaluating Orbits z does not agree with Orbit"
+        )
+        assert numpy.all(numpy.fabs(os.vz()[ii] - list_os[ii].vz()) < 1e-10), (
+            "Evaluating Orbits vz does not agree with Orbit"
+        )
         assert numpy.all(
             numpy.fabs(
                 ((os.phi()[ii] - list_os[ii].phi() + numpy.pi) % (2.0 * numpy.pi))
@@ -4523,21 +4753,21 @@ def test_coordinate_interpolation_oneorbit():
         assert numpy.all(
             numpy.fabs(os.time(times) - list_os[ii].time(times)) < 1e-10
         ), "Evaluating Orbits time does not agree with Orbit"
-        assert numpy.all(
-            numpy.fabs(os.R(times)[ii] - list_os[ii].R(times)) < 1e-10
-        ), "Evaluating Orbits R does not agree with Orbit"
-        assert numpy.all(
-            numpy.fabs(os.r(times)[ii] - list_os[ii].r(times)) < 1e-10
-        ), "Evaluating Orbits r does not agree with Orbit"
+        assert numpy.all(numpy.fabs(os.R(times)[ii] - list_os[ii].R(times)) < 1e-10), (
+            "Evaluating Orbits R does not agree with Orbit"
+        )
+        assert numpy.all(numpy.fabs(os.r(times)[ii] - list_os[ii].r(times)) < 1e-10), (
+            "Evaluating Orbits r does not agree with Orbit"
+        )
         assert numpy.all(
             numpy.fabs(os.vR(times)[ii] - list_os[ii].vR(times)) < 1e-10
         ), "Evaluating Orbits vR does not agree with Orbit"
         assert numpy.all(
             numpy.fabs(os.vT(times)[ii] - list_os[ii].vT(times)) < 1e-10
         ), "Evaluating Orbits vT does not agree with Orbit"
-        assert numpy.all(
-            numpy.fabs(os.z(times)[ii] - list_os[ii].z(times)) < 1e-10
-        ), "Evaluating Orbits z does not agree with Orbit"
+        assert numpy.all(numpy.fabs(os.z(times)[ii] - list_os[ii].z(times)) < 1e-10), (
+            "Evaluating Orbits z does not agree with Orbit"
+        )
         assert numpy.all(
             numpy.fabs(os.vz(times)[ii] - list_os[ii].vz(times)) < 1e-10
         ), "Evaluating Orbits vz does not agree with Orbit"
@@ -5608,17 +5838,17 @@ def test_output_specialshapes():
     # vxvv= list of [R,vR,vT,z,...] should be shape == () and scalar output
     os = Orbit([1.0, 0.1, 1.0, 0.1, 0.0, 0.1])
     assert os.shape == (), "Shape of Orbits with list of [R,vR,...] input is not empty"
-    assert (
-        numpy.ndim(os.R()) == 0
-    ), "Orbits with list of [R,vR,...] input does not return scalar"
+    assert numpy.ndim(os.R()) == 0, (
+        "Orbits with list of [R,vR,...] input does not return scalar"
+    )
     # Similar for list [ra,dec,...]
     os = Orbit([1.0, 0.1, 1.0, 0.1, 0.0, 0.1], radec=True)
-    assert (
-        os.shape == ()
-    ), "Shape of Orbits with list of [ra,dec,...] input is not empty"
-    assert (
-        numpy.ndim(os.R()) == 0
-    ), "Orbits with list of [ra,dec,...] input does not return scalar"
+    assert os.shape == (), (
+        "Shape of Orbits with list of [ra,dec,...] input is not empty"
+    )
+    assert numpy.ndim(os.R()) == 0, (
+        "Orbits with list of [ra,dec,...] input does not return scalar"
+    )
     # Also with units
     os = Orbit(
         [
@@ -5631,32 +5861,32 @@ def test_output_specialshapes():
         ],
         radec=True,
     )
-    assert (
-        os.shape == ()
-    ), "Shape of Orbits with list of [ra,dec,...] w/units input is not empty"
-    assert (
-        numpy.ndim(os.R()) == 0
-    ), "Orbits with list of [ra,dec,...] w/units input does not return scalar"
+    assert os.shape == (), (
+        "Shape of Orbits with list of [ra,dec,...] w/units input is not empty"
+    )
+    assert numpy.ndim(os.R()) == 0, (
+        "Orbits with list of [ra,dec,...] w/units input does not return scalar"
+    )
     # Also from_name
     os = Orbit.from_name("LMC")
     assert os.shape == (), "Shape of Orbits with from_name single object is not empty"
-    assert (
-        numpy.ndim(os.R()) == 0
-    ), "Orbits with from_name single object does not return scalar"
+    assert numpy.ndim(os.R()) == 0, (
+        "Orbits with from_name single object does not return scalar"
+    )
     # vxvv= list of list of [R,vR,vT,z,...] should be shape == (1,) and array output
     os = Orbit([[1.0, 0.1, 1.0, 0.1, 0.0, 0.1]])
-    assert os.shape == (
-        1,
-    ), "Shape of Orbits with list of list of [R,vR,...] input is not (1,)"
-    assert (
-        numpy.ndim(os.R()) == 1
-    ), "Orbits with list of list of [R,vR,...] input does not return array"
+    assert os.shape == (1,), (
+        "Shape of Orbits with list of list of [R,vR,...] input is not (1,)"
+    )
+    assert numpy.ndim(os.R()) == 1, (
+        "Orbits with list of list of [R,vR,...] input does not return array"
+    )
     # vxvv= array of [R,vR,vT,z,...] should be shape == () and scalar output
     os = Orbit(numpy.array([1.0, 0.1, 1.0, 0.1, 0.0, 0.1]))
     assert os.shape == (), "Shape of Orbits with array of [R,vR,...] input is not empty"
-    assert (
-        numpy.ndim(os.R()) == 0
-    ), "Orbits with array of [R,vR,...] input does not return scalar"
+    assert numpy.ndim(os.R()) == 0, (
+        "Orbits with array of [R,vR,...] input does not return scalar"
+    )
     if _APY3:
         # vxvv= single SkyCoord should be shape == () and scalar output
         co = apycoords.SkyCoord(
@@ -5669,9 +5899,9 @@ def test_output_specialshapes():
             frame="icrs",
         )
         os = Orbit(co)
-        assert (
-            os.shape == co.shape
-        ), "Shape of Orbits with SkyCoord does not agree with shape of SkyCoord"
+        assert os.shape == co.shape, (
+            "Shape of Orbits with SkyCoord does not agree with shape of SkyCoord"
+        )
         # vxvv= single SkyCoord, but as array should be shape == (1,) and array output
         s = numpy.ones(1)
         co = apycoords.SkyCoord(
@@ -5684,15 +5914,15 @@ def test_output_specialshapes():
             frame="icrs",
         )
         os = Orbit(co)
-        assert (
-            os.shape == co.shape
-        ), "Shape of Orbits with SkyCoord does not agree with shape of SkyCoord"
+        assert os.shape == co.shape, (
+            "Shape of Orbits with SkyCoord does not agree with shape of SkyCoord"
+        )
         # vxvv= None should be shape == (1,) and array output
         os = Orbit()
         assert os.shape == (), "Shape of Orbits with vxvv=None input is not empty"
-        assert (
-            numpy.ndim(os.R()) == 0
-        ), "Orbits with with vxvv=None input does not return scalar"
+        assert numpy.ndim(os.R()) == 0, (
+            "Orbits with with vxvv=None input does not return scalar"
+        )
     return None
 
 
@@ -6041,56 +6271,56 @@ def test_newOrbits():
     lp = potential.LogarithmicHaloPotential(normalize=1.0)
     o.integrate(ts, lp)
     no = o(ts[-1])  # new Orbits
-    assert numpy.all(
-        no.R() == o.R(ts[-1])
-    ), "New Orbits formed from calling an old orbit does not have the correct R"
-    assert numpy.all(
-        no.vR() == o.vR(ts[-1])
-    ), "New Orbits formed from calling an old orbit does not have the correct vR"
-    assert numpy.all(
-        no.vT() == o.vT(ts[-1])
-    ), "New Orbits formed from calling an old orbit does not have the correct vT"
-    assert numpy.all(
-        no.z() == o.z(ts[-1])
-    ), "New Orbits formed from calling an old orbit does not have the correct z"
-    assert numpy.all(
-        no.vz() == o.vz(ts[-1])
-    ), "New Orbits formed from calling an old orbit does not have the correct vz"
-    assert numpy.all(
-        no.phi() == o.phi(ts[-1])
-    ), "New Orbits formed from calling an old orbit does not have the correct phi"
-    assert (
-        not no._roSet
-    ), "New Orbits formed from calling an old orbit does not have the correct roSet"
-    assert (
-        not no._voSet
-    ), "New Orbits formed from calling an old orbit does not have the correct roSet"
+    assert numpy.all(no.R() == o.R(ts[-1])), (
+        "New Orbits formed from calling an old orbit does not have the correct R"
+    )
+    assert numpy.all(no.vR() == o.vR(ts[-1])), (
+        "New Orbits formed from calling an old orbit does not have the correct vR"
+    )
+    assert numpy.all(no.vT() == o.vT(ts[-1])), (
+        "New Orbits formed from calling an old orbit does not have the correct vT"
+    )
+    assert numpy.all(no.z() == o.z(ts[-1])), (
+        "New Orbits formed from calling an old orbit does not have the correct z"
+    )
+    assert numpy.all(no.vz() == o.vz(ts[-1])), (
+        "New Orbits formed from calling an old orbit does not have the correct vz"
+    )
+    assert numpy.all(no.phi() == o.phi(ts[-1])), (
+        "New Orbits formed from calling an old orbit does not have the correct phi"
+    )
+    assert not no._roSet, (
+        "New Orbits formed from calling an old orbit does not have the correct roSet"
+    )
+    assert not no._voSet, (
+        "New Orbits formed from calling an old orbit does not have the correct roSet"
+    )
     # Also test this for multiple time outputs
     nos = o(ts[-2:])  # new Orbits
-    assert numpy.all(
-        numpy.fabs(nos.R() - o.R(ts[-2:])) < 10.0**-10.0
-    ), "New Orbits formed from calling an old orbit does not have the correct R"
-    assert numpy.all(
-        numpy.fabs(nos.vR() - o.vR(ts[-2:])) < 10.0**-10.0
-    ), "New Orbits formed from calling an old orbit does not have the correct vR"
-    assert numpy.all(
-        numpy.fabs(nos.vT() - o.vT(ts[-2:])) < 10.0**-10.0
-    ), "New Orbits formed from calling an old orbit does not have the correct vT"
-    assert numpy.all(
-        numpy.fabs(nos.z() - o.z(ts[-2:])) < 10.0**-10.0
-    ), "New Orbits formed from calling an old orbit does not have the correct z"
-    assert numpy.all(
-        numpy.fabs(nos.vz() - o.vz(ts[-2:])) < 10.0**-10.0
-    ), "New Orbits formed from calling an old orbit does not have the correct vz"
-    assert numpy.all(
-        numpy.fabs(nos.phi() - o.phi(ts[-2:])) < 10.0**-10.0
-    ), "New Orbits formed from calling an old orbit does not have the correct phi"
-    assert (
-        not nos._roSet
-    ), "New Orbits formed from calling an old orbit does not have the correct roSet"
-    assert (
-        not nos._voSet
-    ), "New Orbits formed from calling an old orbit does not have the correct roSet"
+    assert numpy.all(numpy.fabs(nos.R() - o.R(ts[-2:])) < 10.0**-10.0), (
+        "New Orbits formed from calling an old orbit does not have the correct R"
+    )
+    assert numpy.all(numpy.fabs(nos.vR() - o.vR(ts[-2:])) < 10.0**-10.0), (
+        "New Orbits formed from calling an old orbit does not have the correct vR"
+    )
+    assert numpy.all(numpy.fabs(nos.vT() - o.vT(ts[-2:])) < 10.0**-10.0), (
+        "New Orbits formed from calling an old orbit does not have the correct vT"
+    )
+    assert numpy.all(numpy.fabs(nos.z() - o.z(ts[-2:])) < 10.0**-10.0), (
+        "New Orbits formed from calling an old orbit does not have the correct z"
+    )
+    assert numpy.all(numpy.fabs(nos.vz() - o.vz(ts[-2:])) < 10.0**-10.0), (
+        "New Orbits formed from calling an old orbit does not have the correct vz"
+    )
+    assert numpy.all(numpy.fabs(nos.phi() - o.phi(ts[-2:])) < 10.0**-10.0), (
+        "New Orbits formed from calling an old orbit does not have the correct phi"
+    )
+    assert not nos._roSet, (
+        "New Orbits formed from calling an old orbit does not have the correct roSet"
+    )
+    assert not nos._voSet, (
+        "New Orbits formed from calling an old orbit does not have the correct roSet"
+    )
     return None
 
 
@@ -6100,30 +6330,30 @@ def test_newOrbit_b4integration():
 
     o = Orbit([[1.0, 0.1, 1.1, 0.1, 0.0, 0.0], [1.1, 0.3, 0.9, -0.2, 0.3, 2.0]])
     no = o()  # New Orbits formed before integration
-    assert numpy.all(
-        numpy.fabs(no.R() - o.R()) < 10.0**-10.0
-    ), "New Orbits formed from calling an old orbit does not have the correct R"
-    assert numpy.all(
-        numpy.fabs(no.vR() - o.vR()) < 10.0**-10.0
-    ), "New Orbits formed from calling an old orbit does not have the correct vR"
-    assert numpy.all(
-        numpy.fabs(no.vT() - o.vT()) < 10.0**-10.0
-    ), "New Orbits formed from calling an old orbit does not have the correct vT"
-    assert numpy.all(
-        numpy.fabs(no.z() - o.z()) < 10.0**-10.0
-    ), "New Orbits formed from calling an old orbit does not have the correct z"
-    assert numpy.all(
-        numpy.fabs(no.vz() - o.vz()) < 10.0**-10.0
-    ), "New Orbits formed from calling an old orbit does not have the correct vz"
-    assert numpy.all(
-        numpy.fabs(no.phi() - o.phi()) < 10.0**-10.0
-    ), "New Orbits formed from calling an old orbit does not have the correct phi"
-    assert (
-        not no._roSet
-    ), "New Orbits formed from calling an old orbit does not have the correct roSet"
-    assert (
-        not no._voSet
-    ), "New Orbits formed from calling an old orbit does not have the correct roSet"
+    assert numpy.all(numpy.fabs(no.R() - o.R()) < 10.0**-10.0), (
+        "New Orbits formed from calling an old orbit does not have the correct R"
+    )
+    assert numpy.all(numpy.fabs(no.vR() - o.vR()) < 10.0**-10.0), (
+        "New Orbits formed from calling an old orbit does not have the correct vR"
+    )
+    assert numpy.all(numpy.fabs(no.vT() - o.vT()) < 10.0**-10.0), (
+        "New Orbits formed from calling an old orbit does not have the correct vT"
+    )
+    assert numpy.all(numpy.fabs(no.z() - o.z()) < 10.0**-10.0), (
+        "New Orbits formed from calling an old orbit does not have the correct z"
+    )
+    assert numpy.all(numpy.fabs(no.vz() - o.vz()) < 10.0**-10.0), (
+        "New Orbits formed from calling an old orbit does not have the correct vz"
+    )
+    assert numpy.all(numpy.fabs(no.phi() - o.phi()) < 10.0**-10.0), (
+        "New Orbits formed from calling an old orbit does not have the correct phi"
+    )
+    assert not no._roSet, (
+        "New Orbits formed from calling an old orbit does not have the correct roSet"
+    )
+    assert not no._voSet, (
+        "New Orbits formed from calling an old orbit does not have the correct roSet"
+    )
     return None
 
 
@@ -6138,57 +6368,57 @@ def test_badinterpolation():
     lp = potential.LogarithmicHaloPotential(normalize=1.0)
     o.integrate(ts, lp)
     no = o(ts[-1])  # new orbit
-    assert numpy.all(
-        no.R() == o.R(ts[-1])
-    ), "New orbit formed from calling an old orbit does not have the correct R"
-    assert numpy.all(
-        no.vR() == o.vR(ts[-1])
-    ), "New orbit formed from calling an old orbit does not have the correct vR"
-    assert numpy.all(
-        no.vT() == o.vT(ts[-1])
-    ), "New orbit formed from calling an old orbit does not have the correct vT"
-    assert numpy.all(
-        no.z() == o.z(ts[-1])
-    ), "New orbit formed from calling an old orbit does not have the correct z"
-    assert numpy.all(
-        no.vz() == o.vz(ts[-1])
-    ), "New orbit formed from calling an old orbit does not have the correct vz"
-    assert numpy.all(
-        no.phi() == o.phi(ts[-1])
-    ), "New orbit formed from calling an old orbit does not have the correct phi"
-    assert (
-        not no._roSet
-    ), "New orbit formed from calling an old orbit does not have the correct roSet"
-    assert (
-        not no._voSet
-    ), "New orbit formed from calling an old orbit does not have the correct roSet"
+    assert numpy.all(no.R() == o.R(ts[-1])), (
+        "New orbit formed from calling an old orbit does not have the correct R"
+    )
+    assert numpy.all(no.vR() == o.vR(ts[-1])), (
+        "New orbit formed from calling an old orbit does not have the correct vR"
+    )
+    assert numpy.all(no.vT() == o.vT(ts[-1])), (
+        "New orbit formed from calling an old orbit does not have the correct vT"
+    )
+    assert numpy.all(no.z() == o.z(ts[-1])), (
+        "New orbit formed from calling an old orbit does not have the correct z"
+    )
+    assert numpy.all(no.vz() == o.vz(ts[-1])), (
+        "New orbit formed from calling an old orbit does not have the correct vz"
+    )
+    assert numpy.all(no.phi() == o.phi(ts[-1])), (
+        "New orbit formed from calling an old orbit does not have the correct phi"
+    )
+    assert not no._roSet, (
+        "New orbit formed from calling an old orbit does not have the correct roSet"
+    )
+    assert not no._voSet, (
+        "New orbit formed from calling an old orbit does not have the correct roSet"
+    )
     # Also test this for multiple time outputs
     nos = o(ts[-2:])  # new Orbits
     # First t
-    assert numpy.all(
-        numpy.fabs(nos.R() - o.R(ts[-2:])) < 10.0**-10.0
-    ), "New orbit formed from calling an old orbit does not have the correct R"
-    assert numpy.all(
-        numpy.fabs(nos.vR() - o.vR(ts[-2:])) < 10.0**-10.0
-    ), "New orbit formed from calling an old orbit does not have the correct vR"
-    assert numpy.all(
-        numpy.fabs(nos.vT() - o.vT(ts[-2:])) < 10.0**-10.0
-    ), "New orbit formed from calling an old orbit does not have the correct vT"
-    assert numpy.all(
-        numpy.fabs(nos.z() - o.z(ts[-2:])) < 10.0**-10.0
-    ), "New orbit formed from calling an old orbit does not have the correct z"
-    assert numpy.all(
-        numpy.fabs(nos.vz() - o.vz(ts[-2:])) < 10.0**-10.0
-    ), "New orbit formed from calling an old orbit does not have the correct vz"
-    assert numpy.all(
-        numpy.fabs(nos.phi() - o.phi(ts[-2:])) < 10.0**-10.0
-    ), "New orbit formed from calling an old orbit does not have the correct phi"
-    assert (
-        not nos._roSet
-    ), "New orbit formed from calling an old orbit does not have the correct roSet"
-    assert (
-        not nos._voSet
-    ), "New orbit formed from calling an old orbit does not have the correct roSet"
+    assert numpy.all(numpy.fabs(nos.R() - o.R(ts[-2:])) < 10.0**-10.0), (
+        "New orbit formed from calling an old orbit does not have the correct R"
+    )
+    assert numpy.all(numpy.fabs(nos.vR() - o.vR(ts[-2:])) < 10.0**-10.0), (
+        "New orbit formed from calling an old orbit does not have the correct vR"
+    )
+    assert numpy.all(numpy.fabs(nos.vT() - o.vT(ts[-2:])) < 10.0**-10.0), (
+        "New orbit formed from calling an old orbit does not have the correct vT"
+    )
+    assert numpy.all(numpy.fabs(nos.z() - o.z(ts[-2:])) < 10.0**-10.0), (
+        "New orbit formed from calling an old orbit does not have the correct z"
+    )
+    assert numpy.all(numpy.fabs(nos.vz() - o.vz(ts[-2:])) < 10.0**-10.0), (
+        "New orbit formed from calling an old orbit does not have the correct vz"
+    )
+    assert numpy.all(numpy.fabs(nos.phi() - o.phi(ts[-2:])) < 10.0**-10.0), (
+        "New orbit formed from calling an old orbit does not have the correct phi"
+    )
+    assert not nos._roSet, (
+        "New orbit formed from calling an old orbit does not have the correct roSet"
+    )
+    assert not nos._voSet, (
+        "New orbit formed from calling an old orbit does not have the correct roSet"
+    )
     # Try point in between, shouldn't work
     with pytest.raises(LookupError) as exc_info:
         no = o(0.6)
@@ -6436,15 +6666,21 @@ def test_integrate_Cfallback_symplec():
         assert (
             numpy.amax(numpy.fabs(orbits_list[ii].R(times) - orbits.R(times)[ii]))
             < 1e-10
-        ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        ), (
+            "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        )
         assert (
             numpy.amax(numpy.fabs(orbits_list[ii].vR(times) - orbits.vR(times)[ii]))
             < 1e-10
-        ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        ), (
+            "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        )
         assert (
             numpy.amax(numpy.fabs(orbits_list[ii].vT(times) - orbits.vT(times)[ii]))
             < 1e-10
-        ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        ), (
+            "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        )
     return None
 
 
@@ -6472,15 +6708,21 @@ def test_integrate_Cfallback_nonsymplec():
         assert (
             numpy.amax(numpy.fabs(orbits_list[ii].R(times) - orbits.R(times)[ii]))
             < 1e-10
-        ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        ), (
+            "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        )
         assert (
             numpy.amax(numpy.fabs(orbits_list[ii].vR(times) - orbits.vR(times)[ii]))
             < 1e-10
-        ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        ), (
+            "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        )
         assert (
             numpy.amax(numpy.fabs(orbits_list[ii].vT(times) - orbits.vT(times)[ii]))
             < 1e-10
-        ), "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        ), (
+            "Integration of multiple orbits as Orbits does not agree with integrating multiple orbits"
+        )
     return None
 
 
@@ -6550,60 +6792,62 @@ def test_flip():
             o = setup_orbits_flip(llp, ro, vo, None, None, axi=False)
         of = o.flip()
         # First check that the scales have been propagated properly
-        assert (
-            numpy.fabs(o._ro - of._ro) < 10.0**-15.0
-        ), "o.flip() did not conserve physical scales and coordinate-transformation parameters"
-        assert (
-            numpy.fabs(o._vo - of._vo) < 10.0**-15.0
-        ), "o.flip() did not conserve physical scales and coordinate-transformation parameters"
+        assert numpy.fabs(o._ro - of._ro) < 10.0**-15.0, (
+            "o.flip() did not conserve physical scales and coordinate-transformation parameters"
+        )
+        assert numpy.fabs(o._vo - of._vo) < 10.0**-15.0, (
+            "o.flip() did not conserve physical scales and coordinate-transformation parameters"
+        )
         if ii == 4:
-            assert (
-                (o._zo is None) * (of._zo is None)
-            ), "o.flip() did not conserve physical scales and coordinate-transformation parameters"
-            assert (
-                (o._solarmotion is None) * (of._solarmotion is None)
-            ), "o.flip() did not conserve physical scales and coordinate-transformation parameters"
+            assert (o._zo is None) * (of._zo is None), (
+                "o.flip() did not conserve physical scales and coordinate-transformation parameters"
+            )
+            assert (o._solarmotion is None) * (of._solarmotion is None), (
+                "o.flip() did not conserve physical scales and coordinate-transformation parameters"
+            )
         else:
-            assert (
-                numpy.fabs(o._zo - of._zo) < 10.0**-15.0
-            ), "o.flip() did not conserve physical scales and coordinate-transformation parameters"
+            assert numpy.fabs(o._zo - of._zo) < 10.0**-15.0, (
+                "o.flip() did not conserve physical scales and coordinate-transformation parameters"
+            )
             assert numpy.all(
                 numpy.fabs(o._solarmotion - of._solarmotion) < 10.0**-15.0
-            ), "o.flip() did not conserve physical scales and coordinate-transformation parameters"
-        assert (
-            o._roSet == of._roSet
-        ), "o.flip() did not conserve physical scales and coordinate-transformation parameters"
-        assert (
-            o._voSet == of._voSet
-        ), "o.flip() did not conserve physical scales and coordinate-transformation parameters"
+            ), (
+                "o.flip() did not conserve physical scales and coordinate-transformation parameters"
+            )
+        assert o._roSet == of._roSet, (
+            "o.flip() did not conserve physical scales and coordinate-transformation parameters"
+        )
+        assert o._voSet == of._voSet, (
+            "o.flip() did not conserve physical scales and coordinate-transformation parameters"
+        )
         if ii == 4:
-            assert numpy.all(
-                numpy.abs(o.x() - of.x()) < 10.0**-10.0
-            ), "o.flip() did not work as expected"
-            assert numpy.all(
-                numpy.abs(o.vx() + of.vx()) < 10.0**-10.0
-            ), "o.flip() did not work as expected"
+            assert numpy.all(numpy.abs(o.x() - of.x()) < 10.0**-10.0), (
+                "o.flip() did not work as expected"
+            )
+            assert numpy.all(numpy.abs(o.vx() + of.vx()) < 10.0**-10.0), (
+                "o.flip() did not work as expected"
+            )
         else:
-            assert numpy.all(
-                numpy.abs(o.R() - of.R()) < 10.0**-10.0
-            ), "o.flip() did not work as expected"
-            assert numpy.all(
-                numpy.abs(o.vR() + of.vR()) < 10.0**-10.0
-            ), "o.flip() did not work as expected"
-            assert numpy.all(
-                numpy.abs(o.vT() + of.vT()) < 10.0**-10.0
-            ), "o.flip() did not work as expected"
+            assert numpy.all(numpy.abs(o.R() - of.R()) < 10.0**-10.0), (
+                "o.flip() did not work as expected"
+            )
+            assert numpy.all(numpy.abs(o.vR() + of.vR()) < 10.0**-10.0), (
+                "o.flip() did not work as expected"
+            )
+            assert numpy.all(numpy.abs(o.vT() + of.vT()) < 10.0**-10.0), (
+                "o.flip() did not work as expected"
+            )
         if ii % 2 == 1:
-            assert numpy.all(
-                numpy.abs(o.phi() - of.phi()) < 10.0**-10.0
-            ), "o.flip() did not work as expected"
+            assert numpy.all(numpy.abs(o.phi() - of.phi()) < 10.0**-10.0), (
+                "o.flip() did not work as expected"
+            )
         if ii < 2:
-            assert numpy.all(
-                numpy.abs(o.z() - of.z()) < 10.0**-10.0
-            ), "o.flip() did not work as expected"
-            assert numpy.all(
-                numpy.abs(o.vz() + of.vz()) < 10.0**-10.0
-            ), "o.flip() did not work as expected"
+            assert numpy.all(numpy.abs(o.z() - of.z()) < 10.0**-10.0), (
+                "o.flip() did not work as expected"
+            )
+            assert numpy.all(numpy.abs(o.vz() + of.vz()) < 10.0**-10.0), (
+                "o.flip() did not work as expected"
+            )
     return None
 
 
@@ -6630,60 +6874,62 @@ def test_flip_inplace():
         of = o()
         of.flip(inplace=True)
         # First check that the scales have been propagated properly
-        assert (
-            numpy.fabs(o._ro - of._ro) < 10.0**-15.0
-        ), "o.flip() did not conserve physical scales and coordinate-transformation parameters"
-        assert (
-            numpy.fabs(o._vo - of._vo) < 10.0**-15.0
-        ), "o.flip() did not conserve physical scales and coordinate-transformation parameters"
+        assert numpy.fabs(o._ro - of._ro) < 10.0**-15.0, (
+            "o.flip() did not conserve physical scales and coordinate-transformation parameters"
+        )
+        assert numpy.fabs(o._vo - of._vo) < 10.0**-15.0, (
+            "o.flip() did not conserve physical scales and coordinate-transformation parameters"
+        )
         if ii == 4:
-            assert (
-                (o._zo is None) * (of._zo is None)
-            ), "o.flip() did not conserve physical scales and coordinate-transformation parameters"
-            assert (
-                (o._solarmotion is None) * (of._solarmotion is None)
-            ), "o.flip() did not conserve physical scales and coordinate-transformation parameters"
+            assert (o._zo is None) * (of._zo is None), (
+                "o.flip() did not conserve physical scales and coordinate-transformation parameters"
+            )
+            assert (o._solarmotion is None) * (of._solarmotion is None), (
+                "o.flip() did not conserve physical scales and coordinate-transformation parameters"
+            )
         else:
-            assert (
-                numpy.fabs(o._zo - of._zo) < 10.0**-15.0
-            ), "o.flip() did not conserve physical scales and coordinate-transformation parameters"
+            assert numpy.fabs(o._zo - of._zo) < 10.0**-15.0, (
+                "o.flip() did not conserve physical scales and coordinate-transformation parameters"
+            )
             assert numpy.all(
                 numpy.fabs(o._solarmotion - of._solarmotion) < 10.0**-15.0
-            ), "o.flip() did not conserve physical scales and coordinate-transformation parameters"
-        assert (
-            o._roSet == of._roSet
-        ), "o.flip() did not conserve physical scales and coordinate-transformation parameters"
-        assert (
-            o._voSet == of._voSet
-        ), "o.flip() did not conserve physical scales and coordinate-transformation parameters"
+            ), (
+                "o.flip() did not conserve physical scales and coordinate-transformation parameters"
+            )
+        assert o._roSet == of._roSet, (
+            "o.flip() did not conserve physical scales and coordinate-transformation parameters"
+        )
+        assert o._voSet == of._voSet, (
+            "o.flip() did not conserve physical scales and coordinate-transformation parameters"
+        )
         if ii == 4:
-            assert numpy.all(
-                numpy.abs(o.x() - of.x()) < 10.0**-10.0
-            ), "o.flip() did not work as expected"
-            assert numpy.all(
-                numpy.abs(o.vx() + of.vx()) < 10.0**-10.0
-            ), "o.flip() did not work as expected"
+            assert numpy.all(numpy.abs(o.x() - of.x()) < 10.0**-10.0), (
+                "o.flip() did not work as expected"
+            )
+            assert numpy.all(numpy.abs(o.vx() + of.vx()) < 10.0**-10.0), (
+                "o.flip() did not work as expected"
+            )
         else:
-            assert numpy.all(
-                numpy.abs(o.R() - of.R()) < 10.0**-10.0
-            ), "o.flip() did not work as expected"
-            assert numpy.all(
-                numpy.abs(o.vR() + of.vR()) < 10.0**-10.0
-            ), "o.flip() did not work as expected"
-            assert numpy.all(
-                numpy.abs(o.vT() + of.vT()) < 10.0**-10.0
-            ), "o.flip() did not work as expected"
+            assert numpy.all(numpy.abs(o.R() - of.R()) < 10.0**-10.0), (
+                "o.flip() did not work as expected"
+            )
+            assert numpy.all(numpy.abs(o.vR() + of.vR()) < 10.0**-10.0), (
+                "o.flip() did not work as expected"
+            )
+            assert numpy.all(numpy.abs(o.vT() + of.vT()) < 10.0**-10.0), (
+                "o.flip() did not work as expected"
+            )
         if ii % 2 == 1:
-            assert numpy.all(
-                numpy.abs(o.phi() - of.phi()) < 10.0**-10.0
-            ), "o.flip() did not work as expected"
+            assert numpy.all(numpy.abs(o.phi() - of.phi()) < 10.0**-10.0), (
+                "o.flip() did not work as expected"
+            )
         if ii < 2:
-            assert numpy.all(
-                numpy.abs(o.z() - of.z()) < 10.0**-10.0
-            ), "o.flip() did not work as expected"
-            assert numpy.all(
-                numpy.abs(o.vz() + of.vz()) < 10.0**-10.0
-            ), "o.flip() did not work as expected"
+            assert numpy.all(numpy.abs(o.z() - of.z()) < 10.0**-10.0), (
+                "o.flip() did not work as expected"
+            )
+            assert numpy.all(numpy.abs(o.vz() + of.vz()) < 10.0**-10.0), (
+                "o.flip() did not work as expected"
+            )
     return None
 
 
@@ -6723,60 +6969,62 @@ def test_flip_inplace_integrated():
         o = o(0.5)
         of = of(0.5)
         # First check that the scales have been propagated properly
-        assert (
-            numpy.fabs(o._ro - of._ro) < 10.0**-15.0
-        ), "o.flip() did not conserve physical scales and coordinate-transformation parameters"
-        assert (
-            numpy.fabs(o._vo - of._vo) < 10.0**-15.0
-        ), "o.flip() did not conserve physical scales and coordinate-transformation parameters"
+        assert numpy.fabs(o._ro - of._ro) < 10.0**-15.0, (
+            "o.flip() did not conserve physical scales and coordinate-transformation parameters"
+        )
+        assert numpy.fabs(o._vo - of._vo) < 10.0**-15.0, (
+            "o.flip() did not conserve physical scales and coordinate-transformation parameters"
+        )
         if ii == 4:
-            assert (
-                (o._zo is None) * (of._zo is None)
-            ), "o.flip() did not conserve physical scales and coordinate-transformation parameters"
-            assert (
-                (o._solarmotion is None) * (of._solarmotion is None)
-            ), "o.flip() did not conserve physical scales and coordinate-transformation parameters"
+            assert (o._zo is None) * (of._zo is None), (
+                "o.flip() did not conserve physical scales and coordinate-transformation parameters"
+            )
+            assert (o._solarmotion is None) * (of._solarmotion is None), (
+                "o.flip() did not conserve physical scales and coordinate-transformation parameters"
+            )
         else:
-            assert (
-                numpy.fabs(o._zo - of._zo) < 10.0**-15.0
-            ), "o.flip() did not conserve physical scales and coordinate-transformation parameters"
+            assert numpy.fabs(o._zo - of._zo) < 10.0**-15.0, (
+                "o.flip() did not conserve physical scales and coordinate-transformation parameters"
+            )
             assert numpy.all(
                 numpy.fabs(o._solarmotion - of._solarmotion) < 10.0**-15.0
-            ), "o.flip() did not conserve physical scales and coordinate-transformation parameters"
-        assert (
-            o._roSet == of._roSet
-        ), "o.flip() did not conserve physical scales and coordinate-transformation parameters"
-        assert (
-            o._voSet == of._voSet
-        ), "o.flip() did not conserve physical scales and coordinate-transformation parameters"
+            ), (
+                "o.flip() did not conserve physical scales and coordinate-transformation parameters"
+            )
+        assert o._roSet == of._roSet, (
+            "o.flip() did not conserve physical scales and coordinate-transformation parameters"
+        )
+        assert o._voSet == of._voSet, (
+            "o.flip() did not conserve physical scales and coordinate-transformation parameters"
+        )
         if ii == 4:
-            assert numpy.all(
-                numpy.abs(o.x() - of.x()) < 10.0**-10.0
-            ), "o.flip() did not work as expected"
-            assert numpy.all(
-                numpy.abs(o.vx() + of.vx()) < 10.0**-10.0
-            ), "o.flip() did not work as expected"
+            assert numpy.all(numpy.abs(o.x() - of.x()) < 10.0**-10.0), (
+                "o.flip() did not work as expected"
+            )
+            assert numpy.all(numpy.abs(o.vx() + of.vx()) < 10.0**-10.0), (
+                "o.flip() did not work as expected"
+            )
         else:
-            assert numpy.all(
-                numpy.abs(o.R() - of.R()) < 10.0**-10.0
-            ), "o.flip() did not work as expected"
-            assert numpy.all(
-                numpy.abs(o.vR() + of.vR()) < 10.0**-10.0
-            ), "o.flip() did not work as expected"
-            assert numpy.all(
-                numpy.abs(o.vT() + of.vT()) < 10.0**-10.0
-            ), "o.flip() did not work as expected"
+            assert numpy.all(numpy.abs(o.R() - of.R()) < 10.0**-10.0), (
+                "o.flip() did not work as expected"
+            )
+            assert numpy.all(numpy.abs(o.vR() + of.vR()) < 10.0**-10.0), (
+                "o.flip() did not work as expected"
+            )
+            assert numpy.all(numpy.abs(o.vT() + of.vT()) < 10.0**-10.0), (
+                "o.flip() did not work as expected"
+            )
         if ii % 2 == 1:
-            assert numpy.all(
-                numpy.abs(o.phi() - of.phi()) < 10.0**-10.0
-            ), "o.flip() did not work as expected"
+            assert numpy.all(numpy.abs(o.phi() - of.phi()) < 10.0**-10.0), (
+                "o.flip() did not work as expected"
+            )
         if ii < 2:
-            assert numpy.all(
-                numpy.abs(o.z() - of.z()) < 10.0**-10.0
-            ), "o.flip() did not work as expected"
-            assert numpy.all(
-                numpy.abs(o.vz() + of.vz()) < 10.0**-10.0
-            ), "o.flip() did not work as expected"
+            assert numpy.all(numpy.abs(o.z() - of.z()) < 10.0**-10.0), (
+                "o.flip() did not work as expected"
+            )
+            assert numpy.all(numpy.abs(o.vz() + of.vz()) < 10.0**-10.0), (
+                "o.flip() did not work as expected"
+            )
     return None
 
 
@@ -6822,60 +7070,62 @@ def test_flip_inplace_integrated_evaluated():
         o = o(0.52)
         of = of(0.52)
         # First check that the scales have been propagated properly
-        assert (
-            numpy.fabs(o._ro - of._ro) < 10.0**-15.0
-        ), "o.flip() did not conserve physical scales and coordinate-transformation parameters"
-        assert (
-            numpy.fabs(o._vo - of._vo) < 10.0**-15.0
-        ), "o.flip() did not conserve physical scales and coordinate-transformation parameters"
+        assert numpy.fabs(o._ro - of._ro) < 10.0**-15.0, (
+            "o.flip() did not conserve physical scales and coordinate-transformation parameters"
+        )
+        assert numpy.fabs(o._vo - of._vo) < 10.0**-15.0, (
+            "o.flip() did not conserve physical scales and coordinate-transformation parameters"
+        )
         if ii == 4:
-            assert (
-                (o._zo is None) * (of._zo is None)
-            ), "o.flip() did not conserve physical scales and coordinate-transformation parameters"
-            assert (
-                (o._solarmotion is None) * (of._solarmotion is None)
-            ), "o.flip() did not conserve physical scales and coordinate-transformation parameters"
+            assert (o._zo is None) * (of._zo is None), (
+                "o.flip() did not conserve physical scales and coordinate-transformation parameters"
+            )
+            assert (o._solarmotion is None) * (of._solarmotion is None), (
+                "o.flip() did not conserve physical scales and coordinate-transformation parameters"
+            )
         else:
-            assert (
-                numpy.fabs(o._zo - of._zo) < 10.0**-15.0
-            ), "o.flip() did not conserve physical scales and coordinate-transformation parameters"
+            assert numpy.fabs(o._zo - of._zo) < 10.0**-15.0, (
+                "o.flip() did not conserve physical scales and coordinate-transformation parameters"
+            )
             assert numpy.all(
                 numpy.fabs(o._solarmotion - of._solarmotion) < 10.0**-15.0
-            ), "o.flip() did not conserve physical scales and coordinate-transformation parameters"
-        assert (
-            o._roSet == of._roSet
-        ), "o.flip() did not conserve physical scales and coordinate-transformation parameters"
-        assert (
-            o._voSet == of._voSet
-        ), "o.flip() did not conserve physical scales and coordinate-transformation parameters"
+            ), (
+                "o.flip() did not conserve physical scales and coordinate-transformation parameters"
+            )
+        assert o._roSet == of._roSet, (
+            "o.flip() did not conserve physical scales and coordinate-transformation parameters"
+        )
+        assert o._voSet == of._voSet, (
+            "o.flip() did not conserve physical scales and coordinate-transformation parameters"
+        )
         if ii == 4:
-            assert numpy.all(
-                numpy.abs(o.x() - of.x()) < 10.0**-10.0
-            ), "o.flip() did not work as expected"
-            assert numpy.all(
-                numpy.abs(o.vx() + of.vx()) < 10.0**-10.0
-            ), "o.flip() did not work as expected"
+            assert numpy.all(numpy.abs(o.x() - of.x()) < 10.0**-10.0), (
+                "o.flip() did not work as expected"
+            )
+            assert numpy.all(numpy.abs(o.vx() + of.vx()) < 10.0**-10.0), (
+                "o.flip() did not work as expected"
+            )
         else:
-            assert numpy.all(
-                numpy.abs(o.R() - of.R()) < 10.0**-10.0
-            ), "o.flip() did not work as expected"
-            assert numpy.all(
-                numpy.abs(o.vR() + of.vR()) < 10.0**-10.0
-            ), "o.flip() did not work as expected"
-            assert numpy.all(
-                numpy.abs(o.vT() + of.vT()) < 10.0**-10.0
-            ), "o.flip() did not work as expected"
+            assert numpy.all(numpy.abs(o.R() - of.R()) < 10.0**-10.0), (
+                "o.flip() did not work as expected"
+            )
+            assert numpy.all(numpy.abs(o.vR() + of.vR()) < 10.0**-10.0), (
+                "o.flip() did not work as expected"
+            )
+            assert numpy.all(numpy.abs(o.vT() + of.vT()) < 10.0**-10.0), (
+                "o.flip() did not work as expected"
+            )
         if ii % 2 == 1:
-            assert numpy.all(
-                numpy.abs(o.phi() - of.phi()) < 10.0**-10.0
-            ), "o.flip() did not work as expected"
+            assert numpy.all(numpy.abs(o.phi() - of.phi()) < 10.0**-10.0), (
+                "o.flip() did not work as expected"
+            )
         if ii < 2:
-            assert numpy.all(
-                numpy.abs(o.z() - of.z()) < 10.0**-10.0
-            ), "o.flip() did not work as expected"
-            assert numpy.all(
-                numpy.abs(o.vz() + of.vz()) < 10.0**-10.0
-            ), "o.flip() did not work as expected"
+            assert numpy.all(numpy.abs(o.z() - of.z()) < 10.0**-10.0), (
+                "o.flip() did not work as expected"
+            )
+            assert numpy.all(numpy.abs(o.vz() + of.vz()) < 10.0**-10.0), (
+                "o.flip() did not work as expected"
+            )
     return None
 
 
@@ -6895,24 +7145,24 @@ def test_getOrbit():
     vzs = o.vz(times)
     phis = o.phi(times)
     orbarray = o.getOrbit()
-    assert (
-        numpy.all(numpy.fabs(Rs - orbarray[..., 0])) < 10.0**-16.0
-    ), "getOrbit does not work as expected for R"
-    assert (
-        numpy.all(numpy.fabs(vRs - orbarray[..., 1])) < 10.0**-16.0
-    ), "getOrbit does not work as expected for vR"
-    assert (
-        numpy.all(numpy.fabs(vTs - orbarray[..., 2])) < 10.0**-16.0
-    ), "getOrbit does not work as expected for vT"
-    assert (
-        numpy.all(numpy.fabs(zs - orbarray[..., 3])) < 10.0**-16.0
-    ), "getOrbit does not work as expected for z"
-    assert (
-        numpy.all(numpy.fabs(vzs - orbarray[..., 4])) < 10.0**-16.0
-    ), "getOrbit does not work as expected for vz"
-    assert (
-        numpy.all(numpy.fabs(phis - orbarray[..., 5])) < 10.0**-16.0
-    ), "getOrbit does not work as expected for phi"
+    assert numpy.all(numpy.fabs(Rs - orbarray[..., 0])) < 10.0**-16.0, (
+        "getOrbit does not work as expected for R"
+    )
+    assert numpy.all(numpy.fabs(vRs - orbarray[..., 1])) < 10.0**-16.0, (
+        "getOrbit does not work as expected for vR"
+    )
+    assert numpy.all(numpy.fabs(vTs - orbarray[..., 2])) < 10.0**-16.0, (
+        "getOrbit does not work as expected for vT"
+    )
+    assert numpy.all(numpy.fabs(zs - orbarray[..., 3])) < 10.0**-16.0, (
+        "getOrbit does not work as expected for z"
+    )
+    assert numpy.all(numpy.fabs(vzs - orbarray[..., 4])) < 10.0**-16.0, (
+        "getOrbit does not work as expected for vz"
+    )
+    assert numpy.all(numpy.fabs(phis - orbarray[..., 5])) < 10.0**-16.0, (
+        "getOrbit does not work as expected for phi"
+    )
     return None
 
 
@@ -6949,18 +7199,18 @@ def test_EccZmaxRperiRap_num_againstorbit_3d():
     os.integrate(times, MWPotential2014)
     [o.integrate(times, MWPotential2014) for o in list_os]
     for ii in range(nrand):
-        assert numpy.all(
-            numpy.fabs(os.e()[ii] - list_os[ii].e()) < 1e-10
-        ), "Evaluating Orbits e does not agree with Orbit"
-        assert numpy.all(
-            numpy.fabs(os.zmax()[ii] - list_os[ii].zmax()) < 1e-10
-        ), "Evaluating Orbits zmax does not agree with Orbit"
-        assert numpy.all(
-            numpy.fabs(os.rperi()[ii] - list_os[ii].rperi()) < 1e-10
-        ), "Evaluating Orbits rperi does not agree with Orbit"
-        assert numpy.all(
-            numpy.fabs(os.rap()[ii] - list_os[ii].rap()) < 1e-10
-        ), "Evaluating Orbits rap does not agree with Orbit"
+        assert numpy.all(numpy.fabs(os.e()[ii] - list_os[ii].e()) < 1e-10), (
+            "Evaluating Orbits e does not agree with Orbit"
+        )
+        assert numpy.all(numpy.fabs(os.zmax()[ii] - list_os[ii].zmax()) < 1e-10), (
+            "Evaluating Orbits zmax does not agree with Orbit"
+        )
+        assert numpy.all(numpy.fabs(os.rperi()[ii] - list_os[ii].rperi()) < 1e-10), (
+            "Evaluating Orbits rperi does not agree with Orbit"
+        )
+        assert numpy.all(numpy.fabs(os.rap()[ii] - list_os[ii].rap()) < 1e-10), (
+            "Evaluating Orbits rap does not agree with Orbit"
+        )
     return None
 
 
@@ -6981,15 +7231,15 @@ def test_EccZmaxRperiRap_num_againstorbit_2d():
     os.integrate(times, MWPotential2014)
     [o.integrate(times, MWPotential2014) for o in list_os]
     for ii in range(nrand):
-        assert numpy.all(
-            numpy.fabs(os.e()[ii] - list_os[ii].e()) < 1e-10
-        ), "Evaluating Orbits e does not agree with Orbit"
-        assert numpy.all(
-            numpy.fabs(os.rperi()[ii] - list_os[ii].rperi()) < 1e-10
-        ), "Evaluating Orbits rperi does not agree with Orbit"
-        assert numpy.all(
-            numpy.fabs(os.rap()[ii] - list_os[ii].rap()) < 1e-10
-        ), "Evaluating Orbits rap does not agree with Orbit"
+        assert numpy.all(numpy.fabs(os.e()[ii] - list_os[ii].e()) < 1e-10), (
+            "Evaluating Orbits e does not agree with Orbit"
+        )
+        assert numpy.all(numpy.fabs(os.rperi()[ii] - list_os[ii].rperi()) < 1e-10), (
+            "Evaluating Orbits rperi does not agree with Orbit"
+        )
+        assert numpy.all(numpy.fabs(os.rap()[ii] - list_os[ii].rap()) < 1e-10), (
+            "Evaluating Orbits rap does not agree with Orbit"
+        )
     return None
 
 
@@ -7029,28 +7279,36 @@ def test_EccZmaxRperiRap_analytic_againstorbit_3d():
                     - list_os[ii].e(pot=MWPotential2014, analytic=True, type=type)
                 )
                 < 1e-10
-            ), f"Evaluating Orbits e analytically does not agree with Orbit for type={type}"
+            ), (
+                f"Evaluating Orbits e analytically does not agree with Orbit for type={type}"
+            )
         assert numpy.all(
             numpy.fabs(
                 os.zmax(pot=MWPotential2014, analytic=True, type=type)[ii]
                 - list_os[ii].zmax(pot=MWPotential2014, analytic=True, type=type)
             )
             < 1e-10
-        ), f"Evaluating Orbits zmax analytically does not agree with Orbit for type={type}"
+        ), (
+            f"Evaluating Orbits zmax analytically does not agree with Orbit for type={type}"
+        )
         assert numpy.all(
             numpy.fabs(
                 os.rperi(pot=MWPotential2014, analytic=True, type=type)[ii]
                 - list_os[ii].rperi(pot=MWPotential2014, analytic=True, type=type)
             )
             < 1e-10
-        ), f"Evaluating Orbits rperi analytically does not agree with Orbit for type={type}"
+        ), (
+            f"Evaluating Orbits rperi analytically does not agree with Orbit for type={type}"
+        )
         assert numpy.all(
             numpy.fabs(
                 os.rap(pot=MWPotential2014, analytic=True, type=type)[ii]
                 - list_os[ii].rap(pot=MWPotential2014, analytic=True, type=type)
             )
             < 1e-10
-        ), f"Evaluating Orbits rap analytically does not agree with Orbit for type={type}"
+        ), (
+            f"Evaluating Orbits rap analytically does not agree with Orbit for type={type}"
+        )
     return None
 
 
@@ -7076,21 +7334,27 @@ def test_EccZmaxRperiRap_analytic_againstorbit_2d():
                     - list_os[ii].e(pot=MWPotential2014, analytic=True)
                 )
                 < 1e-10
-            ), f"Evaluating Orbits e analytically does not agree with Orbit for type={type}"
+            ), (
+                f"Evaluating Orbits e analytically does not agree with Orbit for type={type}"
+            )
         assert numpy.all(
             numpy.fabs(
                 os.rperi(pot=MWPotential2014, analytic=True, type=type)[ii]
                 - list_os[ii].rperi(pot=MWPotential2014, analytic=True, type=type)
             )
             < 1e-10
-        ), f"Evaluating Orbits rperi analytically does not agree with Orbit for type={type}"
+        ), (
+            f"Evaluating Orbits rperi analytically does not agree with Orbit for type={type}"
+        )
         assert numpy.all(
             numpy.fabs(
                 os.rap(pot=MWPotential2014, analytic=True, type=type)[ii]
                 - list_os[ii].rap(pot=MWPotential2014, analytic=True)
             )
             < 1e-10
-        ), f"Evaluating Orbits rap analytically does not agree with Orbit for type={type}"
+        ), (
+            f"Evaluating Orbits rap analytically does not agree with Orbit for type={type}"
+        )
     return None
 
 
@@ -7334,7 +7598,9 @@ def test_actionsFreqsAngles_againstorbit_3d():
                     - 1.0
                 )
                 < 10.0 ** tol[type]
-            ), f"Evaluating Orbits jr analytically does not agree with Orbit for type={type}"
+            ), (
+                f"Evaluating Orbits jr analytically does not agree with Orbit for type={type}"
+            )
             assert numpy.all(
                 numpy.fabs(
                     os.jp(pot=MWPotential2014, analytic=True, type=type, b=0.8)[ii]
@@ -7344,7 +7610,9 @@ def test_actionsFreqsAngles_againstorbit_3d():
                     - 1.0
                 )
                 < 10.0 ** tol[type]
-            ), f"Evaluating Orbits jp analytically does not agree with Orbit for type={type}"
+            ), (
+                f"Evaluating Orbits jp analytically does not agree with Orbit for type={type}"
+            )
             assert numpy.all(
                 numpy.fabs(
                     os.jz(pot=MWPotential2014, analytic=True, type=type, b=0.8)[ii]
@@ -7354,7 +7622,9 @@ def test_actionsFreqsAngles_againstorbit_3d():
                     - 1.0
                 )
                 < 10.0 ** tol[type]
-            ), f"Evaluating Orbits jz analytically does not agree with Orbit for type={type}"
+            ), (
+                f"Evaluating Orbits jz analytically does not agree with Orbit for type={type}"
+            )
             assert numpy.all(
                 numpy.fabs(
                     os.wr(pot=MWPotential2014, analytic=True, type=type, b=0.8)[ii]
@@ -7364,7 +7634,9 @@ def test_actionsFreqsAngles_againstorbit_3d():
                     - 1.0
                 )
                 < 1e-10
-            ), f"Evaluating Orbits wr analytically does not agree with Orbit for type={type}"
+            ), (
+                f"Evaluating Orbits wr analytically does not agree with Orbit for type={type}"
+            )
             assert numpy.all(
                 numpy.fabs(
                     os.wp(pot=MWPotential2014, analytic=True, type=type, b=0.8)[ii]
@@ -7374,7 +7646,9 @@ def test_actionsFreqsAngles_againstorbit_3d():
                     - 1.0
                 )
                 < 1e-10
-            ), f"Evaluating Orbits wp analytically does not agree with Orbit for type={type}"
+            ), (
+                f"Evaluating Orbits wp analytically does not agree with Orbit for type={type}"
+            )
             assert numpy.all(
                 numpy.fabs(
                     os.wz(pot=MWPotential2014, analytic=True, type=type, b=0.8)[ii]
@@ -7384,7 +7658,9 @@ def test_actionsFreqsAngles_againstorbit_3d():
                     - 1.0
                 )
                 < 1e-10
-            ), f"Evaluating Orbits wz analytically does not agree with Orbit for type={type}"
+            ), (
+                f"Evaluating Orbits wz analytically does not agree with Orbit for type={type}"
+            )
             assert numpy.all(
                 numpy.fabs(
                     os.Or(pot=MWPotential2014, analytic=True, type=type, b=0.8)[ii]
@@ -7394,7 +7670,9 @@ def test_actionsFreqsAngles_againstorbit_3d():
                     - 1.0
                 )
                 < 1e-10
-            ), f"Evaluating Orbits Or analytically does not agree with Orbit for type={type}"
+            ), (
+                f"Evaluating Orbits Or analytically does not agree with Orbit for type={type}"
+            )
             assert numpy.all(
                 numpy.fabs(
                     os.Op(pot=MWPotential2014, analytic=True, type=type, b=0.8)[ii]
@@ -7404,7 +7682,9 @@ def test_actionsFreqsAngles_againstorbit_3d():
                     - 1.0
                 )
                 < 1e-10
-            ), f"Evaluating Orbits Op analytically does not agree with Orbit for type={type}"
+            ), (
+                f"Evaluating Orbits Op analytically does not agree with Orbit for type={type}"
+            )
             assert numpy.all(
                 numpy.fabs(
                     os.Oz(pot=MWPotential2014, analytic=True, type=type, b=0.8)[ii]
@@ -7414,7 +7694,9 @@ def test_actionsFreqsAngles_againstorbit_3d():
                     - 1.0
                 )
                 < 1e-10
-            ), f"Evaluating Orbits Oz analytically does not agree with Orbit for type={type}"
+            ), (
+                f"Evaluating Orbits Oz analytically does not agree with Orbit for type={type}"
+            )
             assert numpy.all(
                 numpy.fabs(
                     os.Tr(pot=MWPotential2014, analytic=True, type=type, b=0.8)[ii]
@@ -7424,7 +7706,9 @@ def test_actionsFreqsAngles_againstorbit_3d():
                     - 1.0
                 )
                 < 1e-10
-            ), f"Evaluating Orbits Tr analytically does not agree with Orbit for type={type}"
+            ), (
+                f"Evaluating Orbits Tr analytically does not agree with Orbit for type={type}"
+            )
             assert numpy.all(
                 numpy.fabs(
                     os.Tp(pot=MWPotential2014, analytic=True, type=type, b=0.8)[ii]
@@ -7434,7 +7718,9 @@ def test_actionsFreqsAngles_againstorbit_3d():
                     - 1.0
                 )
                 < 1e-10
-            ), f"Evaluating Orbits Tp analytically does not agree with Orbit for type={type}"
+            ), (
+                f"Evaluating Orbits Tp analytically does not agree with Orbit for type={type}"
+            )
             assert numpy.all(
                 numpy.fabs(
                     os.TrTp(pot=MWPotential2014, analytic=True, type=type, b=0.8)[ii]
@@ -7444,7 +7730,9 @@ def test_actionsFreqsAngles_againstorbit_3d():
                     - 1.0
                 )
                 < 1e-10
-            ), f"Evaluating Orbits TrTp analytically does not agree with Orbit for type={type}"
+            ), (
+                f"Evaluating Orbits TrTp analytically does not agree with Orbit for type={type}"
+            )
             assert numpy.all(
                 numpy.fabs(
                     os.Tz(pot=MWPotential2014, analytic=True, type=type, b=0.8)[ii]
@@ -7454,7 +7742,9 @@ def test_actionsFreqsAngles_againstorbit_3d():
                     - 1.0
                 )
                 < 1e-10
-            ), f"Evaluating Orbits Tz analytically does not agree with Orbit for type={type}"
+            ), (
+                f"Evaluating Orbits Tz analytically does not agree with Orbit for type={type}"
+            )
             if type == "isochroneApprox":
                 break  # otherwise takes too long
     return None
@@ -7523,7 +7813,9 @@ def test_actionsFreqsAngles_againstorbit_2d():
                     - 1.0
                 )
                 < 10.0 ** tol[type]
-            ), f"Evaluating Orbits jr analytically does not agree with Orbit for type={type}"
+            ), (
+                f"Evaluating Orbits jr analytically does not agree with Orbit for type={type}"
+            )
             assert numpy.all(
                 numpy.fabs(
                     os.jp(pot=MWPotential2014, analytic=True, type=type, b=0.8)[ii]
@@ -7533,7 +7825,9 @@ def test_actionsFreqsAngles_againstorbit_2d():
                     - 1.0
                 )
                 < 10.0 ** tol[type]
-            ), f"Evaluating Orbits jp analytically does not agree with Orbit for type={type}"
+            ), (
+                f"Evaluating Orbits jp analytically does not agree with Orbit for type={type}"
+            )
             # zero, so don't divide, also doesn't work for isochroneapprox now
             if not type == "isochroneApprox":
                 assert numpy.all(
@@ -7544,7 +7838,9 @@ def test_actionsFreqsAngles_againstorbit_2d():
                         )
                     )
                     < 10.0 ** tol[type]
-                ), f"Evaluating Orbits jz analytically does not agree with Orbit for type={type}"
+                ), (
+                    f"Evaluating Orbits jz analytically does not agree with Orbit for type={type}"
+                )
                 assert numpy.all(
                     numpy.fabs(
                         os.wr(pot=MWPotential2014, analytic=True, type=type, b=0.8)[ii]
@@ -7554,7 +7850,9 @@ def test_actionsFreqsAngles_againstorbit_2d():
                         - 1.0
                     )
                     < 1e-10
-                ), f"Evaluating Orbits wr analytically does not agree with Orbit for type={type}"
+                ), (
+                    f"Evaluating Orbits wr analytically does not agree with Orbit for type={type}"
+                )
                 # Think I may have fixed wp = NaN?
                 # assert numpy.all(numpy.fabs(os.wp(pot=MWPotential2014,analytic=True,type=type,b=0.8)[ii]/list_os[ii].wp(pot=MWPotential2014,analytic=True,type=type,b=0.8)-1.) < 1e-10), 'Evaluating Orbits wp analytically does not agree with Orbit for type={}'.format(type)
                 # assert numpy.all(numpy.fabs(os.wz(pot=MWPotential2014,analytic=True,type=type,b=0.8)[ii]/list_os[ii].wz(pot=MWPotential2014,analytic=True,type=type,b=0.8)-1.) < 1e-10), 'Evaluating Orbits wz analytically does not agree with Orbit for type={}'.format(type)
@@ -7567,7 +7865,9 @@ def test_actionsFreqsAngles_againstorbit_2d():
                         - 1.0
                     )
                     < 1e-10
-                ), f"Evaluating Orbits Or analytically does not agree with Orbit for type={type}"
+                ), (
+                    f"Evaluating Orbits Or analytically does not agree with Orbit for type={type}"
+                )
                 assert numpy.all(
                     numpy.fabs(
                         os.Op(pot=MWPotential2014, analytic=True, type=type, b=0.8)[ii]
@@ -7577,7 +7877,9 @@ def test_actionsFreqsAngles_againstorbit_2d():
                         - 1.0
                     )
                     < 1e-10
-                ), f"Evaluating Orbits Op analytically does not agree with Orbit for type={type}"
+                ), (
+                    f"Evaluating Orbits Op analytically does not agree with Orbit for type={type}"
+                )
                 assert numpy.all(
                     numpy.fabs(
                         os.Oz(pot=MWPotential2014, analytic=True, type=type, b=0.8)[ii]
@@ -7587,7 +7889,9 @@ def test_actionsFreqsAngles_againstorbit_2d():
                         - 1.0
                     )
                     < 1e-10
-                ), f"Evaluating Orbits Oz analytically does not agree with Orbit for type={type}"
+                ), (
+                    f"Evaluating Orbits Oz analytically does not agree with Orbit for type={type}"
+                )
                 assert numpy.all(
                     numpy.fabs(
                         os.Tr(pot=MWPotential2014, analytic=True, type=type, b=0.8)[ii]
@@ -7597,7 +7901,9 @@ def test_actionsFreqsAngles_againstorbit_2d():
                         - 1.0
                     )
                     < 1e-10
-                ), f"Evaluating Orbits Tr analytically does not agree with Orbit for type={type}"
+                ), (
+                    f"Evaluating Orbits Tr analytically does not agree with Orbit for type={type}"
+                )
                 assert numpy.all(
                     numpy.fabs(
                         os.Tp(pot=MWPotential2014, analytic=True, type=type, b=0.8)[ii]
@@ -7607,7 +7913,9 @@ def test_actionsFreqsAngles_againstorbit_2d():
                         - 1.0
                     )
                     < 1e-10
-                ), f"Evaluating Orbits Tp analytically does not agree with Orbit for type={type}"
+                ), (
+                    f"Evaluating Orbits Tp analytically does not agree with Orbit for type={type}"
+                )
                 assert numpy.all(
                     numpy.fabs(
                         os.TrTp(pot=MWPotential2014, analytic=True, type=type, b=0.8)[
@@ -7619,7 +7927,9 @@ def test_actionsFreqsAngles_againstorbit_2d():
                         - 1.0
                     )
                     < 1e-10
-                ), f"Evaluating Orbits TrTp analytically does not agree with Orbit for type={type}"
+                ), (
+                    f"Evaluating Orbits TrTp analytically does not agree with Orbit for type={type}"
+                )
                 assert numpy.all(
                     numpy.fabs(
                         os.Tz(pot=MWPotential2014, analytic=True, type=type, b=0.8)[ii]
@@ -7629,7 +7939,9 @@ def test_actionsFreqsAngles_againstorbit_2d():
                         - 1.0
                     )
                     < 1e-10
-                ), f"Evaluating Orbits Tz analytically does not agree with Orbit for type={type}"
+                ), (
+                    f"Evaluating Orbits Tz analytically does not agree with Orbit for type={type}"
+                )
             if type == "isochroneApprox":
                 break  # otherwise takes too long
     return None
@@ -7707,7 +8019,9 @@ def test_actionsFreqsAngles_output_shape():
                             - 1.0
                         )
                         < 10.0 ** tol[type]
-                    ), f"Evaluating Orbits jr analytically does not agree with Orbit for type={type}"
+                    ), (
+                        f"Evaluating Orbits jr analytically does not agree with Orbit for type={type}"
+                    )
                     assert numpy.all(
                         numpy.fabs(
                             tjp[ii, jj, kk]
@@ -7717,7 +8031,9 @@ def test_actionsFreqsAngles_output_shape():
                             - 1.0
                         )
                         < 10.0 ** tol[type]
-                    ), f"Evaluating Orbits jp analytically does not agree with Orbit for type={type}"
+                    ), (
+                        f"Evaluating Orbits jp analytically does not agree with Orbit for type={type}"
+                    )
                     assert numpy.all(
                         numpy.fabs(
                             tjz[ii, jj, kk]
@@ -7727,7 +8043,9 @@ def test_actionsFreqsAngles_output_shape():
                             - 1.0
                         )
                         < 10.0 ** tol[type]
-                    ), f"Evaluating Orbits jz analytically does not agree with Orbit for type={type}"
+                    ), (
+                        f"Evaluating Orbits jz analytically does not agree with Orbit for type={type}"
+                    )
                     assert numpy.all(
                         numpy.fabs(
                             twr[ii, jj, kk]
@@ -7737,7 +8055,9 @@ def test_actionsFreqsAngles_output_shape():
                             - 1.0
                         )
                         < 1e-10
-                    ), f"Evaluating Orbits wr analytically does not agree with Orbit for type={type}"
+                    ), (
+                        f"Evaluating Orbits wr analytically does not agree with Orbit for type={type}"
+                    )
                     assert numpy.all(
                         numpy.fabs(
                             twp[ii, jj, kk]
@@ -7747,7 +8067,9 @@ def test_actionsFreqsAngles_output_shape():
                             - 1.0
                         )
                         < 1e-10
-                    ), f"Evaluating Orbits wp analytically does not agree with Orbit for type={type}"
+                    ), (
+                        f"Evaluating Orbits wp analytically does not agree with Orbit for type={type}"
+                    )
                     assert numpy.all(
                         numpy.fabs(
                             twz[ii, jj, kk]
@@ -7757,7 +8079,9 @@ def test_actionsFreqsAngles_output_shape():
                             - 1.0
                         )
                         < 1e-10
-                    ), f"Evaluating Orbits wz analytically does not agree with Orbit for type={type}"
+                    ), (
+                        f"Evaluating Orbits wz analytically does not agree with Orbit for type={type}"
+                    )
                     assert numpy.all(
                         numpy.fabs(
                             tOr[ii, jj, kk]
@@ -7767,7 +8091,9 @@ def test_actionsFreqsAngles_output_shape():
                             - 1.0
                         )
                         < 1e-10
-                    ), f"Evaluating Orbits Or analytically does not agree with Orbit for type={type}"
+                    ), (
+                        f"Evaluating Orbits Or analytically does not agree with Orbit for type={type}"
+                    )
                     assert numpy.all(
                         numpy.fabs(
                             tOp[ii, jj, kk]
@@ -7777,7 +8103,9 @@ def test_actionsFreqsAngles_output_shape():
                             - 1.0
                         )
                         < 1e-10
-                    ), f"Evaluating Orbits Op analytically does not agree with Orbit for type={type}"
+                    ), (
+                        f"Evaluating Orbits Op analytically does not agree with Orbit for type={type}"
+                    )
                     assert numpy.all(
                         numpy.fabs(
                             tOz[ii, jj, kk]
@@ -7787,7 +8115,9 @@ def test_actionsFreqsAngles_output_shape():
                             - 1.0
                         )
                         < 1e-10
-                    ), f"Evaluating Orbits Oz analytically does not agree with Orbit for type={type}"
+                    ), (
+                        f"Evaluating Orbits Oz analytically does not agree with Orbit for type={type}"
+                    )
                     assert numpy.all(
                         numpy.fabs(
                             tTr[ii, jj, kk]
@@ -7797,7 +8127,9 @@ def test_actionsFreqsAngles_output_shape():
                             - 1.0
                         )
                         < 1e-10
-                    ), f"Evaluating Orbits Tr analytically does not agree with Orbit for type={type}"
+                    ), (
+                        f"Evaluating Orbits Tr analytically does not agree with Orbit for type={type}"
+                    )
                     assert numpy.all(
                         numpy.fabs(
                             tTp[ii, jj, kk]
@@ -7807,7 +8139,9 @@ def test_actionsFreqsAngles_output_shape():
                             - 1.0
                         )
                         < 1e-10
-                    ), f"Evaluating Orbits Tp analytically does not agree with Orbit for type={type}"
+                    ), (
+                        f"Evaluating Orbits Tp analytically does not agree with Orbit for type={type}"
+                    )
                     assert numpy.all(
                         numpy.fabs(
                             tTrTp[ii, jj, kk]
@@ -7817,7 +8151,9 @@ def test_actionsFreqsAngles_output_shape():
                             - 1.0
                         )
                         < 1e-10
-                    ), f"Evaluating Orbits TrTp analytically does not agree with Orbit for type={type}"
+                    ), (
+                        f"Evaluating Orbits TrTp analytically does not agree with Orbit for type={type}"
+                    )
                     assert numpy.all(
                         numpy.fabs(
                             tTz[ii, jj, kk]
@@ -7827,7 +8163,9 @@ def test_actionsFreqsAngles_output_shape():
                             - 1.0
                         )
                         < 1e-10
-                    ), f"Evaluating Orbits Tz analytically does not agree with Orbit for type={type}"
+                    ), (
+                        f"Evaluating Orbits Tz analytically does not agree with Orbit for type={type}"
+                    )
                     if type == "isochroneApprox":
                         break  # otherwise takes too long
     return None
@@ -7844,18 +8182,18 @@ def test_actionsFreqsAngles_staeckeldelta():
     jr = os.jr(delta=0.4, pot=MWPotential2014)
     # Now without, should be different
     jrn = os.jr(pot=MWPotential2014)
-    assert numpy.all(
-        numpy.fabs(jr - jrn) > 1e-4
-    ), "Action calculation in Orbits using Staeckel approximation not updated when going from specifying delta to not specifying it"
+    assert numpy.all(numpy.fabs(jr - jrn) > 1e-4), (
+        "Action calculation in Orbits using Staeckel approximation not updated when going from specifying delta to not specifying it"
+    )
     # Again, now the other way around
     os = Orbit([None, None])  # Just twice the Sun!
     # First without delta
     jrn = os.jr(pot=MWPotential2014)
     # Now with, should be different
     jr = os.jr(delta=0.4, pot=MWPotential2014)
-    assert numpy.all(
-        numpy.fabs(jr - jrn) > 1e-4
-    ), "Action calculation in Orbits using Staeckel approximation not updated when going from specifying delta to not specifying it"
+    assert numpy.all(numpy.fabs(jr - jrn) > 1e-4), (
+        "Action calculation in Orbits using Staeckel approximation not updated when going from specifying delta to not specifying it"
+    )
     return None
 
 
@@ -7870,39 +8208,57 @@ def test_actionsFreqsAngles_staeckeldeltaequalzero():
     assert numpy.all(
         numpy.fabs(os.jr(pot=lp, type="staeckel") - os.jr(pot=lp, type="spherical"))
         < 1e-8
-    ), "Action-angle function for staeckel method with spherical potential is not equal to actionAngleSpherical"
+    ), (
+        "Action-angle function for staeckel method with spherical potential is not equal to actionAngleSpherical"
+    )
     assert numpy.all(
         numpy.fabs(os.jp(pot=lp, type="staeckel") - os.jp(pot=lp, type="spherical"))
         < 1e-8
-    ), "Action-angle function for staeckel method with spherical potential is not equal to actionAngleSpherical"
+    ), (
+        "Action-angle function for staeckel method with spherical potential is not equal to actionAngleSpherical"
+    )
     assert numpy.all(
         numpy.fabs(os.jz(pot=lp, type="staeckel") - os.jz(pot=lp, type="spherical"))
         < 1e-8
-    ), "Action-angle function for staeckel method with spherical potential is not equal to actionAngleSpherical"
+    ), (
+        "Action-angle function for staeckel method with spherical potential is not equal to actionAngleSpherical"
+    )
     assert numpy.all(
         numpy.fabs(os.wr(pot=lp, type="staeckel") - os.wr(pot=lp, type="spherical"))
         < 1e-8
-    ), "Action-angle function for staeckel method with spherical potential is not equal to actionAngleSpherical"
+    ), (
+        "Action-angle function for staeckel method with spherical potential is not equal to actionAngleSpherical"
+    )
     assert numpy.all(
         numpy.fabs(os.wp(pot=lp, type="staeckel") - os.wp(pot=lp, type="spherical"))
         < 1e-8
-    ), "Action-angle function for staeckel method with spherical potential is not equal to actionAngleSpherical"
+    ), (
+        "Action-angle function for staeckel method with spherical potential is not equal to actionAngleSpherical"
+    )
     assert numpy.all(
         numpy.fabs(os.wz(pot=lp, type="staeckel") - os.wz(pot=lp, type="spherical"))
         < 1e-8
-    ), "Action-angle function for staeckel method with spherical potential is not equal to actionAngleSpherical"
+    ), (
+        "Action-angle function for staeckel method with spherical potential is not equal to actionAngleSpherical"
+    )
     assert numpy.all(
         numpy.fabs(os.Tr(pot=lp, type="staeckel") - os.Tr(pot=lp, type="spherical"))
         < 1e-8
-    ), "Action-angle function for staeckel method with spherical potential is not equal to actionAngleSpherical"
+    ), (
+        "Action-angle function for staeckel method with spherical potential is not equal to actionAngleSpherical"
+    )
     assert numpy.all(
         numpy.fabs(os.Tp(pot=lp, type="staeckel") - os.Tp(pot=lp, type="spherical"))
         < 1e-8
-    ), "Action-angle function for staeckel method with spherical potential is not equal to actionAngleSpherical"
+    ), (
+        "Action-angle function for staeckel method with spherical potential is not equal to actionAngleSpherical"
+    )
     assert numpy.all(
         numpy.fabs(os.Tz(pot=lp, type="staeckel") - os.Tz(pot=lp, type="spherical"))
         < 1e-8
-    ), "Action-angle function for staeckel method with spherical potential is not equal to actionAngleSpherical"
+    ), (
+        "Action-angle function for staeckel method with spherical potential is not equal to actionAngleSpherical"
+    )
     return None
 
 
@@ -7917,9 +8273,9 @@ def test_actionsFreqsAngles_isochroneapproxb():
     jr = os.jr(type="isochroneapprox", b=0.8, pot=MWPotential2014)
     # Now with another b, should be different
     jrn = os.jr(type="isochroneapprox", b=1.8, pot=MWPotential2014)
-    assert numpy.all(
-        numpy.fabs(jr - jrn) > 1e-4
-    ), "Action calculation in Orbits using isochroneapprox approximation not updated when going from specifying b to not specifying it"
+    assert numpy.all(numpy.fabs(jr - jrn) > 1e-4), (
+        "Action calculation in Orbits using isochroneapprox approximation not updated when going from specifying b to not specifying it"
+    )
     # Again, now specifying ip
     os = Orbit([None, None])  # Just twice the Sun!
     # First with one
@@ -7934,9 +8290,9 @@ def test_actionsFreqsAngles_isochroneapproxb():
         type="isochroneapprox",
         ip=IsochronePotential(normalize=0.99, b=1.8),
     )
-    assert numpy.all(
-        numpy.fabs(jr - jrn) > 1e-4
-    ), "Action calculation in Orbits using isochroneapprox approximation not updated when going from specifying delta to not specifying it"
+    assert numpy.all(numpy.fabs(jr - jrn) > 1e-4), (
+        "Action calculation in Orbits using isochroneapprox approximation not updated when going from specifying delta to not specifying it"
+    )
     return None
 
 
@@ -7983,9 +8339,9 @@ def test_ChandrasekharDynamicalFrictionForce_constLambda():
     r_pred = numpy.sqrt(
         numpy.array(o.r()) ** 2.0 - 0.604 * const_lnLambda * GMs * numpy.sqrt(2.0) * dt
     )
-    assert numpy.all(
-        numpy.fabs(r_pred - numpy.array(o.r(ts[-1]))) < 0.015
-    ), "ChandrasekharDynamicalFrictionForce with constant lnLambda for circular orbits does not agree with analytical prediction"
+    assert numpy.all(numpy.fabs(r_pred - numpy.array(o.r(ts[-1]))) < 0.015), (
+        "ChandrasekharDynamicalFrictionForce with constant lnLambda for circular orbits does not agree with analytical prediction"
+    )
     return None
 
 
@@ -7996,30 +8352,30 @@ def test_toPlanar():
     obs = Orbit([[1.0, 0.1, 1.1, 0.3, 0.0, 2.0], [1.0, -0.2, 1.3, -0.3, 0.0, 5.0]])
     obsp = obs.toPlanar()
     assert obsp.dim() == 2, "toPlanar does not generate an Orbit w/ dim=2 for FullOrbit"
-    assert numpy.all(
-        obsp.R() == obs.R()
-    ), "Planar orbit generated w/ toPlanar does not have the correct R"
-    assert numpy.all(
-        obsp.vR() == obs.vR()
-    ), "Planar orbit generated w/ toPlanar does not have the correct vR"
-    assert numpy.all(
-        obsp.vT() == obs.vT()
-    ), "Planar orbit generated w/ toPlanar does not have the correct vT"
-    assert numpy.all(
-        obsp.phi() == obs.phi()
-    ), "Planar orbit generated w/ toPlanar does not have the correct phi"
+    assert numpy.all(obsp.R() == obs.R()), (
+        "Planar orbit generated w/ toPlanar does not have the correct R"
+    )
+    assert numpy.all(obsp.vR() == obs.vR()), (
+        "Planar orbit generated w/ toPlanar does not have the correct vR"
+    )
+    assert numpy.all(obsp.vT() == obs.vT()), (
+        "Planar orbit generated w/ toPlanar does not have the correct vT"
+    )
+    assert numpy.all(obsp.phi() == obs.phi()), (
+        "Planar orbit generated w/ toPlanar does not have the correct phi"
+    )
     obs = Orbit([[1.0, 0.1, 1.1, 0.3, 0.0], [1.0, -0.2, 1.3, -0.3, 0.0]])
     obsp = obs.toPlanar()
     assert obsp.dim() == 2, "toPlanar does not generate an Orbit w/ dim=2 for RZOrbit"
-    assert numpy.all(
-        obsp.R() == obs.R()
-    ), "Planar orbit generated w/ toPlanar does not have the correct R"
-    assert numpy.all(
-        obsp.vR() == obs.vR()
-    ), "Planar orbit generated w/ toPlanar does not have the correct vR"
-    assert numpy.all(
-        obsp.vT() == obs.vT()
-    ), "Planar orbit generated w/ toPlanar does not have the correct vT"
+    assert numpy.all(obsp.R() == obs.R()), (
+        "Planar orbit generated w/ toPlanar does not have the correct R"
+    )
+    assert numpy.all(obsp.vR() == obs.vR()), (
+        "Planar orbit generated w/ toPlanar does not have the correct vR"
+    )
+    assert numpy.all(obsp.vT() == obs.vT()), (
+        "Planar orbit generated w/ toPlanar does not have the correct vT"
+    )
     ro, vo, zo, solarmotion = 10.0, 300.0, 0.01, "schoenrich"
     obs = Orbit(
         [[1.0, 0.1, 1.1, 0.3, 0.0, 2.0], [1.0, -0.2, 1.3, -0.3, 0.0, 5.0]],
@@ -8030,33 +8386,33 @@ def test_toPlanar():
     )
     obsp = obs.toPlanar()
     assert obsp.dim() == 2, "toPlanar does not generate an Orbit w/ dim=2 for RZOrbit"
-    assert numpy.all(
-        obsp.R() == obs.R()
-    ), "Planar orbit generated w/ toPlanar does not have the correct R"
-    assert numpy.all(
-        obsp.vR() == obs.vR()
-    ), "Planar orbit generated w/ toPlanar does not have the correct vR"
-    assert numpy.all(
-        obsp.vT() == obs.vT()
-    ), "Planar orbit generated w/ toPlanar does not have the correct vT"
-    assert (
-        numpy.fabs(obs._ro - obsp._ro) < 10.0**-15.0
-    ), "Planar orbit generated w/ toPlanar does not have the proper physical scale and coordinate-transformation parameters associated with it"
-    assert (
-        numpy.fabs(obs._vo - obsp._vo) < 10.0**-15.0
-    ), "Planar orbit generated w/ toPlanar does not have the proper physical scale and coordinate-transformation parameters associated with it"
-    assert (
-        numpy.fabs(obs._zo - obsp._zo) < 10.0**-15.0
-    ), "Planar orbit generated w/ toPlanar does not have the proper physical scale and coordinate-transformation parameters associated with it"
-    assert numpy.all(
-        numpy.fabs(obs._solarmotion - obsp._solarmotion) < 10.0**-15.0
-    ), "Planar orbit generated w/ toPlanar does not have the proper physical scale and coordinate-transformation parameters associated with it"
-    assert (
-        obs._roSet == obsp._roSet
-    ), "Planar orbit generated w/ toPlanar does not have the proper physical scale and coordinate-transformation parameters associated with it"
-    assert (
-        obs._voSet == obsp._voSet
-    ), "Planar orbit generated w/ toPlanar does not have the proper physical scale and coordinate-transformation parameters associated with it"
+    assert numpy.all(obsp.R() == obs.R()), (
+        "Planar orbit generated w/ toPlanar does not have the correct R"
+    )
+    assert numpy.all(obsp.vR() == obs.vR()), (
+        "Planar orbit generated w/ toPlanar does not have the correct vR"
+    )
+    assert numpy.all(obsp.vT() == obs.vT()), (
+        "Planar orbit generated w/ toPlanar does not have the correct vT"
+    )
+    assert numpy.fabs(obs._ro - obsp._ro) < 10.0**-15.0, (
+        "Planar orbit generated w/ toPlanar does not have the proper physical scale and coordinate-transformation parameters associated with it"
+    )
+    assert numpy.fabs(obs._vo - obsp._vo) < 10.0**-15.0, (
+        "Planar orbit generated w/ toPlanar does not have the proper physical scale and coordinate-transformation parameters associated with it"
+    )
+    assert numpy.fabs(obs._zo - obsp._zo) < 10.0**-15.0, (
+        "Planar orbit generated w/ toPlanar does not have the proper physical scale and coordinate-transformation parameters associated with it"
+    )
+    assert numpy.all(numpy.fabs(obs._solarmotion - obsp._solarmotion) < 10.0**-15.0), (
+        "Planar orbit generated w/ toPlanar does not have the proper physical scale and coordinate-transformation parameters associated with it"
+    )
+    assert obs._roSet == obsp._roSet, (
+        "Planar orbit generated w/ toPlanar does not have the proper physical scale and coordinate-transformation parameters associated with it"
+    )
+    assert obs._voSet == obsp._voSet, (
+        "Planar orbit generated w/ toPlanar does not have the proper physical scale and coordinate-transformation parameters associated with it"
+    )
     obs = Orbit([[1.0, 0.1, 1.1, 0.3], [1.0, -0.2, 1.3, -0.3]])
     try:
         obs.toPlanar()
@@ -8076,21 +8432,21 @@ def test_toLinear():
     obs = Orbit([[1.0, 0.1, 1.1, 0.3, 0.0, 2.0], [1.0, -0.2, 1.3, -0.3, 0.0, 5.0]])
     obsl = obs.toLinear()
     assert obsl.dim() == 1, "toLinear does not generate an Orbit w/ dim=1 for FullOrbit"
-    assert numpy.all(
-        obsl.x() == obs.z()
-    ), "Linear orbit generated w/ toLinear does not have the correct z"
-    assert numpy.all(
-        obsl.vx() == obs.vz()
-    ), "Linear orbit generated w/ toLinear does not have the correct vx"
+    assert numpy.all(obsl.x() == obs.z()), (
+        "Linear orbit generated w/ toLinear does not have the correct z"
+    )
+    assert numpy.all(obsl.vx() == obs.vz()), (
+        "Linear orbit generated w/ toLinear does not have the correct vx"
+    )
     obs = Orbit([[1.0, 0.1, 1.1, 0.3, 0.0], [1.0, -0.2, 1.3, -0.3, 0.0]])
     obsl = obs.toLinear()
     assert obsl.dim() == 1, "toLinear does not generate an Orbit w/ dim=1 for FullOrbit"
-    assert numpy.all(
-        obsl.x() == obs.z()
-    ), "Linear orbit generated w/ toLinear does not have the correct z"
-    assert numpy.all(
-        obsl.vx() == obs.vz()
-    ), "Linear orbit generated w/ toLinear does not have the correct vx"
+    assert numpy.all(obsl.x() == obs.z()), (
+        "Linear orbit generated w/ toLinear does not have the correct z"
+    )
+    assert numpy.all(obsl.vx() == obs.vz()), (
+        "Linear orbit generated w/ toLinear does not have the correct vx"
+    )
     obs = Orbit([[1.0, 0.1, 1.1, 0.3], [1.0, -0.2, 1.3, -0.3]])
     try:
         obs.toLinear()
@@ -8107,30 +8463,30 @@ def test_toLinear():
     )
     obsl = obs.toLinear()
     assert obsl.dim() == 1, "toLinwar does not generate an Orbit w/ dim=1 for FullOrbit"
-    assert numpy.all(
-        obsl.x() == obs.z()
-    ), "Linear orbit generated w/ toLinear does not have the correct z"
-    assert numpy.all(
-        obsl.vx() == obs.vz()
-    ), "Linear orbit generated w/ toLinear does not have the correct vx"
-    assert (
-        numpy.fabs(obs._ro - obsl._ro) < 10.0**-15.0
-    ), "Linear orbit generated w/ toLinear does not have the proper physical scale and coordinate-transformation parameters associated with it"
-    assert (
-        numpy.fabs(obs._vo - obsl._vo) < 10.0**-15.0
-    ), "Linear orbit generated w/ toLinear does not have the proper physical scale and coordinate-transformation parameters associated with it"
-    assert (
-        obsl._zo is None
-    ), "Linear orbit generated w/ toLinear does not have the proper physical scale and coordinate-transformation parameters associated with it"
-    assert (
-        obsl._solarmotion is None
-    ), "Linear orbit generated w/ toLinear does not have the proper physical scale and coordinate-transformation parameters associated with it"
-    assert (
-        obs._roSet == obsl._roSet
-    ), "Linear orbit generated w/ toLinear does not have the proper physical scale and coordinate-transformation parameters associated with it"
-    assert (
-        obs._voSet == obsl._voSet
-    ), "Linear orbit generated w/ toLinear does not have the proper physical scale and coordinate-transformation parameters associated with it"
+    assert numpy.all(obsl.x() == obs.z()), (
+        "Linear orbit generated w/ toLinear does not have the correct z"
+    )
+    assert numpy.all(obsl.vx() == obs.vz()), (
+        "Linear orbit generated w/ toLinear does not have the correct vx"
+    )
+    assert numpy.fabs(obs._ro - obsl._ro) < 10.0**-15.0, (
+        "Linear orbit generated w/ toLinear does not have the proper physical scale and coordinate-transformation parameters associated with it"
+    )
+    assert numpy.fabs(obs._vo - obsl._vo) < 10.0**-15.0, (
+        "Linear orbit generated w/ toLinear does not have the proper physical scale and coordinate-transformation parameters associated with it"
+    )
+    assert obsl._zo is None, (
+        "Linear orbit generated w/ toLinear does not have the proper physical scale and coordinate-transformation parameters associated with it"
+    )
+    assert obsl._solarmotion is None, (
+        "Linear orbit generated w/ toLinear does not have the proper physical scale and coordinate-transformation parameters associated with it"
+    )
+    assert obs._roSet == obsl._roSet, (
+        "Linear orbit generated w/ toLinear does not have the proper physical scale and coordinate-transformation parameters associated with it"
+    )
+    assert obs._voSet == obsl._voSet, (
+        "Linear orbit generated w/ toLinear does not have the proper physical scale and coordinate-transformation parameters associated with it"
+    )
     return None
 
 
@@ -8146,58 +8502,58 @@ def test_physical_output_off():
     # turn off
     o.turn_physical_off()
     # Test positions
-    assert (
-        numpy.fabs(o.R() - o.R(use_physical=False)) < 10.0**-10.0
-    ), "o.R() output for Orbit setup with ro= does not work as expected when turned off"
-    assert (
-        numpy.fabs(o.x() - o.x(use_physical=False)) < 10.0**-10.0
-    ), "o.x() output for Orbit setup with ro= does not work as expected when turned off"
-    assert (
-        numpy.fabs(o.y() - o.y(use_physical=False)) < 10.0**-10.0
-    ), "o.y() output for Orbit setup with ro= does not work as expected when turned off"
-    assert (
-        numpy.fabs(o.z() - o.z(use_physical=False)) < 10.0**-10.0
-    ), "o.z() output for Orbit setup with ro= does not work as expected when turned off"
-    assert (
-        numpy.fabs(o.r() - o.r(use_physical=False)) < 10.0**-10.0
-    ), "o.r() output for Orbit setup with ro= does not work as expected when turned off"
+    assert numpy.fabs(o.R() - o.R(use_physical=False)) < 10.0**-10.0, (
+        "o.R() output for Orbit setup with ro= does not work as expected when turned off"
+    )
+    assert numpy.fabs(o.x() - o.x(use_physical=False)) < 10.0**-10.0, (
+        "o.x() output for Orbit setup with ro= does not work as expected when turned off"
+    )
+    assert numpy.fabs(o.y() - o.y(use_physical=False)) < 10.0**-10.0, (
+        "o.y() output for Orbit setup with ro= does not work as expected when turned off"
+    )
+    assert numpy.fabs(o.z() - o.z(use_physical=False)) < 10.0**-10.0, (
+        "o.z() output for Orbit setup with ro= does not work as expected when turned off"
+    )
+    assert numpy.fabs(o.r() - o.r(use_physical=False)) < 10.0**-10.0, (
+        "o.r() output for Orbit setup with ro= does not work as expected when turned off"
+    )
     # Test velocities
-    assert (
-        numpy.fabs(o.vR() - o.vR(use_physical=False)) < 10.0**-10.0
-    ), "o.vR() output for Orbit setup with vo= does not work as expected when turned off"
-    assert (
-        numpy.fabs(o.vT() - o.vT(use_physical=False)) < 10.0**-10.0
-    ), "o.vT() output for Orbit setup with vo= does not work as expected"
-    assert (
-        numpy.fabs(o.vphi() - o.vphi(use_physical=False)) < 10.0**-10.0
-    ), "o.vphi() output for Orbit setup with vo= does not work as expected when turned off"
-    assert (
-        numpy.fabs(o.vx() - o.vx(use_physical=False)) < 10.0**-10.0
-    ), "o.vx() output for Orbit setup with vo= does not work as expected when turned off"
-    assert (
-        numpy.fabs(o.vy() - o.vy(use_physical=False)) < 10.0**-10.0
-    ), "o.vy() output for Orbit setup with vo= does not work as expected when turned off"
-    assert (
-        numpy.fabs(o.vz() - o.vz(use_physical=False)) < 10.0**-10.0
-    ), "o.vz() output for Orbit setup with vo= does not work as expected when turned off"
+    assert numpy.fabs(o.vR() - o.vR(use_physical=False)) < 10.0**-10.0, (
+        "o.vR() output for Orbit setup with vo= does not work as expected when turned off"
+    )
+    assert numpy.fabs(o.vT() - o.vT(use_physical=False)) < 10.0**-10.0, (
+        "o.vT() output for Orbit setup with vo= does not work as expected"
+    )
+    assert numpy.fabs(o.vphi() - o.vphi(use_physical=False)) < 10.0**-10.0, (
+        "o.vphi() output for Orbit setup with vo= does not work as expected when turned off"
+    )
+    assert numpy.fabs(o.vx() - o.vx(use_physical=False)) < 10.0**-10.0, (
+        "o.vx() output for Orbit setup with vo= does not work as expected when turned off"
+    )
+    assert numpy.fabs(o.vy() - o.vy(use_physical=False)) < 10.0**-10.0, (
+        "o.vy() output for Orbit setup with vo= does not work as expected when turned off"
+    )
+    assert numpy.fabs(o.vz() - o.vz(use_physical=False)) < 10.0**-10.0, (
+        "o.vz() output for Orbit setup with vo= does not work as expected when turned off"
+    )
     # Test energies
-    assert (
-        numpy.fabs(o.E(pot=lp) - o.E(pot=lp, use_physical=False)) < 10.0**-10.0
-    ), "o.E() output for Orbit setup with vo= does not work as expected when turned off"
+    assert numpy.fabs(o.E(pot=lp) - o.E(pot=lp, use_physical=False)) < 10.0**-10.0, (
+        "o.E() output for Orbit setup with vo= does not work as expected when turned off"
+    )
     assert (
         numpy.fabs(o.Jacobi(pot=lp) - o.Jacobi(pot=lp, use_physical=False))
         < 10.0**-10.0
     ), "o.E() output for Orbit setup with vo= does not work as expected when turned off"
-    assert (
-        numpy.fabs(o.ER(pot=lp) - o.ER(pot=lp, use_physical=False)) < 10.0**-10.0
-    ), "o.ER() output for Orbit setup with vo= does not work as expected when turned off"
-    assert (
-        numpy.fabs(o.Ez(pot=lp) - o.Ez(pot=lp, use_physical=False)) < 10.0**-10.0
-    ), "o.Ez() output for Orbit setup with vo= does not work as expected when turned off"
+    assert numpy.fabs(o.ER(pot=lp) - o.ER(pot=lp, use_physical=False)) < 10.0**-10.0, (
+        "o.ER() output for Orbit setup with vo= does not work as expected when turned off"
+    )
+    assert numpy.fabs(o.Ez(pot=lp) - o.Ez(pot=lp, use_physical=False)) < 10.0**-10.0, (
+        "o.Ez() output for Orbit setup with vo= does not work as expected when turned off"
+    )
     # Test angular momentun
-    assert numpy.all(
-        numpy.fabs(o.L() - o.L(use_physical=False)) < 10.0**-10.0
-    ), "o.L() output for Orbit setup with ro=,vo= does not work as expected when turned off"
+    assert numpy.all(numpy.fabs(o.L() - o.L(use_physical=False)) < 10.0**-10.0), (
+        "o.L() output for Orbit setup with ro=,vo= does not work as expected when turned off"
+    )
     # Test action-angle functions
     assert (
         numpy.fabs(
@@ -8263,9 +8619,9 @@ def test_physical_output_off():
         < 10.0**-10.0
     ), "o.Oz() output for Orbit setup with ro=,vo= does not work as expected"
     # Also test the times
-    assert (
-        numpy.fabs(o.time(1.0) - 1.0) < 10.0**-10.0
-    ), "o.time() in physical coordinates does not work as expected when turned off"
+    assert numpy.fabs(o.time(1.0) - 1.0) < 10.0**-10.0, (
+        "o.time() in physical coordinates does not work as expected when turned off"
+    )
     assert (
         numpy.fabs(o.time(1.0, ro=ro, vo=vo) - ro / vo / 1.0227121655399913)
         < 10.0**-10.0
@@ -8296,57 +8652,67 @@ def test_physical_output_on():
         else:
             o.turn_physical_on()
         # Test positions
-        assert (
-            numpy.fabs(o.R() - o_orig.R(use_physical=True)) < 10.0**-10.0
-        ), "o.R() output for Orbit setup with ro= does not work as expected when turned back on"
-        assert (
-            numpy.fabs(o.x() - o_orig.x(use_physical=True)) < 10.0**-10.0
-        ), "o.x() output for Orbit setup with ro= does not work as expected when turned back on"
-        assert (
-            numpy.fabs(o.y() - o_orig.y(use_physical=True)) < 10.0**-10.0
-        ), "o.y() output for Orbit setup with ro= does not work as expected when turned back on"
-        assert (
-            numpy.fabs(o.z() - o_orig.z(use_physical=True)) < 10.0**-10.0
-        ), "o.z() output for Orbit setup with ro= does not work as expected when turned back on"
+        assert numpy.fabs(o.R() - o_orig.R(use_physical=True)) < 10.0**-10.0, (
+            "o.R() output for Orbit setup with ro= does not work as expected when turned back on"
+        )
+        assert numpy.fabs(o.x() - o_orig.x(use_physical=True)) < 10.0**-10.0, (
+            "o.x() output for Orbit setup with ro= does not work as expected when turned back on"
+        )
+        assert numpy.fabs(o.y() - o_orig.y(use_physical=True)) < 10.0**-10.0, (
+            "o.y() output for Orbit setup with ro= does not work as expected when turned back on"
+        )
+        assert numpy.fabs(o.z() - o_orig.z(use_physical=True)) < 10.0**-10.0, (
+            "o.z() output for Orbit setup with ro= does not work as expected when turned back on"
+        )
         # Test velocities
-        assert (
-            numpy.fabs(o.vR() - o_orig.vR(use_physical=True)) < 10.0**-10.0
-        ), "o.vR() output for Orbit setup with vo= does not work as expected when turned back on"
-        assert (
-            numpy.fabs(o.vT() - o_orig.vT(use_physical=True)) < 10.0**-10.0
-        ), "o.vT() output for Orbit setup with vo= does not work as expected"
-        assert (
-            numpy.fabs(o.vphi() - o_orig.vphi(use_physical=True)) < 10.0**-10.0
-        ), "o.vphi() output for Orbit setup with vo= does not work as expected when turned back on"
-        assert (
-            numpy.fabs(o.vx() - o_orig.vx(use_physical=True)) < 10.0**-10.0
-        ), "o.vx() output for Orbit setup with vo= does not work as expected when turned back on"
-        assert (
-            numpy.fabs(o.vy() - o_orig.vy(use_physical=True)) < 10.0**-10.0
-        ), "o.vy() output for Orbit setup with vo= does not work as expected when turned back on"
-        assert (
-            numpy.fabs(o.vz() - o_orig.vz(use_physical=True)) < 10.0**-10.0
-        ), "o.vz() output for Orbit setup with vo= does not work as expected when turned back on"
+        assert numpy.fabs(o.vR() - o_orig.vR(use_physical=True)) < 10.0**-10.0, (
+            "o.vR() output for Orbit setup with vo= does not work as expected when turned back on"
+        )
+        assert numpy.fabs(o.vT() - o_orig.vT(use_physical=True)) < 10.0**-10.0, (
+            "o.vT() output for Orbit setup with vo= does not work as expected"
+        )
+        assert numpy.fabs(o.vphi() - o_orig.vphi(use_physical=True)) < 10.0**-10.0, (
+            "o.vphi() output for Orbit setup with vo= does not work as expected when turned back on"
+        )
+        assert numpy.fabs(o.vx() - o_orig.vx(use_physical=True)) < 10.0**-10.0, (
+            "o.vx() output for Orbit setup with vo= does not work as expected when turned back on"
+        )
+        assert numpy.fabs(o.vy() - o_orig.vy(use_physical=True)) < 10.0**-10.0, (
+            "o.vy() output for Orbit setup with vo= does not work as expected when turned back on"
+        )
+        assert numpy.fabs(o.vz() - o_orig.vz(use_physical=True)) < 10.0**-10.0, (
+            "o.vz() output for Orbit setup with vo= does not work as expected when turned back on"
+        )
         # Test energies
         assert (
             numpy.fabs(o.E(pot=lp) - o_orig.E(pot=lp, use_physical=True)) < 10.0**-10.0
-        ), "o.E() output for Orbit setup with vo= does not work as expected when turned back on"
+        ), (
+            "o.E() output for Orbit setup with vo= does not work as expected when turned back on"
+        )
         assert (
             numpy.fabs(o.Jacobi(pot=lp) - o_orig.Jacobi(pot=lp, use_physical=True))
             < 10.0**-10.0
-        ), "o.E() output for Orbit setup with vo= does not work as expected when turned back on"
+        ), (
+            "o.E() output for Orbit setup with vo= does not work as expected when turned back on"
+        )
         assert (
             numpy.fabs(o.ER(pot=lp) - o_orig.ER(pot=lp, use_physical=True))
             < 10.0**-10.0
-        ), "o.ER() output for Orbit setup with vo= does not work as expected when turned back on"
+        ), (
+            "o.ER() output for Orbit setup with vo= does not work as expected when turned back on"
+        )
         assert (
             numpy.fabs(o.Ez(pot=lp) - o_orig.Ez(pot=lp, use_physical=True))
             < 10.0**-10.0
-        ), "o.Ez() output for Orbit setup with vo= does not work as expected when turned back on"
+        ), (
+            "o.Ez() output for Orbit setup with vo= does not work as expected when turned back on"
+        )
         # Test angular momentun
         assert numpy.all(
             numpy.fabs(o.L() - o_orig.L(use_physical=True)) < 10.0**-10.0
-        ), "o.L() output for Orbit setup with ro=,vo= does not work as expected when turned back on"
+        ), (
+            "o.L() output for Orbit setup with ro=,vo= does not work as expected when turned back on"
+        )
         # Test action-angle functions
         assert (
             numpy.fabs(
@@ -8414,7 +8780,9 @@ def test_physical_output_on():
     # Also test the times
     assert (
         numpy.fabs(o.time(1.0) - o_orig.time(1.0, use_physical=True)) < 10.0**-10.0
-    ), "o_orig.time() in physical coordinates does not work as expected when turned back on"
+    ), (
+        "o_orig.time() in physical coordinates does not work as expected when turned back on"
+    )
     return None
 
 
@@ -8430,48 +8798,48 @@ def test_pickling():
     pickled = pickle.dumps(orbits)
     orbits_unpickled = pickle.loads(pickled)
     # Tests
-    assert (
-        orbits_unpickled.dim() == 3
-    ), "Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected"
-    assert (
-        orbits_unpickled.phasedim() == 6
-    ), "Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected"
-    assert (
-        numpy.fabs(orbits_unpickled.R()[0] - 1.0) < 1e-10
-    ), "Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected"
-    assert (
-        numpy.fabs(orbits_unpickled.R()[1] - 0.1) < 1e-10
-    ), "Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected"
-    assert (
-        numpy.fabs(orbits_unpickled.vR()[0] - 0.1) < 1e-10
-    ), "Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected"
-    assert (
-        numpy.fabs(orbits_unpickled.vR()[1] - 3.0) < 1e-10
-    ), "Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected"
-    assert (
-        numpy.fabs(orbits_unpickled.vT()[0] - 1.0) < 1e-10
-    ), "Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected"
-    assert (
-        numpy.fabs(orbits_unpickled.vT()[1] - 1.1) < 1e-10
-    ), "Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected"
-    assert (
-        numpy.fabs(orbits_unpickled.z()[0] - 0.1) < 1e-10
-    ), "Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected"
-    assert (
-        numpy.fabs(orbits_unpickled.z()[1] + 0.3) < 1e-10
-    ), "Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected"
-    assert (
-        numpy.fabs(orbits_unpickled.vz()[0] + 0.2) < 1e-10
-    ), "Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected"
-    assert (
-        numpy.fabs(orbits_unpickled.vz()[1] - 0.4) < 1e-10
-    ), "Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected"
-    assert (
-        numpy.fabs(orbits_unpickled.phi()[0] - 1.5) < 1e-10
-    ), "Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected"
-    assert (
-        numpy.fabs(orbits_unpickled.phi()[1] - 2.0) < 1e-10
-    ), "Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected"
+    assert orbits_unpickled.dim() == 3, (
+        "Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected"
+    )
+    assert orbits_unpickled.phasedim() == 6, (
+        "Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected"
+    )
+    assert numpy.fabs(orbits_unpickled.R()[0] - 1.0) < 1e-10, (
+        "Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected"
+    )
+    assert numpy.fabs(orbits_unpickled.R()[1] - 0.1) < 1e-10, (
+        "Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected"
+    )
+    assert numpy.fabs(orbits_unpickled.vR()[0] - 0.1) < 1e-10, (
+        "Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected"
+    )
+    assert numpy.fabs(orbits_unpickled.vR()[1] - 3.0) < 1e-10, (
+        "Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected"
+    )
+    assert numpy.fabs(orbits_unpickled.vT()[0] - 1.0) < 1e-10, (
+        "Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected"
+    )
+    assert numpy.fabs(orbits_unpickled.vT()[1] - 1.1) < 1e-10, (
+        "Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected"
+    )
+    assert numpy.fabs(orbits_unpickled.z()[0] - 0.1) < 1e-10, (
+        "Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected"
+    )
+    assert numpy.fabs(orbits_unpickled.z()[1] + 0.3) < 1e-10, (
+        "Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected"
+    )
+    assert numpy.fabs(orbits_unpickled.vz()[0] + 0.2) < 1e-10, (
+        "Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected"
+    )
+    assert numpy.fabs(orbits_unpickled.vz()[1] - 0.4) < 1e-10, (
+        "Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected"
+    )
+    assert numpy.fabs(orbits_unpickled.phi()[0] - 1.5) < 1e-10, (
+        "Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected"
+    )
+    assert numpy.fabs(orbits_unpickled.phi()[1] - 2.0) < 1e-10, (
+        "Orbits initialization with vxvv in 3D, 6 phase-D does not work as expected"
+    )
     return None
 
 
@@ -8480,44 +8848,44 @@ def test_from_name_values():
 
     # test Vega and Lacaille 8760
     o = Orbit.from_name("Vega", "Lacaille 8760")
-    assert numpy.allclose(
-        o.ra(), [279.23473479, 319.31362024]
-    ), "RA of Vega/Lacaille 8760  does not match SIMBAD value"
-    assert numpy.allclose(
-        o.dec(), [38.78368896, -38.86736390]
-    ), "DEC of Vega/Lacaille 8760  does not match SIMBAD value"
-    assert numpy.allclose(
-        o.dist(), [1 / 130.23, 1 / 251.9124]
-    ), "Parallax of Vega/Lacaille 8760  does not match SIMBAD value"
-    assert numpy.allclose(
-        o.pmra(), [200.94, -3258.996]
-    ), "PMRA of Vega/Lacaille 8760  does not match SIMBAD value"
-    assert numpy.allclose(
-        o.pmdec(), [286.23, -1145.862]
-    ), "PMDec of Vega/Lacaille 8760  does not match SIMBAD value"
-    assert numpy.allclose(
-        o.vlos(), [-13.50, 20.56]
-    ), "radial velocity of Vega/Lacaille 8760  does not match SIMBAD value"
+    assert numpy.allclose(o.ra(), [279.23473479, 319.31362024]), (
+        "RA of Vega/Lacaille 8760  does not match SIMBAD value"
+    )
+    assert numpy.allclose(o.dec(), [38.78368896, -38.86736390]), (
+        "DEC of Vega/Lacaille 8760  does not match SIMBAD value"
+    )
+    assert numpy.allclose(o.dist(), [1 / 130.23, 1 / 251.9124]), (
+        "Parallax of Vega/Lacaille 8760  does not match SIMBAD value"
+    )
+    assert numpy.allclose(o.pmra(), [200.94, -3258.996]), (
+        "PMRA of Vega/Lacaille 8760  does not match SIMBAD value"
+    )
+    assert numpy.allclose(o.pmdec(), [286.23, -1145.862]), (
+        "PMDec of Vega/Lacaille 8760  does not match SIMBAD value"
+    )
+    assert numpy.allclose(o.vlos(), [-13.50, 20.56]), (
+        "radial velocity of Vega/Lacaille 8760  does not match SIMBAD value"
+    )
     # test Vega and Lacaille 8760, as a list
     o = Orbit.from_name(["Vega", "Lacaille 8760"])
-    assert numpy.allclose(
-        o.ra(), [279.23473479, 319.31362024]
-    ), "RA of Vega/Lacaille 8760  does not match SIMBAD value"
-    assert numpy.allclose(
-        o.dec(), [38.78368896, -38.86736390]
-    ), "DEC of Vega/Lacaille 8760  does not match SIMBAD value"
-    assert numpy.allclose(
-        o.dist(), [1 / 130.23, 1 / 251.9124]
-    ), "Parallax of Vega/Lacaille 8760  does not match SIMBAD value"
-    assert numpy.allclose(
-        o.pmra(), [200.94, -3258.996]
-    ), "PMRA of Vega/Lacaille 8760  does not match SIMBAD value"
-    assert numpy.allclose(
-        o.pmdec(), [286.23, -1145.862]
-    ), "PMDec of Vega/Lacaille 8760  does not match SIMBAD value"
-    assert numpy.allclose(
-        o.vlos(), [-13.50, 20.56]
-    ), "radial velocity of Vega/Lacaille 8760  does not match SIMBAD value"
+    assert numpy.allclose(o.ra(), [279.23473479, 319.31362024]), (
+        "RA of Vega/Lacaille 8760  does not match SIMBAD value"
+    )
+    assert numpy.allclose(o.dec(), [38.78368896, -38.86736390]), (
+        "DEC of Vega/Lacaille 8760  does not match SIMBAD value"
+    )
+    assert numpy.allclose(o.dist(), [1 / 130.23, 1 / 251.9124]), (
+        "Parallax of Vega/Lacaille 8760  does not match SIMBAD value"
+    )
+    assert numpy.allclose(o.pmra(), [200.94, -3258.996]), (
+        "PMRA of Vega/Lacaille 8760  does not match SIMBAD value"
+    )
+    assert numpy.allclose(o.pmdec(), [286.23, -1145.862]), (
+        "PMDec of Vega/Lacaille 8760  does not match SIMBAD value"
+    )
+    assert numpy.allclose(o.vlos(), [-13.50, 20.56]), (
+        "radial velocity of Vega/Lacaille 8760  does not match SIMBAD value"
+    )
     return None
 
 
@@ -8525,21 +8893,21 @@ def test_from_name_name():
     # Test that o.name gives the expected output
     from galpy.orbit import Orbit
 
-    assert (
-        Orbit.from_name("LMC").name == "LMC"
-    ), "Orbit.from_name does not appear to set the name attribute correctly"
-    assert numpy.char.equal(
-        Orbit.from_name(["LMC"]).name, numpy.char.array("LMC")
-    ), "Orbit.from_name does not appear to set the name attribute correctly"
+    assert Orbit.from_name("LMC").name == "LMC", (
+        "Orbit.from_name does not appear to set the name attribute correctly"
+    )
+    assert numpy.char.equal(Orbit.from_name(["LMC"]).name, numpy.char.array("LMC")), (
+        "Orbit.from_name does not appear to set the name attribute correctly"
+    )
     assert numpy.all(
         numpy.char.equal(
             Orbit.from_name(["LMC", "SMC"]).name, numpy.char.array(["LMC", "SMC"])
         )
     ), "Orbit.from_name does not appear to set the name attribute correctly"
     # Also slice
-    assert (
-        Orbit.from_name(["LMC", "SMC", "Fornax"])[-1].name == "Fornax"
-    ), "Orbit.from_name does not appear to set the name attribute correctly"
+    assert Orbit.from_name(["LMC", "SMC", "Fornax"])[-1].name == "Fornax", (
+        "Orbit.from_name does not appear to set the name attribute correctly"
+    )
     assert numpy.all(
         numpy.char.equal(
             Orbit.from_name(["LMC", "SMC", "Fornax"])[:2].name,
