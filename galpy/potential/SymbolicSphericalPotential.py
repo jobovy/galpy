@@ -41,6 +41,7 @@ class SymbolicSphericalPotential(SphericalPotential):
         """
         SphericalPotential.__init__(self, amp=amp, ro=ro, vo=vo, amp_units=amp_units)
         self.r = sympy.Symbol("r", real=True)
+        # self.r = r
         self.dens = dens
         # Compute enclosed mass symbolically
         integrand = 4 * sympy.pi * self.r**2 * self.dens

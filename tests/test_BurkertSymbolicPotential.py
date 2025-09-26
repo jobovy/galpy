@@ -1,15 +1,5 @@
 # if there is ModuleNotFoundError
-import os
-import sys
-
-# Get current directory
-curdir = os.getcwd()
-print("Current directory:", curdir)
-
-# Insert into sys.path if not already there
-if curdir not in sys.path:
-    print(sys.path)
-    # sys.path.insert(0, curdir)
+# $env:PYTHONPATH = "N:\Yu0702\galpy;$env:PYTHONPATH"
 
 import numpy
 
@@ -19,6 +9,14 @@ from galpy.util._optional_deps import _SYMPY_LOADED
 
 if _SYMPY_LOADED:
     import sympy
+
+
+import pytest
+
+from galpy.potential.BurkertPotential import BurkertPotential
+
+# import matplotlib.gridspec as gridspec
+# import matplotlib.pyplot as plt
 
 
 ###############################################################################
@@ -66,11 +64,13 @@ class BurkertSymbolicPotential(SymbolicSphericalPotential):
         # define sympy variable radius r
         self.r = sympy.Symbol("r", real=True)
         # Define rho(r)
+        amp = sympy.Rational(amp)
+        self.a = sympy.Rational(self.a)
         rho_expr = 1 / ((1 + self.r / self.a) * (1 + (self.r / self.a) ** 2))
         # # Make it a function of r
         # dens = sympy.Lambda(self.r, rho_expr)
 
-        SymbolicSphericalPotential.__init__(self, dens=rho_expr)
+        SymbolicSphericalPotential.__init__(self, dens=rho_expr, amp=amp)
 
         if normalize or (
             isinstance(normalize, (int, float)) and not isinstance(normalize, bool)
@@ -159,25 +159,7 @@ class BurkertSymbolicPotential(SymbolicSphericalPotential):
             )
 
 
-import pytest
-
-from galpy.potential.BurkertPotential import BurkertPotential
-
-# import matplotlib.gridspec as gridspec
-# import matplotlib.pyplot as plt
-# import numpy
-# import sympy
-
-
-def test_this():
-    pot_sym = BurkertSymbolicPotential(amp=1.0, a=1.0)
-
-    print(pot_sym._rdens(0.0))
-
-
-@pytest.fixture(
-    params=[{"amp": 1.0, "a": 1.0}, {"amp": 2.0, "a": 1.5}, {"amp": 3.5, "a": 0.5}]
-)
+@pytest.fixture(params=[{"amp": 1.0, "a": 1.0}, {"amp": 2.1341897, "a": 1.13124}])
 def params(request):
     return request.param
 
@@ -189,109 +171,44 @@ def pots(params):
     return pot_num, pot_sym
 
 
-def test_rdens_limit_r_zero(pots, params):
+@pytest.mark.parametrize("r", numpy.logspace(-4, 10, num=11))
+def test_revaluate(pots, r):
     num, sym = pots
-    v_num = num._rdens(0.0)
-    v_sym = sym._rdens(0.0)
-    expected = params["amp"]
-    assert v_num == pytest.approx(expected, rel=1e-12)
-    assert v_sym == pytest.approx(expected, rel=1e-12)
 
+    expected = num._revaluate(r)
+    v_sym = sym._revaluate(r)
 
-@pytest.mark.parametrize("r", [1e2, 1e3, 1e4])
-def test_rdens_limit_r_infinity(pots, params, r):
-    num, sym = pots
-    a, amp = params["a"], params["amp"]
-
-    # multiply by r^3, should approach amp * a^3
-    v_num = num._rdens(r) * r**3
-    v_sym = sym._rdens(r) * r**3
-    expected = amp * a**3
-
-    assert v_num == pytest.approx(expected, rel=1e-6)
     assert v_sym == pytest.approx(expected, rel=1e-6)
 
 
-# def test_density():
-#     """test the density"""
-#     pot = EarthPREMPotential()
+@pytest.mark.parametrize("r", numpy.logspace(-1, 10, num=11))
+def test_rforce(pots, r):
+    num, sym = pots
 
-#     assert numpy.fabs(pot._dens(R=0, z=0) - 13.0885) <= 1e-6, (
-#         f"Calculated density at (R=0, z=0) " + "is not equal to 13.0885. "
-#     )
-#     assert numpy.fabs(pot._dens(R=EARTH_RADIUS_KM - 1, z=0) - 2.6) <= 1e-6, (
-#         "Calculated enclosed mass at earth radius - 1 km (R=6370.0, z=0)"
-#         + "is not equal to 2.6. "
-#     )
-#     assert numpy.fabs(pot._dens(R=0, z=EARTH_RADIUS_KM - 1) - 2.6) <= 1e-6, (
-#         "Calculated enclosed mass at earth radius - 1 km (R=6370.0, z=0)"
-#         + "is not equal to 2.6. "
-#     )
+    expected = num._rforce(r)
+    v_sym = sym._rforce(r)
+
+    assert v_sym == pytest.approx(expected, rel=1e-6)
 
 
-# def test_enclosed_mass():
-#     """test the enclosed mass"""
-#     pot = EarthPREMPotential()
-#     # print(f"enclosed mass at r = 0: {pot._mass(R=0, z=0)} g")
-#     assert pot._mass(R=0, z=0) == 0, (
-#         "Calculated enclosed mass at (R=0, z=0)" + "is not equal to 0. "
-#     )
-#     assert numpy.fabs(pot._mass(R=EARTH_RADIUS_KM, z=0) - 5977886716366.892) <= 1e1, (
-#         "Calculated enclosed mass at earth radius (R=6371.0, z=0)"
-#         + "is not close to 5.98e+12 g. "
-#     )
-#     assert numpy.fabs(pot._mass(R=0, z=EARTH_RADIUS_KM) - 5977886716366.892) <= 1e1, (
-#         "Calculated enclosed mass at earth radius (R=0, z=6371.0)"
-#         + "is not close to 5.98e+12 g. "
-#     )
-#     assert (
-#         numpy.fabs(pot._mass(R=10 * EARTH_RADIUS_KM, z=0) - 5977886716366.892) <= 1e1
-#     ), (
-#         "Calculated enclosed mass at 10 times earth radius (R=10*6371.0, z=0)"
-#         + "is not close to 5.98e+12 g. "
-#     )
-#     assert (
-#         numpy.fabs(pot._mass(R=0, z=10 * EARTH_RADIUS_KM) - 5977886716366.892) <= 1e1
-#     ), (
-#         "Calculated enclosed mass at 10 times earth radius (R=0, z=10*6371.0)"
-#         + "is not close to 5.98e+12 g. "
-#     )
+@pytest.mark.parametrize("r", numpy.logspace(-3, 10, num=11))
+def test_r2deriv(pots, r):
+    num, sym = pots
+
+    expected = num._r2deriv(r)
+    v_sym = sym._r2deriv(r)
+
+    assert v_sym == pytest.approx(expected, rel=1e-6)
 
 
-# def test_potential():
-#     """test the calculation of potential"""
-#     pot = EarthPREMPotential()
-#     r_vals = [EARTH_RADIUS_KM, 10 * EARTH_RADIUS_KM]
-#     potential_EARTH_RADIUS = -938296455.2451564
-#     potential_10EARTH_RADIUS = -93829645.52451564
-#     pot_vals = [potential_EARTH_RADIUS, potential_10EARTH_RADIUS]
-#     for i, r in enumerate(r_vals):
-#         assert (
-#             numpy.fabs(pot._evaluate(R=r, z=0) - pot_vals[i]) <= 1
-#         ), f"Calculated potential at (R={r:.2e}, z=0) is not right. "
+@pytest.mark.parametrize("r", [0, 1e1, 1e2, 1e6, 1e8, 1e10])
+def test_rdens(pots, r):
+    num, sym = pots
 
+    expected = num._rdens(r)
+    v_sym = sym._rdens(r)
 
-# def test_r2deriv():
-#     """test the calculation of r2deriv"""
-#     pot = EarthPREMPotential()
-#     r_vals = [0.01, EARTH_RADIUS_KM - 1, 10 * (EARTH_RADIUS_KM - 1)]
-#     # d²Φ/dr² in two different expressions. Either one is good
-#     expr = (
-#         -sympy.diff(pot.rawMass, pot.r, 2) / pot.r
-#         + 2 * 4 * sympy.pi * pot.dens
-#         - 2 * pot.rawMass / pot.r**3.0
-#     )
-#     expr = (
-#         -sympy.diff(pot.rawMass, pot.r, 2) / pot.r
-#         + 2.0 * sympy.diff(pot.rawMass, pot.r, 1) / pot.r**2.0
-#         - 2 * pot.rawMass / pot.r**3.0
-#     )
-#     for r in r_vals:
-#         # r2deriv obtained by manually doing the differential
-#         r2deriv_val = float(expr.evalf(subs={pot.r: r}))
-#         assert (
-#             numpy.fabs(pot._r2deriv(r=r) - r2deriv_val) <= 0.1
-#         ), f"Calculated potential at (R={r:.2e}, z=0) is not right. "
+    assert v_sym == pytest.approx(expected, rel=1e-12)
 
 
 # def efficiency_test_r2deriv():
