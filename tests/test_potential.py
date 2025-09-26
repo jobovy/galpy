@@ -3549,6 +3549,7 @@ def test_verticalfreq():
     kp = potential.KeplerPotential(normalize=1.0)
     np = potential.NFWPotential(normalize=1.0)
     bp = potential.BurkertPotential(normalize=1.0)
+    ep = potential.EinastoPotential(normalize=1.0)
     rs = numpy.linspace(0.2, 2.0, 21)
     for r in rs:
         assert numpy.fabs(lp.verticalfreq(r) - lp.omegac(r)) < 10.0**-10.0, (
@@ -3563,6 +3564,9 @@ def test_verticalfreq():
         )
         assert (
             numpy.fabs(potential.verticalfreq([bp], r) - bp.omegac(r)) < 10.0**-10.0
+        ), "Verticalfreq for spherical potential does not equal rotational freq"
+        assert (
+            numpy.fabs(potential.verticalfreq([ep], r) - ep.omegac(r)) < 10.0**-10.0
         ), "Verticalfreq for spherical potential does not equal rotational freq"
     # For Double-exponential disk potential, epi^2+vert^2-2*rot^2 =~ 0 at very large distances (no longer explicitly, because we don't use a Kepler potential anylonger)
     if True:
