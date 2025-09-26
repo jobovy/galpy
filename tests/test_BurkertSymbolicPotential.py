@@ -13,13 +13,13 @@ if curdir not in sys.path:
 
 import numpy
 
-from galpy.util._optional_deps import _SYMPY_LOADED
-from galpy.util import conversion
-
 from galpy.potential.SymbolicSphericalPotential import SymbolicSphericalPotential
+from galpy.util import conversion
+from galpy.util._optional_deps import _SYMPY_LOADED
 
 if _SYMPY_LOADED:
     import sympy
+
 
 ###############################################################################
 #   BurkertSymbolicPotential.py: SymbolicPotential with a Burkert density
@@ -161,17 +161,19 @@ class BurkertSymbolicPotential(SymbolicSphericalPotential):
 
 import pytest
 
+from galpy.potential.BurkertPotential import BurkertPotential
+
 # import matplotlib.gridspec as gridspec
 # import matplotlib.pyplot as plt
 # import numpy
 # import sympy
 
-from galpy.potential.BurkertPotential import BurkertPotential
 
 def test_this():
     pot_sym = BurkertSymbolicPotential(amp=1.0, a=1.0)
 
     print(pot_sym._rdens(0.0))
+
 
 @pytest.fixture(
     params=[{"amp": 1.0, "a": 1.0}, {"amp": 2.0, "a": 1.5}, {"amp": 3.5, "a": 0.5}]
@@ -194,6 +196,7 @@ def test_rdens_limit_r_zero(pots, params):
     expected = params["amp"]
     assert v_num == pytest.approx(expected, rel=1e-12)
     assert v_sym == pytest.approx(expected, rel=1e-12)
+
 
 @pytest.mark.parametrize("r", [1e2, 1e3, 1e4])
 def test_rdens_limit_r_infinity(pots, params, r):
@@ -306,228 +309,228 @@ def test_rdens_limit_r_infinity(pots, params, r):
 
 
 # def plot_potential_num_sym():
-    # """
-    # make plots of earth potential with symbolic and numeric methods
-    # """
-    # ballRadius = EARTH_RADIUS_KM
-    # rho_0 = 5.52
-    # amp = 2 * numpy.pi * rho_0 / 3.0
-    # earth_approx = HomogeneousSpherePotential(
-    #     amp=amp,
-    #     R=ballRadius,
-    # )
-    # # print(f"earth_approx.R = {earth_approx.R}")
-    # extend = 3 * EARTH_RADIUS_KM
-    # num_grid = 100
-    # R_vals = numpy.linspace(0.01, extend, num=num_grid)
-    # z_val = 0
+# """
+# make plots of earth potential with symbolic and numeric methods
+# """
+# ballRadius = EARTH_RADIUS_KM
+# rho_0 = 5.52
+# amp = 2 * numpy.pi * rho_0 / 3.0
+# earth_approx = HomogeneousSpherePotential(
+#     amp=amp,
+#     R=ballRadius,
+# )
+# # print(f"earth_approx.R = {earth_approx.R}")
+# extend = 3 * EARTH_RADIUS_KM
+# num_grid = 100
+# R_vals = numpy.linspace(0.01, extend, num=num_grid)
+# z_val = 0
 
-    # earthPREM_sym = EarthPREMPotential()
-    # show_plot = True
-    # if show_plot:
-    #     # font size
-    #     plt.rc("font", size=11)  # Default text
-    #     plt.rc("legend", fontsize=11)  # Legend
+# earthPREM_sym = EarthPREMPotential()
+# show_plot = True
+# if show_plot:
+#     # font size
+#     plt.rc("font", size=11)  # Default text
+#     plt.rc("legend", fontsize=11)  # Legend
 
-    #     fig = plt.figure(figsize=(6.0, 4.0), dpi=150)  # initialize a figure
-    #     gs = gridspec.GridSpec(nrows=1, ncols=1)  # create grid for multiple figures
+#     fig = plt.figure(figsize=(6.0, 4.0), dpi=150)  # initialize a figure
+#     gs = gridspec.GridSpec(nrows=1, ncols=1)  # create grid for multiple figures
 
-    #     # # fix the margins
-    #     # fig.subplots_adjust(
-    #     #     top=0.8, bottom=0.156, left=0.119, right=0.972, hspace=0.725, wspace=0.5
-    #     # )
+#     # # fix the margins
+#     # fig.subplots_adjust(
+#     #     top=0.8, bottom=0.156, left=0.119, right=0.972, hspace=0.725, wspace=0.5
+#     # )
 
-    #     ax_dens = fig.add_subplot(gs[0, 0])
+#     ax_dens = fig.add_subplot(gs[0, 0])
 
-    #     ax_dens.plot(
-    #         R_vals,
-    #         # solidBall._dens(R=r_vals, z=zero_vals),
-    #         numpy.array(list(map(lambda R: earthPREM_sym._dens(R=R, z=z_val), R_vals))),
-    #         # label="by SymbolicSphericalPotential",
-    #         color="tab:orange",
-    #         alpha=1,
-    #         linestyle="--",
-    #     )
-    #     ax_dens.set_xlabel("radius (km)")
-    #     ax_dens.set_ylabel(f"Density (g/cm^3)")
+#     ax_dens.plot(
+#         R_vals,
+#         # solidBall._dens(R=r_vals, z=zero_vals),
+#         numpy.array(list(map(lambda R: earthPREM_sym._dens(R=R, z=z_val), R_vals))),
+#         # label="by SymbolicSphericalPotential",
+#         color="tab:orange",
+#         alpha=1,
+#         linestyle="--",
+#     )
+#     ax_dens.set_xlabel("radius (km)")
+#     ax_dens.set_ylabel(f"Density (g/cm^3)")
 
-    #     #############################################################################
-    #     # put a mark of script information on the figure
-    #     # Get the script name and path automatically
-    #     script_path = os.path.abspath(__file__)
+#     #############################################################################
+#     # put a mark of script information on the figure
+#     # Get the script name and path automatically
+#     script_path = os.path.abspath(__file__)
 
-    #     # Add the annotation to the figure
-    #     plt.annotate(
-    #         f"Generated by: {script_path}",
-    #         xy=(0.02, 0.02),
-    #         xycoords="figure fraction",
-    #         fontsize=3,
-    #         color="gray",
-    #     )
-    #     plt.show()
+#     # Add the annotation to the figure
+#     plt.annotate(
+#         f"Generated by: {script_path}",
+#         xy=(0.02, 0.02),
+#         xycoords="figure fraction",
+#         fontsize=3,
+#         color="gray",
+#     )
+#     plt.show()
 
-    #     fig = plt.figure(figsize=(6.0, 4.0), dpi=150)  # initialize a figure
+#     fig = plt.figure(figsize=(6.0, 4.0), dpi=150)  # initialize a figure
 
-    #     gs = gridspec.GridSpec(nrows=2, ncols=2)  # create grid for multiple figures
+#     gs = gridspec.GridSpec(nrows=2, ncols=2)  # create grid for multiple figures
 
-    #     # to specify heights and widths of subfigures
-    #     # width_ratios = [1, 1]
-    #     # height_ratios = [1]
-    #     # gs = gridspec.GridSpec(nrows=1, ncols=2, \
-    #     #   width_ratios=width_ratios, height_ratios=height_ratios)  # create grid for multiple figures
+#     # to specify heights and widths of subfigures
+#     # width_ratios = [1, 1]
+#     # height_ratios = [1]
+#     # gs = gridspec.GridSpec(nrows=1, ncols=2, \
+#     #   width_ratios=width_ratios, height_ratios=height_ratios)  # create grid for multiple figures
 
-    #     # fix the margins
-    #     fig.subplots_adjust(
-    #         top=0.8, bottom=0.156, left=0.119, right=0.972, hspace=0.725, wspace=0.5
-    #     )
+#     # fix the margins
+#     fig.subplots_adjust(
+#         top=0.8, bottom=0.156, left=0.119, right=0.972, hspace=0.725, wspace=0.5
+#     )
 
-    #     ax_dens = fig.add_subplot(gs[0, 0])
-    #     ax_pot = fig.add_subplot(gs[0, 1], sharex=ax_dens)  #
-    #     ax_R2deriv = fig.add_subplot(gs[1, 0], sharex=ax_dens)  #
-    #     ax_Rforce = fig.add_subplot(gs[1, 1], sharex=ax_dens)  #
-    #     ax_list = [ax_dens, ax_pot, ax_R2deriv, ax_Rforce]
-    #     ax_dens.plot(
-    #         R_vals,
-    #         # solidBall._dens(R=r_vals, z=zero_vals),
-    #         amp
-    #         * numpy.array(
-    #             list(map(lambda R: earth_approx._dens(R=R, z=z_val), R_vals))
-    #         ),
-    #         label="approximated by HomogeneousSpherePotential",
-    #         color="tab:blue",
-    #         alpha=1,
-    #         linestyle="-",
-    #     )
-    #     ax_dens.plot(
-    #         R_vals,
-    #         # solidBall._dens(R=r_vals, z=zero_vals),
-    #         numpy.array(list(map(lambda R: earthPREM_sym._dens(R=R, z=z_val), R_vals))),
-    #         label="by SymbolicSphericalPotential",
-    #         color="tab:orange",
-    #         alpha=1,
-    #         linestyle="--",
-    #     )
+#     ax_dens = fig.add_subplot(gs[0, 0])
+#     ax_pot = fig.add_subplot(gs[0, 1], sharex=ax_dens)  #
+#     ax_R2deriv = fig.add_subplot(gs[1, 0], sharex=ax_dens)  #
+#     ax_Rforce = fig.add_subplot(gs[1, 1], sharex=ax_dens)  #
+#     ax_list = [ax_dens, ax_pot, ax_R2deriv, ax_Rforce]
+#     ax_dens.plot(
+#         R_vals,
+#         # solidBall._dens(R=r_vals, z=zero_vals),
+#         amp
+#         * numpy.array(
+#             list(map(lambda R: earth_approx._dens(R=R, z=z_val), R_vals))
+#         ),
+#         label="approximated by HomogeneousSpherePotential",
+#         color="tab:blue",
+#         alpha=1,
+#         linestyle="-",
+#     )
+#     ax_dens.plot(
+#         R_vals,
+#         # solidBall._dens(R=r_vals, z=zero_vals),
+#         numpy.array(list(map(lambda R: earthPREM_sym._dens(R=R, z=z_val), R_vals))),
+#         label="by SymbolicSphericalPotential",
+#         color="tab:orange",
+#         alpha=1,
+#         linestyle="--",
+#     )
 
-    #     ax_dens.set_xlabel("R")
-    #     ax_dens.set_ylabel(f"Density (z={z_val})")
+#     ax_dens.set_xlabel("R")
+#     ax_dens.set_ylabel(f"Density (z={z_val})")
 
-    #     ax_pot.plot(
-    #         R_vals,
-    #         amp
-    #         * numpy.array(
-    #             list(map(lambda R: earth_approx._evaluate(R=R, z=z_val), R_vals))
-    #         ),
-    #         label="approximated by HomogeneousSpherePotential",
-    #         color="tab:blue",
-    #         alpha=1,
-    #         linestyle="-",
-    #     )
-    #     ax_pot.plot(
-    #         R_vals,
-    #         # solidBall._evaluate(R=r_vals, z=zero_vals),
-    #         numpy.array(
-    #             list(map(lambda R: earthPREM_sym._evaluate(R=R, z=z_val), R_vals))
-    #         ),
-    #         label="by SymbolicSphericalPotential",
-    #         color="tab:orange",
-    #         alpha=1,
-    #         linestyle="--",
-    #     )
-    #     ax_pot.set_xlabel("R")
-    #     ax_pot.set_ylabel(f"Potential (z={z_val})")
+#     ax_pot.plot(
+#         R_vals,
+#         amp
+#         * numpy.array(
+#             list(map(lambda R: earth_approx._evaluate(R=R, z=z_val), R_vals))
+#         ),
+#         label="approximated by HomogeneousSpherePotential",
+#         color="tab:blue",
+#         alpha=1,
+#         linestyle="-",
+#     )
+#     ax_pot.plot(
+#         R_vals,
+#         # solidBall._evaluate(R=r_vals, z=zero_vals),
+#         numpy.array(
+#             list(map(lambda R: earthPREM_sym._evaluate(R=R, z=z_val), R_vals))
+#         ),
+#         label="by SymbolicSphericalPotential",
+#         color="tab:orange",
+#         alpha=1,
+#         linestyle="--",
+#     )
+#     ax_pot.set_xlabel("R")
+#     ax_pot.set_ylabel(f"Potential (z={z_val})")
 
-    #     ax_R2deriv.plot(
-    #         R_vals,
-    #         amp
-    #         * numpy.array(
-    #             list(map(lambda R: earth_approx._R2deriv(R=R, z=z_val), R_vals))
-    #         ),
-    #         label="approximated by HomogeneousSpherePotential",
-    #         color="tab:blue",
-    #         alpha=1,
-    #         linestyle="-",
-    #     )
-    #     ax_R2deriv.plot(
-    #         R_vals,
-    #         # solidBall._evaluate(R=r_vals, z=zero_vals),
-    #         numpy.array(
-    #             list(map(lambda R: earthPREM_sym._R2deriv(R=R, z=z_val), R_vals))
-    #         ),
-    #         label="by SymbolicSphericalPotential",
-    #         color="tab:orange",
-    #         alpha=1,
-    #         linestyle="--",
-    #     )
+#     ax_R2deriv.plot(
+#         R_vals,
+#         amp
+#         * numpy.array(
+#             list(map(lambda R: earth_approx._R2deriv(R=R, z=z_val), R_vals))
+#         ),
+#         label="approximated by HomogeneousSpherePotential",
+#         color="tab:blue",
+#         alpha=1,
+#         linestyle="-",
+#     )
+#     ax_R2deriv.plot(
+#         R_vals,
+#         # solidBall._evaluate(R=r_vals, z=zero_vals),
+#         numpy.array(
+#             list(map(lambda R: earthPREM_sym._R2deriv(R=R, z=z_val), R_vals))
+#         ),
+#         label="by SymbolicSphericalPotential",
+#         color="tab:orange",
+#         alpha=1,
+#         linestyle="--",
+#     )
 
-    #     ax_R2deriv.set_xlabel("R")
-    #     ax_R2deriv.set_ylabel(f"R2deriv (z={z_val})")
+#     ax_R2deriv.set_xlabel("R")
+#     ax_R2deriv.set_ylabel(f"R2deriv (z={z_val})")
 
-    #     ax_Rforce.plot(
-    #         R_vals,
-    #         amp
-    #         * numpy.array(
-    #             list(map(lambda R: earth_approx._Rforce(R=R, z=z_val), R_vals))
-    #         ),
-    #         label="approximated by HomogeneousSpherePotential",
-    #         color="tab:blue",
-    #         alpha=1,
-    #         linestyle="-",
-    #     )
-    #     ax_Rforce.plot(
-    #         R_vals,
-    #         # solidBall._evaluate(R=r_vals, z=zero_vals),
-    #         numpy.array(
-    #             list(map(lambda R: earthPREM_sym._Rforce(R=R, z=z_val), R_vals))
-    #         ),
-    #         label="by SymbolicSphericalPotential",
-    #         color="tab:orange",
-    #         alpha=1,
-    #         linestyle="--",
-    #     )
+#     ax_Rforce.plot(
+#         R_vals,
+#         amp
+#         * numpy.array(
+#             list(map(lambda R: earth_approx._Rforce(R=R, z=z_val), R_vals))
+#         ),
+#         label="approximated by HomogeneousSpherePotential",
+#         color="tab:blue",
+#         alpha=1,
+#         linestyle="-",
+#     )
+#     ax_Rforce.plot(
+#         R_vals,
+#         # solidBall._evaluate(R=r_vals, z=zero_vals),
+#         numpy.array(
+#             list(map(lambda R: earthPREM_sym._Rforce(R=R, z=z_val), R_vals))
+#         ),
+#         label="by SymbolicSphericalPotential",
+#         color="tab:orange",
+#         alpha=1,
+#         linestyle="--",
+#     )
 
-    #     ax_Rforce.set_xlabel("R")
-    #     ax_Rforce.set_ylabel(f"Rforce (z={z_val})")
+#     ax_Rforce.set_xlabel("R")
+#     ax_Rforce.set_ylabel(f"Rforce (z={z_val})")
 
-    #     ax_list[0].legend(
-    #         # fontsize=8,
-    #         bbox_to_anchor=(1.5, 1.8),
-    #         # ha="center",
-    #         # va="bottom",
-    #     )
-    #     # set grid and put figure index
-    #     for i, ax in enumerate(ax_list):
-    #         ax.grid()
+#     ax_list[0].legend(
+#         # fontsize=8,
+#         bbox_to_anchor=(1.5, 1.8),
+#         # ha="center",
+#         # va="bottom",
+#     )
+#     # set grid and put figure index
+#     for i, ax in enumerate(ax_list):
+#         ax.grid()
 
-    #         # xleft, xright = ax.get_xlim()
-    #         # ybottom, ytop = ax.get_ylim()
-    #         ax.text(
-    #             -0.013,
-    #             1.02,
-    #             s="(" + chr(i + ord("a")) + ")",
-    #             transform=ax.transAxes,
-    #             ha="right",
-    #             va="bottom",
-    #             color="k",
-    #         )
+#         # xleft, xright = ax.get_xlim()
+#         # ybottom, ytop = ax.get_ylim()
+#         ax.text(
+#             -0.013,
+#             1.02,
+#             s="(" + chr(i + ord("a")) + ")",
+#             transform=ax.transAxes,
+#             ha="right",
+#             va="bottom",
+#             color="k",
+#         )
 
-    #     #############################################################################
-    #     # put a mark of script information on the figure
-    #     # Get the script name and path automatically
-    #     script_path = os.path.abspath(__file__)
+#     #############################################################################
+#     # put a mark of script information on the figure
+#     # Get the script name and path automatically
+#     script_path = os.path.abspath(__file__)
 
-    #     # Add the annotation to the figure
-    #     plt.annotate(
-    #         f"Generated by: {script_path}",
-    #         xy=(0.02, 0.02),
-    #         xycoords="figure fraction",
-    #         fontsize=3,
-    #         color="gray",
-    #     )
-    #     # #############################################################################
+#     # Add the annotation to the figure
+#     plt.annotate(
+#         f"Generated by: {script_path}",
+#         xy=(0.02, 0.02),
+#         xycoords="figure fraction",
+#         fontsize=3,
+#         color="gray",
+#     )
+#     # #############################################################################
 
-    #     # plt.tight_layout()
-    #     # plt.savefig('example figure - one-column.png', transparent=False)
-    #     plt.show()
+#     # plt.tight_layout()
+#     # plt.savefig('example figure - one-column.png', transparent=False)
+#     plt.show()
 
 
 # if __name__ == "__main__":
