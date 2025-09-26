@@ -494,6 +494,21 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
       break;
+    case 41: //EinastoPotential
+      potentialArgs->potentialEval= &SphericalPotentialEval;
+      potentialArgs->planarRforce = &SphericalPotentialPlanarRforce;
+      potentialArgs->planarphitorque= &ZeroPlanarForce;
+      potentialArgs->planarR2deriv= &SphericalPotentialPlanarR2deriv;
+      potentialArgs->planarphi2deriv= &ZeroPlanarForce;
+      potentialArgs->planarRphideriv= &ZeroPlanarForce;
+      // Also assign functions specific to SphericalPotential
+      potentialArgs->revaluate= &EinastoPotentialrevaluate;
+      potentialArgs->rforce= &EinastoPotentialrforce;
+      potentialArgs->r2deriv= &EinastoPotentialr2deriv;
+      potentialArgs->nargs = 3;
+      potentialArgs->ntfuncs= 0;
+      potentialArgs->requiresVelocity= false;
+      break;
 //////////////////////////////// WRAPPERS /////////////////////////////////////
     case -1: //DehnenSmoothWrapperPotential
       potentialArgs->potentialEval= &DehnenSmoothWrapperPotentialEval;

@@ -466,6 +466,11 @@ def _parse_pot(pot):
             p._Pot, potential.NullPotential
         ):
             pot_type.append(40)
+        elif isinstance(p, planarPotentialFromRZPotential) and isinstance(
+            p._Pot, potential.EinastoPotential
+        ):
+            pot_type.append(41)
+            pot_args.extend([p._Pot._amp, p._Pot.h, p._Pot.n])
         ############################## WRAPPERS ###############################
         elif (
             (

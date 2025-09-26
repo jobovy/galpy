@@ -10,6 +10,7 @@ from . import (
     DehnenSmoothWrapperPotential,
     DiskSCFPotential,
     DoubleExponentialDiskPotential,
+    EinastoPotential,
     EllipticalDiskPotential,
     FerrersPotential,
     FlattenedPowerPotential,
@@ -156,6 +157,7 @@ PowerSphericalPotentialwCutoff = (
 )
 DehnenSphericalPotential = TwoPowerSphericalPotential.DehnenSphericalPotential
 DehnenCoreSphericalPotential = TwoPowerSphericalPotential.DehnenCoreSphericalPotential
+EinastoPotential = EinastoPotential.EinastoPotential
 NFWPotential = TwoPowerSphericalPotential.NFWPotential
 JaffePotential = TwoPowerSphericalPotential.JaffePotential
 HernquistPotential = TwoPowerSphericalPotential.HernquistPotential
