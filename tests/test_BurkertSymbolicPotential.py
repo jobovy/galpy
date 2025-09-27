@@ -203,7 +203,7 @@ def _test_efficiency():
     import time
 
     pot_num = BurkertPotential(amp=2.1341897, a=1.13124)
-    pot_sym = BurkertSymbolicPotential(amp=2.1341897, a=1.13124, backend='numpy')
+    pot_sym = BurkertSymbolicPotential(amp=2.1341897, a=1.13124, backend="numpy")
     r_vals = numpy.logspace(0, 10, 1_000_000)
 
     print(f"\n")
