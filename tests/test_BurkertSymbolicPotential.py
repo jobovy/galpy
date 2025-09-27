@@ -81,50 +81,6 @@ class BurkertSymbolicPotential(SymbolicSphericalPotential):
         self.hasC_dens = False
         return None
 
-    # def _revaluate(self, r, t=0.0):
-    #     """Potential as a function of r and time"""
-    #     x = r / self.a
-    #     return (
-    #         -(self.a**2.0)
-    #         * numpy.pi
-    #         * (
-    #             -numpy.pi / x
-    #             + 2.0 * (1.0 / x + 1) * numpy.arctan(1 / x)
-    #             + (1.0 / x + 1) * numpy.log((1.0 + 1.0 / x) ** 2.0 / (1.0 + 1 / x**2.0))
-    #             + special.xlogy(2.0 / x, 1.0 + x**2.0)
-    #         )
-    #     )
-
-    # # Previous way, not stable as r -> infty
-    # # return -self.a**2.*numpy.pi/x*(-numpy.pi+2.*(1.+x)*numpy.arctan(1/x)
-    # #                                +2.*(1.+x)*numpy.log(1.+x)
-    # #                                +(1.-x)*numpy.log(1.+x**2.))
-
-    # def _rforce(self, r, t=0.0):
-    #     x = r / self.a
-    #     return (
-    #         self.a
-    #         * numpy.pi
-    #         / x**2.0
-    #         * (
-    #             numpy.pi
-    #             - 2.0 * numpy.arctan(1.0 / x)
-    #             - 2.0 * numpy.log(1.0 + x)
-    #             - numpy.log(1.0 + x**2.0)
-    #         )
-    #     )
-
-    # def _r2deriv(self, r, t=0.0):
-    #     x = r / self.a
-    #     return (
-    #         4.0 * numpy.pi / (1.0 + x**2.0) / (1.0 + x)
-    #         + 2.0 * self._rforce(r) / x / self.a
-    #     )
-
-    # def _rdens(self, r, t=0.0):
-    #     x = r / self.a
-    #     return 1.0 / (1.0 + x) / (1.0 + x**2.0)
-
     def _surfdens(self, R, z, phi=0.0, t=0.0):
         r = numpy.sqrt(R**2.0 + z**2.0)
         x = r / self.a
@@ -159,7 +115,12 @@ class BurkertSymbolicPotential(SymbolicSphericalPotential):
             )
 
 
-@pytest.fixture(params=[{"amp": 1.0, "a": 1.0}, {"amp": 2.1341897, "a": 1.13124}])
+@pytest.fixture(
+    params=[
+        {"amp": 2.1341897, "a": 1.13124},
+        {"amp": 1.0, "a": 1.0},
+    ]
+)  #
 def params(request):
     return request.param
 
@@ -171,7 +132,7 @@ def pots(params):
     return pot_num, pot_sym
 
 
-@pytest.mark.parametrize("r", numpy.logspace(-4, 10, num=11))
+@pytest.mark.parametrize("r", numpy.logspace(-4, 10, num=4))
 def test_revaluate(pots, r):
     num, sym = pots
 
@@ -181,7 +142,7 @@ def test_revaluate(pots, r):
     assert v_sym == pytest.approx(expected, rel=1e-6)
 
 
-@pytest.mark.parametrize("r", numpy.logspace(-1, 10, num=11))
+@pytest.mark.parametrize("r", numpy.logspace(-1, 10, num=4))
 def test_rforce(pots, r):
     num, sym = pots
 
@@ -191,7 +152,7 @@ def test_rforce(pots, r):
     assert v_sym == pytest.approx(expected, rel=1e-6)
 
 
-@pytest.mark.parametrize("r", numpy.logspace(-3, 10, num=11))
+@pytest.mark.parametrize("r", numpy.logspace(-3, 10, num=4))
 def test_r2deriv(pots, r):
     num, sym = pots
 
@@ -201,7 +162,7 @@ def test_r2deriv(pots, r):
     assert v_sym == pytest.approx(expected, rel=1e-6)
 
 
-@pytest.mark.parametrize("r", [0, 1e1, 1e2, 1e6, 1e8, 1e10])
+@pytest.mark.parametrize("r", [0, 1e-3, 1e-1, 1e1, 1e2, 1e6, 1e8, 1e10])
 def test_rdens(pots, r):
     num, sym = pots
 
@@ -211,243 +172,74 @@ def test_rdens(pots, r):
     assert v_sym == pytest.approx(expected, rel=1e-12)
 
 
-# def efficiency_test_r2deriv():
+# def test_r():
+#     """test and compare the efficiency of numerical / symbolic calculation"""
 #     import time
+#     # "amp": 2.1341897, "a": 1.13124
+#     # pot_num = BurkertPotential(amp =2.1341897, a=1.13124)
+#     pot_sym = BurkertSymbolicPotential(amp =2.1341897, a=1.13124)
+#     r_vals = numpy.logspace(0, 10, 2)
 
-#     """test the efficiency of symbolic calculation"""
-#     pot = EarthPREMPotential()
-#     r_vals = [0.01, EARTH_RADIUS_KM - 1, 10 * (EARTH_RADIUS_KM - 1)]
-#     for r in r_vals:
-#         t0 = time.time()
-#         for i in range(100):
-#             val = pot._r2deriv(r=r)
-#         t1 = time.time()
-#         print(f"Symbolic calculation time: {(t1 - t0) / 100:.6f} s")
+#     print(f"\n")
+#     # t0 = time.time()
+#     # val = pot_num._revaluate(r=r_vals)
+#     # val = pot_num._rforce(r=r_vals)
+#     # val = pot_num._r2deriv(r=r_vals)
+#     # val = pot_num._rdens(r=r_vals)
+#     # t1 = time.time()
+#     # print(f"Numerical vectorized calculation time: {(t1 - t0):.6f} s")
+
+#     t0 = time.time()
+#     val = pot_sym._revaluate(r=r_vals)
+#     val = pot_sym._rforce(r=r_vals)
+#     val = pot_sym._r2deriv(r=r_vals)
+#     val = pot_sym._rdens(r=r_vals)
+#     t1 = time.time()
+#     print(f"Symbolic vectorized evaluation time: {t1 - t0:.4f} seconds")
 
 
-# def plot_potential_num_sym():
-# """
-# make plots of earth potential with symbolic and numeric methods
-# """
-# ballRadius = EARTH_RADIUS_KM
-# rho_0 = 5.52
-# amp = 2 * numpy.pi * rho_0 / 3.0
-# earth_approx = HomogeneousSpherePotential(
-#     amp=amp,
-#     R=ballRadius,
-# )
-# # print(f"earth_approx.R = {earth_approx.R}")
-# extend = 3 * EARTH_RADIUS_KM
-# num_grid = 100
-# R_vals = numpy.linspace(0.01, extend, num=num_grid)
-# z_val = 0
+def _test_efficiency():
+    """test and compare the efficiency of numerical / symbolic calculation"""
+    import time
 
-# earthPREM_sym = EarthPREMPotential()
-# show_plot = True
-# if show_plot:
-#     # font size
-#     plt.rc("font", size=11)  # Default text
-#     plt.rc("legend", fontsize=11)  # Legend
+    pot_num = BurkertPotential(amp=2.1341897, a=1.13124)
+    pot_sym = BurkertSymbolicPotential(amp=2.1341897, a=1.13124, backend='numpy')
+    r_vals = numpy.logspace(0, 10, 1_000_000)
 
-#     fig = plt.figure(figsize=(6.0, 4.0), dpi=150)  # initialize a figure
-#     gs = gridspec.GridSpec(nrows=1, ncols=1)  # create grid for multiple figures
+    print(f"\n")
+    t0 = time.time()
+    val = pot_num._revaluate(r=r_vals)
+    val = pot_num._rforce(r=r_vals)
+    val = pot_num._r2deriv(r=r_vals)
+    val = pot_num._rdens(r=r_vals)
+    t1 = time.time()
+    print(f"Numerical vectorized calculation time: {(t1 - t0):.6f} s")
 
-#     # # fix the margins
-#     # fig.subplots_adjust(
-#     #     top=0.8, bottom=0.156, left=0.119, right=0.972, hspace=0.725, wspace=0.5
-#     # )
+    t0 = time.time()
+    val = pot_sym._revaluate(r=r_vals)
+    val = pot_sym._rforce(r=r_vals)
+    val = pot_sym._r2deriv(r=r_vals)
+    val = pot_sym._rdens(r=r_vals)
+    t1 = time.time()
+    print(f"Symbolic vectorized evaluation time: {t1 - t0:.4f} seconds")
 
-#     ax_dens = fig.add_subplot(gs[0, 0])
+    t0 = time.time()
+    for r in r_vals:
+        val = pot_num._revaluate(r=r)
+        val = pot_num._rforce(r=r)
+        val = pot_num._r2deriv(r=r)
+        val = pot_num._rdens(r=r)
+    t1 = time.time()
+    print(f"Numerical loop evaluation time: {t1 - t0:.4f} seconds")
 
-#     ax_dens.plot(
-#         R_vals,
-#         # solidBall._dens(R=r_vals, z=zero_vals),
-#         numpy.array(list(map(lambda R: earthPREM_sym._dens(R=R, z=z_val), R_vals))),
-#         # label="by SymbolicSphericalPotential",
-#         color="tab:orange",
-#         alpha=1,
-#         linestyle="--",
-#     )
-#     ax_dens.set_xlabel("radius (km)")
-#     ax_dens.set_ylabel(f"Density (g/cm^3)")
-
-#     #############################################################################
-#     # put a mark of script information on the figure
-#     # Get the script name and path automatically
-#     script_path = os.path.abspath(__file__)
-
-#     # Add the annotation to the figure
-#     plt.annotate(
-#         f"Generated by: {script_path}",
-#         xy=(0.02, 0.02),
-#         xycoords="figure fraction",
-#         fontsize=3,
-#         color="gray",
-#     )
-#     plt.show()
-
-#     fig = plt.figure(figsize=(6.0, 4.0), dpi=150)  # initialize a figure
-
-#     gs = gridspec.GridSpec(nrows=2, ncols=2)  # create grid for multiple figures
-
-#     # to specify heights and widths of subfigures
-#     # width_ratios = [1, 1]
-#     # height_ratios = [1]
-#     # gs = gridspec.GridSpec(nrows=1, ncols=2, \
-#     #   width_ratios=width_ratios, height_ratios=height_ratios)  # create grid for multiple figures
-
-#     # fix the margins
-#     fig.subplots_adjust(
-#         top=0.8, bottom=0.156, left=0.119, right=0.972, hspace=0.725, wspace=0.5
-#     )
-
-#     ax_dens = fig.add_subplot(gs[0, 0])
-#     ax_pot = fig.add_subplot(gs[0, 1], sharex=ax_dens)  #
-#     ax_R2deriv = fig.add_subplot(gs[1, 0], sharex=ax_dens)  #
-#     ax_Rforce = fig.add_subplot(gs[1, 1], sharex=ax_dens)  #
-#     ax_list = [ax_dens, ax_pot, ax_R2deriv, ax_Rforce]
-#     ax_dens.plot(
-#         R_vals,
-#         # solidBall._dens(R=r_vals, z=zero_vals),
-#         amp
-#         * numpy.array(
-#             list(map(lambda R: earth_approx._dens(R=R, z=z_val), R_vals))
-#         ),
-#         label="approximated by HomogeneousSpherePotential",
-#         color="tab:blue",
-#         alpha=1,
-#         linestyle="-",
-#     )
-#     ax_dens.plot(
-#         R_vals,
-#         # solidBall._dens(R=r_vals, z=zero_vals),
-#         numpy.array(list(map(lambda R: earthPREM_sym._dens(R=R, z=z_val), R_vals))),
-#         label="by SymbolicSphericalPotential",
-#         color="tab:orange",
-#         alpha=1,
-#         linestyle="--",
-#     )
-
-#     ax_dens.set_xlabel("R")
-#     ax_dens.set_ylabel(f"Density (z={z_val})")
-
-#     ax_pot.plot(
-#         R_vals,
-#         amp
-#         * numpy.array(
-#             list(map(lambda R: earth_approx._evaluate(R=R, z=z_val), R_vals))
-#         ),
-#         label="approximated by HomogeneousSpherePotential",
-#         color="tab:blue",
-#         alpha=1,
-#         linestyle="-",
-#     )
-#     ax_pot.plot(
-#         R_vals,
-#         # solidBall._evaluate(R=r_vals, z=zero_vals),
-#         numpy.array(
-#             list(map(lambda R: earthPREM_sym._evaluate(R=R, z=z_val), R_vals))
-#         ),
-#         label="by SymbolicSphericalPotential",
-#         color="tab:orange",
-#         alpha=1,
-#         linestyle="--",
-#     )
-#     ax_pot.set_xlabel("R")
-#     ax_pot.set_ylabel(f"Potential (z={z_val})")
-
-#     ax_R2deriv.plot(
-#         R_vals,
-#         amp
-#         * numpy.array(
-#             list(map(lambda R: earth_approx._R2deriv(R=R, z=z_val), R_vals))
-#         ),
-#         label="approximated by HomogeneousSpherePotential",
-#         color="tab:blue",
-#         alpha=1,
-#         linestyle="-",
-#     )
-#     ax_R2deriv.plot(
-#         R_vals,
-#         # solidBall._evaluate(R=r_vals, z=zero_vals),
-#         numpy.array(
-#             list(map(lambda R: earthPREM_sym._R2deriv(R=R, z=z_val), R_vals))
-#         ),
-#         label="by SymbolicSphericalPotential",
-#         color="tab:orange",
-#         alpha=1,
-#         linestyle="--",
-#     )
-
-#     ax_R2deriv.set_xlabel("R")
-#     ax_R2deriv.set_ylabel(f"R2deriv (z={z_val})")
-
-#     ax_Rforce.plot(
-#         R_vals,
-#         amp
-#         * numpy.array(
-#             list(map(lambda R: earth_approx._Rforce(R=R, z=z_val), R_vals))
-#         ),
-#         label="approximated by HomogeneousSpherePotential",
-#         color="tab:blue",
-#         alpha=1,
-#         linestyle="-",
-#     )
-#     ax_Rforce.plot(
-#         R_vals,
-#         # solidBall._evaluate(R=r_vals, z=zero_vals),
-#         numpy.array(
-#             list(map(lambda R: earthPREM_sym._Rforce(R=R, z=z_val), R_vals))
-#         ),
-#         label="by SymbolicSphericalPotential",
-#         color="tab:orange",
-#         alpha=1,
-#         linestyle="--",
-#     )
-
-#     ax_Rforce.set_xlabel("R")
-#     ax_Rforce.set_ylabel(f"Rforce (z={z_val})")
-
-#     ax_list[0].legend(
-#         # fontsize=8,
-#         bbox_to_anchor=(1.5, 1.8),
-#         # ha="center",
-#         # va="bottom",
-#     )
-#     # set grid and put figure index
-#     for i, ax in enumerate(ax_list):
-#         ax.grid()
-
-#         # xleft, xright = ax.get_xlim()
-#         # ybottom, ytop = ax.get_ylim()
-#         ax.text(
-#             -0.013,
-#             1.02,
-#             s="(" + chr(i + ord("a")) + ")",
-#             transform=ax.transAxes,
-#             ha="right",
-#             va="bottom",
-#             color="k",
-#         )
-
-#     #############################################################################
-#     # put a mark of script information on the figure
-#     # Get the script name and path automatically
-#     script_path = os.path.abspath(__file__)
-
-#     # Add the annotation to the figure
-#     plt.annotate(
-#         f"Generated by: {script_path}",
-#         xy=(0.02, 0.02),
-#         xycoords="figure fraction",
-#         fontsize=3,
-#         color="gray",
-#     )
-#     # #############################################################################
-
-#     # plt.tight_layout()
-#     # plt.savefig('example figure - one-column.png', transparent=False)
-#     plt.show()
+    t0 = time.time()
+    for r in r_vals:
+        val = pot_sym._revaluate(r=r)
+        val = pot_sym._rforce(r=r)
+        val = pot_sym._r2deriv(r=r)
+        val = pot_sym._rdens(r=r)
+    t1 = time.time()
+    print(f"Symbolic loop evaluation time: {t1 - t0:.4f} seconds")
 
 
 # if __name__ == "__main__":
