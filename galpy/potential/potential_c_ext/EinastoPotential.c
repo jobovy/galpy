@@ -13,11 +13,6 @@ double EinastoPotentialrevaluate(double r,double t,
   double amp= *args;
   double h= *(args+1);
   double n= *(args+2);
-
-  printf("------\n");
-  if (r == 0.){
-    return -(4.0 * M_PI * pow(h,2) * n) * gsl_sf_gamma(2*n);
-  }
     
   double s = r / h;
   double s_1n = pow(s,1.0/n);
