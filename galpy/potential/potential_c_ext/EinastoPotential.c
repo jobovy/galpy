@@ -13,7 +13,7 @@ double EinastoPotentialrevaluate(double r,double t,
   double amp= *args;
   double h= *(args+1);
   double n= *(args+2);
-    
+
   double s = r / h;
   double s_1n = pow(s,1.0/n);
 
@@ -40,7 +40,7 @@ double EinastoPotentialrforce(double r,double t,
   double gamma_upper_3n = gsl_sf_gamma_inc_Q(3 * n, pow(s, 1.0 / n));
 
   double s_2 = pow(s, -2.0);
- 
+
   return (
     (4.0 * M_PI * h * n * gamma_3n)
     * s_2

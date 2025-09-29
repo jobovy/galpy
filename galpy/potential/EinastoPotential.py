@@ -59,22 +59,19 @@ class EinastoPotential(SphericalPotential):
 
     def _revaluate(self, r, t=0.0):
         """Potential as a function of r and time"""
-    
-        s = r / self.h
-        gamma_3n = special.gamma(3*self.n)
-        gamma_2n = special.gamma(2*self.n)
-        gamma_upper_3n = special.gammaincc(3*self.n, (s**(1/self.n)))
-        gamma_upper_2n = special.gammaincc(2*self.n, (s**(1/self.n))) 
 
-        #written to handle s = numpy.inf
-        out = (
-            -(4 * numpy.pi * (self.h**2) * self.n * gamma_3n)
-            * (
-                (1 - gamma_upper_3n)/s + gamma_upper_2n * (gamma_2n/gamma_3n)
-            )
+        s = r / self.h
+        gamma_3n = special.gamma(3 * self.n)
+        gamma_2n = special.gamma(2 * self.n)
+        gamma_upper_3n = special.gammaincc(3 * self.n, (s ** (1 / self.n)))
+        gamma_upper_2n = special.gammaincc(2 * self.n, (s ** (1 / self.n)))
+
+        # written to handle s = numpy.inf
+        out = -(4 * numpy.pi * (self.h**2) * self.n * gamma_3n) * (
+            (1 - gamma_upper_3n) / s + gamma_upper_2n * (gamma_2n / gamma_3n)
         )
-    
-        core = -(4 * numpy.pi * (self.h**2) * self.n) * special.gamma(2*self.n)
+
+        core = -(4 * numpy.pi * (self.h**2) * self.n) * special.gamma(2 * self.n)
 
         if isinstance(r, (float, int)):
             if r == 0:
@@ -87,25 +84,22 @@ class EinastoPotential(SphericalPotential):
 
     def _rforce(self, r, t=0.0):
         s = r / self.h
-        gamma_3n = special.gamma(3*self.n)
-        gamma_upper_3n = special.gammaincc(3*self.n, (s**(1/self.n)))
-        
+        gamma_3n = special.gamma(3 * self.n)
+        gamma_upper_3n = special.gammaincc(3 * self.n, (s ** (1 / self.n)))
+
         return (
-            (4 * numpy.pi * self.h * self.n * gamma_3n)
-            * (s ** -2)  
-            * (gamma_upper_3n - 1)
+            (4 * numpy.pi * self.h * self.n * gamma_3n) * (s**-2) * (gamma_upper_3n - 1)
         )
 
     def _r2deriv(self, r, t=0.0):
         s = r / self.h
-        gamma_3n = special.gamma(3*self.n)
-        gamma_upper_3n = special.gammaincc(3*self.n, (s**(1/self.n)))
-        #(self.h**2)
-        return (
-            - (4 * numpy.pi * self.n * gamma_3n)
-            * ((-2 * (s ** -3)) * (gamma_upper_3n - 1)
-            - ((1/self.n) * (numpy.e ** -(s**(1/self.n)))/gamma_3n))
+        gamma_3n = special.gamma(3 * self.n)
+        gamma_upper_3n = special.gammaincc(3 * self.n, (s ** (1 / self.n)))
+        # (self.h**2)
+        return -(4 * numpy.pi * self.n * gamma_3n) * (
+            (-2 * (s**-3)) * (gamma_upper_3n - 1)
+            - ((1 / self.n) * (numpy.e ** -(s ** (1 / self.n))) / gamma_3n)
         )
 
     def _rdens(self, r, t=0.0):
-        return numpy.e ** -((r/self.h) ** (1/self.n))
+        return numpy.e ** -((r / self.h) ** (1 / self.n))
