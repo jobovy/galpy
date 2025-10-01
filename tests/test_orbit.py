@@ -8456,7 +8456,7 @@ def test_full_plotting():
     )
     with pytest.raises(TypeError) as excinfo:
         # Unparsable expression gives TypeError
-        o.plot(d1="t", d2="r^2")
+        o.plot(d1="t", d2="r@2")
     # Test AttributeErrors
     try:
         oa.plotx()
