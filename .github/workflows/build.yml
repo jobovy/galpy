@@ -312,6 +312,7 @@ jobs:
       env:
           TEST_FILES: ${{ matrix.TEST_FILES }}
           REQUIRES_ASTROPY : ${{ matrix.REQUIRES_ASTROPY }}
+          MPLBACKEND: Agg
       run: |
         pip install coverage
         pip install pytest-cov
