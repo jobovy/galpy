@@ -68,7 +68,7 @@ jobs:
         shell: bash -l {0}
         run: |
           echo "CFLAGS=-I$CONDA_PREFIX/include" >> $GITHUB_ENV
-          echo "LDFLAGS=-L$CONDA_PREFIX/lib" >> $GITHUB_ENV
+          echo "LDFLAGS=-L$CONDA_PREFIX/lib -headerpad_max_install_names" >> $GITHUB_ENV
           echo "REPAIR_LIBRARY_PATH=$CONDA_PREFIX/lib" >> $GITHUB_ENV # https://github.com/pypa/cibuildwheel/issues/816#issuecomment-916197079
           echo "$CONDA_PREFIX/bin" >> $GITHUB_PATH # necessary when we don't activate the environment
       - name: Build wheels
