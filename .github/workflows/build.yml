@@ -292,10 +292,10 @@ jobs:
     - name: Install numba
       if: ${{ matrix.REQUIRES_NUMBA }}
       run: |
-        pip install numba
+        pip install --pre numba==0.63.0b1
         # numba may force install an older version of setuptools,
         # but it isn't actually a *runtime* requirement numba/numba#8366
-        pip install --upgrade --force-reinstall setuptools --pre numba==0.63.0b1
+        pip install --upgrade --force-reinstall setuptools
     - name: Install JAX
       if: ${{ matrix.REQUIRES_JAX }}
       run: pip install jax jaxlib
