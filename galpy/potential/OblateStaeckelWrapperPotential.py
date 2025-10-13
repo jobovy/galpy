@@ -27,36 +27,48 @@ if _APY_LOADED:
 
 
 class OblateStaeckelWrapperPotential(parentWrapperPotential):
-    """Potential wrapper class that approximates a given axisymmetric potential as an oblate Staeckel potential, following the scheme of Binney (2012)"""
+    r"""Potential wrapper class that approximates a given axisymmetric potential as an oblate Staeckel potential by defining (see `Binney 2012 <https://ui.adsabs.harvard.edu/abs/2012MNRAS.426.1324B/abstract>`__; `Bovy 2026 <https://galaxiesbook.org/chapters/II-03.-Orbits-in-Disks_4-Action-angle-coordinates-in-and-around-disks.html#specifically-choosing-a-reference-value-u-0>`__)
+
+    .. math::
+        :nowrap:
+
+        \begin{align}
+        U(u) & = \cosh^2 u \,\Phi\left(u,{\pi\over 2}\right)\,,\\
+        V(v) & = \cosh^2 u_0 \,\Phi\left(u_0,{\pi\over 2}\right)-\left(\sinh^2 u_0+\sin^2 v\right)\,\Phi\left(u_0,v\right)\,.
+        \end{align}
+
+    in the prolate spheroidal coordinate system defined by the focal length :math:`\Delta`. Here :math:`u_0` is a reference value of :math:`u` at which the potential is split. The potential is then given by
+
+    .. math::
+        :nowrap:
+
+        \begin{align}
+        \Phi(u,v) & = {U(u)-V(v)\over \sinh^2 u + \sin^2 v}\,.
+        \end{align}
+
+    """
 
     def __init__(self, amp=1.0, pot=None, delta=0.5, u0=0.0, ro=None, vo=None):
-        """
-        NAME:
+        """Initialize an OblateStaeckelWrapper Potential.
 
-           __init__
+        Parameters
+        ----------
+        amp : float, optional
+            Amplitude to be applied to the potential. Default is 1.0.
+        pot : Potential or list
+            Potential instance or list thereof; this potential is made into an oblate Staeckel potential.
+        delta : float or astropy.units.Quantity, optional
+            The focal length. Default is 0.5.
+        u0 : float, optional
+            Reference u value. Default is 0.0.
+        ro : float or Quantity, optional
+            Distance scale for translation into internal units (default from configuration file).
+        vo : float or Quantity, optional
+            Velocity scale for translation into internal units (default from configuration file).
 
-        PURPOSE:
-
-           initialize a OblateStaeckelWrapper Potential
-
-        INPUT:
-
-           amp - amplitude to be applied to the potential (default: 1.)
-
-           pot - Potential instance or list thereof; this potential is made to rotate around the z axis by the wrapper
-
-           delta= (0.5) the focal length
-
-           u0= (None) reference u value
-
-        OUTPUT:
-
-           (none)
-
-        HISTORY:
-
-           2017-12-15 - Started - Bovy (UofT)
-
+        Notes
+        -----
+        - 2017-12-15 - Started - Bovy (UofT)
         """
         if _APY_LOADED and isinstance(delta, units.Quantity):
             delta = delta.to(units.kpc).value / self._ro
