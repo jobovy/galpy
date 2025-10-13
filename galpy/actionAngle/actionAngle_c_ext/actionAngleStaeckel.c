@@ -1986,6 +1986,7 @@ double evaluatePotentialsUV(double u, double v, double delta,
 			    int nargs,
 			    struct potentialArg * actionAngleArgs){
   double R,z;
-  uv_to_Rz(u,v,&R,&z,delta);
+  R= delta * sinh(u) * sin(v);
+  z= delta * cosh(u) * cos(v);
   return evaluatePotentials(R,z,nargs,actionAngleArgs);
 }

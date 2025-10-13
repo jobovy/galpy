@@ -3129,6 +3129,7 @@ def test_actionAngleStaeckel_conserved_actions_c():
         KuzminDiskPotential,
         KuzminLikeWrapperPotential,
         MWPotential,
+        OblateStaeckelWrapperPotential,
         PerfectEllipsoidPotential,
         PowerTriaxialPotential,
         SCFPotential,
@@ -3167,6 +3168,7 @@ def test_actionAngleStaeckel_conserved_actions_c():
         PerfectEllipsoidPotential(normalize=1.0, c=0.98),
         TriaxialGaussianPotential(normalize=1.0, c=0.98),
         PowerTriaxialPotential(normalize=1.0, c=0.98),
+        OblateStaeckelWrapperPotential(pot=MWPotential, delta=0.71, u0=1.0),
         KuzminLikeWrapperPotential(pot=KeplerPotential(normalize=1.0), a=0.7, b=0.01),
     ]
     for pot in pots:

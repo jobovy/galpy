@@ -548,6 +548,15 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
       break;
+    case -3: //OblateStaeckelWrapperPotential
+      potentialArgs->potentialEval= &OblateStaeckelWrapperPotentialEval;
+      potentialArgs->Rforce= &OblateStaeckelWrapperPotentialRforce;
+      potentialArgs->zforce= &OblateStaeckelWrapperPotentialzforce;
+      potentialArgs->phitorque= &ZeroForce;
+      potentialArgs->nargs= (int) 5;
+      potentialArgs->ntfuncs= 0;
+      potentialArgs->requiresVelocity= false;
+      break;
     case -4: //CorotatingRotationWrapperPotential
       potentialArgs->Rforce= &CorotatingRotationWrapperPotentialRforce;
       potentialArgs->zforce= &CorotatingRotationWrapperPotentialzforce;

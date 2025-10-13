@@ -20,6 +20,7 @@ _APY3 = astropy.__version__ > "3"
 from test_actionAngle import reset_warning_registry
 from test_potential import (
     BurkertPotentialNoC,
+    KuzminKutuzovOblateStaeckelWrapperPotential,
     NFWTwoPowerTriaxialPotential,
     altExpwholeDiskSCFPotential,
     expwholeDiskSCFPotential,
