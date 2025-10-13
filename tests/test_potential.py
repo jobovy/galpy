@@ -205,6 +205,8 @@ def test_forceAsDeriv_potential():
     pots.append("mockDehnenSmoothBarPotentialDecay")
     pots.append("SolidBodyRotationSpiralArmsPotential")
     pots.append("triaxialLogarithmicHaloPotential")
+    pots.append("KuzminOblateStaeckelWrapperPotential")
+    pots.append("KuzminKutuzovOblateStaeckelWrapperPotential")
     pots.append("CorotatingRotationSpiralArmsPotential")
     pots.append("GaussianAmplitudeDehnenBarPotential")
     pots.append("nestedListPotential")
@@ -352,7 +354,10 @@ def test_forceAsDeriv_potential():
         for ii in range(len(Rs)):
             for jj in range(len(Zs)):
                 ##Excluding KuzminDiskPotential when z = 0
-                if Zs[jj] == 0 and isinstance(tp, potential.KuzminDiskPotential):
+                if Zs[jj] == 0 and (
+                    isinstance(tp, potential.KuzminDiskPotential)
+                    or isinstance(tp, KuzminOblateStaeckelWrapperPotential)
+                ):
                     continue
                 dz = 10.0**-8.0
                 newZ = Zs[jj] + dz
@@ -5932,6 +5937,26 @@ def test_WrapperPotential_print():
     return None
 
 
+def test_OblateStaeckelWrapperPotential_againstKuzmin():
+    # Test that wrapping a KuzminDiskPotential as an oblateStaeckelWrapper
+    # behaves as expected: U(u) = -GM/Delta cosh(u) and V(v) =-GM/Delta|cos(v)|
+    delta = 1.75
+    kzp = potential.KuzminDiskPotential(normalize=1.0, a=delta)
+    asp = potential.OblateStaeckelWrapperPotential(pot=kzp, delta=delta, u0=1.2)
+    us = numpy.linspace(0.0, 3.0, 1001)
+    assert (
+        numpy.amax(numpy.fabs(asp._U(us) + kzp._amp / delta * numpy.cosh(us))) < 1e-10
+    ), "OblateStaeckelWrapped KuzminDisk does not have the expected U(u)"
+    vs = numpy.linspace(0.0, numpy.pi, 1001)
+    assert (
+        numpy.amax(
+            numpy.fabs(asp._V(vs) + kzp._amp / delta * numpy.fabs(numpy.cos(vs)))
+        )
+        < 1e-10
+    ), "OblateStaeckelWrapped KuzminDisk does not have the expected V(v)"
+    return None
+
+
 def test_dissipative_ignoreInPotentialDensity2ndDerivs():
     # Test that dissipative forces are ignored when they are included in lists
     # given to evaluatePotentials, evaluateDensities, and evaluate2ndDerivs
@@ -9389,6 +9414,7 @@ from galpy.potential import (
     DehnenSmoothWrapperPotential,
     GaussianAmplitudeWrapperPotential,
     KuzminLikeWrapperPotential,
+    OblateStaeckelWrapperPotential,
     RotateAndTiltWrapperPotential,
     SolidBodyRotationWrapperPotential,
     TimeDependentAmplitudeWrapperPotential,
@@ -9645,6 +9671,32 @@ class testorbitHenonHeilesPotential(testplanarMWPotential):
     def OmegaP(self):
         # Non-axi, so need to set this to zero for Jacobi
         return 0.0
+
+
+class KuzminOblateStaeckelWrapperPotential(OblateStaeckelWrapperPotential):
+    # Kuzmin-wrapped-as-oblate-staeckel = Kuzmin!
+    #
+    # Need to use __new__ because new Wrappers are created using __new__
+    def __new__(cls, *args, **kwargs):
+        if kwargs.get("_init", False):
+            return parentWrapperPotential.__new__(cls, *args, **kwargs)
+        kzp = potential.KuzminDiskPotential(normalize=1.0, a=2.0)
+        return OblateStaeckelWrapperPotential.__new__(
+            cls, amp=1.0, pot=kzp, delta=2.0, u0=1.0
+        )
+
+
+class KuzminKutuzovOblateStaeckelWrapperPotential(OblateStaeckelWrapperPotential):
+    # Kuzmin-wrapped-as-oblate-staeckel = Kuzmin!
+    #
+    # Need to use __new__ because new Wrappers are created using __new__
+    def __new__(cls, *args, **kwargs):
+        if kwargs.get("_init", False):
+            return parentWrapperPotential.__new__(cls, *args, **kwargs)
+        kzp = potential.KuzminKutuzovStaeckelPotential(normalize=1.0, ac=2.0, Delta=3.0)
+        return OblateStaeckelWrapperPotential.__new__(
+            cls, amp=1.0, pot=kzp, delta=3.0, u0=1.0
+        )
 
 
 # CorotatingWrapperPotential
