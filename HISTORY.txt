@@ -1,7 +1,8 @@
 v1.11.1 (expected around 2025-11-01)
 ====================
 
-Nothing yet!
+- Added wrapper potential to turn a potential into an oblate Staeckel potential
+  (OblateStaeckelWrapperPotential).
 
 v1.11.0 (2025-07-02)
 ====================
