@@ -32,6 +32,7 @@ from . import (
     NonInertialFrameForce,
     NullPotential,
     NumericalPotentialDerivativesMixin,
+    OblateStaeckelWrapperPotential,
     PerfectEllipsoidPotential,
     PlummerPotential,
     Potential,
@@ -217,6 +218,9 @@ AnySphericalPotential = AnySphericalPotential.AnySphericalPotential
 DehnenSmoothWrapperPotential = DehnenSmoothWrapperPotential.DehnenSmoothWrapperPotential
 SolidBodyRotationWrapperPotential = (
     SolidBodyRotationWrapperPotential.SolidBodyRotationWrapperPotential
+)
+OblateStaeckelWrapperPotential = (
+    OblateStaeckelWrapperPotential.OblateStaeckelWrapperPotential
 )
 CorotatingRotationWrapperPotential = (
     CorotatingRotationWrapperPotential.CorotatingRotationWrapperPotential
