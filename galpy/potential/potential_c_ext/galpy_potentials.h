@@ -677,6 +677,15 @@ double SolidBodyRotationWrapperPotentialPlanarphi2deriv(double,double,double,
 						   struct potentialArg *);
 double SolidBodyRotationWrapperPotentialPlanarRphideriv(double,double,double,
 						   struct potentialArg *);
+//OblateStaeckelWrapperPotential
+double OblateStaeckelWrapperPotentialEval(double,double,double,double,
+					  struct potentialArg *);
+double OblateStaeckelWrapperPotentialRforce(double,double,double,double,
+					    struct potentialArg *);
+double OblateStaeckelWrapperPotentialzforce(double,double,double,double,
+					    struct potentialArg *);
+double OblateStaeckelWrapperPotentialPlanarRforce(double,double,double,
+						  struct potentialArg *);
 //CorotatingRotationWrapperPotential
 double CorotatingRotationWrapperPotentialRforce(double,double,double,double,
 					struct potentialArg *);

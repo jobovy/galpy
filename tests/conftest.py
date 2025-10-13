@@ -62,6 +62,7 @@ def pytest_generate_tests(metafunc):
         pots.append("mockFlatSolidBodyRotationPlanarSpiralArmsPotential")
         pots.append("triaxialLogarithmicHaloPotential")
         pots.append("testorbitHenonHeilesPotential")
+        pots.append("KuzminKutuzovOblateStaeckelWrapperPotential")
         pots.append("mockFlatCorotatingRotationSpiralArmsPotential")
         pots.append("mockFlatGaussianAmplitudeBarPotential")
         pots.append("nestedListPotential")
