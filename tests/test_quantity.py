@@ -9705,6 +9705,26 @@ def test_potential_paramunits():
     ), (
         "SolidBodyRotationWrapperPotential w/ parameters w/ units does not behave as expected"
     )
+    # OblateStaeckelWrapperPotential
+    kksp = potential.KuzminKutuzovStaeckelPotential(
+        amp=20.0 * units.Msun, Delta=10.0 * units.kpc, ro=ro, vo=vo
+    )
+    pot = potential.OblateStaeckelWrapperPotential(
+        pot=kksp, delta=10.0 * units.kpc, u0=1.0
+    )
+    pot_nounits = potential.OblateStaeckelWrapperPotential(
+        pot=kksp, delta=10.0 / ro, ro=ro, vo=vo
+    )
+    # Check potential
+    assert (
+        numpy.fabs(
+            pot(4.0, 0.0, use_physical=False)
+            - pot_nounits(4.0, 0.0, use_physical=False)
+        )
+        < 10.0**-8.0
+    ), (
+        "OblateStaeckelWrapperPotential w/ parameters w/ units does not behave as expected"
+    )
     # CorotatingRotationWrapperPotential
     spn = potential.SpiralArmsPotential(omega=0.0, phi_ref=0.0)
     pot = potential.CorotatingRotationWrapperPotential(
