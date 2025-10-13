@@ -161,6 +161,210 @@ class OblateStaeckelWrapperPotential(parentWrapperPotential):
             / prefac**2.0
         )
 
+    def _R2deriv(self, R, z, phi=0.0, t=0.0):
+        """
+        NAME:
+           _R2deriv
+        PURPOSE:
+           evaluate the 2nd radial derivative for this potential
+        INPUT:
+           R - Galactocentric cylindrical radius
+           z - vertical height
+           phi - azimuth
+           t - time
+        OUTPUT:
+           the 2nd radial derivative
+        HISTORY:
+           2017-01-21 - Written - Bovy (UofT)
+        """
+        u, v = coords.Rz_to_uv(R, z, delta=self._delta)
+        prefac = _staeckel_prefactor(u, v)
+        dprefacdu, dprefacdv = _dstaeckel_prefactordudv(u, v)
+        d2prefacdu2, d2prefacdv2 = _dstaeckel_prefactord2ud2v(u, v)
+        umvfac = (
+            dprefacdu * self._delta * numpy.sin(v) * numpy.cosh(u)
+            + dprefacdv * numpy.tanh(u) * z
+        ) / prefac  # xs (U-V) in Rforce
+        U = self._U(u)
+        dUdu = self._dUdu(u)
+        d2Udu2 = self._d2Udu2(u)
+        V = self._V(v)
+        dVdv = self._dVdv(v)
+        d2Vdv2 = self._d2Vdv2(v)
+        return (
+            d2Udu2 * numpy.sin(v) ** 2.0 * numpy.cosh(u) ** 2.0
+            + dUdu * numpy.sinh(u) * numpy.cosh(u)
+            - d2Vdv2 * numpy.sinh(u) ** 2.0 * numpy.cos(v) ** 2.0
+            - dVdv * numpy.sin(v) * numpy.cos(v)
+            + (
+                (
+                    -dUdu * numpy.cosh(u) * numpy.sin(v)
+                    + dVdv * numpy.sinh(u) * numpy.cos(v)
+                )
+                / self._delta
+                * umvfac
+                + (U - V)
+                * (
+                    -d2prefacdu2 * numpy.cosh(u) ** 2.0 * numpy.sin(v) ** 2.0
+                    - dprefacdu * numpy.sinh(u) * numpy.cosh(u)
+                    - d2prefacdv2 * numpy.sinh(u) ** 2.0 * numpy.cos(v) ** 2.0
+                    - dprefacdv * numpy.sin(v) * numpy.cos(v)
+                )
+                / prefac
+                + (U - V)
+                * umvfac
+                / prefac
+                / self._delta
+                * (
+                    dprefacdu * numpy.cosh(u) * numpy.sin(v)
+                    + dprefacdv * numpy.sinh(u) * numpy.cos(v)
+                )
+            )
+        ) / self._delta**2.0 / prefac**3.0 + 2.0 * self._Rforce(
+            R, z, phi=phi, t=t
+        ) / prefac**2.0 * (
+            dprefacdu * numpy.cosh(u) * numpy.sin(v)
+            + dprefacdv * numpy.sinh(u) * numpy.cos(v)
+        ) / self._delta
+
+    def _z2deriv(self, R, z, phi=0.0, t=0.0):
+        """
+        NAME:
+           _z2deriv
+        PURPOSE:
+           evaluate the 2nd vertical derivative for this potential
+        INPUT:
+           R - Galactocentric cylindrical radius
+           z - vertical height
+           phi - azimuth
+           t - time
+        OUTPUT:
+           the 2nd vertical derivative
+        HISTORY:
+           2017-01-21 - Written - Bovy (UofT)
+        """
+        u, v = coords.Rz_to_uv(R, z, delta=self._delta)
+        prefac = _staeckel_prefactor(u, v)
+        dprefacdu, dprefacdv = _dstaeckel_prefactordudv(u, v)
+        d2prefacdu2, d2prefacdv2 = _dstaeckel_prefactord2ud2v(u, v)
+        umvfac = (
+            dprefacdu / numpy.tan(v) * R  # xs (U-V) in zforce
+            - dprefacdv * self._delta * numpy.sin(v) * numpy.cosh(u)
+        ) / prefac
+        U = self._U(u)
+        dUdu = self._dUdu(u)
+        d2Udu2 = self._d2Udu2(u)
+        V = self._V(v)
+        dVdv = self._dVdv(v)
+        d2Vdv2 = self._d2Vdv2(v)
+        return (
+            d2Udu2 * numpy.sinh(u) ** 2.0 * numpy.cos(v) ** 2.0
+            + dUdu * numpy.cosh(u) * numpy.sinh(u)
+            - d2Vdv2 * numpy.sin(v) ** 2.0 * numpy.cosh(u) ** 2.0
+            - dVdv * numpy.cos(v) * numpy.sin(v)
+            + (
+                (
+                    -dUdu * numpy.sinh(u) * numpy.cos(v)
+                    - dVdv * numpy.cosh(u) * numpy.sin(v)
+                )
+                / self._delta
+                * umvfac
+                + (U - V)
+                * (
+                    -d2prefacdu2 * numpy.sinh(u) ** 2.0 * numpy.cos(v) ** 2.0
+                    - dprefacdu * numpy.sinh(u) * numpy.cosh(u)
+                    - d2prefacdv2 * numpy.sin(v) ** 2.0 * numpy.cosh(u) ** 2.0
+                    - dprefacdv * numpy.cos(v) * numpy.sin(v)
+                )
+                / prefac
+                - (U - V)
+                * umvfac
+                / prefac
+                / self._delta
+                * (
+                    -dprefacdu * numpy.sinh(u) * numpy.cos(v)
+                    + dprefacdv * numpy.cosh(u) * numpy.sin(v)
+                )
+            )
+        ) / self._delta**2.0 / prefac**3.0 - 2.0 * self._zforce(
+            R, z, phi=phi, t=t
+        ) / prefac**2.0 * (
+            -dprefacdu * numpy.sinh(u) * numpy.cos(v)
+            + dprefacdv * numpy.cosh(u) * numpy.sin(v)
+        ) / self._delta
+
+    def _Rzderiv(self, R, z, phi=0.0, t=0.0):
+        """
+        NAME:
+           _Rzderiv
+        PURPOSE:
+           evaluate the mixed radial and vertical derivative for this potential
+        INPUT:
+           R - Galactocentric cylindrical radius
+           z - vertical height
+           phi - azimuth
+           t - time
+        OUTPUT:
+           the mixed radial and vertical derivative
+        HISTORY:
+           2017-01-22 - Written - Bovy (UofT)
+        """
+        u, v = coords.Rz_to_uv(R, z, delta=self._delta)
+        prefac = _staeckel_prefactor(u, v)
+        dprefacdu, dprefacdv = _dstaeckel_prefactordudv(u, v)
+        d2prefacdu2, d2prefacdv2 = _dstaeckel_prefactord2ud2v(u, v)
+        umvfac = (
+            dprefacdu / numpy.tan(v) * R  # xs (U-V) in zforce
+            - dprefacdv * self._delta * numpy.sin(v) * numpy.cosh(u)
+        ) / prefac
+        U = self._U(u)
+        dUdu = self._dUdu(u)
+        d2Udu2 = self._d2Udu2(u)
+        V = self._V(v)
+        dVdv = self._dVdv(v)
+        d2Vdv2 = self._d2Vdv2(v)
+        return (
+            (d2Udu2 + d2Vdv2)
+            * numpy.cosh(u)
+            * numpy.sin(v)
+            * numpy.cos(v)
+            * numpy.sinh(u)
+            + dUdu * numpy.sin(v) * numpy.cos(v)
+            + dVdv * numpy.sinh(u) * numpy.cosh(u)
+            + (
+                (
+                    -dUdu * numpy.cosh(u) * numpy.sin(v)
+                    + dVdv * numpy.sinh(u) * numpy.cos(v)
+                )
+                / self._delta
+                * umvfac
+                + (U - V)
+                * (
+                    (-d2prefacdu2 + d2prefacdv2)
+                    * numpy.sin(v)
+                    * numpy.cosh(u)
+                    * numpy.sinh(u)
+                    * numpy.cos(v)
+                    - dprefacdu * numpy.sin(v) * numpy.cos(v)
+                    + dprefacdv * numpy.cosh(u) * numpy.sinh(u)
+                )
+                / prefac
+                + (U - V)
+                * umvfac
+                / prefac
+                / self._delta
+                * (
+                    dprefacdu * numpy.cosh(u) * numpy.sin(v)
+                    + dprefacdv * numpy.sinh(u) * numpy.cos(v)
+                )
+            )
+        ) / self._delta**2.0 / prefac**3.0 + 2.0 * self._zforce(
+            R, z, phi=phi, t=t
+        ) / prefac**2.0 * (
+            dprefacdu * numpy.cosh(u) * numpy.sin(v)
+            + dprefacdv * numpy.sinh(u) * numpy.cos(v)
+        ) / self._delta
+
     def _U(self, u):
         """Approximated U(u) = cosh^2(u) Phi(u,pi/2)"""
         Rz0 = coords.uv_to_Rz(u, self._v0, delta=self._delta)
@@ -176,6 +380,36 @@ class OblateStaeckelWrapperPotential(parentWrapperPotential):
             * Rz0[0]
             / (numpy.tanh(u) + 1e-12)
             + _evaluatezforces(self._pot, Rz0[0], Rz0[1]) * Rz0[1] * numpy.tanh(u)
+        )
+
+    def _d2Udu2(self, u):
+        Rz0 = coords.uv_to_Rz(u, self._v0, delta=self._delta)
+        tRforce = _evaluateRforces(self._pot, Rz0[0], Rz0[1])
+        tzforce = _evaluatezforces(self._pot, Rz0[0], Rz0[1])
+        return (
+            2.0 * numpy.cosh(2 * u) * _evaluatePotentials(self._pot, Rz0[0], Rz0[1])
+            - 4.0
+            * numpy.cosh(u)
+            * numpy.sinh(u)
+            * (
+                tRforce * Rz0[0] / (numpy.tanh(u) + 1e-12)
+                + tzforce * Rz0[1] * numpy.tanh(u)
+            )
+            - numpy.cosh(u) ** 2.0
+            * (
+                -evaluateR2derivs(self._pot, Rz0[0], Rz0[1], use_physical=False)
+                * Rz0[0] ** 2.0
+                / (numpy.tanh(u) + 1e-12) ** 2.0
+                - 2.0
+                * evaluateRzderivs(self._pot, Rz0[0], Rz0[1], use_physical=False)
+                * Rz0[0]
+                * Rz0[1]
+                + tRforce * Rz0[0]
+                - evaluatez2derivs(self._pot, Rz0[0], Rz0[1], use_physical=False)
+                * Rz0[1] ** 2.0
+                * numpy.tanh(u) ** 2.0
+                + tzforce * Rz0[1]
+            )
         )
 
     def _V(self, v):
@@ -195,6 +429,32 @@ class OblateStaeckelWrapperPotential(parentWrapperPotential):
             - _evaluatezforces(self._pot, R0z[0], R0z[1]) * R0z[1] * numpy.tan(v)
         )
 
+    def _d2Vdv2(self, v):
+        R0z = coords.uv_to_Rz(self._u0, v, delta=self._delta)
+        tRforce = _evaluateRforces(self._pot, R0z[0], R0z[1])
+        tzforce = _evaluatezforces(self._pot, R0z[0], R0z[1])
+        return (
+            -2.0 * numpy.cos(2.0 * v) * _evaluatePotentials(self._pot, R0z[0], R0z[1])
+            + 2.0
+            * numpy.sin(2.0 * v)
+            * (tRforce * R0z[0] / numpy.tan(v) - tzforce * R0z[1] * numpy.tan(v))
+            + _staeckel_prefactor(self._u0, v)
+            * (
+                -evaluateR2derivs(self._pot, R0z[0], R0z[1], use_physical=False)
+                * R0z[0] ** 2.0
+                / numpy.tan(v) ** 2.0
+                + 2.0
+                * evaluateRzderivs(self._pot, R0z[0], R0z[1], use_physical=False)
+                * R0z[0]
+                * R0z[1]
+                - tRforce * R0z[0]
+                - evaluatez2derivs(self._pot, R0z[0], R0z[1], use_physical=False)
+                * R0z[1] ** 2.0
+                * numpy.tan(v) ** 2.0
+                - tzforce * R0z[1]
+            )
+        )
+
 
 def _staeckel_prefactor(u, v):
     return numpy.sinh(u) ** 2.0 + numpy.sin(v) ** 2.0
@@ -202,3 +462,7 @@ def _staeckel_prefactor(u, v):
 
 def _dstaeckel_prefactordudv(u, v):
     return (2.0 * numpy.sinh(u) * numpy.cosh(u), 2.0 * numpy.sin(v) * numpy.cos(v))
+
+
+def _dstaeckel_prefactord2ud2v(u, v):
+    return (2.0 * numpy.cosh(2.0 * u), 2.0 * numpy.cos(2.0 * v))
