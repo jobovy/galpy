@@ -9,7 +9,7 @@
 ###############################################################################
 import numpy
 
-from galpy.util import coords
+from galpy.util import conversion, coords
 
 from .Potential import (
     _APY_LOADED,
@@ -57,10 +57,10 @@ class OblateStaeckelWrapperPotential(parentWrapperPotential):
             Amplitude to be applied to the potential. Default is 1.0.
         pot : Potential or list
             Potential instance or list thereof; this potential is made into an oblate Staeckel potential.
-        delta : float or astropy.units.Quantity, optional
+        delta : float or Quantity, optional
             The focal length. Default is 0.5.
-        u0 : float, optional
-            Reference u value. Default is 0.0.
+        u0 : float or tuple or tuple of Quantity
+            Reference u value; if a tuple is given, this is assumed to be a (R,z) value to be converted to u.
         ro : float or Quantity, optional
             Distance scale for translation into internal units (default from configuration file).
         vo : float or Quantity, optional
@@ -70,14 +70,19 @@ class OblateStaeckelWrapperPotential(parentWrapperPotential):
         -----
         - 2017-12-15 - Started - Bovy (UofT)
         """
-        if _APY_LOADED and isinstance(delta, units.Quantity):
-            delta = delta.to(units.kpc).value / self._ro
-        self._delta = delta
+        self._delta = conversion.parse_length(delta, ro=ro)
         if u0 is None:  # pragma: no cover
             raise ValueError(
                 "u0= needs to be given to setup OblateStaeckelWrapperPotential"
             )
-        self._u0 = u0
+        if isinstance(u0, (tuple, list, numpy.ndarray)):
+            self._u0 = coords.Rz_to_uv(
+                conversion.parse_length(u0[0], ro=ro),
+                conversion.parse_length(u0[1], ro=ro),
+                delta=self._delta,
+            )[0]
+        else:
+            self._u0 = u0
         self._v0 = numpy.pi / 2.0  # so we know when we're using this
         R0, z0 = coords.uv_to_Rz(self._u0, self._v0, delta=self._delta)
         self._refpot = (

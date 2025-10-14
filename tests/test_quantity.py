@@ -9710,10 +9710,14 @@ def test_potential_paramunits():
         amp=20.0 * units.Msun, Delta=10.0 * units.kpc, ro=ro, vo=vo
     )
     pot = potential.OblateStaeckelWrapperPotential(
-        pot=kksp, delta=10.0 * units.kpc, u0=1.0
+        pot=kksp,
+        delta=10.0 * units.kpc,
+        u0=(8.0 * units.kpc, 0.0 * units.kpc),
+        ro=ro,
+        vo=vo,
     )
     pot_nounits = potential.OblateStaeckelWrapperPotential(
-        pot=kksp, delta=10.0 / ro, ro=ro, vo=vo
+        pot=kksp, delta=10.0 / ro, u0=(8.0 / ro, 0.0 / ro), ro=ro, vo=vo
     )
     # Check potential
     assert (
