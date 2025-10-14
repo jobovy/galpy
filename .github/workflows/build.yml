@@ -264,7 +264,7 @@ jobs:
       run: |
          pip install --upgrade --upgrade-strategy eager h5py pandas pytz
          pip install --upgrade --upgrade-strategy eager wheel
-         CC=gcc-12 CXX=g++-12 pip install --upgrade --upgrade-strategy eager --no-deps git+https://github.com/pynbody/pynbody.git
+         CC=gcc-12 CXX=g++-12 pip install --upgrade --upgrade-strategy eager pynbody
     - name: Install astropy
       if: ${{ matrix.REQUIRES_ASTROPY }}
       run: pip install astropy pyerfa
