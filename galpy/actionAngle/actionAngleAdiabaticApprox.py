@@ -22,10 +22,12 @@ from ..potential.Potential import flatten as flatten_potential
 from ..util import conversion, galpyWarning
 from .actionAngle import actionAngle
 from .actionAngleIsochrone import actionAngleIsochrone
+from .actionAngleSpherical import actionAngleSpherical
+from .actionAngleStaeckel import actionAngleStaeckel
 
 
 class actionAngleAdiabaticApprox(actionAngle):
-    """Action-angle formalism using an adiabatic transformation to an isochrone potential"""
+    """Action-angle formalism using an adiabatic transformation to an explicitly-integrable potential"""
 
     def __init__(self, *args, **kwargs):
         """
@@ -33,14 +35,10 @@ class actionAngleAdiabaticApprox(actionAngle):
 
         Parameters
         ----------
-        b : float or Quantity, optional
-            Scale parameter of the isochrone parameter.
-        ip : IsochronePotential, optional
-            Instance of a IsochronePotential.
-        aAI : actionAngleIsochrone, optional
-            Instance of an actionAngleIsochrone.
         pot : Potential or list of Potentials, optional
             Potential to calculate action-angle variables for.
+        aA : actionAngleIsochrone, actionAngleSpherical, or actionAngleStaeckel instance
+            actionAngle instance for the potential that is being adiabatically transformed to.
         tintJ : float, optional
             Time to integrate orbits for to estimate actions (can be Quantity).
         ntintJ : int, optional
@@ -61,6 +59,7 @@ class actionAngleAdiabaticApprox(actionAngle):
         Notes
         -----
         - 2025-09-23 - Started - Bovy (UofT).
+        - 2025-10-15 - Allowed more general target potentials - Bovy (UofT).
 
         """
         actionAngle.__init__(self, ro=kwargs.get("ro", None), vo=kwargs.get("vo", None))
@@ -72,31 +71,17 @@ class actionAngleAdiabaticApprox(actionAngle):
                 "Use of MWPotential as a Milky-Way-like potential is deprecated; galpy.potential.MWPotential2014, a potential fit to a large variety of dynamical constraints (see Bovy 2015), is the preferred Milky-Way-like potential in galpy",
                 galpyWarning,
             )
-        if (
-            "b" not in kwargs and "ip" not in kwargs and "aAI" not in kwargs
+        if "aA" not in kwargs:  # pragma: no cover
+            raise OSError("Must specify aA= for actionAngleAdiabaticApprox")
+        if not isinstance(
+            kwargs["aA"],
+            (actionAngleIsochrone, actionAngleSpherical, actionAngleStaeckel),
         ):  # pragma: no cover
             raise OSError(
-                "Must specify b=, ip=, or aAI= for actionAngleAdiabaticApprox"
+                "'Provided aA= does not appear to be an instance of a supported actionAngle class"
             )
-        if "aAI" in kwargs:
-            if not isinstance(kwargs["aAI"], actionAngleIsochrone):  # pragma: no cover
-                raise OSError(
-                    "'Provided aAI= does not appear to be an instance of an actionAngleIsochrone"
-                )
-            self._aAI = kwargs["aAI"]
-            self._ip = self._aAI._pot
-        elif "ip" in kwargs:
-            ip = kwargs["ip"]
-            if not isinstance(ip, IsochronePotential):  # pragma: no cover
-                raise OSError(
-                    "'Provided ip= does not appear to be an instance of an IsochronePotential"
-                )
-            self._ip = ip
-            self._aAI = actionAngleIsochrone(ip=self._ip)
-        else:
-            b = conversion.parse_length(kwargs["b"], ro=self._ro)
-            self._ip = IsochronePotential(b=b, normalize=1.0)
-            self._aAI = actionAngleIsochrone(ip=self._ip)
+        self._aA = kwargs["aA"]
+        self._target_pot = self._aA._pot
         self._tintJ = conversion.parse_time(
             kwargs.get("tintJ", 100.0), ro=self._ro, vo=self._vo
         )
@@ -119,7 +104,7 @@ class actionAngleAdiabaticApprox(actionAngle):
         self._adiabatic_pot = DehnenSmoothWrapperPotential(
             pot=self._pot, tform=0.0, tsteady=self._tintJ, decay=True
         ) + DehnenSmoothWrapperPotential(
-            pot=self._ip, tform=0.0, tsteady=self._tintJ, decay=False
+            pot=self._target_pot, tform=0.0, tsteady=self._tintJ, decay=False
         )
         # Check the units
         self._check_consistent_units()
@@ -148,8 +133,20 @@ class actionAngleAdiabaticApprox(actionAngle):
         - 2025-09-23 - Written - Bovy (UofT)
         """
         R, vR, vT, z, vz, phi = self._parse_args(*args)
-        jr, lz, jz = self._aAI(R, vR, vT, z, vz, phi)
-        return (numpy.mean(jr, axis=1), numpy.mean(lz, axis=1), numpy.mean(jz, axis=1))
+        Rshape = R.shape
+        jr, lz, jz = self._aA(
+            R.flatten(),
+            vR.flatten(),
+            vT.flatten(),
+            z.flatten(),
+            vz.flatten(),
+            phi.flatten(),
+        )
+        return (
+            numpy.mean(jr.reshape(Rshape), axis=1),
+            numpy.mean(lz.reshape(Rshape), axis=1),
+            numpy.mean(jz.reshape(Rshape), axis=1),
+        )
 
     def _actionsFreqs(self, *args, **kwargs):
         """
@@ -199,17 +196,23 @@ class actionAngleAdiabaticApprox(actionAngle):
         - 2025-09-23 - Written - Bovy (UofT).
         """
         R, vR, vT, z, vz, phi = self._parse_args(*args)
-        jr, lz, jz, _, _, _, ar, ap, az = self._aAI.actionsFreqsAngles(
-            R, vR, vT, z, vz, phi
+        Rshape = R.shape
+        jr, lz, jz, _, _, _, ar, ap, az = self._aA.actionsFreqsAngles(
+            R.flatten(),
+            vR.flatten(),
+            vT.flatten(),
+            z.flatten(),
+            vz.flatten(),
+            phi.flatten(),
         )
         jr, lz, jz = (
-            numpy.mean(jr, axis=1),
-            numpy.mean(lz, axis=1),
-            numpy.mean(jz, axis=1),
+            numpy.mean(jr.reshape(Rshape), axis=1),
+            numpy.mean(lz.reshape(Rshape), axis=1),
+            numpy.mean(jz.reshape(Rshape), axis=1),
         )
         # Fit for the frequency and angle for each dimension
         angle_out, freq_out = (), ()
-        for angle in (ar, ap, az):
+        for angle in (ar.reshape(Rshape), ap.reshape(Rshape), az.reshape(Rshape)):
             angleT = numpy.unwrap(numpy.reshape(angle, R.shape), axis=1)
             out = linalg.lstsq(self._vanderA, angleT.T)[0]
             angle_out += (out[0],)
