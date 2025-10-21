@@ -9063,6 +9063,13 @@ def test_potential_ampunits_wrongunits():
     # NullPotential
     with pytest.raises(units.UnitConversionError) as excinfo:
         potential.NullPotential(amp=40.0 * units.Msun, ro=ro, vo=vo)
+    # Some potentials cannot have amp with units, so giving them with units is also wrong!
+    # See Issue #743
+    # TimeDependentAmplitudeWrapperPotential
+    with pytest.raises(units.UnitConversionError) as excinfo:
+        potential.TimeDependentAmplitudeWrapperPotential(
+            amp=1.0 / units.s**3, A=lambda t: t, pot=potential.MWPotential2014
+        )
     return None
 
 
