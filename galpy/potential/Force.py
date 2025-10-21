@@ -61,59 +61,30 @@ class Force:
         if _APY_LOADED and isinstance(self._amp, units.Quantity):
             # Try a bunch of possible units
             unitFound = False
-            # velocity^2
-            try:
-                self._amp = conversion.parse_energy(self._amp, vo=self._vo)
-            except units.UnitConversionError:
-                pass
-            else:
-                unitFound = True
-                if not amp_units == "velocity2":
-                    raise units.UnitConversionError(
-                        f"amp= parameter of {type(self).__name__} should have units of {amp_units}, but has units of velocity2 instead"
-                    )
-            if not unitFound:
-                # mass
+            units_to_try = [
+                ("velocity2", lambda a: conversion.parse_energy(a, vo=self._vo)),
+                ("mass", lambda a: conversion.parse_mass(a, ro=self._ro, vo=self._vo)),
+                (
+                    "density",
+                    lambda a: conversion.parse_dens(a, ro=self._ro, vo=self._vo),
+                ),
+                (
+                    "surfacedensity",
+                    lambda a: conversion.parse_surfdens(a, ro=self._ro, vo=self._vo),
+                ),
+            ]
+            for amp_units_try, parse_func in units_to_try:
                 try:
-                    self._amp = conversion.parse_mass(
-                        self._amp, ro=self._ro, vo=self._vo
-                    )
+                    self._amp = parse_func(self._amp)
                 except units.UnitConversionError:
-                    pass
+                    continue
                 else:
                     unitFound = True
-                    if not amp_units == "mass":
+                    if not amp_units == amp_units_try:
                         raise units.UnitConversionError(
-                            f"amp= parameter of {type(self).__name__} should have units of {amp_units}, but has units of mass instead"
+                            f"amp= parameter of {type(self).__name__} should have units of {amp_units}, but has units of {amp_units_try} instead"
                         )
-            if not unitFound:
-                # density
-                try:
-                    self._amp = conversion.parse_dens(
-                        self._amp, ro=self._ro, vo=self._vo
-                    )
-                except units.UnitConversionError:
-                    pass
-                else:
-                    unitFound = True
-                    if not amp_units == "density":
-                        raise units.UnitConversionError(
-                            f"amp= parameter of {type(self).__name__} should have units of {amp_units}, but has units of density instead"
-                        )
-            if not unitFound:
-                # surface density
-                try:
-                    self._amp = conversion.parse_surfdens(
-                        self._amp, ro=self._ro, vo=self._vo
-                    )
-                except units.UnitConversionError:
-                    pass
-                else:
-                    unitFound = True
-                    if not amp_units == "surfacedensity":
-                        raise units.UnitConversionError(
-                            f"amp= parameter of {type(self).__name__} should have units of {amp_units}, but has units of surface density instead"
-                        )
+                    break
             if not unitFound:
                 raise units.UnitConversionError(
                     f"amp= parameter of {type(self).__name__} should have units of {amp_units}; given units are not understood"
