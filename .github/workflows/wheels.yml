@@ -232,14 +232,14 @@ jobs:
         with:
           path: tmp_wheelhouse/
       - run: find tmp_wheelhouse/ -mindepth 2 -type f -exec mv -i '{}' wheelhouse/ ';'
-      - name: Rename wheel to 'latest' version for AWS S3
+      - name: Copy wheel to 'latest' version for AWS S3
         run: |
           GALPY_VERSION="$(awk '/^current_version/{print $NF}' .bumpversion.cfg)"
-          for f in wheelhouse/*$GALPY_VERSION*.whl; do mv -i -- "$f" "${f//$GALPY_VERSION/latest}"; done
+          for f in wheelhouse/*$GALPY_VERSION*.whl; do cp -i -- "$f" "${f//$GALPY_VERSION/latest}"; done
       - name: Upload to AWS S3
         uses: jakejarvis/s3-sync-action@v0.5.1
         with:
-          args: --acl public-read --follow-symlinks --delete --exclude "*emscripten*"
+          args: --acl public-read --follow-symlinks --delete --exclude "*emscripten*" --exclude "*pyodide*"
         env:
           AWS_S3_BUCKET: ${{ secrets.AWS_S3_BUCKET }}
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}

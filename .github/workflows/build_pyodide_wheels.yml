@@ -25,6 +25,8 @@ on:
       - '.github/pyodide_meta.yaml'
       - '.github/pyodide_gsl_meta.yaml'
       - '.github/workflows/build_pyodide_wheels.yml'
+  release:
+    types: [created]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -39,10 +41,12 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: 3.13.2
+      - run: |
+          pip install pyodide-build>=0.29.2
+          echo EMSCRIPTEN_VERSION=$(pyodide config get emscripten_version) >> $GITHUB_ENV
       - uses: mymindstorm/setup-emsdk@v14
         with:
-          version: 4.0.9
-      - run: pip install pyodide-build==0.29.0
+          version: ${{ env.EMSCRIPTEN_VERSION }}
       - name: Build wheel
         run: |
           # From https://github.com/pyodide/pyodide/issues/3002#issuecomment-1248513970
@@ -66,10 +70,10 @@ jobs:
           CFLAGS=`pkg-config --cflags-only-I --dont-define-prefix gsl` \
           LDFLAGS=`pkg-config --libs-only-L --dont-define-prefix gsl` \
           pyodide build
-      - name: Rename wheels to 'latest' version
+      - name: Copy wheels to 'latest' version
         run: |
           GALPY_VERSION="$(awk '/^current_version/{print $NF}' .bumpversion.cfg)"
-          for f in dist/*$GALPY_VERSION*; do sudo mv -i -- "$f" "${f//$GALPY_VERSION/latest}"; done
+          for f in dist/*$GALPY_VERSION*; do sudo cp -i -- "$f" "${f//$GALPY_VERSION/latest}"; done
       - uses: actions/upload-artifact@v5
         with:
           name: galpy-wheel-pyodide
@@ -77,7 +81,7 @@ jobs:
       # Upload to AWS S3
       - name: Upload to AWS S3
         uses: jakejarvis/s3-sync-action@v0.5.1
-        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        if: (github.event_name != 'pull_request' && github.ref == 'refs/heads/main') || (github.event_name == 'release' && github.event.action == 'created')
         with:
           args: --acl public-read --follow-symlinks
         env:
