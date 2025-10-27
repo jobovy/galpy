@@ -33,16 +33,24 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build:
-    name: Build pyodide/wasm wheels
-    runs-on: ubuntu-24.04
+  build_wheels:
+    name: Build Python ${{ matrix.python-version }} Pyodide/wasm wheels
+    runs-on: ubuntu-latest
+    strategy:
+        # Ensure that builds finish even if another fails
+        fail-fast: false
+        matrix:
+          python-version:
+            - "3.11"
+            - "3.12"
+            - "3.13"
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v6
         with:
-          python-version: 3.13.2
+          python-version: ${{ matrix.python-version }}
       - run: |
-          pip install pyodide-build>=0.29.2
+          pip install pyodide-build
           echo EMSCRIPTEN_VERSION=$(pyodide config get emscripten_version) >> $GITHUB_ENV
       - uses: mymindstorm/setup-emsdk@v14
         with:
@@ -76,12 +84,20 @@ jobs:
           for f in dist/*$GALPY_VERSION*; do sudo cp -i -- "$f" "${f//$GALPY_VERSION/latest}"; done
       - uses: actions/upload-artifact@v5
         with:
-          name: galpy-wheel-pyodide
+          name: galpy-wheel-pyodide-${{ matrix.python-version }}
           path: dist/*.whl
-      # Upload to AWS S3
-      - name: Upload to AWS S3
-        uses: jakejarvis/s3-sync-action@v0.5.1
-        if: (github.event_name != 'pull_request' && github.ref == 'refs/heads/main') || (github.event_name == 'release' && github.event.action == 'created')
+# Upload to AWS S3
+  deploy_s3:
+    name: Upload to AWS S3
+    if: (github.event_name != 'pull_request' && github.ref == 'refs/heads/main') || (github.event_name == 'release' && github.event.action == 'created')
+    needs: build_wheels
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download wheel artifacts
+        uses: actions/download-artifact@v6
+        with:
+          path: wheelhouse/
+      - uses: jakejarvis/s3-sync-action@v0.5.1
         with:
           args: --acl public-read --follow-symlinks
         env:
