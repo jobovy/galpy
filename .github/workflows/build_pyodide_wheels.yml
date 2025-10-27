@@ -33,16 +33,16 @@ concurrency:
 jobs:
   build:
     name: Build pyodide/wasm wheels
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v6
         with:
-          python-version: 3.10.2
+          python-version: 3.13.2
       - uses: mymindstorm/setup-emsdk@v14
         with:
-          version: 3.1.14
-      - run: pip install pyodide-build==0.21.0
+          version: 4.0.9
+      - run: pip install pyodide-build==0.29.0
       - name: Build wheel
         run: |
           # From https://github.com/pyodide/pyodide/issues/3002#issuecomment-1248513970
@@ -51,9 +51,9 @@ jobs:
           export LIBDIR=`pwd`/.libs
           export PKG_CONFIG_PATH=`pwd`/.libs/lib/pkgconfig
           # Build gsl
-          wget https://ftp.gnu.org/gnu/gsl/gsl-2.7.tar.gz
-          tar -xvzf gsl-2.7.tar.gz
-          cd gsl-2.7
+          wget https://ftp.gnu.org/gnu/gsl/gsl-2.8.tar.gz
+          tar -xvzf gsl-2.8.tar.gz
+          cd gsl-2.8
           emconfigure ./configure \
               CFLAGS="-fPIC" \
               --prefix=$LIBDIR \
