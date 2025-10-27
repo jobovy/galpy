@@ -96,7 +96,9 @@ jobs:
       - name: Download wheel artifacts
         uses: actions/download-artifact@v6
         with:
-          path: wheelhouse/
+          path: tmp_wheelhouse/
+      # Flatten directory structure into wheelhouse/
+      - run: find tmp_wheelhouse/ -mindepth 2 -type f -exec mv -i '{}' wheelhouse/ ';'
       - uses: jakejarvis/s3-sync-action@v0.5.1
         with:
           args: --acl public-read --follow-symlinks
