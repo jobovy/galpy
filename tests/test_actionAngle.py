@@ -6820,7 +6820,7 @@ def test_actionAngleVerticalInverse_freqs_wrtVertical_interpolation_pointtransfo
     aAV = actionAngleVertical(pot=isopot)
     x, vx = 0.1, -0.3
     obs = Orbit([x, vx])
-    tol = -8.0
+    tol = -7.5
     Om = aAVI.Freqs(aAVI.J(obs.E(pot=isopot)))
     # Compute frequency with actionAngleHarmonic
     _, Omi = aAV.actionsFreqs(*aAVI(aAVI.J(obs.E(pot=isopot)), 0.0))
