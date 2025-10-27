@@ -93,6 +93,9 @@ jobs:
     needs: build_wheels
     runs-on: ubuntu-latest
     steps:
+      - run: |
+          mkdir tmp_wheelhouse
+          mkdir wheelhouse
       - name: Download wheel artifacts
         uses: actions/download-artifact@v6
         with:
