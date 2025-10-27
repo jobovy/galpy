@@ -122,9 +122,10 @@ If you are reading this, either the simple installation instructions at the top 
 
             python -m pip install WHEEL_FILE.whl
 
-        These wheels have stable ``...latest...`` names, so you can embed them in
-        workflows that should always be using the latest version of ``galpy``
-        (e.g., to test your code against the latest development version).
+        There are versions of these wheels that have stable ``...latest...`` names,
+        so you can embed them in workflows that should always be using the latest
+        version of ``galpy`` (e.g., to test your code against the latest development
+        version).
 
         If this doesn't work, follow the steps above to install the GSL, define the
         relevant environment variables, and then install from source using::
@@ -191,9 +192,10 @@ If you are reading this, either the simple installation instructions at the top 
 
             python -m pip install WHEEL_FILE.whl
 
-        These wheels have stable ``...latest...`` names, so you can embed them in
-        workflows that should always be using the latest version of ``galpy``
-        (e.g., to test your code against the latest development version).
+        There are versions of these wheels that have stable ``...latest...`` names,
+        so you can embed them in workflows that should always be using the latest
+        version of ``galpy`` (e.g., to test your code against the latest development
+        version).
 
         If this doesn't work, follow the steps above to install the GSL and OpenMP,
         define the relevant environment variables, and then install from source using::
@@ -264,9 +266,10 @@ If you are reading this, either the simple installation instructions at the top 
             python -m pip install .
 
         Whenever you run ``galpy``, you have to adjust the ``PATH`` variable as above.
-        These wheels have stable ``...latest...`` names, so you can embed them in
-        workflows that should always be using the latest version of ``galpy``
-        (e.g., to test your code against the latest development version).
+        There are versions of these wheels that have stable ``...latest...`` names,
+        so you can embed them in workflows that should always be using the latest
+        version of ``galpy`` (e.g., to test your code against the latest development
+        version).
 
 .. _dev_installation:
 
@@ -370,14 +373,21 @@ Using ``galpy`` in web applications
 
 ``galpy`` can be compiled to `WebAssembly <https://webassembly.org/>`__ using the `emscripten <https://emscripten.org/>`__ compiler. In particular, ``galpy`` is part of the `pyodide <https://pyodide.org/en/stable/>`__ Python distribution for the browser, meaning that ``galpy`` can be used on websites without user installation and it still runs at the speed of a compiled language. This powers, for example, the :ref:`Try galpy <try_galpy>` interactive session on this documentation's home page. Thus, it is easy to, e.g., build web-based, interactive galactic-dynamics examples or tutorials without requiring users to install the scientific Python stack and ``galpy`` itself.
 
-``galpy`` is included in versions >0.20 of ``pyodide``, so ``galpy`` can be imported in any web context that uses ``pyodide`` (e.g., `jupyterlite <https://jupyterlite.readthedocs.io/en/latest/>`__ or `pyscript <https://pyscript.net/>`__). Python packages used in ``pyodide`` are compiled to the usual wheels, but for the ``emscripten`` compiler. Such a wheel for the latest development version of ``galpy`` is always available at `galpy-latest-cp310-cp310-emscripten_wasm32.whl <https://www.galpy.org/wheelhouse/galpy-latest-cp310-cp310-emscripten_wasm32.whl>`__ (note that this URL will change for future ``pyodide`` versions, which include ``emscripten`` version numbers in the wheel name). It can be used in ``pyodide`` for example as
+``galpy`` is included in versions >0.20 of ``pyodide``, so ``galpy`` can be imported in
+any web context that uses ``pyodide`` (e.g., `jupyterlite <https://jupyterlite.readthedocs.io/en/latest/>`__
+or `pyscript <https://pyscript.net/>`__). Python packages used in ``pyodide`` are compiled
+to the usual wheels, but for the ``emscripten`` compiler. Such a wheel for the latest
+development version of ``galpy`` is always available
+`here <http://www.galpy.org.s3-website.us-east-2.amazonaws.com/list.html>`__ (look for wheels with ``pyodide`` in the name).
+It can be used in ``pyodide`` for example as
 
->>> import pyodide_js
->>> await pyodide_js.loadPackage(['numpy','scipy','matplotlib','astropy',
-        'future','setuptools',
-        'https://www.galpy.org/wheelhouse/galpy-latest-cp310-cp310-emscripten_wasm32.whl'])
+>>> import micropip
+>>> await micropip.install('https://www.galpy.org/wheelhouse/galpy-1.11.1.dev0-cp312-cp312-pyodide_2024_0_wasm32.whl')
 
-after which you can ``import galpy`` and do (almost) everything you can in the Python version of ``galpy`` (everything except for querying Simbad using ``Orbit.from_name`` and except for ``Orbit.animate``). Note that depending on your context, you might have to just ``import pyodide`` to get the ``loadPackage`` function.
+after which you can ``import galpy`` and do (almost) everything you can in the Python version
+of ``galpy``. Note that because ``galpy`` is included in the default ``pyodide``
+distribution, you may have to first run ``micropip.uninstall('galpy')`` if you want to
+install a more recent version.
 
 
 Installation FAQ
