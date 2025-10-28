@@ -66,6 +66,7 @@ requiring version 1.14 or higher. Other optional dependencies include:
 * Speeding up the evaluation of certain functions in the C code requires [`numba`](https://numba.pydata.org/).
 * Constant-anisotropy DFs in `galpy.df.constantbetadf` require [`JAX`](https://github.com/google/jax).
 * Use of `SnapshotRZPotential` and `InterpSnapshotRZPotential` requires [`pynbody`](https://github.com/pynbody/pynbody).
+* Using symbolic potentials such as SymbolicSphericalPotential requires [`sympy`](https://www.sympy.org/).
 
 Other parts of the code may require additional packages and you will be alerted by the code if they are
 not installed.
