@@ -7945,6 +7945,48 @@ def test_dehnen_bar_python_c_consistency():
     )
 
 
+# Test the rm2 definition of EinastoPotential
+def test_einasto_potential_rm2_definition():
+    from galpy.potential import EinastoPotential
+
+    for n in [1.0, 1.5, 2.0, 3.0, 4.0]:
+        # Define an Einasto potential with the rm2 definition
+        rm2 = 2.5
+        ep = EinastoPotential(normalize=1.0, rm2=rm2, n=n)
+        # Numerically compute the logarithmic density derivatives at rm2 and check that it is -2
+        dr = 1e-6
+        rho_prime = (ep.dens(rm2 + dr, 0.0) - ep.dens(rm2 - dr, 0.0)) / (2.0 * dr)
+        slope = (rm2 / ep.dens(rm2, 0.0)) * rho_prime
+        assert numpy.fabs(slope + 2.0) < 1e-8, (
+            "EinastoPotential with rm2= definition does not have dln(rho)/dln(r) = -2 at rm2"
+        )
+    return None
+
+
+# Test the rs definition of EinatoPotential: rs is the half-mass radius
+def test_einasto_potential_rs_definition():
+    from scipy.integrate import quad
+
+    from galpy.potential import EinastoPotential
+
+    for n in [1.0, 1.5, 2.0, 3.0, 4.0]:
+        # Define an Einasto potential with the rs definition
+        rs = 2.5
+        ep = EinastoPotential(normalize=1.0, rs=rs, n=n)
+        # Numerically compute the mass within rs and check that it is half the total mass
+        # Use scipy.integrate.quad for this
+        mass_within_rs = (
+            4.0 * numpy.pi * quad(lambda r: r**2 * ep.dens(r, 0.0), 0.0, rs)[0]
+        )
+        total_mass = (
+            4.0 * numpy.pi * quad(lambda r: r**2 * ep.dens(r, 0.0), 0.0, numpy.inf)[0]
+        )
+        assert numpy.fabs(mass_within_rs / total_mass - 0.5) < 1e-8, (
+            "EinastoPotential with rs= definition does not have half-mass radius at rs"
+        )
+    return None
+
+
 # Test that trying to plot a potential with xy=True and effective=True raises a RuntimeError
 def test_plotting_xy_effective_error():
     # First a single potential
