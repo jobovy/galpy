@@ -36,6 +36,8 @@ jobs:
   build_wheels:
     name: Build Python ${{ matrix.python-version }} Pyodide/wasm wheels
     runs-on: ubuntu-latest
+    env:
+      GSL_VERSION: "2.8"
     strategy:
         # Ensure that builds finish even if another fails
         fail-fast: false
@@ -55,7 +57,14 @@ jobs:
       - uses: mymindstorm/setup-emsdk@v14
         with:
           version: ${{ env.EMSCRIPTEN_VERSION }}
+      - name: Cache GSL build
+        uses: actions/cache@v4
+        id: cache-gsl
+        with:
+          path: .libs
+          key: gsl-${{ env.GSL_VERSION }}-emsdk-${{ env.EMSCRIPTEN_VERSION }}
       - name: Build GSL
+        if: steps.cache-gsl.outputs.cache-hit != 'true'
         run: |
           # From https://github.com/pyodide/pyodide/issues/3002#issuecomment-1248513970
           # Set up libs dir and pkg config
@@ -63,9 +72,9 @@ jobs:
           export LIBDIR=`pwd`/.libs
           export PKG_CONFIG_PATH=`pwd`/.libs/lib/pkgconfig
           # Build gsl
-          wget https://ftp.gnu.org/gnu/gsl/gsl-2.8.tar.gz
-          tar -xvzf gsl-2.8.tar.gz
-          cd gsl-2.8
+          wget https://ftp.gnu.org/gnu/gsl/gsl-${{ env.GSL_VERSION }}.tar.gz
+          tar -xvzf gsl-${{ env.GSL_VERSION }}.tar.gz
+          cd gsl-${{ env.GSL_VERSION }}
           emconfigure ./configure \
               CFLAGS="-fPIC" \
               --prefix=$LIBDIR \
