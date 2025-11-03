@@ -8357,6 +8357,22 @@ def test_potential_ampunits():
         )
         < 10.0**-8.0
     ), "NullPotential w/ amp w/ units does not behave as expected"
+    # EinastoPotential
+    # amp has density units
+    pot = potential.EinastoPotential(
+        amp=10.0 * units.Msun / units.pc**3, n=1.0, ro=ro, vo=vo
+    )
+    pot_nounits = potential.EinastoPotential(
+        amp=10.0 / conversion.dens_in_msolpc3(vo, ro), n=1.0, ro=ro, vo=vo
+    )
+    # Check potential
+    assert (
+        numpy.fabs(
+            pot(4.0, 0.0, phi=1.0, use_physical=False)
+            - pot_nounits(4.0, 0.0, phi=1.0, use_physical=False)
+        )
+        < 10.0**-8.0
+    ), "EinastoPotential w/ amp w/ units does not behave as expected"
     return None
 
 
@@ -9069,6 +9085,15 @@ def test_potential_ampunits_wrongunits():
     with pytest.raises(units.UnitConversionError) as excinfo:
         potential.TimeDependentAmplitudeWrapperPotential(
             amp=1.0 / units.s**3, A=lambda t: t, pot=potential.MWPotential2014
+        )
+    # EinastoPotential
+    with pytest.raises(units.UnitConversionError) as excinfo:
+        potential.EinastoPotential(
+            amp=10.0**10.0 * units.Msun / units.pc**2,
+            h=2.0,
+            n=1.17,
+            ro=ro,
+            vo=vo,
         )
     return None
 
@@ -10160,6 +10185,39 @@ def test_potential_paramunits():
         )
         < 10.0**-8.0
     ), "RotateAndTiltWrapperPotential w/ pa w/ units does not behave as expected"
+    # EinastoPotential with h
+    pot = potential.EinastoPotential(amp=1.0, h=5.0 * units.kpc, ro=ro, vo=vo)
+    pot_nounits = potential.EinastoPotential(amp=1.0, h=5.0 / ro, ro=ro, vo=vo)
+    # Check potential
+    assert (
+        numpy.fabs(
+            pot(4.0, 0.0, phi=1.0, use_physical=False)
+            - pot_nounits(4.0, 0.0, phi=1.0, use_physical=False)
+        )
+        < 10.0**-8.0
+    ), "EinastoPotential w/ amp w/ units does not behave as expected"
+    # EinastoPotential with rm2
+    pot = potential.EinastoPotential(amp=1.0, rm2=5.0 * units.kpc, ro=ro, vo=vo)
+    pot_nounits = potential.EinastoPotential(amp=1.0, rm2=5.0 / ro, ro=ro, vo=vo)
+    # Check potential
+    assert (
+        numpy.fabs(
+            pot(4.0, 0.0, phi=1.0, use_physical=False)
+            - pot_nounits(4.0, 0.0, phi=1.0, use_physical=False)
+        )
+        < 10.0**-8.0
+    ), "EinastoPotential w/ amp w/ units does not behave as expected"
+    # EinastoPotential with rs
+    pot = potential.EinastoPotential(amp=1.0, rs=5.0 * units.kpc, ro=ro, vo=vo)
+    pot_nounits = potential.EinastoPotential(amp=1.0, rs=5.0 / ro, ro=ro, vo=vo)
+    # Check potential
+    assert (
+        numpy.fabs(
+            pot(4.0, 0.0, phi=1.0, use_physical=False)
+            - pot_nounits(4.0, 0.0, phi=1.0, use_physical=False)
+        )
+        < 10.0**-8.0
+    ), "EinastoPotential w/ amp w/ units does not behave as expected"
     # If you add one here, don't base it on ChandrasekharDynamicalFrictionForce!!
     return None
 
