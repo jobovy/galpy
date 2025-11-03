@@ -1,8 +1,17 @@
-v1.11.1 (expected around 2025-11-01)
+v1.11.1 (2025-11-02)
 ====================
+
+- Added EinastoPotential, the potential corresponding to the Einasto density
+  profile.
+
+- Add Fuzzy Dark Matter (FDM) dynamical friction (#731)
 
 - Added wrapper potential to turn a potential into an oblate Staeckel potential
   (OblateStaeckelWrapperPotential).
+
+- Added wheels for Python 3.14.
+
+- Build wheels for multiple Pyodide versions and share on AWS site.
 
 v1.11.0 (2025-07-02)
 ====================
