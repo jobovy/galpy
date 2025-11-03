@@ -281,6 +281,7 @@ def test_dynamfric_c():
             normalize=1.0,
             a=3.5,
         ),
+        potential.EinastoPotential(normalize=1.0, h=2.2),
         MWPotential3021,
         McMillan17,  # SCF + DiskSCF
     ]
