@@ -55,7 +55,7 @@ jobs:
       - uses: mymindstorm/setup-emsdk@v14
         with:
           version: ${{ env.EMSCRIPTEN_VERSION }}
-      - name: Build wheel
+      - name: Build GSL
         run: |
           # From https://github.com/pyodide/pyodide/issues/3002#issuecomment-1248513970
           # Set up libs dir and pkg config
@@ -73,8 +73,10 @@ jobs:
               --disable-shared
           emmake make -j 3
           emmake make install
-          # Build galpy
-          cd ..
+      - name: Build galpy wheel
+        run: |
+          export LIBDIR=`pwd`/.libs
+          export PKG_CONFIG_PATH=`pwd`/.libs/lib/pkgconfig
           CFLAGS=`pkg-config --cflags-only-I --dont-define-prefix gsl` \
           LDFLAGS=`pkg-config --libs-only-L --dont-define-prefix gsl` \
           pyodide build
