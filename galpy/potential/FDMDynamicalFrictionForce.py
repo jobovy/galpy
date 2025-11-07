@@ -219,4 +219,4 @@ class FDMDynamicalFrictionForce(ChandrasekharDynamicalFrictionForce):
             else:
                 self._C = self.frictionFactor(r, vs)
 
-            self._cached_force = -self._dens(R, z, phi=phi, t=t) / vs**3.0 * self._C
+            self._cached_force = -self._dens_host(R, z, phi=phi, t=t) / vs**3.0 * self._C

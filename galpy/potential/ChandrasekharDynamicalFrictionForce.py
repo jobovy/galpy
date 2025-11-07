@@ -113,7 +113,7 @@ class ChandrasekharDynamicalFrictionForce(DissipativeForce):
                 sigmar = lambda x: _INVSQRTTWO
         dens = flatten_pot(dens)
         self._dens_pot = dens
-        self._dens = lambda R, z, phi=0.0, t=0.0: evaluateDensities(
+        self._dens_host = lambda R, z, phi=0.0, t=0.0: evaluateDensities(
             self._dens_pot, R, z, phi=phi, t=t, use_physical=False
         )
         if sigmar is None:
@@ -134,7 +134,7 @@ class ChandrasekharDynamicalFrictionForce(DissipativeForce):
             if numpy.all(
                 numpy.array(
                     [
-                        self._dens(r * _INVSQRTTWO, r * _INVSQRTTWO)
+                        self._dens_host(r * _INVSQRTTWO, r * _INVSQRTTWO)
                         for r in self._sigmar_rs_4interp[nanrs_indx]
                     ]
                 )
@@ -223,7 +223,7 @@ class ChandrasekharDynamicalFrictionForce(DissipativeForce):
             Xfactor = special.erf(X) - 2.0 * X * _INVSQRTPI * numpy.exp(-(X**2.0))
             lnLambda = self.lnLambda(r, vs)
             self._cached_force = (
-                -self._dens(R, z, phi=phi, t=t) / vs**3.0 * Xfactor * lnLambda
+                -self._dens_host(R, z, phi=phi, t=t) / vs**3.0 * Xfactor * lnLambda
             )
 
     def _Rforce(self, R, z, phi=0.0, t=0.0, v=None):
@@ -254,7 +254,7 @@ class ChandrasekharDynamicalFrictionForce(DissipativeForce):
     def __getstate__(self):
         pdict = copy.copy(self.__dict__)
         # rm lambda function
-        del pdict["_dens"]
+        del pdict["_dens_host"]
         if self._sigmar_kwarg is None:
             # because an object set up with sigmar = user-provided function
             # cannot typically be picked, disallow this explicitly
@@ -264,8 +264,8 @@ class ChandrasekharDynamicalFrictionForce(DissipativeForce):
 
     def __setstate__(self, pdict):
         self.__dict__ = pdict
-        # Re-setup _dens
-        self._dens = lambda R, z, phi=0.0, t=0.0: evaluateDensities(
+        # Re-setup _dens_host
+        self._dens_host = lambda R, z, phi=0.0, t=0.0: evaluateDensities(
             self._dens_pot, R, z, phi=phi, t=t, use_physical=False
         )
         # Re-setup sigmar_orig
