@@ -72,7 +72,7 @@ python setup.py build_ext --inplace
 - `GALPY_COMPILE_SINGLE_EXT=1`: Compile all C code into single extension (testing only)
 - `GALPY_COMPILE_NO_EXT=1`: Skip C extension compilation (testing only)
 
-**Expected Warning**: You will see a warning about "galpy action-angle-torus C library not installed" unless you manually download the Torus code from https://github.com/jobovy/Torus.git (branch: galpy) into `galpy/actionAngle/actionAngleTorus_c_ext/torus`. This is normal and does not prevent package functionality.
+**Expected Warning**: You will see a warning about "galpy action-angle-torus C library not installed" unless you manually download the Torus code from https://github.com/jobovy/Torus.git (branch: galpy) into `galpy/actionAngle/actionAngleTorus_c_ext/torus`. This is normal and does not prevent package functionality. Installing the Torus code is only necessary when making changes to `actionAngleTorus.py` or any files under `galpy/actionAngle/actionAngleTorus_c_ext/` directory.
 
 ### Verifying Installation
 
@@ -104,15 +104,12 @@ pytest tests/test_orbit.py -k 'test_energy_jacobi_conservation' -v
 pytest -v tests/ --cov galpy --cov-config .coveragerc --disable-pytest-warnings
 ```
 
-**Test Configuration**: Some tests require specific configuration in `~/.galpyrc`:
-- `test_evolveddiskdf.py`: Requires `[normalization]` section with `ro = 8.` and `vo = 220.`
-- `test_diskdf.py`: Requires multiple configuration sections (see `.github/workflows/build.yml` for details)
-
 **Important Test Dependencies**:
 - Tests in `test_orbit.py` involving `from_name` require `astroquery`
 - Tests in `test_snapshotpotential.py` require `pynbody`
-- Tests in `test_qdf.py` and similar require `numba`
+- Tests in `test_dynamfric.py` and `test_FDMdynamfric.py` require `numba`
 - Tests in `test_sphericaldf.py` require `JAX`
+- Tests in `test_quantity.py` require `astropy`
 
 ### Test Parallelization
 
@@ -137,8 +134,6 @@ pre-commit run --all-files  # Run all hooks manually
 - isort (import sorting, black profile)
 - codespell (spell checking)
 - ruff-format (code formatting)
-
-**To skip CI on documentation-only changes**: Add `[ci skip]` to ALL commit messages.
 
 ## Project Structure
 
@@ -223,7 +218,8 @@ doc/                      # Sphinx documentation
 4. Add tests to `tests/test_potential.py`
 5. Add API documentation page in `doc/source/reference/potentialnew.rst` (2-line file)
 6. **Optional**: Add C implementation following `README.dev` steps
-7. Run tests: `pytest tests/test_potential.py -v -k NewPotential`
+7. Run tests: `pytest tests/test_potential.py -v -k NewPotential` and `pytest tests/test_orbit.py -v -k NewPotential`
+8. See PR #760 as a comprehensive example of adding a potential
 
 ### Making Code Changes
 
@@ -261,9 +257,9 @@ export LDFLAGS="$LDFLAGS -L/path/to/gsl/lib/"
 - The test suite is comprehensive and memory-intensive
 - Some tests (e.g., `test_streamgapdf.py`, `test_diskdf.py`) are particularly long-running
 - CI uses test splitting to parallelize execution
+- Use `-k ...` to select relevant tests when working on specific features
 
 ### Documentation Changes
-- Documentation-only changes should include `[ci skip]` in commit messages
 - Documentation builds to `../../galpy-docs/` (outside repository)
 - Requires sphinx and documentation dependencies
 
