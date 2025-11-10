@@ -567,13 +567,11 @@ in the area of the stream:
 
 >>> ts= numpy.linspace(0.,3.,301)
 >>> o.integrate(ts,lp)
->>> of= o()
->>> of.integrate(-ts,lp)
+>>> o.integrate(-ts,lp)  # Continue backward
 
 Then we plot
 
 >>> o.plot(d1='x',d2='z',color='k',xrange=[0.,2.],yrange=[-0.1,1.45])
->>> of.plot(d1='x',d2='z',overplot=True,color='k')
 >>> plot(orbs_c24.x(),orbs_c24.z(),'r.', alpha=0.5)
 >>> plot(orbts_c24.x(),orbts_c24.z(),'r.', alpha=0.5)
 >>> plot(orbs_f15.x(),orbs_f15.z(),'b.', alpha=0.5)

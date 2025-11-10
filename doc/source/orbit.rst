@@ -521,6 +521,64 @@ this can be overwritten). A simple example is
 # [ 0.1         0.18647825  0.27361065 ...,  3.39447863  3.34992543
 #   3.30527001]]
 
+.. _orbintegration-continuation:
+
+Continuing orbit integrations
+------------------------------
+
+``galpy`` supports *continuing* orbit integrations in both forward and
+backward time directions when the new time array appropriately continues
+from the existing integration.
+
+For forward continuation, if the first time of the new integration
+matches the last time of the previous integration, the two integrations
+are merged into a single continuous orbit. For example:
+
+>>> o= Orbit([1.,0.1,1.1,0.,0.1,0.])
+>>> from galpy.potential import MWPotential2014
+>>> t1= numpy.linspace(0.,10.,101)
+>>> o.integrate(t1,MWPotential2014)
+>>> t2= numpy.linspace(10.,20.,101)
+>>> o.integrate(t2,MWPotential2014) # This continues from t=10
+>>> times = o.time()  # Get the integrated times using the time() method
+>>> print(len(times))
+# 201  # Not 101, because the integrations were merged!
+>>> print(times[0], times[100], times[-1])
+# (0.0, 10.0, 20.0)
+
+The two time arrays do not need to have the same number of points or
+spacing. The only requirement is that ``t2[0]`` matches ``t1[-1]`` and
+that both arrays are monotonic in the same direction (both increasing
+or both decreasing). For methods that require equispaced times, each
+individual time array must be equispaced, but they do not need to have
+the same spacing.
+
+Backward continuation works similarly. If the first time of the new
+integration matches the first time of the previous integration and the
+new time array goes in the opposite direction, the orbit is integrated
+backward in time and prepended to the existing integration:
+
+>>> o= Orbit([1.,0.1,1.1,0.,0.1,0.])
+>>> t1= numpy.linspace(0.,10.,101)
+>>> o.integrate(t1,MWPotential2014)
+>>> t2= numpy.linspace(0.,-10.,101)
+>>> o.integrate(t2,MWPotential2014) # This continues backward from t=0
+>>> times = o.time()
+>>> print(len(times))
+# 201
+>>> print(times[0], times[100], times[-1])
+# (-10.0, 0.0, 10.0)
+
+Continuation works even when the potential is different from the previous
+integration, though a warning will be issued in this case to alert you that
+this may lead to unphysical results.
+
+The integration times can be obtained using the ``time()`` method, which
+returns the array of times at which the orbit has been sampled. All orbit
+methods (``r()``, ``E()``, ``R()``, etc.) work seamlessly with continued
+integrations, and interpolation is handled correctly across the full time
+range.
+
 .. _orbintegration-noninertial:
 
 Orbit integration in non-inertial frames
