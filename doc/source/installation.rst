@@ -114,18 +114,9 @@ If you are reading this, either the simple installation instructions at the top 
 
         The commands in this section so far all install the latest release. If you want
         to install the latest bleeding-edge version, you have two options. If the
-        installation in the :ref:`tldr_installation` works for you, you can download a
-        binary wheel for the latest ``main`` branch version on GitHub, which is available
-        `here <http://www.galpy.org.s3-website.us-east-2.amazonaws.com/list.html>`__.
-        To install these wheels, download the relevant version for your operating system
-        and Python version and do::
+        installation in the :ref:`tldr_installation` works for you, you can install using::
 
-            python -m pip install WHEEL_FILE.whl
-
-        There are versions of these wheels that have stable ``...latest...`` names,
-        so you can embed them in workflows that should always be using the latest
-        version of ``galpy`` (e.g., to test your code against the latest development
-        version).
+            python -m pip install --pre --extra-index-url https://www.galpy.org/wheelhouse/simple --only-binary galpy galpy
 
         If this doesn't work, follow the steps above to install the GSL, define the
         relevant environment variables, and then install from source using::
@@ -184,18 +175,9 @@ If you are reading this, either the simple installation instructions at the top 
 
         The commands in this section so far all install the latest release. If you want
         to install the latest bleeding-edge version, you have two options. If the
-        installation in the :ref:`tldr_installation` works for you, you can download a
-        binary wheel for the latest ``main`` branch version on GitHub, which is
-        available `here <http://www.galpy.org.s3-website.us-east-2.amazonaws.com/list.html>`__.
-        To install these wheels, download the relevant version for your operating
-        system and Python version and do::
+        installation in the :ref:`tldr_installation` works for you, you can install using::
 
-            python -m pip install WHEEL_FILE.whl
-
-        There are versions of these wheels that have stable ``...latest...`` names,
-        so you can embed them in workflows that should always be using the latest
-        version of ``galpy`` (e.g., to test your code against the latest development
-        version).
+            python -m pip install --pre --extra-index-url https://www.galpy.org/wheelhouse/simple --only-binary galpy galpy
 
         If this doesn't work, follow the steps above to install the GSL and OpenMP,
         define the relevant environment variables, and then install from source using::
@@ -248,13 +230,9 @@ If you are reading this, either the simple installation instructions at the top 
 
         Then you can deactivate the conda environment (but you don't have to!).
 
-        With the GSL set up, you can then download a binary wheel for the latest
-        ``main`` branch version on GitHub, which is available
-        `here <http://www.galpy.org.s3-website.us-east-2.amazonaws.com/list.html>`__.
-        To install these wheels, download the relevant version for your operating
-        system and Python version and do::
+        With the GSL set up, you can then install a binary wheel of ``galpy`` using::
 
-            python -m pip install WHEEL_FILE.whl
+            python -m pip install --pre --extra-index-url https://www.galpy.org/wheelhouse/simple --only-binary galpy galpy
 
         You can also compile from source using::
 
@@ -266,10 +244,6 @@ If you are reading this, either the simple installation instructions at the top 
             python -m pip install .
 
         Whenever you run ``galpy``, you have to adjust the ``PATH`` variable as above.
-        There are versions of these wheels that have stable ``...latest...`` names,
-        so you can embed them in workflows that should always be using the latest
-        version of ``galpy`` (e.g., to test your code against the latest development
-        version).
 
 .. _dev_installation:
 
