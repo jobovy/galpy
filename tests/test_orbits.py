@@ -9118,18 +9118,19 @@ def test_orbits_continuation_vs_noncontinued():
     r_cont = o_cont.r(o_cont.t)
     r_full = o_full.r(o_full.t)
 
-    assert numpy.allclose(
-        r_cont, r_full, rtol=1e-10
-    ), "Continued integration r values should match non-continued for multiple orbits"
+    assert numpy.allclose(r_cont, r_full, rtol=1e-10), (
+        "Continued integration r values should match non-continued for multiple orbits"
+    )
 
     return None
 
 
 def test_orbits_continuation_different_potential():
     # Test continuing multiple orbits with different potential
-    from galpy.orbit import Orbit
-    from galpy.potential import MWPotential2014, LogarithmicHaloPotential
     import warnings
+
+    from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential, MWPotential2014
 
     vxvvs = [[1.0, 0.1, 1.1, 0.0, 0.1], [0.9, 0.15, 1.0, 0.05, 0.12]]
     o = Orbit(vxvvs)
@@ -9143,10 +9144,16 @@ def test_orbits_continuation_different_potential():
     with warnings.catch_warnings(record=True) as w:
         warnings.simplefilter("always")
         o.integrate(t2, LogarithmicHaloPotential())
-        pot_warnings = [warning for warning in w if "different potential" in str(warning.message)]
-        assert len(pot_warnings) > 0, "Should warn for multiple orbits with different potential"
+        pot_warnings = [
+            warning for warning in w if "different potential" in str(warning.message)
+        ]
+        assert len(pot_warnings) > 0, (
+            "Should warn for multiple orbits with different potential"
+        )
 
     # Check continuation happened
-    assert o.orbit.shape == (2, 201, 5), "Should continue integration for multiple orbits"
+    assert o.orbit.shape == (2, 201, 5), (
+        "Should continue integration for multiple orbits"
+    )
 
     return None

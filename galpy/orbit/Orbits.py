@@ -1411,7 +1411,7 @@ class Orbit:
         Returns
         -------
         tuple
-            (should_continue, is_forward, pot_changed) where should_continue is True 
+            (should_continue, is_forward, pot_changed) where should_continue is True
             if we should continue the integration, is_forward indicates the direction,
             and pot_changed indicates if the potential has changed.
         """
@@ -1421,11 +1421,11 @@ class Orbit:
 
         # Check if potentials are the same
         pot_changed = False
-        
+
         # Convert to lists for uniform handling
         pot_list = pot if isinstance(pot, list) else [pot]
         old_pot_list = self._pot if isinstance(self._pot, list) else [self._pot]
-        
+
         # Check if list lengths differ
         if len(pot_list) != len(old_pot_list):
             pot_changed = True
