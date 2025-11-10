@@ -10110,34 +10110,34 @@ def test_orbit_continuation_forward():
     # Test forward continuation of orbit integration
     from galpy.orbit import Orbit
     from galpy.potential import MWPotential2014
-    
-    o = Orbit([1., 0.1, 1.1, 0., 0.1])
-    
+
+    o = Orbit([1.0, 0.1, 1.1, 0.0, 0.1])
+
     # First integration
-    t1 = numpy.linspace(0., 10., 101)
+    t1 = numpy.linspace(0.0, 10.0, 101)
     o.integrate(t1, MWPotential2014)
-    r1_at_10 = o.r(10.)
-    
+    r1_at_10 = o.r(10.0)
+
     # Second integration continuing from first
-    t2 = numpy.linspace(10., 20., 101)
+    t2 = numpy.linspace(10.0, 20.0, 101)
     o.integrate(t2, MWPotential2014)
-    
+
     # Check that time array was merged
     assert len(o.t) == 201, "Time array should have 201 points after continuation"
-    assert numpy.isclose(o.t[0], 0.), "First time should be 0"
-    assert numpy.isclose(o.t[-1], 20.), "Last time should be 20"
-    assert numpy.isclose(o.t[100], 10.), "Middle time should be 10"
-    
+    assert numpy.isclose(o.t[0], 0.0), "First time should be 0"
+    assert numpy.isclose(o.t[-1], 20.0), "Last time should be 20"
+    assert numpy.isclose(o.t[100], 10.0), "Middle time should be 10"
+
     # Check that orbit was merged
     assert o.orbit.shape[1] == 201, "Orbit should have 201 time points"
-    
+
     # Check that r at junction is continuous
-    assert numpy.isclose(o.r(10.), r1_at_10), "r should be continuous at junction"
-    
+    assert numpy.isclose(o.r(10.0), r1_at_10), "r should be continuous at junction"
+
     # Check that methods work across the full range
     r_all = o.r(o.t)
     assert r_all.shape == (201,), "r should work for all times"
-    
+
     return None
 
 
@@ -10145,57 +10145,57 @@ def test_orbit_continuation_backward():
     # Test backward continuation of orbit integration
     from galpy.orbit import Orbit
     from galpy.potential import MWPotential2014
-    
-    o = Orbit([1., 0.1, 1.1, 0., 0.1])
-    
+
+    o = Orbit([1.0, 0.1, 1.1, 0.0, 0.1])
+
     # First integration (forward)
-    t1 = numpy.linspace(0., 10., 101)
+    t1 = numpy.linspace(0.0, 10.0, 101)
     o.integrate(t1, MWPotential2014)
-    r1_at_0 = o.r(0.)
-    
+    r1_at_0 = o.r(0.0)
+
     # Second integration going backward
-    t2 = numpy.linspace(0., -10., 101)
+    t2 = numpy.linspace(0.0, -10.0, 101)
     o.integrate(t2, MWPotential2014)
-    
+
     # Check that time array was merged correctly
     assert len(o.t) == 201, "Time array should have 201 points after continuation"
-    assert numpy.isclose(o.t[0], -10.), "First time should be -10"
-    assert numpy.isclose(o.t[-1], 10.), "Last time should be 10"
-    assert numpy.isclose(o.t[100], 0.), "Middle time should be 0"
-    
+    assert numpy.isclose(o.t[0], -10.0), "First time should be -10"
+    assert numpy.isclose(o.t[-1], 10.0), "Last time should be 10"
+    assert numpy.isclose(o.t[100], 0.0), "Middle time should be 0"
+
     # Check that orbit was merged
     assert o.orbit.shape[1] == 201, "Orbit should have 201 time points"
-    
+
     # Check that r at junction is continuous
-    assert numpy.isclose(o.r(0.), r1_at_0), "r should be continuous at junction"
-    
+    assert numpy.isclose(o.r(0.0), r1_at_0), "r should be continuous at junction"
+
     # Check that methods work across the full range
     r_all = o.r(o.t)
     assert r_all.shape == (201,), "r should work for all times"
-    
+
     return None
 
 
 def test_orbit_continuation_different_potential():
     # Test that continuation doesn't happen with different potential
     from galpy.orbit import Orbit
-    from galpy.potential import MWPotential2014, LogarithmicHaloPotential
-    
-    o = Orbit([1., 0.1, 1.1, 0., 0.1])
-    
+    from galpy.potential import LogarithmicHaloPotential, MWPotential2014
+
+    o = Orbit([1.0, 0.1, 1.1, 0.0, 0.1])
+
     # First integration
-    t1 = numpy.linspace(0., 10., 101)
+    t1 = numpy.linspace(0.0, 10.0, 101)
     o.integrate(t1, MWPotential2014)
-    
+
     # Second integration with different potential
-    t2 = numpy.linspace(10., 20., 101)
+    t2 = numpy.linspace(10.0, 20.0, 101)
     o.integrate(t2, LogarithmicHaloPotential())
-    
+
     # Check that integration was NOT continued (should have only new times)
     assert len(o.t) == 101, "Time array should have 101 points (not continued)"
-    assert numpy.isclose(o.t[0], 10.), "First time should be 10"
-    assert numpy.isclose(o.t[-1], 20.), "Last time should be 20"
-    
+    assert numpy.isclose(o.t[0], 10.0), "First time should be 10"
+    assert numpy.isclose(o.t[-1], 20.0), "Last time should be 20"
+
     return None
 
 
@@ -10203,25 +10203,25 @@ def test_orbit_continuation_different_spacing():
     # Test continuation with different time spacing
     from galpy.orbit import Orbit
     from galpy.potential import MWPotential2014
-    
-    o = Orbit([1., 0.1, 1.1, 0., 0.1])
-    
+
+    o = Orbit([1.0, 0.1, 1.1, 0.0, 0.1])
+
     # First integration with 101 points
-    t1 = numpy.linspace(0., 10., 101)
+    t1 = numpy.linspace(0.0, 10.0, 101)
     o.integrate(t1, MWPotential2014)
-    
+
     # Second integration with 51 points (different spacing)
-    t2 = numpy.linspace(10., 20., 51)
+    t2 = numpy.linspace(10.0, 20.0, 51)
     o.integrate(t2, MWPotential2014)
-    
+
     # Check that time array was merged
     assert len(o.t) == 151, "Time array should have 151 points (101 + 51 - 1)"
-    assert numpy.isclose(o.t[0], 0.), "First time should be 0"
-    assert numpy.isclose(o.t[-1], 20.), "Last time should be 20"
-    
+    assert numpy.isclose(o.t[0], 0.0), "First time should be 0"
+    assert numpy.isclose(o.t[-1], 20.0), "Last time should be 20"
+
     # Check that orbit was merged
     assert o.orbit.shape[1] == 151, "Orbit should have 151 time points"
-    
+
     return None
 
 
@@ -10229,40 +10229,40 @@ def test_orbit_continuation_methods():
     # Test that orbit methods work correctly after continuation
     from galpy.orbit import Orbit
     from galpy.potential import MWPotential2014
-    
-    o = Orbit([1., 0.1, 1.1, 0., 0.1])
-    
+
+    o = Orbit([1.0, 0.1, 1.1, 0.0, 0.1])
+
     # First integration
-    t1 = numpy.linspace(0., 10., 101)
+    t1 = numpy.linspace(0.0, 10.0, 101)
     o.integrate(t1, MWPotential2014)
-    
+
     # Store values at t=10
-    r_at_10_before = o.r(10.)
-    vR_at_10_before = o.vR(10.)
-    vT_at_10_before = o.vT(10.)
-    z_at_10_before = o.z(10.)
-    vz_at_10_before = o.vz(10.)
-    E_at_10_before = o.E(10.)
-    
+    r_at_10_before = o.r(10.0)
+    vR_at_10_before = o.vR(10.0)
+    vT_at_10_before = o.vT(10.0)
+    z_at_10_before = o.z(10.0)
+    vz_at_10_before = o.vz(10.0)
+    E_at_10_before = o.E(10.0)
+
     # Second integration continuing
-    t2 = numpy.linspace(10., 20., 101)
+    t2 = numpy.linspace(10.0, 20.0, 101)
     o.integrate(t2, MWPotential2014)
-    
+
     # Check that values at t=10 are the same
-    assert numpy.isclose(o.r(10.), r_at_10_before), "r(10) should be continuous"
-    assert numpy.isclose(o.vR(10.), vR_at_10_before), "vR(10) should be continuous"
-    assert numpy.isclose(o.vT(10.), vT_at_10_before), "vT(10) should be continuous"
-    assert numpy.isclose(o.z(10.), z_at_10_before), "z(10) should be continuous"
-    assert numpy.isclose(o.vz(10.), vz_at_10_before), "vz(10) should be continuous"
-    assert numpy.isclose(o.E(10.), E_at_10_before), "E(10) should be continuous"
-    
+    assert numpy.isclose(o.r(10.0), r_at_10_before), "r(10) should be continuous"
+    assert numpy.isclose(o.vR(10.0), vR_at_10_before), "vR(10) should be continuous"
+    assert numpy.isclose(o.vT(10.0), vT_at_10_before), "vT(10) should be continuous"
+    assert numpy.isclose(o.z(10.0), z_at_10_before), "z(10) should be continuous"
+    assert numpy.isclose(o.vz(10.0), vz_at_10_before), "vz(10) should be continuous"
+    assert numpy.isclose(o.E(10.0), E_at_10_before), "E(10) should be continuous"
+
     # Check that methods work for the full time range
     r_all = o.r(o.t)
     assert r_all.shape == (201,), "r should work for all times"
-    
+
     E_all = o.E(o.t)
     assert E_all.shape == (201,), "E should work for all times"
-    
+
     return None
 
 
@@ -10270,19 +10270,19 @@ def test_orbit_continuation_no_duplicate_time():
     # Test that the duplicate time point at the junction is not included twice
     from galpy.orbit import Orbit
     from galpy.potential import MWPotential2014
-    
-    o = Orbit([1., 0.1, 1.1, 0., 0.1])
-    
+
+    o = Orbit([1.0, 0.1, 1.1, 0.0, 0.1])
+
     # First integration
-    t1 = numpy.linspace(0., 10., 101)
+    t1 = numpy.linspace(0.0, 10.0, 101)
     o.integrate(t1, MWPotential2014)
-    
+
     # Second integration
-    t2 = numpy.linspace(10., 20., 101)
+    t2 = numpy.linspace(10.0, 20.0, 101)
     o.integrate(t2, MWPotential2014)
-    
+
     # Check that time 10 appears only once
-    t_10_count = numpy.sum(numpy.isclose(o.t, 10.))
+    t_10_count = numpy.sum(numpy.isclose(o.t, 10.0))
     assert t_10_count == 1, "Time 10 should appear exactly once in merged array"
-    
+
     return None

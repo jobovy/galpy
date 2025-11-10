@@ -526,12 +526,9 @@ this can be overwritten). A simple example is
 Continuing orbit integrations
 ------------------------------
 
-When an orbit has already been integrated and you call ``integrate()``
-again, the default behavior used to be to discard the previous
-integration and replace it with the new one. However, ``galpy`` now
-supports *continuing* orbit integrations in both forward and backward
-time directions when the new time array appropriately continues from
-the existing integration.
+``galpy`` supports *continuing* orbit integrations in both forward and
+backward time directions when the new time array appropriately continues
+from the existing integration.
 
 For forward continuation, if the first time of the new integration
 matches the last time of the previous integration, the two integrations
@@ -571,9 +568,8 @@ backward in time and prepended to the existing integration:
 # (-10.0, 0.0, 10.0)
 
 For continuation to work, the potential used must be the same as in the
-previous integration. If a different potential is provided, the
-continuation is not performed and a new integration replaces the old
-one as before.
+previous integration. If a different potential is provided, a new
+integration is started instead.
 
 All orbit methods (``r()``, ``E()``, ``R()``, etc.) work seamlessly
 with continued integrations, and interpolation is handled correctly

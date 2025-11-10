@@ -1393,6 +1393,17 @@ class Orbit:
                 numpy.isclose(diffs, numpy.expand_dims(diffs[..., 0], axis=-1))
             )
 
+    @staticmethod
+    def _compare_potentials(p1, p2):
+        """Compare two potentials, handling planar wrappers."""
+        if type(p1) != type(p2):
+            return False
+        if hasattr(p1, "_Pot") and hasattr(p2, "_Pot"):
+            # This is a planar wrapper, compare the underlying potential
+            return p1._Pot == p2._Pot
+        else:
+            return p1 == p2
+
     def _should_continue_integration(self, t, pot):
         """
         Check if the new integration should continue from a previous integration.
@@ -1408,17 +1419,6 @@ class Orbit:
             return False, True
 
         # Check if potentials are the same
-        # For planar potentials, we need to compare the underlying _Pot attribute
-        def compare_pots(p1, p2):
-            """Compare two potentials, handling planar wrappers."""
-            if type(p1) != type(p2):
-                return False
-            if hasattr(p1, '_Pot') and hasattr(p2, '_Pot'):
-                # This is a planar wrapper, compare the underlying potential
-                return p1._Pot == p2._Pot
-            else:
-                return p1 == p2
-        
         if not isinstance(pot, list) or not isinstance(self._pot, list):
             # One is a list, one is not
             if pot != self._pot:
@@ -1428,7 +1428,7 @@ class Orbit:
         else:
             # Both are lists, compare element by element
             for p1, p2 in zip(pot, self._pot):
-                if not compare_pots(p1, p2):
+                if not self._compare_potentials(p1, p2):
                     return False, True
 
         # Check if new time array continues from end of previous (forward)
@@ -1438,7 +1438,7 @@ class Orbit:
             new_direction = t[-1] > t[0] if len(t) > 1 else old_direction
             if old_direction == new_direction:
                 return True, True
-        
+
         # Check if new time array continues from start of previous (backward)
         if numpy.isclose(t[0], self.t[0]):
             # Check direction is opposite
@@ -1507,7 +1507,7 @@ class Orbit:
           -  'ias15_c' for an adaptive 15th order integrator using Gauß-Radau quadrature (see IAS15 paper) in C
 
         - When continuing an integration, the time arrays do not need to have the same number of points or the same spacing. However, for methods that require equispaced times, each individual time array must be equispaced.
-        
+
         - 2018-10-13 - Written as parallel_map applied to regular Orbit integration - Mathew Bub (UofT)
         - 2018-12-26 - Written to use OpenMP C implementation - Bovy (UofT)
         - 2024-11-10 - Added support for continuing integrations - Bovy (UofT)
@@ -1542,27 +1542,27 @@ class Orbit:
             raise ValueError(
                 "dt input (integrator stepsize) for Orbit.integrate must be an integer divisor of the output stepsize"
             )
-        
+
         # Prepare potential for comparison
         if self.dim() == 2:
             thispot = toPlanarPotential(pot)
         else:
             thispot = pot
-        
+
         # Check if we should continue from a previous integration
         should_continue, is_forward = self._should_continue_integration(
             numpy.array(t), thispot
         )
-        
+
         # Store old orbit data if continuing
         if should_continue:
             old_t = self.t.copy()
             old_orbit = self.orbit.copy()
-        
+
         # Delete attributes for interpolation and rperi etc. determination
         if hasattr(self, "_orbInterp"):
             delattr(self, "_orbInterp")
-        
+
         self.t = numpy.array(t)
         self._pot = thispot
         method = self._check_method_c_compatible(method, self._pot)
@@ -1656,7 +1656,7 @@ class Orbit:
                     out = out[:, :, :-1]
         # Store orbit internally
         self.orbit = out
-        
+
         # Merge with old orbit if continuing integration
         if should_continue:
             if is_forward:
@@ -1668,8 +1668,10 @@ class Orbit:
                 # New times go from t[0] to t[-1] in decreasing order (e.g., 0 to -10)
                 # We want the result to be monotonic, so reverse the new times/orbit
                 self.t = numpy.concatenate([self.t[:0:-1], old_t], axis=-1)
-                self.orbit = numpy.concatenate([self.orbit[:, :0:-1], old_orbit], axis=1)
-        
+                self.orbit = numpy.concatenate(
+                    [self.orbit[:, :0:-1], old_orbit], axis=1
+                )
+
         # Check whether r ever < minr if dynamical friction is included
         # and warn if so
         # or if using interpSphericalPotential and r < rmin or r > rmax

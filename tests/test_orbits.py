@@ -8922,35 +8922,37 @@ def test_orbits_continuation_forward():
     # Test forward continuation for multiple orbits
     from galpy.orbit import Orbit
     from galpy.potential import MWPotential2014
-    
+
     # Create multiple orbits
-    vxvvs = [[1., 0.1, 1.1, 0., 0.1], [0.9, 0.15, 1.0, 0.05, 0.12]]
+    vxvvs = [[1.0, 0.1, 1.1, 0.0, 0.1], [0.9, 0.15, 1.0, 0.05, 0.12]]
     o = Orbit(vxvvs)
-    
+
     # First integration
-    t1 = numpy.linspace(0., 10., 101)
+    t1 = numpy.linspace(0.0, 10.0, 101)
     o.integrate(t1, MWPotential2014)
-    r1_at_10 = o.r(10.)
-    
+    r1_at_10 = o.r(10.0)
+
     # Second integration continuing from first
-    t2 = numpy.linspace(10., 20., 101)
+    t2 = numpy.linspace(10.0, 20.0, 101)
     o.integrate(t2, MWPotential2014)
-    
+
     # Check that time array was merged
     assert len(o.t) == 201, "Time array should have 201 points after continuation"
-    assert numpy.isclose(o.t[0], 0.), "First time should be 0"
-    assert numpy.isclose(o.t[-1], 20.), "Last time should be 20"
-    
+    assert numpy.isclose(o.t[0], 0.0), "First time should be 0"
+    assert numpy.isclose(o.t[-1], 20.0), "Last time should be 20"
+
     # Check that orbit was merged for all orbits
     assert o.orbit.shape == (2, 201, 5), "Orbit should have shape (2, 201, 5)"
-    
+
     # Check that r at junction is continuous for both orbits
-    assert numpy.allclose(o.r(10.), r1_at_10), "r should be continuous at junction for all orbits"
-    
+    assert numpy.allclose(o.r(10.0), r1_at_10), (
+        "r should be continuous at junction for all orbits"
+    )
+
     # Check that methods work across the full range
     r_all = o.r(o.t)
     assert r_all.shape == (2, 201), "r should work for all times and orbits"
-    
+
     return None
 
 
@@ -8958,35 +8960,37 @@ def test_orbits_continuation_backward():
     # Test backward continuation for multiple orbits
     from galpy.orbit import Orbit
     from galpy.potential import MWPotential2014
-    
+
     # Create multiple orbits
-    vxvvs = [[1., 0.1, 1.1, 0., 0.1], [0.9, 0.15, 1.0, 0.05, 0.12]]
+    vxvvs = [[1.0, 0.1, 1.1, 0.0, 0.1], [0.9, 0.15, 1.0, 0.05, 0.12]]
     o = Orbit(vxvvs)
-    
+
     # First integration (forward)
-    t1 = numpy.linspace(0., 10., 101)
+    t1 = numpy.linspace(0.0, 10.0, 101)
     o.integrate(t1, MWPotential2014)
-    r1_at_0 = o.r(0.)
-    
+    r1_at_0 = o.r(0.0)
+
     # Second integration going backward
-    t2 = numpy.linspace(0., -10., 101)
+    t2 = numpy.linspace(0.0, -10.0, 101)
     o.integrate(t2, MWPotential2014)
-    
+
     # Check that time array was merged correctly
     assert len(o.t) == 201, "Time array should have 201 points after continuation"
-    assert numpy.isclose(o.t[0], -10.), "First time should be -10"
-    assert numpy.isclose(o.t[-1], 10.), "Last time should be 10"
-    
+    assert numpy.isclose(o.t[0], -10.0), "First time should be -10"
+    assert numpy.isclose(o.t[-1], 10.0), "Last time should be 10"
+
     # Check that orbit was merged for all orbits
     assert o.orbit.shape == (2, 201, 5), "Orbit should have shape (2, 201, 5)"
-    
+
     # Check that r at junction is continuous for both orbits
-    assert numpy.allclose(o.r(0.), r1_at_0), "r should be continuous at junction for all orbits"
-    
+    assert numpy.allclose(o.r(0.0), r1_at_0), (
+        "r should be continuous at junction for all orbits"
+    )
+
     # Check that methods work across the full range
     r_all = o.r(o.t)
     assert r_all.shape == (2, 201), "r should work for all times and orbits"
-    
+
     return None
 
 
@@ -8994,33 +8998,35 @@ def test_orbits_continuation_nontrivial_shape():
     # Test continuation with non-trivial orbit shapes
     from galpy.orbit import Orbit
     from galpy.potential import MWPotential2014
-    
+
     # Create orbits with non-trivial shape (3x2 array)
-    vxvvs = numpy.array([
-        [[1., 0.1, 1.1, 0., 0.1], [0.9, 0.15, 1.0, 0.05, 0.12]],
-        [[1.1, 0.12, 1.05, 0.02, 0.11], [0.95, 0.14, 0.98, 0.03, 0.13]],
-        [[1.05, 0.11, 1.08, 0.01, 0.12], [0.92, 0.16, 1.02, 0.04, 0.14]]
-    ]).reshape(6, 5)
+    vxvvs = numpy.array(
+        [
+            [[1.0, 0.1, 1.1, 0.0, 0.1], [0.9, 0.15, 1.0, 0.05, 0.12]],
+            [[1.1, 0.12, 1.05, 0.02, 0.11], [0.95, 0.14, 0.98, 0.03, 0.13]],
+            [[1.05, 0.11, 1.08, 0.01, 0.12], [0.92, 0.16, 1.02, 0.04, 0.14]],
+        ]
+    ).reshape(6, 5)
     o = Orbit(vxvvs)
-    
+
     # First integration
-    t1 = numpy.linspace(0., 10., 101)
+    t1 = numpy.linspace(0.0, 10.0, 101)
     o.integrate(t1, MWPotential2014)
-    
+
     # Second integration continuing
-    t2 = numpy.linspace(10., 20., 101)
+    t2 = numpy.linspace(10.0, 20.0, 101)
     o.integrate(t2, MWPotential2014)
-    
+
     # Check that time array was merged
     assert len(o.t) == 201, "Time array should have 201 points"
-    
+
     # Check that orbit was merged for all orbits
     assert o.orbit.shape == (6, 201, 5), "Orbit should have shape (6, 201, 5)"
-    
+
     # Check that methods work
     r_all = o.r(o.t)
     assert r_all.shape == (6, 201), "r should work for all times and orbits"
-    
+
     return None
 
 
@@ -9028,34 +9034,38 @@ def test_orbits_continuation_methods():
     # Test that orbit methods work correctly after continuation for multiple orbits
     from galpy.orbit import Orbit
     from galpy.potential import MWPotential2014
-    
+
     # Create multiple orbits
-    vxvvs = [[1., 0.1, 1.1, 0., 0.1], [0.9, 0.15, 1.0, 0.05, 0.12]]
+    vxvvs = [[1.0, 0.1, 1.1, 0.0, 0.1], [0.9, 0.15, 1.0, 0.05, 0.12]]
     o = Orbit(vxvvs)
-    
+
     # First integration
-    t1 = numpy.linspace(0., 10., 101)
+    t1 = numpy.linspace(0.0, 10.0, 101)
     o.integrate(t1, MWPotential2014)
-    
+
     # Store values at t=10
-    r_at_10_before = o.r(10.)
-    E_at_10_before = o.E(10.)
-    
+    r_at_10_before = o.r(10.0)
+    E_at_10_before = o.E(10.0)
+
     # Second integration continuing
-    t2 = numpy.linspace(10., 20., 101)
+    t2 = numpy.linspace(10.0, 20.0, 101)
     o.integrate(t2, MWPotential2014)
-    
+
     # Check that values at t=10 are the same for all orbits
-    assert numpy.allclose(o.r(10.), r_at_10_before), "r(10) should be continuous for all orbits"
-    assert numpy.allclose(o.E(10.), E_at_10_before), "E(10) should be continuous for all orbits"
-    
+    assert numpy.allclose(o.r(10.0), r_at_10_before), (
+        "r(10) should be continuous for all orbits"
+    )
+    assert numpy.allclose(o.E(10.0), E_at_10_before), (
+        "E(10) should be continuous for all orbits"
+    )
+
     # Check that methods work for the full time range
     r_all = o.r(o.t)
     assert r_all.shape == (2, 201), "r should work for all times and orbits"
-    
+
     E_all = o.E(o.t)
     assert E_all.shape == (2, 201), "E should work for all times and orbits"
-    
+
     return None
 
 
@@ -9063,23 +9073,23 @@ def test_orbits_continuation_2d():
     # Test continuation for 2D orbits
     from galpy.orbit import Orbit
     from galpy.potential import MWPotential2014
-    
+
     # Create multiple 2D orbits
-    vxvvs = [[1., 0.1, 1.1], [0.9, 0.15, 1.0]]
+    vxvvs = [[1.0, 0.1, 1.1], [0.9, 0.15, 1.0]]
     o = Orbit(vxvvs)
-    
+
     # First integration
-    t1 = numpy.linspace(0., 10., 101)
+    t1 = numpy.linspace(0.0, 10.0, 101)
     o.integrate(t1, MWPotential2014)
-    
+
     # Second integration continuing
-    t2 = numpy.linspace(10., 20., 101)
+    t2 = numpy.linspace(10.0, 20.0, 101)
     o.integrate(t2, MWPotential2014)
-    
+
     # Check that time array was merged
     assert len(o.t) == 201, "Time array should have 201 points"
-    
+
     # Check that orbit was merged
     assert o.orbit.shape == (2, 201, 3), "Orbit should have shape (2, 201, 3) for 2D"
-    
+
     return None
