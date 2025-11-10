@@ -10176,7 +10176,6 @@ def test_orbit_continuation_backward():
     return None
 
 
-
 def test_orbit_continuation_different_spacing():
     # Test continuation with different time spacing
     from galpy.orbit import Orbit
@@ -10613,7 +10612,9 @@ def test_orbit_continuation_1d_forward():
 
     # Should match at various points
     for t in [0.0, 5.0, 10.0, 15.0, 20.0]:
-        assert numpy.isclose(o.x(t), o_full.x(t), rtol=1e-10), f"x should match at t={t}"
+        assert numpy.isclose(o.x(t), o_full.x(t), rtol=1e-10), (
+            f"x should match at t={t}"
+        )
 
     return None
 

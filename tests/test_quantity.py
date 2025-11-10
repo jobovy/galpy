@@ -18811,9 +18811,9 @@ def test_integrate_continuation_timeAsQuantity():
     o_full.integrate(ts_full, MWPotential2014)
 
     # Check that positions match
-    assert numpy.all(
-        numpy.fabs(o.x(ts_full) - o_full.x(ts_full)).value < 10.0**-8.0
-    ), "Continued integration with Quantity times does not match full integration"
+    assert numpy.all(numpy.fabs(o.x(ts_full) - o_full.x(ts_full)).value < 10.0**-8.0), (
+        "Continued integration with Quantity times does not match full integration"
+    )
 
     return None
 
@@ -18864,8 +18864,8 @@ def test_integrate_continuation_orbits_timeAsQuantity():
     o_full.integrate(ts_full, MWPotential2014)
 
     # Check that positions match for both orbits
-    assert numpy.all(
-        numpy.fabs(o.x(ts_full) - o_full.x(ts_full)).value < 10.0**-8.0
-    ), "Continued integration with Quantity times does not match full integration for multiple orbits"
+    assert numpy.all(numpy.fabs(o.x(ts_full) - o_full.x(ts_full)).value < 10.0**-8.0), (
+        "Continued integration with Quantity times does not match full integration for multiple orbits"
+    )
 
     return None
