@@ -9093,3 +9093,60 @@ def test_orbits_continuation_2d():
     assert o.orbit.shape == (2, 201, 3), "Orbit should have shape (2, 201, 3) for 2D"
 
     return None
+
+
+def test_orbits_continuation_vs_noncontinued():
+    # Test that continued integration matches non-continued for multiple orbits
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential2014
+
+    vxvvs = [[1.0, 0.1, 1.1, 0.0, 0.1], [0.9, 0.15, 1.0, 0.05, 0.12]]
+
+    # Continued integration
+    o_cont = Orbit(vxvvs)
+    t1 = numpy.linspace(0.0, 10.0, 101)
+    o_cont.integrate(t1, MWPotential2014)
+    t2 = numpy.linspace(10.0, 20.0, 101)
+    o_cont.integrate(t2, MWPotential2014)
+
+    # Non-continued integration
+    o_full = Orbit(vxvvs)
+    t_full = numpy.linspace(0.0, 20.0, 201)
+    o_full.integrate(t_full, MWPotential2014)
+
+    # Compare r values across the full range for both orbits
+    r_cont = o_cont.r(o_cont.t)
+    r_full = o_full.r(o_full.t)
+
+    assert numpy.allclose(
+        r_cont, r_full, rtol=1e-10
+    ), "Continued integration r values should match non-continued for multiple orbits"
+
+    return None
+
+
+def test_orbits_continuation_different_potential():
+    # Test continuing multiple orbits with different potential
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential2014, LogarithmicHaloPotential
+    import warnings
+
+    vxvvs = [[1.0, 0.1, 1.1, 0.0, 0.1], [0.9, 0.15, 1.0, 0.05, 0.12]]
+    o = Orbit(vxvvs)
+
+    # First integration
+    t1 = numpy.linspace(0.0, 10.0, 101)
+    o.integrate(t1, MWPotential2014)
+
+    # Continue with different potential - should warn and continue
+    t2 = numpy.linspace(10.0, 20.0, 101)
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        o.integrate(t2, LogarithmicHaloPotential())
+        pot_warnings = [warning for warning in w if "different potential" in str(warning.message)]
+        assert len(pot_warnings) > 0, "Should warn for multiple orbits with different potential"
+
+    # Check continuation happened
+    assert o.orbit.shape == (2, 201, 5), "Should continue integration for multiple orbits"
+
+    return None

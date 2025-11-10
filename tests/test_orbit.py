@@ -10286,3 +10286,273 @@ def test_orbit_continuation_no_duplicate_time():
     assert t_10_count == 1, "Time 10 should appear exactly once in merged array"
 
     return None
+
+
+def test_orbit_continuation_vs_noncontinued_forward():
+    # Test that continued integration matches non-continued approach
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential2014
+
+    # Continued integration
+    o_cont = Orbit([1.0, 0.1, 1.1, 0.0, 0.1])
+    t1 = numpy.linspace(0.0, 10.0, 101)
+    o_cont.integrate(t1, MWPotential2014)
+    t2 = numpy.linspace(10.0, 20.0, 101)
+    o_cont.integrate(t2, MWPotential2014)
+
+    # Non-continued integration (old approach)
+    o_full = Orbit([1.0, 0.1, 1.1, 0.0, 0.1])
+    t_full = numpy.linspace(0.0, 20.0, 201)
+    o_full.integrate(t_full, MWPotential2014)
+
+    # Compare r values across the full range
+    r_cont = o_cont.r(o_cont.t)
+    r_full = o_full.r(o_full.t)
+    
+    assert numpy.allclose(
+        r_cont, r_full, rtol=1e-10
+    ), "Continued integration r values should match non-continued integration"
+    
+    # Compare at specific times
+    test_times = [0.0, 5.0, 10.0, 15.0, 20.0]
+    for t in test_times:
+        assert numpy.isclose(
+            o_cont.r(t), o_full.r(t), rtol=1e-10
+        ), f"r should match at t={t}"
+
+    return None
+
+
+def test_orbit_continuation_vs_noncontinued_reinit():
+    # Test continuation by re-initializing at junction point
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential2014
+
+    # First integration
+    o1 = Orbit([1.0, 0.1, 1.1, 0.0, 0.1])
+    t1 = numpy.linspace(0.0, 10.0, 101)
+    o1.integrate(t1, MWPotential2014)
+
+    # Continue from the end point
+    o_cont = Orbit([1.0, 0.1, 1.1, 0.0, 0.1])
+    o_cont.integrate(t1, MWPotential2014)
+    t2 = numpy.linspace(10.0, 20.0, 101)
+    o_cont.integrate(t2, MWPotential2014)
+
+    # Non-continued: re-initialize at end of t1 and integrate t2
+    # Get state at t=10
+    o_reinit = Orbit(o1(10.0))
+    o_reinit.integrate(t2, MWPotential2014)
+
+    # Compare second half of continued orbit to re-initialized orbit
+    # The re-initialized orbit starts at t=10, so we compare from that point
+    for i, t in enumerate(t2):
+        r_cont = o_cont.r(t)
+        r_reinit = o_reinit.r(t)
+        assert numpy.isclose(
+            r_cont, r_reinit, rtol=1e-10
+        ), f"r should match at t={t} (continued vs re-initialized)"
+
+    return None
+
+
+def test_orbit_continuation_vs_noncontinued_backward():
+    # Test that backward continued integration matches non-continued approach
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential2014
+
+    # Continued integration (forward then backward)
+    o_cont = Orbit([1.0, 0.1, 1.1, 0.0, 0.1])
+    t1 = numpy.linspace(0.0, 10.0, 101)
+    o_cont.integrate(t1, MWPotential2014)
+    t2 = numpy.linspace(0.0, -10.0, 101)
+    o_cont.integrate(t2, MWPotential2014)
+
+    # Non-continued integration (full backward to forward)
+    o_full = Orbit([1.0, 0.1, 1.1, 0.0, 0.1])
+    t_full = numpy.linspace(-10.0, 10.0, 201)
+    o_full.integrate(t_full, MWPotential2014)
+
+    # Compare r values across the full range
+    r_cont = o_cont.r(o_cont.t)
+    r_full = o_full.r(o_full.t)
+
+    assert numpy.allclose(
+        r_cont, r_full, rtol=1e-10
+    ), "Continued integration r values should match non-continued integration"
+
+    return None
+
+
+def test_orbit_continuation_different_potential_warning():
+    # Test that warning is issued when continuing with different potential
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential2014, LogarithmicHaloPotential
+    import warnings
+
+    o = Orbit([1.0, 0.1, 1.1, 0.0, 0.1])
+
+    # First integration
+    t1 = numpy.linspace(0.0, 10.0, 101)
+    o.integrate(t1, MWPotential2014)
+
+    # Second integration with different potential should issue warning
+    t2 = numpy.linspace(10.0, 20.0, 101)
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        o.integrate(t2, LogarithmicHaloPotential())
+        
+        # Check that a warning was issued
+        assert len(w) > 0, "Warning should be issued when continuing with different potential"
+        warning_messages = [str(warning.message) for warning in w]
+        assert any(
+            "different potential" in msg for msg in warning_messages
+        ), "Warning should mention different potential"
+
+    # Check that continuation still happened
+    assert len(o.t) == 201, "Integration should still be continued"
+
+    return None
+
+
+def test_orbit_continuation_potential_comparison_planar():
+    # Test potential comparison for planar potentials (2D orbits)
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential2014, LogarithmicHaloPotential
+    import warnings
+
+    # Test with 2D orbit (planar)
+    o = Orbit([1.0, 0.1, 1.1])
+    t1 = numpy.linspace(0.0, 10.0, 101)
+    o.integrate(t1, MWPotential2014)
+
+    # Continue with same potential - should NOT warn
+    t2 = numpy.linspace(10.0, 20.0, 101)
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        o.integrate(t2, MWPotential2014)
+        # Filter for the specific warning we care about
+        pot_warnings = [warning for warning in w if "different potential" in str(warning.message)]
+        assert len(pot_warnings) == 0, "Should not warn when continuing with same potential"
+
+    # New orbit, continue with different potential - should warn
+    o2 = Orbit([1.0, 0.1, 1.1])
+    o2.integrate(t1, MWPotential2014)
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        o2.integrate(t2, LogarithmicHaloPotential())
+        pot_warnings = [warning for warning in w if "different potential" in str(warning.message)]
+        assert len(pot_warnings) > 0, "Should warn when continuing with different potential"
+
+    return None
+
+
+def test_orbit_continuation_potential_comparison_single_vs_list():
+    # Test potential comparison between single potential and list
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential2014, LogarithmicHaloPotential
+    import warnings
+
+    # MWPotential2014 is a list of potentials
+    o = Orbit([1.0, 0.1, 1.1, 0.0, 0.1])
+    t1 = numpy.linspace(0.0, 10.0, 101)
+    o.integrate(t1, MWPotential2014)
+
+    # Continue with single potential - should warn (different)
+    t2 = numpy.linspace(10.0, 20.0, 101)
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        o.integrate(t2, LogarithmicHaloPotential())
+        pot_warnings = [warning for warning in w if "different potential" in str(warning.message)]
+        assert len(pot_warnings) > 0, "Should warn when list vs single potential"
+
+    return None
+
+
+def test_orbit_continuation_potential_comparison_nested_list():
+    # Test potential comparison with nested lists
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential2014, LogarithmicHaloPotential, flatten
+    import warnings
+
+    # Use a list of potentials
+    pot1 = MWPotential2014
+    o = Orbit([1.0, 0.1, 1.1, 0.0, 0.1])
+    t1 = numpy.linspace(0.0, 10.0, 101)
+    o.integrate(t1, pot1)
+
+    # Continue with same list - should NOT warn
+    t2 = numpy.linspace(10.0, 20.0, 101)
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        o.integrate(t2, pot1)
+        pot_warnings = [warning for warning in w if "different potential" in str(warning.message)]
+        assert len(pot_warnings) == 0, "Should not warn with same list potential"
+
+    # Continue with different list - should warn
+    pot2 = [LogarithmicHaloPotential(), LogarithmicHaloPotential(normalize=0.9)]
+    o2 = Orbit([1.0, 0.1, 1.1, 0.0, 0.1])
+    o2.integrate(t1, pot1)
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        o2.integrate(t2, pot2)
+        pot_warnings = [warning for warning in w if "different potential" in str(warning.message)]
+        assert len(pot_warnings) > 0, "Should warn with different list potential"
+
+    return None
+
+
+def test_orbit_continuation_potential_comparison_planar_wrapper():
+    # Test that planar potential wrappers are compared correctly
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential2014, LogarithmicHaloPotential
+    import warnings
+
+    # 2D orbit uses toPlanarPotential internally
+    o = Orbit([1.0, 0.1, 1.1])
+    t1 = numpy.linspace(0.0, 10.0, 101)
+    
+    # First integration with MWPotential2014
+    o.integrate(t1, MWPotential2014)
+    
+    # Continue with same potential (MWPotential2014) - should NOT warn
+    t2 = numpy.linspace(10.0, 20.0, 101)
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        o.integrate(t2, MWPotential2014)
+        pot_warnings = [warning for warning in w if "different potential" in str(warning.message)]
+        assert len(pot_warnings) == 0, "Planar wrappers of same potential should match"
+    
+    # New orbit, continue with different potential - should warn
+    o2 = Orbit([1.0, 0.1, 1.1])
+    o2.integrate(t1, MWPotential2014)
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        o2.integrate(t2, LogarithmicHaloPotential())
+        pot_warnings = [warning for warning in w if "different potential" in str(warning.message)]
+        assert len(pot_warnings) > 0, "Planar wrappers of different potentials should not match"
+
+    return None
+
+
+def test_orbit_continuation_potential_comparison_list_length():
+    # Test potential comparison when list lengths differ
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential2014, LogarithmicHaloPotential
+    import warnings
+
+    # Start with a list of potentials
+    o = Orbit([1.0, 0.1, 1.1, 0.0, 0.1])
+    t1 = numpy.linspace(0.0, 10.0, 101)
+    o.integrate(t1, MWPotential2014)  # This is a list of 3 potentials
+
+    # Continue with a list of different length - should warn
+    pot2 = [LogarithmicHaloPotential()]  # Only 1 potential
+    t2 = numpy.linspace(10.0, 20.0, 101)
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        o.integrate(t2, pot2)
+        pot_warnings = [warning for warning in w if "different potential" in str(warning.message)]
+        assert len(pot_warnings) > 0, "Should warn when list lengths differ"
+
+    return None

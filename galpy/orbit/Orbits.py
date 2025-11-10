@@ -1411,25 +1411,30 @@ class Orbit:
         Returns
         -------
         tuple
-            (should_continue, is_forward) where should_continue is True if we should
-            continue the integration, and is_forward indicates the direction.
+            (should_continue, is_forward, pot_changed) where should_continue is True 
+            if we should continue the integration, is_forward indicates the direction,
+            and pot_changed indicates if the potential has changed.
         """
         # Check if orbit has been integrated before
         if not hasattr(self, "t") or not hasattr(self, "_pot"):
-            return False, True
+            return False, True, False
 
         # Check if potentials are the same
-        if not isinstance(pot, list) or not isinstance(self._pot, list):
-            # One is a list, one is not
-            if pot != self._pot:
-                return False, True
-        elif len(pot) != len(self._pot):
-            return False, True
+        pot_changed = False
+        
+        # Convert to lists for uniform handling
+        pot_list = pot if isinstance(pot, list) else [pot]
+        old_pot_list = self._pot if isinstance(self._pot, list) else [self._pot]
+        
+        # Check if list lengths differ
+        if len(pot_list) != len(old_pot_list):
+            pot_changed = True
         else:
-            # Both are lists, compare element by element
-            for p1, p2 in zip(pot, self._pot):
+            # Compare element by element
+            for p1, p2 in zip(pot_list, old_pot_list):
                 if not self._compare_potentials(p1, p2):
-                    return False, True
+                    pot_changed = True
+                    break
 
         # Check if new time array continues from end of previous (forward)
         if numpy.isclose(t[0], self.t[-1]):
@@ -1437,7 +1442,7 @@ class Orbit:
             old_direction = self.t[-1] > self.t[0]
             new_direction = t[-1] > t[0] if len(t) > 1 else old_direction
             if old_direction == new_direction:
-                return True, True
+                return True, True, pot_changed
 
         # Check if new time array continues from start of previous (backward)
         if numpy.isclose(t[0], self.t[0]):
@@ -1445,9 +1450,9 @@ class Orbit:
             old_direction = self.t[-1] > self.t[0]
             new_direction = t[-1] > t[0] if len(t) > 1 else (not old_direction)
             if old_direction != new_direction:
-                return True, False
+                return True, False, pot_changed
 
-        return False, True
+        return False, True, False
 
     def integrate(
         self,
@@ -1550,9 +1555,16 @@ class Orbit:
             thispot = pot
 
         # Check if we should continue from a previous integration
-        should_continue, is_forward = self._should_continue_integration(
+        should_continue, is_forward, pot_changed = self._should_continue_integration(
             numpy.array(t), thispot
         )
+
+        # Warn if continuing with a different potential
+        if should_continue and pot_changed:
+            warnings.warn(
+                "Continuing orbit integration with a different potential than the previous integration; this may lead to unphysical results",
+                galpyWarning,
+            )
 
         # Store old orbit data if continuing
         if should_continue:
