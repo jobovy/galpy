@@ -10318,7 +10318,7 @@ def test_orbit_continuation_vs_noncontinued_reinit():
 
     # Non-continued: re-initialize at end of t1 and integrate t2
     # Get state at t=10
-    o_reinit = Orbit(o1(10.0))
+    o_reinit = o1(10.0)
     o_reinit.integrate(t2, MWPotential2014)
 
     # Compare second half of continued orbit to re-initialized orbit
