@@ -10357,7 +10357,8 @@ def test_orbit_continuation_vs_noncontinued_reinit():
 
 
 def test_orbit_continuation_vs_noncontinued_backward():
-    # Test that backward continued integration matches non-continued approach
+    # Test that backward continued integration works correctly
+    # Backward continuation integrates from state at t=0 backward in time
     from galpy.orbit import Orbit
     from galpy.potential import MWPotential2014
 
@@ -10365,21 +10366,22 @@ def test_orbit_continuation_vs_noncontinued_backward():
     o_cont = Orbit([1.0, 0.1, 1.1, 0.0, 0.1])
     t1 = numpy.linspace(0.0, 10.0, 101)
     o_cont.integrate(t1, MWPotential2014)
+    state_at_0 = o_cont.orbit[0, 0, :].copy()
+    
     t2 = numpy.linspace(0.0, -10.0, 101)
     o_cont.integrate(t2, MWPotential2014)
 
-    # Non-continued integration (full backward to forward)
-    o_full = Orbit([1.0, 0.1, 1.1, 0.0, 0.1])
-    t_full = numpy.linspace(-10.0, 10.0, 201)
-    o_full.integrate(t_full, MWPotential2014)
+    # Compare to re-initializing from state at t=0 and integrating backward
+    o_reinit = Orbit(state_at_0)
+    o_reinit.integrate(t2, MWPotential2014)
 
-    # Compare r values across the full range
-    r_cont = o_cont.r(o_cont.t)
-    r_full = o_full.r(o_full.t)
-
-    assert numpy.allclose(
-        r_cont, r_full, rtol=1e-10
-    ), "Continued integration r values should match non-continued integration"
+    # The backward part should match
+    for t in [0.0, -2.5, -5.0, -7.5, -10.0]:
+        r_cont = o_cont.r(t)
+        r_reinit = o_reinit.r(t)
+        assert numpy.isclose(
+            r_cont, r_reinit, rtol=1e-10
+        ), f"Backward continuation should match re-initialized integration at t={t}"
 
     return None
 

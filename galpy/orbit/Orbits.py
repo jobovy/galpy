@@ -1570,6 +1570,13 @@ class Orbit:
         if should_continue:
             old_t = self.t.copy()
             old_orbit = self.orbit.copy()
+            # Update initial conditions to be the final state of previous integration
+            if is_forward:
+                # For forward continuation, start from the last state
+                self.vxvv = self.orbit[:, -1, :].copy()
+            else:
+                # For backward continuation, start from the first state
+                self.vxvv = self.orbit[:, 0, :].copy()
 
         # Delete attributes for interpolation and rperi etc. determination
         if hasattr(self, "_orbInterp"):
