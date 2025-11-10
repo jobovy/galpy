@@ -3029,16 +3029,16 @@ def test_slice_indivtimes():
         "Test should be using individual time arrays, but a single time array was found"
     )
     # Now slice single and multiple
-    assert numpy.all(orbits[0].t == orbits.t[0]), (
+    assert numpy.all(orbits[0].t == orbits.time()[0]), (
         "Individually sliced orbit with individual time arrays does not produce the correct time array in the slice"
     )
-    assert numpy.all(orbits[1].t == orbits.t[1]), (
+    assert numpy.all(orbits[1].t == orbits.time()[1]), (
         "Individually sliced orbit with individual time arrays does not produce the correct time array in the slice"
     )
-    assert numpy.all(orbits[:2].t == orbits.t[:2]), (
+    assert numpy.all(orbits[:2].t == orbits.time()[:2]), (
         "Multiply-sliced orbit with individual time arrays does not produce the correct time array in the slice"
     )
-    assert numpy.all(orbits[1:4].t == orbits.t[1:4]), (
+    assert numpy.all(orbits[1:4].t == orbits.time()[1:4]), (
         "Multiply-sliced orbit with individual time arrays does not produce the correct time array in the slice"
     )
     return None
@@ -8937,9 +8937,9 @@ def test_orbits_continuation_forward():
     o.integrate(t2, MWPotential2014)
 
     # Check that time array was merged
-    assert len(o.t) == 201, "Time array should have 201 points after continuation"
-    assert numpy.isclose(o.t[0], 0.0), "First time should be 0"
-    assert numpy.isclose(o.t[-1], 20.0), "Last time should be 20"
+    assert len(o.time()) == 201, "Time array should have 201 points after continuation"
+    assert numpy.isclose(o.time()[0], 0.0), "First time should be 0"
+    assert numpy.isclose(o.time()[-1], 20.0), "Last time should be 20"
 
     # Check that orbit was merged for all orbits
     assert o.orbit.shape == (2, 201, 5), "Orbit should have shape (2, 201, 5)"
@@ -8950,7 +8950,7 @@ def test_orbits_continuation_forward():
     )
 
     # Check that methods work across the full range
-    r_all = o.r(o.t)
+    r_all = o.r(o.time())
     assert r_all.shape == (2, 201), "r should work for all times and orbits"
 
     return None
@@ -8975,9 +8975,9 @@ def test_orbits_continuation_backward():
     o.integrate(t2, MWPotential2014)
 
     # Check that time array was merged correctly
-    assert len(o.t) == 201, "Time array should have 201 points after continuation"
-    assert numpy.isclose(o.t[0], -10.0), "First time should be -10"
-    assert numpy.isclose(o.t[-1], 10.0), "Last time should be 10"
+    assert len(o.time()) == 201, "Time array should have 201 points after continuation"
+    assert numpy.isclose(o.time()[0], -10.0), "First time should be -10"
+    assert numpy.isclose(o.time()[-1], 10.0), "Last time should be 10"
 
     # Check that orbit was merged for all orbits
     assert o.orbit.shape == (2, 201, 5), "Orbit should have shape (2, 201, 5)"
@@ -8988,7 +8988,7 @@ def test_orbits_continuation_backward():
     )
 
     # Check that methods work across the full range
-    r_all = o.r(o.t)
+    r_all = o.r(o.time())
     assert r_all.shape == (2, 201), "r should work for all times and orbits"
 
     return None
@@ -9018,13 +9018,13 @@ def test_orbits_continuation_nontrivial_shape():
     o.integrate(t2, MWPotential2014)
 
     # Check that time array was merged
-    assert len(o.t) == 201, "Time array should have 201 points"
+    assert len(o.time()) == 201, "Time array should have 201 points"
 
     # Check that orbit was merged for all orbits
     assert o.orbit.shape == (6, 201, 5), "Orbit should have shape (6, 201, 5)"
 
     # Check that methods work
-    r_all = o.r(o.t)
+    r_all = o.r(o.time())
     assert r_all.shape == (6, 201), "r should work for all times and orbits"
 
     return None
@@ -9060,7 +9060,7 @@ def test_orbits_continuation_methods():
     )
 
     # Check that methods work for the full time range
-    r_all = o.r(o.t)
+    r_all = o.r(o.time())
     assert r_all.shape == (2, 201), "r should work for all times and orbits"
 
     E_all = o.E(o.t)
@@ -9087,7 +9087,7 @@ def test_orbits_continuation_2d():
     o.integrate(t2, MWPotential2014)
 
     # Check that time array was merged
-    assert len(o.t) == 201, "Time array should have 201 points"
+    assert len(o.time()) == 201, "Time array should have 201 points"
 
     # Check that orbit was merged
     assert o.orbit.shape == (2, 201, 3), "Orbit should have shape (2, 201, 3) for 2D"
@@ -9115,8 +9115,8 @@ def test_orbits_continuation_vs_noncontinued():
     o_full.integrate(t_full, MWPotential2014)
 
     # Compare r values across the full range for both orbits
-    r_cont = o_cont.r(o_cont.t)
-    r_full = o_full.r(o_full.t)
+    r_cont = o_cont.r(o_cont.time())
+    r_full = o_full.r(o_full.time())
 
     assert numpy.allclose(r_cont, r_full, rtol=1e-10), (
         "Continued integration r values should match non-continued for multiple orbits"
@@ -9154,6 +9154,45 @@ def test_orbits_continuation_different_potential():
     # Check continuation happened
     assert o.orbit.shape == (2, 201, 5), (
         "Should continue integration for multiple orbits"
+    )
+
+    return None
+
+
+def test_orbits_continuation_1d():
+    # Test continuation with multiple 1D orbits
+    from galpy.orbit import Orbit
+    from galpy.potential import KGPotential
+
+    pot = KGPotential(amp=1.0, K=1.0)
+    vxvvs = [[1.0, 0.1], [0.9, 0.15]]
+    o = Orbit(vxvvs)
+
+    # First integration
+    t1 = numpy.linspace(0.0, 10.0, 101)
+    o.integrate(t1, pot)
+
+    # Continue forward
+    t2 = numpy.linspace(10.0, 20.0, 101)
+    o.integrate(t2, pot)
+
+    # Check that time array was merged
+    times = o.time()
+    assert len(times) == 201, "Time array should have 201 points"
+
+    # Check orbit shape
+    assert o.orbit.shape == (2, 201, 2), "Orbit should have shape (2, 201, 2) for 1D"
+
+    # Compare to full integration
+    o_full = Orbit(vxvvs)
+    t_full = numpy.linspace(0.0, 20.0, 201)
+    o_full.integrate(t_full, pot)
+
+    x_cont = o.x(times)
+    x_full = o_full.x(o_full.time())
+
+    assert numpy.allclose(x_cont, x_full, rtol=1e-10), (
+        "Continued integration should match full integration for 1D orbits"
     )
 
     return None

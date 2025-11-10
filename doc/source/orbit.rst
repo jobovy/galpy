@@ -540,9 +540,10 @@ are merged into a single continuous orbit. For example:
 >>> o.integrate(t1,MWPotential2014)
 >>> t2= numpy.linspace(10.,20.,101)
 >>> o.integrate(t2,MWPotential2014) # This continues from t=10
->>> print(len(o.t))
+>>> times = o.time()  # Get the integrated times using the time() method
+>>> print(len(times))
 # 201  # Not 101, because the integrations were merged!
->>> print(o.t[0], o.t[100], o.t[-1])
+>>> print(times[0], times[100], times[-1])
 # (0.0, 10.0, 20.0)
 
 The two time arrays do not need to have the same number of points or
@@ -562,18 +563,21 @@ backward in time and prepended to the existing integration:
 >>> o.integrate(t1,MWPotential2014)
 >>> t2= numpy.linspace(0.,-10.,101)
 >>> o.integrate(t2,MWPotential2014) # This continues backward from t=0
->>> print(len(o.t))
+>>> times = o.time()
+>>> print(len(times))
 # 201
->>> print(o.t[0], o.t[100], o.t[-1])
+>>> print(times[0], times[100], times[-1])
 # (-10.0, 0.0, 10.0)
 
 Continuation works even when the potential is different from the previous
 integration, though a warning will be issued in this case to alert you that
 this may lead to unphysical results.
 
-All orbit methods (``r()``, ``E()``, ``R()``, etc.) work seamlessly
-with continued integrations, and interpolation is handled correctly
-across the full time range.
+The integration times can be obtained using the ``time()`` method, which
+returns the array of times at which the orbit has been sampled. All orbit
+methods (``r()``, ``E()``, ``R()``, etc.) work seamlessly with continued
+integrations, and interpolation is handled correctly across the full time
+range.
 
 .. _orbintegration-noninertial:
 
