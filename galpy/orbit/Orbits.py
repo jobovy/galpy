@@ -1393,6 +1393,62 @@ class Orbit:
                 numpy.isclose(diffs, numpy.expand_dims(diffs[..., 0], axis=-1))
             )
 
+    def _should_continue_integration(self, t, pot):
+        """
+        Check if the new integration should continue from a previous integration.
+
+        Returns
+        -------
+        tuple
+            (should_continue, is_forward) where should_continue is True if we should
+            continue the integration, and is_forward indicates the direction.
+        """
+        # Check if orbit has been integrated before
+        if not hasattr(self, "t") or not hasattr(self, "_pot"):
+            return False, True
+
+        # Check if potentials are the same
+        # For planar potentials, we need to compare the underlying _Pot attribute
+        def compare_pots(p1, p2):
+            """Compare two potentials, handling planar wrappers."""
+            if type(p1) != type(p2):
+                return False
+            if hasattr(p1, '_Pot') and hasattr(p2, '_Pot'):
+                # This is a planar wrapper, compare the underlying potential
+                return p1._Pot == p2._Pot
+            else:
+                return p1 == p2
+        
+        if not isinstance(pot, list) or not isinstance(self._pot, list):
+            # One is a list, one is not
+            if pot != self._pot:
+                return False, True
+        elif len(pot) != len(self._pot):
+            return False, True
+        else:
+            # Both are lists, compare element by element
+            for p1, p2 in zip(pot, self._pot):
+                if not compare_pots(p1, p2):
+                    return False, True
+
+        # Check if new time array continues from end of previous (forward)
+        if numpy.isclose(t[0], self.t[-1]):
+            # Check direction is consistent (both increasing or both decreasing)
+            old_direction = self.t[-1] > self.t[0]
+            new_direction = t[-1] > t[0] if len(t) > 1 else old_direction
+            if old_direction == new_direction:
+                return True, True
+        
+        # Check if new time array continues from start of previous (backward)
+        if numpy.isclose(t[0], self.t[0]):
+            # Check direction is opposite
+            old_direction = self.t[-1] > self.t[0]
+            new_direction = t[-1] > t[0] if len(t) > 1 else (not old_direction)
+            if old_direction != new_direction:
+                return True, False
+
+        return False, True
+
     def integrate(
         self,
         t,
@@ -1411,9 +1467,9 @@ class Orbit:
         Parameters
         ----------
         t : list, numpy.ndarray or Quantity
-            List of equispaced times at which to compute the orbit. The initial condition is t[0]. (note that for method='odeint', method='dop853', and method='dop853_c', the time array can be non-equispaced).
+            List of equispaced times at which to compute the orbit. The initial condition is t[0]. (note that for method='odeint', method='dop853', and method='dop853_c', the time array can be non-equispaced). If the orbit has already been integrated and the new time array continues from the end point of the previous integration (t[0] equals the last time of the previous integration), the orbit will be continued and the two integrations will be merged. Similarly, if t[0] equals the first time of a previous integration and the new time array goes in the opposite direction, the orbit will be integrated backward and prepended to the existing integration.
         pot : Potential, DissipativeForce or list of such instances
-            Gravitational field to integrate the orbit in.
+            Gravitational field to integrate the orbit in. When continuing an integration, this must be the same potential as the previous integration.
         method : str, optional
             Integration method to use. Default is 'symplec4_c'. See Notes for more information.
         progressbar : bool, optional
@@ -1450,8 +1506,11 @@ class Orbit:
           -  'dop853_c' for a 8-5-3 Dormand-Prince integrator in C
           -  'ias15_c' for an adaptive 15th order integrator using Gauß-Radau quadrature (see IAS15 paper) in C
 
+        - When continuing an integration, the time arrays do not need to have the same number of points or the same spacing. However, for methods that require equispaced times, each individual time array must be equispaced.
+        
         - 2018-10-13 - Written as parallel_map applied to regular Orbit integration - Mathew Bub (UofT)
         - 2018-12-26 - Written to use OpenMP C implementation - Bovy (UofT)
+        - 2024-11-10 - Added support for continuing integrations - Bovy (UofT)
         """
         self.check_integrator(method)
         pot = flatten_potential(pot)
@@ -1483,13 +1542,27 @@ class Orbit:
             raise ValueError(
                 "dt input (integrator stepsize) for Orbit.integrate must be an integer divisor of the output stepsize"
             )
-        # Delete attributes for interpolation and rperi etc. determination
-        if hasattr(self, "_orbInterp"):
-            delattr(self, "_orbInterp")
+        
+        # Prepare potential for comparison
         if self.dim() == 2:
             thispot = toPlanarPotential(pot)
         else:
             thispot = pot
+        
+        # Check if we should continue from a previous integration
+        should_continue, is_forward = self._should_continue_integration(
+            numpy.array(t), thispot
+        )
+        
+        # Store old orbit data if continuing
+        if should_continue:
+            old_t = self.t.copy()
+            old_orbit = self.orbit.copy()
+        
+        # Delete attributes for interpolation and rperi etc. determination
+        if hasattr(self, "_orbInterp"):
+            delattr(self, "_orbInterp")
+        
         self.t = numpy.array(t)
         self._pot = thispot
         method = self._check_method_c_compatible(method, self._pot)
@@ -1583,6 +1656,20 @@ class Orbit:
                     out = out[:, :, :-1]
         # Store orbit internally
         self.orbit = out
+        
+        # Merge with old orbit if continuing integration
+        if should_continue:
+            if is_forward:
+                # Forward continuation: merge old and new, skip duplicate time point
+                self.t = numpy.concatenate([old_t, self.t[1:]], axis=-1)
+                self.orbit = numpy.concatenate([old_orbit, self.orbit[:, 1:]], axis=1)
+            else:
+                # Backward continuation: prepend new orbit to old (reversed), skip duplicate time point
+                # New times go from t[0] to t[-1] in decreasing order (e.g., 0 to -10)
+                # We want the result to be monotonic, so reverse the new times/orbit
+                self.t = numpy.concatenate([self.t[:0:-1], old_t], axis=-1)
+                self.orbit = numpy.concatenate([self.orbit[:, :0:-1], old_orbit], axis=1)
+        
         # Check whether r ever < minr if dynamical friction is included
         # and warn if so
         # or if using interpSphericalPotential and r < rmin or r > rmax
