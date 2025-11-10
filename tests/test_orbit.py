@@ -10675,7 +10675,9 @@ def test_orbit_continuation_chained():
 
     # Check that all three integrations were merged
     times = o.time()
-    assert len(times) == 151, "Time array should have 151 points after two continuations"
+    assert len(times) == 151, (
+        "Time array should have 151 points after two continuations"
+    )
     assert numpy.isclose(times[0], 0.0), "First time should be 0"
     assert numpy.isclose(times[-1], 15.0), "Last time should be 15"
 
