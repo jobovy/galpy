@@ -1,7 +1,14 @@
 v1.11.2 (expected around 2026-03-01)
 ====================
 
-- Nothing yet!
+- Added support for continuing orbit integrations. When an orbit has already
+  been integrated and integrate() is called again with a time array that
+  continues from the end (for forward continuation) or beginning (for backward
+  continuation) of the previous integration, the two integrations are merged.
+  This allows integrating an orbit forward and then backward in time, or
+  extending an existing integration, without having to re-integrate from the
+  initial conditions. The integration times can be obtained using the time()
+  method.
 
 v1.11.1 (2025-11-02)
 ====================

@@ -18756,3 +18756,116 @@ def test_SkyCoord_nodoubleunits_issue325():
             "Orbit method SkyCoord has the wrong units for the distance"
         )
     return None
+
+
+def test_integrate_continuation_timeAsQuantity():
+    # Test orbit continuation with times specified as Quantities
+    import copy
+
+    import numpy
+
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential2014
+    from galpy.util import conversion
+
+    ro, vo = 8.0, 200.0
+    o = Orbit(
+        [
+            10.0 * units.kpc,
+            -20.0 * units.km / units.s,
+            210.0 * units.km / units.s,
+            500.0 * units.pc,
+            -12.0 * units.km / units.s,
+            45.0 * units.deg,
+        ],
+        ro=ro,
+        vo=vo,
+    )
+
+    # First integration
+    ts1 = units.Quantity(numpy.linspace(0.0, 0.5, 501), unit=units.Gyr)
+    o.integrate(ts1, MWPotential2014)
+
+    # Continue forward
+    ts2 = units.Quantity(numpy.linspace(0.5, 1.0, 501), unit=units.Gyr)
+    o.integrate(ts2, MWPotential2014)
+
+    # Check that continuation happened
+    times = o.time()
+    assert len(times) == 1001, "Time array should have 1001 points after continuation"
+
+    # Compare to full integration
+    o_full = Orbit(
+        [
+            10.0 * units.kpc,
+            -20.0 * units.km / units.s,
+            210.0 * units.km / units.s,
+            500.0 * units.pc,
+            -12.0 * units.km / units.s,
+            45.0 * units.deg,
+        ],
+        ro=ro,
+        vo=vo,
+    )
+    ts_full = units.Quantity(numpy.linspace(0.0, 1.0, 1001), unit=units.Gyr)
+    o_full.integrate(ts_full, MWPotential2014)
+
+    # Check that positions match
+    assert numpy.all(
+        numpy.fabs(o.x(ts_full) - o_full.x(ts_full)).value < 10.0**-8.0
+    ), "Continued integration with Quantity times does not match full integration"
+
+    return None
+
+
+def test_integrate_continuation_orbits_timeAsQuantity():
+    # Test orbit continuation with multiple orbits using Quantities
+    import numpy
+
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential2014
+
+    ro, vo = 8.0, 200.0
+    vxvvs = [
+        [
+            10.0 * units.kpc,
+            -20.0 * units.km / units.s,
+            210.0 * units.km / units.s,
+            500.0 * units.pc,
+            -12.0 * units.km / units.s,
+            45.0 * units.deg,
+        ],
+        [
+            11.0 * units.kpc,
+            -25.0 * units.km / units.s,
+            200.0 * units.km / units.s,
+            600.0 * units.pc,
+            -15.0 * units.km / units.s,
+            50.0 * units.deg,
+        ],
+    ]
+    o = Orbit(vxvvs, ro=ro, vo=vo)
+
+    # First integration
+    ts1 = units.Quantity(numpy.linspace(0.0, 0.5, 501), unit=units.Gyr)
+    o.integrate(ts1, MWPotential2014)
+
+    # Continue forward
+    ts2 = units.Quantity(numpy.linspace(0.5, 1.0, 501), unit=units.Gyr)
+    o.integrate(ts2, MWPotential2014)
+
+    # Check that continuation happened
+    times = o.time()
+    assert len(times) == 1001, "Time array should have 1001 points after continuation"
+
+    # Compare to full integration
+    o_full = Orbit(vxvvs, ro=ro, vo=vo)
+    ts_full = units.Quantity(numpy.linspace(0.0, 1.0, 1001), unit=units.Gyr)
+    o_full.integrate(ts_full, MWPotential2014)
+
+    # Check that positions match for both orbits
+    assert numpy.all(
+        numpy.fabs(o.x(ts_full) - o_full.x(ts_full)).value < 10.0**-8.0
+    ), "Continued integration with Quantity times does not match full integration for multiple orbits"
+
+    return None
