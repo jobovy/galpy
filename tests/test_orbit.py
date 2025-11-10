@@ -7930,7 +7930,7 @@ def test_orbinterp_reset_integrate():
     op = o()
     ts = numpy.linspace(0.0, 100.0, 10001)
     o.integrate(ts, MWPotential)
-    o.R(numpy.linspace(0.0, o.time()[-1], 1001))
+    o.R(numpy.linspace(0.0, o.t[-1], 1001))
     o.integrate(ts, MWPotential2014)
     op.integrate(ts, MWPotential2014)
     # If things are reset correctly, o and op should now agree on everything
@@ -7971,7 +7971,7 @@ def test_orbinterp_reset_integrateSOS():
     ts = numpy.linspace(0.0, 100.0, 10001)
     psis = numpy.linspace(0.0, 100.0, 10001)
     o.integrate(ts, MWPotential)
-    o.R(numpy.linspace(0.0, o.time()[-1], 1001))
+    o.R(numpy.linspace(0.0, o.t[-1], 1001))
     o.integrate_SOS(psis, MWPotential2014)
     op.integrate_SOS(psis, MWPotential2014)
     ts = o.t
@@ -8013,7 +8013,7 @@ def test_orbinterp_reset_bruteSOS():
     ts = numpy.linspace(0.0, 100.0, 10001)
     ts2 = numpy.linspace(0.0, 99.0, 10001)
     o.integrate(ts, MWPotential)
-    o.R(numpy.linspace(0.0, o.time()[-1], 1001))
+    o.R(numpy.linspace(0.0, o.t[-1], 1001))
     o.bruteSOS(ts2, MWPotential2014)
     op.bruteSOS(ts2, MWPotential2014)
     ts = o.t
@@ -8054,7 +8054,7 @@ def test_orbinterp_reset_integratedxdv():
     op = o()
     ts = numpy.linspace(0.0, 100.0, 10001)
     o.integrate_dxdv([1.0, 0.0, 0.0, 0.0], ts, MWPotential)
-    o.R(numpy.linspace(0.0, o.time()[-1], 1001))
+    o.R(numpy.linspace(0.0, o.t[-1], 1001))
     o.integrate_dxdv([1.0, 0.0, 0.0, 0.0], ts, MWPotential2014)
     op.integrate_dxdv([1.0, 0.0, 0.0, 0.0], ts, MWPotential2014)
     # If things are reset correctly, o and op should now agree on everything
@@ -10649,6 +10649,49 @@ def test_orbit_continuation_1d_backward():
     for t in test_times:
         assert numpy.isclose(o.x(t), o_reinit.x(t), rtol=1e-10), (
             f"Backward continuation should match re-initialized integration at t={t}"
+        )
+
+    return None
+
+
+def test_orbit_continuation_chained():
+    # Test that continuations can be chained (continuing from an already continued orbit)
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential2014
+
+    o = Orbit([1.0, 0.1, 1.1, 0.0, 0.1])
+
+    # First integration
+    t1 = numpy.linspace(0.0, 5.0, 51)
+    o.integrate(t1, MWPotential2014)
+
+    # First continuation
+    t2 = numpy.linspace(5.0, 10.0, 51)
+    o.integrate(t2, MWPotential2014)
+
+    # Second continuation (chaining)
+    t3 = numpy.linspace(10.0, 15.0, 51)
+    o.integrate(t3, MWPotential2014)
+
+    # Check that all three integrations were merged
+    times = o.time()
+    assert len(times) == 151, "Time array should have 151 points after two continuations"
+    assert numpy.isclose(times[0], 0.0), "First time should be 0"
+    assert numpy.isclose(times[-1], 15.0), "Last time should be 15"
+
+    # Compare to full integration over entire time range
+    o_full = Orbit([1.0, 0.1, 1.1, 0.0, 0.1])
+    t_full = numpy.linspace(0.0, 15.0, 151)
+    o_full.integrate(t_full, MWPotential2014)
+
+    # Check that the entire trajectory matches
+    times_check = numpy.linspace(0.0, 15.0, 31)  # Sample at various points
+    for t in times_check:
+        assert numpy.isclose(o.r(t), o_full.r(t), rtol=1e-10), (
+            f"Chained continuation should match full integration at t={t}"
+        )
+        assert numpy.isclose(o.E(t), o_full.E(t), rtol=1e-10), (
+            f"Energy should match at t={t}"
         )
 
     return None

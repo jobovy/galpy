@@ -3029,16 +3029,16 @@ def test_slice_indivtimes():
         "Test should be using individual time arrays, but a single time array was found"
     )
     # Now slice single and multiple
-    assert numpy.all(orbits[0].t == orbits.time()[0]), (
+    assert numpy.all(orbits[0].t == orbits.t[0]), (
         "Individually sliced orbit with individual time arrays does not produce the correct time array in the slice"
     )
-    assert numpy.all(orbits[1].t == orbits.time()[1]), (
+    assert numpy.all(orbits[1].t == orbits.t[1]), (
         "Individually sliced orbit with individual time arrays does not produce the correct time array in the slice"
     )
-    assert numpy.all(orbits[:2].t == orbits.time()[:2]), (
+    assert numpy.all(orbits[:2].t == orbits.t[:2]), (
         "Multiply-sliced orbit with individual time arrays does not produce the correct time array in the slice"
     )
-    assert numpy.all(orbits[1:4].t == orbits.time()[1:4]), (
+    assert numpy.all(orbits[1:4].t == orbits.t[1:4]), (
         "Multiply-sliced orbit with individual time arrays does not produce the correct time array in the slice"
     )
     return None
