@@ -567,9 +567,9 @@ backward in time and prepended to the existing integration:
 >>> print(o.t[0], o.t[100], o.t[-1])
 # (-10.0, 0.0, 10.0)
 
-For continuation to work, the potential used must be the same as in the
-previous integration. If a different potential is provided, a new
-integration is started instead.
+Continuation works even when the potential is different from the previous
+integration, though a warning will be issued in this case to alert you that
+this may lead to unphysical results.
 
 All orbit methods (``r()``, ``E()``, ``R()``, etc.) work seamlessly
 with continued integrations, and interpolation is handled correctly
