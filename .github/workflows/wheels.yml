@@ -217,7 +217,7 @@ jobs:
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           packages_dir: wheelhouse/
-# Deploy wheels and sdist to AWS S3 (main)
+# Deploy wheels to AWS S3 (main)
   deploy_s3:
     name: Deploy to AWS S3
     needs: [build_wheels, test_wheels]
@@ -232,10 +232,22 @@ jobs:
         with:
           path: tmp_wheelhouse/
       - run: find tmp_wheelhouse/ -mindepth 2 -type f -exec mv -i '{}' wheelhouse/ ';'
-      - name: Copy wheel to 'latest' version for AWS S3
+      - name: Create simple index
+        working-directory: wheelhouse
         run: |
-          GALPY_VERSION="$(awk '/^current_version/{print $NF}' .bumpversion.cfg)"
-          for f in wheelhouse/*$GALPY_VERSION*.whl; do cp -i -- "$f" "${f//$GALPY_VERSION/latest}"; done
+            python <<EOF
+            import os
+            from pathlib import Path
+            import html
+
+            links = []
+            for file in sorted(Path(".").glob("*.whl")):
+                links.append(f'<a href="{html.escape(file.name)}">{html.escape(file.name)}</a><br>')
+            if not links:
+                raise RuntimeError("No wheel or files found in wheelhouse")
+            with open("index.html", "w") as f:
+                f.write("<html><body>\n" + "\n".join(links) + "\n</body></html>\n")
+            EOF
       - name: Upload to AWS S3
         uses: jakejarvis/s3-sync-action@v0.5.1
         with:
@@ -246,4 +258,4 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_REGION: 'us-east-2'
           SOURCE_DIR: wheelhouse
-          DEST_DIR: wheelhouse
+          DEST_DIR: wheelhouse/simple/galpy
