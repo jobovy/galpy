@@ -10176,28 +10176,6 @@ def test_orbit_continuation_backward():
     return None
 
 
-def test_orbit_continuation_different_potential():
-    # Test that continuation doesn't happen with different potential
-    from galpy.orbit import Orbit
-    from galpy.potential import LogarithmicHaloPotential, MWPotential2014
-
-    o = Orbit([1.0, 0.1, 1.1, 0.0, 0.1])
-
-    # First integration
-    t1 = numpy.linspace(0.0, 10.0, 101)
-    o.integrate(t1, MWPotential2014)
-
-    # Second integration with different potential
-    t2 = numpy.linspace(10.0, 20.0, 101)
-    o.integrate(t2, LogarithmicHaloPotential())
-
-    # Check that integration was NOT continued (should have only new times)
-    assert len(o.t) == 101, "Time array should have 101 points (not continued)"
-    assert numpy.isclose(o.t[0], 10.0), "First time should be 10"
-    assert numpy.isclose(o.t[-1], 20.0), "Last time should be 20"
-
-    return None
-
 
 def test_orbit_continuation_different_spacing():
     # Test continuation with different time spacing
@@ -10366,17 +10344,17 @@ def test_orbit_continuation_vs_noncontinued_backward():
     o_cont = Orbit([1.0, 0.1, 1.1, 0.0, 0.1])
     t1 = numpy.linspace(0.0, 10.0, 101)
     o_cont.integrate(t1, MWPotential2014)
-    state_at_0 = o_cont.orbit[0, 0, :].copy()
 
     t2 = numpy.linspace(0.0, -10.0, 101)
     o_cont.integrate(t2, MWPotential2014)
 
-    # Compare to re-initializing from state at t=0 and integrating backward
-    o_reinit = Orbit(state_at_0)
+    # Compare to re-initializing from initial condition and integrating backward
+    o_reinit = o_cont()
     o_reinit.integrate(t2, MWPotential2014)
 
-    # The backward part should match
-    for t in [0.0, -2.5, -5.0, -7.5, -10.0]:
+    # The backward part should match for the full time range
+    test_times = numpy.linspace(-10.0, 0.0, 11)
+    for t in test_times:
         r_cont = o_cont.r(t)
         r_reinit = o_reinit.r(t)
         assert numpy.isclose(r_cont, r_reinit, rtol=1e-10), (
@@ -10520,6 +10498,18 @@ def test_orbit_continuation_potential_comparison_nested_list():
             warning for warning in w if "different potential" in str(warning.message)
         ]
         assert len(pot_warnings) > 0, "Should warn with different list potential"
+
+    # Test with actual nested list
+    pot3 = [LogarithmicHaloPotential(), [LogarithmicHaloPotential(normalize=0.9)]]
+    o3 = Orbit([1.0, 0.1, 1.1, 0.0, 0.1])
+    o3.integrate(t1, pot3)
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        o3.integrate(t2, pot3)
+        pot_warnings = [
+            warning for warning in w if "different potential" in str(warning.message)
+        ]
+        assert len(pot_warnings) == 0, "Should not warn with same nested list potential"
 
     return None
 

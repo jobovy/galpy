@@ -1415,7 +1415,12 @@ class Orbit:
             if we should continue the integration, is_forward indicates the direction,
             and pot_changed indicates if the potential has changed.
         """
-        # Check if orbit has been integrated before
+        # Check if continuation is disabled or orbit has not been integrated before
+        if (
+            hasattr(self, "_cannot_continue_integration")
+            and self._cannot_continue_integration
+        ):
+            return False, True, False
         if not hasattr(self, "t") or not hasattr(self, "_pot"):
             return False, True, False
 
@@ -1436,23 +1441,29 @@ class Orbit:
                     pot_changed = True
                     break
 
+        # Determine if we should continue and in which direction
+        should_continue = False
+        is_forward = True
+
         # Check if new time array continues from end of previous (forward)
         if numpy.isclose(t[0], self.t[-1]):
             # Check direction is consistent (both increasing or both decreasing)
             old_direction = self.t[-1] > self.t[0]
             new_direction = t[-1] > t[0] if len(t) > 1 else old_direction
             if old_direction == new_direction:
-                return True, True, pot_changed
+                should_continue = True
+                is_forward = True
 
         # Check if new time array continues from start of previous (backward)
-        if numpy.isclose(t[0], self.t[0]):
+        elif numpy.isclose(t[0], self.t[0]):
             # Check direction is opposite
             old_direction = self.t[-1] > self.t[0]
             new_direction = t[-1] > t[0] if len(t) > 1 else (not old_direction)
             if old_direction != new_direction:
-                return True, False, pot_changed
+                should_continue = True
+                is_forward = False
 
-        return False, True, False
+        return should_continue, is_forward, pot_changed
 
     def integrate(
         self,
@@ -1474,7 +1485,7 @@ class Orbit:
         t : list, numpy.ndarray or Quantity
             List of equispaced times at which to compute the orbit. The initial condition is t[0]. (note that for method='odeint', method='dop853', and method='dop853_c', the time array can be non-equispaced). If the orbit has already been integrated and the new time array continues from the end point of the previous integration (t[0] equals the last time of the previous integration), the orbit will be continued and the two integrations will be merged. Similarly, if t[0] equals the first time of a previous integration and the new time array goes in the opposite direction, the orbit will be integrated backward and prepended to the existing integration.
         pot : Potential, DissipativeForce or list of such instances
-            Gravitational field to integrate the orbit in. When continuing an integration, this must be the same potential as the previous integration.
+            Gravitational field to integrate the orbit in.
         method : str, optional
             Integration method to use. Default is 'symplec4_c'. See Notes for more information.
         progressbar : bool, optional
@@ -1566,10 +1577,11 @@ class Orbit:
                 galpyWarning,
             )
 
-        # Store old orbit data if continuing
+        # Store old orbit data and vxvv if continuing
         if should_continue:
             old_t = self.t.copy()
             old_orbit = self.orbit.copy()
+            old_vxvv = self.vxvv.copy()
             # Update initial conditions to be the final state of previous integration
             if is_forward:
                 # For forward continuation, start from the last state
@@ -1690,6 +1702,8 @@ class Orbit:
                 self.orbit = numpy.concatenate(
                     [self.orbit[:, :0:-1], old_orbit], axis=1
                 )
+            # Restore original initial conditions
+            self.vxvv = old_vxvv
 
         # Check whether r ever < minr if dynamical friction is included
         # and warn if so
@@ -5547,6 +5561,8 @@ class Orbit:
         self.orbit = self.orbit[:, :-1][:, anycrossindx]
         self.t[~crossindx[:, anycrossindx]] = numpy.nan
         self.orbit[~crossindx[:, anycrossindx]] = numpy.nan
+        # Disable continuation because we've modified t in a non-standard way
+        self._cannot_continue_integration = True
         if self.dim() == 3:
             return (
                 self.R(self.t, use_physical=False),
