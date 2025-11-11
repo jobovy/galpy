@@ -73,7 +73,7 @@ jobs:
           echo "$CONDA_PREFIX/bin" >> $GITHUB_PATH # necessary when we don't activate the environment
       - name: Inject git hash into version for dev wheels
         if: github.event_name != 'release'
-        run: python inject_git_hash.py
+        run: python tools/inject_git_hash.py
       - name: Build wheels
         uses: pypa/cibuildwheel@v3.2
         env:
