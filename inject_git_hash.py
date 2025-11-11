@@ -52,6 +52,11 @@ def inject_git_hash_in_file(filepath, search_pattern, replace_pattern):
             version = match.group(1)
             prefix = ""
         
+        # Skip if git hash is already present
+        if '+g' in version:
+            print(f"Skipping {filepath}: git hash already present in version")
+            return match.group(0)
+        
         # Format the replacement
         result = replace_pattern.format(
             version=version,
@@ -71,7 +76,7 @@ def inject_git_hash_in_file(filepath, search_pattern, replace_pattern):
     )
     
     if new_content == content:
-        print(f"Warning: No changes made to {filepath}", file=sys.stderr)
+        print(f"No changes made to {filepath}")
         return False
     
     with open(filepath, 'w') as f:
