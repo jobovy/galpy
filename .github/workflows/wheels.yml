@@ -71,6 +71,9 @@ jobs:
           echo "LDFLAGS=-L$CONDA_PREFIX/lib -headerpad_max_install_names" >> $GITHUB_ENV
           echo "REPAIR_LIBRARY_PATH=$CONDA_PREFIX/lib" >> $GITHUB_ENV # https://github.com/pypa/cibuildwheel/issues/816#issuecomment-916197079
           echo "$CONDA_PREFIX/bin" >> $GITHUB_PATH # necessary when we don't activate the environment
+      - name: Inject git hash into version for dev wheels
+        if: github.event_name != 'release'
+        run: python tools/inject_git_hash.py
       - name: Build wheels
         uses: pypa/cibuildwheel@v3.2
         env:
@@ -137,6 +140,10 @@ jobs:
       - name: Install wheel
         shell: bash
         run: python -m pip install `ls -d "$(pwd)"/wheelhouse/*.whl`
+      - name: Print installed version
+        shell: bash
+        working-directory: ${{ runner.temp }}
+        run: python -c "import galpy; print('Installed galpy version:', galpy.__version__)"
       - name: Test built wheel in non-conda environment
         shell: bash
         working-directory: ${{ runner.temp }}
@@ -167,6 +174,10 @@ jobs:
         run: |
           micromamba activate test-wheel-conda
           python -m pip install `ls -d "$(pwd)"/wheelhouse/*.whl`
+      - name: Print installed version
+        shell: bash -l {0}
+        working-directory: ${{ runner.temp }}
+        run: python -c "import galpy; print('Installed galpy version:', galpy.__version__)"
       - name: Test built wheel in conda environment
         shell: bash -l {0}
         working-directory: ${{ runner.temp }}
