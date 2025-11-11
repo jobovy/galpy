@@ -798,6 +798,19 @@ double KuzminLikeWrapperPotentialPlanarRforce(double,double,double,
 						struct potentialArg *);
 double KuzminLikeWrapperPotentialPlanarR2deriv(double,double,double,
 						struct potentialArg *);
+//TwoPowerSphericalPotential
+double TwoPowerSphericalPotentialEval(double,double,double,double,
+				      struct potentialArg *);
+double TwoPowerSphericalPotentialRforce(double,double,double,double,
+					struct potentialArg *);
+double TwoPowerSphericalPotentialzforce(double,double,double,double,
+				        struct potentialArg *);
+double TwoPowerSphericalPotentialPlanarRforce(double,double,double,
+						struct potentialArg *);
+double TwoPowerSphericalPotentialPlanarR2deriv(double,double,double,
+						struct potentialArg *);
+double TwoPowerSphericalPotentialDens(double,double,double,double,
+				      struct potentialArg *);
 
 #ifdef __cplusplus
 }

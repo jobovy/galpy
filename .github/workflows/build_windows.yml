@@ -210,7 +210,7 @@ jobs:
          condarc: |
             channels:
               - conda-forge
-         create-args: gsl
+         create-args: gsl libboost-headers
          cache-environment: true
          cache-environment-key: ${{ runner.os }}-${{ hashFiles('.github/workflows/build_windows.yml') }}
     - name: Set GSL environment variables

@@ -225,11 +225,11 @@ jobs:
     - name: Install the GSL
       if: matrix.os == 'ubuntu-latest'
       run: |
-         sudo apt-get install libgsl-dev
+         sudo apt-get install libgsl-dev libboost-dev
     - name: Install the GSL and OpenMP
       if: matrix.os == 'macos-15-intel'
       run: |
-         brew install gsl libomp
+         brew install gsl libomp boost
          brew info libomp
          echo "CFLAGS=-I$(brew --prefix)/include -I/usr/local/opt/libomp/include" >> $GITHUB_ENV
          echo "CPPFLAGS=-I$(brew --prefix)/include -I/usr/local/opt/libomp/include" >> $GITHUB_ENV

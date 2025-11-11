@@ -101,6 +101,7 @@ galpy_c_src = [
     "galpy/util/leung_dop853.c",
     "galpy/util/bovy_coords.c",
     "galpy/util/wez_ias15.c",
+    "galpy/util/wrap_boost_math.cpp",
 ]
 galpy_c_src.extend(glob.glob("galpy/potential/potential_c_ext/*.c"))
 galpy_c_src.extend(glob.glob("galpy/potential/interppotential_c_ext/*.c"))
@@ -135,6 +136,7 @@ actionAngleTorus_c_src.extend(glob.glob("galpy/potential/potential_c_ext/*.c"))
 actionAngleTorus_c_src.extend(glob.glob("galpy/orbit/orbit_c_ext/integrateFullOrbit.c"))
 actionAngleTorus_c_src.extend(glob.glob("galpy/util/interp_2d/*.c"))
 actionAngleTorus_c_src.extend(glob.glob("galpy/util/*.c"))
+actionAngleTorus_c_src.append("galpy/util/wrap_boost_math.cpp")
 
 actionAngleTorus_include_dirs = [
     "galpy/actionAngle/actionAngleTorus_c_ext",
