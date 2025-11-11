@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 """
 Script to inject git hash into version strings for development wheels.
 This script modifies version strings in-place to include the git hash
