@@ -173,6 +173,9 @@ jobs:
         run: |
           micromamba activate test-wheel-conda
           python -m pip install `ls -d "$(pwd)"/wheelhouse/*.whl`
+      - name: Print installed version
+        shell: bash -l {0}
+        run: python -c "import galpy; print('Installed galpy version:', galpy.__version__)"
       - name: Test built wheel in conda environment
         shell: bash -l {0}
         working-directory: ${{ runner.temp }}
