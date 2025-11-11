@@ -225,7 +225,7 @@ jobs:
     - name: Install the GSL
       if: matrix.os == 'ubuntu-latest'
       run: |
-         sudo apt-get install libgsl-dev libboost-dev
+         sudo apt-get install libgsl-dev libboost-math-dev
     - name: Install the GSL and OpenMP
       if: matrix.os == 'macos-15-intel'
       run: |

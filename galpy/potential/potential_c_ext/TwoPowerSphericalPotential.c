@@ -3,7 +3,7 @@
 #include "galpy_potentials.h"
 #include "wrap_boost_math.h"
 //TwoPowerSphericalPotential
-//3 arguments: amp, a, alpha, beta
+//4 arguments: amp, a, alpha, beta
 double TwoPowerSphericalPotentialEval(double R,double Z, double phi,
                                        double t,
                                        struct potentialArg * potentialArgs){
@@ -77,9 +77,7 @@ double TwoPowerSphericalPotentialPlanarR2deriv(double R,double phi,
   double a= *args++;
   double alpha= *args++;
   double beta= *args;
-  //Calculate R2deriv - use numerical derivative from SphericalPotential
-  // This is placeholder - the actual implementation would use analytical derivative
-  // For now, return 0 as this is typically not critical for orbit integration
+  //Calculate R2deriv using analytical derivative
   double A = pow(a, alpha - 3.) / (3. - alpha);
   double hyper = hyp2f1(3. - alpha, beta - alpha, 4. - alpha, -R/a);
   double hyper_deriv = (3. - alpha) * (beta - alpha) / (4. - alpha)

@@ -94,7 +94,7 @@ If you are reading this, either the simple installation instructions at the top 
         easiest way to do this is using your package manager. On Linux distributions
         with ``apt-get``, do::
 
-            apt-get install libgsl0-dev libboost-dev
+            apt-get install libgsl0-dev libboost-math-dev
 
         or on distros with ``yum``, do::
 

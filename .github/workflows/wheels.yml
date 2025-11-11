@@ -44,7 +44,7 @@ jobs:
         - ["cp314","3.14"]
     steps:
       - uses: actions/checkout@v5
-      - name: Install GSL (Windows / Mac OS x86_64)
+      - name: Install GSL and Boost (Windows / Mac OS x86_64)
         uses: mamba-org/setup-micromamba@v2
         if: matrix.buildplat[1] == 'win' || matrix.buildplat[1] == 'macosx'
         with:
@@ -196,9 +196,9 @@ jobs:
         uses: actions/setup-python@v6
         with:
           python-version: 3.x
-      # Install the GSL (necessary to properly include the C files)
-      - name: Install GSL
-        run: sudo apt-get install -y libgsl0-dev libboost-dev
+      # Install the GSL and Boost (necessary to properly include the C files)
+      - name: Install GSL and Boost
+        run: sudo apt-get install -y libgsl0-dev libboost-math-dev
       - name: Build sdist
         run: |
           pip install build
