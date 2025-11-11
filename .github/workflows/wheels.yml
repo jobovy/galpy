@@ -142,18 +142,8 @@ jobs:
         run: python -m pip install `ls -d "$(pwd)"/wheelhouse/*.whl`
       - name: Print installed version
         shell: bash
+        working-directory: ${{ runner.temp }}
         run: python -c "import galpy; print('Installed galpy version:', galpy.__version__)"
-      - name: Display galpy __init__.py
-        shell: bash
-        run: |
-          python - <<'EOF'
-          import galpy, pathlib
-          init_path = pathlib.Path(galpy.__file__).with_name('__init__.py')
-          print(f"galpy __init__ path: {init_path}")
-          print("----- file start -----")
-          print(init_path.read_text())
-          print("----- file end -----")
-          EOF
       - name: Test built wheel in non-conda environment
         shell: bash
         working-directory: ${{ runner.temp }}
@@ -186,18 +176,8 @@ jobs:
           python -m pip install `ls -d "$(pwd)"/wheelhouse/*.whl`
       - name: Print installed version
         shell: bash -l {0}
+        working-directory: ${{ runner.temp }}
         run: python -c "import galpy; print('Installed galpy version:', galpy.__version__)"
-      - name: Display galpy __init__.py
-        shell: bash
-        run: |
-          python - <<'EOF'
-          import galpy, pathlib
-          init_path = pathlib.Path(galpy.__file__).with_name('__init__.py')
-          print(f"galpy __init__ path: {init_path}")
-          print("----- file start -----")
-          print(init_path.read_text())
-          print("----- file end -----")
-          EOF
       - name: Test built wheel in conda environment
         shell: bash -l {0}
         working-directory: ${{ runner.temp }}
