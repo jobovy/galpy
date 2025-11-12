@@ -253,7 +253,10 @@ class BuildExt(build_ext):
 
             def new_compile(obj, src, ext, cc_args, extra_postargs, pp_opts):
                 # Add C++17 flag only for C++ files, but exclude torus files (not C++17 compatible)
-                if src.endswith((".cpp", ".cc", ".cxx")) and "actionAngleTorus_c_ext" not in src:
+                if (
+                    src.endswith((".cpp", ".cc", ".cxx"))
+                    and "actionAngleTorus_c_ext" not in src
+                ):
                     extra_postargs = list(extra_postargs or []) + [cxx_flag]
                 return old_compile(obj, src, ext, cc_args, extra_postargs, pp_opts)
 
