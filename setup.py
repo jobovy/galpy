@@ -253,7 +253,7 @@ class BuildExt(build_ext):
             compiler = self.compiler
 
             # For Unix compilers (gcc/clang) - patch _compile()
-            if hasattr(compiler, "_compile"):
+            if not WIN32 and hasattr(compiler, "_compile"):
                 old_compile = compiler._compile
 
                 def new_compile(obj, src, ext, cc_args, extra_postargs, pp_opts):
@@ -268,7 +268,7 @@ class BuildExt(build_ext):
                 compiler._compile = new_compile
 
             # For MSVC (Windows) - patch compile()
-            if hasattr(compiler, "compile"):
+            elif WIN32 and hasattr(compiler, "compile"):
                 old_msvc_compile = compiler.compile
 
                 def msvc_compile(
