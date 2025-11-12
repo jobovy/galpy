@@ -242,7 +242,7 @@ def compiler_is_clang(compiler):
 class BuildExt(build_ext):
     def build_extensions(self):
         ct = self.compiler.compiler_type
-        
+
         # Add C++17 standard for C++ compiler if xsf is available (required for xsf)
         if os.path.exists("xsf"):
             compiler = self.compiler
@@ -262,7 +262,7 @@ class BuildExt(build_ext):
                         compiler.compiler_cxx = [compiler.compiler_cxx, "/std:c++17"]
                     else:
                         compiler.compiler_cxx = [compiler.compiler_cxx, "-std=c++17"]
-        
+
         if ct == "unix":
             for ext in self.extensions:
                 # only add flags which pass the flag_filter
