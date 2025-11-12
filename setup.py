@@ -94,6 +94,13 @@ if WIN32:
     extra_compile_args.append("-DGSL_DLL")
     extra_compile_args.append("-DWIN32")
 
+# Add C++17 standard if xsf library is available (required for xsf)
+if os.path.exists("xsf"):
+    if WIN32:
+        extra_compile_args.append("/std:c++17")
+    else:
+        extra_compile_args.append("-std=c++17")
+
 # main C extension
 galpy_c_src = [
     "galpy/util/bovy_symplecticode.c",
