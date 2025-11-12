@@ -60,3 +60,4 @@ galpy.egg-info/
 .venv
 devcontainer.json
 Dockerfile
+xsf/

@@ -1,5 +1,5 @@
-#ifndef __WRAP_BOOST_MATH_H__
-#define __WRAP_BOOST_MATH_H__
+#ifndef __WRAP_XSF_H__
+#define __WRAP_XSF_H__
 #ifdef __cplusplus
 extern "C" {
 #endif

@@ -1,7 +1,7 @@
 #include <math.h>
 #include <gsl/gsl_sf_gamma.h>
 #include "galpy_potentials.h"
-#include "wrap_boost_math.h"
+#include "wrap_xsf.h"
 //TwoPowerSphericalPotential
 //4 arguments: amp, a, alpha, beta
 double TwoPowerSphericalPotentialEval(double R,double Z, double phi,

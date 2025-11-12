@@ -203,14 +203,14 @@ jobs:
       with:
         path: ~\AppData\Local\pip\Cache
         key: ${{ runner.os }}-pip-${{ matrix.python-version }}-${{ hashFiles('.github/workflows/build_windows.yml') }}-${{ matrix.REQUIRES_PYNBODY }}-${{ matrix.REQUIRES_ASTROPY }}-${{ matrix.REQUIRES_ASTROQUERY }}-${{ matrix.REQUIRES_NUMBA }}-${{ matrix.REQUIRES_JAX }}
-    # Install just the GSL and Boost using conda
+    # Install just the GSL using conda
     - uses: mamba-org/setup-micromamba@v2
       with:
          environment-name: gsl
          condarc: |
             channels:
               - conda-forge
-         create-args: gsl libboost-headers
+         create-args: gsl
          cache-environment: true
          cache-environment-key: ${{ runner.os }}-${{ hashFiles('.github/workflows/build_windows.yml') }}
     - name: Set GSL environment variables

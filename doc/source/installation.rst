@@ -90,23 +90,23 @@ If you are reading this, either the simple installation instructions at the top 
 
             conda install -c conda-forge gsl galpy
 
-        To compile ``galpy`` from source, you will first need to install the GSL and Boost headers. The
+        To compile ``galpy`` from source, you will first need to install the GSL. The
         easiest way to do this is using your package manager. On Linux distributions
         with ``apt-get``, do::
 
-            apt-get install libgsl0-dev libboost-math-dev
+            apt-get install libgsl0-dev
 
         or on distros with ``yum``, do::
 
-            yum install gsl-devel boost-devel
+            yum install gsl-devel
 
-        Alternatively, you can use ``conda`` to install the GSL and Boost headers and use ``conda`` to
-        manage your Python environment. Install the GSL and Boost headers in your preferred environment
+        Alternatively, you can use ``conda`` to install the GSL and use ``conda`` to
+        manage your Python environment. Install the GSL in your preferred environment
         with::
 
-            conda install -c conda-forge gsl libboost-headers
+            conda install -c conda-forge gsl
 
-        Once you have installed the GSL and Boost headers, compile ``galpy`` from source using::
+        Once you have installed the GSL, compile ``galpy`` from source using::
 
             export CFLAGS="$CFLAGS -I`gsl-config --prefix`/include"
             export LDFLAGS="$LDFLAGS -L`gsl-config --prefix`/lib"
@@ -142,10 +142,10 @@ If you are reading this, either the simple installation instructions at the top 
 
             conda install -c conda-forge gsl galpy
 
-        To compile ``galpy`` from source, you will first need to install the GSL, Boost headers, and OpenMP.
+        To compile ``galpy`` from source, you will first need to install the GSL and OpenMP.
         The easiest way to do this is using `Homebrew <http://brew.sh/>`__ as::
 
-            brew install gsl boost libomp
+            brew install gsl libomp
 
         Note that in order not to conflict with other OpenMP installations, the
         ``Homebrew`` version of ``libomp`` is "keg-only" and you have to set the
@@ -158,18 +158,18 @@ If you are reading this, either the simple installation instructions at the top 
         Note that the exact paths may vary depending on your system (run
         ``brew info libomp`` to get the correct paths).
 
-        Alternatively, you can use ``conda`` to install the GSL, Boost headers, and OpenMP and use
-        ``conda`` to manage your Python environment. Install the GSL, Boost headers, and OpenMP in your
+        Alternatively, you can use ``conda`` to install the GSL and OpenMP and use
+        ``conda`` to manage your Python environment. Install the GSL and OpenMP in your
         preferred environment with::
 
-            conda install -c conda-forge gsl libboost-headers llvm-openmp
+            conda install -c conda-forge gsl llvm-openmp
 
         Then set the path and relevant environment variables using::
 
             export CFLAGS="$CFLAGS -I`gsl-config --prefix`/include"
             export LDFLAGS="$LDFLAGS -L`gsl-config --prefix`/lib"
 
-        Once you have installed the GSL, Boost headers, and OpenMP, compile ``galpy`` from source using::
+        Once you have installed the GSL and OpenMP, compile ``galpy`` from source using::
 
             python -m pip install --no-binary galpy galpy
 
@@ -198,14 +198,14 @@ If you are reading this, either the simple installation instructions at the top 
             conda install -c conda-forge gsl galpy
 
         If you want to install the latest bleeding-edge version, you have to install
-        the GSL and Boost headers first. In an existing ``conda`` environment, do::
+        the GSL first as. In an existing ``conda`` environment, do::
 
-            conda install -c conda-forge gsl libboost-headers
+            conda install -c conda-forge gsl
 
         while if you don't want to use ``conda`` to manage your Python environment, you
         can do::
 
-            conda create -n gsl conda-forge::gsl conda-forge::libboost-headers
+            conda create -n gsl conda-forge::gsl
             conda activate gsl
 
         Either way, then set the path and relevant environment variables using::

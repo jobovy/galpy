@@ -101,8 +101,10 @@ galpy_c_src = [
     "galpy/util/leung_dop853.c",
     "galpy/util/bovy_coords.c",
     "galpy/util/wez_ias15.c",
-    "galpy/util/wrap_boost_math.cpp",
 ]
+# Add xsf wrapper if xsf directory exists
+if os.path.exists("xsf"):
+    galpy_c_src.append("galpy/util/wrap_xsf.cpp")
 galpy_c_src.extend(glob.glob("galpy/potential/potential_c_ext/*.c"))
 galpy_c_src.extend(glob.glob("galpy/potential/interppotential_c_ext/*.c"))
 galpy_c_src.extend(glob.glob("galpy/util/interp_2d/*.c"))
@@ -117,6 +119,9 @@ galpy_c_include_dirs = [
     "galpy/orbit/orbit_c_ext",
     "galpy/actionAngle/actionAngle_c_ext",
 ]
+# Add xsf include directory if it exists
+if os.path.exists("xsf"):
+    galpy_c_include_dirs.append("xsf/include")
 
 # actionAngleTorus C extension (files here, so we can compile a single extension if so desidered)
 actionAngleTorus_c_src = glob.glob("galpy/actionAngle/actionAngleTorus_c_ext/*.cc")
@@ -136,7 +141,9 @@ actionAngleTorus_c_src.extend(glob.glob("galpy/potential/potential_c_ext/*.c"))
 actionAngleTorus_c_src.extend(glob.glob("galpy/orbit/orbit_c_ext/integrateFullOrbit.c"))
 actionAngleTorus_c_src.extend(glob.glob("galpy/util/interp_2d/*.c"))
 actionAngleTorus_c_src.extend(glob.glob("galpy/util/*.c"))
-actionAngleTorus_c_src.append("galpy/util/wrap_boost_math.cpp")
+# Add xsf wrapper if xsf directory exists
+if os.path.exists("xsf"):
+    actionAngleTorus_c_src.append("galpy/util/wrap_xsf.cpp")
 
 actionAngleTorus_include_dirs = [
     "galpy/actionAngle/actionAngleTorus_c_ext",
@@ -148,6 +155,9 @@ actionAngleTorus_include_dirs = [
     "galpy/orbit/orbit_c_ext",
     "galpy/potential/potential_c_ext",
 ]
+# Add xsf include directory if it exists
+if os.path.exists("xsf"):
+    actionAngleTorus_include_dirs.append("xsf/include")
 
 if single_ext:  # add the code and libraries for the actionAngleTorus extensions
     if os.path.exists("galpy/actionAngle/actionAngleTorus_c_ext/torus/src"):
