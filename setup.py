@@ -252,19 +252,56 @@ class BuildExt(build_ext):
                 cxx_flags = ["-std=c++17"]
             compiler = self.compiler
 
-            # Intercept compile() and inject flags per filetype
-            old_compile = compiler._compile
+            # For Unix compilers (gcc/clang) - patch _compile()
+            if hasattr(compiler, "_compile"):
+                old_compile = compiler._compile
 
-            def new_compile(obj, src, ext, cc_args, extra_postargs, pp_opts):
-                # Add C++17 flag only for C++ files, but exclude torus files (not C++17 compatible)
-                if (
-                    src.endswith((".cpp", ".cc", ".cxx"))
-                    and "actionAngleTorus_c_ext" not in src
+                def new_compile(obj, src, ext, cc_args, extra_postargs, pp_opts):
+                    # Add C++17 flag only for C++ files, but exclude torus files (not C++17 compatible)
+                    if (
+                        src.endswith((".cpp", ".cc", ".cxx"))
+                        and "actionAngleTorus_c_ext" not in src
+                    ):
+                        extra_postargs = list(extra_postargs or []) + cxx_flags
+                    return old_compile(obj, src, ext, cc_args, extra_postargs, pp_opts)
+
+                compiler._compile = new_compile
+
+            # For MSVC (Windows) - patch compile()
+            if hasattr(compiler, "compile"):
+                old_msvc_compile = compiler.compile
+
+                def msvc_compile(
+                    sources,
+                    output_dir=None,
+                    macros=None,
+                    include_dirs=None,
+                    debug=0,
+                    extra_preargs=None,
+                    extra_postargs=None,
+                    depends=None,
                 ):
-                    extra_postargs = list(extra_postargs or []) + cxx_flags
-                return old_compile(obj, src, ext, cc_args, extra_postargs, pp_opts)
+                    new_postargs = list(extra_postargs or [])
+                    # Check if any sources are C++ files that need C++17
+                    for src in sources:
+                        if (
+                            src.endswith((".cpp", ".cc", ".cxx"))
+                            and "actionAngleTorus_c_ext" not in src
+                        ):
+                            new_postargs = list(extra_postargs or []) + cxx_flags
+                            break
+                    return old_msvc_compile(
+                        sources,
+                        output_dir,
+                        macros,
+                        include_dirs,
+                        debug,
+                        extra_preargs,
+                        new_postargs,
+                        depends,
+                    )
 
-            compiler._compile = new_compile
+                compiler.compile = msvc_compile
 
         if ct == "unix":
             for ext in self.extensions:
