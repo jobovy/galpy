@@ -245,7 +245,11 @@ class BuildExt(build_ext):
 
         # Add C++17 standard for C++ files if xsf is available (required for xsf)
         if os.path.exists("xsf"):
-            cxx_flag = "/std:c++17" if WIN32 else "-std=c++17"
+            if WIN32:
+                # MSVC needs both /std:c++17 and /Zc:__cplusplus for proper C++17 support
+                cxx_flags = ["/std:c++17", "/Zc:__cplusplus"]
+            else:
+                cxx_flags = ["-std=c++17"]
             compiler = self.compiler
 
             # Intercept compile() and inject flags per filetype
@@ -257,7 +261,7 @@ class BuildExt(build_ext):
                     src.endswith((".cpp", ".cc", ".cxx"))
                     and "actionAngleTorus_c_ext" not in src
                 ):
-                    extra_postargs = list(extra_postargs or []) + [cxx_flag]
+                    extra_postargs = list(extra_postargs or []) + cxx_flags
                 return old_compile(obj, src, ext, cc_args, extra_postargs, pp_opts)
 
             compiler._compile = new_compile
