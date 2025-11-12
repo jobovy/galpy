@@ -94,13 +94,6 @@ if WIN32:
     extra_compile_args.append("-DGSL_DLL")
     extra_compile_args.append("-DWIN32")
 
-# Add C++17 standard if xsf library is available (required for xsf)
-if os.path.exists("xsf"):
-    if WIN32:
-        extra_compile_args.append("/std:c++17")
-    else:
-        extra_compile_args.append("-std=c++17")
-
 # main C extension
 galpy_c_src = [
     "galpy/util/bovy_symplecticode.c",
@@ -249,6 +242,27 @@ def compiler_is_clang(compiler):
 class BuildExt(build_ext):
     def build_extensions(self):
         ct = self.compiler.compiler_type
+        
+        # Add C++17 standard for C++ compiler if xsf is available (required for xsf)
+        if os.path.exists("xsf"):
+            compiler = self.compiler
+            # Check if this compiler has a C++ compiler command
+            if hasattr(compiler, "compiler_cxx"):
+                # Add -std=c++17 only to the C++ compiler flags
+                if isinstance(compiler.compiler_cxx, list):
+                    if WIN32:
+                        if "/std:c++17" not in compiler.compiler_cxx:
+                            compiler.compiler_cxx.append("/std:c++17")
+                    else:
+                        if "-std=c++17" not in compiler.compiler_cxx:
+                            compiler.compiler_cxx.append("-std=c++17")
+                else:
+                    # Fallback for some compilers that store this as a string
+                    if WIN32:
+                        compiler.compiler_cxx = [compiler.compiler_cxx, "/std:c++17"]
+                    else:
+                        compiler.compiler_cxx = [compiler.compiler_cxx, "-std=c++17"]
+        
         if ct == "unix":
             for ext in self.extensions:
                 # only add flags which pass the flag_filter
