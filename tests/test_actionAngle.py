@@ -3243,7 +3243,9 @@ def test_actionAngleStaeckel_wSpherical_conserved_actions_c():
     )
     ep = potential.EinastoPotential(normalize=1.0, h=2.2)
     tpsp = potential.TwoPowerSphericalPotential(normalize=1.0, alpha=1.5, beta=3.5)
-    tpsp_beta3 = potential.TwoPowerSphericalPotential(normalize=1.0, alpha=1.5, beta=3.0)
+    tpsp_beta3 = potential.TwoPowerSphericalPotential(
+        normalize=1.0, alpha=1.5, beta=3.0
+    )
     msmlpwtdp = (
         mockSmoothedLogarithmicHaloPotentialwTimeDependentAmplitudeWrapperPotential()
     )
