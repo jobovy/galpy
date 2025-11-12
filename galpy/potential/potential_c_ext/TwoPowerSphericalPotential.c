@@ -38,7 +38,7 @@ double TwoPowerSphericalPotentialRforce(double R,double Z, double phi,
   double beta= *args;
   //Calculate Rforce
   double r= sqrt(R*R+Z*Z);
-  return -amp * R / pow(r, alpha) * pow(a, alpha - 3.) / (3. - alpha)
+  return -amp * R * pow(r, -alpha) * pow(a, alpha - 3.) / (3. - alpha)
               * hyp2f1(3. - alpha, beta - alpha, 4. - alpha, -r/a);
 }
 
@@ -51,7 +51,7 @@ double TwoPowerSphericalPotentialPlanarRforce(double R,double phi,
   double alpha= *args++;
   double beta= *args;
   //Calculate Rforce
-  return -amp / pow(R, alpha) * pow(a, alpha - 3.) / (3. - alpha)
+  return -amp * pow(R, 1.0 - alpha) * pow(a, alpha - 3.) / (3. - alpha)
               * hyp2f1(3. - alpha, beta - alpha, 4. - alpha, -R/a);
 }
 
@@ -65,7 +65,7 @@ double TwoPowerSphericalPotentialzforce(double R,double Z,double phi,
   double beta= *args;
   //Calculate zforce
   double r= sqrt(R*R+Z*Z);
-  return -amp * Z / pow(r, alpha) * pow(a, alpha - 3.) / (3. - alpha)
+  return -amp * Z * pow(r, -alpha) * pow(a, alpha - 3.) / (3. - alpha)
               * hyp2f1(3. - alpha, beta - alpha, 4. - alpha, -r/a);
 }
 
@@ -85,7 +85,7 @@ double TwoPowerSphericalPotentialPlanarR2deriv(double R,double phi,
 
   double term1 = A * pow(R, -alpha) * hyper;
   double term2 = -alpha * A * pow(R, -alpha - 1.) * hyper;
-  double term3 = -A * pow(R, -alpha) / a * hyper_deriv;
+  double term3 = -A * pow(R, -alpha) * pow(a, -1.) * hyper_deriv;
   return amp * (term1 + term2 + term3);
 }
 
@@ -99,6 +99,6 @@ double TwoPowerSphericalPotentialDens(double R,double Z, double phi,
   double beta= *args;
   //Calculate density
   double r= sqrt(R*R+Z*Z);
-  return amp * pow(a/r, alpha) / pow(1. + r/a, beta - alpha)
-             / 4. / M_PI / (a*a*a);
+  return amp * pow(a*pow(r, -1.), alpha) * pow(1. + r*pow(a, -1.), -(beta - alpha))
+             / 4. / M_PI * pow(a, -3.);
 }
