@@ -337,6 +337,15 @@ if not actionAngleTorus_c_incl and not single_ext:
         + "\033[0m"
     )
 
+if not os.path.exists("xsf"):
+    num_gsl_warn += 1
+    print(
+        "\033[91;1m"
+        + "WARNING: xsf library not found. TwoPowerSphericalPotential C implementation will not be available. "
+        + "Download xsf v0.1.3 from https://github.com/scipy/xsf/releases/tag/v0.1.3 and extract to 'xsf' directory in the repository root."
+        + "\033[0m"
+    )
+
 if num_gsl_warn > 0:
     print_gsl_message(num_messages=num_gsl_warn)
     print(

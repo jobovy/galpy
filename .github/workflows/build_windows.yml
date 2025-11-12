@@ -220,6 +220,13 @@ jobs:
         echo "LIB=$CONDA_PREFIX\\Library\\lib" >> $GITHUB_ENV
         echo "LIBPATH=$CONDA_PREFIX\\Library\\lib" >> $GITHUB_ENV
         echo "$CONDA_PREFIX\\Library\\bin" >> $GITHUB_PATH # necessary when we don't activate the environment
+    - name: Download and extract xsf library
+      shell: bash
+      run: |
+        curl -L -o v0.1.3.tar.gz https://github.com/scipy/xsf/archive/refs/tags/v0.1.3.tar.gz
+        tar -xzf v0.1.3.tar.gz
+        mv xsf-0.1.3 xsf
+        rm v0.1.3.tar.gz
     - name: Install Python dependencies
       run: |
          pip install --upgrade --upgrade-strategy eager numpy scipy matplotlib numexpr setuptools cython pytest tqdm

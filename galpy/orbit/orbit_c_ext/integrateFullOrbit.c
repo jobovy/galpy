@@ -545,6 +545,16 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
       break;
+    case 42: //TwoPowerSphericalPotential, 4 arguments
+      potentialArgs->potentialEval= &TwoPowerSphericalPotentialEval;
+      potentialArgs->Rforce= &TwoPowerSphericalPotentialRforce;
+      potentialArgs->zforce= &TwoPowerSphericalPotentialzforce;
+      potentialArgs->phitorque= &ZeroForce;
+      potentialArgs->dens= &TwoPowerSphericalPotentialDens;
+      potentialArgs->nargs= 4;
+      potentialArgs->ntfuncs= 0;
+      potentialArgs->requiresVelocity= false;
+      break;
 //////////////////////////////// WRAPPERS /////////////////////////////////////
     case -1: //DehnenSmoothWrapperPotential
       potentialArgs->potentialEval= &DehnenSmoothWrapperPotentialEval;
