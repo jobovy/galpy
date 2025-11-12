@@ -2,6 +2,12 @@
 #include <gsl/gsl_sf_gamma.h>
 #include "galpy_potentials.h"
 #include "wrap_xsf.h"
+
+// Define M_PI if not already defined (needed for Windows)
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
+
 //TwoPowerSphericalPotential
 //4 arguments: amp, a, alpha, beta
 double TwoPowerSphericalPotentialEval(double R,double Z, double phi,
