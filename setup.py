@@ -243,25 +243,20 @@ class BuildExt(build_ext):
     def build_extensions(self):
         ct = self.compiler.compiler_type
 
-        # Add C++17 standard for C++ compiler if xsf is available (required for xsf)
+        # Add C++17 standard for C++ files if xsf is available (required for xsf)
         if os.path.exists("xsf"):
+            cxx_flag = "/std:c++17" if WIN32 else "-std=c++17"
             compiler = self.compiler
-            # Check if this compiler has a C++ compiler command
-            if hasattr(compiler, "compiler_cxx"):
-                # Add -std=c++17 only to the C++ compiler flags
-                if isinstance(compiler.compiler_cxx, list):
-                    if WIN32:
-                        if "/std:c++17" not in compiler.compiler_cxx:
-                            compiler.compiler_cxx.append("/std:c++17")
-                    else:
-                        if "-std=c++17" not in compiler.compiler_cxx:
-                            compiler.compiler_cxx.append("-std=c++17")
-                else:
-                    # Fallback for some compilers that store this as a string
-                    if WIN32:
-                        compiler.compiler_cxx = [compiler.compiler_cxx, "/std:c++17"]
-                    else:
-                        compiler.compiler_cxx = [compiler.compiler_cxx, "-std=c++17"]
+
+            # Intercept compile() and inject flags per filetype
+            old_compile = compiler._compile
+
+            def new_compile(obj, src, ext, cc_args, extra_postargs, pp_opts):
+                if src.endswith((".cpp", ".cc", ".cxx")):
+                    extra_postargs = list(extra_postargs or []) + [cxx_flag]
+                return old_compile(obj, src, ext, cc_args, extra_postargs, pp_opts)
+
+            compiler._compile = new_compile
 
         if ct == "unix":
             for ext in self.extensions:
