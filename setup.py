@@ -101,10 +101,8 @@ galpy_c_src = [
     "galpy/util/leung_dop853.c",
     "galpy/util/bovy_coords.c",
     "galpy/util/wez_ias15.c",
+    "galpy/util/wrap_xsf.cpp",
 ]
-# Add xsf wrapper if xsf directory exists
-if os.path.exists("xsf"):
-    galpy_c_src.append("galpy/util/wrap_xsf.cpp")
 galpy_c_src.extend(glob.glob("galpy/potential/potential_c_ext/*.c"))
 galpy_c_src.extend(glob.glob("galpy/potential/interppotential_c_ext/*.c"))
 galpy_c_src.extend(glob.glob("galpy/util/interp_2d/*.c"))
@@ -118,10 +116,8 @@ galpy_c_include_dirs = [
     "galpy/potential/interppotential_c_ext",
     "galpy/orbit/orbit_c_ext",
     "galpy/actionAngle/actionAngle_c_ext",
+    "xsf/include",
 ]
-# Add xsf include directory if it exists
-if os.path.exists("xsf"):
-    galpy_c_include_dirs.append("xsf/include")
 
 # actionAngleTorus C extension (files here, so we can compile a single extension if so desidered)
 actionAngleTorus_c_src = glob.glob("galpy/actionAngle/actionAngleTorus_c_ext/*.cc")
@@ -141,9 +137,7 @@ actionAngleTorus_c_src.extend(glob.glob("galpy/potential/potential_c_ext/*.c"))
 actionAngleTorus_c_src.extend(glob.glob("galpy/orbit/orbit_c_ext/integrateFullOrbit.c"))
 actionAngleTorus_c_src.extend(glob.glob("galpy/util/interp_2d/*.c"))
 actionAngleTorus_c_src.extend(glob.glob("galpy/util/*.c"))
-# Add xsf wrapper if xsf directory exists
-if os.path.exists("xsf"):
-    actionAngleTorus_c_src.append("galpy/util/wrap_xsf.cpp")
+actionAngleTorus_c_src.append("galpy/util/wrap_xsf.cpp")
 
 actionAngleTorus_include_dirs = [
     "galpy/actionAngle/actionAngleTorus_c_ext",
@@ -154,10 +148,8 @@ actionAngleTorus_include_dirs = [
     "galpy/util",
     "galpy/orbit/orbit_c_ext",
     "galpy/potential/potential_c_ext",
+    "xsf/include",
 ]
-# Add xsf include directory if it exists
-if os.path.exists("xsf"):
-    actionAngleTorus_include_dirs.append("xsf/include")
 
 if single_ext:  # add the code and libraries for the actionAngleTorus extensions
     if os.path.exists("galpy/actionAngle/actionAngleTorus_c_ext/torus/src"):
@@ -243,65 +235,64 @@ class BuildExt(build_ext):
     def build_extensions(self):
         ct = self.compiler.compiler_type
 
-        # Add C++17 standard for C++ files if xsf is available (required for xsf)
-        if os.path.exists("xsf"):
-            if WIN32:
-                # MSVC needs both /std:c++17 and /Zc:__cplusplus for proper C++17 support
-                cxx_flags = ["/std:c++17", "/Zc:__cplusplus"]
-            else:
-                cxx_flags = ["-std=c++17"]
-            compiler = self.compiler
+        # Add C++17 standard for C++ files (required for xsf)
+        if WIN32:
+            # MSVC needs both /std:c++17 and /Zc:__cplusplus for proper C++17 support
+            cxx_flags = ["/std:c++17", "/Zc:__cplusplus"]
+        else:
+            cxx_flags = ["-std=c++17"]
+        compiler = self.compiler
 
-            # For Unix compilers (gcc/clang) - patch _compile()
-            if not WIN32 and hasattr(compiler, "_compile"):
-                old_compile = compiler._compile
+        # For Unix compilers (gcc/clang) - patch _compile()
+        if not WIN32 and hasattr(compiler, "_compile"):
+            old_compile = compiler._compile
 
-                def new_compile(obj, src, ext, cc_args, extra_postargs, pp_opts):
-                    # Add C++17 flag only for C++ files, but exclude torus files (not C++17 compatible)
+            def new_compile(obj, src, ext, cc_args, extra_postargs, pp_opts):
+                # Add C++17 flag only for C++ files, but exclude torus files (not C++17 compatible)
+                if (
+                    src.endswith((".cpp", ".cc", ".cxx"))
+                    and "actionAngleTorus_c_ext" not in src
+                ):
+                    extra_postargs = list(extra_postargs or []) + cxx_flags
+                return old_compile(obj, src, ext, cc_args, extra_postargs, pp_opts)
+
+            compiler._compile = new_compile
+
+        # For MSVC (Windows) - patch compile()
+        elif WIN32 and hasattr(compiler, "compile"):
+            old_msvc_compile = compiler.compile
+
+            def msvc_compile(
+                sources,
+                output_dir=None,
+                macros=None,
+                include_dirs=None,
+                debug=0,
+                extra_preargs=None,
+                extra_postargs=None,
+                depends=None,
+            ):
+                new_postargs = list(extra_postargs or [])
+                # Check if any sources are C++ files that need C++17
+                for src in sources:
                     if (
                         src.endswith((".cpp", ".cc", ".cxx"))
                         and "actionAngleTorus_c_ext" not in src
                     ):
-                        extra_postargs = list(extra_postargs or []) + cxx_flags
-                    return old_compile(obj, src, ext, cc_args, extra_postargs, pp_opts)
-
-                compiler._compile = new_compile
-
-            # For MSVC (Windows) - patch compile()
-            elif WIN32 and hasattr(compiler, "compile"):
-                old_msvc_compile = compiler.compile
-
-                def msvc_compile(
+                        new_postargs = list(extra_postargs or []) + cxx_flags
+                        break
+                return old_msvc_compile(
                     sources,
-                    output_dir=None,
-                    macros=None,
-                    include_dirs=None,
-                    debug=0,
-                    extra_preargs=None,
-                    extra_postargs=None,
-                    depends=None,
-                ):
-                    new_postargs = list(extra_postargs or [])
-                    # Check if any sources are C++ files that need C++17
-                    for src in sources:
-                        if (
-                            src.endswith((".cpp", ".cc", ".cxx"))
-                            and "actionAngleTorus_c_ext" not in src
-                        ):
-                            new_postargs = list(extra_postargs or []) + cxx_flags
-                            break
-                    return old_msvc_compile(
-                        sources,
-                        output_dir,
-                        macros,
-                        include_dirs,
-                        debug,
-                        extra_preargs,
-                        new_postargs,
-                        depends,
-                    )
+                    output_dir,
+                    macros,
+                    include_dirs,
+                    debug,
+                    extra_preargs,
+                    new_postargs,
+                    depends,
+                )
 
-                compiler.compile = msvc_compile
+            compiler.compile = msvc_compile
 
         if ct == "unix":
             for ext in self.extensions:
@@ -395,15 +386,6 @@ if not actionAngleTorus_c_incl and not single_ext:
     print(
         "\033[91;1m"
         + "WARNING: galpy action-angle-torus C library not installed because your GSL version < 1.14 or because you did not first download the torus code as explained in the installation guide in the html documentation"
-        + "\033[0m"
-    )
-
-if not os.path.exists("xsf"):
-    num_gsl_warn += 1
-    print(
-        "\033[91;1m"
-        + "WARNING: xsf library not found. TwoPowerSphericalPotential C implementation will not be available. "
-        + "Download xsf v0.1.3 from https://github.com/scipy/xsf/releases/tag/v0.1.3 and extract to 'xsf' directory in the repository root."
         + "\033[0m"
     )
 
