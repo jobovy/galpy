@@ -22,21 +22,15 @@ jobs:
     permissions:
       # If you want to clone the repository as part of your setup steps, for example to install dependencies, you'll need the `contents: read` permission. If you don't clone the repository in your setup steps, Copilot will do this for you automatically after the steps complete.
       contents: read
-    env:
-      python-version: '3.13'
     steps:
       - uses: actions/checkout@v5
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
-          python-version: ${{ env.python-version }}
+          python-version: '3.13'
       - name: Install the GSL
         run: |
           sudo apt-get install libgsl-dev
-      - uses: actions/cache@v4
-        with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ env.python-version }}-${{ hashFiles('.github/workflows/copilot-setup-steps.yml') }}
       - name: Install Python dependencies
         run: |
            pip install --upgrade --upgrade-strategy eager numpy scipy matplotlib numexpr setuptools cython pytest tqdm h5py pandas pytz wheel pynbody astropy pyerfa astroquery numba jax jaxlib
