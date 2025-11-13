@@ -26,7 +26,6 @@ omit =
     galpy/util/bovy_plot.py
     galpy/util/bovy_coords.py
     galpy/util/bovy_conversion.py
-    xsf/*
 
 ignore_errors = True
 
