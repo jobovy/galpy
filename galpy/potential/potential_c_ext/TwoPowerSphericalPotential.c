@@ -105,6 +105,6 @@ double TwoPowerSphericalPotentialDens(double R,double Z, double phi,
   double beta= *args;
   //Calculate density
   double r= sqrt(R*R+Z*Z);
-  return amp * pow(a / r, alpha) * pow(1. + r / a, alpha -beta))
+  return amp * pow(a / r, alpha) * pow(1. + r / a, alpha -beta)
              / 4. / M_PI * pow(a, -3.);
 }
