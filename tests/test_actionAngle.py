@@ -3242,6 +3242,10 @@ def test_actionAngleStaeckel_wSpherical_conserved_actions_c():
         rgrid=numpy.linspace(0.0, 1.1, 201),
     )
     ep = potential.EinastoPotential(normalize=1.0, h=2.2)
+    tpsp = potential.TwoPowerSphericalPotential(normalize=1.0, alpha=1.5, beta=3.5)
+    tpsp_beta3 = potential.TwoPowerSphericalPotential(
+        normalize=1.0, alpha=1.5, beta=3.0
+    )
     msmlpwtdp = (
         mockSmoothedLogarithmicHaloPotentialwTimeDependentAmplitudeWrapperPotential()
     )
@@ -3269,6 +3273,8 @@ def test_actionAngleStaeckel_wSpherical_conserved_actions_c():
         ihomp,
         msmlpwtdp,
         ep,
+        tpsp,
+        tpsp_beta3,
     ]
     for pot in pots:
         aAS = actionAngleStaeckel(pot=pot, c=True, delta=0.01)

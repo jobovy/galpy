@@ -101,6 +101,7 @@ galpy_c_src = [
     "galpy/util/leung_dop853.c",
     "galpy/util/bovy_coords.c",
     "galpy/util/wez_ias15.c",
+    "galpy/util/wrap_xsf.cpp",
 ]
 galpy_c_src.extend(glob.glob("galpy/potential/potential_c_ext/*.c"))
 galpy_c_src.extend(glob.glob("galpy/potential/interppotential_c_ext/*.c"))
@@ -115,6 +116,7 @@ galpy_c_include_dirs = [
     "galpy/potential/interppotential_c_ext",
     "galpy/orbit/orbit_c_ext",
     "galpy/actionAngle/actionAngle_c_ext",
+    "xsf/include",
 ]
 
 # actionAngleTorus C extension (files here, so we can compile a single extension if so desidered)
@@ -135,6 +137,7 @@ actionAngleTorus_c_src.extend(glob.glob("galpy/potential/potential_c_ext/*.c"))
 actionAngleTorus_c_src.extend(glob.glob("galpy/orbit/orbit_c_ext/integrateFullOrbit.c"))
 actionAngleTorus_c_src.extend(glob.glob("galpy/util/interp_2d/*.c"))
 actionAngleTorus_c_src.extend(glob.glob("galpy/util/*.c"))
+actionAngleTorus_c_src.append("galpy/util/wrap_xsf.cpp")
 
 actionAngleTorus_include_dirs = [
     "galpy/actionAngle/actionAngleTorus_c_ext",
@@ -145,6 +148,7 @@ actionAngleTorus_include_dirs = [
     "galpy/util",
     "galpy/orbit/orbit_c_ext",
     "galpy/potential/potential_c_ext",
+    "xsf/include",
 ]
 
 if single_ext:  # add the code and libraries for the actionAngleTorus extensions
@@ -230,6 +234,66 @@ def compiler_is_clang(compiler):
 class BuildExt(build_ext):
     def build_extensions(self):
         ct = self.compiler.compiler_type
+
+        # Add C++17 standard for C++ files (required for xsf)
+        if WIN32:
+            # MSVC needs both /std:c++17 and /Zc:__cplusplus for proper C++17 support
+            cxx_flags = ["/std:c++17", "/Zc:__cplusplus"]
+        else:
+            cxx_flags = ["-std=c++17"]
+        compiler = self.compiler
+
+        # For Unix compilers (gcc/clang) - patch _compile()
+        if not WIN32 and hasattr(compiler, "_compile"):
+            old_compile = compiler._compile
+
+            def new_compile(obj, src, ext, cc_args, extra_postargs, pp_opts):
+                # Add C++17 flag only for C++ files, but exclude torus files (not C++17 compatible)
+                if (
+                    src.endswith((".cpp", ".cc", ".cxx"))
+                    and "actionAngleTorus_c_ext" not in src
+                ):
+                    extra_postargs = list(extra_postargs or []) + cxx_flags
+                return old_compile(obj, src, ext, cc_args, extra_postargs, pp_opts)
+
+            compiler._compile = new_compile
+
+        # For MSVC (Windows) - patch compile()
+        elif WIN32 and hasattr(compiler, "compile"):
+            old_msvc_compile = compiler.compile
+
+            def msvc_compile(
+                sources,
+                output_dir=None,
+                macros=None,
+                include_dirs=None,
+                debug=0,
+                extra_preargs=None,
+                extra_postargs=None,
+                depends=None,
+            ):
+                new_postargs = list(extra_postargs or [])
+                # Check if any sources are C++ files that need C++17
+                for src in sources:
+                    if (
+                        src.endswith((".cpp", ".cc", ".cxx"))
+                        and "actionAngleTorus_c_ext" not in src
+                    ):
+                        new_postargs = list(extra_postargs or []) + cxx_flags
+                        break
+                return old_msvc_compile(
+                    sources,
+                    output_dir,
+                    macros,
+                    include_dirs,
+                    debug,
+                    extra_preargs,
+                    new_postargs,
+                    depends,
+                )
+
+            compiler.compile = msvc_compile
+
         if ct == "unix":
             for ext in self.extensions:
                 # only add flags which pass the flag_filter

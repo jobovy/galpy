@@ -81,6 +81,9 @@ class TwoPowerSphericalPotential(Potential):
         self._scale = self.a
         self.alpha = alpha
         self.beta = beta
+        self.hasC = True
+        self.hasC_dxdv = True
+        self.hasC_dens = True
         if normalize or (
             isinstance(normalize, (int, float)) and not isinstance(normalize, bool)
         ):  # pragma: no cover

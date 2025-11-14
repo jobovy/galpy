@@ -35,6 +35,7 @@ repos:
     - id: codespell
       args: ["-L", "thisE,thise,mye,tE,te,hist,ro,sav,ccompiler,aas,floatIn,dOmin,indx,Hese",
       "-x","doc/source/_static/try-galpy.js"]
+      exclude: ^xsf/
 - repo: https://github.com/astral-sh/ruff-pre-commit
   rev: v0.14.3
   hooks:

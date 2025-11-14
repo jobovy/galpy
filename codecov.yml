@@ -1,0 +1,3 @@
+ignore:
+  - "galpy/actionAngle/actionAngleTorus_c_ext/torus"
+  - "xsf"
