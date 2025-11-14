@@ -81,7 +81,6 @@ class TwoPowerSphericalPotential(Potential):
         self._scale = self.a
         self.alpha = alpha
         self.beta = beta
-        # Enable C support
         self.hasC = True
         self.hasC_dxdv = True
         self.hasC_dens = True

@@ -21,7 +21,7 @@ double TwoPowerSphericalPotentialEval(double R,double Z, double phi,
   //Calculate potential
   double r= sqrt(R*R+Z*Z);
   if (beta == 3.0) {
-    return amp * (1./a) * (1. - pow(r/a, 2.-alpha) / (3.-alpha)
+    return amp / a * (1. - pow(r/a, 2.-alpha) / (3.-alpha)
                            * hyp2f1(3.-alpha, 2.-alpha, 4.-alpha, -r/a))
                          / (alpha - 2.);
   } else {
@@ -105,6 +105,6 @@ double TwoPowerSphericalPotentialDens(double R,double Z, double phi,
   double beta= *args;
   //Calculate density
   double r= sqrt(R*R+Z*Z);
-  return amp * pow(a*pow(r, -1.), alpha) * pow(1. + r*pow(a, -1.), -(beta - alpha))
+  return amp * pow(a / r, alpha) * pow(1. + r / a, alpha -beta))
              / 4. / M_PI * pow(a, -3.);
 }
