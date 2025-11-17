@@ -75,7 +75,7 @@ jobs:
         if: github.event_name != 'release'
         run: python tools/inject_git_hash.py
       - name: Build wheels
-        uses: pypa/cibuildwheel@v3.2
+        uses: pypa/cibuildwheel@v3.3
         env:
           CIBW_BUILD: ${{ matrix.python[0] }}-${{ matrix.buildplat[1] }}_${{ matrix.buildplat[2] }}
           CIBW_BUILD_VERBOSITY: 1
