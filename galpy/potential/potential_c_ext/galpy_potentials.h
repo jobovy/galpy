@@ -447,6 +447,10 @@ double TriaxialJaffePotentialmdensDeriv(double,double *);
 double TriaxialNFWPotentialpsi(double,double *);
 double TriaxialNFWPotentialmdens(double,double *);
 double TriaxialNFWPotentialmdensDeriv(double,double *);
+//TwoPowerTriaxialPotential: uses EllipsoidalPotential, only need psi, dens, densDeriv
+double TwoPowerTriaxialPotentialpsi(double,double *);
+double TwoPowerTriaxialPotentialmdens(double,double *);
+double TwoPowerTriaxialPotentialmdensDeriv(double,double *);
 //SCFPotential
 double SCFPotentialEval(double,double,double,double,
 				     struct potentialArg *);
