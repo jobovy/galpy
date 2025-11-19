@@ -184,6 +184,20 @@ def _parse_pot(pot, potforactions=False, potfortorus=False):
             elif isinstance(p, potential.TriaxialJaffePotential):
                 pot_type.append(23)
                 pot_args.extend([2, p.a, p.a2])  # for psi, mdens, mdens_deriv
+            elif isinstance(p, potential.TwoPowerTriaxialPotential):
+                pot_type.append(43)
+                pot_args.extend(
+                    [
+                        7,
+                        p.a,
+                        p.alpha,
+                        p.beta,
+                        p.betaminusalpha,
+                        p.twominusalpha,
+                        p.threeminusalpha,
+                        p.psi_inf if p.twominusalpha != 0.0 else 0.0,
+                    ]
+                )  # for psi, mdens, mdens_deriv
             elif isinstance(p, potential.PerfectEllipsoidPotential):
                 pot_type.append(30)
                 pot_args.extend([1, p.a2])  # for psi, mdens, mdens_deriv
