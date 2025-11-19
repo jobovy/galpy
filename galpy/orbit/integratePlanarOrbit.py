@@ -244,10 +244,10 @@ def _parse_pot(pot):
             if isinstance(p._Pot, potential.TriaxialHernquistPotential):
                 pot_type.append(21)
                 pot_args.extend([2, p._Pot.a, p._Pot.a4])  # for psi, mdens, mdens_deriv
-            if isinstance(p._Pot, potential.TriaxialNFWPotential):
+            elif isinstance(p._Pot, potential.TriaxialNFWPotential):
                 pot_type.append(22)
                 pot_args.extend([2, p._Pot.a, p._Pot.a3])  # for psi, mdens, mdens_deriv
-            if isinstance(p._Pot, potential.TriaxialJaffePotential):
+            elif isinstance(p._Pot, potential.TriaxialJaffePotential):
                 pot_type.append(23)
                 pot_args.extend([2, p._Pot.a, p._Pot.a2])  # for psi, mdens, mdens_deriv
             elif isinstance(p._Pot, potential.TwoPowerTriaxialPotential):
