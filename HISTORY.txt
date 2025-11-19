@@ -10,6 +10,10 @@ v1.11.2 (expected around 2026-03-01)
   initial conditions. The integration times can be obtained using the time()
   method.
 
+- Added C implementation for TwoPowerTriaxialPotential to enable fast orbit
+  integration. The C implementation uses the hyp2f1 hypergeometric function
+  and handles the special case where alpha=2.
+
 v1.11.1 (2025-11-02)
 ====================
 
