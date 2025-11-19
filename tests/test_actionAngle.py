@@ -3137,6 +3137,7 @@ def test_actionAngleStaeckel_conserved_actions_c():
         TriaxialHernquistPotential,
         TriaxialJaffePotential,
         TriaxialNFWPotential,
+        TwoPowerTriaxialPotential,
         interpRZPotential,
     )
 
@@ -3162,6 +3163,7 @@ def test_actionAngleStaeckel_conserved_actions_c():
         ),  # tests rot, but not well
         TriaxialNFWPotential(normalize=1.0, c=0.3, pa=1.1),
         TriaxialJaffePotential(normalize=1.0, c=0.4, pa=1.1),
+        TwoPowerTriaxialPotential(normalize=1.0, alpha=1.5, beta=3.5, c=0.5, pa=1.1),
         SCFPotential(normalize=1.0),
         DiskSCFPotential(normalize=1.0),
         ip,
@@ -3478,6 +3480,7 @@ def test_actionAngleStaeckel_conserved_EccZmaxRperiRap_c():
         TriaxialHernquistPotential,
         TriaxialJaffePotential,
         TriaxialNFWPotential,
+        TwoPowerTriaxialPotential,
         interpRZPotential,
     )
 
@@ -3503,6 +3506,7 @@ def test_actionAngleStaeckel_conserved_EccZmaxRperiRap_c():
         ),  # tests rot, but not well
         TriaxialNFWPotential(normalize=1.0, c=0.3, pa=1.1),
         TriaxialJaffePotential(normalize=1.0, c=0.4, pa=1.1),
+        TwoPowerTriaxialPotential(normalize=1.0, alpha=1.5, beta=3.5, c=0.5, pa=1.1),
         SCFPotential(normalize=1.0),
         DiskSCFPotential(normalize=1.0),
         ip,

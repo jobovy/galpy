@@ -796,9 +796,9 @@ def test_liouville_planar():
             else:
                 ttol = tol["default"]
             if isinstance(tp, testMWPotential) or isinstance(tp, testplanarMWPotential):
-                thasC = _check_c(tp._potlist)
+                thasC = _check_c(tp._potlist, dxdv=True)
             else:
-                thasC = _check_c(tp)
+                thasC = _check_c(tp, dxdv=True)
             if (integrator == "odeint" or not thasC) and not p == "FerrersPotential":
                 ttol = -4.0
             if True:
