@@ -228,7 +228,9 @@ double EllipsoidalPotential_2ndderiv_xyz(double (*dens)(double m, double * args)
     }
 
     // Calculate the integrand
-    // integrand = (densDeriv(m) * xi/ti * xj/tj / m + dens(m) * delta_ij / ti) / sqrt((1 + (b2-1)*s^2) * (1 + (c2-1)*s^2))
+    // Note: glw already includes the -4*pi*b*c / sqrt(...) factor from Python glue code
+    // The negative sign is for forces; for second derivatives we need positive, so we negate
+    // We just compute the core integral: densDeriv(m) * xi/ti * xj/tj / m + dens(m) * delta_ij / ti
     if (m > 0.) {
       integrand = densDeriv(m, args) * (xi / ti) * (xj / tj) / m;
     } else {
@@ -237,17 +239,12 @@ double EllipsoidalPotential_2ndderiv_xyz(double (*dens)(double m, double * args)
     if (i == j) {
       integrand += dens(m, args) / ti;
     }
-    integrand /= sqrt((1. + (b2 - 1.) * s * s) * (1. + (c2 - 1.) * s * s));
 
     result += *(glw + ii) * integrand;
   }
 
-  // Apply the 4*pi*b*c factor (like Python's _2ndderiv_xyz)
-  double b = sqrt(b2);
-  double c = sqrt(c2);
-  result *= 4. * M_PI * b * c;
-
-  return result;
+  // Negate because glw has negative sign for forces, but we need positive for second derivatives
+  return -result;
 }
 
 double EllipsoidalPotentialPlanarR2deriv(double R, double phi, double t,
@@ -339,13 +336,6 @@ double EllipsoidalPotentialPlanarphi2deriv(double R, double phi, double t,
   // Transform to cylindrical: d^2phi/dphi^2
   double cosphi = cos(phi);
   double sinphi = sin(phi);
-  double b = b2 > 0 ? sqrt(b2) : 0.;
-  double c_val = c2 > 0 ? sqrt(c2) : 0.;
-
-  // Apply -4*pi*b*c factor to forces (note negative sign for forces)
-  double force_factor = -4. * M_PI * b * c_val;
-  Fx *= force_factor;
-  Fy *= force_factor;
 
   return amp * (R * R * (sinphi * sinphi * phixx + cosphi * cosphi * phiyy -
 			 2. * cosphi * sinphi * phixy) +
@@ -397,13 +387,6 @@ double EllipsoidalPotentialPlanarRphideriv(double R, double phi, double t,
   double cosphi = cos(phi);
   double sinphi = sin(phi);
   double cos2phi = cos(2. * phi);
-  double b = b2 > 0 ? sqrt(b2) : 0.;
-  double c_val = c2 > 0 ? sqrt(c2) : 0.;
-
-  // Apply -4*pi*b*c factor to forces (note negative sign for forces)
-  double force_factor = -4. * M_PI * b * c_val;
-  Fx *= force_factor;
-  Fy *= force_factor;
 
   return amp * (R * (cosphi * sinphi * (phiyy - phixx) + cos2phi * phixy) +
 		sinphi * Fx - cosphi * Fy);
