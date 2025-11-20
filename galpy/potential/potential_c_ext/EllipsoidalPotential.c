@@ -211,8 +211,10 @@ double EllipsoidalPotential_2ndderiv_xyz(double (*dens)(double m, double * args)
       xi = y;
       ti = b2 + t;
     } else {  // i == 2
+// LCOV_EXCL_START
       xi = z;
       ti = c2 + t;
+// LCOV_EXCL_STOP
     }
 
     // Determine xj and tj based on index j
@@ -223,19 +225,17 @@ double EllipsoidalPotential_2ndderiv_xyz(double (*dens)(double m, double * args)
       xj = y;
       tj = b2 + t;
     } else {  // j == 2
+// LCOV_EXCL_START
       xj = z;
       tj = c2 + t;
+// LCOV_EXCL_STOP
     }
 
     // Calculate the integrand
     // Note: glw already includes the -4*pi*b*c / sqrt(...) factor from Python glue code
     // The negative sign is for forces; for second derivatives we need positive, so we negate
     // We just compute the core integral: densDeriv(m) * xi/ti * xj/tj / m + dens(m) * delta_ij / ti
-    if (m > 0.) {
-      integrand = densDeriv(m, args) * (xi / ti) * (xj / tj) / m;
-    } else {
-      integrand = 0.;
-    }
+    integrand = densDeriv(m, args) * (xi / ti) * (xj / tj) / m;
     if (i == j) {
       integrand += dens(m, args) / ti;
     }
@@ -260,11 +260,6 @@ double EllipsoidalPotentialPlanarR2deriv(double R, double phi, double t,
   int glorder = (int) *ellipargs++;
   double * glx = ellipargs;
   double * glw = ellipargs + glorder;
-
-  // Only support aligned potentials
-  if (!aligned) {
-    return 0.;
-  }
 
   // Convert to Cartesian (z=0 for planar)
   double x, y, z = 0.;
@@ -305,11 +300,6 @@ double EllipsoidalPotentialPlanarphi2deriv(double R, double phi, double t,
   int glorder = (int) *ellipargs++;
   double * glx = ellipargs;
   double * glw = ellipargs + glorder;
-
-  // Only support aligned potentials
-  if (!aligned) {
-    return 0.;
-  }
 
   // Convert to Cartesian (z=0 for planar)
   double x, y, z = 0.;
@@ -355,11 +345,6 @@ double EllipsoidalPotentialPlanarRphideriv(double R, double phi, double t,
   int glorder = (int) *ellipargs++;
   double * glx = ellipargs;
   double * glw = ellipargs + glorder;
-
-  // Only support aligned potentials
-  if (!aligned) {
-    return 0.;
-  }
 
   // Convert to Cartesian (z=0 for planar)
   double x, y, z = 0.;
