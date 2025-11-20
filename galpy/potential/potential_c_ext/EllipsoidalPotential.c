@@ -242,6 +242,11 @@ double EllipsoidalPotential_2ndderiv_xyz(double (*dens)(double m, double * args)
     result += *(glw + ii) * integrand;
   }
 
+  // Apply the 4*pi*b*c factor (like Python's _2ndderiv_xyz)
+  double b = sqrt(b2);
+  double c = sqrt(c2);
+  result *= 4. * M_PI * b * c;
+
   return result;
 }
 
@@ -285,12 +290,9 @@ double EllipsoidalPotentialPlanarR2deriv(double R, double phi, double t,
   // Transform to cylindrical: d^2phi/dR^2
   double cosphi = cos(phi);
   double sinphi = sin(phi);
-  double b = b2 > 0 ? sqrt(b2) : 0.;
-  double c_val = c2 > 0 ? sqrt(c2) : 0.;
 
-  return amp * 4. * M_PI * b * c_val *
-         (cosphi * cosphi * phixx + sinphi * sinphi * phiyy +
-          2. * cosphi * sinphi * phixy);
+  return amp * (cosphi * cosphi * phixx + sinphi * sinphi * phiyy +
+		2. * cosphi * sinphi * phixy);
 }
 
 double EllipsoidalPotentialPlanarphi2deriv(double R, double phi, double t,
@@ -345,9 +347,8 @@ double EllipsoidalPotentialPlanarphi2deriv(double R, double phi, double t,
   Fx *= force_factor;
   Fy *= force_factor;
 
-  return amp * (R * R * 4. * M_PI * b * c_val *
-		(sinphi * sinphi * phixx + cosphi * cosphi * phiyy -
-		 2. * cosphi * sinphi * phixy) +
+  return amp * (R * R * (sinphi * sinphi * phixx + cosphi * cosphi * phiyy -
+			 2. * cosphi * sinphi * phixy) +
 		R * (cosphi * Fx + sinphi * Fy));
 }
 
@@ -404,7 +405,6 @@ double EllipsoidalPotentialPlanarRphideriv(double R, double phi, double t,
   Fx *= force_factor;
   Fy *= force_factor;
 
-  return amp * (R * 4. * M_PI * b * c_val *
-		(cosphi * sinphi * (phiyy - phixx) + cos2phi * phixy) +
+  return amp * (R * (cosphi * sinphi * (phiyy - phixx) + cos2phi * phixy) +
 		sinphi * Fx - cosphi * Fy);
 }
