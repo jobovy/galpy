@@ -229,7 +229,11 @@ double EllipsoidalPotential_2ndderiv_xyz(double (*dens)(double m, double * args)
 
     // Calculate the integrand
     // integrand = (densDeriv(m) * xi/ti * xj/tj / m + dens(m) * delta_ij / ti) / sqrt((1 + (b2-1)*s^2) * (1 + (c2-1)*s^2))
-    integrand = densDeriv(m, args) * (xi / ti) * (xj / tj) / m;
+    if (m > 0.) {
+      integrand = densDeriv(m, args) * (xi / ti) * (xj / tj) / m;
+    } else {
+      integrand = 0.;
+    }
     if (i == j) {
       integrand += dens(m, args) / ti;
     }
