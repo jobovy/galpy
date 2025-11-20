@@ -180,3 +180,227 @@ double EllipsoidalPotentialDens(double R,double z, double phi,
   return amp * potentialArgs->mdens ( sqrt (x * x + y * y / b2 + z * z / c2 ),
 				     args+8);
 }
+
+// Helper function to compute second derivatives in xyz coordinates
+double EllipsoidalPotential_2ndderiv_xyz(double (*dens)(double m, double * args),
+					 double (*densDeriv)(double m, double * args),
+					 double x, double y, double z,
+					 int i, int j,
+					 double b2, double c2,
+					 int glorder, double * glx, double * glw,
+					 double * args) {
+  int ii;
+  double s, t, m;
+  double integrand;
+  double result = 0.;
+  double xi, xj;  // Components corresponding to i and j
+  double ti, tj;  // Denominators (1+t, b2+t, or c2+t) for i and j
+
+  for (ii = 0; ii < glorder; ii++) {
+    s = *(glx + ii);
+    t = 1. / s / s - 1.;
+
+    // Calculate m
+    m = sqrt(x * x / (1. + t) + y * y / (b2 + t) + z * z / (c2 + t));
+
+    // Determine xi and ti based on index i
+    if (i == 0) {
+      xi = x;
+      ti = 1. + t;
+    } else if (i == 1) {
+      xi = y;
+      ti = b2 + t;
+    } else {  // i == 2
+      xi = z;
+      ti = c2 + t;
+    }
+
+    // Determine xj and tj based on index j
+    if (j == 0) {
+      xj = x;
+      tj = 1. + t;
+    } else if (j == 1) {
+      xj = y;
+      tj = b2 + t;
+    } else {  // j == 2
+      xj = z;
+      tj = c2 + t;
+    }
+
+    // Calculate the integrand
+    // integrand = (densDeriv(m) * xi/ti * xj/tj / m + dens(m) * delta_ij / ti) / sqrt((1 + (b2-1)*s^2) * (1 + (c2-1)*s^2))
+    integrand = densDeriv(m, args) * (xi / ti) * (xj / tj) / m;
+    if (i == j) {
+      integrand += dens(m, args) / ti;
+    }
+    integrand /= sqrt((1. + (b2 - 1.) * s * s) * (1. + (c2 - 1.) * s * s));
+
+    result += *(glw + ii) * integrand;
+  }
+
+  return result;
+}
+
+double EllipsoidalPotentialPlanarR2deriv(double R, double phi, double t,
+					 struct potentialArg * potentialArgs) {
+  double * args = potentialArgs->args;
+  double amp = *args;
+  double * ellipargs = args + 8 + (int) *(args+7);
+  double b2 = *ellipargs++;
+  double c2 = *ellipargs++;
+  bool aligned = (bool) *ellipargs++;
+  double * rot = ellipargs;
+  ellipargs += 9;
+  int glorder = (int) *ellipargs++;
+  double * glx = ellipargs;
+  double * glw = ellipargs + glorder;
+
+  // Only support aligned potentials
+  if (!aligned) {
+    return 0.;
+  }
+
+  // Convert to Cartesian (z=0 for planar)
+  double x, y, z = 0.;
+  cyl_to_rect(R, phi, &x, &y);
+
+  // Get second derivatives in xyz coordinates
+  double phixx = EllipsoidalPotential_2ndderiv_xyz(potentialArgs->mdens,
+						   potentialArgs->mdensDeriv,
+						   x, y, z, 0, 0, b2, c2,
+						   glorder, glx, glw, args+8);
+  double phixy = EllipsoidalPotential_2ndderiv_xyz(potentialArgs->mdens,
+						   potentialArgs->mdensDeriv,
+						   x, y, z, 0, 1, b2, c2,
+						   glorder, glx, glw, args+8);
+  double phiyy = EllipsoidalPotential_2ndderiv_xyz(potentialArgs->mdens,
+						   potentialArgs->mdensDeriv,
+						   x, y, z, 1, 1, b2, c2,
+						   glorder, glx, glw, args+8);
+
+  // Transform to cylindrical: d^2phi/dR^2
+  double cosphi = cos(phi);
+  double sinphi = sin(phi);
+  double b = b2 > 0 ? sqrt(b2) : 0.;
+  double c_val = c2 > 0 ? sqrt(c2) : 0.;
+
+  return amp * 4. * M_PI * b * c_val *
+         (cosphi * cosphi * phixx + sinphi * sinphi * phiyy +
+          2. * cosphi * sinphi * phixy);
+}
+
+double EllipsoidalPotentialPlanarphi2deriv(double R, double phi, double t,
+					   struct potentialArg * potentialArgs) {
+  double * args = potentialArgs->args;
+  double amp = *args;
+  double * ellipargs = args + 8 + (int) *(args+7);
+  double b2 = *ellipargs++;
+  double c2 = *ellipargs++;
+  bool aligned = (bool) *ellipargs++;
+  double * rot = ellipargs;
+  ellipargs += 9;
+  int glorder = (int) *ellipargs++;
+  double * glx = ellipargs;
+  double * glw = ellipargs + glorder;
+
+  // Only support aligned potentials
+  if (!aligned) {
+    return 0.;
+  }
+
+  // Convert to Cartesian (z=0 for planar)
+  double x, y, z = 0.;
+  cyl_to_rect(R, phi, &x, &y);
+
+  // Get forces in xyz coordinates (without amp or 4*pi*b*c factor)
+  double Fx, Fy, Fz;
+  EllipsoidalPotentialxyzforces_xyz(potentialArgs->mdens, x, y, z, &Fx, &Fy, &Fz, args);
+
+  // Get second derivatives in xyz coordinates
+  double phixx = EllipsoidalPotential_2ndderiv_xyz(potentialArgs->mdens,
+						   potentialArgs->mdensDeriv,
+						   x, y, z, 0, 0, b2, c2,
+						   glorder, glx, glw, args+8);
+  double phixy = EllipsoidalPotential_2ndderiv_xyz(potentialArgs->mdens,
+						   potentialArgs->mdensDeriv,
+						   x, y, z, 0, 1, b2, c2,
+						   glorder, glx, glw, args+8);
+  double phiyy = EllipsoidalPotential_2ndderiv_xyz(potentialArgs->mdens,
+						   potentialArgs->mdensDeriv,
+						   x, y, z, 1, 1, b2, c2,
+						   glorder, glx, glw, args+8);
+
+  // Transform to cylindrical: d^2phi/dphi^2
+  double cosphi = cos(phi);
+  double sinphi = sin(phi);
+  double b = b2 > 0 ? sqrt(b2) : 0.;
+  double c_val = c2 > 0 ? sqrt(c2) : 0.;
+
+  // Apply -4*pi*b*c factor to forces (note negative sign for forces)
+  double force_factor = -4. * M_PI * b * c_val;
+  Fx *= force_factor;
+  Fy *= force_factor;
+
+  return amp * (R * R * 4. * M_PI * b * c_val *
+		(sinphi * sinphi * phixx + cosphi * cosphi * phiyy -
+		 2. * cosphi * sinphi * phixy) +
+		R * (cosphi * Fx + sinphi * Fy));
+}
+
+double EllipsoidalPotentialPlanarRphideriv(double R, double phi, double t,
+					   struct potentialArg * potentialArgs) {
+  double * args = potentialArgs->args;
+  double amp = *args;
+  double * ellipargs = args + 8 + (int) *(args+7);
+  double b2 = *ellipargs++;
+  double c2 = *ellipargs++;
+  bool aligned = (bool) *ellipargs++;
+  double * rot = ellipargs;
+  ellipargs += 9;
+  int glorder = (int) *ellipargs++;
+  double * glx = ellipargs;
+  double * glw = ellipargs + glorder;
+
+  // Only support aligned potentials
+  if (!aligned) {
+    return 0.;
+  }
+
+  // Convert to Cartesian (z=0 for planar)
+  double x, y, z = 0.;
+  cyl_to_rect(R, phi, &x, &y);
+
+  // Get forces in xyz coordinates (without amp or 4*pi*b*c factor)
+  double Fx, Fy, Fz;
+  EllipsoidalPotentialxyzforces_xyz(potentialArgs->mdens, x, y, z, &Fx, &Fy, &Fz, args);
+
+  // Get second derivatives in xyz coordinates
+  double phixx = EllipsoidalPotential_2ndderiv_xyz(potentialArgs->mdens,
+						   potentialArgs->mdensDeriv,
+						   x, y, z, 0, 0, b2, c2,
+						   glorder, glx, glw, args+8);
+  double phixy = EllipsoidalPotential_2ndderiv_xyz(potentialArgs->mdens,
+						   potentialArgs->mdensDeriv,
+						   x, y, z, 0, 1, b2, c2,
+						   glorder, glx, glw, args+8);
+  double phiyy = EllipsoidalPotential_2ndderiv_xyz(potentialArgs->mdens,
+						   potentialArgs->mdensDeriv,
+						   x, y, z, 1, 1, b2, c2,
+						   glorder, glx, glw, args+8);
+
+  // Transform to cylindrical: d^2phi/dRdphi
+  double cosphi = cos(phi);
+  double sinphi = sin(phi);
+  double cos2phi = cos(2. * phi);
+  double b = b2 > 0 ? sqrt(b2) : 0.;
+  double c_val = c2 > 0 ? sqrt(c2) : 0.;
+
+  // Apply -4*pi*b*c factor to forces (note negative sign for forces)
+  double force_factor = -4. * M_PI * b * c_val;
+  Fx *= force_factor;
+  Fy *= force_factor;
+
+  return amp * (R * 4. * M_PI * b * c_val *
+		(cosphi * sinphi * (phiyy - phixx) + cos2phi * phixy) +
+		sinphi * Fx - cosphi * Fy);
+}

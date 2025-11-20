@@ -267,9 +267,9 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
     case 21: // TriaxialHernquistPotential, lots of arguments
       potentialArgs->planarRforce = &EllipsoidalPotentialPlanarRforce;
       potentialArgs->planarphitorque = &EllipsoidalPotentialPlanarphitorque;
-      //potentialArgs->planarR2deriv = &EllipsoidalPotentialPlanarR2deriv;
-      //potentialArgs->planarphi2deriv = &EllipsoidalPotentialPlanarphi2deriv;
-      //potentialArgs->planarRphideriv = &EllipsoidalPotentialPlanarRphideriv;
+      potentialArgs->planarR2deriv = &EllipsoidalPotentialPlanarR2deriv;
+      potentialArgs->planarphi2deriv = &EllipsoidalPotentialPlanarphi2deriv;
+      potentialArgs->planarRphideriv = &EllipsoidalPotentialPlanarRphideriv;
       // Also assign functions specific to EllipsoidalPotential
       potentialArgs->psi= &TriaxialHernquistPotentialpsi;
       potentialArgs->mdens= &TriaxialHernquistPotentialmdens;
@@ -282,9 +282,9 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
     case 22: // TriaxialNFWPotential, lots of arguments
       potentialArgs->planarRforce = &EllipsoidalPotentialPlanarRforce;
       potentialArgs->planarphitorque = &EllipsoidalPotentialPlanarphitorque;
-      //potentialArgs->planarR2deriv = &EllipsoidalPotentialPlanarR2deriv;
-      //potentialArgs->planarphi2deriv = &EllipsoidalPotentialPlanarphi2deriv;
-      //potentialArgs->planarRphideriv = &EllipsoidalPotentialPlanarRphideriv;
+      potentialArgs->planarR2deriv = &EllipsoidalPotentialPlanarR2deriv;
+      potentialArgs->planarphi2deriv = &EllipsoidalPotentialPlanarphi2deriv;
+      potentialArgs->planarRphideriv = &EllipsoidalPotentialPlanarRphideriv;
       // Also assign functions specific to EllipsoidalPotential
       potentialArgs->psi= &TriaxialNFWPotentialpsi;
       potentialArgs->mdens= &TriaxialNFWPotentialmdens;
@@ -297,9 +297,9 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
     case 23: // TriaxialJaffePotential, lots of arguments
       potentialArgs->planarRforce = &EllipsoidalPotentialPlanarRforce;
       potentialArgs->planarphitorque = &EllipsoidalPotentialPlanarphitorque;
-      //potentialArgs->planarR2deriv = &EllipsoidalPotentialPlanarR2deriv;
-      //potentialArgs->planarphi2deriv = &EllipsoidalPotentialPlanarphi2deriv;
-      //potentialArgs->planarRphideriv = &EllipsoidalPotentialPlanarRphideriv;
+      potentialArgs->planarR2deriv = &EllipsoidalPotentialPlanarR2deriv;
+      potentialArgs->planarphi2deriv = &EllipsoidalPotentialPlanarphi2deriv;
+      potentialArgs->planarRphideriv = &EllipsoidalPotentialPlanarRphideriv;
       // Also assign functions specific to EllipsoidalPotential
       potentialArgs->psi= &TriaxialJaffePotentialpsi;
       potentialArgs->mdens= &TriaxialJaffePotentialmdens;
@@ -369,9 +369,9 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
     case 30: // PerfectEllipsoidPotential, lots of arguments
       potentialArgs->planarRforce = &EllipsoidalPotentialPlanarRforce;
       potentialArgs->planarphitorque = &EllipsoidalPotentialPlanarphitorque;
-      //potentialArgs->planarR2deriv = &EllipsoidalPotentialPlanarR2deriv;
-      //potentialArgs->planarphi2deriv = &EllipsoidalPotentialPlanarphi2deriv;
-      //potentialArgs->planarRphideriv = &EllipsoidalPotentialPlanarRphideriv;
+      potentialArgs->planarR2deriv = &EllipsoidalPotentialPlanarR2deriv;
+      potentialArgs->planarphi2deriv = &EllipsoidalPotentialPlanarphi2deriv;
+      potentialArgs->planarRphideriv = &EllipsoidalPotentialPlanarRphideriv;
       // Also assign functions specific to EllipsoidalPotential
       potentialArgs->psi= &PerfectEllipsoidPotentialpsi;
       potentialArgs->mdens= &PerfectEllipsoidPotentialmdens;
@@ -448,9 +448,9 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
     case 37: // TriaxialGaussianPotential, lots of arguments
       potentialArgs->planarRforce = &EllipsoidalPotentialPlanarRforce;
       potentialArgs->planarphitorque = &EllipsoidalPotentialPlanarphitorque;
-      //potentialArgs->planarR2deriv = &EllipsoidalPotentialPlanarR2deriv;
-      //potentialArgs->planarphi2deriv = &EllipsoidalPotentialPlanarphi2deriv;
-      //potentialArgs->planarRphideriv = &EllipsoidalPotentialPlanarRphideriv;
+      potentialArgs->planarR2deriv = &EllipsoidalPotentialPlanarR2deriv;
+      potentialArgs->planarphi2deriv = &EllipsoidalPotentialPlanarphi2deriv;
+      potentialArgs->planarRphideriv = &EllipsoidalPotentialPlanarRphideriv;
       // Also assign functions specific to EllipsoidalPotential
       potentialArgs->psi= &TriaxialGaussianPotentialpsi;
       potentialArgs->mdens= &TriaxialGaussianPotentialmdens;
@@ -463,9 +463,9 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
     case 38: // PowerTriaxialPotential, lots of arguments
       potentialArgs->planarRforce = &EllipsoidalPotentialPlanarRforce;
       potentialArgs->planarphitorque = &EllipsoidalPotentialPlanarphitorque;
-      //potentialArgs->planarR2deriv = &EllipsoidalPotentialPlanarR2deriv;
-      //potentialArgs->planarphi2deriv = &EllipsoidalPotentialPlanarphi2deriv;
-      //potentialArgs->planarRphideriv = &EllipsoidalPotentialPlanarRphideriv;
+      potentialArgs->planarR2deriv = &EllipsoidalPotentialPlanarR2deriv;
+      potentialArgs->planarphi2deriv = &EllipsoidalPotentialPlanarphi2deriv;
+      potentialArgs->planarRphideriv = &EllipsoidalPotentialPlanarRphideriv;
       // Also assign functions specific to EllipsoidalPotential
       potentialArgs->psi= &PowerTriaxialPotentialpsi;
       potentialArgs->mdens= &PowerTriaxialPotentialmdens;
@@ -523,9 +523,9 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
     case 43: // TwoPowerTriaxialPotential, lots of arguments
       potentialArgs->planarRforce = &EllipsoidalPotentialPlanarRforce;
       potentialArgs->planarphitorque = &EllipsoidalPotentialPlanarphitorque;
-      //potentialArgs->planarR2deriv = &EllipsoidalPotentialPlanarR2deriv;
-      //potentialArgs->planarphi2deriv = &EllipsoidalPotentialPlanarphi2deriv;
-      //potentialArgs->planarRphideriv = &EllipsoidalPotentialPlanarRphideriv;
+      potentialArgs->planarR2deriv = &EllipsoidalPotentialPlanarR2deriv;
+      potentialArgs->planarphi2deriv = &EllipsoidalPotentialPlanarphi2deriv;
+      potentialArgs->planarRphideriv = &EllipsoidalPotentialPlanarRphideriv;
       // Also assign functions specific to EllipsoidalPotential
       potentialArgs->psi= &TwoPowerTriaxialPotentialpsi;
       potentialArgs->mdens= &TwoPowerTriaxialPotentialmdens;
