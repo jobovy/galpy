@@ -9,9 +9,7 @@ double TriaxialGaussianPotentialmdens(double m,double * args){
   double minustwosigma2= *args;
   return exp ( m * m / minustwosigma2 );
 }
-// LCOV_EXCL_START
 double TriaxialGaussianPotentialmdensDeriv(double m,double * args){
   double minustwosigma2= *args;
   return 2. * m / minustwosigma2 * exp ( m * m / minustwosigma2 );
 }
-// LCOV_EXCL_STOP

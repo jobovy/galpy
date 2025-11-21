@@ -750,16 +750,10 @@ def test_liouville_planar():
     rmpots.append("AnyAxisymmetricRazorThinDiskPotential")
     # rmpots.append('PowerSphericalPotentialwCutoff')
     # Doesn't have the R2deriv
-    rmpots.append("TwoPowerTriaxialPotential")
-    rmpots.append("TriaxialHernquistPotential")
-    rmpots.append("TriaxialJaffePotential")
     rmpots.append("SoftenedNeedleBarPotential")
     rmpots.append("DiskSCFPotential")
     rmpots.append("SphericalShellPotential")
     rmpots.append("RingPotential")
-    rmpots.append("PerfectEllipsoidPotential")
-    rmpots.append("TriaxialGaussianPotential")
-    rmpots.append("PowerTriaxialPotential")
     for p in rmpots:
         pots.remove(p)
     # tolerances in log10

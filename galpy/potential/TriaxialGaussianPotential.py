@@ -91,7 +91,7 @@ class TriaxialGaussianPotential(EllipsoidalPotential):
         ):  # pragma: no cover
             self.normalize(normalize)
         self.hasC = not self._glorder is None
-        self.hasC_dxdv = False
+        self.hasC_dxdv = self.hasC and self._aligned
         self.hasC_dens = self.hasC  # works if mdens is defined, necessary for hasC
         return None
 

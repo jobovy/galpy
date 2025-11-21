@@ -267,45 +267,42 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
     case 21: // TriaxialHernquistPotential, lots of arguments
       potentialArgs->planarRforce = &EllipsoidalPotentialPlanarRforce;
       potentialArgs->planarphitorque = &EllipsoidalPotentialPlanarphitorque;
-      //potentialArgs->planarR2deriv = &EllipsoidalPotentialPlanarR2deriv;
-      //potentialArgs->planarphi2deriv = &EllipsoidalPotentialPlanarphi2deriv;
-      //potentialArgs->planarRphideriv = &EllipsoidalPotentialPlanarRphideriv;
+      potentialArgs->planarR2deriv = &EllipsoidalPotentialPlanarR2deriv;
+      potentialArgs->planarphi2deriv = &EllipsoidalPotentialPlanarphi2deriv;
+      potentialArgs->planarRphideriv = &EllipsoidalPotentialPlanarRphideriv;
       // Also assign functions specific to EllipsoidalPotential
       potentialArgs->psi= &TriaxialHernquistPotentialpsi;
       potentialArgs->mdens= &TriaxialHernquistPotentialmdens;
       potentialArgs->mdensDeriv= &TriaxialHernquistPotentialmdensDeriv;
-      potentialArgs->nargs = (int) (21 + *(*pot_args+7) + 2 * *(*pot_args
-					    + (int) (*(*pot_args+7) + 20)));
+      potentialArgs->nargs = (int) (30 + *(*pot_args+16) + 2 * *(*pot_args + (int) (*(*pot_args+16) + 29)));
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
       break;
     case 22: // TriaxialNFWPotential, lots of arguments
       potentialArgs->planarRforce = &EllipsoidalPotentialPlanarRforce;
       potentialArgs->planarphitorque = &EllipsoidalPotentialPlanarphitorque;
-      //potentialArgs->planarR2deriv = &EllipsoidalPotentialPlanarR2deriv;
-      //potentialArgs->planarphi2deriv = &EllipsoidalPotentialPlanarphi2deriv;
-      //potentialArgs->planarRphideriv = &EllipsoidalPotentialPlanarRphideriv;
+      potentialArgs->planarR2deriv = &EllipsoidalPotentialPlanarR2deriv;
+      potentialArgs->planarphi2deriv = &EllipsoidalPotentialPlanarphi2deriv;
+      potentialArgs->planarRphideriv = &EllipsoidalPotentialPlanarRphideriv;
       // Also assign functions specific to EllipsoidalPotential
       potentialArgs->psi= &TriaxialNFWPotentialpsi;
       potentialArgs->mdens= &TriaxialNFWPotentialmdens;
       potentialArgs->mdensDeriv= &TriaxialNFWPotentialmdensDeriv;
-      potentialArgs->nargs = (int) (21 + *(*pot_args+7) + 2 * *(*pot_args
-					    + (int) (*(*pot_args+7) + 20)));
+      potentialArgs->nargs = (int) (30 + *(*pot_args+16) + 2 * *(*pot_args + (int) (*(*pot_args+16) + 29)));
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
       break;
     case 23: // TriaxialJaffePotential, lots of arguments
       potentialArgs->planarRforce = &EllipsoidalPotentialPlanarRforce;
       potentialArgs->planarphitorque = &EllipsoidalPotentialPlanarphitorque;
-      //potentialArgs->planarR2deriv = &EllipsoidalPotentialPlanarR2deriv;
-      //potentialArgs->planarphi2deriv = &EllipsoidalPotentialPlanarphi2deriv;
-      //potentialArgs->planarRphideriv = &EllipsoidalPotentialPlanarRphideriv;
+      potentialArgs->planarR2deriv = &EllipsoidalPotentialPlanarR2deriv;
+      potentialArgs->planarphi2deriv = &EllipsoidalPotentialPlanarphi2deriv;
+      potentialArgs->planarRphideriv = &EllipsoidalPotentialPlanarRphideriv;
       // Also assign functions specific to EllipsoidalPotential
       potentialArgs->psi= &TriaxialJaffePotentialpsi;
       potentialArgs->mdens= &TriaxialJaffePotentialmdens;
       potentialArgs->mdensDeriv= &TriaxialJaffePotentialmdensDeriv;
-      potentialArgs->nargs = (int) (21 + *(*pot_args+7) + 2 * *(*pot_args
-					    + (int) (*(*pot_args+7) + 20)));
+      potentialArgs->nargs = (int) (30 + *(*pot_args+16) + 2 * *(*pot_args + (int) (*(*pot_args+16) + 29)));
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
       break;
@@ -369,15 +366,14 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
     case 30: // PerfectEllipsoidPotential, lots of arguments
       potentialArgs->planarRforce = &EllipsoidalPotentialPlanarRforce;
       potentialArgs->planarphitorque = &EllipsoidalPotentialPlanarphitorque;
-      //potentialArgs->planarR2deriv = &EllipsoidalPotentialPlanarR2deriv;
-      //potentialArgs->planarphi2deriv = &EllipsoidalPotentialPlanarphi2deriv;
-      //potentialArgs->planarRphideriv = &EllipsoidalPotentialPlanarRphideriv;
+      potentialArgs->planarR2deriv = &EllipsoidalPotentialPlanarR2deriv;
+      potentialArgs->planarphi2deriv = &EllipsoidalPotentialPlanarphi2deriv;
+      potentialArgs->planarRphideriv = &EllipsoidalPotentialPlanarRphideriv;
       // Also assign functions specific to EllipsoidalPotential
       potentialArgs->psi= &PerfectEllipsoidPotentialpsi;
       potentialArgs->mdens= &PerfectEllipsoidPotentialmdens;
       potentialArgs->mdensDeriv= &PerfectEllipsoidPotentialmdensDeriv;
-      potentialArgs->nargs = (int) (21 + *(*pot_args+7) + 2 * *(*pot_args
-					    + (int) (*(*pot_args+7) + 20)));
+      potentialArgs->nargs = (int) (30 + *(*pot_args+16) + 2 * *(*pot_args + (int) (*(*pot_args+16) + 29)));
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
       break;
@@ -448,30 +444,28 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
     case 37: // TriaxialGaussianPotential, lots of arguments
       potentialArgs->planarRforce = &EllipsoidalPotentialPlanarRforce;
       potentialArgs->planarphitorque = &EllipsoidalPotentialPlanarphitorque;
-      //potentialArgs->planarR2deriv = &EllipsoidalPotentialPlanarR2deriv;
-      //potentialArgs->planarphi2deriv = &EllipsoidalPotentialPlanarphi2deriv;
-      //potentialArgs->planarRphideriv = &EllipsoidalPotentialPlanarRphideriv;
+      potentialArgs->planarR2deriv = &EllipsoidalPotentialPlanarR2deriv;
+      potentialArgs->planarphi2deriv = &EllipsoidalPotentialPlanarphi2deriv;
+      potentialArgs->planarRphideriv = &EllipsoidalPotentialPlanarRphideriv;
       // Also assign functions specific to EllipsoidalPotential
       potentialArgs->psi= &TriaxialGaussianPotentialpsi;
       potentialArgs->mdens= &TriaxialGaussianPotentialmdens;
       potentialArgs->mdensDeriv= &TriaxialGaussianPotentialmdensDeriv;
-      potentialArgs->nargs = (int) (21 + *(*pot_args+7) + 2 * *(*pot_args
-					    + (int) (*(*pot_args+7) + 20)));
+      potentialArgs->nargs = (int) (30 + *(*pot_args+16) + 2 * *(*pot_args + (int) (*(*pot_args+16) + 29)));
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
       break;
     case 38: // PowerTriaxialPotential, lots of arguments
       potentialArgs->planarRforce = &EllipsoidalPotentialPlanarRforce;
       potentialArgs->planarphitorque = &EllipsoidalPotentialPlanarphitorque;
-      //potentialArgs->planarR2deriv = &EllipsoidalPotentialPlanarR2deriv;
-      //potentialArgs->planarphi2deriv = &EllipsoidalPotentialPlanarphi2deriv;
-      //potentialArgs->planarRphideriv = &EllipsoidalPotentialPlanarRphideriv;
+      potentialArgs->planarR2deriv = &EllipsoidalPotentialPlanarR2deriv;
+      potentialArgs->planarphi2deriv = &EllipsoidalPotentialPlanarphi2deriv;
+      potentialArgs->planarRphideriv = &EllipsoidalPotentialPlanarRphideriv;
       // Also assign functions specific to EllipsoidalPotential
       potentialArgs->psi= &PowerTriaxialPotentialpsi;
       potentialArgs->mdens= &PowerTriaxialPotentialmdens;
       potentialArgs->mdensDeriv= &PowerTriaxialPotentialmdensDeriv;
-      potentialArgs->nargs = (int) (21 + *(*pot_args+7) + 2 * *(*pot_args
-					    + (int) (*(*pot_args+7) + 20)));
+      potentialArgs->nargs = (int) (30 + *(*pot_args+16) + 2 * *(*pot_args + (int) (*(*pot_args+16) + 29)));
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
       break;
@@ -523,15 +517,14 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
     case 43: // TwoPowerTriaxialPotential, lots of arguments
       potentialArgs->planarRforce = &EllipsoidalPotentialPlanarRforce;
       potentialArgs->planarphitorque = &EllipsoidalPotentialPlanarphitorque;
-      //potentialArgs->planarR2deriv = &EllipsoidalPotentialPlanarR2deriv;
-      //potentialArgs->planarphi2deriv = &EllipsoidalPotentialPlanarphi2deriv;
-      //potentialArgs->planarRphideriv = &EllipsoidalPotentialPlanarRphideriv;
+      potentialArgs->planarR2deriv = &EllipsoidalPotentialPlanarR2deriv;
+      potentialArgs->planarphi2deriv = &EllipsoidalPotentialPlanarphi2deriv;
+      potentialArgs->planarRphideriv = &EllipsoidalPotentialPlanarRphideriv;
       // Also assign functions specific to EllipsoidalPotential
       potentialArgs->psi= &TwoPowerTriaxialPotentialpsi;
       potentialArgs->mdens= &TwoPowerTriaxialPotentialmdens;
       potentialArgs->mdensDeriv= &TwoPowerTriaxialPotentialmdensDeriv;
-      potentialArgs->nargs = (int) (21 + *(*pot_args+7) + 2 * *(*pot_args
-					    + (int) (*(*pot_args+7) + 20)));
+      potentialArgs->nargs = (int) (30 + *(*pot_args+16) + 2 * *(*pot_args + (int) (*(*pot_args+16) + 29)));
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
       break;
