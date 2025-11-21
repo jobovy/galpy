@@ -192,56 +192,59 @@ void EllipsoidalPotential_2ndderiv_xyz_all(double (*dens)(double m, double * arg
 					   double * phiyy, double * phiyz, double * phizz) {
   int ii;
   double s, t, m;
-  double integrand_xx, integrand_xy, integrand_xz;
-  double integrand_yy, integrand_yz, integrand_zz;
+  double integrand;
   double result_xx = 0., result_xy = 0., result_xz = 0.;
   double result_yy = 0., result_yz = 0., result_zz = 0.;
 
-  // Pre-compute values outside the loop
-  double x_val = x;
-  double y_val = y;
-  double z_val = z;
+  // Pre-compute x^2, y^2, z^2 outside the loop
+  double x2 = x * x;
+  double y2 = y * y;
+  double z2 = z * z;
 
   for (ii = 0; ii < glorder; ii++) {
     s = *(glx + ii);
     t = 1. / s / s - 1.;
-
-    // Calculate m
-    m = sqrt(x_val * x_val / (1. + t) + y_val * y_val / (b2 + t) + z_val * z_val / (c2 + t));
 
     // Pre-compute denominators
     double t1 = 1. + t;
     double t2 = b2 + t;
     double t3 = c2 + t;
 
+    // Calculate m
+    m = sqrt(x2 / t1 + y2 / t2 + z2 / t3);
+
+    // Compute dens and densDeriv once per iteration
+    double dens_val = dens(m, args+14);
+    double densDeriv_val = densDeriv(m, args+14);
+    double densDeriv_over_m = densDeriv_val / m;
+
     // Calculate all 6 unique second derivatives
     // Note: glw already includes the -4*pi*b*c / sqrt(...) factor from Python glue code
     // The negative sign is for forces; for second derivatives we need positive, so we negate
 
     // d^2phi/dx^2
-    integrand_xx = densDeriv(m, args+14) * (x_val / t1) * (x_val / t1) / m + dens(m, args+14) / t1;
+    integrand = densDeriv_over_m * (x / t1) * (x / t1) + dens_val / t1;
+    result_xx += *(glw + ii) * integrand;
 
     // d^2phi/dxdy
-    integrand_xy = densDeriv(m, args+14) * (x_val / t1) * (y_val / t2) / m;
+    integrand = densDeriv_over_m * (x / t1) * (y / t2);
+    result_xy += *(glw + ii) * integrand;
 
     // d^2phi/dxdz
-    integrand_xz = densDeriv(m, args+14) * (x_val / t1) * (z_val / t3) / m;
+    integrand = densDeriv_over_m * (x / t1) * (z / t3);
+    result_xz += *(glw + ii) * integrand;
 
     // d^2phi/dy^2
-    integrand_yy = densDeriv(m, args+14) * (y_val / t2) * (y_val / t2) / m + dens(m, args+14) / t2;
+    integrand = densDeriv_over_m * (y / t2) * (y / t2) + dens_val / t2;
+    result_yy += *(glw + ii) * integrand;
 
     // d^2phi/dydz
-    integrand_yz = densDeriv(m, args+14) * (y_val / t2) * (z_val / t3) / m;
+    integrand = densDeriv_over_m * (y / t2) * (z / t3);
+    result_yz += *(glw + ii) * integrand;
 
     // d^2phi/dz^2
-    integrand_zz = densDeriv(m, args+14) * (z_val / t3) * (z_val / t3) / m + dens(m, args+14) / t3;
-
-    result_xx += *(glw + ii) * integrand_xx;
-    result_xy += *(glw + ii) * integrand_xy;
-    result_xz += *(glw + ii) * integrand_xz;
-    result_yy += *(glw + ii) * integrand_yy;
-    result_yz += *(glw + ii) * integrand_yz;
-    result_zz += *(glw + ii) * integrand_zz;
+    integrand = densDeriv_over_m * (z / t3) * (z / t3) + dens_val / t3;
+    result_zz += *(glw + ii) * integrand;
   }
 
   // Negate because glw has negative sign for forces, but we need positive for second derivatives
@@ -288,17 +291,16 @@ double EllipsoidalPotentialPlanarR2deriv(double R, double phi, double t,
   cyl_to_rect(R, phi, &x, &y);
 
   // Get second derivatives in xyz coordinates (with caching)
-  double phixx, phixy, phixz, phiyy, phiyz, phizz;
+  // Only extract the ones we need for R2deriv: phixx, phixy, phiyy
+  double phixx, phixy, phiyy;
   if (x == cached_x && y == cached_y && z == cached_z) {
     // LCOV_EXCL_START
     phixx = *(args + 7);
     phixy = *(args + 8);
-    phixz = *(args + 9);
     phiyy = *(args + 10);
-    phiyz = *(args + 11);
-    phizz = *(args + 12);
     // LCOV_EXCL_STOP
   } else {
+    double phixz, phiyz, phizz;
     EllipsoidalPotential_2ndderiv_xyz_all(potentialArgs->mdens,
 					  potentialArgs->mdensDeriv,
 					  x, y, z, b2, c2,
@@ -338,28 +340,28 @@ double EllipsoidalPotentialPlanarphi2deriv(double R, double phi, double t,
   cyl_to_rect(R, phi, &x, &y);
 
   // Get forces in xyz coordinates (with caching)
-  double Fx, Fy, Fz;
+  // Only extract Fx and Fy (needed for this function)
+  double Fx, Fy;
   if (x == cached_x && y == cached_y && z == cached_z) {
     Fx = *(args + 4);
     Fy = *(args + 5);
-    Fz = *(args + 6);
   } else {
     // LCOV_EXCL_START
+    double Fz;
     EllipsoidalPotentialxyzforces_xyz(potentialArgs->mdens, x, y, z, &Fx, &Fy, &Fz, args);
     // LCOV_EXCL_STOP
   }
 
   // Get second derivatives in xyz coordinates (with caching)
-  double phixx, phixy, phixz, phiyy, phiyz, phizz;
+  // Only extract the ones we need for phi2deriv: phixx, phixy, phiyy
+  double phixx, phixy, phiyy;
   if (x == cached_x && y == cached_y && z == cached_z) {
     phixx = *(args + 7);
     phixy = *(args + 8);
-    phixz = *(args + 9);
     phiyy = *(args + 10);
-    phiyz = *(args + 11);
-    phizz = *(args + 12);
   } else {
     // LCOV_EXCL_START
+    double phixz, phiyz, phizz;
     EllipsoidalPotential_2ndderiv_xyz_all(potentialArgs->mdens,
 					  potentialArgs->mdensDeriv,
 					  x, y, z, b2, c2,
@@ -401,28 +403,28 @@ double EllipsoidalPotentialPlanarRphideriv(double R, double phi, double t,
   cyl_to_rect(R, phi, &x, &y);
 
   // Get forces in xyz coordinates (with caching)
-  double Fx, Fy, Fz;
+  // Only extract Fx and Fy (needed for this function)
+  double Fx, Fy;
   if (x == cached_x && y == cached_y && z == cached_z) {
     Fx = *(args + 4);
     Fy = *(args + 5);
-    Fz = *(args + 6);
   } else {
     // LCOV_EXCL_START
+    double Fz;
     EllipsoidalPotentialxyzforces_xyz(potentialArgs->mdens, x, y, z, &Fx, &Fy, &Fz, args);
     // LCOV_EXCL_STOP
   }
 
   // Get second derivatives in xyz coordinates (with caching)
-  double phixx, phixy, phixz, phiyy, phiyz, phizz;
+  // Only extract the ones we need for Rphideriv: phixx, phixy, phiyy
+  double phixx, phixy, phiyy;
   if (x == cached_x && y == cached_y && z == cached_z) {
     phixx = *(args + 7);
     phixy = *(args + 8);
-    phixz = *(args + 9);
     phiyy = *(args + 10);
-    phiyz = *(args + 11);
-    phizz = *(args + 12);
   } else {
     // LCOV_EXCL_START
+    double phixz, phiyz, phizz;
     EllipsoidalPotential_2ndderiv_xyz_all(potentialArgs->mdens,
 					  potentialArgs->mdensDeriv,
 					  x, y, z, b2, c2,
