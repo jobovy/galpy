@@ -31,7 +31,7 @@ double EllipsoidalPotentialEval(double R,double z, double phi,
     out+= *(glw+ii) * potentialArgs->psi ( sqrt (  x * x / ( 1. + s )
 	 					 + y * y / ( b2 + s )
 		 				 + z * z / ( c2 + s ) ),
-					   args+14);
+					   args+17);
   }
   return -0.5 * amp * out;
 }
@@ -44,7 +44,7 @@ void EllipsoidalPotentialxyzforces_xyz(double (*dens)(double m,
   double t;
   double td;
   //Get args
-  double * ellipargs= args + 14 + (int) *(args+13); // *(args+13) = num. arguments dens
+  double * ellipargs= args + 17 + (int) *(args+16); // *(args+16) = num. arguments dens
   double b2= *ellipargs++;
   double c2= *ellipargs++;
   bool aligned= (bool) *ellipargs++;
@@ -65,7 +65,7 @@ void EllipsoidalPotentialxyzforces_xyz(double (*dens)(double m,
   for (ii=0; ii < glorder; ii++) {
     t= 1. / *(glx+ii) / *(glx+ii) - 1.;
     td= *(glw+ii) * dens( sqrt ( x * x / ( 1. + t )	+ y * y / ( b2 + t ) \
-				 + z * z / ( c2 + t ) ),args+14);
+				 + z * z / ( c2 + t ) ),args+17);
     *Fx+= td * x / ( 1. + t );
     *Fy+= td * y / ( b2 + t );
     *Fz+= td * z / ( c2 + t );
@@ -178,7 +178,7 @@ double EllipsoidalPotentialDens(double R,double z, double phi,
   if ( !aligned )
     rotate(&x,&y,&z,rot);
   return amp * potentialArgs->mdens ( sqrt (x * x + y * y / b2 + z * z / c2 ),
-				     args+14);
+				     args+17);
 }
 
 // Helper function to compute all second derivatives in xyz coordinates and cache them
@@ -214,8 +214,8 @@ void EllipsoidalPotential_2ndderiv_xyz_all(double (*dens)(double m, double * arg
     m = sqrt(x2 / t1 + y2 / t2 + z2 / t3);
 
     // Compute dens and densDeriv once per iteration
-    double dens_val = dens(m, args+14);
-    double densDeriv_val = densDeriv(m, args+14);
+    double dens_val = dens(m, args+17);
+    double densDeriv_val = densDeriv(m, args+17);
     double densDeriv_over_m = densDeriv_val / m;
 
     // Calculate all 6 unique second derivatives
@@ -255,16 +255,16 @@ void EllipsoidalPotential_2ndderiv_xyz_all(double (*dens)(double m, double * arg
   *phiyz = -result_yz;
   *phizz = -result_zz;
 
-  // Cache the position and results
-  *(args + 1) = x;
-  *(args + 2) = y;
-  *(args + 3) = z;
-  *(args + 7) = *phixx;
-  *(args + 8) = *phixy;
-  *(args + 9) = *phixz;
-  *(args + 10) = *phiyy;
-  *(args + 11) = *phiyz;
-  *(args + 12) = *phizz;
+  // Cache the position and results for second derivatives
+  *(args + 7) = x;
+  *(args + 8) = y;
+  *(args + 9) = z;
+  *(args + 10) = *phixx;
+  *(args + 11) = *phixy;
+  *(args + 12) = *phixz;
+  *(args + 13) = *phiyy;
+  *(args + 14) = *phiyz;
+  *(args + 15) = *phizz;
 }
 
 
@@ -272,11 +272,11 @@ double EllipsoidalPotentialPlanarR2deriv(double R, double phi, double t,
 					 struct potentialArg * potentialArgs) {
   double * args = potentialArgs->args;
   double amp = *args;
-  // Get caching args: amp = 0, x,y,z,Fx,Fy,Fz,phixx,phixy,phixz,phiyy,phiyz,phizz
-  double cached_x = *(args + 1);
-  double cached_y = *(args + 2);
-  double cached_z = *(args + 3);
-  double * ellipargs = args + 14 + (int) *(args+13);
+  // Get caching args for second derivatives: x2,y2,z2 at indices 7,8,9
+  double cached_x = *(args + 7);
+  double cached_y = *(args + 8);
+  double cached_z = *(args + 9);
+  double * ellipargs = args + 17 + (int) *(args+16);
   double b2 = *ellipargs++;
   double c2 = *ellipargs++;
   bool aligned = (bool) *ellipargs++;
@@ -295,9 +295,9 @@ double EllipsoidalPotentialPlanarR2deriv(double R, double phi, double t,
   double phixx, phixy, phiyy;
   if (x == cached_x && y == cached_y && z == cached_z) {
     // LCOV_EXCL_START
-    phixx = *(args + 7);
-    phixy = *(args + 8);
-    phiyy = *(args + 10);
+    phixx = *(args + 10);
+    phixy = *(args + 11);
+    phiyy = *(args + 13);
     // LCOV_EXCL_STOP
   } else {
     double phixz, phiyz, phizz;
@@ -321,11 +321,15 @@ double EllipsoidalPotentialPlanarphi2deriv(double R, double phi, double t,
 					   struct potentialArg * potentialArgs) {
   double * args = potentialArgs->args;
   double amp = *args;
-  // Get caching args: amp = 0, x,y,z,Fx,Fy,Fz,phixx,phixy,phixz,phiyy,phiyz,phizz
-  double cached_x = *(args + 1);
-  double cached_y = *(args + 2);
-  double cached_z = *(args + 3);
-  double * ellipargs = args + 14 + (int) *(args+13);
+  // Get caching args for forces: x,y,z at indices 1,2,3
+  double cached_x_force = *(args + 1);
+  double cached_y_force = *(args + 2);
+  double cached_z_force = *(args + 3);
+  // Get caching args for second derivatives: x2,y2,z2 at indices 7,8,9
+  double cached_x_deriv = *(args + 7);
+  double cached_y_deriv = *(args + 8);
+  double cached_z_deriv = *(args + 9);
+  double * ellipargs = args + 17 + (int) *(args+16);
   double b2 = *ellipargs++;
   double c2 = *ellipargs++;
   bool aligned = (bool) *ellipargs++;
@@ -342,7 +346,7 @@ double EllipsoidalPotentialPlanarphi2deriv(double R, double phi, double t,
   // Get forces in xyz coordinates (with caching)
   // Only extract Fx and Fy (needed for this function)
   double Fx, Fy;
-  if (x == cached_x && y == cached_y && z == cached_z) {
+  if (x == cached_x_force && y == cached_y_force && z == cached_z_force) {
     Fx = *(args + 4);
     Fy = *(args + 5);
   } else {
@@ -355,10 +359,10 @@ double EllipsoidalPotentialPlanarphi2deriv(double R, double phi, double t,
   // Get second derivatives in xyz coordinates (with caching)
   // Only extract the ones we need for phi2deriv: phixx, phixy, phiyy
   double phixx, phixy, phiyy;
-  if (x == cached_x && y == cached_y && z == cached_z) {
-    phixx = *(args + 7);
-    phixy = *(args + 8);
-    phiyy = *(args + 10);
+  if (x == cached_x_deriv && y == cached_y_deriv && z == cached_z_deriv) {
+    phixx = *(args + 10);
+    phixy = *(args + 11);
+    phiyy = *(args + 13);
   } else {
     // LCOV_EXCL_START
     double phixz, phiyz, phizz;
@@ -384,11 +388,15 @@ double EllipsoidalPotentialPlanarRphideriv(double R, double phi, double t,
 					   struct potentialArg * potentialArgs) {
   double * args = potentialArgs->args;
   double amp = *args;
-  // Get caching args: amp = 0, x,y,z,Fx,Fy,Fz,phixx,phixy,phixz,phiyy,phiyz,phizz
-  double cached_x = *(args + 1);
-  double cached_y = *(args + 2);
-  double cached_z = *(args + 3);
-  double * ellipargs = args + 14 + (int) *(args+13);
+  // Get caching args for forces: x,y,z at indices 1,2,3
+  double cached_x_force = *(args + 1);
+  double cached_y_force = *(args + 2);
+  double cached_z_force = *(args + 3);
+  // Get caching args for second derivatives: x2,y2,z2 at indices 7,8,9
+  double cached_x_deriv = *(args + 7);
+  double cached_y_deriv = *(args + 8);
+  double cached_z_deriv = *(args + 9);
+  double * ellipargs = args + 17 + (int) *(args+16);
   double b2 = *ellipargs++;
   double c2 = *ellipargs++;
   bool aligned = (bool) *ellipargs++;
@@ -405,7 +413,7 @@ double EllipsoidalPotentialPlanarRphideriv(double R, double phi, double t,
   // Get forces in xyz coordinates (with caching)
   // Only extract Fx and Fy (needed for this function)
   double Fx, Fy;
-  if (x == cached_x && y == cached_y && z == cached_z) {
+  if (x == cached_x_force && y == cached_y_force && z == cached_z_force) {
     Fx = *(args + 4);
     Fy = *(args + 5);
   } else {
@@ -418,10 +426,10 @@ double EllipsoidalPotentialPlanarRphideriv(double R, double phi, double t,
   // Get second derivatives in xyz coordinates (with caching)
   // Only extract the ones we need for Rphideriv: phixx, phixy, phiyy
   double phixx, phixy, phiyy;
-  if (x == cached_x && y == cached_y && z == cached_z) {
-    phixx = *(args + 7);
-    phixy = *(args + 8);
-    phiyy = *(args + 10);
+  if (x == cached_x_deriv && y == cached_y_deriv && z == cached_z_deriv) {
+    phixx = *(args + 10);
+    phixy = *(args + 11);
+    phiyy = *(args + 13);
   } else {
     // LCOV_EXCL_START
     double phixz, phiyz, phizz;

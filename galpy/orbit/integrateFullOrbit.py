@@ -174,8 +174,8 @@ def _parse_pot(pot, potforactions=False, potfortorus=False):
         elif isinstance(p, potential.EllipsoidalPotential.EllipsoidalPotential):
             pot_args.append(p._amp)
             pot_args.extend(
-                [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-            )  # for caching (x,y,z,Fx,Fy,Fz,phixx,phixy,phixz,phiyy,phiyz,phizz)
+                [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+            )  # for caching (x,y,z,Fx,Fy,Fz,x2,y2,z2,phixx,phixy,phixz,phiyy,phiyz,phizz)
             # Potential specific parameters
             if isinstance(p, potential.TriaxialHernquistPotential):
                 pot_type.append(21)

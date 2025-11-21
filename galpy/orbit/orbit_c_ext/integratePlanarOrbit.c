@@ -274,7 +274,7 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
       potentialArgs->psi= &TriaxialHernquistPotentialpsi;
       potentialArgs->mdens= &TriaxialHernquistPotentialmdens;
       potentialArgs->mdensDeriv= &TriaxialHernquistPotentialmdensDeriv;
-      potentialArgs->nargs = (int) (27 + *(*pot_args+13) + 2 * *(*pot_args + (int) (*(*pot_args+13) + 26)));
+      potentialArgs->nargs = (int) (30 + *(*pot_args+16) + 2 * *(*pot_args + (int) (*(*pot_args+16) + 29)));
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
       break;
@@ -288,7 +288,7 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
       potentialArgs->psi= &TriaxialNFWPotentialpsi;
       potentialArgs->mdens= &TriaxialNFWPotentialmdens;
       potentialArgs->mdensDeriv= &TriaxialNFWPotentialmdensDeriv;
-      potentialArgs->nargs = (int) (27 + *(*pot_args+13) + 2 * *(*pot_args + (int) (*(*pot_args+13) + 26)));
+      potentialArgs->nargs = (int) (30 + *(*pot_args+16) + 2 * *(*pot_args + (int) (*(*pot_args+16) + 29)));
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
       break;
@@ -302,7 +302,7 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
       potentialArgs->psi= &TriaxialJaffePotentialpsi;
       potentialArgs->mdens= &TriaxialJaffePotentialmdens;
       potentialArgs->mdensDeriv= &TriaxialJaffePotentialmdensDeriv;
-      potentialArgs->nargs = (int) (27 + *(*pot_args+13) + 2 * *(*pot_args + (int) (*(*pot_args+13) + 26)));
+      potentialArgs->nargs = (int) (30 + *(*pot_args+16) + 2 * *(*pot_args + (int) (*(*pot_args+16) + 29)));
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
       break;
@@ -373,7 +373,7 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
       potentialArgs->psi= &PerfectEllipsoidPotentialpsi;
       potentialArgs->mdens= &PerfectEllipsoidPotentialmdens;
       potentialArgs->mdensDeriv= &PerfectEllipsoidPotentialmdensDeriv;
-      potentialArgs->nargs = (int) (27 + *(*pot_args+13) + 2 * *(*pot_args + (int) (*(*pot_args+13) + 26)));
+      potentialArgs->nargs = (int) (30 + *(*pot_args+16) + 2 * *(*pot_args + (int) (*(*pot_args+16) + 29)));
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
       break;
@@ -451,7 +451,7 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
       potentialArgs->psi= &TriaxialGaussianPotentialpsi;
       potentialArgs->mdens= &TriaxialGaussianPotentialmdens;
       potentialArgs->mdensDeriv= &TriaxialGaussianPotentialmdensDeriv;
-      potentialArgs->nargs = (int) (27 + *(*pot_args+13) + 2 * *(*pot_args + (int) (*(*pot_args+13) + 26)));
+      potentialArgs->nargs = (int) (30 + *(*pot_args+16) + 2 * *(*pot_args + (int) (*(*pot_args+16) + 29)));
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
       break;
@@ -465,7 +465,7 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
       potentialArgs->psi= &PowerTriaxialPotentialpsi;
       potentialArgs->mdens= &PowerTriaxialPotentialmdens;
       potentialArgs->mdensDeriv= &PowerTriaxialPotentialmdensDeriv;
-      potentialArgs->nargs = (int) (27 + *(*pot_args+13) + 2 * *(*pot_args + (int) (*(*pot_args+13) + 26)));
+      potentialArgs->nargs = (int) (30 + *(*pot_args+16) + 2 * *(*pot_args + (int) (*(*pot_args+16) + 29)));
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
       break;
@@ -524,7 +524,7 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
       potentialArgs->psi= &TwoPowerTriaxialPotentialpsi;
       potentialArgs->mdens= &TwoPowerTriaxialPotentialmdens;
       potentialArgs->mdensDeriv= &TwoPowerTriaxialPotentialmdensDeriv;
-      potentialArgs->nargs = (int) (27 + *(*pot_args+13) + 2 * *(*pot_args + (int) (*(*pot_args+13) + 26)));
+      potentialArgs->nargs = (int) (30 + *(*pot_args+16) + 2 * *(*pot_args + (int) (*(*pot_args+16) + 29)));
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
       break;
