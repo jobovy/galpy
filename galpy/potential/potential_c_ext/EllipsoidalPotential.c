@@ -294,11 +294,9 @@ double EllipsoidalPotentialPlanarR2deriv(double R, double phi, double t,
   // Only extract the ones we need for R2deriv: phixx, phixy, phiyy
   double phixx, phixy, phiyy;
   if (x == cached_x && y == cached_y && z == cached_z) {
-    // LCOV_EXCL_START
     phixx = *(args + 10);
     phixy = *(args + 11);
     phiyy = *(args + 13);
-    // LCOV_EXCL_STOP
   } else {
     double phixz, phiyz, phizz;
     EllipsoidalPotential_2ndderiv_xyz_all(potentialArgs->mdens,
@@ -364,7 +362,6 @@ double EllipsoidalPotentialPlanarphi2deriv(double R, double phi, double t,
     phixy = *(args + 11);
     phiyy = *(args + 13);
   } else {
-    // LCOV_EXCL_START
     double phixz, phiyz, phizz;
     EllipsoidalPotential_2ndderiv_xyz_all(potentialArgs->mdens,
 					  potentialArgs->mdensDeriv,
@@ -372,7 +369,6 @@ double EllipsoidalPotentialPlanarphi2deriv(double R, double phi, double t,
 					  glorder, glx, glw, args,
 					  &phixx, &phixy, &phixz,
 					  &phiyy, &phiyz, &phizz);
-    // LCOV_EXCL_STOP
   }
 
   // Transform to cylindrical: d^2phi/dphi^2
@@ -431,7 +427,6 @@ double EllipsoidalPotentialPlanarRphideriv(double R, double phi, double t,
     phixy = *(args + 11);
     phiyy = *(args + 13);
   } else {
-    // LCOV_EXCL_START
     double phixz, phiyz, phizz;
     EllipsoidalPotential_2ndderiv_xyz_all(potentialArgs->mdens,
 					  potentialArgs->mdensDeriv,
@@ -439,7 +434,6 @@ double EllipsoidalPotentialPlanarRphideriv(double R, double phi, double t,
 					  glorder, glx, glw, args,
 					  &phixx, &phixy, &phixz,
 					  &phiyy, &phiyz, &phizz);
-    // LCOV_EXCL_STOP
   }
 
   // Transform to cylindrical: d^2phi/dRdphi
