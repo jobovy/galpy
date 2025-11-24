@@ -88,6 +88,7 @@ def pytest_generate_tests(metafunc):
             "NumericalPotentialDerivativesMixin",
             "SphericalPotential",
             "interpSphericalPotential",
+            "CompositePotential",
         ]
         rmpots.append("SphericalShellPotential")
         rmpots.append("RingPotential")
@@ -184,6 +185,7 @@ def pytest_generate_tests(metafunc):
             "NumericalPotentialDerivativesMixin",
             "SphericalPotential",
             "interpSphericalPotential",
+            "CompositePotential",
         ]
         rmpots.append("SphericalShellPotential")
         rmpots.append("RingPotential")

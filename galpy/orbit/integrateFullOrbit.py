@@ -11,6 +11,7 @@ from ..potential.Potential import (
     _evaluatephitorques,
     _evaluateRforces,
     _evaluatezforces,
+    potential_list_of_potentials_input,
 )
 from ..util import _load_extension_libs, galpyWarning, symplecticode
 from ..util._optional_deps import _TQDM_LOADED
@@ -32,6 +33,9 @@ _lib, _ext_loaded = _load_extension_libs.load_libgalpy()
 def _parse_pot(pot, potforactions=False, potfortorus=False):
     """Parse the potential so it can be fed to C"""
     # Figure out what's in pot
+    # Handle CompositePotential by extracting its internal list
+    if isinstance(pot, potential.CompositePotential):
+        pot = list(pot)
     if not isinstance(pot, list):
         pot = [pot]
     if (potforactions or potfortorus) and (
@@ -816,6 +820,7 @@ def integrateFullOrbit_dxdv_c(
     return (result, err.value)
 
 
+@potential_list_of_potentials_input
 def integrateFullOrbit(
     pot, yo, t, int_method, rtol=None, atol=None, numcores=1, progressbar=True, dt=None
 ):
@@ -824,8 +829,8 @@ def integrateFullOrbit(
 
     Parameters
     ----------
-    pot : Potential or list of such instances
-        The potential (or list thereof) to evaluate the orbit in.
+    pot : Potential, CompositePotential, or list of such instances
+        The potential to evaluate the orbit in. Lists are deprecated and will be converted to CompositePotential.
     yo : numpy.ndarray
         Initial condition [q,p], shape [N,5] or [N,6]
     t : numpy.ndarray
@@ -1110,6 +1115,7 @@ def integrateFullOrbit_sos_c(
         return (result, err)
 
 
+@potential_list_of_potentials_input
 def integrateFullOrbit_sos(
     pot,
     yo,
@@ -1127,8 +1133,8 @@ def integrateFullOrbit_sos(
 
     Parameters
     ----------
-    pot : Potential or list of such instances
-        The potential (or list thereof) to evaluate the orbit in.
+    pot : Potential, CompositePotential, or list of such instances
+        The potential to evaluate the orbit in. Lists are deprecated and will be converted to CompositePotential.
     yo : numpy.ndarray
         Initial condition [q,p], shape [N,5] or [N,6]
     psi : numpy.ndarray

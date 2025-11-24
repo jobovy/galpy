@@ -54,8 +54,6 @@ class actionAngleSpherical(actionAngle):
         # used in this class
         if _dim(self._pot) == 2:
             self._2dpot = self._pot
-        elif isinstance(self._pot, list):
-            self._2dpot = [p.toPlanar() for p in self._pot]
         else:
             self._2dpot = self._pot.toPlanar()
         # The following for if we ever implement this code in C
