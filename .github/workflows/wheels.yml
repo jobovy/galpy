@@ -43,7 +43,7 @@ jobs:
         - ["cp313","3.13"]
         - ["cp314","3.14"]
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - name: Install GSL (Windows / Mac OS x86_64)
         uses: mamba-org/setup-micromamba@v2
         if: matrix.buildplat[1] == 'win' || matrix.buildplat[1] == 'macosx'
@@ -109,7 +109,7 @@ jobs:
             - ["cp312","3.12"]
             - ["cp313","3.13"]
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - run: mkdir wheelhouse
       - uses: actions/download-artifact@v6
         with:
@@ -190,7 +190,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       # check-out this repository
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       # Setup python
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -216,7 +216,7 @@ jobs:
       id-token: write  # IMPORTANT: this permission is mandatory for trusted publishing
     if: github.event_name == 'release' && github.event.action == 'created'
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - run: |
           mkdir tmp_wheelhouse
           mkdir wheelhouse
@@ -235,7 +235,7 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event_name != 'release' && github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - run: |
           mkdir tmp_wheelhouse
           mkdir wheelhouse
