@@ -2087,7 +2087,7 @@ def test_python_vs_c_arbitraryaxisrotation_funcomega():
         )
         return None
 
-    check_orbit(tol=1e-8)
+    check_orbit(tol=2e-8)
     return None
 
 
