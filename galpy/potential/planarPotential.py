@@ -885,6 +885,12 @@ def toPlanarPotential(Pot):
     - 2016-06-11: Written - Bovy (UofT)
 
     """
+    from .CompositePotential import CompositePotential
+
+    # Handle CompositePotential by converting it to a list first
+    if isinstance(Pot, CompositePotential):
+        Pot = list(Pot)
+
     Pot = flatten(Pot)
     if isinstance(Pot, list):
         out = []

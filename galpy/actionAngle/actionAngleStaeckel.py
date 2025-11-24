@@ -17,6 +17,7 @@ import numpy
 from scipy import integrate, optimize
 
 from ..potential import (
+    CompositePotential,
     DiskSCFPotential,
     MWPotential,
     SCFPotential,
@@ -1533,7 +1534,7 @@ def estimateDeltaStaeckel(pot, R, z, no_median=False, delta0=1e-6):
                 for p in pot
             ]
         )
-        if isinstance(pot, list)
+        if isinstance(pot, (list, CompositePotential))
         else isinstance(pot, SCFPotential) or isinstance(pot, DiskSCFPotential)
     )
     if numpy.any(z == 0.0):

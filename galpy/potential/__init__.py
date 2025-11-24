@@ -4,6 +4,7 @@ from . import (
     AnySphericalPotential,
     BurkertPotential,
     ChandrasekharDynamicalFrictionForce,
+    CompositePotential,
     CorotatingRotationWrapperPotential,
     CosmphiDiskPotential,
     DehnenBarPotential,
@@ -216,6 +217,7 @@ AnyAxisymmetricRazorThinDiskPotential = (
     AnyAxisymmetricRazorThinDiskPotential.AnyAxisymmetricRazorThinDiskPotential
 )
 AnySphericalPotential = AnySphericalPotential.AnySphericalPotential
+CompositePotential = CompositePotential.CompositePotential
 # Wrappers
 DehnenSmoothWrapperPotential = DehnenSmoothWrapperPotential.DehnenSmoothWrapperPotential
 SolidBodyRotationWrapperPotential = (
