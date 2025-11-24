@@ -38,6 +38,7 @@ from ..potential import (
     rl,
     toPlanarPotential,
 )
+from ..potential.CompositePotential import CompositePotential
 from ..potential.DissipativeForce import _isDissipative
 from ..potential.Potential import _check_c
 from ..util import conversion, coords, galpyWarning, galpyWarningVerbose, plot
@@ -1428,8 +1429,12 @@ class Orbit:
         pot_changed = False
 
         # Convert to lists for uniform handling
-        pot_list = pot if isinstance(pot, list) else [pot]
-        old_pot_list = self._pot if isinstance(self._pot, list) else [self._pot]
+        pot_list = list(pot) if isinstance(pot, (list, CompositePotential)) else [pot]
+        old_pot_list = (
+            list(self._pot)
+            if isinstance(self._pot, (list, CompositePotential))
+            else [self._pot]
+        )
 
         # Check if list lengths differ
         if len(pot_list) != len(old_pot_list):
@@ -2677,7 +2682,7 @@ class Orbit:
                     raise AttributeError("Integrate orbit or specify pot=")
             else:
                 pot = kwargs["pot"]
-            if isinstance(pot, list):
+            if isinstance(pot, (list, CompositePotential)):
                 for p in pot:
                     if hasattr(p, "OmegaP"):
                         OmegaP = p.OmegaP()

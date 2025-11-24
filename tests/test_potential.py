@@ -63,6 +63,7 @@ def test_normalize_potential():
         "NumericalPotentialDerivativesMixin",
         "SphericalPotential",
         "interpSphericalPotential",
+        "CompositePotential",
     ]
     if False:
         rmpots.append("DoubleExponentialDiskPotential")
@@ -238,6 +239,7 @@ def test_forceAsDeriv_potential():
         "NumericalPotentialDerivativesMixin",
         "SphericalPotential",
         "interpSphericalPotential",
+        "CompositePotential",
     ]
     if False:
         rmpots.append("DoubleExponentialDiskPotential")
@@ -480,6 +482,7 @@ def test_2ndDeriv_potential():
         "NumericalPotentialDerivativesMixin",
         "SphericalPotential",
         "interpSphericalPotential",
+        "CompositePotential",
     ]
     if False:
         rmpots.append("DoubleExponentialDiskPotential")
@@ -852,6 +855,7 @@ def test_poisson_potential():
         "NumericalPotentialDerivativesMixin",
         "SphericalPotential",
         "interpSphericalPotential",
+        "CompositePotential",
     ]
     if False:
         rmpots.append("DoubleExponentialDiskPotential")
@@ -1001,6 +1005,7 @@ def test_poisson_surfdens_potential():
         "NumericalPotentialDerivativesMixin",
         "SphericalPotential",
         "interpSphericalPotential",
+        "CompositePotential",
     ]
     if False:
         rmpots.append("DoubleExponentialDiskPotential")
@@ -1184,6 +1189,7 @@ def test_evaluateAndDerivs_potential():
         "NumericalPotentialDerivativesMixin",
         "SphericalPotential",
         "interpSphericalPotential",
+        "CompositePotential",
     ]
     if False:
         rmpots.append("DoubleExponentialDiskPotential")
@@ -1460,6 +1466,7 @@ def test_amp_mult_divide():
         "NumericalPotentialDerivativesMixin",
         "SphericalPotential",
         "interpSphericalPotential",
+        "CompositePotential",
     ]
     if False:
         rmpots.append("DoubleExponentialDiskPotential")
@@ -1778,6 +1785,7 @@ def test_potential_array_input():
         "NumericalPotentialDerivativesMixin",
         "SphericalPotential",
         "interpSphericalPotential",
+        "CompositePotential",
     ]
     rmpots.append("FerrersPotential")
     rmpots.append("PerfectEllipsoidPotential")
@@ -1964,6 +1972,7 @@ def test_toVertical_array():
         "NumericalPotentialDerivativesMixin",
         "SphericalPotential",
         "interpSphericalPotential",
+        "CompositePotential",
     ]
     rmpots.append("FerrersPotential")
     rmpots.append("PerfectEllipsoidPotential")
@@ -2120,6 +2129,7 @@ def test_potential_at_zero():
         "NumericalPotentialDerivativesMixin",
         "SphericalPotential",
         "interpSphericalPotential",
+        "CompositePotential",
     ]
     # Remove some more potentials that we don't support for now TO DO
     rmpots.append("BurkertPotential")  # Need to figure out...
@@ -2273,6 +2283,7 @@ def test_potential_at_infinity():
         "NumericalPotentialDerivativesMixin",
         "SphericalPotential",
         "interpSphericalPotential",
+        "CompositePotential",
     ]
     # Remove some more potentials that we don't support for now TO DO
     rmpots.append("FerrersPotential")  # Need to figure out...
@@ -2489,8 +2500,8 @@ def test_rforce_dissipative():
     )
     assert (
         numpy.fabs(
-            potential.evaluateRforces([pp, cdfc], R, z, phi=phi, v=v) * r / R
-            - potential.evaluaterforces([pp, cdfc], R, z, phi=phi, v=v)
+            potential.evaluateRforces(pp + cdfc, R, z, phi=phi, v=v) * r / R
+            - potential.evaluaterforces(pp + cdfc, R, z, phi=phi, v=v)
         )
         < 10.0**-10.0
     ), (
@@ -2543,25 +2554,37 @@ def test_r2deriv():
     ), "r2deriv does not behave as expected for spherical potentials"
     assert (
         numpy.fabs(
-            potential.evaluateR2derivs([pp], R, z)
-            - potential.evaluater2derivs([pp], R, z) * (R / r) ** 2.0
-            + potential.evaluaterforces([pp], R, z) * z**2.0 / r**3.0
+            potential.evaluateR2derivs(potential.CompositePotential([pp]), R, z)
+            - potential.evaluater2derivs(potential.CompositePotential([pp]), R, z)
+            * (R / r) ** 2.0
+            + potential.evaluaterforces(potential.CompositePotential([pp]), R, z)
+            * z**2.0
+            / r**3.0
         )
         < 10.0**-10.0
     ), "r2deriv does not behave as expected for spherical potentials"
     assert (
         numpy.fabs(
-            potential.evaluatez2derivs([pp], R, z)
-            - potential.evaluater2derivs([pp], R, z) * (z / r) ** 2.0
-            + potential.evaluaterforces([pp], R, z) * R**2.0 / r**3.0
+            potential.evaluatez2derivs(potential.CompositePotential([pp]), R, z)
+            - potential.evaluater2derivs(potential.CompositePotential([pp]), R, z)
+            * (z / r) ** 2.0
+            + potential.evaluaterforces(potential.CompositePotential([pp]), R, z)
+            * R**2.0
+            / r**3.0
         )
         < 10.0**-10.0
     ), "r2deriv does not behave as expected for spherical potentials"
     assert (
         numpy.fabs(
-            potential.evaluateRzderivs([pp], R, z)
-            - potential.evaluater2derivs([pp], R, z) * R * z / r**2.0
-            - potential.evaluaterforces([pp], R, z) * R * z / r**3.0
+            potential.evaluateRzderivs(potential.CompositePotential([pp]), R, z)
+            - potential.evaluater2derivs(potential.CompositePotential([pp]), R, z)
+            * R
+            * z
+            / r**2.0
+            - potential.evaluaterforces(potential.CompositePotential([pp]), R, z)
+            * R
+            * z
+            / r**3.0
         )
         < 10.0**-10.0
     ), "r2deriv does not behave as expected for spherical potentials"
@@ -2594,7 +2617,8 @@ def test_mass_spher():
     tR = 2.0
     assert (
         numpy.fabs(
-            potential.mass([pp], tR, forceint=True) - pp._amp * tR ** (3.0 - pp.alpha)
+            potential.mass(potential.CompositePotential([pp]), tR, forceint=True)
+            - pp._amp * tR ** (3.0 - pp.alpha)
         )
         < 10.0**-10.0
     ), "Mass for PowerSphericalPotential not as expected"
@@ -2955,7 +2979,7 @@ def test_mass_axi():
     with pytest.raises(NotImplementedError) as excinfo:
         potential.mass(mop, 1.0, 0.0)
     with pytest.raises(NotImplementedError) as excinfo:
-        potential.mass([mop], 1.0, 0.0)
+        potential.mass(potential.CompositePotential([mop]), 1.0, 0.0)
     return None
 
 
@@ -3111,6 +3135,7 @@ def test_toVertical_toPlanar():
         "NumericalPotentialDerivativesMixin",
         "SphericalPotential",
         "interpSphericalPotential",
+        "CompositePotential",
     ]
     if False:
         rmpots.append("DoubleExponentialDiskPotential")
@@ -3515,7 +3540,7 @@ def test_vcirc_vesc_special():
             "plotRotcurve for non-axisymmetric potential should have raised AttributeError, but didn't"
         )
     try:
-        potential.plotEscapecurve([dp])
+        potential.plotEscapecurve(potential.planarCompositePotential([dp]))
     except AttributeError:  # should be raised
         pass
     else:
@@ -3802,10 +3827,18 @@ def test_verticalfreq():
             "Verticalfreq for spherical potential does not equal rotational freq"
         )
         assert (
-            numpy.fabs(potential.verticalfreq([bp], r) - bp.omegac(r)) < 10.0**-10.0
+            numpy.fabs(
+                potential.verticalfreq(potential.CompositePotential([bp]), r)
+                - bp.omegac(r)
+            )
+            < 10.0**-10.0
         ), "Verticalfreq for spherical potential does not equal rotational freq"
         assert (
-            numpy.fabs(potential.verticalfreq([ep], r) - ep.omegac(r)) < 10.0**-10.0
+            numpy.fabs(
+                potential.verticalfreq(potential.CompositePotential([ep]), r)
+                - ep.omegac(r)
+            )
+            < 10.0**-10.0
         ), "Verticalfreq for spherical potential does not equal rotational freq"
     # For Double-exponential disk potential, epi^2+vert^2-2*rot^2 =~ 0 at very large distances (no longer explicitly, because we don't use a Kepler potential anylonger)
     if True:
@@ -5191,7 +5224,7 @@ def test_nemoaccparss():
         "Power-spherical potential w/ cut-off's NEMO accpars incorrect"
     )
     # Combined
-    apc = potential.nemo_accpars([mp, pp], vo, ro).split("#")
+    apc = potential.nemo_accpars(mp + pp, vo, ro).split("#")
     ap = apc[0].split(",")  # should be MN
     assert numpy.fabs(float(ap[0]) - 0) < 10.0**-8.0, (
         "Miyamoto+Power-spherical potential w/ cut-off's NEMO accpars incorrect"
@@ -6014,8 +6047,17 @@ def test_WrapperPotential_dims():
 def test_Wrapper_potinputerror():
     # Test that setting up a WrapperPotential with anything other than a
     # (list of) planar/Potentials raises an error
-    with pytest.raises(ValueError) as excinfo:
+    with pytest.raises((ValueError, AttributeError)) as excinfo:
         potential.DehnenSmoothWrapperPotential(pot=1)
+    return None
+
+
+def test_Wrapper_linearpotinputerror():
+    # Test that setting up a WrapperPotential with a linearPotential
+    with pytest.raises(ValueError) as excinfo:
+        potential.DehnenSmoothWrapperPotential(
+            pot=potential.toVerticalPotential(potential.MWPotential2014, 1.0)
+        )
     return None
 
 
@@ -6205,64 +6247,64 @@ def test_dissipative_ignoreInPotentialDensity2ndDerivs():
     R, z = 2.0, 0.4
     assert (
         numpy.fabs(
-            potential.evaluatePotentials([lp, cdfc], R, z, phi=1.0)
-            - potential.evaluatePotentials([lp, cdfc], R, z, phi=1.0)
+            potential.evaluatePotentials(lp + cdfc, R, z, phi=1.0)
+            - potential.evaluatePotentials(lp + cdfc, R, z, phi=1.0)
         )
         < 1e-10
     ), "Dissipative forces not ignored in evaluatePotentials"
     assert (
         numpy.fabs(
-            potential.evaluateDensities([lp, cdfc], R, z, phi=1.0)
-            - potential.evaluateDensities([lp, cdfc], R, z, phi=1.0)
+            potential.evaluateDensities(lp + cdfc, R, z, phi=1.0)
+            - potential.evaluateDensities(lp + cdfc, R, z, phi=1.0)
         )
         < 1e-10
     ), "Dissipative forces not ignored in evaluateDensities"
     assert (
         numpy.fabs(
-            potential.evaluateR2derivs([lp, cdfc], R, z, phi=1.0)
-            - potential.evaluateR2derivs([lp, cdfc], R, z, phi=1.0)
+            potential.evaluateR2derivs(lp + cdfc, R, z, phi=1.0)
+            - potential.evaluateR2derivs(lp + cdfc, R, z, phi=1.0)
         )
         < 1e-10
     ), "Dissipative forces not ignored in evaluateR2derivs"
     assert (
         numpy.fabs(
-            potential.evaluatez2derivs([lp, cdfc], R, z, phi=1.0)
-            - potential.evaluatez2derivs([lp, cdfc], R, z, phi=1.0)
+            potential.evaluatez2derivs(lp + cdfc, R, z, phi=1.0)
+            - potential.evaluatez2derivs(lp + cdfc, R, z, phi=1.0)
         )
         < 1e-10
     ), "Dissipative forces not ignored in evaluatez2derivs"
     assert (
         numpy.fabs(
-            potential.evaluateRzderivs([lp, cdfc], R, z, phi=1.0)
-            - potential.evaluateRzderivs([lp, cdfc], R, z, phi=1.0)
+            potential.evaluateRzderivs(lp + cdfc, R, z, phi=1.0)
+            - potential.evaluateRzderivs(lp + cdfc, R, z, phi=1.0)
         )
         < 1e-10
     ), "Dissipative forces not ignored in evaluateRzderivs"
     assert (
         numpy.fabs(
-            potential.evaluatephi2derivs([lp, cdfc], R, z, phi=1.0)
-            - potential.evaluatephi2derivs([lp, cdfc], R, z, phi=1.0)
+            potential.evaluatephi2derivs(lp + cdfc, R, z, phi=1.0)
+            - potential.evaluatephi2derivs(lp + cdfc, R, z, phi=1.0)
         )
         < 1e-10
     ), "Dissipative forces not ignored in evaluatephi2derivs"
     assert (
         numpy.fabs(
-            potential.evaluateRphiderivs([lp, cdfc], R, z, phi=1.0)
-            - potential.evaluateRphiderivs([lp, cdfc], R, z, phi=1.0)
+            potential.evaluateRphiderivs(lp + cdfc, R, z, phi=1.0)
+            - potential.evaluateRphiderivs(lp + cdfc, R, z, phi=1.0)
         )
         < 1e-10
     ), "Dissipative forces not ignored in evaluateRphiderivs"
     assert (
         numpy.fabs(
-            potential.evaluatephizderivs([lp, cdfc], R, z, phi=1.0)
-            - potential.evaluatephizderivs([lp, cdfc], R, z, phi=1.0)
+            potential.evaluatephizderivs(lp + cdfc, R, z, phi=1.0)
+            - potential.evaluatephizderivs(lp + cdfc, R, z, phi=1.0)
         )
         < 1e-10
     ), "Dissipative forces not ignored in evaluatephizderivs"
     assert (
         numpy.fabs(
-            potential.evaluater2derivs([lp, cdfc], R, z, phi=1.0)
-            - potential.evaluater2derivs([lp, cdfc], R, z, phi=1.0)
+            potential.evaluater2derivs(lp + cdfc, R, z, phi=1.0)
+            - potential.evaluater2derivs(lp + cdfc, R, z, phi=1.0)
         )
         < 1e-10
     ), "Dissipative forces not ignored in evaluater2derivs"
@@ -6278,13 +6320,13 @@ def test_dissipative_noVelocityError():
     )
     R, z, phi = 2.0, 0.4, 1.1
     with pytest.raises(potential.PotentialError) as excinfo:
-        dummy = potential.evaluateRforces([lp, cdfc], R, z, phi=phi)
+        dummy = potential.evaluateRforces(lp + cdfc, R, z, phi=phi)
     with pytest.raises(potential.PotentialError) as excinfo:
-        dummy = potential.evaluatephitorques([lp, cdfc], R, z, phi=phi)
+        dummy = potential.evaluatephitorques(lp + cdfc, R, z, phi=phi)
     with pytest.raises(potential.PotentialError) as excinfo:
-        dummy = potential.evaluatezforces([lp, cdfc], R, z, phi=phi)
+        dummy = potential.evaluatezforces(lp + cdfc, R, z, phi=phi)
     with pytest.raises(potential.PotentialError) as excinfo:
-        dummy = potential.evaluaterforces([lp, cdfc], R, z, phi=phi)
+        dummy = potential.evaluaterforces(lp + cdfc, R, z, phi=phi)
     return None
 
 
@@ -6792,11 +6834,20 @@ def test_rtide():
     )
     # Also test function interface
     assert (
-        abs(1.0 - potential.rtide([lp], 1.0, 0.0, M=1.0) / 0.793700525984) < 10.0**-12.0
+        abs(
+            1.0
+            - potential.rtide(potential.CompositePotential([lp]), 1.0, 0.0, M=1.0)
+            / 0.793700525984
+        )
+        < 10.0**-12.0
     ), "Calculation of rtide in logarithmic potential fails"
     pmass = potential.PlummerPotential(b=0.0)
     assert (
-        abs(1.0 - potential.rtide([pmass], 1.0, 0.0, M=1.0) / 0.693361274351)
+        abs(
+            1.0
+            - potential.rtide(potential.CompositePotential([pmass]), 1.0, 0.0, M=1.0)
+            / 0.693361274351
+        )
         < 10.0**-12.0
     ), "Calculation of rtide in point-mass potential fails"
     return None
@@ -6808,7 +6859,7 @@ def test_rtide_noMError():
     with pytest.raises(potential.PotentialError) as excinfo:
         dummy = lp.rtide(1.0, 0.0)
     with pytest.raises(potential.PotentialError) as excinfo:
-        dummy = potential.rtide([lp], 1.0, 0.0)
+        dummy = potential.rtide(potential.CompositePotential([lp]), 1.0, 0.0)
     return None
 
 
@@ -6825,18 +6876,20 @@ def test_ttensor():
         "Calculation of tidal tensor in point-mass potential fails"
     )
     # Also test function interface
-    tij = potential.ttensor([pmass], 1.0, 0.0, 0.0)
+    tij = potential.ttensor(potential.CompositePotential([pmass]), 1.0, 0.0, 0.0)
     # Full tidal tensor here should be diag(2,-1,-1)
     assert numpy.all(numpy.fabs(tij - numpy.diag([2, -1, -1])) < 1e-10), (
         "Calculation of tidal tensor in point-mass potential fails"
     )
     # Also test eigenvalues
-    tij = potential.ttensor([pmass], 1.0, 0.0, 0.0, eigenval=True)
+    tij = potential.ttensor(
+        potential.CompositePotential([pmass]), 1.0, 0.0, 0.0, eigenval=True
+    )
     assert numpy.all(numpy.fabs(tij - numpy.array([2, -1, -1])) < 1e-10), (
         "Calculation of tidal tensor in point-mass potential fails"
     )
     # Also Test symmetry when y!=0 and z!=0
-    tij = potential.ttensor([pmass], 1.0, 1.0, 1.0)
+    tij = potential.ttensor(potential.CompositePotential([pmass]), 1.0, 1.0, 1.0)
     assert numpy.all(numpy.fabs(tij[0][1] - tij[1][0]) < 1e-10), (
         "Calculation of tidal tensor in point-mass potential fails"
     )
@@ -7467,7 +7520,7 @@ def test_mult_divide_error():
     return None
 
 
-# Test that arithmetically adding potentials returns lists of potentials
+# Test that arithmetically adding potentials returns CompositePotential
 def test_add_potentials():
     assert (
         potential.MWPotential2014
@@ -7481,10 +7534,10 @@ def test_add_potentials():
     pot1 = potential.LogarithmicHaloPotential(normalize=1.0, q=0.9)
     pot2 = potential.MiyamotoNagaiPotential(normalize=0.2, a=0.4, b=0.1)
     pot3 = potential.HernquistPotential(normalize=0.4, a=0.1)
-    assert pot1 + pot2 == [pot1, pot2]
-    assert pot1 + pot2 + pot3 == [pot1, pot2, pot3]
-    assert (pot1 + pot2) + pot3 == [pot1, pot2, pot3]
-    assert pot1 + (pot2 + pot3) == [pot1, pot2, pot3]
+    assert pot1 + pot2 == potential.CompositePotential(pot1, pot2)
+    assert pot1 + pot2 + pot3 == potential.CompositePotential(pot1, pot2, pot3)
+    assert (pot1 + pot2) + pot3 == potential.CompositePotential(pot1, pot2, pot3)
+    assert pot1 + (pot2 + pot3) == potential.CompositePotential(pot1, pot2, pot3)
     # 2D
     pot1 = potential.LogarithmicHaloPotential(normalize=1.0, q=0.9).toPlanar()
     pot2 = potential.MiyamotoNagaiPotential(normalize=0.2, a=0.4, b=0.1).toPlanar()
@@ -7600,6 +7653,678 @@ def test_add_potentials_unitserror():
         potvo + pot
     with pytest.raises(AssertionError) as excinfo:
         potrovo + pot
+    return None
+
+
+def test_CompositePotential_basic():
+    # Test basic CompositePotential functionality
+    pot1 = potential.MiyamotoNagaiPotential(normalize=0.2)
+    pot2 = potential.LogarithmicHaloPotential(normalize=0.8)
+    comp = pot1 + pot2
+    # Check that it's a CompositePotential
+    assert isinstance(comp, potential.CompositePotential)
+    # Check length
+    assert len(comp) == 2
+    # Check iteration
+    pots = list(comp)
+    assert pots[0] == pot1
+    assert pots[1] == pot2
+    # Check getitem
+    assert comp[0] == pot1
+    assert comp[1] == pot2
+    return None
+
+
+def test_CompositePotential_evaluation():
+    # Test that CompositePotential evaluates correctly
+    import numpy as np
+
+    pot1 = potential.MiyamotoNagaiPotential(normalize=0.2)
+    pot2 = potential.LogarithmicHaloPotential(normalize=0.8)
+    comp = pot1 + pot2
+    pot_list = [pot1, pot2]
+
+    R, z = 1.0, 0.1
+    # Test potential evaluation
+    assert np.allclose(
+        comp(R, z, use_physical=False),
+        sum(potential.evaluatePotentials(p, R, z) for p in pot_list),
+    )
+    # Test forces
+    assert np.allclose(
+        comp.Rforce(R, z, use_physical=False),
+        sum(potential.evaluateRforces(p, R, z) for p in pot_list),
+    )
+    assert np.allclose(
+        comp.zforce(R, z, use_physical=False),
+        sum(potential.evaluatezforces(p, R, z) for p in pot_list),
+    )
+    # Test derivatives
+    assert np.allclose(
+        comp.R2deriv(R, z, use_physical=False),
+        sum(potential.evaluateR2derivs(p, R, z) for p in pot_list),
+    )
+    assert np.allclose(
+        comp.z2deriv(R, z, use_physical=False),
+        sum(potential.evaluatez2derivs(p, R, z) for p in pot_list),
+    )
+    assert np.allclose(
+        comp.Rzderiv(R, z, use_physical=False),
+        sum(potential.evaluateRzderivs(p, R, z) for p in pot_list),
+    )
+    # Test density
+    assert np.allclose(
+        comp.dens(R, z, use_physical=False),
+        sum(potential.evaluateDensities(p, R, z) for p in pot_list),
+    )
+    return None
+
+
+def test_CompositePotential_addition():
+    # Test adding CompositePotentials
+    pot1 = potential.MiyamotoNagaiPotential(normalize=0.2)
+    pot2 = potential.LogarithmicHaloPotential(normalize=0.8)
+    pot3 = potential.HernquistPotential(normalize=0.4)
+
+    # Test adding individual to CompositePotential
+    comp12 = pot1 + pot2
+    comp123 = comp12 + pot3
+    assert len(comp123) == 3
+    assert comp123[0] == pot1
+    assert comp123[1] == pot2
+    assert comp123[2] == pot3
+
+    # Test adding CompositePotential to individual
+    comp23 = pot2 + pot3
+    comp123_2 = pot1 + comp23
+    assert len(comp123_2) == 3
+    assert comp123_2[0] == pot1
+
+    # Test adding two CompositePotentials
+    comp12 = pot1 + pot2
+    comp3 = pot3 + pot3
+    comp_all = comp12 + comp3
+    assert len(comp_all) == 4
+
+    return None
+
+
+def test_CompositePotential_nested_list():
+    # Test that nested lists are flattened
+    pot1 = potential.MiyamotoNagaiPotential(normalize=0.2)
+    pot2 = potential.LogarithmicHaloPotential(normalize=0.8)
+    pot3 = potential.HernquistPotential(normalize=0.4)
+
+    # Create CompositePotential from nested list
+    comp = potential.CompositePotential([[pot1, pot2], pot3])
+    assert len(comp) == 3
+    assert comp[0] == pot1
+    assert comp[1] == pot2
+    assert comp[2] == pot3
+    return None
+
+
+def test_CompositePotential_mul_div():
+    # Test __mul__, __rmul__, __div__, __truediv__ for CompositePotential
+    pot1 = potential.MiyamotoNagaiPotential(normalize=0.2)
+    pot2 = potential.LogarithmicHaloPotential(normalize=0.8)
+    comp = pot1 + pot2
+
+    orig_val = comp(1.0, 0.1, use_physical=False)
+
+    # Test __mul__
+    comp_mul = comp * 2
+    assert isinstance(comp_mul, potential.CompositePotential)
+    assert numpy.isclose(comp_mul(1.0, 0.1, use_physical=False), 2 * orig_val), (
+        "__mul__ failed"
+    )
+
+    # Test __rmul__
+    comp_rmul = 2 * comp
+    assert isinstance(comp_rmul, potential.CompositePotential)
+    assert numpy.isclose(comp_rmul(1.0, 0.1, use_physical=False), 2 * orig_val), (
+        "__rmul__ failed"
+    )
+
+    # Test __truediv__
+    comp_div = comp / 2
+    assert isinstance(comp_div, potential.CompositePotential)
+    assert numpy.isclose(comp_div(1.0, 0.1, use_physical=False), orig_val / 2), (
+        "__truediv__ failed"
+    )
+
+    # Test that multiplying/dividing by non-number raises TypeError
+    with pytest.raises(TypeError):
+        comp * "not a number"
+    with pytest.raises(TypeError):
+        comp / "not a number"
+
+    return None
+
+
+def test_CompositePotential_all_methods():
+    # Test that all Force and Potential methods can be called on MWPotential2014
+    # (which is now a CompositePotential) and that results match module-level functions
+    from galpy.potential import MWPotential2014
+
+    assert isinstance(MWPotential2014, potential.CompositePotential)
+
+    # Test basic evaluation methods (Potential)
+    R, z, phi, t = 1.0, 0.1, 0.5, 0.0
+
+    # __call__ - compare with evaluatePotentials
+    val = MWPotential2014(R, z, phi=phi, t=t, use_physical=False)
+    func_val = potential.evaluatePotentials(MWPotential2014, R, z, phi=phi, t=t)
+    assert numpy.isclose(val, func_val), (
+        f"Potential __call__ mismatch: {val} vs {func_val}"
+    )
+
+    # Rforce - compare with evaluateRforces
+    rforce = MWPotential2014.Rforce(R, z, phi=phi, t=t, use_physical=False)
+    func_rforce = potential.evaluateRforces(MWPotential2014, R, z, phi=phi, t=t)
+    assert numpy.isclose(rforce, func_rforce), (
+        f"Rforce mismatch: {rforce} vs {func_rforce}"
+    )
+
+    # zforce - compare with evaluatezforces
+    zforce = MWPotential2014.zforce(R, z, phi=phi, t=t, use_physical=False)
+    func_zforce = potential.evaluatezforces(MWPotential2014, R, z, phi=phi, t=t)
+    assert numpy.isclose(zforce, func_zforce), (
+        f"zforce mismatch: {zforce} vs {func_zforce}"
+    )
+
+    # rforce (from Force) - compare with evaluaterforces
+    rf = MWPotential2014.rforce(R, z, phi=phi, t=t, use_physical=False)
+    func_rf = potential.evaluaterforces(MWPotential2014, R, z, phi=phi, t=t)
+    assert numpy.isclose(rf, func_rf), f"rforce mismatch: {rf} vs {func_rf}"
+
+    # phitorque - compare with evaluatephitorques
+    phitorque = MWPotential2014.phitorque(R, z, phi=phi, t=t, use_physical=False)
+    func_phitorque = potential.evaluatephitorques(MWPotential2014, R, z, phi=phi, t=t)
+    assert numpy.isclose(phitorque, func_phitorque), (
+        f"phitorque mismatch: {phitorque} vs {func_phitorque}"
+    )
+
+    # dens - compare with evaluateDensities
+    dens = MWPotential2014.dens(R, z, phi=phi, t=t, use_physical=False)
+    func_dens = potential.evaluateDensities(MWPotential2014, R, z, phi=phi, t=t)
+    assert numpy.isclose(dens, func_dens), f"dens mismatch: {dens} vs {func_dens}"
+
+    # mass (spherical) - compare with mass function
+    mass_val = MWPotential2014.mass(R, t=t, use_physical=False)
+    func_mass = potential.mass(MWPotential2014, R, t=t)
+    assert numpy.isclose(mass_val, func_mass), (
+        f"mass mismatch: {mass_val} vs {func_mass}"
+    )
+
+    # R2deriv - compare with evaluateR2derivs
+    R2deriv = MWPotential2014.R2deriv(R, z, phi=phi, t=t, use_physical=False)
+    func_R2deriv = potential.evaluateR2derivs(MWPotential2014, R, z, phi=phi, t=t)
+    assert numpy.isclose(R2deriv, func_R2deriv), (
+        f"R2deriv mismatch: {R2deriv} vs {func_R2deriv}"
+    )
+
+    # z2deriv - compare with evaluatez2derivs
+    z2deriv = MWPotential2014.z2deriv(R, z, phi=phi, t=t, use_physical=False)
+    func_z2deriv = potential.evaluatez2derivs(MWPotential2014, R, z, phi=phi, t=t)
+    assert numpy.isclose(z2deriv, func_z2deriv), (
+        f"z2deriv mismatch: {z2deriv} vs {func_z2deriv}"
+    )
+
+    # Rzderiv - compare with evaluateRzderivs
+    Rzderiv = MWPotential2014.Rzderiv(R, z, phi=phi, t=t, use_physical=False)
+    func_Rzderiv = potential.evaluateRzderivs(MWPotential2014, R, z, phi=phi, t=t)
+    assert numpy.isclose(Rzderiv, func_Rzderiv), (
+        f"Rzderiv mismatch: {Rzderiv} vs {func_Rzderiv}"
+    )
+
+    # phi2deriv - compare with evaluatephi2derivs
+    phi2deriv = MWPotential2014.phi2deriv(R, z, phi=phi, t=t, use_physical=False)
+    func_phi2deriv = potential.evaluatephi2derivs(MWPotential2014, R, z, phi=phi, t=t)
+    assert numpy.isclose(phi2deriv, func_phi2deriv), (
+        f"phi2deriv mismatch: {phi2deriv} vs {func_phi2deriv}"
+    )
+
+    # Rphideriv - compare with evaluateRphiderivs
+    Rphideriv = MWPotential2014.Rphideriv(R, z, phi=phi, t=t, use_physical=False)
+    func_Rphideriv = potential.evaluateRphiderivs(MWPotential2014, R, z, phi=phi, t=t)
+    assert numpy.isclose(Rphideriv, func_Rphideriv), (
+        f"Rphideriv mismatch: {Rphideriv} vs {func_Rphideriv}"
+    )
+
+    # phizderiv - compare with evaluatephizderivs
+    phizderiv = MWPotential2014.phizderiv(R, z, phi=phi, t=t, use_physical=False)
+    func_phizderiv = potential.evaluatephizderivs(MWPotential2014, R, z, phi=phi, t=t)
+    assert numpy.isclose(phizderiv, func_phizderiv), (
+        f"phizderiv mismatch: {phizderiv} vs {func_phizderiv}"
+    )
+
+    # r2deriv - compare with evaluater2derivs
+    r2deriv = MWPotential2014.r2deriv(R, z, phi=phi, t=t, use_physical=False)
+    func_r2deriv = potential.evaluater2derivs(MWPotential2014, R, z, phi=phi, t=t)
+    assert numpy.isclose(r2deriv, func_r2deriv), (
+        f"r2deriv mismatch: {r2deriv} vs {func_r2deriv}"
+    )
+
+    # vcirc - compare with vcirc function
+    vcirc = MWPotential2014.vcirc(R, phi=phi, t=t, use_physical=False)
+    func_vcirc = potential.vcirc(MWPotential2014, R, phi=phi, t=t)
+    assert numpy.isclose(vcirc, func_vcirc), f"vcirc mismatch: {vcirc} vs {func_vcirc}"
+
+    # omegac - compare with omegac function
+    omegac = MWPotential2014.omegac(R, t=t, use_physical=False)
+    func_omegac = potential.omegac(MWPotential2014, R, t=t)
+    assert numpy.isclose(omegac, func_omegac), (
+        f"omegac mismatch: {omegac} vs {func_omegac}"
+    )
+
+    # epifreq - compare with epifreq function
+    epifreq = MWPotential2014.epifreq(R, t=t, use_physical=False)
+    func_epifreq = potential.epifreq(MWPotential2014, R, t=t)
+    assert numpy.isclose(epifreq, func_epifreq), (
+        f"epifreq mismatch: {epifreq} vs {func_epifreq}"
+    )
+
+    # verticalfreq - compare with verticalfreq function
+    verticalfreq = MWPotential2014.verticalfreq(R, t=t, use_physical=False)
+    func_verticalfreq = potential.verticalfreq(MWPotential2014, R, t=t)
+    assert numpy.isclose(verticalfreq, func_verticalfreq), (
+        f"verticalfreq mismatch: {verticalfreq} vs {func_verticalfreq}"
+    )
+
+    # vesc - compare with vesc function
+    vesc = MWPotential2014.vesc(R, t=t, use_physical=False)
+    func_vesc = potential.vesc(MWPotential2014, R, t=t)
+    assert numpy.isclose(vesc, func_vesc), f"vesc mismatch: {vesc} vs {func_vesc}"
+
+    # flattening - compare with flattening function
+    flattening = MWPotential2014.flattening(R, z, t=t)
+    func_flattening = potential.flattening(MWPotential2014, R, z, t=t)
+    assert numpy.isclose(flattening, func_flattening), (
+        f"flattening mismatch: {flattening} vs {func_flattening}"
+    )
+
+    # Test turn_physical_off and turn_physical_on
+    MWPotential2014.turn_physical_off()
+    val_off = MWPotential2014(R, z)
+    assert val_off is not None, "turn_physical_off failed"
+
+    MWPotential2014.turn_physical_on(ro=8.0, vo=220.0)
+    val_on = MWPotential2014(R, z)
+    assert val_on is not None, "turn_physical_on failed"
+
+    # Reset to default state
+    MWPotential2014.turn_physical_on()
+
+    return None
+
+
+def test_list_of_potentials_deprecation():
+    # Test that passing a list of potentials emits a DeprecationWarning
+    import warnings
+
+    from packaging.version import Version
+
+    import galpy
+
+    pot1 = potential.MiyamotoNagaiPotential(normalize=0.2)
+    pot2 = potential.LogarithmicHaloPotential(normalize=0.8)
+    pot_list = [pot1, pot2]
+
+    current_version = Version(galpy.__version__.split(".dev")[0])
+    if current_version > Version("1.13.99"):
+        # After 1.13.x, this should raise TypeError
+        with pytest.raises(TypeError):
+            potential.evaluatePotentials(pot_list, 1.0, 0.1)
+    else:
+        # Before 1.13.x, this should emit DeprecationWarning
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            potential.evaluatePotentials(pot_list, 1.0, 0.1)
+            assert len(w) == 1
+            assert issubclass(w[0].category, DeprecationWarning)
+            assert "deprecated" in str(w[0].message)
+    return None
+
+
+def test_CompositePotential_setitem():
+    # Test that item assignment works on CompositePotential
+    from galpy.potential import (
+        CompositePotential,
+        LogarithmicHaloPotential,
+        MiyamotoNagaiPotential,
+        NFWPotential,
+    )
+
+    pot1 = MiyamotoNagaiPotential(normalize=0.3)
+    pot2 = NFWPotential(normalize=0.4)
+    pot3 = LogarithmicHaloPotential(normalize=0.3)
+    comp = CompositePotential(pot1, pot2, pot3)
+
+    # Test simple item assignment
+    original_amp = comp[1]._amp
+    comp[1] *= 1.5
+    assert numpy.isclose(comp[1]._amp, original_amp * 1.5), (
+        "Item assignment via *= failed"
+    )
+
+    # Test that the modification persists
+    assert numpy.isclose(comp[1]._amp, original_amp * 1.5), (
+        "Modified amplitude did not persist"
+    )
+
+    # Test assignment with a different potential
+    new_pot = NFWPotential(normalize=0.6)
+    comp[1] = new_pot
+    assert comp[1] == new_pot, "Direct item assignment failed"
+
+    return None
+
+
+def test_CompositePotential_planar_conversion():
+    # Test that CompositePotential can be converted to planar potential
+    from galpy.potential import (
+        CompositePotential,
+        MiyamotoNagaiPotential,
+        NFWPotential,
+        toPlanarPotential,
+    )
+
+    pot1 = MiyamotoNagaiPotential(normalize=0.5)
+    pot2 = NFWPotential(normalize=0.5)
+    comp = CompositePotential(pot1, pot2)
+
+    # Test conversion to planar potential
+    planar_comp = toPlanarPotential(comp)
+
+    # Should return a list
+    assert isinstance(planar_comp, list), "toPlanarPotential should return a list"
+    assert len(planar_comp) == 2, "Planar potential should have 2 components"
+
+    # Test that we can evaluate the planar potential
+    from galpy.potential import evaluateplanarPotentials
+
+    R = 1.0
+    phi = 0.1
+    val = evaluateplanarPotentials(planar_comp, R, phi=phi)
+    assert isinstance(val, float), "Planar potential evaluation failed"
+
+    return None
+
+
+def test_CompositePotential_slicing():
+    # Test that slicing CompositePotential returns appropriate types
+    from galpy.potential import CompositePotential, MWPotential2014
+
+    # Test single item access (should return single Potential)
+    single = MWPotential2014[0]
+    assert not isinstance(single, CompositePotential), (
+        "Single item access should return a Potential, not CompositePotential"
+    )
+
+    # Test slicing (should return CompositePotential)
+    sliced = MWPotential2014[1:]
+    assert isinstance(sliced, CompositePotential), (
+        "Slicing should return a CompositePotential"
+    )
+    assert len(sliced) == 2, "Sliced potential should have 2 components"
+
+    # Test that sliced CompositePotential methods work
+    R, z, phi, t = 1.0, 0.1, 0.2, 0.0
+    val = sliced(R, z, phi=phi, t=t)
+    assert isinstance(val, float), "Sliced CompositePotential evaluation failed"
+
+    force = sliced.Rforce(R, z, phi=phi, t=t)
+    assert isinstance(force, float), "Sliced CompositePotential Rforce failed"
+
+    # Test multiple item slice
+    middle = MWPotential2014[0:2]
+    assert isinstance(middle, CompositePotential), (
+        "Multi-item slice should return CompositePotential"
+    )
+    assert len(middle) == 2, "Multi-item slice should have 2 components"
+
+    # Test that sliced potential can be evaluated correctly
+    val_middle = middle(R, z, phi=phi, t=t)
+    assert isinstance(val_middle, float), "Middle slice evaluation failed"
+
+    return None
+
+
+def test_CompositePotential_explicit_units():
+    # Test that explicit ro/vo initialization works correctly
+    from galpy.potential import CompositePotential, LogarithmicHaloPotential
+
+    pot1 = LogarithmicHaloPotential(normalize=0.5)
+    pot2 = LogarithmicHaloPotential(normalize=0.5)
+
+    # Create CompositePotential with explicit ro and vo
+    comp = CompositePotential(pot1, pot2, ro=8.5, vo=220.0)
+
+    # Check that ro and vo are set correctly
+    assert comp._ro == 8.5, "Explicit ro not set correctly"
+    assert comp._vo == 220.0, "Explicit vo not set correctly"
+    assert comp._roSet, "roSet should be True when ro is explicitly provided"
+    assert comp._voSet, "voSet should be True when vo is explicitly provided"
+
+    # Test with only ro set
+    comp_ro = CompositePotential(pot1, pot2, ro=9.0)
+    assert comp_ro._ro == 9.0, "Explicit ro not set correctly"
+    assert comp_ro._roSet, "roSet should be True when ro is explicitly provided"
+
+    # Test with only vo set
+    comp_vo = CompositePotential(pot1, pot2, vo=230.0)
+    assert comp_vo._vo == 230.0, "Explicit vo not set correctly"
+    assert comp_vo._voSet, "voSet should be True when vo is explicitly provided"
+
+    return None
+
+
+def test_CompositePotential_setitem_error():
+    # Test that __setitem__ raises TypeError for non-Potential values
+    from galpy.potential import CompositePotential, LogarithmicHaloPotential
+
+    pot1 = LogarithmicHaloPotential(normalize=0.5)
+    pot2 = LogarithmicHaloPotential(normalize=0.5)
+    comp = CompositePotential(pot1, pot2)
+
+    # Try to set with a non-Potential value
+    try:
+        comp[0] = "not a potential"
+        assert False, "Should have raised TypeError"
+    except TypeError as e:
+        assert "Can only assign Potential or Force" in str(e)
+
+    # Try with a number
+    try:
+        comp[1] = 42
+        assert False, "Should have raised TypeError"
+    except TypeError as e:
+        assert "Can only assign Potential or Force" in str(e)
+
+    return None
+
+
+def test_CompositePotential_add_error():
+    # Test that __add__ raises TypeError for incompatible types
+    from galpy.potential import CompositePotential, LogarithmicHaloPotential
+
+    pot1 = LogarithmicHaloPotential(normalize=0.5)
+    pot2 = LogarithmicHaloPotential(normalize=0.5)
+    comp = CompositePotential(pot1, pot2)
+
+    # Try to add a string
+    try:
+        result = comp + "not a potential"
+        assert False, "Should have raised TypeError"
+    except TypeError as e:
+        assert "Can only add Potential or CompositePotential" in str(e)
+
+    # Try to add a number
+    try:
+        result = comp + 42
+        assert False, "Should have raised TypeError"
+    except TypeError as e:
+        assert "Can only add Potential or CompositePotential" in str(e)
+
+    return None
+
+
+def test_CompositePotential_repr():
+    # Test __repr__ method
+    from galpy.potential import (
+        CompositePotential,
+        LogarithmicHaloPotential,
+        MiyamotoNagaiPotential,
+    )
+
+    # Test with single potential
+    pot1 = LogarithmicHaloPotential(normalize=1.0)
+    comp_single = CompositePotential(pot1)
+    repr_single = repr(comp_single)
+    assert "CompositePotential" in repr_single, (
+        "repr should contain 'CompositePotential'"
+    )
+    assert "single potential" in repr_single, "repr should indicate single potential"
+    assert "LogarithmicHaloPotential" in repr_single, (
+        "repr should contain potential class name"
+    )
+
+    # Test with multiple potentials
+    pot2 = MiyamotoNagaiPotential(normalize=0.5)
+    comp_multi = CompositePotential(pot1, pot2)
+    repr_multi = repr(comp_multi)
+    assert "CompositePotential" in repr_multi, (
+        "repr should contain 'CompositePotential'"
+    )
+    assert "2 potentials" in repr_multi, "repr should indicate 2 potentials"
+
+    return None
+
+
+def test_SpiralArmsPotential_multidim_array_error():
+    # Test that SpiralArmsPotential raises ValueError for multi-dimensional arrays
+    import numpy
+
+    from galpy.potential import SpiralArmsPotential
+
+    # Create a SpiralArmsPotential
+    sp = SpiralArmsPotential()
+
+    # Test with 2D array for R
+    R_2d = numpy.array([[1.0, 1.1], [1.2, 1.3]])
+    z = 0.1
+    phi = 0.0
+    t = 0.0
+
+    # Test _evaluate
+    try:
+        sp._evaluate(R_2d, z, phi=phi, t=t)
+        assert False, "Should have raised ValueError for 2D R array"
+    except ValueError as e:
+        assert "more than one dimension" in str(e)
+
+    # Test _Rforce
+    try:
+        sp._Rforce(R_2d, z, phi=phi, t=t)
+        assert False, "Should have raised ValueError for 2D R array"
+    except ValueError as e:
+        assert "more than one dimension" in str(e)
+
+    # Test _zforce
+    try:
+        sp._zforce(R_2d, z, phi=phi, t=t)
+        assert False, "Should have raised ValueError for 2D R array"
+    except ValueError as e:
+        assert "more than one dimension" in str(e)
+
+    # Test _phitorque
+    try:
+        sp._phitorque(R_2d, z, phi=phi, t=t)
+        assert False, "Should have raised ValueError for 2D R array"
+    except ValueError as e:
+        assert "more than one dimension" in str(e)
+
+    # Test _R2deriv
+    try:
+        sp._R2deriv(R_2d, z, phi=phi, t=t)
+        assert False, "Should have raised ValueError for 2D R array"
+    except ValueError as e:
+        assert "more than one dimension" in str(e)
+
+    # Test _z2deriv
+    try:
+        sp._z2deriv(R_2d, z, phi=phi, t=t)
+        assert False, "Should have raised ValueError for 2D R array"
+    except ValueError as e:
+        assert "more than one dimension" in str(e)
+
+    # Test _phi2deriv
+    try:
+        sp._phi2deriv(R_2d, z, phi=phi, t=t)
+        assert False, "Should have raised ValueError for 2D R array"
+    except ValueError as e:
+        assert "more than one dimension" in str(e)
+
+    # Test _Rzderiv
+    try:
+        sp._Rzderiv(R_2d, z, phi=phi, t=t)
+        assert False, "Should have raised ValueError for 2D R array"
+    except ValueError as e:
+        assert "more than one dimension" in str(e)
+
+    # Test _Rphideriv
+    try:
+        sp._Rphideriv(R_2d, z, phi=phi, t=t)
+        assert False, "Should have raised ValueError for 2D R array"
+    except ValueError as e:
+        assert "more than one dimension" in str(e)
+
+    # Test _phizderiv
+    try:
+        sp._phizderiv(R_2d, z, phi=phi, t=t)
+        assert False, "Should have raised ValueError for 2D R array"
+    except ValueError as e:
+        assert "more than one dimension" in str(e)
+
+    # Test _dens
+    try:
+        sp._dens(R_2d, z, phi=phi, t=t)
+        assert False, "Should have raised ValueError for 2D R array"
+    except ValueError as e:
+        assert "more than one dimension" in str(e)
+
+    # Test with 2D array for z
+    R = 1.0
+    z_2d = numpy.array([[0.1, 0.2], [0.3, 0.4]])
+
+    try:
+        sp._evaluate(R, z_2d, phi=phi, t=t)
+        assert False, "Should have raised ValueError for 2D z array"
+    except ValueError as e:
+        assert "more than one dimension" in str(e)
+
+    # Test _Rphideriv with 2D z
+    try:
+        sp._Rphideriv(R, z_2d, phi=phi, t=t)
+        assert False, "Should have raised ValueError for 2D z array"
+    except ValueError as e:
+        assert "more than one dimension" in str(e)
+
+    # Test _phizderiv with 2D z
+    try:
+        sp._phizderiv(R, z_2d, phi=phi, t=t)
+        assert False, "Should have raised ValueError for 2D z array"
+    except ValueError as e:
+        assert "more than one dimension" in str(e)
+
+    # Test _dens with 2D z
+    try:
+        sp._dens(R, z_2d, phi=phi, t=t)
+        assert False, "Should have raised ValueError for 2D z array"
+    except ValueError as e:
+        assert "more than one dimension" in str(e)
+
     return None
 
 
@@ -8161,7 +8886,7 @@ def test_dehnen_bar_python_c_consistency():
     barp = potential.DehnenBarPotential(
         omegab=0.0, rb=0.5, Af=200.0, barphi=0.0, tform=-10000, tsteady=0
     )
-    pot = [diskp, barp]
+    pot = diskp + barp
     # initialize orbits to be integrated
     orb_p = orbit.Orbit(vxvv=[0.2, 2.0, 0.0, 1, 0.0, 2.0], ro=8.0)
     orb_c = orbit.Orbit(vxvv=[0.2, 2.0, 0.0, 1, 0.0, 2.0], ro=8.0)
@@ -8240,8 +8965,13 @@ def test_plotting():
     kp.plotRotcurve()
     kp.toPlanar().plotRotcurve()  # through planar interface
     kp.plotRotcurve(Rrange=[0.01, 10.0], grid=101, savefilename=None)
-    potential.plotRotcurve([kp])
-    potential.plotRotcurve([kp], Rrange=[0.01, 10.0], grid=101, savefilename=None)
+    potential.plotRotcurve(potential.CompositePotential([kp]))
+    potential.plotRotcurve(
+        potential.CompositePotential([kp]),
+        Rrange=[0.01, 10.0],
+        grid=101,
+        savefilename=None,
+    )
     # Also while saving the result
     savefile, tmp_savefilename = tempfile.mkstemp()
     try:
@@ -8257,8 +8987,13 @@ def test_plotting():
     kp.plotEscapecurve()
     kp.toPlanar().plotEscapecurve()  # Through planar interface
     kp.plotEscapecurve(Rrange=[0.01, 10.0], grid=101, savefilename=None)
-    potential.plotEscapecurve([kp])
-    potential.plotEscapecurve([kp], Rrange=[0.01, 10.0], grid=101, savefilename=None)
+    potential.plotEscapecurve(potential.CompositePotential([kp]))
+    potential.plotEscapecurve(
+        potential.CompositePotential([kp]),
+        Rrange=[0.01, 10.0],
+        grid=101,
+        savefilename=None,
+    )
     # Also while saving the result
     savefile, tmp_savefilename = tempfile.mkstemp()
     try:
@@ -8328,7 +9063,7 @@ def test_plotting():
         )
     finally:
         os.remove(tmp_savefilename)
-    potential.plotPotentials([kp])
+    potential.plotPotentials(potential.CompositePotential([kp]))
     # Also while saving the result
     savefile, tmp_savefilename = tempfile.mkstemp()
     try:
@@ -8336,7 +9071,7 @@ def test_plotting():
         os.remove(tmp_savefilename)
         # First save
         potential.plotPotentials(
-            [kp],
+            potential.CompositePotential([kp]),
             rmin=0.01,
             rmax=1.8,
             nrs=11,
@@ -8350,7 +9085,7 @@ def test_plotting():
         )
         # Then plot using the saved file
         potential.plotPotentials(
-            [kp],
+            potential.CompositePotential([kp]),
             t=1.0,
             rmin=0.01,
             rmax=1.8,
@@ -8374,9 +9109,11 @@ def test_plotting():
         raise AssertionError(
             "Potential.plot with effective=True, but Lz=None did not return a RuntimeError"
         )
-    potential.plotPotentials([kp], effective=True, Lz=1.0)
+    potential.plotPotentials(potential.CompositePotential([kp]), effective=True, Lz=1.0)
     try:
-        potential.plotPotentials([kp], effective=True, Lz=None)
+        potential.plotPotentials(
+            potential.CompositePotential([kp]), effective=True, Lz=None
+        )
     except RuntimeError:
         pass
     else:
@@ -8412,9 +9149,9 @@ def test_plotting():
         lp.plotDensity(savefilename=tmp_savefilename)
     finally:
         os.remove(tmp_savefilename)
-    potential.plotDensities([lp])
+    potential.plotDensities(potential.CompositePotential([lp]))
     potential.plotDensities(
-        [lp],
+        potential.CompositePotential([lp]),
         t=1.0,
         rmin=0.05,
         rmax=1.8,
@@ -8458,9 +9195,9 @@ def test_plotting():
         lp.plotSurfaceDensity(savefilename=tmp_savefilename)
     finally:
         os.remove(tmp_savefilename)
-    potential.plotSurfaceDensities([lp])
+    potential.plotSurfaceDensities(potential.CompositePotential([lp]))
     potential.plotSurfaceDensities(
-        [lp],
+        potential.CompositePotential([lp]),
         t=1.0,
         z=2.0,
         xmin=0.05,
@@ -9286,9 +10023,13 @@ class testMWPotential(Potential):
     """Initialize with potential in natural units"""
 
     def __init__(self, potlist=MWPotential):
-        self._potlist = potlist
+        self._potlist = (
+            potential.CompositePotential(potlist)
+            if not isinstance(potlist, potential.CompositePotential)
+            else potlist
+        )
         Potential.__init__(self, amp=1.0)
-        self.isNonAxi = _isNonAxi(self._potlist)
+        self.isNonAxi = self._potlist.isNonAxi
         return None
 
     def _evaluate(self, R, z, phi=0, t=0, dR=0, dphi=0):
