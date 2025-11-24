@@ -1823,7 +1823,7 @@ def impulse_deltav_general_fullplummerintegration(
         ostar = Orbit(vxvv=[R[i], -vR[i], -vp[i], z[i], -vz[i], phi[i]])
         ostar.integrate(times, galpot, method=integrate_method)
         oboth = ostar(times[-1]).flip()
-        oboth.integrate(dtimes, [galpot, plumpot], method=integrate_method)
+        oboth.integrate(dtimes, galpot + plumpot, method=integrate_method)
         ogalpot = oboth(times[-1]).flip()
         ogalpot.integrate(times, galpot, method=integrate_method)
         deltav[i][0] = -ogalpot.vx(times[-1]) - v[i][0]
