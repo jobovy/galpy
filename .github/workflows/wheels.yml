@@ -207,10 +207,39 @@ jobs:
         with:
           name: sdist
           path: ./dist/*.tar.gz
+  test_sdist:
+    name: Test that galpy can be built from the sdist
+    needs: build_sdist
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: 3.x
+      - name: Install GSL
+        run: sudo apt-get install -y libgsl0-dev
+      - uses: actions/download-artifact@v6
+        with:
+          name: sdist
+      - name: Build from sdist
+        run: python -m pip install -v galpy*.tar.gz
+      - name: Run simple test
+        working-directory: ${{ runner.temp }}
+        run: |
+          python -c "
+          import numpy
+          from galpy.potential import MWPotential2014
+          from galpy.orbit import Orbit
+          o = Orbit()
+          ts = numpy.linspace(0., 100., 1001)
+          o.integrate(ts, MWPotential2014)
+          print('Orbit integration successful!')
+          print('Final position:', o.R(ts[-1]), o.z(ts[-1]))
+          "
 # Deploy wheels and sdist to PyPI (upon release creation)
   deploy_pypi:
     name: Deploy to PyPI
-    needs: [build_wheels, test_wheels, build_sdist]
+    needs: [build_wheels, test_wheels, test_sdist]
     runs-on: ubuntu-latest
     permissions:
       id-token: write  # IMPORTANT: this permission is mandatory for trusted publishing
