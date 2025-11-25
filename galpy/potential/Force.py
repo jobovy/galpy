@@ -221,17 +221,50 @@ class Force:
         - 2020-04-22 - Don't turn on a parameter when it is False - Bovy (UofT)
 
         """
-        if not ro is False:
+        if ro is not False:
             self._roSet = True
             ro = conversion.parse_length_kpc(ro)
-            if not ro is None:
+            if ro is not None:
                 self._ro = ro
-        if not vo is False:
+        if vo is not False:
             self._voSet = True
             vo = conversion.parse_velocity_kms(vo)
-            if not vo is None:
+            if vo is not None:
                 self._vo = vo
         return None
+
+    def _Rforce_nodecorator(self, R, z, **kwargs):
+        # Separate, so it can be used during orbit integration
+        try:
+            return self._amp * self._Rforce(R, z, **kwargs)
+        except AttributeError:  # pragma: no cover
+            from .Potential import PotentialError
+
+            raise PotentialError("'_Rforce' function not implemented for this Force")
+
+    def _zforce_nodecorator(self, R, z, **kwargs):
+        # Separate, so it can be used during orbit integration
+        try:
+            return self._amp * self._zforce(R, z, **kwargs)
+        except AttributeError:  # pragma: no cover
+            from .Potential import PotentialError
+
+            raise PotentialError(
+                "'_zforce' function not implemented for this potential"
+            )
+
+    def _phitorque_nodecorator(self, R, z, **kwargs):
+        # Separate, so it can be used during orbit integration
+        try:
+            return self._amp * self._phitorque(R, z, **kwargs)
+        except AttributeError:  # pragma: no cover
+            if self.isNonAxi:
+                from .Potential import PotentialError
+
+                raise PotentialError(
+                    "'_phitorque' function not implemented for this DissipativeForce"
+                )
+            return 0.0
 
     @potential_physical_input
     @physical_conversion("force", pop=True)

@@ -73,17 +73,6 @@ class DissipativeForce(Force):
         """
         return self._Rforce_nodecorator(R, z, phi=phi, t=t, v=v)
 
-    def _Rforce_nodecorator(self, R, z, phi=0.0, t=0.0, v=None):
-        # Separate, so it can be used during orbit integration
-        try:
-            return self._amp * self._Rforce(R, z, phi=phi, t=t, v=v)
-        except AttributeError:  # pragma: no cover
-            from .Potential import PotentialError
-
-            raise PotentialError(
-                "'_Rforce' function not implemented for this DissipativeForce"
-            )
-
     @potential_physical_input
     @physical_conversion("force", pop=True)
     def zforce(self, R, z, phi=0.0, t=0.0, v=None):
@@ -115,17 +104,6 @@ class DissipativeForce(Force):
         """
         return self._zforce_nodecorator(R, z, phi=phi, t=t, v=v)
 
-    def _zforce_nodecorator(self, R, z, phi=0.0, t=0.0, v=None):
-        # Separate, so it can be used during orbit integration
-        try:
-            return self._amp * self._zforce(R, z, phi=phi, t=t, v=v)
-        except AttributeError:  # pragma: no cover
-            from .Potential import PotentialError
-
-            raise PotentialError(
-                "'_zforce' function not implemented for this DissipativeForce"
-            )
-
     @potential_physical_input
     @physical_conversion("force", pop=True)
     def phitorque(self, R, z, phi=0.0, t=0.0, v=None):
@@ -156,19 +134,6 @@ class DissipativeForce(Force):
 
         """
         return self._phitorque_nodecorator(R, z, phi=phi, t=t, v=v)
-
-    def _phitorque_nodecorator(self, R, z, phi=0.0, t=0.0, v=None):
-        # Separate, so it can be used during orbit integration
-        try:
-            return self._amp * self._phitorque(R, z, phi=phi, t=t, v=v)
-        except AttributeError:  # pragma: no cover
-            if self.isNonAxi:
-                from .Potential import PotentialError
-
-                raise PotentialError(
-                    "'_phitorque' function not implemented for this DissipativeForce"
-                )
-            return 0.0
 
 
 def _isDissipative(obj):
