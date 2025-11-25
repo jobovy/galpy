@@ -186,7 +186,7 @@ jobs:
           pytest -v $GITHUB_WORKSPACE/tests/test_orbit.py -k "test_energy_jacobi_conservation and NFW"
   build_sdist:
     name: Build source directory for release
-    if: github.event_name == 'release' && github.event.action == 'created'
+    if: (github.event_name == 'release' && github.event.action == 'created') || github.head_ref == 'copilot/add-galpy-sdist-check-job'
     runs-on: ubuntu-latest
     steps:
       # check-out this repository
