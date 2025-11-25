@@ -381,8 +381,7 @@ This version mainly consists of changes to the internal functioning of
     (now ``main``) branch and these are automatically uploaded to PyPI
     upon release. See the :ref:`Installation Instructions <installation>`
     for more info. Binary wheels on Windows are also built for every
-    push on AppVeyor, see the :ref:`Windows installation instructions
-    <install_win>`.
+    push on AppVeyor.
 
 v1.5
 +++++

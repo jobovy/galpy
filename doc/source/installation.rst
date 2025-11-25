@@ -461,7 +461,7 @@ in the ``CMD`` shell or::
 if you are using ``PowerShell``. Note that you have to execute these commands
 from the ``conda`` environment such that the ``CONDA_PREFIX`` variable is set.
 You also still have to set the ``INCLUDE``, ``LIB``, and ``LIBPATH`` environment
-variables as discussed in :ref:`detailed_installation_win` (also from the conda
+variables as discussed in :ref:`detailed_installation` (also from the conda
 environment). Then you can deactivate the conda environment and install
 ``galpy`` using, e.g., ``pip``. Whenever you run ``galpy``, you have to adjust
 the ``PATH`` variable as above.
