@@ -199,15 +199,6 @@ class Potential(Force):
         """
         return self._Rforce_nodecorator(R, z, phi=phi, t=t)
 
-    def _Rforce_nodecorator(self, R, z, phi=0.0, t=0.0):
-        # Separate, so it can be used during orbit integration
-        try:
-            return self._amp * self._Rforce(R, z, phi=phi, t=t)
-        except AttributeError:  # pragma: no cover
-            raise PotentialError(
-                "'_Rforce' function not implemented for this potential"
-            )
-
     @potential_physical_input
     @physical_conversion("force", pop=True)
     def zforce(self, R, z, phi=0.0, t=0.0):
@@ -237,14 +228,241 @@ class Potential(Force):
         """
         return self._zforce_nodecorator(R, z, phi=phi, t=t)
 
-    def _zforce_nodecorator(self, R, z, phi=0.0, t=0.0):
-        # Separate, so it can be used during orbit integration
+    @potential_physical_input
+    @physical_conversion("energy", pop=True)
+    def phitorque(self, R, z, phi=0.0, t=0.0):
+        """
+        Evaluate the azimuthal torque.
+
+        Parameters
+        ----------
+        R : float or Quantity
+            Cylindrical Galactocentric radius.
+        z : float or Quantity
+            Vertical height.
+        phi : float or Quantity, optional
+            Azimuth (default: 0.0).
+        t : float or Quantity, optional
+            Time (default: 0.0).
+
+        Returns
+        -------
+        float or Quantity
+            tau_phi(R, z, phi, t).
+
+        Notes
+        -----
+        - 2010-07-10 - Written - Bovy (NYU)
+        """
+        return self._phitorque_nodecorator(R, z, phi=phi, t=t)
+
+    @potential_physical_input
+    @physical_conversion("forcederivative", pop=True)
+    def R2deriv(self, R, z, phi=0.0, t=0.0):
+        """
+        Evaluate the second radial derivative.
+
+        Parameters
+        ----------
+        R : float or Quantity
+            Galactocentric radius.
+        z : float or Quantity
+            Vertical height.
+        phi : float or Quantity, optional
+            Galactocentric azimuth (default: 0.0).
+        t : float or Quantity, optional
+            Time (default: 0.0).
+
+        Returns
+        -------
+        float or Quantity
+            d2phi/dR2.
+
+        Notes
+        -----
+        - 2011-10-09 - Written - Bovy (IAS)
+
+        """
         try:
-            return self._amp * self._zforce(R, z, phi=phi, t=t)
+            return self._amp * self._R2deriv(R, z, phi=phi, t=t)
         except AttributeError:  # pragma: no cover
             raise PotentialError(
-                "'_zforce' function not implemented for this potential"
+                "'_R2deriv' function not implemented for this potential"
             )
+
+    @potential_physical_input
+    @physical_conversion("forcederivative", pop=True)
+    def z2deriv(self, R, z, phi=0.0, t=0.0):
+        """
+        Evaluate the second vertical derivative.
+
+        Parameters
+        ----------
+        R : float or Quantity
+            Galactocentric radius.
+        z : float or Quantity
+            Vertical height.
+        phi : float or Quantity, optional
+            Galactocentric azimuth (default: 0.0).
+        t : float or Quantity, optional
+            Time (default: 0.0).
+
+        Returns
+        -------
+        float or Quantity
+            d2phi/dz2.
+
+        Notes
+        -----
+        - 2012-07-25 - Written - Bovy (IAS@MPIA)
+
+        """
+        try:
+            return self._amp * self._z2deriv(R, z, phi=phi, t=t)
+        except AttributeError:  # pragma: no cover
+            raise PotentialError(
+                "'_z2deriv' function not implemented for this potential"
+            )
+
+    @potential_physical_input
+    @physical_conversion("energy", pop=True)
+    def phi2deriv(self, R, z, phi=0.0, t=0.0):
+        """
+        Evaluate the second azimuthal derivative.
+
+        Parameters
+        ----------
+        R : float or Quantity
+            Cylindrical Galactocentric radius.
+        z : float or Quantity
+            Vertical height.
+        phi : float or Quantity, optional
+            Azimuth (default: 0.0).
+        t : float or Quantity, optional
+            Time (default: 0.0).
+
+        Returns
+        -------
+        float or Quantity
+            d2Phi/dphi2.
+
+        Notes
+        -----
+        - 2013-09-24 - Written - Bovy (IAS)
+        """
+        try:
+            return self._amp * self._phi2deriv(R, z, phi=phi, t=t)
+        except AttributeError:  # pragma: no cover
+            if self.isNonAxi:
+                raise PotentialError(
+                    "'_phi2deriv' function not implemented for this non-axisymmetric potential"
+                )
+            return 0.0
+
+    @potential_physical_input
+    @physical_conversion("forcederivative", pop=True)
+    def Rzderiv(self, R, z, phi=0.0, t=0.0):
+        """
+        Evaluate the mixed R,z derivative.
+
+        Parameters
+        ----------
+        R : float or Quantity
+            Galactocentric radius.
+        z : float or Quantity
+            Vertical height.
+        phi : float or Quantity, optional
+            Galactocentric azimuth (default: 0.0).
+        t : float or Quantity, optional
+            Time (default: 0.0).
+
+        Returns
+        -------
+        float or Quantity
+            d2phi/dz/dR.
+
+        Notes
+        -----
+        - 2013-08-26 - Written - Bovy (IAS)
+
+        """
+        try:
+            return self._amp * self._Rzderiv(R, z, phi=phi, t=t)
+        except AttributeError:  # pragma: no cover
+            raise PotentialError(
+                "'_Rzderiv' function not implemented for this potential"
+            )
+
+    @potential_physical_input
+    @physical_conversion("force", pop=True)
+    def Rphideriv(self, R, z, phi=0.0, t=0.0):
+        """
+        Evaluate the mixed radial, azimuthal derivative.
+
+        Parameters
+        ----------
+        R : float or Quantity
+            Cylindrical Galactocentric radius.
+        z : float or Quantity
+            Vertical height.
+        phi : float or Quantity, optional
+            Azimuth (default: 0.0).
+        t : float or Quantity, optional
+            Time (default: 0.0).
+
+        Returns
+        -------
+        float or Quantity
+            d2Phi/dphidR.
+
+        Notes
+        -----
+        - 2014-06-30 - Written - Bovy (IAS)
+        """
+        try:
+            return self._amp * self._Rphideriv(R, z, phi=phi, t=t)
+        except AttributeError:  # pragma: no cover
+            if self.isNonAxi:
+                raise PotentialError(
+                    "'_Rphideriv' function not implemented for this non-axisymmetric potential"
+                )
+            return 0.0
+
+    @potential_physical_input
+    @physical_conversion("force", pop=True)
+    def phizderiv(self, R, z, phi=0.0, t=0.0):
+        """
+        Evaluate the mixed azimuthal, vertical derivative.
+
+        Parameters
+        ----------
+        R : float or Quantity
+            Cylindrical Galactocentric radius.
+        z : float or Quantity
+            Vertical height.
+        phi : float or Quantity, optional
+            Azimuth (default: 0.0).
+        t : float or Quantity, optional
+            Time (default: 0.0).
+
+        Returns
+        -------
+        float or Quantity
+            d2Phi/dphidz.
+
+        Notes
+        -----
+        - 2021-04-30 - Written - Bovy (UofT)
+
+        """
+        try:
+            return self._amp * self._phizderiv(R, z, phi=phi, t=t)
+        except AttributeError:  # pragma: no cover
+            if self.isNonAxi:
+                raise PotentialError(
+                    "'_phizderiv' function not implemented for this non-axisymmetric potential"
+                )
+            return 0.0
 
     @potential_physical_input
     @physical_conversion("forcederivative", pop=True)
@@ -597,108 +815,6 @@ class Potential(Force):
             )
         return self.mass(rvir, t=t, forceint=forceint, use_physical=False, ro=ro, vo=vo)
 
-    @potential_physical_input
-    @physical_conversion("forcederivative", pop=True)
-    def R2deriv(self, R, z, phi=0.0, t=0.0):
-        """
-        Evaluate the second radial derivative.
-
-        Parameters
-        ----------
-        R : float or Quantity
-            Galactocentric radius.
-        z : float or Quantity
-            Vertical height.
-        phi : float or Quantity, optional
-            Galactocentric azimuth (default: 0.0).
-        t : float or Quantity, optional
-            Time (default: 0.0).
-
-        Returns
-        -------
-        float or Quantity
-            d2phi/dR2.
-
-        Notes
-        -----
-        - 2011-10-09 - Written - Bovy (IAS)
-
-        """
-        try:
-            return self._amp * self._R2deriv(R, z, phi=phi, t=t)
-        except AttributeError:  # pragma: no cover
-            raise PotentialError(
-                "'_R2deriv' function not implemented for this potential"
-            )
-
-    @potential_physical_input
-    @physical_conversion("forcederivative", pop=True)
-    def z2deriv(self, R, z, phi=0.0, t=0.0):
-        """
-        Evaluate the second vertical derivative.
-
-        Parameters
-        ----------
-        R : float or Quantity
-            Galactocentric radius.
-        z : float or Quantity
-            Vertical height.
-        phi : float or Quantity, optional
-            Galactocentric azimuth (default: 0.0).
-        t : float or Quantity, optional
-            Time (default: 0.0).
-
-        Returns
-        -------
-        float or Quantity
-            d2phi/dz2.
-
-        Notes
-        -----
-        - 2012-07-25 - Written - Bovy (IAS@MPIA)
-
-        """
-        try:
-            return self._amp * self._z2deriv(R, z, phi=phi, t=t)
-        except AttributeError:  # pragma: no cover
-            raise PotentialError(
-                "'_z2deriv' function not implemented for this potential"
-            )
-
-    @potential_physical_input
-    @physical_conversion("forcederivative", pop=True)
-    def Rzderiv(self, R, z, phi=0.0, t=0.0):
-        """
-        Evaluate the mixed R,z derivative.
-
-        Parameters
-        ----------
-        R : float or Quantity
-            Galactocentric radius.
-        z : float or Quantity
-            Vertical height.
-        phi : float or Quantity, optional
-            Galactocentric azimuth (default: 0.0).
-        t : float or Quantity, optional
-            Time (default: 0.0).
-
-        Returns
-        -------
-        float or Quantity
-            d2phi/dz/dR.
-
-        Notes
-        -----
-        - 2013-08-26 - Written - Bovy (IAS)
-
-        """
-        try:
-            return self._amp * self._Rzderiv(R, z, phi=phi, t=t)
-        except AttributeError:  # pragma: no cover
-            raise PotentialError(
-                "'_Rzderiv' function not implemented for this potential"
-            )
-
     def normalize(self, norm):
         """
         Normalize a potential in such a way that vc(R=1,z=0)=1., or a fraction of this.
@@ -718,151 +834,6 @@ class Potential(Force):
 
         """
         self._amp *= norm / numpy.fabs(self.Rforce(1.0, 0.0, use_physical=False))
-
-    @potential_physical_input
-    @physical_conversion("energy", pop=True)
-    def phitorque(self, R, z, phi=0.0, t=0.0):
-        """
-        Evaluate the azimuthal torque.
-
-        Parameters
-        ----------
-        R : float or Quantity
-            Cylindrical Galactocentric radius.
-        z : float or Quantity
-            Vertical height.
-        phi : float or Quantity, optional
-            Azimuth (default: 0.0).
-        t : float or Quantity, optional
-            Time (default: 0.0).
-
-        Returns
-        -------
-        float or Quantity
-            tau_phi(R, z, phi, t).
-
-        Notes
-        -----
-        - 2010-07-10 - Written - Bovy (NYU)
-        """
-        return self._phitorque_nodecorator(R, z, phi=phi, t=t)
-
-    def _phitorque_nodecorator(self, R, z, phi=0.0, t=0.0):
-        # Separate, so it can be used during orbit integration
-        try:
-            return self._amp * self._phitorque(R, z, phi=phi, t=t)
-        except AttributeError:  # pragma: no cover
-            if self.isNonAxi:
-                raise PotentialError(
-                    "'_phitorque' function not implemented for this non-axisymmetric potential"
-                )
-            return 0.0
-
-    @potential_physical_input
-    @physical_conversion("energy", pop=True)
-    def phi2deriv(self, R, z, phi=0.0, t=0.0):
-        """
-        Evaluate the second azimuthal derivative.
-
-        Parameters
-        ----------
-        R : float or Quantity
-            Cylindrical Galactocentric radius.
-        z : float or Quantity
-            Vertical height.
-        phi : float or Quantity, optional
-            Azimuth (default: 0.0).
-        t : float or Quantity, optional
-            Time (default: 0.0).
-
-        Returns
-        -------
-        float or Quantity
-            d2Phi/dphi2.
-
-        Notes
-        -----
-        - 2013-09-24 - Written - Bovy (IAS)
-        """
-        try:
-            return self._amp * self._phi2deriv(R, z, phi=phi, t=t)
-        except AttributeError:  # pragma: no cover
-            if self.isNonAxi:
-                raise PotentialError(
-                    "'_phi2deriv' function not implemented for this non-axisymmetric potential"
-                )
-            return 0.0
-
-    @potential_physical_input
-    @physical_conversion("force", pop=True)
-    def Rphideriv(self, R, z, phi=0.0, t=0.0):
-        """
-        Evaluate the mixed radial, azimuthal derivative.
-
-        Parameters
-        ----------
-        R : float or Quantity
-            Cylindrical Galactocentric radius.
-        z : float or Quantity
-            Vertical height.
-        phi : float or Quantity, optional
-            Azimuth (default: 0.0).
-        t : float or Quantity, optional
-            Time (default: 0.0).
-
-        Returns
-        -------
-        float or Quantity
-            d2Phi/dphidR.
-
-        Notes
-        -----
-        - 2014-06-30 - Written - Bovy (IAS)
-        """
-        try:
-            return self._amp * self._Rphideriv(R, z, phi=phi, t=t)
-        except AttributeError:  # pragma: no cover
-            if self.isNonAxi:
-                raise PotentialError(
-                    "'_Rphideriv' function not implemented for this non-axisymmetric potential"
-                )
-            return 0.0
-
-    @potential_physical_input
-    @physical_conversion("force", pop=True)
-    def phizderiv(self, R, z, phi=0.0, t=0.0):
-        """
-        Evaluate the mixed azimuthal, vertical derivative.
-
-        Parameters
-        ----------
-        R : float or Quantity
-            Cylindrical Galactocentric radius.
-        z : float or Quantity
-            Vertical height.
-        phi : float or Quantity, optional
-            Azimuth (default: 0.0).
-        t : float or Quantity, optional
-            Time (default: 0.0).
-
-        Returns
-        -------
-        float or Quantity
-            d2Phi/dphidz.
-
-        Notes
-        -----
-        - 2021-04-30 - Written - Bovy (UofT)
-
-        """
-        try:
-            return self._amp * self._phizderiv(R, z, phi=phi, t=t)
-        except AttributeError:  # pragma: no cover
-            if self.isNonAxi:
-                raise PotentialError(
-                    "'_phizderiv' function not implemented for this non-axisymmetric potential"
-                )
-            return 0.0
 
     def toPlanar(self):
         """
