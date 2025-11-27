@@ -3006,6 +3006,7 @@ def plotSurfaceDensities(
     )
 
 
+@potential_list_of_potentials_input
 @potential_positional_arg
 @potential_physical_input
 @physical_conversion("frequency", pop=True)
@@ -3032,29 +3033,7 @@ def epifreq(Pot, R, t=0.0):
     - 2012-07-25 - Written - Bovy (IAS)
 
     """
-    from .planarPotential import planarPotential
-
-    if isinstance(Pot, (Potential, planarPotential)):
-        return Pot.epifreq(R, t=t, use_physical=False)
-    from ..potential import (
-        PotentialError,
-        evaluateplanarR2derivs,
-        evaluateplanarRforces,
-    )
-
-    try:
-        return numpy.sqrt(
-            evaluateplanarR2derivs(Pot, R, t=t, use_physical=False)
-            - 3.0 / R * evaluateplanarRforces(Pot, R, t=t, use_physical=False)
-        )
-    except PotentialError:
-        from ..potential import RZToplanarPotential
-
-        Pot = RZToplanarPotential(Pot)
-        return numpy.sqrt(
-            evaluateplanarR2derivs(Pot, R, t=t, use_physical=False)
-            - 3.0 / R * evaluateplanarRforces(Pot, R, t=t, use_physical=False)
-        )
+    return Pot.epifreq(R, t=t, use_physical=False)
 
 
 @potential_list_of_potentials_input

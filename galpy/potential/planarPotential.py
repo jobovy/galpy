@@ -235,6 +235,34 @@ class planarPotential(planarForce):
                 "'_Rphideriv' function not implemented for this potential"
             )
 
+    @potential_physical_input
+    @physical_conversion("frequency", pop=True)
+    def epifreq(self, R, t=0.0):
+        """
+        Calculate the epicycle frequency at R in this potential.
+
+        Parameters
+        ----------
+        R : float or Quantity
+            Galactocentric radius.
+        t : float or Quantity, optional
+            Time. Default: 0.0
+
+        Returns
+        -------
+        float or Quantity
+            Epicycle frequency.
+
+        Notes
+        -----
+        - 2011-10-09 - Written - Bovy (IAS)
+
+        """
+        return numpy.sqrt(
+            self.R2deriv(R, 0.0, t=t, use_physical=False)
+            - 3.0 / R * self.Rforce(R, 0.0, t=t, use_physical=False)
+        )
+
     def plot(self, *args, **kwargs):
         """
         Plot the potential.
@@ -635,19 +663,24 @@ def RZToplanarPotential(RZPot):
 
     Returns
     -------
-    planarPotential instance(s)
+    planarPotential or planarCompositePotential instance(s)
 
     Notes
     -----
     - 2010-07-13 - Written - Bovy (NYU)
+    - 2024-11-27 - Updated to return planarCompositePotential for multiple
+      potentials - Copilot
 
     """
+    from .CompositePotential import CompositePotential
+    from .planarCompositePotential import planarCompositePotential
+
     RZPot = flatten(RZPot)
     if _isDissipative(RZPot):
         raise NotImplementedError(
             "Converting dissipative forces to 2D axisymmetric potentials is currently not supported"
         )
-    if isinstance(RZPot, list):
+    if isinstance(RZPot, (CompositePotential, list)):
         out = []
         for pot in RZPot:
             if isinstance(pot, planarPotential) and not pot.isNonAxi:
@@ -658,7 +691,9 @@ def RZToplanarPotential(RZPot):
                 raise PotentialError(
                     "Input to 'RZToplanarPotential' is neither an RZPotential-instance or a list of such instances"
                 )
-        return out
+        # If we get a CompositePotential, always return a planarCompositePotential,
+        # even if only one component
+        return planarCompositePotential(out)
     elif isinstance(RZPot, Potential) and not RZPot.isNonAxi:
         return planarPotentialFromRZPotential(RZPot)
     elif isinstance(RZPot, planarPotential) and not RZPot.isNonAxi:
@@ -878,21 +913,21 @@ def toPlanarPotential(Pot):
 
     Returns
     -------
-    planarPotential, planarAxiPotential, or planarDissipativeForce instance(s)
+    planarPotential, planarCompositePotential, or planarDissipativeForce
+        instance(s)
 
     Notes
     -----
     - 2016-06-11: Written - Bovy (UofT)
+    - 2024-11-27: Updated to return planarCompositePotential for multiple
+      potentials - Copilot
 
     """
     from .CompositePotential import CompositePotential
-
-    # Handle CompositePotential by converting it to a list first
-    if isinstance(Pot, CompositePotential):
-        Pot = list(Pot)
+    from .planarCompositePotential import planarCompositePotential
 
     Pot = flatten(Pot)
-    if isinstance(Pot, list):
+    if isinstance(Pot, (CompositePotential, list)):
         out = []
         for pot in Pot:
             if isinstance(pot, planarForce):
@@ -907,7 +942,9 @@ def toPlanarPotential(Pot):
                 raise PotentialError(
                     "Input to 'toPlanarPotential' is neither an Potential-instance or a list of such instances"
                 )
-        return out
+        # If we get a CompositePotential, always return a planarCompositePotential,
+        # even if only one component
+        return planarCompositePotential(out)
     elif isinstance(Pot, Potential) and Pot.isNonAxi:
         return planarPotentialFromFullPotential(Pot)
     elif isinstance(Pot, Potential):
