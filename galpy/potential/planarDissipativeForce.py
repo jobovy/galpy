@@ -61,17 +61,6 @@ class planarDissipativeForce(planarForce):
         """
         return self._Rforce_nodecorator(R, phi=phi, t=t, v=v)
 
-    def _Rforce_nodecorator(self, R, phi=0.0, t=0.0, v=None):
-        # Separate, so it can be used during orbit integration
-        try:
-            return self._amp * self._Rforce(R, phi=phi, t=t, v=v)
-        except AttributeError:  # pragma: no cover
-            from .Potential import PotentialError
-
-            raise PotentialError(
-                "'_Rforce' function not implemented for this planarDissipativeForce"
-            )
-
     @potential_physical_input
     @physical_conversion("force", pop=True)
     def phitorque(self, R, phi=0.0, t=0.0, v=None):
@@ -100,19 +89,6 @@ class planarDissipativeForce(planarForce):
 
         """
         return self._phitorque_nodecorator(R, phi=phi, t=t, v=v)
-
-    def _phitorque_nodecorator(self, R, phi=0.0, t=0.0, v=None):
-        # Separate, so it can be used during orbit integration
-        try:
-            return self._amp * self._phitorque(R, phi=phi, t=t, v=v)
-        except AttributeError:  # pragma: no cover
-            if self.isNonAxi:
-                from .Potential import PotentialError
-
-                raise PotentialError(
-                    "'_phitorque' function not implemented for this DissipativeForce"
-                )
-            return 0.0
 
 
 class planarDissipativeForceFromFullDissipativeForce(planarDissipativeForce):

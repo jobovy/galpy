@@ -113,15 +113,6 @@ class planarPotential(planarForce):
         """
         return self._Rforce_nodecorator(R, phi=phi, t=t)
 
-    def _Rforce_nodecorator(self, R, phi=0.0, t=0.0):
-        # Separate, so it can be used during orbit integration
-        try:
-            return self._amp * self._Rforce(R, phi=phi, t=t)
-        except AttributeError:  # pragma: no cover
-            raise PotentialError(
-                "'_Rforce' function not implemented for this potential"
-            )
-
     @potential_physical_input
     @physical_conversion("energy", pop=True)
     def phitorque(self, R, phi=0.0, t=0.0):
@@ -148,15 +139,6 @@ class planarPotential(planarForce):
 
         """
         return self._phitorque_nodecorator(R, phi=phi, t=t)
-
-    def _phitorque_nodecorator(self, R, phi=0.0, t=0.0):
-        # Separate, so it can be used during orbit integration
-        try:
-            return self._amp * self._phitorque(R, phi=phi, t=t)
-        except AttributeError:  # pragma: no cover
-            raise PotentialError(
-                "'_phitorque' function not implemented for this potential"
-            )
 
     @potential_physical_input
     @physical_conversion("forcederivative", pop=True)
