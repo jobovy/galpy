@@ -1431,9 +1431,9 @@ class Orbit:
         # Convert to lists for uniform handling
         pot_list = list(pot) if isinstance(pot, (list, CompositePotential)) else [pot]
         old_pot_list = (
-            list(self._pot)
-            if isinstance(self._pot, (list, CompositePotential))
-            else [self._pot]
+            list(self._orig_pot)
+            if isinstance(self._orig_pot, (list, CompositePotential))
+            else [self._orig_pot]
         )
 
         # Check if list lengths differ
@@ -1564,16 +1564,16 @@ class Orbit:
                 "dt input (integrator stepsize) for Orbit.integrate must be an integer divisor of the output stepsize"
             )
 
+        # Check if we should continue from a previous integration
+        should_continue, is_forward, pot_changed = self._should_continue_integration(
+            numpy.array(t), pot
+        )
+
         # Prepare potential for comparison
         if self.dim() == 2:
             thispot = toPlanarPotential(pot)
         else:
             thispot = pot
-
-        # Check if we should continue from a previous integration
-        should_continue, is_forward, pot_changed = self._should_continue_integration(
-            numpy.array(t), thispot
-        )
 
         # Warn if continuing with a different potential
         if should_continue and pot_changed:
@@ -1601,6 +1601,7 @@ class Orbit:
 
         self.t = numpy.array(t)
         self._pot = thispot
+        self._orig_pot = pot  # differs from self._pot if planar wrapper used
         method = self._check_method_c_compatible(method, self._pot)
         method = self._check_method_dissipative_compatible(method, self._pot)
         # Implementation with parallel_map in Python

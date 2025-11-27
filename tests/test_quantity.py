@@ -5072,9 +5072,15 @@ def test_potential_function_returntype():
 
 def test_planarPotential_function_returntype():
     from galpy import potential
-    from galpy.potential import CompositePotential, PlummerPotential
+    from galpy.potential import (
+        CompositePotential,
+        PlummerPotential,
+        planarCompositePotential,
+    )
 
-    pot = [PlummerPotential(normalize=True, ro=8.0, vo=220.0).toPlanar()]
+    pot = planarCompositePotential(
+        [PlummerPotential(normalize=True, ro=8.0, vo=220.0).toPlanar()]
+    )
     assert isinstance(potential.evaluateplanarPotentials(pot, 1.1), units.Quantity), (
         "Potential function __call__ does not return Quantity when it should"
     )
@@ -5308,12 +5314,16 @@ def test_potential_function_returnunit():
 
 def test_planarPotential_function_returnunit():
     from galpy import potential
-    from galpy.potential import LopsidedDiskPotential, PlummerPotential
+    from galpy.potential import (
+        LopsidedDiskPotential,
+        PlummerPotential,
+        planarCompositePotential,
+    )
 
-    pot = [
+    pot = planarCompositePotential(
         PlummerPotential(normalize=True, ro=8.0, vo=220.0).toPlanar(),
         LopsidedDiskPotential(ro=8.0 * units.kpc, vo=220.0 * units.km / units.s),
-    ]
+    )
     try:
         potential.evaluateplanarPotentials(pot, 1.1, phi=0.1).to(
             units.km**2 / units.s**2
@@ -5342,7 +5352,7 @@ def test_planarPotential_function_returnunit():
         raise AssertionError(
             "Potential function R2deriv does not return Quantity with the right units"
         )
-    pot.pop()
+    pot = pot[:-1]  # Remove the LopsidedDiskPotential
     try:
         potential.vcirc(pot, 1.1).to(units.km / units.s)
     except units.UnitConversionError:
@@ -5636,12 +5646,14 @@ def test_potential_function_value():
 
 def test_planarPotential_function_value():
     from galpy import potential
-    from galpy.potential import PlummerPotential
+    from galpy.potential import PlummerPotential, planarCompositePotential
     from galpy.util import conversion
 
     ro, vo = 8.0, 220.0
-    pot = [PlummerPotential(normalize=True, ro=ro, vo=vo).toPlanar()]
-    potu = [PlummerPotential(normalize=True).toPlanar()]
+    pot = planarCompositePotential(
+        [PlummerPotential(normalize=True, ro=ro, vo=vo).toPlanar()]
+    )
+    potu = planarCompositePotential([PlummerPotential(normalize=True).toPlanar()])
     assert (
         numpy.fabs(
             potential.evaluateplanarPotentials(pot, 1.1)
@@ -7531,11 +7543,13 @@ def test_dissipativeforce_function_inputAsQuantity():
 
 def test_planarPotential_function_inputAsQuantity():
     from galpy import potential
-    from galpy.potential import PlummerPotential
+    from galpy.potential import PlummerPotential, planarCompositePotential
 
     ro, vo = 8.0 * units.kpc, 220.0
-    pot = [PlummerPotential(normalize=True, ro=ro, vo=vo).toPlanar()]
-    potu = [PlummerPotential(normalize=True).toPlanar()]
+    pot = planarCompositePotential(
+        [PlummerPotential(normalize=True, ro=ro, vo=vo).toPlanar()]
+    )
+    potu = planarCompositePotential([PlummerPotential(normalize=True).toPlanar()])
     assert (
         numpy.fabs(
             potential.evaluateplanarPotentials(pot, 1.1 * ro, use_physical=False)
@@ -7597,11 +7611,13 @@ def test_planarPotential_function_inputAsQuantity():
 
 def test_planarPotential_function_inputAsQuantity_Raskwarg():
     from galpy import potential
-    from galpy.potential import PlummerPotential
+    from galpy.potential import PlummerPotential, planarCompositePotential
 
     ro, vo = 8.0 * units.kpc, 220.0
-    pot = [PlummerPotential(normalize=True, ro=ro, vo=vo).toPlanar()]
-    potu = [PlummerPotential(normalize=True).toPlanar()]
+    pot = planarCompositePotential(
+        [PlummerPotential(normalize=True, ro=ro, vo=vo).toPlanar()]
+    )
+    potu = planarCompositePotential([PlummerPotential(normalize=True).toPlanar()])
     assert (
         numpy.fabs(
             potential.evaluateplanarPotentials(pot, R=1.1 * ro, use_physical=False)

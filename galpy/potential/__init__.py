@@ -60,6 +60,7 @@ from . import (
     interpRZPotential,
     interpSphericalPotential,
     linearPotential,
+    planarCompositePotential,
     planarForce,
     planarPotential,
     verticalPotential,
@@ -145,6 +146,7 @@ planarForce = planarForce.planarForce
 Potential = Potential.Potential
 planarAxiPotential = planarPotential.planarAxiPotential
 planarPotential = planarPotential.planarPotential
+planarCompositePotential = planarCompositePotential.planarCompositePotential
 linearPotential = linearPotential.linearPotential
 MiyamotoNagaiPotential = MiyamotoNagaiPotential.MiyamotoNagaiPotential
 IsochronePotential = IsochronePotential.IsochronePotential
