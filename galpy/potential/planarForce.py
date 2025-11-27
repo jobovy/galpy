@@ -197,3 +197,27 @@ class planarForce:
             if not vo is None:
                 self._vo = vo
         return None
+
+    def _Rforce_nodecorator(self, R, phi=0.0, t=0.0, **kwargs):
+        # Separate, so it can be used during orbit integration
+        try:
+            return self._amp * self._Rforce(R, phi=phi, t=t, **kwargs)
+        except AttributeError:  # pragma: no cover
+            from .Potential import PotentialError
+
+            raise PotentialError(
+                "'_Rforce' function not implemented for this planarDissipativeForce"
+            )
+
+    def _phitorque_nodecorator(self, R, phi=0.0, t=0.0, **kwargs):
+        # Separate, so it can be used during orbit integration
+        try:
+            return self._amp * self._phitorque(R, phi=phi, t=t, **kwargs)
+        except AttributeError:  # pragma: no cover
+            if self.isNonAxi:
+                from .Potential import PotentialError
+
+                raise PotentialError(
+                    "'_phitorque' function not implemented for this DissipativeForce"
+                )
+            return 0.0
