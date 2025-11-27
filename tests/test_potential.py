@@ -64,6 +64,7 @@ def test_normalize_potential():
         "SphericalPotential",
         "interpSphericalPotential",
         "CompositePotential",
+        "planarCompositePotential",
     ]
     if False:
         rmpots.append("DoubleExponentialDiskPotential")
@@ -240,6 +241,7 @@ def test_forceAsDeriv_potential():
         "SphericalPotential",
         "interpSphericalPotential",
         "CompositePotential",
+        "planarCompositePotential",
     ]
     if False:
         rmpots.append("DoubleExponentialDiskPotential")
@@ -483,6 +485,7 @@ def test_2ndDeriv_potential():
         "SphericalPotential",
         "interpSphericalPotential",
         "CompositePotential",
+        "planarCompositePotential",
     ]
     if False:
         rmpots.append("DoubleExponentialDiskPotential")
@@ -856,6 +859,7 @@ def test_poisson_potential():
         "SphericalPotential",
         "interpSphericalPotential",
         "CompositePotential",
+        "planarCompositePotential",
     ]
     if False:
         rmpots.append("DoubleExponentialDiskPotential")
@@ -1006,6 +1010,7 @@ def test_poisson_surfdens_potential():
         "SphericalPotential",
         "interpSphericalPotential",
         "CompositePotential",
+        "planarCompositePotential",
     ]
     if False:
         rmpots.append("DoubleExponentialDiskPotential")
@@ -1190,6 +1195,7 @@ def test_evaluateAndDerivs_potential():
         "SphericalPotential",
         "interpSphericalPotential",
         "CompositePotential",
+        "planarCompositePotential",
     ]
     if False:
         rmpots.append("DoubleExponentialDiskPotential")
@@ -1467,6 +1473,7 @@ def test_amp_mult_divide():
         "SphericalPotential",
         "interpSphericalPotential",
         "CompositePotential",
+        "planarCompositePotential",
     ]
     if False:
         rmpots.append("DoubleExponentialDiskPotential")
@@ -1786,6 +1793,7 @@ def test_potential_array_input():
         "SphericalPotential",
         "interpSphericalPotential",
         "CompositePotential",
+        "planarCompositePotential",
     ]
     rmpots.append("FerrersPotential")
     rmpots.append("PerfectEllipsoidPotential")
@@ -1973,6 +1981,7 @@ def test_toVertical_array():
         "SphericalPotential",
         "interpSphericalPotential",
         "CompositePotential",
+        "planarCompositePotential",
     ]
     rmpots.append("FerrersPotential")
     rmpots.append("PerfectEllipsoidPotential")
@@ -2130,6 +2139,7 @@ def test_potential_at_zero():
         "SphericalPotential",
         "interpSphericalPotential",
         "CompositePotential",
+        "planarCompositePotential",
     ]
     # Remove some more potentials that we don't support for now TO DO
     rmpots.append("BurkertPotential")  # Need to figure out...
@@ -2284,6 +2294,7 @@ def test_potential_at_infinity():
         "SphericalPotential",
         "interpSphericalPotential",
         "CompositePotential",
+        "planarCompositePotential",
     ]
     # Remove some more potentials that we don't support for now TO DO
     rmpots.append("FerrersPotential")  # Need to figure out...
@@ -3217,7 +3228,7 @@ def test_toPlanarPotential():
         "Running a non-axisymmetric Potential through toPlanarPotential does not produce a planarPotential"
     )
     # Also for list
-    ptnp = potential.toPlanarPotential([tnp])
+    ptnp = potential.toPlanarPotential(potential.CompositePotential([tnp]))
     assert isinstance(ptnp[0], potential.planarPotential), (
         "Running a non-axisymmetric Potential through toPlanarPotential does not produce a planarPotential"
     )
@@ -8027,6 +8038,7 @@ def test_CompositePotential_planar_conversion():
         CompositePotential,
         MiyamotoNagaiPotential,
         NFWPotential,
+        planarCompositePotential,
         toPlanarPotential,
     )
 
@@ -8037,9 +8049,10 @@ def test_CompositePotential_planar_conversion():
     # Test conversion to planar potential
     planar_comp = toPlanarPotential(comp)
 
-    # Should return a list
-    assert isinstance(planar_comp, list), "toPlanarPotential should return a list"
-    assert len(planar_comp) == 2, "Planar potential should have 2 components"
+    # Should return a planarCompositePotential
+    assert isinstance(planar_comp, planarCompositePotential), (
+        "toPlanarPotential should return a planarCompositePotential"
+    )
 
     # Test that we can evaluate the planar potential
     from galpy.potential import evaluateplanarPotentials
@@ -8324,6 +8337,149 @@ def test_SpiralArmsPotential_multidim_array_error():
         assert False, "Should have raised ValueError for 2D z array"
     except ValueError as e:
         assert "more than one dimension" in str(e)
+
+    return None
+
+
+def test_planarCompositePotential_basic():
+    """Test basic planarCompositePotential functionality."""
+    from galpy.potential import (
+        LogarithmicHaloPotential,
+        MiyamotoNagaiPotential,
+        planarCompositePotential,
+        toPlanarPotential,
+    )
+
+    # Create 3D potentials and convert to planar
+    pot1 = MiyamotoNagaiPotential(normalize=0.6)
+    pot2 = LogarithmicHaloPotential(normalize=0.4)
+
+    # Convert to planar potentials
+    planar1 = toPlanarPotential(pot1)
+    planar2 = toPlanarPotential(pot2)
+
+    # Create a planarCompositePotential
+    planar_comp = planarCompositePotential(planar1, planar2)
+
+    # Check that the composite has the correct number of potentials
+    assert len(planar_comp) == 2, "planarCompositePotential should have 2 potentials"
+
+    # Check that the composite is a planarCompositePotential
+    assert isinstance(planar_comp, planarCompositePotential), (
+        "Result should be a planarCompositePotential"
+    )
+
+    # Test evaluation
+    R, phi = 1.0, 0.5
+    val = planar_comp(R, phi=phi)
+    expected = planar1(R, phi=phi) + planar2(R, phi=phi)
+    assert numpy.fabs(val - expected) < 1e-10, (
+        "planarCompositePotential evaluation is incorrect"
+    )
+
+    # Test Rforce
+    rforce_val = planar_comp.Rforce(R, phi=phi)
+    expected_rforce = planar1.Rforce(R, phi=phi) + planar2.Rforce(R, phi=phi)
+    assert numpy.fabs(rforce_val - expected_rforce) < 1e-10, (
+        "planarCompositePotential Rforce is incorrect"
+    )
+
+    return None
+
+
+def test_planarCompositePotential_from_addition():
+    """Test that adding planar potentials returns planarCompositePotential."""
+    from galpy.potential import (
+        LogarithmicHaloPotential,
+        MiyamotoNagaiPotential,
+        planarCompositePotential,
+        toPlanarPotential,
+    )
+
+    # Create planar potentials
+    pot1 = MiyamotoNagaiPotential(normalize=0.6)
+    pot2 = LogarithmicHaloPotential(normalize=0.4)
+    planar1 = toPlanarPotential(pot1)
+    planar2 = toPlanarPotential(pot2)
+
+    # Add them together
+    combined = planar1 + planar2
+
+    # Check that the result is a planarCompositePotential
+    assert isinstance(combined, planarCompositePotential), (
+        "Adding planar potentials should return planarCompositePotential"
+    )
+
+    # Check evaluation matches individual potentials
+    R = 1.0
+    val = combined(R)
+    expected = planar1(R) + planar2(R)
+    assert numpy.fabs(val - expected) < 1e-10, (
+        "planarCompositePotential from addition evaluates incorrectly"
+    )
+
+    return None
+
+
+def test_planarCompositePotential_from_toPlanarPotential():
+    """Test that toPlanarPotential returns planarCompositePotential for multiple potentials."""
+    from galpy.potential import (
+        LogarithmicHaloPotential,
+        MiyamotoNagaiPotential,
+        MWPotential2014,
+        planarCompositePotential,
+        toPlanarPotential,
+    )
+
+    # Test with list of potentials
+    pot1 = MiyamotoNagaiPotential(normalize=0.6)
+    pot2 = LogarithmicHaloPotential(normalize=0.4)
+    planar = toPlanarPotential([pot1, pot2])
+
+    # Should be a planarCompositePotential
+    assert isinstance(planar, planarCompositePotential), (
+        "toPlanarPotential with list should return planarCompositePotential"
+    )
+    assert len(planar) == 2, "Should have 2 potentials"
+
+    # Test with MWPotential2014 (a CompositePotential)
+    planar_mw = toPlanarPotential(MWPotential2014)
+    assert isinstance(planar_mw, planarCompositePotential), (
+        "toPlanarPotential with MWPotential2014 should return planarCompositePotential"
+    )
+    assert len(planar_mw) == 3, "MWPotential2014 should have 3 components"
+
+    return None
+
+
+def test_planarCompositePotential_slicing():
+    """Test that slicing planarCompositePotential returns correct types."""
+    from galpy.potential import (
+        LogarithmicHaloPotential,
+        MiyamotoNagaiPotential,
+        PowerSphericalPotentialwCutoff,
+        planarCompositePotential,
+        toPlanarPotential,
+    )
+
+    # Create planar composite with 3 potentials
+    pot1 = MiyamotoNagaiPotential(normalize=0.3)
+    pot2 = LogarithmicHaloPotential(normalize=0.4)
+    pot3 = PowerSphericalPotentialwCutoff(normalize=0.3)
+    planar = toPlanarPotential([pot1, pot2, pot3])
+
+    # Single item access should return individual potential
+    single = planar[0]
+    assert not isinstance(single, planarCompositePotential), (
+        "Single item access should not return planarCompositePotential"
+    )
+
+    # Slice should return planarCompositePotential
+    sliced = planar[1:]
+    assert isinstance(sliced, planarCompositePotential), (
+        "Slice should return planarCompositePotential"
+    )
+    assert len(sliced) == 2, "Sliced composite should have 2 potentials"
 
     return None
 
@@ -10863,7 +11019,7 @@ class nestedListPotential(testMWPotential):
         )
 
     def OmegaP(self):
-        return self._potlist[1].OmegaP()
+        return self._potlist[-1].OmegaP()
 
 
 class mockAdiabaticContractionMWP14WrapperPotential(
