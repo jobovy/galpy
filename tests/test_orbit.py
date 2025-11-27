@@ -168,6 +168,7 @@ def test_energy_jacobi_conservation(pot, ttol, tjactol, firstTest):
             or "SolidBodyRotation" in pot
             or "CorotatingRotation" in pot
             or "GaussianAmplitudeBar" in pot
+            or "SteadyLogSpiralPotential" in pot
             or pot == "mockMovingObjectLongIntPotential"
             or "Cosmphi" in pot
             or "triaxialLog" in pot
@@ -398,9 +399,12 @@ def test_energy_jacobi_conservation(pot, ttol, tjactol, firstTest):
         # Jacobi
         if (
             "DehnenSmoothBar" in pot
+            or "DehnenBar" in pot
             or "SolidBodyRotation" in pot
             or "CorotatingRotation" in pot
             or "GaussianAmplitudeBar" in pot
+            or "SpiralArmsPotential" in pot
+            or "nestedListPotential" in pot
         ):
             tJacobis = o.Jacobi(ttimes, pot=tp)
         else:
@@ -496,9 +500,12 @@ def test_energy_jacobi_conservation(pot, ttol, tjactol, firstTest):
         # Jacobi
         if (
             "DehnenSmoothBar" in pot
+            or "DehnenBar" in pot
             or "SolidBodyRotation" in pot
             or "CorotatingRotation" in pot
             or "GaussianAmplitudeBar" in pot
+            or "SpiralArmsPotential" in pot
+            or "nestedListPotential" in pot
         ):
             tJacobis = o.Jacobi(ttimes, pot=tp)
         else:
@@ -747,6 +754,7 @@ def test_liouville_planar():
         "SphericalPotential",
         "interpSphericalPotential",
         "CompositePotential",
+        "planarCompositePotential",
     ]
     # rmpots.append('BurkertPotential')
     # Don't have C implementations of the relevant 2nd derivatives
@@ -1193,6 +1201,7 @@ def test_eccentricity():
         "SphericalPotential",
         "interpSphericalPotential",
         "CompositePotential",
+        "planarCompositePotential",
     ]
     rmpots.append("SphericalShellPotential")
     rmpots.append("RingPotential")
@@ -1369,6 +1378,7 @@ def test_pericenter():
         "SphericalPotential",
         "interpSphericalPotential",
         "CompositePotential",
+        "planarCompositePotential",
     ]
     rmpots.append("SphericalShellPotential")
     rmpots.append("RingPotential")
@@ -1544,6 +1554,7 @@ def test_apocenter():
         "SphericalPotential",
         "interpSphericalPotential",
         "CompositePotential",
+        "planarCompositePotential",
     ]
     rmpots.append("SphericalShellPotential")
     rmpots.append("RingPotential")
@@ -1719,6 +1730,7 @@ def test_zmax():
         "SphericalPotential",
         "interpSphericalPotential",
         "CompositePotential",
+        "planarCompositePotential",
     ]
     rmpots.append("SphericalShellPotential")
     rmpots.append("RingPotential")
@@ -1879,6 +1891,7 @@ def test_analytic_ecc_rperi_rap():
         "SphericalPotential",
         "interpSphericalPotential",
         "CompositePotential",
+        "planarCompositePotential",
     ]
     rmpots.append("SphericalShellPotential")
     rmpots.append("RingPotential")
@@ -2528,6 +2541,7 @@ def test_analytic_zmax():
         "SphericalPotential",
         "interpSphericalPotential",
         "CompositePotential",
+        "planarCompositePotential",
     ]
     rmpots.append("SphericalShellPotential")
     rmpots.append("RingPotential")
@@ -10421,7 +10435,7 @@ def test_orbit_continuation_potential_comparison_planar():
             warning for warning in w if "different potential" in str(warning.message)
         ]
         assert len(pot_warnings) == 0, (
-            "Should not warn when continuing with same potential"
+            f"Should not warn when continuing with same potential, but received warnings: {[str(w.message) for w in pot_warnings]}"
         )
 
     # New orbit, continue with different potential - should warn
