@@ -65,6 +65,7 @@ def test_normalize_potential():
         "interpSphericalPotential",
         "CompositePotential",
         "planarCompositePotential",
+        "baseCompositePotential",
     ]
     if False:
         rmpots.append("DoubleExponentialDiskPotential")
@@ -242,6 +243,7 @@ def test_forceAsDeriv_potential():
         "interpSphericalPotential",
         "CompositePotential",
         "planarCompositePotential",
+        "baseCompositePotential",
     ]
     if False:
         rmpots.append("DoubleExponentialDiskPotential")
@@ -486,6 +488,7 @@ def test_2ndDeriv_potential():
         "interpSphericalPotential",
         "CompositePotential",
         "planarCompositePotential",
+        "baseCompositePotential",
     ]
     if False:
         rmpots.append("DoubleExponentialDiskPotential")
@@ -860,6 +863,7 @@ def test_poisson_potential():
         "interpSphericalPotential",
         "CompositePotential",
         "planarCompositePotential",
+        "baseCompositePotential",
     ]
     if False:
         rmpots.append("DoubleExponentialDiskPotential")
@@ -1011,6 +1015,7 @@ def test_poisson_surfdens_potential():
         "interpSphericalPotential",
         "CompositePotential",
         "planarCompositePotential",
+        "baseCompositePotential",
     ]
     if False:
         rmpots.append("DoubleExponentialDiskPotential")
@@ -1196,6 +1201,7 @@ def test_evaluateAndDerivs_potential():
         "interpSphericalPotential",
         "CompositePotential",
         "planarCompositePotential",
+        "baseCompositePotential",
     ]
     if False:
         rmpots.append("DoubleExponentialDiskPotential")
@@ -1474,6 +1480,7 @@ def test_amp_mult_divide():
         "interpSphericalPotential",
         "CompositePotential",
         "planarCompositePotential",
+        "baseCompositePotential",
     ]
     if False:
         rmpots.append("DoubleExponentialDiskPotential")
@@ -1794,6 +1801,7 @@ def test_potential_array_input():
         "interpSphericalPotential",
         "CompositePotential",
         "planarCompositePotential",
+        "baseCompositePotential",
     ]
     rmpots.append("FerrersPotential")
     rmpots.append("PerfectEllipsoidPotential")
@@ -1982,6 +1990,7 @@ def test_toVertical_array():
         "interpSphericalPotential",
         "CompositePotential",
         "planarCompositePotential",
+        "baseCompositePotential",
     ]
     rmpots.append("FerrersPotential")
     rmpots.append("PerfectEllipsoidPotential")
@@ -2140,6 +2149,7 @@ def test_potential_at_zero():
         "interpSphericalPotential",
         "CompositePotential",
         "planarCompositePotential",
+        "baseCompositePotential",
     ]
     # Remove some more potentials that we don't support for now TO DO
     rmpots.append("BurkertPotential")  # Need to figure out...
@@ -2295,6 +2305,7 @@ def test_potential_at_infinity():
         "interpSphericalPotential",
         "CompositePotential",
         "planarCompositePotential",
+        "baseCompositePotential",
     ]
     # Remove some more potentials that we don't support for now TO DO
     rmpots.append("FerrersPotential")  # Need to figure out...
@@ -3147,6 +3158,8 @@ def test_toVertical_toPlanar():
         "SphericalPotential",
         "interpSphericalPotential",
         "CompositePotential",
+        "planarCompositePotential",
+        "baseCompositePotential",
     ]
     if False:
         rmpots.append("DoubleExponentialDiskPotential")
@@ -8146,14 +8159,14 @@ def test_CompositePotential_setitem_error():
         comp[0] = "not a potential"
         assert False, "Should have raised TypeError"
     except TypeError as e:
-        assert "Can only assign Potential or Force" in str(e)
+        assert "Can only assign Force" in str(e)
 
     # Try with a number
     try:
         comp[1] = 42
         assert False, "Should have raised TypeError"
     except TypeError as e:
-        assert "Can only assign Potential or Force" in str(e)
+        assert "Can only assign Force" in str(e)
 
     return None
 
