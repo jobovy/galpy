@@ -2,11 +2,12 @@
 #   CompositePotential.py: class that represents a combination of potentials
 ###############################################################################
 from ..util.conversion import physical_compatible
+from .baseCompositePotential import baseCompositePotential
 from .DissipativeForce import DissipativeForce, _isDissipative
 from .Potential import Potential, _check_c, _isNonAxi, flatten
 
 
-class CompositePotential(DissipativeForce, Potential):
+class CompositePotential(baseCompositePotential, DissipativeForce, Potential):
     """Class that represents a combination of potentials and allows them to be
     called with method functions in the same way as individual potentials."""
 
@@ -74,152 +75,6 @@ class CompositePotential(DissipativeForce, Potential):
         self.hasC_dxdv = _check_c(self._potlist, dxdv=True)
         self.hasC_dens = _check_c(self._potlist, dens=True)
         return None
-
-    def __len__(self):
-        """Return the number of potentials in the composite."""
-        return len(self._potlist)
-
-    def __getitem__(self, key):
-        """
-        Access individual potentials in the composite.
-
-        Parameters
-        ----------
-        key : int or slice
-            Index or slice to access.
-
-        Returns
-        -------
-        Potential or CompositePotential
-            If key is an integer, returns the single Potential at that index.
-            If key is a slice, returns a CompositePotential containing the sliced potentials.
-
-        Notes
-        -----
-        - 2024-11-26 - Updated to return CompositePotential for slices - Copilot
-
-        """
-        result = self._potlist[key]
-        # If the result is a list (from slicing), return a CompositePotential
-        if isinstance(result, list):
-            return CompositePotential(result)
-        # Otherwise return the single potential
-        return result
-
-    def __setitem__(self, key, value):
-        """
-        Set individual potentials in the composite.
-
-        Parameters
-        ----------
-        key : int or slice
-            Index or slice to set.
-        value : Potential or Force
-            Potential to set at the given index.
-
-        Notes
-        -----
-        - 2024-11-25 - Written - Copilot
-
-        """
-        from .Force import Force
-
-        # Validate input
-        if not isinstance(value, Force):
-            raise TypeError(
-                "Can only assign Potential or Force instances to CompositePotential"
-            )
-
-        # Check unit compatibility with first potential (if not replacing first)
-        if isinstance(key, int) and key != 0 and len(self._potlist) > 0:
-            assert physical_compatible(self._potlist[0], value), (
-                """Physical unit conversion parameters (ro,vo) are not """
-                """compatible with existing potentials"""
-            )
-
-        # Set the item
-        self._potlist[key] = value
-
-        # Recalculate properties based on updated potential list
-        self.isNonAxi = _isNonAxi(self._potlist)
-        self.isDissipative = _isDissipative(self._potlist)
-        self.hasC = _check_c(self._potlist)
-        self.hasC_dxdv = _check_c(self._potlist, dxdv=True)
-        self.hasC_dens = _check_c(self._potlist, dens=True)
-
-    def __iter__(self):
-        """Iterate over potentials in the composite."""
-        return iter(self._potlist)
-
-    def __eq__(self, other):
-        """
-        Check equality with another CompositePotential or list.
-
-        Parameters
-        ----------
-        other : CompositePotential or list
-            Object to compare with.
-
-        Returns
-        -------
-        bool
-            True if equal, False otherwise.
-
-        """
-        if isinstance(other, CompositePotential):
-            return self._potlist == other._potlist
-        elif isinstance(other, list):
-            return self._potlist == other
-        else:
-            return False
-
-    def __mul__(self, b):
-        """
-        Multiply a CompositePotential's amplitudes by a number.
-
-        Applies the multiplication to each component potential.
-
-        Parameters
-        ----------
-        b : int or float
-            Number to multiply the amplitudes with.
-
-        Returns
-        -------
-        CompositePotential
-            New CompositePotential with each component's amplitude multiplied by b.
-
-        Notes
-        -----
-        - 2024-11-24 - Written - Copilot
-
-        """
-        if not isinstance(b, (int, float)):
-            raise TypeError(
-                "Can only multiply a CompositePotential instance with a number"
-            )
-        return CompositePotential([force * b for force in self._potlist])
-
-    __rmul__ = __mul__
-
-    def __div__(self, b):
-        """
-        Divide a CompositePotential's amplitudes by a number.
-
-        Parameters
-        ----------
-        b : int or float
-            Number to divide the amplitudes by.
-
-        Returns
-        -------
-        CompositePotential
-            New CompositePotential with each component's amplitude divided by b.
-
-        """
-        return self.__mul__(1.0 / b)
-
-    __truediv__ = __div__
 
     def __add__(self, other):
         """
@@ -603,20 +458,3 @@ class CompositePotential(DissipativeForce, Potential):
         Return the accpars potential parameters for use of this CompositePotential with NEMO.
         """
         return "#".join(pot.nemo_accpars(vo, ro) for pot in self._potlist)
-
-    def __repr__(self):
-        """
-        Return a string representation of the CompositePotential.
-
-        If only one potential, show its class name.
-        If multiple, show a list of class names.
-        """
-        if len(self._potlist) == 1:
-            pot = self._potlist[0]
-            return f"<CompositePotential: single potential ({pot.__class__.__name__})>"
-        else:
-            pot_reprs = [repr(pot) for pot in self._potlist]
-            return (
-                f"<CompositePotential: {len(self._potlist)} potentials "
-                f"({', '.join(pot_reprs)})>"
-            )

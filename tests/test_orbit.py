@@ -755,6 +755,7 @@ def test_liouville_planar():
         "interpSphericalPotential",
         "CompositePotential",
         "planarCompositePotential",
+        "baseCompositePotential",
     ]
     # rmpots.append('BurkertPotential')
     # Don't have C implementations of the relevant 2nd derivatives
@@ -1202,6 +1203,7 @@ def test_eccentricity():
         "interpSphericalPotential",
         "CompositePotential",
         "planarCompositePotential",
+        "baseCompositePotential",
     ]
     rmpots.append("SphericalShellPotential")
     rmpots.append("RingPotential")
@@ -1379,6 +1381,7 @@ def test_pericenter():
         "interpSphericalPotential",
         "CompositePotential",
         "planarCompositePotential",
+        "baseCompositePotential",
     ]
     rmpots.append("SphericalShellPotential")
     rmpots.append("RingPotential")
@@ -1555,6 +1558,7 @@ def test_apocenter():
         "interpSphericalPotential",
         "CompositePotential",
         "planarCompositePotential",
+        "baseCompositePotential",
     ]
     rmpots.append("SphericalShellPotential")
     rmpots.append("RingPotential")
@@ -1731,6 +1735,7 @@ def test_zmax():
         "interpSphericalPotential",
         "CompositePotential",
         "planarCompositePotential",
+        "baseCompositePotential",
     ]
     rmpots.append("SphericalShellPotential")
     rmpots.append("RingPotential")
@@ -1892,6 +1897,7 @@ def test_analytic_ecc_rperi_rap():
         "interpSphericalPotential",
         "CompositePotential",
         "planarCompositePotential",
+        "baseCompositePotential",
     ]
     rmpots.append("SphericalShellPotential")
     rmpots.append("RingPotential")
@@ -2542,6 +2548,7 @@ def test_analytic_zmax():
         "interpSphericalPotential",
         "CompositePotential",
         "planarCompositePotential",
+        "baseCompositePotential",
     ]
     rmpots.append("SphericalShellPotential")
     rmpots.append("RingPotential")
