@@ -126,23 +126,43 @@ def _list_of_potentials_input_factory(composite_class_name, type_name):
                         f"Lists of {type_name}s are no longer supported. "
                         f"Use {composite_class_name} instead."
                     )
-                warnings.warn(
-                    f"Passing a list of {type_name}s is deprecated and will be "
-                    f"removed in versions after 1.13.x. Use {composite_class_name} "
-                    "instead by combining potentials with the + operator "
-                    "(e.g., pot1 + pot2).",
-                    DeprecationWarning,
-                    stacklevel=2,
-                )
+
                 # Import the composite class dynamically to avoid circular imports
                 if composite_class_name == "CompositePotential":
                     from .CompositePotential import CompositePotential
 
+                    warnings.warn(
+                        f"Passing a list of {type_name}s is deprecated and will be "
+                        f"removed in versions after 1.13.x. Use {composite_class_name} "
+                        "instead by combining potentials with the + operator "
+                        "(e.g., pot1 + pot2).",
+                        DeprecationWarning,
+                        stacklevel=2,
+                    )
                     Pot = CompositePotential(Pot)
                 else:  # planarCompositePotential
-                    from .planarCompositePotential import planarCompositePotential
+                    from .planarForce import planarForce
+                    from .planarPotential import planarPotential
 
-                    Pot = planarCompositePotential(Pot)
+                    # Only convert to planarCompositePotential if all items are
+                    # planar types; otherwise, let the function handle the error
+                    all_planar = all(
+                        isinstance(p, (planarPotential, planarForce))
+                        for p in flatten(Pot)
+                    )
+                    if all_planar:
+                        from .planarCompositePotential import planarCompositePotential
+
+                        warnings.warn(
+                            f"Passing a list of {type_name}s is deprecated and will be "
+                            f"removed in versions after 1.13.x. Use {composite_class_name} "
+                            "instead by combining potentials with the + operator "
+                            "(e.g., pot1 + pot2).",
+                            DeprecationWarning,
+                            stacklevel=2,
+                        )
+                        Pot = planarCompositePotential(Pot)
+                    # If not all planar, pass through to function for error handling
             return func(Pot, *args, **kwargs)
 
         return wrapper

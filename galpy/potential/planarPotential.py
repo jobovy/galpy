@@ -1000,8 +1000,9 @@ def evaluateplanarPotentials(Pot, R, phi=None, t=0.0, dR=0, dphi=0):
         raise PotentialError(
             "The (list of) planarPotential instances is non-axisymmetric, but you did not provide phi"
         )
-    # Check that the input is a planar potential type
-    if not isinstance(Pot, (planarPotential, planarForce)):
+    # Check that the input is a planar potential type (or a list, which will
+    # be handled below)
+    if isinstance(Pot, list) or not isinstance(Pot, (planarPotential, planarForce)):
         raise PotentialError(
             "Input to 'evaluateplanarPotentials' is neither a planarPotential-instance or a list of such instances"
         )
@@ -1013,6 +1014,14 @@ def _evaluateplanarPotentials(Pot, R, phi=None, t=0.0, dR=0, dphi=0):
     from .planarCompositePotential import planarCompositePotential
 
     if isinstance(Pot, list):
+        # Validate that all potentials in the list are planar types
+        all_planar = all(
+            isinstance(p, (planarPotential, planarForce)) for p in flatten(Pot)
+        )
+        if not all_planar:
+            raise PotentialError(
+                "Input to 'evaluateplanarPotentials' is neither a planarPotential-instance or a list of such instances"
+            )
         Pot = planarCompositePotential(Pot)
     elif not isinstance(Pot, (planarPotential, planarForce)):
         raise PotentialError(
@@ -1057,8 +1066,9 @@ def evaluateplanarRforces(Pot, R, phi=None, t=0.0, v=None):
     """
     from .Potential import _isNonAxi
 
-    # Check that the input is a planar potential type
-    if not isinstance(Pot, (planarPotential, planarForce)):
+    # Check that the input is a planar potential type (or a list, which will
+    # be handled below)
+    if isinstance(Pot, list) or not isinstance(Pot, (planarPotential, planarForce)):
         raise PotentialError(
             "Input to 'evaluateplanarRforces' is neither a planarForce-instance or a list of such instances"
         )
@@ -1083,6 +1093,14 @@ def _evaluateplanarRforces(Pot, R, phi=None, t=0.0, v=None):
     from .planarCompositePotential import planarCompositePotential
 
     if isinstance(Pot, list):
+        # Validate that all potentials in the list are planar types
+        all_planar = all(
+            isinstance(p, (planarPotential, planarForce)) for p in flatten(Pot)
+        )
+        if not all_planar:
+            raise PotentialError(
+                "Input to 'evaluateplanarRforces' is neither a planarForce-instance or a list of such instances"
+            )
         Pot = planarCompositePotential(Pot)
     elif not isinstance(Pot, (planarPotential, planarForce)):
         raise PotentialError(
@@ -1131,8 +1149,9 @@ def evaluateplanarphitorques(Pot, R, phi=None, t=0.0, v=None):
     """
     from .Potential import _isNonAxi
 
-    # Check that the input is a planar potential type
-    if not isinstance(Pot, (planarPotential, planarForce)):
+    # Check that the input is a planar potential type (or a list, which will
+    # be handled below)
+    if isinstance(Pot, list) or not isinstance(Pot, (planarPotential, planarForce)):
         raise PotentialError(
             "Input to 'evaluateplanarphitorques' is neither a planarForce-instance or a list of such instances"
         )
@@ -1157,6 +1176,14 @@ def _evaluateplanarphitorques(Pot, R, phi=None, t=0.0, v=None):
     from .planarCompositePotential import planarCompositePotential
 
     if isinstance(Pot, list):
+        # Validate that all potentials in the list are planar types
+        all_planar = all(
+            isinstance(p, (planarPotential, planarForce)) for p in flatten(Pot)
+        )
+        if not all_planar:
+            raise PotentialError(
+                "Input to 'evaluateplanarphitorques' is neither a planarForce-instance or a list of such instances"
+            )
         Pot = planarCompositePotential(Pot)
     elif not isinstance(Pot, (planarPotential, planarForce)):
         raise PotentialError(
@@ -1201,8 +1228,9 @@ def evaluateplanarR2derivs(Pot, R, phi=None, t=0.0):
     """
     from .Potential import _isNonAxi
 
-    # Check that the input is a planar potential type
-    if not isinstance(Pot, (planarPotential, planarForce)):
+    # Check that the input is a planar potential type (or a list, which will
+    # be handled below)
+    if isinstance(Pot, list) or not isinstance(Pot, (planarPotential, planarForce)):
         raise PotentialError(
             "Input to 'evaluateplanarR2derivs' is neither a planarPotential-instance or a list of such instances"
         )
