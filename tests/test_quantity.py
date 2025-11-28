@@ -7855,7 +7855,7 @@ def test_plotting_inputAsQuantity():
         yrange=[-6.0 * units.kpc, 7.0 * units.kpc],
     )
     potential.plotplanarPotentials(
-        [plpot],
+        potential.planarCompositePotential([plpot]),
         Rrange=[1.0 * units.kpc, 8.0 * units.kpc],
         xrange=[-4.0 * units.kpc, 4.0 * units.kpc],
         yrange=[-6.0 * units.kpc, 7.0 * units.kpc],
@@ -10812,9 +10812,11 @@ def test_potential_function_turnphysicalon():
     ), (
         "Potential function does not return Quantity when function turn_physical_on has been called"
     )
-    potential.turn_physical_on([pot], ro=9.0, vo=230.0)
+    pot = potential.planarCompositePotential([pot])
+    potential.turn_physical_on(pot, ro=9.0, vo=230.0)
     assert isinstance(
-        potential.evaluateplanarPotentials([pot], 1.1, phi=0.1), units.Quantity
+        potential.evaluateplanarPotentials(pot, 1.1, phi=0.1),
+        units.Quantity,
     ), (
         "Potential function does not return Quantity when function turn_physical_on has been called"
     )
@@ -10869,8 +10871,12 @@ def test_potential_function_turnphysicaloff():
     assert isinstance(potential.evaluateplanarPotentials(pot, 1.1, phi=0.1), float), (
         "Potential function does not return float when function turn_physical_off has been called"
     )
-    potential.turn_physical_off([pot])
-    assert isinstance(potential.evaluateplanarPotentials([pot], 1.1, phi=0.1), float), (
+    pot = potential.planarCompositePotential([pot])
+    potential.turn_physical_off(pot)
+    assert isinstance(
+        potential.evaluateplanarPotentials(pot, 1.1, phi=0.1),
+        float,
+    ), (
         "Potential function does not return float when function turn_physical_off has been called"
     )
     # 1D
@@ -14618,7 +14624,10 @@ def test_diskdf_setup_profileAsQuantity():
 
 def test_evolveddiskdf_method_returntype():
     from galpy.df import dehnendf
-    from galpy.potential import EllipticalDiskPotential, LogarithmicHaloPotential
+    from galpy.potential import (
+        EllipticalDiskPotential,
+        LogarithmicHaloPotential,
+    )
 
     lp = LogarithmicHaloPotential(normalize=1.0)
     ep = EllipticalDiskPotential(
@@ -14627,7 +14636,7 @@ def test_evolveddiskdf_method_returntype():
     idfwarm = dehnendf(beta=0.0, profileParams=(1.0 / 3.0, 1.0, 0.15), ro=8.0, vo=220.0)
     from galpy.df import evolveddiskdf
 
-    edfwarm = evolveddiskdf(idfwarm, [lp, ep], to=-150.0)
+    edfwarm = evolveddiskdf(idfwarm, lp + ep, to=-150.0)
     from galpy.orbit import Orbit
 
     o = Orbit([1.0, 0.1, 1.1, 0.1])
@@ -14715,7 +14724,7 @@ def test_evolveddiskdf_method_returnunit():
     idfwarm = dehnendf(beta=0.0, profileParams=(1.0 / 3.0, 1.0, 0.15), ro=8.0, vo=220.0)
     from galpy.df import evolveddiskdf
 
-    edfwarm = evolveddiskdf(idfwarm, [lp, ep], to=-150.0)
+    edfwarm = evolveddiskdf(idfwarm, lp + ep, to=-150.0)
     from galpy.orbit import Orbit
 
     try:
@@ -14844,9 +14853,9 @@ def test_evolveddiskdf_method_value():
     idfwarm = dehnendf(beta=0.0, profileParams=(1.0 / 3.0, 1.0, 0.15), ro=ro, vo=vo)
     from galpy.df import evolveddiskdf
 
-    edfwarm = evolveddiskdf(idfwarm, [lp, ep], to=-150.0)
+    edfwarm = evolveddiskdf(idfwarm, lp + ep, to=-150.0)
     idfwarmnou = dehnendf(beta=0.0, profileParams=(1.0 / 3.0, 1.0, 0.15))
-    edfwarmnou = evolveddiskdf(idfwarmnou, [lp, ep], to=-150.0)
+    edfwarmnou = evolveddiskdf(idfwarmnou, lp + ep, to=-150.0)
     from galpy.orbit import Orbit
 
     o = Orbit([1.0, 0.1, 1.1, 0.1])
@@ -15032,9 +15041,9 @@ def test_evolveddiskdf_method_inputAsQuantity():
     idfwarm = dehnendf(beta=0.0, profileParams=(1.0 / 3.0, 1.0, 0.15), ro=ro, vo=vo)
     from galpy.df import evolveddiskdf
 
-    edfwarm = evolveddiskdf(idfwarm, [lp, ep], to=-150.0)
+    edfwarm = evolveddiskdf(idfwarm, lp + ep, to=-150.0)
     idfwarmnou = dehnendf(beta=0.0, profileParams=(1.0 / 3.0, 1.0, 0.15))
-    edfwarmnou = evolveddiskdf(idfwarmnou, [lp, ep], to=-150.0)
+    edfwarmnou = evolveddiskdf(idfwarmnou, lp + ep, to=-150.0)
     from galpy.orbit import Orbit
 
     assert (
@@ -15223,9 +15232,9 @@ def test_evolveddiskdf_method_inputAsQuantity_special():
     idfwarm = dehnendf(beta=0.0, profileParams=(1.0 / 3.0, 1.0, 0.15), ro=ro, vo=vo)
     from galpy.df import evolveddiskdf
 
-    edfwarm = evolveddiskdf(idfwarm, [lp, ep], to=-150.0)
+    edfwarm = evolveddiskdf(idfwarm, lp + ep, to=-150.0)
     idfwarmnou = dehnendf(beta=0.0, profileParams=(1.0 / 3.0, 1.0, 0.15))
-    edfwarmnou = evolveddiskdf(idfwarmnou, [lp, ep], to=-150.0)
+    edfwarmnou = evolveddiskdf(idfwarmnou, lp + ep, to=-150.0)
     from galpy.orbit import Orbit
 
     o = Orbit([1.0, 0.1, 1.1, 0.1])
@@ -15256,7 +15265,7 @@ def test_evolveddiskdf_setup_roAsQuantity():
     )
     from galpy.df import evolveddiskdf
 
-    df = evolveddiskdf(idfwarm, [lp, ep], to=-150.0)
+    df = evolveddiskdf(idfwarm, lp + ep, to=-150.0)
     assert numpy.fabs(df._ro - ro) < 10.0**-10.0, (
         "ro in evolveddiskdf setup as Quantity does not work as expected"
     )
@@ -15277,7 +15286,7 @@ def test_evolveddiskdf_setup_roAsQuantity_oddunits():
     )
     from galpy.df import evolveddiskdf
 
-    df = evolveddiskdf(idfwarm, [lp, ep], to=-150.0)
+    df = evolveddiskdf(idfwarm, lp + ep, to=-150.0)
     assert numpy.fabs(df._ro - ro * (units.lyr).to(units.kpc)) < 10.0**-10.0, (
         "ro in evolveddiskdf setup as Quantity does not work as expected"
     )
@@ -15298,7 +15307,7 @@ def test_evolveddiskdf_setup_voAsQuantity():
     )
     from galpy.df import evolveddiskdf
 
-    df = evolveddiskdf(idfwarm, [lp, ep], to=-150.0)
+    df = evolveddiskdf(idfwarm, lp + ep, to=-150.0)
     assert numpy.fabs(df._vo - vo) < 10.0**-10.0, (
         "vo in evolveddiskdf setup as Quantity does not work as expected"
     )
@@ -15319,7 +15328,7 @@ def test_evolveddiskdf_setup_voAsQuantity_oddunits():
     )
     from galpy.df import evolveddiskdf
 
-    df = evolveddiskdf(idfwarm, [lp, ep], to=-150.0)
+    df = evolveddiskdf(idfwarm, lp + ep, to=-150.0)
     assert (
         numpy.fabs(df._vo - vo * (units.pc / units.Myr).to(units.km / units.s))
         < 10.0**-10.0
@@ -15340,7 +15349,7 @@ def test_evolveddiskdf_setup_toAsQuantity():
     idfwarm = dehnendf(beta=0.0, profileParams=(1.0 / 3.0, 1.0, 0.15), vo=vo, ro=ro)
     from galpy.df import evolveddiskdf
 
-    df = evolveddiskdf(idfwarm, [lp, ep], to=-3.0 * units.Gyr)
+    df = evolveddiskdf(idfwarm, lp + ep, to=-3.0 * units.Gyr)
     assert numpy.fabs(df._to + 3.0 / conversion.time_in_Gyr(vo, ro)) < 10.0**-10.0, (
         "to in evolveddiskdf setup as Quantity does not work as expected"
     )

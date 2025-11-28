@@ -3556,7 +3556,7 @@ def test_vcirc_vesc_special():
     # Test some special cases of vcirc and vesc
     dp = potential.EllipticalDiskPotential()
     try:
-        potential.plotRotcurve([dp])
+        potential.plotRotcurve(potential.planarCompositePotential([dp]))
     except (AttributeError, potential.PotentialError):  # should be raised
         pass
     else:
@@ -8497,6 +8497,104 @@ def test_planarCompositePotential_slicing():
     return None
 
 
+def test_planar_list_of_potentials_deprecation():
+    """Test that passing a list of planar potentials emits DeprecationWarning."""
+    import warnings
+
+    from packaging.version import Version
+
+    import galpy
+    from galpy.potential import (
+        MiyamotoNagaiPotential,
+        evaluateplanarphitorques,
+        evaluateplanarPotentials,
+        evaluateplanarR2derivs,
+        evaluateplanarRforces,
+        toPlanarPotential,
+    )
+
+    # Create planar potentials
+    pot1 = toPlanarPotential(MiyamotoNagaiPotential(normalize=0.5))
+    pot2 = toPlanarPotential(MiyamotoNagaiPotential(normalize=0.5))
+    pot_list = [pot1, pot2]
+
+    current_version = Version(galpy.__version__.split(".dev")[0])
+    if current_version > Version("1.13.99"):
+        # After 1.13.x, passing lists should raise TypeError
+        with pytest.raises(TypeError):
+            evaluateplanarPotentials(pot_list, 1.0)
+        with pytest.raises(TypeError):
+            evaluateplanarRforces(pot_list, 1.0)
+        with pytest.raises(TypeError):
+            evaluateplanarphitorques(pot_list, 1.0)
+        with pytest.raises(TypeError):
+            evaluateplanarR2derivs(pot_list, 1.0)
+    else:
+        # Before 1.13.x, this should emit DeprecationWarning
+        # Test evaluateplanarPotentials
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            evaluateplanarPotentials(pot_list, 1.0)
+            assert len(w) == 1, "Should emit exactly one warning"
+            assert issubclass(w[0].category, DeprecationWarning)
+            assert "deprecated" in str(w[0].message).lower()
+
+        # Test evaluateplanarRforces
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            evaluateplanarRforces(pot_list, 1.0)
+            assert len(w) == 1, "Should emit exactly one warning"
+            assert issubclass(w[0].category, DeprecationWarning)
+            assert "deprecated" in str(w[0].message).lower()
+
+        # Test evaluateplanarphitorques
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            evaluateplanarphitorques(pot_list, 1.0)
+            assert len(w) == 1, "Should emit exactly one warning"
+            assert issubclass(w[0].category, DeprecationWarning)
+            assert "deprecated" in str(w[0].message).lower()
+
+        # Test evaluateplanarR2derivs
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            evaluateplanarR2derivs(pot_list, 1.0)
+            assert len(w) == 1, "Should emit exactly one warning"
+            assert issubclass(w[0].category, DeprecationWarning)
+            assert "deprecated" in str(w[0].message).lower()
+
+    return None
+
+
+def test_planar_functions_reject_3d_potentials():
+    """Test that planar evaluation functions reject 3D potentials with PotentialError."""
+    from galpy.potential import (
+        MiyamotoNagaiPotential,
+        PotentialError,
+        evaluateplanarphitorques,
+        evaluateplanarR2derivs,
+    )
+
+    # Create a 3D potential (not a planar potential)
+    pot_3d = MiyamotoNagaiPotential(normalize=1.0)
+
+    # evaluateplanarphitorques should raise PotentialError for 3D potentials
+    with pytest.raises(PotentialError) as excinfo:
+        evaluateplanarphitorques(pot_3d, 1.0)
+    assert "planarForce" in str(excinfo.value) or "planarPotential" in str(
+        excinfo.value
+    ), "Error message should mention planarForce or planarPotential"
+
+    # evaluateplanarR2derivs should raise PotentialError for 3D potentials
+    with pytest.raises(PotentialError) as excinfo:
+        evaluateplanarR2derivs(pot_3d, 1.0)
+    assert "planarPotential" in str(excinfo.value), (
+        "Error message should mention planarPotential"
+    )
+
+    return None
+
+
 # Test unit handling of interpolated Spherical potentials
 def test_interSphericalPotential_unithandling():
     pot = potential.HernquistPotential(amp=1.0, a=2.0, ro=8.3, vo=230.0)
@@ -9418,7 +9516,9 @@ def test_plotting():
         )
     finally:
         os.remove(tmp_savefilename)
-    potential.plotplanarPotentials([dp], gridx=11, gridy=11)
+    potential.plotplanarPotentials(
+        potential.planarCompositePotential([dp]), gridx=11, gridy=11
+    )
     # Tests of linearPotential plotting
     lip = potential.RZToverticalPotential(
         potential.MiyamotoNagaiPotential(normalize=1.0), 1.0
@@ -10258,6 +10358,7 @@ class testplanarMWPotential(planarPotential):
     def __init__(self, potlist=MWPotential):
         self._potlist = [p.toPlanar() for p in potlist if isinstance(p, Potential)]
         self._potlist.extend([p for p in potlist if isinstance(p, planarPotential)])
+        self._potlist = potential.planarCompositePotential(self._potlist)
         planarPotential.__init__(self, amp=1.0)
         self.isNonAxi = _isNonAxi(self._potlist)
         return None
