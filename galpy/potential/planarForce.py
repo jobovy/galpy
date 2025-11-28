@@ -107,15 +107,17 @@ class planarForce:
 
         Returns
         -------
-        list of planarPotential instances
+        planarCompositePotential
             Represents the combined potential
 
         Notes
         -----
         - 2019-01-27 - Written - Bovy (UofT)
+        - 2024-11-27 - Updated to return planarCompositePotential - Copilot
 
         """
         from ..potential import flatten as flatten_pot
+        from .planarCompositePotential import planarCompositePotential
 
         if not isinstance(flatten_pot([b])[0], (Force, planarForce)):
             raise TypeError(
@@ -123,30 +125,21 @@ class planarForce:
                 """/planarPotential objects with """
                 """other such objects or lists thereof"""
             )
-        assert physical_compatible(self, b), (
-            """Physical unit conversion parameters (ro,vo) are not """
-            """compatible between potentials to be combined"""
-        )
-        if isinstance(b, list):
-            return [self] + b
-        else:
-            return [self, b]
+        # Physical compatibility is checked in planarCompositePotential.__init__
+        return planarCompositePotential(self, b)
 
     # Define separately to keep order
     def __radd__(self, b):
         from ..potential import flatten as flatten_pot
+        from .planarCompositePotential import planarCompositePotential
 
         if not isinstance(flatten_pot([b])[0], (Force, planarForce)):
             raise TypeError(
                 """Can only combine galpy Force objects with """
                 """other Force objects or lists thereof"""
             )
-        assert physical_compatible(self, b), (
-            """Physical unit conversion parameters (ro,vo) are not """
-            """compatible between potentials to be combined"""
-        )
-        # If we get here, b has to be a list
-        return b + [self]
+        # Physical compatibility is checked in planarCompositePotential.__init__
+        return planarCompositePotential(b, self)
 
     def turn_physical_off(self):
         """

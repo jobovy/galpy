@@ -1272,7 +1272,9 @@ def test_isotropic_eddington_selfconsist_dehnencore_dens_spherically_symmetric()
 
 def test_isotropic_eddington_selfconsist_dehnencore_dens_massprofile():
     # Do one with pot as list
-    pot = [potential.DehnenCoreSphericalPotential(amp=2.5, a=1.15)]
+    pot = potential.CompositePotential(
+        [potential.DehnenCoreSphericalPotential(amp=2.5, a=1.15)]
+    )
     dfp = eddingtondf(pot=pot)
     numpy.random.seed(10)
     samp = dfp.sample(n=100000)
@@ -1409,7 +1411,7 @@ def test_isotropic_eddington_dehnencore_in_nfw_dens_massprofile():
 
 def test_isotropic_eddington_dehnencore_in_nfw_sigmar():
     # Use list
-    pot = [potential.NFWPotential(amp=2.3, a=1.3)]
+    pot = potential.CompositePotential([potential.NFWPotential(amp=2.3, a=1.3)])
     denspot = potential.DehnenCoreSphericalPotential(amp=2.5, a=1.15)
     dfp = eddingtondf(pot=pot, denspot=denspot)
     numpy.random.seed(10)
@@ -1430,7 +1432,9 @@ def test_isotropic_eddington_dehnencore_in_nfw_sigmar():
 def test_isotropic_eddington_dehnencore_in_nfw_beta():
     pot = potential.NFWPotential(amp=2.3, a=1.3)
     # Use list
-    denspot = [potential.DehnenCoreSphericalPotential(amp=2.5, a=1.15)]
+    denspot = potential.CompositePotential(
+        [potential.DehnenCoreSphericalPotential(amp=2.5, a=1.15)]
+    )
     dfp = eddingtondf(pot=pot, denspot=denspot)
     numpy.random.seed(10)
     samp = dfp.sample(n=3000000)
@@ -1441,8 +1445,10 @@ def test_isotropic_eddington_dehnencore_in_nfw_beta():
 
 def test_isotropic_eddington_dehnencore_in_nfw_dens_directint():
     # Lists for all!
-    pot = [potential.NFWPotential(amp=2.3, a=1.3)]
-    denspot = [potential.DehnenCoreSphericalPotential(amp=2.5, a=1.15)]
+    pot = potential.CompositePotential([potential.NFWPotential(amp=2.3, a=1.3)])
+    denspot = potential.CompositePotential(
+        [potential.DehnenCoreSphericalPotential(amp=2.5, a=1.15)]
+    )
     dfp = eddingtondf(pot=pot, denspot=denspot)
     tol = 1e-2  # only approx, normally 1e-7
     check_dens_directint(
@@ -1895,7 +1901,7 @@ def test_osipkovmerritt_dehnencore_in_nfw_dens_massprofile():
 
 def test_osipkovmerritt_dehnencore_in_nfw_sigmar():
     # Use list
-    pot = [potential.NFWPotential(amp=2.3, a=1.3)]
+    pot = potential.CompositePotential([potential.NFWPotential(amp=2.3, a=1.3)])
     denspot = potential.DehnenCoreSphericalPotential(amp=2.5, a=1.15)
     ras = [2.3, 5.7]
     for ra, dfh in zip(ras[:1], osipkovmerritt_dfs_dehnencore_in_nfw[:1]):
@@ -2340,7 +2346,7 @@ def test_constantbeta_dehnencore_in_nfw_sigmar():
     if WIN32:
         return None  # skip on Windows, because no JAX
     # Use list
-    pot = [potential.NFWPotential(amp=2.3, a=1.3)]
+    pot = potential.CompositePotential([potential.NFWPotential(amp=2.3, a=1.3)])
     denspot = potential.DehnenCoreSphericalPotential(amp=2.5, a=1.15)
     betas = [0.25]
     for beta, dfh in zip(betas, constantbeta_dfs_dehnencore_in_nfw):

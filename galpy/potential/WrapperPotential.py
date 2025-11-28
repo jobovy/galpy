@@ -2,6 +2,7 @@
 #   WrapperPotential.py: Super-class for wrapper potentials
 ###############################################################################
 from ..util.conversion import get_physical, physical_compatible
+from .CompositePotential import CompositePotential
 from .planarPotential import (
     _evaluateplanarphitorques,
     _evaluateplanarPotentials,
@@ -102,7 +103,7 @@ class WrapperPotential(Potential):
         self._pot = pot
         # Check that we are not wrapping a non-potential Force object
         if (
-            isinstance(self._pot, list)
+            isinstance(self._pot, (CompositePotential, list))
             and any(
                 [
                     isinstance(p, Force) and not isinstance(p, Potential)

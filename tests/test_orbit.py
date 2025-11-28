@@ -168,6 +168,7 @@ def test_energy_jacobi_conservation(pot, ttol, tjactol, firstTest):
             or "SolidBodyRotation" in pot
             or "CorotatingRotation" in pot
             or "GaussianAmplitudeBar" in pot
+            or "SteadyLogSpiralPotential" in pot
             or pot == "mockMovingObjectLongIntPotential"
             or "Cosmphi" in pot
             or "triaxialLog" in pot
@@ -196,7 +197,9 @@ def test_energy_jacobi_conservation(pot, ttol, tjactol, firstTest):
             assert (o.Jacobi(pot=None) - o.Jacobi(pot=tp)) ** 2.0 < 10.0**ttol, (
                 "o.Jacobi calculated with pot=None is not equal to o.Jacobi with pot=the Potential the orbit was integrated with do not agree"
             )
-            assert (o.Jacobi(pot=None) - o.Jacobi(pot=[tp])) ** 2.0 < 10.0**ttol, (
+            assert (
+                o.Jacobi(pot=None) - o.Jacobi(pot=potential.CompositePotential([tp]))
+            ) ** 2.0 < 10.0**ttol, (
                 "o.Jacobi calculated with pot=None is not equal to o.Jacobi with pot=[the Potential the orbit was integrated with] do not agree"
             )
             if not tp.isNonAxi:
@@ -278,7 +281,10 @@ def test_energy_jacobi_conservation(pot, ttol, tjactol, firstTest):
                 assert (o.Jacobi(pot=None) - o.Jacobi(pot=tp)) ** 2.0 < 10.0**ttol, (
                     "o.Jacobi calculated with pot=None is not equal to o.Jacobi with pot=the Potential the orbit was integrated with do not agree"
                 )
-                assert (o.Jacobi(pot=None) - o.Jacobi(pot=[tp])) ** 2.0 < 10.0**ttol, (
+                assert (
+                    o.Jacobi(pot=None)
+                    - o.Jacobi(pot=potential.CompositePotential([tp]))
+                ) ** 2.0 < 10.0**ttol, (
                     "o.Jacobi calculated with pot=None is not equal to o.Jacobi with pot=the Potential the orbit was integrated with do not agree"
                 )
                 assert (o.Jacobi(OmegaP=1.0) - o.Jacobi()) ** 2.0 < 10.0**ttol, (
@@ -393,9 +399,12 @@ def test_energy_jacobi_conservation(pot, ttol, tjactol, firstTest):
         # Jacobi
         if (
             "DehnenSmoothBar" in pot
+            or "DehnenBar" in pot
             or "SolidBodyRotation" in pot
             or "CorotatingRotation" in pot
             or "GaussianAmplitudeBar" in pot
+            or "SpiralArmsPotential" in pot
+            or "nestedListPotential" in pot
         ):
             tJacobis = o.Jacobi(ttimes, pot=tp)
         else:
@@ -491,9 +500,12 @@ def test_energy_jacobi_conservation(pot, ttol, tjactol, firstTest):
         # Jacobi
         if (
             "DehnenSmoothBar" in pot
+            or "DehnenBar" in pot
             or "SolidBodyRotation" in pot
             or "CorotatingRotation" in pot
             or "GaussianAmplitudeBar" in pot
+            or "SpiralArmsPotential" in pot
+            or "nestedListPotential" in pot
         ):
             tJacobis = o.Jacobi(ttimes, pot=tp)
         else:
@@ -741,6 +753,9 @@ def test_liouville_planar():
         "NumericalPotentialDerivativesMixin",
         "SphericalPotential",
         "interpSphericalPotential",
+        "CompositePotential",
+        "planarCompositePotential",
+        "baseCompositePotential",
     ]
     # rmpots.append('BurkertPotential')
     # Don't have C implementations of the relevant 2nd derivatives
@@ -1186,6 +1201,9 @@ def test_eccentricity():
         "NumericalPotentialDerivativesMixin",
         "SphericalPotential",
         "interpSphericalPotential",
+        "CompositePotential",
+        "planarCompositePotential",
+        "baseCompositePotential",
     ]
     rmpots.append("SphericalShellPotential")
     rmpots.append("RingPotential")
@@ -1361,6 +1379,9 @@ def test_pericenter():
         "NumericalPotentialDerivativesMixin",
         "SphericalPotential",
         "interpSphericalPotential",
+        "CompositePotential",
+        "planarCompositePotential",
+        "baseCompositePotential",
     ]
     rmpots.append("SphericalShellPotential")
     rmpots.append("RingPotential")
@@ -1535,6 +1556,9 @@ def test_apocenter():
         "NumericalPotentialDerivativesMixin",
         "SphericalPotential",
         "interpSphericalPotential",
+        "CompositePotential",
+        "planarCompositePotential",
+        "baseCompositePotential",
     ]
     rmpots.append("SphericalShellPotential")
     rmpots.append("RingPotential")
@@ -1709,6 +1733,9 @@ def test_zmax():
         "NumericalPotentialDerivativesMixin",
         "SphericalPotential",
         "interpSphericalPotential",
+        "CompositePotential",
+        "planarCompositePotential",
+        "baseCompositePotential",
     ]
     rmpots.append("SphericalShellPotential")
     rmpots.append("RingPotential")
@@ -1868,6 +1895,9 @@ def test_analytic_ecc_rperi_rap():
         "NumericalPotentialDerivativesMixin",
         "SphericalPotential",
         "interpSphericalPotential",
+        "CompositePotential",
+        "planarCompositePotential",
+        "baseCompositePotential",
     ]
     rmpots.append("SphericalShellPotential")
     rmpots.append("RingPotential")
@@ -2516,6 +2546,9 @@ def test_analytic_zmax():
         "NumericalPotentialDerivativesMixin",
         "SphericalPotential",
         "interpSphericalPotential",
+        "CompositePotential",
+        "planarCompositePotential",
+        "baseCompositePotential",
     ]
     rmpots.append("SphericalShellPotential")
     rmpots.append("RingPotential")
@@ -7436,7 +7469,7 @@ def test_orbitint_dissipativefallback():
     ts = numpy.linspace(0.0, 1.0, 101)
     for orb in [Orbit([1.0, 0.1, 1.1, 0.1, 0.0, 1.0])]:
         with pytest.warns(galpyWarning) as record:
-            orb.integrate(ts, [lp, cdf], method="leapfrog")
+            orb.integrate(ts, lp + cdf, method="leapfrog")
         raisedWarning = False
         for rec in record:
             # check that the message matches
@@ -7609,17 +7642,14 @@ def test_doublewrapper_3d():
     )
 
     # potential= flat vc + doubly-wrapped bar
-    pot = [
-        LogarithmicHaloPotential(normalize=1.0),
-        SolidBodyRotationWrapperPotential(
-            pot=DehnenSmoothWrapperPotential(
-                pot=DehnenBarPotential(omegab=1.0, rb=5.0 / 8.0, Af=1.0 / 100.0),
-                tform=5.0,
-                tsteady=15.0,
-            ),
-            omega=1.3,
+    pot = LogarithmicHaloPotential(normalize=1.0) + SolidBodyRotationWrapperPotential(
+        pot=DehnenSmoothWrapperPotential(
+            pot=DehnenBarPotential(omegab=1.0, rb=5.0 / 8.0, Af=1.0 / 100.0),
+            tform=5.0,
+            tsteady=15.0,
         ),
-    ]
+        omega=1.3,
+    )
     # Integrate orbit in C and python
     o = Orbit([1.0, 0.1, 1.1, 0.1, -0.03, numpy.pi])
     oc = o()
@@ -7664,18 +7694,18 @@ def test_wrapper_followedbyanotherpotential_2d():
     )
 
     # potential= flat vc + doubly-wrapped bar
-    pot = [
-        LogarithmicHaloPotential(normalize=1.0),
-        SolidBodyRotationWrapperPotential(
+    pot = (
+        LogarithmicHaloPotential(normalize=1.0)
+        + SolidBodyRotationWrapperPotential(
             pot=DehnenSmoothWrapperPotential(
                 pot=DehnenBarPotential(omegab=1.0, rb=5.0 / 8.0, Af=1.0 / 100.0),
                 tform=5.0,
                 tsteady=15.0,
             ),
             omega=1.3,
-        ),
-        SpiralArmsPotential(N=4, omega=0.79, amp=0.9),
-    ]
+        )
+        + SpiralArmsPotential(N=4, omega=0.79, amp=0.9)
+    )
     # Integrate orbit in C and python
     o = Orbit([1.0, 0.1, 1.1, 0.1])
     oc = o()
@@ -7714,18 +7744,18 @@ def test_wrapper_followedbyanotherpotential_3d():
     )
 
     # potential= flat vc + doubly-wrapped bar
-    pot = [
-        LogarithmicHaloPotential(normalize=1.0),
-        SolidBodyRotationWrapperPotential(
+    pot = (
+        LogarithmicHaloPotential(normalize=1.0)
+        + SolidBodyRotationWrapperPotential(
             pot=DehnenSmoothWrapperPotential(
                 pot=DehnenBarPotential(omegab=1.0, rb=5.0 / 8.0, Af=1.0 / 100.0),
                 tform=5.0,
                 tsteady=15.0,
             ),
             omega=1.3,
-        ),
-        SpiralArmsPotential(N=4, omega=0.79, amp=0.9),
-    ]
+        )
+        + SpiralArmsPotential(N=4, omega=0.79, amp=0.9)
+    )
     # Integrate orbit in C and python
     o = Orbit([1.0, 0.1, 1.1, 0.1, -0.03, numpy.pi])
     oc = o()
@@ -7770,21 +7800,21 @@ def test_wrapper_complicatedsequence_2d():
     )
 
     # potential= flat vc + doubly-wrapped bar + spiral-arms
-    pot = [
-        LogarithmicHaloPotential(normalize=0.2),
-        SolidBodyRotationWrapperPotential(
+    pot = (
+        LogarithmicHaloPotential(normalize=0.2)
+        + SolidBodyRotationWrapperPotential(
             pot=DehnenSmoothWrapperPotential(
                 pot=DehnenBarPotential(omegab=1.0, rb=5.0 / 8.0, Af=1.0 / 100.0),
                 tform=5.0,
                 tsteady=15.0,
             ),
             omega=1.3,
-        ),
-        DehnenSmoothWrapperPotential(
+        )
+        + DehnenSmoothWrapperPotential(
             pot=SpiralArmsPotential(N=4, omega=0.79, amp=0.9), tform=5.0, tsteady=15.0
-        ),
-        LogarithmicHaloPotential(normalize=0.8),
-    ]
+        )
+        + LogarithmicHaloPotential(normalize=0.8)
+    )
     # Integrate orbit in C and python
     o = Orbit([1.0, 0.1, 1.1, 0.1])
     oc = o()
@@ -7823,21 +7853,21 @@ def test_wrapper_complicatedsequence_3d():
     )
 
     # potential= flat vc + doubly-wrapped bar + spiral-arms
-    pot = [
-        LogarithmicHaloPotential(normalize=0.2),
-        SolidBodyRotationWrapperPotential(
+    pot = (
+        LogarithmicHaloPotential(normalize=0.2)
+        + SolidBodyRotationWrapperPotential(
             pot=DehnenSmoothWrapperPotential(
                 pot=DehnenBarPotential(omegab=1.0, rb=5.0 / 8.0, Af=1.0 / 100.0),
                 tform=5.0,
                 tsteady=15.0,
             ),
             omega=1.3,
-        ),
-        DehnenSmoothWrapperPotential(
+        )
+        + DehnenSmoothWrapperPotential(
             pot=SpiralArmsPotential(N=4, omega=0.79, amp=0.9), tform=5.0, tsteady=15.0
-        ),
-        LogarithmicHaloPotential(normalize=0.8),
-    ]
+        )
+        + LogarithmicHaloPotential(normalize=0.8)
+    )
     # Integrate orbit in C and python
     o = Orbit([1.0, 0.1, 1.1, 0.1, -0.03, numpy.pi])
     oc = o()
@@ -9546,7 +9576,7 @@ def test_MovingObjectPotential_orbit():
     o.integrate(times, MWPotential2014)
     orbit_potential = MovingObjectPotential(o, pot=orbit_pot)
 
-    total_potential = [MWPotential2014, orbit_potential]
+    total_potential = MWPotential2014 + orbit_potential
 
     oc = Orbit([0.5, 0.5, 0.5, 0.05, 0.03, 0.0])
     op = Orbit([0.5, 0.5, 0.5, 0.05, 0.03, 0.0])
@@ -9591,7 +9621,7 @@ def test_MovingObjectPotential_planar_orbit():
     o.integrate(times, MWPotential2014)
     orbit_potential = MovingObjectPotential(o, pot=orbit_pot)
 
-    total_potential = [MWPotential2014, orbit_potential]
+    total_potential = MWPotential2014 + orbit_potential
 
     oc = Orbit([0.5, -0.1, 0.5, 1.0])
     op = Orbit([0.5, -0.1, 0.5, 1.0])
@@ -10412,7 +10442,7 @@ def test_orbit_continuation_potential_comparison_planar():
             warning for warning in w if "different potential" in str(warning.message)
         ]
         assert len(pot_warnings) == 0, (
-            "Should not warn when continuing with same potential"
+            f"Should not warn when continuing with same potential, but received warnings: {[str(w.message) for w in pot_warnings]}"
         )
 
     # New orbit, continue with different potential - should warn
@@ -10492,7 +10522,7 @@ def test_orbit_continuation_potential_comparison_nested_list():
         assert len(pot_warnings) > 0, "Should warn with different list potential"
 
     # Test with actual nested list
-    pot3 = [LogarithmicHaloPotential(), [LogarithmicHaloPotential(normalize=0.9)]]
+    pot3 = LogarithmicHaloPotential() + [LogarithmicHaloPotential(normalize=0.9)]
     o3 = Orbit([1.0, 0.1, 1.1, 0.0, 0.1])
     o3.integrate(t1, pot3)
     with warnings.catch_warnings(record=True) as w:

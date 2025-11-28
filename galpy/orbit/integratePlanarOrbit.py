@@ -32,6 +32,12 @@ _lib, _ext_loaded = _load_extension_libs.load_libgalpy()
 
 def _parse_pot(pot):
     """Parse the potential so it can be fed to C"""
+    from ..potential.planarCompositePotential import planarCompositePotential
+
+    # Handle planarCompositePotential by converting to list
+    if isinstance(pot, planarCompositePotential):
+        pot = list(pot)
+
     # Figure out what's in pot
     if not isinstance(pot, list):
         pot = [pot]

@@ -4974,7 +4974,9 @@ def test_potential_function_returntype():
     from galpy import potential
     from galpy.potential import PlummerPotential
 
-    pot = [PlummerPotential(normalize=True, ro=8.0, vo=220.0)]
+    pot = potential.CompositePotential(
+        [PlummerPotential(normalize=True, ro=8.0, vo=220.0)]
+    )
     assert isinstance(potential.evaluatePotentials(pot, 1.1, 0.1), units.Quantity), (
         "Potential function __call__ does not return Quantity when it should"
     )
@@ -5070,9 +5072,15 @@ def test_potential_function_returntype():
 
 def test_planarPotential_function_returntype():
     from galpy import potential
-    from galpy.potential import PlummerPotential
+    from galpy.potential import (
+        CompositePotential,
+        PlummerPotential,
+        planarCompositePotential,
+    )
 
-    pot = [PlummerPotential(normalize=True, ro=8.0, vo=220.0).toPlanar()]
+    pot = planarCompositePotential(
+        [PlummerPotential(normalize=True, ro=8.0, vo=220.0).toPlanar()]
+    )
     assert isinstance(potential.evaluateplanarPotentials(pot, 1.1), units.Quantity), (
         "Potential function __call__ does not return Quantity when it should"
     )
@@ -5124,7 +5132,9 @@ def test_potential_function_returnunit():
     from galpy import potential
     from galpy.potential import PlummerPotential
 
-    pot = [PlummerPotential(normalize=True, ro=8.0, vo=220.0)]
+    pot = potential.CompositePotential(
+        [PlummerPotential(normalize=True, ro=8.0, vo=220.0)]
+    )
     try:
         potential.evaluatePotentials(pot, 1.1, 0.1).to(units.km**2 / units.s**2)
     except units.UnitConversionError:
@@ -5304,12 +5314,16 @@ def test_potential_function_returnunit():
 
 def test_planarPotential_function_returnunit():
     from galpy import potential
-    from galpy.potential import LopsidedDiskPotential, PlummerPotential
+    from galpy.potential import (
+        LopsidedDiskPotential,
+        PlummerPotential,
+        planarCompositePotential,
+    )
 
-    pot = [
+    pot = planarCompositePotential(
         PlummerPotential(normalize=True, ro=8.0, vo=220.0).toPlanar(),
         LopsidedDiskPotential(ro=8.0 * units.kpc, vo=220.0 * units.km / units.s),
-    ]
+    )
     try:
         potential.evaluateplanarPotentials(pot, 1.1, phi=0.1).to(
             units.km**2 / units.s**2
@@ -5338,7 +5352,7 @@ def test_planarPotential_function_returnunit():
         raise AssertionError(
             "Potential function R2deriv does not return Quantity with the right units"
         )
-    pot.pop()
+    pot = pot[:-1]  # Remove the LopsidedDiskPotential
     try:
         potential.vcirc(pot, 1.1).to(units.km / units.s)
     except units.UnitConversionError:
@@ -5398,8 +5412,8 @@ def test_potential_function_value():
     from galpy.util import conversion
 
     ro, vo = 8.0, 220.0
-    pot = [PlummerPotential(normalize=True, ro=ro, vo=vo)]
-    potu = [PlummerPotential(normalize=True)]
+    pot = potential.CompositePotential([PlummerPotential(normalize=True, ro=ro, vo=vo)])
+    potu = potential.CompositePotential([PlummerPotential(normalize=True)])
     assert (
         numpy.fabs(
             potential.evaluatePotentials(pot, 1.1, 0.1)
@@ -5632,12 +5646,14 @@ def test_potential_function_value():
 
 def test_planarPotential_function_value():
     from galpy import potential
-    from galpy.potential import PlummerPotential
+    from galpy.potential import PlummerPotential, planarCompositePotential
     from galpy.util import conversion
 
     ro, vo = 8.0, 220.0
-    pot = [PlummerPotential(normalize=True, ro=ro, vo=vo).toPlanar()]
-    potu = [PlummerPotential(normalize=True).toPlanar()]
+    pot = planarCompositePotential(
+        [PlummerPotential(normalize=True, ro=ro, vo=vo).toPlanar()]
+    )
+    potu = planarCompositePotential([PlummerPotential(normalize=True).toPlanar()])
     assert (
         numpy.fabs(
             potential.evaluateplanarPotentials(pot, 1.1)
@@ -6723,8 +6739,8 @@ def test_potential_function_inputAsQuantity():
     from galpy.util import conversion
 
     ro, vo = 8.0 * units.kpc, 220.0
-    pot = [PlummerPotential(normalize=True, ro=ro, vo=vo)]
-    potu = [PlummerPotential(normalize=True)]
+    pot = potential.CompositePotential([PlummerPotential(normalize=True, ro=ro, vo=vo)])
+    potu = potential.CompositePotential([PlummerPotential(normalize=True)])
     assert (
         numpy.fabs(
             potential.evaluatePotentials(
@@ -7143,8 +7159,8 @@ def test_potential_function_inputAsQuantity_Rzaskwargs():
     from galpy.util import conversion
 
     ro, vo = 8.0 * units.kpc, 220.0
-    pot = [PlummerPotential(normalize=True, ro=ro, vo=vo)]
-    potu = [PlummerPotential(normalize=True)]
+    pot = potential.CompositePotential([PlummerPotential(normalize=True, ro=ro, vo=vo)])
+    potu = potential.CompositePotential([PlummerPotential(normalize=True)])
     assert (
         numpy.fabs(
             potential.evaluatePotentials(
@@ -7527,11 +7543,13 @@ def test_dissipativeforce_function_inputAsQuantity():
 
 def test_planarPotential_function_inputAsQuantity():
     from galpy import potential
-    from galpy.potential import PlummerPotential
+    from galpy.potential import PlummerPotential, planarCompositePotential
 
     ro, vo = 8.0 * units.kpc, 220.0
-    pot = [PlummerPotential(normalize=True, ro=ro, vo=vo).toPlanar()]
-    potu = [PlummerPotential(normalize=True).toPlanar()]
+    pot = planarCompositePotential(
+        [PlummerPotential(normalize=True, ro=ro, vo=vo).toPlanar()]
+    )
+    potu = planarCompositePotential([PlummerPotential(normalize=True).toPlanar()])
     assert (
         numpy.fabs(
             potential.evaluateplanarPotentials(pot, 1.1 * ro, use_physical=False)
@@ -7593,11 +7611,13 @@ def test_planarPotential_function_inputAsQuantity():
 
 def test_planarPotential_function_inputAsQuantity_Raskwarg():
     from galpy import potential
-    from galpy.potential import PlummerPotential
+    from galpy.potential import PlummerPotential, planarCompositePotential
 
     ro, vo = 8.0 * units.kpc, 220.0
-    pot = [PlummerPotential(normalize=True, ro=ro, vo=vo).toPlanar()]
-    potu = [PlummerPotential(normalize=True).toPlanar()]
+    pot = planarCompositePotential(
+        [PlummerPotential(normalize=True, ro=ro, vo=vo).toPlanar()]
+    )
+    potu = planarCompositePotential([PlummerPotential(normalize=True).toPlanar()])
     assert (
         numpy.fabs(
             potential.evaluateplanarPotentials(pot, R=1.1 * ro, use_physical=False)
@@ -7787,7 +7807,7 @@ def test_plotting_inputAsQuantity():
         zmax=4.0 * units.kpc,
     )
     potential.plotPotentials(
-        [pot],
+        potential.CompositePotential([pot]),
         rmin=1.0 * units.kpc,
         rmax=4.0 * units.kpc,
         zmin=-4.0 * units.kpc,
@@ -7801,7 +7821,7 @@ def test_plotting_inputAsQuantity():
         zmax=4.0 * units.kpc,
     )
     potential.plotDensities(
-        [pot],
+        potential.CompositePotential([pot]),
         rmin=1.0 * units.kpc,
         rmax=4.0 * units.kpc,
         zmin=-4.0 * units.kpc,
@@ -7815,7 +7835,7 @@ def test_plotting_inputAsQuantity():
         ymax=4.0 * units.kpc,
     )
     potential.plotSurfaceDensities(
-        [pot],
+        potential.CompositePotential([pot]),
         xmin=1.0 * units.kpc,
         xmax=4.0 * units.kpc,
         ymin=-4.0 * units.kpc,
@@ -7835,7 +7855,7 @@ def test_plotting_inputAsQuantity():
         yrange=[-6.0 * units.kpc, 7.0 * units.kpc],
     )
     potential.plotplanarPotentials(
-        [plpot],
+        potential.planarCompositePotential([plpot]),
         Rrange=[1.0 * units.kpc, 8.0 * units.kpc],
         xrange=[-4.0 * units.kpc, 4.0 * units.kpc],
         yrange=[-6.0 * units.kpc, 7.0 * units.kpc],
@@ -10769,9 +10789,9 @@ def test_potential_function_turnphysicalon():
     assert numpy.fabs(pot._ro - 7.0) < 10.0**-10.0, (
         "Potential method does not work as expected"
     )
-    pot = potential.BurkertPotential(ro=7.0 * units.kpc)
-    potential.turn_physical_on([pot])
-    assert isinstance(potential.evaluatePotentials([pot], 1.1, 0.1), units.Quantity), (
+    pot = potential.CompositePotential([potential.BurkertPotential(ro=7.0 * units.kpc)])
+    potential.turn_physical_on(pot)
+    assert isinstance(potential.evaluatePotentials(pot, 1.1, 0.1), units.Quantity), (
         "Potential function does not return Quantity when function turn_physical_on has been called"
     )
     assert numpy.fabs(pot._ro - 7.0) < 10.0**-10.0, (
@@ -10790,7 +10810,10 @@ def test_potential_function_turnphysicalon():
     )
     potential.turn_physical_on([pot], ro=9.0, vo=230.0)
     assert isinstance(
-        potential.evaluateplanarPotentials([pot], 1.1, phi=0.1), units.Quantity
+        potential.evaluateplanarPotentials(
+            potential.planarCompositePotential([pot]), 1.1, phi=0.1
+        ),
+        units.Quantity,
     ), (
         "Potential function does not return Quantity when function turn_physical_on has been called"
     )
@@ -10834,9 +10857,9 @@ def test_potential_function_turnphysicaloff():
     assert isinstance(potential.evaluatePotentials(pot, 1.1, 0.1), float), (
         "Potential function does not return float when function turn_physical_off has been called"
     )
-    pot = potential.BurkertPotential(ro=7.0 * units.kpc)
-    potential.turn_physical_off([pot])
-    assert isinstance(potential.evaluatePotentials([pot], 1.1, 0.1), float), (
+    pot = potential.CompositePotential([potential.BurkertPotential(ro=7.0 * units.kpc)])
+    potential.turn_physical_off(pot)
+    assert isinstance(potential.evaluatePotentials(pot, 1.1, 0.1), float), (
         "Potential function does not return float when function turn_physical_off has been called"
     )
     # 2D
@@ -10846,7 +10869,12 @@ def test_potential_function_turnphysicaloff():
         "Potential function does not return float when function turn_physical_off has been called"
     )
     potential.turn_physical_off([pot])
-    assert isinstance(potential.evaluateplanarPotentials([pot], 1.1, phi=0.1), float), (
+    assert isinstance(
+        potential.evaluateplanarPotentials(
+            potential.planarCompositePotential([pot]), 1.1, phi=0.1
+        ),
+        float,
+    ), (
         "Potential function does not return float when function turn_physical_off has been called"
     )
     # 1D

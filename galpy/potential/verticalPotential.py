@@ -135,6 +135,12 @@ def RZToverticalPotential(RZPot, R):
     - 2010-07-21 - Written - Bovy (NYU)
 
     """
+    from .CompositePotential import CompositePotential
+
+    # Handle CompositePotential by converting it to a list first
+    if isinstance(RZPot, CompositePotential):
+        RZPot = list(RZPot)
+
     RZPot = flatten(RZPot)
     try:
         conversion.get_physical(RZPot)
@@ -204,6 +210,12 @@ def toVerticalPotential(Pot, R, phi=None, t0=0.0):
     - 2010-07-21 - Written - Bovy (NYU)
 
     """
+    from .CompositePotential import CompositePotential
+
+    # Handle CompositePotential by converting it to a list first
+    if isinstance(Pot, CompositePotential):
+        Pot = list(Pot)
+
     Pot = flatten(Pot)
     try:
         conversion.get_physical(Pot)
