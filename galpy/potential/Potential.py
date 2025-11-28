@@ -84,8 +84,97 @@ def potential_positional_arg(func):
     return wrapper
 
 
-def potential_list_of_potentials_input(func):
+def _list_of_potentials_input_factory(composite_class_name, type_name):
     """
+    Factory function that creates a decorator to convert lists of potentials
+    to a CompositePotential-type class.
+
+    Parameters
+    ----------
+    composite_class_name : str
+        Name of the composite class to use ('CompositePotential' or
+        'planarCompositePotential').
+    type_name : str
+        Type name to use in error/warning messages ('Potential' or
+        'planarPotential').
+
+    Returns
+    -------
+    function
+        Decorator that converts lists to the specified composite class.
+
+    Notes
+    -----
+    - 2024-11-28 - Written - Copilot
+
+    """
+
+    def decorator(func):
+        @wraps(func)
+        def wrapper(Pot, /, *args, **kwargs):
+            if isinstance(Pot, list):
+                import warnings
+
+                from packaging.version import Version
+
+                # Check if we're beyond version 1.13.x
+                from galpy import __version__ as galpy_version
+
+                current_version = Version(galpy_version.split(".dev")[0])
+                if current_version > Version("1.13.99"):  # pragma: no cover
+                    raise TypeError(
+                        f"Lists of {type_name}s are no longer supported. "
+                        f"Use {composite_class_name} instead."
+                    )
+
+                # Import the composite class dynamically to avoid circular imports
+                if composite_class_name == "CompositePotential":
+                    from .CompositePotential import CompositePotential
+
+                    warnings.warn(
+                        f"Passing a list of {type_name}s is deprecated and will be "
+                        f"removed in versions after 1.13.x. Use {composite_class_name} "
+                        "instead by combining potentials with the + operator "
+                        "(e.g., pot1 + pot2).",
+                        DeprecationWarning,
+                        stacklevel=2,
+                    )
+                    Pot = CompositePotential(Pot)
+                else:  # planarCompositePotential
+                    from .planarForce import planarForce
+                    from .planarPotential import planarPotential
+
+                    # Only convert to planarCompositePotential if all items are
+                    # planar types; otherwise, let the function handle the error
+                    all_planar = all(
+                        isinstance(p, (planarPotential, planarForce))
+                        for p in flatten(Pot)
+                    )
+                    if all_planar:
+                        from .planarCompositePotential import planarCompositePotential
+
+                        warnings.warn(
+                            f"Passing a list of {type_name}s is deprecated and will be "
+                            f"removed in versions after 1.13.x. Use {composite_class_name} "
+                            "instead by combining potentials with the + operator "
+                            "(e.g., pot1 + pot2).",
+                            DeprecationWarning,
+                            stacklevel=2,
+                        )
+                        Pot = planarCompositePotential(Pot)
+                    # If not all planar, pass through to function for error handling
+            return func(Pot, *args, **kwargs)
+
+        return wrapper
+
+    return decorator
+
+
+# Create the decorator for 3D potentials
+potential_list_of_potentials_input = _list_of_potentials_input_factory(
+    "CompositePotential", "Potential"
+)
+potential_list_of_potentials_input.__doc__ = """
     Decorator that converts a list of potentials to a CompositePotential before
     passing it to the function. Also emits a DeprecationWarning for lists.
 
@@ -102,37 +191,35 @@ def potential_list_of_potentials_input(func):
     Notes
     -----
     - 2024-11-24 - Written - Bovy (UofT)
+    - 2024-11-28 - Updated to use factory function - Copilot
 
     """
 
-    @wraps(func)
-    def wrapper(Pot, /, *args, **kwargs):
-        if isinstance(Pot, list):
-            import warnings
+# Create the decorator for planar potentials
+planar_potential_list_of_potentials_input = _list_of_potentials_input_factory(
+    "planarCompositePotential", "planarPotential"
+)
+planar_potential_list_of_potentials_input.__doc__ = """
+    Decorator that converts a list of planar potentials to a
+    planarCompositePotential before passing it to the function. Also emits a
+    DeprecationWarning for lists.
 
-            from packaging.version import Version
+    Parameters
+    ----------
+    func : function
+        Function to be decorated. Should have a planar potential as its first
+        argument.
 
-            # Check if we're beyond version 1.13.x
-            from galpy import __version__ as galpy_version
+    Returns
+    -------
+    function
+        Decorated function.
 
-            from .CompositePotential import CompositePotential
+    Notes
+    -----
+    - 2024-11-28 - Written - Copilot
 
-            current_version = Version(galpy_version.split(".dev")[0])
-            if current_version > Version("1.13.99"):  # pragma: no cover
-                raise TypeError(
-                    "Lists of potentials are no longer supported. Use CompositePotential instead."
-                )
-            warnings.warn(
-                "Passing a list of potentials is deprecated and will be removed "
-                "in versions after 1.13.x. Use CompositePotential instead by "
-                "combining potentials with the + operator (e.g., pot1 + pot2).",
-                DeprecationWarning,
-                stacklevel=2,
-            )
-            Pot = CompositePotential(Pot)
-        return func(Pot, *args, **kwargs)
-
-    return wrapper
+    """
 
 
 class Potential(Force):
