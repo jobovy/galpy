@@ -7855,7 +7855,7 @@ def test_plotting_inputAsQuantity():
         yrange=[-6.0 * units.kpc, 7.0 * units.kpc],
     )
     potential.plotplanarPotentials(
-        [plpot],
+        potential.planarCompositePotential([plpot]),
         Rrange=[1.0 * units.kpc, 8.0 * units.kpc],
         xrange=[-4.0 * units.kpc, 4.0 * units.kpc],
         yrange=[-6.0 * units.kpc, 7.0 * units.kpc],
@@ -10810,7 +10810,10 @@ def test_potential_function_turnphysicalon():
     )
     potential.turn_physical_on([pot], ro=9.0, vo=230.0)
     assert isinstance(
-        potential.evaluateplanarPotentials([pot], 1.1, phi=0.1), units.Quantity
+        potential.evaluateplanarPotentials(
+            potential.planarCompositePotential([pot]), 1.1, phi=0.1
+        ),
+        units.Quantity,
     ), (
         "Potential function does not return Quantity when function turn_physical_on has been called"
     )
@@ -10866,7 +10869,12 @@ def test_potential_function_turnphysicaloff():
         "Potential function does not return float when function turn_physical_off has been called"
     )
     potential.turn_physical_off([pot])
-    assert isinstance(potential.evaluateplanarPotentials([pot], 1.1, phi=0.1), float), (
+    assert isinstance(
+        potential.evaluateplanarPotentials(
+            potential.planarCompositePotential([pot]), 1.1, phi=0.1
+        ),
+        float,
+    ), (
         "Potential function does not return float when function turn_physical_off has been called"
     )
     # 1D
