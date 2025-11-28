@@ -3326,7 +3326,7 @@ def test_vcirc_vesc_special():
     # Test some special cases of vcirc and vesc
     dp = potential.EllipticalDiskPotential()
     try:
-        potential.plotRotcurve([dp])
+        potential.plotRotcurve(potential.planarCompositePotential([dp]))
     except (AttributeError, potential.PotentialError):  # should be raised
         pass
     else:
@@ -9178,7 +9178,9 @@ def test_plotting():
         )
     finally:
         os.remove(tmp_savefilename)
-    potential.plotplanarPotentials([dp], gridx=11, gridy=11)
+    potential.plotplanarPotentials(
+        potential.planarCompositePotential([dp]), gridx=11, gridy=11
+    )
     # Tests of linearPotential plotting
     lip = potential.RZToverticalPotential(
         potential.MiyamotoNagaiPotential(normalize=1.0), 1.0
@@ -10018,6 +10020,7 @@ class testplanarMWPotential(planarPotential):
     def __init__(self, potlist=MWPotential):
         self._potlist = [p.toPlanar() for p in potlist if isinstance(p, Potential)]
         self._potlist.extend([p for p in potlist if isinstance(p, planarPotential)])
+        self._potlist = potential.planarCompositePotential(self._potlist)
         planarPotential.__init__(self, amp=1.0)
         self.isNonAxi = _isNonAxi(self._potlist)
         return None
