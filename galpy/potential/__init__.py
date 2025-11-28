@@ -4,6 +4,7 @@ from . import (
     AnySphericalPotential,
     BurkertPotential,
     ChandrasekharDynamicalFrictionForce,
+    CompositePotential,
     CorotatingRotationWrapperPotential,
     CosmphiDiskPotential,
     DehnenBarPotential,
@@ -59,6 +60,7 @@ from . import (
     interpRZPotential,
     interpSphericalPotential,
     linearPotential,
+    planarCompositePotential,
     planarForce,
     planarPotential,
     plotEscapecurve,
@@ -145,6 +147,7 @@ planarForce = planarForce.planarForce
 Potential = Potential.Potential
 planarAxiPotential = planarPotential.planarAxiPotential
 planarPotential = planarPotential.planarPotential
+planarCompositePotential = planarCompositePotential.planarCompositePotential
 linearPotential = linearPotential.linearPotential
 MiyamotoNagaiPotential = MiyamotoNagaiPotential.MiyamotoNagaiPotential
 IsochronePotential = IsochronePotential.IsochronePotential
@@ -216,6 +219,7 @@ AnyAxisymmetricRazorThinDiskPotential = (
     AnyAxisymmetricRazorThinDiskPotential.AnyAxisymmetricRazorThinDiskPotential
 )
 AnySphericalPotential = AnySphericalPotential.AnySphericalPotential
+CompositePotential = CompositePotential.CompositePotential
 # Wrappers
 DehnenSmoothWrapperPotential = DehnenSmoothWrapperPotential.DehnenSmoothWrapperPotential
 SolidBodyRotationWrapperPotential = (

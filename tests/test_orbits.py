@@ -8335,7 +8335,7 @@ def test_ChandrasekharDynamicalFrictionForce_constLambda():
         ]
     )
     ts = numpy.linspace(0.0, dt, 1001)
-    o.integrate(ts, [lp, cdfc], method="leapfrog")  # also tests fallback onto odeint
+    o.integrate(ts, lp + cdfc, method="leapfrog")  # also tests fallback onto odeint
     r_pred = numpy.sqrt(
         numpy.array(o.r()) ** 2.0 - 0.604 * const_lnLambda * GMs * numpy.sqrt(2.0) * dt
     )
