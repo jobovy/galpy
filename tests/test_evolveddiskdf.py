@@ -21,10 +21,9 @@ _maxi_sigmart = -0.000541204894097
 def test_mildnonaxi_meanvr_grid():
     # Test that for a close to axisymmetric potential, the mean vr is close to zero
     idf = dehnendf(beta=0.0)
-    pot = [
-        LogarithmicHaloPotential(normalize=1.0),
-        SteadyLogSpiralPotential(A=-0.005, omegas=0.2),
-    ]  # very mild non-axi
+    pot = LogarithmicHaloPotential(normalize=1.0) + SteadyLogSpiralPotential(
+        A=-0.005, omegas=0.2
+    )  # very mild non-axi
     edf = evolveddiskdf(idf, pot=pot, to=-10.0)
     mvr, grid = edf.meanvR(
         0.9,
@@ -86,7 +85,7 @@ def test_mildnonaxi_meanvr_direct():
     # Test that for an axisymmetric potential, the mean vr is close to zero
     # We do this for an axisymmetric potential, bc otherwise it takes too long
     idf = dehnendf(beta=0.0)
-    pot = [LogarithmicHaloPotential(normalize=1.0)]
+    pot = LogarithmicHaloPotential(normalize=1.0)
     edf = evolveddiskdf(idf, pot=pot, to=-10.0)
     mvr = edf.meanvR(0.9, phi=0.2, integrate_method="rk6_c", grid=False)
     assert numpy.fabs(mvr) < 0.001, (
@@ -98,10 +97,9 @@ def test_mildnonaxi_meanvr_direct():
 def test_mildnonaxi_meanvr_grid_tlist():
     # Test that for a close to axisymmetric potential, the mean vr is close to zero
     idf = dehnendf(beta=0.0)
-    pot = [
-        LogarithmicHaloPotential(normalize=1.0),
-        SteadyLogSpiralPotential(A=-0.005, omegas=0.2),
-    ]  # very mild non-axi
+    pot = LogarithmicHaloPotential(normalize=1.0) + SteadyLogSpiralPotential(
+        A=-0.005, omegas=0.2
+    )  # very mild non-axi
     edf = evolveddiskdf(idf, pot=pot, to=-10.0)
     mvr, grid = edf.meanvR(
         0.9,
@@ -131,10 +129,9 @@ def test_mildnonaxi_meanvr_grid_tlist():
 def test_mildnonaxi_meanvt_grid():
     # Test that for a close to axisymmetric potential, the mean vt is close to that of the initial DF
     idf = dehnendf(beta=0.0)
-    pot = [
-        LogarithmicHaloPotential(normalize=1.0),
-        SteadyLogSpiralPotential(A=-0.005, omegas=0.2),
-    ]  # very mild non-axi
+    pot = LogarithmicHaloPotential(normalize=1.0) + SteadyLogSpiralPotential(
+        A=-0.005, omegas=0.2
+    )  # very mild non-axi
     edf = evolveddiskdf(idf, pot=pot, to=-10.0)
     mvt, grid = edf.meanvT(
         0.9,
@@ -165,10 +162,9 @@ def test_mildnonaxi_meanvt_grid():
 def test_mildnonaxi_meanvt_hierarchgrid():
     # Test that for a close to axisymmetric potential, the mean vt is close to that of the initial DF
     idf = dehnendf(beta=0.0)
-    pot = [
-        LogarithmicHaloPotential(normalize=1.0),
-        SteadyLogSpiralPotential(A=-0.005, omegas=0.2),
-    ]  # very mild non-axi
+    pot = LogarithmicHaloPotential(normalize=1.0) + SteadyLogSpiralPotential(
+        A=-0.005, omegas=0.2
+    )  # very mild non-axi
     edf = evolveddiskdf(idf, pot=pot, to=-10.0)
     mvt, grid = edf.meanvT(
         0.9,
@@ -221,10 +217,9 @@ def test_mildnonaxi_meanvt_hierarchgrid():
 def test_mildnonaxi_meanvt_hierarchgrid_tlist():
     # Test that for a close to axisymmetric potential, the mean vt is close to that of the initial DF
     idf = dehnendf(beta=0.0)
-    pot = [
-        LogarithmicHaloPotential(normalize=1.0),
-        SteadyLogSpiralPotential(A=-0.005, omegas=0.2),
-    ]  # very mild non-axi
+    pot = LogarithmicHaloPotential(normalize=1.0) + SteadyLogSpiralPotential(
+        A=-0.005, omegas=0.2
+    )  # very mild non-axi
     edf = evolveddiskdf(idf, pot=pot, to=-10.0)
     mvt, grid = edf.meanvT(
         0.9,
@@ -256,10 +251,9 @@ def test_mildnonaxi_meanvt_hierarchgrid_tlist():
 def test_mildnonaxi_meanvt_hierarchgrid_zerolevels():
     # Test that for a close to axisymmetric potential, the mean vt is close to that of the initial DF
     idf = dehnendf(beta=0.0)
-    pot = [
-        LogarithmicHaloPotential(normalize=1.0),
-        SteadyLogSpiralPotential(A=-0.005, omegas=0.2),
-    ]  # very mild non-axi
+    pot = LogarithmicHaloPotential(normalize=1.0) + SteadyLogSpiralPotential(
+        A=-0.005, omegas=0.2
+    )  # very mild non-axi
     edf = evolveddiskdf(idf, pot=pot, to=-10.0)
     mvt, grid = edf.meanvT(
         0.9,
@@ -286,10 +280,9 @@ def test_mildnonaxi_meanvt_hierarchgrid_zerolevels():
 def test_mildnonaxi_meanvt_hierarchgrid_tlist_zerolevels():
     # Test that for a close to axisymmetric potential, the mean vt is close to that of the initial DF
     idf = dehnendf(beta=0.0)
-    pot = [
-        LogarithmicHaloPotential(normalize=1.0),
-        SteadyLogSpiralPotential(A=-0.005, omegas=0.2),
-    ]  # very mild non-axi
+    pot = LogarithmicHaloPotential(normalize=1.0) + SteadyLogSpiralPotential(
+        A=-0.005, omegas=0.2
+    )  # very mild non-axi
     edf = evolveddiskdf(idf, pot=pot, to=-10.0)
     mvt, grid = edf.meanvT(
         0.9,
@@ -331,10 +324,9 @@ def test_mildnonaxi_meanvt_grid_rmEstimates():
         _estimateSigmaT2 = property()
 
     idf = fakeDehnen(beta=0.0)
-    pot = [
-        LogarithmicHaloPotential(normalize=1.0),
-        SteadyLogSpiralPotential(A=-0.005, omegas=0.2),
-    ]  # very mild non-axi
+    pot = LogarithmicHaloPotential(normalize=1.0) + SteadyLogSpiralPotential(
+        A=-0.005, omegas=0.2
+    )  # very mild non-axi
     edf = evolveddiskdf(idf, pot=pot, to=-10.0)
     mvt, grid = edf.meanvT(
         0.9,
@@ -354,7 +346,7 @@ def test_mildnonaxi_meanvt_direct():
     # Test that for a close to axisymmetric potential, the mean vt is close to that of the initial DF
     # We do this for an axisymmetric potential, bc otherwise it takes too long
     idf = dehnendf(beta=0.0)
-    pot = [LogarithmicHaloPotential(normalize=1.0)]
+    pot = LogarithmicHaloPotential(normalize=1.0)
     edf = evolveddiskdf(idf, pot=pot, to=-10.0)
     mvt = edf.meanvT(0.9, phi=0.2, integrate_method="rk6_c", grid=False)
     assert numpy.fabs(mvt - idf.meanvT(0.9)) < 0.001, (
@@ -366,10 +358,9 @@ def test_mildnonaxi_meanvt_direct():
 def test_mildnonaxi_sigmar2_grid():
     # Test that for a close to axisymmetric potential, the sigmaR2 is close to the value of the initial DF
     idf = dehnendf(beta=0.0)
-    pot = [
-        LogarithmicHaloPotential(normalize=1.0),
-        SteadyLogSpiralPotential(A=-0.005, omegas=0.2),
-    ]  # very mild non-axi
+    pot = LogarithmicHaloPotential(normalize=1.0) + SteadyLogSpiralPotential(
+        A=-0.005, omegas=0.2
+    )  # very mild non-axi
     edf = evolveddiskdf(idf, pot=pot, to=-10.0)
     sr2, grid = edf.sigmaR2(
         0.9,
@@ -410,7 +401,7 @@ def test_mildnonaxi_sigmar2_direct():
     # Test that for an axisymmetric potential, the sigmaR2  is close to the value of the initial DF
     # We do this for an axisymmetric potential, bc otherwise it takes too long
     idf = dehnendf(beta=0.0)
-    pot = [LogarithmicHaloPotential(normalize=1.0)]
+    pot = LogarithmicHaloPotential(normalize=1.0)
     edf = evolveddiskdf(idf, pot=pot, to=-10.0)
     sr2 = edf.sigmaR2(0.9, phi=0.2, integrate_method="rk6_c", grid=False)
     isr2 = idf.sigmaR2(0.9)
@@ -423,10 +414,9 @@ def test_mildnonaxi_sigmar2_direct():
 def test_mildnonaxi_sigmat2_grid():
     # Test that for a close to axisymmetric potential, the sigmaR2 is close to the value of the initial DF
     idf = dehnendf(beta=0.0)
-    pot = [
-        LogarithmicHaloPotential(normalize=1.0),
-        SteadyLogSpiralPotential(A=-0.005, omegas=0.2),
-    ]  # very mild non-axi
+    pot = LogarithmicHaloPotential(normalize=1.0) + SteadyLogSpiralPotential(
+        A=-0.005, omegas=0.2
+    )  # very mild non-axi
     edf = evolveddiskdf(idf, pot=pot, to=-10.0)
     st2, grid = edf.sigmaT2(
         0.9,
@@ -467,7 +457,7 @@ def test_mildnonaxi_sigmat2_direct():
     # Test that for an axisymmetric potential, the sigmaT2  is close to the value of the initial DF
     # We do this for an axisymmetric potential, bc otherwise it takes too long
     idf = dehnendf(beta=0.0)
-    pot = [LogarithmicHaloPotential(normalize=1.0)]
+    pot = LogarithmicHaloPotential(normalize=1.0)
     edf = evolveddiskdf(idf, pot=pot, to=-10.0)
     st2 = edf.sigmaT2(0.9, phi=0.2, integrate_method="rk6_c", grid=False)
     ist2 = idf.sigmaT2(0.9)
@@ -480,10 +470,9 @@ def test_mildnonaxi_sigmat2_direct():
 def test_mildnonaxi_sigmart_grid():
     # Test that for a close to axisymmetric potential, the sigmaR2 is close to zero
     idf = dehnendf(beta=0.0)
-    pot = [
-        LogarithmicHaloPotential(normalize=1.0),
-        SteadyLogSpiralPotential(A=-0.005, omegas=0.2),
-    ]  # very mild non-axi
+    pot = LogarithmicHaloPotential(normalize=1.0) + SteadyLogSpiralPotential(
+        A=-0.005, omegas=0.2
+    )  # very mild non-axi
     edf = evolveddiskdf(idf, pot=pot, to=-10.0)
     srt, grid = edf.sigmaRT(
         0.9,
@@ -524,7 +513,7 @@ def test_mildnonaxi_sigmart_direct():
     # Test that for an axisymmetric potential, the sigmaRT is close zero
     # We do this for an axisymmetric potential, bc otherwise it takes too long
     idf = dehnendf(beta=0.0)
-    pot = [LogarithmicHaloPotential(normalize=1.0)]
+    pot = LogarithmicHaloPotential(normalize=1.0)
     edf = evolveddiskdf(idf, pot=pot, to=-10.0)
     srt = edf.sigmaRT(0.9, phi=0.2, integrate_method="rk6_c", grid=False)
     assert numpy.fabs(srt) < 0.01, (
@@ -536,10 +525,9 @@ def test_mildnonaxi_sigmart_direct():
 def test_mildnonaxi_vertexdev_grid():
     # Test that for a close to axisymmetric potential, the vertex deviation is close to zero
     idf = dehnendf(beta=0.0)
-    pot = [
-        LogarithmicHaloPotential(normalize=1.0),
-        SteadyLogSpiralPotential(A=-0.005, omegas=0.2),
-    ]  # very mild non-axi
+    pot = LogarithmicHaloPotential(normalize=1.0) + SteadyLogSpiralPotential(
+        A=-0.005, omegas=0.2
+    )  # very mild non-axi
     edf = evolveddiskdf(idf, pot=pot, to=-10.0)
     vdev, grid = edf.vertexdev(
         0.9,
@@ -578,7 +566,7 @@ def test_mildnonaxi_vertexdev_direct():
     # Test that for an axisymmetric potential, the vertex deviation is close zero
     # We do this for an axisymmetric potential, bc otherwise it takes too long
     idf = dehnendf(beta=0.0)
-    pot = [LogarithmicHaloPotential(normalize=1.0)]
+    pot = LogarithmicHaloPotential(normalize=1.0)
     edf = evolveddiskdf(idf, pot=pot, to=-10.0)
     vdev = edf.vertexdev(0.9, phi=0.2, integrate_method="rk6_c", grid=False)
     assert numpy.fabs(vdev) < 0.01 / 180.0 * numpy.pi, (
@@ -590,10 +578,9 @@ def test_mildnonaxi_vertexdev_direct():
 def test_mildnonaxi_oortA_grid():
     # Test that for a close to axisymmetric potential, the oortA is close to the value of the initial DF
     idf = dehnendf(beta=0.0)
-    pot = [
-        LogarithmicHaloPotential(normalize=1.0),
-        EllipticalDiskPotential(twophio=0.001),
-    ]  # very mild non-axi
+    pot = LogarithmicHaloPotential(normalize=1.0) + EllipticalDiskPotential(
+        twophio=0.001
+    )  # very mild non-axi
     edf = evolveddiskdf(idf, pot=pot, to=-10.0)
     oa, grid, dgridR, dgridphi = edf.oortA(
         0.9,
@@ -629,10 +616,9 @@ def test_mildnonaxi_oortA_grid():
 def test_mildnonaxi_oortA_grid_tlist():
     # Test that for a close to axisymmetric potential, the oortA is close to the value of the initial DF
     idf = dehnendf(beta=0.0)
-    pot = [
-        LogarithmicHaloPotential(normalize=1.0),
-        EllipticalDiskPotential(twophio=0.001),
-    ]  # very mild non-axi
+    pot = LogarithmicHaloPotential(normalize=1.0) + EllipticalDiskPotential(
+        twophio=0.001
+    )
     edf = evolveddiskdf(idf, pot=pot, to=-10.0)
     oa, grid, dgridR, dgridphi = edf.oortA(
         0.9,
@@ -670,10 +656,9 @@ def test_mildnonaxi_oortA_grid_tlist():
 def test_mildnonaxi_oortB_grid():
     # Test that for a close to axisymmetric potential, the oortB is close to the value of the initial DF
     idf = dehnendf(beta=0.0)
-    pot = [
-        LogarithmicHaloPotential(normalize=1.0),
-        EllipticalDiskPotential(twophio=0.001),
-    ]  # very mild non-axi
+    pot = LogarithmicHaloPotential(normalize=1.0) + EllipticalDiskPotential(
+        twophio=0.001
+    )
     edf = evolveddiskdf(idf, pot=pot, to=-10.0)
     ob, grid, dgridR, dgridphi = edf.oortB(
         0.9,
@@ -709,10 +694,9 @@ def test_mildnonaxi_oortB_grid():
 def test_mildnonaxi_oortC_grid():
     # Test that for a close to axisymmetric potential, the oortC is close to zero
     idf = dehnendf(beta=0.0)
-    pot = [
-        LogarithmicHaloPotential(normalize=1.0),
-        EllipticalDiskPotential(twophio=0.001),
-    ]  # very mild non-axi
+    pot = LogarithmicHaloPotential(normalize=1.0) + EllipticalDiskPotential(
+        twophio=0.001
+    )
     edf = evolveddiskdf(idf, pot=pot, to=-10.0)
     oc, grid, dgridR, dgridphi = edf.oortC(
         0.9,
@@ -747,10 +731,9 @@ def test_mildnonaxi_oortC_grid():
 def test_mildnonaxi_oortK_grid():
     # Test that for a close to axisymmetric potential, the oortK is close to zero
     idf = dehnendf(beta=0.0)
-    pot = [
-        LogarithmicHaloPotential(normalize=1.0),
-        EllipticalDiskPotential(twophio=0.001),
-    ]  # very mild non-axi
+    pot = LogarithmicHaloPotential(normalize=1.0) + EllipticalDiskPotential(
+        twophio=0.001
+    )
     edf = evolveddiskdf(idf, pot=pot, to=-10.0)
     ok, grid, dgridR, dgridphi = edf.oortK(
         0.9,
@@ -786,10 +769,9 @@ def test_mildnonaxi_oortK_grid():
 def test_mildnonaxi_meanvt_grid_tlist_onet():
     # Test that for a close to axisymmetric potential, the mean vt is close to that of the initial DF, for a list consisting of a single time
     idf = dehnendf(beta=0.0)
-    pot = [
-        LogarithmicHaloPotential(normalize=1.0),
-        SteadyLogSpiralPotential(A=-0.005, omegas=0.2),
-    ]  # very mild non-axi
+    pot = LogarithmicHaloPotential(normalize=1.0) + SteadyLogSpiralPotential(
+        A=-0.005, omegas=0.2
+    )
     edf = evolveddiskdf(idf, pot=pot, to=-10.0)
     mvt, grid = edf.meanvT(
         0.9,
@@ -822,7 +804,7 @@ def test_mildnonaxi_meanvt_grid_tlist_onet():
 def test_mildnonaxi_meanvt_direct_tlist():
     # Shouldn't work
     idf = dehnendf(beta=0.0)
-    pot = [LogarithmicHaloPotential(normalize=1.0)]
+    pot = LogarithmicHaloPotential(normalize=1.0)
     edf = evolveddiskdf(idf, pot=pot, to=-10.0)
     try:
         edf.meanvT(
@@ -848,10 +830,9 @@ def test_elliptical_cold_vr():
     # Test that the radial velocity for the elliptical disk behaves as analytically expected
     idf = dehnendf(beta=0.0, profileParams=(1.0 / 3.0, 1.0, 0.0125))
     cp = 0.05
-    pot = [
-        LogarithmicHaloPotential(normalize=1.0),
-        EllipticalDiskPotential(cp=cp, sp=0.0, p=0.0, tform=-150.0, tsteady=125.0),
-    ]
+    pot = LogarithmicHaloPotential(normalize=1.0) + EllipticalDiskPotential(
+        cp=cp, sp=0.0, p=0.0, tform=-150.0, tsteady=125.0
+    )
     edf = evolveddiskdf(idf, pot=pot, to=-150.0)
     # Should be cp
     mvr, grid = edf.meanvR(
@@ -885,10 +866,9 @@ def test_elliptical_cold_vt():
     # Test that the rotational velocity for the elliptical disk behaves as analytically expected
     idf = dehnendf(beta=0.0, profileParams=(1.0 / 3.0, 1.0, 0.0125))
     cp = 0.05
-    pot = [
-        LogarithmicHaloPotential(normalize=1.0),
-        EllipticalDiskPotential(cp=cp, sp=0.0, p=0.0, tform=-150.0, tsteady=125.0),
-    ]
+    pot = LogarithmicHaloPotential(normalize=1.0) + EllipticalDiskPotential(
+        cp=cp, sp=0.0, p=0.0, tform=-150.0, tsteady=125.0
+    )
     edf = evolveddiskdf(idf, pot=pot, to=-150.0)
     # Should be 1.
     mvt, grid = edf.meanvT(
@@ -922,10 +902,9 @@ def test_elliptical_cold_vertexdev():
     # Test that the vertex deviations for the elliptical disk behaves as analytically expected
     idf = dehnendf(beta=0.0, profileParams=(1.0 / 3.0, 1.0, 0.0125))
     cp = 0.05
-    pot = [
-        LogarithmicHaloPotential(normalize=1.0),
-        EllipticalDiskPotential(cp=cp, sp=0.0, p=0.0, tform=-150.0, tsteady=125.0),
-    ]
+    pot = LogarithmicHaloPotential(normalize=1.0) + EllipticalDiskPotential(
+        cp=cp, sp=0.0, p=0.0, tform=-150.0, tsteady=125.0
+    )
     edf = evolveddiskdf(idf, pot=pot, to=-150.0)
     # Should be -2cp in radians
     vdev, grid = edf.vertexdev(
@@ -960,10 +939,9 @@ def test_elliptical_cold_oortABCK_position1():
     # Test that the Oort functions A, B, C, and K for the elliptical disk behaves as analytically expected
     idf = dehnendf(beta=0.0, profileParams=(1.0 / 3.0, 1.0, 0.0125))
     cp = 0.05
-    pot = [
-        LogarithmicHaloPotential(normalize=1.0),
-        EllipticalDiskPotential(cp=cp, sp=0.0, p=0.0, tform=-150.0, tsteady=125.0),
-    ]
+    pot = LogarithmicHaloPotential(normalize=1.0) + EllipticalDiskPotential(
+        cp=cp, sp=0.0, p=0.0, tform=-150.0, tsteady=125.0
+    )
     edf = evolveddiskdf(idf, pot=pot, to=-150.0)
     # Should be 0.5/0.9
     oorta, grid, gridr, gridp = edf.oortA(
@@ -1028,10 +1006,9 @@ def test_elliptical_cold_oortABCK_position2():
     # Test that the Oort functions A, B, C, and K for the elliptical disk behaves as analytically expected
     idf = dehnendf(beta=0.0, profileParams=(1.0 / 3.0, 1.0, 0.0125))
     cp = 0.05
-    pot = [
-        LogarithmicHaloPotential(normalize=1.0),
-        EllipticalDiskPotential(cp=cp, sp=0.0, p=0.0, tform=-150.0, tsteady=125.0),
-    ]
+    pot = LogarithmicHaloPotential(normalize=1.0) + EllipticalDiskPotential(
+        cp=cp, sp=0.0, p=0.0, tform=-150.0, tsteady=125.0
+    )
     edf = evolveddiskdf(idf, pot=pot, to=-150.0)
     # Should be 0.5/0.9+cp/2
     oorta, grid, gridr, gridp = edf.oortA(
@@ -1095,10 +1072,9 @@ def test_call_special():
     from galpy.orbit import Orbit
 
     idf = dehnendf(beta=0.0)
-    pot = [
-        LogarithmicHaloPotential(normalize=1.0),
-        EllipticalDiskPotential(twophio=0.001),
-    ]  # very mild non-axi
+    pot = LogarithmicHaloPotential(normalize=1.0) + EllipticalDiskPotential(
+        twophio=0.001
+    )
     edf = evolveddiskdf(idf, pot=pot, to=-10.0)
     o = Orbit([0.9, 0.1, 1.1, 2.0])
     # call w/ and w/o explicit t
@@ -1201,10 +1177,9 @@ def test_call_marginalizevperp():
     from galpy.orbit import Orbit
 
     idf = dehnendf(beta=0.0)
-    pot = [
-        LogarithmicHaloPotential(normalize=1.0),
-        EllipticalDiskPotential(twophio=0.001),
-    ]  # very mild non-axi
+    pot = LogarithmicHaloPotential(normalize=1.0) + EllipticalDiskPotential(
+        twophio=0.001
+    )  # very mild non-axi
     edf = evolveddiskdf(idf, pot=pot[0], to=-10.0)  # one with just one potential
     # l=0
     R, phi, vR = 0.8, 0.0, 0.4
@@ -1250,10 +1225,9 @@ def test_call_marginalizevlos():
     from galpy.orbit import Orbit
 
     idf = dehnendf(beta=0.0)
-    pot = [
-        LogarithmicHaloPotential(normalize=1.0),
-        EllipticalDiskPotential(twophio=0.001),
-    ]  # very mild non-axi
+    pot = LogarithmicHaloPotential(normalize=1.0) + EllipticalDiskPotential(
+        twophio=0.001
+    )  # very mild non-axi
     edf = evolveddiskdf(idf, pot=pot[0], to=-10.0)  # one with just one potential
     # l=0
     R, phi, vT = 0.8, 0.0, 0.7
@@ -1297,10 +1271,9 @@ def test_call_marginalizevlos():
 
 def test_plot_grid():
     idf = dehnendf(beta=0.0)
-    pot = [
-        LogarithmicHaloPotential(normalize=1.0),
-        SteadyLogSpiralPotential(A=-0.005, omegas=0.2),
-    ]  # very mild non-axi
+    pot = LogarithmicHaloPotential(normalize=1.0) + SteadyLogSpiralPotential(
+        A=-0.005, omegas=0.2
+    )  # very mild non-axi
     edf = evolveddiskdf(idf, pot=pot, to=-10.0)
     mvr, grid = edf.meanvR(
         0.9,
@@ -1327,10 +1300,9 @@ def test_plot_grid():
 
 def test_plot_hierarchgrid():
     idf = dehnendf(beta=0.0)
-    pot = [
-        LogarithmicHaloPotential(normalize=1.0),
-        SteadyLogSpiralPotential(A=-0.005, omegas=0.2),
-    ]  # very mild non-axi
+    pot = LogarithmicHaloPotential(normalize=1.0) + SteadyLogSpiralPotential(
+        A=-0.005, omegas=0.2
+    )  # very mild non-axi
     edf = evolveddiskdf(idf, pot=pot, to=-10.0)
     mvr, grid = edf.meanvR(
         0.9,
