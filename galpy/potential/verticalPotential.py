@@ -135,7 +135,7 @@ def RZToverticalPotential(RZPot, R):
     Notes
     -----
     - 2010-07-21 - Written - Bovy (NYU)
-    - 2024-12-01 - Updated to return linearCompositePotential - Copilot
+    - 2024-12-01 - Updated to return linearCompositePotential
 
     """
     from .CompositePotential import CompositePotential
@@ -214,7 +214,7 @@ def toVerticalPotential(Pot, R, phi=None, t0=0.0):
     Notes
     -----
     - 2010-07-21 - Written - Bovy (NYU)
-    - 2024-12-01 - Updated to return linearCompositePotential - Copilot
+    - 2024-12-01 - Updated to return linearCompositePotential
 
     """
     from .CompositePotential import CompositePotential

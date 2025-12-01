@@ -105,8 +105,8 @@ def _list_of_potentials_input_factory(composite_class_name, type_name):
 
     Notes
     -----
-    - 2024-11-28 - Written - Copilot
-    - 2024-12-01 - Extended to support linearCompositePotential - Copilot
+    - 2024-11-28 - Written
+    - 2024-12-01 - Extended to support linearCompositePotential
 
     """
 
@@ -213,7 +213,7 @@ potential_list_of_potentials_input.__doc__ = """
     Notes
     -----
     - 2024-11-24 - Written - Bovy (UofT)
-    - 2024-11-28 - Updated to use factory function - Copilot
+    - 2024-11-28 - Updated to use factory function
 
     """
 
@@ -239,7 +239,7 @@ planar_potential_list_of_potentials_input.__doc__ = """
 
     Notes
     -----
-    - 2024-11-28 - Written - Copilot
+    - 2024-11-28 - Written
 
     """
 
@@ -265,7 +265,7 @@ linear_potential_list_of_potentials_input.__doc__ = """
 
     Notes
     -----
-    - 2024-12-01 - Written - Copilot
+    - 2024-12-01 - Written
 
     """
 

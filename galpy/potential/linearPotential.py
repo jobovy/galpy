@@ -98,7 +98,7 @@ class linearPotential:
         Notes
         -----
         - 2019-01-27 - Written - Bovy (UofT)
-        - 2024-12-01 - Updated to return linearCompositePotential - Copilot
+        - 2024-12-01 - Updated to return linearCompositePotential
 
         """
         from ..potential import flatten as flatten_pot
@@ -330,7 +330,7 @@ def evaluatelinearPotentials(Pot, x, t=0.0):
     Notes
     -----
     - 2010-07-13 - Written - Bovy (NYU)
-    - 2024-12-01 - Updated to use linearCompositePotential - Copilot
+    - 2024-12-01 - Updated to use linearCompositePotential
 
     """
     return _evaluatelinearPotentials(Pot, x, t=t)
@@ -370,7 +370,7 @@ def evaluatelinearForces(Pot, x, t=0.0):
     Notes
     -----
     - 2010-07-13 - Written - Bovy (NYU)
-    - 2024-12-01 - Updated to use linearCompositePotential - Copilot
+    - 2024-12-01 - Updated to use linearCompositePotential
     """
     return _evaluatelinearForces(Pot, x, t=t)
 

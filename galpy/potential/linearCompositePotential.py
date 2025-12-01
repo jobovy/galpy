@@ -31,7 +31,7 @@ class linearCompositePotential(baseCompositePotential, linearPotential):
 
         Notes
         -----
-        - 2024-12-01 - Written - Copilot
+        - 2024-12-01 - Written
 
         """
         # Flatten the input arguments into a list of potentials
