@@ -1397,10 +1397,10 @@ class Orbit:
     @staticmethod
     def _compare_potentials(p1, p2):
         """Compare two potentials, handling planar wrappers."""
-        if type(p1) != type(p2):
+        if type(p1) is not type(p2):
             return False
         if hasattr(p1, "_Pot") and hasattr(p2, "_Pot"):
-            # This is a planar wrapper, compare the underlying potential
+            # This is a wrapper, compare the underlying potential
             return p1._Pot == p2._Pot
         else:
             return p1 == p2
