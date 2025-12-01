@@ -8595,6 +8595,113 @@ def test_linearCompositePotential_mul_div():
     return None
 
 
+def test_linearCompositePotential_add_error():
+    """Test that __add__ raises TypeError for incompatible types."""
+    from galpy.potential import (
+        IsothermalDiskPotential,
+        KGPotential,
+        linearCompositePotential,
+    )
+
+    kg = KGPotential()
+    iso = IsothermalDiskPotential()
+    comp = linearCompositePotential(kg, iso)
+
+    # Try to add a string
+    with pytest.raises(TypeError) as excinfo:
+        comp + "not a potential"
+    assert "Can only add linearPotential or linearCompositePotential" in str(
+        excinfo.value
+    )
+
+    # Try to add a number
+    with pytest.raises(TypeError) as excinfo:
+        comp + 42
+    assert "Can only add linearPotential or linearCompositePotential" in str(
+        excinfo.value
+    )
+
+    return None
+
+
+def test_linearCompositePotential_add_composite():
+    """Test adding linearCompositePotential to linearCompositePotential."""
+    from galpy.potential import (
+        IsothermalDiskPotential,
+        KGPotential,
+        linearCompositePotential,
+    )
+
+    kg = KGPotential()
+    iso1 = IsothermalDiskPotential()
+    iso2 = IsothermalDiskPotential()
+
+    # Create two linearCompositePotentials
+    comp1 = linearCompositePotential(kg, iso1)
+    comp2 = linearCompositePotential(iso2)
+
+    # Add them together
+    comp_combined = comp1 + comp2
+
+    # Check that result is a linearCompositePotential
+    assert isinstance(comp_combined, linearCompositePotential), (
+        "Adding linearCompositePotentials should return linearCompositePotential"
+    )
+
+    # Check that it has the correct number of potentials
+    assert len(comp_combined) == 3, "Combined composite should have 3 potentials"
+
+    # Check that evaluation is correct
+    x = 0.1
+    expected = kg(x) + iso1(x) + iso2(x)
+    actual = comp_combined(x)
+    assert numpy.fabs(expected - actual) < 1e-10, (
+        "Combined composite evaluation is incorrect"
+    )
+
+    return None
+
+
+def test_evaluatelinearPotentials_error():
+    """Test that evaluatelinearPotentials raises PotentialError for invalid input."""
+    from galpy.potential import (
+        MiyamotoNagaiPotential,
+        PotentialError,
+        evaluatelinearPotentials,
+    )
+
+    # Try to evaluate a 3D potential (not a linearPotential)
+    pot_3d = MiyamotoNagaiPotential(normalize=1.0)
+
+    with pytest.raises(PotentialError) as excinfo:
+        evaluatelinearPotentials(pot_3d, 0.1)
+    assert "linearPotential" in str(excinfo.value), (
+        "Error message should mention linearPotential"
+    )
+
+    return None
+
+
+def test_evaluatelinearForces_error():
+    """Test that evaluatelinearForces raises PotentialError for invalid input."""
+    from galpy.potential import (
+        MiyamotoNagaiPotential,
+        PotentialError,
+        evaluatelinearForces,
+    )
+
+    # Try to evaluate forces with a 3D potential (not a linearPotential)
+    pot_3d = MiyamotoNagaiPotential(normalize=1.0)
+
+    with pytest.raises(PotentialError) as excinfo:
+        evaluatelinearForces(pot_3d, 0.1)
+    assert "linearPotential" in str(excinfo.value), (
+        "Error message should mention linearPotential"
+    )
+
+    return None
+
+
 # Test unit handling of interpolated Spherical potentials
 def test_interSphericalPotential_unithandling():
     pot = potential.HernquistPotential(amp=1.0, a=2.0, ro=8.3, vo=230.0)
