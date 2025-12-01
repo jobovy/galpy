@@ -5116,9 +5116,11 @@ def test_planarPotential_function_returntype():
 
 def test_linearPotential_function_returntype():
     from galpy import potential
-    from galpy.potential import PlummerPotential
+    from galpy.potential import PlummerPotential, linearCompositePotential
 
-    pot = [PlummerPotential(normalize=True, ro=8.0, vo=220.0).toVertical(1.1)]
+    pot = linearCompositePotential(
+        [PlummerPotential(normalize=True, ro=8.0, vo=220.0).toVertical(1.1)]
+    )
     assert isinstance(potential.evaluatelinearPotentials(pot, 1.1), units.Quantity), (
         "Potential function __call__ does not return Quantity when it should"
     )
@@ -5388,9 +5390,11 @@ def test_planarPotential_function_returnunit():
 
 def test_linearPotential_function_returnunit():
     from galpy import potential
-    from galpy.potential import KGPotential
+    from galpy.potential import KGPotential, linearCompositePotential
 
-    pot = [KGPotential(ro=8.0 * units.kpc, vo=220.0 * units.km / units.s)]
+    pot = linearCompositePotential(
+        [KGPotential(ro=8.0 * units.kpc, vo=220.0 * units.km / units.s)]
+    )
     try:
         potential.evaluatelinearPotentials(pot, 1.1).to(units.km**2 / units.s**2)
     except units.UnitConversionError:
@@ -5723,12 +5727,14 @@ def test_planarPotential_function_value():
 
 def test_linearPotential_function_value():
     from galpy import potential
-    from galpy.potential import PlummerPotential
+    from galpy.potential import PlummerPotential, linearCompositePotential
     from galpy.util import conversion
 
     ro, vo = 8.0, 220.0
-    pot = [PlummerPotential(normalize=True, ro=ro, vo=vo).toVertical(1.1)]
-    potu = [PlummerPotential(normalize=True).toVertical(1.1)]
+    pot = linearCompositePotential(
+        [PlummerPotential(normalize=True, ro=ro, vo=vo).toVertical(1.1)]
+    )
+    potu = linearCompositePotential([PlummerPotential(normalize=True).toVertical(1.1)])
     assert (
         numpy.fabs(
             potential.evaluatelinearPotentials(pot, 1.1)
@@ -7679,10 +7685,17 @@ def test_planarPotential_function_inputAsQuantity_Raskwarg():
 
 def test_linearPotential_function_inputAsQuantity():
     from galpy import potential
-    from galpy.potential import PlummerPotential, SpiralArmsPotential
+    from galpy.potential import (
+        CompositePotential,
+        PlummerPotential,
+        SpiralArmsPotential,
+        linearCompositePotential,
+    )
 
     ro, vo = 8.0 * units.kpc, 220.0
-    pot = [PlummerPotential(normalize=True, ro=ro, vo=vo).toVertical(1.1 * ro)]
+    pot = linearCompositePotential(
+        [PlummerPotential(normalize=True, ro=ro, vo=vo).toVertical(1.1 * ro)]
+    )
     potu = potential.RZToverticalPotential([PlummerPotential(normalize=True)], 1.1 * ro)
     assert (
         numpy.fabs(
@@ -7699,15 +7712,20 @@ def test_linearPotential_function_inputAsQuantity():
         < 10.0**-4.0
     ), "Potential function force does not return the correct value as Quantity"
     # Also toVerticalPotential, with non-axi
-    pot = [
-        SpiralArmsPotential(ro=ro, vo=vo).toVertical(
-            (1.1 * ro).to(units.kpc).value / 8.0,
-            phi=20.0 * units.deg,
-            t0=1.0 * units.Gyr,
-        )
-    ]
+    pot = linearCompositePotential(
+        [
+            SpiralArmsPotential(ro=ro, vo=vo).toVertical(
+                (1.1 * ro).to(units.kpc).value / 8.0,
+                phi=20.0 * units.deg,
+                t0=1.0 * units.Gyr,
+            )
+        ]
+    )
     potu = potential.toVerticalPotential(
-        [SpiralArmsPotential()], 1.1 * ro, phi=20.0 * units.deg, t0=1.0 * units.Gyr
+        CompositePotential([SpiralArmsPotential()]),
+        1.1 * ro,
+        phi=20.0 * units.deg,
+        t0=1.0 * units.Gyr,
     )
     assert (
         numpy.fabs(
@@ -7728,11 +7746,20 @@ def test_linearPotential_function_inputAsQuantity():
 
 def test_linearPotential_function_inputAsQuantity_xaskwarg():
     from galpy import potential
-    from galpy.potential import PlummerPotential, SpiralArmsPotential
+    from galpy.potential import (
+        CompositePotential,
+        PlummerPotential,
+        SpiralArmsPotential,
+        linearCompositePotential,
+    )
 
     ro, vo = 8.0 * units.kpc, 220.0
-    pot = [PlummerPotential(normalize=True, ro=ro, vo=vo).toVertical(1.1 * ro)]
-    potu = potential.RZToverticalPotential([PlummerPotential(normalize=True)], 1.1 * ro)
+    pot = linearCompositePotential(
+        [PlummerPotential(normalize=True, ro=ro, vo=vo).toVertical(1.1 * ro)]
+    )
+    potu = potential.RZToverticalPotential(
+        CompositePotential([PlummerPotential(normalize=True)]), 1.1 * ro
+    )
     assert (
         numpy.fabs(
             potential.evaluatelinearPotentials(pot, x=1.1 * ro, use_physical=False)
@@ -7748,15 +7775,20 @@ def test_linearPotential_function_inputAsQuantity_xaskwarg():
         < 10.0**-4.0
     ), "Potential function force does not return the correct value as Quantity"
     # Also toVerticalPotential, with non-axi
-    pot = [
-        SpiralArmsPotential(ro=ro, vo=vo).toVertical(
-            (1.1 * ro).to(units.kpc).value / 8.0,
-            phi=20.0 * units.deg,
-            t0=1.0 * units.Gyr,
-        )
-    ]
+    pot = linearCompositePotential(
+        [
+            SpiralArmsPotential(ro=ro, vo=vo).toVertical(
+                (1.1 * ro).to(units.kpc).value / 8.0,
+                phi=20.0 * units.deg,
+                t0=1.0 * units.Gyr,
+            )
+        ]
+    )
     potu = potential.toVerticalPotential(
-        [SpiralArmsPotential()], 1.1 * ro, phi=20.0 * units.deg, t0=1.0 * units.Gyr
+        CompositePotential([SpiralArmsPotential()]),
+        1.1 * ro,
+        phi=20.0 * units.deg,
+        t0=1.0 * units.Gyr,
     )
     assert (
         numpy.fabs(
@@ -10835,14 +10867,15 @@ def test_potential_function_turnphysicalon():
     assert numpy.fabs(pot._vo - 220.0) < 10.0**-10.0, (
         "Potential function turn_physical_on does not work as expected"
     )
-    potential.turn_physical_on([pot], ro=6.0 * units.kpc, vo=250.0 * units.km / units.s)
-    assert isinstance(potential.evaluatelinearPotentials([pot], 1.1), units.Quantity), (
+    cpot = potential.linearCompositePotential([pot])
+    potential.turn_physical_on(cpot, ro=6.0 * units.kpc, vo=250.0 * units.km / units.s)
+    assert isinstance(potential.evaluatelinearPotentials(cpot, 1.1), units.Quantity), (
         "Potential function does not return Quantity when function turn_physical_on has been called"
     )
-    assert numpy.fabs(pot._ro - 6.0) < 10.0**-10.0, (
+    assert numpy.fabs(cpot._ro - 6.0) < 10.0**-10.0, (
         "Potential function turn_physical_on does not work as expected"
     )
-    assert numpy.fabs(pot._vo - 250.0) < 10.0**-10.0, (
+    assert numpy.fabs(cpot._vo - 250.0) < 10.0**-10.0, (
         "Potential function turn_physical_on does not work as expected"
     )
     return None
@@ -10883,8 +10916,9 @@ def test_potential_function_turnphysicaloff():
     assert isinstance(potential.evaluatelinearPotentials(pot, 1.1), float), (
         "Potential function does not return float when function turn_physical_off has been called"
     )
-    potential.turn_physical_off([pot])
-    assert isinstance(potential.evaluatelinearPotentials([pot], 1.1), float), (
+    cpot = potential.linearCompositePotential([pot])
+    potential.turn_physical_off(cpot)
+    assert isinstance(potential.evaluatelinearPotentials(cpot, 1.1), float), (
         "Potential function does not return float when function turn_physical_off has been called"
     )
     return None

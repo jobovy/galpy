@@ -333,15 +333,15 @@ def evaluatelinearPotentials(Pot, x, t=0.0):
     - 2024-12-01 - Updated to use linearCompositePotential
 
     """
+    if not isinstance(Pot, linearPotential):
+        raise PotentialError(
+            "Input to 'evaluatelinearPotentials' is neither a linearPotential-instance or a linearCompositePotential-instance"
+        )
     return _evaluatelinearPotentials(Pot, x, t=t)
 
 
 def _evaluatelinearPotentials(Pot, x, t=0.0):
     """Raw, undecorated function for internal use"""
-    from .linearCompositePotential import linearCompositePotential
-
-    if isinstance(Pot, list):
-        Pot = linearCompositePotential(Pot)
     return Pot._call_nodecorator(x, t=t)
 
 
@@ -372,25 +372,26 @@ def evaluatelinearForces(Pot, x, t=0.0):
     - 2010-07-13 - Written - Bovy (NYU)
     - 2024-12-01 - Updated to use linearCompositePotential
     """
+    if not isinstance(Pot, linearPotential):
+        raise PotentialError(
+            "Input to 'evaluatelinearForces' is neither a linearPotential-instance or a linearCompositePotential-instance"
+        )
     return _evaluatelinearForces(Pot, x, t=t)
 
 
 def _evaluatelinearForces(Pot, x, t=0.0):
     """Raw, undecorated function for internal use"""
-    from .linearCompositePotential import linearCompositePotential
-
-    if isinstance(Pot, list):
-        Pot = linearCompositePotential(Pot)
     return Pot._force_nodecorator(x, t=t)
 
 
+@linear_potential_list_of_potentials_input
 def plotlinearPotentials(Pot, t=0.0, min=-15.0, max=15, ns=21, savefilename=None):
     """
     Plot a combination of potentials
 
     Parameters
     ----------
-    Pot : list of linearPotential instance(s)
+    Pot : linearPotential or linearCompositePotential
         The list of potentials to evaluate.
     t : float or Quantity, optional
         The time at which to evaluate the forces. Default is 0.0.
@@ -411,7 +412,6 @@ def plotlinearPotentials(Pot, t=0.0, min=-15.0, max=15, ns=21, savefilename=None
     -----
     - 2010-07-13 - Written - Bovy (NYU)
     """
-    Pot = flatten(Pot)
     if not savefilename == None and os.path.exists(savefilename):
         print("Restoring savefile " + savefilename + " ...")
         savefile = open(savefilename, "rb")

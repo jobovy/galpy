@@ -1481,6 +1481,7 @@ def test_amp_mult_divide():
         "CompositePotential",
         "planarCompositePotential",
         "baseCompositePotential",
+        "linearCompositePotential",
     ]
     if False:
         rmpots.append("DoubleExponentialDiskPotential")
@@ -1572,6 +1573,7 @@ def test_potential_array_input():
         "CompositePotential",
         "planarCompositePotential",
         "baseCompositePotential",
+        "linearCompositePotential",
     ]
     rmpots.append("FerrersPotential")
     rmpots.append("PerfectEllipsoidPotential")
@@ -1920,6 +1922,7 @@ def test_potential_at_zero():
         "CompositePotential",
         "planarCompositePotential",
         "baseCompositePotential",
+        "linearCompositePotential",
     ]
     # Remove some more potentials that we don't support for now TO DO
     rmpots.append("BurkertPotential")  # Need to figure out...
@@ -2076,6 +2079,7 @@ def test_potential_at_infinity():
         "CompositePotential",
         "planarCompositePotential",
         "baseCompositePotential",
+        "linearCompositePotential",
     ]
     # Remove some more potentials that we don't support for now TO DO
     rmpots.append("FerrersPotential")  # Need to figure out...
