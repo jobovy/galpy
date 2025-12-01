@@ -88,7 +88,7 @@ class linearPotential:
 
         Parameters
         ----------
-        b : linearPotential instance or a list thereof
+        b : linearPotential instance or a linearCompositePotential
 
         Returns
         -------
@@ -114,33 +114,19 @@ class linearPotential:
             """Physical unit conversion parameters (ro,vo) are not """
             """compatible between potentials to be combined"""
         )
-        if isinstance(b, list):
-            return linearCompositePotential([self] + b)
-        elif isinstance(b, linearCompositePotential):
+        if isinstance(b, linearCompositePotential):
             return linearCompositePotential([self] + b._potlist)
         else:
             return linearCompositePotential([self, b])
 
     # Define separately to keep order
     def __radd__(self, b):
-        from ..potential import flatten as flatten_pot
-        from .linearCompositePotential import linearCompositePotential
-
-        if not isinstance(flatten_pot([b])[0], linearPotential):
-            raise TypeError(
-                """Can only combine galpy linearPotential"""
-                """ objects with """
-                """other such objects or lists thereof"""
-            )
-        assert physical_compatible(self, b), (
-            """Physical unit conversion parameters (ro,vo) are not """
-            """compatible between potentials to be combined"""
+        # Only way to get here is in a situation that isn't supported: adding a Force
+        # to something that is not a linearForce or similar itself, which all implement __add__
+        raise TypeError(
+            """Can only combine galpy linearPotential objects with """
+            """other linearPotential objects"""
         )
-        # If we get here, b has to be a list or linearCompositePotential
-        if isinstance(b, linearCompositePotential):
-            return linearCompositePotential(b._potlist + [self])
-        else:
-            return linearCompositePotential(b + [self])
 
     def turn_physical_off(self):
         """

@@ -141,10 +141,6 @@ def RZToverticalPotential(RZPot, R):
     from .CompositePotential import CompositePotential
     from .linearCompositePotential import linearCompositePotential
 
-    # Handle CompositePotential by converting it to a list first
-    if isinstance(RZPot, CompositePotential):
-        RZPot = list(RZPot)
-
     RZPot = flatten(RZPot)
     try:
         conversion.get_physical(RZPot)
@@ -157,7 +153,7 @@ def RZToverticalPotential(RZPot, R):
             "Converting dissipative forces to 1D vertical potentials is currently not supported"
         )
     R = conversion.parse_length(R, **conversion.get_physical(RZPot))
-    if isinstance(RZPot, list):
+    if isinstance(RZPot, (list, CompositePotential)):
         out = []
         for pot in RZPot:
             if isinstance(pot, linearPotential):
@@ -220,10 +216,6 @@ def toVerticalPotential(Pot, R, phi=None, t0=0.0):
     from .CompositePotential import CompositePotential
     from .linearCompositePotential import linearCompositePotential
 
-    # Handle CompositePotential by converting it to a list first
-    if isinstance(Pot, CompositePotential):
-        Pot = list(Pot)
-
     Pot = flatten(Pot)
     try:
         conversion.get_physical(Pot)
@@ -238,7 +230,7 @@ def toVerticalPotential(Pot, R, phi=None, t0=0.0):
     R = conversion.parse_length(R, **conversion.get_physical(Pot))
     phi = conversion.parse_angle(phi)
     t0 = conversion.parse_time(t0, **conversion.get_physical(Pot))
-    if isinstance(Pot, list):
+    if isinstance(Pot, (list, CompositePotential)):
         out = []
         for pot in Pot:
             if isinstance(pot, linearPotential):

@@ -10461,6 +10461,45 @@ def test_orbit_continuation_potential_comparison_planar():
     return None
 
 
+def test_orbit_continuation_potential_comparison_linear():
+    # Test potential comparison for linear potentials (1D orbits)
+    import warnings
+
+    from galpy.orbit import Orbit
+    from galpy.potential import LogarithmicHaloPotential, MWPotential2014
+
+    vertPot = MWPotential2014[0].toVertical(1.0)
+    # Test with 1D orbit (linear)
+    o = Orbit([1.0, 0.1])
+    t1 = numpy.linspace(0.0, 10.0, 101)
+    o.integrate(t1, vertPot)
+    # Continue with same potential - should NOT warn
+    t2 = numpy.linspace(10.0, 20.0, 101)
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        o.integrate(t2, vertPot)
+        # Filter for the specific warning we care about
+        pot_warnings = [
+            warning for warning in w if "different potential" in str(warning.message)
+        ]
+        assert len(pot_warnings) == 0, (
+            f"Should not warn when continuing with same potential, but received warnings: {[str(w.message) for w in pot_warnings]}"
+        )
+    # New orbit, continue with different potential - should warn
+    o2 = Orbit([1.0, 0.1])
+    o2.integrate(t1, vertPot)
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        o2.integrate(t2, LogarithmicHaloPotential().toVertical(1.0))
+        pot_warnings = [
+            warning for warning in w if "different potential" in str(warning.message)
+        ]
+        assert len(pot_warnings) > 0, (
+            "Should warn when continuing with different potential"
+        )
+    return None
+
+
 def test_orbit_continuation_potential_comparison_single_vs_list():
     # Test potential comparison between single potential and list
     import warnings
