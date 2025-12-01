@@ -59,6 +59,7 @@ from . import (
     TwoPowerTriaxialPotential,
     interpRZPotential,
     interpSphericalPotential,
+    linearCompositePotential,
     linearPotential,
     planarCompositePotential,
     planarForce,
@@ -148,6 +149,7 @@ planarAxiPotential = planarPotential.planarAxiPotential
 planarPotential = planarPotential.planarPotential
 planarCompositePotential = planarCompositePotential.planarCompositePotential
 linearPotential = linearPotential.linearPotential
+linearCompositePotential = linearCompositePotential.linearCompositePotential
 MiyamotoNagaiPotential = MiyamotoNagaiPotential.MiyamotoNagaiPotential
 IsochronePotential = IsochronePotential.IsochronePotential
 DoubleExponentialDiskPotential = (

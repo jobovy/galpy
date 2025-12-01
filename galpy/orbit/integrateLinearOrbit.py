@@ -23,8 +23,12 @@ _lib, _ext_loaded = _load_extension_libs.load_libgalpy()
 
 def _parse_pot(pot):
     """Parse the potential so it can be fed to C"""
+    from ..potential.linearCompositePotential import linearCompositePotential
     from .integrateFullOrbit import _parse_scf_pot
 
+    # Handle linearCompositePotential by extracting the potlist
+    if isinstance(pot, linearCompositePotential):
+        pot = pot._potlist
     # Figure out what's in pot
     if not isinstance(pot, list):
         pot = [pot]

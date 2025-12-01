@@ -146,26 +146,26 @@ def RZToverticalPotential(RZPot, R):
 
     Parameters
     ----------
-    Pot : Potential instance
+    Pot : Potential instance or CompositePotential or list
         The 3D potential to convert.
     R : float or Quantity
         Galactocentric radius at which to evaluate the vertical potential.
 
     Returns
     -------
-    verticalPotential instance
-        The vertical potential at (R, z, phi, t).
+    verticalPotential or linearCompositePotential
+        The vertical potential at (R, z, phi, t). Returns a
+        linearCompositePotential when input is a list or CompositePotential
+        with multiple components.
 
     Notes
     -----
     - 2010-07-21 - Written - Bovy (NYU)
+    - 2024-12-01 - Updated to return linearCompositePotential
 
     """
     from .CompositePotential import CompositePotential
-
-    # Handle CompositePotential by converting it to a list first
-    if isinstance(RZPot, CompositePotential):
-        RZPot = list(RZPot)
+    from .linearCompositePotential import linearCompositePotential
 
     RZPot = flatten(RZPot)
     try:
@@ -179,7 +179,7 @@ def RZToverticalPotential(RZPot, R):
             "Converting dissipative forces to 1D vertical potentials is currently not supported"
         )
     R = conversion.parse_length(R, **conversion.get_physical(RZPot))
-    if isinstance(RZPot, list):
+    if isinstance(RZPot, (list, CompositePotential)):
         out = []
         for pot in RZPot:
             if isinstance(pot, linearPotential):
@@ -194,7 +194,7 @@ def RZToverticalPotential(RZPot, R):
                 raise PotentialError(
                     "Input to 'RZToverticalPotential' is neither an RZPotential-instance or a list of such instances"
                 )
-        return out
+        return linearCompositePotential(out)
     elif isinstance(RZPot, Potential):
         return verticalPotential(RZPot, R)
     elif isinstance(RZPot, linearPotential):
@@ -217,7 +217,7 @@ def toVerticalPotential(Pot, R, phi=None, t0=0.0):
 
     Parameters
     ----------
-    Pot : Potential instance
+    Pot : Potential instance or CompositePotential or list
         The 3D potential to convert.
     R : float or Quantity
         Galactocentric radius at which to evaluate the vertical potential.
@@ -228,19 +228,19 @@ def toVerticalPotential(Pot, R, phi=None, t0=0.0):
 
     Returns
     -------
-    verticalPotential instance
-        The vertical potential at (R, z, phi, t).
+    verticalPotential or linearCompositePotential
+        The vertical potential at (R, z, phi, t). Returns a
+        linearCompositePotential when input is a list or CompositePotential
+        with multiple components.
 
     Notes
     -----
     - 2010-07-21 - Written - Bovy (NYU)
+    - 2024-12-01 - Updated to return linearCompositePotential
 
     """
     from .CompositePotential import CompositePotential
-
-    # Handle CompositePotential by converting it to a list first
-    if isinstance(Pot, CompositePotential):
-        Pot = list(Pot)
+    from .linearCompositePotential import linearCompositePotential
 
     Pot = flatten(Pot)
     try:
@@ -256,7 +256,7 @@ def toVerticalPotential(Pot, R, phi=None, t0=0.0):
     R = conversion.parse_length(R, **conversion.get_physical(Pot))
     phi = conversion.parse_angle(phi)
     t0 = conversion.parse_time(t0, **conversion.get_physical(Pot))
-    if isinstance(Pot, list):
+    if isinstance(Pot, (list, CompositePotential)):
         out = []
         for pot in Pot:
             if isinstance(pot, linearPotential):
@@ -273,7 +273,7 @@ def toVerticalPotential(Pot, R, phi=None, t0=0.0):
                 raise PotentialError(
                     "Input to 'toVerticalPotential' is neither an RZPotential-instance or a list of such instances"
                 )
-        return out
+        return linearCompositePotential(out)
     elif isinstance(Pot, Potential):
         return verticalPotential(Pot, R, phi=phi, t0=t0)
     elif isinstance(Pot, linearPotential):
