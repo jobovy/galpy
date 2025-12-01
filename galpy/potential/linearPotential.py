@@ -11,7 +11,12 @@ from ..util.conversion import (
     physical_conversion,
     potential_physical_input,
 )
-from .Potential import PotentialError, flatten, potential_positional_arg
+from .Potential import (
+    PotentialError,
+    flatten,
+    linear_potential_list_of_potentials_input,
+    potential_positional_arg,
+)
 
 
 class linearPotential:
@@ -87,15 +92,17 @@ class linearPotential:
 
         Returns
         -------
-        list of linearPotential instances
+        linearCompositePotential
             Represents the combined potential
 
         Notes
         -----
         - 2019-01-27 - Written - Bovy (UofT)
+        - 2024-12-01 - Updated to return linearCompositePotential - Copilot
 
         """
         from ..potential import flatten as flatten_pot
+        from .linearCompositePotential import linearCompositePotential
 
         if not isinstance(flatten_pot([b])[0], linearPotential):
             raise TypeError(
@@ -108,13 +115,16 @@ class linearPotential:
             """compatible between potentials to be combined"""
         )
         if isinstance(b, list):
-            return [self] + b
+            return linearCompositePotential([self] + b)
+        elif isinstance(b, linearCompositePotential):
+            return linearCompositePotential([self] + b._potlist)
         else:
-            return [self, b]
+            return linearCompositePotential([self, b])
 
     # Define separately to keep order
     def __radd__(self, b):
         from ..potential import flatten as flatten_pot
+        from .linearCompositePotential import linearCompositePotential
 
         if not isinstance(flatten_pot([b])[0], linearPotential):
             raise TypeError(
@@ -126,8 +136,11 @@ class linearPotential:
             """Physical unit conversion parameters (ro,vo) are not """
             """compatible between potentials to be combined"""
         )
-        # If we get here, b has to be a list
-        return b + [self]
+        # If we get here, b has to be a list or linearCompositePotential
+        if isinstance(b, linearCompositePotential):
+            return linearCompositePotential(b._potlist + [self])
+        else:
+            return linearCompositePotential(b + [self])
 
     def turn_physical_off(self):
         """
@@ -293,6 +306,7 @@ class linearPotential:
 
 
 @potential_positional_arg
+@linear_potential_list_of_potentials_input
 @potential_physical_input
 @physical_conversion("energy", pop=True)
 def evaluatelinearPotentials(Pot, x, t=0.0):
@@ -301,8 +315,8 @@ def evaluatelinearPotentials(Pot, x, t=0.0):
 
     Parameters
     ----------
-    Pot : list of linearPotential instance(s)
-        The list of potentials to evaluate.
+    Pot : linearPotential or linearCompositePotential
+        The potential(s) to evaluate.
     x : float or Quantity
         The position at which to evaluate the potentials.
     t : float or Quantity, optional
@@ -316,6 +330,7 @@ def evaluatelinearPotentials(Pot, x, t=0.0):
     Notes
     -----
     - 2010-07-13 - Written - Bovy (NYU)
+    - 2024-12-01 - Updated to use linearCompositePotential - Copilot
 
     """
     return _evaluatelinearPotentials(Pot, x, t=t)
@@ -323,20 +338,15 @@ def evaluatelinearPotentials(Pot, x, t=0.0):
 
 def _evaluatelinearPotentials(Pot, x, t=0.0):
     """Raw, undecorated function for internal use"""
+    from .linearCompositePotential import linearCompositePotential
+
     if isinstance(Pot, list):
-        sum = 0.0
-        for pot in Pot:
-            sum += pot._call_nodecorator(x, t=t)
-        return sum
-    elif isinstance(Pot, linearPotential):
-        return Pot._call_nodecorator(x, t=t)
-    else:  # pragma: no cover
-        raise PotentialError(
-            "Input to 'evaluatelinearPotentials' is neither a linearPotential-instance or a list of such instances"
-        )
+        Pot = linearCompositePotential(Pot)
+    return Pot._call_nodecorator(x, t=t)
 
 
 @potential_positional_arg
+@linear_potential_list_of_potentials_input
 @potential_physical_input
 @physical_conversion("force", pop=True)
 def evaluatelinearForces(Pot, x, t=0.0):
@@ -345,8 +355,8 @@ def evaluatelinearForces(Pot, x, t=0.0):
 
     Parameters
     ----------
-    Pot : list of linearPotential instance(s)
-        The list of potentials to evaluate.
+    Pot : linearPotential or linearCompositePotential
+        The potential(s) to evaluate.
     x : float or Quantity
         The position at which to evaluate the forces.
     t : float or Quantity, optional
@@ -360,23 +370,18 @@ def evaluatelinearForces(Pot, x, t=0.0):
     Notes
     -----
     - 2010-07-13 - Written - Bovy (NYU)
+    - 2024-12-01 - Updated to use linearCompositePotential - Copilot
     """
     return _evaluatelinearForces(Pot, x, t=t)
 
 
 def _evaluatelinearForces(Pot, x, t=0.0):
     """Raw, undecorated function for internal use"""
+    from .linearCompositePotential import linearCompositePotential
+
     if isinstance(Pot, list):
-        sum = 0.0
-        for pot in Pot:
-            sum += pot._force_nodecorator(x, t=t)
-        return sum
-    elif isinstance(Pot, linearPotential):
-        return Pot._force_nodecorator(x, t=t)
-    else:  # pragma: no cover
-        raise PotentialError(
-            "Input to 'evaluateForces' is neither a linearPotential-instance or a list of such instances"
-        )
+        Pot = linearCompositePotential(Pot)
+    return Pot._force_nodecorator(x, t=t)
 
 
 def plotlinearPotentials(Pot, t=0.0, min=-15.0, max=15, ns=21, savefilename=None):

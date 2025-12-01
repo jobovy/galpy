@@ -120,22 +120,26 @@ def RZToverticalPotential(RZPot, R):
 
     Parameters
     ----------
-    Pot : Potential instance
+    Pot : Potential instance or CompositePotential or list
         The 3D potential to convert.
     R : float or Quantity
         Galactocentric radius at which to evaluate the vertical potential.
 
     Returns
     -------
-    verticalPotential instance
-        The vertical potential at (R, z, phi, t).
+    verticalPotential or linearCompositePotential
+        The vertical potential at (R, z, phi, t). Returns a
+        linearCompositePotential when input is a list or CompositePotential
+        with multiple components.
 
     Notes
     -----
     - 2010-07-21 - Written - Bovy (NYU)
+    - 2024-12-01 - Updated to return linearCompositePotential - Copilot
 
     """
     from .CompositePotential import CompositePotential
+    from .linearCompositePotential import linearCompositePotential
 
     # Handle CompositePotential by converting it to a list first
     if isinstance(RZPot, CompositePotential):
@@ -168,7 +172,7 @@ def RZToverticalPotential(RZPot, R):
                 raise PotentialError(
                     "Input to 'RZToverticalPotential' is neither an RZPotential-instance or a list of such instances"
                 )
-        return out
+        return linearCompositePotential(out)
     elif isinstance(RZPot, Potential):
         return verticalPotential(RZPot, R)
     elif isinstance(RZPot, linearPotential):
@@ -191,7 +195,7 @@ def toVerticalPotential(Pot, R, phi=None, t0=0.0):
 
     Parameters
     ----------
-    Pot : Potential instance
+    Pot : Potential instance or CompositePotential or list
         The 3D potential to convert.
     R : float or Quantity
         Galactocentric radius at which to evaluate the vertical potential.
@@ -202,15 +206,19 @@ def toVerticalPotential(Pot, R, phi=None, t0=0.0):
 
     Returns
     -------
-    verticalPotential instance
-        The vertical potential at (R, z, phi, t).
+    verticalPotential or linearCompositePotential
+        The vertical potential at (R, z, phi, t). Returns a
+        linearCompositePotential when input is a list or CompositePotential
+        with multiple components.
 
     Notes
     -----
     - 2010-07-21 - Written - Bovy (NYU)
+    - 2024-12-01 - Updated to return linearCompositePotential - Copilot
 
     """
     from .CompositePotential import CompositePotential
+    from .linearCompositePotential import linearCompositePotential
 
     # Handle CompositePotential by converting it to a list first
     if isinstance(Pot, CompositePotential):
@@ -247,7 +255,7 @@ def toVerticalPotential(Pot, R, phi=None, t0=0.0):
                 raise PotentialError(
                     "Input to 'toVerticalPotential' is neither an RZPotential-instance or a list of such instances"
                 )
-        return out
+        return linearCompositePotential(out)
     elif isinstance(Pot, Potential):
         return verticalPotential(Pot, R, phi=phi, t0=t0)
     elif isinstance(Pot, linearPotential):

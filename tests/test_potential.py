@@ -8365,6 +8365,232 @@ def test_planar_functions_reject_3d_potentials():
     return None
 
 
+# Tests for linearCompositePotential
+def test_linearCompositePotential_basic():
+    """Test basic linearCompositePotential functionality."""
+    from galpy.potential import (
+        IsothermalDiskPotential,
+        KGPotential,
+        linearCompositePotential,
+    )
+
+    # Create linear potentials
+    kg = KGPotential()
+    iso = IsothermalDiskPotential()
+
+    # Create a linearCompositePotential
+    linear_comp = linearCompositePotential(kg, iso)
+
+    # Check that the composite has the correct number of potentials
+    assert len(linear_comp) == 2, "linearCompositePotential should have 2 potentials"
+
+    # Check that the composite is a linearCompositePotential
+    assert isinstance(linear_comp, linearCompositePotential), (
+        "Result should be a linearCompositePotential"
+    )
+
+    # Test evaluation
+    x = 0.1
+    val = linear_comp(x)
+    expected = kg(x) + iso(x)
+    assert numpy.fabs(val - expected) < 1e-10, (
+        "linearCompositePotential evaluation is incorrect"
+    )
+
+    # Test force
+    force_val = linear_comp.force(x)
+    expected_force = kg.force(x) + iso.force(x)
+    assert numpy.fabs(force_val - expected_force) < 1e-10, (
+        "linearCompositePotential force is incorrect"
+    )
+
+    return None
+
+
+def test_linearCompositePotential_from_addition():
+    """Test that adding linear potentials returns linearCompositePotential."""
+    from galpy.potential import (
+        IsothermalDiskPotential,
+        KGPotential,
+        linearCompositePotential,
+    )
+
+    # Create linear potentials
+    kg = KGPotential()
+    iso = IsothermalDiskPotential()
+
+    # Add them together
+    combined = kg + iso
+
+    # Check that the result is a linearCompositePotential
+    assert isinstance(combined, linearCompositePotential), (
+        "Adding linear potentials should return linearCompositePotential"
+    )
+
+    # Check evaluation matches individual potentials
+    x = 0.1
+    val = combined(x)
+    expected = kg(x) + iso(x)
+    assert numpy.fabs(val - expected) < 1e-10, (
+        "linearCompositePotential from addition evaluates incorrectly"
+    )
+
+    return None
+
+
+def test_linearCompositePotential_from_toVerticalPotential():
+    """Test that toVerticalPotential returns linearCompositePotential for multiple potentials."""
+    from galpy.potential import (
+        LogarithmicHaloPotential,
+        MiyamotoNagaiPotential,
+        MWPotential2014,
+        linearCompositePotential,
+        toVerticalPotential,
+    )
+
+    # Test with list of potentials
+    pot1 = MiyamotoNagaiPotential(normalize=0.6)
+    pot2 = LogarithmicHaloPotential(normalize=0.4)
+    linear = toVerticalPotential([pot1, pot2], 1.0)
+
+    # Should be a linearCompositePotential
+    assert isinstance(linear, linearCompositePotential), (
+        "toVerticalPotential with list should return linearCompositePotential"
+    )
+    assert len(linear) == 2, "Should have 2 potentials"
+
+    # Test with MWPotential2014 (a CompositePotential)
+    linear_mw = toVerticalPotential(MWPotential2014, 1.0)
+    assert isinstance(linear_mw, linearCompositePotential), (
+        "toVerticalPotential with MWPotential2014 should return linearCompositePotential"
+    )
+    assert len(linear_mw) == 3, "MWPotential2014 should have 3 components"
+
+    return None
+
+
+def test_linearCompositePotential_slicing():
+    """Test that slicing linearCompositePotential returns correct types."""
+    from galpy.potential import (
+        IsothermalDiskPotential,
+        KGPotential,
+        linearCompositePotential,
+        linearPotential,
+    )
+
+    # Create linear composite with 3 potentials
+    kg = KGPotential()
+    iso1 = IsothermalDiskPotential()
+    iso2 = IsothermalDiskPotential()
+    linear = linearCompositePotential(kg, iso1, iso2)
+
+    # Single index should return linearPotential
+    single = linear[0]
+    assert isinstance(single, linearPotential), (
+        "Single index should return linearPotential"
+    )
+
+    # Slice should return linearCompositePotential
+    sliced = linear[1:]
+    assert isinstance(sliced, linearCompositePotential), (
+        "Slice should return linearCompositePotential"
+    )
+    assert len(sliced) == 2, "Sliced composite should have 2 potentials"
+
+    return None
+
+
+def test_linear_list_of_potentials_deprecation():
+    """Test that passing a list of linear potentials emits DeprecationWarning."""
+    import warnings
+
+    from packaging.version import Version
+
+    import galpy
+    from galpy.potential import (
+        IsothermalDiskPotential,
+        KGPotential,
+        evaluatelinearForces,
+        evaluatelinearPotentials,
+    )
+
+    # Create linear potentials
+    kg = KGPotential()
+    iso = IsothermalDiskPotential()
+    pot_list = [kg, iso]
+
+    # Skip test if galpy version > 1.13.99 since lists should raise TypeError
+    current_version = Version(galpy.__version__.split(".dev")[0])
+    if current_version <= Version("1.13.99"):
+        # Test evaluatelinearPotentials
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            evaluatelinearPotentials(pot_list, 0.1)
+            assert len(w) == 1, "Should emit exactly one warning"
+            assert issubclass(w[0].category, DeprecationWarning)
+            assert "deprecated" in str(w[0].message).lower()
+
+        # Test evaluatelinearForces
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            evaluatelinearForces(pot_list, 0.1)
+            assert len(w) == 1, "Should emit exactly one warning"
+            assert issubclass(w[0].category, DeprecationWarning)
+            assert "deprecated" in str(w[0].message).lower()
+
+    return None
+
+
+def test_linearCompositePotential_mul_div():
+    """Test __mul__, __rmul__, __div__, __truediv__ for linearCompositePotential."""
+    from galpy.potential import (
+        IsothermalDiskPotential,
+        KGPotential,
+        linearCompositePotential,
+    )
+
+    kg = KGPotential()
+    iso = IsothermalDiskPotential()
+    comp = kg + iso
+
+    orig_val = comp(0.1, use_physical=False)
+
+    # Test __mul__
+    comp_mul = comp * 2
+    assert isinstance(comp_mul, linearCompositePotential), (
+        "Result should be linearCompositePotential"
+    )
+    assert numpy.isclose(comp_mul(0.1, use_physical=False), 2 * orig_val), (
+        "__mul__ failed"
+    )
+
+    # Test __rmul__
+    comp_rmul = 2 * comp
+    assert isinstance(comp_rmul, linearCompositePotential), (
+        "Result should be linearCompositePotential"
+    )
+    assert numpy.isclose(comp_rmul(0.1, use_physical=False), 2 * orig_val), (
+        "__rmul__ failed"
+    )
+
+    # Test __truediv__
+    comp_div = comp / 2
+    assert isinstance(comp_div, linearCompositePotential), (
+        "Result should be linearCompositePotential"
+    )
+    assert numpy.isclose(comp_div(0.1, use_physical=False), orig_val / 2), (
+        "__truediv__ failed"
+    )
+
+    # Test that multiplying/dividing by non-number raises TypeError
+    with pytest.raises(TypeError):
+        comp * "not a number"
+    with pytest.raises(TypeError):
+        comp / "not a number"
+
+    return None
+
+
 # Test unit handling of interpolated Spherical potentials
 def test_interSphericalPotential_unithandling():
     pot = potential.HernquistPotential(amp=1.0, a=2.0, ro=8.3, vo=230.0)
