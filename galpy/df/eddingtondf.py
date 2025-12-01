@@ -3,7 +3,7 @@
 import numpy
 from scipy import integrate, interpolate
 
-from ..potential import evaluateR2derivs
+from ..potential import CompositePotential, evaluateR2derivs
 from ..potential.Potential import _evaluatePotentials, _evaluateRforces
 from ..util import conversion
 from .sphericaldf import isotropicsphericaldf, sphericaldf
@@ -48,12 +48,12 @@ class eddingtondf(isotropicsphericaldf):
         )
         self._dnudr = (
             self._denspot._ddensdr
-            if not isinstance(self._denspot, list)
+            if not isinstance(self._denspot, (list, CompositePotential))
             else lambda r: numpy.sum([p._ddensdr(r) for p in self._denspot])
         )
         self._d2nudr2 = (
             self._denspot._d2densdr2
-            if not isinstance(self._denspot, list)
+            if not isinstance(self._denspot, (list, CompositePotential))
             else lambda r: numpy.sum([p._d2densdr2(r) for p in self._denspot])
         )
         self._potInf = _evaluatePotentials(pot, self._rmax, 0)

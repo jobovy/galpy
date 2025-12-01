@@ -190,7 +190,7 @@ def test_FDMDynamicalFrictionForce_classicalregime():
     )
     o = Orbit([r_init, 0.0, 1.0, 0.0, 0.0, 0.0])
     ts = numpy.linspace(0.0, dt, 1001)
-    o.integrate(ts, [halo, fdf], method="odeint")
+    o.integrate(ts, halo + fdf, method="odeint")
     # Compare to Chandrasekhar dynamical friction
     cdfc = potential.ChandrasekharDynamicalFrictionForce(
         GMs=GMs,
@@ -198,7 +198,7 @@ def test_FDMDynamicalFrictionForce_classicalregime():
         sigmar=lambda r: 1.0 / numpy.sqrt(2.0),
     )
     oc = o()
-    oc.integrate(ts, [halo, cdfc], method="odeint")
+    oc.integrate(ts, halo + cdfc, method="odeint")
     assert numpy.fabs(oc.r(ts[-1]) - o.r(ts[-1])) < 0.05, (
         "FDMDynamicalFrictionForce in the classical regime does not agree with Chandrasekhar dynamical friction"
     )
