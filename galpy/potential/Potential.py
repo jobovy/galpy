@@ -92,11 +92,11 @@ def _list_of_potentials_input_factory(composite_class_name, type_name):
     Parameters
     ----------
     composite_class_name : str
-        Name of the composite class to use ('CompositePotential' or
-        'planarCompositePotential').
+        Name of the composite class to use ('CompositePotential',
+        'planarCompositePotential', or 'linearCompositePotential').
     type_name : str
-        Type name to use in error/warning messages ('Potential' or
-        'planarPotential').
+        Type name to use in error/warning messages ('Potential',
+        'planarPotential', or 'linearPotential').
 
     Returns
     -------
@@ -105,7 +105,8 @@ def _list_of_potentials_input_factory(composite_class_name, type_name):
 
     Notes
     -----
-    - 2024-11-28 - Written - Copilot
+    - 2024-11-28 - Written
+    - 2024-12-01 - Extended to support linearCompositePotential
 
     """
 
@@ -140,7 +141,7 @@ def _list_of_potentials_input_factory(composite_class_name, type_name):
                         stacklevel=2,
                     )
                     Pot = CompositePotential(Pot)
-                else:  # planarCompositePotential
+                elif composite_class_name == "planarCompositePotential":
                     from .planarForce import planarForce
                     from .planarPotential import planarPotential
 
@@ -163,6 +164,27 @@ def _list_of_potentials_input_factory(composite_class_name, type_name):
                         )
                         Pot = planarCompositePotential(Pot)
                     # If not all planar, pass through to function for error handling
+                else:  # linearCompositePotential
+                    from .linearPotential import linearPotential
+
+                    # Only convert to linearCompositePotential if all items are
+                    # linear types; otherwise, let the function handle the error
+                    all_linear = all(
+                        isinstance(p, linearPotential) for p in flatten(Pot)
+                    )
+                    if all_linear:
+                        from .linearCompositePotential import linearCompositePotential
+
+                        warnings.warn(
+                            f"Passing a list of {type_name}s is deprecated and will be "
+                            f"removed in versions after 1.13.x. Use {composite_class_name} "
+                            "instead by combining potentials with the + operator "
+                            "(e.g., pot1 + pot2).",
+                            DeprecationWarning,
+                            stacklevel=2,
+                        )
+                        Pot = linearCompositePotential(Pot)
+                    # If not all linear, pass through to function for error handling
             return func(Pot, *args, **kwargs)
 
         return wrapper
@@ -191,7 +213,7 @@ potential_list_of_potentials_input.__doc__ = """
     Notes
     -----
     - 2024-11-24 - Written - Bovy (UofT)
-    - 2024-11-28 - Updated to use factory function - Copilot
+    - 2024-11-28 - Updated to use factory function
 
     """
 
@@ -217,7 +239,33 @@ planar_potential_list_of_potentials_input.__doc__ = """
 
     Notes
     -----
-    - 2024-11-28 - Written - Copilot
+    - 2024-11-28 - Written
+
+    """
+
+# Create the decorator for linear potentials
+linear_potential_list_of_potentials_input = _list_of_potentials_input_factory(
+    "linearCompositePotential", "linearPotential"
+)
+linear_potential_list_of_potentials_input.__doc__ = """
+    Decorator that converts a list of linear potentials to a
+    linearCompositePotential before passing it to the function. Also emits a
+    DeprecationWarning for lists.
+
+    Parameters
+    ----------
+    func : function
+        Function to be decorated. Should have a linear potential as its first
+        argument.
+
+    Returns
+    -------
+    function
+        Decorated function.
+
+    Notes
+    -----
+    - 2024-12-01 - Written
 
     """
 
