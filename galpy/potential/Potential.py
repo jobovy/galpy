@@ -2201,7 +2201,7 @@ def evaluateRforces(Pot, R, z, phi=None, t=0.0, v=None):
 
     Parameters
     ----------
-    Pot : Potential, DissipativeForce, or a combined potential formed using addition (pot1+pot2+…)
+    Pot : Potential, DissipativeForce, or a combined force/potential formed using addition (pot1+pot2+force3+…)
         A potential, dissipative force or a list of such objects.
     R : float or Quantity
         Cylindrical Galactocentric distance.
@@ -2256,7 +2256,7 @@ def evaluatephitorques(Pot, R, z, phi=None, t=0.0, v=None):
 
     Parameters
     ----------
-    Pot : Potential, DissipativeForce, or a combined potential formed using addition (pot1+pot2+…)
+    Pot : Potential, DissipativeForce, or a combined force/potential formed using addition (pot1+pot2+force3+…)
         A potential, dissipative force or a list of such objects.
     R : float or Quantity
         Cylindrical Galactocentric distance.
@@ -2311,7 +2311,7 @@ def evaluatezforces(Pot, R, z, phi=None, t=0.0, v=None):
 
     Parameters
     ----------
-    Pot : Potential, DissipativeForce, or a combined potential formed using addition (pot1+pot2+…)
+    Pot : Potential, DissipativeForce, or a combined force/potential formed using addition (pot1+pot2+force3+…)
         A potential, dissipative force or a list of such objects.
     R : float or Quantity
         Cylindrical Galactocentric distance.
