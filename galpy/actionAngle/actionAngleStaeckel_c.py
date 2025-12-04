@@ -15,7 +15,7 @@ def actionAngleStaeckel_c(pot, delta, R, vR, vT, z, vz, u0=None, order=10):
 
     Parameters
     ----------
-    pot : Potential or list of such instances
+    pot : Potential or a combined potential formed using addition (pot1+pot2+…)
         Potential
     delta : float
         Focal length of prolate spheroidal coordinates
@@ -156,8 +156,8 @@ def actionAngleStaeckel_calcu0(E, Lz, pot, delta):
         Energy.
     Lz : numpy.ndarray
         Angular momentum.
-    pot : Potential or list of such instances
-        Potential or list of such instances.
+    pot : Potential or a combined potential formed using addition (pot1+pot2+…)
+        Potential or a combined potential formed using addition (pot1+pot2+…).
     delta : numpy.ndarray
         Focal length of prolate spheroidal coordinates.
 
@@ -247,8 +247,8 @@ def actionAngleFreqStaeckel_c(pot, delta, R, vR, vT, z, vz, u0=None, order=10):
 
     Parameters
     ----------
-    pot : Potential or list of such instances
-        Potential or list of such instances.
+    pot : Potential or a combined potential formed using addition (pot1+pot2+…)
+        Potential or a combined potential formed using addition (pot1+pot2+…).
     delta : float
         Focal length of prolate spheroidal coordinates.
     R : float
@@ -398,8 +398,8 @@ def actionAngleFreqAngleStaeckel_c(
 
     Parameters
     ----------
-    pot : Potential or list of such instances
-        Potential or list of such instances.
+    pot : Potential or a combined potential formed using addition (pot1+pot2+…)
+        Potential or a combined potential formed using addition (pot1+pot2+…).
     delta : float
         Focal length of prolate spheroidal coordinates.
     R : float
@@ -567,8 +567,8 @@ def actionAngleUminUmaxVminStaeckel_c(pot, delta, R, vR, vT, z, vz, u0=None):
 
     Parameters
     ----------
-    pot : Potential or list of such instances
-        Potential or list of such instances.
+    pot : Potential or a combined potential formed using addition (pot1+pot2+…)
+        Potential or a combined potential formed using addition (pot1+pot2+…).
     delta : float
         Focal length of prolate spheroidal coordinates.
     R : float

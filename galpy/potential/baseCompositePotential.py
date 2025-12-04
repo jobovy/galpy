@@ -79,11 +79,11 @@ class baseCompositePotential:
 
     def __eq__(self, other):
         """
-        Check equality with another (planar)CompositePotential or list.
+        Check equality with another (planar)CompositePotential or a combined potential formed using addition (pot1+pot2+…).
 
         Parameters
         ----------
-        other : (planar)CompositePotential or list
+        other : (planar)CompositePotential or a combined potential formed using addition (pot1+pot2+…)
             Object to compare with.
 
         Returns

@@ -19,7 +19,7 @@ class linearCompositePotential(baseCompositePotential, linearPotential):
 
         Parameters
         ----------
-        *args : linearPotential or list of such instances
+        *args : linearPotential or a combined potential formed using addition (pot1+pot2+…)
             Linear potentials to combine. Can be individual potentials,
             lists, or nested lists.
         ro : float or Quantity, optional

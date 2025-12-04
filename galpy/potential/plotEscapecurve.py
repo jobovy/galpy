@@ -20,7 +20,7 @@ def plotEscapecurve(Pot, *args, **kwargs):
 
     Parameters
     ----------
-    Pot : Potential or list of Potential instances
+    Pot : Potential or a combined potential formed using addition (pot1+pot2+…)
         Potential(s) for which to plot the escape velocity curve.
     Rrange : numpy.ndarray or Quantity, optional
         Range in R to consider (can be Quantity).
@@ -124,8 +124,8 @@ def calcEscapecurve(Pot, Rs, t=0.0):
 
     Parameters
     ----------
-    Pot : Potential or list of Potential instances
-        Potential or list of Potential instances.
+    Pot : Potential or a combined potential formed using addition (pot1+pot2+…)
+        Potential or a combined potential formed using addition (pot1+pot2+…).
     Rs : numpy.ndarray or Quantity
         Radius(i).
     t : float, optional
@@ -171,8 +171,8 @@ def vesc(Pot, R, t=0.0):
 
     Parameters
     ----------
-    Pot : Potential or list of Potential instances
-        Potential or list of Potential instances.
+    Pot : Potential or a combined potential formed using addition (pot1+pot2+…)
+        Potential or a combined potential formed using addition (pot1+pot2+…).
     R : numpy.ndarray or Quantity
         Galactocentric radius.
     t : float, optional

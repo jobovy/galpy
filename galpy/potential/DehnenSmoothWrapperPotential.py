@@ -35,7 +35,7 @@ class DehnenSmoothWrapperPotential(parentWrapperPotential):
         ----------
         amp : float, optional
             Amplitude to be applied to the potential (default: 1.).
-        pot : Potential instance or list thereof, optional
+        pot : Potential instance or a combined potential formed using addition (pot1+pot2+…), optional
             The amplitude of this will be grown by this wrapper.
         tform : float or Quantity, optional
             Start of growth (default: -4.0).

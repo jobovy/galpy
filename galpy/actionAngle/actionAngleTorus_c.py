@@ -15,7 +15,7 @@ def actionAngleTorus_xvFreqs_c(pot, jr, jphi, jz, angler, anglephi, anglez, tol=
 
     Parameters
     ----------
-    pot : Potential object or list thereof
+    pot : Potential object or a combined potential formed using addition (pot1+pot2+…)
     jr : float
         Radial action
     jphi : float
@@ -149,7 +149,7 @@ def actionAngleTorus_Freqs_c(pot, jr, jphi, jz, tol=0.003):
 
     Parameters
     ----------
-    pot : Potential object or list thereof
+    pot : Potential object or a combined potential formed using addition (pot1+pot2+…)
     jr : float
         Radial action
     jphi : float
@@ -229,7 +229,7 @@ def actionAngleTorus_hessian_c(pot, jr, jphi, jz, tol=0.003, dJ=0.001):
 
     Parameters
     ----------
-    pot : Potential object or list thereof
+    pot : Potential object or a combined potential formed using addition (pot1+pot2+…)
     jr : float
         Radial action
     jphi : float
@@ -319,7 +319,7 @@ def actionAngleTorus_jacobian_c(
 
     Parameters
     ----------
-    pot : Potential object or list thereof
+    pot : Potential object or a combined potential formed using addition (pot1+pot2+…)
     jr : float
         Radial action
     jphi : float

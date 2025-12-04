@@ -18,8 +18,8 @@ def plotRotcurve(Pot, *args, **kwargs):
 
     Parameters
     ----------
-    Pot : Potential or list of Potential instances
-        Potential instance or list of such instances.
+    Pot : Potential or a combined potential formed using addition (pot1+pot2+…)
+        Potential instance or a combined potential formed using addition (pot1+pot2+…).
     Rrange : numpy.ndarray or Quantity
         Range in R to consider (needs to be in the units that you are plotting).
     grid : int, optional
@@ -125,8 +125,8 @@ def calcRotcurve(Pot, Rs, phi=None, t=0.0):
 
     Parameters
     ----------
-    Pot : Potential or list of Potential instances
-        Potential instance or list of such instances.
+    Pot : Potential or a combined potential formed using addition (pot1+pot2+…)
+        Potential instance or a combined potential formed using addition (pot1+pot2+…).
     Rs : numpy.ndarray or float
         Radius(i).
     phi : float or Quantity, optional
@@ -164,8 +164,8 @@ def vcirc(Pot, R, phi=None, t=0.0):
 
     Parameters
     ----------
-    Pot : Potential or list of Potential instances
-        Potential instance or list of such instances.
+    Pot : Potential or a combined potential formed using addition (pot1+pot2+…)
+        Potential instance or a combined potential formed using addition (pot1+pot2+…).
     R : float or Quantity
         Galactocentric radius.
     phi : float or Quantity, optional
@@ -206,8 +206,8 @@ def dvcircdR(Pot, R, phi=None, t=0.0):
 
     Parameters
     ----------
-    Pot : Potential or list of Potential instances
-        Potential instance or list of such instances.
+    Pot : Potential or a combined potential formed using addition (pot1+pot2+…)
+        Potential instance or a combined potential formed using addition (pot1+pot2+…).
     R : float or Quantity
         Galactocentric radius.
     phi : float or Quantity, optional

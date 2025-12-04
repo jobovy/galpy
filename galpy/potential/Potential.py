@@ -2028,8 +2028,8 @@ def evaluatePotentials(Pot, R, z, phi=None, t=0.0, dR=0, dphi=0):
 
     Parameters
     ----------
-    Pot : Potential or list of Potential
-        Potential or list of potentials (dissipative forces in such a list are ignored).
+    Pot : Potential or a combined potential formed using addition (pot1+pot2+…)
+        Potential or a combined potential formed using addition (pot1+pot2+…) of potentials (dissipative forces in such a combination are ignored).
     R : float or Quantity
         Cylindrical Galactocentric distance.
     z : float or Quantity
@@ -2076,8 +2076,8 @@ def evaluateDensities(Pot, R, z, phi=None, t=0.0, forcepoisson=False):
 
     Parameters
     ----------
-    Pot : potential or list of potentials
-        Dissipative forces in such a list are ignored.
+    Pot : potential or a combined potential formed using addition (pot1+pot2+…)
+        Dissipative forces in such a combination are ignored.
     R : float or Quantity
         Cylindrical Galactocentric distance.
     z : float or Quantity
@@ -2161,8 +2161,8 @@ def mass(Pot, R, z=None, t=0.0, forceint=False):
 
     Parameters
     ----------
-    Pot : Potential or list of Potentials
-        Potential or list of Potentials (dissipative forces in such a list are ignored).
+    Pot : Potential or a combined potential formed using addition (pot1+pot2+…)
+        Potential or a combined potential formed using addition (pot1+pot2+…) (dissipative forces in such a combination are ignored).
     R : float or Quantity
         Cylindrical Galactocentric distance.
     z : float or Quantity, optional
@@ -2201,7 +2201,7 @@ def evaluateRforces(Pot, R, z, phi=None, t=0.0, v=None):
 
     Parameters
     ----------
-    Pot : Potential, DissipativeForce or list of Potential or DissipativeForce instances
+    Pot : Potential, DissipativeForce, or a combined potential formed using addition (pot1+pot2+…)
         A potential, dissipative force or a list of such objects.
     R : float or Quantity
         Cylindrical Galactocentric distance.
@@ -2256,7 +2256,7 @@ def evaluatephitorques(Pot, R, z, phi=None, t=0.0, v=None):
 
     Parameters
     ----------
-    Pot : Potential, DissipativeForce or list of Potential or DissipativeForce instances
+    Pot : Potential, DissipativeForce, or a combined potential formed using addition (pot1+pot2+…)
         A potential, dissipative force or a list of such objects.
     R : float or Quantity
         Cylindrical Galactocentric distance.
@@ -2311,7 +2311,7 @@ def evaluatezforces(Pot, R, z, phi=None, t=0.0, v=None):
 
     Parameters
     ----------
-    Pot : Potential, DissipativeForce or list of Potential or DissipativeForce instances
+    Pot : Potential, DissipativeForce, or a combined potential formed using addition (pot1+pot2+…)
         A potential, dissipative force or a list of such objects.
     R : float or Quantity
         Cylindrical Galactocentric distance.
@@ -2415,8 +2415,8 @@ def evaluateR2derivs(Pot, R, z, phi=None, t=0.0):
 
     Parameters
     ----------
-    Pot : Potential or list of Potential instances
-        A potential or list of potentials (dissipative forces in such a list are ignored).
+    Pot : Potential or a combined potential formed using addition (pot1+pot2+…)
+        A potential or a combined potential formed using addition (pot1+pot2+…) (dissipative forces in such a combination are ignored).
     R : float or Quantity
         Cylindrical Galactocentric distance.
     z : float or Quantity
@@ -2454,8 +2454,8 @@ def evaluatez2derivs(Pot, R, z, phi=None, t=0.0):
 
     Parameters
     ----------
-    Pot : Potential or list of Potential instances
-        A potential or list of potentials (dissipative forces in such a list are ignored).
+    Pot : Potential or a combined potential formed using addition (pot1+pot2+…)
+        A potential or a combined potential formed using addition (pot1+pot2+…) (dissipative forces in such a combination are ignored).
     R : float or Quantity
         Cylindrical Galactocentric distance.
     z : float or Quantity
@@ -2493,8 +2493,8 @@ def evaluateRzderivs(Pot, R, z, phi=None, t=0.0):
 
     Parameters
     ----------
-    Pot : Potential or list of Potential instances
-        A potential or list of potentials (dissipative forces in such a list are ignored).
+    Pot : Potential or a combined potential formed using addition (pot1+pot2+…)
+        A potential or a combined potential formed using addition (pot1+pot2+…) (dissipative forces in such a combination are ignored).
     R : float or Quantity
         Cylindrical Galactocentric distance.
     z : float or Quantity
@@ -2532,8 +2532,8 @@ def evaluatephi2derivs(Pot, R, z, phi=None, t=0.0):
 
     Parameters
     ----------
-    Pot : Potential or list of Potential instances
-        A potential or list of potentials (dissipative forces in such a list are ignored).
+    Pot : Potential or a combined potential formed using addition (pot1+pot2+…)
+        A potential or a combined potential formed using addition (pot1+pot2+…) (dissipative forces in such a combination are ignored).
     R : float or Quantity
         Cylindrical Galactocentric distance.
     z : float or Quantity
@@ -2571,8 +2571,8 @@ def evaluateRphiderivs(Pot, R, z, phi=None, t=0.0):
 
     Parameters
     ----------
-    Pot : Potential or list of Potential instances
-        A potential or list of potentials (dissipative forces in such a list are ignored).
+    Pot : Potential or a combined potential formed using addition (pot1+pot2+…)
+        A potential or a combined potential formed using addition (pot1+pot2+…) (dissipative forces in such a combination are ignored).
     R : float or Quantity
         Cylindrical Galactocentric distance.
     z : float or Quantity
@@ -2610,8 +2610,8 @@ def evaluatephizderivs(Pot, R, z, phi=None, t=0.0):
 
     Parameters
     ----------
-    Pot : Potential or list of Potential instances
-        A potential or list of potentials (dissipative forces in such a list are ignored).
+    Pot : Potential or a combined potential formed using addition (pot1+pot2+…)
+        A potential or a combined potential formed using addition (pot1+pot2+…) (dissipative forces in such a combination are ignored).
     R : float or Quantity
         Cylindrical Galactocentric distance.
     z : float or Quantity
@@ -2649,8 +2649,8 @@ def evaluater2derivs(Pot, R, z, phi=None, t=0.0):
 
     Parameters
     ----------
-    Pot : Potential or list of Potential instances
-        A potential or list of potentials (dissipative forces in such a list are ignored).
+    Pot : Potential or a combined potential formed using addition (pot1+pot2+…)
+        A potential or a combined potential formed using addition (pot1+pot2+…) (dissipative forces in such a combination are ignored).
     R : float or Quantity
         Cylindrical Galactocentric distance.
     z : float or Quantity
@@ -2707,7 +2707,7 @@ def plotPotentials(
 
     Parameters
     ----------
-    Pot : Potential or list of Potential instances
+    Pot : Potential or a combined potential formed using addition (pot1+pot2+…)
         Potential(s) to plot.
     rmin : float, optional
         Minimum R (can be Quantity). Default is 0.0.
@@ -2894,7 +2894,7 @@ def plotDensities(
 
     Parameters
     ----------
-    Pot : Potential or list of Potential instances
+    Pot : Potential or a combined potential formed using addition (pot1+pot2+…)
         Potential(s) to evaluate.
     rmin : float, optional
         Minimum R (can be Quantity). Default is 0.0.
@@ -3034,7 +3034,7 @@ def plotSurfaceDensities(
 
     Parameters
     ----------
-    Pot : Potential or list of Potential instances
+    Pot : Potential or a combined potential formed using addition (pot1+pot2+…)
         Potential(s) for which to plot the surface density.
     xmin : float or Quantity
         Minimum x value. Default is -1.5.
@@ -3151,7 +3151,7 @@ def epifreq(Pot, R, t=0.0):
 
     Parameters
     ----------
-    Pot : Potential, CompositePotential, or list thereof
+    Pot : Potential, CompositePotential, or a combined potential formed using addition (pot1+pot2+…)
         Potential instance, CompositePotential, or list thereof (lists are deprecated).
     R : float or Quantity
         Galactocentric radius.
@@ -3181,7 +3181,7 @@ def verticalfreq(Pot, R, t=0.0):
 
     Parameters
     ----------
-    Pot : Potential, CompositePotential, or list thereof
+    Pot : Potential, CompositePotential, or a combined potential formed using addition (pot1+pot2+…)
         Potential instance, CompositePotential, or list thereof (lists are deprecated).
     R : float or Quantity
         Galactocentric radius.
@@ -3211,7 +3211,7 @@ def flattening(Pot, R, z, t=0.0):
 
     Parameters
     ----------
-    Pot : Potential, CompositePotential, or list thereof
+    Pot : Potential, CompositePotential, or a combined potential formed using addition (pot1+pot2+…)
         Potential instance, CompositePotential, or list thereof (lists are deprecated).
     R : float or Quantity
         Galactocentric radius.
@@ -3241,8 +3241,8 @@ def vterm(Pot, l, t=0.0, deg=True):
 
     Parameters
     ----------
-    Pot : Potential instance or list thereof
-        Potential instance or list thereof.
+    Pot : Potential instance or a combined potential formed using addition (pot1+pot2+…)
+        Potential instance or a combined potential formed using addition (pot1+pot2+…).
     l : float or Quantity
         Galactic longitude [deg/rad; can be Quantity).
     t : float or Quantity, optional
@@ -3271,8 +3271,8 @@ def rl(Pot, lz, t=0.0):
 
     Parameters
     ----------
-    Pot : Potential instance or list thereof
-        Potential instance or list thereof.
+    Pot : Potential instance or a combined potential formed using addition (pot1+pot2+…)
+        Potential instance or a combined potential formed using addition (pot1+pot2+…).
     lz : float or Quantity
         Angular momentum (can be Quantity).
     t : float or Quantity, optional
@@ -3337,8 +3337,8 @@ def rE(Pot, E, t=0.0):
 
     Parameters
     ----------
-    Pot : Potential instance or list thereof
-        Potential instance or list thereof.
+    Pot : Potential instance or a combined potential formed using addition (pot1+pot2+…)
+        Potential instance or a combined potential formed using addition (pot1+pot2+…).
     E : float or Quantity
         Energy.
     t : float, optional
@@ -3398,8 +3398,8 @@ def LcE(Pot, E, t=0.0):
 
     Parameters
     ----------
-    Pot : Potential instance or list thereof
-        Potential instance or list thereof.
+    Pot : Potential instance or a combined potential formed using addition (pot1+pot2+…)
+        Potential instance or a combined potential formed using addition (pot1+pot2+…).
     E : float or Quantity
         Energy.
     t : float or Quantity, optional
@@ -3427,8 +3427,8 @@ def lindbladR(Pot, OmegaP, m=2, t=0.0, **kwargs):
 
     Parameters
     ----------
-    Pot : Potential instance or list of such instances
-        Potential instance or list of such instances.
+    Pot : Potential instance or a combined potential formed using addition (pot1+pot2+…)
+        Potential instance or a combined potential formed using addition (pot1+pot2+…).
     OmegaP : float or Quantity
         Pattern speed.
     m : int or str, optional
@@ -3507,7 +3507,7 @@ def omegac(Pot, R, t=0.0):
 
     Parameters
     ----------
-    Pot : Potential, CompositePotential, or list of such instances
+    Pot : Potential, CompositePotential, or a combined potential formed using addition (pot1+pot2+…)
         Potential instance, CompositePotential, or list of such instances (lists are deprecated).
     R : float or Quantity
         Galactocentric radius.
@@ -3538,11 +3538,11 @@ def omegac(Pot, R, t=0.0):
 @potential_list_of_potentials_input
 def nemo_accname(Pot):
     """
-    Return the accname potential name for use of this potential or list of potentials with NEMO.
+    Return the accname potential name for use of this potential or a combined potential formed using addition (pot1+pot2+…) with NEMO.
 
     Parameters
     ----------
-    Pot : Potential instance or list of such instances
+    Pot : Potential instance or a combined potential formed using addition (pot1+pot2+…)
 
     Returns
     -------
@@ -3565,11 +3565,11 @@ def nemo_accname(Pot):
 @potential_list_of_potentials_input
 def nemo_accpars(Pot, vo, ro):
     """
-    Return the accpars potential parameters for use of this potential or list of potentials with NEMO.
+    Return the accpars potential parameters for use of this potential or a combined potential formed using addition (pot1+pot2+…) with NEMO.
 
     Parameters
     ----------
-    Pot : Potential instance or list of such instances
+    Pot : Potential instance or a combined potential formed using addition (pot1+pot2+…)
     vo : float
         Velocity unit in km/s.
     ro : float
@@ -3597,11 +3597,11 @@ def to_amuse(
     Pot, t=0.0, tgalpy=0.0, reverse=False, ro=None, vo=None
 ):  # pragma: no cover
     """
-    Return an AMUSE representation of a galpy Potential or list of Potentials
+    Return an AMUSE representation of a galpy Potential or a combined potential formed using addition (pot1+pot2+…)
 
     Parameters
     ----------
-    Pot : Potential instance or list of such instances
+    Pot : Potential instance or a combined potential formed using addition (pot1+pot2+…)
         Potential(s) to convert to an AMUSE representation.
     t : float, optional
         Initial time in AMUSE (can be in internal galpy units or AMUSE units), by default 0.0.
@@ -3646,7 +3646,7 @@ def turn_physical_off(Pot):
 
     Parameters
     ----------
-    Pot : Potential instance or list of such instances
+    Pot : Potential instance or a combined potential formed using addition (pot1+pot2+…)
         Potential(s) to turn off automatic returning of outputs in physical units.
 
     Returns
@@ -3672,7 +3672,7 @@ def turn_physical_on(Pot, ro=None, vo=None):
 
     Parameters
     ----------
-    Pot : Potential instance or list of such instances
+    Pot : Potential instance or a combined potential formed using addition (pot1+pot2+…)
         Potential(s) to turn on automatic returning of outputs in physical units.
     ro : float or Quantity, optional
         Reference distance (kpc). Default is None.
@@ -3733,12 +3733,12 @@ def flatten(Pot):
 
 def _check_c(Pot, dxdv=False, dens=False):
     """
-    Check whether a potential or list thereof has a C implementation.
+    Check whether a potential or a combined potential formed using addition (pot1+pot2+…) has a C implementation.
 
     Parameters
     ----------
-    Pot : Potential instance or list of such instances
-        Potential instance or list of such instances to check.
+    Pot : Potential instance or a combined potential formed using addition (pot1+pot2+…)
+        Potential instance or a combined potential formed using addition (pot1+pot2+…) to check.
     dxdv : bool, optional
         If True, check whether the potential has dxdv implementation.
     dens : bool, optional
@@ -3786,7 +3786,7 @@ def _dim(Pot):
 
     Parameters
     ----------
-    Pot : Potential instance or list of such instances
+    Pot : Potential instance or a combined potential formed using addition (pot1+pot2+…)
 
     Returns
     -------
@@ -3810,7 +3810,7 @@ def _isNonAxi(Pot):
 
     Parameters
     ----------
-    Pot : Potential instance or list of such instances
+    Pot : Potential instance or a combined potential formed using addition (pot1+pot2+…)
 
     Returns
     -------
@@ -3862,7 +3862,7 @@ def rtide(Pot, R, z, phi=0.0, t=0.0, M=None):
 
     Parameters
     ----------
-    Pot : Potential, CompositePotential, or list of such instances
+    Pot : Potential, CompositePotential, or a combined potential formed using addition (pot1+pot2+…)
         Potential instance, CompositePotential, or list of such instances (lists are deprecated).
     R : float or Quantity
         Galactocentric radius
@@ -3906,7 +3906,7 @@ def ttensor(Pot, R, z, phi=0.0, t=0.0, eigenval=False):
 
     Parameters
     ----------
-    Pot : Potential, CompositePotential, or list of such instances
+    Pot : Potential, CompositePotential, or a combined potential formed using addition (pot1+pot2+…)
         Potential instance, CompositePotential, or list of such instances (lists are deprecated).
     R : float or Quantity
         Galactocentric radius
@@ -3993,7 +3993,7 @@ def zvc(Pot, R, E, Lz, phi=0.0, t=0.0):
 
     Parameters
     ----------
-    Pot : Potential, CompositePotential, or list of such instances
+    Pot : Potential, CompositePotential, or a combined potential formed using addition (pot1+pot2+…)
         Potential instance, CompositePotential, or list of such instances (lists are deprecated).
     R : float or Quantity
         Galactocentric radius.
@@ -4057,8 +4057,8 @@ def zvc_range(Pot, E, Lz, phi=0.0, t=0.0):
 
     Parameters
     ----------
-    Pot : Potential instance or list of such instances
-        Potential instance or list of such instances.
+    Pot : Potential instance or a combined potential formed using addition (pot1+pot2+…)
+        Potential instance or a combined potential formed using addition (pot1+pot2+…).
     E : float or Quantity
         Energy.
     Lz : float or Quantity
@@ -4122,7 +4122,7 @@ def rhalf(Pot, t=0.0, INF=numpy.inf):
 
     Parameters
     ----------
-    Pot : Potential instance or list thereof
+    Pot : Potential instance or a combined potential formed using addition (pot1+pot2+…)
         Potential instance or list of instances.
     t : float or Quantity, optional
         Time (default: 0.0).
@@ -4174,7 +4174,7 @@ def tdyn(Pot, R, t=0.0):
 
     Parameters
     ----------
-    Pot : Potential, CompositePotential, or list thereof
+    Pot : Potential, CompositePotential, or a combined potential formed using addition (pot1+pot2+…)
         Potential instance, CompositePotential, or list of instances (lists are deprecated).
     R : float or Quantity
         Galactocentric radius.

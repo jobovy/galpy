@@ -39,7 +39,7 @@ def direct_nbody(
         list of masses
     t : list
         times at which output is desired
-    pot : galpy.potential or list of galpy.potentials, optional
+    pot : galpy.potential or a combined potential formed using addition (pot1+pot2+…), optional
         external potential
     softening_model : str, optional
         type of softening to use ('plummer')

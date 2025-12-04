@@ -659,7 +659,7 @@ def RZToplanarPotential(RZPot):
 
     Parameters
     ----------
-    RZPot : RZPotential instance or list of such instances
+    RZPot : RZPotential instance or a combined potential formed using addition (pot1+pot2+…)
         Existing planarPotential instances are just copied to the output.
 
     Returns
@@ -909,7 +909,7 @@ def toPlanarPotential(Pot):
 
     Parameters
     ----------
-    Pot : Potential instance or list of such instances
+    Pot : Potential instance or a combined potential formed using addition (pot1+pot2+…)
         Existing planarPotential instances are just copied to the output.
 
     Returns
@@ -966,12 +966,12 @@ def toPlanarPotential(Pot):
 @planar_potential_list_of_potentials_input
 def evaluateplanarPotentials(Pot, R, phi=None, t=0.0, dR=0, dphi=0):
     """
-    Evaluate a (list of) planarPotential instance(s).
+    Evaluate a planarPotential instance or a combined potential formed using addition (pot1+pot2+…).
 
     Parameters
     ----------
-    Pot : planarPotential or list of planarPotential
-        A (list of) planarPotential instance(s).
+    Pot : planarPotential or a combined potential formed using addition (pot1+pot2+…) of planarPotential
+        A planarPotential instance or a combined potential formed using addition (pot1+pot2+…).
     R : float or Quantity
         Cylindrical radius.
     phi : float or Quantity, optional
@@ -1019,11 +1019,11 @@ def _evaluateplanarPotentials(Pot, R, phi=None, t=0.0, dR=0, dphi=0):
 @planar_potential_list_of_potentials_input
 def evaluateplanarRforces(Pot, R, phi=None, t=0.0, v=None):
     """
-    Evaluate the cylindrical radial force of a (list of) planarPotential instance(s).
+    Evaluate the cylindrical radial force of a planarPotential instance or a combined potential formed using addition (pot1+pot2+…).
 
     Parameters
     ----------
-    Pot : (list of) planarPotential instance(s)
+    Pot : planarPotential instance or a combined potential formed using addition (pot1+pot2+…)
         The potential(s) to evaluate.
     R : float or Quantity
         Cylindrical radius.
@@ -1082,11 +1082,11 @@ def _evaluateplanarRforces(Pot, R, phi=None, t=0.0, v=None):
 @planar_potential_list_of_potentials_input
 def evaluateplanarphitorques(Pot, R, phi=None, t=0.0, v=None):
     """
-    Evaluate the phi torque of a (list of) planarPotential instance(s).
+    Evaluate the phi torque of a planarPotential instance or a combined potential formed using addition (pot1+pot2+…).
 
     Parameters
     ----------
-    Pot : (list of) planarPotential instance(s)
+    Pot : planarPotential instance or a combined potential formed using addition (pot1+pot2+…)
         The potential(s) to evaluate.
     R : float or Quantity
         Cylindrical radius
@@ -1148,7 +1148,7 @@ def evaluateplanarR2derivs(Pot, R, phi=None, t=0.0):
 
     Parameters
     ----------
-    Pot : (list of) planarPotential instance(s)
+    Pot : planarPotential instance or a combined potential formed using addition (pot1+pot2+…)
         The potential(s) to evaluate.
     R : float or Quantity
         Cylindrical radius
@@ -1190,7 +1190,7 @@ def LinShuReductionFactor(
 
     Parameters
     ----------
-    axiPot : Potential or list of Potential instances
+    axiPot : Potential or a combined potential formed using addition (pot1+pot2+…)
         The background, axisymmetric potential
     R : float or Quantity
         Cylindrical radius
@@ -1250,8 +1250,8 @@ def plotplanarPotentials(Pot, *args, **kwargs):
 
     Parameters
     ----------
-    Pot : Potential or list of Potential instances
-        Potential or list of potentials to plot
+    Pot : Potential or a combined potential formed using addition (pot1+pot2+…)
+        Potential or a combined potential formed using addition (pot1+pot2+…) of potentials to plot
     Rrange : list or Quantity, optional
         Range in R to plot (default is [0.01, 5.0])
     xrange, yrange : list, optional

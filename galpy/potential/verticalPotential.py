@@ -120,7 +120,7 @@ def RZToverticalPotential(RZPot, R):
 
     Parameters
     ----------
-    Pot : Potential instance or CompositePotential or list
+    Pot : Potential instance or CompositePotential or a combined potential formed using addition (pot1+pot2+…)
         The 3D potential to convert.
     R : float or Quantity
         Galactocentric radius at which to evaluate the vertical potential.
@@ -191,7 +191,7 @@ def toVerticalPotential(Pot, R, phi=None, t0=0.0):
 
     Parameters
     ----------
-    Pot : Potential instance or CompositePotential or list
+    Pot : Potential instance or CompositePotential or a combined potential formed using addition (pot1+pot2+…)
         The 3D potential to convert.
     R : float or Quantity
         Galactocentric radius at which to evaluate the vertical potential.
