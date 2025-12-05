@@ -146,7 +146,7 @@ def RZToverticalPotential(RZPot, R):
         conversion.get_physical(RZPot)
     except:
         raise PotentialError(
-            "Input to 'RZToverticalPotential' is neither an RZPotential-instance or a list of such instances"
+            "Input to 'RZToverticalPotential' is neither an RZPotential-instance or a combination of such instances"
         )
     if _isDissipative(RZPot):
         raise NotImplementedError(
@@ -166,7 +166,7 @@ def RZToverticalPotential(RZPot, R):
                 )
             else:  # pragma: no cover
                 raise PotentialError(
-                    "Input to 'RZToverticalPotential' is neither an RZPotential-instance or a list of such instances"
+                    "Input to 'RZToverticalPotential' is neither an RZPotential-instance or a combination of such instances"
                 )
         return linearCompositePotential(out)
     elif isinstance(RZPot, Potential):
@@ -181,7 +181,7 @@ def RZToverticalPotential(RZPot, R):
         # All other cases should have been caught by the
         # conversion.get_physical test above
         raise PotentialError(
-            "Input to 'RZToverticalPotential' is neither an RZPotential-instance or a list of such instances"
+            "Input to 'RZToverticalPotential' is neither an RZPotential-instance or a combination of such instances"
         )
 
 
@@ -221,7 +221,7 @@ def toVerticalPotential(Pot, R, phi=None, t0=0.0):
         conversion.get_physical(Pot)
     except:
         raise PotentialError(
-            "Input to 'toVerticalPotential' is neither an Potential-instance or a list of such instances"
+            "Input to 'toVerticalPotential' is neither an Potential-instance or a combination of such instances"
         )
     if _isDissipative(Pot):
         raise NotImplementedError(
@@ -245,7 +245,7 @@ def toVerticalPotential(Pot, R, phi=None, t0=0.0):
                 # All other cases should have been caught by the
                 # conversion.get_physical test above
                 raise PotentialError(
-                    "Input to 'toVerticalPotential' is neither an RZPotential-instance or a list of such instances"
+                    "Input to 'toVerticalPotential' is neither an RZPotential-instance or a combination of such instances"
                 )
         return linearCompositePotential(out)
     elif isinstance(Pot, Potential):
@@ -260,5 +260,5 @@ def toVerticalPotential(Pot, R, phi=None, t0=0.0):
         # All other cases should have been caught by the
         # conversion.get_physical test above
         raise PotentialError(
-            "Input to 'toVerticalPotential' is neither an Potential-instance or a list of such instances"
+            "Input to 'toVerticalPotential' is neither an Potential-instance or a combination of such instances"
         )

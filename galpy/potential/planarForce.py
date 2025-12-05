@@ -103,7 +103,7 @@ class planarForce:
 
         Parameters
         ----------
-        b : planarPotential instance or a list thereof
+        b : planarForce instance or a combination thereof
 
         Returns
         -------
@@ -123,7 +123,7 @@ class planarForce:
             raise TypeError(
                 """Can only combine galpy Potential"""
                 """/planarPotential objects with """
-                """other such objects or lists thereof"""
+                """other such objects or combinations thereof"""
             )
         # Physical compatibility is checked in planarCompositePotential.__init__
         return planarCompositePotential(self, b)
@@ -136,7 +136,7 @@ class planarForce:
         if not isinstance(flatten_pot([b])[0], (Force, planarForce)):
             raise TypeError(
                 """Can only combine galpy Force objects with """
-                """other Force objects or lists thereof"""
+                """other Force objects or combinations thereof"""
             )
         # Physical compatibility is checked in planarCompositePotential.__init__
         return planarCompositePotential(b, self)

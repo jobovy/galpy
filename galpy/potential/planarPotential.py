@@ -996,7 +996,7 @@ def evaluateplanarPotentials(Pot, R, phi=None, t=0.0, dR=0, dphi=0):
     """
     if not isinstance(Pot, planarPotential):
         raise PotentialError(
-            "Input to 'evaluateplanarRforces' is neither a planarForce-instance or a list of such instances"
+            "Input to 'evaluateplanarRforces' is neither a planarForce-instance or a combination of such instances"
         )
 
     from .Potential import _isNonAxi
@@ -1004,7 +1004,7 @@ def evaluateplanarPotentials(Pot, R, phi=None, t=0.0, dR=0, dphi=0):
     nonAxi = _isNonAxi(Pot)
     if nonAxi and phi is None:
         raise PotentialError(
-            "The (list of) planarPotential instances is non-axisymmetric, but you did not provide phi"
+            "The (combination of) planarPotential instances is non-axisymmetric, but you did not provide phi"
         )
     return _evaluateplanarPotentials(Pot, R, phi=phi, t=t, dR=dR, dphi=dphi)
 
@@ -1049,7 +1049,7 @@ def evaluateplanarRforces(Pot, R, phi=None, t=0.0, v=None):
     """
     if not isinstance(Pot, planarForce):
         raise PotentialError(
-            "Input to 'evaluateplanarRforces' is neither a planarForce-instance or a list of such instances"
+            "Input to 'evaluateplanarRforces' is neither a planarForce-instance or a combination of such instances"
         )
 
     from .Potential import _isNonAxi
@@ -1057,12 +1057,12 @@ def evaluateplanarRforces(Pot, R, phi=None, t=0.0, v=None):
     nonAxi = _isNonAxi(Pot)
     if nonAxi and phi is None:
         raise PotentialError(
-            "The (list of) planarForce instances is non-axisymmetric, but you did not provide phi"
+            "The (combination of) planarForce instances is non-axisymmetric, but you did not provide phi"
         )
     dissipative = _isDissipative(Pot)
     if dissipative and v is None:
         raise PotentialError(
-            "The (list of) planarForce instances includes dissipative components, but you did not provide the 2D velocity (required for dissipative forces)"
+            "The (combination of) planarForce instances includes dissipative components, but you did not provide the 2D velocity (required for dissipative forces)"
         )
     return _evaluateplanarRforces(Pot, R, phi=phi, t=t, v=v)
 
@@ -1112,19 +1112,19 @@ def evaluateplanarphitorques(Pot, R, phi=None, t=0.0, v=None):
     """
     if not isinstance(Pot, (planarPotential, planarForce)):
         raise PotentialError(
-            "Input to 'evaluateplanarphitorques' is neither a planarForce-instance or a list of such instances"
+            "Input to 'evaluateplanarphitorques' is neither a planarForce-instance or a combination of such instances"
         )
     from .Potential import _isNonAxi
 
     nonAxi = _isNonAxi(Pot)
     if nonAxi and phi is None:
         raise PotentialError(
-            "The (list of) planarPotential instances is non-axisymmetric, but you did not provide phi"
+            "The (combination of) planarPotential instances is non-axisymmetric, but you did not provide phi"
         )
     dissipative = _isDissipative(Pot)
     if dissipative and v is None:
         raise PotentialError(
-            "The (list of) planarForce instances includes dissipative components, but you did not provide the 2D velocity (required for dissipative forces)"
+            "The (combination of) planarForce instances includes dissipative components, but you did not provide the 2D velocity (required for dissipative forces)"
         )
     return _evaluateplanarphitorques(Pot, R, phi=phi, t=t, v=v)
 
@@ -1173,11 +1173,11 @@ def evaluateplanarR2derivs(Pot, R, phi=None, t=0.0):
     # Check that the input is a planar potential type
     if not isinstance(Pot, (planarPotential, planarForce)):
         raise PotentialError(
-            "Input to 'evaluateplanarR2derivs' is neither a planarPotential-instance or a list of such instances"
+            "Input to 'evaluateplanarR2derivs' is neither a planarPotential-instance or a combination of such instances"
         )
     if _isNonAxi(Pot) and phi is None:
         raise PotentialError(
-            "The (list of) planarPotential instances is non-axisymmetric, but you did not provide phi"
+            "The (combination of) planarPotential instances is non-axisymmetric, but you did not provide phi"
         )
     return Pot.R2deriv(R, phi=phi, t=t, use_physical=False)
 

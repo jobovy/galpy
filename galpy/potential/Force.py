@@ -136,7 +136,7 @@ class Force:
 
         Parameters
         ----------
-        b : Force or Potential instance or a list thereof
+        b : Force or Potential instance
 
         Returns
         -------
@@ -157,7 +157,7 @@ class Force:
         if not isinstance(flatten_pot([b])[0], (Force, planarPotential)):
             raise TypeError(
                 """Can only combine galpy Force objects with """
-                """other Force objects or lists thereof"""
+                """other Force objects or combinations thereof"""
             )
         assert physical_compatible(self, b), (
             """Physical unit conversion parameters (ro,vo) are not """
@@ -175,7 +175,7 @@ class Force:
         # to something that is not a Force or similar itself, which all implement __add__
         raise TypeError(
             """Can only combine galpy Force objects with """
-            """other Force objects or lists thereof"""
+            """other Force objects or combinations thereof"""
         )
 
     def turn_physical_off(self):

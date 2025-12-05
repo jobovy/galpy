@@ -357,8 +357,8 @@ def _linearEOM(y, t, pot):
         Current phase-space position
     t : float
         Current time
-    pot : list
-        (list of) linearPotential instance(s)
+    pot : linearPotential
+        LinearPotential instance
 
     Returns
     -------

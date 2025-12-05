@@ -1598,8 +1598,8 @@ def _planarREOM(y, t, pot, l2):
         Current phase-space position.
     t : float
         Current time.
-    pot : list of Potential instance(s)
-        Potential instance(s).
+    pot : Potential instance
+        Potential instance.
     l2 : float
         Angular momentum squared.
 
@@ -1772,8 +1772,8 @@ def _planarSOSEOMy(y, psi, pot):
         Current phase-space position
     psi : float
         Current angle
-    pot : list of Potential instance(s)
-        Potential instance(s)
+    pot : Potential instance
+        Potential instance
 
     Returns
     -------

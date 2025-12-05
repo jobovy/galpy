@@ -600,7 +600,7 @@ def integrateFullOrbit_c(
     Parameters
     ----------
     pot : Potential or a combined potential formed using addition (pot1+pot2+…)
-        The potential (or list thereof) to evaluate the orbit in.
+        The potential to evaluate the orbit in.
     yo : numpy.ndarray
         Initial condition [q,p], can be [N,6] or [6].
     t : numpy.ndarray
@@ -731,7 +731,7 @@ def integrateFullOrbit_dxdv_c(
     Parameters
     ----------
     pot : Potential or a combined potential formed using addition (pot1+pot2+…)
-        The potential (or list thereof) to evaluate the orbit in.
+        The potential to evaluate the orbit in.
     yo : numpy.ndarray
         Initial condition [q,p].
     dyo : numpy.ndarray
@@ -982,7 +982,7 @@ def integrateFullOrbit_sos_c(
     Parameters
     ----------
     pot : Potential or a combined potential formed using addition (pot1+pot2+…)
-        The potential (or list thereof) to evaluate the orbit in.
+        The potential to evaluate the orbit in.
     yo : numpy.ndarray
         initial condition [q,p]
     psi : numpy.ndarray
@@ -1256,8 +1256,8 @@ def _RZEOM(y, t, pot, l2):
         Current phase-space position.
     t : float
         Current time.
-    pot : list of Potential instance(s)
-        Potential instance(s).
+    pot : Potential instance
+        Potential instance.
     l2 : float
         Angular momentum squared.
 
@@ -1288,8 +1288,8 @@ def _EOM(y, t, pot):
         Current phase-space position.
     t : float
         Current time.
-    pot : list of Potential instance(s)
-        Potential instance(s).
+    pot : Potential instance
+        Potential instance.
 
     Returns
     -------
@@ -1329,8 +1329,8 @@ def _SOSEOM(y, psi, pot):
         Current phase-space position
     psi : float
         Current angle
-    pot : list of Potential instance(s)
-        Potential instance(s)
+    pot : Potential instance
+        Potential instance
 
     Returns
     -------
@@ -1363,7 +1363,7 @@ def _rectForce(x, pot, t=0.0, vx=None):
     t : float, optional
         Current time (default is 0.0)
     pot : Potential instance or a combined potential formed using addition (pot1+pot2+…)
-        The potential (or list thereof) to evaluate the force for
+        The potential to evaluate the force for
     vx : numpy.ndarray, optional
         If set, use this [vx,vy,vz] when evaluating dissipative forces (default is None)
 
