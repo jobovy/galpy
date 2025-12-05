@@ -25,8 +25,8 @@ class actionAngleVertical(actionAngle):
 
         Parameters
         ----------
-        pot : potential or list of 1D potentials (linearPotential or verticalPotential)
-            Potential or list of 1D potentials.
+        pot : potential or a combined potential formed using addition (pot1+pot2+…) of 1D potentials (linearPotential or verticalPotential)
+            Potential or a combined potential formed using addition (pot1+pot2+…) of 1D potentials.
         ro : float or Quantity, optional
             Distance scale for translation into internal units (default from configuration file).
         vo : float or Quantity, optional

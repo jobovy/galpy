@@ -44,8 +44,8 @@ class actionAngleAdiabaticGrid(actionAngle):
 
         Parameters
         ----------
-        pot : Potential or list of Potential instances
-            The potential (instance) or list of potentials (instances) that make up the potential
+        pot : Potential or a combined potential formed using addition (pot1+pot2+…)
+            The potential or a combined potential formed using addition (pot1+pot2+…).
         zmax : float
             Maximum height to which to calculate Ez
         gamma : float

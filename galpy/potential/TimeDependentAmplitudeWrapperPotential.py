@@ -34,7 +34,7 @@ class TimeDependentAmplitudeWrapperPotential(parentWrapperPotential):
             Amplitude to be applied to the potential (default: 1.).
         A : function, optional
             Function of time giving the time-dependence of the amplitude; should be able to be called with a single time and return a numbers.Number (that is, a number); input time is in internal units (see galpy.util.conversion.time_in_Gyr to convert) and output is a dimensionless amplitude modulation.
-        pot : Potential instance or list thereof
+        pot : Potential instance or a combined potential formed using addition (pot1+pot2+…)
             The amplitude of this will modified by this wrapper.
         ro : float or Quantity, optional
             Distance scale for translation into internal units (default from configuration file).
