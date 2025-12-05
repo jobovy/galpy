@@ -125,7 +125,7 @@ class linearPotential:
             raise TypeError(
                 """Can only combine galpy linearPotential"""
                 """ objects with """
-                """other such objects or lists thereof"""
+                """other such objects or combinations thereof"""
             )
         assert physical_compatible(self, b), (
             """Physical unit conversion parameters (ro,vo) are not """
@@ -314,7 +314,7 @@ class linearPotential:
 @physical_conversion("energy", pop=True)
 def evaluatelinearPotentials(Pot, x, t=0.0):
     """
-    Evaluate the sum of a list of potentials.
+    Evaluate the sum of a combination of potentials.
 
     Parameters
     ----------
@@ -354,7 +354,7 @@ def _evaluatelinearPotentials(Pot, x, t=0.0):
 @physical_conversion("force", pop=True)
 def evaluatelinearForces(Pot, x, t=0.0):
     """
-    Evaluate the forces due to a list of potentials.
+    Evaluate the forces due to a combination of potentials.
 
     Parameters
     ----------
@@ -395,7 +395,7 @@ def plotlinearPotentials(Pot, t=0.0, min=-15.0, max=15, ns=21, savefilename=None
     Parameters
     ----------
     Pot : linearPotential or linearCompositePotential
-        The list of potentials to evaluate.
+        The combination of potentials to evaluate.
     t : float or Quantity, optional
         The time at which to evaluate the forces. Default is 0.0.
     min : float, optional

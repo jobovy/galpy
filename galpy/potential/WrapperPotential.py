@@ -86,8 +86,8 @@ class WrapperPotential(Potential):
         ----------
         amp : float, optional
             Amplitude to be applied to the potential (default: 1.).
-        pot : Potential instance or list thereof
-            Potential instance or list thereof.
+        pot : Potential instance or a combined potential formed using addition (pot1+pot2+…)
+            Potential instance or a combined potential formed using addition (pot1+pot2+…).
         ro : float or Quantity, optional
             Distance scale for translation into internal units (default from configuration file).
         vo : float or Quantity, optional
@@ -241,8 +241,8 @@ class planarWrapperPotential(planarPotential):
         ----------
         amp : float, optional
             Amplitude to be applied to the potential (default: 1.).
-        pot : Potential instance or list thereof, optional
-            The potential instance or list thereof; the amplitude of this will be grown by this wrapper.
+        pot : Potential instance or a combined potential formed using addition (pot1+pot2+…), optional
+            The potential instance or a combined potential formed using addition (pot1+pot2+…); the amplitude of this will be grown by this wrapper.
         ro : float or Quantity, optional
             Distance scale for translation into internal units (default from configuration file).
         vo : float or Quantity, optional

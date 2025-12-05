@@ -33,7 +33,7 @@ class actionAngleSpherical(actionAngle):
 
         Parameters
         ----------
-        pot : Potential or list thereof
+        pot : Potential or a combined potential formed using addition (pot1+pot2+…)
             A spherical potential.
         ro : float or Quantity, optional
             Distance scale for translation into internal units (default from configuration file).
@@ -845,7 +845,7 @@ def _rapRperiAxiFindStart(R, E, L, pot, rap=False, startsign=1.0):
         energy
     L : float
         angular momentum
-    pot : Potential object or list thereof
+    pot : Potential object or a combined potential formed using addition (pot1+pot2+…)
         Potential
     rap : bool, optional
         if True, find the rap end-point (default is False)

@@ -27,10 +27,10 @@ class _constantbetadf(anisotropicsphericaldf):
 
         Parameters
         ----------
-        pot : Potential or list of Potential instances, optional
+        pot : Potential or a combined potential formed using addition (pot1+pot2+…), optional
             Spherical potential which determines the DF.
-        denspot : Potential or list of Potential instances, optional
-            Potential instance or list thereof that represent the density of the tracers (assumed to be spherical; if None, set equal to pot).
+        denspot : Potential or a combined potential formed using addition (pot1+pot2+…), optional
+            Potential instance or a combined potential formed using addition (pot1+pot2+…) that represent the density of the tracers (assumed to be spherical; if None, set equal to pot).
         beta : float, optional
             Anisotropy parameter. Default is None.
         rmax : float or Quantity, optional
@@ -165,10 +165,10 @@ class constantbetadf(_constantbetadf):
 
         Parameters
         ----------
-        pot : Potential instance or list thereof, optional
-            Potential instance or list thereof
-        denspot : Potential instance or list thereof, optional
-            Potential instance or list thereof that represent the density of the tracers (assumed to be spherical; if None, set equal to pot)
+        pot : Potential instance or a combined potential formed using addition (pot1+pot2+…), optional
+            Potential instance or a combined potential formed using addition (pot1+pot2+…)
+        denspot : Potential instance or a combined potential formed using addition (pot1+pot2+…), optional
+            Potential instance or a combined potential formed using addition (pot1+pot2+…) that represent the density of the tracers (assumed to be spherical; if None, set equal to pot)
         beta : float, optional
             anisotropy parameter
         twobeta : float, optional

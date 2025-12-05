@@ -48,8 +48,8 @@ class streamgapdf(streamdf.streamdf):
             Radial velocity dispersion of the progenitor.
         progenitor : galpy.orbit.Orbit
             Progenitor orbit as Orbit instance (will be re-integrated, so don't bother integrating the orbit before).
-        pot : galpy.potential.Potential or list thereof, optional
-            Potential instance or list thereof.
+        pot : galpy.potential.Potential or a combined potential formed using addition (pot1+pot2+…), optional
+            Potential instance or a combined potential formed using addition (pot1+pot2+…).
         aA : actionAngle instance
             ActionAngle instance used to convert (x,v) to actions. Generally a actionAngleIsochroneApprox instance.
         useTM : bool, optional
@@ -114,7 +114,7 @@ class streamgapdf(streamdf.streamdf):
             Scale parameter of the subhalo when using a Plummer or Hernquist model.
         hernquist : bool, optional
             If True, use Hernquist kicks for GM/rs (default: False --> Plummer).
-        subhalopot : Potential or list thereof, optional
+        subhalopot : Potential or a combined potential formed using addition (pot1+pot2+…), optional
             Gravitational potential of the subhalo (alternative to specifying GM and rs)
         deltaAngleTrackImpact : float or Quantity, optional
             Angle to estimate the stream track over to determine the effect of the impact [similar to deltaAngleTrack] (rad) (default: None).
@@ -1571,8 +1571,8 @@ def impulse_deltav_general(v, y, b, w, pot):
         impact parameter
     w : numpy.ndarray
         velocity of the subhalo (3)
-    pot : Potential object or list thereof
-        Potential object or list thereof (should be spherical)
+    pot : Potential object or a combined potential formed using addition (pot1+pot2+…)
+        Potential object or a combined potential formed using addition (pot1+pot2+…) (should be spherical)
 
     Returns
     -------
@@ -1626,8 +1626,8 @@ def impulse_deltav_general_curvedstream(v, x, b, w, x0, v0, pot):
         point of closest approach
     v0 : numpy.ndarray
         velocity of point of closest approach
-    pot : Potential object or list thereof
-        Potential object or list thereof (should be spherical)
+    pot : Potential object or a combined potential formed using addition (pot1+pot2+…)
+        Potential object or a combined potential formed using addition (pot1+pot2+…) (should be spherical)
 
     Returns
     -------
@@ -1683,12 +1683,12 @@ def impulse_deltav_general_orbitintegration(
         position of closest approach
     v0 : numpy.ndarray
         velocity of point of closest approach
-    pot : Potential object or list thereof
-        Potential object or list thereof (should be spherical)
+    pot : Potential object or a combined potential formed using addition (pot1+pot2+…)
+        Potential object or a combined potential formed using addition (pot1+pot2+…) (should be spherical)
     tmax : float
         maximum integration time
-    galpot : Potential object or list thereof
-        galpy Potential object or list thereof
+    galpot : Potential object or a combined potential formed using addition (pot1+pot2+…)
+        galpy Potential object or a combined potential formed using addition (pot1+pot2+…)
     tmaxfac : float
         multiple of rs/fabs(w - v0) to use for time integration interval
     nsamp : int
@@ -1769,8 +1769,8 @@ def impulse_deltav_general_fullplummerintegration(
         position of closest approach
     v0 : numpy.ndarray
         velocity of point of closest approach
-    galpot : Potential object or list thereof
-        galpy Potential object or list thereof
+    galpot : Potential object or a combined potential formed using addition (pot1+pot2+…)
+        galpy Potential object or a combined potential formed using addition (pot1+pot2+…)
     GM : float
         mass of Plummer
     rs : float
@@ -2019,8 +2019,8 @@ def impulse_deltav_plummerstream_curvedstream(
         surface density of the Plummer-softened stream (in natural units); should be a function of time
     rs : float
         size of the Plummer sphere
-    galpot : Potential object or list thereof
-        galpy Potential object or list thereof
+    galpot : Potential object or a combined potential formed using addition (pot1+pot2+…)
+        galpy Potential object or a combined potential formed using addition (pot1+pot2+…)
     tmin : float
         minimum time to consider for GSigma (need to be set)
     tmax : float

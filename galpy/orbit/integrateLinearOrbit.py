@@ -134,7 +134,7 @@ def integrateLinearOrbit_c(
 
     Parameters
     ----------
-    pot : Potential or list of such instances
+    pot : Potential or a combined potential formed using addition (pot1+pot2+…)
     yo : numpy.ndarray
         initial condition [q,p], shape [N,2] or [2]
     t : numpy.ndarray
@@ -263,7 +263,7 @@ def integrateLinearOrbit(
 
     Parameters
     ----------
-    pot : Potential or list of such instances
+    pot : Potential or a combined potential formed using addition (pot1+pot2+…)
     yo : numpy.ndarray
         initial condition [q,p], shape [N,2] or [2]
     t : numpy.ndarray
@@ -357,8 +357,8 @@ def _linearEOM(y, t, pot):
         Current phase-space position
     t : float
         Current time
-    pot : list
-        (list of) linearPotential instance(s)
+    pot : linearPotential
+        LinearPotential instance
 
     Returns
     -------

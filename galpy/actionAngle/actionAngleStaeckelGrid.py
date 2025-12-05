@@ -44,8 +44,8 @@ class actionAngleStaeckelGrid(actionAngle):
 
         Parameters
         ----------
-        pot : Potential or list of Potential instances
-            The potential or list of potentials to use for the actionAngleStaeckelGrid object.
+        pot : Potential or a combined potential formed using addition (pot1+pot2+…)
+            The potential or a combined potential formed using addition (pot1+pot2+…) to use for the actionAngleStaeckelGrid object.
         delta : float or Quantity
             The focal length of the confocal coordinate system.
         Rmax : float
