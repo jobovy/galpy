@@ -103,8 +103,8 @@ class streamdf(df):
             Radial velocity dispersion of the progenitor.
         progenitor : galpy.orbit.Orbit
             Progenitor orbit as Orbit instance (will be re-integrated, so don't bother integrating the orbit before).
-        pot : galpy.potential.Potential or list thereof, optional
-            Potential instance or list thereof.
+        pot : galpy.potential.Potential or a combined potential formed using addition (pot1+pot2+…), optional
+            Potential instance or a combined potential formed using addition (pot1+pot2+…).
         aA : actionAngle instance
             ActionAngle instance used to convert (x,v) to actions. Generally a actionAngleIsochroneApprox instance.
         useTM : bool, optional

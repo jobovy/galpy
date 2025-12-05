@@ -46,9 +46,9 @@ class AdiabaticContractionWrapperPotential(interpSphericalPotential):
         ----------
         amp : float, optional
             Amplitude to be applied to the potential (default: 1.).
-        pot : Potential instance or list thereof, optional
+        pot : Potential instance or a combined potential formed using addition (pot1+pot2+…), optional
             Representing the density that is adiabatically contracted.
-        baryonpot : Potential instance or list thereof, optional
+        baryonpot : Potential instance or a combined potential formed using addition (pot1+pot2+…), optional
             Representing the density of baryons whose growth causes the contraction.
         method : {'cautun', 'blumenthal', 'gnedin'}, optional
             Type of adiabatic-contraction formula:

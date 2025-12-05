@@ -35,8 +35,8 @@ class actionAngleTorus:
 
         Parameters
         ----------
-        pot : potential or list of potentials (3D)
-            The potential or list of potentials (3D) to use.
+        pot : potential or a combined potential formed using addition (pot1+pot2+…) (3D)
+            The potential or a combined potential formed using addition (pot1+pot2+…) (3D) to use.
         tol : float, optional
             Default tolerance to use when fitting tori (|dJ|/J).
         dJ : float, optional

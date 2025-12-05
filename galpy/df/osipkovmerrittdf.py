@@ -22,9 +22,9 @@ class _osipkovmerrittdf(anisotropicsphericaldf):
 
         Parameters
         ----------
-        pot : Potential instance or list thereof, optional
+        pot : Potential instance or a combined potential formed using addition (pot1+pot2+…), optional
             Default: None
-        denspot : Potential instance or list thereof that represent the density of the tracers (assumed to be spherical; if None, set equal to pot), optional
+        denspot : Potential instance or a combined potential formed using addition (pot1+pot2+…) that represent the density of the tracers (assumed to be spherical; if None, set equal to pot), optional
             Default: None
         ra : float or Quantity, optional
             Anisotropy radius. Default: 1.4
@@ -207,9 +207,9 @@ class osipkovmerrittdf(_osipkovmerrittdf):
 
         Parameters
         ----------
-        pot : Potential instance or list thereof, optional
+        pot : Potential instance or a combined potential formed using addition (pot1+pot2+…), optional
             Default: None
-        denspot : Potential instance or list thereof that represent the density of the tracers (assumed to be spherical; if None, set equal to pot), optional
+        denspot : Potential instance or a combined potential formed using addition (pot1+pot2+…) that represent the density of the tracers (assumed to be spherical; if None, set equal to pot), optional
             Default: None
         ra : float or Quantity, optional
             Anisotropy radius. Default: 1.4

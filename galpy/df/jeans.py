@@ -21,7 +21,7 @@ def sigmar(Pot, r, dens=None, beta=0.0):
 
     Parameters
     ----------
-    Pot : potential or list of potentials
+    Pot : potential or a combined potential formed using addition (pot1+pot2+…)
         Gravitational potential; evaluated at R=r/sqrt(2),z=r/sqrt(2), sphericity not checked.
     r : float or Quantity
         Galactocentric radius
@@ -81,7 +81,7 @@ def sigmalos(Pot, R, dens=None, surfdens=None, beta=0.0, sigma_r=None):
 
     Parameters
     ----------
-    Pot : potential or list of potentials
+    Pot : potential or a combined potential formed using addition (pot1+pot2+…)
         Gravitational potential; evaluated at R=r/sqrt(2),z=r/sqrt(2), sphericity not checked.
     R : float or Quantity
         Galactocentric projected radius

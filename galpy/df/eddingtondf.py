@@ -25,9 +25,9 @@ class eddingtondf(isotropicsphericaldf):
 
         Parameters
         ----------
-        pot : Potential instance or list thereof
+        pot : Potential instance or a combined potential formed using addition (pot1+pot2+…)
             Represents the gravitational potential (assumed to be spherical).
-        denspot : Potential instance or list thereof, optional
+        denspot : Potential instance or a combined potential formed using addition (pot1+pot2+…), optional
             Represents the density of the tracers (assumed to be spherical; if None, set equal to pot).
         rmax : float or Quantity, optional
             Maximum radius to consider. DF is cut off at E = Phi(rmax).

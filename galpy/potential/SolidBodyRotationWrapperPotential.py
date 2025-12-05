@@ -25,7 +25,7 @@ class SolidBodyRotationWrapperPotential(parentWrapperPotential):
         ----------
         amp : float, optional
             Amplitude to be applied to the potential. Default is 1.0.
-        pot : Potential instance or list thereof
+        pot : Potential instance or a combined potential formed using addition (pot1+pot2+…)
             This potential is made to rotate around the z axis by the wrapper.
         omega : float or Quantity, optional
             The pattern speed. Default is 1.0.

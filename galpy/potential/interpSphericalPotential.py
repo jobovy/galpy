@@ -31,8 +31,8 @@ class interpSphericalPotential(SphericalPotential):
 
         Parameters
         ----------
-        rforce : function or galpy Potential instance or list thereof, optional
-            Either a function that gives the radial force (in internal units) as a function of r (in internal units) or a galpy Potential instance or list thereof. The default is None.
+        rforce : function or galpy Potential instance or a combined potential formed using addition (pot1+pot2+…), optional
+            Either a function that gives the radial force (in internal units) as a function of r (in internal units) or a galpy Potential instance or a combined potential formed using addition (pot1+pot2+…). The default is None.
         rgrid : numpy.ndarray, optional
             Radial grid in internal units on which to evaluate the potential for interpolation (note that beyond rgrid[-1], the potential is extrapolated as -GM(<rgrid[-1])/r). The default is numpy.geomspace(0.01,20,101).
         Phi0 : float, optional
@@ -56,7 +56,7 @@ class interpSphericalPotential(SphericalPotential):
                 1e-3 if rgrid[0] == 0.0 else rgrid[0], rgrid[-1], 10001
             )
         )
-        # Determine whether rforce is a galpy Potential or list thereof
+        # Determine whether rforce is a galpy Potential or a combined potential formed using addition (pot1+pot2+…)
         try:
             _evaluateRforces(rforce, 1.0, 0.0)
         except:

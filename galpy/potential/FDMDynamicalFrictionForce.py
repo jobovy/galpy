@@ -83,8 +83,8 @@ class FDMDynamicalFrictionForce(ChandrasekharDynamicalFrictionForce):
             Mass of the Fuzzy Dark Matter particle; can be a Quantity with units of eV; default is set to 1e-99, which is roughly 1e-22 eV.
         gamma : float
             Free-parameter in :math:`\\Lambda`.
-        dens : Potential instance or list thereof, optional
-            Potential instance or list thereof that represents the density [default: LogarithmicHaloPotential(normalize=1.,q=1.)].
+        dens : Potential instance or a combined potential formed using addition (pot1+pot2+…), optional
+            Potential instance or a combined potential formed using addition (pot1+pot2+…) that represents the density [default: LogarithmicHaloPotential(normalize=1.,q=1.)].
         sigmar : callable, optional
             Function that gives the velocity dispersion as a function of r (has to be in natural units!); if None, computed from the dens potential using the spherical Jeans equation (in galpy.df.jeans) assuming zero anisotropy; if set to a lambda function, *the object cannot be pickled* (so set it to a real function).
         const_lnLambda : bool, optional

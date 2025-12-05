@@ -115,7 +115,7 @@ class interpRZPotential(Potential):
 
         Parameters
         ----------
-        RZPot : RZPotential or list of such instances
+        RZPot : RZPotential or a combined potential formed using addition (pot1+pot2+…)
             RZPotential to be interpolated.
         rgrid : tuple, optional
             R grid to be given to linspace as in rs= linspace(*rgrid).
@@ -615,7 +615,7 @@ def calc_potential_c(pot, R, z, rforce=False, zforce=False):
 
     Parameters
     ----------
-    pot : Potential or list of such instances
+    pot : Potential or a combined potential formed using addition (pot1+pot2+…)
         Potential object(s) to calculate the potential from.
     R : numpy.ndarray
         Grid in R.
@@ -743,7 +743,7 @@ def eval_potential_c(pot, R, z):
 
     Parameters
     ----------
-    pot : Potential or list of such instances
+    pot : Potential or a combined potential formed using addition (pot1+pot2+…)
         The potential
     R : numpy.ndarray
         Galactocentric cylindrical radius.
@@ -821,7 +821,7 @@ def eval_force_c(pot, R, z, zforce=False):
 
     Parameters
     ----------
-    pot : Potential or list of such instances
+    pot : Potential or a combined potential formed using addition (pot1+pot2+…)
         The potential
     R : numpy.ndarray
         Galactocentric cylindrical radius.

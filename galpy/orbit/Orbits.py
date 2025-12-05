@@ -946,7 +946,7 @@ class Orbit:
             [:,6] array of positions and velocities along the orbit (if not lb=True or radec=True, these need to be in natural units [/ro,/vo], cannot be Quantities).
         vxvv_err : numpy.ndarray, optional
             [:,6] array of errors on positions and velocities along the orbit (if None, these are set to 0.01) (if not lb=True or radec=True, these need to be in natural units [/ro,/vo], cannot be Quantities).
-        pot : Potential, DissipativeForce, or list of such instances, optional
+        pot : Potential, DissipativeForce, or a combined force/potential formed using addition (pot1+pot2+force3+…), optional
             Gravitational field to integrate orbits in.
 
         radec : bool, optional
@@ -1116,7 +1116,7 @@ class Orbit:
 
             # Assign documentation
             if "E" in name or "Jacobi" in name:
-                Estring = """pot : Potential, DissipativeForce or list of such instances, optional
+                Estring = """pot : Potential, DissipativeForce, or a combined force/potential formed using addition (pot1+pot2+force3+…), optional
                 Gravitational field to use. Default is the gravitational field used to integrate the orbit.
             normed : bool, optional
                 if set, plot {quant}(t)/{quant}(0) rather than {quant}(t)
@@ -1489,7 +1489,7 @@ class Orbit:
         ----------
         t : list, numpy.ndarray or Quantity
             List of equispaced times at which to compute the orbit. The initial condition is t[0]. (note that for method='odeint', method='dop853', and method='dop853_c', the time array can be non-equispaced). If the orbit has already been integrated and the new time array continues from the end point of the previous integration (t[0] equals the last time of the previous integration), the orbit will be continued and the two integrations will be merged. Similarly, if t[0] equals the first time of a previous integration and the new time array goes in the opposite direction, the orbit will be integrated backward and prepended to the existing integration.
-        pot : Potential, DissipativeForce or list of such instances
+        pot : Potential, DissipativeForce, or a combined force/potential formed using addition (pot1+pot2+force3+…)
             Gravitational field to integrate the orbit in.
         method : str, optional
             Integration method to use. Default is 'symplec4_c'. See Notes for more information.
@@ -1819,7 +1819,7 @@ class Orbit:
         ----------
         psi : list, numpy.ndarray or Quantity
             Equispaced list of increment angles over which to integrate [increments wrt initial angle].  (note that for method='odeint', method='dop853', and method='dop853_c', the psi array can be non-equispaced).
-        pot : Potential, DissipativeForce or list of such instances
+        pot : Potential, DissipativeForce, or a combined force/potential formed using addition (pot1+pot2+force3+…)
             Gravitational field to integrate the orbit in.
         surface : str, optional
             Surface to punch through (this has no effect in 3D, where the surface is always z=0, but in 2D it can be 'x' or 'y' for x=0 or y=0).
@@ -1996,7 +1996,7 @@ class Orbit:
             Initial conditions for the orbit in cylindrical or rectangular coordinates. The shape of the array should be (\*input_shape, 4).
         t : list, numpy.ndarray or Quantity
             List of equispaced times at which to compute the orbit. The initial condition is t[0].  (note that for method='odeint', method='dop853', and method='dop853_c', the time array can be non-equispaced).
-        pot : Potential, DissipativeForce or list of such instances
+        pot : Potential, DissipativeForce, or a combined force/potential formed using addition (pot1+pot2+force3+…)
             Gravitational field to integrate the orbit in.
         method : str, optional
             Integration method. Default is 'dopr54_c'. See Notes for more information.
@@ -2254,7 +2254,7 @@ class Orbit:
         ----------
         t : numeric, numpy.ndarray, or Quantity, optional
             Time at which to get the energy. Default is the initial time.
-        pot : Potential, DissipativeForce or list of such instances, optional
+        pot : Potential, DissipativeForce, or a combined force/potential formed using addition (pot1+pot2+force3+…), optional
             Gravitational potential to use to compute the energy (DissipativeForce instances are ignored). Default is the gravitational field used to integrate the orbit.
         vo : float or Quantity, optional
             Physical scale in km/s for velocities to use to convert. Default is object-wide default.
@@ -2561,7 +2561,7 @@ class Orbit:
         ----------
         t : numeric, numpy.ndarray or Quantity, optional
             Time at which to get the radial energy. Default is the initial time.
-        pot : Potential, DissipativeForce or list of such instances
+        pot : Potential, DissipativeForce, or a combined force/potential formed using addition (pot1+pot2+force3+…)
             Gravitational potential to use for the calculation (DissipativeForce instances are ignored). Default is the gravitational field used to integrate the orbit.
         vo : float or Quantity, optional
             Physical scale in km/s for velocities to use to convert. Default is object-wide default.
@@ -2605,7 +2605,7 @@ class Orbit:
         ----------
         t : numeric, numpy.ndarray or Quantity, optional
             Time at which to get the vertical energy. Default is the initial time.
-        pot : Potential, DissipativeForce or list of such instances
+        pot : Potential, DissipativeForce, or a combined force/potential formed using addition (pot1+pot2+force3+…)
             Gravity potential to use for the calculation (DissipativeForce instances are ignored). Default is the gravitational field used to integrate the orbit.
         vo : float or Quantity, optional
             Physical scale in km/s for velocities to use to convert. Default is object-wide default.
@@ -2652,7 +2652,7 @@ class Orbit:
             Time at which to get the Jacobi integral. Default is the initial time.
         OmegaP : numeric or Quantity, optional
             Pattern speed.
-        pot : Potential, DissipativeForce or list of such instances
+        pot : Potential, DissipativeForce, or a combined force/potential formed using addition (pot1+pot2+force3+…)
             Gravity potential to use for the calculation (DissipativeForce instances are ignored). Default is the gravitational field used to integrate the orbit.
         vo : float or Quantity, optional
             Physical scale in km/s for velocities to use to convert. Default is object-wide default.
@@ -2727,7 +2727,7 @@ class Orbit:
 
         Parameters
         ----------
-        pot : Potential or list of Potentials, optional
+        pot : Potential or a combined potential formed using addition (pot1+pot2+…), optional
             Gravitational potential to use for the calculation (DissipativeForce instances are ignored). Default is the gravitational field used to integrate the orbit.
         type : {'staeckel', 'adiabatic', 'spherical', 'isochroneApprox'}, optional
             Type of actionAngle module to use. Default is 'staeckel'.
@@ -3039,7 +3039,7 @@ class Orbit:
         ----------
         analytic : bool, optional
             If True, compute this analytically. Default is False.
-        pot : Potential or list of Potential instances, optional
+        pot : Potential or a combined potential formed using addition (pot1+pot2+…), optional
             Gravitational potential to use for analytical calculation. Default is the gravitational field used for the orbit integration.
         type : {'staeckel', 'adiabatic', 'spherical'}, optional
             Type of actionAngle module to use when analytic=True. Default is 'staeckel'.
@@ -3083,7 +3083,7 @@ class Orbit:
         ----------
         analytic : bool, optional
             If True, compute this analytically. Default is False.
-        pot : Potential or list of Potential instances, optional
+        pot : Potential or a combined potential formed using addition (pot1+pot2+…), optional
             Gravity potential to use for analytical calculation. Default is the gravitational field used for the orbit integration.
         type : {'staeckel', 'adiabatic', 'spherical'}, optional
             Type of actionAngle module to use when analytic=True. Default is 'staeckel'.
@@ -3130,7 +3130,7 @@ class Orbit:
         ----------
         analytic : bool, optional
             If True, compute this analytically. Default is False.
-        pot : Potential or list of Potential instances, optional
+        pot : Potential or a combined potential formed using addition (pot1+pot2+…), optional
             Gravity potential to use for analytical calculation. Default is the gravitational field used for the orbit integration.
         type : {'staeckel', 'adiabatic', 'spherical'}, optional
             Type of actionAngle module to use when analytic=True. Default is 'staeckel'.
@@ -3175,7 +3175,7 @@ class Orbit:
 
         Parameters
         ----------
-        pot : Potential or list of Potential instances, optional
+        pot : Potential or a combined potential formed using addition (pot1+pot2+…), optional
             Gravitational potential. Default is the gravitational field used for the orbit integration.
         ro : float or Quantity, optional
             Physical scale in kpc for distances to use to convert. Default is object-wide default.
@@ -3239,7 +3239,7 @@ class Orbit:
         ----------
         t : numeric, numpy.ndarray or Quantity, optional
             Time at which to get the radius. Default is the initial time.
-        pot : Potential or list of Potential instances, optional
+        pot : Potential or a combined potential formed using addition (pot1+pot2+…), optional
             Gravitational potential. Default is the gravitational field used for the orbit integration.
         ro : float or Quantity, optional
             Physical scale in kpc for distances to use to convert. Default is object-wide default.
@@ -3301,7 +3301,7 @@ class Orbit:
         ----------
         t : numeric, numpy.ndarray or Quantity, optional
             Time at which to get the radius. Default is the initial time.
-        pot : Potential or list of Potential instances, optional
+        pot : Potential or a combined potential formed using addition (pot1+pot2+…), optional
             Gravitational potential. Default is the gravitational field used for the orbit integration.
         ro : float or Quantity, optional
             Physical scale in kpc for distances to use to convert. Default is object-wide default.
@@ -3363,7 +3363,7 @@ class Orbit:
         ----------
         analytic : bool, optional
             Compute this analytically. Default is False.
-        pot : Potential or list of Potential instances, optional
+        pot : Potential or a combined potential formed using addition (pot1+pot2+…), optional
             Gravitational potential for the analytical calculation. Default is the gravitational field used for the orbit integration.
         type : {'staeckel', 'adiabatic', 'spherical'}, optional
             Type of actionAngle module to use for 3D orbits when analytic=True. Default is 'staeckel'.
@@ -3409,7 +3409,7 @@ class Orbit:
 
         Parameters
         ----------
-        pot : Potential or list of Potential instances, optional
+        pot : Potential or a combined potential formed using addition (pot1+pot2+…), optional
             Gravitational potential. Default is the gravitational field used for the orbit integration.
         type : {'staeckel', 'adiabatic', 'isochroneApprox', 'spherical'}, optional
             Type of actionAngle module to use. Default is 'staeckel'.
@@ -3453,7 +3453,7 @@ class Orbit:
 
         Parameters
         ----------
-        pot : Potential or list of Potential instances, optional
+        pot : Potential or a combined potential formed using addition (pot1+pot2+…), optional
             Gravitational potential. Default is the gravitational field used for the orbit integration.
         type : {'staeckel', 'adiabatic', 'isochroneApprox', 'spherical'}, optional
             Type of actionAngle module to use. Default is 'staeckel'.
@@ -3497,7 +3497,7 @@ class Orbit:
 
         Parameters
         ----------
-        pot : Potential or list of Potential instances, optional
+        pot : Potential or a combined potential formed using addition (pot1+pot2+…), optional
             Gravitational potential. Default is the gravitational field used for the orbit integration.
         type : {'staeckel', 'adiabatic', 'isochroneApprox', 'spherical'}, optional
             Type of actionAngle module to use. Default is 'staeckel'.
@@ -3541,7 +3541,7 @@ class Orbit:
 
         Parameters
         ----------
-        pot : Potential or list of Potential instances, optional
+        pot : Potential or a combined potential formed using addition (pot1+pot2+…), optional
             Gravitational potential. Default is the gravitational field used for the orbit integration.
         type : {'staeckel', 'adiabatic', 'isochroneApprox', 'spherical'}, optional
             Type of actionAngle module to use. Default is 'staeckel'.
@@ -3582,7 +3582,7 @@ class Orbit:
 
         Parameters
         ----------
-        pot : Potential or list of Potential instances, optional
+        pot : Potential or a combined potential formed using addition (pot1+pot2+…), optional
             Gravitational potential. Default is the gravitational field used for the orbit integration.
         type : {'staeckel', 'adiabatic', 'isochroneApprox', 'spherical'}, optional
             Type of actionAngle module to use. Default is 'staeckel'.
@@ -3623,7 +3623,7 @@ class Orbit:
 
         Parameters
         ----------
-        pot : Potential or list of Potential instances, optional
+        pot : Potential or a combined potential formed using addition (pot1+pot2+…), optional
             Gravitational potential. Default is the gravitational field used for the orbit integration.
         type : {'staeckel', 'adiabatic', 'isochroneApprox', 'spherical'}, optional
             Type of actionAngle module to use. Default is 'staeckel'.
@@ -3664,7 +3664,7 @@ class Orbit:
 
         Parameters
         ----------
-        pot : Potential or list of Potential instances, optional
+        pot : Potential or a combined potential formed using addition (pot1+pot2+…), optional
             Gravitational potential. Default is the gravitational field used for the orbit integration.
         type : {'staeckel', 'adiabatic', 'isochroneApprox', 'spherical'}, optional
             Type of actionAngle module to use. Default is 'staeckel'.
@@ -3705,7 +3705,7 @@ class Orbit:
 
         Parameters
         ----------
-        pot : Potential or list of Potential instances, optional
+        pot : Potential or a combined potential formed using addition (pot1+pot2+…), optional
             Gravitational potential. Default is the gravitational field used for the orbit integration.
         type : {'staeckel', 'adiabatic', 'isochroneApprox', 'spherical'}, optional
             Type of actionAngle module to use. Default is 'staeckel'.
@@ -3745,7 +3745,7 @@ class Orbit:
 
         Parameters
         ----------
-        pot : Potential or list of Potential instances, optional
+        pot : Potential or a combined potential formed using addition (pot1+pot2+…), optional
             Gravitational potential. Default is the gravitational field used for the orbit integration.
         type : {'staeckel', 'adiabatic', 'isochroneApprox', 'spherical'}, optional
             Type of actionAngle module to use. Default is 'staeckel'.
@@ -3778,7 +3778,7 @@ class Orbit:
 
         Parameters
         ----------
-        pot : Potential or list of Potential instances, optional
+        pot : Potential or a combined potential formed using addition (pot1+pot2+…), optional
             Gravitational potential. Default is the gravitational field used for the orbit integration.
         type : {'staeckel', 'adiabatic', 'isochroneApprox', 'spherical'}, optional
             Type of actionAngle module to use. Default is 'staeckel'.
@@ -3819,7 +3819,7 @@ class Orbit:
 
         Parameters
         ----------
-        pot : Potential or list of Potential instances, optional
+        pot : Potential or a combined potential formed using addition (pot1+pot2+…), optional
             Gravitational potential. Default is the gravitational field used for the orbit integration.
         type : {'staeckel', 'adiabatic', 'isochroneApprox', 'spherical'}, optional
             Type of actionAngle module to use. Default is 'staeckel'.
@@ -3860,7 +3860,7 @@ class Orbit:
 
         Parameters
         ----------
-        pot : Potential or list of Potential instances, optional
+        pot : Potential or a combined potential formed using addition (pot1+pot2+…), optional
             Gravitational potential. Default is the gravitational field used for the orbit integration.
         type : {'staeckel', 'adiabatic', 'isochroneApprox', 'spherical'}, optional
             Type of actionAngle module to use. Default is 'staeckel'.
@@ -3901,7 +3901,7 @@ class Orbit:
 
         Parameters
         ----------
-        pot : Potential or list of Potential instances, optional
+        pot : Potential or a combined potential formed using addition (pot1+pot2+…), optional
             Gravitational potential. Default is the gravitational field used for the orbit integration.
         type : {'staeckel', 'adiabatic', 'isochroneApprox', 'spherical'}, optional
             Type of actionAngle module to use. Default is 'staeckel'.
@@ -5316,7 +5316,7 @@ class Orbit:
 
         Parameters
         ----------
-        pot : Potential, DissipativeForce, or list of such instances
+        pot : Potential, DissipativeForce, or a combined force/potential formed using addition (pot1+pot2+force3+…)
             Gravitational field to integrate the orbit in.
         ncross : int, optional
             Number of times to cross the surface. Default is 500.
@@ -5492,7 +5492,7 @@ class Orbit:
         ----------
         t : numeric, numpy.ndarray or Quantity, optional
             Time at which to get the position. Default is the initial time.
-        pot : Potential, DissipativeForce or list of such instances
+        pot : Potential, DissipativeForce, or a combined force/potential formed using addition (pot1+pot2+force3+…)
             Gravitational field to integrate the orbit in.
         surface : str, optional
             Surface to punch through (this has no effect in 3D, where the surface is always z=0, but in 2D it can be 'x' or 'y' for x=0 or y=0), by default None.
@@ -6143,7 +6143,7 @@ class Orbit:
 
         Parameters
         ----------
-        pot : Potential, DissipativeForce, or list of such instances
+        pot : Potential, DissipativeForce, or a combined force/potential formed using addition (pot1+pot2+force3+…)
             Gravitational field to integrate the orbit in.
         ncross : int, optional
             Number of times to cross the surface. The default is 500.
@@ -6251,7 +6251,7 @@ class Orbit:
         ----------
         t : numeric, numpy.ndarray or Quantity, optional
             Time at which to get the position. Default is the initial time.
-        pot : Potential, DissipativeForce or list of such instances
+        pot : Potential, DissipativeForce, or a combined force/potential formed using addition (pot1+pot2+force3+…)
             Gravitational field to integrate the orbit in.
         surface : str, optional
             Surface to punch through (this has no effect in 3D, where the surface is always z=0, but in 2D it can be 'x' or 'y' for x=0 or y=0), by default None.
