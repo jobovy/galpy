@@ -13,13 +13,14 @@ from ..util.conversion import (
 from .DissipativeForce import DissipativeForce, _isDissipative
 from .planarDissipativeForce import planarDissipativeForceFromFullDissipativeForce
 from .planarForce import planarForce
-from .plotEscapecurve import _INF, plotEscapecurve
-from .plotRotcurve import plotRotcurve
 from .Potential import (
+    _INF,
     Potential,
     PotentialError,
     flatten,
     lindbladR,
+    plotEscapecurve,
+    plotRotcurve,
     potential_positional_arg,
 )
 

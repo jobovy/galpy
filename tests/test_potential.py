@@ -1957,7 +1957,7 @@ def test_potential_at_zero():
 def test_potential_at_infinity():
     # One of the main reasons for this test is the implementation of vesc,
     # which uses the potential at infinity. Import what vesc uses for infinity
-    from galpy.potential.plotEscapecurve import _INF
+    from galpy.potential import _INF
 
     # Grab all of the potentials
     pots = [

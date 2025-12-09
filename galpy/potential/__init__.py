@@ -61,8 +61,6 @@ from . import (
     linearPotential,
     planarForce,
     planarPotential,
-    plotEscapecurve,
-    plotRotcurve,
     verticalPotential,
 )
 
@@ -93,9 +91,9 @@ plotDensities = Potential.plotDensities
 plotSurfaceDensities = Potential.plotSurfaceDensities
 plotplanarPotentials = planarPotential.plotplanarPotentials
 plotlinearPotentials = linearPotential.plotlinearPotentials
-calcRotcurve = plotRotcurve.calcRotcurve
-vcirc = plotRotcurve.vcirc
-dvcircdR = plotRotcurve.dvcircdR
+calcRotcurve = Potential.calcRotcurve
+vcirc = Potential.vcirc
+dvcircdR = Potential.dvcircdR
 epifreq = Potential.epifreq
 verticalfreq = Potential.verticalfreq
 flattening = Potential.flattening
@@ -103,10 +101,10 @@ rl = Potential.rl
 omegac = Potential.omegac
 vterm = Potential.vterm
 lindbladR = Potential.lindbladR
-plotRotcurve = plotRotcurve.plotRotcurve
-calcEscapecurve = plotEscapecurve.calcEscapecurve
-vesc = plotEscapecurve.vesc
-plotEscapecurve = plotEscapecurve.plotEscapecurve
+plotRotcurve = Potential.plotRotcurve
+calcEscapecurve = Potential.calcEscapecurve
+vesc = Potential.vesc
+plotEscapecurve = Potential.plotEscapecurve
 evaluateplanarPotentials = planarPotential.evaluateplanarPotentials
 evaluateplanarRforces = planarPotential.evaluateplanarRforces
 evaluateplanarR2derivs = planarPotential.evaluateplanarR2derivs
@@ -114,6 +112,7 @@ evaluateplanarphitorques = planarPotential.evaluateplanarphitorques
 evaluatelinearPotentials = linearPotential.evaluatelinearPotentials
 evaluatelinearForces = linearPotential.evaluatelinearForces
 PotentialError = Potential.PotentialError
+_INF = Potential._INF
 LinShuReductionFactor = planarPotential.LinShuReductionFactor
 nemo_accname = Potential.nemo_accname
 nemo_accpars = Potential.nemo_accpars

@@ -24,6 +24,7 @@ else:
     from scipy.special import logsumexp
 
 from ..potential import (
+    _INF,
     LcE,
     PotentialError,
     _isNonAxi,
@@ -38,7 +39,6 @@ from ..potential import (
     toPlanarPotential,
 )
 from ..potential.DissipativeForce import _isDissipative
-from ..potential.plotEscapecurve import _INF
 from ..potential.Potential import _check_c
 from ..util import conversion, coords, galpyWarning, galpyWarningVerbose, plot
 from ..util._optional_deps import (
