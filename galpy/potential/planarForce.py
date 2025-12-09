@@ -4,6 +4,7 @@
 #
 ###############################################################################
 import copy
+import inspect
 
 import numpy
 
@@ -69,14 +70,74 @@ class planarForce:
         Returns
         -------
         str
-            String representation showing the class name.
+            String representation showing the class name, parameters, and physical output status.
 
         Notes
         -----
         - 2025-12-09 - Written - Bovy (UofT)
 
         """
-        return f"{type(self).__name__}"
+        # Get class name
+        class_name = type(self).__name__
+
+        # Build parameter string
+        params = []
+
+        # Get __init__ signature to find parameter names
+        try:
+            sig = inspect.signature(self.__class__.__init__)
+            init_params = [
+                p for p in sig.parameters.keys() if p not in ["self", "ro", "vo"]
+            ]
+
+            # Look for corresponding attributes in __dict__
+            for param in init_params:
+                # Try common attribute naming conventions
+                attr_candidates = [
+                    f"_{param}",  # _b, _amp, etc.
+                    param,  # direct name
+                ]
+
+                for attr in attr_candidates:
+                    if attr in self.__dict__:
+                        value = self.__dict__[attr]
+                        if value is not None:
+                            params.append(f"{param}={value}")
+                        break
+        except Exception:
+            # If anything goes wrong with introspection, just continue
+            pass
+
+        # Build parameter string
+        param_str = ", ".join(params) if params else ""
+
+        # Build physical output status string
+        physical_status = []
+        if hasattr(self, "_roSet") and hasattr(self, "_voSet"):
+            if self._roSet and self._voSet:
+                physical_status.append("physical outputs fully on")
+            elif self._roSet:
+                physical_status.append("physical outputs partially on (ro only)")
+            elif self._voSet:
+                physical_status.append("physical outputs partially on (vo only)")
+
+        # Add ro and vo values
+        if hasattr(self, "_ro"):
+            physical_status.append(f"ro={self._ro} kpc")
+        if hasattr(self, "_vo"):
+            physical_status.append(f"vo={self._vo} km/s")
+
+        physical_str = ", ".join(physical_status) if physical_status else ""
+
+        # Combine everything
+        if param_str and physical_str:
+            return f"{class_name}({param_str}; {physical_str})"
+        elif param_str:
+            return f"{class_name}({param_str})"
+        elif physical_str:
+            return f"{class_name}({physical_str})"
+        else:
+            return f"{class_name}()"
 
     def __mul__(self, b):
         """

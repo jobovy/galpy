@@ -1519,30 +1519,47 @@ def test_repr():
     from galpy.potential import LogarithmicHaloPotential, PlummerPotential
 
     pot = PlummerPotential()
-    assert repr(pot) == "PlummerPotential", (
-        f"Expected 'PlummerPotential', got '{repr(pot)}'"
+    repr_str = repr(pot)
+    # Check that repr contains class name and key information
+    assert "PlummerPotential" in repr_str, (
+        f"Expected 'PlummerPotential' in repr, got '{repr_str}'"
     )
+    assert "amp=" in repr_str, f"Expected 'amp=' in repr, got '{repr_str}'"
+    assert "ro=" in repr_str, f"Expected 'ro=' in repr, got '{repr_str}'"
+    assert "kpc" in repr_str, f"Expected 'kpc' in repr, got '{repr_str}'"
+    assert "km/s" in repr_str, f"Expected 'km/s' in repr, got '{repr_str}'"
 
     pot2 = LogarithmicHaloPotential()
-    assert repr(pot2) == "LogarithmicHaloPotential", (
-        f"Expected 'LogarithmicHaloPotential', got '{repr(pot2)}'"
+    repr_str2 = repr(pot2)
+    assert "LogarithmicHaloPotential" in repr_str2, (
+        f"Expected 'LogarithmicHaloPotential' in repr, got '{repr_str2}'"
+    )
+
+    # Test with physical outputs explicitly on
+    pot3 = PlummerPotential(ro=8.0, vo=220.0)
+    repr_str3 = repr(pot3)
+    assert "physical outputs fully on" in repr_str3, (
+        f"Expected 'physical outputs fully on' in repr, got '{repr_str3}'"
     )
 
     # Test for planarPotentials (inherit from planarForce)
     planar_pot = LogarithmicHaloPotential().toPlanar()
-    repr_str = repr(planar_pot)
+    repr_str4 = repr(planar_pot)
     # The repr should return the class name - planarPotentialFromRZPotential
-    assert "planarPotential" in repr_str, (
-        f"Expected 'planarPotential' in repr, got '{repr_str}'"
+    assert "planarPotential" in repr_str4, (
+        f"Expected 'planarPotential' in repr, got '{repr_str4}'"
     )
+    assert "ro=" in repr_str4, f"Expected 'ro=' in repr, got '{repr_str4}'"
 
     # Test for linearPotentials
     from galpy.potential import KGPotential
 
     lin_pot = KGPotential()
-    assert repr(lin_pot) == "KGPotential", (
-        f"Expected 'KGPotential', got '{repr(lin_pot)}'"
+    repr_str5 = repr(lin_pot)
+    assert "KGPotential" in repr_str5, (
+        f"Expected 'KGPotential' in repr, got '{repr_str5}'"
     )
+    assert "amp=" in repr_str5, f"Expected 'amp=' in repr, got '{repr_str5}'"
 
     return None
 
