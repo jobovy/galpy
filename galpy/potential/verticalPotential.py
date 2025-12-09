@@ -59,13 +59,19 @@ class verticalPotential(linearPotential):
     def __repr__(self):
         # Get base potential representation
         if isinstance(self._Pot, list):
-            base_repr = "from list of potentials"
+            base_repr = "of list of potentials"
         else:
-            base_repr = f"from\n{repr(self._Pot)}"
+            base_repr = "of " + "".join(
+                [f"\n\t{s}" for s in repr(self._Pot).split("\n")]
+            )
 
         # Combine everything
         class_name = type(self).__name__
-        return f"{class_name} {base_repr}"
+        return (
+            f"{class_name} at R={self._R}"
+            + (f", phi={self._phi} " if self._Pot.isNonAxi else " ")
+            + f"{base_repr}"
+        )
 
     def _evaluate(self, z, t=0.0):
         """

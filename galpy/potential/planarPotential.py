@@ -553,9 +553,11 @@ class planarPotentialFromRZPotential(planarAxiPotential):
     def __repr__(self):
         # Get base potential representation
         if isinstance(self._Pot, list):
-            base_repr = "from list of potentials"
+            base_repr = "of list of potentials"
         else:
-            base_repr = f"from\n{repr(self._Pot)}"
+            base_repr = f"of " + "".join(
+                [f"\n\t{s}" for s in repr(self._Pot).split("\n")]
+            )
 
         # Combine everything
         class_name = type(self).__name__
@@ -715,9 +717,11 @@ class planarPotentialFromFullPotential(planarPotential):
     def __repr__(self):
         # Get base potential representation
         if isinstance(self._Pot, list):
-            base_repr = "from list of potentials"
+            base_repr = "of list of potentials"
         else:
-            base_repr = f"from\n{repr(self._Pot)}"
+            base_repr = "of " + "".join(
+                [f"\n\t{s}" for s in repr(self._Pot).split("\n")]
+            )
 
         # Combine everything
         class_name = type(self).__name__

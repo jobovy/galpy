@@ -132,12 +132,14 @@ class WrapperPotential(Potential):
 
         # Get base potential representation
         if isinstance(self._pot, list):
-            base_repr = "from list of potentials"
+            base_repr = "of list of potentials"
         else:
-            base_repr = f"from\n{repr(self._pot)}"
+            base_repr = "of " + "".join(
+                [f"\n\t{s}" for s in repr(self._pot).split("\n")]
+            )
 
         # Build own parameter string (excluding pot, ro, vo)
-        class_name = type(self).__name__
+        class_name = type(self).__name__[1:]
         params = []
 
         # Get __init__ signature to find parameter names
@@ -326,12 +328,14 @@ class planarWrapperPotential(planarPotential):
 
         # Get base potential representation
         if isinstance(self._pot, list):
-            base_repr = "from list of potentials"
+            base_repr = "of list of potentials"
         else:
-            base_repr = f"from\n{repr(self._pot)}"
+            base_repr = "of " + "".join(
+                [f"\n\t{s}" for s in repr(self._pot).split("\n")]
+            )
 
         # Build own parameter string (excluding pot, ro, vo)
-        class_name = type(self).__name__
+        class_name = type(self).__name__[1:]
         params = []
 
         # Get __init__ signature to find parameter names
