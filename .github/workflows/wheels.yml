@@ -108,6 +108,7 @@ jobs:
             - ["cp311","3.11"]
             - ["cp312","3.12"]
             - ["cp313","3.13"]
+            - ["cp314","3.14"]
     steps:
       - uses: actions/checkout@v6
       - run: mkdir wheelhouse

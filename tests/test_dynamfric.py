@@ -4,6 +4,7 @@ import sys
 import pytest
 
 PY3 = sys.version > "3"
+PY_GE_314 = sys.version_info >= (3, 14)
 import numpy
 
 from galpy import potential
@@ -209,7 +210,7 @@ def test_ChandrasekharDynamicalFrictionForce_pickling():
         minr=0.5,
         maxr=2.0,
     )
-    if PY3:
+    if PY3 and not PY_GE_314:
         with pytest.raises(AttributeError) as excinfo:
             pickled = pickle.dumps(cdf)
     else:
