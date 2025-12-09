@@ -1513,6 +1513,40 @@ def test_amp_mult_divide():
     return None
 
 
+# Test whether __repr__ works for Force, planarForce, and linearPotential classes
+def test_repr():
+    # Test for 3D Potentials (inherit from Force)
+    from galpy.potential import LogarithmicHaloPotential, PlummerPotential
+
+    pot = PlummerPotential()
+    assert repr(pot) == "PlummerPotential", (
+        f"Expected 'PlummerPotential', got '{repr(pot)}'"
+    )
+
+    pot2 = LogarithmicHaloPotential()
+    assert repr(pot2) == "LogarithmicHaloPotential", (
+        f"Expected 'LogarithmicHaloPotential', got '{repr(pot2)}'"
+    )
+
+    # Test for planarPotentials (inherit from planarForce)
+    planar_pot = LogarithmicHaloPotential().toPlanar()
+    repr_str = repr(planar_pot)
+    # The repr should return the class name - planarPotentialFromRZPotential
+    assert "planarPotential" in repr_str, (
+        f"Expected 'planarPotential' in repr, got '{repr_str}'"
+    )
+
+    # Test for linearPotentials
+    from galpy.potential import KGPotential
+
+    lin_pot = KGPotential()
+    assert repr(lin_pot) == "KGPotential", (
+        f"Expected 'KGPotential', got '{repr(lin_pot)}'"
+    )
+
+    return None
+
+
 # Test whether potentials that support array input do so correctly
 def test_potential_array_input():
     # Grab all of the potentials

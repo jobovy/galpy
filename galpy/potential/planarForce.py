@@ -62,6 +62,22 @@ class planarForce:
             self._voSet = True
         return None
 
+    def __repr__(self):
+        """
+        Return a string representation of the planarForce instance.
+
+        Returns
+        -------
+        str
+            String representation showing the class name.
+
+        Notes
+        -----
+        - 2025-12-09 - Written - Bovy (UofT)
+
+        """
+        return f"{type(self).__name__}"
+
     def __mul__(self, b):
         """
         Multiply a planarPotential's amplitude by a number.
