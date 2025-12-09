@@ -50,7 +50,7 @@ class linearPotential:
         Returns
         -------
         str
-            String representation showing the class name, parameters, and physical output status.
+            String representation showing the class name, internal parameters, and physical output status.
 
         Notes
         -----
@@ -88,36 +88,41 @@ class linearPotential:
             # If anything goes wrong with introspection, just continue
             pass
 
-        # Build parameter string
-        param_str = ", ".join(params) if params else ""
+        # Build components
+        components = []
+
+        # Add internal parameters if any
+        if params:
+            components.append(f"internal parameters: {', '.join(params)}")
 
         # Build physical output status string
-        physical_status = []
+        physical_parts = []
         if hasattr(self, "_roSet") and hasattr(self, "_voSet"):
             if self._roSet and self._voSet:
-                physical_status.append("physical outputs fully on")
+                physical_parts.append("physical outputs fully on")
             elif self._roSet:
-                physical_status.append("physical outputs partially on (ro only)")
+                physical_parts.append("physical outputs partially on (ro only)")
             elif self._voSet:
-                physical_status.append("physical outputs partially on (vo only)")
+                physical_parts.append("physical outputs partially on (vo only)")
 
-        # Add ro and vo values
-        if hasattr(self, "_ro"):
-            physical_status.append(f"ro={self._ro} kpc")
-        if hasattr(self, "_vo"):
-            physical_status.append(f"vo={self._vo} km/s")
+        # Add ro and vo values only when they are set
+        ro_vo_parts = []
+        if hasattr(self, "_roSet") and self._roSet and hasattr(self, "_ro"):
+            ro_vo_parts.append(f"ro={self._ro} kpc")
+        if hasattr(self, "_voSet") and self._voSet and hasattr(self, "_vo"):
+            ro_vo_parts.append(f"vo={self._vo} km/s")
 
-        physical_str = ", ".join(physical_status) if physical_status else ""
+        if ro_vo_parts:
+            physical_parts.extend(ro_vo_parts)
+
+        if physical_parts:
+            components.append(", ".join(physical_parts))
 
         # Combine everything
-        if param_str and physical_str:
-            return f"{class_name}({param_str}; {physical_str})"
-        elif param_str:
-            return f"{class_name}({param_str})"
-        elif physical_str:
-            return f"{class_name}({physical_str})"
+        if components:
+            return f"{class_name} with {' and '.join(components)}"
         else:
-            return f"{class_name}()"
+            return f"{class_name}"
 
     def __mul__(self, b):
         """

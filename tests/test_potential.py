@@ -1524,10 +1524,13 @@ def test_repr():
     assert "PlummerPotential" in repr_str, (
         f"Expected 'PlummerPotential' in repr, got '{repr_str}'"
     )
+    assert "internal parameters:" in repr_str, (
+        f"Expected 'internal parameters:' in repr, got '{repr_str}'"
+    )
     assert "amp=" in repr_str, f"Expected 'amp=' in repr, got '{repr_str}'"
-    assert "ro=" in repr_str, f"Expected 'ro=' in repr, got '{repr_str}'"
-    assert "kpc" in repr_str, f"Expected 'kpc' in repr, got '{repr_str}'"
-    assert "km/s" in repr_str, f"Expected 'km/s' in repr, got '{repr_str}'"
+    # ro and vo should NOT be in default case (not set)
+    assert "ro=" not in repr_str, f"Did not expect 'ro=' in repr, got '{repr_str}'"
+    assert "vo=" not in repr_str, f"Did not expect 'vo=' in repr, got '{repr_str}'"
 
     pot2 = LogarithmicHaloPotential()
     repr_str2 = repr(pot2)
@@ -1541,25 +1544,44 @@ def test_repr():
     assert "physical outputs fully on" in repr_str3, (
         f"Expected 'physical outputs fully on' in repr, got '{repr_str3}'"
     )
+    assert "ro=8.0 kpc" in repr_str3, (
+        f"Expected 'ro=8.0 kpc' in repr, got '{repr_str3}'"
+    )
+    assert "vo=220.0 km/s" in repr_str3, (
+        f"Expected 'vo=220.0 km/s' in repr, got '{repr_str3}'"
+    )
+
+    # Test with partial physical outputs (ro only)
+    pot4 = PlummerPotential(ro=8.0)
+    repr_str4 = repr(pot4)
+    assert "partially on (ro only)" in repr_str4, (
+        f"Expected 'partially on (ro only)' in repr, got '{repr_str4}'"
+    )
+    assert "ro=" in repr_str4, f"Expected 'ro=' in repr, got '{repr_str4}'"
+    assert "vo=" not in repr_str4, f"Did not expect 'vo=' in repr, got '{repr_str4}'"
 
     # Test for planarPotentials (inherit from planarForce)
     planar_pot = LogarithmicHaloPotential().toPlanar()
-    repr_str4 = repr(planar_pot)
+    repr_str5 = repr(planar_pot)
     # The repr should return the class name - planarPotentialFromRZPotential
-    assert "planarPotential" in repr_str4, (
-        f"Expected 'planarPotential' in repr, got '{repr_str4}'"
+    assert "planarPotential" in repr_str5, (
+        f"Expected 'planarPotential' in repr, got '{repr_str5}'"
     )
-    assert "ro=" in repr_str4, f"Expected 'ro=' in repr, got '{repr_str4}'"
+    # Default case should not show ro/vo
+    assert "ro=" not in repr_str5, f"Did not expect 'ro=' in repr, got '{repr_str5}'"
 
     # Test for linearPotentials
     from galpy.potential import KGPotential
 
     lin_pot = KGPotential()
-    repr_str5 = repr(lin_pot)
-    assert "KGPotential" in repr_str5, (
-        f"Expected 'KGPotential' in repr, got '{repr_str5}'"
+    repr_str6 = repr(lin_pot)
+    assert "KGPotential" in repr_str6, (
+        f"Expected 'KGPotential' in repr, got '{repr_str6}'"
     )
-    assert "amp=" in repr_str5, f"Expected 'amp=' in repr, got '{repr_str5}'"
+    assert "amp=" in repr_str6, f"Expected 'amp=' in repr, got '{repr_str6}'"
+    assert "internal parameters:" in repr_str6, (
+        f"Expected 'internal parameters:' in repr, got '{repr_str6}'"
+    )
 
     return None
 
