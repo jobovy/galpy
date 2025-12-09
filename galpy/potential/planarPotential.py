@@ -550,6 +550,17 @@ class planarPotentialFromRZPotential(planarAxiPotential):
         self.hasC_dens = RZPot.hasC_dens
         return None
 
+    def __repr__(self):
+        # Get base potential representation
+        if isinstance(self._Pot, list):
+            base_repr = "from list of potentials"
+        else:
+            base_repr = f"from\n{repr(self._Pot)}"
+
+        # Combine everything
+        class_name = type(self).__name__
+        return f"{class_name} {base_repr}"
+
     def _evaluate(self, R, phi=0.0, t=0.0):
         """
         Evaluate the potential.
@@ -700,6 +711,17 @@ class planarPotentialFromFullPotential(planarPotential):
         self.hasC_dxdv = Pot.hasC_dxdv
         self.hasC_dens = Pot.hasC_dens
         return None
+
+    def __repr__(self):
+        # Get base potential representation
+        if isinstance(self._Pot, list):
+            base_repr = "from list of potentials"
+        else:
+            base_repr = f"from\n{repr(self._Pot)}"
+
+        # Combine everything
+        class_name = type(self).__name__
+        return f"{class_name} {base_repr}"
 
     def _evaluate(self, R, phi=0.0, t=0.0):
         """

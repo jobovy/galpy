@@ -56,6 +56,17 @@ class verticalPotential(linearPotential):
         self._voSet = Pot._voSet
         return None
 
+    def __repr__(self):
+        # Get base potential representation
+        if isinstance(self._Pot, list):
+            base_repr = "from list of potentials"
+        else:
+            base_repr = f"from\n{repr(self._Pot)}"
+
+        # Combine everything
+        class_name = type(self).__name__
+        return f"{class_name} {base_repr}"
+
     def _evaluate(self, z, t=0.0):
         """
         Evaluate the potential.

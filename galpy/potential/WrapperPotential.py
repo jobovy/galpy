@@ -128,12 +128,89 @@ class WrapperPotential(Potential):
             self.turn_physical_on(vo=phys_wrapped["vo"], ro=False)
 
     def __repr__(self):
-        wrapped_repr = repr(self._pot)
-        return (
-            Potential.__repr__(self)
-            + ", wrapper of"
-            + "".join([f"\n\t{s}" for s in wrapped_repr.split("\n")])
-        )
+        import inspect
+
+        # Get base potential representation
+        if isinstance(self._pot, list):
+            base_repr = "from list of potentials"
+        else:
+            base_repr = f"from\n{repr(self._pot)}"
+
+        # Build own parameter string (excluding pot, ro, vo)
+        class_name = type(self).__name__
+        params = []
+
+        # Get __init__ signature to find parameter names
+        try:
+            sig = inspect.signature(self.__class__.__init__)
+            init_params = [
+                p
+                for p in sig.parameters.keys()
+                if p not in ["self", "ro", "vo", "pot", "_init"]
+            ]
+
+            # Look for corresponding attributes in __dict__
+            for param in init_params:
+                # Try common attribute naming conventions
+                attr_candidates = [
+                    f"_{param}",  # _b, _amp, etc.
+                    param,  # direct name
+                ]
+
+                for attr in attr_candidates:
+                    if attr in self.__dict__:
+                        value = self.__dict__[attr]
+                        if value is not None:
+                            params.append(f"{param}={value}")
+                        break
+        except Exception:
+            # If anything goes wrong with introspection, just continue
+            pass
+
+        # Build components
+        components = []
+
+        # Add internal parameters if any (excluding pot)
+        if params:
+            components.append(f"internal parameters: {', '.join(params)}")
+
+        # Build physical output status string
+        physical_parts = []
+        if hasattr(self, "_roSet") and hasattr(self, "_voSet"):
+            if self._roSet and self._voSet:
+                physical_parts.append("physical outputs fully on")
+            elif self._roSet:
+                physical_parts.append("physical outputs partially on (ro only)")
+            elif self._voSet:
+                physical_parts.append("physical outputs partially on (vo only)")
+            else:
+                physical_parts.append("physical outputs off")
+
+        # Add ro and vo values only when they are set
+        ro_vo_parts = []
+        if hasattr(self, "_roSet") and self._roSet and hasattr(self, "_ro"):
+            ro_vo_parts.append(f"ro={self._ro} kpc")
+        if hasattr(self, "_voSet") and self._voSet and hasattr(self, "_vo"):
+            ro_vo_parts.append(f"vo={self._vo} km/s")
+
+        if physical_parts:
+            components.append(
+                physical_parts[0]
+                + (
+                    (", using " + " and ".join(ro_vo_parts))
+                    if len(ro_vo_parts) > 0
+                    else ""
+                )
+            )
+
+        # Combine everything
+        if components:
+            own_repr = f"{class_name} with {' and '.join(components)}"
+        else:
+            own_repr = f"{class_name}"
+
+        # Add wrapped potential info
+        return f"{own_repr}, wrapper {base_repr}"
 
     def __getattr__(self, attribute):
         if (
@@ -245,12 +322,89 @@ class planarWrapperPotential(planarPotential):
             self.turn_physical_on(vo=phys_wrapped["vo"], ro=False)
 
     def __repr__(self):
-        wrapped_repr = repr(self._pot)
-        return (
-            Potential.__repr__(self)
-            + ", wrapper of"
-            + "".join([f"\n\t{s}" for s in wrapped_repr.split("\n")])
-        )
+        import inspect
+
+        # Get base potential representation
+        if isinstance(self._pot, list):
+            base_repr = "from list of potentials"
+        else:
+            base_repr = f"from\n{repr(self._pot)}"
+
+        # Build own parameter string (excluding pot, ro, vo)
+        class_name = type(self).__name__
+        params = []
+
+        # Get __init__ signature to find parameter names
+        try:
+            sig = inspect.signature(self.__class__.__init__)
+            init_params = [
+                p
+                for p in sig.parameters.keys()
+                if p not in ["self", "ro", "vo", "pot", "_init"]
+            ]
+
+            # Look for corresponding attributes in __dict__
+            for param in init_params:
+                # Try common attribute naming conventions
+                attr_candidates = [
+                    f"_{param}",  # _b, _amp, etc.
+                    param,  # direct name
+                ]
+
+                for attr in attr_candidates:
+                    if attr in self.__dict__:
+                        value = self.__dict__[attr]
+                        if value is not None:
+                            params.append(f"{param}={value}")
+                        break
+        except Exception:
+            # If anything goes wrong with introspection, just continue
+            pass
+
+        # Build components
+        components = []
+
+        # Add internal parameters if any (excluding pot)
+        if params:
+            components.append(f"internal parameters: {', '.join(params)}")
+
+        # Build physical output status string
+        physical_parts = []
+        if hasattr(self, "_roSet") and hasattr(self, "_voSet"):
+            if self._roSet and self._voSet:
+                physical_parts.append("physical outputs fully on")
+            elif self._roSet:
+                physical_parts.append("physical outputs partially on (ro only)")
+            elif self._voSet:
+                physical_parts.append("physical outputs partially on (vo only)")
+            else:
+                physical_parts.append("physical outputs off")
+
+        # Add ro and vo values only when they are set
+        ro_vo_parts = []
+        if hasattr(self, "_roSet") and self._roSet and hasattr(self, "_ro"):
+            ro_vo_parts.append(f"ro={self._ro} kpc")
+        if hasattr(self, "_voSet") and self._voSet and hasattr(self, "_vo"):
+            ro_vo_parts.append(f"vo={self._vo} km/s")
+
+        if physical_parts:
+            components.append(
+                physical_parts[0]
+                + (
+                    (", using " + " and ".join(ro_vo_parts))
+                    if len(ro_vo_parts) > 0
+                    else ""
+                )
+            )
+
+        # Combine everything
+        if components:
+            own_repr = f"{class_name} with {' and '.join(components)}"
+        else:
+            own_repr = f"{class_name}"
+
+        # Add wrapped potential info
+        return f"{own_repr}, wrapper {base_repr}"
 
     def __getattr__(self, attribute):
         if (
