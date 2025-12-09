@@ -551,17 +551,57 @@ class planarPotentialFromRZPotential(planarAxiPotential):
         return None
 
     def __repr__(self):
+        import re
+
         # Get base potential representation
         if isinstance(self._Pot, list):
             base_repr = "of list of potentials"
         else:
+            base_repr_full = repr(self._Pot)
+            # Remove physical output info from nested representation
+            base_repr_full = re.sub(
+                r" and physical outputs (fully on|partially on \([^)]+\)|off)(, using .+)?$",
+                "",
+                base_repr_full,
+            )
             base_repr = f"of " + "".join(
-                [f"\n\t{s}" for s in repr(self._Pot).split("\n")]
+                [f"\n\t{s}" for s in base_repr_full.split("\n")]
+            )
+
+        # Build physical output status string
+        physical_parts = []
+        if hasattr(self, "_roSet") and hasattr(self, "_voSet"):
+            if self._roSet and self._voSet:
+                physical_parts.append("physical outputs fully on")
+            elif self._roSet:
+                physical_parts.append("physical outputs partially on (ro only)")
+            elif self._voSet:
+                physical_parts.append("physical outputs partially on (vo only)")
+            else:
+                physical_parts.append("physical outputs off")
+
+        # Add ro and vo values only when they are set
+        ro_vo_parts = []
+        if hasattr(self, "_roSet") and self._roSet and hasattr(self, "_ro"):
+            ro_vo_parts.append(f"ro={self._ro} kpc")
+        if hasattr(self, "_voSet") and self._voSet and hasattr(self, "_vo"):
+            ro_vo_parts.append(f"vo={self._vo} km/s")
+
+        physical_str = ""
+        if physical_parts:
+            physical_str = (
+                " and "
+                + physical_parts[0]
+                + (
+                    (", using " + " and ".join(ro_vo_parts))
+                    if len(ro_vo_parts) > 0
+                    else ""
+                )
             )
 
         # Combine everything
         class_name = type(self).__name__
-        return f"{class_name} {base_repr}"
+        return f"{class_name} {base_repr}{physical_str}"
 
     def _evaluate(self, R, phi=0.0, t=0.0):
         """
@@ -715,17 +755,57 @@ class planarPotentialFromFullPotential(planarPotential):
         return None
 
     def __repr__(self):
+        import re
+
         # Get base potential representation
         if isinstance(self._Pot, list):
             base_repr = "of list of potentials"
         else:
+            base_repr_full = repr(self._Pot)
+            # Remove physical output info from nested representation
+            base_repr_full = re.sub(
+                r" and physical outputs (fully on|partially on \([^)]+\)|off)(, using .+)?$",
+                "",
+                base_repr_full,
+            )
             base_repr = "of " + "".join(
-                [f"\n\t{s}" for s in repr(self._Pot).split("\n")]
+                [f"\n\t{s}" for s in base_repr_full.split("\n")]
+            )
+
+        # Build physical output status string
+        physical_parts = []
+        if hasattr(self, "_roSet") and hasattr(self, "_voSet"):
+            if self._roSet and self._voSet:
+                physical_parts.append("physical outputs fully on")
+            elif self._roSet:
+                physical_parts.append("physical outputs partially on (ro only)")
+            elif self._voSet:
+                physical_parts.append("physical outputs partially on (vo only)")
+            else:
+                physical_parts.append("physical outputs off")
+
+        # Add ro and vo values only when they are set
+        ro_vo_parts = []
+        if hasattr(self, "_roSet") and self._roSet and hasattr(self, "_ro"):
+            ro_vo_parts.append(f"ro={self._ro} kpc")
+        if hasattr(self, "_voSet") and self._voSet and hasattr(self, "_vo"):
+            ro_vo_parts.append(f"vo={self._vo} km/s")
+
+        physical_str = ""
+        if physical_parts:
+            physical_str = (
+                " and "
+                + physical_parts[0]
+                + (
+                    (", using " + " and ".join(ro_vo_parts))
+                    if len(ro_vo_parts) > 0
+                    else ""
+                )
             )
 
         # Combine everything
         class_name = type(self).__name__
-        return f"{class_name} {base_repr}"
+        return f"{class_name} {base_repr}{physical_str}"
 
     def _evaluate(self, R, phi=0.0, t=0.0):
         """

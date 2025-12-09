@@ -129,13 +129,21 @@ class WrapperPotential(Potential):
 
     def __repr__(self):
         import inspect
+        import re
 
         # Get base potential representation
         if isinstance(self._pot, list):
             base_repr = "of list of potentials"
         else:
+            base_repr_full = repr(self._pot)
+            # Remove physical output info from nested representation
+            base_repr_full = re.sub(
+                r" and physical outputs (fully on|partially on \([^)]+\)|off)(, using [^,]+)?",
+                "",
+                base_repr_full,
+            )
             base_repr = "of " + "".join(
-                [f"\n\t{s}" for s in repr(self._pot).split("\n")]
+                [f"\n\t{s}" for s in base_repr_full.split("\n")]
             )
 
         # Build own parameter string (excluding pot, ro, vo)
@@ -325,13 +333,21 @@ class planarWrapperPotential(planarPotential):
 
     def __repr__(self):
         import inspect
+        import re
 
         # Get base potential representation
         if isinstance(self._pot, list):
             base_repr = "of list of potentials"
         else:
+            base_repr_full = repr(self._pot)
+            # Remove physical output info from nested representation
+            base_repr_full = re.sub(
+                r" and physical outputs (fully on|partially on \([^)]+\)|off)(, using [^,]+)?",
+                "",
+                base_repr_full,
+            )
             base_repr = "of " + "".join(
-                [f"\n\t{s}" for s in repr(self._pot).split("\n")]
+                [f"\n\t{s}" for s in base_repr_full.split("\n")]
             )
 
         # Build own parameter string (excluding pot, ro, vo)
