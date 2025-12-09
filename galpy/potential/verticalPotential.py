@@ -60,13 +60,13 @@ class verticalPotential(linearPotential):
         import re
 
         # Get base potential representation
-        if isinstance(self._Pot, list):
+        if isinstance(self._Pot, list):  # pragma: no cover
             base_repr = "of list of potentials"
         else:
             base_repr_full = repr(self._Pot)
             # Remove physical output info from nested representation
             base_repr_full = re.sub(
-                r" and physical outputs (fully on|partially on \([^)]+\)|off)(, using .+)?$",
+                r"\s+and physical outputs (fully on|partially on \([^)]+\)|off)(, using .+)?$",
                 "",
                 base_repr_full,
             )
@@ -110,7 +110,7 @@ class verticalPotential(linearPotential):
         return (
             f"{class_name} at R={self._R}"
             + (f", phi={self._phi} " if self._Pot.isNonAxi else " ")
-            + f"{base_repr}{physical_str}"
+            + f"{base_repr}\n{physical_str.lstrip()}"
         )
 
     def _evaluate(self, z, t=0.0):

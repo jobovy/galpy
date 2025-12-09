@@ -138,7 +138,7 @@ class WrapperPotential(Potential):
             base_repr_full = repr(self._pot)
             # Remove physical output info from nested representation
             base_repr_full = re.sub(
-                r" and physical outputs (fully on|partially on \([^)]+\)|off)(, using [^,]+)?",
+                r"\s+and physical outputs (fully on|partially on \([^)]+\)|off)(, using [^,]+)?",
                 "",
                 base_repr_full,
             )
@@ -342,7 +342,7 @@ class planarWrapperPotential(planarPotential):
             base_repr_full = repr(self._pot)
             # Remove physical output info from nested representation
             base_repr_full = re.sub(
-                r" and physical outputs (fully on|partially on \([^)]+\)|off)(, using [^,]+)?",
+                r"\s+and physical outputs (fully on|partially on \([^)]+\)|off)(, using [^,]+)?",
                 "",
                 base_repr_full,
             )

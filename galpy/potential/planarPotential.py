@@ -554,17 +554,17 @@ class planarPotentialFromRZPotential(planarAxiPotential):
         import re
 
         # Get base potential representation
-        if isinstance(self._Pot, list):
+        if isinstance(self._Pot, list):  # pragma: no cover
             base_repr = "of list of potentials"
         else:
             base_repr_full = repr(self._Pot)
             # Remove physical output info from nested representation
             base_repr_full = re.sub(
-                r" and physical outputs (fully on|partially on \([^)]+\)|off)(, using .+)?$",
+                r"\s+and physical outputs (fully on|partially on \([^)]+\)|off)(, using .+)?$",
                 "",
                 base_repr_full,
             )
-            base_repr = f"of " + "".join(
+            base_repr = "of " + "".join(
                 [f"\n\t{s}" for s in base_repr_full.split("\n")]
             )
 
@@ -601,7 +601,7 @@ class planarPotentialFromRZPotential(planarAxiPotential):
 
         # Combine everything
         class_name = type(self).__name__
-        return f"{class_name} {base_repr}{physical_str}"
+        return f"{class_name} {base_repr}\n{physical_str.lstrip()}"
 
     def _evaluate(self, R, phi=0.0, t=0.0):
         """
@@ -758,13 +758,13 @@ class planarPotentialFromFullPotential(planarPotential):
         import re
 
         # Get base potential representation
-        if isinstance(self._Pot, list):
+        if isinstance(self._Pot, list):  # pragma: no cover
             base_repr = "of list of potentials"
         else:
             base_repr_full = repr(self._Pot)
             # Remove physical output info from nested representation
             base_repr_full = re.sub(
-                r" and physical outputs (fully on|partially on \([^)]+\)|off)(, using .+)?$",
+                r"\s+and physical outputs (fully on|partially on \([^)]+\)|off)(, using .+)?$",
                 "",
                 base_repr_full,
             )
@@ -805,7 +805,7 @@ class planarPotentialFromFullPotential(planarPotential):
 
         # Combine everything
         class_name = type(self).__name__
-        return f"{class_name} {base_repr}{physical_str}"
+        return f"{class_name} {base_repr}\n{physical_str.lstrip()}"
 
     def _evaluate(self, R, phi=0.0, t=0.0):
         """
