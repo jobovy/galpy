@@ -157,6 +157,8 @@ class Force:
                 physical_parts.append("physical outputs partially on (ro only)")
             elif self._voSet:
                 physical_parts.append("physical outputs partially on (vo only)")
+            else:
+                physical_parts.append("physical outputs off")
 
         # Add ro and vo values only when they are set
         ro_vo_parts = []
@@ -169,7 +171,14 @@ class Force:
             physical_parts.extend(ro_vo_parts)
 
         if physical_parts:
-            components.append(", ".join(physical_parts))
+            components.append(
+                physical_parts[0]
+                + (
+                    (", using " + " and ".join(physical_parts[1:]))
+                    if len(physical_parts) > 1
+                    else ""
+                )
+            )
 
         # Combine everything
         if components:
