@@ -8188,14 +8188,14 @@ def test_CompositePotential_add_error():
         result = comp + "not a potential"
         assert False, "Should have raised TypeError"
     except TypeError as e:
-        assert "Can only add Potential or CompositePotential" in str(e)
+        assert "Can only add Potential" in str(e)
 
     # Try to add a number
     try:
         result = comp + 42
         assert False, "Should have raised TypeError"
     except TypeError as e:
-        assert "Can only add Potential or CompositePotential" in str(e)
+        assert "Can only add Potential" in str(e)
 
     return None
 
@@ -8228,6 +8228,122 @@ def test_CompositePotential_repr():
         "repr should contain 'CompositePotential'"
     )
     assert "2 potentials" in repr_multi, "repr should indicate 2 potentials"
+
+    return None
+
+
+def test_CompositePotential_dimension_checking():
+    # Test that CompositePotential checks dimensions of constituent potentials
+    from galpy.potential import (
+        CompositePotential,
+        LogarithmicHaloPotential,
+        planarCompositePotential,
+        linearCompositePotential,
+    )
+
+    # Test CompositePotential requires 3D potentials
+    pot3d_1 = LogarithmicHaloPotential(normalize=0.5)
+    pot3d_2 = LogarithmicHaloPotential(normalize=0.5, q=0.9)
+    pot2d = pot3d_1.toPlanar()
+    pot1d = pot3d_1.toVertical(1.1)
+
+    # 3D potentials should work
+    comp3d = CompositePotential(pot3d_1, pot3d_2)
+    assert comp3d.dim == 3, "CompositePotential should have dim=3"
+
+    # 2D potential should raise ValueError
+    with pytest.raises(ValueError) as excinfo:
+        CompositePotential(pot3d_1, pot2d)
+    assert "must be 3D" in str(excinfo.value)
+    assert "dimensionality 2" in str(excinfo.value)
+
+    # 1D potential should raise ValueError
+    with pytest.raises(ValueError) as excinfo:
+        CompositePotential(pot3d_1, pot1d)
+    assert "must be 3D" in str(excinfo.value)
+    assert "dimensionality 1" in str(excinfo.value)
+
+    # Test planarCompositePotential requires 2D potentials
+    pot2d_1 = LogarithmicHaloPotential(normalize=0.5).toPlanar()
+    pot2d_2 = LogarithmicHaloPotential(normalize=0.5, q=0.9).toPlanar()
+
+    # 2D potentials should work
+    comp2d = planarCompositePotential(pot2d_1, pot2d_2)
+    assert comp2d.dim == 2, "planarCompositePotential should have dim=2"
+
+    # 3D potential should raise ValueError
+    with pytest.raises(ValueError) as excinfo:
+        planarCompositePotential(pot2d_1, pot3d_1)
+    assert "must be 2D" in str(excinfo.value)
+    assert "dimensionality 3" in str(excinfo.value)
+
+    # 1D potential should raise ValueError
+    with pytest.raises(ValueError) as excinfo:
+        planarCompositePotential(pot2d_1, pot1d)
+    assert "must be 2D" in str(excinfo.value)
+    assert "dimensionality 1" in str(excinfo.value)
+
+    # Test linearCompositePotential requires 1D potentials
+    pot1d_1 = LogarithmicHaloPotential(normalize=0.5).toVertical(1.1)
+    pot1d_2 = LogarithmicHaloPotential(normalize=0.5, q=0.9).toVertical(1.1)
+
+    # 1D potentials should work
+    comp1d = linearCompositePotential(pot1d_1, pot1d_2)
+    assert comp1d.dim == 1, "linearCompositePotential should have dim=1"
+
+    # 3D potential should raise ValueError
+    with pytest.raises(ValueError) as excinfo:
+        linearCompositePotential(pot1d_1, pot3d_1)
+    assert "must be 1D" in str(excinfo.value)
+    assert "dimensionality 3" in str(excinfo.value)
+
+    # 2D potential should raise ValueError
+    with pytest.raises(ValueError) as excinfo:
+        linearCompositePotential(pot1d_1, pot2d_1)
+    assert "must be 1D" in str(excinfo.value)
+    assert "dimensionality 2" in str(excinfo.value)
+
+    return None
+
+
+def test_CompositePotential_automatic_conversion():
+    # Test automatic conversion when adding 3D and 2D potentials
+    from galpy.potential import (
+        CompositePotential,
+        LogarithmicHaloPotential,
+        MiyamotoNagaiPotential,
+        planarCompositePotential,
+    )
+
+    # Test adding 3D to planarCompositePotential converts 3D to planar
+    pot2d_1 = LogarithmicHaloPotential(normalize=0.5).toPlanar()
+    pot2d_2 = MiyamotoNagaiPotential(normalize=0.3, a=0.4, b=0.1).toPlanar()
+    comp2d = planarCompositePotential(pot2d_1, pot2d_2)
+
+    pot3d = LogarithmicHaloPotential(normalize=0.2, q=0.8)
+    result = comp2d + pot3d
+
+    # Should return planarCompositePotential with 3 potentials
+    assert isinstance(result, planarCompositePotential)
+    assert len(result._potlist) == 3
+    # All should be 2D
+    for pot in result._potlist:
+        assert pot.dim == 2, f"All potentials should be 2D, got {pot.dim}"
+
+    # Test adding 2D to CompositePotential converts 3D to planar
+    pot3d_1 = LogarithmicHaloPotential(normalize=0.5)
+    pot3d_2 = MiyamotoNagaiPotential(normalize=0.3, a=0.4, b=0.1)
+    comp3d = CompositePotential(pot3d_1, pot3d_2)
+
+    pot2d = LogarithmicHaloPotential(normalize=0.2, q=0.8).toPlanar()
+    result = comp3d + pot2d
+
+    # Should return planarCompositePotential with 3 potentials
+    assert isinstance(result, planarCompositePotential)
+    assert len(result._potlist) == 3
+    # All should be 2D
+    for pot in result._potlist:
+        assert pot.dim == 2, f"All potentials should be 2D, got {pot.dim}"
 
     return None
 

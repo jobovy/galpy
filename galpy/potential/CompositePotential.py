@@ -36,6 +36,15 @@ class CompositePotential(baseCompositePotential, DissipativeForce, Potential):
             pot_list = list(args)
         # Flatten nested lists
         self._potlist = flatten(pot_list)
+        
+        # Check that all potentials are 3D FIRST (before calling _isNonAxi)
+        for pot in self._potlist:
+            if hasattr(pot, "dim") and pot.dim != 3:
+                raise ValueError(
+                    f"All potentials in CompositePotential must be 3D; "
+                    f"got potential with dimensionality {pot.dim}"
+                )
+        
         # Check that unit systems of all forces are compatible
         if len(self._potlist) > 1:
             for pot in self._potlist[1:]:
@@ -68,8 +77,8 @@ class CompositePotential(baseCompositePotential, DissipativeForce, Potential):
         # Set properties based on constituent potentials using existing functions
         self.isNonAxi = _isNonAxi(self._potlist)
         self.isDissipative = _isDissipative(self._potlist)
-        # Determine the dimensionality
-        self.dim = min([p.dim for p in self._potlist])
+        # Set dimensionality to 3 (already checked above)
+        self.dim = 3
         # Use _check_c to determine C support based on constituent potentials
         self.hasC = _check_c(self._potlist)
         self.hasC_dxdv = _check_c(self._potlist, dxdv=True)
@@ -87,16 +96,18 @@ class CompositePotential(baseCompositePotential, DissipativeForce, Potential):
 
         Returns
         -------
-        CompositePotential
-            New CompositePotential with combined potentials.
+        CompositePotential or planarCompositePotential
+            New CompositePotential with combined potentials, or
+            planarCompositePotential if adding to a planar potential.
 
         """
         from .Force import Force
+        from .planarForce import planarForce
 
         # Check type first before checking unit compatibility
-        if not isinstance(other, (Force, CompositePotential)):
+        if not isinstance(other, (Force, CompositePotential, planarForce)):
             raise TypeError(
-                "Can only add Potential or CompositePotential to CompositePotential"
+                "Can only add Potential, CompositePotential, or planarForce to CompositePotential"
             )
 
         # Check unit compatibility
@@ -104,6 +115,13 @@ class CompositePotential(baseCompositePotential, DissipativeForce, Potential):
             """Physical unit conversion parameters (ro,vo) are not """
             """compatible between potentials to be combined"""
         )
+
+        # If adding a planarForce, convert this CompositePotential to planar
+        if isinstance(other, planarForce) and hasattr(other, "dim") and other.dim == 2:
+            from .planarCompositePotential import planarCompositePotential
+            # Convert all potentials in this CompositePotential to planar
+            planar_pots = [pot.toPlanar() for pot in self._potlist]
+            return planarCompositePotential(planar_pots + [other])
 
         if isinstance(other, CompositePotential):
             return CompositePotential(self._potlist + other._potlist)

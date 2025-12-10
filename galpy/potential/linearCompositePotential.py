@@ -41,6 +41,15 @@ class linearCompositePotential(baseCompositePotential, linearPotential):
             pot_list = list(args)
         # Flatten nested lists
         self._potlist = flatten(pot_list)
+        
+        # Check that all potentials are 1D FIRST
+        for pot in self._potlist:
+            if hasattr(pot, "dim") and pot.dim != 1:
+                raise ValueError(
+                    f"All potentials in linearCompositePotential must be 1D; "
+                    f"got potential with dimensionality {pot.dim}"
+                )
+        
         # Check that unit systems of all potentials are compatible
         if len(self._potlist) > 1:
             for pot in self._potlist[1:]:
@@ -71,6 +80,8 @@ class linearCompositePotential(baseCompositePotential, linearPotential):
         self._roSet = roSet
         self._voSet = voSet
 
+        # Set dimensionality to 1 (already checked above)
+        self.dim = 1
         # Use _check_c to determine C support based on constituent potentials
         self.hasC = _check_c(self._potlist)
         self.hasC_dxdv = _check_c(self._potlist, dxdv=True)

@@ -46,6 +46,15 @@ class planarCompositePotential(
             pot_list = list(args)
         # Flatten nested lists
         self._potlist = flatten(pot_list)
+        
+        # Check that all potentials are 2D FIRST (before calling _isNonAxi)
+        for pot in self._potlist:
+            if hasattr(pot, "dim") and pot.dim != 2:
+                raise ValueError(
+                    f"All potentials in planarCompositePotential must be 2D; "
+                    f"got potential with dimensionality {pot.dim}"
+                )
+        
         # Check that unit systems of all forces are compatible
         if len(self._potlist) > 1:
             for pot in self._potlist[1:]:
@@ -80,6 +89,8 @@ class planarCompositePotential(
         # functions
         self.isNonAxi = _isNonAxi(self._potlist)
         self.isDissipative = _isDissipative(self._potlist)
+        # Set dimensionality to 2 (already checked above)
+        self.dim = 2
         # Use _check_c to determine C support based on constituent potentials
         self.hasC = _check_c(self._potlist)
         self.hasC_dxdv = _check_c(self._potlist, dxdv=True)
@@ -116,9 +127,13 @@ class planarCompositePotential(
             """compatible between potentials to be combined"""
         )
 
+        # If adding a 3D Force, convert it to planar
+        if isinstance(other, Force) and hasattr(other, "dim") and other.dim == 3:
+            return planarCompositePotential(self._potlist + [other.toPlanar()])
+
         if isinstance(other, planarCompositePotential):
             return planarCompositePotential(self._potlist + other._potlist)
-        else:  # isinstance(other, (planarForce, Force))
+        else:  # isinstance(other, planarForce)
             return planarCompositePotential(self._potlist + [other])
 
     def _evaluate(self, R, phi=0.0, t=0.0):
