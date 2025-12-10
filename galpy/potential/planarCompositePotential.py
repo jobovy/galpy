@@ -46,15 +46,14 @@ class planarCompositePotential(
             pot_list = list(args)
         # Flatten nested lists
         self._potlist = flatten(pot_list)
-        
-        # Check that all potentials are 2D FIRST (before calling _isNonAxi)
-        for pot in self._potlist:
-            if hasattr(pot, "dim") and pot.dim != 2:
-                raise ValueError(
-                    f"All potentials in planarCompositePotential must be 2D; "
-                    f"got potential with dimensionality {pot.dim}"
-                )
-        
+
+        # Check that all potentials are 2D
+        if any(pot.dim != 2 for pot in self._potlist):
+            raise ValueError(
+                f"All potentials in planarCompositePotential must be 2D; "
+                f"got potential with dimensionality {', '.join(str(d) for d in {pot.dim for pot in self._potlist if pot.dim != 2})}"
+            )
+
         # Check that unit systems of all forces are compatible
         if len(self._potlist) > 1:
             for pot in self._potlist[1:]:

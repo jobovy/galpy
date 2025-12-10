@@ -41,15 +41,14 @@ class linearCompositePotential(baseCompositePotential, linearPotential):
             pot_list = list(args)
         # Flatten nested lists
         self._potlist = flatten(pot_list)
-        
-        # Check that all potentials are 1D FIRST
-        for pot in self._potlist:
-            if hasattr(pot, "dim") and pot.dim != 1:
-                raise ValueError(
-                    f"All potentials in linearCompositePotential must be 1D; "
-                    f"got potential with dimensionality {pot.dim}"
-                )
-        
+
+        # Check that all potentials are 1D
+        if any(pot.dim != 1 for pot in self._potlist):
+            raise ValueError(
+                f"All potentials in linearCompositePotential must be 1D; "
+                f"got potential with dimensionality {', '.join(str(d) for d in {pot.dim for pot in self._potlist if pot.dim != 1})}"
+            )
+
         # Check that unit systems of all potentials are compatible
         if len(self._potlist) > 1:
             for pot in self._potlist[1:]:
