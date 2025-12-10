@@ -51,6 +51,7 @@ from . import (
     SphericalShellPotential,
     SpiralArmsPotential,
     SteadyLogSpiralPotential,
+    SymbolicSphericalPotential,
     TimeDependentAmplitudeWrapperPotential,
     TransientLogSpiralPotential,
     TriaxialGaussianPotential,
@@ -215,6 +216,7 @@ AnyAxisymmetricRazorThinDiskPotential = (
     AnyAxisymmetricRazorThinDiskPotential.AnyAxisymmetricRazorThinDiskPotential
 )
 AnySphericalPotential = AnySphericalPotential.AnySphericalPotential
+SymbolicSphericalPotential = SymbolicSphericalPotential.SymbolicSphericalPotential
 # Wrappers
 DehnenSmoothWrapperPotential = DehnenSmoothWrapperPotential.DehnenSmoothWrapperPotential
 SolidBodyRotationWrapperPotential = (

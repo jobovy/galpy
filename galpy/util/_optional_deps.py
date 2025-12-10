@@ -77,3 +77,10 @@ else:
     _PYNBODY_GE_20 = Version(
         parse_version(pynbody.__version__).base_version
     ) >= Version("2.0.0")
+
+# sympy
+_SYMPY_LOADED = True
+try:
+    import sympy
+except ImportError:
+    _SYMPY_LOADED = False
