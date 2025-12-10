@@ -150,25 +150,20 @@ class WrapperPotential(Potential):
             self, exclude_params=["self", "ro", "vo", "pot", "_init"]
         )
 
-        # Build components
-        components = []
-
         # Add internal parameters if any (excluding pot)
         if params:
-            components.append(f"internal parameters: {', '.join(params)}")
+            param_str = f"internal parameters: {', '.join(params)}"
 
         # Add physical output status
         physical_str = _build_physical_output_string(self)
         if physical_str:
-            components.append(physical_str)
+            physical_str = f"and {physical_str}"
 
         # Combine everything
-        own_repr = f"{class_name}"
-        if components:
-            own_repr += f" with {' and '.join(components)}"
+        own_repr = f"{class_name} with {param_str}" if params else f"{class_name}"
 
         # Add wrapped potential info
-        return f"{own_repr}, wrapper {base_repr}"
+        return f"{own_repr}, wrapper {base_repr}\n{physical_str}"
 
     def __getattr__(self, attribute):
         if (
@@ -297,25 +292,20 @@ class planarWrapperPotential(planarPotential):
             self, exclude_params=["self", "ro", "vo", "pot", "_init"]
         )
 
-        # Build components
-        components = []
-
         # Add internal parameters if any (excluding pot)
         if params:
-            components.append(f"internal parameters: {', '.join(params)}")
+            param_str = f"internal parameters: {', '.join(params)}"
 
         # Add physical output status
         physical_str = _build_physical_output_string(self)
         if physical_str:
-            components.append(physical_str)
+            physical_str = f"and {physical_str}"
 
         # Combine everything
-        own_repr = f"{class_name}"
-        if components:
-            own_repr += f" with {' and '.join(components)}"
+        own_repr = f"{class_name} with {param_str}" if params else f"{class_name}"
 
         # Add wrapped potential info
-        return f"{own_repr}, wrapper {base_repr}"
+        return f"{own_repr}, wrapper {base_repr}\n{physical_str}"
 
     def __getattr__(self, attribute):
         if (

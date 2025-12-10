@@ -157,7 +157,7 @@ def _strip_physical_output_info(repr_string):
 
     """
     return re.sub(
-        r" and physical outputs (fully on|partially on \([^)]+\)|off)(, using .+)?$",
+        r"\s+and physical outputs (fully on|partially on \([^)]+\)|off)(, using .+)?$",
         "",
         repr_string,
     )

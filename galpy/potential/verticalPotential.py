@@ -72,14 +72,14 @@ class verticalPotential(linearPotential):
         # Build physical output status string
         physical_str = _build_physical_output_string(self)
         if physical_str:
-            physical_str = f" and {physical_str}"
+            physical_str = f"and {physical_str}"
 
         # Combine everything
         class_name = type(self).__name__
         return (
             f"{class_name} at R={self._R}"
             + (f", phi={self._phi} " if self._Pot.isNonAxi else " ")
-            + f"{base_repr}{physical_str}"
+            + f"{base_repr}\n{physical_str}"
         )
 
     def _evaluate(self, z, t=0.0):
