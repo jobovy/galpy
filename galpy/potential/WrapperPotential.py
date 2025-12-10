@@ -163,10 +163,9 @@ class WrapperPotential(Potential):
             components.append(physical_str)
 
         # Combine everything
+        own_repr = f"{class_name}"
         if components:
-            own_repr = f"{class_name} with {' and '.join(components)}"
-        else:
-            own_repr = f"{class_name}"
+            own_repr += f" with {' and '.join(components)}"
 
         # Add wrapped potential info
         return f"{own_repr}, wrapper {base_repr}"
@@ -311,10 +310,9 @@ class planarWrapperPotential(planarPotential):
             components.append(physical_str)
 
         # Combine everything
+        own_repr = f"{class_name}"
         if components:
-            own_repr = f"{class_name} with {' and '.join(components)}"
-        else:
-            own_repr = f"{class_name}"
+            own_repr += f" with {' and '.join(components)}"
 
         # Add wrapped potential info
         return f"{own_repr}, wrapper {base_repr}"

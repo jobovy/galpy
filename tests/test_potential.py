@@ -1516,7 +1516,11 @@ def test_amp_mult_divide():
 # Test whether __repr__ works for Force, planarForce, and linearPotential classes
 def test_repr():
     # Test for 3D Potentials (inherit from Force)
-    from galpy.potential import LogarithmicHaloPotential, PlummerPotential
+    from galpy.potential import (
+        EllipticalDiskPotential,
+        LogarithmicHaloPotential,
+        PlummerPotential,
+    )
 
     pot = PlummerPotential()
     repr_str = repr(pot)
@@ -1564,12 +1568,27 @@ def test_repr():
     planar_pot = LogarithmicHaloPotential().toPlanar()
     repr_str5 = repr(planar_pot)
     # The repr should return the class name - planarPotentialFromRZPotential
-    assert "planarPotential" in repr_str5, (
-        f"Expected 'planarPotential' in repr, got '{repr_str5}'"
+    assert "planarPotentialFromRZPotential" in repr_str5, (
+        f"Expected 'planarPotentialFromRZPotential' in repr, got '{repr_str5}'"
     )
     # Default case should not show ro/vo
     assert "ro=" not in repr_str5, f"Did not expect 'ro=' in repr, got '{repr_str5}'"
 
+    # Also test for non-axi planarPotentials (inherit from planarForce)
+    planar_pot = LogarithmicHaloPotential(b=0.8).toPlanar()
+    repr_str5 = repr(planar_pot)
+    # The repr should return the class name - planarPotentialFromFullPotential
+    assert "planarPotentialFromFullPotential" in repr_str5, (
+        f"Expected 'planarPotentialFromFullPotential' in repr, got '{repr_str5}'"
+    )
+
+    # Also test for intrinsically planarPotentials (inherit from planarForce, not derived from 3D)
+    planar_pot = EllipticalDiskPotential()
+    repr_str5 = repr(planar_pot)
+    # The repr should return the class name - planarPotentialFromFullPotential
+    assert "EllipticalDiskPotential" in repr_str5, (
+        f"Expected 'EllipticalDiskPotential' in repr, got '{repr_str5}'"
+    )
     # Test for linearPotentials
     from galpy.potential import KGPotential
 

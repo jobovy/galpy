@@ -28,7 +28,17 @@ def _build_params_string(obj, exclude_params=None):
 
     # Get __init__ signature to find parameter names
     try:
-        sig = inspect.signature(obj.__class__.__init__)
+        # First get the right __class__.__init__ function: for wrappers, we want the
+        # one of the actual class, not the _class used in the parentWrapperPotential
+        if obj.__class__.__name__.startswith("_"):
+            class_name = obj.__class__.__name__[1:]
+            for cls in obj.__class__.__mro__:
+                if cls.__name__ == class_name:
+                    init_func = cls.__init__
+                    break
+        else:
+            init_func = obj.__class__.__init__
+        sig = inspect.signature(init_func)
         init_params = [p for p in sig.parameters.keys() if p not in exclude_params]
 
         # Look for corresponding attributes in __dict__
@@ -45,7 +55,7 @@ def _build_params_string(obj, exclude_params=None):
                     if value is not None:
                         params.append(f"{param}={value}")
                     break
-    except Exception:
+    except Exception:  # pragma: no cover
         # If anything goes wrong with introspection, just continue
         pass
 
@@ -69,29 +79,25 @@ def _build_physical_output_string(obj):
     """
     # Build physical output status string
     physical_parts = []
-    if hasattr(obj, "_roSet") and hasattr(obj, "_voSet"):
-        if obj._roSet and obj._voSet:
-            physical_parts.append("physical outputs fully on")
-        elif obj._roSet:
-            physical_parts.append("physical outputs partially on (ro only)")
-        elif obj._voSet:
-            physical_parts.append("physical outputs partially on (vo only)")
-        else:
-            physical_parts.append("physical outputs off")
+    if obj._roSet and obj._voSet:
+        physical_parts.append("physical outputs fully on")
+    elif obj._roSet:
+        physical_parts.append("physical outputs partially on (ro only)")
+    elif obj._voSet:
+        physical_parts.append("physical outputs partially on (vo only)")
+    else:
+        physical_parts.append("physical outputs off")
 
     # Add ro and vo values only when they are set
     ro_vo_parts = []
-    if hasattr(obj, "_roSet") and obj._roSet and hasattr(obj, "_ro"):
+    if obj._roSet and hasattr(obj, "_ro"):
         ro_vo_parts.append(f"ro={obj._ro} kpc")
-    if hasattr(obj, "_voSet") and obj._voSet and hasattr(obj, "_vo"):
+    if obj._voSet and hasattr(obj, "_vo"):
         ro_vo_parts.append(f"vo={obj._vo} km/s")
 
-    if physical_parts:
-        result = physical_parts[0] + (
-            (", using " + " and ".join(ro_vo_parts)) if len(ro_vo_parts) > 0 else ""
-        )
-        return result
-    return ""
+    return physical_parts[0] + (
+        (", using " + " and ".join(ro_vo_parts)) if len(ro_vo_parts) > 0 else ""
+    )
 
 
 def _build_repr(obj, class_name=None):
@@ -129,10 +135,7 @@ def _build_repr(obj, class_name=None):
         components.append(physical_str)
 
     # Combine everything
-    if components:
-        return f"{class_name} with {' and '.join(components)}"
-    else:
-        return f"{class_name}"
+    return f"{class_name} with {' and '.join(components)}"
 
 
 def _strip_physical_output_info(repr_string):
