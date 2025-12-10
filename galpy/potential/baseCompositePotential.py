@@ -1,5 +1,9 @@
 # Common methods for CompositePotential-type classes
 from ..util.conversion import physical_compatible
+from ._repr_utils import (
+    _build_physical_output_string,
+    _strip_physical_output_info,
+)
 from .DissipativeForce import _isDissipative
 from .Potential import _check_c, _isNonAxi
 
@@ -151,15 +155,20 @@ class baseCompositePotential:
         If only one potential, show its class name.
         If multiple, show a list of class names.
         """
+        out = f"{self.__class__.__name__} of "
         if len(self._potlist) == 1:
-            pot = self._potlist[0]
-            return (
-                f"<{self.__class__.__name__}: single potential "
-                f"({pot.__class__.__name__})>"
-            )
+            out += "a single potential:"
         else:
-            pot_reprs = [repr(pot) for pot in self._potlist]
-            return (
-                f"<{self.__class__.__name__}: {len(self._potlist)} potentials "
-                f"({', '.join(pot_reprs)})>"
-            )
+            out += f"{len(self._potlist)} potentials:"
+
+        # Get base potential representation
+        pot_reprs = [_strip_physical_output_info(repr(pot)) for pot in self._potlist]
+        base_repr = "".join([f"\n\t{t}" for s in pot_reprs for t in s.split("\n")])
+
+        # Build physical output status string
+        physical_str = _build_physical_output_string(self)
+        if physical_str:
+            physical_str = f"and {physical_str}"
+
+        # Combine everything
+        return f"{out}{base_repr}\n{physical_str}"
