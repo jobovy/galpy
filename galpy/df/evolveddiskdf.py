@@ -18,7 +18,7 @@ import numpy
 from scipy import integrate
 
 from ..orbit import Orbit
-from ..potential import calcRotcurve, planarCompositePotential
+from ..potential import calcRotcurve, planarCompositePotential, planarForce
 from ..potential.Potential import _check_c
 from ..util import galpyWarning, plot
 from ..util.conversion import parse_time, physical_conversion, potential_physical_input
@@ -60,7 +60,11 @@ class evolveddiskdf(df):
             vo = None
         df.__init__(self, ro=ro, vo=vo)
         self._initdf = initdf
-        self._pot = planarCompositePotential(pot.toPlanar())
+        self._pot = (
+            planarCompositePotential(pot.toPlanar())
+            if not isinstance(pot, (planarForce, planarCompositePotential))
+            else pot
+        )
         self._to = parse_time(to, ro=self._ro, vo=self._vo)
 
     @physical_conversion("phasespacedensity2d", pop=True)
@@ -2970,7 +2974,12 @@ class evolveddiskdf(df):
         phi = o.phi(use_physical=False)
         # Get local circular velocity, projected onto the los
         vcirc = calcRotcurve(
-            planarCompositePotential([p for p in self._pot if not p.isNonAxi]), R
+            planarCompositePotential(
+                [p for p in self._pot if not p.isNonAxi]
+                if hasattr(self._pot, "__iter__")
+                else [self._pot]
+            ),
+            R,
         )[0]
         vcirclos = vcirc * numpy.sin(phi + l)
         # Marginalize
@@ -3042,7 +3051,12 @@ class evolveddiskdf(df):
         # Get local circular velocity, projected onto the perpendicular
         # direction
         vcirc = calcRotcurve(
-            planarCompositePotential([p for p in self._pot if not p.isNonAxi]), R
+            planarCompositePotential(
+                [p for p in self._pot if not p.isNonAxi]
+                if hasattr(self._pot, "__iter__")
+                else [self._pot]
+            ),
+            R,
         )[0]
         vcircperp = vcirc * numpy.cos(phi + l)
         # Marginalize
