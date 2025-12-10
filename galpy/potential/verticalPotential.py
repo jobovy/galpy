@@ -1,6 +1,7 @@
 import numpy
 
 from ..util import conversion
+from ._repr_utils import _build_physical_output_string, _strip_physical_output_info
 from .DissipativeForce import _isDissipative
 from .linearPotential import linearPotential
 from .planarPotential import planarPotential
@@ -55,6 +56,31 @@ class verticalPotential(linearPotential):
         self._roSet = Pot._roSet
         self._voSet = Pot._voSet
         return None
+
+    def __repr__(self):
+        # Get base potential representation
+        if isinstance(self._Pot, list):  # pragma: no cover
+            base_repr = "of list of potentials"
+        else:
+            base_repr_full = repr(self._Pot)
+            # Remove physical output info from nested representation
+            base_repr_full = _strip_physical_output_info(base_repr_full)
+            base_repr = "of " + "".join(
+                [f"\n\t{s}" for s in base_repr_full.split("\n")]
+            )
+
+        # Build physical output status string
+        physical_str = _build_physical_output_string(self)
+        if physical_str:
+            physical_str = f"and {physical_str}"
+
+        # Combine everything
+        class_name = type(self).__name__
+        return (
+            f"{class_name} at R={self._R}"
+            + (f", phi={self._phi} " if self._Pot.isNonAxi else " ")
+            + f"{base_repr}\n{physical_str}"
+        )
 
     def _evaluate(self, z, t=0.0):
         """

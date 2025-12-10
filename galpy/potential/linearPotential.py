@@ -11,6 +11,7 @@ from ..util.conversion import (
     physical_conversion,
     potential_physical_input,
 )
+from ._repr_utils import _build_repr
 from .Potential import PotentialError, flatten, potential_positional_arg
 
 
@@ -41,6 +42,22 @@ class linearPotential:
             self._vo = vo
             self._voSet = True
         return None
+
+    def __repr__(self):
+        """
+        Return a string representation of the linearPotential instance.
+
+        Returns
+        -------
+        str
+            String representation showing the class name, internal parameters, and physical output status.
+
+        Notes
+        -----
+        - 2025-12-09 - Written - Bovy (UofT)
+
+        """
+        return _build_repr(self)
 
     def __mul__(self, b):
         """

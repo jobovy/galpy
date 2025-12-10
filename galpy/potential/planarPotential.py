@@ -10,6 +10,7 @@ from ..util.conversion import (
     physical_conversion,
     potential_physical_input,
 )
+from ._repr_utils import _build_physical_output_string, _strip_physical_output_info
 from .DissipativeForce import DissipativeForce, _isDissipative
 from .planarDissipativeForce import planarDissipativeForceFromFullDissipativeForce
 from .planarForce import planarForce
@@ -551,6 +552,27 @@ class planarPotentialFromRZPotential(planarAxiPotential):
         self.hasC_dens = RZPot.hasC_dens
         return None
 
+    def __repr__(self):
+        # Get base potential representation
+        if isinstance(self._Pot, list):  # pragma: no cover
+            base_repr = "of list of potentials"
+        else:
+            base_repr_full = repr(self._Pot)
+            # Remove physical output info from nested representation
+            base_repr_full = _strip_physical_output_info(base_repr_full)
+            base_repr = "of " + "".join(
+                [f"\n\t{s}" for s in base_repr_full.split("\n")]
+            )
+
+        # Build physical output status string
+        physical_str = _build_physical_output_string(self)
+        if physical_str:
+            physical_str = f"and {physical_str}"
+
+        # Combine everything
+        class_name = type(self).__name__
+        return f"{class_name} {base_repr}\n{physical_str}"
+
     def _evaluate(self, R, phi=0.0, t=0.0):
         """
         Evaluate the potential.
@@ -701,6 +723,27 @@ class planarPotentialFromFullPotential(planarPotential):
         self.hasC_dxdv = Pot.hasC_dxdv
         self.hasC_dens = Pot.hasC_dens
         return None
+
+    def __repr__(self):
+        # Get base potential representation
+        if isinstance(self._Pot, list):  # pragma: no cover
+            base_repr = "of list of potentials"
+        else:
+            base_repr_full = repr(self._Pot)
+            # Remove physical output info from nested representation
+            base_repr_full = _strip_physical_output_info(base_repr_full)
+            base_repr = "of " + "".join(
+                [f"\n\t{s}" for s in base_repr_full.split("\n")]
+            )
+
+        # Build physical output status string
+        physical_str = _build_physical_output_string(self)
+        if physical_str:
+            physical_str = f"and {physical_str}"
+
+        # Combine everything
+        class_name = type(self).__name__
+        return f"{class_name} {base_repr}\n{physical_str}"
 
     def _evaluate(self, R, phi=0.0, t=0.0):
         """

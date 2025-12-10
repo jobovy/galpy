@@ -2,6 +2,11 @@
 #   WrapperPotential.py: Super-class for wrapper potentials
 ###############################################################################
 from ..util.conversion import get_physical, physical_compatible
+from ._repr_utils import (
+    _build_params_string,
+    _build_physical_output_string,
+    _strip_physical_output_info,
+)
 from .planarPotential import (
     _evaluateplanarphitorques,
     _evaluateplanarPotentials,
@@ -128,12 +133,37 @@ class WrapperPotential(Potential):
             self.turn_physical_on(vo=phys_wrapped["vo"], ro=False)
 
     def __repr__(self):
-        wrapped_repr = repr(self._pot)
-        return (
-            Potential.__repr__(self)
-            + ", wrapper of"
-            + "".join([f"\n\t{s}" for s in wrapped_repr.split("\n")])
+        # Get base potential representation
+        if isinstance(self._pot, list):  # pragma: no cover
+            base_repr = "of list of potentials"
+        else:
+            base_repr_full = repr(self._pot)
+            # Remove physical output info from nested representation
+            base_repr_full = _strip_physical_output_info(base_repr_full)
+            base_repr = "of " + "".join(
+                [f"\n\t{s}" for s in base_repr_full.split("\n")]
+            )
+
+        # Build own parameter string (excluding pot, ro, vo, _init)
+        class_name = type(self).__name__[1:]
+        params = _build_params_string(
+            self, exclude_params=["self", "ro", "vo", "pot", "_init"]
         )
+
+        # Add internal parameters if any (excluding pot)
+        if params:
+            param_str = f"internal parameters: {', '.join(params)}"
+
+        # Add physical output status
+        physical_str = _build_physical_output_string(self)
+        if physical_str:
+            physical_str = f"and {physical_str}"
+
+        # Combine everything
+        own_repr = f"{class_name} with {param_str}" if params else f"{class_name}"
+
+        # Add wrapped potential info
+        return f"{own_repr}, wrapper {base_repr}\n{physical_str}"
 
     def __getattr__(self, attribute):
         if (
@@ -245,12 +275,37 @@ class planarWrapperPotential(planarPotential):
             self.turn_physical_on(vo=phys_wrapped["vo"], ro=False)
 
     def __repr__(self):
-        wrapped_repr = repr(self._pot)
-        return (
-            Potential.__repr__(self)
-            + ", wrapper of"
-            + "".join([f"\n\t{s}" for s in wrapped_repr.split("\n")])
+        # Get base potential representation
+        if isinstance(self._pot, list):  # pragma: no cover
+            base_repr = "of list of potentials"
+        else:
+            base_repr_full = repr(self._pot)
+            # Remove physical output info from nested representation
+            base_repr_full = _strip_physical_output_info(base_repr_full)
+            base_repr = "of " + "".join(
+                [f"\n\t{s}" for s in base_repr_full.split("\n")]
+            )
+
+        # Build own parameter string (excluding pot, ro, vo, _init)
+        class_name = type(self).__name__[1:]
+        params = _build_params_string(
+            self, exclude_params=["self", "ro", "vo", "pot", "_init"]
         )
+
+        # Add internal parameters if any (excluding pot)
+        if params:
+            param_str = f"internal parameters: {', '.join(params)}"
+
+        # Add physical output status
+        physical_str = _build_physical_output_string(self)
+        if physical_str:
+            physical_str = f"and {physical_str}"
+
+        # Combine everything
+        own_repr = f"{class_name} with {param_str}" if params else f"{class_name}"
+
+        # Add wrapped potential info
+        return f"{own_repr}, wrapper {base_repr}\n{physical_str}"
 
     def __getattr__(self, attribute):
         if (
