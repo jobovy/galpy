@@ -1622,6 +1622,108 @@ def test_repr():
     return None
 
 
+# Comprehensive tests for repr with all combinations of ro/vo
+def test_repr_physical_combinations():
+    """Test repr with all combinations of ro/vo being set or not"""
+    from galpy.potential import PlummerPotential
+
+    # Test all combinations of ro/vo
+    # Case 1: Neither set
+    pot = PlummerPotential(amp=1.0, b=0.5)
+    repr_str = repr(pot)
+    assert "physical outputs off" in repr_str
+    assert "ro=" not in repr_str
+    assert "vo=" not in repr_str
+
+    # Case 2: Only ro set
+    pot_ro = PlummerPotential(amp=1.0, b=0.5, ro=8.0)
+    repr_ro = repr(pot_ro)
+    assert "partially on (ro only)" in repr_ro
+    assert "ro=8.0 kpc" in repr_ro
+    assert "vo=" not in repr_ro
+
+    # Case 3: Only vo set
+    pot_vo = PlummerPotential(amp=1.0, b=0.5, vo=220.0)
+    repr_vo = repr(pot_vo)
+    assert "partially on (vo only)" in repr_vo
+    assert "vo=220.0 km/s" in repr_vo
+    assert "ro=" not in repr_vo
+
+    # Case 4: Both set
+    pot_both = PlummerPotential(amp=1.0, b=0.5, ro=8.0, vo=220.0)
+    repr_both = repr(pot_both)
+    assert "fully on" in repr_both
+    assert "ro=8.0 kpc" in repr_both
+    assert "vo=220.0 km/s" in repr_both
+
+    return None
+
+
+# Test repr for conversion classes (planar/vertical)
+def test_repr_conversion_classes():
+    """Test repr for planar and vertical conversion classes"""
+    from galpy.potential import LogarithmicHaloPotential, NFWPotential
+
+    # Test planarPotentialFromRZPotential with different physical settings
+    # Case 1: No physical outputs
+    pot1 = NFWPotential(amp=1.0, a=5.0)
+    planar1 = pot1.toPlanar()
+    repr1 = repr(planar1)
+    assert "planarPotentialFromRZPotential" in repr1
+    assert "NFWPotential" in repr1
+    assert "physical outputs off" in repr1
+
+    # Case 2: Full physical outputs
+    pot2 = NFWPotential(amp=1.0, a=5.0, ro=8.0, vo=220.0)
+    planar2 = pot2.toPlanar()
+    repr2 = repr(planar2)
+    assert "planarPotentialFromRZPotential" in repr2
+    assert "fully on" in repr2
+    assert "ro=8.0 kpc" in repr2
+    assert "vo=220.0 km/s" in repr2
+    # Check that physical info doesn't appear twice
+    assert repr2.count("physical outputs") == 1
+
+    # Test verticalPotential
+    pot3 = LogarithmicHaloPotential(amp=1.0, q=0.9, ro=8.0, vo=220.0)
+    vert = pot3.toVertical(1.5)
+    repr_vert = repr(vert)
+    assert "verticalPotential" in repr_vert
+    assert "at R=1.5" in repr_vert
+    assert "LogarithmicHaloPotential" in repr_vert
+    assert "fully on" in repr_vert
+    # Check that physical info doesn't appear twice
+    assert repr_vert.count("physical outputs") == 1
+
+    return None
+
+
+# Test repr for WrapperPotential classes
+def test_repr_wrapper_classes():
+    """Test repr for WrapperPotential classes"""
+    from galpy.potential import DehnenSmoothWrapperPotential, PlummerPotential
+
+    # Test with single potential
+    base_pot = PlummerPotential(amp=2.0, b=1.5, ro=8.0, vo=220.0)
+    wrapped = DehnenSmoothWrapperPotential(pot=base_pot, tform=-4.0, tsteady=1.0)
+    repr_wrap = repr(wrapped)
+    assert "DehnenSmoothWrapperPotential" in repr_wrap
+    assert "wrapper" in repr_wrap
+    assert "PlummerPotential" in repr_wrap
+    # Check that physical info doesn't appear twice
+    assert repr_wrap.count("physical outputs") == 1
+    assert "fully on" in repr_wrap
+
+    # Test wrapper with no physical outputs on base
+    base_pot2 = PlummerPotential(amp=1.0, b=0.8)
+    wrapped2 = DehnenSmoothWrapperPotential(pot=base_pot2, tform=-4.0, tsteady=1.0)
+    repr_wrap2 = repr(wrapped2)
+    assert "DehnenSmoothWrapperPotential" in repr_wrap2
+    # Wrapper itself shouldn't have physical outputs if not explicitly set
+
+    return None
+
+
 # Test whether potentials that support array input do so correctly
 def test_potential_array_input():
     # Grab all of the potentials

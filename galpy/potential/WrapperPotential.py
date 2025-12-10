@@ -2,6 +2,11 @@
 #   WrapperPotential.py: Super-class for wrapper potentials
 ###############################################################################
 from ..util.conversion import get_physical, physical_compatible
+from ._repr_utils import (
+    _build_params_string,
+    _build_physical_output_string,
+    _strip_physical_output_info,
+)
 from .planarPotential import (
     _evaluateplanarphitorques,
     _evaluateplanarPotentials,
@@ -128,54 +133,22 @@ class WrapperPotential(Potential):
             self.turn_physical_on(vo=phys_wrapped["vo"], ro=False)
 
     def __repr__(self):
-        import inspect
-        import re
-
         # Get base potential representation
-        if isinstance(self._pot, list):
+        if isinstance(self._pot, list):  # pragma: no cover
             base_repr = "of list of potentials"
         else:
             base_repr_full = repr(self._pot)
             # Remove physical output info from nested representation
-            base_repr_full = re.sub(
-                r"\s+and physical outputs (fully on|partially on \([^)]+\)|off)(, using [^,]+)?",
-                "",
-                base_repr_full,
-            )
+            base_repr_full = _strip_physical_output_info(base_repr_full)
             base_repr = "of " + "".join(
                 [f"\n\t{s}" for s in base_repr_full.split("\n")]
             )
 
-        # Build own parameter string (excluding pot, ro, vo)
+        # Build own parameter string (excluding pot, ro, vo, _init)
         class_name = type(self).__name__[1:]
-        params = []
-
-        # Get __init__ signature to find parameter names
-        try:
-            sig = inspect.signature(self.__class__.__init__)
-            init_params = [
-                p
-                for p in sig.parameters.keys()
-                if p not in ["self", "ro", "vo", "pot", "_init"]
-            ]
-
-            # Look for corresponding attributes in __dict__
-            for param in init_params:
-                # Try common attribute naming conventions
-                attr_candidates = [
-                    f"_{param}",  # _b, _amp, etc.
-                    param,  # direct name
-                ]
-
-                for attr in attr_candidates:
-                    if attr in self.__dict__:
-                        value = self.__dict__[attr]
-                        if value is not None:
-                            params.append(f"{param}={value}")
-                        break
-        except Exception:
-            # If anything goes wrong with introspection, just continue
-            pass
+        params = _build_params_string(
+            self, exclude_params=["self", "ro", "vo", "pot", "_init"]
+        )
 
         # Build components
         components = []
@@ -184,34 +157,10 @@ class WrapperPotential(Potential):
         if params:
             components.append(f"internal parameters: {', '.join(params)}")
 
-        # Build physical output status string
-        physical_parts = []
-        if hasattr(self, "_roSet") and hasattr(self, "_voSet"):
-            if self._roSet and self._voSet:
-                physical_parts.append("physical outputs fully on")
-            elif self._roSet:
-                physical_parts.append("physical outputs partially on (ro only)")
-            elif self._voSet:
-                physical_parts.append("physical outputs partially on (vo only)")
-            else:
-                physical_parts.append("physical outputs off")
-
-        # Add ro and vo values only when they are set
-        ro_vo_parts = []
-        if hasattr(self, "_roSet") and self._roSet and hasattr(self, "_ro"):
-            ro_vo_parts.append(f"ro={self._ro} kpc")
-        if hasattr(self, "_voSet") and self._voSet and hasattr(self, "_vo"):
-            ro_vo_parts.append(f"vo={self._vo} km/s")
-
-        if physical_parts:
-            components.append(
-                physical_parts[0]
-                + (
-                    (", using " + " and ".join(ro_vo_parts))
-                    if len(ro_vo_parts) > 0
-                    else ""
-                )
-            )
+        # Add physical output status
+        physical_str = _build_physical_output_string(self)
+        if physical_str:
+            components.append(physical_str)
 
         # Combine everything
         if components:
@@ -332,54 +281,22 @@ class planarWrapperPotential(planarPotential):
             self.turn_physical_on(vo=phys_wrapped["vo"], ro=False)
 
     def __repr__(self):
-        import inspect
-        import re
-
         # Get base potential representation
-        if isinstance(self._pot, list):
+        if isinstance(self._pot, list):  # pragma: no cover
             base_repr = "of list of potentials"
         else:
             base_repr_full = repr(self._pot)
             # Remove physical output info from nested representation
-            base_repr_full = re.sub(
-                r"\s+and physical outputs (fully on|partially on \([^)]+\)|off)(, using [^,]+)?",
-                "",
-                base_repr_full,
-            )
+            base_repr_full = _strip_physical_output_info(base_repr_full)
             base_repr = "of " + "".join(
                 [f"\n\t{s}" for s in base_repr_full.split("\n")]
             )
 
-        # Build own parameter string (excluding pot, ro, vo)
+        # Build own parameter string (excluding pot, ro, vo, _init)
         class_name = type(self).__name__[1:]
-        params = []
-
-        # Get __init__ signature to find parameter names
-        try:
-            sig = inspect.signature(self.__class__.__init__)
-            init_params = [
-                p
-                for p in sig.parameters.keys()
-                if p not in ["self", "ro", "vo", "pot", "_init"]
-            ]
-
-            # Look for corresponding attributes in __dict__
-            for param in init_params:
-                # Try common attribute naming conventions
-                attr_candidates = [
-                    f"_{param}",  # _b, _amp, etc.
-                    param,  # direct name
-                ]
-
-                for attr in attr_candidates:
-                    if attr in self.__dict__:
-                        value = self.__dict__[attr]
-                        if value is not None:
-                            params.append(f"{param}={value}")
-                        break
-        except Exception:
-            # If anything goes wrong with introspection, just continue
-            pass
+        params = _build_params_string(
+            self, exclude_params=["self", "ro", "vo", "pot", "_init"]
+        )
 
         # Build components
         components = []
@@ -388,34 +305,10 @@ class planarWrapperPotential(planarPotential):
         if params:
             components.append(f"internal parameters: {', '.join(params)}")
 
-        # Build physical output status string
-        physical_parts = []
-        if hasattr(self, "_roSet") and hasattr(self, "_voSet"):
-            if self._roSet and self._voSet:
-                physical_parts.append("physical outputs fully on")
-            elif self._roSet:
-                physical_parts.append("physical outputs partially on (ro only)")
-            elif self._voSet:
-                physical_parts.append("physical outputs partially on (vo only)")
-            else:
-                physical_parts.append("physical outputs off")
-
-        # Add ro and vo values only when they are set
-        ro_vo_parts = []
-        if hasattr(self, "_roSet") and self._roSet and hasattr(self, "_ro"):
-            ro_vo_parts.append(f"ro={self._ro} kpc")
-        if hasattr(self, "_voSet") and self._voSet and hasattr(self, "_vo"):
-            ro_vo_parts.append(f"vo={self._vo} km/s")
-
-        if physical_parts:
-            components.append(
-                physical_parts[0]
-                + (
-                    (", using " + " and ".join(ro_vo_parts))
-                    if len(ro_vo_parts) > 0
-                    else ""
-                )
-            )
+        # Add physical output status
+        physical_str = _build_physical_output_string(self)
+        if physical_str:
+            components.append(physical_str)
 
         # Combine everything
         if components:

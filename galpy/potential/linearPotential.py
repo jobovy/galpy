@@ -1,5 +1,4 @@
 import copy
-import inspect
 import os
 import os.path
 import pickle
@@ -12,6 +11,7 @@ from ..util.conversion import (
     physical_conversion,
     potential_physical_input,
 )
+from ._repr_utils import _build_repr
 from .Potential import PotentialError, flatten, potential_positional_arg
 
 
@@ -57,81 +57,7 @@ class linearPotential:
         - 2025-12-09 - Written - Bovy (UofT)
 
         """
-        # Get class name
-        class_name = type(self).__name__
-
-        # Build parameter string
-        params = []
-
-        # Get __init__ signature to find parameter names
-        try:
-            sig = inspect.signature(self.__class__.__init__)
-            init_params = [
-                p for p in sig.parameters.keys() if p not in ["self", "ro", "vo"]
-            ]
-
-            # Look for corresponding attributes in __dict__
-            for param in init_params:
-                # Try common attribute naming conventions
-                attr_candidates = [
-                    f"_{param}",  # _b, _amp, etc.
-                    param,  # direct name
-                ]
-
-                for attr in attr_candidates:
-                    if attr in self.__dict__:
-                        value = self.__dict__[attr]
-                        if value is not None:
-                            params.append(f"{param}={value}")
-                        break
-        except Exception:
-            # If anything goes wrong with introspection, just continue
-            pass
-
-        # Build components
-        components = []
-
-        # Add internal parameters if any
-        if params:
-            components.append(f"internal parameters: {', '.join(params)}")
-
-        # Build physical output status string
-        physical_parts = []
-        if hasattr(self, "_roSet") and hasattr(self, "_voSet"):
-            if self._roSet and self._voSet:
-                physical_parts.append("physical outputs fully on")
-            elif self._roSet:
-                physical_parts.append("physical outputs partially on (ro only)")
-            elif self._voSet:
-                physical_parts.append("physical outputs partially on (vo only)")
-            else:
-                physical_parts.append("physical outputs off")
-
-        # Add ro and vo values only when they are set
-        ro_vo_parts = []
-        if hasattr(self, "_roSet") and self._roSet and hasattr(self, "_ro"):
-            ro_vo_parts.append(f"ro={self._ro} kpc")
-        if hasattr(self, "_voSet") and self._voSet and hasattr(self, "_vo"):
-            ro_vo_parts.append(f"vo={self._vo} km/s")
-
-        if ro_vo_parts:
-            physical_parts.extend(ro_vo_parts)
-
-        if physical_parts:
-            components.append(
-                physical_parts[0]
-                + (
-                    (", using " + " and ".join(physical_parts[1:]))
-                    if len(physical_parts) > 1
-                    else ""
-                )
-            )
-
-        # Combine everything
-        if components:
-            return f"{class_name} with {' and '.join(components)}"
-        else:
-            return f"{class_name}"
+        return _build_repr(self)
 
     def __mul__(self, b):
         """
