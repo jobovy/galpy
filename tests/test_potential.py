@@ -8237,8 +8237,8 @@ def test_CompositePotential_dimension_checking():
     from galpy.potential import (
         CompositePotential,
         LogarithmicHaloPotential,
-        planarCompositePotential,
         linearCompositePotential,
+        planarCompositePotential,
     )
 
     # Test CompositePotential requires 3D potentials
