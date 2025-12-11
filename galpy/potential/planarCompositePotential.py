@@ -75,9 +75,11 @@ class planarCompositePotential(
         else:
             voSet = vo is not None
 
-        # Initialize planarPotential with amp=1.0 (amplitude is in individual
-        # potentials)
-        planarPotential.__init__(self, amp=1.0, ro=ro, vo=vo)
+        # Initialize with amp=1.0 (amplitude is in individual potentials)
+        if _isDissipative(self._potlist):
+            planarDissipativeForce.__init__(self, amp=1.0, ro=ro, vo=vo)
+        else:
+            planarPotential.__init__(self, amp=1.0, ro=ro, vo=vo)
 
         # Override _roSet/_voSet based on first potential's settings
         # (unless explicitly provided)
@@ -87,7 +89,6 @@ class planarCompositePotential(
         # Set properties based on constituent potentials using existing
         # functions
         self.isNonAxi = _isNonAxi(self._potlist)
-        self.isDissipative = _isDissipative(self._potlist)
         # Set dimensionality to 2 (already checked above)
         self.dim = 2
         # Use _check_c to determine C support based on constituent potentials
