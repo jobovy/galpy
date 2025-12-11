@@ -4,6 +4,7 @@
 from ..util.conversion import physical_compatible
 from .baseCompositePotential import baseCompositePotential
 from .DissipativeForce import DissipativeForce, _isDissipative
+from .Force import Force
 from .Potential import Potential, _check_c, _isNonAxi, flatten
 
 
@@ -65,8 +66,11 @@ class CompositePotential(baseCompositePotential, DissipativeForce, Potential):
         else:
             voSet = vo is not None
 
-        # Initialize Potential with amp=1.0 (amplitude is in individual potentials)
-        Potential.__init__(self, amp=1.0, ro=ro, vo=vo)
+        # Initialize with amp=1.0 (amplitude is in individual potentials)
+        if _isDissipative(self._potlist):
+            DissipativeForce.__init__(self, amp=1.0, ro=ro, vo=vo)
+        else:
+            Potential.__init__(self, amp=1.0, ro=ro, vo=vo)
 
         # Override _roSet/_voSet based on first potential's settings
         # (unless explicitly provided)
@@ -75,7 +79,6 @@ class CompositePotential(baseCompositePotential, DissipativeForce, Potential):
 
         # Set properties based on constituent potentials using existing functions
         self.isNonAxi = _isNonAxi(self._potlist)
-        self.isDissipative = _isDissipative(self._potlist)
         # Set dimensionality to 3 (already checked above)
         self.dim = 3
         # Use _check_c to determine C support based on constituent potentials
