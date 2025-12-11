@@ -15,7 +15,7 @@ from ._repr_utils import _build_repr
 from .Potential import (
     PotentialError,
     flatten,
-    linear_potential_list_of_potentials_input,
+    potential_list_of_potentials_input,
     potential_positional_arg,
 )
 
@@ -309,7 +309,7 @@ class linearPotential:
 
 
 @potential_positional_arg
-@linear_potential_list_of_potentials_input
+@potential_list_of_potentials_input
 @potential_physical_input
 @physical_conversion("energy", pop=True)
 def evaluatelinearPotentials(Pot, x, t=0.0):
@@ -349,7 +349,7 @@ def _evaluatelinearPotentials(Pot, x, t=0.0):
 
 
 @potential_positional_arg
-@linear_potential_list_of_potentials_input
+@potential_list_of_potentials_input
 @potential_physical_input
 @physical_conversion("force", pop=True)
 def evaluatelinearForces(Pot, x, t=0.0):
@@ -387,7 +387,7 @@ def _evaluatelinearForces(Pot, x, t=0.0):
     return Pot._force_nodecorator(x, t=t)
 
 
-@linear_potential_list_of_potentials_input
+@potential_list_of_potentials_input
 def plotlinearPotentials(Pot, t=0.0, min=-15.0, max=15, ns=21, savefilename=None):
     """
     Plot a combination of potentials
