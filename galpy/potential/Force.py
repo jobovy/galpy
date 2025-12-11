@@ -168,10 +168,10 @@ class Force:
 
         """
         from ..potential import flatten as flatten_pot
-        from ..potential import planarPotential
+        from ..potential import planarForce
         from .CompositePotential import CompositePotential
 
-        if not isinstance(flatten_pot([b])[0], (Force, planarPotential)):
+        if not isinstance(flatten_pot([b])[0], (Force, planarForce)):
             raise TypeError(
                 """Can only combine galpy Force objects with """
                 """other Force objects or combinations thereof"""
@@ -180,6 +180,13 @@ class Force:
             """Physical unit conversion parameters (ro,vo) are not """
             """compatible between potentials to be combined"""
         )
+
+        # If adding a planarForce, convert this CompositePotential to planar
+        if isinstance(b, planarForce) and hasattr(b, "dim") and b.dim == 2:
+            from .planarCompositePotential import planarCompositePotential
+
+            return planarCompositePotential(self.toPlanar(), b)
+
         return CompositePotential(self, b)
 
     # Define separately to keep order
