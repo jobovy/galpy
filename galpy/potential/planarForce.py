@@ -142,6 +142,11 @@ class planarForce:
                 """/planarPotential objects with """
                 """other such objects or combinations thereof"""
             )
+
+        # If adding a 3D Force, convert it to planar
+        if isinstance(b, Force) and hasattr(b, "dim") and b.dim == 3:
+            return planarCompositePotential(self, b.toPlanar())
+
         # Physical compatibility is checked in planarCompositePotential.__init__
         return planarCompositePotential(self, b)
 

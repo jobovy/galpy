@@ -282,9 +282,15 @@ def test_energy_jacobi_conservation(pot, ttol, tjactol, firstTest):
                     "o.Jacobi calculated with pot=None is not equal to o.Jacobi with pot=the Potential the orbit was integrated with do not agree"
                 )
                 assert (
-                    o.Jacobi(pot=None)
-                    - o.Jacobi(pot=potential.CompositePotential([tp]))
-                ) ** 2.0 < 10.0**ttol, (
+                    (
+                        o.Jacobi(pot=None)
+                        - o.Jacobi(
+                            pot=potential.NullPotential(amp=0.0) + tp
+                        )  # get around not knowing whether we need a CompositePotential or a planarCompositePotential
+                    )
+                    ** 2.0
+                    < 10.0** ttol
+                ), (
                     "o.Jacobi calculated with pot=None is not equal to o.Jacobi with pot=the Potential the orbit was integrated with do not agree"
                 )
                 assert (o.Jacobi(OmegaP=1.0) - o.Jacobi()) ** 2.0 < 10.0**ttol, (
