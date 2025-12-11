@@ -2896,7 +2896,7 @@ def test_slice_integratedorbit_wrapperpot_367():
         tform=-4.0 * 2.0 * numpy.pi / dp.OmegaP(),
         tsteady=2.0 * 2.0 * numpy.pi / dp.OmegaP(),
     )
-    pot = [lhp, dswp]
+    pot = lhp + dswp
     # initialise 2 random orbits
     r = numpy.random.randn(2) * 0.01 + 1.0
     z = numpy.random.randn(2) * 0.01 + 0.2
@@ -3346,7 +3346,7 @@ def test_orbits_dim_2dPot_3dOrb():
         alpha=1.8, rc=1.9 / 8.0, normalize=0.05
     )
     ell_p = potential.EllipticalDiskPotential()
-    pota = [b_p, ell_p]
+    pota = b_p + ell_p
     o = Orbit(
         [
             Orbit(
@@ -3401,7 +3401,7 @@ def test_orbit_dim_1dPot_2dOrb():
     b_p = potential.PowerSphericalPotentialwCutoff(
         alpha=1.8, rc=1.9 / 8.0, normalize=0.05
     )
-    pota = [b_p.toVertical(1.1)]
+    pota = potential.linearCompositePotential([b_p.toVertical(1.1)])
     o = Orbit([Orbit(vxvv=[1.1, 0.1, 1.1, 0.1]), Orbit(vxvv=[1.1, 0.1, 1.1, 0.1])])
     ts = numpy.linspace(0.0, 10.0, 1001)
     with pytest.raises(AssertionError) as excinfo:

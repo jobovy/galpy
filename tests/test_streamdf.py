@@ -2334,14 +2334,20 @@ def test_fardalpot_trackaa():
     from galpy.actionAngle import actionAngleIsochroneApprox
     from galpy.df import streamdf
     from galpy.orbit import Orbit
-    from galpy.potential import FlattenedPowerPotential, IsochronePotential
+    from galpy.potential import (
+        CompositePotential,
+        FlattenedPowerPotential,
+        IsochronePotential,
+    )
     from galpy.util import conversion  # for unit conversions
 
     # test nested list of potentials
-    pot = [
-        IsochronePotential(b=0.8, normalize=0.8),
-        [FlattenedPowerPotential(alpha=-0.7, q=0.6, normalize=0.2)],
-    ]
+    pot = CompositePotential(
+        [
+            IsochronePotential(b=0.8, normalize=0.8),
+            [FlattenedPowerPotential(alpha=-0.7, q=0.6, normalize=0.2)],
+        ]
+    )
     aAI = actionAngleIsochroneApprox(pot=pot, b=0.9)
     obs = Orbit([1.10, 0.32, -1.15, 1.10, 0.31, 3.0])
     sigv = 1.3  # km/s

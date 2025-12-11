@@ -40,7 +40,7 @@ from ..potential import (
 )
 from ..potential.CompositePotential import CompositePotential
 from ..potential.DissipativeForce import _isDissipative
-from ..potential.Potential import _check_c
+from ..potential.Potential import _check_c, _check_potential_list_and_deprecate
 from ..util import conversion, coords, galpyWarning, galpyWarningVerbose, plot
 from ..util._optional_deps import (
     _APY3,
@@ -1534,7 +1534,7 @@ class Orbit:
         - 2024-11-10 - Added support for continuing integrations - Bovy (UofT)
         """
         self.check_integrator(method)
-        pot = flatten_potential(pot)
+        pot = _check_potential_list_and_deprecate(pot)
         _check_potential_dim(self, pot)
         _check_consistent_units(self, pot)
         # Parse t
@@ -1860,7 +1860,7 @@ class Orbit:
         if self.dim() == 1:
             raise NotImplementedError("SOS integration is not supported for 1D orbits")
         self.check_integrator(method, no_symplec=True)
-        pot = flatten_potential(pot)
+        pot = _check_potential_list_and_deprecate(pot)
         _check_potential_dim(self, pot)
         _check_consistent_units(self, pot)
         # Parse psi
@@ -2043,7 +2043,7 @@ class Orbit:
                 "integrate_dxdv is only implemented for 4D (planar) orbits"
             )
         self.check_integrator(method, no_symplec=True)
-        pot = flatten_potential(pot)
+        pot = _check_potential_list_and_deprecate(pot)
         _check_potential_dim(self, pot)
         _check_consistent_units(self, pot)
         # Parse t
@@ -2274,7 +2274,7 @@ class Orbit:
 
         """
         if not kwargs.get("pot", None) is None:
-            kwargs["pot"] = flatten_potential(kwargs.get("pot"))
+            kwargs["pot"] = _check_potential_list_and_deprecate(kwargs.get("pot"))
         _check_consistent_units(self, kwargs.get("pot", None))
         if not "pot" in kwargs or kwargs["pot"] is None:
             try:
@@ -2672,7 +2672,7 @@ class Orbit:
 
         """
         if not kwargs.get("pot", None) is None:
-            kwargs["pot"] = flatten_potential(kwargs.get("pot"))
+            kwargs["pot"] = _check_potential_list_and_deprecate(kwargs.get("pot"))
         _check_consistent_units(self, kwargs.get("pot", None))
         if not "OmegaP" in kwargs or kwargs["OmegaP"] is None:
             OmegaP = 1.0
@@ -2749,6 +2749,7 @@ class Orbit:
         from .. import actionAngle
 
         if not pot is None:
+            pot = _check_potential_list_and_deprecate(pot)
             pot = flatten_potential(pot)
         if self.dim() == 2 and (type == "staeckel" or type == "adiabatic"):
             # No reason to do Staeckel or adiabatic...

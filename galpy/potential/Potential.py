@@ -16,9 +16,11 @@
 import os
 import os.path
 import pickle
+import warnings
 from functools import wraps
 
 import numpy
+from packaging.version import Version
 from scipy import integrate, optimize
 
 from ..util import conversion, coords, galpyWarning, plot
@@ -84,190 +86,59 @@ def potential_positional_arg(func):
     return wrapper
 
 
-def _list_of_potentials_input_factory(composite_class_name, type_name):
-    """
-    Factory function that creates a decorator to convert lists of potentials
-    to a CompositePotential-type class.
+def _check_potential_list_and_deprecate(Pot):
+    if isinstance(Pot, list):
+        # Check if we're beyond version 1.13.x
+        from galpy import __version__ as galpy_version
 
-    Parameters
-    ----------
-    composite_class_name : str
-        Name of the composite class to use ('CompositePotential',
-        'planarCompositePotential', or 'linearCompositePotential').
-    type_name : str
-        Type name to use in error/warning messages ('Potential',
-        'planarPotential', or 'linearPotential').
+        current_version = Version(galpy_version.split(".dev")[0])
+        if current_version > Version("1.13.99"):  # pragma: no cover
+            raise TypeError(
+                "Lists of potentials/forces are no longer supported. "
+                f"Combine potentials with the + operator instead."
+            )
 
-    Returns
-    -------
-    function
-        Decorator that converts lists to the specified composite class.
+        warnings.warn(
+            "Passing a list of potentials/forces is deprecated and will be "
+            "removed in versions after 1.13.x. Combine potentials with the + "
+            "operator (e.g., pot1 + pot2) instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
 
-    Notes
-    -----
-    - 2024-11-28 - Written
-    - 2024-12-01 - Extended to support linearCompositePotential
+        # Determine the dimensionality of the composite class to create,
+        # but only handle (a) all 3D, (b) all 1D, (c) mix of 3D and 2d
+        # All other cases are passed through to just error later
+        dims = [_dim(pot) for pot in Pot]
+        if all(d == 3 for d in dims):
+            from .CompositePotential import CompositePotential
 
-    """
+            Pot = CompositePotential(Pot)
+        elif all(d >= 2 for d in dims):
+            from .planarCompositePotential import planarCompositePotential
 
-    def decorator(func):
-        @wraps(func)
-        def wrapper(Pot, /, *args, **kwargs):
-            if isinstance(Pot, list):
-                import warnings
+            if any(d != 2 for d in dims):
+                # Mixed 2D and 3D potentials: convert 3D to 2D
+                Pot = [p.toPlanar() if _dim(p) == 3 else p for p in Pot]
 
-                from packaging.version import Version
+            Pot = planarCompositePotential(Pot)
+        elif all(d == 1 for d in dims):
+            from .linearCompositePotential import linearCompositePotential
 
-                # Check if we're beyond version 1.13.x
-                from galpy import __version__ as galpy_version
-
-                current_version = Version(galpy_version.split(".dev")[0])
-                if current_version > Version("1.13.99"):  # pragma: no cover
-                    raise TypeError(
-                        f"Lists of {type_name}s are no longer supported. "
-                        f"Use {composite_class_name} instead."
-                    )
-
-                # Import the composite class dynamically to avoid circular imports
-                if composite_class_name == "CompositePotential":
-                    from .CompositePotential import CompositePotential
-
-                    warnings.warn(
-                        f"Passing a list of {type_name}s is deprecated and will be "
-                        f"removed in versions after 1.13.x. Use {composite_class_name} "
-                        "instead by combining potentials with the + operator "
-                        "(e.g., pot1 + pot2).",
-                        DeprecationWarning,
-                        stacklevel=2,
-                    )
-                    Pot = CompositePotential(Pot)
-                elif composite_class_name == "planarCompositePotential":
-                    from .planarForce import planarForce
-                    from .planarPotential import planarPotential
-
-                    # Only convert to planarCompositePotential if all items are
-                    # planar types; otherwise, let the function handle the error
-                    all_planar = all(
-                        isinstance(p, (planarPotential, planarForce))
-                        for p in flatten(Pot)
-                    )
-                    if all_planar:
-                        from .planarCompositePotential import planarCompositePotential
-
-                        warnings.warn(
-                            f"Passing a list of {type_name}s is deprecated and will be "
-                            f"removed in versions after 1.13.x. Use {composite_class_name} "
-                            "instead by combining potentials with the + operator "
-                            "(e.g., pot1 + pot2).",
-                            DeprecationWarning,
-                            stacklevel=2,
-                        )
-                        Pot = planarCompositePotential(Pot)
-                    # If not all planar, pass through to function for error handling
-                else:  # linearCompositePotential
-                    from .linearPotential import linearPotential
-
-                    # Only convert to linearCompositePotential if all items are
-                    # linear types; otherwise, let the function handle the error
-                    all_linear = all(
-                        isinstance(p, linearPotential) for p in flatten(Pot)
-                    )
-                    if all_linear:
-                        from .linearCompositePotential import linearCompositePotential
-
-                        warnings.warn(
-                            f"Passing a list of {type_name}s is deprecated and will be "
-                            f"removed in versions after 1.13.x. Use {composite_class_name} "
-                            "instead by combining potentials with the + operator "
-                            "(e.g., pot1 + pot2).",
-                            DeprecationWarning,
-                            stacklevel=2,
-                        )
-                        Pot = linearCompositePotential(Pot)
-                    # If not all linear, pass through to function for error handling
-            return func(Pot, *args, **kwargs)
-
-        return wrapper
-
-    return decorator
+            Pot = linearCompositePotential(Pot)
+    return Pot
 
 
-# Create the decorator for 3D potentials
-potential_list_of_potentials_input = _list_of_potentials_input_factory(
-    "CompositePotential", "Potential"
-)
-potential_list_of_potentials_input.__doc__ = """
-    Decorator that converts a list of potentials to a CompositePotential before
-    passing it to the function. Also emits a DeprecationWarning for lists.
+def potential_list_of_potentials_input(func):
+    """Decorator that converts a list of potentials to a CompositePotential before
+    passing it to the function. Also emits a DeprecationWarning for lists."""
 
-    Parameters
-    ----------
-    func : function
-        Function to be decorated. Should have a potential as its first argument.
+    @wraps(func)
+    def wrapper(Pot, /, *args, **kwargs):
+        Pot = _check_potential_list_and_deprecate(Pot)
+        return func(Pot, *args, **kwargs)
 
-    Returns
-    -------
-    function
-        Decorated function.
-
-    Notes
-    -----
-    - 2024-11-24 - Written - Bovy (UofT)
-    - 2024-11-28 - Updated to use factory function
-
-    """
-
-# Create the decorator for planar potentials
-planar_potential_list_of_potentials_input = _list_of_potentials_input_factory(
-    "planarCompositePotential", "planarPotential"
-)
-planar_potential_list_of_potentials_input.__doc__ = """
-    Decorator that converts a list of planar potentials to a
-    planarCompositePotential before passing it to the function. Also emits a
-    DeprecationWarning for lists.
-
-    Parameters
-    ----------
-    func : function
-        Function to be decorated. Should have a planar potential as its first
-        argument.
-
-    Returns
-    -------
-    function
-        Decorated function.
-
-    Notes
-    -----
-    - 2024-11-28 - Written
-
-    """
-
-# Create the decorator for linear potentials
-linear_potential_list_of_potentials_input = _list_of_potentials_input_factory(
-    "linearCompositePotential", "linearPotential"
-)
-linear_potential_list_of_potentials_input.__doc__ = """
-    Decorator that converts a list of linear potentials to a
-    linearCompositePotential before passing it to the function. Also emits a
-    DeprecationWarning for lists.
-
-    Parameters
-    ----------
-    func : function
-        Function to be decorated. Should have a linear potential as its first
-        argument.
-
-    Returns
-    -------
-    function
-        Decorated function.
-
-    Notes
-    -----
-    - 2024-12-01 - Written
-
-    """
+    return wrapper
 
 
 class Potential(Force):
@@ -3814,16 +3685,10 @@ def plotRotcurve(Pot, *args, **kwargs):
 
     """
     # Using physical units or not?
-    if isinstance(Pot, list):
-        potro = Pot[0]._ro
-        roSet = Pot[0]._roSet
-        potvo = Pot[0]._vo
-        voSet = Pot[0]._voSet
-    else:
-        potro = Pot._ro
-        roSet = Pot._roSet
-        potvo = Pot._vo
-        voSet = Pot._voSet
+    potro = Pot._ro
+    roSet = Pot._roSet
+    potvo = Pot._vo
+    voSet = Pot._voSet
     # Following just to deal with Quantity ro/vo and check whether they are set
     _ro = conversion.parse_length(kwargs.get("ro", None), ro=potro)
     _vo = conversion.parse_velocity(kwargs.get("vo", None), vo=potvo)
@@ -3917,16 +3782,10 @@ def plotEscapecurve(Pot, *args, **kwargs):
 
     """
     # Using physical units or not?
-    if isinstance(Pot, list):
-        potro = Pot[0]._ro
-        roSet = Pot[0]._roSet
-        potvo = Pot[0]._vo
-        voSet = Pot[0]._voSet
-    else:
-        potro = Pot._ro
-        roSet = Pot._roSet
-        potvo = Pot._vo
-        voSet = Pot._voSet
+    potro = Pot._ro
+    roSet = Pot._roSet
+    potvo = Pot._vo
+    voSet = Pot._voSet
     # Following just to deal with Quantity ro/vo and check whether they are set
     _ro = conversion.parse_length(kwargs.get("ro", None), ro=potro)
     _vo = conversion.parse_velocity(kwargs.get("vo", None), vo=potvo)
