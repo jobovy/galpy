@@ -2301,7 +2301,7 @@ def test_orbit_inconsistentPotentialUnits_error():
     # list, ro wrong
     pot = IsochronePotential(normalize=1.0, ro=7.0, vo=220.0)
     with pytest.raises(AssertionError) as excinfo:
-        o.integrate(ts, [pot])
+        o.integrate(ts, pot + pot)
     # single, vo wrong
     pot = IsochronePotential(normalize=1.0, ro=9.0, vo=250.0)
     with pytest.raises(AssertionError) as excinfo:
@@ -2309,7 +2309,7 @@ def test_orbit_inconsistentPotentialUnits_error():
     # list, vo wrong
     pot = IsochronePotential(normalize=1.0, ro=9.0, vo=250.0)
     with pytest.raises(AssertionError) as excinfo:
-        o.integrate(ts, [pot])
+        o.integrate(ts, pot + pot)
     return None
 
 
@@ -4048,7 +4048,7 @@ def test_orbits_inconsistentPotentialUnits_error():
     # list, ro wrong
     pot = IsochronePotential(normalize=1.0, ro=7.0, vo=220.0)
     with pytest.raises(AssertionError) as excinfo:
-        o.integrate(ts, [pot])
+        o.integrate(ts, pot + pot)
     # single, vo wrong
     pot = IsochronePotential(normalize=1.0, ro=9.0, vo=250.0)
     with pytest.raises(AssertionError) as excinfo:
@@ -4056,7 +4056,7 @@ def test_orbits_inconsistentPotentialUnits_error():
     # list, vo wrong
     pot = IsochronePotential(normalize=1.0, ro=9.0, vo=250.0)
     with pytest.raises(AssertionError) as excinfo:
-        o.integrate(ts, [pot])
+        o.integrate(ts, pot + pot)
     return None
 
 

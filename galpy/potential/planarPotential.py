@@ -20,9 +20,9 @@ from .Potential import (
     PotentialError,
     flatten,
     lindbladR,
-    planar_potential_list_of_potentials_input,
     plotEscapecurve,
     plotRotcurve,
+    potential_list_of_potentials_input,
     potential_positional_arg,
 )
 
@@ -1007,7 +1007,7 @@ def toPlanarPotential(Pot):
 @potential_positional_arg
 @potential_physical_input
 @physical_conversion("energy", pop=True)
-@planar_potential_list_of_potentials_input
+@potential_list_of_potentials_input
 def evaluateplanarPotentials(Pot, R, phi=None, t=0.0, dR=0, dphi=0):
     """
     Evaluate a planarPotential instance or a combined potential formed using addition (pot1+pot2+…).
@@ -1060,7 +1060,7 @@ def _evaluateplanarPotentials(Pot, R, phi=None, t=0.0, dR=0, dphi=0):
 @potential_positional_arg
 @potential_physical_input
 @physical_conversion("force", pop=True)
-@planar_potential_list_of_potentials_input
+@potential_list_of_potentials_input
 def evaluateplanarRforces(Pot, R, phi=None, t=0.0, v=None):
     """
     Evaluate the cylindrical radial force of a planarPotential instance or a combined potential formed using addition (pot1+pot2+…).
@@ -1123,7 +1123,7 @@ def _evaluateplanarRforces(Pot, R, phi=None, t=0.0, v=None):
 @potential_positional_arg
 @potential_physical_input
 @physical_conversion("energy", pop=True)
-@planar_potential_list_of_potentials_input
+@potential_list_of_potentials_input
 def evaluateplanarphitorques(Pot, R, phi=None, t=0.0, v=None):
     """
     Evaluate the phi torque of a planarPotential instance or a combined potential formed using addition (pot1+pot2+…).
@@ -1185,7 +1185,7 @@ def _evaluateplanarphitorques(Pot, R, phi=None, t=0.0, v=None):
 @potential_positional_arg
 @potential_physical_input
 @physical_conversion("forcederivative", pop=True)
-@planar_potential_list_of_potentials_input
+@potential_list_of_potentials_input
 def evaluateplanarR2derivs(Pot, R, phi=None, t=0.0):
     """
     Evaluate the second radial derivative of planarPotential instance(s).
@@ -1287,7 +1287,7 @@ def LinShuReductionFactor(
     )
 
 
-@planar_potential_list_of_potentials_input
+@potential_list_of_potentials_input
 def plotplanarPotentials(Pot, *args, **kwargs):
     """
     Plot a planar potential.

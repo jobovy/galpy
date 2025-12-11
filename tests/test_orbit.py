@@ -364,9 +364,6 @@ def test_energy_jacobi_conservation(pot, ttol, tjactol, firstTest):
                 assert (o.Jacobi(pot=None) - o.Jacobi(pot=tp)) ** 2.0 < 10.0**ttol, (
                     "o.Jacobi calculated with pot=None is not equal to o.Jacobi with pot=the Potential the orbit was integrated with do not agree"
                 )
-                assert (o.Jacobi(pot=None) - o.Jacobi(pot=[tp])) ** 2.0 < 10.0**ttol, (
-                    "o.Jacobi calculated with pot=None is not equal to o.Jacobi with pot=the Potential the orbit was integrated with do not agree"
-                )
                 assert (o.Jacobi(OmegaP=1.0) - o.Jacobi()) ** 2.0 < 10.0**ttol, (
                     "o.Jacobi calculated with OmegaP=1. for axisymmetric potential is not equal to o.Jacobi (OmegaP=1 is the default for potentials without a pattern speed"
                 )
@@ -434,9 +431,6 @@ def test_energy_jacobi_conservation(pot, ttol, tjactol, firstTest):
                 "o.Jacobi calculated with OmegaP=None is not equal to o.Jacobi"
             )
             assert (o.Jacobi(pot=None) - o.Jacobi(pot=tp)) ** 2.0 < 10.0**ttol, (
-                "o.Jacobi calculated with pot=None is not equal to o.Jacobi with pot=the Potential the orbit was integrated with do not agree"
-            )
-            assert (o.Jacobi(pot=None) - o.Jacobi(pot=[tp])) ** 2.0 < 10.0**ttol, (
                 "o.Jacobi calculated with pot=None is not equal to o.Jacobi with pot=the Potential the orbit was integrated with do not agree"
             )
             assert (o.Jacobi(OmegaP=1.0) - o.Jacobi()) ** 2.0 < 10.0**ttol, (
@@ -6445,7 +6439,7 @@ def test_orbit_dim_2dPot_3dOrb():
         alpha=1.8, rc=1.9 / 8.0, normalize=0.05
     )
     ell_p = potential.EllipticalDiskPotential()
-    pota = [b_p, ell_p]
+    pota = b_p + ell_p
     o = Orbit(vxvv=[20.0, 10.0, 2.0, 3.2, 3.4, -100.0], radec=True, ro=8.0, vo=220.0)
     ts = numpy.linspace(
         0.0, 3.5 / conversion.time_in_Gyr(vo=220.0, ro=8.0), 1000, endpoint=True
@@ -6482,7 +6476,7 @@ def test_orbit_dim_1dPot_2dOrb():
     b_p = potential.PowerSphericalPotentialwCutoff(
         alpha=1.8, rc=1.9 / 8.0, normalize=0.05
     )
-    pota = [b_p.toVertical(1.1)]
+    pota = potential.linearCompositePotential([b_p.toVertical(1.1)])
     o = Orbit(vxvv=[1.1, 0.1, 1.1, 0.1])
     ts = numpy.linspace(0.0, 10.0, 1001)
     with pytest.raises(AssertionError) as excinfo:
@@ -7601,17 +7595,14 @@ def test_doublewrapper_2d():
     )
 
     # potential= flat vc + doubly-wrapped bar
-    pot = [
-        LogarithmicHaloPotential(normalize=1.0),
-        SolidBodyRotationWrapperPotential(
-            pot=DehnenSmoothWrapperPotential(
-                pot=DehnenBarPotential(omegab=1.0, rb=5.0 / 8.0, Af=1.0 / 100.0),
-                tform=5.0,
-                tsteady=15.0,
-            ),
-            omega=1.3,
+    pot = LogarithmicHaloPotential(normalize=1.0) + SolidBodyRotationWrapperPotential(
+        pot=DehnenSmoothWrapperPotential(
+            pot=DehnenBarPotential(omegab=1.0, rb=5.0 / 8.0, Af=1.0 / 100.0),
+            tform=5.0,
+            tsteady=15.0,
         ),
-    ]
+        omega=1.3,
+    )
     # Integrate orbit in C and python
     o = Orbit([1.0, 0.1, 1.1, 0.1])
     oc = o()
@@ -8279,21 +8270,21 @@ def test_planar_plotting():
     o.plotE(pot=lp, d1="R")
     o.plotE(pot=lp, d1="vR")
     o.plotE(pot=lp, d1="phi")
-    o.plotE(pot=[lp, RZToplanarPotential(lp)], d1="vT")
+    o.plotE(pot=lp + RZToplanarPotential(lp), d1="vT")
     oa.plotE()
     oa.plotE(pot=lp, d1="R")
     oa.plotE(pot=lp, d1="vR")
-    oa.plotE(pot=[lp, RZToplanarPotential(lp)], d1="vT")
+    oa.plotE(pot=lp + RZToplanarPotential(lp), d1="vT")
     # Jacobi
     o.plotJacobi()
     o.plotJacobi(pot=lp, d1="R", OmegaP=1.0)
     o.plotJacobi(pot=lp, d1="vR")
     o.plotJacobi(pot=lp, d1="phi")
-    o.plotJacobi(pot=[lp, RZToplanarPotential(lp)], d1="vT")
+    o.plotJacobi(pot=lp + RZToplanarPotential(lp), d1="vT")
     oa.plotJacobi()
     oa.plotJacobi(pot=lp, d1="R", OmegaP=1.0)
     oa.plotJacobi(pot=lp, d1="vR")
-    oa.plotJacobi(pot=[lp, RZToplanarPotential(lp)], d1="vT")
+    oa.plotJacobi(pot=lp + RZToplanarPotential(lp), d1="vT")
     # Plot the orbit itself, defaults
     o.plot()
     o.plot(ro=8.0)
