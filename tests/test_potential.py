@@ -8312,6 +8312,7 @@ def test_CompositePotential_automatic_conversion():
         CompositePotential,
         LogarithmicHaloPotential,
         MiyamotoNagaiPotential,
+        MWPotential2014,
         planarCompositePotential,
     )
 
@@ -8341,6 +8342,15 @@ def test_CompositePotential_automatic_conversion():
     # Should return planarCompositePotential with 3 potentials
     assert isinstance(result, planarCompositePotential)
     assert len(result._potlist) == 3
+    # All should be 2D
+    for pot in result._potlist:
+        assert pot.dim == 2, f"All potentials should be 2D, got {pot.dim}"
+
+    pot2d_1 = LogarithmicHaloPotential(normalize=0.5).toPlanar()
+    result = pot2d_1 + MWPotential2014
+    # Should return planarCompositePotential with 4 potentials
+    assert isinstance(result, planarCompositePotential)
+    assert len(result._potlist) == 4
     # All should be 2D
     for pot in result._potlist:
         assert pot.dim == 2, f"All potentials should be 2D, got {pot.dim}"
