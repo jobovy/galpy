@@ -19,7 +19,7 @@ from scipy import integrate
 
 from ..orbit import Orbit
 from ..potential import calcRotcurve, planarCompositePotential, planarForce
-from ..potential.Potential import _check_c
+from ..potential.Potential import _check_c, _check_potential_list_and_deprecate, _dim
 from ..util import galpyWarning, plot
 from ..util.conversion import parse_time, physical_conversion, potential_physical_input
 from ..util.quadpack import dblquad
@@ -60,11 +60,10 @@ class evolveddiskdf(df):
             vo = None
         df.__init__(self, ro=ro, vo=vo)
         self._initdf = initdf
-        self._pot = (
-            planarCompositePotential(pot.toPlanar())
-            if not isinstance(pot, (planarForce, planarCompositePotential))
-            else pot
-        )
+        pot = _check_potential_list_and_deprecate(pot)
+        if _dim(pot) == 3:
+            pot = pot.toPlanar()
+        self._pot = pot
         self._to = parse_time(to, ro=self._ro, vo=self._vo)
 
     @physical_conversion("phasespacedensity2d", pop=True)
