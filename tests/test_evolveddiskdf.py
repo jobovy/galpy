@@ -1149,8 +1149,8 @@ def test_call_special():
     )
     # Call w/ just one t and fallback to odeint
     # turn off C
-    edf._pot[0].hasC = False
-    edf._pot[0].hasC_dxdv = False
+    edf._pot.hasC = False
+    edf._pot.hasC_dxdv = False
     codeint = edf(o, 0, integrate_method="dopr54_c", log=True)
     assert numpy.fabs(codeint - crk6c) < 10.0**-4.0, (
         "edf.__call__ w/ odeint and tlist does not give the same result as w/ rk6_c"
