@@ -38,9 +38,9 @@ class basestreamspraydf(df):
             Mass of the progenitor.
         progenitor : galpy.orbit.Orbit, optional
             Progenitor orbit as Orbit instance (will be re-integrated, so don't bother integrating the orbit before).
-        pot : galpy.potential.Potential or list of such instances, optional
+        pot : galpy.potential.Potential or a combined potential formed using addition (pot1+pot2+…), optional
             Potential for integrating orbits.
-        rtpot : galpy.potential.Potential or list of such instances, optional
+        rtpot : galpy.potential.Potential or a combined potential formed using addition (pot1+pot2+…), optional
             Potential for calculating tidal radius and circular velocity (should generally be the same as pot, but sometimes you need to drop parts of the potential that don't allow the tidal radius / circular velocity to be computed, such as velocity-dependent forces; when using center, rtpot should be the relevant potential in the frame of the center, thus, also being different from pot).
         tdisrupt : float or Quantity, optional
             Time since start of disruption. Default is 5 Gyr.
@@ -48,9 +48,9 @@ class basestreamspraydf(df):
             If True, model the leading part of the stream. If False, model the trailing part. Default is True.
         center : galpy.orbit.Orbit, optional
             Orbit instance that represents the center around which the progenitor is orbiting for the purpose of stream formation; allows for a stream to be generated from a progenitor orbiting a moving object, like a satellite galaxy. Integrated internally using centerpot.
-        centerpot : galpy.potential.Potential or list of such instances, optional
+        centerpot : galpy.potential.Potential or a combined potential formed using addition (pot1+pot2+…), optional
             Potential for calculating the orbit of the center; this might be different from the potential that the progenitor is integrated in if, for example, dynamical friction is important for the orbit of the center (if it's a satellite).
-        progpot : galpy.potential.Potential or list of such instances or None, optional
+        progpot : galpy.potential.Potential or a combined potential formed using addition (pot1+pot2+…) or None, optional
             Potential for the progenitor. Ignored if None.
         ro : float or Quantity, optional
             Distance scale for translation into internal units (default from configuration file).
@@ -401,9 +401,9 @@ class chen24spraydf(basestreamspraydf):
             Mass of the progenitor.
         progenitor : galpy.orbit.Orbit, optional
             Progenitor orbit as Orbit instance (will be re-integrated, so don't bother integrating the orbit before).
-        pot : galpy.potential.Potential or list of such instances, optional
+        pot : galpy.potential.Potential or a combined potential formed using addition (pot1+pot2+…), optional
             Potential for integrating orbits.
-        rtpot : galpy.potential.Potential or list of such instances, optional
+        rtpot : galpy.potential.Potential or a combined potential formed using addition (pot1+pot2+…), optional
             Potential for calculating tidal radius and circular velocity (should generally be the same as pot, but sometimes you need to drop parts of the potential that don't allow the tidal radius / circular velocity to be computed, such as velocity-dependent forces; when using center, rtpot should be the relevant potential in the frame of the center, thus, also being different from pot).
         tdisrupt : float or Quantity, optional
             Time since start of disruption. Default is 5 Gyr.
@@ -411,9 +411,9 @@ class chen24spraydf(basestreamspraydf):
             If True, model the leading part of the stream. If False, model the trailing part. Default is True.
         center : galpy.orbit.Orbit, optional
             Orbit instance that represents the center around which the progenitor is orbiting for the purpose of stream formation; allows for a stream to be generated from a progenitor orbiting a moving object, like a satellite galaxy. Integrated internally using centerpot.
-        centerpot : galpy.potential.Potential or list of such instances, optional
+        centerpot : galpy.potential.Potential or a combined potential formed using addition (pot1+pot2+…), optional
             Potential for calculating the orbit of the center; this might be different from the potential that the progenitor is integrated in if, for example, dynamical friction is important for the orbit of the center (if it's a satellite).
-        progpot : galpy.potential.Potential or list of such instances or None, optional
+        progpot : galpy.potential.Potential or a combined potential formed using addition (pot1+pot2+…) or None, optional
             Potential for the progenitor. Ignored if None.
         mean : None or array, shape (6,), optional
             Means of the multivariate Gaussian distribution (angles in radians). If None, use the default values.
@@ -539,9 +539,9 @@ class fardal15spraydf(basestreamspraydf):
             Mass of the progenitor.
         progenitor : galpy.orbit.Orbit, optional
             Progenitor orbit as Orbit instance (will be re-integrated, so don't bother integrating the orbit before).
-        pot : galpy.potential.Potential or list of such instances, optional
+        pot : galpy.potential.Potential or a combined potential formed using addition (pot1+pot2+…), optional
             Potential for integrating orbits.
-        rtpot : galpy.potential.Potential or list of such instances, optional
+        rtpot : galpy.potential.Potential or a combined potential formed using addition (pot1+pot2+…), optional
             Potential for calculating tidal radius and circular velocity (should generally be the same as pot, but sometimes you need to drop parts of the potential that don't allow the tidal radius / circular velocity to be computed, such as velocity-dependent forces; when using center, rtpot should be the relevant potential in the frame of the center, thus, also being different from pot).
         tdisrupt : float or Quantity, optional
             Time since start of disruption. Default is 5 Gyr.
@@ -549,9 +549,9 @@ class fardal15spraydf(basestreamspraydf):
             If True, model the leading part of the stream. If False, model the trailing part. Default is True.
         center : galpy.orbit.Orbit, optional
             Orbit instance that represents the center around which the progenitor is orbiting for the purpose of stream formation; allows for a stream to be generated from a progenitor orbiting a moving object, like a satellite galaxy. Integrated internally using centerpot.
-        centerpot : galpy.potential.Potential or list of such instances, optional
+        centerpot : galpy.potential.Potential or a combined potential formed using addition (pot1+pot2+…), optional
             Potential for calculating the orbit of the center; this might be different from the potential that the progenitor is integrated in if, for example, dynamical friction is important for the orbit of the center (if it's a satellite).
-        progpot : galpy.potential.Potential or list of such instances or None, optional
+        progpot : galpy.potential.Potential or a combined potential formed using addition (pot1+pot2+…) or None, optional
             Potential for the progenitor. Ignored if None.
         meankvec : list or array, optional
             Mean of the action-angle distribution. Default is [2.0, 0.0, 0.3, 0.0, 0.0, 0.0].

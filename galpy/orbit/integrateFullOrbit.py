@@ -11,6 +11,7 @@ from ..potential.Potential import (
     _evaluatephitorques,
     _evaluateRforces,
     _evaluatezforces,
+    potential_list_of_potentials_input,
 )
 from ..util import _load_extension_libs, galpyWarning, symplecticode
 from ..util._optional_deps import _TQDM_LOADED
@@ -32,6 +33,9 @@ _lib, _ext_loaded = _load_extension_libs.load_libgalpy()
 def _parse_pot(pot, potforactions=False, potfortorus=False):
     """Parse the potential so it can be fed to C"""
     # Figure out what's in pot
+    # Handle CompositePotential by extracting its internal list
+    if isinstance(pot, potential.CompositePotential):
+        pot = list(pot)
     if not isinstance(pot, list):
         pot = [pot]
     if (potforactions or potfortorus) and (
@@ -595,8 +599,8 @@ def integrateFullOrbit_c(
 
     Parameters
     ----------
-    pot : Potential or list of such instances
-        The potential (or list thereof) to evaluate the orbit in.
+    pot : Potential or a combined potential formed using addition (pot1+pot2+…)
+        The potential to evaluate the orbit in.
     yo : numpy.ndarray
         Initial condition [q,p], can be [N,6] or [6].
     t : numpy.ndarray
@@ -726,8 +730,8 @@ def integrateFullOrbit_dxdv_c(
 
     Parameters
     ----------
-    pot : Potential or list of such instances
-        The potential (or list thereof) to evaluate the orbit in.
+    pot : Potential or a combined potential formed using addition (pot1+pot2+…)
+        The potential to evaluate the orbit in.
     yo : numpy.ndarray
         Initial condition [q,p].
     dyo : numpy.ndarray
@@ -816,6 +820,7 @@ def integrateFullOrbit_dxdv_c(
     return (result, err.value)
 
 
+@potential_list_of_potentials_input
 def integrateFullOrbit(
     pot, yo, t, int_method, rtol=None, atol=None, numcores=1, progressbar=True, dt=None
 ):
@@ -824,8 +829,8 @@ def integrateFullOrbit(
 
     Parameters
     ----------
-    pot : Potential or list of such instances
-        The potential (or list thereof) to evaluate the orbit in.
+    pot : Potential, CompositePotential, or a combined potential formed using addition (pot1+pot2+…)
+        The potential to evaluate the orbit in. Lists are deprecated and will be converted to CompositePotential.
     yo : numpy.ndarray
         Initial condition [q,p], shape [N,5] or [N,6]
     t : numpy.ndarray
@@ -976,8 +981,8 @@ def integrateFullOrbit_sos_c(
 
     Parameters
     ----------
-    pot : Potential or list of such instances
-        The potential (or list thereof) to evaluate the orbit in.
+    pot : Potential or a combined potential formed using addition (pot1+pot2+…)
+        The potential to evaluate the orbit in.
     yo : numpy.ndarray
         initial condition [q,p]
     psi : numpy.ndarray
@@ -1110,6 +1115,7 @@ def integrateFullOrbit_sos_c(
         return (result, err)
 
 
+@potential_list_of_potentials_input
 def integrateFullOrbit_sos(
     pot,
     yo,
@@ -1127,8 +1133,8 @@ def integrateFullOrbit_sos(
 
     Parameters
     ----------
-    pot : Potential or list of such instances
-        The potential (or list thereof) to evaluate the orbit in.
+    pot : Potential, CompositePotential, or a combined potential formed using addition (pot1+pot2+…)
+        The potential to evaluate the orbit in. Lists are deprecated and will be converted to CompositePotential.
     yo : numpy.ndarray
         Initial condition [q,p], shape [N,5] or [N,6]
     psi : numpy.ndarray
@@ -1250,8 +1256,8 @@ def _RZEOM(y, t, pot, l2):
         Current phase-space position.
     t : float
         Current time.
-    pot : list of Potential instance(s)
-        Potential instance(s).
+    pot : Potential instance
+        Potential instance.
     l2 : float
         Angular momentum squared.
 
@@ -1282,8 +1288,8 @@ def _EOM(y, t, pot):
         Current phase-space position.
     t : float
         Current time.
-    pot : list of Potential instance(s)
-        Potential instance(s).
+    pot : Potential instance
+        Potential instance.
 
     Returns
     -------
@@ -1323,8 +1329,8 @@ def _SOSEOM(y, psi, pot):
         Current phase-space position
     psi : float
         Current angle
-    pot : list of Potential instance(s)
-        Potential instance(s)
+    pot : Potential instance
+        Potential instance
 
     Returns
     -------
@@ -1356,8 +1362,8 @@ def _rectForce(x, pot, t=0.0, vx=None):
         Current position
     t : float, optional
         Current time (default is 0.0)
-    pot : (list of) Potential instance(s)
-        The potential (or list thereof) to evaluate the force for
+    pot : Potential instance or a combined potential formed using addition (pot1+pot2+…)
+        The potential to evaluate the force for
     vx : numpy.ndarray, optional
         If set, use this [vx,vy,vz] when evaluating dissipative forces (default is None)
 

@@ -17,6 +17,7 @@ import numpy
 from scipy import integrate, optimize
 
 from ..potential import (
+    CompositePotential,
     DiskSCFPotential,
     MWPotential,
     SCFPotential,
@@ -53,8 +54,8 @@ class actionAngleStaeckel(actionAngle):
 
         Parameters
         ----------
-        pot : potential or list of potentials (3D)
-            The potential or list of potentials.
+        pot : potential or a combined potential formed using addition (pot1+pot2+…) (3D)
+            The potential or a combined potential formed using addition (pot1+pot2+…).
         delta : float or Quantity
             The focus.
         useu0 : bool, optional
@@ -639,7 +640,7 @@ class actionAngleStaeckelSingle(actionAngle):
                 1) floats: phase-space value for single object (phi is optional) (each can be a Quantity)
                 2) numpy.ndarray: [N] phase-space values for N objects (each can be a Quantity)
             b) Orbit instance: initial condition used if that's it, orbit(t) if there is a time given as well as the second argument
-        pot: Potential or list of Potentials
+        pot: Potential or a combined potential formed using addition (pot1+pot2+…)
             Potential to use
         delta: float, optional
             focal length of confocal coordinate system
@@ -1228,7 +1229,7 @@ def calcELStaeckel(R, vR, vT, z, vz, pot, vc=1.0, ro=1.0):
     vz : float
         Vertical velocity (/vc).
     pot : Potential object
-        galpy Potential object or list of such objects.
+        galpy Potential object or a combined potential formed using addition (pot1+pot2+…).
     vc : float, optional
         Circular velocity at ro (km/s). Default: 1.0.
     ro : float, optional
@@ -1497,7 +1498,7 @@ def estimateDeltaStaeckel(pot, R, z, no_median=False, delta0=1e-6):
 
     Parameters
     ----------
-    pot : Potential instance or list thereof
+    pot : Potential instance or a combined potential formed using addition (pot1+pot2+…)
     R : float or numpy.ndarray
         coordinates
     z : float or numpy.ndarray
@@ -1533,7 +1534,7 @@ def estimateDeltaStaeckel(pot, R, z, no_median=False, delta0=1e-6):
                 for p in pot
             ]
         )
-        if isinstance(pot, list)
+        if isinstance(pot, (list, CompositePotential))
         else isinstance(pot, SCFPotential) or isinstance(pot, DiskSCFPotential)
     )
     if numpy.any(z == 0.0):

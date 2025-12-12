@@ -45,9 +45,9 @@ class sphericaldf(df):
 
         Parameters
         ----------
-        pot : Potential instance or list thereof
+        pot : Potential instance or a combined potential formed using addition (pot1+pot2+…)
             The potential. Default is None.
-        denspot : Potential instance or list thereof, optional
+        denspot : Potential instance or a combined potential formed using addition (pot1+pot2+…), optional
             The potential that represents the density of the tracers (assumed to be spherical). If None, set equal to pot. Default is None.
         rmax : float or Quantity, optional
             The maximum radius to consider. DF is cut off at E = Phi(rmax). Default is None.
@@ -634,9 +634,9 @@ class isotropicsphericaldf(sphericaldf):
 
         Parameters
         ----------
-        pot : Potential instance or list thereof
+        pot : Potential instance or a combined potential formed using addition (pot1+pot2+…)
             Default: None
-        denspot : Potential instance or list thereof that represent the density of the tracers (assumed to be spherical; if None, set equal to pot), optional
+        denspot : Potential instance or a combined potential formed using addition (pot1+pot2+…) that represent the density of the tracers (assumed to be spherical; if None, set equal to pot), optional
             Default: None
         rmax : float or Quantity, optional
             Maximum radius to consider; DF is cut off at E = Phi(rmax)
@@ -745,9 +745,9 @@ class anisotropicsphericaldf(sphericaldf):
 
         Parameters
         ----------
-        pot : Potential instance or list thereof
+        pot : Potential instance or a combined potential formed using addition (pot1+pot2+…)
             The potential. Default: None.
-        denspot : Potential instance or list thereof, optional
+        denspot : Potential instance or a combined potential formed using addition (pot1+pot2+…), optional
             The potential representing the density of the tracers (assumed to be spherical). If None, set equal to pot. Default: None.
         rmax : float or Quantity, optional
             Maximum radius to consider. DF is cut off at E = Phi(rmax). Default: None.

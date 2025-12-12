@@ -55,8 +55,8 @@ class OblateStaeckelWrapperPotential(parentWrapperPotential):
         ----------
         amp : float, optional
             Amplitude to be applied to the potential. Default is 1.0.
-        pot : Potential or list
-            Potential instance or list thereof; this potential is made into an oblate Staeckel potential.
+        pot : Potential or a combined potential formed using addition (pot1+pot2+…)
+            Potential instance or a combined potential formed using addition (pot1+pot2+…); this potential is made into an oblate Staeckel potential.
         delta : float or Quantity, optional
             The focal length. Default is 0.5.
         u0 : float or tuple or tuple of Quantity

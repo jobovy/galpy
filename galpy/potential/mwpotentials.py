@@ -10,22 +10,23 @@ from . import (
     NFWPotential,
     PowerSphericalPotentialwCutoff,
 )
+from .CompositePotential import CompositePotential
 
 ############################ MILKY WAY MODELS #################################
 # galpy's first version of a MW-like potential, kept for backwards
 # compatibility and reproducibility-of-results-in-the-literature reasons,
 # underscore it here to avoid use
-_MWPotential = [
+_MWPotential = CompositePotential(
     MiyamotoNagaiPotential(a=0.5, b=0.0375, normalize=0.6),
     NFWPotential(a=4.5, normalize=0.35),
     HernquistPotential(a=0.6 / 8, normalize=0.05),
-]
+)
 # See Table 1 in galpy paper: Bovy (2014)
-MWPotential2014 = [
+MWPotential2014 = CompositePotential(
     PowerSphericalPotentialwCutoff(normalize=0.05, alpha=1.8, rc=1.9 / 8.0),
     MiyamotoNagaiPotential(a=3.0 / 8.0, b=0.28 / 8.0, normalize=0.6),
     NFWPotential(a=2.0, normalize=0.35),
-]
+)
 
 
 # Following class allows potentials that are expensive to setup to be

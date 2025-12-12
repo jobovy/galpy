@@ -46,8 +46,8 @@ class actionAngleVerticalInverse(actionAngleInverse):
 
         Parameters
         ----------
-        pot : Potential object or list of such objects
-            a linearPotential/verticalPotential or list thereof
+        pot : Potential object or a combined potential formed using addition (pot1+pot2+…)
+            a linearPotential/verticalPotential or a combined potential formed using addition (pot1+pot2+…)
         Es : numpy.ndarray
             energies of the orbits to map the tori for, will be forcibly sorted (needs to be a dense grid when setting up the object for interpolation with setup_interp=True)
         nta : int

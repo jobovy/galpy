@@ -854,10 +854,10 @@ def test_actionAngleSpherical_basic_actions():
 def test_actionAngleSpherical_basic_freqs():
     from galpy.actionAngle import actionAngleSpherical
     from galpy.orbit import Orbit
-    from galpy.potential import LogarithmicHaloPotential
+    from galpy.potential import CompositePotential, LogarithmicHaloPotential
 
     lp = LogarithmicHaloPotential(normalize=1.0, q=1.0)
-    aAS = actionAngleSpherical(pot=[lp])
+    aAS = actionAngleSpherical(pot=CompositePotential([lp]))
     # circular orbit
     R, vR, vT, z, vz = 1.0, 0.0, 1.0, 0.0, 0.0
     jos = aAS.actionsFreqs(R, vR, vT, z, vz)
@@ -1990,11 +1990,14 @@ def test_actionAngleStaeckel_basic_actions():
 def test_actionAngleStaeckel_basic_actions_u0():
     from galpy.actionAngle import actionAngleStaeckel
     from galpy.orbit import Orbit
-    from galpy.potential import MWPotential
+    from galpy.potential import CompositePotential, MWPotential
 
     # test nested list of potentials
     aAS = actionAngleStaeckel(
-        pot=[MWPotential[0], MWPotential[1:]], delta=0.71, c=False, useu0=True
+        pot=CompositePotential([MWPotential[0], MWPotential[1:]]),
+        delta=0.71,
+        c=False,
+        useu0=True,
     )
     # circular orbit
     R, vR, vT, z, vz = 1.0, 0.0, 1.0, 0.0, 0.0
@@ -2021,11 +2024,14 @@ def test_actionAngleStaeckel_basic_actions_u0():
 def test_actionAngleStaeckel_basic_actions_u0_c():
     from galpy.actionAngle import actionAngleStaeckel
     from galpy.orbit import Orbit
-    from galpy.potential import MWPotential
+    from galpy.potential import CompositePotential, MWPotential
 
     # test nested list of potentials
     aAS = actionAngleStaeckel(
-        pot=[MWPotential[0], MWPotential[1:]], delta=0.71, c=True, useu0=True
+        pot=CompositePotential([MWPotential[0], MWPotential[1:]]),
+        delta=0.71,
+        c=True,
+        useu0=True,
     )
     # circular orbit
     R, vR, vT, z, vz = 1.0, 0.0, 1.0, 0.0, 0.0

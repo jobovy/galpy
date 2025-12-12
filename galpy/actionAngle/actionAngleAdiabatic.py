@@ -33,8 +33,8 @@ class actionAngleAdiabatic(actionAngle):
 
         Parameters
         ----------
-        pot : potential or list of potentials
-            The potential or list of potentials.
+        pot : potential or a combined potential formed using addition (pot1+pot2+…)
+            The potential or a combined potential formed using addition (pot1+pot2+…).
         gamma : float, optional
             Replace Lz by Lz+gamma Jz in effective potential. Default is 1.0.
         ro : float or Quantity, optional

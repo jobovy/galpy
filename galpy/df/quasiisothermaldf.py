@@ -68,8 +68,8 @@ class quasiisothermaldf(df):
             Radial-velocity-dispersion scale length.
         hsz : float or Quantity
             Vertial-velocity-dispersion scale length.
-        pot : Potential or list thereof
-            Potential or list of potentials that represents the underlying potential.
+        pot : Potential or a combined potential formed using addition (pot1+pot2+…)
+            Potential or a combined potential formed using addition (pot1+pot2+…) of potentials that represents the underlying potential.
         aA : actionAngle instance
             ActionAngle instance used to convert (x,v) to actions [must be an instance of an actionAngle class that computes (J,Omega,angle) for a given (x,v)].
         cutcounter : bool, optional

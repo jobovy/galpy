@@ -34,7 +34,7 @@ def test_ChandrasekharDynamicalFrictionForce_constLambda():
     )  # don't provide sigmar, so it gets computed using galpy.df.jeans
     o = Orbit([r_init, 0.0, 1.0, 0.0, 0.0, 0.0])
     ts = numpy.linspace(0.0, dt, 1001)
-    o.integrate(ts, [lp, cdfc], method="odeint")
+    o.integrate(ts, lp + cdfc, method="odeint")
     r_pred = numpy.sqrt(
         o.r() ** 2.0 - 0.604 * const_lnLambda * GMs * numpy.sqrt(2.0) * dt
     )
@@ -67,7 +67,7 @@ def test_ChandrasekharDynamicalFrictionForce_varLambda():
     )
     o = Orbit([r_init, 0.0, 1.0, 0.0, 0.0, 0.0])
     ts = numpy.linspace(0.0, dt, 1001)
-    o.integrate(ts, [potential.MWPotential2014, cdf], method="odeint")
+    o.integrate(ts, potential.MWPotential2014 + cdf, method="odeint")
     lnLs = numpy.array(
         [
             cdf.lnLambda(r, v)
@@ -84,7 +84,7 @@ def test_ChandrasekharDynamicalFrictionForce_varLambda():
         sigmar=lambda r: 1.0 / numpy.sqrt(2.0),
     )
     oc = o()
-    oc.integrate(ts, [potential.MWPotential2014, cdfc], method="odeint")
+    oc.integrate(ts, potential.MWPotential2014 + cdfc, method="odeint")
     assert numpy.fabs(oc.r(ts[-1]) - o.r(ts[-1])) < 0.05, (
         "ChandrasekharDynamicalFrictionForce with variable lnLambda for a short radial range is not close to the calculation using a constant lnLambda"
     )
@@ -303,7 +303,7 @@ def test_dynamfric_c():
         if not _check_c(p, dens=True):
             continue  # dynamfric not in C!
         pname = type(p).__name__
-        if pname == "list":
+        if pname == "CompositePotential" or pname == "list":
             if (
                 isinstance(p[0], potential.PowerSphericalPotentialwCutoff)
                 and len(p) > 1

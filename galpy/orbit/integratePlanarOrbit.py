@@ -32,6 +32,12 @@ _lib, _ext_loaded = _load_extension_libs.load_libgalpy()
 
 def _parse_pot(pot):
     """Parse the potential so it can be fed to C"""
+    from ..potential.planarCompositePotential import planarCompositePotential
+
+    # Handle planarCompositePotential by converting to list
+    if isinstance(pot, planarCompositePotential):
+        pot = list(pot)
+
     # Figure out what's in pot
     if not isinstance(pot, list):
         pot = [pot]
@@ -736,7 +742,7 @@ def integratePlanarOrbit_c(
 
     Parameters
     ----------
-    pot : Potential or list of such instances
+    pot : Potential or a combined potential formed using addition (pot1+pot2+…)
     yo : numpy.ndarray
         Initial condition [q,p], can be [N,4] or [4].
     t : numpy.ndarray
@@ -866,7 +872,7 @@ def integratePlanarOrbit_dxdv_c(
 
     Parameters
     ----------
-    pot : Potential or list of such instances
+    pot : Potential or a combined potential formed using addition (pot1+pot2+…)
     yo : numpy.ndarray
         Initial condition [q,p]
     dyo : numpy.ndarray
@@ -970,7 +976,7 @@ def integratePlanarOrbit(
 
     Parameters
     ----------
-    pot : Potential or list of such instances
+    pot : Potential or a combined potential formed using addition (pot1+pot2+…)
     yo : numpy.ndarray
         Initial condition [q,p], shape [N,3] or [N,4]
     t : numpy.ndarray
@@ -1127,7 +1133,7 @@ def integratePlanarOrbit_dxdv(
 
     Parameters
     ----------
-    pot : Potential or list of such instances
+    pot : Potential or a combined potential formed using addition (pot1+pot2+…)
     yo : numpy.ndarray
         Initial condition [q,p], shape [N,4]
     dyo : numpy.ndarray
@@ -1275,7 +1281,7 @@ def integratePlanarOrbit_sos_c(
 
     Parameters
     ----------
-    pot : Potential or list of such instances
+    pot : Potential or a combined potential formed using addition (pot1+pot2+…)
     yo : numpy.ndarray
         Initial condition [q,p], shape [N,5] or [N,6]
     psi : numpy.ndarray
@@ -1429,7 +1435,7 @@ def integratePlanarOrbit_sos(
 
     Parameters
     ----------
-    pot : Potential or list of such instances
+    pot : Potential or a combined potential formed using addition (pot1+pot2+…)
     yo : numpy.ndarray
         Initial condition [q,p], shape [N,5] or [N,6]
     psi : numpy.ndarray
@@ -1592,8 +1598,8 @@ def _planarREOM(y, t, pot, l2):
         Current phase-space position.
     t : float
         Current time.
-    pot : list of Potential instance(s)
-        Potential instance(s).
+    pot : Potential instance
+        Potential instance.
     l2 : float
         Angular momentum squared.
 
@@ -1619,7 +1625,7 @@ def _planarEOM(y, t, pot):
         Current phase-space position
     t : float
         Current time
-    pot : (list of) Potential instance(s)
+    pot : Potential instance or a combined potential formed using addition (pot1+pot2+…)
 
     Returns
     -------
@@ -1657,7 +1663,7 @@ def _planarEOM_dxdv(x, t, pot):
         Current phase-space position
     t : float
         Current time
-    pot : (list of) Potential instance(s)
+    pot : Potential instance or a combined potential formed using addition (pot1+pot2+…)
 
     Returns
     -------
@@ -1735,7 +1741,7 @@ def _planarSOSEOMx(y, psi, pot):
         Current phase-space position
     psi : float
         Current angle
-    pot : (list of) Potential instance(s)
+    pot : Potential instance or a combined potential formed using addition (pot1+pot2+…)
 
     Returns
     -------
@@ -1766,8 +1772,8 @@ def _planarSOSEOMy(y, psi, pot):
         Current phase-space position
     psi : float
         Current angle
-    pot : list of Potential instance(s)
-        Potential instance(s)
+    pot : Potential instance
+        Potential instance
 
     Returns
     -------
@@ -1798,7 +1804,7 @@ def _planarRectForce(x, pot, t=0.0, vx=None):
         Current position.
     t : float, optional
         Current time (default is 0.0).
-    pot : list or Potential instance(s)
+    pot : Potential instance or a combined potential formed using addition (pot1+pot2+…)
         Potential instance(s).
     vx : numpy.ndarray, optional
         If set, use this [vx,vy] when evaluating dissipative forces (default is None).

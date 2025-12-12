@@ -117,6 +117,12 @@ class SpiralArmsPotential(Potential):
 
     def _evaluate(self, R, z, phi=0, t=0):
         if isinstance(R, numpy.ndarray) or isinstance(z, numpy.ndarray):
+            if (isinstance(R, numpy.ndarray) and len(R.shape) > 1) or (
+                isinstance(z, numpy.ndarray) and len(z.shape) > 1
+            ):
+                raise ValueError(
+                    "Array R and z with more than one dimension not supported"
+                )
             nR = len(R) if isinstance(R, numpy.ndarray) else len(z)
             self._Cs = numpy.transpose(
                 numpy.array(
@@ -166,6 +172,12 @@ class SpiralArmsPotential(Potential):
 
     def _Rforce(self, R, z, phi=0, t=0):
         if isinstance(R, numpy.ndarray) or isinstance(z, numpy.ndarray):
+            if (isinstance(R, numpy.ndarray) and len(R.shape) > 1) or (
+                isinstance(z, numpy.ndarray) and len(z.shape) > 1
+            ):
+                raise ValueError(
+                    "Array R and z with more than one dimension not supported"
+                )
             nR = len(R) if isinstance(R, numpy.ndarray) else len(z)
             self._Cs = numpy.transpose(
                 numpy.array(
@@ -237,6 +249,12 @@ class SpiralArmsPotential(Potential):
 
     def _zforce(self, R, z, phi=0, t=0):
         if isinstance(R, numpy.ndarray) or isinstance(z, numpy.ndarray):
+            if (isinstance(R, numpy.ndarray) and len(R.shape) > 1) or (
+                isinstance(z, numpy.ndarray) and len(z.shape) > 1
+            ):
+                raise ValueError(
+                    "Array R and z with more than one dimension not supported"
+                )
             nR = len(R) if isinstance(R, numpy.ndarray) else len(z)
             self._Cs = numpy.transpose(
                 numpy.array(
@@ -287,6 +305,12 @@ class SpiralArmsPotential(Potential):
 
     def _phitorque(self, R, z, phi=0, t=0):
         if isinstance(R, numpy.ndarray) or isinstance(z, numpy.ndarray):
+            if (isinstance(R, numpy.ndarray) and len(R.shape) > 1) or (
+                isinstance(z, numpy.ndarray) and len(z.shape) > 1
+            ):
+                raise ValueError(
+                    "Array R and z with more than one dimension not supported"
+                )
             nR = len(R) if isinstance(R, numpy.ndarray) else len(z)
             self._Cs = numpy.transpose(
                 numpy.array(
@@ -339,6 +363,12 @@ class SpiralArmsPotential(Potential):
 
     def _R2deriv(self, R, z, phi=0, t=0):
         if isinstance(R, numpy.ndarray) or isinstance(z, numpy.ndarray):
+            if (isinstance(R, numpy.ndarray) and len(R.shape) > 1) or (
+                isinstance(z, numpy.ndarray) and len(z.shape) > 1
+            ):
+                raise ValueError(
+                    "Array R and z with more than one dimension not supported"
+                )
             nR = len(R) if isinstance(R, numpy.ndarray) else len(z)
             self._Cs = numpy.transpose(
                 numpy.array(
@@ -551,6 +581,12 @@ class SpiralArmsPotential(Potential):
 
     def _z2deriv(self, R, z, phi=0, t=0):
         if isinstance(R, numpy.ndarray) or isinstance(z, numpy.ndarray):
+            if (isinstance(R, numpy.ndarray) and len(R.shape) > 1) or (
+                isinstance(z, numpy.ndarray) and len(z.shape) > 1
+            ):
+                raise ValueError(
+                    "Array R and z with more than one dimension not supported"
+                )
             nR = len(R) if isinstance(R, numpy.ndarray) else len(z)
             self._Cs = numpy.transpose(
                 numpy.array(
@@ -604,6 +640,12 @@ class SpiralArmsPotential(Potential):
 
     def _phi2deriv(self, R, z, phi=0, t=0):
         if isinstance(R, numpy.ndarray) or isinstance(z, numpy.ndarray):
+            if (isinstance(R, numpy.ndarray) and len(R.shape) > 1) or (
+                isinstance(z, numpy.ndarray) and len(z.shape) > 1
+            ):
+                raise ValueError(
+                    "Array R and z with more than one dimension not supported"
+                )
             nR = len(R) if isinstance(R, numpy.ndarray) else len(z)
             self._Cs = numpy.transpose(
                 numpy.array(
@@ -656,6 +698,12 @@ class SpiralArmsPotential(Potential):
 
     def _Rzderiv(self, R, z, phi=0.0, t=0.0):
         if isinstance(R, numpy.ndarray) or isinstance(z, numpy.ndarray):
+            if (isinstance(R, numpy.ndarray) and len(R.shape) > 1) or (
+                isinstance(z, numpy.ndarray) and len(z.shape) > 1
+            ):
+                raise ValueError(
+                    "Array R and z with more than one dimension not supported"
+                )
             nR = len(R) if isinstance(R, numpy.ndarray) else len(z)
             self._Cs = numpy.transpose(
                 numpy.array(
@@ -741,6 +789,12 @@ class SpiralArmsPotential(Potential):
 
     def _Rphideriv(self, R, z, phi=0, t=0):
         if isinstance(R, numpy.ndarray) or isinstance(z, numpy.ndarray):
+            if (isinstance(R, numpy.ndarray) and len(R.shape) > 1) or (
+                isinstance(z, numpy.ndarray) and len(z.shape) > 1
+            ):
+                raise ValueError(
+                    "Array R and z with more than one dimension not supported"
+                )
             nR = len(R) if isinstance(R, numpy.ndarray) else len(z)
             self._Cs = numpy.transpose(
                 numpy.array(
@@ -816,6 +870,12 @@ class SpiralArmsPotential(Potential):
 
     def _phizderiv(self, R, z, phi=0, t=0):
         if isinstance(R, numpy.ndarray) or isinstance(z, numpy.ndarray):
+            if (isinstance(R, numpy.ndarray) and len(R.shape) > 1) or (
+                isinstance(z, numpy.ndarray) and len(z.shape) > 1
+            ):
+                raise ValueError(
+                    "Array R and z with more than one dimension not supported"
+                )
             nR = len(R) if isinstance(R, numpy.ndarray) else len(z)
             self._Cs = numpy.transpose(
                 numpy.array(
@@ -868,6 +928,12 @@ class SpiralArmsPotential(Potential):
 
     def _dens(self, R, z, phi=0, t=0):
         if isinstance(R, numpy.ndarray) or isinstance(z, numpy.ndarray):
+            if (isinstance(R, numpy.ndarray) and len(R.shape) > 1) or (
+                isinstance(z, numpy.ndarray) and len(z.shape) > 1
+            ):
+                raise ValueError(
+                    "Array R and z with more than one dimension not supported"
+                )
             nR = len(R) if isinstance(R, numpy.ndarray) else len(z)
             self._Cs = numpy.transpose(
                 numpy.array(

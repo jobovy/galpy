@@ -46,7 +46,7 @@ class actionAngleIsochroneApprox(actionAngle):
             Instance of a IsochronePotential.
         aAI : actionAngleIsochrone, optional
             Instance of an actionAngleIsochrone.
-        pot : Potential or list of Potentials, optional
+        pot : Potential or a combined potential formed using addition (pot1+pot2+…), optional
             Potential to calculate action-angle variables for.
         tintJ : float, optional
             Time to integrate orbits for to estimate actions (can be Quantity).
@@ -901,8 +901,8 @@ def estimateBIsochrone(pot, R, z, phi=None):
 
     Parameters
     ----------
-    pot : Potential or list thereof
-        Potential or list of potentials to estimate the scale of the isochrone potential for
+    pot : Potential or a combined potential formed using addition (pot1+pot2+…)
+        Potential or a combined potential formed using addition (pot1+pot2+…) of potentials to estimate the scale of the isochrone potential for
     R : float or Quantity
         Galactocentric radius.
     z : float or Quantity
@@ -922,7 +922,9 @@ def estimateBIsochrone(pot, R, z, phi=None):
     - 2016-06-28 - Added phi= keyword for non-axisymmetric potential - Bovy (UofT)
     """
     if pot is None:  # pragma: no cover
-        raise OSError("pot= needs to be set to a Potential instance or list thereof")
+        raise OSError(
+            "pot= needs to be set to a Potential instance or a combined potential formed using addition (pot1+pot2+…)"
+        )
     if isinstance(R, numpy.ndarray):
         if phi is None:
             phi = [None for r in R]

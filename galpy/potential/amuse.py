@@ -22,7 +22,7 @@ class galpy_profile(LiteratureReferencesMixIn):
 
         Parameters
         ----------
-        pot : Potential instance or list thereof, optional
+        pot : Potential instance or a combined potential formed using addition (pot1+pot2+…), optional
             Potential object(s) to be used with AMUSE.
         t : float or Quantity, optional
             Start time for AMUSE simulation (can be an AMUSE Quantity).

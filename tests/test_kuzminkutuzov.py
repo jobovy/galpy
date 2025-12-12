@@ -42,7 +42,7 @@ def test_vcirc():
         V_H = KuzminKutuzovStaeckelPotential(
             amp=(1.0 - k), ac=ac_H, Delta=Delta, normalize=False
         )
-        pot = [V_D, V_H]
+        pot = V_D + V_H
         # normalization according to Batsleer & Dejonghe 1994:
         V00 = evaluatePotentials(pot, 0.0, 0.0)
         # second try, normalized:
@@ -52,7 +52,7 @@ def test_vcirc():
         V_H = KuzminKutuzovStaeckelPotential(
             amp=(1.0 - k) / (-V00), ac=ac_H, Delta=Delta, normalize=False
         )
-        pot = [V_D, V_H]
+        pot = V_D + V_H
 
         # _____calculate rotation curve_____
         Rs = numpy.linspace(0.0, 20.0, 100)
@@ -511,7 +511,7 @@ def test_density():
             V_H = KuzminKutuzovStaeckelPotential(
                 amp=amp_H, ac=ac_H[ii], Delta=Delta[ii], normalize=False
             )
-            pot = [V_D, V_H]
+            pot = V_D + V_H
 
             # _____local density_____
             rho_calc = (

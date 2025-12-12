@@ -33,7 +33,7 @@ class actionAngleSpherical(actionAngle):
 
         Parameters
         ----------
-        pot : Potential or list thereof
+        pot : Potential or a combined potential formed using addition (pot1+pot2+…)
             A spherical potential.
         ro : float or Quantity, optional
             Distance scale for translation into internal units (default from configuration file).
@@ -54,8 +54,6 @@ class actionAngleSpherical(actionAngle):
         # used in this class
         if _dim(self._pot) == 2:
             self._2dpot = self._pot
-        elif isinstance(self._pot, list):
-            self._2dpot = [p.toPlanar() for p in self._pot]
         else:
             self._2dpot = self._pot.toPlanar()
         # The following for if we ever implement this code in C
@@ -847,7 +845,7 @@ def _rapRperiAxiFindStart(R, E, L, pot, rap=False, startsign=1.0):
         energy
     L : float
         angular momentum
-    pot : Potential object or list thereof
+    pot : Potential object or a combined potential formed using addition (pot1+pot2+…)
         Potential
     rap : bool, optional
         if True, find the rap end-point (default is False)

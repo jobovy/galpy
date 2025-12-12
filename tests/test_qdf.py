@@ -38,7 +38,7 @@ def test_meanvR_adiabatic_mc():
         0.1,
         1.0,
         1.0,
-        pot=[MWPotential[0], MWPotential[1:]],
+        pot=MWPotential[0] + MWPotential[1:],
         aA=aAA,
         cutcounter=True,
     )

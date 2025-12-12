@@ -32,7 +32,7 @@ class CorotatingRotationWrapperPotential(parentWrapperPotential):
         ----------
         amp : float, optional
             Amplitude to be applied to the potential (default: 1.).
-        pot : Potential instance or list thereof, optional
+        pot : Potential instance or a combined potential formed using addition (pot1+pot2+…), optional
             This potential is made to rotate around the z axis by the wrapper.
         vpo : float or Quantity, optional
             Amplitude of the circular-velocity curve.

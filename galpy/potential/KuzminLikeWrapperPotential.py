@@ -51,7 +51,7 @@ class KuzminLikeWrapperPotential(WrapperPotential):
             Scale radius of the Kuzmin-like potential. Default is 1.1.
         b : float or Quantity, optional
             Scale height of the Kuzmin-like potential. Default is 0.0.
-        pot : Potential instance or list thereof
+        pot : Potential instance or a combined potential formed using addition (pot1+pot2+…)
             The potential to be wrapped.
         ro : float or Quantity, optional
             Distance scale for translation into internal units (default from configuration file).

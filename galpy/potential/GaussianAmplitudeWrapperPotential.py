@@ -24,7 +24,7 @@ class GaussianAmplitudeWrapperPotential(parentWrapperPotential):
         ----------
         amp : float, optional
             Amplitude to be applied to the potential. Default is 1.0.
-        pot : Potential instance or list thereof, optional
+        pot : Potential instance or a combined potential formed using addition (pot1+pot2+…), optional
             This potential is made to rotate around the z axis by the wrapper.
         to : float or Quantity, optional
             Time at which the Gaussian peaks. Default is 0.0.
