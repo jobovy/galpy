@@ -10,8 +10,7 @@ from scipy import interpolate, special
 
 from ..util import conversion
 from .DissipativeForce import DissipativeForce
-from .Potential import _check_c, evaluateDensities
-from .Potential import flatten as flatten_pot
+from .Potential import _check_c, _check_potential_list_and_deprecate, evaluateDensities
 
 _INVSQRTTWO = 1.0 / numpy.sqrt(2.0)
 _INVSQRTPI = 1.0 / numpy.sqrt(numpy.pi)
@@ -111,7 +110,7 @@ class ChandrasekharDynamicalFrictionForce(DissipativeForce):
             dens = LogarithmicHaloPotential(normalize=1.0, q=1.0)
             if sigmar is None:  # we know this solution!
                 sigmar = lambda x: _INVSQRTTWO
-        dens = flatten_pot(dens)
+        dens = _check_potential_list_and_deprecate(dens)
         self._dens_pot = dens
         self._dens_host = lambda R, z, phi=0.0, t=0.0: evaluateDensities(
             self._dens_pot, R, z, phi=phi, t=t, use_physical=False

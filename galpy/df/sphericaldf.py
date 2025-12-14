@@ -25,7 +25,10 @@ from scipy import integrate, interpolate, special
 
 from ..orbit import Orbit
 from ..potential import interpSphericalPotential, mass
-from ..potential.Potential import _evaluatePotentials
+from ..potential.Potential import (
+    _check_potential_list_and_deprecate,
+    _evaluatePotentials,
+)
 from ..potential.SCFPotential import _RToxi, _xiToR
 from ..util import _optional_deps, conversion, galpyWarning
 from ..util.conversion import physical_conversion
@@ -74,8 +77,12 @@ class sphericaldf(df):
             self.turn_physical_on(ro=phys["ro"], vo=phys["vo"])
         if pot is None:  # pragma: no cover
             raise OSError("pot= must be set")
-        self._pot = pot
-        self._denspot = self._pot if denspot is None else denspot
+        self._pot = _check_potential_list_and_deprecate(pot)
+        self._denspot = (
+            self._pot
+            if denspot is None
+            else _check_potential_list_and_deprecate(denspot)
+        )
         if not conversion.physical_compatible(self._pot, self._denspot):
             raise RuntimeError(
                 "Unit-conversion parameters of input potential incompatible with those of the density potential"

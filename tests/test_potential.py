@@ -1,6 +1,7 @@
 ############################TESTS ON POTENTIALS################################
 import os
 import sys
+import warnings
 
 PY3 = sys.version > "3"
 import numpy
@@ -3205,8 +3206,8 @@ def test_RZToplanarPotential():
     assert isinstance(pplp, potential.planarPotential), (
         "Running a planarPotential through RZToplanarPotential does not produce a planarPotential"
     )
-    # Check that a list with a mix of planar and 3D potentials produces list of planar
-    ppplp = potential.RZToplanarPotential([lp, plp])
+    # Check that a combination with a mix of planar and 3D potentials produces list of planar
+    ppplp = potential.RZToplanarPotential(lp + plp)
     for p in ppplp:
         assert isinstance(p, potential.planarPotential), (
             "Running a list with a mix of planar and 3D potentials through RZToPlanarPotential does not produce a list of planar potentials"
@@ -3215,16 +3216,18 @@ def test_RZToplanarPotential():
     with pytest.raises(potential.PotentialError) as excinfo:
         plp = potential.RZToplanarPotential("something else")
     # Check that given a list of objects that are not a Potential instances gives an error
-    with pytest.raises(potential.PotentialError) as excinfo:
-        plp = potential.RZToplanarPotential([3, 4, 45])
-    with pytest.raises(potential.PotentialError) as excinfo:
-        plp = potential.RZToplanarPotential([lp, 3, 4, 45])
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", DeprecationWarning)
+        with pytest.raises((potential.PotentialError, AttributeError)) as excinfo:
+            plp = potential.RZToplanarPotential([3, 4, 45])
+        with pytest.raises((potential.PotentialError, AttributeError)) as excinfo:
+            plp = potential.RZToplanarPotential([lp, 3, 4, 45])
     # Check that using a non-axisymmetric potential gives an error
     lpna = potential.LogarithmicHaloPotential(normalize=1.0, q=0.9, b=0.8)
     with pytest.raises(potential.PotentialError) as excinfo:
         plp = potential.RZToplanarPotential(lpna)
     with pytest.raises(potential.PotentialError) as excinfo:
-        plp = potential.RZToplanarPotential([lpna])
+        plp = potential.RZToplanarPotential(potential.CompositePotential([lpna]))
     # Check that giving potential.ChandrasekharDynamicalFrictionForce
     # gives an error
     pp = potential.PlummerPotential(amp=1.12, b=2.0)
@@ -3232,7 +3235,7 @@ def test_RZToplanarPotential():
         GMs=0.01, const_lnLambda=8.0, dens=pp, sigmar=lambda r: 1.0 / numpy.sqrt(2.0)
     )
     with pytest.raises(NotImplementedError) as excinfo:
-        plp = potential.RZToplanarPotential([pp, cdfc])
+        plp = potential.RZToplanarPotential(pp + cdfc)
     with pytest.raises(NotImplementedError) as excinfo:
         plp = potential.RZToplanarPotential(cdfc)
     return None
@@ -3269,8 +3272,10 @@ def test_toPlanarPotential():
             "Using toPlanarPotential with a string rather than an Potential or a planarPotential did not raise PotentialError"
         )
     # Check that list of objects that are not potentials gives error
-    with pytest.raises(potential.PotentialError) as excinfo:
-        plp = potential.toPlanarPotential([3, 4, 45])
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", DeprecationWarning)
+        with pytest.raises((potential.PotentialError, AttributeError)) as excinfo:
+            plp = potential.toPlanarPotential([3, 4, 45])
     return None
 
 
@@ -3286,7 +3291,9 @@ def test_RZToverticalPotential():
         "Running a linearPotential through RZToverticalPotential does not produce a linearPotential"
     )
     # Also for list
-    pplp = potential.RZToverticalPotential([plp], 1.2)
+    pplp = potential.RZToverticalPotential(
+        potential.linearCompositePotential([plp]), 1.2
+    )
     assert isinstance(pplp[0], potential.linearPotential), (
         "Running a linearPotential through RZToverticalPotential does not produce a linearPotential"
     )
@@ -3294,22 +3301,28 @@ def test_RZToverticalPotential():
     with pytest.raises(potential.PotentialError) as excinfo:
         plp = potential.RZToverticalPotential("something else", 1.2)
     # Check that given a list of objects that are not a Potential instances gives an error
-    with pytest.raises(potential.PotentialError) as excinfo:
-        plp = potential.RZToverticalPotential([3, 4, 45], 1.2)
-    with pytest.raises(potential.PotentialError) as excinfo:
-        plp = potential.RZToverticalPotential([lp, 3, 4, 45], 1.2)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", DeprecationWarning)
+        with pytest.raises((potential.PotentialError, AttributeError)) as excinfo:
+            plp = potential.RZToverticalPotential([3, 4, 45], 1.2)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", DeprecationWarning)
+        with pytest.raises((potential.PotentialError, AttributeError)) as excinfo:
+            plp = potential.RZToverticalPotential([lp, 3, 4, 45], 1.2)
     # Check that giving a planarPotential gives an error
     with pytest.raises(potential.PotentialError) as excinfo:
         plp = potential.RZToverticalPotential(lp.toPlanar(), 1.2)
     # Check that giving a list of planarPotential gives an error
     with pytest.raises(potential.PotentialError) as excinfo:
-        plp = potential.RZToverticalPotential([lp.toPlanar()], 1.2)
+        plp = potential.RZToverticalPotential(
+            potential.planarCompositePotential([lp.toPlanar()]), 1.2
+        )
     # Check that using a non-axisymmetric potential gives an error
     lpna = potential.LogarithmicHaloPotential(normalize=1.0, q=0.9, b=0.8)
     with pytest.raises(potential.PotentialError) as excinfo:
         plp = potential.RZToverticalPotential(lpna, 1.2)
     with pytest.raises(potential.PotentialError) as excinfo:
-        plp = potential.RZToverticalPotential([lpna], 1.2)
+        plp = potential.RZToverticalPotential(potential.CompositePotential([lpna]), 1.2)
     # Check that giving potential.ChandrasekharDynamicalFrictionForce
     # gives an error
     pp = potential.PlummerPotential(amp=1.12, b=2.0)
@@ -3317,7 +3330,7 @@ def test_RZToverticalPotential():
         GMs=0.01, const_lnLambda=8.0, dens=pp, sigmar=lambda r: 1.0 / numpy.sqrt(2.0)
     )
     with pytest.raises(NotImplementedError) as excinfo:
-        plp = potential.RZToverticalPotential([pp, cdfc], 1.2)
+        plp = potential.RZToverticalPotential(pp + cdfc, 1.2)
     with pytest.raises(NotImplementedError) as excinfo:
         plp = potential.RZToverticalPotential(cdfc, 1.2)
     return None
@@ -3329,8 +3342,10 @@ def test_toVerticalPotential():
     assert isinstance(ptnp, potential.linearPotential), (
         "Running a non-axisymmetric Potential through toVerticalPotential does not produce a linearPotential"
     )
-    # Also for list
-    ptnp = potential.toVerticalPotential([tnp], 1.2, phi=0.8)
+    # Also for combination
+    ptnp = potential.toVerticalPotential(
+        potential.CompositePotential([tnp]), 1.2, phi=0.8
+    )
     assert isinstance(ptnp[0], potential.linearPotential), (
         "Running a non-axisymmetric Potential through toVerticalPotential does not produce a linearPotential"
     )
@@ -3341,7 +3356,9 @@ def test_toVerticalPotential():
         "Running a linearPotential through toVerticalPotential does not produce a linearPotential"
     )
     # also for list
-    pptnp = potential.toVerticalPotential([ptnp], 1.2, phi=0.8)
+    pptnp = potential.toVerticalPotential(
+        potential.linearCompositePotential([ptnp]), 1.2, phi=0.8
+    )
     assert isinstance(pptnp[0], potential.linearPotential), (
         "Running a linearPotential through toVerticalPotential does not produce a linearPotential"
     )
@@ -3356,12 +3373,16 @@ def test_toVerticalPotential():
     # Check that giving a planarPotential gives an error
     with pytest.raises(potential.PotentialError) as excinfo:
         plp = potential.toVerticalPotential(tnp.toPlanar(), 1.2, phi=0.8)
-    # Check that giving a list of planarPotential gives an error
+    # Check that giving a combination of planarPotentials gives an error
     with pytest.raises(potential.PotentialError) as excinfo:
-        plp = potential.toVerticalPotential([tnp.toPlanar()], 1.2, phi=0.8)
+        plp = potential.toVerticalPotential(
+            potential.planarCompositePotential([tnp.toPlanar()]), 1.2, phi=0.8
+        )
     # Check that giving a list of non-potentials gives error
-    with pytest.raises(potential.PotentialError) as excinfo:
-        plp = potential.toVerticalPotential([3, 4, 45], 1.2)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", DeprecationWarning)
+        with pytest.raises((potential.PotentialError, AttributeError)) as excinfo:
+            plp = potential.toVerticalPotential([3, 4, 45], 1.2)
     # Check that giving potential.ChandrasekharDynamicalFrictionForce
     # gives an error
     pp = potential.PlummerPotential(amp=1.12, b=2.0)
@@ -3369,7 +3390,7 @@ def test_toVerticalPotential():
         GMs=0.01, const_lnLambda=8.0, dens=pp, sigmar=lambda r: 1.0 / numpy.sqrt(2.0)
     )
     with pytest.raises(NotImplementedError) as excinfo:
-        plp = potential.toVerticalPotential([pp, cdfc], 1.2, phi=0.8)
+        plp = potential.toVerticalPotential(pp + cdfc, 1.2, phi=0.8)
     with pytest.raises(NotImplementedError) as excinfo:
         plp = potential.toVerticalPotential(cdfc, 1.2, phi=0.8)
     # Check that running a non-axisymmetric potential through toVertical w/o
@@ -8574,10 +8595,10 @@ def test_planarCompositePotential_from_toPlanarPotential():
         toPlanarPotential,
     )
 
-    # Test with list of potentials
+    # Test with combination of potentials
     pot1 = MiyamotoNagaiPotential(normalize=0.6)
     pot2 = LogarithmicHaloPotential(normalize=0.4)
-    planar = toPlanarPotential([pot1, pot2])
+    planar = toPlanarPotential(pot1 + pot2)
 
     # Should be a planarCompositePotential
     assert isinstance(planar, planarCompositePotential), (
@@ -8609,7 +8630,7 @@ def test_planarCompositePotential_slicing():
     pot1 = MiyamotoNagaiPotential(normalize=0.3)
     pot2 = LogarithmicHaloPotential(normalize=0.4)
     pot3 = PowerSphericalPotentialwCutoff(normalize=0.3)
-    planar = toPlanarPotential([pot1, pot2, pot3])
+    planar = toPlanarPotential(pot1 + pot2 + pot3)
 
     # Single item access should return individual potential
     single = planar[0]
@@ -8808,10 +8829,10 @@ def test_linearCompositePotential_from_toVerticalPotential():
         toVerticalPotential,
     )
 
-    # Test with list of potentials
+    # Test with combination of potentials
     pot1 = MiyamotoNagaiPotential(normalize=0.6)
     pot2 = LogarithmicHaloPotential(normalize=0.4)
-    linear = toVerticalPotential([pot1, pot2], 1.0)
+    linear = toVerticalPotential(pot1 + pot2, 1.0)
 
     # Should be a linearCompositePotential
     assert isinstance(linear, linearCompositePotential), (
@@ -11087,11 +11108,9 @@ class mockCombLinearPotential(testlinearMWPotential):
     def __init__(self):
         testlinearMWPotential.__init__(
             self,
-            potlist=[
-                potential.MWPotential[0],
-                potential.MWPotential[1].toVertical(1.0),
-                potential.MWPotential[2].toVertical(1.0),
-            ],
+            potlist=potential.MWPotential[0].toVertical(1.0)
+            + potential.MWPotential[1].toVertical(1.0)
+            + potential.MWPotential[2].toVertical(1.0),
         )
 
 

@@ -14,8 +14,7 @@ import warnings
 import numpy
 
 from ..potential import MWPotential, toPlanarPotential, toVerticalPotential
-from ..potential.Potential import _check_c, _dim
-from ..potential.Potential import flatten as flatten_potential
+from ..potential.Potential import _check_c, _check_potential_list_and_deprecate, _dim
 from ..util import galpyWarning
 from . import actionAngleAdiabatic_c
 from .actionAngle import actionAngle
@@ -49,7 +48,7 @@ class actionAngleAdiabatic(actionAngle):
         actionAngle.__init__(self, ro=kwargs.get("ro", None), vo=kwargs.get("vo", None))
         if not "pot" in kwargs:  # pragma: no cover
             raise OSError("Must specify pot= for actionAngleAdiabatic")
-        self._pot = flatten_potential(kwargs["pot"])
+        self._pot = _check_potential_list_and_deprecate(kwargs["pot"])
         if self._pot == MWPotential:
             warnings.warn(
                 "Use of MWPotential as a Milky-Way-like potential is deprecated; galpy.potential.MWPotential2014, a potential fit to a large variety of dynamical constraints (see Bovy 2015), is the preferred Milky-Way-like potential in galpy",

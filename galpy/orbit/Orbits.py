@@ -25,20 +25,19 @@ else:
 
 from ..potential import (
     _INF,
+    CompositePotential,
     LcE,
     PotentialError,
     _isNonAxi,
     evaluatelinearPotentials,
     evaluateplanarPotentials,
     evaluatePotentials,
-)
-from ..potential import flatten as flatten_potential
-from ..potential import (
+    linearCompositePotential,
+    planarCompositePotential,
     rE,
     rl,
     toPlanarPotential,
 )
-from ..potential.CompositePotential import CompositePotential
 from ..potential.DissipativeForce import _isDissipative
 from ..potential.Potential import _check_c, _check_potential_list_and_deprecate
 from ..util import conversion, coords, galpyWarning, galpyWarningVerbose, plot
@@ -994,7 +993,7 @@ class Orbit:
         galpy.orbit.Orbit.integrate
 
         """
-        pot = flatten_potential(pot)
+        pot = _check_potential_list_and_deprecate(pot)
         # Setup Orbit instance for initialization to, among other things,
         # parse the coordinate-transformation keywords
         init_orbit = cls(
@@ -1720,20 +1719,19 @@ class Orbit:
             interpSphericalPotential,
         )
 
-        if numpy.any(
-            [
-                isinstance(p, ChandrasekharDynamicalFrictionForce)
-                for p in flatten_potential([pot])
-            ]
-        ):  # make sure pot=list
-            lpot = flatten_potential([pot])
-            cdf_indx = numpy.arange(len(lpot))[
+        if isinstance(
+            pot,
+            (CompositePotential, planarCompositePotential, linearCompositePotential),
+        ) and numpy.any(
+            [isinstance(p, ChandrasekharDynamicalFrictionForce) for p in pot]
+        ):
+            cdf_indx = numpy.arange(len(pot))[
                 numpy.array(
-                    [isinstance(p, ChandrasekharDynamicalFrictionForce) for p in lpot],
+                    [isinstance(p, ChandrasekharDynamicalFrictionForce) for p in pot],
                     dtype="bool",
                 )
             ][0]
-            if numpy.any(self.r(self.t, use_physical=False) < lpot[cdf_indx]._minr):
+            if numpy.any(self.r(self.t, use_physical=False) < pot[cdf_indx]._minr):
                 warnings.warn(
                     """Orbit integration with """
                     """ChandrasekharDynamicalFrictionForce """
@@ -1748,17 +1746,19 @@ class Orbit:
                     """numerical instabilities)""",
                     galpyWarning,
                 )
-        if numpy.any(
-            [isinstance(p, FDMDynamicalFrictionForce) for p in flatten_potential([pot])]
+        if isinstance(
+            pot,
+            (CompositePotential, planarCompositePotential, linearCompositePotential),
+        ) and numpy.any(
+            [isinstance(p, FDMDynamicalFrictionForce) for p in pot]
         ):  # make sure pot=list
-            lpot = flatten_potential([pot])
-            cdf_indx = numpy.arange(len(lpot))[
+            cdf_indx = numpy.arange(len(pot))[
                 numpy.array(
-                    [isinstance(p, FDMDynamicalFrictionForce) for p in lpot],
+                    [isinstance(p, FDMDynamicalFrictionForce) for p in pot],
                     dtype="bool",
                 )
             ][0]
-            if numpy.any(self.r(self.t, use_physical=False) < lpot[cdf_indx]._minr):
+            if numpy.any(self.r(self.t, use_physical=False) < pot[cdf_indx]._minr):
                 warnings.warn(
                     """Orbit integration with """
                     """FDMDynamicalFrictionForce """
@@ -1773,10 +1773,21 @@ class Orbit:
                     """numerical instabilities)""",
                     galpyWarning,
                 )
-        elif numpy.any(
-            [isinstance(p, interpSphericalPotential) for p in flatten_potential([pot])]
-        ):  # make sure pot=list
-            lpot = flatten_potential([pot])
+        elif (
+            isinstance(
+                pot,
+                (
+                    CompositePotential,
+                    planarCompositePotential,
+                    linearCompositePotential,
+                ),
+            )
+            and numpy.any([isinstance(p, interpSphericalPotential) for p in pot])
+        ) or isinstance(pot, interpSphericalPotential):  # make sure pot=list
+            if isinstance(pot, interpSphericalPotential):
+                lpot = [pot]
+            else:
+                lpot = pot
             isp_indx = numpy.arange(len(lpot))[
                 numpy.array(
                     [isinstance(p, interpSphericalPotential) for p in lpot],
@@ -2750,7 +2761,6 @@ class Orbit:
 
         if not pot is None:
             pot = _check_potential_list_and_deprecate(pot)
-            pot = flatten_potential(pot)
         if self.dim() == 2 and (type == "staeckel" or type == "adiabatic"):
             # No reason to do Staeckel or adiabatic...
             type = "spherical"
@@ -3206,7 +3216,7 @@ class Orbit:
             raise RuntimeError(
                 "You need to specify the potential as pot= to compute the guiding-center radius"
             )
-        flatten_potential(pot)
+        _check_potential_list_and_deprecate(pot)
         if _isNonAxi(pot):
             raise RuntimeError(
                 "Potential given to rguiding is non-axisymmetric, but rguiding requires an axisymmetric potential"
@@ -3266,7 +3276,7 @@ class Orbit:
             raise RuntimeError(
                 "You need to specify the potential as pot= to compute rE"
             )
-        flatten_potential(pot)
+        _check_potential_list_and_deprecate(pot)
         if _isNonAxi(pot):
             raise RuntimeError(
                 "Potential given to rE is non-axisymmetric, but rE requires an axisymmetric potential"
@@ -3328,7 +3338,7 @@ class Orbit:
             raise RuntimeError(
                 "You need to specify the potential as pot= to compute LcE"
             )
-        flatten_potential(pot)
+        _check_potential_list_and_deprecate(pot)
         if _isNonAxi(pot):
             raise RuntimeError(
                 "Potential given to LcE is non-axisymmetric, but LcE requires an axisymmetric potential"

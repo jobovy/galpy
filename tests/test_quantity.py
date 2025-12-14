@@ -7696,7 +7696,9 @@ def test_linearPotential_function_inputAsQuantity():
     pot = linearCompositePotential(
         [PlummerPotential(normalize=True, ro=ro, vo=vo).toVertical(1.1 * ro)]
     )
-    potu = potential.RZToverticalPotential([PlummerPotential(normalize=True)], 1.1 * ro)
+    potu = potential.RZToverticalPotential(
+        CompositePotential([PlummerPotential(normalize=True)]), 1.1 * ro
+    )
     assert (
         numpy.fabs(
             potential.evaluatelinearPotentials(pot, 1.1 * ro, use_physical=False)
@@ -13534,7 +13536,7 @@ def test_actionAngle_inconsistentPotentialUnits_error():
         actionAngleSpherical,
         actionAngleStaeckel,
     )
-    from galpy.potential import IsochronePotential, PlummerPotential
+    from galpy.potential import CompositePotential, IsochronePotential, PlummerPotential
 
     # actionAngleIsochrone
     pot = IsochronePotential(normalize=1.0, ro=7.0, vo=220.0)
@@ -13553,10 +13555,10 @@ def test_actionAngle_inconsistentPotentialUnits_error():
     # actionAngleAdiabatic
     pot = PlummerPotential(normalize=1.0, b=0.7, ro=7.0, vo=220.0)
     with pytest.raises(AssertionError) as excinfo:
-        actionAngleAdiabatic(pot=[pot], ro=8.0, vo=220.0)
+        actionAngleAdiabatic(pot=CompositePotential([pot]), ro=8.0, vo=220.0)
     pot = PlummerPotential(normalize=1.0, b=0.7, ro=8.0, vo=230.0)
     with pytest.raises(AssertionError) as excinfo:
-        actionAngleAdiabatic(pot=[pot], ro=8.0, vo=220.0)
+        actionAngleAdiabatic(pot=CompositePotential([pot]), ro=8.0, vo=220.0)
     # actionAngleStaeckel
     pot = PlummerPotential(normalize=1.0, b=0.7, ro=7.0, vo=220.0)
     with pytest.raises(AssertionError) as excinfo:
@@ -13590,7 +13592,7 @@ def test_actionAngle_inconsistentOrbitUnits_error():
         actionAngleStaeckel,
     )
     from galpy.orbit import Orbit
-    from galpy.potential import IsochronePotential, PlummerPotential
+    from galpy.potential import CompositePotential, IsochronePotential, PlummerPotential
 
     # actionAngleIsochrone
     pot = IsochronePotential(normalize=1)
@@ -13627,7 +13629,7 @@ def test_actionAngle_inconsistentOrbitUnits_error():
     with pytest.raises(AssertionError) as excinfo:
         aA.actionsFreqsAngles(o)
     # actionAngleAdiabatic
-    aA = actionAngleAdiabatic(pot=[pot], ro=8.0, vo=220.0)
+    aA = actionAngleAdiabatic(pot=CompositePotential([pot]), ro=8.0, vo=220.0)
     o = Orbit([1.1, 0.2, 1.2, 0.1, 0.2, 0.2], ro=7.0, vo=220.0)
     with pytest.raises(AssertionError) as excinfo:
         aA(o)

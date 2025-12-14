@@ -4,9 +4,8 @@ import numpy
 
 from ..df.df import df
 from ..orbit import Orbit
-from ..potential import MovingObjectPotential, evaluateRforces
-from ..potential import flatten as flatten_potential
-from ..potential import rtide
+from ..potential import MovingObjectPotential, evaluateRforces, rtide
+from ..potential.Potential import _check_potential_list_and_deprecate
 from ..util import _rotate_to_arbitrary_vector, conversion, coords
 from ..util._optional_deps import _APY_LOADED, _APY_UNITS
 
@@ -74,8 +73,10 @@ class basestreamspraydf(df):
         )
         if pot is None:  # pragma: no cover
             raise OSError("pot= must be set")
-        self._pot = flatten_potential(pot)
-        self._rtpot = self._pot if rtpot is None else flatten_potential(rtpot)
+        self._pot = _check_potential_list_and_deprecate(pot)
+        self._rtpot = (
+            self._pot if rtpot is None else _check_potential_list_and_deprecate(rtpot)
+        )
         assert conversion.physical_compatible(self, self._pot), (
             "Physical conversion for the potential is not consistent with that of the basestreamspraydf object being initialized"
         )
@@ -95,7 +96,9 @@ class basestreamspraydf(df):
         # Set up center orbit if given
         if not center is None:
             self._centerpot = (
-                self._pot if centerpot is None else flatten_potential(centerpot)
+                self._pot
+                if centerpot is None
+                else _check_potential_list_and_deprecate(centerpot)
             )
             assert conversion.physical_compatible(self, self._centerpot), (
                 "Physical conversion for the center potential is not consistent with that of the basestreamspraydf object being initialized"

@@ -14,8 +14,10 @@ import numpy
 from scipy import interpolate, ndimage, optimize
 
 from .. import potential
-from ..potential.Potential import _evaluatePotentials
-from ..potential.Potential import flatten as flatten_potential
+from ..potential.Potential import (
+    _check_potential_list_and_deprecate,
+    _evaluatePotentials,
+)
 from ..util import conversion, coords, multi
 from . import actionAngleStaeckel, actionAngleStaeckel_c
 from .actionAngle import actionAngle
@@ -73,7 +75,7 @@ class actionAngleStaeckelGrid(actionAngle):
         actionAngle.__init__(self, ro=kwargs.get("ro", None), vo=kwargs.get("vo", None))
         if pot is None:
             raise OSError("Must specify pot= for actionAngleStaeckelGrid")
-        self._pot = flatten_potential(pot)
+        self._pot = _check_potential_list_and_deprecate(pot)
         if delta is None:
             raise OSError("Must specify delta= for actionAngleStaeckelGrid")
         if ext_loaded and "c" in kwargs and kwargs["c"]:

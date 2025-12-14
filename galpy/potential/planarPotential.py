@@ -18,7 +18,7 @@ from .Potential import (
     _INF,
     Potential,
     PotentialError,
-    flatten,
+    _check_potential_list_and_deprecate,
     lindbladR,
     plotEscapecurve,
     plotRotcurve,
@@ -699,12 +699,12 @@ def RZToplanarPotential(RZPot):
     from .CompositePotential import CompositePotential
     from .planarCompositePotential import planarCompositePotential
 
-    RZPot = flatten(RZPot)
+    RZPot = _check_potential_list_and_deprecate(RZPot)
     if _isDissipative(RZPot):
         raise NotImplementedError(
             "Converting dissipative forces to 2D axisymmetric potentials is currently not supported"
         )
-    if isinstance(RZPot, (CompositePotential, list)):
+    if isinstance(RZPot, CompositePotential):
         out = []
         for pot in RZPot:
             if isinstance(pot, planarPotential) and not pot.isNonAxi:
@@ -971,8 +971,8 @@ def toPlanarPotential(Pot):
     from .CompositePotential import CompositePotential
     from .planarCompositePotential import planarCompositePotential
 
-    Pot = flatten(Pot)
-    if isinstance(Pot, (CompositePotential, list)):
+    Pot = _check_potential_list_and_deprecate(Pot)
+    if isinstance(Pot, CompositePotential):
         out = []
         for pot in Pot:
             if isinstance(pot, planarForce):
@@ -1226,6 +1226,7 @@ def evaluateplanarR2derivs(Pot, R, phi=None, t=0.0):
     return Pot.R2deriv(R, phi=phi, t=t, use_physical=False)
 
 
+@potential_list_of_potentials_input
 def LinShuReductionFactor(
     axiPot, R, sigmar, nonaxiPot=None, k=None, m=None, OmegaP=None
 ):
@@ -1259,7 +1260,6 @@ def LinShuReductionFactor(
     - 2014-08-23 - Written - Bovy (IAS)
 
     """
-    axiPot = flatten(axiPot)
     from ..potential import epifreq, omegac
 
     if nonaxiPot is None and (OmegaP is None or k is None or m is None):

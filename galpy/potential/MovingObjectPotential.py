@@ -6,6 +6,7 @@ import copy
 
 import numpy
 
+from ..potential.Potential import _check_potential_list_and_deprecate
 from .PlummerPotential import PlummerPotential
 from .Potential import (
     Potential,
@@ -15,7 +16,6 @@ from .Potential import (
     evaluatePotentials,
     evaluateRforces,
     evaluatezforces,
-    flatten,
 )
 
 
@@ -53,7 +53,7 @@ class MovingObjectPotential(Potential):
             pot = PlummerPotential(amp=0.06, b=0.01)
             self._pot = pot
         else:
-            pot = flatten(pot)
+            pot = _check_potential_list_and_deprecate(pot)
             if _isNonAxi(pot):
                 raise NotImplementedError(
                     "MovingObjectPotential for non-axisymmetric potentials is not currently supported"

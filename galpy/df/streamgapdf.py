@@ -9,7 +9,7 @@ from scipy import integrate, interpolate, special
 
 from ..orbit import Orbit
 from ..potential import MovingObjectPotential, PlummerPotential, evaluateRforces
-from ..potential import flatten as flatten_potential
+from ..potential.Potential import _check_potential_list_and_deprecate
 from ..util import _rotate_to_arbitrary_vector, conversion, coords, galpyWarning, multi
 from ..util.conversion import physical_conversion
 from . import streamdf
@@ -1584,7 +1584,7 @@ def impulse_deltav_general(v, y, b, w, pot):
     - 2015-05-04 - Written - Sanders (Cambridge)
     - 2015-06-15 - Tweak to use galpy' potential objects - Bovy (IAS)
     """
-    pot = flatten_potential(pot)
+    pot = _check_potential_list_and_deprecate(pot)
     if len(v.shape) == 1:
         v = numpy.reshape(v, (1, 3))
     nv = v.shape[0]
@@ -1639,7 +1639,7 @@ def impulse_deltav_general_curvedstream(v, x, b, w, x0, v0, pot):
     - 2015-05-04 - Written - Sanders (Cambridge)
     - 2015-06-15 - Tweak to use galpy' potential objects - Bovy (IAS)
     """
-    pot = flatten_potential(pot)
+    pot = _check_potential_list_and_deprecate(pot)
     if len(v.shape) == 1:
         v = numpy.reshape(v, (1, 3))
     if len(x.shape) == 1:
@@ -1705,7 +1705,7 @@ def impulse_deltav_general_orbitintegration(
     -----
     - 2015-08-17 - Written - Sanders (Cambridge)
     """
-    galpot = flatten_potential(galpot)
+    galpot = _check_potential_list_and_deprecate(galpot)
     if len(v.shape) == 1:
         v = numpy.reshape(v, (1, 3))
     if len(x.shape) == 1:
@@ -1791,7 +1791,7 @@ def impulse_deltav_general_fullplummerintegration(
     -----
     - 2015-08-18 - Written - Sanders (Cambridge)
     """
-    galpot = flatten_potential(galpot)
+    galpot = _check_potential_list_and_deprecate(galpot)
     if len(v.shape) == 1:
         v = numpy.reshape(v, (1, 3))
     if len(x.shape) == 1:
@@ -2035,7 +2035,7 @@ def impulse_deltav_plummerstream_curvedstream(
     -----
     - 2015-11-14 - Written - Bovy (UofT)
     """
-    galpot = flatten_potential(galpot)
+    galpot = _check_potential_list_and_deprecate(galpot)
     if len(v.shape) == 1:
         v = numpy.reshape(v, (1, 3))
     if len(x.shape) == 1:

@@ -109,6 +109,7 @@ def _check_potential_list_and_deprecate(Pot):
         # Determine the dimensionality of the composite class to create,
         # but only handle (a) all 3D, (b) all 1D, (c) mix of 3D and 2d
         # All other cases are passed through to just error later
+        Pot = flatten(Pot)  # Shouldn't be necessary, but just in case
         dims = [_dim(pot) for pot in Pot]
         if all(d == 3 for d in dims):
             from .CompositePotential import CompositePotential
@@ -2639,7 +2640,6 @@ def plotPotentials(
     """
     if effective and xy:
         raise RuntimeError("xy and effective cannot be True at the same time")
-    Pot = flatten(Pot)
     physical_kwargs = conversion.extract_physical_kwargs(kwargs)
     use_physical, ro, vo = conversion.physical_output(Pot, physical_kwargs, "density")
     if ro is None:
@@ -2813,7 +2813,6 @@ def plotDensities(
     --------
     galpy.util.plot.dens2d
     """
-    Pot = flatten(Pot)
     physical_kwargs = conversion.extract_physical_kwargs(kwargs)
     use_physical, ro, vo = conversion.physical_output(Pot, physical_kwargs, "density")
     if ro is None:
@@ -2949,7 +2948,6 @@ def plotSurfaceDensities(
     - 2020-08-19 - Written - Bovy (UofT)
 
     """
-    Pot = flatten(Pot)
     physical_kwargs = conversion.extract_physical_kwargs(kwargs)
     use_physical, ro, vo = conversion.physical_output(
         Pot, physical_kwargs, "surfacedensity"
@@ -3171,7 +3169,6 @@ def rl(Pot, lz, t=0.0):
     Orbit.rguiding
 
     """
-    Pot = flatten(Pot)
     lz = conversion.parse_angmom(lz, **conversion.get_physical(Pot))
     # Find interval
     rstart = _rlFindStart(numpy.fabs(lz), numpy.fabs(lz), Pot, t=t)  # assumes vo=1.
@@ -3238,7 +3235,6 @@ def rE(Pot, E, t=0.0):
     Orbit.rE
 
     """
-    Pot = flatten(Pot)
     E = conversion.parse_energy(E, **conversion.get_physical(Pot))
     # Find interval
     rstart = _rEFindStart(1.0, E, Pot, t=t)
@@ -3329,7 +3325,6 @@ def lindbladR(Pot, OmegaP, m=2, t=0.0, **kwargs):
     - 2011-10-09 - Written - Bovy (IAS)
 
     """
-    Pot = flatten(Pot)
     OmegaP = conversion.parse_frequency(OmegaP, **conversion.get_physical(Pot))
     if isinstance(m, str):
         if "corot" in m.lower():
@@ -3948,7 +3943,6 @@ def to_amuse(
         raise ImportError(
             "To obtain an AMUSE representation of a galpy potential, you need to have AMUSE installed"
         )
-    Pot = flatten(Pot)
     if ro is None or vo is None:
         physical_dict = get_physical(Pot)
         if ro is None:
@@ -4390,7 +4384,6 @@ def zvc_range(Pot, E, Lz, phi=0.0, t=0.0):
     -----
     - 2020-08-20 - Written - Bovy (UofT)
     """
-    Pot = flatten(Pot)
     E = conversion.parse_energy(E, **get_physical(Pot))
     Lz = conversion.parse_angmom(Lz, **get_physical(Pot))
     Lz2over2 = Lz**2.0 / 2.0
@@ -4453,7 +4446,6 @@ def rhalf(Pot, t=0.0, INF=numpy.inf):
     - 2021-03-18 - Written - Bovy (UofT)
 
     """
-    Pot = flatten(Pot)
     tot_mass = mass(Pot, INF, t=t)
     # Find interval
     rhi = _rhalfFindStart(1.0, Pot, tot_mass, t=t)

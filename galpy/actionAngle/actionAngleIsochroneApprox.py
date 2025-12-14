@@ -21,7 +21,7 @@ from numpy import linalg
 from scipy import optimize
 
 from ..potential import IsochronePotential, MWPotential, _isNonAxi, dvcircdR, vcirc
-from ..potential.Potential import flatten as flatten_potential
+from ..potential.Potential import _check_potential_list_and_deprecate
 from ..util import conversion, galpyWarning, plot
 from ..util.conversion import physical_conversion, potential_physical_input, time_in_Gyr
 from .actionAngle import actionAngle
@@ -71,7 +71,7 @@ class actionAngleIsochroneApprox(actionAngle):
         actionAngle.__init__(self, ro=kwargs.get("ro", None), vo=kwargs.get("vo", None))
         if not "pot" in kwargs:  # pragma: no cover
             raise OSError("Must specify pot= for actionAngleIsochroneApprox")
-        self._pot = flatten_potential(kwargs["pot"])
+        self._pot = _check_potential_list_and_deprecate(kwargs["pot"])
         if self._pot == MWPotential:
             warnings.warn(
                 "Use of MWPotential as a Milky-Way-like potential is deprecated; galpy.potential.MWPotential2014, a potential fit to a large variety of dynamical constraints (see Bovy 2015), is the preferred Milky-Way-like potential in galpy",

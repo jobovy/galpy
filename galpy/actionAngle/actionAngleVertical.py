@@ -13,6 +13,7 @@ import numpy
 from scipy import integrate, optimize
 
 from ..potential.linearPotential import evaluatelinearPotentials
+from ..potential.Potential import _check_potential_list_and_deprecate
 from .actionAngle import actionAngle
 
 
@@ -43,7 +44,7 @@ class actionAngleVertical(actionAngle):
             raise OSError("Must specify pot= for actionAngleVertical")
         if not "pot" in kwargs:  # pragma: no cover
             raise OSError("Must specify pot= for actionAngleVertical")
-        self._pot = kwargs["pot"]
+        self._pot = _check_potential_list_and_deprecate(kwargs["pot"])
         return None
 
     def _evaluate(self, *args, **kwargs):

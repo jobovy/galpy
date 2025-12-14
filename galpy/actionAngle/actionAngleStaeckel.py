@@ -31,12 +31,12 @@ from ..potential import (
 from ..potential.Potential import (
     PotentialError,
     _check_c,
+    _check_potential_list_and_deprecate,
     _evaluatePotentials,
     _evaluateRforces,
     _evaluatezforces,
     _isNonAxi,
 )
-from ..potential.Potential import flatten as flatten_potential
 from ..util import coords  # for prolate confocal transforms
 from ..util import conversion, galpyWarning
 from ..util.conversion import physical_conversion, potential_physical_input
@@ -76,7 +76,7 @@ class actionAngleStaeckel(actionAngle):
         actionAngle.__init__(self, ro=kwargs.get("ro", None), vo=kwargs.get("vo", None))
         if not "pot" in kwargs:  # pragma: no cover
             raise OSError("Must specify pot= for actionAngleStaeckel")
-        self._pot = flatten_potential(kwargs["pot"])
+        self._pot = _check_potential_list_and_deprecate(kwargs["pot"])
         if self._pot == MWPotential:
             warnings.warn(
                 "Use of MWPotential as a Milky-Way-like potential is deprecated; galpy.potential.MWPotential2014, a potential fit to a large variety of dynamical constraints (see Bovy 2015), is the preferred Milky-Way-like potential in galpy",
@@ -1521,7 +1521,7 @@ def estimateDeltaStaeckel(pot, R, z, no_median=False, delta0=1e-6):
     - 2022-09-15 - Add delta0 - Bovy (UofT)
     """
 
-    pot = flatten_potential(pot)
+    pot = _check_potential_list_and_deprecate(pot)
     if _isNonAxi(pot):
         raise PotentialError(
             "Calling estimateDeltaStaeckel with non-axisymmetric potentials is not supported"
@@ -1534,7 +1534,7 @@ def estimateDeltaStaeckel(pot, R, z, no_median=False, delta0=1e-6):
                 for p in pot
             ]
         )
-        if isinstance(pot, (list, CompositePotential))
+        if isinstance(pot, CompositePotential)
         else isinstance(pot, SCFPotential) or isinstance(pot, DiskSCFPotential)
     )
     if numpy.any(z == 0.0):
