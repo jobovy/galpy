@@ -14,8 +14,10 @@ import numpy
 from scipy import interpolate
 
 from .. import potential
-from ..potential.Potential import _evaluatePotentials
-from ..potential.Potential import flatten as flatten_potential
+from ..potential.Potential import (
+    _check_potential_list_and_deprecate,
+    _evaluatePotentials,
+)
 from ..util import multi
 from .actionAngle import UnboundError, actionAngle
 from .actionAngleAdiabatic import actionAngleAdiabatic
@@ -76,7 +78,7 @@ class actionAngleAdiabaticGrid(actionAngle):
             raise OSError("Must specify pot= for actionAngleAdiabaticGrid")
         self._c = kwargs.pop("c", False)
         self._gamma = gamma
-        self._pot = flatten_potential(pot)
+        self._pot = _check_potential_list_and_deprecate(pot)
         self._zmax = zmax
         self._Rmax = Rmax
         self._Rmin = 0.01

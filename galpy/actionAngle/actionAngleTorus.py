@@ -11,8 +11,7 @@ import warnings
 import numpy
 
 from ..potential import MWPotential, _isNonAxi
-from ..potential.Potential import _check_c
-from ..potential.Potential import flatten as flatten_potential
+from ..potential.Potential import _check_c, _check_potential_list_and_deprecate
 from ..util import galpyWarning
 from . import actionAngleTorus_c
 from .actionAngleTorus_c import _ext_loaded as ext_loaded
@@ -53,7 +52,7 @@ class actionAngleTorus:
         """
         if not "pot" in kwargs:  # pragma: no cover
             raise OSError("Must specify pot= for actionAngleTorus")
-        self._pot = flatten_potential(kwargs["pot"])
+        self._pot = _check_potential_list_and_deprecate(kwargs["pot"])
         if _isNonAxi(self._pot):
             raise RuntimeError(
                 "actionAngleTorus for non-axisymmetric potentials is not supported"

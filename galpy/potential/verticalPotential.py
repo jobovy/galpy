@@ -5,7 +5,7 @@ from ._repr_utils import _build_physical_output_string, _strip_physical_output_i
 from .DissipativeForce import _isDissipative
 from .linearPotential import linearPotential
 from .planarPotential import planarPotential
-from .Potential import Potential, PotentialError, flatten
+from .Potential import Potential, PotentialError, _check_potential_list_and_deprecate
 
 
 class verticalPotential(linearPotential):
@@ -167,7 +167,7 @@ def RZToverticalPotential(RZPot, R):
     from .CompositePotential import CompositePotential
     from .linearCompositePotential import linearCompositePotential
 
-    RZPot = flatten(RZPot)
+    RZPot = _check_potential_list_and_deprecate(RZPot)
     try:
         conversion.get_physical(RZPot)
     except:
@@ -179,7 +179,7 @@ def RZToverticalPotential(RZPot, R):
             "Converting dissipative forces to 1D vertical potentials is currently not supported"
         )
     R = conversion.parse_length(R, **conversion.get_physical(RZPot))
-    if isinstance(RZPot, (list, CompositePotential)):
+    if isinstance(RZPot, CompositePotential):
         out = []
         for pot in RZPot:
             if isinstance(pot, linearPotential):
@@ -242,7 +242,7 @@ def toVerticalPotential(Pot, R, phi=None, t0=0.0):
     from .CompositePotential import CompositePotential
     from .linearCompositePotential import linearCompositePotential
 
-    Pot = flatten(Pot)
+    Pot = _check_potential_list_and_deprecate(Pot)
     try:
         conversion.get_physical(Pot)
     except:
@@ -256,7 +256,7 @@ def toVerticalPotential(Pot, R, phi=None, t0=0.0):
     R = conversion.parse_length(R, **conversion.get_physical(Pot))
     phi = conversion.parse_angle(phi)
     t0 = conversion.parse_time(t0, **conversion.get_physical(Pot))
-    if isinstance(Pot, (list, CompositePotential)):
+    if isinstance(Pot, CompositePotential):
         out = []
         for pot in Pot:
             if isinstance(pot, linearPotential):

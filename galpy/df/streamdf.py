@@ -18,7 +18,7 @@ else:
 
 from ..actionAngle.actionAngleIsochroneApprox import dePeriod
 from ..orbit import Orbit
-from ..potential import flatten as flatten_potential
+from ..potential.Potential import _check_potential_list_and_deprecate
 from ..util import (
     ars,
     conversion,
@@ -183,7 +183,7 @@ class streamdf(df):
         self._sigMeanOffset = sigMeanOffset
         if pot is None:  # pragma: no cover
             raise OSError("pot= must be set")
-        self._pot = flatten_potential(pot)
+        self._pot = _check_potential_list_and_deprecate(pot)
         self._aA = aA
         if not self._aA._pot == self._pot:
             raise OSError(

@@ -16,8 +16,10 @@ from scipy import integrate, optimize
 
 from ..potential import _dim, epifreq, omegac, vcirc
 from ..potential.planarPotential import _evaluateplanarPotentials
-from ..potential.Potential import _evaluatePotentials
-from ..potential.Potential import flatten as flatten_potential
+from ..potential.Potential import (
+    _check_potential_list_and_deprecate,
+    _evaluatePotentials,
+)
 from ..util import quadpack
 from .actionAngle import UnboundError, actionAngle
 
@@ -49,7 +51,7 @@ class actionAngleSpherical(actionAngle):
         actionAngle.__init__(self, ro=kwargs.get("ro", None), vo=kwargs.get("vo", None))
         if not "pot" in kwargs:  # pragma: no cover
             raise OSError("Must specify pot= for actionAngleSpherical")
-        self._pot = flatten_potential(kwargs["pot"])
+        self._pot = _check_potential_list_and_deprecate(kwargs["pot"])
         # Also store a 'planar' (2D) version of the potential, only potential
         # used in this class
         if _dim(self._pot) == 2:

@@ -1414,7 +1414,7 @@ def test_actionAngleAdiabatic_basic_actions_gamma0():
     from galpy.orbit import Orbit
     from galpy.potential import MWPotential
 
-    aAA = actionAngleAdiabatic(pot=[MWPotential[0], MWPotential[1:]], gamma=0.0)
+    aAA = actionAngleAdiabatic(pot=MWPotential[0] + MWPotential[1:], gamma=0.0)
     # circular orbit
     R, vR, vT, phi = 1.0, 0.0, 1.0, 2.0
     js = aAA(Orbit([R, vR, vT, phi]))
@@ -1461,7 +1461,7 @@ def test_actionAngleAdiabatic_basic_actions_c():
     from galpy.potential import MWPotential
 
     # test nested list of potentials
-    aAA = actionAngleAdiabatic(pot=[MWPotential[0], MWPotential[1:]], c=True)
+    aAA = actionAngleAdiabatic(pot=MWPotential[0] + MWPotential[1:], c=True)
     # circular orbit
     R, vR, vT, z, vz = 1.0, 0.0, 1.0, 0.0, 0.0
     js = aAA(R, vR, vT, z, vz)
