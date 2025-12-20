@@ -296,7 +296,7 @@ jobs:
            cd -
          fi
     - name: Install package
-      if: matrix.os == 'ubuntu-latest'
+      if: ${{ contains(matrix.os, 'ubuntu') }}
       env:
         GALPY_COMPILE_NO_OPENMP: 1
         GALPY_COMPILE_COVERAGE: 1
@@ -305,7 +305,7 @@ jobs:
         python -m pip install --no-build-isolation -ve .
         python setup.py build_ext --inplace
     - name: Install package
-      if: matrix.os == 'macos-15-intel'
+      if: ${{ contains(matrix.os, 'macos') }}
       run: |
         python -m pip install -v .
     - name: Special config
