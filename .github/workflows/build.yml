@@ -244,7 +244,7 @@ jobs:
       run: |
          sudo apt-get install libgsl-dev
     - name: Install the GSL and OpenMP
-      if: matrix.os == 'macos-15-intel'
+      if: ${{ contains(matrix.os, 'macos') }}
       run: |
          brew install gsl libomp
          brew info libomp
