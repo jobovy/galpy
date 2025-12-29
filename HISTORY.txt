@@ -14,6 +14,8 @@ v1.11.2 (expected around 2026-03-01)
   integration. The C implementation uses the hyp2f1 hypergeometric function
   and handles the special case where alpha=2.
 
+- Removed support for Python 3.9 (which has reached its end of life in Oct 2025).
+
 v1.11.1 (2025-11-02)
 ====================
 
