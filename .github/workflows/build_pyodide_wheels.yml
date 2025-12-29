@@ -58,7 +58,7 @@ jobs:
         with:
           version: ${{ env.EMSCRIPTEN_VERSION }}
       - name: Cache GSL build
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         id: cache-gsl
         with:
           path: .libs
@@ -93,7 +93,7 @@ jobs:
         run: |
           GALPY_VERSION="$(awk '/^current_version/{print $NF}' .bumpversion.cfg)"
           for f in dist/*$GALPY_VERSION*; do sudo cp -i -- "$f" "${f//$GALPY_VERSION/latest}"; done
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v6
         with:
           name: galpy-wheel-pyodide-${{ matrix.python-version }}
           path: dist/*.whl
@@ -108,7 +108,7 @@ jobs:
           mkdir tmp_wheelhouse
           mkdir wheelhouse
       - name: Download wheel artifacts
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           path: tmp_wheelhouse/
       # Flatten directory structure into wheelhouse/
