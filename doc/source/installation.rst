@@ -17,7 +17,7 @@ TL;DR
 
             python -m pip install --only-binary galpy galpy
 
-        This should install a fully-working version of galpy for Python versions >=3.9. If this fails, please open an `issue <https://github.com/jobovy/galpy/issues/new?assignees=&labels=&template=bug_report.md&title=>`__ on the ``galpy`` GitHub page, making sure to specify your platform and Python version. Then read on at :ref:`detailed_installation` to learn how to install ``galpy`` when the above fails.
+        This should install a fully-working version of galpy for Python versions >=3.10. If this fails, please open an `issue <https://github.com/jobovy/galpy/issues/new?assignees=&labels=&template=bug_report.md&title=>`__ on the ``galpy`` GitHub page, making sure to specify your platform and Python version. Then read on at :ref:`detailed_installation` to learn how to install ``galpy`` when the above fails.
 
     .. tab-item:: Mac
 
@@ -29,7 +29,7 @@ TL;DR
 
             conda install -c conda-forge gsl galpy
 
-        These should install a fully-working version of galpy for Python versions >=3.9. If this fails, please open an `issue <https://github.com/jobovy/galpy/issues/new?assignees=&labels=&template=bug_report.md&title=>`__ on the ``galpy`` GitHub page, making sure to specify your platform and Python version. Then read on at :ref:`detailed_installation` to learn how to install ``galpy`` when the above fails.
+        These should install a fully-working version of galpy for Python versions >=3.10. If this fails, please open an `issue <https://github.com/jobovy/galpy/issues/new?assignees=&labels=&template=bug_report.md&title=>`__ on the ``galpy`` GitHub page, making sure to specify your platform and Python version. Then read on at :ref:`detailed_installation` to learn how to install ``galpy`` when the above fails.
 
     .. tab-item:: Windows
 

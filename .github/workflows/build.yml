@@ -192,22 +192,6 @@ jobs:
             REQUIRES_ASTROQUERY: true
             REQUIRES_NUMBA: false
             REQUIRES_JAX: false
-          - os: ubuntu-latest
-            python-version: 3.9
-            TEST_FILES: tests/test_orbit.py -k 'test_energy_jacobi_conservation or from_name'
-            REQUIRES_PYNBODY: true
-            REQUIRES_ASTROPY: true
-            REQUIRES_ASTROQUERY: true
-            REQUIRES_NUMBA: false
-            REQUIRES_JAX: false
-          - os: ubuntu-latest
-            python-version: 3.9
-            TEST_FILES: tests/test_orbit.py tests/test_orbits.py -k 'not test_energy_jacobi_conservation'
-            REQUIRES_PYNBODY: true
-            REQUIRES_ASTROPY: true
-            REQUIRES_ASTROQUERY: true
-            REQUIRES_NUMBA: false
-            REQUIRES_JAX: false
           - os: macos-15-intel
             python-version: "3.14"
             TEST_FILES: tests/test_orbit.py -k 'test_energy_jacobi_conservation or from_name'

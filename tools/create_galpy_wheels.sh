@@ -3,7 +3,7 @@
 # Python version locally; useful for creating ARM64 wheels, because
 # not possible with CIs currently
 source ~/.bash_profile
-PYTHON_VERSIONS=("3.9" "3.10")
+PYTHON_VERSIONS=("3.10")
 GALPY_VERSION=1.8.0
 
 rm -rf galpy-wheels-output
