@@ -153,7 +153,7 @@ If you are reading this, either the simple installation instructions at the top 
 
             export CFLAGS=-I$(brew --prefix)/include -I/usr/local/opt/libomp/include
             export LDFLAGS=-L$(brew --prefix)/lib -L/usr/local/opt/libomp/lib
-            export LD_LIBRARY_PATH=$(brew --prefix)/lib:/usr/local/opt/libomp/lib
+            export DYLD_LIBRARY_PATH=$(brew --prefix)/lib:/usr/local/opt/libomp/lib
 
         Note that the exact paths may vary depending on your system (run
         ``brew info libomp`` to get the correct paths).
