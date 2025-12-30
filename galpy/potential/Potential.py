@@ -118,8 +118,10 @@ def _check_potential_list_and_deprecate(Pot):
         elif all(d >= 2 for d in dims):
             from .planarCompositePotential import planarCompositePotential
 
-            if any(d != 2 for d in dims):
+            if any(d != 2 for d in dims):  # pragma: no cover
                 # Mixed 2D and 3D potentials: convert 3D to 2D
+                # not worrying about coverage, because this is behavior that isn't
+                # really recommended and will be deprecated
                 Pot = [p.toPlanar() if _dim(p) == 3 else p for p in Pot]
 
             Pot = planarCompositePotential(Pot)
@@ -4102,12 +4104,10 @@ def _dim(Pot):
     Notes
     -----
     - 2016-04-19 - Written - Bovy (UofT)
+    - 2025-12-29 - Just returns Pot.dim now that lists of potentials are being deprecated - Bovy (UofT)
 
     """
-    if isinstance(Pot, list):
-        return min([_dim(p) for p in Pot])
-    else:
-        return Pot.dim
+    return Pot.dim
 
 
 def _isNonAxi(Pot):

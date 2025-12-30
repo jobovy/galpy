@@ -843,27 +843,11 @@ def physical_output(obj: Any, kwargs: dict, quantity: str) -> Tuple[bool, float,
     ro = kwargs.get("ro", None)
     if ro is None and (roSet or (hasattr(obj, "_roSet") and obj._roSet)):
         ro = obj._ro
-    if (
-        ro is None
-        and isinstance(obj, list)
-        and hasattr(obj[0], "_roSet")
-        and obj[0]._roSet
-    ):
-        # For lists of Potentials
-        ro = obj[0]._ro
     if _APY_LOADED and isinstance(ro, units.Quantity):
         ro = ro.to(units.kpc).value
     vo = kwargs.get("vo", None)
     if vo is None and (voSet or (hasattr(obj, "_voSet") and obj._voSet)):
         vo = obj._vo
-    if (
-        vo is None
-        and isinstance(obj, list)
-        and hasattr(obj[0], "_voSet")
-        and obj[0]._voSet
-    ):
-        # For lists of Potentials
-        vo = obj[0]._vo
     if _APY_LOADED and isinstance(vo, units.Quantity):
         vo = vo.to(units.km / units.s).value
     return (
@@ -1075,18 +1059,12 @@ def potential_physical_input(method):
         ro = kwargs.get("ro", None)
         if ro is None and hasattr(Pot, "_ro"):
             ro = Pot._ro
-        if ro is None and isinstance(Pot, list) and hasattr(Pot[0], "_ro"):
-            # For lists of Potentials
-            ro = Pot[0]._ro
         if _APY_LOADED and isinstance(ro, units.Quantity):
             ro = ro.to(units.kpc).value
         if "t" in kwargs or "M" in kwargs:
             vo = kwargs.get("vo", None)
             if vo is None and hasattr(Pot, "_vo"):
                 vo = Pot._vo
-            if vo is None and isinstance(Pot, list) and hasattr(Pot[0], "_vo"):
-                # For lists of Potentials
-                vo = Pot[0]._vo
             if _APY_LOADED and isinstance(vo, units.Quantity):
                 vo = vo.to(units.km / units.s).value
         # Loop through args
