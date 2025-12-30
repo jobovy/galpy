@@ -1,6 +1,16 @@
 v1.11.2 (expected around 2026-03-01)
 ====================
 
+- Added CompositePotential, planarCompositePotential, and linearCompositePotential
+  classes to represent combinations of multiple potentials in 3D, 2D, and 1D,
+  respectively. These classes replace the previous use of lists of potentials
+  to represent combined potentials. The new classes provide better performance
+  and a cleaner interface for combined potentials. Note that these classes don't
+  need to be explicitly instantiated, but instead are created automatically when
+  adding potentials using + and, because this was already the recommended way to combine
+  potentials, this change is mostly internal. The old way of using lists of potentials
+  will be deprecated in a future version (likely v1.14.0).
+
 - Added support for continuing orbit integrations. When an orbit has already
   been integrated and integrate() is called again with a time array that
   continues from the end (for forward continuation) or beginning (for backward
