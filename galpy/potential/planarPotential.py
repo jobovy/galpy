@@ -692,8 +692,7 @@ def RZToplanarPotential(RZPot):
     Notes
     -----
     - 2010-07-13 - Written - Bovy (NYU)
-    - 2024-11-27 - Updated to return planarCompositePotential for multiple
-      potentials - Copilot
+    - 2024-11-27 - Updated to return planarCompositePotential for multiple potentials - Copilot
 
     """
     from .CompositePotential import CompositePotential
@@ -962,8 +961,7 @@ def toPlanarPotential(Pot):
     Notes
     -----
     - 2016-06-11: Written - Bovy (UofT)
-    - 2024-11-27: Updated to return planarCompositePotential for multiple
-      potentials - Copilot
+    - 2024-11-27: Updated to return planarCompositePotential for multiple potentials - Copilot
 
     """
     from .CompositePotential import CompositePotential

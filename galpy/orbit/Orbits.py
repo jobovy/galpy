@@ -1428,10 +1428,10 @@ class Orbit:
         pot_changed = False
 
         # Convert to lists for uniform handling
-        pot_list = list(pot) if isinstance(pot, (list, CompositePotential)) else [pot]
+        pot_list = list(pot) if isinstance(pot, CompositePotential) else [pot]
         old_pot_list = (
             list(self._orig_pot)
-            if isinstance(self._orig_pot, (list, CompositePotential))
+            if isinstance(self._orig_pot, CompositePotential)
             else [self._orig_pot]
         )
 
