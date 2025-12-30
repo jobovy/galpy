@@ -2694,7 +2694,7 @@ class Orbit:
                     raise AttributeError("Integrate orbit or specify pot=")
             else:
                 pot = kwargs["pot"]
-            if isinstance(pot, (list, CompositePotential)):
+            if isinstance(pot, (CompositePotential, planarCompositePotential)):
                 for p in pot:
                     if hasattr(p, "OmegaP"):
                         OmegaP = p.OmegaP()

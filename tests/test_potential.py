@@ -8171,6 +8171,34 @@ def test_CompositePotential_explicit_units():
     return None
 
 
+def test_planarCompositePotential_explicit_units():
+    # Test that explicit ro/vo initialization works correctly
+    from galpy.potential import LogarithmicHaloPotential, planarCompositePotential
+
+    pot1 = LogarithmicHaloPotential(normalize=0.5).toPlanar()
+    pot2 = LogarithmicHaloPotential(normalize=0.5).toPlanar()
+
+    # Create CompositePotential with explicit ro and vo
+    comp = planarCompositePotential(pot1, pot2, ro=8.5, vo=220.0)
+    # Check that ro and vo are set correctly
+    assert comp._ro == 8.5, "Explicit ro not set correctly"
+    assert comp._vo == 220.0, "Explicit vo not set correctly"
+    assert comp._roSet, "roSet should be True when ro is explicitly provided"
+    assert comp._voSet, "voSet should be True when vo is explicitly provided"
+
+    # Test with only ro set
+    comp_ro = planarCompositePotential(pot1, pot2, ro=9.0)
+    assert comp_ro._ro == 9.0, "Explicit ro not set correctly"
+    assert comp_ro._roSet, "roSet should be True when ro is explicitly provided"
+
+    # Test with only vo set
+    comp_vo = planarCompositePotential(pot1, pot2, vo=230.0)
+    assert comp_vo._vo == 230.0, "Explicit vo not set correctly"
+    assert comp_vo._voSet, "voSet should be True when vo is explicitly provided"
+
+    return None
+
+
 def test_CompositePotential_setitem_error():
     # Test that __setitem__ raises TypeError for non-Potential values
     from galpy.potential import CompositePotential, LogarithmicHaloPotential
@@ -8563,8 +8591,10 @@ def test_planarCompositePotential_from_addition():
     # Create planar potentials
     pot1 = MiyamotoNagaiPotential(normalize=0.6)
     pot2 = LogarithmicHaloPotential(normalize=0.4)
+    pot3 = LogarithmicHaloPotential(normalize=0.2)
     planar1 = toPlanarPotential(pot1)
     planar2 = toPlanarPotential(pot2)
+    planar3 = toPlanarPotential(pot3)
 
     # Add them together
     combined = planar1 + planar2
@@ -8581,6 +8611,51 @@ def test_planarCompositePotential_from_addition():
     assert numpy.fabs(val - expected) < 1e-10, (
         "planarCompositePotential from addition evaluates incorrectly"
     )
+
+    # Some further testing copied from CompositePotential
+    # Test adding individual to planarCompositePotential
+    comp12 = planar1 + planar2
+    comp123 = comp12 + planar3
+    assert len(comp123) == 3
+    assert comp123[0] == planar1
+    assert comp123[1] == planar2
+    assert comp123[2] == planar3
+
+    # Test adding planarCompositePotential to individual
+    comp23 = planar2 + planar3
+    comp123_2 = planar1 + comp23
+    assert len(comp123_2) == 3
+    assert comp123_2[0] == planar1
+
+    # Test adding two planarCompositePotentials
+    comp12 = planar1 + planar2
+    comp3 = planar3 + planar3
+    comp_all = comp12 + comp3
+    assert len(comp_all) == 4
+    return None
+
+
+def test_planarCompositePotential_add_error():
+    # Test that __add__ raises TypeError for incompatible types
+    from galpy.potential import LogarithmicHaloPotential, planarCompositePotential
+
+    pot1 = LogarithmicHaloPotential(normalize=0.5).toPlanar()
+    pot2 = LogarithmicHaloPotential(normalize=0.5).toPlanar()
+    comp = planarCompositePotential(pot1, pot2)
+
+    # Try to add a string
+    try:
+        result = comp + "not a potential"
+        assert False, "Should have raised TypeError"
+    except TypeError as e:
+        assert "Can only add planarPotential" in str(e)
+
+    # Try to add a number
+    try:
+        result = comp + 42
+        assert False, "Should have raised TypeError"
+    except TypeError as e:
+        assert "Can only add planarPotential" in str(e)
 
     return None
 

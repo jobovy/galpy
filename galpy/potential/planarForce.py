@@ -150,7 +150,7 @@ class planarForce:
         # Physical compatibility is checked in planarCompositePotential.__init__
         return planarCompositePotential(self, b)
 
-    # Define separately to keep order
+    # Define separately to catch errors
     def __radd__(self, b):
         from ..potential import flatten as flatten_pot
         from .planarCompositePotential import planarCompositePotential
@@ -160,8 +160,8 @@ class planarForce:
                 """Can only combine galpy Force objects with """
                 """other Force objects or combinations thereof"""
             )
-        # Physical compatibility is checked in planarCompositePotential.__init__
-        return planarCompositePotential(b, self)
+
+        # Can't add anything that isn't handled elsewhere, so no further code here
 
     def turn_physical_off(self):
         """

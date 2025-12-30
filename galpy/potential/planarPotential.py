@@ -707,9 +707,7 @@ def RZToplanarPotential(RZPot):
     if isinstance(RZPot, CompositePotential):
         out = []
         for pot in RZPot:
-            if isinstance(pot, planarPotential) and not pot.isNonAxi:
-                out.append(pot)
-            elif isinstance(pot, Potential) and not pot.isNonAxi:
+            if isinstance(pot, Potential) and not pot.isNonAxi:
                 out.append(planarPotentialFromRZPotential(pot))
             else:
                 raise PotentialError(
@@ -975,15 +973,15 @@ def toPlanarPotential(Pot):
     if isinstance(Pot, CompositePotential):
         out = []
         for pot in Pot:
-            if isinstance(pot, planarForce):
-                out.append(pot)
-            elif isinstance(pot, Potential) and pot.isNonAxi:
+            if isinstance(pot, Potential) and pot.isNonAxi:
                 out.append(planarPotentialFromFullPotential(pot))
             elif isinstance(pot, Potential):
                 out.append(planarPotentialFromRZPotential(pot))
             elif isinstance(pot, DissipativeForce):
                 out.append(planarDissipativeForceFromFullDissipativeForce(pot))
-            else:
+            else:  # pragma: no cover
+                # Can't get here, because there can't be something that's not a proper
+                # potential/force in a CompositePotential, but leaving it in case this ever changes
                 raise PotentialError(
                     "Input to 'toPlanarPotential' is neither an Potential-instance or a list of such instances"
                 )
