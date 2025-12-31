@@ -820,7 +820,7 @@ dynamical in the vertical direction perpendicular to the main plane of a disk.
 
 The action-angle coordinates for one-dimensional potentials are computed using the
 ``actionAngleVertical`` class. This class can be initialized with a
-``linearPotential`` instance or with a list of such instances
+``linearPotential`` instance or with a combination of such instances
 (``verticalPotential`` instances which represent the vertical direction of
 3D potentials are examples of a ``linearPotential``). As an example, we'll
 consider orbits in the one-dimensional version of the ``MWPotential2014`` model

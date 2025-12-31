@@ -38,15 +38,13 @@ rotation curve
 >>> mp= MiyamotoNagaiPotential(a=0.5,b=0.0375,normalize=.6)
 >>> np= NFWPotential(a=4.5,normalize=.35)
 >>> hp= HernquistPotential(a=0.6/8,normalize=0.05)
->>> from galpy.potential import plotRotcurve
->>> plotRotcurve(hp+mp+np,Rrange=[0.01,10.],grid=1001,yrange=[0.,1.2])
+>>> (hp+mp+np).plotRotcurve(Rrange=[0.01,10.],grid=1001,yrange=[0.,1.2])
 
 Note that the ``normalize`` values add up to 1. such that the circular
 velocity will be 1 at R=1. Potentials can be combined into a composite
-potential either by combining them in a list as ``[hp,mp,np]`` or by
-adding them up ``hp+mp+np`` (the latter simply returns the list
-``[hp,mp,np]``). The resulting rotation curve is approximately
-flat. To show the rotation curves of the three components do
+potential by adding them up ``hp+mp+np``.
+The resulting rotation curve is approximately flat.
+To show the rotation curves of the three components do
 
 >>> mp.plotRotcurve(Rrange=[0.01,10.],grid=1001,overplot=True)
 >>> hp.plotRotcurve(Rrange=[0.01,10.],grid=1001,overplot=True)
@@ -56,7 +54,7 @@ You'll see the following
 
 .. image:: images/rotcurve.png
 
-As a shortcut the ``[hp,mp,np]`` Milky-Way-like potential is defined as
+As a shortcut the ``hp+mp+np`` Milky-Way-like potential is defined as
 
 >>> from galpy.potential import MWPotential
 
@@ -104,14 +102,14 @@ or about 223 Myr. We can also express forces in various physical
 units. For example, for the Milky-Way-like potential defined in galpy,
 we have that the vertical force at 1.1 kpc is
 
->>> from galpy.potential import MWPotential2014, evaluatezforces
->>> -evaluatezforces(MWPotential2014, 1.,1.1/8.)*conversion.force_in_pcMyr2(220.,8.)
+>>> from galpy.potential import MWPotential2014
+>>> -MWPotential2014.zforce(1.,1.1/8.)*conversion.force_in_pcMyr2(220.,8.)
 # 2.0259181908629933
 
 which we can also express as an equivalent surface-density by dividing
 by :math:`2\pi G`
 
->>> -evaluatezforces(MWPotential2014, 1.,1.1/8.)*conversion.force_in_2piGmsolpc2(220.,8.)
+>>> -MWPotential2014.zforce(1.,1.1/8.)*conversion.force_in_2piGmsolpc2(220.,8.)
 # 71.658016957792356
 
 Because the vertical force at the solar circle in the Milky Way at 1.1
@@ -223,7 +221,7 @@ input to any galpy function that does not take a Quantity as an input
 <https://github.com/jobovy/galpy/issues>`__.
 
 .. WARNING::
-   If you combine potentials by adding them (``comb_pot= pot1+pot2``), galpy uses the ``ro`` and ``vo`` scales from the first potential in the list for physical <-> internal unit conversion. If you add potentials using the '+' operator, galpy will check that the units are compatible. galpy does **not** always check whether the unit systems of various objects are consistent when they are combined (but does check this for many common cases, e.g., integrating an Orbit in a Potential, setting up an actionAngle object for a given potential, setting up a DF object for a given potential, etc.).
+   If you combine potentials by adding them (``comb_pot= pot1+pot2``), galpy uses the ``ro`` and ``vo`` scales from the first potential in the combination for physical <-> internal unit conversion. If you add potentials using the '+' operator, galpy will check that the units are compatible. galpy does **not** always check whether the unit systems of various objects are consistent when they are combined (but does check this for many common cases, e.g., integrating an Orbit in a Potential, setting up an actionAngle object for a given potential, setting up a DF object for a given potential, etc.).
 
 galpy can also return values with units as an astropy
 Quantity. Whether or not this is done is specified by the
@@ -269,7 +267,7 @@ Quantity when ``astropy-units = False``. If you setup a Potential, Orbit,
 actionAngle, or DF object with parameters specified as a Quantity, the
 default is to return any output in physical units. This is why
 ``mp.vcirc`` returns the velocity in km/s above. Potential and Orbit
-instances (or lists of Potentials) also support the functions
+instances (or combinations of Potentials) also support the functions
 ``turn_physical_off`` and ``turn_physical_on`` to turn physical output
 off or on. For example, if we do
 
@@ -395,27 +393,25 @@ above
 
 or of the combination of potentials defined above
 
->>> from galpy.potential import plotEscapecurve
->>> plotEscapecurve(mp+hp+np,Rrange=[0.01,10.],grid=1001)
+>>> (mp+hp+np).plotEscapecurve(Rrange=[0.01,10.],grid=1001)
 
 .. image:: images/esc-comb.png
 
 For the Milky-Way-like potential ``MWPotential2014``, the
 escape-velocity curve is
 
->>> plotEscapecurve(MWPotential2014,Rrange=[0.01,10.],grid=1001)
+>>> MWPotential2014.plotEscapecurve(Rrange=[0.01,10.],grid=1001)
 
 .. image:: images/esc-mw14.png
 
 At the solar radius, the escape velocity is
 
->>> from galpy.potential import vesc
->>> vesc(MWPotential2014,1.)
+>>> MWPotential2014.vesc(1.)
 2.3316389848832784
 
 Or, for a local circular velocity of 220 km/s
 
->>> vesc(MWPotential2014,1.)*220.
+>>> MWPotential2014.vesc(1.)*220.
 # 512.96057667432126
 
 similar to direct measurements of this (e.g., `2007MNRAS.379..755S

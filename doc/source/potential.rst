@@ -34,26 +34,33 @@ such instances. Similarly, we can evaluate a Potential instance
 >>> mp(1.,0.)
 # -1.2889062500000001
 
-Most member functions of Potential instances have corresponding
-functions in the galpy.potential module that allow them to be
-evaluated for lists of multiple Potential instances (and in versions
->=1.4 even for nested lists of Potential
-instances). ``galpy.potential.MWPotential2014`` is such a list of
+You can create more potentials by adding up multiple Potential instances using the
+``+`` operator. For example, ``galpy.potential.MWPotential2014`` is such a combination of
 three Potential instances
 
 >>> from galpy.potential import MWPotential2014
 >>> print(MWPotential2014)
-# [<galpy.potential.PowerSphericalPotentialwCutoff.PowerSphericalPotentialwCutoff instance at 0x1089b23b0>, <galpy.potential.MiyamotoNagaiPotential.MiyamotoNagaiPotential instance at 0x1089b2320>, <galpy.potential.TwoPowerSphericalPotential.NFWPotential instance at 0x1089b2248>]
+# CompositePotential of 3 potentials:
+#	PowerSphericalPotentialwCutoff with internal parameters: amp=0.029994597188218296, alpha=1.8, rc=0.2375
+#	MiyamotoNagaiPotential with internal parameters: amp=0.7574802019371595, a=0.375, b=0.035
+#	NFWPotential with internal parameters: amp=4.852230533527998, a=2.0
+#and physical outputs off
 
-and we can evaluate the potential by using the ``evaluatePotentials``
+Combinations of potentials can be evaluated in the same way as single
+Potential instances, e.g.,
+
+>>> from galpy.potential import MWPotential2014
+>>> MWPotential2014(1.,0.)
+# -1.3733506513947897
+
+For historical reasons, there is also a functional interface in the
+``galpy.potential`` module that mirrors most member functions of Potential instances.
+For example, we can evaluate the potential also by using the ``evaluatePotentials``
 function
 
 >>> from galpy.potential import evaluatePotentials
 >>> evaluatePotentials(MWPotential2014,1.,0.)
 # -1.3733506513947895
-
-.. TIP::
-   Lists of Potential instances can be nested, allowing you to easily add components to existing gravitational-potential models. For example, to add a ``DehnenBarPotential`` to ``MWPotential2014``, you can do: ``pot= [MWPotential2014,DehnenBarPotential()]`` and then use this ``pot`` everywhere where you can use a list of Potential instances. You can also add potential simply as ``pot= MWPotential2014+DehnenBarPotential()``.
 
 .. WARNING::
    ``galpy`` potentials do *not* necessarily approach zero at infinity. To compute, for example, the escape velocity or whether or not an orbit is unbound, you need to take into account the value of the potential at infinity. E.g., :math:`v_{\mathrm{esc}}(r) = \sqrt{2[\Phi(\infty)-\Phi(r)]}`. If you want to create a potential that does go to zero at infinity, you can add a :ref:`NullPotential <null_potential>` with value equal to minus the original potential evaluated at infinity.
@@ -71,15 +78,16 @@ which produces the following plot
 
 .. image:: images/mp-potential.png
 
-Similarly, we can plot combinations of Potentials using
-``plotPotentials``, e.g.,
+Similarly, we can plot combinations of Potentials using the ``.plot`` member function, or using the
+``plotPotentials`` function, e.g.,
 
 >>> from galpy.potential import plotPotentials
 >>> plotPotentials(MWPotential2014,rmin=0.01)
 
 .. image:: images/MWPotential-potential.png
 
-These functions have arguments that can provide custom ``R`` and ``z``
+this produces the same plot as ``MWPotential2014.plot(rmin=0.01)``. These functions
+have arguments that can provide custom ``R`` and ``z``
 ranges for the plot, the number of grid points, the number of
 contours, and many other parameters determining the appearance of
 these figures.
@@ -114,11 +122,11 @@ assuming a physical circular velocity of 220 km/s at R=8 kpc
 >>> mp.zforce(1.,0.125)*conversion.force_in_2piGmsolpc2(220.,8.)
 # -119.72021771473301 #2 \pi G Msol / pc^2
 
-Again, there are functions in ``galpy.potential`` that allow for the
-evaluation of the forces for lists of Potential instances, such that
+Again, the forces for combinations of Potential instances, like ``MWPotential2014``,
+can be calculated using the same member functions, or using the functional interface. For example,
 
 >>> from galpy.potential import evaluateRforces
->>> evaluateRforces(MWPotential2014,1.,0.)
+>>> evaluateRforces(MWPotential2014,1.,0.), MWPotential2014.Rforce(1.,0.)
 # -1.0
 >>> from galpy.potential import evaluatezforces
 >>> evaluatezforces(MWPotential2014,1.,0.125)*conversion.force_in_2piGmsolpc2(220.,8.)
@@ -126,12 +134,11 @@ evaluation of the forces for lists of Potential instances, such that
 
 We can evaluate the flattening of the potential as
 :math:`\sqrt{|z\,F_R/R\,F_Z|}` for a Potential instance as well as for
-a list of such instances
+a combination of such instances
 
 >>> mp.flattening(1.,0.125)
 # 0.4549542914935209
->>> from galpy.potential import flattening
->>> flattening(MWPotential2014,1.,0.125)
+>>> MWPotential2014.flattening(1.,0.125)
 # 0.61231675305658628
 
 .. WARNING::
@@ -163,19 +170,24 @@ which are the same to machine precision
 Similarly, all of the potentials in ``galpy.potential.MWPotential2014``
 have explicitly-implemented densities, so we can do
 
+>>> MWPotential2014.dens(1.,0.)
+# 0.57508603122264867
+
+or using the functional interface
+
 >>> from galpy.potential import evaluateDensities
 >>> evaluateDensities(MWPotential2014,1.,0.)
 # 0.57508603122264867
 
 In physical coordinates, this becomes
 
->>> evaluateDensities(MWPotential2014,1.,0.)*conversion.dens_in_msolpc3(220.,8.)
+>>> MWPotential2014.dens(1.,0.)*conversion.dens_in_msolpc3(220.,8.)
 # 0.1010945632524705 #Msol / pc^3
 
 We can also plot densities
 
->>> from galpy.potential import plotDensities
->>> plotDensities(MWPotential2014,rmin=0.1,zmax=0.25,zmin=-0.25,nrs=101,nzs=101)
+>>> MWPotential2014.plotDensity(rmin=0.1,zmax=0.25,zmin=-0.25,nrs=101,nzs=101)
+# or from galpy.potential import plotDensities; plotDensities(MWPotential2014,rmin=0.1,zmax=0.25,zmin=-0.25,nrs=101,nzs=101)
 
 which gives
 
@@ -220,7 +232,7 @@ kinds of wrappers are listed on the :ref:`Potential wrapper API page
 <potwrapperapi>`. These wrappers can be applied to instances of *any*
 potential implemented in galpy (including other wrappers). An example
 is to grow a bar using the polynomial smoothing of `Dehnen (2000)
-<http://adsabs.harvard.edu/abs/2000AJ....119..800D>`__. We first setup
+<http://adsabs.harvard.edu/abs/2000AJ....119..800D>`__. We first set up
 an instance of a ``DehnenBarPotential`` that is essentially fully
 grown already
 
@@ -303,13 +315,11 @@ of all, we can calculate the circular velocity and its derivative
 >>> mp.dvcircdR(1.)
 # -0.163777427566978
 
-or, for lists of Potential instances
+or, for combinations of Potential instances
 
->>> from galpy.potential import vcirc
->>> vcirc(MWPotential2014,1.)
+>>> MWPotential2014.vcirc(1.)
 # 1.0
->>> from galpy.potential import dvcircdR
->>> dvcircdR(MWPotential2014,1.)
+>>> MWPotential2014.dvcircdR(1.)
 # -0.10091361254334696
 
 We can also calculate the various frequencies for close-to-circular
@@ -317,39 +327,37 @@ orbits. For example, the rotational frequency
 
 >>> mp.omegac(0.8)
 # 1.2784598203204887
->>> from galpy.potential import omegac
->>> omegac(MWPotential2014,0.8)
+>>> MWPotential2014.omegac(0.8)
 # 1.2733514576122869
 
 and the epicycle frequency
 
 >>> mp.epifreq(0.8)
 # 1.7774973530267848
->>> from galpy.potential import epifreq
->>> epifreq(MWPotential2014,0.8)
+>>> MWPotential2014.epifreq(0.8)
 # 1.7452189766287691
 
 as well as the vertical frequency
 
 >>> mp.verticalfreq(1.0)
 # 3.7859388972001828
->>> from galpy.potential import verticalfreq
->>> verticalfreq(MWPotential2014,1.)
+>>> MWPotential2014.verticalfreq(1.)
 # 2.7255405754769875
 
 We can also for example easily make the diagram of :math:`\Omega-n
 \kappa /m` that is important for understanding kinematic spiral
 density waves. For example, for ``MWPotential2014``
 
->>> from galpy.potential import MWPotential2014, omegac, epifreq
+>>> from galpy.potential import MWPotential2014
 >>> def OmegaMinusKappa(pot,Rs,n,m,ro=8.,vo=220.):
     	# ro,vo for physical units, Rs in units of ro
-        return omegac(pot,Rs/ro,ro=ro,vo=vo)-n/m*epifreq(pot,Rs/ro,ro=ro,vo=vo)
+        return pot.omegac(Rs/ro,ro=ro,vo=vo)-n/m*pot.epifreq(Rs/ro,ro=ro,vo=vo)
 >>> Rs= numpy.linspace(0.,16.,101) # kpc
 >>> plot(Rs,OmegaMinusKappa(MWPotential2014,Rs,0,1))
 >>> plot(Rs,OmegaMinusKappa(MWPotential2014,Rs,1,2))
 >>> plot(Rs,OmegaMinusKappa(MWPotential2014,Rs,1,1))
 >>> plot(Rs,OmegaMinusKappa(MWPotential2014,Rs,1,-2))
+>>> xlim(0.,16.)
 >>> ylim(-20.,100.)
 >>> xlabel(r'$R\,(\mathrm{kpc})$')
 >>> ylabel(r'$(\mathrm{km\,s}^{-1}\,\mathrm{kpc}^{-1})$')
@@ -811,13 +819,12 @@ assuming that we scale velocities by ``vo=220`` km/s and positions by
 ``ro=8`` kpc in galpy. These two strings can then be given to the
 ``gyrfalcON`` ``accname=`` and ``accpars=`` keywords.
 
-We can do the same for lists of potentials. For example, for
+We can do the same for combinations of potentials. For example, for
 ``MWPotential2014`` we do
 
->>> from galpy.potential import nemo_accname, nemo_accpars
->>> nemo_accname(MWPotential2014)
+>>> MWPotential2014.nemo_accname()
 # 'PowSphwCut+MiyamotoNagai+NFW'
->>> nemo_accpars(MWPotential2014,220.,8.)
+>>> MWPotential2014.nemo_accpars(220.,8.)
 # '0,1001.79126907,1.8,1.9#0,306770.418682,3.0,0.28#0,16.0,162.958241887'
 
 Therefore, these are the ``accname=`` and ``accpars=`` that one needs
@@ -1011,7 +1018,7 @@ take the velocity ``v=[vR,vT,vZ]`` in cylindrical coordinates as an
 argument to the force in addition to the standard
 ``(R,z,phi=0,t=0)``. The set of functions ``evaluateXforces`` (with
 ``X=R,z,r,phi,etc.``) will evaluate the force due to ``Potential``
-instances, ``DissipativeForce`` instances, or lists of combinations of
+instances, ``DissipativeForce`` instances, or combinations of
 these two.
 
 Currently, the dissipative forces implemented in ``galpy`` include
@@ -1033,9 +1040,9 @@ Adding potentials to the galpy framework
 Potentials in galpy can be used in many places such as orbit
 integration, distribution functions, or the calculation of
 action-angle variables, and in most cases any instance of a potential
-class that inherits from the general ``Potential`` class (or a list of
+class that inherits from the general ``Potential`` class (or a combination of
 such instances) can be given. For example, all orbit integration
-routines work with any list of instances of the general ``Potential``
+routines work with any combination of instances of the general ``Potential``
 class. Adding new potentials to galpy therefore allows them to be used
 everywhere in galpy where general ``Potential`` instances can be
 used. Adding a new class of potentials to galpy consists of the
@@ -1202,7 +1209,7 @@ economically in Python than new ``Potential`` instances as described
 
 To add a Python implementation of a new wrapper, classes need to
 inherit from ``parentWrapperPotential``, take the potentials to be
-wrapped as a ``pot=`` (a ``Potential``, ``planarPotential``, or a list
+wrapped as a ``pot=`` (a ``Potential``, ``planarPotential``, or a combination
 thereof; automatically assigned to ``self._pot``) input to
 ``__init__``, and implement the
 ``_wrap(self,attribute,*args,**kwargs)`` function. This function
