@@ -2769,6 +2769,104 @@ def test_eddington_pot_denspot_incompatibleunits():
     return None
 
 
+################### TESTS FOR DIVERGENT POTENTIALS (ISSUE #719) ################
+
+
+def test_eddington_powerspherical_divergent_auto_rmin():
+    # Test that PowerSphericalPotential with alpha > 2 auto-sets rmin with warning
+    pot = potential.PowerSphericalPotential(amp=1.0, alpha=2.5)
+    with pytest.warns(galpyWarning) as record:
+        dfp = eddingtondf(pot=pot, rmax=1e4)
+    raisedWarning = False
+    for rec in record:
+        raisedWarning += "diverges at r=0" in str(rec.message.args[0])
+    assert raisedWarning, (
+        "PowerSphericalPotential with alpha > 2 should warn about divergence"
+    )
+    assert dfp._rmin > 0, "rmin should be auto-set to positive value"
+    # Verify sampling works
+    numpy.random.seed(42)
+    samp = dfp.sample(n=10)
+    assert len(samp) == 10, "Sampling should work with auto-set rmin"
+    return None
+
+
+def test_eddington_powerspherical_explicit_rmin_no_warning():
+    # Test that explicit rmin suppresses warning
+    pot = potential.PowerSphericalPotential(amp=1.0, alpha=2.5)
+    import warnings
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        # Should not raise any warning when rmin is explicit
+        dfp = eddingtondf(pot=pot, rmax=1e4, rmin=1e-6)
+    assert dfp._rmin == 1e-6, "rmin should be set to explicit value"
+    return None
+
+
+def test_eddington_kepler_raises():
+    # Test that KeplerPotential raises ValueError (point mass has no density)
+    pot = potential.KeplerPotential(amp=1.0)
+    with pytest.raises(ValueError) as excinfo:
+        dfp = eddingtondf(pot=pot)
+    assert "point mass" in str(excinfo.value), (
+        "Error message should mention point mass"
+    )
+    return None
+
+
+def test_eddington_powerspherical_alpha3_raises():
+    # Test that PowerSphericalPotential with alpha >= 3 raises ValueError
+    pot = potential.PowerSphericalPotential(amp=1.0, alpha=3.0)
+    with pytest.raises(ValueError) as excinfo:
+        dfp = eddingtondf(pot=pot)
+    assert "alpha=3.0 >= 3" in str(excinfo.value), (
+        "Error message should mention alpha >= 3"
+    )
+    return None
+
+
+def test_eddington_powerspherical_list_divergent():
+    # Test that a list containing a divergent potential is detected
+    pot1 = potential.HernquistPotential(amp=1.0, a=1.0)
+    pot2 = potential.PowerSphericalPotential(amp=0.5, alpha=2.5)
+    with pytest.warns(galpyWarning) as record:
+        dfp = eddingtondf(pot=[pot1, pot2], rmax=1e4)
+    raisedWarning = False
+    for rec in record:
+        raisedWarning += "diverges at r=0" in str(rec.message.args[0])
+    assert raisedWarning, (
+        "List containing divergent potential should warn"
+    )
+    return None
+
+
+def test_constantbeta_powerspherical_divergent_auto_rmin():
+    # Test that constantbetadf also handles divergent potentials
+    pot = potential.PowerSphericalPotential(amp=1.0, alpha=2.5)
+    with pytest.warns(galpyWarning) as record:
+        dfp = constantbetadf(pot=pot, beta=0.0, rmax=1e4)
+    raisedWarning = False
+    for rec in record:
+        raisedWarning += "diverges at r=0" in str(rec.message.args[0])
+    assert raisedWarning, (
+        "constantbetadf should also warn about divergent potentials"
+    )
+    assert dfp._rmin > 0, "rmin should be auto-set to positive value"
+    return None
+
+
+def test_constantbeta_kepler_raises():
+    # Test that constantbetadf also raises for KeplerPotential
+    pot = potential.KeplerPotential(amp=1.0)
+    with pytest.raises(ValueError) as excinfo:
+        dfp = constantbetadf(pot=pot, beta=0.0)
+    assert "point mass" in str(excinfo.value), (
+        "Error message should mention point mass"
+    )
+    return None
+
+
 # Test that the unit system is correctly transferred
 def test_isotropic_hernquist_unittransfer():
     from galpy.util import conversion

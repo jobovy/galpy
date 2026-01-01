@@ -35,6 +35,431 @@ from .df import df
 if _optional_deps._APY_LOADED:
     from astropy import units
 
+# Import potential types for _handle_rmin
+from ..potential.PowerSphericalPotential import KeplerPotential, PowerSphericalPotential
+
+
+class _fE_powerlaw_extrapolator:
+    """
+    Interpolator for f(E) that uses power-law extrapolation for high binding energies.
+
+    For E >= E_transition: uses spline interpolation of numerical results
+    For E < E_transition: uses power-law extrapolation fitted near the transition
+
+    This allows sampling from potentials that diverge at r=0 without a hard energy cutoff.
+    The power-law extrapolation is exact for self-consistent PowerSphericalPotential.
+    """
+
+    def __init__(self, Es, fEs, E_transition, n_fit_points=20):
+        """
+        Initialize the interpolator with power-law extrapolation.
+
+        Parameters
+        ----------
+        Es : array
+            Energy values (negative for bound orbits), sorted from most negative to least
+        fEs : array
+            f(E) values corresponding to Es
+        E_transition : float
+            Energy value below which to use power-law extrapolation (most negative E
+            for which we have reliable numerical data)
+        n_fit_points : int
+            Number of points near the transition to use for power-law fitting
+        """
+        # Filter to finite values only
+        finite_mask = numpy.isfinite(fEs) & (fEs > 0)
+        Es = Es[finite_mask]
+        fEs = fEs[finite_mask]
+
+        self._E_transition = E_transition
+        self._potInf = Es[-1]  # Least negative energy (at rmax)
+
+        # Create spline interpolator for the numerical region
+        self._spline = interpolate.InterpolatedUnivariateSpline(Es, fEs, k=3, ext=3)
+
+        # Check if power-law extrapolation is needed
+        # If the most negative E in our data is NOT much more negative than E_transition,
+        # we need extrapolation for E < E_transition
+        E_most_negative = Es[0]
+        # For negative energies, check if data doesn't extend far beyond E_transition
+        needs_extrapolation = E_most_negative >= E_transition * 1.01
+
+        if needs_extrapolation:
+            # Fit power-law near the transition point
+            # f(E) ∝ |E|^β  →  log(f) = β * log(|E|) + const
+            # Use points closest to E_transition (most negative energies in our data)
+            near_transition = Es <= E_transition * 0.1  # Within factor of 10 of transition
+            if numpy.sum(near_transition) < n_fit_points:
+                # If not enough points, use the n_fit_points most negative energies
+                near_transition = numpy.zeros(len(Es), dtype=bool)
+                near_transition[: min(n_fit_points, len(Es))] = True
+
+            Es_fit = Es[near_transition]
+            fEs_fit = fEs[near_transition]
+
+            # Linear fit in log-log space: log(f) = β * log(|E|) + const
+            # |E| = -E for negative energies
+            # Filter out any values with E >= 0 (should not happen, but be safe)
+            valid_for_log = Es_fit < 0
+            if numpy.sum(valid_for_log) >= 2:
+                log_absE = numpy.log(-Es_fit[valid_for_log])
+                log_f = numpy.log(fEs_fit[valid_for_log])
+
+                # Additional filter for finite log values
+                log_finite = numpy.isfinite(log_absE) & numpy.isfinite(log_f)
+                if numpy.sum(log_finite) >= 2:
+                    # Use numpy.polyfit for robust linear regression
+                    self._beta, self._log_const = numpy.polyfit(
+                        log_absE[log_finite], log_f[log_finite], 1
+                    )
+                else:
+                    # Not enough valid points, disable extrapolation
+                    needs_extrapolation = False
+            else:
+                # Not enough valid points, disable extrapolation
+                needs_extrapolation = False
+
+            if needs_extrapolation:
+                # Store for diagnostics
+                self._Es_fit = Es_fit
+                self._fEs_fit = fEs_fit
+
+        self._needs_extrapolation = needs_extrapolation
+        if not needs_extrapolation:
+            self._beta = None
+            self._log_const = None
+            self._Es_fit = None
+            self._fEs_fit = None
+
+    def __call__(self, E):
+        """
+        Evaluate f(E) using interpolation or power-law extrapolation.
+
+        Parameters
+        ----------
+        E : float or array
+            Energy value(s), negative for bound orbits
+
+        Returns
+        -------
+        fE : float or array
+            Distribution function value(s)
+        """
+        E = numpy.atleast_1d(E)
+        result = numpy.zeros_like(E, dtype=float)
+
+        # Region 1: E >= E_transition (use spline interpolation)
+        interp_mask = E >= self._E_transition
+        if numpy.any(interp_mask):
+            result[interp_mask] = self._spline(E[interp_mask])
+
+        # Region 2: E < E_transition (use power-law extrapolation if available)
+        extrap_mask = E < self._E_transition
+        if numpy.any(extrap_mask):
+            if self._needs_extrapolation:
+                # f(E) = exp(β * log(|E|) + const) = |E|^β * exp(const)
+                log_absE = numpy.log(-E[extrap_mask])
+                result[extrap_mask] = numpy.exp(self._beta * log_absE + self._log_const)
+            else:
+                # No extrapolation available, use spline (may be inaccurate for
+                # truly divergent potentials, but works for non-divergent ones)
+                result[extrap_mask] = self._spline(E[extrap_mask])
+
+        # Handle energies outside bound range
+        # For E > potInf (unbound), use the spline's ext=3 behavior (returns boundary value)
+        # This is important for numerical stability at r ≈ rmax where vesc ≈ 0
+
+        return result if len(result) > 1 else result[0]
+
+    @property
+    def beta(self):
+        """Power-law exponent: f(E) ∝ |E|^β"""
+        return self._beta
+
+    @property
+    def E_transition(self):
+        """Energy value at the interpolation/extrapolation boundary"""
+        return self._E_transition
+
+
+class _fE_pade_extrapolator:
+    """
+    Interpolator for f(E) that uses Padé approximant extrapolation for high binding energies.
+
+    For E >= E_transition: uses spline interpolation of numerical results
+    For E < E_transition: uses Padé [3/2] approximant to log(f(E))
+
+    This is more accurate than power-law extrapolation for potentials where f(E) does not
+    follow a pure power-law (e.g., Jaffe, Hernquist with divergent cores).
+    """
+
+    def __init__(self, Es, fEs, E_transition, n_fit_points=30):
+        """
+        Initialize the interpolator with Padé extrapolation.
+
+        Parameters
+        ----------
+        Es : array
+            Energy values (negative for bound orbits), sorted from most negative to least
+        fEs : array
+            f(E) values corresponding to Es
+        E_transition : float
+            Energy value below which to use Padé extrapolation
+        n_fit_points : int
+            Number of points near the transition to use for Padé fitting
+        """
+        from scipy.optimize import curve_fit
+
+        # Filter to finite values only
+        finite_mask = numpy.isfinite(fEs) & (fEs > 0)
+        Es = Es[finite_mask]
+        fEs = fEs[finite_mask]
+
+        self._E_transition = E_transition
+        self._potInf = Es[-1]
+
+        # Create spline interpolator for the numerical region
+        self._spline = interpolate.InterpolatedUnivariateSpline(Es, fEs, k=3, ext=3)
+
+        # Check if extrapolation is needed
+        E_most_negative = Es[0]
+        needs_extrapolation = E_most_negative >= E_transition * 1.01
+
+        if needs_extrapolation:
+            # Fit Padé [3/2] to log(f(E)) in terms of binding energy ψ = -E
+            # log(f) ≈ (a0 + a1*ψ + a2*ψ² + a3*ψ³) / (1 + b1*ψ + b2*ψ²)
+            near_transition = Es <= E_transition * 0.5
+            if numpy.sum(near_transition) < n_fit_points:
+                near_transition = numpy.zeros(len(Es), dtype=bool)
+                near_transition[: min(n_fit_points, len(Es))] = True
+
+            Es_fit = Es[near_transition]
+            fEs_fit = fEs[near_transition]
+            psi_fit = -Es_fit  # binding energy
+            logf_fit = numpy.log(fEs_fit)
+
+            valid = numpy.isfinite(logf_fit) & numpy.isfinite(psi_fit) & (psi_fit > 0)
+            if numpy.sum(valid) >= 6:  # Need enough points for 6 parameters
+                psi_fit = psi_fit[valid]
+                logf_fit = logf_fit[valid]
+
+                def pade_32(psi, a0, a1, a2, a3, b1, b2):
+                    num = a0 + a1 * psi + a2 * psi**2 + a3 * psi**3
+                    denom = 1.0 + b1 * psi + b2 * psi**2
+                    return num / denom
+
+                # Try multiple initial guesses
+                best_popt = None
+                best_residual = numpy.inf
+
+                for scale in [1, 0.1, 0.01, 10]:
+                    for sign in [1, -1]:
+                        p0 = [logf_fit.mean(), sign * scale, 0.01, 0.001, 0.1, 0.01]
+                        try:
+                            popt, _ = curve_fit(
+                                pade_32, psi_fit, logf_fit, p0=p0, maxfev=10000
+                            )
+                            pred = pade_32(psi_fit, *popt)
+                            residual = numpy.sum((pred - logf_fit) ** 2)
+                            if residual < best_residual and numpy.all(numpy.isfinite(pred)):
+                                best_residual = residual
+                                best_popt = popt
+                        except Exception:
+                            continue
+
+                if best_popt is not None:
+                    self._pade_params = best_popt
+                    self._pade_func = pade_32
+                else:
+                    needs_extrapolation = False
+            else:
+                needs_extrapolation = False
+
+        self._needs_extrapolation = needs_extrapolation
+        if not needs_extrapolation:
+            self._pade_params = None
+            self._pade_func = None
+
+    def __call__(self, E):
+        """
+        Evaluate f(E) using interpolation or Padé extrapolation.
+
+        Parameters
+        ----------
+        E : float or array
+            Energy value(s), negative for bound orbits
+
+        Returns
+        -------
+        fE : float or array
+            Distribution function value(s)
+        """
+        E = numpy.atleast_1d(E)
+        result = numpy.zeros_like(E, dtype=float)
+
+        # Region 1: E >= E_transition (use spline interpolation)
+        interp_mask = E >= self._E_transition
+        if numpy.any(interp_mask):
+            result[interp_mask] = self._spline(E[interp_mask])
+
+        # Region 2: E < E_transition (use Padé extrapolation if available)
+        extrap_mask = E < self._E_transition
+        if numpy.any(extrap_mask):
+            if self._needs_extrapolation:
+                psi = -E[extrap_mask]  # binding energy
+                log_f = self._pade_func(psi, *self._pade_params)
+                result[extrap_mask] = numpy.exp(log_f)
+            else:
+                result[extrap_mask] = self._spline(E[extrap_mask])
+
+        return result if len(result) > 1 else result[0]
+
+    @property
+    def E_transition(self):
+        """Energy value at the interpolation/extrapolation boundary"""
+        return self._E_transition
+
+
+def _select_fE_extrapolator(pot, Es, fEs, E_transition, n_fit_points=30):
+    """
+    Select the appropriate f(E) extrapolator based on potential type.
+
+    For PowerSphericalPotential: use power-law extrapolation (exact)
+    For other divergent potentials: use Padé approximant extrapolation
+
+    Parameters
+    ----------
+    pot : Potential instance or list thereof
+        The gravitational potential
+    Es : array
+        Energy values for interpolation
+    fEs : array
+        f(E) values for interpolation
+    E_transition : float
+        Energy transition point
+    n_fit_points : int
+        Number of points for fitting
+
+    Returns
+    -------
+    extrapolator : _fE_powerlaw_extrapolator or _fE_pade_extrapolator
+        The appropriate extrapolator instance
+    """
+    # Check if potential is PowerSphericalPotential
+    pot_list = pot if isinstance(pot, list) else [pot]
+
+    is_power_spherical = False
+    for p in pot_list:
+        if isinstance(p, PowerSphericalPotential) and not isinstance(p, KeplerPotential):
+            is_power_spherical = True
+            break
+
+    if is_power_spherical:
+        # Power-law extrapolation is exact for PowerSphericalPotential
+        return _fE_powerlaw_extrapolator(Es, fEs, E_transition, n_fit_points)
+    else:
+        # Padé approximant for other divergent potentials
+        return _fE_pade_extrapolator(Es, fEs, E_transition, n_fit_points)
+
+
+def _handle_rmin(rmin, pot, denspot, scale, ro, df_name):
+    """
+    Determine the transition radius for numerical/extrapolation boundary.
+
+    For potentials that diverge at r=0, numerical Eddington integration is only
+    possible for r >= rmin. The f(E) interpolator uses:
+    - Numerical integration for E >= Phi(rmin)
+    - Power-law extrapolation for E < Phi(rmin) (higher binding energies)
+
+    This function:
+    1. If rmin is explicitly specified, use it as the transition point
+    2. For known divergent potentials (PowerSphericalPotential with alpha > 2),
+       automatically set an appropriate transition point
+    3. For other divergent potentials, set a default transition with a warning
+    4. For non-divergent potentials, use rmin = 0 (no extrapolation needed)
+
+    Parameters
+    ----------
+    rmin : float, Quantity, or None
+        User-specified transition radius, or None for auto-detection
+    pot : Potential instance or list thereof
+        The gravitational potential
+    denspot : Potential instance or list thereof
+        The density potential (tracer population)
+    scale : float
+        Characteristic scale radius
+    ro : float
+        Distance scale for unit conversion
+    df_name : str
+        Name of the DF class (for error/warning messages)
+
+    Returns
+    -------
+    float
+        The rmin value to use as transition point (in internal units)
+    """
+    # Check if potential diverges at r=0
+    phi_at_zero = _evaluatePotentials(pot, 0.0, 0)
+    is_divergent = not numpy.isfinite(phi_at_zero)
+
+    # If rmin is explicitly specified, only allow for divergent potentials
+    if rmin is not None:
+        if not is_divergent:
+            raise ValueError(
+                "rmin should not be specified for potentials with finite Phi(0). "
+                "The rmin parameter is only used for divergent potentials that "
+                "require power-law extrapolation at high binding energies."
+            )
+        return conversion.parse_length(rmin, ro=ro)
+
+    # Get list of density potentials to check
+    if denspot is not None:
+        denspot_list = denspot if isinstance(denspot, list) else [denspot]
+    else:
+        denspot_list = pot if isinstance(pot, list) else [pot]
+
+    # Check all potentials for known problematic types
+    for p in denspot_list:
+        # Check for KeplerPotential (point mass - no distributed density)
+        if isinstance(p, KeplerPotential):
+            raise ValueError(
+                f"{df_name} cannot sample from KeplerPotential directly because it "
+                "represents a point mass with no distributed density."
+            )
+
+        # Check for PowerSphericalPotential
+        if isinstance(p, PowerSphericalPotential):
+            alpha = p.alpha
+            if alpha >= 3.0:
+                raise ValueError(
+                    f"{df_name} cannot sample from PowerSphericalPotential with "
+                    f"alpha={alpha} >= 3."
+                )
+            if alpha > 2.0:
+                # Divergent potential - set transition point for power-law extrapolation
+                auto_rmin = 1e-6 * scale
+                warnings.warn(
+                    f"PowerSphericalPotential with alpha={alpha} diverges at r=0. "
+                    f"Using rmin={auto_rmin:.2e} as transition to power-law extrapolation. "
+                    "Set rmin explicitly to suppress this warning.",
+                    galpyWarning,
+                )
+                return auto_rmin
+
+    # Check for other divergent potentials (not caught by specific type checks above)
+    if is_divergent:
+        auto_rmin = 1e-6 * scale
+        warnings.warn(
+            f"Potential diverges at r=0 (Phi(0)={phi_at_zero}). "
+            f"Using rmin={auto_rmin:.2e} as transition to power-law extrapolation. "
+            "Set rmin explicitly to suppress this warning.",
+            galpyWarning,
+        )
+        return auto_rmin
+
+    # Non-divergent potential - use rmin = 0
+    return 0.0
+
 
 class sphericaldf(df):
     """Superclass for spherical distribution functions"""
@@ -585,7 +1010,7 @@ class sphericaldf(df):
             ky=1,
         )
 
-    def _setup_rphi_interpolator(self, r_a_min=1e-6, r_a_max=1e6, nra=10001):
+    def _setup_rphi_interpolator(self, r_a_min: float=1e-6, r_a_max: float=1e6, nra: int=10001):
         """
         Set up the interpolator for r(phi)
 
@@ -608,9 +1033,14 @@ class sphericaldf(df):
         - 2023-02-23 - Written - Lane (UofT)
         """
 
-        r_a_values = numpy.concatenate(
-            (numpy.array([0.0]), numpy.geomspace(r_a_min, r_a_max, nra))
-        )
+        # Check if potential at r=0 is finite; if not, start at r_a_min
+        phi_at_zero = _evaluatePotentials(self._pot, 0.0, 0)
+        if numpy.isfinite(phi_at_zero):
+            r_a_values = numpy.concatenate(
+                (numpy.array([0.0]), numpy.geomspace(r_a_min, r_a_max, nra))
+            )
+        else:
+            r_a_values = numpy.geomspace(r_a_min, r_a_max, nra)
         phis = numpy.array(
             [_evaluatePotentials(self._pot, r * self._scale, 0) for r in r_a_values]
         )
@@ -680,7 +1110,7 @@ class isotropicsphericaldf(sphericaldf):
     def _dMdE(self, E):
         if not hasattr(self, "_rphi"):
             self._rphi = self._setup_rphi_interpolator()
-        fE = self.fE(E)
+        fE = numpy.atleast_1d(self.fE(E))
         out = numpy.zeros_like(E)
         out[fE > 0.0] = (
             16.0

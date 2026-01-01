@@ -8,7 +8,7 @@ from ..potential import interpSphericalPotential
 from ..potential.Potential import _evaluatePotentials
 from ..util import conversion, quadpack
 from ..util._optional_deps import _JAX_LOADED
-from .sphericaldf import anisotropicsphericaldf, sphericaldf
+from .sphericaldf import _handle_rmin, anisotropicsphericaldf, sphericaldf
 
 if _JAX_LOADED:
     from jax import grad, vmap
@@ -156,6 +156,7 @@ class constantbetadf(_constantbetadf):
         beta=0.0,
         twobeta=None,
         rmax=None,
+        rmin=None,
         scale=None,
         ro=None,
         vo=None,
@@ -175,6 +176,8 @@ class constantbetadf(_constantbetadf):
             twice the anisotropy parameter (useful for \beta = half-integer, which is a special case); has priority over beta
         rmax : float or Quantity, optional
             maximum radius to consider; DF is cut off at E = Phi(rmax)
+        rmin : float or Quantity, optional
+            Minimum radius to consider; the distribution function is cut off at E = Phi(rmin). For potentials that diverge at r=0 (e.g., PowerSphericalPotential with alpha > 2), this is automatically set to a small value if not specified.
         scale : float or Quantity, optional
             Characteristic scale radius to aid sampling calculations. Optional and will also be overridden by value from pot if available.
         ro : float or Quantity, optional
@@ -190,7 +193,7 @@ class constantbetadf(_constantbetadf):
         if not _JAX_LOADED:  # pragma: no cover
             raise ImportError("galpy.df.constantbetadf requires the google/jax library")
         # Parse twobeta
-        if not twobeta is None:
+        if twobeta is not None:
             beta = twobeta / 2.0
         else:
             twobeta = 2.0 * beta
@@ -209,6 +212,10 @@ class constantbetadf(_constantbetadf):
             scale=scale,
             ro=ro,
             vo=vo,
+        )
+        # Handle rmin: auto-detect divergent potentials if rmin not specified
+        self._rmin = _handle_rmin(
+            rmin, pot, denspot, self._scale, self._ro, "constantbetadf"
         )
         self._twobeta = twobeta
         self._halfint = False
@@ -252,9 +259,11 @@ class constantbetadf(_constantbetadf):
         self._gradfunc = vmap(func)
         # Min and max energy
         self._potInf = _evaluatePotentials(self._pot, self._rmax, 0)
-        self._Emin = _evaluatePotentials(self._pot, 0.0, 0)
-        # Build interpolator r(pot)
-        self._rphi = self._setup_rphi_interpolator()
+        self._Emin = _evaluatePotentials(self._pot, self._rmin, 0)
+        # Build interpolator r(pot), starting at rmin for divergent potentials
+        self._rphi = self._setup_rphi_interpolator(
+            r_a_min=max(1e-6, self._rmin / self._scale)
+        )
         # Build interpolator for the lower limit of the integration (near the
         # 1/(Phi-E)^alpha divergence; at the end, we slightly adjust it up
         # to be sure to be above the point where things go haywire...
@@ -283,9 +292,12 @@ class constantbetadf(_constantbetadf):
                 Es, numpy.log10(startt) + 10.0 / 3.0 * (1.0 - self._alpha), k=3
             )
 
-    def sample(self, R=None, z=None, phi=None, n=1, return_orbit=True, rmin=0.0):
+    def sample(self, R=None, z=None, phi=None, n=1, return_orbit=True, rmin=None):
         # Slight over-write of superclass method to first build f(E) interp
         # No docstring so superclass' is used
+        # Use self._rmin as default if rmin is not specified
+        if rmin is None:
+            rmin = self._rmin
         if not hasattr(self, "_fE_interp"):
             Es4interp = numpy.hstack(
                 (
