@@ -282,7 +282,9 @@ def _select_fE_extrapolator(pot, Es, fEs, E_transition, n_fit_points=30):
 
     is_power_spherical = False
     for p in pot_list:
-        if isinstance(p, PowerSphericalPotential) and not isinstance(p, KeplerPotential):
+        if isinstance(p, PowerSphericalPotential) and not isinstance(
+            p, KeplerPotential
+        ):
             is_power_spherical = True
             break
 
@@ -946,7 +948,9 @@ class sphericaldf(df):
             ky=1,
         )
 
-    def _setup_rphi_interpolator(self, r_a_min: float=1e-6, r_a_max: float=1e6, nra: int=10001):
+    def _setup_rphi_interpolator(
+        self, r_a_min: float = 1e-6, r_a_max: float = 1e6, nra: int = 10001
+    ):
         """
         Set up the interpolator for r(phi)
 
