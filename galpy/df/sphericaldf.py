@@ -172,7 +172,12 @@ class _fE_powerlaw_extrapolator(_fE_extrapolator_base):
 
     def __init__(self, Es, fEs, E_transition, n_fit_points=20, divergent=True):
         super().__init__(
-            Es, fEs, E_transition, n_fit_points, transition_factor=0.1, divergent=divergent
+            Es,
+            fEs,
+            E_transition,
+            n_fit_points,
+            transition_factor=0.1,
+            divergent=divergent,
         )
         if not self._needs_extrapolation:
             self._beta = None
@@ -217,7 +222,12 @@ class _fE_pade_extrapolator(_fE_extrapolator_base):
 
     def __init__(self, Es, fEs, E_transition, n_fit_points=30, divergent=True):
         super().__init__(
-            Es, fEs, E_transition, n_fit_points, transition_factor=0.5, divergent=divergent
+            Es,
+            fEs,
+            E_transition,
+            n_fit_points,
+            transition_factor=0.5,
+            divergent=divergent,
         )
         if not self._needs_extrapolation:
             self._pade_params = None
@@ -272,7 +282,9 @@ class _fE_pade_extrapolator(_fE_extrapolator_base):
         return numpy.exp(num / denom)
 
 
-def _select_fE_extrapolator(pot, Es, fEs, E_transition, n_fit_points=30, divergent=True):
+def _select_fE_extrapolator(
+    pot, Es, fEs, E_transition, n_fit_points=30, divergent=True
+):
     """
     Select the appropriate f(E) extrapolator based on potential type.
 
