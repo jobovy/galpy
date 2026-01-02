@@ -814,9 +814,13 @@ class sphericaldf(df):
             ms -= mass(self._denspot, self._rmin_sampling, use_physical=False)
             mnorm -= mass(self._denspot, self._rmin_sampling, use_physical=False)
         ms /= mnorm
-        # Add total mass point
+        # Add total mass point to avoid extrapolation beyond rmax
         if numpy.isinf(self._rmax):
             xis = numpy.append(xis, 1)
+            ms = numpy.append(ms, 1)
+        else:
+            # For finite rmax, add the endpoint to ensure r <= rmax
+            xis = numpy.append(xis, ximax)
             ms = numpy.append(ms, 1)
         return scipy.interpolate.InterpolatedUnivariateSpline(ms, xis, k=1)
 
