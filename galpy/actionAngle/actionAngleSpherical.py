@@ -16,8 +16,10 @@ from scipy import integrate, optimize
 
 from ..potential import _dim, epifreq, omegac, vcirc
 from ..potential.planarPotential import _evaluateplanarPotentials
-from ..potential.Potential import _evaluatePotentials
-from ..potential.Potential import flatten as flatten_potential
+from ..potential.Potential import (
+    _check_potential_list_and_deprecate,
+    _evaluatePotentials,
+)
 from ..util import quadpack
 from .actionAngle import UnboundError, actionAngle
 
@@ -33,7 +35,7 @@ class actionAngleSpherical(actionAngle):
 
         Parameters
         ----------
-        pot : Potential or list thereof
+        pot : Potential or a combined potential formed using addition (pot1+pot2+…)
             A spherical potential.
         ro : float or Quantity, optional
             Distance scale for translation into internal units (default from configuration file).
@@ -49,13 +51,11 @@ class actionAngleSpherical(actionAngle):
         actionAngle.__init__(self, ro=kwargs.get("ro", None), vo=kwargs.get("vo", None))
         if not "pot" in kwargs:  # pragma: no cover
             raise OSError("Must specify pot= for actionAngleSpherical")
-        self._pot = flatten_potential(kwargs["pot"])
+        self._pot = _check_potential_list_and_deprecate(kwargs["pot"])
         # Also store a 'planar' (2D) version of the potential, only potential
         # used in this class
         if _dim(self._pot) == 2:
             self._2dpot = self._pot
-        elif isinstance(self._pot, list):
-            self._2dpot = [p.toPlanar() for p in self._pot]
         else:
             self._2dpot = self._pot.toPlanar()
         # The following for if we ever implement this code in C
@@ -847,7 +847,7 @@ def _rapRperiAxiFindStart(R, E, L, pot, rap=False, startsign=1.0):
         energy
     L : float
         angular momentum
-    pot : Potential object or list thereof
+    pot : Potential object or a combined potential formed using addition (pot1+pot2+…)
         Potential
     rap : bool, optional
         if True, find the rap end-point (default is False)

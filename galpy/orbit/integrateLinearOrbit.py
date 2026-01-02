@@ -23,8 +23,12 @@ _lib, _ext_loaded = _load_extension_libs.load_libgalpy()
 
 def _parse_pot(pot):
     """Parse the potential so it can be fed to C"""
+    from ..potential.linearCompositePotential import linearCompositePotential
     from .integrateFullOrbit import _parse_scf_pot
 
+    # Handle linearCompositePotential by extracting the potlist
+    if isinstance(pot, linearCompositePotential):
+        pot = pot._potlist
     # Figure out what's in pot
     if not isinstance(pot, list):
         pot = [pot]
@@ -130,7 +134,7 @@ def integrateLinearOrbit_c(
 
     Parameters
     ----------
-    pot : Potential or list of such instances
+    pot : Potential or a combined potential formed using addition (pot1+pot2+…)
     yo : numpy.ndarray
         initial condition [q,p], shape [N,2] or [2]
     t : numpy.ndarray
@@ -259,7 +263,7 @@ def integrateLinearOrbit(
 
     Parameters
     ----------
-    pot : Potential or list of such instances
+    pot : Potential or a combined potential formed using addition (pot1+pot2+…)
     yo : numpy.ndarray
         initial condition [q,p], shape [N,2] or [2]
     t : numpy.ndarray
@@ -353,8 +357,8 @@ def _linearEOM(y, t, pot):
         Current phase-space position
     t : float
         Current time
-    pot : list
-        (list of) linearPotential instance(s)
+    pot : linearPotential
+        LinearPotential instance
 
     Returns
     -------

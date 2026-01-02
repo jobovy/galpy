@@ -17,6 +17,7 @@ from numpy.polynomial import chebyshev, polynomial
 from scipy import interpolate, ndimage, optimize
 
 from ..potential import evaluatelinearForces, evaluatelinearPotentials
+from ..potential.Potential import _check_potential_list_and_deprecate
 from ..util import galpyWarning
 from ..util import plot as plot
 from .actionAngleHarmonic import actionAngleHarmonic
@@ -46,8 +47,8 @@ class actionAngleVerticalInverse(actionAngleInverse):
 
         Parameters
         ----------
-        pot : Potential object or list of such objects
-            a linearPotential/verticalPotential or list thereof
+        pot : Potential object or a combined potential formed using addition (pot1+pot2+…)
+            a linearPotential/verticalPotential or a combined potential formed using addition (pot1+pot2+…)
         Es : numpy.ndarray
             energies of the orbits to map the tori for, will be forcibly sorted (needs to be a dense grid when setting up the object for interpolation with setup_interp=True)
         nta : int
@@ -74,7 +75,7 @@ class actionAngleVerticalInverse(actionAngleInverse):
         # actionAngleInverse.__init__(self,*args,**kwargs)
         if pot is None:  # pragma: no cover
             raise OSError("Must specify pot= for actionAngleVerticalInverse")
-        self._pot = pot
+        self._pot = _check_potential_list_and_deprecate(pot)
         self._aAV = actionAngleVertical(pot=self._pot)
         # Compute action, frequency, and xmax for each energy
         self._nE = len(Es)

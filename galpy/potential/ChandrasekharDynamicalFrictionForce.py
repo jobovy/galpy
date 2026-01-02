@@ -10,8 +10,7 @@ from scipy import interpolate, special
 
 from ..util import conversion
 from .DissipativeForce import DissipativeForce
-from .Potential import _check_c, evaluateDensities
-from .Potential import flatten as flatten_pot
+from .Potential import _check_c, _check_potential_list_and_deprecate, evaluateDensities
 
 _INVSQRTTWO = 1.0 / numpy.sqrt(2.0)
 _INVSQRTPI = 1.0 / numpy.sqrt(numpy.pi)
@@ -63,8 +62,8 @@ class ChandrasekharDynamicalFrictionForce(DissipativeForce):
             Half-mass radius of the satellite (set to zero for a black hole); can be adjusted after initialization by setting obj.rhm= where obj is your ChandrasekharDynamicalFrictionForce instance.
         gamma : float
             Free-parameter in :math:`\\Lambda`.
-        dens : Potential instance or list thereof, optional
-            Potential instance or list thereof that represents the density [default: LogarithmicHaloPotential(normalize=1.,q=1.)].
+        dens : Potential instance or a combined potential formed using addition (pot1+pot2+…), optional
+            Potential instance or a combined potential formed using addition (pot1+pot2+…) that represents the density [default: LogarithmicHaloPotential(normalize=1.,q=1.)].
         sigmar : callable, optional
             Function that gives the velocity dispersion as a function of r (has to be in natural units!); if None, computed from the dens potential using the spherical Jeans equation (in galpy.df.jeans) assuming zero anisotropy; if set to a lambda function, *the object cannot be pickled* (so set it to a real function).
         const_lnLambda : bool, optional
@@ -111,7 +110,7 @@ class ChandrasekharDynamicalFrictionForce(DissipativeForce):
             dens = LogarithmicHaloPotential(normalize=1.0, q=1.0)
             if sigmar is None:  # we know this solution!
                 sigmar = lambda x: _INVSQRTTWO
-        dens = flatten_pot(dens)
+        dens = _check_potential_list_and_deprecate(dens)
         self._dens_pot = dens
         self._dens_host = lambda R, z, phi=0.0, t=0.0: evaluateDensities(
             self._dens_pot, R, z, phi=phi, t=t, use_physical=False

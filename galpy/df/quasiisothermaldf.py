@@ -9,7 +9,7 @@ from .. import actionAngle, potential
 from ..actionAngle import actionAngleIsochrone
 from ..orbit import Orbit
 from ..potential import IsochronePotential
-from ..potential import flatten as flatten_potential
+from ..potential.Potential import _check_potential_list_and_deprecate
 from ..util import conversion, galpyWarning
 from ..util._optional_deps import _APY_LOADED, _APY_UNITS
 from ..util.conversion import (
@@ -68,8 +68,8 @@ class quasiisothermaldf(df):
             Radial-velocity-dispersion scale length.
         hsz : float or Quantity
             Vertial-velocity-dispersion scale length.
-        pot : Potential or list thereof
-            Potential or list of potentials that represents the underlying potential.
+        pot : Potential or a combined potential formed using addition (pot1+pot2+…)
+            Potential or a combined potential formed using addition (pot1+pot2+…) of potentials that represents the underlying potential.
         aA : actionAngle instance
             ActionAngle instance used to convert (x,v) to actions [must be an instance of an actionAngle class that computes (J,Omega,angle) for a given (x,v)].
         cutcounter : bool, optional
@@ -107,7 +107,7 @@ class quasiisothermaldf(df):
         self._maxVT_ip = None
         if pot is None:
             raise OSError("pot= must be set")
-        self._pot = flatten_potential(pot)
+        self._pot = _check_potential_list_and_deprecate(pot)
         if aA is None:
             raise OSError("aA= must be set")
         self._aA = aA

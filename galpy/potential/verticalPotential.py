@@ -5,7 +5,7 @@ from ._repr_utils import _build_physical_output_string, _strip_physical_output_i
 from .DissipativeForce import _isDissipative
 from .linearPotential import linearPotential
 from .planarPotential import planarPotential
-from .Potential import Potential, PotentialError, flatten
+from .Potential import Potential, PotentialError, _check_potential_list_and_deprecate
 
 
 class verticalPotential(linearPotential):
@@ -146,49 +146,49 @@ def RZToverticalPotential(RZPot, R):
 
     Parameters
     ----------
-    Pot : Potential instance
+    Pot : Potential instance or CompositePotential or a combined potential formed using addition (pot1+pot2+…)
         The 3D potential to convert.
     R : float or Quantity
         Galactocentric radius at which to evaluate the vertical potential.
 
     Returns
     -------
-    verticalPotential instance
-        The vertical potential at (R, z, phi, t).
+    verticalPotential or linearCompositePotential
+        The vertical potential at (R, z, phi, t). Returns a
+        linearCompositePotential when input is a list or CompositePotential
+        with multiple components.
 
     Notes
     -----
     - 2010-07-21 - Written - Bovy (NYU)
+    - 2024-12-01 - Updated to return linearCompositePotential
 
     """
-    RZPot = flatten(RZPot)
+    from .CompositePotential import CompositePotential
+    from .linearCompositePotential import linearCompositePotential
+
+    RZPot = _check_potential_list_and_deprecate(RZPot)
     try:
         conversion.get_physical(RZPot)
     except:
         raise PotentialError(
-            "Input to 'RZToverticalPotential' is neither an RZPotential-instance or a list of such instances"
+            "Input to 'RZToverticalPotential' is neither an RZPotential-instance or a combination of such instances"
         )
     if _isDissipative(RZPot):
         raise NotImplementedError(
             "Converting dissipative forces to 1D vertical potentials is currently not supported"
         )
     R = conversion.parse_length(R, **conversion.get_physical(RZPot))
-    if isinstance(RZPot, list):
+    if isinstance(RZPot, CompositePotential):
         out = []
         for pot in RZPot:
-            if isinstance(pot, linearPotential):
-                out.append(pot)
-            elif isinstance(pot, Potential):
+            if isinstance(pot, Potential):
                 out.append(verticalPotential(pot, R))
-            elif isinstance(pot, planarPotential):
-                raise PotentialError(
-                    "Input to 'RZToverticalPotential' cannot be a planarPotential"
-                )
             else:  # pragma: no cover
                 raise PotentialError(
-                    "Input to 'RZToverticalPotential' is neither an RZPotential-instance or a list of such instances"
+                    "Input to 'RZToverticalPotential' is neither an RZPotential-instance or a combination of such instances"
                 )
-        return out
+        return linearCompositePotential(out)
     elif isinstance(RZPot, Potential):
         return verticalPotential(RZPot, R)
     elif isinstance(RZPot, linearPotential):
@@ -201,7 +201,7 @@ def RZToverticalPotential(RZPot, R):
         # All other cases should have been caught by the
         # conversion.get_physical test above
         raise PotentialError(
-            "Input to 'RZToverticalPotential' is neither an RZPotential-instance or a list of such instances"
+            "Input to 'RZToverticalPotential' is neither an RZPotential-instance or a combination of such instances"
         )
 
 
@@ -211,7 +211,7 @@ def toVerticalPotential(Pot, R, phi=None, t0=0.0):
 
     Parameters
     ----------
-    Pot : Potential instance
+    Pot : Potential instance or CompositePotential or a combined potential formed using addition (pot1+pot2+…)
         The 3D potential to convert.
     R : float or Quantity
         Galactocentric radius at which to evaluate the vertical potential.
@@ -222,20 +222,26 @@ def toVerticalPotential(Pot, R, phi=None, t0=0.0):
 
     Returns
     -------
-    verticalPotential instance
-        The vertical potential at (R, z, phi, t).
+    verticalPotential or linearCompositePotential
+        The vertical potential at (R, z, phi, t). Returns a
+        linearCompositePotential when input is a list or CompositePotential
+        with multiple components.
 
     Notes
     -----
     - 2010-07-21 - Written - Bovy (NYU)
+    - 2024-12-01 - Updated to return linearCompositePotential
 
     """
-    Pot = flatten(Pot)
+    from .CompositePotential import CompositePotential
+    from .linearCompositePotential import linearCompositePotential
+
+    Pot = _check_potential_list_and_deprecate(Pot)
     try:
         conversion.get_physical(Pot)
     except:
         raise PotentialError(
-            "Input to 'toVerticalPotential' is neither an Potential-instance or a list of such instances"
+            "Input to 'toVerticalPotential' is neither an Potential-instance or a combination of such instances"
         )
     if _isDissipative(Pot):
         raise NotImplementedError(
@@ -244,24 +250,18 @@ def toVerticalPotential(Pot, R, phi=None, t0=0.0):
     R = conversion.parse_length(R, **conversion.get_physical(Pot))
     phi = conversion.parse_angle(phi)
     t0 = conversion.parse_time(t0, **conversion.get_physical(Pot))
-    if isinstance(Pot, list):
+    if isinstance(Pot, CompositePotential):
         out = []
         for pot in Pot:
-            if isinstance(pot, linearPotential):
-                out.append(pot)
-            elif isinstance(pot, Potential):
+            if isinstance(pot, Potential):
                 out.append(verticalPotential(pot, R, phi=phi, t0=t0))
-            elif isinstance(pot, planarPotential):
-                raise PotentialError(
-                    "Input to 'toVerticalPotential' cannot be a planarPotential"
-                )
             else:  # pragma: no cover
                 # All other cases should have been caught by the
                 # conversion.get_physical test above
                 raise PotentialError(
-                    "Input to 'toVerticalPotential' is neither an RZPotential-instance or a list of such instances"
+                    "Input to 'toVerticalPotential' is neither an RZPotential-instance or a combination of such instances"
                 )
-        return out
+        return linearCompositePotential(out)
     elif isinstance(Pot, Potential):
         return verticalPotential(Pot, R, phi=phi, t0=t0)
     elif isinstance(Pot, linearPotential):
@@ -274,5 +274,5 @@ def toVerticalPotential(Pot, R, phi=None, t0=0.0):
         # All other cases should have been caught by the
         # conversion.get_physical test above
         raise PotentialError(
-            "Input to 'toVerticalPotential' is neither an Potential-instance or a list of such instances"
+            "Input to 'toVerticalPotential' is neither an Potential-instance or a combination of such instances"
         )

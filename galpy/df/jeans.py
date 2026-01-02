@@ -3,11 +3,11 @@ import numpy
 from scipy import integrate
 
 from ..potential.Potential import (
+    _check_potential_list_and_deprecate,
     evaluateDensities,
     evaluaterforces,
     evaluateSurfaceDensities,
 )
-from ..potential.Potential import flatten as flatten_pot
 from ..util.conversion import physical_conversion, potential_physical_input
 
 _INVSQRTTWO = 1.0 / numpy.sqrt(2.0)
@@ -21,7 +21,7 @@ def sigmar(Pot, r, dens=None, beta=0.0):
 
     Parameters
     ----------
-    Pot : potential or list of potentials
+    Pot : potential or a combined potential formed using addition (pot1+pot2+…)
         Gravitational potential; evaluated at R=r/sqrt(2),z=r/sqrt(2), sphericity not checked.
     r : float or Quantity
         Galactocentric radius
@@ -39,7 +39,7 @@ def sigmar(Pot, r, dens=None, beta=0.0):
     -----
     - 2018-07-05 - Written - Bovy (UofT)
     """
-    Pot = flatten_pot(Pot)
+    Pot = _check_potential_list_and_deprecate(Pot)
     if dens is None:
         dens = lambda r: evaluateDensities(
             Pot,
@@ -81,7 +81,7 @@ def sigmalos(Pot, R, dens=None, surfdens=None, beta=0.0, sigma_r=None):
 
     Parameters
     ----------
-    Pot : potential or list of potentials
+    Pot : potential or a combined potential formed using addition (pot1+pot2+…)
         Gravitational potential; evaluated at R=r/sqrt(2),z=r/sqrt(2), sphericity not checked.
     R : float or Quantity
         Galactocentric projected radius
@@ -103,7 +103,7 @@ def sigmalos(Pot, R, dens=None, surfdens=None, beta=0.0, sigma_r=None):
     -----
     - 2018-08-27 - Written - Bovy (UofT)
     """
-    Pot = flatten_pot(Pot)
+    Pot = _check_potential_list_and_deprecate(Pot)
     if dens is None:
         densPot = True
         dens = lambda r: evaluateDensities(

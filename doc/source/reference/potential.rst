@@ -316,7 +316,7 @@ defined as
 >>> np= NFWPotential(a=16/8.,normalize=.35)
 >>> MWPotential2014= bp+mp+np
 
-and can thus be used like any list of ``Potentials``. The mass of the
+and can thus be used like any combination of ``Potentials``. The mass of the
 dark-matter halo in ``MWPotential2014`` is on the low side of
 estimates of the Milky Way's halo mass; if you want to adjust it, for
 example making it 50% larger, you can simply multiply the halo part of

@@ -5,7 +5,7 @@ from __future__ import annotations
 import numpy
 from scipy import integrate
 
-from ..potential import evaluateR2derivs
+from ..potential import CompositePotential, evaluateR2derivs
 from ..potential.Potential import _evaluatePotentials, _evaluateRforces
 from ..util import conversion
 from .sphericaldf import (
@@ -34,9 +34,9 @@ class eddingtondf(isotropicsphericaldf):
 
         Parameters
         ----------
-        pot : Potential instance or list thereof
+        pot : Potential instance or a combined potential formed using addition (pot1+pot2+…)
             Represents the gravitational potential (assumed to be spherical).
-        denspot : Potential instance or list thereof, optional
+        denspot : Potential instance or a combined potential formed using addition (pot1+pot2+…), optional
             Represents the density of the tracers (assumed to be spherical; if None, set equal to pot).
         rmax : float or Quantity, optional
             Maximum radius to consider. DF is cut off at E = Phi(rmax).
@@ -70,12 +70,12 @@ class eddingtondf(isotropicsphericaldf):
 
         self._dnudr = (
             self._denspot._ddensdr
-            if not isinstance(self._denspot, list)
+            if not isinstance(self._denspot, CompositePotential)
             else lambda r: numpy.sum([p._ddensdr(r) for p in self._denspot])
         )
         self._d2nudr2 = (
             self._denspot._d2densdr2
-            if not isinstance(self._denspot, list)
+            if not isinstance(self._denspot, CompositePotential)
             else lambda r: numpy.sum([p._d2densdr2(r) for p in self._denspot])
         )
         self._potInf = _evaluatePotentials(pot, self._rmax, 0)

@@ -18,7 +18,7 @@ else:
 
 from ..actionAngle.actionAngleIsochroneApprox import dePeriod
 from ..orbit import Orbit
-from ..potential import flatten as flatten_potential
+from ..potential.Potential import _check_potential_list_and_deprecate
 from ..util import (
     ars,
     conversion,
@@ -103,8 +103,8 @@ class streamdf(df):
             Radial velocity dispersion of the progenitor.
         progenitor : galpy.orbit.Orbit
             Progenitor orbit as Orbit instance (will be re-integrated, so don't bother integrating the orbit before).
-        pot : galpy.potential.Potential or list thereof, optional
-            Potential instance or list thereof.
+        pot : galpy.potential.Potential or a combined potential formed using addition (pot1+pot2+…), optional
+            Potential instance or a combined potential formed using addition (pot1+pot2+…).
         aA : actionAngle instance
             ActionAngle instance used to convert (x,v) to actions. Generally a actionAngleIsochroneApprox instance.
         useTM : bool, optional
@@ -183,7 +183,7 @@ class streamdf(df):
         self._sigMeanOffset = sigMeanOffset
         if pot is None:  # pragma: no cover
             raise OSError("pot= must be set")
-        self._pot = flatten_potential(pot)
+        self._pot = _check_potential_list_and_deprecate(pot)
         self._aA = aA
         if not self._aA._pot == self._pot:
             raise OSError(

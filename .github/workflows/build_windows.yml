@@ -192,22 +192,6 @@ jobs:
             REQUIRES_ASTROQUERY: true
             REQUIRES_NUMBA: false
             REQUIRES_JAX: false
-          - os: windows-latest
-            python-version: 3.9
-            TEST_FILES: tests/test_orbit.py -k test_energy_jacobi_conservation
-            REQUIRES_PYNBODY: false
-            REQUIRES_ASTROPY: true
-            REQUIRES_ASTROQUERY: true
-            REQUIRES_NUMBA: false
-            REQUIRES_JAX: false
-          - os: windows-latest
-            python-version: 3.9
-            TEST_FILES: tests/test_orbit.py tests/test_orbits.py -k 'not test_energy_jacobi_conservation'
-            REQUIRES_PYNBODY: false
-            REQUIRES_ASTROPY: true
-            REQUIRES_ASTROQUERY: true
-            REQUIRES_NUMBA: false
-            REQUIRES_JAX: false
     steps:
     - uses: actions/checkout@v6
     - name: Set up Python ${{ matrix.python-version }}
@@ -216,7 +200,7 @@ jobs:
         python-version: ${{ matrix.python-version }}
         allow-prereleases: true
     # Cache both conda and pip, conda done by setup-micromamba
-    - uses: actions/cache@v4
+    - uses: actions/cache@v5
       with:
         path: ~\AppData\Local\pip\Cache
         key: ${{ runner.os }}-pip-${{ matrix.python-version }}-${{ hashFiles('.github/workflows/build_windows.yml') }}-${{ matrix.REQUIRES_PYNBODY }}-${{ matrix.REQUIRES_ASTROPY }}-${{ matrix.REQUIRES_ASTROQUERY }}-${{ matrix.REQUIRES_NUMBA }}-${{ matrix.REQUIRES_JAX }}

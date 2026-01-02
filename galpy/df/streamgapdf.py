@@ -9,7 +9,7 @@ from scipy import integrate, interpolate, special
 
 from ..orbit import Orbit
 from ..potential import MovingObjectPotential, PlummerPotential, evaluateRforces
-from ..potential import flatten as flatten_potential
+from ..potential.Potential import _check_potential_list_and_deprecate
 from ..util import _rotate_to_arbitrary_vector, conversion, coords, galpyWarning, multi
 from ..util.conversion import physical_conversion
 from . import streamdf
@@ -48,8 +48,8 @@ class streamgapdf(streamdf.streamdf):
             Radial velocity dispersion of the progenitor.
         progenitor : galpy.orbit.Orbit
             Progenitor orbit as Orbit instance (will be re-integrated, so don't bother integrating the orbit before).
-        pot : galpy.potential.Potential or list thereof, optional
-            Potential instance or list thereof.
+        pot : galpy.potential.Potential or a combined potential formed using addition (pot1+pot2+…), optional
+            Potential instance or a combined potential formed using addition (pot1+pot2+…).
         aA : actionAngle instance
             ActionAngle instance used to convert (x,v) to actions. Generally a actionAngleIsochroneApprox instance.
         useTM : bool, optional
@@ -114,7 +114,7 @@ class streamgapdf(streamdf.streamdf):
             Scale parameter of the subhalo when using a Plummer or Hernquist model.
         hernquist : bool, optional
             If True, use Hernquist kicks for GM/rs (default: False --> Plummer).
-        subhalopot : Potential or list thereof, optional
+        subhalopot : Potential or a combined potential formed using addition (pot1+pot2+…), optional
             Gravitational potential of the subhalo (alternative to specifying GM and rs)
         deltaAngleTrackImpact : float or Quantity, optional
             Angle to estimate the stream track over to determine the effect of the impact [similar to deltaAngleTrack] (rad) (default: None).
@@ -1571,8 +1571,8 @@ def impulse_deltav_general(v, y, b, w, pot):
         impact parameter
     w : numpy.ndarray
         velocity of the subhalo (3)
-    pot : Potential object or list thereof
-        Potential object or list thereof (should be spherical)
+    pot : Potential object or a combined potential formed using addition (pot1+pot2+…)
+        Potential object or a combined potential formed using addition (pot1+pot2+…) (should be spherical)
 
     Returns
     -------
@@ -1584,7 +1584,7 @@ def impulse_deltav_general(v, y, b, w, pot):
     - 2015-05-04 - Written - Sanders (Cambridge)
     - 2015-06-15 - Tweak to use galpy' potential objects - Bovy (IAS)
     """
-    pot = flatten_potential(pot)
+    pot = _check_potential_list_and_deprecate(pot)
     if len(v.shape) == 1:
         v = numpy.reshape(v, (1, 3))
     nv = v.shape[0]
@@ -1626,8 +1626,8 @@ def impulse_deltav_general_curvedstream(v, x, b, w, x0, v0, pot):
         point of closest approach
     v0 : numpy.ndarray
         velocity of point of closest approach
-    pot : Potential object or list thereof
-        Potential object or list thereof (should be spherical)
+    pot : Potential object or a combined potential formed using addition (pot1+pot2+…)
+        Potential object or a combined potential formed using addition (pot1+pot2+…) (should be spherical)
 
     Returns
     -------
@@ -1639,7 +1639,7 @@ def impulse_deltav_general_curvedstream(v, x, b, w, x0, v0, pot):
     - 2015-05-04 - Written - Sanders (Cambridge)
     - 2015-06-15 - Tweak to use galpy' potential objects - Bovy (IAS)
     """
-    pot = flatten_potential(pot)
+    pot = _check_potential_list_and_deprecate(pot)
     if len(v.shape) == 1:
         v = numpy.reshape(v, (1, 3))
     if len(x.shape) == 1:
@@ -1683,12 +1683,12 @@ def impulse_deltav_general_orbitintegration(
         position of closest approach
     v0 : numpy.ndarray
         velocity of point of closest approach
-    pot : Potential object or list thereof
-        Potential object or list thereof (should be spherical)
+    pot : Potential object or a combined potential formed using addition (pot1+pot2+…)
+        Potential object or a combined potential formed using addition (pot1+pot2+…) (should be spherical)
     tmax : float
         maximum integration time
-    galpot : Potential object or list thereof
-        galpy Potential object or list thereof
+    galpot : Potential object or a combined potential formed using addition (pot1+pot2+…)
+        galpy Potential object or a combined potential formed using addition (pot1+pot2+…)
     tmaxfac : float
         multiple of rs/fabs(w - v0) to use for time integration interval
     nsamp : int
@@ -1705,7 +1705,7 @@ def impulse_deltav_general_orbitintegration(
     -----
     - 2015-08-17 - Written - Sanders (Cambridge)
     """
-    galpot = flatten_potential(galpot)
+    galpot = _check_potential_list_and_deprecate(galpot)
     if len(v.shape) == 1:
         v = numpy.reshape(v, (1, 3))
     if len(x.shape) == 1:
@@ -1769,8 +1769,8 @@ def impulse_deltav_general_fullplummerintegration(
         position of closest approach
     v0 : numpy.ndarray
         velocity of point of closest approach
-    galpot : Potential object or list thereof
-        galpy Potential object or list thereof
+    galpot : Potential object or a combined potential formed using addition (pot1+pot2+…)
+        galpy Potential object or a combined potential formed using addition (pot1+pot2+…)
     GM : float
         mass of Plummer
     rs : float
@@ -1791,7 +1791,7 @@ def impulse_deltav_general_fullplummerintegration(
     -----
     - 2015-08-18 - Written - Sanders (Cambridge)
     """
-    galpot = flatten_potential(galpot)
+    galpot = _check_potential_list_and_deprecate(galpot)
     if len(v.shape) == 1:
         v = numpy.reshape(v, (1, 3))
     if len(x.shape) == 1:
@@ -1823,7 +1823,7 @@ def impulse_deltav_general_fullplummerintegration(
         ostar = Orbit(vxvv=[R[i], -vR[i], -vp[i], z[i], -vz[i], phi[i]])
         ostar.integrate(times, galpot, method=integrate_method)
         oboth = ostar(times[-1]).flip()
-        oboth.integrate(dtimes, [galpot, plumpot], method=integrate_method)
+        oboth.integrate(dtimes, galpot + plumpot, method=integrate_method)
         ogalpot = oboth(times[-1]).flip()
         ogalpot.integrate(times, galpot, method=integrate_method)
         deltav[i][0] = -ogalpot.vx(times[-1]) - v[i][0]
@@ -2019,8 +2019,8 @@ def impulse_deltav_plummerstream_curvedstream(
         surface density of the Plummer-softened stream (in natural units); should be a function of time
     rs : float
         size of the Plummer sphere
-    galpot : Potential object or list thereof
-        galpy Potential object or list thereof
+    galpot : Potential object or a combined potential formed using addition (pot1+pot2+…)
+        galpy Potential object or a combined potential formed using addition (pot1+pot2+…)
     tmin : float
         minimum time to consider for GSigma (need to be set)
     tmax : float
@@ -2035,7 +2035,7 @@ def impulse_deltav_plummerstream_curvedstream(
     -----
     - 2015-11-14 - Written - Bovy (UofT)
     """
-    galpot = flatten_potential(galpot)
+    galpot = _check_potential_list_and_deprecate(galpot)
     if len(v.shape) == 1:
         v = numpy.reshape(v, (1, 3))
     if len(x.shape) == 1:

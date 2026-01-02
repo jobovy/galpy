@@ -6,7 +6,7 @@
 
 - **Repository Size**: ~44MB (7.1MB galpy/, 3.3MB tests/, 18MB doc/)
 - **Languages**: Python (142 files) and C (81 files for performance-critical extensions)
-- **Python Versions**: Supports 3.9, 3.10, 3.11, 3.12, and 3.13
+- **Python Versions**: Supports 3.10, 3.11, 3.12, 3.13, and 3.14
 - **Key Dependencies**: numpy, scipy, matplotlib (required); GSL 1.14+ (optional, for C extensions)
 - **Optional Dependencies**: astropy, astroquery, tqdm, numexpr, numba, JAX, pynbody
 

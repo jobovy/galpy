@@ -18,10 +18,11 @@ from .Potential import (
     _INF,
     Potential,
     PotentialError,
-    flatten,
+    _check_potential_list_and_deprecate,
     lindbladR,
     plotEscapecurve,
     plotRotcurve,
+    potential_list_of_potentials_input,
     potential_positional_arg,
 )
 
@@ -236,6 +237,34 @@ class planarPotential(planarForce):
             raise PotentialError(
                 "'_Rphideriv' function not implemented for this potential"
             )
+
+    @potential_physical_input
+    @physical_conversion("frequency", pop=True)
+    def epifreq(self, R, t=0.0):
+        """
+        Calculate the epicycle frequency at R in this potential.
+
+        Parameters
+        ----------
+        R : float or Quantity
+            Galactocentric radius.
+        t : float or Quantity, optional
+            Time. Default: 0.0
+
+        Returns
+        -------
+        float or Quantity
+            Epicycle frequency.
+
+        Notes
+        -----
+        - 2011-10-09 - Written - Bovy (IAS)
+
+        """
+        return numpy.sqrt(
+            self.R2deriv(R, 0.0, t=t, use_physical=False)
+            - 3.0 / R * self.Rforce(R, 0.0, t=t, use_physical=False)
+        )
 
     def plot(self, *args, **kwargs):
         """
@@ -653,35 +682,39 @@ def RZToplanarPotential(RZPot):
 
     Parameters
     ----------
-    RZPot : RZPotential instance or list of such instances
+    RZPot : RZPotential instance or a combined potential formed using addition (pot1+pot2+…)
         Existing planarPotential instances are just copied to the output.
 
     Returns
     -------
-    planarPotential instance(s)
+    planarPotential or planarCompositePotential instance(s)
 
     Notes
     -----
     - 2010-07-13 - Written - Bovy (NYU)
+    - 2024-11-27 - Updated to return planarCompositePotential for multiple potentials - Copilot
 
     """
-    RZPot = flatten(RZPot)
+    from .CompositePotential import CompositePotential
+    from .planarCompositePotential import planarCompositePotential
+
+    RZPot = _check_potential_list_and_deprecate(RZPot)
     if _isDissipative(RZPot):
         raise NotImplementedError(
             "Converting dissipative forces to 2D axisymmetric potentials is currently not supported"
         )
-    if isinstance(RZPot, list):
+    if isinstance(RZPot, CompositePotential):
         out = []
         for pot in RZPot:
-            if isinstance(pot, planarPotential) and not pot.isNonAxi:
-                out.append(pot)
-            elif isinstance(pot, Potential) and not pot.isNonAxi:
+            if isinstance(pot, Potential) and not pot.isNonAxi:
                 out.append(planarPotentialFromRZPotential(pot))
             else:
                 raise PotentialError(
                     "Input to 'RZToplanarPotential' is neither an RZPotential-instance or a list of such instances"
                 )
-        return out
+        # If we get a CompositePotential, always return a planarCompositePotential,
+        # even if only one component
+        return planarCompositePotential(out)
     elif isinstance(RZPot, Potential) and not RZPot.isNonAxi:
         return planarPotentialFromRZPotential(RZPot)
     elif isinstance(RZPot, planarPotential) and not RZPot.isNonAxi:
@@ -917,35 +950,42 @@ def toPlanarPotential(Pot):
 
     Parameters
     ----------
-    Pot : Potential instance or list of such instances
+    Pot : Potential instance or a combined potential formed using addition (pot1+pot2+…)
         Existing planarPotential instances are just copied to the output.
 
     Returns
     -------
-    planarPotential, planarAxiPotential, or planarDissipativeForce instance(s)
+    planarPotential, planarCompositePotential, or planarDissipativeForce
+        instance(s)
 
     Notes
     -----
     - 2016-06-11: Written - Bovy (UofT)
+    - 2024-11-27: Updated to return planarCompositePotential for multiple potentials - Copilot
 
     """
-    Pot = flatten(Pot)
-    if isinstance(Pot, list):
+    from .CompositePotential import CompositePotential
+    from .planarCompositePotential import planarCompositePotential
+
+    Pot = _check_potential_list_and_deprecate(Pot)
+    if isinstance(Pot, CompositePotential):
         out = []
         for pot in Pot:
-            if isinstance(pot, planarForce):
-                out.append(pot)
-            elif isinstance(pot, Potential) and pot.isNonAxi:
+            if isinstance(pot, Potential) and pot.isNonAxi:
                 out.append(planarPotentialFromFullPotential(pot))
             elif isinstance(pot, Potential):
                 out.append(planarPotentialFromRZPotential(pot))
             elif isinstance(pot, DissipativeForce):
                 out.append(planarDissipativeForceFromFullDissipativeForce(pot))
-            else:
+            else:  # pragma: no cover
+                # Can't get here, because there can't be something that's not a proper
+                # potential/force in a CompositePotential, but leaving it in case this ever changes
                 raise PotentialError(
                     "Input to 'toPlanarPotential' is neither an Potential-instance or a list of such instances"
                 )
-        return out
+        # If we get a CompositePotential, always return a planarCompositePotential,
+        # even if only one component
+        return planarCompositePotential(out)
     elif isinstance(Pot, Potential) and Pot.isNonAxi:
         return planarPotentialFromFullPotential(Pot)
     elif isinstance(Pot, Potential):
@@ -963,14 +1003,15 @@ def toPlanarPotential(Pot):
 @potential_positional_arg
 @potential_physical_input
 @physical_conversion("energy", pop=True)
+@potential_list_of_potentials_input
 def evaluateplanarPotentials(Pot, R, phi=None, t=0.0, dR=0, dphi=0):
     """
-    Evaluate a (list of) planarPotential instance(s).
+    Evaluate a planarPotential instance or a combined potential formed using addition (pot1+pot2+…).
 
     Parameters
     ----------
-    Pot : planarPotential or list of planarPotential
-        A (list of) planarPotential instance(s).
+    Pot : planarPotential or a combined potential formed using addition (pot1+pot2+…) of planarPotential
+        A planarPotential instance or a combined potential formed using addition (pot1+pot2+…).
     R : float or Quantity
         Cylindrical radius.
     phi : float or Quantity, optional
@@ -990,49 +1031,39 @@ def evaluateplanarPotentials(Pot, R, phi=None, t=0.0, dR=0, dphi=0):
     Notes
     -----
     - 2010-07-13 - Written - Bovy (NYU)
+    - 2024-11-28 - Updated to use planarCompositePotential internally - Copilot
 
     """
+    if not isinstance(Pot, planarPotential):
+        raise PotentialError(
+            "Input to 'evaluateplanarRforces' is neither a planarForce-instance or a combination of such instances"
+        )
+
     from .Potential import _isNonAxi
 
     nonAxi = _isNonAxi(Pot)
     if nonAxi and phi is None:
         raise PotentialError(
-            "The (list of) planarPotential instances is non-axisymmetric, but you did not provide phi"
+            "The (combination of) planarPotential instances is non-axisymmetric, but you did not provide phi"
         )
     return _evaluateplanarPotentials(Pot, R, phi=phi, t=t, dR=dR, dphi=dphi)
 
 
 def _evaluateplanarPotentials(Pot, R, phi=None, t=0.0, dR=0, dphi=0):
-    isList = isinstance(Pot, list)
-    if isList and numpy.all([isinstance(p, planarPotential) for p in Pot]):
-        sum = 0.0
-        for pot in Pot:
-            if pot.isNonAxi:
-                sum += pot._call_nodecorator(R, phi=phi, t=t, dR=dR, dphi=dphi)
-            else:
-                sum += pot._call_nodecorator(R, t=t, dR=dR, dphi=dphi)
-        return sum
-    elif isinstance(Pot, planarPotential):
-        if Pot.isNonAxi:
-            return Pot._call_nodecorator(R, phi=phi, t=t, dR=dR, dphi=dphi)
-        else:
-            return Pot._call_nodecorator(R, t=t, dR=dR, dphi=dphi)
-    else:  # pragma: no cover
-        raise PotentialError(
-            "Input to 'evaluatePotentials' is neither a Potential-instance or a list of such instances"
-        )
+    return Pot._call_nodecorator(R, phi=phi, t=t, dR=dR, dphi=dphi)
 
 
 @potential_positional_arg
 @potential_physical_input
 @physical_conversion("force", pop=True)
+@potential_list_of_potentials_input
 def evaluateplanarRforces(Pot, R, phi=None, t=0.0, v=None):
     """
-    Evaluate the cylindrical radial force of a (list of) planarPotential instance(s).
+    Evaluate the cylindrical radial force of a planarPotential instance or a combined potential formed using addition (pot1+pot2+…).
 
     Parameters
     ----------
-    Pot : (list of) planarPotential instance(s)
+    Pot : planarPotential instance or a combined potential formed using addition (pot1+pot2+…)
         The potential(s) to evaluate.
     R : float or Quantity
         Cylindrical radius.
@@ -1053,59 +1084,49 @@ def evaluateplanarRforces(Pot, R, phi=None, t=0.0, v=None):
     -----
     - 2010-07-13 - Written - Bovy (NYU)
     - 2023-05-29 - Added velocity input for dissipative forces - Bovy (UofT)
+    - 2024-11-28 - Updated to use planarCompositePotential internally - Copilot
 
     """
+    if not isinstance(Pot, planarForce):
+        raise PotentialError(
+            "Input to 'evaluateplanarRforces' is neither a planarForce-instance or a combination of such instances"
+        )
+
     from .Potential import _isNonAxi
 
     nonAxi = _isNonAxi(Pot)
     if nonAxi and phi is None:
         raise PotentialError(
-            "The (list of) planarForce instances is non-axisymmetric, but you did not provide phi"
+            "The (combination of) planarForce instances is non-axisymmetric, but you did not provide phi"
         )
     dissipative = _isDissipative(Pot)
     if dissipative and v is None:
         raise PotentialError(
-            "The (list of) planarForce instances includes dissipative components, but you did not provide the 2D velocity (required for dissipative forces)"
+            "The (combination of) planarForce instances includes dissipative components, but you did not provide the 2D velocity (required for dissipative forces)"
         )
     return _evaluateplanarRforces(Pot, R, phi=phi, t=t, v=v)
 
 
 def _evaluateplanarRforces(Pot, R, phi=None, t=0.0, v=None):
-    """Raw, undecorated function for internal use"""
-    isList = isinstance(Pot, list)
-    if isinstance(Pot, list) and numpy.all([isinstance(p, planarForce) for p in Pot]):
-        sum = 0.0
-        for pot in Pot:
-            if pot.isDissipative:
-                sum += pot._Rforce_nodecorator(R, phi=phi, t=t, v=v)
-            elif pot.isNonAxi:
-                sum += pot._Rforce_nodecorator(R, phi=phi, t=t)
-            else:
-                sum += pot._Rforce_nodecorator(R, t=t)
-        return sum
-    elif not isList and Pot.isDissipative:
+    """Raw, undecorated function for internal use."""
+    # Only pass v if the potential is dissipative
+    if Pot.isDissipative:
         return Pot._Rforce_nodecorator(R, phi=phi, t=t, v=v)
-    elif isinstance(Pot, planarPotential):
-        if Pot.isNonAxi:
-            return Pot._Rforce_nodecorator(R, phi=phi, t=t)
-        else:
-            return Pot._Rforce_nodecorator(R, t=t)
-    else:  # pragma: no cover
-        raise PotentialError(
-            "Input to 'evaluatePotentials' is neither a Potential-instance or a list of such instances"
-        )
+    else:
+        return Pot._Rforce_nodecorator(R, phi=phi, t=t)
 
 
 @potential_positional_arg
 @potential_physical_input
 @physical_conversion("energy", pop=True)
+@potential_list_of_potentials_input
 def evaluateplanarphitorques(Pot, R, phi=None, t=0.0, v=None):
     """
-    Evaluate the phi torque of a (list of) planarPotential instance(s).
+    Evaluate the phi torque of a planarPotential instance or a combined potential formed using addition (pot1+pot2+…).
 
     Parameters
     ----------
-    Pot : (list of) planarPotential instance(s)
+    Pot : planarPotential instance or a combined potential formed using addition (pot1+pot2+…)
         The potential(s) to evaluate.
     R : float or Quantity
         Cylindrical radius
@@ -1126,58 +1147,48 @@ def evaluateplanarphitorques(Pot, R, phi=None, t=0.0, v=None):
     -----
     - 2010-07-13 - Written - Bovy (NYU)
     - 2023-05-29 - Added velocity input for dissipative forces - Bovy (UofT)
+    - 2024-11-28 - Updated to use planarCompositePotential internally - Copilot
 
     """
+    if not isinstance(Pot, (planarPotential, planarForce)):
+        raise PotentialError(
+            "Input to 'evaluateplanarphitorques' is neither a planarForce-instance or a combination of such instances"
+        )
     from .Potential import _isNonAxi
 
     nonAxi = _isNonAxi(Pot)
     if nonAxi and phi is None:
         raise PotentialError(
-            "The (list of) planarPotential instances is non-axisymmetric, but you did not provide phi"
+            "The (combination of) planarPotential instances is non-axisymmetric, but you did not provide phi"
         )
     dissipative = _isDissipative(Pot)
     if dissipative and v is None:
         raise PotentialError(
-            "The (list of) planarForce instances includes dissipative components, but you did not provide the 2D velocity (required for dissipative forces)"
+            "The (combination of) planarForce instances includes dissipative components, but you did not provide the 2D velocity (required for dissipative forces)"
         )
     return _evaluateplanarphitorques(Pot, R, phi=phi, t=t, v=v)
 
 
 def _evaluateplanarphitorques(Pot, R, phi=None, t=0.0, v=None):
-    isList = isinstance(Pot, list)
-    if isinstance(Pot, list) and numpy.all([isinstance(p, planarForce) for p in Pot]):
-        sum = 0.0
-        for pot in Pot:
-            if pot.isDissipative:
-                sum += pot._phitorque_nodecorator(R, phi=phi, t=t, v=v)
-            elif pot.isNonAxi:
-                sum += pot._phitorque_nodecorator(R, phi=phi, t=t)
-            else:
-                sum += pot._phitorque_nodecorator(R, t=t)
-        return sum
-    elif not isList and Pot.isDissipative:
+    """Raw, undecorated function for internal use."""
+    # Only pass v if the potential is dissipative
+    if Pot.isDissipative:
         return Pot._phitorque_nodecorator(R, phi=phi, t=t, v=v)
-    elif isinstance(Pot, planarPotential):
-        if Pot.isNonAxi:
-            return Pot._phitorque_nodecorator(R, phi=phi, t=t)
-        else:
-            return Pot._phitorque_nodecorator(R, t=t)
-    else:  # pragma: no cover
-        raise PotentialError(
-            "Input to 'evaluatePotentials' is neither a Potential-instance or a list of such instances"
-        )
+    else:
+        return Pot._phitorque_nodecorator(R, phi=phi, t=t)
 
 
 @potential_positional_arg
 @potential_physical_input
 @physical_conversion("forcederivative", pop=True)
+@potential_list_of_potentials_input
 def evaluateplanarR2derivs(Pot, R, phi=None, t=0.0):
     """
     Evaluate the second radial derivative of planarPotential instance(s).
 
     Parameters
     ----------
-    Pot : (list of) planarPotential instance(s)
+    Pot : planarPotential instance or a combined potential formed using addition (pot1+pot2+…)
         The potential(s) to evaluate.
     R : float or Quantity
         Cylindrical radius
@@ -1194,37 +1205,24 @@ def evaluateplanarR2derivs(Pot, R, phi=None, t=0.0):
     Notes
     -----
     - 2010-10-09 - Written - Bovy (IAS)
+    - 2024-11-28 - Updated to use planarCompositePotential internally - Copilot
 
     """
     from .Potential import _isNonAxi
 
-    isList = isinstance(Pot, list)
-    nonAxi = _isNonAxi(Pot)
-    if nonAxi and phi is None:
+    # Check that the input is a planar potential type
+    if not isinstance(Pot, (planarPotential, planarForce)):
         raise PotentialError(
-            "The (list of) planarPotential instances is non-axisymmetric, but you did not provide phi"
+            "Input to 'evaluateplanarR2derivs' is neither a planarPotential-instance or a combination of such instances"
         )
-    if isinstance(Pot, list) and numpy.all(
-        [isinstance(p, planarPotential) for p in Pot]
-    ):
-        sum = 0.0
-        for pot in Pot:
-            if nonAxi:
-                sum += pot.R2deriv(R, phi=phi, t=t, use_physical=False)
-            else:
-                sum += pot.R2deriv(R, t=t, use_physical=False)
-        return sum
-    elif isinstance(Pot, planarPotential):
-        if nonAxi:
-            return Pot.R2deriv(R, phi=phi, t=t, use_physical=False)
-        else:
-            return Pot.R2deriv(R, t=t, use_physical=False)
-    else:  # pragma: no cover
+    if _isNonAxi(Pot) and phi is None:
         raise PotentialError(
-            "Input to 'evaluatePotentials' is neither a Potential-instance or a list of such instances"
+            "The (combination of) planarPotential instances is non-axisymmetric, but you did not provide phi"
         )
+    return Pot.R2deriv(R, phi=phi, t=t, use_physical=False)
 
 
+@potential_list_of_potentials_input
 def LinShuReductionFactor(
     axiPot, R, sigmar, nonaxiPot=None, k=None, m=None, OmegaP=None
 ):
@@ -1233,7 +1231,7 @@ def LinShuReductionFactor(
 
     Parameters
     ----------
-    axiPot : Potential or list of Potential instances
+    axiPot : Potential or a combined potential formed using addition (pot1+pot2+…)
         The background, axisymmetric potential
     R : float or Quantity
         Cylindrical radius
@@ -1258,7 +1256,6 @@ def LinShuReductionFactor(
     - 2014-08-23 - Written - Bovy (IAS)
 
     """
-    axiPot = flatten(axiPot)
     from ..potential import epifreq, omegac
 
     if nonaxiPot is None and (OmegaP is None or k is None or m is None):
@@ -1286,14 +1283,15 @@ def LinShuReductionFactor(
     )
 
 
+@potential_list_of_potentials_input
 def plotplanarPotentials(Pot, *args, **kwargs):
     """
     Plot a planar potential.
 
     Parameters
     ----------
-    Pot : Potential or list of Potential instances
-        Potential or list of potentials to plot
+    Pot : Potential or a combined potential formed using addition (pot1+pot2+…)
+        Potential or a combined potential formed using addition (pot1+pot2+…) of potentials to plot
     Rrange : list or Quantity, optional
         Range in R to plot (default is [0.01, 5.0])
     xrange, yrange : list, optional
@@ -1314,16 +1312,13 @@ def plotplanarPotentials(Pot, *args, **kwargs):
     Notes
     -----
     - 2010-07-13 - Written - Bovy (NYU)
+    - 2024-11-28 - Updated to use planarCompositePotential - Copilot
 
     """
-    Pot = flatten(Pot)
     Rrange = kwargs.pop("Rrange", [0.01, 5.0])
     xrange = kwargs.pop("xrange", [-5.0, 5.0])
     yrange = kwargs.pop("yrange", [-5.0, 5.0])
-    if hasattr(Pot, "_ro"):
-        tro = Pot._ro
-    else:
-        tro = Pot[0]._ro
+    tro = Pot._ro
     Rrange[0] = conversion.parse_length(Rrange[0], ro=tro)
     Rrange[1] = conversion.parse_length(Rrange[1], ro=tro)
     xrange[0] = conversion.parse_length(xrange[0], ro=tro)
@@ -1334,8 +1329,7 @@ def plotplanarPotentials(Pot, *args, **kwargs):
     gridx = kwargs.pop("gridx", 100)
     gridy = kwargs.pop("gridy", gridx)
     savefilename = kwargs.pop("savefilename", None)
-    isList = isinstance(Pot, list)
-    nonAxi = (isList and Pot[0].isNonAxi) or (not isList and Pot.isNonAxi)
+    nonAxi = Pot.isNonAxi
     if not savefilename is None and os.path.exists(savefilename):
         print("Restoring savefile " + savefilename + " ...")
         savefile = open(savefilename, "rb")
@@ -1358,14 +1352,12 @@ def plotplanarPotentials(Pot, *args, **kwargs):
                         thisphi = numpy.arcsin(ys[jj] / thisR)
                     else:
                         thisphi = -numpy.arcsin(ys[jj] / thisR) + numpy.pi
-                    potR[ii, jj] = evaluateplanarPotentials(
-                        Pot, thisR, phi=thisphi, use_physical=False
-                    )
+                    potR[ii, jj] = Pot._call_nodecorator(thisR, phi=thisphi)
         else:
             Rs = numpy.linspace(Rrange[0], Rrange[1], grid)
             potR = numpy.zeros(grid)
             for ii in range(grid):
-                potR[ii] = evaluateplanarPotentials(Pot, Rs[ii], use_physical=False)
+                potR[ii] = Pot._call_nodecorator(Rs[ii])
         if not savefilename is None:
             print("Writing planar savefile " + savefilename + " ...")
             savefile = open(savefilename, "wb")

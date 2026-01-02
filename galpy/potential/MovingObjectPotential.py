@@ -6,6 +6,7 @@ import copy
 
 import numpy
 
+from ..potential.Potential import _check_potential_list_and_deprecate
 from .PlummerPotential import PlummerPotential
 from .Potential import (
     Potential,
@@ -15,7 +16,6 @@ from .Potential import (
     evaluatePotentials,
     evaluateRforces,
     evaluatezforces,
-    flatten,
 )
 
 
@@ -33,8 +33,8 @@ class MovingObjectPotential(Potential):
         ----------
         orbit : galpy.orbit.Orbit
             The orbit of the object.
-        pot : Potential object or list of Potential objects
-            A potential object or list of potential objects representing the potential of the moving object; should be spherical, but this is not checked. Default is `PlummerPotential(amp=0.06,b=0.01)`.
+        pot : Potential object or a combined potential formed using addition (pot1+pot2+…)
+            A potential object or combination of potential objects representing the potential of the moving object; should be spherical, but this is not checked. Default is `PlummerPotential(amp=0.06,b=0.01)`.
         amp : float, optional
             Another amplitude to apply to the potential. Default is 1.0.
         ro : float, optional
@@ -53,7 +53,7 @@ class MovingObjectPotential(Potential):
             pot = PlummerPotential(amp=0.06, b=0.01)
             self._pot = pot
         else:
-            pot = flatten(pot)
+            pot = _check_potential_list_and_deprecate(pot)
             if _isNonAxi(pot):
                 raise NotImplementedError(
                     "MovingObjectPotential for non-axisymmetric potentials is not currently supported"

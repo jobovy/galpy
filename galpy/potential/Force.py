@@ -153,52 +153,54 @@ class Force:
 
         Parameters
         ----------
-        b : Force or Potential instance or a list thereof
+        b : Force or Potential instance
 
         Returns
         -------
-        list of Force or Potential instances
+        CompositePotential instance
             Represents the combined potential
 
         Notes
         -----
         - 2019-01-27 - Written - Bovy (UofT)
         - 2020-04-22 - Added check that unit systems of combined potentials are compatible - Bovy (UofT)
+        - 2024-11-24 - Modified to return CompositePotential instead of list - Bovy (UofT)
 
         """
         from ..potential import flatten as flatten_pot
-        from ..potential import planarPotential
+        from ..potential import planarForce
+        from .CompositePotential import CompositePotential
 
-        if not isinstance(flatten_pot([b])[0], (Force, planarPotential)):
+        if not isinstance(flatten_pot([b])[0], (Force, planarForce)):
             raise TypeError(
                 """Can only combine galpy Force objects with """
-                """other Force objects or lists thereof"""
+                """other Force objects or combinations thereof"""
             )
         assert physical_compatible(self, b), (
             """Physical unit conversion parameters (ro,vo) are not """
             """compatible between potentials to be combined"""
         )
-        if isinstance(b, list):
-            return [self] + b
-        else:
-            return [self, b]
+
+        # If adding a planarForce, convert this CompositePotential to planar
+        if isinstance(b, planarForce) and hasattr(b, "dim") and b.dim == 2:
+            from .planarCompositePotential import planarCompositePotential
+
+            return planarCompositePotential(self.toPlanar(), b)
+
+        return CompositePotential(self, b)
 
     # Define separately to keep order
     def __radd__(self, b):
         from ..potential import flatten as flatten_pot
         from ..potential import planarPotential
+        from .CompositePotential import CompositePotential
 
-        if not isinstance(flatten_pot([b])[0], (Force, planarPotential)):
-            raise TypeError(
-                """Can only combine galpy Force objects with """
-                """other Force objects or lists thereof"""
-            )
-        assert physical_compatible(self, b), (
-            """Physical unit conversion parameters (ro,vo) are not """
-            """compatible between potentials to be combined"""
+        # Only way to get here is in a situation that isn't supported: adding a Force
+        # to something that is not a Force or similar itself, which all implement __add__
+        raise TypeError(
+            """Can only combine galpy Force objects with """
+            """other Force objects or combinations thereof"""
         )
-        # If we get here, b has to be a list
-        return b + [self]
 
     def turn_physical_off(self):
         """

@@ -21,7 +21,7 @@ from numpy import linalg
 from scipy import optimize
 
 from ..potential import IsochronePotential, MWPotential, _isNonAxi, dvcircdR, vcirc
-from ..potential.Potential import flatten as flatten_potential
+from ..potential.Potential import _check_potential_list_and_deprecate
 from ..util import conversion, galpyWarning, plot
 from ..util.conversion import physical_conversion, potential_physical_input, time_in_Gyr
 from .actionAngle import actionAngle
@@ -46,7 +46,7 @@ class actionAngleIsochroneApprox(actionAngle):
             Instance of a IsochronePotential.
         aAI : actionAngleIsochrone, optional
             Instance of an actionAngleIsochrone.
-        pot : Potential or list of Potentials, optional
+        pot : Potential or a combined potential formed using addition (pot1+pot2+…), optional
             Potential to calculate action-angle variables for.
         tintJ : float, optional
             Time to integrate orbits for to estimate actions (can be Quantity).
@@ -71,7 +71,7 @@ class actionAngleIsochroneApprox(actionAngle):
         actionAngle.__init__(self, ro=kwargs.get("ro", None), vo=kwargs.get("vo", None))
         if not "pot" in kwargs:  # pragma: no cover
             raise OSError("Must specify pot= for actionAngleIsochroneApprox")
-        self._pot = flatten_potential(kwargs["pot"])
+        self._pot = _check_potential_list_and_deprecate(kwargs["pot"])
         if self._pot == MWPotential:
             warnings.warn(
                 "Use of MWPotential as a Milky-Way-like potential is deprecated; galpy.potential.MWPotential2014, a potential fit to a large variety of dynamical constraints (see Bovy 2015), is the preferred Milky-Way-like potential in galpy",
@@ -901,8 +901,8 @@ def estimateBIsochrone(pot, R, z, phi=None):
 
     Parameters
     ----------
-    pot : Potential or list thereof
-        Potential or list of potentials to estimate the scale of the isochrone potential for
+    pot : Potential or a combined potential formed using addition (pot1+pot2+…)
+        Potential or a combined potential formed using addition (pot1+pot2+…) of potentials to estimate the scale of the isochrone potential for
     R : float or Quantity
         Galactocentric radius.
     z : float or Quantity
@@ -922,7 +922,9 @@ def estimateBIsochrone(pot, R, z, phi=None):
     - 2016-06-28 - Added phi= keyword for non-axisymmetric potential - Bovy (UofT)
     """
     if pot is None:  # pragma: no cover
-        raise OSError("pot= needs to be set to a Potential instance or list thereof")
+        raise OSError(
+            "pot= needs to be set to a Potential instance or a combined potential formed using addition (pot1+pot2+…)"
+        )
     if isinstance(R, numpy.ndarray):
         if phi is None:
             phi = [None for r in R]

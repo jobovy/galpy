@@ -15,7 +15,7 @@ def actionAngleAdiabatic_c(pot, gamma, R, vR, vT, z, vz):
 
     Parameters
     ----------
-    pot : Potential or list of such instances
+    pot : Potential or a combined potential formed using addition (pot1+pot2+…)
         Gravitational potential to compute actions in
     gamma : float
         as in Lz -> Lz+gamma * J_z
@@ -127,7 +127,7 @@ def actionAngleRperiRapZmaxAdiabatic_c(pot, gamma, R, vR, vT, z, vz):
 
     Parameters
     ----------
-    pot : Potential or list of such instances
+    pot : Potential or a combined potential formed using addition (pot1+pot2+…)
         Gravitational potential to compute actions in
     gamma : float
         as in Lz -> Lz+gamma * J_z
