@@ -317,6 +317,7 @@ class constantbetadf(_constantbetadf):
 
         For PowerSphericalPotential: uses power-law extrapolation (exact)
         For other divergent potentials: uses Padé approximant extrapolation
+        For non-divergent potentials: no extrapolation (spline boundary value is used)
         """
         if not hasattr(self, "_fE_interp"):
             Es4interp = numpy.hstack(
@@ -329,7 +330,11 @@ class constantbetadf(_constantbetadf):
             fE4interp = self._fE_numerical(Es4interp)
             # Select appropriate extrapolator based on potential type
             self._fE_interp = _select_fE_extrapolator(
-                self._pot, Es4interp, fE4interp, E_transition=self._Emin
+                self._pot,
+                Es4interp,
+                fE4interp,
+                E_transition=self._Emin,
+                divergent=self._divergent,
             )
 
     def _fE_numerical(self, E):

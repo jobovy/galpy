@@ -54,7 +54,15 @@ class _fE_extrapolator_base:
         _extrapolate(E) -> array: Compute extrapolated f(E) values
     """
 
-    def __init__(self, Es, fEs, E_transition, n_fit_points=20, transition_factor=0.1):
+    def __init__(
+        self,
+        Es,
+        fEs,
+        E_transition,
+        n_fit_points=20,
+        transition_factor=0.1,
+        divergent=True,
+    ):
         """
         Initialize the interpolator with extrapolation.
 
@@ -70,9 +78,12 @@ class _fE_extrapolator_base:
             Number of points near the transition to use for fitting
         transition_factor : float
             Factor to determine "near transition" region (Es <= E_transition * factor)
+        divergent : bool
+            Whether the potential is divergent at r=0. If False, extrapolation is
+            disabled and the spline boundary value is used for E < E_transition.
         """
-        # Filter to finite values only
-        finite_mask = numpy.isfinite(fEs) & (fEs > 0)
+        # Filter to finite values only (match main branch behavior)
+        finite_mask = numpy.isfinite(fEs)
         Es = Es[finite_mask]
         fEs = fEs[finite_mask]
 
@@ -81,6 +92,11 @@ class _fE_extrapolator_base:
 
         # Create spline interpolator for the numerical region
         self._spline = interpolate.InterpolatedUnivariateSpline(Es, fEs, k=3, ext=3)
+
+        # For non-divergent potentials, never use extrapolation
+        if not divergent:
+            self._needs_extrapolation = False
+            return
 
         # Check if extrapolation is needed
         E_most_negative = Es[0]
@@ -154,8 +170,10 @@ class _fE_powerlaw_extrapolator(_fE_extrapolator_base):
     Exact for self-consistent PowerSphericalPotential.
     """
 
-    def __init__(self, Es, fEs, E_transition, n_fit_points=20):
-        super().__init__(Es, fEs, E_transition, n_fit_points, transition_factor=0.1)
+    def __init__(self, Es, fEs, E_transition, n_fit_points=20, divergent=True):
+        super().__init__(
+            Es, fEs, E_transition, n_fit_points, transition_factor=0.1, divergent=divergent
+        )
         if not self._needs_extrapolation:
             self._beta = None
             self._log_const = None
@@ -197,8 +215,10 @@ class _fE_pade_extrapolator(_fE_extrapolator_base):
     a pure power-law (e.g., Jaffe).
     """
 
-    def __init__(self, Es, fEs, E_transition, n_fit_points=30):
-        super().__init__(Es, fEs, E_transition, n_fit_points, transition_factor=0.5)
+    def __init__(self, Es, fEs, E_transition, n_fit_points=30, divergent=True):
+        super().__init__(
+            Es, fEs, E_transition, n_fit_points, transition_factor=0.5, divergent=divergent
+        )
         if not self._needs_extrapolation:
             self._pade_params = None
 
@@ -252,12 +272,13 @@ class _fE_pade_extrapolator(_fE_extrapolator_base):
         return numpy.exp(num / denom)
 
 
-def _select_fE_extrapolator(pot, Es, fEs, E_transition, n_fit_points=30):
+def _select_fE_extrapolator(pot, Es, fEs, E_transition, n_fit_points=30, divergent=True):
     """
     Select the appropriate f(E) extrapolator based on potential type.
 
     For PowerSphericalPotential: use power-law extrapolation (exact)
     For other divergent potentials: use Padé approximant extrapolation
+    For non-divergent potentials: no extrapolation is used
 
     Parameters
     ----------
@@ -271,6 +292,9 @@ def _select_fE_extrapolator(pot, Es, fEs, E_transition, n_fit_points=30):
         Energy transition point
     n_fit_points : int
         Number of points for fitting
+    divergent : bool
+        Whether the potential is divergent at r=0. If False, extrapolation is
+        disabled and the spline boundary value is used for E < E_transition.
 
     Returns
     -------
@@ -290,10 +314,14 @@ def _select_fE_extrapolator(pot, Es, fEs, E_transition, n_fit_points=30):
 
     if is_power_spherical:
         # Power-law extrapolation is exact for PowerSphericalPotential
-        return _fE_powerlaw_extrapolator(Es, fEs, E_transition, n_fit_points)
+        return _fE_powerlaw_extrapolator(
+            Es, fEs, E_transition, n_fit_points, divergent=divergent
+        )
     else:
         # Padé approximant for other divergent potentials
-        return _fE_pade_extrapolator(Es, fEs, E_transition, n_fit_points)
+        return _fE_pade_extrapolator(
+            Es, fEs, E_transition, n_fit_points, divergent=divergent
+        )
 
 
 def _handle_rmin(rmin, pot, denspot, scale, ro, df_name):
