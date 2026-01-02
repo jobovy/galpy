@@ -2866,9 +2866,7 @@ def test_eddington_jaffe_divergent_auto_rmin():
     raisedWarning = False
     for rec in record:
         raisedWarning += "diverges at r=0" in str(rec.message.args[0])
-    assert raisedWarning, (
-        "JaffePotential should warn about divergence at r=0"
-    )
+    assert raisedWarning, "JaffePotential should warn about divergence at r=0"
     assert dfp._rmin > 0, "rmin should be auto-set to positive value"
     # Verify it uses Padé extrapolator (not power-law)
     dfp._ensure_fE_interp()
@@ -2882,6 +2880,7 @@ def test_eddington_powerspherical_uses_powerlaw_extrapolator():
     # Test that PowerSphericalPotential uses power-law extrapolator
     pot = potential.PowerSphericalPotential(amp=1.0, alpha=2.5)
     import warnings
+
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         dfp = eddingtondf(pot=pot, rmax=1e4)
@@ -2896,6 +2895,7 @@ def test_eddington_hernquist_no_warning():
     # Test that HernquistPotential (non-divergent) creates DF without warning
     pot = potential.HernquistPotential(amp=1.0, a=1.0)
     import warnings
+
     with warnings.catch_warnings():
         warnings.simplefilter("error")
         # Should not raise any warning for non-divergent potential
