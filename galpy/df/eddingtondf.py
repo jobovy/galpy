@@ -3,17 +3,12 @@
 from __future__ import annotations
 
 import numpy
-from scipy import integrate
+from scipy import integrate, interpolate
 
 from ..potential import CompositePotential, evaluateR2derivs
 from ..potential.Potential import _evaluatePotentials, _evaluateRforces
 from ..util import conversion
-from .sphericaldf import (
-    _handle_rmin,
-    _select_fE_extrapolator,
-    isotropicsphericaldf,
-    sphericaldf,
-)
+from .sphericaldf import _handle_rmin, isotropicsphericaldf, sphericaldf
 
 
 class eddingtondf(isotropicsphericaldf):
@@ -41,7 +36,9 @@ class eddingtondf(isotropicsphericaldf):
         rmax : float or Quantity, optional
             Maximum radius to consider. DF is cut off at E = Phi(rmax).
         rmin : float or Quantity, optional
-            Transition radius for numerical/extrapolation boundary. Only applicable for potentials with divergent Phi(0). For E >= Phi(rmin), f(E) is computed via numerical Eddington integration. For E < Phi(rmin) (higher binding energies), f(E) is extrapolated using a power-law fitted near the transition. For divergent potentials, this is automatically set to a small value if not specified. Raises ValueError if specified for potentials with finite Phi(0).
+            Minimum radius to consider. For divergent potentials (Phi(0) = -inf),
+            this sets the inner boundary for the energy range. Auto-detected if
+            not specified.
         scale : float or Quantity, optional
             Characteristic scale radius to aid sampling calculations. Optional and will also be overridden by value from pot if available.
         ro : float or Quantity, optional
@@ -58,15 +55,10 @@ class eddingtondf(isotropicsphericaldf):
             self, pot=pot, denspot=denspot, rmax=rmax, scale=scale, ro=ro, vo=vo
         )
 
-        # Handle rmin: _handle_rmin validates and raises error if rmin is
-        # provided for non-divergent potentials
-        self._rmin = _handle_rmin(
+        # Handle rmin and check if potential diverges
+        self._rmin, self._divergent = _handle_rmin(
             rmin, pot, denspot, self._scale, self._ro, "eddingtondf"
         )
-
-        # Check if potential diverges at r=0 (determines if extrapolation is needed)
-        phi_at_zero = _evaluatePotentials(pot, 0, 0)
-        self._divergent = not numpy.isfinite(phi_at_zero)
 
         self._dnudr = (
             self._denspot._ddensdr
@@ -88,8 +80,6 @@ class eddingtondf(isotropicsphericaldf):
     def sample(self, R=None, z=None, phi=None, n=1, return_orbit=True, rmin=None):
         # Slight over-write of superclass method to first build f(E) interp
         # No docstring so superclass' is used
-        # Use self._rmin as the spatial sampling boundary (needed for mass computation)
-        # The f(E) interpolator uses power-law extrapolation for E < Phi(rmin)
         if rmin is None:
             rmin = self._rmin
         self._ensure_fE_interp()
@@ -98,12 +88,7 @@ class eddingtondf(isotropicsphericaldf):
         )
 
     def _ensure_fE_interp(self):
-        """Build the f(E) interpolator with appropriate extrapolation if not already built.
-
-        For PowerSphericalPotential: uses power-law extrapolation (exact)
-        For other divergent potentials: uses Padé approximant extrapolation
-        For non-divergent potentials: no extrapolation (spline boundary value is used)
-        """
+        """Build the f(E) interpolator if not already built."""
         if not hasattr(self, "_fE_interp"):
             Es4interp = numpy.hstack(
                 (
@@ -113,18 +98,16 @@ class eddingtondf(isotropicsphericaldf):
             )
             Es4interp = (Es4interp * (self._Emin - self._potInf) + self._potInf)[::-1]
             fE4interp = self._fE_numerical(Es4interp)
-            # Select appropriate extrapolator based on potential type
-            self._fE_interp = _select_fE_extrapolator(
-                self._pot,
-                Es4interp,
-                fE4interp,
-                E_transition=self._Emin,
-                divergent=self._divergent,
+            # Filter to finite values and create spline interpolator
+            iindx = numpy.isfinite(fE4interp)
+            self._fE_interp = interpolate.InterpolatedUnivariateSpline(
+                Es4interp[iindx], fE4interp[iindx], k=3, ext=3
             )
 
     def _fE_numerical(self, E):
         """Compute f(E) numerically via Eddington integration (only for E >= Emin)."""
         Eint = conversion.parse_energy(E, vo=self._vo)
+        scalarOut = numpy.ndim(Eint) == 0
         Eint = numpy.atleast_1d(Eint)
         out = numpy.zeros_like(Eint, dtype=float)
         indx = (Eint < self._potInf) * (Eint >= self._Emin)
@@ -153,7 +136,8 @@ class eddingtondf(isotropicsphericaldf):
                 for tE in Eint[indx]
             ]
         )
-        return -out / (numpy.sqrt(8.0) * numpy.pi**2.0)
+        out = -out / (numpy.sqrt(8.0) * numpy.pi**2.0)
+        return float(out[0]) if scalarOut else out
 
     def fE(self, E):
         """
@@ -173,26 +157,7 @@ class eddingtondf(isotropicsphericaldf):
         -----
         - 2021-02-04 - Written - Bovy (UofT)
         """
-        Eint = conversion.parse_energy(E, vo=self._vo)
-        Eint = numpy.atleast_1d(Eint)
-        out = numpy.zeros_like(Eint, dtype=float)
-
-        # For E >= Emin: compute numerically
-        numerical_mask = Eint >= self._Emin
-        if numpy.any(numerical_mask):
-            out[numerical_mask] = self._fE_numerical(Eint[numerical_mask])
-
-        # For E < Emin: use power-law extrapolation only if potential diverges
-        extrap_mask = Eint < self._Emin
-        if numpy.any(extrap_mask):
-            if self._divergent:
-                # Divergent potential: use power-law extrapolation
-                self._ensure_fE_interp()
-                out[extrap_mask] = self._fE_interp(Eint[extrap_mask])
-            # else: non-divergent potential, E < Emin is unphysical, leave as 0
-
-        # Return scalar for single-element input
-        return out if len(out) > 1 else out[0]
+        return self._fE_numerical(E)
 
 
 def _fEintegrand_raw(r, pot, E, dnudr, d2nudr2):
