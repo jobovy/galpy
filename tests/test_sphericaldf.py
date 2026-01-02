@@ -2815,9 +2815,7 @@ def test_eddington_kepler_raises():
     pot = potential.KeplerPotential(amp=1.0)
     with pytest.raises(ValueError) as excinfo:
         dfp = eddingtondf(pot=pot)
-    assert "point mass" in str(excinfo.value), (
-        "Error message should mention point mass"
-    )
+    assert "point mass" in str(excinfo.value), "Error message should mention point mass"
     return None
 
 
@@ -2841,9 +2839,7 @@ def test_eddington_powerspherical_list_divergent():
     raisedWarning = False
     for rec in record:
         raisedWarning += "diverges at r=0" in str(rec.message.args[0])
-    assert raisedWarning, (
-        "List containing divergent potential should warn"
-    )
+    assert raisedWarning, "List containing divergent potential should warn"
     return None
 
 
@@ -2855,9 +2851,7 @@ def test_constantbeta_powerspherical_divergent_auto_rmin():
     raisedWarning = False
     for rec in record:
         raisedWarning += "diverges at r=0" in str(rec.message.args[0])
-    assert raisedWarning, (
-        "constantbetadf should also warn about divergent potentials"
-    )
+    assert raisedWarning, "constantbetadf should also warn about divergent potentials"
     assert dfp._rmin > 0, "rmin should be auto-set to positive value"
     return None
 
@@ -2867,9 +2861,7 @@ def test_constantbeta_kepler_raises():
     pot = potential.KeplerPotential(amp=1.0)
     with pytest.raises(ValueError) as excinfo:
         dfp = constantbetadf(pot=pot, beta=0.0)
-    assert "point mass" in str(excinfo.value), (
-        "Error message should mention point mass"
-    )
+    assert "point mass" in str(excinfo.value), "Error message should mention point mass"
     return None
 
 

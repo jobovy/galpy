@@ -91,7 +91,9 @@ class _fE_powerlaw_extrapolator:
             # Fit power-law near the transition point
             # f(E) ∝ |E|^β  →  log(f) = β * log(|E|) + const
             # Use points closest to E_transition (most negative energies in our data)
-            near_transition = Es <= E_transition * 0.1  # Within factor of 10 of transition
+            near_transition = (
+                Es <= E_transition * 0.1
+            )  # Within factor of 10 of transition
             if numpy.sum(near_transition) < n_fit_points:
                 # If not enough points, use the n_fit_points most negative energies
                 near_transition = numpy.zeros(len(Es), dtype=bool)
@@ -264,7 +266,9 @@ class _fE_pade_extrapolator:
                             )
                             pred = pade_32(psi_fit, *popt)
                             residual = numpy.sum((pred - logf_fit) ** 2)
-                            if residual < best_residual and numpy.all(numpy.isfinite(pred)):
+                            if residual < best_residual and numpy.all(
+                                numpy.isfinite(pred)
+                            ):
                                 best_residual = residual
                                 best_popt = popt
                         except Exception:
@@ -353,7 +357,9 @@ def _select_fE_extrapolator(pot, Es, fEs, E_transition, n_fit_points=30):
 
     is_power_spherical = False
     for p in pot_list:
-        if isinstance(p, PowerSphericalPotential) and not isinstance(p, KeplerPotential):
+        if isinstance(p, PowerSphericalPotential) and not isinstance(
+            p, KeplerPotential
+        ):
             is_power_spherical = True
             break
 
@@ -1017,7 +1023,9 @@ class sphericaldf(df):
             ky=1,
         )
 
-    def _setup_rphi_interpolator(self, r_a_min: float=1e-6, r_a_max: float=1e6, nra: int=10001):
+    def _setup_rphi_interpolator(
+        self, r_a_min: float = 1e-6, r_a_max: float = 1e6, nra: int = 10001
+    ):
         """
         Set up the interpolator for r(phi)
 
