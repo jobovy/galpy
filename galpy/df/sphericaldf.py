@@ -42,20 +42,21 @@ if _optional_deps._APY_LOADED:
 from ..potential.PowerSphericalPotential import KeplerPotential, PowerSphericalPotential
 
 
-class _fE_powerlaw_extrapolator:
+class _fE_extrapolator_base:
     """
-    Interpolator for f(E) that uses power-law extrapolation for high binding energies.
+    Abstract base class for f(E) interpolators with extrapolation.
 
     For E >= E_transition: uses spline interpolation of numerical results
-    For E < E_transition: uses power-law extrapolation fitted near the transition
+    For E < E_transition: uses subclass-specific extrapolation method
 
-    This allows sampling from potentials that diverge at r=0 without a hard energy cutoff.
-    The power-law extrapolation is exact for self-consistent PowerSphericalPotential.
+    Subclasses must implement:
+        _fit_extrapolation(Es_fit, fEs_fit) -> bool: Fit extrapolation parameters, return success
+        _extrapolate(E) -> array: Compute extrapolated f(E) values
     """
 
-    def __init__(self, Es, fEs, E_transition, n_fit_points=20):
+    def __init__(self, Es, fEs, E_transition, n_fit_points=20, transition_factor=0.1):
         """
-        Initialize the interpolator with power-law extrapolation.
+        Initialize the interpolator with extrapolation.
 
         Parameters
         ----------
@@ -64,10 +65,11 @@ class _fE_powerlaw_extrapolator:
         fEs : array
             f(E) values corresponding to Es
         E_transition : float
-            Energy value below which to use power-law extrapolation (most negative E
-            for which we have reliable numerical data)
+            Energy value below which to use extrapolation
         n_fit_points : int
-            Number of points near the transition to use for power-law fitting
+            Number of points near the transition to use for fitting
+        transition_factor : float
+            Factor to determine "near transition" region (Es <= E_transition * factor)
         """
         # Filter to finite values only
         finite_mask = numpy.isfinite(fEs) & (fEs > 0)
@@ -80,212 +82,36 @@ class _fE_powerlaw_extrapolator:
         # Create spline interpolator for the numerical region
         self._spline = interpolate.InterpolatedUnivariateSpline(Es, fEs, k=3, ext=3)
 
-        # Check if power-law extrapolation is needed
-        # If the most negative E in our data is NOT much more negative than E_transition,
-        # we need extrapolation for E < E_transition
-        E_most_negative = Es[0]
-        # For negative energies, check if data doesn't extend far beyond E_transition
-        needs_extrapolation = E_most_negative >= E_transition * 1.01
-
-        if needs_extrapolation:
-            # Fit power-law near the transition point
-            # f(E) ∝ |E|^β  →  log(f) = β * log(|E|) + const
-            # Use points closest to E_transition (most negative energies in our data)
-            near_transition = Es <= E_transition * 0.1  # Within factor of 10 of transition
-            if numpy.sum(near_transition) < n_fit_points:
-                # If not enough points, use the n_fit_points most negative energies
-                near_transition = numpy.zeros(len(Es), dtype=bool)
-                near_transition[: min(n_fit_points, len(Es))] = True
-
-            Es_fit = Es[near_transition]
-            fEs_fit = fEs[near_transition]
-
-            # Linear fit in log-log space: log(f) = β * log(|E|) + const
-            # |E| = -E for negative energies
-            # Filter out any values with E >= 0 (should not happen, but be safe)
-            valid_for_log = Es_fit < 0
-            if numpy.sum(valid_for_log) >= 2:
-                log_absE = numpy.log(-Es_fit[valid_for_log])
-                log_f = numpy.log(fEs_fit[valid_for_log])
-
-                # Additional filter for finite log values
-                log_finite = numpy.isfinite(log_absE) & numpy.isfinite(log_f)
-                if numpy.sum(log_finite) >= 2:
-                    # Use numpy.polyfit for robust linear regression
-                    self._beta, self._log_const = numpy.polyfit(
-                        log_absE[log_finite], log_f[log_finite], 1
-                    )
-                else:
-                    # Not enough valid points, disable extrapolation
-                    needs_extrapolation = False
-            else:
-                # Not enough valid points, disable extrapolation
-                needs_extrapolation = False
-
-            if needs_extrapolation:
-                # Store for diagnostics
-                self._Es_fit = Es_fit
-                self._fEs_fit = fEs_fit
-
-        self._needs_extrapolation = needs_extrapolation
-        if not needs_extrapolation:
-            self._beta = None
-            self._log_const = None
-            self._Es_fit = None
-            self._fEs_fit = None
-
-    def __call__(self, E):
-        """
-        Evaluate f(E) using interpolation or power-law extrapolation.
-
-        Parameters
-        ----------
-        E : float or array
-            Energy value(s), negative for bound orbits
-
-        Returns
-        -------
-        fE : float or array
-            Distribution function value(s)
-        """
-        E = numpy.atleast_1d(E)
-        result = numpy.zeros_like(E, dtype=float)
-
-        # Region 1: E >= E_transition (use spline interpolation)
-        interp_mask = E >= self._E_transition
-        if numpy.any(interp_mask):
-            result[interp_mask] = self._spline(E[interp_mask])
-
-        # Region 2: E < E_transition (use power-law extrapolation if available)
-        extrap_mask = E < self._E_transition
-        if numpy.any(extrap_mask):
-            if self._needs_extrapolation:
-                # f(E) = exp(β * log(|E|) + const) = |E|^β * exp(const)
-                log_absE = numpy.log(-E[extrap_mask])
-                result[extrap_mask] = numpy.exp(self._beta * log_absE + self._log_const)
-            else:
-                # No extrapolation available, use spline (may be inaccurate for
-                # truly divergent potentials, but works for non-divergent ones)
-                result[extrap_mask] = self._spline(E[extrap_mask])
-
-        # Handle energies outside bound range
-        # For E > potInf (unbound), use the spline's ext=3 behavior (returns boundary value)
-        # This is important for numerical stability at r ≈ rmax where vesc ≈ 0
-
-        return result if len(result) > 1 else result[0]
-
-    @property
-    def beta(self):
-        """Power-law exponent: f(E) ∝ |E|^β"""
-        return self._beta
-
-    @property
-    def E_transition(self):
-        """Energy value at the interpolation/extrapolation boundary"""
-        return self._E_transition
-
-
-class _fE_pade_extrapolator:
-    """
-    Interpolator for f(E) that uses Padé approximant extrapolation for high binding energies.
-
-    For E >= E_transition: uses spline interpolation of numerical results
-    For E < E_transition: uses Padé [3/2] approximant to log(f(E))
-
-    This is more accurate than power-law extrapolation for potentials where f(E) does not
-    follow a pure power-law (e.g., Jaffe, Hernquist with divergent cores).
-    """
-
-    def __init__(self, Es, fEs, E_transition, n_fit_points=30):
-        """
-        Initialize the interpolator with Padé extrapolation.
-
-        Parameters
-        ----------
-        Es : array
-            Energy values (negative for bound orbits), sorted from most negative to least
-        fEs : array
-            f(E) values corresponding to Es
-        E_transition : float
-            Energy value below which to use Padé extrapolation
-        n_fit_points : int
-            Number of points near the transition to use for Padé fitting
-        """
-        from scipy.optimize import curve_fit
-
-        # Filter to finite values only
-        finite_mask = numpy.isfinite(fEs) & (fEs > 0)
-        Es = Es[finite_mask]
-        fEs = fEs[finite_mask]
-
-        self._E_transition = E_transition
-        self._potInf = Es[-1]
-
-        # Create spline interpolator for the numerical region
-        self._spline = interpolate.InterpolatedUnivariateSpline(Es, fEs, k=3, ext=3)
-
         # Check if extrapolation is needed
         E_most_negative = Es[0]
         needs_extrapolation = E_most_negative >= E_transition * 1.01
 
         if needs_extrapolation:
-            # Fit Padé [3/2] to log(f(E)) in terms of binding energy ψ = -E
-            # log(f) ≈ (a0 + a1*ψ + a2*ψ² + a3*ψ³) / (1 + b1*ψ + b2*ψ²)
-            near_transition = Es <= E_transition * 0.5
+            # Select points near the transition for fitting
+            near_transition = Es <= E_transition * transition_factor
             if numpy.sum(near_transition) < n_fit_points:
                 near_transition = numpy.zeros(len(Es), dtype=bool)
                 near_transition[: min(n_fit_points, len(Es))] = True
 
             Es_fit = Es[near_transition]
             fEs_fit = fEs[near_transition]
-            psi_fit = -Es_fit  # binding energy
-            logf_fit = numpy.log(fEs_fit)
 
-            valid = numpy.isfinite(logf_fit) & numpy.isfinite(psi_fit) & (psi_fit > 0)
-            if numpy.sum(valid) >= 6:  # Need enough points for 6 parameters
-                psi_fit = psi_fit[valid]
-                logf_fit = logf_fit[valid]
-
-                def pade_32(psi, a0, a1, a2, a3, b1, b2):
-                    num = a0 + a1 * psi + a2 * psi**2 + a3 * psi**3
-                    denom = 1.0 + b1 * psi + b2 * psi**2
-                    return num / denom
-
-                # Try multiple initial guesses
-                best_popt = None
-                best_residual = numpy.inf
-
-                for scale in [1, 0.1, 0.01, 10]:
-                    for sign in [1, -1]:
-                        p0 = [logf_fit.mean(), sign * scale, 0.01, 0.001, 0.1, 0.01]
-                        try:
-                            popt, _ = curve_fit(
-                                pade_32, psi_fit, logf_fit, p0=p0, maxfev=10000
-                            )
-                            pred = pade_32(psi_fit, *popt)
-                            residual = numpy.sum((pred - logf_fit) ** 2)
-                            if residual < best_residual and numpy.all(numpy.isfinite(pred)):
-                                best_residual = residual
-                                best_popt = popt
-                        except Exception:
-                            continue
-
-                if best_popt is not None:
-                    self._pade_params = best_popt
-                    self._pade_func = pade_32
-                else:
-                    needs_extrapolation = False
-            else:
-                needs_extrapolation = False
+            # Subclass implements the actual fitting
+            needs_extrapolation = self._fit_extrapolation(Es_fit, fEs_fit)
 
         self._needs_extrapolation = needs_extrapolation
-        if not needs_extrapolation:
-            self._pade_params = None
-            self._pade_func = None
+
+    def _fit_extrapolation(self, Es_fit, fEs_fit):
+        """Fit extrapolation parameters. Return True if successful."""
+        raise NotImplementedError("Subclasses must implement _fit_extrapolation")
+
+    def _extrapolate(self, E):
+        """Compute extrapolated f(E) values for E < E_transition."""
+        raise NotImplementedError("Subclasses must implement _extrapolate")
 
     def __call__(self, E):
         """
-        Evaluate f(E) using interpolation or Padé extrapolation.
+        Evaluate f(E) using interpolation or extrapolation.
 
         Parameters
         ----------
@@ -305,13 +131,11 @@ class _fE_pade_extrapolator:
         if numpy.any(interp_mask):
             result[interp_mask] = self._spline(E[interp_mask])
 
-        # Region 2: E < E_transition (use Padé extrapolation if available)
+        # Region 2: E < E_transition (use extrapolation if available)
         extrap_mask = E < self._E_transition
         if numpy.any(extrap_mask):
             if self._needs_extrapolation:
-                psi = -E[extrap_mask]  # binding energy
-                log_f = self._pade_func(psi, *self._pade_params)
-                result[extrap_mask] = numpy.exp(log_f)
+                result[extrap_mask] = self._extrapolate(E[extrap_mask])
             else:
                 result[extrap_mask] = self._spline(E[extrap_mask])
 
@@ -321,6 +145,111 @@ class _fE_pade_extrapolator:
     def E_transition(self):
         """Energy value at the interpolation/extrapolation boundary"""
         return self._E_transition
+
+
+class _fE_powerlaw_extrapolator(_fE_extrapolator_base):
+    """
+    Interpolator using power-law extrapolation: f(E) ~ |E|^beta
+
+    Exact for self-consistent PowerSphericalPotential.
+    """
+
+    def __init__(self, Es, fEs, E_transition, n_fit_points=20):
+        super().__init__(Es, fEs, E_transition, n_fit_points, transition_factor=0.1)
+        if not self._needs_extrapolation:
+            self._beta = None
+            self._log_const = None
+
+    def _fit_extrapolation(self, Es_fit, fEs_fit):
+        """Fit power-law: log(f) = beta * log(|E|) + const"""
+        valid_for_log = Es_fit < 0
+        if numpy.sum(valid_for_log) < 2:
+            return False
+
+        log_absE = numpy.log(-Es_fit[valid_for_log])
+        log_f = numpy.log(fEs_fit[valid_for_log])
+
+        log_finite = numpy.isfinite(log_absE) & numpy.isfinite(log_f)
+        if numpy.sum(log_finite) < 2:
+            return False
+
+        self._beta, self._log_const = numpy.polyfit(
+            log_absE[log_finite], log_f[log_finite], 1
+        )
+        return True
+
+    def _extrapolate(self, E):
+        """f(E) = |E|^beta * exp(const)"""
+        log_absE = numpy.log(-E)
+        return numpy.exp(self._beta * log_absE + self._log_const)
+
+    @property
+    def beta(self):
+        """Power-law exponent: f(E) ~ |E|^beta"""
+        return self._beta
+
+
+class _fE_pade_extrapolator(_fE_extrapolator_base):
+    """
+    Interpolator using Padé [3/2] approximant extrapolation to log(f(E)).
+
+    More accurate than power-law for potentials where f(E) doesn't follow
+    a pure power-law (e.g., Jaffe).
+    """
+
+    def __init__(self, Es, fEs, E_transition, n_fit_points=30):
+        super().__init__(Es, fEs, E_transition, n_fit_points, transition_factor=0.5)
+        if not self._needs_extrapolation:
+            self._pade_params = None
+
+    def _fit_extrapolation(self, Es_fit, fEs_fit):
+        """Fit Padé [3/2] to log(f) in terms of binding energy psi = -E"""
+        from scipy.optimize import curve_fit
+
+        psi_fit = -Es_fit
+        logf_fit = numpy.log(fEs_fit)
+
+        valid = numpy.isfinite(logf_fit) & numpy.isfinite(psi_fit) & (psi_fit > 0)
+        if numpy.sum(valid) < 6:
+            return False
+
+        psi_fit = psi_fit[valid]
+        logf_fit = logf_fit[valid]
+
+        def pade_32(psi, a0, a1, a2, a3, b1, b2):
+            num = a0 + a1 * psi + a2 * psi**2 + a3 * psi**3
+            denom = 1.0 + b1 * psi + b2 * psi**2
+            return num / denom
+
+        best_popt = None
+        best_residual = numpy.inf
+
+        for scale in [1, 0.1, 0.01, 10]:
+            for sign in [1, -1]:
+                p0 = [logf_fit.mean(), sign * scale, 0.01, 0.001, 0.1, 0.01]
+                try:
+                    popt, _ = curve_fit(pade_32, psi_fit, logf_fit, p0=p0, maxfev=10000)
+                    pred = pade_32(psi_fit, *popt)
+                    residual = numpy.sum((pred - logf_fit) ** 2)
+                    if residual < best_residual and numpy.all(numpy.isfinite(pred)):
+                        best_residual = residual
+                        best_popt = popt
+                except Exception:
+                    continue
+
+        if best_popt is None:
+            return False
+
+        self._pade_params = best_popt
+        return True
+
+    def _extrapolate(self, E):
+        """f(E) = exp(Padé(psi)) where psi = -E"""
+        psi = -E
+        a0, a1, a2, a3, b1, b2 = self._pade_params
+        num = a0 + a1 * psi + a2 * psi**2 + a3 * psi**3
+        denom = 1.0 + b1 * psi + b2 * psi**2
+        return numpy.exp(num / denom)
 
 
 def _select_fE_extrapolator(pot, Es, fEs, E_transition, n_fit_points=30):

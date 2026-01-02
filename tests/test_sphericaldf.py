@@ -1,8 +1,10 @@
 # Tests of spherical distribution functions
 import platform
 
+from galpy.util._optional_deps import _JAX_LOADED
+
 WIN32 = platform.system() == "Windows"
-if not WIN32:  # Enable 64bit for JAX
+if _JAX_LOADED:  # Enable 64bit for JAX
     from jax import config
 
     config.update("jax_enable_x64", True)
@@ -2832,22 +2834,81 @@ def test_eddington_powerspherical_alpha3_raises():
     return None
 
 
-def test_eddington_powerspherical_list_divergent():
-    # Test that a list containing a divergent potential is detected
+def test_eddington_powerspherical_composite_divergent():
+    # Test that a composite potential containing a divergent potential is detected
     pot1 = potential.HernquistPotential(amp=1.0, a=1.0)
     pot2 = potential.PowerSphericalPotential(amp=0.5, alpha=2.5)
     with pytest.warns(galpyWarning) as record:
-        dfp = eddingtondf(pot=[pot1, pot2], rmax=1e4)
+        dfp = eddingtondf(pot=pot1 + pot2, rmax=1e4)
     raisedWarning = False
     for rec in record:
         raisedWarning += "diverges at r=0" in str(rec.message.args[0])
     assert raisedWarning, (
-        "List containing divergent potential should warn"
+        "Composite potential containing divergent potential should warn"
     )
     return None
 
 
+def test_eddington_nfw_rmin_raises():
+    # Test that specifying rmin for a non-divergent potential raises ValueError
+    pot = potential.NFWPotential(amp=1.0, a=1.0)
+    with pytest.raises(ValueError) as excinfo:
+        dfp = eddingtondf(pot=pot, rmin=1e-4)
+    assert "finite Phi(0)" in str(excinfo.value), (
+        "Error message should mention finite Phi(0)"
+    )
+    return None
+
+
+def test_eddington_jaffe_divergent_auto_rmin():
+    # Test that JaffePotential (divergent but not PowerSpherical) auto-sets rmin
+    pot = potential.JaffePotential(amp=1.0, a=1.0)
+    with pytest.warns(galpyWarning) as record:
+        dfp = eddingtondf(pot=pot, rmax=1e4)
+    raisedWarning = False
+    for rec in record:
+        raisedWarning += "diverges at r=0" in str(rec.message.args[0])
+    assert raisedWarning, (
+        "JaffePotential should warn about divergence at r=0"
+    )
+    assert dfp._rmin > 0, "rmin should be auto-set to positive value"
+    # Verify it uses Padé extrapolator (not power-law)
+    dfp._ensure_fE_interp()
+    assert "pade" in type(dfp._fE_interp).__name__.lower(), (
+        "JaffePotential should use Padé extrapolator"
+    )
+    return None
+
+
+def test_eddington_powerspherical_uses_powerlaw_extrapolator():
+    # Test that PowerSphericalPotential uses power-law extrapolator
+    pot = potential.PowerSphericalPotential(amp=1.0, alpha=2.5)
+    import warnings
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        dfp = eddingtondf(pot=pot, rmax=1e4)
+    dfp._ensure_fE_interp()
+    assert "powerlaw" in type(dfp._fE_interp).__name__.lower(), (
+        "PowerSphericalPotential should use power-law extrapolator"
+    )
+    return None
+
+
+def test_eddington_hernquist_no_warning():
+    # Test that HernquistPotential (non-divergent) creates DF without warning
+    pot = potential.HernquistPotential(amp=1.0, a=1.0)
+    import warnings
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        # Should not raise any warning for non-divergent potential
+        dfp = eddingtondf(pot=pot, rmax=1e4)
+    assert dfp._rmin == 0.0, "rmin should be 0 for non-divergent potential"
+    return None
+
+
 def test_constantbeta_powerspherical_divergent_auto_rmin():
+    if not _JAX_LOADED:
+        return None  # skip if JAX not available
     # Test that constantbetadf also handles divergent potentials
     pot = potential.PowerSphericalPotential(amp=1.0, alpha=2.5)
     with pytest.warns(galpyWarning) as record:
@@ -2863,6 +2924,8 @@ def test_constantbeta_powerspherical_divergent_auto_rmin():
 
 
 def test_constantbeta_kepler_raises():
+    if not _JAX_LOADED:
+        return None  # skip if JAX not available
     # Test that constantbetadf also raises for KeplerPotential
     pot = potential.KeplerPotential(amp=1.0)
     with pytest.raises(ValueError) as excinfo:
