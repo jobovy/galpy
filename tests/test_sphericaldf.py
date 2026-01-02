@@ -2847,14 +2847,12 @@ def test_eddington_powerspherical_composite_divergent():
     return None
 
 
-def test_eddington_nfw_rmin_raises():
-    # Test that specifying rmin for a non-divergent potential raises ValueError
+def test_eddington_nfw_rmin_accepted():
+    # Test that specifying rmin for a non-divergent potential is accepted
     pot = potential.NFWPotential(amp=1.0, a=1.0)
-    with pytest.raises(ValueError) as excinfo:
-        dfp = eddingtondf(pot=pot, rmin=1e-4)
-    assert "finite Phi(0)" in str(excinfo.value), (
-        "Error message should mention finite Phi(0)"
-    )
+    # Should not raise - rmin is accepted for all potentials
+    dfp = eddingtondf(pot=pot, rmin=1e-4)
+    assert dfp._rmin == 1e-4, "rmin should be set to provided value"
     return None
 
 
@@ -2868,26 +2866,6 @@ def test_eddington_jaffe_divergent_auto_rmin():
         raisedWarning += "diverges at r=0" in str(rec.message.args[0])
     assert raisedWarning, "JaffePotential should warn about divergence at r=0"
     assert dfp._rmin > 0, "rmin should be auto-set to positive value"
-    # Verify it uses Padé extrapolator (not power-law)
-    dfp._ensure_fE_interp()
-    assert "pade" in type(dfp._fE_interp).__name__.lower(), (
-        "JaffePotential should use Padé extrapolator"
-    )
-    return None
-
-
-def test_eddington_powerspherical_uses_powerlaw_extrapolator():
-    # Test that PowerSphericalPotential uses power-law extrapolator
-    pot = potential.PowerSphericalPotential(amp=1.0, alpha=2.5)
-    import warnings
-
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore")
-        dfp = eddingtondf(pot=pot, rmax=1e4)
-    dfp._ensure_fE_interp()
-    assert "powerlaw" in type(dfp._fE_interp).__name__.lower(), (
-        "PowerSphericalPotential should use power-law extrapolator"
-    )
     return None
 
 

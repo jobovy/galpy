@@ -8,12 +8,7 @@ from ..potential import interpSphericalPotential
 from ..potential.Potential import _evaluatePotentials
 from ..util import conversion, quadpack
 from ..util._optional_deps import _JAX_LOADED
-from .sphericaldf import (
-    _handle_rmin,
-    _select_fE_extrapolator,
-    anisotropicsphericaldf,
-    sphericaldf,
-)
+from .sphericaldf import _handle_rmin, anisotropicsphericaldf, sphericaldf
 
 if _JAX_LOADED:
     from jax import grad, vmap
@@ -218,13 +213,10 @@ class constantbetadf(_constantbetadf):
             ro=ro,
             vo=vo,
         )
-        # Handle rmin: auto-detect divergent potentials if rmin not specified
-        self._rmin = _handle_rmin(
+        # Handle rmin and check if potential diverges
+        self._rmin, self._divergent = _handle_rmin(
             rmin, pot, denspot, self._scale, self._ro, "constantbetadf"
         )
-        # Check if potential diverges at r=0 (determines if extrapolation is needed)
-        phi_at_zero = _evaluatePotentials(pot, 0, 0)
-        self._divergent = not numpy.isfinite(phi_at_zero)
 
         self._twobeta = twobeta
         self._halfint = False
@@ -313,12 +305,7 @@ class constantbetadf(_constantbetadf):
         )
 
     def _ensure_fE_interp(self):
-        """Build the f(E) interpolator with appropriate extrapolation if not already built.
-
-        For PowerSphericalPotential: uses power-law extrapolation (exact)
-        For other divergent potentials: uses Padé approximant extrapolation
-        For non-divergent potentials: no extrapolation (spline boundary value is used)
-        """
+        """Build the f(E) interpolator if not already built."""
         if not hasattr(self, "_fE_interp"):
             Es4interp = numpy.hstack(
                 (
@@ -328,29 +315,29 @@ class constantbetadf(_constantbetadf):
             )
             Es4interp = (Es4interp * (self._Emin - self._potInf) + self._potInf)[::-1]
             fE4interp = self._fE_numerical(Es4interp)
-            # Select appropriate extrapolator based on potential type
-            self._fE_interp = _select_fE_extrapolator(
-                self._pot,
-                Es4interp,
-                fE4interp,
-                E_transition=self._Emin,
-                divergent=self._divergent,
+            # Filter to finite values and create spline interpolator
+            iindx = numpy.isfinite(fE4interp)
+            self._fE_interp = interpolate.InterpolatedUnivariateSpline(
+                Es4interp[iindx], fE4interp[iindx], k=3, ext=3
             )
 
     def _fE_numerical(self, E):
         """Compute f(E) numerically (only for E >= Emin)."""
-        Eint = numpy.atleast_1d(conversion.parse_energy(E, vo=self._vo))
+        Eparsed = conversion.parse_energy(E, vo=self._vo)
+        scalarOut = numpy.ndim(Eparsed) == 0
+        Eint = numpy.atleast_1d(Eparsed)
         out = numpy.zeros_like(Eint, dtype=float)
         indx = (Eint < self._potInf) * (Eint >= self._Emin)
         if self._halfint:
             # fE is simply given by the relevant derivative
             out[indx] = self._gradfunc(self._rphi(Eint[indx]))
-            return out / (
+            out = out / (
                 2.0
                 * numpy.pi**1.5
                 * 2 ** (0.5 - self._beta)
                 * special.gamma(1.0 - self._beta)
             )
+            return float(out[0]) if scalarOut else out
         else:
             # Now need to integrate to get fE
             # Split integral at twice the lower limit to deal with divergence
@@ -394,7 +381,8 @@ class constantbetadf(_constantbetadf):
                     for tE in Eint[indx]
                 ]
             )
-            return -out * self._fE_prefactor
+            out = -out * self._fE_prefactor
+            return float(out[0]) if scalarOut else out
 
     def fE(self, E):
         """
@@ -414,27 +402,7 @@ class constantbetadf(_constantbetadf):
         -----
         - 2021-02-14 - Written - Bovy (UofT)
         """
-        Eint = numpy.atleast_1d(conversion.parse_energy(E, vo=self._vo))
-        out = numpy.zeros_like(Eint, dtype=float)
-
-        # For E >= Emin: compute numerically
-        numerical_mask = (Eint < self._potInf) * (Eint >= self._Emin)
-        if numpy.any(numerical_mask):
-            out[numerical_mask] = self._fE_numerical(Eint[numerical_mask])
-
-        # For E < Emin: use extrapolation only if potential diverges
-        extrap_mask = Eint < self._Emin
-        if numpy.any(extrap_mask):
-            if self._divergent:
-                # Divergent potential: use power-law/Padé extrapolation
-                self._ensure_fE_interp()
-                out[extrap_mask] = self._fE_interp(Eint[extrap_mask])
-            # else: non-divergent potential, E < Emin is unphysical, leave as 0
-
-        # Handle shape for scalar input
-        if hasattr(E, "shape"):
-            return out.reshape(E.shape)
-        return out if len(out) > 1 else out[0]
+        return self._fE_numerical(E)
 
 
 def _fEintegrand_raw(r, pot, E, dmp1nudrmp1, alpha):
