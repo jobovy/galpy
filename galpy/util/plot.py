@@ -65,7 +65,7 @@ from ..util.config import __config__
 if __config__.getboolean("plot", "seaborn-bovy-defaults"):
     try:
         import seaborn as sns
-    except:
+    except ImportError:
         pass
     else:
         sns.set_style(

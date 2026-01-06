@@ -170,7 +170,7 @@ def RZToverticalPotential(RZPot, R):
     RZPot = _check_potential_list_and_deprecate(RZPot)
     try:
         conversion.get_physical(RZPot)
-    except:
+    except Exception:
         raise PotentialError(
             "Input to 'RZToverticalPotential' is neither an RZPotential-instance or a combination of such instances"
         )
@@ -239,7 +239,7 @@ def toVerticalPotential(Pot, R, phi=None, t0=0.0):
     Pot = _check_potential_list_and_deprecate(Pot)
     try:
         conversion.get_physical(Pot)
-    except:
+    except Exception:
         raise PotentialError(
             "Input to 'toVerticalPotential' is neither an Potential-instance or a combination of such instances"
         )
