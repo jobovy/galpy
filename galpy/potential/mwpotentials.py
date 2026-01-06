@@ -162,7 +162,7 @@ class _ExpensivePotentials:
         try:
             # In Py3 you can just do 'return globals()[name]', but not in Py2
             return self.__globals__[name]
-        except:  # pragma: no cover
+        except KeyError:  # pragma: no cover
             raise AttributeError(f"'module' object has no attribute '{name}'")
 
 

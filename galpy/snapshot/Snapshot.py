@@ -1,4 +1,4 @@
-import numpy as nu
+import numpy
 from directnbody import direct_nbody
 
 from galpy.orbit import Orbit
@@ -31,8 +31,7 @@ class Snapshot:
             if kwargs.has_key("masses"):
                 self.masses = kwargs["masses"]
             else:
-                self.masses = nu.ones(len(self.orbits))
-        return None
+                self.masses = numpy.ones(len(self.orbits))
 
     def integrate(self, t, pot=None, method="test-particle", **kwargs):
         """
@@ -96,16 +95,20 @@ class Snapshot:
         for ii in range(nq):
             # Transform to rectangular frame
             if dim == 1:
-                thisq = nu.array([self.orbits[ii].x()]).flatten()
-                thisp = nu.array([self.orbits[ii].vx()]).flatten()
+                thisq = numpy.array([self.orbits[ii].x()]).flatten()
+                thisp = numpy.array([self.orbits[ii].vx()]).flatten()
             elif dim == 2:
-                thisq = nu.array([self.orbits[ii].x(), self.orbits[ii].y()]).flatten()
-                thisp = nu.array([self.orbits[ii].vx(), self.orbits[ii].vy()]).flatten()
+                thisq = numpy.array(
+                    [self.orbits[ii].x(), self.orbits[ii].y()]
+                ).flatten()
+                thisp = numpy.array(
+                    [self.orbits[ii].vx(), self.orbits[ii].vy()]
+                ).flatten()
             elif dim == 3:
-                thisq = nu.array(
+                thisq = numpy.array(
                     [self.orbits[ii].x(), self.orbits[ii].y(), self.orbits[ii].z()]
                 ).flatten()
-                thisp = nu.array(
+                thisp = numpy.array(
                     [self.orbits[ii].vx(), self.orbits[ii].vy(), self.orbits[ii].vz()]
                 ).flatten()
             q.append(thisq)
@@ -120,19 +123,19 @@ class Snapshot:
             for jj in range(nq):
                 if dim == 3:
                     # go back to the cylindrical frame
-                    R = nu.sqrt(
+                    R = numpy.sqrt(
                         nbody_out[ii][0][jj][0] ** 2.0 + nbody_out[ii][0][jj][1] ** 2.0
                     )
-                    phi = nu.arccos(nbody_out[ii][0][jj][0] / R)
+                    phi = numpy.arccos(nbody_out[ii][0][jj][0] / R)
                     if nbody_out[ii][0][jj][1] < 0.0:
-                        phi = 2.0 * nu.pi - phi
-                    vR = nbody_out[ii][1][jj][0] * nu.cos(phi) + nbody_out[ii][1][jj][
-                        1
-                    ] * nu.sin(phi)
-                    vT = nbody_out[ii][1][jj][1] * nu.cos(phi) - nbody_out[ii][1][jj][
-                        0
-                    ] * nu.sin(phi)
-                    vxvv = nu.zeros(dim * 2)
+                        phi = 2.0 * numpy.pi - phi
+                    vR = nbody_out[ii][1][jj][0] * numpy.cos(phi) + nbody_out[ii][1][
+                        jj
+                    ][1] * numpy.sin(phi)
+                    vT = nbody_out[ii][1][jj][1] * numpy.cos(phi) - nbody_out[ii][1][
+                        jj
+                    ][0] * numpy.sin(phi)
+                    vxvv = numpy.zeros(dim * 2)
                     vxvv[3] = nbody_out[ii][0][jj][2]
                     vxvv[4] = nbody_out[ii][1][jj][2]
                     vxvv[0] = R
@@ -141,19 +144,19 @@ class Snapshot:
                     vxvv[5] = phi
                 if dim == 2:
                     # go back to the cylindrical frame
-                    R = nu.sqrt(
+                    R = numpy.sqrt(
                         nbody_out[ii][0][jj][0] ** 2.0 + nbody_out[ii][0][jj][1] ** 2.0
                     )
-                    phi = nu.arccos(nbody_out[ii][0][jj][0] / R)
+                    phi = numpy.arccos(nbody_out[ii][0][jj][0] / R)
                     if nbody_out[ii][0][jj][1] < 0.0:
-                        phi = 2.0 * nu.pi - phi
-                    vR = nbody_out[ii][1][jj][0] * nu.cos(phi) + nbody_out[ii][1][jj][
-                        1
-                    ] * nu.sin(phi)
-                    vT = nbody_out[ii][1][jj][1] * nu.cos(phi) - nbody_out[ii][1][jj][
-                        0
-                    ] * nu.sin(phi)
-                    vxvv = nu.zeros(dim * 2)
+                        phi = 2.0 * numpy.pi - phi
+                    vR = nbody_out[ii][1][jj][0] * numpy.cos(phi) + nbody_out[ii][1][
+                        jj
+                    ][1] * numpy.sin(phi)
+                    vT = nbody_out[ii][1][jj][1] * numpy.cos(phi) - nbody_out[ii][1][
+                        jj
+                    ][0] * numpy.sin(phi)
+                    vxvv = numpy.zeros(dim * 2)
                     vxvv[0] = R
                     vxvv[1] = vR
                     vxvv[2] = vT

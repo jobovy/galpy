@@ -1,3 +1,5 @@
+from typing import Optional
+
 from ..util import config, conversion
 from ..util.conversion import physical_compatible
 
@@ -5,7 +7,7 @@ from ..util.conversion import physical_compatible
 class df:
     """Top-level class for DF classes"""
 
-    def __init__(self, ro=None, vo=None):
+    def __init__(self, ro: Optional[float] = None, vo: Optional[float] = None) -> None:
         """
         Initialize a DF object.
 
@@ -34,15 +36,14 @@ class df:
         else:
             self._vo = conversion.parse_velocity_kms(vo)
             self._voSet = True
-        return None
 
-    def _check_consistent_units(self):
+    def _check_consistent_units(self) -> None:
         """Internal function to check that the set of units for this object is consistent with that for the potential"""
         assert physical_compatible(self, self._pot), (
             "Physical conversion for the DF object is not consistent with that of the Potential given to it"
         )
 
-    def turn_physical_off(self):
+    def turn_physical_off(self) -> None:
         """
         Turn off automatic returning of outputs in physical units.
 
@@ -53,9 +54,10 @@ class df:
         """
         self._roSet = False
         self._voSet = False
-        return None
 
-    def turn_physical_on(self, ro=None, vo=None):
+    def turn_physical_on(
+        self, ro: Optional[float] = None, vo: Optional[float] = None
+    ) -> None:
         """
         Turn on automatic returning of outputs in physical units.
 
@@ -72,14 +74,13 @@ class df:
         - 2020-04-22 - Don't turn on a parameter when it is False - Bovy (UofT)
 
         """
-        if not ro is False:
+        if ro is not False:
             self._roSet = True
             ro = conversion.parse_length_kpc(ro)
-            if not ro is None:
+            if ro is not None:
                 self._ro = ro
-        if not vo is False:
+        if vo is not False:
             self._voSet = True
             vo = conversion.parse_velocity_kms(vo)
-            if not vo is None:
+            if vo is not None:
                 self._vo = vo
-        return None

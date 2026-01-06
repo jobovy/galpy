@@ -1,5 +1,5 @@
 # Direct force summation N-body code
-import numpy as nu
+import numpy
 from numpy import linalg
 
 from galpy.potential.linearPotential import evaluatelinearForces
@@ -86,15 +86,13 @@ def direct_nbody(
 def _direct_nbody_step(q, p, m, t, dt, pot, softening, softening_args):
     """One N-body step: drift-kick-drift"""
     # drift
-    q12 = [symplecticode.leapfrog_leapq(q[ii], p[ii], dt / 2.0) for ii in range(len(q))]
+    q12 = [symplecticode.leapfrog_leapq(qi, pi, dt / 2.0) for qi, pi in zip(q, p)]
     # kick
     force = _direct_nbody_force(q12, m, t + dt / 2.0, pot, softening, softening_args)
     # print(force)
-    p = [symplecticode.leapfrog_leapp(p[ii], dt, force[ii]) for ii in range(len(p))]
+    p = [symplecticode.leapfrog_leapp(pi, dt, fi) for pi, fi in zip(p, force)]
     # drift
-    q = [
-        symplecticode.leapfrog_leapq(q12[ii], p[ii], dt / 2.0) for ii in range(len(q12))
-    ]
+    q = [symplecticode.leapfrog_leapq(q12i, pi, dt / 2.0) for q12i, pi in zip(q12, p)]
     return (q, p)
 
 
@@ -104,8 +102,8 @@ def _direct_nbody_force(q, m, t, pot, softening, softening_args):
     # Calculate all the distances
     nq = len(q)
     dim = len(q[0])
-    dist_vec = nu.zeros((nq, nq, dim))
-    dist = nu.zeros((nq, nq))
+    dist_vec = numpy.zeros((nq, nq, dim))
+    dist = numpy.zeros((nq, nq))
     for ii in range(nq):
         for jj in range(ii + 1, nq):
             dist_vec[ii, jj, :] = q[jj] - q[ii]
@@ -115,7 +113,7 @@ def _direct_nbody_force(q, m, t, pot, softening, softening_args):
     # Calculate all the forces
     force = []
     for ii in range(nq):
-        thisforce = nu.zeros(dim)
+        thisforce = numpy.zeros(dim)
         for jj in range(nq):
             if ii == jj:
                 continue
@@ -129,8 +127,8 @@ def _direct_nbody_force(q, m, t, pot, softening, softening_args):
     # Then add the external force
     if pot is None:
         return force
-    for ii in range(nq):
-        force[ii] += _external_force(q[ii], t, pot)
+    for ii, qi in enumerate(q):
+        force[ii] += _external_force(qi, t, pot)
     return force
 
 
@@ -138,16 +136,16 @@ def _external_force(x, t, pot):
     dim = len(x)
     if dim == 3:
         # x is rectangular so calculate R and phi
-        R = nu.sqrt(x[0] ** 2.0 + x[1] ** 2.0)
-        phi = nu.arccos(x[0] / R)
+        R = numpy.sqrt(x[0] ** 2.0 + x[1] ** 2.0)
+        phi = numpy.arccos(x[0] / R)
         sinphi = x[1] / R
         cosphi = x[0] / R
         if x[1] < 0.0:
-            phi = 2.0 * nu.pi - phi
+            phi = 2.0 * numpy.pi - phi
         # calculate forces
         Rforce = evaluateRforces(R, x[2], pot, phi=phi, t=t)
         phitorque = evaluatephitorques(R, x[2], pot, phi=phi, t=t)
-        return nu.array(
+        return numpy.array(
             [
                 cosphi * Rforce - 1.0 / R * sinphi * phitorque,
                 sinphi * Rforce + 1.0 / R * cosphi * phitorque,
@@ -156,16 +154,16 @@ def _external_force(x, t, pot):
         )
     elif dim == 2:
         # x is rectangular so calculate R and phi
-        R = nu.sqrt(x[0] ** 2.0 + x[1] ** 2.0)
-        phi = nu.arccos(x[0] / R)
+        R = numpy.sqrt(x[0] ** 2.0 + x[1] ** 2.0)
+        phi = numpy.arccos(x[0] / R)
         sinphi = x[1] / R
         cosphi = x[0] / R
         if x[1] < 0.0:
-            phi = 2.0 * nu.pi - phi
+            phi = 2.0 * numpy.pi - phi
         # calculate forces
         Rforce = evaluateplanarRforces(R, pot, phi=phi, t=t)
         phitorque = evaluateplanarphitorques(R, pot, phi=phi, t=t)
-        return nu.array(
+        return numpy.array(
             [
                 cosphi * Rforce - 1.0 / R * sinphi * phitorque,
                 sinphi * Rforce + 1.0 / R * cosphi * phitorque,
