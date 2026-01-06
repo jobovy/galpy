@@ -314,30 +314,42 @@ class constantbetadf(_constantbetadf):
                 )
             )
             Es4interp = (Es4interp * (self._Emin - self._potInf) + self._potInf)[::-1]
-            fE4interp = self._fE_numerical(Es4interp)
-            # Filter to finite values and create spline interpolator
+            fE4interp = self.fE(Es4interp)
             iindx = numpy.isfinite(fE4interp)
             self._fE_interp = interpolate.InterpolatedUnivariateSpline(
                 Es4interp[iindx], fE4interp[iindx], k=3, ext=3
             )
 
-    def _fE_numerical(self, E):
-        """Compute f(E) numerically (only for E >= Emin)."""
-        Eparsed = conversion.parse_energy(E, vo=self._vo)
-        scalarOut = numpy.ndim(Eparsed) == 0
-        Eint = numpy.atleast_1d(Eparsed)
-        out = numpy.zeros_like(Eint, dtype=float)
+    def fE(self, E):
+        """
+        Calculate the energy portion of a constant-beta distribution function
+
+        Parameters
+        ----------
+        E : float, numpy.ndarray, or Quantity
+            The energy.
+
+        Returns
+        -------
+        numpy.ndarray
+            The value of the energy portion of the DF
+
+        Notes
+        -----
+        - 2021-02-14 - Written - Bovy (UofT)
+        """
+        Eint = numpy.atleast_1d(conversion.parse_energy(E, vo=self._vo))
+        out = numpy.zeros_like(Eint)
         indx = (Eint < self._potInf) * (Eint >= self._Emin)
         if self._halfint:
             # fE is simply given by the relevant derivative
             out[indx] = self._gradfunc(self._rphi(Eint[indx]))
-            out = out / (
+            return out.reshape(E.shape) / (
                 2.0
                 * numpy.pi**1.5
                 * 2 ** (0.5 - self._beta)
                 * special.gamma(1.0 - self._beta)
             )
-            return float(out[0]) if scalarOut else out
         else:
             # Now need to integrate to get fE
             # Split integral at twice the lower limit to deal with divergence
@@ -381,28 +393,7 @@ class constantbetadf(_constantbetadf):
                     for tE in Eint[indx]
                 ]
             )
-            out = -out * self._fE_prefactor
-            return float(out[0]) if scalarOut else out
-
-    def fE(self, E):
-        """
-        Calculate the energy portion of a constant-beta distribution function
-
-        Parameters
-        ----------
-        E : float, numpy.ndarray, or Quantity
-            The energy.
-
-        Returns
-        -------
-        numpy.ndarray
-            The value of the energy portion of the DF
-
-        Notes
-        -----
-        - 2021-02-14 - Written - Bovy (UofT)
-        """
-        return self._fE_numerical(E)
+            return -out.reshape(E.shape) * self._fE_prefactor
 
 
 def _fEintegrand_raw(r, pot, E, dmp1nudrmp1, alpha):

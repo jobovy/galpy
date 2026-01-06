@@ -2883,8 +2883,8 @@ def test_eddington_hernquist_no_warning():
 
 
 def test_constantbeta_powerspherical_divergent_auto_rmin():
-    if not _JAX_LOADED:
-        return None  # skip if JAX not available
+    if WIN32:
+        return None  # skip on Windows, because no JAX
     # Test that constantbetadf also handles divergent potentials
     pot = potential.PowerSphericalPotential(amp=1.0, alpha=2.5)
     with pytest.warns(galpyWarning) as record:
@@ -2898,13 +2898,47 @@ def test_constantbeta_powerspherical_divergent_auto_rmin():
 
 
 def test_constantbeta_kepler_raises():
-    if not _JAX_LOADED:
-        return None  # skip if JAX not available
+    if WIN32:
+        return None  # skip on Windows, because no JAX
     # Test that constantbetadf also raises for KeplerPotential
     pot = potential.KeplerPotential(amp=1.0)
     with pytest.raises(ValueError) as excinfo:
         dfp = constantbetadf(pot=pot, beta=0.0)
     assert "point mass" in str(excinfo.value), "Error message should mention point mass"
+    return None
+
+
+def test_osipkovmerritt_powerspherical_divergent_auto_rmin():
+    # Test that osipkovmerrittdf also handles divergent potentials
+    pot = potential.PowerSphericalPotential(amp=1.0, alpha=2.5)
+    with pytest.warns(galpyWarning) as record:
+        dfp = osipkovmerrittdf(pot=pot, ra=1.0, rmax=1e4)
+    raisedWarning = False
+    for rec in record:
+        raisedWarning += "diverges at r=0" in str(rec.message.args[0])
+    assert raisedWarning, "osipkovmerrittdf should also warn about divergent potentials"
+    assert dfp._rmin > 0, "rmin should be auto-set to positive value"
+    return None
+
+
+def test_eddington_jaffe_divergent_sample_massprofile():
+    # Test that samples from a divergent potential follow expected density profile
+    pot = potential.JaffePotential(amp=1.0, a=1.0)
+    import warnings
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")  # suppress divergence warning
+        dfp = eddingtondf(pot=pot, rmax=10.0)
+    numpy.random.seed(42)
+    samp = dfp.sample(n=50000)
+    # Jaffe mass profile: M(r) = M_total * r/(r+a)
+    # Normalized: M(r)/M(rmax) = [r/(r+a)] / [rmax/(rmax+a)]
+    rmax = 10.0
+    a = 1.0
+    mass_at_rmax = rmax / (rmax + a)
+    mass_profile = lambda r: (r / (r + a)) / mass_at_rmax
+    tol = 0.02  # 2% tolerance
+    check_spherical_massprofile(samp, mass_profile, tol, skip=1000)
     return None
 
 

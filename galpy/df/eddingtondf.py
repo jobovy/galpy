@@ -1,7 +1,5 @@
 # Class that implements isotropic spherical DFs computed using the Eddington
 # formula
-from __future__ import annotations
-
 import numpy
 from scipy import integrate, interpolate
 
@@ -97,20 +95,35 @@ class eddingtondf(isotropicsphericaldf):
                 )
             )
             Es4interp = (Es4interp * (self._Emin - self._potInf) + self._potInf)[::-1]
-            fE4interp = self._fE_numerical(Es4interp)
-            # Filter to finite values and create spline interpolator
+            fE4interp = self.fE(Es4interp)
             iindx = numpy.isfinite(fE4interp)
             self._fE_interp = interpolate.InterpolatedUnivariateSpline(
                 Es4interp[iindx], fE4interp[iindx], k=3, ext=3
             )
 
-    def _fE_numerical(self, E):
-        """Compute f(E) numerically via Eddington integration (only for E >= Emin)."""
+    def fE(self, E):
+        """
+        Calculate the energy portion of a DF computed using the Eddington inversion
+
+        Parameters
+        ----------
+        E : float or Quantity
+            The energy.
+
+        Returns
+        -------
+        fE : ndarray
+            The value of the energy portion of the DF.
+
+        Notes
+        -----
+        - 2021-02-04 - Written - Bovy (UofT)
+        """
         Eint = conversion.parse_energy(E, vo=self._vo)
-        scalarOut = numpy.ndim(Eint) == 0
-        Eint = numpy.atleast_1d(Eint)
-        out = numpy.zeros_like(Eint, dtype=float)
+        out = numpy.zeros_like(Eint)
         indx = (Eint < self._potInf) * (Eint >= self._Emin)
+        # Split integral at twice the lower limit to deal with divergence at
+        # the lower end and infinity at the upper end
         out[indx] = numpy.array(
             [
                 integrate.quad(
@@ -136,28 +149,7 @@ class eddingtondf(isotropicsphericaldf):
                 for tE in Eint[indx]
             ]
         )
-        out = -out / (numpy.sqrt(8.0) * numpy.pi**2.0)
-        return float(out[0]) if scalarOut else out
-
-    def fE(self, E):
-        """
-        Calculate the energy portion of a DF computed using the Eddington inversion
-
-        Parameters
-        ----------
-        E : float or Quantity
-            The energy.
-
-        Returns
-        -------
-        fE : ndarray
-            The value of the energy portion of the DF.
-
-        Notes
-        -----
-        - 2021-02-04 - Written - Bovy (UofT)
-        """
-        return self._fE_numerical(E)
+        return -out / (numpy.sqrt(8.0) * numpy.pi**2.0)
 
 
 def _fEintegrand_raw(r, pot, E, dnudr, d2nudr2):
