@@ -53,9 +53,9 @@ class eddingtondf(isotropicsphericaldf):
             self, pot=pot, denspot=denspot, rmax=rmax, scale=scale, ro=ro, vo=vo
         )
 
-        # Handle rmin and check if potential diverges
-        self._rmin, self._divergent = _handle_rmin(
-            rmin, pot, denspot, self._scale, self._ro, "eddingtondf"
+        # Handle rmin for divergent potentials
+        self._rmin = _handle_rmin(
+            rmin, self._pot, self._denspot, self._scale, self._ro, "eddingtondf"
         )
 
         self._dnudr = (
@@ -72,7 +72,7 @@ class eddingtondf(isotropicsphericaldf):
         self._Emin = _evaluatePotentials(pot, self._rmin, 0)
         # Build interpolator r(pot), starting at rmin for divergent potentials
         self._rphi = self._setup_rphi_interpolator(
-            r_a_min=max(1e-6, self._rmin / self._scale) if self._divergent else 1e-6
+            r_a_min=max(1e-6, self._rmin / self._scale)
         )
 
     def sample(self, R=None, z=None, phi=None, n=1, return_orbit=True, rmin=None):

@@ -213,9 +213,9 @@ class constantbetadf(_constantbetadf):
             ro=ro,
             vo=vo,
         )
-        # Handle rmin and check if potential diverges
-        self._rmin, self._divergent = _handle_rmin(
-            rmin, pot, denspot, self._scale, self._ro, "constantbetadf"
+        # Handle rmin for divergent potentials
+        self._rmin = _handle_rmin(
+            rmin, self._pot, self._denspot, self._scale, self._ro, "constantbetadf"
         )
 
         self._twobeta = twobeta

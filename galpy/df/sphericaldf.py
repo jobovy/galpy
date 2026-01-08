@@ -24,7 +24,13 @@ import scipy.interpolate
 from scipy import integrate, interpolate, special
 
 from ..orbit import Orbit
-from ..potential import interpSphericalPotential, mass
+from ..potential import (
+    CompositePotential,
+    KeplerPotential,
+    PowerSphericalPotential,
+    interpSphericalPotential,
+    mass,
+)
 from ..potential.Potential import (
     _check_potential_list_and_deprecate,
     _evaluatePotentials,
@@ -38,9 +44,6 @@ from .df import df
 if _optional_deps._APY_LOADED:
     from astropy import units
 
-# Import potential types for _handle_rmin
-from ..potential.PowerSphericalPotential import KeplerPotential, PowerSphericalPotential
-
 
 def _handle_rmin(rmin, pot, denspot, scale, ro, df_name):
     """
@@ -53,9 +56,9 @@ def _handle_rmin(rmin, pot, denspot, scale, ro, df_name):
     ----------
     rmin : float, Quantity, or None
         User-specified minimum radius, or None for auto-detection
-    pot : Potential instance or list thereof
+    pot : Potential instance or a combined potential formed using addition (pot1+pot2+…)
         The gravitational potential
-    denspot : Potential instance or list thereof
+    denspot : Potential instance or a combined potential formed using addition (pot1+pot2+…)
         The density potential (tracer population)
     scale : float
         Characteristic scale radius
@@ -68,8 +71,6 @@ def _handle_rmin(rmin, pot, denspot, scale, ro, df_name):
     -------
     rmin : float
         The rmin value to use (in internal units)
-    is_divergent : bool
-        Whether the potential diverges at r=0
     """
     # Check if potential diverges at r=0
     phi_at_zero = _evaluatePotentials(pot, 0.0, 0)
@@ -77,13 +78,14 @@ def _handle_rmin(rmin, pot, denspot, scale, ro, df_name):
 
     # If rmin is explicitly specified, use it
     if rmin is not None:
-        return conversion.parse_length(rmin, ro=ro), is_divergent
+        return conversion.parse_length(rmin, ro=ro)
 
-    # Get list of density potentials to check for problematic types
-    if denspot is not None:
-        denspot_list = denspot if isinstance(denspot, list) else [denspot]
-    else:
-        denspot_list = pot if isinstance(pot, list) else [pot]
+    # Get density potentials to check for problematic types
+    denspot_list = (
+        denspot
+        if isinstance(denspot, CompositePotential)
+        else CompositePotential(denspot)
+    )
 
     # Check all potentials for known problematic types
     for p in denspot_list:
@@ -102,7 +104,7 @@ def _handle_rmin(rmin, pot, denspot, scale, ro, df_name):
                     f"{df_name} cannot sample from PowerSphericalPotential with "
                     f"alpha={alpha} >= 3."
                 )
-            if alpha > 2.0:
+            elif alpha > 2.0:
                 # Divergent potential - auto-set rmin
                 auto_rmin = 1e-6 * scale
                 warnings.warn(
@@ -111,7 +113,7 @@ def _handle_rmin(rmin, pot, denspot, scale, ro, df_name):
                     "Set rmin explicitly to suppress this warning.",
                     galpyWarning,
                 )
-                return auto_rmin, True
+                return auto_rmin
 
     # Check for other divergent potentials
     if is_divergent:
@@ -122,10 +124,10 @@ def _handle_rmin(rmin, pot, denspot, scale, ro, df_name):
             "Set rmin explicitly to suppress this warning.",
             galpyWarning,
         )
-        return auto_rmin, True
+        return auto_rmin
 
     # Non-divergent potential - use rmin = 0
-    return 0.0, False
+    return 0.0
 
 
 class sphericaldf(df):
@@ -685,9 +687,7 @@ class sphericaldf(df):
             ky=1,
         )
 
-    def _setup_rphi_interpolator(
-        self, r_a_min: float = 1e-6, r_a_max: float = 1e6, nra: int = 10001
-    ):
+    def _setup_rphi_interpolator(self, r_a_min=1e-6, r_a_max=1e6, nra=10001):
         """
         Set up the interpolator for r(phi)
 

@@ -253,9 +253,8 @@ class osipkovmerrittdf(_osipkovmerrittdf):
             ro=ro,
             vo=vo,
         )
-        # Copy rmin and divergent flags from the internal eddingtondf
+        # Copy rmin from the internal eddingtondf
         self._rmin = self._edf._rmin
-        self._divergent = self._edf._divergent
         self._edf._dnudr = (
             (
                 lambda r: self._denspot._ddensdr(r) * (1.0 + r**2.0 / self._ra2)
@@ -296,6 +295,13 @@ class osipkovmerrittdf(_osipkovmerrittdf):
         # No docstring so superclass' is used
         if rmin is None:
             rmin = self._rmin
+        self._ensure_fQ_interp()
+        return sphericaldf.sample(
+            self, R=R, z=z, phi=phi, n=n, return_orbit=return_orbit, rmin=rmin
+        )
+
+    def _ensure_fQ_interp(self):
+        """Build the f(Q) interpolator if not already built."""
         if not hasattr(self, "_logfQ_interp"):
             Qs4interp = numpy.hstack(
                 (
@@ -311,9 +317,6 @@ class osipkovmerrittdf(_osipkovmerrittdf):
             self._logfQ_interp = interpolate.InterpolatedUnivariateSpline(
                 Qs4interp[iindx], fQ4interp[iindx], k=3, ext=3
             )
-        return sphericaldf.sample(
-            self, R=R, z=z, phi=phi, n=n, return_orbit=return_orbit, rmin=rmin
-        )
 
     def fQ(self, Q):
         """
