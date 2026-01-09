@@ -3306,3 +3306,340 @@ def _turn_off_apy(keep_loaded=False):
 def _turn_on_apy():
     coords._APY_COORDS = coords._APY_COORDS_ORIG
     coords._APY_LOADED = True
+
+
+# Roundtrip tests for coordinate transformations
+def test_rect_to_cyl_roundtrip_scalar():
+    """Test rect_to_cyl and cyl_to_rect are inverses for scalar input."""
+    X, Y, Z = 3.0, 4.0, 2.0
+    R, phi, Zc = coords.rect_to_cyl(X, Y, Z)
+    Xr, Yr, Zr = coords.cyl_to_rect(R, phi, Zc)
+    assert numpy.fabs(X - Xr) < 1e-14, (
+        f"rect_to_cyl/cyl_to_rect roundtrip failed for X: {X} -> {Xr}"
+    )
+    assert numpy.fabs(Y - Yr) < 1e-14, (
+        f"rect_to_cyl/cyl_to_rect roundtrip failed for Y: {Y} -> {Yr}"
+    )
+    assert numpy.fabs(Z - Zr) < 1e-14, (
+        f"rect_to_cyl/cyl_to_rect roundtrip failed for Z: {Z} -> {Zr}"
+    )
+    return None
+
+
+def test_rect_to_cyl_roundtrip_array():
+    """Test rect_to_cyl and cyl_to_rect are inverses for array input."""
+    X = numpy.array([1.0, -2.0, 3.0, 0.0])
+    Y = numpy.array([2.0, 3.0, -4.0, 5.0])
+    Z = numpy.array([-1.0, 0.0, 1.0, 2.0])
+    R, phi, Zc = coords.rect_to_cyl(X, Y, Z)
+    Xr, Yr, Zr = coords.cyl_to_rect(R, phi, Zc)
+    assert numpy.allclose(X, Xr, atol=1e-14), (
+        "rect_to_cyl/cyl_to_rect array roundtrip failed for X"
+    )
+    assert numpy.allclose(Y, Yr, atol=1e-14), (
+        "rect_to_cyl/cyl_to_rect array roundtrip failed for Y"
+    )
+    assert numpy.allclose(Z, Zr, atol=1e-14), (
+        "rect_to_cyl/cyl_to_rect array roundtrip failed for Z"
+    )
+    return None
+
+
+def test_rect_to_cyl_roundtrip_origin():
+    """Test rect_to_cyl handles origin correctly."""
+    X, Y, Z = 0.0, 0.0, 1.0
+    R, phi, Zc = coords.rect_to_cyl(X, Y, Z)
+    assert numpy.fabs(R) < 1e-14, "rect_to_cyl should give R=0 at origin"
+    assert numpy.fabs(Zc - Z) < 1e-14, "rect_to_cyl should preserve Z"
+    Xr, Yr, Zr = coords.cyl_to_rect(R, phi, Zc)
+    assert numpy.fabs(Xr) < 1e-14, "cyl_to_rect roundtrip at origin failed for X"
+    assert numpy.fabs(Yr) < 1e-14, "cyl_to_rect roundtrip at origin failed for Y"
+    return None
+
+
+def test_rect_to_cyl_roundtrip_negative_quadrants():
+    """Test rect_to_cyl/cyl_to_rect in all quadrants."""
+    # All four quadrants
+    test_cases = [
+        (1.0, 1.0, 0.0),  # Q1: +X, +Y
+        (-1.0, 1.0, 0.0),  # Q2: -X, +Y
+        (-1.0, -1.0, 0.0),  # Q3: -X, -Y
+        (1.0, -1.0, 0.0),  # Q4: +X, -Y
+    ]
+    for X, Y, Z in test_cases:
+        R, phi, Zc = coords.rect_to_cyl(X, Y, Z)
+        Xr, Yr, Zr = coords.cyl_to_rect(R, phi, Zc)
+        assert numpy.fabs(X - Xr) < 1e-14, (
+            f"Quadrant roundtrip failed for X={X}: got {Xr}"
+        )
+        assert numpy.fabs(Y - Yr) < 1e-14, (
+            f"Quadrant roundtrip failed for Y={Y}: got {Yr}"
+        )
+    return None
+
+
+def test_cyl_to_spher_roundtrip_scalar():
+    """Test cyl_to_spher and spher_to_cyl are inverses for scalar input."""
+    R, Z, phi = 3.0, 4.0, numpy.pi / 3
+    r, theta, phi_out = coords.cyl_to_spher(R, Z, phi)
+    Rr, Zr, phir = coords.spher_to_cyl(r, theta, phi_out)
+    assert numpy.fabs(R - Rr) < 1e-14, (
+        f"cyl_to_spher/spher_to_cyl roundtrip failed for R: {R} -> {Rr}"
+    )
+    assert numpy.fabs(Z - Zr) < 1e-14, (
+        f"cyl_to_spher/spher_to_cyl roundtrip failed for Z: {Z} -> {Zr}"
+    )
+    assert numpy.fabs(phi - phir) < 1e-14, (
+        f"cyl_to_spher/spher_to_cyl roundtrip failed for phi: {phi} -> {phir}"
+    )
+    return None
+
+
+def test_cyl_to_spher_roundtrip_array():
+    """Test cyl_to_spher and spher_to_cyl are inverses for array input."""
+    R = numpy.array([1.0, 2.0, 3.0, 0.0])
+    Z = numpy.array([1.0, 0.0, 4.0, 5.0])
+    phi = numpy.array([0.0, numpy.pi / 2, numpy.pi, -numpy.pi / 4])
+    r, theta, phi_out = coords.cyl_to_spher(R, Z, phi)
+    Rr, Zr, phir = coords.spher_to_cyl(r, theta, phi_out)
+    assert numpy.allclose(R, Rr, atol=1e-14), (
+        "cyl_to_spher/spher_to_cyl array roundtrip failed for R"
+    )
+    assert numpy.allclose(Z, Zr, atol=1e-14), (
+        "cyl_to_spher/spher_to_cyl array roundtrip failed for Z"
+    )
+    assert numpy.allclose(phi, phir, atol=1e-14), (
+        "cyl_to_spher/spher_to_cyl array roundtrip failed for phi"
+    )
+    return None
+
+
+def test_lbd_to_XYZ_roundtrip_scalar():
+    """Test lbd_to_XYZ and XYZ_to_lbd are inverses for scalar input."""
+    l, b, d = 45.0, 30.0, 2.5
+    XYZ = coords.lbd_to_XYZ(l, b, d, degree=True)
+    lbd = coords.XYZ_to_lbd(XYZ[0], XYZ[1], XYZ[2], degree=True)
+    assert numpy.fabs(l - lbd[0]) < 1e-10, (
+        f"lbd_to_XYZ/XYZ_to_lbd roundtrip failed for l: {l} -> {lbd[0]}"
+    )
+    assert numpy.fabs(b - lbd[1]) < 1e-10, (
+        f"lbd_to_XYZ/XYZ_to_lbd roundtrip failed for b: {b} -> {lbd[1]}"
+    )
+    assert numpy.fabs(d - lbd[2]) < 1e-10, (
+        f"lbd_to_XYZ/XYZ_to_lbd roundtrip failed for d: {d} -> {lbd[2]}"
+    )
+    return None
+
+
+def test_lbd_to_XYZ_roundtrip_array():
+    """Test lbd_to_XYZ and XYZ_to_lbd are inverses for array input."""
+    l = numpy.array([0.0, 90.0, 180.0, 270.0])
+    b = numpy.array([0.0, 45.0, -30.0, 60.0])
+    d = numpy.array([1.0, 2.0, 3.0, 0.5])
+    XYZ = coords.lbd_to_XYZ(l, b, d, degree=True)
+    lbd = coords.XYZ_to_lbd(XYZ[:, 0], XYZ[:, 1], XYZ[:, 2], degree=True)
+    assert numpy.allclose(l, lbd[:, 0], atol=1e-10), (
+        "lbd_to_XYZ/XYZ_to_lbd array roundtrip failed for l"
+    )
+    assert numpy.allclose(b, lbd[:, 1], atol=1e-10), (
+        "lbd_to_XYZ/XYZ_to_lbd array roundtrip failed for b"
+    )
+    assert numpy.allclose(d, lbd[:, 2], atol=1e-10), (
+        "lbd_to_XYZ/XYZ_to_lbd array roundtrip failed for d"
+    )
+    return None
+
+
+def test_radec_to_lb_roundtrip_scalar():
+    """Test radec_to_lb and lb_to_radec are inverses for scalar input."""
+    _turn_off_apy(keep_loaded=True)
+    ra, dec = 120.0, 45.0
+    lb = coords.radec_to_lb(ra, dec, degree=True, epoch=2000.0)
+    radec = coords.lb_to_radec(lb[0], lb[1], degree=True, epoch=2000.0)
+    assert numpy.fabs(ra - radec[0]) < 1e-10, (
+        f"radec_to_lb/lb_to_radec roundtrip failed for ra: {ra} -> {radec[0]}"
+    )
+    assert numpy.fabs(dec - radec[1]) < 1e-10, (
+        f"radec_to_lb/lb_to_radec roundtrip failed for dec: {dec} -> {radec[1]}"
+    )
+    _turn_on_apy()
+    return None
+
+
+def test_radec_to_lb_roundtrip_array():
+    """Test radec_to_lb and lb_to_radec are inverses for array input."""
+    _turn_off_apy(keep_loaded=True)
+    ra = numpy.array([0.0, 90.0, 180.0, 270.0])
+    dec = numpy.array([0.0, 30.0, -45.0, 60.0])
+    lb = coords.radec_to_lb(ra, dec, degree=True, epoch=2000.0)
+    radec = coords.lb_to_radec(lb[:, 0], lb[:, 1], degree=True, epoch=2000.0)
+    assert numpy.allclose(ra, radec[:, 0], atol=1e-10), (
+        "radec_to_lb/lb_to_radec array roundtrip failed for ra"
+    )
+    assert numpy.allclose(dec, radec[:, 1], atol=1e-10), (
+        "radec_to_lb/lb_to_radec array roundtrip failed for dec"
+    )
+    _turn_on_apy()
+    return None
+
+
+def test_Rz_to_uv_roundtrip_scalar():
+    """Test Rz_to_uv and uv_to_Rz are inverses for scalar input (prolate)."""
+    R, z = 2.0, 1.5
+    delta = 1.0
+    uv = coords.Rz_to_uv(R, z, delta=delta)
+    Rz = coords.uv_to_Rz(uv[0], uv[1], delta=delta)
+    assert numpy.fabs(R - Rz[0]) < 1e-10, (
+        f"Rz_to_uv/uv_to_Rz roundtrip failed for R: {R} -> {Rz[0]}"
+    )
+    assert numpy.fabs(z - Rz[1]) < 1e-10, (
+        f"Rz_to_uv/uv_to_Rz roundtrip failed for z: {z} -> {Rz[1]}"
+    )
+    return None
+
+
+def test_Rz_to_uv_roundtrip_array():
+    """Test Rz_to_uv and uv_to_Rz are inverses for array input."""
+    R = numpy.array([1.0, 2.0, 3.0, 0.5])
+    z = numpy.array([0.5, 1.0, 2.0, 3.0])
+    delta = 1.0
+    uv = coords.Rz_to_uv(R, z, delta=delta)
+    Rz = coords.uv_to_Rz(uv[0], uv[1], delta=delta)
+    assert numpy.allclose(R, Rz[0], atol=1e-10), (
+        "Rz_to_uv/uv_to_Rz array roundtrip failed for R"
+    )
+    assert numpy.allclose(z, Rz[1], atol=1e-10), (
+        "Rz_to_uv/uv_to_Rz array roundtrip failed for z"
+    )
+    return None
+
+
+def test_Rz_to_uv_roundtrip_oblate():
+    """Test Rz_to_uv and uv_to_Rz are inverses for oblate spheroidal."""
+    R, z = 2.5, 1.0
+    delta = 1.5
+    uv = coords.Rz_to_uv(R, z, delta=delta, oblate=True)
+    Rz = coords.uv_to_Rz(uv[0], uv[1], delta=delta, oblate=True)
+    assert numpy.fabs(R - Rz[0]) < 1e-10, (
+        f"Rz_to_uv/uv_to_Rz oblate roundtrip failed for R: {R} -> {Rz[0]}"
+    )
+    assert numpy.fabs(z - Rz[1]) < 1e-10, (
+        f"Rz_to_uv/uv_to_Rz oblate roundtrip failed for z: {z} -> {Rz[1]}"
+    )
+    return None
+
+
+def test_dl_to_rphi_2d_roundtrip_scalar():
+    """Test dl_to_rphi_2d and rphi_to_dl_2d are inverses for scalar input."""
+    d, l = 2.0, 45.0
+    ro, phio = 8.0, 0.0
+    rphi = coords.dl_to_rphi_2d(d, l, degree=True, ro=ro, phio=phio)
+    dl = coords.rphi_to_dl_2d(rphi[0], rphi[1], degree=True, ro=ro, phio=phio)
+    assert numpy.fabs(d - dl[0]) < 1e-10, (
+        f"dl_to_rphi_2d/rphi_to_dl_2d roundtrip failed for d: {d} -> {dl[0]}"
+    )
+    assert numpy.fabs(l - dl[1]) < 1e-10, (
+        f"dl_to_rphi_2d/rphi_to_dl_2d roundtrip failed for l: {l} -> {dl[1]}"
+    )
+    return None
+
+
+def test_dl_to_rphi_2d_roundtrip_array():
+    """Test dl_to_rphi_2d and rphi_to_dl_2d are inverses for array input."""
+    d = numpy.array([1.0, 2.0, 3.0, 0.5])
+    l = numpy.array([0.0, 30.0, 60.0, 90.0])
+    # Make copies because the degree decorator modifies input in place
+    d_orig = d.copy()
+    l_orig = l.copy()
+    ro, phio = 8.0, 0.0
+    rphi = coords.dl_to_rphi_2d(d, l, degree=True, ro=ro, phio=phio)
+    # rphi returns (R, phi) as separate arrays for array input
+    dl = coords.rphi_to_dl_2d(rphi[0], rphi[1], degree=True, ro=ro, phio=phio)
+    assert numpy.allclose(d_orig, dl[0], atol=1e-10), (
+        "dl_to_rphi_2d/rphi_to_dl_2d array roundtrip failed for d"
+    )
+    assert numpy.allclose(l_orig, dl[1], atol=1e-10), (
+        "dl_to_rphi_2d/rphi_to_dl_2d array roundtrip failed for l"
+    )
+    return None
+
+
+def test_rect_to_cyl_vec_roundtrip_scalar():
+    """Test rect_to_cyl_vec and cyl_to_rect_vec are inverses for scalar input."""
+    vx, vy, vz = 10.0, 20.0, 5.0
+    X, Y, Z = 3.0, 4.0, 2.0
+    vRvTvz = coords.rect_to_cyl_vec(vx, vy, vz, X, Y, Z)
+    phi = numpy.arctan2(Y, X)
+    vxyz = coords.cyl_to_rect_vec(vRvTvz[0], vRvTvz[1], vRvTvz[2], phi)
+    assert numpy.fabs(vx - vxyz[0]) < 1e-14, (
+        f"rect_to_cyl_vec/cyl_to_rect_vec roundtrip failed for vx: {vx} -> {vxyz[0]}"
+    )
+    assert numpy.fabs(vy - vxyz[1]) < 1e-14, (
+        f"rect_to_cyl_vec/cyl_to_rect_vec roundtrip failed for vy: {vy} -> {vxyz[1]}"
+    )
+    assert numpy.fabs(vz - vxyz[2]) < 1e-14, (
+        f"rect_to_cyl_vec/cyl_to_rect_vec roundtrip failed for vz: {vz} -> {vxyz[2]}"
+    )
+    return None
+
+
+def test_rect_to_cyl_vec_roundtrip_array():
+    """Test rect_to_cyl_vec and cyl_to_rect_vec are inverses for array input."""
+    vx = numpy.array([10.0, -5.0, 15.0, 0.0])
+    vy = numpy.array([20.0, 10.0, -10.0, 25.0])
+    vz = numpy.array([5.0, 0.0, -5.0, 10.0])
+    X = numpy.array([3.0, -2.0, 1.0, 4.0])
+    Y = numpy.array([4.0, 3.0, -1.0, 0.0])
+    Z = numpy.array([2.0, 1.0, 0.0, -1.0])
+    vRvTvz = coords.rect_to_cyl_vec(vx, vy, vz, X, Y, Z)
+    phi = numpy.arctan2(Y, X)
+    vxyz = coords.cyl_to_rect_vec(vRvTvz[0], vRvTvz[1], vRvTvz[2], phi)
+    assert numpy.allclose(vx, vxyz[0], atol=1e-14), (
+        "rect_to_cyl_vec/cyl_to_rect_vec array roundtrip failed for vx"
+    )
+    assert numpy.allclose(vy, vxyz[1], atol=1e-14), (
+        "rect_to_cyl_vec/cyl_to_rect_vec array roundtrip failed for vy"
+    )
+    assert numpy.allclose(vz, vxyz[2], atol=1e-14), (
+        "rect_to_cyl_vec/cyl_to_rect_vec array roundtrip failed for vz"
+    )
+    return None
+
+
+def test_galcencyl_to_XYZ_roundtrip_varied_sun():
+    """Test galcencyl_to_XYZ and XYZ_to_galcencyl with varied Xsun/Zsun."""
+    R, phi, Z = 5.0, numpy.pi / 3, 1.5
+    Xsun, Zsun = 8.5, 0.025
+    XYZ = coords.galcencyl_to_XYZ(R, phi, Z, Xsun=Xsun, Zsun=Zsun)
+    RphiZ = coords.XYZ_to_galcencyl(XYZ[0], XYZ[1], XYZ[2], Xsun=Xsun, Zsun=Zsun)
+    assert numpy.fabs(R - RphiZ[0]) < 1e-10, (
+        f"galcencyl_to_XYZ/XYZ_to_galcencyl roundtrip failed for R: {R} -> {RphiZ[0]}"
+    )
+    # Handle phi wrapping
+    phi_diff = numpy.abs(phi - RphiZ[1])
+    phi_diff = min(phi_diff, 2 * numpy.pi - phi_diff)
+    assert phi_diff < 1e-10, (
+        f"galcencyl_to_XYZ/XYZ_to_galcencyl roundtrip failed for phi: {phi} -> {RphiZ[1]}"
+    )
+    assert numpy.fabs(Z - RphiZ[2]) < 1e-10, (
+        f"galcencyl_to_XYZ/XYZ_to_galcencyl roundtrip failed for Z: {Z} -> {RphiZ[2]}"
+    )
+    return None
+
+
+def test_galcenrect_to_XYZ_roundtrip_varied_sun():
+    """Test galcenrect_to_XYZ and XYZ_to_galcenrect with varied Xsun/Zsun."""
+    Xgc, Ygc, Zgc = -3.0, 4.0, 0.5
+    Xsun, Zsun = 8.5, 0.025
+    XYZ = coords.galcenrect_to_XYZ(Xgc, Ygc, Zgc, Xsun=Xsun, Zsun=Zsun)
+    XYZgc = coords.XYZ_to_galcenrect(XYZ[0], XYZ[1], XYZ[2], Xsun=Xsun, Zsun=Zsun)
+    assert numpy.fabs(Xgc - XYZgc[0]) < 1e-10, (
+        f"galcenrect_to_XYZ/XYZ_to_galcenrect roundtrip failed for X: {Xgc} -> {XYZgc[0]}"
+    )
+    assert numpy.fabs(Ygc - XYZgc[1]) < 1e-10, (
+        f"galcenrect_to_XYZ/XYZ_to_galcenrect roundtrip failed for Y: {Ygc} -> {XYZgc[1]}"
+    )
+    assert numpy.fabs(Zgc - XYZgc[2]) < 1e-10, (
+        f"galcenrect_to_XYZ/XYZ_to_galcenrect roundtrip failed for Z: {Zgc} -> {XYZgc[2]}"
+    )
+    return None
