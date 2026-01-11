@@ -7914,7 +7914,11 @@ def _from_name_oneobject(name, obs):
             ):  # pragma: no cover
                 # I can't find an example of a case without both a plx and a distance, but with a pmra and pmdec
                 raise ValueError(f"Failed to find a distance for {name} in SIMBAD")
-            dist = simbad_table["mesdistance.dist"][0]
+            dist_str = (
+                str(simbad_table["mesdistance.dist"][0])
+                + simbad_table["mesdistance.unit"][0]
+            )
+            dist = units.Quantity(dist_str).to(units.kpc).value
         else:
             dist = 1.0 / simbad_table["plx_value"][0]
     else:  # pragma: no cover

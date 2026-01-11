@@ -8787,6 +8787,12 @@ def test_from_name_values():
         "radial velocity of [BGK2006] HV 5 does not match SIMBAD value"
     )
 
+    # Sagittarius dwarf, which has its distance in Mpc in SIMBAD
+    o = Orbit.from_name("SDG")
+    assert numpy.isclose(o.dist(), 20.0), "Distance of SDG does not match value on file"
+
+    return None
+
 
 def test_from_name_errors():
     from galpy.orbit import Orbit
