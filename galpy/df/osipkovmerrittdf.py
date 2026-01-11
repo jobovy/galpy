@@ -200,7 +200,15 @@ class osipkovmerrittdf(_osipkovmerrittdf):
     """
 
     def __init__(
-        self, pot=None, denspot=None, ra=1.4, rmax=1e4, scale=None, ro=None, vo=None
+        self,
+        pot=None,
+        denspot=None,
+        ra=1.4,
+        rmax=1e4,
+        rmin=None,
+        scale=None,
+        ro=None,
+        vo=None,
     ):
         """
         Initialize a DF with Osipkov-Merritt anisotropy.
@@ -215,6 +223,10 @@ class osipkovmerrittdf(_osipkovmerrittdf):
             Anisotropy radius. Default: 1.4
         rmax : float or Quantity, optional
             Maximum radius to consider; DF is cut off at E = Phi(rmax). Default: None
+        rmin : float or Quantity, optional
+            Minimum radius to consider. For divergent potentials (Phi(0) = -inf),
+            this sets the inner boundary for the energy range. Auto-detected if
+            not specified.
         scale : float or Quantity, optional
             Characteristic scale radius to aid sampling calculations. Not necessary, and will also be overridden by value from pot if available. Default: None
         ro : float or Quantity, optional
@@ -233,8 +245,16 @@ class osipkovmerrittdf(_osipkovmerrittdf):
         # using the augmented density rawdensx(1+r^2/ra^2), we use a helper
         # eddingtondf to do this integral, hacked to use the augmented density
         self._edf = eddingtondf(
-            pot=self._pot, denspot=self._denspot, scale=scale, rmax=rmax, ro=ro, vo=vo
+            pot=self._pot,
+            denspot=self._denspot,
+            scale=scale,
+            rmax=rmax,
+            rmin=rmin,
+            ro=ro,
+            vo=vo,
         )
+        # Copy rmin from the internal eddingtondf
+        self._rmin = self._edf._rmin
         self._edf._dnudr = (
             (
                 lambda r: self._denspot._ddensdr(r) * (1.0 + r**2.0 / self._ra2)
@@ -270,9 +290,18 @@ class osipkovmerrittdf(_osipkovmerrittdf):
             )
         )
 
-    def sample(self, R=None, z=None, phi=None, n=1, return_orbit=True, rmin=0.0):
+    def sample(self, R=None, z=None, phi=None, n=1, return_orbit=True, rmin=None):
         # Slight over-write of superclass method to first build f(Q) interp
         # No docstring so superclass' is used
+        if rmin is None:
+            rmin = self._rmin
+        self._ensure_fQ_interp()
+        return sphericaldf.sample(
+            self, R=R, z=z, phi=phi, n=n, return_orbit=return_orbit, rmin=rmin
+        )
+
+    def _ensure_fQ_interp(self):
+        """Build the f(Q) interpolator if not already built."""
         if not hasattr(self, "_logfQ_interp"):
             Qs4interp = numpy.hstack(
                 (
@@ -288,9 +317,6 @@ class osipkovmerrittdf(_osipkovmerrittdf):
             self._logfQ_interp = interpolate.InterpolatedUnivariateSpline(
                 Qs4interp[iindx], fQ4interp[iindx], k=3, ext=3
             )
-        return sphericaldf.sample(
-            self, R=R, z=z, phi=phi, n=n, return_orbit=return_orbit, rmin=rmin
-        )
 
     def fQ(self, Q):
         """

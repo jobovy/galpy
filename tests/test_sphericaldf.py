@@ -1,8 +1,10 @@
 # Tests of spherical distribution functions
 import platform
 
+from galpy.util._optional_deps import _JAX_LOADED
+
 WIN32 = platform.system() == "Windows"
-if not WIN32:  # Enable 64bit for JAX
+if _JAX_LOADED:  # Enable 64bit for JAX
     from jax import config
 
     config.update("jax_enable_x64", True)
@@ -2772,6 +2774,171 @@ def test_eddington_pot_denspot_incompatibleunits():
     with pytest.raises(RuntimeError):
         denspot = potential.NFWPotential(amp=2.0, a=1.3, ro=8.0, vo=230.0)
         dfh = eddingtondf(pot=pot, denspot=denspot)
+    return None
+
+
+################### TESTS FOR DIVERGENT POTENTIALS (ISSUE #719) ################
+
+
+def test_eddington_powerspherical_divergent_auto_rmin():
+    # Test that PowerSphericalPotential with alpha > 2 auto-sets rmin with warning
+    pot = potential.PowerSphericalPotential(amp=1.0, alpha=2.5)
+    with pytest.warns(galpyWarning) as record:
+        dfp = eddingtondf(pot=pot, rmax=1e4)
+    raisedWarning = False
+    for rec in record:
+        raisedWarning += "diverges at r=0" in str(rec.message.args[0])
+    assert raisedWarning, (
+        "PowerSphericalPotential with alpha > 2 should warn about divergence"
+    )
+    assert dfp._rmin > 0, "rmin should be auto-set to positive value"
+    # Verify sampling works
+    numpy.random.seed(42)
+    samp = dfp.sample(n=10)
+    assert len(samp) == 10, "Sampling should work with auto-set rmin"
+    return None
+
+
+def test_eddington_powerspherical_explicit_rmin_no_warning():
+    # Test that explicit rmin suppresses warning
+    pot = potential.PowerSphericalPotential(amp=1.0, alpha=2.5)
+    import warnings
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        # Should not raise any warning when rmin is explicit
+        dfp = eddingtondf(pot=pot, rmax=1e4, rmin=1e-6)
+    assert dfp._rmin == 1e-6, "rmin should be set to explicit value"
+    return None
+
+
+def test_eddington_kepler_raises():
+    # Test that KeplerPotential raises ValueError (point mass has no density)
+    pot = potential.KeplerPotential(amp=1.0)
+    with pytest.raises(ValueError) as excinfo:
+        dfp = eddingtondf(pot=pot)
+    assert "point mass" in str(excinfo.value), "Error message should mention point mass"
+    return None
+
+
+def test_eddington_powerspherical_alpha3_raises():
+    # Test that PowerSphericalPotential with alpha >= 3 raises ValueError
+    pot = potential.PowerSphericalPotential(amp=1.0, alpha=3.0)
+    with pytest.raises(ValueError) as excinfo:
+        dfp = eddingtondf(pot=pot)
+    assert "alpha=3.0 >= 3" in str(excinfo.value), (
+        "Error message should mention alpha >= 3"
+    )
+    return None
+
+
+def test_eddington_powerspherical_composite_divergent():
+    # Test that a composite potential containing a divergent potential is detected
+    pot1 = potential.HernquistPotential(amp=1.0, a=1.0)
+    pot2 = potential.PowerSphericalPotential(amp=0.5, alpha=2.5)
+    with pytest.warns(galpyWarning) as record:
+        dfp = eddingtondf(pot=pot1 + pot2, rmax=1e4)
+    raisedWarning = False
+    for rec in record:
+        raisedWarning += "diverges at r=0" in str(rec.message.args[0])
+    assert raisedWarning, (
+        "Composite potential containing divergent potential should warn"
+    )
+    return None
+
+
+def test_eddington_nfw_rmin_accepted():
+    # Test that specifying rmin for a non-divergent potential is accepted
+    pot = potential.NFWPotential(amp=1.0, a=1.0)
+    # Should not raise - rmin is accepted for all potentials
+    dfp = eddingtondf(pot=pot, rmin=1e-4)
+    assert dfp._rmin == 1e-4, "rmin should be set to provided value"
+    return None
+
+
+def test_eddington_jaffe_divergent_auto_rmin():
+    # Test that JaffePotential (divergent but not PowerSpherical) auto-sets rmin
+    pot = potential.JaffePotential(amp=1.0, a=1.0)
+    with pytest.warns(galpyWarning) as record:
+        dfp = eddingtondf(pot=pot, rmax=1e4)
+    raisedWarning = False
+    for rec in record:
+        raisedWarning += "diverges at r=0" in str(rec.message.args[0])
+    assert raisedWarning, "JaffePotential should warn about divergence at r=0"
+    assert dfp._rmin > 0, "rmin should be auto-set to positive value"
+    return None
+
+
+def test_eddington_hernquist_no_warning():
+    # Test that HernquistPotential (non-divergent) creates DF without warning
+    pot = potential.HernquistPotential(amp=1.0, a=1.0)
+    import warnings
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        # Should not raise any warning for non-divergent potential
+        dfp = eddingtondf(pot=pot, rmax=1e4)
+    assert dfp._rmin == 0.0, "rmin should be 0 for non-divergent potential"
+    return None
+
+
+def test_constantbeta_powerspherical_divergent_auto_rmin():
+    if WIN32:
+        return None  # skip on Windows, because no JAX
+    # Test that constantbetadf also handles divergent potentials
+    pot = potential.PowerSphericalPotential(amp=1.0, alpha=2.5)
+    with pytest.warns(galpyWarning) as record:
+        dfp = constantbetadf(pot=pot, beta=0.0, rmax=1e4)
+    raisedWarning = False
+    for rec in record:
+        raisedWarning += "diverges at r=0" in str(rec.message.args[0])
+    assert raisedWarning, "constantbetadf should also warn about divergent potentials"
+    assert dfp._rmin > 0, "rmin should be auto-set to positive value"
+    return None
+
+
+def test_constantbeta_kepler_raises():
+    if WIN32:
+        return None  # skip on Windows, because no JAX
+    # Test that constantbetadf also raises for KeplerPotential
+    pot = potential.KeplerPotential(amp=1.0)
+    with pytest.raises(ValueError) as excinfo:
+        dfp = constantbetadf(pot=pot, beta=0.0)
+    assert "point mass" in str(excinfo.value), "Error message should mention point mass"
+    return None
+
+
+def test_osipkovmerritt_powerspherical_divergent_auto_rmin():
+    # Test that osipkovmerrittdf also handles divergent potentials
+    pot = potential.PowerSphericalPotential(amp=1.0, alpha=2.5)
+    with pytest.warns(galpyWarning) as record:
+        dfp = osipkovmerrittdf(pot=pot, ra=1.0, rmax=1e4)
+    raisedWarning = False
+    for rec in record:
+        raisedWarning += "diverges at r=0" in str(rec.message.args[0])
+    assert raisedWarning, "osipkovmerrittdf should also warn about divergent potentials"
+    assert dfp._rmin > 0, "rmin should be auto-set to positive value"
+    return None
+
+
+def test_eddington_jaffe_divergent_sample_massprofile():
+    # Test that samples from a divergent potential follow expected density profile
+    pot = potential.JaffePotential(amp=1.0, a=1.0)
+    import warnings
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")  # suppress divergence warning
+        dfp = eddingtondf(pot=pot, rmax=10.0)
+    numpy.random.seed(42)
+    samp = dfp.sample(n=50000)
+    # Jaffe mass profile: M(r) = M_total * r/(r+a)
+    # Normalized: M(r)/M(rmax) = [r/(r+a)] / [rmax/(rmax+a)]
+    rmax = 10.0
+    a = 1.0
+    mass_at_rmax = rmax / (rmax + a)
+    mass_profile = lambda r: (r / (r + a)) / mass_at_rmax
+    tol = 0.02  # 2% tolerance
+    check_spherical_massprofile(samp, mass_profile, tol, skip=1000)
     return None
 
 
