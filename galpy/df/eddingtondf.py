@@ -58,6 +58,16 @@ class eddingtondf(isotropicsphericaldf):
         )
         self._potInf = _evaluatePotentials(pot, self._rmax, 0)
         self._Emin = _evaluatePotentials(pot, 0.0, 0)
+        # Current calculation of the boundary term uses r -> inf limit
+        try:
+            self._rInf = (
+                numpy.inf
+                if numpy.isfinite(self._dnudr(numpy.inf))
+                and numpy.isfinite(_evaluateRforces(self._pot, numpy.inf, 0))
+                else 1e12
+            )
+        except ZeroDivisionError:
+            self._rInf = 1e12
         # Build interpolator r(pot)
         self._rphi = self._setup_rphi_interpolator()
 
@@ -129,6 +139,18 @@ class eddingtondf(isotropicsphericaldf):
                 for tE in Eint[indx]
             ]
         )
+        # Add boundary term ~ 1 / sqrt(-E) dnu / dpsi | psi=0
+        boundary_term = numpy.zeros_like(Eint)
+        boundary_term[indx] = (
+            self._dnudr(self._rInf)
+            / _evaluateRforces(self._pot, self._rInf, 0)
+            / numpy.sqrt(-Eint[indx])
+        )
+        # For some potentials, such as PowerSphericalPotential with infinite mass,
+        # the boundary term as implemented is incorrect, but we'll just set it to zero,
+        # because it essentially is
+        boundary_term[~numpy.isfinite(boundary_term)] = 0.0
+        out -= boundary_term
         return -out / (numpy.sqrt(8.0) * numpy.pi**2.0)
 
 
