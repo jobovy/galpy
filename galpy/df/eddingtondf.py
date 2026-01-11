@@ -6,7 +6,7 @@ from scipy import integrate, interpolate
 from ..potential import CompositePotential, evaluateR2derivs
 from ..potential.Potential import _evaluatePotentials, _evaluateRforces
 from ..util import conversion
-from .sphericaldf import isotropicsphericaldf, sphericaldf
+from .sphericaldf import _handle_rmin, isotropicsphericaldf, sphericaldf
 
 
 class eddingtondf(isotropicsphericaldf):
@@ -19,7 +19,9 @@ class eddingtondf(isotropicsphericaldf):
     where :math:`\\Psi = -\\Phi+\\Phi(\\infty)` is the relative potential, :math:`\\mathcal{E} = \\Psi-v^2/2` is the relative (binding) energy, and :math:`\\rho` is the density of the tracer population (not necessarily the density corresponding to :math:`\\Psi` according to the Poisson equation). Note that the second term on the right-hand side is currently assumed to be zero in the code.
     """
 
-    def __init__(self, pot=None, denspot=None, rmax=1e4, scale=None, ro=None, vo=None):
+    def __init__(
+        self, pot=None, denspot=None, rmax=1e4, rmin=None, scale=None, ro=None, vo=None
+    ):
         """
         Initialize an isotropic distribution function computed using the Eddington inversion.
 
@@ -31,6 +33,10 @@ class eddingtondf(isotropicsphericaldf):
             Represents the density of the tracers (assumed to be spherical; if None, set equal to pot).
         rmax : float or Quantity, optional
             Maximum radius to consider. DF is cut off at E = Phi(rmax).
+        rmin : float or Quantity, optional
+            Minimum radius to consider. For divergent potentials (Phi(0) = -inf),
+            this sets the inner boundary for the energy range. Auto-detected if
+            not specified.
         scale : float or Quantity, optional
             Characteristic scale radius to aid sampling calculations. Optional and will also be overridden by value from pot if available.
         ro : float or Quantity, optional
@@ -46,6 +52,12 @@ class eddingtondf(isotropicsphericaldf):
         isotropicsphericaldf.__init__(
             self, pot=pot, denspot=denspot, rmax=rmax, scale=scale, ro=ro, vo=vo
         )
+
+        # Handle rmin for divergent potentials
+        self._rmin = _handle_rmin(
+            rmin, self._pot, self._denspot, self._scale, self._ro, "eddingtondf"
+        )
+
         self._dnudr = (
             self._denspot._ddensdr
             if not isinstance(self._denspot, CompositePotential)
@@ -57,7 +69,7 @@ class eddingtondf(isotropicsphericaldf):
             else lambda r: numpy.sum([p._d2densdr2(r) for p in self._denspot])
         )
         self._potInf = _evaluatePotentials(pot, self._rmax, 0)
-        self._Emin = _evaluatePotentials(pot, 0.0, 0)
+        self._Emin = _evaluatePotentials(pot, self._rmin, 0)
         # Current calculation of the boundary term uses r -> inf limit
         try:
             self._rInf = (
@@ -68,12 +80,23 @@ class eddingtondf(isotropicsphericaldf):
             )
         except ZeroDivisionError:
             self._rInf = 1e12
-        # Build interpolator r(pot)
-        self._rphi = self._setup_rphi_interpolator()
+        # Build interpolator r(pot), starting at rmin for divergent potentials
+        self._rphi = self._setup_rphi_interpolator(
+            r_a_min=max(1e-6, self._rmin / self._scale)
+        )
 
-    def sample(self, R=None, z=None, phi=None, n=1, return_orbit=True, rmin=0.0):
+    def sample(self, R=None, z=None, phi=None, n=1, return_orbit=True, rmin=None):
         # Slight over-write of superclass method to first build f(E) interp
         # No docstring so superclass' is used
+        if rmin is None:
+            rmin = self._rmin
+        self._ensure_fE_interp()
+        return sphericaldf.sample(
+            self, R=R, z=z, phi=phi, n=n, return_orbit=return_orbit, rmin=rmin
+        )
+
+    def _ensure_fE_interp(self):
+        """Build the f(E) interpolator if not already built."""
         if not hasattr(self, "_fE_interp"):
             Es4interp = numpy.hstack(
                 (
@@ -87,9 +110,6 @@ class eddingtondf(isotropicsphericaldf):
             self._fE_interp = interpolate.InterpolatedUnivariateSpline(
                 Es4interp[iindx], fE4interp[iindx], k=3, ext=3
             )
-        return sphericaldf.sample(
-            self, R=R, z=z, phi=phi, n=n, return_orbit=return_orbit, rmin=rmin
-        )
 
     def fE(self, E):
         """

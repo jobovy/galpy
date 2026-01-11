@@ -24,7 +24,13 @@ import scipy.interpolate
 from scipy import integrate, interpolate, special
 
 from ..orbit import Orbit
-from ..potential import interpSphericalPotential, mass
+from ..potential import (
+    CompositePotential,
+    KeplerPotential,
+    PowerSphericalPotential,
+    interpSphericalPotential,
+    mass,
+)
 from ..potential.Potential import (
     _check_potential_list_and_deprecate,
     _evaluatePotentials,
@@ -37,6 +43,91 @@ from .df import df
 # Use _APY_LOADED/_APY_UNITS like this to be able to change them in tests
 if _optional_deps._APY_LOADED:
     from astropy import units
+
+
+def _handle_rmin(rmin, pot, denspot, scale, ro, df_name):
+    """
+    Determine the minimum radius for sampling and check if potential diverges.
+
+    For potentials that diverge at r=0 (Phi(0) = -inf), we need a finite rmin
+    to define the energy range for sampling.
+
+    Parameters
+    ----------
+    rmin : float, Quantity, or None
+        User-specified minimum radius, or None for auto-detection
+    pot : Potential instance or a combined potential formed using addition (pot1+pot2+…)
+        The gravitational potential
+    denspot : Potential instance or a combined potential formed using addition (pot1+pot2+…)
+        The density potential (tracer population)
+    scale : float
+        Characteristic scale radius
+    ro : float
+        Distance scale for unit conversion
+    df_name : str
+        Name of the DF class (for error/warning messages)
+
+    Returns
+    -------
+    rmin : float
+        The rmin value to use (in internal units)
+    """
+    # Check if potential diverges at r=0
+    phi_at_zero = _evaluatePotentials(pot, 0.0, 0)
+    is_divergent = not numpy.isfinite(phi_at_zero)
+
+    # If rmin is explicitly specified, use it
+    if rmin is not None:
+        return conversion.parse_length(rmin, ro=ro)
+
+    # Get density potentials to check for problematic types
+    denspot_list = (
+        denspot
+        if isinstance(denspot, CompositePotential)
+        else CompositePotential(denspot)
+    )
+
+    # Check all potentials for known problematic types
+    for p in denspot_list:
+        # Check for KeplerPotential (point mass - no distributed density)
+        if isinstance(p, KeplerPotential):
+            raise ValueError(
+                f"{df_name} cannot sample from KeplerPotential directly because it "
+                "represents a point mass with no distributed density."
+            )
+
+        # Check for PowerSphericalPotential
+        if isinstance(p, PowerSphericalPotential):
+            alpha = p.alpha
+            if alpha >= 3.0:
+                raise ValueError(
+                    f"{df_name} cannot sample from PowerSphericalPotential with "
+                    f"alpha={alpha} >= 3."
+                )
+            elif alpha > 2.0:
+                # Divergent potential - auto-set rmin
+                auto_rmin = 1e-6 * scale
+                warnings.warn(
+                    f"PowerSphericalPotential with alpha={alpha} diverges at r=0. "
+                    f"Using rmin={auto_rmin:.2e} as minimum radius. "
+                    "Set rmin explicitly to suppress this warning.",
+                    galpyWarning,
+                )
+                return auto_rmin
+
+    # Check for other divergent potentials
+    if is_divergent:
+        auto_rmin = 1e-6 * scale
+        warnings.warn(
+            f"Potential diverges at r=0 (Phi(0)={phi_at_zero}). "
+            f"Using rmin={auto_rmin:.2e} as minimum radius. "
+            "Set rmin explicitly to suppress this warning.",
+            galpyWarning,
+        )
+        return auto_rmin
+
+    # Non-divergent potential - use rmin = 0
+    return 0.0
 
 
 class sphericaldf(df):
@@ -458,9 +549,13 @@ class sphericaldf(df):
             ms -= mass(self._denspot, self._rmin_sampling, use_physical=False)
             mnorm -= mass(self._denspot, self._rmin_sampling, use_physical=False)
         ms /= mnorm
-        # Add total mass point
+        # Add total mass point to avoid extrapolation beyond rmax
         if numpy.isinf(self._rmax):
             xis = numpy.append(xis, 1)
+            ms = numpy.append(ms, 1)
+        else:
+            # For finite rmax, add the endpoint to ensure r <= rmax
+            xis = numpy.append(xis, ximax)
             ms = numpy.append(ms, 1)
         return scipy.interpolate.InterpolatedUnivariateSpline(ms, xis, k=1)
 
@@ -615,9 +710,14 @@ class sphericaldf(df):
         - 2023-02-23 - Written - Lane (UofT)
         """
 
-        r_a_values = numpy.concatenate(
-            (numpy.array([0.0]), numpy.geomspace(r_a_min, r_a_max, nra))
-        )
+        # Check if potential at r=0 is finite; if not, start at r_a_min
+        phi_at_zero = _evaluatePotentials(self._pot, 0.0, 0)
+        if numpy.isfinite(phi_at_zero):
+            r_a_values = numpy.concatenate(
+                (numpy.array([0.0]), numpy.geomspace(r_a_min, r_a_max, nra))
+            )
+        else:
+            r_a_values = numpy.geomspace(r_a_min, r_a_max, nra)
         phis = numpy.array(
             [_evaluatePotentials(self._pot, r * self._scale, 0) for r in r_a_values]
         )
@@ -687,7 +787,7 @@ class isotropicsphericaldf(sphericaldf):
     def _dMdE(self, E):
         if not hasattr(self, "_rphi"):
             self._rphi = self._setup_rphi_interpolator()
-        fE = self.fE(E)
+        fE = numpy.atleast_1d(self.fE(E))
         out = numpy.zeros_like(E)
         out[fE > 0.0] = (
             16.0
