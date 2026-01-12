@@ -3473,7 +3473,10 @@ def test_radec_to_lb_roundtrip_array():
     dec = numpy.array([0.0, 30.0, -45.0, 60.0])
     lb = coords.radec_to_lb(ra, dec, degree=True, epoch=2000.0)
     radec = coords.lb_to_radec(lb[:, 0], lb[:, 1], degree=True, epoch=2000.0)
-    assert numpy.allclose(ra, radec[:, 0], atol=1e-10), (
+    # Handle angle wraparound (0 and 360 are equivalent)
+    ra_diff = numpy.abs(ra - radec[:, 0])
+    ra_diff = numpy.minimum(ra_diff, 360.0 - ra_diff)
+    assert numpy.allclose(ra_diff, 0.0, atol=1e-10), (
         "radec_to_lb/lb_to_radec array roundtrip failed for ra"
     )
     assert numpy.allclose(dec, radec[:, 1], atol=1e-10), (
