@@ -956,7 +956,7 @@ def estimateBIsochrone(pot, R, z, phi=None):
                 0.01,
                 100.0,
             )
-        except:  # pragma: no cover
+        except Exception:  # pragma: no cover
             b = numpy.nan
         return b
 
