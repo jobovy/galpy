@@ -70,7 +70,7 @@ class CylindricallySeparablePotentialWrapper(parentWrapperPotential):
             )
         self._Rp = conversion.parse_length(Rp, ro=ro)
         self._refpot = _evaluatePotentials(self._pot, self._Rp, 0.0)
-        self.hasC = False
+        self.hasC = True
         self.hasC_dxdv = False
 
     def _evaluate(self, R, z, phi=0.0, t=0.0):

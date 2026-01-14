@@ -610,6 +610,15 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
       potentialArgs->requiresVelocity= false;
       break;
     // FDMDynamicalFrictionForce omitted, bc no planar version
+    case -12: //CylindricallySeparablePotentialWrapper
+      potentialArgs->potentialEval= &CylindricallySeparablePotentialWrapperPotentialEval;
+      potentialArgs->planarRforce= &CylindricallySeparablePotentialWrapperPotentialPlanarRforce;
+      potentialArgs->planarphitorque= &ZeroPlanarForce;
+      potentialArgs->nargs= (int) 3;
+      potentialArgs->ntfuncs= 0;
+      potentialArgs->requiresVelocity= false;
+      break;
+
     }
     int setupSplines = *(*pot_type-1) == -6 ? 1 : 0;
     if ( *(*pot_type-1) < 0) { // Parse wrapped potential for wrappers

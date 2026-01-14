@@ -662,6 +662,23 @@ def _parse_pot(pot):
             pot_args.extend(wrap_pot_args)
             pot_tfuncs.extend(wrap_pot_tfuncs)
             pot_args.extend([p._amp, p._a, p._b2])
+        elif (
+            (
+                isinstance(p, planarPotentialFromFullPotential)
+                or isinstance(p, planarPotentialFromRZPotential)
+            )
+            and isinstance(p._Pot, potential.CylindricallySeparablePotentialWrapper)
+        ) or isinstance(p, potential.CylindricallySeparablePotentialWrapper):
+            if not isinstance(p, potential.CylindricallySeparablePotentialWrapper):
+                p = p._Pot
+            pot_type.append(-12)
+            # wrap_pot_type, args, and npot obtained before this horrible if
+            pot_args.append(wrap_npot)
+            pot_type.extend(wrap_pot_type)
+            pot_args.extend(wrap_pot_args)
+            pot_tfuncs.extend(wrap_pot_tfuncs)
+            pot_args.extend([p._amp, p._Rp, p._refpot])
+
     pot_type = numpy.array(pot_type, dtype=numpy.int32, order="C")
     pot_args = numpy.array(pot_args, dtype=numpy.float64, order="C")
     return (npot, pot_type, pot_args, pot_tfuncs)
