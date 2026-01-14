@@ -7,6 +7,7 @@ from . import (
     CompositePotential,
     CorotatingRotationWrapperPotential,
     CosmphiDiskPotential,
+    CylindricallySeparablePotentialWrapper,
     DehnenBarPotential,
     DehnenSmoothWrapperPotential,
     DiskSCFPotential,
@@ -221,6 +222,9 @@ AnyAxisymmetricRazorThinDiskPotential = (
 )
 AnySphericalPotential = AnySphericalPotential.AnySphericalPotential
 CompositePotential = CompositePotential.CompositePotential
+CylindricallySeparablePotentialWrapper = (
+    CylindricallySeparablePotentialWrapper.CylindricallySeparablePotentialWrapper
+)
 # Wrappers
 DehnenSmoothWrapperPotential = DehnenSmoothWrapperPotential.DehnenSmoothWrapperPotential
 SolidBodyRotationWrapperPotential = (
