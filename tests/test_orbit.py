@@ -21,6 +21,7 @@ from test_actionAngle import reset_warning_registry
 from test_potential import (
     BurkertPotentialNoC,
     KuzminKutuzovOblateStaeckelWrapperPotential,
+    MWP14CylindricallySeparablePotentialWrapper,
     NFWTwoPowerTriaxialPotential,
     altExpwholeDiskSCFPotential,
     expwholeDiskSCFPotential,

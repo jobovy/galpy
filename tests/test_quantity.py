@@ -10276,6 +10276,26 @@ def test_potential_paramunits():
         )
         < 10.0**-8.0
     ), "EinastoPotential w/ amp w/ units does not behave as expected"
+    # CylindricallySeparablePotentialWrapper
+    pot = potential.CylindricallySeparablePotentialWrapper(
+        pot=potential.MWPotential2014,
+        Rp=10.0 * units.kpc,
+        ro=ro,
+        vo=vo,
+    )
+    pot_nounits = potential.CylindricallySeparablePotentialWrapper(
+        pot=potential.MWPotential2014, Rp=10.0 / ro, ro=ro, vo=vo
+    )
+    # Check potential
+    assert (
+        numpy.fabs(
+            pot(4.0, 1.0, use_physical=False)
+            - pot_nounits(4.0, 1.0, use_physical=False)
+        )
+        < 10.0**-8.0
+    ), (
+        "CylindricallySeparablePotentialWrapper w/ parameters w/ units does not behave as expected"
+    )
     # If you add one here, don't base it on ChandrasekharDynamicalFrictionForce!!
     return None
 

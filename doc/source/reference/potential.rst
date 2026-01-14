@@ -597,6 +597,7 @@ Specific wrappers
    potentialadiabaticcontractwrapper.rst
    potentialtimedependentamplitude.rst
    potentialcorotwrapper.rst
+   potentialcylindricallyseparablewrapper.rst
    potentialdehnensmoothwrapper.rst
    potentialgaussampwrapper.rst
    potentialkuzminlikewrapper.rst
