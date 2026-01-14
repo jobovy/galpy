@@ -821,6 +821,15 @@ double TwoPowerSphericalPotentialPlanarR2deriv(double,double,double,
 						struct potentialArg *);
 double TwoPowerSphericalPotentialDens(double,double,double,double,
 				      struct potentialArg *);
+//CylindricallySep
+double CylindricallySeparablePotentialWrapperPotentialEval(double,double,double,double,
+					  struct potentialArg *);
+double CylindricallySeparablePotentialWrapperPotentialRforce(double,double,double,double,
+					    struct potentialArg *);
+double CylindricallySeparablePotentialWrapperPotentialzforce(double,double,double,double,
+					    struct potentialArg *);
+double CylindricallySeparablePotentialWrapperPotentialPlanarRforce(double,double,double,
+						  struct potentialArg *);
 
 #ifdef __cplusplus
 }

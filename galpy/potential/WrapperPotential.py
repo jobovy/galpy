@@ -53,9 +53,12 @@ class parentWrapperPotential:
             raise ValueError("WrapperPotentials are only supported in 3D and 2D")
         # Create object from custom class that derives from correct wrapper,
         # make sure to turn off normalization for all wrappers (except for
-        # OblateStaeckelWrapperPotential and its derivatives)
+        # OblateStaeckelWrapperPotential, CylindricallySeparablePotentialWrapper, and their derivatives)
         kwargs["_init"] = True  # to break recursion above
-        if "OblateStaeckelWrapperPotential" in cls.__name__:
+        if (
+            "OblateStaeckelWrapperPotential" in cls.__name__
+            or "CylindricallySeparablePotentialWrapper" in cls.__name__
+        ):
             props = {}
         else:
             props = {"normalize": property()}

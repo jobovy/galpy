@@ -657,6 +657,15 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= true;
       break;
+    case -12: //CylindricallySeparablePotentialWrapper
+      potentialArgs->potentialEval= &CylindricallySeparablePotentialWrapperPotentialEval;
+      potentialArgs->Rforce= &CylindricallySeparablePotentialWrapperPotentialRforce;
+      potentialArgs->zforce= &CylindricallySeparablePotentialWrapperPotentialzforce;
+      potentialArgs->phitorque= &ZeroForce;
+      potentialArgs->nargs= (int) 3;
+      potentialArgs->ntfuncs= 0;
+      potentialArgs->requiresVelocity= false;
+      break;
     }
     int setupMovingObjectSplines = *(*pot_type-1) == -6 ? 1 : 0;
     // Need to set up the same sigma_r spline for both Chandrasekhar and FDM dynamical friction
