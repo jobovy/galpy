@@ -225,6 +225,7 @@ def test_forceAsDeriv_potential():
     pots.append("mockKuzminLikeWrapperPotential")
     pots.append("mockOffsetMWP14WrapperPotential")
     pots.append("mockTimeDependentAmplitudeWrapperPotential")
+    pots.append("MWP14CylindricallySeparablePotentialWrapper")
     rmpots = [
         "Potential",
         "MWPotential",
@@ -470,6 +471,7 @@ def test_2ndDeriv_potential():
     pots.append("mockOffsetMWP14WrapperPotential")
     pots.append("mockTimeDependentAmplitudeWrapperPotential")
     pots.append("mockKuzminLikeWrapperPotential")
+    pots.append("MWP14CylindricallySeparablePotentialWrapper")
     rmpots = [
         "Potential",
         "MWPotential",
@@ -1183,6 +1185,7 @@ def test_evaluateAndDerivs_potential():
     pots.append("mockOffsetMWP14WrapperPotential")
     pots.append("mockTimeDependentAmplitudeWrapperPotential")
     pots.append("mockKuzminLikeWrapperPotential")
+    pots.append("MWP14CylindricallySeparablePotentialWrapper")
     rmpots = [
         "Potential",
         "MWPotential",
@@ -9768,6 +9771,31 @@ def test_einasto_potential_rs_definition():
     return None
 
 
+# Test that CylindricallySeparablePotentialWrapper creates a separable potential for
+# MWPotential2014
+def test_CylindricallySeparablePotentialWrapper_separability():
+    from galpy.potential import CylindricallySeparablePotentialWrapper, MWPotential2014
+
+    mwp14_sep = CylindricallySeparablePotentialWrapper(pot=MWPotential2014, Rp=1.0)
+    Rtest = numpy.linspace(0.1, 3.0, 10)
+    ztest = numpy.linspace(-1.0, 1.0, 10)
+    Rgrid, zgrid = numpy.meshgrid(Rtest, ztest, indexing="ij")
+    # Compute potential on grid
+    phigrid = mwp14_sep(Rgrid, zgrid)
+    # Now check separability: phi(R,z)=phi_R(R)+phi_z(z)
+    # Compute phi_R(R) = phi(R,0)
+    phiR = mwp14_sep(Rtest, 0.0)
+    # Compute phi_z(z) = phi(R=1,z) - phi(R=1,0)
+    phiz = mwp14_sep(1.0, ztest) - mwp14_sep(1.0, 0.0)
+    # Reconstruct potential from separable components
+    phigrid_sep = phiR[:, None] + phiz[None, :]
+    # Check that the difference is small
+    assert numpy.amax(numpy.fabs(phigrid - phigrid_sep)) < 1e-10, (
+        "CylindricallySeparablePotentialWrapper does not create a separable potential for MWPotential2014"
+    )
+    return None
+
+
 # Test that trying to plot a potential with xy=True and effective=True raises a RuntimeError
 def test_plotting_xy_effective_error():
     # First a single potential
@@ -11544,6 +11572,22 @@ class KuzminKutuzovOblateStaeckelWrapperPotential(OblateStaeckelWrapperPotential
         kzp = potential.KuzminKutuzovStaeckelPotential(normalize=1.0, ac=2.0, Delta=3.0)
         return OblateStaeckelWrapperPotential.__new__(
             cls, amp=1.0, pot=kzp, delta=3.0, u0=1.0
+        )
+
+
+# Test CylindricallySeparablePotentialWrapper
+class MWP14CylindricallySeparablePotentialWrapper(
+    potential.CylindricallySeparablePotentialWrapper
+):
+    # Need to use __new__ because new Wrappers are created using __new__
+    def __new__(cls, *args, **kwargs):
+        if kwargs.get("_init", False):
+            return parentWrapperPotential.__new__(cls, *args, **kwargs)
+        return potential.CylindricallySeparablePotentialWrapper.__new__(
+            cls,
+            amp=1.0,
+            pot=potential.MWPotential2014,
+            Rp=0.9,
         )
 
 

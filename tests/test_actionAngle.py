@@ -1641,13 +1641,20 @@ def test_actionAngleAdiabatic_conserved_actions():
 def test_actionAngleAdiabatic_conserved_actions_c():
     from galpy.actionAngle import actionAngleAdiabatic
     from galpy.orbit import Orbit
-    from galpy.potential import MWPotential
+    from galpy.potential import CylindricallySeparablePotentialWrapper, MWPotential
 
     obs = Orbit([1.05, 0.02, 1.05, 0.03, 0.0])
     aAA = actionAngleAdiabatic(pot=MWPotential, c=True)
     check_actionAngle_conserved_actions(
         aAA, obs, MWPotential, -1.4, -8.0, -1.7, ntimes=101
     )
+
+    # Applying actionAngleAdiabatic to a separable potential should give very good
+    # conservation of actions
+    cyl_pot = CylindricallySeparablePotentialWrapper(pot=MWPotential, Rp=1.1)
+    obs = Orbit([1.05, 0.02, 1.05, 0.03, 0.0])
+    aAA = actionAngleAdiabatic(pot=cyl_pot, c=True, gamma=0.0)
+    check_actionAngle_conserved_actions(aAA, obs, cyl_pot, -8.0, -8.0, -8.0, ntimes=101)
     return None
 
 

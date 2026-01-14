@@ -71,6 +71,7 @@ def pytest_generate_tests(metafunc):
         pots.append("mockRotatedAndTiltedMWP14WrapperPotential")
         pots.append("testNullPotential")
         pots.append("mockKuzminLikeWrapperPotential")
+        pots.append("MWP14CylindricallySeparablePotentialWrapper")
         rmpots = [
             "Potential",
             "MWPotential",
@@ -170,6 +171,7 @@ def pytest_generate_tests(metafunc):
         pots.append("mockRotatedAndTiltedMWP14WrapperPotential")
         pots.append("testNullPotential")
         pots.append("mockKuzminLikeWrapperPotential")
+        pots.append("MWP14CylindricallySeparablePotentialWrapper")
         rmpots = [
             "Potential",
             "MWPotential",
