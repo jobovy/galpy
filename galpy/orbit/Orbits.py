@@ -2998,6 +2998,7 @@ class Orbit:
 
     def _setup_actions(self, pot=None, **kwargs):
         """Internal function to compute the actions and cache them for reuse (used for methods that don't support frequencies and angles)"""
+        # Currently only used when using Staeckel with c=False, because Staeckel frequencies and angles not implemented then
         self._setupaA(pot=pot, **kwargs)
         # Caching effectively checked in _setup_actionsFreqsAngles, because always called first
         # if hasattr(self, "_aA_jr"):
@@ -3011,8 +3012,7 @@ class Orbit:
                 * 1e-10
             )
             tvz = self.vz(use_physical=False, dontreshape=True)
-        # dim = 2 never reached currently, bc adiabatic is the only method that uses
-        # this and for 2D orbits that just uses spherical
+        # dim = 2 never reached currently
         # elif self.dim() == 2:
         #    tz = numpy.zeros(self.size)
         #    tvz = numpy.zeros(self.size)
