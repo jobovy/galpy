@@ -173,6 +173,7 @@ class actionAngleSpherical(actionAngle):
         - 2013-12-28 - Written - Bovy (IAS)
         """
         fixed_quad = kwargs.pop("fixed_quad", False)
+        extra_Jz = kwargs.pop("_Jz", None)
         if len(args) == 5:  # R,vR.vT, z, vz
             R, vR, vT, z, vz = args
         elif len(args) == 6:  # R,vR.vT, z, vz, phi
@@ -207,6 +208,9 @@ class actionAngleSpherical(actionAngle):
             )
             L = numpy.sqrt(L2)
             vt = L / r
+            if self._gamma != 0.0 and not extra_Jz is None:
+                L += self._gamma * extra_Jz
+                E += L**2.0 / 2.0 / r**2.0 - vt**2.0 / 2.0
             # Actions
             Jphi = Lz
             Jz = L - numpy.fabs(Lz)
@@ -267,6 +271,7 @@ class actionAngleSpherical(actionAngle):
         - 2013-12-29 - Written - Bovy (IAS)
         """
         fixed_quad = kwargs.pop("fixed_quad", False)
+        extra_Jz = kwargs.pop("_Jz", None)
         if len(args) == 5:  # R,vR.vT, z, vz pragma: no cover
             raise OSError("You need to provide phi when calculating angles")
         elif len(args) == 6:  # R,vR.vT, z, vz, phi
@@ -304,6 +309,9 @@ class actionAngleSpherical(actionAngle):
             )
             L = numpy.sqrt(L2)
             vt = L / r
+            if self._gamma != 0.0 and not extra_Jz is None:
+                L += self._gamma * extra_Jz
+                E += L**2.0 / 2.0 / r**2.0 - vt**2.0 / 2.0
             # Actions
             Jphi = Lz
             Jz = L - numpy.fabs(Lz)
