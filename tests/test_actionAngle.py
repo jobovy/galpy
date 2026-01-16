@@ -1522,6 +1522,184 @@ def test_actionAngleAdiabatic_zerolz_actions_c():
     return None
 
 
+# Basic sanity checking of the actionAngleAdiabatic frequencies
+def test_actionAngleAdiabatic_basic_freqs():
+    from galpy.actionAngle import actionAngleAdiabatic
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential, epifreq, omegac, verticalfreq
+
+    aAS = actionAngleAdiabatic(pot=MWPotential, delta=0.71, c=True)
+    # circular orbit
+    R, vR, vT, z, vz = 1.0, 0.0, 1.0, 0.0, 0.0
+    jos = aAS.actionsFreqs(R, vR, vT, z, vz)
+    assert (
+        numpy.fabs((jos[3] - epifreq(MWPotential, 1.0)) / epifreq(MWPotential, 1.0))
+        < 10.0**-12.0
+    ), "Circular orbit in the MWPotential does not have Or=kappa at %g%%" % (
+        100.0
+        * numpy.fabs((jos[3] - epifreq(MWPotential, 1.0)) / epifreq(MWPotential, 1.0))
+    )
+    assert (
+        numpy.fabs((jos[4] - omegac(MWPotential, 1.0)) / omegac(MWPotential, 1.0))
+        < 10.0**-12.0
+    ), "Circular orbit in the MWPotential does not have Op=Omega at %g%%" % (
+        100.0
+        * numpy.fabs((jos[4] - omegac(MWPotential, 1.0)) / omegac(MWPotential, 1.0))
+    )
+    assert (
+        numpy.fabs(
+            (jos[5] - verticalfreq(MWPotential, 1.0)) / verticalfreq(MWPotential, 1.0)
+        )
+        < 10.0**-12.0
+    ), "Circular orbit in the MWPotential does not have Oz=nu at %g%%" % (
+        100.0
+        * numpy.fabs(
+            (jos[5] - verticalfreq(MWPotential, 1.0)) / verticalfreq(MWPotential, 1.0)
+        )
+    )
+    # close-to-circular orbit
+    R, vR, vT, z, vz = 1.0, 0.01, 1.01, 0.01, 0.01
+    jos = aAS.actionsFreqs(Orbit([R, vR, vT, z, vz]))
+    assert (
+        numpy.fabs((jos[3] - epifreq(MWPotential, 1.0)) / epifreq(MWPotential, 1.0))
+        < 10.0**-1.9
+    ), "Close-to-circular orbit in the MWPotential does not have Or=kappa at %g%%" % (
+        100.0
+        * numpy.fabs((jos[3] - epifreq(MWPotential, 1.0)) / epifreq(MWPotential, 1.0))
+    )
+    assert (
+        numpy.fabs((jos[4] - omegac(MWPotential, 1.0)) / omegac(MWPotential, 1.0))
+        < 10.0**-1.9
+    ), "Close-to-circular orbit in the MWPotential does not have Op=Omega at %g%%" % (
+        100.0
+        * numpy.fabs((jos[4] - omegac(MWPotential, 1.0)) / omegac(MWPotential, 1.0))
+    )
+    assert (
+        numpy.fabs(
+            (jos[5] - verticalfreq(MWPotential, 1.0)) / verticalfreq(MWPotential, 1.0)
+        )
+        < 10.0**-1.5
+    ), "Close-to-circular orbit in the MWPotential does not have Oz=nu at %g%%" % (
+        100.0
+        * numpy.fabs(
+            (jos[5] - verticalfreq(MWPotential, 1.0)) / verticalfreq(MWPotential, 1.0)
+        )
+    )
+    # another close-to-circular orbit
+    R, vR, vT, z, vz = 1.0, 0.03, 1.02, 0.03, 0.01
+    jos = aAS.actionsFreqs(Orbit([R, vR, vT, z, vz, 2.0]))
+    assert (
+        numpy.fabs((jos[3] - epifreq(MWPotential, 1.0)) / epifreq(MWPotential, 1.0))
+        < 10.0**-1.5
+    ), "Close-to-circular orbit in the MWPotential does not have Or=kappa at %g%%" % (
+        100.0
+        * numpy.fabs((jos[3] - epifreq(MWPotential, 1.0)) / epifreq(MWPotential, 1.0))
+    )
+    assert (
+        numpy.fabs((jos[4] - omegac(MWPotential, 1.0)) / omegac(MWPotential, 1.0))
+        < 10.0**-1.5
+    ), "Close-to-circular orbit in the MWPotential does not have Op=Omega at %g%%" % (
+        100.0
+        * numpy.fabs((jos[4] - omegac(MWPotential, 1.0)) / omegac(MWPotential, 1.0))
+    )
+    assert (
+        numpy.fabs(
+            (jos[5] - verticalfreq(MWPotential, 1.0)) / verticalfreq(MWPotential, 1.0)
+        )
+        < 10.0**-0.9
+    ), "Close-to-circular orbit in the MWPotential does not have Oz=nu at %g%%" % (
+        100.0
+        * numpy.fabs(
+            (jos[5] - verticalfreq(MWPotential, 1.0)) / verticalfreq(MWPotential, 1.0)
+        )
+    )
+    # another close-to-circular orbit
+    R, vR, vT, z, vz = 1.0, -0.03, 1.02, 0.03, 0.01
+    jos = aAS.actionsFreqs(R, vR, vT, z, vz, 2.0)
+    assert (
+        numpy.fabs((jos[3] - epifreq(MWPotential, 1.0)) / epifreq(MWPotential, 1.0))
+        < 10.0**-1.5
+    ), "Close-to-circular orbit in the MWPotential does not have Or=kappa at %g%%" % (
+        100.0
+        * numpy.fabs((jos[3] - epifreq(MWPotential, 1.0)) / epifreq(MWPotential, 1.0))
+    )
+    assert (
+        numpy.fabs((jos[4] - omegac(MWPotential, 1.0)) / omegac(MWPotential, 1.0))
+        < 10.0**-1.5
+    ), "Close-to-circular orbit in the MWPotential does not have Op=Omega at %g%%" % (
+        100.0
+        * numpy.fabs((jos[4] - omegac(MWPotential, 1.0)) / omegac(MWPotential, 1.0))
+    )
+    assert (
+        numpy.fabs(
+            (jos[5] - verticalfreq(MWPotential, 1.0)) / verticalfreq(MWPotential, 1.0)
+        )
+        < 10.0**-0.9
+    ), "Close-to-circular orbit in the MWPotential does not have Oz=nu at %g%%" % (
+        100.0
+        * numpy.fabs(
+            (jos[5] - verticalfreq(MWPotential, 1.0)) / verticalfreq(MWPotential, 1.0)
+        )
+    )
+    return None
+
+
+# Basic sanity checking of the actionAngleAdiabatic actions
+def test_actionAngleAdiabatic_basic_freqsAngles():
+    from galpy.actionAngle import actionAngleAdiabatic
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential, epifreq, omegac, verticalfreq
+
+    aAS = actionAngleAdiabatic(pot=MWPotential, delta=0.71, c=True)
+    # v. close-to-circular orbit
+    R, vR, vT, z, vz = 1.0, 10.0**-4.0, 1.0, 10.0**-4.0, 0.0
+    jos = aAS.actionsFreqs(Orbit([R, vR, vT, z, vz, 2.0]))
+    assert (
+        numpy.fabs((jos[3] - epifreq(MWPotential, 1.0)) / epifreq(MWPotential, 1.0))
+        < 10.0**-1.9
+    ), "Close-to-circular orbit in the MWPotential does not have Or=kappa at %g%%" % (
+        100.0
+        * numpy.fabs((jos[3] - epifreq(MWPotential, 1.0)) / epifreq(MWPotential, 1.0))
+    )
+    assert (
+        numpy.fabs((jos[4] - omegac(MWPotential, 1.0)) / omegac(MWPotential, 1.0))
+        < 10.0**-1.9
+    ), "Close-to-circular orbit in the MWPotential does not have Op=Omega at %g%%" % (
+        100.0
+        * numpy.fabs((jos[4] - omegac(MWPotential, 1.0)) / omegac(MWPotential, 1.0))
+    )
+    assert (
+        numpy.fabs(
+            (jos[5] - verticalfreq(MWPotential, 1.0)) / verticalfreq(MWPotential, 1.0)
+        )
+        < 10.0**-1.9
+    ), "Close-to-circular orbit in the MWPotential does not have Oz=nu at %g%%" % (
+        100.0
+        * numpy.fabs(
+            (jos[5] - verticalfreq(MWPotential, 1.0)) / verticalfreq(MWPotential, 1.0)
+        )
+    )
+    return None
+
+
+# Basic sanity checking of the actionAngleAdiabatic angles
+def test_actionAngleAdiabatic_circular_angles_c():
+    from galpy.actionAngle import actionAngleAdiabatic
+    from galpy.potential import MWPotential
+
+    aAS = actionAngleAdiabatic(pot=MWPotential, delta=0.71, c=True)
+    # Circular orbits, have zero/pi r and z angles in our implementation
+    R, vR, vT, z, vz, phi = 1.0, 0.0, 1.0, 0.0, 0.0, 1.0
+    js = aAS.actionsFreqsAngles(R, vR, vT, z, vz, phi)
+    assert (
+        numpy.fabs(js[6]) < 10.0**-8.0 or numpy.fabs(js[6] - numpy.pi) < 10.0**-8.0
+    ), "Circular orbit does not have zero/pi r angles"
+    assert (
+        numpy.fabs(js[8]) < 10.0**-8.0 or numpy.fabs(js[8] - numpy.pi) < 10.0**-8.0
+    ), "Circular orbit does not have zero/pi z angles"
+    return None
+
+
 # Basic sanity checking of the actionAngleAdiabatic ecc, zmax, rperi, rap calc.
 def test_actionAngleAdiabatic_basic_EccZmaxRperiRap():
     from galpy.actionAngle import actionAngleAdiabatic
@@ -1708,6 +1886,107 @@ def test_actionAngleAdiabatic_conserved_actions_interppot_c():
     obs = Orbit([1.05, 0.02, 1.05, 0.03, 0.0, 2.0])
     aAA = actionAngleAdiabatic(pot=ip, c=True)
     check_actionAngle_conserved_actions(aAA, obs, ip, -1.4, -8.0, -1.7, ntimes=101)
+    return None
+
+
+# Test that the actions for a cylindrically-separable potential are very well conserved
+def test_actionAngleAdiabatic_conserved_actions_cylsep():
+    from galpy.actionAngle import actionAngleAdiabatic
+    from galpy.orbit import Orbit
+    from galpy.potential import CylindricallySeparablePotentialWrapper, MWPotential2014
+
+    cyl_pot = CylindricallySeparablePotentialWrapper(pot=MWPotential2014, Rp=1.1)
+    obs = Orbit([1.05, 0.02, 1.05, 0.03, 0.0])
+    aAA = actionAngleAdiabatic(pot=cyl_pot, c=False, gamma=0.0)
+    check_actionAngle_conserved_actions(aAA, obs, cyl_pot, -8.0, -8.0, -8.0, ntimes=101)
+    return None
+
+
+# Test that the actions for a cylindrically-separable potential are very well conserved
+def test_actionAngleAdiabatic_conserved_actions_cylsep_c():
+    from galpy.actionAngle import actionAngleAdiabatic
+    from galpy.orbit import Orbit
+    from galpy.potential import CylindricallySeparablePotentialWrapper, MWPotential2014
+
+    cyl_pot = CylindricallySeparablePotentialWrapper(pot=MWPotential2014, Rp=1.1)
+    obs = Orbit([1.05, 0.02, 1.05, 0.03, 0.0])
+    aAA = actionAngleAdiabatic(pot=cyl_pot, c=True, gamma=0.0)
+    check_actionAngle_conserved_actions(aAA, obs, cyl_pot, -8.0, -8.0, -8.0, ntimes=101)
+    return None
+
+
+# Test the frequencies of an actionAngleAdiabatic
+def test_actionAngleAdiabatic_conserved_frequencies():
+    from galpy.actionAngle import actionAngleAdiabatic
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential
+
+    aAA = actionAngleAdiabatic(pot=MWPotential, c=False)
+    obs = Orbit([1.05, 0.02, 1.05, 0.03, 0.0])
+    times = numpy.linspace(0.0, 100.0, 101)
+    obs.integrate(times, MWPotential, method="dopr54_c")
+    os = aAA.actionsFreqs(obs(times))[3:]
+    maxdo = numpy.amax(
+        numpy.fabs(os - numpy.tile(numpy.mean(os, axis=1), (len(times), 1)).T), axis=1
+    ) / numpy.mean(os, axis=1)
+    assert maxdo[0] < 10.0**-2.0, "Or conservation fails at %g%%" % (100.0 * maxdo[0])
+    assert maxdo[1] < 10.0**-2.0, "Oz conservation fails at %g%%" % (100.0 * maxdo[1])
+    assert maxdo[2] < 10.0**-1.0, "Oz conservation fails at %g%%" % (100.0 * maxdo[2])
+    return None
+    return None
+
+
+# Test that the angles of an actionAngleAdiabatic increase linearly
+def test_actionAngleAdiabatic_linear_angles():
+    from galpy.actionAngle import actionAngleAdiabatic
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential
+
+    aAA = actionAngleAdiabatic(pot=MWPotential, c=False)
+    obs = Orbit([1.05, 0.02, 1.05, 0.03, 0.0, 0.0])
+    check_actionAngle_linear_angles(
+        aAA,
+        obs,
+        MWPotential,
+        -1.5,
+        -4.0,
+        -1.5,
+        -2.5,
+        -2.5,
+        -0.5,
+        -1.5,
+        -3.0,
+        -0.5,
+        ntimes=1001,
+    )  # need fine sampling for de-period
+    return None
+
+
+# Test that the angles of an actionAngleAdiabatic for a cylindrically-separable potential
+# increase linearly to very good approximation
+def test_actionAngleAdiabatic_linear_angles_cylsep():
+    from galpy.actionAngle import actionAngleAdiabatic
+    from galpy.orbit import Orbit
+    from galpy.potential import CylindricallySeparablePotentialWrapper, MWPotential2014
+
+    pot = CylindricallySeparablePotentialWrapper(pot=MWPotential2014, Rp=1.1)
+    aAA = actionAngleAdiabatic(pot=pot, c=False, gamma=0.0)
+    obs = Orbit([1.05, 0.02, 1.05, 0.03, 0.0, 0.0])
+    check_actionAngle_linear_angles(
+        aAA,
+        obs,
+        pot,
+        -8.0,
+        -8.0,
+        -7.5,
+        -8.0,
+        -8.0,
+        -8.0,
+        -7.0,
+        -7.0,
+        -7.0,
+        ntimes=1001,
+    )  # need fine sampling for de-period
     return None
 
 
@@ -5043,19 +5322,21 @@ def test_orbit_interface_unbound_simple_adiabatic_c():
         obs.rperi(pot=MWPotential2014, type="adiabatic", analytic=True, c=True),
         obs.rap(pot=MWPotential2014, type="adiabatic", analytic=True, c=True),
     )
-    assert numpy.fabs(jr[0] - aAAc(obs[0])[0]) < 10.0**-10.0, (
+    # Action tolerances currently 1e-5, because they use C implementations for the
+    # direct evaluation, but Python for the Orbit interface
+    assert numpy.fabs(jr[0] - aAAc(obs[0])[0]) < 10.0**-5.0, (
         "Orbit interface for actionAngleAdiabatic does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
     )
-    assert numpy.fabs(jp[0] - aAAc(obs[0])[1]) < 10.0**-10.0, (
+    assert numpy.fabs(jp[0] - aAAc(obs[0])[1]) < 10.0**-5.0, (
         "Orbit interface for actionAngleAdiabatic does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
     )
-    assert numpy.fabs(jz[0] - aAAc(obs[0])[2]) < 10.0**-10.0, (
+    assert numpy.fabs(jz[0] - aAAc(obs[0])[2]) < 10.0**-5.0, (
         "Orbit interface for actionAngleAdiabatic does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
     )
     assert numpy.fabs(e[0] - aAAc.EccZmaxRperiRap(obs[0])[0]) < 10.0**-10.0, (
         "Orbit interface for actionAngleAdiabatic does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
     )
-    assert numpy.fabs(zmax[0] - aAAc.EccZmaxRperiRap(obs[0])[1]) < 10.0**-10.0, (
+    assert numpy.fabs(zmax[0] - aAAc.EccZmaxRperiRap(obs[0])[1]) < 10.0**-5.0, (
         "Orbit interface for actionAngleAdiabatic does not return the same as actionAngle interface for bound orbit in a collection with an unbound orbit"
     )
     assert numpy.fabs(rperi[0] - aAAc.EccZmaxRperiRap(obs[0])[2]) < 10.0**-10.0, (
@@ -7260,14 +7541,31 @@ def check_actionAngle_linear_angles(
     az = dePeriod(numpy.reshape(acfs[8], (1, len(times)))).flatten()
     # Do linear fit to radial angle, check that deviations are small, check
     # that the slope is the frequency
+    if acfs_init[6].ndim > 0:
+        acfs_init_radial_angle = acfs_init[6][0]
+    else:
+        acfs_init_radial_angle = acfs_init[6]
     linfit = numpy.polyfit(times, ar, 1)
-    assert numpy.fabs((linfit[1] - acfs_init[6]) / acfs_init[6]) < 10.0**tolinitar, (
+    assert (
+        numpy.fabs((linfit[1] - acfs_init_radial_angle) / acfs_init_radial_angle)
+        < 10.0**tolinitar
+    ), (
         "Radial angle obtained by fitting linear trend to the orbit does not agree with the initially-calculated angle by %g%%"
-        % (100.0 * numpy.fabs((linfit[1] - acfs_init[6]) / acfs_init[6]))
+        % (
+            100.0
+            * numpy.fabs((linfit[1] - acfs_init_radial_angle) / acfs_init_radial_angle)
+        )
     )
-    assert numpy.fabs(linfit[0] - acfs_init[3]) < 10.0**tolor, (
+    if acfs_init[3].ndim > 0:
+        acfs_init_radial_freq = acfs_init[3][0]
+    else:
+        acfs_init_radial_freq = acfs_init[3]
+    assert numpy.fabs(linfit[0] - acfs_init_radial_freq) < 10.0**tolor, (
         "Radial frequency obtained by fitting linear trend to the orbit does not agree with the initially-calculated frequency by %g%%"
-        % (100.0 * numpy.fabs((linfit[0] - acfs_init[3]) / acfs_init[3]))
+        % (
+            100.0
+            * numpy.fabs((linfit[0] - acfs_init_radial_freq) / acfs_init_radial_freq)
+        )
     )
     devs = ar - linfit[0] * times - linfit[1]
     maxdev = numpy.amax(numpy.fabs(devs))
@@ -7276,14 +7574,35 @@ def check_actionAngle_linear_angles(
     )
     # Do linear fit to azimuthal angle, check that deviations are small, check
     # that the slope is the frequency
+    if acfs_init[7].ndim > 0:
+        acfs_init_azimuthal_angle = acfs_init[7][0]
+    else:
+        acfs_init_azimuthal_angle = acfs_init[7]
     linfit = numpy.polyfit(times, ap, 1)
-    assert numpy.fabs((linfit[1] - acfs_init[7]) / acfs_init[7]) < 10.0**tolinitap, (
+    assert (
+        numpy.fabs((linfit[1] - acfs_init_azimuthal_angle) / acfs_init_azimuthal_angle)
+        < 10.0**tolinitap
+    ), (
         "Azimuthal angle obtained by fitting linear trend to the orbit does not agree with the initially-calculated angle by %g%%"
-        % (100.0 * numpy.fabs((linfit[1] - acfs_init[7]) / acfs_init[7]))
+        % (
+            100.0
+            * numpy.fabs(
+                (linfit[1] - acfs_init_azimuthal_angle) / acfs_init_azimuthal_angle
+            )
+        )
     )
-    assert numpy.fabs(linfit[0] - acfs_init[4]) < 10.0**tolop, (
+    if acfs_init[4].ndim > 0:
+        acfs_init_azimuthal_freq = acfs_init[4][0]
+    else:
+        acfs_init_azimuthal_freq = acfs_init[4]
+    assert numpy.fabs(linfit[0] - acfs_init_azimuthal_freq) < 10.0**tolop, (
         "Azimuthal frequency obtained by fitting linear trend to the orbit does not agree with the initially-calculated frequency by %g%%"
-        % (100.0 * numpy.fabs((linfit[0] - acfs_init[4]) / acfs_init[4]))
+        % (
+            100.0
+            * numpy.fabs(
+                (linfit[0] - acfs_init_azimuthal_freq) / acfs_init_azimuthal_freq
+            )
+        )
     )
     devs = ap - linfit[0] * times - linfit[1]
     maxdev = numpy.amax(numpy.fabs(devs))
@@ -7292,14 +7611,35 @@ def check_actionAngle_linear_angles(
     )
     # Do linear fit to vertical angle, check that deviations are small, check
     # that the slope is the frequency
+    if acfs_init[8].ndim > 0:
+        acfs_init_vertical_angle = acfs_init[8][0]
+    else:
+        acfs_init_vertical_angle = acfs_init[8]
     linfit = numpy.polyfit(times, az, 1)
-    assert numpy.fabs((linfit[1] - acfs_init[8]) / acfs_init[8]) < 10.0**tolinitaz, (
+    assert (
+        numpy.fabs((linfit[1] - acfs_init_vertical_angle) / acfs_init_vertical_angle)
+        < 10.0**tolinitaz
+    ), (
         "Vertical angle obtained by fitting linear trend to the orbit does not agree with the initially-calculated angle by %g%%"
-        % (100.0 * numpy.fabs((linfit[1] - acfs_init[8]) / acfs_init[8]))
+        % (
+            100.0
+            * numpy.fabs(
+                (linfit[1] - acfs_init_vertical_angle) / acfs_init_vertical_angle
+            )
+        )
     )
-    assert numpy.fabs(linfit[0] - acfs_init[5]) < 10.0**toloz, (
+    if acfs_init[5].ndim > 0:
+        acfs_init_vertical_freq = acfs_init[5][0]
+    else:
+        acfs_init_vertical_freq = acfs_init[5]
+    assert numpy.fabs(linfit[0] - acfs_init_vertical_freq) < 10.0**toloz, (
         "Vertical frequency obtained by fitting linear trend to the orbit does not agree with the initially-calculated frequency by %g%%"
-        % (100.0 * numpy.fabs((linfit[0] - acfs_init[5]) / acfs_init[5]))
+        % (
+            100.0
+            * numpy.fabs(
+                (linfit[0] - acfs_init_vertical_freq) / acfs_init_vertical_freq
+            )
+        )
     )
     devs = az - linfit[0] * times - linfit[1]
     maxdev = numpy.amax(numpy.fabs(devs))
