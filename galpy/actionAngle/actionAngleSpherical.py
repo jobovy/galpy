@@ -707,7 +707,7 @@ class actionAngleSpherical(actionAngle):
                     )[0]
                 )
             else:
-                wr = numpy.pi
+                wr = 0.0
             if vr < 0.0:
                 wr = numpy.pi + wr
             else:
@@ -747,7 +747,9 @@ class actionAngleSpherical(actionAngle):
         # Calculate dSr/dL
         dpsi = Op / Or * 2.0 * numpy.pi  # this is the full I integral
         if r < Rmean:
-            if not fixed_quad:
+            if numpy.sqrt(r - rperi) == 0.0:
+                wz = 0.0
+            elif not fixed_quad:
                 wz = (
                     L
                     * quadpack.quadrature(
@@ -773,7 +775,9 @@ class actionAngleSpherical(actionAngle):
             if vr < 0.0:
                 wz = dpsi - wz
         else:
-            if not fixed_quad:
+            if numpy.sqrt(rap - r) == 0.0:
+                wz = 0.0
+            elif not fixed_quad:
                 wz = (
                     L
                     * quadpack.quadrature(
