@@ -164,14 +164,18 @@ class actionAngleVertical(actionAngle):
                         / integrate.quad(
                             lambda t: 2.0
                             * t
-                            / numpy.sqrt(
-                                2.0
-                                * (
-                                    E
-                                    - evaluatelinearPotentials(
-                                        self._pot, xmax - t**2.0, use_physical=False
+                            / (
+                                numpy.sqrt(
+                                    2.0
+                                    * (
+                                        E
+                                        - evaluatelinearPotentials(
+                                            self._pot, xmax - t**2.0, use_physical=False
+                                        )
                                     )
                                 )
+                                if t > 1e-6
+                                else 1.0
                             ),
                             0,
                             numpy.sqrt(xmax),

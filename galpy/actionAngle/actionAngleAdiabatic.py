@@ -183,6 +183,182 @@ class actionAngleAdiabatic(actionAngle):
                         numpy.atleast_1d(Jz),
                     )
 
+    def _actionsFreqs(self, *args, **kwargs):
+        """
+        Evaluate the actions and frequencies (jr,lz,jz,Omegar,Omegaphi,Omegaz).
+
+        Parameters
+        ----------
+        *args : tuple
+            Either:
+            a) R,vR,vT,z,vz[,phi]:
+                1) floats: phase-space value for single object (phi is optional) (each can be a Quantity)
+                2) numpy.ndarray: [N] phase-space values for N objects (each can be a Quantity)
+            b) Orbit instance: initial condition used if that's it, orbit(t) if there is a time given as well as the second argument
+        fixed_quad: bool, optional
+            if True, use n=10 fixed_quad integration
+        **kwargs: dict, optional
+            scipy.integrate.quadrature or .fixed_quad keywords
+
+        Returns
+        -------
+        tuple
+            (jr,lz,jz,Omegar,Omegaphi,Omegaz)
+
+        Notes
+        -----
+        - 2026-01-14 - Written - Bovy (UofT)
+        """
+        if len(args) == 5:  # R,vR.vT, z, vz
+            R, vR, vT, z, vz = args
+        elif len(args) == 6:  # R,vR.vT, z, vz, phi
+            R, vR, vT, z, vz, phi = args
+        else:
+            self._parse_eval_args(*args)
+            R = self._eval_R
+            vR = self._eval_vR
+            vT = self._eval_vT
+            z = self._eval_z
+            vz = self._eval_vz
+        if isinstance(R, float):
+            R = numpy.array([R])
+            vR = numpy.array([vR])
+            vT = numpy.array([vT])
+            z = numpy.array([z])
+            vz = numpy.array([vz])
+        if len(R) > 1:
+            ojr = numpy.zeros(len(R))
+            olz = numpy.zeros(len(R))
+            ojz = numpy.zeros(len(R))
+            oor = numpy.zeros(len(R))
+            oophi = numpy.zeros(len(R))
+            ooz = numpy.zeros(len(R))
+            for ii in range(len(R)):
+                targs = (R[ii], vR[ii], vT[ii], z[ii], vz[ii])
+                tjr, tlz, tjz, toor, toophi, tooz = self._actionsFreqs(
+                    *targs, **copy.copy(kwargs)
+                )
+                ojr[ii] = tjr[0]
+                ojz[ii] = tjz[0]
+                olz[ii] = tlz[0]
+                oor[ii] = toor[0]
+                oophi[ii] = toophi[0]
+                ooz[ii] = tooz[0]
+            return (ojr, olz, ojz, oor, oophi, ooz)
+        else:
+            # Set up the actionAngleVertical object
+            if _dim(self._pot) == 3 and not (z[0] == 0.0 and vz[0] == 0.0):
+                thisverticalpot = toVerticalPotential(self._pot, R[0])
+                aAV = actionAngleVertical(pot=thisverticalpot)
+                Jz, Oz = aAV.actionsFreqs(z[0], vz[0])
+            else:  # 2D in-plane
+                Jz = numpy.zeros(1)
+                Oz = numpy.ones(1) * self._pot.verticalfreq(R[0])
+            axiJO = self._aAS.actionsFreqs(R[0], vR[0], vT[0], 0.0, 0.0, _Jz=Jz)
+            return (
+                numpy.atleast_1d(axiJO[0]),
+                numpy.atleast_1d(axiJO[1]),
+                numpy.atleast_1d(Jz),
+                numpy.atleast_1d(axiJO[3]),
+                numpy.atleast_1d(axiJO[4]),
+                numpy.atleast_1d(Oz),
+            )
+
+    def _actionsFreqsAngles(self, *args, **kwargs):
+        """
+        Evaluate the actions, frequencies, and angles (jr,lz,jz,Omegar,Omegaphi,Omegaz,ar,aphi,az).
+
+        Parameters
+        ----------
+        *args : tuple
+            Either:
+            a) R,vR,vT,z,vz[,phi]:
+                1) floats: phase-space value for single object (phi is optional) (each can be a Quantity)
+                2) numpy.ndarray: [N] phase-space values for N objects (each can be a Quantity)
+            b) Orbit instance: initial condition used if that's it, orbit(t) if there is a time given as well as the second argument
+        fixed_quad: bool, optional
+            if True, use n=10 fixed_quad integration
+        **kwargs: dict, optional
+            scipy.integrate.quadrature or .fixed_quad keywords
+
+        Returns
+        -------
+        tuple
+            (jr,lz,jz,Omegar,Omegaphi,Omegaz,ar,aphi,az)
+
+        Notes
+        -----
+        - 2026-01-15 - Written - Bovy (UofT)
+        """
+        if len(args) == 5:  # R,vR.vT, z, vz pragma: no cover
+            raise OSError("You need to provide phi when calculating angles")
+        elif len(args) == 6:  # R,vR.vT, z, vz, phi
+            R, vR, vT, z, vz, phi = args
+        else:
+            self._parse_eval_args(*args)
+            R = self._eval_R
+            vR = self._eval_vR
+            vT = self._eval_vT
+            z = self._eval_z
+            vz = self._eval_vz
+            phi = self._eval_phi
+        if isinstance(R, float):
+            R = numpy.array([R])
+            vR = numpy.array([vR])
+            vT = numpy.array([vT])
+            z = numpy.array([z])
+            vz = numpy.array([vz])
+            phi = numpy.array([phi])
+        if len(R) > 1:
+            ojr = numpy.zeros(len(R))
+            olz = numpy.zeros(len(R))
+            ojz = numpy.zeros(len(R))
+            oor = numpy.zeros(len(R))
+            oophi = numpy.zeros(len(R))
+            ooz = numpy.zeros(len(R))
+            oar = numpy.zeros(len(R))
+            oaphi = numpy.zeros(len(R))
+            oaz = numpy.zeros(len(R))
+            for ii in range(len(R)):
+                targs = (R[ii], vR[ii], vT[ii], z[ii], vz[ii], phi[ii])
+                tjr, tlz, tjz, toor, toophi, tooz, tar, taphi, taz = (
+                    self._actionsFreqsAngles(*targs, **copy.copy(kwargs))
+                )
+                ojr[ii] = tjr[0]
+                ojz[ii] = tjz[0]
+                olz[ii] = tlz[0]
+                oor[ii] = toor[0]
+                oophi[ii] = toophi[0]
+                ooz[ii] = tooz[0]
+                oar[ii] = tar[0]
+                oaphi[ii] = taphi[0]
+                oaz[ii] = taz[0]
+            return (ojr, olz, ojz, oor, oophi, ooz, oar, oaphi, oaz)
+        else:
+            # Set up the actionAngleVertical object
+            if _dim(self._pot) == 3 and not (z[0] == 0.0 and vz[0] == 0.0):
+                thisverticalpot = toVerticalPotential(self._pot, R[0])
+                aAV = actionAngleVertical(pot=thisverticalpot)
+                Jz, Oz, az = aAV.actionsFreqsAngles(z[0], vz[0])
+            else:  # 2D in-plane
+                Jz = numpy.zeros(1)
+                Oz = numpy.ones(1) * self._pot.verticalfreq(R[0])
+                az = numpy.zeros(1)
+            axiJO = self._aAS.actionsFreqsAngles(
+                R[0], vR[0], vT[0], 0.0, 0.0, phi[0], _Jz=Jz
+            )
+            return (
+                numpy.atleast_1d(axiJO[0]),
+                numpy.atleast_1d(axiJO[1]),
+                numpy.atleast_1d(Jz),
+                numpy.atleast_1d(axiJO[3]),
+                numpy.atleast_1d(axiJO[4]),
+                numpy.atleast_1d(Oz),
+                numpy.atleast_1d(axiJO[6]),
+                numpy.atleast_1d(axiJO[7]),
+                numpy.atleast_1d(az),
+            )
+
     def _EccZmaxRperiRap(self, *args, **kwargs):
         """
         Evaluate the eccentricity, maximum height above the plane, peri- and apocenter in the adiabatic approximation.
