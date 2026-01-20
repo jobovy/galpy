@@ -21,6 +21,7 @@ from ..potential import DehnenSmoothWrapperPotential, IsochronePotential, MWPote
 from ..potential.Potential import flatten as flatten_potential
 from ..util import conversion, galpyWarning
 from .actionAngle import actionAngle
+from .actionAngleAdiabatic import actionAngleAdiabatic
 from .actionAngleIsochrone import actionAngleIsochrone
 from .actionAngleSpherical import actionAngleSpherical
 from .actionAngleStaeckel import actionAngleStaeckel
@@ -37,7 +38,7 @@ class actionAngleAdiabaticApprox(actionAngle):
         ----------
         pot : Potential or list of Potentials, optional
             Potential to calculate action-angle variables for.
-        aA : actionAngleIsochrone, actionAngleSpherical, or actionAngleStaeckel instance
+        aA : actionAngleIsochrone, actionAngleSpherical, actionAngleAdiabatic, or actionAngleStaeckel instance
             actionAngle instance for the potential that is being adiabatically transformed to.
         tintJ : float, optional
             Time to integrate orbits for to estimate actions (can be Quantity).
@@ -75,7 +76,12 @@ class actionAngleAdiabaticApprox(actionAngle):
             raise OSError("Must specify aA= for actionAngleAdiabaticApprox")
         if not isinstance(
             kwargs["aA"],
-            (actionAngleIsochrone, actionAngleSpherical, actionAngleStaeckel),
+            (
+                actionAngleIsochrone,
+                actionAngleSpherical,
+                actionAngleAdiabatic,
+                actionAngleStaeckel,
+            ),
         ):  # pragma: no cover
             raise OSError(
                 "'Provided aA= does not appear to be an instance of a supported actionAngle class"
