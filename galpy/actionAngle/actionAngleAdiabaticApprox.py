@@ -254,30 +254,11 @@ class actionAngleAdiabaticApprox(actionAngle):
             phi = numpy.array([phi])
         # Integrate orbit forward and backward to get multiple _npoints_ts to average
         # actions and estimate frequencies and angles from fit
-        o_forward = Orbit([R, vR, vT, z, vz, phi])
-        o_forward.integrate(self._npoints_ts, self._pot, method=self._integrate_method)
-        o_backward = o_forward()
-        o_backward.integrate(
-            -self._npoints_ts, self._pot, method=self._integrate_method
-        )
-        phase_space_input = []
-        for attr in ["R", "vR", "vT", "z", "vz", "phi"]:
-            this_coord = numpy.empty((len(R), self._npoints + 1))
-            this_coord[:, self._npoints // 2 :] = getattr(o_forward, attr)(
-                self._npoints_ts
-            )
-            this_coord[:, : self._npoints // 2] = getattr(o_backward, attr)(
-                -self._npoints_ts[1:][::-1]
-            )
-            phase_space_input.append(this_coord)
-        # Need to do a bit of shape wrangling to make sure the resulting Orbit is
-        # also (len(R), self._npoints + 1)
-        os_for_actions = Orbit(
-            numpy.rollaxis(
-                numpy.array(phase_space_input),
-                0,
-                start=3,
-            )
+        orb = Orbit([R, vR, vT, z, vz, phi])
+        orb.integrate(self._npoints_ts, self._pot, method=self._integrate_method)
+        orb.integrate(-self._npoints_ts, self._pot, method=self._integrate_method)
+        os_for_actions = orb(
+            numpy.concatenate((-self._npoints_ts, self._npoints_ts[1:]))
         )
         os_for_actions.integrate(
             self._tsJ,
