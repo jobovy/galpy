@@ -255,6 +255,48 @@ class actionAngleVerticalInverse(actionAngleInverse):
                 ) / piprime
                 return vmesh - vtildemesh
 
+            odept = True
+            if odept:
+                # Solve for the point transformation by solving the equation defining it...
+                from scipy.integrate import solve_ivp
+
+                def dptdx(xa, pt):
+                    # d pi / d xa = v / va
+                    # Compute v from (E,x)
+                    v2 = 2.0 * (self._Es[ii] - evaluatelinearPotentials(self._pot, pt))
+                    if v2 < 0.0:
+                        v2 = 0.0
+                    v = numpy.sqrt(v2)
+                    # Compute v from va = 2(E-HO)
+                    va2 = 2.0 * (Ea - self._OmegaHO[ii] ** 2.0 * xa**2.0 / 2.0)
+                    if va2 < 0.0:
+                        va2 = 0.0
+                    va = numpy.sqrt(va2)
+                    return v / va
+
+                sol = solve_ivp(
+                    dptdx,
+                    [
+                        0.0,
+                        ((xamesh * self._pt_xmaxs[ii] + self._pt_xmaxs[ii]) / 2.0)[-1],
+                    ],
+                    [0.0],
+                    t_eval=(xamesh * self._pt_xmaxs[ii] + self._pt_xmaxs[ii]) / 2.0,
+                    rtol=1e-12,
+                    atol=1e-12,
+                )
+
+                # Function to optimize with least squares: p-p
+                def opt_func(coeffs):
+                    # constraints: symmetric, maps [-1,1] --> [-1,1]
+                    ccoeffs = numpy.zeros(pt_deg + 1)
+                    ccoeffs[1] = 1.0
+                    ccoeffs[3::2] = coeffs
+                    ccoeffs /= chebyshev.chebval(1, ccoeffs)
+                    pt = chebyshev.Chebyshev(ccoeffs)
+                    xmesh = pt(sol.t / self._pt_xmaxs[ii]) * self._xmaxs[ii]
+                    return xmesh - sol.y[0]
+
             if ii == 0:
                 # Start from identity mapping
                 start_coeffs = [0.0]
