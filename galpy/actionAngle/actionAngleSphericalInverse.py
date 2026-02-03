@@ -13,8 +13,8 @@ import warnings
 import numpy
 from matplotlib import cm, gridspec, pyplot
 from matplotlib.ticker import NullFormatter
-from numpy.polynomial import chebyshev, polynomial
-from scipy import interpolate, optimize
+from numpy.polynomial import polynomial
+from scipy import integrate, interpolate, optimize
 
 from ..potential import (
     IsochronePotential,
@@ -56,6 +56,7 @@ class actionAngleSphericalInverse(actionAngleInverse):
         use_pointtransform=False,
         pt_deg=7,
         pt_nra=301,
+        exact_pt_spl_deg=5,
         maxiter=100,
         angle_tol=1e-12,
         bisect=False,
@@ -100,6 +101,8 @@ class actionAngleSphericalInverse(actionAngleInverse):
            angle_tol= (1e-12) tolerance for angle root-finding (f(x) is within tol of desired value)
 
            bisect= (False) if True, use simple bisection for root-finding, otherwise first try Newton-Raphson (mainly useful for testing the bisection fallback)
+
+           use_pointtransform= (False) if True, setup a point transformation to, e.g., better handle highly radial orbits; use "exact" to solve for the point transformation that makes the torus exactly an isochrone torus, otherwise a simple polynomial point transformation is used
 
         OUTPUT:
 
@@ -234,10 +237,21 @@ class actionAngleSphericalInverse(actionAngleInverse):
         self._ip = IsochronePotential(amp=self._amp, b=self._b)
         self._isoaa = actionAngleIsochrone(ip=self._ip)
         self._isoaainv = actionAngleIsochroneInverse(ip=self._ip)
-        if use_pointtransform and pt_deg > 1:
+        if use_pointtransform:
+            if (
+                not isinstance(use_pointtransform, bool)
+                and use_pointtransform.lower() == "exact"
+            ):
+                self._pt_exact = True
+                self._exact_pt_spl_deg = exact_pt_spl_deg
+            else:
+                self._pt_exact = False
+                self._exact_pt_spl_deg = None
             self._setup_pointtransform(pt_deg, pt_nra)
-        elif True:
+        else:
             # Setup identity point transformation
+            self._pt_exact = False
+            self._exact_pt_spl_deg = None
             self._pt_deg = 1
             self._pt_nra = pt_nra
             self._pt_rperi = self._rperi
@@ -246,21 +260,6 @@ class actionAngleSphericalInverse(actionAngleInverse):
             self._pt_coeffs[:, 1] = 1.0
             self._pt_deriv_coeffs = numpy.ones((len(self._internal_Es), 1))
             self._pt_deriv2_coeffs = numpy.zeros((len(self._internal_Es), 1))
-        else:
-            print("WARNING: FIXING POINT TRANSFORM TO WEIRD ONE")
-            # TEST FOR NOW
-            self._pt_deg = 3
-            self._pt_nra = pt_nra
-            self._pt_rperi = self._rperi
-            self._pt_rap = self._rap
-            self._pt_coeffs = numpy.zeros((len(self._internal_Es), 4))
-            self._pt_coeffs[:, 1] = 1.0 + 0.3
-            self._pt_coeffs[:, 3] = 1.0 - self._pt_coeffs[:, 1]
-            self._pt_deriv_coeffs = numpy.zeros((len(self._internal_Es), 3))
-            self._pt_deriv_coeffs[:, 0] = self._pt_coeffs[:, 1]
-            self._pt_deriv_coeffs[:, 2] = 3.0 * self._pt_coeffs[:, 3]
-            self._pt_deriv2_coeffs = numpy.zeros((len(self._internal_Es), 2))
-            self._pt_deriv2_coeffs[:, 1] = 6.0 * self._pt_coeffs[:, 3]
         # Now map all tori
         self._nta = nta
         self._thetaa = numpy.linspace(0.0, 2.0 * numpy.pi * (1.0 - 1.0 / nta), nta)
@@ -286,6 +285,8 @@ class actionAngleSphericalInverse(actionAngleInverse):
             self._rapgrid,
             self._ptrperigrid,
             self._ptrapgrid,
+            pt_exact=self._pt_exact,
+            exact_pt_spl_deg=self._exact_pt_spl_deg,
         )
         self._djradjr, self._djradLish, self._dEadE, self._dEadL = _djradjrLish(
             self._rgrid,
@@ -302,6 +303,8 @@ class actionAngleSphericalInverse(actionAngleInverse):
             self._rapgrid,
             self._ptrperigrid,
             self._ptrapgrid,
+            pt_exact=self._pt_exact,
+            exact_pt_spl_deg=self._exact_pt_spl_deg,
         )
         # Store mean(jra) as probably a better approx. of jr
         self._jr_orig = copy.copy(self._jr)
@@ -372,14 +375,18 @@ class actionAngleSphericalInverse(actionAngleInverse):
         self._pt_deg = pt_deg
         self._pt_nra = pt_nra
         ramesh = numpy.linspace(0.0, 1.0, pt_nra)
-        self._pt_coeffs = numpy.empty((self._nE, pt_deg + 1))
-        self._pt_deriv_coeffs = numpy.empty((self._nE, pt_deg))
-        self._pt_deriv2_coeffs = numpy.empty((self._nE, pt_deg - 1))
+        if self._pt_exact:
+            self._pt_coeffs = numpy.empty((self._nE, pt_nra))
+            self._pt_deriv_coeffs = numpy.empty((self._nE, pt_nra))
+            self._pt_deriv2_coeffs = numpy.zeros((self._nE, pt_nra))
+        else:
+            self._pt_coeffs = numpy.empty((self._nE, pt_deg + 1))
+            self._pt_deriv_coeffs = numpy.empty((self._nE, pt_deg))
+            self._pt_deriv2_coeffs = numpy.empty((self._nE, pt_deg - 1))
 
         Etilde = self._L2 / 2.0 / self._rperi**2.0 + self._ip(
             self._rperi, numpy.zeros_like(self._rperi)
         )
-        # Etilde+= 0.5
 
         Etilde2 = (
             -2.0
@@ -393,13 +400,18 @@ class actionAngleSphericalInverse(actionAngleInverse):
         )
         Etilde = -numpy.sqrt(-Etilde2)
 
+        if self._pt_exact:
+            Etilde = -0.5 * (self._amp * self._Omegar) ** (2.0 / 3.0)
+
         isoaa_helper = _actionAngleIsochroneHelper(ip=self._ip)
         self._pt_rperi, self._pt_rap = isoaa_helper.rperirap(Etilde, self._L2)
 
-        print(isoaa_helper.Jr(Etilde, self._internal_Ls), self._jr)
-
         for ii in range(self._nE):
             if self._jr[ii] < 1e-10:  # Just use identity for small J
+                if self._pt_exact:
+                    raise NotImplementedError(
+                        "Exact point transformation not yet implemented for circular orbits"
+                    )
                 self._pt_coeffs[ii] = 0.0
                 self._pt_coeffs[ii, 1] = 1.0
                 self._pt_deriv_coeffs[ii] = 1.0
@@ -411,19 +423,221 @@ class actionAngleSphericalInverse(actionAngleInverse):
             Ea = Etilde[ii]
             ip = IsochronePotential(amp=self._amp[ii], b=self._b[ii])
 
-            # Function to optimize with least squares: p-p
-            def opt_func(coeffs):
-                # constraints: map [0,1] --> [0,1]
+            if self._pt_exact:
+                # Solve for the point transformation by solving the equation defining it...
+                def dptdra(ra, pt):
+                    # d pi / d ra = vr / vra
+                    pt = pt[0]
+                    # Compute v from (E,L2,r = pt)
+                    vr2 = (
+                        2.0
+                        * (
+                            self._internal_Es[ii]
+                            - evaluatePotentials(self._pot, pt, 0.0)
+                        )
+                        - self._L2[ii] / pt**2.0
+                    )
+                    if vr2 < 0.0:
+                        vr2 = 1e-20  # Just to get/keep going
+                    vr = numpy.sqrt(vr2)
+                    # Compute v from vra^2 = 2(Ea-isopot)-L2/ra^2 and transform
+                    vra2 = 2.0 * (Ea - ip(ra, 0.0)) - self._L2[ii] / ra**2.0
+                    if vra2 < 0.0:
+                        vra2 = 1e-16  # Just to get/keep going
+                    vra = numpy.sqrt(vra2)
+                    if vra == 0.0 and vr == 0.0:
+                        return 1.0
+                    else:
+                        return vr / vra
 
-                # 1 + x + x2 + x3 + ...
-                # 1 + 2x + 3x2 + ...
-                # first 0 to map 0 --> 0
-                # second 1 to have d = 1 at 0
-                # sum rest = 0 to map 1 --> 1
-                # sum n * rest = 0 to have d = 1 at 1
+                sol = integrate.solve_ivp(
+                    dptdra,
+                    [
+                        self._pt_rperi[ii],
+                        (
+                            (self._pt_rap[ii] - self._pt_rperi[ii]) * ramesh
+                            + self._pt_rperi[ii]
+                        )[-1],
+                    ],
+                    [self._rperi[ii]],
+                    t_eval=(
+                        (self._pt_rap[ii] - self._pt_rperi[ii]) * ramesh
+                        + self._pt_rperi[ii]
+                    ),
+                    rtol=1e-12,
+                    atol=1e-12,
+                    method="DOP853",
+                )
 
-                # a + b + c + ... = 0 ==> a = -b -c - ...
-                # 2a + 3b + 4c + ... = 0 ==> -2b -2c -... + 3b + 4c ... = b + 2c + 3d + ... = 0 ==> b = -2c -3d ...
+                if not sol.success:
+                    raise RuntimeError(
+                        "ODE point transformation failed, full message: " + sol.message
+                    )
+
+                # Reusing the way to store the polynomial solution to store the point
+                # transformation, but now it's just the solution to the ODE
+                self._pt_coeffs[ii] = sol.t
+                self._pt_deriv_coeffs[ii] = sol.y[0]
+                # Also evaluate the integral of zeta' to easily get Delta psi
+                pi = interpolate.InterpolatedUnivariateSpline(
+                    sol.t, sol.y[0], k=self._exact_pt_spl_deg
+                )
+                piprime = pi.derivative()
+                if pt_nra < 301:
+                    # Directly integrate, slow, but necessary
+                    self._pt_deriv2_coeffs[ii][1:] = numpy.array(
+                        [
+                            integrate.quad(
+                                lambda rax: piprime(rax)
+                                * numpy.sqrt(self._L2[ii])
+                                * (1 / pi(rax) ** 2.0 - 1 / rax**2.0)
+                                / numpy.sqrt(
+                                    2.0
+                                    * (
+                                        self._internal_Es[ii]
+                                        - evaluatePotentials(self._pot, pi(rax), 0.0)
+                                    )
+                                    - self._L2[ii] / pi(rax) ** 2.0
+                                ),
+                                self._pt_rperi[ii],
+                                sol.t[jj],
+                            )[0]
+                            for jj in range(1, len(sol.t))
+                        ]
+                    )
+                else:
+                    # Points are close enough together that we can do cumulative trapezoid
+                    # integration, but we add the first and last point separately because
+                    # of the divergence there
+                    self._pt_deriv2_coeffs[ii][1:-1] = integrate.cumulative_trapezoid(
+                        piprime(sol.t[1:-1])
+                        * numpy.sqrt(self._L2[ii])
+                        * (1 / pi(sol.t[1:-1]) ** 2.0 - 1 / sol.t[1:-1] ** 2.0)
+                        / numpy.sqrt(
+                            2.0
+                            * (
+                                self._internal_Es[ii]
+                                - evaluatePotentials(self._pot, pi(sol.t[1:-1]), 0.0)
+                            )
+                            - self._L2[ii] / pi(sol.t[1:-1]) ** 2.0
+                        ),
+                        sol.t[1:-1],
+                        initial=0.0,
+                    )
+                    offset = integrate.quad(
+                        lambda rax: piprime(rax)
+                        * numpy.sqrt(self._L2[ii])
+                        * (1 / pi(rax) ** 2.0 - 1 / rax**2.0)
+                        / numpy.sqrt(
+                            2.0
+                            * (
+                                self._internal_Es[ii]
+                                - evaluatePotentials(self._pot, pi(rax), 0.0)
+                            )
+                            - self._L2[ii] / pi(rax) ** 2.0
+                        ),
+                        self._pt_rperi[ii],
+                        sol.t[1],
+                    )[0]
+                    final = integrate.quad(
+                        lambda rax: piprime(rax)
+                        * numpy.sqrt(self._L2[ii])
+                        * (1 / pi(rax) ** 2.0 - 1 / rax**2.0)
+                        / numpy.sqrt(
+                            2.0
+                            * (
+                                self._internal_Es[ii]
+                                - evaluatePotentials(self._pot, pi(rax), 0.0)
+                            )
+                            - self._L2[ii] / pi(rax) ** 2.0
+                        ),
+                        self._pt_rperi[ii],
+                        sol.t[-1],
+                    )[0]
+                    self._pt_deriv2_coeffs[ii][1:-1] += offset
+                    self._pt_deriv2_coeffs[ii][-1] = final
+            else:
+                # Function to optimize with least squares for approximate point transform: p-p
+                def opt_func(coeffs):
+                    # constraints: map [0,1] --> [0,1]
+
+                    # 1 + x + x2 + x3 + ...
+                    # 1 + 2x + 3x2 + ...
+                    # first 0 to map 0 --> 0
+                    # second 1 to have d = 1 at 0
+                    # sum rest = 0 to map 1 --> 1
+                    # sum n * rest = 0 to have d = 1 at 1
+
+                    # a + b + c + ... = 0 ==> a = -b -c - ...
+                    # 2a + 3b + 4c + ... = 0 ==> -2b -2c -... + 3b + 4c ... = b + 2c + 3d + ... = 0 ==> b = -2c -3d ...
+
+                    ccoeffs = numpy.zeros(pt_deg + 1)
+                    ccoeffs[1] = 1.0
+                    ccoeffs[3] = -numpy.sum(
+                        polynomial.polyder(
+                            numpy.hstack(
+                                (
+                                    [
+                                        0.0,
+                                        0.0,
+                                    ],
+                                    coeffs,
+                                )
+                            )
+                        )[1:]
+                    )
+                    ccoeffs[2] = -numpy.sum(coeffs) - ccoeffs[3]
+                    ccoeffs[4::] = coeffs
+                    # ccoeffs/= chebyshev.chebval(1,ccoeffs)
+                    # pt= chebyshev.Chebyshev(ccoeffs)
+
+                    pt = polynomial.Polynomial(ccoeffs)
+
+                    rmesh = (self._rap[ii] - self._rperi[ii]) * pt(
+                        ramesh
+                    ) + self._rperi[ii]
+                    # Compute v from (E,L2,rmesh)
+                    vr2mesh = (
+                        2.0
+                        * (
+                            self._internal_Es[ii]
+                            - evaluatePotentials(
+                                self._pot, rmesh, numpy.zeros_like(rmesh)
+                            )
+                        )
+                        - self._L2[ii] / rmesh**2.0
+                    )
+                    vr2mesh[vr2mesh < 0.0] = 0.0
+                    vrmesh = numpy.sqrt(vr2mesh)
+                    # Compute v from vra^2 = 2(Ea-isopot)-L2/ra^2 and transform
+                    real_ramesh = (
+                        self._pt_rap[ii] - self._pt_rperi[ii]
+                    ) * ramesh + self._pt_rperi[ii]
+                    vra2mesh = (
+                        2.0 * (Ea - ip(real_ramesh, numpy.zeros_like(real_ramesh)))
+                        - self._L2[ii] / real_ramesh**2.0
+                    )
+                    vra2mesh[vra2mesh < 0.0] = 0.0
+                    vramesh = numpy.sqrt(vra2mesh)
+                    piprime = (
+                        pt.deriv()(ramesh)
+                        * (self._rap[ii] - self._rperi[ii])
+                        / (self._pt_rap[ii] - self._pt_rperi[ii])
+                    )
+                    vrtildemesh = (
+                        vramesh - numpy.sqrt(vr2mesh) * (1.0 / piprime - piprime)
+                    ) / piprime
+                    return vrmesh - vrtildemesh
+
+                if ii == 0:
+                    # Start from identity mapping
+                    start_coeffs = [0.0]
+                    start_coeffs.extend([0.0 for jj in range(pt_deg - 4)])
+                else:
+                    # Start from previous best fit
+                    start_coeffs = coeffs[2::] / coeffs[1]
+                coeffs = optimize.leastsq(opt_func, start_coeffs)[0]
+                # Extract full Chebyshev parameters from constrained optimization
 
                 ccoeffs = numpy.zeros(pt_deg + 1)
                 ccoeffs[1] = 1.0
@@ -442,98 +656,19 @@ class actionAngleSphericalInverse(actionAngleInverse):
                 )
                 ccoeffs[2] = -numpy.sum(coeffs) - ccoeffs[3]
                 ccoeffs[4::] = coeffs
-                # ccoeffs/= chebyshev.chebval(1,ccoeffs)
-                # pt= chebyshev.Chebyshev(ccoeffs)
+                """
+                ccoeffs= numpy.zeros(pt_deg+1)
+                ccoeffs[1]= 1.
+                ccoeffs[2::]= coeffs
+                ccoeffs/= chebyshev.chebval(1,ccoeffs)# map exact [0,1] --> [0,1]
+                """
 
-                pt = polynomial.Polynomial(ccoeffs)
-
-                rmesh = (self._rap[ii] - self._rperi[ii]) * pt(ramesh) + self._rperi[ii]
-                # Compute v from (E,L2,rmesh)
-                vr2mesh = (
-                    2.0
-                    * (
-                        self._internal_Es[ii]
-                        - evaluatePotentials(self._pot, rmesh, numpy.zeros_like(rmesh))
-                    )
-                    - self._L2[ii] / rmesh**2.0
+                coeffs = ccoeffs
+                self._pt_coeffs[ii] = coeffs
+                self._pt_deriv_coeffs[ii] = polynomial.polyder(self._pt_coeffs[ii], m=1)
+                self._pt_deriv2_coeffs[ii] = polynomial.polyder(
+                    self._pt_coeffs[ii], m=2
                 )
-                vr2mesh[vr2mesh < 0.0] = 0.0
-                vrmesh = numpy.sqrt(vr2mesh)
-                # Compute v from vra^2 = 2(Ea-isopot)-L2/ra^2 and transform
-                real_ramesh = (
-                    self._pt_rap[ii] - self._pt_rperi[ii]
-                ) * ramesh + self._pt_rperi[ii]
-                vra2mesh = (
-                    2.0 * (Ea - ip(real_ramesh, numpy.zeros_like(real_ramesh)))
-                    - self._L2[ii] / real_ramesh**2.0
-                )
-                vra2mesh[vra2mesh < 0.0] = 0.0
-                vramesh = numpy.sqrt(vra2mesh)
-                piprime = (
-                    pt.deriv()(ramesh)
-                    * (self._rap[ii] - self._rperi[ii])
-                    / (self._pt_rap[ii] - self._pt_rperi[ii])
-                )
-                vrtildemesh = (
-                    vramesh - numpy.sqrt(vr2mesh) * (1.0 / piprime - piprime)
-                ) / piprime
-                return vrmesh - vrtildemesh
-
-            if ii == 0:
-                # Start from identity mapping
-                start_coeffs = [0.0]
-                start_coeffs.extend([0.0 for jj in range(pt_deg - 4)])
-            else:
-                # Start from previous best fit
-                start_coeffs = coeffs[2::] / coeffs[1]
-            coeffs = optimize.leastsq(opt_func, start_coeffs)[0]
-            # Extract full Chebyshev parameters from constrained optimization
-
-            ccoeffs = numpy.zeros(pt_deg + 1)
-            ccoeffs[1] = 1.0
-            ccoeffs[3] = -numpy.sum(
-                polynomial.polyder(
-                    numpy.hstack(
-                        (
-                            [
-                                0.0,
-                                0.0,
-                            ],
-                            coeffs,
-                        )
-                    )
-                )[1:]
-            )
-            ccoeffs[2] = -numpy.sum(coeffs) - ccoeffs[3]
-            ccoeffs[4::] = coeffs
-            """
-            ccoeffs= numpy.zeros(pt_deg+1)
-            ccoeffs[1]= 1.
-            ccoeffs[2::]= coeffs
-            ccoeffs/= chebyshev.chebval(1,ccoeffs)# map exact [0,1] --> [0,1]
-            """
-
-            # print("WARNING: FIXING PT TO LINEAR")
-
-            coeffs = ccoeffs
-
-            # pt = polynomial.Polynomial(coeffs)
-
-            # Store point transformation as simple polynomial
-            """
-            self._pt_coeffs[ii]= chebyshev.cheb2poly(coeffs)
-            self._pt_coeffs[ii]-= self._pt_coeffs[ii][0]
-            self._pt_coeffs[ii]/= numpy.sum(self._pt_coeffs[ii])
-            self._pt_deriv_coeffs[ii]= polynomial.polyder(self._pt_coeffs[ii],
-                                                          m=1)
-            self._pt_deriv2_coeffs[ii]= polynomial.polyder(self._pt_coeffs[ii],
-                                                           m=2)
-            """
-
-            self._pt_coeffs[ii] = coeffs
-            self._pt_deriv_coeffs[ii] = polynomial.polyder(self._pt_coeffs[ii], m=1)
-            self._pt_deriv2_coeffs[ii] = polynomial.polyder(self._pt_coeffs[ii], m=2)
-
         return None
 
     def _create_rgrid(self):
@@ -567,11 +702,9 @@ class actionAngleSphericalInverse(actionAngleInverse):
             numpy.tile(self._rap, (rs.shape[1], 1)).T,
             numpy.tile(self._pt_rperi, (rs.shape[1], 1)).T,
             numpy.tile(self._pt_rap, (rs.shape[1], 1)).T,
+            pt_exact=self._pt_exact,
+            exact_pt_spl_deg=self._exact_pt_spl_deg,
         )
-        from matplotlib import pyplot
-
-        pyplot.plot(rs[0], rta[0], ".")
-
         rta[numpy.isnan(rta)] = 0.0  # Zero energy orbit -> NaN
         # Now use Newton-Raphson to iterate to a regular grid
         cindx = numpy.nanargmin(
@@ -622,6 +755,8 @@ class actionAngleSphericalInverse(actionAngleInverse):
             rapgrid,
             ptrperigrid,
             ptrapgrid,
+            pt_exact=self._pt_exact,
+            exact_pt_spl_deg=self._exact_pt_spl_deg,
         )
         mta = numpy.tile(self._thetaa, (len(self._internal_Es), 1))
         # Now iterate
@@ -654,6 +789,8 @@ class actionAngleSphericalInverse(actionAngleInverse):
                 rapgrid[unconv],
                 ptrperigrid[unconv],
                 ptrapgrid[unconv],
+                pt_exact=self._pt_exact,
+                exact_pt_spl_deg=self._exact_pt_spl_deg,
             )
             dta = (ta[unconv] - mta[unconv] + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
             dr = -dta / dtadr
@@ -666,6 +803,8 @@ class actionAngleSphericalInverse(actionAngleInverse):
                 unconv * (rgrid < rperigrid)
             ]
             unconv[unconv] = numpy.fabs(dta) > self._angle_tol
+            if numpy.sum(unconv) == 0:
+                break
             isoaa_helper._ip = IsochronePotential(amp=ampgrid[unconv], b=bgrid[unconv])
             isoaa_helper.amp = ampgrid[unconv]
             isoaa_helper.b = bgrid[unconv]
@@ -682,11 +821,11 @@ class actionAngleSphericalInverse(actionAngleInverse):
                 rapgrid[unconv],
                 ptrperigrid[unconv],
                 ptrapgrid[unconv],
+                pt_exact=self._pt_exact,
+                exact_pt_spl_deg=self._exact_pt_spl_deg,
             )
             ta[unconv] = newta
             cntr += 1
-            if numpy.sum(unconv) == 0:
-                break
             if cntr > self._maxiter:
                 warnings.warn(
                     "Torus mapping with Newton-Raphson did not converge in {} iterations, falling back onto simple bisection (increase maxiter to try harder with Newton-Raphson)".format(
@@ -735,6 +874,8 @@ class actionAngleSphericalInverse(actionAngleInverse):
                         rapgrid[unconv],
                         ptrperigrid[unconv],
                         ptrapgrid[unconv],
+                        pt_exact=self._pt_exact,
+                        exact_pt_spl_deg=self._exact_pt_spl_deg,
                     )
                     + 2.0 * numpy.pi
                 ) % (2.0 * numpy.pi)
@@ -777,6 +918,8 @@ class actionAngleSphericalInverse(actionAngleInverse):
             ptrperigrid[:, self._nta // 2 + 1 :],
             ptrapgrid[:, self._nta // 2 + 1 :],
             vrneg=True,
+            pt_exact=self._pt_exact,
+            exact_pt_spl_deg=self._exact_pt_spl_deg,
         )
         self._dta = (ta - mta + numpy.pi) % (2.0 * numpy.pi) - numpy.pi
         self._mta = mta
@@ -854,6 +997,8 @@ class actionAngleSphericalInverse(actionAngleInverse):
                 self._pt_rperi[indx] * one,
                 self._pt_rap[indx] * one,
                 vrneg=False,
+                pt_exact=self._pt_exact,
+                exact_pt_spl_deg=self._exact_pt_spl_deg,
             )
             one = numpy.ones(numpy.sum(negv))
             thetaa_out[negv] = _anglera(
@@ -870,6 +1015,8 @@ class actionAngleSphericalInverse(actionAngleInverse):
                 self._pt_rperi[indx] * one,
                 self._pt_rap[indx] * one,
                 vrneg=True,
+                pt_exact=self._pt_exact,
+                exact_pt_spl_deg=self._exact_pt_spl_deg,
             )
             galpy_plot.plot(
                 self._thetaa,
@@ -1382,6 +1529,7 @@ class actionAngleSphericalInverse(actionAngleInverse):
             )
             tptcoeffs = self._pt_coeffs[indx]
             tptderivcoeffs = self._pt_deriv_coeffs[indx]
+            tptderiv2coeffs = self._pt_deriv2_coeffs[indx]
             trperi = self._rperi[indx]
             trap = self._rap[indx]
             tptrperi = self._pt_rperi[indx]
@@ -1506,32 +1654,82 @@ class actionAngleSphericalInverse(actionAngleInverse):
         L = jz + numpy.fabs(jphi)  # total angular momentum
         lowerl = numpy.sqrt(1.0 - jphi**2.0 / L**2.0)
         ra = numpy.sqrt(Ra**2.0 + za**2.0)
-        sintheta = Ra / ra
-        costheta = za / ra
-        vra = sintheta * vRa + costheta * vza
-        vta = costheta * vRa - sintheta * vza
+        sinthetaa = Ra / ra
+        costhetaa = za / ra
+        vra = sinthetaa * vRa + costhetaa * vza
+        vta = costhetaa * vRa - sinthetaa * vza
+        # Also need to compute the angle psi in the orbital plane
+        if lowerl <= 0.0:
+            psia = phia
+            asc = 0.0
+        else:
+            sinpsia = costhetaa / lowerl
+            cospsia = -vta * ra * sinthetaa / L / lowerl
+            psia = numpy.arctan2(sinpsia, cospsia)
+            # Also compute the longitude of the ascending node Omega
+            sinu = costhetaa / sinthetaa * jphi / L / lowerl
+            pindx = (sinu > 1.0) * numpy.isfinite(sinu)
+            sinu[pindx] = 1.0
+            pindx = (sinu < -1.0) * numpy.isfinite(sinu)
+            sinu[pindx] = -1.0
+            u = numpy.arcsin(sinu)
+            u[vta > 0.0] = numpy.pi - u[vta > 0.0]
+            # In case we end up with a non-inclined orbit here, set u = phi (like in the if above)
+            u[True ^ numpy.isfinite(u)] = phia[True ^ numpy.isfinite(u)]
+            asc = phia - u
         # Now convert orbital-plane^A --> orbital-plane
-        r = (trap - trperi) * polynomial.polyval(
-            ((ra - tptrperi) / (tptrap - tptrperi)).T, tptcoeffs.T, tensor=False
-        ).T + trperi
-        piprime = (
-            (trap - trperi)
-            / (tptrap - tptrperi)
-            * polynomial.polyval(
-                ((ra - tptrperi) / (tptrap - tptrperi)).T,
-                tptderivcoeffs.T,
-                tensor=False,
-            ).T
-        )
+        if self._pt_exact:
+            r = interpolate.InterpolatedUnivariateSpline(
+                tptcoeffs, tptderivcoeffs, k=self._exact_pt_spl_deg
+            )(ra)
+            piprime = interpolate.InterpolatedUnivariateSpline(
+                tptcoeffs, tptderivcoeffs, k=self._exact_pt_spl_deg
+            ).derivative()(ra)
+            psi = psia + interpolate.InterpolatedUnivariateSpline(
+                tptcoeffs, tptderiv2coeffs, k=self._exact_pt_spl_deg
+            )(ra)
+        else:
+            r = (trap - trperi) * polynomial.polyval(
+                ((ra - tptrperi) / (tptrap - tptrperi)).T, tptcoeffs.T, tensor=False
+            ).T + trperi
+            piprime = (
+                (trap - trperi)
+                / (tptrap - tptrperi)
+                * polynomial.polyval(
+                    ((ra - tptrperi) / (tptrap - tptrperi)).T,
+                    tptderivcoeffs.T,
+                    tensor=False,
+                ).T
+            )
+            psi = psia
         vr = vra * piprime
-        # and back from orbital-plane --> (x,v) in cyl coordinates
         vt = vta * ra / r  # conservation of angular momentum
+        # and back from orbital-plane --> (x,v) in cyl coordinates
+        cospsi = numpy.cos(psi)
+        if lowerl > 0.0:
+            sinpsi = numpy.sin(psi)
+            costheta = sinpsi * lowerl
+            sintheta = numpy.sqrt(1.0 - costheta**2.0)
+        else:
+            sintheta = sinthetaa
+            costheta = costhetaa
+        vtheta = -L * lowerl * cospsi / r / sintheta
         R = sintheta * r
         z = costheta * r
-        vR = vr * sintheta + vt * costheta
-        vz = vr * costheta - vt * sintheta
+        if lowerl > 0.0:
+            sinu = z / R / numpy.sqrt(L**2.0 / jphi**2.0 - 1.0)
+            pindx = (sinu > 1.0) * numpy.isfinite(sinu)
+            sinu[pindx] = 1.0
+            pindx = (sinu < -1.0) * numpy.isfinite(sinu)
+            sinu[pindx] = -1.0
+            u = numpy.arcsin(sinu)
+            u[vt > 0.0] = numpy.pi - u[vt > 0.0]
+            phi = asc + u
+        else:
+            phi = psi
+        vR = vr * sintheta + vtheta * costheta
+        vz = vr * costheta - vtheta * sintheta
         vT = jphi / R
-        phi = phia
         return (R, vR, vT, z, vz, phi, tOmegar, numpy.sign(jphi) * tOmegaz, tOmegaz)
 
     def _Freqs(self, jr, jphi, jz, **kwargs):
@@ -1592,6 +1790,8 @@ def _anglera(
     ptrperi,
     ptrap,
     vrneg=False,
+    pt_exact=False,
+    exact_pt_spl_deg=5,
 ):
     """
     NAME:
@@ -1604,30 +1804,69 @@ def _anglera(
        L - angular momentum
        L2 - angular momentum squared
        pot - the potential
-       isoaa_helepr - _actionAngleIsochroneHelper instance for isochrone action-angle calculations
+       isoaa_helper - _actionAngleIsochroneHelper instance for isochrone action-angle calculations
        ptcoeffs - coefficients of the polynomial point transformation
        ptderivcoeffs - coefficients of the derivative of the polynomial point transformation
        rperi, rap - peri- and apocenter of the true torus
        ptrperi, ptrap - peri- and apocenter of the point-transformed torus
        vrneg= (False) True if vr is negative
+       pt_exact= (False) if True, use the exact point transformation instead of the polynomial approximation
+       exact_pt_spl_deg= (5) degree of the spline to use for the exact point transformation
     OUTPUT:
        auxiliary radial angles
     HISTORY:
        2020-05-22 - Written based on earlier code - Bovy (UofT)
     """
+    if pt_exact:
+        ntori = len(ra) if len(ra.shape) > 1 else 1
+        multitori = True if len(ra.shape) > 1 else False
+        if multitori:
+            ptcoeffs = ptcoeffs[:, 0, :]
+            ptderivcoeffs = ptderivcoeffs[:, 0, :]
+        else:
+            ptcoeffs = ptcoeffs[0, :] if len(ptcoeffs.shape) > 1 else ptcoeffs
+            ptderivcoeffs = (
+                ptderivcoeffs[0, :] if len(ptderivcoeffs.shape) > 1 else ptderivcoeffs
+            )
     # Compute vr
-    r = (rap - rperi) * polynomial.polyval(
-        ((ra - ptrperi) / (ptrap - ptrperi)).T, ptcoeffs.T, tensor=False
-    ).T + rperi
+    if pt_exact:
+        r = numpy.empty_like(ra)
+        for i in range(ntori):
+            tr = interpolate.InterpolatedUnivariateSpline(
+                ptcoeffs[i] if multitori else ptcoeffs,
+                ptderivcoeffs[i] if multitori else ptderivcoeffs,
+                k=exact_pt_spl_deg,
+            )(ra[i] if multitori else ra)
+            if multitori:
+                r[i] = tr
+            else:
+                r = tr
+    else:
+        r = (rap - rperi) * polynomial.polyval(
+            ((ra - ptrperi) / (ptrap - ptrperi)).T, ptcoeffs.T, tensor=False
+        ).T + rperi
     vr2 = 2.0 * (E - evaluatePotentials(pot, r, numpy.zeros_like(r))) - L2 / r**2.0
     vr2[vr2 < 0.0] = 0.0
-    piprime = (
-        (rap - rperi)
-        / (ptrap - ptrperi)
-        * polynomial.polyval(
-            ((ra - ptrperi) / (ptrap - ptrperi)).T, ptderivcoeffs.T, tensor=False
-        ).T
-    )
+    if pt_exact:
+        piprime = numpy.empty_like(ra)
+        for i in range(ntori):
+            tpiprime = interpolate.InterpolatedUnivariateSpline(
+                ptcoeffs[i] if multitori else ptcoeffs,
+                ptderivcoeffs[i] if multitori else ptderivcoeffs,
+                k=exact_pt_spl_deg,
+            ).derivative()(ra[i] if multitori else ra)
+            if multitori:
+                piprime[i] = tpiprime
+            else:
+                piprime = tpiprime
+    else:
+        piprime = (
+            (rap - rperi)
+            / (ptrap - ptrperi)
+            * polynomial.polyval(
+                ((ra - ptrperi) / (ptrap - ptrperi)).T, ptderivcoeffs.T, tensor=False
+            ).T
+        )
     return isoaa_helper.angler(ra, vr2 * piprime**-2.0, L, reuse=False, vrneg=vrneg)
 
 
@@ -1646,6 +1885,8 @@ def _danglera(
     ptrperi,
     ptrap,
     vrneg=False,
+    pt_exact=False,
+    exact_pt_spl_deg=5,
 ):
     """
     NAME:
@@ -1665,31 +1906,81 @@ def _danglera(
        rperi, rap - peri- and apocenter of the true torus
        ptrperi, ptrap - peri- and apocenter of the point-transformed torus
        vrneg= (False) True if vr is negative
+       pt_exact= (False) if True, use the exact point transformation instead of the polynomial approximation
+       exact_pt_spl_deg= (5) degree of the spline to use for the exact point transformation
     OUTPUT:
        auxiliary radial angles
     HISTORY:
        2020-05-22 - Written based on earlier code - Bovy (UofT)
     """
+    if pt_exact:
+        ntori = len(ra) if len(ra.shape) > 1 else 1
+        multitori = True if len(ra.shape) > 1 else False
+        if multitori:
+            ptcoeffs = ptcoeffs[:, 0, :]
+            ptderivcoeffs = ptderivcoeffs[:, 0, :]
+        else:
+            ptcoeffs = ptcoeffs[0, :]
+            ptderivcoeffs = ptderivcoeffs[0, :]
     # Compute vr
-    r = (rap - rperi) * polynomial.polyval(
-        ((ra - ptrperi) / (ptrap - ptrperi)).T, ptcoeffs.T, tensor=False
-    ).T + rperi
+    if pt_exact:
+        r = numpy.empty_like(ra)
+        for i in range(ntori):
+            tr = interpolate.InterpolatedUnivariateSpline(
+                ptcoeffs[i] if multitori else ptcoeffs,
+                ptderivcoeffs[i] if multitori else ptderivcoeffs,
+                k=exact_pt_spl_deg,
+            )(ra[i] if multitori else ra)
+            if multitori:
+                r[i] = tr
+            else:
+                r = tr
+    else:
+        r = (rap - rperi) * polynomial.polyval(
+            ((ra - ptrperi) / (ptrap - ptrperi)).T, ptcoeffs.T, tensor=False
+        ).T + rperi
     vr2 = 2.0 * (E - evaluatePotentials(pot, r, numpy.zeros_like(r))) - L2 / r**2.0
     vr2[vr2 < 0.0] = 0.0
-    piprime = (
-        (rap - rperi)
-        / (ptrap - ptrperi)
-        * polynomial.polyval(
-            ((ra - ptrperi) / (ptrap - ptrperi)).T, ptderivcoeffs.T, tensor=False
-        ).T
-    )
-    piprime2 = (
-        (rap - rperi)
-        / (ptrap - ptrperi) ** 2.0
-        * polynomial.polyval(
-            ((ra - ptrperi) / (ptrap - ptrperi)).T, ptderiv2coeffs.T, tensor=False
-        ).T
-    )
+    if pt_exact:
+        piprime = numpy.empty_like(ra)
+        for i in range(ntori):
+            tpiprime = interpolate.InterpolatedUnivariateSpline(
+                ptcoeffs[i] if multitori else ptcoeffs,
+                ptderivcoeffs[i] if multitori else ptderivcoeffs,
+                k=exact_pt_spl_deg,
+            ).derivative()(ra[i] if multitori else ra)
+            if multitori:
+                piprime[i] = tpiprime
+            else:
+                piprime = tpiprime
+    else:
+        piprime = (
+            (rap - rperi)
+            / (ptrap - ptrperi)
+            * polynomial.polyval(
+                ((ra - ptrperi) / (ptrap - ptrperi)).T, ptderivcoeffs.T, tensor=False
+            ).T
+        )
+    if pt_exact:
+        piprime2 = numpy.empty_like(ra)
+        for i in range(ntori):
+            tpiprime2 = interpolate.InterpolatedUnivariateSpline(
+                ptcoeffs[i] if multitori else ptcoeffs,
+                ptderivcoeffs[i] if multitori else ptderivcoeffs,
+                k=exact_pt_spl_deg,
+            ).derivative(n=2)(ra[i] if multitori else ra)
+            if multitori:
+                piprime2[i] = tpiprime2
+            else:
+                piprime2 = tpiprime2
+    else:
+        piprime2 = (
+            (rap - rperi)
+            / (ptrap - ptrperi) ** 2.0
+            * polynomial.polyval(
+                ((ra - ptrperi) / (ptrap - ptrperi)).T, ptderiv2coeffs.T, tensor=False
+            ).T
+        )
     dEadra = (
         -piprime2 * piprime**-3.0 * vr2
         + (L2 * r**-3.0 + evaluateRforces(pot, r, numpy.zeros_like(r))) / piprime
@@ -1702,7 +1993,20 @@ def _danglera(
 
 
 def _jraora(
-    ra, E, L, L2, pot, isoaa_helper, ptcoeffs, ptderivcoeffs, rperi, rap, ptrperi, ptrap
+    ra,
+    E,
+    L,
+    L2,
+    pot,
+    isoaa_helper,
+    ptcoeffs,
+    ptderivcoeffs,
+    rperi,
+    rap,
+    ptrperi,
+    ptrap,
+    pt_exact=False,
+    exact_pt_spl_deg=5,
 ):
     """
     NAME:
@@ -1720,24 +2024,61 @@ def _jraora(
        ptderivcoeffs - coefficients of the derivative of the polynomial point transformation
        rperi, rap - peri- and apocenter of the true torus
        ptrperi, ptrap - peri- and apocenter of the point-transformed torus
+       pt_exact= (False) if True, use the exact point transformation instead of the polynomial approximation
+         exact_pt_spl_deg= (5) degree of the spline to use for the exact point transformation
     OUTPUT:
        auxiliary radial actions, auxiliary radial frequencies
     HISTORY:
        2020-05-23 - Written based on earlier code - Bovy (UofT)
     """
+    if pt_exact:
+        ntori = len(ra) if len(ra.shape) > 1 else 1
+        multitori = True if len(ra.shape) > 1 else False
+        if multitori:
+            ptcoeffs = ptcoeffs[:, 0, :]
+            ptderivcoeffs = ptderivcoeffs[:, 0, :]
+        else:
+            ptcoeffs = ptcoeffs[0, :]
+            ptderivcoeffs = ptderivcoeffs[0, :]
     # Compute vr
-    r = (rap - rperi) * polynomial.polyval(
-        ((ra - ptrperi) / (ptrap - ptrperi)).T, ptcoeffs.T, tensor=False
-    ).T + rperi
+    if pt_exact:
+        r = numpy.empty_like(ra)
+        for i in range(ntori):
+            tr = interpolate.InterpolatedUnivariateSpline(
+                ptcoeffs[i] if multitori else ptcoeffs,
+                ptderivcoeffs[i] if multitori else ptderivcoeffs,
+                k=exact_pt_spl_deg,
+            )(ra[i] if multitori else ra)
+            if multitori:
+                r[i] = tr
+            else:
+                r = tr
+    else:
+        r = (rap - rperi) * polynomial.polyval(
+            ((ra - ptrperi) / (ptrap - ptrperi)).T, ptcoeffs.T, tensor=False
+        ).T + rperi
     vr2 = 2.0 * (E - evaluatePotentials(pot, r, numpy.zeros_like(r))) - L2 / r**2.0
     vr2[vr2 < 0.0] = 0.0
-    piprime = (
-        (rap - rperi)
-        / (ptrap - ptrperi)
-        * polynomial.polyval(
-            ((ra - ptrperi) / (ptrap - ptrperi)).T, ptderivcoeffs.T, tensor=False
-        ).T
-    )
+    if pt_exact:
+        piprime = numpy.empty_like(ra)
+        for i in range(ntori):
+            tpiprime = interpolate.InterpolatedUnivariateSpline(
+                ptcoeffs[i] if multitori else ptcoeffs,
+                ptderivcoeffs[i] if multitori else ptderivcoeffs,
+                k=exact_pt_spl_deg,
+            ).derivative()(ra[i] if multitori else ra)
+            if multitori:
+                piprime[i] = tpiprime
+            else:
+                piprime = tpiprime
+    else:
+        piprime = (
+            (rap - rperi)
+            / (ptrap - ptrperi)
+            * polynomial.polyval(
+                ((ra - ptrperi) / (ptrap - ptrperi)).T, ptderivcoeffs.T, tensor=False
+            ).T
+        )
     Ea = 0.5 * (vr2 * piprime**-2.0 + L2 * ra**-2.0) + isoaa_helper._ip(
         ra, numpy.zeros_like(ra)
     )
@@ -1759,6 +2100,8 @@ def _djradjrLish(
     rap,
     ptrperi,
     ptrap,
+    pt_exact=False,
+    exact_pt_spl_deg=5,
 ):
     """
     NAME:
@@ -1778,31 +2121,81 @@ def _djradjrLish(
        ptderiv2coeffs - coefficients of the second derivative of the polynomial point transformation
        rperi, rap - peri- and apocenter of the true torus
        ptrperi, ptrap - peri- and apocenter of the point-transformed torus
+       pt_exact= (False) if True, use the exact point transformation instead of the polynomial approximation
+       exact_pt_spl_deg= (5) degree of the spline to use for the exact point transformation
     OUTPUT:
        derivative of the auxiliary radial actions wrt radial action and angular momentum
     HISTORY:
        2020-05-23 - Written based on earlier code - Bovy (UofT)
     """
+    if pt_exact:
+        ntori = len(ra) if len(ra.shape) > 1 else 1
+        multitori = True if len(ra.shape) > 1 else False
+        if multitori:
+            ptcoeffs = ptcoeffs[:, 0, :]
+            ptderivcoeffs = ptderivcoeffs[:, 0, :]
+        else:
+            ptcoeffs = ptcoeffs[0, :]
+            ptderivcoeffs = ptderivcoeffs[0, :]
     # Compute vr
-    r = (rap - rperi) * polynomial.polyval(
-        ((ra - ptrperi) / (ptrap - ptrperi)).T, ptcoeffs.T, tensor=False
-    ).T + rperi
+    if pt_exact:
+        r = numpy.empty_like(ra)
+        for i in range(ntori):
+            tr = interpolate.InterpolatedUnivariateSpline(
+                ptcoeffs[i] if multitori else ptcoeffs,
+                ptderivcoeffs[i] if multitori else ptderivcoeffs,
+                k=exact_pt_spl_deg,
+            )(ra[i] if multitori else ra)
+            if multitori:
+                r[i] = tr
+            else:
+                r = tr
+    else:
+        r = (rap - rperi) * polynomial.polyval(
+            ((ra - ptrperi) / (ptrap - ptrperi)).T, ptcoeffs.T, tensor=False
+        ).T + rperi
     vr2 = 2.0 * (E - evaluatePotentials(pot, r, numpy.zeros_like(r))) - L2 / r**2.0
     vr2[vr2 < 0.0] = 0.0
-    piprime = (
-        (rap - rperi)
-        / (ptrap - ptrperi)
-        * polynomial.polyval(
-            ((ra - ptrperi) / (ptrap - ptrperi)).T, ptderivcoeffs.T, tensor=False
-        ).T
-    )
-    piprime2 = (
-        (rap - rperi)
-        / (ptrap - ptrperi) ** 2.0
-        * polynomial.polyval(
-            ((ra - ptrperi) / (ptrap - ptrperi)).T, ptderiv2coeffs.T, tensor=False
-        ).T
-    )
+    if pt_exact:
+        piprime = numpy.empty_like(ra)
+        for i in range(ntori):
+            tpiprime = interpolate.InterpolatedUnivariateSpline(
+                ptcoeffs[i] if multitori else ptcoeffs,
+                ptderivcoeffs[i] if multitori else ptderivcoeffs,
+                k=exact_pt_spl_deg,
+            ).derivative()(ra[i] if multitori else ra)
+            if multitori:
+                piprime[i] = tpiprime
+            else:
+                piprime = tpiprime
+    else:
+        piprime = (
+            (rap - rperi)
+            / (ptrap - ptrperi)
+            * polynomial.polyval(
+                ((ra - ptrperi) / (ptrap - ptrperi)).T, ptderivcoeffs.T, tensor=False
+            ).T
+        )
+    if pt_exact:
+        piprime2 = numpy.empty_like(ra)
+        for i in range(ntori):
+            tpiprime2 = interpolate.InterpolatedUnivariateSpline(
+                ptcoeffs[i] if multitori else ptcoeffs,
+                ptderivcoeffs[i] if multitori else ptderivcoeffs,
+                k=exact_pt_spl_deg,
+            ).derivative(n=2)(ra[i] if multitori else ra)
+            if multitori:
+                piprime2[i] = tpiprime2
+            else:
+                piprime2 = tpiprime2
+    else:
+        piprime2 = (
+            (rap - rperi)
+            / (ptrap - ptrperi) ** 2.0
+            * polynomial.polyval(
+                ((ra - ptrperi) / (ptrap - ptrperi)).T, ptderiv2coeffs.T, tensor=False
+            ).T
+        )
     Ea = 0.5 * (vr2 * piprime**-2.0 + L2 * ra**-2.0) + isoaa_helper._ip(
         ra, numpy.zeros_like(ra)
     )
@@ -1812,7 +2205,7 @@ def _djradjrLish(
         - L2 * ra**-3.0
         - evaluateRforces(isoaa_helper._ip, ra, numpy.zeros_like(ra))
     )
-    pardEapardL = L * (ra**-2.0 - r**-2.0)
+    pardEapardL = L * (ra**-2.0 - r**-2.0) * (1 - pt_exact)
     Ora = isoaa_helper.Or(Ea)
     # Compute dEA/dE and dEA/dL for dJr^A/d(Jr,L)
     dradE, dradL = isoaa_helper.drdEL_constant_angler(
