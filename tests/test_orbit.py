@@ -10776,8 +10776,8 @@ def test_integrate_auto_default_3D():
 
     # Check integration occurred
     assert hasattr(o, "t") and len(o.t) > 0, "Orbit should be integrated"
-    # Check array length: 51 points/tdyn × 5 tdyn + 1 = 256
-    assert len(o.t) == 256, f"Expected 256 time points, got {len(o.t)}"
+    # Check array length: 101 points/tdyn × 5 tdyn + 1 = 506
+    assert len(o.t) == 506, f"Expected 506 time points, got {len(o.t)}"
     # Check time starts at 0
     assert numpy.abs(o.t[0]) < 1e-10, "Time should start at 0"
     # Check time is positive
@@ -10795,8 +10795,8 @@ def test_integrate_auto_default_2D():
 
     # Check integration occurred
     assert hasattr(o, "t") and len(o.t) > 0, "Orbit should be integrated"
-    # Check array length: 51 points/tdyn × 5 tdyn + 1 = 256
-    assert len(o.t) == 256, f"Expected 256 time points, got {len(o.t)}"
+    # Check array length: 101 points/tdyn × 5 tdyn + 1 = 506
+    assert len(o.t) == 506, f"Expected 506 time points, got {len(o.t)}"
     # Check time starts at 0
     assert numpy.abs(o.t[0]) < 1e-10, "Time should start at 0"
     # Check time is positive
@@ -10814,8 +10814,8 @@ def test_integrate_auto_explicit_N():
 
     # Check integration occurred
     assert hasattr(o, "t") and len(o.t) > 0, "Orbit should be integrated"
-    # Check array length: 51 points/tdyn × 3 tdyn + 1 = 154
-    assert len(o.t) == 154, f"Expected 154 time points, got {len(o.t)}"
+    # Check array length: 101 points/tdyn × 3 tdyn + 1 = 304
+    assert len(o.t) == 304, f"Expected 304 time points, got {len(o.t)}"
     # Check time starts at 0
     assert numpy.abs(o.t[0]) < 1e-10, "Time should start at 0"
     # Check time is positive
@@ -10833,8 +10833,8 @@ def test_integrate_auto_negative_N():
 
     # Check integration occurred
     assert hasattr(o, "t") and len(o.t) > 0, "Orbit should be integrated"
-    # Check array length: 51 points/tdyn × 5 tdyn + 1 = 256
-    assert len(o.t) == 256, f"Expected 256 time points, got {len(o.t)}"
+    # Check array length: 101 points/tdyn × 5 tdyn + 1 = 506
+    assert len(o.t) == 506, f"Expected 506 time points, got {len(o.t)}"
     # Check time starts at 0
     assert numpy.abs(o.t[0]) < 1e-10, "Time should start at 0"
     # Check time is negative (backward integration)
@@ -10880,7 +10880,7 @@ def test_integrate_auto_composite_pot():
     # Check integration occurred
     assert hasattr(o, "t") and len(o.t) > 0, "Orbit should be integrated"
     # Check array length
-    assert len(o.t) == 256, f"Expected 256 time points, got {len(o.t)}"
+    assert len(o.t) == 506, f"Expected 506 time points, got {len(o.t)}"
     return None
 
 
@@ -10894,7 +10894,7 @@ def test_integrate_auto_planar_pot():
 
     # Check integration occurred
     assert hasattr(o, "t") and len(o.t) > 0, "Orbit should be integrated"
-    assert len(o.t) == 256, f"Expected 256 time points, got {len(o.t)}"
+    assert len(o.t) == 506, f"Expected 506 time points, got {len(o.t)}"
     return None
 
 
@@ -10954,8 +10954,8 @@ def test_integrate_auto_time_array_properties():
     o = Orbit([1.0, 0.1, 1.1, 0.0, 0.1, 0.0])
     o.integrate(10, MWPotential2014)
 
-    # Check array length: 51 × 10 + 1 = 511
-    assert len(o.t) == 511, f"Expected 511 time points, got {len(o.t)}"
+    # Check array length: 101 × 10 + 1 = 1011
+    assert len(o.t) == 1011, f"Expected 1011 time points, got {len(o.t)}"
     # Check that time array is evenly spaced
     dt = numpy.diff(o.t)
     assert numpy.allclose(dt, dt[0], rtol=1e-10), "Time array should be evenly spaced"
@@ -10976,7 +10976,7 @@ def test_integrate_auto_list_of_potentials():
 
     # Check integration occurred
     assert hasattr(o, "t") and len(o.t) > 0, "Orbit should be integrated"
-    assert len(o.t) == 256, f"Expected 256 time points, got {len(o.t)}"
+    assert len(o.t) == 506, f"Expected 506 time points, got {len(o.t)}"
     return None
 
 
@@ -10991,7 +10991,7 @@ def test_integrate_auto_multiple_orbits():
 
     # Should use max(r) for time determination
     assert hasattr(o, "t") and len(o.t) > 0, "Orbit should be integrated"
-    assert len(o.t) == 256, f"Expected 256 time points, got {len(o.t)}"
+    assert len(o.t) == 506, f"Expected 506 time points, got {len(o.t)}"
     return None
 
 

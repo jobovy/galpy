@@ -1561,7 +1561,7 @@ class Orbit:
         Returns
         -------
         numpy.ndarray
-            Time array from 0 to N×tdyn with 51 points per dynamical time.
+            Time array from 0 to N×tdyn with 101 points per dynamical time.
 
         Raises
         ------
@@ -1573,7 +1573,7 @@ class Orbit:
         - For 2D orbits, uses r = R (cylindrical radius)
         - For 3D orbits, uses r = sqrt(R² + z²) (spherical radius)
         - For multiple orbits, uses max(r) for conservative time period
-        - Generates 51 points per dynamical time
+        - Generates 101 points per dynamical time
         """
         # Check if orbit is 1D (not supported)
         if self.dim() == 1:
@@ -1608,9 +1608,9 @@ class Orbit:
         # Calculate dynamical time
         tdyn_val = self._calculate_dynamical_time(pot, r_init)
 
-        # Generate time array: 51 points per dynamical time
+        # Generate time array: 101 points per dynamical time
         # For negative N, integrate backward in time
-        n_points = 51 * abs(N_tdyn) + 1
+        n_points = 101 * abs(N_tdyn) + 1
         if N_tdyn >= 0:
             t_array = numpy.linspace(0, N_tdyn * tdyn_val, n_points)
         else:
@@ -1943,7 +1943,7 @@ class Orbit:
         ----------
         t : list, numpy.ndarray, Quantity, int, or Potential
             - If array-like: List of equispaced times at which to compute the orbit. The initial condition is t[0]. (note that for method='odeint', method='dop853', and method='dop853_c', the time array can be non-equispaced). If the orbit has already been integrated and the new time array continues from the end point of the previous integration (t[0] equals the last time of the previous integration), the orbit will be continued and the two integrations will be merged. Similarly, if t[0] equals the first time of a previous integration and the new time array goes in the opposite direction, the orbit will be integrated backward and prepended to the existing integration.
-            - If int: Number of dynamical times to integrate (positive for forward, negative for backward). Time array is auto-generated with 51 points per dynamical time.
+            - If int: Number of dynamical times to integrate (positive for forward, negative for backward). Time array is auto-generated with 101 points per dynamical time.
             - If Potential: Integrate for 5 dynamical times (default auto-time behavior). In this case, this parameter is the potential and the second parameter (pot) becomes method.
         pot : Potential, DissipativeForce, or a combined force/potential formed using addition (pot1+pot2+force3+…)
             Gravitational field to integrate the orbit in.
@@ -1991,7 +1991,7 @@ class Orbit:
 
           - Dynamical time is calculated using ``tdyn(pot, r)`` at the initial position
           - For 2D orbits with potentials that don't support ``tdyn``, falls back to ``2π·r/vcirc``
-          - Time array has 51 points per dynamical time
+          - Time array has 101 points per dynamical time
           - Default is 5 dynamical times
           - Not supported for 1D orbits
           - Examples::
