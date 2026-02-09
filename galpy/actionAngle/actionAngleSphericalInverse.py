@@ -384,24 +384,7 @@ class actionAngleSphericalInverse(actionAngleInverse):
             self._pt_deriv_coeffs = numpy.empty((self._nE, pt_deg))
             self._pt_deriv2_coeffs = numpy.empty((self._nE, pt_deg - 1))
 
-        Etilde = self._L2 / 2.0 / self._rperi**2.0 + self._ip(
-            self._rperi, numpy.zeros_like(self._rperi)
-        )
-
-        Etilde2 = (
-            -2.0
-            * self._amp**2.0
-            / (
-                2.0 * self._jr
-                + self._internal_Ls
-                + numpy.sqrt(self._L2 + 4.0 * self._amp * self._b)
-            )
-            ** 2.0
-        )
-        Etilde = -numpy.sqrt(-Etilde2)
-
-        if self._pt_exact:
-            Etilde = -0.5 * (self._amp * self._Omegar) ** (2.0 / 3.0)
+        Etilde = -0.5 * (self._amp * self._Omegar) ** (2.0 / 3.0)
 
         isoaa_helper = _actionAngleIsochroneHelper(ip=self._ip)
         self._pt_rperi, self._pt_rap = isoaa_helper.rperirap(Etilde, self._L2)
