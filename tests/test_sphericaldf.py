@@ -1691,17 +1691,24 @@ def test_king_beta_directint():
 
 ############################### OSIPKOV-MERRITT DF ############################
 # For the following tests, we use a DehnenCoreSphericalPotential
-osipkovmerritt_dfs_selfconsist = None  # reuse in other tests
 
 
-def test_osipkovmerritt_selfconsist_dehnencore_dens_spherically_symmetric():
+@pytest.fixture(scope="module")
+def setup_osipkovmerritt_dfs_selfconsist():
     pot = potential.DehnenCoreSphericalPotential(amp=2.5, a=1.15)
     ras = [2.3, 5.7]
-    global osipkovmerritt_dfs_selfconsist
     osipkovmerritt_dfs_selfconsist = []
     for ra in ras:
         dfh = osipkovmerrittdf(pot=pot, ra=ra)
         osipkovmerritt_dfs_selfconsist.append(dfh)
+    return osipkovmerritt_dfs_selfconsist
+
+
+def test_osipkovmerritt_selfconsist_dehnencore_dens_spherically_symmetric(
+    setup_osipkovmerritt_dfs_selfconsist,
+):
+    osipkovmerritt_dfs_selfconsist = setup_osipkovmerritt_dfs_selfconsist
+    for dfh in osipkovmerritt_dfs_selfconsist:
         numpy.random.seed(10)
         samp = dfh.sample(n=100000)
         # Check spherical symmetry for different harmonics l,m
@@ -1721,7 +1728,10 @@ def test_osipkovmerritt_selfconsist_dehnencore_dens_spherically_symmetric():
     return None
 
 
-def test_osipkovmerritt_selfconsist_dehnencore_dens_massprofile():
+def test_osipkovmerritt_selfconsist_dehnencore_dens_massprofile(
+    setup_osipkovmerritt_dfs_selfconsist,
+):
+    osipkovmerritt_dfs_selfconsist = setup_osipkovmerritt_dfs_selfconsist
     pot = potential.DehnenCoreSphericalPotential(amp=2.5, a=1.15)
     ras = [2.3, 5.7]
     for ra, dfh in zip(ras, osipkovmerritt_dfs_selfconsist):
@@ -1734,7 +1744,10 @@ def test_osipkovmerritt_selfconsist_dehnencore_dens_massprofile():
     return None
 
 
-def test_osipkovmerritt_selfconsist_dehnencore_sigmar():
+def test_osipkovmerritt_selfconsist_dehnencore_sigmar(
+    setup_osipkovmerritt_dfs_selfconsist,
+):
+    osipkovmerritt_dfs_selfconsist = setup_osipkovmerritt_dfs_selfconsist
     pot = potential.DehnenCoreSphericalPotential(amp=2.5, a=1.15)
     ras = [2.3, 5.7]
     for ra, dfh in zip(ras, osipkovmerritt_dfs_selfconsist):
@@ -1753,7 +1766,10 @@ def test_osipkovmerritt_selfconsist_dehnencore_sigmar():
     return None
 
 
-def test_osipkovmerritt_selfconsist_dehnencore_beta():
+def test_osipkovmerritt_selfconsist_dehnencore_beta(
+    setup_osipkovmerritt_dfs_selfconsist,
+):
+    osipkovmerritt_dfs_selfconsist = setup_osipkovmerritt_dfs_selfconsist
     pot = potential.DehnenCoreSphericalPotential(amp=2.5, a=1.15)
     ras = [2.3, 5.7]
     for ra, dfh in zip(ras, osipkovmerritt_dfs_selfconsist):
@@ -1773,7 +1789,10 @@ def test_osipkovmerritt_selfconsist_dehnencore_beta():
     return None
 
 
-def test_osipkovmerritt_selfconsist_dehnencore_dens_directint():
+def test_osipkovmerritt_selfconsist_dehnencore_dens_directint(
+    setup_osipkovmerritt_dfs_selfconsist,
+):
+    osipkovmerritt_dfs_selfconsist = setup_osipkovmerritt_dfs_selfconsist
     pot = potential.DehnenCoreSphericalPotential(amp=2.5, a=1.15)
     ras = [2.3, 5.7]
     for ra, dfh in zip(ras[:1], osipkovmerritt_dfs_selfconsist[:1]):
@@ -1790,7 +1809,10 @@ def test_osipkovmerritt_selfconsist_dehnencore_dens_directint():
     return None
 
 
-def test_osipkovmerritt_selfconsist_dehnencore_meanvr_directint():
+def test_osipkovmerritt_selfconsist_dehnencore_meanvr_directint(
+    setup_osipkovmerritt_dfs_selfconsist,
+):
+    osipkovmerritt_dfs_selfconsist = setup_osipkovmerritt_dfs_selfconsist
     pot = potential.DehnenCoreSphericalPotential(amp=2.5, a=1.15)
     ras = [2.3, 5.7]
     for ra, dfh in zip(ras[1:], osipkovmerritt_dfs_selfconsist[1:]):
@@ -1801,7 +1823,10 @@ def test_osipkovmerritt_selfconsist_dehnencore_meanvr_directint():
     return None
 
 
-def test_osipkovmerritt_selfconsist_dehnencore_sigmar_directint():
+def test_osipkovmerritt_selfconsist_dehnencore_sigmar_directint(
+    setup_osipkovmerritt_dfs_selfconsist,
+):
+    osipkovmerritt_dfs_selfconsist = setup_osipkovmerritt_dfs_selfconsist
     pot = potential.DehnenCoreSphericalPotential(amp=2.5, a=1.15)
     ras = [2.3, 5.7]
     for ra, dfh in zip(ras[:1], osipkovmerritt_dfs_selfconsist[:1]):
@@ -1818,7 +1843,10 @@ def test_osipkovmerritt_selfconsist_dehnencore_sigmar_directint():
     return None
 
 
-def test_osipkovmerritt_selfconsist_dehnencore_beta_directint():
+def test_osipkovmerritt_selfconsist_dehnencore_beta_directint(
+    setup_osipkovmerritt_dfs_selfconsist,
+):
+    osipkovmerritt_dfs_selfconsist = setup_osipkovmerritt_dfs_selfconsist
     pot = potential.DehnenCoreSphericalPotential(amp=2.5, a=1.15)
     ras = [2.3, 5.7]
     for ra, dfh in zip(ras[1:], osipkovmerritt_dfs_selfconsist[1:]):
@@ -1834,7 +1862,10 @@ def test_osipkovmerritt_selfconsist_dehnencore_beta_directint():
     return None
 
 
-def test_osipkovmerritt_selfconsist_dehnencore_Qoutofbounds():
+def test_osipkovmerritt_selfconsist_dehnencore_Qoutofbounds(
+    setup_osipkovmerritt_dfs_selfconsist,
+):
+    osipkovmerritt_dfs_selfconsist = setup_osipkovmerritt_dfs_selfconsist
     pot = potential.DehnenCoreSphericalPotential(amp=2.5, a=1.15)
     ras = [2.3, 5.7]
     for ra, dfh in zip(ras, osipkovmerritt_dfs_selfconsist):
@@ -1853,18 +1884,25 @@ def test_osipkovmerritt_selfconsist_dehnencore_Qoutofbounds():
 
 # For the following tests, we use a DehnenCoreSphericalPotential embedded in
 # an NFW halo
-osipkovmerritt_dfs_dehnencore_in_nfw = None  # reuse in other tests
 
 
-def test_osipkovmerritt_dehnencore_in_nfw_dens_spherically_symmetric():
+@pytest.fixture(scope="module")
+def setup_osipkovmerritt_dfs_dehnencore_in_nfw():
     pot = potential.NFWPotential(amp=2.3, a=1.3)
     denspot = potential.DehnenCoreSphericalPotential(amp=2.5, a=1.15)
     ras = [2.3, 5.7]
-    global osipkovmerritt_dfs_dehnencore_in_nfw
     osipkovmerritt_dfs_dehnencore_in_nfw = []
     for ra in ras:
         dfh = osipkovmerrittdf(pot=pot, denspot=denspot, ra=ra)
         osipkovmerritt_dfs_dehnencore_in_nfw.append(dfh)
+    return osipkovmerritt_dfs_dehnencore_in_nfw
+
+
+def test_osipkovmerritt_dehnencore_in_nfw_dens_spherically_symmetric(
+    setup_osipkovmerritt_dfs_dehnencore_in_nfw,
+):
+    osipkovmerritt_dfs_dehnencore_in_nfw = setup_osipkovmerritt_dfs_dehnencore_in_nfw
+    for dfh in osipkovmerritt_dfs_dehnencore_in_nfw:
         numpy.random.seed(10)
         samp = dfh.sample(n=100000)
         # Check spherical symmetry for different harmonics l,m
@@ -1884,7 +1922,10 @@ def test_osipkovmerritt_dehnencore_in_nfw_dens_spherically_symmetric():
     return None
 
 
-def test_osipkovmerritt_dehnencore_in_nfw_dens_massprofile():
+def test_osipkovmerritt_dehnencore_in_nfw_dens_massprofile(
+    setup_osipkovmerritt_dfs_dehnencore_in_nfw,
+):
+    osipkovmerritt_dfs_dehnencore_in_nfw = setup_osipkovmerritt_dfs_dehnencore_in_nfw
     pot = potential.NFWPotential(amp=2.3, a=1.3)
     denspot = potential.DehnenCoreSphericalPotential(amp=2.5, a=1.15)
     ras = [2.3, 5.7]
@@ -1901,7 +1942,10 @@ def test_osipkovmerritt_dehnencore_in_nfw_dens_massprofile():
     return None
 
 
-def test_osipkovmerritt_dehnencore_in_nfw_sigmar():
+def test_osipkovmerritt_dehnencore_in_nfw_sigmar(
+    setup_osipkovmerritt_dfs_dehnencore_in_nfw,
+):
+    osipkovmerritt_dfs_dehnencore_in_nfw = setup_osipkovmerritt_dfs_dehnencore_in_nfw
     # Use list
     pot = potential.CompositePotential([potential.NFWPotential(amp=2.3, a=1.3)])
     denspot = potential.DehnenCoreSphericalPotential(amp=2.5, a=1.15)
@@ -1924,7 +1968,10 @@ def test_osipkovmerritt_dehnencore_in_nfw_sigmar():
     return None
 
 
-def test_osipkovmerritt_dehnencore_in_nfw_beta():
+def test_osipkovmerritt_dehnencore_in_nfw_beta(
+    setup_osipkovmerritt_dfs_dehnencore_in_nfw,
+):
+    osipkovmerritt_dfs_dehnencore_in_nfw = setup_osipkovmerritt_dfs_dehnencore_in_nfw
     # Use list
     pot = potential.NFWPotential(amp=2.3, a=1.3)
     denspot = [potential.DehnenCoreSphericalPotential(amp=2.5, a=1.15)]
@@ -1946,7 +1993,10 @@ def test_osipkovmerritt_dehnencore_in_nfw_beta():
     return None
 
 
-def test_osipkovmerritt_dehnencore_in_nfw_dens_directint():
+def test_osipkovmerritt_dehnencore_in_nfw_dens_directint(
+    setup_osipkovmerritt_dfs_dehnencore_in_nfw,
+):
+    osipkovmerritt_dfs_dehnencore_in_nfw = setup_osipkovmerritt_dfs_dehnencore_in_nfw
     # Use list for both
     pot = [potential.NFWPotential(amp=2.3, a=1.3)]
     denspot = [potential.DehnenCoreSphericalPotential(amp=2.5, a=1.15)]
@@ -1965,7 +2015,10 @@ def test_osipkovmerritt_dehnencore_in_nfw_dens_directint():
     return None
 
 
-def test_osipkovmerritt_dehnencore_in_nfw_meanvr_directint():
+def test_osipkovmerritt_dehnencore_in_nfw_meanvr_directint(
+    setup_osipkovmerritt_dfs_dehnencore_in_nfw,
+):
+    osipkovmerritt_dfs_dehnencore_in_nfw = setup_osipkovmerritt_dfs_dehnencore_in_nfw
     pot = potential.NFWPotential(amp=2.3, a=1.3)
     denspot = potential.DehnenCoreSphericalPotential(amp=2.5, a=1.15)
     ras = [2.3, 5.7]
@@ -1977,7 +2030,10 @@ def test_osipkovmerritt_dehnencore_in_nfw_meanvr_directint():
     return None
 
 
-def test_osipkovmerritt_dehnencore_in_nfw_sigmar_directint():
+def test_osipkovmerritt_dehnencore_in_nfw_sigmar_directint(
+    setup_osipkovmerritt_dfs_dehnencore_in_nfw,
+):
+    osipkovmerritt_dfs_dehnencore_in_nfw = setup_osipkovmerritt_dfs_dehnencore_in_nfw
     pot = potential.NFWPotential(amp=2.3, a=1.3)
     denspot = potential.DehnenCoreSphericalPotential(amp=2.5, a=1.15)
     ras = [2.3, 5.7]
@@ -1996,7 +2052,10 @@ def test_osipkovmerritt_dehnencore_in_nfw_sigmar_directint():
     return None
 
 
-def test_osipkovmerritt_dehnencore_in_nfw_beta_directint():
+def test_osipkovmerritt_dehnencore_in_nfw_beta_directint(
+    setup_osipkovmerritt_dfs_dehnencore_in_nfw,
+):
+    osipkovmerritt_dfs_dehnencore_in_nfw = setup_osipkovmerritt_dfs_dehnencore_in_nfw
     pot = potential.NFWPotential(amp=2.3, a=1.3)
     denspot = potential.DehnenCoreSphericalPotential(amp=2.5, a=1.15)
     ras = [2.3, 5.7]
@@ -2013,7 +2072,10 @@ def test_osipkovmerritt_dehnencore_in_nfw_beta_directint():
     return None
 
 
-def test_osipkovmerritt_dehnencore_in_nfw_Qoutofbounds():
+def test_osipkovmerritt_dehnencore_in_nfw_Qoutofbounds(
+    setup_osipkovmerritt_dfs_dehnencore_in_nfw,
+):
+    osipkovmerritt_dfs_dehnencore_in_nfw = setup_osipkovmerritt_dfs_dehnencore_in_nfw
     pot = potential.NFWPotential(amp=2.3, a=1.3)
     denspot = potential.DehnenCoreSphericalPotential(amp=2.5, a=1.15)
     ras = [2.3, 5.7]
@@ -2052,7 +2114,6 @@ def test_constantbetadf_against_hernquist():
 
 
 # For the following tests, we use a DehnenCoreSphericalPotential
-constantbeta_dfs_selfconsist = None  # reuse in other tests
 
 
 @pytest.fixture(scope="module")
@@ -2292,20 +2353,29 @@ def test_constantbeta_selfconsist_dehnencore_rmin_inbounds(
 
 # For the following tests, we use a DehnenCoreSphericalPotential embedded in
 # an NFW halo
-constantbeta_dfs_dehnencore_in_nfw = None  # reuse in other tests
 
 
-def test_constantbeta_dehnencore_in_nfw_dens_spherically_symmetric():
+@pytest.fixture(scope="module")
+def setup_constantbeta_dfs_dehnencore_in_nfw():
     if WIN32:
         return None  # skip on Windows, because no JAX
     pot = potential.NFWPotential(amp=2.3, a=1.3)
     denspot = potential.DehnenCoreSphericalPotential(amp=2.5, a=1.15)
     betas = [0.25]
-    global constantbeta_dfs_dehnencore_in_nfw
     constantbeta_dfs_dehnencore_in_nfw = []
     for beta in betas:
         dfh = constantbetadf(pot=pot, denspot=denspot, beta=beta)
         constantbeta_dfs_dehnencore_in_nfw.append(dfh)
+    return constantbeta_dfs_dehnencore_in_nfw
+
+
+def test_constantbeta_dehnencore_in_nfw_dens_spherically_symmetric(
+    setup_constantbeta_dfs_dehnencore_in_nfw,
+):
+    if WIN32:
+        return None  # skip on Windows, because no JAX
+    constantbeta_dfs_dehnencore_in_nfw = setup_constantbeta_dfs_dehnencore_in_nfw
+    for dfh in constantbeta_dfs_dehnencore_in_nfw:
         numpy.random.seed(10)
         samp = dfh.sample(n=100000)
         # Check spherical symmetry for different harmonics l,m
@@ -2325,9 +2395,12 @@ def test_constantbeta_dehnencore_in_nfw_dens_spherically_symmetric():
     return None
 
 
-def test_constantbeta_dehnencore_in_nfw_dens_massprofile():
+def test_constantbeta_dehnencore_in_nfw_dens_massprofile(
+    setup_constantbeta_dfs_dehnencore_in_nfw,
+):
     if WIN32:
         return None  # skip on Windows, because no JAX
+    constantbeta_dfs_dehnencore_in_nfw = setup_constantbeta_dfs_dehnencore_in_nfw
     pot = potential.NFWPotential(amp=2.3, a=1.3)
     denspot = potential.DehnenCoreSphericalPotential(amp=2.5, a=1.15)
     betas = [0.25]
@@ -2344,9 +2417,12 @@ def test_constantbeta_dehnencore_in_nfw_dens_massprofile():
     return None
 
 
-def test_constantbeta_dehnencore_in_nfw_sigmar():
+def test_constantbeta_dehnencore_in_nfw_sigmar(
+    setup_constantbeta_dfs_dehnencore_in_nfw,
+):
     if WIN32:
         return None  # skip on Windows, because no JAX
+    constantbeta_dfs_dehnencore_in_nfw = setup_constantbeta_dfs_dehnencore_in_nfw
     # Use list
     pot = potential.CompositePotential([potential.NFWPotential(amp=2.3, a=1.3)])
     denspot = potential.DehnenCoreSphericalPotential(amp=2.5, a=1.15)
@@ -2369,9 +2445,12 @@ def test_constantbeta_dehnencore_in_nfw_sigmar():
     return None
 
 
-def test_constantbeta_dehnencore_in_nfw_beta():
+def test_constantbeta_dehnencore_in_nfw_beta(
+    setup_constantbeta_dfs_dehnencore_in_nfw,
+):
     if WIN32:
         return None  # skip on Windows, because no JAX
+    constantbeta_dfs_dehnencore_in_nfw = setup_constantbeta_dfs_dehnencore_in_nfw
     # Use list
     pot = potential.NFWPotential(amp=2.3, a=1.3)
     denspot = [potential.DehnenCoreSphericalPotential(amp=2.5, a=1.15)]
@@ -2394,9 +2473,12 @@ def test_constantbeta_dehnencore_in_nfw_beta():
 
 
 # Here in this case so it gets run before fE is changed for directint tests
-def test_constantbeta_dehnencore_in_nfw_Qoutofbounds():
+def test_constantbeta_dehnencore_in_nfw_Qoutofbounds(
+    setup_constantbeta_dfs_dehnencore_in_nfw,
+):
     if WIN32:
         return None  # skip on Windows, because no JAX
+    constantbeta_dfs_dehnencore_in_nfw = setup_constantbeta_dfs_dehnencore_in_nfw
     pot = potential.NFWPotential(amp=2.3, a=1.3)
     denspot = potential.DehnenCoreSphericalPotential(amp=2.5, a=1.15)
     betas = [0.25]
@@ -2414,9 +2496,12 @@ def test_constantbeta_dehnencore_in_nfw_Qoutofbounds():
     return None
 
 
-def test_constantbeta_dehnencore_in_nfw_dens_directint():
+def test_constantbeta_dehnencore_in_nfw_dens_directint(
+    setup_constantbeta_dfs_dehnencore_in_nfw,
+):
     if WIN32:
         return None  # skip on Windows, because no JAX
+    constantbeta_dfs_dehnencore_in_nfw = setup_constantbeta_dfs_dehnencore_in_nfw
     # Use list for both
     pot = [potential.NFWPotential(amp=2.3, a=1.3)]
     denspot = [potential.DehnenCoreSphericalPotential(amp=2.5, a=1.15)]
@@ -2436,9 +2521,12 @@ def test_constantbeta_dehnencore_in_nfw_dens_directint():
     return None
 
 
-def test_constantbeta_dehnencore_in_nfw_meanvr_directint():
+def test_constantbeta_dehnencore_in_nfw_meanvr_directint(
+    setup_constantbeta_dfs_dehnencore_in_nfw,
+):
     if WIN32:
         return None  # skip on Windows, because no JAX
+    constantbeta_dfs_dehnencore_in_nfw = setup_constantbeta_dfs_dehnencore_in_nfw
     pot = potential.NFWPotential(amp=2.3, a=1.3)
     denspot = potential.DehnenCoreSphericalPotential(amp=2.5, a=1.15)
     betas = [0.25]
@@ -2451,9 +2539,12 @@ def test_constantbeta_dehnencore_in_nfw_meanvr_directint():
     return None
 
 
-def test_constantbeta_dehnencore_in_nfw_sigmar_directint():
+def test_constantbeta_dehnencore_in_nfw_sigmar_directint(
+    setup_constantbeta_dfs_dehnencore_in_nfw,
+):
     if WIN32:
         return None  # skip on Windows, because no JAX
+    constantbeta_dfs_dehnencore_in_nfw = setup_constantbeta_dfs_dehnencore_in_nfw
     pot = potential.NFWPotential(amp=2.3, a=1.3)
     denspot = potential.DehnenCoreSphericalPotential(amp=2.5, a=1.15)
     betas = [0.25]
