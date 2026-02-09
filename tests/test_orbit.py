@@ -10763,3 +10763,257 @@ def test_orbit_continuation_chained():
         )
 
     return None
+
+
+# Tests for automatic time determination in orbit integration
+def test_integrate_auto_default_3D():
+    # Test auto-time integration with default (5 tdyn) for 3D orbit
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential2014
+
+    o = Orbit([1.0, 0.1, 1.1, 0.0, 0.1, 0.0])
+    o.integrate(MWPotential2014)
+
+    # Check integration occurred
+    assert hasattr(o, "t") and len(o.t) > 0, "Orbit should be integrated"
+    # Check array length: 51 points/tdyn × 5 tdyn + 1 = 256
+    assert len(o.t) == 256, f"Expected 256 time points, got {len(o.t)}"
+    # Check time starts at 0
+    assert numpy.abs(o.t[0]) < 1e-10, "Time should start at 0"
+    # Check time is positive
+    assert o.t[-1] > 0, "Final time should be positive"
+    return None
+
+
+def test_integrate_auto_default_2D():
+    # Test auto-time integration with default (5 tdyn) for 2D orbit
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential2014
+
+    o = Orbit([1.0, 0.1, 1.1, 0.0])
+    o.integrate(MWPotential2014)
+
+    # Check integration occurred
+    assert hasattr(o, "t") and len(o.t) > 0, "Orbit should be integrated"
+    # Check array length: 51 points/tdyn × 5 tdyn + 1 = 256
+    assert len(o.t) == 256, f"Expected 256 time points, got {len(o.t)}"
+    # Check time starts at 0
+    assert numpy.abs(o.t[0]) < 1e-10, "Time should start at 0"
+    # Check time is positive
+    assert o.t[-1] > 0, "Final time should be positive"
+    return None
+
+
+def test_integrate_auto_explicit_N():
+    # Test auto-time integration with explicit N=3
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential2014
+
+    o = Orbit([1.0, 0.1, 1.1, 0.0, 0.1, 0.0])
+    o.integrate(3, MWPotential2014)
+
+    # Check integration occurred
+    assert hasattr(o, "t") and len(o.t) > 0, "Orbit should be integrated"
+    # Check array length: 51 points/tdyn × 3 tdyn + 1 = 154
+    assert len(o.t) == 154, f"Expected 154 time points, got {len(o.t)}"
+    # Check time starts at 0
+    assert numpy.abs(o.t[0]) < 1e-10, "Time should start at 0"
+    # Check time is positive
+    assert o.t[-1] > 0, "Final time should be positive"
+    return None
+
+
+def test_integrate_auto_negative_N():
+    # Test auto-time integration with negative N for backward integration
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential2014
+
+    o = Orbit([1.0, 0.1, 1.1, 0.0, 0.1, 0.0])
+    o.integrate(-5, MWPotential2014)
+
+    # Check integration occurred
+    assert hasattr(o, "t") and len(o.t) > 0, "Orbit should be integrated"
+    # Check array length: 51 points/tdyn × 5 tdyn + 1 = 256
+    assert len(o.t) == 256, f"Expected 256 time points, got {len(o.t)}"
+    # Check time starts at 0
+    assert numpy.abs(o.t[0]) < 1e-10, "Time should start at 0"
+    # Check time is negative (backward integration)
+    assert o.t[-1] < 0, "Final time should be negative for backward integration"
+    return None
+
+
+def test_integrate_auto_zero_N_raises():
+    # Test that N=0 raises ValueError
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential2014
+
+    o = Orbit([1.0, 0.1, 1.1, 0.0, 0.1, 0.0])
+    with pytest.raises(ValueError, match="cannot be zero"):
+        o.integrate(0, MWPotential2014)
+    return None
+
+
+def test_integrate_auto_1D_raises():
+    # Test that 1D orbit raises ValueError
+    from galpy.orbit import Orbit
+    from galpy.potential import KeplerPotential
+
+    o = Orbit([1.0, 0.1])
+    kp = KeplerPotential(normalize=1.0)
+    with pytest.raises(ValueError, match="not supported for 1D orbits"):
+        o.integrate(kp)
+    return None
+
+
+def test_integrate_auto_composite_pot():
+    # Test auto-time integration with CompositePotential
+    from galpy.orbit import Orbit
+    from galpy.potential import HernquistPotential, NFWPotential
+
+    hp = HernquistPotential(amp=2.0, a=1.3)
+    nfw = NFWPotential(amp=1.0, a=2.0)
+    pot = hp + nfw  # CompositePotential
+
+    o = Orbit([1.0, 0.1, 1.1, 0.0, 0.1, 0.0])
+    o.integrate(pot)
+
+    # Check integration occurred
+    assert hasattr(o, "t") and len(o.t) > 0, "Orbit should be integrated"
+    # Check array length
+    assert len(o.t) == 256, f"Expected 256 time points, got {len(o.t)}"
+    return None
+
+
+def test_integrate_auto_planar_pot():
+    # Test auto-time integration with planar potential
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential2014
+
+    o = Orbit([1.0, 0.1, 1.1, 0.0])
+    o.integrate(MWPotential2014)
+
+    # Check integration occurred
+    assert hasattr(o, "t") and len(o.t) > 0, "Orbit should be integrated"
+    assert len(o.t) == 256, f"Expected 256 time points, got {len(o.t)}"
+    return None
+
+
+def test_integrate_auto_r_zero_raises():
+    # Test that orbit at r=0 raises ValueError
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential2014
+
+    # Orbit at r=0 (R=0, z=0)
+    o = Orbit([0.0, 0.1, 0.1, 0.0, 0.1, 0.0])
+    with pytest.raises(ValueError, match="r ≈ 0"):
+        o.integrate(MWPotential2014)
+    return None
+
+
+def test_integrate_auto_backward_compat():
+    # Test that explicit time array still works (backward compatibility)
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential2014
+
+    o1 = Orbit([1.0, 0.1, 1.1, 0.0, 0.1, 0.0])
+    o2 = Orbit([1.0, 0.1, 1.1, 0.0, 0.1, 0.0])
+
+    t = numpy.linspace(0, 10, 100)
+    o1.integrate(t, MWPotential2014)
+    o2.integrate(t, MWPotential2014)
+
+    # Both should give same results
+    assert len(o1.t) == 100, "Explicit time array should have 100 points"
+    assert len(o2.t) == 100, "Explicit time array should have 100 points"
+    assert numpy.allclose(o1.t, o2.t), "Times should match"
+    return None
+
+
+def test_integrate_auto_energy_conservation():
+    # Test that energy is conserved over auto-generated time
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential2014
+
+    o = Orbit([1.0, 0.1, 1.1, 0.0, 0.1, 0.0])
+    o.integrate(MWPotential2014)
+
+    # Energy should be conserved
+    E_initial = o.E(o.t[0])
+    E_final = o.E(o.t[-1])
+    assert numpy.abs((E_final - E_initial) / E_initial) < 1e-6, (
+        "Energy should be conserved to better than 1e-6"
+    )
+    return None
+
+
+def test_integrate_auto_time_array_properties():
+    # Test that auto-generated time array has correct properties
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential2014
+
+    o = Orbit([1.0, 0.1, 1.1, 0.0, 0.1, 0.0])
+    o.integrate(10, MWPotential2014)
+
+    # Check array length: 51 × 10 + 1 = 511
+    assert len(o.t) == 511, f"Expected 511 time points, got {len(o.t)}"
+    # Check that time array is evenly spaced
+    dt = numpy.diff(o.t)
+    assert numpy.allclose(dt, dt[0], rtol=1e-10), "Time array should be evenly spaced"
+    return None
+
+
+def test_integrate_auto_list_of_potentials():
+    # Test auto-time integration with list of potentials
+    from galpy.orbit import Orbit
+    from galpy.potential import HernquistPotential, NFWPotential
+
+    hp = HernquistPotential(amp=2.0, a=1.3)
+    nfw = NFWPotential(amp=1.0, a=2.0)
+    pot_list = [hp, nfw]
+
+    o = Orbit([1.0, 0.1, 1.1, 0.0, 0.1, 0.0])
+    o.integrate(pot_list)
+
+    # Check integration occurred
+    assert hasattr(o, "t") and len(o.t) > 0, "Orbit should be integrated"
+    assert len(o.t) == 256, f"Expected 256 time points, got {len(o.t)}"
+    return None
+
+
+def test_integrate_auto_multiple_orbits():
+    # Test auto-time integration with multiple orbits
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential2014
+
+    # Multiple orbits at different radii
+    o = Orbit([[1.0, 0.1, 1.1, 0.0, 0.1, 0.0], [2.0, 0.2, 1.2, 0.1, 0.2, 0.1]])
+    o.integrate(MWPotential2014)
+
+    # Should use max(r) for time determination
+    assert hasattr(o, "t") and len(o.t) > 0, "Orbit should be integrated"
+    assert len(o.t) == 256, f"Expected 256 time points, got {len(o.t)}"
+    return None
+
+
+def test_integrate_auto_continuation():
+    # Test that continuation behavior works with auto-time
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential2014
+
+    o = Orbit([1.0, 0.1, 1.1, 0.0, 0.1, 0.0])
+
+    # First integration with explicit time
+    t1 = numpy.linspace(0, 5, 100)
+    o.integrate(t1, MWPotential2014)
+
+    # Second integration continuing from first (also explicit time)
+    t2 = numpy.linspace(5, 10, 51)
+    o.integrate(t2, MWPotential2014)
+
+    # Should have merged
+    assert len(o.t) == 150, (
+        f"Expected 150 time points after continuation, got {len(o.t)}"
+    )
+    assert numpy.isclose(o.t[0], 0), "Time should start at 0"
+    assert numpy.isclose(o.t[-1], 10), "Time should end at 10"
+    return None
