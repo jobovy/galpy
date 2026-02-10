@@ -507,7 +507,7 @@ of the potential at the orbit's initial position. The dynamical time is
 calculated using the potential's ``tdyn`` method; for 2D orbits where this
 is not available, it falls back to :math:`t_{\mathrm{dyn}} = 2\pi R / v_c`.
 
-The simplest usage integrates for a default of 5 dynamical times:
+The simplest usage integrates for a default of 10 dynamical times:
 
 >>> from galpy.potential import MWPotential2014
 >>> o= Orbit([1.,0.1,1.1,0.,0.1,0.])
@@ -519,11 +519,11 @@ You can also specify the number of dynamical times to integrate:
 
 Negative values integrate backward in time:
 
->>> o.integrate(-5,MWPotential2014)  # Trace orbit backward 5 dynamical times
+>>> o.integrate(-10,MWPotential2014)  # Trace orbit backward 10 dynamical times
 
 The automatically generated time arrays use 101 points per dynamical time,
-providing good temporal resolution. For example, integrating for 5 dynamical
-times produces an array of 506 time points.
+providing good temporal resolution. For example, integrating for 10 dynamical
+times produces an array of 1011 time points.
 
 This feature works with all potential types, including composite potentials.
 For composite potentials where some components don't support ``tdyn`` (such as

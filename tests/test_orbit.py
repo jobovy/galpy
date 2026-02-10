@@ -10767,7 +10767,7 @@ def test_orbit_continuation_chained():
 
 # Tests for automatic time determination in orbit integration
 def test_integrate_auto_default_3D():
-    # Test auto-time integration with default (5 tdyn) for 3D orbit
+    # Test auto-time integration with default (10 tdyn) for 3D orbit
     from galpy.orbit import Orbit
     from galpy.potential import MWPotential2014
 
@@ -10776,8 +10776,8 @@ def test_integrate_auto_default_3D():
 
     # Check integration occurred
     assert hasattr(o, "t") and len(o.t) > 0, "Orbit should be integrated"
-    # Check array length: 101 points/tdyn × 5 tdyn + 1 = 506
-    assert len(o.t) == 506, f"Expected 506 time points, got {len(o.t)}"
+    # Check array length: 101 points/tdyn × 10 tdyn + 1 = 1011
+    assert len(o.t) == 1011, f"Expected 1011 time points, got {len(o.t)}"
     # Check time starts at 0
     assert numpy.abs(o.t[0]) < 1e-10, "Time should start at 0"
     # Check time is positive
@@ -10786,7 +10786,7 @@ def test_integrate_auto_default_3D():
 
 
 def test_integrate_auto_default_2D():
-    # Test auto-time integration with default (5 tdyn) for 2D orbit
+    # Test auto-time integration with default (10 tdyn) for 2D orbit
     from galpy.orbit import Orbit
     from galpy.potential import MWPotential2014
 
@@ -10795,8 +10795,8 @@ def test_integrate_auto_default_2D():
 
     # Check integration occurred
     assert hasattr(o, "t") and len(o.t) > 0, "Orbit should be integrated"
-    # Check array length: 101 points/tdyn × 5 tdyn + 1 = 506
-    assert len(o.t) == 506, f"Expected 506 time points, got {len(o.t)}"
+    # Check array length: 101 points/tdyn × 10 tdyn + 1 = 1011
+    assert len(o.t) == 1011, f"Expected 1011 time points, got {len(o.t)}"
     # Check time starts at 0
     assert numpy.abs(o.t[0]) < 1e-10, "Time should start at 0"
     # Check time is positive
@@ -10880,7 +10880,7 @@ def test_integrate_auto_composite_pot():
     # Check integration occurred
     assert hasattr(o, "t") and len(o.t) > 0, "Orbit should be integrated"
     # Check array length
-    assert len(o.t) == 506, f"Expected 506 time points, got {len(o.t)}"
+    assert len(o.t) == 1011, f"Expected 1011 time points, got {len(o.t)}"
     return None
 
 
@@ -10894,7 +10894,7 @@ def test_integrate_auto_planar_pot():
 
     # Check integration occurred
     assert hasattr(o, "t") and len(o.t) > 0, "Orbit should be integrated"
-    assert len(o.t) == 506, f"Expected 506 time points, got {len(o.t)}"
+    assert len(o.t) == 1011, f"Expected 1011 time points, got {len(o.t)}"
     return None
 
 
@@ -10973,7 +10973,7 @@ def test_integrate_auto_multiple_orbits():
 
     # Should use max(r) for time determination
     assert hasattr(o, "t") and len(o.t) > 0, "Orbit should be integrated"
-    assert len(o.t) == 506, f"Expected 506 time points, got {len(o.t)}"
+    assert len(o.t) == 1011, f"Expected 1011 time points, got {len(o.t)}"
     return None
 
 
@@ -11016,8 +11016,8 @@ def test_integrate_auto_composite_with_bar_3D():
 
     # Check integration occurred
     assert hasattr(o, "t") and len(o.t) > 0
-    # Should have 506 points (101 × 5 + 1)
-    assert len(o.t) == 506
+    # Should have 1011 points (101 × 10 + 1)
+    assert len(o.t) == 1011
     assert numpy.abs(o.t[0]) < 1e-10
     assert o.t[-1] > 0
     return None
@@ -11038,8 +11038,8 @@ def test_integrate_auto_composite_with_bar_2D():
 
     # Check integration occurred
     assert hasattr(o, "t") and len(o.t) > 0
-    # Should have 506 points (101 × 5 + 1)
-    assert len(o.t) == 506
+    # Should have 1011 points (101 × 10 + 1)
+    assert len(o.t) == 1011
     assert numpy.abs(o.t[0]) < 1e-10
     assert o.t[-1] > 0
     return None
