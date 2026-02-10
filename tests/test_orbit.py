@@ -11081,3 +11081,56 @@ def test_integrate_auto_deprecated_list():
     assert hasattr(o, "t") and len(o.t) > 0
     assert len(o.t) == 1011  # 101 × 10 + 1
     return None
+
+
+def test_integrate_auto_tdyn_filtering_consistency_3D():
+    # Test that dynamical time is the same whether using MWPotential2014 alone
+    # or MWPotential2014 + DehnenBarPotential (which doesn't support tdyn)
+    from galpy.orbit import Orbit
+    from galpy.potential import DehnenBarPotential, MWPotential2014
+
+    # Create two orbits at the same position
+    o1 = Orbit([1.0, 0.1, 1.1, 0.0, 0.1, 0.0])
+    o2 = Orbit([1.0, 0.1, 1.1, 0.0, 0.1, 0.0])
+
+    # Integrate with MWPotential2014 alone
+    o1.integrate(MWPotential2014)
+
+    # Integrate with MWPotential2014 + DehnenBarPotential
+    # DehnenBarPotential doesn't support tdyn, so should be filtered out
+    pot_composite = MWPotential2014 + DehnenBarPotential()
+    o2.integrate(pot_composite)
+
+    # The integration times should be identical since they should use the same tdyn
+    # (calculated from MWPotential2014 only in both cases)
+    assert numpy.allclose(o1.t, o2.t), (
+        f"Integration times differ: {o1.t[-1]} vs {o2.t[-1]}"
+    )
+    return None
+
+
+def test_integrate_auto_vcirc_filtering_consistency_2D():
+    # Test that dynamical time is the same whether using planar MWPotential2014 alone
+    # or planar MWPotential2014 + planar DehnenBarPotential (which doesn't support vcirc)
+    from galpy.orbit import Orbit
+    from galpy.potential import DehnenBarPotential, MWPotential2014
+
+    # Create two orbits at the same position
+    o1 = Orbit([1.0, 0.1, 1.1, 0.0])
+    o2 = Orbit([1.0, 0.1, 1.1, 0.0])
+
+    # Integrate with planar MWPotential2014 alone
+    pot_planar = MWPotential2014.toPlanar()
+    o1.integrate(pot_planar)
+
+    # Integrate with planar MWPotential2014 + planar DehnenBarPotential
+    # Planar DehnenBarPotential doesn't support vcirc, so should be filtered out
+    pot_composite = MWPotential2014.toPlanar() + DehnenBarPotential().toPlanar()
+    o2.integrate(pot_composite)
+
+    # The integration times should be identical since they should use the same vcirc
+    # (calculated from planar MWPotential2014 only in both cases)
+    assert numpy.allclose(o1.t, o2.t), (
+        f"Integration times differ: {o1.t[-1]} vs {o2.t[-1]}"
+    )
+    return None

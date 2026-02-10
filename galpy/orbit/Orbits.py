@@ -1509,9 +1509,10 @@ class Orbit:
             # If the full potential doesn't support tdyn, try with individual components
             for p in pot:
                 try:
-                    tdyn += p.tdyn(r_init, use_physical=False)
+                    tdyn += 1.0 / p.tdyn(r_init, use_physical=False) ** 2.0
                 except (NotImplementedError, AttributeError):
                     pass
+            tdyn = numpy.sqrt(1.0 / tdyn) if tdyn > 0.0 else 0.0
         if tdyn > 0.0:
             return tdyn
         # If all fail, fallback to vcirc
@@ -1522,9 +1523,10 @@ class Orbit:
             # Try with subset of potentials that support vcirc
             for p in pot:
                 try:
-                    vc += p.vcirc(r_init, use_physical=False)
+                    vc += p.vcirc(r_init, use_physical=False) ** 2.0
                 except (NotImplementedError, AttributeError):
                     pass
+            vc = numpy.sqrt(vc)
         if vc > 0.0:
             return 2.0 * numpy.pi * r_init / vc
 
