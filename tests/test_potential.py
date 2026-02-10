@@ -10138,6 +10138,82 @@ def test_plotting():
     return None
 
 
+def test_Force_len_iter():
+    """Test that single Force instances support len() and iteration."""
+    from galpy.potential import MiyamotoNagaiPotential
+
+    # Create a single 3D potential (Force)
+    pot = MiyamotoNagaiPotential(normalize=1.0)
+
+    # Test len()
+    assert len(pot) == 1, "len() of single Force should return 1"
+
+    # Test iteration
+    count = 0
+    for p in pot:
+        count += 1
+        assert p is pot, "Iteration should yield the Force itself"
+    assert count == 1, "Single Force should iterate exactly once"
+
+    # Test that list() works
+    pot_list = list(pot)
+    assert len(pot_list) == 1, "list() of single Force should have length 1"
+    assert pot_list[0] is pot, "list() should contain the Force itself"
+
+    return None
+
+
+def test_planarForce_len_iter():
+    """Test that single planarForce instances support len() and iteration."""
+    from galpy.potential import LogarithmicHaloPotential
+
+    # Create a single planar potential (planarForce)
+    pot_3d = LogarithmicHaloPotential(normalize=1.0)
+    pot = pot_3d.toPlanar()
+
+    # Test len()
+    assert len(pot) == 1, "len() of single planarForce should return 1"
+
+    # Test iteration
+    count = 0
+    for p in pot:
+        count += 1
+        assert p is pot, "Iteration should yield the planarForce itself"
+    assert count == 1, "Single planarForce should iterate exactly once"
+
+    # Test that list() works
+    pot_list = list(pot)
+    assert len(pot_list) == 1, "list() of single planarForce should have length 1"
+    assert pot_list[0] is pot, "list() should contain the planarForce itself"
+
+    return None
+
+
+def test_linearPotential_len_iter():
+    """Test that single linearPotential instances support len() and iteration."""
+    from galpy.potential import KGPotential
+
+    # Create a single linear potential
+    pot = KGPotential(K=1.0, D=1.0, F=0.5)
+
+    # Test len()
+    assert len(pot) == 1, "len() of single linearPotential should return 1"
+
+    # Test iteration
+    count = 0
+    for p in pot:
+        count += 1
+        assert p is pot, "Iteration should yield the linearPotential itself"
+    assert count == 1, "Single linearPotential should iterate exactly once"
+
+    # Test that list() works
+    pot_list = list(pot)
+    assert len(pot_list) == 1, "list() of single linearPotential should have length 1"
+    assert pot_list[0] is pot, "list() should contain the linearPotential itself"
+
+    return None
+
+
 # Classes for testing Integer TwoSphericalPotential and for testing special
 # cases of some other potentials
 from galpy.potential import (

@@ -32,19 +32,11 @@ _lib, _ext_loaded = _load_extension_libs.load_libgalpy()
 
 def _parse_pot(pot):
     """Parse the potential so it can be fed to C"""
-    from ..potential.planarCompositePotential import planarCompositePotential
-
-    # Handle planarCompositePotential by converting to list
-    if isinstance(pot, planarCompositePotential):
-        pot = list(pot)
-
-    # Figure out what's in pot
-    if not isinstance(pot, list):
-        pot = [pot]
-    # Remove NullPotentials from list of Potentials containing other potentials
+    # Remove NullPotentials from the potential (iterate directly without casting to list first)
     purged_pot = [p for p in pot if not isinstance(p, potential.NullPotential)]
     if len(purged_pot) > 0:
         pot = purged_pot
+
     # Initialize everything
     pot_type = []
     pot_args = []
