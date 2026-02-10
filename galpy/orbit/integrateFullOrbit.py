@@ -37,9 +37,6 @@ def _parse_pot(pot, potforactions=False, potfortorus=False):
     # Use purged_pot if it's not empty, otherwise use original
     if len(purged_pot) > 0:
         pot = purged_pot
-    else:
-        # Need to materialize pot to check for NullPotential error case
-        pot = list(pot)
 
     if (potforactions or potfortorus) and (
         (len(pot) == 1 and isinstance(pot[0], potential.NullPotential))

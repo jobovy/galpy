@@ -36,9 +36,6 @@ def _parse_pot(pot):
     purged_pot = [p for p in pot if not isinstance(p, potential.NullPotential)]
     if len(purged_pot) > 0:
         pot = purged_pot
-    else:
-        # Need to materialize pot for len() operation
-        pot = list(pot)
 
     # Initialize everything
     pot_type = []

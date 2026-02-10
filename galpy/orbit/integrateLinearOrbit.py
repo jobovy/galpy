@@ -29,7 +29,7 @@ def _parse_pot(pot):
     pot_type = []
     pot_args = []
     pot_tfuncs = []
-    npot = len(pot)  # Now that all potentials have __len__, we can use it directly
+    npot = len(pot)
     for p in pot:
         # Prepare for wrappers NOT CURRENTLY SUPPORTED, SEE PLANAR OR FULL
         if isinstance(p, verticalPotential) and isinstance(

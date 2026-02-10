@@ -81,11 +81,8 @@ def _handle_rmin(rmin, pot, denspot, scale, ro, df_name):
         return conversion.parse_length(rmin, ro=ro)
 
     # Get density potentials to check for problematic types
-    # Now that single potentials are iterable, we can iterate directly
-    denspot_list = denspot
-
     # Check all potentials for known problematic types
-    for p in denspot_list:
+    for p in denspot:
         # Check for KeplerPotential (point mass - no distributed density)
         if isinstance(p, KeplerPotential):
             raise ValueError(
