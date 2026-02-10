@@ -37,15 +37,12 @@ def _parse_pot(pot, potforactions=False, potfortorus=False):
     # Use purged_pot if it's not empty, otherwise use original
     if len(purged_pot) > 0:
         pot = purged_pot
-
-    if (potforactions or potfortorus) and (
-        (len(pot) == 1 and isinstance(pot[0], potential.NullPotential))
-        or numpy.all([isinstance(p, potential.NullPotential) for p in pot])
+    if (potforactions or potfortorus) and numpy.all(
+        [isinstance(p, potential.NullPotential) for p in pot]
     ):
         raise NotImplementedError(
             "Evaluating actions using the C backend is not supported for NullPotential instances"
         )
-
     # Initialize everything
     pot_type = []
     pot_args = []
