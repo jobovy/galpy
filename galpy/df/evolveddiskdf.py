@@ -2973,11 +2973,7 @@ class evolveddiskdf(df):
         phi = o.phi(use_physical=False)
         # Get local circular velocity, projected onto the los
         vcirc = calcRotcurve(
-            planarCompositePotential(
-                [p for p in self._pot if not p.isNonAxi]
-                if hasattr(self._pot, "__iter__")
-                else [self._pot]
-            ),
+            planarCompositePotential([p for p in self._pot if not p.isNonAxi]),
             R,
         )[0]
         vcirclos = vcirc * numpy.sin(phi + l)
@@ -3050,11 +3046,7 @@ class evolveddiskdf(df):
         # Get local circular velocity, projected onto the perpendicular
         # direction
         vcirc = calcRotcurve(
-            planarCompositePotential(
-                [p for p in self._pot if not p.isNonAxi]
-                if hasattr(self._pot, "__iter__")
-                else [self._pot]
-            ),
+            planarCompositePotential([p for p in self._pot if not p.isNonAxi]),
             R,
         )[0]
         vcircperp = vcirc * numpy.cos(phi + l)

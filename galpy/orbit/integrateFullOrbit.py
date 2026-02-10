@@ -33,11 +33,9 @@ _lib, _ext_loaded = _load_extension_libs.load_libgalpy()
 def _parse_pot(pot, potforactions=False, potfortorus=False):
     """Parse the potential so it can be fed to C"""
     # Figure out what's in pot
-    # Handle CompositePotential by extracting its internal list
-    if isinstance(pot, potential.CompositePotential):
-        pot = list(pot)
+    # Now that all potentials are iterable, we can convert directly to list
     if not isinstance(pot, list):
-        pot = [pot]
+        pot = list(pot)
     if (potforactions or potfortorus) and (
         (len(pot) == 1 and isinstance(pot[0], potential.NullPotential))
         or numpy.all([isinstance(p, potential.NullPotential) for p in pot])

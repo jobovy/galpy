@@ -81,11 +81,8 @@ def _handle_rmin(rmin, pot, denspot, scale, ro, df_name):
         return conversion.parse_length(rmin, ro=ro)
 
     # Get density potentials to check for problematic types
-    denspot_list = (
-        denspot
-        if isinstance(denspot, CompositePotential)
-        else CompositePotential(denspot)
-    )
+    # Now that single potentials are iterable, we can iterate directly
+    denspot_list = denspot
 
     # Check all potentials for known problematic types
     for p in denspot_list:

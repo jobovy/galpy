@@ -147,6 +147,38 @@ class Force:
 
     __truediv__ = __div__
 
+    def __len__(self):
+        """
+        Return the length of a single Force.
+
+        Returns
+        -------
+        int
+            Always returns 1 for a single Force.
+
+        Notes
+        -----
+        - 2026-02-10 - Written - Bovy (UofT)
+
+        """
+        return 1
+
+    def __iter__(self):
+        """
+        Iterate over a single Force.
+
+        Yields
+        ------
+        Force
+            The Force instance itself.
+
+        Notes
+        -----
+        - 2026-02-10 - Written - Bovy (UofT)
+
+        """
+        yield self
+
     def __add__(self, b):
         """
         Add Force or Potential instances together to create a multi-component potential (e.g., pot= pot1+pot2+pot3)

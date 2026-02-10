@@ -114,6 +114,38 @@ class planarForce:
 
     __truediv__ = __div__
 
+    def __len__(self):
+        """
+        Return the length of a single planarForce.
+
+        Returns
+        -------
+        int
+            Always returns 1 for a single planarForce.
+
+        Notes
+        -----
+        - 2026-02-10 - Written - Bovy (UofT)
+
+        """
+        return 1
+
+    def __iter__(self):
+        """
+        Iterate over a single planarForce.
+
+        Yields
+        ------
+        planarForce
+            The planarForce instance itself.
+
+        Notes
+        -----
+        - 2026-02-10 - Written - Bovy (UofT)
+
+        """
+        yield self
+
     def __add__(self, b):
         """
         Add planarPotential instances together to create a multi-component potential (e.g., pot= pot1+pot2+pot3)

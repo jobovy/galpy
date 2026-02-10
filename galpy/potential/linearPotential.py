@@ -99,6 +99,38 @@ class linearPotential:
 
     __truediv__ = __div__
 
+    def __len__(self):
+        """
+        Return the length of a single linearPotential.
+
+        Returns
+        -------
+        int
+            Always returns 1 for a single linearPotential.
+
+        Notes
+        -----
+        - 2026-02-10 - Written - Bovy (UofT)
+
+        """
+        return 1
+
+    def __iter__(self):
+        """
+        Iterate over a single linearPotential.
+
+        Yields
+        ------
+        linearPotential
+            The linearPotential instance itself.
+
+        Notes
+        -----
+        - 2026-02-10 - Written - Bovy (UofT)
+
+        """
+        yield self
+
     def __add__(self, b):
         """
         Add linearPotential instances together to create a multi-component potential (e.g., pot= pot1+pot2+pot3)
