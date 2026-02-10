@@ -10999,3 +10999,47 @@ def test_integrate_auto_continuation():
     assert numpy.isclose(o.t[0], 0), "Time should start at 0"
     assert numpy.isclose(o.t[-1], 10), "Time should end at 10"
     return None
+
+
+def test_integrate_auto_composite_with_bar_3D():
+    # Test auto-time with composite potential where some components fail tdyn
+    # DehnenBarPotential doesn't support tdyn, so should filter to working components
+    from galpy.orbit import Orbit
+    from galpy.potential import DehnenBarPotential, MWPotential2014
+
+    o = Orbit([1.0, 0.1, 1.1, 0.0, 0.1, 0.0])
+    # Add DehnenBarPotential which doesn't support tdyn
+    pot = MWPotential2014 + DehnenBarPotential()
+
+    # Should work by filtering to MWPotential2014 components
+    o.integrate(pot)
+
+    # Check integration occurred
+    assert hasattr(o, "t") and len(o.t) > 0
+    # Should have 506 points (101 × 5 + 1)
+    assert len(o.t) == 506
+    assert numpy.abs(o.t[0]) < 1e-10
+    assert o.t[-1] > 0
+    return None
+
+
+def test_integrate_auto_composite_with_bar_2D():
+    # Test auto-time with 2D composite where some components fail vcirc
+    # DehnenBarPotential.toPlanar() doesn't support vcirc, should filter to working components
+    from galpy.orbit import Orbit
+    from galpy.potential import DehnenBarPotential, MWPotential2014
+
+    o = Orbit([1.0, 0.1, 1.1, 0.0])
+    # Add planar bar potential which doesn't support vcirc
+    pot = MWPotential2014[0].toPlanar() + DehnenBarPotential().toPlanar()
+
+    # Should work by filtering to working planar potentials and using vcirc fallback
+    o.integrate(pot)
+
+    # Check integration occurred
+    assert hasattr(o, "t") and len(o.t) > 0
+    # Should have 506 points (101 × 5 + 1)
+    assert len(o.t) == 506
+    assert numpy.abs(o.t[0]) < 1e-10
+    assert o.t[-1] > 0
+    return None
