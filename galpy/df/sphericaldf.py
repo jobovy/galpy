@@ -80,7 +80,6 @@ def _handle_rmin(rmin, pot, denspot, scale, ro, df_name):
     if rmin is not None:
         return conversion.parse_length(rmin, ro=ro)
 
-    # Get density potentials to check for problematic types
     # Check all potentials for known problematic types
     for p in denspot:
         # Check for KeplerPotential (point mass - no distributed density)
