@@ -1503,33 +1503,30 @@ class Orbit:
         """
         from ..potential import tdyn, vcirc
 
-        # Convert pot to list for uniform handling
-        if isinstance(pot, CompositePotential):
-            pot_list = list(pot)
-        elif isinstance(pot, planarCompositePotential):
-            pot_list = list(pot)
-        elif isinstance(pot, list):
-            pot_list = pot
-        else:
-            pot_list = [pot]
-
         # Try to calculate tdyn with full potential first
         try:
             return tdyn(pot, r_init)
         except (NotImplementedError, AttributeError):
-            # Try with subset of potentials that support tdyn
-            working_pots = []
-            for p in pot_list:
-                try:
-                    # Test if this component supports tdyn
-                    tdyn([p], r_init)
-                    working_pots.append(p)
-                except (NotImplementedError, AttributeError):
-                    pass
+            # If the full potential doesn't support tdyn, try with individual components
+            # Only works if pot is a CompositePotential
+            if isinstance(pot, (CompositePotential, planarCompositePotential)):
+                # Try with subset of potentials that support tdyn
+                working_pots = None
+                for p in pot:
+                    try:
+                        # Test if this component supports tdyn
+                        tdyn(p, r_init)
+                        # If this is the first working pot, start a new composite
+                        if working_pots is None:
+                            working_pots = p
+                        else:
+                            working_pots = working_pots + p
+                    except (NotImplementedError, AttributeError):
+                        pass
 
-            # If some components work, use them
-            if len(working_pots) > 0:
-                return tdyn(working_pots, r_init)
+                # If some components work, use them
+                if working_pots is not None:
+                    return tdyn(working_pots, r_init)
 
             # If all fail and orbit is 2D, fallback to vcirc
             if self.dim() == 2:
@@ -2069,43 +2066,6 @@ class Orbit:
         return self._integrate_impl(
             t, pot, method, progressbar, dt, numcores, force_map, rtol, atol
         )
-
-    @integrate.register(list)
-    def _(
-        self,
-        t_or_pot,
-        pot=None,
-        method="symplec4_c",
-        progressbar=True,
-        dt=None,
-        numcores=_NUMCORES,
-        force_map=False,
-        rtol=None,
-        atol=None,
-    ):
-        """Handle list arguments - could be time array or list of potentials."""
-        # Check if this is a list of potentials (first element is a Potential)
-        if len(t_or_pot) > 0 and isinstance(t_or_pot[0], (Potential, planarPotential)):
-            # This is a list of potentials being passed as first arg
-            pot_list = t_or_pot
-            t_array = self._generate_auto_time_array(pot_list, N_tdyn=5)
-            return self._integrate_impl(
-                t_array,
-                pot_list,
-                method,
-                progressbar,
-                dt,
-                numcores,
-                force_map,
-                rtol,
-                atol,
-            )
-        else:
-            # This is a time array - normal usage integrate(t_list, pot)
-            t = t_or_pot
-            return self._integrate_impl(
-                t, pot, method, progressbar, dt, numcores, force_map, rtol, atol
-            )
 
     def integrate_SOS(
         self,

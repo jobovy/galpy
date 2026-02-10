@@ -10962,24 +10962,6 @@ def test_integrate_auto_time_array_properties():
     return None
 
 
-def test_integrate_auto_list_of_potentials():
-    # Test auto-time integration with list of potentials
-    from galpy.orbit import Orbit
-    from galpy.potential import HernquistPotential, NFWPotential
-
-    hp = HernquistPotential(amp=2.0, a=1.3)
-    nfw = NFWPotential(amp=1.0, a=2.0)
-    pot_list = [hp, nfw]
-
-    o = Orbit([1.0, 0.1, 1.1, 0.0, 0.1, 0.0])
-    o.integrate(pot_list)
-
-    # Check integration occurred
-    assert hasattr(o, "t") and len(o.t) > 0, "Orbit should be integrated"
-    assert len(o.t) == 506, f"Expected 506 time points, got {len(o.t)}"
-    return None
-
-
 def test_integrate_auto_multiple_orbits():
     # Test auto-time integration with multiple orbits
     from galpy.orbit import Orbit
