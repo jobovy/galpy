@@ -8726,6 +8726,40 @@ def test_planarCompositePotential_slicing():
     return None
 
 
+def test_planarCompositePotential_vcirc_omegac():
+    """Test that vcirc and omegac work for planar composite potentials."""
+    from galpy.potential import MWPotential2014
+
+    # Test with MWPotential2014 converted to planar
+    planar_mw = MWPotential2014.toPlanar()
+
+    # Test that vcirc and omegac methods exist and work
+    R = 1.0
+    vcirc_val = planar_mw.vcirc(R)
+    omegac_val = planar_mw.omegac(R)
+
+    # Check that the values are reasonable (non-zero, positive)
+    assert vcirc_val > 0, "vcirc should be positive"
+    assert omegac_val > 0, "omegac should be positive"
+
+    # Check that vcirc = R * omegac (basic relationship)
+    assert numpy.fabs(vcirc_val - R * omegac_val) < 1e-10, (
+        "vcirc should equal R * omegac"
+    )
+
+    # Test at different radii
+    R2 = 2.0
+    vcirc_val2 = planar_mw.vcirc(R2)
+    omegac_val2 = planar_mw.omegac(R2)
+    assert vcirc_val2 > 0, "vcirc should be positive at R=2"
+    assert omegac_val2 > 0, "omegac should be positive at R=2"
+    assert numpy.fabs(vcirc_val2 - R2 * omegac_val2) < 1e-10, (
+        "vcirc should equal R * omegac at R=2"
+    )
+
+    return None
+
+
 def test_planar_list_of_potentials_deprecation():
     """Test that passing a list of planar potentials emits DeprecationWarning."""
     import warnings
