@@ -500,6 +500,56 @@ coordinates (currently, times, positions, and velocities)
 >>> op= Orbit([1.,0.1,1.1,0.,0.1,0.],ro=8.,vo=220.) #Use Vc=220 km/s at R= 8 kpc as the normalization
 >>> op.integrate(ts,lp)
 
+For quick exploration and analysis, orbits can be integrated without
+specifying an explicit time array. In this case, ``galpy`` automatically
+determines an appropriate integration time based on the dynamical timescale
+of the potential at the orbit's initial position. The dynamical time is
+calculated using the potential's ``tdyn`` method; for 2D orbits where this
+is not available, it falls back to :math:`t_{\mathrm{dyn}} = 2\pi R / v_c`.
+
+The simplest usage integrates for a default of 5 dynamical times:
+
+>>> from galpy.potential import MWPotential2014
+>>> o= Orbit([1.,0.1,1.1,0.,0.1,0.])
+>>> o.integrate(MWPotential2014)
+
+You can also specify the number of dynamical times to integrate:
+
+>>> o.integrate(10,MWPotential2014)  # Integrate for 10 dynamical times
+
+Negative values integrate backward in time:
+
+>>> o.integrate(-5,MWPotential2014)  # Trace orbit backward 5 dynamical times
+
+The automatically generated time arrays use 101 points per dynamical time,
+providing good temporal resolution. For example, integrating for 5 dynamical
+times produces an array of 506 time points.
+
+This feature works with all potential types, including composite potentials.
+For composite potentials where some components don't support ``tdyn`` (such as
+non-axisymmetric potentials), ``galpy`` automatically filters to the components
+that do support it. If all components fail, 2D orbits will use the ``vcirc``
+fallback method, similarly filtering out those potential components that do not
+support it. Note that depending on the potential, this means that the dynamical time
+estimate that is used for the automatic time determination does not actually represent
+the true dynamical time of the full potential, but it is still a useful timescale for
+setting the integration time.
+
+Automatic time determination is not currently supported for 1D orbits,
+and requires the potential or at least one of its components to support either the
+``tdyn`` or ``vcirc`` methods.
+
+Here's an example comparing an orbit integrated with automatic time determination
+
+>>> o= Orbit([1.,0.1,1.1,0.1,0.2,0.3],ro=8.,vo=220.)
+>>> o.integrate(MWPotential2014)
+>>> o.plot()
+
+which gives
+
+.. image:: images/orbit-integration-auto.png
+   :scale: 100 %
+
 An ``Orbit`` instance containing multiple objects can be integrated in
 the same way and the orbit integration will be performed in parallel
 on machines with multiple cores. For the fast C integrators (:ref:`see
@@ -521,92 +571,6 @@ this can be overwritten). A simple example is
 # [ 0.1         0.18647825  0.27361065 ...,  3.39447863  3.34992543
 #   3.30527001]]
 
-.. _orbintegration-auto:
-
-Automatic time determination
-------------------------------
-
-For quick exploration and analysis, orbits can be integrated without
-specifying an explicit time array. In this case, ``galpy`` automatically
-determines an appropriate integration time based on the dynamical timescale
-of the potential at the orbit's initial position. The dynamical time is
-calculated using the potential's ``tdyn`` method; for 2D orbits where this
-is not available, it falls back to :math:`t_{\mathrm{dyn}} = 2\pi R / v_c`.
-
-The simplest usage integrates for a default of 5 dynamical times:
-
->>> o= Orbit([1.,0.1,1.1,0.,0.1,0.])
->>> from galpy.potential import MWPotential2014
->>> o.integrate(MWPotential2014)
-
-You can also specify the number of dynamical times to integrate:
-
->>> o.integrate(10,MWPotential2014)  # Integrate for 10 dynamical times
-
-Negative values integrate backward in time:
-
->>> o.integrate(-5,MWPotential2014)  # Trace orbit backward 5 dynamical times
-
-The automatically generated time arrays use 101 points per dynamical time,
-providing good temporal resolution. For example, integrating for 5 dynamical
-times produces an array of 506 time points.
-
-This feature works with all potential types, including composite potentials:
-
->>> from galpy.potential import NFWPotential, HernquistPotential
->>> pot= NFWPotential(amp=1., a=2.) + HernquistPotential(amp=2., a=1.3)
->>> o.integrate(pot)
-
-For composite potentials where some components don't support ``tdyn`` (such as
-non-axisymmetric potentials), ``galpy`` automatically filters to the components
-that do support it. If all components fail, 2D orbits will use the ``vcirc``
-fallback method.
-
-**Limitations**: Automatic time determination is not supported for 1D orbits,
-and requires the potential to support either ``tdyn`` or ``vcirc`` methods.
-
-Here's an example comparing an orbit integrated with automatic time determination
-to one with an explicit time array:
-
-.. plot::
-   :include-source:
-
-   from galpy.orbit import Orbit
-   from galpy.potential import MWPotential2014
-   import matplotlib.pyplot as plt
-
-   # Initialize two identical orbits
-   o_auto = Orbit([1., 0.1, 1.1, 0., 0.1, 0.])
-   o_manual = Orbit([1., 0.1, 1.1, 0., 0.1, 0.])
-
-   # Integrate with automatic time (default 5 tdyn)
-   o_auto.integrate(MWPotential2014)
-
-   # Integrate with explicit time array
-   import numpy as np
-   t_manual = np.linspace(0, 50, 500)
-   o_manual.integrate(t_manual, MWPotential2014)
-
-   # Plot both orbits
-   fig, axes = plt.subplots(1, 2, figsize=(12, 5))
-
-   # Left: XY projection
-   o_auto.plot(d1='x', d2='y', color='C0', label='Auto-time (5 tdyn)', lw=2, axes=axes[0])
-   o_manual.plot(d1='x', d2='y', color='C1', ls='--', label='Manual time', axes=axes[0])
-   axes[0].set_xlabel(r'$x$')
-   axes[0].set_ylabel(r'$y$')
-   axes[0].legend()
-   axes[0].set_title('Orbit in x-y plane')
-
-   # Right: R-z projection
-   o_auto.plot(d1='R', d2='z', color='C0', label='Auto-time (5 tdyn)', lw=2, axes=axes[1])
-   o_manual.plot(d1='R', d2='z', color='C1', ls='--', label='Manual time', axes=axes[1])
-   axes[1].set_xlabel(r'$R$')
-   axes[1].set_ylabel(r'$z$')
-   axes[1].legend()
-   axes[1].set_title('Orbit in R-z plane')
-
-   plt.tight_layout()
 
 .. _orbintegration-continuation:
 
