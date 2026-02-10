@@ -4006,10 +4006,16 @@ def turn_physical_on(Pot, ro=None, vo=None):
 
 def _flatten_list(L):
     for item in L:
-        try:
-            yield from _flatten_list(item)
-        except TypeError:
+        # Check if item is a single Force/Potential instance
+        # If so, yield it directly without trying to flatten further
+        # This prevents infinite recursion now that single potentials are iterable
+        if isinstance(item, Force):
             yield item
+        else:
+            try:
+                yield from _flatten_list(item)
+            except TypeError:
+                yield item
 
 
 def flatten(Pot):
