@@ -25,13 +25,12 @@ def _parse_pot(pot):
     """Parse the potential so it can be fed to C"""
     from .integrateFullOrbit import _parse_scf_pot
 
-    # Initialize everything (iterate directly over pot without casting to list)
+    # Initialize everything
     pot_type = []
     pot_args = []
     pot_tfuncs = []
-    npot = 0
+    npot = len(pot)  # Now that all potentials have __len__, we can use it directly
     for p in pot:
-        npot += 1
         # Prepare for wrappers NOT CURRENTLY SUPPORTED, SEE PLANAR OR FULL
         if isinstance(p, verticalPotential) and isinstance(
             p._Pot, potential.MN3ExponentialDiskPotential
