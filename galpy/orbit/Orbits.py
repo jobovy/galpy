@@ -1497,44 +1497,82 @@ class Orbit:
 
         Notes
         -----
-        - First tries to use tdyn(pot, r) for the potential
+        - First tries to use pot.tdyn(r) for the potential
         - For 2D orbits, falls back to 2π·r/vcirc if tdyn fails
         - Handles non-axisymmetric potentials that don't support tdyn
         """
-        from ..potential import tdyn, vcirc
-
         # Try to calculate tdyn with full potential first
         try:
-            return tdyn(pot, r_init)
+            return pot.tdyn(r_init)
         except (NotImplementedError, AttributeError):
             # If the full potential doesn't support tdyn, try with individual components
-            # Only works if pot is a CompositePotential
-            if isinstance(pot, (CompositePotential, planarCompositePotential)):
-                # Try with subset of potentials that support tdyn
-                working_pots = None
+            # Handle deprecated list of potentials or CompositePotential
+            if isinstance(pot, list) or isinstance(
+                pot, (CompositePotential, planarCompositePotential)
+            ):
+                # Collect potentials that support tdyn
+                working_pots_list = []
                 for p in pot:
                     try:
                         # Test if this component supports tdyn
-                        tdyn(p, r_init)
-                        # If this is the first working pot, start a new composite
-                        if working_pots is None:
-                            working_pots = p
-                        else:
-                            working_pots = working_pots + p
+                        p.tdyn(r_init)
+                        working_pots_list.append(p)
                     except (NotImplementedError, AttributeError):
                         pass
 
-                # If some components work, use them
-                if working_pots is not None:
-                    return tdyn(working_pots, r_init)
+                # If some components work, convert back to appropriate type and use them
+                if len(working_pots_list) > 0:
+                    # Convert list to CompositePotential/planarCompositePotential
+                    if isinstance(pot, planarCompositePotential) or (
+                        isinstance(pot, list)
+                        and len(pot) > 0
+                        and isinstance(pot[0], planarPotential)
+                    ):
+                        # Build planarCompositePotential
+                        working_pot = working_pots_list[0]
+                        for p in working_pots_list[1:]:
+                            working_pot = working_pot + p
+                    else:
+                        # Build CompositePotential
+                        working_pot = working_pots_list[0]
+                        for p in working_pots_list[1:]:
+                            working_pot = working_pot + p
+                    return working_pot.tdyn(r_init)
 
             # If all fail and orbit is 2D, fallback to vcirc
             if self.dim() == 2:
                 try:
-                    vc = vcirc(pot, r_init)
+                    vc = pot.vcirc(r_init)
                     return 2.0 * numpy.pi * r_init / vc
                 except (NotImplementedError, AttributeError):
-                    pass
+                    # Try with subset of potentials that support vcirc
+                    if isinstance(pot, list) or isinstance(
+                        pot, (CompositePotential, planarCompositePotential)
+                    ):
+                        working_pots_list = []
+                        for p in pot:
+                            try:
+                                p.vcirc(r_init)
+                                working_pots_list.append(p)
+                            except (NotImplementedError, AttributeError):
+                                pass
+
+                        if len(working_pots_list) > 0:
+                            # Convert list to appropriate type
+                            if isinstance(pot, planarCompositePotential) or (
+                                isinstance(pot, list)
+                                and len(pot) > 0
+                                and isinstance(pot[0], planarPotential)
+                            ):
+                                working_pot = working_pots_list[0]
+                                for p in working_pots_list[1:]:
+                                    working_pot = working_pot + p
+                            else:
+                                working_pot = working_pots_list[0]
+                                for p in working_pots_list[1:]:
+                                    working_pot = working_pot + p
+                            vc = working_pot.vcirc(r_init)
+                            return 2.0 * numpy.pi * r_init / vc
 
             # If nothing works, raise error
             raise ValueError(
@@ -2065,6 +2103,27 @@ class Orbit:
         t = self._generate_auto_time_array(pot, N_tdyn=5)
         return self._integrate_impl(
             t, pot, method, progressbar, dt, numcores, force_map, rtol, atol
+        )
+
+    @integrate.register(list)
+    def _(
+        self,
+        pot,
+        method="symplec4_c",
+        progressbar=True,
+        dt=None,
+        numcores=_NUMCORES,
+        force_map=False,
+        rtol=None,
+        atol=None,
+    ):
+        """Handle deprecated list of potentials (auto-time with default 5 tdyn)."""
+        # Lists can only contain potentials (deprecated syntax)
+        # This will trigger deprecation warning in _integrate_impl via
+        # _check_potential_list_and_deprecate
+        t_array = self._generate_auto_time_array(pot, N_tdyn=5)
+        return self._integrate_impl(
+            t_array, pot, method, progressbar, dt, numcores, force_map, rtol, atol
         )
 
     def integrate_SOS(
