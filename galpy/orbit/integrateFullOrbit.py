@@ -32,10 +32,15 @@ _lib, _ext_loaded = _load_extension_libs.load_libgalpy()
 
 def _parse_pot(pot, potforactions=False, potfortorus=False):
     """Parse the potential so it can be fed to C"""
-    # Figure out what's in pot
-    # Now that all potentials are iterable, we can convert directly to list
-    if not isinstance(pot, list):
+    # Remove NullPotentials from the potential (iterate directly without casting to list first)
+    purged_pot = [p for p in pot if not isinstance(p, potential.NullPotential)]
+    # Use purged_pot if it's not empty, otherwise use original
+    if len(purged_pot) > 0:
+        pot = purged_pot
+    else:
+        # Need to materialize pot to check for NullPotential error case
         pot = list(pot)
+
     if (potforactions or potfortorus) and (
         (len(pot) == 1 and isinstance(pot[0], potential.NullPotential))
         or numpy.all([isinstance(p, potential.NullPotential) for p in pot])
@@ -43,10 +48,7 @@ def _parse_pot(pot, potforactions=False, potfortorus=False):
         raise NotImplementedError(
             "Evaluating actions using the C backend is not supported for NullPotential instances"
         )
-    # Remove NullPotentials from list of Potentials containing other potentials
-    purged_pot = [p for p in pot if not isinstance(p, potential.NullPotential)]
-    if len(purged_pot) > 0:
-        pot = purged_pot
+
     # Initialize everything
     pot_type = []
     pot_args = []

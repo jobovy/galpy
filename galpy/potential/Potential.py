@@ -4005,13 +4005,28 @@ def turn_physical_on(Pot, ro=None, vo=None):
 
 
 def _flatten_list(L):
+    from .CompositePotential import CompositePotential
+    from .linearCompositePotential import linearCompositePotential
+    from .linearPotential import linearPotential
+    from .planarCompositePotential import planarCompositePotential
+    from .planarForce import planarForce
+
     for item in L:
-        # Check if item is a single Force/Potential instance
-        # If so, yield it directly without trying to flatten further
+        # Check if item is a CompositePotential - if so, recursively flatten its components
+        if isinstance(
+            item,
+            (CompositePotential, planarCompositePotential, linearCompositePotential),
+        ):
+            # Iterate over the composite potential to get its components, then flatten those
+            for component in item:
+                yield from _flatten_list([component])
+        # Check if item is a single Force/Potential/planarForce/linearPotential instance (not composite)
+        # If so, yield it directly without trying to iterate
         # This prevents infinite recursion now that single potentials are iterable
-        if isinstance(item, Force):
+        elif isinstance(item, (Force, planarForce, linearPotential)):
             yield item
         else:
+            # For non-Force items (like lists), try to iterate
             try:
                 yield from _flatten_list(item)
             except TypeError:

@@ -25,16 +25,13 @@ def _parse_pot(pot):
     """Parse the potential so it can be fed to C"""
     from .integrateFullOrbit import _parse_scf_pot
 
-    # Figure out what's in pot
-    # Now that all potentials are iterable, we can convert directly to list
-    if not isinstance(pot, list):
-        pot = list(pot)
-    # Initialize everything
+    # Initialize everything (iterate directly over pot without casting to list)
     pot_type = []
     pot_args = []
     pot_tfuncs = []
-    npot = len(pot)
+    npot = 0
     for p in pot:
+        npot += 1
         # Prepare for wrappers NOT CURRENTLY SUPPORTED, SEE PLANAR OR FULL
         if isinstance(p, verticalPotential) and isinstance(
             p._Pot, potential.MN3ExponentialDiskPotential
