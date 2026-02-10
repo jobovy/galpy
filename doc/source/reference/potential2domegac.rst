@@ -1,4 +1,4 @@
-galpy.potential.planarAxiPotential.omegac
-===========================================
+galpy.potential.planarPotential.omegac
+=======================================
 
-.. automethod:: galpy.potential.Potential.omegac
+.. automethod:: galpy.potential.planarPotential.omegac
