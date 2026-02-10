@@ -11074,7 +11074,7 @@ def test_integrate_auto_deprecated_list():
 
     # Suppress the deprecation warning for this test
     with warnings.catch_warnings():
-        warnings.filterwarnings("ignore", category=galpyWarning)
+        warnings.simplefilter("ignore", DeprecationWarning)
         o.integrate(pot_list)
 
     # Check integration occurred with default 10 tdyn
