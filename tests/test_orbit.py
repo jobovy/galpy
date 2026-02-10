@@ -11043,3 +11043,41 @@ def test_integrate_auto_composite_with_bar_2D():
     assert numpy.abs(o.t[0]) < 1e-10
     assert o.t[-1] > 0
     return None
+
+
+def test_integrate_auto_no_tdyn_no_vcirc_raises():
+    # Test that ValueError is raised when potential supports neither tdyn nor vcirc
+    # DehnenBarPotential.toPlanar() doesn't support either method
+    from galpy.orbit import Orbit
+    from galpy.potential import DehnenBarPotential
+
+    o = Orbit([1.0, 0.1, 1.1, 0.0])
+    pot = DehnenBarPotential().toPlanar()
+
+    # Should raise ValueError since neither tdyn nor vcirc work
+    with pytest.raises(ValueError, match="Cannot calculate dynamical time"):
+        o.integrate(pot)
+    return None
+
+
+def test_integrate_auto_deprecated_list():
+    # Test deprecated list of potentials interface (still needs to work for backward compatibility)
+    # Need to suppress DeprecationWarning since tests run with warnings as errors
+    import warnings
+
+    from galpy.orbit import Orbit
+    from galpy.potential import HernquistPotential, NFWPotential
+
+    o = Orbit([1.0, 0.1, 1.1, 0.0, 0.1, 0.0])
+    # Create list of potentials (deprecated syntax)
+    pot_list = [NFWPotential(amp=1.0, a=2.0), HernquistPotential(amp=2.0, a=1.3)]
+
+    # Suppress the deprecation warning for this test
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore", category=galpyWarning)
+        o.integrate(pot_list)
+
+    # Check integration occurred with default 10 tdyn
+    assert hasattr(o, "t") and len(o.t) > 0
+    assert len(o.t) == 1011  # 101 × 10 + 1
+    return None
