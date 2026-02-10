@@ -1498,77 +1498,42 @@ class Orbit:
         Notes
         -----
         - First tries to use pot.tdyn(r) for the potential
-        - For 2D orbits, falls back to 2π·r/vcirc if tdyn fails
+        - Then falls back to 2π·r/vcirc if tdyn fails
         - Handles non-axisymmetric potentials that don't support tdyn
         """
         # Try to calculate tdyn with full potential first
+        tdyn = 0.0
         try:
-            return pot.tdyn(r_init)
+            return pot.tdyn(r_init, use_physical=False)
         except (NotImplementedError, AttributeError):
             # If the full potential doesn't support tdyn, try with individual components
-            # Note: tdyn doesn't work for 2D potentials, so only try filtering for 3D
-            # Handle deprecated list of potentials or CompositePotential
-            if self.dim() != 2 and (
-                isinstance(pot, list) or isinstance(pot, CompositePotential)
-            ):
-                # Collect 3D potentials that support tdyn
-                working_pots_list = []
-                for p in pot:
-                    try:
-                        # Test if this component supports tdyn
-                        p.tdyn(r_init)
-                        working_pots_list.append(p)
-                    except (NotImplementedError, AttributeError):
-                        pass
-
-                # If some components work, build CompositePotential and use them
-                if len(working_pots_list) > 0:
-                    working_pot = working_pots_list[0]
-                    for p in working_pots_list[1:]:
-                        working_pot = working_pot + p
-                    return working_pot.tdyn(r_init)
-
-            # If all fail and orbit is 2D, fallback to vcirc
-            if self.dim() == 2:
+            for p in pot:
                 try:
-                    vc = pot.vcirc(r_init)
-                    return 2.0 * numpy.pi * r_init / vc
+                    tdyn += p.tdyn(r_init, use_physical=False)
                 except (NotImplementedError, AttributeError):
-                    # Try with subset of potentials that support vcirc
-                    if isinstance(pot, list) or isinstance(
-                        pot, (CompositePotential, planarCompositePotential)
-                    ):
-                        working_pots_list = []
-                        for p in pot:
-                            try:
-                                p.vcirc(r_init)
-                                working_pots_list.append(p)
-                            except (NotImplementedError, AttributeError):
-                                pass
+                    pass
+        if tdyn > 0.0:
+            return tdyn
+        # If all fail, fallback to vcirc
+        vc = 0.0
+        try:
+            vc = pot.vcirc(r_init, use_physical=False)
+        except (NotImplementedError, AttributeError):
+            # Try with subset of potentials that support vcirc
+            for p in pot:
+                try:
+                    vc += p.vcirc(r_init, use_physical=False)
+                except (NotImplementedError, AttributeError):
+                    pass
+        if vc > 0.0:
+            return 2.0 * numpy.pi * r_init / vc
 
-                        if len(working_pots_list) > 0:
-                            # Convert list to appropriate type
-                            if isinstance(pot, planarCompositePotential) or (
-                                isinstance(pot, list)
-                                and len(pot) > 0
-                                and isinstance(pot[0], planarPotential)
-                            ):
-                                working_pot = working_pots_list[0]
-                                for p in working_pots_list[1:]:
-                                    working_pot = working_pot + p
-                            else:
-                                working_pot = working_pots_list[0]
-                                for p in working_pots_list[1:]:
-                                    working_pot = working_pot + p
-                            vc = working_pot.vcirc(r_init)
-                            return 2.0 * numpy.pi * r_init / vc
-
-            # If nothing works, raise error
-            raise ValueError(
-                "Cannot calculate dynamical time: potential does not support tdyn() "
-                "and fallback to vcirc failed. This may occur with non-axisymmetric "
-                "potentials or potentials without these methods implemented."
-            )
+        # If nothing works, raise error
+        raise ValueError(
+            "Cannot calculate dynamical time: potential does not support tdyn() "
+            "and fallback to vcirc failed. This may occur with non-axisymmetric "
+            "potentials or potentials without these methods implemented."
+        )
 
     def _generate_auto_time_array(self, pot, N_tdyn=5):
         """
@@ -1609,18 +1574,13 @@ class Orbit:
         # Get initial spherical radius
         if self.dim() == 2:
             # For 2D orbits, r = R (first component of vxvv)
-            r_init = self.vxvv[:, 0]
+            r_init = self.R(use_physical=False)
         else:
             # For 3D orbits, r = sqrt(R² + z²)
-            R = self.vxvv[:, 0]
-            z = self.vxvv[:, 3]
-            r_init = numpy.sqrt(R**2 + z**2)
+            r_init = self.r(use_physical=False)
 
         # For multiple orbits, use max radius for conservative time period
-        if r_init.size > 1:
-            r_init = float(numpy.max(r_init))
-        else:
-            r_init = float(r_init.item())
+        r_init = float(numpy.amax(numpy.atleast_1d(r_init)))
 
         # Handle edge case: r ≈ 0
         if r_init < 1e-10:
@@ -1632,16 +1592,11 @@ class Orbit:
         # Calculate dynamical time
         tdyn_val = self._calculate_dynamical_time(pot, r_init)
 
-        # Generate time array: 101 points per dynamical time
-        # For negative N, integrate backward in time
+        # Generate time array: 101 points per dynamical time,
+        # negative N is okay to integrate backwards
         n_points = 101 * abs(N_tdyn) + 1
-        if N_tdyn >= 0:
-            t_array = numpy.linspace(0, N_tdyn * tdyn_val, n_points)
-        else:
-            # Negative N: integrate backward
-            t_array = numpy.linspace(0, N_tdyn * tdyn_val, n_points)
 
-        return t_array
+        return numpy.linspace(0, N_tdyn * tdyn_val, n_points)
 
     def _integrate_impl(
         self,
@@ -1959,7 +1914,7 @@ class Orbit:
 
         This method supports three call patterns:
 
-        1. **Explicit time array**: ``integrate(t, pot, ...)`` - Original behavior
+        1. **Explicit time array**: ``integrate(t, pot, ...)`` - integrate for the specified time array t
         2. **Auto-time with N**: ``integrate(N, pot, ...)`` - Integrate for N dynamical times
         3. **Auto-time default**: ``integrate(pot, ...)`` - Integrate for 5 dynamical times (default)
 
@@ -2008,21 +1963,6 @@ class Orbit:
           -  'ias15_c' for an adaptive 15th order integrator using Gauß-Radau quadrature (see IAS15 paper) in C
 
         - When continuing an integration, the time arrays do not need to have the same number of points or the same spacing. However, for methods that require equispaced times, each individual time array must be equispaced.
-
-        - **Automatic time determination** (new in 2026):
-
-          When using auto-time (passing int or Potential as first argument):
-
-          - Dynamical time is calculated using ``tdyn(pot, r)`` at the initial position
-          - For 2D orbits with potentials that don't support ``tdyn``, falls back to ``2π·r/vcirc``
-          - Time array has 101 points per dynamical time
-          - Default is 5 dynamical times
-          - Not supported for 1D orbits
-          - Examples::
-
-              o.integrate(MWPotential2014)           # 5 dynamical times
-              o.integrate(10, MWPotential2014)       # 10 dynamical times
-              o.integrate(-5, MWPotential2014)       # 5 dynamical times backward
 
         - 2018-10-13 - Written as parallel_map applied to regular Orbit integration - Mathew Bub (UofT)
         - 2018-12-26 - Written to use OpenMP C implementation - Bovy (UofT)
