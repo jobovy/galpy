@@ -540,235 +540,286 @@ void compute_P_dP(double x, int L, int M, double *P_array, double *dP_array)
 
 
 
-typedef struct equations equations;
-struct equations
-{
-    double ((**Eq)(double, double, double, double, double, double, int));
-    double *(*phiTilde);
-    double *(*P);
-    double *Constant;
-};
+/*=============================================================================
+ * EXPANSION EVALUATION STRUCTURES
+ * 
+ * These structures and functions handle the summation over expansion terms.
+ * They use function pointers to allow computing different quantities
+ * (potential, forces, derivatives) with the same summation logic.
+ * 
+ * The expansion has the form:
+ *   F = sqrt(4*pi) * sum_{n,l,m} A_{nlm} * f(coeffs, P_l^m, basis_nl)
+ * 
+ * where f is one of the compute functions (potential, force components, etc.)
+ *===========================================================================*/
 
-typedef struct axi_equations axi_equations;
-struct axi_equations
-{
-    double ((**Eq)(double, double, double));
-    double *(*phiTilde);
-    double *(*P);
-    double *Constant;
-};
+/**
+ * Structure for non-axisymmetric expansion evaluation
+ * Contains arrays of function pointers and data for multiple outputs
+ */
+typedef struct equations {
+    double ((**Eq)(double, double, double, double, double, double, int));  // Function pointers
+    double *(*phiTilde);  // Radial basis functions
+    double *(*P);         // Angular basis functions (Legendre)
+    double *Constant;     // Normalization constants
+} equations;
 
-//Compute axi symmetric potentials.
+/**
+ * Structure for axisymmetric expansion evaluation (m=0 only)
+ * Simplified version with only cos terms (no sin)
+ */
+typedef struct axi_equations {
+    double ((**Eq)(double, double, double));  // Simplified function pointers
+    double *(*phiTilde);  // Radial basis functions
+    double *(*P);         // Angular basis functions
+    double *Constant;     // Normalization constants
+} axi_equations;
+
+/**
+ * Compute axisymmetric expansion (m=0 terms only)
+ * 
+ * Evaluates: F_i = sqrt(4*pi) * sum_{n,l} A_{n,l,0} * Eq_i(A, P_l, basis_{nl})
+ * 
+ * @param a Scale length (unused in this function but kept for consistency)
+ * @param N Number of radial terms
+ * @param L Number of angular terms
+ * @param M Maximum order (should be 1 for axisymmetric)
+ * @param r, theta, phi Spherical coordinates (phi unused in axisymmetric case)
+ * @param Acos Expansion coefficients
+ * @param eq_size Number of equations to compute simultaneously
+ * @param e Structure containing function pointers and data
+ * @param F Output array of size eq_size
+ */
 void compute(double a, int N, int L, int M,
-	     double r, double theta, double phi,
-	     double *Acos, int eq_size,
-	     axi_equations e,
-	     double *F)
+             double r, double theta, double phi,
+             double *Acos, int eq_size,
+             axi_equations e,
+             double *F)
 {
-    int i,n,l;
-    for (i = 0; i < eq_size; i++)
-    {
-        *(F + i) =0; //Initialize each F
+    // Initialize output
+    for (int i = 0; i < eq_size; i++) {
+        F[i] = 0.0;
     }
-
-    for (l = 0; l < L; l++)
-    {
-
-        for (n = 0; n < N; n++)
-        {
-
-
-
-            double Acos_val = *(Acos + M*l + M*L*n);
-            for (i = 0; i < eq_size; i++)
-            {
-                double (*Eq)(double, double, double) = *(e.Eq + i);
-                double *P = *(e.P + i);
-                double *phiTilde = *(e.phiTilde + i);
-                *(F + i) += (*Eq)(Acos_val, P[l], phiTilde[l*N + n]);
+    
+    // Sum over angular momentum and radial terms
+    for (int l = 0; l < L; l++) {
+        for (int n = 0; n < N; n++) {
+            // Get expansion coefficient (only m=0 term)
+            double Acos_val = Acos[M*l + M*L*n];
+            
+            // Compute contribution to each output quantity
+            for (int i = 0; i < eq_size; i++) {
+                double (*Eq)(double, double, double) = e.Eq[i];
+                double *P = e.P[i];
+                double *phiTilde = e.phiTilde[i];
+                F[i] += Eq(Acos_val, P[l], phiTilde[l*N + n]);
             }
-
-
         }
     }
-
-    //Multiply F by constants
-    for (i = 0; i < eq_size; i++)
-    {
-        double constant = *(e.Constant + i);
-        *(F + i) *= constant*sqrt(4*M_PI);
+    
+    // Apply normalization constant
+    for (int i = 0; i < eq_size; i++) {
+        F[i] *= e.Constant[i] * sqrt(4.0 * M_PI);
     }
-
 }
 
-//Compute Non Axi symmetric Potentials
+/**
+ * Compute non-axisymmetric expansion (full 3D case)
+ * 
+ * Evaluates: F_i = sqrt(4*pi) * sum_{n,l,m} [A_cos*cos(m*phi) + A_sin*sin(m*phi)] 
+ *                                            * Eq_i(coeffs, P_l^m, basis_{nl})
+ * 
+ * Note: The indexing of P_array differs between GSL 1.x and 2.x:
+ *   - GSL 2.x: Single triangular array with all (l,m) pairs
+ *   - GSL 1.x: Grouped by m, requiring index adjustment
+ * 
+ * @param a Scale length
+ * @param N Number of radial terms
+ * @param L Number of angular terms
+ * @param M Maximum azimuthal order
+ * @param r, theta, phi Spherical coordinates
+ * @param Acos, Asin Expansion coefficients (cos and sin parts)
+ * @param eq_size Number of equations to compute
+ * @param e Structure with function pointers and data
+ * @param F Output array
+ */
 void computeNonAxi(double a, int N, int L, int M,
-		   double r, double theta, double phi,
-		   double *Acos, double *Asin, int eq_size,
-		   equations e,
-		   double *F)
+                   double r, double theta, double phi,
+                   double *Acos, double *Asin, int eq_size,
+                   equations e,
+                   double *F)
 {
-    int i,n,l,m;
-    for (i = 0; i < eq_size; i++)
-    {
-        *(F + i) =0; //Initialize each F
+    // Initialize output
+    for (int i = 0; i < eq_size; i++) {
+        F[i] = 0.0;
     }
-
-    int v1counter=0;
-    int v2counter = 0;
-    int Pindex = 0;
-    for (l = 0; l < L; l++)
-    {
+    
+    // Index counters for GSL version compatibility
+    int v1counter = 0;  // GSL 1.x indexing
+    int v2counter = 0;  // GSL 2.x indexing
+    
+    // Sum over angular momentum
+    for (int l = 0; l < L; l++) {
         v1counter = 0;
-        for (m = 0; m<=l; m++)
-        {
+        
+        // Sum over azimuthal order (0 <= m <= l)
+        for (int m = 0; m <= l; m++) {
+            // Determine correct index into P array based on GSL version
+            int Pindex;
             #if GSL_MAJOR_VERSION == 2
                 Pindex = v2counter;
             #else
                 Pindex = v1counter + l;
             #endif
-
-            double mCos = cos(m*phi);
-            double mSin = sin(m*phi);
-            for (n = 0; n < N; n++)
-            {
-                double Acos_val = *(Acos +m + M*l + M*L*n);
-                double Asin_val = *(Asin +m + M*l + M*L*n);
-                for (i = 0; i < eq_size; i++)
-                {
-                    double (*Eq)(double, double, double, double, double, double, int) = *(e.Eq + i);
-                    double *P = *(e.P + i);
-                    double *phiTilde = *(e.phiTilde + i);
-                    *(F + i) += (*Eq)(Acos_val, Asin_val, mCos, mSin, P[Pindex], phiTilde[l*N + n], m);
+            
+            // Compute azimuthal factors
+            double mCos = cos(m * phi);
+            double mSin = sin(m * phi);
+            
+            // Sum over radial terms
+            for (int n = 0; n < N; n++) {
+                double Acos_val = Acos[m + M*l + M*L*n];
+                double Asin_val = Asin[m + M*l + M*L*n];
+                
+                // Compute contribution to each output quantity
+                for (int i = 0; i < eq_size; i++) {
+                    double (*Eq)(double, double, double, double, double, double, int) = e.Eq[i];
+                    double *P = e.P[i];
+                    double *phiTilde = e.phiTilde[i];
+                    F[i] += Eq(Acos_val, Asin_val, mCos, mSin, P[Pindex], 
+                              phiTilde[l*N + n], m);
                 }
-
-
             }
-
-
-
-                v2counter++;
-                v1counter+=M-m - 1;
-
+            
+            // Update index counters
+            v2counter++;
+            v1counter += M - m - 1;
         }
-
-
-
-
     }
-    //Multiply F by constants
-    for (i = 0; i < eq_size; i++)
-    {
-        double constant = *(e.Constant + i);
-        *(F + i) *= constant*sqrt(4*M_PI);
+    
+    // Apply normalization constant
+    for (int i = 0; i < eq_size; i++) {
+        F[i] *= e.Constant[i] * sqrt(4.0 * M_PI);
     }
-
 }
 
 
 
-//Compute the Forces
-void computeForce(double R,double Z, double phi,
-		  double t,
-		  struct potentialArg * potentialArgs, double * F)
+/*=============================================================================
+ * MAIN COMPUTATION FUNCTIONS
+ * 
+ * These functions compute forces and derivatives for the SCF potential.
+ * They handle coordinate transformations, polynomial evaluation, and
+ * caching of results for efficiency.
+ *===========================================================================*/
+
+/**
+ * Compute forces in spherical coordinates: (F_r, F_theta, F_phi)
+ * 
+ * This is the main workhorse function that:
+ *   1. Checks cache for previously computed values
+ *   2. Transforms cylindrical to spherical coordinates
+ *   3. Evaluates Gegenbauer polynomials and derivatives
+ *   4. Evaluates radial basis functions and derivatives
+ *   5. Evaluates Legendre polynomials and derivatives
+ *   6. Sums expansion to get force components
+ *   7. Caches result for future calls
+ * 
+ * @param R, Z, phi Cylindrical coordinates
+ * @param t Time (unused, kept for interface compatibility)
+ * @param potentialArgs Structure containing expansion parameters and coefficients
+ * @param F Output: forces in spherical coordinates [F_r, F_theta, F_phi]
+ */
+void computeForce(double R, double Z, double phi,
+                  double t,
+                  struct potentialArg *potentialArgs, double *F)
 {
-    double * args= potentialArgs->args;
-    //Get args
+    double *args = potentialArgs->args;
+    
+    // Parse arguments
     double a = *args++;
     int isNonAxi = (int)*args++;
     int N = (int)*args++;
     int L = (int)*args++;
     int M = (int)*args++;
-
-    double* Acos = args;
-
-    double* caching_i = (args + (isNonAxi + 1)*N*L*M);
-    double *Asin;
-    if (isNonAxi == 1)
-    {
-        Asin = args + N*L*M;
+    double *Acos = args;
+    
+    // Set up pointers to coefficient arrays and cache
+    double *caching_i = args + (isNonAxi + 1) * N * L * M;
+    double *Asin = NULL;
+    if (isNonAxi == 1) {
+        Asin = args + N * L * M;
     }
+    
+    // Check cache
     double *cached_type = caching_i;
-    double * cached_coords = (caching_i+ 1);
-    double * cached_values = (caching_i + 4);
-    if ((int)*cached_type==FORCE)
-    {
-        if (*cached_coords == R && *(cached_coords + 1) == Z && *(cached_coords + 2) == phi)
-        {
-            *F = *cached_values;
-            *(F + 1) = *(cached_values + 1);
-            *(F + 2) = *(cached_values + 2);
+    double *cached_coords = caching_i + 1;
+    double *cached_values = caching_i + 4;
+    
+    if ((int)*cached_type == FORCE) {
+        if (cached_coords[0] == R && cached_coords[1] == Z && cached_coords[2] == phi) {
+            F[0] = cached_values[0];
+            F[1] = cached_values[1];
+            F[2] = cached_values[2];
             return;
         }
     }
-    double r;
-    double theta;
+    
+    // Transform coordinates
+    double r, theta;
     cyl_to_spher(R, Z, &r, &theta);
-
+    
     double xi;
     calculateXi(r, a, &xi);
-
-//Compute the gegenbauer polynomials and its derivative.
-    double *C= (double *) malloc ( N*L * sizeof(double) );
-    double *dC= (double *) malloc ( N*L * sizeof(double) );
-    double *phiTilde= (double *) malloc ( N*L * sizeof(double) );
-    double *dphiTilde= (double *) malloc ( N*L * sizeof(double) );
-
+    
+    // Allocate memory for polynomial evaluations
+    double *C = (double *) malloc(N * L * sizeof(double));
+    double *dC = (double *) malloc(N * L * sizeof(double));
+    double *phiTilde = (double *) malloc(N * L * sizeof(double));
+    double *dphiTilde = (double *) malloc(N * L * sizeof(double));
+    
+    // Compute radial basis: Gegenbauer polynomials and radial functions
     compute_C(xi, N, L, C);
     compute_dC(xi, N, L, dC);
-
-//Compute phiTilde and its derivative
     compute_phiTilde(r, a, N, L, C, phiTilde);
-
     compute_dphiTilde(r, a, N, L, C, dC, dphiTilde);
-
-//Compute Associated Legendre Polynomials
-    int M_eff = M;
-    int size = 0;
-
-    if (isNonAxi==0)
-    {
-    M_eff = 1;
-    size = L;
-    } else{
-    size = L*L - L*(L-1)/2;
-    }
-
-    double *P= (double *) malloc ( size * sizeof(double) );
-    double *dP= (double *) malloc ( size * sizeof(double) );
+    
+    // Compute angular basis: Associated Legendre polynomials
+    int M_eff = (isNonAxi == 0) ? 1 : M;
+    int size = (isNonAxi == 0) ? L : (L * L - L * (L - 1) / 2);
+    
+    double *P = (double *) malloc(size * sizeof(double));
+    double *dP = (double *) malloc(size * sizeof(double));
     compute_P_dP(cos(theta), L, M_eff, P, dP);
-
-    double (*PhiTilde_Pointer[3]) = {dphiTilde,phiTilde,phiTilde};
-    double (*P_Pointer[3]) = {P, dP, P};
-
-    double Constant[3] = {1., -sin(theta), 1.};
-
-    if (isNonAxi == 1)
-    {
-        double (*Eq[3])(double, double, double, double, double, double, int) = {&computeF_r, &computeF_theta, &computeF_phi};
-        equations e = {Eq,&PhiTilde_Pointer[0], &P_Pointer[0], &Constant[0]};
-        computeNonAxi(a, N, L, M,r, theta, phi, Acos, Asin, 3, e, F);
+    
+    // Set up arrays for expansion evaluation
+    // Forces require: dphiTilde for F_r, phiTilde with dP for F_theta, phiTilde for F_phi
+    double *PhiTilde_Pointer[3] = {dphiTilde, phiTilde, phiTilde};
+    double *P_Pointer[3] = {P, dP, P};
+    double Constant[3] = {1.0, -sin(theta), 1.0};  // Include sin(theta) for theta derivative
+    
+    // Compute forces based on symmetry
+    if (isNonAxi == 1) {
+        double (*Eq[3])(double, double, double, double, double, double, int) = 
+            {&computeF_r, &computeF_theta, &computeF_phi};
+        equations e = {Eq, &PhiTilde_Pointer[0], &P_Pointer[0], &Constant[0]};
+        computeNonAxi(a, N, L, M, r, theta, phi, Acos, Asin, 3, e, F);
+    } else {
+        double (*Eq[3])(double, double, double) = 
+            {&computeAxiF_r, &computeAxiF_theta, &computeAxiF_phi};
+        axi_equations e = {Eq, &PhiTilde_Pointer[0], &P_Pointer[0], &Constant[0]};
+        compute(a, N, L, M, r, theta, phi, Acos, 3, e, F);
     }
-    else
-    {
-        double (*Eq[3])(double, double, double) = {&computeAxiF_r, &computeAxiF_theta, &computeAxiF_phi};
-        axi_equations e = {Eq,&PhiTilde_Pointer[0], &P_Pointer[0], &Constant[0]};
-        compute(a, N, L, M,r, theta, phi, Acos, 3, e, F);
-    }
-
-
-
-    //Caching
-
+    
+    // Cache results
     *cached_type = (double)FORCE;
-
-    * cached_coords = R;
-    * (cached_coords + 1) = Z;
-    * (cached_coords + 2) = phi;
-    * (cached_values) = *F;
-    * (cached_values + 1) = *(F + 1);
-    * (cached_values + 2) = *(F + 2);
-
+    cached_coords[0] = R;
+    cached_coords[1] = Z;
+    cached_coords[2] = phi;
+    cached_values[0] = F[0];
+    cached_values[1] = F[1];
+    cached_values[2] = F[2];
+    
     // Free memory
     free(C);
     free(dC);
@@ -776,7 +827,6 @@ void computeForce(double R,double Z, double phi,
     free(dphiTilde);
     free(P);
     free(dP);
-
 }
 
 //Compute the Derivatives
