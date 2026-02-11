@@ -1999,9 +1999,7 @@ class Orbit:
         )
 
     @integrate.register(Potential)
-    @integrate.register(CompositePotential)
     @integrate.register(planarPotential)
-    @integrate.register(planarCompositePotential)
     def _(
         self,
         pot,
