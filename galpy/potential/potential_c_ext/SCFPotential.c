@@ -10,276 +10,524 @@
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
 #endif
-//SCF Disk potential
-//4 arguments: amp, Acos, Asin, a
 
-const int FORCE =1;
-const int DERIV =2;
+/*
+ * SCFPotential: Self-Consistent Field expansion potential
+ * 
+ * Implements the Hernquist & Ostriker (1992) basis-function expansion method.
+ * The potential is expanded in:
+ *   - Radial basis: Gegenbauer polynomials (C_n^alpha)
+ *   - Angular basis: Associated Legendre polynomials (P_l^m)
+ *   - Azimuthal basis: cos(m*phi) and sin(m*phi)
+ * 
+ * Arguments: amp, Acos, Asin, a (scale length)
+ */
 
-//Useful Functions
+// Cache types for coordinate evaluations
+const int FORCE = 1;
+const int DERIV = 2;
 
-//Converts from cylindrical coordinates to spherical
-static inline void cyl_to_spher(double R, double Z,double *r, double *theta)
+/*=============================================================================
+ * COORDINATE TRANSFORMATION UTILITIES
+ *===========================================================================*/
+
+/**
+ * Convert cylindrical (R, Z) to spherical (r, theta) coordinates
+ * 
+ * @param R Cylindrical radius
+ * @param Z Height above plane
+ * @param r Output: spherical radius sqrt(R^2 + Z^2)
+ * @param theta Output: polar angle atan2(R, Z)
+ */
+static inline void cyl_to_spher(double R, double Z, double *r, double *theta)
 {
     *r = sqrt(R*R + Z*Z);
     *theta = atan2(R, Z);
 }
 
-//Integer power
-double power(double x, int i)
-{
-    if (i==0)
-        return 1;
-    return x*power(x,i - 1);
-}
-
-//Calculates xi
+/**
+ * Calculate the coordinate transformation xi = (r - a) / (r + a)
+ * Used in the Hernquist-Ostriker basis functions
+ * 
+ * @param r Spherical radius
+ * @param a Scale length
+ * @param xi Output: transformed coordinate in [-1, 1]
+ */
 static inline void calculateXi(double r, double a, double *xi)
 {
-    *xi = (r - a)/(r + a);
+    *xi = (r - a) / (r + a);
+}
+
+/**
+ * Compute integer power x^i efficiently using iterative multiplication
+ * For small integer powers, this is faster than pow()
+ * 
+ * @param x Base value
+ * @param i Integer exponent (must be >= 0)
+ * @return x^i
+ */
+static inline double power(double x, int i)
+{
+    double result = 1.0;
+    while (i > 0) {
+        if (i & 1) result *= x;  // If i is odd, multiply by x
+        x *= x;                   // Square x
+        i >>= 1;                  // Divide i by 2
+    }
+    return result;
 }
 
 
-//Potentials, forces, and derivative functions
+/*=============================================================================
+ * SPHERICAL EXPANSION TERM EVALUATION FUNCTIONS
+ * 
+ * These functions evaluate individual terms in the spherical harmonic expansion.
+ * Each function combines:
+ *   - Expansion coefficients (Acos, Asin)
+ *   - Azimuthal factors (cos(m*phi), sin(m*phi))
+ *   - Angular factors (Legendre polynomials P and their derivatives)
+ *   - Radial factors (phiTilde and its derivatives)
+ * 
+ * Functions come in pairs:
+ *   - Non-axisymmetric version (computeXXX): full 3D case with both cos and sin terms
+ *   - Axisymmetric version (computeAxiXXX): simplified case with only m=0 terms
+ *===========================================================================*/
+
+/**
+ * Potential term (non-axisymmetric)
+ * Evaluates: (Acos*cos(m*phi) + Asin*sin(m*phi)) * P_l^m * phiTilde
+ */
 // LCOV_EXCL_START
-// Also used for density, just with rhoTilde
-double computePhi(double Acos_val, double Asin_val, double mCos, double mSin, double P, double phiTilde, int m)
+double computePhi(double Acos_val, double Asin_val, double mCos, double mSin, 
+                  double P, double phiTilde, int m)
 {
     return (Acos_val*mCos + Asin_val*mSin)*P*phiTilde;
 }
 // LCOV_EXCL_STOP
+
+/**
+ * Potential term (axisymmetric, m=0 only)
+ */
 double computeAxiPhi(double Acos_val, double P, double phiTilde)
 {
     return Acos_val*P*phiTilde;
 }
 
-double computeF_r(double Acos_val, double Asin_val, double mCos, double mSin, double P, double dphiTilde, int m)
+/**
+ * Radial force component: F_r = -dPhi/dr
+ * Uses derivative of radial function (dphiTilde)
+ */
+double computeF_r(double Acos_val, double Asin_val, double mCos, double mSin, 
+                  double P, double dphiTilde, int m)
 {
     return -(Acos_val*mCos + Asin_val*mSin)*P*dphiTilde;
 }
+
 double computeAxiF_r(double Acos_val, double P, double dphiTilde)
 {
     return -Acos_val*P*dphiTilde;
 }
 
-double computeF_theta(double Acos_val, double Asin_val, double mCos, double mSin, double dP, double phiTilde, int m)
+/**
+ * Theta force component: F_theta = -dPhi/dtheta
+ * Uses derivative of angular function (dP)
+ */
+double computeF_theta(double Acos_val, double Asin_val, double mCos, double mSin, 
+                      double dP, double phiTilde, int m)
 {
     return -(Acos_val*mCos + Asin_val*mSin)*dP*phiTilde;
 }
+
 double computeAxiF_theta(double Acos_val, double dP, double phiTilde)
 {
     return -Acos_val*dP*phiTilde;
 }
 
-double computeF_phi(double Acos_val, double Asin_val, double mCos, double mSin, double P, double phiTilde, int m)
+/**
+ * Phi force component: F_phi = -dPhi/dphi
+ * Note the coefficient swap (Acos*sin - Asin*cos) from chain rule
+ */
+double computeF_phi(double Acos_val, double Asin_val, double mCos, double mSin, 
+                    double P, double phiTilde, int m)
 {
     return m*(Acos_val*mSin - Asin_val*mCos)*P*phiTilde;
 }
+
 double computeAxiF_phi(double Acos_val, double P, double phiTilde)
 {
-    return 0.;
+    return 0.;  // No phi dependence in axisymmetric case
 }
 
-double computeF_rr(double Acos_val, double Asin_val, double mCos, double mSin, double P, double d2phiTilde, int m)
+/**
+ * Second derivative d^2Phi/dr^2
+ */
+double computeF_rr(double Acos_val, double Asin_val, double mCos, double mSin, 
+                   double P, double d2phiTilde, int m)
 {
     return -(Acos_val*mCos + Asin_val*mSin)*P*d2phiTilde;
 }
+
 double computeAxiF_rr(double Acos_val, double P, double d2phiTilde)
 {
     return -Acos_val*P*d2phiTilde;
 }
 
-double computeF_rphi(double Acos_val, double Asin_val, double mCos, double mSin, double P, double dphiTilde, int m)
+/**
+ * Mixed derivative d^2Phi/dr/dphi
+ */
+double computeF_rphi(double Acos_val, double Asin_val, double mCos, double mSin, 
+                     double P, double dphiTilde, int m)
 {
     return m*(Acos_val*mSin - Asin_val*mCos)*P*dphiTilde;
 }
-double computeAxiF_rphi(double Acos_val, double P, double d2phiTilde)
+
+double computeAxiF_rphi(double Acos_val, double P, double dphiTilde)
 {
-    return 0.;
+    return 0.;  // No phi dependence in axisymmetric case
 }
 
-double computeF_phiphi(double Acos_val, double Asin_val, double mCos, double mSin, double P, double phiTilde, int m)
+/**
+ * Second derivative d^2Phi/dphi^2
+ */
+double computeF_phiphi(double Acos_val, double Asin_val, double mCos, double mSin, 
+                       double P, double phiTilde, int m)
 {
     return m*m*(Acos_val*mCos + Asin_val*mSin)*P*phiTilde;
 }
-double computeAxiF_phiphi(double Acos_val, double P, double d2phiTilde)
+
+double computeAxiF_phiphi(double Acos_val, double P, double phiTilde)
 {
-    return 0.;
+    return 0.;  // No phi dependence in axisymmetric case
 }
 
-//Calculates the Gegenbauer polynomials
-void compute_C(double xi, int N, int L, double * C_array)
+/*=============================================================================
+ * GEGENBAUER POLYNOMIAL EVALUATION (RADIAL BASIS FUNCTIONS)
+ * 
+ * Gegenbauer (ultraspherical) polynomials C_n^(alpha)(xi) form the radial basis.
+ * For SCF expansion: alpha = 3/2 + 2*l for each angular momentum l
+ * 
+ * These functions use GSL's gsl_sf_gegenpoly_array for efficient array evaluation.
+ * Derivatives are computed via recursion relations:
+ *   dC_n^(alpha)/dxi = 2*alpha * C_(n-1)^(alpha+1)(xi)
+ *   d^2C_n^(alpha)/dxi^2 = 4*alpha*(alpha+1) * C_(n-2)^(alpha+2)(xi)
+ *===========================================================================*/
+
+/**
+ * Compute Gegenbauer polynomials C_n^(3/2+2l)(xi) for all n, l
+ * 
+ * @param xi Transformed radial coordinate in [-1, 1]
+ * @param N Number of radial terms (0 <= n < N)
+ * @param L Number of angular momentum terms (0 <= l < L)
+ * @param C_array Output array of size N*L, indexed as C_array[l*N + n]
+ */
+void compute_C(double xi, int N, int L, double *C_array)
 {
-    int l;
-    for (l = 0; l < L; l++)
-    {
-        gsl_sf_gegenpoly_array(N - 1, 3./2 + 2*l, xi, C_array + l*N);
+    for (int l = 0; l < L; l++) {
+        double alpha = 3.0/2.0 + 2*l;
+        gsl_sf_gegenpoly_array(N - 1, alpha, xi, C_array + l*N);
     }
 }
 
-//Calculates the derivative of the Gegenbauer polynomials
-void compute_dC(double xi, int N, int L, double * dC_array)
+/**
+ * Compute first derivative of Gegenbauer polynomials: dC_n/dxi
+ * 
+ * Uses recursion: dC_n^(alpha)/dxi = 2*alpha * C_(n-1)^(alpha+1)
+ * Note: dC_0/dxi = 0 (constant term has zero derivative)
+ * 
+ * @param xi Transformed radial coordinate
+ * @param N Number of radial terms
+ * @param L Number of angular momentum terms
+ * @param dC_array Output array of size N*L
+ */
+void compute_dC(double xi, int N, int L, double *dC_array)
 {
-    int n,l;
-    for (l = 0; l < L; l++)
-    {
-        *(dC_array +l*N) = 0;
-        if (N != 1)
-            gsl_sf_gegenpoly_array(N - 2, 5./2 + 2*l, xi, dC_array + l*N + 1);
-        for (n = 0; n<N; n++)
-        {
-            *(dC_array +l*N + n) *= 2*(2*l + 3./2);
-        }
-    }
-
-}
-
-//Calculates the second derivative of the Gegenbauer polynomials
-void compute_d2C(double xi, int N, int L, double * d2C_array)
-{
-    int n,l;
-    for (l = 0; l < L; l++)
-    {
-        *(d2C_array +l*N) = 0;
-        if (N >1)
-            *(d2C_array +l*N + 1) = 0;
-        if (N > 2)
-            gsl_sf_gegenpoly_array(N - 3, 7./2 + 2*l, xi, d2C_array + l*N + 2);
-        for (n = 0; n<N; n++)
-        {
-            *(d2C_array +l*N + n) *= 4*(2*l + 3./2)*(2*l + 5./2);
-        }
-    }
-
-}
-
-//Compute rho_Tilde
-void compute_rhoTilde(double r, double a, int N, int L, double* C,
-		      double * rhoTilde)
-{
-    double xi;
-    calculateXi(r,a,&xi);
-    double rterms = a * pow(r + a,-3.) / r;
-    int n,l;
-    for (l = 0; l < L; l++) {
-      if (l != 0)
-	rterms *= r * a / ( ( a + r ) * ( a + r ) );
-      for (n = 0; n < N; n++)
-	*(rhoTilde + l*N + n)  = (0.5 * n * ( n + 4. * l + 3. ) + ( l + 1. ) \
-				  * ( 2. * l + 1. ) )			\
-	  * rterms*(*(C + n + l*N));
-    }
-}
-
-//Compute phi_Tilde
-void compute_phiTilde(double r, double a, int N, int L, double* C, double * phiTilde)
-{
-    double xi;
-    calculateXi(r, a, &xi);
-    double rterms = -1./(r + a);
-    int n,l;
-    for (l = 0; l < L; l++)
-    {
-
-        if (l != 0)
-            rterms *= r*a/((a + r)*(a + r));
-
-        for (n = 0; n < N; n++)
-        {
-            *(phiTilde + l*N + n)  = rterms*(*(C + n + l*N));
-        }
-    }
-
-}
-
-//Computes the derivative of phiTilde with respect to r
-void compute_dphiTilde(double r, double a, int N, int L, double * C, double * dC, double * dphiTilde)
-{
-    double xi;
-    calculateXi(r, a, &xi);
-    double rterm = 1./(r*power(a + r, 3));
-    int n,l;
-    for (l = 0; l < L; l++)
-    {
-        if (l != 0)
-        {
-            rterm *= (a*r)/power(a + r, 2) ;
-        }
-        for (n = 0; n < N; n++)
-        {
-            *( dphiTilde + l*N + n) = rterm *(((2*l + 1)*r*(a + r) - l*power(a + r,2))*(*(C + l*N + n)) -
-                                              2*a*r*(*(dC + l*N + n)));
-
+    for (int l = 0; l < L; l++) {
+        double alpha = 3.0/2.0 + 2*l;
+        
+        // First element is always zero (derivative of constant)
+        dC_array[l*N] = 0.0;
+        
+        // Compute shifted Gegenbauer polynomials for n >= 1
+        if (N > 1) {
+            gsl_sf_gegenpoly_array(N - 2, alpha + 1.0, xi, dC_array + l*N + 1);
+            
+            // Apply scaling factor from recursion relation
+            double scale = 2.0 * alpha;
+            for (int n = 1; n < N; n++) {
+                dC_array[l*N + n] *= scale;
+            }
         }
     }
 }
 
-//Computes the second derivative of phiTilde with respect to r
-void compute_d2phiTilde(double r, double a, int N, int L, double * C, double * dC,double * d2C, double * d2phiTilde)
+/**
+ * Compute second derivative of Gegenbauer polynomials: d^2C_n/dxi^2
+ * 
+ * Uses recursion: d^2C_n^(alpha)/dxi^2 = 4*alpha*(alpha+1) * C_(n-2)^(alpha+2)
+ * Note: d^2C_0/dxi^2 = d^2C_1/dxi^2 = 0
+ * 
+ * @param xi Transformed radial coordinate
+ * @param N Number of radial terms
+ * @param L Number of angular momentum terms
+ * @param d2C_array Output array of size N*L
+ */
+void compute_d2C(double xi, int N, int L, double *d2C_array)
 {
-    double xi;
-    calculateXi(r, a, &xi);
-    double rterm = 1./(r*r) / power(a + r,5);
-    int n,l;
-    for (l = 0; l < L; l++)
-    {
-
-
-        if (l != 0)
-        {
-            rterm *= (a*r)/power(a + r, 2);
+    for (int l = 0; l < L; l++) {
+        double alpha = 3.0/2.0 + 2*l;
+        
+        // First two elements are always zero
+        d2C_array[l*N] = 0.0;
+        if (N > 1) {
+            d2C_array[l*N + 1] = 0.0;
         }
-        for (n = 0; n < N; n++)
-        {
+        
+        // Compute double-shifted Gegenbauer polynomials for n >= 2
+        if (N > 2) {
+            gsl_sf_gegenpoly_array(N - 3, alpha + 2.0, xi, d2C_array + l*N + 2);
+            
+            // Apply scaling factor from recursion relation
+            double scale = 4.0 * alpha * (alpha + 1.0);
+            for (int n = 2; n < N; n++) {
+                d2C_array[l*N + n] *= scale;
+            }
+        }
+    }
+}
 
-            double C_val = *(C + l*N + n);
-            double dC_val = *(dC + l*N + n);
-            double d2C_val = *(d2C + l*N + n);
-            *( d2phiTilde + l*N + n) = rterm*(C_val*(l*(1 - l)*power(a + r, 4) - (4*l*l + 6*l + 2.)*r*r*power(a + r,2) +
-                                              l*(4*l + 2)*r*power(a + r,3))
-                                              + a*r*((4*r*r + 4*a*r + (8*l + 4)*r*(a + r)-
-                                                      4*l*power(a + r,2))*dC_val - 4*a*r*d2C_val));
+/*=============================================================================
+ * RADIAL BASIS FUNCTIONS (HERNQUIST-OSTRIKER BASIS)
+ * 
+ * These functions combine Gegenbauer polynomials with radial scaling factors
+ * to create the Hernquist-Ostriker basis functions used in SCF expansion.
+ * 
+ * The basis has the form:
+ *   phiTilde_nl(r) = -(ar)^l / (a+r)^(2l+1) * C_n^(3/2+2l)(xi)
+ *   rhoTilde_nl(r) = K_nl * (ar)^l / [r(a+r)^(2l+3)] * C_n^(3/2+2l)(xi)
+ * 
+ * where K_nl = 0.5*n*(n+4l+3) + (l+1)*(2l+1) is a normalization constant
+ *===========================================================================*/
 
+/**
+ * Compute density basis functions rhoTilde_nl(r)
+ * 
+ * These are the building blocks for density evaluation in the SCF expansion.
+ * Note: Input C array should already be computed at the appropriate xi.
+ * 
+ * @param r Spherical radius
+ * @param a Scale length
+ * @param N Number of radial terms
+ * @param L Number of angular momentum terms
+ * @param C Input: Gegenbauer polynomials C_n^(3/2+2l)(xi)
+ * @param rhoTilde Output: density basis functions, size N*L
+ */
+void compute_rhoTilde(double r, double a, int N, int L, double *C, double *rhoTilde)
+{
+    // Initial radial scaling: a / [r * (r+a)^3]
+    double rterms = a * pow(r + a, -3.0) / r;
+    
+    for (int l = 0; l < L; l++) {
+        // Update radial scaling for l > 0: multiply by (ar) / (a+r)^2
+        if (l != 0) {
+            rterms *= r * a / ((a + r) * (a + r));
+        }
+        
+        // Normalization constant K_nl
+        for (int n = 0; n < N; n++) {
+            double K_nl = 0.5 * n * (n + 4.0 * l + 3.0) + (l + 1.0) * (2.0 * l + 1.0);
+            rhoTilde[l*N + n] = K_nl * rterms * C[n + l*N];
+        }
+    }
+}
+
+/**
+ * Compute potential basis functions phiTilde_nl(r)
+ * 
+ * These are the radial parts of the potential expansion.
+ * The form is: phiTilde = -(ar)^l / (a+r)^(2l+1) * C_n^(alpha)(xi)
+ * 
+ * @param r Spherical radius
+ * @param a Scale length
+ * @param N Number of radial terms
+ * @param L Number of angular momentum terms
+ * @param C Input: Gegenbauer polynomials
+ * @param phiTilde Output: potential basis functions, size N*L
+ */
+void compute_phiTilde(double r, double a, int N, int L, double *C, double *phiTilde)
+{
+    // Initial radial scaling: -1 / (r+a)
+    double rterms = -1.0 / (r + a);
+    
+    for (int l = 0; l < L; l++) {
+        // Update radial scaling for l > 0: multiply by (ar) / (a+r)^2
+        if (l != 0) {
+            rterms *= (r * a) / ((a + r) * (a + r));
+        }
+        
+        // Multiply Gegenbauer polynomials by radial factor
+        for (int n = 0; n < N; n++) {
+            phiTilde[l*N + n] = rterms * C[n + l*N];
+        }
+    }
+}
+
+/**
+ * Compute first derivative of phiTilde with respect to r
+ * 
+ * Uses chain rule: d(phiTilde)/dr = d(rterms)/dr * C + rterms * d(C)/dxi * dxi/dr
+ * where dxi/dr = 2a / (r+a)^2
+ * 
+ * @param r Spherical radius
+ * @param a Scale length
+ * @param N Number of radial terms
+ * @param L Number of angular momentum terms
+ * @param C Input: Gegenbauer polynomials
+ * @param dC Input: derivatives of Gegenbauer polynomials w.r.t. xi
+ * @param dphiTilde Output: derivative of potential basis, size N*L
+ */
+void compute_dphiTilde(double r, double a, int N, int L, double *C, double *dC, double *dphiTilde)
+{
+    // Base radial term: 1 / [r * (r+a)^3]
+    double rterm = 1.0 / (r * power(a + r, 3));
+    
+    for (int l = 0; l < L; l++) {
+        // Update radial scaling for l > 0
+        if (l != 0) {
+            rterm *= (a * r) / power(a + r, 2);
+        }
+        
+        for (int n = 0; n < N; n++) {
+            // Chain rule application
+            double C_val = C[l*N + n];
+            double dC_val = dC[l*N + n];
+            
+            // d(phiTilde)/dr = rterm * [angular_deriv_term * C - xi_deriv_term * dC]
+            double angular_term = (2*l + 1) * r * (a + r) - l * power(a + r, 2);
+            double xi_deriv_term = 2.0 * a * r;  // dxi/dr * (r+a)^2 factor
+            
+            dphiTilde[l*N + n] = rterm * (angular_term * C_val - xi_deriv_term * dC_val);
+        }
+    }
+}
+
+/**
+ * Compute second derivative of phiTilde with respect to r
+ * 
+ * This requires both first and second derivatives of Gegenbauer polynomials.
+ * 
+ * @param r Spherical radius
+ * @param a Scale length
+ * @param N Number of radial terms
+ * @param L Number of angular momentum terms
+ * @param C Input: Gegenbauer polynomials
+ * @param dC Input: first derivatives w.r.t. xi
+ * @param d2C Input: second derivatives w.r.t. xi
+ * @param d2phiTilde Output: second derivative of potential basis, size N*L
+ */
+void compute_d2phiTilde(double r, double a, int N, int L, double *C, double *dC, 
+                        double *d2C, double *d2phiTilde)
+{
+    // Base radial term: 1 / [r^2 * (r+a)^5]
+    double rterm = 1.0 / (r * r * power(a + r, 5));
+    
+    for (int l = 0; l < L; l++) {
+        // Update radial scaling for l > 0
+        if (l != 0) {
+            rterm *= (a * r) / power(a + r, 2);
+        }
+        
+        for (int n = 0; n < N; n++) {
+            double C_val = C[l*N + n];
+            double dC_val = dC[l*N + n];
+            double d2C_val = d2C[l*N + n];
+            
+            // Complex expression from double chain rule application
+            // Terms involving C (from second derivative of radial part)
+            double C_term = C_val * (
+                l * (1 - l) * power(a + r, 4) 
+                - (4*l*l + 6*l + 2.0) * r*r * power(a + r, 2) 
+                + l * (4*l + 2) * r * power(a + r, 3)
+            );
+            
+            // Terms involving dC and d2C (from chain rule with xi derivatives)
+            double dC_term = a * r * (
+                4*r*r + 4*a*r + (8*l + 4) * r * (a + r) 
+                - 4*l * power(a + r, 2)
+            ) * dC_val;
+            
+            double d2C_term = -4.0 * a * a * r * r * d2C_val;
+            
+            d2phiTilde[l*N + n] = rterm * (C_term + dC_term + d2C_term);
         }
     }
 }
 
 
-//Computes the associated Legendre polynomials
-void compute_P(double x, int L, int M, double * P_array)
+/*=============================================================================
+ * ASSOCIATED LEGENDRE POLYNOMIAL EVALUATION (ANGULAR BASIS FUNCTIONS)
+ * 
+ * Associated Legendre polynomials P_l^m(cos(theta)) form the angular basis.
+ * These functions wrap GSL's Legendre polynomial routines with version
+ * compatibility handling for GSL 1.x and 2.x.
+ * 
+ * Storage format:
+ *   - For axisymmetric case (M=1): Simple array P_l for l=0..L-1
+ *   - For general case (M>1): Packed array with all (l,m) where 0 <= m <= l
+ *     GSL 1.x: Grouped by m, then l (m=0: P_0..P_(L-1), m=1: P_1..P_(L-1), ...)
+ *     GSL 2.x: Single call returns all (l,m) pairs in standard triangular order
+ *===========================================================================*/
+
+/**
+ * Compute associated Legendre polynomials P_l^m(x)
+ * 
+ * @param x Argument (typically cos(theta))
+ * @param L Maximum degree + 1 (compute for 0 <= l < L)
+ * @param M Maximum order + 1 (compute for 0 <= m < M)
+ * @param P_array Output array (size depends on L, M and GSL version)
+ */
+void compute_P(double x, int L, int M, double *P_array)
 {
-    if (M == 1){
-        gsl_sf_legendre_Pl_array (L - 1, x, P_array);
+    if (M == 1) {
+        // Axisymmetric case: only m=0 terms (standard Legendre polynomials)
+        gsl_sf_legendre_Pl_array(L - 1, x, P_array);
     } else {
+        // Non-axisymmetric case: full P_l^m array
         #if GSL_MAJOR_VERSION == 2
-            gsl_sf_legendre_array_e(GSL_SF_LEGENDRE_NONE,L - 1, x, -1, P_array);
+            // GSL 2.x: Single function returns all (l,m) at once
+            gsl_sf_legendre_array_e(GSL_SF_LEGENDRE_NONE, L - 1, x, -1, P_array);
         #else
-            int m;
-            for (m = 0; m < M; m++)
-            {
+            // GSL 1.x: Loop over m, computing P_l^m for each
+            for (int m = 0; m < M; m++) {
                 gsl_sf_legendre_Plm_array(L - 1, m, x, P_array);
-                P_array += L - m;
+                P_array += L - m;  // Advance pointer for next m block
             }
         #endif
     }
-
-
-
 }
 
-//Computes the associated Legendre polynomials and its derivative
-void compute_P_dP(double x, int L, int M, double * P_array, double *dP_array)
+/**
+ * Compute associated Legendre polynomials P_l^m(x) and their derivatives dP/dx
+ * 
+ * @param x Argument (typically cos(theta))
+ * @param L Maximum degree + 1
+ * @param M Maximum order + 1
+ * @param P_array Output: Legendre polynomials
+ * @param dP_array Output: derivatives with respect to x
+ */
+void compute_P_dP(double x, int L, int M, double *P_array, double *dP_array)
 {
-    if (M == 1){
-        gsl_sf_legendre_Pl_deriv_array (L - 1, x, P_array, dP_array);
+    if (M == 1) {
+        // Axisymmetric case
+        gsl_sf_legendre_Pl_deriv_array(L - 1, x, P_array, dP_array);
     } else {
+        // Non-axisymmetric case
         #if GSL_MAJOR_VERSION == 2
-            gsl_sf_legendre_deriv_array_e(GSL_SF_LEGENDRE_NONE, L - 1, x, -1,P_array, dP_array);
-
+            // GSL 2.x: Single function returns both P and dP
+            gsl_sf_legendre_deriv_array_e(GSL_SF_LEGENDRE_NONE, L - 1, x, -1, 
+                                          P_array, dP_array);
         #else
-            int m;
-            for (m = 0; m < M; m++)
-            {
+            // GSL 1.x: Loop over m
+            for (int m = 0; m < M; m++) {
                 gsl_sf_legendre_Plm_deriv_array(L - 1, m, x, P_array, dP_array);
                 P_array += L - m;
                 dP_array += L - m;
