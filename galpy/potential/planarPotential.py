@@ -266,6 +266,59 @@ class planarPotential(planarForce):
             - 3.0 / R * self.Rforce(R, 0.0, t=t, use_physical=False)
         )
 
+    @potential_physical_input
+    @physical_conversion("velocity", pop=True)
+    def vcirc(self, R, phi=None, t=0.0):
+        """
+        Calculate the circular velocity at R in potential Pot.
+
+        Parameters
+        ----------
+        R : float or Quantity
+            Galactocentric radius.
+        phi : float or Quantity, optional
+            Azimuth to use for non-axisymmetric potentials.
+        t : float or Quantity, optional
+            Time (default: 0.0)
+
+        Returns
+        -------
+        float or Quantity
+            Circular rotation velocity.
+
+        Notes
+        -----
+        - 2011-10-09 - Written - Bovy (IAS)
+        - 2016-06-15 - Added phi= keyword for non-axisymmetric potential - Bovy (UofT)
+
+        """
+        return numpy.sqrt(R * -self.Rforce(R, phi=phi, t=t, use_physical=False))
+
+    @potential_physical_input
+    @physical_conversion("frequency", pop=True)
+    def omegac(self, R, t=0.0):
+        """
+        Calculate the circular angular speed at R in potential Pot.
+
+        Parameters
+        ----------
+        R : float or Quantity
+            Galactocentric radius.
+        t : float or Quantity, optional
+            Time (default: 0.0)
+
+        Returns
+        -------
+        float or Quantity
+            Circular angular speed.
+
+        Notes
+        -----
+        - Written on 2011-10-09 by Bovy (IAS).
+
+        """
+        return numpy.sqrt(-self.Rforce(R, t=t, use_physical=False) / R)
+
     def plot(self, *args, **kwargs):
         """
         Plot the potential.
@@ -354,87 +407,6 @@ class planarAxiPotential(planarPotential):
 
         """
         return 0.0
-
-    @potential_physical_input
-    @physical_conversion("velocity", pop=True)
-    def vcirc(self, R, phi=None, t=0.0):
-        """
-        Calculate the circular velocity at R in potential Pot.
-
-        Parameters
-        ----------
-        R : float or Quantity
-            Galactocentric radius.
-        phi : float or Quantity, optional
-            Azimuth to use for non-axisymmetric potentials.
-        t : float or Quantity, optional
-            Time (default: 0.0)
-
-        Returns
-        -------
-        float or Quantity
-            Circular rotation velocity.
-
-        Notes
-        -----
-        - 2011-10-09 - Written - Bovy (IAS)
-        - 2016-06-15 - Added phi= keyword for non-axisymmetric potential - Bovy (UofT)
-
-        """
-        return numpy.sqrt(R * -self.Rforce(R, phi=phi, t=t, use_physical=False))
-
-    @potential_physical_input
-    @physical_conversion("frequency", pop=True)
-    def omegac(self, R, t=0.0):
-        """
-        Calculate the circular angular speed at R in potential Pot.
-
-        Parameters
-        ----------
-        R : float or Quantity
-            Galactocentric radius.
-        t : float or Quantity, optional
-            Time (default: 0.0)
-
-        Returns
-        -------
-        float or Quantity
-            Circular angular speed.
-
-        Notes
-        -----
-        - Written on 2011-10-09 by Bovy (IAS).
-
-        """
-        return numpy.sqrt(-self.Rforce(R, t=t, use_physical=False) / R)
-
-    @potential_physical_input
-    @physical_conversion("frequency", pop=True)
-    def epifreq(self, R, t=0.0):
-        """
-        Calculate the epicycle frequency at R in this potential.
-
-        Parameters
-        ----------
-        R : float or Quantity
-            Galactocentric radius.
-        t : float or Quantity, optional
-            Time (default: 0.0).
-
-        Returns
-        -------
-        float or Quantity
-            Epicycle frequency.
-
-        Notes
-        -----
-        - Written on 2011-10-09 by Bovy (IAS).
-
-        """
-        return numpy.sqrt(
-            self.R2deriv(R, t=t, use_physical=False)
-            - 3.0 / R * self.Rforce(R, t=t, use_physical=False)
-        )
 
     @physical_conversion("position", pop=True)
     def lindbladR(self, OmegaP, m=2, t=0.0, **kwargs):

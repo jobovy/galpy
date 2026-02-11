@@ -1,4 +1,4 @@
-galpy.potential.planarAxiPotential.epifreq
-============================================
+galpy.potential.planarPotential.epifreq
+========================================
 
-.. automethod:: galpy.potential.Potential.epifreq
+.. automethod:: galpy.potential.planarPotential.epifreq

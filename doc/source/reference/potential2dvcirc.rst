@@ -1,4 +1,4 @@
-galpy.potential.planarAxiPotential.vcirc
-===========================================
+galpy.potential.planarPotential.vcirc
+======================================
 
-.. automethod:: galpy.potential.Potential.vcirc
+.. automethod:: galpy.potential.planarPotential.vcirc
