@@ -500,6 +500,48 @@ coordinates (currently, times, positions, and velocities)
 >>> op= Orbit([1.,0.1,1.1,0.,0.1,0.],ro=8.,vo=220.) #Use Vc=220 km/s at R= 8 kpc as the normalization
 >>> op.integrate(ts,lp)
 
+For quick exploration and analysis, orbits can be integrated without
+specifying an explicit time array. In this case, ``galpy`` automatically
+determines an appropriate integration time based on the dynamical timescale
+of the potential at the orbit's initial position. The dynamical time is
+calculated using the potential's ``tdyn`` method; for 2D orbits where this
+is not available, it falls back to :math:`t_{\mathrm{dyn}} = 2\pi R / v_c`.
+The orbit is then integrated for 10 dynamical times, which is a good default for many
+applications. For example:
+
+>>> from galpy.potential import MWPotential2014
+>>> o= Orbit([1.,0.1,1.1,0.,0.1,0.])
+>>> o.integrate(MWPotential2014)
+
+The automatically generated time array uses 101 points per dynamical time,
+providing good temporal resolution: integrating for 10 dynamical times
+produces an array of 1011 time points.
+
+This feature works with all potential types, including composite potentials.
+For composite potentials where some components don't support ``tdyn`` (such as
+non-axisymmetric potentials), ``galpy`` automatically filters to the components
+that do support it. If all components fail, 2D orbits will use the ``vcirc``
+fallback method, similarly filtering out those potential components that do not
+support it. Note that depending on the potential, this means that the dynamical time
+estimate that is used for the automatic time determination does not actually represent
+the true dynamical time of the full potential, but it is still a useful timescale for
+setting the integration time.
+
+Automatic time determination is not currently supported for 1D orbits,
+and requires the potential or at least one of its components to support either the
+``tdyn`` or ``vcirc`` methods.
+
+Here's an example comparing an orbit integrated with automatic time determination
+
+>>> o= Orbit([1.,0.1,1.1,0.1,0.2,0.3],ro=8.,vo=220.)
+>>> o.integrate(MWPotential2014)
+>>> o.plot()
+
+which gives
+
+.. image:: images/orbit-integration-auto.png
+   :scale: 100 %
+
 An ``Orbit`` instance containing multiple objects can be integrated in
 the same way and the orbit integration will be performed in parallel
 on machines with multiple cores. For the fast C integrators (:ref:`see
@@ -520,6 +562,7 @@ this can be overwritten). A simple example is
 #   1.0551804 ]
 # [ 0.1         0.18647825  0.27361065 ...,  3.39447863  3.34992543
 #   3.30527001]]
+
 
 .. _orbintegration-continuation:
 

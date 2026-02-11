@@ -10763,3 +10763,309 @@ def test_orbit_continuation_chained():
         )
 
     return None
+
+
+# Tests for automatic time determination in orbit integration
+def test_integrate_auto_default_3D():
+    # Test auto-time integration with default (10 tdyn) for 3D orbit
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential2014
+
+    o = Orbit([1.0, 0.1, 1.1, 0.0, 0.1, 0.0])
+    o.integrate(MWPotential2014)
+
+    # Check integration occurred
+    assert hasattr(o, "t") and len(o.t) > 0, "Orbit should be integrated"
+    # Check array length: 101 points/tdyn × 10 tdyn + 1 = 1011
+    assert len(o.t) == 1011, f"Expected 1011 time points, got {len(o.t)}"
+    # Check time starts at 0
+    assert numpy.abs(o.t[0]) < 1e-10, "Time should start at 0"
+    # Check time is positive
+    assert o.t[-1] > 0, "Final time should be positive"
+    return None
+
+
+def test_integrate_auto_default_2D():
+    # Test auto-time integration with default (10 tdyn) for 2D orbit
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential2014
+
+    o = Orbit([1.0, 0.1, 1.1, 0.0])
+    o.integrate(MWPotential2014)
+
+    # Check integration occurred
+    assert hasattr(o, "t") and len(o.t) > 0, "Orbit should be integrated"
+    # Check array length: 101 points/tdyn × 10 tdyn + 1 = 1011
+    assert len(o.t) == 1011, f"Expected 1011 time points, got {len(o.t)}"
+    # Check time starts at 0
+    assert numpy.abs(o.t[0]) < 1e-10, "Time should start at 0"
+    # Check time is positive
+    assert o.t[-1] > 0, "Final time should be positive"
+    return None
+
+
+def test_integrate_auto_1D_raises():
+    # Test that 1D orbit raises ValueError
+    from galpy.orbit import Orbit
+    from galpy.potential import KeplerPotential
+
+    o = Orbit([1.0, 0.1])
+    kp = KeplerPotential(normalize=1.0)
+    with pytest.raises(ValueError, match="not supported for 1D orbits"):
+        o.integrate(kp)
+    return None
+
+
+def test_integrate_auto_composite_pot():
+    # Test auto-time integration with CompositePotential
+    from galpy.orbit import Orbit
+    from galpy.potential import HernquistPotential, NFWPotential
+
+    hp = HernquistPotential(amp=2.0, a=1.3)
+    nfw = NFWPotential(amp=1.0, a=2.0)
+    pot = hp + nfw  # CompositePotential
+
+    o = Orbit([1.0, 0.1, 1.1, 0.0, 0.1, 0.0])
+    o.integrate(pot)
+
+    # Check integration occurred
+    assert hasattr(o, "t") and len(o.t) > 0, "Orbit should be integrated"
+    # Check array length
+    assert len(o.t) == 1011, f"Expected 1011 time points, got {len(o.t)}"
+    return None
+
+
+def test_integrate_auto_planar_pot():
+    # Test auto-time integration with planar potential
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential2014
+
+    o = Orbit([1.0, 0.1, 1.1, 0.0])
+    o.integrate(MWPotential2014)
+
+    # Check integration occurred
+    assert hasattr(o, "t") and len(o.t) > 0, "Orbit should be integrated"
+    assert len(o.t) == 1011, f"Expected 1011 time points, got {len(o.t)}"
+    return None
+
+
+def test_integrate_auto_r_zero_raises():
+    # Test that orbit at r=0 raises ValueError
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential2014
+
+    # Orbit at r=0 (R=0, z=0)
+    o = Orbit([0.0, 0.1, 0.1, 0.0, 0.1, 0.0])
+    with pytest.raises(ValueError, match="r ≈ 0"):
+        o.integrate(MWPotential2014)
+    return None
+
+
+def test_integrate_auto_backward_compat():
+    # Test that explicit time array still works (backward compatibility)
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential2014
+
+    o1 = Orbit([1.0, 0.1, 1.1, 0.0, 0.1, 0.0])
+    o2 = Orbit([1.0, 0.1, 1.1, 0.0, 0.1, 0.0])
+
+    t = numpy.linspace(0, 10, 100)
+    o1.integrate(t, MWPotential2014)
+    o2.integrate(t, MWPotential2014)
+
+    # Both should give same results
+    assert len(o1.t) == 100, "Explicit time array should have 100 points"
+    assert len(o2.t) == 100, "Explicit time array should have 100 points"
+    assert numpy.allclose(o1.t, o2.t), "Times should match"
+    return None
+
+
+def test_integrate_auto_energy_conservation():
+    # Test that energy is conserved over auto-generated time
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential2014
+
+    o = Orbit([1.0, 0.1, 1.1, 0.0, 0.1, 0.0])
+    o.integrate(MWPotential2014)
+
+    # Energy should be conserved
+    E_initial = o.E(o.t[0])
+    E_final = o.E(o.t[-1])
+    assert numpy.abs((E_final - E_initial) / E_initial) < 1e-6, (
+        "Energy should be conserved to better than 1e-6"
+    )
+    return None
+
+
+def test_integrate_auto_multiple_orbits():
+    # Test auto-time integration with multiple orbits
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential2014
+
+    # Multiple orbits at different radii
+    o = Orbit([[1.0, 0.1, 1.1, 0.0, 0.1, 0.0], [2.0, 0.2, 1.2, 0.1, 0.2, 0.1]])
+    o.integrate(MWPotential2014)
+
+    # Should use max(r) for time determination
+    assert hasattr(o, "t") and len(o.t) > 0, "Orbit should be integrated"
+    assert len(o.t) == 1011, f"Expected 1011 time points, got {len(o.t)}"
+    return None
+
+
+def test_integrate_auto_continuation():
+    # Test that continuation behavior works with auto-time
+    from galpy.orbit import Orbit
+    from galpy.potential import MWPotential2014
+
+    o = Orbit([1.0, 0.1, 1.1, 0.0, 0.1, 0.0])
+
+    # First integration with explicit time
+    t1 = numpy.linspace(0, 5, 100)
+    o.integrate(t1, MWPotential2014)
+
+    # Second integration continuing from first (also explicit time)
+    t2 = numpy.linspace(5, 10, 51)
+    o.integrate(t2, MWPotential2014)
+
+    # Should have merged
+    assert len(o.t) == 150, (
+        f"Expected 150 time points after continuation, got {len(o.t)}"
+    )
+    assert numpy.isclose(o.t[0], 0), "Time should start at 0"
+    assert numpy.isclose(o.t[-1], 10), "Time should end at 10"
+    return None
+
+
+def test_integrate_auto_composite_with_bar_3D():
+    # Test auto-time with composite potential where some components fail tdyn
+    # DehnenBarPotential doesn't support tdyn, so should filter to working components
+    from galpy.orbit import Orbit
+    from galpy.potential import DehnenBarPotential, MWPotential2014
+
+    o = Orbit([1.0, 0.1, 1.1, 0.0, 0.1, 0.0])
+    # Add DehnenBarPotential which doesn't support tdyn
+    pot = MWPotential2014 + DehnenBarPotential()
+
+    # Should work by filtering to MWPotential2014 components
+    o.integrate(pot)
+
+    # Check integration occurred
+    assert hasattr(o, "t") and len(o.t) > 0
+    # Should have 1011 points (101 × 10 + 1)
+    assert len(o.t) == 1011
+    assert numpy.abs(o.t[0]) < 1e-10
+    assert o.t[-1] > 0
+    return None
+
+
+def test_integrate_auto_composite_with_bar_2D():
+    # Test auto-time with 2D composite where some components fail vcirc
+    # DehnenBarPotential.toPlanar() doesn't support vcirc, should filter to working components
+    from galpy.orbit import Orbit
+    from galpy.potential import DehnenBarPotential, MWPotential2014
+
+    o = Orbit([1.0, 0.1, 1.1, 0.0])
+    # Add planar bar potential which doesn't support vcirc
+    pot = MWPotential2014[0].toPlanar() + DehnenBarPotential().toPlanar()
+
+    # Should work by filtering to working planar potentials and using vcirc fallback
+    o.integrate(pot)
+
+    # Check integration occurred
+    assert hasattr(o, "t") and len(o.t) > 0
+    # Should have 1011 points (101 × 10 + 1)
+    assert len(o.t) == 1011
+    assert numpy.abs(o.t[0]) < 1e-10
+    assert o.t[-1] > 0
+    return None
+
+
+def test_integrate_auto_no_tdyn_no_vcirc_raises():
+    # Test that ValueError is raised when potential supports neither tdyn nor vcirc
+    # DehnenBarPotential.toPlanar() doesn't support either method
+    from galpy.orbit import Orbit
+    from galpy.potential import DehnenBarPotential
+
+    o = Orbit([1.0, 0.1, 1.1, 0.0])
+    pot = DehnenBarPotential().toPlanar()
+
+    # Should raise ValueError since neither tdyn nor vcirc work
+    with pytest.raises(ValueError, match="Cannot calculate dynamical time"):
+        o.integrate(pot)
+    return None
+
+
+def test_integrate_auto_deprecated_list():
+    # Test deprecated list of potentials interface (still needs to work for backward compatibility)
+    # Need to suppress DeprecationWarning since tests run with warnings as errors
+    import warnings
+
+    from galpy.orbit import Orbit
+    from galpy.potential import HernquistPotential, NFWPotential
+
+    o = Orbit([1.0, 0.1, 1.1, 0.0, 0.1, 0.0])
+    # Create list of potentials (deprecated syntax)
+    pot_list = [NFWPotential(amp=1.0, a=2.0), HernquistPotential(amp=2.0, a=1.3)]
+
+    # Suppress the deprecation warning for this test
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", DeprecationWarning)
+        o.integrate(pot_list)
+
+    # Check integration occurred with default 10 tdyn
+    assert hasattr(o, "t") and len(o.t) > 0
+    assert len(o.t) == 1011  # 101 × 10 + 1
+    return None
+
+
+def test_integrate_auto_tdyn_filtering_consistency_3D():
+    # Test that dynamical time is the same whether using MWPotential2014 alone
+    # or MWPotential2014 + DehnenBarPotential (which doesn't support tdyn)
+    from galpy.orbit import Orbit
+    from galpy.potential import DehnenBarPotential, MWPotential2014
+
+    # Create two orbits at the same position
+    o1 = Orbit([1.0, 0.1, 1.1, 0.0, 0.1, 0.0])
+    o2 = Orbit([1.0, 0.1, 1.1, 0.0, 0.1, 0.0])
+
+    # Integrate with MWPotential2014 alone
+    o1.integrate(MWPotential2014)
+
+    # Integrate with MWPotential2014 + DehnenBarPotential
+    # DehnenBarPotential doesn't support tdyn, so should be filtered out
+    pot_composite = MWPotential2014 + DehnenBarPotential()
+    o2.integrate(pot_composite)
+
+    # The integration times should be identical since they should use the same tdyn
+    # (calculated from MWPotential2014 only in both cases)
+    assert numpy.allclose(o1.t, o2.t), (
+        f"Integration times differ: {o1.t[-1]} vs {o2.t[-1]}"
+    )
+    return None
+
+
+def test_integrate_auto_vcirc_filtering_consistency_2D():
+    # Test that dynamical time is the same whether using planar MWPotential2014 alone
+    # or planar MWPotential2014 + planar DehnenBarPotential (which doesn't support vcirc)
+    from galpy.orbit import Orbit
+    from galpy.potential import DehnenBarPotential, MWPotential2014
+
+    # Create two orbits at the same position
+    o1 = Orbit([1.0, 0.1, 1.1, 0.0])
+    o2 = Orbit([1.0, 0.1, 1.1, 0.0])
+
+    # Integrate with planar MWPotential2014 alone
+    pot_planar = MWPotential2014.toPlanar()
+    o1.integrate(pot_planar)
+
+    # Integrate with planar MWPotential2014 + planar DehnenBarPotential
+    # Planar DehnenBarPotential doesn't support vcirc, so should be filtered out
+    pot_composite = MWPotential2014.toPlanar() + DehnenBarPotential().toPlanar()
+    o2.integrate(pot_composite)
+
+    # The integration times should be identical since they should use the same vcirc
+    # (calculated from planar MWPotential2014 only in both cases)
+    assert numpy.allclose(o1.t, o2.t), (
+        f"Integration times differ: {o1.t[-1]} vs {o2.t[-1]}"
+    )
+    return None

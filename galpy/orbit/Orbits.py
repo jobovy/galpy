@@ -6,7 +6,7 @@ import copy
 import json
 import string
 import warnings
-from functools import wraps
+from functools import singledispatchmethod, wraps
 from random import choice
 from string import ascii_lowercase
 
@@ -39,7 +39,12 @@ from ..potential import (
     toPlanarPotential,
 )
 from ..potential.DissipativeForce import _isDissipative
-from ..potential.Potential import _check_c, _check_potential_list_and_deprecate
+from ..potential.planarPotential import planarPotential
+from ..potential.Potential import (
+    Potential,
+    _check_c,
+    _check_potential_list_and_deprecate,
+)
 from ..util import conversion, coords, galpyWarning, galpyWarningVerbose, plot
 from ..util._optional_deps import (
     _APY3,
@@ -1469,7 +1474,133 @@ class Orbit:
 
         return should_continue, is_forward, pot_changed
 
-    def integrate(
+    def _calculate_dynamical_time(self, pot, r_init):
+        """
+        Calculate the dynamical time at the initial position.
+
+        Parameters
+        ----------
+        pot : Potential or list of Potential instances
+            The gravitational potential(s).
+        r_init : float
+            Initial spherical radius.
+
+        Returns
+        -------
+        float
+            Dynamical time at the initial position.
+
+        Raises
+        ------
+        ValueError
+            If dynamical time cannot be calculated (all methods fail).
+
+        Notes
+        -----
+        - First tries to use pot.tdyn(r) for the potential
+        - Then falls back to 2π·r/vcirc if tdyn fails
+        - Handles non-axisymmetric potentials that don't support tdyn
+        """
+        # Try to calculate tdyn with full potential first
+        tdyn = 0.0
+        try:
+            return pot.tdyn(r_init, use_physical=False)
+        except (NotImplementedError, AttributeError, TypeError):
+            # If the full potential doesn't support tdyn, try with individual components
+            for p in pot:
+                try:
+                    tdyn += 1.0 / p.tdyn(r_init, use_physical=False) ** 2.0
+                except (NotImplementedError, AttributeError, TypeError):
+                    pass
+            tdyn = numpy.sqrt(1.0 / tdyn) if tdyn > 0.0 else 0.0
+        if tdyn > 0.0:
+            return tdyn
+        # If all fail, fallback to vcirc
+        vc = 0.0
+        try:
+            vc = pot.vcirc(r_init, use_physical=False)
+        except (NotImplementedError, AttributeError, TypeError):
+            # Try with subset of potentials that support vcirc
+            for p in pot:
+                try:
+                    vc += p.vcirc(r_init, use_physical=False) ** 2.0
+                except (NotImplementedError, AttributeError, TypeError):
+                    pass
+            vc = numpy.sqrt(vc)
+        if vc > 0.0:
+            return 2.0 * numpy.pi * r_init / vc
+
+        # If nothing works, raise error
+        raise ValueError(
+            "Cannot calculate dynamical time: potential does not support tdyn() "
+            "and fallback to vcirc failed. This may occur with non-axisymmetric "
+            "potentials or potentials without these methods implemented."
+        )
+
+    def _generate_auto_time_array(self, pot, N_tdyn=10):
+        """
+        Generate automatic time array for integration.
+
+        Parameters
+        ----------
+        pot : Potential or list of Potential instances
+            The gravitational potential(s).
+        N_tdyn : int, optional
+            Number of dynamical times to integrate (can be negative for backward integration).
+            Default is 5.
+
+        Returns
+        -------
+        numpy.ndarray
+            Time array from 0 to N×tdyn with 101 points per dynamical time.
+
+        Raises
+        ------
+        ValueError
+            If orbit is 1D (not supported), r=0, or dynamical time cannot be calculated.
+
+        Notes
+        -----
+        - For 2D orbits, uses r = R (cylindrical radius)
+        - For 3D orbits, uses r = sqrt(R² + z²) (spherical radius)
+        - For multiple orbits, uses max(r) for conservative time period
+        - Generates 101 points per dynamical time
+        """
+        # Check if orbit is 1D (not supported)
+        if self.dim() == 1:
+            raise ValueError(
+                "Automatic time determination is not supported for 1D orbits. "
+                "Please provide an explicit time array."
+            )
+
+        # Get initial spherical radius
+        if self.dim() == 2:
+            # For 2D orbits, r = R (first component of vxvv)
+            r_init = self.R(use_physical=False)
+        else:
+            # For 3D orbits, r = sqrt(R² + z²)
+            r_init = self.r(use_physical=False)
+
+        # For multiple orbits, use max radius for conservative time period
+        r_init = float(numpy.amax(numpy.atleast_1d(r_init)))
+
+        # Handle edge case: r ≈ 0
+        if r_init < 1e-10:
+            raise ValueError(
+                "Cannot determine automatic integration time for orbit at r ≈ 0. "
+                "Please provide an explicit time array."
+            )
+
+        # Calculate dynamical time
+        tdyn_val = self._calculate_dynamical_time(pot, r_init)
+
+        # Generate time array: 101 points per dynamical time,
+        # negative N is okay to integrate backwards
+        n_points = 101 * abs(N_tdyn) + 1
+
+        return numpy.linspace(0, N_tdyn * tdyn_val, n_points)
+
+    def _integrate_impl(
         self,
         t,
         pot,
@@ -1482,55 +1613,12 @@ class Orbit:
         atol=None,
     ):
         """
-        Integrate the orbit instance with multiprocessing.
+        Core implementation of orbit integration.
 
-        Parameters
-        ----------
-        t : list, numpy.ndarray or Quantity
-            List of equispaced times at which to compute the orbit. The initial condition is t[0]. (note that for method='odeint', method='dop853', and method='dop853_c', the time array can be non-equispaced). If the orbit has already been integrated and the new time array continues from the end point of the previous integration (t[0] equals the last time of the previous integration), the orbit will be continued and the two integrations will be merged. Similarly, if t[0] equals the first time of a previous integration and the new time array goes in the opposite direction, the orbit will be integrated backward and prepended to the existing integration.
-        pot : Potential, DissipativeForce, or a combined force/potential formed using addition (pot1+pot2+force3+…)
-            Gravitational field to integrate the orbit in.
-        method : str, optional
-            Integration method to use. Default is 'symplec4_c'. See Notes for more information.
-        progressbar : bool, optional
-            If True, display a tqdm progress bar when integrating multiple orbits (requires tqdm to be installed!). Default is True.
-        dt : int or Quantity, optional
-            If set, force the integrator to use this basic stepsize; must be an integer divisor of output stepsize (only works for the C integrators that use a fixed stepsize). Can be Quantity.
-        numcores : int, optional
-            Number of cores to use for Python-based multiprocessing (pure Python or using force_map=True). Default is OMP_NUM_THREADS.
-        force_map : bool, optional
-            If True, force use of Python-based multiprocessing (not recommended). Default is False.
-        rtol : float, optional
-            Relative tolerance. Default is None.
-        atol : float, optional
-            Absolute tolerance. Default is None.
+        This is the actual integration logic, called by all dispatch variants
+        of the integrate() method.
 
-        Returns
-        -------
-        None
-            Get the actual orbit using getOrbit() or access the individual attributes (e.g., R, vR, etc.).
-
-        Notes
-        -----
-        - Possible integration methods are:
-
-          - 'odeint' for scipy's odeint
-          - 'leapfrog' for a simple leapfrog implementation
-          - 'leapfrog_c' for a simple leapfrog implementation in C
-          -  'symplec4_c' for a 4th order symplectic integrator in C
-          -  'symplec6_c' for a 6th order symplectic integrator in C
-          -  'rk4_c' for a 4th-order Runge-Kutta integrator in C
-          -  'rk6_c' for a 6-th order Runge-Kutta integrator in C
-          -  'dopr54_c' for a 5-4 Dormand-Prince integrator in C
-          -  'dop853' for a 8-5-3 Dormand-Prince integrator in Python
-          -  'dop853_c' for a 8-5-3 Dormand-Prince integrator in C
-          -  'ias15_c' for an adaptive 15th order integrator using Gauß-Radau quadrature (see IAS15 paper) in C
-
-        - When continuing an integration, the time arrays do not need to have the same number of points or the same spacing. However, for methods that require equispaced times, each individual time array must be equispaced.
-
-        - 2018-10-13 - Written as parallel_map applied to regular Orbit integration - Mathew Bub (UofT)
-        - 2018-12-26 - Written to use OpenMP C implementation - Bovy (UofT)
-        - 2024-11-10 - Added support for continuing integrations - Bovy (UofT)
+        Parameters are the same as integrate().
         """
         self.check_integrator(method)
         pot = _check_potential_list_and_deprecate(pot)
@@ -1809,6 +1897,122 @@ class Orbit:
                     galpyWarning,
                 )
         return None
+
+    @singledispatchmethod
+    def integrate(
+        self,
+        t,
+        pot,
+        method="symplec4_c",
+        progressbar=True,
+        dt=None,
+        numcores=_NUMCORES,
+        force_map=False,
+        rtol=None,
+        atol=None,
+    ):
+        """
+        Integrate the orbit instance.
+
+        This method supports two call patterns:
+
+        1. **Explicit time array**: ``integrate(t, pot, ...)`` - integrate for the specified time array t
+        2. **Auto-time default**: ``integrate(pot, ...)`` - Integrate for 10 dynamical times (default)
+
+        Parameters
+        ----------
+        t : list, numpy.ndarray, Quantity, or Potential
+            - If array-like: List of equispaced times at which to compute the orbit. The initial condition is t[0]. (note that for method='odeint', method='dop853', and method='dop853_c', the time array can be non-equispaced). If the orbit has already been integrated and the new time array continues from the end point of the previous integration (t[0] equals the last time of the previous integration), the orbit will be continued and the two integrations will be merged. Similarly, if t[0] equals the first time of a previous integration and the new time array goes in the opposite direction, the orbit will be integrated backward and prepended to the existing integration.
+            - If Potential: Integrate for 10 dynamical times (default auto-time behavior). In this case, this parameter is the potential and the second parameter (pot) becomes method.
+        pot : Potential, DissipativeForce, or a combined force/potential formed using addition (pot1+pot2+force3+…)
+            Gravitational field to integrate the orbit in.
+        method : str, optional
+            Integration method to use. Default is 'symplec4_c'. See Notes for more information.
+        progressbar : bool, optional
+            If True, display a tqdm progress bar when integrating multiple orbits (requires tqdm to be installed!). Default is True.
+        dt : int or Quantity, optional
+            If set, force the integrator to use this basic stepsize; must be an integer divisor of output stepsize (only works for the C integrators that use a fixed stepsize). Can be Quantity.
+        numcores : int, optional
+            Number of cores to use for Python-based multiprocessing (pure Python or using force_map=True). Default is OMP_NUM_THREADS.
+        force_map : bool, optional
+            If True, force use of Python-based multiprocessing (not recommended). Default is False.
+        rtol : float, optional
+            Relative tolerance. Default is None.
+        atol : float, optional
+            Absolute tolerance. Default is None.
+
+        Returns
+        -------
+        None
+            Get the actual orbit using getOrbit() or access the individual attributes (e.g., R, vR, etc.).
+
+        Notes
+        -----
+        - Possible integration methods are:
+
+          - 'odeint' for scipy's odeint
+          - 'leapfrog' for a simple leapfrog implementation
+          - 'leapfrog_c' for a simple leapfrog implementation in C
+          -  'symplec4_c' for a 4th order symplectic integrator in C
+          -  'symplec6_c' for a 6th order symplectic integrator in C
+          -  'rk4_c' for a 4th-order Runge-Kutta integrator in C
+          -  'rk6_c' for a 6-th order Runge-Kutta integrator in C
+          -  'dopr54_c' for a 5-4 Dormand-Prince integrator in C
+          -  'dop853' for a 8-5-3 Dormand-Prince integrator in Python
+          -  'dop853_c' for a 8-5-3 Dormand-Prince integrator in C
+          -  'ias15_c' for an adaptive 15th order integrator using Gauß-Radau quadrature (see IAS15 paper) in C
+
+        - When continuing an integration, the time arrays do not need to have the same number of points or the same spacing. However, for methods that require equispaced times, each individual time array must be equispaced.
+
+        - 2018-10-13 - Written as parallel_map applied to regular Orbit integration - Mathew Bub (UofT)
+        - 2018-12-26 - Written to use OpenMP C implementation - Bovy (UofT)
+        - 2024-11-10 - Added support for continuing integrations - Bovy (UofT)
+        - 2026-02-09 - Added automatic time determination - Bovy (UofT)
+        """
+        # Default implementation for array-like t (numpy arrays, Quantities, etc.)
+        return self._integrate_impl(
+            t, pot, method, progressbar, dt, numcores, force_map, rtol, atol
+        )
+
+    @integrate.register(Potential)
+    @integrate.register(planarPotential)
+    def _(
+        self,
+        pot,
+        method="symplec4_c",
+        progressbar=True,
+        dt=None,
+        numcores=_NUMCORES,
+        force_map=False,
+        rtol=None,
+        atol=None,
+    ):
+        """Integrate for 10 dynamical times (default auto-time)."""
+        t = self._generate_auto_time_array(pot, N_tdyn=10)
+        return self._integrate_impl(
+            t, pot, method, progressbar, dt, numcores, force_map, rtol, atol
+        )
+
+    @integrate.register(list)
+    def _(
+        self,
+        pot,
+        method="symplec4_c",
+        progressbar=True,
+        dt=None,
+        numcores=_NUMCORES,
+        force_map=False,
+        rtol=None,
+        atol=None,
+    ):
+        """Handle deprecated list of potentials (auto-time with default 10 tdyn)."""
+        # Lists can only contain potentials (deprecated syntax)
+        # This will trigger deprecation warning in _integrate_impl via
+        # _check_potential_list_and_deprecate
+        t_array = self._generate_auto_time_array(pot, N_tdyn=10)
+        return self._integrate_impl(
+            t_array, pot, method, progressbar, dt, numcores, force_map, rtol, atol
+        )
 
     def integrate_SOS(
         self,
