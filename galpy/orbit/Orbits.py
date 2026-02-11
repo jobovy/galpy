@@ -1914,17 +1914,15 @@ class Orbit:
         """
         Integrate the orbit instance.
 
-        This method supports three call patterns:
+        This method supports two call patterns:
 
         1. **Explicit time array**: ``integrate(t, pot, ...)`` - integrate for the specified time array t
-        2. **Auto-time with N**: ``integrate(N, pot, ...)`` - Integrate for N dynamical times
-        3. **Auto-time default**: ``integrate(pot, ...)`` - Integrate for 10 dynamical times (default)
+        2. **Auto-time default**: ``integrate(pot, ...)`` - Integrate for 10 dynamical times (default)
 
         Parameters
         ----------
-        t : list, numpy.ndarray, Quantity, int, or Potential
+        t : list, numpy.ndarray, Quantity, or Potential
             - If array-like: List of equispaced times at which to compute the orbit. The initial condition is t[0]. (note that for method='odeint', method='dop853', and method='dop853_c', the time array can be non-equispaced). If the orbit has already been integrated and the new time array continues from the end point of the previous integration (t[0] equals the last time of the previous integration), the orbit will be continued and the two integrations will be merged. Similarly, if t[0] equals the first time of a previous integration and the new time array goes in the opposite direction, the orbit will be integrated backward and prepended to the existing integration.
-            - If int: Number of dynamical times to integrate (positive for forward, negative for backward). Time array is auto-generated with 101 points per dynamical time.
             - If Potential: Integrate for 10 dynamical times (default auto-time behavior). In this case, this parameter is the potential and the second parameter (pot) becomes method.
         pot : Potential, DissipativeForce, or a combined force/potential formed using addition (pot1+pot2+force3+…)
             Gravitational field to integrate the orbit in.
@@ -1972,28 +1970,6 @@ class Orbit:
         - 2026-02-09 - Added automatic time determination - Bovy (UofT)
         """
         # Default implementation for array-like t (numpy arrays, Quantities, etc.)
-        return self._integrate_impl(
-            t, pot, method, progressbar, dt, numcores, force_map, rtol, atol
-        )
-
-    @integrate.register(int)
-    @integrate.register(numpy.integer)
-    def _(
-        self,
-        N,
-        pot,
-        method="symplec4_c",
-        progressbar=True,
-        dt=None,
-        numcores=_NUMCORES,
-        force_map=False,
-        rtol=None,
-        atol=None,
-    ):
-        """Integrate for N dynamical times (positive=forward, negative=backward)."""
-        if N == 0:
-            raise ValueError("Number of dynamical times N cannot be zero")
-        t = self._generate_auto_time_array(pot, N_tdyn=N)
         return self._integrate_impl(
             t, pot, method, progressbar, dt, numcores, force_map, rtol, atol
         )

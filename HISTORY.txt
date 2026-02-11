@@ -25,14 +25,14 @@ v1.11.2 (expected around 2026-03-01)
   and handles the special case where alpha=2.
 
 - Added automatic time determination for orbit integration. Orbits can now be
-  integrated without specifying an explicit time array by calling integrate(pot)
-  or integrate(N, pot) to integrate for N dynamical times (default 5). The
-  dynamical time is calculated using the potential's tdyn method at the initial
-  position, with fallback to 2π·R/vcirc for 2D orbits. This simplifies exploratory
-  orbit analysis by providing physics-based default integration times. For composite
-  potentials where some components don't support tdyn, galpy automatically filters
-  to working components. The feature uses 101 points per dynamical time for good
-  temporal resolution.
+  integrated without specifying an explicit time array by calling integrate(pot),
+  which integrates for 10 dynamical times by default. The dynamical time is
+  calculated using the potential's tdyn method at the initial position, with
+  fallback to 2π·R/vcirc for 2D orbits. This simplifies exploratory orbit analysis
+  by providing physics-based default integration times. For composite potentials
+  where some components don't support tdyn, galpy automatically filters to working
+  components. The feature uses 101 points per dynamical time for good temporal
+  resolution.
 
 - Removed support for Python 3.9 (which has reached its end of life in Oct 2025).
 

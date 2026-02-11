@@ -10804,55 +10804,6 @@ def test_integrate_auto_default_2D():
     return None
 
 
-def test_integrate_auto_explicit_N():
-    # Test auto-time integration with explicit N=3
-    from galpy.orbit import Orbit
-    from galpy.potential import MWPotential2014
-
-    o = Orbit([1.0, 0.1, 1.1, 0.0, 0.1, 0.0])
-    o.integrate(3, MWPotential2014)
-
-    # Check integration occurred
-    assert hasattr(o, "t") and len(o.t) > 0, "Orbit should be integrated"
-    # Check array length: 101 points/tdyn × 3 tdyn + 1 = 304
-    assert len(o.t) == 304, f"Expected 304 time points, got {len(o.t)}"
-    # Check time starts at 0
-    assert numpy.abs(o.t[0]) < 1e-10, "Time should start at 0"
-    # Check time is positive
-    assert o.t[-1] > 0, "Final time should be positive"
-    return None
-
-
-def test_integrate_auto_negative_N():
-    # Test auto-time integration with negative N for backward integration
-    from galpy.orbit import Orbit
-    from galpy.potential import MWPotential2014
-
-    o = Orbit([1.0, 0.1, 1.1, 0.0, 0.1, 0.0])
-    o.integrate(-5, MWPotential2014)
-
-    # Check integration occurred
-    assert hasattr(o, "t") and len(o.t) > 0, "Orbit should be integrated"
-    # Check array length: 101 points/tdyn × 5 tdyn + 1 = 506
-    assert len(o.t) == 506, f"Expected 506 time points, got {len(o.t)}"
-    # Check time starts at 0
-    assert numpy.abs(o.t[0]) < 1e-10, "Time should start at 0"
-    # Check time is negative (backward integration)
-    assert o.t[-1] < 0, "Final time should be negative for backward integration"
-    return None
-
-
-def test_integrate_auto_zero_N_raises():
-    # Test that N=0 raises ValueError
-    from galpy.orbit import Orbit
-    from galpy.potential import MWPotential2014
-
-    o = Orbit([1.0, 0.1, 1.1, 0.0, 0.1, 0.0])
-    with pytest.raises(ValueError, match="cannot be zero"):
-        o.integrate(0, MWPotential2014)
-    return None
-
-
 def test_integrate_auto_1D_raises():
     # Test that 1D orbit raises ValueError
     from galpy.orbit import Orbit
@@ -10943,22 +10894,6 @@ def test_integrate_auto_energy_conservation():
     assert numpy.abs((E_final - E_initial) / E_initial) < 1e-6, (
         "Energy should be conserved to better than 1e-6"
     )
-    return None
-
-
-def test_integrate_auto_time_array_properties():
-    # Test that auto-generated time array has correct properties
-    from galpy.orbit import Orbit
-    from galpy.potential import MWPotential2014
-
-    o = Orbit([1.0, 0.1, 1.1, 0.0, 0.1, 0.0])
-    o.integrate(10, MWPotential2014)
-
-    # Check array length: 101 × 10 + 1 = 1011
-    assert len(o.t) == 1011, f"Expected 1011 time points, got {len(o.t)}"
-    # Check that time array is evenly spaced
-    dt = numpy.diff(o.t)
-    assert numpy.allclose(dt, dt[0], rtol=1e-10), "Time array should be evenly spaced"
     return None
 
 
