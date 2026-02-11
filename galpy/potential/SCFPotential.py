@@ -23,6 +23,50 @@ if _APY_LOADED:
 from .NumericalPotentialDerivativesMixin import NumericalPotentialDerivativesMixin
 
 
+def _compute_legendre(costheta, L, M, deriv=False):
+    """
+    Compute associated Legendre polynomials P_l^m(cos(theta)).
+
+    Parameters
+    ----------
+    costheta : float
+        Cosine of the polar angle.
+    L : int
+        Maximum degree + 1 (compute for 0 <= l < L).
+    M : int
+        Maximum order + 1 (compute for 0 <= m < M).
+    deriv : bool, optional
+        If True, also compute the derivative with respect to costheta.
+
+    Returns
+    -------
+    PP : numpy.ndarray
+        Associated Legendre polynomials, shape (L, M).
+    dPP : numpy.ndarray
+        Derivative with respect to costheta, shape (L, M). Only returned if deriv=True.
+
+    Notes
+    -----
+    - 2026-02-11 - Written - Bovy (UofT)
+    """
+    if _SCIPY_VERSION < parse_version("1.15"):  # pragma: no cover
+        if deriv:
+            PP, dPP = lpmn(M - 1, L - 1, costheta)
+            return PP.T, dPP.T
+        return lpmn(M - 1, L - 1, costheta)[0].T
+    if deriv:
+        PP, dPP = assoc_legendre_p_all(L - 1, M - 1, costheta, branch_cut=2, diff_n=1)
+        return (
+            numpy.swapaxes(PP[:, :M], 0, 1).T,
+            numpy.swapaxes(dPP[:, :M], 0, 1).T,
+        )
+    return numpy.swapaxes(
+        assoc_legendre_p_all(L - 1, M - 1, costheta, branch_cut=2)[0, :, :M],
+        0,
+        1,
+    ).T
+
+
 class SCFPotential(Potential, NumericalPotentialDerivativesMixin):
     """Class that implements the `Hernquist & Ostriker (1992) <http://adsabs.harvard.edu/abs/1992ApJ...386..375H>`_ Self-Consistent-Field-type potential.
     Note that we divide the amplitude by 2 such that :math:`Acos = \\delta_{0n}\\delta_{0l}\\delta_{0m}` and :math:`Asin = 0` corresponds to :ref:`Galpy's Hernquist Potential <hernquist_potential>`.
@@ -289,30 +333,6 @@ class SCFPotential(Potential, NumericalPotentialDerivativesMixin):
         NN = numpy.tril(NN)
         return NN
 
-    def _calculateXi(self, r):
-        """
-        Calculate xi given r.
-
-        Parameters
-        ----------
-        r : float
-            Evaluate at radius r.
-
-        Returns
-        -------
-        xi : float
-            The calculated xi.
-
-        Notes
-        -----
-        - 2016-05-18 - Written - Aladdin Seaifan (UofT)
-        """
-        a = self._a
-        if r == 0:
-            return -1
-        else:
-            return (1.0 - a / r) / (1.0 + a / r)
-
     def _rhoTilde(self, r, N, L):
         """
         Evaluate rho_tilde as defined in equation 3.9 and 2.24 for 0 <= n < N and 0 <= l < L
@@ -335,7 +355,7 @@ class SCFPotential(Potential, NumericalPotentialDerivativesMixin):
         -----
          - Written on 2016-05-17 by Aladdin Seaifan (UofT)
         """
-        xi = self._calculateXi(r)
+        xi = _RToxi(r, self._a)
         CC = _C(xi, N, L)
         a = self._a
         rho = numpy.zeros((N, L), float)
@@ -374,7 +394,7 @@ class SCFPotential(Potential, NumericalPotentialDerivativesMixin):
         - Written on 2016-05-17 by Aladdin Seaifan (UofT)
 
         """
-        xi = self._calculateXi(r)
+        xi = _RToxi(r, self._a)
         CC = _C(xi, N, L)
         a = self._a
         phi = numpy.zeros((N, L), float)
@@ -392,107 +412,91 @@ class SCFPotential(Potential, NumericalPotentialDerivativesMixin):
             )
         return phi
 
-    def _compute(self, funcTilde, R, z, phi):
+    def _compute_at_point(self, radial_func, R, z, phi):
         """
-        Evaluate the NxLxM density or potential
+        Evaluate the basis-function expansion at a single point.
+
+        Computes sum_{nlm} A_nlm * radial_nl(r) * P_l^m(cos theta) * [cos/sin](m*phi).
 
         Parameters
         ----------
-        funcTilde : function
-            Must be _rhoTilde or _phiTilde
+        radial_func : function
+            Radial basis function, must be _rhoTilde or _phiTilde.
         R : float
-            Cylindrical Galactocentric radius
-        z : float
-            vertical height
-        phi : float
-            azimuth
-
-        Returns
-        -------
-        numpy.ndarray
-            An NxLxM density or potential at (R,z, phi)
-
-        Notes
-        -----
-        - Written on 2016-05-18 by Aladdin Seaifan (UofT)
-        """
-        Acos, Asin = self._Acos, self._Asin
-        N, L, M = Acos.shape
-        r, theta, phi = coords.cyl_to_spher(R, z, phi)
-
-        ## Get the Legendre polynomials
-        if _SCIPY_VERSION < parse_version("1.15"):  # pragma: no cover
-            PP = lpmn(M - 1, L - 1, numpy.cos(theta))[0].T
-        else:
-            PP = numpy.swapaxes(
-                assoc_legendre_p_all(L - 1, M - 1, numpy.cos(theta), branch_cut=2)[
-                    0, :, :M
-                ],
-                0,
-                1,
-            ).T
-        func_tilde = funcTilde(r, N, L)  ## Tilde of the function of interest
-
-        func = numpy.zeros(
-            (N, L, M), float
-        )  ## The function of interest (density or potential)
-
-        m = numpy.arange(0, M)[numpy.newaxis, numpy.newaxis, :]
-        mcos = numpy.cos(m * phi)
-        msin = numpy.sin(m * phi)
-        func = (
-            func_tilde[:, :, None]
-            * (Acos[:, :, :] * mcos + Asin[:, :, :] * msin)
-            * PP[None, :, :]
-        )
-        return func
-
-    def _computeArray(self, funcTilde, R, z, phi):
-        """
-        Evaluate the density or potential for a given array of coordinates.
-
-        Parameters
-        ----------
-        funcTilde : function
-            Must be _rhoTilde or _phiTilde.
-        R : numpy.ndarray
             Cylindrical Galactocentric radius.
-        z : numpy.ndarray
+        z : float
             Vertical height.
-        phi : numpy.ndarray
+        phi : float
             Azimuth.
 
         Returns
         -------
-        numpy.ndarray
-            Density or potential evaluated at (R,z, phi).
+        float
+            The summed density or potential at (R, z, phi).
+
+        Notes
+        -----
+        - 2016-05-18 - Written - Aladdin Seaifan (UofT)
+        - 2026-02-11 - Simplified - Bovy (UofT)
+        """
+        Acos, Asin = self._Acos, self._Asin
+        N, L, M = Acos.shape
+        r, theta, phi = coords.cyl_to_spher(R, z, phi)
+        # Radial part: (N, L)
+        radial = radial_func(r, N, L)
+        # Angular part: associated Legendre polynomials (L, M)
+        PP = _compute_legendre(numpy.cos(theta), L, M)
+        # Azimuthal part: cos(m*phi), sin(m*phi)
+        m = numpy.arange(0, M)[numpy.newaxis, numpy.newaxis, :]
+        mcos = numpy.cos(m * phi)
+        msin = numpy.sin(m * phi)
+        return numpy.sum(
+            radial[:, :, None] * (Acos * mcos + Asin * msin) * PP[None, :, :]
+        )
+
+    def _evaluate_expansion(self, radial_func, R, z, phi):
+        """
+        Evaluate the basis-function expansion over an array of coordinates.
+
+        Parameters
+        ----------
+        radial_func : function
+            Radial basis function, must be _rhoTilde or _phiTilde.
+        R : float or numpy.ndarray
+            Cylindrical Galactocentric radius.
+        z : float or numpy.ndarray
+            Vertical height.
+        phi : float or numpy.ndarray
+            Azimuth.
+
+        Returns
+        -------
+        float or numpy.ndarray
+            Density or potential evaluated at (R, z, phi).
 
         Notes
         -----
         - 2016-06-02 - Written - Aladdin Seaifan (UofT)
+        - 2026-02-11 - Simplified - Bovy (UofT)
         """
         R = numpy.array(R, dtype=float)
         z = numpy.array(z, dtype=float)
         phi = numpy.array(phi, dtype=float)
-
         shape = (R * z * phi).shape
         if shape == ():
-            return numpy.sum(self._compute(funcTilde, R, z, phi))
+            return self._compute_at_point(radial_func, R, z, phi)
         R = R * numpy.ones(shape)
         z = z * numpy.ones(shape)
         phi = phi * numpy.ones(shape)
-        func = numpy.zeros(shape, float)
-
-        li = _cartesian(shape)
-        for i in range(li.shape[0]):
-            j = tuple(numpy.split(li[i], li.shape[1]))
-            func[j] = numpy.sum(self._compute(funcTilde, R[j][0], z[j][0], phi[j][0]))
-        return func
+        result = numpy.zeros(shape, float)
+        for idx in numpy.ndindex(*shape):
+            result[idx] = self._compute_at_point(radial_func, R[idx], z[idx], phi[idx])
+        return result
 
     def _dens(self, R, z, phi=0.0, t=0.0):
         if not self.isNonAxi and phi is None:
             phi = 0.0
-        return self._computeArray(self._rhoTilde, R, z, phi)
+        return self._evaluate_expansion(self._rhoTilde, R, z, phi)
 
     def _mass(self, R, z=None, t=0.0):
         if not z is None:
@@ -504,13 +508,13 @@ class SCFPotential(Potential, NumericalPotentialDerivativesMixin):
     def _evaluate(self, R, z, phi=0.0, t=0.0):
         if not self.isNonAxi and phi is None:
             phi = 0.0
-        return self._computeArray(self._phiTilde, R, z, phi)
+        return self._evaluate_expansion(self._phiTilde, R, z, phi)
 
     def _dphiTilde(self, r, N, L):
         a = self._a
         l = numpy.arange(0, L, dtype=float)[numpy.newaxis, :]
         n = numpy.arange(0, N, dtype=float)[:, numpy.newaxis]
-        xi = self._calculateXi(r)
+        xi = _RToxi(r, self._a)
         dC = _dC(xi, N, L)
         return -((4 * numpy.pi) ** 0.5) * (
             numpy.power(a * r, l)
@@ -520,8 +524,37 @@ class SCFPotential(Potential, NumericalPotentialDerivativesMixin):
             + a**-1 * (1 - xi) ** 2 * (a * r) ** l / (a + r) ** (2 * l + 1) * dC / 2.0
         )
 
-    def _computeforce(self, R, z, phi=0, t=0):
-        """Computes dPhi/dr, dPhi/dtheta, dPhi/dphi"""
+    def _compute_spher_forces_at_point(self, R, z, phi=0, t=0):
+        """
+        Compute spherical force components dPhi/dr, dPhi/dtheta, dPhi/dphi at a single point.
+
+        Uses the same angular basis functions (Legendre polynomials, cos/sin(m*phi))
+        as _compute_at_point, but also requires derivatives of both the radial and
+        angular parts.
+
+        Parameters
+        ----------
+        R : float
+            Cylindrical Galactocentric radius.
+        z : float
+            Vertical height.
+        phi : float
+            Azimuth.
+
+        Returns
+        -------
+        dPhi_dr : float
+            Derivative of the potential with respect to r.
+        dPhi_dtheta : float
+            Derivative of the potential with respect to theta.
+        dPhi_dphi : float
+            Derivative of the potential with respect to phi.
+
+        Notes
+        -----
+        - 2016-05-18 - Written - Aladdin Seaifan (UofT)
+        - 2026-02-11 - Simplified - Bovy (UofT)
+        """
         Acos, Asin = self._Acos, self._Asin
         N, L, M = Acos.shape
         r, theta, phi = coords.cyl_to_spher(R, z, phi)
@@ -531,73 +564,74 @@ class SCFPotential(Potential, NumericalPotentialDerivativesMixin):
             dPhi_dr = self._cached_dPhi_dr
             dPhi_dtheta = self._cached_dPhi_dtheta
             dPhi_dphi = self._cached_dPhi_dphi
-
         else:
-            ## Get the Legendre polynomials
-            if _SCIPY_VERSION < parse_version("1.15"):  # pragma: no cover
-                PP, dPP = lpmn(M - 1, L - 1, numpy.cos(theta))
-            else:
-                PP, dPP = assoc_legendre_p_all(
-                    L - 1, M - 1, numpy.cos(theta), branch_cut=2, diff_n=1
-                )
-                PP = numpy.swapaxes(PP[:, :M], 0, 1)
-                dPP = numpy.swapaxes(dPP[:, :M], 0, 1)
-            PP = PP.T[None, :, :]
-            dPP = dPP.T[None, :, :]
+            # Angular part: Legendre polynomials and their derivatives
+            PP, dPP = _compute_legendre(numpy.cos(theta), L, M, deriv=True)
+            PP = PP[None, :, :]
+            dPP = dPP[None, :, :]
+            # Radial part: potential basis and its radial derivative
             phi_tilde = self._phiTilde(r, N, L)[:, :, numpy.newaxis]
             dphi_tilde = self._dphiTilde(r, N, L)[:, :, numpy.newaxis]
-
+            # Azimuthal part
             m = numpy.arange(0, M)[numpy.newaxis, numpy.newaxis, :]
             mcos = numpy.cos(m * phi)
             msin = numpy.sin(m * phi)
-            dPhi_dr = -numpy.sum((Acos * mcos + Asin * msin) * PP * dphi_tilde)
+            # Coefficient-weighted angular factors
+            cos_sin_sum = Acos * mcos + Asin * msin
+            # Force components in spherical coordinates
+            dPhi_dr = -numpy.sum(cos_sin_sum * PP * dphi_tilde)
             dPhi_dtheta = -numpy.sum(
-                (Acos * mcos + Asin * msin) * phi_tilde * dPP * (-numpy.sin(theta))
+                cos_sin_sum * phi_tilde * dPP * (-numpy.sin(theta))
             )
             dPhi_dphi = -numpy.sum(m * (Asin * mcos - Acos * msin) * phi_tilde * PP)
-
+            # Cache for reuse (e.g., _Rforce and _zforce called at same point)
             self._force_hash = new_hash
             self._cached_dPhi_dr = dPhi_dr
             self._cached_dPhi_dtheta = dPhi_dtheta
             self._cached_dPhi_dphi = dPhi_dphi
         return dPhi_dr, dPhi_dtheta, dPhi_dphi
 
-    def _computeforceArray(self, dr_dx, dtheta_dx, dphi_dx, R, z, phi):
+    def _evaluate_cyl_force(self, dr_dx, dtheta_dx, dphi_dx, R, z, phi):
         """
-        Evaluate the forces in the x direction for a given array of coordinates.
+        Evaluate a cylindrical force component over an array of coordinates.
+
+        Transforms spherical force components (dPhi/dr, dPhi/dtheta, dPhi/dphi) to a
+        cylindrical component using the chain rule derivatives dr/dx, dtheta/dx, dphi/dx.
 
         Parameters
         ----------
-        dr_dx : numpy.ndarray
-            The derivative of r with respect to the chosen variable x.
-        dtheta_dx : numpy.ndarray
-            The derivative of theta with respect to the chosen variable x.
-        dphi_dx : numpy.ndarray
-            The derivative of phi with respect to the chosen variable x.
-        R : numpy.ndarray
+        dr_dx : float or numpy.ndarray
+            The derivative of r with respect to the chosen cylindrical variable x.
+        dtheta_dx : float or numpy.ndarray
+            The derivative of theta with respect to x.
+        dphi_dx : float or numpy.ndarray
+            The derivative of phi with respect to x.
+        R : float or numpy.ndarray
             Cylindrical Galactocentric radius.
-        z : numpy.ndarray
+        z : float or numpy.ndarray
             Vertical height.
-        phi : numpy.ndarray
+        phi : float or numpy.ndarray
             Azimuth.
 
         Returns
         -------
-        numpy.ndarray
-            The forces in the x direction.
+        float or numpy.ndarray
+            The force component in the x direction.
 
         Notes
         -----
         - 2016-06-02 - Written - Aladdin Seaifan (UofT)
+        - 2026-02-11 - Simplified - Bovy (UofT)
         """
         R = numpy.array(R, dtype=float)
         z = numpy.array(z, dtype=float)
         phi = numpy.array(phi, dtype=float)
         shape = (R * z * phi).shape
         if shape == ():
-            dPhi_dr, dPhi_dtheta, dPhi_dphi = self._computeforce(R, z, phi)
+            dPhi_dr, dPhi_dtheta, dPhi_dphi = self._compute_spher_forces_at_point(
+                R, z, phi
+            )
             return dr_dx * dPhi_dr + dtheta_dx * dPhi_dtheta + dPhi_dphi * dphi_dx
-
         R = R * numpy.ones(shape)
         z = z * numpy.ones(shape)
         phi = phi * numpy.ones(shape)
@@ -605,17 +639,14 @@ class SCFPotential(Potential, NumericalPotentialDerivativesMixin):
         dr_dx = dr_dx * numpy.ones(shape)
         dtheta_dx = dtheta_dx * numpy.ones(shape)
         dphi_dx = dphi_dx * numpy.ones(shape)
-        li = _cartesian(shape)
-
-        for i in range(li.shape[0]):
-            j = tuple(numpy.split(li[i], li.shape[1]))
-            dPhi_dr, dPhi_dtheta, dPhi_dphi = self._computeforce(
-                R[j][0], z[j][0], phi[j][0]
+        for idx in numpy.ndindex(*shape):
+            dPhi_dr, dPhi_dtheta, dPhi_dphi = self._compute_spher_forces_at_point(
+                R[idx], z[idx], phi[idx]
             )
-            force[j] = (
-                dr_dx[j][0] * dPhi_dr
-                + dtheta_dx[j][0] * dPhi_dtheta
-                + dPhi_dphi * dphi_dx[j][0]
+            force[idx] = (
+                dr_dx[idx] * dPhi_dr
+                + dtheta_dx[idx] * dPhi_dtheta
+                + dPhi_dphi * dphi_dx[idx]
             )
         return force
 
@@ -623,31 +654,22 @@ class SCFPotential(Potential, NumericalPotentialDerivativesMixin):
         if not self.isNonAxi and phi is None:
             phi = 0.0
         r, theta, phi = coords.cyl_to_spher(R, z, phi)
-        # x = R
         dr_dR = numpy.divide(R, r)
         dtheta_dR = numpy.divide(z, r**2)
-        dphi_dR = 0
-        return self._computeforceArray(dr_dR, dtheta_dR, dphi_dR, R, z, phi)
+        return self._evaluate_cyl_force(dr_dR, dtheta_dR, 0, R, z, phi)
 
     def _zforce(self, R, z, phi=0.0, t=0.0):
         if not self.isNonAxi and phi is None:
             phi = 0.0
         r, theta, phi = coords.cyl_to_spher(R, z, phi)
-        # x = z
         dr_dz = numpy.divide(z, r)
         dtheta_dz = numpy.divide(-R, r**2)
-        dphi_dz = 0
-        return self._computeforceArray(dr_dz, dtheta_dz, dphi_dz, R, z, phi)
+        return self._evaluate_cyl_force(dr_dz, dtheta_dz, 0, R, z, phi)
 
     def _phitorque(self, R, z, phi=0, t=0):
         if not self.isNonAxi and phi is None:
             phi = 0.0
-        r, theta, phi = coords.cyl_to_spher(R, z, phi)
-        # x = phi
-        dr_dphi = 0
-        dtheta_dphi = 0
-        dphi_dphi = 1
-        return self._computeforceArray(dr_dphi, dtheta_dphi, dphi_dphi, R, z, phi)
+        return self._evaluate_cyl_force(0, 0, 1, R, z, phi)
 
     def OmegaP(self):
         return 0
