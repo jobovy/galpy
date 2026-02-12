@@ -15,6 +15,8 @@ void init_potentialArgs(int npot, struct potentialArg * potentialArgs){
     (potentialArgs+ii)->spline1d= NULL;
     (potentialArgs+ii)->acc1d= NULL;
     (potentialArgs+ii)->tfuncs= NULL;
+    (potentialArgs+ii)->pot_data= NULL;
+    (potentialArgs+ii)->free_pot_data= NULL;
   }
 }
 void free_potentialArgs(int npot, struct potentialArg * potentialArgs){
@@ -53,6 +55,8 @@ void free_potentialArgs(int npot, struct potentialArg * potentialArgs){
 	gsl_interp_accel_free (*((potentialArgs+ii)->acc1d+jj));
       free((potentialArgs+ii)->acc1d);
     }
+    if ( (potentialArgs+ii)->free_pot_data )
+      (potentialArgs+ii)->free_pot_data((potentialArgs+ii)->pot_data);
     free((potentialArgs+ii)->args);
   }
 }

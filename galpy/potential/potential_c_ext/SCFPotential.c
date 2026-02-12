@@ -1,6 +1,12 @@
+// Self-Consistent Field (SCF) potential implementation
+// Based on Hernquist & Ostriker (1992) basis-function expansion:
+//   Phi(r,theta,phi) = sum_{nlm} A_nlm * phiTilde_nl(r) * P_l^m(cos theta) * [cos/sin](m*phi)
+//   rho(r,theta,phi) = sum_{nlm} A_nlm * rhoTilde_nl(r) * P_l^m(cos theta) * [cos/sin](m*phi)
+// The radial basis functions (phiTilde, rhoTilde) are Hernquist-Ostriker specific.
+// The angular basis functions (Legendre polynomials, cos/sin) are general spherical harmonics.
 #include <math.h>
+#include <stdlib.h>
 #include <galpy_potentials.h>
-#include <stdio.h>
 #include <gsl/gsl_sf_gegenbauer.h>
 #include <gsl/gsl_sf_legendre.h>
 
@@ -10,900 +16,618 @@
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
 #endif
-//SCF Disk potential
-//4 arguments: amp, Acos, Asin, a
 
-const int FORCE =1;
-const int DERIV =2;
+// Cache tags for force/derivative caching
+#define CACHE_FORCE 1
+#define CACHE_DERIV 2
 
-//Useful Functions
+// ============================================================================
+// Pre-computed SCF data: parsed parameters (immutable after init).
+// Initialized once via initSCFPotentialArgs, reused on every evaluation.
+// Workspace arrays are allocated per-call for thread safety, since some
+// callers (e.g., actionAngle) share potentialArgs across OpenMP threads.
+// ============================================================================
 
-//Converts from cylindrical coordinates to spherical
-static inline void cyl_to_spher(double R, double Z,double *r, double *theta)
+struct scf_data {
+    // Parsed parameters (pointers into potentialArgs->args)
+    double a;
+    int isNonAxi, N, L, M;
+    double *Acos, *Asin;
+    double *cached_type, *cached_coords, *cached_values;
+    // Derived constants
+    int M_eff, Psize;
+};
+
+static void freeSCFData(void *data)
 {
-    *r = sqrt(R*R + Z*Z);
+    free(data);
+}
+
+void initSCFPotentialArgs(struct potentialArg *potentialArgs)
+{
+    struct scf_data *d = (struct scf_data *)malloc(sizeof(struct scf_data));
+
+    // Parse parameters from args
+    double *args = potentialArgs->args;
+    d->a = *args++;
+    d->isNonAxi = (int)*args++;
+    d->N = (int)*args++;
+    d->L = (int)*args++;
+    d->M = (int)*args++;
+    d->Acos = args;
+    d->Asin = d->isNonAxi ? args + d->N * d->L * d->M : NULL;
+    double *cache = args + (d->isNonAxi + 1) * d->N * d->L * d->M;
+    d->cached_type = cache;
+    d->cached_coords = cache + 1;
+    d->cached_values = cache + 4;
+
+    // Derived constants
+    d->M_eff = d->isNonAxi ? d->M : 1;
+    d->Psize = d->isNonAxi ? d->L * (d->L + 1) / 2 : d->L;
+
+    // Store in potentialArgs
+    potentialArgs->pot_data = d;
+    potentialArgs->free_pot_data = &freeSCFData;
+}
+
+// ============================================================================
+// Utility functions
+// ============================================================================
+
+static inline void cyl_to_spher(double R, double Z, double *r, double *theta)
+{
+    *r = sqrt(R * R + Z * Z);
     *theta = atan2(R, Z);
 }
 
-//Integer power
-double power(double x, int i)
+static inline double calculateXi(double r, double a)
 {
-    if (i==0)
-        return 1;
-    return x*power(x,i - 1);
+    return (r - a) / (r + a);
 }
 
-//Calculates xi
-static inline void calculateXi(double r, double a, double *xi)
+// Index into the Legendre polynomial array for P_l^m(cos theta).
+// The storage layout depends on the GSL version.
+static inline int legendre_index(int l, int m, int L)
 {
-    *xi = (r - a)/(r + a);
+#if GSL_MAJOR_VERSION == 2
+    // GSL 2: triangle layout P(0,0), P(1,0), P(1,1), P(2,0), ...
+    return l * (l + 1) / 2 + m;
+#else
+    // GSL 1: block-per-m layout from gsl_sf_legendre_Plm_array
+    return m * L - m * (m - 1) / 2 + (l - m);
+#endif
 }
 
+// ============================================================================
+// Gegenbauer polynomials (radial basis, Hernquist-Ostriker specific)
+// ============================================================================
 
-//Potentials, forces, and derivative functions
-// LCOV_EXCL_START
-// Also used for density, just with rhoTilde
-double computePhi(double Acos_val, double Asin_val, double mCos, double mSin, double P, double phiTilde, int m)
+// C_n^{2l+3/2}(xi) for 0 <= n < N, 0 <= l < L
+static void compute_C(double xi, int N, int L, double *C)
 {
-    return (Acos_val*mCos + Asin_val*mSin)*P*phiTilde;
-}
-// LCOV_EXCL_STOP
-double computeAxiPhi(double Acos_val, double P, double phiTilde)
-{
-    return Acos_val*P*phiTilde;
+    for (int l = 0; l < L; l++)
+        gsl_sf_gegenpoly_array(N - 1, 1.5 + 2 * l, xi, C + l * N);
 }
 
-double computeF_r(double Acos_val, double Asin_val, double mCos, double mSin, double P, double dphiTilde, int m)
+// dC_n^{2l+3/2}/dxi for 0 <= n < N, 0 <= l < L
+// Uses: dC_n^a/dx = 2a * C_{n-1}^{a+1}(x)
+static void compute_dC(double xi, int N, int L, double *dC)
 {
-    return -(Acos_val*mCos + Asin_val*mSin)*P*dphiTilde;
-}
-double computeAxiF_r(double Acos_val, double P, double dphiTilde)
-{
-    return -Acos_val*P*dphiTilde;
-}
-
-double computeF_theta(double Acos_val, double Asin_val, double mCos, double mSin, double dP, double phiTilde, int m)
-{
-    return -(Acos_val*mCos + Asin_val*mSin)*dP*phiTilde;
-}
-double computeAxiF_theta(double Acos_val, double dP, double phiTilde)
-{
-    return -Acos_val*dP*phiTilde;
-}
-
-double computeF_phi(double Acos_val, double Asin_val, double mCos, double mSin, double P, double phiTilde, int m)
-{
-    return m*(Acos_val*mSin - Asin_val*mCos)*P*phiTilde;
-}
-double computeAxiF_phi(double Acos_val, double P, double phiTilde)
-{
-    return 0.;
-}
-
-double computeF_rr(double Acos_val, double Asin_val, double mCos, double mSin, double P, double d2phiTilde, int m)
-{
-    return -(Acos_val*mCos + Asin_val*mSin)*P*d2phiTilde;
-}
-double computeAxiF_rr(double Acos_val, double P, double d2phiTilde)
-{
-    return -Acos_val*P*d2phiTilde;
-}
-
-double computeF_rphi(double Acos_val, double Asin_val, double mCos, double mSin, double P, double dphiTilde, int m)
-{
-    return m*(Acos_val*mSin - Asin_val*mCos)*P*dphiTilde;
-}
-double computeAxiF_rphi(double Acos_val, double P, double d2phiTilde)
-{
-    return 0.;
-}
-
-double computeF_phiphi(double Acos_val, double Asin_val, double mCos, double mSin, double P, double phiTilde, int m)
-{
-    return m*m*(Acos_val*mCos + Asin_val*mSin)*P*phiTilde;
-}
-double computeAxiF_phiphi(double Acos_val, double P, double d2phiTilde)
-{
-    return 0.;
-}
-
-//Calculates the Gegenbauer polynomials
-void compute_C(double xi, int N, int L, double * C_array)
-{
-    int l;
-    for (l = 0; l < L; l++)
-    {
-        gsl_sf_gegenpoly_array(N - 1, 3./2 + 2*l, xi, C_array + l*N);
+    for (int l = 0; l < L; l++) {
+        dC[l * N] = 0.0;
+        if (N > 1)
+            gsl_sf_gegenpoly_array(N - 2, 2.5 + 2 * l, xi, dC + l * N + 1);
+        for (int n = 0; n < N; n++)
+            dC[l * N + n] *= 2.0 * (2 * l + 1.5);
     }
 }
 
-//Calculates the derivative of the Gegenbauer polynomials
-void compute_dC(double xi, int N, int L, double * dC_array)
+// d2C_n^{2l+3/2}/dxi2 for 0 <= n < N, 0 <= l < L
+// Uses: d2C_n^a/dx2 = 4a(a+1) * C_{n-2}^{a+2}(x)
+static void compute_d2C(double xi, int N, int L, double *d2C)
 {
-    int n,l;
-    for (l = 0; l < L; l++)
-    {
-        *(dC_array +l*N) = 0;
-        if (N != 1)
-            gsl_sf_gegenpoly_array(N - 2, 5./2 + 2*l, xi, dC_array + l*N + 1);
-        for (n = 0; n<N; n++)
-        {
-            *(dC_array +l*N + n) *= 2*(2*l + 3./2);
-        }
-    }
-
-}
-
-//Calculates the second derivative of the Gegenbauer polynomials
-void compute_d2C(double xi, int N, int L, double * d2C_array)
-{
-    int n,l;
-    for (l = 0; l < L; l++)
-    {
-        *(d2C_array +l*N) = 0;
-        if (N >1)
-            *(d2C_array +l*N + 1) = 0;
+    for (int l = 0; l < L; l++) {
+        d2C[l * N] = 0.0;
+        if (N > 1)
+            d2C[l * N + 1] = 0.0;
         if (N > 2)
-            gsl_sf_gegenpoly_array(N - 3, 7./2 + 2*l, xi, d2C_array + l*N + 2);
-        for (n = 0; n<N; n++)
-        {
-            *(d2C_array +l*N + n) *= 4*(2*l + 3./2)*(2*l + 5./2);
-        }
-    }
-
-}
-
-//Compute rho_Tilde
-void compute_rhoTilde(double r, double a, int N, int L, double* C,
-		      double * rhoTilde)
-{
-    double xi;
-    calculateXi(r,a,&xi);
-    double rterms = a * pow(r + a,-3.) / r;
-    int n,l;
-    for (l = 0; l < L; l++) {
-      if (l != 0)
-	rterms *= r * a / ( ( a + r ) * ( a + r ) );
-      for (n = 0; n < N; n++)
-	*(rhoTilde + l*N + n)  = (0.5 * n * ( n + 4. * l + 3. ) + ( l + 1. ) \
-				  * ( 2. * l + 1. ) )			\
-	  * rterms*(*(C + n + l*N));
+            gsl_sf_gegenpoly_array(N - 3, 3.5 + 2 * l, xi, d2C + l * N + 2);
+        for (int n = 0; n < N; n++)
+            d2C[l * N + n] *= 4.0 * (2 * l + 1.5) * (2 * l + 2.5);
     }
 }
 
-//Compute phi_Tilde
-void compute_phiTilde(double r, double a, int N, int L, double* C, double * phiTilde)
+// ============================================================================
+// Radial basis functions (Hernquist-Ostriker specific)
+// Storage: radial[l * N + n] for degree l, order n
+// ============================================================================
+
+// rhoTilde_nl(r) = K_nl / sqrt(pi) * (ar)^l / ((r/a)(a+r)^{2l+3}) * C_n^{2l+3/2}(xi)
+static void compute_rhoTilde(double r, double a, int N, int L,
+                             double *C, double *rhoTilde)
 {
-    double xi;
-    calculateXi(r, a, &xi);
-    double rterms = -1./(r + a);
-    int n,l;
-    for (l = 0; l < L; l++)
-    {
-
-        if (l != 0)
-            rterms *= r*a/((a + r)*(a + r));
-
-        for (n = 0; n < N; n++)
-        {
-            *(phiTilde + l*N + n)  = rterms*(*(C + n + l*N));
-        }
-    }
-
-}
-
-//Computes the derivative of phiTilde with respect to r
-void compute_dphiTilde(double r, double a, int N, int L, double * C, double * dC, double * dphiTilde)
-{
-    double xi;
-    calculateXi(r, a, &xi);
-    double rterm = 1./(r*power(a + r, 3));
-    int n,l;
-    for (l = 0; l < L; l++)
-    {
-        if (l != 0)
-        {
-            rterm *= (a*r)/power(a + r, 2) ;
-        }
-        for (n = 0; n < N; n++)
-        {
-            *( dphiTilde + l*N + n) = rterm *(((2*l + 1)*r*(a + r) - l*power(a + r,2))*(*(C + l*N + n)) -
-                                              2*a*r*(*(dC + l*N + n)));
-
+    double rterms = a * pow(r + a, -3.0) / r;
+    for (int l = 0; l < L; l++) {
+        if (l > 0)
+            rterms *= r * a / ((a + r) * (a + r));
+        for (int n = 0; n < N; n++) {
+            double K = 0.5 * n * (n + 4.0 * l + 3.0) + (l + 1.0) * (2.0 * l + 1.0);
+            rhoTilde[l * N + n] = K * rterms * C[l * N + n];
         }
     }
 }
 
-//Computes the second derivative of phiTilde with respect to r
-void compute_d2phiTilde(double r, double a, int N, int L, double * C, double * dC,double * d2C, double * d2phiTilde)
+// phiTilde_nl(r) = -(ar)^l / (a+r)^{2l+1} * C_n^{2l+3/2}(xi)
+static void compute_phiTilde(double r, double a, int N, int L,
+                             double *C, double *phiTilde)
 {
-    double xi;
-    calculateXi(r, a, &xi);
-    double rterm = 1./(r*r) / power(a + r,5);
-    int n,l;
-    for (l = 0; l < L; l++)
-    {
+    double rterms = -1.0 / (r + a);
+    for (int l = 0; l < L; l++) {
+        if (l > 0)
+            rterms *= r * a / ((a + r) * (a + r));
+        for (int n = 0; n < N; n++)
+            phiTilde[l * N + n] = rterms * C[l * N + n];
+    }
+}
 
-
-        if (l != 0)
-        {
-            rterm *= (a*r)/power(a + r, 2);
-        }
-        for (n = 0; n < N; n++)
-        {
-
-            double C_val = *(C + l*N + n);
-            double dC_val = *(dC + l*N + n);
-            double d2C_val = *(d2C + l*N + n);
-            *( d2phiTilde + l*N + n) = rterm*(C_val*(l*(1 - l)*power(a + r, 4) - (4*l*l + 6*l + 2.)*r*r*power(a + r,2) +
-                                              l*(4*l + 2)*r*power(a + r,3))
-                                              + a*r*((4*r*r + 4*a*r + (8*l + 4)*r*(a + r)-
-                                                      4*l*power(a + r,2))*dC_val - 4*a*r*d2C_val));
-
+// d(phiTilde_nl)/dr
+static void compute_dphiTilde(double r, double a, int N, int L,
+                              double *C, double *dC, double *dphiTilde)
+{
+    double ar = a + r;
+    double rterm = 1.0 / (r * ar * ar * ar);
+    for (int l = 0; l < L; l++) {
+        if (l > 0)
+            rterm *= a * r / (ar * ar);
+        for (int n = 0; n < N; n++) {
+            int i = l * N + n;
+            dphiTilde[i] = rterm * (((2 * l + 1) * r * ar - l * ar * ar) * C[i]
+                                    - 2.0 * a * r * dC[i]);
         }
     }
 }
 
-
-//Computes the associated Legendre polynomials
-void compute_P(double x, int L, int M, double * P_array)
+// d2(phiTilde_nl)/dr2
+static void compute_d2phiTilde(double r, double a, int N, int L,
+                               double *C, double *dC, double *d2C,
+                               double *d2phiTilde)
 {
-    if (M == 1){
-        gsl_sf_legendre_Pl_array (L - 1, x, P_array);
+    double ar = a + r;
+    double rterm = 1.0 / (r * r * ar * ar * ar * ar * ar);
+    for (int l = 0; l < L; l++) {
+        if (l > 0)
+            rterm *= a * r / (ar * ar);
+        for (int n = 0; n < N; n++) {
+            int i = l * N + n;
+            double ar2 = ar * ar;
+            double ar3 = ar2 * ar;
+            double ar4 = ar3 * ar;
+            d2phiTilde[i] = rterm * (
+                C[i] * (l * (1 - l) * ar4
+                        - (4.0 * l * l + 6.0 * l + 2.0) * r * r * ar2
+                        + l * (4 * l + 2) * r * ar3)
+                + a * r * ((4.0 * r * r + 4.0 * a * r
+                            + (8 * l + 4) * r * ar
+                            - 4 * l * ar2) * dC[i]
+                           - 4.0 * a * r * d2C[i]));
+        }
+    }
+}
+
+// ============================================================================
+// Angular functions (associated Legendre polynomials - reusable)
+// ============================================================================
+
+// Compute P_l^m(x) for 0 <= l < L, 0 <= m < M
+static void compute_legendre(double x, int L, int M, double *P)
+{
+    if (M == 1) {
+        gsl_sf_legendre_Pl_array(L - 1, x, P);
     } else {
-        #if GSL_MAJOR_VERSION == 2
-            gsl_sf_legendre_array_e(GSL_SF_LEGENDRE_NONE,L - 1, x, -1, P_array);
-        #else
-            int m;
-            for (m = 0; m < M; m++)
-            {
-                gsl_sf_legendre_Plm_array(L - 1, m, x, P_array);
-                P_array += L - m;
-            }
-        #endif
-    }
-
-
-
-}
-
-//Computes the associated Legendre polynomials and its derivative
-void compute_P_dP(double x, int L, int M, double * P_array, double *dP_array)
-{
-    if (M == 1){
-        gsl_sf_legendre_Pl_deriv_array (L - 1, x, P_array, dP_array);
-    } else {
-        #if GSL_MAJOR_VERSION == 2
-            gsl_sf_legendre_deriv_array_e(GSL_SF_LEGENDRE_NONE, L - 1, x, -1,P_array, dP_array);
-
-        #else
-            int m;
-            for (m = 0; m < M; m++)
-            {
-                gsl_sf_legendre_Plm_deriv_array(L - 1, m, x, P_array, dP_array);
-                P_array += L - m;
-                dP_array += L - m;
-            }
-        #endif
-    }
-}
-
-
-
-
-
-typedef struct equations equations;
-struct equations
-{
-    double ((**Eq)(double, double, double, double, double, double, int));
-    double *(*phiTilde);
-    double *(*P);
-    double *Constant;
-};
-
-typedef struct axi_equations axi_equations;
-struct axi_equations
-{
-    double ((**Eq)(double, double, double));
-    double *(*phiTilde);
-    double *(*P);
-    double *Constant;
-};
-
-//Compute axi symmetric potentials.
-void compute(double a, int N, int L, int M,
-	     double r, double theta, double phi,
-	     double *Acos, int eq_size,
-	     axi_equations e,
-	     double *F)
-{
-    int i,n,l;
-    for (i = 0; i < eq_size; i++)
-    {
-        *(F + i) =0; //Initialize each F
-    }
-
-    for (l = 0; l < L; l++)
-    {
-
-        for (n = 0; n < N; n++)
-        {
-
-
-
-            double Acos_val = *(Acos + M*l + M*L*n);
-            for (i = 0; i < eq_size; i++)
-            {
-                double (*Eq)(double, double, double) = *(e.Eq + i);
-                double *P = *(e.P + i);
-                double *phiTilde = *(e.phiTilde + i);
-                *(F + i) += (*Eq)(Acos_val, P[l], phiTilde[l*N + n]);
-            }
-
-
+#if GSL_MAJOR_VERSION == 2
+        gsl_sf_legendre_array_e(GSL_SF_LEGENDRE_NONE, L - 1, x, -1, P);
+#else
+        double *ptr = P;
+        for (int m = 0; m < M; m++) {
+            gsl_sf_legendre_Plm_array(L - 1, m, x, ptr);
+            ptr += L - m;
         }
+#endif
     }
-
-    //Multiply F by constants
-    for (i = 0; i < eq_size; i++)
-    {
-        double constant = *(e.Constant + i);
-        *(F + i) *= constant*sqrt(4*M_PI);
-    }
-
 }
 
-//Compute Non Axi symmetric Potentials
-void computeNonAxi(double a, int N, int L, int M,
-		   double r, double theta, double phi,
-		   double *Acos, double *Asin, int eq_size,
-		   equations e,
-		   double *F)
+// Compute P_l^m(x) and dP_l^m/dx for 0 <= l < L, 0 <= m < M
+static void compute_legendre_deriv(double x, int L, int M,
+                                   double *P, double *dP)
 {
-    int i,n,l,m;
-    for (i = 0; i < eq_size; i++)
-    {
-        *(F + i) =0; //Initialize each F
+    if (M == 1) {
+        gsl_sf_legendre_Pl_deriv_array(L - 1, x, P, dP);
+    } else {
+#if GSL_MAJOR_VERSION == 2
+        gsl_sf_legendre_deriv_array_e(GSL_SF_LEGENDRE_NONE, L - 1, x, -1, P, dP);
+#else
+        double *pptr = P;
+        double *dpptr = dP;
+        for (int m = 0; m < M; m++) {
+            gsl_sf_legendre_Plm_deriv_array(L - 1, m, x, pptr, dpptr);
+            pptr += L - m;
+            dpptr += L - m;
+        }
+#endif
     }
+}
 
-    int v1counter=0;
-    int v2counter = 0;
-    int Pindex = 0;
-    for (l = 0; l < L; l++)
-    {
-        v1counter = 0;
-        for (m = 0; m<=l; m++)
-        {
-            #if GSL_MAJOR_VERSION == 2
-                Pindex = v2counter;
-            #else
-                Pindex = v1counter + l;
-            #endif
+// ============================================================================
+// Summation functions: combine radial * angular * coefficients
+// These perform sum_{nlm} A_nlm * radial_nl * angular_lm
+// ============================================================================
 
-            double mCos = cos(m*phi);
-            double mSin = sin(m*phi);
-            for (n = 0; n < N; n++)
-            {
-                double Acos_val = *(Acos +m + M*l + M*L*n);
-                double Asin_val = *(Asin +m + M*l + M*L*n);
-                for (i = 0; i < eq_size; i++)
-                {
-                    double (*Eq)(double, double, double, double, double, double, int) = *(e.Eq + i);
-                    double *P = *(e.P + i);
-                    double *phiTilde = *(e.phiTilde + i);
-                    *(F + i) += (*Eq)(Acos_val, Asin_val, mCos, mSin, P[Pindex], phiTilde[l*N + n], m);
+// Sum the basis-function expansion (used for both potential and density).
+// radial[l*N+n] contains either phiTilde_nl or rhoTilde_nl.
+// P[...] contains P_l^m(cos theta) in GSL layout.
+static double sum_expansion(int N, int L, int M, int isNonAxi,
+                            double *Acos, double *Asin,
+                            double *radial, double *P, double phi)
+{
+    double result = 0.0;
+    if (isNonAxi) { // LCOV_EXCL_START
+        for (int l = 0; l < L; l++) {
+            for (int m = 0; m <= l; m++) {
+                double mcos = cos(m * phi);
+                double msin = sin(m * phi);
+                int pi = legendre_index(l, m, L);
+                for (int n = 0; n < N; n++) {
+                    int ci = n * L * M + l * M + m;
+                    result += (Acos[ci] * mcos + Asin[ci] * msin)
+                              * P[pi] * radial[l * N + n];
                 }
-
-
             }
-
-
-
-                v2counter++;
-                v1counter+=M-m - 1;
-
         }
-
-
-
-
-    }
-    //Multiply F by constants
-    for (i = 0; i < eq_size; i++)
-    {
-        double constant = *(e.Constant + i);
-        *(F + i) *= constant*sqrt(4*M_PI);
-    }
-
-}
-
-
-
-//Compute the Forces
-void computeForce(double R,double Z, double phi,
-		  double t,
-		  struct potentialArg * potentialArgs, double * F)
-{
-    double * args= potentialArgs->args;
-    //Get args
-    double a = *args++;
-    int isNonAxi = (int)*args++;
-    int N = (int)*args++;
-    int L = (int)*args++;
-    int M = (int)*args++;
-
-    double* Acos = args;
-
-    double* caching_i = (args + (isNonAxi + 1)*N*L*M);
-    double *Asin;
-    if (isNonAxi == 1)
-    {
-        Asin = args + N*L*M;
-    }
-    double *cached_type = caching_i;
-    double * cached_coords = (caching_i+ 1);
-    double * cached_values = (caching_i + 4);
-    if ((int)*cached_type==FORCE)
-    {
-        if (*cached_coords == R && *(cached_coords + 1) == Z && *(cached_coords + 2) == phi)
-        {
-            *F = *cached_values;
-            *(F + 1) = *(cached_values + 1);
-            *(F + 2) = *(cached_values + 2);
-            return;
+    } else { // LCOV_EXCL_STOP
+        for (int l = 0; l < L; l++) {
+            for (int n = 0; n < N; n++) {
+                result += Acos[n * L * M + l * M]
+                          * P[l] * radial[l * N + n];
+            }
         }
     }
-    double r;
-    double theta;
-    cyl_to_spher(R, Z, &r, &theta);
-
-    double xi;
-    calculateXi(r, a, &xi);
-
-//Compute the gegenbauer polynomials and its derivative.
-    double *C= (double *) malloc ( N*L * sizeof(double) );
-    double *dC= (double *) malloc ( N*L * sizeof(double) );
-    double *phiTilde= (double *) malloc ( N*L * sizeof(double) );
-    double *dphiTilde= (double *) malloc ( N*L * sizeof(double) );
-
-    compute_C(xi, N, L, C);
-    compute_dC(xi, N, L, dC);
-
-//Compute phiTilde and its derivative
-    compute_phiTilde(r, a, N, L, C, phiTilde);
-
-    compute_dphiTilde(r, a, N, L, C, dC, dphiTilde);
-
-//Compute Associated Legendre Polynomials
-    int M_eff = M;
-    int size = 0;
-
-    if (isNonAxi==0)
-    {
-    M_eff = 1;
-    size = L;
-    } else{
-    size = L*L - L*(L-1)/2;
-    }
-
-    double *P= (double *) malloc ( size * sizeof(double) );
-    double *dP= (double *) malloc ( size * sizeof(double) );
-    compute_P_dP(cos(theta), L, M_eff, P, dP);
-
-    double (*PhiTilde_Pointer[3]) = {dphiTilde,phiTilde,phiTilde};
-    double (*P_Pointer[3]) = {P, dP, P};
-
-    double Constant[3] = {1., -sin(theta), 1.};
-
-    if (isNonAxi == 1)
-    {
-        double (*Eq[3])(double, double, double, double, double, double, int) = {&computeF_r, &computeF_theta, &computeF_phi};
-        equations e = {Eq,&PhiTilde_Pointer[0], &P_Pointer[0], &Constant[0]};
-        computeNonAxi(a, N, L, M,r, theta, phi, Acos, Asin, 3, e, F);
-    }
-    else
-    {
-        double (*Eq[3])(double, double, double) = {&computeAxiF_r, &computeAxiF_theta, &computeAxiF_phi};
-        axi_equations e = {Eq,&PhiTilde_Pointer[0], &P_Pointer[0], &Constant[0]};
-        compute(a, N, L, M,r, theta, phi, Acos, 3, e, F);
-    }
-
-
-
-    //Caching
-
-    *cached_type = (double)FORCE;
-
-    * cached_coords = R;
-    * (cached_coords + 1) = Z;
-    * (cached_coords + 2) = phi;
-    * (cached_values) = *F;
-    * (cached_values + 1) = *(F + 1);
-    * (cached_values + 2) = *(F + 2);
-
-    // Free memory
-    free(C);
-    free(dC);
-    free(phiTilde);
-    free(dphiTilde);
-    free(P);
-    free(dP);
-
+    return result * sqrt(4.0 * M_PI);
 }
 
-//Compute the Derivatives
-void computeDeriv(double R,double Z, double phi,
-		  double t,
-		  struct potentialArg * potentialArgs, double * F)
+// Sum the spherical force components: dPhi/dr, dPhi/dtheta, dPhi/dphi.
+// F[0] = dPhi/dr, F[1] = dPhi/dtheta, F[2] = dPhi/dphi.
+static void sum_spher_forces(int N, int L, int M, int isNonAxi,
+                             double *Acos, double *Asin,
+                             double *phiTilde, double *dphiTilde,
+                             double *P, double *dP,
+                             double phi, double sintheta, double *F)
 {
-    double * args= potentialArgs->args;
-    //Get args
-    double a = *args++;
-    int isNonAxi = (int)*args++;
-    int N = (int) *args++;
-    int L = (int) *args++;
-    int M = (int) *args++;
-    double* Acos = args;
-
-    double * caching_i = (args + (isNonAxi + 1)*N*L*M);
-    double *Asin;
-    if (isNonAxi == 1)
-    {
-        Asin = args + N*L*M;
-    }
-
-    double *cached_type = caching_i;
-    double * cached_coords = (caching_i+ 1);
-    double * cached_values = (caching_i + 4);
-    if ((int)*cached_type==DERIV)
-    {
-        if (*cached_coords == R && *(cached_coords + 1) == Z && *(cached_coords + 2) == phi)
-        {
-            *F = *cached_values;
-            *(F + 1) = *(cached_values + 1);
-            *(F + 2) = *(cached_values + 2);
-            return;
+    F[0] = F[1] = F[2] = 0.0;
+    if (isNonAxi) {
+        for (int l = 0; l < L; l++) {
+            for (int m = 0; m <= l; m++) {
+                double mcos = cos(m * phi);
+                double msin = sin(m * phi);
+                int pi = legendre_index(l, m, L);
+                for (int n = 0; n < N; n++) {
+                    int ci = n * L * M + l * M + m;
+                    int ri = l * N + n;
+                    double cos_sum = Acos[ci] * mcos + Asin[ci] * msin;
+                    double sin_diff = Acos[ci] * msin - Asin[ci] * mcos;
+                    F[0] -= cos_sum * P[pi] * dphiTilde[ri];
+                    F[1] -= cos_sum * dP[pi] * phiTilde[ri];
+                    F[2] += m * sin_diff * P[pi] * phiTilde[ri];
+                }
+            }
+        }
+    } else {
+        for (int l = 0; l < L; l++) {
+            for (int n = 0; n < N; n++) {
+                int ci = n * L * M + l * M;
+                int ri = l * N + n;
+                F[0] -= Acos[ci] * P[l] * dphiTilde[ri];
+                F[1] -= Acos[ci] * dP[l] * phiTilde[ri];
+            }
         }
     }
+    double sqrt4pi = sqrt(4.0 * M_PI);
+    F[0] *= sqrt4pi;
+    F[1] *= sqrt4pi * (-sintheta);
+    F[2] *= sqrt4pi;
+}
 
-    double r;
-    double theta;
+// Sum the spherical 2nd-derivative components.
+// F[0] = d2Phi/dr2, F[1] = d2Phi/dphi2, F[2] = d2Phi/drdphi.
+static void sum_spher_2nd_derivs(int N, int L, int M, int isNonAxi,
+                                 double *Acos, double *Asin,
+                                 double *phiTilde, double *dphiTilde,
+                                 double *d2phiTilde, double *P,
+                                 double phi, double *F)
+{
+    F[0] = F[1] = F[2] = 0.0;
+    if (isNonAxi) {
+        for (int l = 0; l < L; l++) {
+            for (int m = 0; m <= l; m++) {
+                double mcos = cos(m * phi);
+                double msin = sin(m * phi);
+                int pi = legendre_index(l, m, L);
+                for (int n = 0; n < N; n++) {
+                    int ci = n * L * M + l * M + m;
+                    int ri = l * N + n;
+                    double cos_sum = Acos[ci] * mcos + Asin[ci] * msin;
+                    double sin_diff = Acos[ci] * msin - Asin[ci] * mcos;
+                    F[0] -= cos_sum * P[pi] * d2phiTilde[ri];
+                    F[1] += m * m * cos_sum * P[pi] * phiTilde[ri];
+                    F[2] += m * sin_diff * P[pi] * dphiTilde[ri];
+                }
+            }
+        }
+    } else {
+        for (int l = 0; l < L; l++) {
+            for (int n = 0; n < N; n++) {
+                int ci = n * L * M + l * M;
+                F[0] -= Acos[ci] * P[l] * d2phiTilde[l * N + n];
+            }
+        }
+    }
+    double sqrt4pi = sqrt(4.0 * M_PI);
+    F[0] *= sqrt4pi;
+    F[1] *= sqrt4pi;
+    F[2] *= sqrt4pi;
+}
+
+// ============================================================================
+// Internal computation: spherical forces and 2nd derivatives with caching
+// ============================================================================
+
+// Compute spherical force components (dPhi/dr, dPhi/dtheta, dPhi/dphi)
+// with caching to avoid redundant work when Rforce/zforce are called
+// at the same point.
+static void compute_spher_forces(struct scf_data *d,
+                                 double R, double Z, double phi, double *F)
+{
+    // Check cache
+    if ((int)*d->cached_type == CACHE_FORCE
+        && d->cached_coords[0] == R
+        && d->cached_coords[1] == Z
+        && d->cached_coords[2] == phi) {
+        F[0] = d->cached_values[0];
+        F[1] = d->cached_values[1];
+        F[2] = d->cached_values[2];
+        return;
+    }
+
+    double r, theta;
     cyl_to_spher(R, Z, &r, &theta);
+    double xi = calculateXi(r, d->a);
 
-    double xi;
-    calculateXi(r, a, &xi);
+    int NL = d->N * d->L;
+    // Allocate workspace per call (thread-safe)
+    double *ws = (double *)malloc((4 * NL + 2 * d->Psize) * sizeof(double));
+    double *C       = ws;
+    double *dCArr    = ws + NL;
+    double *phiT    = ws + 2 * NL;
+    double *dphiT   = ws + 3 * NL;
+    double *P       = ws + 4 * NL;
+    double *dP      = ws + 4 * NL + d->Psize;
 
-//Compute the gegenbauer polynomials and its derivative.
-    double *C= (double *) malloc ( N*L * sizeof(double) );
-    double *dC= (double *) malloc ( N*L * sizeof(double) );
-    double *d2C= (double *) malloc ( N*L * sizeof(double) );
-    double *phiTilde= (double *) malloc ( N*L * sizeof(double) );
-    double *dphiTilde= (double *) malloc ( N*L * sizeof(double) );
-    double *d2phiTilde= (double *) malloc ( N*L * sizeof(double) );
+    // Radial part
+    compute_C(xi, d->N, d->L, C);
+    compute_dC(xi, d->N, d->L, dCArr);
+    compute_phiTilde(r, d->a, d->N, d->L, C, phiT);
+    compute_dphiTilde(r, d->a, d->N, d->L, C, dCArr, dphiT);
 
-    compute_C(xi, N, L, C);
-    compute_dC(xi, N, L, dC);
-    compute_d2C(xi, N, L, d2C);
+    // Angular part
+    compute_legendre_deriv(cos(theta), d->L, d->M_eff, P, dP);
 
-//Compute phiTilde and its derivative
-    compute_phiTilde(r, a, N, L, C, phiTilde);
-    compute_dphiTilde(r, a, N, L, C, dC, dphiTilde);
-    compute_d2phiTilde(r, a, N, L, C, dC, d2C, d2phiTilde);
+    // Sum
+    sum_spher_forces(d->N, d->L, d->M, d->isNonAxi,
+                     d->Acos, d->Asin,
+                     phiT, dphiT, P, dP,
+                     phi, sin(theta), F);
 
+    free(ws);
 
-//Compute Associated Legendre Polynomials
-    int M_eff = M;
-    int size = 0;
-
-    if (isNonAxi==0)
-    {
-    M_eff = 1;
-    size = L;
-    } else{
-    size = L*L - L*(L-1)/2;
-    }
-    double *P= (double *) malloc ( size * sizeof(double) );
-
-    compute_P(cos(theta), L,M_eff, P);
-
-    double (*PhiTilde_Pointer[3])= {d2phiTilde,phiTilde,dphiTilde};
-    double (*P_Pointer[3]) = {P, P, P};
-
-    double Constant[3] = {1., 1., 1.};
-
-    if (isNonAxi==1)
-    {
-        double (*Eq[3])(double, double, double, double, double, double, int) = {&computeF_rr, &computeF_phiphi, &computeF_rphi};
-        equations e = {Eq,&PhiTilde_Pointer[0],&P_Pointer[0],&Constant[0]};
-        computeNonAxi(a, N, L, M,r, theta, phi, Acos, Asin, 3, e, F);
-    }
-    else
-    {
-        double (*Eq[3])(double, double, double) = {&computeAxiF_rr, &computeAxiF_phiphi, &computeAxiF_rphi};
-        axi_equations e = {Eq,&PhiTilde_Pointer[0],&P_Pointer[0],&Constant[0]};
-        compute(a, N, L, M,r, theta, phi, Acos, 3, e, F);
-    }
-
-
-    //Caching
-
-    *cached_type = (double)DERIV;
-
-    * cached_coords = R;
-    * (cached_coords + 1) = Z;
-    * (cached_coords + 2) = phi;
-    * (cached_values) = *F;
-    * (cached_values + 1) = *(F + 1);
-    * (cached_values + 2) = *(F + 2);
-
-    //Free memory
-    free(C);
-    free(dC);
-    free(d2C);
-    free(phiTilde);
-    free(dphiTilde);
-    free(d2phiTilde);
-    free(P);
+    // Update cache
+    *d->cached_type = (double)CACHE_FORCE;
+    d->cached_coords[0] = R;
+    d->cached_coords[1] = Z;
+    d->cached_coords[2] = phi;
+    d->cached_values[0] = F[0];
+    d->cached_values[1] = F[1];
+    d->cached_values[2] = F[2];
 }
 
-//Compute the Potential
-double SCFPotentialEval(double R,double Z, double phi,
-                        double t,
-                        struct potentialArg * potentialArgs)
+// Compute spherical 2nd-derivative components (d2Phi/dr2, d2Phi/dphi2, d2Phi/drdphi)
+// with caching.
+static void compute_spher_2nd_derivs(struct scf_data *d,
+                                     double R, double Z, double phi, double *F)
 {
-    double * args= potentialArgs->args;
-    //Get args
-    double a = *args++;
-    int isNonAxi = (int)*args++;
-    int N = (int) *args++;
-    int L = (int) *args++;
-    int M = (int) *args++;
-    double* Acos = args;
-    double* Asin;
-    if (isNonAxi==1) // LCOV_EXCL_START
-    {
-        Asin = args + N*L*M;
-    } // LCOV_EXCL_STOP
-    //convert R,Z to r, theta
-    double r;
-    double theta;
-    cyl_to_spher(R, Z,&r, &theta);
-    double xi;
-    calculateXi(r, a, &xi);
-
-    //Compute the gegenbauer polynomials and its derivative.
-    double *C= (double *) malloc ( N*L * sizeof(double) );
-    double *phiTilde= (double *) malloc ( N*L * sizeof(double) );
-
-    compute_C(xi, N, L, C);
-
-    //Compute phiTilde and its derivative
-    compute_phiTilde(r, a, N, L, C, phiTilde);
-    //Compute Associated Legendre Polynomials
-
-    int M_eff = M;
-    int size = 0;
-
-    if (isNonAxi==0)
-    {
-    M_eff = 1;
-    size = L;
-    } else{ // LCOV_EXCL_START
-    size = L*L - L*(L-1)/2;
-    } // LCOV_EXCL_STOP
-
-    double *P= (double *) malloc ( size * sizeof(double) );
-
-    compute_P(cos(theta), L,M_eff, P);
-
-    double potential;
-
-    double (*PhiTilde_Pointer[1]) = {phiTilde};
-    double (*P_Pointer[1]) = {P};
-
-    double Constant[1] = {1.};
-
-    if (isNonAxi==1) // LCOV_EXCL_START
-    {
-        double (*Eq[1])(double, double, double, double, double, double, int) = {&computePhi};
-        equations e = {Eq,&PhiTilde_Pointer[0],&P_Pointer[0],&Constant[0]};
-        computeNonAxi(a, N, L, M,r, theta, phi, Acos, Asin, 1, e, &potential);
-    } // LCOV_EXCL_STOP
-    else
-    {
-        double (*Eq[1])(double, double, double) = {&computeAxiPhi};
-        axi_equations e = {Eq,&PhiTilde_Pointer[0],&P_Pointer[0],&Constant[0]};
-        compute(a, N, L, M,r, theta, phi, Acos, 1, e, &potential);
+    // Check cache
+    if ((int)*d->cached_type == CACHE_DERIV
+        && d->cached_coords[0] == R
+        && d->cached_coords[1] == Z
+        && d->cached_coords[2] == phi) {
+        F[0] = d->cached_values[0];
+        F[1] = d->cached_values[1];
+        F[2] = d->cached_values[2];
+        return;
     }
 
-    //Free memory
-    free(C);
-    free(phiTilde);
-    free(P);
-
-    return potential;
-
-}
-
-//Compute the force in the R direction
-double SCFPotentialRforce(double R,double Z, double phi,
-                          double t,
-                          struct potentialArg * potentialArgs)
-{
-    double r;
-    double theta;
+    double r, theta;
     cyl_to_spher(R, Z, &r, &theta);
-    // The derivatives
-    double dr_dR = R/r;
-    double dtheta_dR = Z/(r*r);
-    double dphi_dR = 0;
+    double xi = calculateXi(r, d->a);
 
+    int NL = d->N * d->L;
+    // Allocate workspace per call (thread-safe)
+    double *ws = (double *)malloc((6 * NL + d->Psize) * sizeof(double));
+    double *C       = ws;
+    double *dCArr    = ws + NL;
+    double *d2CArr   = ws + 2 * NL;
+    double *phiT    = ws + 3 * NL;
+    double *dphiT   = ws + 4 * NL;
+    double *d2phiT  = ws + 5 * NL;
+    double *P       = ws + 6 * NL;
 
-    double F[3];
-    computeForce(R, Z, phi, t,potentialArgs, &F[0]) ;
+    // Radial part
+    compute_C(xi, d->N, d->L, C);
+    compute_dC(xi, d->N, d->L, dCArr);
+    compute_d2C(xi, d->N, d->L, d2CArr);
+    compute_phiTilde(r, d->a, d->N, d->L, C, phiT);
+    compute_dphiTilde(r, d->a, d->N, d->L, C, dCArr, dphiT);
+    compute_d2phiTilde(r, d->a, d->N, d->L, C, dCArr, d2CArr, d2phiT);
 
-    return *(F + 0)*dr_dR + *(F + 1)*dtheta_dR + *(F + 2)*dphi_dR;
+    // Angular part (no derivatives needed for 2nd derivs)
+    compute_legendre(cos(theta), d->L, d->M_eff, P);
 
+    // Sum
+    sum_spher_2nd_derivs(d->N, d->L, d->M, d->isNonAxi,
+                         d->Acos, d->Asin,
+                         phiT, dphiT, d2phiT, P,
+                         phi, F);
 
+    free(ws);
+
+    // Update cache
+    *d->cached_type = (double)CACHE_DERIV;
+    d->cached_coords[0] = R;
+    d->cached_coords[1] = Z;
+    d->cached_coords[2] = phi;
+    d->cached_values[0] = F[0];
+    d->cached_values[1] = F[1];
+    d->cached_values[2] = F[2];
 }
 
-//Compute the force in the z direction
-double SCFPotentialzforce(double R,double Z, double phi,
-                          double t,
-                          struct potentialArg * potentialArgs)
+// ============================================================================
+// Public API: potential, forces, derivatives, density
+// ============================================================================
+
+double SCFPotentialEval(double R, double Z, double phi, double t,
+                        struct potentialArg *potentialArgs)
 {
-    double r;
-    double theta;
-    cyl_to_spher(R, Z,&r, &theta);
+    struct scf_data *d = (struct scf_data *)potentialArgs->pot_data;
 
-    double dr_dz = Z/r;
-    double dtheta_dz = -R/(r*r);
-    double dphi_dz = 0;
-
-    double F[3];
-    computeForce(R, Z, phi, t,potentialArgs, &F[0]) ;
-    return *(F + 0)*dr_dz + *(F + 1)*dtheta_dz + *(F + 2)*dphi_dz;
-}
-
-//Compute the force in the phi direction
-double SCFPotentialphitorque(double R,double Z, double phi,
-                            double t,
-                            struct potentialArg * potentialArgs)
-{
-
-    double r;
-    double theta;
+    double r, theta;
     cyl_to_spher(R, Z, &r, &theta);
+    double xi = calculateXi(r, d->a);
 
-    double dr_dphi = 0;
-    double dtheta_dphi = 0;
-    double dphi_dphi = 1;
+    int NL = d->N * d->L;
+    double *ws = (double *)malloc((2 * NL + d->Psize) * sizeof(double));
+    double *C      = ws;
+    double *radial = ws + NL;
+    double *P      = ws + 2 * NL;
 
+    // Radial part
+    compute_C(xi, d->N, d->L, C);
+    compute_phiTilde(r, d->a, d->N, d->L, C, radial);
+
+    // Angular part
+    compute_legendre(cos(theta), d->L, d->M_eff, P);
+
+    // Sum
+    double result = sum_expansion(d->N, d->L, d->M, d->isNonAxi,
+                                  d->Acos, d->Asin,
+                                  radial, P, phi);
+    free(ws);
+    return result;
+}
+
+double SCFPotentialRforce(double R, double Z, double phi, double t,
+                          struct potentialArg *potentialArgs)
+{
+    double r, theta;
+    cyl_to_spher(R, Z, &r, &theta);
     double F[3];
-    computeForce(R, Z, phi, t,potentialArgs, &F[0]) ;
-
-    return *(F + 0)*dr_dphi + *(F + 1)*dtheta_dphi + *(F + 2)*dphi_dphi;
+    compute_spher_forces((struct scf_data *)potentialArgs->pot_data,
+                         R, Z, phi, F);
+    return F[0] * (R / r) + F[1] * (Z / (r * r));
 }
 
-//Compute the planar force in the R direction
-double SCFPotentialPlanarRforce(double R,double phi,
-                                double t,
-                                struct potentialArg * potentialArgs)
+double SCFPotentialzforce(double R, double Z, double phi, double t,
+                          struct potentialArg *potentialArgs)
 {
-    return SCFPotentialRforce(R,0., phi,t,potentialArgs);
-
+    double r, theta;
+    cyl_to_spher(R, Z, &r, &theta);
+    double F[3];
+    compute_spher_forces((struct scf_data *)potentialArgs->pot_data,
+                         R, Z, phi, F);
+    return F[0] * (Z / r) + F[1] * (-R / (r * r));
 }
 
-//Compute the planar force in the phi direction
-double SCFPotentialPlanarphitorque(double R,double phi,
-                                  double t,
-                                  struct potentialArg * potentialArgs)
+double SCFPotentialphitorque(double R, double Z, double phi, double t,
+                             struct potentialArg *potentialArgs)
 {
-    return SCFPotentialphitorque(R,0., phi,t,potentialArgs);
+    double F[3];
+    compute_spher_forces((struct scf_data *)potentialArgs->pot_data,
+                         R, Z, phi, F);
+    return F[2];
 }
 
-
-//Compute the planar double derivative of the potential with respect to R
-double SCFPotentialPlanarR2deriv(double R, double phi,
-                                 double t,
-                                 struct potentialArg * potentialArgs)
+double SCFPotentialPlanarRforce(double R, double phi, double t,
+                                struct potentialArg *potentialArgs)
 {
-    double Farray[3];
-    computeDeriv(R, 0, phi, t,potentialArgs, &Farray[0]) ;
-    return *Farray;
+    return SCFPotentialRforce(R, 0.0, phi, t, potentialArgs);
 }
 
-//Compute the planar double derivative of the potential with respect to phi
-double SCFPotentialPlanarphi2deriv(double R, double phi,
-                                   double t,
-                                   struct potentialArg * potentialArgs)
+double SCFPotentialPlanarphitorque(double R, double phi, double t,
+                                   struct potentialArg *potentialArgs)
 {
-    double Farray[3];
-    computeDeriv(R, 0, phi, t,potentialArgs, &Farray[0]) ;
-    return *(Farray + 1);
+    return SCFPotentialphitorque(R, 0.0, phi, t, potentialArgs);
 }
 
-//Compute the planar double derivative of the potential with respect to R, Phi
-double SCFPotentialPlanarRphideriv(double R, double phi,
-                                   double t,
-                                   struct potentialArg * potentialArgs)
+double SCFPotentialPlanarR2deriv(double R, double phi, double t,
+                                 struct potentialArg *potentialArgs)
 {
-    double Farray[3];
-    computeDeriv(R, 0, phi, t,potentialArgs, &Farray[0]) ;
-    return *(Farray + 2);
+    double F[3];
+    compute_spher_2nd_derivs((struct scf_data *)potentialArgs->pot_data,
+                             R, 0.0, phi, F);
+    return F[0];
 }
-//Compute the density
-double SCFPotentialDens(double R,double Z, double phi,
-			double t,
-			struct potentialArg * potentialArgs)
+
+double SCFPotentialPlanarphi2deriv(double R, double phi, double t,
+                                   struct potentialArg *potentialArgs)
 {
-    double * args= potentialArgs->args;
-    //Get args
-    double a = *args++;
-    int isNonAxi = (int)*args++;
-    int N = (int) *args++;
-    int L = (int) *args++;
-    int M = (int) *args++;
-    double* Acos = args;
-    double* Asin;
-    if (isNonAxi==1)
-    {
-        Asin = args + N*L*M;
-    }
-    //convert R,Z to r, theta
-    double r;
-    double theta;
-    cyl_to_spher(R, Z,&r, &theta);
-    double xi;
-    calculateXi(r, a, &xi);
+    double F[3];
+    compute_spher_2nd_derivs((struct scf_data *)potentialArgs->pot_data,
+                             R, 0.0, phi, F);
+    return F[1];
+}
 
-    //Compute the gegenbauer polynomials and its derivative.
-    double *C= (double *) malloc ( N*L * sizeof(double) );
-    double *rhoTilde= (double *) malloc ( N*L * sizeof(double) );
+double SCFPotentialPlanarRphideriv(double R, double phi, double t,
+                                   struct potentialArg *potentialArgs)
+{
+    double F[3];
+    compute_spher_2nd_derivs((struct scf_data *)potentialArgs->pot_data,
+                             R, 0.0, phi, F);
+    return F[2];
+}
 
-    compute_C(xi, N, L, C);
+double SCFPotentialDens(double R, double Z, double phi, double t,
+                        struct potentialArg *potentialArgs)
+{
+    struct scf_data *d = (struct scf_data *)potentialArgs->pot_data;
 
-    //Compute rhoTilde and its derivative
-    compute_rhoTilde(r, a, N, L, C, rhoTilde);
-    //Compute Associated Legendre Polynomials
-    int M_eff = M;
-    int size = 0;
+    double r, theta;
+    cyl_to_spher(R, Z, &r, &theta);
+    double xi = calculateXi(r, d->a);
 
-    if (isNonAxi==0) {
-      M_eff = 1;
-      size = L;
-    } else
-      size = L*L - L*(L-1)/2;
+    int NL = d->N * d->L;
+    double *ws = (double *)malloc((2 * NL + d->Psize) * sizeof(double));
+    double *C      = ws;
+    double *radial = ws + NL;
+    double *P      = ws + 2 * NL;
 
-    double *P= (double *) malloc ( size * sizeof(double) );
+    // Radial part (rhoTilde instead of phiTilde)
+    compute_C(xi, d->N, d->L, C);
+    compute_rhoTilde(r, d->a, d->N, d->L, C, radial);
 
-    compute_P(cos(theta), L,M_eff, P);
+    // Angular part
+    compute_legendre(cos(theta), d->L, d->M_eff, P);
 
-    double density;
-
-    double (*RhoTilde_Pointer[1]) = {rhoTilde};
-    double (*P_Pointer[1]) = {P};
-
-    double Constant[1] = {1.};
-
-    if (isNonAxi==1)
-    {
-        double (*Eq[1])(double, double, double, double, double, double, int) = {&computePhi};
-        equations e = {Eq,&RhoTilde_Pointer[0],&P_Pointer[0],&Constant[0]};
-        computeNonAxi(a, N, L, M,r, theta, phi, Acos, Asin, 1, e, &density);
-    }
-    else
-    {
-        double (*Eq[1])(double, double, double) = {&computeAxiPhi};
-        axi_equations e = {Eq,&RhoTilde_Pointer[0],&P_Pointer[0],&Constant[0]};
-        compute(a, N, L, M,r, theta, phi, Acos, 1, e, &density);
-    }
-
-    //Free memory
-    free(C);
-    free(rhoTilde);
-    free(P);
-
-    return density / 2. / M_PI;
-
+    // Sum
+    double result = sum_expansion(d->N, d->L, d->M, d->isNonAxi,
+                                  d->Acos, d->Asin,
+                                  radial, P, phi) / (2.0 * M_PI);
+    free(ws);
+    return result;
 }
