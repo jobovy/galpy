@@ -272,7 +272,7 @@ static void sum_spher_forces(int N, int L, int M, int isNonAxi,
                     int ci = n * L * M + l * M + m;
                     int ri = l * N + n;
                     double cos_sum = Acos[ci] * mcos + Asin[ci] * msin;
-                    double sin_diff = Asin[ci] * mcos - Acos[ci] * msin;
+                    double sin_diff = Acos[ci] * msin - Asin[ci] * mcos;
                     F[0] -= cos_sum * P[pi] * dphiTilde[ri];
                     F[1] -= cos_sum * dP[pi] * phiTilde[ri];
                     F[2] += m * sin_diff * P[pi] * phiTilde[ri];
@@ -314,7 +314,7 @@ static void sum_spher_2nd_derivs(int N, int L, int M, int isNonAxi,
                     int ci = n * L * M + l * M + m;
                     int ri = l * N + n;
                     double cos_sum = Acos[ci] * mcos + Asin[ci] * msin;
-                    double sin_diff = Asin[ci] * mcos - Acos[ci] * msin;
+                    double sin_diff = Acos[ci] * msin - Asin[ci] * mcos;
                     F[0] -= cos_sum * P[pi] * d2phiTilde[ri];
                     F[1] += m * m * cos_sum * P[pi] * phiTilde[ri];
                     F[2] += m * sin_diff * P[pi] * dphiTilde[ri];
