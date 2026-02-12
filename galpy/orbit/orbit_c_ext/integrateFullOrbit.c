@@ -695,6 +695,9 @@ void parse_leapFuncArgs_Full(int npot,
       potentialArgs->tfuncs= (*pot_tfuncs);
       (*pot_tfuncs)+= potentialArgs->ntfuncs;
     }
+    // Initialize potential-specific pre-computed data
+    if ( *(*pot_type-1) == 24 ) // SCFPotential
+      initSCFPotentialArgs(potentialArgs);
     potentialArgs++;
   }
   potentialArgs-= npot;

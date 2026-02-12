@@ -86,6 +86,9 @@ struct potentialArg{
   double (*rforce)(double r,double t,struct potentialArg *);
   double (*r2deriv)(double r,double t,struct potentialArg *);
   double (*rdens)(double r,double t,struct potentialArg *);
+  // Potential-specific pre-computed data and workspace
+  void *pot_data;
+  void (*free_pot_data)(void *);
 };
 /*
   Function declarations
@@ -458,6 +461,7 @@ double TwoPowerTriaxialPotentialpsi(double,double *);
 double TwoPowerTriaxialPotentialmdens(double,double *);
 double TwoPowerTriaxialPotentialmdensDeriv(double,double *);
 //SCFPotential
+void initSCFPotentialArgs(struct potentialArg *);
 double SCFPotentialEval(double,double,double,double,
 				     struct potentialArg *);
 double SCFPotentialRforce(double,double,double,double,

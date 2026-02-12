@@ -22,6 +22,77 @@
 #define CACHE_DERIV 2
 
 // ============================================================================
+// Pre-computed SCF data: parsed parameters + pre-allocated workspace
+// Initialized once via initSCFPotentialArgs, reused on every evaluation.
+// ============================================================================
+
+struct scf_data {
+    // Parsed parameters (pointers into potentialArgs->args)
+    double a;
+    int isNonAxi, N, L, M;
+    double *Acos, *Asin;
+    double *cached_type, *cached_coords, *cached_values;
+    // Effective M and Legendre array size
+    int M_eff, Psize;
+    // Pre-allocated workspace arrays (all point into a single allocation)
+    // Radial workspace: 6 arrays of N*L doubles
+    double *C, *dC, *d2C;
+    double *radial1, *radial2, *radial3;
+    // Angular workspace: 2 arrays of Psize doubles
+    double *P, *dP;
+};
+
+static void freeSCFData(void *data)
+{
+    if (!data)
+        return;
+    struct scf_data *d = (struct scf_data *)data;
+    free(d->C);  // single allocation backing all workspace arrays
+    free(d);
+}
+
+void initSCFPotentialArgs(struct potentialArg *potentialArgs)
+{
+    struct scf_data *d = (struct scf_data *)malloc(sizeof(struct scf_data));
+
+    // Parse parameters from args
+    double *args = potentialArgs->args;
+    d->a = *args++;
+    d->isNonAxi = (int)*args++;
+    d->N = (int)*args++;
+    d->L = (int)*args++;
+    d->M = (int)*args++;
+    d->Acos = args;
+    d->Asin = d->isNonAxi ? args + d->N * d->L * d->M : NULL;
+    double *cache = args + (d->isNonAxi + 1) * d->N * d->L * d->M;
+    d->cached_type = cache;
+    d->cached_coords = cache + 1;
+    d->cached_values = cache + 4;
+
+    // Derived constants
+    d->M_eff = d->isNonAxi ? d->M : 1;
+    d->Psize = d->isNonAxi ? d->L * (d->L + 1) / 2 : d->L;
+
+    // Allocate workspace as a single contiguous block:
+    // 6 radial arrays of N*L + 2 angular arrays of Psize
+    int NL = d->N * d->L;
+    int total = 6 * NL + 2 * d->Psize;
+    double *ws = (double *)malloc(total * sizeof(double));
+    d->C       = ws;
+    d->dC      = ws + NL;
+    d->d2C     = ws + 2 * NL;
+    d->radial1 = ws + 3 * NL;
+    d->radial2 = ws + 4 * NL;
+    d->radial3 = ws + 5 * NL;
+    d->P       = ws + 6 * NL;
+    d->dP      = ws + 6 * NL + d->Psize;
+
+    // Store in potentialArgs
+    potentialArgs->pot_data = d;
+    potentialArgs->free_pot_data = &freeSCFData;
+}
+
+// ============================================================================
 // Utility functions
 // ============================================================================
 
@@ -208,14 +279,6 @@ static void compute_legendre_deriv(double x, int L, int M,
     }
 }
 
-// Compute the effective M and Legendre array size
-static inline int legendre_array_size(int isNonAxi, int L)
-{
-    if (isNonAxi)
-        return L * (L + 1) / 2;
-    return L;
-}
-
 // ============================================================================
 // Summation functions: combine radial * angular * coefficients
 // These perform sum_{nlm} A_nlm * radial_nl * angular_lm
@@ -336,166 +399,100 @@ static void sum_spher_2nd_derivs(int N, int L, int M, int isNonAxi,
 }
 
 // ============================================================================
-// Args parsing
-// ============================================================================
-
-struct scf_params {
-    double a;
-    int isNonAxi, N, L, M;
-    double *Acos, *Asin;
-    double *cached_type, *cached_coords, *cached_values;
-};
-
-static void parse_scf_args(struct potentialArg *potentialArgs,
-                           struct scf_params *p)
-{
-    double *args = potentialArgs->args;
-    p->a = *args++;
-    p->isNonAxi = (int)*args++;
-    p->N = (int)*args++;
-    p->L = (int)*args++;
-    p->M = (int)*args++;
-    p->Acos = args;
-    p->Asin = p->isNonAxi ? args + p->N * p->L * p->M : NULL;
-    double *cache = args + (p->isNonAxi + 1) * p->N * p->L * p->M;
-    p->cached_type = cache;
-    p->cached_coords = cache + 1;
-    p->cached_values = cache + 4;
-}
-
-// ============================================================================
 // Internal computation: spherical forces and 2nd derivatives with caching
 // ============================================================================
 
 // Compute spherical force components (dPhi/dr, dPhi/dtheta, dPhi/dphi)
 // with caching to avoid redundant work when Rforce/zforce are called
 // at the same point.
-static void compute_spher_forces(double R, double Z, double phi, double t,
-                                 struct potentialArg *potentialArgs, double *F)
+static void compute_spher_forces(struct scf_data *d,
+                                 double R, double Z, double phi, double *F)
 {
-    struct scf_params p;
-    parse_scf_args(potentialArgs, &p);
-
     // Check cache
-    if ((int)*p.cached_type == CACHE_FORCE
-        && p.cached_coords[0] == R
-        && p.cached_coords[1] == Z
-        && p.cached_coords[2] == phi) {
-        F[0] = p.cached_values[0];
-        F[1] = p.cached_values[1];
-        F[2] = p.cached_values[2];
+    if ((int)*d->cached_type == CACHE_FORCE
+        && d->cached_coords[0] == R
+        && d->cached_coords[1] == Z
+        && d->cached_coords[2] == phi) {
+        F[0] = d->cached_values[0];
+        F[1] = d->cached_values[1];
+        F[2] = d->cached_values[2];
         return;
     }
 
     double r, theta;
     cyl_to_spher(R, Z, &r, &theta);
-    double xi = calculateXi(r, p.a);
+    double xi = calculateXi(r, d->a);
 
-    // Radial part: Gegenbauer polynomials and potential basis derivatives
-    double *C = malloc(p.N * p.L * sizeof(double));
-    double *dCArr = malloc(p.N * p.L * sizeof(double));
-    double *phiT = malloc(p.N * p.L * sizeof(double));
-    double *dphiT = malloc(p.N * p.L * sizeof(double));
-    compute_C(xi, p.N, p.L, C);
-    compute_dC(xi, p.N, p.L, dCArr);
-    compute_phiTilde(r, p.a, p.N, p.L, C, phiT);
-    compute_dphiTilde(r, p.a, p.N, p.L, C, dCArr, dphiT);
+    // Radial part
+    compute_C(xi, d->N, d->L, d->C);
+    compute_dC(xi, d->N, d->L, d->dC);
+    compute_phiTilde(r, d->a, d->N, d->L, d->C, d->radial1);
+    compute_dphiTilde(r, d->a, d->N, d->L, d->C, d->dC, d->radial2);
 
-    // Angular part: Legendre polynomials and their derivatives
-    int M_eff = p.isNonAxi ? p.M : 1;
-    int Psize = legendre_array_size(p.isNonAxi, p.L);
-    double *P = malloc(Psize * sizeof(double));
-    double *dP = malloc(Psize * sizeof(double));
-    compute_legendre_deriv(cos(theta), p.L, M_eff, P, dP);
+    // Angular part
+    compute_legendre_deriv(cos(theta), d->L, d->M_eff, d->P, d->dP);
 
-    // Sum: combine radial * angular * coefficients
-    sum_spher_forces(p.N, p.L, p.M, p.isNonAxi,
-                     p.Acos, p.Asin,
-                     phiT, dphiT, P, dP,
+    // Sum
+    sum_spher_forces(d->N, d->L, d->M, d->isNonAxi,
+                     d->Acos, d->Asin,
+                     d->radial1, d->radial2, d->P, d->dP,
                      phi, sin(theta), F);
 
     // Update cache
-    *p.cached_type = (double)CACHE_FORCE;
-    p.cached_coords[0] = R;
-    p.cached_coords[1] = Z;
-    p.cached_coords[2] = phi;
-    p.cached_values[0] = F[0];
-    p.cached_values[1] = F[1];
-    p.cached_values[2] = F[2];
-
-    free(C);
-    free(dCArr);
-    free(phiT);
-    free(dphiT);
-    free(P);
-    free(dP);
+    *d->cached_type = (double)CACHE_FORCE;
+    d->cached_coords[0] = R;
+    d->cached_coords[1] = Z;
+    d->cached_coords[2] = phi;
+    d->cached_values[0] = F[0];
+    d->cached_values[1] = F[1];
+    d->cached_values[2] = F[2];
 }
 
 // Compute spherical 2nd-derivative components (d2Phi/dr2, d2Phi/dphi2, d2Phi/drdphi)
 // with caching.
-static void compute_spher_2nd_derivs(double R, double Z, double phi, double t,
-                                     struct potentialArg *potentialArgs, double *F)
+static void compute_spher_2nd_derivs(struct scf_data *d,
+                                     double R, double Z, double phi, double *F)
 {
-    struct scf_params p;
-    parse_scf_args(potentialArgs, &p);
-
     // Check cache
-    if ((int)*p.cached_type == CACHE_DERIV
-        && p.cached_coords[0] == R
-        && p.cached_coords[1] == Z
-        && p.cached_coords[2] == phi) {
-        F[0] = p.cached_values[0];
-        F[1] = p.cached_values[1];
-        F[2] = p.cached_values[2];
+    if ((int)*d->cached_type == CACHE_DERIV
+        && d->cached_coords[0] == R
+        && d->cached_coords[1] == Z
+        && d->cached_coords[2] == phi) {
+        F[0] = d->cached_values[0];
+        F[1] = d->cached_values[1];
+        F[2] = d->cached_values[2];
         return;
     }
 
     double r, theta;
     cyl_to_spher(R, Z, &r, &theta);
-    double xi = calculateXi(r, p.a);
+    double xi = calculateXi(r, d->a);
 
-    // Radial part: Gegenbauer polynomials and potential basis up to 2nd derivative
-    double *C = malloc(p.N * p.L * sizeof(double));
-    double *dCArr = malloc(p.N * p.L * sizeof(double));
-    double *d2CArr = malloc(p.N * p.L * sizeof(double));
-    double *phiT = malloc(p.N * p.L * sizeof(double));
-    double *dphiT = malloc(p.N * p.L * sizeof(double));
-    double *d2phiT = malloc(p.N * p.L * sizeof(double));
-    compute_C(xi, p.N, p.L, C);
-    compute_dC(xi, p.N, p.L, dCArr);
-    compute_d2C(xi, p.N, p.L, d2CArr);
-    compute_phiTilde(r, p.a, p.N, p.L, C, phiT);
-    compute_dphiTilde(r, p.a, p.N, p.L, C, dCArr, dphiT);
-    compute_d2phiTilde(r, p.a, p.N, p.L, C, dCArr, d2CArr, d2phiT);
+    // Radial part
+    compute_C(xi, d->N, d->L, d->C);
+    compute_dC(xi, d->N, d->L, d->dC);
+    compute_d2C(xi, d->N, d->L, d->d2C);
+    compute_phiTilde(r, d->a, d->N, d->L, d->C, d->radial1);
+    compute_dphiTilde(r, d->a, d->N, d->L, d->C, d->dC, d->radial2);
+    compute_d2phiTilde(r, d->a, d->N, d->L, d->C, d->dC, d->d2C, d->radial3);
 
-    // Angular part: Legendre polynomials (no derivatives needed for 2nd derivs)
-    int M_eff = p.isNonAxi ? p.M : 1;
-    int Psize = legendre_array_size(p.isNonAxi, p.L);
-    double *P = malloc(Psize * sizeof(double));
-    compute_legendre(cos(theta), p.L, M_eff, P);
+    // Angular part (no derivatives needed for 2nd derivs)
+    compute_legendre(cos(theta), d->L, d->M_eff, d->P);
 
-    // Sum: combine radial * angular * coefficients
-    sum_spher_2nd_derivs(p.N, p.L, p.M, p.isNonAxi,
-                         p.Acos, p.Asin,
-                         phiT, dphiT, d2phiT, P,
+    // Sum
+    sum_spher_2nd_derivs(d->N, d->L, d->M, d->isNonAxi,
+                         d->Acos, d->Asin,
+                         d->radial1, d->radial2, d->radial3, d->P,
                          phi, F);
 
     // Update cache
-    *p.cached_type = (double)CACHE_DERIV;
-    p.cached_coords[0] = R;
-    p.cached_coords[1] = Z;
-    p.cached_coords[2] = phi;
-    p.cached_values[0] = F[0];
-    p.cached_values[1] = F[1];
-    p.cached_values[2] = F[2];
-
-    free(C);
-    free(dCArr);
-    free(d2CArr);
-    free(phiT);
-    free(dphiT);
-    free(d2phiT);
-    free(P);
+    *d->cached_type = (double)CACHE_DERIV;
+    d->cached_coords[0] = R;
+    d->cached_coords[1] = Z;
+    d->cached_coords[2] = phi;
+    d->cached_values[0] = F[0];
+    d->cached_values[1] = F[1];
+    d->cached_values[2] = F[2];
 }
 
 // ============================================================================
@@ -505,34 +502,23 @@ static void compute_spher_2nd_derivs(double R, double Z, double phi, double t,
 double SCFPotentialEval(double R, double Z, double phi, double t,
                         struct potentialArg *potentialArgs)
 {
-    struct scf_params p;
-    parse_scf_args(potentialArgs, &p);
+    struct scf_data *d = (struct scf_data *)potentialArgs->pot_data;
 
     double r, theta;
     cyl_to_spher(R, Z, &r, &theta);
-    double xi = calculateXi(r, p.a);
+    double xi = calculateXi(r, d->a);
 
     // Radial part
-    double *C = malloc(p.N * p.L * sizeof(double));
-    double *phiT = malloc(p.N * p.L * sizeof(double));
-    compute_C(xi, p.N, p.L, C);
-    compute_phiTilde(r, p.a, p.N, p.L, C, phiT);
+    compute_C(xi, d->N, d->L, d->C);
+    compute_phiTilde(r, d->a, d->N, d->L, d->C, d->radial1);
 
     // Angular part
-    int M_eff = p.isNonAxi ? p.M : 1;
-    int Psize = legendre_array_size(p.isNonAxi, p.L);
-    double *P = malloc(Psize * sizeof(double));
-    compute_legendre(cos(theta), p.L, M_eff, P);
+    compute_legendre(cos(theta), d->L, d->M_eff, d->P);
 
-    // Sum: radial * angular * coefficients
-    double potential = sum_expansion(p.N, p.L, p.M, p.isNonAxi,
-                                     p.Acos, p.Asin,
-                                     phiT, P, phi);
-
-    free(C);
-    free(phiT);
-    free(P);
-    return potential;
+    // Sum
+    return sum_expansion(d->N, d->L, d->M, d->isNonAxi,
+                         d->Acos, d->Asin,
+                         d->radial1, d->P, phi);
 }
 
 double SCFPotentialRforce(double R, double Z, double phi, double t,
@@ -541,7 +527,8 @@ double SCFPotentialRforce(double R, double Z, double phi, double t,
     double r, theta;
     cyl_to_spher(R, Z, &r, &theta);
     double F[3];
-    compute_spher_forces(R, Z, phi, t, potentialArgs, F);
+    compute_spher_forces((struct scf_data *)potentialArgs->pot_data,
+                         R, Z, phi, F);
     return F[0] * (R / r) + F[1] * (Z / (r * r));
 }
 
@@ -551,7 +538,8 @@ double SCFPotentialzforce(double R, double Z, double phi, double t,
     double r, theta;
     cyl_to_spher(R, Z, &r, &theta);
     double F[3];
-    compute_spher_forces(R, Z, phi, t, potentialArgs, F);
+    compute_spher_forces((struct scf_data *)potentialArgs->pot_data,
+                         R, Z, phi, F);
     return F[0] * (Z / r) + F[1] * (-R / (r * r));
 }
 
@@ -559,7 +547,8 @@ double SCFPotentialphitorque(double R, double Z, double phi, double t,
                              struct potentialArg *potentialArgs)
 {
     double F[3];
-    compute_spher_forces(R, Z, phi, t, potentialArgs, F);
+    compute_spher_forces((struct scf_data *)potentialArgs->pot_data,
+                         R, Z, phi, F);
     return F[2];
 }
 
@@ -579,7 +568,8 @@ double SCFPotentialPlanarR2deriv(double R, double phi, double t,
                                  struct potentialArg *potentialArgs)
 {
     double F[3];
-    compute_spher_2nd_derivs(R, 0.0, phi, t, potentialArgs, F);
+    compute_spher_2nd_derivs((struct scf_data *)potentialArgs->pot_data,
+                             R, 0.0, phi, F);
     return F[0];
 }
 
@@ -587,7 +577,8 @@ double SCFPotentialPlanarphi2deriv(double R, double phi, double t,
                                    struct potentialArg *potentialArgs)
 {
     double F[3];
-    compute_spher_2nd_derivs(R, 0.0, phi, t, potentialArgs, F);
+    compute_spher_2nd_derivs((struct scf_data *)potentialArgs->pot_data,
+                             R, 0.0, phi, F);
     return F[1];
 }
 
@@ -595,39 +586,29 @@ double SCFPotentialPlanarRphideriv(double R, double phi, double t,
                                    struct potentialArg *potentialArgs)
 {
     double F[3];
-    compute_spher_2nd_derivs(R, 0.0, phi, t, potentialArgs, F);
+    compute_spher_2nd_derivs((struct scf_data *)potentialArgs->pot_data,
+                             R, 0.0, phi, F);
     return F[2];
 }
 
 double SCFPotentialDens(double R, double Z, double phi, double t,
                         struct potentialArg *potentialArgs)
 {
-    struct scf_params p;
-    parse_scf_args(potentialArgs, &p);
+    struct scf_data *d = (struct scf_data *)potentialArgs->pot_data;
 
     double r, theta;
     cyl_to_spher(R, Z, &r, &theta);
-    double xi = calculateXi(r, p.a);
+    double xi = calculateXi(r, d->a);
 
     // Radial part (rhoTilde instead of phiTilde)
-    double *C = malloc(p.N * p.L * sizeof(double));
-    double *rhoT = malloc(p.N * p.L * sizeof(double));
-    compute_C(xi, p.N, p.L, C);
-    compute_rhoTilde(r, p.a, p.N, p.L, C, rhoT);
+    compute_C(xi, d->N, d->L, d->C);
+    compute_rhoTilde(r, d->a, d->N, d->L, d->C, d->radial1);
 
     // Angular part
-    int M_eff = p.isNonAxi ? p.M : 1;
-    int Psize = legendre_array_size(p.isNonAxi, p.L);
-    double *P = malloc(Psize * sizeof(double));
-    compute_legendre(cos(theta), p.L, M_eff, P);
+    compute_legendre(cos(theta), d->L, d->M_eff, d->P);
 
-    // Sum: radial * angular * coefficients
-    double density = sum_expansion(p.N, p.L, p.M, p.isNonAxi,
-                                   p.Acos, p.Asin,
-                                   rhoT, P, phi);
-
-    free(C);
-    free(rhoT);
-    free(P);
-    return density / (2.0 * M_PI);
+    // Sum
+    return sum_expansion(d->N, d->L, d->M, d->isNonAxi,
+                         d->Acos, d->Asin,
+                         d->radial1, d->P, phi) / (2.0 * M_PI);
 }
