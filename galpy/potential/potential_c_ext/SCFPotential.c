@@ -22,8 +22,10 @@
 #define CACHE_DERIV 2
 
 // ============================================================================
-// Pre-computed SCF data: parsed parameters + pre-allocated workspace
+// Pre-computed SCF data: parsed parameters (immutable after init).
 // Initialized once via initSCFPotentialArgs, reused on every evaluation.
+// Workspace arrays are allocated per-call for thread safety, since some
+// callers (e.g., actionAngle) share potentialArgs across OpenMP threads.
 // ============================================================================
 
 struct scf_data {
@@ -32,23 +34,13 @@ struct scf_data {
     int isNonAxi, N, L, M;
     double *Acos, *Asin;
     double *cached_type, *cached_coords, *cached_values;
-    // Effective M and Legendre array size
+    // Derived constants
     int M_eff, Psize;
-    // Pre-allocated workspace arrays (all point into a single allocation)
-    // Radial workspace: 6 arrays of N*L doubles
-    double *C, *dC, *d2C;
-    double *radial1, *radial2, *radial3;
-    // Angular workspace: 2 arrays of Psize doubles
-    double *P, *dP;
 };
 
 static void freeSCFData(void *data)
 {
-    if (!data)
-        return;
-    struct scf_data *d = (struct scf_data *)data;
-    free(d->C);  // single allocation backing all workspace arrays
-    free(d);
+    free(data);
 }
 
 void initSCFPotentialArgs(struct potentialArg *potentialArgs)
@@ -72,20 +64,6 @@ void initSCFPotentialArgs(struct potentialArg *potentialArgs)
     // Derived constants
     d->M_eff = d->isNonAxi ? d->M : 1;
     d->Psize = d->isNonAxi ? d->L * (d->L + 1) / 2 : d->L;
-
-    // Allocate workspace as a single contiguous block:
-    // 6 radial arrays of N*L + 2 angular arrays of Psize
-    int NL = d->N * d->L;
-    int total = 6 * NL + 2 * d->Psize;
-    double *ws = (double *)malloc(total * sizeof(double));
-    d->C       = ws;
-    d->dC      = ws + NL;
-    d->d2C     = ws + 2 * NL;
-    d->radial1 = ws + 3 * NL;
-    d->radial2 = ws + 4 * NL;
-    d->radial3 = ws + 5 * NL;
-    d->P       = ws + 6 * NL;
-    d->dP      = ws + 6 * NL + d->Psize;
 
     // Store in potentialArgs
     potentialArgs->pot_data = d;
@@ -423,20 +401,32 @@ static void compute_spher_forces(struct scf_data *d,
     cyl_to_spher(R, Z, &r, &theta);
     double xi = calculateXi(r, d->a);
 
+    int NL = d->N * d->L;
+    // Allocate workspace per call (thread-safe)
+    double *ws = (double *)malloc((4 * NL + 2 * d->Psize) * sizeof(double));
+    double *C       = ws;
+    double *dCArr    = ws + NL;
+    double *phiT    = ws + 2 * NL;
+    double *dphiT   = ws + 3 * NL;
+    double *P       = ws + 4 * NL;
+    double *dP      = ws + 4 * NL + d->Psize;
+
     // Radial part
-    compute_C(xi, d->N, d->L, d->C);
-    compute_dC(xi, d->N, d->L, d->dC);
-    compute_phiTilde(r, d->a, d->N, d->L, d->C, d->radial1);
-    compute_dphiTilde(r, d->a, d->N, d->L, d->C, d->dC, d->radial2);
+    compute_C(xi, d->N, d->L, C);
+    compute_dC(xi, d->N, d->L, dCArr);
+    compute_phiTilde(r, d->a, d->N, d->L, C, phiT);
+    compute_dphiTilde(r, d->a, d->N, d->L, C, dCArr, dphiT);
 
     // Angular part
-    compute_legendre_deriv(cos(theta), d->L, d->M_eff, d->P, d->dP);
+    compute_legendre_deriv(cos(theta), d->L, d->M_eff, P, dP);
 
     // Sum
     sum_spher_forces(d->N, d->L, d->M, d->isNonAxi,
                      d->Acos, d->Asin,
-                     d->radial1, d->radial2, d->P, d->dP,
+                     phiT, dphiT, P, dP,
                      phi, sin(theta), F);
+
+    free(ws);
 
     // Update cache
     *d->cached_type = (double)CACHE_FORCE;
@@ -468,22 +458,35 @@ static void compute_spher_2nd_derivs(struct scf_data *d,
     cyl_to_spher(R, Z, &r, &theta);
     double xi = calculateXi(r, d->a);
 
+    int NL = d->N * d->L;
+    // Allocate workspace per call (thread-safe)
+    double *ws = (double *)malloc((6 * NL + d->Psize) * sizeof(double));
+    double *C       = ws;
+    double *dCArr    = ws + NL;
+    double *d2CArr   = ws + 2 * NL;
+    double *phiT    = ws + 3 * NL;
+    double *dphiT   = ws + 4 * NL;
+    double *d2phiT  = ws + 5 * NL;
+    double *P       = ws + 6 * NL;
+
     // Radial part
-    compute_C(xi, d->N, d->L, d->C);
-    compute_dC(xi, d->N, d->L, d->dC);
-    compute_d2C(xi, d->N, d->L, d->d2C);
-    compute_phiTilde(r, d->a, d->N, d->L, d->C, d->radial1);
-    compute_dphiTilde(r, d->a, d->N, d->L, d->C, d->dC, d->radial2);
-    compute_d2phiTilde(r, d->a, d->N, d->L, d->C, d->dC, d->d2C, d->radial3);
+    compute_C(xi, d->N, d->L, C);
+    compute_dC(xi, d->N, d->L, dCArr);
+    compute_d2C(xi, d->N, d->L, d2CArr);
+    compute_phiTilde(r, d->a, d->N, d->L, C, phiT);
+    compute_dphiTilde(r, d->a, d->N, d->L, C, dCArr, dphiT);
+    compute_d2phiTilde(r, d->a, d->N, d->L, C, dCArr, d2CArr, d2phiT);
 
     // Angular part (no derivatives needed for 2nd derivs)
-    compute_legendre(cos(theta), d->L, d->M_eff, d->P);
+    compute_legendre(cos(theta), d->L, d->M_eff, P);
 
     // Sum
     sum_spher_2nd_derivs(d->N, d->L, d->M, d->isNonAxi,
                          d->Acos, d->Asin,
-                         d->radial1, d->radial2, d->radial3, d->P,
+                         phiT, dphiT, d2phiT, P,
                          phi, F);
+
+    free(ws);
 
     // Update cache
     *d->cached_type = (double)CACHE_DERIV;
@@ -508,17 +511,25 @@ double SCFPotentialEval(double R, double Z, double phi, double t,
     cyl_to_spher(R, Z, &r, &theta);
     double xi = calculateXi(r, d->a);
 
+    int NL = d->N * d->L;
+    double *ws = (double *)malloc((2 * NL + d->Psize) * sizeof(double));
+    double *C      = ws;
+    double *radial = ws + NL;
+    double *P      = ws + 2 * NL;
+
     // Radial part
-    compute_C(xi, d->N, d->L, d->C);
-    compute_phiTilde(r, d->a, d->N, d->L, d->C, d->radial1);
+    compute_C(xi, d->N, d->L, C);
+    compute_phiTilde(r, d->a, d->N, d->L, C, radial);
 
     // Angular part
-    compute_legendre(cos(theta), d->L, d->M_eff, d->P);
+    compute_legendre(cos(theta), d->L, d->M_eff, P);
 
     // Sum
-    return sum_expansion(d->N, d->L, d->M, d->isNonAxi,
-                         d->Acos, d->Asin,
-                         d->radial1, d->P, phi);
+    double result = sum_expansion(d->N, d->L, d->M, d->isNonAxi,
+                                  d->Acos, d->Asin,
+                                  radial, P, phi);
+    free(ws);
+    return result;
 }
 
 double SCFPotentialRforce(double R, double Z, double phi, double t,
@@ -600,15 +611,23 @@ double SCFPotentialDens(double R, double Z, double phi, double t,
     cyl_to_spher(R, Z, &r, &theta);
     double xi = calculateXi(r, d->a);
 
+    int NL = d->N * d->L;
+    double *ws = (double *)malloc((2 * NL + d->Psize) * sizeof(double));
+    double *C      = ws;
+    double *radial = ws + NL;
+    double *P      = ws + 2 * NL;
+
     // Radial part (rhoTilde instead of phiTilde)
-    compute_C(xi, d->N, d->L, d->C);
-    compute_rhoTilde(r, d->a, d->N, d->L, d->C, d->radial1);
+    compute_C(xi, d->N, d->L, C);
+    compute_rhoTilde(r, d->a, d->N, d->L, C, radial);
 
     // Angular part
-    compute_legendre(cos(theta), d->L, d->M_eff, d->P);
+    compute_legendre(cos(theta), d->L, d->M_eff, P);
 
     // Sum
-    return sum_expansion(d->N, d->L, d->M, d->isNonAxi,
-                         d->Acos, d->Asin,
-                         d->radial1, d->P, phi) / (2.0 * M_PI);
+    double result = sum_expansion(d->N, d->L, d->M, d->isNonAxi,
+                                  d->Acos, d->Asin,
+                                  radial, P, phi) / (2.0 * M_PI);
+    free(ws);
+    return result;
 }
