@@ -19,6 +19,7 @@ from scipy import integrate, optimize
 from ..potential import (
     CompositePotential,
     DiskSCFPotential,
+    MultipoleExpansionPotential,
     MWPotential,
     SCFPotential,
     epifreq,
@@ -1526,16 +1527,21 @@ def estimateDeltaStaeckel(pot, R, z, no_median=False, delta0=1e-6):
         raise PotentialError(
             "Calling estimateDeltaStaeckel with non-axisymmetric potentials is not supported"
         )
-    # We'll special-case delta<0 when the potential includes SCF/DiskSCF components
+    # We'll special-case delta<0 when the potential includes SCF/DiskSCF/MultipoleExpansion components
+    # because their numerical second derivatives can lead to slightly negative delta2
     pot_includes_scf = (
         numpy.any(
             [
-                isinstance(p, SCFPotential) or isinstance(p, DiskSCFPotential)
+                isinstance(p, SCFPotential)
+                or isinstance(p, DiskSCFPotential)
+                or isinstance(p, MultipoleExpansionPotential)
                 for p in pot
             ]
         )
         if isinstance(pot, CompositePotential)
-        else isinstance(pot, SCFPotential) or isinstance(pot, DiskSCFPotential)
+        else isinstance(pot, SCFPotential)
+        or isinstance(pot, DiskSCFPotential)
+        or isinstance(pot, MultipoleExpansionPotential)
     )
     if numpy.any(z == 0.0):
         if isinstance(z, numpy.ndarray):

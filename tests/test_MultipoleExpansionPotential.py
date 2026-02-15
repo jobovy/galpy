@@ -1,0 +1,397 @@
+###############################################################################
+# Tests for MultipoleExpansionPotential
+###############################################################################
+import numpy
+import pytest
+
+from galpy.potential import (
+    HernquistPotential,
+    MiyamotoNagaiPotential,
+    MultipoleExpansionPotential,
+    SCFPotential,
+)
+
+# Shared grids for reuse
+_FINE_RGRID = numpy.geomspace(1e-3, 50, 401)
+_DEFAULT_RGRID = numpy.geomspace(1e-2, 20, 201)
+
+
+# --- Spherical tests (Hernquist) ---
+
+
+def test_spherical_potential_matches_hernquist():
+    hp = HernquistPotential(amp=2.0, a=1.0)
+    mp = MultipoleExpansionPotential(
+        dens=hp, L=2, symmetry="spherical", rgrid=_FINE_RGRID
+    )
+    for R in [0.1, 0.5, 1.0, 2.0, 5.0, 10.0]:
+        assert abs(mp(R, 0.0) - hp(R, 0.0)) / abs(hp(R, 0.0)) < 0.01, (
+            f"Potential mismatch at R={R}"
+        )
+
+
+def test_spherical_potential_off_plane():
+    hp = HernquistPotential(amp=2.0, a=1.0)
+    mp = MultipoleExpansionPotential(
+        dens=hp, L=2, symmetry="spherical", rgrid=_FINE_RGRID
+    )
+    pts = [(1.0, 0.5), (0.5, 1.0), (2.0, 1.0)]
+    for R, z in pts:
+        assert abs(mp(R, z) - hp(R, z)) / abs(hp(R, z)) < 0.01, (
+            f"Potential mismatch at R={R}, z={z}"
+        )
+
+
+def test_spherical_density_matches_hernquist():
+    hp = HernquistPotential(amp=2.0, a=1.0)
+    mp = MultipoleExpansionPotential(
+        dens=hp, L=2, symmetry="spherical", rgrid=_FINE_RGRID
+    )
+    for R in [0.1, 0.5, 1.0, 2.0, 5.0]:
+        d_hp = hp.dens(R, 0.0)
+        d_mp = mp.dens(R, 0.0)
+        assert abs(d_mp - d_hp) / abs(d_hp) < 0.01, (
+            f"Density mismatch at R={R}: hp={d_hp}, mp={d_mp}"
+        )
+
+
+def test_spherical_isNonAxi_false():
+    hp = HernquistPotential(amp=2.0, a=1.0)
+    mp = MultipoleExpansionPotential(
+        dens=hp, L=2, symmetry="spherical", rgrid=_FINE_RGRID
+    )
+    assert not mp.isNonAxi
+
+
+# --- Axisymmetric tests (MiyamotoNagai) ---
+
+
+def test_axisymmetric_potential_matches_mn():
+    mn = MiyamotoNagaiPotential(amp=1.0, a=0.5, b=0.5)
+    mp = MultipoleExpansionPotential(
+        dens=mn, L=16, symmetry="axisymmetric", rgrid=_FINE_RGRID
+    )
+    pts = [(1.0, 0.0), (1.0, 0.5), (2.0, 0.1), (0.5, 0.5)]
+    for R, z in pts:
+        assert abs(mp(R, z) - mn(R, z)) / abs(mn(R, z)) < 0.02, (
+            f"Potential mismatch at R={R}, z={z}"
+        )
+
+
+def test_axisymmetric_density_matches_mn_midplane():
+    mn = MiyamotoNagaiPotential(amp=1.0, a=0.5, b=0.5)
+    mp = MultipoleExpansionPotential(
+        dens=mn, L=16, symmetry="axisymmetric", rgrid=_FINE_RGRID
+    )
+    for R in [0.5, 1.0, 2.0]:
+        d_mn = mn.dens(R, 0.0)
+        d_mp = mp.dens(R, 0.0)
+        assert abs(d_mp - d_mn) / abs(d_mn) < 0.05, (
+            f"Density mismatch at R={R}: mn={d_mn}, mp={d_mp}"
+        )
+
+
+def test_axisymmetric_isNonAxi_false():
+    mn = MiyamotoNagaiPotential(amp=1.0, a=0.5, b=0.5)
+    mp = MultipoleExpansionPotential(
+        dens=mn, L=16, symmetry="axisymmetric", rgrid=_FINE_RGRID
+    )
+    assert not mp.isNonAxi
+
+
+# --- SCF cross-validation ---
+
+
+def test_scf_potential_cross_validation():
+    Acos = numpy.zeros((3, 3, 1))
+    Acos[0, 0, 0] = 1.0
+    Acos[1, 0, 0] = 0.1
+    Acos[0, 1, 0] = 0.05
+    scf = SCFPotential(Acos=Acos, a=1.0)
+    mp = MultipoleExpansionPotential(
+        dens=scf, L=6, symmetry="axisymmetric", rgrid=_FINE_RGRID
+    )
+    pts = [(0.5, 0.0), (1.0, 0.0), (1.0, 0.5), (2.0, 1.0)]
+    for R, z in pts:
+        v_scf = scf(R, z)
+        v_mp = mp(R, z)
+        assert abs(v_mp - v_scf) / abs(v_scf) < 0.02, (
+            f"Potential mismatch at R={R}, z={z}: scf={v_scf}, mp={v_mp}"
+        )
+
+
+def test_scf_density_cross_validation():
+    Acos = numpy.zeros((3, 3, 1))
+    Acos[0, 0, 0] = 1.0
+    Acos[1, 0, 0] = 0.1
+    Acos[0, 1, 0] = 0.05
+    scf = SCFPotential(Acos=Acos, a=1.0)
+    mp = MultipoleExpansionPotential(
+        dens=scf, L=6, symmetry="axisymmetric", rgrid=_FINE_RGRID
+    )
+    pts = [(0.5, 0.0), (1.0, 0.0), (1.0, 0.5), (2.0, 0.0)]
+    for R, z in pts:
+        d_scf = scf.dens(R, z)
+        d_mp = mp.dens(R, z)
+        if abs(d_scf) > 1e-10:
+            assert abs(d_mp - d_scf) / abs(d_scf) < 0.02, (
+                f"Density mismatch at R={R}, z={z}: scf={d_scf}, mp={d_mp}"
+            )
+
+
+# --- Density reconstruction ---
+
+
+def test_spherical_density_reconstruction():
+    coeff = 1.0 / (2.0 * numpy.pi)
+
+    def dens(r):
+        return coeff / r / (1 + r) ** 3
+
+    mp = MultipoleExpansionPotential(
+        dens=dens, L=2, symmetry="spherical", rgrid=_DEFAULT_RGRID
+    )
+    for R in [0.1, 0.5, 1.0, 2.0, 5.0]:
+        d_true = dens(R)
+        d_mp = mp.dens(R, 0.0)
+        assert abs(d_mp - d_true) / abs(d_true) < 0.01, (
+            f"Density reconstruction failed at R={R}: true={d_true}, mp={d_mp}"
+        )
+
+
+def test_axisymmetric_density_reconstruction():
+    mn = MiyamotoNagaiPotential(amp=1.0, a=0.5, b=0.5)
+    mp = MultipoleExpansionPotential(
+        dens=mn, L=16, symmetry="axisymmetric", rgrid=_FINE_RGRID
+    )
+    for R in [0.5, 1.0, 2.0]:
+        d_true = mn.dens(R, 0.0)
+        d_mp = mp.dens(R, 0.0)
+        assert abs(d_mp - d_true) / abs(d_true) < 0.05, (
+            f"Density reconstruction failed at R={R}"
+        )
+
+
+# --- Normalization ---
+
+
+def test_normalize_true():
+    mp = MultipoleExpansionPotential(
+        L=2, symmetry="spherical", normalize=True, rgrid=_FINE_RGRID
+    )
+    vc = mp.vcirc(1.0, 0.0)
+    assert abs(vc - 1.0) < 0.02, f"vcirc(1,0) = {vc}, expected ~1.0"
+
+
+def test_normalize_fraction():
+    mp = MultipoleExpansionPotential(
+        L=2, symmetry="spherical", normalize=0.5, rgrid=_FINE_RGRID
+    )
+    vc = mp.vcirc(1.0, 0.0)
+    assert abs(vc - numpy.sqrt(0.5)) < 0.02, (
+        f"vcirc(1,0) = {vc}, expected ~{numpy.sqrt(0.5)}"
+    )
+
+
+# --- isNonAxi ---
+
+
+def test_spherical_is_axi():
+    mp = MultipoleExpansionPotential(L=2, symmetry="spherical")
+    assert not mp.isNonAxi
+
+
+def test_axisymmetric_is_axi():
+    mp = MultipoleExpansionPotential(L=6, symmetry="axisymmetric")
+    assert not mp.isNonAxi
+
+
+def test_general_with_axi_density_is_axi():
+    hp = HernquistPotential(amp=2.0, a=1.0)
+    mp = MultipoleExpansionPotential(dens=hp, L=4, symmetry=None)
+    assert not mp.isNonAxi
+
+
+# --- Density input variants ---
+
+
+def test_potential_instance_input():
+    hp = HernquistPotential(amp=2.0, a=1.0)
+    mp = MultipoleExpansionPotential(
+        dens=hp, L=2, symmetry="spherical", rgrid=_FINE_RGRID
+    )
+    assert abs(mp(1.0, 0.0) - hp(1.0, 0.0)) / abs(hp(1.0, 0.0)) < 0.01
+
+
+def test_2arg_lambda_input():
+    # rho = amp/(4*pi) * a / (r * (r+a)^3) for HernquistPotential(amp=2, a=1)
+    coeff = 1.0 / (2.0 * numpy.pi)
+    mp = MultipoleExpansionPotential(
+        dens=lambda R, z: coeff
+        / numpy.sqrt(R**2 + z**2)
+        / (1 + numpy.sqrt(R**2 + z**2)) ** 3,
+        L=2,
+        symmetry="spherical",
+        rgrid=_FINE_RGRID,
+    )
+    hp = HernquistPotential(amp=2.0, a=1.0)
+    assert abs(mp(1.0, 0.0) - hp(1.0, 0.0)) / abs(hp(1.0, 0.0)) < 0.01
+
+
+def test_1arg_lambda_input():
+    coeff = 1.0 / (2.0 * numpy.pi)
+    mp = MultipoleExpansionPotential(
+        dens=lambda r: coeff / r / (1 + r) ** 3,
+        L=2,
+        symmetry="spherical",
+        rgrid=_FINE_RGRID,
+    )
+    hp = HernquistPotential(amp=2.0, a=1.0)
+    assert abs(mp(1.0, 0.0) - hp(1.0, 0.0)) / abs(hp(1.0, 0.0)) < 0.01
+
+
+# --- Edge cases ---
+
+
+def test_r_zero():
+    mp = MultipoleExpansionPotential(L=2, symmetry="spherical", rgrid=_FINE_RGRID)
+    val = mp(0.0, 0.0)
+    assert numpy.isfinite(val)
+
+
+def test_monopole_only():
+    mp = MultipoleExpansionPotential(L=1, symmetry="spherical", rgrid=_FINE_RGRID)
+    hp = HernquistPotential(amp=2.0, a=1.0)
+    assert abs(mp(1.0, 0.0) - hp(1.0, 0.0)) / abs(hp(1.0, 0.0)) < 0.01
+
+
+def test_OmegaP_zero():
+    mp = MultipoleExpansionPotential(L=2, symmetry="spherical")
+    assert mp.OmegaP() == 0
+
+
+def test_hasC_false():
+    mp = MultipoleExpansionPotential(L=2, symmetry="spherical")
+    assert not mp.hasC
+    assert not mp.hasC_dxdv
+    assert not mp.hasC_dens
+
+
+def test_default_rgrid():
+    mp = MultipoleExpansionPotential(L=2, symmetry="spherical")
+    val = mp(1.0, 0.0)
+    assert numpy.isfinite(val)
+
+
+# --- Analytical force tests ---
+
+
+def test_spherical_Rforce():
+    hp = HernquistPotential(amp=2.0, a=1.0)
+    mp = MultipoleExpansionPotential(
+        dens=hp, L=2, symmetry="spherical", rgrid=_FINE_RGRID
+    )
+    for R in [0.1, 0.5, 1.0, 2.0, 5.0, 10.0]:
+        rf_mp = mp.Rforce(R, 0.0)
+        rf_hp = hp.Rforce(R, 0.0)
+        assert abs(rf_mp - rf_hp) / abs(rf_hp) < 0.02, (
+            f"Rforce mismatch at R={R}: mp={rf_mp}, hp={rf_hp}"
+        )
+
+
+def test_spherical_zforce():
+    hp = HernquistPotential(amp=2.0, a=1.0)
+    mp = MultipoleExpansionPotential(
+        dens=hp, L=2, symmetry="spherical", rgrid=_FINE_RGRID
+    )
+    pts = [(1.0, 0.5), (0.5, 1.0), (2.0, 1.0)]
+    for R, z in pts:
+        zf_mp = mp.zforce(R, z)
+        zf_hp = hp.zforce(R, z)
+        assert abs(zf_mp - zf_hp) / abs(zf_hp) < 0.02, (
+            f"zforce mismatch at R={R}, z={z}: mp={zf_mp}, hp={zf_hp}"
+        )
+
+
+def test_axisymmetric_Rforce():
+    mn = MiyamotoNagaiPotential(amp=1.0, a=0.5, b=0.5)
+    mp = MultipoleExpansionPotential(
+        dens=mn, L=16, symmetry="axisymmetric", rgrid=_FINE_RGRID
+    )
+    pts = [(1.0, 0.0), (1.0, 0.5), (2.0, 0.1), (0.5, 0.5)]
+    for R, z in pts:
+        rf_mp = mp.Rforce(R, z)
+        rf_mn = mn.Rforce(R, z)
+        assert abs(rf_mp - rf_mn) / abs(rf_mn) < 0.02, (
+            f"Rforce mismatch at R={R}, z={z}: mp={rf_mp}, mn={rf_mn}"
+        )
+
+
+def test_axisymmetric_zforce():
+    mn = MiyamotoNagaiPotential(amp=1.0, a=0.5, b=0.5)
+    mp = MultipoleExpansionPotential(
+        dens=mn, L=16, symmetry="axisymmetric", rgrid=_FINE_RGRID
+    )
+    pts = [(1.0, 0.5), (2.0, 0.1), (0.5, 0.5)]
+    for R, z in pts:
+        zf_mp = mp.zforce(R, z)
+        zf_mn = mn.zforce(R, z)
+        assert abs(zf_mp - zf_mn) / abs(zf_mn) < 0.05, (
+            f"zforce mismatch at R={R}, z={z}: mp={zf_mp}, mn={zf_mn}"
+        )
+
+
+def test_phitorque_zero_for_axisymmetric():
+    hp = HernquistPotential(amp=2.0, a=1.0)
+    mp = MultipoleExpansionPotential(
+        dens=hp, L=2, symmetry="spherical", rgrid=_FINE_RGRID
+    )
+    for R in [0.5, 1.0, 2.0]:
+        pt = mp.phitorque(R, 0.0, phi=0.5)
+        assert abs(pt) < 1e-10, f"phitorque not zero at R={R}: {pt}"
+
+
+# --- Coverage: density input variants ---
+
+
+def test_3arg_callable_density_input():
+    """Test that a 3-argument callable density (R, z, phi) without units works."""
+    coeff = 1.0 / (2.0 * numpy.pi)
+    mp = MultipoleExpansionPotential(
+        dens=lambda R, z, phi: coeff
+        / numpy.sqrt(R**2 + z**2)
+        / (1 + numpy.sqrt(R**2 + z**2)) ** 3,
+        L=4,
+        symmetry=None,
+        rgrid=_DEFAULT_RGRID,
+    )
+    hp = HernquistPotential(amp=2.0, a=1.0)
+    assert abs(mp(1.0, 0.0) - hp(1.0, 0.0)) / abs(hp(1.0, 0.0)) < 0.02
+
+
+def test_dens_phi_none():
+    """Test that _dens handles phi=None for axisymmetric potential."""
+    mp = MultipoleExpansionPotential(L=2, symmetry="spherical", rgrid=_DEFAULT_RGRID)
+    val = mp._dens(1.0, 0.0, phi=None)
+    assert numpy.isfinite(val) and val > 0
+
+
+def test_dens_at_infinity():
+    """Test that density at r=infinity returns 0."""
+    mp = MultipoleExpansionPotential(L=2, symmetry="spherical", rgrid=_DEFAULT_RGRID)
+    val = mp.dens(numpy.inf, 0.0, use_physical=False)
+    assert val == 0.0
+
+
+def test_spher_forces_at_r_zero():
+    """Test that spherical force components at r=0 return 0."""
+    mp = MultipoleExpansionPotential(L=2, symmetry="spherical", rgrid=_DEFAULT_RGRID)
+    dr, dtheta, dphi = mp._compute_spher_forces_at_point(0.0, 0.0, 0.0)
+    assert dr == 0.0 and dtheta == 0.0 and dphi == 0.0
+
+
+def test_spher_forces_at_infinity():
+    """Test that spherical force components at r=infinity return 0."""
+    mp = MultipoleExpansionPotential(L=2, symmetry="spherical", rgrid=_DEFAULT_RGRID)
+    dr, dtheta, dphi = mp._compute_spher_forces_at_point(numpy.inf, 0.0, 0.0)
+    assert dr == 0.0 and dtheta == 0.0 and dphi == 0.0

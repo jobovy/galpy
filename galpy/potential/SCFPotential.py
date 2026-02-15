@@ -15,59 +15,19 @@ else:
 
 from ..util import conversion, coords
 from ..util._optional_deps import _APY_LOADED
+from ..util.special import compute_legendre, sph_harm_normalization
 from .Potential import Potential
 
 if _APY_LOADED:
     from astropy import units
 
 from .NumericalPotentialDerivativesMixin import NumericalPotentialDerivativesMixin
+from .SphericalHarmonicPotentialMixin import SphericalHarmonicPotentialMixin
 
 
-def _compute_legendre(costheta, L, M, deriv=False):
-    """
-    Compute associated Legendre polynomials P_l^m(cos(theta)).
-
-    Parameters
-    ----------
-    costheta : float
-        Cosine of the polar angle.
-    L : int
-        Maximum degree + 1 (compute for 0 <= l < L).
-    M : int
-        Maximum order + 1 (compute for 0 <= m < M).
-    deriv : bool, optional
-        If True, also compute the derivative with respect to costheta.
-
-    Returns
-    -------
-    PP : numpy.ndarray
-        Associated Legendre polynomials, shape (L, M).
-    dPP : numpy.ndarray
-        Derivative with respect to costheta, shape (L, M). Only returned if deriv=True.
-
-    Notes
-    -----
-    - 2026-02-11 - Written - Bovy (UofT)
-    """
-    if _SCIPY_VERSION < parse_version("1.15"):  # pragma: no cover
-        if deriv:
-            PP, dPP = lpmn(M - 1, L - 1, costheta)
-            return PP.T, dPP.T
-        return lpmn(M - 1, L - 1, costheta)[0].T
-    if deriv:
-        PP, dPP = assoc_legendre_p_all(L - 1, M - 1, costheta, branch_cut=2, diff_n=1)
-        return (
-            numpy.swapaxes(PP[:, :M], 0, 1).T,
-            numpy.swapaxes(dPP[:, :M], 0, 1).T,
-        )
-    return numpy.swapaxes(
-        assoc_legendre_p_all(L - 1, M - 1, costheta, branch_cut=2)[0, :, :M],
-        0,
-        1,
-    ).T
-
-
-class SCFPotential(Potential, NumericalPotentialDerivativesMixin):
+class SCFPotential(
+    Potential, SphericalHarmonicPotentialMixin, NumericalPotentialDerivativesMixin
+):
     """Class that implements the `Hernquist & Ostriker (1992) <http://adsabs.harvard.edu/abs/1992ApJ...386..375H>`_ Self-Consistent-Field-type potential.
     Note that we divide the amplitude by 2 such that :math:`Acos = \\delta_{0n}\\delta_{0l}\\delta_{0m}` and :math:`Asin = 0` corresponds to :ref:`Galpy's Hernquist Potential <hernquist_potential>`.
 
@@ -184,7 +144,7 @@ class SCFPotential(Potential, NumericalPotentialDerivativesMixin):
 
         self._a = a
 
-        NN = self._Nroot(Acos.shape[1], Acos.shape[2])
+        NN = sph_harm_normalization(Acos.shape[1], Acos.shape[2])
 
         self._Acos = Acos * NN[numpy.newaxis, :, :]
         if Asin is not None:
@@ -304,35 +264,6 @@ class SCFPotential(Potential, NumericalPotentialDerivativesMixin):
                 vo = internal_vo
         return cls(Acos=Acos, Asin=Asin, a=a, ro=ro, vo=vo)
 
-    def _Nroot(self, L, M):
-        """
-        Evaluate the square root of equation (3.15) with the (2 - del_m,0) term outside the square root.
-
-        Parameters
-        ----------
-        L : int
-            Evaluate Nroot for 0 <= l <= L.
-        M : int
-            Evaluate Nroot for 0 <= m <= M.
-
-        Returns
-        -------
-        numpy.ndarray
-            The square root of equation (3.15) with the (2 - del_m,0) outside.
-
-        Notes
-        -----
-        - Written on 2016-05-16 by Aladdin Seaifan (UofT).
-        """
-        NN = numpy.zeros((L, M), float)
-        l = numpy.arange(0, L)[:, numpy.newaxis]
-        m = numpy.arange(0, M)[numpy.newaxis, :]
-        nLn = gammaln(l - m + 1) - gammaln(l + m + 1)
-        NN[:, :] = ((2 * l + 1.0) / (4.0 * numpy.pi) * numpy.e**nLn) ** 0.5 * 2
-        NN[:, 0] /= 2.0
-        NN = numpy.tril(NN)
-        return NN
-
     def _rhoTilde(self, r, N, L):
         """
         Evaluate rho_tilde as defined in equation 3.9 and 2.24 for 0 <= n < N and 0 <= l < L
@@ -445,7 +376,7 @@ class SCFPotential(Potential, NumericalPotentialDerivativesMixin):
         # Radial part: (N, L)
         radial = radial_func(r, N, L)
         # Angular part: associated Legendre polynomials (L, M)
-        PP = _compute_legendre(numpy.cos(theta), L, M)
+        PP = compute_legendre(numpy.cos(theta), L, M)
         # Azimuthal part: cos(m*phi), sin(m*phi)
         m = numpy.arange(0, M)[numpy.newaxis, numpy.newaxis, :]
         mcos = numpy.cos(m * phi)
@@ -566,7 +497,7 @@ class SCFPotential(Potential, NumericalPotentialDerivativesMixin):
             dPhi_dphi = self._cached_dPhi_dphi
         else:
             # Angular part: Legendre polynomials and their derivatives
-            PP, dPP = _compute_legendre(numpy.cos(theta), L, M, deriv=True)
+            PP, dPP = compute_legendre(numpy.cos(theta), L, M, deriv=True)
             PP = PP[None, :, :]
             dPP = dPP[None, :, :]
             # Radial part: potential basis and its radial derivative
@@ -590,86 +521,6 @@ class SCFPotential(Potential, NumericalPotentialDerivativesMixin):
             self._cached_dPhi_dtheta = dPhi_dtheta
             self._cached_dPhi_dphi = dPhi_dphi
         return dPhi_dr, dPhi_dtheta, dPhi_dphi
-
-    def _evaluate_cyl_force(self, dr_dx, dtheta_dx, dphi_dx, R, z, phi):
-        """
-        Evaluate a cylindrical force component over an array of coordinates.
-
-        Transforms spherical force components (dPhi/dr, dPhi/dtheta, dPhi/dphi) to a
-        cylindrical component using the chain rule derivatives dr/dx, dtheta/dx, dphi/dx.
-
-        Parameters
-        ----------
-        dr_dx : float or numpy.ndarray
-            The derivative of r with respect to the chosen cylindrical variable x.
-        dtheta_dx : float or numpy.ndarray
-            The derivative of theta with respect to x.
-        dphi_dx : float or numpy.ndarray
-            The derivative of phi with respect to x.
-        R : float or numpy.ndarray
-            Cylindrical Galactocentric radius.
-        z : float or numpy.ndarray
-            Vertical height.
-        phi : float or numpy.ndarray
-            Azimuth.
-
-        Returns
-        -------
-        float or numpy.ndarray
-            The force component in the x direction.
-
-        Notes
-        -----
-        - 2016-06-02 - Written - Aladdin Seaifan (UofT)
-        - 2026-02-11 - Simplified - Bovy (UofT)
-        """
-        R = numpy.array(R, dtype=float)
-        z = numpy.array(z, dtype=float)
-        phi = numpy.array(phi, dtype=float)
-        shape = (R * z * phi).shape
-        if shape == ():
-            dPhi_dr, dPhi_dtheta, dPhi_dphi = self._compute_spher_forces_at_point(
-                R, z, phi
-            )
-            return dr_dx * dPhi_dr + dtheta_dx * dPhi_dtheta + dPhi_dphi * dphi_dx
-        R = R * numpy.ones(shape)
-        z = z * numpy.ones(shape)
-        phi = phi * numpy.ones(shape)
-        force = numpy.zeros(shape, float)
-        dr_dx = dr_dx * numpy.ones(shape)
-        dtheta_dx = dtheta_dx * numpy.ones(shape)
-        dphi_dx = dphi_dx * numpy.ones(shape)
-        for idx in numpy.ndindex(*shape):
-            dPhi_dr, dPhi_dtheta, dPhi_dphi = self._compute_spher_forces_at_point(
-                R[idx], z[idx], phi[idx]
-            )
-            force[idx] = (
-                dr_dx[idx] * dPhi_dr
-                + dtheta_dx[idx] * dPhi_dtheta
-                + dPhi_dphi * dphi_dx[idx]
-            )
-        return force
-
-    def _Rforce(self, R, z, phi=0, t=0):
-        if not self.isNonAxi and phi is None:
-            phi = 0.0
-        r, theta, phi = coords.cyl_to_spher(R, z, phi)
-        dr_dR = numpy.divide(R, r)
-        dtheta_dR = numpy.divide(z, r**2)
-        return self._evaluate_cyl_force(dr_dR, dtheta_dR, 0, R, z, phi)
-
-    def _zforce(self, R, z, phi=0.0, t=0.0):
-        if not self.isNonAxi and phi is None:
-            phi = 0.0
-        r, theta, phi = coords.cyl_to_spher(R, z, phi)
-        dr_dz = numpy.divide(z, r)
-        dtheta_dz = numpy.divide(-R, r**2)
-        return self._evaluate_cyl_force(dr_dz, dtheta_dz, 0, R, z, phi)
-
-    def _phitorque(self, R, z, phi=0, t=0):
-        if not self.isNonAxi and phi is None:
-            phi = 0.0
-        return self._evaluate_cyl_force(0, 0, 1, R, z, phi)
 
     def OmegaP(self):
         return 0
