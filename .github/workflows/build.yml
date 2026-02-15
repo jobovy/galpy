@@ -49,7 +49,7 @@ jobs:
             REQUIRES_JAX: false
           - os: ubuntu-latest
             python-version: "3.14"
-            TEST_FILES: tests/test_SpiralArmsPotential.py tests/test_potential.py tests/test_scf.py tests/test_snapshotpotential.py
+            TEST_FILES: tests/test_SpiralArmsPotential.py tests/test_potential.py tests/test_scf.py tests/test_MultipoleExpansionPotential.py tests/test_snapshotpotential.py
             REQUIRES_PYNBODY: true
             REQUIRES_ASTROPY: false
             REQUIRES_ASTROQUERY: false

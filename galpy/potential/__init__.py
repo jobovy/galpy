@@ -32,6 +32,7 @@ from . import (
     MiyamotoNagaiPotential,
     MN3ExponentialDiskPotential,
     MovingObjectPotential,
+    MultipoleExpansionPotential,
     NonInertialFrameForce,
     NullPotential,
     NumericalPotentialDerivativesMixin,
@@ -186,6 +187,7 @@ InterpSnapshotRZPotential = SnapshotRZPotential.InterpSnapshotRZPotential
 SnapshotRZPotential = SnapshotRZPotential.SnapshotRZPotential
 BurkertPotential = BurkertPotential.BurkertPotential
 MN3ExponentialDiskPotential = MN3ExponentialDiskPotential.MN3ExponentialDiskPotential
+MultipoleExpansionPotential = MultipoleExpansionPotential.MultipoleExpansionPotential
 KuzminKutuzovStaeckelPotential = (
     KuzminKutuzovStaeckelPotential.KuzminKutuzovStaeckelPotential
 )

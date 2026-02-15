@@ -49,7 +49,7 @@ jobs:
             REQUIRES_JAX: false
           - os: windows-latest
             python-version: "3.14"
-            TEST_FILES: tests/test_SpiralArmsPotential.py tests/test_potential.py tests/test_scf.py
+            TEST_FILES: tests/test_SpiralArmsPotential.py tests/test_potential.py tests/test_scf.py tests/test_MultipoleExpansionPotential.py
             REQUIRES_PYNBODY: false
             REQUIRES_ASTROPY: false
             REQUIRES_ASTROQUERY: false
