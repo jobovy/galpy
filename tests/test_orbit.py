@@ -752,6 +752,7 @@ def test_liouville_planar():
         "InterpSnapshotRZPotential",
         "EllipsoidalPotential",
         "NumericalPotentialDerivativesMixin",
+        "SphericalHarmonicPotentialMixin",
         "SphericalPotential",
         "interpSphericalPotential",
         "CompositePotential",
@@ -809,8 +810,16 @@ def test_liouville_planar():
                 thasC = _check_c(tp._potlist, dxdv=True)
             else:
                 thasC = _check_c(tp, dxdv=True)
-            if (integrator == "odeint" or not thasC) and not p == "FerrersPotential":
+            if (
+                (integrator == "odeint" or not thasC)
+                and not p == "FerrersPotential"
+                and not p == "MultipoleExpansionPotential"
+            ):
                 ttol = -4.0
+            elif (
+                integrator == "odeint" or not thasC
+            ) and p == "MultipoleExpansionPotential":
+                ttol = -3.0
             if True:
                 ttimes = times
             o = setup_orbit_liouville(ptp, axi=False, henon="Henon" in p)
@@ -1200,6 +1209,7 @@ def test_eccentricity():
         "InterpSnapshotRZPotential",
         "EllipsoidalPotential",
         "NumericalPotentialDerivativesMixin",
+        "SphericalHarmonicPotentialMixin",
         "SphericalPotential",
         "interpSphericalPotential",
         "CompositePotential",
@@ -1378,6 +1388,7 @@ def test_pericenter():
         "InterpSnapshotRZPotential",
         "EllipsoidalPotential",
         "NumericalPotentialDerivativesMixin",
+        "SphericalHarmonicPotentialMixin",
         "SphericalPotential",
         "interpSphericalPotential",
         "CompositePotential",
@@ -1555,6 +1566,7 @@ def test_apocenter():
         "InterpSnapshotRZPotential",
         "EllipsoidalPotential",
         "NumericalPotentialDerivativesMixin",
+        "SphericalHarmonicPotentialMixin",
         "SphericalPotential",
         "interpSphericalPotential",
         "CompositePotential",
@@ -1732,6 +1744,7 @@ def test_zmax():
         "InterpSnapshotRZPotential",
         "EllipsoidalPotential",
         "NumericalPotentialDerivativesMixin",
+        "SphericalHarmonicPotentialMixin",
         "SphericalPotential",
         "interpSphericalPotential",
         "CompositePotential",
@@ -1894,6 +1907,7 @@ def test_analytic_ecc_rperi_rap():
         "InterpSnapshotRZPotential",
         "EllipsoidalPotential",
         "NumericalPotentialDerivativesMixin",
+        "SphericalHarmonicPotentialMixin",
         "SphericalPotential",
         "interpSphericalPotential",
         "CompositePotential",
@@ -2006,6 +2020,7 @@ def test_analytic_ecc_rperi_rap():
                 if ii < 2 and (
                     p == "BurkertPotential"
                     or "SCFPotential" in p
+                    or "MultipoleExpansion" in p
                     or "FlattenedPower" in p
                     or "RazorThinExponential" in p
                     or "TwoPowerSpherical" in p
@@ -2023,6 +2038,7 @@ def test_analytic_ecc_rperi_rap():
                 if ii < 2 and (
                     p == "BurkertPotential"
                     or "SCFPotential" in p
+                    or "MultipoleExpansion" in p
                     or "FlattenedPower" in p
                     or "RazorThinExponential" in p
                     or "TwoPowerSpherical" in p
@@ -2044,6 +2060,7 @@ def test_analytic_ecc_rperi_rap():
                 if ii < 2 and (
                     p == "BurkertPotential"
                     or "SCFPotential" in p
+                    or "MultipoleExpansion" in p
                     or "FlattenedPower" in p
                     or "RazorThinExponential" in p
                     or "TwoPowerSpherical" in p
@@ -2082,6 +2099,7 @@ def test_analytic_ecc_rperi_rap():
                 if ii < 2 and (
                     p == "BurkertPotential"
                     or "SCFPotential" in p
+                    or "MultipoleExpansion" in p
                     or "FlattenedPower" in p
                     or "RazorThinExponential" in p
                     or "TwoPowerSpherical" in p
@@ -2099,6 +2117,7 @@ def test_analytic_ecc_rperi_rap():
                 if ii < 2 and (
                     p == "BurkertPotential"
                     or "SCFPotential" in p
+                    or "MultipoleExpansion" in p
                     or "FlattenedPower" in p
                     or "RazorThinExponential" in p
                     or "TwoPowerSpherical" in p
@@ -2120,6 +2139,7 @@ def test_analytic_ecc_rperi_rap():
                 if ii < 2 and (
                     p == "BurkertPotential"
                     or "SCFPotential" in p
+                    or "MultipoleExpansion" in p
                     or "FlattenedPower" in p
                     or "RazorThinExponential" in p
                     or "TwoPowerSpherical" in p
@@ -2158,6 +2178,7 @@ def test_analytic_ecc_rperi_rap():
                 if ii < 2 and (
                     p == "BurkertPotential"
                     or "SCFPotential" in p
+                    or "MultipoleExpansion" in p
                     or "FlattenedPower" in p
                     or "RazorThinExponential" in p
                     or "TwoPowerSpherical" in p
@@ -2175,6 +2196,7 @@ def test_analytic_ecc_rperi_rap():
                 if ii < 2 and (
                     p == "BurkertPotential"
                     or "SCFPotential" in p
+                    or "MultipoleExpansion" in p
                     or "FlattenedPower" in p
                     or "RazorThinExponential" in p
                     or "TwoPowerSpherical" in p
@@ -2196,6 +2218,7 @@ def test_analytic_ecc_rperi_rap():
                 if ii < 2 and (
                     p == "BurkertPotential"
                     or "SCFPotential" in p
+                    or "MultipoleExpansion" in p
                     or "FlattenedPower" in p
                     or "RazorThinExponential" in p
                     or "TwoPowerSpherical" in p
@@ -2545,6 +2568,7 @@ def test_analytic_zmax():
         "InterpSnapshotRZPotential",
         "EllipsoidalPotential",
         "NumericalPotentialDerivativesMixin",
+        "SphericalHarmonicPotentialMixin",
         "SphericalPotential",
         "interpSphericalPotential",
         "CompositePotential",
@@ -2589,6 +2613,7 @@ def test_analytic_zmax():
     tol["KuzminDiskPotential"] = -4  # these are more difficult
     tol["SCFPotential"] = -8.0  # these are more difficult
     tol["DiskSCFPotential"] = -6.0  # these are more difficult
+    tol["MultipoleExpansionPotential"] = -8.0  # numerical derivatives
     for p in pots:
         # Setup instance of potential
         if p in list(tol.keys()):
@@ -2624,6 +2649,7 @@ def test_analytic_zmax():
                 if ii < 2 and (
                     p == "BurkertPotential"
                     or "SCFPotential" in p
+                    or "MultipoleExpansion" in p
                     or "FlattenedPower" in p
                     or "RazorThinExponential" in p
                     or "TwoPowerSpherical" in p

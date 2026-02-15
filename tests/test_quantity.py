@@ -10296,6 +10296,80 @@ def test_potential_paramunits():
     ), (
         "CylindricallySeparablePotentialWrapper w/ parameters w/ units does not behave as expected"
     )
+    # MultipoleExpansionPotential with density in units (1-arg)
+    dens_scale = conversion.dens_in_msolpc3(vo, ro)
+    coeff = 1.0 / (2.0 * numpy.pi)
+    pot = potential.MultipoleExpansionPotential(
+        dens=lambda r: coeff / r / (1 + r) ** 3 * dens_scale * units.Msun / units.pc**3,
+        L=2,
+        symmetry="spherical",
+        rgrid=numpy.geomspace(1e-2, 20, 201),
+        ro=ro,
+        vo=vo,
+    )
+    pot_nounits = potential.MultipoleExpansionPotential(
+        dens=lambda r: coeff / r / (1 + r) ** 3,
+        L=2,
+        symmetry="spherical",
+        rgrid=numpy.geomspace(1e-2, 20, 201),
+        ro=ro,
+        vo=vo,
+    )
+    assert (
+        numpy.fabs(
+            pot(1.0, 0.0, use_physical=False)
+            - pot_nounits(1.0, 0.0, use_physical=False)
+        )
+        < 10.0**-8.0
+    ), (
+        "MultipoleExpansionPotential w/ 1-arg density w/ units does not behave as expected"
+    )
+    # MultipoleExpansionPotential with density in units (2-arg)
+    pot = potential.MultipoleExpansionPotential(
+        dens=lambda R, z: coeff
+        / numpy.sqrt(R**2 + z**2)
+        / (1 + numpy.sqrt(R**2 + z**2)) ** 3
+        * dens_scale
+        * units.Msun
+        / units.pc**3,
+        L=2,
+        symmetry="spherical",
+        rgrid=numpy.geomspace(1e-2, 20, 201),
+        ro=ro,
+        vo=vo,
+    )
+    assert (
+        numpy.fabs(
+            pot(1.0, 0.0, use_physical=False)
+            - pot_nounits(1.0, 0.0, use_physical=False)
+        )
+        < 10.0**-8.0
+    ), (
+        "MultipoleExpansionPotential w/ 2-arg density w/ units does not behave as expected"
+    )
+    # MultipoleExpansionPotential with density in units (3-arg)
+    pot = potential.MultipoleExpansionPotential(
+        dens=lambda R, z, phi: coeff
+        / numpy.sqrt(R**2 + z**2)
+        / (1 + numpy.sqrt(R**2 + z**2)) ** 3
+        * dens_scale
+        * units.Msun
+        / units.pc**3,
+        L=4,
+        symmetry=None,
+        rgrid=numpy.geomspace(1e-2, 20, 201),
+        ro=ro,
+        vo=vo,
+    )
+    assert (
+        numpy.fabs(
+            pot(1.0, 0.0, use_physical=False)
+            - pot_nounits(1.0, 0.0, use_physical=False)
+        )
+        < 10.0**-4.0
+    ), (
+        "MultipoleExpansionPotential w/ 3-arg density w/ units does not behave as expected"
+    )
     # If you add one here, don't base it on ChandrasekharDynamicalFrictionForce!!
     return None
 

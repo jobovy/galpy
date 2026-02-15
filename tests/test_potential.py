@@ -62,6 +62,7 @@ def test_normalize_potential():
         "InterpSnapshotRZPotential",
         "EllipsoidalPotential",
         "NumericalPotentialDerivativesMixin",
+        "SphericalHarmonicPotentialMixin",
         "SphericalPotential",
         "interpSphericalPotential",
         "CompositePotential",
@@ -200,6 +201,8 @@ def test_forceAsDeriv_potential():
     pots.append("sech2DiskSCFPotential")
     pots.append("expwholeDiskSCFPotential")
     pots.append("nonaxiDiskSCFPotential")
+    pots.append("mockMultipoleExpansionSphericalPotential")
+    pots.append("mockMultipoleExpansionAxiPotential")
     pots.append("rotatingSpiralArmsPotential")
     pots.append("specialSpiralArmsPotential")
     pots.append("DehnenSmoothDehnenBarPotential")
@@ -241,6 +244,7 @@ def test_forceAsDeriv_potential():
         "InterpSnapshotRZPotential",
         "EllipsoidalPotential",
         "NumericalPotentialDerivativesMixin",
+        "SphericalHarmonicPotentialMixin",
         "SphericalPotential",
         "interpSphericalPotential",
         "CompositePotential",
@@ -446,6 +450,8 @@ def test_2ndDeriv_potential():
     pots.append("NFWTwoPowerTriaxialPotential")
     pots.append("JaffeTwoPowerTriaxialPotential")
     pots.append("mockAxisymmetricFerrersPotential")
+    pots.append("mockMultipoleExpansionSphericalPotential")
+    pots.append("mockMultipoleExpansionAxiPotential")
     pots.append("rotatingSpiralArmsPotential")
     pots.append("specialSpiralArmsPotential")
     pots.append("DehnenSmoothDehnenBarPotential")
@@ -487,6 +493,7 @@ def test_2ndDeriv_potential():
         "InterpSnapshotRZPotential",
         "EllipsoidalPotential",
         "NumericalPotentialDerivativesMixin",
+        "SphericalHarmonicPotentialMixin",
         "SphericalPotential",
         "interpSphericalPotential",
         "CompositePotential",
@@ -511,6 +518,9 @@ def test_2ndDeriv_potential():
     tol["AnyAxisymmetricRazorThinDiskPotential"] = -4.5
     tol["mockInterpRZPotential"] = -4.0
     tol["DehnenBarPotential"] = -7.0
+    tol["MultipoleExpansionPotential"] = -5.0
+    tol["mockMultipoleExpansionSphericalPotential"] = -5.0
+    tol["mockMultipoleExpansionAxiPotential"] = -4.5
     for p in pots:
         # if not 'NFW' in p: continue #For testing the test
         # Setup instance of potential
@@ -862,6 +872,7 @@ def test_poisson_potential():
         "InterpSnapshotRZPotential",
         "EllipsoidalPotential",
         "NumericalPotentialDerivativesMixin",
+        "SphericalHarmonicPotentialMixin",
         "SphericalPotential",
         "interpSphericalPotential",
         "CompositePotential",
@@ -887,6 +898,7 @@ def test_poisson_potential():
     tol["specialSpiralArmsPotential"] = -4
     tol["SolidBodyRotationSpiralArmsPotential"] = -2.9  # these are more difficult
     tol["nestedListPotential"] = -3  # these are more difficult
+    tol["MultipoleExpansionPotential"] = -5.0
     # tol['RazorThinExponentialDiskPotential']= -6.
     for p in pots:
         # if not 'NFW' in p: continue #For testing the test
@@ -1014,6 +1026,7 @@ def test_poisson_surfdens_potential():
         "InterpSnapshotRZPotential",
         "EllipsoidalPotential",
         "NumericalPotentialDerivativesMixin",
+        "SphericalHarmonicPotentialMixin",
         "SphericalPotential",
         "interpSphericalPotential",
         "CompositePotential",
@@ -1160,6 +1173,8 @@ def test_evaluateAndDerivs_potential():
     pots.append("sech2DiskSCFPotential")
     pots.append("expwholeDiskSCFPotential")
     pots.append("nonaxiDiskSCFPotential")
+    pots.append("mockMultipoleExpansionSphericalPotential")
+    pots.append("mockMultipoleExpansionAxiPotential")
     pots.append("rotatingSpiralArmsPotential")
     pots.append("specialSpiralArmsPotential")
     pots.append("SolidBodyRotationSpiralArmsPotential")
@@ -1201,6 +1216,7 @@ def test_evaluateAndDerivs_potential():
         "InterpSnapshotRZPotential",
         "EllipsoidalPotential",
         "NumericalPotentialDerivativesMixin",
+        "SphericalHarmonicPotentialMixin",
         "SphericalPotential",
         "interpSphericalPotential",
         "CompositePotential",
@@ -1443,6 +1459,8 @@ def test_amp_mult_divide():
     pots.append("sech2DiskSCFPotential")
     pots.append("expwholeDiskSCFPotential")
     pots.append("nonaxiDiskSCFPotential")
+    pots.append("mockMultipoleExpansionSphericalPotential")
+    pots.append("mockMultipoleExpansionAxiPotential")
     pots.append("rotatingSpiralArmsPotential")
     pots.append("specialSpiralArmsPotential")
     pots.append("DehnenSmoothDehnenBarPotential")
@@ -1480,6 +1498,7 @@ def test_amp_mult_divide():
         "InterpSnapshotRZPotential",
         "EllipsoidalPotential",
         "NumericalPotentialDerivativesMixin",
+        "SphericalHarmonicPotentialMixin",
         "SphericalPotential",
         "interpSphericalPotential",
         "CompositePotential",
@@ -1802,6 +1821,7 @@ def test_potential_array_input():
         "PotentialError",
         "EllipsoidalPotential",
         "NumericalPotentialDerivativesMixin",
+        "SphericalHarmonicPotentialMixin",
         "SphericalPotential",
         "interpSphericalPotential",
         "CompositePotential",
@@ -1992,6 +2012,7 @@ def test_toVertical_array():
         "PotentialError",
         "EllipsoidalPotential",
         "NumericalPotentialDerivativesMixin",
+        "SphericalHarmonicPotentialMixin",
         "SphericalPotential",
         "interpSphericalPotential",
         "CompositePotential",
@@ -2126,6 +2147,8 @@ def test_potential_at_zero():
     pots.append("sech2DiskSCFPotential")
     pots.append("expwholeDiskSCFPotential")
     pots.append("nonaxiDiskSCFPotential")
+    pots.append("mockMultipoleExpansionSphericalPotential")
+    pots.append("mockMultipoleExpansionAxiPotential")
     pots.append("mockInterpSphericalPotential")
     pots.append("mockInterpSphericalPotentialwForce")
     pots.append("mockAdiabaticContractionMWP14WrapperPotential")
@@ -2151,6 +2174,7 @@ def test_potential_at_zero():
         "InterpSnapshotRZPotential",
         "EllipsoidalPotential",
         "NumericalPotentialDerivativesMixin",
+        "SphericalHarmonicPotentialMixin",
         "SphericalPotential",
         "interpSphericalPotential",
         "CompositePotential",
@@ -2283,6 +2307,8 @@ def test_potential_at_infinity():
     pots.append("sech2DiskSCFPotential")
     pots.append("expwholeDiskSCFPotential")
     pots.append("nonaxiDiskSCFPotential")
+    pots.append("mockMultipoleExpansionSphericalPotential")
+    pots.append("mockMultipoleExpansionAxiPotential")
     pots.append("mockInterpSphericalPotential")
     pots.append("mockInterpSphericalPotentialwForce")
     pots.append("mockAdiabaticContractionMWP14WrapperPotential")
@@ -2308,6 +2334,7 @@ def test_potential_at_infinity():
         "InterpSnapshotRZPotential",
         "EllipsoidalPotential",
         "NumericalPotentialDerivativesMixin",
+        "SphericalHarmonicPotentialMixin",
         "SphericalPotential",
         "interpSphericalPotential",
         "CompositePotential",
@@ -3163,6 +3190,7 @@ def test_toVertical_toPlanar():
         "InterpSnapshotRZPotential",
         "EllipsoidalPotential",
         "NumericalPotentialDerivativesMixin",
+        "SphericalHarmonicPotentialMixin",
         "SphericalPotential",
         "interpSphericalPotential",
         "CompositePotential",
@@ -10941,6 +10969,30 @@ class mockSCFDensityPotential(potential.SCFPotential):
     def __init__(self):
         Acos, Asin = potential.scf_compute_coeffs(scf_density, 10, 10, phi_order=30)
         potential.SCFPotential.__init__(self, amp=1.0, Acos=Acos, Asin=Asin)
+
+
+##Mock MultipoleExpansionPotential classes
+class mockMultipoleExpansionSphericalPotential(potential.MultipoleExpansionPotential):
+    def __init__(self):
+        hp = potential.HernquistPotential(amp=2.0, a=1.0)
+        potential.MultipoleExpansionPotential.__init__(
+            self,
+            dens=hp,
+            L=2,
+            symmetry="spherical",
+            rgrid=numpy.geomspace(1e-3, 50, 401),
+        )
+
+
+class mockMultipoleExpansionAxiPotential(potential.MultipoleExpansionPotential):
+    def __init__(self):
+        potential.MultipoleExpansionPotential.__init__(
+            self,
+            dens=axi_density2,
+            L=10,
+            symmetry="axisymmetric",
+            rgrid=numpy.geomspace(1e-3, 50, 401),
+        )
 
 
 # Test interpSphericalPotential
