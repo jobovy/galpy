@@ -4,6 +4,7 @@
 #
 ###############################################################################
 import copy
+from typing import Optional, Union
 
 import numpy
 
@@ -23,7 +24,13 @@ if _APY_LOADED:
 class Force:
     """Top-level class for any force, conservative or dissipative"""
 
-    def __init__(self, amp=1.0, ro=None, vo=None, amp_units=None):
+    def __init__(
+        self,
+        amp: float = 1.0,
+        ro: Optional[float] = None,
+        vo: Optional[float] = None,
+        amp_units: Optional[str] = None,
+    ) -> None:
         """
         Initialize Force.
 
@@ -94,9 +101,8 @@ class Force:
                 # When amplitude is given with units, turn on physical output
                 self._roSet = True
                 self._voSet = True
-        return None
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         """
         Return a string representation of the Force instance.
 
@@ -112,7 +118,7 @@ class Force:
         """
         return _build_repr(self)
 
-    def __mul__(self, b):
+    def __mul__(self, b: Union[int, float]) -> "Force":
         """
         Multiply a Force or Potential's amplitude by a number
 
@@ -142,7 +148,7 @@ class Force:
     # Similar functions
     __rmul__ = __mul__
 
-    def __div__(self, b):
+    def __div__(self, b: Union[int, float]) -> "Force":
         return self.__mul__(1.0 / b)
 
     __truediv__ = __div__
@@ -234,7 +240,7 @@ class Force:
             """other Force objects or combinations thereof"""
         )
 
-    def turn_physical_off(self):
+    def turn_physical_off(self) -> None:
         """
         Turn off automatic returning of outputs in physical units.
 
@@ -249,9 +255,10 @@ class Force:
         """
         self._roSet = False
         self._voSet = False
-        return None
 
-    def turn_physical_on(self, ro=None, vo=None):
+    def turn_physical_on(
+        self, ro: Optional[float] = None, vo: Optional[float] = None
+    ) -> None:
         """
         Turn on automatic returning of outputs in physical units.
 
@@ -282,7 +289,6 @@ class Force:
             vo = conversion.parse_velocity_kms(vo)
             if vo is not None:
                 self._vo = vo
-        return None
 
     def _Rforce_nodecorator(self, R, z, **kwargs):
         # Separate, so it can be used during orbit integration
@@ -319,7 +325,7 @@ class Force:
 
     @potential_physical_input
     @physical_conversion("force", pop=True)
-    def rforce(self, R, z, **kwargs):
+    def rforce(self, R: float, z: float, **kwargs) -> float:
         """
         Evaluate the spherical radial force F_r (R,z).
 
@@ -350,7 +356,7 @@ class Force:
         kwargs["use_physical"] = False
         return self.Rforce(R, z, **kwargs) * R / r + self.zforce(R, z, **kwargs) * z / r
 
-    def toPlanar(self):
+    def toPlanar(self) -> "Force":
         """
         Convert a 3D potential into a planar potential in the mid-plane.
 
