@@ -316,6 +316,22 @@ def _parse_pot(pot):
         elif (
             isinstance(p, planarPotentialFromFullPotential)
             or isinstance(p, planarPotentialFromRZPotential)
+        ) and isinstance(p._Pot, potential.MultipoleExpansionPotential):
+            pot_type.append(44)
+            pp = p._Pot
+            Nr, L, M = len(pp._rgrid), pp._L, pp._M
+            pot_args.extend([Nr, L, M, int(pp.isNonAxi)])
+            pot_args.extend(pp._rgrid)
+            for l in range(L):
+                for m in range(min(l + 1, M)):
+                    pot_args.extend(pp._amp * pp._Radial_cos[l][m](pp._rgrid))
+                    pot_args.extend(pp._amp * pp._rho_cos_splines[l][m](pp._rgrid))
+                    if m > 0:
+                        pot_args.extend(pp._amp * pp._Radial_sin[l][m](pp._rgrid))
+                        pot_args.extend(pp._amp * pp._rho_sin_splines[l][m](pp._rgrid))
+        elif (
+            isinstance(p, planarPotentialFromFullPotential)
+            or isinstance(p, planarPotentialFromRZPotential)
         ) and isinstance(p._Pot, potential.SCFPotential):
             pt, pa, ptf = _parse_scf_pot(p._Pot)
             pot_type.append(pt)
