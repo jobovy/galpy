@@ -528,6 +528,14 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
       break;
+    case 44: //MultipoleExpansionPotential
+      potentialArgs->potentialEval= &MultipoleExpansionPotentialEval;
+      potentialArgs->planarRforce= &MultipoleExpansionPotentialPlanarRforce;
+      potentialArgs->planarphitorque= &MultipoleExpansionPotentialPlanarphitorque;
+      potentialArgs->nargs= 0;
+      potentialArgs->ntfuncs= 0;
+      potentialArgs->requiresVelocity= false;
+      break;
 //////////////////////////////// WRAPPERS /////////////////////////////////////
     case -1: //DehnenSmoothWrapperPotential
       potentialArgs->potentialEval= &DehnenSmoothWrapperPotentialEval;
@@ -622,6 +630,7 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
     }
     int setupSplines = *(*pot_type-1) == -6 ? 1 : 0;
     int initSCFData = *(*pot_type-1) == 24 ? 1 : 0;
+    int initMultipoleExpansionData = *(*pot_type-1) == 44 ? 1 : 0;
     if ( *(*pot_type-1) < 0) { // Parse wrapped potential for wrappers
       potentialArgs->nwrapped= (int) *(*pot_args)++;
       potentialArgs->wrappedPotentialArg= \
@@ -632,6 +641,8 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
 			 pot_type,pot_args,pot_tfuncs);
     }
     if (setupSplines) initPlanarMovingObjectSplines(potentialArgs, pot_args);
+    if ( initMultipoleExpansionData )
+      initMultipoleExpansionPotentialArgs(potentialArgs, pot_args);
     // Now load each potential's parameters
     potentialArgs->args= (double *) malloc( potentialArgs->nargs * sizeof(double));
     for (jj=0; jj < potentialArgs->nargs; jj++){
