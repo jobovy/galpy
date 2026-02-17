@@ -270,11 +270,11 @@ def test_OmegaP_zero():
     assert mp.OmegaP() == 0
 
 
-def test_hasC_false():
+def test_hasC():
     mp = MultipoleExpansionPotential(L=2, symmetry="spherical")
-    assert not mp.hasC
+    assert mp.hasC
     assert not mp.hasC_dxdv
-    assert not mp.hasC_dens
+    assert mp.hasC_dens
 
 
 def test_default_rgrid():

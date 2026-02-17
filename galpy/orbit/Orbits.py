@@ -1896,6 +1896,45 @@ class Orbit:
                     ),
                     galpyWarning,
                 )
+        from ..potential import MultipoleExpansionPotential
+
+        if (
+            isinstance(
+                pot,
+                (
+                    CompositePotential,
+                    planarCompositePotential,
+                    linearCompositePotential,
+                ),
+            )
+            and numpy.any([isinstance(p, MultipoleExpansionPotential) for p in pot])
+        ) or isinstance(pot, MultipoleExpansionPotential):
+            if isinstance(pot, MultipoleExpansionPotential):
+                lpot = [pot]
+            else:
+                lpot = pot
+            mep_indx = numpy.arange(len(lpot))[
+                numpy.array(
+                    [isinstance(p, MultipoleExpansionPotential) for p in lpot],
+                    dtype="bool",
+                )
+            ][0]
+            if numpy.any(
+                self.r(self.t, use_physical=False) < lpot[mep_indx]._rgrid[0]
+            ) or numpy.any(
+                self.r(self.t, use_physical=False) > lpot[mep_indx]._rgrid[-1]
+            ):
+                warnings.warn(
+                    """Orbit integration with """
+                    """MultipoleExpansionPotential visited radii """
+                    """outside of the interpolation range; """
+                    """initialize MultipoleExpansionPotential """
+                    """with a wider radial range to avoid this """
+                    """if you wish (min/max r = {:.3f},{:.3f}""".format(
+                        self.rperi(), self.rap()
+                    ),
+                    galpyWarning,
+                )
         return None
 
     @singledispatchmethod

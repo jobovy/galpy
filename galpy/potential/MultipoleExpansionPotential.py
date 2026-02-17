@@ -141,9 +141,9 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
         self._precompute_radial_integrals(beta_lm)
         self._force_hash = None
         self._2nd_deriv_hash = None
-        self.hasC = False
+        self.hasC = True
         self.hasC_dxdv = False
-        self.hasC_dens = False
+        self.hasC_dens = True
         if normalize or (
             isinstance(normalize, (int, float)) and not isinstance(normalize, bool)
         ):
@@ -412,6 +412,23 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
             result[idx] = self._evaluate_at_point(R[idx], z[idx], phi[idx])
         return result
 
+    def _eval_radial(self, spline, r, l):
+        """Evaluate radial spline with point-mass extrapolation for r > rmax."""
+        rmax = self._rgrid[-1]
+        if r <= rmax:
+            return float(spline(r))
+        val_at_rmax = float(spline(rmax))
+        return val_at_rmax * (rmax / r) ** (l + 1)
+
+    def _eval_radial_deriv(self, spline, r, l):
+        """Evaluate radial spline derivative with point-mass extrapolation for r > rmax."""
+        rmax = self._rgrid[-1]
+        if r <= rmax:
+            return float(spline(r, 1))
+        val_at_rmax = float(spline(rmax))
+        radial = val_at_rmax * (rmax / r) ** (l + 1)
+        return -(l + 1) / r * radial
+
     def _evaluate_at_point(self, R, z, phi):
         """
         Evaluate the potential at a single point.
@@ -432,10 +449,10 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
             return float(self._Radial_cos[0][0](0.0)) * PP[0, 0]
         for l in range(L):
             for m in range(min(l + 1, M)):
-                radial_cos = float(self._Radial_cos[l][m](r))
+                radial_cos = self._eval_radial(self._Radial_cos[l][m], r, l)
                 contrib = PP[l, m] * numpy.cos(m * phi) * radial_cos
                 if m > 0:
-                    radial_sin = float(self._Radial_sin[l][m](r))
+                    radial_sin = self._eval_radial(self._Radial_sin[l][m], r, l)
                     contrib += PP[l, m] * numpy.sin(m * phi) * radial_sin
                 result += contrib
         return result
@@ -491,8 +508,10 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
         L = self._L
         M = self._M
         r, theta, phi = coords.cyl_to_spher(R, z, phi)
-        if not numpy.isfinite(r):
+        if not numpy.isfinite(r) or r > self._rgrid[-1]:
             return 0.0
+        if r < self._rgrid[0]:
+            r = self._rgrid[0]
         PP = compute_legendre(numpy.cos(theta), L, M)
         result = 0.0
         for l in range(L):
@@ -554,8 +573,8 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
         dPhi_dphi = 0.0
         for l in range(L):
             for m in range(min(l + 1, M)):
-                radial_cos = float(self._Radial_cos[l][m](r))
-                dradial_cos = float(self._Radial_cos[l][m](r, 1))
+                radial_cos = self._eval_radial(self._Radial_cos[l][m], r, l)
+                dradial_cos = self._eval_radial_deriv(self._Radial_cos[l][m], r, l)
                 cos_mphi = numpy.cos(m * phi)
                 sin_mphi = numpy.sin(m * phi)
                 # dPhi/dr contribution
@@ -565,8 +584,8 @@ class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
                 # dPhi/dphi contribution
                 dPhi_dphi += PP[l, m] * (-m * sin_mphi) * radial_cos
                 if m > 0:
-                    radial_sin = float(self._Radial_sin[l][m](r))
-                    dradial_sin = float(self._Radial_sin[l][m](r, 1))
+                    radial_sin = self._eval_radial(self._Radial_sin[l][m], r, l)
+                    dradial_sin = self._eval_radial_deriv(self._Radial_sin[l][m], r, l)
                     dPhi_dr += PP[l, m] * sin_mphi * dradial_sin
                     dPhi_dtheta += dPP[l, m] * (-sintheta) * sin_mphi * radial_sin
                     dPhi_dphi += PP[l, m] * (m * cos_mphi) * radial_sin

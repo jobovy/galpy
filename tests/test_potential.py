@@ -203,6 +203,7 @@ def test_forceAsDeriv_potential():
     pots.append("nonaxiDiskSCFPotential")
     pots.append("mockMultipoleExpansionSphericalPotential")
     pots.append("mockMultipoleExpansionAxiPotential")
+    pots.append("mockMultipoleExpansionPotential")
     pots.append("rotatingSpiralArmsPotential")
     pots.append("specialSpiralArmsPotential")
     pots.append("DehnenSmoothDehnenBarPotential")
@@ -452,6 +453,7 @@ def test_2ndDeriv_potential():
     pots.append("mockAxisymmetricFerrersPotential")
     pots.append("mockMultipoleExpansionSphericalPotential")
     pots.append("mockMultipoleExpansionAxiPotential")
+    pots.append("mockMultipoleExpansionPotential")
     pots.append("rotatingSpiralArmsPotential")
     pots.append("specialSpiralArmsPotential")
     pots.append("DehnenSmoothDehnenBarPotential")
@@ -518,6 +520,10 @@ def test_2ndDeriv_potential():
     tol["AnyAxisymmetricRazorThinDiskPotential"] = -4.5
     tol["mockInterpRZPotential"] = -4.0
     tol["DehnenBarPotential"] = -7.0
+    tol["MultipoleExpansionPotential"] = -5.0
+    tol["mockMultipoleExpansionSphericalPotential"] = -5.0
+    tol["mockMultipoleExpansionAxiPotential"] = -5.0
+    tol["mockMultipoleExpansionPotential"] = -5.0
     for p in pots:
         # if not 'NFW' in p: continue #For testing the test
         # Setup instance of potential
@@ -1171,6 +1177,7 @@ def test_evaluateAndDerivs_potential():
     pots.append("nonaxiDiskSCFPotential")
     pots.append("mockMultipoleExpansionSphericalPotential")
     pots.append("mockMultipoleExpansionAxiPotential")
+    pots.append("mockMultipoleExpansionPotential")
     pots.append("rotatingSpiralArmsPotential")
     pots.append("specialSpiralArmsPotential")
     pots.append("SolidBodyRotationSpiralArmsPotential")
@@ -1457,6 +1464,7 @@ def test_amp_mult_divide():
     pots.append("nonaxiDiskSCFPotential")
     pots.append("mockMultipoleExpansionSphericalPotential")
     pots.append("mockMultipoleExpansionAxiPotential")
+    pots.append("mockMultipoleExpansionPotential")
     pots.append("rotatingSpiralArmsPotential")
     pots.append("specialSpiralArmsPotential")
     pots.append("DehnenSmoothDehnenBarPotential")
@@ -2145,6 +2153,7 @@ def test_potential_at_zero():
     pots.append("nonaxiDiskSCFPotential")
     pots.append("mockMultipoleExpansionSphericalPotential")
     pots.append("mockMultipoleExpansionAxiPotential")
+    pots.append("mockMultipoleExpansionPotential")
     pots.append("mockInterpSphericalPotential")
     pots.append("mockInterpSphericalPotentialwForce")
     pots.append("mockAdiabaticContractionMWP14WrapperPotential")
@@ -2305,6 +2314,7 @@ def test_potential_at_infinity():
     pots.append("nonaxiDiskSCFPotential")
     pots.append("mockMultipoleExpansionSphericalPotential")
     pots.append("mockMultipoleExpansionAxiPotential")
+    pots.append("mockMultipoleExpansionPotential")
     pots.append("mockInterpSphericalPotential")
     pots.append("mockInterpSphericalPotentialwForce")
     pots.append("mockAdiabaticContractionMWP14WrapperPotential")
@@ -10974,7 +10984,6 @@ class mockMultipoleExpansionSphericalPotential(potential.MultipoleExpansionPoten
         potential.MultipoleExpansionPotential.__init__(
             self,
             dens=hp,
-            L=2,
             symmetry="spherical",
             rgrid=numpy.geomspace(1e-3, 50, 401),
         )
@@ -10987,6 +10996,17 @@ class mockMultipoleExpansionAxiPotential(potential.MultipoleExpansionPotential):
             dens=axi_density2,
             L=10,
             symmetry="axisymmetric",
+            rgrid=numpy.geomspace(1e-3, 50, 401),
+        )
+
+
+class mockMultipoleExpansionPotential(potential.MultipoleExpansionPotential):
+    def __init__(self):
+        potential.MultipoleExpansionPotential.__init__(
+            self,
+            dens=scf_density,
+            L=10,
+            phi_order=30,
             rgrid=numpy.geomspace(1e-3, 50, 401),
         )
 

@@ -3546,6 +3546,12 @@ def test_actionAngleStaeckel_wSpherical_conserved_actions_c():
     msmlpwtdp = (
         mockSmoothedLogarithmicHaloPotentialwTimeDependentAmplitudeWrapperPotential()
     )
+    mep = potential.MultipoleExpansionPotential(
+        dens=potential.HernquistPotential(normalize=1.0),
+        L=6,
+        symmetry="spherical",
+        normalize=1.0,
+    )
     pots = [
         lp,
         lpb,
@@ -3572,6 +3578,7 @@ def test_actionAngleStaeckel_wSpherical_conserved_actions_c():
         ep,
         tpsp,
         tpsp_beta3,
+        mep,
     ]
     for pot in pots:
         aAS = actionAngleStaeckel(pot=pot, c=True, delta=0.01)

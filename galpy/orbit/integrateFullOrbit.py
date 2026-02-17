@@ -245,6 +245,18 @@ def _parse_pot(pot, potforactions=False, potfortorus=False):
                     for ii in range(p._glorder)
                 ]
             )
+        elif isinstance(p, potential.MultipoleExpansionPotential):
+            pot_type.append(44)
+            Nr, L, M = len(p._rgrid), p._L, p._M
+            pot_args.extend([Nr, L, M, int(p.isNonAxi)])
+            pot_args.extend(p._rgrid)
+            for l in range(L):
+                for m in range(min(l + 1, M)):
+                    pot_args.extend(p._amp * p._Radial_cos[l][m](p._rgrid))
+                    pot_args.extend(p._amp * p._rho_cos_splines[l][m](p._rgrid))
+                    if m > 0:
+                        pot_args.extend(p._amp * p._Radial_sin[l][m](p._rgrid))
+                        pot_args.extend(p._amp * p._rho_sin_splines[l][m](p._rgrid))
         elif isinstance(p, potential.SCFPotential):
             # Type 24, see stand-alone parser below
             pt, pa, ptf = _parse_scf_pot(p)
