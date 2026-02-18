@@ -670,6 +670,7 @@ void parse_leapFuncArgs_Full(int npot,
     int setupMovingObjectSplines = *(*pot_type-1) == -6 ? 1 : 0;
     // Need to set up the same sigma_r spline for both Chandrasekhar and FDM dynamical friction
     int setupChandrasekharDynamicalFrictionSplines = (*(*pot_type-1) == -7 || *(*pot_type-1) == -11) ? 1 : 0;
+    int initSCFData = *(*pot_type-1) == 24 ? 1 : 0;
     if ( *(*pot_type-1) < 0 ) { // Parse wrapped potential for wrappers
       potentialArgs->nwrapped= (int) *(*pot_args)++;
       potentialArgs->wrappedPotentialArg= \
@@ -696,7 +697,7 @@ void parse_leapFuncArgs_Full(int npot,
       (*pot_tfuncs)+= potentialArgs->ntfuncs;
     }
     // Initialize potential-specific pre-computed data
-    if ( *(*pot_type-1) == 24 ) // SCFPotential
+    if ( initSCFData )
       initSCFPotentialArgs(potentialArgs);
     potentialArgs++;
   }

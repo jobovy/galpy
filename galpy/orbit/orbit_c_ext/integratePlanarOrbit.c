@@ -621,6 +621,7 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
 
     }
     int setupSplines = *(*pot_type-1) == -6 ? 1 : 0;
+    int initSCFData = *(*pot_type-1) == 24 ? 1 : 0;
     if ( *(*pot_type-1) < 0) { // Parse wrapped potential for wrappers
       potentialArgs->nwrapped= (int) *(*pot_args)++;
       potentialArgs->wrappedPotentialArg= \
@@ -644,7 +645,7 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
       (*pot_tfuncs)+= potentialArgs->ntfuncs;
     }
     // Initialize potential-specific pre-computed data
-    if ( *(*pot_type-1) == 24 ) // SCFPotential
+    if ( initSCFData )
       initSCFPotentialArgs(potentialArgs);
     potentialArgs++;
   }
