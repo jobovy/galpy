@@ -518,9 +518,6 @@ def test_2ndDeriv_potential():
     tol["AnyAxisymmetricRazorThinDiskPotential"] = -4.5
     tol["mockInterpRZPotential"] = -4.0
     tol["DehnenBarPotential"] = -7.0
-    tol["MultipoleExpansionPotential"] = -5.0
-    tol["mockMultipoleExpansionSphericalPotential"] = -5.0
-    tol["mockMultipoleExpansionAxiPotential"] = -4.5
     for p in pots:
         # if not 'NFW' in p: continue #For testing the test
         # Setup instance of potential
@@ -898,7 +895,6 @@ def test_poisson_potential():
     tol["specialSpiralArmsPotential"] = -4
     tol["SolidBodyRotationSpiralArmsPotential"] = -2.9  # these are more difficult
     tol["nestedListPotential"] = -3  # these are more difficult
-    tol["MultipoleExpansionPotential"] = -5.0
     # tol['RazorThinExponentialDiskPotential']= -6.
     for p in pots:
         # if not 'NFW' in p: continue #For testing the test

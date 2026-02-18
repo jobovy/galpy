@@ -395,3 +395,101 @@ def test_spher_forces_at_infinity():
     mp = MultipoleExpansionPotential(L=2, symmetry="spherical", rgrid=_DEFAULT_RGRID)
     dr, dtheta, dphi = mp._compute_spher_forces_at_point(numpy.inf, 0.0, 0.0)
     assert dr == 0.0 and dtheta == 0.0 and dphi == 0.0
+
+
+# --- Second derivative tests ---
+
+
+def test_2nd_derivs_at_r_zero():
+    """Test that second derivatives at r=0 return all zeros."""
+    mp = MultipoleExpansionPotential(L=2, symmetry="spherical", rgrid=_DEFAULT_RGRID)
+    result = mp._compute_spher_2nd_derivs_at_point(0.0, 0.0, 0.0)
+    assert all(v == 0.0 for v in result)
+    # Also test through the public interface (hits _cyl_2nd_deriv_at_point r=0 path)
+    assert mp.R2deriv(0.0, 0.0, use_physical=False) == 0.0
+    assert mp.z2deriv(0.0, 0.0, use_physical=False) == 0.0
+
+
+def test_2nd_derivs_at_infinity():
+    """Test that second derivatives at r=infinity return all zeros."""
+    mp = MultipoleExpansionPotential(L=2, symmetry="spherical", rgrid=_DEFAULT_RGRID)
+    result = mp._compute_spher_2nd_derivs_at_point(numpy.inf, 0.0, 0.0)
+    assert all(v == 0.0 for v in result)
+
+
+def test_2nd_derivs_on_z_axis():
+    """Test that second derivatives are finite on the z-axis (R=0, costheta=±1)
+    where dP/d(costheta) diverges for m>0, triggering the pole clamping."""
+    coeff = 1.0 / (2.0 * numpy.pi)
+    mp = MultipoleExpansionPotential(
+        dens=lambda R, z, phi: coeff
+        / numpy.sqrt(R**2 + z**2)
+        / (1 + numpy.sqrt(R**2 + z**2)) ** 3
+        * (1.0 + 0.1 * numpy.cos(2 * phi)),
+        L=6,
+        symmetry=None,
+        rgrid=_FINE_RGRID,
+    )
+    # R=0, z>0 => theta=0 => costheta=1
+    for z in [0.5, 1.0, 2.0]:
+        R2 = mp.R2deriv(0.0, z, use_physical=False)
+        z2 = mp.z2deriv(0.0, z, use_physical=False)
+        Rz = mp.Rzderiv(0.0, z, use_physical=False)
+        assert numpy.isfinite(R2), f"R2deriv not finite at R=0, z={z}"
+        assert numpy.isfinite(z2), f"z2deriv not finite at R=0, z={z}"
+        assert numpy.isfinite(Rz), f"Rzderiv not finite at R=0, z={z}"
+    # R=0, z<0 => theta=pi => costheta=-1
+    for z in [-0.5, -1.0, -2.0]:
+        R2 = mp.R2deriv(0.0, z, use_physical=False)
+        z2 = mp.z2deriv(0.0, z, use_physical=False)
+        assert numpy.isfinite(R2), f"R2deriv not finite at R=0, z={z}"
+        assert numpy.isfinite(z2), f"z2deriv not finite at R=0, z={z}"
+
+
+def test_2nd_derivs_on_z_axis_continuity():
+    """Test that second derivatives on the z-axis are continuous with nearby points."""
+    hp = HernquistPotential(amp=2.0, a=1.0)
+    mp = MultipoleExpansionPotential(dens=hp, L=6, symmetry=None, rgrid=_FINE_RGRID)
+    z = 1.0
+    R2_axis = mp.R2deriv(0.0, z, use_physical=False)
+    R2_near = mp.R2deriv(1e-4, z, use_physical=False)
+    assert abs(R2_axis - R2_near) / abs(R2_near) < 0.01, (
+        f"R2deriv discontinuous at z-axis: on_axis={R2_axis}, near={R2_near}"
+    )
+
+
+def test_spherical_2nd_derivs_match_hernquist():
+    """Test that second derivatives match Hernquist for a spherical expansion."""
+    hp = HernquistPotential(amp=2.0, a=1.0)
+    mp = MultipoleExpansionPotential(
+        dens=hp, L=2, symmetry="spherical", rgrid=_FINE_RGRID
+    )
+    pts = [(1.0, 0.5), (0.5, 1.0), (2.0, 0.1)]
+    for R, z in pts:
+        for name, func in [
+            ("R2deriv", "R2deriv"),
+            ("z2deriv", "z2deriv"),
+            ("Rzderiv", "Rzderiv"),
+        ]:
+            val_mp = getattr(mp, func)(R, z, use_physical=False)
+            val_hp = getattr(hp, func)(R, z, use_physical=False)
+            assert abs(val_mp - val_hp) / abs(val_hp) < 0.02, (
+                f"{name} mismatch at R={R}, z={z}: mp={val_mp}, hp={val_hp}"
+            )
+
+
+def test_spline_degree_k_parameter():
+    """Test that the k parameter is passed through to splines."""
+    hp = HernquistPotential(amp=2.0, a=1.0)
+    mp3 = MultipoleExpansionPotential(
+        dens=hp, L=2, symmetry="spherical", rgrid=_FINE_RGRID, k=3
+    )
+    mp5 = MultipoleExpansionPotential(
+        dens=hp, L=2, symmetry="spherical", rgrid=_FINE_RGRID, k=5
+    )
+    assert mp3._k == 3
+    assert mp5._k == 5
+    # Both should give reasonable results
+    for mp in [mp3, mp5]:
+        val = mp.R2deriv(1.0, 0.5, use_physical=False)
+        assert numpy.isfinite(val)
