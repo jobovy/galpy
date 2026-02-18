@@ -2613,7 +2613,7 @@ def test_analytic_zmax():
     tol["KuzminDiskPotential"] = -4  # these are more difficult
     tol["SCFPotential"] = -8.0  # these are more difficult
     tol["DiskSCFPotential"] = -6.0  # these are more difficult
-    tol["MultipoleExpansionPotential"] = -8.0  # numerical derivatives
+    tol["MultipoleExpansionPotential"] = -8.0
     for p in pots:
         # Setup instance of potential
         if p in list(tol.keys()):

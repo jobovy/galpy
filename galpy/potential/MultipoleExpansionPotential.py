@@ -12,7 +12,6 @@ from scipy.interpolate import InterpolatedUnivariateSpline
 from ..util import conversion, coords
 from ..util._optional_deps import _APY_LOADED
 from ..util.special import compute_legendre, sph_harm_normalization
-from .NumericalPotentialDerivativesMixin import NumericalPotentialDerivativesMixin
 from .Potential import Potential
 from .SphericalHarmonicPotentialMixin import SphericalHarmonicPotentialMixin
 
@@ -20,14 +19,12 @@ if _APY_LOADED:
     from astropy import units
 
 
-class MultipoleExpansionPotential(
-    Potential, SphericalHarmonicPotentialMixin, NumericalPotentialDerivativesMixin
-):
+class MultipoleExpansionPotential(Potential, SphericalHarmonicPotentialMixin):
     """Class that implements a gravitational potential via multipole expansion of a given density function.
 
     The density is decomposed into real spherical harmonics on a radial grid, and the potential is computed via classical multipole integrals (e.g., Binney & Tremaine eq. 2.20/12.79).
 
-    Forces are computed analytically via ``SphericalHarmonicPotentialMixin``. Second derivatives are computed numerically via ``NumericalPotentialDerivativesMixin``.
+    Forces and second derivatives are computed analytically via ``SphericalHarmonicPotentialMixin``.
     """
 
     def __init__(
@@ -38,10 +35,11 @@ class MultipoleExpansionPotential(
         / numpy.sqrt(R**2 + z**2)
         / (1 + numpy.sqrt(R**2 + z**2)) ** 3,
         L=6,
-        rgrid=None,
+        rgrid=numpy.geomspace(1e-3, 30, 1_001),
         symmetry=None,
         costheta_order=None,
         phi_order=None,
+        k=3,
         normalize=False,
         ro=None,
         vo=None,
@@ -52,7 +50,7 @@ class MultipoleExpansionPotential(
         Parameters
         ----------
         amp : float or Quantity, optional
-            Amplitude to be applied to the potential (default: 1); can be a Quantity with units of mass or Gxmass.
+            Amplitude to be applied to the potential (default: 1).
         dens : callable or Potential, optional
             Density function. Can take 1 arg (r), 2 args (R, z), or 3 args (R, z, phi). Can also be a galpy Potential instance. Default is a Hernquist-like density profile.
         L : int, optional
@@ -65,6 +63,8 @@ class MultipoleExpansionPotential(
             Gauss-Legendre quadrature order for theta. Default: ``max(20, L+1)``.
         phi_order : int, optional
             Number of uniform phi points for trapezoidal rule. Default: ``max(20, 2*L+1)``.
+        k : int, optional
+            Spline interpolation degree for radial functions (default: 3). Use k=5 for smoother second derivatives.
         normalize : bool or float, optional
             If True, normalize such that vc(1.,0.)=1., or, if given as a number, such that the force is this fraction of the force necessary to make vc(1.,0.)=1.
         ro : float or Quantity, optional
@@ -76,14 +76,11 @@ class MultipoleExpansionPotential(
         -----
         - 2026-02-13 - Written - Bovy (UofT)
         """
-        NumericalPotentialDerivativesMixin.__init__(self, {})
-        Potential.__init__(self, amp=amp, ro=ro, vo=vo, amp_units="mass")
+        Potential.__init__(self, amp=amp, ro=ro, vo=vo)
         # Parse density function
         dens_func = self._parse_density(dens)
-        # Set up grid
-        if rgrid is None:
-            rgrid = numpy.geomspace(1e-3, 30, 1_001)
         self._rgrid = rgrid
+        self._k = k
         self._L = L
         # Set M based on symmetry
         if symmetry is not None and symmetry.startswith("spher"):
@@ -107,14 +104,14 @@ class MultipoleExpansionPotential(
         # Create interpolation splines for density reconstruction
         self._rho_cos_splines = [
             [
-                InterpolatedUnivariateSpline(rgrid, self._rho_cos[:, l, m], k=3)
+                InterpolatedUnivariateSpline(rgrid, self._rho_cos[:, l, m], k=k)
                 for m in range(M)
             ]
             for l in range(L)
         ]
         self._rho_sin_splines = [
             [
-                InterpolatedUnivariateSpline(rgrid, self._rho_sin[:, l, m], k=3)
+                InterpolatedUnivariateSpline(rgrid, self._rho_sin[:, l, m], k=k)
                 for m in range(M)
             ]
             for l in range(L)
@@ -131,6 +128,7 @@ class MultipoleExpansionPotential(
             or numpy.any(numpy.abs(self._rho_sin[:, :, 1:]) > _tol)
         )
         self._force_hash = None
+        self._2nd_deriv_hash = None
         self.hasC = False
         self.hasC_dxdv = False
         self.hasC_dens = False
@@ -249,10 +247,9 @@ class MultipoleExpansionPotential(
             # Y_00 = 1/sqrt(4*pi), alpha_00 = 1/sqrt(4*pi)
             # integral rho * Y_00 dOmega = rho * 4*pi * alpha_00 = rho * sqrt(4*pi)
             for ir, r in enumerate(rgrid):
-                R = r
-                z = 0.0
-                rho_val = dens_func(R, z, 0.0)
-                rho_cos[ir, 0, 0] = alpha_lm[0, 0] * 4.0 * numpy.pi * rho_val
+                rho_cos[ir, 0, 0] = (
+                    alpha_lm[0, 0] * 4.0 * numpy.pi * dens_func(r, 0.0, 0.0)
+                )
             return rho_cos, rho_sin
         # Gauss-Legendre quadrature for cos(theta)
         ct_nodes, ct_weights = leggauss(costheta_order)
@@ -267,12 +264,13 @@ class MultipoleExpansionPotential(
                     ct = ct_nodes[ict]
                     wt = ct_weights[ict]
                     sintheta = numpy.sqrt(1.0 - ct**2)
-                    R = r * sintheta
-                    z = r * ct
-                    rho_val = dens_func(R, z, 0.0)
                     # For m=0, phi integral gives 2*pi
                     rho_cos[ir, :, 0] += (
-                        wt * PP_all[ict, :, 0] * rho_val * 2.0 * numpy.pi
+                        wt
+                        * PP_all[ict, :, 0]
+                        * dens_func(r * sintheta, r * ct, 0.0)
+                        * 2.0
+                        * numpy.pi
                     )
             # Multiply by alpha_lm
             rho_cos *= alpha_lm[numpy.newaxis, :, :]
@@ -348,7 +346,9 @@ class MultipoleExpansionPotential(
                     R_lm_vals = (
                         rgrid ** (-(l + 1)) * I_inner_vals + rgrid**l * I_outer_vals
                     )
-                    Radial[l][m] = InterpolatedUnivariateSpline(rgrid, R_lm_vals, k=3)
+                    Radial[l][m] = InterpolatedUnivariateSpline(
+                        rgrid, R_lm_vals, k=self._k
+                    )
 
     def _evaluate(self, R, z, phi=0.0, t=0.0):
         """
@@ -592,6 +592,154 @@ class MultipoleExpansionPotential(
         self._cached_dPhi_dtheta = dPhi_dtheta
         self._cached_dPhi_dphi = dPhi_dphi
         return dPhi_dr, dPhi_dtheta, dPhi_dphi
+
+    def _compute_spher_2nd_derivs_at_point(self, R, z, phi):
+        """
+        Compute spherical second derivatives of the potential at a single point.
+
+        Parameters
+        ----------
+        R : float
+            Cylindrical Galactocentric radius.
+        z : float
+            Vertical height.
+        phi : float
+            Azimuth.
+
+        Returns
+        -------
+        d2Phi_dr2 : float
+            Second derivative with respect to r.
+        d2Phi_dtheta2 : float
+            Second derivative with respect to theta.
+        d2Phi_dphi2 : float
+            Second derivative with respect to phi.
+        d2Phi_drdtheta : float
+            Mixed derivative with respect to r and theta.
+        d2Phi_drdphi : float
+            Mixed derivative with respect to r and phi.
+        d2Phi_dthetadphi : float
+            Mixed derivative with respect to theta and phi.
+        dPhi_dr : float
+            First derivative with respect to r (needed for chain rule).
+        dPhi_dtheta : float
+            First derivative with respect to theta (needed for chain rule).
+
+        Notes
+        -----
+        - 2026-02-18 - Written - Bovy (UofT)
+        """
+        new_hash = hashlib.md5(numpy.array([R, z, phi])).hexdigest()
+        if new_hash == self._2nd_deriv_hash:
+            return self._cached_2nd_derivs
+        L = self._L
+        M = self._M
+        r, theta, phi = coords.cyl_to_spher(R, z, phi)
+        if r == 0.0 or not numpy.isfinite(r):
+            self._2nd_deriv_hash = new_hash
+            self._cached_2nd_derivs = (0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
+            return self._cached_2nd_derivs
+        costheta = numpy.cos(theta)
+        sintheta = numpy.sin(theta)
+        # Clamp costheta slightly away from ±1 to avoid divergence in
+        # dP/d(costheta) and d²P/d(costheta)² for m > 0; the divergent
+        # terms are cancelled by sintheta factors in dP/dtheta and
+        # d²P/dtheta², but inf * 0 = nan numerically
+        if M > 1 and abs(1.0 - costheta * costheta) < 1e-14:
+            costheta = numpy.sign(costheta) * (1.0 - 1e-7)
+            sintheta = numpy.sqrt(1.0 - costheta**2)
+        PP, dPP, d2PP = compute_legendre(costheta, L, M, deriv=2)
+        beta_lm = self._beta_lm
+        d2Phi_dr2 = 0.0
+        d2Phi_dtheta2 = 0.0
+        d2Phi_dphi2 = 0.0
+        d2Phi_drdtheta = 0.0
+        d2Phi_drdphi = 0.0
+        d2Phi_dthetadphi = 0.0
+        dPhi_dr = 0.0
+        dPhi_dtheta = 0.0
+        for l in range(L):
+            prefactor = -4.0 * numpy.pi / (2 * l + 1)
+            for m in range(min(l + 1, M)):
+                radial_cos = float(self._Radial_cos[l][m](r))
+                dradial_cos = float(self._Radial_cos[l][m](r, 1))
+                d2radial_cos = float(self._Radial_cos[l][m](r, 2))
+                cos_mphi = numpy.cos(m * phi)
+                sin_mphi = numpy.sin(m * phi)
+                blm = beta_lm[l, m]
+                Plm = PP[l, m]
+                dPlm_dx = dPP[l, m]
+                d2Plm_dx2 = d2PP[l, m]
+                # dP_l^m/dtheta = dP/dx * (-sintheta)
+                dPlm_dtheta = dPlm_dx * (-sintheta)
+                # d²P_l^m/dtheta² = d²P/dx² * sin²theta - dP/dx * costheta
+                d2Plm_dtheta2 = d2Plm_dx2 * sintheta**2 - dPlm_dx * costheta
+                pref_blm = prefactor * blm
+                # --- Cosine terms ---
+                # First derivatives (needed for chain rule)
+                dPhi_dr += pref_blm * Plm * cos_mphi * dradial_cos
+                dPhi_dtheta += pref_blm * dPlm_dtheta * cos_mphi * radial_cos
+                # d²Phi/dr²
+                d2Phi_dr2 += pref_blm * Plm * cos_mphi * d2radial_cos
+                # d²Phi/dtheta²
+                d2Phi_dtheta2 += pref_blm * d2Plm_dtheta2 * cos_mphi * radial_cos
+                # d²Phi/dphi² : cos(m*phi) -> -m²*cos(m*phi)
+                d2Phi_dphi2 += pref_blm * Plm * (-m * m * cos_mphi) * radial_cos
+                # d²Phi/drdtheta
+                d2Phi_drdtheta += pref_blm * dPlm_dtheta * cos_mphi * dradial_cos
+                # d²Phi/drdphi
+                d2Phi_drdphi += pref_blm * Plm * (-m * sin_mphi) * dradial_cos
+                # d²Phi/dthetadphi
+                d2Phi_dthetadphi += (
+                    pref_blm * dPlm_dtheta * (-m * sin_mphi) * radial_cos
+                )
+                if m > 0:
+                    radial_sin = float(self._Radial_sin[l][m](r))
+                    dradial_sin = float(self._Radial_sin[l][m](r, 1))
+                    d2radial_sin = float(self._Radial_sin[l][m](r, 2))
+                    # --- Sine terms ---
+                    dPhi_dr += pref_blm * Plm * sin_mphi * dradial_sin
+                    dPhi_dtheta += pref_blm * dPlm_dtheta * sin_mphi * radial_sin
+                    d2Phi_dr2 += pref_blm * Plm * sin_mphi * d2radial_sin
+                    d2Phi_dtheta2 += pref_blm * d2Plm_dtheta2 * sin_mphi * radial_sin
+                    # sin(m*phi) -> -m²*sin(m*phi)
+                    d2Phi_dphi2 += pref_blm * Plm * (-m * m * sin_mphi) * radial_sin
+                    d2Phi_drdtheta += pref_blm * dPlm_dtheta * sin_mphi * dradial_sin
+                    # sin(m*phi) -> m*cos(m*phi) for d/dphi
+                    d2Phi_drdphi += pref_blm * Plm * (m * cos_mphi) * dradial_sin
+                    d2Phi_dthetadphi += (
+                        pref_blm * dPlm_dtheta * (m * cos_mphi) * radial_sin
+                    )
+        self._2nd_deriv_hash = new_hash
+        self._cached_2nd_derivs = (
+            d2Phi_dr2,
+            d2Phi_dtheta2,
+            d2Phi_dphi2,
+            d2Phi_drdtheta,
+            d2Phi_drdphi,
+            d2Phi_dthetadphi,
+            dPhi_dr,
+            dPhi_dtheta,
+        )
+        return self._cached_2nd_derivs
+
+    def _R2deriv(self, R, z, phi=0.0, t=0.0):
+        return self._evaluate_cyl_2nd_deriv("R2", R, z, phi)
+
+    def _z2deriv(self, R, z, phi=0.0, t=0.0):
+        return self._evaluate_cyl_2nd_deriv("z2", R, z, phi)
+
+    def _Rzderiv(self, R, z, phi=0.0, t=0.0):
+        return self._evaluate_cyl_2nd_deriv("Rz", R, z, phi)
+
+    def _phi2deriv(self, R, z, phi=0.0, t=0.0):
+        return self._evaluate_cyl_2nd_deriv("phi2", R, z, phi)
+
+    def _Rphideriv(self, R, z, phi=0.0, t=0.0):
+        return self._evaluate_cyl_2nd_deriv("Rphi", R, z, phi)
+
+    def _phizderiv(self, R, z, phi=0.0, t=0.0):
+        return self._evaluate_cyl_2nd_deriv("phiz", R, z, phi)
 
     def OmegaP(self):
         return 0
