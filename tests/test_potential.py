@@ -11011,6 +11011,18 @@ class mockMultipoleExpansionPotential(potential.MultipoleExpansionPotential):
         )
 
 
+# A multipole expansion potential with a limited grid, to test radial extrapolation
+class mockMultipoleExpansionLimitedGridPotential(potential.MultipoleExpansionPotential):
+    def __init__(self):
+        hp = potential.HernquistPotential(amp=2.0, a=1.0)
+        potential.MultipoleExpansionPotential.__init__(
+            self,
+            dens=hp,
+            symmetry="spherical",
+            rgrid=numpy.geomspace(0.1, 1.245, 201),
+        )
+
+
 # Test interpSphericalPotential
 class mockInterpSphericalPotential(potential.interpSphericalPotential):
     def __init__(self):

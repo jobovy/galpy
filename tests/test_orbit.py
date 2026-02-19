@@ -47,6 +47,7 @@ from test_potential import (
     mockKuzminLikeWrapperPotential,
     mockMovingObjectLongIntPotential,
     mockMultipoleExpansionAxiPotential,
+    mockMultipoleExpansionLimitedGridPotential,
     mockMultipoleExpansionPotential,
     mockMultipoleExpansionSphericalPotential,
     mockRotatedAndTiltedMWP14WrapperPotential,
@@ -740,6 +741,10 @@ def test_liouville_planar():
     pots.append("mockAdiabaticContractionMWP14WrapperPotential")
     pots.append("testNullPotential")
     pots.append("mockKuzminLikeWrapperPotential")
+    pots.append("mockMultipoleExpansionSphericalPotential")
+    pots.append("mockMultipoleExpansionAxiPotential")
+    pots.append("mockMultipoleExpansionPotential")
+    pots.append("mockMultipoleExpansionLimitedGridPotential")
     rmpots = [
         "Potential",
         "MWPotential",
@@ -790,6 +795,9 @@ def test_liouville_planar():
     tol["mockInterpSphericalPotential"] = -4.0  # == HomogeneousSpherePotential
     tol["mockFlatCosmphiDiskwBreakPotential"] = -7.0  # more difficult
     tol["mockFlatTrulyCorotatingRotationSpiralArmsPotential"] = -5.0  # more difficult
+    tol["mockMultipoleExpansionSphericalPotential"] = -7.0  # more difficult
+    tol["mockMultipoleExpansionAxiPotential"] = -7.0  # more difficult
+    tol["mockMultipoleExpansionLimitedGridPotential"] = -6.0  # more difficult
     firstTest = True
     for p in pots:
         # Setup instance of potential

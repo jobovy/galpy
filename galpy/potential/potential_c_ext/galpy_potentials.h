@@ -856,6 +856,12 @@ double MultipoleExpansionPotentialPlanarphitorque(double,double,double,
 						  struct potentialArg *);
 double MultipoleExpansionPotentialDens(double,double,double,double,
 				       struct potentialArg *);
+double MultipoleExpansionPotentialPlanarR2deriv(double,double,double,
+						struct potentialArg *);
+double MultipoleExpansionPotentialPlanarphi2deriv(double,double,double,
+						  struct potentialArg *);
+double MultipoleExpansionPotentialPlanarRphideriv(double,double,double,
+						  struct potentialArg *);
 
 #ifdef __cplusplus
 }

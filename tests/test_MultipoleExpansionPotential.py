@@ -273,7 +273,7 @@ def test_OmegaP_zero():
 def test_hasC():
     mp = MultipoleExpansionPotential(L=2, symmetry="spherical")
     assert mp.hasC
-    assert not mp.hasC_dxdv
+    assert mp.hasC_dxdv
     assert mp.hasC_dens
 
 

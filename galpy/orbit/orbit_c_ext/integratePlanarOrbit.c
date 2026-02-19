@@ -532,6 +532,9 @@ void parse_leapFuncArgs(int npot,struct potentialArg * potentialArgs,
       potentialArgs->potentialEval= &MultipoleExpansionPotentialEval;
       potentialArgs->planarRforce= &MultipoleExpansionPotentialPlanarRforce;
       potentialArgs->planarphitorque= &MultipoleExpansionPotentialPlanarphitorque;
+      potentialArgs->planarR2deriv= &MultipoleExpansionPotentialPlanarR2deriv;
+      potentialArgs->planarphi2deriv= &MultipoleExpansionPotentialPlanarphi2deriv;
+      potentialArgs->planarRphideriv= &MultipoleExpansionPotentialPlanarRphideriv;
       potentialArgs->nargs= 0;
       potentialArgs->ntfuncs= 0;
       potentialArgs->requiresVelocity= false;
